@@ -110,5 +110,6 @@ keel; the stage was a different object: brick buttresses at the ends, a front do
 - **The soil's beds are the big forms** (`earth` pattern): one boulder, four middling stones and eight pebbles per tile, from 3, 7 and 16.
 - **No rubble skirt** under the earth islands: the wall's earth carries straight on into the keel, as the sky islands' does.
 - Checked: the art, match and fighter tests; the look bench.
-- Next for cohesion: the grove's stepped underside to a keel like its islands; the desert's, beach's and city's fronts by the same rule
+- Next for cohesion: the grove's stepped underside is its collision shape (the sim's solid blocks), so it stays unless the owner wants
+  the stage itself changed; its art could round the steps' corners; the desert's, beach's and city's fronts by the same rule
   (built where the stage is built, earth where it is earth).
