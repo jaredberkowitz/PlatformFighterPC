@@ -2106,13 +2106,14 @@ static func _flower_clusters(root: Node3D, e: Array, rng: RandomNumberGenerator,
 ## ink line along the block's bottom, which stays the true edge of the solid ground. Its lower part fades into a bank of haze in the sky's
 ## horizon colour (`_under_haze`), so it sinks into the air below the stage the way far things do.
 const UNDER_RECESS := 0.9
+const STAGE_FRONT := 2.0
 
 
 static func underside(root: Node3D, t: Dictionary, e: Array) -> void:
 	var l: float = e[0]
 	var r: float = e[1]
 	var bottom: float = e[3]
-	var front := 0.3 - UNDER_RECESS
+	var front := STAGE_FRONT - UNDER_RECESS
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 13
 	match t.name:
