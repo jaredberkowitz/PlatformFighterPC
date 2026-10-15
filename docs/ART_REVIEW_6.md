@@ -483,3 +483,11 @@ Checked: the art pipeline and match flow tests.
   as a dark block (now tucked inside the beam, set back), and the rope lashings, squashed rings seen edge-on, read as pink fins (now
   three wrapped bands on the front face only, off the walking surface).
 Checked: the art pipeline and match flow tests.
+
+## Refinement round 37
+
+- **Palm trunks, no streak** (the owner: the brown streak still reads as nothing real; `review6_round37_palm.png`, before | after): a
+  palm's texture is its rings, not vertical furrows, so the bark tile's plates always ran down the narrow trunk as a stripe. The palm
+  now takes a plain cel material in its bark colour; its scale rings carry the texture. A painted palm texture is on the Material Maker
+  list.
+Checked: the art pipeline and match flow tests.

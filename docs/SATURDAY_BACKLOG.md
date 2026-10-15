@@ -51,7 +51,8 @@ Everything put off to save usage, in the order to take it. Tick items off here a
       Standard, save to `art/materials/mm_exports/<name>/`). Material Maker exports, by hand (owner, 2026-10-15): the owner exports `dry_earth`, `rock`, `stylized_wall` and `wood`
       (examples folder) with File > Export > Godot/Godot 4 Standard into `art/materials/mm_exports/<name>/`. Then: review them in game
       against the style; wire a PNG-tile path into `Materials._make` (it only reads the SVG tiles now), tinting through the albedo's
-      value so stages keep their own colours; start with soil (dry_earth) and bark (wood/rock), compared before/after per stage.
+      value so stages keep their own colours; start with soil (dry_earth) and bark (wood/rock), compared before/after per stage. Also a palm-trunk texture (horizontal
+      ring scars, no vertical streaks; the palms are plain since round 37) and tree bark the owner calls realistic, not streaky.
 
 ## Art review 6 leftovers
 - [ ] Combat effects second pass: brief strong-hit accent, landing and dash dust in the same painted family, per-weapon spark colours.

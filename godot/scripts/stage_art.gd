@@ -3121,7 +3121,9 @@ static func _stilt_hut(root: Node3D, at: Vector3) -> void:
 
 ## A palm: a curving trunk of stacked rings under a fan of long leaves and a few coconuts.
 static func _palm(root: Node3D, base: Vector3, size: float, rng: RandomNumberGenerator) -> void:
-	var bark := Materials.bark(Color(0.66, 0.5, 0.32), Vector2(1, 1))
+	# (Plain, its scale rings carry the texture, art review 6 round 37: the bark tile's vertical plates ran down the narrow trunk as a
+	# brown streak; a palm's texture is its rings. A painted palm texture is a Material Maker job.)
+	var bark := FighterView.toon(Color(0.66, 0.5, 0.32))
 	var lean := rng.randf_range(-0.12, 0.12)
 	var top := base
 	# (A trunk of overlapping scales, each a ring wider at its top than its foot, turned along the trunk's curve and narrowing toward
