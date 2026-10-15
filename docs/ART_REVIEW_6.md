@@ -443,3 +443,11 @@ the crisp painted hills, but it is neither the far painted ridge (firmer colour,
   colour; the canyon's are warm sandstone (`CANYON_ROCK`), the beach's pale sand-washed stone (`BEACH_ROCK`); the meadow and grove keep
   the grey that sits in their cooler palettes.
 Checked: the art pipeline and match flow tests.
+
+## Refinement round 31 (a pick tool; the meadow's ridge)
+
+- **`--pick=x,y`** (`main.gd`, with any demo's shots): prints every mesh whose on-screen bounds cover that pixel, nearest first, with
+  its material. It found round 29's band at once: the meadow's far painted ridge.
+- **The meadow's ridge** (`review6_round31_meadow_ridge.png`, before above, after below): its `mix` (horizon to its own blue) was 0.55,
+  and round 29 lowered it, the wrong way. Now 0.8, edge 0.7, haze 0.06: distant blue mountains instead of a pale smudge.
+Checked: the art pipeline and match flow tests.

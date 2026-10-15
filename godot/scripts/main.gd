@@ -1048,9 +1048,46 @@ func _key_pose() -> String:
 	return ""
 
 
+## `--pick=x,y` (with a demo's shots): prints every mesh whose on-screen bounds cover that pixel, nearest first, with its material, so
+## the art can find what draws a given spot without guessing (art review 6: several rounds spent hunting a mesh by elimination).
+func _pick(px: Vector2) -> void:
+	var cam := get_viewport().get_camera_3d()
+	if cam == null:
+		return
+	var hits := []
+	for n in get_tree().root.find_children("*", "MeshInstance3D", true, false):
+		var mi := n as MeshInstance3D
+		if not mi.is_visible_in_tree() or mi.mesh == null:
+			continue
+		var box: AABB = mi.global_transform * mi.get_aabb()
+		var lo := Vector2(INF, INF)
+		var hi := Vector2(-INF, -INF)
+		var ahead := false
+		for k in 8:
+			var c := box.get_endpoint(k)
+			if cam.is_position_behind(c):
+				continue
+			ahead = true
+			var sp := cam.unproject_position(c)
+			lo = lo.min(sp)
+			hi = hi.max(sp)
+		if ahead and px.x >= lo.x and px.x <= hi.x and px.y >= lo.y and px.y <= hi.y:
+			var mat = mi.material_override if mi.material_override != null else mi.mesh.surface_get_material(0)
+			var mat_name := "none" if mat == null else (str(mat.resource_name) if mat.resource_name != "" else mat.get_class() + ("(" + str((mat as ShaderMaterial).shader.resource_path) + ")" if mat is ShaderMaterial and (mat as ShaderMaterial).shader != null else ""))
+			hits.append([cam.global_position.distance_to(box.get_center()), str(mi.get_path()), mat_name, box.size])
+	hits.sort_custom(func(a, b): return a[0] < b[0])
+	print("PICK %s: %d meshes" % [px, hits.size()])
+	for h in hits.slice(0, 12):
+		print("  %.1f  %s  [%s]  size %s" % h)
+
+
 func _capture(label: String) -> void:
 	await RenderingServer.frame_post_draw
 	await RenderingServer.frame_post_draw
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("--pick="):
+			var xy := a.substr(7).split(",")
+			_pick(Vector2(float(xy[0]), float(xy[1])))
 	var img := get_viewport().get_texture().get_image()
 	var path := "%s/%s.png" % [demo.out_dir if demo.out_dir != "" else "user://", label]
 	img.save_png(path)
