@@ -1555,6 +1555,20 @@ fn stale_frame(frame: u16, percent: u8, level: u8) -> u16 {
     frame * 100 / (100 + u16::from(percent) * u16::from(level))
 }
 
+/// The ruleset's slowing per staleness level for a move stretched as a dodge (`Move::stale_stretch`, sim 126), if it is.
+fn stretch_percent(mv: &crate::moves::Move, rules: &Ruleset) -> Option<u8> {
+    use crate::moves::{STRETCH_BACK_ROLL, STRETCH_ROLL, STRETCH_SPOT};
+    if !mv.dodge_stale {
+        return None;
+    }
+    match mv.stale_stretch {
+        STRETCH_ROLL => Some(rules.dodge_stale_roll),
+        STRETCH_BACK_ROLL => Some(rules.dodge_stale_back_roll),
+        STRETCH_SPOT => Some(rules.dodge_stale_spot),
+        _ => None,
+    }
+}
+
 /// A dodge of `frames` frames made at staleness `level`, slowed by `percent` per level.
 fn stale_length(frames: u8, percent: u8, level: u8) -> u16 {
     (u16::from(frames) * (100 + u16::from(percent) * u16::from(level))).div_ceil(100)
@@ -1750,8 +1764,12 @@ fn tether(
         enter(f, S::Airborne);
         return None;
     }
-    let frame = f.state_frame;
     let hang = u16::from(t.hang);
+    // A press of special while hanging reels in at once (`Tether::reel_press`, sim 126: owner decision 86, a house addition).
+    if t.reel_press && f.state_frame <= hang && f.take(buttons::SPECIAL, 0) {
+        f.state_frame = hang + 1;
+    }
+    let frame = f.state_frame;
     if frame <= hang {
         let keep = Fx::from_ratio(1000 - i32::from(t.drag.min(1000)), 1000);
         f.vel = f.vel * keep;
@@ -2452,6 +2470,9 @@ pub fn begin_attack(f: &mut Fighter, id: MoveId) {
     f.move_id = id as u8;
     f.move_y0 = f.pos.y;
     f.hit_mask = 0;
+    // A move's early end (a stopped blockable grab) and its stretch belong to that move alone (sim 126).
+    f.move_end = 0;
+    f.move_held = 0;
     f.b_reversed = false;
     f.aim = 0;
     enter(f, S::Attack);
@@ -2772,6 +2793,20 @@ fn attack(
     }
     let mv = weapon.get(f.move_id);
     let id = MoveId::from_index(f.move_id);
+    // A stale dodge stretched as a roll is (`Move::stale_stretch`, sim 126): its frame is held back while the fresh timeline has not
+    // reached it, so the whole move (boxes, motion, script, end) plays slower; `played` counts the frames as they pass.
+    let played = f.state_frame.saturating_add(f.move_held);
+    let mut held_now = false;
+    if let Some(percent) = stretch_percent(mv, rules) {
+        let want = stale_frame(played, percent, f.dodge_level).max(1);
+        if want < f.state_frame {
+            f.state_frame = want;
+            f.move_held = f.move_held.saturating_add(1);
+            held_now = true;
+        }
+    }
+    // (A held frame repeats the move's frame: what happens once on a frame does not happen again.)
+    let once = |at: u16, frame: u16| !held_now && at == frame;
     // The frames since the armor last withstood a hit count on outside hitlag (E55: the guard's release window).
     if f.withstood > 0 {
         f.withstood = f.withstood.saturating_add(1);
@@ -2827,7 +2862,7 @@ fn attack(
 
     // A move that stales like a roll (sim 123: the gun's dodges) is made with the staleness so far and adds a level; its
     // intangibility starts later the staler it is.
-    if mv.dodge_stale && f.state_frame == 1 {
+    if mv.dodge_stale && played == 1 {
         stale_dodge(f, rules);
     }
     let shift = if mv.dodge_stale {
@@ -2836,16 +2871,17 @@ fn attack(
         0
     };
     // Intangibility that starts later in the move (the frames still count from the move's first: `intangible` is the last one).
+    // (Counted in the frames played, so a stretched dodge's intangibility keeps to them as a roll's does: sim 126.)
     let from = mv.intangible_start(f.move_air).saturating_add(shift);
-    if from > 0 && f.state_frame == u16::from(from) {
+    if from > 0 && played == u16::from(from) {
         f.invuln = f.invuln.max(mv.intangible.saturating_sub(from));
     }
     // Damage the move does to its own user, on its first frame (sim 119: the rocket barrels' crash).
-    if f.state_frame == 1 && mv.self_damage > Fx::ZERO {
+    if once(f.state_frame, 1) && mv.self_damage > Fx::ZERO {
         f.percent = (f.percent + mv.self_damage).min(Fx::from_int(999));
     }
     // Angling by the stick, read once.
-    if f.state_frame == u16::from(mv.steer_frame) {
+    if once(f.state_frame, u16::from(mv.steer_frame)) {
         f.steer = steer_degrees(f.history[0], f.facing, mv);
     }
 
@@ -2861,32 +2897,35 @@ fn attack(
     // A multi-hit move lets its hits land again at a steady rhythm (only the groups it re-arms: a final hit lands once).
     if let Some((start, every)) = mv.rehit {
         let start = u16::from(start);
-        if f.state_frame >= start && (f.state_frame - start) % u16::from(every.max(1)) == 0 {
+        if !held_now
+            && f.state_frame >= start
+            && (f.state_frame - start) % u16::from(every.max(1)) == 0
+        {
             f.hit_mask &= !crate::combat::group_bits(mv.rehit_groups);
         }
     }
 
     // A move can fire a projectile on one frame (the step applies the request).
     if let Some(spec) = mv.projectile {
-        if f.state_frame == u16::from(spec.frame) {
+        if once(f.state_frame, u16::from(spec.frame)) {
             f.spawn_request = true;
         }
     }
     // ...and make an item in the hand, or use up the one there, on one frame (E4: the item system serves the order).
     if let Some((frame, item)) = mv.pull {
-        if f.state_frame == u16::from(frame) {
+        if once(f.state_frame, u16::from(frame)) {
             f.item_order |= crate::items::ORDER_PULL;
             f.item_spec = item;
         }
     }
-    if mv.spend_item != 255 && f.state_frame == u16::from(mv.spend_item) {
+    if mv.spend_item != 255 && once(f.state_frame, u16::from(mv.spend_item)) {
         f.item_order |= crate::items::ORDER_SPEND;
     }
     // ...or throw the item in hand at the move's own speed and angle (E47, sim 117): on `again` an item held as the move began, on
     // `frame` the move's own (which starts the wait before the next can be made).
     if let Some(t) = mv.toss {
-        let main = f.state_frame == u16::from(t.frame);
-        let again = t.again != 255 && f.state_frame == u16::from(t.again);
+        let main = once(f.state_frame, u16::from(t.frame));
+        let again = t.again != 255 && once(f.state_frame, u16::from(t.again));
         if (main || again) && f.holding != NONE {
             f.item_throw = crate::items::THROW_MOVE;
             f.item_order |= crate::items::ORDER_RELEASE;
@@ -2898,12 +2937,12 @@ fn attack(
     // A pocket (E42) started with an item in the hand puts that item away on its first catching frame; a release takes out what was
     // put away on its frame.
     if let Some(pc) = mv.pocket {
-        if f.state_frame == u16::from(pc.start) && f.holding != NONE {
+        if once(f.state_frame, u16::from(pc.start)) && f.holding != NONE {
             f.item_order |= crate::items::ORDER_STOW;
         }
     }
     if let Some(rel) = mv.unpocket {
-        if f.state_frame == u16::from(rel.frame) {
+        if once(f.state_frame, u16::from(rel.frame)) {
             f.item_order |= crate::items::ORDER_UNPOCKET;
         }
     }
@@ -3102,7 +3141,9 @@ fn attack(
         }
     }
 
-    if f.state_frame >= u16::from(mv.total_frames) {
+    // (A stopped blockable grab may end the move sooner: `Move::shield_end`, sim 126.)
+    let ended_early = f.move_end > 0 && f.state_frame >= f.move_end;
+    if f.state_frame >= u16::from(mv.total_frames) || ended_early {
         if mv.turns_around {
             f.facing = -f.facing;
         }

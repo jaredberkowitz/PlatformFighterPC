@@ -1367,6 +1367,15 @@ pub struct PartIntangible {
     pub mode: u8,
 }
 
+/// [`Move::stale_stretch`]: not stretched.
+pub const STRETCH_NONE: u8 = 0;
+/// [`Move::stale_stretch`]: stretched at the ruleset's forward roll rate (`dodge_stale_roll`).
+pub const STRETCH_ROLL: u8 = 1;
+/// [`Move::stale_stretch`]: stretched at the ruleset's back roll rate (`dodge_stale_back_roll`).
+pub const STRETCH_BACK_ROLL: u8 = 2;
+/// [`Move::stale_stretch`]: stretched at the ruleset's spot dodge rate (`dodge_stale_spot`).
+pub const STRETCH_SPOT: u8 = 3;
+
 /// A tether (E56, sim 123: the reference's tether recovery, its hook up special). On move frames `from..=to`, in the air, a free ledge
 /// (no one hanging from it) whose corner lies `behind` behind to `ahead` in front of the fighter's feet (by its facing) and `down` below
 /// to `up` above them, with the fighter outside the stage's edge, is caught: the fighter leaves the move and hangs from the tether
@@ -1375,7 +1384,8 @@ pub struct PartIntangible {
 /// body's ledge grab limit and its intangibility rules). The stick held down lets go (into the air, with the ledge's regrab wait). A
 /// ledge taken by someone else when the reel ends throws the fighter off in the knocked-off hop (`ledge_trump_*`). At most `limit`
 /// catches until the fighter lands or gets up onto the stage (the reference's three tethers); a hit does not reset them. Tethers do
-/// not latch onto walls (the reference's rule since its fourth game).
+/// not latch onto walls (the reference's rule since its fourth game). With `reel_press` (sim 126, owner decision 86: a house addition,
+/// not the reference's) a press of special while hanging starts the reel at once.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Tether {
     pub from: u8,
@@ -1388,6 +1398,9 @@ pub struct Tether {
     pub reel: u8,
     pub drag: u16,
     pub limit: u8,
+    /// A press of special while hanging starts the reel at once (sim 126, owner decision 86). False (the default): the hang runs
+    /// its `hang` frames.
+    pub reel_press: bool,
 }
 
 /// Air physics for move frames `from..=to` of a move that runs without a motion: gravity, top fall speed and air friction
@@ -1895,8 +1908,20 @@ pub struct Move {
     /// The move is a dodge that stales like a roll (sim 123: the reference's gun dodges): starting it makes it with the dodge
     /// staleness so far and adds a level (`Fighter::dodge_stale`, the ruleset's `dodge_stale_*`), and its intangibility starts
     /// `dodge_stale_roll_shift` frames later when fully stale (in between by level). False (the default): not a dodge. (Its length
-    /// is not stretched: a limit.)
+    /// is stretched only with `stale_stretch`.)
     pub dodge_stale: bool,
+    /// How a stale dodge of this move (`dodge_stale`) is stretched in time, as a roll is (sim 126, owner decision 85: the reference's
+    /// dodge staling lengthens its gun dodges): [`STRETCH_ROLL`], [`STRETCH_BACK_ROLL`] or [`STRETCH_SPOT`] play the move's whole
+    /// timeline (boxes, motion, script frames, its end) slower by that ruleset rate (`dodge_stale_roll`, `_back_roll`, `_spot`) per
+    /// level of the staleness it was made with, as `fighter::roll` plays a roll: a frame of the move is held back whenever the fresh
+    /// timeline (`stale_frame`) has not reached it yet (`Fighter::move_held`), and its intangibility keeps to the frames played (it
+    /// starts `dodge_stale_roll_shift` later when fully stale, its end unmoved, as a roll's). [`STRETCH_NONE`] (the default): not
+    /// stretched.
+    pub stale_stretch: u8,
+    /// A blockable grab box of this move stopped by a shield or a reflector (`Hitbox::blockable`) ends the move this many frames
+    /// later, when that is sooner than its own end (sim 126, owner decision 84: the reference's grounded hook "canceled" on a shield).
+    /// 0 (the default): the move runs to its end.
+    pub shield_end: u8,
     /// When the move's armor works (E57, sim 125: the reference's wing armor on the smash attacks), as a hitbox's `mode`: [`MODE_ANY`]
     /// (the default: always), [`MODE_PLAIN`] or [`MODE_POWERED`] (only in an attack begun powered: `Fighter::move_powered`, the gauge's
     /// mode or a wing out).
@@ -2002,6 +2027,8 @@ impl Move {
             gauge_gain: 1000,
             tether: None,
             dodge_stale: false,
+            stale_stretch: STRETCH_NONE,
+            shield_end: 0,
             armor_mode: MODE_ANY,
             edge_stop: false,
             script: None,
@@ -2601,10 +2628,13 @@ impl StateHash for Weapon {
                     h.write_u8(t.reel);
                     h.write_u16(t.drag);
                     h.write_u8(t.limit);
+                    h.write_bool(t.reel_press);
                 }
                 None => h.write_bool(false),
             }
             h.write_bool(m.dodge_stale);
+            h.write_u8(m.stale_stretch);
+            h.write_u8(m.shield_end);
             h.write_u8(m.armor_mode);
             h.write_bool(m.edge_stop);
             for script in [&m.script, &m.projectile_script] {

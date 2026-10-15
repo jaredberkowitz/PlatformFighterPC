@@ -245,6 +245,12 @@ pub struct Fighter {
     pub tether_count: u8,
     /// Where the tether's reel began (E56): the fighter goes from here to the ledge's hanging point.
     pub tether_from: Vec2,
+    /// The frame the current move ends on early, 0 for its own end (sim 126, owner decision 84: a blockable grab stopped by a shield
+    /// or a reflector ends its move `Move::shield_end` frames later). A new move or a switch clears it (`fighter::begin_attack`).
+    pub move_end: u16,
+    /// Frames the current move's timeline has been held back by a stale dodge's stretch (sim 126, owner decision 85:
+    /// `Move::stale_stretch`): the frames played are `state_frame + move_held`. A new move or a switch clears it.
+    pub move_held: u16,
     /// Damage over time on the fighter (E54, sim 121: the reference's curse): frames left (0: none), the frames between its ticks and
     /// since the last one, the damage of each tick and the fighter credited with it.
     pub curse_left: u16,
@@ -751,6 +757,8 @@ impl Fighter {
             tether_ledge: NONE,
             tether_count: 0,
             tether_from: Vec2::ZERO,
+            move_end: 0,
+            move_held: 0,
             curse_left: 0,
             curse_every: 0,
             curse_tick: 0,
@@ -960,6 +968,8 @@ impl StateHash for Fighter {
         h.write_i8(self.tether_ledge);
         h.write_u8(self.tether_count);
         self.tether_from.hash_into(h);
+        h.write_u16(self.move_end);
+        h.write_u16(self.move_held);
         h.write_u16(self.curse_left);
         h.write_u8(self.curse_every);
         h.write_u8(self.curse_tick);
@@ -1604,6 +1614,16 @@ mod tests {
             ("tether_from", {
                 let mut s = state;
                 s.fighters[1].tether_from = Vec2::new(Fx::ONE, Fx::ZERO);
+                s
+            }),
+            ("move_end", {
+                let mut s = state;
+                s.fighters[1].move_end = 1;
+                s
+            }),
+            ("move_held", {
+                let mut s = state;
+                s.fighters[1].move_held = 1;
                 s
             }),
             ("curse_left", {
