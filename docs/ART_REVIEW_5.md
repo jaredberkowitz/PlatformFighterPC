@@ -239,3 +239,26 @@ Limbs stay bent and close to the body except at the strike. Lessons applied to e
 - **Arms chunkier again**, toward the original design (`ARM` radii 0.158 to 0.12, about 10% up).
 - Checked: every Godot test; the look bench 0.87.
 - Next from the reference: an aiming off hand in the wind-up, and aerials whose follow-through rolls the body on with the swing.
+
+## Step 4g: the reference fighters' limbs (the owner's gifs: a forward air and neutral air with claws and kicks, a big-sword forward air,
+## a high-kick forward tilt) and human arms as a rule
+
+What they share (decoded frame by frame): a compact chamber that explodes into a full extension (the contrast is the read); the whole
+body lines up with the strike (a dive along a swipe, standing tall under a high kick, curled over a chop); the strike pose snaps in and
+is held through the active frames; the free limbs open wide or fling back for balance; aerials curl back into a ball. Applied to every
+posed attack (`make_rigged_blob.py`):
+- **Chamber** (`_chamber_spec`): a harder wind-up extreme, aerials with the knees drawn to the chest, the free arm drawn in.
+- **Held strike**: the strike keyed at 32 and again at 36 (the active frames sit at 0.55 to 0.63 of the move timeline), the
+  follow-through at 40, the settle at 47.
+- **Kicks counter-lean more** (`_body_follow`: 0.85 of the lean on the base body, was 0.5).
+
+**Arms bend as a person's do** (the owner's rule):
+- The code-aimed arm (weapon or punch) is a **hinge** (`_arm_hinge`): the upper arm is twisted so the elbow's fold lies across the bend,
+  and the forearm folds only forward, never sideways or backward. Its elbow points down and out, not back (`_aim_arm` pole).
+- **The chest turns into a strike** (`CHEST_IN_ATTACK` -14, was 18): turned to the camera, a forward reach crossed the chest and the
+  arm came out of its middle (the owner: "behind him while in front"); now the striking shoulder leads and the arm extends from it; the
+  head alone keeps the face to the camera.
+- **Posed arms**: an arm swung behind the body stays nearly straight, opened back for balance; one in front keeps a soft bend
+  (`_human_arms`); elbows never past straight (`pose`).
+- `review5_arms_human.png` (pairs before | after: the sword lunge, a forward air, a jab), `review5_three_classes.png`.
+- Checked: every Godot test; the look bench 0.87.
