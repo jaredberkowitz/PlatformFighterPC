@@ -3406,10 +3406,13 @@ static func _roof_mark_textures() -> Array:
 const FACADE_SHADER := preload("res://shaders/facade.gdshader")
 ## How bright each skyline layer's lit windows are (times white; the glow threshold is 2.3): the near layer blooms softly, the others do not
 ## (emissive, not bloomed: the background should not outshine the fighters).
-const FACADE_LIT := [2.4, 1.9, 1.5]
+## (Art review 6, refinement round 1: all three layers were near-white and the near one bloomed right behind the fighters, a field of
+## pale rectangles that was the noisiest backdrop in the game. Now none blooms, and each layer back is dimmer.)
+const FACADE_LIT := [1.15, 0.8, 0.55]
 ## The share of a skyline layer's windows that are lit (nearest first): a scattered glow behind the fighters, not a field of lights that
 ## outshines them (the near layers stand right behind the play area).
-const FACADE_LIT_SHARE := [0.24, 0.28, 0.36]
+## (Fewer lit the further back, as distance would hide them: the far layer was the most lit, 36%.)
+const FACADE_LIT_SHARE := [0.18, 0.13, 0.09]
 
 
 ## One layer of the city's backdrop at depth `z`, its streets at `street`: a row of buildings (boxes with a parapet, some with rooftop

@@ -180,3 +180,14 @@ its distance (`_sunset`: the horizon lightened 35%, the near row 35% toward it, 
 strength as the near layers. A first try, stronger mist cards (`MIST`), barely showed and left a seam, and was reverted.
 `review6_canyon_haze.png` (before | after). Checked: the art pipeline and match flow tests. Next for this item: the city's far windows
 behind the fighters (the rooftop plan's 4.4) and the grove's pale foreground hedge.
+
+## Refinement round 1 (the owner's loop: every stage captured, the two weakest parts named and fixed)
+
+Weakest two: the city's skyline windows and the grove's pale blobs in the bottom corners.
+- **City** (`review6_round1_city.png`, before | after): every layer's lit windows were drawn at 1.5-2.4 times white (all clipping to the
+  same near-white, the near layer blooming behind the fighters), and the far layer was the most lit (36%). Now `FACADE_LIT` 1.15/0.8/0.55
+  and `FACADE_LIT_SHARE` 18/13/9%: dimmer and fewer the further back, nothing blooms. (The run's own facade, run_stage.gd, is unchanged.)
+- **Grove: not fixed yet.** The washed-out shapes in the bottom corners are not the canopy rows (`_canopy`), the far tree line, the
+  under-stage haze bank or the post-process haze/quieting: changing each left them pixel-for-pixel the same. Next round: find what
+  draws them (an object pick at those pixels) before changing anything.
+Checked: the art pipeline and match flow tests.
