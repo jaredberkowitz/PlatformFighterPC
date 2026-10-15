@@ -194,9 +194,15 @@ recoveries, the character page's update history (a cited post on the 4.0.0 chang
     point is where the fighter caught the ledge). A ledge taken during the reel throws the fighter off in the knocked-off hop [E: an
     older game's "forced hop"]. The wait before another tether is the body's ledge regrab wait (30) [E].
 15. **The hook's grab boxes** (ground): the head held at the line's far end on 21-26 [E: the reference's `throw` bone moves]; a shield or
-    reflector stop lets the move run to its end [E]; the caught fighter held just in front (9.0 of the reference's units) during the pull
+    reflector stop ends the move 20 frames later (sim 126, owner decision 84: FAF 41 for a stop on frame 20, against 60 whiffed) [E: the
+    sources say only that contact "cancels" the move; re-searched 2026-10-14 on ssbwiki.com's hook and 13.0.1 up special pages,
+    ultimateframedata.com and dragdown.wiki: no frame, ending lag or on-shield number is published]; the caught fighter held just in front (9.0 of the reference's units) during the pull
     [E: the reference drags it in].
 16. **The air hook's rise**: 1.5 of the reference's units a frame set on frame 5 [E]; a landing during the hook has the body's normal
     landing lag [E: none published].
-17. **The gun's dodge staling**: counted and its intangibility delayed as a roll's, its length not stretched (limit); the buffered
-    delay (4 frames, [R]) applies out of a shot only, not between dodges (limit).
+17. **The gun's dodge staling**: counted, its intangibility delayed and (sim 126, owner decision 85) its whole timeline stretched as a
+    roll's [R: "affected by and contributes to dodge staling", ultimateframedata.com, for both dodges, with and without the partner; the
+    jump neither]; the forward dodge at the ruleset's forward roll rate, the back one at its back roll rate [E: which rate the reference
+    applies to each]. The buffered delay (4 frames, [R]) applies out of a shot only, not between dodges (limit).
+18. **Reel in by a press** (sim 126, owner decision 86): a press of special while hanging from the tether starts the reel at once. A house
+    addition, not the reference's (older games of the series had a button reel; 13.0.1 has none).

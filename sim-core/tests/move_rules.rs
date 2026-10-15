@@ -1102,6 +1102,10 @@ fn the_tether_and_dagger_phase_2_fields_are_in_the_content_hash() {
         Box::new(|c| c.weapons[0].moves[MoveId::Jab as usize].dodge_stale = true),
         Box::new(|c| c.weapons[0].moves[MoveId::Grab as usize].hitboxes[0].blockable = true),
         Box::new(move |c| c.weapons[w].moves[MoveId::USmash as usize].part_intangible[0].mode = 0),
+        // Sim 126 (owner decisions 84-86): a stopped grab's early end, a stale dodge's stretch, a tether's reel by a press.
+        Box::new(|c| c.weapons[0].moves[MoveId::Jab as usize].shield_end = 1),
+        Box::new(|c| c.weapons[0].moves[MoveId::Jab as usize].stale_stretch = 1),
+        tether(|t| t.reel_press = !t.reel_press),
     ];
     for (k, edit) in edits.iter().enumerate() {
         let mut c = base.clone();

@@ -17,8 +17,8 @@ use sim_core::moves::{
     ARMOR_KNOCKBACK, ARMOR_SUPER, EFFECT_BURY, EFFECT_ELECTRIC, EFFECT_ENCASE, EFFECT_NORMAL,
     HIT_GRAB, HIT_NORMAL, HIT_PUMMEL, HIT_SEARCH, HIT_THROW, MAX_PHASES, MODE_ANY, MODE_PLAIN,
     MODE_POWERED, PART_HIGH, PART_LIMB, PART_LOW, PART_MIDDLE, POCKET_FREES, POCKET_NEVER,
-    POCKET_YES, RULES_CURRENT, RULES_PREVIOUS, SLIP_HARD, SLIP_NONE, SLIP_SOFT, TARGETS_AERIAL,
-    TARGETS_ALL, TARGETS_GROUNDED,
+    POCKET_YES, RULES_CURRENT, RULES_PREVIOUS, SLIP_HARD, SLIP_NONE, SLIP_SOFT, STRETCH_BACK_ROLL,
+    STRETCH_NONE, STRETCH_ROLL, STRETCH_SPOT, TARGETS_AERIAL, TARGETS_ALL, TARGETS_GROUNDED,
 };
 use sim_core::{Fx, Vec2, MAX_FIGHTERS};
 use sim_script::{format_fixed, parse_fixed, Kind, Program};
@@ -1045,6 +1045,22 @@ fn read_move(block: &Block, context: &str, errors: &mut Vec<String>) -> Move {
     m.armor_hitlag = f.or("armor_hitlag", 100, errors);
     m.gauge_gain = f.or("gauge_gain", 1000, errors);
     m.dodge_stale = f.or("dodge_stale", false, errors);
+    // Sim 126: a stale dodge's stretch in time (owner decision 85) and a stopped blockable grab's early end (owner decision 84).
+    m.stale_stretch = match f.raw("stale_stretch") {
+        None | Some(("none", _)) => STRETCH_NONE,
+        Some(("roll", _)) => STRETCH_ROLL,
+        Some(("back_roll", _)) => STRETCH_BACK_ROLL,
+        Some(("spot", _)) => STRETCH_SPOT,
+        Some((other, line)) => {
+            err(
+                errors,
+                line,
+                format!("stale_stretch must be none, roll, back_roll or spot, not `{other}`"),
+            );
+            STRETCH_NONE
+        }
+    };
+    m.shield_end = f.or("shield_end", 0, errors);
     // Sim 125: a motion that stops at the edge (the blade dash).
     m.edge_stop = f.or("edge_stop", false, errors);
     // Sim 125 (E57): when the move's armor works, by the attack's powered start (the wing's smash armor).
@@ -1233,6 +1249,8 @@ fn read_move(block: &Block, context: &str, errors: &mut Vec<String>) -> Move {
             reel: tf.need("reel", None, errors),
             drag: tf.or("drag", 0, errors),
             limit: tf.need("limit", None, errors),
+            // Sim 126 (owner decision 86): a press of special while hanging reels in.
+            reel_press: tf.or("reel_press", false, errors),
         });
         tf.finish(errors);
     }
@@ -1942,6 +1960,15 @@ fn write_move(id: MoveId, m: &Move) -> Block {
     if m.dodge_stale {
         b.field("dodge_stale", "true");
     }
+    match m.stale_stretch {
+        STRETCH_ROLL => b.field("stale_stretch", "roll"),
+        STRETCH_BACK_ROLL => b.field("stale_stretch", "back_roll"),
+        STRETCH_SPOT => b.field("stale_stretch", "spot"),
+        _ => {}
+    }
+    if m.shield_end != 0 {
+        b.field("shield_end", m.shield_end.to_string());
+    }
     if m.edge_stop {
         b.field("edge_stop", "true");
     }
@@ -1970,6 +1997,9 @@ fn write_move(id: MoveId, m: &Move) -> Block {
             c.field("drag", t.drag.to_string());
         }
         c.field("limit", t.limit.to_string());
+        if t.reel_press {
+            c.field("reel_press", "true");
+        }
         b.push(c);
     }
     if let Some(l) = &m.latch {

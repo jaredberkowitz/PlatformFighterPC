@@ -655,9 +655,11 @@ const CHEST_TO_CAMERA := 24.0
 const HEAD_TOWARD_FOE := 10.0
 ## In a move: how far the chest still opens to the camera, how much further the hips turn toward the foe, and how far the head may turn
 ## from the camera (a three-quarter face instead of the near front view of the rest of the time).
-const CHEST_IN_ATTACK := 6.0
+## (18 and 40, art review 5: at 6 and 58 a swing whose clip twists the shoulders into it turned the back to the camera, the face gone,
+## where the reference's fighters turn their shoulders into a cut but keep the face toward the camera.)
+const CHEST_IN_ATTACK := 18.0
 const BODY_TURN_IN_ATTACK := 14.0
-const FACE_AWAY_IN_ATTACK := 58.0
+const FACE_AWAY_IN_ATTACK := 40.0
 ## How far into a move the body is turned toward the foe (0 none, 1 fully), eased in and out.
 var attack_turn := 0.0
 
@@ -807,6 +809,11 @@ func _body_follow(s: Dictionary, delta: float) -> void:
 		# In proportion to how far into the move the limb is (its blend toward the hitbox). The base body's clips already lean and look
 		# into its swings and kicks, and its legs reach high on their own, so it takes half of this.
 		var k := (leg_k if kicking else arm_k) * (0.5 if use_base_body else 1.0)
+		# (A sword on the base body: its clips already lean into the cut, and the extra bend folded a low cut nearly double with the head
+		# down at the blade, where the reference keeps the back long and the head up. Art review 5.)
+		if use_base_body and bladed(_cls(s)) and not kicking:
+			k *= 0.4
+			target_look = maxf(target_look, -6.0)
 		target_bend *= k
 		target_look *= k
 	var follow := clampf(delta * 16.0, 0.0, 1.0)
@@ -954,6 +961,25 @@ static func blob_parts() -> Dictionary:
 	return _parts
 
 
+## States where the hands open (see `_clench`).
+const OPEN_HAND_STATES := ["Grabbing", "Grabbed", "Hitstun", "Tumble", "LedgeHang", "LedgeGetUp", "Knockdown", "GetUp", "ShieldBreak",
+	"Respawn", "Helpless", "ItemPickup", "ItemThrow"]
+## Moves whose reference opens the hand (from the moveset reports' art notes): by class, the sim's move names. A hand holding a weapon
+## stays closed on it. Embers' cape, the Staff's warp and reflector, the Pockets' catch and release, the Popgun's banana and latch, the
+## Dagger's guard and counter stance (an open palm), the Nodachi's flare.
+const OPEN_HAND_MOVES := {3: ["side special"], 5: ["up special", "down special"], 10: ["neutral special"],
+	11: ["side special", "down special"], 12: ["down special"], 13: ["neutral special"]}
+
+
+## Which arm holds the weapon: on the base body the one nearest the camera (the model's left facing right), so a swing's arm reads in
+## front of the body; it was the far one, hidden behind the torso through every strike with only the blade showing (art review 5). The
+## old built body keeps its right.
+func _weapon_side(facing: int) -> String:
+	if use_base_body:
+		return "L" if facing > 0 else "R"
+	return "R" if facing > 0 else "L"
+
+
 ## The base body's closed fists and the open hands they stand in for, by side ("L", "R"): see `_clench`.
 var fists := {}
 var open_hands := {}
@@ -961,9 +987,9 @@ var open_hands := {}
 
 ## Closes a hand into a fist (or opens it): a hand that grips a weapon, and an unarmed fighter's hands while it attacks. (An open hand
 ## beside a sword's hilt read as not holding it; a punch with an open hand read as a slap.)
-func _clench(left: bool, right: bool) -> void:
+func _clench(free: bool, weapon: bool, facing := 1) -> void:
 	for side in fists:
-		var closed: bool = right if side == "R" else left
+		var closed: bool = weapon if side == _weapon_side(facing) else free
 		(fists[side] as Node3D).visible = closed
 		if open_hands.has(side):
 			(open_hands[side] as Node3D).visible = not closed
@@ -1242,8 +1268,13 @@ func _tag_object(node: Node) -> void:
 				# (A very dark body, midnight, gets a lighter line in its own hue instead: a near-black line on a near-black body and a dusk
 				# backdrop left no silhouette at all.)
 				if loadout != null:
-					line_c = line_c.lerp(body_c.lightened(0.42), 1.0 - smoothstep(0.12, 0.24, body_c.get_luminance()))
-				(node as GeometryInstance3D).set_instance_shader_parameter("outline_tint", Color(line_c, OUTLINE_TINT))
+					line_c = line_c.lerp(body_c.lightened(0.5), 1.0 - smoothstep(0.22, 0.3, body_c.get_luminance()))
+				# (And all of it, not mixed with the ink: the slimmer limbs of the rebuilt body put more of a dark fighter's outline against a
+				# dark backdrop. Art review 5.)
+				var tint_a := OUTLINE_TINT
+				if loadout != null:
+					tint_a = lerpf(1.0, OUTLINE_TINT, smoothstep(0.22, 0.3, body_c.get_luminance()))
+				(node as GeometryInstance3D).set_instance_shader_parameter("outline_tint", Color(line_c, tint_a))
 				break
 	for c in node.get_children():
 		_tag_object(c)
@@ -2502,6 +2533,7 @@ func prewarm(on: bool) -> void:
 # while the hitbox is live, and recovers.
 const HAND := Vector2(0.55, 0.95)         # hand position in the fighter's forward space (x forward, y up)
 const REST_ANGLE := 68.0                  # degrees: blade held up and slightly forward
+const REST_ANGLE_NEAR := 32.0
 const GROUND_CLEARANCE := 0.06            # the blade tip stays at least this far above the floor
 const MESH_LENGTH := 2.7                  # length of the blade mesh before scaling
 
@@ -2678,7 +2710,11 @@ var blade_length := 2.0
 ## The weapon's resting angle (degrees, forward space): the longsword held up and a little forward; the greatsword carried over the
 ## shoulder, its blade lying back across the back (pointing up and behind), so it never hides the fighter or the stage in front.
 func _rest_angle(s: Dictionary) -> float:
-	return GREAT_REST_ANGLE if _cls(s) == GREATSWORD_CLASS else REST_ANGLE
+	if _cls(s) == GREATSWORD_CLASS:
+		return GREAT_REST_ANGLE
+	# (Held in the near hand on the base body, the guard's fist is in front of the chest, so a blade up at 68 crossed the face: pointed
+	# forward and up at the foe instead, a fencer's guard.)
+	return REST_ANGLE_NEAR if use_base_body else REST_ANGLE
 
 
 const GREAT_REST_ANGLE := 152.0
@@ -2845,12 +2881,26 @@ func _pose_blade(s: Dictionary, delta: float) -> void:
 	if not bladed(_cls(s)) and not now.is_empty():
 		tip = _arc_point(now)
 	var hand := old_hand
+	# Where the weapon arm's shoulder really is now (forward space): the body turns and leans in a move, and the rest-pose shoulder was
+	# often well away from it, so the planned reach ended short of the real arm's length and the sword hand stayed bent at the chin.
+	var shoulder := shoulder
+	if use_base_body and skeleton != null and bladed(_cls(s)):
+		var iu := skeleton.find_bone("armU." + _weapon_side(facing))
+		if iu >= 0:
+			var live := _skeleton_to_frame() * skeleton.get_bone_global_pose(iu).origin
+			shoulder = Vector2(live.x * facing, live.y)
 	if rig != null and arm_k > 0.0:
 		var to_tip := tip - shoulder
 		var dist := maxf(to_tip.length(), 0.001)
 		# (A fist reaches further by the strike's stretch, `strike_e`, so the stretched arm is straight on the hit.)
 		var reach := minf(arm_reach, maxf(dist - 0.3, 0.1)) if bladed(_cls(s)) else arm_reach * (1.0 + strike_e)
-		var goal := shoulder + to_tip / dist * reach
+		var dir := to_tip / dist
+		# (A blade raised high is held out in front of the face, not over it: the arm is short against the big head, so straight up the
+		# hilt ended in front of the face and the arm hid behind the blade. Art review 5, after the reference's up smash, whose arm is
+		# straight and clear of the head.)
+		if bladed(_cls(s)) and use_base_body and dir.angle() > deg_to_rad(HIGH_BLADE_ARM) and dir.angle() < deg_to_rad(150.0):
+			dir = Vector2.from_angle(deg_to_rad(HIGH_BLADE_ARM))
+		var goal := shoulder + dir * reach
 		if use_base_body:
 			# With a real arm the hand travels round the shoulder, in an arc (a hook, a swing), not along a straight line.
 			var from_v := old_hand - shoulder
@@ -2945,7 +2995,7 @@ const CARRY_ANGLE := 158.0
 
 
 func _carry_weapon(facing: int) -> void:
-	var hand := skeleton.find_bone("hand.R" if facing > 0 else "hand.L")
+	var hand := skeleton.find_bone("hand." + _weapon_side(facing))
 	if hand < 0:
 		return
 	blade_pivot.position = _skeleton_to_frame() * skeleton.get_bone_global_pose(hand).origin
@@ -3075,7 +3125,7 @@ func _place_buckler(s: Dictionary) -> void:
 	if not mine or skeleton == null:
 		return
 	var facing := int(s.facing)
-	var hb := skeleton.find_bone("armL.L" if facing > 0 else "armL.R")
+	var hb := skeleton.find_bone("armL." + ("R" if _weapon_side(facing) == "L" else "L"))
 	if hb < 0:
 		return
 	var at: Vector3 = _skeleton_to_frame() * skeleton.get_bone_global_pose(hb).origin
@@ -3094,7 +3144,7 @@ func _aim_arm(facing: int, holding: bool, two_hands := false) -> void:
 	if skeleton == null:
 		return
 	for side in ["L", "R"]:
-		var mine: bool = (side == "R") == (facing > 0)
+		var mine: bool = side == _weapon_side(facing)
 		var iu := skeleton.find_bone("armU." + side)
 		var il := skeleton.find_bone("armL." + side)
 		var ih := skeleton.find_bone("hand." + side)
@@ -3228,6 +3278,8 @@ func _aim_leg(s: Dictionary, kicking: bool, delta: float) -> void:
 # none.
 
 const ARC_FADE := 5
+## The highest a sword arm points (degrees above forward) when the blade goes up overhead.
+const HIGH_BLADE_ARM := 52.0
 ## How see-through the swing arcs and smears are: painted, but a trail of light, not a solid shape (the fighter shows through it).
 const ARC_OPACITY := 0.82
 const ARC_STEPS := 36
@@ -3243,7 +3295,8 @@ const ARCS := {
 		"ftilt": [[0.45, 1.1, 2.35, -80, 60, 8, 11]],
 		"utilt": [[0.1, 1.2, 2.1, -10, 165, 6, 10]],
 		"dash attack": [[0.55, 1.1, 2.35, -85, 70, 13, 16]],
-		"fsmash": [[0.7, 1.15, 2.3, 135, -45, 10, 13]],
+		# (Ends level and a little down, as the reference's cut does, not into the floor at -45.)
+		"fsmash": [[0.7, 1.15, 2.3, 135, -22, 10, 13]],
 		"dsmash": [[0.0, 2.7, 2.6, -100, -35, 6, 7], [0.0, 2.7, 2.6, -80, -145, 21, 23]],
 		"nair": [[0.4, 1.1, 2.2, -80, 50, 6, 7], [0.15, 1.1, 2.35, 55, 350, 15, 21]],
 		"fair": [[0.5, 1.05, 2.3, 140, -60, 6, 8]],
@@ -3851,9 +3904,10 @@ func _apply_combat(s: Dictionary, delta: float) -> void:
 	var swinging_arm: bool = not ((brawler or staff or great) and body_move)
 	# (The Seer keeps its staff in hand through a kick, held at rest, as the Champion does its greatsword.)
 	blade_pivot.visible = (not brawler and swinging_arm) or staff or great
-	# (Unarmed, the fists stay closed in the guard too: open hands held up read as reaching for a hug.)
-	var punching: bool = not blade_pivot.visible and ((state == "Attack" and s.move_name != "") or state == "Idle")
-	_clench(punching or _cls(s) == BUCKLER_CLASS, blade_pivot.visible or punching)
+	# Fists closed through the fight (the owner, art review 5: open, extended hands do not read as combat). A hand opens only where a hand
+	# would: grabbing and holding, caught or hit (flailing), hanging from a ledge.
+	var open_hands: bool = OPEN_HAND_STATES.has(state) or (s.move_name != "" and OPEN_HAND_MOVES.get(_cls(s), []).has(String(s.move_name)))
+	_clench(not open_hands, not open_hands or blade_pivot.visible, int(s.facing))
 	# Running with nothing to swing, the weapon arm pumps with the run and the weapon trails behind.
 	var carrying: bool = not brawler and s.move_name == "" and (state == "Run" or state == "Dash")
 	if rig != null:
@@ -3865,7 +3919,7 @@ func _apply_combat(s: Dictionary, delta: float) -> void:
 		# The hilt goes where the hand actually got to (an arm shorter than the swing wants stops short of its target): the weapon is
 		# always in the hand, never floating in front of it.
 		if holding and not carrying and skeleton != null:
-			var hb := skeleton.find_bone("hand.R" if int(s.facing) > 0 else "hand.L")
+			var hb := skeleton.find_bone("hand." + _weapon_side(int(s.facing)))
 			if hb >= 0:
 				var held: Vector3 = _skeleton_to_frame() * skeleton.get_bone_global_pose(hb).origin
 				var along := Vector3(cos(blade_pivot.rotation.z), sin(blade_pivot.rotation.z), 0.0)

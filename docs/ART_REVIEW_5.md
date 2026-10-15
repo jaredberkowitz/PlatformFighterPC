@@ -165,3 +165,46 @@ Posed geometry rendered straight from Blender (grey, no outline or shading to hi
 - Still visible up close: soft folds on the upper chest beside the neck when the arms are raised, and the base surface's slight
   unevenness. Next: a reference study of limb shape and extension (the owner asked for the reference fighters' and PEAK's
   body composition, limb bending and extension in swings and kicks).
+
+## Step 4c: combat poses against the reference (the sword fighter first)
+
+The owner: arms do not extend naturally in the sword fighter's swings; open extended hands and bent wrists do not read as combat. The
+reference's hitbox animations (ultimateframedata.com, the sword fighter's reference) were decoded frame by frame and set beside ours
+(`--demo=gallery --gallery-class=0`). `review5_sword_moves.png`: pairs of rows, before | after, for the forward smash, forward air and
+down tilt.
+
+- **Forward smash**: ours folded nearly double and then knelt (the hips dropped so far the short legs sat the body down), the head
+  down at the blade. The reference lunges: front knee bent, back leg long, back straight, head up. Now: the spine leans 14 not 30,
+  the hips drop 0.1 not 0.24, the head up. The swing's drawn arc ends at -22 not -45. (The blade still ends low: the move's last hit
+  is at the floor in front, as the reference's is; the sim is untouched.)
+- **Faces kept to the camera in moves**: in a move the chest opened only 6 degrees back to the camera and the head could turn 58 away,
+  so twisting swings showed the back of the head. Now 18 and 40 (`CHEST_IN_ATTACK`, `FACE_AWAY_IN_ATTACK`), for every class.
+- **The code's lean toward a low hit** is lighter for a sword on the base body (its clips already lean): it was folding low cuts over.
+- **Fists through the fight** (`OPEN_HAND_STATES`): hands open only grabbing, held, hit, tumbling, hanging from a ledge. **Wrists**
+  keep 30% of any clip's bend (`WRIST_KEEP`), so a fist stays in line with the forearm.
+- **Open-hand moves** (`OPEN_HAND_MOVES`, from the moveset reports' art notes): the cape, the warp and reflector, the pocket catch and
+  release, the banana and the latch, the guard and counter stance, the flare charge; and picking up or throwing an item.
+- **Down tilt**: the torso folded so far the camera saw the top of the head; the spine leans 18 not 34.
+- **A raised blade** is held out in front of the face (`HIGH_BLADE_ARM`), not over it, where the short arm left the hilt at the mouth.
+- **Still open, next**: the sword hand stays near the chin through a strike instead of reaching out to an extended arm (the arm is
+  aimed by code from the feet's frame; a turned body likely shortens its reach). Then the other classes' swings and kicks, the same way.
+- Checked: the fighter, art, motion, animation, creator, online, match and loadout tests; the look bench 0.88.
+
+## Step 4d: the body rebuilt for bending (the owner: lumpy surfaces, uneven limbs, joints that break, a torso that "inhales")
+
+Grey renders straight from Blender showed the faults came from how the body mesh was made and weighted, not its pose angles:
+- **Proportions measured off the owner's PEAK model** (`make_base_body.py`): the head about 38% of the height, a box torso nearly as
+  wide as the head, slimmer limbs whose segments are longer than they are thick (the old limbs were about twice the reference's
+  thickness, so every bend crumpled), legs from higher up. Chunky where the reference is: head, torso, hands and boots.
+- **Exactly symmetric**: the remesh laid the two halves out differently, so the left and right arms were different shapes and bent
+  differently; the right half is now mirrored onto the left.
+- **Smooth**: a volume-keeping smooth after the remesh takes out the ripples the melted parts left (`EVEN_ITERATIONS`).
+- **Weights from the skeleton** (`make_rigged_blob.py` `analytic_weights`, replacing Blender's automatic weights and every patch laid
+  over them): the trunk follows the hips and spine alone, each arm takes over within a short band at its shoulder and each leg at its
+  hip, every joint blends over the same short stretch on both sides. The chest no longer stretches or puffs with the arms.
+- Hands scaled to the slimmer forearm (`FIST_SCALE` 0.74). The very dark body's lighter outline now actually reaches midnight (its
+  window was below midnight's brightness), full strength.
+- A skin-modifier body was tried first (`make_skin_body.py`): it tore where the shoulders narrow to the neck; dropped.
+- `review5_body_rebuild.png` (grey, the guard and the run: before | after), `review5_body_outfits.png`, `review5_body_fsmash.png`.
+- Checked: every Godot test and the look bench (0.88). Next: the attack poses re-authored for this body after the owner's swing notes
+  (anticipation, hip-first rotation, impact, follow-through), the sword fighter first.

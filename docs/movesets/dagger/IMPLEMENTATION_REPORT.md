@@ -193,7 +193,70 @@ merging `origin/movesets` 858cbdd); `pftool fuzz-rollback 300` (0 mismatches; th
   line for 8 frames, then reeled straight to the ledge in 12. The ledge index is the sim's `Fighter::tether_ledge` (not yet exposed by the
   bridge: a read-only accessor would let the view draw the rope to the ledge).
 
+## Phase 3 (sim 126, content schema 8 unchanged; branch `dagger-phase3` from `origin/movesets` at a6b8314, sim 125)
+
+The owner's answers to phase 2's questions (decisions 83-86 in `../ROSTER_STATUS.md`): keep the tether's estimates (83: nothing
+changed); build the other three, each a general content field off by default.
+
+### Built
+
+* **A shield ends the grounded hook sooner** (decision 84): `Move::shield_end` (content `shield_end`): when a shield or a reflector stops
+  one of the move's blockable grab boxes, the move ends that many frames later, if sooner than its own end (hashed `Fighter::move_end`,
+  set in `combat::resolve_hits` where the stop is found, read at `fighter::attack`'s end check, cleared by `begin_attack`). The grounded
+  hook: 20, so a stop on frame 20 leaves the phantom standing on 40 (FAF 41) instead of 59 (FAF 60) [E: the reference says only that
+  contact "cancels" the move; no frame is published].
+* **Stale gun dodges last longer, as rolls do** (decision 85): `Move::stale_stretch` (content `stale_stretch` none / roll / back_roll /
+  spot; needs `dodge_stale`): the move's whole timeline plays slower by the ruleset's roll, back roll or spot dodge rate per level of the
+  staleness it was made with, exactly as `fighter::roll` plays a stale roll. Each frame, `fighter::attack` holds the move's frame back
+  while the fresh timeline (`stale_frame` of the frames played) has not reached it (hashed `Fighter::move_held`), so the boxes, the step
+  (further), the script's frames and the end all stretch (the end is exactly the roll's `stale_length`); what happens once on a frame
+  does not repeat on a held one; the intangibility keeps to the frames played (start shifted, end unmoved, as a roll's). The forward dodge
+  at the forward roll's rate (6% a level: fully stale, 38 frames become 50), the back dodge at the back roll's (10%: 44 become 66) [E:
+  which rate].
+* **Reel in by a press** (decision 86, a house addition): `Tether::reel_press` (content `reel_press` in the tether block): a press of
+  special while hanging starts the reel at once. On for both air hooks: pressed on the second hang frame, the phantom holds the ledge 13
+  frames after the catch instead of 20.
+
+### Verified (by tests that ran)
+
+* `sim-core/tests/dagger_phase3.rs` (5): the grounded hook stopped by a shield on 20 is out on 40 (whiffed 59), the shielding fighter
+  still shielding, a fighter not shielding still caught; with `shield_end` 0 the stopped hook runs to 59 (the old behaviour); `move_end`
+  in the checksum, a resimulation from the stop, a new move clearing it. Fresh gun dodges out on 38 / 44; fully stale out on the roll's
+  `stale_length` (50 / 66), one level stale on its own, the move frame shown on 26 the fresh timeline's (20), the step longer, the
+  intangibility's last frame unmoved; with the stretch off the fresh length (sim 123's); `move_held` in the checksum, a resimulation, one
+  level added per dodge however its first frame is held. The tether's reel pressed on hang frame 2 / 8 / during the reel: on the ledge
+  13 / 19 / 20 frames after the catch, and 20 with `reel_press` off.
+* `move_rules.rs`: the three fields in the content hash; `state.rs`: checksum cases `move_end`, `move_held`; sim-content
+  `the_dagger_phase_3_fields_round_trip_and_are_checked` (round trip, a file without them, bad values refused).
+* Unchanged: `dagger_hook.rs` (11) passes as before (the stale intangibility still 3 + 4 frames late); no other content uses the fields
+  (`base.pfc` changes only in the dagger weapon and the version line).
+
+### Estimated [E]
+
+The 20 frames after a stopped hook; which roll rate stretches each gun dodge. Unchanged: the tether's reach, hang and reel (decision 83).
+
+### Tests and checks run
+
+`cargo fmt --all`; `cargo clippy --workspace --all-targets -- -D warnings` (clean); `cargo test --workspace` (1588 passed, 0 failed);
+`pftool fuzz-rollback 300` (0 mismatches); `pftool net-fuzz 100` (0 mismatches). The Godot tests were not run (no Godot change).
+
+### Training-mode checks (hitbox view)
+
+1. Let a dummy shield on the right platform at the hook's head and use the grounded up special: the hook stops on the shield and the
+   phantom can act on frame 41 (counting the press as 1).
+2. Roll five times quickly, then dodge with the gun (sideways with special during a shot): the dodge plays slower and travels further;
+   wait a few seconds and it is quick again.
+3. Tether the right ledge from below and press special right away: the phantom is reeled in at once.
+
+### For the art agent
+
+* A stale gun dodge's `state_frame` repeats frames (held back), so its clip plays slower with no change needed; the grounded hook may now
+  end on frame 40 after a shield stop (the clip is cut short there: a quick retract would read better).
+
 ## Questions for the owner (phase 2)
+
+Answered 2026-10-14 (decisions 83-86): 1 keep; 2, 3 and 4 built in phase 3 (above). The original questions:
+
 
 1. **The tether's estimates**: the reach (40 up, 16 in front, in the reference's units), 8 frames hanging and 12 reeling in are not
    published. Footage of a few frame-counted tethers would settle them; keep them meanwhile?
