@@ -193,3 +193,14 @@ Weakest two: the city's skyline windows and the grove's pale blobs in the bottom
 Checked: the art pipeline and match flow tests.
 - **Grove, fixed:** the pale shapes were the canopy's top rows after all (a skip probe proved it; the earlier edits only touched rows
   below the screen). The canopy's greens are now deep and saturated, so the crowns either side of the stage read as forest, not fog.
+
+## Refinement round 2 (scope until Saturday: lighting, materials, UI, textures)
+
+Weakest two: the select screen's roster portraits and the beach's sea wall.
+- **Roster portraits** (`review6_round2_portraits.png`, before then after): each card showed the whole body, the face a few pixels
+  across, so the roster read as a row of near-identical dolls. Now head and shoulders (`select.gd`, the thumb camera), as the reference
+  fighters' portraits are: the face, hair and headwear, the things the creator varies, fill the card.
+- **Sea wall** (`review6_round2_seawall.png`, before | after): a narrow range of stone shades and sizes read as a regular brick grid at
+  play size. Each stone now takes its own shade (some paler, some deeper) and the sizes vary more (`seawall` pattern), so it reads as a
+  laid stone wall, still warm.
+Checked: the art pipeline, match flow, select grid, creator flow and editor UI tests.

@@ -399,8 +399,10 @@ func _ready() -> void:
 			thumb.position = Vector2(10, 12)
 			thumb.spin = false
 			thumb.facing_bias = 0.35
-			thumb.camera.position = Vector3(0, 1.75, 4.6)
-			thumb.camera.look_at_from_position(thumb.camera.position, Vector3(0, 1.4, 0))
+			# Head and shoulders, as the reference fighters' portraits are (art review 6 round 2: the whole body at this size left the face a
+			# few pixels across and the roster a row of near-identical dolls; the face, hair and hat are what tell fighters apart).
+			thumb.camera.position = Vector3(0, 1.85, 2.9)
+			thumb.camera.look_at_from_position(thumb.camera.position, Vector3(0, 1.66, 0))
 			thumb.set_loadout(entries[i].look)
 			card.add_child(thumb)
 		else:

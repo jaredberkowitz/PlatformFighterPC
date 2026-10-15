@@ -240,19 +240,23 @@ static func _soil_material(t: Dictionary) -> ShaderMaterial:
 			var stone_grey := Color(0.86, 0.74, 0.6)
 			var y := 0.0
 			while y < S - 1.0:
-				var rh := rng.randf_range(44.0, 66.0)
+				var rh := rng.randf_range(36.0, 74.0)
 				if y + rh > S - 30.0:
 					rh = S - y
 				var widths: Array = []
 				var total := 0.0
 				while total < S - 40.0:
-					var ww := rng.randf_range(54.0, 118.0)
+					var ww := rng.randf_range(40.0, 150.0)
 					widths.append(ww)
 					total += ww
 				var x := -rng.randf_range(0.0, 50.0)
 				for wi in widths.size():
 					var w: float = float(widths[wi]) * S / total
-					var shade := a.lerp(b, rng.randf_range(0.0, 0.55)).lerp(stone_grey, 0.28)
+					# (A wide spread of stone, art review 6 round 2: within a narrow range of shades and sizes the wall read as a regular
+					# brick grid at play size, the most placeholder-looking surface on any stage. Now each stone its own shade, a few pale or
+					# deep ones, and a wider range of sizes.)
+					var shade := a.lerp(b, rng.randf_range(0.0, 0.7)).lerp(stone_grey, 0.2)
+					shade = shade.lightened(rng.randf_range(0.02, 0.14)) if rng.randf() < 0.6 else shade.darkened(rng.randf_range(0.0, 0.1))
 					var rad := rng.randf_range(3.0, 7.0)
 					var lit := shade.lightened(0.2).to_html(false)
 					var dark := shade.darkened(0.25).to_html(false)
