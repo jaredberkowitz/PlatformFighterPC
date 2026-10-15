@@ -21,9 +21,10 @@ uniform vec4 hem : source_color = vec4(0.1, 0.07, 0.12, 1.0);
 uniform float hem_width = 0.011;
 // The chin line: a thin soft ink round the bottom of the ball of the head, where it sits on the body (the owner, 2026-10-14: the head
 // melted into the chest like a gourd; the two-tone light draws no line at a soft crease, so it is painted). The head's ball in the rest
-// pose (base_rig.json's head_centre and head_radius), and how strong the line is (0 none).
+// pose (base_rig.json's head_centre and head_radius), and how strong the line is (0 none). Off since the cage body (2026-10-15): its head
+// is its own ball sitting on the shoulders with a real crease, and the painted line read as a shadow band under the chin.
 uniform vec3 head_ball = vec3(1.716, 0.003, 0.47);
-uniform float chin_line = 1.0;
+uniform float chin_line = 0.0;
 
 // Where the clothes go, in the rest pose.
 uniform float neck_z = 1.44;
