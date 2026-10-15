@@ -191,3 +191,5 @@ Weakest two: the city's skyline windows and the grove's pale blobs in the bottom
   under-stage haze bank or the post-process haze/quieting: changing each left them visibly unchanged. Next round: find what
   draws them (an object pick at those pixels) before changing anything.
 Checked: the art pipeline and match flow tests.
+- **Grove, fixed:** the pale shapes were the canopy's top rows after all (a skip probe proved it; the earlier edits only touched rows
+  below the screen). The canopy's greens are now deep and saturated, so the crowns either side of the stage read as forest, not fog.

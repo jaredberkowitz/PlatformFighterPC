@@ -24,8 +24,7 @@ Everything put off to save usage, in the order to take it. Tick items off here a
 - [ ] Open Blender before the session starts so the Blender connection loads (it timed out this time).
 
 ## Graphics refinement loop (screenshot every stage, fix the two weakest, repeat)
-- [ ] Grove: the pale washed-out shapes in the bottom corners. Not the canopy rows, far tree line, under-stage haze or post haze
-      (each changed with no visible effect). First identify the object at those pixels, then fix.
+- [x] Grove: the pale corner shapes (the canopy's top rows; deepened, round 1).
 - [ ] More rounds of the loop across all five stages.
 - [ ] The run mode's own city windows (`run_stage.gd` facade values) to match the stage's calmer ones (check with the modes-online agent).
 
@@ -34,3 +33,16 @@ Everything put off to save usage, in the order to take it. Tick items off here a
 - [ ] Camera and off-screen feedback checks (no camera behaviour change without the owner).
 - [ ] Performance and regression pass: every stage, four fighters, supported resolutions.
 - [ ] Run mode shadow crawl on camera pans, if still present.
+
+## Beta gaps against the competition (Smash Ultimate, Rivals of Aether II, PEAK), 2026-10-15
+Already in place: knock-out blasts, the final hit's slow-motion close-up, results screen with victory poses, damage that heats in
+colour, music, alternate looks. What the competitors have that a beta of ours still lacks, art and presentation only:
+- [ ] **Readable roster at a glance.** Every fighter is the same body in a different colour; the competitors' fighters read apart by
+      silhouette alone. Give each class family a signature silhouette (headwear, weapon on the back, proportions within the one rig).
+      Needs the owner's call on how far to vary the body.
+- [ ] **Match entrances.** Each fighter arrives at the start (a drop-in, a dash in, a pose) rather than appearing in place.
+- [ ] **Weapon art for the queued classes** (Dagger, Nodachi) and per-weapon hit sparks.
+- [ ] **Living stages.** The competitors' backgrounds move (crowds, traffic, weather, wildlife); ours have a little (windmill, birds,
+      boats). One or two signature moving things per stage, kept out of the fighting plane.
+- [ ] **Off-screen fighter indicator** (the magnifier bubble at the screen edge): verify ours reads at a glance and stays clear of the HUD.
+- [ ] **Model quality** (the PEAK bar): the body remodel and the pose overhaul above are the biggest single gap.

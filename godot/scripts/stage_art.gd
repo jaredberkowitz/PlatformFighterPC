@@ -2899,7 +2899,9 @@ static func _grove(root: Node3D, t: Dictionary, stage: Array) -> void:
 	_tree(root, Vector3(-30, fore_top(-30.0, top - 11.0) - 0.6, -55.0), 0.6, rng)
 	_tree(root, Vector3(32, fore_top(32.0, top - 11.0) - 0.6, -55.0), 0.55, rng)
 	# Below it, the treetops of a forest falling away down the valley.
-	_canopy(root, -49.0, top - 12.5, [Color(0.3, 0.6, 0.42), Color(0.46, 0.76, 0.48), Color(0.26, 0.54, 0.42), Color(0.52, 0.8, 0.52)])
+	# (Deep, saturated forest greens: in the old pale mints, washed further by the air at that depth, the crowns either side of the stage
+	# read as shapeless fog blobs, the weakest thing on the stage. Art review 6, refinement round 1.)
+	_canopy(root, -49.0, top - 12.5, [Color(0.16, 0.44, 0.3), Color(0.26, 0.56, 0.32), Color(0.14, 0.4, 0.32), Color(0.3, 0.6, 0.34)])
 	# Round bushes along the back of the island.
 	var bush_greens := Materials.greens(Color(0.3, 0.66, 0.34))
 	var bush := Materials.foliage(bush_greens[1])
