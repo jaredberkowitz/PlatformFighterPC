@@ -304,3 +304,13 @@ Checked: the art pipeline, match flow and runner tests.
 - **A naming slip:** the controller page's right-stick choice read "Smash attacks". Now "Strong attacks", the game's own word for the
   move (`pad_bindings.gd`; the choice is saved by its place in the list, so saved settings are unaffected).
 Checked: the art pipeline, match flow, controls, input, policy, creator and editor UI tests.
+
+## Refinement round 13 (against the competition: the fighters themselves)
+
+The owner, after round 12: compare against the competitors' standard, not our last build. The largest gap within this phase's scope
+(lighting, materials) was on the fighters: their shadow side was a barely deeper tone of the same colour, so at play size the bodies
+read as flat cut-outs with an outline, where the reference fighters carry a clearly darker shadow shape that models the volume (the
+outside brief noticed it too). The fighters' shadow tone is now deeper (`PF_FIGHTER_SHADE` 0.78, was 0.88, in
+`toon_light.gdshaderinc`), still two clean cel tones (`review6_round13_fighter_shade.png`: meadow and canyon, before | after, close
+camera). The look bench passes (every fighter keeps its silhouette against every mood's bright and dark backdrops; lowest edge 0.91).
+Checked: the art pipeline, match flow and fighter tests; the look bench.

@@ -29,6 +29,8 @@ Everything put off to save usage, in the order to take it. Tick items off here a
 - [ ] Run HUD in the match HUD's panel language (its white fighter box and plates vs the match's dark plates); agree it with the
       modes-online agent (the run is theirs).
 - [x] Controls screen hierarchy (round 12).
+- [ ] Player-visible text says "strong attack", never "smash" (README, How to play.txt, in-game text); the owner chose "strong attack"
+      (2026-10-15). Internal move ids (`fsmash` etc.) later, with the moveset session.
 - [ ] Mend `--demo=results` (it stops in the match) and review the results screen.
 - [ ] In-motion checks for the refinement rounds (the outside brief): an attack with its hit effect, both fighters airborne, fighters
       spread so the camera pulls out; look for outline flicker, shadow crawl, effects hiding fighters.

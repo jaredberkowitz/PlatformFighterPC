@@ -62,7 +62,9 @@ instance uniform float rim_boost : instance_index(2) = 1.0;
 instance uniform float fighter : instance_index(3) = 0.0;
 // How deep a fighter's shadow tone is against the stage's (below 1 deeper): the two tones need a clear value step between them to read as
 // a light shape and a shadow shape at play size (the edge light and the stage's quieting keep the shadow side off the background).
-const float PF_FIGHTER_SHADE = 0.88;
+// (0.78, art review 6 round 13, against the competition: at 0.88 the shadow side was a barely deeper tone of the same colour, so the
+// bodies read as flat cut-outs; the reference fighters carry a clearly darker shadow shape that models the volume.)
+const float PF_FIGHTER_SHADE = 0.78;
 
 vec3 pf_rgb2hsv(vec3 c) {
 	vec4 k = vec4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);
