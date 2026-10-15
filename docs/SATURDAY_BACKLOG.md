@@ -11,6 +11,20 @@ Everything put off to save usage, in the order to take it. Tick items off here a
       bell, the HUD strip, and grunts teching from tier 3. Ask the moveset session for the SIM_VERSION, keep versus timing within 2%,
       then land and release.
 
+## Versus gaps (docs/REFERENCE_GAPS.md; done 15 Oct: D3 jab locks sim 132, O1 perfect pivots sim 133)
+- [ ] **O2 footstool.** Research so far (the reference, ssbwiki "Footstool jump"):
+  - jump while above an opponent's head bounces off it, doing no damage;
+  - 2 to 6 in a row depending on fall speed, each about half the last rebound; it can be short hopped;
+  - not within 16 frames after attacking;
+  - a grounded victim is briefly frozen;
+  - an airborne victim tumbles a set distance and can tech the landing;
+  - a fighter on the ledge can be footstooled but doesn't fall;
+  - it can't cancel a move in progress;
+  - a fall caused by one is a KO credited to the footstooler.
+
+  Frame counts aren't published: find them, or mark them [E]. Needs new victim states and a version from the moveset session.
+- [ ] D1 shield tilting and shield pokes; O3 check B-reverse on the down special; R2 moving platforms.
+
 ## Animation overhaul (the main job; start from docs/POSE_REVIEW.md)
 - [ ] Up moves arch the back with the belly forward ("inhaling"): reach from the shoulders, hips over the feet.
 - [ ] Locked straight arms at shoulder height in strikes, follow-throughs and unarmed idles ("hug"): elbow never fully straight,
