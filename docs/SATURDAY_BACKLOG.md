@@ -43,6 +43,19 @@ Everything put off to save usage, in the order to take it. Tick items off here a
       spread so the camera pulls out; look for outline flicker, shadow crawl, effects hiding fighters.
 - [ ] The run mode's own city windows (`run_stage.gd` facade values) to match the stage's calmer ones (check with the modes-online agent).
 
+## Pain points found 2026-10-15 (end of the refinement rounds; judged against the competitors, not yet fixed)
+- [ ] Canyon: the sun is a huge bright disc right behind the stage, and the thin horizontal cloud streaks cut across it as flat lines;
+      a smaller sun set lower to one side, the streaks as soft painted clouds.
+- [ ] City: the building under the stage is one evenly repeated window grid (the most regular surface left in the game); vary bays,
+      a few lit/curtained windows, a ledge or sign. The far billboard (top right) is a pale blank panel: give it an image or remove it.
+- [ ] Beach: the sea wall's stones are still large blocks at play distance; the sky's clouds are flat white shapes with no light side.
+- [ ] Meadow: the floating islands crowd the top edge of the frame (several clipped by it); fewer, placed to frame the stage.
+- [ ] Grove: still the palest stage under its pink light; the light shafts and pink grade could go further if the owner wants it
+      nearer the meadow (owner chose to keep the pink-purple mood).
+- [ ] All stages: the stage blocks' sides are flat cut-offs at the left and right ends (no end cap or rounded edge); the reference
+      stages finish their ends.
+- [ ] Fighters: the clothes' outline sits close to the body outline, doubling the line at the waist and cuffs at play size.
+
 ## Tools
 - [ ] Material Maker 1.7 is at `C:/Users/jared/Tools/MaterialMaker/app/material_maker_1_7_windows/material_maker.exe` (checksum
       verified). Batch export (`--export-material --target ... -o <dir> <file.ptex>`) ran but wrote nothing ("Cannot open
