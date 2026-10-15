@@ -1419,14 +1419,11 @@ func _on_fighter_layer(node: Node) -> void:
 
 func _contact_shadow() -> void:
 	if _shadow_tex == null:
-		# A crisp cel shadow, one solid shape with a short soft edge (art review 6 round 20, after the owner's Wind Waker HD frame: a soft
-		# radial blur read as a smudge under the feet; the reference's shadows are firm, dark-tinted shapes).
 		var g := Gradient.new()
-		var ink := Color(0.06, 0.03, 0.14)
-		g.set_color(0, Color(ink, 0.62))
-		g.set_color(1, Color(ink, 0.0))
-		g.add_point(0.8, Color(ink, 0.6))
-		g.add_point(0.9, Color(ink, 0.0))
+		g.set_color(0, Color(0.04, 0.02, 0.1, 0.85))
+		g.set_color(1, Color(0.04, 0.02, 0.1, 0.0))
+		g.add_point(0.45, Color(0.04, 0.02, 0.1, 0.75))
+		g.add_point(0.75, Color(0.04, 0.02, 0.1, 0.35))
 		_shadow_tex = GradientTexture2D.new()
 		_shadow_tex.gradient = g
 		_shadow_tex.fill = GradientTexture2D.FILL_RADIAL
@@ -1436,7 +1433,7 @@ func _contact_shadow() -> void:
 		_shadow_tex.height = 64
 	contact_shadow = Decal.new()
 	contact_shadow.texture_albedo = _shadow_tex
-	contact_shadow.size = Vector3(2.2, SHADOW_DEPTH, 2.0)
+	contact_shadow.size = Vector3(3.0, SHADOW_DEPTH, 2.6)
 	# Only on surfaces facing up (not down the front of the stage).
 	contact_shadow.normal_fade = 0.6
 	# (Nudged toward the camera so it shows in front of the feet, which would otherwise hide it from the low match camera.)
