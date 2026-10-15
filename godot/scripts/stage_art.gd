@@ -777,6 +777,20 @@ static func platform(parent: Node3D, t: Dictionary, left: float, right: float, t
 	var n := maxi(1, int(w / 1.6))
 	for k in range(1, n):
 		_mesh(parent, _box(Vector3(0.05, 0.26, 0.05)), seam, Vector3(left + w * k / n, top - 0.13, front_z + 0.01))
+	# How it is built (art review 6 round 32: one slab with a seam or two read as a prototype block): a pair of nail heads either side of
+	# every seam and at both ends, and a cross-batten under each end, the joists the boards are nailed to.
+	var nail := _unshaded((t.wood_dark as Color).darkened(0.1))
+	for k in range(0, n + 1):
+		var sx := left + w * k / n
+		for side in [-1.0, 1.0]:
+			var nx: float = sx + side * 0.16
+			if nx < left + 0.08 or nx > right - 0.08:
+				continue
+			for ny in [-0.07, -0.19]:
+				_mesh(parent, _sphere(0.018, 6), nail, Vector3(nx, top + ny, front_z + 0.015))
+	var batten := Materials.wood((t.wood_dark as Color).darkened(0.12), Vector2(1, 1))
+	for bx in [left + 0.55, right - 0.55]:
+		_mesh(parent, _box(Vector3(0.34, 0.3, depth - 0.2)), batten, Vector3(bx, top - 0.55, front_z - depth / 2.0))
 	_platform_dressing(parent, t, left, right, top, front_z, depth)
 
 

@@ -451,3 +451,10 @@ Checked: the art pipeline and match flow tests.
 - **The meadow's ridge** (`review6_round31_meadow_ridge.png`, before above, after below): its `mix` (horizon to its own blue) was 0.55,
   and round 29 lowered it, the wrong way. Now 0.8, edge 0.7, haze 0.06: distant blue mountains instead of a pale smudge.
 Checked: the art pipeline and match flow tests.
+
+## Refinement round 32 (prototype feel: the wooden platforms)
+
+`review6_round32_platform.png` (before above, after below, close camera). One slab with a seam or two read as a prototype block. Now
+small nail heads either side of every seam and at both ends, and a cross-batten under each end (the joists the boards are nailed to),
+on every wooden platform (`platform`). The girder platforms are unchanged.
+Checked: the art pipeline and match flow tests.
