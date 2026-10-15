@@ -61,8 +61,8 @@ The detail behind each step follows.
   - a fall caused by one is a KO credited to the footstooler.
 
   Frame counts aren't published: find them, or mark them [E]. Needs new victim states and a version from the moveset session.
-- [ ] O3 check B-reverse on the down special (the reference's window is 4 frames; which specials allow it is unverified); R2 moving
-      platforms (later, with stage art).
+- [ ] O3: down-special B-reverse is per character in the reference (some down specials only, 4-frame window): give the moveset
+      session a per-move `reversible` flag to fill in per port. R2 moving platforms later, with stage art.
 - [ ] Playtest the four new mechanics on a controller: the drawn shield tilt matches the sim's, the perfect pivot's 1-frame window,
       footstool feel.
 

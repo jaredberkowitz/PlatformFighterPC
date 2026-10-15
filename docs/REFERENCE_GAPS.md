@@ -52,7 +52,7 @@ Impact: how much a player would notice. Effort: S (an evening), M (a few sims), 
 | --- | --- | --- | --- | --- | --- |
 | O1 | Perfect pivot, pivot tilts and pivot smashes (**done, sim 133**, an addition by owner's call: the current reference removed pivots, the previous generation had them; a one-frame flick back out of a dash slides into a standing turnaround, `Ruleset::perfect_pivot_frames`, 0 turns it off) | A flick back then forward slides into a standing turnaround that cancels into tilts and smashes | Pivot grab only | Med (competitive spacing) | S-M |
 | O2 | Footstool (**done, sim 135**: jump with the feet on a head bounces off it, no damage, no midair jump spent, lower each time before landing; ground victim frozen 21 frames (labbed reference), air victim pushed down tumbling and can tech; 4 intangible frames; not within 16 frames of an attack; bands, decay, push and air stun [E]) | Jump on an opponent's head: a jump for you, a short stun for them on the ground, a forced fall in the air | Missing | Med (edgeguards, combo escapes, combos) | M |
-| O3 | B-reverse on the down special | B-reverse works on neutral and down specials | Neutral and side specials only (verify which specials the reference allows) | Low | S |
+| O3 | B-reverse on the down special (**researched 15 Oct**: in the reference only *some* characters' down specials reverse, with no animation for it, and the window is 4 frames after the special input; so it is a per-move flag for the moveset ports to set from each fighter's data, not a universal rule) | B-reverse works on neutral and down specials | Neutral and side specials only (verify which specials the reference allows) | Low | S |
 
 ### Match rules and stages (1v1)
 
