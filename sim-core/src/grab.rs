@@ -13,7 +13,7 @@ use crate::fixed::Fx;
 use crate::input::buttons;
 use crate::state::{Fighter, FighterState as S, GameState, NONE};
 use crate::vec2::Vec2;
-use crate::MAX_FIGHTERS;
+use crate::MAX_BODIES;
 
 /// True if this fighter can be caught: standing on something, not already tangled up, not recently released,
 /// and not in hitstun or hanging from a ledge.
@@ -138,7 +138,7 @@ pub fn drop_grab(state: &mut GameState, content: &Content, i: usize) {
 
 /// Keeps the held fighter in front of the holder, counts down the hold, and frees the pair if anything is out of step.
 pub fn update(state: &mut GameState, content: &Content) {
-    for h in 0..MAX_FIGHTERS {
+    for h in 0..crate::state::bodies(state) {
         let Ok(v) = usize::try_from(state.fighters[h].grab_with) else {
             continue;
         };
@@ -146,7 +146,7 @@ pub fn update(state: &mut GameState, content: &Content) {
         if state.fighters[h].state == S::Grabbed {
             continue;
         }
-        let consistent = v < MAX_FIGHTERS
+        let consistent = v < MAX_BODIES
             && state.fighters[v].grab_with == h as i8
             && state.fighters[v].state == S::Grabbed
             && matches!(

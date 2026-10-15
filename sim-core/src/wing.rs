@@ -18,7 +18,7 @@ pub fn out(f: &Fighter) -> bool {
 /// several opponents is not published]).
 fn opponent(state: &GameState, i: usize) -> Option<usize> {
     let mut best: Option<usize> = None;
-    for j in 0..state.fighters.len() {
+    for j in 0..crate::MAX_FIGHTERS {
         if j == i || state.roster >> j & 1 == 0 || !state.fighters[j].active {
             continue;
         }

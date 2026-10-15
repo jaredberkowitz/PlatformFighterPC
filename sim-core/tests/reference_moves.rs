@@ -464,8 +464,12 @@ fn brawler_forward_tilt_hits_twice_5_percent_on_frame_8_then_6_percent() {
         pct(&sim, 50) + pct(&sim, 60),
         "both hits connect"
     );
-    assert_eq!(sim.f().hit_mask & 0b0010, 0b0010);
-    assert_eq!(sim.f().hit_mask & 0b0010_0000, 0b0010_0000);
+    let (g0, g1) = (
+        sim_core::combat::hit_bit(1, 0),
+        sim_core::combat::hit_bit(1, 1),
+    );
+    assert_eq!(sim.f().hit_mask & g0, g0);
+    assert_eq!(sim.f().hit_mask & g1, g1);
 }
 
 #[test]

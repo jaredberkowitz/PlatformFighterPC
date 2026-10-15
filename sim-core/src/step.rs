@@ -7,7 +7,7 @@ use crate::fixed::Fx;
 use crate::grab;
 use crate::input::Input;
 use crate::state::{Fighter, FighterState, GameState, Item, Projectile, DRAW, NONE, PLAYING};
-use crate::MAX_FIGHTERS;
+use crate::{MAX_BODIES, MAX_FIGHTERS};
 
 fn params_of<'a>(content: &'a Content, f: &Fighter) -> &'a FighterParams {
     let idx = usize::from(f.char_id).min(content.fighters.len().saturating_sub(1));
@@ -113,7 +113,15 @@ fn start_sudden_death(state: &mut GameState, content: &Content, most: u8) {
     state.ledge_owner = [NONE; MAX_LEDGES];
 }
 
+/// Advances one frame with the players' inputs (the grunts' slots, empty outside a run, read none).
 pub fn step(state: &mut GameState, content: &Content, inputs: &[Input; MAX_FIGHTERS]) {
+    let mut all = [Input::default(); MAX_BODIES];
+    all[..MAX_FIGHTERS].copy_from_slice(inputs);
+    step_bodies(state, content, &all);
+}
+
+/// Advances one frame with an input for every body: the players', then the grunts' (the run's grunt layer makes those, sim 131).
+pub fn step_bodies(state: &mut GameState, content: &Content, inputs: &[Input; MAX_BODIES]) {
     // A finished match stands still.
     if state.winner != PLAYING {
         state.frame = state.frame.wrapping_add(1);
@@ -122,9 +130,10 @@ pub fn step(state: &mut GameState, content: &Content, inputs: &[Input; MAX_FIGHT
     let stage = &content.stage;
 
     // Phase 1: every fighter updates in player-index order and may request a ledge.
-    let mut wants: [Option<u8>; MAX_FIGHTERS] = [None; MAX_FIGHTERS];
-    let mut before = [Fx::ZERO; MAX_FIGHTERS];
-    for (b, f) in before.iter_mut().zip(state.fighters.iter()) {
+    let mut wants: [Option<u8>; MAX_BODIES] = [None; MAX_BODIES];
+    let nb = crate::state::bodies(state);
+    let mut before = [Fx::ZERO; MAX_BODIES];
+    for (b, f) in before.iter_mut().zip(state.fighters.iter()).take(nb) {
         *b = f.pos.x;
     }
     // Which fighters have an item in reach as the frame begins (E4: an attack or grab press picks it up).
@@ -132,16 +141,16 @@ pub fn step(state: &mut GameState, content: &Content, inputs: &[Input; MAX_FIGHT
     // What move scripts see of the others this frame (a target lock): every chest, and which fighters can be targeted.
     let mut world = crate::scripting::World {
         stage,
-        targets: [None; MAX_FIGHTERS],
-        chest: [Fx::ZERO; MAX_FIGHTERS],
+        targets: [None; MAX_BODIES],
+        chest: [Fx::ZERO; MAX_BODIES],
         me: 0,
         projectiles: &state.projectiles,
-        encase: [None; MAX_FIGHTERS],
+        encase: [None; MAX_BODIES],
         items: &state.items,
         pickable,
         ledges: state.ledge_owner,
     };
-    for (i, f) in state.fighters.iter().enumerate() {
+    for (i, f) in state.fighters.iter().enumerate().take(nb) {
         let height = combat::chest_height(params_of(content, f));
         world.chest[i] = height;
         // (An egged fighter reads its egg's numbers from the move that laid it: E8.)
@@ -150,7 +159,13 @@ pub fn step(state: &mut GameState, content: &Content, inputs: &[Input; MAX_FIGHT
             world.targets[i] = Some(f.pos + crate::vec2::Vec2::new(Fx::ZERO, height));
         }
     }
-    for (i, (f, input)) in state.fighters.iter_mut().zip(inputs.iter()).enumerate() {
+    for (i, (f, input)) in state
+        .fighters
+        .iter_mut()
+        .zip(inputs.iter())
+        .enumerate()
+        .take(nb)
+    {
         if !f.active {
             continue;
         }
@@ -162,7 +177,7 @@ pub fn step(state: &mut GameState, content: &Content, inputs: &[Input; MAX_FIGHT
     }
 
     // A move that has just begun draws its random version (E39), and balloons come out, use helium and go (E41).
-    for i in 0..MAX_FIGHTERS {
+    for i in 0..crate::state::bodies(state) {
         if state.fighters[i].active {
             let params = params_of(content, &state.fighters[i]);
             let weapon = combat::weapon_of(content, params);
@@ -174,7 +189,7 @@ pub fn step(state: &mut GameState, content: &Content, inputs: &[Input; MAX_FIGHT
     // Bodies on the ground cannot pass through each other (see `push`).
     crate::push::separate(state, content, &before);
     // A grounded fighter on a slope keeps its feet on it after every sideways move this frame (sim 124; nothing on flat ground).
-    for f in state.fighters.iter_mut().filter(|f| f.active) {
+    for f in state.fighters.iter_mut().take(nb).filter(|f| f.active) {
         if crate::collision::platform(&content.stage, f.platform).is_some_and(|p| p.sloped()) {
             fighter::keep_on_ground(f, &content.stage);
         }
@@ -283,6 +298,23 @@ mod tests {
             step(&mut r, &content, i);
         }
         assert_eq!(r.checksum(), straight);
+    }
+
+    /// Sim 131: in versus the grunt slots stay exactly as a new match left them (nothing reads or writes them), which is why the checksum
+    /// and every loop stop at the players outside a run (`state::bodies`).
+    #[test]
+    fn versus_never_touches_the_grunt_slots() {
+        let content = Content::placeholder();
+        for seed in 0..10u64 {
+            let inputs = random_inputs(&mut Rng::new(seed), 1500);
+            let mut s = GameState::new(&content, seed, [0, 1, 2, 3]);
+            let empty = s.fighters[MAX_FIGHTERS..].to_vec();
+            for i in &inputs {
+                step(&mut s, &content, i);
+            }
+            assert_eq!(s.fighters[MAX_FIGHTERS..].to_vec(), empty, "seed {seed}");
+            assert_eq!(crate::state::bodies(&s), MAX_FIGHTERS);
+        }
     }
 
     /// Random play must never panic or leave a fighter in an inconsistent state.

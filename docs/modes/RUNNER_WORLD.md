@@ -189,7 +189,7 @@ The **art director** owns the look:
 Placeholders stay acceptable until the kit arrives. Every footing object in the run data gets a `look` tag (dumpster, awning,
 crate, and so on) so the art can be swapped in without touching the sim.
 
-## 4. Enemies (**Decided**, 14 October 2026; built in R2b, sim 127)
+## 4. Enemies (**Decided**, 14 October 2026; built in R2b, sim 127; combat parity and lighter grunts in R2c, sim 131)
 
 The owner, after playing R2a: "It might be better that the enemies fought in this mode are based off of the general base game
 characters, both for ease of fighting against (it was a bit hard to hit the current enemies) and for stylistic consistency/asset
@@ -204,17 +204,26 @@ reuse." R1's mobs were circles 0.5 to 0.6 across, against a fighter about 2 tall
 2. **Grunts fight with real moves.** Each kind borrows one to three moves from its body's moveset: their real hitboxes, frames and
    knockback. Every attack is announced by a **tell** (a big bobbing "!" over it and a short sound), then the move's own wind-up. The
    tell is 18 frames in tier 1 and shortens with the tier.
-3. **A light pool, not fighter slots.** The fixed pool of 16 stays (the four fighter slots stay free). Grunts take the versus hit model
-   (knockback, hitstun, DI against them, shields, crouch cancelling, armor, counters) and move with simple ground physics (walk, run,
-   hop, fall, platform landing, slopes) through the shared collision, with a small state machine per role instead of the fighter
-   state machine. Bosses (R4) are full CPU fighters.
+3. **A grunt is a fighter** (R2c, replacing R2b's light pool; the owner: grabs "and all combat functions should function same as
+   'battle' mode"). Twelve grunt slots follow the four player slots in the game state, and the versus step moves them with every rule,
+   both ways: grabs with the hold, pummels, all four throws, grab releases and mashing out; hitstun, tumble, techs, DI and SDI;
+   shields, shield stun and breaks, perfect shields; armor, counters, reflectors and absorbers; hitlag, crouch cancelling, ledges,
+   the player's projectiles and items; staleness and rage. Grunts never hit one another. A small player per role (`run/mobs.rs`)
+   gives each grunt its inputs: approach, the tell, then the move's own input. At higher tiers grunts tech, DI and mash (none at
+   tier 1). Bosses (R4) are full CPU fighters.
+3a. **Light, and beaten only by launching** (R2c, the owner: "a lot easier to kill (i.e. significantly lighter at low difficulty)";
+   "invisible blast zones following the player, always outside of view"). A grunt's weight is its tier's (a table, far below any
+   fighter's at tier 1, heavier each tier) times its kind's percent (the bruiser heaviest); a solid smash at 0 to 20% knocks a tier-1
+   grunt out. No stamina: a grunt is knocked out when launched past the blast zones that follow the view, 4 units outside it on every
+   side, with the knock-out's effect; one launched backward in tumble passes the gate (still a wall for the player). Grunt damage keeps
+   scaling with the tier.
 4. **Six kinds:**
 
    | Kind | Body (moves) | Rule | Counter | Teaches |
    | --- | --- | --- | --- | --- |
    | Brawler | the gauntlets' sprinter (jab, forward tilt) | rushes you, running when far | anything | basics |
    | Leaper | the needles' rogue (down air, forward air) | waits on high ground, crouches, leaps at you, its aerial drifting onto you | up air, shield, step aside | anti-air |
-   | Shieldbearer | the buckler's wanderer (forward tilt, jab) | guards toward you (a versus shield, up through the tell of its poke too) and pokes out of it | a grab, a hit from above, or a cross-up before it turns (18 frames); a guard worn out dazes it | approach angles (Punch Quest's orc) |
+   | Shieldbearer | the buckler's wanderer (forward tilt, jab) | holds up its shield near you (a versus shield since R2c: it shrinks, it breaks) and pokes out of it | a grab, or shield pressure until it breaks (the dizzy stun) | approach angles (Punch Quest's orc) |
    | Spearman | the longsword's duelist (forward tilt, dash attack) | a long, late poke along the ground, or a sliding dash attack from further out | jump it and punish | timing |
    | Lobber | the clutch's bounder (its lobbed shell, jab) | throws its shell in an arc from high ground, aimed to land on you | reflect it into the grunts, close in, or dodge | projectiles |
    | Bruiser | the bracers' hauler (forward smash, jab) | slow and heavy, super armor through its tell and its smash's startup, a big launch | hit it out of its cooldown, keep your distance | respect and spacing |
@@ -254,6 +263,8 @@ Ideas in our setting:
   - cheers when you buy;
   - grumbles cheerfully when you can't afford something;
   - gets dizzy if you hit it, never hurt, with a little "hey!".
+  - then sulks and refuses to sell until you have entered a room further right than its shop (the owner, R2c: no timer, to
+    encourage going on); its storefront shows a CLOSED board meanwhile.
 - Wares sit on pedestals or the counter. You **walk up to an item and press up to buy** it; its price floats above it. No menu.
 - Leaving through the door returns you to the street where you entered. The world outside is paused while you're inside, as now.
 - It stays small: a cozy moment between rooms, not a feature. The R1b ware list (heal, life) stays as data, and R3 fills it.

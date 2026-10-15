@@ -21,10 +21,16 @@ var run_name := "Fighter"
 var info := PackedInt32Array()
 var info_before := PackedInt32Array()
 var view := PackedFloat32Array()
+var view_before := PackedFloat32Array()
+## Grunts knocked out by the blast zones and shown (for tests).
+var grunt_kos := 0
 ## The view's left edge last tick and this tick (drawn between them), and the height the camera keeps.
 var edge_prev := 0.0
 var edge_cur := 0.0
 var cam_y := 3.0
+## The sim's view height (R2c: the camera's height is the sim's, so the grunts' blast zones stay outside the view), last tick and this.
+var cam_y_prev := 3.0
+var cam_y_cur := 3.0
 var mob_views: Array = []
 var mobs_prev := PackedFloat32Array()
 var mobs_cur := PackedFloat32Array()
@@ -134,9 +140,14 @@ func _restart() -> void:
 	view = sim.run_view()
 	info = sim.run_info()
 	info_before = info
+	view_before = view
 	edge_prev = view[0]
 	edge_cur = view[0]
 	cam_y = cur_pos[0].y + 3.0
+	if view.size() >= 13:
+		cam_y = view[12]
+	cam_y_prev = cam_y
+	cam_y_cur = cam_y
 	cam_base = Vector3.INF
 	mobs_cur = sim.run_mobs()
 	mobs_prev = mobs_cur
@@ -153,6 +164,7 @@ func _restart() -> void:
 func _tick_once_inner(advance := true) -> void:
 	edge_prev = edge_cur
 	mobs_prev = mobs_cur
+	view_before = view
 	info_before = info
 	shop_before = shop
 	super._tick_once_inner(advance)
@@ -163,6 +175,9 @@ func _tick_once_inner(advance := true) -> void:
 	_refresh_grunts()
 	if view.size() > 0:
 		edge_cur = view[0]
+	cam_y_prev = cam_y_cur
+	if view.size() >= 13:
+		cam_y_cur = view[12]
 	_run_events()
 
 
@@ -211,12 +226,23 @@ func _run_events() -> void:
 		if struck:
 			sfx.play_group("punch", 1.15)
 			_burst(at, Color(1.0, 0.9, 0.6), 0.5, 0.18)
-		if int(mobs_cur[o + 6]) == 5 and int(mobs_prev[o + 6]) != 5:
-			var outfit: Dictionary = GruntView.OUTFITS[clampi(int(mobs_cur[o + 2]), 0, GruntView.OUTFITS.size() - 1)]
-			_burst(at, (Loadout.PALETTE[int(outfit.color)] as Color).lightened(0.3), 1.4, 0.35)
 		# A tell beginning: a short warning sound.
 		if int(mobs_cur[o + 6]) == 2 and int(mobs_prev[o + 6]) != 2:
 			sfx.play("blip", 2.8, -10.0)
+	# R2c: a grunt knocked out by the blast zones that follow the view: the knock-out's blast, in its outfit's colour.
+	if view.size() >= 16 and view_before.size() >= 16 and view[13] > view_before[13]:
+		var colour := GruntView.ENEMY_RED
+		var at := Vector2(view[14], view[15])
+		var nearest := INF
+		for n in mobs_prev.size() / MOB_STRIDE:
+			var o := n * MOB_STRIDE
+			if mobs_prev[o] > 0.5 and (mobs_cur.size() <= o or mobs_cur[o] < 0.5):
+				var d := at.distance_to(Vector2(mobs_prev[o + 3], mobs_prev[o + 4]))
+				if d < nearest:
+					nearest = d
+					var outfit: Dictionary = GruntView.OUTFITS[clampi(int(mobs_prev[o + 2]), 0, GruntView.OUTFITS.size() - 1)]
+					colour = (Loadout.PALETTE[int(outfit.color)] as Color).lightened(0.2)
+		_grunt_ko(at, colour)
 	if info[2] > info_before[2]:
 		sfx.play("blip", 1.9, -4.0)
 		combo_flash = 1.0
@@ -257,6 +283,35 @@ func _run_events() -> void:
 			sfx.play_group("punch", 1.4)
 
 
+## A grunt's knock-out (R2c): the versus knock-out's beam, sparks and rings from where it left, pointed back across the view, in its
+## colour, with a shake; no slow motion (grunts are knocked out often).
+func _grunt_ko(at: Vector2, colour: Color) -> void:
+	grunt_kos += 1
+	var centre := Vector2(lerpf(edge_prev, edge_cur, 1.0) + view[1] * 0.5, cam_y)
+	var inward := (centre - at).normalized()
+	var beam := Effects.Beam.new()
+	beam.material_override = Effects._material(false)
+	beam.colour = colour
+	beam.width = 2.0
+	beam.position = Vector3(at.x, at.y + 1.0, 0.0)
+	beam.rotation.z = atan2(inward.y, inward.x) - PI / 2.0
+	add_child(beam)
+	# (In from the view's edge, so the burst is on screen.)
+	var burst_at := at + inward * 6.0
+	Particles.knock_out(self, Vector3(burst_at.x, burst_at.y + 1.0, 0.5), colour, inward)
+	var wave := Effects.Ring.new()
+	wave.material_override = Effects._material(true)
+	wave.colour = Color(1, 1, 1, 0.95)
+	wave.from = 0.5
+	wave.to = 4.0
+	wave.thickness = 0.6
+	wave.life = 0.4
+	wave.position = Vector3(burst_at.x, burst_at.y + 1.0, 0.6)
+	add_child(wave)
+	sfx.play_group("punch", 0.8)
+	cam_shake = maxf(cam_shake, 0.9)
+
+
 func _flash(text: String, seconds: float) -> void:
 	flash_text = text
 	flash_until = Time.get_ticks_msec() / 1000.0 + seconds
@@ -268,6 +323,7 @@ func _process_inner(delta: float) -> void:
 	if run_stage != null and info.size() >= 10:
 		run_stage.sync(sim, info[9])
 		run_stage.animate(delta)
+		run_stage.show_closed(shop.size() > 10 and shop[shop.size() - 1] > 0)
 		if view.size() >= 12 and view[9] > 0.5:
 			run_stage.build_interior(sim)
 			run_stage.animate_interior(shop, delta)
@@ -343,13 +399,16 @@ func _update_camera(a: float, delta: float) -> void:
 	# (At 30 degrees of view, 16:9, the visible width is about 0.95 of the distance: the screen's edges are the sim's.)
 	var dist := width / 0.95
 	var p: Vector2 = prev_pos[0].lerp(cur_pos[0], a)
-	# Height follows the fighter outside a dead zone, gently, and never below the street.
-	var want := clampf(p.y + 2.0, view[3] + 9.0, view[4] - 8.0)
+	# Height: the sim's (R2c: it follows the fighter outside a dead zone and keeps above the street, and the grunts' blast zones follow
+	# it); inside the shop, its middle.
 	if view.size() >= 12 and view[9] > 0.5:
-		want = 4.0
-		cam_y = want
-	if absf(want - cam_y) > 2.0:
-		cam_y = lerpf(cam_y, want - signf(want - cam_y) * 2.0, clampf(delta * 3.0, 0.0, 1.0))
+		cam_y = 4.0
+	elif view.size() >= 13:
+		cam_y = lerpf(cam_y_prev, cam_y_cur, a)
+	else:
+		var want := clampf(p.y + 2.0, view[3] + 9.0, view[4] - 8.0)
+		if absf(want - cam_y) > 2.0:
+			cam_y = lerpf(cam_y, want - signf(want - cam_y) * 2.0, clampf(delta * 3.0, 0.0, 1.0))
 	var target := Vector3(edge + width * 0.5, cam_y + 1.6 - dist * HUD_LIFT, dist)
 	if cam_base == Vector3.INF:
 		cam_base = target

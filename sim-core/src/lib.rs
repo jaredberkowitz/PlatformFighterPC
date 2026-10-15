@@ -40,8 +40,15 @@ pub use step::step;
 pub use vec2::Vec2;
 
 /// Bump whenever simulation behaviour changes. Exchanged in the netplay handshake and stored in replays.
-pub const SIM_VERSION: u16 = 130;
+pub const SIM_VERSION: u16 = 131;
+/// Players: the fighters a match's inputs drive (and whose stocks, spawns and results count).
 pub const MAX_FIGHTERS: usize = 4;
+/// Grunts (the run's enemies, R2c, sim 131): fighters no player drives, moved by the run's own input layer (`run::mobs`). They
+/// live in `GameState::fighters` after the players (inactive outside a run) and are stepped by the same fighter, combat and grab
+/// code as the players; they never hit, grab or reflect one another (`combat::rivals`).
+pub const MAX_GRUNTS: usize = 12;
+/// Every body the step moves: the players, then the grunts.
+pub const MAX_BODIES: usize = MAX_FIGHTERS + MAX_GRUNTS;
 pub const MAX_SCRIPT_VARS: usize = 16;
 /// Persistent script variables each fighter and each projectile carries (see `sim-script`).
 pub const FIGHTER_VARS: usize = 4;

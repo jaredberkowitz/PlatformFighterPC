@@ -1,9 +1,11 @@
-# Single-player mode: the endless run (plan, draft 3; R1 to R2b built)
+# Single-player mode: the endless run (plan, draft 3; R1 to R2c built)
 
 Status: **draft 3 (14 October 2026): the owner played R1 and replaced the creeping camera with rooms (section 3.1). R1 (the vertical
 slice) is built (sim 120, section 7); R1b (rooms) is built (sim 122, section 8); R2a (the world: slopes, room variants, the fork, the
 walk-in shop) is built on branch `runner-r2`, sim 124 and content schema 8: see section 9; R2b (fighter-shaped grunts, the difficulty
-curve, hazards, the runaway van, branching forks) is built on branch `runner-r2b`, sim 127: see section 10.** Decisions are marked **Decided**. Owner brief, 14 October 2026: a single-player endless-runner mode inspired by the mobile
+curve, hazards, the runaway van, branching forks) is built on branch `runner-r2b`, sim 127: see section 10; R2c (combat parity: every
+grunt is a fighter; lighter grunts knocked out by blast zones that follow the view; the shopkeeper's grudge) is built on branch
+`runner-r2c`, sim 131: see section 11.** Decisions are marked **Decided**. Owner brief, 14 October 2026: a single-player endless-runner mode inspired by the mobile
 game *Punch Quest* (Rocketcat Games and Madgarden, 2012), using this game's fighters, physics and art. The player runs right, beats
 enemies for currency, spends it in shops on power-ups, stat boosts and other fighters' moves of the same archetype, fights a generated
 boss every so often, and tries to get as far as possible.
@@ -208,6 +210,7 @@ zone, and the street route is never more than one screen below the roofs, so bot
 | R1b | Rooms (owner's change after R1): the room window with a wall behind, the two-way camera, streets, arenas, a placeholder shop (heal, extra life), rest stops, seeded room types, the map strip | backtracking feels fair and the rooms read clearly (built, sim 122) |
 | R2a | The world (owner, 14 Oct; see `RUNNER_WORLD.md`): slopes, room variants with optional parts, mirroring and obstacle pieces, the high/low fork, elevation lines, footing objects with `look` tags, the walk-in shop with a shopkeeper | rooms feel varied and believable; you can tell footing from decoration (built, sim 124) |
 | R2b | Enemies and the curve: fighter-shaped grunts (six kinds, base-game bodies with borrowed moves and tells), budgets and placement rules, hazards that hurt enemies, room pools by difficulty, the difficulty curve, the first rare event; the owner's R2a answers (coins 1, branching forks, the sulking shopkeeper) | runs differ and get harder smoothly (built, sim 127) |
+| R2c | Combat parity (owner, 14 Oct): grunts are fighters with every versus rule both ways, much lighter by tier, knocked out only by blast zones that follow the view; the shopkeeper closed until a new room | grabs, throws, techs and shields on grunts are versus's; a solid hit sends a tier-1 grunt off screen (built, sim 131) |
 | R3 | Shops and items: stat boosts, 10 properties, consumables, rerolls | a run's build changes how it plays |
 | R4 | Bosses: generated CPU fighters with stamina and modifiers, an arena chunk | a boss every few shops, beatable in 2 to 3 tries at worst |
 | R5 | Archetype move swaps | a sword fighter can buy another sword fighter's moves |
@@ -231,6 +234,15 @@ zone, and the street route is never more than one screen below the roofs, so bot
 After R2a (owner, 14 October 2026): a coin is worth 1; forks may lead to different rooms (built in R2b: the branching fork and its
 treasure alley); slopes stay as they are; hitting the shopkeeper makes it refuse to sell for a while (built: 3 seconds). After R2a's
 play the owner also asked for enemies based on the base game's characters (`RUNNER_WORLD.md` section 4, built in R2b).
+
+After R2b (owner, 14 October 2026): the curve's pace, the shieldbearer and the van's ride are fine for now (keep them tunable); hazards
+keep hurting the player; grabs "and all combat functions should function same as 'battle' mode"; the shopkeeper stays closed until the
+player enters a new room to the right. And: "The enemies should take regular damage and knockback, but be a lot easier to kill (i.e.
+significantly lighter at low difficulty). There should be invisible blast zones following the player, always outside of view, that if
+you hit the enemy too far they die." Built in R2c (section 11).
+
+Ideas for R3 and later (not built):
+- the Exile's shadow orbs (E59, `Move::orbs`) as a run power-up (the owner's idea, 15 October 2026).
 
 Still open, for later phases:
 - the first six enemy designs (the art director's call, within section 3.3's roles);
@@ -836,6 +848,151 @@ rooms have props.
 - **Hazards hurt you too.** The gas canister's burst catches you if you stand next to it when it goes off. Keep, or make hazards hurt
   only grunts?
 - **The sulk** lasts 3 seconds (a timer, not until you leave). Fine?
+
+## 11. R2c progress (combat parity and lighter grunts, sim 131, content schema 8, branch `runner-r2c`)
+
+Spec: the owner's answers to R2b (section 6) and the executive producer's R2c brief: every combat function between the player and the
+grunts works exactly as in versus; grunts are much lighter, by tier, and knocked out only by blast zones that follow the view; the
+shopkeeper stays closed until a new room. Inspiration: the reference game's older single-player Adventure mode (enemies are light
+obstacles taking percent and knockback, beaten by launching them off a scrolling screen).
+
+### What can be played
+- **Grunts fight by the versus rules, both ways**, because each grunt **is a fighter**: grab one and you hold it (pummel it, throw it
+  with any of your four throws; it breaks free when the hold runs out, sooner at tiers that mash); its hitstun, tumble, techs, DI and
+  SDI, its shield (a real versus bubble: it shrinks, gets shield stun, breaks into the dizzy stun; perfect shields work on it), armor,
+  counters, reflectors, hitlag, crouch cancelling, ledges, staleness and rage are all the versus code's. Its hits on you are its
+  fighter's moves through the same combat, at its tier's damage.
+- **Much lighter, by tier.** A tier-1 grunt flies from a solid hit at 0 to 20%: a forward smash at about 10% sends it out of the view
+  for most of the roster. Every tier is heavier; the bruiser is the heaviest kind in every tier.
+- **Knocked out only by launching.** No more stamina bursts: a grunt is beaten when it is launched past the **blast zones that follow
+  the view**, 4 units outside it on every side, with the knock-out's beam and sparks in its outfit's colour and a little shake (no slow
+  motion: knock-outs are frequent). A grunt that only walks out of view is left alone.
+- **Through the gate.** A grunt launched backward in tumble passes the gate behind (still a wall for you) and is knocked out by the zone
+  there.
+- **The shopkeeper's grudge.** Bonk it and it sulks and refuses to sell, on no timer, until you have entered a room further right than
+  its shop; the storefront hangs a **CLOSED** board meanwhile, and inside the hint reads "HMPH! CLOSED TILL YOU MOVE ON".
+- **One damage label per grunt.** A grunt shows its percent in small red figures over its red marker (as the reference's single-player
+  enemies do), hidden while it tells or comes out of its door. Fixed: the R2b screenshots' "0% ■%" (the fighter view's own damage
+  readout showing under a second label).
+- Grunts now also hop up steps and drop down off ledges to reach you (not the leaper and lobber, who keep to high ground), so an arena's
+  grunts always come.
+- At higher tiers grunts tech (10% to 40% of the time), DI (20% to 60%) and mash (25% to 75%); at tier 1 they do none of it.
+- The camera's height is now the sim's (so the zones stay outside the view): it follows the fighter as before.
+
+### How it is built (and why)
+- **A grunt is a fighter** (the brief's recommended architecture). `GameState::fighters` grows from 4 to `MAX_BODIES` = 16: the 4
+  player slots, then `MAX_GRUNTS` = 12 grunt slots (`run::grunt_slot(n)` = 4 + n), inactive outside a run. The step loop, the combat,
+  grab, item, projectile, orb, ledge and push code run over every body. Three general rules keep versus as it was:
+  - `combat::rivals(a, b)`: two grunts never hit, grab, clank with, reflect or lock onto each other (a hazard hits from an unplayed
+    player slot, so it reaches grunts too);
+  - everything sized by `MAX_FIGHTERS` that is about *players* stays so: inputs (`step` takes the players' four; `step_bodies` takes
+    all sixteen), spawns, stocks and results (`settle`, sudden death), the KO check (`check_ko`: a grunt is knocked out by the run), the
+    roster bits (the gauge's and the wing's opponent loops);
+  - hit records widened: `Fighter::hit_mask` and `Projectile::hit_mask` are `u128` (`hit_bit(d, g)` = `d + 16 * g`),
+    `Projectile::hit_age` and `Item::struck` hold 16, `Item::hit_mask` is a `u16`.
+  Versus checked identical: a digest of 60 random four- and two-player matches (every fighter's position, speed, percent, state,
+  frame, shield, stocks, hitlag, hitstun, move, grab, items, projectiles, ledges, winner, generator) is the same before and after, on
+  main at sim 128 and again at sim 130; `pftool net-fuzz 200` gives the same line (8,375 rollbacks, 28,253 stalls) and `fuzz-rollback
+  300` the same (46,942 rollbacks).
+- **Three new fighter fields** (hashed, 0 / off in versus): `Fighter::weight` (the weight the knockback formula reads instead of the
+  body's), `damage_scale` (percent of its hits' damage, knockback term included, as R2b scaled it) and `super_armor` (a bruiser's armor
+  through its tell and its smash's startup; any hit but a push only deals damage and hitlag).
+- **The run's input layer** (`run/mobs.rs`, `think`): a grunt's kind (`MobKind`) is a little player: it approaches (walking, or a dash
+  flick then the run), tells (stops: a "!" for `Tier::tell` frames: the shieldbearer behind its raised shield, the leaper crouched,
+  the bruiser armored), then presses the move's input: neutral attack for a jab, a half-stick and attack for a forward tilt, strong
+  attack for a forward smash, a flick and attack from a run for a dash attack, special up for the lobber's shell, a full hop then the
+  attack stick for the leaper's aerials. It waits for its move to end, then cools down. `Mob` keeps only that plan (mode, timer, move,
+  step, credit, last percent, room, tier). In hitstun, grabbed or on a ledge it DIs, techs, mashes or climbs up at its tier's rates
+  (decisions from a hash of the frame, as the computer opponent's `cpu::roll`, so the run's generator is untouched).
+- **The lobber's shell** is its body's up special and its real projectile, owned by the lobber; the run aims it at you on the frame
+  it is thrown (`mobs::aim_shell`), as R2b did.
+- **Credit and the combo**: a rise in a grunt's percent (or being held by the player) is a hit for the combo and makes a knock-out in
+  the next 3 seconds the player's kill.
+- **The following zones** (`run::grunt_zone`): `cam_x - ko_margin` to `cam_x + view_width + ko_margin`, `cam_y -+ view_height / 2 +
+  ko_margin`. The sim now keeps the view's height (`Run::cam_y`, following the player's feet plus `cam_lift` outside a `cam_dead` zone,
+  inside the rooms' blast lines) and the game's camera uses it. The player's own zones are unchanged from R1b (the gate on the left,
+  the view plus 6 on the right, the rooms' heights top and bottom); they lie outside the grunts' on every side, so they agree: a grunt
+  is always knocked out before a player could be at the same place.
+- **Through the gate**: before the step, a grunt in tumble moving left that would reach the wall this frame or the next is put on the
+  wall's other side (`mobs::through_gate`). In a run a push never shoves a body through a wall standing on the ground (the gates):
+  R2c found grunts pushing the player through an arena's gate (`push::shift`, run only).
+- **The shopkeeper**: `Run::keeper_grudge` is the room number the player must enter (the current room or the shop's, plus one); 0
+  none. `Interior::sulk_frames` is gone.
+- **Pool full**: a spawn spot waits for a free grunt slot instead of being lost; a shut arena's spots all come as slots free.
+- **Versus pays (almost) nothing for the grunt slots** (review fix): `state::bodies` is the players outside a run and every body in
+  one; every loop over the bodies stops there, `resolve_hits` sizes its pair tables by it (4 by 4 in versus, 16 by 16 in a run), and the
+  checksum hashes only those bodies (and those bodies' per-body records in projectiles and items). In versus the grunt slots are never
+  read or written (a test checks they stay as a new match leaves them). `pftool fuzz-rollback 300`: 4.0 to 4.1 s against main's 3.9
+  to 4.1 s (it was 7.3 to 7.8 s before the fix).
+- **GameState is 10,688 bytes** (a fighter is 384 bytes; R2b: 6,368; the run's part is 2,616 bytes, was 3,568: the R2b mob pool
+  is gone). 16 grunt slots would be 12,224 bytes; 12 is enough for the window (spots wait for a
+  slot) and keeps versus snapshots under 11 KiB. `pftool run-bench 6000`: 0.0074 ms a frame on average with all 12 grunts out, worst
+  0.066 ms (R2b: 0.0031 / 0.19).
+
+### Tunables added or changed (`RunRules::standard`, `MobKind::standard`, `Tier::standard`)
+| Rule | Value | Meaning |
+| --- | --- | --- |
+| `ko_margin` | 4 | the grunts' blast zones, this far outside the view on every side |
+| `view_height` | 18 | the view's height in the world (16:9 at the run's view width; a little extra) |
+| `cam_lift` / `cam_dead` / `cam_y_ease` | 2 / 2 / 1/20 | the view's height follows the feet plus 2, outside a dead zone of 2, a twentieth of the way a frame |
+| `cam_floor` / `cam_ceiling` | 9 / 8 | it stays this far above the blast zone's bottom and below its top (the game's old rule, now the sim's) |
+| `MobKind::stamina` | 0 for all | an optional percent at which a kind is beaten where it stands; 0: only the zones |
+| `MobKind::weight` | brawler 100, leaper 85, shieldbearer 110, spearman 100, lobber 90, bruiser 150 | percent of the tier's weight, counted from -100 |
+| removed | `lunge`, `shield`, `shot_frame` (kinds); `burst_frames`, `guard_turn`, `daze_frames`, `shield_regen`, `grab_throw` (rules); `Interior::sulk_frames` | the fighter's own move, shield and throws do it now |
+
+| Tier | Weight (base) | Brawler / spearman | Leaper | Shieldbearer | Lobber | Bruiser | Tech | DI | Mash | Tell | Damage |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 | -55 | -55 | -62 | -51 | -60 | -33 | 0% | 0% | 0% | 18 | 100% |
+| 2 | -40 | -40 | -49 | -34 | -46 | -10 | 10% | 20% | 25% | 16 | 105% |
+| 3 | -25 | -25 | -36 | -18 | -33 | 13 | 20% | 35% | 45% | 14 | 110% |
+| 4 | -10 | -10 | -24 | -1 | -19 | 35 | 30% | 50% | 60% | 12 | 120% |
+| 5 | 5 | 5 | -11 | 16 | -6 | 58 | 40% | 60% | 75% | 10 | 130% |
+
+(The roster weighs 78 to 127. The knockback formula divides by the weight plus 100, so -55 takes about four times the knockback of
+an 80. Measured: a forward smash from 1.4 away knocks a tier-1 brawler out of the view at 0 to 20% for 13 of the 14 fighters; the
+buckler's is a multi-hit smash whose later hits miss a grunt the first hit already sent flying. Tier 5 takes 25 to
+60%.)
+
+### Tests and numbers
+- `sim-core/tests/runner.rs` (64; 13 new or rewritten for R2c): a grunt is a fighter of its body (slot, weight, damage, the drawn
+  fighter is itself); grab, pummel and every throw (forward, back, up, down) on a grunt give **the same percent, hitstun, launch speed
+  and tumble** as on a versus fighter of that body with the grunt's weight, for three throwers; a held grunt breaks free, sooner when
+  its tier mashes; techs (a tumbling grunt landing techs at a teching tier, lies down at tier 1) and DI (its launch bent up); the
+  shieldbearer's shield (blocked with shield stun, beaten by a grab, broken into the stun); the bruiser's super armor through its
+  tell only; grunts never hit one another (`rivals`); weight by tier (lighter than every fighter at tier 1, heavier every tier, the
+  bruiser heaviest) and a forward smash at 10% knocking a tier-1 grunt out (a KO and a kill); the zones follow the view (left, right,
+  top and bottom: just past each is a KO, just inside is not; they move with the camera) and a grunt thrown back through the gate is
+  knocked out behind it while the player stays inside; the player's zones lie outside the grunts'; no stamina by default (900% and
+  standing) but an optional one still works; a push never goes through a gate; the shopkeeper stays closed after ten seconds and after
+  leaving and coming back, and opens once a room further on is entered; the checksum sees the grunt slots and the three new fields
+  (`state.rs` too); every R2b test kept and moved onto the fighters (tells of 18 frames then the kit's move hitting, tiers, placement
+  over 30 seeds, hazards, the van, forks, events, replays).
+- Moveset tests touched only for the wider hit records (`reference_moves.rs` reads `hit_bit`); `kits.rs`, `move_rules.rs`, `grabs.rs`
+  and every per-fighter throw test pass unchanged.
+- `cargo test --workspace`, clippy with `-D warnings`, `cargo fmt`: all pass. `pftool net-fuzz 200`: 0 mismatches, the same line as
+  main (8,375 rollbacks, 28,253 stalls); `fuzz-rollback 300`: 0 mismatches, the same line as main.
+- Godot, headless: runner_test (now also: 12 grunt slots, the view's new numbers, a grunt launched and knocked out with the player's
+  kill, the knock-out effect in the scene, one damage label per grunt and none of the fighter view's, the camera on the sim's height,
+  the CLOSED boards), match_flow_test, input_e2e, controls_test, replay_test, online_flow_test, net_e2e, creator_flow_test,
+  content_e2e, editor_api_test: all pass. `tests/run_shot.gd` now photographs a grab, an up throw and a grunt knocked out off screen.
+- The bot (`pftool run-bot 8 7200`): the grunts now fight back with real moves and block the path; the bot (it only runs and jabs)
+  gets stuck in arenas it cannot clear, as it partly did in R2b.
+
+### Decisions for the owner (R2c)
+- **A grunt launched backward passes the gate** behind and is knocked out by the zone there; the gate stays a wall for you. Keep?
+- **The shieldbearer's shield is now a versus bubble**: it covers both sides, so R2b's cross-up and hit-from-above openings are gone;
+  grab it, poke its shield, or break it. Its old front-only guard could come back as a kind rule if you prefer it.
+- **Grunt knock-outs have no slow motion** (they are frequent), only the beam, sparks and a little shake. More or less?
+- **Twelve grunts at once** (was 16): spots past that wait their turn. Enough?
+- **Tier weights** (table above): tier 1 dies from a solid smash at 0 to 20%. Too light, too heavy?
+- **Grunts tech, DI and mash from tier 2** (10% to 75%). Fine, or later?
+
+### For the art director (R2c)
+1. The **CLOSED board** on a storefront (placeholder: a tilted "CLOSED" label across the door): a turned-round sign or shutters.
+2. The **grunt's damage figures** (placeholder: small light-red figures over the red marker, the match font).
+3. The **grunt knock-out** reuses the versus beam and sparks in the outfit colour; a smaller, enemy-specific pop would suit.
+4. Checked in `run_shot` after art 45 moved the stage's front to 2: props, the van, coins and doors still read right; the grunt labels
+   do not depth-test, so the closer front does not cover them.
 
 Sources: [TouchArcade review](https://toucharcade.com/2012/10/26/punch-quest-review/),
 [AppSpy review](https://www.appspy.com/punch-quest-review), [Destructoid review](https://www.destructoid.com/reviews/review-punch-quest/),
