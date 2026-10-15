@@ -363,3 +363,11 @@ for us; atmosphere only in the distance.
   (`review6_round19_saturation.png`: meadow, canyon, city, before | after). The look bench passes (the fighters keep their lift).
 - Next from the frame: hard-edged fighter shadows on the ground; scenery lit/shaded splits; fewer ink lines on scenery.
 Checked: the art pipeline and match flow tests; the look bench.
+
+## Refinement round 20 (Wind Waker HD frame, item 2)
+
+- **Fighters' ground shadows** (`review6_round20_shadow.png`, before | after): a soft radial blur, near black at its middle, read as a
+  smudge under the feet. Now one firm, dark-tinted shape with a short soft edge (alpha 0.62 to 80% of the radius, gone by 90%) and a
+  little tighter (2.2 by 2.0), as the reference's cel shadows (`fighter_view.gd` `_contact_shadow`). It still marks the landing spot
+  from the air.
+Checked: the art pipeline, match flow and fighter view tests.
