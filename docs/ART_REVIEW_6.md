@@ -465,3 +465,10 @@ Checked: the art pipeline and match flow tests.
   is the placeholder-crate symbol. Now two horizontal board seams behind the frame and a single diagonal brace, as a built crate. The
   beach's props and the city's rooftop vent and AC unit checked and kept.
 Checked: the art pipeline and match flow tests.
+
+## Refinement round 35
+
+- **Palm trunks** (`review6_round35_palm.png`, before | after): each scale flared 26% and each joint ring carried its own ink line, so
+  the trunk read as a stack of cups. A gentler flare (1.06 to 0.94) and slimmer joint rings without their own outline: one continuous
+  trunk with soft scale rings (`_palm`). The beach hut, the city's water tower and string lights checked and kept.
+Checked: the art pipeline and match flow tests.

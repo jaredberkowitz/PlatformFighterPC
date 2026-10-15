@@ -3132,7 +3132,8 @@ static func _palm(root: Node3D, base: Vector3, size: float, rng: RandomNumberGen
 	var top := base
 	# (A trunk of overlapping scales, each a ring wider at its top than its foot, turned along the trunk's curve and narrowing toward
 	# the crown, so it reads as one curving palm trunk rather than a stack of drums; a darker ring marks each joint.)
-	var joint := Materials.bark(Color(0.5, 0.36, 0.24), Vector2(1, 1))
+	# (Rings without their own ink and a gentler flare, art review 6 round 35: each scale outlined and flaring 26% read as a stack of cups.)
+	var joint := Materials.bark(Color(0.5, 0.36, 0.24), Vector2(1, 1), false)
 	var n := 10
 	for k in n:
 		var u := float(k) / float(n)
@@ -3140,8 +3141,8 @@ static func _palm(root: Node3D, base: Vector3, size: float, rng: RandomNumberGen
 		var slope := lean * 2.0 * float(k) * 0.08 / 0.6
 		var r := lerpf(0.32, 0.22, u) * size
 		var tilt := Vector3(0, 0, -rad_to_deg(atan(slope)))
-		_mesh(root, _cylinder(r * 1.12, r * 0.86, 0.7 * size, 12), bark, seg + Vector3(0, 0.35 * size, 0), Vector3.ONE, tilt)
-		_mesh(root, _cylinder(r * 1.15, r * 1.15, 0.07 * size, 12), joint, seg + Vector3(slope * 0.66 * size, 0.68 * size, 0), Vector3.ONE, tilt)
+		_mesh(root, _cylinder(r * 1.06, r * 0.94, 0.7 * size, 12), bark, seg + Vector3(0, 0.35 * size, 0), Vector3.ONE, tilt)
+		_mesh(root, _cylinder(r * 1.08, r * 1.08, 0.06 * size, 12), joint, seg + Vector3(slope * 0.66 * size, 0.68 * size, 0), Vector3.ONE, tilt)
 		top = seg + Vector3(slope * 0.7 * size, 0.7 * size, 0)
 	# A flared, rooted foot in the sand.
 	_mesh(root, _cylinder(0.3 * size, 0.5 * size, 0.4 * size, 12), bark, base + Vector3(0, 0.1 * size, 0))
