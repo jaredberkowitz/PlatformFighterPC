@@ -44,6 +44,11 @@ The detail behind each step follows.
 - [ ] Ship a build with everything since art 49 (canyon haze, city windows, pose atlas tool, anything below): export, desktop folder,
       zip, GitHub release (docs/STATUS.md and the desktop-build memory for the steps).
 
+## Run mode review (owner: "lacks the verticality and depth of Punch Quest")
+- [ ] Read `docs/modes/RUNNER_REVIEW.md` with the owner. Its proposed order is R2d verticality (three decks, vertical rooms, sure and
+      skilled routes), R2e vertical combat and the node map, then R3, then R4a moving platforms and set pieces. Settle its four
+      questions and re-plan before starting R3.
+
 ## Run mode R3 (shops and items; modes-online agent, can run alongside the animation work)
 - [ ] Build R3 from `docs/modes/RUNNER_R3_PLAN.md`: 18 items (stats, properties, consumables), filled pedestals, cards, the reroll
       bell, the HUD strip, and grunts teching from tier 3. Ask the moveset session for the SIM_VERSION, keep versus timing within 2%,
