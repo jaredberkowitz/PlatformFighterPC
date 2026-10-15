@@ -2758,10 +2758,19 @@ static func _sunset(root: Node3D, t: Dictionary, stage: Array) -> void:
 	rng.seed = 7
 	var e := _ext(stage)
 	_painted_sun(root, Vector3(-16, 2, -140), 14.0)
-	var mesa_rock := _under_material(_soil_material(t), 0.35)
+	# (Each row's rock takes on the dusk sky's colour with its distance, as the meadow's islands do: at full strength the far buttes were
+	# as dark and saturated as the mesa the fighters stand on, so nothing receded. Art review 6, background cohesion.)
+	var rows := []
+	var haze := (t.sky_horizon as Color).lerp(Color.WHITE, 0.35)
+	for fade in [0.35, 0.55]:
+		var air := t.duplicate()
+		air.soil = (t.soil as Color).lerp(haze, fade)
+		air.soil_dark = (t.soil_dark as Color).lerp(haze, fade)
+		rows.append(_under_material(_soil_material(air), 0.35 * (1.0 - fade)))
 	# Buttes and mesas in strata on rubble slopes (art/blender/make_props.py), a nearer row and a farther one.
 	for k in 8:
 		var far := k % 2 == 1
+		var mesa_rock: ShaderMaterial = rows[1 if far else 0]
 		var at := Vector3(-110.0 + k * 30.0 + rng.randf_range(-6, 6), -16.0, -110.0 if far else -78.0)
 		# (In the stage's own painted strata, laid in world space and falling into shade below the light, so the buttes are the same rock
 		# as the mesa the fighters stand on.)

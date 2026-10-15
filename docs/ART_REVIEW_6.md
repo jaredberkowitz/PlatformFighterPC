@@ -171,3 +171,12 @@ longer legs, slimmer limbs and a softer pear torso than the PEAK-measured body. 
 `review6_figure_body_poses.png` (left the old body, right the new, in the guard, the run and the sword lunge),
 `review6_figure_body_outfits.png`. Checked: every Godot test (fighter, art, motion, animation, creator, online, match, loadout, content,
 runner); the look bench 0.91 (was 0.87).
+
+## Done: background cohesion, the canyon's far mesas (plan item 5)
+
+The canyon's buttes were painted in the stage's own strata at full strength, as dark and saturated as the mesa the fighters stand on,
+so the backdrop did not recede and the orange fighters sat in a field of the same colour. Each row now takes on a pale dusk haze with
+its distance (`_sunset`: the horizon lightened 35%, the near row 35% toward it, the far row 55%); the arch and the stage keep full
+strength as the near layers. A first try, stronger mist cards (`MIST`), barely showed and left a seam, and was reverted.
+`review6_canyon_haze.png` (before | after). Checked: the art pipeline and match flow tests. Next for this item: the city's far windows
+behind the fighters (the rooftop plan's 4.4) and the grove's pale foreground hedge.
