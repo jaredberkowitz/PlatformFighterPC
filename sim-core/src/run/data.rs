@@ -934,9 +934,10 @@ impl Tier {
                 stamina: 110,
                 damage: 105,
                 weight: int(-40),
-                tech: 10,
-                di: 20,
-                mash: 25,
+                // (Owner, 15 October 2026: techs, DI and mashing from tier 2 came "a bit too early"; they start at tier 3.)
+                tech: 0,
+                di: 0,
+                mash: 0,
             },
             Tier {
                 kinds: all(&[

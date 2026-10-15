@@ -81,7 +81,7 @@ Move swaps within an archetype stay in R5 and are not part of R3.
   each item marked reused or new.
 
 ## 5. Small tuning from the owner's R2c answers (fold into R3)
-- Grunts tech, DI and mash from **tier 3** instead of tier 2. The owner called tier 2 "a bit too early".
+- Grunts tech, DI and mash from **tier 3** instead of tier 2. The owner called tier 2 "a bit too early". (**Done early, sim 136**, 15 October.)
 - Everything else from R2c is kept as is. The gate pass-through, the shieldbearer's bubble, the KO effects, 12 grunts and the tier
   weights are all "fine for now, refine later".
 
