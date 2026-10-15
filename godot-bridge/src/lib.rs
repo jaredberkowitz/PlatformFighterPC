@@ -19,8 +19,7 @@ use sim_content::stages;
 use sim_core::input::buttons;
 use sim_core::run::{
     door_here, door_of, for_each_coin, for_each_footing, grunt_fighter, new_run, shop_spot,
-    step_run, tier_of, Mob, RunContent, INTERIOR_X, LOOK_NAMES, MAX_MOBS, MODE_EMERGE, MODE_MOVE,
-    MODE_WINDUP,
+    step_run, tier_of, RunContent, INTERIOR_X, LOOK_NAMES, MAX_MOBS, MODE_EMERGE, MODE_WINDUP,
 };
 use sim_core::state::PLAYING;
 use sim_core::{step, Content, Fx, GameState, Input, MatchRules, Vec2, MAX_FIGHTERS, SIM_VERSION};
@@ -891,10 +890,8 @@ impl SimRunner {
         let next = ahead[n - 1];
         let target = next.seq;
         run.cam_x = (next.x - rc.rules.view_width * rc.rules.follow).max(run.wall_x);
-        for m in run.mobs.iter_mut() {
-            m.active = false;
-        }
         run.gate_closed = false;
+        sim_core::run::clear_grunts(&mut self.state, &self.content);
         let f = &mut self.state.fighters[0];
         f.pos = Vec2::new(
             next.x + rc.rules.enter_depth + Fx::ONE,
@@ -930,28 +927,80 @@ impl SimRunner {
         else {
             return -1;
         };
-        let Some(slot) = self.state.run.mobs.iter().position(|m| !m.active) else {
+        let tier = tier_of(rc, self.state.run.room);
+        let _ = (plat, k);
+        let Some(slot) = sim_core::run::place_grunt(
+            &mut self.state,
+            &self.content,
+            rc,
+            kind as u8,
+            Vec2::new(x, probe.y - d),
+            tier,
+        ) else {
             return -1;
         };
-        let tier = tier_of(rc, self.state.run.room);
-        self.state.run.mobs[slot] = Mob {
-            active: true,
-            kind: kind as u8,
-            mode: if telling { MODE_WINDUP } else { MODE_MOVE },
-            timer: if telling { 600 } else { 0 },
-            pos: Vec2::new(x, probe.y - d),
-            facing: if x > f.pos.x { -1 } else { 1 },
-            platform: plat as i8,
-            stamina: k.stamina,
-            shield: k.shield,
-            room: self.state.run.room,
-            tier,
-            move_slot: 0,
-            ..Mob::default()
-        };
+        if telling {
+            let m = &mut self.state.run.mobs[slot];
+            m.mode = MODE_WINDUP;
+            m.timer = 600;
+            m.move_slot = 0;
+        }
         self.recorder = None;
         self.refresh_grunts();
         slot as i32
+    }
+
+    /// Debug (tests and photographs): every grunt gone.
+    #[func]
+    fn run_debug_clear_grunts(&mut self) {
+        if self.run.is_none() {
+            return;
+        }
+        sim_core::run::clear_grunts(&mut self.state, &self.content);
+        self.recorder = None;
+        self.refresh_grunts();
+    }
+
+    /// Debug (tests and photographs): grunt `n` stands still (cooling down for good). Returns whether there was such a grunt.
+    #[func]
+    fn run_debug_hold_grunt(&mut self, n: i32) -> bool {
+        let Ok(n) = usize::try_from(n) else {
+            return false;
+        };
+        if self.run.is_none() || n >= MAX_MOBS || !self.state.run.mobs[n].active {
+            return false;
+        }
+        let m = &mut self.state.run.mobs[n];
+        m.mode = sim_core::run::MODE_COOLDOWN;
+        m.timer = 9999;
+        self.recorder = None;
+        true
+    }
+
+    /// Debug (tests and photographs): grunt `n` launched in tumble at `(vx, vy)` units a frame, as if the player had hit it (R2c: it flies
+    /// on until the blast zones that follow the view knock it out). Returns whether there was such a grunt.
+    #[func]
+    fn run_debug_launch_grunt(&mut self, n: i32, vx: f32, vy: f32) -> bool {
+        let Ok(n) = usize::try_from(n) else {
+            return false;
+        };
+        if self.run.is_none() || n >= MAX_MOBS || !self.state.run.mobs[n].active {
+            return false;
+        }
+        let fx = |v: f32| Fx::from_ratio((v * 1000.0) as i32, 1000);
+        let g = &mut self.state.fighters[sim_core::run::grunt_slot(n)];
+        g.state = sim_core::state::FighterState::Hitstun;
+        g.hitstun = 120;
+        g.tumble = true;
+        g.platform = sim_core::state::NONE;
+        g.vel = Vec2::ZERO;
+        g.kb_vel = Vec2::new(fx(vx), fx(vy));
+        let m = &mut self.state.run.mobs[n];
+        m.credit = 60;
+        m.mode = sim_core::run::MODE_MOVE;
+        self.recorder = None;
+        self.refresh_grunts();
+        true
     }
 
     /// Debug (tests and photographs): the next rooms laid make the city's rare event come at once (the pity counter maxed out).
@@ -2647,8 +2696,10 @@ impl SimRunner {
     }
 
     /// `[left edge, view width, follow (0..1), blast bottom, blast top, creep a frame, left wall, right limit (the end of the rooms in
-    /// play, or a shut gate), gate thickness, inside the shop (0/1), the interior's left edge, the interior's width]`. The blast
-    /// lines follow the ground's height (below the lowest ground of the rooms in play, above the highest).
+    /// play, or a shut gate), gate thickness, inside the shop (0/1), the interior's left edge, the interior's width, the view's height (its middle,
+    /// which the camera keeps: R2c), grunts knocked out so far, where the last one left (x, y), the view's height in the world, the grunts'
+    /// blast zones' margin outside the view]`. The player's blast lines follow the ground's height (below the lowest ground of the rooms
+    /// in play, above the highest).
     #[func]
     fn run_view(&self) -> PackedFloat32Array {
         let Some((rc, _)) = &self.run else {
@@ -2670,6 +2721,12 @@ impl SimRunner {
             if run.inside { 1.0 } else { 0.0 },
             INTERIOR_X as f32,
             f(rc.interior.width),
+            f(run.cam_y),
+            f32::from(run.kos),
+            f(run.ko_at.x),
+            f(run.ko_at.y),
+            f(r.view_height),
+            f(r.ko_margin),
         ];
         PackedFloat32Array::from(v.as_slice())
     }
@@ -2755,47 +2812,56 @@ impl SimRunner {
     }
 
     /// Every grunt slot, `RUN_MOB_STRIDE` (17) numbers each: `[active, kind, role (0 brawler, 1 leaper, 2 shieldbearer, 3 spearman,
-    /// 4 lobber, 5 bruiser), x, y, facing, mode, hitlag, stun, stamina left (0..1), percent, half width, height, body (its roster
-    /// fighter), guard left (0..1; -1 no guard), tier, tell (frames of warning left, while telling; else 0)]`. Modes: 0 idle, 1
-    /// moving, 2 telling, 3 attacking, 4 cooling down, 5 bursting, 6 coming out of its door (`stun` then holds the frames of it left),
-    /// 7 guarding, 8 dazed, 9 leaping. Grunt `n` is drawn as fighter `100 + n` (the `fighter_*` calls).
+    /// 4 lobber, 5 bruiser), x, y, facing, mode, hitlag, stun, stamina left (0..1; 1 for a kind with none), percent, half width,
+    /// height, body (its roster fighter), shield left (0..1, while its shield is up; else -1), tier, tell (frames of warning left,
+    /// while telling; else 0)]`, read from the grunt's fighter (R2c: a grunt is one). Modes: 0 idle, 1 moving, 2 telling, 3
+    /// attacking, 4 cooling down, 6 coming out of its door (`stun` then holds the frames of it left), 9 leaping. Grunt `n` is drawn as
+    /// fighter `100 + n` (the `fighter_*` calls).
     #[func]
     fn run_mobs(&self) -> PackedFloat32Array {
         let mut v = Vec::with_capacity(MAX_MOBS * 17);
-        let kinds = self.run.as_ref().map(|(rc, _)| &rc.mobs);
-        for m in &self.state.run.mobs {
-            let k = kinds.and_then(|k| k.get(usize::from(m.kind)));
-            let full = k.map_or(Fx::ONE, |k| k.stamina);
+        let run = self.run.as_ref();
+        for (n, m) in self.state.run.mobs.iter().enumerate() {
+            let k = run.and_then(|(rc, _)| rc.mobs.get(usize::from(m.kind)));
+            let g = &self.state.fighters[sim_core::run::grunt_slot(n)];
+            let tough = run.map_or(Fx::ONE, |(rc, _)| {
+                rc.tiers
+                    .get(usize::from(m.tier))
+                    .map_or(Fx::ONE, |t| Fx::from_ratio(i32::from(t.stamina), 100))
+            });
+            let full = k.map_or(Fx::ZERO, |k| k.stamina) * tough;
             let left = if full > Fx::ZERO {
-                f((m.stamina.max(Fx::ZERO) / full).min(Fx::ONE))
+                f(((full - g.percent).max(Fx::ZERO) / full).min(Fx::ONE))
             } else {
                 1.0
             };
             let stun = if m.mode == MODE_EMERGE {
                 m.timer
             } else {
-                m.hitstun
+                g.hitstun
             };
             let body = k.and_then(|k| self.content.fighters.get(usize::from(k.body)));
-            let guard = k
-                .filter(|k| k.shield > Fx::ZERO)
-                .map_or(-1.0, |k| f(m.shield.max(Fx::ZERO) / k.shield));
+            let shield = if g.state == sim_core::state::FighterState::Shield {
+                f((g.shield_hp / self.content.rules.shield_max.max(Fx::ONE)).min(Fx::ONE))
+            } else {
+                -1.0
+            };
             v.extend_from_slice(&[
                 if m.active { 1.0 } else { 0.0 },
                 f32::from(m.kind),
                 f32::from(k.map_or(0, |k| k.role)),
-                f(m.pos.x),
-                f(m.pos.y),
-                f32::from(m.facing),
+                f(g.pos.x),
+                f(g.pos.y),
+                f32::from(g.facing),
                 f32::from(m.mode),
-                f32::from(m.hitlag),
+                f32::from(g.hitlag),
                 f32::from(stun.min(999)),
                 left,
-                f(m.percent),
+                f(g.percent),
                 f(body.map_or(Fx::HALF, |b| b.ecb_half_width)),
                 f(body.map_or(Fx::from_int(2), |b| b.ecb_height)),
                 f32::from(k.map_or(0, |k| k.body)),
-                guard,
+                shield,
                 f32::from(m.tier),
                 if m.mode == MODE_WINDUP {
                     f32::from(m.timer.min(999))
@@ -2946,8 +3012,8 @@ impl SimRunner {
     /// The shop: `[inside (0/1), where the player stands (-2 nowhere, -1 the way out, else the ware's number), what the last buy did
     /// (0 nothing, 1 bought, 2 too few coins, 3 sold out, 4 not needed), buys tried so far, coins, wares, the shopkeeper's mood (0
     /// idle, 1 waving, 2 cheering, 3 grumbling, 4 dizzy, 5 sulking: "Hmph!"), the frames of it left, the ware it looks at (-1 none),
-    /// times bonked]`, then per ware `[kind (0 heal, 1 life), price, limit (0 none), sold here]`, then the frames it still sulks (it
-    /// sells nothing meanwhile; a refused buy notes 5).
+    /// times bonked]`, then per ware `[kind (0 heal, 1 life), price, limit (0 none), sold here]`, then whether it is closed to you (1:
+    /// after a bonk it sells nothing until you have entered a room further on than its shop; a refused buy notes 5).
     #[func]
     fn run_shop(&self) -> PackedInt32Array {
         let Some((rc, _)) = &self.run else {
@@ -2979,7 +3045,7 @@ impl SimRunner {
                 i32::from(r.shop_bought.get(i).copied().unwrap_or(0)),
             ]);
         }
-        v.push(i32::from(r.keeper_sulk));
+        v.push(i32::from(r.keeper_grudge != 0));
         PackedInt32Array::from(v.as_slice())
     }
 
@@ -3065,9 +3131,10 @@ impl SimRunner {
         let Some((rc, _)) = &self.run else {
             return;
         };
-        for (g, m) in self.grunts.iter_mut().zip(self.state.run.mobs.iter()) {
-            *g = if m.active {
-                grunt_fighter(&self.content, rc, m)
+        let _ = rc;
+        for (n, g) in self.grunts.iter_mut().enumerate() {
+            *g = if self.state.run.mobs[n].active {
+                grunt_fighter(&self.state, n)
             } else {
                 no_grunt()
             };

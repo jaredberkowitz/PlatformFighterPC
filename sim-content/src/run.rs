@@ -199,7 +199,6 @@ fn grunt_problems(rc: &RunContent, errors: &mut Vec<String>) {
     if rc.mobs.is_empty() || rc.mobs.len() > 8 {
         errors.push("run: 1 to 8 grunt kinds (a tier's kinds are bits of a byte)".to_string());
     }
-    let mut lobber_body = None;
     for (i, k) in rc.mobs.iter().enumerate() {
         let at = format!("grunt kind {i}");
         if k.role >= ROLES {
@@ -236,24 +235,16 @@ fn grunt_problems(rc: &RunContent, errors: &mut Vec<String>) {
                 errors.push(format!("{at}: move {j} ({id}) has no hit"));
             }
         }
-        if k.role == ROLE_LOBBER {
-            if lobber_body.is_some_and(|b| b != k.body) {
-                errors.push(format!("{at}: every lobber must have the same body"));
-            }
-            lobber_body = Some(k.body);
-            if k.shot_time == 0 || k.shot_frame == 0 {
-                errors.push(format!(
-                    "{at}: a lobber needs its shot's frame and flight time"
-                ));
-            }
+        if k.role == ROLE_LOBBER && k.shot_time == 0 {
+            errors.push(format!("{at}: a lobber needs its shot's flight time"));
         }
         for (name, v) in [("aggro", k.aggro), ("reach", k.reach), ("reach2", k.reach2)] {
             if v <= Fx::ZERO || v > Fx::from_int(40) {
                 errors.push(format!("{at}: {name} must be above 0 and at most 40"));
             }
         }
-        if k.stamina < Fx::ZERO || k.shield < Fx::ZERO || k.lunge < Fx::ZERO || k.lunge > Fx::ONE {
-            errors.push(format!("{at}: stamina and shield at least 0, lunge 0 to 1"));
+        if k.stamina < Fx::ZERO || k.weight == 0 || k.weight > 400 {
+            errors.push(format!("{at}: stamina at least 0, weight 1 to 400 percent"));
         }
         if k.walk == 0 || k.walk > 200 || k.run > 200 || k.cost == 0 {
             errors.push(format!(
@@ -279,6 +270,20 @@ fn grunt_problems(rc: &RunContent, errors: &mut Vec<String>) {
         if t.tell == 0 || t.stamina == 0 || t.damage == 0 {
             errors.push(format!("{at}: tell, stamina and damage at least 1"));
         }
+        if t.tech > 100 || t.di > 100 || t.mash > 100 {
+            errors.push(format!(
+                "{at}: tech, DI and mash are percents (at most 100)"
+            ));
+        }
+        // (The knockback formula divides by the weight plus 100: every kind's weight must stay well above -100.)
+        for j in 0..rc.mobs.len() {
+            let w = sim_core::run::grunt_weight(rc, j as u8, i as u8);
+            if w <= Fx::from_int(-90) || w > Fx::from_int(400) {
+                errors.push(format!(
+                    "{at}: grunt kind {j} would weigh {w:?} (above -90, at most 400)"
+                ));
+            }
+        }
         let comes = (0..rc.mobs.len().min(8))
             .any(|k| t.kinds & (1 << k) != 0 && usize::from(rc.mobs[k].min_tier) <= i);
         if !comes {
@@ -291,6 +296,16 @@ fn grunt_problems(rc: &RunContent, errors: &mut Vec<String>) {
     }
     if r.van_speed <= Fx::ZERO || r.van_accel <= Fx::ZERO || r.van_frames == 0 {
         errors.push("run rules: the van's speed, acceleration and frames above 0".to_string());
+    }
+    if r.view_height <= Fx::ZERO
+        || r.ko_margin < Fx::ZERO
+        || r.cam_dead < Fx::ZERO
+        || r.cam_y_ease <= Fx::ZERO
+    {
+        errors.push(
+            "run rules: view_height and cam_y_ease above 0, ko_margin and cam_dead at least 0"
+                .to_string(),
+        );
     }
     if r.high_ground <= Fx::ZERO || r.flat_room <= Fx::ZERO {
         errors.push("run rules: high_ground and flat_room above 0".to_string());

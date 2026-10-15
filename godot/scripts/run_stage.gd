@@ -82,6 +82,10 @@ var keeper_stars: Node3D
 var ware_nodes: Array = []
 var price_labels: Array = []
 var shop_t := 0.0
+## R2c: every storefront's "CLOSED" sign (hung on its door while the shopkeeper bears a grudge: it sells nothing until the player
+## has gone on into a room further than the shop), and whether they show.
+var closed_signs: Array = []
+var shops_closed := false
 
 
 func setup(t: Dictionary) -> void:
@@ -425,6 +429,31 @@ func _storefront(parent: Node3D, door_x: float, door_y: float) -> void:
 	label.outline_modulate = Color(0.5, 0.1, 0.3)
 	label.position = Vector3(door_x, door_y + 4.4, -1.0)
 	front.add_child(label)
+	# A board hung across the door, tilted, while it is closed to you (placeholder: the art director's turned-round sign replaces it).
+	var closed := Label3D.new()
+	closed.name = "Closed"
+	closed.text = "CLOSED"
+	closed.font_size = 72
+	closed.pixel_size = 0.01
+	closed.modulate = Color(1.0, 0.92, 0.85)
+	closed.outline_size = 18
+	closed.outline_modulate = Color(0.6, 0.08, 0.1)
+	closed.position = Vector3(door_x, door_y + 1.7, -0.7)
+	closed.rotation.z = deg_to_rad(-8.0)
+	closed.visible = shops_closed
+	front.add_child(closed)
+	closed_signs.append(closed)
+
+
+## Hangs (or takes down) the "CLOSED" board on every storefront: `closed` is the shop's grudge (`SimRunner.run_shop`'s last number).
+func show_closed(closed: bool) -> void:
+	shops_closed = closed
+	var kept: Array = []
+	for c in closed_signs:
+		if is_instance_valid(c):
+			(c as Label3D).visible = closed
+			kept.append(c)
+	closed_signs = kept
 
 
 ## A rest stop's sign (placeholder).

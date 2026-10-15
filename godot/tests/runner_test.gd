@@ -3,7 +3,8 @@ extends SceneTree
 ## stream in (laid as variants, with slopes, pieces, looks and coins) and are entered, the map (forks too, and the tier) and the shop
 ## read the run, the walk-in shop's interior and shopkeeper are drawn, the walls are drawn, the display reads the run, grunts are drawn
 ## with the fighter rig (their tell too), coins picked up vanish, props and the runaway van are drawn, a lost last life brings up the
-## results, and "Run again" starts a new one.
+## results, and "Run again" starts a new one. R2c: grunts are fighters (twelve slots), the camera's height is the sim's, a grunt launched
+## out of the view is knocked out with the knock-out's effect, a grunt shows one small damage label, and a closed shop hangs its sign.
 ## Run: Godot --headless --path godot --script res://tests/runner_test.gd
 
 const Roster := preload("res://scripts/roster.gd")
@@ -51,14 +52,15 @@ func _bridge() -> void:
 	check(info[17] == 0 and info[18] == 0 and info[19] == 0, "tier 1 (0), no chest, not riding: " + str(info))
 	check(info[8] == 0 and info[10] == 0 and info[11] == 0 and info[13] == 0, "in the first room, a street, no gate, no shop: " + str(info))
 	var view: PackedFloat32Array = sim.run_view()
-	check(view.size() == 12 and view[1] > 20.0 and view[9] == 0.0, "the view, outside: " + str(view))
+	check(view.size() == 18 and view[1] > 20.0 and view[9] == 0.0, "the view, outside: " + str(view))
+	check(view[16] > 10.0 and view[17] > 0.0 and view[13] == 0.0, "the view's height, the grunts' zone margin, no knock-outs yet: " + str(view))
 	check(view[6] == 0.0 and view[7] > view[1], "the wall at the first room's edge, the rooms beyond the view: " + str(view))
 	check(sim.run_pieces().size() > 0 and sim.run_platforms().size() > 0, "the first rooms are laid")
 	check(sim.run_rooms().size() == 2, "the first room and the next: %d" % sim.run_rooms().size())
 	var map: PackedInt32Array = sim.run_map(4)
 	check(map.size() == 10 and map[2] == 2 and map[7] == 3 and map[4] == 0, "the map: here, then the next room, with tiers: " + str(map))
 	var shop: PackedInt32Array = sim.run_shop()
-	check(shop.size() == 10 + 2 * 4 + 1 and shop[0] == 0 and shop[5] == 2, "the shop's two wares, outside, and no sulk: " + str(shop))
+	check(shop.size() == 10 + 2 * 4 + 1 and shop[0] == 0 and shop[5] == 2 and shop[18] == 0, "the shop's two wares, outside, and open: " + str(shop))
 	check(sim.run_shop_names().size() == 2, "and their names")
 	# What the rooms are made of: every footing has a look, the pieces' rows have ten numbers, the rooms their heights.
 	var looks: PackedStringArray = sim.run_looks()
@@ -93,7 +95,7 @@ func _bridge() -> void:
 	sim.tick()
 	check(sim.run_info()[13] == 0, "back outside")
 	sim.run_start(5)
-	check(sim.run_mobs().size() == 16 * 17, "sixteen grunt slots")
+	check(sim.run_mobs().size() == 12 * 17, "twelve grunt slots (grunts are fighters: R2c)")
 	# R2b: the grunt kinds, and a grunt drawn as a fighter of its body through the same calls.
 	var kinds: PackedInt32Array = sim.run_kinds()
 	check(kinds.size() == 6 * 5, "six grunt kinds: " + str(kinds))
@@ -106,6 +108,15 @@ func _bridge() -> void:
 		check(int(row[1]) == k and row[12] > 1.2, "fighter-tall: " + str(row))
 	check(sim.run_mobs()[6] == 2.0 and sim.run_mobs()[16] > 0.0, "the first one tells: " + str(sim.run_mobs().slice(0, 17)))
 	check(sim.run_props().size() % 9 == 0 and sim.run_van().size() == 8, "the props and the van")
+	# R2c: a grunt launched hard out of the view is knocked out by the blast zones that follow it.
+	check(sim.run_debug_launch_grunt(1, 1.6, 0.4), "a grunt launched")
+	for n in 90:
+		sim.set_input(0, 0, 0, 0)
+		sim.tick()
+	check(sim.run_mobs()[17] < 0.5 and sim.run_view()[13] >= 1.0, "knocked out past the zone: " + str(sim.run_view()))
+	check(sim.run_info()[3] >= 1, "the player's kill")
+	sim.run_debug_clear_grunts()
+	check(sim.run_mobs()[0] < 0.5, "cleared")
 	# Running right: the camera follows and the stage streams on.
 	var layout := info[9]
 	for n in 600:
@@ -181,6 +192,24 @@ func _scene() -> void:
 	if g >= 0:
 		check(main.mob_views[g].role == 2 and main.mob_views[g].tell_label.visible, "a shieldbearer, telling")
 		check(main.mob_views[g].fighter.loadout.color == main.GruntView.OUTFITS[2].color, "in its grunt outfit")
+		# R2c (the owner's "0% ■%" report): one small damage label at most, never the fighter view's own readout or name.
+		var fv: Node3D = main.mob_views[g].fighter
+		check(not fv.percent_label.visible and not fv.name_label.visible, "no fighter labels over a grunt")
+		check(not main.mob_views[g].pct_label.visible, "and its damage hidden while it tells")
+		var quiet: int = main.sim.run_debug_grunt(0, 6.0, false)
+		for i in 4:
+			await process_frame
+		if quiet >= 0:
+			check(main.mob_views[quiet].pct_label.visible and main.mob_views[quiet].pct_label.text == "0%", "a grunt's damage, small: " + main.mob_views[quiet].pct_label.text)
+			check(not main.mob_views[quiet].fighter.percent_label.visible, "one label only")
+			# Launched out of the view: knocked out, with the knock-out's effect.
+			var kos: int = main.grunt_kos
+			main.sim.run_debug_launch_grunt(quiet, 1.8, 0.5)
+			await create_timer(1.2).timeout
+			check(main.grunt_kos > kos, "the knock-out was shown")
+	# R2c: the camera's height is the sim's.
+	check(absf(main.cam_y - main.sim.run_view()[12]) < 1.0, "the camera keeps the sim's height: %.2f vs %.2f" % [main.cam_y, main.sim.run_view()[12]])
+	main.sim.run_debug_clear_grunts()
 	var far_x: float = main.run_stage.far_layer.position.x
 	var mid_x: float = main.run_stage.mid_layer.position.x
 	check(not is_equal_approx(far_x, mid_x) or main.sim.run_view()[0] < 1.0, "the layers scroll at their own speeds")
@@ -196,6 +225,8 @@ func _scene() -> void:
 		await process_frame
 	check(main.run_stage.interior != null and main.run_stage.keeper != null, "the shop's interior and its shopkeeper")
 	check(main.run_stage.ware_nodes.size() == 2 and main.run_stage.price_labels.size() == 2, "the two wares and their prices")
+	# R2c: every storefront has its CLOSED board, hidden while the shopkeeper sells.
+	check(main.run_stage.closed_signs.size() >= 1 and not main.run_stage.shops_closed, "the closed boards, down: %d" % main.run_stage.closed_signs.size())
 	check(main.cam.position.x < -10000.0, "the camera is inside: %.0f" % main.cam.position.x)
 	check(main.run_hud.board.shop_hint() == "UP: LEAVE THE SHOP", "the way out: " + main.run_hud.board.shop_hint())
 	check(main.run_stage.keeper_bubble.visible and main.run_stage.keeper_bubble.text == "Welcome!", "the shopkeeper waves hello")

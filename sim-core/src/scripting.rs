@@ -12,7 +12,7 @@ use crate::moves::MoveId;
 use crate::state::{Fighter, Projectile};
 use crate::trig::{self, Angle};
 use crate::vec2::Vec2;
-use crate::{FIGHTER_VARS, MAX_FIGHTERS, PROJECTILE_VARS};
+use crate::{FIGHTER_VARS, MAX_BODIES, PROJECTILE_VARS};
 use sim_script::api;
 use sim_script::{run, Host, Program, ONE};
 
@@ -53,18 +53,18 @@ pub struct FighterEffects {
 #[derive(Clone, Copy, Debug)]
 pub struct World<'a> {
     pub stage: &'a Stage,
-    pub targets: [Option<Vec2>; MAX_FIGHTERS],
-    pub chest: [Fx; MAX_FIGHTERS],
+    pub targets: [Option<Vec2>; MAX_BODIES],
+    pub chest: [Fx; MAX_BODIES],
     /// Which fighter the script belongs to.
     pub me: usize,
     /// Every projectile as the frame began (the `owned` register counts its fighter's).
     pub projectiles: &'a [Projectile],
     /// For each fighter in an egg (E8), the numbers of the egg (`combat::encase_of`), read as the frame began.
-    pub encase: [Option<crate::moves::Encase>; MAX_FIGHTERS],
+    pub encase: [Option<crate::moves::Encase>; MAX_BODIES],
     /// Every item as the frame began (E4: `holding`, and the items `owned` counts).
     pub items: &'a [crate::state::Item],
     /// For each fighter, whether an item lay in its reach as the frame began (an attack or grab press picks it up).
-    pub pickable: [bool; MAX_FIGHTERS],
+    pub pickable: [bool; MAX_BODIES],
     /// Who holds each ledge as the frame began (`GameState::ledge_owner`; -1 free): a tether catches only a free one (E56, sim 123).
     pub ledges: [i8; crate::content::MAX_LEDGES],
 }
@@ -110,12 +110,12 @@ impl FighterHost<'_> {
             return true;
         }
         let w = self.world;
-        let me = w.me.min(MAX_FIGHTERS - 1);
+        let me = w.me.min(MAX_BODIES - 1);
         let from = Vec2::new(self.f.pos.x, self.f.pos.y + w.chest[me]);
         let mut best: Option<(Fx, Vec2)> = None;
         for (i, t) in w.targets.iter().enumerate() {
             let Some(chest) = *t else { continue };
-            if i == me {
+            if !crate::combat::rivals(me, i) {
                 continue;
             }
             let ahead = (chest.x - from.x).mul_int(i32::from(self.f.facing));

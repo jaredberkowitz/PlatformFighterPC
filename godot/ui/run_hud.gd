@@ -135,9 +135,9 @@ class Board extends Control:
 			return ""
 		var names: PackedStringArray = data.get("shop_names", PackedStringArray())
 		var label := names[spot] if spot < names.size() else "?"
-		# (The last number is the shopkeeper's sulk: it sells nothing meanwhile.)
+		# (The last number is the shopkeeper's grudge: it sells nothing until the player has gone on into a new room, R2c.)
 		if shop[shop.size() - 1] > 0 and shop.size() == 10 + names.size() * 4 + 1:
-			return "HMPH! IT WON'T SELL TO YOU"
+			return "HMPH! CLOSED TILL YOU MOVE ON"
 		var o := 10 + spot * 4
 		if shop[o + 2] > 0 and shop[o + 3] >= shop[o + 2]:
 			return "%s: SOLD OUT" % label.to_upper()

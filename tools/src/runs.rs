@@ -2,7 +2,7 @@
 //! got, and `pftool run-bench [frames]`: times the run's step with the mob pool full.
 
 use sim_core::input::buttons::{ATTACK, JUMP};
-use sim_core::run::{new_run, step_run, Mob, RunContent, MAX_MOBS, MODE_MOVE, PLAYER};
+use sim_core::run::{grunt_slot, new_run, place_grunt, step_run, RunContent, MAX_MOBS, PLAYER};
 use sim_core::state::NONE;
 use sim_core::{collision, Content, Fx, GameState, Input, Vec2, MAX_FIGHTERS};
 use std::time::Instant;
@@ -22,10 +22,12 @@ fn bot(state: &GameState, world: &Content, frame: u32) -> Input {
     let mut probe = f.pos;
     let p = world.fighters[usize::from(f.char_id).min(world.fighters.len() - 1)];
     let wall = collision::move_x(stage, &p, &mut probe, Fx::from_int(2));
-    let near = state.run.mobs.iter().filter(|m| m.active).any(|m| {
-        let d = m.pos - f.pos;
-        d.x > Fx::ZERO && d.x < Fx::from_ratio(5, 2) && d.y.abs() < Fx::from_int(2)
-    });
+    let near = (0..MAX_MOBS)
+        .filter(|&n| state.run.mobs[n].active)
+        .any(|n| {
+            let d = state.fighters[grunt_slot(n)].pos - f.pos;
+            d.x > Fx::ZERO && d.x < Fx::from_ratio(5, 2) && d.y.abs() < Fx::from_int(2)
+        });
     // (Presses are edges: every other frame at most.)
     let even = frame % 2 == 0;
     if near && even {
@@ -89,21 +91,22 @@ pub fn cmd_bench(args: &[String]) -> Result<(), String> {
     let mut worst = 0f64;
     let mut total = 0f64;
     for n in 0..frames {
-        // Keep the pool full around the player.
+        // Keep the pool full around the player (every grunt a fighter, R2c).
         let p = state.fighters[PLAYER].pos;
-        for (k, m) in state.run.mobs.iter_mut().enumerate() {
-            if !m.active {
-                let kind = (k % rc.mobs.len()) as u8;
-                *m = Mob {
-                    active: true,
-                    kind,
-                    mode: MODE_MOVE,
-                    pos: Vec2::new(p.x + Fx::from_int(k as i32 % 9 - 2), p.y + Fx::from_int(4)),
-                    facing: -1,
-                    platform: NONE,
-                    stamina: rc.mobs[usize::from(kind)].stamina,
-                    ..Mob::default()
-                };
+        if !state.run.inside {
+            for k in 0..MAX_MOBS {
+                if !state.run.mobs[k].active {
+                    let kind = (k % rc.mobs.len()) as u8;
+                    let at = Vec2::new(p.x + Fx::from_int(k as i32 % 9 - 2), p.y + Fx::from_int(4));
+                    place_grunt(
+                        &mut state,
+                        &world,
+                        &rc,
+                        kind,
+                        at,
+                        (k % rc.tiers.len()) as u8,
+                    );
+                }
             }
         }
         let mut inputs = [Input::default(); MAX_FIGHTERS];

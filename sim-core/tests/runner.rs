@@ -8,9 +8,9 @@ use sim_core::fuzz::random_inputs;
 use sim_core::input::buttons::{ATTACK, JUMP, SHIELD};
 use sim_core::run::data::{MobKind, RunContent, SPOT_ANY};
 use sim_core::run::{
-    self, door_here, new_run, step_run, Mob, GATE_INDEX, MAX_MOBS, MODE_ATTACK, MODE_BURST,
-    MODE_IDLE, MODE_MOVE, MODE_WINDUP, NOTE_BOUGHT, NOTE_NOT_NEEDED, NOTE_SOLD_OUT, NOTE_TOO_POOR,
-    PLAYER, RING, ROOM_ARENA, ROOM_REST, ROOM_SHOP, ROOM_STREET, WALL_INDEX,
+    self, door_here, grunt_slot, new_run, step_run, GATE_INDEX, MAX_MOBS, MODE_ATTACK, MODE_IDLE,
+    MODE_MOVE, MODE_WINDUP, NOTE_BOUGHT, NOTE_NOT_NEEDED, NOTE_SOLD_OUT, NOTE_TOO_POOR, PLAYER,
+    RING, ROOM_ARENA, ROOM_REST, ROOM_SHOP, ROOM_STREET, WALL_INDEX,
 };
 use sim_core::state::{FighterState as S, DRAW, HISTORY_LEN, NONE};
 use sim_core::{collision, Content, Fx, GameState, Input, Rng, Vec2, MAX_FIGHTERS};
@@ -57,9 +57,23 @@ impl RunSim {
     }
 
     fn clear_mobs(&mut self) {
-        for m in self.state.run.mobs.iter_mut() {
-            m.active = false;
-        }
+        run::clear_grunts(&mut self.state, &self.world);
+    }
+
+    /// Grunt `n`'s fighter (R2c: a grunt is one).
+    fn g(&self, n: usize) -> &sim_core::Fighter {
+        &self.state.fighters[grunt_slot(n)]
+    }
+
+    fn g_mut(&mut self, n: usize) -> &mut sim_core::Fighter {
+        &mut self.state.fighters[grunt_slot(n)]
+    }
+
+    /// Keeps grunt `n` from doing anything of its own (cooling down for good).
+    fn hold(&mut self, n: usize) {
+        let m = &mut self.state.run.mobs[n];
+        m.mode = run::MODE_COOLDOWN;
+        m.timer = 9999;
     }
 
     /// Moves the camera to where it would hold a player at `x` (inside the window), as if it had followed.
@@ -103,23 +117,11 @@ impl RunSim {
         f.state_frame = 0;
     }
 
-    /// A mob of `kind` standing (or hovering) at `at`, facing the player.
+    /// A grunt of `kind` (tier 0) awake at `at` (standing there if there is ground), facing the player.
     fn add_mob(&mut self, kind: u8, at: Vec2) -> usize {
-        let k = self.rc.mobs[usize::from(kind)];
-        let slot = self.state.run.mobs.iter().position(|m| !m.active).unwrap();
-        self.state.run.mobs[slot] = Mob {
-            active: true,
-            kind,
-            mode: MODE_MOVE,
-            pos: at,
-            facing: if at.x > self.player().pos.x { -1 } else { 1 },
-            platform: collision::standing_on(&self.world.stage, at),
-            stamina: k.stamina,
-            shield: k.shield,
-            room: self.state.run.room,
-            ..Mob::default()
-        };
-        slot
+        sim_core::run::build_stage(&self.state.run, &self.rc, &mut self.world.stage);
+        run::place_grunt(&mut self.state, &self.world, &self.rc, kind, at, 0)
+            .expect("a free grunt slot")
     }
 
     /// Walks (teleports) the player into the next room, clearing an arena it locks; returns the room's type.
@@ -146,11 +148,15 @@ impl RunSim {
             slot.y
         );
         let kind = self.rc.rooms[usize::from(slot.room)].kind;
-        if self.state.run.gate_closed {
+        // (With every grunt slot taken, an arena's last grunts come out as slots free up: cleared again until it opens.)
+        for _ in 0..8 {
+            if !self.state.run.gate_closed {
+                break;
+            }
             self.clear_mobs();
             self.tick(Input::default());
-            assert!(!self.state.run.gate_closed, "cleared");
         }
+        assert!(!self.state.run.gate_closed, "cleared");
         kind
     }
 }
@@ -274,11 +280,13 @@ fn dropping_a_room_trims_the_ground_and_removes_its_mobs() {
     assert_ne!(floor, NONE);
     let x0 = sim.player().pos.x;
     let left_mob = sim.add_mob(0, Vec2::new(x0 + fx(4), Fx::ZERO));
-    sim.state.run.mobs[left_mob].mode = MODE_IDLE;
+    sim.hold(left_mob);
     for _ in 0..3 {
         let slot = *sim.state.run.slot_of(sim.state.run.room + 1).unwrap();
         sim.stand(Vec2::new(slot.x + fx(3), Fx::ZERO));
-        sim.state.run.mobs[left_mob].pos.x = x0 + fx(4);
+        if sim.state.run.mobs[left_mob].active {
+            sim.g_mut(left_mob).pos.x = x0 + fx(4);
+        }
         sim.tick(Input::default());
     }
     let run = &sim.state.run;
@@ -296,6 +304,7 @@ fn dropping_a_room_trims_the_ground_and_removes_its_mobs() {
         p.left
     );
     assert!(!run.mobs[left_mob].active, "its mob went with it");
+    assert!(!sim.g(left_mob).active, "its fighter too");
 }
 
 /// The window's sizes are rules: one room behind keeps less.
@@ -381,11 +390,14 @@ fn no_backtracking_past_the_gate() {
         3,
         "the wall stops a launch: no knock-out there"
     );
-    // A mob cannot get behind it either.
+    // A grunt not launched cannot get behind it either (only a tumbling one goes through: R2c).
     let m = sim.add_mob(1, Vec2::new(wall + fx(2), fx(6)));
-    sim.state.run.mobs[m].vel = Vec2::new(-fx(2), Fx::ZERO);
-    sim.tick(Input::default());
-    assert!(sim.state.run.mobs[m].pos.x > wall);
+    sim.hold(m);
+    sim.g_mut(m).vel = Vec2::new(-Fx::HALF, Fx::ZERO);
+    for _ in 0..10 {
+        sim.tick(Input::default());
+        assert!(sim.g(m).pos.x > wall);
+    }
 }
 
 // ---- The camera ------------------------------------------------------------------------------------------------------------------
@@ -514,22 +526,20 @@ fn an_arena_locks_until_its_mobs_are_beaten() {
         // (The mobs kept off the player.)
         for &i in &theirs {
             if sim.state.run.mobs[i].active {
-                sim.state.run.mobs[i].pos.x = slot.x + fx(3);
+                sim.g_mut(i).pos.x = slot.x + fx(3);
+                sim.hold(i);
             }
         }
     }
     assert_eq!(sim.state.run.room, 1);
-    // All but one beaten: still shut. A mob in its burst counts as beaten.
+    // All but one beaten: still shut.
     let coins = sim.state.run.coins;
     for &i in &theirs[1..] {
-        sim.state.run.mobs[i].active = false;
+        run::remove_grunt(&mut sim.state, &sim.world, i);
     }
-    sim.state.run.mobs[theirs[0]].mode = MODE_MOVE;
     sim.tick(Input::default());
     assert!(sim.state.run.gate_closed);
-    let last = &mut sim.state.run.mobs[theirs[0]];
-    last.mode = MODE_BURST;
-    last.timer = 20;
+    run::remove_grunt(&mut sim.state, &sim.world, theirs[0]);
     sim.tick(Input::default());
     let run = &sim.state.run;
     assert!(!run.gate_closed, "open");
@@ -779,15 +789,31 @@ fn hitting_the_shopkeeper_makes_it_dizzy_then_sulk() {
     );
     assert_eq!(sim.state.run.coins, 500);
     assert_eq!(sim.state.run.keeper_mood, run::KEEPER_HMPH);
-    sim.idle(u32::from(shop.sulk_frames));
-    assert_eq!(
-        sim.state.run.keeper_mood,
-        run::KEEPER_IDLE,
-        "it gets over it"
-    );
+    // R2c (the owner's rule): not on a timer. Ten seconds later it still sulks.
+    sim.idle(600);
+    press_up(&mut sim);
+    assert_eq!(sim.state.run.shop_note, run::NOTE_REFUSED, "still closed");
+    assert_eq!(sim.state.run.keeper_mood, run::KEEPER_HMPH);
+    // Out, back and in again without going on: still closed.
+    stand_inside(&mut sim, shop.door);
+    press_up(&mut sim);
+    assert!(!sim.state.run.inside, "out on the street");
+    assert_ne!(sim.state.run.keeper_grudge, 0, "the grudge stands");
+    // On into a room further right than the shop: it opens again.
+    let shop_room = sim.state.run.shop_room;
+    while sim.state.run.room <= shop_room {
+        sim.next_room();
+    }
+    assert_eq!(sim.state.run.keeper_grudge, 0, "a new room lifts it");
+    let (_, door) = shop_door(&sim);
+    sim.stand(door);
+    sim.tick(Input::default());
+    press_up(&mut sim);
+    assert!(sim.state.run.inside, "back in");
+    assert_ne!(sim.state.run.keeper_mood, run::KEEPER_HMPH, "over it");
+    stand_inside(&mut sim, shop.pedestals[0].x);
     press_up(&mut sim);
     assert_eq!(sim.state.run.shop_note, run::NOTE_BOUGHT, "and sells again");
-    assert!(sim.state.run.inside);
 }
 
 #[test]
@@ -869,7 +895,7 @@ fn the_generator_keeps_its_rules() {
 
 // ---- Mobs ---------------------------------------------------------------------------------------------------------------------------
 
-/// The player's attack launches a mob with the versus formulas: more knockback at a higher percent, hitlag on both, hitstun.
+/// The player's attack launches a grunt with the versus formulas: more knockback at a higher percent, hitlag on both, hitstun.
 #[test]
 fn a_mob_takes_knockback_that_grows_with_its_percent() {
     let launch = |percent: i32| {
@@ -877,35 +903,60 @@ fn a_mob_takes_knockback_that_grows_with_its_percent() {
         sim.clear_mobs();
         let x = sim.player().pos.x;
         let n = sim.add_mob(0, Vec2::new(x + fx(1), Fx::ZERO));
-        sim.state.run.mobs[n].percent = fx(percent);
-        sim.state.run.mobs[n].stamina = fx(500);
+        sim.hold(n);
+        sim.g_mut(n).percent = fx(percent);
+        sim.state.run.mobs[n].last_percent = fx(percent);
         let mut hit = false;
         for frame in 0..30 {
             sim.tick(inp(0, 0, if frame == 0 { ATTACK } else { 0 }));
-            let m = sim.state.run.mobs[n];
-            if m.percent > fx(percent) {
+            let g = *sim.g(n);
+            if g.percent > fx(percent) {
                 hit = true;
-                assert!(m.hitlag > 0, "the mob freezes");
+                assert!(g.hitlag > 0, "the grunt freezes");
                 assert!(sim.player().hitlag > 0, "and so does the attacker");
-                assert!(m.hitstun > 0);
+                assert!(g.hitstun > 0 || g.launch_pending);
                 break;
             }
         }
         assert!(hit, "the jab missed");
-        let m = sim.state.run.mobs[n];
         assert_eq!(sim.state.run.combo, 1, "a hit counts in the combo");
-        m.kb_vel.length()
+        let mut most = Fx::ZERO;
+        for _ in 0..10 {
+            sim.tick(Input::default());
+            if sim.state.run.mobs[n].active {
+                most = most.max(sim.g(n).kb_vel.length());
+            }
+        }
+        most
     };
     assert!(launch(100) > launch(0));
 }
 
+/// R2c: a grunt is knocked out only by the blast zones, never by damage (no stamina burst by default); an optional stamina, if a
+/// kind has one, still beats it where it stands, paid as a kill.
 #[test]
-fn a_mob_out_of_stamina_bursts_and_pays() {
+fn grunts_have_no_stamina_unless_a_kind_gives_one() {
+    let rc = RunContent::placeholder();
+    assert!(rc.mobs.iter().all(|k| k.stamina == Fx::ZERO), "no stamina");
     let mut sim = RunSim::with(quiet(), 1);
     sim.clear_mobs();
     let x = sim.player().pos.x;
     let n = sim.add_mob(0, Vec2::new(x + fx(1), Fx::ZERO));
-    sim.state.run.mobs[n].stamina = Fx::from_ratio(1, 2);
+    sim.hold(n);
+    sim.g_mut(n).percent = fx(900);
+    sim.state.run.mobs[n].last_percent = fx(900);
+    sim.idle(5);
+    assert!(sim.state.run.mobs[n].active, "900% and standing");
+    // With a stamina of 5: one jab beats it, a kill.
+    let mut rc = quiet();
+    rc.mobs[0].stamina = fx(5);
+    let mut sim = RunSim::with(rc, 1);
+    sim.clear_mobs();
+    let x = sim.player().pos.x;
+    let n = sim.add_mob(0, Vec2::new(x + fx(1), Fx::ZERO));
+    sim.hold(n);
+    sim.g_mut(n).percent = fx(4);
+    sim.state.run.mobs[n].last_percent = fx(4);
     for frame in 0..30 {
         sim.tick(inp(0, 0, if frame == 0 { ATTACK } else { 0 }));
         if sim.state.run.kills > 0 {
@@ -913,25 +964,42 @@ fn a_mob_out_of_stamina_bursts_and_pays() {
         }
     }
     assert_eq!(sim.state.run.kills, 1);
-    assert_eq!(sim.state.run.mobs[n].mode, MODE_BURST);
-    assert_eq!(sim.state.run.combo, 2);
+    assert!(!sim.state.run.mobs[n].active && !sim.g(n).active);
     assert_eq!(sim.state.run.coins, u32::from(sim.rc.mobs[0].coins));
-    sim.idle(u32::from(sim.rc.rules.burst_frames) + 40);
-    assert!(!sim.state.run.mobs[n].active, "gone after its burst");
 }
 
+/// A grunt launched past a blast zone is knocked out (the KO counted for the game's effect); it is the player's kill only if they
+/// hit it lately. One that merely walks out of view is not knocked out.
 #[test]
 fn a_mob_launched_off_screen_is_a_kill_only_if_the_player_hit_it() {
     let mut sim = RunSim::with(quiet(), 1);
     sim.clear_mobs();
-    let top = sim.rc.rules.blast_top;
-    let a = sim.add_mob(1, Vec2::new(fx(20), top + fx(1)));
-    let b = sim.add_mob(1, Vec2::new(fx(22), top + fx(1)));
+    sim.idle(2);
+    let (_, _, _, top) = run::grunt_zone(&sim.state.run, &sim.rc.rules);
+    let a = sim.add_mob(0, Vec2::new(fx(20), top + fx(1)));
+    let b = sim.add_mob(0, Vec2::new(fx(22), top + fx(1)));
+    for n in [a, b] {
+        let g = sim.g_mut(n);
+        g.state = S::Hitstun;
+        g.hitstun = 40;
+        g.vel = Vec2::new(Fx::ZERO, Fx::ONE);
+    }
     sim.state.run.mobs[a].credit = 30;
     sim.tick(Input::default());
     assert!(!sim.state.run.mobs[a].active && !sim.state.run.mobs[b].active);
-    assert_eq!(sim.state.run.kills, 1);
-    assert_eq!(sim.state.run.coins, u32::from(sim.rc.mobs[1].coins));
+    assert_eq!(sim.state.run.kos, 2, "both knocked out");
+    assert_eq!(sim.state.run.kills, 1, "one the player's");
+    assert_eq!(sim.state.run.coins, u32::from(sim.rc.mobs[0].coins));
+    // Not launched: a grunt standing high above the view is left alone.
+    let mut sim = RunSim::with(quiet(), 1);
+    sim.clear_mobs();
+    sim.idle(2);
+    let (_, right, _, _) = run::grunt_zone(&sim.state.run, &sim.rc.rules);
+    let c = sim.add_mob(0, Vec2::new(right - Fx::HALF, Fx::ZERO));
+    sim.hold(c);
+    sim.g_mut(c).pos.x = right + fx(1);
+    sim.tick(Input::default());
+    assert!(sim.state.run.mobs[c].active, "walking out of view is no KO");
 }
 
 #[test]
@@ -944,13 +1012,14 @@ fn a_walker_rushes_and_hits_the_player_and_breaks_the_combo() {
     let n = sim.add_mob(0, Vec2::new(x + fx(8), Fx::ZERO));
     let mut hit = false;
     let mut wound_up = false;
-    for _ in 0..240 {
+    for _ in 0..300 {
         sim.tick(Input::default());
         let m = sim.state.run.mobs[n];
         wound_up |= m.mode == MODE_WINDUP;
         if sim.player().percent > Fx::ZERO {
             hit = true;
             assert_eq!(m.mode, MODE_ATTACK);
+            assert_eq!(sim.g(n).state, S::Attack, "with its fighter's own attack");
             break;
         }
     }
@@ -967,22 +1036,23 @@ fn a_shield_blocks_a_mob() {
     let mut sim = RunSim::with(quiet(), 1);
     sim.clear_mobs();
     let x = sim.player().pos.x;
-    let n = sim.add_mob(0, Vec2::new(x + fx(8), Fx::ZERO));
+    sim.add_mob(0, Vec2::new(x + fx(8), Fx::ZERO));
     let shield = sim.player().shield_hp;
     let mut blocked = false;
-    for _ in 0..240 {
+    for _ in 0..300 {
         sim.tick(inp(0, 0, SHIELD));
-        if sim.state.run.mobs[n].struck != 0 {
+        if sim.player().shield_stun > 0 {
             blocked = true;
             break;
         }
     }
-    assert!(blocked);
+    assert!(blocked, "its hit landed on the shield (shield stun)");
     assert_eq!(sim.player().percent, Fx::ZERO);
     assert!(sim.player().shield_hp < shield);
 }
 
-/// A leaper on high ground tells (crouching), leaps at a player below and strikes with an aerial (R2b: the diver's anti-air lesson).
+/// A leaper on high ground tells (crouching), leaps at a player below and strikes with an aerial (R2b: the diver's anti-air lesson;
+/// R2c: its fighter's own jump and aerial).
 #[test]
 fn a_leaper_leaps_from_high_ground_with_an_aerial() {
     let mut sim = RunSim::with(quiet(), 1);
@@ -994,17 +1064,16 @@ fn a_leaper_leaps_from_high_ground_with_an_aerial() {
         run::data::KIND_LEAPER,
         Vec2::new(fx(22), Fx::from_ratio(36, 10)),
     );
-    assert_ne!(
-        sim.state.run.mobs[n].platform, NONE,
-        "it stands on the awning"
-    );
-    let (mut told, mut leapt, mut aerial) = (false, false, false);
+    assert_ne!(sim.g(n).platform, NONE, "it stands on the awning");
+    let (mut told, mut crouched, mut leapt, mut aerial) = (false, false, false, false);
     for _ in 0..400 {
         sim.tick(Input::default());
         let m = sim.state.run.mobs[n];
+        let g = *sim.g(n);
         told |= m.mode == MODE_WINDUP;
-        leapt |= m.mode == run::MODE_LEAP;
-        aerial |= m.mode == MODE_ATTACK && m.platform == NONE;
+        crouched |= m.mode == MODE_WINDUP && g.state == S::Crouch;
+        leapt |= m.mode == run::MODE_LEAP && !g.grounded();
+        aerial |= m.mode == MODE_ATTACK && g.state == S::Attack && !g.grounded();
         if sim.player().percent > Fx::ZERO {
             break;
         }
@@ -1012,31 +1081,26 @@ fn a_leaper_leaps_from_high_ground_with_an_aerial() {
         sim.state.fighters[PLAYER].pos.x = p.x;
     }
     assert!(
-        told && leapt && aerial,
-        "told {told}, leapt {leapt}, aerial {aerial}"
+        told && crouched && leapt && aerial,
+        "told {told}, crouched {crouched}, leapt {leapt}, aerial {aerial}"
     );
     assert!(sim.player().percent > Fx::ZERO, "the leap never hit");
 }
 
-/// One swing hits a mob once per hit group, even though the attacker's hitlag pauses the move (the move is the same swing after it).
+/// One swing hits a grunt once per hit group, even though the attacker's hitlag pauses the move (versus's own hit records).
 #[test]
 fn one_swing_hits_a_mob_once() {
     let mut sim = RunSim::with(quiet(), 1);
     sim.clear_mobs();
     let x = sim.player().pos.x;
     let n = sim.add_mob(0, Vec2::new(x + fx(1), Fx::ZERO));
-    sim.state.run.mobs[n].stamina = fx(500);
+    sim.hold(n);
     for frame in 0..60 {
         sim.tick(inp(
             if frame < 2 { 60 } else { 0 },
             0,
             if frame == 0 { ATTACK } else { 0 },
         ));
-        let m = &mut sim.state.run.mobs[n];
-        m.pos.x = x + fx(1);
-        m.kb_vel = Vec2::ZERO;
-        m.mode = run::MODE_COOLDOWN;
-        m.timer = 999;
     }
     let groups = {
         let w = &sim.world.weapons[usize::from(sim.world.fighters[0].weapon)];
@@ -1275,18 +1339,39 @@ fn random_play_with_many_grunts_keeps_invariants() {
                             p.y + fx(if kind == 1 { 6 } else { 1 }),
                         );
                         sim.add_mob(kind, at);
+                        // (A run's frame rebuilds the stage: the grunt is on the ground under it, or in the air.)
                     }
                 }
             }
             step_run(&mut sim.state, &mut sim.world, &sim.rc, i);
             let run = &sim.state.run;
-            for m in run.mobs.iter().filter(|m| m.active && m.mode != MODE_BURST) {
+            for (n, m) in run.mobs.iter().enumerate() {
+                let g = &sim.state.fighters[grunt_slot(n)];
+                assert_eq!(
+                    m.active, g.active,
+                    "seed {seed}: a grunt and its fighter agree"
+                );
+                if !m.active {
+                    continue;
+                }
                 assert!(usize::from(m.kind) < sim.rc.mobs.len());
-                assert!(m.pos.x >= run.wall_x, "seed {seed}: a mob behind the wall");
-                if let Ok(p) = usize::try_from(m.platform) {
+                // (A grunt launched in tumble may go through the gate behind, into the blast zone there.)
+                assert!(
+                    g.pos.x >= run.wall_x - sim.rc.rules.gate_thickness - sim.rc.rules.blast_margin,
+                    "seed {seed}: a mob far behind the wall"
+                );
+                if let Ok(p) = usize::try_from(g.platform) {
                     assert!(
                         p >= run::POOL_PLATFORMS || run.platforms[p].live,
                         "a mob on a freed platform"
+                    );
+                }
+                if g.grab_with != NONE {
+                    let other = &sim.state.fighters[g.grab_with as usize];
+                    assert_eq!(
+                        other.grab_with as usize,
+                        grunt_slot(n),
+                        "seed {seed}: a one-sided grab"
                     );
                 }
             }
@@ -1392,34 +1477,25 @@ fn checksum_sees_every_run_field() {
         ("mob.kind", |r| r.mobs[0].kind ^= 1),
         ("mob.mode", |r| r.mobs[0].mode ^= 1),
         ("mob.timer", |r| r.mobs[0].timer += 1),
-        ("mob.pos", |r| r.mobs[0].pos.y += Fx::from_raw(1)),
-        ("mob.vel", |r| r.mobs[0].vel.x += Fx::from_raw(1)),
-        ("mob.kb_vel", |r| r.mobs[0].kb_vel.y += Fx::from_raw(1)),
-        ("mob.facing", |r| r.mobs[0].facing = 2),
-        ("mob.platform", |r| r.mobs[0].platform = 5),
-        ("mob.percent", |r| r.mobs[0].percent += Fx::from_raw(1)),
-        ("mob.stamina", |r| r.mobs[0].stamina += Fx::from_raw(1)),
-        ("mob.hitlag", |r| r.mobs[0].hitlag += 1),
-        ("mob.hitstun", |r| r.mobs[0].hitstun += 1),
-        ("mob.hit_stamp", |r| r.mobs[0].hit_stamp ^= 1),
-        ("mob.hit_groups", |r| r.mobs[0].hit_groups ^= 1),
-        ("mob.hit_age", |r| r.mobs[0].hit_age += 1),
-        ("mob.shot_mask", |r| r.mobs[0].shot_mask ^= 1 << 15),
-        ("mob.struck", |r| r.mobs[0].struck ^= 1 << 7),
         ("mob.credit", |r| r.mobs[0].credit += 1),
-        ("mob.target", |r| r.mobs[0].target.x += Fx::from_raw(1)),
         ("mob.room", |r| r.mobs[0].room += 1),
         // R2b.
         ("mob.move_slot", |r| r.mobs[0].move_slot += 1),
-        ("mob.frame", |r| r.mobs[0].frame += 1),
-        ("mob.shield", |r| r.mobs[0].shield += Fx::from_raw(1)),
-        ("mob.aux", |r| r.mobs[0].aux += 1),
         ("mob.tier", |r| r.mobs[0].tier += 1),
+        // R2c (the grunt itself is a fighter: `state::tests::checksum_sees_every_field` covers it, the grunt slots included).
+        ("mob.step", |r| r.mobs[0].step += 1),
+        ("mob.last_percent", |r| {
+            r.mobs[0].last_percent += Fx::from_raw(1)
+        }),
+        ("keeper_grudge", |r| r.keeper_grudge += 1),
+        ("van.struck", |r| r.van.struck ^= 1 << 11),
+        ("cam_y", |r| r.cam_y += Fx::from_raw(1)),
+        ("kos", |r| r.kos += 1),
+        ("ko_at", |r| r.ko_at.y += Fx::from_raw(1)),
         ("slots.kinds", |r| r.slots[0].kinds[7] ^= 1),
         ("slots.tier", |r| r.slots[0].tier += 1),
         ("platforms.seq", |r| r.platforms[0].seq += 1),
         ("ledges.seq", |r| r.ledges[0].seq += 1),
-        ("keeper_sulk", |r| r.keeper_sulk += 1),
         ("props.active", |r| {
             r.props[run::MAX_PROPS - 1].active ^= true
         }),
@@ -1869,11 +1945,12 @@ fn mobs_come_out_of_their_doors() {
     let m = sim.state.run.mobs[n];
     assert_eq!(m.mode, run::MODE_EMERGE);
     assert!(m.timer <= u16::from(sim.rc.rules.emerge_frames));
-    let at = m.pos;
+    let at = sim.g(n).pos;
     for _ in 1..m.timer {
         sim.tick(Input::default());
         assert_eq!(sim.state.run.mobs[n].mode, run::MODE_EMERGE);
-        assert_eq!(sim.state.run.mobs[n].pos, at, "it stands in its doorway");
+        assert_eq!(sim.g(n).pos, at, "it stands in its doorway");
+        assert!(sim.g(n).invuln > 0, "untouchable meanwhile");
     }
     sim.tick(Input::default());
     assert!(
@@ -1913,15 +1990,16 @@ fn walkers_follow_slopes() {
     };
     sim.stand(Vec2::new(high_x, ramp.top_max()));
     let n = sim.add_mob(0, Vec2::new(mid, ramp.top_at(mid)));
-    assert_ne!(sim.state.run.mobs[n].platform, NONE, "on the ramp");
+    assert_ne!(sim.g(n).platform, NONE, "on the ramp");
     let mut climbed = false;
     for _ in 0..240 {
         sim.tick(Input::default());
         let m = sim.state.run.mobs[n];
-        if let Ok(i) = usize::try_from(m.platform) {
+        let g = *sim.g(n);
+        if let Ok(i) = usize::try_from(g.platform) {
             let p = sim.world.stage.platforms[i];
-            assert_eq!(m.pos.y, p.top_at(m.pos.x), "its feet on its ground");
-            climbed |= m.pos.y == ramp.top_max();
+            assert_eq!(g.pos.y, p.top_at(g.pos.x), "its feet on its ground");
+            climbed |= g.pos.y == ramp.top_max();
         }
         if m.mode == MODE_WINDUP {
             break;
@@ -1930,23 +2008,27 @@ fn walkers_follow_slopes() {
     assert!(climbed, "it walked up onto the high ground");
 }
 
-/// The run's state stays small enough to save and restore every frame for rollback.
+/// The run's state stays small enough to save and restore every frame for rollback. R2c: the twelve grunts are fighters in the
+/// state (about 400 bytes each), so the limit is 12 KiB (versus snapshots carry the empty grunt slots too).
 #[test]
 fn the_game_state_stays_small() {
     let size = std::mem::size_of::<GameState>();
     let run = std::mem::size_of::<run::Run>();
-    println!("GameState: {size} bytes (the run: {run} bytes)");
-    assert!(size <= 8 * 1024, "GameState is {size} bytes");
+    let fighter = std::mem::size_of::<sim_core::Fighter>();
+    println!("GameState: {size} bytes (the run: {run} bytes, a fighter: {fighter} bytes)");
+    assert!(size <= 12 * 1024, "GameState is {size} bytes");
 }
 
-// ---- R2b: grunts, hazards, the curve, rare events, branching forks (sim 127) ----------------------------------------------------
+// ---- R2b: grunts, hazards, the curve, rare events, branching forks (sim 127; grunts as fighters in R2c, sim 131) -------------------
 
 use run::data::{
     KIND_BRAWLER, KIND_BRUISER, KIND_LOBBER, KIND_SHIELD, KIND_SPEAR, PLACE_ALONE, PLACE_FLAT,
     PLACE_HIGH, PROP_KIND_CHEST, PROP_KIND_GAS, PROP_KIND_SIGN,
 };
-use sim_core::input::buttons::{GRAB, SPECIAL};
+use sim_core::input::buttons::{GRAB, SPECIAL, STRONG};
+use sim_core::moves::MoveId;
 use sim_core::run::ROOM_EVENT;
+use sim_core::MAX_BODIES;
 
 /// The player standing at x 16 of the start room (clear of its awnings), no grunts about.
 fn open_street(rc: RunContent, char_id: u8) -> RunSim {
@@ -1959,40 +2041,38 @@ fn open_street(rc: RunContent, char_id: u8) -> RunSim {
 
 /// A grunt of `kind` awake at `at`, facing the player, in tier `tier`.
 fn grunt(sim: &mut RunSim, kind: u8, at: Vec2, tier: u8) -> usize {
-    let n = sim.add_mob(kind, at);
-    sim.state.run.mobs[n].tier = tier;
-    n
+    sim_core::run::build_stage(&sim.state.run, &sim.rc, &mut sim.world.stage);
+    run::place_grunt(&mut sim.state, &sim.world, &sim.rc, kind, at, tier).expect("a free slot")
 }
 
-/// A grunt's hurtbox is its body's, as tall as a fighter's (R1's mobs were circles 0.5 to 0.6 across).
+/// R2c: a grunt **is** a fighter of its body, in the fighter slots after the players, with its kind's and tier's weight and damage.
 #[test]
-fn a_grunt_has_a_fighters_hurtbox() {
+fn a_grunt_is_a_fighter_of_its_body() {
     let mut sim = open_street(quiet(), 0);
     for kind in 0..sim.rc.mobs.len() as u8 {
         sim.clear_mobs();
-        let n = grunt(&mut sim, kind, Vec2::new(fx(20), Fx::ZERO), 0);
-        let m = sim.state.run.mobs[n];
+        let n = grunt(&mut sim, kind, Vec2::new(fx(20), Fx::ZERO), 2);
         let k = sim.rc.mobs[usize::from(kind)];
+        let g = *sim.g(n);
+        assert_eq!(grunt_slot(n), MAX_FIGHTERS + n);
+        assert!(g.active && g.stocks > 0);
+        assert_eq!(g.char_id, k.body, "kind {kind}: a fighter of its body");
+        assert_eq!(
+            run::grunt_fighter(&sim.state, n),
+            g,
+            "the game draws the fighter itself"
+        );
+        assert_eq!(g.weight, Some(run::grunt_weight(&sim.rc, kind, 2)));
+        assert_eq!(g.damage_scale, u16::from(sim.rc.tiers[2].damage));
         let body = sim.world.fighters[usize::from(k.body)];
-        // The circles a fighter of that body standing there would have.
-        let mut f = sim_core::Fighter::spawn(m.pos, k.body, m.facing, m.platform, 0, Fx::ZERO);
-        f.active = true;
-        let want =
-            sim_core::combat::hurtboxes(&f, &body, sim_core::combat::weapon_of(&sim.world, &body));
-        let g = run::grunt_fighter(&sim.world, &sim.rc, &m);
-        let got =
-            sim_core::combat::hurtboxes(&g, &body, sim_core::combat::weapon_of(&sim.world, &body));
-        assert_eq!(got, want, "kind {kind}: its body's hurtbox");
-        let top = got.iter().map(|(c, r)| c.y + *r).max().unwrap();
+        let hurt = sim_core::combat::body_hurtboxes(&sim.world, &g);
+        let top = hurt.iter().map(|(c, r)| c.y + *r).max().unwrap();
         assert!(
-            top - m.pos.y >= Fx::from_ratio(3, 2),
+            top - g.pos.y >= Fx::from_ratio(3, 2),
             "kind {kind}: fighter-tall ({:?})",
-            top - m.pos.y
+            top - g.pos.y
         );
-        assert!(
-            body.ecb_height > Fx::from_ratio(12, 10),
-            "as tall as a fighter"
-        );
+        assert!(body.ecb_height > Fx::from_ratio(12, 10));
     }
     // Every kind's moves are its body's own.
     for k in &sim.rc.mobs {
@@ -2003,7 +2083,7 @@ fn a_grunt_has_a_fighters_hurtbox() {
     }
 }
 
-/// Each ground kind tells for its tier's frames (18 in tier 0, a flash and a "!"), then makes its body's move, and the move hits.
+/// Each ground kind tells for its tier's frames (18 in tier 0, a "!"), then makes its body's move with its fighter, and the move hits.
 #[test]
 fn each_grunt_tells_then_strikes_with_its_bodys_move() {
     for (kind, dx) in [
@@ -2022,15 +2102,16 @@ fn each_grunt_tells_then_strikes_with_its_bodys_move() {
         let k = sim.rc.mobs[usize::from(kind)];
         let mut told = 0;
         let mut struck_with = None;
-        for _ in 0..240 {
+        for _ in 0..300 {
             sim.tick(Input::default());
             sim.state.fighters[PLAYER].pos.x = fx(16);
             let m = sim.state.run.mobs[n];
             if m.mode == MODE_WINDUP {
                 told += 1;
             }
-            if m.mode == MODE_ATTACK && struck_with.is_none() {
-                struck_with = Some(k.moves[usize::from(m.move_slot)]);
+            let g = sim.g(n);
+            if g.state == S::Attack && struck_with.is_none() {
+                struck_with = Some(g.move_id);
             }
             if sim.player().percent > Fx::ZERO {
                 break;
@@ -2038,20 +2119,23 @@ fn each_grunt_tells_then_strikes_with_its_bodys_move() {
         }
         assert_eq!(told, 18, "kind {kind}: an 18-frame tell");
         let id = struck_with.expect("it attacked");
-        assert!(k.moves.contains(&id), "kind {kind}: one of its kit's moves");
+        assert!(
+            k.moves.contains(&id),
+            "kind {kind}: one of its kit's moves ({id})"
+        );
         assert!(sim.player().percent > Fx::ZERO, "kind {kind}: the move hit");
     }
 }
 
-/// The tell shortens with the tier, and a grunt's damage and stamina grow with it.
+/// The tell shortens with the tier, and a grunt's damage grows with it (its fighter's `damage_scale`).
 #[test]
 fn tiers_shorten_tells_and_toughen_grunts() {
     let rc = RunContent::placeholder();
     assert_eq!(rc.tiers[0].tell, 18);
     assert!(rc.tiers.windows(2).all(|w| w[1].tell < w[0].tell
         && w[1].damage >= w[0].damage
-        && w[1].stamina >= w[0].stamina
-        && w[1].budget >= w[0].budget));
+        && w[1].budget >= w[0].budget
+        && w[1].weight > w[0].weight));
     let hit = |tier: u8| {
         let mut sim = open_street(quiet(), 0);
         let n = grunt(
@@ -2061,7 +2145,7 @@ fn tiers_shorten_tells_and_toughen_grunts() {
             tier,
         );
         let mut told = 0;
-        for _ in 0..240 {
+        for _ in 0..300 {
             sim.tick(Input::default());
             sim.state.fighters[PLAYER].pos.x = fx(16);
             if sim.state.run.mobs[n].mode == MODE_WINDUP {
@@ -2082,7 +2166,7 @@ fn tiers_shorten_tells_and_toughen_grunts() {
 }
 
 /// The tier steps up every `tier_rooms` rooms to the last tier; a room's pool is its tier's (rooms from tier 1 never come in tier 0),
-/// and a grunt spawned in a room gets its tier (and its stamina).
+/// and a grunt spawned in a room gets its tier (its weight and damage).
 #[test]
 fn the_tier_steps_up_and_rooms_come_from_their_tiers_pool() {
     let rc = RunContent::placeholder();
@@ -2109,7 +2193,6 @@ fn the_tier_steps_up_and_rooms_come_from_their_tiers_pool() {
             }
         }
     }
-    // A grunt spawned in tier 2 has 120% stamina.
     let mut sim = RunSim::new(3);
     for _ in 0..13 {
         sim.next_room();
@@ -2121,103 +2204,76 @@ fn the_tier_steps_up_and_rooms_come_from_their_tiers_pool() {
             break;
         }
     }
-    for m in sim
+    let mut seen = 0;
+    for (n, m) in sim
         .state
         .run
         .mobs
         .iter()
-        .filter(|m| m.active && m.mode != MODE_BURST)
+        .enumerate()
+        .filter(|(_, m)| m.active)
     {
-        let base = sim.rc.mobs[usize::from(m.kind)].stamina;
-        let pct = i32::from(sim.rc.tiers[usize::from(m.tier)].stamina);
-        assert!(m.stamina <= base * fx(pct) / fx(100));
         assert_eq!(m.tier, run::tier_of(&sim.rc, m.room));
+        let g = &sim.state.fighters[grunt_slot(n)];
+        assert_eq!(g.weight, Some(run::grunt_weight(&sim.rc, m.kind, m.tier)));
+        seen += 1;
     }
+    assert!(seen > 0);
 }
 
-/// A shieldbearer's guard blocks a hit from the front (its guard wears down, the attacker freezes, no damage); a cross-up before it
-/// turns lands; so does a hit from above; a grab throws it out of its guard; a guard worn to nothing dazes it.
+/// R2c: the shieldbearer's shield is a versus shield. A hit on it is blocked (shield stun, no damage, the attacker freezes); a grab
+/// beats it; held too long under pressure it breaks, and the grunt is stunned like a fighter (the broken-shield daze).
 #[test]
-fn a_shieldbearer_blocks_from_the_front_only() {
-    let jab_at = |sim: &mut RunSim, n: usize| {
-        for frame in 0..20 {
-            sim.tick(inp(0, 0, if frame == 0 { ATTACK } else { 0 }));
-            let m = &mut sim.state.run.mobs[n];
-            m.timer = 999;
-            if m.percent > Fx::ZERO || sim.player().hitlag > 0 {
-                break;
-            }
-        }
-    };
-    let guarded = |sim: &mut RunSim, facing: i8| {
+fn a_shieldbearer_shields_like_a_fighter() {
+    let shielding = |sim: &mut RunSim| {
         let n = grunt(sim, KIND_SHIELD, Vec2::new(fx(17), Fx::ZERO), 0);
+        // (It holds its shield: its tell, for good.)
         let m = &mut sim.state.run.mobs[n];
-        m.mode = run::MODE_GUARD;
-        m.facing = facing;
+        m.mode = MODE_WINDUP;
+        m.timer = 9999;
+        m.move_slot = 0;
+        sim.idle(2);
+        sim.state.fighters[PLAYER].pos.x = fx(16);
+        assert_eq!(sim.g(n).state, S::Shield, "its shield is up");
         n
     };
-    // From the front.
+    // A jab: blocked.
     let mut sim = open_street(quiet(), 0);
-    let n = guarded(&mut sim, -1);
-    let full = sim.state.run.mobs[n].shield;
-    jab_at(&mut sim, n);
-    let m = sim.state.run.mobs[n];
-    assert_eq!(m.percent, Fx::ZERO, "blocked");
-    assert!(m.shield < full, "its guard wore down");
-    assert!(sim.player().hitlag > 0, "the attacker froze on the shield");
-    assert_eq!(sim.state.run.combo, 0, "a blocked hit is no combo");
-    // Crossed up: its back to the player (it turns only `guard_turn` frames later).
-    let mut sim = open_street(quiet(), 0);
-    let n = guarded(&mut sim, 1);
-    jab_at(&mut sim, n);
-    assert!(sim.state.run.mobs[n].percent > Fx::ZERO, "a cross-up lands");
-    // From above: a down air onto its head.
-    let mut sim = open_street(quiet(), 0);
-    let n = guarded(&mut sim, -1);
-    let height =
-        sim.world.fighters[usize::from(sim.rc.mobs[usize::from(KIND_SHIELD)].body)].ecb_height;
-    sim.place(Vec2::new(fx(17), height + Fx::from_ratio(5, 10)));
-    let mut landed = false;
-    for frame in 0..40 {
-        sim.tick(inp(
-            0,
-            if frame == 0 { -127 } else { 0 },
-            if frame == 0 { ATTACK } else { 0 },
-        ));
-        sim.state.run.mobs[n].timer = 999;
-        if sim.state.run.mobs[n].percent > Fx::ZERO {
-            landed = true;
-            break;
-        }
+    let n = shielding(&mut sim);
+    let full = sim.g(n).shield_hp;
+    let mut stunned = false;
+    for frame in 0..20 {
+        sim.tick(inp(0, 0, if frame == 0 { ATTACK } else { 0 }));
+        stunned |= sim.g(n).shield_stun > 0;
     }
-    assert!(landed, "a hit from above lands");
-    // A grab: thrown, guard and all.
+    assert!(stunned, "shield stun");
+    assert_eq!(sim.g(n).percent, Fx::ZERO, "blocked");
+    assert!(sim.g(n).shield_hp < full, "its shield took it");
+    assert_eq!(sim.state.run.combo, 0, "a blocked hit is no combo");
+    // A grab beats it.
     let mut sim = open_street(quiet(), 0);
-    let n = guarded(&mut sim, -1);
-    sim.state.run.mobs[n].pos.x = fx(16) + Fx::from_ratio(12, 10);
-    let mut thrown = false;
+    let n = shielding(&mut sim);
+    sim.g_mut(n).pos.x = fx(16) + Fx::from_ratio(14, 10);
+    let mut caught = false;
     for frame in 0..30 {
         sim.tick(inp(0, 0, if frame == 0 { GRAB } else { 0 }));
-        let m = sim.state.run.mobs[n];
-        if m.percent > Fx::ZERO {
-            thrown = m.hitstun > 0 && m.mode != run::MODE_GUARD;
-            break;
-        }
+        caught |= sim.g(n).state == S::Grabbed;
     }
-    assert!(thrown, "the grab threw it");
-    // A guard worn out: dazed.
+    assert!(caught, "the grab caught it out of its shield");
+    // Worn to nothing: broken.
     let mut sim = open_street(quiet(), 0);
-    let n = guarded(&mut sim, -1);
-    sim.state.run.mobs[n].shield = Fx::from_ratio(1, 10);
-    jab_at(&mut sim, n);
-    assert_eq!(
-        sim.state.run.mobs[n].mode,
-        run::MODE_DAZED,
-        "its guard broke"
-    );
+    let n = shielding(&mut sim);
+    sim.g_mut(n).shield_hp = Fx::from_ratio(1, 10);
+    let mut broke = false;
+    for frame in 0..20 {
+        sim.tick(inp(0, 0, if frame == 0 { ATTACK } else { 0 }));
+        broke |= sim.g(n).state == S::ShieldBreak;
+    }
+    assert!(broke, "its shield broke");
 }
 
-/// A bruiser's armor: a hit through its tell or its smash's startup deals damage but does not flinch it; out of it, it flinches.
+/// A bruiser's super armor: a hit through its tell or its smash's startup deals damage but does not flinch it; out of it, it
+/// flinches.
 #[test]
 fn a_bruisers_armor_holds_through_its_startup() {
     let mut sim = open_street(quiet(), 0);
@@ -2230,29 +2286,34 @@ fn a_bruisers_armor_holds_through_its_startup() {
     }
     for frame in 0..20 {
         sim.tick(inp(0, 0, if frame == 0 { ATTACK } else { 0 }));
-        if sim.state.run.mobs[n].percent > Fx::ZERO {
+        if sim.g(n).percent > Fx::ZERO {
             break;
         }
     }
-    let m = sim.state.run.mobs[n];
-    assert!(m.percent > Fx::ZERO, "it took the damage");
-    assert_eq!(m.hitstun, 0, "and did not flinch");
-    assert_eq!(m.mode, MODE_WINDUP);
+    let g = *sim.g(n);
+    assert!(g.super_armor, "armored through its tell");
+    assert!(g.percent > Fx::ZERO, "it took the damage");
+    assert_eq!(g.hitstun, 0, "and did not flinch");
+    assert_ne!(g.state, S::Hitstun);
+    assert_eq!(sim.state.run.mobs[n].mode, MODE_WINDUP);
     // Cooling down: no armor.
     let mut sim = open_street(quiet(), 0);
     let n = grunt(&mut sim, KIND_BRUISER, Vec2::new(fx(17), Fx::ZERO), 0);
-    sim.state.run.mobs[n].mode = run::MODE_COOLDOWN;
-    sim.state.run.mobs[n].timer = 200;
+    sim.hold(n);
     for frame in 0..20 {
         sim.tick(inp(0, 0, if frame == 0 { ATTACK } else { 0 }));
-        if sim.state.run.mobs[n].percent > Fx::ZERO {
+        if sim.g(n).percent > Fx::ZERO {
             break;
         }
     }
-    assert!(sim.state.run.mobs[n].hitstun > 0, "it flinches");
+    assert!(!sim.g(n).super_armor);
+    assert!(
+        sim.g(n).hitstun > 0 || sim.g(n).launch_pending,
+        "it flinches"
+    );
 }
 
-/// A lobber on high ground throws its shot (a real projectile, from the slot standing for its body) in an arc onto the player.
+/// A lobber on high ground throws its shell (its body's own move and projectile, aimed by the run) in an arc onto the player.
 #[test]
 fn a_lobber_throws_its_shot_in_an_arc() {
     let mut sim = open_street(quiet(), 0);
@@ -2264,7 +2325,7 @@ fn a_lobber_throws_its_shot_in_an_arc() {
         Vec2::new(fx(9), Fx::from_ratio(36, 10)),
         0,
     );
-    assert_ne!(sim.state.run.mobs[n].platform, NONE);
+    assert_ne!(sim.g(n).platform, NONE);
     let mut thrown = false;
     for _ in 0..300 {
         sim.tick(Input::default());
@@ -2273,7 +2334,7 @@ fn a_lobber_throws_its_shot_in_an_arc() {
             .state
             .projectiles
             .iter()
-            .any(|p| p.active && usize::from(p.owner) == run::SHOT_SLOT);
+            .any(|p| p.active && usize::from(p.owner) == grunt_slot(n));
         if sim.player().percent > Fx::ZERO {
             break;
         }
@@ -2292,18 +2353,20 @@ fn a_reflected_shot_hits_the_grunts() {
     let mut sim = open_street(quiet(), TUMBLER);
     sim.state.fighters[PLAYER].facing = 1;
     let target = grunt(&mut sim, KIND_BRAWLER, Vec2::new(fx(22), Fx::ZERO), 0);
-    sim.state.run.mobs[target].mode = run::MODE_COOLDOWN;
-    sim.state.run.mobs[target].timer = 999;
+    sim.hold(target);
+    // (The shot's lobber, far off and held.)
+    let lobber = grunt(&mut sim, KIND_LOBBER, Vec2::new(fx(27), Fx::ZERO), 0);
+    sim.hold(lobber);
     sim.tick(inp(127, 0, SPECIAL));
     for _ in 0..8 {
         sim.tick(Input::default());
-        sim.state.run.mobs[target].timer = 999;
     }
     let shell = sim.rc.mobs[usize::from(KIND_LOBBER)].moves[0];
+    let slot = grunt_slot(lobber) as u8;
     sim.state.projectiles[0] = sim_core::Projectile {
         active: true,
-        owner: run::SHOT_SLOT as u8,
-        origin: run::SHOT_SLOT as u8,
+        owner: slot,
+        origin: slot,
         power: 100,
         move_id: shell,
         pos: Vec2::new(fx(16) + Fx::from_ratio(22, 10), Fx::from_ratio(8, 10)),
@@ -2316,20 +2379,45 @@ fn a_reflected_shot_hits_the_grunts() {
     let mut reflected = false;
     for _ in 0..60 {
         sim.tick(Input::default());
-        sim.state.run.mobs[target].timer = 999;
         let p = sim.state.projectiles[0];
         reflected |= p.active && usize::from(p.owner) == PLAYER;
-        if sim.state.run.mobs[target].percent > Fx::ZERO {
+        if sim.g(target).percent > Fx::ZERO {
             break;
         }
     }
     assert!(reflected, "the cape turned it round");
     assert_eq!(sim.player().percent, Fx::ZERO, "it did not hit the player");
-    assert!(
-        sim.state.run.mobs[target].percent > Fx::ZERO,
-        "it hit the grunt"
-    );
+    assert!(sim.g(target).percent > Fx::ZERO, "it hit the grunt");
     assert!(sim.state.run.combo >= 1, "the player's hit");
+}
+
+/// A lobber's own shot never hits another grunt (grunts are one side: `combat::rivals`).
+#[test]
+fn grunts_never_hit_one_another() {
+    let mut sim = open_street(quiet(), 0);
+    sim.stand(Vec2::new(fx(4), Fx::ZERO));
+    let a = grunt(&mut sim, KIND_BRAWLER, Vec2::new(fx(16), Fx::ZERO), 0);
+    let b = grunt(&mut sim, KIND_BRAWLER, Vec2::new(fx(17), Fx::ZERO), 0);
+    sim.hold(b);
+    // `a` jabs right into `b`.
+    sim.g_mut(a).facing = 1;
+    let mut inputs = [Input::default(); MAX_FIGHTERS];
+    inputs[0] = Input::default();
+    sim.state.run.mobs[a].mode = MODE_ATTACK;
+    sim.state.run.mobs[a].move_slot = 0;
+    sim.state.run.mobs[a].step = 0;
+    sim.state.run.mobs[a].timer = 30;
+    for _ in 0..40 {
+        sim.tick(Input::default());
+    }
+    assert!(
+        sim.state.fighters[grunt_slot(a)].move_id == MoveId::Jab as u8,
+        "it jabbed"
+    );
+    assert_eq!(sim.g(b).percent, Fx::ZERO, "its own side is never hit");
+    assert!(sim_core::combat::rivals(PLAYER, grunt_slot(a)));
+    assert!(!sim_core::combat::rivals(grunt_slot(a), grunt_slot(b)));
+    let _ = inputs;
 }
 
 /// A room's grunts over many seeds: what its tier allows, within its budget (an arena: at least one), lobbers and leapers on high
@@ -2448,7 +2536,7 @@ fn placement_rules_and_budgets_hold_over_many_seeds() {
     );
 }
 
-/// Hazards hurt grunts (the player's kills) and the player: a gas canister hit burns, then bursts; a loose sign falls on whoever is
+/// Hazards hurt grunts (the player's hits) and the player: a gas canister hit burns, then bursts; a loose sign falls on whoever is
 /// under it and breaks where it lands; a chest hit open pays once.
 #[test]
 fn hazards_hurt_grunts_and_chests_pay() {
@@ -2473,45 +2561,38 @@ fn hazards_hurt_grunts_and_chests_pay() {
         Vec2::new(fx(18) + Fx::HALF, Fx::ZERO),
         0,
     );
-    sim.state.run.mobs[n].stamina = Fx::ONE;
-    sim.state.run.mobs[n].mode = run::MODE_COOLDOWN;
-    sim.state.run.mobs[n].timer = 999;
+    sim.hold(n);
     let mut lit = false;
+    let mut burnt = false;
     for frame in 0..60 {
         sim.tick(inp(0, 0, if frame == 0 { ATTACK } else { 0 }));
         lit |= sim.state.run.props[gas].mode == run::PROP_LIT;
+        burnt |= !sim.state.run.mobs[n].active || sim.g(n).percent > Fx::ZERO;
         if !sim.state.run.props[gas].active {
             break;
         }
     }
     assert!(lit, "the hit lit it");
     assert!(!sim.state.run.props[gas].active, "it burst and is gone");
-    assert_eq!(
-        sim.state.run.kills, 1,
-        "the blast beat the grunt: the player's kill"
-    );
+    assert!(burnt, "the blast caught the grunt");
+    assert!(sim.state.run.combo >= 1, "the player's hit");
     assert!(sim.player().percent > Fx::ZERO, "and caught the player too");
     // A loose sign falling onto a grunt.
     // (Clear of the start room's awnings, the player well away.)
     let mut sim = open_street(quiet(), 0);
     sim.stand(Vec2::new(fx(3), Fx::ZERO));
     let n = grunt(&mut sim, KIND_BRAWLER, Vec2::new(fx(16), Fx::ZERO), 0);
-    sim.state.run.mobs[n].mode = run::MODE_COOLDOWN;
-    sim.state.run.mobs[n].timer = 999;
+    sim.hold(n);
     let sign = put(&mut sim, PROP_KIND_SIGN, Vec2::new(fx(16), fx(5)));
     sim.state.run.props[sign].mode = run::PROP_FALLING;
     let mut broke = false;
+    let mut struck = false;
     for _ in 0..90 {
         sim.tick(Input::default());
         broke |= sim.state.run.props[sign].mode == run::PROP_BROKEN;
-        if sim.state.run.mobs[n].active && sim.state.run.mobs[n].hitstun == 0 {
-            sim.state.run.mobs[n].timer = 999;
-        }
+        struck |= !sim.state.run.mobs[n].active || sim.g(n).percent > Fx::ZERO;
     }
-    assert!(
-        sim.state.run.mobs[n].percent > Fx::ZERO,
-        "it fell on the grunt"
-    );
+    assert!(struck, "it fell on the grunt");
     assert!(broke, "and broke where it landed");
     assert_eq!(sim.player().percent, Fx::ZERO, "the player was clear");
     // A chest.
@@ -2570,7 +2651,6 @@ fn rare_events_are_rare_but_come_with_the_pity_counter() {
         "{with} of {cities} cities had their event"
     );
     assert!(with < cities, "not certain");
-    // The pity counter: with no base chance and a big step, the event comes on the second eligible room; with neither, never.
     let mut sure = RunContent::placeholder();
     sure.rules.event_base = 0;
     sure.rules.event_step = 1000;
@@ -2598,7 +2678,7 @@ fn rare_events_are_rare_but_come_with_the_pity_counter() {
 }
 
 /// The runaway van end to end: it waits until the player lands on its roof, then drives down the street carrying them (untouchable
-/// while riding), runs into the grunts in its way (the player's kills or launches), and parks at the street's end.
+/// while riding), runs into the grunts in its way (through the versus hit), and parks at the street's end.
 #[test]
 fn riding_the_runaway_van() {
     let mut rc = quiet();
@@ -2611,17 +2691,15 @@ fn riding_the_runaway_van() {
     sim.clear_mobs();
     let v = sim.state.run.van;
     assert_eq!(v.mode, run::VAN_WAITING);
-    // Not until someone is on its roof.
     sim.stand(Vec2::new(v.x + fx(4), Fx::ZERO));
     sim.idle(30);
     assert_eq!(sim.state.run.van.mode, run::VAN_WAITING);
-    // A grunt down the street in its way.
     let n = grunt(&mut sim, KIND_BRAWLER, Vec2::new(v.x + fx(14), Fx::ZERO), 0);
-    sim.state.run.mobs[n].mode = run::MODE_COOLDOWN;
-    sim.state.run.mobs[n].timer = 9999;
+    sim.hold(n);
     sim.stand(Vec2::new(v.x, v.y + run::VAN_HEIGHT));
     let start = sim.player().pos.x;
     let mut rode = 0;
+    let mut sent = false;
     for _ in 0..400 {
         sim.tick(Input::default());
         let v = sim.state.run.van;
@@ -2629,9 +2707,7 @@ fn riding_the_runaway_van() {
             rode += 1;
             assert!(sim.player().invuln > 0, "untouchable while riding");
         }
-        if sim.state.run.mobs[n].active {
-            sim.state.run.mobs[n].timer = 9999;
-        }
+        sent |= !sim.state.run.mobs[n].active || sim.g(n).percent > Fx::ZERO;
         if v.mode == run::VAN_PARKED {
             break;
         }
@@ -2645,11 +2721,7 @@ fn riding_the_runaway_van() {
     assert_eq!(v.mode, run::VAN_PARKED, "it parked");
     assert!(v.x + run::VAN_HALF <= slot.end, "at its street's end");
     assert!(v.hits >= 1, "it ran into the grunt");
-    let m = sim.state.run.mobs[n];
-    assert!(
-        !m.active || m.percent > Fx::ZERO,
-        "the grunt was sent flying"
-    );
+    assert!(sent, "the grunt was sent flying");
 }
 
 /// A branching fork (the owner's R2a answer): its two roads come next, side by side, the alley the fork's lift up; walking out on the
@@ -2657,7 +2729,6 @@ fn riding_the_runaway_van() {
 /// not taken; the run goes on from the room taken.
 #[test]
 fn a_branching_fork_leads_to_two_rooms() {
-    // (The built-in rooms, props kept, no grunts in the streets, no arenas or events.)
     let mut rc = RunContent::placeholder();
     for r in rc.rooms.iter_mut().filter(|r| r.kind == ROOM_STREET) {
         r.spawns.clear();
@@ -2699,7 +2770,6 @@ fn a_branching_fork_leads_to_two_rooms() {
                 .any(|p| p.active && p.room == alley.seq),
             "the alley's chest"
         );
-        // Out on one road.
         let (take, other) = if high { (alley, low) } else { (low, alley) };
         sim.place(Vec2::new(take.x + fx(3), take.y + Fx::HALF));
         sim.state.fighters[PLAYER].invuln = 30;
@@ -2723,7 +2793,6 @@ fn a_branching_fork_leads_to_two_rooms() {
             high,
             "the chest only on the high road"
         );
-        // The street under the alley is still there to land on.
         sim.stand(Vec2::new(take.x + fx(10), fork.y_end));
     }
 }
@@ -2745,9 +2814,9 @@ fn a_run_with_grunts_props_and_events_replays() {
     let play = |rc: &RunContent| {
         let mut sim = RunSim::with(rc.clone(), 9);
         let mut sums = Vec::new();
+        let mut fought = 0;
         for (n, i) in inputs.iter().enumerate() {
             if n % 200 == 0 && !sim.state.run.inside && !sim.state.run.over {
-                // (Carried on into the next room now and then, an arena cleared, so the generator's rooms come.)
                 if sim.state.run.gate_closed {
                     sim.clear_mobs();
                     sim.tick(Input::default());
@@ -2757,12 +2826,450 @@ fn a_run_with_grunts_props_and_events_replays() {
                 }
             }
             step_run(&mut sim.state, &mut sim.world, &sim.rc, i);
+            fought += sim.state.run.mobs.iter().filter(|m| m.active).count();
             sums.push(sim.state.checksum());
         }
-        (sums, sim.state.run.placed)
+        (sums, sim.state.run.placed, fought)
     };
-    let (a, placed) = play(&rc);
-    let (b, _) = play(&rc);
+    let (a, placed, fought) = play(&rc);
+    let (b, _, _) = play(&rc);
     assert_eq!(a, b);
     assert!(placed > 8);
+    assert!(fought > 0, "grunts were about");
+}
+
+// ---- R2c: combat parity, lighter grunts, the following blast zones (sim 131) ------------------------------------------------------
+
+/// Grabs the grunt (or fighter) standing 1.4 in front of the player, optionally pummels once, then throws with `stick`; returns what
+/// the victim was launched with on the first frame of its hitstun after the throw: its percent, hitstun, launch speed and tumble.
+fn grab_and_throw(
+    tick: &mut dyn FnMut(Input),
+    victim: &dyn Fn() -> sim_core::Fighter,
+    holder: &dyn Fn() -> sim_core::Fighter,
+    pummel: bool,
+    stick: (i8, i8),
+) -> (Fx, u16, Vec2, bool, Fx) {
+    tick(inp(0, 0, GRAB));
+    let mut held = false;
+    for _ in 0..30 {
+        tick(Input::default());
+        if holder().state == S::Grabbing {
+            held = true;
+            break;
+        }
+    }
+    assert!(held, "the grab caught it");
+    assert_eq!(victim().state, S::Grabbed, "held");
+    if pummel {
+        let before = victim().percent;
+        tick(inp(0, 0, ATTACK));
+        let mut pummelled = false;
+        for _ in 0..40 {
+            tick(Input::default());
+            if victim().percent > before {
+                pummelled = true;
+            }
+            if pummelled && holder().state == S::Grabbing && holder().hitlag == 0 {
+                break;
+            }
+        }
+        assert!(pummelled, "the pummel landed");
+        assert_eq!(victim().state, S::Grabbed, "still held after the pummel");
+    }
+    let after_pummel = victim().percent;
+    tick(inp(stick.0, stick.1, 0));
+    for _ in 0..80 {
+        tick(Input::default());
+        let v = victim();
+        if v.state == S::Hitstun && !v.launch_pending && v.hitlag == 0 {
+            return (v.percent, v.hitstun, v.kb_vel, v.tumble, after_pummel);
+        }
+    }
+    panic!("the throw never launched");
+}
+
+/// R2c: a grab on a grunt is a versus grab (the hold, a pummel, all four throws), and each throw launches it exactly as it launches a
+/// versus fighter of the same body and weight: the same damage, hitstun, launch speed and tumble.
+#[test]
+fn grabs_pummels_and_every_throw_on_a_grunt_match_versus() {
+    for char_id in [0u8, 1, 4] {
+        for (stick, pummel) in [
+            ((127, 0), true),
+            ((-127, 0), false),
+            ((0, 127), true),
+            ((0, -127), false),
+        ] {
+            // In the run.
+            let mut sim = open_street(quiet(), char_id);
+            sim.state.fighters[PLAYER].facing = 1;
+            let n = grunt(
+                &mut sim,
+                KIND_BRAWLER,
+                Vec2::new(fx(16) + Fx::from_ratio(14, 10), Fx::ZERO),
+                0,
+            );
+            sim.hold(n);
+            let weight = sim.g(n).weight.unwrap();
+            let body = sim.g(n).char_id;
+            let sim = std::cell::RefCell::new(sim);
+            let ran = grab_and_throw(
+                &mut |i| sim.borrow_mut().tick(i),
+                &|| *sim.borrow().g(n),
+                &|| *sim.borrow().player(),
+                pummel,
+                stick,
+            );
+            // In versus: the same body with that weight.
+            let mut content = Content::placeholder();
+            content.fighters[usize::from(body)].weight = weight;
+            content.stage.blast_top = fx(5000);
+            content.stage.blast_left = fx(-5000);
+            content.stage.blast_right = fx(5000);
+            let mut state = GameState::new_with_active(&content, 1, [char_id, body, 0, 0], 0b0011);
+            let stand = |state: &mut GameState, i: usize, x: Fx, facing: i8| {
+                let f = &mut state.fighters[i];
+                f.pos = Vec2::new(x, Fx::ZERO);
+                f.vel = Vec2::ZERO;
+                f.platform = collision::standing_on(&content.stage, f.pos);
+                f.state = S::Idle;
+                f.facing = facing;
+            };
+            stand(&mut state, 0, fx(-2), 1);
+            stand(&mut state, 1, fx(-2) + Fx::from_ratio(14, 10), -1);
+            let state = std::cell::RefCell::new(state);
+            let vs = grab_and_throw(
+                &mut |i| {
+                    let mut inputs = [Input::default(); MAX_FIGHTERS];
+                    inputs[0] = i;
+                    sim_core::step(&mut state.borrow_mut(), &content, &inputs);
+                },
+                &|| state.borrow().fighters[1],
+                &|| state.borrow().fighters[0],
+                pummel,
+                stick,
+            );
+            assert_eq!(
+                ran, vs,
+                "fighter {char_id}, stick {stick:?}: the grunt is thrown as a versus fighter of its weight"
+            );
+        }
+    }
+}
+
+/// R2c: a held grunt breaks free like a fighter: with no mashing it is let go when its hold runs out; at a tier that mashes it gets
+/// out sooner.
+#[test]
+fn a_held_grunt_breaks_free_and_mashes_out_by_its_tier() {
+    let held_for = |mash: u8| {
+        let mut rc = quiet();
+        rc.tiers[0].mash = mash;
+        let mut sim = open_street(rc, 1);
+        sim.state.fighters[PLAYER].facing = 1;
+        let n = grunt(
+            &mut sim,
+            KIND_BRAWLER,
+            Vec2::new(fx(16) + Fx::from_ratio(14, 10), Fx::ZERO),
+            0,
+        );
+        sim.hold(n);
+        sim.tick(inp(0, 0, GRAB));
+        let mut frames = 0;
+        let mut was_held = false;
+        for _ in 0..400 {
+            sim.tick(Input::default());
+            if sim.g(n).state == S::Grabbed {
+                was_held = true;
+                frames += 1;
+            } else if was_held {
+                break;
+            }
+        }
+        assert!(was_held);
+        assert_ne!(sim.g(n).state, S::Grabbed, "let go in the end");
+        frames
+    };
+    let still = held_for(0);
+    let mashing = held_for(100);
+    assert!(
+        mashing < still,
+        "mashing gets it out sooner ({mashing} < {still})"
+    );
+}
+
+/// R2c: grunts tech and DI at their tier's rates. A tumbling grunt falling onto the ground techs (in place, untouchable) when its tier
+/// techs, and lies in a knockdown when it does not; DI bends its launch.
+#[test]
+fn grunts_tech_and_di_by_their_tier() {
+    let land = |tech: u8| {
+        let mut rc = quiet();
+        rc.tiers[0].tech = tech;
+        let mut sim = open_street(rc, 0);
+        let n = grunt(&mut sim, KIND_BRAWLER, Vec2::new(fx(20), Fx::ZERO), 0);
+        {
+            let g = sim.g_mut(n);
+            g.pos.y = fx(3);
+            g.platform = NONE;
+            g.state = S::Hitstun;
+            g.hitstun = 60;
+            g.tumble = true;
+            g.kb_vel = Vec2::new(Fx::ZERO, -Fx::from_ratio(3, 10));
+        }
+        let mut after = None;
+        for _ in 0..60 {
+            sim.tick(Input::default());
+            let g = *sim.g(n);
+            if g.grounded() {
+                after = Some(g.state);
+                break;
+            }
+        }
+        after.expect("it landed")
+    };
+    assert_eq!(land(0), S::Knockdown, "no tech at a tier that never techs");
+    assert_ne!(land(100), S::Knockdown, "a tech");
+    let launched = |di: u8| {
+        let mut rc = quiet();
+        rc.tiers[0].di = di;
+        let mut sim = open_street(rc, 1);
+        sim.state.fighters[PLAYER].facing = 1;
+        let n = grunt(
+            &mut sim,
+            KIND_BRAWLER,
+            Vec2::new(fx(16) + Fx::from_ratio(12, 10), Fx::ZERO),
+            0,
+        );
+        sim.hold(n);
+        sim.g_mut(n).percent = fx(40);
+        sim.state.run.mobs[n].last_percent = fx(40);
+        sim.tick(Input {
+            stick_x: 127,
+            stick_y: 0,
+            buttons: ATTACK | STRONG,
+        });
+        for _ in 0..40 {
+            sim.tick(Input::default());
+            let g = *sim.g(n);
+            if g.state == S::Hitstun && !g.launch_pending && g.hitlag == 0 {
+                return g.kb_vel;
+            }
+        }
+        panic!("never launched");
+    };
+    let plain = launched(0);
+    let di = launched(100);
+    assert_ne!(plain, di, "DI bent the launch");
+    assert!(
+        di.y * plain.x > plain.y * di.x,
+        "survival DI sends it higher: {di:?} vs {plain:?}"
+    );
+}
+
+/// R2c: weight by tier. Tier 1's grunts are far lighter than any fighter, every kind gets heavier with each tier, and the bruiser
+/// is the heaviest kind in every tier; a forward smash at 0 to 20% knocks a tier-1 grunt out of the view.
+#[test]
+fn grunts_get_heavier_by_tier_and_tier_one_flies_from_a_smash() {
+    let rc = RunContent::placeholder();
+    let roster = Content::placeholder();
+    let lightest = roster.fighters.iter().map(|f| f.weight).min().unwrap();
+    for kind in 0..rc.mobs.len() as u8 {
+        assert!(
+            run::grunt_weight(&rc, kind, 0) + fx(40) < lightest,
+            "kind {kind}: much lighter than any fighter at tier 1"
+        );
+        for tier in 1..rc.tiers.len() as u8 {
+            assert!(run::grunt_weight(&rc, kind, tier) > run::grunt_weight(&rc, kind, tier - 1));
+        }
+    }
+    for tier in 0..rc.tiers.len() as u8 {
+        let bruiser = run::grunt_weight(&rc, KIND_BRUISER, tier);
+        for kind in (0..rc.mobs.len() as u8).filter(|&k| k != KIND_BRUISER) {
+            assert!(bruiser > run::grunt_weight(&rc, kind, tier), "tier {tier}");
+        }
+    }
+    // The gauntlets' sprinter's forward smash at 10%: out of the view, a KO.
+    let mut sim = open_street(quiet(), 4);
+    // (Further into the room: the camera follows, the right zone 18 + 4 ahead.)
+    sim.stand(Vec2::new(fx(26), Fx::ZERO));
+    sim.state.fighters[PLAYER].facing = 1;
+    sim.state.run.cam_y = sim.player().pos.y + sim.rc.rules.cam_lift;
+    let n = grunt(
+        &mut sim,
+        KIND_BRAWLER,
+        Vec2::new(fx(26) + Fx::from_ratio(14, 10), Fx::ZERO),
+        0,
+    );
+    sim.hold(n);
+    sim.g_mut(n).percent = fx(10);
+    sim.state.run.mobs[n].last_percent = fx(10);
+    sim.tick(Input {
+        stick_x: 127,
+        stick_y: 0,
+        buttons: ATTACK | STRONG,
+    });
+    for _ in 0..200 {
+        sim.tick(Input::default());
+        if !sim.state.run.mobs[n].active {
+            break;
+        }
+    }
+    assert!(!sim.state.run.mobs[n].active, "knocked out");
+    assert_eq!(sim.state.run.kos, 1);
+    assert_eq!(sim.state.run.kills, 1, "the player's kill");
+}
+
+/// R2c: the grunts' blast zones follow the view, `ko_margin` outside it on every side (the view is the camera's, its height followed
+/// by the sim too); a launched grunt past any of them is knocked out. A grunt launched backward in tumble goes through the gate (a
+/// wall for the player) and is knocked out by the zone behind; the player stays inside.
+#[test]
+fn the_blast_zones_follow_the_view_on_every_side() {
+    let rules = RunContent::placeholder().rules;
+    let mut sim = RunSim::with(quiet(), 2);
+    sim.idle(2);
+    let zone = |sim: &RunSim| run::grunt_zone(&sim.state.run, &sim.rc.rules);
+    let (l, r, b, t) = zone(&sim);
+    let run = &sim.state.run;
+    assert_eq!(l, run.cam_x - rules.ko_margin);
+    assert_eq!(r, run.cam_x + rules.view_width + rules.ko_margin);
+    assert_eq!(b, run.cam_y - rules.view_height / fx(2) - rules.ko_margin);
+    assert_eq!(t, run.cam_y + rules.view_height / fx(2) + rules.ko_margin);
+    // It follows the camera: on into the next rooms, up a height.
+    for _ in 0..3 {
+        sim.next_room();
+    }
+    sim.idle(120);
+    let (l2, _, b2, _) = zone(&sim);
+    assert!(l2 > l, "the zone moved on with the view");
+    assert_eq!(l2, sim.state.run.cam_x - rules.ko_margin);
+    assert_eq!(
+        b2,
+        sim.state.run.cam_y - rules.view_height / fx(2) - rules.ko_margin
+    );
+    // A launched grunt just past each side is knocked out; just inside, not.
+    let (l, r, b, t) = zone(&sim);
+    let mid_x = (l + r) / fx(2);
+    let mid_y = (b + t) / fx(2);
+    let tiny = Fx::from_ratio(1, 4);
+    for (at, out) in [
+        (Vec2::new(l - tiny, mid_y), true),
+        (Vec2::new(r + tiny, mid_y), true),
+        (Vec2::new(mid_x, b - tiny), true),
+        (Vec2::new(mid_x, t + tiny), true),
+        (Vec2::new(l + fx(2), mid_y), false),
+        (Vec2::new(mid_x, t - fx(2)), false),
+    ] {
+        sim.clear_mobs();
+        let n = grunt(&mut sim, KIND_BRAWLER, at, 0);
+        {
+            let g = sim.g_mut(n);
+            g.pos = at;
+            g.platform = NONE;
+            g.state = S::Hitstun;
+            g.hitstun = 50;
+            g.vel = Vec2::ZERO;
+        }
+        sim.state.run.mobs[n].credit = 10;
+        let kos = sim.state.run.kos;
+        // (The zone is checked after the step; place it where the step will leave it.)
+        sim.state.fighters[grunt_slot(n)].kb_vel = Vec2::ZERO;
+        sim.tick(Input::default());
+        assert_eq!(
+            sim.state.run.kos > kos,
+            out,
+            "at {at:?} (zone {l:?}..{r:?}, {b:?}..{t:?})"
+        );
+    }
+    // Through the gate: the player at the wall throws a grunt backward.
+    let mut sim = RunSim::with(quiet(), 2);
+    sim.clear_mobs();
+    for _ in 0..3 {
+        sim.next_room();
+    }
+    sim.clear_mobs();
+    let wall = sim.state.run.wall_x;
+    sim.stand(Vec2::new(wall + fx(3), Fx::ZERO));
+    sim.state.fighters[PLAYER].facing = 1;
+    let at = sim.player().pos + Vec2::new(Fx::from_ratio(14, 10), Fx::ZERO);
+    let n = grunt(&mut sim, KIND_BRAWLER, at, 0);
+    sim.hold(n);
+    sim.g_mut(n).percent = fx(60);
+    sim.state.run.mobs[n].last_percent = fx(60);
+    sim.tick(inp(0, 0, GRAB));
+    let mut passed = false;
+    for frame in 0..200 {
+        let i = if frame == 12 {
+            inp(-127, 0, 0)
+        } else {
+            Input::default()
+        };
+        sim.tick(i);
+        if sim.state.run.mobs[n].active && sim.g(n).pos.x < wall {
+            passed = true;
+        }
+        assert!(
+            sim.player().pos.x > wall,
+            "the player stays inside the gate"
+        );
+        if !sim.state.run.mobs[n].active {
+            break;
+        }
+    }
+    assert!(passed, "the grunt went through the gate");
+    assert!(
+        !sim.state.run.mobs[n].active,
+        "and was knocked out behind it"
+    );
+    assert!(sim.state.run.kos >= 1);
+    // The player's own rules stand (R1b): the gate stops them, and their zones are outside the grunts' (they never die first).
+    let s = &sim.world.stage;
+    let (gl, gr, gb, gt) = zone(&sim);
+    assert!(s.blast_left < gl && s.blast_right >= gr && s.blast_bottom <= gb && s.blast_top >= gt);
+}
+
+/// R2c: a run's every new piece of state is in the checksum: a grunt's fighter (its slot after the players), its weight, damage
+/// scale and super armor.
+#[test]
+fn the_checksum_sees_the_grunts_fighters() {
+    let mut sim = open_street(quiet(), 0);
+    let n = grunt(&mut sim, KIND_BRAWLER, Vec2::new(fx(20), Fx::ZERO), 1);
+    let base = sim.state;
+    let c = base.checksum();
+    type Edit = fn(&mut GameState, usize);
+    let edits: Vec<(&str, Edit)> = vec![
+        ("pos", |s, i| s.fighters[i].pos.x += Fx::from_raw(1)),
+        ("percent", |s, i| s.fighters[i].percent += Fx::from_raw(1)),
+        ("weight", |s, i| s.fighters[i].weight = Some(fx(3))),
+        ("damage_scale", |s, i| s.fighters[i].damage_scale += 1),
+        ("super_armor", |s, i| s.fighters[i].super_armor ^= true),
+        ("last slot", |s, _| {
+            s.fighters[MAX_BODIES - 1].pos.y += Fx::from_raw(1)
+        }),
+    ];
+    for (name, edit) in edits {
+        let mut s = base;
+        edit(&mut s, grunt_slot(n));
+        assert_ne!(s.checksum(), c, "{name} is not in the checksum");
+    }
+}
+
+/// R2c: bodies push each other on the ground (versus's rule), but in a run a push never shoves anyone through a gate standing on that
+/// ground (the arena's, or the wall behind): a grunt crowding the player against a shut gate leaves it inside.
+#[test]
+fn a_push_never_goes_through_a_gate() {
+    let mut sim = RunSim::with(only(&["yard", "shop"], (0, 1, 0)), 4);
+    let slot = *sim.state.run.slot_of(1).unwrap();
+    sim.stand(Vec2::new(slot.x + fx(3), Fx::ZERO));
+    sim.state.fighters[PLAYER].invuln = 30;
+    sim.tick(Input::default());
+    assert!(sim.state.run.gate_closed);
+    sim.clear_mobs();
+    let gate = sim.state.run.gate_x;
+    sim.stand(Vec2::new(gate - fx(1), Fx::ZERO));
+    let at = sim.player().pos - Vec2::new(Fx::HALF, Fx::ZERO);
+    let n = sim.add_mob(KIND_BRAWLER, at);
+    sim.hold(n);
+    for _ in 0..60 {
+        sim.g_mut(n).pos.x = sim.player().pos.x - Fx::HALF;
+        sim.tick(inp(127, 0, 0));
+        assert!(sim.player().pos.x < gate, "pushed through the gate");
+    }
 }

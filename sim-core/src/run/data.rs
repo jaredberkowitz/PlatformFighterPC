@@ -328,8 +328,6 @@ pub struct Interior {
     pub cheer_frames: u16,
     pub grumble_frames: u16,
     pub dizzy_frames: u16,
-    /// R2b (owner's R2a answer): after a bonk it sulks ("Hmph!", arms crossed) and refuses to sell for this long.
-    pub sulk_frames: u16,
 }
 
 /// A kind of grunt (R2b, `RUNNER_WORLD.md` 4): a base-game body ([`MobKind::body`], an index into the roster: its hurtbox, weight, fall
@@ -344,8 +342,12 @@ pub struct MobKind {
     /// Its kit: `moves::MoveId` indices into its body's weapon ([`NO_MOVE`] for an empty slot). What each slot is for depends on the
     /// role (`run::mobs`).
     pub moves: [u8; MOB_MOVES],
-    /// Hit points (before the tier's `stamina` percent): damage wears it down and at 0 it bursts. 0: none (it must be launched away).
+    /// An optional percent at which it is beaten where it stands (times the tier's `stamina` percent; R2c). 0, every built-in kind:
+    /// none, it must be launched out of the following blast zones (the owner's rule).
     pub stamina: Fx,
+    /// Its weight, in percent of its tier's counted from -100 (`Tier::weight`, `run::grunt_weight`): the knockback formula reads that
+    /// instead of its body's (R2c). The bruiser is the heaviest.
+    pub weight: u16,
     /// Coins it pays when beaten (before the combo multiplier).
     pub coins: u16,
     /// What it costs from a room's budget, the first tier it comes in, how likely it is picked (a weight), and its placement rules
@@ -363,15 +365,10 @@ pub struct MobKind {
     pub reach2: Fx,
     /// Frames it waits after an attack.
     pub cooldown: u8,
-    /// Its forward speed through the active frames of its attack (a lunge, a dash attack's slide).
-    pub lunge: Fx,
-    /// A guard (a shieldbearer): its shield's hit points (0: none).
-    pub shield: Fx,
     /// Super armor through the tell and the startup of its first move (hits deal damage but do not flinch it).
     pub armor: bool,
-    /// A lobber's shot: the move frame it leaves on, and its flight time to the target (frames). The shot is its first move's
-    /// projectile.
-    pub shot_frame: u8,
+    /// A lobber's shot (its first move's projectile, fired by the move itself): its flight time to the target (frames); the run aims
+    /// it to come down on you.
     pub shot_time: u8,
 }
 
@@ -386,6 +383,13 @@ pub struct Tier {
     pub tell: u8,
     pub stamina: u8,
     pub damage: u8,
+    /// R2c. The grunts' weight (each kind's `MobKind::weight` percent of it): far lighter than any fighter at first, so a solid hit
+    /// launches them out of the view.
+    pub weight: Fx,
+    /// R2c. How often (percent) a grunt techs a landing in hitstun, DIs a launch (survival DI) and mashes out of a grab.
+    pub tech: u8,
+    pub di: u8,
+    pub mash: u8,
 }
 
 /// A prop (R2b, Punch Quest's torches): a hazard or a chest. Hit by the player's attack or shot, a gas canister burns for `fuse`
@@ -456,8 +460,6 @@ pub struct RunRules {
     pub combo_max: u8,
     /// Frames a hit mob counts as the player's (a launched mob leaving the screen is a kill in this time).
     pub credit_frames: u16,
-    /// Frames a beaten mob takes to burst (it flies with its launch meanwhile; the game draws the pop).
-    pub burst_frames: u8,
     /// The window of rooms in play: up to this many rooms behind the current one are kept (the oldest is dropped as you enter a new
     /// room, and a wall closes its left edge), and this many ahead are laid (at least 1).
     pub rooms_behind: u8,
@@ -513,13 +515,17 @@ pub struct RunRules {
     pub van_accel: Fx,
     pub van_frames: u16,
     pub van_hit: Hitbox,
-    /// A shieldbearer turns to face you this many frames after you cross it up; a broken guard leaves it dazed this long; its
-    /// guard grows back this much a frame while it is not hit.
-    pub guard_turn: u8,
-    pub daze_frames: u8,
-    pub shield_regen: Fx,
-    /// A grab that catches a grunt throws it with the fighter's forward throw; a fighter whose weapon has none uses this.
-    pub grab_throw: Hitbox,
+    /// R2c. The camera's height (the middle of the view): it follows the player's feet plus `cam_lift`, outside a dead zone of
+    /// `cam_dead`, easing `cam_y_ease` of the way a frame, and stays between `cam_floor` above the blast zone's bottom and
+    /// `cam_ceiling` below its top. `view_height` is how much of the world the view shows top to bottom.
+    pub view_height: Fx,
+    pub cam_lift: Fx,
+    pub cam_dead: Fx,
+    pub cam_y_ease: Fx,
+    pub cam_floor: Fx,
+    pub cam_ceiling: Fx,
+    /// R2c. The grunts' blast zones follow the view, this far outside it on every side: a launched grunt past one is knocked out.
+    pub ko_margin: Fx,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -734,7 +740,6 @@ impl RunRules {
             combo_step: 5,
             combo_max: 5,
             credit_frames: 180,
-            burst_frames: 20,
             rooms_behind: 2,
             rooms_ahead: 1,
             enter_depth: int(2),
@@ -767,10 +772,13 @@ impl RunRules {
             van_accel: Fx::from_ratio(1, 80),
             van_frames: 240,
             van_hit: mob_hit(0, 10, 16, 100, 50, 80, 70),
-            guard_turn: 18,
-            daze_frames: 100,
-            shield_regen: Fx::from_ratio(1, 20),
-            grab_throw: mob_hit(0, 10, 10, 80, 45, 60, 60),
+            view_height: int(18),
+            cam_lift: int(2),
+            cam_dead: int(2),
+            cam_y_ease: Fx::from_ratio(1, 20),
+            cam_floor: int(9),
+            cam_ceiling: int(8),
+            ko_margin: int(4),
         }
     }
 }
@@ -784,7 +792,8 @@ impl MobKind {
             role: ROLE_BRAWLER,
             body: 4,
             moves: [M::Jab as u8, M::FTilt as u8, NO_MOVE],
-            stamina: int(14),
+            stamina: Fx::ZERO,
+            weight: 100,
             coins: 5,
             cost: 2,
             min_tier: 0,
@@ -796,10 +805,7 @@ impl MobKind {
             reach: tenths(16),
             reach2: tenths(26),
             cooldown: 36,
-            lunge: Fx::ZERO,
-            shield: Fx::ZERO,
             armor: false,
-            shot_frame: 0,
             shot_time: 0,
         };
         vec![
@@ -809,8 +815,8 @@ impl MobKind {
             MobKind {
                 role: ROLE_LEAPER,
                 body: 2,
+                weight: 85,
                 moves: [M::DAir as u8, M::FAir as u8, NO_MOVE],
-                stamina: int(10),
                 coins: 7,
                 cost: 3,
                 odds: 30,
@@ -827,8 +833,8 @@ impl MobKind {
             MobKind {
                 role: ROLE_SHIELD,
                 body: 9,
+                weight: 110,
                 moves: [M::FTilt as u8, M::Jab as u8, NO_MOVE],
-                stamina: int(16),
                 coins: 8,
                 cost: 3,
                 min_tier: 1,
@@ -840,7 +846,6 @@ impl MobKind {
                 reach: tenths(28),
                 reach2: tenths(16),
                 cooldown: 30,
-                shield: int(30),
                 ..base
             },
             // A spearman on the longsword's body: a delayed forward tilt, or a dash attack from further out. Jump it and punish.
@@ -848,7 +853,6 @@ impl MobKind {
                 role: ROLE_SPEAR,
                 body: 0,
                 moves: [M::FTilt as u8, M::DashAttack as u8, NO_MOVE],
-                stamina: int(14),
                 coins: 7,
                 cost: 3,
                 min_tier: 1,
@@ -860,15 +864,14 @@ impl MobKind {
                 reach: tenths(30),
                 reach2: int(6),
                 cooldown: 44,
-                lunge: Fx::from_ratio(3, 10),
                 ..base
             },
             // A lobber on the clutch's body: throws its shell in an arc from high ground (reflect it back), a jab up close.
             MobKind {
                 role: ROLE_LOBBER,
                 body: 8,
+                weight: 90,
                 moves: [M::UpSpecial as u8, M::Jab as u8, NO_MOVE],
-                stamina: int(10),
                 coins: 8,
                 cost: 4,
                 min_tier: 2,
@@ -880,7 +883,6 @@ impl MobKind {
                 reach: int(15),
                 reach2: tenths(16),
                 cooldown: 60,
-                shot_frame: 16,
                 shot_time: 45,
                 ..base
             },
@@ -888,8 +890,8 @@ impl MobKind {
             MobKind {
                 role: ROLE_BRUISER,
                 body: 7,
+                weight: 150,
                 moves: [M::FSmash as u8, M::Jab as u8, NO_MOVE],
-                stamina: int(40),
                 coins: 14,
                 cost: 5,
                 min_tier: 3,
@@ -920,6 +922,10 @@ impl Tier {
                 tell: 18,
                 stamina: 100,
                 damage: 100,
+                weight: int(-55),
+                tech: 0,
+                di: 0,
+                mash: 0,
             },
             Tier {
                 kinds: all(&[KIND_BRAWLER, KIND_LEAPER, KIND_SHIELD, KIND_SPEAR]),
@@ -927,6 +933,10 @@ impl Tier {
                 tell: 16,
                 stamina: 110,
                 damage: 105,
+                weight: int(-40),
+                tech: 10,
+                di: 20,
+                mash: 25,
             },
             Tier {
                 kinds: all(&[
@@ -940,6 +950,10 @@ impl Tier {
                 tell: 14,
                 stamina: 120,
                 damage: 110,
+                weight: int(-25),
+                tech: 20,
+                di: 35,
+                mash: 45,
             },
             Tier {
                 kinds: 0b11_1111,
@@ -947,6 +961,10 @@ impl Tier {
                 tell: 12,
                 stamina: 135,
                 damage: 120,
+                weight: int(-10),
+                tech: 30,
+                di: 50,
+                mash: 60,
             },
             Tier {
                 kinds: 0b11_1111,
@@ -954,6 +972,10 @@ impl Tier {
                 tell: 10,
                 stamina: 150,
                 damage: 130,
+                weight: int(5),
+                tech: 40,
+                di: 60,
+                mash: 75,
             },
         ]
     }
@@ -1084,7 +1106,6 @@ fn interior() -> Interior {
         cheer_frames: 70,
         grumble_frames: 60,
         dizzy_frames: 100,
-        sulk_frames: 180,
     }
 }
 
@@ -1695,13 +1716,15 @@ impl RunContent {
             s.cheer_frames,
             s.grumble_frames,
             s.dizzy_frames,
-            s.sulk_frames,
         ] {
             h.write_u16(v);
         }
         h.write_u32(self.tiers.len() as u32);
         for t in &self.tiers {
-            for v in [t.kinds, t.budget, t.tell, t.stamina, t.damage] {
+            t.weight.hash_into(&mut h);
+            for v in [
+                t.kinds, t.budget, t.tell, t.stamina, t.damage, t.tech, t.di, t.mash,
+            ] {
                 h.write_u8(v);
             }
         }
@@ -1780,7 +1803,6 @@ impl StateHash for RunRules {
         h.write_u16(self.combo_step);
         h.write_u8(self.combo_max);
         h.write_u16(self.credit_frames);
-        h.write_u8(self.burst_frames);
         for v in [
             self.rooms_behind,
             self.rooms_ahead,
@@ -1802,7 +1824,13 @@ impl StateHash for RunRules {
             self.flat_room,
             self.van_speed,
             self.van_accel,
-            self.shield_regen,
+            self.view_height,
+            self.cam_lift,
+            self.cam_dead,
+            self.cam_y_ease,
+            self.cam_floor,
+            self.cam_ceiling,
+            self.ko_margin,
         ] {
             v.hash_into(h);
         }
@@ -1811,8 +1839,6 @@ impl StateHash for RunRules {
             self.arena_budget,
             self.city_rooms,
             self.event_from,
-            self.guard_turn,
-            self.daze_frames,
         ] {
             h.write_u8(v);
         }
@@ -1820,7 +1846,6 @@ impl StateHash for RunRules {
             h.write_u16(v);
         }
         self.van_hit.hash_into(h);
-        self.grab_throw.hash_into(h);
     }
 }
 
@@ -1883,14 +1908,7 @@ impl StateHash for MobKind {
         for m in self.moves {
             h.write_u8(m);
         }
-        for v in [
-            self.stamina,
-            self.aggro,
-            self.reach,
-            self.reach2,
-            self.lunge,
-            self.shield,
-        ] {
+        for v in [self.stamina, self.aggro, self.reach, self.reach2] {
             v.hash_into(h);
         }
         h.write_u16(self.coins);
@@ -1902,11 +1920,11 @@ impl StateHash for MobKind {
             self.walk,
             self.run,
             self.cooldown,
-            self.shot_frame,
             self.shot_time,
         ] {
             h.write_u8(v);
         }
         h.write_bool(self.armor);
+        h.write_u16(self.weight);
     }
 }

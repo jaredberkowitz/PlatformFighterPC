@@ -93,6 +93,16 @@ reference buffers a dash only in the last 6 or 7 frames (owner's call to be more
 **Sim 82** (branch `dash-buffer-landing`, on `movesets` at sim 80): landing lag keeps a dash the same way, and the keyboard sends a
 direction key pressed during grab, throw or landing lag as a flick (a first press was otherwise a walk, so keyboard players could not
 buffer a dash at all); tests in `grab_dash.rs`, `landing_buffer.rs` and `godot/tests/input_e2e.gd`.
+**Sim 131** (branch `runner-r2c`, from `origin/main` at 12eb757, merged with sim 128 and sim 130; content schema 8 unchanged): the run
+mode's R2c, combat parity (`docs/modes/RUNNER_PLAN.md` section 11). **Every grunt is a fighter**: `GameState::fighters` holds the 4
+players then 12 grunt slots (`MAX_BODIES` = 16, `MAX_GRUNTS`), inactive outside a run, stepped by the same fighter, combat, grab, item,
+projectile and ledge code (`step::step_bodies`; `step` still takes the players' four inputs) and played by the run's input layer
+(`run/mobs.rs`). General changes, all neutral in versus (a digest of 60 random matches and both fuzzers' lines are unchanged):
+`combat::rivals` (grunts never hit, grab, clank with, reflect or lock onto each other), wider hit records (`Fighter::hit_mask` and
+`Projectile::hit_mask` are `u128`, `hit_bit(d, g)` = `d + 16 g`; `hit_age` / `Item::struck` hold 16), three fighter fields off in
+versus (`weight`, `damage_scale`, `super_armor`), and in a run only a ground push never passes a wall. Grunts are much lighter by tier
+and are knocked out only by blast zones that follow the view; the shopkeeper's grudge lasts until a new room. GameState is 10,688
+bytes. Tests in `sim-core/tests/runner.rs` (64).
 **Sim 130** (branch `upspecial-momentum`, from `origin/movesets` at ab6380e, sim 128; 129 is reserved for the run mode's R2c; content
 schema 8 unchanged): **up specials halt the momentum they start with** (owner decision 97, from the owner's "super-jump": the exile's
 blade dash out of a jump rose 21.4 world units against 9.4 from a standstill, because its script's frame-0 stall never ran). Every

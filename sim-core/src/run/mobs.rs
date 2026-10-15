@@ -1,922 +1,532 @@
-//! Grunts: the run's enemies (R2b, `RUNNER_WORLD.md` 4). Every grunt is fighter-shaped: a base-game body (`MobKind::body`), whose
-//! hurtbox, weight, fall speed, walk and run speeds and jump it has, and a small kit of that body's own moves, whose real hitboxes,
-//! frames and knockback it attacks with. Every attack is announced by a tell (a flash and a "!", `Tier::tell` frames) and then the
-//! move's own wind-up.
+//! Grunts: the run's enemies (R2b; rebuilt in R2c, sim 131, `RUNNER_WORLD.md` 4).
 //!
-//! Hits taken use the versus formulas (`combat::knockback`, `hitstun_frames`, `hitlag_frames`, `launch_angle`); hits given go through
-//! `combat::apply_hit` on a fighter slot no one plays, so shields, DI, crouch cancelling, armor and counters all work against them.
-//! A grunt is a light entity in a fixed pool, not a fighter: simple ground physics (walk, run, hop, fall, land, slopes) through the
-//! shared collision, and a small state machine per role:
-//! * a **brawler** rushes you and jabs or forward-tilts;
-//! * a **leaper** waits on high ground and leaps at you with an aerial;
-//! * a **shieldbearer** guards toward you and pokes out of its guard: hits from the front are blocked (grab it, hit it from above,
-//!   or cross it up before it turns), and a broken guard dazes it;
-//! * a **spearman** pokes long and late along the ground (a forward tilt, or a dash attack from further out);
-//! * a **lobber** throws its shot in an arc from high ground (a real projectile from a slot standing for its body: a reflector sends
-//!   it back into the grunts);
-//! * a **bruiser** walks in slowly and swings a big smash, with super armor through its tell and startup.
+//! **A grunt is a fighter.** Grunt `n` is the body `MAX_FIGHTERS + n` of `GameState::fighters` ([`slot`]), a fighter of its kind's
+//! body (`MobKind::body`, a roster fighter), stepped by the versus step with every versus rule, both ways: hits, grabs with their hold,
+//! pummels, all four throws, grab releases and mashing out; hitstun, tumble, techs, DI and SDI; shields, shield stun, shield breaks
+//! and perfect shields; armor, counters, reflectors and absorbers; hitlag, crouch cancelling, ledges, the player's projectiles and
+//! items; staleness and rage. Nothing here re-implements any of it. Grunts never hit, grab or reflect one another
+//! (`combat::rivals`).
+//!
+//! What the run adds is a **player for each grunt** ([`think`]): its kind's behaviour presses buttons and moves the stick as a person
+//! would, with the inputs the versus game reads. Every attack is announced by a **tell** (it stops, a "!" bobs over it: the tier's
+//! `Tier::tell` frames), then the attack's input. By role:
+//! * a **brawler** runs at you when far and jabs or forward-tilts up close;
+//! * a **leaper** waits on high ground, crouches (its tell), jumps at you and drifts in with its down air (from above) or forward air;
+//! * a **shieldbearer** walks in and holds up its shield near you (a versus shield: it shrinks, it breaks), and pokes out of it;
+//! * a **spearman** pokes long with its forward tilt, or dashes in with its dash attack from further out;
+//! * a **lobber** throws its shell (its body's up special, a real projectile, which the run aims to come down on you) from high
+//!   ground;
+//! * a **bruiser** walks in and swings its forward smash, with super armor through its tell and the smash's startup.
+//!
+//! In hitstun a grunt may DI (survival DI) and tech, and in a grab it may mash, at its tier's rates (`Tier::di`, `tech`, `mash`); at
+//! tier 1 it does none of it. The run gives each grunt its kind's and tier's weight (`Fighter::weight`: far lighter than any fighter
+//! at first, `Tier::weight`) and damage (`Fighter::damage_scale`). A grunt is knocked out **only by the blast zones that follow the
+//! view** ([`grunt_zone`], `RunRules::ko_margin` outside it on every side), never by damage; a grunt launched backward goes through
+//! the gate behind (which stays a wall for the player) and is knocked out by the zone there.
 
 use super::data::{
-    MobKind, RunContent, NO_MOVE, ROLE_BRUISER, ROLE_LEAPER, ROLE_LOBBER, ROLE_SHIELD, ROLE_SPEAR,
+    MobKind, RunContent, Tier, NO_MOVE, ROLE_BRUISER, ROLE_LEAPER, ROLE_LOBBER, ROLE_SHIELD,
+    ROLE_SPEAR,
 };
 use super::{
-    count_combo, pay_kill, Mob, INTERIOR_X, MODE_ATTACK, MODE_BURST, MODE_COOLDOWN, MODE_DAZED,
-    MODE_EMERGE, MODE_GUARD, MODE_IDLE, MODE_LEAP, MODE_MOVE, MODE_WINDUP, PLAYER, SHOT_SLOT,
-    VAN_DRIVING, VAN_HALF, VAN_HEIGHT, VAN_NONE, VAN_PARKED, VAN_WAITING,
+    count_combo, pay_kill, Mob, INTERIOR_X, MAX_MOBS, MODE_ATTACK, MODE_COOLDOWN, MODE_EMERGE,
+    MODE_IDLE, MODE_LEAP, MODE_MOVE, MODE_WINDUP, PLAYER, VAN_DRIVING, VAN_HALF, VAN_HEIGHT,
+    VAN_NONE, VAN_PARKED, VAN_WAITING,
 };
 use crate::collision;
-use crate::combat::{self, params_of, weapon_of, HURT_CIRCLES};
-use crate::content::{Content, FighterParams, Stage};
+use crate::combat::{self, params_of, weapon_of};
+use crate::content::Content;
 use crate::fixed::Fx;
-use crate::moves::{
-    Hitbox, Move, MoveId, ANGLE_AUTOLINK, ANGLE_PULL, ANGLE_VORTEX, HIT_GRAB, HIT_NORMAL, HIT_THROW,
-};
-use crate::state::{Fighter, FighterState as S, GameState, Projectile, NONE, REST_FLYING};
+use crate::input::{buttons, Input, STICK_FLICK_FROM};
+use crate::moves::{Hitbox, MoveId, HIT_NORMAL};
+use crate::state::{Fighter, FighterState as S, GameState, NONE, REST_FLYING};
 use crate::vec2::Vec2;
-use crate::MAX_FIGHTERS;
+use crate::{MAX_BODIES, MAX_FIGHTERS};
 
-/// A hit-stamp no swing of a fighter makes: the runaway van's (one hit on each grunt).
-const VAN_STAMP: u32 = 2 << 16;
+/// `Mob::step` once the attack's move has come out (the grunt now waits for it to end).
+const STARTED: u8 = 255;
+/// Frames a grunt keeps trying to make its attack come out before giving up (it was not free to act).
+const ATTEMPT_FRAMES: u16 = 30;
 
-fn approach(v: Fx, target: Fx, delta: Fx) -> Fx {
-    if v < target {
-        (v + delta).min(target)
-    } else {
-        (v - delta).max(target)
-    }
+/// Grunt `n`'s body in `GameState::fighters`.
+pub const fn slot(n: usize) -> usize {
+    MAX_FIGHTERS + n
 }
 
 pub(super) fn kind_of<'a>(rc: &'a RunContent, m: &Mob) -> &'a MobKind {
     &rc.mobs[usize::from(m.kind).min(rc.mobs.len() - 1)]
 }
 
-/// A grunt's body: its roster fighter's numbers.
-pub(super) fn body_of<'a>(content: &'a Content, k: &MobKind) -> &'a FighterParams {
-    &content.fighters[usize::from(k.body).min(content.fighters.len() - 1)]
+/// The grunt's tier row (the last one past the end).
+pub(super) fn tier_row(rc: &RunContent, tier: u8) -> Tier {
+    rc.tiers[usize::from(tier).min(rc.tiers.len() - 1)]
 }
 
-/// Move `slot` of a grunt's kit, from its body's weapon (none for an empty slot).
-pub(super) fn move_of<'a>(content: &'a Content, k: &MobKind, slot: u8) -> Option<&'a Move> {
+/// The weight a grunt of this kind weighs in this tier: the kind's percent of its tier's, measured from -100 (the knockback formula
+/// divides by the weight plus 100, so a kind at 150% takes two thirds of the knockback of one at 100% in every tier).
+pub fn grunt_weight(rc: &RunContent, kind: u8, tier: u8) -> Fx {
+    let k = &rc.mobs[usize::from(kind).min(rc.mobs.len() - 1)];
+    let hundred = Fx::from_int(100);
+    (tier_row(rc, tier).weight + hundred) * Fx::from_ratio(i32::from(k.weight), 100) - hundred
+}
+
+/// The grunts' blast zones (R2c): `(left, right, bottom, top)`, `ko_margin` outside the view on every side. The view is the camera's
+/// (`Run::cam_x`, `Run::cam_y`, `view_width` by `view_height`).
+pub fn grunt_zone(run: &super::Run, rules: &super::RunRules) -> (Fx, Fx, Fx, Fx) {
+    let half = rules.view_height * Fx::HALF;
+    (
+        run.cam_x - rules.ko_margin,
+        run.cam_x + rules.view_width + rules.ko_margin,
+        run.cam_y - half - rules.ko_margin,
+        run.cam_y + half + rules.ko_margin,
+    )
+}
+
+/// Move `slot` of a grunt's kit (none for an empty slot).
+fn kit_move(k: &MobKind, slot: u8) -> Option<MoveId> {
     let id = *k.moves.get(usize::from(slot))?;
-    (id != NO_MOVE).then(|| weapon_of(content, body_of(content, k)).get(id))
+    (id != NO_MOVE).then(|| MoveId::from_index(id))
 }
 
-/// A move's first and last active frames (0, 0 with no hitboxes).
-fn active_frames(mv: &Move) -> (u16, u16) {
-    let first = mv.hitboxes.iter().map(|h| h.start).min().unwrap_or(0);
-    let last = mv.hitboxes.iter().map(|h| h.end).max().unwrap_or(0);
-    (u16::from(first), u16::from(last))
+/// The first active frame of a grunt's move (its startup ends there).
+fn first_active(content: &Content, f: &Fighter, id: MoveId) -> u16 {
+    let mv = weapon_of(content, params_of(content, f)).get(id as u8);
+    u16::from(mv.hitboxes.iter().map(|h| h.start).min().unwrap_or(0))
 }
 
-/// The grunt as a fighter of its body, in the state its mode reads as (the hurtboxes and the move's hitboxes are read from it).
-pub(super) fn as_fighter(m: &Mob, k: &MobKind) -> Fighter {
-    let mut f = Fighter::spawn(m.pos, k.body, m.facing, m.platform, 0, Fx::ZERO);
-    f.active = true;
-    f.vel = m.vel;
-    f.state = if m.mode == MODE_ATTACK {
-        S::Attack
-    } else if m.mode == MODE_GUARD {
-        S::Shield
-    } else if m.hitstun > 0 {
-        S::Hitstun
-    } else if m.platform == NONE {
-        S::Airborne
-    } else if m.vel.x != Fx::ZERO {
-        S::Walk
+/// A number in `0..100`, the same for every frame of the `every`-frame window it falls in, for this grunt and `salt` (as the
+/// computer opponent's `cpu::roll`: a pure function of the frame, so it replays exactly and draws nothing from the run's generator).
+fn roll(frame: u32, n: usize, every: u32, salt: u32) -> u32 {
+    let mut x = (frame / every.max(1)).wrapping_mul(0x9E37_79B9)
+        ^ (n as u32 + 17).wrapping_mul(0x85EB_CA6B)
+        ^ salt.wrapping_mul(0xC2B2_AE35);
+    x ^= x >> 16;
+    x = x.wrapping_mul(0x7FEB_352D);
+    x ^= x >> 15;
+    x = x.wrapping_mul(0x846C_A68B);
+    x ^= x >> 16;
+    x % 100
+}
+
+/// `bit` pressed this frame only if it was not held last frame (a fresh press each time).
+fn press(out: &mut Input, f: &Fighter, bit: u16) {
+    if f.history[0].buttons & bit == 0 {
+        out.buttons |= bit;
+    }
+}
+
+fn sign(dx: Fx) -> i8 {
+    if dx >= Fx::ZERO {
+        1
     } else {
-        S::Idle
-    };
-    if m.mode == MODE_ATTACK {
-        f.move_id = k.moves[usize::from(m.move_slot).min(k.moves.len() - 1)];
-        f.state_frame = m.frame;
-    }
-    f
-}
-
-/// The grunt's hurtboxes: its body's, as a fighter's.
-pub(super) fn hurtboxes(content: &Content, m: &Mob, k: &MobKind) -> [(Vec2, Fx); HURT_CIRCLES] {
-    let f = as_fighter(m, k);
-    let p = body_of(content, k);
-    combat::hurtboxes(&f, p, weapon_of(content, p))
-}
-
-/// Whether a hit of this shape at `at` touches the grunt's body.
-pub(super) fn touches(hurt: &[(Vec2, Fx); HURT_CIRCLES], at: Vec2, hb: &Hitbox) -> bool {
-    hurt.iter().any(|&(c, r)| {
-        combat::shapes_touch(
-            c,
-            Fx::ZERO,
-            Fx::ZERO,
-            r,
-            at,
-            hb.half_width,
-            hb.half_height,
-            hb.radius,
-        )
-    })
-}
-
-/// Whether a grunt can be hit now (not bursting, nor still coming out of its door).
-pub(super) fn hittable(m: &Mob) -> bool {
-    m.active && m.mode != MODE_BURST && m.mode != MODE_EMERGE
-}
-
-/// Whether the grunt's armor is up (a bruiser: through the tell and the startup of its first move): a hit deals its damage but does
-/// not flinch it.
-pub(super) fn armored(content: &Content, m: &Mob, k: &MobKind) -> bool {
-    if !k.armor || m.move_slot != 0 {
-        return false;
-    }
-    match m.mode {
-        MODE_WINDUP => true,
-        MODE_ATTACK => move_of(content, k, 0).is_some_and(|mv| m.frame < active_frames(mv).0),
-        _ => false,
+        -1
     }
 }
 
-/// Whether a guarding grunt's shield (up while it guards, and through the tell of its poke) takes a hit from `from` (the attacker's feet, or a shot) landing at `at`: only from in front, and
-/// not from above (the attacker's feet above three quarters of the body, or the hit above its head).
-pub(super) fn guard_blocks(content: &Content, m: &Mob, k: &MobKind, from: Vec2, at: Vec2) -> bool {
-    // (Its guard stays up through the tell of its poke: the poke itself and its cooldown are the opening.)
-    let guarding = m.mode == MODE_GUARD || m.mode == MODE_WINDUP && k.role == ROLE_SHIELD;
-    if !guarding || m.shield <= Fx::ZERO {
-        return false;
-    }
-    let height = body_of(content, k).ecb_height;
-    let in_front = (from.x - m.pos.x).mul_int(i32::from(m.facing)) >= Fx::ZERO;
-    let above = from.y >= m.pos.y + height * Fx::from_ratio(3, 4) || at.y > m.pos.y + height;
-    in_front && !above
+/// Free to start a ground attack: standing (or walking, running, crouching) and not sliding fast.
+fn free_on_ground(f: &Fighter) -> bool {
+    f.grounded() && matches!(f.state, S::Idle | S::Walk | S::Run | S::Dash | S::Crouch)
 }
 
-/// A blocked hit: the guard loses the damage and the grunt slides back; a guard worn to nothing breaks and the grunt is dazed.
-/// Returns the hitlag (the shield's).
-pub(super) fn block(m: &mut Mob, hb: &Hitbox, side: i8, content: &Content, daze: u8) -> u8 {
-    m.shield -= hb.damage;
-    m.kb_vel = Vec2::new(
-        (Fx::from_ratio(1, 10) + hb.damage * Fx::from_ratio(1, 100)).mul_int(i32::from(side)),
-        Fx::ZERO,
-    );
-    m.hitstun = 0;
-    let lag = combat::hitlag_frames(
-        hb.damage,
-        &content.rules,
-        true,
-        false,
-        Fx::from_ratio(i32::from(hb.hitlag), 100),
-    );
-    m.hitlag = lag;
-    if m.shield <= Fx::ZERO {
-        m.shield = Fx::ZERO;
-        m.mode = MODE_DAZED;
-        m.timer = u16::from(daze.max(1));
-        m.vel = Vec2::ZERO;
-    }
-    lag
+/// The stick for walking at `percent` of its body's walk: kept short of a flick (and of a dash).
+fn walk_stick(percent: u8) -> i8 {
+    (i32::from(percent) * 127 / 100).clamp(30, 72) as i8
 }
 
-/// A hit on a grunt: damage off its stamina, the percent the knockback reads, the launch, hitstun and hitlag (the attacker's too, for
-/// a melee hit). `side` is the way 0 degrees points; `rage` the attacker's. With its armor up it takes the damage and the hitlag only.
-/// Returns the hitlag.
-#[allow(clippy::too_many_arguments)]
-pub(super) fn take_hit(
-    m: &mut Mob,
-    k: &MobKind,
-    hb: &Hitbox,
-    side: i8,
-    rage: Fx,
-    content: &Content,
-    burst_frames: u8,
-    armor: bool,
-) -> u8 {
-    let rules = &content.rules;
-    let weight = body_of(content, k).weight;
-    let damage = hb.damage;
-    m.percent = (m.percent + damage).min(Fx::from_int(999));
-    if !armor {
-        let kb = if hb.fixed_kb > 0 {
-            combat::fixed_knockback(hb.fixed_kb, weight, hb.base_knockback, hb.knockback_growth)
-        } else {
-            combat::knockback(
-                m.percent,
-                damage,
-                weight,
-                hb.base_knockback,
-                hb.knockback_growth,
-            ) * rage
-        };
-        // (The special angles of fighter moves, which carry or pull a fighter, send a grunt at 45 degrees; the autolink's grounded 80
-        // is kept.)
-        let degrees = match hb.angle {
-            ANGLE_AUTOLINK => 80,
-            ANGLE_VORTEX | ANGLE_PULL => 45,
-            a => a,
-        };
-        let grounded = m.platform != NONE;
-        let angle = combat::launch_angle(degrees, side, grounded, kb);
-        let speed = kb * Fx::from_ratio(3, 800);
-        m.kb_vel = Vec2::new(
-            crate::trig::cos(angle) * speed,
-            crate::trig::sin(angle) * speed,
-        );
-        m.hitstun = combat::hitstun_frames(kb, rules.hitstun_mult);
-        if m.hitstun > 0 {
-            m.vel = Vec2::ZERO;
-            if m.kb_vel.y > Fx::ZERO {
-                m.platform = NONE;
-            } else if grounded {
-                m.kb_vel.y = Fx::ZERO;
-            }
-            m.mode = MODE_IDLE;
-            m.timer = 0;
-            m.struck = 0;
-        }
-    }
-    let scale = Fx::from_ratio(i32::from(hb.hitlag), 100);
-    let lag = combat::hitlag_frames(damage, rules, false, false, scale);
-    m.hitlag = lag;
-    if k.stamina > Fx::ZERO {
-        m.stamina -= damage;
-        if m.stamina <= Fx::ZERO {
-            m.mode = MODE_BURST;
-            m.timer = u16::from(burst_frames.max(1));
-            m.platform = NONE;
-            if armor {
-                // (Beaten through its armor: it still flies off.)
-                m.kb_vel = Vec2::new(
-                    Fx::from_ratio(1, 5).mul_int(i32::from(side)),
-                    Fx::from_ratio(1, 5),
-                );
-            }
-        }
-    }
-    lag
-}
-
-/// What a fighter's charged attack adds to its hit's damage (as `combat::resolve_hits` does for fighters).
-fn charged(content: &Content, f: &Fighter, hb: &Hitbox) -> Fx {
-    let attack = weapon_of(content, params_of(content, f)).get(f.move_id);
-    if let Some(add) = attack.charge_add {
-        return add.damage(hb.damage, f.charge);
-    }
-    if f.charge == 0 {
-        return hb.damage;
-    }
-    let rules = &content.rules;
-    let full = if attack.charge_bonus > 0 {
-        attack.charge_bonus
-    } else {
-        rules.charge_bonus_percent
-    };
-    let bonus = Fx::from_ratio(
-        i32::from(f.charge) * i32::from(full),
-        100 * i32::from(rules.charge_frames.max(1)),
-    );
-    hb.damage * (Fx::ONE + bonus)
-}
-
-/// The throw a fighter's grab gives a grunt it catches: its forward throw's hit (or the run's `grab_throw`).
-fn throw_of(content: &Content, f: &Fighter, rc: &RunContent) -> Hitbox {
-    weapon_of(content, params_of(content, f))
-        .get(MoveId::FThrow as u8)
-        .hitboxes
-        .iter()
-        .find(|h| h.kind == HIT_THROW)
-        .copied()
-        .unwrap_or(rc.rules.grab_throw)
-}
-
-/// The fighters' attacks and shots that reach a grunt this frame. A move hits a grunt once per hit group (the best priority box), as
-/// it does a fighter; a shot once (a piercing one goes on). A guard in the way blocks (`guard_blocks`); armor takes the hit without
-/// flinching; a grab throws the grunt (out of its guard too).
-pub(super) fn player_hits(state: &mut GameState, content: &Content, rc: &RunContent) {
-    let burst = rc.rules.burst_frames;
-    for a in 0..MAX_FIGHTERS {
-        let f = state.fighters[a];
-        if !f.active {
-            continue;
-        }
-        let attacking = matches!(f.state, S::Attack | S::LedgeAttack);
-        let stamp = 1 << 16 | (a as u32) << 8 | u32::from(f.move_id);
-        // A swing is the same swing while its move goes on (its frame holds still through hitlag); it ends when the fighter stops
-        // attacking, changes move, or starts the move again.
-        for m in state
-            .run
-            .mobs
-            .iter_mut()
-            .filter(|m| m.hit_stamp >> 8 == (1 << 8 | a as u32))
-        {
-            if !attacking || m.hit_stamp != stamp || f.state_frame < m.hit_age {
-                m.hit_stamp = 0;
-                m.hit_groups = 0;
-            } else {
-                m.hit_age = f.state_frame;
-            }
-        }
-        if !attacking || f.hitlag > 0 {
-            continue;
-        }
-        let params = params_of(content, &f);
-        let mv = weapon_of(content, params).get(f.move_id);
-        let rage = combat::rage_multiplier(f.percent, &content.rules);
-        let mut freeze = 0u8;
-        for n in 0..state.run.mobs.len() {
-            let m = state.run.mobs[n];
-            if !hittable(&m) {
-                continue;
-            }
-            let k = *kind_of(rc, &m);
-            let groups = if m.hit_stamp == stamp {
-                m.hit_groups
-            } else {
-                0
-            };
-            let hurt = hurtboxes(content, &m, &k);
-            let mut best: Option<(Hitbox, Vec2)> = None;
-            let mut grab = false;
-            for (_, hb, at) in combat::active_hitboxes(&f, mv, params.hitbox_scale) {
-                if hb.push || groups & (1 << hb.group.min(7)) != 0 || !touches(&hurt, at, &hb) {
-                    continue;
-                }
-                if hb.kind == HIT_GRAB {
-                    grab = true;
-                } else if hb.kind == HIT_NORMAL
-                    && best.is_none_or(|(b, _)| hb.priority < b.priority)
-                {
-                    best = Some((hb, at));
-                }
-            }
-            let m = &mut state.run.mobs[n];
-            if grab && best.is_none() {
-                // Caught: thrown with the fighter's forward throw, guard or no guard.
-                let throw = throw_of(content, &f, rc);
-                m.hit_stamp = stamp;
-                m.hit_groups = 0xff;
-                m.hit_age = f.state_frame;
-                m.credit = rc.rules.credit_frames;
-                if m.mode == MODE_GUARD {
-                    m.mode = MODE_IDLE;
-                }
-                take_hit(m, &k, &throw, f.facing, rage, content, burst, false);
-                let (died, kind) = (m.mode == MODE_BURST, m.kind);
-                count_combo(&mut state.run);
-                if died {
-                    pay_kill(&mut state.run, rc, kind);
-                }
-                continue;
-            }
-            let Some((mut hb, at)) = best else {
-                continue;
-            };
-            hb.damage = charged(content, &f, &hb);
-            let side = if hb.x < Fx::ZERO { -f.facing } else { f.facing };
-            m.hit_stamp = stamp;
-            m.hit_groups = groups | (1 << hb.group.min(7));
-            m.hit_age = f.state_frame;
-            if guard_blocks(content, m, &k, f.pos, at) {
-                let lag = block(m, &hb, side, content, rc.rules.daze_frames);
-                freeze = freeze.max(lag);
-                continue;
-            }
-            m.credit = rc.rules.credit_frames;
-            let armor = armored(content, m, &k);
-            let lag = take_hit(m, &k, &hb, side, rage, content, burst, armor);
-            let (died, kind) = (m.mode == MODE_BURST, m.kind);
-            freeze = freeze.max(lag);
-            count_combo(&mut state.run);
-            if died {
-                pay_kill(&mut state.run, rc, kind);
-            }
-        }
-        if freeze > 0 {
-            let f = &mut state.fighters[a];
-            f.hitlag = f.hitlag.max(freeze);
-        }
-    }
-    shots(state, content, rc);
-}
-
-/// Shots (projectiles) of the fighters reaching grunts (a lobber's shot a fighter reflected is the fighter's now).
-fn shots(state: &mut GameState, content: &Content, rc: &RunContent) {
-    let burst = rc.rules.burst_frames;
-    for n in 0..state.projectiles.len() {
-        let pr = state.projectiles[n];
-        let bit = 1u16 << n.min(15);
-        if !pr.active || pr.rest != REST_FLYING {
-            // (The slot is free or the shot is at rest: whoever it hit may be hit by the slot's next shot.)
-            for m in state.run.mobs.iter_mut() {
-                m.shot_mask &= !bit;
-            }
-            continue;
-        }
-        let origin = usize::from(pr.origin).min(MAX_FIGHTERS - 1);
-        let owner = usize::from(pr.owner).min(MAX_FIGHTERS - 1);
-        // (A lobber's own shot, not reflected, does not hit grunts.)
-        if owner == SHOT_SLOT || !state.fighters[owner].active {
-            continue;
-        }
-        let op = params_of(content, &state.fighters[origin]);
-        let Some(spec) = weapon_of(content, op).get(pr.move_id).projectile else {
-            continue;
-        };
-        let (mut hb, pierce) = if pr.bursting {
-            match spec.burst.and_then(|b| b.hit_at(pr.age)) {
-                Some(h) => (h, true),
-                None => continue,
-            }
-        } else {
-            (spec.hit_at(pr.age).0, spec.pierce)
-        };
-        if hb.kind != HIT_NORMAL || hb.push {
-            continue;
-        }
-        let size = Fx::from_ratio(i32::from(pr.size), 100);
-        hb.radius = hb.radius * op.hitbox_scale * size;
-        hb.half_height = hb.half_height * op.hitbox_scale * size;
-        hb.half_width = hb.half_width * op.hitbox_scale;
-        if spec.charged.is_some() && !pr.bursting {
-            hb.damage = pr.damage;
-        }
-        hb.damage = hb.damage * Fx::from_int(i32::from(pr.power)) / Fx::from_int(100);
-        if hb.radius <= Fx::ZERO || hb.damage <= Fx::ZERO {
-            continue;
-        }
-        let side = match pr.vel.x.signum_int() {
-            0 => pr.facing,
-            s => s as i8,
-        };
-        let rage = combat::rage_multiplier(state.fighters[owner].percent, &content.rules);
-        for i in 0..state.run.mobs.len() {
-            let m = state.run.mobs[i];
-            if !hittable(&m) || m.shot_mask & bit != 0 {
-                continue;
-            }
-            let k = *kind_of(rc, &m);
-            let hurt = hurtboxes(content, &m, &k);
-            if !touches(&hurt, pr.pos, &hb) {
-                continue;
-            }
-            let m = &mut state.run.mobs[i];
-            m.shot_mask |= bit;
-            if guard_blocks(content, m, &k, pr.pos, pr.pos) {
-                block(m, &hb, side, content, rc.rules.daze_frames);
-            } else {
-                m.credit = rc.rules.credit_frames;
-                let armor = armored(content, m, &k);
-                take_hit(m, &k, &hb, side, rage, content, burst, armor);
-                let (died, kind) = (m.mode == MODE_BURST, m.kind);
-                count_combo(&mut state.run);
-                if died {
-                    pay_kill(&mut state.run, rc, kind);
-                }
-            }
-            if !pierce {
-                state.projectiles[n].active = false;
-                break;
-            }
-        }
-    }
-}
-
-/// Moves a body sideways by `dx`, stopping at the face of a solid block (not at a slope's joint). Returns true if it met one.
-fn move_x(stage: &Stage, pos: &mut Vec2, half: Fx, height: Fx, dx: Fx) -> bool {
-    let mut x = pos.x + dx;
-    let mut hit = false;
-    for b in stage.platforms.iter().filter(|b| !b.pass_through) {
-        let face_top = if dx > Fx::ZERO { b.y } else { b.top_right() };
-        if pos.y >= face_top || pos.y + height <= b.bottom {
-            continue;
-        }
-        if dx > Fx::ZERO && pos.x + half <= b.left && x + half > b.left {
-            if collision::face_is_joint(stage, b, -1) {
-                continue;
-            }
-            x = b.left - half;
-            hit = true;
-        } else if dx < Fx::ZERO && pos.x - half >= b.right && x - half < b.right {
-            if collision::face_is_joint(stage, b, 1) {
-                continue;
-            }
-            x = b.right + half;
-            hit = true;
-        }
-    }
-    pos.x = x;
-    hit
-}
-
-/// Moves a body up or down by `dy`: landing on a surface it crosses going down (returns the platform), stopping under a ceiling
-/// going up.
-fn move_y(stage: &Stage, pos: &mut Vec2, height: Fx, dy: Fx) -> Option<usize> {
-    let next = Vec2::new(pos.x, pos.y + dy);
-    if dy <= Fx::ZERO {
-        if let Some(i) = collision::find_landing(stage, *pos, next, false) {
-            pos.y = stage.platforms[i].top_at(pos.x);
-            return Some(i);
-        }
-        pos.y = next.y;
-        return None;
-    }
-    let mut y = next.y;
-    for b in stage.platforms.iter().filter(|b| !b.pass_through) {
-        if pos.x >= b.left
-            && pos.x <= b.right
-            && pos.y + height <= b.bottom
-            && y + height > b.bottom
-        {
-            y = b.bottom - height;
-        }
-    }
-    pos.y = y;
-    None
-}
-
-/// Moves a grunt by its speed and launch, with gravity in the air and the stage in the way (a bursting one flies free). Returns true
-/// if it met a wall.
-fn physics(m: &mut Mob, p: &FighterParams, stage: &Stage, decay: Fx, solid: bool) -> bool {
-    let launched = m.hitstun > 0 || m.mode == MODE_BURST;
-    if launched {
-        let speed = m.kb_vel.length();
-        m.kb_vel = if speed > decay {
-            m.kb_vel * ((speed - decay) / speed)
-        } else {
-            Vec2::ZERO
-        };
-    }
-    if m.platform == NONE {
-        m.vel.y = (m.vel.y - p.gravity).max(-p.max_fall_speed);
-    }
-    let total = m.vel + m.kb_vel;
-    if !solid || m.mode == MODE_BURST {
-        m.pos += total;
-        return false;
-    }
-    let height = p.ecb_height;
-    let wall = move_x(stage, &mut m.pos, p.ecb_half_width, height, total.x);
-    if wall {
-        m.vel.x = Fx::ZERO;
-        m.kb_vel.x = -(m.kb_vel.x * Fx::HALF);
-    }
-    if let Some(pl) = collision::platform(stage, m.platform) {
-        // On its ground it follows the surface (a slope too), and carries on where a slope joins other ground.
-        if m.pos.x >= pl.left && m.pos.x <= pl.right && (pl.sloped() || pl.y == m.pos.y) {
-            m.pos.y = pl.top_at(m.pos.x);
-        } else if let Some(i) = collision::continuation(stage, m.platform, m.pos.x) {
-            m.platform = i as i8;
-            m.pos.y = stage.platforms[i].top_at(m.pos.x);
-        } else {
-            m.platform = NONE;
-        }
-        // (Jumping off it.)
-        if m.vel.y > Fx::ZERO {
-            m.platform = NONE;
-        }
-    } else {
-        m.platform = NONE;
-    }
-    if m.platform == NONE {
-        let dy = total.y;
-        let from = m.pos.y;
-        if let Some(i) = move_y(stage, &mut m.pos, height, dy) {
-            m.platform = i as i8;
-            m.vel.y = Fx::ZERO;
-            m.kb_vel.y = Fx::ZERO;
-        } else if dy > Fx::ZERO && m.pos.y < from + dy {
-            m.vel.y = Fx::ZERO;
-            m.kb_vel.y = Fx::ZERO;
-        }
-    }
-    wall
-}
-
-/// The frames of warning before an attack in the grunt's tier.
-fn tell_of(rc: &RunContent, m: &Mob) -> u16 {
-    rc.tiers
-        .get(usize::from(m.tier))
-        .map_or(18, |t| u16::from(t.tell))
-        .max(1)
-}
-
-/// Starts the tell before move `slot`: it stops, flashes and shows a "!".
+/// Starts the tell before move `slot`: it stops and a "!" shows (`MODE_WINDUP`).
 fn tell(m: &mut Mob, rc: &RunContent, slot: u8) {
     m.mode = MODE_WINDUP;
-    m.timer = tell_of(rc, m);
+    m.timer = u16::from(tier_row(rc, m.tier).tell.max(1));
     m.move_slot = slot;
-    m.vel.x = Fx::ZERO;
+    m.step = 0;
 }
 
-/// Starts move `slot` of its kit (its own wind-up, then its hits).
-fn begin_move(m: &mut Mob, content: &Content, k: &MobKind, slot: u8) {
-    let total = move_of(content, k, slot).map_or(1, |mv| mv.total_frames.max(1));
-    m.mode = MODE_ATTACK;
-    m.move_slot = slot;
-    m.frame = 0;
-    m.timer = u16::from(total);
-    m.struck = 0;
+/// Ends an attack (or a failed one): it waits its cooldown.
+fn cool_down(m: &mut Mob, k: &MobKind) {
+    m.mode = MODE_COOLDOWN;
+    m.timer = u16::from(k.cooldown.max(1));
+    m.step = 0;
 }
 
-/// Every grunt's frame: hitlag, then the launch or its behaviour, then its movement.
-pub(super) fn update(state: &mut GameState, content: &Content, rc: &RunContent) {
+/// Every grunt's input this frame (the players' slots stay empty: the run fills the player's), and its run-side flags: super armor
+/// through a bruiser's tell and startup, untouchable while it comes out of its door. Called before the step.
+pub(super) fn think(
+    state: &mut GameState,
+    content: &Content,
+    rc: &RunContent,
+) -> [Input; MAX_BODIES] {
+    let mut out = [Input::default(); MAX_BODIES];
     let target = state.fighters[PLAYER];
     let player = (target.active && target.state != S::Respawn).then_some(target.pos);
-    let decay = content.rules.knockback_decay;
-    let stage = &content.stage;
-    for n in 0..state.run.mobs.len() {
+    let (gate_closed, room) = (state.run.gate_closed, state.run.room);
+    for n in 0..MAX_MOBS {
         let mut m = state.run.mobs[n];
         if !m.active {
             continue;
         }
+        let i = slot(n);
+        let f = state.fighters[i];
         let k = *kind_of(rc, &m);
-        let p = *body_of(content, &k);
+        let mut armor = false;
+        let mut input = Input::default();
         m.credit = m.credit.saturating_sub(1);
-        if m.hitlag > 0 {
-            m.hitlag -= 1;
-            state.run.mobs[n] = m;
-            continue;
+        if m.mode == MODE_EMERGE {
+            // Coming out of its door: it stands still, then wakes (at once in an arena that is shut on it).
+            m.timer = m.timer.saturating_sub(1);
+            if m.timer == 0 {
+                m.mode = if gate_closed && m.room == room {
+                    MODE_MOVE
+                } else {
+                    MODE_IDLE
+                };
+            }
+        } else {
+            input = act(
+                &mut m,
+                &f,
+                &k,
+                content,
+                rc,
+                player,
+                state.frame,
+                n,
+                &mut armor,
+            );
         }
-        if k.shield > Fx::ZERO && m.mode != MODE_DAZED {
-            m.shield = (m.shield + rc.rules.shield_regen).min(k.shield);
+        let g = &mut state.fighters[i];
+        g.super_armor = armor;
+        if m.mode == MODE_EMERGE {
+            g.invuln = g.invuln.max(2);
         }
-        match m.mode {
-            MODE_EMERGE => {
-                // Coming out of its door: it stands still, then wakes (at once in an arena that is shut on it).
-                m.timer = m.timer.saturating_sub(1);
-                if m.timer == 0 {
-                    let run = &state.run;
-                    m.mode = if run.gate_closed && m.room == run.room {
-                        MODE_MOVE
-                    } else {
-                        MODE_IDLE
-                    };
-                }
-            }
-            MODE_BURST => {
-                physics(&mut m, &p, stage, decay, false);
-                m.timer = m.timer.saturating_sub(1);
-                if m.timer == 0 {
-                    m.active = false;
-                }
-            }
-            _ if m.hitstun > 0 => {
-                m.hitstun -= 1;
-                if m.hitstun == 0 {
-                    // Out of the launch: what is left of it carries on as its own speed.
-                    m.vel += m.kb_vel;
-                    m.kb_vel = Vec2::ZERO;
-                    m.mode = MODE_MOVE;
-                }
-                physics(&mut m, &p, stage, decay, true);
-            }
-            _ => {
-                let shot = behave(&mut m, &k, &p, content, rc, player);
-                if let (Some(at), Some(pl)) = (shot, player) {
-                    fire_shot(
-                        state,
-                        content,
-                        rc,
-                        &m,
-                        &k,
-                        pl + Vec2::new(Fx::ZERO, Fx::ONE),
-                        at,
-                    );
-                }
-            }
-        }
+        out[i] = input;
         state.run.mobs[n] = m;
     }
+    out
 }
 
-/// Air control: drifts (at up to its body's air speed) to stand `short` short of `dx` away.
-fn steer(m: &mut Mob, p: &FighterParams, dx: Fx, short: Fx) {
-    let to = if dx > short {
-        dx - short
-    } else if dx < -short {
-        dx + short
-    } else {
-        Fx::ZERO
-    };
-    let want = (to / Fx::from_int(12)).max(-p.air_speed).min(p.air_speed);
-    m.vel.x = approach(m.vel.x, want, p.air_accel.max(Fx::from_ratio(1, 100)));
-}
-
-fn face(m: &mut Mob, dx: Fx) {
-    if dx.abs() > Fx::from_ratio(3, 10) {
-        m.facing = if dx > Fx::ZERO { 1 } else { -1 };
-    }
-}
-
-/// A grunt's own frame (awake, not launched): its role's choices, its attack's frames, then its movement. Returns where a lobber's
-/// shot leaves from, on the frame it throws.
-fn behave(
+/// One grunt's input this frame (its behaviour's mode in `m`).
+#[allow(clippy::too_many_arguments)]
+fn act(
     m: &mut Mob,
+    f: &Fighter,
     k: &MobKind,
-    p: &FighterParams,
     content: &Content,
     rc: &RunContent,
     player: Option<Vec2>,
-) -> Option<Vec2> {
+    frame: u32,
+    n: usize,
+    armor: &mut bool,
+) -> Input {
+    let mut out = Input::default();
+    let tier = tier_row(rc, m.tier);
+    let (dx, dy) = player.map_or((Fx::ZERO, Fx::ZERO), |pl| (pl.x - f.pos.x, pl.y - f.pos.y));
     let stage = &content.stage;
-    let friction = p.walk_speed * Fx::from_ratio(1, 6);
-    let grounded = m.platform != NONE;
-    let mut shot = None;
-    let mut walking = false;
+    match f.state {
+        S::Hitstun
+        | S::Rebound
+        | S::ShieldBreak
+        | S::Knockdown
+        | S::GetUp
+        | S::Buried
+        | S::Encased => {
+            // Knocked out of its plan.
+            if matches!(m.mode, MODE_WINDUP | MODE_ATTACK | MODE_LEAP) {
+                m.mode = MODE_MOVE;
+                m.step = 0;
+            }
+            if f.state == S::Hitstun {
+                // Survival DI, up and back in toward you (where the view is), at its tier's rate (decided once a launch).
+                if roll(frame, n, 60, 1) < u32::from(tier.di) {
+                    out.stick_x = 90 * sign(dx);
+                    out.stick_y = 90;
+                }
+                // A tech, falling near the ground.
+                let near_ground = collision::surface_below(stage, f.pos, false)
+                    .is_some_and(|(_, d)| d < Fx::from_int(2));
+                if near_ground
+                    && f.vel.y + f.kb_vel.y < Fx::ZERO
+                    && roll(frame, n, 30, 2) < u32::from(tier.tech)
+                {
+                    press(&mut out, f, buttons::SHIELD);
+                }
+            }
+            return out;
+        }
+        S::Grabbed => {
+            if roll(frame, n, 30, 3) < u32::from(tier.mash) {
+                out.stick_x = if frame % 2 == 0 { 127 } else { -127 };
+                press(&mut out, f, buttons::JUMP);
+            }
+            return out;
+        }
+        S::LedgeHang => {
+            // A moment on the ledge, then up (toward the stage: it faces it).
+            if f.state_frame > 20 {
+                out.stick_x = 100 * f.facing;
+            }
+            return out;
+        }
+        _ => {}
+    }
+    // Its attack, once told.
+    if m.mode == MODE_ATTACK {
+        return attack(m, f, k, content, dx, armor);
+    }
+    if !f.grounded() {
+        return air(m, f, k, dx, dy);
+    }
+    if !free_on_ground(f) && !matches!(f.state, S::Shield | S::Turn | S::Landing | S::JumpSquat) {
+        return out;
+    }
+    if f.state == S::JumpSquat {
+        // (A leap's squat: the jump held for a full hop, the stick toward you.)
+        out.buttons |= buttons::JUMP;
+        out.stick_x = 80 * sign(dx);
+        return out;
+    }
     match m.mode {
         MODE_IDLE => {
-            m.vel.x = approach(m.vel.x, Fx::ZERO, friction);
-            if player.is_some_and(|pl| (pl.x - m.pos.x).abs() < k.aggro) {
-                m.mode = if k.role == ROLE_SHIELD {
-                    MODE_GUARD
-                } else {
-                    MODE_MOVE
-                };
+            if player.is_some_and(|_| dx.abs() < k.aggro && dy.abs() < Fx::from_int(10)) {
+                m.mode = MODE_MOVE;
             }
         }
-        MODE_MOVE | MODE_GUARD => {
-            if k.role == ROLE_SHIELD && m.mode == MODE_MOVE {
-                m.mode = MODE_GUARD;
-            }
-            walking = choose(m, k, p, rc, player, stage);
+        MODE_MOVE => {
+            out = choose(m, f, k, content, rc, player.is_some(), dx, dy);
         }
         MODE_WINDUP => {
-            m.vel.x = approach(m.vel.x, Fx::ZERO, friction);
             m.timer = m.timer.saturating_sub(1);
+            // The tell: still (turned to you on its first frame), its shield up (a shieldbearer), crouched (a leaper), armored
+            // (a bruiser).
+            if m.step == 0 && sign(dx) != f.facing && k.role != ROLE_SHIELD {
+                out.stick_x = 40 * sign(dx);
+            }
+            m.step = 1;
+            match k.role {
+                ROLE_SHIELD => out.buttons |= buttons::SHIELD,
+                ROLE_LEAPER => out.stick_y = -127,
+                _ => {}
+            }
+            *armor = k.armor;
             if m.timer == 0 {
-                if k.role == ROLE_LEAPER && m.move_slot == NO_MOVE {
-                    // The leap: up and toward you, the aerial on the way.
-                    let to = player.map_or(Fx::ZERO, |pl| pl.x - m.pos.x);
-                    let most = p.air_speed * Fx::from_ratio(6, 5);
-                    m.vel.x = (to / Fx::from_int(40)).max(-most).min(most);
-                    m.vel.y = p.full_hop_velocity * Fx::from_ratio(5, 4);
-                    m.platform = NONE;
+                if k.role == ROLE_LEAPER {
+                    // The leap: a full hop toward you, the aerial on the way.
                     m.mode = MODE_LEAP;
+                    m.step = 0;
+                    m.timer = 120;
+                    out.stick_y = 0;
+                    out.stick_x = 80 * sign(dx);
+                    press(&mut out, f, buttons::JUMP);
                 } else {
-                    begin_move(m, content, k, m.move_slot);
+                    m.mode = MODE_ATTACK;
+                    m.step = 0;
+                    m.timer = ATTEMPT_FRAMES;
+                    return attack(m, f, k, content, dx, armor);
                 }
             }
         }
         MODE_LEAP => {
-            let (dx, dy) =
-                player.map_or((Fx::ZERO, Fx::ZERO), |pl| (pl.x - m.pos.x, pl.y - m.pos.y));
-            face(m, dx);
-            steer(m, p, dx, Fx::ZERO);
-            // Over you on the way down, the down air; level with you and near, the forward air.
-            let above = dy < -Fx::from_ratio(3, 2);
-            if above && m.vel.y <= Fx::ZERO && dx.abs() < Fx::from_ratio(3, 2) {
-                begin_move(m, content, k, 0);
-            } else if !above && dy.abs() < Fx::from_int(2) && dx.abs() < k.reach2 {
-                begin_move(m, content, k, 1);
-            }
-        }
-        MODE_ATTACK => {
-            m.frame = m.frame.saturating_add(1);
-            if !grounded && k.role == ROLE_LEAPER {
-                // Its aerial drifts onto you: the down air right over you, the forward air just short of you.
-                let dx = player.map_or(Fx::ZERO, |pl| pl.x - m.pos.x);
-                let short = if m.move_slot == 0 { Fx::ZERO } else { Fx::ONE };
-                steer(m, p, dx, short);
-            }
-            let mv = move_of(content, k, m.move_slot);
-            let (first, last) = mv.map_or((0, 0), active_frames);
-            if grounded {
-                if k.lunge > Fx::ZERO && m.frame >= first && m.frame <= last {
-                    m.vel.x = k.lunge.mul_int(i32::from(m.facing));
-                } else {
-                    m.vel.x = approach(m.vel.x, Fx::ZERO, friction);
-                }
-            }
-            if k.role == ROLE_LOBBER && m.move_slot == 0 && m.frame == u16::from(k.shot_frame) {
-                let pr = mv.and_then(|mv| mv.projectile);
-                shot = Some(
-                    pr.map_or(m.pos + Vec2::new(Fx::ZERO, Fx::from_int(2)), |s| {
-                        m.pos
-                            + Vec2::new(
-                                (s.x * p.hitbox_scale).mul_int(i32::from(m.facing)),
-                                s.y * p.hitbox_scale,
-                            )
-                    }),
-                );
-            }
+            // (Landed before its aerial.)
             m.timer = m.timer.saturating_sub(1);
-            if m.timer == 0 {
-                m.mode = MODE_COOLDOWN;
-                m.timer = u16::from(k.cooldown);
+            if f.state != S::JumpSquat && m.step > 3 || m.timer == 0 {
+                cool_down(m, k);
             }
+            m.step = m.step.saturating_add(1);
         }
-        MODE_DAZED => {
-            m.vel.x = approach(m.vel.x, Fx::ZERO, friction);
+        _ => {
+            // Cooling down after an attack (a shieldbearer behind its shield while you are near).
             m.timer = m.timer.saturating_sub(1);
+            if k.role == ROLE_SHIELD && dx.abs() < k.reach + Fx::ONE && dy.abs() < Fx::from_int(2) {
+                out.buttons |= buttons::SHIELD;
+            }
             if m.timer == 0 {
-                m.shield = k.shield;
                 m.mode = MODE_MOVE;
             }
         }
-        _ => {
-            // Cooling down after an attack.
-            m.vel.x = approach(m.vel.x, Fx::ZERO, friction);
-            m.timer = m.timer.saturating_sub(1);
-            if m.timer == 0 {
-                m.mode = if k.role == ROLE_SHIELD {
-                    MODE_GUARD
-                } else {
-                    MODE_MOVE
-                };
-            }
-        }
     }
-    let was_air = m.platform == NONE;
-    let wall = physics(m, p, stage, Fx::ZERO, true);
-    // Landing out of a leap or an aerial ends it.
-    if was_air
-        && m.platform != NONE
-        && (m.mode == MODE_LEAP || m.mode == MODE_ATTACK && k.role == ROLE_LEAPER)
-    {
-        m.mode = MODE_COOLDOWN;
-        m.timer = u16::from(k.cooldown);
-        m.vel.x = Fx::ZERO;
-    }
-    // Walking into a step, it hops.
-    if wall && walking && m.platform != NONE {
-        m.vel.y = p.full_hop_velocity;
-        m.platform = NONE;
-    }
-    shot
+    out
 }
 
-/// A grunt's choice while it moves (or guards): where it walks, and which attack it tells. Returns true while it walks.
+/// In the air: a leaper's leap (steering, then its aerial), or anyone else falling (drifting toward you, a midair jump if there is
+/// no ground under it).
+fn air(m: &mut Mob, f: &Fighter, k: &MobKind, dx: Fx, dy: Fx) -> Input {
+    let mut out = Input::default();
+    if !matches!(f.state, S::Airborne) {
+        return out;
+    }
+    if m.mode == MODE_LEAP && k.role == ROLE_LEAPER {
+        m.step = m.step.saturating_add(1);
+        // Over you on the way down, the down air; level with you and near, the forward air (the attack stick: the movement stick
+        // keeps drifting).
+        let above = dy < -Fx::from_ratio(3, 2);
+        let short = if above { Fx::ZERO } else { Fx::ONE };
+        out.stick_x = if dx.abs() > short + Fx::HALF {
+            (sign(dx) as i32 * 127) as i8
+        } else {
+            0
+        };
+        let aerial = if above && f.vel.y <= Fx::ZERO && dx.abs() < Fx::from_ratio(3, 2) {
+            Some((0, buttons::C_DOWN))
+        } else if !above && dy.abs() < Fx::from_int(2) && dx.abs() < k.reach2 {
+            let c = if sign(dx) == f.facing {
+                if f.facing > 0 {
+                    buttons::C_RIGHT
+                } else {
+                    buttons::C_LEFT
+                }
+            } else {
+                0
+            };
+            (c != 0).then_some((1, c))
+        } else {
+            None
+        };
+        if let Some((slot, c)) = aerial.filter(|_| f.history[0].buttons & buttons::ATTACK == 0) {
+            out.buttons |= buttons::ATTACK | c;
+            m.mode = MODE_ATTACK;
+            m.move_slot = slot;
+            m.step = 1;
+            m.timer = 4;
+        }
+        return out;
+    }
+    // Falling (knocked off high ground, or off the end of its floor): toward you, and a midair jump with nothing below.
+    out.stick_x = (sign(dx) as i32 * 100) as i8;
+    let falling = f.vel.y < Fx::ZERO;
+    if falling && f.air_jumps_left > 0 && f.history[0].buttons & buttons::JUMP == 0 && dy > Fx::ZERO
+    {
+        out.buttons |= buttons::JUMP;
+    }
+    out
+}
+
+/// The attack's input, until its move comes out; then nothing (held where the move wants it) until the move ends, and its cooldown.
+fn attack(
+    m: &mut Mob,
+    f: &Fighter,
+    k: &MobKind,
+    content: &Content,
+    dx: Fx,
+    armor: &mut bool,
+) -> Input {
+    let mut out = Input::default();
+    let Some(id) = kit_move(k, m.move_slot) else {
+        cool_down(m, k);
+        return out;
+    };
+    let toward = sign(dx);
+    if m.step == STARTED {
+        if f.state != S::Attack && f.state != S::LedgeAttack {
+            cool_down(m, k);
+            return out;
+        }
+        // A bruiser's armor through the startup of its smash.
+        *armor = k.armor && m.move_slot == 0 && f.state_frame < first_active(content, f, id);
+        if k.role == ROLE_LOBBER && id == MoveId::UpSpecial {
+            out.buttons |= buttons::SPECIAL;
+        }
+        if k.role == ROLE_LEAPER && !f.grounded() {
+            // Its aerial drifts onto you.
+            let short = if m.move_slot == 0 { Fx::HALF } else { Fx::ONE };
+            out.stick_x = if dx.abs() > short {
+                (toward as i32 * 127) as i8
+            } else {
+                0
+            };
+        }
+        return out;
+    }
+    if f.state == S::Attack && f.move_id == id as u8 {
+        m.step = STARTED;
+        *armor = k.armor && m.move_slot == 0;
+        return attack(m, f, k, content, dx, armor);
+    }
+    m.timer = m.timer.saturating_sub(1);
+    if m.timer == 0 {
+        cool_down(m, k);
+        return out;
+    }
+    *armor = k.armor && m.move_slot == 0;
+    m.step = m.step.saturating_add(1).min(STARTED - 1);
+    if f.state == S::Shield {
+        // (A shieldbearer's poke: the shield comes down first.)
+        return out;
+    }
+    let attack_free = f.history[0].buttons & buttons::ATTACK == 0;
+    let p = params_of(content, f);
+    let slow = f.vel.x.abs() <= p.walk_speed * Fx::from_ratio(11, 10);
+    match id {
+        MoveId::DashAttack => {
+            if matches!(f.state, S::Dash | S::Run) {
+                out.stick_x = (toward as i32 * 127) as i8;
+                if attack_free {
+                    out.buttons |= buttons::ATTACK;
+                }
+            } else if free_on_ground(f) {
+                // A flick from neutral: the dash.
+                out.stick_x =
+                    if f.history[0].stick_x.unsigned_abs() < STICK_FLICK_FROM.unsigned_abs() {
+                        (toward as i32 * 127) as i8
+                    } else {
+                        0
+                    };
+            }
+        }
+        MoveId::UpSpecial => {
+            if free_on_ground(f) || f.state == S::Airborne {
+                out.stick_y = 127;
+                press(&mut out, f, buttons::SPECIAL);
+            }
+        }
+        MoveId::FSmash => {
+            if free_on_ground(f) && slow {
+                out.stick_x = (toward as i32 * 127) as i8;
+                if attack_free {
+                    out.buttons |= buttons::ATTACK | buttons::STRONG;
+                }
+            }
+        }
+        MoveId::FTilt => {
+            if free_on_ground(f) && slow && f.state != S::Dash {
+                out.stick_x = 60 * toward;
+                if attack_free {
+                    out.buttons |= buttons::ATTACK;
+                }
+            }
+        }
+        _ => {
+            // A jab (or any neutral attack): turned to you first.
+            if free_on_ground(f) && slow && f.state != S::Dash {
+                if f.facing != toward && dx.abs() > Fx::from_ratio(3, 10) {
+                    out.stick_x = 40 * toward;
+                } else if attack_free {
+                    out.buttons |= buttons::ATTACK;
+                }
+            }
+        }
+    }
+    out
+}
+
+/// A grunt's choice while it moves: where it walks (or runs), and which attack it tells. Returns the input.
+#[allow(clippy::too_many_arguments)]
 fn choose(
     m: &mut Mob,
+    f: &Fighter,
     k: &MobKind,
-    p: &FighterParams,
+    content: &Content,
     rc: &RunContent,
-    player: Option<Vec2>,
-    stage: &Stage,
-) -> bool {
-    let friction = p.walk_speed * Fx::from_ratio(1, 6);
-    let grounded = m.platform != NONE;
-    let Some(pl) = player else {
-        m.vel.x = approach(m.vel.x, Fx::ZERO, friction);
-        return false;
-    };
-    let dx = pl.x - m.pos.x;
-    let dy = pl.y - m.pos.y;
+    seen: bool,
+    dx: Fx,
+    dy: Fx,
+) -> Input {
+    let mut out = Input::default();
+    if !seen {
+        return out;
+    }
     let far = dx.abs();
     let level = dy.abs() < Fx::from_int(2);
-    if m.mode == MODE_GUARD {
-        // It turns to face you only some frames after you cross it up.
-        let behind = dx.mul_int(i32::from(m.facing)) < Fx::ZERO && far > Fx::from_ratio(3, 10);
-        if behind {
-            m.aux = m.aux.saturating_add(1);
-            if m.aux >= u16::from(rc.rules.guard_turn) {
-                m.facing = -m.facing;
-                m.aux = 0;
-            }
-        } else {
-            m.aux = 0;
-        }
-    } else {
-        face(m, dx);
-    }
-    // Where it wants to stand: in reach of its first move (a lobber keeps its distance; a leaper stays on its roof).
-    let mut speed = p.walk_speed * Fx::from_ratio(i32::from(k.walk), 100);
-    if k.run > 0 && far > Fx::from_int(6) {
-        speed = p.run_speed * Fx::from_ratio(i32::from(k.run), 100);
-    }
-    if m.mode == MODE_GUARD {
-        speed = speed * Fx::HALF;
-    }
-    let stop = match k.role {
-        ROLE_LOBBER => k.reach * Fx::HALF,
-        ROLE_LEAPER => k.reach,
-        _ => k.reach * Fx::from_ratio(4, 5),
-    };
-    let toward: i32 = if dx > Fx::ZERO { 1 } else { -1 };
-    let mut want = if far > stop && (m.mode != MODE_GUARD || toward == i32::from(m.facing)) {
-        speed.mul_int(toward)
-    } else {
-        Fx::ZERO
-    };
-    if grounded && want != Fx::ZERO {
-        // Never off an edge on purpose.
-        let half = p.ecb_half_width;
-        let ahead = Vec2::new(
-            m.pos.x + (half + Fx::from_ratio(3, 10)).mul_int(toward),
-            // (A little above the feet, so ground rising up a slope ahead counts as floor.)
-            m.pos.y + Fx::from_ratio(6, 10),
-        );
-        let floor = collision::surface_below(stage, ahead, false);
-        if floor.is_none_or(|(_, d)| d > Fx::from_ratio(3, 2)) {
-            want = Fx::ZERO;
-        }
-    }
-    m.vel.x = approach(
-        m.vel.x,
-        want,
-        speed * Fx::from_ratio(1, 6) + Fx::from_ratio(1, 200),
-    );
-    if !grounded {
-        return false;
-    }
+    let toward = sign(dx);
     // The attacks, by role.
-    let facing_you = dx.mul_int(i32::from(m.facing)) >= Fx::ZERO;
     let slot = match k.role {
         ROLE_LEAPER => (far <= k.reach && dy <= Fx::ONE).then_some(NO_MOVE),
         ROLE_LOBBER if level && far <= k.reach2 => Some(1),
@@ -929,182 +539,349 @@ fn choose(
         _ if level && far <= k.reach => Some(0),
         _ => (level && far <= k.reach2).then_some(1),
     };
-    if let Some(slot) = slot.filter(|_| facing_you) {
-        if slot == NO_MOVE || move_of_any(k, slot) {
+    if let Some(slot) = slot {
+        if slot == NO_MOVE || kit_move(k, slot).is_some() {
             tell(m, rc, slot);
-            return false;
+            if k.role == ROLE_SHIELD {
+                out.buttons |= buttons::SHIELD;
+            }
+            return out;
         }
     }
-    want != Fx::ZERO
+    // Where it wants to stand: in reach of its first move (a lobber keeps its distance; a leaper stays on its roof).
+    let stop = match k.role {
+        ROLE_LOBBER => k.reach * Fx::HALF,
+        ROLE_LEAPER => k.reach,
+        _ => k.reach * Fx::from_ratio(4, 5),
+    };
+    if far <= stop {
+        return out;
+    }
+    let p = params_of(content, f);
+    // A step ahead (a block's face within reach: from a little behind, so a body already pressed against it finds it too) is jumped.
+    let mut probe = f.pos - Vec2::new(Fx::HALF.mul_int(i32::from(toward)), Fx::ZERO);
+    let step = collision::move_x(
+        &content.stage,
+        p,
+        &mut probe,
+        Fx::from_ratio(9, 10).mul_int(i32::from(toward)),
+    );
+    // Never off an edge on purpose.
+    let ahead = Vec2::new(
+        f.pos.x + (p.ecb_half_width + Fx::from_ratio(3, 10)).mul_int(i32::from(toward)),
+        // (A little above the feet, so ground rising up a slope ahead counts as floor.)
+        f.pos.y + Fx::from_ratio(6, 10),
+    );
+    let floor = collision::surface_below(&content.stage, ahead, false);
+    // (Down off a ledge to you, onto ground below, if it is not one that keeps to high ground; never into a pit.)
+    let drops_to_you = dy < -Fx::ONE
+        && !matches!(k.role, ROLE_LEAPER | ROLE_LOBBER)
+        && floor.is_some_and(|(_, d)| d < Fx::from_int(12));
+    if !step && floor.is_none_or(|(_, d)| d > Fx::from_ratio(3, 2)) && !drops_to_you {
+        return out;
+    }
+    if k.run > 0 && far > Fx::from_int(6) {
+        // Running: a flick from neutral makes the dash, then the stick held.
+        out.stick_x = if matches!(f.state, S::Dash | S::Run)
+            || f.history[0].stick_x.unsigned_abs() < STICK_FLICK_FROM.unsigned_abs()
+        {
+            (toward as i32 * 127) as i8
+        } else {
+            0
+        };
+    } else if matches!(f.state, S::Dash | S::Run) && f.facing == toward {
+        out.stick_x = (toward as i32 * 127) as i8;
+    } else {
+        out.stick_x = walk_stick(k.walk) * toward;
+    }
+    if step && f.history[0].buttons & buttons::JUMP == 0 {
+        out.buttons |= buttons::JUMP;
+    }
+    out
 }
 
-/// Whether the kit has a move in `slot`.
-fn move_of_any(k: &MobKind, slot: u8) -> bool {
-    k.moves
-        .get(usize::from(slot))
-        .is_some_and(|&id| id != NO_MOVE)
+/// After the step: the hits and grabs the player landed on each grunt (the combo and the credit for a kill), and a lobber's shell
+/// aimed to come down on the player.
+pub(super) fn after_step(state: &mut GameState, content: &Content, rc: &RunContent) {
+    let target = state.fighters[PLAYER];
+    for n in 0..MAX_MOBS {
+        let m = state.run.mobs[n];
+        if !m.active {
+            continue;
+        }
+        let i = slot(n);
+        let f = state.fighters[i];
+        let k = *kind_of(rc, &m);
+        let mut credit = m.credit;
+        if f.percent > m.last_percent {
+            count_combo(&mut state.run);
+            credit = rc.rules.credit_frames;
+        }
+        if f.state == S::Grabbed && usize::try_from(f.grab_with) == Ok(PLAYER) {
+            credit = rc.rules.credit_frames;
+        }
+        let g = &mut state.run.mobs[n];
+        g.credit = credit;
+        g.last_percent = f.percent;
+        if k.role == ROLE_LOBBER && target.active {
+            aim_shell(state, i, &k, target.pos + Vec2::new(Fx::ZERO, Fx::ONE));
+        }
+        // (An optional stamina: beaten where it stands once its percent reaches it.)
+        if k.stamina > Fx::ZERO {
+            let tough = Fx::from_ratio(i32::from(tier_row(rc, m.tier).stamina), 100);
+            if f.percent >= k.stamina * tough {
+                knock_out(state, content, rc, n);
+            }
+        }
+    }
 }
 
-/// A lobber's shot: its first move's projectile, fired from `from` (on the slot standing for its body, `SHOT_SLOT`) in the arc that
-/// comes down on `target` after `MobKind::shot_time` frames, at its tier's damage. A reflector turns it on the grunts.
-fn fire_shot(
+/// A lobber's shell on the frame its move throws it: sent in the arc that comes down on `target` after `MobKind::shot_time` frames
+/// (the move's own script aims it by the stick; the run aims it at you instead).
+fn aim_shell(state: &mut GameState, i: usize, k: &MobKind, target: Vec2) {
+    let t = Fx::from_int(i32::from(k.shot_time.max(1)));
+    for pr in state.projectiles.iter_mut() {
+        if !pr.active || usize::from(pr.owner) != i || pr.age != 0 || pr.rest != REST_FLYING {
+            continue;
+        }
+        let d = target - pr.pos;
+        // (Its arc's gravity, from its shot's numbers: the flight's own.)
+        let g = Fx::from_ratio(9, 800);
+        let vx = (d.x / t).max(-Fx::HALF).min(Fx::HALF);
+        let vy = (d.y / t + g * t * Fx::HALF)
+            .max(-Fx::from_ratio(3, 5))
+            .min(Fx::from_ratio(9, 10));
+        pr.vel = Vec2::new(vx, vy);
+    }
+}
+
+/// A grunt's slot freed: its grab let go, its item dropped, its shots gone, its ledge free, and every hit record of it cleared (a new
+/// grunt in the slot is a new target).
+pub(super) fn remove(state: &mut GameState, content: &Content, n: usize) {
+    let i = slot(n);
+    if state.fighters[i].active {
+        crate::grab::drop_grab(state, content, i);
+        crate::items::let_go(state, content, i);
+    }
+    for pr in state.projectiles.iter_mut() {
+        if pr.active && (usize::from(pr.owner) == i || usize::from(pr.origin) == i) {
+            pr.active = false;
+        }
+    }
+    for o in state.ledge_owner.iter_mut() {
+        if usize::try_from(*o) == Ok(i) {
+            *o = NONE;
+        }
+    }
+    crate::orbs::clear_target(state, i);
+    forget(state, i);
+    state.fighters[i].active = false;
+    state.fighters[i].grab_with = NONE;
+    state.run.mobs[n].active = false;
+}
+
+/// Clears every record of body `i` having been hit (moves' and shots' hit masks, items' hits).
+pub(super) fn forget(state: &mut GameState, i: usize) {
+    let mut bits = 0u128;
+    for g in 0..8 {
+        bits |= combat::hit_bit(i, g);
+    }
+    for f in state.fighters.iter_mut() {
+        f.hit_mask &= !bits;
+    }
+    for p in state.projectiles.iter_mut() {
+        p.hit_mask &= !bits;
+        p.hit_age[i] = 0;
+    }
+    for it in state.items.iter_mut() {
+        it.hit_mask &= !(1u16 << i);
+        it.struck[i] = 0;
+    }
+}
+
+/// Puts grunt `kind` (of `tier`, from room `room`) into a free slot at `pos` on `platform`: a fighter of its body, with its kind's
+/// and tier's weight and damage, coming out of its door first (`emerge_frames`). Returns its number, or none if every slot is taken.
+#[allow(clippy::too_many_arguments)]
+pub(super) fn spawn(
     state: &mut GameState,
     content: &Content,
     rc: &RunContent,
-    m: &Mob,
-    k: &MobKind,
-    target: Vec2,
-    from: Vec2,
-) {
-    let Some(mv) = move_of(content, k, 0) else {
-        return;
+    kind: u8,
+    pos: Vec2,
+    platform: i8,
+    tier: u8,
+    room: u32,
+) -> Option<usize> {
+    let n =
+        (0..MAX_MOBS).find(|&n| !state.run.mobs[n].active && !state.fighters[slot(n)].active)?;
+    let k = rc.mobs.get(usize::from(kind))?;
+    let body = usize::from(k.body).min(content.fighters.len() - 1);
+    let mut f = Fighter::spawn(
+        pos,
+        body as u8,
+        -1,
+        platform,
+        content.fighters[body].air_jumps,
+        content.rules.shield_max,
+    );
+    f.active = true;
+    f.stocks = 1;
+    f.weight = Some(grunt_weight(rc, kind, tier));
+    f.damage_scale = u16::from(tier_row(rc, tier).damage.max(1));
+    let i = slot(n);
+    forget(state, i);
+    state.fighters[i] = f;
+    let emerge = rc.rules.emerge_frames;
+    state.run.mobs[n] = Mob {
+        active: true,
+        kind,
+        mode: if emerge > 0 { MODE_EMERGE } else { MODE_IDLE },
+        timer: u16::from(emerge),
+        room,
+        tier,
+        ..Mob::default()
     };
-    let Some(spec) = mv.projectile else {
-        return;
-    };
-    let t = Fx::from_int(i32::from(k.shot_time.max(1)));
-    let d = target - from;
-    let g = spec.arc.gravity;
-    let vx = (d.x / t).max(-Fx::HALF).min(Fx::HALF);
-    let vy = (d.y / t + g * t * Fx::HALF)
-        .max(-Fx::from_ratio(3, 5))
-        .min(Fx::from_ratio(9, 10));
-    let power = rc
-        .tiers
-        .get(usize::from(m.tier))
-        .map_or(100, |t| t.damage)
-        .max(1);
-    if let Some(slot) = state.projectiles.iter_mut().find(|p| !p.active) {
-        *slot = Projectile {
-            active: true,
-            owner: SHOT_SLOT as u8,
-            origin: SHOT_SLOT as u8,
-            power,
-            move_id: k.moves[0],
-            pos: from,
-            vel: Vec2::new(vx, vy),
-            life: spec.life,
-            size: 100,
-            facing: m.facing,
-            kind: spec.tool.kind,
-            ..Projectile::default()
-        };
+    Some(n)
+}
+
+/// A grunt knocked out: the KO's place for the game's effect, the player's kill if they hit it lately (the coins and the combo), and
+/// its slot freed.
+fn knock_out(state: &mut GameState, content: &Content, rc: &RunContent, n: usize) {
+    let m = state.run.mobs[n];
+    let f = state.fighters[slot(n)];
+    let run = &mut state.run;
+    run.kos = run.kos.wrapping_add(1);
+    run.ko_at = f.pos;
+    if m.credit > 0 {
+        pay_kill(run, rc, m.kind);
+    }
+    remove(state, content, n);
+}
+
+/// Grunts that leave: knocked out past the blast zones that follow the view (when launched), or gone out of the world (below it,
+/// or out of the rooms in play). A grunt the player hit lately is their kill. Before the step, a grunt launched in tumble into the
+/// gate behind goes through it (the gate is a wall for the player only).
+pub(super) fn knock_outs(state: &mut GameState, content: &Content, rc: &RunContent) {
+    let rules = &rc.rules;
+    let (left, right, bottom, top) = grunt_zone(&state.run, rules);
+    let (wall, end) = (state.run.wall_x, state.run.window_end());
+    let (blast_bottom, blast_top) = state.run.blast_y(rules);
+    for n in 0..MAX_MOBS {
+        if !state.run.mobs[n].active {
+            continue;
+        }
+        let f = state.fighters[slot(n)];
+        if !f.active {
+            remove(state, content, n);
+            continue;
+        }
+        let launched = f.state == S::Hitstun;
+        let p = f.pos;
+        let past_zone = p.x < left || p.x > right || p.y < bottom || p.y > top;
+        let out_of_world = p.y < blast_bottom
+            || p.y > blast_top
+            || p.x < wall - rules.gate_thickness - rules.blast_margin
+            || p.x > end + rules.blast_margin;
+        if launched && past_zone || out_of_world {
+            if launched || state.run.mobs[n].credit > 0 {
+                knock_out(state, content, rc, n);
+            } else {
+                remove(state, content, n);
+            }
+        }
     }
 }
 
-/// Hits the fighters with `hb` at `at` through the versus hit (`combat::apply_hit`), from a grunt or a hazard standing in on a
-/// fighter slot no one plays (restored right after; `body` its char): `pos`, `facing` and `vel` are what the hit reads, with no rage
-/// or staleness of its own. Returns true if it hit someone.
-pub(super) fn hit_fighters(
+/// Before the step: a grunt flying in tumble toward the gate behind (the left wall) is put through it, so it flies on into the zone
+/// behind. The wall stays a wall for the player (owner decision, R2c).
+pub(super) fn through_gate(state: &mut GameState, content: &Content, rc: &RunContent) {
+    let wall = state.run.wall_x;
+    let thick = rc.rules.gate_thickness;
+    for n in 0..MAX_MOBS {
+        if !state.run.mobs[n].active {
+            continue;
+        }
+        let i = slot(n);
+        let f = state.fighters[i];
+        if f.state != S::Hitstun || !f.tumble {
+            continue;
+        }
+        let half = params_of(content, &f).ecb_half_width;
+        let dx = f.vel.x + f.kb_vel.x;
+        // (Moving left and about to reach the wall's face this frame or the next.)
+        if dx < Fx::ZERO && f.pos.x - half + dx.mul_int(2) <= wall && f.pos.x > wall - thick {
+            let g = &mut state.fighters[i];
+            g.pos.x = wall - thick - half - Fx::from_ratio(1, 10);
+            g.platform = NONE;
+        }
+    }
+}
+
+/// Hits body `d` with `hb` at `at` through the versus hit (`combat::apply_hit`), from a hazard or the van standing in on a player slot
+/// no one plays (restored right after): `pos`, `facing` and `vel` are what the hit reads, with no rage or staleness of its own.
+/// Returns true if it landed (or a counter caught it).
+pub(super) fn hit_body(
     state: &mut GameState,
     content: &Content,
-    body: u8,
+    d: usize,
     (pos, facing, vel): (Vec2, i8, Vec2),
     hb: &Hitbox,
     at: Vec2,
 ) -> bool {
-    for d in 0..MAX_FIGHTERS {
-        let fd = state.fighters[d];
-        if !fd.active {
-            continue;
-        }
-        let Some(proxy) =
-            (0..MAX_FIGHTERS).find(|&i| i != d && i != SHOT_SLOT && !state.fighters[i].active)
-        else {
-            continue;
-        };
-        let counter = combat::counter_open(content, &fd, true);
-        let intangible = combat::is_intangible(&fd);
-        if intangible && counter.is_none() {
-            continue;
-        }
-        let hurt = combat::body_hurtboxes(content, &fd);
-        let shut = combat::intangible_parts(&fd, weapon_of(content, params_of(content, &fd)));
-        let (touching, caught) = combat::reach(counter, intangible, hb, &hurt, shut, at);
-        if !touching {
-            continue;
-        }
-        let saved = state.fighters[proxy];
-        {
-            let p = &mut state.fighters[proxy];
-            p.char_id = body;
-            p.pos = pos;
-            p.facing = facing;
-            p.vel = vel;
-            p.percent = Fx::ZERO;
-            p.stale = [0; crate::state::STALE_QUEUE];
-            p.hitlag = 0;
-        }
-        let side = if hb.x < Fx::ZERO { -facing } else { facing };
-        combat::apply_hit(
-            state,
-            content,
-            proxy,
-            d,
-            hb,
-            side,
-            pos,
-            false,
-            combat::STUN_NORMAL,
-            0,
-            (at, vel),
-            caught,
-            false,
-        );
-        state.fighters[proxy] = saved;
-        return true;
+    let fd = state.fighters[d];
+    if !fd.active {
+        return false;
     }
-    false
-}
-
-/// Grunts mid-attack hitting the fighters: the move's live hitboxes this frame (one hit a group), at the tier's damage.
-pub(super) fn attacks(state: &mut GameState, content: &Content, rc: &RunContent) {
-    for n in 0..state.run.mobs.len() {
-        let m = state.run.mobs[n];
-        if !m.active || m.mode != MODE_ATTACK || m.hitlag > 0 || m.hitstun > 0 {
-            continue;
-        }
-        let k = *kind_of(rc, &m);
-        let Some(mv) = move_of(content, &k, m.move_slot) else {
-            continue;
-        };
-        let p = body_of(content, &k);
-        let pct = rc
-            .tiers
-            .get(usize::from(m.tier))
-            .map_or(100, |t| i32::from(t.damage));
-        let fake = as_fighter(&m, &k);
-        let live: Vec<(Hitbox, Vec2)> = combat::active_hitboxes(&fake, mv, p.hitbox_scale)
-            .filter(|(_, hb, _)| hb.kind == HIT_NORMAL && !hb.push)
-            .map(|(_, hb, at)| (hb, at))
-            .collect();
-        for (mut hb, at) in live {
-            let bit = 1u8 << hb.group.min(7);
-            if state.run.mobs[n].struck & bit != 0 {
-                continue;
-            }
-            hb.damage = hb.damage * Fx::from_int(pct) / Fx::from_int(100);
-            if !hit_fighters(state, content, k.body, (m.pos, m.facing, m.vel), &hb, at) {
-                continue;
-            }
-            let lag = combat::hitlag_frames(
-                hb.damage,
-                &content.rules,
-                false,
-                false,
-                Fx::from_ratio(i32::from(hb.hitlag), 100),
-            );
-            let g = &mut state.run.mobs[n];
-            g.struck |= bit;
-            g.hitlag = lag;
-            break;
-        }
+    let Some(proxy) = (1..MAX_FIGHTERS).find(|&i| i != d && !state.fighters[i].active) else {
+        return false;
+    };
+    let counter = combat::counter_open(content, &fd, true);
+    let intangible = combat::is_intangible(&fd);
+    if intangible && counter.is_none() {
+        return false;
     }
+    let hurt = combat::body_hurtboxes(content, &fd);
+    let shut = combat::intangible_parts(&fd, weapon_of(content, params_of(content, &fd)));
+    let (touching, caught) = combat::reach(counter, intangible, hb, &hurt, shut, at);
+    if !touching {
+        return false;
+    }
+    let saved = state.fighters[proxy];
+    {
+        let p = &mut state.fighters[proxy];
+        p.char_id = 0;
+        p.pos = pos;
+        p.facing = facing;
+        p.vel = vel;
+        p.percent = Fx::ZERO;
+        p.stale = [0; crate::state::STALE_QUEUE];
+        p.hitlag = 0;
+        p.damage_scale = 0;
+        p.wing_points = Fx::ZERO;
+    }
+    let side = if hb.x < Fx::ZERO { -facing } else { facing };
+    combat::apply_hit(
+        state,
+        content,
+        proxy,
+        d,
+        hb,
+        side,
+        pos,
+        false,
+        combat::STUN_NORMAL,
+        0,
+        (at, vel),
+        caught,
+        false,
+    );
+    state.fighters[proxy] = saved;
+    true
 }
 
 /// The runaway van (R2b, the first rare event): it waits at its street's start until the player lands on its roof, then drives
 /// off (speeding up to `van_speed`) to the street's end, carrying its rider (untouchable while riding) and running into the grunts
-/// in its way (each once: the player's kills); then it parks.
+/// in its way (each once, through the versus hit: the player's kills); then it parks.
 pub(super) fn van(state: &mut GameState, content: &Content, rc: &RunContent) {
     let mut v = state.run.van;
     if v.mode == VAN_NONE {
@@ -1138,37 +915,34 @@ pub(super) fn van(state: &mut GameState, content: &Content, rc: &RunContent) {
         }
         // Grunts in its way are sent flying.
         let reach = VAN_HALF + Fx::from_ratio(3, 10);
-        for n in 0..state.run.mobs.len() {
+        let at = Vec2::new(v.x + VAN_HALF, v.y + VAN_HEIGHT * Fx::HALF);
+        for n in 0..MAX_MOBS {
             let m = state.run.mobs[n];
-            if !hittable(&m) || m.hit_stamp == VAN_STAMP || (m.pos.x - v.x).abs() > reach {
+            let bit = 1u16 << n;
+            let g = state.fighters[slot(n)];
+            if !m.active || m.mode == MODE_EMERGE || v.struck & bit != 0 {
                 continue;
             }
-            let k = *kind_of(rc, &m);
-            let height = body_of(content, &k).ecb_height;
-            if m.pos.y >= v.y + VAN_HEIGHT || m.pos.y + height <= v.y {
+            if (g.pos.x - v.x).abs() > reach
+                || g.pos.y >= v.y + VAN_HEIGHT
+                || g.pos.y + Fx::from_int(2) <= v.y
+            {
                 continue;
             }
-            let g = &mut state.run.mobs[n];
-            g.hit_stamp = VAN_STAMP;
-            g.credit = rules.credit_frames;
-            if g.mode == MODE_GUARD {
-                g.mode = MODE_IDLE;
-            }
-            take_hit(
-                g,
-                &k,
-                &rules.van_hit,
-                1,
-                Fx::ONE,
+            let mut hb = rules.van_hit;
+            // (Centred on the grunt, so it lands wherever the grunt stands against the van.)
+            hb.radius = hb.radius.max(Fx::from_int(3));
+            let centre = g.pos + Vec2::new(Fx::ZERO, Fx::ONE);
+            if hit_body(
+                state,
                 content,
-                rules.burst_frames,
-                false,
-            );
-            let (died, kind) = (g.mode == MODE_BURST, g.kind);
-            v.hits = v.hits.saturating_add(1);
-            count_combo(&mut state.run);
-            if died {
-                pay_kill(&mut state.run, rc, kind);
+                slot(n),
+                (at, 1, Vec2::new(v.speed, Fx::ZERO)),
+                &hb,
+                centre,
+            ) {
+                v.struck |= bit;
+                v.hits = v.hits.saturating_add(1);
             }
         }
     }
@@ -1178,64 +952,6 @@ pub(super) fn van(state: &mut GameState, content: &Content, rc: &RunContent) {
         g.invuln = g.invuln.max(2);
     }
     state.run.van = v;
-}
-
-/// Keeps every grunt inside the rooms in play: past the left wall, short of the right end, and on its own side of a shut gate.
-pub(super) fn keep_in_window(state: &mut GameState, content: &Content, rc: &RunContent) {
-    let run = &mut state.run;
-    let thick = rc.rules.gate_thickness;
-    let (wall, end) = (run.wall_x, run.window_end());
-    let (gate_closed, gate) = (run.gate_closed, run.gate_x);
-    for m in run.mobs.iter_mut() {
-        if !m.active || m.mode == MODE_BURST {
-            continue;
-        }
-        let r = body_of(content, kind_of(rc, m)).ecb_half_width;
-        let (mut lo, mut hi) = (wall + r, end - r);
-        if gate_closed {
-            if m.pos.x > gate {
-                lo = lo.max(gate + thick + r);
-            } else {
-                hi = hi.min(gate - r);
-            }
-        }
-        let x = m.pos.x.max(lo).min(hi.max(lo));
-        if x != m.pos.x {
-            m.pos.x = x;
-            m.vel.x = Fx::ZERO;
-            m.kb_vel.x = Fx::ZERO;
-        }
-    }
-}
-
-/// Grunts gone from the world: above or below the blast zone, or out of the rooms in play; and grunts launched by the player off the
-/// side of the screen. A grunt the player hit lately is their kill; else it is just gone.
-pub(super) fn leave_screen(state: &mut GameState, rc: &RunContent) {
-    let r = &rc.rules;
-    let run = &state.run;
-    let (wall, end) = (run.wall_x, run.window_end());
-    let (blast_bottom, blast_top) = run.blast_y(r);
-    let left = run.cam_x - r.blast_margin;
-    let right = run.cam_x + r.view_width + r.blast_margin;
-    for n in 0..state.run.mobs.len() {
-        let m = state.run.mobs[n];
-        if !m.active {
-            continue;
-        }
-        let launched = m.credit > 0 && (m.hitstun > 0 || m.mode == MODE_BURST);
-        let out = m.pos.y < blast_bottom
-            || m.pos.y > blast_top
-            || m.pos.x < wall - r.blast_margin
-            || m.pos.x > end + r.blast_margin
-            || launched && (m.pos.x < left || m.pos.x > right);
-        if !out {
-            continue;
-        }
-        state.run.mobs[n].active = false;
-        if m.mode != MODE_BURST && m.credit > 0 {
-            pay_kill(&mut state.run, rc, m.kind);
-        }
-    }
 }
 
 /// Whether the player's attack (a normal hit) or a shot of theirs in flight touches this shape now (a box of half-size `half_w` by
@@ -1290,3 +1006,6 @@ pub(super) fn keeper_bonked(state: &GameState, content: &Content, rc: &RunConten
         (Fx::ZERO, Fx::ZERO, shop.keeper_radius),
     )
 }
+
+// (Grunt slots are bits of a `u16` in `Van::struck` and `Prop::hit_mobs`.)
+const _: () = assert!(MAX_MOBS <= 16);

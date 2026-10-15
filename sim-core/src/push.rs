@@ -21,7 +21,7 @@ use crate::combat::params_of;
 use crate::content::Content;
 use crate::fixed::Fx;
 use crate::state::{Fighter, FighterState as S, GameState};
-use crate::MAX_FIGHTERS;
+use crate::MAX_BODIES;
 
 /// How a fighter takes part in pushing.
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -74,10 +74,18 @@ fn shift(state: &mut GameState, content: &Content, i: usize, dx: Fx) -> Fx {
         collision::move_x(&content.stage, &p, &mut f.pos, dx);
         return f.pos.x - from;
     }
+    let run = state.run.active;
+    let p = *params_of(content, &state.fighters[i]);
     let f = &mut state.fighters[i];
     let mut to = f.pos.x + dx;
     if let Some(p) = collision::platform(&content.stage, f.platform) {
         to = to.clamp(p.left, p.right);
+    }
+    if run {
+        // (In a run a wall can stand on the ground: the gate behind and an arena's gate. A push never goes through it: sim 131.)
+        let from = f.pos.x;
+        collision::move_x(&content.stage, &p, &mut f.pos, to - from);
+        return f.pos.x - from;
     }
     let moved = to - f.pos.x;
     f.pos.x = to;
@@ -85,10 +93,10 @@ fn shift(state: &mut GameState, content: &Content, i: usize, dx: Fx) -> Fx {
 }
 
 /// Separates overlapping bodies. `before` is where each fighter stood at the start of the frame.
-pub fn separate(state: &mut GameState, content: &Content, before: &[Fx; MAX_FIGHTERS]) {
+pub fn separate(state: &mut GameState, content: &Content, before: &[Fx; MAX_BODIES]) {
     let rules = &content.rules;
-    for i in 0..MAX_FIGHTERS {
-        for j in i + 1..MAX_FIGHTERS {
+    for i in 0..crate::state::bodies(state) {
+        for j in i + 1..crate::state::bodies(state) {
             let (a, b) = (&state.fighters[i], &state.fighters[j]);
             let (bi, bj) = (body(a), body(b));
             if bi == Body::None || bj == Body::None {

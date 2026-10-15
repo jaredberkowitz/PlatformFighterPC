@@ -47,7 +47,7 @@ fn standing(state: &GameState, i: usize) -> (u32, u8) {
     if state.rules.stocks == 0 {
         return (players, 0);
     }
-    let lead = (0..state.fighters.len())
+    let lead = (0..crate::MAX_FIGHTERS)
         .filter(|&j| j != i && state.roster >> j & 1 == 1)
         .map(|j| state.fighters[j].stocks)
         .max()

@@ -49,6 +49,11 @@ determinism, maintainability and compatibility with what already exists.
 - Any behaviour change bumps `SIM_VERSION` (`sim-core/src/lib.rs`). A format change in meaning bumps `SCHEMA_VERSION`
   (`sim-content/src/bundle.rs`) and adds a migration. New fields need defaults that leave older content unchanged.
 - After changing a Rust builder, re-export: `cargo run -p tools -- content-export content/base.pfc "Base Roster"`.
+- `GameState::fighters` holds the players and, in the run mode, its grunts (sim 131). A loop over bodies stops at
+  `state::bodies(state)` (4 in versus), not a literal 4 or `MAX_FIGHTERS`; who may hit, grab, clank with, reflect or lock onto
+  whom goes through `combat::rivals`; hit records use `hit_bit(d, g)`. A new `Hitbox` field is also filled in `sim-core/src/run/`.
+- A script's `frame == 0` branch never runs (the step counts the frame before the script): use frame 1, or the move's
+  `start_speed` / `start_speed_y` for what happens as it begins.
 - Wire-format or session changes: `pftool net-fuzz` must stay at zero mismatches.
 - Before you report done: `cargo fmt --all`, `cargo test --workspace`, `cargo clippy --workspace --all-targets -- -D warnings`.
 

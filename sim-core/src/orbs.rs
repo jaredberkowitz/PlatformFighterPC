@@ -13,11 +13,11 @@ use crate::moves::{Orbs, ProjectileArc, ProjectileSpawn, Tool, MAX_PHASES};
 use crate::state::{GameState, Projectile, ORB_CIRCLE, ORB_LOOSE, ORB_STRIKE, REST_POCKETED};
 use crate::trig::{self, Angle};
 use crate::vec2::Vec2;
-use crate::MAX_FIGHTERS;
+use crate::MAX_BODIES;
 
 /// The orbs block of the move that fired `pr` (a beam or one of its orbs).
 fn orbs_of(state: &GameState, content: &Content, pr: &Projectile) -> Option<Orbs> {
-    let origin = usize::from(pr.origin).min(MAX_FIGHTERS - 1);
+    let origin = usize::from(pr.origin).min(MAX_BODIES - 1);
     let p = combat::params_of(content, &state.fighters[origin]);
     combat::weapon_of(content, p).get(pr.move_id).orbs
 }
@@ -111,7 +111,7 @@ pub fn place(state: &mut GameState, content: &Content, n: usize, d: usize) {
 /// One frame of every fighter's orb clock (before the projectiles move): a clock with no orbs left circling stops; one that runs out
 /// sends every orb on the fighter to strike.
 pub fn tick(state: &mut GameState) {
-    for d in 0..MAX_FIGHTERS {
+    for d in 0..crate::state::bodies(state) {
         if state.fighters[d].orb_clock == 0 {
             continue;
         }
@@ -139,7 +139,7 @@ pub fn tick(state: &mut GameState) {
             p.orb = ORB_STRIKE;
             p.age = 0;
             p.hit_mask = 0;
-            p.hit_age = [0; MAX_FIGHTERS];
+            p.hit_age = [0; MAX_BODIES];
         }
     }
 }
@@ -179,13 +179,13 @@ pub fn update_orb(state: &mut GameState, content: &Content, n: usize) {
         state.projectiles[n].active = false;
         return;
     };
-    let d = usize::from(pr.held).min(MAX_FIGHTERS - 1);
+    let d = usize::from(pr.held).min(MAX_BODIES - 1);
     if !state.fighters[d].active {
         state.projectiles[n].active = false;
         return;
     }
-    let owner = usize::from(pr.owner).min(MAX_FIGHTERS - 1);
-    let origin = usize::from(pr.origin).min(MAX_FIGHTERS - 1);
+    let owner = usize::from(pr.owner).min(MAX_BODIES - 1);
+    let origin = usize::from(pr.origin).min(MAX_BODIES - 1);
     let scale = combat::params_of(content, &state.fighters[origin]).hitbox_scale;
     let at = centre(state, content, d);
     // (The age wraps while circling: the per-target rehit reads differences.)
@@ -266,16 +266,20 @@ pub fn update_orb(state: &mut GameState, content: &Content, n: usize) {
             p.life =
                 ((u16::from(o.loose_life) * u16::from(rf.life_percent)) / 100).clamp(1, 255) as u8;
             p.hit_mask = 0;
-            p.hit_age = [0; MAX_FIGHTERS];
+            p.hit_age = [0; MAX_BODIES];
             p.facing = dir;
             return;
         }
     }
     hb.damage = hb.damage * Fx::from_int(i32::from(pr.power)) / Fx::from_int(100);
-    for v in 0..MAX_FIGHTERS {
+    for v in 0..crate::state::bodies(state) {
         let fv = &state.fighters[v];
         // (A circling orb leaves the fighter it circles alone; nothing hits its owner.)
-        if v == owner || (circling && v == d) || !fv.active || !combat::hits_target(&hb, fv) {
+        if !combat::rivals(owner, v)
+            || (circling && v == d)
+            || !fv.active
+            || !combat::hits_target(&hb, fv)
+        {
             continue;
         }
         let counter = combat::counter_open(content, fv, false);

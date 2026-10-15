@@ -101,6 +101,44 @@ func _initialize() -> void:
 		main.sim.run_debug_grunt(k, 3.0 + k * 2.2, false)
 	await create_timer(0.9).timeout
 	_shot(out, "run_grunts.png")
+	# R2c: a grab and a throw on a grunt (the versus grab: held, then thrown back out), and a grunt launched out of the view, knocked
+	# out with the knock-out's effect.
+	main.sim.run_debug_clear_grunts()
+	main.sim.run_debug_next_room()
+	await create_timer(0.4).timeout
+	main.sim.run_debug_clear_grunts()
+	# (The grunt just in front.)
+	main._send_key(KEY_D, true)
+	await create_timer(0.05).timeout
+	main._send_key(KEY_D, false)
+	await create_timer(0.3).timeout
+	var held: int = main.sim.run_debug_grunt(0, 1.3 * main.sim.fighter_facing(0), false)
+	main.sim.run_debug_hold_grunt(held)
+	await create_timer(0.1).timeout
+	main._send_key(KEY_U, true)
+	await create_timer(0.05).timeout
+	main._send_key(KEY_U, false)
+	await create_timer(0.3).timeout
+	_shot(out, "run_grab.png")
+	print("  grabbed: %s" % main.sim.fighter_state(100 + held))
+	main._send_key(KEY_W, true)
+	await create_timer(0.05).timeout
+	main._send_key(KEY_W, false)
+	await create_timer(0.45).timeout
+	_shot(out, "run_throw.png")
+	print("  thrown: %s at %s" % [main.sim.fighter_state(100 + held), str(main.sim.fighter_pos(100 + held))])
+	await create_timer(1.0).timeout
+	main.sim.run_debug_clear_grunts()
+	var flying: int = main.sim.run_debug_grunt(3, 2.0, false)
+	main.sim.run_debug_launch_grunt(flying, 1.4, 0.35)
+	var kos: int = main.grunt_kos
+	for n in 40:
+		await create_timer(0.03).timeout
+		if main.grunt_kos > kos:
+			break
+	await create_timer(0.12).timeout
+	_shot(out, "run_grunt_ko.png")
+	print("  knocked out: %s" % str(main.grunt_kos > kos))
 	# The rare event: the runaway van, waiting, then ridden.
 	main.sim.run_debug_force_event()
 	var van := false
