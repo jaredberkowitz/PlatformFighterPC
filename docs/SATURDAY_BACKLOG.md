@@ -56,7 +56,7 @@ Everything put off to save usage, in the order to take it. Tick items off here a
       stages finish their ends.
 - [ ] Fighters: the clothes' outline sits close to the body outline, doubling the line at the waist and cuffs at play size.
 
-## UI redesign toward shippable (owner, 2026-10-15: polished and pleasant over refining what we have; proposals, owner to pick)
+## UI redesign toward shippable: ONE large UI pass doing all five (owner, 2026-10-15), on Saturday or right after the work above
 - [ ] 1. Motion: animated screen transitions (a wipe in the ink-panel style), tiles that scale/brighten on focus, an animated menu
       backdrop. The biggest "shipped game" signal in the competitors' menus.
 - [ ] 2. Character select redesign: a big slot per player along the bottom (posed render in the player colour, name, costume,
