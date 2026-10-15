@@ -3,7 +3,9 @@ extends CanvasLayer
 ## the top left with the coins under it, the combo and its coin multiplier at the top right (a bar fills toward the next step), and the
 ## fighter's damage and lives at the bottom left. A banner in the middle for the start, a lost life and the end. At the top in the
 ## middle, the map: a strip of the rooms behind (dimmed; those dropped behind the wall shown shut), the current one and the next one
-## ahead, each with its type's icon (a fork shows its two roads splitting). A prompt at a shop's door, a hint while an arena's gate is
+## ahead, each with its type's icon (a fork shows its two roads splitting; a branching fork's two rooms stand one over the other, the
+## treasure alley above, and the road not taken is crossed out; a rare event is a "?"), and the difficulty tier beside it (R2b). A
+## prompt at a shop's door, a hint while an arena's gate is
 ## shut, and inside the shop the prompt for the ware stood by or the way out (the shop itself is a room you walk around in: see
 ## `scripts/run_stage.gd`).
 ## Everything it shows comes from `show_state`; nothing here decides anything.
@@ -15,14 +17,17 @@ var board: Control
 
 
 class Board extends Control:
-	## {metres, coins, kills, combo, best, mult, step, lives, max_lives, percent, name, banner, banner_alpha, combo_flash, map, door,
-	## gate, shop, shop_names}
+	## {metres, coins, kills, combo, best, mult, step, lives, max_lives, percent, name, banner, banner_alpha, combo_flash, map, tier,
+	## door, gate, shop, shop_names}
 	var data := {}
 
 	const ROOM_STREET := 0
 	const ROOM_ARENA := 1
 	const ROOM_SHOP := 2
 	const ROOM_REST := 3
+	const ROOM_EVENT := 4
+	const ROOM_ALLEY := 5
+	const MAP_STRIDE := 5
 
 	## One room's icon on the map (placeholder shapes for the art director): a street is a little building, an arena crossed
 	## swords, a shop a coin, a rest stop a green cross.
@@ -38,6 +43,15 @@ class Board extends Control:
 			ROOM_REST:
 				draw_rect(Rect2(at - Vector2(r * 0.18, r * 0.6), Vector2(r * 0.36, r * 1.2)), Color(Art.GREEN, alpha))
 				draw_rect(Rect2(at - Vector2(r * 0.6, r * 0.18), Vector2(r * 1.2, r * 0.36)), Color(Art.GREEN, alpha))
+			ROOM_EVENT:
+				# A rare event: a gold "?".
+				draw_circle(at, r * 0.7, Color(Art.SUN, alpha))
+				draw_string(D.display_font(), at + Vector2(-r * 0.32, r * 0.42), "?", HORIZONTAL_ALIGNMENT_LEFT, -1, int(r * 1.3), Color(Art.INK, alpha))
+			ROOM_ALLEY:
+				# A treasure alley: a little chest.
+				draw_rect(Rect2(at + Vector2(-r * 0.55, -r * 0.1), Vector2(r * 1.1, r * 0.6)), Color(0.58, 0.36, 0.2, alpha))
+				draw_rect(Rect2(at + Vector2(-r * 0.55, -r * 0.45), Vector2(r * 1.1, r * 0.35)), Color(Art.SUN, alpha))
+				draw_rect(Rect2(at + Vector2(-r * 0.1, -r * 0.2), Vector2(r * 0.2, r * 0.25)), Color(Art.INK, alpha))
 			_:
 				draw_rect(Rect2(at + Vector2(-r * 0.45, -r * 0.55), Vector2(r * 0.9, r * 1.1)), Color(Art.BLUE, alpha * 0.85))
 				for n in 2:
@@ -52,25 +66,40 @@ class Board extends Control:
 		draw_line(root + Vector2(r * 0.6, 0), root + Vector2(r * 1.7, 0), c, 3.0)
 
 	## The map: a short strip, oldest room on the left. Rows of `map` are [number, type, status (0 shut behind, 1 behind, 2 here,
-	## 3 ahead), fork (0/1)].
+	## 3 ahead, 4 a road not taken), fork (0/1), tier]. A treasure alley is drawn over the room that follows it (its fork's other
+	## road), the branch line climbing to it from the fork. The current room's tier is written at the strip's right end.
 	func draw_map(centre_x: float, top: float) -> void:
 		var map: PackedInt32Array = data.get("map", PackedInt32Array())
-		var count := map.size() / 4
+		var count := map.size() / MAP_STRIDE
 		if count == 0:
 			return
-		var gap := 58.0
-		var start := centre_x - (count - 1) * gap * 0.5
-		var y := top + 30.0
-		draw_line(Vector2(start, y), Vector2(start + (count - 1) * gap, y), Color(Art.INK, 0.6), 6.0)
+		# Columns: an alley shares the column of the road after it.
+		var cols: Array[int] = []
+		var col := 0
 		for n in count:
-			var kind := map[n * 4 + 1]
-			var status := map[n * 4 + 2]
-			var fork := map[n * 4 + 3] == 1
-			var at := Vector2(start + n * gap, y)
+			var alley := map[n * MAP_STRIDE + 1] == ROOM_ALLEY and n + 1 < count
+			cols.append(col)
+			if not alley:
+				col += 1
+		var columns := maxi(col, 1)
+		var gap := 58.0
+		var start := centre_x - (columns - 1) * gap * 0.5
+		var y := top + 30.0
+		draw_line(Vector2(start, y), Vector2(start + (columns - 1) * gap, y), Color(Art.INK, 0.6), 6.0)
+		for n in count:
+			var o := n * MAP_STRIDE
+			var kind := map[o + 1]
+			var status := map[o + 2]
+			var fork := map[o + 3] == 1
+			var raised := kind == ROOM_ALLEY and n + 1 < count
+			var at := Vector2(start + cols[n] * gap, y - (34.0 if raised else 0.0))
 			var r := 24.0 if status == 2 else 19.0
-			var alpha := 1.0 if status >= 2 else 0.55
+			var alpha := 1.0 if status == 2 or status == 3 else 0.55
+			if raised and cols[n] > 0:
+				# The branch climbing from the fork to its alley.
+				draw_line(Vector2(start + (cols[n] - 1) * gap, y), at, Color(Art.SUN, alpha * 0.8), 4.0)
 			draw_circle(at, r + 3.0, Art.INK)
-			draw_circle(at, r, Color(Art.CREAM, 0.35 if status == 0 else alpha))
+			draw_circle(at, r, Color(Art.CREAM, 0.35 if status == 0 or status == 4 else alpha))
 			if status == 2:
 				draw_arc(at, r + 6.0, 0.0, TAU, 32, Art.SUN, 4.0)
 			if status == 0:
@@ -79,11 +108,20 @@ class Board extends Control:
 					var bx := at.x - r * 0.5 + k * r * 0.5
 					draw_line(Vector2(bx, at.y - r * 0.8), Vector2(bx, at.y + r * 0.8), Color(Art.INK, 0.8), 3.0)
 			else:
-				room_icon(at, kind, r, alpha)
+				room_icon(at, kind, r, alpha * (0.5 if status == 4 else 1.0))
 				if fork:
 					fork_mark(at, r, alpha)
-			if status == 3:
+				if status == 4:
+					# The road not taken: crossed out.
+					draw_line(at + Vector2(-r, -r) * 0.7, at + Vector2(r, r) * 0.7, Color(Art.INK, 0.85), 3.0)
+			if status == 3 and not raised:
 				draw_string(D.font(), at + Vector2(-14, r + 22), "next", HORIZONTAL_ALIGNMENT_LEFT, -1, 15, Color(1, 1, 1, 0.8))
+		# The difficulty tier.
+		var tier := int(data.get("tier", 0))
+		var tx := start + (columns - 1) * gap + 44.0
+		draw_string(D.display_font(), Vector2(tx, y + 8.0), "TIER %d" % (tier + 1), HORIZONTAL_ALIGNMENT_LEFT, -1, 20, Color(1, 1, 1, 0.85))
+		for k in tier + 1:
+			draw_circle(Vector2(tx + 6.0 + k * 12.0, y + 22.0), 4.0, Art.CORAL)
 
 	## Inside the shop: what pressing up does where the player stands (`shop`: `SimRunner.run_shop`), or nothing.
 	func shop_hint() -> String:
@@ -97,6 +135,9 @@ class Board extends Control:
 			return ""
 		var names: PackedStringArray = data.get("shop_names", PackedStringArray())
 		var label := names[spot] if spot < names.size() else "?"
+		# (The last number is the shopkeeper's sulk: it sells nothing meanwhile.)
+		if shop[shop.size() - 1] > 0 and shop.size() == 10 + names.size() * 4 + 1:
+			return "HMPH! IT WON'T SELL TO YOU"
 		var o := 10 + spot * 4
 		if shop[o + 2] > 0 and shop[o + 3] >= shop[o + 2]:
 			return "%s: SOLD OUT" % label.to_upper()

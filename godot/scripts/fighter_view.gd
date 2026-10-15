@@ -971,6 +971,15 @@ const OPEN_HAND_MOVES := {3: ["side special"], 5: ["up special", "down special"]
 	11: ["side special", "down special"], 12: ["down special"], 13: ["neutral special"]}
 
 
+## Which arm holds the weapon: on the base body the one nearest the camera (the model's left facing right), so a swing's arm reads in
+## front of the body; it was the far one, hidden behind the torso through every strike with only the blade showing (art review 5). The
+## old built body keeps its right.
+func _weapon_side(facing: int) -> String:
+	if use_base_body:
+		return "L" if facing > 0 else "R"
+	return "R" if facing > 0 else "L"
+
+
 ## The base body's closed fists and the open hands they stand in for, by side ("L", "R"): see `_clench`.
 var fists := {}
 var open_hands := {}
@@ -978,9 +987,9 @@ var open_hands := {}
 
 ## Closes a hand into a fist (or opens it): a hand that grips a weapon, and an unarmed fighter's hands while it attacks. (An open hand
 ## beside a sword's hilt read as not holding it; a punch with an open hand read as a slap.)
-func _clench(left: bool, right: bool) -> void:
+func _clench(free: bool, weapon: bool, facing := 1) -> void:
 	for side in fists:
-		var closed: bool = right if side == "R" else left
+		var closed: bool = weapon if side == _weapon_side(facing) else free
 		(fists[side] as Node3D).visible = closed
 		if open_hands.has(side):
 			(open_hands[side] as Node3D).visible = not closed
@@ -1259,8 +1268,13 @@ func _tag_object(node: Node) -> void:
 				# (A very dark body, midnight, gets a lighter line in its own hue instead: a near-black line on a near-black body and a dusk
 				# backdrop left no silhouette at all.)
 				if loadout != null:
-					line_c = line_c.lerp(body_c.lightened(0.42), 1.0 - smoothstep(0.12, 0.24, body_c.get_luminance()))
-				(node as GeometryInstance3D).set_instance_shader_parameter("outline_tint", Color(line_c, OUTLINE_TINT))
+					line_c = line_c.lerp(body_c.lightened(0.5), 1.0 - smoothstep(0.22, 0.3, body_c.get_luminance()))
+				# (And all of it, not mixed with the ink: the slimmer limbs of the rebuilt body put more of a dark fighter's outline against a
+				# dark backdrop. Art review 5.)
+				var tint_a := OUTLINE_TINT
+				if loadout != null:
+					tint_a = lerpf(1.0, OUTLINE_TINT, smoothstep(0.22, 0.3, body_c.get_luminance()))
+				(node as GeometryInstance3D).set_instance_shader_parameter("outline_tint", Color(line_c, tint_a))
 				break
 	for c in node.get_children():
 		_tag_object(c)
@@ -2519,6 +2533,7 @@ func prewarm(on: bool) -> void:
 # while the hitbox is live, and recovers.
 const HAND := Vector2(0.55, 0.95)         # hand position in the fighter's forward space (x forward, y up)
 const REST_ANGLE := 68.0                  # degrees: blade held up and slightly forward
+const REST_ANGLE_NEAR := 32.0
 const GROUND_CLEARANCE := 0.06            # the blade tip stays at least this far above the floor
 const MESH_LENGTH := 2.7                  # length of the blade mesh before scaling
 
@@ -2695,7 +2710,11 @@ var blade_length := 2.0
 ## The weapon's resting angle (degrees, forward space): the longsword held up and a little forward; the greatsword carried over the
 ## shoulder, its blade lying back across the back (pointing up and behind), so it never hides the fighter or the stage in front.
 func _rest_angle(s: Dictionary) -> float:
-	return GREAT_REST_ANGLE if _cls(s) == GREATSWORD_CLASS else REST_ANGLE
+	if _cls(s) == GREATSWORD_CLASS:
+		return GREAT_REST_ANGLE
+	# (Held in the near hand on the base body, the guard's fist is in front of the chest, so a blade up at 68 crossed the face: pointed
+	# forward and up at the foe instead, a fencer's guard.)
+	return REST_ANGLE_NEAR if use_base_body else REST_ANGLE
 
 
 const GREAT_REST_ANGLE := 152.0
@@ -2862,6 +2881,14 @@ func _pose_blade(s: Dictionary, delta: float) -> void:
 	if not bladed(_cls(s)) and not now.is_empty():
 		tip = _arc_point(now)
 	var hand := old_hand
+	# Where the weapon arm's shoulder really is now (forward space): the body turns and leans in a move, and the rest-pose shoulder was
+	# often well away from it, so the planned reach ended short of the real arm's length and the sword hand stayed bent at the chin.
+	var shoulder := shoulder
+	if use_base_body and skeleton != null and bladed(_cls(s)):
+		var iu := skeleton.find_bone("armU." + _weapon_side(facing))
+		if iu >= 0:
+			var live := _skeleton_to_frame() * skeleton.get_bone_global_pose(iu).origin
+			shoulder = Vector2(live.x * facing, live.y)
 	if rig != null and arm_k > 0.0:
 		var to_tip := tip - shoulder
 		var dist := maxf(to_tip.length(), 0.001)
@@ -2968,7 +2995,7 @@ const CARRY_ANGLE := 158.0
 
 
 func _carry_weapon(facing: int) -> void:
-	var hand := skeleton.find_bone("hand.R" if facing > 0 else "hand.L")
+	var hand := skeleton.find_bone("hand." + _weapon_side(facing))
 	if hand < 0:
 		return
 	blade_pivot.position = _skeleton_to_frame() * skeleton.get_bone_global_pose(hand).origin
@@ -3098,7 +3125,7 @@ func _place_buckler(s: Dictionary) -> void:
 	if not mine or skeleton == null:
 		return
 	var facing := int(s.facing)
-	var hb := skeleton.find_bone("armL.L" if facing > 0 else "armL.R")
+	var hb := skeleton.find_bone("armL." + ("R" if _weapon_side(facing) == "L" else "L"))
 	if hb < 0:
 		return
 	var at: Vector3 = _skeleton_to_frame() * skeleton.get_bone_global_pose(hb).origin
@@ -3117,7 +3144,7 @@ func _aim_arm(facing: int, holding: bool, two_hands := false) -> void:
 	if skeleton == null:
 		return
 	for side in ["L", "R"]:
-		var mine: bool = (side == "R") == (facing > 0)
+		var mine: bool = side == _weapon_side(facing)
 		var iu := skeleton.find_bone("armU." + side)
 		var il := skeleton.find_bone("armL." + side)
 		var ih := skeleton.find_bone("hand." + side)
@@ -3880,7 +3907,7 @@ func _apply_combat(s: Dictionary, delta: float) -> void:
 	# Fists closed through the fight (the owner, art review 5: open, extended hands do not read as combat). A hand opens only where a hand
 	# would: grabbing and holding, caught or hit (flailing), hanging from a ledge.
 	var open_hands: bool = OPEN_HAND_STATES.has(state) or (s.move_name != "" and OPEN_HAND_MOVES.get(_cls(s), []).has(String(s.move_name)))
-	_clench(not open_hands, not open_hands or blade_pivot.visible)
+	_clench(not open_hands, not open_hands or blade_pivot.visible, int(s.facing))
 	# Running with nothing to swing, the weapon arm pumps with the run and the weapon trails behind.
 	var carrying: bool = not brawler and s.move_name == "" and (state == "Run" or state == "Dash")
 	if rig != null:
@@ -3892,7 +3919,7 @@ func _apply_combat(s: Dictionary, delta: float) -> void:
 		# The hilt goes where the hand actually got to (an arm shorter than the swing wants stops short of its target): the weapon is
 		# always in the hand, never floating in front of it.
 		if holding and not carrying and skeleton != null:
-			var hb := skeleton.find_bone("hand.R" if int(s.facing) > 0 else "hand.L")
+			var hb := skeleton.find_bone("hand." + _weapon_side(int(s.facing)))
 			if hb >= 0:
 				var held: Vector3 = _skeleton_to_frame() * skeleton.get_bone_global_pose(hb).origin
 				var along := Vector3(cos(blade_pivot.rotation.z), sin(blade_pivot.rotation.z), 0.0)

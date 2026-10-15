@@ -1,7 +1,8 @@
 extends SceneTree
 ## Photographs the single-player run: running right through the first rooms with the keys a player would press (the map at the
-## top), then (moving room to room) a slope, a fork and the inside of a shop, running back to the left wall, then the results (needs a
-## window, so run it without --headless).
+## top), then (moving room to room) a slope, a fork and the inside of a shop; R2b: each grunt kind (one telling), and the rare event
+## (the runaway van, waiting and ridden); running back to the left wall, then the results (needs a window, so run it without
+## --headless).
 ## Run: Godot --path godot --script res://tests/run_shot.gd -- --out=<folder>
 
 const Roster := preload("res://scripts/roster.gd")
@@ -82,6 +83,45 @@ func _initialize() -> void:
 			await create_timer(0.5).timeout
 			got.shop = true
 	print("photographed %s" % str(got))
+	# R2b: the six grunt kinds, one at a time, a few steps from the player (the brawler telling).
+	const ROLES := ["brawler", "leaper", "shieldbearer", "spearman", "lobber", "bruiser"]
+	main.sim.run_debug_next_room()
+	await create_timer(0.8).timeout
+	for k in 6:
+		main.sim.run_debug_next_room()
+		await create_timer(0.3).timeout
+		var g: int = main.sim.run_debug_grunt(k, 4.5, k == 0)
+		await create_timer(0.7 if k == 0 else 0.45).timeout
+		_shot(out, "run_grunt_%s.png" % ROLES[k])
+		print("  grunt %s slot %d: %s" % [ROLES[k], g, str(main.sim.run_mobs().slice(g * 17, g * 17 + 17))])
+	# Three together: a brawler, a spearman and a shieldbearer.
+	main.sim.run_debug_next_room()
+	await create_timer(0.3).timeout
+	for k in [0, 3, 2]:
+		main.sim.run_debug_grunt(k, 3.0 + k * 2.2, false)
+	await create_timer(0.9).timeout
+	_shot(out, "run_grunts.png")
+	# The rare event: the runaway van, waiting, then ridden.
+	main.sim.run_debug_force_event()
+	var van := false
+	for n in 30:
+		main.sim.run_debug_next_room()
+		await create_timer(0.15).timeout
+		if main.sim.run_info()[10] == 4:
+			van = true
+			break
+	if van:
+		await create_timer(0.8).timeout
+		var v: PackedFloat32Array = main.sim.run_van()
+		main.sim.debug_place_airborne(0, v[1] - 6.0, v[2] + 1.0)
+		await create_timer(0.8).timeout
+		_shot(out, "run_van.png")
+		v = main.sim.run_van()
+		main.sim.debug_place_airborne(0, v[1], v[2] + v[4] + 1.0)
+		await create_timer(1.6).timeout
+		_shot(out, "run_van_ride.png")
+		print("  van %s info %s" % [str(main.sim.run_van()), str(main.sim.run_info())])
+	print("the van came: %s" % str(van))
 	# Back to the wall (the oldest room kept is at most two behind).
 	main._send_key(KEY_A, true)
 	await create_timer(6.0).timeout

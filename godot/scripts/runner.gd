@@ -11,7 +11,7 @@ extends "res://scripts/main.gd"
 const RunHud := preload("res://ui/run_hud.gd")
 const RunResults := preload("res://ui/run_results.gd")
 const RunStage := preload("res://scripts/run_stage.gd")
-const MobView := preload("res://scripts/mob_view.gd")
+const GruntView := preload("res://scripts/grunt_view.gd")
 
 var run_hud: CanvasLayer
 var run_stage: Node3D
@@ -28,6 +28,10 @@ var cam_y := 3.0
 var mob_views: Array = []
 var mobs_prev := PackedFloat32Array()
 var mobs_cur := PackedFloat32Array()
+## Each grunt slot's fighter snapshot this tick (the bridge's grunt `n` as fighter `GRUNT_BASE + n`), and the grunt kinds ([role, body,
+## class, cost, first tier] each).
+var grunt_snaps: Array = []
+var kinds := PackedInt32Array()
 ## A banner for a moment: its text and when it fades (engine seconds).
 var flash_text := ""
 var flash_until := 0.0
@@ -36,10 +40,13 @@ var rng_seed := RandomNumberGenerator.new()
 var shop := PackedInt32Array()
 var shop_before := PackedInt32Array()
 
-const MOB_STRIDE := 12
+const MOB_STRIDE := 17
+const GRUNT_BASE := 100
 const ROOM_REST := 3
-const INFO_SIZE := 17
-const NOTES := ["", "THANK YOU!", "NOT ENOUGH COINS", "SOLD OUT", "NOT NEEDED"]
+const ROOM_EVENT := 4
+const ROOM_ALLEY := 5
+const INFO_SIZE := 22
+const NOTES := ["", "THANK YOU!", "NOT ENOUGH COINS", "SOLD OUT", "NOT NEEDED", "HMPH! NO SALE"]
 ## Seconds after the last life goes before the results come up.
 const RESULTS_AFTER := 1.6
 
@@ -57,10 +64,11 @@ func _build_world() -> void:
 	run_hud.build()
 	run_hud.visible = not OS.get_cmdline_user_args().has("--noui")
 	for i in 16:
-		var mv := MobView.new()
-		mv.visible = false
-		add_child(mv)
-		mob_views.append(mv)
+		var gv := GruntView.new()
+		gv.visible = false
+		add_child(gv)
+		mob_views.append(gv)
+		grunt_snaps.append({})
 
 
 ## The fighter: the menus' choice, else `--fighter=` or the last one played.
@@ -132,6 +140,8 @@ func _restart() -> void:
 	cam_base = Vector3.INF
 	mobs_cur = sim.run_mobs()
 	mobs_prev = mobs_cur
+	kinds = sim.run_kinds()
+	_refresh_grunts()
 	shop = sim.run_shop()
 	shop_before = shop
 	flash_text = ""
@@ -150,9 +160,41 @@ func _tick_once_inner(advance := true) -> void:
 	info = sim.run_info()
 	shop = sim.run_shop()
 	mobs_cur = sim.run_mobs()
+	_refresh_grunts()
 	if view.size() > 0:
 		edge_cur = view[0]
 	_run_events()
+
+
+## Every live grunt's fighter snapshot this tick: the same keys `_refresh` gives a fighter, read through the same bridge calls (the
+## bridge answers fighter `GRUNT_BASE + n` with grunt `n` as a fighter of its body), so the fighter rig draws it as it draws a fighter.
+func _refresh_grunts() -> void:
+	for n in mini(grunt_snaps.size(), mobs_cur.size() / MOB_STRIDE):
+		if mobs_cur[n * MOB_STRIDE] < 0.5:
+			continue
+		var g := GRUNT_BASE + n
+		var inf: PackedInt32Array = sim.fighter_info(g)
+		var cb: PackedInt32Array = sim.fighter_combat(g)
+		grunt_snaps[n] = {
+			"state": sim.fighter_state(g), "state_frame": sim.fighter_state_frame(g),
+			"facing": sim.fighter_facing(g), "pos": sim.fighter_pos(g), "vel": sim.fighter_vel(g), "kb_vel": sim.fighter_kb_vel(g),
+			"char": inf[0], "class": sim.fighter_class(g), "platform": inf[1], "jumps": inf[2], "dodged": inf[3] != 0,
+			"fast_fall": inf[4] != 0, "ledge": inf[5], "ledge_invuln": inf[6], "grabs": inf[7],
+			"lag": inf[8], "cooldown": inf[9], "ignore": inf[10], "frame": sim.frame(),
+			"percent": sim.fighter_percent(g), "stocks": cb[0], "hitlag": cb[1], "hitstun": cb[2],
+			"move_id": cb[3], "tumble": cb[4] != 0, "invuln": 0, "launch_pending": false,
+			"charge": 0, "shield": sim.fighter_shield(g) / sim.shield_max(), "move_name": sim.fighter_move_name(g),
+			"move_timing": sim.fighter_move_timing(g), "move_windows": sim.fighter_move_windows(g), "dodge": PackedInt32Array(),
+			"move_tip": sim.fighter_move_tip(g), "reach": sim.fighter_weapon_reach(g), "dash_length": sim.fighter_dash_length(g),
+			"wall_jumps": 0, "tripped": false, "egg": 0.0,
+		}
+
+
+## The player's snapshot: untouchable but not ghostly while riding the van (its invulnerability is the ride's, not a dodge's).
+func _refresh(i: int) -> void:
+	super._refresh(i)
+	if i == 0 and info.size() >= INFO_SIZE and info[19] == 1:
+		snaps[0]["invuln"] = 0
 
 
 ## Presentation cues from what changed this tick: hits on mobs, mobs beaten, coins, a lost or bought life, an arena shutting and
@@ -164,13 +206,17 @@ func _run_events() -> void:
 		var o := n * MOB_STRIDE
 		if mobs_cur[o] < 0.5 or mobs_prev.size() <= o:
 			continue
-		var at := Vector3(mobs_cur[o + 3], mobs_cur[o + 4] + mobs_cur[o + 11], 0.6)
+		var at := Vector3(mobs_cur[o + 3], mobs_cur[o + 4] + mobs_cur[o + 12] * 0.5, 0.6)
 		var struck: bool = mobs_cur[o + 7] > 0.0 and mobs_prev[o + 7] == 0.0 and mobs_cur[o + 10] > mobs_prev[o + 10]
 		if struck:
 			sfx.play_group("punch", 1.15)
 			_burst(at, Color(1.0, 0.9, 0.6), 0.5, 0.18)
 		if int(mobs_cur[o + 6]) == 5 and int(mobs_prev[o + 6]) != 5:
-			_burst(at, MobView.COLOURS[clampi(int(mobs_cur[o + 2]), 0, 1)].lightened(0.3), 1.4, 0.35)
+			var outfit: Dictionary = GruntView.OUTFITS[clampi(int(mobs_cur[o + 2]), 0, GruntView.OUTFITS.size() - 1)]
+			_burst(at, (Loadout.PALETTE[int(outfit.color)] as Color).lightened(0.3), 1.4, 0.35)
+		# A tell beginning: a short warning sound.
+		if int(mobs_cur[o + 6]) == 2 and int(mobs_prev[o + 6]) != 2:
+			sfx.play("blip", 2.8, -10.0)
 	if info[2] > info_before[2]:
 		sfx.play("blip", 1.9, -4.0)
 		combo_flash = 1.0
@@ -186,6 +232,17 @@ func _run_events() -> void:
 		_flash("CLEAR! +%d" % (info[2] - info_before[2]), 1.6)
 	if info[8] > info_before[8] and info[10] == ROOM_REST:
 		_flash("REST STOP", 1.2)
+	if info[8] > info_before[8] and info[10] == ROOM_EVENT:
+		_flash("RUNAWAY VAN?", 1.6)
+	if info[8] > info_before[8] and info[10] == ROOM_ALLEY:
+		_flash("TREASURE ALLEY", 1.4)
+	if info[17] > info_before[17]:
+		_flash("TIER %d" % (info[17] + 1), 1.4)
+	if info[18] > info_before[18]:
+		sfx.play("blip", 2.0, -2.0)
+		_flash("CHEST! +%d" % (info[2] - info_before[2]), 1.4)
+	if info[19] == 1 and info_before[19] == 0:
+		_flash("HOLD ON!", 1.2)
 	if info[0] == 1 and info_before[0] == 0:
 		_flash("RUN OVER", 3.0)
 	if info[15] > info_before[15]:
@@ -219,21 +276,29 @@ func _process_inner(delta: float) -> void:
 	var count := mini(mob_views.size(), mobs_cur.size() / MOB_STRIDE)
 	for n in count:
 		var o := n * MOB_STRIDE
-		var mv: Node3D = mob_views[n]
-		if mobs_cur[o] < 0.5:
-			mv.visible = false
+		var gv: Node3D = mob_views[n]
+		if mobs_cur[o] < 0.5 or (grunt_snaps[n] as Dictionary).is_empty():
+			gv.visible = false
 			continue
-		var b := int(mobs_cur[o + 2])
-		if mv.behavior != b or not is_equal_approx(mv.radius, mobs_cur[o + 11]):
-			mv.build(b, mobs_cur[o + 11])
+		var k := int(mobs_cur[o + 1])
+		if gv.kind != k:
+			gv.build(k, int(mobs_cur[o + 2]), mobs_cur[o + 12])
+			var broad := 1.0
+			var body: PackedFloat32Array = sim.fighter_body(GRUNT_BASE + n)
+			if body.size() > 0 and body[0] > STANDARD_HALF_WIDTH + 0.01:
+				broad = body[0] / STANDARD_HALF_WIDTH
+			gv.base_scale = sim.fighter_scale(GRUNT_BASE + n) * broad
+		gv.visible = true
 		var now := Vector2(mobs_cur[o + 3], mobs_cur[o + 4])
 		var was := now
 		if mobs_prev.size() > o + 4 and mobs_prev[o] > 0.5:
 			was = Vector2(mobs_prev[o + 3], mobs_prev[o + 4])
-		var slice := []
-		for k in MOB_STRIDE:
-			slice.append(mobs_cur[o + k])
-		mv.apply(was.lerp(now, a), slice, delta)
+		var row := []
+		for j in MOB_STRIDE:
+			row.append(mobs_cur[o + j])
+		gv.apply(was.lerp(now, a), row, grunt_snaps[n], delta)
+	if run_stage != null:
+		run_stage.sync_props(sim, delta)
 
 
 func _update_hud(delta: float) -> void:
@@ -257,7 +322,8 @@ func _update_hud(delta: float) -> void:
 		"metres": info[1], "coins": info[2], "kills": info[3], "combo": info[4], "best": info[5], "mult": info[6],
 		"step": 5, "max_mult": 5, "lives": info[7], "max_lives": maxi(3, info[7]), "percent": snaps[0].get("percent", 0.0),
 		"name": run_name, "banner": banner, "banner_alpha": alpha, "combo_flash": combo_flash,
-		"map": sim.run_map(4), "door": info.size() >= INFO_SIZE and info[14] == 1 and not inside,
+		"map": sim.run_map(4), "tier": info[17] if info.size() >= INFO_SIZE else 0,
+		"door": info.size() >= INFO_SIZE and info[14] == 1 and not inside,
 		"gate": info.size() >= INFO_SIZE and info[11] == 1, "shop": shop, "shop_names": sim.run_shop_names(),
 	})
 	if info[0] == 1 and results == null:

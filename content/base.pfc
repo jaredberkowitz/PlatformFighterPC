@@ -6,7 +6,7 @@ bundle {
     name "Base Roster"
     description "The built-in roster: a longsword duelist and a close-range brawler."
     sim_version 128
-    hash 061e4256a3684340
+    hash 3e1b32272d5842ed
 }
 
 ruleset {
@@ -14649,19 +14649,19 @@ weapon nodachi {
         hitbox { start 14 end 17 x 2.29999 y 1.59999 radius 0.29999 damage 7 angle 361 bkb 39 kbg 86 priority 3 angle_type forward }
         script {
             // Nodachi forward air: on frames 12-17 (the reference's 13-18, the stab's hits) a wall the blade meets (a segment level with it, 12.5
-            // of the reference's units up, out to its tip 32 ahead [E]) sticks the exile to it (slot 39 = ext11), three times at most in an air
+            // of the reference's units up, out to its tip 32 ahead [E]) sticks the exile to it (slot 40 = ext11), three times at most in an air
             // time (marks 5, 6 and 7: landing or a ledge clears them), and not with the ground less than 14 units below (a segment straight down).
             if frame >= 12 && frame <= 17 && grounded == 0 {
                 if ground(0, 1.5625, 4.0, 1.5625) && ground(0, 0, 0, -1.75) == 0 {
                     if air_mark(5) == 0 {
                         set_air_mark(5);
-                        goto(39);
+                        goto(40);
                     } else if air_mark(6) == 0 {
                         set_air_mark(6);
-                        goto(39);
+                        goto(40);
                     } else if air_mark(7) == 0 {
                         set_air_mark(7);
-                        goto(39);
+                        goto(40);
                     }
                 }
             }
@@ -18203,17 +18203,17 @@ weapon nodachi {
         total_frames 119
         script {
             // Nodachi forward air stuck in a wall (ext11): the exile hangs where it stuck. From frame 17 (the reference's 18) jump, attack or the
-            // stick up jumps off (slot 40 = ext12); the stick away from the wall or down lets go (slot 41 = ext13); at the end of its 120 frames
+            // stick up jumps off (slot 41 = ext12); the stick away from the wall or down lets go (slot 42 = ext13); at the end of its 120 frames
             // it lets go.
             set_vel(0, 0);
             if frame >= 17 {
                 if jump_tap || attack_tap || stick_y > 0.5 {
-                    goto(40);
-                } else if stick_x < -0.5 || stick_y < -0.5 {
                     goto(41);
+                } else if stick_x < -0.5 || stick_y < -0.5 {
+                    goto(42);
                 }
             }
-            if frame >= 118 { goto(41); }
+            if frame >= 118 { goto(42); }
         }
     }
     move ext12 {

@@ -1,5 +1,6 @@
-//! The endless run's content (R1, sim 120; rooms R1b, sim 122; the world R2a, sim 124): the run's rules, its hand-made rooms and
-//! obstacle pieces, its mob kinds, the shop's wares and the shop's interior. Immutable and hashed, like [`crate::Content`];
+//! The endless run's content (R1, sim 120; rooms R1b, sim 122; the world R2a, sim 124; enemies and the curve R2b, sim 127): the run's
+//! rules, its hand-made rooms and obstacle pieces, its grunt kinds, props (hazards and chests), difficulty tiers, the shop's wares and
+//! the shop's interior. Immutable and hashed, like [`crate::Content`];
 //! [`RunContent::placeholder`] is the built-in set. Checked by `sim_content::check_run`, which also proves every room passable in
 //! every variant.
 //!
@@ -37,9 +38,56 @@ pub const MAX_ROOM_WIDTH: i32 = 64;
 /// The shop interior's platforms at most.
 pub const INTERIOR_PLATFORMS: usize = 14;
 
-/// What drives a mob ([`MobKind::behavior`]).
-pub const MOB_WALKER: u8 = 0;
-pub const MOB_FLYER: u8 = 1;
+/// A grunt's role ([`MobKind::role`]): what its behaviour does (`run::mobs`). R2b (`RUNNER_WORLD.md` 4): every grunt is fighter-shaped,
+/// a base-game body with a small kit borrowed from that body's moveset.
+/// Rushes you, jabs and forward-tilts.
+pub const ROLE_BRAWLER: u8 = 0;
+/// Waits on high ground and leaps at you with an aerial (the anti-air lesson).
+pub const ROLE_LEAPER: u8 = 1;
+/// Holds a shield toward you and pokes out of it: beaten from above, by a grab, or by crossing it up.
+pub const ROLE_SHIELD: u8 = 2;
+/// A long, delayed poke along the ground (a forward tilt or a dash attack): jump it and punish.
+pub const ROLE_SPEAR: u8 = 3;
+/// Throws its shot in an arc from high ground (a real projectile: reflecting it works).
+pub const ROLE_LOBBER: u8 = 4;
+/// Slow and heavy, armored through its big smash's startup, a big launch.
+pub const ROLE_BRUISER: u8 = 5;
+pub const ROLES: u8 = 6;
+/// The built-in grunt kinds, by their index in [`RunContent::mobs`] (one per role, in the roles' order).
+pub const KIND_BRAWLER: u8 = 0;
+pub const KIND_LEAPER: u8 = 1;
+pub const KIND_SHIELD: u8 = 2;
+pub const KIND_SPEAR: u8 = 3;
+pub const KIND_LOBBER: u8 = 4;
+pub const KIND_BRUISER: u8 = 5;
+/// A spawn spot the budget fills ([`MobSpawn::kind`]): any kind the room's tier allows and the spot's placement suits.
+pub const SPOT_ANY: u8 = 255;
+/// No move in a kit slot ([`MobKind::moves`]).
+pub const NO_MOVE: u8 = 255;
+/// Moves in a grunt's kit at most.
+pub const MOB_MOVES: usize = 3;
+/// Placement rules ([`MobKind::place`], bits): it needs high ground (`RunRules::high_ground` above the room's lowest solid ground),
+/// flat room (a flat platform at least `RunRules::flat_room` wide), or a platform of its own (never two such on one platform).
+pub const PLACE_HIGH: u8 = 1;
+pub const PLACE_FLAT: u8 = 2;
+pub const PLACE_ALONE: u8 = 4;
+
+/// What a prop is ([`PropKind::role`]): a gas canister that bursts a moment after it is hit, a loose sign that falls when hit (both
+/// hurt grunts, and you), or a chest that pays when hit open.
+pub const PROP_GAS: u8 = 0;
+pub const PROP_SIGN: u8 = 1;
+pub const PROP_CHEST: u8 = 2;
+pub const PROP_ROLES: u8 = 3;
+/// The built-in props, by index in [`RunContent::props`].
+pub const PROP_KIND_GAS: u8 = 0;
+pub const PROP_KIND_SIGN: u8 = 1;
+pub const PROP_KIND_CHEST: u8 = 2;
+/// At most this many props in one room.
+pub const ROOM_PROPS: usize = 4;
+
+/// Rare events ([`Room::event`]): none, or the runaway van (ride its roof through the street, scattering grunts).
+pub const EVENT_NONE: u8 = 0;
+pub const EVENT_VAN: u8 = 1;
 
 /// Room types ([`Room::kind`]).
 /// A street: plain running with a few mobs (the most common).
@@ -50,8 +98,13 @@ pub const ROOM_ARENA: u8 = 1;
 pub const ROOM_SHOP: u8 = 2;
 /// A rest stop: no mobs, and a small heal as you enter.
 pub const ROOM_REST: u8 = 3;
+/// A rare event's room (R2b, `RUNNER_WORLD.md` 5): at most one a city, weighted with a pity counter, a "?" on the map.
+pub const ROOM_EVENT: u8 = 4;
+/// A treasure alley (R2b, the owner's answer to R2a): the high road's own room after a branching fork, laid over the low road's room
+/// until the player takes one of them. Never drawn by the generator alone.
+pub const ROOM_ALLEY: u8 = 5;
 /// How many room types there are.
-pub const ROOM_KINDS: u8 = 4;
+pub const ROOM_KINDS: u8 = 6;
 
 /// Shop wares ([`ShopItem::kind`]): heal `amount` percent, or `amount` extra lives.
 pub const ITEM_HEAL: u8 = 0;
@@ -93,8 +146,12 @@ pub const LOOK_SHOP_CEILING: u8 = 24;
 pub const LOOK_COUNTER: u8 = 25;
 pub const LOOK_PEDESTAL: u8 = 26;
 pub const LOOK_SHELF: u8 = 27;
+/// R2b: a catwalk between rooftops (the treasure alley's high road), and the runaway van's roof (moved by the sim; the game draws the
+/// van there).
+pub const LOOK_CATWALK: u8 = 28;
+pub const LOOK_VAN_ROOF: u8 = 29;
 /// Every look's name, by its number (0 is "none": a footing must have a look).
-pub const LOOK_NAMES: [&str; 28] = [
+pub const LOOK_NAMES: [&str; 30] = [
     "none",
     "street",
     "roof",
@@ -123,6 +180,8 @@ pub const LOOK_NAMES: [&str; 28] = [
     "counter",
     "pedestal",
     "shelf",
+    "catwalk",
+    "van_roof",
 ];
 
 /// Something to stand on in a room, a piece or the shop: its platform, what it is (`look`), and the optional part it belongs to
@@ -145,8 +204,9 @@ impl Footing {
     }
 }
 
-/// Where a mob appears in a room: its kind (index into [`RunContent::mobs`]) and its feet, in the room's own coordinates (x from
-/// the room's left edge, y from the room's entry ground), and the optional part it belongs to (as [`Footing::part`]).
+/// Where a grunt may appear in a room: its kind (index into [`RunContent::mobs`], or [`SPOT_ANY`] for one the room's budget picks
+/// when the room is laid) and its feet, in the room's own coordinates (x from the room's left edge, y from the room's entry ground),
+/// and the optional part it belongs to (as [`Footing::part`]).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct MobSpawn {
     pub kind: u8,
@@ -158,6 +218,16 @@ pub struct MobSpawn {
 /// A coin to pick up (where its middle is), and its optional part.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct CoinSpot {
+    pub x: Fx,
+    pub y: Fx,
+    pub part: i8,
+}
+
+/// A prop in a room (R2b): its kind (index into [`RunContent::props`]), where it stands (the middle of its base; a sign hangs with
+/// its top here), and its optional part.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct PropSpot {
+    pub kind: u8,
     pub x: Fx,
     pub y: Fx,
     pub part: i8,
@@ -218,8 +288,23 @@ pub struct Room {
     pub spawns: Vec<MobSpawn>,
     pub coins: Vec<CoinSpot>,
     pub slots: Vec<PieceSlot>,
-    /// A shop's door: where to stand (feet) to go in. Unused in other rooms.
+    /// A shop's door: where to stand (feet) to go in; an event room's start mark (where the van waits). Unused in other rooms.
     pub door: Vec2,
+    /// R2b. Its props (hazards and chests).
+    pub props: Vec<PropSpot>,
+    /// The difficulty tiers it comes in (its pool, `RunRules::tier_rooms`): from `min_tier` to `max_tier`.
+    pub min_tier: u8,
+    pub max_tier: u8,
+    /// A rare event room's event (`EVENT_*`).
+    pub event: u8,
+    /// A branching fork (the owner's R2a answer): its high road leaves its right edge `lift` above the street, into room `branch_high`
+    /// (an alley); the street leaves into room `branch_low`. Both are laid at its end, the alley `lift` higher; the one the player
+    /// walks into is kept and the other dropped. 0 for none.
+    pub branch_high: u8,
+    pub branch_low: u8,
+    pub lift: Fx,
+    /// Only ever laid as a branch of a branching fork, never drawn by the generator by itself.
+    pub paired: bool,
 }
 
 /// The shop's inside (R2a, `RUNNER_WORLD.md` 6): a small room you walk into from a storefront's door, with a counter, the shopkeeper
@@ -243,44 +328,80 @@ pub struct Interior {
     pub cheer_frames: u16,
     pub grumble_frames: u16,
     pub dizzy_frames: u16,
+    /// R2b (owner's R2a answer): after a bonk it sulks ("Hmph!", arms crossed) and refuses to sell for this long.
+    pub sulk_frames: u16,
 }
 
-/// A kind of mob: its body, its movement and its one attack. The behaviour itself is a small state machine in Rust for now
-/// (`run::mobs`); the numbers are here. (Moving the behaviour to scripts is planned for R2b.)
+/// A kind of grunt (R2b, `RUNNER_WORLD.md` 4): a base-game body ([`MobKind::body`], an index into the roster: its hurtbox, weight, fall
+/// speed, walk and run speeds and jump are that fighter's) with a small kit of that body's own moves (their real hitboxes, frames and
+/// knockback), driven by a small state machine for its role (`run::mobs`). The game draws it with the fighter rig in a grunt outfit.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct MobKind {
-    /// [`MOB_WALKER`] (walks on the ground, hops over steps, lunges) or [`MOB_FLYER`] (hovers above the player, dives).
-    pub behavior: u8,
-    /// Hit points: damage taken (in percent) wears it down and at 0 the mob bursts. 0: no stamina (it must be launched off screen).
+    /// `ROLE_*`: what its behaviour does.
+    pub role: u8,
+    /// Its body: an index into the roster (`Content::fighters`); its moves are that fighter's weapon's.
+    pub body: u8,
+    /// Its kit: `moves::MoveId` indices into its body's weapon ([`NO_MOVE`] for an empty slot). What each slot is for depends on the
+    /// role (`run::mobs`).
+    pub moves: [u8; MOB_MOVES],
+    /// Hit points (before the tier's `stamina` percent): damage wears it down and at 0 it bursts. 0: none (it must be launched away).
     pub stamina: Fx,
-    /// Its weight in the knockback formula (100 is a middleweight fighter).
-    pub weight: Fx,
-    /// Its body: one circle of this radius standing on its feet.
-    pub radius: Fx,
-    /// Fall acceleration and top fall speed (a flyer falls only while launched).
-    pub gravity: Fx,
-    pub max_fall: Fx,
-    /// Walking (or flying) speed and how quickly it gets there.
-    pub speed: Fx,
-    pub accel: Fx,
-    /// A walker's hop over a step or onto a platform (upward speed).
-    pub jump: Fx,
-    /// How near the player (sideways) it must be to notice them.
-    pub aggro: Fx,
-    /// How near it must be to start its attack (sideways; a flyer's height band is `hover_height` above the player).
-    pub attack_range: Fx,
-    /// Frames of warning before the attack (it flashes), the attack's own frames, and the rest after it.
-    pub windup: u8,
-    pub attack_frames: u8,
-    pub cooldown: u8,
-    /// The lunge's (walker) or dive's (flyer) speed.
-    pub lunge: Fx,
-    /// How high above the player a flyer hovers.
-    pub hover_height: Fx,
-    /// Its hit, live through the attack: `x` ahead of the feet (the way it faces) and `y` up; the damage, angle and knockback are a
-    /// fighter hitbox's (`start` and `end` are not used).
-    pub hitbox: Hitbox,
     /// Coins it pays when beaten (before the combo multiplier).
+    pub coins: u16,
+    /// What it costs from a room's budget, the first tier it comes in, how likely it is picked (a weight), and its placement rules
+    /// (`PLACE_*`).
+    pub cost: u8,
+    pub min_tier: u8,
+    pub odds: u8,
+    pub place: u8,
+    /// Its walking speed and its running speed (when far from you; 0 never runs), in percent of its body's.
+    pub walk: u8,
+    pub run: u8,
+    /// How near (sideways) it notices you, how near it starts its first move (or leaps, or throws), and how near its second.
+    pub aggro: Fx,
+    pub reach: Fx,
+    pub reach2: Fx,
+    /// Frames it waits after an attack.
+    pub cooldown: u8,
+    /// Its forward speed through the active frames of its attack (a lunge, a dash attack's slide).
+    pub lunge: Fx,
+    /// A guard (a shieldbearer): its shield's hit points (0: none).
+    pub shield: Fx,
+    /// Super armor through the tell and the startup of its first move (hits deal damage but do not flinch it).
+    pub armor: bool,
+    /// A lobber's shot: the move frame it leaves on, and its flight time to the target (frames). The shot is its first move's
+    /// projectile.
+    pub shot_frame: u8,
+    pub shot_time: u8,
+}
+
+/// One difficulty tier (R2b): what comes in a room once the run has reached it (`RunRules::tier_rooms` rooms each).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Tier {
+    /// The grunt kinds it allows: bit `1 << kind`.
+    pub kinds: u8,
+    /// A room's budget: this many points for every 16 units of its width (an arena gets `RunRules::arena_budget` percent of it).
+    pub budget: u8,
+    /// Frames of warning before every attack (the tell: a flash and a "!"), the grunts' stamina and their damage (percent).
+    pub tell: u8,
+    pub stamina: u8,
+    pub damage: u8,
+}
+
+/// A prop (R2b, Punch Quest's torches): a hazard or a chest. Hit by the player's attack or shot, a gas canister burns for `fuse`
+/// frames, then bursts with `hit` for `frames` frames; a loose sign falls and its `hit` is live while it falls; a chest opens and
+/// pays `coins`. Hazards hurt grunts (the player's kill) and the player.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct PropKind {
+    pub role: u8,
+    /// Its box: half its width and its height (from its base, or down from where a sign hangs).
+    pub half_width: Fx,
+    pub height: Fx,
+    pub fuse: u8,
+    pub frames: u8,
+    /// Its hit, centred `hit.y` above its base (a radius and the damage, angle and knockback of a fighter hitbox).
+    pub hit: Hitbox,
+    pub gravity: Fx,
     pub coins: u16,
 }
 
@@ -373,6 +494,32 @@ pub struct RunRules {
     /// `max_step` and clear gaps of at most `max_gap` (a test checks the worst jumper in the cast, made fighters included, beats both).
     pub max_step: Fx,
     pub max_gap: Fx,
+    /// R2b. The difficulty curve: the tier steps up every `tier_rooms` rooms (to the last of `RunContent::tiers`).
+    pub tier_rooms: u8,
+    /// Placement: high ground is this far above the room's lowest solid ground; flat room is a flat platform at least this wide.
+    pub high_ground: Fx,
+    pub flat_room: Fx,
+    /// An arena's budget, in percent of a street's of its width.
+    pub arena_budget: u8,
+    /// Rare events: a "city" is this many rooms (until R6's journey), at most one event in each; none before room `event_from`. A
+    /// room's chance is `event_base` per mille, plus `event_step` per mille for every room laid since the last event (the pity).
+    pub city_rooms: u8,
+    pub event_from: u8,
+    pub event_base: u16,
+    pub event_step: u16,
+    /// The runaway van: its top speed and how fast it gets there (units a frame), the most frames it drives, and its hit on the
+    /// grunts it runs into (the player's kills).
+    pub van_speed: Fx,
+    pub van_accel: Fx,
+    pub van_frames: u16,
+    pub van_hit: Hitbox,
+    /// A shieldbearer turns to face you this many frames after you cross it up; a broken guard leaves it dazed this long; its
+    /// guard grows back this much a frame while it is not hit.
+    pub guard_turn: u8,
+    pub daze_frames: u8,
+    pub shield_regen: Fx,
+    /// A grab that catches a grunt throws it with the fighter's forward throw; a fighter whose weapon has none uses this.
+    pub grab_throw: Hitbox,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -388,6 +535,10 @@ pub struct RunContent {
     pub items: Vec<ShopItem>,
     /// Every shop's inside.
     pub interior: Interior,
+    /// R2b. The difficulty tiers, easiest first (at least one).
+    pub tiers: Vec<Tier>,
+    /// The props rooms may hold.
+    pub props: Vec<PropKind>,
 }
 
 fn tenths(n: i32) -> Fx {
@@ -466,6 +617,20 @@ fn ledge(x: i32, y: i32, side: i8) -> RoomLedge {
 
 fn spawn(kind: u8, x: i32, y: i32) -> MobSpawn {
     MobSpawn {
+        kind,
+        x: tenths(x),
+        y: tenths(y),
+        part: 0,
+    }
+}
+
+/// A spot the room's budget fills (tenths).
+fn any(x: i32, y: i32) -> MobSpawn {
+    spawn(SPOT_ANY, x, y)
+}
+
+fn prop(kind: u8, x: i32, y: i32) -> PropSpot {
+    PropSpot {
         kind,
         x: tenths(x),
         y: tenths(y),
@@ -585,62 +750,250 @@ impl RunRules {
             fork_chance: 25,
             piece_chance: 70,
             drift: int(8),
-            coin_value: 2,
+            coin_value: 1,
             coin_reach: tenths(9),
             emerge_frames: 24,
             max_step: tenths(40),
             max_gap: tenths(45),
+            tier_rooms: 6,
+            high_ground: int(2),
+            flat_room: int(6),
+            arena_budget: 150,
+            city_rooms: 24,
+            event_from: 6,
+            event_base: 20,
+            event_step: 12,
+            van_speed: Fx::from_ratio(2, 5),
+            van_accel: Fx::from_ratio(1, 80),
+            van_frames: 240,
+            van_hit: mob_hit(0, 10, 16, 100, 50, 80, 70),
+            guard_turn: 18,
+            daze_frames: 100,
+            shield_regen: Fx::from_ratio(1, 20),
+            grab_throw: mob_hit(0, 10, 10, 80, 45, 60, 60),
         }
     }
 }
 
 impl MobKind {
-    /// A walker: rushes the player along the ground and lunges at them.
-    pub fn walker() -> MobKind {
-        MobKind {
-            behavior: MOB_WALKER,
-            stamina: int(12),
-            weight: int(80),
-            radius: tenths(6),
-            gravity: Fx::from_ratio(3, 250),
-            max_fall: Fx::from_ratio(11, 50),
-            speed: Fx::from_ratio(3, 25),
-            accel: Fx::from_ratio(1, 50),
-            jump: Fx::from_ratio(1, 4),
-            aggro: int(16),
-            attack_range: tenths(22),
-            windup: 18,
-            attack_frames: 12,
-            cooldown: 40,
-            lunge: tenths(3),
-            hover_height: Fx::ZERO,
-            hitbox: mob_hit(7, 6, 6, 60, 45, 30, 60),
+    /// The six built-in grunt kinds, in the roles' order ([`KIND_BRAWLER`]...). Bodies (the roster's order): 0 duelist (longsword),
+    /// 2 rogue (needles), 4 sprinter (gauntlets), 7 hauler (bracers), 8 bounder (clutch), 9 wanderer (buckler).
+    pub fn standard() -> Vec<MobKind> {
+        use moves::MoveId as M;
+        let base = MobKind {
+            role: ROLE_BRAWLER,
+            body: 4,
+            moves: [M::Jab as u8, M::FTilt as u8, NO_MOVE],
+            stamina: int(14),
             coins: 5,
-        }
+            cost: 2,
+            min_tier: 0,
+            odds: 40,
+            place: 0,
+            walk: 80,
+            run: 70,
+            aggro: int(16),
+            reach: tenths(16),
+            reach2: tenths(26),
+            cooldown: 36,
+            lunge: Fx::ZERO,
+            shield: Fx::ZERO,
+            armor: false,
+            shot_frame: 0,
+            shot_time: 0,
+        };
+        vec![
+            // A brawler on the gauntlets' body: rushes you, a jab up close, a forward tilt a little further.
+            base,
+            // A leaper on the needles' body: waits on high ground and leaps at you with its down air (from above) or forward air.
+            MobKind {
+                role: ROLE_LEAPER,
+                body: 2,
+                moves: [M::DAir as u8, M::FAir as u8, NO_MOVE],
+                stamina: int(10),
+                coins: 7,
+                cost: 3,
+                odds: 30,
+                place: PLACE_HIGH,
+                walk: 60,
+                run: 0,
+                aggro: int(14),
+                reach: int(9),
+                reach2: tenths(25),
+                cooldown: 40,
+                ..base
+            },
+            // A shieldbearer on the buckler's body: guards toward you and pokes out with its forward tilt (a jab up close).
+            MobKind {
+                role: ROLE_SHIELD,
+                body: 9,
+                moves: [M::FTilt as u8, M::Jab as u8, NO_MOVE],
+                stamina: int(16),
+                coins: 8,
+                cost: 3,
+                min_tier: 1,
+                odds: 25,
+                place: PLACE_ALONE,
+                walk: 50,
+                run: 0,
+                aggro: int(14),
+                reach: tenths(28),
+                reach2: tenths(16),
+                cooldown: 30,
+                shield: int(30),
+                ..base
+            },
+            // A spearman on the longsword's body: a delayed forward tilt, or a dash attack from further out. Jump it and punish.
+            MobKind {
+                role: ROLE_SPEAR,
+                body: 0,
+                moves: [M::FTilt as u8, M::DashAttack as u8, NO_MOVE],
+                stamina: int(14),
+                coins: 7,
+                cost: 3,
+                min_tier: 1,
+                odds: 25,
+                place: 0,
+                walk: 60,
+                run: 0,
+                aggro: int(15),
+                reach: tenths(30),
+                reach2: int(6),
+                cooldown: 44,
+                lunge: Fx::from_ratio(3, 10),
+                ..base
+            },
+            // A lobber on the clutch's body: throws its shell in an arc from high ground (reflect it back), a jab up close.
+            MobKind {
+                role: ROLE_LOBBER,
+                body: 8,
+                moves: [M::UpSpecial as u8, M::Jab as u8, NO_MOVE],
+                stamina: int(10),
+                coins: 8,
+                cost: 4,
+                min_tier: 2,
+                odds: 20,
+                place: PLACE_HIGH,
+                walk: 50,
+                run: 0,
+                aggro: int(18),
+                reach: int(15),
+                reach2: tenths(16),
+                cooldown: 60,
+                shot_frame: 16,
+                shot_time: 45,
+                ..base
+            },
+            // A bruiser on the bracers' body: slow and heavy, armored through its forward smash's startup, a big launch.
+            MobKind {
+                role: ROLE_BRUISER,
+                body: 7,
+                moves: [M::FSmash as u8, M::Jab as u8, NO_MOVE],
+                stamina: int(40),
+                coins: 14,
+                cost: 5,
+                min_tier: 3,
+                odds: 15,
+                place: PLACE_FLAT,
+                walk: 55,
+                run: 0,
+                aggro: int(14),
+                reach: tenths(30),
+                reach2: tenths(18),
+                cooldown: 50,
+                armor: true,
+                ..base
+            },
+        ]
     }
+}
 
-    /// A flyer: hovers above and ahead of the player and dives at them.
-    pub fn flyer() -> MobKind {
-        MobKind {
-            behavior: MOB_FLYER,
-            stamina: int(8),
-            weight: int(60),
-            radius: tenths(5),
-            gravity: Fx::from_ratio(3, 250),
-            max_fall: Fx::from_ratio(1, 5),
-            speed: Fx::from_ratio(1, 10),
-            accel: Fx::from_ratio(1, 100),
-            jump: Fx::ZERO,
-            aggro: int(14),
-            attack_range: int(6),
-            windup: 24,
-            attack_frames: 36,
-            cooldown: 50,
-            lunge: Fx::from_ratio(7, 20),
-            hover_height: int(5),
-            hitbox: mob_hit(0, 5, 6, 80, 60, 35, 70),
-            coins: 8,
-        }
+impl Tier {
+    /// The built-in curve: tier 0 has brawlers and leapers, then spearmen and shieldbearers, lobbers, bruisers; budgets grow, tells
+    /// shrink from 18 frames, grunts grow tougher and hit harder.
+    pub fn standard() -> Vec<Tier> {
+        let all = |kinds: &[u8]| kinds.iter().fold(0u8, |m, &k| m | 1 << k);
+        vec![
+            Tier {
+                kinds: all(&[KIND_BRAWLER, KIND_LEAPER]),
+                budget: 3,
+                tell: 18,
+                stamina: 100,
+                damage: 100,
+            },
+            Tier {
+                kinds: all(&[KIND_BRAWLER, KIND_LEAPER, KIND_SHIELD, KIND_SPEAR]),
+                budget: 4,
+                tell: 16,
+                stamina: 110,
+                damage: 105,
+            },
+            Tier {
+                kinds: all(&[
+                    KIND_BRAWLER,
+                    KIND_LEAPER,
+                    KIND_SHIELD,
+                    KIND_SPEAR,
+                    KIND_LOBBER,
+                ]),
+                budget: 5,
+                tell: 14,
+                stamina: 120,
+                damage: 110,
+            },
+            Tier {
+                kinds: 0b11_1111,
+                budget: 6,
+                tell: 12,
+                stamina: 135,
+                damage: 120,
+            },
+            Tier {
+                kinds: 0b11_1111,
+                budget: 7,
+                tell: 10,
+                stamina: 150,
+                damage: 130,
+            },
+        ]
+    }
+}
+
+impl PropKind {
+    /// The built-in props: a gas canister, a loose sign, a chest ([`PROP_KIND_GAS`]...).
+    pub fn standard() -> Vec<PropKind> {
+        vec![
+            PropKind {
+                role: PROP_GAS,
+                half_width: tenths(4),
+                height: tenths(12),
+                fuse: 14,
+                frames: 4,
+                hit: mob_hit(0, 6, 26, 140, 60, 50, 80),
+                gravity: Fx::ZERO,
+                coins: 0,
+            },
+            PropKind {
+                role: PROP_SIGN,
+                half_width: int(1),
+                height: tenths(8),
+                fuse: 0,
+                frames: 0,
+                hit: mob_hit(0, -4, 10, 100, 70, 40, 70),
+                gravity: Fx::from_ratio(1, 50),
+                coins: 0,
+            },
+            PropKind {
+                role: PROP_CHEST,
+                half_width: tenths(6),
+                height: tenths(8),
+                fuse: 0,
+                frames: 0,
+                hit: mob_hit(0, 4, 6, 0, 0, 0, 0),
+                gravity: Fx::ZERO,
+                coins: 30,
+            },
+        ]
     }
 }
 
@@ -660,6 +1013,14 @@ impl Room {
             coins: Vec::new(),
             slots: Vec::new(),
             door: Vec2::ZERO,
+            props: Vec::new(),
+            min_tier: 0,
+            max_tier: 255,
+            event: EVENT_NONE,
+            branch_high: 0,
+            branch_low: 0,
+            lift: Fx::ZERO,
+            paired: false,
         }
     }
 
@@ -723,6 +1084,7 @@ fn interior() -> Interior {
         cheer_frames: 70,
         grumble_frames: 60,
         dizzy_frames: 100,
+        sulk_frames: 180,
     }
 }
 
@@ -815,9 +1177,10 @@ fn pieces() -> Vec<Piece> {
 }
 
 impl RunContent {
-    /// The built-in run (R2a): placeholder rooms of city street and rooftops (a safe start, streets with ramps, stairs, tin roofs
-    /// and a fork, two arenas, two shops and a rest stop), seven obstacle pieces, a walker (kind 0) and a flyer (kind 1), a shop
-    /// selling a heal and an extra life, and its interior.
+    /// The built-in run (R2b): placeholder rooms of city street and rooftops (a safe start, streets with ramps, stairs, tin roofs,
+    /// forks and a branching fork with its treasure alley, three arenas, two shops, a rest stop and the runaway van's street), seven
+    /// obstacle pieces, the six grunt kinds, five difficulty tiers, three props, a shop selling a heal and an extra life, and its
+    /// interior. Grunts come from spots the room's budget fills (`SPOT_ANY`).
     pub fn placeholder() -> RunContent {
         let mut rooms = Vec::new();
 
@@ -831,9 +1194,9 @@ impl RunContent {
         ];
         rooms.push(r);
 
-        // A street with a walker at its far end: a second awning and a stack of crates may be there, and a piece by the kerb.
+        // A street: a second awning and a stack of crates may be there, a piece by the kerb, and maybe a gas canister.
         let mut r = Room::new("street", ROOM_STREET, 32);
-        r.parts = vec![60, 50];
+        r.parts = vec![60, 50, 40];
         r.platforms = vec![
             solid(0, 320, 0, LOOK_STREET),
             plank(60, 120, 36, LOOK_AWNING),
@@ -841,12 +1204,25 @@ impl RunContent {
             solid(250, 262, 12, LOOK_CRATE).with(2),
             solid(252, 260, 22, LOOK_CRATE).with(2),
         ];
-        r.spawns = vec![spawn(0, 280, 0)];
+        r.spawns = vec![
+            any(280, 0),
+            any(90, 36),
+            MobSpawn {
+                part: 1,
+                ..any(230, 36)
+            },
+            any(40, 0),
+            any(215, 0),
+        ];
         r.coins = coin_line(70, 44, 110, 44, 3);
         r.slots = vec![slot(160, 0, SLOT_STREET)];
+        r.props = vec![PropSpot {
+            part: 3,
+            ..prop(PROP_KIND_GAS, 120, 0)
+        }];
         rooms.push(r);
 
-        // A gap between two roofs with a plank over it; a flyer waits above. Coins trace the jump.
+        // A gap between two roofs with a plank over it, a loose sign over the near roof. Coins trace the jump.
         let mut r = Room::new("gap", ROOM_STREET, 30);
         r.platforms = vec![
             solid(0, 100, 0, LOOK_ROOF),
@@ -854,12 +1230,19 @@ impl RunContent {
             plank(115, 145, 36, LOOK_SCAFFOLD),
         ];
         r.ledges = vec![ledge(100, 0, 1), ledge(160, 0, -1)];
-        r.spawns = vec![spawn(1, 130, 70), spawn(0, 240, 0)];
+        r.spawns = vec![
+            any(60, 0),
+            any(130, 36),
+            any(190, 0),
+            any(270, 0),
+            any(290, 0),
+        ];
         r.coins = vec![coin(105, 30), coin(130, 46), coin(155, 30)];
         r.slots = vec![slot(230, 0, SLOT_ROOF)];
+        r.props = vec![prop(PROP_KIND_SIGN, 50, 44)];
         rooms.push(r);
 
-        // A taller building to climb over (maybe with a chimney), a walker on its roof and a flyer beyond.
+        // A taller building to climb over (maybe with a chimney).
         let mut r = Room::new("step", ROOM_STREET, 32);
         r.parts = vec![50];
         r.platforms = vec![
@@ -869,7 +1252,13 @@ impl RunContent {
             solid(150, 166, 50, LOOK_CHIMNEY).with(1),
         ];
         r.ledges = vec![ledge(80, 25, -1), ledge(200, 25, 1)];
-        r.spawns = vec![spawn(0, 120, 25), spawn(1, 270, 80)];
+        r.spawns = vec![
+            any(120, 25),
+            any(180, 25),
+            any(40, 0),
+            any(220, 0),
+            any(300, 0),
+        ];
         r.coins = vec![coin(158, 60).with_part(1)];
         r.slots = vec![slot(265, 0, SLOT_ROOF)];
         rooms.push(r);
@@ -884,16 +1273,25 @@ impl RunContent {
             plank(200, 260, 36, LOOK_FIRE_ESCAPE),
             plank(130, 170, 94, LOOK_BALCONY).with(1),
         ];
-        r.spawns = vec![spawn(0, 80, 0), spawn(1, 150, 100), spawn(0, 240, 0)];
+        r.spawns = vec![
+            any(80, 0),
+            any(240, 0),
+            any(150, 0),
+            any(70, 36),
+            any(230, 36),
+            any(150, 66),
+        ];
         r.coins = coin_line(140, 102, 160, 102, 3)
             .into_iter()
             .map(|c| c.with_part(1))
             .collect();
+        r.props = vec![prop(PROP_KIND_GAS, 20, 0)];
         rooms.push(r);
 
         // A wide gap with a balcony to catch below its near edge, then a long roof with an awning; sometimes the roof runs on
-        // without a gap.
+        // without a gap. From tier 1.
         let mut r = Room::new("drop", ROOM_STREET, 34);
+        r.min_tier = 1;
         r.parts = vec![40];
         r.platforms = vec![
             solid(0, 90, 0, LOOK_ROOF).without(1),
@@ -912,13 +1310,21 @@ impl RunContent {
                 ..ledge(140, 0, -1)
             },
         ];
-        r.spawns = vec![spawn(1, 120, 60), spawn(0, 200, 0), spawn(0, 280, 0)];
+        r.spawns = vec![
+            any(60, 0),
+            any(200, 0),
+            any(280, 0),
+            any(320, 0),
+            any(190, 36),
+        ];
         r.coins = vec![coin(115, 30).without_part(1)];
         r.slots = vec![slot(290, 70, SLOT_AIR)];
         rooms.push(r);
 
-        // A long avenue (about two screens) under awnings and a balcony, maybe a bus shelter, with pieces along it.
+        // A long avenue (about two screens) under awnings and a balcony, maybe a bus shelter, with pieces along it and a loose sign
+        // under an awning. From tier 1.
         let mut r = Room::new("avenue", ROOM_STREET, 48);
+        r.min_tier = 1;
         r.parts = vec![50];
         r.platforms = vec![
             solid(0, 480, 0, LOOK_STREET),
@@ -927,13 +1333,23 @@ impl RunContent {
             plank(340, 400, 36, LOOK_AWNING),
             plank(280, 320, 26, LOOK_BUS_SHELTER).with(1),
         ];
-        r.spawns = vec![spawn(0, 140, 0), spawn(1, 240, 80), spawn(0, 400, 0)];
+        r.spawns = vec![
+            any(40, 0),
+            any(110, 0),
+            any(240, 0),
+            any(330, 0),
+            any(400, 0),
+            any(230, 60),
+            any(90, 36),
+            any(370, 36),
+        ];
         r.coins = coin_line(210, 68, 250, 68, 3);
         r.slots = vec![
             slot(160, 0, SLOT_STREET),
             slot(440, 0, SLOT_STREET),
             slot(300, 75, SLOT_AIR),
         ];
+        r.props = vec![prop(PROP_KIND_SIGN, 370, 30), prop(PROP_KIND_GAS, 22, 0)];
         rooms.push(r);
 
         // A street rising to a bridge up a loading ramp (mirrored, it comes down).
@@ -944,9 +1360,10 @@ impl RunContent {
             ramp(100, 200, 0, 40, LOOK_RAMP),
             solid(200, 320, 40, LOOK_ROOF),
         ];
-        r.spawns = vec![spawn(0, 260, 40)];
+        r.spawns = vec![any(260, 40), any(300, 40), any(90, 0), any(230, 40)];
         r.coins = coin_line(115, 16, 185, 44, 4);
         r.slots = vec![slot(50, 0, SLOT_STREET)];
+        r.props = vec![prop(PROP_KIND_GAS, 215, 40)];
         rooms.push(r);
 
         // Tin roofs sloping down into a valley and back up.
@@ -958,7 +1375,7 @@ impl RunContent {
             ramp(220, 300, -30, 0, LOOK_TIN_ROOF),
             solid(300, 360, 0, LOOK_ROOF),
         ];
-        r.spawns = vec![spawn(0, 190, -30), spawn(1, 260, 60)];
+        r.spawns = vec![any(40, 0), any(20, 0), any(330, 0), any(310, 0)];
         r.coins = coin_line(170, -20, 210, -20, 3);
         r.slots = vec![slot(190, -30, SLOT_ROOF)];
         rooms.push(r);
@@ -972,14 +1389,20 @@ impl RunContent {
             solid(170, 320, -40, LOOK_STREET),
             plank(220, 280, -4, LOOK_AWNING),
         ];
-        r.spawns = vec![spawn(0, 260, -40)];
+        r.spawns = vec![
+            any(290, -40),
+            any(190, -40),
+            any(40, 0),
+            any(250, -4),
+            any(70, 0),
+        ];
         r.coins = coin_line(100, 6, 160, -24, 3);
         r.slots = vec![slot(240, -40, SLOT_STREET)];
         rooms.push(r);
 
-        // The fork: a fire escape climbs from the street to a high road of catwalks and scaffolds (gaps, coins, one flyer), over the
-        // low road (the street: more mobs, safe footing). A coin trail up the fire escape shows the way; falling from the high road
-        // lands on the street; both roads meet again at the room's end.
+        // The fork: a fire escape climbs from the street to a high road of catwalks and scaffolds (gaps, coins), over the low road
+        // (the street: more grunts, safe footing). A coin trail up the fire escape shows the way; falling from the high road lands on
+        // the street; both roads meet again at the room's end.
         let mut r = Room::new("fork", ROOM_STREET, 56);
         r.fork = true;
         r.mirror = false;
@@ -995,13 +1418,15 @@ impl RunContent {
             flight(470, 530, 55, 25, LOOK_FIRE_ESCAPE),
         ];
         r.spawns = vec![
-            spawn(0, 120, 0),
-            spawn(0, 260, 0),
-            spawn(0, 380, 0),
-            spawn(1, 340, 100),
+            any(120, 0),
+            any(260, 0),
+            any(380, 0),
+            any(500, 0),
+            any(230, 55),
+            any(330, 60),
             MobSpawn {
                 part: 1,
-                ..spawn(1, 450, 40)
+                ..any(430, 55)
             },
         ];
         let mut trail = coin_line(55, 12, 95, 34, 3);
@@ -1011,7 +1436,7 @@ impl RunContent {
         r.slots = vec![slot(320, 0, SLOT_STREET)];
         rooms.push(r);
 
-        // An arena: a yard under fire escapes, four mobs.
+        // An arena: a yard under fire escapes, a loose sign under the top one.
         let mut r = Room::new("yard", ROOM_ARENA, 32);
         r.platforms = vec![
             solid(0, 320, 0, LOOK_STREET),
@@ -1020,14 +1445,17 @@ impl RunContent {
             plank(210, 270, 36, LOOK_FIRE_ESCAPE),
         ];
         r.spawns = vec![
-            spawn(0, 120, 0),
-            spawn(0, 220, 0),
-            spawn(1, 170, 90),
-            spawn(0, 280, 0),
+            any(120, 0),
+            any(220, 0),
+            any(280, 0),
+            any(80, 36),
+            any(160, 66),
+            any(240, 36),
         ];
+        r.props = vec![prop(PROP_KIND_SIGN, 160, 58)];
         rooms.push(r);
 
-        // An arena around a raised roof, two walkers and two flyers.
+        // An arena around a raised roof.
         let mut r = Room::new("roofs", ROOM_ARENA, 36);
         r.platforms = vec![
             solid(0, 140, 0, LOOK_ROOF),
@@ -1036,10 +1464,11 @@ impl RunContent {
         ];
         r.ledges = vec![ledge(140, 20, -1), ledge(220, 20, 1)];
         r.spawns = vec![
-            spawn(0, 80, 0),
-            spawn(1, 180, 90),
-            spawn(0, 280, 0),
-            spawn(1, 310, 80),
+            any(80, 0),
+            any(180, 20),
+            any(280, 0),
+            any(320, 0),
+            any(30, 0),
         ];
         rooms.push(r);
 
@@ -1083,11 +1512,124 @@ impl RunContent {
         ];
         rooms.push(r);
 
+        // R2b. A wide arena plaza with two catwalks for lobbers and flat room for bruisers. From tier 1.
+        let mut r = Room::new("plaza", ROOM_ARENA, 40);
+        r.min_tier = 1;
+        r.platforms = vec![
+            solid(0, 400, 0, LOOK_STREET),
+            plank(60, 140, 40, LOOK_SCAFFOLD),
+            plank(260, 340, 40, LOOK_SCAFFOLD),
+        ];
+        r.spawns = vec![
+            any(100, 0),
+            any(200, 0),
+            any(300, 0),
+            any(360, 0),
+            any(100, 40),
+            any(300, 40),
+            any(40, 0),
+        ];
+        r.props = vec![prop(PROP_KIND_GAS, 160, 0)];
+        rooms.push(r);
+
+        // R2b. A branching fork (the owner's answer to R2a): fire escapes climb from the street to a catwalk that leaves the room's
+        // right edge 8 up, into a treasure alley; the street goes on into the alley's street. Whichever road you walk out on is the
+        // room you get; the other is dropped.
+        let alley = rooms.len() as u8 + 1;
+        let mut r = Room::new("fork_up", ROOM_STREET, 48);
+        r.fork = true;
+        r.mirror = false;
+        r.platforms = vec![
+            solid(0, 480, 0, LOOK_STREET),
+            flight(40, 100, 0, 30, LOOK_FIRE_ESCAPE),
+            plank(100, 140, 30, LOOK_FIRE_ESCAPE),
+            flight(140, 190, 30, 55, LOOK_FIRE_ESCAPE),
+            plank(190, 260, 55, LOOK_BILLBOARD),
+            flight(260, 320, 55, 80, LOOK_FIRE_ESCAPE),
+            plank(320, 480, 80, LOOK_CATWALK),
+        ];
+        r.spawns = vec![any(150, 0), any(300, 0), any(430, 0), any(225, 55)];
+        let mut trail = coin_line(55, 12, 95, 34, 3);
+        trail.extend(coin_line(150, 42, 180, 62, 2));
+        trail.extend(coin_line(270, 72, 310, 86, 3));
+        trail.extend(coin_line(360, 90, 460, 90, 4));
+        r.coins = trail;
+        r.slots = vec![slot(380, 0, SLOT_STREET)];
+        r.branch_high = alley;
+        r.branch_low = alley + 1;
+        r.lift = int(8);
+        rooms.push(r);
+
+        // R2b. The treasure alley, the high road's room after a branching fork: catwalks between the rooftops with coins, a chest and a
+        // gas canister, then a fire escape down to the street, where the run goes on. It lies over its low road's room (`under_alley`)
+        // until one of them is taken, so it has no solid block but the street under both.
+        let mut r = Room::new("alley", ROOM_ALLEY, 48);
+        r.paired = true;
+        r.mirror = false;
+        r.exit_y = int(-8);
+        r.platforms = vec![
+            solid(0, 480, -80, LOOK_STREET),
+            plank(0, 120, 0, LOOK_CATWALK),
+            plank(150, 270, 0, LOOK_CATWALK),
+            flight(270, 430, 0, -80, LOOK_FIRE_ESCAPE),
+        ];
+        r.coins = coin_line(20, 8, 110, 8, 5);
+        r.coins.extend(coin_line(125, 16, 145, 16, 2));
+        r.coins.extend(coin_line(160, 8, 250, 8, 5));
+        r.props = vec![prop(PROP_KIND_GAS, 100, 0), prop(PROP_KIND_CHEST, 220, 0)];
+        rooms.push(r);
+
+        // R2b. The low road's room after a branching fork: a plain street under the alley's catwalks (nothing reaches up to them).
+        let mut r = Room::new("under_alley", ROOM_STREET, 48);
+        r.paired = true;
+        r.mirror = false;
+        r.platforms = vec![
+            solid(0, 480, 0, LOOK_STREET),
+            plank(60, 130, 36, LOOK_AWNING),
+            plank(300, 370, 36, LOOK_AWNING),
+            solid(200, 214, 12, LOOK_CRATE),
+        ];
+        r.spawns = vec![
+            any(100, 0),
+            any(170, 0),
+            any(260, 0),
+            any(400, 0),
+            any(330, 36),
+            any(90, 36),
+        ];
+        r.coins = coin_line(310, 44, 360, 44, 3);
+        rooms.push(r);
+
+        // R2b. The rare event: the runaway van. A long street with the van waiting at its start; land on its roof and it drives off
+        // down the street, scattering the grunts in its path, you riding on top untouchable. Coins over its path.
+        let mut r = Room::new("van_street", ROOM_EVENT, 64);
+        r.mirror = false;
+        r.event = EVENT_VAN;
+        r.platforms = vec![
+            solid(0, 640, 0, LOOK_STREET),
+            plank(100, 160, 46, LOOK_AWNING),
+            plank(300, 360, 46, LOOK_AWNING),
+            plank(500, 560, 46, LOOK_AWNING),
+        ];
+        r.door = Vec2::new(int(8), Fx::ZERO);
+        r.spawns = vec![
+            any(160, 0),
+            any(220, 0),
+            any(280, 0),
+            any(340, 0),
+            any(400, 0),
+            any(460, 0),
+            any(520, 0),
+            any(580, 0),
+        ];
+        r.coins = coin_line(140, 34, 600, 34, 12);
+        rooms.push(r);
+
         RunContent {
             rules: RunRules::standard(),
             rooms,
             pieces: pieces(),
-            mobs: vec![MobKind::walker(), MobKind::flyer()],
+            mobs: MobKind::standard(),
             items: vec![
                 ShopItem {
                     name: "Heal 30%".to_string(),
@@ -1105,6 +1647,8 @@ impl RunContent {
                 },
             ],
             interior: interior(),
+            tiers: Tier::standard(),
+            props: PropKind::standard(),
         }
     }
 
@@ -1151,8 +1695,26 @@ impl RunContent {
             s.cheer_frames,
             s.grumble_frames,
             s.dizzy_frames,
+            s.sulk_frames,
         ] {
             h.write_u16(v);
+        }
+        h.write_u32(self.tiers.len() as u32);
+        for t in &self.tiers {
+            for v in [t.kinds, t.budget, t.tell, t.stamina, t.damage] {
+                h.write_u8(v);
+            }
+        }
+        h.write_u32(self.props.len() as u32);
+        for p in &self.props {
+            h.write_u8(p.role);
+            p.half_width.hash_into(&mut h);
+            p.height.hash_into(&mut h);
+            h.write_u8(p.fuse);
+            h.write_u8(p.frames);
+            p.hit.hash_into(&mut h);
+            p.gravity.hash_into(&mut h);
+            h.write_u16(p.coins);
         }
         h.finish()
     }
@@ -1235,6 +1797,30 @@ impl StateHash for RunRules {
         }
         h.write_u16(self.arena_bonus);
         h.write_u16(self.coin_value);
+        for v in [
+            self.high_ground,
+            self.flat_room,
+            self.van_speed,
+            self.van_accel,
+            self.shield_regen,
+        ] {
+            v.hash_into(h);
+        }
+        for v in [
+            self.tier_rooms,
+            self.arena_budget,
+            self.city_rooms,
+            self.event_from,
+            self.guard_turn,
+            self.daze_frames,
+        ] {
+            h.write_u8(v);
+        }
+        for v in [self.event_base, self.event_step, self.van_frames] {
+            h.write_u16(v);
+        }
+        self.van_hit.hash_into(h);
+        self.grab_throw.hash_into(h);
     }
 }
 
@@ -1273,32 +1859,54 @@ impl StateHash for Room {
             h.write_i8(s.part);
         }
         self.door.hash_into(h);
+        h.write_u32(self.props.len() as u32);
+        for p in &self.props {
+            h.write_u8(p.kind);
+            p.x.hash_into(h);
+            p.y.hash_into(h);
+            h.write_i8(p.part);
+        }
+        h.write_u8(self.min_tier);
+        h.write_u8(self.max_tier);
+        h.write_u8(self.event);
+        h.write_u8(self.branch_high);
+        h.write_u8(self.branch_low);
+        self.lift.hash_into(h);
+        h.write_bool(self.paired);
     }
 }
 
 impl StateHash for MobKind {
     fn hash_into(&self, h: &mut StateHasher) {
-        h.write_u8(self.behavior);
+        h.write_u8(self.role);
+        h.write_u8(self.body);
+        for m in self.moves {
+            h.write_u8(m);
+        }
         for v in [
             self.stamina,
-            self.weight,
-            self.radius,
-            self.gravity,
-            self.max_fall,
-            self.speed,
-            self.accel,
-            self.jump,
             self.aggro,
-            self.attack_range,
+            self.reach,
+            self.reach2,
             self.lunge,
-            self.hover_height,
+            self.shield,
         ] {
             v.hash_into(h);
         }
-        h.write_u8(self.windup);
-        h.write_u8(self.attack_frames);
-        h.write_u8(self.cooldown);
-        self.hitbox.hash_into(h);
         h.write_u16(self.coins);
+        for v in [
+            self.cost,
+            self.min_tier,
+            self.odds,
+            self.place,
+            self.walk,
+            self.run,
+            self.cooldown,
+            self.shot_frame,
+            self.shot_time,
+        ] {
+            h.write_u8(v);
+        }
+        h.write_bool(self.armor);
     }
 }

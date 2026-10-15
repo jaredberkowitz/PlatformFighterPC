@@ -125,7 +125,10 @@ A **fork room** splits into a **high road** (rooftops) and a **low road** (the s
 - **Low road:** more enemies, safer footing, sometimes a shop door or a hidden alley.
 - **Telegraphed:** a coin trail up the fire escape for the high road; a lit storefront or a crowd of enemies for the low road.
 
-The map strip shows the fork as a split icon. Later, a fork can lead to a **special room**:
+The map strip shows the fork as a split icon. **Built in R2b (the owner: "Yes, good idea"):** a *branching fork* leads to two rooms:
+its high road leaves its right edge 8 up into a **treasure alley** (catwalks over the street with coins, a gas canister and a chest),
+its low road into a street of its own; the room the player walks out on is kept and the other dropped, and the map draws the alley
+over its sibling with the road not taken crossed out. Later, a fork can lead to other **special rooms**:
 - a treasure alley behind a breakable fence;
 - a challenge room ("reach the chest without being hit", after Rogue Legacy);
 - the rare "event" room (section 4).
@@ -186,29 +189,58 @@ The **art director** owns the look:
 Placeholders stay acceptable until the kit arrives. Every footing object in the run data gets a `look` tag (dumpster, awning,
 crate, and so on) so the art can be swapped in without touching the sim.
 
-## 4. Enemies (direction for R2 and R3)
-Each enemy has one rule and a clear wind-up. Six to start, in line with the plan's section 3.3 roles:
+## 4. Enemies (**Decided**, 14 October 2026; built in R2b, sim 127)
 
-| Placeholder name | Rule | Counter | Teaches |
-| --- | --- | --- | --- |
-| Walker (exists) | rushes and swipes | anything | basics |
-| Diver (exists) | hovers, dives at you | up air, shield, sidestep | anti-air |
-| Shieldbearer | blocks from the front | attack from above, grab, or cross up | approach angles (Punch Quest's orc) |
-| Spearman | a long, delayed poke along the ground | jump over it, punish the recovery | timing |
-| Lobber | throws arcing bottles from a roof | reflect them, close in, or dodge | projectiles; your fighter's reflect matters |
-| Bruiser | slow, armored, big launch | hit and back off, or a strong move breaks the armor | respect and spacing |
+The owner, after playing R2a: "It might be better that the enemies fought in this mode are based off of the general base game
+characters, both for ease of fighting against (it was a bit hard to hit the current enemies) and for stylistic consistency/asset
+reuse." R1's mobs were circles 0.5 to 0.6 across, against a fighter about 2 tall, which is why they were hard to hit.
 
-- **Hazards as allies (Punch Quest's torches):** gas canisters and loose signs that explode or fall when hit, hurting enemies
-  too.
-- **Placement:** the enemy budget scales with room length and with the city tier. Lobbers need high ground, bruisers need flat
-  room, and there are never two shieldbearers on one platform.
-- **Announcements:** every attack has at least an 18-frame wind-up early in the run, shortening a little with each city tier,
-  with a sound per kind.
+**Decided (executive producer's design from that direction):**
+
+1. **Grunts are fighter-shaped.** Every regular enemy is a *grunt*: a base-game body (`MobKind::body`, a roster fighter) whose
+   hurtbox (the same capsules a fighter of that body has, read from it every frame), weight, fall speed, walk and run speeds and
+   jump it takes. It is drawn with the roster's fighter rig, body, clips and cosmetic loadouts, in a grunt outfit of its own team
+   colour, with a small red marker over its head (the match tag's pointer, in red, no text).
+2. **Grunts fight with real moves.** Each kind borrows one to three moves from its body's moveset: their real hitboxes, frames and
+   knockback. Every attack is announced by a **tell** (a big bobbing "!" over it and a short sound), then the move's own wind-up. The
+   tell is 18 frames in tier 1 and shortens with the tier.
+3. **A light pool, not fighter slots.** The fixed pool of 16 stays (the four fighter slots stay free). Grunts take the versus hit model
+   (knockback, hitstun, DI against them, shields, crouch cancelling, armor, counters) and move with simple ground physics (walk, run,
+   hop, fall, platform landing, slopes) through the shared collision, with a small state machine per role instead of the fighter
+   state machine. Bosses (R4) are full CPU fighters.
+4. **Six kinds:**
+
+   | Kind | Body (moves) | Rule | Counter | Teaches |
+   | --- | --- | --- | --- | --- |
+   | Brawler | the gauntlets' sprinter (jab, forward tilt) | rushes you, running when far | anything | basics |
+   | Leaper | the needles' rogue (down air, forward air) | waits on high ground, crouches, leaps at you, its aerial drifting onto you | up air, shield, step aside | anti-air |
+   | Shieldbearer | the buckler's wanderer (forward tilt, jab) | guards toward you (a versus shield, up through the tell of its poke too) and pokes out of it | a grab, a hit from above, or a cross-up before it turns (18 frames); a guard worn out dazes it | approach angles (Punch Quest's orc) |
+   | Spearman | the longsword's duelist (forward tilt, dash attack) | a long, late poke along the ground, or a sliding dash attack from further out | jump it and punish | timing |
+   | Lobber | the clutch's bounder (its lobbed shell, jab) | throws its shell in an arc from high ground, aimed to land on you | reflect it into the grunts, close in, or dodge | projectiles |
+   | Bruiser | the bracers' hauler (forward smash, jab) | slow and heavy, super armor through its tell and its smash's startup, a big launch | hit it out of its cooldown, keep your distance | respect and spacing |
+
+5. **Placement and budget** (Dead Cells-style): a room's spawn *spots* (`SPOT_ANY`) are filled when it is laid: its tier's budget
+   (points for every 16 units of its width; an arena half again) is spent on the spots in a seeded order, each given a kind its tier
+   allows whose cost still fits. Rules: lobbers and leapers need high ground (2 above the room's lowest solid ground); bruisers need
+   flat room (a flat platform at least 6 wide); never two shieldbearers on one platform; a spot buried in a piece stays empty; an
+   arena always gets at least one grunt. Grunts still come out of their doorways (R2a).
+6. **Hazards** (Punch Quest's torches): a **gas canister** that burns for a moment when hit, then bursts; a **loose sign** that falls
+   when hit, its hit live until it lands and breaks. Both hurt grunts (the player's kills) and the player. A **chest** (in the
+   treasure alley) pays when hit open.
+7. **The difficulty curve:** a tier every 6 rooms (`RunRules::tier_rooms`), five tiers: which kinds come (brawlers and leapers, then
+   spearmen and shieldbearers, lobbers, bruisers), the budget, the tell (18, 16, 14, 12, 10 frames), and the grunts' stamina and damage
+   (100% up to 150% and 130%). Rooms belong to tier pools (`Room::min_tier` and `max_tier`). The map strip shows the tier.
+8. **The first rare event, the runaway van:** at most one a "city" (24 rooms until R6's journey), never before room 6, weighted with a
+   pity counter (2% a room, plus 1.2% for every room without one), a "?" on the map. A long street with a delivery van waiting at its
+   start: land on its roof and it drives off down the street, carrying you (untouchable while you ride), sending flying every grunt in
+   its path (your kills), until it parks at the street's end.
+
+The other event ideas below stay for later events.
 
 ## 5. Rare events (the egg)
-At most one per city, weighted with a pity counter, shown as a "?" on the map strip. Ideas in our setting:
-- **Rooftop chase:** a runaway delivery van on the street below; ride on its roof for a short invulnerable dash, scattering
-  enemies.
+At most one per city, weighted with a pity counter, shown as a "?" on the map strip (built in R2b: the runaway van, section 4 point 8).
+Ideas in our setting:
+- **Rooftop chase** (**built, R2b**): a runaway delivery van; ride on its roof for a short invulnerable dash, scattering enemies.
 - **Pigeon storm:** a flock lifts you for one big glide over a stretch of rooftops.
 - **Night market:** a pop-up stall street with discount stalls and a crowd.
 - **Blackout:** the lights go out; only lit windows and enemy eyes show; coins are doubled.

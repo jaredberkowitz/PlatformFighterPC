@@ -1,8 +1,9 @@
 extends SceneTree
-## The single-player run (docs/modes/RUNNER_PLAN.md, R1, R1b and R2a) through the bridge and the real run scene: a run starts, rooms
-## stream in (laid as variants, with slopes, pieces, looks and coins) and are entered, the map (forks too) and the shop read the run,
-## the walk-in shop's interior and shopkeeper are drawn, the walls are drawn, the display reads the run, a lost last life brings up
-## the results, and "Run again" starts a new one.
+## The single-player run (docs/modes/RUNNER_PLAN.md, R1, R1b, R2a and R2b) through the bridge and the real run scene: a run starts, rooms
+## stream in (laid as variants, with slopes, pieces, looks and coins) and are entered, the map (forks too, and the tier) and the shop
+## read the run, the walk-in shop's interior and shopkeeper are drawn, the walls are drawn, the display reads the run, grunts are drawn
+## with the fighter rig (their tell too), coins picked up vanish, props and the runaway van are drawn, a lost last life brings up the
+## results, and "Run again" starts a new one.
 ## Run: Godot --headless --path godot --script res://tests/runner_test.gd
 
 const Roster := preload("res://scripts/roster.gd")
@@ -46,7 +47,8 @@ func _bridge() -> void:
 	check(sim.run_start(5), "a run starts")
 	check(sim.run_active(), "and is on")
 	var info: PackedInt32Array = sim.run_info()
-	check(info.size() == 17 and info[0] == 0 and info[7] == 3, "three lives, not over: " + str(info))
+	check(info.size() == 22 and info[0] == 0 and info[7] == 3, "three lives, not over: " + str(info))
+	check(info[17] == 0 and info[18] == 0 and info[19] == 0, "tier 1 (0), no chest, not riding: " + str(info))
 	check(info[8] == 0 and info[10] == 0 and info[11] == 0 and info[13] == 0, "in the first room, a street, no gate, no shop: " + str(info))
 	var view: PackedFloat32Array = sim.run_view()
 	check(view.size() == 12 and view[1] > 20.0 and view[9] == 0.0, "the view, outside: " + str(view))
@@ -54,9 +56,9 @@ func _bridge() -> void:
 	check(sim.run_pieces().size() > 0 and sim.run_platforms().size() > 0, "the first rooms are laid")
 	check(sim.run_rooms().size() == 2, "the first room and the next: %d" % sim.run_rooms().size())
 	var map: PackedInt32Array = sim.run_map(4)
-	check(map.size() == 8 and map[2] == 2 and map[6] == 3, "the map: here, then the next room: " + str(map))
+	check(map.size() == 10 and map[2] == 2 and map[7] == 3 and map[4] == 0, "the map: here, then the next room, with tiers: " + str(map))
 	var shop: PackedInt32Array = sim.run_shop()
-	check(shop.size() == 10 + 2 * 4 and shop[0] == 0 and shop[5] == 2, "the shop's two wares, outside: " + str(shop))
+	check(shop.size() == 10 + 2 * 4 + 1 and shop[0] == 0 and shop[5] == 2, "the shop's two wares, outside, and no sulk: " + str(shop))
 	check(sim.run_shop_names().size() == 2, "and their names")
 	# What the rooms are made of: every footing has a look, the pieces' rows have ten numbers, the rooms their heights.
 	var looks: PackedStringArray = sim.run_looks()
@@ -91,7 +93,19 @@ func _bridge() -> void:
 	sim.tick()
 	check(sim.run_info()[13] == 0, "back outside")
 	sim.run_start(5)
-	check(sim.run_mobs().size() == 16 * 12, "sixteen mob slots")
+	check(sim.run_mobs().size() == 16 * 17, "sixteen grunt slots")
+	# R2b: the grunt kinds, and a grunt drawn as a fighter of its body through the same calls.
+	var kinds: PackedInt32Array = sim.run_kinds()
+	check(kinds.size() == 6 * 5, "six grunt kinds: " + str(kinds))
+	for k in 6:
+		var g: int = sim.run_debug_grunt(k, 3.0 + k, k == 0)
+		check(g >= 0, "a grunt of kind %d" % k)
+		check(sim.fighter_class(100 + g) == kinds[k * 5 + 2], "kind %d is its body's class" % k)
+		check(sim.fighter_state(100 + g) != "", "and has a fighter's state")
+		var row: PackedFloat32Array = sim.run_mobs().slice(g * 17, g * 17 + 17)
+		check(int(row[1]) == k and row[12] > 1.2, "fighter-tall: " + str(row))
+	check(sim.run_mobs()[6] == 2.0 and sim.run_mobs()[16] > 0.0, "the first one tells: " + str(sim.run_mobs().slice(0, 17)))
+	check(sim.run_props().size() % 9 == 0 and sim.run_van().size() == 8, "the props and the van")
 	# Running right: the camera follows and the stage streams on.
 	var layout := info[9]
 	for n in 600:
@@ -140,6 +154,33 @@ func _scene() -> void:
 	check(main.run_stage.looks.size() > 20, "the stage knows the looks")
 	check(main.run_stage.skylines.size() == 3 and not main.run_stage.skylines.has(null), "the city's three skyline layers, in parallax")
 	check(main.run_stage.coins.size() >= 0, "the coins")
+	# R2b: the backdrop travels with the camera, so it lights and shades nothing of the rooms (the owner's flicker report).
+	var moving_light := false
+	var moving_shadow := false
+	for n in main.run_stage.backdrop.find_children("*", "", true, false):
+		if n is Light3D and (n as Light3D).visible:
+			moving_light = true
+		if n is GeometryInstance3D and (n as GeometryInstance3D).cast_shadow != GeometryInstance3D.SHADOW_CASTING_SETTING_OFF:
+			moving_shadow = true
+	check(not moving_light and not moving_shadow, "no light or cast shadow travels with the backdrop")
+	# R2b: a coin picked up vanishes at once (the owner's R2a bug: it stayed until the stage next changed).
+	var coins: PackedFloat32Array = main.sim.run_coins()
+	var shown_before: int = main.run_stage.coins_shown()
+	for c in coins.size() / 4:
+		if coins[c * 4 + 2] < 0.5:
+			main.sim.debug_place_airborne(0, coins[c * 4], coins[c * 4 + 1] - 1.0)
+			break
+	for i in 4:
+		await process_frame
+	check(main.run_stage.coins_shown() < shown_before or shown_before == 0, "a coin picked up is gone: %d from %d" % [main.run_stage.coins_shown(), shown_before])
+	# R2b: grunts drawn with the fighter rig in their outfits, the tell's "!" over a telling one.
+	var g: int = main.sim.run_debug_grunt(2, 4.0, true)
+	for i in 6:
+		await process_frame
+	check(g >= 0 and main.mob_views[g].visible and main.mob_views[g].fighter != null, "a grunt is drawn with the fighter rig")
+	if g >= 0:
+		check(main.mob_views[g].role == 2 and main.mob_views[g].tell_label.visible, "a shieldbearer, telling")
+		check(main.mob_views[g].fighter.loadout.color == main.GruntView.OUTFITS[2].color, "in its grunt outfit")
 	var far_x: float = main.run_stage.far_layer.position.x
 	var mid_x: float = main.run_stage.mid_layer.position.x
 	check(not is_equal_approx(far_x, mid_x) or main.sim.run_view()[0] < 1.0, "the layers scroll at their own speeds")

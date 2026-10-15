@@ -93,7 +93,7 @@ pub fn cmd_bench(args: &[String]) -> Result<(), String> {
         let p = state.fighters[PLAYER].pos;
         for (k, m) in state.run.mobs.iter_mut().enumerate() {
             if !m.active {
-                let kind = (k % 2) as u8;
+                let kind = (k % rc.mobs.len()) as u8;
                 *m = Mob {
                     active: true,
                     kind,

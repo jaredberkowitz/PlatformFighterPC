@@ -1,5 +1,6 @@
 //! The run's world (R2a): rooms as the generator really lays them over many seeds are passable, with the rules' jumps, in the
-//! variant they were laid as (`sim_content::run::passable`, the proof `check_run` makes for every variant).
+//! variant they were laid as (`sim_content::run::passable`, the proof `check_run` makes for every variant). R2b: a branching fork's
+//! roads are both checked, and taken in turn.
 
 use sim_content::run::passable;
 use sim_core::run::{new_run, step_run, RoomSlot, RunContent};
@@ -13,7 +14,7 @@ fn laid_rooms_are_passable_over_many_seeds() {
         let mut world = Content::placeholder();
         let mut state = new_run(&mut world, &rc, seed, 0);
         let mut seen: Vec<u32> = Vec::new();
-        for _ in 0..30 {
+        for step in 0..30u64 {
             for s in state.run.slots.iter().filter(|s| s.live) {
                 if seen.contains(&s.seq) {
                     continue;
@@ -32,12 +33,18 @@ fn laid_rooms_are_passable_over_many_seeds() {
                     .unwrap_or_else(|e| panic!("seed {seed}, room {} ({}): {e}", s.seq, room.name));
                 checked += 1;
             }
-            // Into the next room.
-            let next = *state.run.slot_of(state.run.room + 1).unwrap();
+            // Into the next room (at a branching fork, one road or the other in turn).
+            let (ahead, n) = state.run.ahead();
+            let next = if state.run.branches().is_some() {
+                ahead[((seed + step) % 2) as usize]
+            } else {
+                ahead[0]
+            };
+            assert!(n >= 1, "seed {seed}: a room ahead");
             // (The camera on it, as if it had followed: the blast zone follows the camera.)
             state.run.cam_x = next.x - Fx::from_int(8);
             let f = &mut state.fighters[0];
-            f.pos = sim_core::Vec2::new(next.x + Fx::from_int(3), next.y + Fx::from_int(12));
+            f.pos = sim_core::Vec2::new(next.x + Fx::from_int(3), next.y + Fx::from_int(2));
             f.vel = sim_core::Vec2::ZERO;
             f.platform = sim_core::state::NONE;
             f.state = sim_core::state::FighterState::Airborne;
