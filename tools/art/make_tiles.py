@@ -18,36 +18,57 @@ def wrap(draw, x, y, r):
 
 
 def bark():
-    rng = random.Random(4)
+    """Painted bark (art review 6 round 27: evenly spaced copies of one wavy line read as a Flash-game texture): broad plates of
+    different widths, each a tone of its own with a lit left edge, divided by furrows that wander and now and then split, a few short
+    cross-cracks. Every curve repeats with the tile (whole periods in y), so it tiles both ways."""
+    rng = random.Random(11)
     s = HEAD
-    # Broad vertical bands of light and shade (the ridges and furrows of the bark).
-    for k in range(8):
-        x = k * 32 + rng.uniform(-4, 4)
-        s += f'  <rect x="{x:.1f}" y="0" width="{rng.uniform(10, 18):.1f}" height="256" fill="#ffffff" opacity="0.07"/>\n'
-    # Grooves: long wavering vertical lines, a few deeper ones, each one wrapping top to bottom.
-    for k in range(11):
-        x0 = k * 256 / 11 + rng.uniform(-6, 6)
-        amp = rng.uniform(2.5, 6.0)
-        ph = rng.uniform(0, math.tau)
-        pts = []
-        for i in range(17):
-            y = i * 16
-            pts.append(f'{x0 + math.sin(y / 256 * math.tau * 2 + ph) * amp:.1f},{y}')
-        deep = k % 4 == 0
-        w = 5.5 if deep else 3.0
-        op = 0.34 if deep else 0.2
-        d = 'M' + ' L'.join(pts)
+    n = 7
+    widths = [rng.uniform(0.6, 1.5) for _ in range(n)]
+    total = sum(widths)
+    bases = []
+    x = rng.uniform(0, 20)
+    for w in widths:
+        bases.append(x)
+        x += w * 256 / total
+    waves = [(rng.uniform(3, 7), rng.uniform(0, math.tau), rng.uniform(1.5, 3.5), rng.uniform(0, math.tau)) for _ in range(n)]
+
+    def edge(k, y):
+        a1, p1, a2, p2 = waves[k % n]
+        return bases[k % n] + (256 if k >= n else 0) + a1 * math.sin(y / 256 * math.tau + p1) + a2 * math.sin(y / 256 * math.tau * 3 + p2)
+
+    ys = [i * 8 for i in range(33)]
+    for k in range(n):
+        left = [(edge(k, y), y) for y in ys]
+        right = [(edge(k + 1, y), y) for y in reversed(ys)]
+        tone = rng.choice([('#ffffff', rng.uniform(0.06, 0.14)), ("#000000", rng.uniform(0.05, 0.12))])
+        pts = ' '.join(f'{px:.1f},{py:.1f}' for px, py in left + right)
+        lit = 'M' + ' L'.join(f'{px + 3.5:.1f},{py:.1f}' for px, py in left)
         for ox in (-256, 0, 256):
-            s += f'  <path d="{d}" transform="translate({ox},0)" fill="none" stroke="#000000" stroke-width="{w}" stroke-linecap="round" stroke-linejoin="round" opacity="{op}"/>\n'
-    # A few darker recesses (knots and splits) and lighter flecks.
+            s += f'  <polygon points="{pts}" transform="translate({ox},0)" fill="{tone[0]}" opacity="{tone[1]:.2f}"/>\n'
+            s += f'  <path d="{lit}" transform="translate({ox},0)" fill="none" stroke="#ffffff" stroke-width="3" opacity="0.1"/>\n'
+    # The furrows: a soft wide shade and a thin dark core along each plate boundary.
+    for k in range(n):
+        d = 'M' + ' L'.join(f'{edge(k, y):.1f},{y}' for y in ys)
+        for ox in (-256, 0, 256):
+            s += f'  <path d="{d}" transform="translate({ox},0)" fill="none" stroke="#000000" stroke-width="8" stroke-linecap="round" opacity="0.2"/>\n'
+            s += f'  <path d="{d}" transform="translate({ox},0)" fill="none" stroke="#000000" stroke-width="2.8" stroke-linecap="round" opacity="0.45"/>\n'
+    # A few furrows split: a short branch leaving one boundary and fading into the plate.
     for _ in range(4):
-        x, y = rng.uniform(0, 256), rng.uniform(0, 256)
-        rx, ry = rng.uniform(5, 9), rng.uniform(10, 18)
-        s += wrap(lambda a, b: f'  <ellipse cx="{a:.1f}" cy="{b:.1f}" rx="{rx:.1f}" ry="{ry:.1f}" fill="#000000" opacity="0.18"/>\n'
-                  f'  <ellipse cx="{a:.1f}" cy="{b:.1f}" rx="{rx * 0.45:.1f}" ry="{ry * 0.5:.1f}" fill="#000000" opacity="0.16"/>\n', x, y, ry)
-    for _ in range(14):
-        x, y = rng.uniform(0, 256), rng.uniform(0, 256)
-        s += wrap(lambda a, b: f'  <rect x="{a:.1f}" y="{b:.1f}" width="2.2" height="{rng.uniform(6, 14):.1f}" rx="1.1" fill="#ffffff" opacity="0.12"/>\n', x, y, 14)
+        k = rng.randrange(n)
+        y0 = rng.uniform(0, 256)
+        x0 = edge(k, y0)
+        dx = rng.uniform(8, 18)
+        dy = rng.uniform(30, 60)
+        s += wrap(lambda a, b, dx=dx, dy=dy: f'  <path d="M{a:.1f},{b:.1f} q{dx * 0.3:.1f},{dy * 0.5:.1f} {dx:.1f},{dy:.1f}" fill="none" stroke="#000000" stroke-width="2" stroke-linecap="round" opacity="0.24"/>\n', x0, y0, 70)
+    # Short cross-cracks on the plates.
+    for _ in range(9):
+        k = rng.randrange(n)
+        y0 = rng.uniform(0, 256)
+        a, b = edge(k, y0), edge(k + 1, y0)
+        x0 = a + (b - a) * rng.uniform(0.25, 0.6)
+        ln = (b - a) * rng.uniform(0.2, 0.4)
+        s += wrap(lambda p, q, ln=ln: f'  <path d="M{p:.1f},{q:.1f} l{ln:.1f},{rng.uniform(-3, 3):.1f}" fill="none" stroke="#000000" stroke-width="1.8" stroke-linecap="round" opacity="0.2"/>\n', x0, y0, 40)
     return s + '</svg>\n'
 
 

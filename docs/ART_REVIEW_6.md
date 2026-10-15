@@ -409,3 +409,16 @@ Checked: the art pipeline and match flow tests.
 The grove's tree crowns are already detailed leaf-card clusters; their chalky look is the grove's purple fill light on their shaded
 sides. A warmer leaf green (as the grass in round 24) made no visible difference and was reverted. Changing the grove's fill would
 recolour the whole stage's shade and its mood; left for the owner's call, with the far hills' painted band as the next background item.
+
+## Refinement round 27 (the owner: chalky background trees, Flash-game bark)
+
+`review6_round27_grove_trees.png` (before above, after below).
+- **Bark** (`tools/art/make_tiles.py` `bark`, regenerating `godot/art/stage/bark.svg`): eleven copies of one sine-wave groove at even
+  spacing and identical oval knots read as a Flash-game texture. Now painted bark: seven plates of different widths, each its own tone
+  with a lit left edge, divided by wandering furrows (a soft wide shade and a dark core) that split now and then, and a few short
+  cross-cracks; every curve repeats with the tile both ways. The other tiles regenerate byte-identical.
+- **The grove's trees** (`_tree`, the grove only): the crown's base green was light, so its lit masses stepped up to near-white greens
+  and the trees read chalky. A deeper base (0.18, 0.46, 0.22): solid crowns with clear leaf masses.
+- Tried and reverted: a more neutral grove fill light (the owner's option 2). An A/B showed it was not the cause, so the grove keeps
+  its full pink-purple mood.
+Checked: the art pipeline and match flow tests.

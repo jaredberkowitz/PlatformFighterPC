@@ -3626,7 +3626,8 @@ static func _tree(root: Node3D, base: Vector3, size: float, rng: RandomNumberGen
 		_mesh(root, _cylinder(0.25 * size, 1.15 * size * reach, 3.4 * size * reach, 10), bark,
 			base + Vector3(sin(a) * 3.2 * size, 0.6 * size, cos(a) * 2.3 * size), Vector3.ONE, Vector3(0, 0, -rad_to_deg(a) * 0.6))
 	# Four coordinated greens: deep shade, body, light, and sunlit tips.
-	var g := Materials.greens(Color(0.27, 0.62, 0.34))
+	# (Deeper, art review 6 round 27: from the lighter base the crown's lit masses stepped up to near-white greens and the tree read chalky.)
+	var g := Materials.greens(Color(0.18, 0.46, 0.22))
 	var leaf := Materials.foliage(g[0])
 	var leaf_mid := Materials.foliage(g[1], Vector2(3, 2), false)
 	var leaf_light := Materials.foliage(g[2], Vector2(2, 1), false)
