@@ -781,6 +781,16 @@ class Tile extends Control:
 				# A wrench.
 				canvas.draw_line(c + Vector2(-r * 0.6, r * 0.6), c + Vector2(r * 0.12, -r * 0.12), col, wdt * 1.4, true)
 				canvas.draw_arc(c + Vector2(r * 0.34, -r * 0.34), r * 0.32, PI * 0.95, PI * 2.55, 24, col, wdt, true)
+			"run":
+				# A figure mid-stride with speed lines behind it (art review 6 UI round 1: the Run tile had no icon and read unfinished).
+				canvas.draw_circle(c + Vector2(r * 0.3, -r * 0.62), r * 0.17, col)
+				canvas.draw_line(c + Vector2(r * 0.2, -r * 0.38), c + Vector2(-r * 0.05, r * 0.15), col, wdt * 1.2, true)
+				canvas.draw_polyline(PackedVector2Array([c + Vector2(-r * 0.05, r * 0.15), c + Vector2(r * 0.25, r * 0.4), c + Vector2(r * 0.15, r * 0.8)]), col, wdt, true)
+				canvas.draw_polyline(PackedVector2Array([c + Vector2(-r * 0.05, r * 0.15), c + Vector2(-r * 0.35, r * 0.45), c + Vector2(-r * 0.65, r * 0.4)]), col, wdt, true)
+				canvas.draw_polyline(PackedVector2Array([c + Vector2(-r * 0.4, -r * 0.3), c + Vector2(r * 0.12, -r * 0.22), c + Vector2(r * 0.45, -r * 0.02)]), col, wdt, true)
+				for k in 3:
+					var y := -r * 0.35 + k * r * 0.3
+					canvas.draw_line(c + Vector2(-r * 1.0, y), c + Vector2(-r * (0.62 - 0.08 * k), y), col, wdt * 0.8, true)
 			"quit":
 				# A door and the way out.
 				var door := Rect2(c - Vector2(r * 0.65, r * 0.75), Vector2(r * 0.75, r * 1.5))

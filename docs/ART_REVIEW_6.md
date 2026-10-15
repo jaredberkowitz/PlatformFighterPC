@@ -520,3 +520,9 @@ Checked: the art pipeline, match flow and runner tests.
   (`_painted_sun`) read as flat lines struck through the sun. Now two soft, thicker clouds near the sky's colour. (The sky's own wisps
   were tried first: not the cause; reverted.)
 Checked: the art pipeline and match flow tests.
+
+## UI round 1
+
+- **The main menu's Run tile** (`review6_ui1_run_tile.png`): the only tile with no figure or icon, a plain red bar that read unfinished.
+  It now draws a running figure with speed lines (`ui_kit.gd` `_icon` "run"), in the same line style as the other tiles' icons.
+Checked: the menu-related and match flow tests.
