@@ -19,10 +19,13 @@ use crate::moves::{self, Hitbox};
 use crate::vec2::Vec2;
 use crate::SIM_VERSION;
 
-/// At most this many platforms (solid blocks and pass-through platforms) in one room, its pieces included.
-pub const ROOM_PLATFORMS: usize = 14;
-/// At most this many ledges in one room.
-pub const ROOM_LEDGES: usize = 2;
+/// At most this many platforms (solid blocks and pass-through platforms) in one room, its pieces included (R2d: 16, was 14, for the
+/// climbs' fire escapes).
+pub const ROOM_PLATFORMS: usize = 16;
+/// At most this many ledges in one room (R2d: 4, was 2; the shared ledge table grows only in a run, `state::ledges`).
+pub const ROOM_LEDGES: usize = 4;
+/// At most this many decks (R2d): a room's `decks` are bits of a byte.
+pub const MAX_DECKS: usize = 8;
 /// At most this many mob spawn markers in one room (a room's `spawned` bits are a `u8`).
 pub const ROOM_SPAWNS: usize = 8;
 /// At most this many coins in one room, its pieces' included (a room's `coins` bits are a `u32`).
@@ -150,8 +153,21 @@ pub const LOOK_SHELF: u8 = 27;
 /// van there).
 pub const LOOK_CATWALK: u8 = 28;
 pub const LOOK_VAN_ROOF: u8 = 29;
+/// R2d: the skyline's kit, the climbs' building faces and the interiors (`RUNNER_PLAN.md` 12, the art list).
+pub const LOOK_CRANE: u8 = 30;
+pub const LOOK_GIRDER: u8 = 31;
+pub const LOOK_WALL: u8 = 32;
+pub const LOOK_LEDGE_BLOCK: u8 = 33;
+pub const LOOK_OFFICE_FLOOR: u8 = 34;
+pub const LOOK_CEILING: u8 = 35;
+pub const LOOK_DESK: u8 = 36;
+pub const LOOK_CUBICLE: u8 = 37;
+pub const LOOK_BAR_COUNTER: u8 = 38;
+pub const LOOK_TABLE: u8 = 39;
+pub const LOOK_STAIRWELL: u8 = 40;
+pub const LOOK_TOWER: u8 = 41;
 /// Every look's name, by its number (0 is "none": a footing must have a look).
-pub const LOOK_NAMES: [&str; 30] = [
+pub const LOOK_NAMES: [&str; 42] = [
     "none",
     "street",
     "roof",
@@ -182,6 +198,18 @@ pub const LOOK_NAMES: [&str; 30] = [
     "shelf",
     "catwalk",
     "van_roof",
+    "crane",
+    "girder",
+    "wall",
+    "ledge_block",
+    "office_floor",
+    "ceiling",
+    "desk",
+    "cubicle",
+    "bar_counter",
+    "table",
+    "stairwell",
+    "tower",
 ];
 
 /// Something to stand on in a room, a piece or the shop: its platform, what it is (`look`), and the optional part it belongs to
@@ -191,9 +219,20 @@ pub struct Footing {
     pub platform: Platform,
     pub look: u8,
     pub part: i8,
+    /// R2d. Part of the room's **skilled route** (a double jump, a wall jump, a ledge catch, a recovery across a gap: shorter, and
+    /// it pays coins). Never needed: the room's **sure route** (everything else) is proven passable by the worst jumper in the cast
+    /// without it (`sim_content::check_run`). Only pass-through footings may be skilled.
+    pub skilled: bool,
 }
 
 impl Footing {
+    /// On the skilled route.
+    pub fn skilled(self) -> Footing {
+        Footing {
+            skilled: true,
+            ..self
+        }
+    }
     /// There only with optional part `n` (1 to [`ROOM_PARTS`]).
     pub fn with(self, n: i8) -> Footing {
         Footing { part: n, ..self }
@@ -305,6 +344,31 @@ pub struct Room {
     pub lift: Fx,
     /// Only ever laid as a branch of a branching fork, never drawn by the generator by itself.
     pub paired: bool,
+    /// R2d, the decks ([`RunContent::decks`]). The decks it may be entered on (bit `d` for deck `d`), and the deck it leaves on,
+    /// counted from the one it enters on: 0 it stays, 1 it climbs a deck, -1 it drops one (mirrored, a climb drops and a drop
+    /// climbs). A branching fork's `deck_change` is its low road's; its high road leaves `lift` higher.
+    pub decks: u8,
+    pub deck_change: i8,
+    /// A true pit: a fall into one of its gaps is a lost life. Every other room catches a fall on something below (on the decks
+    /// above the street, the deck below), from where its sure route leads on (`sim_content::check_run`).
+    pub pit: bool,
+    /// An interior (Canabalt's rooms): you crash in through a building's window, run its floor under a ceiling (desks, crates, a
+    /// cubicle row, grunts) and burst out of a window on the far side. The game draws its back wall, windows and light.
+    pub indoor: bool,
+}
+
+/// One deck of the city (R2d, the review's F1): a band of heights the run's ground keeps to while it is on it, about one view tall.
+/// The decks are data, lowest first: adding one (a sewer below the street, a higher skyline) is a content change.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Deck {
+    /// A label (not hashed).
+    pub name: String,
+    /// Its ground line (world height; the run begins on `RunRules::start_deck`'s, at 0), and how far a room's ground may wander from
+    /// it while the run stays on this deck.
+    pub y: Fx,
+    pub wander: Fx,
+    /// How often the deck plan heads for it, as a weight (0: only a fork or a vertical room takes you there).
+    pub weight: u8,
 }
 
 /// The shop's inside (R2a, `RUNNER_WORLD.md` 6): a small room you walk into from a storefront's door, with a counter, the shopkeeper
@@ -526,6 +590,20 @@ pub struct RunRules {
     pub cam_ceiling: Fx,
     /// R2c. The grunts' blast zones follow the view, this far outside it on every side: a launched grunt past one is knocked out.
     pub ko_margin: Fx,
+    /// R2d. The deck the run begins on (an index into `RunContent::decks`; its line is where the first room's ground is).
+    pub start_deck: u8,
+    /// The deck plan: the run keeps to a deck for `deck_rooms_min` to `deck_rooms_max` rooms (a stretch); then, `deck_fork_chance`
+    /// percent of the time, a fork offers a choice of deck (it lasts a new stretch), else the plan picks the next deck itself and a
+    /// climb, a drop or a shaft takes the run there.
+    pub deck_rooms_min: u8,
+    pub deck_rooms_max: u8,
+    pub deck_fork_chance: u8,
+    /// The skilled routes' jumps (`sim_content::check_run`): a skilled route may climb `skill_step` and cross `skill_gap` (the sure
+    /// route only `max_step` and `max_gap`). A test checks that most of the cast reaches them, so they ask for skill, not a fighter.
+    pub skill_step: Fx,
+    pub skill_gap: Fx,
+    /// In a room that changes deck the view's height follows faster: this much of the way a frame (else `cam_y_ease`).
+    pub cam_y_ease_tall: Fx,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -545,6 +623,8 @@ pub struct RunContent {
     pub tiers: Vec<Tier>,
     /// The props rooms may hold.
     pub props: Vec<PropKind>,
+    /// R2d. The city's decks, lowest first (at least one, at most [`MAX_DECKS`]).
+    pub decks: Vec<Deck>,
 }
 
 fn tenths(n: i32) -> Fx {
@@ -556,8 +636,9 @@ fn int(n: i32) -> Fx {
 }
 
 /// How deep the run's solid ground reaches below a room's own ground line. When laid, a block reaching this deep goes down to
-/// [`super::DEEP`] (well below any blast zone), so nothing goes under it whatever height the room is at.
-pub const BLOCK_BOTTOM: i32 = -24;
+/// [`super::DEEP`] (well below any blast zone), so nothing goes under it whatever height the room is at. (R2d: -60, was -24, so a
+/// room may reach two decks down.)
+pub const BLOCK_BOTTOM: i32 = -60;
 
 /// A solid block (tenths) from `bottom` to `top`.
 fn slab(left: i32, right: i32, bottom: i32, top: i32, look: u8) -> Footing {
@@ -572,6 +653,7 @@ fn slab(left: i32, right: i32, bottom: i32, top: i32, look: u8) -> Footing {
         },
         look,
         part: 0,
+        skilled: false,
     }
 }
 
@@ -600,6 +682,7 @@ fn plank(left: i32, right: i32, y: i32, look: u8) -> Footing {
         },
         look,
         part: 0,
+        skilled: false,
     }
 }
 
@@ -754,7 +837,7 @@ impl RunRules {
             door_reach: Fx::from_ratio(3, 2),
             fork_chance: 25,
             piece_chance: 70,
-            drift: int(8),
+            drift: int(27),
             coin_value: 1,
             coin_reach: tenths(9),
             emerge_frames: 24,
@@ -779,6 +862,13 @@ impl RunRules {
             cam_floor: int(9),
             cam_ceiling: int(8),
             ko_margin: int(4),
+            start_deck: 1,
+            deck_rooms_min: 3,
+            deck_rooms_max: 5,
+            deck_fork_chance: 60,
+            skill_step: tenths(65),
+            skill_gap: tenths(75),
+            cam_y_ease_tall: Fx::from_ratio(1, 8),
         }
     }
 }
@@ -1044,6 +1134,10 @@ impl Room {
             branch_low: 0,
             lift: Fx::ZERO,
             paired: false,
+            decks: DECKS_LOW,
+            deck_change: 0,
+            pit: false,
+            indoor: false,
         }
     }
 
@@ -1062,6 +1156,29 @@ impl Room {
             0
         }
     }
+}
+
+/// The street and the rooftops (the decks R2a's rooms were made for).
+const DECKS_LOW: u8 = 0b011;
+/// The rooftops and the skyline.
+const DECKS_HIGH: u8 = 0b110;
+/// Every deck.
+const DECKS_ALL: u8 = 0b111;
+
+/// The built-in city's three decks (R2d): the street, the rooftops (where the run begins, R2a's level) and the skyline, one view
+/// apart.
+pub fn standard_decks() -> Vec<Deck> {
+    let deck = |name: &str, y: i32, weight: u8| Deck {
+        name: name.to_string(),
+        y: int(y),
+        wander: int(6),
+        weight,
+    };
+    vec![
+        deck("street", -18, 3),
+        deck("rooftops", 0, 4),
+        deck("skyline", 18, 3),
+    ]
 }
 
 impl CoinSpot {
@@ -1198,6 +1315,525 @@ fn pieces() -> Vec<Piece> {
     ]
 }
 
+// ---- R2d: the decks' rooms (`RUNNER_REVIEW.md` F1 and F2, `RUNNER_PLAN.md` 12) ------------------------------------------------------
+
+/// A coin on a skilled route.
+fn sk(x: i32, y: i32) -> CoinSpot {
+    coin(x, y)
+}
+
+/// The climbs, the drops and the shafts: rooms that change deck. A mirrored climb is a drop and a mirrored drop a climb, so each
+/// is proven both ways (`sim_content::check_run`).
+fn vertical_rooms(rooms: &mut Vec<Room>) {
+    // The fire-escape climb: a building face one deck tall, its fire escape's landings the sure route; window washers' planks and
+    // a crane's girder the skilled one (three big jumps, with coins), out onto the roof.
+    let mut r = Room::new("escape_climb", ROOM_STREET, 36);
+    r.exit_y = int(18);
+    r.deck_change = 1;
+    r.platforms = vec![
+        solid(0, 200, 0, LOOK_STREET),
+        solid(200, 360, 180, LOOK_WALL),
+        plank(140, 200, 36, LOOK_FIRE_ESCAPE),
+        plank(110, 170, 72, LOOK_FIRE_ESCAPE),
+        plank(140, 200, 108, LOOK_FIRE_ESCAPE),
+        plank(110, 170, 144, LOOK_FIRE_ESCAPE),
+        plank(30, 70, 60, LOOK_SCAFFOLD).skilled(),
+        plank(50, 90, 120, LOOK_SCAFFOLD).skilled(),
+        plank(70, 200, 180, LOOK_GIRDER).skilled(),
+    ];
+    r.ledges = vec![ledge(200, 180, -1)];
+    r.spawns = vec![
+        any(60, 0),
+        any(120, 0),
+        any(170, 36),
+        any(150, 108),
+        any(280, 180),
+        any(330, 180),
+    ];
+    r.coins = vec![coin(170, 44), coin(140, 116)];
+    r.coins.extend([sk(50, 68), sk(70, 128)]);
+    r.coins.extend(coin_line(90, 188, 180, 188, 4));
+    r.slots = vec![slot(90, 0, SLOT_STREET), slot(300, 180, SLOT_ROOF)];
+    rooms.push(r);
+
+    // The terraces: a building stepping back as it rises, a ledge at every step (catch one and climb); the skilled route hops
+    // balconies over the steps.
+    let mut r = Room::new("terrace_climb", ROOM_STREET, 34);
+    r.exit_y = int(18);
+    r.deck_change = 1;
+    r.platforms = vec![
+        solid(0, 80, 0, LOOK_STREET),
+        solid(80, 140, 36, LOOK_ROOF),
+        solid(140, 200, 72, LOOK_ROOF),
+        solid(200, 260, 108, LOOK_ROOF),
+        solid(260, 300, 144, LOOK_ROOF),
+        solid(300, 340, 180, LOOK_ROOF),
+        plank(30, 70, 60, LOOK_BALCONY).skilled(),
+        plank(120, 170, 120, LOOK_BALCONY).skilled(),
+        plank(210, 260, 180, LOOK_BALCONY).skilled(),
+    ];
+    r.ledges = vec![
+        ledge(80, 36, -1),
+        ledge(140, 72, -1),
+        ledge(200, 108, -1),
+        ledge(260, 144, -1),
+    ];
+    r.spawns = vec![
+        any(40, 0),
+        any(110, 36),
+        any(170, 72),
+        any(230, 108),
+        any(320, 180),
+    ];
+    r.coins = vec![sk(50, 68), sk(145, 128)];
+    r.coins.extend(coin_line(220, 188, 250, 188, 2));
+    rooms.push(r);
+
+    // The great climb: a scaffold up a tower's face, two decks (the street to the skyline, two views and more); the skilled
+    // route is a crane's hooks up the left, five big jumps where the scaffold takes nine.
+    let mut r = Room::new("great_climb", ROOM_STREET, 48);
+    r.exit_y = int(36);
+    r.deck_change = 2;
+    r.decks = 0b001;
+    r.min_tier = 1;
+    r.platforms = vec![
+        solid(0, 400, 0, LOOK_STREET),
+        solid(400, 480, 360, LOOK_TOWER),
+        plank(300, 400, 36, LOOK_SCAFFOLD),
+        plank(220, 320, 72, LOOK_SCAFFOLD),
+        plank(300, 400, 108, LOOK_SCAFFOLD),
+        plank(220, 320, 144, LOOK_SCAFFOLD),
+        plank(300, 400, 180, LOOK_SCAFFOLD),
+        plank(220, 320, 216, LOOK_SCAFFOLD),
+        plank(300, 400, 252, LOOK_SCAFFOLD),
+        plank(220, 320, 288, LOOK_SCAFFOLD),
+        plank(300, 400, 324, LOOK_SCAFFOLD),
+        plank(40, 100, 64, LOOK_CRANE).skilled(),
+        plank(90, 150, 128, LOOK_CRANE).skilled(),
+        plank(140, 200, 192, LOOK_CRANE).skilled(),
+        plank(190, 250, 256, LOOK_CRANE).skilled(),
+        plank(240, 300, 320, LOOK_CRANE).skilled(),
+    ];
+    r.ledges = vec![ledge(400, 360, -1)];
+    r.spawns = vec![
+        any(100, 0),
+        any(250, 0),
+        any(350, 108),
+        any(260, 216),
+        any(350, 324),
+        any(440, 360),
+    ];
+    r.coins = vec![
+        sk(70, 72),
+        sk(120, 136),
+        sk(170, 200),
+        sk(220, 264),
+        sk(270, 328),
+    ];
+    r.coins
+        .extend([coin(350, 116), coin(270, 224), coin(350, 332)]);
+    rooms.push(r);
+
+    // The balcony drop: off a roof and down a building's face past balconies with grunts on them, to the street a deck below
+    // (mirrored, a climb up the balconies).
+    let mut r = Room::new("balcony_drop", ROOM_STREET, 36);
+    r.exit_y = int(-18);
+    r.deck_change = -1;
+    r.decks = DECKS_HIGH;
+    r.platforms = vec![
+        solid(0, 100, 0, LOOK_ROOF),
+        solid(100, 360, -180, LOOK_STREET),
+        plank(100, 160, -36, LOOK_BALCONY),
+        plank(140, 200, -72, LOOK_BALCONY),
+        plank(100, 160, -108, LOOK_BALCONY),
+        plank(140, 200, -144, LOOK_BALCONY),
+        plank(230, 300, -90, LOOK_BALCONY),
+    ];
+    r.ledges = vec![ledge(100, 0, 1)];
+    r.spawns = vec![
+        any(50, 0),
+        any(130, -36),
+        any(170, -72),
+        any(260, -90),
+        any(220, -180),
+        any(320, -180),
+    ];
+    r.coins = coin_line(120, -20, 330, -170, 6);
+    r.slots = vec![slot(320, -180, SLOT_STREET)];
+    rooms.push(r);
+
+    // The awning drop: a roof's edge, then awnings stepping down to the street (one way: never mirrored).
+    let mut r = Room::new("awning_drop", ROOM_STREET, 32);
+    r.exit_y = int(-18);
+    r.deck_change = -1;
+    r.decks = DECKS_HIGH;
+    r.mirror = false;
+    r.platforms = vec![
+        solid(0, 60, 0, LOOK_ROOF),
+        solid(60, 320, -180, LOOK_STREET),
+        plank(70, 120, -50, LOOK_AWNING),
+        plank(150, 200, -100, LOOK_AWNING),
+        plank(230, 280, -140, LOOK_AWNING),
+    ];
+    r.spawns = vec![
+        any(30, 0),
+        any(95, -50),
+        any(175, -100),
+        any(255, -140),
+        any(300, -180),
+    ];
+    r.coins = vec![coin(95, -40), coin(175, -90), coin(255, -130)];
+    r.props = vec![prop(PROP_KIND_GAS, 290, -180)];
+    rooms.push(r);
+
+    // The light well: in through a doorway under the well's wall, up between two walls on alternating sills, out onto the roof;
+    // skilled, up the outside and over the wall's top.
+    let mut r = Room::new("light_well", ROOM_STREET, 30);
+    r.exit_y = int(18);
+    r.deck_change = 1;
+    r.platforms = vec![
+        solid(0, 190, 0, LOOK_STREET),
+        slab(100, 120, 40, 180, LOOK_WALL),
+        solid(190, 300, 180, LOOK_WALL),
+        plank(120, 150, 36, LOOK_LEDGE_BLOCK),
+        plank(160, 190, 72, LOOK_LEDGE_BLOCK),
+        plank(120, 150, 108, LOOK_LEDGE_BLOCK),
+        plank(160, 190, 144, LOOK_LEDGE_BLOCK),
+        plank(30, 80, 64, LOOK_SCAFFOLD).skilled(),
+        plank(50, 100, 128, LOOK_SCAFFOLD).skilled(),
+    ];
+    r.ledges = vec![ledge(190, 180, -1)];
+    r.spawns = vec![
+        any(50, 0),
+        any(160, 0),
+        any(135, 36),
+        any(175, 72),
+        any(250, 180),
+    ];
+    r.coins = vec![sk(55, 72), sk(75, 136), sk(110, 188), sk(155, 196)];
+    r.coins.extend([coin(135, 44), coin(175, 152)]);
+    rooms.push(r);
+
+    // The elevator shaft: off a roof into an open shaft, down its cage's girders, out through the door at its foot (mirrored, up).
+    let mut r = Room::new("elevator_shaft", ROOM_STREET, 30);
+    r.exit_y = int(-18);
+    r.deck_change = -1;
+    r.decks = DECKS_HIGH;
+    r.platforms = vec![
+        solid(0, 100, 0, LOOK_ROOF),
+        solid(100, 300, -180, LOOK_STREET),
+        slab(180, 200, -140, 40, LOOK_WALL),
+        plank(100, 140, -40, LOOK_GIRDER),
+        plank(140, 180, -80, LOOK_GIRDER),
+        plank(100, 140, -120, LOOK_GIRDER),
+        plank(140, 180, -150, LOOK_GIRDER),
+    ];
+    r.spawns = vec![
+        any(50, 0),
+        any(120, -40),
+        any(160, -80),
+        any(150, -180),
+        any(260, -180),
+    ];
+    r.coins = coin_line(120, -30, 160, -140, 4);
+    rooms.push(r);
+}
+
+/// The skyline's rooms (and its arena): towers, catwalks, cranes and water towers. Every gap has the rooftops below it (a fall,
+/// never a death) and a way back up.
+fn skyline_rooms(rooms: &mut Vec<Room>) {
+    // Catwalks between towers: the sure route crosses on the catwalk in each gap; the skilled one leaps each gap whole, under
+    // coin girders. A fall lands on the roofs below, with sills back up.
+    let mut r = Room::new("catwalks", ROOM_STREET, 40);
+    r.decks = DECKS_HIGH;
+    r.platforms = vec![
+        solid(0, 90, 0, LOOK_TOWER),
+        solid(160, 220, 0, LOOK_TOWER),
+        solid(290, 400, 0, LOOK_TOWER),
+        solid(90, 160, -140, LOOK_ROOF),
+        solid(220, 290, -140, LOOK_ROOF),
+        plank(110, 140, 0, LOOK_CATWALK),
+        plank(240, 270, 0, LOOK_CATWALK),
+        plank(90, 120, -105, LOOK_FIRE_ESCAPE),
+        plank(130, 160, -70, LOOK_FIRE_ESCAPE),
+        plank(90, 120, -35, LOOK_FIRE_ESCAPE),
+        plank(220, 250, -105, LOOK_FIRE_ESCAPE),
+        plank(260, 290, -70, LOOK_FIRE_ESCAPE),
+        plank(220, 250, -35, LOOK_FIRE_ESCAPE),
+        plank(100, 150, 55, LOOK_GIRDER).skilled(),
+        plank(230, 280, 55, LOOK_GIRDER).skilled(),
+    ];
+    r.ledges = vec![
+        ledge(90, 0, 1),
+        ledge(160, 0, -1),
+        ledge(220, 0, 1),
+        ledge(290, 0, -1),
+    ];
+    r.spawns = vec![
+        any(50, 0),
+        any(190, 0),
+        any(330, 0),
+        any(370, 0),
+        any(125, -140),
+        any(255, -140),
+    ];
+    r.coins = coin_line(105, 63, 145, 63, 3);
+    r.coins.extend(coin_line(235, 63, 275, 63, 3));
+    r.coins.extend([coin(125, 8), coin(255, 8)]);
+    rooms.push(r);
+
+    // Cranes: two jibs between tower tops with a hook hanging between them (the sure route) and a skilled leap from jib to jib under
+    // a coin girder; the rooftops below, a crane's mast to climb back.
+    let mut r = Room::new("cranes", ROOM_STREET, 44);
+    r.decks = DECKS_HIGH;
+    r.platforms = vec![
+        solid(0, 70, 0, LOOK_TOWER),
+        solid(370, 440, 0, LOOK_TOWER),
+        solid(70, 370, -130, LOOK_ROOF),
+        plank(60, 180, 15, LOOK_CRANE),
+        plank(195, 225, 0, LOOK_CRANE),
+        plank(240, 380, 30, LOOK_CRANE),
+        plank(70, 110, -95, LOOK_GIRDER),
+        plank(120, 160, -60, LOOK_GIRDER),
+        plank(70, 110, -25, LOOK_GIRDER),
+        plank(180, 240, 75, LOOK_GIRDER).skilled(),
+    ];
+    r.spawns = vec![
+        any(30, 0),
+        any(120, 15),
+        any(300, 30),
+        any(340, 30),
+        any(400, 0),
+        any(250, -130),
+    ];
+    r.coins = coin_line(80, 23, 170, 23, 4);
+    r.coins.extend(coin_line(190, 83, 230, 83, 3));
+    r.coins.extend(coin_line(260, 38, 360, 38, 4));
+    rooms.push(r);
+
+    // Water towers on a tower's roof: their decks and lids to fight on and over, coins on the lids.
+    let mut r = Room::new("water_towers", ROOM_STREET, 36);
+    r.decks = DECKS_HIGH;
+    r.platforms = vec![
+        solid(0, 360, 0, LOOK_TOWER),
+        plank(60, 120, 36, LOOK_WATER_TOWER),
+        plank(70, 110, 66, LOOK_WATER_TOWER),
+        plank(200, 260, 36, LOOK_WATER_TOWER),
+        plank(210, 250, 66, LOOK_WATER_TOWER),
+        plank(130, 190, 90, LOOK_BILLBOARD),
+    ];
+    r.spawns = vec![
+        any(40, 0),
+        any(90, 36),
+        any(150, 0),
+        any(230, 36),
+        any(300, 0),
+    ];
+    r.coins = vec![coin(90, 74), coin(230, 74)];
+    r.coins.extend(coin_line(140, 98, 180, 98, 3));
+    r.slots = vec![slot(310, 0, SLOT_ROOF)];
+    rooms.push(r);
+
+    // An arena on a construction deck high up: scaffolds and a girder, a crane's jib over the middle.
+    let mut r = Room::new("rig", ROOM_ARENA, 36);
+    r.decks = DECKS_HIGH;
+    r.platforms = vec![
+        solid(0, 360, 0, LOOK_TOWER),
+        plank(40, 120, 40, LOOK_SCAFFOLD),
+        plank(240, 320, 40, LOOK_SCAFFOLD),
+        plank(130, 230, 75, LOOK_GIRDER),
+        plank(150, 210, 110, LOOK_CRANE),
+    ];
+    r.spawns = vec![
+        any(100, 0),
+        any(200, 0),
+        any(300, 0),
+        any(80, 40),
+        any(280, 40),
+        any(180, 75),
+    ];
+    r.props = vec![prop(PROP_KIND_SIGN, 180, 103)];
+    rooms.push(r);
+}
+
+/// The interiors (Canabalt's rooms, the owner's answer 3): a building's floor you crash into through its window and burst out of on
+/// the far side, under a ceiling that cuts the jumps short. The game draws the back wall, the windows and the light.
+fn interior_rooms(rooms: &mut Vec<Room>) {
+    // An office floor: desks, a cubicle row and a crate stack between the windows.
+    let mut r = Room::new("office", ROOM_STREET, 40);
+    r.indoor = true;
+    r.decks = DECKS_ALL;
+    r.platforms = vec![
+        solid(0, 400, 0, LOOK_OFFICE_FLOOR),
+        slab(40, 360, 50, 200, LOOK_CEILING),
+        solid(80, 110, 12, LOOK_DESK),
+        solid(150, 210, 16, LOOK_CUBICLE),
+        solid(250, 280, 12, LOOK_DESK),
+        solid(310, 322, 12, LOOK_CRATE),
+        solid(312, 320, 22, LOOK_CRATE),
+    ];
+    r.spawns = vec![
+        any(130, 0),
+        any(180, 16),
+        any(230, 0),
+        any(295, 0),
+        any(340, 0),
+    ];
+    r.coins = coin_line(160, 24, 200, 24, 3);
+    r.coins.extend([coin(95, 20), coin(265, 20)]);
+    r.props = vec![prop(PROP_KIND_GAS, 60, 0)];
+    rooms.push(r);
+
+    // A stairwell: in at the ground floor's window, up four flights, out of the top floor's window onto the roof a deck up
+    // (mirrored, down).
+    let mut r = Room::new("stairwell", ROOM_STREET, 34);
+    r.indoor = true;
+    r.exit_y = int(18);
+    r.deck_change = 1;
+    r.platforms = vec![
+        solid(0, 290, 0, LOOK_OFFICE_FLOOR),
+        solid(290, 340, 180, LOOK_ROOF),
+        slab(40, 50, 45, 270, LOOK_WALL),
+        slab(50, 300, 225, 270, LOOK_CEILING),
+        flight(70, 160, 0, 45, LOOK_STAIRWELL),
+        plank(160, 180, 45, LOOK_STAIRWELL),
+        flight(70, 160, 90, 45, LOOK_STAIRWELL),
+        plank(50, 70, 90, LOOK_STAIRWELL),
+        flight(70, 160, 90, 135, LOOK_STAIRWELL),
+        plank(160, 180, 135, LOOK_STAIRWELL),
+        flight(70, 160, 180, 135, LOOK_STAIRWELL),
+        plank(50, 290, 180, LOOK_OFFICE_FLOOR),
+    ];
+    r.spawns = vec![
+        any(230, 0),
+        any(170, 45),
+        any(60, 90),
+        any(240, 180),
+        any(320, 180),
+    ];
+    r.coins = coin_line(80, 8, 150, 42, 3);
+    r.coins.extend(coin_line(150, 97, 80, 131, 3));
+    rooms.push(r);
+
+    // A rooftop bar under its canopy: the counter and tables to vault, coins on the canopy for whoever gets up there.
+    let mut r = Room::new("rooftop_bar", ROOM_STREET, 32);
+    r.indoor = true;
+    r.decks = DECKS_HIGH;
+    r.platforms = vec![
+        solid(0, 320, 0, LOOK_ROOF),
+        slab(80, 260, 45, 60, LOOK_CEILING),
+        solid(120, 170, 12, LOOK_BAR_COUNTER),
+        solid(200, 215, 9, LOOK_TABLE),
+        solid(232, 247, 9, LOOK_TABLE),
+    ];
+    r.spawns = vec![
+        any(40, 0),
+        any(100, 0),
+        any(145, 12),
+        any(224, 0),
+        any(290, 0),
+    ];
+    r.coins = coin_line(100, 68, 240, 68, 5);
+    rooms.push(r);
+}
+
+/// The deck forks (the review's F1): a choice of deck that lasts several rooms. The up fork climbs from its street to a catwalk a
+/// deck higher (the high road) over the street going on (the low road); the down fork goes on along the rooftops on a catwalk (the
+/// high road) over the street a deck below (the low road). Both lead into the same pair of roads: the sky bridge over the street
+/// under it. Whichever road you walk out on is the deck you keep to.
+fn deck_forks(rooms: &mut Vec<Room>) {
+    let bridge = rooms.len() as u8 + 2;
+    let mut r = Room::new("deck_fork_up", ROOM_STREET, 48);
+    r.fork = true;
+    r.mirror = false;
+    r.platforms = vec![
+        solid(0, 480, 0, LOOK_STREET),
+        plank(60, 120, 36, LOOK_FIRE_ESCAPE),
+        plank(100, 160, 72, LOOK_FIRE_ESCAPE),
+        plank(60, 120, 108, LOOK_FIRE_ESCAPE),
+        plank(100, 160, 144, LOOK_FIRE_ESCAPE),
+        plank(140, 480, 180, LOOK_CATWALK),
+        plank(240, 300, 36, LOOK_AWNING),
+        plank(360, 420, 36, LOOK_AWNING),
+    ];
+    r.spawns = vec![
+        any(200, 0),
+        any(300, 0),
+        any(420, 0),
+        any(260, 180),
+        any(380, 180),
+    ];
+    r.coins = coin_line(80, 44, 130, 152, 4);
+    r.coins.extend(coin_line(200, 188, 460, 188, 5));
+    r.branch_high = bridge;
+    r.branch_low = bridge + 1;
+    r.lift = int(18);
+    rooms.push(r);
+
+    let mut r = Room::new("deck_fork_down", ROOM_STREET, 48);
+    r.fork = true;
+    r.mirror = false;
+    r.exit_y = int(-18);
+    r.deck_change = -1;
+    r.decks = DECKS_HIGH;
+    r.platforms = vec![
+        solid(0, 160, 0, LOOK_ROOF),
+        solid(160, 480, -180, LOOK_STREET),
+        plank(160, 480, 0, LOOK_CATWALK),
+        plank(200, 260, -60, LOOK_AWNING),
+        plank(330, 390, -60, LOOK_AWNING),
+    ];
+    r.spawns = vec![
+        any(80, 0),
+        any(300, 0),
+        any(420, 0),
+        any(250, -180),
+        any(400, -180),
+    ];
+    r.coins = coin_line(180, 8, 460, 8, 6);
+    r.coins.extend(coin_line(210, -52, 380, -52, 3));
+    r.branch_high = bridge;
+    r.branch_low = bridge + 1;
+    r.lift = int(18);
+    rooms.push(r);
+
+    // The sky bridge: the high road's room, catwalks a deck over the street (under it, the low road's street: the only solid block),
+    // a fire escape back up from the street at its end (the next room stands a deck higher). Its catwalk leaves its right edge.
+    let mut r = Room::new("sky_bridge", ROOM_ALLEY, 40);
+    r.paired = true;
+    r.mirror = false;
+    r.decks = DECKS_ALL;
+    r.platforms = vec![
+        solid(0, 400, -180, LOOK_STREET),
+        plank(0, 120, 0, LOOK_CATWALK),
+        plank(160, 260, 0, LOOK_CATWALK),
+        plank(300, 400, 0, LOOK_CATWALK),
+        plank(340, 400, -144, LOOK_FIRE_ESCAPE),
+        plank(300, 360, -108, LOOK_FIRE_ESCAPE),
+        plank(340, 400, -72, LOOK_FIRE_ESCAPE),
+        plank(300, 360, -36, LOOK_FIRE_ESCAPE),
+    ];
+    r.coins = coin_line(20, 8, 100, 8, 4);
+    r.coins.extend(coin_line(170, 8, 250, 8, 4));
+    r.coins.extend([coin(140, 14), coin(280, 14)]);
+    rooms.push(r);
+
+    // The low road's room: the street under the sky bridge (nothing of it reaches up to the catwalks).
+    let mut r = Room::new("under_bridge", ROOM_STREET, 40);
+    r.paired = true;
+    r.mirror = false;
+    r.decks = DECKS_ALL;
+    r.platforms = vec![
+        solid(0, 400, 0, LOOK_STREET),
+        plank(60, 130, 36, LOOK_AWNING),
+        plank(250, 320, 36, LOOK_AWNING),
+        solid(180, 194, 12, LOOK_CRATE),
+    ];
+    r.spawns = vec![any(100, 0), any(220, 0), any(350, 0), any(290, 36)];
+    r.coins = coin_line(260, 44, 310, 44, 3);
+    rooms.push(r);
+}
+
 impl RunContent {
     /// The built-in run (R2b): placeholder rooms of city street and rooftops (a safe start, streets with ramps, stairs, tin roofs,
     /// forks and a branching fork with its treasure alley, three arenas, two shops, a rest stop and the runaway van's street), seven
@@ -1246,6 +1882,7 @@ impl RunContent {
 
         // A gap between two roofs with a plank over it, a loose sign over the near roof. Coins trace the jump.
         let mut r = Room::new("gap", ROOM_STREET, 30);
+        r.pit = true;
         r.platforms = vec![
             solid(0, 100, 0, LOOK_ROOF),
             solid(160, 300, 0, LOOK_ROOF),
@@ -1266,6 +1903,7 @@ impl RunContent {
 
         // A taller building to climb over (maybe with a chimney).
         let mut r = Room::new("step", ROOM_STREET, 32);
+        r.decks = DECKS_ALL;
         r.parts = vec![50];
         r.platforms = vec![
             solid(0, 80, 0, LOOK_ROOF),
@@ -1313,6 +1951,7 @@ impl RunContent {
         // A wide gap with a balcony to catch below its near edge, then a long roof with an awning; sometimes the roof runs on
         // without a gap. From tier 1.
         let mut r = Room::new("drop", ROOM_STREET, 34);
+        r.pit = true;
         r.min_tier = 1;
         r.parts = vec![40];
         r.platforms = vec![
@@ -1390,6 +2029,7 @@ impl RunContent {
 
         // Tin roofs sloping down into a valley and back up.
         let mut r = Room::new("tin_roofs", ROOM_STREET, 36);
+        r.decks = DECKS_ALL;
         r.platforms = vec![
             solid(0, 80, 0, LOOK_ROOF),
             ramp(80, 160, 0, -30, LOOK_TIN_ROOF),
@@ -1479,6 +2119,7 @@ impl RunContent {
 
         // An arena around a raised roof.
         let mut r = Room::new("roofs", ROOM_ARENA, 36);
+        r.decks = DECKS_ALL;
         r.platforms = vec![
             solid(0, 140, 0, LOOK_ROOF),
             solid(140, 220, 20, LOOK_ROOF_SHED),
@@ -1496,6 +2137,7 @@ impl RunContent {
 
         // A shop: a storefront with an awning over its door.
         let mut r = Room::new("shop", ROOM_SHOP, 32);
+        r.decks = DECKS_ALL;
         r.platforms = vec![
             solid(0, 320, 0, LOOK_STREET),
             plank(120, 200, 40, LOOK_AWNING),
@@ -1526,6 +2168,7 @@ impl RunContent {
 
         // A rest stop: a rooftop garden with a bench and, sometimes, a raised planter.
         let mut r = Room::new("garden", ROOM_REST, 30);
+        r.decks = DECKS_ALL;
         r.parts = vec![60];
         r.platforms = vec![
             solid(0, 300, 0, LOOK_ROOF),
@@ -1587,6 +2230,7 @@ impl RunContent {
         // until one of them is taken, so it has no solid block but the street under both.
         let mut r = Room::new("alley", ROOM_ALLEY, 48);
         r.paired = true;
+        r.decks = DECKS_ALL;
         r.mirror = false;
         r.exit_y = int(-8);
         r.platforms = vec![
@@ -1604,6 +2248,7 @@ impl RunContent {
         // R2b. The low road's room after a branching fork: a plain street under the alley's catwalks (nothing reaches up to them).
         let mut r = Room::new("under_alley", ROOM_STREET, 48);
         r.paired = true;
+        r.decks = DECKS_ALL;
         r.mirror = false;
         r.platforms = vec![
             solid(0, 480, 0, LOOK_STREET),
@@ -1626,6 +2271,7 @@ impl RunContent {
         // down the street, scattering the grunts in its path, you riding on top untouchable. Coins over its path.
         let mut r = Room::new("van_street", ROOM_EVENT, 64);
         r.mirror = false;
+        r.decks = DECKS_ALL;
         r.event = EVENT_VAN;
         r.platforms = vec![
             solid(0, 640, 0, LOOK_STREET),
@@ -1646,6 +2292,11 @@ impl RunContent {
         ];
         r.coins = coin_line(140, 34, 600, 34, 12);
         rooms.push(r);
+
+        vertical_rooms(&mut rooms);
+        skyline_rooms(&mut rooms);
+        interior_rooms(&mut rooms);
+        deck_forks(&mut rooms);
 
         RunContent {
             rules: RunRules::standard(),
@@ -1671,6 +2322,7 @@ impl RunContent {
             interior: interior(),
             tiers: Tier::standard(),
             props: PropKind::standard(),
+            decks: standard_decks(),
         }
     }
 
@@ -1740,6 +2392,12 @@ impl RunContent {
             p.gravity.hash_into(&mut h);
             h.write_u16(p.coins);
         }
+        h.write_u32(self.decks.len() as u32);
+        for d in &self.decks {
+            d.y.hash_into(&mut h);
+            d.wander.hash_into(&mut h);
+            h.write_u8(d.weight);
+        }
         h.finish()
     }
 }
@@ -1760,6 +2418,7 @@ fn hash_footings(list: &[Footing], h: &mut StateHasher) {
     for f in list {
         hash_platform(&f.platform, h);
         h.write_i8(f.part);
+        h.write_bool(f.skilled);
     }
 }
 
@@ -1847,6 +2506,17 @@ impl StateHash for RunRules {
             h.write_u16(v);
         }
         self.van_hit.hash_into(h);
+        for v in [
+            self.start_deck,
+            self.deck_rooms_min,
+            self.deck_rooms_max,
+            self.deck_fork_chance,
+        ] {
+            h.write_u8(v);
+        }
+        for v in [self.skill_step, self.skill_gap, self.cam_y_ease_tall] {
+            v.hash_into(h);
+        }
     }
 }
 
@@ -1899,6 +2569,10 @@ impl StateHash for Room {
         h.write_u8(self.branch_low);
         self.lift.hash_into(h);
         h.write_bool(self.paired);
+        h.write_u8(self.decks);
+        h.write_i8(self.deck_change);
+        h.write_bool(self.pit);
+        h.write_bool(self.indoor);
     }
 }
 

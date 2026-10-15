@@ -66,7 +66,7 @@ pub struct World<'a> {
     /// For each fighter, whether an item lay in its reach as the frame began (an attack or grab press picks it up).
     pub pickable: [bool; MAX_BODIES],
     /// Who holds each ledge as the frame began (`GameState::ledge_owner`; -1 free): a tether catches only a free one (E56, sim 123).
-    pub ledges: [i8; crate::content::MAX_LEDGES],
+    pub ledges: [i8; crate::state::LEDGE_SLOTS],
     /// For each fighter that can be footstooled as the frame began (sim 135): the top of its head and its half width.
     pub heads: [Option<(Vec2, Fx)>; MAX_BODIES],
 }

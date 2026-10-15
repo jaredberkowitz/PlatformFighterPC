@@ -463,7 +463,7 @@ fn a_fall_into_a_pit_costs_a_life() {
 fn leaving_the_screen_costs_a_life_and_the_last_life_ends_the_run() {
     let mut sim = RunSim::with(quiet(), 1);
     for lives in (0..3u8).rev() {
-        let top = sim.rc.rules.blast_top;
+        let top = sim.state.run.blast_y(&sim.rc.rules).1;
         sim.place(Vec2::new(sim.state.run.cam_x + fx(10), top + fx(1)));
         sim.state.fighters[PLAYER].invuln = 0;
         sim.tick(Input::default());
@@ -1132,7 +1132,8 @@ fn the_combo_multiplies_the_coins() {
     check(5, 2);
     check(14, 3);
     check(1000, u32::from(rules.combo_max));
-    let a = sim.add_mob(0, Vec2::new(fx(20), sim.rc.rules.blast_top + fx(1)));
+    let top = sim.state.run.blast_y(&sim.rc.rules).1;
+    let a = sim.add_mob(0, Vec2::new(fx(20), top + fx(1)));
     sim.state.run.mobs[a].credit = 10;
     sim.state.run.combo = 9;
     sim.tick(Input::default());
@@ -2664,8 +2665,9 @@ fn rare_events_are_rare_but_come_with_the_pity_counter() {
         }
     }
     let first = first.expect("it came");
+    // (Within a few rooms: a branching fork's two roads and a shop due come first, R2d.)
     assert!(
-        first > u32::from(r.event_from) && first <= u32::from(r.event_from) + 3,
+        first > u32::from(r.event_from) && first <= u32::from(r.event_from) + 5,
         "at {first}"
     );
     let mut never = RunContent::placeholder();

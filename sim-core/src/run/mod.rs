@@ -37,14 +37,14 @@ pub use mobs::{grunt_weight, grunt_zone, slot as grunt_slot};
 mod props;
 
 pub use data::{
-    CoinSpot, Footing, Interior, MobKind, MobSpawn, Piece, PieceSlot, PropKind, PropSpot, Room,
-    RoomLedge, RunContent, RunRules, ShopItem, Tier, ITEM_HEAL, ITEM_LIFE, LOOK_NAMES, ROOM_ALLEY,
-    ROOM_ARENA, ROOM_EVENT, ROOM_REST, ROOM_SHOP, ROOM_STREET,
+    CoinSpot, Deck, Footing, Interior, MobKind, MobSpawn, Piece, PieceSlot, PropKind, PropSpot,
+    Room, RoomLedge, RunContent, RunRules, ShopItem, Tier, ITEM_HEAL, ITEM_LIFE, LOOK_NAMES,
+    MAX_DECKS, ROOM_ALLEY, ROOM_ARENA, ROOM_EVENT, ROOM_REST, ROOM_SHOP, ROOM_STREET,
 };
 
 use crate::collision;
 use crate::combat::params_of;
-use crate::content::{Content, Ledge, Platform, Stage, MAX_LEDGES};
+use crate::content::{Content, Ledge, Platform, Stage};
 use crate::fixed::Fx;
 use crate::hash::{StateHash, StateHasher};
 use crate::input::{Input, STICK_THRESHOLD};
@@ -63,14 +63,15 @@ pub const MAX_MOBS: usize = crate::MAX_GRUNTS;
 pub const MAX_PROPS: usize = 12;
 /// Rooms in play at once: `rooms_behind + 1 + rooms_ahead` may be at most this (`sim_content::check_run`).
 pub const RING: usize = 4;
-/// The stage's platform pool: every platform of every room in play.
-pub const POOL_PLATFORMS: usize = RING * ROOM_PLATFORMS;
+/// The stage's platform pool: every platform of every room in play, and two more (the van's roof and a climb's lid, R2d).
+pub const POOL_PLATFORMS: usize = RING * ROOM_PLATFORMS + 2;
 /// The stage's platforms: the pool, then the left wall ([`WALL_INDEX`]) and an arena's gate ([`GATE_INDEX`]).
 pub const WALL_INDEX: usize = POOL_PLATFORMS;
 pub const GATE_INDEX: usize = POOL_PLATFORMS + 1;
-/// The ledge pool is the versus ledge table (`GameState::ledge_owner`).
-pub const POOL_LEDGES: usize = MAX_LEDGES;
-const _: () = assert!(RING * ROOM_LEDGES <= POOL_LEDGES);
+/// The ledge pool: every ledge of every room in play (R2d: 16). The shared ledge table (`GameState::ledge_owner`) has room for
+/// them, but only a run uses more than the versus stages' [`crate::content::MAX_LEDGES`] (`state::ledges`).
+pub const POOL_LEDGES: usize = RING * ROOM_LEDGES;
+const _: () = assert!(POOL_LEDGES <= crate::state::LEDGE_SLOTS);
 const _: () = assert!(ROOM_SPAWNS <= 8);
 const _: () = assert!(ROOM_COINS <= 32);
 const _: () = assert!(ROOM_PARTS <= 8);
@@ -80,7 +81,7 @@ const _: () = assert!(data::INTERIOR_PLATFORMS <= POOL_PLATFORMS);
 /// Where a free pool entry is put in the stage: far away, a platform no point is ever on and a ledge no fighter can reach.
 const FAR: i32 = -30000;
 /// How deep solid ground reaches once laid (world height; far below any blast zone the run's drift allows).
-pub const DEEP: i32 = -80;
+pub const DEEP: i32 = -160;
 /// How far above the blast zone's top the walls reach (nothing gets over them or stands on them).
 const WALL_ABOVE: i32 = 8;
 /// Where the shop's interior is put while the fighter is inside (world x of its left edge; its floor is at height 0).
@@ -174,6 +175,21 @@ pub struct RoomSlot {
     /// tier.
     pub kinds: [u8; ROOM_SPAWNS],
     pub tier: u8,
+    /// R2d. The lowest surface laid in it and the highest of its two ground ends (its blast lines and the camera's span), the deck
+    /// it is entered on and the deck it leaves on (two different decks: a room that climbs or drops), and whether a lid has closed
+    /// over it (a climb left behind: its back edge is a gate below you, [`enter_rooms`]).
+    pub lo: Fx,
+    pub hi: Fx,
+    pub deck_in: u8,
+    pub deck_out: u8,
+    pub lid: bool,
+}
+
+impl RoomSlot {
+    /// It changes deck (a climb, a drop or a shaft): the camera follows its height faster, and it is a gate once left.
+    pub fn vertical(&self) -> bool {
+        self.deck_in != self.deck_out
+    }
 }
 
 /// `Mob::mode` values.
@@ -357,6 +373,10 @@ pub struct Run {
     pub cam_y: Fx,
     pub kos: u16,
     pub ko_at: Vec2,
+    /// R2d. The deck plan: the deck the run is heading for or keeping to, and how many more rooms it keeps to it before the next
+    /// choice (a deck fork, or a deck the plan picks).
+    pub plan_deck: u8,
+    pub plan_left: u8,
 }
 
 impl Run {
@@ -397,6 +417,11 @@ impl Run {
             coins: 0,
             kinds: [SPOT_ANY; ROOM_SPAWNS],
             tier: 0,
+            lo: Fx::ZERO,
+            hi: Fx::ZERO,
+            deck_in: 0,
+            deck_out: 0,
+            lid: false,
         }; RING],
         platforms: [PoolPlatform {
             live: false,
@@ -476,6 +501,8 @@ impl Run {
         cam_y: Fx::ZERO,
         kos: 0,
         ko_at: Vec2::ZERO,
+        plan_deck: 0,
+        plan_left: 0,
     };
 
     /// Whole world units travelled (the HUD's metres).
@@ -519,11 +546,15 @@ impl Run {
         }
     }
 
-    /// The blast zone's bottom and top: below the lowest ground line of the rooms in play and above the highest.
+    /// The blast zone's bottom and top: below the lowest surface of the rooms in play (R2d: a deck below caught a fall; a climb's
+    /// lid is its lowest), and above the highest ground line.
     pub fn blast_y(&self, rules: &RunRules) -> (Fx, Fx) {
         let live = || self.slots.iter().filter(|s| s.live);
-        let lo = live().map(|s| s.y.min(s.y_end)).min().unwrap_or(Fx::ZERO);
-        let hi = live().map(|s| s.y.max(s.y_end)).max().unwrap_or(Fx::ZERO);
+        let lo = live()
+            .map(|s| if s.lid { s.y_end } else { s.lo })
+            .min()
+            .unwrap_or(Fx::ZERO);
+        let hi = live().map(|s| s.hi).max().unwrap_or(Fx::ZERO);
         (lo + rules.blast_bottom, hi + rules.blast_top)
     }
 
@@ -578,6 +609,70 @@ pub fn tier_of(rc: &RunContent, seq: u32) -> u8 {
 /// The "city" room `seq` is in (until R6's journey: `RunRules::city_rooms` rooms each); at most one rare event in each.
 pub fn city_of(rc: &RunContent, seq: u32) -> u32 {
     seq / u32::from(rc.rules.city_rooms.max(1))
+}
+
+// ---- The decks (R2d) -------------------------------------------------------------------------------------------------------------
+
+/// The deck whose line is nearest height `y` (the lower on a tie).
+pub fn deck_at(rc: &RunContent, y: Fx) -> u8 {
+    let mut best = (0u8, Fx::MAX);
+    for (i, d) in rc.decks.iter().enumerate().take(MAX_DECKS) {
+        let dist = (y - d.y).abs();
+        if dist < best.1 {
+            best = (i as u8, dist);
+        }
+    }
+    best.0
+}
+
+/// Whether height `y` lies in deck `d`'s band (its line, give or take its wander).
+pub fn in_band(rc: &RunContent, d: u8, y: Fx) -> bool {
+    rc.decks
+        .get(usize::from(d))
+        .is_some_and(|k| (y - k.y).abs() <= k.wander)
+}
+
+/// The deck room `room` leaves on, laid mirrored or not and entered on deck `entry`; `None` if it may not be entered there. (A
+/// mirrored room is entered where it would leave: a mirrored climb drops.)
+pub fn exit_deck(room: &Room, mirror: bool, entry: u8) -> Option<u8> {
+    let c = i16::from(room.deck_change);
+    let first = if mirror {
+        i16::from(entry) - c
+    } else {
+        i16::from(entry)
+    };
+    let fits = |d: i16| (0..MAX_DECKS as i16).contains(&d);
+    if !fits(first) || room.decks & (1 << first) == 0 {
+        return None;
+    }
+    let out = if mirror { first } else { first + c };
+    fits(out).then_some(out as u8)
+}
+
+/// The mirrors a room may be laid as.
+fn mirrors(room: &Room) -> &'static [bool] {
+    if room.mirror {
+        &[false, true]
+    } else {
+        &[false]
+    }
+}
+
+/// Room `room`, entered on deck `entry` at height `y`, can be laid so that it leaves on deck `out`, its ground ending in that deck's
+/// band (some mirror does it).
+pub fn leads_to(rc: &RunContent, room: &Room, entry: u8, y: Fx, out: u8) -> bool {
+    mirrors(room).iter().any(|&m| {
+        exit_deck(room, m, entry) == Some(out) && in_band(rc, out, y + room_exit(room, m))
+    })
+}
+
+/// A branching fork whose two roads are on different decks (a deck fork), entered on deck `entry`.
+pub fn is_deck_fork(rc: &RunContent, room: &Room, entry: u8) -> bool {
+    let Some(d) = rc.decks.get(usize::from(entry)) else {
+        return false;
+    };
+    let low = d.y + room.exit_y;
+    room.branch_high != 0 && deck_at(rc, low) != deck_at(rc, low + room.lift)
 }
 
 /// The fighter the run is about (the one player).
@@ -673,6 +768,8 @@ pub struct Placed {
     pub platform: Platform,
     pub look: u8,
     pub base: Fx,
+    /// R2d: on the room's skilled route ([`Footing::skilled`]).
+    pub skilled: bool,
 }
 
 /// A slot's piece, if it has one: the piece and its anchor in the room's own coordinates.
@@ -706,6 +803,7 @@ pub fn for_each_footing(rc: &RunContent, slot: &RoomSlot, mut f: impl FnMut(Plac
             platform,
             look: p.look,
             base: platform.bottom,
+            skilled: p.skilled,
         });
     }
     for (piece, at) in slot_pieces(rc, room, slot) {
@@ -722,6 +820,7 @@ pub fn for_each_footing(rc: &RunContent, slot: &RoomSlot, mut f: impl FnMut(Plac
                 platform: frame.platform(&local),
                 look: p.look,
                 base,
+                skilled: false,
             });
         }
     }
@@ -844,6 +943,14 @@ pub fn new_run(world: &mut Content, rc: &RunContent, seed: u64, char_id: u8) -> 
     // (Its own stream, so the rooms depend on the seed alone.)
     run.rng = Rng::new(seed ^ 0x5255_4e5f_5345_4544);
     run.shop_due = draw_shop_due(&mut run, &rc.rules);
+    // (R2d: the first room is on the start deck's line, and the run keeps to that deck for a stretch.)
+    run.plan_deck = rc.rules.start_deck;
+    run.plan_left = draw_stretch(&mut run, &rc.rules);
+    let ground = rc
+        .decks
+        .get(usize::from(rc.rules.start_deck))
+        .map_or(Fx::ZERO, |d| d.y);
+    run.next_y = ground;
     run.room = 0;
     run.van.platform = NONE;
     place_room(&mut run, rc);
@@ -852,7 +959,7 @@ pub fn new_run(world: &mut Content, rc: &RunContent, seed: u64, char_id: u8) -> 
             break;
         }
     }
-    let start = Vec2::new(Fx::from_int(6), Fx::ZERO);
+    let start = Vec2::new(Fx::from_int(6), ground);
     run.start_x = start.x;
     run.best_x = start.x;
     state.run = run;
@@ -1071,21 +1178,71 @@ fn draw_shop_due(run: &mut Run, rules: &RunRules) -> u8 {
     lo + run.rng.range(u32::from(hi - lo) + 1) as u8
 }
 
+/// How many rooms the run keeps to a deck (R2d), drawn from the rules' range.
+fn draw_stretch(run: &mut Run, rules: &RunRules) -> u8 {
+    let lo = rules.deck_rooms_min.max(1);
+    let hi = rules.deck_rooms_max.max(lo);
+    lo + run.rng.range(u32::from(hi - lo) + 1) as u8
+}
+
+/// The deck the plan heads for next (R2d): another deck than `here`, by the decks' weights (`here` when there is no other).
+fn draw_deck(run: &mut Run, rc: &RunContent, here: u8) -> u8 {
+    let weight = |d: usize| {
+        if d == usize::from(here) {
+            0
+        } else {
+            u32::from(rc.decks[d].weight)
+        }
+    };
+    let n = rc.decks.len().min(MAX_DECKS);
+    let total: u32 = (0..n).map(weight).sum();
+    if total == 0 {
+        return here;
+    }
+    let mut roll = run.rng.range(total);
+    for d in 0..n {
+        if roll < weight(d) {
+            return d as u8;
+        }
+        roll -= weight(d);
+    }
+    here
+}
+
+/// One of the rooms `fits` allows, drawn evenly (`None` if there is none).
+fn pick(run: &mut Run, count: usize, fits: impl Fn(usize) -> bool) -> Option<u8> {
+    let n = (0..count).filter(|&i| fits(i)).count() as u32;
+    if n == 0 {
+        return None;
+    }
+    let mut k = run.rng.range(n);
+    for i in 0..count {
+        if fits(i) {
+            if k == 0 {
+                return Some(i as u8);
+            }
+            k -= 1;
+        }
+    }
+    None
+}
+
 /// The next room's type: the first room is a street; a shop when one is due; now and then the city's rare event (R2b,
 /// [`event_due`]); else streets, arenas (never two in a row) and rest stops by the rules' weights. A type with no rooms in the
 /// content is never picked.
-fn next_kind(run: &mut Run, rc: &RunContent) -> u8 {
+fn next_kind(run: &mut Run, rc: &RunContent, here: &dyn Fn(usize) -> bool, event: bool) -> u8 {
     if run.placed == 0 {
         return ROOM_STREET;
     }
-    let has = |k: u8| rc.rooms.iter().any(|r| r.kind == k && !r.paired);
+    // (R2d: only the types some room keeping to this deck has.)
+    let has = |k: u8| (0..rc.rooms.len()).any(|i| rc.rooms[i].kind == k && here(i));
     run.since_shop = run.since_shop.saturating_add(1);
     if run.since_shop >= run.shop_due && has(ROOM_SHOP) {
         run.since_shop = 0;
         run.shop_due = draw_shop_due(run, &rc.rules);
         return ROOM_SHOP;
     }
-    if event_due(run, rc) {
+    if event {
         return ROOM_EVENT;
     }
     let r = &rc.rules;
@@ -1117,6 +1274,11 @@ fn next_kind(run: &mut Run, rc: &RunContent) -> u8 {
     ROOM_STREET
 }
 
+/// A room drawn by the deck plan (a climb, a drop or a deck fork) counts toward the next shop, as any other room does (R2d).
+fn count_room(run: &mut Run) {
+    run.since_shop = run.since_shop.saturating_add(1);
+}
+
 /// Whether the room being laid is the city's rare event (R2b, Punch Quest's egg): never before room `event_from`, at most one in
 /// each city, and otherwise `event_base` per mille plus `event_step` per mille for every room laid since the last one (the pity
 /// counter: rare, but never too rare).
@@ -1140,19 +1302,92 @@ fn event_due(run: &mut Run, rc: &RunContent) -> bool {
     }
 }
 
-/// The next room: the first one to begin with, then one of the chosen type from the pool of the room's difficulty tier (R2b:
-/// `Room::min_tier` to `max_tier`), never the first room again, never a room laid only as a fork's road (`Room::paired`), nor the
-/// last room laid while another of that type will do. A street is a fork `fork_chance` percent of the time (when the content has
-/// forks).
+/// The next room: the first one to begin with, then (R2d) the deck plan: when the run has kept to its deck for its stretch, a deck
+/// fork (`deck_fork_chance` percent of the time) or a new deck the plan picks; while the run is not on the plan's deck, a room that
+/// climbs or drops toward it. Otherwise a room that keeps to the deck, of the chosen type from the pool of the room's difficulty
+/// tier (R2b: `Room::min_tier` to `max_tier`), never the first room again, never a room laid only as a fork's road
+/// (`Room::paired`), nor the last room laid while another of that type will do. A street is a fork `fork_chance` percent of the time
+/// (when the content has forks).
 fn next_room(run: &mut Run, rc: &RunContent) -> u8 {
-    let kind = next_kind(run, rc);
     if run.placed == 0 {
         return 0;
     }
     let tier = tier_of(rc, run.placed);
     let count = rc.rooms.len().min(255);
-    let usable = |i: usize| i != 0 && !rc.rooms[i].paired && rc.rooms[i].kind == kind;
+    let (entry, y) = (deck_at(rc, run.next_y), run.next_y);
+    let drawn = |i: usize| i != 0 && !rc.rooms[i].paired;
     let in_tier = |i: usize| rc.rooms[i].min_tier <= tier && tier <= rc.rooms[i].max_tier;
+    let last = usize::from(run.last_room);
+    let stays = |i: usize| {
+        drawn(i)
+            && leads_to(rc, &rc.rooms[i], entry, y, entry)
+            && !is_deck_fork(rc, &rc.rooms[i], entry)
+    };
+    // (A shop due comes first, where the deck has one: the shops keep their spacing.)
+    let shop_now = run.since_shop.saturating_add(1) >= run.shop_due
+        && (0..count).any(|i| stays(i) && rc.rooms[i].kind == ROOM_SHOP);
+    // (Then the city's rare event, when its roll comes up: it is rolled for every room, as before the decks.)
+    let event_now = !shop_now
+        && (0..count).any(|i| stays(i) && rc.rooms[i].kind == ROOM_EVENT)
+        && event_due(run, rc);
+    let planned = !shop_now && !event_now;
+    // The deck plan: a stretch kept, then a choice.
+    if planned && entry == run.plan_deck && run.plan_left == 0 {
+        let fork = |i: usize| {
+            let r = &rc.rooms[i];
+            drawn(i)
+                && is_deck_fork(rc, r, entry)
+                && exit_deck(r, false, entry).is_some_and(|o| {
+                    let high = y + r.exit_y + r.lift;
+                    leads_to(rc, r, entry, y, o) && in_band(rc, deck_at(rc, high), high)
+                })
+        };
+        if run.rng.range(100) < u32::from(rc.rules.deck_fork_chance) {
+            let found = if (0..count).any(|i| fork(i) && in_tier(i)) {
+                pick(run, count, |i| fork(i) && in_tier(i))
+            } else {
+                pick(run, count, fork)
+            };
+            if let Some(i) = found {
+                count_room(run);
+                return i;
+            }
+        }
+        run.plan_deck = draw_deck(run, rc, entry);
+        run.plan_left = draw_stretch(run, &rc.rules);
+    }
+    if planned && entry != run.plan_deck {
+        let goal = run.plan_deck;
+        let toward = |i: usize| {
+            let r = &rc.rooms[i];
+            drawn(i)
+                && r.branch_high == 0
+                && mirrors(r).iter().any(|&m| {
+                    exit_deck(r, m, entry).is_some_and(|o| {
+                        o != entry
+                            && (o > entry) == (goal > entry)
+                            && o.abs_diff(entry) <= goal.abs_diff(entry)
+                            && in_band(rc, o, y + room_exit(r, m))
+                    })
+                })
+        };
+        let choices: [&dyn Fn(usize) -> bool; 3] = [
+            &|i| toward(i) && in_tier(i) && i != last,
+            &|i| toward(i) && in_tier(i),
+            &toward,
+        ];
+        if let Some(fits) = choices.into_iter().find(|t| (0..count).any(t)) {
+            if let Some(i) = pick(run, count, fits) {
+                count_room(run);
+                return i;
+            }
+        }
+        // (Nothing here leads there: keep to this deck.)
+        run.plan_deck = entry;
+    }
+    run.plan_left = run.plan_left.saturating_sub(1);
+    let kind = next_kind(run, rc, &stays, event_now);
+    let usable = |i: usize| stays(i) && rc.rooms[i].kind == kind;
     let pool = |i: usize| usable(i) && in_tier(i);
     let forks = (1..count).any(|i| pool(i) && rc.rooms[i].fork);
     let plain = (1..count).any(|i| pool(i) && !rc.rooms[i].fork);
@@ -1162,32 +1397,21 @@ fn next_room(run: &mut Run, rc: &RunContent) -> u8 {
     } else {
         None
     };
-    let last = usize::from(run.last_room);
     let forked = |i: usize| want_fork.is_none_or(|w| rc.rooms[i].fork == w);
     // (The best choices first: the right type, tier and fork-ness, not the last room laid; then letting go of the last room, the
-    // fork-ness and the tier; the start room only if nothing else has the type.)
+    // fork-ness and the tier; then any room keeping to the deck; the start room only if nothing else will do.)
     let tiers: [&dyn Fn(usize) -> bool; 6] = [
         &|i| pool(i) && forked(i) && i != last,
         &|i| pool(i) && forked(i),
         &|i| pool(i) && i != last,
         &pool,
         &usable,
-        &|i| rc.rooms[i].kind == kind && !rc.rooms[i].paired,
+        &stays,
     ];
     let Some(fits) = tiers.into_iter().find(|t| (0..count).any(t)) else {
         return 0;
     };
-    let candidates = (0..count).filter(|&i| fits(i)).count() as u32;
-    let mut n = run.rng.range(candidates);
-    for i in 0..count {
-        if fits(i) {
-            if n == 0 {
-                return i as u8;
-            }
-            n -= 1;
-        }
-    }
-    0
+    pick(run, count, fits).unwrap_or(0)
 }
 
 /// Lays the next room (false if there is no room for it in the ring, or none may come yet). After a branching fork its two roads
@@ -1229,11 +1453,25 @@ fn place_slot(run: &mut Run, rc: &RunContent, id: u8, x0: Fx, y0: Fx) -> bool {
         return false;
     };
     let room = &rc.rooms[usize::from(id).min(rc.rooms.len() - 1)];
-    // The variant: mirrored (never leaving the drift band if the other way keeps inside it), the optional parts, the pieces.
+    // The variant: mirrored (R2d: so that it leaves on the deck it should, inside that deck's band: a room that changes deck goes
+    // toward the plan's deck, any other keeps to its deck), the optional parts, the pieces.
     let mut mirror = room.mirror && run.rng.range(2) == 1;
-    let drift = rc.rules.drift;
-    if room.mirror && (y0 + room_exit(room, mirror)).abs() > drift {
-        mirror = !mirror;
+    let entry = deck_at(rc, y0);
+    if room.mirror {
+        let goal = run.plan_deck;
+        let good = |m: bool| {
+            exit_deck(room, m, entry).is_some_and(|o| {
+                let toward = if room.deck_change == 0 {
+                    o == entry
+                } else {
+                    o != entry && (o > entry) == (goal > entry)
+                };
+                toward && in_band(rc, o, y0 + room_exit(room, m))
+            })
+        };
+        if !good(mirror) && good(!mirror) {
+            mirror = !mirror;
+        }
     }
     let mut parts = 0u8;
     for (n, &chance) in room.parts.iter().enumerate().take(ROOM_PARTS) {
@@ -1279,7 +1517,17 @@ fn place_slot(run: &mut Run, rc: &RunContent, id: u8, x0: Fx, y0: Fx) -> bool {
         coins: 0,
         kinds: [SPOT_ANY; ROOM_SPAWNS],
         tier: tier_of(rc, seq),
+        lo: y0.min(y0 + room_exit(room, mirror)),
+        hi: y0.max(y0 + room_exit(room, mirror)),
+        deck_in: entry,
+        deck_out: deck_at(rc, y0 + room_exit(room, mirror)),
+        lid: false,
     };
+    let mut lo = slot.lo;
+    for_each_footing(rc, &slot, |p| {
+        lo = lo.min(p.platform.y.min(p.platform.top_right()));
+    });
+    slot.lo = lo;
     // Its grunts: the budget fills the spots; a spot left empty (or not in this variant) counts as spawned.
     slot.kinds = assign_kinds(run, rc, &slot);
     for j in 0..ROOM_SPAWNS {
@@ -1542,6 +1790,13 @@ fn drop_behind(state: &mut GameState, world: &Content, behind: u8) {
         .min()
         .unwrap_or(run.wall_x);
     run.wall_x = wall;
+    // (Grunts left behind the new wall are gone, first: what they stood on goes too. R2d.)
+    for n in 0..MAX_MOBS {
+        if state.run.mobs[n].active && state.fighters[mobs::slot(n)].pos.x < wall {
+            mobs::remove(state, world, n);
+        }
+    }
+    let run = &mut state.run;
     for (i, p) in run.platforms.iter_mut().enumerate() {
         if !p.live || p.left >= wall {
             continue;
@@ -1576,12 +1831,6 @@ fn drop_behind(state: &mut GameState, world: &Content, behind: u8) {
     }
     run.floor_x = run.floor_x.max(wall);
     run.layout = run.layout.wrapping_add(1);
-    // (Grunts left behind the new wall are gone.)
-    for n in 0..MAX_MOBS {
-        if state.run.mobs[n].active && state.fighters[mobs::slot(n)].pos.x < wall {
-            mobs::remove(state, world, n);
-        }
-    }
     unground_dropped(state);
 }
 
@@ -1663,6 +1912,11 @@ fn enter_rooms(state: &mut GameState, world: &Content, rc: &RunContent) {
             drop_road(state, world, other.seq);
             state.run.next_x = take.end;
             state.run.next_y = take.y_end;
+            // (R2d: a deck fork's road is the deck the run keeps to for a new stretch.)
+            if high.deck_out != low.deck_out {
+                state.run.plan_deck = take.deck_out;
+                state.run.plan_left = draw_stretch(&mut state.run, rules);
+            }
             take
         } else {
             ahead[0]
@@ -1675,7 +1929,10 @@ fn enter_rooms(state: &mut GameState, world: &Content, rc: &RunContent) {
         } else {
             rules.rooms_behind
         };
+        // (R2d: a room that changed deck is a gate once left: nothing before it is kept, and a climb closes a lid at its top.)
+        let behind = behind.min(back_to_vertical(&state.run));
         drop_behind(state, world, behind);
+        close_lids(state, world, rules);
         // (A grudge the shopkeeper bore lifts once the player is a room further on: R2c.)
         if state.run.keeper_grudge != 0 && state.run.room >= state.run.keeper_grudge {
             state.run.keeper_grudge = 0;
@@ -1705,6 +1962,55 @@ fn enter_rooms(state: &mut GameState, world: &Content, rc: &RunContent) {
                 state.run.last_percent = g.percent;
             }
             _ => {}
+        }
+    }
+}
+
+/// How many rooms behind the current one reach back to the nearest room behind that changed deck (`u8::MAX` for none).
+fn back_to_vertical(run: &Run) -> u8 {
+    let mut behind = [RoomSlot::default(); RING];
+    let mut n = 0;
+    for s in run.slots.iter().filter(|s| s.live && s.seq < run.room) {
+        behind[n] = *s;
+        n += 1;
+    }
+    behind[..n].sort_by_key(|s| core::cmp::Reverse(s.seq));
+    behind[..n]
+        .iter()
+        .position(|s| s.vertical())
+        .map_or(u8::MAX, |k| k as u8 + 1)
+}
+
+/// The vertical gate (R2d): a room behind the current one that climbed to it gets a lid, a solid floor across its whole width at its
+/// top, so you cannot go back down it (its back edge on the vertical axis). Grunts left under the lid go.
+fn close_lids(state: &mut GameState, world: &Content, rules: &RunRules) {
+    let room = state.run.room;
+    for i in 0..RING {
+        let s = state.run.slots[i];
+        if !s.live || s.seq >= room || s.lid || !s.vertical() || s.y_end <= s.y {
+            continue;
+        }
+        let Some(e) = state.run.platforms.iter().position(|p| !p.live) else {
+            continue;
+        };
+        let run = &mut state.run;
+        run.platforms[e] = PoolPlatform {
+            live: true,
+            left: s.x,
+            right: s.end,
+            y: s.y_end,
+            bottom: s.y_end - rules.gate_thickness,
+            pass_through: false,
+            rise: Fx::ZERO,
+            seq: s.seq,
+        };
+        run.slots[i].lid = true;
+        run.layout = run.layout.wrapping_add(1);
+        for n in 0..MAX_MOBS {
+            let p = state.fighters[mobs::slot(n)].pos;
+            if state.run.mobs[n].active && p.x >= s.x && p.x <= s.end && p.y < s.y_end {
+                mobs::remove(state, world, n);
+            }
         }
     }
 }
@@ -1875,6 +2181,12 @@ fn follow_camera(state: &mut GameState, rules: &RunRules) {
     // did by itself before; the grunts' blast zones follow it).
     if f.active && f.state != S::Respawn {
         let (bottom, top) = run.blast_y(rules);
+        // (R2d: in a room that changes deck it follows faster.)
+        let ease = if run.slot_of(run.room).is_some_and(|s| s.vertical()) {
+            rules.cam_y_ease_tall
+        } else {
+            rules.cam_y_ease
+        };
         let want = (f.pos.y + rules.cam_lift)
             .min(top - rules.cam_ceiling)
             .max(bottom + rules.cam_floor);
@@ -1885,7 +2197,7 @@ fn follow_camera(state: &mut GameState, rules: &RunRules) {
             } else {
                 want + rules.cam_dead
             };
-            let step = ((goal - run.cam_y) * rules.cam_y_ease)
+            let step = ((goal - run.cam_y) * ease)
                 .abs()
                 .max(Fx::from_ratio(1, 64))
                 .min(rules.cam_max_speed)
@@ -2189,6 +2501,10 @@ impl StateHash for Mob {
 impl StateHash for Run {
     fn hash_into(&self, h: &mut StateHasher) {
         h.write_bool(self.active);
+        // (Versus: an inactive run is never touched; R2d.)
+        if !self.active {
+            return;
+        }
         h.write_bool(self.over);
         self.rng.hash_into(h);
         self.cam_x.hash_into(h);
@@ -2227,6 +2543,11 @@ impl StateHash for Run {
                 h.write_u8(k);
             }
             h.write_u8(s.tier);
+            s.lo.hash_into(h);
+            s.hi.hash_into(h);
+            h.write_u8(s.deck_in);
+            h.write_u8(s.deck_out);
+            h.write_bool(s.lid);
         }
         for p in &self.platforms {
             h.write_bool(p.live);
@@ -2298,5 +2619,7 @@ impl StateHash for Run {
         self.cam_y.hash_into(h);
         h.write_u16(self.kos);
         self.ko_at.hash_into(h);
+        h.write_u8(self.plan_deck);
+        h.write_u8(self.plan_left);
     }
 }
