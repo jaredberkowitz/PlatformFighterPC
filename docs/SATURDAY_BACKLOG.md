@@ -56,6 +56,15 @@ Everything put off to save usage, in the order to take it. Tick items off here a
       stages finish their ends.
 - [ ] Fighters: the clothes' outline sits close to the body outline, doubling the line at the waist and cuffs at play size.
 
+## UI redesign toward shippable (owner, 2026-10-15: polished and pleasant over refining what we have; proposals, owner to pick)
+- [ ] 1. Motion: animated screen transitions (a wipe in the ink-panel style), tiles that scale/brighten on focus, an animated menu
+      backdrop. The biggest "shipped game" signal in the competitors' menus.
+- [ ] 2. Character select redesign: a big slot per player along the bottom (posed render in the player colour, name, costume,
+      sliding in on pick), the roster grid above.
+- [ ] 3. Title screen: logo over the stage scene, a posing fighter, "press any button".
+- [ ] 4. Results screen: winner's victory pose, banner, a few stats (KOs, damage dealt), loser dimmed (mend `--demo=results` first).
+- [ ] 5. One written UI design system: type scale, palette, panel rules, motion timings, so every screen stays consistent.
+
 ## Skies (owner, 2026-10-15: the canyon's sun and clouds still look cheap)
 - [ ] A painted sunset for the canyon: the sun as a soft painted disc with a proper glow falloff, and clouds as painted shapes with a lit
       underside and soft edges (a cloud texture or card set, from Material Maker or painted SVG cards), replacing the squashed spheres
