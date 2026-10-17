@@ -144,6 +144,21 @@ pub fn move_x(stage: &Stage, params: &FighterParams, pos: &mut Vec2, dx: Fx) -> 
             }
             x = b.right + hw;
             hit = true;
+        } else if dx > Fx::ZERO && pos.x <= b.left && pos.x + hw > b.left {
+            // (Already touching the face, its feet outside the block: having come down beside a low block's corner, its ECB's
+            // lower half reaches past the face. It goes no further in. Without this a roll, a walk or a dash slid right through a
+            // block lower than the ECB's widest point, a run's table or desk: R2e's random-play test, sim 141.)
+            if face_is_joint(stage, b, -1) {
+                continue;
+            }
+            x = x.min(pos.x);
+            hit = true;
+        } else if dx < Fx::ZERO && pos.x >= b.right && pos.x - hw < b.right {
+            if face_is_joint(stage, b, 1) {
+                continue;
+            }
+            x = x.max(pos.x);
+            hit = true;
         }
     }
     pos.x = x;

@@ -1163,3 +1163,56 @@ fn holding_down_walks_off_without_grabbing_the_ledge() {
     }
     assert!(grabbed || sim.f().grounded() || sim.f().pos.y < Fx::from_int(-3));
 }
+
+/// A block lower than a fighter's ECB at its widest (a run's table, 0.9 tall, standing on the floor): a fighter that has come down
+/// beside its corner, its feet outside but its ECB's lower half reaching past the face, walks, dashes or rolls into it and is
+/// stopped: its feet never go into the block. (R2e's random-play test found a roll sliding through a run's table, sim 141.)
+#[test]
+fn walking_dashing_or_rolling_into_a_low_block_beside_its_corner_stops() {
+    let face = Fx::from_int(2);
+    for (how, input) in [
+        ("walk", inp(50, 0, 0)),
+        ("dash", inp(127, 0, 0)),
+        ("roll", inp(127, 0, SHIELD)),
+    ] {
+        for start in [
+            face - Fx::from_ratio(1, 10),
+            face - Fx::from_ratio(1, 2),
+            face - Fx::ONE,
+        ] {
+            let mut sim = Sim::alone();
+            sim.content.stage.platforms.push(Platform {
+                left: face,
+                right: face + Fx::from_ratio(3, 2),
+                y: Fx::from_ratio(9, 10),
+                bottom: Fx::from_int(-8),
+                pass_through: false,
+                rise: Fx::ZERO,
+            });
+            // Down beside the corner: it lands on the floor next to the block.
+            sim.put_airborne(0, start, Fx::from_int(2), Fx::ZERO, Fx::ZERO);
+            for _ in 0..40 {
+                sim.tick(inp(0, 0, 0));
+            }
+            assert!(sim.f().grounded(), "{how} from {start:?}: landed");
+            if how == "roll" {
+                sim.tick(inp(0, 0, SHIELD));
+                sim.tick(inp(0, 0, SHIELD));
+            }
+            for n in 0..60 {
+                let i = if how == "roll" && n > 3 {
+                    inp(0, 0, SHIELD)
+                } else {
+                    input
+                };
+                sim.tick(i);
+                assert!(
+                    sim.f().pos.x <= face,
+                    "{how} from {start:?}, frame {n}: feet at {:?} inside the block ({:?})",
+                    sim.f().pos,
+                    sim.f().state
+                );
+            }
+        }
+    }
+}
