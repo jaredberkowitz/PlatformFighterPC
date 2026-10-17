@@ -103,7 +103,7 @@ class Board extends Control:
 		var columns := maxi(here_col + 1 + ahead, 1)
 		var gap := 54.0
 		var start := centre_x - (columns - 1) * gap * 0.5
-		var y := top + 34.0
+		var y := top + 42.0
 		draw_line(Vector2(start, y), Vector2(start + here_col * gap, y), Color(Art.INK, 0.6), 6.0)
 		var placed := {}
 		for i in rows.size():
@@ -129,7 +129,7 @@ class Board extends Control:
 					draw_line(at + Vector2(-r, -r) * 0.7, at + Vector2(r, r) * 0.7, Color(Art.INK, 0.85), 3.0)
 		# The node map ahead: each node joined to the one before it on its line (or the fork it splits from).
 		var here: Vector2 = placed.get("0:0", Vector2(start + here_col * gap, y))
-		var line_y := {0: 0.0, 1: -30.0, 2: 30.0}
+		var line_y := {0: 0.0, 1: -27.0, 2: 27.0}
 		var nodes := plan.size() / PLAN_STRIDE
 		for k in nodes:
 			var o := k * PLAN_STRIDE

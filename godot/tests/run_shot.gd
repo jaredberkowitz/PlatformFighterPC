@@ -181,7 +181,12 @@ func _initialize() -> void:
 	var thrown: int = main.sim.run_debug_grunt(0, 2.0, false)
 	var pins: int = main.sim.run_debug_grunt(3, 5.0, false)
 	main.sim.run_debug_hold_grunt(pins)
-	main.sim.run_debug_launch_grunt(thrown, 1.3, 0.1)
+	main.sim.run_debug_hold_grunt(thrown)
+	await create_timer(0.5).timeout
+	# (Flung straight at the other, wherever it stands: on the street or on an awning.)
+	var aim: Vector2 = main.sim.fighter_pos(100 + pins) - main.sim.fighter_pos(100 + thrown)
+	aim = aim.normalized() * 1.3
+	main.sim.run_debug_launch_grunt(thrown, aim.x, aim.y + 0.05)
 	await create_timer(0.3).timeout
 	_shot(out, "run_bowl.png")
 	await create_timer(0.5).timeout
