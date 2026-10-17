@@ -728,8 +728,9 @@ fn flash_dash_aims_up_and_down_with_the_stick() {
         sim.f().pos - start
     };
     let flat = run(0);
-    let up = run(100);
-    let down = run(-100);
+    // (The stick at full tilt: since sim 139 the angle is the reference's, at most 10 degrees past half tilt.)
+    let up = run(127);
+    let down = run(-127);
     assert!(flat.x > Fx::from_int(4), "it dashes forward: {flat:?}");
     assert!(
         up.y > flat.y + Fx::from_int(1),
@@ -974,14 +975,18 @@ fn blade_flurry_steps_leave_the_air_alone() {
     sim.put_airborne(0, Fx::ZERO, Fx::from_int(40), Fx::ZERO, Fx::ZERO);
     sim.put_airborne(1, Fx::from_int(30), Fx::from_int(40), Fx::ZERO, Fx::ZERO);
     sim.tick(inp(100, 0, SPECIAL));
-    for _ in 0..12 {
+    // (Since sim 139 the first hit adds the reference's 1.4 units of upward speed in the air, so it pops up first; gravity then
+    // acts on it every frame: nothing freezes it, and no step moves it sideways.)
+    sim.tick(inp(0, 0, 0));
+    let mut last = sim.f().vel.y;
+    assert!(last > Fx::ZERO, "the lift: {last:?}");
+    for _ in 0..30 {
         sim.tick(inp(0, 0, 0));
+        assert!(sim.f().vel.y <= last, "gravity acts: {:?}", sim.f().vel);
+        last = sim.f().vel.y;
     }
-    assert!(
-        sim.f().pos.y < Fx::from_int(40) - fx(5, 10),
-        "still falling: {:?}",
-        sim.f().pos
-    );
+    assert!(last < Fx::ZERO, "it falls again: {last:?}");
+    assert_eq!(sim.f().pos.x, Fx::ZERO, "no step in the air");
 }
 
 #[test]

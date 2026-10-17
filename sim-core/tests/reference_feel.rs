@@ -171,7 +171,8 @@ fn a_reverse_aerial_rush_out_of_the_initial_dash_jumps_backward_facing_with_the_
         let (facing, vx, aerial) = rar_from_dash(6, gap);
         assert_eq!(facing, -1, "gap {gap}: facing back");
         assert!(
-            vx > fx(15, 100),
+            // (At least the duelist's jump cap, 1.2 of the reference's units: `jump_speed_x_max`, sim 139.)
+            vx >= fx(15, 100),
             "gap {gap}: still moving forward fast: {vx:?}"
         );
         assert_eq!(
@@ -315,7 +316,7 @@ fn a_keyboard_style_soft_push_back_out_of_a_run_is_a_rar_too() {
         }
         assert_eq!(sim.f().facing, -1, "gap {gap}");
         assert!(
-            sim.f().vel.x > fx(15, 100),
+            sim.f().vel.x >= fx(15, 100),
             "gap {gap}: {:?}",
             sim.f().vel.x
         );

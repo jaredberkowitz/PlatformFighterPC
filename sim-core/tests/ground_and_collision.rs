@@ -507,10 +507,13 @@ fn a_running_jump_keeps_some_of_its_ground_speed_into_the_air() {
         sim.tick(inp(127, 0, JUMP));
     }
     assert!(!sim.f().grounded());
-    // As in the reference game, the ground speed leaves the ground reduced and capped (sim v36): a running jump goes a little faster
-    // than a full drift, not at a run's speed (which made running jumps floaty).
-    let rules = sim.content.rules;
-    let takeoff = (run * rules.jump_momentum).min(p.air_speed * rules.jump_momentum_max);
+    // As in the reference game, the ground speed leaves the ground reduced and capped (sim v36; since sim 139 the body's own
+    // `jump_speed_x_mul` share, or the stick's `jump_speed_x` when faster, capped at `jump_speed_x_max`): a running jump goes a
+    // little faster than a full drift, not at a run's speed (which made running jumps floaty).
+    let stick = inp(127, 0, 0).stick_x_fx() * p.jump_speed_x;
+    let takeoff = (run * Fx::from_ratio(i32::from(p.jump_speed_x_mul), 100))
+        .max(stick)
+        .min(p.jump_speed_x_max);
     assert_eq!(sim.f().vel.x, takeoff);
     assert!(takeoff < run);
     // In the air it keeps almost all of that, since only light air friction acts on speed above the air speed.
@@ -676,8 +679,8 @@ fn jumping_out_of_a_cancelled_dash_keeps_the_momentum_in_the_air() {
     }
     assert!(!sim.f().grounded());
     // The jump squat itself loses nothing; the takeoff carries the reduced, capped share of it (see the running jump above).
-    let rules = sim.content.rules;
-    let takeoff = (squat_start * rules.jump_momentum).min(p.air_speed * rules.jump_momentum_max);
+    let takeoff =
+        (squat_start * Fx::from_ratio(i32::from(p.jump_speed_x_mul), 100)).min(p.jump_speed_x_max);
     assert_eq!(sim.f().vel.x, takeoff, "jump squat must not eat the speed");
     // With no stick held the air drift continues, slowed only by light air friction.
     sim.ticks(10, inp(0, 0, 0));

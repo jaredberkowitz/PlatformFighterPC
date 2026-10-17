@@ -1,9 +1,32 @@
-// Side special (dash): the stick at the start of the dash aims it a little up or down.
-var rise;
-if frame == 17 {
-    rise = 0;
-    if stick_y > 0.4 { rise = 0.3; }
-    if stick_y < -0.4 { rise = -0.3; }
+// Side special (dash), on the reference's parameters (sim 139): started in the air it keeps 0.67 of its sideways speed (the move's
+// start_speed) and none of its vertical speed, the sideways part slowing by 0.05 reference units a frame, held still 13 frames, then
+// falling at 0.017 gravity. On frame 17 the stick past half tilt angles the dash up to 10 degrees up or down. After the dash it slides on
+// at 2.3 units a frame in the air (2.5 on the ground), slowed by 0.07 (0.15), and from 5 frames after the dash falls at 0.08 gravity.
+// The dash's own speed (5.5 units a frame, frames 18-27) is an estimate.
+var deg;
+var h;
+var v;
+if grounded == 0 && frame <= 16 {
+    h = max(vx - 0.00625, 0);
+    if vx < 0 { h = min(vx + 0.00625, 0); }
+    v = 0;
+    if frame >= 14 { v = max(vy - 0.002125, -0.225); }
+    set_vel(h, v);
 }
-if frame >= 18 && frame <= 27 { set_vel(0.6875, rise); }
-if frame == 28 { set_vel(0, 0); }
+if frame == 17 {
+    deg = 0;
+    if abs(stick_y) > 0.5 { deg = sign(stick_y) * min((abs(stick_y) - 0.5) / 0.5, 1) * 10; }
+}
+if frame >= 18 && frame <= 27 { set_vel(0.6875 * cos(deg), 0.6875 * sin(deg)); }
+if frame == 28 {
+    h = 0.2875;
+    if grounded { h = 0.3125; }
+    v = h * sin(deg);
+    h = h * cos(deg);
+}
+if frame >= 28 {
+    if grounded { h = max(h - 0.01875, 0); } else { h = max(h - 0.00875, 0); }
+    if frame >= 33 { v = max(v - 0.01, -0.225); }
+    if grounded { v = 0; }
+    set_vel(h, v);
+}

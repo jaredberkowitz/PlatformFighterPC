@@ -69,7 +69,12 @@ stage proving_grounds { blast_left -28 ... platform { ... } ledge { ... } spawn 
   jumps. Both are inherited by `inherit` and default to none / false. The bounder's: `start 0 end 43 kind knockback threshold 120
   subtract true min_kb 60` (the reference's double-jump armor, frames 1-44). `air_jump_drift` (sim 95, owner decision 59; optional,
   inherited, default 100) is the midair jump's sideways speed in percent of the stick times the air speed (the reference's per-body
-  `jump_aerial_speed_x_mul`; the bounder's 120).
+  `jump_aerial_speed_x_mul`; the bounder's 120). `jump_speed_x` (a speed), `jump_speed_x_mul` (a percent up to 200) and
+  `jump_speed_x_max` (a speed) (sim 139, owner decision 99; optional, inherited, written only when `jump_speed_x_max` is above 0) are
+  the ground jump's horizontal rule, the reference's per-body parameters of those names: it leaves the ground at `jump_speed_x_mul` of
+  its ground speed, or the stick's tilt times `jump_speed_x` when that is faster the same way, held within `jump_speed_x_max`;
+  `jump_speed_x_max` 0 (the default, and any older file) keeps the older shared rule (the ruleset's `jump_momentum` and
+  `jump_momentum_max`). The recipes scale both speeds with the air speed.
 * **A fighter's gauge** (schema 6, sim 85): an optional `gauge { max per_dealt per_taken mode_frames [walk] [dash] [run] [traction]
   [air_speed] [air_accel] [air_friction] [gravity] [fall] }` block inside the fighter (`sim_core::content::Gauge`; the game calls the
   champion's the **Boost** gauge, `content::GAUGE_NAME`). It fills by `per_dealt` units a percent of damage the fighter's hits add to
@@ -449,6 +454,8 @@ Line numbers inside a script count from its first non-blank line.
   belong in a schema 7 with a migration that rewrites nothing.)
   Still schema 6 (sim v87): a projectile may have a `burst { ... }` block (E3e), a move `motion_drift`, and a hitbox angle may be 366
   (the vortex, E28); every one defaults to the old behaviour, so an older file loads unchanged (the same note about schema 7 applies).
+  Still schema 8 (sim v139): fighters may have `jump_speed_x`, `jump_speed_x_mul`, `jump_speed_x_max` (above; none means the older
+  shared rule).
   Still schema 6 (sim v95): fighters may have `air_jump_drift`; moves `late_next` / `late_until`, `ledge_falling_only`,
   `drop_from` / `drop_frames` / `drop_while_down`; projectiles `bounce_keep_y`, `bounce_max_fall`; bursts `on_ground`, `on_expire`,
   `keep_hits`. Every one defaults to the old behaviour, so an older file loads unchanged.

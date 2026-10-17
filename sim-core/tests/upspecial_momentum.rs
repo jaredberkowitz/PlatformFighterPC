@@ -115,6 +115,8 @@ fn every_halting_up_special_rises_the_same_from_a_jump_a_standstill_or_a_fall() 
         (9, false),
         (10, false),
         (11, false),
+        // The Dagger's aerial hook (sim 139, owner decision 99: it halts a jump's rise like the recoveries).
+        (12, false),
         (12, true),
         (13, false),
     ];
@@ -195,5 +197,20 @@ fn nothing_lets_the_exile_act_after_its_up_special_but_landing() {
             }
         }
         assert!(helpless && landed, "hold {hold}");
+    }
+}
+
+/// The special fall's drift after each up special whose reference publishes a "helplessness air speed multiplier" (ssbwiki.com
+/// 13.0.1): the duelist 0.4, the brawler 0.65, the rogue 0.6 (sim 139; it had the ruleset's 0.5), the tumbler 0.6, the sprinter 0.7.
+#[test]
+fn the_special_falls_drift_at_the_published_share() {
+    for (c, share) in [(0u8, 40u8), (1, 65), (2, 60), (3, 60), (4, 70)] {
+        let sim = sim_for(c, false);
+        let w = &sim.content.weapons[usize::from(sim.content.fighters[usize::from(c)].weapon)];
+        assert_eq!(
+            w.get(MoveId::UpSpecial as u8).fall_drift,
+            share,
+            "class {c}"
+        );
     }
 }

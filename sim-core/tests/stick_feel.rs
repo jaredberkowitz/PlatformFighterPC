@@ -110,7 +110,8 @@ fn a_jump_out_of_a_rolled_turnaround_is_a_reverse_aerial_rush() {
         assert!(!sim.f().grounded(), "dir {dir}");
         assert_eq!(sim.f().facing, -1, "dir {dir}: facing back");
         assert!(
-            sim.f().vel.x > fx(15, 100),
+            // (At least the duelist's jump cap, `jump_speed_x_max` 1.2 of the reference's units: sim 139.)
+            sim.f().vel.x >= fx(15, 100),
             "dir {dir}: still carried forward: {:?}",
             sim.f().vel.x
         );

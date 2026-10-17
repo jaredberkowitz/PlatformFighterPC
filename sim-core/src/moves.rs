@@ -3807,6 +3807,9 @@ fn sword_kit() -> Weapon {
         ],
     );
     db1.script = db_script(include_str!("scripts/blade_flurry_1.script"));
+    // Started in the air: half the sideways speed ("horizontal speed multiplier on startup" 0.5, ssbwiki.com 13.0.1) [R]; the script
+    // adds the published 1.4 of vertical speed on frame 1 (sim 139).
+    db1.start_speed = 50;
     moves[MoveId::SideSpecial as usize] = db1;
     let mut db2n = ref_move(
         38,
@@ -4453,6 +4456,8 @@ pub fn needles() -> Weapon {
         include_str!("scripts/flash_step.script"),
     ));
     flash_step.helpless_after = true;
+    // The special fall's drift: "helplessness air speed multiplier" 0.6 (ssbwiki.com 13.0.1) [R]; the ruleset's 0.5 before sim 139.
+    flash_step.fall_drift = 60;
     flash_step.grabs_ledge = true;
     w.moves[MoveId::UpSpecial as usize] = flash_step;
 
@@ -5738,6 +5743,10 @@ pub fn claws() -> Weapon {
         include_str!("scripts/flash_aim.script"),
     ));
     flash.helpless_after = true;
+    // Started in the air: 0.67 of the sideways speed ("horizontal speed multiplier on startup", ssbwiki.com 13.0.1) [R] and none of
+    // the vertical (held still until the startup gravity begins on frame 14 [R]; zeroed, not kept, is the reading [E]). Sim 139.
+    flash.start_speed = 67;
+    flash.start_speed_y = 0;
     w.moves[MoveId::SideSpecial as usize] = flash;
 
     claws_up_special(&mut w);

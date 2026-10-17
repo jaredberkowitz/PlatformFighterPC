@@ -693,11 +693,36 @@ Open for the owner from decision 98:
    the pull, or use the pure 1.1.x tip?
 2. **Jab 2's cancel frame** (16) is ours; the reference's jab 2 has no window. Keep it, or cancel only from its FAF (29)?
 
-Open for the owner from decision 97:
+Open for the owner from decision 97: answered by decision 99 (the aerial hook halts).
 
-1. **The Dagger's aerial hook** keeps the speed it starts with until its rise on frame 5 (out of a jump it reaches about 1.1 world units
-   higher than from a standstill). Its reference is an attack that leaves no special fall, with "a slight vertical boost" once per air
-   time; whether that boost replaces or adds to the jump is not published. Halt it like the recoveries, or leave it as an aerial?
+99. **Recoveries and air movement brought to the reference; the aerial hook halts momentum** (sim 139, branch `recovery-audit`;
+    side specials added to the scope by the owner). Every body's air numbers were measured and checked against its reference
+    character's parameter file (dragdown.wiki, cross-checked with ssbwiki.com's attributes): air speed, both air accelerations,
+    friction, gravity, fall and fast fall, full hop, short hop and midair jump heights (`air_movement_reference.rs`). Fixed: the
+    Claws' air friction (0.01, now the reference's 0.004); the midair jump's sideways share (`jump_aerial_speed_x_mul` 0.9) was
+    missing on the Claws, Embers, Gauntlets, Staff and Pockets bodies; and the ground jump's horizontal speed now follows each body's
+    `jump_speed_x` / `jump_speed_x_mul` / `jump_speed_x_max` instead of one shared estimate (0.85 of the ground speed, capped at 1.25x
+    the air speed, no stick share): a standing jump with the stick held moves at once, a run jump keeps 70-90% of the run, capped at
+    the body's own maximum (the Gauntlets' 2.1, so its run jumps carry much further; the Longsword's 1.2). How the reference combines
+    the stick and the run is not published: the reading (the faster of the two the same way; a stick held back never cuts a reverse
+    aerial rush) is an estimate. The Dagger's aerial hook now halts a jump's rise (`start_speed_y` 0), as the owner decided. The Needles' up special's
+    special fall drifts at its published 0.6 (it had the shared 0.5). Side
+    specials: the Longsword's blade flurry now keeps half its sideways speed and adds the published 1.4 upward in the air (every use; it
+    slows a fall); the Claws' flash dash keeps 0.67 sideways and none vertical, holds still 13 frames then falls at 0.017, angles at
+    most 10 degrees past half tilt (it was about 24), and slides on after the dash at 2.3 (air) / 2.5 (ground) slowed by 0.07 / 0.15
+    with 0.08 gravity from 5 frames after (it stopped dead). Every other side special was checked and already matched what is
+    published (the table is in `SHARED_MECHANICS.md`, "Starting momentum of specials"). Recovery rises driven by the reference's
+    animation (most up specials) still have no published height; they stay estimates.
+
+Open for the owner from decision 99:
+
+1. **The ground jump's stick share**: the reference publishes `jump_speed_x` but not how it adds to a run's kept speed. Built: the
+   faster of the two the same way, a stick held against the run keeping the run's share. If a standing jump now feels too quick
+   sideways, the alternative is no stick share (the older feel, with the body's own run share and cap).
+2. **The blade flurry's lift on every use** (no once-per-airtime limit is published): repeated uses keep slowing a fall. Limit it to
+   once per air time?
+3. **Footage** would settle the animation-driven recoveries (most up specials' heights, the Gauntlets' and Embers' especially) and the
+   flash dash's own dash speed (5.5 units a frame, an estimate).
 
 ## Still open
 
