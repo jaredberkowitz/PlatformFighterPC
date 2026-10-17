@@ -59,6 +59,8 @@ var looks := PackedStringArray()
 ## Built rooms by their left edge (a string key): the Node3D holding their pieces.
 var pieces := {}
 var layout_seen := -1
+## The current room's number last time the stage was built (a lower one is a new run).
+var room_seen := 0
 var backdrop: Node3D
 ## The city's skyline layers (near to far), each in a holder that scrolls at its parallax, with a copy either side.
 var skylines: Array = []
@@ -515,6 +517,13 @@ func sync(sim, layout: int) -> void:
 	if layout == layout_seen:
 		return
 	layout_seen = layout
+	# (A fresh run, a debug restart included: the rooms of the last one go, though a new one may stand where they stood.)
+	var placed: int = sim.run_info()[8] if sim.run_info().size() > 8 else 0
+	if placed < room_seen:
+		for key in pieces.keys():
+			pieces[key].queue_free()
+		pieces.clear()
+	room_seen = placed
 	var wanted := {}
 	var rows: Array = sim.run_pieces()
 	for r in rows:
