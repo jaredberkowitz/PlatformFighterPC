@@ -31,6 +31,9 @@ everything else original: names, animations, effects, hitbox shapes, numbers and
   picks the rising or low variants), up is the rising slash, and down is **Counter** (a 22-frame window that catches a hit and answers
   with 1.2 times its damage, at least 8%). Charged Thrust and Blade Flurry are scripts (`sim-core/src/scripts/`), Counter is a data
   feature. See `docs/COMBAT.md`, "Kit completion".
+- **Jab (sim 138, owner decision 98):** the previous reference version's two-hit jab on that version's hit rules: jab 1 pops the
+  foe up where it stands (and pulls it in at the tip), jab 2 launches up and out; either can be cancelled into any action (jab 1 from
+  frame 18, jab 2 from 16) and each carries on into the other. Data and combo windows: `docs/movesets/ROSTER_STATUS.md`, decision 98.
 - Wants from the sim: hitboxes with a **sweet spot / sour spot** by region of the blade, per-hitbox damage and knockback,
   hitbox priority (disjointed vs hurtbox), a counter state that reacts to hits.
 

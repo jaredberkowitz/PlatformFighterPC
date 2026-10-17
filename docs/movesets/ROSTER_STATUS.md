@@ -15,7 +15,7 @@ Status words: **verified** (every move on [R] data, tested, no approximations le
 
 | In game (class, weapon, body) | Reference | Status | Tests | Known limits (from `docs/COMBAT.md`, `docs/movesets/needles/`) |
 | --- | --- | --- | --- | --- |
-| 0 Longsword, duelist body | Marth | playable | `reference_moves.rs`, `kits.rs`, `combat.rs` | Normals on [R] frames and damage. **Up special on the reference's numbers since sim 58** (hits, grounded / aerial intangibility, 39-frame animation, front ledge from 8, special fall x0.4 and 24 frames of landing lag, x1.1 aerial rise, 20-degree angling, 0.06 gravity after the rise); its rise itself is still [E] (about 44 reference units: no published height). Pummel on [R] timing (sim 63). Down tilt's trip chance and the up smash's launcher hit are not modelled. Hitbox positions [E] (blade shortened to 72% on purpose). Charged Thrust's shield multiplier is [E]. Counter on the reference's numbers since sim 78 (ssbwiki.com raw: window 6-27, 1.2x, at least 8% and at most 50%; it catches on its counter bubble, radius 10.5 at 10 up [R], and never catches a push). Get-up attack at the reference's angle 48 since sim 73 (it was 361; owner decision 27). |
+| 0 Longsword, duelist body | Marth | playable | `reference_moves.rs`, `kits.rs`, `combat.rs`, `longsword_jab.rs` | Normals on [R] frames and damage. **The jab is the previous version's (1.1.x) since sim 138** (decision 98: E40 rules, the jab cancel on both hits, 13.0.1's tip pull). **Up special on the reference's numbers since sim 58** (hits, grounded / aerial intangibility, 39-frame animation, front ledge from 8, special fall x0.4 and 24 frames of landing lag, x1.1 aerial rise, 20-degree angling, 0.06 gravity after the rise); its rise itself is still [E] (about 44 reference units: no published height). Pummel on [R] timing (sim 63). Down tilt's trip chance and the up smash's launcher hit are not modelled. Hitbox positions [E] (blade shortened to 72% on purpose). Charged Thrust's shield multiplier is [E]. Counter on the reference's numbers since sim 78 (ssbwiki.com raw: window 6-27, 1.2x, at least 8% and at most 50%; it catches on its counter bubble, radius 10.5 at 10 up [R], and never catches a push). Get-up attack at the reference's angle 48 since sim 73 (it was 361; owner decision 27). |
 | 1 Claws, brawler body | Wolf | playable | `reference_moves.rs`, `kits.rs`, `throw_combos.rs` | Normals on [R] data. **Up special on the reference's numbers since sim 58** (hits, the dash from its published parameters, the grounded / aerial endings, the ground bounce, ledge windows, special fall x0.65 and 36 frames of landing lag); its looping hits send the way the fighter is travelling (the reference's angle type 1, sim 73, owner decision 23). Get-up attack at angle 48 since sim 73 (owner decision 27). Wall jump (sim 64). Pummel on [R] timing (sim 63). **Still [E]**: the flash dash's distance and end hit, the reflector's frames, size and reflected speed (it turns only the horizontal speed: owner decision 2026-10-13, keep it unlike the cape's). Wall jump also from the jump button (sim 65). Throw angles partly [E]. |
 | 2 Needles, rogue body | Sheik | playable | `needles.rs`, `multihit.rs` | Body, normals, Needle Volley, Flash Step, Flip Kick on [R] data (`docs/movesets/needles/REFERENCE_DATA.md`). **The side special is our own pulling line, not the reference's grenade** (owner's decision 6: it stays). Wall jump since sim 64 (1.4 / 2.8). Pummel on [R] timing (sim 63). Flash Step: no reappearance wind box (the push hit, E2, now exists to build it), explosion moves with the fighter; its special fall uses the shared drift and landing lag (not re-researched). Flip Kick: no consecutive kicks, no wall bounce. Up smash arm intangibility not modelled. Rapid jab cannot see presses in hitlag. Its get-up attack is the Claws' (angle 48 since sim 73, the reference's too). |
 | 3 Embers, tumbler body | Mario | **playable** (phases 1 and 2 done, sims 57 to 64) | `embers.rs` | Body, every normal and every special on [R] data (`docs/movesets/embers/`): the rising punch, the bouncing fireball, the cape (reverse, reflector with its detector, once-per-airtime lift), the water pump (charge, store, pushing pumps), and the wall jump. **Not verified**: the rising punch's rise is [E] (no published height; re-searched 2026-10-13), and a few readings are [E] (the cape's lift frame, a reflected shot's vertical reversal). **Owner decisions 2026-10-13 (sim 65)**: a full pump holds its stance until special or shield; the cape's reflector turns vertical speed round and the Claws' stays horizontal-only (meant to differ); jump pressed against a wall (stick neutral or toward it) also wall-jumps, for every wall-jumping body, without spending a midair jump. Up smash head intangibility not modelled (E19). One get-up attack slot (face up). Positions on non-root bones [E]. |
@@ -340,7 +340,7 @@ architectural changes (E4, E7, E9, E13, E17) are explained to the owner before t
 | E36 | A follow-up keeps the charge | **built (sim 91)**: `Move::keep_charge` (a move reached by `next` or `goto` keeps the charge) | Link (the forward smash's second hit) |
 | E37 | Up special and up smash out of a shield or a jump squat | **built (sim 91, owner decision 56, every fighter; the jump squat in sim 96, decision 62)**: in a shield, special with the stick up starts the grounded up special and attack with the stick (or the attack stick) up the up smash, at once; in a jump squat, special with the stick up or an up smash input pressed after the jump's own frame | everyone |
 | E39 | Random versions | **built (sim 113)**: `Move::versions` (chance, slot), drawn on the move's first frame from `GameState::rng` (`fighter::draw_version`) | Villager (the turnips) |
-| E40 | The previous reference version's hit rules | **built (sim 113, owner decisions 66-67)**: `Hitbox::rules`, the ruleset's `prev_*`, hashed `Fighter::launch_older`; damage, hitlag, rage, tumble hitstun, launch physics | Villager's jab (the Longsword's and others later on the owner's word) |
+| E40 | The previous reference version's hit rules | **built (sim 113, owner decisions 66-67)**: `Hitbox::rules`, the ruleset's `prev_*`, hashed `Fighter::launch_older`; damage, hitlag, rage, tumble hitstun, launch physics | Villager's jab; the Longsword's jab (sim 138, decision 98); others later on the owner's word |
 | E41 | Balloons | **built (sim 113)**: `Move::balloons`, hashed `Fighter::balloons` / `balloon_hp` / `helium_used`, `sim-core/src/balloons.rs`, the `balloons` register | Villager (and later any balloon-like flight) |
 | E42 | The pocket | **built (sim 115)**: `Move::pocket` / `unpocket`, `Tool::pocket`, `ItemSpec::pocketable`, hashed `Fighter::pocket` / `pocket_item`, `Projectile::stale`, `REST_POCKETED` / `ITEM_POCKETED`, the `pocketed` register | Villager's Pocket (and Isabelle's, if ever) |
 | E43 | Placed pieces | **built (sim 115)**: `ItemSpec::placed`, `Tool::water`, `Move::chops`, hashed `Item::water` / `grow_in` / `cuts`, `combat::fire`, `owns(kind)` | Villager's Timber |
@@ -657,6 +657,41 @@ Owner decisions 2026-10-14 (answering the Nodachi's phase 2 questions above, and
     Bracers, Buckler, Pockets and Popgun already halted or set their vertical speed; the Clutch keeps its published 0.8; the Dagger's
     aerial hook (an attack, not a recovery, with no special fall) is unchanged pending the owner (question below). Every up special that
     should leave its user helpless does; nothing lets the exile act after its up special but landing or a ledge (tested).
+
+Owner decision 2026-10-17 (built in sim 138, branch `longsword-jab`):
+
+98. **The Longsword's jab is the previous reference version's (1.1.x)** (decision 67 named it as a later candidate). The owner's account:
+    two hits that repeat, any action right after either, jab 2 the one that sends up and out, a slight pull on jab 1 that lets jab 2
+    combo. Built (`moves::longsword_older_jab`, tests `sim-core/tests/longsword_jab.rs`), on E40's `rules previous` for these hits only:
+    * **Data [R]** (ssbwiki.com `Marth_(SSB4)/Neutral_attack/Hit_1` and `/Hit_2`, raw, with the 1.1.4 changes; kuroganehammer.com
+      `Smash4/Marth` "[1.1.6]"; the two agree). Jab 1: frames 5-7, the blade (id 0) 3% at 78 degrees, the arm (id 1) 3% at 65, the
+      tip (id 3) 5% at 90, all BK 55, KS 30, hitlag x0.7 (the tip x1.25); earliest continuable frame 18; FAF 26. Jab 2: frames 3-5,
+      4% / 4% / 6% (tip) at 45 degrees, BK 62, KS 75, hitlag x0.7 / x1.25; FAF 29; the last hit (no continuable frame, no jab 3).
+    * **The pull**: the 1.1.x tables have none (the tip is 90 degrees). As for the Settler (decision 72), the tip takes 13.0.1's jab
+      1 tip pull (ssbwiki.com `Marth_(SSBU)/Neutral_attack/Hit_1`, id 2: 180 degrees, forward type, BK 30, KS 12 [R]) on 1.1.x's 5%
+      and rules. 13.0.1's id 2 is "fighters only" with a 361-degree twin for the rest; ours hits everything [E].
+    * **The cancel** (`Move::cancel_from`): jab 1 from its continuable frame 18 [R: the previous version's jab cancel opens there];
+      jab 2 from 16 [E: it has no continuable frame; 16 is 11 frames after its last active one, as 18 is after jab 1's 7]. A jab press
+      in either window starts the other hit, so the two repeat (jab 2 > jab 1 stands for the reference's crouch-cancel > jab 1).
+    * **Positions and radii [E]**: the sword kit's slash path at the longsword's reach plus an arm box (radii 7 / 8 / 6 tenths).
+    * **What it does** (the duelist, weight 90, and the rogue; follow-ups started on the first free frame, `print_the_jabs_frame_advantage_and_follow_ups`):
+      frame advantage after jab 1 (near) 11 frames at 0% to 17 at 150%. **Jab 1 > jab 2 is a true combo at 0-150%** on both. Out of
+      jab 1, true combos on the duelist: forward tilt, jump > neutral air, jump > forward air and the up special at 0-150%; up tilt at
+      40-110% (late below 40); down tilt at 0-20% (0-150% on the rogue); dash attack at 90-150%. The grab and the up smash miss the
+      popped-up foe. **Jab 2 is the launcher**: 18 frames of advantage at 0% to 48 at 150%, but the foe is up and out of reach of
+      every grounded follow-up (only a dash > jump > forward air catches it, at 0%), as the version's "no longer punishable on hit"
+      launcher. **At the tip** (3.5 ahead, only the tip reaches): the pull leaves 0-4 frames, so jab 2 reaches the foe at every
+      percent but is a true combo only at 90-150%.
+    * Engine tests that used the old placeholder jab as a generic weak hit now ask for it (`common::Sim::plain_jab`, used by
+      `Sim::duel` and three other tests); the kit's three old jab tests in `kits.rs` were replaced by `longsword_jab.rs`.
+
+Open for the owner from decision 98:
+
+1. **The tip pull against the late window**: 13.0.1's pull (BK 30, KS 12) was made for 13.0.1's jab 2 window (from frame 11); on
+   1.1.x's frame 18 it leaves only 0-4 frames, so tip > jab 2 combos only from 90%. Without the pull (pure 1.1.x, the tip at 90
+   degrees BK 55) the tip leaves 12-22 frames and tip > jab 2 combos at 0-20% on the duelist, 0-110% on the rogue (measured). Keep
+   the pull, or use the pure 1.1.x tip?
+2. **Jab 2's cancel frame** (16) is ours; the reference's jab 2 has no window. Keep it, or cancel only from its FAF (29)?
 
 Open for the owner from decision 97:
 

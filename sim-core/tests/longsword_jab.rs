@@ -1,6 +1,6 @@
 //! The Longsword's jab (sim 138, owner decision 98): the previous reference version's (1.1.x) two-hit jab on that version's hit rules
 //! (E40), with the jab cancel (`Move::cancel_from`) on both hits and 13.0.1's tip pull on jab 1. Data and sources in
-//! `docs/movesets/longsword/REFERENCE_DATA.md`. Like `older_rules.rs` for the Settler's: frame data, the hit properties, the cancel,
+//! `docs/movesets/ROSTER_STATUS.md` (decision 98) and the builder's comment (`moves::longsword_older_jab`). Like `older_rules.rs` for the Settler's: frame data, the hit properties, the cancel,
 //! jab 2 sending up and out, and what follows the jab as a true combo.
 
 mod common;

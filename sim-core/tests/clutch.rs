@@ -950,6 +950,7 @@ fn the_double_jump_drifts_1_2_times_the_stick_and_other_bodies_do_not() {
 /// reference's formula), each its own hit group, 1% each. Runs `ticks` ticks.
 fn struck(frame: u8, hits: &[(u8, i16)], ticks: usize) -> Sim {
     let mut sim = duel();
+    sim.plain_jab();
     let mut template = sim.content.weapons[0].moves[MoveId::Jab as usize].hitboxes[0];
     let mut mv = Move::empty();
     mv.total_frames = 60;

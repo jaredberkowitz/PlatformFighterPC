@@ -22,7 +22,12 @@ fn expected() -> Vec<(usize, MoveId, Vec<u8>)> {
     use MoveId::*;
     let all = |t: u8| vec![t];
     vec![
-        // Longsword (weapon 0).
+        // Longsword (weapon 0). Jab 1's tip is the 13.0.1 pull's forward type (sim 138, decision 98); its other boxes the default.
+        (
+            0,
+            Jab,
+            vec![F, F, ANGLE_BY_BOX, ANGLE_BY_BOX, ANGLE_BY_BOX, ANGLE_BY_BOX],
+        ),
         (0, UTilt, all(P)),
         (0, FSmash, all(F)),
         (0, USmash, all(P)),
@@ -225,7 +230,7 @@ fn the_older_movesets_carry_their_reference_angle_types() {
         }
         checked += 1;
     }
-    assert_eq!(checked, 145);
+    assert_eq!(checked, 146);
     // Every move not in the list keeps the default (boxes wholly in front, where it cannot change anything; and the moves whose
     // reference type is not built, like the claws' up special loop).
     for w in 0..5 {
