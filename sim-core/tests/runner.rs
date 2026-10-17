@@ -1024,7 +1024,11 @@ fn a_mob_launched_off_screen_is_a_kill_only_if_the_player_hit_it() {
     assert!(!sim.state.run.mobs[a].active && !sim.state.run.mobs[b].active);
     assert_eq!(sim.state.run.kos, 2, "both knocked out");
     assert_eq!(sim.state.run.kills, 1, "one the player's");
-    assert_eq!(sim.state.run.coins, u32::from(sim.rc.mobs[0].coins));
+    // (Out of the top: R2e's Skyward bonus on top of its coins.)
+    assert_eq!(
+        sim.state.run.coins,
+        u32::from(sim.rc.mobs[0].coins) + u32::from(sim.rc.rules.sky_bonus)
+    );
     // Not launched: a grunt standing high above the view is left alone.
     let mut sim = RunSim::with(quiet(), 1);
     sim.clear_mobs();
@@ -1558,6 +1562,32 @@ fn checksum_sees_every_run_field() {
         ("skipped_log", |r| r.skipped_log ^= 1 << 15),
         // R2e.
         ("slots.emerged_at", |r| r.slots[0].emerged_at += 1),
+        ("slots.skill_off", |r| r.slots[0].skill_off ^= true),
+        ("mob.air", |r| r.mobs[0].air ^= true),
+        ("mob.juggle", |r| r.mobs[0].juggle += 1),
+        ("mob.bowled", |r| r.mobs[0].bowled ^= 1 << 11),
+        ("planner.rng", |r| r.planner.rng = Rng::new(5)),
+        ("planner.count", |r| r.planner.count += 1),
+        ("planner.y", |r| r.planner.y += Fx::from_raw(1)),
+        ("plan.room", |r| r.plan[run::PLAN - 1].room ^= 1),
+        ("plan.mirror", |r| r.plan[0].mirror ^= true),
+        ("plan.live", |r| r.plan[0].live ^= true),
+        ("plan.decks", |r| r.plan[0].deck_out ^= 1),
+        ("plan.seq", |r| r.plan[0].seq += 1),
+        ("forked", |r| r.forked ^= true),
+        ("roads", |r| r.roads[1].room ^= 1),
+        ("branch_planner", |r| r.branch_planner[1].count += 1),
+        ("branch_plan", |r| r.branch_plan[1][run::PLAN - 1].seq += 1),
+        ("reach_jump", |r| r.reach_jump.x += Fx::from_raw(1)),
+        ("reach_recovery", |r| r.reach_recovery.y += Fx::from_raw(1)),
+        ("callout", |r| r.callout += 1),
+        ("callouts", |r| r.callouts += 1),
+        ("callout_at", |r| r.callout_at.x += Fx::from_raw(1)),
+        ("callout_coins", |r| r.callout_coins += 1),
+        ("sky_kos", |r| r.sky_kos += 1),
+        ("spike_kos", |r| r.spike_kos += 1),
+        ("bowls", |r| r.bowls += 1),
+        ("air_kos", |r| r.air_kos += 1),
     ];
     for (name, edit) in edits {
         let mut s = base;
@@ -1604,6 +1634,36 @@ fn versus_has_no_run_and_run_content_hashes() {
         ("emerge_gap", {
             let mut o = rc.clone();
             o.rules.emerge_gap += 1;
+            o
+        }),
+        ("recovery", {
+            let mut o = rc.clone();
+            o.rooms[1].recovery ^= 1;
+            o
+        }),
+        ("skilled coin", {
+            let mut o = rc.clone();
+            o.rooms[1].coins[0].skilled ^= true;
+            o
+        }),
+        ("buildings", {
+            let mut o = rc.clone();
+            o.rooms[1].buildings[0].top += Fx::ONE;
+            o
+        }),
+        ("R2e rules", {
+            let mut o = rc.clone();
+            o.rules.bowl_speed += Fx::ONE;
+            o
+        }),
+        ("map_ahead", {
+            let mut o = rc.clone();
+            o.rules.map_ahead += 1;
+            o
+        }),
+        ("perch", {
+            let mut o = rc.clone();
+            o.mobs[0].perch ^= 1;
             o
         }),
         ("piece", {
@@ -3967,4 +4027,359 @@ fn a_recovery_route_is_offered_only_to_who_can_make_it() {
     // The reaches are the run's, worked out once as it starts.
     let sim = RunSim::with_char(RunContent::placeholder(), 1, 0);
     assert!(sim.state.run.reach_recovery.y > sim.state.run.reach_jump.y);
+}
+
+/// Holds grunt `n` in the air at `at`, still (as if juggled): off the ground, in no state of its own.
+fn hang(sim: &mut RunSim, n: usize, at: Vec2) {
+    let g = sim.g_mut(n);
+    g.pos = at;
+    g.vel = Vec2::ZERO;
+    g.kb_vel = Vec2::ZERO;
+    g.platform = NONE;
+    g.state = S::Airborne;
+    g.hitstun = 0;
+    g.hitlag = 0;
+}
+
+/// A hit landed on grunt `n` this frame (its percent rises by 5, as a hit's damage does: the run counts hits by that rise).
+fn hit(sim: &mut RunSim, n: usize) {
+    sim.g_mut(n).percent += fx(5);
+}
+
+/// R2e (F3), the juggle: a hit on a grunt in the air counts double toward the combo (a real jab on a grunt held at the player's
+/// chest, against one standing), and a grunt knocked out after hits kept off the ground pays its coins times the juggle, called out.
+#[test]
+fn air_hits_count_double_and_a_juggle_pays_more() {
+    // A jab on the ground: one; the same jab on a grunt in the air: two.
+    for air in [false, true] {
+        let mut sim = open_street(quiet(), 4);
+        sim.state.fighters[PLAYER].facing = 1;
+        let at = sim.player().pos + Vec2::new(Fx::from_ratio(12, 10), Fx::ZERO);
+        let n = grunt(&mut sim, KIND_BRAWLER, at, 0);
+        sim.hold(n);
+        sim.state.run.combo = 0;
+        let mut frames = 0;
+        sim.tick(inp(0, 0, ATTACK));
+        while sim.state.run.combo == 0 && frames < 20 {
+            if air {
+                hang(&mut sim, n, at + Vec2::new(Fx::ZERO, Fx::HALF));
+                sim.state.run.mobs[n].air = true;
+            }
+            sim.tick(Input::default());
+            frames += 1;
+        }
+        assert_eq!(sim.state.run.combo, if air { 2 } else { 1 }, "air {air}");
+    }
+    // A juggle: launched (a hit on the ground), then two hits in the air; knocked out off the side: coins times three, "AIR".
+    let mut sim = open_street(quiet(), 0);
+    let at = Vec2::new(fx(20), Fx::ZERO);
+    let n = grunt(&mut sim, KIND_BRAWLER, at, 0);
+    sim.hold(n);
+    hit(&mut sim, n);
+    sim.tick(Input::default());
+    assert_eq!(sim.state.run.mobs[n].juggle, 1, "the launcher");
+    for k in 0..2 {
+        hang(&mut sim, n, at + Vec2::new(Fx::ZERO, fx(3)));
+        sim.tick(Input::default());
+        assert!(sim.state.run.mobs[n].air);
+        hit(&mut sim, n);
+        hang(&mut sim, n, at + Vec2::new(Fx::ZERO, fx(3)));
+        sim.tick(Input::default());
+        assert_eq!(sim.state.run.mobs[n].juggle, 2 + k, "kept off the ground");
+    }
+    // (Landing ends a juggle: checked on a second grunt.)
+    let m = grunt(&mut sim, KIND_BRAWLER, Vec2::new(fx(24), Fx::ZERO), 0);
+    sim.hold(m);
+    sim.state.run.mobs[m].juggle = 2;
+    sim.tick(Input::default());
+    assert_eq!(
+        sim.state.run.mobs[m].juggle, 0,
+        "on its feet: the juggle is over"
+    );
+    run::remove_grunt(&mut sim.state, &sim.world, m);
+    let (_, right, _, _) = run::grunt_zone(&sim.state.run, &sim.rc.rules);
+    let before = sim.state.run.coins;
+    let combo = sim.state.run.combo;
+    {
+        let g = sim.g_mut(n);
+        g.pos = Vec2::new(right + Fx::ONE, fx(4));
+        g.state = S::Hitstun;
+        g.hitstun = 40;
+        g.kb_vel = Vec2::new(Fx::ONE, Fx::ZERO);
+    }
+    sim.state.run.mobs[n].credit = 30;
+    sim.tick(Input::default());
+    let r = sim.rc.rules;
+    let mult = (1 + u32::from((combo + 1) / r.combo_step)).min(u32::from(r.combo_max));
+    let kind = &sim.rc.mobs[usize::from(KIND_BRAWLER)];
+    assert_eq!(
+        sim.state.run.coins - before,
+        u32::from(kind.coins) * 3 * mult,
+        "coins times the juggle"
+    );
+    assert_eq!(sim.state.run.callout, run::CALL_AIR);
+    assert_eq!(sim.state.run.air_kos, 1);
+}
+
+/// R2e (F3), direction bonuses: a launched grunt out of the top pays `sky_bonus` ("Skyward"), one spiked out of the bottom
+/// `spike_bonus` ("Grounded"), one out of a side nothing more.
+#[test]
+fn skyward_and_grounded_knock_outs_pay_their_bonus() {
+    let r = RunContent::placeholder().rules;
+    for (side, call, bonus) in [
+        (0, run::CALL_SKY, r.sky_bonus),
+        (1, run::CALL_SPIKE, r.spike_bonus),
+        (2, run::CALL_NONE, 0),
+    ] {
+        let mut sim = open_street(quiet(), 0);
+        sim.idle(2);
+        let n = grunt(&mut sim, KIND_BRAWLER, Vec2::new(fx(20), Fx::ZERO), 0);
+        sim.hold(n);
+        let (_, right, bottom, top) = run::grunt_zone(&sim.state.run, &sim.rc.rules);
+        let (at, kb) = match side {
+            0 => (Vec2::new(fx(20), top + Fx::ONE), Vec2::new(Fx::ZERO, fx(2))),
+            1 => (
+                Vec2::new(fx(20), bottom - Fx::ONE),
+                Vec2::new(Fx::ZERO, -fx(2)),
+            ),
+            _ => (
+                Vec2::new(right + Fx::ONE, fx(4)),
+                Vec2::new(fx(2), Fx::ZERO),
+            ),
+        };
+        {
+            let g = sim.g_mut(n);
+            g.pos = at;
+            g.platform = NONE;
+            g.state = S::Hitstun;
+            g.hitstun = 40;
+            g.vel = Vec2::ZERO;
+            g.kb_vel = kb;
+        }
+        sim.state.run.mobs[n].credit = 30;
+        sim.state.run.combo = 0;
+        let before = sim.state.run.coins;
+        sim.tick(Input::default());
+        assert!(!sim.state.run.mobs[n].active, "knocked out ({side})");
+        let kind = &sim.rc.mobs[usize::from(KIND_BRAWLER)];
+        assert_eq!(
+            sim.state.run.coins - before,
+            u32::from(kind.coins) + u32::from(bonus),
+            "side {side}"
+        );
+        assert_eq!(sim.state.run.callout, call, "side {side}");
+        assert_eq!(sim.state.run.sky_kos, u16::from(side == 0));
+        assert_eq!(sim.state.run.spike_kos, u16::from(side == 1));
+    }
+}
+
+/// R2e (F3), bowling: a grunt launched in tumble that flies into another hurts it through the versus hit, credited to the player
+/// (its combo, its kill), called out; each grunt once a launch, and the one bowled does not bowl straight back into it.
+#[test]
+fn a_launched_grunt_bowls_into_another_once_a_launch() {
+    let mut sim = open_street(quiet(), 0);
+    let a = grunt(&mut sim, KIND_BRAWLER, Vec2::new(fx(20), Fx::ZERO), 0);
+    let b = grunt(&mut sim, KIND_BRAWLER, Vec2::new(fx(22), Fx::ZERO), 0);
+    sim.hold(a);
+    sim.hold(b);
+    {
+        let g = sim.g_mut(a);
+        g.pos = Vec2::new(fx(21), Fx::ONE);
+        g.platform = NONE;
+        g.state = S::Hitstun;
+        g.tumble = true;
+        g.hitstun = 60;
+        g.vel = Vec2::ZERO;
+        g.kb_vel = Vec2::new(fx(1), Fx::ZERO);
+    }
+    sim.state.run.mobs[a].credit = 60;
+    sim.state.run.mobs[b].credit = 0;
+    let combo = sim.state.run.combo;
+    sim.tick(Input::default());
+    assert_eq!(sim.state.run.bowls, 1, "bowled");
+    assert!(sim.g(b).percent > Fx::ZERO, "it hurt");
+    assert!(sim.state.run.mobs[b].credit > 0, "the player's");
+    assert_eq!(sim.state.run.callout, run::CALL_BOWL);
+    assert_ne!(sim.state.run.mobs[a].bowled & 1 << b, 0);
+    // Once a launch: overlapping again, it does not hit again while the launch lasts.
+    for _ in 0..10 {
+        if !sim.state.run.mobs[a].active || !sim.state.run.mobs[b].active {
+            break;
+        }
+        let pa = sim.g(a).pos;
+        sim.g_mut(b).pos = pa;
+        sim.tick(Input::default());
+    }
+    assert_eq!(sim.state.run.bowls, 1, "once a launch");
+    sim.tick(Input::default());
+    assert!(
+        sim.state.run.combo > combo,
+        "the bowl counted toward the combo"
+    );
+    // A grunt not in a launch bowls nothing.
+    let mut sim = open_street(quiet(), 0);
+    let a = grunt(&mut sim, KIND_BRAWLER, Vec2::new(fx(20), Fx::ZERO), 0);
+    let b = grunt(&mut sim, KIND_BRAWLER, Vec2::new(fx(20), Fx::ZERO), 0);
+    sim.hold(a);
+    sim.hold(b);
+    sim.state.run.mobs[a].credit = 60;
+    sim.idle(5);
+    assert_eq!(sim.state.run.bowls, 0);
+    assert_eq!(sim.state.run.mobs[a].bowled, 0);
+}
+
+/// R2e (F3), grunts placed by height: with the existing placement rules and budget, leapers come far more often on catwalks,
+/// girders, balconies, fire escapes and scaffolds (where they perch to dive) than their share elsewhere, lobbers on cranes and water
+/// towers; in the rooms that climb or drop, a good share of the grunts stand above the floor the room is entered on; and leapers and
+/// lobbers notice the player further up or down than the others.
+#[test]
+fn grunts_are_placed_by_height() {
+    let rc = RunContent::placeholder();
+    let leaper = &rc.mobs[usize::from(run::data::KIND_LEAPER)];
+    let lobber = &rc.mobs[usize::from(KIND_LOBBER)];
+    assert!(leaper.aggro_y > rc.mobs[0].aggro_y && lobber.aggro_y > rc.mobs[0].aggro_y);
+    // (Counts by spot: [leapers, all] on a leaper's perch and elsewhere; [lobbers, all] on a lobber's perch and elsewhere.)
+    let mut leap = [[0u32; 2]; 2];
+    let mut lob = [[0u32; 2]; 2];
+    let (mut high, mut vertical) = (0u32, 0u32);
+    for seed in 0..40u64 {
+        let mut sim = RunSim::with(rc.clone(), seed);
+        for step in 0..40u64 {
+            sim.clear_mobs();
+            sim.take_road(((seed + step) % 2) as usize);
+            for s in sim.state.run.slots.iter().filter(|s| s.live) {
+                let room = &sim.rc.rooms[usize::from(s.room)];
+                let mut feet = Vec::new();
+                run::for_each_footing(&sim.rc, s, |p| feet.push(p));
+                for (j, spot) in room.spawns.iter().enumerate() {
+                    let k = s.kinds[j];
+                    if k == SPOT_ANY {
+                        continue;
+                    }
+                    let x = if s.mirror {
+                        s.x + room.width - spot.x
+                    } else {
+                        s.x + spot.x
+                    };
+                    let y = if s.mirror {
+                        s.y + spot.y - room.exit_y
+                    } else {
+                        s.y + spot.y
+                    };
+                    let Some(foot) = feet
+                        .iter()
+                        .filter(|p| {
+                            x >= p.platform.left
+                                && x <= p.platform.right
+                                && (p.platform.top_at(x) - y).abs() <= Fx::HALF
+                        })
+                        .max_by_key(|p| p.platform.top_at(x))
+                    else {
+                        continue;
+                    };
+                    let bit = 1u64 << foot.look;
+                    let on_leap = usize::from(leaper.perch & bit != 0);
+                    leap[on_leap][1] += 1;
+                    leap[on_leap][0] += u32::from(k == run::data::KIND_LEAPER);
+                    if s.tier >= lobber.min_tier {
+                        let on_lob = usize::from(lobber.perch & bit != 0);
+                        lob[on_lob][1] += 1;
+                        lob[on_lob][0] += u32::from(k == KIND_LOBBER);
+                    }
+                    if s.vertical() {
+                        vertical += 1;
+                        high += u32::from(y >= s.y.min(s.y_end) + rc.rules.high_ground);
+                    }
+                }
+            }
+        }
+    }
+    println!("leapers {leap:?}, lobbers {lob:?}, vertical rooms: {high} of {vertical} high");
+    // (Share on perches above one and a half times the share elsewhere: a[0]/a[1] > 1.5 b[0]/b[1], in whole numbers.)
+    let more = |a: [u32; 2], b: [u32; 2]| 2 * a[0] * b[1].max(1) > 3 * b[0] * a[1].max(1);
+    assert!(more(leap[1], leap[0]), "leapers perch: {leap:?}");
+    assert!(
+        lob[1][1] > 0 && more(lob[1], lob[0]),
+        "lobbers on cranes: {lob:?}"
+    );
+    assert!(
+        vertical > 50 && high * 3 >= vertical,
+        "fights span heights in vertical rooms: {high} of {vertical}"
+    );
+}
+
+/// R2e (F4), the map is truthful: over many seeds and both roads at every branching fork, every room the map shows ahead (laid or
+/// only planned, on the main line, a fork's roads and the line after each) comes exactly as shown: the room, its mirror and its
+/// number; the map reaches `map_ahead` rooms ahead, both branches of a fork with it; deck forks and road forks both appear.
+#[test]
+fn the_planned_map_matches_the_rooms_that_come() {
+    let rc = RunContent::placeholder();
+    let h = usize::from(rc.rules.map_ahead);
+    let (mut checked, mut forks_seen, mut deck_forks_seen) = (0u32, 0u32, 0u32);
+    for seed in 0..30u64 {
+        let mut sim = RunSim::with(rc.clone(), seed);
+        for step in 0..40u64 {
+            let before = run::map_ahead(&sim.state.run);
+            assert!(
+                before.iter().any(|n| usize::from(n.depth) >= h.min(2)),
+                "seed {seed}: the map reaches ahead: {before:?}"
+            );
+            let lines: Vec<u8> = before.iter().map(|n| n.line).collect();
+            if lines.contains(&1) && lines.contains(&2) {
+                forks_seen += 1;
+                let roads: Vec<&run::MapNode> = before.iter().filter(|n| n.line > 0).collect();
+                let deck = |l: u8| {
+                    roads
+                        .iter()
+                        .filter(|n| n.line == l)
+                        .map(|n| n.deck_out)
+                        .next()
+                };
+                if deck(1) != deck(2) {
+                    deck_forks_seen += 1;
+                }
+            }
+            let k = ((seed * 7 + step) % 2) as usize;
+            let fork_here = before.iter().any(|n| n.depth == 1 && n.line > 0);
+            sim.clear_mobs();
+            sim.take_road(k);
+            let entered = here(&sim);
+            let want_line = if fork_here { k as u8 + 1 } else { 0 };
+            let first = before
+                .iter()
+                .find(|n| n.depth == 1 && n.line == want_line)
+                .expect("the next room was on the map");
+            assert_eq!(
+                (first.seq, first.room, first.mirror),
+                (entered.seq, entered.room, entered.mirror),
+                "seed {seed} step {step}: the room entered is the one shown"
+            );
+            let after = run::map_ahead(&sim.state.run);
+            for n in before.iter().filter(|n| n.depth >= 2) {
+                let line = if fork_here {
+                    if n.line != k as u8 + 1 {
+                        continue;
+                    }
+                    0
+                } else {
+                    n.line
+                };
+                let found = after
+                    .iter()
+                    .find(|m| m.seq == n.seq && m.depth + 1 == n.depth && m.line == line);
+                let m = found.unwrap_or_else(|| {
+                    panic!("seed {seed} step {step}: room {} ({}) left the map: {before:?} then {after:?}", n.seq, n.room)
+                });
+                assert_eq!(
+                    (m.room, m.mirror),
+                    (n.room, n.mirror),
+                    "seed {seed} step {step}: room {} changed",
+                    n.seq
+                );
+                checked += 1;
+            }
+        }
+    }
+    println!("{checked} rooms checked ahead, {forks_seen} forks on the map, {deck_forks_seen} of them deck forks");
+    assert!(checked > 1500 && forks_seen > 30 && deck_forks_seen > 5);
 }

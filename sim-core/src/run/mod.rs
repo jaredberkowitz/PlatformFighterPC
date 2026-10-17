@@ -1372,6 +1372,7 @@ pub fn step_run(
     all[..MAX_FIGHTERS].copy_from_slice(inputs);
     crate::step::step_bodies(state, world, &all);
     mobs::after_step(state, world, rc);
+    mobs::bowl(state, world, rc);
     mobs::van(state, world, rc);
     props::update(state, world, rc);
     enter_rooms(state, world, rc);
@@ -1952,6 +1953,7 @@ pub fn map_ahead(run: &Run) -> Vec<MapNode> {
     if let Some((high, low)) = run.branches() {
         out.push(node(1, 1, &of_slot(&high), true));
         out.push(node(1, 2, &of_slot(&low), true));
+        depth = 1;
     } else {
         let (ahead, n) = run.ahead();
         for s in &ahead[..n] {
@@ -2206,7 +2208,11 @@ pub fn assign_kinds(run: &mut Run, rc: &RunContent, slot: &RoomSlot) -> [u8; ROO
     };
     let rules = &rc.rules;
     let mut feet: Vec<Platform> = Vec::new();
-    for_each_footing(rc, slot, |p| feet.push(p.platform));
+    let mut looks: Vec<u8> = Vec::new();
+    for_each_footing(rc, slot, |p| {
+        feet.push(p.platform);
+        looks.push(p.look);
+    });
     let lowest = feet
         .iter()
         .filter(|p| !p.pass_through)
@@ -2269,6 +2275,18 @@ pub fn assign_kinds(run: &mut Run, rc: &RunContent, slot: &RoomSlot) -> [u8; ROO
         count += 1;
     }
     let mut alone_on = 0u32;
+    // (R2e, F3: a kind is placed more often on the footing it perches on: leapers on catwalks, lobbers on cranes.)
+    let odds = |k: usize, si: usize| {
+        let m = &rc.mobs[k];
+        let look = looks.get(si).copied().unwrap_or(0);
+        let perched = look < 64 && m.perch & (1u64 << look) != 0;
+        u32::from(m.odds)
+            * if perched {
+                u32::from(m.perch_odds.max(1))
+            } else {
+                1
+            }
+    };
     let fits =
         |k: usize, budget: i32, (_, si, high, flat): (usize, usize, bool, bool), alone_on: u32| {
             let m = &rc.mobs[k];
@@ -2285,7 +2303,7 @@ pub fn assign_kinds(run: &mut Run, rc: &RunContent, slot: &RoomSlot) -> [u8; ROO
     for &spot in &spots[..count] {
         let total: u32 = (0..rc.mobs.len())
             .filter(|&k| fits(k, budget, spot, alone_on))
-            .map(|k| u32::from(rc.mobs[k].odds))
+            .map(|k| odds(k, spot.1))
             .sum();
         if total == 0 {
             continue;
@@ -2295,7 +2313,7 @@ pub fn assign_kinds(run: &mut Run, rc: &RunContent, slot: &RoomSlot) -> [u8; ROO
             if !fits(k, budget, spot, alone_on) {
                 continue;
             }
-            let w = u32::from(rc.mobs[k].odds);
+            let w = odds(k, spot.1);
             if roll < w {
                 let m = &rc.mobs[k];
                 kinds[spot.0] = k as u8;
@@ -2883,14 +2901,23 @@ fn count_combo(run: &mut Run) {
     run.best_combo = run.best_combo.max(run.combo);
 }
 
-/// A kill: the coins (times the combo multiplier, counted with this kill) and the tally.
-fn pay_kill(run: &mut Run, rc: &RunContent, kind: u8) {
+/// A kill: the coins and the tally. R2e (F3): the kind's coins times `air` (a juggle kept off the ground), plus `bonus` (a direction
+/// bonus), all times the combo multiplier (counted with this kill). Returns the coins paid.
+fn pay_kill(run: &mut Run, rc: &RunContent, kind: u8, air: u32, bonus: u32) -> u32 {
     count_combo(run);
     run.kills = run.kills.saturating_add(1);
     let coins = rc.mobs.get(usize::from(kind)).map_or(0, |k| k.coins);
-    run.coins = run
-        .coins
-        .saturating_add(u32::from(coins) * run.multiplier(&rc.rules));
+    let paid = (u32::from(coins) * air.max(1) + bonus) * run.multiplier(&rc.rules);
+    run.coins = run.coins.saturating_add(paid);
+    paid
+}
+
+/// Calls out a bonus (R2e: the HUD shows each once, by `Run::callouts`).
+fn call_out(run: &mut Run, what: u8, at: Vec2, coins: u32) {
+    run.callout = what;
+    run.callouts = run.callouts.wrapping_add(1);
+    run.callout_at = at;
+    run.callout_coins = coins.min(u32::from(u16::MAX)) as u16;
 }
 
 // ---- The shop -------------------------------------------------------------------------------------------------------------------
