@@ -21,6 +21,7 @@ const MatchHud := preload("res://ui/match_hud.gd")
 const Results := preload("res://ui/results.gd")
 const VisualSettings := preload("res://scripts/visual_settings.gd")
 const Replays := preload("res://scripts/replays.gd")
+const PauseMenu := preload("res://ui/pause_menu.gd")
 const PadNav := preload("res://scripts/pad_nav.gd")
 const Sfx := preload("res://scripts/sfx.gd")
 
@@ -347,6 +348,125 @@ func _start_countdown() -> void:
 		countdown = 3.0
 
 
+# ---- The pause screen (ui/pause_menu.gd) --------------------------------------------------------------------------------
+# Esc, or a controller's Start, opens it during a match (a local one stops; online the match runs on). It takes every key while it
+# is open, so nothing reaches the fighters or the training keys.
+
+var pause_menu: CanvasLayer = null
+## The free camera's offset from where it was when the camera was picked, and that place.
+var pause_cam := Vector3.ZERO
+var pause_cam_base := Vector3.ZERO
+var hud_hidden := false
+
+
+func _input(event: InputEvent) -> void:
+	if not (event is InputEventKey) or not event.pressed or event.echo:
+		return
+	if pause_menu != null:
+		pause_menu.handle_key(event)
+		get_viewport().set_input_as_handled()
+		return
+	if event.keycode == KEY_ESCAPE and _can_pause():
+		_open_pause()
+		get_viewport().set_input_as_handled()
+
+
+## A match is on screen and playing: not over, not a replay, a demo or a screenshot run.
+func _can_pause() -> bool:
+	return warmed and results == null and not replay_mode and demo == null and shot_wait == ""
+
+
+func _open_pause() -> void:
+	var local := _local_match()
+	var choices: Array
+	if local:
+		choices = [["Resume", "resume"], ["Restart", "restart"], ["Camera", "camera"],
+			["Show display" if hud_hidden else "Hide display", "hud"], ["Quit", "quit"]]
+		paused = true
+	else:
+		choices = [["Resume", "resume"], ["Show display" if hud_hidden else "Hide display", "hud"], ["Leave match", "quit"]]
+	pause_menu = PauseMenu.new()
+	add_child(pause_menu)
+	pause_menu.build(choices, not local, "PAUSED" if local else "MENU")
+	pause_menu.chosen.connect(_on_pause_choice)
+	sfx.play("blip", 0.9)
+
+
+func _close_pause() -> void:
+	if pause_menu == null:
+		return
+	pause_menu.queue_free()
+	pause_menu = null
+	pause_cam = Vector3.ZERO
+	if _local_match():
+		paused = false
+
+
+func _on_pause_choice(action: String) -> void:
+	match action:
+		"resume":
+			_close_pause()
+		"restart":
+			_close_pause()
+			_restart()
+		"camera":
+			pause_cam = Vector3.ZERO
+			pause_cam_base = cam.position
+			pause_menu.set_camera_mode(true)
+		"camera_done":
+			pause_cam = Vector3.ZERO
+			pause_menu.set_camera_mode(false)
+		"hud":
+			hud_hidden = not hud_hidden
+			_show_display(not hud_hidden)
+			_close_pause()
+		"quit":
+			_close_pause()
+			_quit_match()
+
+
+## Shows or hides the match display (the run's too).
+func _show_display(on: bool) -> void:
+	if hud != null:
+		hud.visible = on
+	var extra = get("run_hud")
+	if extra != null:
+		extra.visible = on
+
+
+## The free camera of the pause screen: the arrow keys or a stick move it, W and S (or the triggers) zoom.
+func _pause_camera(delta: float) -> void:
+	if pause_menu == null or not pause_menu.camera_mode or cam == null:
+		return
+	var move := Vector3.ZERO
+	move.x = Input.get_axis("ui_left", "ui_right")
+	move.y = Input.get_axis("ui_down", "ui_up")
+	if Input.is_key_pressed(KEY_W):
+		move.z -= 1.0
+	if Input.is_key_pressed(KEY_S):
+		move.z += 1.0
+	for pad in Input.get_connected_joypads():
+		var sx := Input.get_joy_axis(pad, JOY_AXIS_LEFT_X)
+		var sy := Input.get_joy_axis(pad, JOY_AXIS_LEFT_Y)
+		if absf(sx) > 0.2:
+			move.x += sx
+		if absf(sy) > 0.2:
+			move.y -= sy
+		move.z += Input.get_joy_axis(pad, JOY_AXIS_TRIGGER_RIGHT) - Input.get_joy_axis(pad, JOY_AXIS_TRIGGER_LEFT)
+	pause_cam += Vector3(move.x * 12.0, move.y * 12.0, move.z * 20.0) * delta
+	pause_cam = pause_cam.clamp(Vector3(-25, -15, -pause_cam_base.z + 6.0), Vector3(25, 15, 40))
+	cam.position = pause_cam_base + pause_cam
+
+
+## Leaving a match from the pause screen: back to where it came from (the online screen or character select), or, launched
+## directly, quitting. (The run overrides it.)
+func _quit_match() -> void:
+	if Roster.session.get("from_menu", false):
+		_leave_to("online" if (net_mode or spectate_mode or group_mode or quick_mode) else "select")
+	else:
+		get_tree().quit()
+
+
 ## True when this machine alone decides when the match runs (not online, a replay or watching), so it may pause or slow it.
 func _local_match() -> bool:
 	return not (net_mode or group_mode or spectate_mode or replay_mode or quick_mode)
@@ -653,10 +773,15 @@ func _apply_scales() -> void:
 ## One frame of networked play: read the local keyboard, let the rollback session simulate (or wait), then draw.
 ## A controller plays during a match, so it only navigates on the results screen and when watching a replay.
 func pad_scheme(_pad: int) -> Dictionary:
+	# The pause screen: the controller steers it like a menu (Start or B resumes); during play Start opens it.
+	if pause_menu != null:
+		return {"up": KEY_UP, "down": KEY_DOWN, "confirm": KEY_ENTER, "back": KEY_ESCAPE, "start": KEY_ESCAPE}
 	if replay_mode:
 		return {"up": KEY_UP, "down": KEY_DOWN, "left": KEY_LEFT, "right": KEY_RIGHT, "confirm": KEY_SPACE, "back": KEY_ESCAPE, "start": KEY_SPACE, "menu": KEY_ESCAPE}
 	if results != null:
 		return PadNav.DEFAULT
+	if _can_pause():
+		return {"start": KEY_ESCAPE}
 	return {}
 
 
@@ -1104,6 +1229,7 @@ func _alpha() -> float:
 func _process(delta: float) -> void:
 	var t0 := Time.get_ticks_usec()
 	_process_inner(delta)
+	_pause_camera(delta)
 	if perf and warmed:
 		perf_frame += float(Time.get_ticks_usec() - t0) / 1000.0
 
