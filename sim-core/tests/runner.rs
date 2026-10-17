@@ -158,8 +158,8 @@ impl RunSim {
             slot.y
         );
         let kind = self.rc.rooms[usize::from(slot.room)].kind;
-        // (With every grunt slot taken, an arena's last grunts come out as slots free up: cleared again until it opens.)
-        for _ in 0..8 {
+        // (An arena's grunts come out in waves, the tier's cap at a time and a stagger apart (R2e): cleared again until it opens.)
+        for _ in 0..2000 {
             if !self.state.run.gate_closed {
                 break;
             }
@@ -169,6 +169,14 @@ impl RunSim {
         assert!(!self.state.run.gate_closed, "cleared");
         kind
     }
+}
+
+/// No cap on grunts alive and no stagger between doorways (R2e's note A off), for tests about something else.
+fn uncap(rc: &mut RunContent) {
+    for t in rc.tiers.iter_mut() {
+        t.cap = MAX_MOBS as u8;
+    }
+    rc.rules.emerge_gap = 0;
 }
 
 /// The built-in rooms with no mobs in the streets, no arenas (so walking on never locks), no rare events and no props.
@@ -496,7 +504,10 @@ fn leaving_the_screen_costs_a_life_and_the_last_life_ends_the_run() {
 /// then the gate opens and the arena pays its bonus.
 #[test]
 fn an_arena_locks_until_its_mobs_are_beaten() {
-    let mut sim = RunSim::with(only(&["yard", "shop"], (0, 1, 0)), 4);
+    // (All its grunts out at once: no cap and no stagger here; the waves have their own test.)
+    let mut rc = only(&["yard", "shop"], (0, 1, 0));
+    uncap(&mut rc);
+    let mut sim = RunSim::with(rc, 4);
     let slot = *sim.state.run.slot_of(1).unwrap();
     let arena = &sim.rc.rooms[usize::from(slot.room)];
     assert_eq!(arena.kind, ROOM_ARENA);
@@ -1531,6 +1542,8 @@ fn checksum_sees_every_run_field() {
         ("van.riding", |r| r.van.riding ^= true),
         ("van.hits", |r| r.van.hits += 1),
         ("skipped_log", |r| r.skipped_log ^= 1 << 15),
+        // R2e.
+        ("slots.emerged_at", |r| r.slots[0].emerged_at += 1),
     ];
     for (name, edit) in edits {
         let mut s = base;
@@ -1567,6 +1580,16 @@ fn versus_has_no_run_and_run_content_hashes() {
         ("price", {
             let mut o = rc.clone();
             o.items[0].price += 1;
+            o
+        }),
+        ("tier cap", {
+            let mut o = rc.clone();
+            o.tiers[0].cap += 1;
+            o
+        }),
+        ("emerge_gap", {
+            let mut o = rc.clone();
+            o.rules.emerge_gap += 1;
             o
         }),
         ("piece", {
@@ -1877,6 +1900,7 @@ fn a_fork_works_with_the_window_and_the_gate() {
     let mut rc = only(&["fork", "yard", "shop"], (1, 1, 0));
     rc.rules.fork_chance = 100;
     rc.rules.arena_weight = 50;
+    uncap(&mut rc);
     let mut sim = RunSim::with(rc, 5);
     let mut forks = 0;
     let mut gated_after_fork = false;
@@ -3646,4 +3670,167 @@ fn a_run_through_the_decks_replays() {
     let (b, _) = play(&rc);
     assert_eq!(a, b);
     assert!(vertical >= 2, "through {vertical} climbs and drops");
+}
+
+// ---- R2e, the owner's note A: a small cap on grunts at once, rising with the tier; a stagger between doorways ------------------
+
+fn alive(sim: &RunSim) -> usize {
+    sim.state.run.mobs.iter().filter(|m| m.active).count()
+}
+
+/// The cap per tier is data (tier 1 two, tier 2 three, then one more a tier), and over many seeds and rooms the grunts alive never
+/// pass the current tier's cap, which is reached.
+#[test]
+fn the_grunts_alive_never_pass_the_tiers_cap() {
+    let rc = RunContent::placeholder();
+    let caps: Vec<u8> = rc.tiers.iter().map(|t| t.cap).collect();
+    assert_eq!(caps, [2, 3, 4, 5, 6]);
+    assert!(caps.iter().all(|&c| usize::from(c) <= MAX_MOBS));
+    let mut reached = [false; 5];
+    for seed in 0..6u64 {
+        let mut sim = RunSim::new(seed);
+        for _ in 0..30 {
+            for _ in 0..90 {
+                sim.state.fighters[PLAYER].invuln = 5;
+                sim.tick(Input::default());
+                let tier = usize::from(run::tier_of(&sim.rc, sim.state.run.room));
+                let cap = usize::from(sim.rc.tiers[tier].cap);
+                assert!(
+                    alive(&sim) <= cap,
+                    "seed {seed}: {} alive, cap {cap}",
+                    alive(&sim)
+                );
+                reached[tier] |= alive(&sim) == cap;
+            }
+            sim.next_room();
+        }
+    }
+    assert!(reached[0] && reached[1], "the cap is reached: {reached:?}");
+}
+
+/// Grunts come out of doors one at a time in a room, `emerge_gap` frames apart at least; and a spot past the cap waits its turn,
+/// coming out once a grunt is beaten.
+#[test]
+fn spots_wait_their_turn_and_doorways_are_staggered() {
+    let rc = RunContent::placeholder();
+    let gap = u32::from(rc.rules.emerge_gap);
+    assert!(gap >= 50, "about a second between two doorways");
+    let mut stagger_seen = 0;
+    for seed in 0..8u64 {
+        let mut sim = RunSim::new(seed);
+        let emerge = u32::from(rc.rules.emerge_frames);
+        // (Each grunt's own frame of coming out: its emergence's timer tells how long ago.)
+        let mut out: Vec<(usize, u32, u32)> = Vec::new();
+        for _ in 0..12 {
+            for _ in 0..120 {
+                sim.state.fighters[PLAYER].invuln = 5;
+                sim.tick(Input::default());
+                for n in 0..MAX_MOBS {
+                    let m = sim.state.run.mobs[n];
+                    if !m.active || m.mode != run::MODE_EMERGE {
+                        continue;
+                    }
+                    let at = sim.state.frame - (emerge - u32::from(m.timer));
+                    if !out.iter().any(|&(k, _, f)| k == n && f == at) {
+                        out.push((n, m.room, at));
+                    }
+                }
+            }
+            sim.next_room();
+        }
+        out.sort_by_key(|&(_, room, at)| (room, at));
+        for w in out.windows(2) {
+            if w[0].1 == w[1].1 {
+                assert!(
+                    w[1].2 - w[0].2 >= gap,
+                    "seed {seed}: two grunts out of room {}'s doors {} frames apart",
+                    w[0].1,
+                    w[1].2 - w[0].2
+                );
+                stagger_seen += 1;
+            }
+        }
+    }
+    assert!(stagger_seen > 10, "{stagger_seen} staggered pairs");
+    // A room with more spots than the cap: the cap comes out, the rest wait; beat one and the next comes.
+    let mut rc = only(&["avenue", "shop"], (1, 0, 0));
+    let avenue = rc.rooms.iter().position(|r| r.name == "avenue").unwrap();
+    rc.rooms[avenue].min_tier = 0;
+    rc.rooms[avenue].spawns = RunContent::placeholder()
+        .rooms
+        .into_iter()
+        .find(|r| r.name == "avenue")
+        .unwrap()
+        .spawns;
+    for s in rc.rooms[avenue].spawns.iter_mut() {
+        s.kind = 0;
+    }
+    let mut sim = RunSim::with(rc, 2);
+    sim.next_room();
+    let cap = usize::from(sim.rc.tiers[0].cap);
+    for _ in 0..400 {
+        sim.state.fighters[PLAYER].invuln = 5;
+        for n in 0..MAX_MOBS {
+            if sim.state.run.mobs[n].active {
+                sim.hold(n);
+            }
+        }
+        sim.tick(Input::default());
+    }
+    let slot = here(&sim);
+    assert_eq!(alive(&sim), cap, "the cap is out");
+    let waiting =
+        (slot.spawned as u32 | !((1u32 << sim.rc.rooms[avenue].spawns.len()) - 1)).count_zeros();
+    assert!(waiting > 0, "spots wait");
+    let n = (0..MAX_MOBS)
+        .find(|&n| sim.state.run.mobs[n].active)
+        .unwrap();
+    run::remove_grunt(&mut sim.state, &sim.world, n);
+    sim.idle(gap + 2);
+    assert_eq!(alive(&sim), cap, "the next spot came out");
+    assert_eq!(
+        here(&sim).spawned.count_ones(),
+        slot.spawned.count_ones() + 1
+    );
+}
+
+/// An arena comes in waves under the cap and its gate opens only when every grunt of it, every wave, is beaten.
+#[test]
+fn an_arena_clears_in_waves() {
+    let mut rc = only(&["yard", "shop"], (0, 1, 0));
+    let yard = rc.rooms.iter().position(|r| r.name == "yard").unwrap();
+    for s in rc.rooms[yard].spawns.iter_mut() {
+        s.kind = 0;
+    }
+    let spots = rc.rooms[yard].spawns.len();
+    let mut sim = RunSim::with(rc, 4);
+    let cap = usize::from(sim.rc.tiers[0].cap);
+    assert!(spots > cap);
+    let slot = *sim.state.run.slot_of(1).unwrap();
+    sim.stand(Vec2::new(slot.x + fx(3), slot.y));
+    sim.tick(Input::default());
+    assert!(sim.state.run.gate_closed);
+    let mut beaten = 0;
+    let mut waves_max = 0;
+    for _ in 0..3000 {
+        sim.state.fighters[PLAYER].invuln = 5;
+        sim.tick(Input::default());
+        assert!(alive(&sim) <= cap);
+        waves_max = waves_max.max(alive(&sim));
+        if !sim.state.run.gate_closed {
+            break;
+        }
+        // (Beat whoever is out once it is out of its door.)
+        for n in 0..MAX_MOBS {
+            let m = sim.state.run.mobs[n];
+            if m.active && m.mode != run::MODE_EMERGE {
+                run::remove_grunt(&mut sim.state, &sim.world, n);
+                beaten += 1;
+            }
+        }
+    }
+    assert!(!sim.state.run.gate_closed, "the arena opened");
+    assert_eq!(beaten, spots, "every wave beaten first");
+    assert!(waves_max >= 1 && waves_max <= cap);
+    assert_eq!(sim.state.run.cleared, 1);
 }

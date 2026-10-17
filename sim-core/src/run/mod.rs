@@ -183,6 +183,9 @@ pub struct RoomSlot {
     pub deck_in: u8,
     pub deck_out: u8,
     pub lid: bool,
+    /// R2e (the owner's note A). The frame its last grunt came out of a door (plus 1; 0 none yet): the next waits
+    /// `RunRules::emerge_gap` frames.
+    pub emerged_at: u32,
 }
 
 impl RoomSlot {
@@ -422,6 +425,7 @@ impl Run {
             deck_in: 0,
             deck_out: 0,
             lid: false,
+            emerged_at: 0,
         }; RING],
         platforms: [PoolPlatform {
             live: false,
@@ -1527,6 +1531,7 @@ fn place_slot(run: &mut Run, rc: &RunContent, id: u8, x0: Fx, y0: Fx) -> bool {
         deck_in: entry,
         deck_out: deck_at(rc, y0 + room_exit(room, mirror)),
         lid: false,
+        emerged_at: 0,
     };
     let mut lo = slot.lo;
     for_each_footing(rc, &slot, |p| {
@@ -2076,6 +2081,10 @@ fn spawn_slot(
     let slot = run.slots[s];
     let room = &rc.rooms[usize::from(slot.room).min(rc.rooms.len() - 1)];
     let frame = Frame::of(&slot, room);
+    // (R2e, the owner's note A: at most the current tier's cap of grunts alive at once, and one out of a door at a time in a room,
+    // `emerge_gap` frames apart. A spot past either waits its turn.)
+    let cap = usize::from(mobs::tier_row(rc, tier_of(rc, run.room)).cap.max(1)).min(MAX_MOBS);
+    let gap = u32::from(rc.rules.emerge_gap);
     for (j, marker) in room.spawns.iter().enumerate().take(ROOM_SPAWNS) {
         let bit = 1u8 << j;
         let pos = frame.point(Vec2::new(marker.x, marker.y));
@@ -2086,6 +2095,11 @@ fn spawn_slot(
         if rc.mobs.get(usize::from(kind_id)).is_none() {
             state.run.slots[s].spawned |= bit;
             continue;
+        }
+        let alive = state.run.mobs.iter().filter(|m| m.active).count();
+        let last = state.run.slots[s].emerged_at;
+        if alive >= cap || last != 0 && state.frame.wrapping_add(1).wrapping_sub(last) < gap {
+            return;
         }
         let mut pos = pos;
         // (Its floor: the highest pool entry under its spot, within half a unit.)
@@ -2107,6 +2121,7 @@ fn spawn_slot(
         // (With every grunt slot taken, the spot waits for one to free up.)
         if mobs::spawn(state, world, rc, kind_id, pos, platform, slot.tier, seq).is_some() {
             state.run.slots[s].spawned |= bit;
+            state.run.slots[s].emerged_at = state.frame.wrapping_add(1).max(1);
         }
     }
 }
@@ -2553,6 +2568,7 @@ impl StateHash for Run {
             h.write_u8(s.deck_in);
             h.write_u8(s.deck_out);
             h.write_bool(s.lid);
+            h.write_u32(s.emerged_at);
         }
         for p in &self.platforms {
             h.write_bool(p.live);

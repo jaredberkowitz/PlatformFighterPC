@@ -285,6 +285,12 @@ fn grunt_problems(rc: &RunContent, errors: &mut Vec<String>) {
         if t.tell == 0 || t.stamina == 0 || t.damage == 0 {
             errors.push(format!("{at}: tell, stamina and damage at least 1"));
         }
+        if t.cap == 0 || usize::from(t.cap) > sim_core::run::MAX_MOBS {
+            errors.push(format!(
+                "{at}: cap (grunts alive at once) 1 to {}",
+                sim_core::run::MAX_MOBS
+            ));
+        }
         if t.tech > 100 || t.di > 100 || t.mash > 100 {
             errors.push(format!(
                 "{at}: tech, DI and mash are percents (at most 100)"

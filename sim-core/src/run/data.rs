@@ -454,6 +454,9 @@ pub struct Tier {
     pub tech: u8,
     pub di: u8,
     pub mash: u8,
+    /// R2e (the owner: "start with a small maximum, two or three, and scale it up every difficulty tier"). The most grunts alive at
+    /// once in this tier; a spawn spot past it waits until one is beaten (at most the pool, `run::MAX_MOBS`).
+    pub cap: u8,
 }
 
 /// A prop (R2b, Punch Quest's torches): a hazard or a chest. Hit by the player's attack or shot, a gas canister burns for `fuse`
@@ -604,6 +607,9 @@ pub struct RunRules {
     pub skill_gap: Fx,
     /// In a room that changes deck the view's height follows faster: this much of the way a frame (else `cam_y_ease`).
     pub cam_y_ease_tall: Fx,
+    /// R2e (the owner's note A). The fewest frames between two grunts coming out of doors in the same room (a stagger: they come
+    /// one at a time, not all at once).
+    pub emerge_gap: u16,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -869,6 +875,7 @@ impl RunRules {
             skill_step: tenths(65),
             skill_gap: tenths(75),
             cam_y_ease_tall: Fx::from_ratio(1, 8),
+            emerge_gap: 60,
         }
     }
 }
@@ -1016,6 +1023,7 @@ impl Tier {
                 tech: 0,
                 di: 0,
                 mash: 0,
+                cap: 2,
             },
             Tier {
                 kinds: all(&[KIND_BRAWLER, KIND_LEAPER, KIND_SHIELD, KIND_SPEAR]),
@@ -1028,6 +1036,7 @@ impl Tier {
                 tech: 0,
                 di: 0,
                 mash: 0,
+                cap: 3,
             },
             Tier {
                 kinds: all(&[
@@ -1045,6 +1054,7 @@ impl Tier {
                 tech: 20,
                 di: 35,
                 mash: 45,
+                cap: 4,
             },
             Tier {
                 kinds: 0b11_1111,
@@ -1056,6 +1066,7 @@ impl Tier {
                 tech: 30,
                 di: 50,
                 mash: 60,
+                cap: 5,
             },
             Tier {
                 kinds: 0b11_1111,
@@ -1067,6 +1078,7 @@ impl Tier {
                 tech: 40,
                 di: 60,
                 mash: 75,
+                cap: 6,
             },
         ]
     }
@@ -2376,7 +2388,7 @@ impl RunContent {
         for t in &self.tiers {
             t.weight.hash_into(&mut h);
             for v in [
-                t.kinds, t.budget, t.tell, t.stamina, t.damage, t.tech, t.di, t.mash,
+                t.kinds, t.budget, t.tell, t.stamina, t.damage, t.tech, t.di, t.mash, t.cap,
             ] {
                 h.write_u8(v);
             }
@@ -2517,6 +2529,7 @@ impl StateHash for RunRules {
         for v in [self.skill_step, self.skill_gap, self.cam_y_ease_tall] {
             v.hash_into(h);
         }
+        h.write_u16(self.emerge_gap);
     }
 }
 
