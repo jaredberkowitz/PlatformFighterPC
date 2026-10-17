@@ -17,6 +17,7 @@ const BOUNDER: u8 = 8;
 /// The bounder (player 0) at 0 facing right and a duelist (player 1) standing `gap` ahead facing it at `percent`, the others out.
 fn pair(gap: Fx, percent: i32) -> Sim {
     let mut sim = Sim::with_chars([BOUNDER, 0, 0, 0]);
+    sim.plain_jab();
     sim.state.fighters[2].active = false;
     sim.state.fighters[3].active = false;
     sim.stand(0, Fx::ZERO, 1);

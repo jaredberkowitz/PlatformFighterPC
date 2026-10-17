@@ -409,6 +409,7 @@ fn the_middle_of_an_air_dodge_is_intangible() {
 fn two_fighters_hitting_each_other_on_the_same_frame_both_take_damage() {
     // Two of the same character, so both jabs come out on the same frame.
     let mut sim = Sim::with_chars([0, 0, 0, 0]);
+    sim.plain_jab();
     sim.stand(0, Fx::ZERO, 1);
     // Close enough that each jab reaches the other's body before the two blades meet (further out, they clank).
     sim.stand(1, fx(8, 10), -1);
