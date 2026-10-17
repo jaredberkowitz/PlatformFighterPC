@@ -1448,11 +1448,11 @@ fn checksum_sees_every_run_field() {
         ("next_x", |r| r.next_x += Fx::from_raw(1)),
         ("next_y", |r| r.next_y += Fx::from_raw(1)),
         ("placed", |r| r.placed += 1),
-        ("last_room", |r| r.last_room ^= 1),
-        ("last_kind", |r| r.last_kind ^= 1),
+        ("planner.last_room", |r| r.planner.last_room ^= 1),
+        ("planner.last_kind", |r| r.planner.last_kind ^= 1),
         ("kinds_log", |r| r.kinds_log ^= 1 << 60),
-        ("since_shop", |r| r.since_shop += 1),
-        ("shop_due", |r| r.shop_due += 1),
+        ("planner.since_shop", |r| r.planner.since_shop += 1),
+        ("planner.shop_due", |r| r.planner.shop_due += 1),
         ("room", |r| r.room += 1),
         ("wall_x", |r| r.wall_x += Fx::from_raw(1)),
         ("gate_closed", |r| r.gate_closed ^= true),
@@ -1544,8 +1544,8 @@ fn checksum_sees_every_run_field() {
         ("props.hit_mobs", |r| r.props[0].hit_mobs ^= 1 << 15),
         ("props.hit_player", |r| r.props[0].hit_player ^= true),
         ("chests", |r| r.chests += 1),
-        ("event_pity", |r| r.event_pity += 1),
-        ("event_city", |r| r.event_city += 1),
+        ("planner.event_pity", |r| r.planner.event_pity += 1),
+        ("planner.event_city", |r| r.planner.event_city += 1),
         ("van.mode", |r| r.van.mode += 1),
         ("van.room", |r| r.van.room += 1),
         ("van.x", |r| r.van.x += Fx::from_raw(1)),
@@ -3531,8 +3531,8 @@ fn a_climb_scrolls_the_view_and_is_a_gate_once_left() {
     panic!("no climb came");
 }
 
-/// A drop: the view follows the player down a deck, and the rooms before the drop are gone once it is left (no lid: its back edge
-/// is its top, and nothing is left above it to go back to).
+/// A drop: the view follows the player down a deck, and the rooms before the drop are gone once it is left; a lid closes over it
+/// (R2e, the owner's answer), so you cannot go back up past it.
 #[test]
 fn a_drop_scrolls_the_view_down() {
     let mut rc = only(&["balcony_drop", "street", "shop"], (1, 0, 0));
@@ -3567,8 +3567,29 @@ fn a_drop_scrolls_the_view_down() {
         assert!(high - sim.state.run.cam_y >= fx(13), "the view came down");
         sim.next_room();
         let run = &sim.state.run;
+        let rules = sim.rc.rules;
         assert_eq!(run.wall_x, drop.x, "nothing before the drop is kept");
-        assert!(!run.slot_of(drop.seq).unwrap().lid, "no lid over a drop");
+        // (R2e, the owner's R2d answer 5: "Yes". A drop gets a lid too: a ceiling across it, `lid_clear` over its floor.)
+        assert!(run.slot_of(drop.seq).unwrap().lid, "a lid over the drop");
+        let under = drop.y_end + rules.lid_clear;
+        assert!(
+            run.platforms.iter().any(|p| p.live
+                && !p.pass_through
+                && p.left == drop.x
+                && p.right == drop.end
+                && p.bottom == under),
+            "the lid is a solid ceiling across the drop"
+        );
+        // A jump from the drop's floor stops under the lid: no way back up.
+        let foot = if drop.mirror { drop.x + fx(8) } else { drop.end - fx(8) };
+        sim.stand(Vec2::new(foot, drop.y_end));
+        let mut peak = drop.y_end;
+        for n in 0..90 {
+            let jump = if n < 12 || (20..24).contains(&n) { JUMP } else { 0 };
+            sim.tick(inp(0, 0, jump));
+            peak = peak.max(sim.player().pos.y);
+        }
+        assert!(peak < under, "under the lid: {peak:?}");
         return;
     }
     panic!("no drop came");
@@ -3626,8 +3647,8 @@ fn the_checksum_sees_the_decks() {
         ("slots.deck_in", |s| s.run.slots[0].deck_in ^= 1),
         ("slots.deck_out", |s| s.run.slots[0].deck_out ^= 1),
         ("slots.lid", |s| s.run.slots[0].lid ^= true),
-        ("plan_deck", |s| s.run.plan_deck ^= 1),
-        ("plan_left", |s| s.run.plan_left += 1),
+        ("planner.plan_deck", |s| s.run.planner.plan_deck ^= 1),
+        ("planner.plan_left", |s| s.run.planner.plan_left += 1),
         ("ledge_owner beyond versus's", |s| {
             s.ledge_owner[sim_core::state::LEDGE_SLOTS - 1] = 0
         }),

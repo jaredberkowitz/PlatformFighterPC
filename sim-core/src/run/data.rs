@@ -260,6 +260,8 @@ pub struct CoinSpot {
     pub x: Fx,
     pub y: Fx,
     pub part: i8,
+    /// R2e. On the room's skilled route: not there when the route is not offered to the fighter (`run::RoomSlot::skill_off`).
+    pub skilled: bool,
 }
 
 /// A prop in a room (R2b): its kind (index into [`RunContent::props`]), where it stands (the middle of its base; a sign hangs with
@@ -381,7 +383,15 @@ pub struct Room {
     pub indoor: bool,
     /// R2e (note B). The building masses behind the play plane (`Building`): the city the room stands in.
     pub buildings: Vec<Building>,
+    /// R2e (the owner's R2d answer 3: "recovery specials sometimes"). Its skilled route needs a recovery special: [`RECOVER_UP`] a
+    /// climb (jumps up to `RunRules::recovery_step`), [`RECOVER_ACROSS`] a gap (up to `recovery_gap`); 0 a double jump does
+    /// (`skill_step`, `skill_gap`). A fighter who cannot make it is never offered it: the room is laid without it.
+    pub recovery: u8,
 }
+
+/// `Room::recovery` values.
+pub const RECOVER_UP: u8 = 1;
+pub const RECOVER_ACROSS: u8 = 2;
 
 /// One deck of the city (R2d, the review's F1): a band of heights the run's ground keeps to while it is on it, about one view tall.
 /// The decks are data, lowest first: adding one (a sewer below the street, a higher skyline) is a content change.
@@ -460,6 +470,12 @@ pub struct MobKind {
     /// A lobber's shot (its first move's projectile, fired by the move itself): its flight time to the target (frames); the run aims
     /// it to come down on you.
     pub shot_time: u8,
+    /// R2e (F3). How far above or below it notices you (a leaper on a catwalk sees you a deck's height down), and the footing looks
+    /// it is placed on more often (bit `1 << look`), this many times its odds there: leapers dive from catwalks, lobbers lob from
+    /// cranes.
+    pub aggro_y: Fx,
+    pub perch: u64,
+    pub perch_odds: u8,
 }
 
 /// One difficulty tier (R2b): what comes in a room once the run has reached it (`RunRules::tier_rooms` rooms each).
@@ -636,6 +652,24 @@ pub struct RunRules {
     /// R2e (the owner's note A). The fewest frames between two grunts coming out of doors in the same room (a stagger: they come
     /// one at a time, not all at once).
     pub emerge_gap: u16,
+    /// R2e. The recovery routes' jumps (`Room::recovery`): a climb of up to `recovery_step`, a gap of up to `recovery_gap` (a full
+    /// hop, a midair jump and the fighter's up special, measured: `run::recovery_reach`).
+    pub recovery_step: Fx,
+    pub recovery_gap: Fx,
+    /// R2e (the owner's R2d answer 5: drops get a lid). How far above a drop's floor its lid closes once the drop is left behind.
+    pub lid_clear: Fx,
+    /// R2e (F4). How many rooms ahead the generator plans, and the map shows (at most `run::PLAN`).
+    pub map_ahead: u8,
+    /// R2e (F3), the juggle: a grunt knocked out after `n` hits kept off the ground (the first may launch it) pays its coins times
+    /// `n`, at most `juggle_max`.
+    pub juggle_max: u8,
+    /// R2e (F3), direction bonuses: coins for a grunt launched out of the top ("Skyward") and spiked out of the bottom ("Grounded").
+    pub sky_bonus: u16,
+    pub spike_bonus: u16,
+    /// R2e (F3), bowling: a launched grunt tumbling at `bowl_speed` or faster hits the grunts it flies into with `bowl_hit` (the
+    /// versus hit, the player's), each once a launch.
+    pub bowl_hit: Hitbox,
+    pub bowl_speed: Fx,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -764,6 +798,7 @@ fn coin(x: i32, y: i32) -> CoinSpot {
         x: tenths(x),
         y: tenths(y),
         part: 0,
+        skilled: false,
     }
 }
 
@@ -912,6 +947,15 @@ impl RunRules {
             skill_gap: tenths(75),
             cam_y_ease_tall: Fx::from_ratio(1, 8),
             emerge_gap: 60,
+            recovery_step: tenths(105),
+            recovery_gap: int(17),
+            lid_clear: int(7),
+            map_ahead: 3,
+            juggle_max: 3,
+            sky_bonus: 10,
+            spike_bonus: 10,
+            bowl_hit: mob_hit(0, 0, 14, 80, 45, 60, 80),
+            bowl_speed: Fx::HALF,
         }
     }
 }
@@ -940,6 +984,9 @@ impl MobKind {
             cooldown: 36,
             armor: false,
             shot_time: 0,
+            aggro_y: int(10),
+            perch: 0,
+            perch_odds: 1,
         };
         vec![
             // A brawler on the gauntlets' body: rushes you, a jab up close, a forward tilt a little further.
@@ -960,6 +1007,9 @@ impl MobKind {
                 reach: int(9),
                 reach2: tenths(25),
                 cooldown: 40,
+                aggro_y: int(16),
+                perch: 1 << LOOK_CATWALK | 1 << LOOK_GIRDER | 1 << LOOK_BALCONY | 1 << LOOK_FIRE_ESCAPE | 1 << LOOK_SCAFFOLD,
+                perch_odds: 4,
                 ..base
             },
             // A shieldbearer on the buckler's body: guards toward you and pokes out with its forward tilt (a jab up close).
@@ -1017,6 +1067,9 @@ impl MobKind {
                 reach2: tenths(16),
                 cooldown: 60,
                 shot_time: 45,
+                aggro_y: int(16),
+                perch: 1 << LOOK_CRANE | 1 << LOOK_WATER_TOWER | 1 << LOOK_BILLBOARD,
+                perch_odds: 6,
                 ..base
             },
             // A bruiser on the bracers' body: slow and heavy, armored through its forward smash's startup, a big launch.
@@ -1187,6 +1240,7 @@ impl Room {
             pit: false,
             indoor: false,
             buildings: Vec::new(),
+            recovery: 0,
         }
     }
 
@@ -1368,7 +1422,18 @@ fn pieces() -> Vec<Piece> {
 
 /// A coin on a skilled route.
 fn sk(x: i32, y: i32) -> CoinSpot {
-    coin(x, y)
+    CoinSpot {
+        skilled: true,
+        ..coin(x, y)
+    }
+}
+
+/// Coins in a line on a skilled route.
+fn sk_line(x0: i32, y0: i32, x1: i32, y1: i32, n: i32) -> Vec<CoinSpot> {
+    coin_line(x0, y0, x1, y1, n)
+        .into_iter()
+        .map(|c| CoinSpot { skilled: true, ..c })
+        .collect()
 }
 
 /// The climbs, the drops and the shafts: rooms that change deck. A mirrored climb is a drop and a mirrored drop a climb, so each
@@ -1401,7 +1466,7 @@ fn vertical_rooms(rooms: &mut Vec<Room>) {
     ];
     r.coins = vec![coin(170, 44), coin(140, 116)];
     r.coins.extend([sk(50, 68), sk(70, 128)]);
-    r.coins.extend(coin_line(90, 188, 180, 188, 4));
+    r.coins.extend(sk_line(90, 188, 180, 188, 4));
     r.slots = vec![slot(90, 0, SLOT_STREET), slot(300, 180, SLOT_ROOF)];
     r.buildings = vec![bld(100, 360, 180, BUILDING_BRICK)];
     rooms.push(r);
@@ -1436,7 +1501,7 @@ fn vertical_rooms(rooms: &mut Vec<Room>) {
         any(320, 180),
     ];
     r.coins = vec![sk(50, 68), sk(145, 128)];
-    r.coins.extend(coin_line(220, 188, 250, 188, 2));
+    r.coins.extend(sk_line(220, 188, 250, 188, 2));
     r.buildings = vec![bld(0, 340, 200, BUILDING_BRICK)];
     rooms.push(r);
 
@@ -1560,9 +1625,10 @@ fn vertical_rooms(rooms: &mut Vec<Room>) {
         plank(160, 190, 72, LOOK_LEDGE_BLOCK),
         plank(120, 150, 108, LOOK_LEDGE_BLOCK),
         plank(160, 190, 144, LOOK_LEDGE_BLOCK),
-        plank(30, 80, 64, LOOK_SCAFFOLD).skilled(),
-        plank(50, 100, 128, LOOK_SCAFFOLD).skilled(),
+        // (R2e: its skilled route is a recovery's climb: a scaffold out of a double jump's reach, then up onto the well's wall.)
+        plank(30, 80, 105, LOOK_SCAFFOLD).skilled(),
     ];
+    r.recovery = RECOVER_UP;
     r.ledges = vec![ledge(190, 180, -1)];
     r.spawns = vec![
         any(50, 0),
@@ -1571,7 +1637,7 @@ fn vertical_rooms(rooms: &mut Vec<Room>) {
         any(175, 72),
         any(250, 180),
     ];
-    r.coins = vec![sk(55, 72), sk(75, 136), sk(110, 188), sk(155, 196)];
+    r.coins = vec![sk(55, 113), sk(110, 188), sk(155, 196)];
     r.coins.extend([coin(135, 44), coin(175, 152)]);
     r.buildings = vec![bld(100, 300, 180, BUILDING_BRICK)];
     rooms.push(r);
@@ -1623,9 +1689,10 @@ fn skyline_rooms(rooms: &mut Vec<Room>) {
         plank(220, 250, -105, LOOK_FIRE_ESCAPE),
         plank(260, 290, -70, LOOK_FIRE_ESCAPE),
         plank(220, 250, -35, LOOK_FIRE_ESCAPE),
-        plank(100, 150, 55, LOOK_GIRDER).skilled(),
-        plank(230, 280, 55, LOOK_GIRDER).skilled(),
+        // (R2e: its skilled route is a recovery's climb onto a crane's girder high over the middle tower, down onto the far one.)
+        plank(110, 270, 90, LOOK_GIRDER).skilled(),
     ];
+    r.recovery = RECOVER_UP;
     r.ledges = vec![
         ledge(90, 0, 1),
         ledge(160, 0, -1),
@@ -1639,9 +1706,11 @@ fn skyline_rooms(rooms: &mut Vec<Room>) {
         any(370, 0),
         any(125, -140),
         any(255, -140),
+        // (R2e: leapers' perches on the catwalks.)
+        any(125, 0),
+        any(255, 0),
     ];
-    r.coins = coin_line(105, 63, 145, 63, 3);
-    r.coins.extend(coin_line(235, 63, 275, 63, 3));
+    r.coins = sk_line(120, 98, 260, 98, 5);
     r.coins.extend([coin(125, 8), coin(255, 8)]);
     r.buildings = vec![
         bld(90, 160, -20, BUILDING_BRICK),
@@ -1674,7 +1743,7 @@ fn skyline_rooms(rooms: &mut Vec<Room>) {
         any(250, -130),
     ];
     r.coins = coin_line(80, 23, 170, 23, 4);
-    r.coins.extend(coin_line(190, 83, 230, 83, 3));
+    r.coins.extend(sk_line(190, 83, 230, 83, 3));
     r.coins.extend(coin_line(260, 38, 360, 38, 4));
     r.buildings = vec![bld(70, 370, -40, BUILDING_OFFICE)];
     rooms.push(r);
@@ -2573,6 +2642,7 @@ fn hash_coins(list: &[CoinSpot], h: &mut StateHasher) {
         c.x.hash_into(h);
         c.y.hash_into(h);
         h.write_i8(c.part);
+        h.write_bool(c.skilled);
     }
 }
 
@@ -2663,6 +2733,19 @@ impl StateHash for RunRules {
             v.hash_into(h);
         }
         h.write_u16(self.emerge_gap);
+        for v in [
+            self.recovery_step,
+            self.recovery_gap,
+            self.lid_clear,
+            self.bowl_speed,
+        ] {
+            v.hash_into(h);
+        }
+        h.write_u8(self.map_ahead);
+        h.write_u8(self.juggle_max);
+        h.write_u16(self.sky_bonus);
+        h.write_u16(self.spike_bonus);
+        self.bowl_hit.hash_into(h);
     }
 }
 
@@ -2726,6 +2809,7 @@ impl StateHash for Room {
             b.top.hash_into(h);
             h.write_u8(b.kind);
         }
+        h.write_u8(self.recovery);
     }
 }
 
@@ -2754,5 +2838,8 @@ impl StateHash for MobKind {
         }
         h.write_bool(self.armor);
         h.write_u16(self.weight);
+        self.aggro_y.hash_into(h);
+        h.write_u64(self.perch);
+        h.write_u8(self.perch_odds);
     }
 }

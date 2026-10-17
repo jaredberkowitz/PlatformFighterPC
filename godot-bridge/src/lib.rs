@@ -1045,9 +1045,15 @@ impl SimRunner {
     /// Debug (tests and photographs): the next rooms laid make the city's rare event come at once (the pity counter maxed out).
     #[func]
     fn run_debug_force_event(&mut self) {
+        // (R2e: on every planner: the rooms already planned come first, then the event.)
         let run = &mut self.state.run;
-        run.event_pity = 1000;
-        run.event_city = 0;
+        for p in [&mut run.planner]
+            .into_iter()
+            .chain(run.branch_planner.iter_mut())
+        {
+            p.event_pity = 1000;
+            p.event_city = 0;
+        }
         self.recorder = None;
     }
 
