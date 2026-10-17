@@ -27,7 +27,8 @@ every demo fighter in its rest pose (content newer than the bridge); rebuild `ca
 **Phase 3: materials and skies (Tools, Skies, refinement sections)**
 6. (Started 2026-10-17: `Materials` prefers `art/stage/png/<tile>.png` over the SVG, greyscale value tiles tinted by the stage colour;
    `tools/art/mm_tile.gd` converts an export (value or detail mode, banded for a painted read). Done: stone <- rock, detail_soil <-
-   dry_earth. Next: stylized_wall for the seawall/city walls, a bark and a palm trunk worth keeping.) Wire a PNG tile path into `Materials._make`; bring in the owner's exports: soil, bark (realistic, no streaks), stone; a palm-trunk
+   dry_earth; the canyon sun's flat bands are now two cumulus banks in the sunset's pinks. Next: stylized_wall for the seawall/city
+   walls, a bark and a palm trunk worth keeping, one cloud pass across the other stages.) Wire a PNG tile path into `Materials._make`; bring in the owner's exports: soil, bark (realistic, no streaks), stone; a palm-trunk
    texture. Then the painted skies (canyon sun and clouds first, then one cloud set for every stage). Build.
 7. The pain-point list (city window grid, beach clouds and wall, stage block ends, the clothes' doubled outline, canyon slash marks)
    and the ink painted into textures.
