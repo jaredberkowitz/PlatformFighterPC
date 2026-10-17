@@ -7,7 +7,7 @@
 //! Like the stage library, the run's content is Rust data for now (`RunContent::placeholder`); when the stage editor authors rooms
 //! they come through here.
 
-use sim_core::content::{FighterParams, Platform};
+use sim_core::content::Platform;
 use sim_core::run::data::{
     Room, BLOCK_BOTTOM, INTERIOR_PLATFORMS, ITEM_HEAL, ITEM_LIFE, LOOK_NAMES, MAX_ROOM_WIDTH,
     MAX_SHOP_ITEMS, MIN_ROOM_WIDTH, MOB_MOVES, NO_MOVE, PROP_ROLES, PROP_SIGN, ROLES, ROLE_LOBBER,
@@ -22,6 +22,7 @@ use sim_core::run::{
 
 /// How far below a room's lower ground end its lowest surface may be (R2d: a deck below, catching a fall, is about one view down).
 const DEEPEST_CATCH: i32 = 20;
+use crate::format::Scalar;
 use sim_core::Fx;
 
 /// Every problem with a run's content (empty when it is fine), the passability proof included.
@@ -285,6 +286,12 @@ fn grunt_problems(rc: &RunContent, errors: &mut Vec<String>) {
         if t.tell == 0 || t.stamina == 0 || t.damage == 0 {
             errors.push(format!("{at}: tell, stamina and damage at least 1"));
         }
+        if t.cap == 0 || usize::from(t.cap) > sim_core::run::MAX_MOBS {
+            errors.push(format!(
+                "{at}: cap (grunts alive at once) 1 to {}",
+                sim_core::run::MAX_MOBS
+            ));
+        }
         if t.tech > 100 || t.di > 100 || t.mash > 100 {
             errors.push(format!(
                 "{at}: tech, DI and mash are percents (at most 100)"
@@ -456,6 +463,13 @@ fn room_problems(rc: &RunContent, i: usize, c: &Room, errors: &mut Vec<String>) 
         errors.push(format!("{at}: its exit height is beyond the run's drift"));
     }
     room_deck_problems(rc, &at, c, errors);
+    if c.recovery > sim_core::run::data::RECOVER_ACROSS
+        || c.recovery != 0 && !c.platforms.iter().any(|f| f.skilled)
+    {
+        errors.push(format!(
+            "{at}: recovery is 0, 1 (up) or 2 (across), and only on a room with a skilled route"
+        ));
+    }
     if c.platforms
         .iter()
         .any(|f| f.skilled && !f.platform.pass_through)
@@ -622,6 +636,70 @@ fn room_problems(rc: &RunContent, i: usize, c: &Room, errors: &mut Vec<String>) 
                 slot.mirror, slot.parts
             ));
         }
+        // (R2e, the owner's note B: nothing floats. Every footing is held up by the ground, a building behind it, a span between two
+        // faces or posts down to a surface; a sign hangs on a building or under a footing; a canister or a chest stands on something.)
+        let held = sim_core::run::supports(rc, slot);
+        for (pl, sup, _) in &held {
+            if *sup == sim_core::run::SUPPORT_NONE {
+                let p = pl.platform;
+                problems.push(format!(
+                    "{at}: its {} from {} to {} at {} floats (hang it on a building, or give it a span or posts) (mirrored {}, parts {:b})",
+                    LOOK_NAMES.get(usize::from(pl.look)).unwrap_or(&"?"),
+                    p.left.show(),
+                    p.right.show(),
+                    p.y.show(),
+                    slot.mirror,
+                    slot.parts
+                ));
+            }
+        }
+        let mut bs = Vec::new();
+        sim_core::run::for_each_building(rc, slot, |l, r, t, _| bs.push((l, r, t)));
+        sim_core::run::for_each_prop(rc, slot, |_, spot, pos| {
+            let Some(kind) = rc.props.get(usize::from(spot.kind)) else {
+                return;
+            };
+            let ok = if kind.role == PROP_SIGN {
+                bs.iter()
+                    .any(|&(l, r, t)| l <= pos.x && pos.x <= r && t >= pos.y)
+                    || held.iter().any(|(pl, _, _)| {
+                        let p = pl.platform;
+                        p.left <= pos.x
+                            && pos.x <= p.right
+                            && p.top_at(pos.x) >= pos.y
+                            && p.top_at(pos.x) <= pos.y + Fx::from_int(2)
+                    })
+            } else {
+                held.iter().any(|(pl, _, _)| {
+                    let p = pl.platform;
+                    p.left <= pos.x
+                        && pos.x <= p.right
+                        && (p.top_at(pos.x) - pos.y).abs() <= Fx::from_ratio(1, 10)
+                })
+            };
+            if !ok {
+                problems.push(format!(
+                    "{at}: a prop at {}, {} stands on nothing or hangs from nothing (mirrored {}, parts {:b})",
+                    pos.x.show(),
+                    pos.y.show(),
+                    slot.mirror,
+                    slot.parts,
+                ));
+            }
+        });
+        if c.buildings.len() > sim_core::run::data::ROOM_BUILDINGS
+            || c.buildings.iter().any(|b| {
+                b.left >= b.right
+                    || b.left < Fx::ZERO
+                    || b.right > c.width
+                    || b.kind >= sim_core::run::data::BUILDING_KINDS
+            })
+        {
+            problems.push(format!(
+                "{at}: at most {} buildings, each inside the room, left of its right, of a kind there is",
+                sim_core::run::data::ROOM_BUILDINGS
+            ));
+        }
         if plats.len() > ROOM_PLATFORMS {
             problems.push(format!(
                 "{at}: at most {ROOM_PLATFORMS} platforms with its pieces (parts {:b}, pieces {:?})",
@@ -693,6 +771,20 @@ fn deck_problems(rc: &RunContent, errors: &mut Vec<String>) {
         errors.push(
             "run rules: deck_rooms_min at least 1, deck_rooms_max at least that, deck_fork_chance a percent"
                 .to_string(),
+        );
+    }
+    if r.recovery_step <= r.skill_step || r.recovery_gap <= r.skill_gap {
+        errors.push(
+            "run rules: the recovery routes' jumps must reach further than the skilled ones"
+                .to_string(),
+        );
+    }
+    if r.map_ahead == 0 || usize::from(r.map_ahead) > sim_core::run::PLAN {
+        errors.push(format!("run rules: map_ahead 1 to {}", sim_core::run::PLAN));
+    }
+    if r.juggle_max == 0 || r.lid_clear <= Fx::from_int(2) || r.bowl_speed <= Fx::ZERO {
+        errors.push(
+            "run rules: juggle_max at least 1, lid_clear above 2, bowl_speed above 0".to_string(),
         );
     }
     if r.skill_step <= r.max_step || r.skill_gap <= r.max_gap {
@@ -912,31 +1004,8 @@ pub fn for_each_variant(rc: &RunContent, room: &Room, index: usize, mut f: impl 
     }
 }
 
-/// How high and how far a fighter's jumps reach: a full hop and one midair jump (its height), and the distance at full air speed
-/// over the time those jumps keep it at or above the height it left from. Plain kinematics on the fighter's numbers (frames of 1/60 s).
-pub fn jump_reach(p: &FighterParams) -> (Fx, Fx) {
-    let rise = |v0: Fx, g: Fx| -> (Fx, i32) {
-        // (Height and frames up to the top, the speed losing `g` a frame.)
-        let (mut v, mut h, mut t) = (v0, Fx::ZERO, 0);
-        while v > Fx::ZERO && t < 600 {
-            h += v;
-            v -= g;
-            t += 1;
-        }
-        (h, t)
-    };
-    let (h1, t1) = rise(p.full_hop_velocity, p.gravity);
-    let burst = p.hop_burst_velocity.mul_int(i32::from(p.hop_burst_frames));
-    let (h2, t2) = if p.air_jumps > 0 {
-        rise(p.air_jump_velocity, p.gravity)
-    } else {
-        (Fx::ZERO, 0)
-    };
-    let height = h1 + burst + h2;
-    // (Up with the hop, up again with the air jump, then down that far: roughly twice the rising frames of each.)
-    let frames = 2 * (t1 + t2);
-    (height, p.air_speed.mul_int(frames))
-}
+/// How high and how far a fighter's jumps reach (moved to the sim in R2e, which keeps every run's fighter's reach).
+pub use sim_core::run::jump_reach;
 
 /// One surface's top, for the proof, and whether it is on the skilled route.
 #[derive(Clone, Copy)]
@@ -1081,8 +1150,21 @@ pub fn check_passable(rc: &RunContent) -> Vec<String> {
                 y_end: room.exit_y,
                 ..RoomSlot::default()
             };
+            let need = sim_core::run::skilled_need(r, room);
             let sure = Graph::of(rc, room, &authored, r.max_step, r.max_gap, false).hops();
-            let skilled = Graph::of(rc, room, &authored, r.skill_step, r.skill_gap, true).hops();
+            let skilled = Graph::of(rc, room, &authored, need.y, need.x, true).hops();
+            // (R2e: a recovery route must need the recovery: with a double jump alone its footings save no jump.)
+            if room.recovery != 0 {
+                let with = Graph::of(rc, room, &authored, r.skill_step, r.skill_gap, true).hops();
+                let without =
+                    Graph::of(rc, room, &authored, r.skill_step, r.skill_gap, false).hops();
+                if with < without {
+                    errors.push(format!(
+                        "room {i} ({}): its recovery route is shorter with a double jump alone (it needs no recovery)",
+                        room.name
+                    ));
+                }
+            }
             if !matches!((skilled, sure), (Some(k), Some(s)) if k < s) {
                 errors.push(format!(
                     "room {i} ({}): its skilled route is no shorter than its sure route ({skilled:?} jumps against {sure:?})",
@@ -1223,7 +1305,9 @@ pub fn passable(
 /// surface reached is a trap.
 pub fn skilled_route(rc: &RunContent, room: &Room, slot: &RoomSlot) -> Result<(), String> {
     let r = &rc.rules;
-    let g = Graph::of(rc, room, slot, r.skill_step, r.skill_gap, true);
+    // (R2e: a recovery route is proven with the recovery's jumps: `skilled_need`.)
+    let need = sim_core::run::skilled_need(r, room);
+    let g = Graph::of(rc, room, slot, need.y, need.x, true);
     if !g.tops.iter().any(|t| t.skilled) {
         return Ok(());
     }
@@ -1338,13 +1422,12 @@ mod tests {
         assert!(check_passable(&rc)
             .iter()
             .any(|e| e.starts_with(&format!("room {gap}"))));
-        // A pit you can drop into but not climb out of is a trap.
+        // A floor you can drop onto but not climb out of is a trap: the gap's catch floor without its fire escape.
         let mut rc = RunContent::placeholder();
-        rc.rules.max_gap = Fx::from_int(7);
         let gap = rc.rooms.iter().position(|r| r.name == "gap").unwrap();
-        let plank = &mut rc.rooms[gap].platforms[2].platform;
-        plank.y = Fx::from_int(-12);
-        plank.bottom = Fx::from_int(-12);
+        rc.rooms[gap]
+            .platforms
+            .retain(|f| f.look != sim_core::run::data::LOOK_FIRE_ESCAPE);
         assert!(
             check_passable(&rc).iter().any(|e| e.contains("trap")),
             "{:?}",
@@ -1359,12 +1442,13 @@ mod tests {
         use crate::format::Scalar;
         use crate::recipe::{Recipe, CLASSES, MAX_STAT, MIN_STAT};
         let rules = RunContent::placeholder().rules;
-        let mut cast: Vec<(String, FighterParams)> = sim_core::Content::placeholder()
-            .fighters
-            .iter()
-            .enumerate()
-            .map(|(i, p)| (format!("built-in {i}"), *p))
-            .collect();
+        let mut cast: Vec<(String, sim_core::content::FighterParams)> =
+            sim_core::Content::placeholder()
+                .fighters
+                .iter()
+                .enumerate()
+                .map(|(i, p)| (format!("built-in {i}"), *p))
+                .collect();
         for class in 0..CLASSES {
             for speed in [MIN_STAT, MAX_STAT] {
                 let r = Recipe {
@@ -1553,12 +1637,20 @@ mod decks_and_routes {
     /// A fall is never a death but in a room marked a pit: a gap with nothing under it is refused.
     #[test]
     fn a_fall_lands_on_something_unless_the_room_is_a_pit() {
+        // (The owner's R2d answer 4, "a floor below": no built-in room is a true pit any more.)
+        let rc = RunContent::placeholder();
+        assert!(rc.rooms.iter().all(|r| !r.pit), "no true pits");
+        // The gap without its catch floor (and the fire escape over it) lands on nothing: refused, unless marked a pit.
         let mut rc = RunContent::placeholder();
         let gap = room(&rc, "gap");
-        rc.rooms[gap].pit = false;
+        rc.rooms[gap].platforms.truncate(3);
         assert!(check_run_shape(&rc)
             .iter()
             .any(|e| e.starts_with(&format!("room {gap}")) && e.contains("lands on nothing")));
+        rc.rooms[gap].pit = true;
+        assert!(!check_run_shape(&rc)
+            .iter()
+            .any(|e| e.starts_with(&format!("room {gap}"))));
         // The catwalks' gaps are caught by the roofs below: take one away (and the sills over it) and the room is refused.
         let mut rc = RunContent::placeholder();
         let cw = room(&rc, "catwalks");
@@ -1632,7 +1724,8 @@ mod decks_and_routes {
             let sure = Graph::of(&rc, c, &slot, r.max_step, r.max_gap, false)
                 .hops()
                 .unwrap();
-            let skilled = Graph::of(&rc, c, &slot, r.skill_step, r.skill_gap, true)
+            let need = sim_core::run::skilled_need(r, c);
+            let skilled = Graph::of(&rc, c, &slot, need.y, need.x, true)
                 .hops()
                 .unwrap();
             println!("{}: sure {sure} jumps, skilled {skilled}", c.name);
@@ -1661,6 +1754,156 @@ mod decks_and_routes {
             reach * 2 > cast.len(),
             "{reach} of {} fighters reach the skilled jumps",
             cast.len()
+        );
+    }
+
+    /// R2e, the owner's note B (a believable city): nothing floats. A balcony with no building behind it, a catwalk with nothing
+    /// under it and no faces to span, a sign on no building and a canister in the air are all refused; the built-in rooms pass.
+    #[test]
+    fn nothing_floats() {
+        use sim_core::run::data::LOOK_CATWALK;
+        let rc = RunContent::placeholder();
+        assert!(check_run_shape(&rc).iter().all(|e| !e.contains("floats")));
+        // Every room has buildings, and every footing says what holds it (the game draws that).
+        for (i, c) in rc.rooms.iter().enumerate() {
+            assert!(
+                !c.buildings.is_empty()
+                    || !c.platforms.iter().any(|f| f.platform.pass_through
+                        && f.look != LOOK_CATWALK
+                        && f.look != sim_core::run::data::LOOK_CRANE
+                        && f.look != sim_core::run::data::LOOK_GIRDER
+                        && f.look != sim_core::run::data::LOOK_SCAFFOLD
+                        && f.look != sim_core::run::data::LOOK_WATER_TOWER
+                        && f.look != sim_core::run::data::LOOK_BILLBOARD),
+                "room {i} ({}) hangs things on no building",
+                c.name
+            );
+        }
+        // The balcony drop without its buildings: its balconies float.
+        let mut bad = rc.clone();
+        let drop = room(&bad, "balcony_drop");
+        bad.rooms[drop].buildings.clear();
+        assert!(check_run_shape(&bad)
+            .iter()
+            .any(|e| e.starts_with(&format!("room {drop}"))
+                && e.contains("balcony")
+                && e.contains("floats")));
+        // A scaffold over a true pit (the gap without its catch floor) stands on nothing: it floats. Over the catch floor, its poles
+        // reach the floor.
+        let mut bad = rc.clone();
+        let gap = room(&bad, "gap");
+        bad.rooms[gap].platforms.truncate(3);
+        bad.rooms[gap].buildings.retain(|b| b.top > Fx::ZERO);
+        bad.rooms[gap].pit = true;
+        assert!(check_run_shape(&bad)
+            .iter()
+            .any(|e| e.starts_with(&format!("room {gap}"))
+                && e.contains("scaffold")
+                && e.contains("floats")));
+        let held = sim_core::run::supports(
+            &rc,
+            &RoomSlot {
+                live: true,
+                room: gap as u8,
+                end: rc.rooms[gap].width,
+                ..RoomSlot::default()
+            },
+        );
+        assert!(held
+            .iter()
+            .any(|(p, s, y)| p.look == sim_core::run::data::LOOK_SCAFFOLD
+                && *s == sim_core::run::SUPPORT_POSTS
+                && *y == Fx::from_int(-14)));
+        // A sign hung on no building, and a gas canister in the air.
+        let mut bad = rc.clone();
+        let gap = room(&bad, "gap");
+        bad.rooms[gap].buildings.retain(|b| b.left != Fx::ZERO);
+        let street = room(&bad, "escapes");
+        bad.rooms[street].props[0].y = Fx::from_int(3);
+        let errors = check_run_shape(&bad);
+        for at in [gap, street] {
+            assert!(
+                errors
+                    .iter()
+                    .any(|e| e.starts_with(&format!("room {at}")) && e.contains("prop")),
+                "room {at}: {errors:?}"
+            );
+        }
+    }
+
+    /// R2e, the owner's R2d answer 3 ("recovery specials sometimes"): about a third of the skilled routes need the fighter's recovery
+    /// special. Each fighter's reach is worked out the way a run does it (a double jump from its numbers, `jump_reach`; with its up
+    /// special, measured by playing it in the sim, `recovery_reach`), for every built-in fighter and every class made with the
+    /// lowest stats; the routes a fighter cannot make are withheld (`skilled_offered`), and every route is offered to someone.
+    #[test]
+    fn recovery_routes_per_fighter() {
+        use crate::recipe::{match_content, FighterSpec, Recipe, CLASSES, MIN_STAT};
+        let rc = RunContent::placeholder();
+        let r = &rc.rules;
+        let skilled: Vec<&Room> = rc
+            .rooms
+            .iter()
+            .filter(|c| c.platforms.iter().any(|f| f.skilled))
+            .collect();
+        let recovery = skilled.iter().filter(|c| c.recovery != 0).count();
+        assert!(
+            recovery * 4 >= skilled.len() && recovery * 2 <= skilled.len(),
+            "{recovery} of {} skilled routes need a recovery",
+            skilled.len()
+        );
+        let mut specs: Vec<(String, FighterSpec)> =
+            (0..sim_core::Content::placeholder().fighters.len())
+                .map(|i| (format!("built-in {i}"), FighterSpec::Builtin(i as u8)))
+                .collect();
+        for class in 0..CLASSES {
+            let made = Recipe {
+                class,
+                size: MIN_STAT,
+                speed: MIN_STAT,
+                jump: MIN_STAT,
+                weight: MIN_STAT,
+            };
+            specs.push((
+                format!("made class {class}, lowest stats"),
+                FighterSpec::Made(made),
+            ));
+        }
+        let mut offered_to = vec![0usize; skilled.len()];
+        let mut withheld = 0;
+        for (name, spec) in &specs {
+            let (mut world, chars) =
+                match_content(&sim_core::Content::placeholder(), &[*spec], false).unwrap();
+            let id = chars[0];
+            let (jh, jd) = jump_reach(&world.fighters[usize::from(id)]);
+            let (rh, rd) = sim_core::run::recovery_reach(&mut world, id);
+            let jump = sim_core::Vec2::new(jd, jh);
+            let rec = sim_core::Vec2::new(rd, rh);
+            let mut row = Vec::new();
+            for (k, c) in skilled.iter().enumerate() {
+                let ok = sim_core::run::skilled_offered(r, c, jump, rec);
+                offered_to[k] += usize::from(ok);
+                withheld += usize::from(!ok);
+                row.push(format!("{}{}", c.name, if ok { "" } else { " (withheld)" }));
+            }
+            println!(
+                "{name}: double jump {} up {} across; with recovery {} up {} across: {}",
+                jh.show(),
+                jd.show(),
+                rh.show(),
+                rd.show(),
+                row.join(", ")
+            );
+        }
+        for (k, c) in skilled.iter().enumerate() {
+            assert!(offered_to[k] > 0, "{} is offered to nobody", c.name);
+            if c.recovery == 0 {
+                // (A double jump's route: every built-in fighter makes it.)
+                assert!(offered_to[k] >= 14, "{}: {}", c.name, offered_to[k]);
+            }
+        }
+        assert!(
+            withheld > 0,
+            "some fighter cannot make some route: it is withheld, never required"
         );
     }
 }

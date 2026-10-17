@@ -62,15 +62,29 @@ func _bridge() -> void:
 	var shop: PackedInt32Array = sim.run_shop()
 	check(shop.size() == 10 + 2 * 4 + 1 and shop[0] == 0 and shop[5] == 2 and shop[18] == 0, "the shop's two wares, outside, and open: " + str(shop))
 	check(sim.run_shop_names().size() == 2, "and their names")
-	# What the rooms are made of: every footing has a look, the pieces' rows have ten numbers, the rooms their heights.
+	# What the rooms are made of: every footing has a look, the pieces' rows have thirteen numbers (R2e: what holds it up, and its
+	# deck), the rooms their heights.
 	var looks: PackedStringArray = sim.run_looks()
 	check(looks.size() > 20 and looks[0] == "none", "the looks: %d" % looks.size())
 	var all_looked := true
 	for row in sim.run_pieces():
-		if row.size() != 10 or int(row[8]) <= 0 or int(row[8]) >= looks.size():
+		if row.size() != 13 or int(row[8]) <= 0 or int(row[8]) >= looks.size():
 			all_looked = false
-	check(all_looked, "every footing has a look")
-	check(sim.run_rooms()[0].size() == 16, "the rooms' rows: " + str(sim.run_rooms()[0]))
+		# (R2e, note B: nothing floats: the sim says what holds each footing up.)
+		elif int(row[10]) < 1 or int(row[10]) > 4:
+			all_looked = false
+	check(all_looked, "every footing has a look, and something holding it up")
+	var masses: Array = sim.run_buildings()
+	check(masses.size() >= 2 and (masses[0] as PackedFloat32Array).size() == 8, "the rooms' building masses: %d" % masses.size())
+	check(sim.run_deck_lines().size() == sim.run_deck_names().size(), "the decks' lines")
+	check(sim.run_rooms()[0].size() == 17, "the rooms' rows: " + str(sim.run_rooms()[0]))
+	# R2e (F4): the node map ahead, planned (about three rooms); (F3) the bonuses.
+	var plan: PackedInt32Array = sim.run_plan()
+	var deepest := 0
+	for k in plan.size() / 9:
+		deepest = maxi(deepest, plan[k * 9])
+	check(plan.size() % 9 == 0 and plan.size() >= 18 and plan[0] == 1 and deepest >= 2, "the map ahead: " + str(plan))
+	check(sim.run_bonus().size() == 10, "the bonuses: " + str(sim.run_bonus()))
 	check(sim.run_coins().size() % 4 == 0, "the coins")
 	var interior: Array = sim.run_interior()
 	check(interior.size() >= 4, "the shop's interior: %d rows" % interior.size())
@@ -182,6 +196,14 @@ func _scene() -> void:
 	check(main.run_stage.wall_node != null and main.run_stage.wall_node.position.x == main.sim.run_view()[6], "the left wall is drawn")
 	check(data.has("map") and (data["map"] as PackedInt32Array).size() >= 6, "the display has the map")
 	check(data.has("shop") and data.has("door") and data.has("gate"), "and the shop, the door and the gate")
+	check(data.has("plan") and (data["plan"] as PackedInt32Array).size() >= 18 and data.has("bonus"), "and the map ahead and the bonuses")
+	# A callout shows once: a new count makes a popup, the same count none more.
+	var bonus := PackedFloat32Array([2, 1, 0, 0, 25, 1, 1, 0, 0, 0])
+	main.run_hud.callouts_seen = 0
+	main.run_hud.popups.clear()
+	main.run_hud.show_state({"bonus": bonus, "delta": 0.016})
+	main.run_hud.show_state({"bonus": bonus, "delta": 0.016})
+	check(main.run_hud.popups.size() == 1 and str(main.run_hud.popups[0].text) == "SKYWARD! +25", "a callout: " + str(main.run_hud.popups))
 	# The rooms are drawn by their looks, with their building fronts; the coins spin; the skyline scrolls in parallax.
 	check(main.run_stage.looks.size() > 20, "the stage knows the looks")
 	check(main.run_stage.skylines.size() == 3 and not main.run_stage.skylines.has(null), "the city's three skyline layers, in parallax")
@@ -265,6 +287,18 @@ func _scene() -> void:
 	check(main.sim.run_info()[13] == 0, "out again with up at the door")
 	check(not main.hud.visible, "the versus display is hidden")
 	check(main.results == null, "no results while running")
+	# R2e (the owner's playtest note): no background mass ever stands in front of the play plane. Every building's and every
+	# backdrop mesh's front face lies behind the back of every footing, here and in the climbs, drops and skyline rooms.
+	var depth_bad := _background_in_front(main)
+	var shown := ["escape_climb", "great_climb", "balcony_drop", "catwalks", "office", "deck_fork_up"]
+	for room_name in shown:
+		main.sim.run_debug_only(PackedStringArray([room_name, "street"]), 1, 3)
+		for n in 6:
+			main.sim.run_debug_next_room()
+			await process_frame
+			await process_frame
+			depth_bad.append_array(_background_in_front(main))
+	check(depth_bad.is_empty(), "every background mesh stands behind the play plane: " + str(depth_bad.slice(0, 6)))
 	# Losing every life ends the run.
 	for life in 3:
 		main.sim.debug_place_airborne(0, main.sim.run_view()[0] + 10.0, main.sim.run_view()[3] - 4.0)
@@ -283,6 +317,28 @@ func _scene() -> void:
 		check(main.run_seed != 42, "on a new seed")
 	main.queue_free()
 	await process_frame
+
+
+## Background meshes (the rooms' building masses and the backdrop) whose front reaches past the back of the play plane's deepest
+## footing (a block, 8 back from the front; the fighters stand 2 back): names and depths.
+func _background_in_front(main: Node) -> Array:
+	var bad := []
+	var limit: float = main.run_stage.Z - 8.0
+	var roots: Array = [main.run_stage.backdrop]
+	for room in main.run_stage.pieces.values():
+		var masses: Node = (room as Node).get_node_or_null("Buildings")
+		if masses != null:
+			roots.append(masses)
+	for r in roots:
+		for n in (r as Node).find_children("*", "MeshInstance3D", true, false):
+			var mi := n as MeshInstance3D
+			if not mi.is_visible_in_tree() or mi.mesh == null:
+				continue
+			var box := mi.global_transform * mi.get_aabb()
+			var front := box.position.z + box.size.z
+			if front > limit:
+				bad.append("%s %.2f" % [mi.get_path(), front])
+	return bad
 
 
 func _menu() -> void:
