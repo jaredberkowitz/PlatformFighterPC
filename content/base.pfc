@@ -6,7 +6,7 @@ bundle {
     name "Base Roster"
     description "The built-in roster: a longsword duelist and a close-range brawler."
     sim_version 139
-    hash bbcb7a372efa82eb
+    hash 343672732a552283
 }
 
 ruleset {
@@ -1273,6 +1273,7 @@ weapon needles {
         landing_lag 20
         helpless_after true
         grabs_ledge true
+        fall_drift 60
         hitbox { start 35 end 37 x 0 y 0.59999 radius 1.59999 damage 12 angle 55 bkb 50 kbg 112 angle_type position }
         hitbox { start 54 end 55 x 0 y 1.2 radius 1.09999 damage 5 angle 45 bkb 0 kbg 100 group 1 fixed_kb 80 sdi 0 angle_type position }
         script {

@@ -4386,6 +4386,8 @@ pub fn needles() -> Weapon {
         include_str!("scripts/flash_step.script"),
     ));
     flash_step.helpless_after = true;
+    // The special fall's drift: "helplessness air speed multiplier" 0.6 (ssbwiki.com 13.0.1) [R]; the ruleset's 0.5 before sim 139.
+    flash_step.fall_drift = 60;
     flash_step.grabs_ledge = true;
     w.moves[MoveId::UpSpecial as usize] = flash_step;
 

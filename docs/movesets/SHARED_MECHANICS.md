@@ -129,6 +129,10 @@ Side specials (sim 139, owner decision 98; ssbwiki.com `<Fighter>_(SSBU)/Side_sp
 | 12 Dagger | Joker's Eiha | none published | its own fall rule | unchanged |
 | 13 Nodachi | Sephiroth's Shadow Flare | none published | kept | unchanged |
 
+Special-fall drift: every up special whose reference publishes its "helplessness air speed multiplier" uses it (`Move::fall_drift`:
+the Longsword 40, Claws 65, Needles 60 since sim 139 (it had the ruleset's 50), Embers 60, Gauntlets 70; tested by
+`upspecial_momentum::the_special_falls_drift_at_the_published_share`).
+
 ## Air movement against the reference (sim 139, owner decision 98)
 
 Every body's air numbers are its reference character's parameter file (dragdown.wiki `SSBU/<Fighter>/Data`, cross-checked with
