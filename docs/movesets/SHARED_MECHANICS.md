@@ -101,13 +101,46 @@ compares the rise out of a full hop, from a standstill and out of a fall at the 
 | 9 Buckler | Link's | initial vertical speed 2.4 [R] | script sets it | unchanged |
 | 10 Pockets | Villager's | the balloons' flaps set the speed | script sets it | unchanged |
 | 11 Popgun | Diddy Kong's | the charge stops the momentum (the move article) | `start_speed` / `start_speed_y` 0 | unchanged |
-| 12 Dagger | Joker's hook (air) | an attack with no special fall; "a slight vertical boost" once per air time, not said to halt | vertical kept to the boost on frame 5 | **unchanged: owner question** |
+| 12 Dagger | Joker's hook (air) | an attack with no special fall; "a slight vertical boost" once per air time, not said to halt | vertical kept to the boost on frame 5 | `start_speed_y` 0 on both air versions (sim 139, owner decision 98) |
 | 12 Dagger | the partner's wings | no startup multiplier published; a flight | vertical kept for frames 1-4 | `start_speed_y` 0 [E: reading] |
 | 13 Nodachi | Sephiroth's | not published; the startup is a stall | meant x0.5 and 0, but the script line was on frame 0 and never ran: the jump's rise carried through the 23-frame stall | `start_speed` 50, `start_speed_y` 0 [E] |
 
 Tests: `upspecial_momentum.rs` (the exile out of a jump, a midair jump, both forms; every halting up special out of a jump, a
-standstill and a fall; the shell's kept 0.8; nothing letting the exile act after its up special but a landing or a ledge),
-`move_rules::start_speed_y_*`.
+standstill and a fall, the Dagger's aerial hook since sim 139; the shell's kept 0.8; nothing letting the exile act after its up special
+but a landing or a ledge), `move_rules::start_speed_y_*`.
+
+Side specials (sim 139, owner decision 98; ssbwiki.com `<Fighter>_(SSBU)/Side_special` "Parameters", 13.0.1, checked 2026-10-17 by
+`sidespecial_momentum.rs`, measured from a standstill and moving in the air, standing and out of a dash on the ground):
+
+| Class | Side special (reference) | Reference rule | Ours before sim 139 | Ours since |
+| --- | --- | --- | --- | --- |
+| 0 Longsword | Marth's Dancing Blade | horizontal x0.5 on startup; "added vertical speed in the air" 1.4 [R]; no once-per-airtime limit published | speed kept, no lift | `start_speed` 50; +1.4 up on frame 1 in the air, every use [E: the limit] |
+| 1 Claws | Wolf's Flash | horizontal x0.67 and acceleration 0.05 on startup, startup gravity 0.017 after 13 frames; angle by the stick past 0.5, at most 10 degrees; after the dash 2.3 (air) / 2.5 (ground) slowed by 0.07 / 0.15, gravity 0.08 after 5 frames [R] | speed and fall kept through the startup; about 24 degrees; stopped dead after the dash | as the reference; the 0.05 read as slowing the kept speed [E]; the dash's own speed 5.5 a frame [E] |
+| 2 Needles | (our own line throw, the owner's) | not a reference move | kept | unchanged |
+| 3 Embers | Mario's Cape | air speed / 2.5, air friction 0.0025, +0.3 up, gravity 0.031, fall 1 [R]; the lift once per air time | as the reference | unchanged |
+| 4 Gauntlets | Falcon's Raptor Boost | ground x0.18 a frame on activation, helpless air speed x0.7, landing lag 22 [R]; the dash is the animation's | motion-driven, as the reference's | unchanged (motions [E]) |
+| 5 Staff | Palutena's Explosive Flame | horizontal x0.8 on startup [R] | as the reference | unchanged |
+| 6 Greatsword | Cloud's Cross Slash | no parameters published | kept | unchanged |
+| 7 Bracers | DK's Headbutt | horizontal x0.5 / x0.67, vertical 0 / x0.5 (ground / air), gravity x0.5 [R] | as the reference | unchanged |
+| 8 Clutch | Yoshi's Egg Roll | vertical 2 on startup, its own roll speeds [R] | as the reference | unchanged |
+| 9 Buckler | Link's Boomerang | none published | kept | unchanged |
+| 10 Pockets | Villager's Lloid Rocket | stops the momentum [R, qualitative] | halts | unchanged |
+| 11 Popgun | Diddy's Monkey Flip | no 13.0.1 page; no special fall | its own flip | unchanged |
+| 12 Dagger | Joker's Eiha | none published | its own fall rule | unchanged |
+| 13 Nodachi | Sephiroth's Shadow Flare | none published | kept | unchanged |
+
+## Air movement against the reference (sim 139, owner decision 98)
+
+Every body's air numbers are its reference character's parameter file (dragdown.wiki `SSBU/<Fighter>/Data`, cross-checked with
+ssbwiki.com's attribute tables, 13.0.1), checked by `air_movement_reference.rs`: air speed, `air_accel_x_add` / `_mul`, `air_brake_x`,
+gravity, fall and fast fall, the full hop, short hop and midair jump heights (measured), `jump_aerial_speed_x_mul` (the midair jump's
+drift) and the ground jump's `jump_speed_x` / `jump_speed_x_mul` / `jump_speed_x_max`. Sim 139 fixed the Claws' air friction (0.01 to
+0.004), added the missing 0.9 midair-jump drift to the Claws, Embers, Gauntlets, Staff and Pockets bodies, and replaced the shared
+ground-jump estimate with each body's rule (`FighterParams::jump_speed_x*`, `fighter.rs` `jump_takeoff_x`; walking off an edge keeps
+the older `Ruleset::jump_momentum` rule). The shared rules already matched the reference where it is published: air friction only
+with no sideways input, air acceleration a base plus the stick's share, the full hop's fast opening (55% of the height in 4 frames),
+a midair jump replacing the sideways speed. Not published, so unchanged: how speed above the air speed bleeds off (ours: by air
+friction) and how a jump combines the stick with the run (ours: the faster the same way) [E].
 
 ## 2. Hit resolution and hit feel (`sim-core/src/combat.rs`, `fighter.rs`)
 

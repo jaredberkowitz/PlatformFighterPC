@@ -93,6 +93,12 @@ reference buffers a dash only in the last 6 or 7 frames (owner's call to be more
 **Sim 82** (branch `dash-buffer-landing`, on `movesets` at sim 80): landing lag keeps a dash the same way, and the keyboard sends a
 direction key pressed during grab, throw or landing lag as a flick (a first press was otherwise a walk, so keyboard players could not
 buffer a dash at all); tests in `grab_dash.rs`, `landing_buffer.rs` and `godot/tests/input_e2e.gd`.
+**Sim 139** (branch `recovery-audit`, from `origin/main` at 3d8d5d3, sim 137; content schema 8 unchanged; sim 138 is the Longsword's
+older-jab branch): recoveries, air movement and side specials checked against the reference for all 14 fighters (owner decision 98,
+`docs/movesets/ROSTER_STATUS.md`): each body's own ground-jump rule (`jump_speed_x`, `_mul`, `_max`, optional fighter fields), the
+missing 0.9 midair-jump drift on five bodies, the Claws' air friction, the Dagger's aerial hook halting a jump's rise, the Longsword's
+and Claws' side-special starts and the flash dash's slide. Tests `air_movement_reference.rs`, `sidespecial_momentum.rs`; tables in
+`docs/movesets/SHARED_MECHANICS.md`. `fuzz-rollback 300` and `net-fuzz 100`: 0 mismatches.
 **Sim 137** (branch `runner-r2d`, from `origin/main` at 4de02eb, sim 136; content schema 8 unchanged): the run mode's R2d, verticality (`docs/modes/RUNNER_PLAN.md` section 12): three decks as data (street, rooftops, skyline), climbs, drops, shafts, interiors and deck forks, the vertical gate (a lid over a climb left behind), sure and skilled routes proven per room by `sim_content::check_run`. The ledge table grows to 16 in a run only (`state::ledges`); an inactive run is no longer hashed. Versus digests and `net-fuzz`/`fuzz-rollback` lines are unchanged.
 **Sim 131** (branch `runner-r2c`, from `origin/main` at 12eb757, merged with sim 128 and sim 130; content schema 8 unchanged): the run
 mode's R2c, combat parity (`docs/modes/RUNNER_PLAN.md` section 11). **Every grunt is a fighter**: `GameState::fighters` holds the 4
