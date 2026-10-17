@@ -2774,7 +2774,7 @@ static func _gable(width: float, height: float, thick: float) -> ArrayMesh:
 static func _round_tree(root: Node3D, at: Vector3, size: float, rng: RandomNumberGenerator) -> void:
 	# A tapering trunk with a slight bow and roots flaring at its foot (one mesh, `trunk_mesh`), in warm painted bark.
 	_mesh(root, trunk_mesh(3.2 * size, 0.42 * size, 0.26 * size, 0.18 * size * (1.0 if fmod(absf(at.x), 2.0) < 1.0 else -1.0), 0.35 * size),
-		Materials.bark(Color(0.6, 0.4, 0.24), Vector2(2, 2)), at)
+		Materials.bark_plates(Color(0.6, 0.4, 0.24), Vector2(2, 1)), at)
 	var greens := Materials.greens(Materials.greens(Color(0.3, 0.62, 0.16))[rng.randi_range(0, 2)])
 	var crown := Sway.new()
 	crown.position = at + Vector3(0, 2.8 * size, 0)
@@ -2804,7 +2804,7 @@ static func _round_tree(root: Node3D, at: Vector3, size: float, rng: RandomNumbe
 		var reach := big * own.randf_range(0.75, 0.95)
 		masses.append([Vector3(cos(ang) * reach, 1.4 + sin(ang) * reach * 0.7, own.randf_range(0.2, 0.7)) * size,
 			own.randf_range(0.7, 0.95) * size, 12])
-	var bark := Materials.bark(Color(0.56, 0.37, 0.22), Vector2(1, 2))
+	var bark := Materials.bark_plates(Color(0.56, 0.37, 0.22), Vector2(1, 1))
 	for sx in [-1.0, 1.0]:
 		var tilt: float = sx * own.randf_range(28.0, 40.0)
 		var length := own.randf_range(1.1, 1.5) * size
@@ -3125,9 +3125,9 @@ static func _stilt_hut(root: Node3D, at: Vector3) -> void:
 
 ## A palm: a curving trunk of stacked rings under a fan of long leaves and a few coconuts.
 static func _palm(root: Node3D, base: Vector3, size: float, rng: RandomNumberGenerator) -> void:
-	# (Plain, its scale rings carry the texture, art review 6 round 37: the bark tile's vertical plates ran down the narrow trunk as a
-	# brown streak; a palm's texture is its rings. A painted palm texture is a Material Maker job.)
-	var bark := FighterView.toon(Color(0.66, 0.5, 0.32))
+	# (Its own painted ring tile, art/stage/png/palm.png from tools/art/noise_tile.gd, about two rings a scale: the bark tile's vertical
+	# plates ran down the narrow trunk as a brown streak, art review 6 round 37; a palm's texture is its rings.)
+	var bark := Materials.palm(Color(0.66, 0.5, 0.32), Vector2(2, 0.34))
 	var lean := rng.randf_range(-0.12, 0.12)
 	var top := base
 	# (A trunk of overlapping scales, each a ring wider at its top than its foot, turned along the trunk's curve and narrowing toward
