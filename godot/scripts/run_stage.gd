@@ -49,6 +49,8 @@ const BLOCKS := ["street", "roof", "wall", "tower", "office_floor", "ceiling"]
 ## Pass-through looks drawn as the city's girder platform (with their own dressing).
 const GIRDERS := ["balcony", "fire_escape", "scaffold", "billboard", "water_tower", "bus_shelter", "pedestal", "shelf", "planter"]
 ## The building fronts behind the rooms, in the city skyline's shades (its facade shader paints the windows).
+## How far behind the play plane the building fronts stand (their front face).
+const FACADE_Z := -18.0
 const FACADE_SHADES := [Color(0.36, 0.24, 0.4), Color(0.3, 0.28, 0.42), Color(0.4, 0.3, 0.38)]
 const FACADE_SHADER := preload("res://shaders/facade.gdshader")
 const AWNING_STRIPES := [[Color(0.92, 0.34, 0.42), Color(0.98, 0.94, 0.9)], [Color(0.3, 0.6, 0.6), Color(0.94, 0.92, 0.84)],
@@ -440,14 +442,17 @@ func _facade(node: Node3D, room: PackedFloat32Array) -> void:
 	var tall := 9.0 + float((seq * 37) % 4) * 1.5
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
-	StageArt._facade_box(st, Vector3(left, ground - 4.0, -8.5), Vector3(right, ground + tall, -6.0), fmod(float(seq) * 0.37, 1.0), false, tall + 4.0)
+	# (Well back from the play plane, FACADE_Z: at 6 to 8.5 behind it the fronts sat right behind the fighters at nearly their scale and
+	# read as overlapping them; the owner, 2026-10-17. A little taller and wider to fill the same view from further away.)
+	StageArt._facade_box(st, Vector3(left - 1.0, ground - 6.0, FACADE_Z - 2.5), Vector3(right + 1.0, ground + tall * 1.4, FACADE_Z), fmod(float(seq) * 0.37, 1.0), false, tall * 1.4 + 6.0)
 	var m := ShaderMaterial.new()
 	m.shader = FACADE_SHADER
 	var shade: Color = FACADE_SHADES[seq % FACADE_SHADES.size()]
 	m.set_shader_parameter("base_shade", shade)
 	m.set_shader_parameter("roof_shade", shade.lightened(0.12))
-	m.set_shader_parameter("lit_energy", 1.9)
-	m.set_shader_parameter("lit_share", 0.3)
+	# (The versus city's calmer windows, so the backdrop stays behind the fighters: art review 6.)
+	m.set_shader_parameter("lit_energy", 1.15)
+	m.set_shader_parameter("lit_share", 0.18)
 	m.set_shader_parameter("detail", 1.0)
 	m.set_shader_parameter("sign_energy", 2.0)
 	var mi := StageArt._mesh(node, st.commit(), m, Vector3.ZERO)
