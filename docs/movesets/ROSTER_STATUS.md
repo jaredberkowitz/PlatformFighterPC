@@ -670,7 +670,8 @@ Open for the owner from decision 97: answered by decision 98 (the aerial hook ha
     the air speed, no stick share): a standing jump with the stick held moves at once, a run jump keeps 70-90% of the run, capped at
     the body's own maximum (the Gauntlets' 2.1, so its run jumps carry much further; the Longsword's 1.2). How the reference combines
     the stick and the run is not published: the reading (the faster of the two the same way; a stick held back never cuts a reverse
-    aerial rush) is an estimate. The Dagger's aerial hook now halts a jump's rise (`start_speed_y` 0), as the owner decided. Side
+    aerial rush) is an estimate. The Dagger's aerial hook now halts a jump's rise (`start_speed_y` 0), as the owner decided. The Needles' up special's
+    special fall drifts at its published 0.6 (it had the shared 0.5). Side
     specials: the Longsword's blade flurry now keeps half its sideways speed and adds the published 1.4 upward in the air (every use; it
     slows a fall); the Claws' flash dash keeps 0.67 sideways and none vertical, holds still 13 frames then falls at 0.017, angles at
     most 10 degrees past half tilt (it was about 24), and slides on after the dash at 2.3 (air) / 2.5 (ground) slowed by 0.07 / 0.15
