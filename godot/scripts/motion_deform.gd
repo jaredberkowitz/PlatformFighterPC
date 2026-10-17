@@ -23,6 +23,8 @@ const IMPACT_MAX := 0.16
 const LAUNCH_FROM := 0.3
 const LAUNCH_PER_SPEED := 1.0
 const LAUNCH_MAX := 0.42
+## The share of the launch stretch the base body takes (its round body stretched far reads as melting).
+const BASE_LAUNCH_SHARE := 0.35
 
 
 ## How stretched (a share of its length) the striking limb is at move frame `f` of a move live from `first` to `last`: it snaps out over

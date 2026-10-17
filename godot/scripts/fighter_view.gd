@@ -1040,6 +1040,8 @@ static func blob_parts() -> Dictionary:
 
 
 ## States where the hands open (see `_clench`).
+## States in which a held weapon trails in the loose hand instead of being held in guard (see `carrying`).
+const REELING_STATES := ["Hitstun", "Tumble", "Knockdown", "GetUp", "ShieldBreak", "Grabbed"]
 const OPEN_HAND_STATES := ["Grabbing", "Grabbed", "Hitstun", "Tumble", "LedgeHang", "LedgeGetUp", "Knockdown", "GetUp", "ShieldBreak",
 	"Respawn", "Helpless", "ItemPickup", "ItemThrow"]
 ## Moves whose reference opens the hand (from the moveset reports' art notes): by class, the sim's move names. A hand holding a weapon
@@ -3782,6 +3784,9 @@ func _launch_look(s: Dictionary) -> void:
 	var flying: bool = String(s.state) == "Hitstun" and int(s.hitlag) == 0
 	var flight: Vector2 = vel + s.get("kb_vel", Vector2.ZERO)
 	var target: Array = MotionDeform.body_target(String(s.state), int(s.hitlag), bool(s.launch_pending), flight)
+	# (Far less on the base body: stretched 42% the round body read as a melting tube with its legs merged. Pose review.)
+	if use_base_body and float(target[0]) > 0.0:
+		target[0] = float(target[0]) * MotionDeform.BASE_LAUNCH_SHARE
 	var frame := int(s.frame)
 	var steps := frame - body_frame
 	if body_frame < 0 or steps < 0 or steps > 2:
@@ -4133,6 +4138,10 @@ func _apply_combat(s: Dictionary, delta: float) -> void:
 	_clench(not open_hands, not open_hands or blade_pivot.visible, int(s.facing))
 	# Running with nothing to swing, the weapon arm pumps with the run and the weapon trails behind.
 	var carrying: bool = not brawler and s.move_name == "" and (state == "Run" or state == "Dash")
+	# Hit, the weapon arm goes with the body's reaction (the clip) and the weapon trails in the loose hand, as in the run: held up in
+	# its guard through the hitstun, the sword crossed the face and the launch pointed it ahead like a thrust. Pose review.
+	if not brawler and REELING_STATES.has(state):
+		carrying = true
 	if rig != null:
 		var holding: bool = swinging_arm if not brawler else (swinging_arm and state == "Attack")
 		# The Wanderer's round shield, on the other forearm, faced outward toward the camera, a little in front of the body.
