@@ -4,6 +4,9 @@
 //! pftool net-host <port> [frames] [--fast]    host a headless match over UDP and print the result
 //! pftool net-join <host:port> [frames] [--fast]  join one
 //! pftool net-relay <port>                      run a relay server for players who cannot connect directly
+//! pftool net-stun                              ask the public STUN servers for this machine's address and print its code
+//! pftool net-code [frames] [--fast]            play a headless match by connection code: prints this side's code, reads the
+//!                                              friend's from standard input, hole-punches and plays (the lower code hosts)
 //! (net-host / net-join also take  --relay <addr> --room <n>  to go through a relay instead)
 
 use netplay::local_rollback::reference_checksums;
@@ -16,7 +19,7 @@ use sim_core::{Content, GameState, Input, Rng, MAX_FIGHTERS};
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, ToSocketAddrs};
 use std::thread::sleep;
 use std::time::Duration;
-use transport::{Relay, RelayLink, UdpLink};
+use transport::{CodeOptions, CodeSocket, CodeState, ConnectionCode, Relay, RelayLink, UdpLink};
 
 fn any_local() -> SocketAddr {
     SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 0)
@@ -508,5 +511,94 @@ pub fn cmd_fuzz(args: &[String]) -> Result<(), String> {
         Ok(())
     } else {
         Err(format!("{bad} runs desynced"))
+    }
+}
+
+/// Binds the code socket and waits for the address search to end (at most about eight seconds).
+fn find_code(port: u16) -> Result<CodeSocket, String> {
+    let mut sock = CodeSocket::bind(port, CodeOptions::default()).map_err(|e| e.to_string())?;
+    let started = std::time::Instant::now();
+    while sock.state() == CodeState::FindingAddress && started.elapsed() < Duration::from_secs(8) {
+        sock.poll();
+        sleep(Duration::from_millis(10));
+    }
+    Ok(sock)
+}
+
+pub fn cmd_stun(_args: &[String]) -> Result<(), String> {
+    let sock = find_code(0)?;
+    println!(
+        "local socket: {}",
+        sock.local_addr().map_err(|e| e.to_string())?
+    );
+    match sock.public_addr() {
+        Some(a) => println!("public address (STUN): {a}"),
+        None => println!("public address: not found (no STUN server answered)"),
+    }
+    println!(
+        "strict router (ports differ per server): {}",
+        sock.strict_nat()
+    );
+    let code = sock.my_code().ok_or("no code")?;
+    println!("LAN address: {}", code.lan);
+    println!("code: {}", code.encode());
+    if sock.public_addr().is_some() {
+        Ok(())
+    } else {
+        Err("STUN failed".to_string())
+    }
+}
+
+pub fn cmd_code(args: &[String]) -> Result<(), String> {
+    let frames: u32 = args.first().and_then(|f| f.parse().ok()).unwrap_or(600);
+    let mut sock = find_code(47000)?;
+    let mine = sock.my_code().ok_or("no code")?;
+    println!("your code: {}", mine.encode());
+    if sock.strict_nat() {
+        println!("warning: this router looks strict; codes may not get through it");
+    }
+    println!("paste your friend's code and press Enter:");
+    let mut line = String::new();
+    std::io::stdin()
+        .read_line(&mut line)
+        .map_err(|e| e.to_string())?;
+    let theirs = ConnectionCode::decode(&line).map_err(|e| e.to_string())?;
+    let host = sock.hosts_against(&theirs);
+    sock.connect(theirs)
+        .map_err(|_| "that is your own code".to_string())?;
+    println!("waiting for your friend...");
+    loop {
+        sock.poll();
+        match sock.state() {
+            CodeState::Connected(a) => {
+                println!(
+                    "connected to {a} as the {}",
+                    if host { "host" } else { "joiner" }
+                );
+                break;
+            }
+            CodeState::Failed => {
+                return Err(
+                    "could not reach your friend (a strict router, or they did not press connect)"
+                        .to_string(),
+                )
+            }
+            _ => sleep(Duration::from_millis(5)),
+        }
+    }
+    let link = sock.into_link().ok_or("no link")?;
+    let content = crate::content()?;
+    let (peer, seed) = if host {
+        (Peer::host(link, &content, match_setup(1)), 1)
+    } else {
+        (Peer::join(link, &content, Vec::new()), 2)
+    };
+    let inputs = script(seed, frames as usize + 100);
+    let report = play(peer, &content, &inputs, frames, paced(args))?;
+    print_report(if host { "host" } else { "joiner" }, &report);
+    if report.desyncs.is_empty() {
+        Ok(())
+    } else {
+        Err("desync detected".to_string())
     }
 }

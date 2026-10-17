@@ -1747,12 +1747,12 @@ static func _soft_dot() -> GradientTexture2D:
 ## so the sky is not one stamp repeated: a domed heap with smaller puffs piled on its crown, a long low bank, and a tall tower. No ink
 ## outline: they are far, and the haze softens them.
 static func _clouds(root: Node3D, rng: RandomNumberGenerator, count: int, color: Color, y_range: Vector2, z_range := Vector2(-120, -85),
-		kinds := [0, 1, 2], scale := 1.0) -> void:
+		kinds := [0, 1, 2], scale := 1.0, x_range := Vector2(-90, 90)) -> void:
 	var puff := _sphere(1.0, 32)
 	for k in count:
 		var cloud := Drift.new()
 		cloud.speed = rng.randf_range(0.6, 1.6)
-		cloud.position = Vector3(rng.randf_range(-90, 90), rng.randf_range(y_range.x, y_range.y), rng.randf_range(z_range.x, z_range.y))
+		cloud.position = Vector3(rng.randf_range(x_range.x, x_range.y), rng.randf_range(y_range.x, y_range.y), rng.randf_range(z_range.x, z_range.y))
 		root.add_child(cloud)
 		var mat := ShaderMaterial.new()
 		mat.shader = CLOUD_SHADER
@@ -2774,7 +2774,7 @@ static func _gable(width: float, height: float, thick: float) -> ArrayMesh:
 static func _round_tree(root: Node3D, at: Vector3, size: float, rng: RandomNumberGenerator) -> void:
 	# A tapering trunk with a slight bow and roots flaring at its foot (one mesh, `trunk_mesh`), in warm painted bark.
 	_mesh(root, trunk_mesh(3.2 * size, 0.42 * size, 0.26 * size, 0.18 * size * (1.0 if fmod(absf(at.x), 2.0) < 1.0 else -1.0), 0.35 * size),
-		Materials.bark(Color(0.6, 0.4, 0.24), Vector2(2, 2)), at)
+		Materials.bark_plates(Color(0.6, 0.4, 0.24), Vector2(2, 1)), at)
 	var greens := Materials.greens(Materials.greens(Color(0.3, 0.62, 0.16))[rng.randi_range(0, 2)])
 	var crown := Sway.new()
 	crown.position = at + Vector3(0, 2.8 * size, 0)
@@ -2804,7 +2804,7 @@ static func _round_tree(root: Node3D, at: Vector3, size: float, rng: RandomNumbe
 		var reach := big * own.randf_range(0.75, 0.95)
 		masses.append([Vector3(cos(ang) * reach, 1.4 + sin(ang) * reach * 0.7, own.randf_range(0.2, 0.7)) * size,
 			own.randf_range(0.7, 0.95) * size, 12])
-	var bark := Materials.bark(Color(0.56, 0.37, 0.22), Vector2(1, 2))
+	var bark := Materials.bark_plates(Color(0.56, 0.37, 0.22), Vector2(1, 1))
 	for sx in [-1.0, 1.0]:
 		var tilt: float = sx * own.randf_range(28.0, 40.0)
 		var length := own.randf_range(1.1, 1.5) * size
@@ -2939,12 +2939,12 @@ static func _painted_sun(root: Node3D, at: Vector3, r: float) -> void:
 	var sun := _mesh(root, q, m, at)
 	sun.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	sun.name = "Sun"
-	# (Two soft clouds, thicker and nearer the sky's colour, art review 6 round 42: three thin dark bands read as flat lines struck
-	# through the sun.)
-	var bands := [[-0.42, 1.9, 0.085, Color(0.98, 0.62, 0.62)], [-0.18, 1.2, 0.06, Color(1.0, 0.74, 0.66)]]
-	for b in bands:
-		var w := r * float(b[1])
-		_mesh(root, _sphere(1.0, 24), _unshaded(b[3]), at + Vector3(r * 0.2 * float(b[0]) * 3.0, r * float(b[0]), 4.0), Vector3(w, r * float(b[2]) * 2.0, 0.2))
+	# Two real banks of cumulus drifting across the lower half of the disc, lit warm from the sun, in place of the flat squashed shapes
+	# (the owner, 2026-10-15: the sun's clouds looked cheap). In front of it, so the sun sinks behind them.
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 41
+	_clouds(root, rng, 2, Color(1.0, 0.6, 0.56), Vector2(at.y - r * 0.55, at.y - r * 0.15), Vector2(at.z + 6.0, at.z + 8.0), [1], 1.15,
+		Vector2(at.x - r * 0.6, at.x + r * 0.6))
 
 
 ## A ribbed saguaro with curving arms and a flower on top (art/blender/make_props.py), `size` about 4 units tall at 1.
@@ -3125,9 +3125,9 @@ static func _stilt_hut(root: Node3D, at: Vector3) -> void:
 
 ## A palm: a curving trunk of stacked rings under a fan of long leaves and a few coconuts.
 static func _palm(root: Node3D, base: Vector3, size: float, rng: RandomNumberGenerator) -> void:
-	# (Plain, its scale rings carry the texture, art review 6 round 37: the bark tile's vertical plates ran down the narrow trunk as a
-	# brown streak; a palm's texture is its rings. A painted palm texture is a Material Maker job.)
-	var bark := FighterView.toon(Color(0.66, 0.5, 0.32))
+	# (Its own painted ring tile, art/stage/png/palm.png from tools/art/noise_tile.gd, about two rings a scale: the bark tile's vertical
+	# plates ran down the narrow trunk as a brown streak, art review 6 round 37; a palm's texture is its rings.)
+	var bark := Materials.palm(Color(0.66, 0.5, 0.32), Vector2(2, 0.34))
 	var lean := rng.randf_range(-0.12, 0.12)
 	var top := base
 	# (A trunk of overlapping scales, each a ring wider at its top than its foot, turned along the trunk's curve and narrowing toward

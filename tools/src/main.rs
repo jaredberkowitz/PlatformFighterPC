@@ -6,7 +6,7 @@
 //! pftool balance [--legal] [--quick] ...   play bot matches between fighter builds and report how each does
 //! pftool selftest                        print checksum lines for the cross-platform CI gate
 //! pftool fuzz-rollback [runs]            randomised local-rollback runs; non-zero exit on any desync
-//! pftool net-fuzz | net-host | net-join | net-relay   networked play, see `net.rs`
+//! pftool net-fuzz | net-host | net-join | net-relay | net-stun | net-code   networked play, see `net.rs`
 //! pftool content-export <out.pfc> | content-check <file.pfc> | content-pack <in.pfc> <out.pfc>   content bundles
 //! pftool run-bot [seeds] [frames] | run-bench [frames]   the single-player run: a bot's runs, and the step's cost with 16 mobs
 //!
@@ -40,13 +40,15 @@ fn main() -> ExitCode {
         Some("net-host") => net::cmd_host(&args[1..]),
         Some("net-join") => net::cmd_join(&args[1..]),
         Some("net-relay") => net::cmd_relay(&args[1..]),
+        Some("net-stun") => net::cmd_stun(&args[1..]),
+        Some("net-code") => net::cmd_code(&args[1..]),
         Some("content-export") => content::cmd_export(&args[1..]),
         Some("content-check") => content::cmd_check(&args[1..]),
         Some("content-pack") => content::cmd_pack(&args[1..]),
         Some("run-bot") => runs::cmd_bot(&args[1..]),
         Some("run-bench") => runs::cmd_bench(&args[1..]),
         _ => Err(
-            "usage: pftool <gen|run|replay-verify|balance|selftest|fuzz-rollback|net-fuzz|net-host|net-join|net-relay|content-export|content-check|content-pack|run-bot|run-bench> ..."
+            "usage: pftool <gen|run|replay-verify|balance|selftest|fuzz-rollback|net-fuzz|net-host|net-join|net-relay|net-stun|net-code|content-export|content-check|content-pack|run-bot|run-bench> ..."
                 .to_string(),
         ),
     };

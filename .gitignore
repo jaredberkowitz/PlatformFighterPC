@@ -10,3 +10,6 @@ tools/godot/
 
 # Raw models from the generation services (tools/art/gen3d.py); only cleaned assets are kept in godot/models/props/
 /art/generated/
+
+# Raw Material Maker exports (2048px, ~45 MB): local sources for tools/art/mm_tile.gd; the converted tiles live in godot/art/stage/png/.
+godot/art/materials/mm_exports/*/

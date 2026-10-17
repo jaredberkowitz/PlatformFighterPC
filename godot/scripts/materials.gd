@@ -39,9 +39,18 @@ const TILE_DETAIL := {"roof": ["concrete", 0.5, 3.0], "asphalt": ["concrete", 0.
 static var _cache := {}
 
 
+## The painted tile `name` (art/stage/png/<name>.png, made from a Material Maker export by tools/art/mm_tile.gd), or null when there is
+## none and the SVG tile serves.
+static func _png_tile(name: String) -> Texture2D:
+	var path := "res://art/stage/png/%s.png" % name
+	return load(path) as Texture2D if ResourceLoader.exists(path) else null
+
+
 ## Sets a world-laid material's painted detail: the tile `detail` (concrete, soil, stone), `amount`, `scale` world units per fine repeat.
 static func set_detail(m: ShaderMaterial, detail: String, amount: float, scale: float) -> void:
-	var tex := SvgArt.texture("res://art/stage/detail_%s.svg" % detail)
+	var tex := _png_tile("detail_" + detail)
+	if tex == null:
+		tex = SvgArt.texture("res://art/stage/detail_%s.svg" % detail)
 	if tex == null:
 		return
 	m.set_shader_parameter("detail_tex", tex)
@@ -54,9 +63,14 @@ static func _make(family: String, colour: Color, tile_name: String, tile: Vector
 	if _cache.has(key):
 		return _cache[key]
 	var tex: Texture2D = null
-	if tile_name != "":
+	# A painted value tile (art/stage/png/, from tools/art/mm_tile.gd) is greyscale and takes the surface's colour from the material;
+	# an SVG tile is recoloured itself.
+	var painted := _png_tile(tile_name) if tile_name != "" else null
+	if painted != null:
+		tex = painted
+	elif tile_name != "":
 		tex = SvgArt.texture("res://art/stage/%s.svg" % tile_name, {"#ff00ff": colour})
-	var base := FighterView.toon(Color.WHITE if tex != null else colour, outline, tex, tile, world_tile)
+	var base := FighterView.toon(colour if painted != null or tex == null else Color.WHITE, outline, tex, tile, world_tile)
 	var m := base.duplicate() as ShaderMaterial
 	for p in FAMILIES[family]:
 		m.set_shader_parameter(p, FAMILIES[family][p])
@@ -105,6 +119,17 @@ static func shingles(c: Color, tile := Vector2(3, 2), outline := true) -> Shader
 ## Bark: vertical grooves and a few dark knots, repeated `tile` times round and up a trunk.
 static func bark(c: Color, tile := Vector2(4, 3), outline := true) -> ShaderMaterial:
 	return _make("bark", c, "bark", tile, 0.0, outline)
+
+
+## Bark in soft plates for the small trees (art/stage/png/bark_plates.png from tools/art/noise_tile.gd; the owner, 2026-10-15: the bark
+## tile's sharp streaks on the small trees read as nothing real). The great trunks keep `bark`, whose bold furrows read at their size.
+static func bark_plates(c: Color, tile := Vector2(2, 1), outline := true) -> ShaderMaterial:
+	return _make("bark", c, "bark_plates" if _png_tile("bark_plates") != null else "bark", tile, 0.0, outline)
+
+
+## A palm trunk: soft horizontal ring scars (the painted tile only; with none, the trunk is plain), repeated `tile` times.
+static func palm(c: Color, tile := Vector2(2, 1), outline := true) -> ShaderMaterial:
+	return _make("bark", c, "palm" if _png_tile("palm") != null else "", tile, 0.0, outline)
 
 
 ## Leaves: soft clumps with a shaded underside, for crowns and bushes.

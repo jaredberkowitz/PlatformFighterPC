@@ -25,7 +25,7 @@ var logo: Control
 const ITEMS := [
 	["Play", "Battle on the couch", "res://select.tscn", Color(0.98, 0.74, 0.26), "play", Rect2(50, 150, 520, 380)],
 	["Run", "Single player: how far can you go?", "run", Color(0.86, 0.36, 0.3), "run", Rect2(50, 550, 520, 100)],
-	["Online", "Duels, groups, quick match", "res://online.tscn", Color(0.24, 0.5, 0.86), "online", Rect2(590, 150, 330, 240)],
+	["Online", "Play a friend by code", "res://online.tscn", Color(0.24, 0.5, 0.86), "online", Rect2(590, 150, 330, 240)],
 	["Replays", "Watch saved matches", "res://replays.tscn", Color(0.5, 0.36, 0.76), "replays", Rect2(940, 150, 290, 240)],
 	["Character Creator", "Make your own fighter", "res://creator.tscn", Color(0.3, 0.64, 0.36), "creator", Rect2(590, 410, 330, 240)],
 	["Controls", "Keys, pads", "res://controls.tscn", Color(0.25, 0.27, 0.46), "controls", Rect2(940, 410, 135, 135)],

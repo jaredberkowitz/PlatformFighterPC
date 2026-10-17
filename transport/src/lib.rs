@@ -6,8 +6,18 @@
 //!   clients send to a relay server with a shared room number and the relay forwards between them. It adds one hop of
 //!   latency but needs no NAT traversal.
 //!
-//! Neither hole-punches NAT; direct play over the internet needs a forwarded port (or a LAN / VPN), and anything else
-//! uses the relay.
+//! * [`punch::CodeSocket`] and [`punch::CodeLink`]: play by connection code. STUN ([`stun`]) finds the public address of
+//!   the match socket, [`code::ConnectionCode`] packs it into a short code the players swap over chat, and UDP hole punching
+//!   connects them with no server of ours and no port forwarding (unless a router is strict; see `punch.rs`).
+//!
+//! Direct play without a code needs a forwarded port (or a LAN / VPN), and the relay needs a public server.
+
+pub mod code;
+pub mod punch;
+pub mod stun;
+
+pub use code::{CodeError, ConnectionCode};
+pub use punch::{CodeLink, CodeOptions, CodeSocket, CodeState};
 
 use netplay::group::HubLink;
 use netplay::peer::Link;

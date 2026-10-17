@@ -2,8 +2,10 @@ extends Control
 ## The online screen: host a match or join one, pick your fighter, and connect. The host also chooses the rules (stocks, time,
 ## ranked); the joiner plays under whatever the host chose. Up/Down choose a row, Left/Right change it, Enter connects, Esc goes back.
 ##
-## Connecting works two ways: direct (the host opens a UDP port, the joiner types the host's address) or through a relay
-## server (`pftool net-relay`), where both type the relay's address and a room number.
+## Connecting works three ways. Code (the default): each player sees a code, the two swap codes over any chat and both press
+## Connect; the game finds a way through both routers (UDP hole punching, `transport::punch`) and the lower code hosts. Direct: the
+## host opens a UDP port and the joiner types the host's address. Relay: both type a relay server's address (`pftool net-relay`) and a
+## room number.
 
 const Music := preload("res://scripts/music.gd")
 const UI := preload("res://ui/ui_kit.gd")
@@ -18,8 +20,10 @@ const DELAYS := [0, 1, 2, 3, 4, 5, 6]
 
 const DESCRIPTIONS := {
 	"mode": "A duel is two players. A group match has a lobby for up to four: the host starts it when everyone is in. Everyone must choose the same mode, and a group match needs a direct connection (no relay).",
+	"link": "Code: swap codes with your friend (Discord, any chat) and both press Connect. No port forwarding for most routers. If Windows asks about network access, press Allow. Direct and Relay are the older ways.",
+	"mycode": "Your code. Copy it (Enter, or the Copy button) and send it to your friend. If Windows asks whether to allow the game on the network, press Allow.",
+	"friend": "Paste your friend's code here (Ctrl+V or Paste), then both press Connect. The player whose code comes first hosts, and their rules are used.",
 	"role": "Host starts the match and decides the rules. Join connects to a host. Watch spectates a hosted match (the host needs the next port open).",
-	"link": "Direct: the host opens a UDP port (forward it on the router if you are not on the same network) and the joiner types the host's address. Relay: both connect to a relay server with the same room number.",
 	"address": "Direct join: the host's address, like 203.0.113.5:47000. Relay: the relay server's address.",
 	"port": "The UDP port to host on. Friends outside your network need this port forwarded on the router.",
 	"room": "Both players type the same room number to meet on the relay.",
@@ -30,6 +34,16 @@ const DESCRIPTIONS := {
 	"time": "Time limit; when it runs out the fighter with more stocks, then less damage, wins (the host decides).",
 	"rules": "Ranked refuses fighters over the point budget, on either side (the host decides).",
 }
+
+## What to try when a code connection fails (also in How to play.txt).
+const CODE_FAILED := "Could not reach your friend. Check you both pressed Connect with each other's codes. Some routers block this (phone hotspots, some internet providers). Then: 1) one player forwards UDP port 47000 and you use Direct; 2) both install a free virtual-LAN app (Tailscale, ZeroTier or Radmin VPN) and use Direct with the address it shows; 3) on the same network, use Direct with the host's local address."
+
+## `NetCode.poll()` states.
+const CODE_FINDING := 0
+const CODE_READY := 1
+const CODE_WAITING := 2
+const CODE_CONNECTED := 3
+const CODE_FAILED_STATE := 4
 
 var rows: Array = []        # [{id, node}]
 var focus := 0
@@ -42,6 +56,13 @@ var status: Control
 var connect_button: Control
 var column: VBoxContainer
 var settings := {}
+## Playing by code: the socket and its state (bridge `NetCode`), the code shown, and the last state seen.
+var netcode: RefCounted = null
+var code_state := -1
+var code_label: Control
+## Tests set these before `_ready` to skip the internet (STUN) and use loopback.
+var code_stun := PackedStringArray()
+var code_lan := ""
 
 
 func _ready() -> void:
@@ -58,9 +79,12 @@ func _ready() -> void:
 	column.add_theme_constant_override("separation", 5)
 	add_child(column)
 
+	_add_selector("link", "Connect", ["Code", "Direct", "Relay"])
+	_add_code_row()
+	_add_edit("friend", "Friend", "paste your friend's code")
+	_add_paste_button()
 	_add_selector("role", "Role", ["Host", "Join", "Watch", "Quick match"])
 	_add_selector("mode", "Mode", ["Duel (2)", "Group (3-4)"])
-	_add_selector("link", "Connect", ["Direct", "Relay"])
 	_add_edit("address", "Address", "ip:port")
 	_add_edit("port", "Port", "47000")
 	_add_edit("room", "Room", "number")
@@ -104,6 +128,7 @@ func _ready() -> void:
 	_apply_settings()
 	_update_rows()
 	_set_focus(0)
+	_sync_code()
 	PadNav.attach(self)
 	UI.reveal(self)
 	Music.of(self).play("menu")
@@ -153,39 +178,77 @@ func _add_edit(id: String, label: String, placeholder: String) -> void:
 	rows.append({"id": id, "node": row, "tag": tag})
 
 
+## The "Your code" row: the code on a card, and a Copy button.
+func _add_code_row() -> void:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 6)
+	var tag := UI.Tag.new("Your code", Vector2(150, 38))
+	tag.fill = UI.CREAM_DARK
+	tag.font_size = 22
+	row.add_child(tag)
+	code_label = UI.Tag.new("...", Vector2(330, 38))
+	code_label.font_size = 24
+	row.add_child(code_label)
+	var copy := UI.Btn.new("Copy", Vector2(110, 38))
+	copy.font_size = 22
+	copy.activated.connect(_copy_code)
+	row.add_child(copy)
+	column.add_child(row)
+	rows.append({"id": "mycode", "node": row, "tag": tag})
+
+
+func _add_paste_button() -> void:
+	var row: HBoxContainer = rows[rows.size() - 1].node
+	var paste := UI.Btn.new("Paste", Vector2(110, 38))
+	paste.font_size = 22
+	paste.activated.connect(_paste_code)
+	row.add_child(paste)
+	edits["friend"].max_length = 80
+	edits["friend"].text_changed.connect(func(_t): _show_role())
+
+
+func _code() -> bool:
+	return selectors["link"].index == 0
+
+
 func _hosting() -> bool:
+	if _code():
+		return netcode != null and netcode.hosts_against(edits["friend"].text)
 	return selectors["role"].index == 0
 
 
 func _watching() -> bool:
-	return selectors["role"].index == 2
+	return not _code() and selectors["role"].index == 2
 
 
 func _quick() -> bool:
-	return selectors["role"].index == 3
+	return not _code() and selectors["role"].index == 3
 
 
 func _relay() -> bool:
-	return (selectors["link"].index == 1 and not _watching()) or _quick()
+	return not _code() and ((selectors["link"].index == 2 and not _watching()) or _quick())
 
 
 ## Which rows make sense for the chosen role and connection.
 func _row_shown(id: String) -> bool:
 	match id:
+		"mycode", "friend":
+			return _code()
+		"role":
+			return not _code()
 		"mode":
-			return not _watching() and not _quick()
-		"link":
-			return not _watching() and not _quick()
+			return not _code() and not _watching() and not _quick()
 		"fighter", "delay":
 			return not _watching()
 		"address":
-			return not _hosting() or _relay()
+			return not _code() and (not _hosting() or _relay())
 		"port":
-			return _hosting() and not _relay()
+			return not _code() and _hosting() and not _relay()
 		"room":
-			return _relay() and not _quick()
+			return not _code() and _relay() and not _quick()
 		"stage", "stocks", "time", "rules":
-			return _hosting() or _quick()
+			# By code either player may end up hosting, so both set rules (the host's are used).
+			return _code() or _hosting() or _quick()
 	return true
 
 
@@ -195,7 +258,10 @@ func _update_rows() -> void:
 	if edits.has("address"):
 		var tag: Control = rows.filter(func(r): return r.id == "address")[0].tag
 		tag.set_text("Relay" if _relay() else "Host")
-	connect_button.text = "Host!" if _hosting() else ("Watch!" if _watching() else ("Find!" if _quick() else "Join!"))
+	if _code():
+		connect_button.text = "Connect!"
+	else:
+		connect_button.text = "Host!" if _hosting() else ("Watch!" if _watching() else ("Find!" if _quick() else "Join!"))
 	connect_button.queue_redraw()
 	if not _row_shown(rows[focus].id):
 		_set_focus(focus + 1)
@@ -204,6 +270,8 @@ func _update_rows() -> void:
 func _on_changed(id: String) -> void:
 	if id == "role" or id == "link":
 		_update_rows()
+	if id == "link":
+		_sync_code()
 	if id == "fighter":
 		_show_fighter()
 	_describe()
@@ -284,20 +352,29 @@ func _unhandled_key_input(event: InputEvent) -> void:
 			if selectors.has(id):
 				selectors[id].step(1)
 		KEY_ENTER, KEY_KP_ENTER:
-			_connect()
+			if id == "mycode":
+				_copy_code()
+			else:
+				_connect()
 		KEY_ESCAPE:
 			_back()
 
 
 func _back() -> void:
+	if code_state == CODE_WAITING:
+		# Esc while waiting stops waiting; the code stays the same.
+		netcode.cancel()
+		status.set_text("Stopped waiting. Press Connect to try again.")
+		return
 	_save_settings()
+	_stop_code()
 	get_tree().change_scene_to_file("res://menu.tscn")
 
 
 # ---- Settings kept between runs ---------------------------------------------------------------------------------------------
 
 func _load_settings() -> Dictionary:
-	var out := {"role": 0, "link": 0, "address": "", "port": str(DEFAULT_PORT), "room": "1", "delay": 2, "fighter": ""}
+	var out := {"role": 0, "connect": 0, "friend_code": "", "address": "", "port": str(DEFAULT_PORT), "room": "1", "delay": 2, "fighter": ""}
 	if FileAccess.file_exists(SETTINGS_PATH):
 		var json := JSON.new()
 		var parsed = json.data if json.parse(FileAccess.get_file_as_string(SETTINGS_PATH)) == OK else null
@@ -310,7 +387,8 @@ func _load_settings() -> Dictionary:
 
 func _apply_settings() -> void:
 	selectors["role"].set_index(int(settings.role), false)
-	selectors["link"].set_index(int(settings.link), false)
+	selectors["link"].set_index(clampi(int(settings.connect), 0, 2), false)
+	edits["friend"].text = str(settings.friend_code)
 	edits["address"].text = str(settings.address)
 	edits["port"].text = str(settings.port)
 	edits["room"].text = str(settings.room)
@@ -332,7 +410,7 @@ func _save_settings() -> void:
 	var f := FileAccess.open(SETTINGS_PATH, FileAccess.WRITE)
 	if f != null:
 		f.store_string(JSON.stringify({
-			"role": selectors["role"].index, "link": selectors["link"].index, "address": edits["address"].text.strip_edges(),
+			"role": selectors["role"].index, "connect": selectors["link"].index, "friend_code": edits["friend"].text.strip_edges(), "address": edits["address"].text.strip_edges(),
 			"port": edits["port"].text.strip_edges(), "room": edits["room"].text.strip_edges(),
 			"delay": DELAYS[selectors["delay"].index], "fighter": entries[selectors["fighter"].index].slug,
 		}))
@@ -353,6 +431,17 @@ func connection() -> Dictionary:
 		"stage": selectors["stage"].index, "stocks": Roster.STOCK_CHOICES[selectors["stocks"].index], "time": Roster.TIME_CHOICES[selectors["time"].index],
 		"ranked": selectors["rules"].index == 1,
 	}
+	if _code():
+		c.group = false
+		c.code = true
+		if netcode == null or netcode.my_code() == "":
+			return {"error": "Still finding your address: wait a moment."}
+		var bad: String = netcode.check_code(edits["friend"].text)
+		if bad != "":
+			return {"error": bad}
+		if c.ranked and c.host and not Roster.ranked_legal(c.entry):
+			return {"error": "%s is over the %d point budget: not allowed under ranked rules." % [c.entry.name, Roster.budget()]}
+		return c
 	if c.group and _relay():
 		return {"error": "Group matches need a direct connection for now (choose Direct)."}
 	if _quick():
@@ -400,6 +489,107 @@ func _connect() -> void:
 		status.set_text(c.error)
 		return
 	_save_settings()
+	if _code():
+		if code_state == CODE_WAITING:
+			return
+		var err: String = netcode.connect_to(edits["friend"].text)
+		if err != "":
+			status.set_text(err)
+			return
+		bubble.label.remove_theme_font_size_override("font_size")
+		_describe()
+		return
+	_stop_code()
+	Roster.save_last(c.entry.slug)
+	Roster.session = {"from_menu": true, "online": c, "stocks": c.stocks, "time": c.time, "stage": c.stage}
+	get_tree().change_scene_to_file("res://main.tscn")
+
+
+# ---- Playing by code ------------------------------------------------------------------------------------------------------------
+
+## Opens the code socket when Code is chosen and closes it otherwise (so Direct can host on the same port).
+func _sync_code() -> void:
+	if _code() and netcode == null:
+		netcode = ClassDB.instantiate("NetCode")
+		var err: String = netcode.start(DEFAULT_PORT, code_stun, code_lan)
+		if err != "":
+			status.set_text(err)
+			netcode = null
+			return
+		code_state = -1
+		code_label.set_text("...")
+	elif not _code():
+		_stop_code()
+
+
+func _stop_code() -> void:
+	if netcode != null:
+		netcode.stop()
+		netcode = null
+	code_state = -1
+
+
+func _copy_code() -> void:
+	if netcode == null or netcode.my_code() == "":
+		return
+	DisplayServer.clipboard_set(netcode.my_code())
+	status.set_text("Copied! Send it to your friend in Discord or any chat.")
+
+
+func _paste_code() -> void:
+	edits["friend"].text = DisplayServer.clipboard_get().strip_edges()
+	_show_role()
+
+
+## Who will host, once the friend's code is in.
+func _show_role() -> void:
+	if netcode == null or netcode.check_code(edits["friend"].text) != "":
+		return
+	status.set_text("You will host: your rules are used." if _hosting() else "Your friend will host: their rules are used.")
+
+
+func _process(_delta: float) -> void:
+	if netcode == null:
+		return
+	var st: int = netcode.poll()
+	if st == code_state and st != CODE_WAITING:
+		return
+	var was := code_state
+	code_state = st
+	match st:
+		CODE_FINDING:
+			code_label.set_text("...")
+			status.set_text("Finding your address...")
+		CODE_READY:
+			code_label.set_text(netcode.my_code())
+			if was == CODE_WAITING:
+				return
+			if not netcode.public_known():
+				status.set_text("No internet address found: this code works on the same network only.")
+			elif netcode.strict_nat():
+				status.set_text("Your router looks strict: codes may not get through.")
+			else:
+				status.set_text("Copy your code to your friend, paste theirs, both press Connect.")
+		CODE_WAITING:
+			status.set_text("Waiting for your friend... %d s (both press Connect)" % netcode.seconds_left())
+		CODE_CONNECTED:
+			status.set_text("Connected!")
+			_go_code()
+		CODE_FAILED_STATE:
+			status.set_text("Could not connect: see the box above for what to try.")
+			bubble.label.add_theme_font_size_override("font_size", 17)
+			bubble.set_text.call_deferred(CODE_FAILED)
+
+
+## The friend answered: on to the match, which plays over this socket.
+func _go_code() -> void:
+	var c := connection()
+	if c.has("error"):
+		status.set_text(c.error)
+		return
+	c.host = netcode.i_host()
+	c.netcode = netcode
+	netcode = null  # the match scene owns it now
 	Roster.save_last(c.entry.slug)
 	Roster.session = {"from_menu": true, "online": c, "stocks": c.stocks, "time": c.time, "stage": c.stage}
 	get_tree().change_scene_to_file("res://main.tscn")
