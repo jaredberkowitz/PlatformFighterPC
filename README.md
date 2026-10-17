@@ -15,7 +15,7 @@ Art style target: [`docs/ART_DIRECTION.md`](docs/ART_DIRECTION.md). Weapons and 
    work: Windows only unpacks the .exe, without the game data next to it.
 3. Double-click `PlatformFighter.exe`. If Windows says "Windows protected your PC", click **More info**, then **Run anyway** (the
    game is not code-signed).
-4. Controls and what is new: `How to play.txt` in the same folder. Problems: `READ ME FIRST.txt`.
+4. Controls, what is new, and what to do if it will not start: `How to play.txt` in the same folder.
 
 Needs Windows 10 or 11 (64-bit) and a graphics card with Vulkan or DirectX 12 (most from the last ten years; update its driver if
 the game will not start).
