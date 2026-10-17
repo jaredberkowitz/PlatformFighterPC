@@ -1747,12 +1747,12 @@ static func _soft_dot() -> GradientTexture2D:
 ## so the sky is not one stamp repeated: a domed heap with smaller puffs piled on its crown, a long low bank, and a tall tower. No ink
 ## outline: they are far, and the haze softens them.
 static func _clouds(root: Node3D, rng: RandomNumberGenerator, count: int, color: Color, y_range: Vector2, z_range := Vector2(-120, -85),
-		kinds := [0, 1, 2], scale := 1.0) -> void:
+		kinds := [0, 1, 2], scale := 1.0, x_range := Vector2(-90, 90)) -> void:
 	var puff := _sphere(1.0, 32)
 	for k in count:
 		var cloud := Drift.new()
 		cloud.speed = rng.randf_range(0.6, 1.6)
-		cloud.position = Vector3(rng.randf_range(-90, 90), rng.randf_range(y_range.x, y_range.y), rng.randf_range(z_range.x, z_range.y))
+		cloud.position = Vector3(rng.randf_range(x_range.x, x_range.y), rng.randf_range(y_range.x, y_range.y), rng.randf_range(z_range.x, z_range.y))
 		root.add_child(cloud)
 		var mat := ShaderMaterial.new()
 		mat.shader = CLOUD_SHADER
@@ -2939,12 +2939,12 @@ static func _painted_sun(root: Node3D, at: Vector3, r: float) -> void:
 	var sun := _mesh(root, q, m, at)
 	sun.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	sun.name = "Sun"
-	# (Two soft clouds, thicker and nearer the sky's colour, art review 6 round 42: three thin dark bands read as flat lines struck
-	# through the sun.)
-	var bands := [[-0.42, 1.9, 0.085, Color(0.98, 0.62, 0.62)], [-0.18, 1.2, 0.06, Color(1.0, 0.74, 0.66)]]
-	for b in bands:
-		var w := r * float(b[1])
-		_mesh(root, _sphere(1.0, 24), _unshaded(b[3]), at + Vector3(r * 0.2 * float(b[0]) * 3.0, r * float(b[0]), 4.0), Vector3(w, r * float(b[2]) * 2.0, 0.2))
+	# Two real banks of cumulus drifting across the lower half of the disc, lit warm from the sun, in place of the flat squashed shapes
+	# (the owner, 2026-10-15: the sun's clouds looked cheap). In front of it, so the sun sinks behind them.
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 41
+	_clouds(root, rng, 2, Color(1.0, 0.6, 0.56), Vector2(at.y - r * 0.55, at.y - r * 0.15), Vector2(at.z + 6.0, at.z + 8.0), [1], 1.15,
+		Vector2(at.x - r * 0.6, at.x + r * 0.6))
 
 
 ## A ribbed saguaro with curving arms and a flower on top (art/blender/make_props.py), `size` about 4 units tall at 1.
