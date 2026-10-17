@@ -37,9 +37,9 @@ pub use mobs::{grunt_weight, grunt_zone, slot as grunt_slot};
 mod props;
 
 pub use data::{
-    CoinSpot, Deck, Footing, Interior, MobKind, MobSpawn, Piece, PieceSlot, PropKind, PropSpot,
-    Room, RoomLedge, RunContent, RunRules, ShopItem, Tier, ITEM_HEAL, ITEM_LIFE, LOOK_NAMES,
-    MAX_DECKS, ROOM_ALLEY, ROOM_ARENA, ROOM_EVENT, ROOM_REST, ROOM_SHOP, ROOM_STREET,
+    Building, CoinSpot, Deck, Footing, Interior, MobKind, MobSpawn, Piece, PieceSlot, PropKind,
+    PropSpot, Room, RoomLedge, RunContent, RunRules, ShopItem, Tier, ITEM_HEAL, ITEM_LIFE,
+    LOOK_NAMES, MAX_DECKS, ROOM_ALLEY, ROOM_ARENA, ROOM_EVENT, ROOM_REST, ROOM_SHOP, ROOM_STREET,
 };
 
 use crate::collision;
@@ -883,6 +883,157 @@ pub fn for_each_prop(rc: &RunContent, slot: &RoomSlot, mut f: impl FnMut(usize, 
             f(n, p, frame.point(Vec2::new(p.x, p.y)));
         }
     }
+}
+
+/// Every building mass of a laid room (R2e, note B), in the world: (left, right, top, kind).
+pub fn for_each_building(rc: &RunContent, slot: &RoomSlot, mut f: impl FnMut(Fx, Fx, Fx, u8)) {
+    let Some(room) = rc.rooms.get(usize::from(slot.room)) else {
+        return;
+    };
+    let frame = Frame::of(slot, room);
+    for b in &room.buildings {
+        let (a, c) = (frame.x(b.left), frame.x(b.right));
+        f(a.min(c), a.max(c), frame.y(b.top), b.kind);
+    }
+}
+
+/// `support_of` answers: what holds a footing up (R2e, the owner's note B: nothing floats).
+/// Nothing: it floats (refused by `sim_content::check_run`).
+pub const SUPPORT_NONE: u8 = 0;
+/// It is the ground, a roof or a tower (a block reaching the bottom), or an object standing on one.
+pub const SUPPORT_GROUND: u8 = 1;
+/// It hangs on the face of a building behind it (a balcony, a fire escape, an awning, a sill, a wall or ceiling inside one).
+pub const SUPPORT_WALL: u8 = 2;
+/// It spans between two faces (a catwalk or girder bridging a gap: drawn as a truss).
+pub const SUPPORT_SPAN: u8 = 3;
+/// It stands on posts down to the surface below (a scaffold's poles, a water tower's legs, a crane's mast, a catwalk's stilts).
+pub const SUPPORT_POSTS: u8 = 4;
+
+/// Looks that hang on a building's face and need one behind them.
+const ATTACHED: [u8; 7] = [
+    data::LOOK_BALCONY,
+    data::LOOK_FIRE_ESCAPE,
+    data::LOOK_AWNING,
+    data::LOOK_LEDGE_BLOCK,
+    data::LOOK_STAIRWELL,
+    data::LOOK_WALL,
+    data::LOOK_CEILING,
+];
+
+/// What holds footing `k` of a laid room's footings (`all`, as [`for_each_footing`] gives them) up, and a height: for posts the lowest
+/// they reach down to (the surface under each end; the game draws each to its own), for a footing on a building the solid floor under
+/// its middle (or its own top). A block reaching the bottom is the ground; a look
+/// that hangs on a building needs a building mass behind it (its top at least half a unit over a plank, or level with a block's top),
+/// and so does anything in an interior; anything else is held by a building behind it if there is one (bolted to its face), else spans two
+/// faces (each end within 0.6 of a block's face or a building's edge at least as high), else stands on posts down to whatever lies
+/// under both its ends.
+pub fn support_of(
+    all: &[Placed],
+    k: usize,
+    buildings: &[(Fx, Fx, Fx, u8)],
+    indoor: bool,
+) -> (u8, Fx) {
+    let p = all[k].platform;
+    let look = all[k].look;
+    if !p.pass_through && p.bottom <= Fx::from_int(DEEP) {
+        return (SUPPORT_GROUND, p.bottom);
+    }
+    let top = p.y.max(p.top_right());
+    let margin = if p.pass_through { Fx::HALF } else { Fx::ZERO };
+    let behind = buildings
+        .iter()
+        .any(|&(l, r, t, _)| l <= p.left && r >= p.right && t >= top + margin);
+    if ATTACHED.contains(&look) || indoor {
+        if !behind {
+            return (SUPPORT_NONE, top);
+        }
+        // (The floor under its middle, for the game: a door under an awning that has ground just below it.)
+        let mid = (p.left + p.right) / Fx::from_int(2);
+        let floor = all
+            .iter()
+            .enumerate()
+            .filter(|(j, q)| {
+                *j != k
+                    && !q.platform.pass_through
+                    && mid >= q.platform.left
+                    && mid <= q.platform.right
+                    && q.platform.top_at(mid) < low_of(&p)
+            })
+            .map(|(_, q)| q.platform.top_at(mid))
+            .max()
+            .unwrap_or(top);
+        return (SUPPORT_WALL, floor);
+    }
+    let low = p.y.min(p.top_right());
+    if behind {
+        // (A catwalk, a girder or a billboard's walkway in front of a building is bolted to its face.)
+        return (SUPPORT_WALL, low);
+    }
+    let near = Fx::from_ratio(3, 5);
+    let face_at = |x: Fx| {
+        all.iter().enumerate().any(|(j, q)| {
+            let q = q.platform;
+            j != k
+                && !q.pass_through
+                && ((q.right - x).abs() <= near || (q.left - x).abs() <= near)
+                && q.y.max(q.top_right()) >= low - Fx::from_ratio(1, 10)
+        }) || buildings.iter().any(|&(l, r, t, _)| {
+            ((r - x).abs() <= near || (l - x).abs() <= near) && t >= low - Fx::from_ratio(1, 10)
+        })
+    };
+    if face_at(p.left) && face_at(p.right) {
+        return (SUPPORT_SPAN, low);
+    }
+    // Posts: the highest surface under each end: solid ground first (the poles reach down to it, past any plank), then a plank, then
+    // a building's roof.
+    let under = |x: Fx| {
+        let below = |solid: bool| {
+            all.iter()
+                .enumerate()
+                .filter(|(j, q)| {
+                    *j != k
+                        && q.platform.pass_through != solid
+                        && x >= q.platform.left
+                        && x <= q.platform.right
+                        && q.platform.top_at(x) < p.top_at(x) - Fx::from_ratio(1, 5)
+                })
+                .map(|(_, q)| q.platform.top_at(x))
+                .max()
+        };
+        let roofs = buildings
+            .iter()
+            .filter(|&&(l, r, t, _)| x >= l && x <= r && t < p.top_at(x) - Fx::from_ratio(1, 5))
+            .map(|&(_, _, t, _)| t)
+            .max();
+        below(true).or_else(|| below(false)).or(roofs)
+    };
+    let inset = ((p.right - p.left) * Fx::from_ratio(1, 10)).min(Fx::from_ratio(3, 10));
+    match (under(p.left + inset), under(p.right - inset)) {
+        (Some(a), Some(b)) => (SUPPORT_POSTS, a.min(b)),
+        _ => (SUPPORT_NONE, low),
+    }
+}
+
+fn low_of(p: &Platform) -> Fx {
+    p.y.min(p.top_right())
+}
+
+/// Every footing of a laid room with what holds it up ([`support_of`]).
+pub fn supports(rc: &RunContent, slot: &RoomSlot) -> Vec<(Placed, u8, Fx)> {
+    let mut all = Vec::new();
+    for_each_footing(rc, slot, |p| all.push(p));
+    let mut bs = Vec::new();
+    for_each_building(rc, slot, |l, r, t, k| bs.push((l, r, t, k)));
+    let indoor = rc
+        .rooms
+        .get(usize::from(slot.room))
+        .is_some_and(|r| r.indoor);
+    (0..all.len())
+        .map(|k| {
+            let (s, y) = support_of(&all, k, &bs, indoor);
+            (all[k], s, y)
+        })
+        .collect()
 }
 
 /// Grunt `n` as a fighter (R2c: it is one, `GameState::fighters[MAX_FIGHTERS + n]`), for the game to draw with the fighter rig.

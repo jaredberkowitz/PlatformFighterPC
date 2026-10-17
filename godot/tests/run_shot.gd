@@ -183,6 +183,27 @@ func _initialize() -> void:
 				hit = true
 				break
 		print("  %s: %s decks %s" % [t[0], str(hit), str(main.sim.run_decks())])
+	# R2e (note B, a believable city): every other room, each on its own, for checking that nothing floats.
+	var covered := ["start", "escape_climb", "great_climb", "balcony_drop", "light_well", "office", "stairwell", "rooftop_bar",
+		"catwalks", "cranes", "alley", "under_alley", "sky_bridge", "under_bridge"]
+	for room_name in main.sim.run_room_names():
+		if room_name in covered:
+			continue
+		main.sim.run_debug_only(PackedStringArray([room_name, "street", "water_towers", "balcony_drop"]), 1, 3)
+		var found := false
+		for n in 30:
+			main.sim.run_debug_next_room()
+			await create_timer(0.06).timeout
+			var cur := _current(main)
+			if cur.size() > 15 and main.sim.run_room_names()[int(cur[15])] == room_name:
+				main.sim.run_debug_clear_grunts()
+				main.sim.debug_place_airborne(0, lerpf(cur[0], cur[1], 0.45), maxf(cur[6], cur[7]) + 2.0)
+				await create_timer(1.2).timeout
+				main.sim.run_debug_clear_grunts()
+				_shot(out, "run_room_%s.png" % room_name)
+				found = true
+				break
+		print("  room %s: %s" % [room_name, str(found)])
 	main.sim.run_debug_only(PackedStringArray(["escape_climb", "street", "water_towers", "catwalks"]), 1, 5)
 	var names: PackedStringArray = main.sim.run_deck_names()
 	var shot_decks := {}

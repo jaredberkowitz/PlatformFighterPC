@@ -2805,8 +2805,11 @@ impl SimRunner {
     }
 
     /// The rooms in play, for drawing: every footing of each as laid (its variant: mirrored, its parts, its pieces), as `[room's left
-    /// edge, room, left, right, top at its left, bottom, pass_through, rise, look, base]` (the room's left edge names the room: it
-    /// never changes while the room is in play; `look` is an index into `run_looks`; `base` is the height its art stands on).
+    /// edge, room, left, right, top at its left, bottom, pass_through, rise, look, base, support, support's height, deck]` (the room's
+    /// left edge names the room: it never changes while the room is in play; `look` is an index into `run_looks`; `base` is the height
+    /// its art stands on). R2e (note B): `support` is what holds it up (`sim_core::run::support_of`: 1 the ground, 2 a building behind
+    /// it, 3 a span between two faces (a truss), 4 posts down to `support's height`), and `deck` the deck its top is on (each deck has
+    /// its own look: a street's pavement, a roof, a tower's top).
     #[func]
     fn run_pieces(&self) -> Array<PackedFloat32Array> {
         let mut out = Array::new();
@@ -2814,7 +2817,7 @@ impl SimRunner {
             return out;
         };
         for s in self.state.run.slots.iter().filter(|s| s.live) {
-            for_each_footing(rc, s, |placed| {
+            for (placed, support, at) in sim_core::run::supports(rc, s) {
                 let p = placed.platform;
                 let v = [
                     f(s.x),
@@ -2827,6 +2830,56 @@ impl SimRunner {
                     f(p.rise),
                     f32::from(placed.look),
                     f(placed.base),
+                    f32::from(support),
+                    f(at),
+                    f32::from(deck_at(rc, p.y.max(p.top_right()))),
+                ];
+                out.push(&PackedFloat32Array::from(v.as_slice()));
+            }
+        }
+        out
+    }
+
+    /// R2e (note B): the building masses behind the rooms in play: `[room's left edge, left, right, top, kind (0 brick, 1 office, 2
+    /// shops, 3 warehouse, 4 tower), the deck its top is on, the ground's height under its middle (where its street level is), whether
+    /// something hangs on its face (1: a balcony, fire escape, awning or sill is held by it, so it stands just behind the play plane;
+    /// 0: it is the city further back)]`.
+    #[func]
+    fn run_buildings(&self) -> Array<PackedFloat32Array> {
+        let mut out = Array::new();
+        let Some((rc, _)) = &self.run else {
+            return out;
+        };
+        for s in self.state.run.slots.iter().filter(|s| s.live) {
+            let mut ground: Vec<sim_core::content::Platform> = Vec::new();
+            for_each_footing(rc, s, |p| {
+                if !p.platform.pass_through {
+                    ground.push(p.platform);
+                }
+            });
+            let held = sim_core::run::supports(rc, s);
+            sim_core::run::for_each_building(rc, s, |l, r, t, k| {
+                let carries = held.iter().any(|(p, sup, _)| {
+                    *sup == sim_core::run::SUPPORT_WALL
+                        && p.platform.left >= l
+                        && p.platform.right <= r
+                });
+                let mid = (l + r) / Fx::from_int(2);
+                let base = ground
+                    .iter()
+                    .filter(|p| p.left <= mid && mid <= p.right && p.top_at(mid) <= t)
+                    .map(|p| p.top_at(mid))
+                    .min()
+                    .unwrap_or(t - Fx::from_int(30));
+                let v = [
+                    f(s.x),
+                    f(l),
+                    f(r),
+                    f(t),
+                    f32::from(k),
+                    f32::from(deck_at(rc, t)),
+                    f(base),
+                    if carries { 1.0 } else { 0.0 },
                 ];
                 out.push(&PackedFloat32Array::from(v.as_slice()));
             });
@@ -3070,6 +3123,18 @@ impl SimRunner {
             }
         }
         out
+    }
+
+    /// Every deck's ground line (world height), lowest first (R2e: the view's deck looks).
+    #[func]
+    fn run_deck_lines(&self) -> PackedFloat32Array {
+        let mut v = Vec::new();
+        if let Some((rc, _)) = &self.run {
+            for d in &rc.decks {
+                v.push(f(d.y));
+            }
+        }
+        PackedFloat32Array::from(v.as_slice())
     }
 
     /// Every room's name, by its index in the content (`run_rooms`' last column).

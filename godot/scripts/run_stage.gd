@@ -26,6 +26,12 @@ const WALL_DOWN := 14.0
 const SKYLINE_SHIFT := [0.3, 0.18, 0.08]
 const SKYLINE_SPAN := 246.0
 const Z := StageView.FRONT_Z
+## R2e (the owner's playtest note): building masses stand behind the play plane at a safe depth, their fronts here: behind every
+## footing's back (blocks reach 8 back from the front), so no building ever crosses or stands in front of the fighters at any zoom
+## or height. Only footing, and what you stand on, is at the play depth. (`tests/runner_test.gd` checks every background mesh.)
+const BACK_Z := Z - 8.5
+## The view's height on the rooftops (where the city's backdrop was made to be seen from).
+const BACKDROP_VIEW := 2.0
 
 ## The city's palette, by look (its awning stripes, girders, crates, its rooftop metal; new shapes in the same colours).
 const LOOK_COLOURS := {
@@ -48,14 +54,15 @@ const LOOK_COLOURS := {
 const BLOCKS := ["street", "roof", "wall", "tower", "office_floor", "ceiling"]
 ## Pass-through looks drawn as the city's girder platform (with their own dressing).
 const GIRDERS := ["balcony", "fire_escape", "scaffold", "billboard", "water_tower", "bus_shelter", "pedestal", "shelf", "planter"]
-## The building fronts behind the rooms, in the city skyline's shades (its facade shader paints the windows).
-const FACADE_SHADES := [Color(0.36, 0.24, 0.4), Color(0.3, 0.28, 0.42), Color(0.4, 0.3, 0.38)]
-const FACADE_SHADER := preload("res://shaders/facade.gdshader")
 const AWNING_STRIPES := [[Color(0.92, 0.34, 0.42), Color(0.98, 0.94, 0.9)], [Color(0.3, 0.6, 0.6), Color(0.94, 0.92, 0.84)],
 	[Color(0.96, 0.7, 0.3), Color(0.98, 0.94, 0.86)], [Color(0.5, 0.4, 0.8), Color(0.92, 0.9, 0.98)]]
 
 var theme := {}
 var looks := PackedStringArray()
+## R2e (note B): the decks' names, lowest first, and their ground lines (each deck has its own look: the street's pavement and
+## shopfronts, the rooftops' roofs, the skyline's tower tops).
+var deck_names := PackedStringArray()
+var deck_lines: Array = []
 ## Built rooms by their left edge (a string key): the Node3D holding their pieces.
 var pieces := {}
 var layout_seen := -1
@@ -118,6 +125,7 @@ func setup(t: Dictionary) -> void:
 	StageArt.backdrop(scenery, theme, [-15.0, 15.0, -9.0, -24.0, -15.0, 15.0])
 	_parallax_skylines(scenery)
 	_still_backdrop(backdrop)
+	_push_back(backdrop)
 	wall_node = _gate(Color(0.32, 0.3, 0.36), true)
 	add_child(wall_node)
 	gate_node = _gate(Color(0.62, 0.22, 0.2), false)
@@ -136,6 +144,25 @@ static func _still_backdrop(root: Node3D) -> void:
 			(n as Light3D).visible = false
 		elif n is GeometryInstance3D:
 			(n as GeometryInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+
+
+## R2e (the owner's playtest note): the city stage's backdrop was built for a versus stage at the play plane, so its nearest pieces
+## (the stage building's underside, its rooftop props, the street) reach toward the fighters. The whole backdrop is set back until
+## its front stands behind `BACK_Z`, with the buildings, at every camera height.
+static func _push_back(root: Node3D) -> void:
+	var front := -INF
+	for n in root.find_children("*", "MeshInstance3D", true, false):
+		var mi := n as MeshInstance3D
+		if mi.mesh == null:
+			continue
+		var box := mi.transform * mi.get_aabb()
+		var p := mi.get_parent()
+		while p != root and p is Node3D:
+			box = (p as Node3D).transform * box
+			p = p.get_parent()
+		front = maxf(front, box.position.z + box.size.z)
+	if front > BACK_Z - 0.5:
+		root.position.z = BACK_Z - 0.5 - front
 
 
 ## The city's skyline layers (`skyline_0` near to `skyline_2` far), moved into holders that scroll at their own parallax: each gets a
@@ -259,6 +286,12 @@ func _footing(node: Node3D, r: PackedFloat32Array) -> void:
 	var rise: float = r[7]
 	var look: String = looks[int(r[8])] if int(r[8]) < looks.size() else "roof"
 	var base: float = r[9]
+	# (R2e, note B: what holds it up, and the deck it is on: `SimRunner.run_pieces`.)
+	var support := int(r[10]) if r.size() > 12 else 0
+	var held_at: float = r[11] if r.size() > 12 else base
+	var deck := _deck_name(int(r[12])) if r.size() > 12 else ""
+	if support == SUPPORT_POSTS and pass_through:
+		base = held_at
 	var colour: Color = LOOK_COLOURS.get(look, Color(0.5, 0.5, 0.5))
 	var w := right - left
 	var cx := (left + right) * 0.5
@@ -266,18 +299,26 @@ func _footing(node: Node3D, r: PackedFloat32Array) -> void:
 		_slope(node, left, right, top, top + rise, bottom, pass_through, look)
 		return
 	if look in BLOCKS:
-		# The city's block: its facade front and roof cap (the cap is its light top edge).
-		StageArt.solid_block(node, theme, left, right, top, bottom, Z, true)
-		if look == "street":
+		if (look == "street" or look == "roof") and deck == "street" and bottom < top - 6.0:
+			# The street deck is the ground (R2e, note B): a pavement and the road, the earth under them; no windows below your feet.
+			_pavement(node, left, right, top, bottom)
 			_lamps(node, left, right, top)
+			return
+		# The city's block: its facade front and roof cap (the cap is its light top edge). On the rooftops a roof with its parapet,
+		# the building going down out of view; on the skyline a tower's top.
+		StageArt.solid_block(node, theme, left, right, top, bottom, Z, true)
+		if bottom < top - 6.0 and look != "ceiling" and look != "office_floor":
+			_parapet(node, left, right, top, deck == "skyline" or look == "tower")
 		return
 	if look == "awning":
 		_awning(node, left, right, top)
+		_held(node, look, support, left, right, top, held_at)
 		return
 	if pass_through or look in GIRDERS:
 		# The city's girder platform (its lit plate edge is the top edge), then what makes it a balcony, a scaffold...
 		StageArt.platform(node, theme, left, right, top, Z)
 		_girder_dressing(node, look, left, right, top, base)
+		_held(node, look, support, left, right, top, held_at)
 		return
 	# A solid object standing on its base (for a crate on a lid, its own size).
 	var from := base if base > bottom else bottom
@@ -314,6 +355,162 @@ func _footing(node: Node3D, r: PackedFloat32Array) -> void:
 			# A chimney, a roof shed, a parapet, the shop's counter: a box in the city's colours with its lip.
 			_box(node, Vector3(w, h, 2.0), at + Vector3(0, h * 0.5, 0), FighterView.toon(colour))
 			_top_edge(node, left, right, top, top, colour, 2.0)
+
+
+## `SimRunner.run_pieces`' support numbers (`sim_core::run::support_of`).
+const SUPPORT_WALL := 2
+const SUPPORT_SPAN := 3
+const SUPPORT_POSTS := 4
+## Looks whose own dressing already stands on legs down to their base.
+const LEGGED := ["scaffold", "water_tower", "bus_shelter"]
+
+
+## The name of deck `d` ("" when unknown).
+func _deck_name(d: int) -> String:
+	return deck_names[d] if d >= 0 and d < deck_names.size() else ""
+
+
+## The deck whose line is nearest height `y` (presentation only: the lines are the sim's, read once).
+func _deck_of(y: float) -> int:
+	if deck_lines.is_empty():
+		return -1
+	var best := 0
+	for d in deck_lines.size():
+		if absf(y - float(deck_lines[d])) < absf(y - float(deck_lines[best])):
+			best = d
+	return best
+
+
+## What holds a free footing up (R2e, the owner's note B: nothing floats): a truss under a span between two faces, stilts or a crane's
+## mast down to the surface under it, brackets back to the building it hangs on. Decoration: thin, dark, no lip.
+func _held(node: Node3D, look: String, support: int, left: float, right: float, top: float, down_to: float) -> void:
+	var iron := FighterView.respond(FighterView.toon(Color(0.28, 0.24, 0.3)), "metal")
+	var w := right - left
+	match support:
+		SUPPORT_SPAN:
+			# A truss under the deck: a bottom chord and diagonals.
+			var under := top - 1.0
+			_box(node, Vector3(w, 0.08, 0.08), Vector3((left + right) * 0.5, under, Z - 0.6), iron)
+			var n := maxi(int(w / 1.2), 1)
+			for k in n:
+				var x0 := left + k * w / n
+				var x1 := left + (k + 1) * w / n
+				var a := Vector2(x0, top - 0.7 if k % 2 == 0 else under)
+				var b := Vector2(x1, under if k % 2 == 0 else top - 0.7)
+				var d := b - a
+				var bar := _box(node, Vector3(d.length(), 0.06, 0.06), Vector3((a.x + b.x) * 0.5, (a.y + b.y) * 0.5, Z - 0.6), iron)
+				bar.rotation.z = d.angle()
+		SUPPORT_POSTS:
+			if look in LEGGED:
+				return
+			var h := top - down_to
+			if h <= 0.2:
+				return
+			if look == "crane":
+				# A crane's lattice mast under the jib's middle, yellow like the jib, with a cab at its top.
+				var paint := FighterView.toon(LOOK_COLOURS.crane)
+				var mx := (left + right) * 0.5
+				for side in [-0.35, 0.35]:
+					_box(node, Vector3(0.14, h, 0.14), Vector3(mx + side, down_to + h * 0.5, Z - 1.4), paint)
+				var y := down_to + 0.6
+				var k := 0
+				while y < top - 0.8:
+					var brace := _box(node, Vector3(1.0, 0.07, 0.07), Vector3(mx, y, Z - 1.4), paint)
+					brace.rotation.z = 0.6 if k % 2 == 0 else -0.6
+					y += 1.2
+					k += 1
+				_box(node, Vector3(1.2, 1.0, 1.2), Vector3(mx, top - 1.2, Z - 1.4), FighterView.toon(Color(0.9, 0.9, 0.94)))
+				return
+			# Stilts at both ends (and every few units along a long one).
+			var xs: Array = [left + 0.25, right - 0.25]
+			var x := left + 7.0
+			while x < right - 5.0:
+				xs.append(x)
+				x += 7.0
+			for px in xs:
+				_box(node, Vector3(0.12, h, 0.12), Vector3(px, down_to + h * 0.5, Z - 0.6), iron)
+		SUPPORT_WALL:
+			# Beams back to the building's face (behind the play plane); an awning over ground just below it shelters a shop's door and
+			# window on that face.
+			var reach := (Z - StageArt.PLATFORM_DEPTH) - BACK_Z
+			for px in [left + 0.3, right - 0.3]:
+				_box(node, Vector3(0.08, 0.08, reach), Vector3(px, top - 0.35, BACK_Z + reach * 0.5), iron)
+			if look == "awning" and top - down_to > 2.8 and top - down_to < 4.8:
+				_shop_window(node, (left + right) * 0.5, minf(w - 0.6, 5.0), down_to, BACK_Z)
+
+
+## A shop's ground floor on a building's face: a lit window beside a door, in a dark frame (no awning: awnings are footings).
+func _shop_window(node: Node3D, cx: float, w: float, base: float, front: float) -> void:
+	_box(node, Vector3(w, 3.2, 0.12), Vector3(cx, base + 1.6, front + 0.06), FighterView.toon(Color(0.3, 0.22, 0.34)))
+	_box(node, Vector3(w * 0.55, 2.0, 0.08), Vector3(cx - w * 0.18, base + 1.5, front + 0.13), StageArt._unshaded(Color(0.95, 0.8, 0.55)))
+	_box(node, Vector3(w * 0.22, 2.5, 0.08), Vector3(cx + w * 0.32, base + 1.25, front + 0.13), FighterView.toon(Color(0.22, 0.15, 0.2)))
+
+
+## The street deck's ground (R2e, note B): a pale pavement with a kerb along its front and the gutter under it, and the earth below
+## (no windows: it is the ground, not a building).
+func _pavement(node: Node3D, left: float, right: float, top: float, bottom: float) -> void:
+	var w := right - left
+	var cx := (left + right) * 0.5
+	var earth := _mat(Color(0.18, 0.16, 0.22))
+	_box(node, Vector3(w, top - bottom - 0.4, 8.0), Vector3(cx, (top - 0.4 + bottom) * 0.5, Z - 4.0), earth)
+	var slab := _mat(Color(0.62, 0.6, 0.66))
+	_box(node, Vector3(w, 0.4, 8.0), Vector3(cx, top - 0.2, Z - 4.0), slab)
+	# Paving joints across it.
+	var joint := FighterView.toon(Color(0.5, 0.48, 0.55), false)
+	var x := ceilf(left / 1.6) * 1.6
+	while x < right:
+		_box(node, Vector3(0.05, 0.02, 8.0), Vector3(x, top + 0.005, Z - 4.0), joint)
+		x += 1.6
+	# The kerb: a lighter stone lip at the front, the gutter's dark line under it.
+	_box(node, Vector3(w, 0.16, 0.3), Vector3(cx, top - 0.08, Z + 0.05), _mat(Color(0.82, 0.8, 0.84)))
+	_box(node, Vector3(w, 0.5, 0.06), Vector3(cx, top - 0.65, Z + 0.02), _mat(Color(0.1, 0.09, 0.13)))
+
+
+## A parapet along a roof's back edge (the low wall round a roof); a tower's top gets a darker crown with a beacon on a mast.
+func _parapet(node: Node3D, left: float, right: float, top: float, tower: bool) -> void:
+	var c := Color(0.3, 0.32, 0.44) if tower else Color(0.5, 0.42, 0.5)
+	_box(node, Vector3(right - left, 0.7, 0.4), Vector3((left + right) * 0.5, top + 0.35, Z - 7.6), _mat(c))
+	if tower and right - left > 6.0:
+		_box(node, Vector3(0.1, 2.2, 0.1), Vector3(right - 1.5, top + 1.1, Z - 6.5), FighterView.toon(Color(0.2, 0.18, 0.28)))
+		StageArt._mesh(node, StageArt._sphere(0.16, 8), StageArt._unshaded(Color(1.0, 0.3, 0.3)), Vector3(right - 1.5, top + 2.3, Z - 6.5))
+
+
+## A building mass behind the room (R2e, note B; `SimRunner.run_buildings`: [room's left edge, left, right, top, kind, the deck its
+## top is on, the ground under its middle]), drawn as the city's block (its brick front with windows, its roof's coping) set behind the
+## play plane, reaching down out of view. On the street its ground floor is shopfronts or doors, and the facades rise out of view. An
+## interior's building stands a little further back, so the room's own back wall shows in front of it.
+func _building(node: Node3D, b: PackedFloat32Array, indoor: bool) -> void:
+	var left: float = b[1]
+	var right: float = b[2]
+	var top: float = b[3]
+	var kind := int(b[4])
+	var base: float = b[6]
+	var on_street := _deck_name(_deck_of(base)) == "street" and top - base > 2.0
+	if on_street and not indoor:
+		top = maxf(top, base + 22.0)
+	# (A building that carries a balcony, a fire escape, an awning or a sill stands just behind the play plane, so what hangs on it
+	# meets its face; the rest of the city stands well back, at the art director's `FACADE_Z`, behind the fighters at a smaller scale.)
+	var carries := b.size() > 7 and b[7] > 0.5
+	var front := BACK_Z if carries or indoor else FACADE_Z
+	StageArt.solid_block(node, theme, left, right, top, minf(base, top) - 40.0, front, true)
+	if kind == 4:
+		# A glass tower: bands of glass across its front.
+		var glass := StageArt._unshaded(Color(0.55, 0.7, 0.95))
+		var y := top - 1.5
+		while y > top - 18.0:
+			_box(node, Vector3(right - left - 0.6, 0.5, 0.05), Vector3((left + right) * 0.5, y, front + 0.03), glass)
+			y -= 2.4
+	if on_street and not indoor:
+		# Its ground floor: shopfronts (a row of shops) or doors under a lintel (the others), along its foot.
+		var w := right - left
+		var n := maxi(int(w / 7.0), 1)
+		for k in n:
+			var cx := left + (k + 0.5) * w / n
+			if kind == 2:
+				_shop_window(node, cx, minf(w / n - 0.8, 5.0), base, front)
+			else:
+				_box(node, Vector3(1.4, 2.4, 0.1), Vector3(cx, base + 1.2, front + 0.06), FighterView.toon(Color(0.25, 0.17, 0.2)))
+				_box(node, Vector3(1.8, 0.2, 0.2), Vector3(cx, base + 2.5, front + 0.08), FighterView.toon(Color(0.6, 0.5, 0.45)))
 
 
 ## An interior (R2d, placeholder for the art director): under each ceiling, a warm back wall with a row of lamps, and a window pane at
@@ -355,6 +552,10 @@ func _awning(node: Node3D, left: float, right: float, top: float) -> void:
 		# Its valance: the stripes hanging over the front.
 		_box(node, Vector3(w / n, 0.4, 0.06), Vector3(left + (j + 0.5) * w / n, top - 0.32, Z + 0.02), FighterView.toon(pair[j % 2]))
 	_top_edge(node, left, right, top, top, pair[1])
+	# Its canvas back to the building's face, rising a little (behind the play plane: R2e).
+	var back := (Z - 1.6) - BACK_Z
+	var sheet := _box(node, Vector3(w, 0.08, back), Vector3((left + right) * 0.5, top + 0.15, BACK_Z + back * 0.5), FighterView.toon((pair[0] as Color).darkened(0.15)))
+	sheet.rotation.x = -0.06
 
 
 ## The city's street lamps along a stretch of street (decoration: thin, dark, set back, lit from inside).
@@ -363,13 +564,15 @@ func _lamps(node: Node3D, left: float, right: float, top: float) -> void:
 	var lamp := StageArt._unshaded(Color(1.0, 0.9, 0.62))
 	var x := ceilf(left / 16.5) * 16.5 + 4.0
 	while x < right - 1.0:
-		var at := Vector3(x, top, -2.4)
-		StageArt._mesh(node, StageArt._cylinder(0.12, 0.17, 5.0, 8), iron, at + Vector3(0, 2.5, 0))
-		_box(node, Vector3(0.12, 0.12, 1.2), at + Vector3(0, 4.9, 0.5), iron)
-		StageArt._mesh(node, StageArt._sphere(0.28, 10), lamp, at + Vector3(0, 4.7, 1.0), Vector3(1.0, 0.7, 1.0))
+		# (Against the buildings' faces, behind the awnings' canvas: R2e.)
+		var at := Vector3(x, top, BACK_Z + 0.8)
+		# (Short, under the awnings' height.)
+		StageArt._mesh(node, StageArt._cylinder(0.12, 0.17, 2.8, 8), iron, at + Vector3(0, 1.4, 0))
+		_box(node, Vector3(0.12, 0.12, 1.2), at + Vector3(0, 2.9, 0.5), iron)
+		StageArt._mesh(node, StageArt._sphere(0.28, 10), lamp, at + Vector3(0, 2.7, 1.0), Vector3(1.0, 0.7, 1.0))
 		# (A small glow round the bulb, art review 6 round 11: at 3.6 across, at the fighters' depth, each lamp bloomed into a white blob as
 		# bright as anything in play, as the city stage's shops did before round 7.)
-		StageArt._halo(node, at + Vector3(0, 4.6, 1.2), Color(1.0, 0.8, 0.5), 2.0)
+		StageArt._halo(node, at + Vector3(0, 2.6, 1.2), Color(1.0, 0.8, 0.5), 2.0)
 		x += 16.5
 
 
@@ -430,30 +633,6 @@ func _girder_dressing(node: Node3D, look: String, left: float, right: float, top
 			_box(node, Vector3(0.5, top, 0.5), Vector3(cx, top * 0.5, -0.8), FighterView.toon(Color(0.5, 0.26, 0.27)))
 
 
-## A building front behind a room, built with the city skyline's own facade shader (windows, frames, some lit), its height and shade
-## from the room's number: each room reads as another building on the same street.
-func _facade(node: Node3D, room: PackedFloat32Array) -> void:
-	var left: float = room[0]
-	var right: float = room[1]
-	var ground: float = minf(room[6], room[7])
-	var seq := int(room[5])
-	var tall := 9.0 + float((seq * 37) % 4) * 1.5
-	var st := SurfaceTool.new()
-	st.begin(Mesh.PRIMITIVE_TRIANGLES)
-	StageArt._facade_box(st, Vector3(left, ground - 4.0, -8.5), Vector3(right, ground + tall, -6.0), fmod(float(seq) * 0.37, 1.0), false, tall + 4.0)
-	var m := ShaderMaterial.new()
-	m.shader = FACADE_SHADER
-	var shade: Color = FACADE_SHADES[seq % FACADE_SHADES.size()]
-	m.set_shader_parameter("base_shade", shade)
-	m.set_shader_parameter("roof_shade", shade.lightened(0.12))
-	m.set_shader_parameter("lit_energy", 1.9)
-	m.set_shader_parameter("lit_share", 0.3)
-	m.set_shader_parameter("detail", 1.0)
-	m.set_shader_parameter("sign_energy", 2.0)
-	var mi := StageArt._mesh(node, st.commit(), m, Vector3.ZERO)
-	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-
-
 ## A storefront at a shop's door: the city's shopfront (lit windows either side of a door, a striped awning, a sign).
 func _storefront(parent: Node3D, door_x: float, door_y: float) -> void:
 	var front := Node3D.new()
@@ -511,6 +690,9 @@ func _rest_sign(parent: Node3D, x: float, y: float) -> void:
 func sync(sim, layout: int) -> void:
 	if looks.is_empty():
 		looks = sim.run_looks()
+	if deck_names.is_empty():
+		deck_names = sim.run_deck_names()
+		deck_lines = Array(sim.run_deck_lines())
 	# (Every frame: a coin picked up changes no layout. R2a only redrew the coins when the stage changed, so a collected coin stayed on
 	# screen until the next room came: the owner's "collected coins don't disappear".)
 	sync_coins(sim.run_coins())
@@ -540,6 +722,12 @@ func sync(sim, layout: int) -> void:
 			lidded[k] = true
 			k += "L"
 		rooms[k] = r
+	var buildings := {}
+	for b in sim.run_buildings():
+		var bk := "%.3f" % b[0]
+		if not buildings.has(bk):
+			buildings[bk] = []
+		buildings[bk].append(b)
 	var keyed := {}
 	for key in wanted.keys():
 		keyed[key + ("L" if lidded.has(key) else "")] = wanted[key]
@@ -559,7 +747,12 @@ func sync(sim, layout: int) -> void:
 			_footing(node, r)
 		if rooms.has(key):
 			var room: PackedFloat32Array = rooms[key]
-			_facade(node, room)
+			# (R2e, note B: the city the room stands in, its building masses, instead of R2a's one front per room.)
+			var masses := Node3D.new()
+			masses.name = "Buildings"
+			node.add_child(masses)
+			for b in buildings.get(key.trim_suffix("L"), []):
+				_building(masses, b, room.size() > 11 and room[11] > 0.5)
 			if int(room[2]) == ROOM_SHOP:
 				_storefront(node, room[3], room[4])
 			elif int(room[2]) == ROOM_REST:
@@ -644,13 +837,16 @@ func animate(delta: float) -> void:
 func follow(view_centre_x: float, view_y := 0.0) -> void:
 	if backdrop != null:
 		backdrop.position.x = view_centre_x
+		# (R2e, note B: the backdrop follows the view's height too, so the city stage's own rooftop props, built for a stage at the
+		# rooftops' height, always stay below the view instead of floating mid-facade on the street deck; above the rooftops the far
+		# city sinks a little, so the skyline deck looks out over it.)
+		backdrop.position.y = view_y - BACKDROP_VIEW - maxf(view_y - BACKDROP_VIEW, 0.0) * 0.5
 	for k in skylines.size():
 		var holder: Node3D = skylines[k]
 		if holder == null:
 			continue
 		var shift: float = SKYLINE_SHIFT[k]
 		holder.position.x = -fposmod(view_centre_x * shift, SKYLINE_SPAN)
-		holder.position.y = view_y * shift * 0.5
 
 
 # ---- The shop's interior -------------------------------------------------------------------------------------------------------

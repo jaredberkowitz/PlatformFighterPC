@@ -460,21 +460,35 @@ fn an_optional_creep_pushes_but_never_crushes() {
 
 // ---- Lives -------------------------------------------------------------------------------------------------------------------------
 
+/// The owner's R2d answer 4 ("a floor below"): a fall into the gap room's gap lands on the lower roof in it, no life lost; a room
+/// still marked a true pit (none of the built-in ones is) costs a life.
 #[test]
-fn a_fall_into_a_pit_costs_a_life() {
-    let mut sim = RunSim::with(only(&["gap", "shop"], (1, 0, 0)), 1);
-    // (The gap room: put the player over its pit.)
-    let gap = sim.rc.rooms.iter().position(|r| r.name == "gap").unwrap();
-    let slot = *sim.state.run.slot_of(1).unwrap();
-    assert_eq!(usize::from(slot.room), gap, "the only street but the start");
-    sim.place(Vec2::new(slot.x + fx(13), fx(-3)));
-    for _ in 0..240 {
-        sim.tick(inp(0, -127, 0));
-        if sim.player().stocks < 3 {
-            break;
+fn a_fall_into_a_gap_lands_on_a_floor_below_and_a_true_pit_costs_a_life() {
+    for pit in [false, true] {
+        let mut rc = only(&["gap", "shop"], (1, 0, 0));
+        let gap = rc.rooms.iter().position(|r| r.name == "gap").unwrap();
+        if pit {
+            rc.rooms[gap].platforms.truncate(3);
+            rc.rooms[gap].pit = true;
+        }
+        let mut sim = RunSim::with(rc, 1);
+        let slot = *sim.state.run.slot_of(1).unwrap();
+        assert_eq!(usize::from(slot.room), gap, "the only street but the start");
+        sim.place(Vec2::new(slot.x + fx(13), fx(-3)));
+        for _ in 0..240 {
+            sim.tick(inp(0, -127, 0));
+            if sim.player().stocks < 3 {
+                break;
+            }
+        }
+        if pit {
+            assert_eq!(sim.player().stocks, 2, "a true pit");
+        } else {
+            assert_eq!(sim.player().stocks, 3, "a floor below");
+            assert!(sim.player().grounded());
+            assert!(sim.player().pos.y < slot.y - fx(3), "below the roofs");
         }
     }
-    assert_eq!(sim.player().stocks, 2);
 }
 
 #[test]

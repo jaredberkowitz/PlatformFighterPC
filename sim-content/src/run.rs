@@ -22,6 +22,7 @@ use sim_core::run::{
 
 /// How far below a room's lower ground end its lowest surface may be (R2d: a deck below, catching a fall, is about one view down).
 const DEEPEST_CATCH: i32 = 20;
+use crate::format::Scalar;
 use sim_core::Fx;
 
 /// Every problem with a run's content (empty when it is fine), the passability proof included.
@@ -626,6 +627,70 @@ fn room_problems(rc: &RunContent, i: usize, c: &Room, errors: &mut Vec<String>) 
             problems.push(format!(
                 "{at}: needs solid ground at both edges, at 0 where it begins and at its exit height where it ends (mirrored {}, parts {:b})",
                 slot.mirror, slot.parts
+            ));
+        }
+        // (R2e, the owner's note B: nothing floats. Every footing is held up by the ground, a building behind it, a span between two
+        // faces or posts down to a surface; a sign hangs on a building or under a footing; a canister or a chest stands on something.)
+        let held = sim_core::run::supports(rc, slot);
+        for (pl, sup, _) in &held {
+            if *sup == sim_core::run::SUPPORT_NONE {
+                let p = pl.platform;
+                problems.push(format!(
+                    "{at}: its {} from {} to {} at {} floats (hang it on a building, or give it a span or posts) (mirrored {}, parts {:b})",
+                    LOOK_NAMES.get(usize::from(pl.look)).unwrap_or(&"?"),
+                    p.left.show(),
+                    p.right.show(),
+                    p.y.show(),
+                    slot.mirror,
+                    slot.parts
+                ));
+            }
+        }
+        let mut bs = Vec::new();
+        sim_core::run::for_each_building(rc, slot, |l, r, t, _| bs.push((l, r, t)));
+        sim_core::run::for_each_prop(rc, slot, |_, spot, pos| {
+            let Some(kind) = rc.props.get(usize::from(spot.kind)) else {
+                return;
+            };
+            let ok = if kind.role == PROP_SIGN {
+                bs.iter()
+                    .any(|&(l, r, t)| l <= pos.x && pos.x <= r && t >= pos.y)
+                    || held.iter().any(|(pl, _, _)| {
+                        let p = pl.platform;
+                        p.left <= pos.x
+                            && pos.x <= p.right
+                            && p.top_at(pos.x) >= pos.y
+                            && p.top_at(pos.x) <= pos.y + Fx::from_int(2)
+                    })
+            } else {
+                held.iter().any(|(pl, _, _)| {
+                    let p = pl.platform;
+                    p.left <= pos.x
+                        && pos.x <= p.right
+                        && (p.top_at(pos.x) - pos.y).abs() <= Fx::from_ratio(1, 10)
+                })
+            };
+            if !ok {
+                problems.push(format!(
+                    "{at}: a prop at {}, {} stands on nothing or hangs from nothing (mirrored {}, parts {:b})",
+                    pos.x.show(),
+                    pos.y.show(),
+                    slot.mirror,
+                    slot.parts,
+                ));
+            }
+        });
+        if c.buildings.len() > sim_core::run::data::ROOM_BUILDINGS
+            || c.buildings.iter().any(|b| {
+                b.left >= b.right
+                    || b.left < Fx::ZERO
+                    || b.right > c.width
+                    || b.kind >= sim_core::run::data::BUILDING_KINDS
+            })
+        {
+            problems.push(format!(
+                "{at}: at most {} buildings, each inside the room, left of its right, of a kind there is",
+                sim_core::run::data::ROOM_BUILDINGS
             ));
         }
         if plats.len() > ROOM_PLATFORMS {
@@ -1344,13 +1409,12 @@ mod tests {
         assert!(check_passable(&rc)
             .iter()
             .any(|e| e.starts_with(&format!("room {gap}"))));
-        // A pit you can drop into but not climb out of is a trap.
+        // A floor you can drop onto but not climb out of is a trap: the gap's catch floor without its fire escape.
         let mut rc = RunContent::placeholder();
-        rc.rules.max_gap = Fx::from_int(7);
         let gap = rc.rooms.iter().position(|r| r.name == "gap").unwrap();
-        let plank = &mut rc.rooms[gap].platforms[2].platform;
-        plank.y = Fx::from_int(-12);
-        plank.bottom = Fx::from_int(-12);
+        rc.rooms[gap]
+            .platforms
+            .retain(|f| f.look != sim_core::run::data::LOOK_FIRE_ESCAPE);
         assert!(
             check_passable(&rc).iter().any(|e| e.contains("trap")),
             "{:?}",
@@ -1559,12 +1623,20 @@ mod decks_and_routes {
     /// A fall is never a death but in a room marked a pit: a gap with nothing under it is refused.
     #[test]
     fn a_fall_lands_on_something_unless_the_room_is_a_pit() {
+        // (The owner's R2d answer 4, "a floor below": no built-in room is a true pit any more.)
+        let rc = RunContent::placeholder();
+        assert!(rc.rooms.iter().all(|r| !r.pit), "no true pits");
+        // The gap without its catch floor (and the fire escape over it) lands on nothing: refused, unless marked a pit.
         let mut rc = RunContent::placeholder();
         let gap = room(&rc, "gap");
-        rc.rooms[gap].pit = false;
+        rc.rooms[gap].platforms.truncate(3);
         assert!(check_run_shape(&rc)
             .iter()
             .any(|e| e.starts_with(&format!("room {gap}")) && e.contains("lands on nothing")));
+        rc.rooms[gap].pit = true;
+        assert!(!check_run_shape(&rc)
+            .iter()
+            .any(|e| e.starts_with(&format!("room {gap}"))));
         // The catwalks' gaps are caught by the roofs below: take one away (and the sills over it) and the room is refused.
         let mut rc = RunContent::placeholder();
         let cw = room(&rc, "catwalks");
@@ -1668,5 +1740,79 @@ mod decks_and_routes {
             "{reach} of {} fighters reach the skilled jumps",
             cast.len()
         );
+    }
+
+    /// R2e, the owner's note B (a believable city): nothing floats. A balcony with no building behind it, a catwalk with nothing
+    /// under it and no faces to span, a sign on no building and a canister in the air are all refused; the built-in rooms pass.
+    #[test]
+    fn nothing_floats() {
+        use sim_core::run::data::LOOK_CATWALK;
+        let rc = RunContent::placeholder();
+        assert!(check_run_shape(&rc).iter().all(|e| !e.contains("floats")));
+        // Every room has buildings, and every footing says what holds it (the game draws that).
+        for (i, c) in rc.rooms.iter().enumerate() {
+            assert!(
+                !c.buildings.is_empty()
+                    || !c.platforms.iter().any(|f| f.platform.pass_through
+                        && f.look != LOOK_CATWALK
+                        && f.look != sim_core::run::data::LOOK_CRANE
+                        && f.look != sim_core::run::data::LOOK_GIRDER
+                        && f.look != sim_core::run::data::LOOK_SCAFFOLD
+                        && f.look != sim_core::run::data::LOOK_WATER_TOWER
+                        && f.look != sim_core::run::data::LOOK_BILLBOARD),
+                "room {i} ({}) hangs things on no building",
+                c.name
+            );
+        }
+        // The balcony drop without its buildings: its balconies float.
+        let mut bad = rc.clone();
+        let drop = room(&bad, "balcony_drop");
+        bad.rooms[drop].buildings.clear();
+        assert!(check_run_shape(&bad)
+            .iter()
+            .any(|e| e.starts_with(&format!("room {drop}"))
+                && e.contains("balcony")
+                && e.contains("floats")));
+        // A scaffold over a true pit (the gap without its catch floor) stands on nothing: it floats. Over the catch floor, its poles
+        // reach the floor.
+        let mut bad = rc.clone();
+        let gap = room(&bad, "gap");
+        bad.rooms[gap].platforms.truncate(3);
+        bad.rooms[gap].buildings.retain(|b| b.top > Fx::ZERO);
+        bad.rooms[gap].pit = true;
+        assert!(check_run_shape(&bad)
+            .iter()
+            .any(|e| e.starts_with(&format!("room {gap}"))
+                && e.contains("scaffold")
+                && e.contains("floats")));
+        let held = sim_core::run::supports(
+            &rc,
+            &RoomSlot {
+                live: true,
+                room: gap as u8,
+                end: rc.rooms[gap].width,
+                ..RoomSlot::default()
+            },
+        );
+        assert!(held
+            .iter()
+            .any(|(p, s, y)| p.look == sim_core::run::data::LOOK_SCAFFOLD
+                && *s == sim_core::run::SUPPORT_POSTS
+                && *y == Fx::from_int(-14)));
+        // A sign hung on no building, and a gas canister in the air.
+        let mut bad = rc.clone();
+        let gap = room(&bad, "gap");
+        bad.rooms[gap].buildings.retain(|b| b.left != Fx::ZERO);
+        let street = room(&bad, "escapes");
+        bad.rooms[street].props[0].y = Fx::from_int(3);
+        let errors = check_run_shape(&bad);
+        for at in [gap, street] {
+            assert!(
+                errors
+                    .iter()
+                    .any(|e| e.starts_with(&format!("room {at}")) && e.contains("prop")),
+                "room {at}: {errors:?}"
+            );
+        }
     }
 }
