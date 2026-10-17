@@ -524,10 +524,14 @@ def pose(rig, bone, fwd=0.0, out=0.0, twist=0.0, lift=0.0):
         fwd = clampf(fwd, -50.0, 75.0)
     # (In an attack the arms stay in the fight, as the reference fighters' do: an elbow never flung straight, an arm never thrown far behind
     # the body. The owner: arms bent and flailed in ways out of place in combat. Art review 5.)
+    # (Tighter (the owner, 2026-10-17, after the reference's sword swings and forward airs): the arm the clip poses, the free one, stays
+    # tucked in close to the body, the elbow well bent and the fist by the chest, never flung out wide or back.)
     if BODY and CLIP_NOW and CLIP_NOW.startswith(("attack", "sword_", "kick_", "gaunt_", "body_")):
         if bone.startswith("armU."):
-            fwd = max(fwd, -45.0)
-            out = clampf(out, -20.0, 50.0)
+            fwd = clampf(fwd, FREE_ARM_FWD[0], FREE_ARM_FWD[1])
+            out = clampf(out, 0.0, FREE_ARM_OUT)
+        if bone.startswith("armL."):
+            fwd = max(fwd, FREE_ELBOW)
     # Wrists held nearly straight (the owner, art review 5: bent wrists and open, flapping hands do not read as combat; a fist in line
     # with the forearm does).
     if BODY and bone.startswith("hand."):
@@ -549,6 +553,10 @@ def pose(rig, bone, fwd=0.0, out=0.0, twist=0.0, lift=0.0):
 # How far back (degrees) the base body's head may tip, and the clips exempt (lying down or hanging, where the head lifts off the floor or
 # looks up the wall).
 HEAD_BACK_LIMIT = -8.0
+# The free arm in an attack (see `pose`): the upper arm's swing range (degrees, back to front), how far out to the side, the elbow's least bend.
+FREE_ARM_FWD = (10.0, 80.0)
+FREE_ARM_OUT = 24.0
+FREE_ELBOW = 90.0
 HEAD_FREE_CLIPS = ("knockdown", "getup", "ledge", "ledge_climb")
 CLIP_NOW = ""
 

@@ -676,6 +676,10 @@ const BODY_TURN_IN_ATTACK := 14.0
 const FACE_AWAY_IN_ATTACK := 40.0
 ## How far into a move the body is turned toward the foe (0 none, 1 fully), eased in and out.
 var attack_turn := 0.0
+## How far the body is turned round toward a hit behind it (0 none, 1 fully; see BACK_ATTACK_TURN).
+var back_turn := 0.0
+## How far round toward the back the body turns for a hit behind (degrees, toward the back from facing the camera).
+const BACK_ATTACK_TURN := 35.0
 
 
 ## Facing left, the base body plays every clip mirrored (art review 5): the model turns rather than mirrors, so the arm nearest the camera
@@ -2504,6 +2508,14 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 	var showy := 1.0 if state == "Hitstun" or state == "ShieldBreak" or state == "Respawn" else 0.0
 	face_cam = move_toward(face_cam, showy, delta * (8.0 if showy > face_cam else 3.0))
 	var turn_deg := lerpf(BODY_TURN + BODY_TURN_IN_ATTACK * attack_turn, FRONTAL_TURN, face_cam)
+	# A hit behind (a back air, a back throw's swing): the body swings round through the camera toward the back for the strike, the chest
+	# facing the swing, and back again after (the owner, 2026-10-17, after the reference's back airs). By the move's reach, so it
+	# turns in with the wind-up and home through the end lag.
+	var behind := 0.0
+	if use_base_body and state == "Attack" and s.move_tip != Vector3.ZERO and float(s.move_tip.x) < -0.2:
+		behind = _reach_weight(s)
+	back_turn = move_toward(back_turn, behind, delta * 10.0)
+	turn_deg = lerpf(turn_deg, -BACK_ATTACK_TURN, back_turn)
 	yaw = lerp_angle(yaw, float(look) * deg_to_rad(turn_deg), clampf(delta * 14.0, 0.0, 1.0))
 	# The eyes switch sides as the body swings past facing the camera.
 	set_gaze(1 if yaw >= 0.0 else -1)
@@ -2905,8 +2917,8 @@ const FOLLOW_SHARE := 0.28
 ## The weapon arm's shoulder in forward space (x forward, y up), and how far the hand reaches from it in a swing.
 const SHOULDER := Vector2(0.5, 1.15)
 const ARM_REACH := 0.5
-## How much of its own length (shoulder to wrist) a blade's arm reaches on the base body (see `_pose_blade`): a little short of straight.
-const BLADE_ARM_REACH := 0.92
+## How much of `arm_reach` (shoulder to wrist, and the hand) a blade's arm reaches on the base body (see `_pose_blade`): a soft bend.
+const BLADE_ARM_REACH := 0.95
 var arm_k := 0.0
 var hand_target := Vector3.ZERO
 ## Where the greatsword's other hand holds the grip (model space), set with `hand_target`.
@@ -2989,7 +3001,7 @@ func _pose_blade(s: Dictionary, delta: float) -> void:
 		# never the body, and the blade carries on past a near hitbox. The owner, 2026-10-17. A little short of straight: a locked elbow
 		# read as reaching for a hug, pose review.)
 		if bladed(_cls(s)) and use_base_body:
-			reach = (arm_reach - 0.1) * BLADE_ARM_REACH
+			reach = arm_reach * BLADE_ARM_REACH * (1.0 + strike_e)
 		var dir := to_tip / dist
 		# (A blade raised high is held out in front of the face, not over it: the arm is short against the big head, so straight up the
 		# hilt ended in front of the face and the arm hid behind the blade. Art review 5, after the reference's up smash, whose arm is
@@ -3258,8 +3270,10 @@ func _aim_arm(facing: int, holding: bool, two_hands := false) -> void:
 		var rest_h := skeleton.get_bone_global_rest(ih)
 		var elbow0 := rest_l.origin
 		var wrist0 := rest_h.origin
-		# On a strike the arm stretches (`strike_e`, the fists only: a blade's reach is the blade), and reaches that much further.
-		var e := strike_e if not bladed(_cls_now) else 0.0
+		# On a strike the arm stretches (`strike_e`), and reaches that much further. (A blade's arm too on the base body, whose arm raised
+		# overhead ended at the big head's brow and held the sword at the face: the arm extends to the swing, never the body. The owner,
+		# 2026-10-17.)
+		var e := strike_e if not bladed(_cls_now) or use_base_body else 0.0
 		var upper := (elbow0 - rest_u.origin).length() * (1.0 + e)
 		# The shoulder where the animated chest has it now, so the arm stays on the body as it bends and turns.
 		var shoulder := rest_u.origin
@@ -3440,7 +3454,7 @@ func _aim_leg(s: Dictionary, kicking: bool, delta: float) -> void:
 
 const ARC_FADE := 3
 ## The highest a sword arm points (degrees above forward) when the blade goes up overhead.
-const HIGH_BLADE_ARM := 52.0
+const HIGH_BLADE_ARM := 80.0
 ## How see-through the swing arcs and smears are: painted, but a trail of light, not a solid shape (the fighter shows through it).
 ## (0.62, art review 6: at 0.82 the pale crescent was the biggest, most solid shape on screen at the moment of a hit, over both fighters.)
 const ARC_OPACITY := 0.62
