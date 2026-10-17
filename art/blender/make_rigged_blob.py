@@ -959,7 +959,7 @@ def _bend_up(rig, side, ground):
 
 
 ## Clips with a moment in the air between steps: their feet are only kept from going through the ground.
-STRIDING = {"run", "dash"}
+STRIDING = {"run", "dash", "run_quick", "run_heavy", "run_caster", "run_tool"}
 
 
 def plant(rig, both, lift_only=False):
@@ -2423,7 +2423,7 @@ def main() -> None:
     # Each unarmed family's own stance on the base body (the pose review: nine unarmed classes stood alike), the brawlers keeping the bouncy
     # guard above: the quick fighters low and coiled with the lead hand out, the heavy one wide and planted with its arms low and slow, the
     # caster upright with an open lead palm and the other hand at the hip, the tool users relaxed with their hands low. Arms are
-    # (forward, out, elbow); the bob is a share of the guard's. Mapped by class in anim_library.gd (CLASS_IDLE).
+    # (forward, out, elbow); the bob is a share of the guard's. Mapped by class in anim_library.gd (CLASS_FAMILY).
     IDLE_STYLES = {
         "quick": dict(hips=-0.2, bob=0.6, lead=62.0, back=-36.0, shin_l=-84.0, shin_r=-30.0, spine=28.0, head=-10.0,
                       arm_l=(64.0, 10.0, 36.0), arm_r=(-14.0, 24.0, 100.0)),
@@ -2490,6 +2490,15 @@ def main() -> None:
     clip(rig, "walk", 40, {i: walk(i / 40.0) for i in range(0, 41, 2)})
     # The run: a key every other frame so the snappy gait survives interpolation.
     clip(rig, "run", 20, {i: run_pose(i / 20.0) for i in range(0, 21)})
+    # Each unarmed family's own run on the base body (with its idle, `IDLE_STYLES`): the quick fighters low and long with small arm
+    # pumps, the heavy one upright and short-strided with big swings and a heavier bounce, the caster neat with its arms in, the tool
+    # users a loose, bouncy jog.
+    if BODY:
+        for fam, kw in (("quick", dict(lean=36.0, stride=1.12, arms=0.7, bounce=0.07)),
+                        ("heavy", dict(lean=12.0, stride=0.82, arms=1.25, bounce=0.12)),
+                        ("caster", dict(lean=18.0, stride=0.95, arms=0.6, bounce=0.07)),
+                        ("tool", dict(lean=16.0, stride=0.9, arms=1.1, bounce=0.11))):
+            clip(rig, "run_" + fam, 20, {i: run_pose(i / 20.0, **kw) for i in range(0, 21)})
     # The initial dash: the same stride, launched lower and further forward, arms flung harder.
     clip(rig, "dash", 16, {i: run_pose(i / 16.0, lean=32.0, stride=1.1, arms=1.15, bounce=0.06) for i in range(0, 17)})
 

@@ -211,7 +211,7 @@ const LONG_FIT := Transform3D(Basis(Vector3(0.92, 0, 0), Vector3(0, 0.92, 0), Ve
 ## Where the head and torso sit in the rig compared with the sphere-built look the face, hats and glasses were designed for.
 const HEAD_FIT := Transform3D(Basis(Vector3(0.825, 0, 0), Vector3(0, 0.825, 0), Vector3(0, 0, 0.825)), Vector3(0, 1.56 - 1.42 * 0.825, 0))
 const TORSO_FIT := Transform3D()
-const LOOPING := ["idle", "idle_quick", "idle_heavy", "idle_caster", "idle_tool", "walk", "run", "dash", "fall", "victory_a", "victory_b", "victory_c"]
+const LOOPING := ["idle", "idle_quick", "idle_heavy", "idle_caster", "idle_tool", "run_quick", "run_heavy", "run_caster", "run_tool", "walk", "run", "dash", "fall", "victory_a", "victory_b", "victory_c"]
 ## The rig is read once and copied for every fighter (reading it again renames its bones).
 static var _rig_templates: Dictionary = {}
 
@@ -558,16 +558,15 @@ func _choose_clip(s: Dictionary) -> Array:
 			return ["attack_low", 1.0, clampf(p, 0.0, 1.0)]
 	# The shared clips (scripts/anim_library.gd): the same for every moveset. The dodges follow their own frames.
 	var shared := AnimLibrary.state_clip(state, anim)
-	# (Each unarmed family stands its own way: AnimLibrary.CLASS_IDLE.)
-	if shared == "idle":
-		shared = AnimLibrary.idle_clip(_cls(s), anim)
+	# (Each unarmed family stands and runs its own way: AnimLibrary.CLASS_FAMILY.)
+	shared = AnimLibrary.family_clip(_cls(s), shared, anim)
 	if shared != "":
 		var k := dodge_progress(s)
 		if AnimLibrary.BY_PROGRESS.has(state) and k >= 0.0:
 			return [shared, 1.0, k]
 		return [shared, 1.0, -1.0]
 	if grounded:
-		return [AnimLibrary.idle_clip(_cls(s), anim), 1.0, -1.0]
+		return [AnimLibrary.family_clip(_cls(s), "idle", anim), 1.0, -1.0]
 	if flip_left > 0.0:
 		return ["air_jump", 1.0, -1.0]
 	return ["jump", 1.0, -1.0] if float(s.vel.y) > 0.02 else ["fall", 1.0, -1.0]

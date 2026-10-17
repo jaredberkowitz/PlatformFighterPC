@@ -366,18 +366,23 @@ static func or_stand_in(clip: String, anim: AnimationPlayer) -> String:
 	return clip
 
 
-## Each unarmed family's own idle stance by class (the base body's rig only; the others play "idle"): the brawlers (Claws, Gauntlets,
-## Bracers) and the armed classes keep the guard, the quick fighters (Needles, Dagger, Nodachi) crouch low, the heavy (Clutch) stands
-## wide, the caster (Embers) holds a palm out, the tool users (Pockets, Popgun) stand relaxed. The pose review, 2026-10-17.
-const CLASS_IDLE := {2: "idle_quick", 12: "idle_quick", 13: "idle_quick", 8: "idle_heavy", 3: "idle_caster", 10: "idle_tool", 11: "idle_tool"}
+## Each unarmed family's own stance and run by class (the base body's rig only; the others play the shared clips): the brawlers (Claws,
+## Gauntlets, Bracers) and the armed classes keep the guard and the shared run, the quick fighters (Needles, Dagger, Nodachi) crouch low
+## and sprint long, the heavy (Clutch) stands wide and lumbers, the caster (Embers) holds a palm out and runs neat, the tool users
+## (Pockets, Popgun) stand relaxed and jog loose. The pose review, 2026-10-17.
+const CLASS_FAMILY := {2: "quick", 12: "quick", 13: "quick", 8: "heavy", 3: "caster", 10: "tool", 11: "tool"}
+## The shared clips a family has its own take on (`<clip>_<family>` in the rig).
+const FAMILY_CLIPS := ["idle", "run"]
 
 
-## The idle clip for class `cls`: its family's stance when the rig has it, else the shared one.
-static func idle_clip(cls: int, anim: AnimationPlayer = null) -> String:
-	var clip: String = CLASS_IDLE.get(cls, "idle")
-	if anim != null and not anim.has_animation(clip):
-		return "idle"
-	return clip
+## Class `cls`'s own take on the shared clip `clip` (its family's, `<clip>_<family>`) when it has one and the rig has it, else `clip`.
+static func family_clip(cls: int, clip: String, anim: AnimationPlayer = null) -> String:
+	if not FAMILY_CLIPS.has(clip) or not CLASS_FAMILY.has(cls):
+		return clip
+	var own := "%s_%s" % [clip, CLASS_FAMILY[cls]]
+	if anim != null and not anim.has_animation(own):
+		return clip
+	return own
 
 
 ## The shared clip for a simulation state, or "" for a state chosen with more context; with `anim`, a clip that rig lacks becomes its
