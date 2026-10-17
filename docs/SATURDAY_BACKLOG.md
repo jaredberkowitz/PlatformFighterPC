@@ -89,8 +89,8 @@ The detail behind each step follows.
 - [ ] Locked straight arms at shoulder height in strikes, follow-throughs and unarmed idles ("hug"): elbow never fully straight,
       follow-through pulls back toward the chest.
 - [ ] Free arm flung out sideways (T-pose) in unarmed fairs/fsmashes: guard the chin or chamber at the hip.
-- [ ] Hurt pose: a real recoil (head and chest snap back from the hit, arms trail, knees give), not the sword across the face.
-- [ ] Launch pose: much less stretch; curled or spread, limbs and weapon trailing the flight.
+- [x] Hurt pose: a real recoil (head and chest snap back from the hit, arms trail, knees give), not the sword across the face.
+- [x] Launch pose: much less stretch; curled or spread, limbs and weapon trailing the flight.
 - [ ] Per-family pose sets: nine unarmed classes share one set; Dagger and Nodachi show no weapon (queued weapon art).
 - [ ] Strike frames upside down on flips; one static jump pose (tuck at the apex); shield arm crossing the chest; hands shrinking on
       grips and sideways wrists; crossed-knee idle stances.

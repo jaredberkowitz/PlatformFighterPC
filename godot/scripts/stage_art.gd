@@ -3175,7 +3175,8 @@ static func _city(root: Node3D, t: Dictionary, stage: Array) -> void:
 	# Three layers of buildings, darker and smaller the further back, their windows painted on by one facade shader per layer
 	# (shaders/facade.gdshader): the nearest layer's lit windows glow, the far ones less.
 	for layer in 3:
-		var z := -40.0 - layer * 28.0
+		# (The nearest layer 52 back, not 40: nearer, its towers stood right behind the fighters. The owner, 2026-10-17.)
+		var z := -52.0 - layer * 28.0
 		var shade := Color(0.2, 0.17, 0.33).lerp(Color(0.29, 0.22, 0.42), layer / 2.0)
 		# (The further layers drift toward the sky's own horizon colour, so distance reads as air, not as three equal cut-outs: the owner's
 		# rooftop plan, art review 6.)
