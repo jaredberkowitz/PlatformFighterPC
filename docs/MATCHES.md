@@ -43,7 +43,12 @@ Not done: sudden death after a tied clock, team matches, items.
 
 ## The online screen (main menu, Online)
 
-`godot/ui/online.gd`. Role (Host or Join), Connect (Direct or Relay), then the fields that apply: Address (join, or the relay's), Port
+`godot/ui/online.gd`. **Connect** comes first: **Code** (the default), Direct or Relay. With Code the screen shows *Your code* (Copy
+button, or Enter on the row) and a *Friend* box (Paste button, or Ctrl+V); both players swap codes over any chat and press **Connect!**;
+the screen shows "Finding your address...", "Waiting for your friend... N s", then "Connected!" and starts the match, or explains what
+to try if nothing got through. Nobody picks a role: the lower code hosts and its rules apply (the screen says which). The last friend's
+code is remembered. Details and limits: `docs/NETPLAY.md`, "Playing by connection code". With Direct or Relay: Role (Host or Join),
+then the fields that apply: Address (join, or the relay's), Port
 (hosting directly, default 47000), Room (relay), your Fighter (built-in or made; only a few bytes travel), Delay (0 to 6 frames, default
 2) and, for the host, Stocks, Time and Rules (Casual or Ranked). The choices are remembered (`user://online.json`). **Host!/Join!**
 starts the match scene, which connects and shows "Connecting..." until the other player arrives. Esc in the match goes back to

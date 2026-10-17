@@ -662,7 +662,7 @@ func _net_config() -> Dictionary:
 		return {
 			"host": o.host, "relay": o.addr if o.relay else "", "addr": o.addr, "port": o.port, "room": o.room,
 			"delay": o.delay, "chars": chosen_chars, "ranked": o.ranked, "group": o.get("group", false),
-			"quick": o.get("quick", false),
+			"quick": o.get("quick", false), "netcode": o.get("netcode", null),
 		}
 	var host_port := -1
 	var join_addr := ""
@@ -735,7 +735,14 @@ func _connect_pair(cfg: Dictionary, me: Dictionary) -> void:
 		names[0] = me.name
 		print("group mode: ", "host" if cfg.host else "guest")
 		return
-	if cfg.host and cfg.relay != "":
+	var code: RefCounted = cfg.get("netcode", null)
+	if code != null:
+		# Connected by code on the online screen: the match plays over the socket that found the way through.
+		if cfg.host:
+			err = sim.net_host_code(code, PackedInt32Array(cfg.chars), cfg.delay)
+		else:
+			err = sim.net_join_code(code)
+	elif cfg.host and cfg.relay != "":
 		err = sim.net_host_relay(cfg.relay, cfg.room, PackedInt32Array(cfg.chars), cfg.delay)
 	elif cfg.host:
 		err = sim.net_host(cfg.port, PackedInt32Array(cfg.chars), cfg.delay)

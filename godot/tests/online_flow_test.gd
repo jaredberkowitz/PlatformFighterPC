@@ -38,6 +38,9 @@ func _initialize() -> void:
 		quit(1)
 		return
 	await _screen()
+	await _code_screen()
+	await _code_match()
+	await _code_scene()
 	await _match()
 	await _spectate()
 	await _group()
@@ -48,9 +51,14 @@ func _initialize() -> void:
 
 func _screen() -> void:
 	var screen: Control = load("res://online.tscn").instantiate()
+	screen.code_stun = PackedStringArray(["none"])
+	screen.code_lan = "127.0.0.1"
 	root.add_child(screen)
 	await process_frame
 	await process_frame
+	screen.selectors["link"].set_index(1)
+	screen.selectors["role"].set_index(0)
+	check(screen.netcode == null, "choosing Direct closes the code socket (so Direct can host on the same port)")
 	var c: Dictionary = screen.connection()
 	check(not c.has("error") and c.host and not c.relay and c.port == 47000, "hosting directly is the default: " + str(c))
 	check(screen.rows.filter(func(r): return r.id == "port")[0].node.visible, "the port row shows when hosting")
@@ -69,7 +77,7 @@ func _screen() -> void:
 	check(screen.connection().addr == "10.0.0.5:47000", "a missing port defaults: " + str(screen.connection()))
 	screen.edits["address"].text = "10.0.0.5:47123"
 	check(screen.connection().addr == "10.0.0.5:47123", "an address with a port is kept")
-	screen.selectors["link"].set_index(1)
+	screen.selectors["link"].set_index(2)
 	screen.edits["room"].text = "0"
 	check(screen.connection().has("error"), "a relay room must be 1 or more")
 	screen.edits["room"].text = "7"
@@ -77,7 +85,7 @@ func _screen() -> void:
 	check(not relay.has("error") and relay.relay and relay.room == 7, "a relay connection: " + str(relay))
 	# Ranked rules refuse a fighter over the budget.
 	screen.selectors["role"].set_index(0)
-	screen.selectors["link"].set_index(0)
+	screen.selectors["link"].set_index(1)
 	screen.selectors["rules"].set_index(1)
 	check(not screen.connection().has("error"), "the built-in fighters are legal under ranked rules")
 	# Quick match asks only for the relay's address; the host's rules apply to whoever hosts.
@@ -92,6 +100,186 @@ func _screen() -> void:
 	check(screen.connect_button.text == "Find!", "the button says Find!")
 	screen.queue_free()
 	await process_frame
+
+
+func _shown(screen: Control, id: String) -> bool:
+	return screen.rows.filter(func(r): return r.id == id)[0].node.visible
+
+
+## Two bare code sockets on loopback (no STUN): their codes, then both connect and wait until each hears the other.
+func _code_pair() -> Array:
+	var a = ClassDB.instantiate("NetCode")
+	var b = ClassDB.instantiate("NetCode")
+	check(a.start(0, PackedStringArray(["none"]), "127.0.0.1") == "" and b.start(0, PackedStringArray(["none"]), "127.0.0.1") == "", "code sockets open")
+	a.poll()
+	b.poll()
+	return [a, b]
+
+
+func _punch(a, b) -> bool:
+	for i in 1000:
+		var sa: int = a.poll()
+		var sb: int = b.poll()
+		if sa == 3 and sb == 3:
+			return true
+		if sa == 4 or sb == 4:
+			return false
+		await create_timer(0.005).timeout
+	return false
+
+
+## The online screen's Code link: first in the list and the default, shows this player's code, checks the friend's code, and says who
+## will host.
+func _code_screen() -> void:
+	var screen: Control = load("res://online.tscn").instantiate()
+	screen.code_stun = PackedStringArray(["none"])
+	screen.code_lan = "127.0.0.1"
+	root.add_child(screen)
+	await process_frame
+	screen.selectors["link"].set_index(0)
+	check(screen.selectors["link"].options[0] == "Code", "Code is first in the list")
+	for i in 10:
+		await process_frame
+	check(screen.netcode != null, "the code socket is open")
+	var mine: String = screen.netcode.my_code()
+	check(mine.length() >= 14 and mine.contains("-"), "the player's own code shows: " + mine)
+	check(screen.code_label.text == mine, "on the screen")
+	check(_shown(screen, "mycode") and _shown(screen, "friend"), "the code rows show")
+	check(not _shown(screen, "role") and not _shown(screen, "address") and not _shown(screen, "port") and not _shown(screen, "room"), "and the role, address, port and room rows do not")
+	check(_shown(screen, "stocks"), "either player may host, so both see the rules")
+	check(screen.connect_button.text == "Connect!", "the button says Connect!")
+	screen.edits["friend"].text = ""
+	check(screen.connection().has("error"), "a friend's code is needed")
+	screen.edits["friend"].text = mine
+	check(screen.connection().has("error"), "your own code is refused")
+	screen.edits["friend"].text = "HELLO-WORLD"
+	check(screen.connection().has("error"), "a mistyped code is refused")
+	var other = ClassDB.instantiate("NetCode")
+	other.start(0, PackedStringArray(["none"]), "127.0.0.1")
+	other.poll()
+	var theirs: String = other.my_code()
+	screen.edits["friend"].text = "  " + theirs.to_lower().replace("-", " ") + " "
+	var c: Dictionary = screen.connection()
+	check(not c.has("error") and c.code and not c.relay, "a pasted code is accepted, case and spaces aside: " + str(c))
+	check(c.host != other.hosts_against(mine), "exactly one of the two hosts")
+	screen._show_role()
+	check(screen.status.text.contains("host"), "the screen says who hosts: " + screen.status.text)
+	other.stop()
+	screen.queue_free()
+	await process_frame
+
+
+## A whole match by code through the bridge: punch on loopback, then the host and joiner play over the punched sockets.
+func _code_match() -> void:
+	var pair := _code_pair()
+	var a = pair[0]
+	var b = pair[1]
+	var code_a: String = a.my_code()
+	var code_b: String = b.my_code()
+	check(a.connect_to(code_b) == "" and b.connect_to(code_a) == "", "both press Connect")
+	check(await _punch(a, b), "the two code sockets found each other")
+	check(a.i_host() != b.i_host(), "one hosts")
+	var host_code = a if a.i_host() else b
+	var join_code = b if a.i_host() else a
+	var host = ClassDB.instantiate("SimRunner")
+	var join = ClassDB.instantiate("SimRunner")
+	root.add_child(host)
+	root.add_child(join)
+	check(host.net_host_code(host_code, PackedInt32Array([0, 1, 0, 1]), 2) == "", "host over the code link")
+	check(join.net_join_code(join_code) == "", "join over the code link")
+	check(host.net_join_code(host_code) != "", "a spent code cannot connect twice")
+	var ran := [0, 0]
+	for t in 8000:
+		var ia: Array = _input_for(ran[0], 0)
+		var ib: Array = _input_for(ran[1], 1)
+		if host.net_update(ia[0], ia[1], ia[2]) == 1:
+			ran[0] += 1
+		if join.net_update(ib[0], ib[1], ib[2]) == 1:
+			ran[1] += 1
+		if ran[0] > 240 and ran[1] > 240:
+			break
+		await create_timer(0.0005).timeout
+	check(ran[0] > 240 and ran[1] > 240, "the pair plays by code: %s" % str(ran))
+	check(not str(host.net_take_log()).contains("DESYNC") and not str(join.net_take_log()).contains("DESYNC"), "no desync by code")
+	host.net_leave()
+	join.net_leave()
+	# Nobody answering ends in a failure, not a hang.
+	var lone = ClassDB.instantiate("NetCode")
+	lone.start(0, PackedStringArray(["none"]), "127.0.0.1")
+	lone.poll()
+	var ghost = ClassDB.instantiate("NetCode")
+	ghost.start(0, PackedStringArray(["none"]), "127.0.0.1")
+	ghost.poll()
+	check(lone.connect_to(ghost.my_code()) == "", "connect to a friend who never presses Connect")
+	ghost.stop()
+	check(lone.poll() == 2 and lone.seconds_left() > 30, "waiting, with the time left shown: %d" % lone.seconds_left())
+	lone.cancel()
+	check(lone.poll() == 1, "Esc stops waiting and keeps the code")
+	lone.stop()
+
+
+## The real screens: the online screen connects by code and moves on to the match scene, which plays over the punched socket.
+func _code_scene() -> void:
+	# Connecting saves the screen's settings: keep the player's own file as it was.
+	var saved := FileAccess.get_file_as_string("user://online.json") if FileAccess.file_exists("user://online.json") else ""
+	await _code_scene_inner()
+	if saved != "":
+		var f := FileAccess.open("user://online.json", FileAccess.WRITE)
+		f.store_string(saved)
+
+
+func _code_scene_inner() -> void:
+	var screen: Control = load("res://online.tscn").instantiate()
+	screen.code_stun = PackedStringArray(["none"])
+	screen.code_lan = "127.0.0.1"
+	root.add_child(screen)
+	await process_frame
+	screen.selectors["link"].set_index(0)
+	for i in 5:
+		await process_frame
+	var other = ClassDB.instantiate("NetCode")
+	other.start(0, PackedStringArray(["none"]), "127.0.0.1")
+	other.poll()
+	screen.edits["friend"].text = other.my_code()
+	screen._connect()
+	await process_frame
+	check(screen.code_state == 2 and screen.status.text.begins_with("Waiting for your friend"), "the screen waits for the friend: " + screen.status.text)
+	check(other.connect_to(screen.netcode.my_code()) == "", "the friend presses Connect")
+	var scene: Node = null
+	for i in 600:
+		other.poll()
+		await process_frame
+		if root.get_tree().current_scene != null and root.get_tree().current_scene.has_method("_net_config"):
+			scene = root.get_tree().current_scene
+			break
+	check(scene != null, "connected, the online screen moves on to the match")
+	if scene == null:
+		return
+	# The friend's socket hears back a moment later (the match scene answers its probes).
+	for i in 300:
+		if other.poll() == 3:
+			break
+		await process_frame
+	var join = ClassDB.instantiate("SimRunner")
+	root.add_child(join)
+	join.set_fighter(Roster.spec_bytes(Roster.net_entry()))
+	var host_side: bool = Roster.session.online.host
+	var err: String = join.net_host_code(other, PackedInt32Array([0, 1, 0, 1]), 2) if not host_side else join.net_join_code(other)
+	check(err == "", "the friend's side starts too: " + err)
+	var ran := 0
+	for i in 900:
+		if join.net_update(0, 0, 0) == 1:
+			ran += 1
+		await process_frame
+		if ran > 60 and scene.net_mode and scene.net_status == 1:
+			break
+	check(scene.net_mode and scene.net_status == 1, "the match scene plays by code (status %d) %s" % [scene.net_status, str(join.net_take_log())])
+	join.net_leave()
+	scene.queue_free()
+	if is_instance_valid(screen):
+		screen.queue_free()
+	await process_frame
+	Roster.session = {}
 
 
 func _match() -> void:

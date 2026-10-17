@@ -5,6 +5,7 @@
 //! in the read-back getters, for display.
 
 mod editor;
+mod netcode;
 
 use godot::classes::{INode, Node};
 use godot::prelude::*;
@@ -26,12 +27,14 @@ use sim_core::state::PLAYING;
 use sim_core::{step, Content, Fx, GameState, Input, MatchRules, Vec2, MAX_FIGHTERS, SIM_VERSION};
 use std::collections::VecDeque;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, ToSocketAddrs};
-use transport::{QuickMatch, RelayLink, SpectatorSocket, UdpLink};
+use transport::{CodeLink, QuickMatch, RelayLink, SpectatorSocket, UdpLink};
 
-/// The two ways a networked match can reach the other player.
+/// The ways a networked match can reach the other player.
 enum NetLink {
     Udp(UdpLink),
     Relay(RelayLink),
+    /// A connection made by swapping codes (hole punched, `netcode::NetCode`).
+    Code(CodeLink),
 }
 
 impl Link for NetLink {
@@ -39,6 +42,7 @@ impl Link for NetLink {
         match self {
             NetLink::Udp(l) => l.send(bytes),
             NetLink::Relay(l) => l.send(bytes),
+            NetLink::Code(l) => l.send(bytes),
         }
     }
 
@@ -46,6 +50,7 @@ impl Link for NetLink {
         match self {
             NetLink::Udp(l) => l.recv(),
             NetLink::Relay(l) => l.recv(),
+            NetLink::Code(l) => l.recv(),
         }
     }
 }
@@ -1791,6 +1796,33 @@ impl SimRunner {
         match self.relay_link(&relay.to_string(), room) {
             Ok(link) => self.net_start_join(NetLink::Relay(link)),
             Err(e) => GString::from(e.as_str()),
+        }
+    }
+
+    /// Hosts over the link a `NetCode` punched (call once its `poll` says connected and `i_host` is true).
+    #[func]
+    fn net_host_code(
+        &mut self,
+        code: Gd<netcode::NetCode>,
+        chars: PackedInt32Array,
+        input_delay: i32,
+    ) -> GString {
+        let mut code = code;
+        let link = code.bind_mut().take_link();
+        match link {
+            Some(link) => self.net_start_host(NetLink::Code(link), &chars, input_delay),
+            None => GString::from("not connected to your friend yet"),
+        }
+    }
+
+    /// Joins over the link a `NetCode` punched (when `i_host` is false).
+    #[func]
+    fn net_join_code(&mut self, code: Gd<netcode::NetCode>) -> GString {
+        let mut code = code;
+        let link = code.bind_mut().take_link();
+        match link {
+            Some(link) => self.net_start_join(NetLink::Code(link)),
+            None => GString::from("not connected to your friend yet"),
         }
     }
 

@@ -78,6 +78,12 @@ falling near a ledge. Scripted screenshot demos: `Godot --path godot -- --demo=w
 
 ## Play online (Phase 4)
 
+**Easiest: connection codes.** Main menu, **Online**. Each player sees a code; send yours to your friend (Discord, any chat), paste
+theirs, and both press **Connect!**. No port forwarding for most home routers. Allow the game through Windows Firewall when asked. If it
+cannot get through (strict routers, phone hotspots), the screen lists what to do: see `docs/NETPLAY.md`.
+
+The older ways:
+
 Two players, each on their own PC: one double-clicks **`play_host.bat`** and tells the other their IP address (the window lists
 it) and port 47000; the other double-clicks **`play_join.bat`** and types `ip:port`. Both play with player 1's keys on their own
 keyboard. The host is player 1 (the sword fighter) and the joiner player 2 (the claw fighter). The top of the screen shows the
