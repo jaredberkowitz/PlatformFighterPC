@@ -139,6 +139,14 @@ static func _soft(c: Color) -> ShaderMaterial:
 ## The pattern on a block's front, drawn as vector art (an SVG made here and rasterised once, smooth and anti-aliased, in the hand-drawn
 ## style of the rest): quilted diamonds, wavy sandstone strata, rounded cobbles, or a building facade with windows (some lit). Each
 ## tiles seamlessly.
+## The city facade tile's window bays across its 512px: [left edge, width] (a width of 0 is a blank pier with a blade sign): a pair, a
+## pier, a wide picture window, a narrow one.
+## The beach's clouds (`_clouds` look): a little less exposure and a deeper shade, so the lit tops, the soft middle and the cool belly
+## all read under the noon sun (flat white shapes, the pain-point review).
+const BEACH_CLOUDS := {"exposure": 1.3, "shade_depth": 1.0}
+const FACADE_BAYS := [[22, 52], [96, 52], [190, 0], [232, 104], [372, 52], [448, 36]]
+
+
 static func _soil_material(t: Dictionary) -> ShaderMaterial:
 	var a: Color = t.soil
 	var b: Color = t.soil_dark
@@ -415,6 +423,7 @@ static func _soil_material(t: Dictionary) -> ShaderMaterial:
 						body += '<ellipse cx="%.1f" cy="%.1f" rx="%.1f" ry="%.1f" fill="#%s" stroke="#%s" stroke-width="2.5" stroke-opacity="0.55"/>' % [cx + ox, cy + oy, rx, ry, shade.to_html(false), ink]
 						body += '<ellipse cx="%.1f" cy="%.1f" rx="%.1f" ry="%.1f" fill="#%s" opacity="0.3"/>' % [cx + ox - rx * 0.15, cy + oy - ry * 0.3, rx * 0.55, ry * 0.4, shade.lightened(0.1).to_html(false)]
 		"facade":
+			# (Bays of their own widths, FACADE_BAYS: four equal columns read as one window grid across the stage, art review pain points.)
 			# A brick apartment front, four storeys a repeat: brick courses in a soft stagger, a stone ledge along each floor, four tall
 			# windows a floor each in a pale frame with a cross bar (a third lit warm, with curtains drawn to the sides; a few with a
 			# flower pot on the sill), striped awnings over two, an air conditioner hung under one, and a drainpipe down the seam. (It was
@@ -434,21 +443,31 @@ static func _soil_material(t: Dictionary) -> ShaderMaterial:
 				# The ledge at the foot of the floor.
 				body += '<rect x="0" y="%d" width="512" height="12" fill="#%s"/>' % [fy + 116, hi]
 				body += '<rect x="0" y="%d" width="512" height="3" fill="#%s" opacity="0.6"/>' % [fy + 125, ink]
-				for col in 4:
-					var wx := 30 + col * 128
+				for bay in FACADE_BAYS:
+					var wx: int = bay[0]
+					var w: int = bay[1]
 					var wy := fy + 18
+					if w == 0:
+						# The pier: a vertical blade sign across the middle two floors, else a small vent.
+						if floor_k == 1:
+							body += '<rect x="%d" y="%d" width="30" height="200" rx="5" fill="#%s" stroke="#%s" stroke-width="3"/>' % [wx - 15, fy + 30, awn[0], ink]
+							for g in 5:
+								body += '<circle cx="%d" cy="%d" r="7" fill="#f4efe6"/>' % [wx, fy + 56 + g * 36]
+						elif floor_k != 2:
+							body += '<rect x="%d" y="%d" width="22" height="16" fill="#5c5e70" stroke="#%s" stroke-width="2"/>' % [wx - 11, fy + 50, ink]
+						continue
 					var lit := rng.randf() < 0.34
-					body += '<rect x="%d" y="%d" width="68" height="88" rx="4" fill="#%s" stroke="#%s" stroke-width="3"/>' % [wx - 6, wy - 6, frame_col, ink]
-					body += '<rect x="%d" y="%d" width="56" height="76" fill="#%s"/>' % [wx, wy, "f2d394" if lit else "2a2f45"]
+					body += '<rect x="%d" y="%d" width="%d" height="88" rx="4" fill="#%s" stroke="#%s" stroke-width="3"/>' % [wx - 6, wy - 6, w + 12, frame_col, ink]
+					body += '<rect x="%d" y="%d" width="%d" height="76" fill="#%s"/>' % [wx, wy, w, "f2d394" if lit else "2a2f45"]
 					if lit:
 						var cc: String = curtain[rng.randi_range(0, 2)]
 						body += '<path d="M%d,%d l16,0 q-6,38 -16,76 Z" fill="#%s" opacity="0.9"/>' % [wx, wy, cc]
-						body += '<path d="M%d,%d l-16,0 q6,38 16,76 Z" fill="#%s" opacity="0.9"/>' % [wx + 56, wy, cc]
+						body += '<path d="M%d,%d l-16,0 q6,38 16,76 Z" fill="#%s" opacity="0.9"/>' % [wx + w, wy, cc]
 					else:
 						body += '<path d="M%d,%d l14,0 l-14,22 Z" fill="#ffffff" opacity="0.12"/>' % [wx + 6, wy + 4]
-					body += '<rect x="%d" y="%d" width="4" height="76" fill="#%s"/>' % [wx + 26, wy, frame_col]
-					body += '<rect x="%d" y="%d" width="56" height="4" fill="#%s"/>' % [wx, wy + 34, frame_col]
-					body += '<rect x="%d" y="%d" width="72" height="8" rx="2" fill="#%s" stroke="#%s" stroke-width="2" stroke-opacity="0.5"/>' % [wx - 8, wy + 80, hi, ink]
+					body += '<rect x="%d" y="%d" width="4" height="76" fill="#%s"/>' % [wx + w / 2 - 2, wy, frame_col]
+					body += '<rect x="%d" y="%d" width="%d" height="4" fill="#%s"/>' % [wx, wy + 34, w, frame_col]
+					body += '<rect x="%d" y="%d" width="%d" height="8" rx="2" fill="#%s" stroke="#%s" stroke-width="2" stroke-opacity="0.5"/>' % [wx - 8, wy + 80, w + 16, hi, ink]
 					var extra := rng.randf()
 					if extra < 0.2:
 						# A flower pot on the sill.
@@ -462,11 +481,12 @@ static func _soil_material(t: Dictionary) -> ShaderMaterial:
 					elif extra < 0.44:
 						# A striped awning over it.
 						var ac: String = awn[rng.randi_range(0, 1)]
-						for st_k in 5:
+						var stripes := (w + 20) / 15
+						for st_k in stripes:
 							body += '<rect x="%d" y="%d" width="15" height="16" fill="#%s"/>' % [wx - 10 + st_k * 15, wy - 22, ac if st_k % 2 == 0 else "f4efe6"]
-						for sc in 5:
+						for sc in stripes:
 							body += '<circle cx="%d" cy="%d" r="7.5" fill="#%s"/>' % [wx - 2 + sc * 15, wy - 6, ac if sc % 2 == 0 else "f4efe6"]
-						body += '<rect x="%d" y="%d" width="75" height="3" fill="#%s" opacity="0.5"/>' % [wx - 10, wy - 23, ink]
+						body += '<rect x="%d" y="%d" width="%d" height="3" fill="#%s" opacity="0.5"/>' % [wx - 10, wy - 23, stripes * 15, ink]
 			# A drainpipe down the tile's seam, with brackets.
 			body += '<rect x="2" y="0" width="10" height="512" fill="#7d7f92" stroke="#%s" stroke-width="2" stroke-opacity="0.6"/>' % ink
 			for py in range(40, 512, 128):
@@ -1747,7 +1767,7 @@ static func _soft_dot() -> GradientTexture2D:
 ## so the sky is not one stamp repeated: a domed heap with smaller puffs piled on its crown, a long low bank, and a tall tower. No ink
 ## outline: they are far, and the haze softens them.
 static func _clouds(root: Node3D, rng: RandomNumberGenerator, count: int, color: Color, y_range: Vector2, z_range := Vector2(-120, -85),
-		kinds := [0, 1, 2], scale := 1.0, x_range := Vector2(-90, 90)) -> void:
+		kinds := [0, 1, 2], scale := 1.0, x_range := Vector2(-90, 90), look := {}) -> void:
 	var puff := _sphere(1.0, 32)
 	for k in count:
 		var cloud := Drift.new()
@@ -1758,6 +1778,9 @@ static func _clouds(root: Node3D, rng: RandomNumberGenerator, count: int, color:
 		mat.shader = CLOUD_SHADER
 		mat.set_shader_parameter("colour", color)
 		mat.set_shader_parameter("base_y", cloud.position.y)
+		# (A stage's own exposure and shade depth, `look`: under the beach's noon light the default washed every tone to white.)
+		for key in look:
+			mat.set_shader_parameter(key, look[key])
 		var kind: int = kinds[k % kinds.size()]
 		var size := rng.randf_range(0.7, 1.15) * scale
 		mat.set_shader_parameter("belly_height", 2.2 * size)
@@ -3027,11 +3050,11 @@ static func _ocean(root: Node3D, t: Dictionary, stage: Array) -> void:
 	sea.level = float(e[3]) - 1.0
 	root.add_child(sea)
 	sea.build()
-	_clouds(root, rng, 8, Color(1, 1, 1), Vector2(16, 34))
+	_clouds(root, rng, 8, Color(1, 1, 1), Vector2(16, 34), Vector2(-120, -85), [0, 1, 2], 1.0, Vector2(-90, 90), BEACH_CLOUDS)
 	# A bank of cumulus piled along the horizon, behind the far coast (its own random numbers, so the rest of the layout stays put).
 	var bank_rng := RandomNumberGenerator.new()
 	bank_rng.seed = 41
-	_clouds(root, bank_rng, 16, Color(1, 1, 1), Vector2(-10.0, -5.0), Vector2(-215, -195), [1, 0, 1], 1.9)
+	_clouds(root, bank_rng, 16, Color(1, 1, 1), Vector2(-10.0, -5.0), Vector2(-215, -195), [1, 0, 1], 1.9, Vector2(-90, 90), BEACH_CLOUDS)
 	_birds(root, rng, Color(0.97, 0.97, 1.0))
 	# Distant islands.
 	for k in 3:

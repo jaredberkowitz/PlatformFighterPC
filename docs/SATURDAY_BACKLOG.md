@@ -131,15 +131,17 @@ The detail behind each step follows.
 ## Pain points found 2026-10-15 (end of the refinement rounds; judged against the competitors, not yet fixed)
 - [x] (Sun: round 39; streaks: soft clouds, round 42.) Canyon: the sun is a huge bright disc right behind the stage, and the thin horizontal cloud streaks cut across it as flat lines;
       a smaller sun set lower to one side, the streaks as soft painted clouds.
-- [ ] City: the building under the stage is one evenly repeated window grid (the most regular surface left in the game); vary bays,
+- [x] (2026-10-17: FACADE_BAYS, pairs, a wide picture window, a narrow one, a pier with a blade sign.) City: the building under the stage is one evenly repeated window grid (the most regular surface left in the game); vary bays,
       a few lit/curtained windows, a ledge or sign. The far billboard: neon lettering since round 41.
-- [ ] Beach: the sea wall's stones are still large blocks at play distance; the sky's clouds are flat white shapes with no light side.
+- [~] Beach: the sea wall's stones are still large blocks at play distance; the sky's clouds are flat white shapes with no light side
+      (clouds done 2026-10-17: BEACH_CLOUDS, less exposure and a deeper shade, three tones read).
 - [x] (Six, lower: round 40.) Meadow: the floating islands crowd the top edge of the frame (several clipped by it); fewer, placed to frame the stage.
 - [ ] Grove: still the palest stage under its pink light; the light shafts and pink grade could go further if the owner wants it
       nearer the meadow (owner chose to keep the pink-purple mood).
 - [ ] All stages: the stage blocks' sides are flat cut-offs at the left and right ends (no end cap or rounded edge); the reference
       stages finish their ends.
-- [ ] Fighters: the clothes' outline sits close to the body outline, doubling the line at the waist and cuffs at play size.
+- [x] (Reviewed 2026-10-17: the default fighters are shirtless now, and cloth outlines are already pushed back and thinned with the
+      skin's line hidden under clothes. New: small pale flecks at the wrists where the mitten meets the arm, a rig fix.) Fighters: the clothes' outline sits close to the body outline, doubling the line at the waist and cuffs at play size.
 
 ## UI redesign toward shippable: ONE large UI pass doing all five (owner, 2026-10-15), on Saturday or right after the work above
 - [ ] 1. Motion: animated screen transitions (a wipe in the ink-panel style), tiles that scale/brighten on focus, an animated menu
@@ -172,9 +174,11 @@ Content tools:
 - [ ] **VFX**: GPU particles plus our painted FX shaders already fit the style; real-time volumetrics (volumetric fog) are costly and
       fight the cel look; use only as a soft light-shaft card if anywhere.
 Engine rendering:
-- [ ] **ACES tonemap**: test against Filmic per stage (ACES deepens contrast and saturation, which round 19's Wind Waker notes want;
+- [x] (Tried 2026-10-17, docs/screenshots/sat_tonemap_filmic_aces_agx.jpg: ACES washes the yellow fighter toward white and pushes the
+      canyon to hot magenta; AgX greys everything; Filmic kept. ACES only with every mood retuned.) **ACES tonemap**: test against Filmic per stage (ACES deepens contrast and saturation, which round 19's Wind Waker notes want;
       it may shift the fighters' colours, so check the look bench).
-- [ ] **SSAO**: off on purpose (a cel style reads flat-shaded); try a very light SSAO only on scenery contact (low intensity), A/B.
+- [x] (Tried 2026-10-17 at intensity 1.0, radius 1.2, docs/screenshots/sat_ssao_off_on.jpg: no visible gain at the match camera; kept off.)
+      **SSAO**: off on purpose (a cel style reads flat-shaded); try a very light SSAO only on scenery contact (low intensity), A/B.
 - [ ] **SDFGI**: real-time GI for large dynamic worlds; heavy and soft, it would fight the cel ramp. Not recommended.
 - [ ] **LightmapGI**: not used; stages are built in code at runtime, so baking needs a pipeline change; our 2D bake covers it. Skip.
 - [ ] **Depth of field**: a subtle far blur already exists for the Best quality tier; keep, maybe stronger on menus and results.
