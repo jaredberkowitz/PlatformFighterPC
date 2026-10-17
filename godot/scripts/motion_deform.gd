@@ -10,6 +10,11 @@ const STRIKE_STRETCH := 0.22
 ## A kicking leg stretches this many times as far: the cute body's legs are short, and a kick has to reach its hitbox (a rubbery leg suits
 ## the style).
 const LEG_STRETCH_FACTOR := 2.2
+## On the base body the striking arm and kicking leg stretch further still, cartoon limbs that extend to the hit while the body keeps its
+## shape (the owner, 2026-10-17, after the reference game: its short-limbed fighters reach their hits this way). Multiplies
+## STRIKE_STRETCH for the arm and LEG_STRETCH_FACTOR for the leg.
+const BASE_ARM_STRETCH := 2.0
+const BASE_LEG_STRETCH := 1.4
 const STRIKE_RELAX := 6.0
 ## The victim's squash along the hit for its freeze: per frame of hitlag, and at most.
 const IMPACT_PER_HITLAG := 0.012

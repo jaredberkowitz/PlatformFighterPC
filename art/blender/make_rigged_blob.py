@@ -662,16 +662,17 @@ BODY_MOVES = {
          "armU.L": (-40.0, 34.0), "armL.L": (20.0,)},
         {"hips": -0.08, "spine": (14.0, 4.0), "stance": (30.0, -24.0), "shin.L": (-30.0,)}),
     # Forward air (a crescent cut, or a claw raked, down through the space in front): the weapon raised with the shoulders turned back and
-    # the knees drawn up, then the torso leans over the swing and turns into it, the front knee up and the back leg trailing, the free arm
-    # flung back. Upright enough that the face stays toward the hit.
+    # the knees drawn up, then the torso leans over the swing and turns into it, the front knee up and the back leg trailing.
+    # Upright enough that the face stays toward the hit.
     # (Compact then long: the wind-up tucks both knees high and cocks the free arm, the strike opens out, the front knee driven up and the
-    # back leg kicked long behind with the free arm flung back, so the silhouette changes shape, not just angle.)
+    # back leg kicked long behind, so the silhouette changes shape, not just angle.)
+    # (After the reference's forward air, the owner's gold standard, 2026-10-17: leaning back with the knees tucked as the fist or blade
+    # cocks up behind the head (the game sweeps the arm, `_overhead_angle`), then the whole body curls forward over the strike with the
+    # back leg trailing, and stays curled through the follow-through, so the swing has weight. The free arm stays tucked.)
     "attack_fair": (
-        {"spine": (-20.0, -28.0), "head": (-8.0, 12.0), "stance": (52.0, 40.0), "shin.L": (-96.0,), "shin.R": (-88.0,),
-         "armU.L": (40.0, 30.0), "armL.L": (50.0,)},
-        {"spine": (20.0, 30.0), "head": (4.0, -14.0), "stance": (64.0, -24.0), "shin.L": (-100.0,), "shin.R": (-16.0,),
-         "armU.L": (-56.0, 40.0), "armL.L": (20.0,)},
-        {"spine": (6.0, 8.0), "stance": (34.0, 14.0), "shin.L": (-56.0,), "shin.R": (-46.0,)}),
+        {"spine": (-14.0, -20.0), "head": (-6.0, 10.0), "stance": (56.0, 44.0), "shin.L": (-100.0,), "shin.R": (-92.0,)},
+        {"spine": (34.0, 24.0), "head": (10.0, -10.0), "stance": (44.0, -30.0), "shin.L": (-90.0,), "shin.R": (-26.0,)},
+        {"spine": (24.0, 8.0), "stance": (42.0, 22.0), "shin.L": (-84.0,), "shin.R": (-64.0,)}),
     # Up air (an overhead crescent from front to back): tucked, then the body stretches up tall under the swing, the legs reaching down.
     # (Pose review 2026-10-17: up moves reach from the shoulders with the chest lifted and the hips over the feet; the round body arched
     # back with its belly forward read as inhaling, not striking.)
