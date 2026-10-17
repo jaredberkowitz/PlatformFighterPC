@@ -366,6 +366,20 @@ static func or_stand_in(clip: String, anim: AnimationPlayer) -> String:
 	return clip
 
 
+## Each unarmed family's own idle stance by class (the base body's rig only; the others play "idle"): the brawlers (Claws, Gauntlets,
+## Bracers) and the armed classes keep the guard, the quick fighters (Needles, Dagger, Nodachi) crouch low, the heavy (Clutch) stands
+## wide, the caster (Embers) holds a palm out, the tool users (Pockets, Popgun) stand relaxed. The pose review, 2026-10-17.
+const CLASS_IDLE := {2: "idle_quick", 12: "idle_quick", 13: "idle_quick", 8: "idle_heavy", 3: "idle_caster", 10: "idle_tool", 11: "idle_tool"}
+
+
+## The idle clip for class `cls`: its family's stance when the rig has it, else the shared one.
+static func idle_clip(cls: int, anim: AnimationPlayer = null) -> String:
+	var clip: String = CLASS_IDLE.get(cls, "idle")
+	if anim != null and not anim.has_animation(clip):
+		return "idle"
+	return clip
+
+
 ## The shared clip for a simulation state, or "" for a state chosen with more context; with `anim`, a clip that rig lacks becomes its
 ## stand-in.
 static func state_clip(state: String, anim: AnimationPlayer = null) -> String:
