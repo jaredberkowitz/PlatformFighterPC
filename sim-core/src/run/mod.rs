@@ -701,7 +701,13 @@ impl Run {
     pub fn blast_y(&self, rules: &RunRules) -> (Fx, Fx) {
         let live = || self.slots.iter().filter(|s| s.live);
         let lo = live()
-            .map(|s| if s.lid && s.y_end > s.y { s.y_end } else { s.lo })
+            .map(|s| {
+                if s.lid && s.y_end > s.y {
+                    s.y_end
+                } else {
+                    s.lo
+                }
+            })
             .min()
             .unwrap_or(Fx::ZERO);
         // (R2e: a drop's lid closes its top.)
@@ -1660,7 +1666,8 @@ fn next_room(p: &mut Planner, rc: &RunContent, no_fork: bool) -> u8 {
     let count = rc.rooms.len().min(255);
     let (entry, y) = (deck_at(rc, p.y), p.y);
     // (R2e: one split in view at a time: a road's line plans no branching fork.)
-    let drawn = |i: usize| i != 0 && !rc.rooms[i].paired && !(no_fork && rc.rooms[i].branch_high != 0);
+    let drawn =
+        |i: usize| i != 0 && !rc.rooms[i].paired && !(no_fork && rc.rooms[i].branch_high != 0);
     let in_tier = |i: usize| rc.rooms[i].min_tier <= tier && tier <= rc.rooms[i].max_tier;
     let last = usize::from(p.last_room);
     let stays = |i: usize| {
@@ -1759,7 +1766,6 @@ fn next_room(p: &mut Planner, rc: &RunContent, no_fork: bool) -> u8 {
     pick(&mut p.rng, count, fits).unwrap_or(0)
 }
 
-
 /// Plans the next room on `p`'s line (R2e): the room [`next_room`] draws and the mirror it is laid as (R2d's rule: a room that
 /// changes deck goes toward the plan's deck, any other keeps to its deck, its ground ending in the band), with its decks and the
 /// number it will be laid as. A branching fork leaves `p` at its start (its roads are planned by [`fork_roads`]); any other room
@@ -1810,7 +1816,11 @@ fn fork_roads(run: &mut Run, rc: &RunContent, fork: Planned) {
     let room = &rc.rooms[usize::from(fork.room).min(rc.rooms.len() - 1)];
     let y_end = run.planner.y + room_exit(room, false);
     for b in 0..2 {
-        let id = if b == 0 { room.branch_high } else { room.branch_low };
+        let id = if b == 0 {
+            room.branch_high
+        } else {
+            room.branch_low
+        };
         let road = &rc.rooms[usize::from(id).min(rc.rooms.len() - 1)];
         let y0 = y_end + if b == 0 { room.lift } else { Fx::ZERO };
         let entry = if road.paired && road.deck_change == 0 {

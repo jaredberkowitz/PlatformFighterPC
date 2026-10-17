@@ -153,9 +153,15 @@ fn trial(world: &Content, char_id: u8, aim: (i8, i8)) -> (Fx, Fx) {
         }
         // Back down to the ledge's height after the recovery: how far forward.
         if left_ground && stage >= 3 && g.pos.y <= start.y && g.vel.y + g.kb_vel.y <= Fx::ZERO {
-            return ((peak - start.y).max(Fx::ZERO), (g.pos.x - start.x).max(Fx::ZERO));
+            return (
+                (peak - start.y).max(Fx::ZERO),
+                (g.pos.x - start.x).max(Fx::ZERO),
+            );
         }
     }
     let g = &s.fighters[0];
-    ((peak - start.y).max(Fx::ZERO), (g.pos.x - start.x).max(Fx::ZERO))
+    (
+        (peak - start.y).max(Fx::ZERO),
+        (g.pos.x - start.x).max(Fx::ZERO),
+    )
 }

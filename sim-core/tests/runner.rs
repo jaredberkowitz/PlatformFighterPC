@@ -3581,11 +3581,19 @@ fn a_drop_scrolls_the_view_down() {
             "the lid is a solid ceiling across the drop"
         );
         // A jump from the drop's floor stops under the lid: no way back up.
-        let foot = if drop.mirror { drop.x + fx(8) } else { drop.end - fx(8) };
+        let foot = if drop.mirror {
+            drop.x + fx(8)
+        } else {
+            drop.end - fx(8)
+        };
         sim.stand(Vec2::new(foot, drop.y_end));
         let mut peak = drop.y_end;
         for n in 0..90 {
-            let jump = if n < 12 || (20..24).contains(&n) { JUMP } else { 0 };
+            let jump = if n < 12 || (20..24).contains(&n) {
+                JUMP
+            } else {
+                0
+            };
             sim.tick(inp(0, 0, jump));
             peak = peak.max(sim.player().pos.y);
         }
@@ -3868,4 +3876,95 @@ fn an_arena_clears_in_waves() {
     assert_eq!(beaten, spots, "every wave beaten first");
     assert!(waves_max >= 1 && waves_max <= cap);
     assert_eq!(sim.state.run.cleared, 1);
+}
+
+// ---- R2e: the owner's R2d answers, recovery routes, juggles, direction bonuses, bowling, height placement, the planned map --------
+
+/// The owner's R2d answers kept as they were: the run starts on the rooftops; deck stretches of 3 to 5 rooms and deck forks at 60%
+/// of stretch ends ("this is fine for now"); a shop that is due comes before a deck move ("I believe so": the shops keep their
+/// spacing through every deck change, over many seeds).
+#[test]
+fn the_owners_r2d_answers_hold() {
+    let rc = RunContent::placeholder();
+    assert_eq!(rc.decks[usize::from(rc.rules.start_deck)].name, "rooftops");
+    assert_eq!((rc.rules.deck_rooms_min, rc.rules.deck_rooms_max), (3, 5));
+    assert_eq!(rc.rules.deck_fork_chance, 60);
+    let r = rc.rules;
+    let mut quiet_rc = quiet();
+    quiet_rc.rules.event_base = 0;
+    for seed in 0..10u64 {
+        let mut sim = RunSim::with(quiet_rc.clone(), seed);
+        let mut since: Option<u32> = None;
+        for step in 0..60u64 {
+            sim.take_road(((seed + step) % 2) as usize);
+            let s = here(&sim);
+            let kind = sim.rc.rooms[usize::from(s.room)].kind;
+            if kind == ROOM_SHOP {
+                if let Some(n) = since {
+                    assert!(
+                        n + 1 >= u32::from(r.shop_min) && n < u32::from(r.shop_max) + 3,
+                        "seed {seed}: a shop {n} rooms after the last"
+                    );
+                }
+                since = Some(0);
+            } else if let Some(n) = since.as_mut() {
+                *n += 1;
+                assert!(
+                    *n <= u32::from(r.shop_max) + 2,
+                    "seed {seed}: a shop was late"
+                );
+            }
+        }
+    }
+}
+
+/// A recovery route is offered only to a fighter who can make it: the light well's high scaffold (a climb a double jump cannot
+/// make) is laid for the duelist (its up special reaches it) and left out, with its coins, for the brawler (it does not).
+#[test]
+fn a_recovery_route_is_offered_only_to_who_can_make_it() {
+    let rc = only(&["light_well", "street", "shop"], (1, 0, 0));
+    let well = rc
+        .rooms
+        .iter()
+        .position(|r| r.name == "light_well")
+        .unwrap();
+    assert_eq!(rc.rooms[well].recovery, run::data::RECOVER_UP);
+    for (char_id, offered) in [(0u8, true), (1u8, false)] {
+        let mut found = false;
+        for seed in 0..20u64 {
+            let mut sim = RunSim::with_char(rc.clone(), seed, char_id);
+            for _ in 0..8 {
+                if let Some(s) = sim
+                    .state
+                    .run
+                    .slots
+                    .iter()
+                    .find(|s| s.live && usize::from(s.room) == well)
+                {
+                    let s = *s;
+                    assert_eq!(s.skill_off, !offered, "fighter {char_id}");
+                    let mut skilled = 0;
+                    run::for_each_footing(&sim.rc, &s, |p| skilled += usize::from(p.skilled));
+                    let mut coins = 0;
+                    run::for_each_coin(&sim.rc, &s, |_, _| coins += 1);
+                    let all = sim.rc.rooms[well].coins.len();
+                    if offered {
+                        assert!(skilled > 0 && coins == all);
+                    } else {
+                        assert!(skilled == 0 && coins < all, "withheld, its coins too");
+                    }
+                    found = true;
+                    break;
+                }
+                sim.next_room();
+            }
+            if found {
+                break;
+            }
+        }
+        assert!(found, "the light well came for fighter {char_id}");
+    }
+    // The reaches are the run's, worked out once as it starts.
+    let sim = RunSim::with_char(RunContent::placeholder(), 1, 0);
+    assert!(sim.state.run.reach_recovery.y > sim.state.run.reach_jump.y);
 }

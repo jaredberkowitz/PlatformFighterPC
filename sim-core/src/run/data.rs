@@ -1008,7 +1008,11 @@ impl MobKind {
                 reach2: tenths(25),
                 cooldown: 40,
                 aggro_y: int(16),
-                perch: 1 << LOOK_CATWALK | 1 << LOOK_GIRDER | 1 << LOOK_BALCONY | 1 << LOOK_FIRE_ESCAPE | 1 << LOOK_SCAFFOLD,
+                perch: 1 << LOOK_CATWALK
+                    | 1 << LOOK_GIRDER
+                    | 1 << LOOK_BALCONY
+                    | 1 << LOOK_FIRE_ESCAPE
+                    | 1 << LOOK_SCAFFOLD,
                 perch_odds: 4,
                 ..base
             },
