@@ -42,6 +42,12 @@ func _rig_has_every_clip() -> void:
 	# Clips added later have stand-ins for the older rigs, which are clips themselves.
 	for c in AnimLibrary.STAND_INS:
 		check(ap.has_animation(AnimLibrary.STAND_INS[c]), "stand-in for %s exists" % c)
+	# Every family's own idle and run is in the base rig, and the family's classes play it.
+	for cls in AnimLibrary.CLASS_FAMILY:
+		for c in AnimLibrary.FAMILY_CLIPS:
+			var own := AnimLibrary.family_clip(cls, c, ap)
+			check(own == "%s_%s" % [c, AnimLibrary.CLASS_FAMILY[cls]], "class %d plays its family's %s (got %s)" % [cls, c, own])
+	check(AnimLibrary.family_clip(0, "idle", ap) == "idle", "the longsword keeps the shared idle")
 	scene.free()
 
 

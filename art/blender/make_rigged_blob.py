@@ -658,7 +658,7 @@ BODY_MOVES = {
     "attack_claws": (
         {"spine": (8.0, -10.0), "head": (0.0, 6.0), "stance": (16.0, -16.0), "armU.L": (60.0, -24.0), "armL.L": (100.0,)},
         # (The reference's is a low lunge, the body nearly level over the bent front leg, one claw thrust far out ahead.)
-        {"hips": -0.2, "spine": (44.0, 12.0), "head": (-18.0, -4.0), "stance": (62.0, -50.0), "shin.L": (-72.0,), "shin.R": (-2.0,),
+        {"hips": -0.12, "spine": (26.0, 12.0), "head": (-8.0, -4.0), "stance": (62.0, -50.0), "shin.L": (-72.0,), "shin.R": (-2.0,),
          "armU.L": (-40.0, 34.0), "armL.L": (20.0,)},
         {"hips": -0.08, "spine": (14.0, 4.0), "stance": (30.0, -24.0), "shin.L": (-30.0,)}),
     # Forward air (a crescent cut, or a claw raked, down through the space in front): the weapon raised with the shoulders turned back and
@@ -831,7 +831,7 @@ def grounded(name):
     return not name.endswith("air")
 
 
-STANDING = {"idle", "crouch", "jumpsquat", "land", "spot_dodge", "shield", "skid", "grab", "throw", "blaster", "sword_usmash", "sword_dsmash",
+STANDING = {"idle", "idle_quick", "idle_heavy", "idle_caster", "idle_tool", "crouch", "jumpsquat", "land", "spot_dodge", "shield", "skid", "grab", "throw", "blaster", "sword_usmash", "sword_dsmash",
             "tech", "run_stop", "idle_look"}
 
 
@@ -959,7 +959,7 @@ def _bend_up(rig, side, ground):
 
 
 ## Clips with a moment in the air between steps: their feet are only kept from going through the ground.
-STRIDING = {"run", "dash"}
+STRIDING = {"run", "dash", "run_quick", "run_heavy", "run_caster", "run_tool"}
 
 
 def plant(rig, both, lift_only=False):
@@ -2420,6 +2420,47 @@ def main() -> None:
 
     clip(rig, "idle", 48, {i: idle(i / 48.0) for i in range(0, 49, 4)})
 
+    # Each unarmed family's own stance on the base body (the pose review: nine unarmed classes stood alike), the brawlers keeping the bouncy
+    # guard above: the quick fighters low and coiled with the lead hand out, the heavy one wide and planted with its arms low and slow, the
+    # caster upright with an open lead palm and the other hand at the hip, the tool users relaxed with their hands low. Arms are
+    # (forward, out, elbow); the bob is a share of the guard's. Mapped by class in anim_library.gd (CLASS_FAMILY).
+    IDLE_STYLES = {
+        "quick": dict(hips=-0.2, bob=0.6, lead=62.0, back=-36.0, shin_l=-84.0, shin_r=-30.0, spine=28.0, head=-10.0,
+                      arm_l=(64.0, 10.0, 36.0), arm_r=(-14.0, 24.0, 100.0)),
+        "heavy": dict(hips=-0.14, bob=0.35, lead=26.0, back=-22.0, shin_l=-40.0, shin_r=-30.0, spine=10.0, head=-2.0, wide=30.0,
+                      arm_l=(10.0, 50.0, 46.0), arm_r=(6.0, 50.0, 50.0)),
+        "caster": dict(hips=0.0, bob=0.45, lead=14.0, back=-8.0, shin_l=-18.0, shin_r=-10.0, spine=-4.0, head=-6.0,
+                       arm_l=(72.0, 10.0, 28.0), arm_r=(-20.0, 40.0, 110.0)),
+        "tool": dict(hips=0.0, bob=0.25, lead=8.0, back=-6.0, shin_l=-12.0, shin_r=-8.0, spine=-6.0, head=-2.0,
+                     arm_l=(2.0, 12.0, 22.0), arm_r=(0.0, 14.0, 18.0)),
+    }
+
+    def styled_idle(k, st):
+        def f(rig):
+            b = math.cos(k * 4.0 * math.pi)
+            down = 0.5 - 0.5 * b
+            breath = math.sin(k * 2.0 * math.pi)
+            bob = st["bob"] * 2.0
+            wide = st.get("wide", 15.0)
+            pose(rig, "hips", lift=st["hips"] - 0.03 * down * st["bob"], twist=-6.0 + 1.5 * breath)
+            pose(rig, "thigh.L", fwd=st["lead"] + 6.0 * down * bob, out=wide)
+            pose(rig, "shin.L", fwd=st["shin_l"] - 14.0 * down * bob)
+            pose(rig, "foot.L", fwd=6.0, out=-10.0)
+            pose(rig, "thigh.R", fwd=st["back"] + 3.0 * down * bob, out=wide)
+            pose(rig, "shin.R", fwd=st["shin_r"] - 6.0 * down * bob)
+            pose(rig, "foot.R", fwd=14.0, out=-10.0)
+            pose(rig, "spine", fwd=st["spine"] + 3.0 * down * bob - 2.0 * breath, twist=8.0 + 2.0 * breath)
+            pose(rig, "head", fwd=st["head"] + 3.0 * down, twist=-4.0 - 1.5 * breath)
+            lag = math.cos(k * 4.0 * math.pi - 0.8)
+            for side, arm in (("L", st["arm_l"]), ("R", st["arm_r"])):
+                pose(rig, "armU." + side, fwd=arm[0] + 3.0 * lag, out=arm[1])
+                pose(rig, "armL." + side, fwd=arm[2] - 4.0 * lag)
+        return f
+
+    if BODY:
+        for fam, st in IDLE_STYLES.items():
+            clip(rig, "idle_" + fam, 48, {i: styled_idle(i / 48.0, st) for i in range(0, 49, 4)})
+
     # A bouncy, swaggering walk: knees lifting, a springy bob on every step, arms swinging wide with loose bent elbows, a little lean.
     # A big, bouncy, swaggering walk (in the manner of a plumber's cheerful stride): long steps with the knee lifted high as the leg
     # comes through, a springy bob on every step, fists swinging wide and high opposite the legs, the shoulders twisting against the hips
@@ -2449,6 +2490,15 @@ def main() -> None:
     clip(rig, "walk", 40, {i: walk(i / 40.0) for i in range(0, 41, 2)})
     # The run: a key every other frame so the snappy gait survives interpolation.
     clip(rig, "run", 20, {i: run_pose(i / 20.0) for i in range(0, 21)})
+    # Each unarmed family's own run on the base body (with its idle, `IDLE_STYLES`): the quick fighters low and long with small arm
+    # pumps, the heavy one upright and short-strided with big swings and a heavier bounce, the caster neat with its arms in, the tool
+    # users a loose, bouncy jog.
+    if BODY:
+        for fam, kw in (("quick", dict(lean=36.0, stride=1.12, arms=0.7, bounce=0.07)),
+                        ("heavy", dict(lean=12.0, stride=0.82, arms=1.25, bounce=0.12)),
+                        ("caster", dict(lean=18.0, stride=0.95, arms=0.6, bounce=0.07)),
+                        ("tool", dict(lean=16.0, stride=0.9, arms=1.1, bounce=0.11))):
+            clip(rig, "run_" + fam, 20, {i: run_pose(i / 20.0, **kw) for i in range(0, 21)})
     # The initial dash: the same stride, launched lower and further forward, arms flung harder.
     clip(rig, "dash", 16, {i: run_pose(i / 16.0, lean=32.0, stride=1.1, arms=1.15, bounce=0.06) for i in range(0, 17)})
 
@@ -3033,13 +3083,14 @@ def main() -> None:
             {"spine": (16.0, 0.0), "head": (6.0, 0.0), "stance": (60.0, 54.0), "shin.L": (-100.0,), "shin.R": (-96.0,), "arms": (20.0, 20.0)},
             {"spine": (2.0, 0.0), "head": (-4.0, 0.0), "stance": (-6.0, 4.0), "shin.L": (-14.0,), "shin.R": (-20.0,), "arms": (-24.0, 30.0)},
             {"spine": (2.0, 0.0), "stance": (16.0, 20.0), "shin.L": (-40.0,), "shin.R": (-46.0,)})
-    # The claws fighter's neutral air, after its reference: a held double kick, the body leaned far back and both legs shot out straight
+    # The claws fighter's neutral air, after its reference: a held double kick, the body leaned back a little (not lying on its back: the
+    # pose review, head below the hips) and both legs shot out straight
     # ahead together, the arms flung back for balance; the wind-up curls both knees up to the chest.
     move_of("kick_double",
             {"spine": (16.0, 0.0), "head": (6.0, 0.0), "stance": (70.0, 66.0), "shin.L": (-116.0,), "shin.R": (-110.0,), "arms": (30.0, 22.0)},
-            {"spine": (-34.0, 0.0), "head": (12.0, 0.0), "stance": (96.0, 80.0), "shin.L": (-4.0,), "shin.R": (-16.0,),
+            {"spine": (-12.0, 0.0), "head": (6.0, 0.0), "stance": (96.0, 80.0), "shin.L": (-4.0,), "shin.R": (-16.0,),
              "foot.L": (-30.0,), "foot.R": (-24.0,), "arms": (-40.0, 64.0)},
-            {"spine": (-14.0, 0.0), "stance": (76.0, 66.0), "shin.L": (-30.0,), "shin.R": (-40.0,), "arms": (-16.0, 50.0)})
+            {"spine": (-6.0, 0.0), "stance": (76.0, 66.0), "shin.L": (-30.0,), "shin.R": (-40.0,), "arms": (-16.0, 50.0)})
     # Back air: lean forward and drive the heel back (not so far forward, nor twisted, that the big head shows its crown).
     move_of("kick_bair",
             {"spine": (24.0, 10.0), "head": (10.0, 20.0), "stance": (60.0, 50.0), "shin.L": (-90.0,), "shin.R": (-90.0,), "arms": (40.0, 20.0)},
@@ -3048,7 +3099,7 @@ def main() -> None:
     # Up air: a flip kick, leaning back a little as the leg goes up (the game adds the counter-lean; the head stays level).
     move_of("kick_uair",
             {"spine": (24.0, 0.0), "stance": (60.0, 60.0), "shin.L": (-100.0,), "shin.R": (-100.0,), "arms": (20.0, 20.0)},
-            {"spine": (-14.0, 0.0), "head": (-4.0, 0.0), "stance": (10.0, 30.0), "arms": (-30.0, 50.0)},
+            {"spine": (-6.0, 0.0), "head": (-2.0, 0.0), "stance": (10.0, 30.0), "arms": (-30.0, 50.0)},
             {"spine": (-2.0, 0.0), "stance": (20.0, 20.0)})
     # Down air: knees up, then a stomp straight down.
     move_of("kick_dair",
