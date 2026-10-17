@@ -141,7 +141,8 @@ The detail behind each step follows.
 - [ ] All stages: the stage blocks' sides are flat cut-offs at the left and right ends (no end cap or rounded edge); the reference
       stages finish their ends.
 - [x] (Reviewed 2026-10-17: the default fighters are shirtless now, and cloth outlines are already pushed back and thinned with the
-      skin's line hidden under clothes. New: small pale flecks at the wrists where the mitten meets the arm, a rig fix.) Fighters: the clothes' outline sits close to the body outline, doubling the line at the waist and cuffs at play size.
+      skin's line hidden under clothes. New: small pale flecks at the wrists where the mitten meets the arm, and one at the crotch: brighter than the background, so
+      likely rim light on thin slivers where meshes meet, not an ink gap (keeping 60% ink at the wrist cut changed nothing). A rig fix.) Fighters: the clothes' outline sits close to the body outline, doubling the line at the waist and cuffs at play size.
 
 ## UI redesign toward shippable: ONE large UI pass doing all five (owner, 2026-10-15), on Saturday or right after the work above
 - [ ] 1. Motion: animated screen transitions (a wipe in the ink-panel style), tiles that scale/brighten on focus, an animated menu
