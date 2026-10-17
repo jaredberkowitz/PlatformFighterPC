@@ -524,10 +524,14 @@ def pose(rig, bone, fwd=0.0, out=0.0, twist=0.0, lift=0.0):
         fwd = clampf(fwd, -50.0, 75.0)
     # (In an attack the arms stay in the fight, as the reference fighters' do: an elbow never flung straight, an arm never thrown far behind
     # the body. The owner: arms bent and flailed in ways out of place in combat. Art review 5.)
+    # (Tighter (the owner, 2026-10-17, after the reference's sword swings and forward airs): the arm the clip poses, the free one, stays
+    # tucked in close to the body, the elbow well bent and the fist by the chest, never flung out wide or back.)
     if BODY and CLIP_NOW and CLIP_NOW.startswith(("attack", "sword_", "kick_", "gaunt_", "body_")):
         if bone.startswith("armU."):
-            fwd = max(fwd, -45.0)
-            out = clampf(out, -20.0, 50.0)
+            fwd = clampf(fwd, FREE_ARM_FWD[0], FREE_ARM_FWD[1])
+            out = clampf(out, 0.0, FREE_ARM_OUT)
+        if bone.startswith("armL."):
+            fwd = max(fwd, FREE_ELBOW)
     # Wrists held nearly straight (the owner, art review 5: bent wrists and open, flapping hands do not read as combat; a fist in line
     # with the forearm does).
     if BODY and bone.startswith("hand."):
@@ -549,6 +553,10 @@ def pose(rig, bone, fwd=0.0, out=0.0, twist=0.0, lift=0.0):
 # How far back (degrees) the base body's head may tip, and the clips exempt (lying down or hanging, where the head lifts off the floor or
 # looks up the wall).
 HEAD_BACK_LIMIT = -8.0
+# The free arm in an attack (see `pose`): the upper arm's swing range (degrees, back to front), how far out to the side, the elbow's least bend.
+FREE_ARM_FWD = (10.0, 80.0)
+FREE_ARM_OUT = 24.0
+FREE_ELBOW = 90.0
 HEAD_FREE_CLIPS = ("knockdown", "getup", "ledge", "ledge_climb")
 CLIP_NOW = ""
 
@@ -654,23 +662,25 @@ BODY_MOVES = {
          "armU.L": (-40.0, 34.0), "armL.L": (20.0,)},
         {"hips": -0.08, "spine": (14.0, 4.0), "stance": (30.0, -24.0), "shin.L": (-30.0,)}),
     # Forward air (a crescent cut, or a claw raked, down through the space in front): the weapon raised with the shoulders turned back and
-    # the knees drawn up, then the torso leans over the swing and turns into it, the front knee up and the back leg trailing, the free arm
-    # flung back. Upright enough that the face stays toward the hit.
+    # the knees drawn up, then the torso leans over the swing and turns into it, the front knee up and the back leg trailing.
+    # Upright enough that the face stays toward the hit.
     # (Compact then long: the wind-up tucks both knees high and cocks the free arm, the strike opens out, the front knee driven up and the
-    # back leg kicked long behind with the free arm flung back, so the silhouette changes shape, not just angle.)
+    # back leg kicked long behind, so the silhouette changes shape, not just angle.)
+    # (After the reference's forward air, the owner's gold standard, 2026-10-17: leaning back with the knees tucked as the fist or blade
+    # cocks up behind the head (the game sweeps the arm, `_overhead_angle`), then the whole body curls forward over the strike with the
+    # back leg trailing, and stays curled through the follow-through, so the swing has weight. The free arm stays tucked.)
     "attack_fair": (
-        {"spine": (-20.0, -28.0), "head": (-8.0, 12.0), "stance": (52.0, 40.0), "shin.L": (-96.0,), "shin.R": (-88.0,),
-         "armU.L": (40.0, 30.0), "armL.L": (50.0,)},
-        {"spine": (20.0, 30.0), "head": (4.0, -14.0), "stance": (64.0, -24.0), "shin.L": (-100.0,), "shin.R": (-16.0,),
-         "armU.L": (-56.0, 40.0), "armL.L": (20.0,)},
-        {"spine": (6.0, 8.0), "stance": (34.0, 14.0), "shin.L": (-56.0,), "shin.R": (-46.0,)}),
-    # Up air (an overhead crescent from front to back): tucked, then the body arches back under the swing with the head thrown back to
-    # watch it, the legs stretching down.
+        {"spine": (-14.0, -20.0), "head": (-6.0, 10.0), "stance": (56.0, 44.0), "shin.L": (-100.0,), "shin.R": (-92.0,)},
+        {"spine": (34.0, 24.0), "head": (10.0, -10.0), "stance": (44.0, -30.0), "shin.L": (-90.0,), "shin.R": (-26.0,)},
+        {"spine": (24.0, 8.0), "stance": (42.0, 22.0), "shin.L": (-84.0,), "shin.R": (-64.0,)}),
+    # Up air (an overhead crescent from front to back): tucked, then the body stretches up tall under the swing, the legs reaching down.
+    # (Pose review 2026-10-17: up moves reach from the shoulders with the chest lifted and the hips over the feet; the round body arched
+    # back with its belly forward read as inhaling, not striking.)
     "attack_uair": (
         {"spine": (12.0, -8.0), "head": (6.0, 0.0), "stance": (34.0, 30.0), "shin.L": (-80.0,), "shin.R": (-70.0,), "armU.L": (24.0, 20.0)},
-        {"spine": (-16.0, 10.0), "head": (-10.0, 0.0), "stance": (14.0, -16.0), "shin.L": (-30.0,), "shin.R": (-20.0,),
+        {"spine": (4.0, 10.0), "head": (-2.0, 0.0), "stance": (14.0, -16.0), "shin.L": (-30.0,), "shin.R": (-20.0,),
          "armU.L": (-16.0, 44.0), "armL.L": (20.0,)},
-        {"spine": (-6.0, 0.0), "stance": (24.0, 16.0), "shin.L": (-50.0,), "shin.R": (-40.0,)}),
+        {"spine": (2.0, 0.0), "stance": (24.0, 16.0), "shin.L": (-50.0,), "shin.R": (-40.0,)}),
     # Back air (a rising crescent behind): the shoulders turn toward the front, then twist right round so the chest faces behind as the
     # swing goes up behind, the head looking back over the shoulder, the front knee tucked and the back leg reaching out behind.
     "attack_bair": (
@@ -709,17 +719,17 @@ BODY_MOVES = {
     # little, the arms out for balance.
     "kick_up": (
         {"spine": (10.0, 0.0), "head": (4.0, 0.0), "stance": (10.0, 6.0), "shin.L": (-50.0,), "shin.R": (-20.0,), "armU.L": (20.0, 20.0)},
-        {"spine": (-8.0, 0.0), "head": (-12.0, 0.0), "stance": (0.0, 4.0), "shin.R": (-4.0,), "armU.L": (-20.0, 50.0)},
-        {"spine": (-2.0, 0.0), "stance": (4.0, 4.0)}),
+        {"spine": (0.0, 0.0), "head": (-4.0, 0.0), "stance": (0.0, 4.0), "shin.R": (-4.0,), "armU.L": (-20.0, 50.0)},
+        {"spine": (2.0, 0.0), "stance": (4.0, 4.0)}),
     # A headbutt straight up (the all-rounder's and the dinosaur's up smash, the ape's up air): crouched low with the head ducked and the
-    # arms drawn down and back, then the whole body springs up through the legs and arches back, the arms flung down behind, so the head
+    # arms drawn down and back, then the whole body springs up through the legs, upright, the arms flung down behind, so the head
     # leads the hit. (`body_` clips: no arm reaches for the hitbox; the body is the weapon.)
     "body_headbutt": (
         {"hips": -0.16, "spine": (34.0, 0.0), "head": (14.0, 0.0), "stance": (30.0, 26.0), "shin.L": (-70.0,), "shin.R": (-66.0,),
          "arms": (-30.0, 26.0)},
-        {"hips": 0.1, "spine": (-20.0, 4.0), "head": (-8.0, 0.0), "stance": (6.0, -4.0), "shin.L": (-6.0,), "shin.R": (-4.0,),
+        {"hips": 0.0, "spine": (2.0, 4.0), "head": (2.0, 0.0), "stance": (10.0, -8.0), "shin.L": (-14.0,), "shin.R": (-10.0,),
          "arms": (-54.0, 34.0)},
-        {"spine": (-6.0, 0.0), "stance": (8.0, -4.0)}),
+        {"spine": (2.0, 0.0), "stance": (8.0, -4.0)}),
     # A headbutt thrown forward (the dinosaur's forward smash and forward air): rocked back with the head drawn up, then the body lunges
     # head first over the bent front leg, the back leg long behind and both arms swept back.
     "body_headbutt_fwd": (
@@ -798,11 +808,13 @@ BODY_MOVES = {
         {"spine": (-8.0, 0.0), "head": (-10.0, 0.0), "stance": (-6.0, 24.0), "shin.L": (-20.0,), "shin.R": (-50.0,), "arms": (110.0, 12.0),
          "armL.L": (24.0,)},
         {"spine": (-6.0, 0.0), "head": (-8.0, 0.0), "stance": (10.0, 10.0), "shin.L": (-30.0,), "shin.R": (-30.0,), "arms": (106.0, 12.0)}),
-    # Fencer's up tilt: the blade sweeps overhead from front to back while the body stands tall and arches back a little under it.
+    # Fencer's up tilt: the blade sweeps overhead from front to back while the body stands tall under it.
+    # (Pose review 2026-10-17: up moves reach from the shoulders with the chest lifted and the hips over the feet; the round body arched
+    # back with its belly forward read as inhaling, not striking.)
     "sword_utilt": (
         {"hips": -0.06, "spine": (14.0, 10.0), "head": (6.0, 0.0), "stance": (12.0, -10.0), "shin.L": (-20.0,)},
-        {"hips": 0.0, "spine": (-20.0, -8.0), "head": (-18.0, 0.0), "stance": (14.0, -18.0), "armU.L": (-20.0, 30.0)},
-        {"spine": (-6.0, 0.0), "stance": (8.0, -8.0)}),
+        {"hips": 0.0, "spine": (4.0, -8.0), "head": (-4.0, 0.0), "stance": (14.0, -18.0), "armU.L": (-20.0, 30.0)},
+        {"spine": (2.0, 0.0), "stance": (8.0, -8.0)}),
 }
 
 
@@ -2957,11 +2969,11 @@ def main() -> None:
             {"hips": -0.08, "spine": (14.0, -24.0), "head": (6.0, 10.0), "stance": (22.0, -22.0), "arms": (-10.0, 20.0)},
             {"hips": -0.02, "spine": (-10.0, 26.0), "head": (-8.0, -12.0), "stance": (34.0, -26.0), "arms": (24.0, 12.0)},
             {"spine": (4.0, 10.0), "stance": (16.0, -12.0)})
-    # Up tilt: the blade sweeps overhead from front to back; the body arches back under it.
+    # Up tilt: the blade sweeps overhead from front to back; the body stands tall under it.
     move_of("sword_utilt",
             {"hips": -0.06, "spine": (16.0, 8.0), "head": (8.0, 0.0), "stance": (14.0, -10.0)},
-            {"hips": 0.02, "spine": (-26.0, -6.0), "head": (-18.0, 0.0), "stance": (16.0, -18.0), "arms": (-20.0, 24.0)},
-            {"spine": (-8.0, 0.0), "stance": (8.0, -8.0)})
+            {"hips": 0.02, "spine": (4.0, -6.0), "head": (-4.0, 0.0), "stance": (16.0, -18.0), "arms": (-20.0, 24.0)},
+            {"spine": (2.0, 0.0), "stance": (8.0, -8.0)})
     # Down tilt: a low crouching thrust.
     move_of("sword_dtilt",
             {"hips": -0.2, "spine": (20.0, -10.0), "head": (-12.0, 0.0), "stance": (64.0, 30.0), "shin.L": (-96.0,), "shin.R": (-100.0,)},
@@ -2972,11 +2984,12 @@ def main() -> None:
             {"hips": -0.06, "spine": (-18.0, -42.0), "head": (10.0, 20.0), "stance": (28.0, -34.0), "arms": (-30.0, 22.0)},
             {"hips": -0.14, "spine": (28.0, 30.0), "head": (-8.0, -16.0), "stance": (58.0, -46.0), "shin.L": (-34.0,), "arms": (40.0, 10.0)},
             {"hips": -0.06, "spine": (16.0, 14.0), "stance": (30.0, -24.0)})
-    # Up smash: crouch, then spring up stretched tall as the blade goes straight up.
+    # Up smash: crouch, then rise onto planted feet as the blade goes straight up overhead (the arm and blade reach, not the body: the
+    # owner, 2026-10-17).
     move_of("sword_usmash",
             {"hips": -0.16, "spine": (18.0, 0.0), "head": (8.0, 0.0), "stance": (34.0, 26.0), "shin.L": (-60.0,), "shin.R": (-60.0,)},
-            {"hips": 0.1, "spine": (-12.0, 0.0), "head": (-22.0, 0.0), "stance": (-4.0, -8.0), "arms": (-24.0, 30.0)},
-            {"spine": (-4.0, 0.0), "stance": (6.0, 4.0)})
+            {"hips": -0.04, "spine": (4.0, 0.0), "head": (-4.0, 0.0), "stance": (14.0, -12.0), "arms": (-24.0, 30.0)},
+            {"spine": (2.0, 0.0), "stance": (6.0, 4.0)})
     # Down smash: a low sweep in front, then behind, in a wide crouch.
     move_of("sword_dsmash",
             {"hips": -0.12, "spine": (22.0, -20.0), "stance": (40.0, -36.0)},
@@ -3012,11 +3025,11 @@ def main() -> None:
             {"spine": (14.0, 0.0), "head": (18.0, 0.0), "stance": (92.0, 84.0), "shin.L": (-130.0,), "shin.R": (-124.0,), "arms": (10.0, 20.0)},
             {"spine": (8.0, 0.0), "head": (8.0, 0.0), "stance": (70.0, 60.0), "shin.L": (-110.0,), "shin.R": (-100.0,)})
     # An upward thrust (the Wanderer's up air): gathered with the knees up and the blade drawn down by the hip, then the body stretches out
-    # long beneath the blade as it is driven straight up overhead, the legs hanging together and the head tipped back to follow it.
+    # long beneath the blade as it is driven straight up overhead, the legs hanging together, the face kept to the camera.
     move_of("sword_rise",
             {"spine": (16.0, 0.0), "head": (6.0, 0.0), "stance": (60.0, 54.0), "shin.L": (-100.0,), "shin.R": (-96.0,), "arms": (20.0, 20.0)},
-            {"spine": (-12.0, 0.0), "head": (-8.0, 0.0), "stance": (-6.0, 4.0), "shin.L": (-14.0,), "shin.R": (-20.0,), "arms": (-24.0, 30.0)},
-            {"spine": (-4.0, 0.0), "stance": (16.0, 20.0), "shin.L": (-40.0,), "shin.R": (-46.0,)})
+            {"spine": (2.0, 0.0), "head": (-4.0, 0.0), "stance": (-6.0, 4.0), "shin.L": (-14.0,), "shin.R": (-20.0,), "arms": (-24.0, 30.0)},
+            {"spine": (2.0, 0.0), "stance": (16.0, 20.0), "shin.L": (-40.0,), "shin.R": (-46.0,)})
     # The claws fighter's neutral air, after its reference: a held double kick, the body leaned far back and both legs shot out straight
     # ahead together, the arms flung back for balance; the wind-up curls both knees up to the chest.
     move_of("kick_double",
@@ -3029,11 +3042,11 @@ def main() -> None:
             {"spine": (24.0, 10.0), "head": (10.0, 20.0), "stance": (60.0, 50.0), "shin.L": (-90.0,), "shin.R": (-90.0,), "arms": (40.0, 20.0)},
             {"spine": (14.0, -10.0), "head": (-6.0, 10.0), "stance": (50.0, -20.0), "shin.L": (-80.0,), "arms": (60.0, 30.0)},
             {"spine": (10.0, 0.0), "stance": (30.0, 0.0)})
-    # Up air: a flip kick, arching back as the leg goes up.
+    # Up air: a flip kick, leaning back a little as the leg goes up (the game adds the counter-lean; the head stays level).
     move_of("kick_uair",
             {"spine": (24.0, 0.0), "stance": (60.0, 60.0), "shin.L": (-100.0,), "shin.R": (-100.0,), "arms": (20.0, 20.0)},
-            {"spine": (-38.0, 0.0), "head": (-30.0, 0.0), "stance": (10.0, 30.0), "arms": (-30.0, 50.0)},
-            {"spine": (-10.0, 0.0), "stance": (20.0, 20.0)})
+            {"spine": (-14.0, 0.0), "head": (-4.0, 0.0), "stance": (10.0, 30.0), "arms": (-30.0, 50.0)},
+            {"spine": (-2.0, 0.0), "stance": (20.0, 20.0)})
     # Down air: knees up, then a stomp straight down.
     move_of("kick_dair",
             {"spine": (10.0, 0.0), "stance": (72.0, 72.0), "shin.L": (-100.0,), "shin.R": (-100.0,), "arms": (-10.0, 40.0)},

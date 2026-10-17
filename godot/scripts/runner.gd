@@ -379,6 +379,7 @@ func _update_hud(delta: float) -> void:
 		"step": 5, "max_mult": 5, "lives": info[7], "max_lives": maxi(3, info[7]), "percent": snaps[0].get("percent", 0.0),
 		"name": run_name, "banner": banner, "banner_alpha": alpha, "combo_flash": combo_flash,
 		"map": sim.run_map(4), "tier": info[17] if info.size() >= INFO_SIZE else 0,
+		"decks": sim.run_decks(), "deck_names": sim.run_deck_names(),
 		"door": info.size() >= INFO_SIZE and info[14] == 1 and not inside,
 		"gate": info.size() >= INFO_SIZE and info[11] == 1, "shop": shop, "shop_names": sim.run_shop_names(),
 	})
@@ -468,6 +469,15 @@ func _on_result(action: String) -> void:
 			_leave_to("menu")
 		_:
 			get_tree().quit()
+
+
+## Quitting a run from the pause screen: back to the fighter choice (or, launched directly, quitting).
+func _quit_match() -> void:
+	if Roster.session.get("from_menu", false):
+		Roster.session = {"mode": "run"}
+		_leave_to("select")
+	else:
+		get_tree().quit()
 
 
 ## A run has no training keys: pause, mute, the debug overlay, starting over, and Esc back to the fighter choice (or quitting).

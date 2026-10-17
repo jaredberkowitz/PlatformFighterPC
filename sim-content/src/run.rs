@@ -9,14 +9,19 @@
 
 use sim_core::content::{FighterParams, Platform};
 use sim_core::run::data::{
-    Room, INTERIOR_PLATFORMS, ITEM_HEAL, ITEM_LIFE, LOOK_NAMES, MAX_ROOM_WIDTH, MAX_SHOP_ITEMS,
-    MIN_ROOM_WIDTH, MOB_MOVES, NO_MOVE, PROP_ROLES, PROP_SIGN, ROLES, ROLE_LOBBER, ROOM_ALLEY,
-    ROOM_ARENA, ROOM_COINS, ROOM_EVENT, ROOM_KINDS, ROOM_LEDGES, ROOM_PARTS, ROOM_PLATFORMS,
-    ROOM_PROPS, ROOM_REST, ROOM_SHOP, ROOM_SLOTS, ROOM_SPAWNS, ROOM_STREET, SLOT_AIR, SPOT_ANY,
+    Room, BLOCK_BOTTOM, INTERIOR_PLATFORMS, ITEM_HEAL, ITEM_LIFE, LOOK_NAMES, MAX_ROOM_WIDTH,
+    MAX_SHOP_ITEMS, MIN_ROOM_WIDTH, MOB_MOVES, NO_MOVE, PROP_ROLES, PROP_SIGN, ROLES, ROLE_LOBBER,
+    ROOM_ALLEY, ROOM_ARENA, ROOM_COINS, ROOM_EVENT, ROOM_KINDS, ROOM_LEDGES, ROOM_PARTS,
+    ROOM_PLATFORMS, ROOM_PROPS, ROOM_REST, ROOM_SHOP, ROOM_SLOTS, ROOM_SPAWNS, ROOM_STREET,
+    SLOT_AIR, SPOT_ANY,
 };
 use sim_core::run::{
-    for_each_coin, for_each_footing, part_on, room_exit, RoomSlot, RunContent, RING,
+    deck_at, exit_deck, for_each_coin, for_each_footing, is_deck_fork, leads_to, part_on,
+    room_exit, RoomSlot, RunContent, MAX_DECKS, RING,
 };
+
+/// How far below a room's lower ground end its lowest surface may be (R2d: a deck below, catching a fall, is about one view down).
+const DEEPEST_CATCH: i32 = 20;
 use sim_core::Fx;
 
 /// Every problem with a run's content (empty when it is fine), the passability proof included.
@@ -108,7 +113,9 @@ pub fn check_run_shape(rc: &RunContent) -> Vec<String> {
         );
     }
     // (Solid ground reaches `run::DEEP` once laid: the lowest blast line the drift allows must stay above it.)
-    if r.blast_bottom - r.drift.mul_int(2) <= Fx::from_int(sim_core::run::DEEP + 10) {
+    if r.blast_bottom - r.drift - Fx::from_int(DEEPEST_CATCH)
+        <= Fx::from_int(sim_core::run::DEEP + 10)
+    {
         errors.push("run rules: drift and blast_bottom reach too deep".to_string());
     }
     if r.combo_step == 0 || r.combo_max == 0 {
@@ -118,10 +125,14 @@ pub fn check_run_shape(rc: &RunContent) -> Vec<String> {
         errors.push("run: needs 1 to 255 rooms".to_string());
     }
     if rc.rooms.first().is_some_and(|r| {
-        r.kind != ROOM_STREET || !r.spawns.is_empty() || r.fork || r.exit_y != Fx::ZERO
+        r.kind != ROOM_STREET
+            || !r.spawns.is_empty()
+            || r.fork
+            || r.exit_y != Fx::ZERO
+            || exit_deck(r, false, r_start(rc)) != Some(r_start(rc))
     }) {
         errors.push(
-            "run: the first room (where every run starts) must be a flat street with no mobs and no fork"
+            "run: the first room (where every run starts) must be a flat street with no mobs and no fork, on the start deck"
                 .to_string(),
         );
     }
@@ -138,6 +149,7 @@ pub fn check_run_shape(rc: &RunContent) -> Vec<String> {
     if r.rest_weight > 0 && !has(ROOM_REST) {
         errors.push("run: rest_weight is above 0 but there is no rest room".to_string());
     }
+    deck_problems(rc, &mut errors);
     if rc.items.is_empty() || rc.items.len() > MAX_SHOP_ITEMS {
         errors.push(format!("run: the shop needs 1 to {MAX_SHOP_ITEMS} wares"));
     }
@@ -172,11 +184,14 @@ pub fn check_run_shape(rc: &RunContent) -> Vec<String> {
                 &f.platform,
                 f.look,
                 r,
+                (Fx::ZERO, Fx::ZERO),
                 &format!("{at}: platform {j}"),
                 &mut errors,
             );
-            if f.part != 0 {
-                errors.push(format!("{at}: platform {j} cannot belong to a part"));
+            if f.part != 0 || f.skilled {
+                errors.push(format!(
+                    "{at}: platform {j} cannot belong to a part or a skilled route"
+                ));
             }
             let half = p.width / Fx::from_int(2);
             if f.platform.left < -half || f.platform.right > half {
@@ -329,6 +344,7 @@ fn footing_problems(
     p: &Platform,
     look: u8,
     r: &sim_core::run::RunRules,
+    (low, high): (Fx, Fx),
     at: &str,
     errors: &mut Vec<String>,
 ) {
@@ -343,12 +359,18 @@ fn footing_problems(
     if let Some(e) = crate::slope_problem(p) {
         errors.push(format!("{at} {e}"));
     }
-    if p.y.min(p.top_right()) <= r.blast_bottom || p.top_max() >= r.blast_top {
+    // (R2d: the blast lines follow the rooms' lowest surfaces; a room reaches at most a deck below its lower end.)
+    if p.y.min(p.top_right()) < low - Fx::from_int(DEEPEST_CATCH)
+        || p.top_max() >= high + r.blast_top
+    {
         errors.push(format!("{at}: is outside the blast zone"));
     }
-    if !p.pass_through && p.bottom > r.blast_bottom {
+    if !p.pass_through
+        && p.bottom > Fx::from_int(BLOCK_BOTTOM)
+        && p.bottom >= p.y.min(p.top_right())
+    {
         errors.push(format!(
-            "{at}: a solid block must reach below the blast zone (nothing may go under it)"
+            "{at}: a solid block reaches the bottom, or floats (a ceiling, a wall over a doorway) with its bottom below its top"
         ));
     }
 }
@@ -393,11 +415,13 @@ fn room_problems(rc: &RunContent, i: usize, c: &Room, errors: &mut Vec<String>) 
         let ok = c.kind == ROOM_STREET
             && c.fork
             && !c.mirror
-            && c.exit_y == Fx::ZERO
             && c.lift > Fx::ZERO
             && c.lift <= r.drift
             && high.is_some_and(|h| {
-                h.kind == ROOM_ALLEY && h.paired && !h.mirror && h.exit_y == -c.lift
+                h.kind == ROOM_ALLEY
+                    && h.paired
+                    && !h.mirror
+                    && (h.exit_y == -c.lift || h.exit_y == Fx::ZERO)
             })
             && low.is_some_and(|l| {
                 l.kind == ROOM_STREET && l.paired && !l.mirror && l.exit_y == Fx::ZERO
@@ -405,11 +429,13 @@ fn room_problems(rc: &RunContent, i: usize, c: &Room, errors: &mut Vec<String>) 
             && high.zip(low).is_some_and(|(h, l)| h.width == l.width);
         if !ok {
             errors.push(format!(
-                "{at}: a branching fork is a flat street fork lifting its high road (at most the drift) into a paired alley that comes back down by the lift, and a paired flat street as wide"
+                "{at}: a branching fork is a street fork lifting its high road (at most the drift) into a paired alley that comes back down by the lift or stays up, and a paired flat street as wide"
             ));
         }
         let high_exit = c.platforms.iter().any(|f| {
-            f.part == 0 && f.platform.right == c.width && f.platform.top_at(c.width) == c.lift
+            f.part == 0
+                && f.platform.right == c.width
+                && f.platform.top_at(c.width) == c.exit_y + c.lift
         });
         if !high_exit {
             errors.push(format!(
@@ -426,8 +452,17 @@ fn room_problems(rc: &RunContent, i: usize, c: &Room, errors: &mut Vec<String>) 
             "{at}: width must be {MIN_ROOM_WIDTH} to {MAX_ROOM_WIDTH}"
         ));
     }
-    if c.exit_y.abs() > r.drift {
+    if c.exit_y.abs() > r.drift.mul_int(2) {
         errors.push(format!("{at}: its exit height is beyond the run's drift"));
+    }
+    room_deck_problems(rc, &at, c, errors);
+    if c.platforms
+        .iter()
+        .any(|f| f.skilled && !f.platform.pass_through)
+    {
+        errors.push(format!(
+            "{at}: a skilled route is pass-through platforms only (so the sure route is the room without them)"
+        ));
     }
     if c.parts.len() > ROOM_PARTS || c.parts.iter().any(|&p| p > 100) {
         errors.push(format!(
@@ -489,11 +524,13 @@ fn room_problems(rc: &RunContent, i: usize, c: &Room, errors: &mut Vec<String>) 
             ));
         }
     }
+    let span = (c.exit_y.min(Fx::ZERO), c.exit_y.max(Fx::ZERO));
     for (j, f) in c.platforms.iter().enumerate() {
         footing_problems(
             &f.platform,
             f.look,
             r,
+            span,
             &format!("{at}: platform {j}"),
             errors,
         );
@@ -509,7 +546,11 @@ fn room_problems(rc: &RunContent, i: usize, c: &Room, errors: &mut Vec<String>) 
                 s.kind
             ));
         }
-        if s.x < Fx::ZERO || s.x > c.width || s.y <= r.blast_bottom || s.y >= r.blast_top {
+        if s.x < Fx::ZERO
+            || s.x > c.width
+            || s.y < span.0 - Fx::from_int(DEEPEST_CATCH)
+            || s.y >= span.1 + r.blast_top
+        {
             errors.push(format!(
                 "{at}: spawn {j} must lie within the room and the blast zone"
             ));
@@ -534,21 +575,46 @@ fn room_problems(rc: &RunContent, i: usize, c: &Room, errors: &mut Vec<String>) 
         // (An alley, the high road's room, is entered on its catwalk: it lies over its low road's room until one is taken, so it
         // has no solid block but the street under both.)
         let alley = c.kind == ROOM_ALLEY;
+        // (R2d: the sky bridge, a deck fork's high road, also leaves on its catwalk.)
         let seam = |x: Fx, y: Fx| {
             plats.iter().any(|p| {
-                (!p.pass_through || alley && x == Fx::ZERO)
-                    && (p.left == x || p.right == x)
-                    && p.top_at(x) == y
+                (!p.pass_through || alley) && (p.left == x || p.right == x) && p.top_at(x) == y
             })
         };
+        let street = plats.iter().find(|p| !p.pass_through).map(|p| p.y);
         if alley
-            && plats
-                .iter()
-                .any(|p| !p.pass_through && (p.sloped() || p.y != exit))
+            && plats.iter().any(|p| {
+                !p.pass_through && (p.sloped() || Some(p.y) != street || p.y > exit.min(Fx::ZERO))
+            })
         {
             problems.push(format!(
-                "{at}: an alley has no solid block but the street under it, at its exit height"
+                "{at}: an alley has no solid block but the street under it (flat, at or below both its ends)"
             ));
+        }
+        // (R2d: a fall is never a death but in a true pit: something stands under every point of the room.)
+        if !c.pit {
+            let mut spans: Vec<(Fx, Fx)> = Vec::new();
+            for_each_footing(rc, slot, |p| {
+                if !p.skilled {
+                    spans.push((p.platform.left, p.platform.right));
+                }
+            });
+            spans.sort();
+            let mut covered = Fx::ZERO;
+            for (l, rr) in spans {
+                if l > covered {
+                    break;
+                }
+                covered = covered.max(rr);
+            }
+            if covered < c.width {
+                problems.push(format!(
+                    "{at}: a fall at {} lands on nothing (catch it on the deck below, or mark the room a pit) (mirrored {}, parts {:b})",
+                    covered.floor_int(),
+                    slot.mirror,
+                    slot.parts
+                ));
+            }
         }
         if !seam(Fx::ZERO, Fx::ZERO) || !seam(c.width, exit) {
             problems.push(format!(
@@ -603,6 +669,138 @@ fn room_problems(rc: &RunContent, i: usize, c: &Room, errors: &mut Vec<String>) 
     problems.sort();
     problems.dedup();
     errors.extend(problems);
+}
+
+/// The start deck (clamped to the decks there are).
+fn r_start(rc: &RunContent) -> u8 {
+    rc.rules
+        .start_deck
+        .min(rc.decks.len().saturating_sub(1).min(255) as u8)
+}
+
+/// The decks (R2d): one to [`MAX_DECKS`], lowest first, their bands apart, inside the drift; the run starts on one; and every deck
+/// the run can reach has a street that keeps to it (so the generator always has a room to lay there).
+fn deck_problems(rc: &RunContent, errors: &mut Vec<String>) {
+    let r = &rc.rules;
+    if rc.decks.is_empty() || rc.decks.len() > MAX_DECKS {
+        errors.push(format!("run: needs 1 to {MAX_DECKS} decks"));
+        return;
+    }
+    if usize::from(r.start_deck) >= rc.decks.len() {
+        errors.push("run rules: start_deck must be a deck there is".to_string());
+    }
+    if r.deck_rooms_min == 0 || r.deck_rooms_max < r.deck_rooms_min || r.deck_fork_chance > 100 {
+        errors.push(
+            "run rules: deck_rooms_min at least 1, deck_rooms_max at least that, deck_fork_chance a percent"
+                .to_string(),
+        );
+    }
+    if r.skill_step <= r.max_step || r.skill_gap <= r.max_gap {
+        errors.push(
+            "run rules: the skilled jumps (skill_step, skill_gap) must reach further than the sure ones".to_string(),
+        );
+    }
+    if r.cam_y_ease_tall <= Fx::ZERO || r.cam_y_ease_tall > Fx::ONE {
+        errors.push("run rules: cam_y_ease_tall above 0 and at most 1".to_string());
+    }
+    for (i, d) in rc.decks.iter().enumerate() {
+        if d.wander < Fx::ZERO || d.y.abs() + d.wander > r.drift {
+            errors.push(format!(
+                "deck {i} ({}): its band must lie inside the run's drift",
+                d.name
+            ));
+        }
+    }
+    for (i, w) in rc.decks.windows(2).enumerate() {
+        if w[1].y - w[1].wander <= w[0].y + w[0].wander {
+            errors.push(format!(
+                "deck {} ({}): decks are listed lowest first, their bands apart",
+                i + 1,
+                w[1].name
+            ));
+        }
+    }
+    if rc.rooms.is_empty() {
+        return;
+    }
+    // Every deck a room can lead to (or the run starts on) has a street that keeps to it.
+    let mut reached = 1u16 << r_start(rc);
+    for room in &rc.rooms {
+        for d in 0..rc.decks.len() as u8 {
+            for m in [false, true] {
+                if let Some(o) = exit_deck(room, m, d) {
+                    reached |= 1 << o;
+                }
+            }
+        }
+    }
+    for (d, deck) in rc.decks.iter().enumerate() {
+        if reached & (1 << d) == 0 {
+            continue;
+        }
+        let keeps = rc.rooms.iter().enumerate().skip(1).any(|(i, room)| {
+            room.kind == ROOM_STREET
+                && !room.paired
+                && leads_to(rc, room, d as u8, deck.y, d as u8)
+                && !is_deck_fork(rc, &rc.rooms[i], d as u8)
+        });
+        if !keeps {
+            errors.push(format!(
+                "deck {d} ({}): needs a street room that keeps to it",
+                deck.name
+            ));
+        }
+    }
+}
+
+/// A room's decks (R2d): it enters on decks there are; a room that changes deck is a street, and from every deck it enters on it
+/// leaves inside the band of the deck it names; a deck fork's high road leaves inside a deck's band too.
+fn room_deck_problems(rc: &RunContent, at: &str, c: &Room, errors: &mut Vec<String>) {
+    let n = rc.decks.len().min(MAX_DECKS);
+    if !c.paired && c.decks == 0 {
+        errors.push(format!("{at}: it enters on no deck"));
+    }
+    if n < 8 && c.decks >> n != 0 {
+        errors.push(format!("{at}: it names a deck there is not"));
+    }
+    if c.deck_change != 0 && c.kind != ROOM_STREET {
+        errors.push(format!("{at}: only a street climbs or drops a deck"));
+    }
+    for d in (0..n as u8).filter(|&d| c.decks & (1 << d) != 0) {
+        let Some(out) = exit_deck(c, false, d) else {
+            errors.push(format!(
+                "{at}: entered on deck {d} it would leave on a deck there is not"
+            ));
+            continue;
+        };
+        if usize::from(out) >= n {
+            errors.push(format!(
+                "{at}: entered on deck {d} it would leave on a deck there is not"
+            ));
+            continue;
+        }
+        let (from, to) = (&rc.decks[usize::from(d)], &rc.decks[usize::from(out)]);
+        let off = (from.y + c.exit_y - to.y).abs();
+        let fits = if c.deck_change == 0 {
+            c.exit_y.abs() <= from.wander.mul_int(2)
+        } else {
+            off + from.wander <= to.wander
+        };
+        if !fits {
+            errors.push(format!(
+                "{at}: entered on deck {d} its exit is outside deck {out}'s band"
+            ));
+        }
+        if is_deck_fork(rc, c, d) {
+            let high = from.y + c.exit_y + c.lift;
+            let k = &rc.decks[usize::from(deck_at(rc, high))];
+            if (high - k.y).abs() + from.wander > k.wander {
+                errors.push(format!(
+                    "{at}: entered on deck {d} its high road leaves outside a deck's band"
+                ));
+            }
+        }
+    }
 }
 
 fn interior_problems(rc: &RunContent, errors: &mut Vec<String>) {
@@ -740,15 +938,16 @@ pub fn jump_reach(p: &FighterParams) -> (Fx, Fx) {
     (height, p.air_speed.mul_int(frames))
 }
 
-/// One surface's top, for the proof.
+/// One surface's top, for the proof, and whether it is on the skilled route.
 #[derive(Clone, Copy)]
 struct Top {
     p: Platform,
+    skilled: bool,
 }
 
 /// The surfaces you can stand on, each cut where a solid block stands on it (a van on the street splits the street in two: walking
 /// does not get past it, only a jump does).
-fn split_tops(all: &[Platform]) -> Vec<Top> {
+fn split_tops(all: &[Platform], skilled: &[bool]) -> Vec<Top> {
     let mut out = Vec::new();
     for (i, p) in all.iter().enumerate() {
         let mut spans = vec![(p.left, p.right)];
@@ -783,7 +982,10 @@ fn split_tops(all: &[Platform]) -> Vec<Top> {
             q.rise = p.top_at(r) - q.y;
             q.left = l;
             q.right = r;
-            out.push(Top { p: q });
+            out.push(Top {
+                p: q,
+                skilled: skilled[i],
+            });
         }
     }
     out
@@ -846,10 +1048,14 @@ fn edges(tops: &[Top], solids: &[Platform], step: Fx, gap: Fx) -> Vec<Vec<usize>
     out
 }
 
-/// Every variant of every room, crossed with the rules' jumps: the exit is reached from the entry, and from every surface reachable
-/// from the entry (no traps).
+/// Every variant of every room, crossed with the rules' jumps (R2d: per route). **The sure route**: the room without its skilled
+/// route's footings is crossed from its entry to its exit with the sure jumps (`max_step`, `max_gap`: the worst jumper in the cast),
+/// and nothing a sure jumper reaches, skilled footings included, is a trap. **The skilled route**: with the skilled jumps
+/// (`skill_step`, `skill_gap`) every skilled footing is reached from the entry and leads on to the exit, and in the room's authored
+/// form (not mirrored, no parts, no pieces) it takes fewer jumps than the sure route. So a skilled route is never needed, and is
+/// worth taking.
 pub fn check_passable(rc: &RunContent) -> Vec<String> {
-    let (step, gap) = (rc.rules.max_step, rc.rules.max_gap);
+    let r = &rc.rules;
     let mut errors = Vec::new();
     for (i, room) in rc.rooms.iter().enumerate() {
         let mut bad: Option<String> = None;
@@ -857,7 +1063,9 @@ pub fn check_passable(rc: &RunContent) -> Vec<String> {
             if bad.is_some() {
                 return;
             }
-            if let Err(e) = passable(rc, room, slot, step, gap) {
+            let proof = passable(rc, room, slot, r.max_step, r.max_gap)
+                .and_then(|()| skilled_route(rc, room, slot));
+            if let Err(e) = proof {
                 bad = Some(format!(
                     "room {i} ({}): {e} (mirrored {}, parts {:b}, pieces {:?})",
                     room.name, slot.mirror, slot.parts, slot.pieces
@@ -865,11 +1073,137 @@ pub fn check_passable(rc: &RunContent) -> Vec<String> {
             }
         });
         errors.extend(bad);
+        if room.platforms.iter().any(|f| f.skilled) {
+            let authored = RoomSlot {
+                live: true,
+                room: i as u8,
+                end: room.width,
+                y_end: room.exit_y,
+                ..RoomSlot::default()
+            };
+            let sure = Graph::of(rc, room, &authored, r.max_step, r.max_gap, false).hops();
+            let skilled = Graph::of(rc, room, &authored, r.skill_step, r.skill_gap, true).hops();
+            if !matches!((skilled, sure), (Some(k), Some(s)) if k < s) {
+                errors.push(format!(
+                    "room {i} ({}): its skilled route is no shorter than its sure route ({skilled:?} jumps against {sure:?})",
+                    room.name
+                ));
+            }
+        }
     }
     errors
 }
 
-/// The proof for one variant (laid at the origin).
+/// The proof's graph for one variant (laid at the origin): the surfaces, the jumps between them, where it is entered and left.
+struct Graph {
+    tops: Vec<Top>,
+    next: Vec<Vec<usize>>,
+    starts: Vec<usize>,
+    goals: Vec<usize>,
+}
+
+impl Graph {
+    /// With the jumps `step` and `gap`, with the skilled route's footings or without them.
+    fn of(
+        rc: &RunContent,
+        room: &Room,
+        slot: &RoomSlot,
+        step: Fx,
+        gap: Fx,
+        skilled: bool,
+    ) -> Graph {
+        let mut all = Vec::new();
+        let mut flags = Vec::new();
+        for_each_footing(rc, slot, |p| {
+            if skilled || !p.skilled {
+                all.push(p.platform);
+                flags.push(p.skilled);
+            }
+        });
+        let solids: Vec<Platform> = all.iter().copied().filter(|p| !p.pass_through).collect();
+        let tops = split_tops(&all, &flags);
+        let exit_y = room_exit(room, slot.mirror);
+        // (An alley is entered, and a sky bridge left, on its catwalk: `room_problems`.)
+        let alley = room.kind == ROOM_ALLEY;
+        let touches = |p: &Platform, x: Fx, y: Fx| {
+            (!p.pass_through || alley) && p.left <= x && x <= p.right && p.top_at(x) == y
+        };
+        let starts = (0..tops.len())
+            .filter(|&k| touches(&tops[k].p, Fx::ZERO, Fx::ZERO))
+            .collect();
+        let goals = (0..tops.len())
+            .filter(|&k| touches(&tops[k].p, room.width, exit_y))
+            .collect();
+        let next = edges(&tops, &solids, step, gap);
+        Graph {
+            tops,
+            next,
+            starts,
+            goals,
+        }
+    }
+
+    fn reach_from(&self, from: &[usize]) -> Vec<bool> {
+        let mut seen = vec![false; self.tops.len()];
+        let mut stack: Vec<usize> = from.to_vec();
+        while let Some(k) = stack.pop() {
+            if std::mem::replace(&mut seen[k], true) {
+                continue;
+            }
+            stack.extend(self.next[k].iter().copied().filter(|&n| !seen[n]));
+        }
+        seen
+    }
+
+    /// The exit is reached from the entry, and from everything the entry reaches (no traps).
+    fn crossed(&self) -> Result<(), String> {
+        if self.starts.is_empty() || self.goals.is_empty() {
+            return Err("no ground at its entry or exit".to_string());
+        }
+        let reached = self.reach_from(&self.starts);
+        if !self.goals.iter().any(|&g| reached[g]) {
+            return Err("its exit cannot be reached from its entry".to_string());
+        }
+        for k in (0..self.tops.len()).filter(|&k| reached[k]) {
+            let on = self.reach_from(&[k]);
+            if !self.goals.iter().any(|&g| on[g]) {
+                let p = self.tops[k].p;
+                return Err(format!(
+                    "a trap: the surface from {} to {} at {} can be reached but not left toward the exit",
+                    p.left.floor_int(),
+                    p.right.floor_int(),
+                    p.y.floor_int()
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    /// The fewest jumps (walks and falls included) from the entry to the exit.
+    fn hops(&self) -> Option<usize> {
+        let mut dist = vec![usize::MAX; self.tops.len()];
+        let mut queue = std::collections::VecDeque::new();
+        for &s in &self.starts {
+            dist[s] = 0;
+            queue.push_back(s);
+        }
+        while let Some(k) = queue.pop_front() {
+            if self.goals.contains(&k) {
+                return Some(dist[k]);
+            }
+            for &n in &self.next[k] {
+                if dist[n] == usize::MAX {
+                    dist[n] = dist[k] + 1;
+                    queue.push_back(n);
+                }
+            }
+        }
+        None
+    }
+}
+
+/// The sure route's proof for one variant (laid at the origin): crossed with jumps of `step` and `gap` without the skilled route's
+/// footings, and no traps with them.
 pub fn passable(
     rc: &RunContent,
     room: &Room,
@@ -877,53 +1211,32 @@ pub fn passable(
     step: Fx,
     gap: Fx,
 ) -> Result<(), String> {
-    let mut all = Vec::new();
-    for_each_footing(rc, slot, |p| all.push(p.platform));
-    let solids: Vec<Platform> = all.iter().copied().filter(|p| !p.pass_through).collect();
-    let tops = split_tops(&all);
-    let exit_y = room_exit(room, slot.mirror);
-    let touches = |p: &Platform, x: Fx, y: Fx| {
-        !p.pass_through && p.left <= x && x <= p.right && p.top_at(x) == y
-    };
-    // (An alley is entered on its catwalk, `room_problems`.)
-    let enters = |p: &Platform| {
-        touches(p, Fx::ZERO, Fx::ZERO)
-            || room.kind == ROOM_ALLEY && p.left <= Fx::ZERO && p.top_at(Fx::ZERO) == Fx::ZERO
-    };
-    let starts: Vec<usize> = (0..tops.len()).filter(|&k| enters(&tops[k].p)).collect();
-    let goals: Vec<usize> = (0..tops.len())
-        .filter(|&k| touches(&tops[k].p, room.width, exit_y))
-        .collect();
-    if starts.is_empty() || goals.is_empty() {
-        return Err("no ground at its entry or exit".to_string());
+    Graph::of(rc, room, slot, step, gap, false)
+        .crossed()
+        .map_err(|e| format!("the sure route: {e}"))?;
+    Graph::of(rc, room, slot, step, gap, true)
+        .crossed()
+        .map_err(|e| format!("with its skilled route, for a sure jumper: {e}"))
+}
+
+/// The skilled route's proof for one variant: with the skilled jumps, every skilled footing is reached from the entry, and no
+/// surface reached is a trap.
+pub fn skilled_route(rc: &RunContent, room: &Room, slot: &RoomSlot) -> Result<(), String> {
+    let r = &rc.rules;
+    let g = Graph::of(rc, room, slot, r.skill_step, r.skill_gap, true);
+    if !g.tops.iter().any(|t| t.skilled) {
+        return Ok(());
     }
-    let next = edges(&tops, &solids, step, gap);
-    let reach_from = |from: &[usize]| {
-        let mut seen = vec![false; tops.len()];
-        let mut stack: Vec<usize> = from.to_vec();
-        while let Some(k) = stack.pop() {
-            if std::mem::replace(&mut seen[k], true) {
-                continue;
-            }
-            stack.extend(next[k].iter().copied().filter(|&n| !seen[n]));
-        }
-        seen
-    };
-    let reached = reach_from(&starts);
-    if !goals.iter().any(|&g| reached[g]) {
-        return Err("its exit cannot be reached from its entry".to_string());
-    }
-    for k in (0..tops.len()).filter(|&k| reached[k]) {
-        let on = reach_from(&[k]);
-        if !goals.iter().any(|&g| on[g]) {
-            let p = tops[k].p;
-            return Err(format!(
-                "a trap: the surface from {} to {} at {} can be reached but not left toward the exit",
-                p.left.floor_int(),
-                p.right.floor_int(),
-                p.y.floor_int()
-            ));
-        }
+    g.crossed().map_err(|e| format!("the skilled route: {e}"))?;
+    let reached = g.reach_from(&g.starts);
+    if let Some(k) = (0..g.tops.len()).find(|&k| g.tops[k].skilled && !reached[k]) {
+        let p = g.tops[k].p;
+        return Err(format!(
+            "the skilled route: its footing from {} to {} at {} cannot be reached",
+            p.left.floor_int(),
+            p.right.floor_int(),
+            p.y.floor_int()
+        ));
     }
     Ok(())
 }
@@ -953,6 +1266,7 @@ mod tests {
             },
             look: 3,
             part: 0,
+            skilled: false,
         });
         rc.rooms[3].platforms[0].platform.y = Fx::ONE;
         rc.rooms[4].spawns[0].kind = 9;
@@ -1123,5 +1437,230 @@ mod room_rules {
         let mut rc = RunContent::placeholder();
         rc.rooms.retain(|r| r.kind != ROOM_ARENA);
         assert!(check_run(&rc).iter().any(|e| e.contains("arena")));
+    }
+}
+
+/// R2d: the decks and the routes.
+#[cfg(test)]
+mod decks_and_routes {
+    use super::*;
+    use crate::format::Scalar;
+
+    fn room(rc: &RunContent, name: &str) -> usize {
+        rc.rooms.iter().position(|r| r.name == name).unwrap()
+    }
+
+    /// The built-in city: three decks one view apart (the street, the rooftops, the skyline), the run starting on the rooftops, the
+    /// drift covering them all (about 54 units top to bottom), and rooms that climb, drop and fork between them.
+    #[test]
+    fn the_city_has_three_decks_and_rooms_between_them() {
+        let rc = RunContent::placeholder();
+        let names: Vec<&str> = rc.decks.iter().map(|d| d.name.as_str()).collect();
+        assert_eq!(names, ["street", "rooftops", "skyline"]);
+        assert_eq!(rc.decks[usize::from(rc.rules.start_deck)].y, Fx::ZERO);
+        for w in rc.decks.windows(2) {
+            assert_eq!(
+                w[1].y - w[0].y,
+                rc.rules.view_height,
+                "a deck is one view tall"
+            );
+        }
+        assert!(rc.rules.drift.mul_int(2) >= Fx::from_int(54));
+        let count = |f: &dyn Fn(&Room) -> bool| rc.rooms.iter().filter(|r| f(r)).count();
+        assert!(count(&|r| r.deck_change > 0) >= 4, "climbs");
+        assert!(count(&|r| r.deck_change < 0) >= 3, "drops");
+        assert!(count(&|r| r.indoor) >= 3, "interiors");
+        let forks = (0..rc.rooms.len())
+            .filter(|&i| (0..3).any(|d| is_deck_fork(&rc, &rc.rooms[i], d)))
+            .count();
+        assert!(forks >= 2, "deck forks");
+        // Every deck has streets of its own, an arena, a shop and a rest stop.
+        for d in 0..3u8 {
+            let y = rc.decks[usize::from(d)].y;
+            for kind in [ROOM_STREET, ROOM_ARENA, ROOM_SHOP, ROOM_REST] {
+                assert!(
+                    rc.rooms
+                        .iter()
+                        .skip(1)
+                        .any(|r| r.kind == kind && !r.paired && leads_to(&rc, r, d, y, d)),
+                    "deck {d}, room type {kind}"
+                );
+            }
+        }
+    }
+
+    /// Adding a deck is a content change: a sewer below the street, with a street that keeps to it, is valid content as it is.
+    #[test]
+    fn a_deck_is_data() {
+        let mut rc = RunContent::placeholder();
+        rc.decks.insert(
+            0,
+            sim_core::run::Deck {
+                name: "sewer".to_string(),
+                y: Fx::from_int(-36),
+                wander: Fx::from_int(6),
+                weight: 2,
+            },
+        );
+        rc.rules.start_deck += 1;
+        rc.rules.drift = Fx::from_int(45);
+        for r in rc.rooms.iter_mut() {
+            r.decks <<= 1;
+        }
+        // (The sewer's own street: a copy of the plain street, entered only there.)
+        let mut sewer = rc.rooms[room(&rc, "street")].clone();
+        sewer.name = "sewer".to_string();
+        sewer.decks = 0b1;
+        rc.rooms.push(sewer);
+        // (The rooms that climb from the street now climb from the sewer too.)
+        let climb = room(&rc, "escape_climb");
+        rc.rooms[climb].decks |= 0b1;
+        assert_eq!(check_run_shape(&rc), Vec::<String>::new());
+        // Without a street of its own, a deck is refused.
+        let mut bad = rc.clone();
+        bad.rooms.pop();
+        assert!(check_run_shape(&bad)
+            .iter()
+            .any(|e| e.contains("needs a street room that keeps to it")));
+    }
+
+    #[test]
+    fn bad_decks_are_refused() {
+        let mut rc = RunContent::placeholder();
+        rc.decks.swap(0, 2);
+        rc.rules.start_deck = 9;
+        let errors = check_run_shape(&rc);
+        for want in ["lowest first", "start_deck"] {
+            assert!(
+                errors.iter().any(|e| e.contains(want)),
+                "{want}: {errors:?}"
+            );
+        }
+        let mut rc = RunContent::placeholder();
+        rc.rules.drift = Fx::from_int(8);
+        assert!(check_run_shape(&rc)
+            .iter()
+            .any(|e| e.contains("inside the run's drift")));
+        // A climb that does not land on the next deck's band.
+        let mut rc = RunContent::placeholder();
+        let climb = room(&rc, "escape_climb");
+        rc.rooms[climb].deck_change = 2;
+        assert!(check_run_shape(&rc)
+            .iter()
+            .any(|e| e.starts_with(&format!("room {climb}"))));
+    }
+
+    /// A fall is never a death but in a room marked a pit: a gap with nothing under it is refused.
+    #[test]
+    fn a_fall_lands_on_something_unless_the_room_is_a_pit() {
+        let mut rc = RunContent::placeholder();
+        let gap = room(&rc, "gap");
+        rc.rooms[gap].pit = false;
+        assert!(check_run_shape(&rc)
+            .iter()
+            .any(|e| e.starts_with(&format!("room {gap}")) && e.contains("lands on nothing")));
+        // The catwalks' gaps are caught by the roofs below: take one away (and the sills over it) and the room is refused.
+        let mut rc = RunContent::placeholder();
+        let cw = room(&rc, "catwalks");
+        let mut k = 0;
+        rc.rooms[cw].platforms.retain(|_| {
+            k += 1;
+            ![4, 8, 9, 10].contains(&k)
+        });
+        assert!(check_run_shape(&rc)
+            .iter()
+            .any(|e| e.contains("lands on nothing")));
+    }
+
+    /// The sure route never needs the skilled one: a room whose only way on is a skilled footing is refused, and so is a skilled
+    /// route that is no shorter, or one that cannot be reached with the skilled jumps.
+    #[test]
+    fn the_skilled_route_is_never_needed_and_always_shorter() {
+        let rc = RunContent::placeholder();
+        let climb = room(&rc, "escape_climb");
+        // Its fire escape gone, the climb needs its skilled route: refused.
+        let mut bad = rc.clone();
+        bad.rooms[climb]
+            .platforms
+            .retain(|f| f.skilled || f.look != sim_core::run::data::LOOK_FIRE_ESCAPE);
+        assert!(check_passable(&bad)
+            .iter()
+            .any(|e| e.starts_with(&format!("room {climb}")) && e.contains("the sure route")));
+        // Its skilled planks lowered to the fire escape's spacing: no shorter, refused.
+        let mut bad = rc.clone();
+        for f in bad.rooms[climb].platforms.iter_mut().filter(|f| f.skilled) {
+            f.skilled = false;
+        }
+        bad.rooms[climb].platforms[2].skilled = true;
+        assert!(check_passable(&bad)
+            .iter()
+            .any(|e| e.contains("no shorter")));
+        // A skilled plank out of every reach: refused.
+        let mut bad = rc.clone();
+        let p = &mut bad.rooms[climb].platforms[6].platform;
+        p.y = Fx::from_int(30);
+        p.bottom = p.y;
+        assert!(check_passable(&bad)
+            .iter()
+            .any(|e| e.contains("the skilled route") && e.contains("cannot be reached")));
+        // A solid skilled footing is refused (the sure route is the room without them).
+        let mut bad = rc.clone();
+        bad.rooms[climb].platforms[0].skilled = true;
+        assert!(check_run_shape(&bad)
+            .iter()
+            .any(|e| e.contains("pass-through platforms only")));
+    }
+
+    /// Every room with a skilled route: the sure route proven for every variant (`the_built_in_run_is_valid`), and here, for the
+    /// record, the jumps each route takes in its authored form.
+    #[test]
+    fn the_skilled_routes_are_shorter() {
+        let rc = RunContent::placeholder();
+        let r = &rc.rules;
+        let mut n = 0;
+        for (i, c) in rc.rooms.iter().enumerate() {
+            if !c.platforms.iter().any(|f| f.skilled) {
+                continue;
+            }
+            let slot = RoomSlot {
+                live: true,
+                room: i as u8,
+                end: c.width,
+                y_end: c.exit_y,
+                ..RoomSlot::default()
+            };
+            let sure = Graph::of(&rc, c, &slot, r.max_step, r.max_gap, false)
+                .hops()
+                .unwrap();
+            let skilled = Graph::of(&rc, c, &slot, r.skill_step, r.skill_gap, true)
+                .hops()
+                .unwrap();
+            println!("{}: sure {sure} jumps, skilled {skilled}", c.name);
+            assert!(skilled < sure, "{}", c.name);
+            n += 1;
+        }
+        assert!(n >= 6, "{n} rooms with a skilled route");
+    }
+
+    /// The skilled jumps ask for skill, not a fighter: above the sure ones, and within reach of most of the built-in cast (a full hop
+    /// and a midair jump, without a recovery special).
+    #[test]
+    fn the_skilled_jumps_are_within_most_fighters_reach() {
+        let rules = RunContent::placeholder().rules;
+        let cast = sim_core::Content::placeholder().fighters;
+        let mut reach = 0;
+        for (i, p) in cast.iter().enumerate() {
+            let (h, d) = jump_reach(p);
+            println!("fighter {i}: {} up, {} across", h.show(), d.show());
+            if h >= rules.skill_step && d >= rules.skill_gap {
+                reach += 1;
+            }
+        }
+        assert!(rules.skill_step > rules.max_step && rules.skill_gap > rules.max_gap);
+        assert!(
+            reach * 2 > cast.len(),
+            "{reach} of {} fighters reach the skilled jumps",
+            cast.len()
+        );
     }
 }

@@ -38,7 +38,14 @@ const LOOK_COLOURS := {
 	"planter": Color(0.5, 0.46, 0.6), "bus_shelter": Color(0.2, 0.18, 0.28), "vent_pipe": Color(0.66, 0.68, 0.76),
 	"shop_floor": Color(0.62, 0.44, 0.3), "shop_wall": Color(0.98, 0.9, 0.76), "shop_ceiling": Color(0.86, 0.66, 0.42),
 	"counter": Color(0.58, 0.42, 0.28), "pedestal": Color(0.84, 0.48, 0.41), "shelf": Color(0.58, 0.42, 0.28),
+	# R2d (placeholders for the art director: `RUNNER_PLAN.md` 12): the skyline's kit, the climbs' faces, the interiors.
+	"crane": Color(0.96, 0.7, 0.3), "girder": Color(0.84, 0.48, 0.41), "wall": Color(0.4, 0.3, 0.38),
+	"ledge_block": Color(0.56, 0.58, 0.66), "office_floor": Color(0.62, 0.44, 0.3), "ceiling": Color(0.34, 0.3, 0.42),
+	"desk": Color(0.58, 0.42, 0.28), "cubicle": Color(0.5, 0.48, 0.58), "bar_counter": Color(0.58, 0.42, 0.28),
+	"table": Color(0.86, 0.66, 0.42), "stairwell": Color(0.3, 0.26, 0.32), "tower": Color(0.36, 0.38, 0.5),
 }
+## R2d: solid looks drawn as the city's block (a building's face, a tower, a floor, an interior's ceiling).
+const BLOCKS := ["street", "roof", "wall", "tower", "office_floor", "ceiling"]
 ## Pass-through looks drawn as the city's girder platform (with their own dressing).
 const GIRDERS := ["balcony", "fire_escape", "scaffold", "billboard", "water_tower", "bus_shelter", "pedestal", "shelf", "planter"]
 ## The building fronts behind the rooms, in the city skyline's shades (its facade shader paints the windows).
@@ -52,6 +59,8 @@ var looks := PackedStringArray()
 ## Built rooms by their left edge (a string key): the Node3D holding their pieces.
 var pieces := {}
 var layout_seen := -1
+## The current room's number last time the stage was built (a lower one is a new run).
+var room_seen := 0
 var backdrop: Node3D
 ## The city's skyline layers (near to far), each in a holder that scrolls at its parallax, with a copy either side.
 var skylines: Array = []
@@ -256,7 +265,7 @@ func _footing(node: Node3D, r: PackedFloat32Array) -> void:
 	if absf(rise) > 0.001:
 		_slope(node, left, right, top, top + rise, bottom, pass_through, look)
 		return
-	if look in ["street", "roof"]:
+	if look in BLOCKS:
 		# The city's block: its facade front and roof cap (the cap is its light top edge).
 		StageArt.solid_block(node, theme, left, right, top, bottom, Z, true)
 		if look == "street":
@@ -305,6 +314,35 @@ func _footing(node: Node3D, r: PackedFloat32Array) -> void:
 			# A chimney, a roof shed, a parapet, the shop's counter: a box in the city's colours with its lip.
 			_box(node, Vector3(w, h, 2.0), at + Vector3(0, h * 0.5, 0), FighterView.toon(colour))
 			_top_edge(node, left, right, top, top, colour, 2.0)
+
+
+## An interior (R2d, placeholder for the art director): under each ceiling, a warm back wall with a row of lamps, and a window pane at
+## either end (the windows you crash in and burst out of).
+func _interior(node: Node3D, room: PackedFloat32Array, rows: Array) -> void:
+	var wall := _mat(Color(0.62, 0.5, 0.42))
+	var glass := StandardMaterial3D.new()
+	glass.albedo_color = Color(0.7, 0.86, 0.98, 0.35)
+	glass.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	var lamp := _mat(Color(1.0, 0.92, 0.7), 1.0)
+	for r in rows:
+		var look: String = looks[int(r[8])] if int(r[8]) < looks.size() else ""
+		if look != "ceiling":
+			continue
+		var left: float = r[2]
+		var right: float = r[3]
+		var under: float = r[5]
+		# (The floor under it: the room's lower ground end, or its higher one for a ceiling above both.)
+		var floor_y: float = minf(room[6], room[7]) if under < maxf(room[6], room[7]) else maxf(room[6], room[7])
+		var h := under - floor_y
+		if h <= 0.5:
+			continue
+		_box(node, Vector3(right - left, h, 0.3), Vector3((left + right) * 0.5, floor_y + h * 0.5, Z - 2.6), wall)
+		var k := left + 3.0
+		while k < right - 2.0:
+			_box(node, Vector3(1.2, 0.15, 0.6), Vector3(k, under - 0.12, Z - 1.6), lamp)
+			k += 6.0
+		for x in [left, right]:
+			_box(node, Vector3(0.12, h, 1.8), Vector3(x, floor_y + h * 0.5, Z - 0.6), glass)
 
 
 ## The city's striped awning (its shops' colours), laid flat enough to stand on, with a lighter lip.
@@ -479,6 +517,13 @@ func sync(sim, layout: int) -> void:
 	if layout == layout_seen:
 		return
 	layout_seen = layout
+	# (A fresh run, a debug restart included: the rooms of the last one go, though a new one may stand where they stood.)
+	var placed: int = sim.run_info()[8] if sim.run_info().size() > 8 else 0
+	if placed < room_seen:
+		for key in pieces.keys():
+			pieces[key].queue_free()
+		pieces.clear()
+	room_seen = placed
 	var wanted := {}
 	var rows: Array = sim.run_pieces()
 	for r in rows:
@@ -487,8 +532,18 @@ func sync(sim, layout: int) -> void:
 			wanted[key] = []
 		wanted[key].append(r)
 	var rooms := {}
+	# (R2d: a room's key carries its lid, so a climb is redrawn with its lid once it closes.)
+	var lidded := {}
 	for r in sim.run_rooms():
-		rooms["%.3f" % r[0]] = r
+		var k := "%.3f" % r[0]
+		if r.size() > 14 and r[14] > 0.5:
+			lidded[k] = true
+			k += "L"
+		rooms[k] = r
+	var keyed := {}
+	for key in wanted.keys():
+		keyed[key + ("L" if lidded.has(key) else "")] = wanted[key]
+	wanted = keyed
 	for key in pieces.keys():
 		if not wanted.has(key):
 			pieces[key].queue_free()
@@ -509,6 +564,11 @@ func sync(sim, layout: int) -> void:
 				_storefront(node, room[3], room[4])
 			elif int(room[2]) == ROOM_REST:
 				_rest_sign(node, (room[0] + room[1]) * 0.5, room[6])
+			if room.size() > 11 and room[11] > 0.5:
+				_interior(node, room, wanted[key])
+			if room.size() > 14 and room[14] > 0.5:
+				# The lid over a climb left behind (R2d): the building's roof closing the way back down.
+				StageArt.solid_block(node, theme, room[0], room[1], room[7], room[7] - 1.0, Z, true)
 	var view: PackedFloat32Array = sim.run_view()
 	var info: PackedInt32Array = sim.run_info()
 	if view.size() >= 12 and wall_node != null:

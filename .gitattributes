@@ -1,3 +1,21 @@
 * text=auto eol=lf
+# Windows scripts need Windows line endings: cmd.exe misreads labels and blocks in a .bat saved with Unix ones.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+# Never touch binaries.
 *.docx binary
 *.webp binary
+*.png binary
+*.jpg binary
+*.glb binary
+*.blend binary
+*.ttf binary
+*.otf binary
+*.wav binary
+*.ogg binary
+*.mp3 binary
+*.exe binary
+*.dll binary
+*.zip binary
+*.pck binary

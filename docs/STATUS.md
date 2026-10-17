@@ -93,6 +93,7 @@ reference buffers a dash only in the last 6 or 7 frames (owner's call to be more
 **Sim 82** (branch `dash-buffer-landing`, on `movesets` at sim 80): landing lag keeps a dash the same way, and the keyboard sends a
 direction key pressed during grab, throw or landing lag as a flick (a first press was otherwise a walk, so keyboard players could not
 buffer a dash at all); tests in `grab_dash.rs`, `landing_buffer.rs` and `godot/tests/input_e2e.gd`.
+**Sim 137** (branch `runner-r2d`, from `origin/main` at 4de02eb, sim 136; content schema 8 unchanged): the run mode's R2d, verticality (`docs/modes/RUNNER_PLAN.md` section 12): three decks as data (street, rooftops, skyline), climbs, drops, shafts, interiors and deck forks, the vertical gate (a lid over a climb left behind), sure and skilled routes proven per room by `sim_content::check_run`. The ledge table grows to 16 in a run only (`state::ledges`); an inactive run is no longer hashed. Versus digests and `net-fuzz`/`fuzz-rollback` lines are unchanged.
 **Sim 131** (branch `runner-r2c`, from `origin/main` at 12eb757, merged with sim 128 and sim 130; content schema 8 unchanged): the run
 mode's R2c, combat parity (`docs/modes/RUNNER_PLAN.md` section 11). **Every grunt is a fighter**: `GameState::fighters` holds the 4
 players then 12 grunt slots (`MAX_BODIES` = 16, `MAX_GRUNTS`), inactive outside a run, stepped by the same fighter, combat, grab, item,
