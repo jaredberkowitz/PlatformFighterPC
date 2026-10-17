@@ -8,12 +8,15 @@ each phase (a playtest checkpoint for the owner), and keep the refinement loop's
 
 **Before the session starts (the owner, 2 minutes):** open Blender (so the Blender connection loads) and Material Maker once.
 
-**Phase 0: start-up (short)**
+**Phase 0: start-up (short)** DONE 2026-10-17: the build was already shipped (sim 136 has round 42 and the Run icon); the four
+Material Maker exports are in `godot/art/materials/mm_exports/` (2048px, to shrink when wired; their `.tres` are Godot 3 format, unused);
+Cascadeur and ArmorPaint skipped (owner): pose in Blender, paint with Blender's texture paint.
 1. Ship one build of what is committed but not installed (round 42's sun clouds, the menu's Run icon).
 2. Re-walk the owner through the Material Maker hand-export (Tools section); the owner exports dry_earth, rock, stylized_wall, wood.
 3. Owner's go/no-go on downloads to evaluate: ArmorPaint, Cascadeur (Tooling review section). Ask, name the file, source, size.
 
-**Phase 1: the body (blocks the poses)**
+**Phase 1: the body (blocks the poses)** DONE: `body-cage` was already merged (art 50). Note: a stale debug DLL in the repo freezes
+every demo fighter in its rest pose (content newer than the bridge); rebuild `cargo build -p godot-bridge` after other sessions' sim work.
 4. Review and merge the remodelled body and mitten hands (branch `body-cage`, Body section), test and look bench, build.
 
 **Phase 2: poses and animation (the main job; Animation overhaul section, docs/POSE_REVIEW.md)**
@@ -72,7 +75,17 @@ The detail behind each step follows.
       footstool feel.
 
 ## Animation overhaul (the main job; start from docs/POSE_REVIEW.md)
-- [ ] Up moves arch the back with the belly forward ("inhaling"): reach from the shoulders, hips over the feet.
+- [x] Up moves arch the back with the belly forward ("inhaling"): reach from the shoulders, hips over the feet (2026-10-17, clips and
+      the game's overhead lean/look; `docs/screenshots/poses/sat_up_moves_before_after.jpg`).
+- [x] Owner's rule (2026-10-17): the limb or weapon extends to the hit, never the body (no whole-body strike stretch or backward tip on
+      the base body; the sword arm reaches most of its length).
+- [ ] High kicks (owner refs: Wolf up tilt, Sheik forward tilt; back straight, standing foot planted, leg extended up): angled up and
+      forward now (HIGH_KICK 50), but the base body's short legs only reach chest height, so it still reads weakly. Options: a longer
+      kick stretch, clip-authored up kicks, or longer legs on the body (owner's call).
+- [ ] Sword swings (owner refs: Marth fair, Lucina bair): big arcing swings, no odd arm bends, the free arm tight to the body; back
+      attacks turn the torso to face behind for the swing.
+- [ ] Forward airs (owner's gold standard: Mario fair; also Wolf fair): large arcing swings with weight, a fist fighter's an arced
+      punch or claw; the body adjusts to sell it.
 - [ ] Locked straight arms at shoulder height in strikes, follow-throughs and unarmed idles ("hug"): elbow never fully straight,
       follow-through pulls back toward the chest.
 - [ ] Free arm flung out sideways (T-pose) in unarmed fairs/fsmashes: guard the chin or chamber at the hip.
@@ -89,7 +102,7 @@ The detail behind each step follows.
       off). Regression demo: `--demo=dashleft`.
 
 ## Body
-- [ ] Review and merge the remodelled body and mitten hands (branch `body-cage`, another session's work) before posing on it.
+- [x] Review and merge the remodelled body and mitten hands (already in main).
 - [ ] Open Blender before the session starts so the Blender connection loads (it timed out this time).
 
 ## Graphics refinement loop (screenshot every stage, fix the two weakest, repeat)
