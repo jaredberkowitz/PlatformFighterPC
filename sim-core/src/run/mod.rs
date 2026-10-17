@@ -1456,7 +1456,12 @@ fn place_slot(run: &mut Run, rc: &RunContent, id: u8, x0: Fx, y0: Fx) -> bool {
     // The variant: mirrored (R2d: so that it leaves on the deck it should, inside that deck's band: a room that changes deck goes
     // toward the plan's deck, any other keeps to its deck), the optional parts, the pieces.
     let mut mirror = room.mirror && run.rng.range(2) == 1;
-    let entry = deck_at(rc, y0);
+    // (A fork's road keeps to the deck it leaves on: a treasure alley's catwalk may start in another deck's band.)
+    let entry = if room.paired && room.deck_change == 0 {
+        deck_at(rc, y0 + room.exit_y)
+    } else {
+        deck_at(rc, y0)
+    };
     if room.mirror {
         let goal = run.plan_deck;
         let good = |m: bool| {

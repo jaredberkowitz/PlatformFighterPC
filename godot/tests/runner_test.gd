@@ -216,7 +216,11 @@ func _scene() -> void:
 	# Into a shop: the interior and its shopkeeper are drawn, the camera goes inside, the display prompts at the door.
 	var found := false
 	for n in 12:
-		main.sim.run_debug_next_room()
+		var ok: bool = main.sim.run_debug_next_room()
+		var nm: Array = []
+		for r in main.sim.run_rooms():
+			nm.append([int(r[5]), main.sim.run_room_names()[int(r[15])], r[3]])
+		print("DBG ", ok, " ", main.sim.run_info()[8], " ", nm)
 		if main.sim.run_debug_enter_shop():
 			found = true
 			break

@@ -126,14 +126,24 @@ impl RunSim {
 
     /// Walks (teleports) the player into the next room, clearing an arena it locks; returns the room's type.
     fn next_room(&mut self) -> u8 {
+        self.take_road(0)
+    }
+
+    /// As `next_room`, but at a branching fork onto road `k` (0 the high road, 1 the low road: R2d).
+    fn take_road(&mut self, k: usize) -> u8 {
         let (ahead, n) = self.state.run.ahead();
         assert!(n >= 1, "the room ahead is laid");
         // (At a branching fork, the high road's alley: it is laid first, and the player comes in from above.)
-        let slot = ahead[0];
+        let k = if self.state.run.branches().is_some() {
+            k.min(1)
+        } else {
+            0
+        };
+        let slot = ahead[k];
         let target = slot.seq;
         let at = Vec2::new(
             slot.x + self.rc.rules.enter_depth + Fx::ONE,
-            slot.y + fx(12),
+            slot.y + if k == 1 { fx(2) } else { fx(12) },
         );
         self.place(at);
         self.state.fighters[PLAYER].invuln = 30;
@@ -3274,4 +3284,366 @@ fn a_push_never_goes_through_a_gate() {
         sim.tick(inp(127, 0, 0));
         assert!(sim.player().pos.x < gate, "pushed through the gate");
     }
+}
+
+// ---- R2d: verticality (decks, climbs and drops, the vertical gate, interiors; sim 137) --------------------------------------------
+
+/// The current room's slot.
+fn here(sim: &RunSim) -> run::RoomSlot {
+    *sim.state.run.slot_of(sim.state.run.room).unwrap()
+}
+
+fn name_of(sim: &RunSim, s: &run::RoomSlot) -> String {
+    sim.rc.rooms[usize::from(s.room)].name.clone()
+}
+
+/// The decks over many seeds: every room laid begins and ends inside a deck's band, its decks recorded in its slot; the deck only
+/// changes through a room that climbs or drops, or a deck fork's road; a fork's choice holds for at least a stretch
+/// (`deck_rooms_min` rooms); and the run visits all three decks, with climbs, drops, shafts, interiors and deck forks along the way.
+#[test]
+fn the_deck_plan_over_many_seeds() {
+    let rc = quiet();
+    let r = rc.rules;
+    let mut decks_seen = [0u32; 3];
+    let mut names: Vec<String> = Vec::new();
+    let mut forks_taken = 0;
+    for seed in 0..16u64 {
+        let mut sim = RunSim::with(rc.clone(), seed);
+        let mut deck = here(&sim).deck_out;
+        let mut since_fork: Option<u32> = None;
+        for step in 0..60u64 {
+            let forked = sim.state.run.branches().is_some();
+            sim.take_road(((seed + step) % 2) as usize);
+            let s = here(&sim);
+            let room = &sim.rc.rooms[usize::from(s.room)];
+            names.push(room.name.clone());
+            for (y, d) in [(s.y, s.deck_in), (s.y_end, s.deck_out)] {
+                // (A treasure alley's high road starts between two decks' bands, on its fork's deck; every other room is inside a
+                // deck's band.)
+                if room.kind == run::ROOM_ALLEY && y == s.y {
+                    assert_eq!(d, s.deck_out, "seed {seed}: {}", room.name);
+                    continue;
+                }
+                assert_eq!(run::deck_at(&sim.rc, y), d, "seed {seed}: {}", room.name);
+                assert!(
+                    run::in_band(&sim.rc, d, y),
+                    "seed {seed}: {} at {y:?} is outside deck {d}'s band",
+                    room.name
+                );
+            }
+            decks_seen[usize::from(s.deck_out)] += 1;
+            if s.deck_in != deck {
+                // (Entered on another deck than the last room left on: only a deck fork's road does that.)
+                assert!(forked, "seed {seed}: {} jumped decks", room.name);
+            }
+            if forked && s.deck_in != deck || forked && s.deck_out != deck {
+                forks_taken += 1;
+                since_fork = Some(0);
+            } else if let Some(n) = since_fork.as_mut() {
+                *n += 1;
+                if s.deck_out != deck {
+                    assert!(
+                        *n > u32::from(r.deck_rooms_min),
+                        "seed {seed}: a fork's choice lasted only {n} rooms"
+                    );
+                    since_fork = None;
+                }
+            }
+            if s.vertical() {
+                assert_ne!(
+                    room.deck_change, 0,
+                    "seed {seed}: {} changed deck",
+                    room.name
+                );
+            }
+            deck = s.deck_out;
+        }
+    }
+    println!("rooms on each deck: {decks_seen:?}; deck forks taken {forks_taken}");
+    assert!(
+        decks_seen.iter().all(|&n| n > 50),
+        "every deck: {decks_seen:?}"
+    );
+    assert!(forks_taken > 5, "deck forks taken: {forks_taken}");
+    for want in [
+        "escape_climb",
+        "terrace_climb",
+        "great_climb",
+        "balcony_drop",
+        "awning_drop",
+        "light_well",
+        "elevator_shaft",
+        "office",
+        "stairwell",
+        "rooftop_bar",
+        "catwalks",
+        "cranes",
+        "water_towers",
+        "sky_bridge",
+        "under_bridge",
+    ] {
+        assert!(names.iter().any(|n| n == want), "{want} never came");
+    }
+}
+
+/// A fall from a deck lands on the one below (never a death, but in a true pit): over a skyline gap the player falls past the
+/// catwalk's level onto the roofs a deck down, its lives untouched.
+#[test]
+fn a_fall_from_a_deck_lands_on_the_one_below() {
+    let mut sim = RunSim::with(only(&["catwalks", "shop"], (1, 0, 0)), 3);
+    let slot = *sim.state.run.slot_of(1).unwrap();
+    assert_eq!(name_of(&sim, &slot), "catwalks");
+    sim.next_room();
+    sim.clear_mobs();
+    // (Under the first gap's catwalk, where no sill is: 12.5 into the room, or as far from its end when mirrored.)
+    let x = if slot.mirror {
+        slot.end - Fx::from_ratio(25, 2)
+    } else {
+        slot.x + Fx::from_ratio(25, 2)
+    };
+    sim.place(Vec2::new(x, slot.y - fx(1)));
+    sim.idle(120);
+    let f = sim.player();
+    assert_eq!(f.stocks, 3, "a fall, not a death");
+    assert!(f.grounded(), "landed");
+    assert_eq!(f.pos.y, slot.y - fx(14), "on the roofs below");
+    assert_eq!(
+        run::deck_at(&sim.rc, f.pos.y) + 1,
+        run::deck_at(&sim.rc, slot.y),
+        "the deck below"
+    );
+    // The view and the blast zone reach down to it.
+    let (bottom, _) = sim.state.run.blast_y(&sim.rc.rules);
+    assert!(bottom < f.pos.y);
+}
+
+/// The vertical camera and the vertical gate: in a climb the view's height follows the player up (faster than on the flat); once
+/// the player has left the climb into the next room, nothing before the climb is kept (the wall stands at its left edge) and a lid
+/// closes over its top, so a drop back over it lands on the lid, not down the building face.
+#[test]
+fn a_climb_scrolls_the_view_and_is_a_gate_once_left() {
+    let mut rc = only(&["escape_climb", "street", "shop"], (1, 0, 0));
+    rc.rules.deck_rooms_min = 1;
+    rc.rules.deck_rooms_max = 1;
+    rc.rules.deck_fork_chance = 0;
+    let rules = rc.rules;
+    for seed in 0..30u64 {
+        let mut sim = RunSim::with(rc.clone(), seed);
+        let mut climb = None;
+        for _ in 0..12 {
+            sim.next_room();
+            let s = here(&sim);
+            if s.vertical() && s.y_end > s.y {
+                climb = Some(s);
+                break;
+            }
+        }
+        let Some(climb) = climb else {
+            continue;
+        };
+        sim.clear_mobs();
+        // At its foot, then at its top: the view rises most of a deck in 40 frames.
+        let foot = if climb.mirror {
+            climb.end - fx(5)
+        } else {
+            climb.x + fx(5)
+        };
+        sim.stand(Vec2::new(foot, climb.y));
+        sim.idle(90);
+        let low = sim.state.run.cam_y;
+        let top = if climb.mirror {
+            climb.x + fx(3)
+        } else {
+            climb.end - fx(3)
+        };
+        sim.stand(Vec2::new(top, climb.y_end));
+        sim.idle(40);
+        let risen = sim.state.run.cam_y - low;
+        assert!(risen >= fx(13), "the view rose {risen:?} in 40 frames");
+        // (On the flat the same rise is slower: its ease is `cam_y_ease`, not `cam_y_ease_tall`.)
+        assert!(rules.cam_y_ease_tall > rules.cam_y_ease);
+        // Into the next room: the climb is the gate.
+        sim.next_room();
+        let run = &sim.state.run;
+        let c = *run.slot_of(climb.seq).expect("the climb is kept");
+        assert!(c.lid, "a lid over the climb");
+        assert_eq!(run.wall_x, climb.x, "nothing before the climb is kept");
+        assert!(run.slots.iter().all(|s| !s.live || s.seq >= climb.seq));
+        assert!(
+            run.platforms.iter().any(|p| p.live
+                && !p.pass_through
+                && p.left == climb.x
+                && p.right == climb.end
+                && p.y == climb.y_end),
+            "the lid is a solid floor across the climb's top"
+        );
+        let (bottom, _) = run.blast_y(&rules);
+        assert!(
+            bottom >= climb.y_end + rules.blast_bottom,
+            "the blast line rose with it"
+        );
+        // Dropped back over the climb, the player lands on the lid.
+        let mid = (climb.x + climb.end) / fx(2);
+        sim.place(Vec2::new(mid, climb.y_end + fx(3)));
+        sim.idle(60);
+        assert_eq!(sim.player().pos.y, climb.y_end, "on the lid");
+        assert!(sim.player().grounded());
+        return;
+    }
+    panic!("no climb came");
+}
+
+/// A drop: the view follows the player down a deck, and the rooms before the drop are gone once it is left (no lid: its back edge
+/// is its top, and nothing is left above it to go back to).
+#[test]
+fn a_drop_scrolls_the_view_down() {
+    let mut rc = only(&["balcony_drop", "street", "shop"], (1, 0, 0));
+    rc.rules.deck_rooms_min = 1;
+    rc.rules.deck_rooms_max = 1;
+    rc.rules.deck_fork_chance = 0;
+    for seed in 0..30u64 {
+        let mut sim = RunSim::with(rc.clone(), seed);
+        let mut drop = None;
+        for _ in 0..12 {
+            sim.next_room();
+            let s = here(&sim);
+            if s.vertical() && s.y_end < s.y {
+                drop = Some(s);
+                break;
+            }
+        }
+        let Some(drop) = drop else {
+            continue;
+        };
+        sim.clear_mobs();
+        let (top, foot) = if drop.mirror {
+            (drop.end - fx(3), drop.x + fx(3))
+        } else {
+            (drop.x + fx(3), drop.end - fx(3))
+        };
+        sim.stand(Vec2::new(top, drop.y));
+        sim.idle(90);
+        let high = sim.state.run.cam_y;
+        sim.stand(Vec2::new(foot, drop.y_end));
+        sim.idle(40);
+        assert!(high - sim.state.run.cam_y >= fx(13), "the view came down");
+        sim.next_room();
+        let run = &sim.state.run;
+        assert_eq!(run.wall_x, drop.x, "nothing before the drop is kept");
+        assert!(!run.slot_of(drop.seq).unwrap().lid, "no lid over a drop");
+        return;
+    }
+    panic!("no drop came");
+}
+
+/// An interior's ceiling cuts the jumps short: a full hop and a midair jump under the office's ceiling stay under it, while the
+/// same jumps outside its window rise well above that height.
+#[test]
+fn an_interior_ceiling_cuts_the_jumps_short() {
+    let mut sim = RunSim::with(only(&["office", "shop"], (1, 0, 0)), 2);
+    let slot = *sim.state.run.slot_of(1).unwrap();
+    assert_eq!(name_of(&sim, &slot), "office");
+    assert!(sim.rc.rooms[usize::from(slot.room)].indoor);
+    sim.next_room();
+    sim.clear_mobs();
+    let at = |local: i32| {
+        if slot.mirror {
+            slot.end - fx(local)
+        } else {
+            slot.x + fx(local)
+        }
+    };
+    let peak = |sim: &mut RunSim, x: Fx| {
+        sim.stand(Vec2::new(x, slot.y));
+        let mut top = slot.y;
+        for n in 0..70 {
+            let jump = if n < 12 || (20..24).contains(&n) {
+                JUMP
+            } else {
+                0
+            };
+            sim.tick(inp(0, 0, jump));
+            top = top.max(sim.player().pos.y);
+        }
+        top - slot.y
+    };
+    let inside = peak(&mut sim, at(13));
+    let outside = peak(&mut sim, at(2));
+    let ceiling = fx(5);
+    assert!(inside < ceiling - fx(1), "under the ceiling: {inside:?}");
+    assert!(outside > ceiling, "outside: {outside:?}");
+}
+
+/// Every new piece of the run's state is in the checksum, and the run's ledge table (16, more than versus's 8) is too; in versus
+/// the extra ledges are never hashed.
+#[test]
+fn the_checksum_sees_the_decks() {
+    let sim = RunSim::new(3);
+    let base = sim.state;
+    let c = base.checksum();
+    type Edit = fn(&mut GameState);
+    let edits: Vec<(&str, Edit)> = vec![
+        ("slots.lo", |s| s.run.slots[0].lo += Fx::from_raw(1)),
+        ("slots.hi", |s| s.run.slots[0].hi += Fx::from_raw(1)),
+        ("slots.deck_in", |s| s.run.slots[0].deck_in ^= 1),
+        ("slots.deck_out", |s| s.run.slots[0].deck_out ^= 1),
+        ("slots.lid", |s| s.run.slots[0].lid ^= true),
+        ("plan_deck", |s| s.run.plan_deck ^= 1),
+        ("plan_left", |s| s.run.plan_left += 1),
+        ("ledge_owner beyond versus's", |s| {
+            s.ledge_owner[sim_core::state::LEDGE_SLOTS - 1] = 0
+        }),
+    ];
+    for (name, edit) in edits {
+        let mut s = base;
+        edit(&mut s);
+        assert_ne!(s.checksum(), c, "{name} is not in the checksum");
+    }
+    // Versus: the run's extra ledges are never touched nor hashed.
+    let world = Content::placeholder();
+    let mut vs = GameState::new(&world, 5, [0, 1, 0, 1]);
+    let sum = vs.checksum();
+    vs.ledge_owner[sim_core::state::LEDGE_SLOTS - 1] = 0;
+    assert_eq!(vs.checksum(), sum);
+    let mut vs = GameState::new(&world, 5, [0, 1, 0, 1]);
+    for _ in 0..300 {
+        sim_core::step(&mut vs, &world, &[inp(60, -127, JUMP); MAX_FIGHTERS]);
+    }
+    assert!(vs.ledge_owner[sim_core::content::MAX_LEDGES..]
+        .iter()
+        .all(|&o| o == NONE));
+}
+
+/// Runs through the decks replay exactly: the same seed and inputs give the same checksums, frame by frame, through climbs, drops,
+/// forks and lids.
+#[test]
+fn a_run_through_the_decks_replays() {
+    let mut rc = RunContent::placeholder();
+    rc.rules.deck_rooms_min = 1;
+    rc.rules.deck_rooms_max = 2;
+    let inputs = rightward_inputs(5, 2400);
+    let play = |rc: &RunContent| {
+        let mut sim = RunSim::with(rc.clone(), 4);
+        let mut sums = Vec::new();
+        let mut vertical = 0;
+        for (n, i) in inputs.iter().enumerate() {
+            if n % 120 == 0 && !sim.state.run.inside && !sim.state.run.over {
+                if sim.state.run.gate_closed {
+                    sim.clear_mobs();
+                    sim.tick(Input::default());
+                }
+                if !sim.state.run.gate_closed && sim.state.run.ahead().1 > 0 {
+                    sim.next_room();
+                    vertical += usize::from(here(&sim).vertical());
+                }
+            }
+            step_run(&mut sim.state, &mut sim.world, &sim.rc, i);
+            sums.push(sim.state.checksum());
+        }
+        (sums, vertical)
+    };
+    let (a, vertical) = play(&rc);
+    let (b, _) = play(&rc);
+    assert_eq!(a, b);
+    assert!(vertical >= 2, "through {vertical} climbs and drops");
 }

@@ -379,6 +379,7 @@ func _update_hud(delta: float) -> void:
 		"step": 5, "max_mult": 5, "lives": info[7], "max_lives": maxi(3, info[7]), "percent": snaps[0].get("percent", 0.0),
 		"name": run_name, "banner": banner, "banner_alpha": alpha, "combo_flash": combo_flash,
 		"map": sim.run_map(4), "tier": info[17] if info.size() >= INFO_SIZE else 0,
+		"decks": sim.run_decks(), "deck_names": sim.run_deck_names(),
 		"door": info.size() >= INFO_SIZE and info[14] == 1 and not inside,
 		"gate": info.size() >= INFO_SIZE and info[11] == 1, "shop": shop, "shop_names": sim.run_shop_names(),
 	})
