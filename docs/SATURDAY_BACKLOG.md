@@ -91,7 +91,11 @@ The detail behind each step follows.
 - [ ] Free arm flung out sideways (T-pose) in unarmed fairs/fsmashes: guard the chin or chamber at the hip.
 - [x] Hurt pose: a real recoil (head and chest snap back from the hit, arms trail, knees give), not the sword across the face.
 - [x] Launch pose: much less stretch; curled or spread, limbs and weapon trailing the flight.
-- [ ] Per-family pose sets: nine unarmed classes share one set; Dagger and Nodachi show no weapon (queued weapon art).
+- [~] Per-family pose sets: each unarmed family has its own idle (2026-10-17: brawler guard; quick Needles/Dagger/Nodachi; heavy
+      Clutch; caster Embers; tool Pockets/Popgun) and its own run (AnimLibrary.CLASS_FAMILY, FAMILY_CLIPS). Still shared: walk and most attacks;
+      Dagger and Nodachi show no weapon (queued weapon art).
+- [x] Strike frames upside down: the claws lunge keeps the head up, the double kick and up air lean back less, the air jackknife on
+      front kicks is 6 on the base body (2026-10-17).
 - [ ] Strike frames upside down on flips; one static jump pose (tuck at the apex); shield arm crossing the chest; hands shrinking on
       grips and sideways wrists; crossed-knee idle stances.
 - [ ] Locomotion per family (idle, walk, run, dash, jump/fall/land, shield, dodge), then reactions (ledge, get-up, tumble).
