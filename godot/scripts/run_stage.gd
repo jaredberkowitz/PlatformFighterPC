@@ -763,8 +763,10 @@ func sync(sim, layout: int) -> void:
 			if room.size() > 11 and room[11] > 0.5:
 				_interior(node, room, wanted[key])
 			if room.size() > 14 and room[14] > 0.5:
-				# The lid over a climb left behind (R2d): the building's roof closing the way back down.
-				StageArt.solid_block(node, theme, room[0], room[1], room[7], room[7] - 1.0, Z, true)
+				# The lid over a climb left behind (R2d): the building's roof closing the way back down; over a drop (R2e) a ceiling a
+				# little over its floor, closing the way back up.
+				var lid_top: float = room[16] if room.size() > 16 else room[7]
+				StageArt.solid_block(node, theme, room[0], room[1], lid_top, lid_top - 1.0, Z, true)
 	var view: PackedFloat32Array = sim.run_view()
 	var info: PackedInt32Array = sim.run_info()
 	if view.size() >= 12 and wall_node != null:

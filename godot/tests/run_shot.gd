@@ -161,6 +161,48 @@ func _initialize() -> void:
 		_shot(out, "run_van_ride.png")
 		print("  van %s info %s" % [str(main.sim.run_van()), str(main.sim.run_info())])
 	print("the van came: %s" % str(van))
+	# R2e (F3): a juggled grunt in the air (the "AIR x3" badge), then knocked out off the side (its callout); a launched grunt
+	# bowling into another ("BOWLED!") and knocking it out.
+	main.sim.run_debug_clear_grunts()
+	main.sim.run_debug_next_room()
+	await create_timer(0.4).timeout
+	main.sim.run_debug_clear_grunts()
+	var juggled: int = main.sim.run_debug_grunt(0, 3.0, false)
+	main.sim.run_debug_launch_grunt(juggled, 0.15, 0.55)
+	main.sim.run_debug_juggle(juggled, 3)
+	await create_timer(0.25).timeout
+	_shot(out, "run_juggle_air.png")
+	main.sim.run_debug_launch_grunt(juggled, 2.2, 0.3)
+	main.sim.run_debug_juggle(juggled, 3)
+	await create_timer(0.5).timeout
+	_shot(out, "run_juggle.png")
+	print("  juggle: bonus %s" % str(main.sim.run_bonus()))
+	main.sim.run_debug_clear_grunts()
+	var thrown: int = main.sim.run_debug_grunt(0, 2.0, false)
+	var pins: int = main.sim.run_debug_grunt(3, 5.0, false)
+	main.sim.run_debug_hold_grunt(pins)
+	main.sim.run_debug_launch_grunt(thrown, 1.3, 0.1)
+	await create_timer(0.3).timeout
+	_shot(out, "run_bowl.png")
+	await create_timer(0.5).timeout
+	_shot(out, "run_bowl_ko.png")
+	print("  bowling: bonus %s" % str(main.sim.run_bonus()))
+	# R2e (F4): the node map at a fork: both roads and the line after each.
+	main.sim.run_debug_only(PackedStringArray(["deck_fork_up", "fork_up", "street", "shop"]), 1, 2)
+	for n in 20:
+		var plan: PackedInt32Array = main.sim.run_plan()
+		var forked := false
+		for k in plan.size() / 9:
+			if plan[k * 9 + 1] > 0:
+				forked = true
+		if forked:
+			break
+		main.sim.run_debug_next_room()
+		await create_timer(0.06).timeout
+	main.sim.run_debug_clear_grunts()
+	await create_timer(1.6).timeout
+	_shot(out, "run_map_fork.png")
+	print("  map at a fork: %s" % str(main.sim.run_plan()))
 	# R2d: verticality. A climb, a drop, a shaft, the interiors and the skyline, each drawn on its own (only it and a few plain
 	# rooms come: `run_debug_only`), then each deck.
 	var targets := [["escape_climb", "run_climb.png", 0.35], ["great_climb", "run_great_climb.png", 0.5],

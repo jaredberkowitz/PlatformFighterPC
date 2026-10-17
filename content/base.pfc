@@ -5,8 +5,8 @@ bundle {
     schema 8
     name "Base Roster"
     description "The built-in roster: a longsword duelist and a close-range brawler."
-    sim_version 137
-    hash c60f1f02e8eabd4d
+    sim_version 140
+    hash a79f63c687ea9630
 }
 
 ruleset {

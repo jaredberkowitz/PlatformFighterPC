@@ -77,7 +77,14 @@ func _bridge() -> void:
 	var masses: Array = sim.run_buildings()
 	check(masses.size() >= 2 and (masses[0] as PackedFloat32Array).size() == 8, "the rooms' building masses: %d" % masses.size())
 	check(sim.run_deck_lines().size() == sim.run_deck_names().size(), "the decks' lines")
-	check(sim.run_rooms()[0].size() == 16, "the rooms' rows: " + str(sim.run_rooms()[0]))
+	check(sim.run_rooms()[0].size() == 17, "the rooms' rows: " + str(sim.run_rooms()[0]))
+	# R2e (F4): the node map ahead, planned (about three rooms); (F3) the bonuses.
+	var plan: PackedInt32Array = sim.run_plan()
+	var deepest := 0
+	for k in plan.size() / 9:
+		deepest = maxi(deepest, plan[k * 9])
+	check(plan.size() % 9 == 0 and plan.size() >= 18 and plan[0] == 1 and deepest >= 2, "the map ahead: " + str(plan))
+	check(sim.run_bonus().size() == 10, "the bonuses: " + str(sim.run_bonus()))
 	check(sim.run_coins().size() % 4 == 0, "the coins")
 	var interior: Array = sim.run_interior()
 	check(interior.size() >= 4, "the shop's interior: %d rows" % interior.size())
@@ -189,6 +196,14 @@ func _scene() -> void:
 	check(main.run_stage.wall_node != null and main.run_stage.wall_node.position.x == main.sim.run_view()[6], "the left wall is drawn")
 	check(data.has("map") and (data["map"] as PackedInt32Array).size() >= 6, "the display has the map")
 	check(data.has("shop") and data.has("door") and data.has("gate"), "and the shop, the door and the gate")
+	check(data.has("plan") and (data["plan"] as PackedInt32Array).size() >= 18 and data.has("bonus"), "and the map ahead and the bonuses")
+	# A callout shows once: a new count makes a popup, the same count none more.
+	var bonus := PackedFloat32Array([2, 1, 0, 0, 25, 1, 1, 0, 0, 0])
+	main.run_hud.callouts_seen = 0
+	main.run_hud.popups.clear()
+	main.run_hud.show_state({"bonus": bonus, "delta": 0.016})
+	main.run_hud.show_state({"bonus": bonus, "delta": 0.016})
+	check(main.run_hud.popups.size() == 1 and str(main.run_hud.popups[0].text) == "SKYWARD! +25", "a callout: " + str(main.run_hud.popups))
 	# The rooms are drawn by their looks, with their building fronts; the coins spin; the skyline scrolls in parallax.
 	check(main.run_stage.looks.size() > 20, "the stage knows the looks")
 	check(main.run_stage.skylines.size() == 3 and not main.run_stage.skylines.has(null), "the city's three skyline layers, in parallax")

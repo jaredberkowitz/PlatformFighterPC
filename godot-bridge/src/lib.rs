@@ -1004,6 +1004,24 @@ impl SimRunner {
         true
     }
 
+    /// Debug (photographs, R2e): grunt `n` as if the player had juggled it `hits` times without it touching the ground (its next
+    /// knock-out pays the juggle). Returns whether there was such a grunt.
+    #[func]
+    fn run_debug_juggle(&mut self, n: i32, hits: i32) -> bool {
+        let Ok(n) = usize::try_from(n) else {
+            return false;
+        };
+        if self.run.is_none() || n >= MAX_MOBS || !self.state.run.mobs[n].active {
+            return false;
+        }
+        let m = &mut self.state.run.mobs[n];
+        m.juggle = hits.clamp(0, 9) as u8;
+        m.air = true;
+        m.credit = 120;
+        self.recorder = None;
+        true
+    }
+
     /// Debug (tests and photographs, R2d): restarts the run on the same content with only the named rooms drawn by the generator (the
     /// others are kept, as roads only, so indices hold), keeping to a deck for `stretch` rooms and never offering a deck fork unless
     /// one is named. Returns how many rooms it named.
@@ -3054,8 +3072,8 @@ impl SimRunner {
 
     /// The rooms in play, one row each: `[left edge, right edge, type, door x, door y, number, ground height where it begins, where it
     /// ends, fork (0/1), mirrored (0/1), elevation (0 flat, 1 rising, 2 falling, 3 valley), indoor (0/1), the deck it enters on, the
-    /// deck it leaves on, a lid closed over it (0/1: a climb left behind), the room's index in the content (`run_room_names`)]` (the
-    /// door is a shop's; 0 elsewhere). R2d added the last five.
+    /// deck it leaves on, a lid closed over it (0/1: a climb or a drop left behind), the room's index in the content
+    /// (`run_room_names`), the lid's top]` (the door is a shop's; 0 elsewhere). R2d added five, R2e the last.
     #[func]
     fn run_rooms(&self) -> Array<PackedFloat32Array> {
         let mut out = Array::new();
@@ -3084,6 +3102,12 @@ impl SimRunner {
                 f32::from(s.deck_out),
                 if s.lid { 1.0 } else { 0.0 },
                 f32::from(s.room),
+                // (R2e: where its lid is: a climb's over its top, a drop's `lid_clear` over its floor.)
+                f(if s.y_end < s.y {
+                    s.y_end + rc.rules.lid_clear + rc.rules.gate_thickness
+                } else {
+                    s.y_end
+                }),
             ];
             out.push(&PackedFloat32Array::from(v.as_slice()));
         }
@@ -3190,6 +3214,76 @@ impl SimRunner {
             v.extend_from_slice(&[seq as i32, i32::from(kind), status, fork, tier]);
         }
         PackedInt32Array::from(v.as_slice())
+    }
+
+    /// R2e (F4): the map ahead, nine numbers a room, nearest first: `[how far ahead (1 the next), line (0 the main one; at a
+    /// branching fork 1 its high road's, 2 its low road's), type (as `run_map`: 0 street, 1 arena, 2 shop, 3 rest, 4 event "?", 5
+    /// alley), a fork (0/1), its deck change (the deck it leaves on minus the one it enters on: 1 up, -1 down), a chest in it (0/1),
+    /// laid already (0/1), its number, a recovery route in it the fighter is offered (0/1)]`. The generator plans these rooms ahead
+    /// (`sim_core::run::map_ahead`): they come as shown.
+    #[func]
+    fn run_plan(&self) -> PackedInt32Array {
+        let Some((rc, _)) = &self.run else {
+            return PackedInt32Array::new();
+        };
+        let r = &self.state.run;
+        let mut v = Vec::new();
+        for n in sim_core::run::map_ahead(r) {
+            let Some(room) = rc.rooms.get(usize::from(n.room)) else {
+                continue;
+            };
+            let chest = room.kind == sim_core::run::ROOM_ALLEY
+                || room.props.iter().any(|p| {
+                    rc.props
+                        .get(usize::from(p.kind))
+                        .is_some_and(|k| k.role == sim_core::run::data::PROP_CHEST)
+                });
+            let skilled = room.platforms.iter().any(|f| f.skilled)
+                && sim_core::run::skilled_offered(&rc.rules, room, r.reach_jump, r.reach_recovery);
+            v.extend_from_slice(&[
+                i32::from(n.depth),
+                i32::from(n.line),
+                i32::from(room.kind),
+                i32::from(room.fork),
+                i32::from(n.deck_out) - i32::from(n.deck_in),
+                i32::from(chest),
+                i32::from(n.laid),
+                n.seq.min(i32::MAX as u32) as i32,
+                i32::from(skilled && room.recovery != 0),
+            ]);
+        }
+        PackedInt32Array::from(v.as_slice())
+    }
+
+    /// R2e (F3): the bonuses, `[the last callout (0 none, 1 "AIR", 2 "SKYWARD", 3 "GROUNDED", 4 "BOWLED"), a count that changes
+    /// with every callout, where (x, y), the coins it paid, the juggle multiplier on a grunt in the air now (the most of any the
+    /// player has hit lately; 1 none), skyward knock-outs, grounded knock-outs, bowls, juggled knock-outs]`.
+    #[func]
+    fn run_bonus(&self) -> PackedFloat32Array {
+        let Some((rc, _)) = &self.run else {
+            return PackedFloat32Array::new();
+        };
+        let r = &self.state.run;
+        let air = r
+            .mobs
+            .iter()
+            .filter(|m| m.active && m.air && m.credit > 0 && m.juggle >= 2)
+            .map(|m| m.juggle.min(rc.rules.juggle_max.max(1)))
+            .max()
+            .unwrap_or(1);
+        let v = [
+            f32::from(r.callout),
+            f32::from(r.callouts),
+            f(r.callout_at.x),
+            f(r.callout_at.y),
+            f32::from(r.callout_coins),
+            f32::from(air),
+            f32::from(r.sky_kos),
+            f32::from(r.spike_kos),
+            f32::from(r.bowls),
+            f32::from(r.air_kos),
+        ];
+        PackedFloat32Array::from(v.as_slice())
     }
 
     /// The shop: `[inside (0/1), where the player stands (-2 nowhere, -1 the way out, else the ware's number), what the last buy did
