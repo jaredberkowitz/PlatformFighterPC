@@ -72,7 +72,8 @@ stage proving_grounds { blast_left -28 ... platform { ... } ledge { ... } spawn 
   `jump_aerial_speed_x_mul`; the bounder's 120). `jump_speed_x` (a speed), `jump_speed_x_mul` (a percent up to 200) and
   `jump_speed_x_max` (a speed) (sim 139, owner decision 99; optional, inherited, written only when `jump_speed_x_max` is above 0) are
   the ground jump's horizontal rule, the reference's per-body parameters of those names: it leaves the ground at `jump_speed_x_mul` of
-  its ground speed, or the stick's tilt times `jump_speed_x` when that is faster the same way, held within `jump_speed_x_max`;
+  its ground speed, or from standing still the stick's tilt times `jump_speed_x` (with the ruleset's `jump_stick_share` 1: whichever
+  is faster the same way), held within `jump_speed_x_max`;
   `jump_speed_x_max` 0 (the default, and any older file) keeps the older shared rule (the ruleset's `jump_momentum` and
   `jump_momentum_max`). The recipes scale both speeds with the air speed.
 * **A fighter's gauge** (schema 6, sim 85): an optional `gauge { max per_dealt per_taken mode_frames [walk] [dash] [run] [traction]
@@ -455,7 +456,9 @@ Line numbers inside a script count from its first non-blank line.
   Still schema 6 (sim v87): a projectile may have a `burst { ... }` block (E3e), a move `motion_drift`, and a hitbox angle may be 366
   (the vortex, E28); every one defaults to the old behaviour, so an older file loads unchanged (the same note about schema 7 applies).
   Still schema 8 (sim v139): fighters may have `jump_speed_x`, `jump_speed_x_mul`, `jump_speed_x_max` (above; none means the older
-  shared rule).
+  shared rule), and the ruleset `jump_stick_share` (0 or 1, default 0; owner decision 100): how those bodies' ground jumps combine
+  the stick with the ground speed: 0 takes the ground speed's kept share whenever there is any (the stick's `jump_speed_x` only from
+  standing still), 1 the faster of the two the same way. A file without it plays as 0.
   Still schema 6 (sim v95): fighters may have `air_jump_drift`; moves `late_next` / `late_until`, `ledge_falling_only`,
   `drop_from` / `drop_frames` / `drop_while_down`; projectiles `bounce_keep_y`, `bounce_max_fall`; bursts `on_ground`, `on_expire`,
   `keep_hits`. Every one defaults to the old behaviour, so an older file loads unchanged.

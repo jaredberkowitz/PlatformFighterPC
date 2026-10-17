@@ -8,7 +8,7 @@ mod common;
 use common::{fx, inp, Sim};
 use sim_core::input::buttons::SPECIAL;
 use sim_core::moves::MoveId;
-use sim_core::state::FighterState as S;
+use sim_core::state::{FighterState as S, NONE};
 use sim_core::Fx;
 
 fn sim_for(c: u8) -> Sim {
@@ -71,13 +71,73 @@ fn every_side_special_starts_with_its_reference_momentum() {
     }
 }
 
-/// The blade flurry's lift has no once-per-airtime limit published: every use slows a fall the same.
+/// Class `c` started in the air as `started` does, with its once-per-airtime flags already at `flags`.
+fn started_with_flags(c: u8, flags: u8, vy: Fx) -> (Sim, Fx) {
+    let mut sim = sim_for(c);
+    sim.put_airborne(0, Fx::ZERO, Fx::from_int(40), Fx::ZERO, vy);
+    sim.state.fighters[0].facing = 1;
+    sim.state.fighters[0].air_flags = flags;
+    sim.tick(inp(127, 0, SPECIAL));
+    sim.tick(inp(0, 0, 0));
+    assert_eq!(sim.f().state, S::Attack);
+    let y = sim.f().vel.y;
+    (sim, y)
+}
+
+/// The blade flurry lifts on every use, each further use in the same air time half the one before (owner decision 100): 1.4, 0.7,
+/// 0.35, 0.175 reference units, then none. Measured against a start with the four uses spent (no lift), so gravity cancels out (from
+/// a slow fall, below the fall-speed cap).
 #[test]
-fn the_blade_flurrys_lift_slows_every_fall() {
-    for _ in 0..2 {
-        let (_, _, y) = started(0, Fx::ZERO, -fx(1580, 8000));
-        assert!(y > -fx(300, 8000) && y < Fx::ZERO, "{y:?}");
+fn the_blade_flurrys_lift_halves_with_each_use_in_an_air_time() {
+    let vy = -fx(500, 8000);
+    let (_, none) = started_with_flags(0, 0b1111, vy);
+    let mut flags = 0u8;
+    for want in [1400, 700, 350, 175] {
+        let (sim, y) = started_with_flags(0, flags, vy);
+        let lift = y - none;
+        assert!(
+            (lift - fx(want, 8000)).abs() <= Fx::from_raw(2),
+            "use with flags {flags:#b}: lift {lift:?}, want {want}/8000"
+        );
+        flags = (flags << 1) | 1;
+        assert_eq!(sim.f().air_flags, flags, "the use is counted");
     }
+    // The first use out of a fall still only slows it (as the reference's "slightly halt").
+    let (_, first) = started_with_flags(0, 0, -fx(1580, 8000));
+    assert!(first > -fx(300, 8000) && first < Fx::ZERO, "{first:?}");
+}
+
+/// Two real uses in one air time count two; landing clears the count, so the next air time's first use lifts in full again.
+#[test]
+fn the_blade_flurrys_count_builds_in_the_air_and_resets_on_landing() {
+    let mut sim = sim_for(0);
+    sim.put_airborne(0, Fx::ZERO, Fx::from_int(60), Fx::ZERO, Fx::ZERO);
+    sim.state.fighters[0].facing = 1;
+    for used in 1..=2u32 {
+        sim.tick(inp(127, 0, SPECIAL));
+        let mut guard = 0;
+        while sim.f().state == S::Attack {
+            sim.tick(inp(0, 0, 0));
+            guard += 1;
+            assert!(guard < 120, "the flurry ends in the air");
+        }
+        assert!(
+            sim.f().platform == NONE,
+            "still in the air after use {used}"
+        );
+        assert_eq!(sim.f().air_flags.count_ones(), used);
+    }
+    let mut guard = 0;
+    while sim.f().platform == NONE {
+        sim.tick(inp(0, 0, 0));
+        guard += 1;
+        assert!(guard < 600, "lands");
+    }
+    assert_eq!(sim.f().air_flags, 0, "landing clears the count");
+    let vy = -fx(500, 8000);
+    let (_, fresh) = started_with_flags(0, sim.f().air_flags, vy);
+    let (_, none) = started_with_flags(0, 0b1111, vy);
+    assert!((fresh - none - fx(1400, 8000)).abs() <= Fx::from_raw(2));
 }
 
 /// The flash dash: held still through its startup, angled at most 10 degrees by the stick, then sliding on at the reference's 2.3 units

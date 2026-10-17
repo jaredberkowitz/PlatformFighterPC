@@ -433,6 +433,7 @@ rules_io! {
     push_speed: Fx,
     jump_momentum: Fx,
     jump_momentum_max: Fx,
+    jump_stick_share: u8,
     respawn_invuln: u8,
     tech_window: u8,
     tech_lag: u8,

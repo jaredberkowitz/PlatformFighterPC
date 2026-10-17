@@ -195,58 +195,87 @@ fn a_midair_jump_sets_its_drift_by_the_bodys_multiplier() {
     }
 }
 
-/// A ground jump leaves at the body's own rule: from standing with the stick held, at once at the stick's share of `jump_speed_x`; out
-/// of a run, `jump_speed_x_mul` of the run held within `jump_speed_x_max`; a stick held back keeps the run's share (a reverse aerial rush).
+/// Class `c` on a wide floor under `share` (`Ruleset::jump_stick_share`): moves with the stick at `move_x` for `frames` frames
+/// (none: from standing), then jumps with the stick at `jump_x`. Returns the ground speed before the jump and the speed on leaving.
+fn ground_jump_x(c: u8, share: u8, move_x: i8, frames: usize, jump_x: i8) -> (Fx, Fx) {
+    let mut sim = sim_for(c);
+    sim.content.rules.jump_stick_share = share;
+    sim.content.stage.platforms[0].left = Fx::from_int(-40);
+    sim.content.stage.platforms[0].right = Fx::from_int(40);
+    sim.stand(1, Fx::from_int(39), -1);
+    sim.stand(0, Fx::from_int(-10), 1);
+    sim.ticks(frames, inp(move_x, 0, 0));
+    let before = sim.f().vel.x;
+    sim.tick(inp(jump_x, 0, JUMP));
+    let mut n = 0;
+    while sim.f().grounded() && n < 10 {
+        sim.tick(inp(jump_x, 0, JUMP));
+        n += 1;
+    }
+    assert_eq!(sim.f().state, S::Airborne, "class {c}");
+    (before, sim.f().vel.x)
+}
+
+/// A ground jump leaves at the body's own rule (owner decision 100, the standard `jump_stick_share` 0): from standing with the stick
+/// held, at once at the stick's share of `jump_speed_x`; out of a run, `jump_speed_x_mul` of the run held within `jump_speed_x_max`,
+/// whatever the stick (held forward or back).
 #[test]
 fn a_ground_jump_leaves_at_the_bodys_own_horizontal_rule() {
     for c in 0..14u8 {
-        let mut sim = sim_for(c);
-        let p = sim.content.fighters[usize::from(c)];
-        sim.stand(0, Fx::from_int(-5), 1);
-        sim.tick(inp(127, 0, JUMP));
-        let mut n = 0;
-        while sim.f().grounded() && n < 10 {
-            sim.tick(inp(127, 0, JUMP));
-            n += 1;
-        }
-        assert_eq!(sim.f().state, S::Airborne, "class {c}");
+        let p = sim_for(c).content.fighters[usize::from(c)];
+        let slack = p.air_accel + p.air_accel_stick + p.air_friction;
         let stick = inp(127, 0, 0).stick_x_fx() * p.jump_speed_x;
         // (The takeoff frame then drifts one frame toward the stick's air-speed target.)
-        let vx = sim.f().vel.x;
+        let (_, vx) = ground_jump_x(c, 0, 0, 0, 127);
         assert!(
             vx >= stick.min(p.jump_speed_x_max) && vx <= stick + p.air_accel + p.air_accel_stick,
             "class {c} standing jump: {vx:?} vs {stick:?}"
         );
-        // Out of a run at full speed, with the stick held forward and held back.
-        for back in [false, true] {
-            let mut sim = sim_for(c);
-            sim.stand(0, Fx::from_int(-10), 1);
-            sim.content.stage.platforms[0].left = Fx::from_int(-40);
-            sim.content.stage.platforms[0].right = Fx::from_int(40);
-            sim.stand(1, Fx::from_int(39), -1);
-            sim.ticks(30, inp(127, 0, 0));
-            let run = sim.f().vel.x;
-            let x = if back { -127 } else { 127 };
-            sim.tick(inp(x, 0, JUMP));
-            let mut n = 0;
-            while sim.f().grounded() && n < 10 {
-                sim.tick(inp(x, 0, JUMP));
-                n += 1;
-            }
+        for x in [127i8, 0, -127] {
+            let (run, vx) = ground_jump_x(c, 0, 127, 30, x);
             let kept =
                 (run * Fx::from_ratio(i32::from(p.jump_speed_x_mul), 100)).min(p.jump_speed_x_max);
-            let vx = sim.f().vel.x;
-            let slack = p.air_accel + p.air_accel_stick + p.air_friction;
             assert!(
-                (vx - kept.max(if back {
-                    Fx::ZERO
-                } else {
-                    stick.min(p.jump_speed_x_max)
-                }))
-                .abs()
-                    <= slack,
+                (vx - kept).abs() <= slack,
+                "class {c} run jump (stick {x}): {vx:?}, run {run:?}, kept {kept:?}"
+            );
+        }
+        // A slow walk into a jump with the stick pushed full: the walk's share, not the stick's (faster) one.
+        let (walk, vx) = ground_jump_x(c, 0, 30, 30, 127);
+        let kept = walk * Fx::from_ratio(i32::from(p.jump_speed_x_mul), 100);
+        assert!(walk > Fx::ZERO, "class {c} walks");
+        assert!(
+            (vx - kept).abs() <= slack,
+            "class {c} walk jump: {vx:?}, walk {walk:?}"
+        );
+    }
+}
+
+/// With `jump_stick_share` 1 (decision 99's reading, kept for playtests) a jump takes the faster of the run's share and the stick's
+/// the same way; a stick held back keeps the run's share (a reverse aerial rush).
+#[test]
+fn with_the_stick_share_on_a_jump_takes_the_faster_of_the_run_and_the_stick() {
+    for c in 0..14u8 {
+        let p = sim_for(c).content.fighters[usize::from(c)];
+        let slack = p.air_accel + p.air_accel_stick + p.air_friction;
+        let stick = (inp(127, 0, 0).stick_x_fx() * p.jump_speed_x).min(p.jump_speed_x_max);
+        for back in [false, true] {
+            let (run, vx) = ground_jump_x(c, 1, 127, 30, if back { -127 } else { 127 });
+            let kept =
+                (run * Fx::from_ratio(i32::from(p.jump_speed_x_mul), 100)).min(p.jump_speed_x_max);
+            let want = kept.max(if back { Fx::ZERO } else { stick });
+            assert!(
+                (vx - want).abs() <= slack,
                 "class {c} run jump (back {back}): {vx:?}, run {run:?}"
             );
         }
+        // The slow walk with the stick full: the stick's share, where it is the faster.
+        let (walk, vx) = ground_jump_x(c, 1, 30, 30, 127);
+        let kept = walk * Fx::from_ratio(i32::from(p.jump_speed_x_mul), 100);
+        let want = kept.max(stick);
+        assert!(
+            (vx - want).abs() <= slack,
+            "class {c} walk jump: {vx:?}, walk {walk:?}"
+        );
     }
 }

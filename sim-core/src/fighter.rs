@@ -486,12 +486,13 @@ fn air_momentum(vx: Fx, p: &FighterParams, rules: &Ruleset) -> Fx {
     (vx * rules.jump_momentum).clamp(-cap, cap)
 }
 
-/// A ground jump's horizontal speed as it leaves the ground (sim 139, owner decision 99). A body with its own rule
-/// (`FighterParams::jump_speed_x_max` > 0, the reference's `jump_speed_x` / `_mul` / `_max`) keeps `jump_speed_x_mul` percent of its
-/// ground speed, or the stick's sideways tilt times `jump_speed_x` when that is faster the same way (a jump from standing still with
-/// the stick held moves at once), held within `jump_speed_x_max` either way; a stick held against the kept speed does not cut it (a
-/// reverse aerial rush keeps its dash: the reference's). How the reference combines the two is not published: this reading is [E].
-/// Without its own rule, the older shared rule (`air_momentum`).
+/// A ground jump's horizontal speed as it leaves the ground (sim 139, owner decisions 99 and 100). A body with its own rule
+/// (`FighterParams::jump_speed_x_max` > 0, the reference's `jump_speed_x` / `_mul` / `_max`) with ground speed keeps
+/// `jump_speed_x_mul` percent of it (a run jump takes the run, whatever the stick); from standing still it moves at the stick's
+/// sideways tilt times `jump_speed_x`; held within `jump_speed_x_max` either way. With `Ruleset::jump_stick_share` 1 (decision 99's
+/// reading) it takes the faster of the two the same way, a stick held against the kept speed never cutting it (a reverse aerial rush
+/// keeps its dash). How the reference combines the two is not published. Without its own rule, the older shared rule
+/// (`air_momentum`).
 fn jump_takeoff_x(f: &Fighter, p: &FighterParams, rules: &Ruleset) -> Fx {
     if p.jump_speed_x_max <= Fx::ZERO {
         return air_momentum(f.vel.x, p, rules);
@@ -503,12 +504,13 @@ fn jump_takeoff_x(f: &Fighter, p: &FighterParams, rules: &Ruleset) -> Fx {
         Fx::ZERO
     };
     let kept = f.vel.x * Fx::from_ratio(i32::from(p.jump_speed_x_mul), 100);
-    let same_way = kept == Fx::ZERO || kept.signum_int() == stick.signum_int();
-    let vx = if same_way && stick.abs() > kept.abs() {
-        stick
+    let take_stick = if rules.jump_stick_share == 0 {
+        kept == Fx::ZERO
     } else {
-        kept
+        let same_way = kept == Fx::ZERO || kept.signum_int() == stick.signum_int();
+        same_way && stick.abs() > kept.abs()
     };
+    let vx = if take_stick { stick } else { kept };
     vx.clamp(-p.jump_speed_x_max, p.jump_speed_x_max)
 }
 

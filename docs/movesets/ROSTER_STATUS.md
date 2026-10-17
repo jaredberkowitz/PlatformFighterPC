@@ -724,6 +724,24 @@ Open for the owner from decision 99:
 3. **Footage** would settle the animation-driven recoveries (most up specials' heights, the Gauntlets' and Embers' especially) and the
    flash dash's own dash speed (5.5 units a frame, an estimate).
 
+Answered by the owner on 2026-10-17 (decision 100): 1. a run jump takes the run speed (built, switchable); 2. the lift on every use
+with diminishing returns (built); 3. no footage is coming, the estimates stay.
+
+100. **A run jump takes the run; the blade flurry's lift diminishes** (sim 139 still, unreleased; branch `air-tweaks`; the owner's
+    answers to decision 99's questions).
+    * **The ground jump**: a jump with ground speed takes the run's kept share (`jump_speed_x_mul` of it, capped by the body's
+      `jump_speed_x_max`) whatever the stick; a standing jump (no ground speed) moves sideways at the stick's `jump_speed_x`, as
+      published. Reversible: the ruleset's `jump_stick_share` (0, the standard, this rule; 1, decision 99's "faster of the run's share
+      and the stick's the same way"), validated (0 or 1), hashed, in `docs/CONTENT.md`, round-trip tested
+      (`the_jump_stick_share_switch_round_trips_and_is_checked`), and tested both ways in `air_movement_reference.rs` (a full run
+      with the stick forward, neutral and back; a slow walk with the stick full, where the two settings differ).
+    * **The blade flurry's air lift** (the Longsword's side special): every use lifts, each further use in the same air time half the
+      one before: **1.4, 0.7, 0.35, 0.175 reference units, then none** [E: no source describes a decay; halving is the owner's
+      example]. Counted in the once-per-airtime flags 0-3 (`air_flags`, which landing, catching a ledge or being hit clear, as the
+      cape's lift and the shell's hops). Tests: `sidespecial_momentum::the_blade_flurrys_lift_halves_with_each_use_in_an_air_time`,
+      `the_blade_flurrys_count_builds_in_the_air_and_resets_on_landing`.
+    * **No footage is coming**: the animation-driven recovery heights and the flash dash's 5.5 a frame stay estimates.
+
 ## Still open
 
 From the Embers' phase 2 (details in `docs/movesets/embers/IMPLEMENTATION_REPORT.md`, "Owner follow-up"):

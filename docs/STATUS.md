@@ -97,7 +97,11 @@ buffer a dash at all); tests in `grab_dash.rs`, `landing_buffer.rs` and `godot/t
 older-jab branch): recoveries, air movement and side specials checked against the reference for all 14 fighters (owner decision 99,
 `docs/movesets/ROSTER_STATUS.md`): each body's own ground-jump rule (`jump_speed_x`, `_mul`, `_max`, optional fighter fields), the
 missing 0.9 midair-jump drift on five bodies, the Claws' air friction, the Dagger's aerial hook halting a jump's rise, the Longsword's
-and Claws' side-special starts and the flash dash's slide. Tests `air_movement_reference.rs`, `sidespecial_momentum.rs`; tables in
+and Claws' side-special starts and the flash dash's slide. Then (branch `air-tweaks`, owner decision 100, still sim 139): a run jump
+takes the run's kept share whatever the stick (the stick's `jump_speed_x` only from standing), switchable back to decision 99's
+"faster of the two" by the new ruleset field `jump_stick_share` (0 standard, 1 the old reading); the blade flurry lifts on every air
+use but halves each time in one air time (1.4, 0.7, 0.35, 0.175, then none; reset by landing, a ledge or a hit). Tests
+`air_movement_reference.rs`, `sidespecial_momentum.rs`, sim-content `the_jump_stick_share_switch_round_trips_and_is_checked`; tables in
 `docs/movesets/SHARED_MECHANICS.md`. `fuzz-rollback 300` and `net-fuzz 100`: 0 mismatches.
 **Sim 138** (branch `longsword-jab`, from `origin/movesets` merged with `origin/main` at 3d8d5d3, sim 137; content schema 8 unchanged): the Longsword's jab is the previous reference version's (owner decision 98, `docs/movesets/ROSTER_STATUS.md`): 1.1.x frames, damage, angles and knockback on E40's rules, the jab cancel on both hits (jab 1 from 18, jab 2 from 16 [E]), 13.0.1's tip pull; jab 1 > jab 2 is a true combo at 0-150%, jab 2 the launcher. Tests `longsword_jab.rs` (10); engine tests keep the old placeholder jab through `common::Sim::plain_jab`; two owner questions (the tip pull against the late window, jab 2's cancel frame).
 **Sim 137** (branch `runner-r2d`, from `origin/main` at 4de02eb, sim 136; content schema 8 unchanged): the run mode's R2d, verticality (`docs/modes/RUNNER_PLAN.md` section 12): three decks as data (street, rooftops, skyline), climbs, drops, shafts, interiors and deck forks, the vertical gate (a lid over a climb left behind), sure and skilled routes proven per room by `sim_content::check_run`. The ledge table grows to 16 in a run only (`state::ledges`); an inactive run is no longer hashed. Versus digests and `net-fuzz`/`fuzz-rollback` lines are unchanged.

@@ -6,7 +6,7 @@ bundle {
     name "Base Roster"
     description "The built-in roster: a longsword duelist and a close-range brawler."
     sim_version 139
-    hash 9407f8f75ccd3ed8
+    hash 4e5bcca9382f8eed
 }
 
 ruleset {
@@ -25,6 +25,7 @@ ruleset {
     push_speed 0.075
     jump_momentum 0.84999
     jump_momentum_max 1.25
+    jump_stick_share 0
     respawn_invuln 120
     tech_window 11
     tech_lag 4
@@ -382,9 +383,21 @@ weapon longsword {
             // 30 = ext2.
             var queued;
             var rising;
-            // In the air it adds 1.4 reference units of upward speed as it starts ("added vertical speed in the air", ssbwiki.com 13.0.1), on
-            // every use (no once-per-airtime limit is published): it slows a fall, as the reference's "slightly halt his downward movement".
-            if frame == 1 && grounded == 0 { add_vel(0, 0.175); }
+            // In the air it adds upward speed as it starts ("added vertical speed in the air" 1.4 reference units, ssbwiki.com 13.0.1): it slows
+            // a fall, as the reference's "slightly halt his downward movement". Every use lifts, each further one in the same air time half the
+            // one before (1.4, 0.7, 0.35, 0.175, then none; owner decision 100, the decay [E]): n counts the uses since the fighter last landed,
+            // caught a ledge or was hit (air flags 0-3, which those clear).
+            if frame == 1 && grounded == 0 {
+                let n = air_flag(0) + air_flag(1) + air_flag(2) + air_flag(3);
+                if n < 4 {
+                    set_air_flag(n);
+                    let lift = 0.175;
+                    if n == 1 { lift = 0.0875; }
+                    if n == 2 { lift = 0.04375; }
+                    if n == 3 { lift = 0.021875; }
+                    add_vel(0, lift);
+                }
+            }
             if grounded == 0 && frame >= 27 { end(); }
             if grounded && frame >= 3 && frame <= 8 { set_vel(0.18, 0); }
             if grounded && frame == 9 { set_vel(0, 0); }

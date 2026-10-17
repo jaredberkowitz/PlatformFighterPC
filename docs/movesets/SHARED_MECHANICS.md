@@ -114,7 +114,7 @@ Side specials (sim 139, owner decision 99; ssbwiki.com `<Fighter>_(SSBU)/Side_sp
 
 | Class | Side special (reference) | Reference rule | Ours before sim 139 | Ours since |
 | --- | --- | --- | --- | --- |
-| 0 Longsword | Marth's Dancing Blade | horizontal x0.5 on startup; "added vertical speed in the air" 1.4 [R]; no once-per-airtime limit published | speed kept, no lift | `start_speed` 50; +1.4 up on frame 1 in the air, every use [E: the limit] |
+| 0 Longsword | Marth's Dancing Blade | horizontal x0.5 on startup; "added vertical speed in the air" 1.4 [R]; no once-per-airtime limit published | speed kept, no lift | `start_speed` 50; up on frame 1 in the air on every use, halving with each use in one air time: 1.4, 0.7, 0.35, 0.175, then none (owner decision 100; the decay [E]; counted in `air_flags` 0-3, cleared by landing, a ledge or a hit) |
 | 1 Claws | Wolf's Flash | horizontal x0.67 and acceleration 0.05 on startup, startup gravity 0.017 after 13 frames; angle by the stick past 0.5, at most 10 degrees; after the dash 2.3 (air) / 2.5 (ground) slowed by 0.07 / 0.15, gravity 0.08 after 5 frames [R] | speed and fall kept through the startup; about 24 degrees; stopped dead after the dash | as the reference; the 0.05 read as slowing the kept speed [E]; the dash's own speed 5.5 a frame [E] |
 | 2 Needles | (our own line throw, the owner's) | not a reference move | kept | unchanged |
 | 3 Embers | Mario's Cape | air speed / 2.5, air friction 0.0025, +0.3 up, gravity 0.031, fall 1 [R]; the lift once per air time | as the reference | unchanged |
@@ -144,7 +144,13 @@ ground-jump estimate with each body's rule (`FighterParams::jump_speed_x*`, `fig
 the older `Ruleset::jump_momentum` rule). The shared rules already matched the reference where it is published: air friction only
 with no sideways input, air acceleration a base plus the stick's share, the full hop's fast opening (55% of the height in 4 frames),
 a midair jump replacing the sideways speed. Not published, so unchanged: how speed above the air speed bleeds off (ours: by air
-friction) and how a jump combines the stick with the run (ours: the faster the same way) [E].
+friction) [E]. How a jump combines the stick with the run is not published either; the owner's rule (decision 100): a jump with any
+ground speed takes the run's kept share (`jump_speed_x_mul`, capped by `jump_speed_x_max`) whatever the stick, and only a jump from
+standing still takes the stick's `jump_speed_x`. `Ruleset::jump_stick_share` 1 switches back to decision 99's reading (the faster of
+the two the same way, a stick held back never cutting the run's share), for playtests. Tests:
+`air_movement_reference::a_ground_jump_leaves_at_the_bodys_own_horizontal_rule` (standard),
+`with_the_stick_share_on_a_jump_takes_the_faster_of_the_run_and_the_stick` (switched), sim-content
+`the_jump_stick_share_switch_round_trips_and_is_checked`, the ruleset hash case in `content.rs`.
 
 ## 2. Hit resolution and hit feel (`sim-core/src/combat.rs`, `fighter.rs`)
 

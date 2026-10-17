@@ -239,8 +239,9 @@ pub struct FighterParams {
     /// `jump_aerial_speed_x_mul`); 100 (the default) is the shared rule.
     pub air_jump_drift: u8,
     /// A ground jump's horizontal speed (sim 139, owner decision 99: the reference's per-body `jump_speed_x`, `jump_speed_x_mul` and
-    /// `jump_speed_x_max`): leaving the ground it moves at `jump_speed_x_mul` percent of its ground speed plus the stick's sideways
-    /// share of `jump_speed_x`, held within `jump_speed_x_max` either way. `jump_speed_x_max` 0 (the default) keeps the older shared
+    /// `jump_speed_x_max`): leaving the ground with ground speed it keeps `jump_speed_x_mul` percent of it; from standing still it
+    /// moves at the stick's sideways tilt times `jump_speed_x`; held within `jump_speed_x_max` either way (owner decision 100; with
+    /// `Ruleset::jump_stick_share` 1, the faster of the two the same way). `jump_speed_x_max` 0 (the default) keeps the older shared
     /// rule (`Ruleset::jump_momentum`, capped by the air speed, and no stick share).
     pub jump_speed_x: Fx,
     pub jump_speed_x_mul: u8,
@@ -2418,6 +2419,11 @@ pub struct Ruleset {
     /// (the reference game's jump speed multiplier and cap; the values are estimates).
     pub jump_momentum: Fx,
     pub jump_momentum_max: Fx,
+    /// How a body with its own ground-jump rule (`FighterParams::jump_speed_x_max` above 0) combines the stick with its ground speed
+    /// (owner decision 100, sim 139): 0 (the standard) takes the run's kept share whenever the fighter has ground speed, the stick's
+    /// `jump_speed_x` share only from standing still; 1 takes the faster of the two the same way (decision 99's first reading). Kept
+    /// switchable for playtests.
+    pub jump_stick_share: u8,
     pub respawn_invuln: u8,
     /// A shield press this many frames before landing in hitstun is a tech.
     pub tech_window: u8,
@@ -2726,6 +2732,7 @@ impl Ruleset {
             push_speed: Fx::from_ratio(3, 40),
             jump_momentum: Fx::from_ratio(17, 20),
             jump_momentum_max: Fx::from_ratio(5, 4),
+            jump_stick_share: 0,
             respawn_invuln: 120,
             tech_window: 11,
             tech_lag: 4,
@@ -2905,6 +2912,7 @@ impl StateHash for Ruleset {
         self.push_speed.hash_into(h);
         self.jump_momentum.hash_into(h);
         self.jump_momentum_max.hash_into(h);
+        h.write_u8(self.jump_stick_share);
         h.write_u8(self.respawn_invuln);
         h.write_u8(self.tech_window);
         h.write_u8(self.tech_lag);
@@ -3292,6 +3300,7 @@ mod tests {
             |r: &mut Ruleset| r.push_speed += Fx::from_raw(1),
             |r: &mut Ruleset| r.jump_momentum += Fx::from_raw(1),
             |r: &mut Ruleset| r.jump_momentum_max += Fx::from_raw(1),
+            |r: &mut Ruleset| r.jump_stick_share ^= 1,
         ] {
             let mut c = base.clone();
             change(&mut c.rules);

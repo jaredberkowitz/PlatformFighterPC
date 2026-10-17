@@ -163,6 +163,10 @@ fn validate_previous_rules(r: &sim_core::content::Ruleset, errors: &mut Vec<Stri
     if r.slip_lag > r.slip_max {
         errors.push("ruleset: slip_lag cannot be above slip_max".to_string());
     }
+    // (The ground jump's stick share is a switch: owner decision 100, sim 139.)
+    if r.jump_stick_share > 1 {
+        errors.push("ruleset: jump_stick_share must be 0 or 1".to_string());
+    }
 }
 
 /// Names are how content files refer to things, so they must be present, tidy and unique.
@@ -1690,6 +1694,40 @@ mod combat_tests {
             .unwrap_err()
             .iter()
             .any(|e| e.contains("placed")));
+    }
+
+    #[test]
+    fn the_jump_stick_share_switch_round_trips_and_is_checked() {
+        // Sim 139 (owner decision 100): the ruleset's `jump_stick_share` is written, read back either way, defaults to 0 (the run's
+        // share) in a file without it, and is refused above 1.
+        let base = Content::placeholder();
+        assert_eq!(base.rules.jump_stick_share, 0);
+        let text = crate::bundle::to_text(&base, "test", "", "", false);
+        assert!(text.contains("jump_stick_share 0"));
+        let back = crate::bundle::load(&text).expect("reads back").content;
+        assert_eq!(back, base);
+        let mut on = base.clone();
+        on.rules.jump_stick_share = 1;
+        let text_on = crate::bundle::to_text(&on, "test", "", "", false);
+        assert!(text_on.contains("jump_stick_share 1"));
+        let back = crate::bundle::load(&text_on).expect("reads back").content;
+        assert_eq!(back.rules.jump_stick_share, 1);
+        assert_eq!(back, on);
+        let stripped = text_on
+            .lines()
+            .filter(|l| !l.contains("jump_stick_share"))
+            .collect::<Vec<_>>()
+            .join("\n");
+        let older = crate::bundle::load(&stripped)
+            .unwrap_or_else(|e| panic!("{}", e.join("\n")))
+            .content;
+        assert_eq!(older.rules.jump_stick_share, 0);
+        let mut bad = base.clone();
+        bad.rules.jump_stick_share = 2;
+        assert!(validate(&bad)
+            .unwrap_err()
+            .iter()
+            .any(|e| e.contains("jump_stick_share")));
     }
 
     #[test]
