@@ -18,7 +18,7 @@ var board: Control
 
 class Board extends Control:
 	## {metres, coins, kills, combo, best, mult, step, lives, max_lives, percent, name, banner, banner_alpha, combo_flash, map, tier,
-	## door, gate, shop, shop_names}
+	## door, gate, shop, shop_names, decks, deck_names}
 	var data := {}
 
 	const ROOM_STREET := 0
@@ -116,12 +116,52 @@ class Board extends Control:
 					draw_line(at + Vector2(-r, -r) * 0.7, at + Vector2(r, r) * 0.7, Color(Art.INK, 0.85), 3.0)
 			if status == 3 and not raised:
 				draw_string(D.font(), at + Vector2(-14, r + 22), "next", HORIZONTAL_ALIGNMENT_LEFT, -1, 15, Color(1, 1, 1, 0.8))
+		draw_decks(start - 44.0, y)
 		# The difficulty tier.
 		var tier := int(data.get("tier", 0))
 		var tx := start + (columns - 1) * gap + 44.0
 		draw_string(D.display_font(), Vector2(tx, y + 8.0), "TIER %d" % (tier + 1), HORIZONTAL_ALIGNMENT_LEFT, -1, 20, Color(1, 1, 1, 0.85))
 		for k in tier + 1:
 			draw_circle(Vector2(tx + 6.0 + k * 12.0, y + 22.0), 4.0, Art.CORAL)
+
+	## The decks (R2d): a little ladder left of the strip, one rung a deck (the street lowest), the player's deck lit, and an arrow
+	## at the next room's deck (two at a branching fork whose roads are on two decks), with the deck's name beside it. `decks`:
+	## `SimRunner.run_decks` ([the player's deck, the current room's, the next room's, the other road's or -1, how many]).
+	func draw_decks(right_x: float, mid_y: float) -> void:
+		var decks: PackedInt32Array = data.get("decks", PackedInt32Array())
+		if decks.size() < 5 or decks[4] <= 0:
+			return
+		var names: PackedStringArray = data.get("deck_names", PackedStringArray())
+		var n := decks[4]
+		var gap := 15.0
+		var x := right_x
+		var bottom := mid_y + (n - 1) * gap * 0.5
+		draw_line(Vector2(x, bottom + 9.0), Vector2(x, bottom - (n - 1) * gap - 9.0), Color(Art.INK, 0.75), 5.0)
+		for d in n:
+			var at := Vector2(x, bottom - d * gap)
+			draw_circle(at, 7.5, Art.INK)
+			draw_circle(at, 5.5, Art.SUN if d == decks[0] else Color(1, 1, 1, 0.35))
+		for k in [2, 3]:
+			var d := decks[k]
+			if d < 0 or d >= n:
+				continue
+			var tip := Vector2(x + 11.0, bottom - d * gap)
+			var c := Color(Art.CORAL, 0.95)
+			draw_line(tip + Vector2(13, 0), tip, c, 3.0)
+			draw_line(tip, tip + Vector2(6, -5), c, 3.0)
+			draw_line(tip, tip + Vector2(6, 5), c, 3.0)
+		# The player's deck by name, left of the ladder; the next room's under it when it is another.
+		var font := D.font()
+		if decks[0] >= 0 and decks[0] < names.size():
+			var label := names[decks[0]].to_upper()
+			var tw := font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, 15).x
+			draw_string(font, Vector2(x - 16.0 - tw, mid_y + 5.0), label, HORIZONTAL_ALIGNMENT_LEFT, -1, 15, Color(1, 1, 1, 0.9))
+		var next := decks[2]
+		if next >= 0 and next < names.size() and next != decks[1]:
+			var word := "UP: " if next > decks[1] else "DOWN: "
+			var label := word + names[next].to_upper()
+			var tw := font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, 13).x
+			draw_string(font, Vector2(x - 16.0 - tw, mid_y + 22.0), label, HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color(Art.CORAL, 0.95))
 
 	## Inside the shop: what pressing up does where the player stands (`shop`: `SimRunner.run_shop`), or nothing.
 	func shop_hint() -> String:

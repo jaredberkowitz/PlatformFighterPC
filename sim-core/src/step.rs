@@ -1,7 +1,7 @@
 //! The one entry point that advances the simulation by exactly one 60 Hz frame.
 
 use crate::combat;
-use crate::content::{Content, FighterParams, MAX_LEDGES};
+use crate::content::{Content, FighterParams};
 use crate::fighter;
 use crate::fixed::Fx;
 use crate::grab;
@@ -110,7 +110,7 @@ fn start_sudden_death(state: &mut GameState, content: &Content, most: u8) {
     }
     state.projectiles = [Projectile::default(); crate::state::MAX_PROJECTILES];
     state.items = [Item::default(); crate::state::MAX_ITEMS];
-    state.ledge_owner = [NONE; MAX_LEDGES];
+    state.ledge_owner = [NONE; crate::state::LEDGE_SLOTS];
 }
 
 /// Advances one frame with the players' inputs (the grunts' slots, empty outside a run, read none).
@@ -232,7 +232,8 @@ pub fn step_bodies(state: &mut GameState, content: &Content, inputs: &[Input; MA
 
     // Phase 2: ledge ownership.
     // Free ledges whose occupant left them (dropped, got up, jumped, or was hit).
-    for (l, owner) in state.ledge_owner.iter_mut().enumerate() {
+    let nl = crate::state::ledges(state);
+    for (l, owner) in state.ledge_owner.iter_mut().enumerate().take(nl) {
         if let Ok(o) = usize::try_from(*owner) {
             let f = &state.fighters[o];
             if f.state != FighterState::LedgeHang || usize::try_from(f.ledge) != Ok(l) {
@@ -242,7 +243,7 @@ pub fn step_bodies(state: &mut GameState, content: &Content, inputs: &[Input; MA
     }
     // Contested grabs are decided by a fixed rule: the lowest player index wins, and a winner
     // trumps (knocks off) any current occupant. Losers simply keep falling.
-    for l in 0..stage.ledges.len().min(state.ledge_owner.len()) {
+    for l in 0..stage.ledges.len().min(nl) {
         let Some(winner) = wants.iter().position(|w| *w == Some(l as u8)) else {
             continue;
         };

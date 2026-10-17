@@ -1,7 +1,8 @@
 extends SceneTree
 ## Photographs the single-player run: running right through the first rooms with the keys a player would press (the map at the
 ## top), then (moving room to room) a slope, a fork and the inside of a shop; R2b: each grunt kind (one telling), and the rare event
-## (the runaway van, waiting and ridden); running back to the left wall, then the results (needs a window, so run it without
+## (the runaway van, waiting and ridden); R2d: a climb, a drop, a shaft, the interiors, the skyline and each deck; running back to the
+## left wall, then the results (needs a window, so run it without
 ## --headless).
 ## Run: Godot --path godot --script res://tests/run_shot.gd -- --out=<folder>
 
@@ -160,6 +161,48 @@ func _initialize() -> void:
 		_shot(out, "run_van_ride.png")
 		print("  van %s info %s" % [str(main.sim.run_van()), str(main.sim.run_info())])
 	print("the van came: %s" % str(van))
+	# R2d: verticality. A climb, a drop, a shaft, the interiors and the skyline, each drawn on its own (only it and a few plain
+	# rooms come: `run_debug_only`), then each deck.
+	var targets := [["escape_climb", "run_climb.png", 0.35], ["great_climb", "run_great_climb.png", 0.5],
+		["balcony_drop", "run_drop.png", 0.6], ["light_well", "run_shaft.png", 0.55], ["office", "run_interior.png", 0.4],
+		["stairwell", "run_stairwell.png", 0.45], ["rooftop_bar", "run_bar.png", 0.45], ["catwalks", "run_skyline.png", 0.3],
+		["cranes", "run_cranes.png", 0.4]]
+	for t in targets:
+		main.sim.run_debug_only(PackedStringArray([t[0], "street", "water_towers", "balcony_drop"]), 1, 11)
+		var hit := false
+		for n in 24:
+			main.sim.run_debug_next_room()
+			await create_timer(0.08).timeout
+			var cur := _current(main)
+			if cur.size() > 15 and main.sim.run_room_names()[int(cur[15])] == t[0]:
+				main.sim.run_debug_clear_grunts()
+				var x := lerpf(cur[0], cur[1], t[2])
+				main.sim.debug_place_airborne(0, x, maxf(cur[6], cur[7]) + 1.0 if t[0] in ["balcony_drop"] else lerpf(cur[6], cur[7], 0.5) + 3.0)
+				await create_timer(1.3).timeout
+				_shot(out, t[1])
+				hit = true
+				break
+		print("  %s: %s decks %s" % [t[0], str(hit), str(main.sim.run_decks())])
+	main.sim.run_debug_only(PackedStringArray(["escape_climb", "street", "water_towers", "catwalks"]), 1, 5)
+	var names: PackedStringArray = main.sim.run_deck_names()
+	var shot_decks := {}
+	for n in 40:
+		main.sim.run_debug_next_room()
+		await create_timer(0.08).timeout
+		var cur := _current(main)
+		if cur.size() < 16 or cur[12] != cur[13]:
+			continue
+		var d := int(cur[12])
+		if shot_decks.has(d):
+			continue
+		main.sim.run_debug_clear_grunts()
+		main.sim.debug_place_airborne(0, lerpf(cur[0], cur[1], 0.4), cur[6] + 2.0)
+		await create_timer(1.3).timeout
+		_shot(out, "run_deck_%s.png" % names[d])
+		shot_decks[d] = true
+		if shot_decks.size() == names.size():
+			break
+	print("  decks photographed: %s" % str(shot_decks.keys()))
 	# Back to the wall (the oldest room kept is at most two behind).
 	main._send_key(KEY_A, true)
 	await create_timer(6.0).timeout
@@ -174,3 +217,12 @@ func _initialize() -> void:
 	_shot(out, "run_results.png")
 	main.queue_free()
 	quit(0)
+
+
+## The current room's row (`run_rooms`), or an empty array.
+func _current(main: Node) -> PackedFloat32Array:
+	var info: PackedInt32Array = main.sim.run_info()
+	for r in main.sim.run_rooms():
+		if int(r[5]) == info[8]:
+			return r
+	return PackedFloat32Array()

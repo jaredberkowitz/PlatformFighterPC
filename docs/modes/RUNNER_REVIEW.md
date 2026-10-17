@@ -199,3 +199,14 @@ Technical notes for R2d:
 2. Should skilled routes ever be required? Proposed: never; there is always a sure route.
 3. Interiors (an office floor, a stairwell): in the city's style, or keep the run outdoors?
 4. Moving platforms for the run first (R4a), then a versus stage later: agreed?
+
+**The owner's answers (15 October 2026), verbatim:**
+1. "Three levels is fine for now, but I think later adding a skyline or sewer system would be good to further flesh out the world. This game mode is our base singleplayer loop, aside from fighting CPUs."
+2. Should skilled routes ever be required? "I agree, never."
+3. Indoor rooms: "Indoor rooms is good. Using a system similar to Canabalt would be smart, I think."
+4. Moving platforms for the run first, then a versus stage: "Sure." (That is R4a.)
+
+How R2d follows them (`RUNNER_PLAN.md` section 12): three decks, as data, so a sewer or a higher skyline is a content change
+(a test adds a sewer deck without touching code); skilled routes are never needed (the content check proves every room's sure route
+without them); interiors are Canabalt's (crash in through a window, run the floor under a ceiling, burst out the far side); moving
+platforms wait for R4a.

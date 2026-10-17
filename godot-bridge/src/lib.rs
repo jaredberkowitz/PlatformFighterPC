@@ -18,8 +18,9 @@ use sim_content::recipe::{match_content_on, FighterSpec};
 use sim_content::stages;
 use sim_core::input::buttons;
 use sim_core::run::{
-    door_here, door_of, for_each_coin, for_each_footing, grunt_fighter, new_run, shop_spot,
-    step_run, tier_of, RunContent, INTERIOR_X, LOOK_NAMES, MAX_MOBS, MODE_EMERGE, MODE_WINDUP,
+    deck_at, door_here, door_of, for_each_coin, for_each_footing, grunt_fighter, new_run,
+    shop_spot, step_run, tier_of, RunContent, INTERIOR_X, LOOK_NAMES, MAX_MOBS, MODE_EMERGE,
+    MODE_WINDUP,
 };
 use sim_core::state::PLAYING;
 use sim_core::{step, Content, Fx, GameState, Input, MatchRules, Vec2, MAX_FIGHTERS, SIM_VERSION};
@@ -1003,6 +1004,44 @@ impl SimRunner {
         true
     }
 
+    /// Debug (tests and photographs, R2d): restarts the run on the same content with only the named rooms drawn by the generator (the
+    /// others are kept, as roads only, so indices hold), keeping to a deck for `stretch` rooms and never offering a deck fork unless
+    /// one is named. Returns how many rooms it named.
+    #[func]
+    fn run_debug_only(&mut self, names: PackedStringArray, stretch: i32, seed: i64) -> i32 {
+        let Some((rc, char_id)) = &mut self.run else {
+            return 0;
+        };
+        let wanted: Vec<String> = names.as_slice().iter().map(|n| n.to_string()).collect();
+        let mut named = 0;
+        let mut rc2 = RunContent::placeholder();
+        for (i, r) in rc2.rooms.iter_mut().enumerate() {
+            if i == 0 {
+                continue;
+            }
+            if wanted.contains(&r.name) {
+                named += 1;
+            } else {
+                r.paired = true;
+            }
+        }
+        let k = stretch.clamp(1, 20) as u8;
+        rc2.rules.deck_rooms_min = k;
+        rc2.rules.deck_rooms_max = k;
+        if !wanted.iter().any(|n| n.starts_with("deck_fork")) {
+            rc2.rules.deck_fork_chance = 0;
+        }
+        rc2.rules.event_base = 0;
+        rc2.rules.event_step = 0;
+        *rc = rc2;
+        let char_id = *char_id;
+        let (rc, _) = self.run.as_ref().unwrap();
+        self.state = new_run(&mut self.content, rc, seed as u64, char_id);
+        self.refresh_grunts_now();
+        self.recorder = None;
+        named
+    }
+
     /// Debug (tests and photographs): the next rooms laid make the city's rare event come at once (the pity counter maxed out).
     #[func]
     fn run_debug_force_event(&mut self) {
@@ -1029,6 +1068,11 @@ impl SimRunner {
         else {
             return false;
         };
+        // (The camera on the door, as if it had followed: the blast zone follows the camera.)
+        let run = &mut self.state.run;
+        run.cam_x = (door.x - rc.rules.view_width * rc.rules.follow)
+            .max(run.wall_x)
+            .min((run.right_limit() - rc.rules.view_width).max(run.wall_x));
         sim_core::run::build_stage(&self.state.run, rc, &mut self.content.stage);
         let f = &mut self.state.fighters[0];
         f.pos = door;
@@ -2950,7 +2994,9 @@ impl SimRunner {
     }
 
     /// The rooms in play, one row each: `[left edge, right edge, type, door x, door y, number, ground height where it begins, where it
-    /// ends, fork (0/1), mirrored (0/1), elevation (0 flat, 1 rising, 2 falling, 3 valley)]` (the door is a shop's; 0 elsewhere).
+    /// ends, fork (0/1), mirrored (0/1), elevation (0 flat, 1 rising, 2 falling, 3 valley), indoor (0/1), the deck it enters on, the
+    /// deck it leaves on, a lid closed over it (0/1: a climb left behind), the room's index in the content (`run_room_names`)]` (the
+    /// door is a shop's; 0 elsewhere). R2d added the last five.
     #[func]
     fn run_rooms(&self) -> Array<PackedFloat32Array> {
         let mut out = Array::new();
@@ -2974,8 +3020,66 @@ impl SimRunner {
                 if c.fork { 1.0 } else { 0.0 },
                 if s.mirror { 1.0 } else { 0.0 },
                 f32::from(c.elevation(s.mirror)),
+                if c.indoor { 1.0 } else { 0.0 },
+                f32::from(s.deck_in),
+                f32::from(s.deck_out),
+                if s.lid { 1.0 } else { 0.0 },
+                f32::from(s.room),
             ];
             out.push(&PackedFloat32Array::from(v.as_slice()));
+        }
+        out
+    }
+
+    /// The decks (R2d, for the map strip): `[the deck the player is on (its feet's height), the deck the current room leaves on, the
+    /// deck the next room leaves on, the other road's deck at a branching fork (-1 none), how many decks]`; -1 where there is none.
+    #[func]
+    fn run_decks(&self) -> PackedInt32Array {
+        let Some((rc, _)) = &self.run else {
+            return PackedInt32Array::new();
+        };
+        let r = &self.state.run;
+        if !r.active {
+            return PackedInt32Array::new();
+        }
+        let here = r.slot_of(r.room).map_or(-1, |s| i32::from(s.deck_out));
+        let (ahead, n) = r.ahead();
+        let (next, other) = match r.branches() {
+            Some((high, low)) => (i32::from(high.deck_out), i32::from(low.deck_out)),
+            None if n > 0 => (i32::from(ahead[0].deck_out), -1),
+            None => (-1, -1),
+        };
+        let feet = self.state.fighters[0].pos.y;
+        let v = [
+            i32::from(deck_at(rc, feet)),
+            here,
+            next,
+            other,
+            rc.decks.len() as i32,
+        ];
+        PackedInt32Array::from(v.as_slice())
+    }
+
+    /// Every deck's name, lowest first (R2d).
+    #[func]
+    fn run_deck_names(&self) -> PackedStringArray {
+        let mut out = PackedStringArray::new();
+        if let Some((rc, _)) = &self.run {
+            for d in &rc.decks {
+                out.push(d.name.as_str());
+            }
+        }
+        out
+    }
+
+    /// Every room's name, by its index in the content (`run_rooms`' last column).
+    #[func]
+    fn run_room_names(&self) -> PackedStringArray {
+        let mut out = PackedStringArray::new();
+        if let Some((rc, _)) = &self.run {
+            for r in &rc.rooms {
+                out.push(r.name.as_str());
+            }
         }
         out
     }

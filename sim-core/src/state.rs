@@ -698,8 +698,9 @@ pub struct GameState {
     pub rng: Rng,
     /// The players (`MAX_FIGHTERS`), then the run's grunts (`MAX_GRUNTS`, inactive outside a run: sim 131).
     pub fighters: [Fighter; MAX_BODIES],
-    /// Which fighter holds each ledge, or [`NONE`].
-    pub ledge_owner: [i8; MAX_LEDGES],
+    /// Which fighter holds each ledge, or [`NONE`]. A versus stage has at most [`MAX_LEDGES`]; the run's streamed stage up to
+    /// [`LEDGE_SLOTS`] (R2d). Only the first [`ledges`] are ever touched or hashed.
+    pub ledge_owner: [i8; LEDGE_SLOTS],
     pub projectiles: [Projectile; MAX_PROJECTILES],
     /// The item pool (E4, sim 111).
     pub items: [Item; MAX_ITEMS],
@@ -888,6 +889,20 @@ impl Fighter {
 /// How many of `GameState::fighters` are in play: the players in versus, every body (the grunt slots too) in a run (sim 131). Every
 /// loop over the bodies stops here, and the checksum hashes these, so versus pays nothing for the grunt slots (they stay at their
 /// default, never touched, outside a run).
+/// The ledge table's size (R2d): a run's streamed stage holds up to 16 ledges, a versus stage at most [`MAX_LEDGES`].
+pub const LEDGE_SLOTS: usize = 16;
+const _: () = assert!(MAX_LEDGES <= LEDGE_SLOTS);
+
+/// How many entries of `GameState::ledge_owner` are in play: a versus stage's [`MAX_LEDGES`], or all of them in a run (R2d). The
+/// ledge loops stop here and the checksum hashes these, so versus pays nothing for the run's extra ledges.
+pub fn ledges(state: &GameState) -> usize {
+    if state.run.active {
+        LEDGE_SLOTS
+    } else {
+        MAX_LEDGES
+    }
+}
+
 pub fn bodies(state: &GameState) -> usize {
     if state.run.active {
         MAX_BODIES
@@ -955,7 +970,7 @@ impl GameState {
             winner: PLAYING,
             rng: Rng::new(seed),
             fighters,
-            ledge_owner: [NONE; MAX_LEDGES],
+            ledge_owner: [NONE; LEDGE_SLOTS],
             projectiles: [Projectile::default(); MAX_PROJECTILES],
             items: [Item::default(); MAX_ITEMS],
             script_vars: [0; MAX_SCRIPT_VARS],
@@ -1149,7 +1164,7 @@ impl StateHash for GameState {
         for f in &self.fighters[..bodies(self)] {
             f.hash_into(h);
         }
-        for o in &self.ledge_owner {
+        for o in &self.ledge_owner[..ledges(self)] {
             h.write_i8(*o);
         }
         let nb = bodies(self);

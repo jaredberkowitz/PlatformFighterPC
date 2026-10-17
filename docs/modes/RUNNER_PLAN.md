@@ -1,11 +1,11 @@
-# Single-player mode: the endless run (plan, draft 3; R1 to R2c built)
+# Single-player mode: the endless run (plan, draft 3; R1 to R2d built)
 
 Status: **draft 3 (14 October 2026): the owner played R1 and replaced the creeping camera with rooms (section 3.1). R1 (the vertical
 slice) is built (sim 120, section 7); R1b (rooms) is built (sim 122, section 8); R2a (the world: slopes, room variants, the fork, the
 walk-in shop) is built on branch `runner-r2`, sim 124 and content schema 8: see section 9; R2b (fighter-shaped grunts, the difficulty
 curve, hazards, the runaway van, branching forks) is built on branch `runner-r2b`, sim 127: see section 10; R2c (combat parity: every
 grunt is a fighter; lighter grunts knocked out by blast zones that follow the view; the shopkeeper's grudge) is built on branch
-`runner-r2c`, sim 131: see section 11.** Decisions are marked **Decided**. Owner brief, 14 October 2026: a single-player endless-runner mode inspired by the mobile
+`runner-r2c`, sim 131: see section 11; R2d (verticality: three decks, climbs, drops, shafts, interiors, deck forks, sure and skilled routes) is built on branch `runner-r2d`, sim 137: see section 12.** Decisions are marked **Decided**. Owner brief, 14 October 2026: a single-player endless-runner mode inspired by the mobile
 game *Punch Quest* (Rocketcat Games and Madgarden, 2012), using this game's fighters, physics and art. The player runs right, beats
 enemies for currency, spends it in shops on power-ups, stat boosts and other fighters' moves of the same archetype, fights a generated
 boss every so often, and tries to get as far as possible.
@@ -1003,6 +1003,109 @@ R3 is planned in `RUNNER_R3_PLAN.md`, for Saturday 17 October.
 3. The **grunt knock-out** reuses the versus beam and sparks in the outfit colour; a smaller, enemy-specific pop would suit.
 4. Checked in `run_shot` after art 45 moved the stage's front to 2: props, the van, coins and doors still read right; the grunt labels
    do not depth-test, so the closer front does not cover them.
+
+## 12. R2d progress (verticality, sim 137, content schema 8, branch `runner-r2d`)
+
+Spec: `RUNNER_REVIEW.md` fixes F1 (decks) and F2 (vertical rooms, sure and skilled routes), with the owner's answers (review section
+5): three decks for now (a sewer or a higher skyline later), skilled routes never required, Canabalt-style interiors.
+
+### What can be played
+- **Three decks, one view apart**: the street (-18), the rooftops (0, where the run begins: R2a's level) and the skyline (+18).
+  `drift` is now 27, so the run's ground spans about 54 units, three screens. The map strip has a little **deck ladder** left of
+  the rooms: your deck lit, an arrow at the next room's deck (two at a deck fork), "ROOFTOPS" and "UP: SKYLINE" beside it.
+- **The deck plan**: the run keeps to a deck for 3 to 5 rooms, then either a **deck fork** offers the choice (60%) or the plan picks
+  a deck and a climb, a drop or a shaft takes you there. A fork's choice lasts a new stretch. Shops keep their spacing (a shop due
+  comes first) and the rare event is rolled every room as before.
+- **Climbs, drops and shafts**: the fire-escape climb, the terraces (four ledges), the great climb (street to skyline, two decks,
+  three screens tall), the balcony drop, the awning drop, the light well and the elevator shaft. A mirrored climb is a drop and a
+  mirrored drop a climb. The camera follows height faster in them (`cam_y_ease_tall` 1/8, was 1/20).
+- **The vertical gate**: once you leave a room that changed deck, nothing before it is kept (the wall stands at its left edge), and a
+  climb closes a **lid** across its top, so you cannot go back down it; the blast line rises with it.
+- **Falling from a deck lands on the one below**: every room but a true pit (the old `gap` and `drop`, flagged `pit`) has something
+  under every point; the skyline's gaps have the rooftops below them and sills back up.
+- **Sure and skilled routes**: every room's sure route is passable by the worst jumper in the cast; six rooms add a skilled route
+  (bigger jumps, ledges, leaps over gaps; marked with coins) that is shorter: escape_climb 4 jumps against 5, terrace_climb 4/5,
+  great_climb 7/10, light_well 4/5, catwalks 2/4, cranes 3/4. Never needed.
+- **Interiors (Canabalt's)**: the office floor (desks, a cubicle row, crates), the stairwell (four flights up a deck, in at the
+  ground floor's window, out of the top floor's) and the rooftop bar (a counter and tables under a canopy with coins on top). The
+  ceiling cuts jumps short (a test: a full hop and a midair jump stay under it). The camera is unchanged.
+- **18 new rooms** (39 in all): the 7 vertical rooms, catwalks, cranes, water towers, the `rig` arena (skyline), the 3 interiors,
+  the up and down deck forks and their two roads (the sky bridge over the street under it). The shop, the rest stop, the roofs
+  arena, the step, the tin roofs and the van street now come on every deck.
+
+### How it is built (and why)
+- **Decks are data** (`RunContent::decks`, `Deck { name, y, wander, weight }`, lowest first; `RunRules::start_deck`). A room
+  declares the decks it may be entered on (`Room::decks`, bits) and `deck_change` (0 stay, 1 climb, -1 drop; mirrored, negated),
+  plus `pit` and `indoor`. A test adds a sewer deck below the street as a pure content change.
+- **The generator** (`run::next_room`): a shop due, then the event roll, then the plan (`Run::plan_deck`, `plan_left`), then a room
+  that keeps to the deck by type as before. Mirroring keeps a room's exit inside its exit deck's band (it replaces the old drift
+  mirror rule). Deck forks are branching forks whose roads land on different decks (`run::is_deck_fork`), laid as R2b's roads.
+- **Slots know their decks and span** (`RoomSlot::lo`, `hi`, `deck_in`, `deck_out`, `lid`): the blast lines use the lowest surface
+  (catch floors) and the lid. Every new field is hashed.
+- **Content checks** (`sim_content::check_run`): the decks (sorted, bands apart, inside the drift, a street keeping to every
+  reachable deck), each room's decks (a climb from every entry deck lands inside the next deck's band), "a fall lands on something"
+  unless `pit`, skilled footings only pass-through, and the proof per route: the sure route without the skilled footings, no traps
+  with them, the skilled route reachable and trap-free with `skill_step` 6.5 and `skill_gap` 7.5, and shorter in the authored form.
+  Every built-in fighter reaches the skilled jumps (worst: 7.6 up, 9.9 across); the sure jumps stay 4.0 and 4.5.
+- **Limits**: 16 platforms a room (was 14), 4 ledges (was 2); the pool has 2 spare entries (the van's roof, a lid). The ledge table
+  is 16 (`state::LEDGE_SLOTS`) but **versus touches and hashes only its 8** (`state::ledges`, as R2c's `bodies`). `run::DEEP` is
+  -160 and `BLOCK_BOTTOM` -60 so a room may reach two decks down.
+- **Versus**: an inactive run is no longer hashed (only its `active` flag), so versus checksums are cheaper.
+- Fixes found on the way: grunts behind a new wall are removed before the platforms they stood on are judged (a grunt kept a
+  dropped room's ground alive); the debug shop entry puts the camera on the door; the run's view rebuilds its rooms on a fresh run.
+- Debug for tests and photographs: `run_debug_only(names, stretch, seed)`, `run_decks`, `run_deck_names`, `run_room_names`;
+  `run_rooms` rows gained indoor, the two decks, the lid and the room's index.
+
+### Tunables added or changed (`RunRules::standard`, `standard_decks`)
+| Rule | Value | Meaning |
+| --- | --- | --- |
+| `drift` | 27 (was 8) | the run's ground stays within this of where it began: all three decks |
+| decks | street -18, rooftops 0, skyline 18; wander 6; weights 3, 4, 3 | the bands and how often the plan heads for each |
+| `start_deck` | 1 | the rooftops |
+| `deck_rooms_min` / `max` | 3 / 5 | a stretch on one deck |
+| `deck_fork_chance` | 60 | percent of stretch ends that are a deck fork |
+| `skill_step` / `skill_gap` | 6.5 / 7.5 | the skilled routes' jumps |
+| `cam_y_ease_tall` | 1/8 | the view's height in a room that changes deck |
+
+### Tests and numbers
+- `sim-content` (`run.rs`): the city has three decks one view apart and every deck has streets, an arena, a shop and a rest stop; a
+  deck is data (a sewer added); bad decks refused; a fall lands on something unless a pit; the skilled route is never needed, always
+  shorter, reachable, pass-through only; the skilled jumps are within the cast's reach; `run_world` proves the sure route of every
+  room the generator lays over 40 seeds.
+- `sim-core/tests/runner.rs` (71): the deck plan over 16 seeds (every room inside a deck's band, decks change only by vertical rooms
+  or a fork's road, a fork's choice lasts a stretch, all three decks and every new room come); a fall lands on the deck below; a
+  climb scrolls the view up and becomes a gate (wall at its edge, lid, blast line, landing on the lid); a drop scrolls down; an
+  interior's ceiling; the checksum sees every new field and the run's ledges, versus never; a run through the decks replays.
+- `cargo test --workspace`, clippy `-D warnings`, `cargo fmt`: pass. Godot headless: runner_test (now also the deck ladder data and a
+  climb becoming a gate), match_flow_test, input_e2e, controls_test, replay_test, online_flow_test, net_e2e, creator_flow_test,
+  content_e2e, editor_api_test: all pass. `tests/run_shot.gd` photographs a climb, the great climb, a drop, a shaft, the office,
+  the stairwell, the bar, the catwalks, the cranes and each deck.
+- **Versus unchanged**: a digest of 60 random four- and two-player matches (900 frames each) is the same on main (sim 136) and here;
+  `pftool net-fuzz 200` and `fuzz-rollback 300` print the same lines (8,375 and 46,942 rollbacks). `fuzz-rollback 300` timed back to
+  back three times: this branch 3.6 to 4.0 s, main 4.8 to 5.0 s (faster: the inactive run is no longer hashed).
+- **GameState is 11,392 bytes** (main 10,944; the run's part 3,056, was 2,616).
+
+### Decisions for the owner (R2d)
+- **Where the run starts**: on the rooftops (the middle deck). Start on the street instead?
+- **Deck stretches of 3 to 5 rooms, deck forks at 60% of stretch ends**: more or fewer deck changes?
+- **The skilled jumps** (6.5 up, 7.5 across) are within every built-in fighter's double jump; only made fighters with the lowest jump
+  stat may miss them. Harder (a recovery special needed), or as is?
+- **The old gap and drop rooms stay true pits** (a fall there costs a life). Give them catch floors too?
+- **A drop gets no lid** (you can climb back within it, but nothing before it is kept). Lid it too?
+
+### For the art director (R2d; **reused** = drawn now from existing art, **new** = needs a design)
+1. **Climb faces** (`wall`, the light well's walls): **reused**, the city's block with its facade; a proper fire-escape building
+   face with windows, pipes and a ladder is **new**.
+2. **The skyline's towers** (`tower`): **reused** block; taller, glassier skyscraper tops are **new**.
+3. **Cranes and girders** (`crane`, `girder`, `ledge_block`): **reused** girder platform; a crane (mast, jib, hook, counterweight)
+   and window-washer planks are **new**.
+4. **Interiors** (`office_floor`, `ceiling`, `desk`, `cubicle`, `bar_counter`, `table`, `stairwell`): placeholder boxes, a flat
+   warm back wall with a row of lamps and thin glass panes; an office floor, a stairwell and a rooftop bar kit, and the **crash
+   through the window** (glass shards as you enter and leave) are **new**.
+5. **The lid over a climb left behind**: **reused** block; a roof edge or a closing hatch would read better (**new**).
+6. **The deck ladder on the map strip**: placeholder pips and an arrow; **new** icons per deck (street, roofs, skyline) would help.
+7. **Depth**: the street visible below the rooftops and the rooftops below the skyline (F6) is **new**; today the gaps show the
+   backdrop and the catch roofs.
 
 Sources: [TouchArcade review](https://toucharcade.com/2012/10/26/punch-quest-review/),
 [AppSpy review](https://www.appspy.com/punch-quest-review), [Destructoid review](https://www.destructoid.com/reviews/review-punch-quest/),
