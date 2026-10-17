@@ -857,7 +857,8 @@ func _body_follow(s: Dictionary, delta: float) -> void:
 			# A leg swings comfortably from about 40 degrees behind to 100 in front; past that the body has to make room.
 			if phi > 100.0:
 				# (Not too far: the base body's big head arched back past this shows its chin, not its face.)
-				target_bend = -minf((phi - 100.0) * 0.85, 26.0 if use_base_body else 50.0)
+				# (Pose review 2026-10-17: 14 on the base body; at 26 a high kick arched the round body back, belly first.)
+				target_bend = -minf((phi - 100.0) * 0.85, 14.0 if use_base_body else 50.0)
 			elif phi < -40.0:
 				# (Less: kicks behind already lean the body forward in their clips.)
 				target_bend = minf((-40.0 - phi) * 0.4, 10.0 if use_base_body else 24.0)
@@ -865,14 +866,17 @@ func _body_follow(s: Dictionary, delta: float) -> void:
 			# An arm reaches almost anywhere: lean into low swings in front, a little back from ones overhead or behind.
 			if phi > 0.0 and phi < 80.0:
 				target_bend = (80.0 - phi) * 0.35
-			elif phi > 140.0:
+			elif phi > 140.0 and not use_base_body:
+				# (Not on the base body: it reaches overhead from the shoulders with the chest lifted; bent back, the round body read as
+				# inhaling. Pose review 2026-10-17.)
 				target_bend = -(phi - 140.0) * 0.4
 			elif phi < -60.0:
 				target_bend = (-60.0 - phi) * 0.3
 		# Look at the hit: up for a hit overhead, down for a low one, by how high it is (about half of the angle to it).
 		var rise := rad_to_deg(atan2(to.y, absf(to.x)))
 		# (Less far up for a kick: the body already leans back under a high one, and the face must stay toward the camera.)
-		target_look = clampf(rise * 0.5, -20.0, 12.0 if kicking else 30.0)
+		# (The base body only glances up, 8 at most: its big head tipped back shows the chin, not the face. Pose review 2026-10-17.)
+		target_look = clampf(rise * 0.5, -20.0, 8.0 if use_base_body else (12.0 if kicking else 30.0))
 		# In proportion to how far into the move the limb is (its blend toward the hitbox). The base body's clips already lean and look
 		# into its swings and kicks, and its legs reach high on their own, so it takes half of this.
 		# (A kick on the base body takes more of the counter-lean: the reference fighters' whole body lines up with a kick, standing tall
@@ -2416,7 +2420,9 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 		if f < first:
 			target_squash = 0.14 * clampf(f / maxf(1.0, first * 0.6), 0.0, 1.0)
 		elif f <= last + 2.0:
-			target_squash = -0.2
+			# (Not on the base body: the limb or weapon reaches for the hit, the body does not grow toward it. The owner,
+			# 2026-10-17.)
+			target_squash = 0.0 if use_base_body else -0.2
 	if state == "Airborne" or state == "Helpless":
 		target_squash = -0.1 if vy > 0.06 else (-0.05 if vy < -0.12 else 0.0)
 	var target_lean: float = LEAN.get(state, 0.0)
@@ -2437,6 +2443,10 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 		else:
 			# (A body with legs leans with its spine and hips, from its clips and the body-follow; tipping the whole model would pivot it
 			# on its feet, so the base body keeps only a little of this on the ground.)
+			# (Never tipped back under an overhead hit on the base body: it reaches up with the arm, not the whole body. The owner,
+			# 2026-10-17.)
+			if use_base_body:
+				swing = maxf(swing, 0.0)
 			target_lean += swing * _reach_weight(s) * (0.35 if use_base_body else 1.0)
 	# The attack lunge: drawn back while winding up, thrown forward through the strike.
 	var target_lunge := 0.0
@@ -2895,6 +2905,8 @@ const FOLLOW_SHARE := 0.28
 ## The weapon arm's shoulder in forward space (x forward, y up), and how far the hand reaches from it in a swing.
 const SHOULDER := Vector2(0.5, 1.15)
 const ARM_REACH := 0.5
+## How much of its own length (shoulder to wrist) a blade's arm reaches on the base body (see `_pose_blade`): a little short of straight.
+const BLADE_ARM_REACH := 0.92
 var arm_k := 0.0
 var hand_target := Vector3.ZERO
 ## Where the greatsword's other hand holds the grip (model space), set with `hand_target`.
@@ -2973,6 +2985,11 @@ func _pose_blade(s: Dictionary, delta: float) -> void:
 		var dist := maxf(to_tip.length(), 0.001)
 		# (A fist reaches further by the strike's stretch, `strike_e`, so the stretched arm is straight on the hit.)
 		var reach := minf(arm_reach, maxf(dist - 0.3, 0.1)) if bladed(_cls(s)) else arm_reach * (1.0 + strike_e)
+		# (On the base body a blade's arm reaches out most of its length whatever the hit's distance: the arm and weapon extend to the hit,
+		# never the body, and the blade carries on past a near hitbox. The owner, 2026-10-17. A little short of straight: a locked elbow
+		# read as reaching for a hug, pose review.)
+		if bladed(_cls(s)) and use_base_body:
+			reach = (arm_reach - 0.1) * BLADE_ARM_REACH
 		var dir := to_tip / dist
 		# (A blade raised high is held out in front of the face, not over it: the arm is short against the big head, so straight up the
 		# hilt ended in front of the face and the arm hid behind the blade. Art review 5, after the reference's up smash, whose arm is
@@ -3043,6 +3060,7 @@ func _reach_weight(s: Dictionary) -> float:
 ## ahead, 180 overhead, negative behind). Weighted by the move's reach, so it eases in with the wind-up and out in the recovery, and
 ## sprung (`lean`), so it overshoots a little and settles.
 const AIR_BACK := 36.0
+const AIR_BACK_BASE := 12.0
 const AIR_FORWARD := 50.0
 const AIR_KICK_BACK := 18.0
 const AIR_PIVOT := Vector3(0, 1.0, 0)
@@ -3057,11 +3075,14 @@ func _air_counter(s: Dictionary, phi: float) -> float:
 	if phi < 0.0:
 		# Behind: pitch forward, more the further round behind it is.
 		return clampf(-phi * 0.42, 0.0, AIR_FORWARD)
+	# (The base body tips back only a little: the limb or weapon reaches overhead, not the whole body; 36 laid the round body flat. The
+	# owner, 2026-10-17.)
+	var back := AIR_BACK_BASE if use_base_body else AIR_BACK
 	if phi > 200.0:
-		return -AIR_BACK
+		return -back
 	if phi > 120.0:
 		# Overhead: tip back.
-		return -clampf((phi - 105.0) * 0.62, 0.0, AIR_BACK)
+		return -clampf((phi - 105.0) * 0.62, 0.0, back)
 	if kick and phi > 45.0:
 		# A kick out in front: the body leans back against the leg (a jackknife).
 		return -AIR_KICK_BACK
@@ -3312,6 +3333,12 @@ static func _arm_hinge(up0: Vector3, fore0: Vector3, up1: Vector3, fore1: Vector
 	return [(want_u * rest_u.inverse()).get_rotation_quaternion(), (want_f * rest_f.inverse()).get_rotation_quaternion()]
 
 
+## About where the hips are (forward space, height), for how steeply a kick rises.
+const KICK_HIP_Y := 0.6
+## The steepest a kick rises on the base body (degrees above level, see `_aim_leg`).
+const HIGH_KICK := 50.0
+
+
 ## A kick: the leg on the side of the hitbox reaches the live hitbox with two-bone IK (hip, knee, ankle), so the foot is where the hit
 ## is; the other leg and the body come from the move's clip.
 func _aim_leg(s: Dictionary, kicking: bool, delta: float) -> void:
@@ -3359,8 +3386,23 @@ func _aim_leg(s: Dictionary, kicking: bool, delta: float) -> void:
 		var to_skel := _skeleton_to_frame().affine_inverse()
 		# The hitbox centre in model space; the foot reaches it (or as near as the leg allows).
 		var aim: Vector3 = goals[side]
-		# (A little toward the camera, so on the turned body the kicking leg passes in front of the torso instead of through it.)
-		var goal: Vector3 = to_skel * Vector3(aim.x * float(facing), aim.y, 0.75)
+		# On the base body a kick never rises steeper than HIGH_KICK above level: its short legs kicked straight up ended at the chest, in
+		# front of the round belly, and the foot read as a second fist. Angled up and forward the foot ends up at head height clear of the
+		# body, a high kick that reads (after the reference's high forward kicks: the owner, 2026-10-17).
+		if use_base_body:
+			var from_hip := Vector2(aim.x, aim.y - KICK_HIP_Y)
+			var a := from_hip.angle()
+			var limit := deg_to_rad(HIGH_KICK)
+			if aim.x >= 0.0 and a > limit and a <= PI * 0.5:
+				from_hip = Vector2.from_angle(limit) * from_hip.length()
+			elif aim.x < 0.0 and a < PI - limit and a >= PI * 0.5:
+				from_hip = Vector2.from_angle(PI - limit) * from_hip.length()
+			aim = Vector3(from_hip.x, from_hip.y + KICK_HIP_Y, aim.z)
+		# (A little toward the camera, so on the turned body the kicking leg passes in front of the torso instead of through it; less for a
+		# high kick, where it outweighed the height and pointed the leg at the camera.)
+		var rise := rad_to_deg(atan2(aim.y - KICK_HIP_Y, maxf(absf(aim.x), 0.001)))
+		var toward := lerpf(0.75, 0.4, smoothstep(20.0, 50.0, rise))
+		var goal: Vector3 = to_skel * Vector3(aim.x * float(facing), aim.y, toward)
 		var d := goal - hip
 		var dist := clampf(d.length(), 0.05, upper + lower - 0.002)
 		var dir := d.normalized()
