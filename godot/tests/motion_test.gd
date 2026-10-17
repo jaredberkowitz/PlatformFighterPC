@@ -48,7 +48,8 @@ func _initialize() -> void:
 	for f in 6:
 		fly.frame = 100 + f
 		view.apply(Vector3(float(f), 2.0, 0), fly, 1.0 / 60.0)
-	check(view.body_k > 0.2, "a fast launch stretches the body (%.2f)" % view.body_k)
+	# (The base body takes MotionDeform.BASE_LAUNCH_SHARE of the stretch: stretched far, the round body read as melting.)
+	check(view.body_k > 0.1, "a fast launch stretches the body (%.2f)" % view.body_k)
 	view.apply(Vector3.ZERO, snap(1, "Idle", "", 40, 0), 1.0 / 60.0)
 	check(view.body_k == 0.0 and view.launch_frame.transform.is_equal_approx(Transform3D.IDENTITY),
 		"after a rollback the body is plain at once (%.2f)" % view.body_k)
