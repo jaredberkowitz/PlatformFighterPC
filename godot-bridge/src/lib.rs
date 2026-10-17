@@ -1068,6 +1068,11 @@ impl SimRunner {
         else {
             return false;
         };
+        // (The camera on the door, as if it had followed: the blast zone follows the camera.)
+        let run = &mut self.state.run;
+        run.cam_x = (door.x - rc.rules.view_width * rc.rules.follow)
+            .max(run.wall_x)
+            .min((run.right_limit() - rc.rules.view_width).max(run.wall_x));
         sim_core::run::build_stage(&self.state.run, rc, &mut self.content.stage);
         let f = &mut self.state.fighters[0];
         f.pos = door;

@@ -70,7 +70,7 @@ func _bridge() -> void:
 		if row.size() != 10 or int(row[8]) <= 0 or int(row[8]) >= looks.size():
 			all_looked = false
 	check(all_looked, "every footing has a look")
-	check(sim.run_rooms()[0].size() == 11, "the rooms' rows: " + str(sim.run_rooms()[0]))
+	check(sim.run_rooms()[0].size() == 16, "the rooms' rows: " + str(sim.run_rooms()[0]))
 	check(sim.run_coins().size() % 4 == 0, "the coins")
 	var interior: Array = sim.run_interior()
 	check(interior.size() >= 4, "the shop's interior: %d rows" % interior.size())
@@ -133,6 +133,27 @@ func _bridge() -> void:
 		sim.tick()
 	check(sim.run_view()[0] < far - 3.0 or sim.run_info()[11] == 1, "the camera came back: %.1f from %.1f" % [sim.run_view()[0], far])
 	check(sim.run_view()[0] >= sim.run_view()[6], "never past the wall")
+	# R2d: the decks (the map strip's ladder), and a climb that becomes a gate once left.
+	sim.run_start(5)
+	check(sim.run_deck_names() == PackedStringArray(["street", "rooftops", "skyline"]), "three decks: " + str(sim.run_deck_names()))
+	var decks: PackedInt32Array = sim.run_decks()
+	check(decks.size() == 5 and decks[0] == 1 and decks[1] == 1 and decks[4] == 3, "the run starts on the rooftops: " + str(decks))
+	check(sim.run_debug_only(PackedStringArray(["escape_climb", "street", "catwalks"]), 1, 3) == 3, "only a climb, a street and the catwalks")
+	var vertical := -1
+	var lid := false
+	for n in 12:
+		sim.run_debug_next_room()
+		for r in sim.run_rooms():
+			if int(r[5]) == sim.run_info()[8] and r[12] != r[13] and vertical < 0:
+				vertical = int(r[5])
+				check(sim.run_room_names()[int(r[15])] == "escape_climb", "the climb (or, mirrored, the drop)")
+			if int(r[5]) == vertical and r[14] > 0.5:
+				lid = true
+		if vertical >= 0 and sim.run_info()[8] > vertical:
+			break
+	check(vertical >= 0, "a room changed deck")
+	check(sim.run_decks()[0] != 1 or lid, "the deck changed: " + str(sim.run_decks()))
+	check(sim.run_view()[6] >= 0.0, "the wall moved up to it")
 	# A made fighter can run too.
 	var made := Roster.neutral_entry("Maker", 3, Roster.Loadout.default_for(0))
 	check(sim.run_begin(Roster.spec_bytes(made)) == "", "a made fighter sets up a run")
@@ -174,16 +195,6 @@ func _scene() -> void:
 		if n is GeometryInstance3D and (n as GeometryInstance3D).cast_shadow != GeometryInstance3D.SHADOW_CASTING_SETTING_OFF:
 			moving_shadow = true
 	check(not moving_light and not moving_shadow, "no light or cast shadow travels with the backdrop")
-	# R2b: a coin picked up vanishes at once (the owner's R2a bug: it stayed until the stage next changed).
-	var coins: PackedFloat32Array = main.sim.run_coins()
-	var shown_before: int = main.run_stage.coins_shown()
-	for c in coins.size() / 4:
-		if coins[c * 4 + 2] < 0.5:
-			main.sim.debug_place_airborne(0, coins[c * 4], coins[c * 4 + 1] - 1.0)
-			break
-	for i in 4:
-		await process_frame
-	check(main.run_stage.coins_shown() < shown_before or shown_before == 0, "a coin picked up is gone: %d from %d" % [main.run_stage.coins_shown(), shown_before])
 	# R2b: grunts drawn with the fighter rig in their outfits, the tell's "!" over a telling one.
 	var g: int = main.sim.run_debug_grunt(2, 4.0, true)
 	for i in 6:
@@ -210,17 +221,29 @@ func _scene() -> void:
 	# R2c: the camera's height is the sim's.
 	check(absf(main.cam_y - main.sim.run_view()[12]) < 1.0, "the camera keeps the sim's height: %.2f vs %.2f" % [main.cam_y, main.sim.run_view()[12]])
 	main.sim.run_debug_clear_grunts()
+	# R2b: a coin picked up vanishes at once (the owner's R2a bug: it stayed until the stage next changed).
+	# (Into the next room first, where the coins are in the view: the blast zone follows the camera.)
+	main.sim.run_debug_next_room()
+	for i in 4:
+		await process_frame
+	var coins: PackedFloat32Array = main.sim.run_coins()
+	var shown_before: int = main.run_stage.coins_shown()
+	var seen: PackedFloat32Array = main.sim.run_view()
+	for c in coins.size() / 4:
+		# (A coin in the view: the blast zone follows the camera, R2d's rooms reach further.)
+		if coins[c * 4 + 2] < 0.5 and coins[c * 4] > seen[0] + 2.0 and coins[c * 4] < seen[0] + seen[1] - 2.0:
+			main.sim.debug_place_airborne(0, coins[c * 4], coins[c * 4 + 1] - 1.0)
+			break
+	for i in 4:
+		await process_frame
+	check(main.run_stage.coins_shown() < shown_before or shown_before == 0, "a coin picked up is gone: %d from %d" % [main.run_stage.coins_shown(), shown_before])
 	var far_x: float = main.run_stage.far_layer.position.x
 	var mid_x: float = main.run_stage.mid_layer.position.x
 	check(not is_equal_approx(far_x, mid_x) or main.sim.run_view()[0] < 1.0, "the layers scroll at their own speeds")
 	# Into a shop: the interior and its shopkeeper are drawn, the camera goes inside, the display prompts at the door.
 	var found := false
 	for n in 12:
-		var ok: bool = main.sim.run_debug_next_room()
-		var nm: Array = []
-		for r in main.sim.run_rooms():
-			nm.append([int(r[5]), main.sim.run_room_names()[int(r[15])], r[3]])
-		print("DBG ", ok, " ", main.sim.run_info()[8], " ", nm)
+		main.sim.run_debug_next_room()
 		if main.sim.run_debug_enter_shop():
 			found = true
 			break
