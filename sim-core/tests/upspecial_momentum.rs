@@ -115,6 +115,8 @@ fn every_halting_up_special_rises_the_same_from_a_jump_a_standstill_or_a_fall() 
         (9, false),
         (10, false),
         (11, false),
+        // The Dagger's aerial hook (sim 139, owner decision 98: it halts a jump's rise like the recoveries).
+        (12, false),
         (12, true),
         (13, false),
     ];

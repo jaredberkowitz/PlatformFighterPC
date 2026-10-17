@@ -2507,9 +2507,7 @@ mod combat_tests {
             .filter(|l| !l.trim_start().starts_with("jump_speed_x"))
             .collect::<Vec<_>>()
             .join("\n");
-        let old = crate::bundle::load(&stripped)
-            .expect("reads back")
-            .content;
+        let old = crate::bundle::load(&stripped).expect("reads back").content;
         assert!(old.fighters.iter().all(|p| p.jump_speed_x_max == Fx::ZERO));
         let mut c = base.clone();
         c.fighters[0].jump_speed_x_mul = 201;

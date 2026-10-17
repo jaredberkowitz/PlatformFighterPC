@@ -679,7 +679,8 @@ fn jumping_out_of_a_cancelled_dash_keeps_the_momentum_in_the_air() {
     }
     assert!(!sim.f().grounded());
     // The jump squat itself loses nothing; the takeoff carries the reduced, capped share of it (see the running jump above).
-    let takeoff = (squat_start * Fx::from_ratio(i32::from(p.jump_speed_x_mul), 100)).min(p.jump_speed_x_max);
+    let takeoff =
+        (squat_start * Fx::from_ratio(i32::from(p.jump_speed_x_mul), 100)).min(p.jump_speed_x_max);
     assert_eq!(sim.f().vel.x, takeoff, "jump squat must not eat the speed");
     // With no stick held the air drift continues, slowed only by light air friction.
     sim.ticks(10, inp(0, 0, 0));
