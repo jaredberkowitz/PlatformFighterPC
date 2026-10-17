@@ -133,7 +133,8 @@ The detail behind each step follows.
       a smaller sun set lower to one side, the streaks as soft painted clouds.
 - [x] (2026-10-17: FACADE_BAYS, pairs, a wide picture window, a narrow one, a pier with a blade sign.) City: the building under the stage is one evenly repeated window grid (the most regular surface left in the game); vary bays,
       a few lit/curtained windows, a ledge or sign. The far billboard: neon lettering since round 41.
-- [ ] Beach: the sea wall's stones are still large blocks at play distance; the sky's clouds are flat white shapes with no light side.
+- [~] Beach: the sea wall's stones are still large blocks at play distance; the sky's clouds are flat white shapes with no light side
+      (clouds done 2026-10-17: BEACH_CLOUDS, less exposure and a deeper shade, three tones read).
 - [x] (Six, lower: round 40.) Meadow: the floating islands crowd the top edge of the frame (several clipped by it); fewer, placed to frame the stage.
 - [ ] Grove: still the palest stage under its pink light; the light shafts and pink grade could go further if the owner wants it
       nearer the meadow (owner chose to keep the pink-purple mood).

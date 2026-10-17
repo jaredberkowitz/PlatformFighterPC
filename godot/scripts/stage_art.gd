@@ -141,6 +141,9 @@ static func _soft(c: Color) -> ShaderMaterial:
 ## tiles seamlessly.
 ## The city facade tile's window bays across its 512px: [left edge, width] (a width of 0 is a blank pier with a blade sign): a pair, a
 ## pier, a wide picture window, a narrow one.
+## The beach's clouds (`_clouds` look): a little less exposure and a deeper shade, so the lit tops, the soft middle and the cool belly
+## all read under the noon sun (flat white shapes, the pain-point review).
+const BEACH_CLOUDS := {"exposure": 1.3, "shade_depth": 1.0}
 const FACADE_BAYS := [[22, 52], [96, 52], [190, 0], [232, 104], [372, 52], [448, 36]]
 
 
@@ -1764,7 +1767,7 @@ static func _soft_dot() -> GradientTexture2D:
 ## so the sky is not one stamp repeated: a domed heap with smaller puffs piled on its crown, a long low bank, and a tall tower. No ink
 ## outline: they are far, and the haze softens them.
 static func _clouds(root: Node3D, rng: RandomNumberGenerator, count: int, color: Color, y_range: Vector2, z_range := Vector2(-120, -85),
-		kinds := [0, 1, 2], scale := 1.0, x_range := Vector2(-90, 90)) -> void:
+		kinds := [0, 1, 2], scale := 1.0, x_range := Vector2(-90, 90), look := {}) -> void:
 	var puff := _sphere(1.0, 32)
 	for k in count:
 		var cloud := Drift.new()
@@ -1775,6 +1778,9 @@ static func _clouds(root: Node3D, rng: RandomNumberGenerator, count: int, color:
 		mat.shader = CLOUD_SHADER
 		mat.set_shader_parameter("colour", color)
 		mat.set_shader_parameter("base_y", cloud.position.y)
+		# (A stage's own exposure and shade depth, `look`: under the beach's noon light the default washed every tone to white.)
+		for key in look:
+			mat.set_shader_parameter(key, look[key])
 		var kind: int = kinds[k % kinds.size()]
 		var size := rng.randf_range(0.7, 1.15) * scale
 		mat.set_shader_parameter("belly_height", 2.2 * size)
@@ -3044,11 +3050,11 @@ static func _ocean(root: Node3D, t: Dictionary, stage: Array) -> void:
 	sea.level = float(e[3]) - 1.0
 	root.add_child(sea)
 	sea.build()
-	_clouds(root, rng, 8, Color(1, 1, 1), Vector2(16, 34))
+	_clouds(root, rng, 8, Color(1, 1, 1), Vector2(16, 34), Vector2(-120, -85), [0, 1, 2], 1.0, Vector2(-90, 90), BEACH_CLOUDS)
 	# A bank of cumulus piled along the horizon, behind the far coast (its own random numbers, so the rest of the layout stays put).
 	var bank_rng := RandomNumberGenerator.new()
 	bank_rng.seed = 41
-	_clouds(root, bank_rng, 16, Color(1, 1, 1), Vector2(-10.0, -5.0), Vector2(-215, -195), [1, 0, 1], 1.9)
+	_clouds(root, bank_rng, 16, Color(1, 1, 1), Vector2(-10.0, -5.0), Vector2(-215, -195), [1, 0, 1], 1.9, Vector2(-90, 90), BEACH_CLOUDS)
 	_birds(root, rng, Color(0.97, 0.97, 1.0))
 	# Distant islands.
 	for k in 3:
