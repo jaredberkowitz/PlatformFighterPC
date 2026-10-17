@@ -1,11 +1,11 @@
-# Single-player mode: the endless run (plan, draft 3; R1 to R2d built)
+# Single-player mode: the endless run (plan, draft 3; R1 to R2e built)
 
 Status: **draft 3 (14 October 2026): the owner played R1 and replaced the creeping camera with rooms (section 3.1). R1 (the vertical
 slice) is built (sim 120, section 7); R1b (rooms) is built (sim 122, section 8); R2a (the world: slopes, room variants, the fork, the
 walk-in shop) is built on branch `runner-r2`, sim 124 and content schema 8: see section 9; R2b (fighter-shaped grunts, the difficulty
 curve, hazards, the runaway van, branching forks) is built on branch `runner-r2b`, sim 127: see section 10; R2c (combat parity: every
 grunt is a fighter; lighter grunts knocked out by blast zones that follow the view; the shopkeeper's grudge) is built on branch
-`runner-r2c`, sim 131: see section 11; R2d (verticality: three decks, climbs, drops, shafts, interiors, deck forks, sure and skilled routes) is built on branch `runner-r2d`, sim 137: see section 12.** Decisions are marked **Decided**. Owner brief, 14 October 2026: a single-player endless-runner mode inspired by the mobile
+`runner-r2c`, sim 131: see section 11; R2d (verticality: three decks, climbs, drops, shafts, interiors, deck forks, sure and skilled routes) is built on branch `runner-r2d`, sim 137: see section 12; R2e (vertical combat, the node map, a believable city, fewer grunts at once) is built on branch `runner-r2e`, sim 140: see section 13.** Decisions are marked **Decided**. Owner brief, 14 October 2026: a single-player endless-runner mode inspired by the mobile
 game *Punch Quest* (Rocketcat Games and Madgarden, 2012), using this game's fighters, physics and art. The player runs right, beats
 enemies for currency, spends it in shops on power-ups, stat boosts and other fighters' moves of the same archetype, fights a generated
 boss every so often, and tries to get as far as possible.
@@ -1093,6 +1093,17 @@ Spec: `RUNNER_REVIEW.md` fixes F1 (decks) and F2 (vertical rooms, sure and skill
 - **The old gap and drop rooms stay true pits** (a fall there costs a life). Give them catch floors too?
 - **A drop gets no lid** (you can climb back within it, but nothing before it is kept). Lid it too?
 
+**The owner's answers (R2d, verbatim) and how R2e follows them:**
+1. Where the run starts: "Rooftops." Kept (a test checks it).
+2. Stretch length and fork chance: "This is fine for now." Kept: stretches of 3 to 5 rooms, deck forks at 60% (a test checks them).
+3. Should skilled routes need a recovery special? "Recovery specials sometimes." Built in R2e: two of the six skilled routes (a
+   third) need the fighter's up special; a fighter who cannot make one is never offered it (section 13).
+4. The old gap and drop rooms: "A floor below." Built: each has a lower roof in its gap with a fire escape back up; no built-in room
+   is a true pit any more (a test checks it).
+5. Drops: "Yes." Built: a drop left behind closes a lid, a ceiling `lid_clear` (7) over its floor, so you cannot go back up past it.
+6. A shop that's due comes before a deck move: "I believe so." Kept (a test checks the shop spacing through every deck change).
+
+
 ### For the art director (R2d; **reused** = drawn now from existing art, **new** = needs a design)
 1. **Climb faces** (`wall`, the light well's walls): **reused**, the city's block with its facade; a proper fire-escape building
    face with windows, pipes and a ladder is **new**.
@@ -1106,6 +1117,141 @@ Spec: `RUNNER_REVIEW.md` fixes F1 (decks) and F2 (vertical rooms, sure and skill
 6. **The deck ladder on the map strip**: placeholder pips and an arrow; **new** icons per deck (street, roofs, skyline) would help.
 7. **Depth**: the street visible below the rooftops and the rooftops below the skyline (F6) is **new**; today the gaps show the
    backdrop and the catch roofs.
+
+## 13. R2e progress (vertical combat, the map, a believable city, fewer grunts at once; sim 140, content schema 8, branch `runner-r2e`)
+
+Spec: `RUNNER_REVIEW.md` F3 and F4, the owner's R2d answers (above), and two owner notes passed on during the phase: **A** "too
+many enemies appear on screen too fast. We should start with a small maximum, two or three, and scale it up every difficulty tier",
+and **B** "Please also make sure the world generation makes sense and is somewhat believable", plus the playtest note that
+background buildings overlapped the player.
+
+### What can be played
+- **Fewer grunts at once (note A).** At most 2 grunts alive in tier 1, 3 in tier 2, then one more a tier (`Tier::cap`); a spot past
+  the cap waits until one is beaten. Grunts come out of doors one at a time in a room, a second apart (`emerge_gap` 60 frames). An
+  arena comes in waves under the cap and opens when every wave is beaten.
+- **A believable city (note B).** Every room now stands in a row of buildings (`Room::buildings`: brick blocks, offices, shop
+  rows, warehouses, a glass tower). Nothing floats: balconies, fire escapes, awnings and sills hang on a building's face (beams
+  back to it); catwalks, girders and scaffolds stand on stilts or a crane's mast down to what is under them, or span between two
+  faces on a truss; a sign hangs on a building or under a footing; a canister or a chest stands on something. Each deck has its
+  own look: the street is a pavement with shopfronts and doors at your level and facades rising out of view (no windows under
+  your feet); the rooftops are roofs with parapets, the building going down out of view; the skyline is tower tops with crowns and
+  beacons against the far city. Buildings that something hangs on stand just behind the play plane; the rest of the city stands
+  well back (the art director's `FACADE_Z`, 18 behind), and the city stage's backdrop follows the view's height so its own props
+  never float mid-facade.
+- **Recovery routes.** The light well and the catwalks' skilled routes are climbs a double jump cannot make: a recovery special
+  (up special) can. Shown on the map as part of the room; a fighter who cannot make it gets the room without that route (its
+  footings and coins are not laid). Never required.
+- **The juggle.** A hit on a grunt in the air counts double toward the combo. A grunt knocked out after hits kept off the ground
+  (the first may launch it) pays its coins times the number of hits, at most 3; an "AIR x2" or "AIR x3" badge shows by the combo
+  while you juggle one, and "AIR JUGGLE! +n" when it pays.
+- **Direction bonuses.** Launched out of the top: "SKYWARD! +n" (10 bonus coins). Spiked out of the bottom while still driven
+  down: "GROUNDED! +n" (10). **Bowling:** a grunt you launched, tumbling fast, that flies into another hits it with the versus
+  hit (your combo, your kill): "BOWLED!". Each grunt once a launch, and the bowled one does not bowl straight back.
+- **Grunts placed by height.** Leapers perch on catwalks, girders, balconies, fire escapes and scaffolds (about half of them
+  there, against 7% of their share elsewhere) and notice you further up or down; lobbers take the cranes and water towers (44%
+  against 5%). In rooms that climb or drop, two thirds of the grunts stand above the floor you come in on.
+- **The node map.** The top of the screen keeps the rooms behind, then shows a small node map about three rooms ahead: a fork's
+  two roads one above the other, with the line after each, every node with its icon (a shop, a chest or alley, crossed swords
+  for an arena, "?" for an event, a coral arrow for a deck change up or down). Road forks and deck forks both show. **What the
+  map shows is what comes:** the generator now plans those rooms ahead, deterministically.
+
+### How it is built (and why)
+- **The planner** (`run::Planner`, `Run::plan`): R2d's generator state (its own stream, the shop spacing, the last room, the
+  event's pity, the deck plan) moved out of `Run` into a planner that plans `map_ahead` (3) rooms ahead, the mirror included.
+  At a branching fork it stops, and each road gets a line of its own from a copy of the planner (its own stream drawn from the
+  main one; after a deck fork, that road's deck for a new stretch, as R2d did on taking a road). Taking a road makes its line
+  the main one. A road's line plans no branching fork, so only one split is ever in view. The room variants (parts, pieces,
+  grunts) are still drawn as a room is laid, from the run's own stream, so they never change what the map showed.
+- **Recovery reach, measured.** As a run starts it works out its fighter's reach once (`Run::reach_jump`, `reach_recovery`): the
+  double jump from the fighter's numbers (`run::jump_reach`, R2a's formula, moved into the sim), and the recovery by **playing
+  the fighter's own up special in the sim** (`run::recovery_reach`): on a small ledge in empty space it full-hops, double jumps
+  at the top, then uses its up special at the top of that, drifting forward, twice (aimed straight up and up-and-forward), and
+  keeps the best height and the distance where it comes back down to the ledge. So every recovery counts as it really plays
+  (burst, angle, script, helpless fall), made fighters included, without a hand table. `Room::recovery` says what a route needs
+  (`RECOVER_UP`: climbs of up to `recovery_step` 10.5; `RECOVER_ACROSS`: gaps of up to `recovery_gap` 17); the content check
+  proves the route with those jumps and refuses one whose footings a double jump alone would use to save a jump. A room is laid
+  with `RoomSlot::skill_off` when the fighter's reach falls short (`run::skilled_offered`); its skilled footings and coins
+  (`CoinSpot::skilled`) are then left out.
+- **The support rule** (`run::support_of`, shared by the content check and the view): a block reaching the bottom is the ground;
+  a look that hangs on a building (balcony, fire escape, awning, sill, stairwell, wall, ceiling) needs a building mass behind it,
+  as does anything in an interior; anything else is bolted to a building behind it if there is one, else spans two faces, else
+  stands on posts down to the solid ground (or a plank, or a roof) under both ends. `sim_content::check_run` refuses a footing
+  with no support, and props standing or hanging on nothing.
+- **Juggles and bonuses** (`run/mobs.rs`): a grunt remembers whether it was airborne at the end of the last frame (`Mob::air`),
+  its hits since it last stood (`Mob::juggle`) and whom it has bowled this launch (`Mob::bowled`). The knock-out reads which zone
+  it left by. Callouts are run state (`Run::callout`, `callouts`, `callout_at`, `callout_coins`) and tallies (`sky_kos`,
+  `spike_kos`, `bowls`, `air_kos`).
+- **The cap** (`Tier::cap`) and the stagger (`RoomSlot::emerged_at`, `RunRules::emerge_gap`) are in `spawn_slot`.
+- Every new field is hashed (`Run`, `RoomSlot`, `Mob`, `Planner`, `Planned`; the content's rooms, buildings, coins, kinds,
+  tiers and rules) and in the checksum tests.
+
+### Tunables added (`RunRules::standard`, `Tier::standard`, `MobKind::standard`)
+| Rule | Value | Meaning |
+| --- | --- | --- |
+| `Tier::cap` | 2, 3, 4, 5, 6 | grunts alive at once, by tier |
+| `emerge_gap` | 60 | frames between two doorways in a room |
+| `recovery_step` / `recovery_gap` | 10.5 / 17 | a recovery route's climbs and gaps |
+| `lid_clear` | 7 | a drop's lid over its floor |
+| `map_ahead` | 3 | rooms planned and shown ahead (at most `run::PLAN`, 4) |
+| `juggle_max` | 3 | the juggle's multiplier at most |
+| `sky_bonus` / `spike_bonus` | 10 / 10 | Skyward and Grounded coins |
+| `bowl_hit` / `bowl_speed` | 8%, 45 degrees, 60 / 80; 0.5 | a bowl's hit, and how fast a launched grunt must fly |
+| `MobKind::aggro_y` | 10 (leaper, lobber 16) | how far up or down it notices you |
+| `MobKind::perch`, `perch_odds` | leaper: catwalk, girder, balcony, fire escape, scaffold x4; lobber: crane, water tower, billboard x6 | where it is placed more often |
+
+Who makes the recovery routes (measured; a double jump's routes go to everyone): duelist, rogue, tumbler, sprinter, champion,
+bounder, wanderer and scamp; brawler, seer, hauler, settler, phantom and exile do not (their up specials rise 7.8 to 10.5), so
+the light well and the catwalks are laid without their recovery route for them. Made fighters follow their class (the lowest
+stats change little: the full table prints in `sim-content`'s `recovery_routes_per_fighter`).
+
+### Tests and numbers
+- `sim-core/tests/runner.rs` (82): note A (the cap per tier over many seeds, spots waiting, the stagger, an arena in waves); the
+  owner's R2d answers; a recovery route offered to the duelist and withheld, with its coins, from the brawler; a fall into the gap
+  room landing on its floor below (a true pit still costs a life); a drop's lid (a jump from its floor stays under it); air hits
+  counting double with a real jab, the juggle's pay and callout; Skyward, Grounded and side knock-outs; bowling once a launch;
+  height placement over 40 seeds; the planned map matching the rooms that come over 30 seeds (3,032 rooms checked ahead, 505 forks
+  on the map, 390 of them deck forks); the checksum and content hash seeing every new field.
+- `sim-content` (`run.rs`): nothing floats (a balcony with no building, a scaffold over a true pit, a sign on no building, a
+  canister in the air are refused); no true pits; recovery routes per fighter (built-in and made with the lowest stats); the
+  recovery route proven with its own jumps.
+- Godot, headless: runner_test (now also every background mesh's front stands behind the play plane's deepest footing, across
+  climbs, drops, the skyline and an interior; the footings' supports; the building masses; the map ahead; the bonuses; a callout
+  shown once), match_flow_test, input_e2e, controls_test, replay_test, online_flow_test, net_e2e, creator_flow_test, content_e2e,
+  editor_api_test, pause_test: all pass. `tests/run_shot.gd` now photographs every room on its own (`run_room_<name>.png`), the
+  node map at a fork (`run_map_fork.png`), a juggle in the air and its knock-out (`run_juggle_air.png`, `run_juggle.png`), and a
+  bowl and its knock-out (`run_bowl.png`, `run_bowl_ko.png`).
+- **Versus unchanged:** a digest of 60 random four-player matches (900 frames each, every frame's checksum) is the same on main
+  and here; `pftool net-fuzz 200` and `fuzz-rollback 300` print the same lines as main (8,375 and 46,942 rollbacks).
+  `fuzz-rollback 300` timed 14 times each, alternating: median 4.26 s here against 4.32 s on main (run-to-run noise about 10%).
+- **GameState is 11,760 bytes** (main 11,392; the run's part 3,424, was 3,056).
+
+### Known limits (R2e)
+- One split in view at a time: a road's line never plans a branching fork, so a second fork comes only once the first is taken.
+- The juggle badge shows the best juggle among grunts in the air the player hit lately, not which one.
+- Building masses are hand-placed per room (the rule then proves them); a generated row of buildings per stretch would vary
+  more (Canabalt's way) and is a natural next step.
+
+### For the art director (R2e; **reused** = drawn now from existing art, **new** = needs a design)
+1. **Building masses** (reused): the city block (brick front, windows, coping) for every kind; **new**: a front per kind (office
+   glass and spandrels, a shop row's ground floor with signs, a warehouse's roller doors and loading bay, a glass tower).
+2. **Shopfronts at street level** (placeholder): a lit window and a door under a lintel; the awnings' canvas reaches back to them.
+3. **Supports** (placeholder): stilts, trusses, a crane's lattice mast and cab, beams under balconies. **New**: proper crane
+   masts, scaffold towers with bracing and boards, fire-escape ladders and brackets.
+4. **The street deck's pavement** (placeholder): pale slabs, a kerb and a gutter; **new**: road, kerb stones, drains, bollards.
+5. **The drop's lid** (reused block): a fire-escape hatch or a closing shutter would read better.
+6. **The node map's icons** (placeholder): street, arena, shop, rest, event, chest; **new**: deck-change arrows and a recovery
+   route mark in the HUD's painted style.
+7. **Callouts** (placeholder: an ink band with gold text): "AIR JUGGLE!", "SKYWARD!", "GROUNDED!", "BOWLED!", the "AIR x3"
+   badge; a sound for each.
+
+### Decisions for the owner (plain words)
+- **Grunts at once:** two at the start, three after the first six rooms, then one more every six rooms. Right pace?
+- **Who gets the harder routes:** eight of the fourteen fighters can use their up special to take the two hardest shortcuts; the
+  other six never see those shortcuts (the rooms are the same otherwise). Fine, or should every fighter get some shortcut of its
+  own kind?
+- **Bonus sizes:** launching a grunt off the top or spiking it off the bottom pays 10 extra coins; juggling pays the grunt's coins
+  times the hits it took in the air (up to three times). More, less?
+- **The map:** it shows three rooms ahead. More (four is the most it can plan), or fewer?
 
 Sources: [TouchArcade review](https://toucharcade.com/2012/10/26/punch-quest-review/),
 [AppSpy review](https://www.appspy.com/punch-quest-review), [Destructoid review](https://www.destructoid.com/reviews/review-punch-quest/),
