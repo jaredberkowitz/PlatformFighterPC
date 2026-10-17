@@ -39,9 +39,18 @@ const TILE_DETAIL := {"roof": ["concrete", 0.5, 3.0], "asphalt": ["concrete", 0.
 static var _cache := {}
 
 
+## The painted tile `name` (art/stage/png/<name>.png, made from a Material Maker export by tools/art/mm_tile.gd), or null when there is
+## none and the SVG tile serves.
+static func _png_tile(name: String) -> Texture2D:
+	var path := "res://art/stage/png/%s.png" % name
+	return load(path) as Texture2D if ResourceLoader.exists(path) else null
+
+
 ## Sets a world-laid material's painted detail: the tile `detail` (concrete, soil, stone), `amount`, `scale` world units per fine repeat.
 static func set_detail(m: ShaderMaterial, detail: String, amount: float, scale: float) -> void:
-	var tex := SvgArt.texture("res://art/stage/detail_%s.svg" % detail)
+	var tex := _png_tile("detail_" + detail)
+	if tex == null:
+		tex = SvgArt.texture("res://art/stage/detail_%s.svg" % detail)
 	if tex == null:
 		return
 	m.set_shader_parameter("detail_tex", tex)
@@ -54,9 +63,14 @@ static func _make(family: String, colour: Color, tile_name: String, tile: Vector
 	if _cache.has(key):
 		return _cache[key]
 	var tex: Texture2D = null
-	if tile_name != "":
+	# A painted value tile (art/stage/png/, from tools/art/mm_tile.gd) is greyscale and takes the surface's colour from the material;
+	# an SVG tile is recoloured itself.
+	var painted := _png_tile(tile_name) if tile_name != "" else null
+	if painted != null:
+		tex = painted
+	elif tile_name != "":
 		tex = SvgArt.texture("res://art/stage/%s.svg" % tile_name, {"#ff00ff": colour})
-	var base := FighterView.toon(Color.WHITE if tex != null else colour, outline, tex, tile, world_tile)
+	var base := FighterView.toon(colour if painted != null or tex == null else Color.WHITE, outline, tex, tile, world_tile)
 	var m := base.duplicate() as ShaderMaterial
 	for p in FAMILIES[family]:
 		m.set_shader_parameter(p, FAMILIES[family][p])
