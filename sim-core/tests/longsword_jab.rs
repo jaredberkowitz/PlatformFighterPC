@@ -35,7 +35,10 @@ fn weapon(sim: &Sim) -> &sim_core::moves::Weapon {
 fn the_jab_is_the_previous_versions_on_its_frames_damage_and_knockback() {
     let sim = setup(DUELIST, 0);
     let w = weapon(&sim);
-    let (j1, j2) = (&w.moves[MoveId::Jab as usize], &w.moves[MoveId::Jab2 as usize]);
+    let (j1, j2) = (
+        &w.moves[MoveId::Jab as usize],
+        &w.moves[MoveId::Jab2 as usize],
+    );
     // FAF 26 and 29 (the move ends the frame before its FAF), continuable 18 [R] and jab 2's cancel 16 [E] (move frames are one less).
     assert_eq!((j1.total_frames, j2.total_frames), (24, 27));
     assert_eq!((j1.next, j1.next_from), (Some(MoveId::Jab2 as u8), 17));
@@ -318,6 +321,120 @@ const DASH_ATTACK: Follow = &[(0, 0, 127, 0), (2, ATTACK, 127, 0)];
 const JUMP_FAIR: Follow = &[(0, JUMP, 90, 0), (3, ATTACK, 90, 0)];
 const JUMP_UAIR: Follow = &[(0, JUMP, 0, 90), (3, ATTACK, 0, 90)];
 const UP_SPECIAL: Follow = &[(0, SPECIAL, 0, 127)];
+
+/// Asserts `follow` out of jab 1 (or jab 1 > 2 when `both`) on `victim` is a true combo exactly at the percents in `window`
+/// (0-150 in steps of 10).
+fn true_combo_window(
+    victim: u8,
+    both: bool,
+    at: Fx,
+    follow: Follow,
+    window: &[(i32, i32)],
+    what: &str,
+) {
+    for percent in (0..=150).step_by(10) {
+        let want = window.iter().any(|(a, b)| (*a..=*b).contains(&percent));
+        let got = follow_up_at(victim, percent, both, at, follow) == Some(true);
+        assert_eq!(got, want, "{what}: victim {victim} at {percent}%");
+    }
+}
+
+#[test]
+fn jab_1_into_jab_2_is_a_true_combo_at_every_percent() {
+    // Jab 1's blade and arm (78 / 65 degrees, BK 55) pop the foe up where it stands with about 23 frames of hitstun at 0%; jab 2,
+    // pressed in jab 1's window from 18 (out on its frame 3), catches it at 0-150% on both bodies. Mashed, the two land as one
+    // combo; the jab 1 after them does not (jab 2 has launched the foe out of reach).
+    for victim in [DUELIST, ROGUE] {
+        true_combo_window(
+            victim,
+            false,
+            fx(11, 10),
+            JAB_AGAIN,
+            &[(0, 150)],
+            "jab 1 > 2",
+        );
+    }
+    let mut sim = setup(DUELIST, 0);
+    let mut most = 0;
+    for t in 0..80 {
+        sim.tick(inp(0, 0, if t % 2 == 0 { ATTACK } else { 0 }));
+        most = most.max(sim.fighter(1).hits_taken);
+    }
+    assert_eq!(most, 2, "{most} hits in one combo");
+}
+
+#[test]
+fn the_cancelled_jab_1_strings_into_tilts_aerials_and_the_up_special() {
+    // On the duelist, each follow-up started on jab 1's frame 18 (its cancel, after the hitlag): the percents where it is a true combo.
+    let near = fx(11, 10);
+    true_combo_window(
+        DUELIST,
+        false,
+        near,
+        FORWARD_TILT,
+        &[(0, 150)],
+        "forward tilt",
+    );
+    true_combo_window(DUELIST, false, near, UP_TILT, &[(40, 110)], "up tilt");
+    true_combo_window(DUELIST, false, near, DOWN_TILT, &[(0, 20)], "down tilt");
+    true_combo_window(
+        DUELIST,
+        false,
+        near,
+        JUMP_NAIR,
+        &[(0, 150)],
+        "jump > neutral air",
+    );
+    true_combo_window(
+        DUELIST,
+        false,
+        near,
+        JUMP_FAIR,
+        &[(0, 150)],
+        "jump > forward air",
+    );
+    true_combo_window(
+        DUELIST,
+        false,
+        near,
+        DASH_ATTACK,
+        &[(90, 150)],
+        "dash attack",
+    );
+    true_combo_window(DUELIST, false, near, UP_SPECIAL, &[(0, 150)], "up special");
+}
+
+#[test]
+fn jab_2_reaches_the_foe_the_tip_pulled_in() {
+    // At the tip's reach (3.5 ahead, only the tip hits) the pull draws the foe in and jab 2 still reaches it at every percent; it
+    // is a true combo only from 90% (the pull's hitstun is short against jab 1's late window, frame 18: owner question in the docs).
+    for percent in (0..=150).step_by(10) {
+        let hit = follow_up_at(DUELIST, percent, false, tip(), JAB_AGAIN);
+        assert!(hit.is_some(), "{percent}%: jab 2 reaches the pulled foe");
+        assert_eq!(hit == Some(true), percent >= 90, "{percent}%");
+    }
+}
+
+#[test]
+fn jab_2_is_the_launcher_nothing_on_the_ground_follows_it() {
+    // Jab 2 (45 degrees, BK 62, KS 75) sends the foe up and out of reach: on the duelist no follow-up started at jab 2's frame 16
+    // catches it (the frame advantage is there, 18 frames at 0% to 48 at 150%, but not the reach), as the previous version's
+    // "no longer punishable on hit" launcher.
+    for f in [
+        JAB_AGAIN,
+        UP_TILT,
+        FORWARD_TILT,
+        DOWN_TILT,
+        GRAB_IT,
+        DASH_ATTACK,
+        UP_SMASH,
+    ] {
+        true_combo_window(DUELIST, true, fx(11, 10), f, &[], "after jab 2");
+    }
+    for percent in [0, 50, 100, 150] {
+        assert!(advantage(DUELIST, percent, true, fx(11, 10)) >= 18);
+    }
+}
 
 #[test]
 fn print_the_jabs_frame_advantage_and_follow_ups() {

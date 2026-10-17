@@ -5,8 +5,8 @@ bundle {
     schema 8
     name "Base Roster"
     description "The built-in roster: a longsword duelist and a close-range brawler."
-    sim_version 137
-    hash c60f1f02e8eabd4d
+    sim_version 138
+    hash c5cbec48b5c7c490
 }
 
 ruleset {
@@ -189,11 +189,15 @@ weapon longsword {
     move jab {
         total_frames 24
         next jab2
-        next_window 10
-        hitbox { start 4 end 4 x 2.05595 y 2.17996 radius 0.7 damage 5 angle 361 bkb 25 kbg 15 priority 2 }
-        hitbox { start 5 end 5 x 2.41595 y 1.24397 radius 0.7 damage 5 angle 361 bkb 25 kbg 15 priority 2 }
-        hitbox { start 4 end 4 x 1.26396 y 1.67598 radius 0.79999 damage 3 angle 361 bkb 25 kbg 15 }
-        hitbox { start 5 end 5 x 1.47997 y 1.17198 radius 0.79999 damage 3 angle 361 bkb 25 kbg 15 }
+        next_window 9
+        next_from 17
+        cancel_from 17
+        hitbox { start 4 end 4 x 2.09999 y 2.2 radius 0.7 damage 5 angle 180 bkb 30 kbg 12 priority 2 hitlag 125 angle_type forward rules previous }
+        hitbox { start 5 end 6 x 2.4 y 1.2 radius 0.7 damage 5 angle 180 bkb 30 kbg 12 priority 2 hitlag 125 angle_type forward rules previous }
+        hitbox { start 4 end 4 x 1.29999 y 1.7 radius 0.79999 damage 3 angle 78 bkb 55 kbg 30 hitlag 70 rules previous }
+        hitbox { start 5 end 6 x 1.5 y 1.2 radius 0.79999 damage 3 angle 78 bkb 55 kbg 30 hitlag 70 rules previous }
+        hitbox { start 4 end 4 x 0.79999 y 1.5 radius 0.59999 damage 3 angle 65 bkb 55 kbg 30 priority 1 hitlag 70 rules previous }
+        hitbox { start 5 end 6 x 0.9 y 1.29999 radius 0.59999 damage 3 angle 65 bkb 55 kbg 30 priority 1 hitlag 70 rules previous }
     }
     move ftilt {
         total_frames 32
@@ -420,10 +424,17 @@ weapon longsword {
     }
     move jab2 {
         total_frames 27
-        hitbox { start 3 end 3 x 2.41595 y 0.73999 radius 0.7 damage 6 angle 361 bkb 40 kbg 30 priority 2 }
-        hitbox { start 4 end 4 x 2.19995 y 1.89197 radius 0.7 damage 6 angle 361 bkb 40 kbg 30 priority 2 }
-        hitbox { start 3 end 3 x 1.47997 y 0.956 radius 0.79999 damage 4 angle 361 bkb 40 kbg 30 }
-        hitbox { start 4 end 4 x 1.40796 y 1.53198 radius 0.79999 damage 4 angle 361 bkb 40 kbg 30 }
+        next jab
+        next_window 9
+        next_from 15
+        cancel_from 15
+        hitbox { start 2 end 2 x 2.29999 y 0.59999 radius 0.7 damage 6 angle 45 bkb 62 kbg 75 priority 2 hitlag 125 rules previous }
+        hitbox { start 3 end 3 x 2.4 y 1 radius 0.7 damage 6 angle 45 bkb 62 kbg 75 priority 2 hitlag 125 rules previous }
+        hitbox { start 4 end 4 x 2.2 y 1.9 radius 0.7 damage 6 angle 45 bkb 62 kbg 75 priority 2 hitlag 125 rules previous }
+        hitbox { start 2 end 2 x 1.4 y 0.79999 radius 0.79999 damage 4 angle 45 bkb 62 kbg 75 hitlag 70 rules previous }
+        hitbox { start 3 end 3 x 1.5 y 1 radius 0.79999 damage 4 angle 45 bkb 62 kbg 75 hitlag 70 rules previous }
+        hitbox { start 4 end 4 x 1.4 y 1.5 radius 0.79999 damage 4 angle 45 bkb 62 kbg 75 hitlag 70 rules previous }
+        hitbox { start 2 end 4 x 0.9 y 1.09999 radius 0.59999 damage 4 angle 45 bkb 62 kbg 75 priority 1 hitlag 70 rules previous }
     }
     move grab {
         total_frames 33
