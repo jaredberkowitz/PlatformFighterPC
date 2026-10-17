@@ -225,6 +225,22 @@ fn validate_fighter(i: usize, f: &FighterParams, weapons: usize, errors: &mut Ve
             errors.push(format!("fighter {i}: {name} must be at most 1.0"));
         }
     }
+    // The ground jump's own horizontal rule (sim 139): speeds within range, the ground share a percent up to 200.
+    for (name, value) in [
+        ("jump_speed_x", f.jump_speed_x),
+        ("jump_speed_x_max", f.jump_speed_x_max),
+    ] {
+        if value < Fx::ZERO || value > MAX_VALUE {
+            errors.push(format!(
+                "fighter {i}: {name} must be between 0 and the allowed maximum"
+            ));
+        }
+    }
+    if f.jump_speed_x_mul > 200 {
+        errors.push(format!(
+            "fighter {i}: jump_speed_x_mul is a percent up to 200"
+        ));
+    }
     for (name, value) in f.int_fields() {
         let at_least_one = [
             "jump_squat_frames",
@@ -2473,5 +2489,39 @@ mod combat_tests {
         let mut c = Content::placeholder();
         c.fighters[0].weight = Fx::from_int(5);
         assert!(validate(&c).is_err());
+    }
+
+    #[test]
+    fn the_jump_rule_fields_round_trip_and_are_checked() {
+        // Sim 139 (owner decision 98): a body's own ground-jump rule comes back from a file unchanged; a file without it keeps the
+        // older shared rule; bad values are refused.
+        let base = Content::placeholder();
+        let text = crate::bundle::to_text(&base, "test", "", "", false);
+        for field in ["jump_speed_x ", "jump_speed_x_mul 80", "jump_speed_x_max "] {
+            assert!(text.contains(field), "{field}");
+        }
+        let back = crate::bundle::load(&text).expect("reads back").content;
+        assert_eq!(back, base);
+        let stripped = text
+            .lines()
+            .filter(|l| !l.trim_start().starts_with("jump_speed_x"))
+            .collect::<Vec<_>>()
+            .join("\n");
+        let old = crate::bundle::load(&stripped)
+            .expect("reads back")
+            .content;
+        assert!(old.fighters.iter().all(|p| p.jump_speed_x_max == Fx::ZERO));
+        let mut c = base.clone();
+        c.fighters[0].jump_speed_x_mul = 201;
+        assert!(validate(&c)
+            .unwrap_err()
+            .iter()
+            .any(|e| e.contains("jump_speed_x_mul")));
+        let mut c = base.clone();
+        c.fighters[0].jump_speed_x_max = -Fx::ONE;
+        assert!(validate(&c)
+            .unwrap_err()
+            .iter()
+            .any(|e| e.contains("jump_speed_x_max")));
     }
 }

@@ -5,8 +5,8 @@ bundle {
     schema 8
     name "Base Roster"
     description "The built-in roster: a longsword duelist and a close-range brawler."
-    sim_version 137
-    hash c60f1f02e8eabd4d
+    sim_version 139
+    hash bbcb7a372efa82eb
 }
 
 ruleset {
@@ -369,6 +369,7 @@ weapon longsword {
     }
     move side_special {
         total_frames 37
+        start_speed 50
         hitbox { start 8 end 9 x 2.34395 y 1.09999 radius 0.7 damage 3 angle 361 bkb 25 kbg 0 priority 2 }
         hitbox { start 8 end 9 x 1.40796 y 1.09999 radius 0.79999 damage 2.5 angle 361 bkb 25 kbg 0 }
         script {
@@ -377,6 +378,9 @@ weapon longsword {
             // 30 = ext2.
             var queued;
             var rising;
+            // In the air it adds 1.4 reference units of upward speed as it starts ("added vertical speed in the air", ssbwiki.com 13.0.1), on
+            // every use (no once-per-airtime limit is published): it slows a fall, as the reference's "slightly halt his downward movement".
+            if frame == 1 && grounded == 0 { add_vel(0, 0.175); }
             if grounded == 0 && frame >= 27 { end(); }
             if grounded && frame >= 3 && frame <= 8 { set_vel(0.18, 0); }
             if grounded && frame == 9 { set_vel(0, 0); }
@@ -745,19 +749,44 @@ weapon claws {
     move side_special {
         total_frames 53
         helpless_after true
+        start_speed 67
+        start_speed_y 0
         hitbox { start 18 end 27 x 1.2 y 1.09999 radius 1.09999 damage 3 angle 361 bkb 20 kbg 0 }
         hitbox { start 28 end 31 x 1.4 y 0.29999 radius 1.09999 damage 20 angle 270 bkb 70 kbg 90 group 1 }
         hitbox { start 28 end 31 x 1.5 y 0.9 radius 1.29999 damage 15 angle 290 bkb 60 kbg 90 priority 1 group 1 }
         script {
-            // Side special (dash): the stick at the start of the dash aims it a little up or down.
-            var rise;
-            if frame == 17 {
-                rise = 0;
-                if stick_y > 0.4 { rise = 0.3; }
-                if stick_y < -0.4 { rise = -0.3; }
+            // Side special (dash), on the reference's parameters (sim 139): started in the air it keeps 0.67 of its sideways speed (the move's
+            // start_speed) and none of its vertical speed, the sideways part slowing by 0.05 reference units a frame, held still 13 frames, then
+            // falling at 0.017 gravity. On frame 17 the stick past half tilt angles the dash up to 10 degrees up or down. After the dash it slides on
+            // at 2.3 units a frame in the air (2.5 on the ground), slowed by 0.07 (0.15), and from 5 frames after the dash falls at 0.08 gravity.
+            // The dash's own speed (5.5 units a frame, frames 18-27) is an estimate.
+            var deg;
+            var h;
+            var v;
+            if grounded == 0 && frame <= 16 {
+                h = max(vx - 0.00625, 0);
+                if vx < 0 { h = min(vx + 0.00625, 0); }
+                v = 0;
+                if frame >= 14 { v = max(vy - 0.002125, -0.225); }
+                set_vel(h, v);
             }
-            if frame >= 18 && frame <= 27 { set_vel(0.6875, rise); }
-            if frame == 28 { set_vel(0, 0); }
+            if frame == 17 {
+                deg = 0;
+                if abs(stick_y) > 0.5 { deg = sign(stick_y) * min((abs(stick_y) - 0.5) / 0.5, 1) * 10; }
+            }
+            if frame >= 18 && frame <= 27 { set_vel(0.6875 * cos(deg), 0.6875 * sin(deg)); }
+            if frame == 28 {
+                h = 0.2875;
+                if grounded { h = 0.3125; }
+                v = h * sin(deg);
+                h = h * cos(deg);
+            }
+            if frame >= 28 {
+                if grounded { h = max(h - 0.01875, 0); } else { h = max(h - 0.00875, 0); }
+                if frame >= 33 { v = max(v - 0.01, -0.225); }
+                if grounded { v = 0; }
+                set_vel(h, v);
+            }
         }
     }
     move up_special {
@@ -13279,6 +13308,7 @@ weapon dagger {
     move ext0 {
         total_frames 43
         autocancel_before 255
+        start_speed_y 0
         motion_drift 100
         hitbox { start 19 end 19 x 0.4 y 2.79999 radius 0.29999 damage 5 angle 55 bkb 76 kbg 56 priority 1 shield_damage 120 hitlag 120 rebounds false }
         hitbox { start 19 end 19 x 0.59999 y 3.2 radius 0.29999 damage 5 angle 55 bkb 76 kbg 56 priority 1 shield_damage 120 hitlag 120 rebounds false }
@@ -13307,6 +13337,7 @@ weapon dagger {
     move ext2 {
         total_frames 43
         autocancel_before 255
+        start_speed_y 0
         hitbox { start 19 end 19 x 0.4 y 2.79999 radius 0.29999 damage 5 angle 55 bkb 76 kbg 56 priority 1 shield_damage 120 hitlag 120 rebounds false }
         hitbox { start 19 end 19 x 0.59999 y 3.2 radius 0.29999 damage 5 angle 55 bkb 76 kbg 56 priority 1 shield_damage 120 hitlag 120 rebounds false }
         hitbox { start 19 end 19 x 0.79999 y 3.59999 radius 0.29999 damage 5 angle 55 bkb 76 kbg 56 priority 1 shield_damage 120 hitlag 120 rebounds false }
@@ -18372,6 +18403,9 @@ fighter duelist {
     ledge_attack_frames 55
     ledge_attack_dx 1.5
     weight 90
+    jump_speed_x 0.11874
+    jump_speed_x_mul 80
+    jump_speed_x_max 0.15
     item_throws { forward 10 back 14 up 15 down 8 dash 6 drop 7 }
 }
 
@@ -18400,7 +18434,7 @@ fighter brawler {
     air_speed 0.16011
     air_accel 0.00124
     air_accel_stick 0.01
-    air_friction 0.00124
+    air_friction 0.00049
     gravity 0.01624
     max_fall_speed 0.22499
     fast_fall_speed 0.35999
@@ -18490,6 +18524,10 @@ fighter brawler {
     ledge_attack_frames 55
     ledge_attack_dx 1.5
     weight 92
+    air_jump_drift 90
+    jump_speed_x 0.125
+    jump_speed_x_mul 80
+    jump_speed_x_max 0.16249
 }
 
 fighter rogue {
@@ -18607,6 +18645,9 @@ fighter rogue {
     ledge_attack_frames 55
     ledge_attack_dx 1.5
     weight 78
+    jump_speed_x 0.09499
+    jump_speed_x_mul 80
+    jump_speed_x_max 0.17499
     item_throws { forward 8 back 11 up 11 down 8 dash 6 drop 6 }
 }
 
@@ -18725,6 +18766,10 @@ fighter tumbler {
     ledge_attack_frames 55
     ledge_attack_dx 1.5
     weight 98
+    air_jump_drift 90
+    jump_speed_x 0.11874
+    jump_speed_x_mul 80
+    jump_speed_x_max 0.16249
 }
 
 fighter sprinter {
@@ -18842,6 +18887,10 @@ fighter sprinter {
     ledge_attack_frames 55
     ledge_attack_dx 1.5
     weight 104
+    air_jump_drift 90
+    jump_speed_x 0.11249
+    jump_speed_x_mul 75
+    jump_speed_x_max 0.2625
 }
 
 fighter seer {
@@ -18959,6 +19008,10 @@ fighter seer {
     ledge_attack_frames 55
     ledge_attack_dx 1.5
     weight 91
+    air_jump_drift 90
+    jump_speed_x 0.09
+    jump_speed_x_mul 70
+    jump_speed_x_max 0.1375
     item_throws { forward 7 back 9 up 11 down 6 dash 4 drop 5 }
 }
 
@@ -19077,6 +19130,9 @@ fighter champion {
     ledge_attack_frames 55
     ledge_attack_dx 1.5
     weight 100
+    jump_speed_x 0.11874
+    jump_speed_x_mul 90
+    jump_speed_x_max 0.15
     gauge { max 100 per_dealt 0.66699 per_taken 1 mode_frames 900 walk 115 dash 110 run 110 traction 115 air_speed 120 air_accel 120 air_friction 115 gravity 110 fall 110 }
 }
 
@@ -19195,6 +19251,9 @@ fighter hauler {
     ledge_attack_frames 55
     ledge_attack_dx 1.5
     weight 127
+    jump_speed_x 0.11874
+    jump_speed_x_mul 80
+    jump_speed_x_max 0.2
     item_throws { forward 10 back 14 up 15 down 8 dash 6 drop 7 }
 }
 
@@ -19315,6 +19374,9 @@ fighter bounder {
     weight 104
     air_jump_turns true
     air_jump_drift 120
+    jump_speed_x 0.11374
+    jump_speed_x_mul 70
+    jump_speed_x_max 0.1875
     air_jump_armor { start 0 end 43 kind knockback threshold 120 subtract true min_kb 60 }
     item_throws { forward 8 back 7 up 8 down 7 dash 7 drop 6 }
 }
@@ -19434,6 +19496,9 @@ fighter wanderer {
     ledge_attack_frames 55
     ledge_attack_dx 1.5
     weight 104
+    jump_speed_x 0.11874
+    jump_speed_x_mul 80
+    jump_speed_x_max 0.15
     passive_shield { x 0.59999 y 1 crouch_y 0.4 half_height 0.34999 radius 0.45 }
     item_throws { forward 7 back 9 up 11 down 6 dash 4 drop 5 }
 }
@@ -19553,6 +19618,10 @@ fighter settler {
     ledge_attack_frames 55
     ledge_attack_dx 1.5
     weight 92
+    air_jump_drift 90
+    jump_speed_x 0.11874
+    jump_speed_x_mul 80
+    jump_speed_x_max 0.16249
     item_throws { forward 11 back 11 up 10 down 10 dash 5 drop 6 }
 }
 
@@ -19672,6 +19741,9 @@ fighter scamp {
     ledge_attack_dx 1.5
     weight 90
     air_jump_drift 90
+    jump_speed_x 0.11874
+    jump_speed_x_mul 80
+    jump_speed_x_max 0.16249
     item_throws { forward 7 back 9 up 11 down 6 dash 4 drop 5 }
 }
 
@@ -19791,6 +19863,9 @@ fighter phantom {
     ledge_attack_dx 1.5
     weight 93
     air_jump_drift 90
+    jump_speed_x 0.11874
+    jump_speed_x_mul 75
+    jump_speed_x_max 0.15
     gauge {
         max 100
         per_dealt 1.29999
@@ -19929,6 +20004,9 @@ fighter exile {
     ledge_attack_frames 55
     ledge_attack_dx 1.5
     weight 79
+    jump_speed_x 0.11249
+    jump_speed_x_mul 90
+    jump_speed_x_max 0.15
     wing {
         points_m2 110
         points_m1 100

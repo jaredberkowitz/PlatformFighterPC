@@ -3,6 +3,9 @@
 // 30 = ext2.
 var queued;
 var rising;
+// In the air it adds 1.4 reference units of upward speed as it starts ("added vertical speed in the air", ssbwiki.com 13.0.1), on
+// every use (no once-per-airtime limit is published): it slows a fall, as the reference's "slightly halt his downward movement".
+if frame == 1 && grounded == 0 { add_vel(0, 0.175); }
 if grounded == 0 && frame >= 27 { end(); }
 if grounded && frame >= 3 && frame <= 8 { set_vel(0.18, 0); }
 if grounded && frame == 9 { set_vel(0, 0); }
