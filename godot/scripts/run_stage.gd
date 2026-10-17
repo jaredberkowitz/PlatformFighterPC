@@ -54,6 +54,9 @@ const LOOK_COLOURS := {
 const BLOCKS := ["street", "roof", "wall", "tower", "office_floor", "ceiling"]
 ## Pass-through looks drawn as the city's girder platform (with their own dressing).
 const GIRDERS := ["balcony", "fire_escape", "scaffold", "billboard", "water_tower", "bus_shelter", "pedestal", "shelf", "planter"]
+## How far behind the play plane the city's buildings stand (their front face; the art director's depth, 2026-10-17): the building
+## masses no footing hangs on stand here, smaller in the view, behind the fighters (R2e).
+const FACADE_Z := -18.0
 const AWNING_STRIPES := [[Color(0.92, 0.34, 0.42), Color(0.98, 0.94, 0.9)], [Color(0.3, 0.6, 0.6), Color(0.94, 0.92, 0.84)],
 	[Color(0.96, 0.7, 0.3), Color(0.98, 0.94, 0.86)], [Color(0.5, 0.4, 0.8), Color(0.92, 0.9, 0.98)]]
 

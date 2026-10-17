@@ -1040,6 +1040,8 @@ static func blob_parts() -> Dictionary:
 
 
 ## States where the hands open (see `_clench`).
+## States in which a held weapon trails in the loose hand instead of being held in guard (see `carrying`).
+const REELING_STATES := ["Hitstun", "Tumble", "Knockdown", "GetUp", "ShieldBreak", "Grabbed"]
 const OPEN_HAND_STATES := ["Grabbing", "Grabbed", "Hitstun", "Tumble", "LedgeHang", "LedgeGetUp", "Knockdown", "GetUp", "ShieldBreak",
 	"Respawn", "Helpless", "ItemPickup", "ItemThrow"]
 ## Moves whose reference opens the hand (from the moveset reports' art notes): by class, the sim's move names. A hand holding a weapon
@@ -2952,6 +2954,33 @@ func _spin(s: Dictionary) -> float:
 	return TAU * k
 
 
+## A fist's forward air on the base body, after the reference's (the owner's gold standard, 2026-10-17): the fist cocked up behind the
+## head in the wind-up, brought over the top onto the hit on the first active frame, and carried on down to low in front through the
+## follow-through, while the clip leans the body back and then curls it forward over the punch. Degrees about the shoulder, 0 forward.
+const OVERHEAD_FROM := 125.0
+const OVERHEAD_TO := -55.0
+
+
+## Whether this move is a fist's overhead forward air (see OVERHEAD_FROM).
+func _overhead_punch(s: Dictionary) -> bool:
+	return String(s.move_name) == "fair" and AnimLibrary.attack_clip(_cls(s), "fair", anim) == "attack_fair"
+
+
+## The overhead punch's arm angle (radians about the shoulder) this frame, given the hit's direction `hit`.
+func _overhead_angle(s: Dictionary, hit: float) -> float:
+	var t: PackedInt32Array = s.move_timing
+	var f := float(s.state_frame)
+	var first := maxf(1.0, float(t[1]))
+	var last := maxf(first, float(t[2]))
+	var from := deg_to_rad(OVERHEAD_FROM)
+	if f < first - 2.0:
+		return from
+	if f < first:
+		# (A plain lerp, not the shortest way round: from up behind the head it comes over the top.)
+		return lerpf(from, hit, (f - first + 2.0) / 2.0)
+	return lerpf(hit, deg_to_rad(OVERHEAD_TO), clampf((f - first) / (last - first + 4.0), 0.0, 1.0))
+
+
 func _pose_blade(s: Dictionary, delta: float) -> void:
 	var target: Array = _blade_target(s)
 	# A little smoothing so the rest pose and quick direction changes do not pop.
@@ -2996,12 +3025,12 @@ func _pose_blade(s: Dictionary, delta: float) -> void:
 		var to_tip := tip - shoulder
 		var dist := maxf(to_tip.length(), 0.001)
 		# (A fist reaches further by the strike's stretch, `strike_e`, so the stretched arm is straight on the hit.)
-		var reach := minf(arm_reach, maxf(dist - 0.3, 0.1)) if bladed(_cls(s)) else arm_reach * (1.0 + strike_e)
+		var reach := minf(arm_reach, maxf(dist - 0.3, 0.1)) if bladed(_cls(s)) else arm_reach * (1.0 + _arm_e())
 		# (On the base body a blade's arm reaches out most of its length whatever the hit's distance: the arm and weapon extend to the hit,
 		# never the body, and the blade carries on past a near hitbox. The owner, 2026-10-17. A little short of straight: a locked elbow
 		# read as reaching for a hug, pose review.)
 		if bladed(_cls(s)) and use_base_body:
-			reach = arm_reach * BLADE_ARM_REACH * (1.0 + strike_e)
+			reach = arm_reach * BLADE_ARM_REACH * (1.0 + _arm_e())
 		var dir := to_tip / dist
 		# (A blade raised high is held out in front of the face, not over it: the arm is short against the big head, so straight up the
 		# hilt ended in front of the face and the arm hid behind the blade. Art review 5, after the reference's up smash, whose arm is
@@ -3009,6 +3038,9 @@ func _pose_blade(s: Dictionary, delta: float) -> void:
 		if bladed(_cls(s)) and use_base_body and dir.angle() > deg_to_rad(HIGH_BLADE_ARM) and dir.angle() < deg_to_rad(150.0):
 			dir = Vector2.from_angle(deg_to_rad(HIGH_BLADE_ARM))
 		var goal := shoulder + dir * reach
+		# A fist's forward air on the base body is an overhead punch (`_overhead_angle`), not a jab at the hitbox.
+		if use_base_body and not bladed(_cls(s)) and _overhead_punch(s):
+			goal = shoulder + Vector2.from_angle(_overhead_angle(s, dir.angle())) * reach
 		if use_base_body:
 			# With a real arm the hand travels round the shoulder, in an arc (a hook, a swing), not along a straight line.
 			var from_v := old_hand - shoulder
@@ -3273,7 +3305,7 @@ func _aim_arm(facing: int, holding: bool, two_hands := false) -> void:
 		# On a strike the arm stretches (`strike_e`), and reaches that much further. (A blade's arm too on the base body, whose arm raised
 		# overhead ended at the big head's brow and held the sword at the face: the arm extends to the swing, never the body. The owner,
 		# 2026-10-17.)
-		var e := strike_e if not bladed(_cls_now) or use_base_body else 0.0
+		var e := _arm_e() if not bladed(_cls_now) or use_base_body else 0.0
 		var upper := (elbow0 - rest_u.origin).length() * (1.0 + e)
 		# The shoulder where the animated chest has it now, so the arm stays on the body as it bends and turns.
 		var shoulder := rest_u.origin
@@ -3350,7 +3382,7 @@ static func _arm_hinge(up0: Vector3, fore0: Vector3, up1: Vector3, fore1: Vector
 ## About where the hips are (forward space, height), for how steeply a kick rises.
 const KICK_HIP_Y := 0.6
 ## The steepest a kick rises on the base body (degrees above level, see `_aim_leg`).
-const HIGH_KICK := 50.0
+const HIGH_KICK := 65.0
 
 
 ## A kick: the leg on the side of the hitbox reaches the live hitbox with two-bone IK (hip, knee, ankle), so the foot is where the hit
@@ -3388,7 +3420,7 @@ func _aim_leg(s: Dictionary, kicking: bool, delta: float) -> void:
 		var knee0 := rest_s.origin
 		var ankle0 := rest_f.origin
 		# On the strike the kicking leg stretches and reaches that much further (`strike_e`).
-		var e := strike_e * MotionDeform.LEG_STRETCH_FACTOR * leg_k
+		var e := strike_e * MotionDeform.LEG_STRETCH_FACTOR * (MotionDeform.BASE_LEG_STRETCH if use_base_body else 1.0) * leg_k
 		var upper := (knee0 - rest_t.origin).length() * (1.0 + e)
 		var shin_len := (ankle0 - knee0).length() * (1.0 + e)
 		var lower := shin_len + 0.08
@@ -3484,7 +3516,7 @@ const ARCS := {
 		"ftilt": [[0.0, 0.0, 0.0, 50, -50, 8, 10, "arm"]],
 		"fsmash": [[0.0, 0.0, 0.0, 60, -60, 20, 23, "arm"]],
 		"dsmash": [[0.0, 2.6, 2.4, -100, -35, 14, 15], [0.0, 2.6, 2.4, -80, -145, 21, 22]],
-		"fair": [[0.0, 0.0, 0.0, 60, -70, 7, 9, "arm"]],
+		"fair": [[0.0, 0.0, 0.0, 110, -60, 7, 9, "arm"]],
 		"bair": [[0.0, 0.0, 0.0, 215, 140, 13, 15, "arm"]],
 		"uair": [[0.0, 0.0, 0.0, 15, 165, 7, 9, "arm"]],
 		"dair": [[0.0, 0.0, 0.0, 20, -110, 16, 17, "arm"]],
@@ -3752,6 +3784,9 @@ func _launch_look(s: Dictionary) -> void:
 	var flying: bool = String(s.state) == "Hitstun" and int(s.hitlag) == 0
 	var flight: Vector2 = vel + s.get("kb_vel", Vector2.ZERO)
 	var target: Array = MotionDeform.body_target(String(s.state), int(s.hitlag), bool(s.launch_pending), flight)
+	# (Far less on the base body: stretched 42% the round body read as a melting tube with its legs merged. Pose review.)
+	if use_base_body and float(target[0]) > 0.0:
+		target[0] = float(target[0]) * MotionDeform.BASE_LAUNCH_SHARE
 	var frame := int(s.frame)
 	var steps := frame - body_frame
 	if body_frame < 0 or steps < 0 or steps > 2:
@@ -4014,6 +4049,12 @@ var smear_cls := 0
 var smear_frame := -1
 
 
+## The striking arm's stretch now: `strike_e`, more on the base body (MotionDeform.BASE_ARM_STRETCH).
+func _arm_e() -> float:
+	return strike_e * (MotionDeform.BASE_ARM_STRETCH if use_base_body else 1.0)
+
+
+
 ## A strike with no authored arc (a punch or a kick of the classes without a blade) leaves a smear behind the striking fist or foot: drawn
 ## out a point a sim frame from `Smear.LEAD` frames before its hit (so it runs from the wind-up) to the hit, held while the hit is live,
 ## then faded over `ARC_FADE` frames. Nothing moves in hitlag, so a freeze holds it; a rollback or seek drops it.
@@ -4097,6 +4138,10 @@ func _apply_combat(s: Dictionary, delta: float) -> void:
 	_clench(not open_hands, not open_hands or blade_pivot.visible, int(s.facing))
 	# Running with nothing to swing, the weapon arm pumps with the run and the weapon trails behind.
 	var carrying: bool = not brawler and s.move_name == "" and (state == "Run" or state == "Dash")
+	# Hit, the weapon arm goes with the body's reaction (the clip) and the weapon trails in the loose hand, as in the run: held up in
+	# its guard through the hitstun, the sword crossed the face and the launch pointed it ahead like a thrust. Pose review.
+	if not brawler and REELING_STATES.has(state):
+		carrying = true
 	if rig != null:
 		var holding: bool = swinging_arm if not brawler else (swinging_arm and state == "Attack")
 		# The Wanderer's round shield, on the other forearm, faced outward toward the camera, a little in front of the body.

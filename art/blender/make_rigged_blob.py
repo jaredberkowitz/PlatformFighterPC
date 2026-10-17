@@ -662,16 +662,17 @@ BODY_MOVES = {
          "armU.L": (-40.0, 34.0), "armL.L": (20.0,)},
         {"hips": -0.08, "spine": (14.0, 4.0), "stance": (30.0, -24.0), "shin.L": (-30.0,)}),
     # Forward air (a crescent cut, or a claw raked, down through the space in front): the weapon raised with the shoulders turned back and
-    # the knees drawn up, then the torso leans over the swing and turns into it, the front knee up and the back leg trailing, the free arm
-    # flung back. Upright enough that the face stays toward the hit.
+    # the knees drawn up, then the torso leans over the swing and turns into it, the front knee up and the back leg trailing.
+    # Upright enough that the face stays toward the hit.
     # (Compact then long: the wind-up tucks both knees high and cocks the free arm, the strike opens out, the front knee driven up and the
-    # back leg kicked long behind with the free arm flung back, so the silhouette changes shape, not just angle.)
+    # back leg kicked long behind, so the silhouette changes shape, not just angle.)
+    # (After the reference's forward air, the owner's gold standard, 2026-10-17: leaning back with the knees tucked as the fist or blade
+    # cocks up behind the head (the game sweeps the arm, `_overhead_angle`), then the whole body curls forward over the strike with the
+    # back leg trailing, and stays curled through the follow-through, so the swing has weight. The free arm stays tucked.)
     "attack_fair": (
-        {"spine": (-20.0, -28.0), "head": (-8.0, 12.0), "stance": (52.0, 40.0), "shin.L": (-96.0,), "shin.R": (-88.0,),
-         "armU.L": (40.0, 30.0), "armL.L": (50.0,)},
-        {"spine": (20.0, 30.0), "head": (4.0, -14.0), "stance": (64.0, -24.0), "shin.L": (-100.0,), "shin.R": (-16.0,),
-         "armU.L": (-56.0, 40.0), "armL.L": (20.0,)},
-        {"spine": (6.0, 8.0), "stance": (34.0, 14.0), "shin.L": (-56.0,), "shin.R": (-46.0,)}),
+        {"spine": (-14.0, -20.0), "head": (-6.0, 10.0), "stance": (56.0, 44.0), "shin.L": (-100.0,), "shin.R": (-92.0,)},
+        {"spine": (34.0, 24.0), "head": (10.0, -10.0), "stance": (44.0, -30.0), "shin.L": (-90.0,), "shin.R": (-26.0,)},
+        {"spine": (24.0, 8.0), "stance": (42.0, 22.0), "shin.L": (-84.0,), "shin.R": (-64.0,)}),
     # Up air (an overhead crescent from front to back): tucked, then the body stretches up tall under the swing, the legs reaching down.
     # (Pose review 2026-10-17: up moves reach from the shoulders with the chest lifted and the hips over the feet; the round body arched
     # back with its belly forward read as inhaling, not striking.)
@@ -2607,32 +2608,35 @@ def main() -> None:
         pose(rig, "head", fwd=-14.0)
 
     # The base body's hit reaction: on the hit (held through the hitlag freeze) the chest is thrown back and twisted off the blow, the head
-    # snapped back, the arms flung forward and out as the body leaves them behind, one knee jerked up; then over the hitstun it slackens
-    # into a looser reel, the arms dropping, so a long stun does not read as one frozen pose. The game's flinch, tumble and launch poses
+    # snapped back, the arms trailing, the knees giving; then over the hitstun it slackens into a looser reel, so a long stun does not
+    # read as one frozen pose. The game's flinch, tumble and launch poses
     # go on top for stronger hits.
     def hurt_snap(rig):
-        pose(rig, "armU.L", fwd=46.0, out=64.0)
-        pose(rig, "armL.L", fwd=20.0)
-        pose(rig, "armU.R", fwd=14.0, out=84.0)
-        pose(rig, "armL.R", fwd=10.0)
-        pose(rig, "thigh.R", fwd=38.0, out=12.0)
-        pose(rig, "shin.R", fwd=-62.0)
-        pose(rig, "thigh.L", fwd=-16.0, out=14.0)
-        pose(rig, "shin.L", fwd=-20.0)
+        # (Pose review 2026-10-17: a recoil, not arms thrown out wide. The chest and head snap back off the blow, both arms trail loosely
+        # down and behind the body it leaves them with, and the knees give, the near one buckling.)
+        pose(rig, "armU.L", fwd=-30.0, out=30.0)
+        pose(rig, "armL.L", fwd=34.0)
+        pose(rig, "armU.R", fwd=-22.0, out=26.0)
+        pose(rig, "armL.R", fwd=40.0)
+        pose(rig, "thigh.R", fwd=26.0, out=10.0)
+        pose(rig, "shin.R", fwd=-56.0)
+        pose(rig, "thigh.L", fwd=-4.0, out=12.0)
+        pose(rig, "shin.L", fwd=-34.0)
         # (Not so far back or so twisted that the face turns away: the hurt face is half the read.)
-        pose(rig, "spine", fwd=-18.0, twist=-4.0)
-        pose(rig, "head", fwd=2.0, twist=4.0)
+        pose(rig, "spine", fwd=-22.0, twist=-6.0)
+        pose(rig, "head", fwd=-6.0, twist=4.0)
 
     def hurt_reel(rig):
-        pose(rig, "armU.L", fwd=20.0, out=58.0)
-        pose(rig, "armL.L", fwd=30.0)
-        pose(rig, "armU.R", fwd=-6.0, out=66.0)
-        pose(rig, "armL.R", fwd=24.0)
-        pose(rig, "thigh.R", fwd=18.0, out=12.0)
+        # Slackening over the hitstun: the chest coming forward again, the arms hanging, the knees still soft.
+        pose(rig, "armU.L", fwd=-8.0, out=22.0)
+        pose(rig, "armL.L", fwd=40.0)
+        pose(rig, "armU.R", fwd=-4.0, out=20.0)
+        pose(rig, "armL.R", fwd=46.0)
+        pose(rig, "thigh.R", fwd=16.0, out=10.0)
         pose(rig, "shin.R", fwd=-40.0)
-        pose(rig, "thigh.L", fwd=-10.0, out=14.0)
-        pose(rig, "shin.L", fwd=-22.0)
-        pose(rig, "spine", fwd=-12.0, twist=-2.0)
+        pose(rig, "thigh.L", fwd=-2.0, out=12.0)
+        pose(rig, "shin.L", fwd=-28.0)
+        pose(rig, "spine", fwd=-8.0, twist=-2.0)
         pose(rig, "head", fwd=0.0, twist=2.0)
 
     if BODY:
@@ -3360,13 +3364,14 @@ def main() -> None:
 
         # Hitstun from a hit strong enough to send the fighter flying but not to tumble: folded round the blow (the game turns it to
         # face the hit), the arms and legs left trailing toward the hitter, the head pitched down over it but still showing the face.
+        # (Pose review 2026-10-17: the arms trail bent and close, not thrown straight out to the sides.)
         def heavy_fold(rig):
             pose(rig, "spine", fwd=30.0, twist=-4.0)
             pose(rig, "head", fwd=-8.0, twist=4.0)
-            pose(rig, "armU.L", fwd=84.0, out=40.0)
-            pose(rig, "armL.L", fwd=12.0)
-            pose(rig, "armU.R", fwd=62.0, out=62.0)
-            pose(rig, "armL.R", fwd=20.0)
+            pose(rig, "armU.L", fwd=70.0, out=22.0)
+            pose(rig, "armL.L", fwd=40.0)
+            pose(rig, "armU.R", fwd=50.0, out=28.0)
+            pose(rig, "armL.R", fwd=46.0)
             pose(rig, "thigh.L", fwd=52.0, out=14.0)
             pose(rig, "shin.L", fwd=-30.0)
             pose(rig, "thigh.R", fwd=30.0, out=16.0)
@@ -3375,10 +3380,10 @@ def main() -> None:
         def heavy_drift(rig):
             pose(rig, "spine", fwd=18.0, twist=-2.0)
             pose(rig, "head", fwd=-4.0, twist=2.0)
-            pose(rig, "armU.L", fwd=60.0, out=56.0)
-            pose(rig, "armL.L", fwd=24.0)
-            pose(rig, "armU.R", fwd=40.0, out=70.0)
-            pose(rig, "armL.R", fwd=26.0)
+            pose(rig, "armU.L", fwd=50.0, out=24.0)
+            pose(rig, "armL.L", fwd=40.0)
+            pose(rig, "armU.R", fwd=30.0, out=30.0)
+            pose(rig, "armL.R", fwd=44.0)
             pose(rig, "thigh.L", fwd=36.0, out=14.0)
             pose(rig, "shin.L", fwd=-44.0)
             pose(rig, "thigh.R", fwd=14.0, out=16.0)
@@ -3391,8 +3396,8 @@ def main() -> None:
             pose(rig, "spine", fwd=-26.0)
             pose(rig, "head", fwd=4.0)
             for side in "LR":
-                pose(rig, "armU." + side, fwd=-24.0, out=40.0)
-                pose(rig, "armL." + side, fwd=14.0)
+                pose(rig, "armU." + side, fwd=-24.0, out=24.0)
+                pose(rig, "armL." + side, fwd=30.0)
                 pose(rig, "thigh." + side, fwd=-18.0, out=18.0)
                 pose(rig, "shin." + side, fwd=-38.0)
                 pose(rig, "foot." + side, fwd=-20.0)
@@ -3401,8 +3406,8 @@ def main() -> None:
             pose(rig, "spine", fwd=-14.0)
             pose(rig, "head", fwd=2.0)
             for side in "LR":
-                pose(rig, "armU." + side, fwd=4.0, out=58.0)
-                pose(rig, "armL." + side, fwd=26.0)
+                pose(rig, "armU." + side, fwd=4.0, out=28.0)
+                pose(rig, "armL." + side, fwd=40.0)
                 pose(rig, "thigh." + side, fwd=6.0, out=16.0)
                 pose(rig, "shin." + side, fwd=-46.0)
 

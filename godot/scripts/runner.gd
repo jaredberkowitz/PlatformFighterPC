@@ -471,6 +471,15 @@ func _on_result(action: String) -> void:
 			get_tree().quit()
 
 
+## Quitting a run from the pause screen: back to the fighter choice (or, launched directly, quitting).
+func _quit_match() -> void:
+	if Roster.session.get("from_menu", false):
+		Roster.session = {"mode": "run"}
+		_leave_to("select")
+	else:
+		get_tree().quit()
+
+
 ## A run has no training keys: pause, mute, the debug overlay, starting over, and Esc back to the fighter choice (or quitting).
 func _unhandled_key_input(event: InputEvent) -> void:
 	if not (event is InputEventKey) or not event.pressed or event.echo:
