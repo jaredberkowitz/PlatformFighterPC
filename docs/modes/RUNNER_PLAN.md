@@ -1205,7 +1205,7 @@ the light well and the catwalks are laid without their recovery route for them. 
 stats change little: the full table prints in `sim-content`'s `recovery_routes_per_fighter`).
 
 ### Tests and numbers
-- `sim-core/tests/runner.rs` (82): note A (the cap per tier over many seeds, spots waiting, the stagger, an arena in waves); the
+- `sim-core/tests/runner.rs` (81): note A (the cap per tier over many seeds, spots waiting, the stagger, an arena in waves); the
   owner's R2d answers; a recovery route offered to the duelist and withheld, with its coins, from the brawler; a fall into the gap
   room landing on its floor below (a true pit still costs a life); a drop's lid (a jump from its floor stays under it); air hits
   counting double with a real jab, the juggle's pay and callout; Skyward, Grounded and side knock-outs; bowling once a launch;
