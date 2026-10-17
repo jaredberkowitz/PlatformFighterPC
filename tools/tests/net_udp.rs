@@ -1,5 +1,5 @@
-//! Real sockets: two peers on localhost, directly and through the relay, play a match and must agree on every
-//! confirmed frame.
+//! Real sockets: two peers on localhost, directly, through the relay and by connection code (hole punching with a fake STUN
+//! server), play a match and must agree on every confirmed frame.
 
 use netplay::local_rollback::reference_checksums;
 use netplay::packet::Setup;
@@ -219,4 +219,117 @@ fn two_made_fighters_over_real_udp_stay_in_sync() {
             assert_eq!(*sum, truth[*frame as usize], "{name} at frame {frame}");
         }
     }
+}
+
+/// A fake STUN server in a thread: answers each Binding Request with the address it came from, until `stop` is set.
+fn fake_stun(
+    stop: std::sync::Arc<std::sync::atomic::AtomicBool>,
+) -> (SocketAddr, thread::JoinHandle<u32>) {
+    let socket = std::net::UdpSocket::bind(local()).unwrap();
+    socket.set_nonblocking(true).unwrap();
+    let addr = socket.local_addr().unwrap();
+    let handle = thread::spawn(move || {
+        let mut answered = 0;
+        let mut buf = [0u8; 1500];
+        while !stop.load(std::sync::atomic::Ordering::Relaxed) {
+            while let Ok((n, from)) = socket.recv_from(&mut buf) {
+                if let (Some(id), SocketAddr::V4(from)) =
+                    (transport::stun::transaction_id(&buf[..n]), from)
+                {
+                    let _ = socket.send_to(&transport::stun::binding_response(&id, from), from);
+                    answered += 1;
+                }
+            }
+            sleep(Duration::from_millis(1));
+        }
+        answered
+    });
+    (addr, handle)
+}
+
+#[test]
+fn two_peers_connecting_by_code_stay_in_sync() {
+    use transport::{CodeOptions, CodeSocket, CodeState, ConnectionCode};
+    let stop = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let (stun_addr, stun_thread) = fake_stun(stop.clone());
+    let opts = CodeOptions {
+        stun_servers: vec![stun_addr.to_string()],
+        lan_override: Some(Ipv4Addr::LOCALHOST),
+        ..CodeOptions::default()
+    };
+    let mut a = CodeSocket::bind(0, opts.clone()).unwrap();
+    let mut b = CodeSocket::bind(0, opts).unwrap();
+    let started = Instant::now();
+    while (a.state() != CodeState::Ready || b.state() != CodeState::Ready)
+        && started.elapsed() < Duration::from_secs(10)
+    {
+        a.poll();
+        b.poll();
+        sleep(Duration::from_millis(2));
+    }
+    // The codes travel as text, as players would paste them.
+    let code_a = a.my_code().unwrap().encode();
+    let code_b = b.my_code().unwrap().encode();
+    let theirs_for_a = ConnectionCode::decode(&code_b).unwrap();
+    let theirs_for_b = ConnectionCode::decode(&code_a).unwrap();
+    assert!(
+        theirs_for_b.public.is_some(),
+        "STUN found an address: {code_a}"
+    );
+    let a_hosts = a.hosts_against(&theirs_for_a);
+    assert_ne!(a_hosts, b.hosts_against(&theirs_for_b), "exactly one hosts");
+    a.connect(theirs_for_a).unwrap();
+    b.connect(theirs_for_b).unwrap();
+    while !(matches!(a.state(), CodeState::Connected(_))
+        && matches!(b.state(), CodeState::Connected(_)))
+    {
+        assert!(
+            started.elapsed() < Duration::from_secs(20),
+            "punching timed out: {:?} {:?}",
+            a.state(),
+            b.state()
+        );
+        a.poll();
+        b.poll();
+        sleep(Duration::from_millis(2));
+    }
+    // A stranger keeps throwing junk and made-up probes at both while they play.
+    let targets = [
+        a.local_addr().unwrap().port(),
+        b.local_addr().unwrap().port(),
+    ];
+    let noisy = stop.clone();
+    let noise = thread::spawn(move || {
+        let s = std::net::UdpSocket::bind(local()).unwrap();
+        let mut n = 0u8;
+        while !noisy.load(std::sync::atomic::Ordering::Relaxed) {
+            for p in targets {
+                let to = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), p);
+                let _ = s.send_to(&[0x46, 0x50, n, 1, 2, 3, 4, 5], to);
+                let _ = s.send_to(&[b'H', b'P', 0, n, 0, n, 0], to);
+            }
+            n = n.wrapping_add(1);
+            sleep(Duration::from_millis(3));
+        }
+    });
+    let (la, lb) = (a.into_link().unwrap(), b.into_link().unwrap());
+    let (host_link, join_link) = if a_hosts { (la, lb) } else { (lb, la) };
+    let inputs = random_inputs(&mut Rng::new(9), TOTAL as usize + 100);
+    let content = Content::placeholder();
+    let host = Peer::host(host_link, &content, setup());
+    let join = Peer::join(join_link, &content, Vec::new());
+    let (i1, i2) = (inputs.clone(), inputs.clone());
+    let (tx, rx) = mpsc::channel();
+    let t1 = thread::spawn(move || play(host, i1));
+    let t2 = thread::spawn(move || tx.send(play(join, i2)).unwrap());
+    let host_outcome = t1.join().unwrap();
+    t2.join().unwrap();
+    let join_outcome = rx.recv().unwrap();
+    stop.store(true, std::sync::atomic::Ordering::Relaxed);
+    noise.join().unwrap();
+    assert!(
+        stun_thread.join().unwrap() >= 2,
+        "both asked the STUN server"
+    );
+    check(&host_outcome, &join_outcome, &inputs);
 }
