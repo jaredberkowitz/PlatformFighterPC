@@ -1,11 +1,11 @@
 @echo off
 rem Host an online match. Tell the other player your IP address and the port below.
 cd /d "%~dp0"
-set "PATH=%USERPROFILE%\.cargo\bin;%PATH%"
 set PORT=47000
-echo Building the simulation...
-cargo build -p godot-bridge
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\setup.ps1"
 if errorlevel 1 (
+  echo.
+  echo Could not start. See the message above.
   pause
   exit /b 1
 )

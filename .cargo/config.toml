@@ -3,3 +3,8 @@
 # `GameState` in sim 120).
 [env]
 RUST_MIN_STACK = "33554432"
+
+# Windows: link the C runtime into the game's library (pf_bridge.dll), so it runs on PCs without Microsoft's Visual C++
+# Redistributable (it needed VCRUNTIME140.dll before: a missing one stops the game from loading the simulation at all).
+[target.x86_64-pc-windows-msvc]
+rustflags = ["-C", "target-feature=+crt-static"]

@@ -65,6 +65,14 @@ class Logo extends Control:
 
 
 func _ready() -> void:
+	# The game cannot run without its simulation library (pf_bridge.dll beside the game). Say so plainly instead of failing
+	# silently: it is nearly always a zip run without extracting it, or a file left behind.
+	if not ClassDB.class_exists("SimRunner"):
+		OS.alert("The game's files are incomplete: pf_bridge.dll was not found next to PlatformFighter.exe.\n\n"
+			+ "Right-click the downloaded zip, choose \"Extract All\", and run PlatformFighter.exe from the extracted folder.\n"
+			+ "(From the source code: run setup.bat first.)", "Platform Fighter")
+		get_tree().quit(1)
+		return
 	for a in OS.get_cmdline_user_args():
 		for d in DIRECT_ARGS:
 			if a.begins_with(d):
