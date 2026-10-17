@@ -6,6 +6,33 @@ Art style target: [`docs/ART_DIRECTION.md`](docs/ART_DIRECTION.md). Weapons and 
 
 **PROJECT DISCLAIMER: THIS IS OBVIOUSLY VERY HEAVILY CONTRIBUTED TO BY CLAUDE, AND AI IN GENERAL. THE PURPOSE OF THIS PROJECT IS NOT TO LEARN TO CODE, BUT TO TEST AI IN A DEVELOPMENT CAPACITY.**
 
+## Getting started (teammates and playtesters)
+
+### Just play (no tools needed)
+1. Download the newest zip from the [Releases page](https://github.com/jaredberkowitz/PlatformFighterPC/releases) (the one marked
+   *Latest*).
+2. **Right-click the zip, choose "Extract All"**, then open the extracted folder. Running the game from inside the zip does not
+   work: Windows only unpacks the .exe, without the game data next to it.
+3. Double-click `PlatformFighter.exe`. If Windows says "Windows protected your PC", click **More info**, then **Run anyway** (the
+   game is not code-signed).
+4. Controls and what is new: `How to play.txt` in the same folder. Problems: `READ ME FIRST.txt`.
+
+Needs Windows 10 or 11 (64-bit) and a graphics card with Vulkan or DirectX 12 (most from the last ten years; update its driver if
+the game will not start).
+
+### Work on the game (the source code)
+1. Install [Git](https://git-scm.com/download/win), then clone: `git clone https://github.com/jaredberkowitz/PlatformFighterPC.git`
+   (or use GitHub Desktop). Avoid a OneDrive-synced folder if you can: syncing can lock files mid-build.
+2. **Double-click `setup.bat`.** It checks for Rust, Microsoft's C++ build tools and Godot 4.7.1, offers to install whatever is
+   missing (with winget, or it tells you where to get it), builds the simulation and imports the game's assets. The first run takes
+   a while (the C++ build tools are a few GB); later runs take seconds.
+3. Then **`play.bat`** plays, **`play_editor.bat`** opens the content editors, and **`play_host.bat`** / **`play_join.bat`** play
+   online. Each one re-runs the quick checks and rebuilds what changed.
+4. To open the project in the Godot editor itself: `tools\godot\Godot_v4.7.1-stable_win64.exe --path godot -e` (after setup has
+   built the simulation; Godot cannot load the game without it).
+
+If something fails, copy the red text from the window and send it to the team.
+
 ## Status: Phases 0-3 built, Phase 4 (netplay) built and tested locally, Phase 5 (content format and scripting) built, Phase 6 (editors) built, playable in Godot
 
 | Crate | Purpose | State |
@@ -25,7 +52,8 @@ The game opens on a main menu: **Play** (character select), **Character Creator*
 like size that change how it moves) and **Editors**. Details in `docs/MENUS.md`.
 
 
-**Double-click `play.bat`** in the project folder. It builds the simulation and opens the game.
+**Double-click `play.bat`** in the project folder (run `setup.bat` once first; see Getting started). It builds the simulation and
+opens the game.
 
 From a terminal you must be in the project folder, and in PowerShell a program in the current folder needs `.` in front:
 
@@ -34,7 +62,7 @@ cd "C:\Users\jared\OneDrive\Desktop\Platform Fighter PC"
 .\play.bat
 ```
 
-`tools/godot/` is git-ignored. Download Godot 4.7.x and put it there, or open `godot/` in your own Godot.
+`tools/godot/` is git-ignored: `setup.bat` downloads Godot 4.7.1 into it.
 
 - **P1** WASD stick, Space jump, N short hop, J attack, I smash attack, K special, L or Shift shield, Ctrl = slow walk.
 - **P2** Arrows, Enter jump, apostrophe short hop, comma attack, semicolon smash, period special, slash shield, backslash = slow walk.
@@ -64,7 +92,7 @@ connection: frame, confirmed frame, rollbacks and stalls ("waiting for the other
 
 ## Commands
 
-Requires Rust (stable) plus the MSVC build tools on Windows.
+Requires Rust (stable) plus the MSVC build tools on Windows (`setup.bat` installs both).
 
 ```bash
 cargo test --workspace
