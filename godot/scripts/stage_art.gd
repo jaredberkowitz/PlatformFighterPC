@@ -139,6 +139,11 @@ static func _soft(c: Color) -> ShaderMaterial:
 ## The pattern on a block's front, drawn as vector art (an SVG made here and rasterised once, smooth and anti-aliased, in the hand-drawn
 ## style of the rest): quilted diamonds, wavy sandstone strata, rounded cobbles, or a building facade with windows (some lit). Each
 ## tiles seamlessly.
+## The city facade tile's window bays across its 512px: [left edge, width] (a width of 0 is a blank pier with a blade sign): a pair, a
+## pier, a wide picture window, a narrow one.
+const FACADE_BAYS := [[22, 52], [96, 52], [190, 0], [232, 104], [372, 52], [448, 36]]
+
+
 static func _soil_material(t: Dictionary) -> ShaderMaterial:
 	var a: Color = t.soil
 	var b: Color = t.soil_dark
@@ -415,6 +420,7 @@ static func _soil_material(t: Dictionary) -> ShaderMaterial:
 						body += '<ellipse cx="%.1f" cy="%.1f" rx="%.1f" ry="%.1f" fill="#%s" stroke="#%s" stroke-width="2.5" stroke-opacity="0.55"/>' % [cx + ox, cy + oy, rx, ry, shade.to_html(false), ink]
 						body += '<ellipse cx="%.1f" cy="%.1f" rx="%.1f" ry="%.1f" fill="#%s" opacity="0.3"/>' % [cx + ox - rx * 0.15, cy + oy - ry * 0.3, rx * 0.55, ry * 0.4, shade.lightened(0.1).to_html(false)]
 		"facade":
+			# (Bays of their own widths, FACADE_BAYS: four equal columns read as one window grid across the stage, art review pain points.)
 			# A brick apartment front, four storeys a repeat: brick courses in a soft stagger, a stone ledge along each floor, four tall
 			# windows a floor each in a pale frame with a cross bar (a third lit warm, with curtains drawn to the sides; a few with a
 			# flower pot on the sill), striped awnings over two, an air conditioner hung under one, and a drainpipe down the seam. (It was
@@ -434,21 +440,31 @@ static func _soil_material(t: Dictionary) -> ShaderMaterial:
 				# The ledge at the foot of the floor.
 				body += '<rect x="0" y="%d" width="512" height="12" fill="#%s"/>' % [fy + 116, hi]
 				body += '<rect x="0" y="%d" width="512" height="3" fill="#%s" opacity="0.6"/>' % [fy + 125, ink]
-				for col in 4:
-					var wx := 30 + col * 128
+				for bay in FACADE_BAYS:
+					var wx: int = bay[0]
+					var w: int = bay[1]
 					var wy := fy + 18
+					if w == 0:
+						# The pier: a vertical blade sign across the middle two floors, else a small vent.
+						if floor_k == 1:
+							body += '<rect x="%d" y="%d" width="30" height="200" rx="5" fill="#%s" stroke="#%s" stroke-width="3"/>' % [wx - 15, fy + 30, awn[0], ink]
+							for g in 5:
+								body += '<circle cx="%d" cy="%d" r="7" fill="#f4efe6"/>' % [wx, fy + 56 + g * 36]
+						elif floor_k != 2:
+							body += '<rect x="%d" y="%d" width="22" height="16" fill="#5c5e70" stroke="#%s" stroke-width="2"/>' % [wx - 11, fy + 50, ink]
+						continue
 					var lit := rng.randf() < 0.34
-					body += '<rect x="%d" y="%d" width="68" height="88" rx="4" fill="#%s" stroke="#%s" stroke-width="3"/>' % [wx - 6, wy - 6, frame_col, ink]
-					body += '<rect x="%d" y="%d" width="56" height="76" fill="#%s"/>' % [wx, wy, "f2d394" if lit else "2a2f45"]
+					body += '<rect x="%d" y="%d" width="%d" height="88" rx="4" fill="#%s" stroke="#%s" stroke-width="3"/>' % [wx - 6, wy - 6, w + 12, frame_col, ink]
+					body += '<rect x="%d" y="%d" width="%d" height="76" fill="#%s"/>' % [wx, wy, w, "f2d394" if lit else "2a2f45"]
 					if lit:
 						var cc: String = curtain[rng.randi_range(0, 2)]
 						body += '<path d="M%d,%d l16,0 q-6,38 -16,76 Z" fill="#%s" opacity="0.9"/>' % [wx, wy, cc]
-						body += '<path d="M%d,%d l-16,0 q6,38 16,76 Z" fill="#%s" opacity="0.9"/>' % [wx + 56, wy, cc]
+						body += '<path d="M%d,%d l-16,0 q6,38 16,76 Z" fill="#%s" opacity="0.9"/>' % [wx + w, wy, cc]
 					else:
 						body += '<path d="M%d,%d l14,0 l-14,22 Z" fill="#ffffff" opacity="0.12"/>' % [wx + 6, wy + 4]
-					body += '<rect x="%d" y="%d" width="4" height="76" fill="#%s"/>' % [wx + 26, wy, frame_col]
-					body += '<rect x="%d" y="%d" width="56" height="4" fill="#%s"/>' % [wx, wy + 34, frame_col]
-					body += '<rect x="%d" y="%d" width="72" height="8" rx="2" fill="#%s" stroke="#%s" stroke-width="2" stroke-opacity="0.5"/>' % [wx - 8, wy + 80, hi, ink]
+					body += '<rect x="%d" y="%d" width="4" height="76" fill="#%s"/>' % [wx + w / 2 - 2, wy, frame_col]
+					body += '<rect x="%d" y="%d" width="%d" height="4" fill="#%s"/>' % [wx, wy + 34, w, frame_col]
+					body += '<rect x="%d" y="%d" width="%d" height="8" rx="2" fill="#%s" stroke="#%s" stroke-width="2" stroke-opacity="0.5"/>' % [wx - 8, wy + 80, w + 16, hi, ink]
 					var extra := rng.randf()
 					if extra < 0.2:
 						# A flower pot on the sill.
@@ -462,11 +478,12 @@ static func _soil_material(t: Dictionary) -> ShaderMaterial:
 					elif extra < 0.44:
 						# A striped awning over it.
 						var ac: String = awn[rng.randi_range(0, 1)]
-						for st_k in 5:
+						var stripes := (w + 20) / 15
+						for st_k in stripes:
 							body += '<rect x="%d" y="%d" width="15" height="16" fill="#%s"/>' % [wx - 10 + st_k * 15, wy - 22, ac if st_k % 2 == 0 else "f4efe6"]
-						for sc in 5:
+						for sc in stripes:
 							body += '<circle cx="%d" cy="%d" r="7.5" fill="#%s"/>' % [wx - 2 + sc * 15, wy - 6, ac if sc % 2 == 0 else "f4efe6"]
-						body += '<rect x="%d" y="%d" width="75" height="3" fill="#%s" opacity="0.5"/>' % [wx - 10, wy - 23, ink]
+						body += '<rect x="%d" y="%d" width="%d" height="3" fill="#%s" opacity="0.5"/>' % [wx - 10, wy - 23, stripes * 15, ink]
 			# A drainpipe down the tile's seam, with brackets.
 			body += '<rect x="2" y="0" width="10" height="512" fill="#7d7f92" stroke="#%s" stroke-width="2" stroke-opacity="0.6"/>' % ink
 			for py in range(40, 512, 128):

@@ -131,7 +131,7 @@ The detail behind each step follows.
 ## Pain points found 2026-10-15 (end of the refinement rounds; judged against the competitors, not yet fixed)
 - [x] (Sun: round 39; streaks: soft clouds, round 42.) Canyon: the sun is a huge bright disc right behind the stage, and the thin horizontal cloud streaks cut across it as flat lines;
       a smaller sun set lower to one side, the streaks as soft painted clouds.
-- [ ] City: the building under the stage is one evenly repeated window grid (the most regular surface left in the game); vary bays,
+- [x] (2026-10-17: FACADE_BAYS, pairs, a wide picture window, a narrow one, a pier with a blade sign.) City: the building under the stage is one evenly repeated window grid (the most regular surface left in the game); vary bays,
       a few lit/curtained windows, a ledge or sign. The far billboard: neon lettering since round 41.
 - [ ] Beach: the sea wall's stones are still large blocks at play distance; the sky's clouds are flat white shapes with no light side.
 - [x] (Six, lower: round 40.) Meadow: the floating islands crowd the top edge of the frame (several clipped by it); fewer, placed to frame the stage.
