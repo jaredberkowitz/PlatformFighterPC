@@ -121,6 +121,17 @@ static func bark(c: Color, tile := Vector2(4, 3), outline := true) -> ShaderMate
 	return _make("bark", c, "bark", tile, 0.0, outline)
 
 
+## Bark in soft plates for the small trees (art/stage/png/bark_plates.png from tools/art/noise_tile.gd; the owner, 2026-10-15: the bark
+## tile's sharp streaks on the small trees read as nothing real). The great trunks keep `bark`, whose bold furrows read at their size.
+static func bark_plates(c: Color, tile := Vector2(2, 1), outline := true) -> ShaderMaterial:
+	return _make("bark", c, "bark_plates" if _png_tile("bark_plates") != null else "bark", tile, 0.0, outline)
+
+
+## A palm trunk: soft horizontal ring scars (the painted tile only; with none, the trunk is plain), repeated `tile` times.
+static func palm(c: Color, tile := Vector2(2, 1), outline := true) -> ShaderMaterial:
+	return _make("bark", c, "palm" if _png_tile("palm") != null else "", tile, 0.0, outline)
+
+
 ## Leaves: soft clumps with a shaded underside, for crowns and bushes.
 static func foliage(c: Color, tile := Vector2(3, 2), outline := true) -> ShaderMaterial:
 	return _make("foliage", c, "foliage", tile, 0.0, outline)
