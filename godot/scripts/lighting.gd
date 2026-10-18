@@ -82,7 +82,9 @@ const STYLES := {
 	# and cooler undersides, and less of the pastel wash, so the colours carry.
 	"meadow": {"ramp": [[0.0, 0.0], [0.38, 0.0], [0.43, 0.52], [0.55, 0.52], [0.6, 1.0], [1.0, 1.0]],
 		"paint": [Color(1.1, 1.02, 0.88), Color(0.88, 0.88, 1.1), 0.65], "deep": 0.74, "clouds": [0.5, 14.0, 0.4, 0.7],
-		"finish": {"desat": 0.0, "lift": 0.02, "haze_max": 0.12, "s_curve": 0.3}},
+		# (Less haze and no greying of the scenery, 2026-10-17: together they washed the mid-distance cottages, trees and mountains into
+		# flat pastel shapes, the owner's "flat" feel; depth still reads through the cooler, lighter far colours.)
+		"finish": {"desat": 0.0, "lift": 0.01, "haze_max": 0.06, "s_curve": 0.3, "quiet": 0.0}},
 	"sunset": {"clouds": [0.35, 30.0, 0.3, 0.4], "edge": Color(1.0, 0.86, 0.74, 0.44), "paint": [Color(1.1, 0.98, 0.86), Color(0.86, 0.86, 1.08), 0.7], "deep": 0.72,
 		"finish": {"desat": 0.0, "lift": 0.02, "haze_max": 0.1, "s_curve": 0.3}},
 	"night": {"edge": Color(0.78, 0.86, 1.0, 0.62), "paint": [Color(0.98, 1.0, 1.08), Color(0.86, 0.9, 1.1), 0.5], "deep": 0.74, "glow": 0.95,

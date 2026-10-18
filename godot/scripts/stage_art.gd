@@ -1621,7 +1621,7 @@ const RIDGES := {
 	"meadow": [{"z": -170.0, "y": -44.0, "height": 60.0, "shape": 1, "seed": 3.0, "base": 0.42, "amplitude": 0.5, "frequency": 4.5,
 		# (More of its own blue and less haze, art review 6 round 31: at mix 0.55 the ridge was mostly horizon colour, a formless pale band
 		# behind the crisp painted hills; found with `--pick`.)
-		"tone": Color(0.2, 0.62, 0.6), "mix": 0.85, "edge": 0.7, "haze": 0.06,
+		"tone": Color(0.2, 0.62, 0.6), "mix": 0.85, "edge": 0.3, "haze": 0.06,
 		# (Teal, not blue: the owner's Origami King reference sets bright lime ground against cool teal mountains.)
 		# (A lit flank and a shaded flank on every peak, as the canyon's mesas have: a flat blue cut-out read as the least finished
 		# thing on the menu; the owner, 2026-10-17, raise the quality of what is there.)
