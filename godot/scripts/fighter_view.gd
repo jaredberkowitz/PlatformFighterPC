@@ -787,11 +787,38 @@ func _animate(s: Dictionary, delta: float) -> void:
 ## and to the arm IK's overrides (`_aim_arm`), so the bulk holds through its swings.
 const ARM_BULK := {7: [Vector3(1.55, 1.08, 1.55), Vector3(1.45, 1.35, 1.45)]}
 
+## The base body's proportions on top of its model (art review 10, after the reference cast and the crossover fighter's plumber: a big
+## head that carries the face and the hat at play size, big gloved hands and chunky feet): uniform scales on the end bones, so a bent
+## elbow or knee is never sheared. The head grows up from the neck; hats and face pieces follow it (`_follow_bones`).
+const HEAD_SIZE := 1.25
+const HAND_SIZE := 1.35
+const FOOT_SIZE := 1.25
+
+
+## This class's arm bulk ([forearm, hand] scales) with the body's own hand size in it.
+func _arm_bulk(cls: int) -> Array:
+	var b: Array = ARM_BULK.get(cls, [Vector3.ONE, Vector3.ONE])
+	return [b[0], (b[1] as Vector3) * (HAND_SIZE if use_base_body else 1.0)]
+
+
+## The body's proportions for a fighter shown outside a match (the menus' previews), whose pose is not stepped by `apply`.
+func apply_proportions(cls := -1) -> void:
+	_bulk_arms(cls)
+	# (And the hat and face pieces onto the grown head, as `apply` does.)
+	_follow_bones()
+
 
 func _bulk_arms(cls: int) -> void:
-	if skeleton == null or not ARM_BULK.has(cls):
+	if skeleton == null:
 		return
-	var b: Array = ARM_BULK[cls]
+	if use_base_body:
+		if head_bone >= 0:
+			skeleton.set_bone_pose_scale(head_bone, Vector3.ONE * HEAD_SIZE)
+		for side in ["L", "R"]:
+			var f := skeleton.find_bone("foot." + side)
+			if f >= 0:
+				skeleton.set_bone_pose_scale(f, Vector3.ONE * FOOT_SIZE)
+	var b: Array = _arm_bulk(cls)
 	for side in ["L", "R"]:
 		var il := skeleton.find_bone("armL." + side)
 		var ih := skeleton.find_bone("hand." + side)
@@ -3359,7 +3386,7 @@ func _aim_arm(facing: int, holding: bool, two_hands := false) -> void:
 		var stretch := Basis.from_scale(MotionDeform.limb_scale(e))
 		skeleton.set_bone_global_pose_override(iu, Transform3D(Basis(q_upper) * rest_u.basis * stretch, shoulder), 1.0, true)
 		# (The class's arm bulk carried into the override, which replaces the pose's own scale.)
-		var bulk: Array = ARM_BULK.get(_cls_now, [Vector3.ONE, Vector3.ONE])
+		var bulk: Array = _arm_bulk(_cls_now)
 		skeleton.set_bone_global_pose_override(il, Transform3D(Basis(q_lower) * rest_l.basis * stretch * Basis.from_scale(bulk[0]), elbow), 1.0, true)
 		skeleton.set_bone_global_pose_override(ih, Transform3D(Basis(q_lower) * rest_h.basis * Basis.from_scale(bulk[1]), elbow + fore * fore_len * float((bulk[0] as Vector3).y)), 1.0, true)
 		if not bladed(_cls_now) and mine:
@@ -3486,7 +3513,7 @@ func _aim_leg(s: Dictionary, kicking: bool, delta: float) -> void:
 		var stretch := Basis.from_scale(MotionDeform.limb_scale(e))
 		skeleton.set_bone_global_pose_override(it, Transform3D(Basis(q_upper) * rest_t.basis * stretch, hip), leg_k, true)
 		skeleton.set_bone_global_pose_override(ish, Transform3D(Basis(q_lower) * rest_s.basis * stretch, knee), leg_k, true)
-		skeleton.set_bone_global_pose_override(ift, Transform3D(Basis(q_lower) * rest_f.basis, knee + shin_dir * shin_len), leg_k, true)
+		skeleton.set_bone_global_pose_override(ift, Transform3D(Basis(q_lower) * rest_f.basis * Basis.from_scale(Vector3.ONE * (FOOT_SIZE if use_base_body else 1.0)), knee + shin_dir * shin_len), leg_k, true)
 		if side == kicker:
 			strike_tip = to_local(skeleton.global_transform * (knee + shin_dir * shin_len))
 			strike_tip_ok = true

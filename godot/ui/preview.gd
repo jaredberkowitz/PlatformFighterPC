@@ -113,6 +113,8 @@ func _process(delta: float) -> void:
 	t += delta
 	if framed:
 		_frame_camera(delta)
+	# (The body's proportions, as in a match: fighter_view.gd `HEAD_SIZE` and the rest.)
+	view.apply_proportions()
 	if view.model != null:
 		view.model.rotation.y = (sin(t * 0.9) * 0.8 if spin else 0.0) + facing_bias * (0.0 if spin else 1.0)
 		# The eyes look the way the fighter is turned.
