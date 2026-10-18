@@ -2122,7 +2122,7 @@ const RIDGES := {
 		# (Teal, not blue: the owner's Origami King reference sets bright lime ground against cool teal mountains.)
 		# (A lit flank and a shaded flank on every peak, as the canyon's mesas have: a flat blue cut-out read as the least finished
 		# thing on the menu; the owner, 2026-10-17, raise the quality of what is there.)
-		"flank": 0.75, "foot_dark": 0.35, "layers": 4, "flank_from": 0.0, "gullies": 0.8, "paper": 0.05, "edge_width": 0.012},
+		"flank": 0.75, "foot_dark": 0.35, "layers": 4, "flank_from": 0.0, "gullies": 0.45, "paper": 0.05, "edge_width": 0.012},
 		# A nearer, lower range in front, deeper teal and less hazed, casting its shadow on the far one: the backdrop as cut cards in layers
 		# with air between them, not one soft band (art review 9).
 		{"z": -140.0, "y": -36.0, "height": 62.0, "shape": 1, "seed": 9.0, "base": 0.4, "amplitude": 0.5, "frequency": 7.0,
@@ -3109,7 +3109,8 @@ static func _meadow(root: Node3D, t: Dictionary, stage: Array) -> void:
 	# A low rise of meadow in front of the hills, and round trees standing along it (their feet just behind its edge).
 	_fore_band(root, -46.0, -10.0, Color(0.4, 0.76, 0.32))
 	_fields(root, -46.0, -10.0, [Color(0.42, 0.78, 0.3), Color(0.52, 0.8, 0.3), Color(0.38, 0.7, 0.3), Color(0.44, 0.76, 0.34), Color(0.78, 0.8, 0.42)],
-		Color(0.28, 0.56, 0.24))
+		# (The hedgerows a step nearer the fields' greens, art review 10: dark lines netting the whole valley were its busiest detail.)
+		Color(0.34, 0.64, 0.28))
 	for k in 6:
 		var tx := rng.randf_range(-70, 70)
 		rng.randf_range(-12, -6)
@@ -4419,7 +4420,8 @@ const FACADE_LIT := [1.5, 0.95, 0.6]
 ## The share of a skyline layer's windows that are lit (nearest first): a scattered glow behind the fighters, not a field of lights that
 ## outshines them (the near layers stand right behind the play area).
 ## (Fewer lit the further back, as distance would hide them: the far layer was the most lit, 36%.)
-const FACADE_LIT_SHARE := [0.18, 0.13, 0.09]
+## (Fewer behind, art review 10: the middle and far layers' window grids were the busiest detail behind the fight.)
+const FACADE_LIT_SHARE := [0.18, 0.09, 0.05]
 
 
 ## One layer of the city's backdrop at depth `z`, its streets at `street`: a row of buildings (boxes with a parapet, some with rooftop
@@ -4509,7 +4511,8 @@ static func _skyline_layer(root: Node3D, rng: RandomNumberGenerator, layer: int,
 	m.set_shader_parameter("lit_energy", FACADE_LIT[layer])
 	m.set_shader_parameter("lit_share", FACADE_LIT_SHARE[layer])
 	# The far layer: windows only (frames, sills and floor bands would be noise at that distance).
-	m.set_shader_parameter("detail", 0.0 if layer == 2 else 1.0)
+	# (And the middle layer too since art review 10, so only the nearest buildings carry frames and sills.)
+	m.set_shader_parameter("detail", 0.0 if layer >= 1 else 1.0)
 	m.set_shader_parameter("sign_energy", 3.0 - layer * 0.8)
 	m.set_shader_parameter("moon_edge", [0.9, 0.6, 0.35][layer])
 	var mi := MeshInstance3D.new()
