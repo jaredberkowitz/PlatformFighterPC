@@ -225,6 +225,10 @@ static func apply(env: Environment, root: Node, preview := false) -> void:
 const KEY_SIDE := -80.0
 
 
+## How calm the stage fronts are (0 as built, 1 fully calmed; see `pf_front_calm`).
+const FRONT_CALM := 0.75
+
+
 static func stage_mood(env: Environment, root: Node, theme: Dictionary, post: ShaderMaterial = null) -> void:
 	var mood: Dictionary = MOODS.get(theme.get("name", "meadow"), MOODS.meadow)
 	var key := root.get_node_or_null("KeyLight") as DirectionalLight3D
@@ -259,6 +263,9 @@ static func stage_mood(env: Environment, root: Node, theme: Dictionary, post: Sh
 		post.set_shader_parameter("bloom_threshold", finish.bloom_from)
 		post.set_shader_parameter("scenery_lines", float(finish.get("scenery_lines", 0.4)))
 	apply_paper(env, post, float(style(theme.get("name", "meadow")).finish.get("scenery_lines", 0.4)))
+	# The stage fronts calmed into the stage's own haze (`pf_front_calm`, shaders/toon_common.gdshaderinc; the gauntlet's round 1).
+	var haze: Color = (theme.get("sky_horizon", Color(0.8, 0.85, 0.95)) as Color).lerp(mood.ambient[0], 0.4)
+	RenderingServer.global_shader_parameter_set("pf_front_calm", Color(haze.r, haze.g, haze.b, FRONT_CALM))
 	var m := mood.duplicate()
 	if theme.has("sky_horizon"):
 		m.rim = (mood.rim as Color).lerp(theme.sky_horizon, 0.3)

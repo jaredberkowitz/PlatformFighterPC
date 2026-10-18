@@ -103,6 +103,10 @@ pf_scenery_shade={
 "type": "float",
 "value": 1.0
 }
+pf_front_calm={
+"type": "color",
+"value": Color(0, 0, 0, 0)
+}
 pf_paper={
 "type": "float",
 "value": 0.0

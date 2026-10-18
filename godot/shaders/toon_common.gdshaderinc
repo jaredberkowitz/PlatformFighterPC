@@ -33,6 +33,15 @@ uniform float blade_scale = 1.0;
 uniform float front_fall = 0.4;
 uniform float front_span = 5.0;
 uniform vec3 front_shade : source_color = vec3(0.6, 0.57, 0.72);
+// The stage fronts calmed (the gauntlet's round 1: the fronts were the loudest thing in every frame): their colour eased toward grey by
+// `pf_front_calm.a` and, the further below the top, toward the stage's haze (`pf_front_calm.rgb`), so the play surface leads and the
+// mass under it settles into the air. Set by scripts/lighting.gd for each stage.
+global uniform vec4 pf_front_calm;
+// A worn path along the play line on a stage top (0 off): where fighters stand and run, a broken band of drier, paler ground (grass worn
+// to earth-tinted, boards scuffed lighter), soft-edged and patchy along its length (the gauntlet's round 1: the tops read as flat fills
+// without the benchmark's wear). `worn_tint` is what the ground wears toward.
+uniform float worn_path = 0.0;
+uniform vec3 worn_tint : source_color = vec3(1.45, 1.2, 0.55);
 // Fall into the front shade by height (as `front_fall` does on a world-laid front) on any surface: the modelled pieces on a building
 // front (scripts/stage_art.gd `_facade_windows`) settle back with the wall they stand on.
 uniform bool fall_by_height = false;
@@ -99,6 +108,19 @@ void vertex() {
 	}
 }
 
+// A stage front's colour calmed (`pf_front_calm`), `depth` units below its top.
+vec3 pf_calm_front(vec3 col, float depth) {
+	if (pf_front_calm.a <= 0.0 || depth < 0.0 || depth > 1000.0) {
+		return col;
+	}
+	float y = dot(col, vec3(0.3, 0.59, 0.11));
+	col = mix(col, vec3(y), 0.35 * pf_front_calm.a);
+	// (Contrast toward the middle: dark mortar and pale stones closer together.)
+	col = mix(col, vec3(y * 0.5 + 0.22), 0.3 * pf_front_calm.a);
+	return mix(col, pf_front_calm.rgb, pf_front_calm.a * 0.55 * smoothstep(0.8, 9.0, depth));
+}
+
+
 void fragment() {
 	// (Scenery in front of a fighter goes see-through over it, shaders/xray.gdshaderinc.)
 	if (fighter < 0.5 && pf_xray_cut(world_pos, CAMERA_POSITION_WORLD, FRAGCOORD.xy)) {
@@ -154,6 +176,7 @@ void fragment() {
 					c = mix(c, c * vec3(1.3, 1.16, 0.82), front_shapes * warm);
 				}
 				c *= mix(vec3(1.0), front_shade, front_fall * below);
+				c = pf_calm_front(c, front_top - world_pos.y);
 				if (moss_amount > 0.0) {
 					float x = world_pos.x;
 					float drip = 1.15 + 0.45 * sin(x * 1.1 + sin(x * 0.4) * 2.0) * sin(x * 0.37 + 1.1) + 0.55 * pow(max(0.0, sin(x * 2.3 + 0.7)), 3.0);
@@ -178,6 +201,18 @@ void fragment() {
 	}
 	if (fall_by_height) {
 		c *= mix(vec3(1.0), front_shade, front_fall * smoothstep(0.6, front_span, front_top - world_pos.y));
+		c = pf_calm_front(c, front_top - world_pos.y);
+	}
+	if (worn_path > 0.0 && world_normal.y > 0.6) {
+		float x = world_pos.x;
+		// (Its middle wanders a little either side of the play line, its width breathes, and it breaks into patches.)
+		float mid = -0.4 + 0.35 * sin(x * 0.23 + 1.1) + 0.2 * sin(x * 0.61);
+		float half_w = 0.9 + 0.35 * sin(x * 0.41 + 2.0);
+		float band = 1.0 - smoothstep(half_w * 0.5, half_w, abs(world_pos.z - mid));
+		float breaks = smoothstep(-0.35, 0.25, sin(x * 0.53 + sin(x * 0.17) * 2.0) + 0.5 * sin(x * 1.7 + world_pos.z * 2.3));
+		float w = band * breaks * worn_path;
+		c = mix(c, c * worn_tint, w);
+		blade_light = blade_light < 0.0 ? blade_light : blade_light * (1.0 - 0.6 * w);
 	}
 	if (ground_shadow_count > 0) {
 		float gs = 0.0;

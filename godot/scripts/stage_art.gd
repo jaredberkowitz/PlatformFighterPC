@@ -833,6 +833,10 @@ static func solid_block(parent: Node3D, t: Dictionary, left: float, right: float
 				grass.set_shader_parameter("patch_amount", t.grass_patch)
 				# And painted blade clumps over the patches (`blades`).
 				grass.set_shader_parameter("blades", 0.8)
+			# A worn path along the play line (the gauntlet's round 1), and broader patches.
+			grass = grass.duplicate()
+			grass.set_shader_parameter("worn_path", 0.55)
+			grass.set_shader_parameter("patch_amount", maxf(float(t.get("grass_patch", 0.0)), 0.45))
 			# Deeper and cooler toward the back edge (a theme's `grass_back`), so the lawn recedes.
 			if t.has("grass_back"):
 				grass = grass.duplicate()
@@ -5185,6 +5189,9 @@ static func _dock_block(parent: Node3D, t: Dictionary, left: float, right: float
 	var deck_mat := (FighterView.toon(Color.WHITE, false, load("res://art/stage/png/wood.png") as Texture2D, Vector2(1.0, 0.25)) as ShaderMaterial).duplicate() as ShaderMaterial
 	deck_mat.set_shader_parameter("instance_tint", true)
 	deck_mat.set_shader_parameter("ramp_softness", 0.1)
+	# (Scuffed paler along the play line where feet wear the boards, the gauntlet's round 1: a uniform deck read as a flat fill.)
+	deck_mat.set_shader_parameter("worn_path", 0.6)
+	deck_mat.set_shader_parameter("worn_tint", Color(1.6, 1.45, 1.25))
 	deck.material_override = deck_mat
 	deck.name = "dock_deck"
 	parent.add_child(deck)
@@ -5554,6 +5561,11 @@ static func _grove_roots(root: Node3D, e: Array) -> void:
 	# (A deep brown bark, faceted, art review 9: smooth pink-brown tubes read as sausages.)
 	var bark := (Materials.bark_plates(Color(0.42, 0.29, 0.21), Vector2(1, 3)) as ShaderMaterial).duplicate() as ShaderMaterial
 	bark.set_shader_parameter("facets", true)
+	# (Falling into shade and the stage's haze below the turf as the earth does, the gauntlet's round 1: dark roots ran at full strength
+	# to the bottom of the frame and broke the soft style.)
+	bark.set_shader_parameter("fall_by_height", true)
+	bark.set_shader_parameter("front_fall", 0.35)
+	bark.set_shader_parameter("front_span", 9.0)
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 4040
 	# The tap root: the island gathers into one great root under its middle, running down into the forest.
@@ -5597,6 +5609,9 @@ static func _grove_roots(root: Node3D, e: Array) -> void:
 				var t := float(j) / 5.0
 				sub.append(from + Vector3(away * (1.4 * t + 0.3 * sin(t * 3.0)), -4.5 * t, 0.15 * t))
 			_root_tube(root, sub, rad * 0.42, rad * 0.12, bark)
+	for c in root.get_children():
+		if String(c.name).begins_with("GroveRoot"):
+			(c as GeometryInstance3D).set_instance_shader_parameter("front_top", top)
 
 
 ## A tapering tube of bark along `pts` (a smooth path through them), `r0` thick at its start and `r1` at its end, with a little knobbly
