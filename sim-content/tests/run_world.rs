@@ -63,3 +63,57 @@ fn laid_rooms_are_passable_over_many_seeds() {
     }
     assert!(checked > 1000, "{checked} rooms");
 }
+
+/// R3: the run's stat items rebuild the fighter through the creator's recipe arithmetic. For every class, a built-in fighter with
+/// speed, spring and weight items (in the run, stepped) has exactly the parameters the character creator's recipe with those stats
+/// gives (two speed points, two jump points and one weight point a stack), and with none the fighter's own.
+#[test]
+fn stat_items_equal_the_recipe_output() {
+    use sim_content::recipe::Recipe;
+    use sim_core::run::data::{ITEM_SPEED, ITEM_SPRING, ITEM_WEIGHT};
+    use sim_core::run::items;
+    let rc = RunContent::placeholder();
+    let base = Content::placeholder();
+    for class in 0..sim_content::recipe::CLASSES {
+        let neutral = Recipe {
+            class,
+            ..Recipe::default()
+        };
+        assert_eq!(
+            base.fighters[usize::from(class)],
+            neutral.params(),
+            "class {class}: the built-in fighter is its class's neutral recipe"
+        );
+        for (speed, jump, weight) in [(0u8, 0u8, 0u8), (1, 0, 0), (0, 2, 0), (0, 0, 3), (2, 1, 2)] {
+            let mut world = Content::placeholder();
+            let mut state = new_run(&mut world, &rc, 1, class);
+            for (kind, n) in [
+                (ITEM_SPEED, speed),
+                (ITEM_SPRING, jump),
+                (ITEM_WEIGHT, weight),
+            ] {
+                for _ in 0..n {
+                    items::grant(&mut state, &rc, items::index_of(&rc, kind).unwrap());
+                }
+            }
+            step_run(
+                &mut state,
+                &mut world,
+                &rc,
+                &[Input::default(); MAX_FIGHTERS],
+            );
+            let recipe = Recipe {
+                class,
+                speed: 5 + 2 * speed,
+                jump: 5 + 2 * jump,
+                weight: 5 + weight,
+                ..Recipe::default()
+            };
+            assert_eq!(
+                world.fighters[usize::from(class)],
+                recipe.params(),
+                "class {class}, {speed} speed, {jump} spring, {weight} weight"
+            );
+        }
+    }
+}

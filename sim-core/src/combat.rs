@@ -156,14 +156,24 @@ fn touches(
 /// A raised shield's bubble (sim 134): its centre (above the feet, moved by the stick's tilt) and its radius (shrinking with the
 /// shield's health), as the game draws it.
 pub fn shield_bubble(rules: &crate::content::Ruleset, f: &Fighter) -> (Vec2, Fx) {
-    let hp = if rules.shield_max > Fx::ZERO {
-        (f.shield_hp / rules.shield_max).clamp(Fx::ZERO, Fx::ONE)
+    let max = shield_max_of(rules, f);
+    let hp = if max > Fx::ZERO {
+        (f.shield_hp / max).clamp(Fx::ZERO, Fx::ONE)
     } else {
         Fx::ONE
     };
     let scale = rules.shield_min_scale + (Fx::ONE - rules.shield_min_scale) * hp;
     let center = f.pos + Vec2::new(Fx::ZERO, rules.shield_height) + f.shield_tilt;
     (center, rules.shield_radius * scale)
+}
+
+/// The most shield health body `f` has: the ruleset's, or (a run's sturdy shield, sim 142) its `shield_scale` percent of it.
+pub fn shield_max_of(rules: &crate::content::Ruleset, f: &Fighter) -> Fx {
+    if f.shield_scale == 0 {
+        rules.shield_max
+    } else {
+        rules.shield_max * Fx::from_ratio(i32::from(f.shield_scale), 100)
+    }
 }
 
 /// A shield poke (sim 134, the reference's): a hit on a shielding fighter whose box misses the bubble reaches the body as though no
@@ -1136,6 +1146,17 @@ pub(crate) fn apply_hit(
     caught: bool,
     wing_power: bool,
 ) {
+    // (A run's bubble, R3, sim 142: the player's next hit is absorbed, unless a raised shield or a counter takes it. Never in
+    // versus: a match has no active run.)
+    if state.run.active
+        && d == crate::run::PLAYER
+        && !caught
+        && state.run.slot == crate::run::data::ITEM_BUBBLE
+        && !(state.fighters[d].state == S::Shield && !hb.unblockable)
+    {
+        crate::run::items::pop_bubble(state);
+        return;
+    }
     let rules = &content.rules;
     // Stale-move negation: a move used again and again deals less damage (and a little less knockback); a fresh one a little more.
     let move_key = (move_id & 0x7f).saturating_add(1).min(0x7f);

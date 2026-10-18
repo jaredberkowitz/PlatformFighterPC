@@ -5,6 +5,8 @@ extends SceneTree
 ## with the fighter rig (their tell too), coins picked up vanish, props and the runaway van are drawn, a lost last life brings up the
 ## results, and "Run again" starts a new one. R2c: grunts are fighters (twelve slots), the camera's height is the sim's, a grunt launched
 ## out of the view is knocked out with the knock-out's effect, a grunt shows one small damage label, and a closed shop hangs its sign.
+## R3: the shop's six wares (two staples, four drawn pedestals), buying, the bell, the card over a ware, the build's strip under the
+## coins, finds on routes, and the build on the results.
 ## Run: Godot --headless --path godot --script res://tests/runner_test.gd
 
 const Roster := preload("res://scripts/roster.gd")
@@ -60,8 +62,10 @@ func _bridge() -> void:
 	var map: PackedInt32Array = sim.run_map(4)
 	check(map.size() == 10 and map[2] == 2 and map[7] == 3 and map[4] == 0, "the map: here, then the next room, with tiers: " + str(map))
 	var shop: PackedInt32Array = sim.run_shop()
-	check(shop.size() == 10 + 2 * 4 + 1 and shop[0] == 0 and shop[5] == 2 and shop[18] == 0, "the shop's two wares, outside, and open: " + str(shop))
-	check(sim.run_shop_names().size() == 2, "and their names")
+	check(shop.size() == 14 + 6 * 7 and shop[0] == 0 and shop[5] == 6 and shop[10] == 0, "the shop's six spots, outside, and open: " + str(shop))
+	check(shop[14] >= 0 and shop[14 + 7] >= 0 and shop[14 + 2 * 7] == -1, "the staples on their stands, the pedestals not stocked yet: " + str(shop))
+	check(sim.run_shop_names().size() == 6 and sim.run_shop_names()[0] != "", "and their names")
+	check(sim.run_item_names().size() == 36 and sim.run_build().size() == 9 + 36, "the item names and the build")
 	# What the rooms are made of: every footing has a look, the pieces' rows have thirteen numbers (R2e: what holds it up, and its
 	# deck), the rooms their heights.
 	var looks: PackedStringArray = sim.run_looks()
@@ -100,6 +104,40 @@ func _bridge() -> void:
 	var inside: PackedInt32Array = sim.run_shop()
 	check(inside[0] == 1 and inside[6] == 1, "the shopkeeper waves: " + str(inside))
 	check(sim.run_shop()[1] == -1, "standing at the way out")
+	# R3: the four pedestals stocked; a ware bought by up at its pedestal; the bell re-draws for 10, then 20.
+	var stocked: PackedInt32Array = sim.run_shop()
+	var full := true
+	for k in range(2, 6):
+		full = full and stocked[14 + k * 7] >= 0 and stocked[14 + k * 7 + 3] > 0
+	check(full, "four pedestals stocked, priced: " + str(stocked))
+	check(sim.run_shop_blurbs()[2] != "", "with a line on what each does")
+	sim.run_debug_coins(1000)
+	check(sim.run_debug_shop_spot(2), "by the first pedestal")
+	sim.set_input(0, 0, 0, 0)
+	sim.tick()
+	check(sim.run_shop()[1] == 2, "standing by it: %d" % sim.run_shop()[1])
+	sim.set_input(0, 0, 127, 0)
+	sim.tick()
+	sim.set_input(0, 0, 0, 0)
+	sim.tick()
+	var bought: PackedInt32Array = sim.run_shop()
+	check(bought[2] == 1 and bought[14 + 2 * 7 + 5] == 1, "bought: " + str(bought))
+	var kind := bought[14 + 2 * 7 + 1]
+	var b: PackedInt32Array = sim.run_build()
+	check(b[9 + kind] == 1 or b[0] == kind, "and owned: " + str(b))
+	check(sim.run_debug_shop_spot(6), "at the bell")
+	sim.tick()
+	check(sim.run_shop()[1] == 6 and sim.run_shop()[11] == 10, "the bell, for 10")
+	var coins_before: int = sim.run_shop()[4]
+	sim.set_input(0, 0, 127, 0)
+	sim.tick()
+	sim.set_input(0, 0, 0, 0)
+	sim.tick()
+	var rung: PackedInt32Array = sim.run_shop()
+	check(rung[2] == 7 and rung[12] == 1 and rung[11] == 20 and rung[4] == coins_before - 10, "rung: " + str(rung))
+	check(rung[14 + 2 * 7] == bought[14 + 2 * 7], "the sold pedestal stays")
+	check(sim.run_debug_shop_spot(-1), "back at the door")
+	sim.tick()
 	# Up again at the door: out.
 	sim.set_input(0, 0, 0, 0)
 	sim.tick()
@@ -108,6 +146,12 @@ func _bridge() -> void:
 	sim.set_input(0, 0, 0, 0)
 	sim.tick()
 	check(sim.run_info()[13] == 0, "back outside")
+	# R3: a find on a route, and an item given.
+	var at: PackedFloat32Array = sim.run_debug_find(2, -1)
+	check(at.size() == 2, "a find placed")
+	var rows: Array = sim.run_finds()
+	check(rows.size() >= 1 and int((rows[0] as PackedFloat32Array)[2]) >= 1, "the finds: " + str(rows))
+	check(sim.run_debug_give(6) and sim.run_build()[9 + 6] == 1, "an item given")
 	sim.run_start(5)
 	check(sim.run_mobs().size() == 12 * 17, "twelve grunt slots (grunts are fighters: R2c)")
 	# R2b: the grunt kinds, and a grunt drawn as a fighter of its body through the same calls.
@@ -273,12 +317,34 @@ func _scene() -> void:
 	for i in 6:
 		await process_frame
 	check(main.run_stage.interior != null and main.run_stage.keeper != null, "the shop's interior and its shopkeeper")
-	check(main.run_stage.ware_nodes.size() == 2 and main.run_stage.price_labels.size() == 2, "the two wares and their prices")
+	check(main.run_stage.ware_nodes.size() == 6 and main.run_stage.price_labels.size() == 6, "six ware spots and their prices: %d" % main.run_stage.ware_nodes.size())
+	check(main.run_stage.wares_shown() == 6, "every stand filled: %d" % main.run_stage.wares_shown())
+	check(main.run_stage.bell != null, "the bell on the counter")
+	check(main.run_stage.keeper_bubble.visible and main.run_stage.keeper_bubble.text == "Welcome!", "the shopkeeper waves hello: " + main.run_stage.keeper_bubble.text)
+
+	# R3: the card over the ware stood by, the bell re-drawing the wares.
+	main.sim.run_debug_coins(1000)
+	main.sim.run_debug_shop_spot(3)
+	await create_timer(0.2).timeout
+	check(main.run_stage.card.visible and main.run_stage.card_text.text.contains("You own"), "the card: " + main.run_stage.card_text.text)
+	check(main.run_hud.board.shop_hint().begins_with("UP: BUY"), "the hint: " + main.run_hud.board.shop_hint())
+	var sig_before: String = main.run_stage.ware_sig
+	main.sim.run_debug_shop_spot(6)
+	await create_timer(0.2).timeout
+	check(main.run_hud.board.shop_hint().begins_with("UP: RING THE BELL"), "the bell's hint: " + main.run_hud.board.shop_hint())
+	main._send_key(KEY_W, true)
+	await create_timer(0.1).timeout
+	main._send_key(KEY_W, false)
+	await create_timer(0.2).timeout
+	check(main.sim.run_shop()[12] == 1 and main.run_stage.ware_sig != sig_before, "the bell re-drew the wares: " + main.run_stage.ware_sig)
+	check(main.run_stage.keeper_bubble.text == "Fresh stock!" or main.sim.run_shop()[6] != 6, "the shopkeeper restocks")
+	main.sim.run_debug_shop_spot(-1)
+	for i in 3:
+		await process_frame
 	# R2c: every storefront has its CLOSED board, hidden while the shopkeeper sells.
 	check(main.run_stage.closed_signs.size() >= 1 and not main.run_stage.shops_closed, "the closed boards, down: %d" % main.run_stage.closed_signs.size())
 	check(main.cam.position.x < -10000.0, "the camera is inside: %.0f" % main.cam.position.x)
 	check(main.run_hud.board.shop_hint() == "UP: LEAVE THE SHOP", "the way out: " + main.run_hud.board.shop_hint())
-	check(main.run_stage.keeper_bubble.visible and main.run_stage.keeper_bubble.text == "Welcome!", "the shopkeeper waves hello")
 	# (Back out, for the rest.)
 	main._send_key(KEY_W, true)
 	await create_timer(0.1).timeout
@@ -286,6 +352,7 @@ func _scene() -> void:
 	await create_timer(0.2).timeout
 	check(main.sim.run_info()[13] == 0, "out again with up at the door")
 	check(not main.hud.visible, "the versus display is hidden")
+
 	check(main.results == null, "no results while running")
 	# R2e (the owner's playtest note): no background mass ever stands in front of the play plane. Every building's and every
 	# backdrop mesh's front face lies behind the back of every footing, here and in the climbs, drops and skyline rooms.
@@ -299,6 +366,15 @@ func _scene() -> void:
 			await process_frame
 			depth_bad.append_array(_background_in_front(main))
 	check(depth_bad.is_empty(), "every background mesh stands behind the play plane: " + str(depth_bad.slice(0, 6)))
+	# R3: the build's strip under the coins, and a find drawn on a route.
+	main.sim.run_debug_give(2)
+	main.sim.run_debug_give(2)
+	main.sim.run_debug_give(12)
+	await create_timer(0.2).timeout
+	check(main.run_hud.board.build_icons() >= 2, "the build strip: %d" % main.run_hud.board.build_icons())
+	main.sim.run_debug_find(1, 7)
+	await create_timer(0.2).timeout
+	check(main.run_stage.finds_shown() >= 1, "a find drawn: %d" % main.run_stage.finds_shown())
 	# Losing every life ends the run.
 	for life in 3:
 		main.sim.debug_place_airborne(0, main.sim.run_view()[0] + 10.0, main.sim.run_view()[3] - 4.0)
@@ -310,6 +386,7 @@ func _scene() -> void:
 		check(int(main.results.stats.get("seed", 0)) == 42, "with the run's seed")
 		check(main.results.stats.has("rooms") and main.results.stats.has("cleared"), "rooms and arenas: " + str(main.results.stats))
 		check(main.results.buttons.size() == 3, "and three choices")
+		check(main.results.build_items().size() >= 2, "the build listed: " + str(main.results.build_items()))
 		main.results.handle_key(key(KEY_ENTER))
 		await process_frame
 		await process_frame

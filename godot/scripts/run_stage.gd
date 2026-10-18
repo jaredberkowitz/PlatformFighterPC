@@ -15,6 +15,7 @@ const StageArt := preload("res://scripts/stage_art.gd")
 const StageView := preload("res://scripts/stage_view.gd")
 const FighterView := preload("res://scripts/fighter_view.gd")
 const Materials := preload("res://scripts/materials.gd")
+const ItemIcons := preload("res://ui/item_icons.gd")
 
 const ROOM_SHOP := 2
 const ROOM_REST := 3
@@ -101,6 +102,17 @@ var keeper_stars: Node3D
 var ware_nodes: Array = []
 var price_labels: Array = []
 var shop_t := 0.0
+## R3: the pedestals' stock as last built (the wares are rebuilt when it changes: a new shop, the bell), the bell, the speech-bubble
+## card over the ware stood by, and the finds on routes (by room number).
+var ware_sig := ""
+var ware_spots: Array = []
+var bell: Node3D
+var bell_label: Label3D
+var card: Node3D
+var card_text: Label3D
+var card_spot := -9
+var finds := {}
+var finds_layout := -1
 ## R2c: every storefront's "CLOSED" sign (hung on its door while the shopkeeper bears a grudge: it sells nothing until the player
 ## has gone on into a room further than the shop), and whether they show.
 var closed_signs: Array = []
@@ -115,6 +127,9 @@ func setup(t: Dictionary) -> void:
 	coins.clear()
 	ware_nodes.clear()
 	price_labels.clear()
+	ware_sig = ""
+	finds.clear()
+	finds_layout = -1
 	skylines.clear()
 	interior = null
 	layout_seen = -1
@@ -548,6 +563,18 @@ func _interior(node: Node3D, room: PackedFloat32Array, rows: Array) -> void:
 ## The city's striped awning (its shops' colours), laid flat enough to stand on, with a lighter lip.
 func _awning(node: Node3D, left: float, right: float, top: float) -> void:
 	var w := right - left
+	# (R3 polish: above the street, an awning is a rooftop bar's slatted canopy, not a shop's striped one.)
+	if _deck_of(top - 4.0) > 0:
+		var wood := FighterView.toon(Color(0.5, 0.34, 0.22))
+		var canvas := FighterView.toon(Color(0.36, 0.56, 0.52))
+		var m := maxi(int(w / 0.5), 2)
+		for j in m:
+			_box(node, Vector3(w / m * 0.6, 0.12, 1.6), Vector3(left + (j + 0.5) * w / m, top - 0.06, Z - 0.8), wood)
+		_box(node, Vector3(w, 0.22, 0.14), Vector3((left + right) * 0.5, top - 0.2, Z + 0.02), wood)
+		_top_edge(node, left, right, top, top, Color(0.5, 0.34, 0.22))
+		var back2 := (Z - 1.6) - BACK_Z
+		_box(node, Vector3(w, 0.06, back2), Vector3((left + right) * 0.5, top + 0.12, BACK_Z + back2 * 0.5), canvas)
+		return
 	var pair: Array = AWNING_STRIPES[int(absf(left)) % AWNING_STRIPES.size()]
 	var n := maxi(int(w / 0.8), 1)
 	for j in n:
@@ -641,7 +668,12 @@ func _storefront(parent: Node3D, door_x: float, door_y: float) -> void:
 	var front := Node3D.new()
 	front.name = "Storefront"
 	parent.add_child(front)
-	StageArt._shopfront(front, door_x, 7.0, door_y, -1.2)
+	# (R3 polish, from the R2e review: a shop above the street is a rooftop kiosk, not a street shopfront with an awning.)
+	var roof := _deck_of(door_y) > 0
+	if roof:
+		_kiosk(front, door_x, door_y)
+	else:
+		StageArt._shopfront(front, door_x, 7.0, door_y, -1.2)
 	var label := Label3D.new()
 	label.text = "SHOP"
 	label.font_size = 96
@@ -665,6 +697,23 @@ func _storefront(parent: Node3D, door_x: float, door_y: float) -> void:
 	closed.visible = shops_closed
 	front.add_child(closed)
 	closed_signs.append(closed)
+
+
+## A rooftop kiosk at a shop's door (R3; placeholder for the art director): a little hut standing on the roof, its door in the middle,
+## a lit serving hatch with a short striped canopy, a flat roof with an overhang, a crate beside it.
+func _kiosk(parent: Node3D, cx: float, y: float) -> void:
+	var wall := FighterView.toon(Color(0.42, 0.5, 0.58))
+	var trim := FighterView.toon(Color(0.26, 0.22, 0.3))
+	_box(parent, Vector3(4.6, 3.0, 1.6), Vector3(cx, y + 1.5, -1.9), wall)
+	_box(parent, Vector3(5.2, 0.25, 2.1), Vector3(cx, y + 3.1, -1.8), trim)
+	_box(parent, Vector3(1.2, 2.3, 0.1), Vector3(cx, y + 1.15, -1.05), _mat(Color(0.62, 0.42, 0.3), 1.0))
+	_box(parent, Vector3(1.3, 0.9, 0.08), Vector3(cx + 1.55, y + 1.7, -1.05), _mat(Color(0.95, 0.8, 0.52), 1.0))
+	_box(parent, Vector3(1.5, 0.12, 0.25), Vector3(cx + 1.55, y + 1.2, -0.95), trim)
+	var stripes := [FighterView.toon(Color(0.92, 0.34, 0.42)), FighterView.toon(Color(0.98, 0.94, 0.9))]
+	for k in 4:
+		var b := _box(parent, Vector3(0.4, 0.08, 0.7), Vector3(cx + 1.0 + k * 0.38, y + 2.35, -0.8), stripes[k % 2])
+		b.rotation.x = deg_to_rad(20.0)
+	_box(parent, Vector3(0.8, 0.7, 0.8), Vector3(cx - 1.9, y + 0.35, -0.9), FighterView.toon(Color(0.58, 0.42, 0.26)))
 
 
 ## Hangs (or takes down) the "CLOSED" board on every storefront: `closed` is the shop's grudge (`SimRunner.run_shop`'s last number).
@@ -889,36 +938,57 @@ func build_interior(sim) -> void:
 	sign.modulate = Color(0.3, 0.6, 0.35)
 	sign.position = Vector3(last[0], 3.2, -3.1)
 	interior.add_child(sign)
-	# The wares on their pedestals, a price over each.
-	var names: PackedStringArray = sim.run_shop_names()
-	var shop: PackedInt32Array = sim.run_shop()
-	var wares := shop[5] if shop.size() >= 6 else 0
-	for i in wares:
-		var px: float = last[5 + i * 2]
-		var py: float = last[6 + i * 2]
-		var kind := shop[10 + i * 4]
-		var ware := Node3D.new()
-		ware.position = Vector3(px, py + 0.45, 0.0)
-		interior.add_child(ware)
-		var mi := MeshInstance3D.new()
-		var s := SphereMesh.new()
-		s.radius = 0.32
-		s.height = 0.64
-		mi.mesh = s
-		mi.material_override = _mat(Color(0.95, 0.3, 0.35) if kind == 1 else Color(0.35, 0.85, 0.5), 0.3)
-		ware.add_child(mi)
-		if kind == 0:
-			_box(ware, Vector3(0.12, 0.4, 0.05), Vector3(0, 0, 0.33), _mat(Color.WHITE, 0.4))
-			_box(ware, Vector3(0.4, 0.12, 0.05), Vector3(0, 0, 0.33), _mat(Color.WHITE, 0.4))
-		ware_nodes.append(ware)
-		var price := Label3D.new()
-		price.font_size = 64
-		price.pixel_size = 0.008
-		price.outline_size = 12
-		price.position = Vector3(px, py + 1.4, 0.3)
-		price.text = "%s\n%d" % [names[i] if i < names.size() else "?", shop[11 + i * 4]]
-		interior.add_child(price)
-		price_labels.append(price)
+	# The wares' stands (R3: two staples' stands, then four pedestals), filled by `sync_wares`; the bell at the counter's left end.
+	ware_spots.clear()
+	for i in (last.size() - 5) / 2:
+		ware_spots.append(Vector2(last[5 + i * 2], last[6 + i * 2]))
+	var counter_top := 1.3
+	var bell_x: float = last[0]
+	for k in rows.size() - 1:
+		var r: PackedFloat32Array = rows[k]
+		if int(r[6]) < looks.size() and looks[int(r[6])] == "counter":
+			counter_top = r[2]
+			bell_x = r[0] + 0.35
+	bell = Node3D.new()
+	bell.name = "Bell"
+	bell.position = Vector3(bell_x, counter_top, 0.1)
+	interior.add_child(bell)
+	var dome := MeshInstance3D.new()
+	var ds := SphereMesh.new()
+	ds.radius = 0.22
+	ds.height = 0.3
+	ds.is_hemisphere = true
+	dome.mesh = ds
+	dome.material_override = _mat(Color(1.0, 0.8, 0.3), 0.5)
+	bell.add_child(dome)
+	_box(bell, Vector3(0.5, 0.05, 0.4), Vector3(0, 0.0, 0), _mat(Color(0.4, 0.26, 0.18)))
+	_box(bell, Vector3(0.05, 0.08, 0.05), Vector3(0, 0.3, 0), _mat(Color(0.9, 0.7, 0.3)))
+	bell_label = Label3D.new()
+	bell_label.font_size = 52
+	bell_label.pixel_size = 0.008
+	bell_label.outline_size = 12
+	bell_label.position = Vector3(0, 1.1, 0.3)
+	bell.add_child(bell_label)
+	# The speech-bubble card over the ware stood by (R3).
+	card = Node3D.new()
+	card.name = "Card"
+	card.visible = false
+	interior.add_child(card)
+	var paper := _box(card, Vector3(5.2, 2.1, 0.05), Vector3(0, 0, 0), _mat(Color(0.99, 0.96, 0.88), 1.0))
+	paper.name = "Paper"
+	_box(card, Vector3(5.4, 2.3, 0.04), Vector3(0, 0, -0.03), _mat(Color(0.12, 0.1, 0.14), 1.0))
+	var tail := _box(card, Vector3(0.4, 0.4, 0.05), Vector3(0, -1.1, 0), _mat(Color(0.99, 0.96, 0.88), 1.0))
+	tail.rotation.z = PI / 4.0
+	card_text = Label3D.new()
+	card_text.font_size = 44
+	card_text.pixel_size = 0.0085
+	card_text.width = 580.0
+	card_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	card_text.modulate = Color(0.12, 0.1, 0.14)
+	card_text.outline_size = 0
+	card_text.position = Vector3(0, 0, 0.05)
+	card.add_child(card_text)
+	sync_wares(sim)
 	# The shopkeeper (placeholder for the art director's character): a round blob in an apron with a 2D face, behind the counter.
 	keeper = Node3D.new()
 	keeper.name = "Shopkeeper"
@@ -948,7 +1018,7 @@ func build_interior(sim) -> void:
 	keeper_bubble.font_size = 64
 	keeper_bubble.pixel_size = 0.01
 	keeper_bubble.outline_size = 14
-	keeper_bubble.position = Vector3(0, r * 2.0 + 0.9, 0.4)
+	keeper_bubble.position = Vector3(-1.4, r * 2.0 + 1.9, 0.4)
 	keeper.add_child(keeper_bubble)
 	keeper_stars = Node3D.new()
 	keeper.add_child(keeper_stars)
@@ -958,8 +1028,8 @@ func build_interior(sim) -> void:
 
 ## The interior's moment: the shopkeeper's mood (waving, cheering, grumbling, dizzy, sulking), where it looks, the wares' prices (sold out),
 ## the ware stood by bobbing. `shop` is `SimRunner.run_shop`.
-func animate_interior(shop: PackedInt32Array, delta: float) -> void:
-	if interior == null or keeper == null or shop.size() < 10:
+func animate_interior(shop: PackedInt32Array, delta: float, names := PackedStringArray(), blurbs := PackedStringArray()) -> void:
+	if interior == null or keeper == null or shop.size() < SHOP_HEAD:
 		return
 	shop_t += delta
 	var mood := shop[6]
@@ -988,6 +1058,11 @@ func animate_interior(shop: PackedInt32Array, delta: float) -> void:
 			text = "Hmph!"
 			tilt = -0.18
 			squash = 1.04
+		6:
+			# The bell rung (R3): fresh stock.
+			text = "Fresh stock!"
+			bob = absf(sin(shop_t * 14.0)) * 0.3
+			tilt = sin(shop_t * 12.0) * 0.15
 	keeper_body.position = Vector3(0, r * squash + bob, 0)
 	keeper_body.scale = Vector3(1.0 / squash, squash, 1.0)
 	keeper_body.rotation.z = tilt
@@ -1004,20 +1079,169 @@ func animate_interior(shop: PackedInt32Array, delta: float) -> void:
 			var side := signf((e as Node3D).position.x)
 			(e as Node3D).position.x = side * r * 0.3 + gaze * r * 0.15
 	for i in ware_nodes.size():
-		var o := 10 + i * 4
-		if shop.size() <= o + 3:
+		var o := SHOP_HEAD + i * WARE_STRIDE
+		if shop.size() <= o + 6:
 			break
-		var limit := shop[o + 2]
-		var sold := shop[o + 3]
-		var out := limit > 0 and sold >= limit
 		var ware: Node3D = ware_nodes[i]
+		var label: Label3D = price_labels[i]
+		if ware == null:
+			label.text = "EMPTY"
+			label.modulate = Color(1, 1, 1, 0.35)
+			continue
+		var out := shop[o + 4] > 0 and shop[o + 5] >= shop[o + 4]
 		ware.visible = not out
 		ware.rotation.y = shop_t * 1.5
 		ware.scale = Vector3.ONE * (1.25 if i == look else 1.0)
-		var label: Label3D = price_labels[i]
-		var name := label.text.split("\n")[0]
-		label.text = "%s\n%s" % [name, "SOLD OUT" if out else str(shop[o + 1])]
+		label.text = "SOLD" if out else str(shop[o + 3])
 		label.modulate = Color(1, 1, 1, 0.5) if out else Color(1.0, 0.9, 0.4)
+	# The bell's price, and the card over the ware stood by: its name, what it does, its price and how many are owned.
+	if bell_label != null:
+		bell_label.text = "BELL %d" % shop[11]
+		bell.scale = Vector3.ONE * (1.25 if shop[1] == BELL_SPOT else 1.0)
+		if mood == 6:
+			bell.rotation.z = sin(shop_t * 40.0) * 0.25
+		else:
+			bell.rotation.z = 0.0
+	var spot := shop[1]
+	var o2 := SHOP_HEAD + spot * WARE_STRIDE
+	var show := spot >= 0 and spot < ware_spots.size() and shop.size() > o2 + 6 and shop[o2] >= 0
+	card.visible = show
+	if show:
+		var at: Vector2 = ware_spots[spot]
+		# (Above the shelves, in front of everything in the shop.)
+		card.position = Vector3(clampf(at.x, ware_spots[0].x + 1.0, ware_spots[ware_spots.size() - 1].x - 0.5), at.y + 5.6, 1.8)
+		var out := shop[o2 + 4] > 0 and shop[o2 + 5] >= shop[o2 + 4]
+		var name := names[spot] if spot < names.size() else "?"
+		var blurb := blurbs[spot] if spot < blurbs.size() else ""
+		var rarity := shop[o2 + 2]
+		var tag: String = ItemIcons.RARITY_NAMES[rarity] if rarity >= 0 and rarity < 4 else ""
+		var price_line := "SOLD" if out else "%d coins" % shop[o2 + 3]
+		card_text.text = "%s  (%s)\n%s\n%s    You own %d" % [name.to_upper(), tag, blurb, price_line, shop[o2 + 6]]
+		var paper: MeshInstance3D = card.get_node("Paper")
+		var rc := ItemIcons.rarity_colour(rarity)
+		var pm := paper.material_override as StandardMaterial3D
+		if pm != null:
+			pm.albedo_color = Color(0.99, 0.96, 0.88).lerp(rc, 0.12)
+
+
+## The shop's numbers (`SimRunner.run_shop`): the header's length, each ware's, and the bell's spot.
+const SHOP_HEAD := 14
+const WARE_STRIDE := 7
+const BELL_SPOT := 6
+
+
+## R3: the wares on their stands as the sim has them now (`SimRunner.run_shop`): rebuilt when the stock changes (a new shop, the
+## bell). Each is its item's gem in its rarity's halo, with its price under it.
+func sync_wares(sim) -> void:
+	if interior == null:
+		return
+	var shop: PackedInt32Array = sim.run_shop()
+	if shop.size() < SHOP_HEAD:
+		return
+	var spots := shop[5]
+	var sig := ""
+	for i in spots:
+		sig += "%d," % shop[SHOP_HEAD + i * WARE_STRIDE]
+	if sig == ware_sig:
+		return
+	ware_sig = sig
+	for n in ware_nodes:
+		if n != null:
+			(n as Node3D).queue_free()
+	for l in price_labels:
+		(l as Node3D).queue_free()
+	ware_nodes.clear()
+	price_labels.clear()
+	for i in mini(spots, ware_spots.size()):
+		var o := SHOP_HEAD + i * WARE_STRIDE
+		var at: Vector2 = ware_spots[i]
+		var ware: Node3D = null
+		if shop[o] >= 0:
+			ware = ItemIcons.gem(shop[o + 1], shop[o + 2])
+			ware.position = Vector3(at.x, at.y + 0.45, 0.0)
+			interior.add_child(ware)
+		ware_nodes.append(ware)
+		var price := Label3D.new()
+		price.font_size = 64
+		price.pixel_size = 0.008
+		price.outline_size = 12
+		price.position = Vector3(at.x, at.y + 1.25, 0.3)
+		interior.add_child(price)
+		price_labels.append(price)
+
+
+## How many wares stand on their stands now (for the tests).
+func wares_shown() -> int:
+	var n := 0
+	for w in ware_nodes:
+		if w != null:
+			n += 1
+	return n
+
+
+# ---- R3 (F8): finds on routes ---------------------------------------------------------------------------------------------------
+
+## The finds in the rooms in play (`SimRunner.run_finds`): an item's gem on a little stand, food (an apple), a 1-up (a green bottle
+## with "1UP"); a taken one is gone. Rebuilt when the stage's layout changes; they bob.
+func sync_finds(sim, layout: int) -> void:
+	if layout != finds_layout:
+		finds_layout = layout
+		var rows: Array = sim.run_finds()
+		var seen := {}
+		for r in rows:
+			var row: PackedFloat32Array = r
+			# (By room, what and item: a run started again reuses room numbers.)
+			var key := "%d:%d:%d" % [int(row[6]), int(row[2]), int(row[3])]
+			seen[key] = true
+			if row[5] > 0.5:
+				if finds.has(key):
+					finds[key].queue_free()
+					finds.erase(key)
+				continue
+			if finds.has(key):
+				continue
+			var node := Node3D.new()
+			node.name = "Find"
+			node.position = Vector3(row[0], row[1], Z - 0.2)
+			add_child(node)
+			_box(node, Vector3(0.7, 0.2, 0.7), Vector3(0, 0.1, 0), _mat(Color(0.84, 0.48, 0.41)))
+			var what := int(row[2])
+			var top: Node3D
+			match what:
+				1:
+					top = ItemIcons.gem(int(row[3]), int(row[4]), 0.36)
+				2:
+					top = Node3D.new()
+					var apple := MeshInstance3D.new()
+					var sm := SphereMesh.new()
+					sm.radius = 0.3
+					sm.height = 0.56
+					apple.mesh = sm
+					apple.material_override = _mat(Color(0.9, 0.18, 0.18), 0.2)
+					top.add_child(apple)
+					_box(top, Vector3(0.05, 0.18, 0.05), Vector3(0, 0.32, 0), _mat(Color(0.4, 0.25, 0.1)))
+					_box(top, Vector3(0.18, 0.06, 0.05), Vector3(0.1, 0.36, 0), _mat(Color(0.3, 0.75, 0.3)))
+				_:
+					top = ItemIcons.gem(ItemIcons.LIFE, 3, 0.36)
+					(top.get_node("Gem") as MeshInstance3D).material_override = _mat(Color(0.3, 0.85, 0.4), 0.4)
+			top.name = "Top"
+			top.position = Vector3(0, 0.75, 0)
+			node.add_child(top)
+			finds[key] = node
+		for key in finds.keys():
+			if not seen.has(key):
+				finds[key].queue_free()
+				finds.erase(key)
+	var t := Time.get_ticks_msec() * 0.001
+	for key in finds:
+		var top: Node3D = finds[key].get_node("Top")
+		top.position.y = 0.75 + sin(t * 3.0 + float(hash(key) % 7)) * 0.12
+		top.rotation.y = t * 1.5
+
+
+## How many finds are drawn now (for the tests).
+func finds_shown() -> int:
+	return finds.size()
 
 
 # ---- R2b: props and the runaway van (placeholders for the art director: see RUNNER_PLAN.md's R2b art list) ------------------------

@@ -19,9 +19,9 @@ use sim_content::recipe::{match_content_on, FighterSpec};
 use sim_content::stages;
 use sim_core::input::buttons;
 use sim_core::run::{
-    deck_at, door_here, door_of, for_each_coin, for_each_footing, grunt_fighter, new_run,
-    shop_spot, step_run, tier_of, RunContent, INTERIOR_X, LOOK_NAMES, MAX_MOBS, MODE_EMERGE,
-    MODE_WINDUP,
+    deck_at, door_here, door_of, for_each_coin, for_each_footing, grunt_fighter,
+    items as run_items, new_run, shop_spot, step_run, tier_of, RunContent, INTERIOR_X, ITEM_KINDS,
+    LOOK_NAMES, MAX_MOBS, MODE_EMERGE, MODE_WINDUP, NO_ITEM,
 };
 use sim_core::state::PLAYING;
 use sim_core::{step, Content, Fx, GameState, Input, MatchRules, Vec2, MAX_FIGHTERS, SIM_VERSION};
@@ -222,6 +222,18 @@ fn no_grunt() -> sim_core::Fighter {
 }
 
 impl SimRunner {
+    /// A label of each ware by spot ("" for an empty pedestal).
+    fn ware_labels(&self, label: impl Fn(&sim_core::run::ShopItem) -> &str) -> PackedStringArray {
+        let mut out = PackedStringArray::new();
+        if let Some((rc, _)) = &self.run {
+            for k in 0..run_items::ware_spots(rc) {
+                let item = run_items::ware_item(&self.state.run, rc, k).map(|i| &rc.items[i]);
+                out.push(item.map_or("", &label));
+            }
+        }
+        out
+    }
+
     fn replay_bytes_with(&self, cosmetics: Vec<Vec<u8>>) -> PackedByteArray {
         let Some(rec) = self.recorder.as_ref() else {
             return PackedByteArray::new();
@@ -3318,11 +3330,13 @@ impl SimRunner {
         PackedFloat32Array::from(v.as_slice())
     }
 
-    /// The shop: `[inside (0/1), where the player stands (-2 nowhere, -1 the way out, else the ware's number), what the last buy did
-    /// (0 nothing, 1 bought, 2 too few coins, 3 sold out, 4 not needed), buys tried so far, coins, wares, the shopkeeper's mood (0
-    /// idle, 1 waving, 2 cheering, 3 grumbling, 4 dizzy, 5 sulking: "Hmph!"), the frames of it left, the ware it looks at (-1 none),
-    /// times bonked]`, then per ware `[kind (0 heal, 1 life), price, limit (0 none), sold here]`, then whether it is closed to you (1:
-    /// after a bonk it sells nothing until you have entered a room further on than its shop; a refused buy notes 5).
+    /// The shop (R3 layout): `[inside (0/1), where the player stands (-2 nowhere, -1 the way out, 0..5 a ware's spot, 6 the bell), what
+    /// the last buy did (0 nothing, 1 bought, 2 too few coins, 3 sold out, 4 not needed, 5 refused while sulking, 6 slot full, 7 the
+    /// bell rung), buys tried so far, coins, ware spots, the shopkeeper's mood (0 idle, 1 waving, 2 cheering, 3 grumbling, 4 dizzy, 5
+    /// sulking: "Hmph!", 6 restocking), the frames of it left, the ware it looks at (-1 none), times bonked, closed to you (1: after a
+    /// bonk it sells nothing until you have entered a room further on), the bell's price now, the bell's rings in this shop, the
+    /// shop's tier]` (14), then per ware spot `[item (catalogue index, -1 empty), kind (-1 empty), rarity (0 staple, 1 common, 2
+    /// rare, 3 prized), price, limit in a shop (0 none), sold here, owned]` (7 each). Staples' stands first, then the pedestals.
     #[func]
     fn run_shop(&self) -> PackedInt32Array {
         let Some((rc, _)) = &self.run else {
@@ -3334,40 +3348,216 @@ impl SimRunner {
             Some(None) => -1,
             Some(Some(i)) => i as i32,
         };
+        let spots = run_items::ware_spots(rc);
+        let tier = tier_of(rc, r.shop_room);
         let mut v = vec![
             i32::from(r.inside),
             spot,
             i32::from(r.shop_note),
             i32::from(r.shop_acts),
             r.coins.min(i32::MAX as u32) as i32,
-            rc.items.len() as i32,
+            spots as i32,
             i32::from(r.keeper_mood),
             i32::from(r.keeper_timer),
             i32::from(r.keeper_look),
             i32::from(r.keeper_bonks),
+            i32::from(r.keeper_grudge != 0),
+            run_items::bell_price(r, rc).min(i32::MAX as u32) as i32,
+            i32::from(r.shop_rerolls),
+            i32::from(tier),
         ];
-        for (i, item) in rc.items.iter().enumerate() {
-            v.extend_from_slice(&[
-                i32::from(item.kind),
-                i32::from(item.price),
-                i32::from(item.limit),
-                i32::from(r.shop_bought.get(i).copied().unwrap_or(0)),
-            ]);
+        for k in 0..spots {
+            match run_items::ware_item(r, rc, k) {
+                Some(idx) => {
+                    let item = &rc.items[idx];
+                    v.extend_from_slice(&[
+                        idx as i32,
+                        i32::from(item.kind),
+                        i32::from(item.rarity),
+                        run_items::price(rc, idx, tier).min(i32::MAX as u32) as i32,
+                        i32::from(item.limit),
+                        i32::from(r.shop_bought.get(k).copied().unwrap_or(0)),
+                        i32::from(run_items::level(r, item.kind)),
+                    ]);
+                }
+                None => v.extend_from_slice(&[-1, -1, 0, 0, 0, 0, 0]),
+            }
         }
-        v.push(i32::from(r.keeper_grudge != 0));
         PackedInt32Array::from(v.as_slice())
     }
 
-    /// The shop's wares' names, in order.
+    /// The shop's wares' names, by spot ("" for an empty pedestal).
     #[func]
     fn run_shop_names(&self) -> PackedStringArray {
+        self.ware_labels(|i| i.name.as_str())
+    }
+
+    /// R3: each ware's one line on what it does, by spot ("" for an empty pedestal).
+    #[func]
+    fn run_shop_blurbs(&self) -> PackedStringArray {
+        self.ware_labels(|i| i.blurb.as_str())
+    }
+
+    /// R3: the item catalogue by kind (`ITEM_KINDS` rows, empty for a kind the content lacks): `[name, blurb]` strings, flattened.
+    #[func]
+    fn run_item_names(&self) -> PackedStringArray {
         let mut out = PackedStringArray::new();
-        if let Some((rc, _)) = &self.run {
-            for item in &rc.items {
-                out.push(item.name.as_str());
-            }
+        for kind in 0..ITEM_KINDS {
+            let item = self
+                .run
+                .as_ref()
+                .and_then(|(rc, _)| run_items::item_of(rc, kind as u8));
+            out.push(item.map_or("", |i| i.name.as_str()));
+            out.push(item.map_or("", |i| i.blurb.as_str()));
         }
         out
+    }
+
+    /// R3, the build: `[the consumable slot (-1 empty, 16 a bubble up, 17 a bomb not yet burst), the bomb in the hand (0/1), bubbles
+    /// popped, combos saved by steady combo, knock-outs healed by lifesteal, finds taken, the last find (1 item, 2 food, 3 a 1-up),
+    /// second wind still to come (0/1), steady combo's forgiving hit ready (0/1)]` (9), then how many of each item kind the run owns
+    /// (`ITEM_KINDS`), then each kind's rarity (-1 for a kind the content lacks).
+    #[func]
+    fn run_build(&self) -> PackedInt32Array {
+        let r = &self.state.run;
+        let mut v = vec![
+            if r.slot == NO_ITEM {
+                -1
+            } else {
+                i32::from(r.slot)
+            },
+            i32::from(r.bomb >= 0),
+            i32::from(r.pops),
+            i32::from(r.saves),
+            i32::from(r.steals),
+            i32::from(r.finds),
+            i32::from(r.find_last),
+            i32::from(r.wind > 0),
+            i32::from(r.guard),
+        ];
+        v.extend(r.owned.iter().map(|&n| i32::from(n)));
+        for kind in 0..ITEM_KINDS {
+            let rarity = self
+                .run
+                .as_ref()
+                .and_then(|(rc, _)| run_items::item_of(rc, kind as u8))
+                .map_or(-1, |i| i32::from(i.rarity));
+            v.push(rarity);
+        }
+        PackedInt32Array::from(v.as_slice())
+    }
+
+    /// R3 (F8): the finds in the rooms in play, `[x, y (its feet), what (1 item, 2 food, 3 a 1-up), the item's kind (-1 none), its
+    /// rarity (-1 none), taken (0/1), the room's number]` each.
+    #[func]
+    fn run_finds(&self) -> Array<PackedFloat32Array> {
+        let mut out = Array::new();
+        let Some((rc, _)) = &self.run else {
+            return out;
+        };
+        for slot in self
+            .state
+            .run
+            .slots
+            .iter()
+            .filter(|s| s.live && s.find != 0)
+        {
+            let Some(at) = run_items::find_spot(rc, slot) else {
+                continue;
+            };
+            let item = rc.items.get(usize::from(slot.find_item));
+            let v = [
+                f(at.x),
+                f(at.y),
+                f32::from(slot.find),
+                item.map_or(-1.0, |i| f32::from(i.kind)),
+                item.map_or(-1.0, |i| f32::from(i.rarity)),
+                if slot.found { 1.0 } else { 0.0 },
+                slot.seq as f32,
+            ];
+            out.push(&PackedFloat32Array::from(v.as_slice()));
+        }
+        out
+    }
+
+    /// Debug (tests and screenshots): sets the run's coins.
+    #[func]
+    fn run_debug_coins(&mut self, coins: i32) {
+        self.state.run.coins = coins.max(0) as u32;
+    }
+
+    /// Debug (tests and screenshots): the run gets one of item kind `kind`, as if bought. Returns whether the content has it.
+    #[func]
+    fn run_debug_give(&mut self, kind: i32) -> bool {
+        let Some((rc, _)) = &self.run else {
+            return false;
+        };
+        let Some(idx) = u8::try_from(kind)
+            .ok()
+            .and_then(|k| run_items::index_of(rc, k))
+        else {
+            return false;
+        };
+        run_items::grant(&mut self.state, rc, idx);
+        true
+    }
+
+    /// Debug (tests and screenshots): inside a shop, stands the fighter on the floor at ware spot `spot` (6: the bell, -1: the way
+    /// out). Returns whether it is inside.
+    #[func]
+    fn run_debug_shop_spot(&mut self, spot: i32) -> bool {
+        let Some((rc, _)) = &self.run else {
+            return false;
+        };
+        if !self.state.run.inside {
+            return false;
+        }
+        let x = match spot {
+            -1 => rc.interior.door,
+            s if s as usize == run_items::BELL_SPOT => rc.interior.bell,
+            s => match usize::try_from(s)
+                .ok()
+                .and_then(|s| rc.interior.pedestals.get(s))
+            {
+                Some(p) => p.x,
+                None => return false,
+            },
+        };
+        let at = Vec2::new(Fx::from_int(INTERIOR_X) + x, Fx::ZERO);
+        let f = &mut self.state.fighters[0];
+        f.pos = at;
+        f.vel = Vec2::ZERO;
+        f.platform = sim_core::collision::standing_on(&self.content.stage, at);
+        f.state = sim_core::state::FighterState::Idle;
+        f.state_frame = 0;
+        true
+    }
+
+    /// Debug (tests and screenshots, F8): puts a find of `what` (1 an item of kind `kind`, 2 food, 3 a 1-up) in the current room, on
+    /// its find spot. Returns the find's place (its feet), or nothing.
+    #[func]
+    fn run_debug_find(&mut self, what: i32, kind: i32) -> PackedFloat32Array {
+        let Some((rc, _)) = &self.run else {
+            return PackedFloat32Array::new();
+        };
+        let run = &self.state.run;
+        let seq = run.room;
+        let Some(s) = run.slots.iter().position(|s| s.live && s.seq == seq) else {
+            return PackedFloat32Array::new();
+        };
+        let item = u8::try_from(kind)
+            .ok()
+            .and_then(|k| run_items::index_of(rc, k))
+            .map_or(NO_ITEM, |i| i as u8);
+        let slot = &mut self.state.run.slots[s];
+        slot.find = what.clamp(1, 3) as u8;
+        slot.find_item = if what == 1 { item } else { NO_ITEM };
+        slot.found = false;
+        let slot = *slot;
+        self.state.run.layout = self.state.run.layout.wrapping_add(1);
+        run_items::find_spot(rc, &slot)
+            .map(|at| PackedFloat32Array::from([f(at.x), f(at.y)].as_slice()))
+            .unwrap_or_default()
     }
 
     /// The shop's interior, placed where the sim puts it (`INTERIOR_X`): its footings as `[left, right, top, bottom, pass_through,
