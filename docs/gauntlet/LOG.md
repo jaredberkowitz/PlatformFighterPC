@@ -96,3 +96,18 @@ diffuse to see. Gaps: (1) grass tops and ground detail (a ruler-straight lip; do
 circles); (2) the remaining primitives (the city's scaffolds most of all; the beach's lamp and sailboats; the grove's mushrooms and
 stump) and contact as a tight dark core at each prop's base. Later: beach water and town; city windows quieter; canyon and meadow
 distance.
+
+## Round 7 (2026-10-18, commit 85e7fdb)
+
+| Stage | Believ. | Cohesion | Lighting | Depth | Ground | Clarity | Mean |
+|---|---|---|---|---|---|---|---|
+| Meadow | 3 | 3 | 3 | 3 | 3 | 3 | 3.0 |
+| Canyon | 3 | 4 | 4 | 3 | 3 | 4 | 3.5 |
+| Beach | 3 | 3 | 3 | 3 | 3 | 3 | 3.0 |
+| City | 3 | 4 | 3 | 4 | 2 | 3 | 3.2 |
+| Grove | 3 | 3 | 3 | 3 | 3 | 4 | 3.2 |
+
+The city's modelled trusses read as steel (Cohesion 4); the meadow's tufts lift its Ground to 3. A regression: the grove lost its
+drooping turf overhang to an even row of tufts. Gaps: (1) the beach behind the harbour reference (foam strokes, piles' waterline,
+the town high, the lamp and sailboats primitive, the cut-off crate stack); (2) the tuft rows mechanical, the grove's overhang to
+restore. Later: the canyon's strata and arch; the city's windows, roof pools and scuffs; the meadow's far ridges and hay-bale contact.

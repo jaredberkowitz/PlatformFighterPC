@@ -865,8 +865,7 @@ static func solid_block(parent: Node3D, t: Dictionary, left: float, right: float
 			# and outlined, reading as scribbles.)
 			var blade_mat := (FighterView.toon((t.grass as Color).lightened(0.12), false) as ShaderMaterial).duplicate() as ShaderMaterial
 			blade_mat.set_shader_parameter("ramp_softness", 0.3)
-			# (The modelled tufts stand on the lip, not over the wall, so they go where moss drapes it too.)
-			var x := left + rng.randf_range(0.4, 0.9) if (not t.has("moss") or grass_tuft != null) else right
+			var x := left + rng.randf_range(0.4, 0.9) if not t.has("moss") else right
 			var stone := Materials.stone((t.soil as Color).lightened(0.25))
 			while x < right - 0.4:
 				var k := rng.randf_range(0.75, 1.3)
@@ -880,16 +879,30 @@ static func solid_block(parent: Node3D, t: Dictionary, left: float, right: float
 				var wide := own.randf_range(0.7, 1.0) if long_drip else own.randf_range(1.0, 1.7)
 				# (Modelled grass tufts on the lip where there are, art/blender/make_props.py `grass_tuft`, the gauntlet's round 6: the round turf
 				# tongues read as blobs and left the lip a ruled line; a tuft breaks it with blades.)
-				if grass_tuft != null:
-					var tuft_mi := _mesh(parent, grass_tuft, blade_mat, Vector3(x, top - cap_h * 0.35, front_z + 0.3 + own.randf_range(-0.05, 0.05)),
-						Vector3.ONE * k * own.randf_range(1.3, 1.9), Vector3(28, own.randf_range(0, 360), 0))
-					tuft_mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-				else:
-					_mesh(parent, tuft_mesh, grass, Vector3(x, top - cap_h + 0.1 - 0.17 * k * hang, front_z + 0.2 + own.randf_range(-0.04, 0.04)),
-						Vector3(1.2 * wide, 0.8 * hang, 0.6) * k)
+				# (The turf tongues stay, the drooping overhang: replaced by tufts the grove's lip went ruler-straight, the gauntlet's round 7.)
+				_mesh(parent, tuft_mesh, grass, Vector3(x, top - cap_h + 0.1 - 0.17 * k * hang, front_z + 0.2 + own.randf_range(-0.04, 0.04)),
+					Vector3(1.2 * wide, 0.8 * hang, 0.6) * k)
 				if rng.randf() < 0.22:
 					_mesh(parent, _sphere(0.16, 6), stone, Vector3(x + 0.5, top - cap_h - 0.3, front_z + 0.12), Vector3(1.3, 0.8, 0.7))
 				x += rng.randf_range(0.8, 1.6) * 0.62
+			# Grass tufts growing from the lip (art/blender/make_props.py `grass_tuft`, the gauntlet's round 6) in clusters of three to five with
+			# gaps between, each its own size and turn, some set back from the edge (round 7: an even row of equal tufts read as a fringe).
+			# Their own random numbers, so the tongues' layout is unchanged.
+			if grass_tuft != null:
+				var tr := RandomNumberGenerator.new()
+				tr.seed = int(left * 17.0 + top * 5.0) + 303
+				var cxs := left + tr.randf_range(0.3, 1.6)
+				while cxs < right - 0.3:
+					var n := tr.randi_range(3, 5)
+					for j in n:
+						var tx := cxs + tr.randf_range(-0.45, 0.45)
+						if tx < left + 0.1 or tx > right - 0.1:
+							continue
+						var back := tr.randf_range(0.0, 0.7) if tr.randf() < 0.35 else 0.0
+						var tuft_mi := _mesh(parent, grass_tuft, blade_mat, Vector3(tx, top - cap_h * 0.35 + (0.32 if back > 0.0 else 0.0),
+							front_z + 0.3 - back), Vector3.ONE * tr.randf_range(0.8, 2.0), Vector3(28.0 if back == 0.0 else 4.0, tr.randf_range(0, 360), 0))
+						tuft_mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+					cxs += tr.randf_range(1.8, 4.2)
 
 
 ## What makes a stage's block a built shape rather than a box with a tiled front: at each top corner (the ledges, gameplay landmarks) a
