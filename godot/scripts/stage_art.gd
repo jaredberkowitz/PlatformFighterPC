@@ -1589,9 +1589,12 @@ const RIDGES := {
 	"meadow": [{"z": -170.0, "y": -44.0, "height": 60.0, "shape": 1, "seed": 3.0, "base": 0.42, "amplitude": 0.5, "frequency": 4.5,
 		# (More of its own blue and less haze, art review 6 round 31: at mix 0.55 the ridge was mostly horizon colour, a formless pale band
 		# behind the crisp painted hills; found with `--pick`.)
-		"tone": Color(0.36, 0.56, 0.84), "mix": 0.8, "edge": 0.7, "haze": 0.06}],
+		"tone": Color(0.36, 0.56, 0.84), "mix": 0.8, "edge": 0.7, "haze": 0.06,
+		# (A lit flank and a shaded flank on every peak, as the canyon's mesas have: a flat blue cut-out read as the least finished
+		# thing on the menu; the owner, 2026-10-17, raise the quality of what is there.)
+		"flank": 0.75}],
 	"grove": [{"z": -165.0, "y": -34.0, "height": 52.0, "shape": 0, "seed": 8.0, "base": 0.5, "amplitude": 0.32, "frequency": 3.5,
-		"tone": Color(0.5, 0.5, 0.84), "mix": 0.55, "edge": 0.5}],
+		"tone": Color(0.5, 0.5, 0.84), "mix": 0.55, "edge": 0.5, "flank": 0.6}],
 	"sunset": [{"z": -175.0, "y": -36.0, "height": 58.0, "shape": 2, "seed": 5.0, "base": 0.4, "amplitude": 0.4, "frequency": 3.0,
 		"tone": Color(0.42, 0.26, 0.5), "mix": 0.55, "edge": 0.4},
 		{"z": -132.0, "y": -34.0, "height": 46.0, "shape": 2, "seed": 11.0, "base": 0.36, "amplitude": 0.36, "frequency": 2.6,
