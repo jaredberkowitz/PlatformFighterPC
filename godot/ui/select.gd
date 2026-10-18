@@ -435,8 +435,9 @@ func _ready() -> void:
 			thumb.facing_bias = 0.35
 			# Head and shoulders, as the reference fighters' portraits are (art review 6 round 2: the whole body at this size left the face a
 			# few pixels across and the roster a row of near-identical dolls; the face, hair and hat are what tell fighters apart).
-			thumb.camera.position = Vector3(0, 1.85, 2.9)
-			thumb.camera.look_at_from_position(thumb.camera.position, Vector3(0, 1.66, 0))
+			# (Up and back a little for the rebuilt body's bigger head, 2026-10-18: framed for the old one, it cut the hats and crowns off.)
+			thumb.camera.position = Vector3(0, 2.02, 3.5)
+			thumb.camera.look_at_from_position(thumb.camera.position, Vector3(0, 1.8, 0))
 			thumb.set_loadout(entries[i].look)
 			card.add_child(thumb)
 		else:
@@ -467,7 +468,8 @@ func _ready() -> void:
 	add_child(panels_overlay)
 
 	var footer := UI.KeyBar.new(RUN_KEYS if run_mode else KEYS)
-	footer.position = Vector2(60, 686)
+	# (Up from 686, 2026-10-18: the bar's keys were cut by the bottom of the screen.)
+	footer.position = Vector2(60, 672)
 	footer.size = Vector2(1160, 30)
 	add_child(footer)
 
@@ -772,7 +774,7 @@ func _layout_panels() -> void:
 	var w := (1280.0 - 40.0 - gap * (count - 1)) / count
 	for p in 4:
 		var panel: Control = panels[p]
-		panel.position = Vector2(20.0 + p * (w + gap), 392)
+		panel.position = Vector2(20.0 + p * (w + gap), 378)
 		panel.lay_out(w)
 	if panels_overlay != null:
 		panels_overlay.queue_redraw()
