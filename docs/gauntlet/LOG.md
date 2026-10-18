@@ -328,3 +328,20 @@ crowns' shading); (2) flat fills on large surfaces (the meadow's vivid striped f
 
 Scores as round 23. The lit edge too light to read at match distance; the root flares ran together. Gaps unchanged: (1) thin light;
 (2) flat fills and straight lips on the large surfaces.
+
+## Round 25 (2026-10-18, commit e1fd1ea): plateau
+
+Scores as round 22-24 (meadow 3.0, canyon 2.5, beach 3.2, city 3.0, grove 3.0). The lawn lips no longer read as ruled lines; soil shows
+between the grove's roots; the lit edge still faint. The judge: the remaining polish passes are too small to read at match distance.
+Gaps: (1) no cast shadows from overhead geometry onto the stage tops (the key light's shadows fall behind the play line); (2) large
+single-value fills (lawn, field, soil, crowns, headland, roof).
+
+**Investments the judge names (priority order):**
+- Meadow: soft key-light shadows from platforms, fence, windmill and bales onto the lawn; a new lawn material (clumps, wear, colour
+  breakup) and modelled furrowed fields receding into haze; remodelled hand-made platforms and varied wall stone sizes.
+- Beach: the headland remodelled as land (ridges, tree clumps, the town nestled in); a trestle pass (varied bracing, wet tones, broken
+  rhythm); soft cast shadows from the props and the deck onto the water.
+- City: a play-facade pass keeping the owner's windows (stepped cornice, pilasters, per-window tint and dimming); cast shadows from the
+  girder deck and water tower, parapet flashing; a calmer SHOP glow and a cool rim on the skyline's ledges.
+- Grove: the side crowns lit (warm tops, cool undersides, core shadow, canopy shadow on the lawn); a soil material for the bank (clods,
+  stones, occlusion under the turf, moss at the roots); a lawn material breakup like the meadow's.
