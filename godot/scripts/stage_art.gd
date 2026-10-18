@@ -557,7 +557,8 @@ static func _soil_material(t: Dictionary) -> ShaderMaterial:
 			# (Art review 6 round 7: each root was one even-width stroke with round ends and a lit stripe down it, and the stones pale ovals
 			# with a highlight: at play size, pipes and polka dots. Now each root tapers from its thick end in short segments, darker than
 			# before, and the stones are fewer, smaller and only a step off the soil, bedded in it.)
-			for r in roots:
+			# (The roots are modelled now, `_grove_roots`, 2026-10-18: painted ones doubled them.)
+			for r in []:
 				var w: float = r[6]
 				var p0 := Vector2(r[0], r[1])
 				var p1 := Vector2(r[2], r[3])
@@ -2329,8 +2330,9 @@ static func _canopy(root: Node3D, z: float, y: float, colours: Array) -> void:
 		# (The two nearest rows inked like the trees by the stage; further rows without, as distance takes the line.)
 		var inked := r < 2
 		# (Clump balls with their baked light, as the trees' crowns: the forest reads as treetops of leaf clumps, not smooth balls.)
-		var leaf := _lobed(Materials.foliage(colours[r % colours.size()], Vector2(2, 2), inked))
-		var leaf_lit := _lobed(Materials.foliage((colours[r % colours.size()] as Color).lightened(0.12), Vector2(2, 2), inked))
+		# (Low faceted crowns in clear greens, art review 9: lumpy clump balls read as mud at this distance.)
+		var leaf := Materials.foliage(colours[r % colours.size()], Vector2(2, 2), inked)
+		var leaf_lit := Materials.foliage((colours[r % colours.size()] as Color).lightened(0.18), Vector2(2, 2), inked)
 		var x := -150.0 + float(r) * 1.3
 		var k := 0
 		# Crowns, not equal puffs: each a big mass with two or three smaller lobes round its shoulders, of very different sizes, now and
@@ -2344,12 +2346,12 @@ static func _canopy(root: Node3D, z: float, y: float, colours: Array) -> void:
 			var jz := 0.8 * sin(k * 3.1 + r)
 			var main := leaf_lit if (k + r) % 3 == 0 else leaf
 			var c := Vector3(x, row_y + jy, rz + jz)
-			_mesh(root, _clump_ball(k % CLUMP_VARIANTS), main, c, Vector3(w, h, w * 0.7), Vector3(0, float(k * 47 % 360), 0))
+			_mesh(root, _sphere(1.0, 7), main, c, Vector3(w, h, w * 0.7), Vector3(0, float(k * 47 % 360), 0))
 			var lobes := 2 + int(absf(sin(k * 4.1 + r)) * 1.99)
 			for li in lobes:
 				var side := -1.0 if li % 2 == 0 else 1.0
 				var lw := w * (0.45 + 0.15 * absf(sin(k + li * 2.7)))
-				_mesh(root, _clump_ball((k + li + 1) % CLUMP_VARIANTS), leaf if main == leaf_lit else leaf_lit,
+				_mesh(root, _sphere(1.0, 6), leaf if main == leaf_lit else leaf_lit,
 					c + Vector3(side * w * (0.7 + 0.1 * li), -h * 0.15 + h * 0.35 * float(li / 2), 0.25), Vector3(lw, lw * 0.9, lw * 0.7))
 			x += w * (1.6 + 0.5 * absf(sin(k * 0.71 + r * 1.3)))
 			k += 1
@@ -4309,7 +4311,8 @@ static func _tree(root: Node3D, base: Vector3, size: float, rng: RandomNumberGen
 	# and flares into broad roots at its foot.
 	# (Broad plates, art review 6 round 28: repeated five times round the trunk the furrows were a busy fine pinstripe beside the
 	# foreground's few broad soft forms.)
-	var bark := Materials.bark(Color(0.62, 0.42, 0.26), Vector2(2.5, 2))
+	# (Browner and darker, art review 9: the pinkish bark was the earth's own hue, so tree and island ran together.)
+	var bark := Materials.bark(Color(0.5, 0.34, 0.24), Vector2(2.5, 2))
 	_mesh(root, trunk_mesh(trunk_h, 2.9 * size, 2.0 * size, 0.7 * size, 1.4 * size, 0.09), bark, base)
 	for k in 6:
 		var a := -1.25 + k * 0.5
@@ -5121,8 +5124,9 @@ static func _grove_roots(root: Node3D, e: Array) -> void:
 	var front := STAGE_FRONT
 	var cx := (l + r) * 0.5
 	var w := r - l
-	# (The great trunk's own bark, a little darker under the island.)
-	var bark := Materials.bark(Color(0.52, 0.34, 0.22), Vector2(1, 3))
+	# (A deep brown bark, faceted, art review 9: smooth pink-brown tubes read as sausages.)
+	var bark := (Materials.bark_plates(Color(0.42, 0.29, 0.21), Vector2(1, 3)) as ShaderMaterial).duplicate() as ShaderMaterial
+	bark.set_shader_parameter("facets", true)
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 4040
 	# The tap root: the island gathers into one great root under its middle, running down into the forest.
@@ -5136,10 +5140,11 @@ static func _grove_roots(root: Node3D, e: Array) -> void:
 	var spots := [0.1, 0.27, 0.46, 0.63, 0.88]
 	for k in spots.size():
 		var x0: float = l + w * float(spots[k]) + rng.randf_range(-0.6, 0.6)
-		var rad := rng.randf_range(0.55, 1.05)
+		var rad := rng.randf_range(0.7, 1.25)
 		var pts: Array = []
-		pts.append(Vector3(x0, top - 0.6, front - 0.8))
-		pts.append(Vector3(x0, top - 0.85, front + 0.3))
+		# (Starting under the turf lip, so only the root's body shows, swelling out over the edge.)
+		pts.append(Vector3(x0, top - 1.2, front - 1.2))
+		pts.append(Vector3(x0, top - 1.1, front + 0.25))
 		var out := 0.55 + rad * 0.35
 		var steps := 7
 		for j in range(1, steps + 1):
@@ -5148,7 +5153,7 @@ static func _grove_roots(root: Node3D, e: Array) -> void:
 			var y := lerpf(top - 1.6, bottom - 6.0 - rng.randf_range(0.0, 3.0) * t, t)
 			var z := lerpf(front + out, front - 2.0, smoothstep(0.55, 1.0, t))
 			pts.append(Vector3(x + sin(t * 4.0 + float(k)) * 0.3, y, z))
-		_root_tube(root, pts, rad, rad * 0.55, bark)
+		_root_tube(root, pts, rad * 1.15, rad * 0.55, bark)
 
 
 ## A tapering tube of bark along `pts` (a smooth path through them), `r0` thick at its start and `r1` at its end, with a little knobbly
@@ -5168,7 +5173,8 @@ static func _root_tube(root: Node3D, pts: Array, r0: float, r1: float, mat: Mate
 			var t3 := t2 * t
 			path.append(0.5 * ((2.0 * p1) + (-p0 + p2) * t + (2.0 * p0 - 5.0 * p1 + 4.0 * p2 - p3) * t2 + (-p0 + 3.0 * p1 - 3.0 * p2 + p3) * t3))
 	path.append(pts[m - 1])
-	var sides := 10
+	# (Seven sides, flattened front to back into a buttress and swelling into knuckles where the path bends: a root, not a pipe.)
+	var sides := 7
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
 	var rings: Array = []
@@ -5188,8 +5194,9 @@ static func _root_tube(root: Node3D, pts: Array, r0: float, r1: float, mat: Mate
 		var ring: Array = []
 		for j in sides + 1:
 			var ang := TAU * float(j) / sides
-			var dir := nrm * cos(ang) + side * sin(ang)
-			ring.append([path[i] + dir * rr, Vector2(float(j) / sides, f * 6.0)])
+			var dir := nrm * cos(ang) * 0.7 + side * sin(ang) * 1.25
+			var ridge := 1.0 + 0.12 * cos(ang * 3.0 + f * 9.0)
+			ring.append([path[i] + dir * rr * ridge, Vector2(float(j) / sides * 3.0, f * 6.0)])
 		rings.append(ring)
 	for i in rings.size() - 1:
 		for j in sides:
