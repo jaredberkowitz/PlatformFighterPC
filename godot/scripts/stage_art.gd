@@ -29,6 +29,9 @@ const THEMES := {
 		"soil": Color(0.76, 0.56, 0.36), "soil_dark": Color(0.52, 0.37, 0.25), "grass": Color(0.46, 0.82, 0.16),
 		"grass_light": Color(0.66, 0.92, 0.34), "wood": Color(0.86, 0.62, 0.36), "wood_dark": Color(0.62, 0.42, 0.24),
 		"pattern": "earth", "cap": "grass", "platform": "wood", "grass_vary": 0.17, "grass_patch": 0.35, "moss": Color(0.4, 0.66, 0.14),
+		# The stage as a hillside farm terrace (2026-10-18, the owner: a place, not a box): a dry-stone retaining wall holding the field up,
+		# a grassy hill below it running down into the valley (`_meadow_hill`), a lower terrace in front, the farm nearby.
+		"terrace": true,
 	},
 	"grove": {
 		"sky_top": Color(0.28, 0.5, 0.98), "sky_mid": Color(0.52, 0.66, 1.0), "sky_horizon": Color(0.98, 0.76, 0.86),
@@ -728,6 +731,12 @@ static func solid_block(parent: Node3D, t: Dictionary, left: float, right: float
 		_seawall_stones(parent, t, left, right, top, bottom, front_z, depth, top)
 	elif t.get("pattern", "") == "strata":
 		_strata_ledges(parent, t, left, right, top, bottom, front_z, top)
+	elif t.get("terrace", false):
+		var field := t.duplicate()
+		# (Warm fieldstone, a step darker than the lawn is light, so the wall sits under the field instead of outshining it.)
+		field.soil = Color(0.68, 0.56, 0.42)
+		field.soil_dark = Color(0.44, 0.36, 0.32)
+		_seawall_stones(parent, field, left, right, top + 0.15, bottom, front_z, depth, top, true)
 	elif t.get("pattern", "") in ["earth", "roots"]:
 		_earth_bulges(parent, t, left, right, top, bottom, front_z)
 	if not exposed:
@@ -2680,6 +2689,9 @@ static func underside(root: Node3D, t: Dictionary, e: Array) -> void:
 			_shopfront(root, cx, r - l - 0.4, street, front + 0.02)
 			_street(root, street, front)
 		_:
+			if t.get("terrace", false):
+				_meadow_hill(root, t, l, r, bottom, front, float(e[2]))
+				return
 			# A floating island: a keel of earth tapering to a point a little off-centre, rocks set in it, roots hanging from the rim.
 			var length := clampf((r - l) * 0.42, 4.0, 8.0)
 			var keel := _hanging_mass(bottom, length, l, r, front, 3.2, 0.12, 9,
@@ -4537,10 +4549,11 @@ class Waves extends Node3D:
 ## owner, 2026-10-18: the painted wall read flat; after the papercraft village reference). One MultiMesh per face; the block's own tile is
 ## the mortar behind them. The stones fall into the wall's shade by height as the wall does.
 static func _seawall_stones(parent: Node3D, t: Dictionary, left: float, right: float, top: float, bottom: float, front: float, depth: float,
-		fall_top: float) -> void:
+		fall_top: float, rough := false) -> void:
 	var a: Color = t.soil
 	var b: Color = t.soil_dark
-	var stone_grey := Color(0.86, 0.74, 0.6)
+	# (`rough`: a farm's dry-stone wall, fieldstones of very different sizes, rounder and further off true, in their own greys.)
+	var stone_grey := Color(0.72, 0.7, 0.66) if rough else Color(0.86, 0.74, 0.6)
 	var rng := RandomNumberGenerator.new()
 	rng.seed = int(left * 31.0 + top * 17.0) + 5
 	var items: Array = []
@@ -4555,10 +4568,10 @@ static func _seawall_stones(parent: Node3D, t: Dictionary, left: float, right: f
 		var out: Vector3 = f[3]
 		var y := top - 0.5
 		while y > bottom + 0.2:
-			var rh := rng.randf_range(0.72, 1.25)
+			var rh := rng.randf_range(0.35, 1.15) if rough else rng.randf_range(0.72, 1.25)
 			var x := -rng.randf_range(0.0, 0.7)
 			while x < width:
-				var w := rng.randf_range(0.9, 2.6)
+				var w := rng.randf_range(0.45, 2.0) if rough else rng.randf_range(0.9, 2.6)
 				var x0 := maxf(x, 0.0)
 				var x1 := minf(x + w, width)
 				if x1 - x0 > 0.25:
@@ -4567,7 +4580,10 @@ static func _seawall_stones(parent: Node3D, t: Dictionary, left: float, right: f
 					var size := Vector3(x1 - x0 - gap, rh - gap, 0.22)
 					var basis := Basis(across, Vector3.UP, out)
 					basis = basis * Basis.from_euler(Vector3(rng.randf_range(-0.04, 0.04), rng.randf_range(-0.05, 0.05), rng.randf_range(-0.02, 0.02)))
-					var pos := origin + across * cx + Vector3(0, y - rh * 0.5, 0) + out * (0.06 + rng.randf_range(-0.04, 0.04))
+					var pos := origin + across * cx + Vector3(0, y - rh * 0.5 + (rng.randf_range(-0.06, 0.06) if rough else 0.0), 0) + out * (0.06 + rng.randf_range(-0.04, 0.04) * (2.5 if rough else 1.0))
+					if rough:
+						basis = basis * Basis.from_euler(Vector3(rng.randf_range(-0.08, 0.08), rng.randf_range(-0.1, 0.1), rng.randf_range(-0.07, 0.07)))
+						size.z = rng.randf_range(0.25, 0.4)
 					var shade := a.lerp(b, rng.randf_range(0.0, 0.7)).lerp(stone_grey, 0.2)
 					shade = shade.lightened(rng.randf_range(0.02, 0.14)) if rng.randf() < 0.6 else shade.darkened(rng.randf_range(0.0, 0.1))
 					# (Custom data reaches the shader as is, linear, where colour uniforms are converted from sRGB: convert it here, or every
@@ -5022,3 +5038,80 @@ static func _harbour_town(root: Node3D, water: float) -> void:
 			dinghy.position = Vector3(0, -0.6, 0)
 			dinghy.rotation_degrees = Vector3(0, rng.randf_range(160, 200), 0)
 			boat.add_child(dinghy)
+
+
+## The hill the meadow's terrace stands on (`l` to `r` the wall, its foot at `bottom`, its front at `front`): the land falling away from the
+## foot of the wall down into the valley, wide at the sides and toward the camera, in the lawn's own painted grass with blades, a darker
+## band of shade at the foot of the wall where it overhangs; so the stage is a terrace on a hillside rather than an island in the air.
+static func _meadow_hill(root: Node3D, t: Dictionary, l: float, r: float, bottom: float, front: float, top: float) -> void:
+	# (A deeper, cooler green than the lawn: the hill is below the light and further from the fight.)
+	var grass := (_surface(Color(0.3, 0.6, 0.26), "grass", 9.0) as ShaderMaterial).duplicate() as ShaderMaterial
+	grass.set_shader_parameter("world_vary", 0.18)
+	grass.set_shader_parameter("patch_amount", 0.35)
+	grass.set_shader_parameter("blades", 0.8)
+	var cx := (l + r) * 0.5
+	var w := r - l
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	# A height field in front of and beside the wall: level with the wall's foot along it, falling away with distance from it.
+	var x0 := cx - w * 1.6 - 20.0
+	var x1 := cx + w * 1.6 + 20.0
+	var z0 := front - 14.0
+	var z1 := front + 22.0
+	var step := 1.0
+	var nx := int((x1 - x0) / step)
+	var nz := int((z1 - z0) / step)
+	var n := FastNoiseLite.new()
+	n.seed = 5
+	n.frequency = 0.05
+	for j in nz + 1:
+		var z := lerpf(z0, z1, float(j) / nz)
+		for i in nx + 1:
+			var x := lerpf(x0, x1, float(i) / nx)
+			var dx := maxf(0.0, absf(x - cx) - w * 0.5)
+			var dz := maxf(0.0, z - front)
+			var d := sqrt(dx * dx + dz * dz)
+			# (A long falling slope, steepening a little, not a dome.)
+			var y := bottom + 0.05 - 0.55 * d - 0.006 * d * d + n.get_noise_2d(x, z) * 1.6 * smoothstep(5.0, 12.0, d)
+			st.add_vertex(Vector3(x, y, z))
+	for j in nz:
+		for i in nx:
+			var a0 := j * (nx + 1) + i
+			var b0 := a0 + 1
+			var c0 := a0 + nx + 1
+			var d0 := c0 + 1
+			for idx in [a0, b0, d0, a0, d0, c0]:
+				st.add_index(idx)
+	st.generate_normals()
+	var hill := _mesh(root, st.commit(), grass, Vector3.ZERO)
+	hill.name = "Underside"
+	# Shade at the wall's foot.
+	var band := _mesh(root, _shade_band(w + 0.4, 1.2), _band_material(), Vector3(cx, bottom + 0.3, front + 0.45))
+	band.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	# The foreground: a lower terrace step in front of each end of the wall (inside the stage's width, clear of the ledges' recovery
+	# space), a dry-stone wall of its own under a strip of field, with the farm's things on it, so the bottom corners of the shot are
+	# framed by the farm as a harbour's are by its landings.
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 808
+	var step_top := top - 3.6
+	var lawn := _surface(t.grass, "grass", 9.0)
+	var field := t.duplicate()
+	field.soil = Color(0.68, 0.56, 0.42)
+	field.soil_dark = Color(0.44, 0.36, 0.32)
+	for side in [-1.0, 1.0]:
+		var ex: float = (l + 3.4) if side < 0.0 else (r - 3.4)
+		var sx0 := ex - 3.2
+		var sx1 := ex + 3.2
+		var zf := front + 3.8
+		var tz := front + 0.2
+		_mesh(root, _box(Vector3(sx1 - sx0, step_top - bottom + 4.0, zf - tz)), _soil_material(t), Vector3(ex, (step_top + bottom - 4.0) * 0.5, (zf + tz) * 0.5))
+		_mesh(root, _box(Vector3(sx1 - sx0 + 0.2, 0.5, zf - tz + 0.2)), lawn, Vector3(ex, step_top - 0.2, (zf + tz) * 0.5))
+		_edge_lip(root, sx0 - 0.1, sx1 + 0.1, step_top - 0.3, zf + 0.05, 0.32, lawn)
+		_seawall_stones(root, field, sx0, sx1, step_top + 0.1, bottom - 4.0, zf, zf - tz, step_top, true)
+		var sy := step_top
+		var sz := front + 1.8
+		_hay_bale(root, Vector3(ex - side * 0.6, sy, sz), rng.randf_range(-30, 30))
+		_hay_bale(root, Vector3(ex + side * 0.9, sy, sz + 0.9), rng.randf_range(-30, 30))
+		_hay_bale(root, Vector3(ex + side * 0.1, sy + 0.9, sz + 0.4), rng.randf_range(-30, 30))
+		_barrel(root, Vector3(ex - side * 2.1, sy, sz + 0.4), 0.8)
+		_rock(root, Vector3(ex + side * 2.3, sy, sz + 1.0), 0.4, rng)
