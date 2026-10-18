@@ -1,8 +1,9 @@
-// Side special (dash), on the reference's parameters (sim 139): started in the air it keeps 0.67 of its sideways speed (the move's
-// start_speed) and none of its vertical speed, the sideways part slowing by 0.05 reference units a frame, held still 13 frames, then
-// falling at 0.017 gravity. On frame 17 the stick past half tilt angles the dash up to 10 degrees up or down. After the dash it slides on
-// at 2.3 units a frame in the air (2.5 on the ground), slowed by 0.07 (0.15), and from 5 frames after the dash falls at 0.08 gravity.
-// The dash's own speed (5.5 units a frame, frames 18-27) is an estimate.
+// Side special (dash), on the reference's parameters (sims 139 and 143; move frame N is the reference's N+1): started in the air it
+// keeps 0.67 of its sideways speed (the move's start_speed) and none of its vertical speed, the sideways part slowing by 0.05 reference
+// units a frame, held still 13 frames, then falling at 0.017 gravity. On frame 16 the stick past half tilt angles the dash up to 10
+// degrees up or down. The dash is the illusion's 2 frames (17-18; its 27.5 units a frame are an estimate: 55 units in all). After it it
+// slides on at 2.3 units a frame in the air (2.5 on the ground), slowed by 0.07 (0.15), and from 5 frames after the dash falls at 0.08
+// gravity.
 var deg;
 var h;
 var v;
@@ -13,20 +14,20 @@ if grounded == 0 && frame <= 16 {
     if frame >= 14 { v = max(vy - 0.002125, -0.225); }
     set_vel(h, v);
 }
-if frame == 17 {
+if frame == 16 {
     deg = 0;
     if abs(stick_y) > 0.5 { deg = sign(stick_y) * min((abs(stick_y) - 0.5) / 0.5, 1) * 10; }
 }
-if frame >= 18 && frame <= 27 { set_vel(0.6875 * cos(deg), 0.6875 * sin(deg)); }
-if frame == 28 {
+if frame >= 17 && frame <= 18 { set_vel(3.4375 * cos(deg), 3.4375 * sin(deg)); }
+if frame == 19 {
     h = 0.2875;
     if grounded { h = 0.3125; }
     v = h * sin(deg);
     h = h * cos(deg);
 }
-if frame >= 28 {
+if frame >= 19 {
     if grounded { h = max(h - 0.01875, 0); } else { h = max(h - 0.00875, 0); }
-    if frame >= 33 { v = max(v - 0.01, -0.225); }
+    if frame >= 24 { v = max(v - 0.01, -0.225); }
     if grounded { v = 0; }
     set_vel(h, v);
 }

@@ -16,7 +16,7 @@ Status words: **verified** (every move on [R] data, tested, no approximations le
 | In game (class, weapon, body) | Reference | Status | Tests | Known limits (from `docs/COMBAT.md`, `docs/movesets/needles/`) |
 | --- | --- | --- | --- | --- |
 | 0 Longsword, duelist body | Marth | playable | `reference_moves.rs`, `kits.rs`, `combat.rs`, `longsword_jab.rs` | Normals on [R] frames and damage. **The jab is the previous version's (1.1.x) since sim 138** (decision 98: E40 rules, the jab cancel on both hits, 13.0.1's tip pull). **Up special on the reference's numbers since sim 58** (hits, grounded / aerial intangibility, 39-frame animation, front ledge from 8, special fall x0.4 and 24 frames of landing lag, x1.1 aerial rise, 20-degree angling, 0.06 gravity after the rise); its rise itself is still [E] (about 44 reference units: no published height). Pummel on [R] timing (sim 63). Down tilt's trip chance and the up smash's launcher hit are not modelled. Hitbox positions [E] (blade shortened to 72% on purpose). Charged Thrust's shield multiplier is [E]. Counter on the reference's numbers since sim 78 (ssbwiki.com raw: window 6-27, 1.2x, at least 8% and at most 50%; it catches on its counter bubble, radius 10.5 at 10 up [R], and never catches a push). Get-up attack at the reference's angle 48 since sim 73 (it was 361; owner decision 27). |
-| 1 Claws, brawler body | Wolf | playable | `reference_moves.rs`, `kits.rs`, `throw_combos.rs` | Normals on [R] data. **Up special on the reference's numbers since sim 58** (hits, the dash from its published parameters, the grounded / aerial endings, the ground bounce, ledge windows, special fall x0.65 and 36 frames of landing lag); its looping hits send the way the fighter is travelling (the reference's angle type 1, sim 73, owner decision 23). Get-up attack at angle 48 since sim 73 (owner decision 27). Wall jump (sim 64). Pummel on [R] timing (sim 63). **Still [E]**: the flash dash's distance and end hit, the reflector's frames, size and reflected speed (it turns only the horizontal speed: owner decision 2026-10-13, keep it unlike the cape's). Wall jump also from the jump button (sim 65). Throw angles partly [E]. |
+| 1 Claws, brawler body | Wolf | playable | `reference_moves.rs`, `kits.rs`, `throw_combos.rs` | Normals on [R] data. **Up special on the reference's numbers since sim 58** (hits, the dash from its published parameters, the grounded / aerial endings, the ground bounce, ledge windows, special fall x0.65 and 36 frames of landing lag); its looping hits send the way the fighter is travelling (the reference's angle type 1, sim 73, owner decision 23). Get-up attack at angle 48 since sim 73 (owner decision 27). Wall jump (sim 64). Pummel on [R] timing (sim 63). **Flash dash on the reference's frames since sim 143** (decision 102: the trail on 18-19, the 20% spike / 15% on 20-21, 61 frames, the special fall, 29 frames of landing lag in the move or the fall, ledges from 26; its own aerial slot ext3). **Still [E]**: the flash dash's distance (55 units in its 2 dash frames), the reflector's frames, size and reflected speed (it turns only the horizontal speed: owner decision 2026-10-13, keep it unlike the cape's). Wall jump also from the jump button (sim 65). Throw angles partly [E]. |
 | 2 Needles, rogue body | Sheik | playable | `needles.rs`, `multihit.rs` | Body, normals, Needle Volley, Flash Step, Flip Kick on [R] data (`docs/movesets/needles/REFERENCE_DATA.md`). **The side special is our own pulling line, not the reference's grenade** (owner's decision 6: it stays). Wall jump since sim 64 (1.4 / 2.8). Pummel on [R] timing (sim 63). Flash Step: no reappearance wind box (the push hit, E2, now exists to build it), explosion moves with the fighter; its special fall uses the shared drift and landing lag (not re-researched). Flip Kick: no consecutive kicks, no wall bounce. Up smash arm intangibility not modelled. Rapid jab cannot see presses in hitlag. Its get-up attack is the Claws' (angle 48 since sim 73, the reference's too). |
 | 3 Embers, tumbler body | Mario | **playable** (phases 1 and 2 done, sims 57 to 64) | `embers.rs` | Body, every normal and every special on [R] data (`docs/movesets/embers/`): the rising punch, the bouncing fireball, the cape (reverse, reflector with its detector, once-per-airtime lift), the water pump (charge, store, pushing pumps), and the wall jump. **Not verified**: the rising punch's rise is [E] (no published height; re-searched 2026-10-13), and a few readings are [E] (the cape's lift frame, a reflected shot's vertical reversal). **Owner decisions 2026-10-13 (sim 65)**: a full pump holds its stance until special or shield; the cape's reflector turns vertical speed round and the Claws' stays horizontal-only (meant to differ); jump pressed against a wall (stick neutral or toward it) also wall-jumps, for every wall-jumping body, without spending a midair jump. Up smash head intangibility not modelled (E19). One get-up attack slot (face up). Positions on non-root bones [E]. |
 
@@ -743,6 +743,42 @@ with diminishing returns (built); 3. no footage is coming, the estimates stay.
     * **No footage is coming**: the animation-driven recovery heights and the flash dash's 5.5 a frame stay estimates.
 
 101. **The Longsword jab stays as built** (owner, 2026-10-17; no behaviour change, sim 141): jab 1's tip keeps the 13.0.1 pull (BK 30, KS 12, so tip > jab 2 combos from 90%), and jab 2 can act from its frame 16 [E].
+
+102. **Specials after the sim 141 playtest** (owner, 2026-10-17; sim 143, branch `special-fixes`). Each item measured by a test:
+    * **The Bracers' aerial spin rises** ("does not gain any height at all"): the published gravity multiplier 0.07 now multiplies
+      the body's gravity (as the headbutt's 0.5 does), so the spin rises the whole move, about 48 reference units (6 before); the
+      grounded spin stays on the ground. `recovery_rise.rs`.
+    * **The Gauntlets' leap rises higher** ("should gain more height"): held still through the startup, then fitted to the
+      reference's hitbox visualisation (the animation's own movement): 53 units up in the air (25 before), 62 from the ground (35),
+      then the flip down before the special fall [E: footage-derived]. `recovery_rise.rs`.
+    * **The Claws' flash dash ends helpless and lands with lag** ("should put him into the free-fall/helpless state"): in the air it
+      did end in the special fall, but landing during the move (dashed into the stage) had no landing lag at all, so the fighter
+      could act at once. Rebuilt on the reference's frames (ssbwiki.com raw tables, 13.0.1): the trail 3% on 18-19 (the illusion's 2
+      frames, a lying capsule over the frame's travel), the 20% spike on airborne / 15% on grounded targets on 20-21 (it was 29-32),
+      61 frames (55), then the special fall; 29 frames of landing lag in the move or the fall [R]; ledges from 26 [R]; the trail's
+      aerial angle 60 / KS 60 in its own slot (ext3). The grounded version ends standing. The dash's 55 units stay [E].
+      `sidespecial_momentum.rs` (`the_flash_dash_ends_in_the_special_fall_and_lands_with_29_frames_of_lag`,
+      `the_flash_dashs_end_hit_lands_on_frame_20_spiking_airborne_targets`).
+    * **Landing keeps at most the dash speed** ("I slid way too far across the stage" with the Nodachi's up special aimed into the
+      stage): the blade dash's 11 units a frame carried into the landing and bled off at the gentle landing friction (0.04 a frame),
+      sliding off the stage or about 59 units. The owner's suggested general rule, as data: the ruleset's `landing_speed_cap` (100
+      percent of each body's dash speed; 0 off) caps the ground speed on landing out of a jump, a move or a special fall [E: no
+      published landing rule]. Of every built-in special aimed into the stage only the blade dash (now 37 units of slide, on the
+      stage) and the Popgun's flip (26 to 19) were faster and changed; nothing else did. `landing_momentum.rs`.
+    * **Specials right after a jump** ("characters gain too much height by inputting jump, and then using specials right after"):
+      the cause was the full hop's 4-frame opening (a set height at 4.6 units a frame): a special that sets its own vertical rule
+      scaled that speed (the Greatsword's beam rose 36-50 units over the jump), and a script's `add_vel` let the opening restore
+      the arc's speed afterwards (the Gauntlets' aerial punch rose the whole jump). Now such a special works from the arc's speed and
+      ends the opening; the cape's and the blade flurry's lifts add to a fall, not to a rise (50-58 units over a midair jump before)
+      [E: readings]. The Longsword's aerial thrust and counter got their published air rules (x0.5 sideways, friction; the counter's
+      0.04 pull and 1.2 fall with the rise stopped [E]); the thrust no longer flies off the stage after its lunge. A special pressed
+      in the jump squat comes out in the air (only the up special and up smash cancel it), as the reference's. Every special of all
+      14 fighters, 1-4 frames after a ground or midair jump, now gets no higher than the jump or the move from a standstill
+      (`special_start_momentum.rs`; the table in `SHARED_MECHANICS.md`).
+    * **The run mode's measured reach** (`sim_core::run::recovery_reach`, world units, after sim 142's merge): only two fighters
+      changed: the Gauntlets 12.50 high / 25.24 far to 15.88 / 27.63, the Bracers 9.46 / 22.99 to 14.83 / 33.98; the other twelve
+      are unchanged to the hundredth.
+
 ## Still open
 
 From the Embers' phase 2 (details in `docs/movesets/embers/IMPLEMENTATION_REPORT.md`, "Owner follow-up"):

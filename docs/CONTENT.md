@@ -343,6 +343,9 @@ Functions: `set_vel(forward, up)`, `add_vel(forward, up)`, `spawn(forward, up, s
 `boost_add(n)`, `set_charge(n)`, `detonate()`, `owns(kind)`, `air_mark(n)`, `set_air_mark(n)`,
 `ground(forward, up, forward2, up2)`.
 
+* `add_vel` with a vertical part ends a full hop's fast opening (sim 143), as `set_vel` always has: the opening's speed is the jump's,
+  so a script that steers the vertical speed works from what it set, not from the opening's speed restored when it ends.
+
 * `ground(forward, up, forward2, up2)` (sim 128) is 1 if the segment between the two points (from the fighter's feet, `forward` by its
   facing, `up` upward) goes into a solid block or across a pass-through platform's top (`collision::segment_meets_ground`), else 0:
   what the exile's forward air reads to stab into a wall ahead (a short segment level with the blade) but not with the ground too
@@ -459,6 +462,10 @@ Line numbers inside a script count from its first non-blank line.
   shared rule), and the ruleset `jump_stick_share` (0 or 1, default 0; owner decision 100): how those bodies' ground jumps combine
   the stick with the ground speed: 0 takes the ground speed's kept share whenever there is any (the stick's `jump_speed_x` only from
   standing still), 1 the faster of the two the same way. A file without it plays as 0.
+  Still schema 8 (sim v143): the ruleset `landing_speed_cap` (a percent of each body's `dash_speed`, 0 to 200, default 100; 0 is no
+  cap; owner decision 102): a fighter landing (out of a jump, a move or a special fall) keeps at most that share of its dash speed
+  along the ground, so a fast recovery ending on the stage does not slide across it on the gentle `landing_friction`. A file without it
+  plays as 100 (the sim 143 rule; write 0 for the older free slide).
   Still schema 6 (sim v95): fighters may have `air_jump_drift`; moves `late_next` / `late_until`, `ledge_falling_only`,
   `drop_from` / `drop_frames` / `drop_while_down`; projectiles `bounce_keep_y`, `bounce_max_fall`; bursts `on_ground`, `on_expire`,
   `keep_hits`. Every one defaults to the old behaviour, so an older file loads unchanged.

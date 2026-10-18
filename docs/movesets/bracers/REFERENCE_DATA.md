@@ -452,6 +452,11 @@ Source: ssbwiki.com `Armor`, dragdown's notes.
    about 48 reference units: more than a full hop, against "very little vertical distance"; as the gravity itself, 0.07 makes it peak
    after 13 frames about 6 units up and then sink). **Unresolved**; proposed **0.07 as the gravity** [E] (it matches "very little vertical
    distance ... prone to edgeguarding") pending footage, with the fall capped at the body's fall speed [E].
+   **Settled in sim 143 (owner decision 102: "does not gain any height at all")**: read as a **multiplier** of the body's gravity, as
+   the same pages' headbutt "gravity multiplier 0.5" is (0.085 x 0.07 = 0.00595 [D]). The spin now rises the whole 70 frames, about 48
+   reference units [D] (the reference's hitbox visualisation shows no rise, which only says the rise is the move's physics, not its
+   animation: the visualisations draw the animation's own movement, as the leaping grab's of the Gauntlets shows). The grounded spin
+   stays on the ground (the reference's "barely rises"). Test: `recovery_rise.rs`.
 7. **Spinning Kong's grounded totals**: dragdown "total 104" (FAF 105) agrees with ssbwiki.com; UFD "104" too. No conflict (noted because
    kuroganehammer lists FAF 105 only on hit 1).
 8. **Throw weight dependence**: the changelist says the throws "are no longer weight-dependent" (relative to the earlier game). Read as

@@ -391,7 +391,7 @@ pub const FIGHTER_FUNCTIONS: &[Func] = &{
             "add_vel",
             F_ADD_VEL,
             2,
-            "add_vel(forward, up): change the current speed",
+            "add_vel(forward, up): change the current speed (a vertical change ends a full hop's fast opening)",
         ),
         func(
             "spawn",

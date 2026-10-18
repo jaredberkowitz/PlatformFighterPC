@@ -1211,3 +1211,28 @@ fn the_withstood_register_counts_the_frames_since_the_armor_withstood_a_hit() {
         assert_eq!(w[1] - w[0], Fx::ONE.raw());
     }
 }
+
+/// Sim 143: a script adding vertical speed during a full hop's fast opening ends the opening, so the speed it set is the one it
+/// goes on with (before, the opening's end put the jump's arc speed back over it); one adding only sideways speed leaves it running.
+#[test]
+fn add_vel_with_a_vertical_part_ends_a_full_hops_opening() {
+    let run = |src: &str| {
+        let mut sim = with_special(scripted(30, src));
+        sim.tick(inp(0, 0, JUMP));
+        let mut t = 0;
+        while sim.f().state != S::Airborne && t < 10 {
+            sim.tick(inp(0, 0, JUMP));
+            t += 1;
+        }
+        assert!(sim.f().hop_boost > 0, "in the opening");
+        sim.tick(inp(0, 0, SPECIAL));
+        sim.tick(inp(0, 0, 0));
+        (sim.f().hop_boost, sim.f().vel.y)
+    };
+    let (boost, vy) = run("if frame == 1 { add_vel(0, 0.0375 - vy); }");
+    assert_eq!(boost, 0);
+    let (boost_x, _) = run("if frame == 1 { add_vel(0.01, 0); }");
+    assert!(boost_x > 0);
+    // (The set speed less one frame of gravity.)
+    assert!(vy < fx(375, 10_000) && vy > Fx::ZERO, "{vy:?}");
+}

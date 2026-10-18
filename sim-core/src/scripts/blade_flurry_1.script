@@ -6,17 +6,19 @@ var rising;
 // In the air it adds upward speed as it starts ("added vertical speed in the air" 1.4 reference units, ssbwiki.com 13.0.1): it slows
 // a fall, as the reference's "slightly halt his downward movement". Every use lifts, each further one in the same air time half the
 // one before (1.4, 0.7, 0.35, 0.175, then none; owner decision 100, the decay [E]): n counts the uses since the fighter last landed,
-// caught a ledge or was hit (air flags 0-3, which those clear).
+// caught a ledge or was hit (air flags 0-3, which those clear). The lift is added to a fall, not to a jump's rise, which the move
+// does not keep (sim 143, owner decision 102: out of a jump it rose up to 54 units over the jump [E: the reading of "added"]).
 if frame == 1 && grounded == 0 {
     let n = air_flag(0) + air_flag(1) + air_flag(2) + air_flag(3);
+    let lift = 0;
     if n < 4 {
         set_air_flag(n);
-        let lift = 0.175;
+        lift = 0.175;
         if n == 1 { lift = 0.0875; }
         if n == 2 { lift = 0.04375; }
         if n == 3 { lift = 0.021875; }
-        add_vel(0, lift);
     }
+    add_vel(0, lift - max(vy, 0));
 }
 if grounded == 0 && frame >= 27 { end(); }
 if grounded && frame >= 3 && frame <= 8 { set_vel(0.18, 0); }

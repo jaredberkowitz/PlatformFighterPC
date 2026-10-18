@@ -1,3 +1,6 @@
 // Neutral special (Charged Thrust): keep the special button down on frame 19 to charge, for as long as the
 // charge limit allows. The thrust comes out when the button is let go.
 if frame == 19 && special { stall(); }
+// In the air the lunge (the move's motion, frames 25-30) is the swing's own: after it the fighter keeps a full drift forward, 1.07
+// reference units a frame (the body's air speed), not the lunge's speed [E: the reference says only that it adds lateral momentum].
+if frame == 31 && grounded == 0 { add_vel(0.134 - vx, 0); }

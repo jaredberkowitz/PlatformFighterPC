@@ -432,3 +432,13 @@ test. One `SIM_VERSION` bump.
 4. **The trip pose**: should the view show a trip as sitting (the reference) rather than the knockdown's lying pose? It needs a bridge
    accessor for `Fighter::tripped` (art agent's side).
 5. The usual footage requests for phase 2 and 3 stand (`REFERENCE_DATA.md`, "Footage that would settle most of them").
+
+## Sim 143: the aerial spin rises (owner decision 102)
+
+The owner: "Hauler up special does not gain any height at all." Conflict 6 of the reference data (the aerial spin's "gravity
+multiplier 0.07") had been read as the gravity itself, so the spin peaked about 6 reference units up on frame 13 and then sank for the
+rest of the move. It is now read as a multiplier of the body's gravity (0.085 x 0.07, as the headbutt's 0.5 is): from a standstill in
+the air the spin rises the whole move, about **48 reference units** (49.3 measured, peak just after the special fall begins on frame
+70; before: 6.2). The grounded spin stays on the ground (0 before and after). `bracers_spin_air.script`; tests
+`recovery_rise::the_haulers_aerial_spin_rises_through_the_whole_move`, `the_haulers_grounded_spin_stays_on_the_ground`,
+`bracers_specials::the_aerial_spin_rises_slowly_and_ends_in_a_special_fall_with_38_frames_of_landing_lag`.

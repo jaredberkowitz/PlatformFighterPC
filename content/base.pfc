@@ -5,8 +5,8 @@ bundle {
     schema 8
     name "Base Roster"
     description "The built-in roster: a longsword duelist and a close-range brawler."
-    sim_version 142
-    hash 2da76aa4af7d07b6
+    sim_version 143
+    hash 527a40d028c7788f
 }
 
 ruleset {
@@ -26,6 +26,7 @@ ruleset {
     jump_momentum 0.84999
     jump_momentum_max 1.25
     jump_stick_share 0
+    landing_speed_cap 100
     respawn_invuln 120
     tech_window 11
     tech_lag 4
@@ -362,6 +363,8 @@ weapon longsword {
     }
     move neutral_special {
         total_frames 56
+        start_speed 50
+        air_friction 0.00249
         charge_bonus 170
         hitbox { start 26 end 28 x 3.35193 y 1.17198 radius 0.79999 damage 9 angle 361 bkb 60 kbg 60 priority 2 shield_damage 200 }
         hitbox { start 26 end 28 x 2.34395 y 1.17198 radius 0.9 damage 8 angle 361 bkb 55 kbg 60 shield_damage 200 }
@@ -370,6 +373,9 @@ weapon longsword {
             // Neutral special (Charged Thrust): keep the special button down on frame 19 to charge, for as long as the
             // charge limit allows. The thrust comes out when the button is let go.
             if frame == 19 && special { stall(); }
+            // In the air the lunge (the move's motion, frames 25-30) is the swing's own: after it the fighter keeps a full drift forward, 1.07
+            // reference units a frame (the body's air speed), not the lunge's speed [E: the reference says only that it adds lateral momentum].
+            if frame == 31 && grounded == 0 { add_vel(0.134 - vx, 0); }
         }
     }
     move side_special {
@@ -386,17 +392,19 @@ weapon longsword {
             // In the air it adds upward speed as it starts ("added vertical speed in the air" 1.4 reference units, ssbwiki.com 13.0.1): it slows
             // a fall, as the reference's "slightly halt his downward movement". Every use lifts, each further one in the same air time half the
             // one before (1.4, 0.7, 0.35, 0.175, then none; owner decision 100, the decay [E]): n counts the uses since the fighter last landed,
-            // caught a ledge or was hit (air flags 0-3, which those clear).
+            // caught a ledge or was hit (air flags 0-3, which those clear). The lift is added to a fall, not to a jump's rise, which the move
+            // does not keep (sim 143, owner decision 102: out of a jump it rose up to 54 units over the jump [E: the reading of "added"]).
             if frame == 1 && grounded == 0 {
                 let n = air_flag(0) + air_flag(1) + air_flag(2) + air_flag(3);
+                let lift = 0;
                 if n < 4 {
                     set_air_flag(n);
-                    let lift = 0.175;
+                    lift = 0.175;
                     if n == 1 { lift = 0.0875; }
                     if n == 2 { lift = 0.04375; }
                     if n == 3 { lift = 0.021875; }
-                    add_vel(0, lift);
                 }
+                add_vel(0, lift - max(vy, 0));
             }
             if grounded == 0 && frame >= 27 { end(); }
             if grounded && frame >= 3 && frame <= 8 { set_vel(0.18, 0); }
@@ -437,6 +445,11 @@ weapon longsword {
     }
     move down_special {
         total_frames 62
+        start_speed 50
+        start_speed_y 0
+        air_gravity 0.00499
+        air_max_fall 0.15
+        air_friction 0.0003
         counter { start 5 end 26 then ext0 percent 120 min_damage 8 max_damage 50 bubble_x 0 bubble_y 1.29999 bubble_radius 1.29999 }
     }
     move jab2 {
@@ -771,19 +784,58 @@ weapon claws {
         }
     }
     move side_special {
-        total_frames 53
+        total_frames 59
+        landing_lag 29
         helpless_after true
+        ledge_front_from 25
+        ledge_back_from 25
+        fall_landing_lag 29
         start_speed 67
         start_speed_y 0
-        hitbox { start 18 end 27 x 1.2 y 1.09999 radius 1.09999 damage 3 angle 361 bkb 20 kbg 0 }
-        hitbox { start 28 end 31 x 1.4 y 0.29999 radius 1.09999 damage 20 angle 270 bkb 70 kbg 90 group 1 }
-        hitbox { start 28 end 31 x 1.5 y 0.9 radius 1.29999 damage 15 angle 290 bkb 60 kbg 90 priority 1 group 1 }
+        air_version ext3
+        hitbox { start 17 end 18 x -1.7 y 0.59999 radius 0.4 damage 3 angle 80 bkb 68 kbg 40 rebounds false half_width 1.7 angle_type forward }
+        hitbox {
+            start 19
+            end 20
+            x 0.7
+            y 0.7
+            radius 0.5
+            damage 20
+            angle 270
+            bkb 20
+            kbg 100
+            group 1
+            hitlag 150
+            targets aerial
+            clanks false
+            rebounds false
+            angle_type position
+        }
+        hitbox {
+            start 19
+            end 20
+            x 0.7
+            y 0.7
+            radius 0.9
+            damage 15
+            angle 28
+            bkb 30
+            kbg 80
+            priority 1
+            group 1
+            hitlag 150
+            targets grounded
+            clanks false
+            rebounds false
+            angle_type forward
+        }
         script {
-            // Side special (dash), on the reference's parameters (sim 139): started in the air it keeps 0.67 of its sideways speed (the move's
-            // start_speed) and none of its vertical speed, the sideways part slowing by 0.05 reference units a frame, held still 13 frames, then
-            // falling at 0.017 gravity. On frame 17 the stick past half tilt angles the dash up to 10 degrees up or down. After the dash it slides on
-            // at 2.3 units a frame in the air (2.5 on the ground), slowed by 0.07 (0.15), and from 5 frames after the dash falls at 0.08 gravity.
-            // The dash's own speed (5.5 units a frame, frames 18-27) is an estimate.
+            // Side special (dash), on the reference's parameters (sims 139 and 143; move frame N is the reference's N+1): started in the air it
+            // keeps 0.67 of its sideways speed (the move's start_speed) and none of its vertical speed, the sideways part slowing by 0.05 reference
+            // units a frame, held still 13 frames, then falling at 0.017 gravity. On frame 16 the stick past half tilt angles the dash up to 10
+            // degrees up or down. The dash is the illusion's 2 frames (17-18; its 27.5 units a frame are an estimate: 55 units in all). After it it
+            // slides on at 2.3 units a frame in the air (2.5 on the ground), slowed by 0.07 (0.15), and from 5 frames after the dash falls at 0.08
+            // gravity.
             var deg;
             var h;
             var v;
@@ -794,20 +846,20 @@ weapon claws {
                 if frame >= 14 { v = max(vy - 0.002125, -0.225); }
                 set_vel(h, v);
             }
-            if frame == 17 {
+            if frame == 16 {
                 deg = 0;
                 if abs(stick_y) > 0.5 { deg = sign(stick_y) * min((abs(stick_y) - 0.5) / 0.5, 1) * 10; }
             }
-            if frame >= 18 && frame <= 27 { set_vel(0.6875 * cos(deg), 0.6875 * sin(deg)); }
-            if frame == 28 {
+            if frame >= 17 && frame <= 18 { set_vel(3.4375 * cos(deg), 3.4375 * sin(deg)); }
+            if frame == 19 {
                 h = 0.2875;
                 if grounded { h = 0.3125; }
                 v = h * sin(deg);
                 h = h * cos(deg);
             }
-            if frame >= 28 {
+            if frame >= 19 {
                 if grounded { h = max(h - 0.01875, 0); } else { h = max(h - 0.00875, 0); }
-                if frame >= 33 { v = max(v - 0.01, -0.225); }
+                if frame >= 24 { v = max(v - 0.01, -0.225); }
                 if grounded { v = 0; }
                 set_vel(h, v);
             }
@@ -1089,6 +1141,87 @@ weapon claws {
                 set_vel(vx * 0.4, 0.375);
             } else {
                 set_vel(sign(vx) * max(abs(vx) - 0.02, 0), vy - 0.025);
+            }
+        }
+    }
+    move ext3 {
+        total_frames 59
+        landing_lag 29
+        helpless_after true
+        ledge_front_from 25
+        ledge_back_from 25
+        fall_landing_lag 29
+        start_speed 67
+        start_speed_y 0
+        hitbox { start 17 end 18 x -1.7 y 0.59999 radius 0.4 damage 3 angle 60 bkb 68 kbg 60 rebounds false half_width 1.7 angle_type forward }
+        hitbox {
+            start 19
+            end 20
+            x 0.7
+            y 0.7
+            radius 0.5
+            damage 20
+            angle 270
+            bkb 20
+            kbg 100
+            group 1
+            hitlag 150
+            targets aerial
+            clanks false
+            rebounds false
+            angle_type position
+        }
+        hitbox {
+            start 19
+            end 20
+            x 0.7
+            y 0.7
+            radius 0.9
+            damage 15
+            angle 28
+            bkb 30
+            kbg 80
+            priority 1
+            group 1
+            hitlag 150
+            targets grounded
+            clanks false
+            rebounds false
+            angle_type forward
+        }
+        script {
+            // Side special (dash), on the reference's parameters (sims 139 and 143; move frame N is the reference's N+1): started in the air it
+            // keeps 0.67 of its sideways speed (the move's start_speed) and none of its vertical speed, the sideways part slowing by 0.05 reference
+            // units a frame, held still 13 frames, then falling at 0.017 gravity. On frame 16 the stick past half tilt angles the dash up to 10
+            // degrees up or down. The dash is the illusion's 2 frames (17-18; its 27.5 units a frame are an estimate: 55 units in all). After it it
+            // slides on at 2.3 units a frame in the air (2.5 on the ground), slowed by 0.07 (0.15), and from 5 frames after the dash falls at 0.08
+            // gravity.
+            var deg;
+            var h;
+            var v;
+            if grounded == 0 && frame <= 16 {
+                h = max(vx - 0.00625, 0);
+                if vx < 0 { h = min(vx + 0.00625, 0); }
+                v = 0;
+                if frame >= 14 { v = max(vy - 0.002125, -0.225); }
+                set_vel(h, v);
+            }
+            if frame == 16 {
+                deg = 0;
+                if abs(stick_y) > 0.5 { deg = sign(stick_y) * min((abs(stick_y) - 0.5) / 0.5, 1) * 10; }
+            }
+            if frame >= 17 && frame <= 18 { set_vel(3.4375 * cos(deg), 3.4375 * sin(deg)); }
+            if frame == 19 {
+                h = 0.2875;
+                if grounded { h = 0.3125; }
+                v = h * sin(deg);
+                h = h * cos(deg);
+            }
+            if frame >= 19 {
+                if grounded { h = max(h - 0.01875, 0); } else { h = max(h - 0.00875, 0); }
+                if frame >= 24 { v = max(v - 0.01, -0.225); }
+                if grounded { v = 0; }
+                set_vel(h, v);
             }
         }
     }
@@ -1734,10 +1867,15 @@ weapon embers {
         script {
             // Side special (the reference's): in the air, the first use since the fighter was last on the ground, caught a ledge or was
             // hit stops its fall and lifts it by 0.3 reference units a frame (once per airtime: flag 0). Later uses keep their fall, slowed by
-            // the move's own light gravity.
-            if frame == 1 && grounded == 0 && air_flag(0) == 0 {
-                set_air_flag(0);
-                add_vel(0, 0.0375 - min(vy, 0));
+            // the move's own light pull. A jump's rise is not kept (sim 143, owner decision 102: with the move's pull of 0.031 a kept rise
+            // floated the fighter 20 to 58 units over the jump [E: the reference's "vertical speed added" read as added to a fall]).
+            if frame == 1 && grounded == 0 {
+                if air_flag(0) == 0 {
+                    set_air_flag(0);
+                    add_vel(0, 0.0375 - vy);
+                } else {
+                    add_vel(0, -max(vy, 0));
+                }
             }
         }
     }
@@ -2152,17 +2290,48 @@ weapon gauntlets {
         hitbox { start 13 end 13 x 1.7 y 1.09999 radius 0.7 damage 0 angle 361 bkb 0 kbg 0 priority 1 kind grab targets grounded command true }
         hitbox { start 14 end 29 x 0.79999 y 1.9 radius 0.59999 damage 0 angle 361 bkb 0 kbg 0 kind grab command true }
         hitbox { start 14 end 29 x 0.79999 y 1.4 radius 0.59999 damage 0 angle 361 bkb 0 kbg 0 priority 1 kind grab command true }
-        air { from 0 to 12 drift 95 accel 600 }
-        air { from 31 to 255 gravity 0.01286 drift 95 }
+        air { from 0 to 12 gravity 0 drift 95 accel 600 }
+        air { from 30 to 65 gravity 0 max_fall 0.5 drift 95 }
+        air { from 66 to 255 gravity 0.01286 drift 95 }
         script {
-            // Gauntlets up special, the leap (reference frame 14 is frame 13 here). Before it the move's air block gives the x6 acceleration, so
-            // the stick builds up horizontal speed ("Tokyo drift"); from frame 13 to 30 the rise carries that speed on, plus a little forward
-            // drive of its own, rising at 3.4 reference units a frame and slowing evenly to 0.4 (about 34 units up and 11 forward) [E: the
-            // reference's rise is its animation, not published]. After it, the move's second air block (gravity 0.103).
+            // Gauntlets up special, the leap (reference frame N is frame N-1 here). Its rise and fall are the reference's animation (no published
+            // speeds), fitted to the reference's hitbox visualisation (sim 143: the body's centre frame by frame, its scale from the standing grab's
+            // published box) [E, footage-derived]: held still to frame 12, then up fast, slowing to a peak on frame 45 (about 53 reference units
+            // above the start in the air, 62 from the ground, whose take-off is stronger), then the flip down (about 38 units in the air, 45 from the
+            // ground) to frame 65; the special fall after it. Before the leap the move's air block gives the x6 acceleration, so the stick builds up
+            // horizontal speed ("Tokyo drift"); from frame 13 to 29 the rise carries that speed on, plus a little forward drive of its own; from
+            // frame 30 the stick drifts it again (the move's second air block, no gravity: the fitted speed is the whole fall).
             var base;
+            var g;
+            if frame == 1 { g = grounded; }
             if frame == 13 { base = vx; }
-            if frame >= 13 && frame <= 30 {
-                set_vel(base + 0.075, 0.425 - 0.022 * (frame - 13));
+            let up = 0;
+            if g == 1 {
+                if frame >= 13 && frame <= 14 { up = 0.36875; }
+                if frame >= 15 && frame <= 17 { up = 0.59625; }
+                if frame >= 18 && frame <= 21 { up = 0.3875; }
+                if frame >= 22 && frame <= 29 { up = 0.235; }
+                if frame >= 30 && frame <= 38 { up = 0.14875; }
+                if frame >= 39 && frame <= 45 { up = 0.07375; }
+                if frame >= 46 && frame <= 51 { up = -0.16; }
+                if frame >= 52 && frame <= 57 { up = -0.2275; }
+                if frame >= 58 { up = -0.40625; }
+            } else {
+                if frame >= 13 && frame <= 14 { up = 0.2975; }
+                if frame >= 15 && frame <= 17 { up = 0.4175; }
+                if frame >= 18 && frame <= 21 { up = 0.2825; }
+                if frame >= 22 && frame <= 29 { up = 0.22; }
+                if frame >= 30 && frame <= 38 { up = 0.1475; }
+                if frame >= 39 && frame <= 45 { up = 0.0725; }
+                if frame >= 46 && frame <= 51 { up = -0.1575; }
+                if frame >= 52 && frame <= 57 { up = -0.195; }
+                if frame >= 58 { up = -0.32125; }
+            }
+            if frame >= 13 && frame <= 29 {
+                set_vel(base + 0.075, up);
+            }
+            if frame >= 30 && frame <= 65 {
+                add_vel(0, up - vy);
             }
         }
     }
@@ -5929,13 +6098,15 @@ weapon bracers {
         hitbox { start 38 end 42 x -0.4 y 1.4 radius 0.5 damage 2 angle 361 bkb 72 kbg 80 priority 3 group 2 shield_damage 150 angle_type position }
         part_intangible { start 9 end 37 limb true }
         script {
-            // Bracers up special in the air (the reference's rising spin): it starts rising at 0.9 of the reference's units a frame, falls at
-            // 0.07 a frame per frame (decision 41: read as the fall rate itself, not a multiplier [E]) down to the body's fall speed (1.63 [E]), and drifts with the
+            // Bracers up special in the air (the reference's rising spin): it starts rising at 0.9 of the reference's units a frame and slows by
+            // the body's pull (0.085) times the published multiplier 0.07: 0.00595 a frame per frame (sim 143, owner decision 102: read as a
+            // multiplier, as the headbutt's 0.5 is, so the spin rises the whole move, about 48 units; before it 0.07 was read as the pull itself
+            // and the spin peaked 6 units up after 13 frames, then sank) down to the body's fall speed (1.63 [E]), and drifts with the
             // stick at 0.05 a frame up to 1.7 [R] (world units: / 8). Its twelve 1% hits are each a fresh hit at the start of its span (13, 15,
             // 18, 20, 22, 25, 27, 30, 32, 34 and 37; move frames one less), re-armed then.
             var h;
             var u;
-            if frame == 1 { h = vx; u = 0.1125; } else { u = max(u - 0.00875, -0.20375); }
+            if frame == 1 { h = vx; u = 0.1125; } else { u = max(u - 0.00074375, -0.20375); }
             h = clamp(h + 0.00625 * stick_x, -0.2125, 0.2125);
             set_vel(h, u);
             if frame == 12 || frame == 14 || frame == 17 || frame == 19 || frame == 21 || frame == 24 || frame == 26 || frame == 29 || frame == 31 || frame == 33 || frame == 36 { rehit(); }

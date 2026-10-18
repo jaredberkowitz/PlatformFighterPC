@@ -1,9 +1,39 @@
-// Gauntlets up special, the leap (reference frame 14 is frame 13 here). Before it the move's air block gives the x6 acceleration, so
-// the stick builds up horizontal speed ("Tokyo drift"); from frame 13 to 30 the rise carries that speed on, plus a little forward
-// drive of its own, rising at 3.4 reference units a frame and slowing evenly to 0.4 (about 34 units up and 11 forward) [E: the
-// reference's rise is its animation, not published]. After it, the move's second air block (gravity 0.103).
+// Gauntlets up special, the leap (reference frame N is frame N-1 here). Its rise and fall are the reference's animation (no published
+// speeds), fitted to the reference's hitbox visualisation (sim 143: the body's centre frame by frame, its scale from the standing grab's
+// published box) [E, footage-derived]: held still to frame 12, then up fast, slowing to a peak on frame 45 (about 53 reference units
+// above the start in the air, 62 from the ground, whose take-off is stronger), then the flip down (about 38 units in the air, 45 from the
+// ground) to frame 65; the special fall after it. Before the leap the move's air block gives the x6 acceleration, so the stick builds up
+// horizontal speed ("Tokyo drift"); from frame 13 to 29 the rise carries that speed on, plus a little forward drive of its own; from
+// frame 30 the stick drifts it again (the move's second air block, no gravity: the fitted speed is the whole fall).
 var base;
+var g;
+if frame == 1 { g = grounded; }
 if frame == 13 { base = vx; }
-if frame >= 13 && frame <= 30 {
-    set_vel(base + 0.075, 0.425 - 0.022 * (frame - 13));
+let up = 0;
+if g == 1 {
+    if frame >= 13 && frame <= 14 { up = 0.36875; }
+    if frame >= 15 && frame <= 17 { up = 0.59625; }
+    if frame >= 18 && frame <= 21 { up = 0.3875; }
+    if frame >= 22 && frame <= 29 { up = 0.235; }
+    if frame >= 30 && frame <= 38 { up = 0.14875; }
+    if frame >= 39 && frame <= 45 { up = 0.07375; }
+    if frame >= 46 && frame <= 51 { up = -0.16; }
+    if frame >= 52 && frame <= 57 { up = -0.2275; }
+    if frame >= 58 { up = -0.40625; }
+} else {
+    if frame >= 13 && frame <= 14 { up = 0.2975; }
+    if frame >= 15 && frame <= 17 { up = 0.4175; }
+    if frame >= 18 && frame <= 21 { up = 0.2825; }
+    if frame >= 22 && frame <= 29 { up = 0.22; }
+    if frame >= 30 && frame <= 38 { up = 0.1475; }
+    if frame >= 39 && frame <= 45 { up = 0.0725; }
+    if frame >= 46 && frame <= 51 { up = -0.1575; }
+    if frame >= 52 && frame <= 57 { up = -0.195; }
+    if frame >= 58 { up = -0.32125; }
+}
+if frame >= 13 && frame <= 29 {
+    set_vel(base + 0.075, up);
+}
+if frame >= 30 && frame <= 65 {
+    add_vel(0, up - vy);
 }
