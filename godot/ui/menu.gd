@@ -181,8 +181,9 @@ func _ready() -> void:
 			tile.hero = true
 			tile.show_spotlight([[0.5, 0.8]])
 			# (Sized to the tile: it shares its column with the Run tile.)
-			preview = Preview.new(Vector2i(300, int(r.size.y) - 70), false, 7.2)
-			preview.position = Vector2(r.size.x * 0.5 - 150.0, 16)
+			# (Closer, 2026-10-18: the biggest tile on the menu held a small figure in a lot of empty card.)
+			preview = Preview.new(Vector2i(340, int(r.size.y) - 50), false, 6.0)
+			preview.position = Vector2(r.size.x * 0.5 - 170.0, 6)
 			preview.set_loadout(Roster.net_entry().look)
 			tile.add_layer(preview)
 		elif VIGNETTES.has(item[4]):
@@ -207,6 +208,10 @@ func _ready() -> void:
 		add_child(title)
 
 
+## The fighters already standing on the menu's tiles (by slug), so none appears twice.
+var _shown: Array = []
+
+
 ## Fills a destination tile with its painted scene and its fighters (see VIGNETTES).
 func _vignette(tile: Control, r: Rect2, spec: Array) -> void:
 	tile.icon = ""
@@ -222,6 +227,14 @@ func _vignette(tile: Control, r: Rect2, spec: Array) -> void:
 		var pv := Preview.new(Vector2i(int(w), int(h)), false, 6.5)
 		pv.position = Vector2(r.size.x * float(p[1]) - w * 0.5, 0)
 		var k: int = int(p[0]) % maxi(built.size(), 1)
+		# (Never a fighter already on the menu, the Play tile's included, 2026-10-18: the same one twice read as a placeholder.)
+		if _shown.is_empty():
+			_shown.append(str(Roster.net_entry().get("slug", "")))
+		var tries := 0
+		while built.size() > 1 and _shown.has(str(built[k].slug)) and tries < built.size():
+			k = (k + 1) % built.size()
+			tries += 1
+		_shown.append(str(built[k].slug))
 		if built.size() > 0:
 			pv.set_loadout(built[k].look)
 		if float(p[2]) != 0.0:
