@@ -141,3 +141,17 @@ The beach town low at the waterline (Depth 4); the tuft density right. Gaps: (1)
 lowest score), the string lights casting nothing, the facade's bright window grid; (2) the remaining primitive props (the beach's lamp
 and sailboats, the grove's mushrooms, stump and moss, the meadow's hay bales). Later: the meadow's ridges softer still; lawn clump
 patches; the grove's side trees with lit and shaded crowns.
+
+## Round 10 (2026-10-18, commit afe4186)
+
+| Stage | Believ. | Cohesion | Lighting | Depth | Ground | Clarity | Mean |
+|---|---|---|---|---|---|---|---|
+| Meadow | 3 | 3 | 3 | 3 | 3 | 3 | 3.0 |
+| Canyon | 3 | 4 | 4 | 3 | 3 | 4 | 3.5 |
+| Beach | 3 | 3 | 4 | 4 | 3 | 4 | 3.5 |
+| City | 3 | 4 | 3 | 4 | 3 | 3 | 3.3 |
+| Grove | 3 | 4 | 3 | 3 | 3 | 4 | 3.3 |
+
+No stage now scores below 3 anywhere (the city roof's weathering lifted its Ground). The grove's new moss too small; the city's light
+pools too faint. Gaps: (1) the remaining primitive props (beach lamp and sailboats, grove mushrooms and stump, meadow hay bales); (2)
+the meadow the least refined (lawn clumps and wear, the far ridge near sky value, the village hazed, the wall's upper courses quieter).

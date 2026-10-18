@@ -1221,7 +1221,8 @@ static func _platform_dressing(parent: Node3D, t: Dictionary, left: float, right
 					var clump := _prop_mesh(["moss_a", "moss_b", "moss_c"][rng.randi() % 3], "moss")
 					var my := top - 0.26 - r * rng.randf_range(0.2, 1.0)
 					if clump != null:
-						_mesh(parent, clump, moss, Vector3(x, my - r * 0.5, front_z + 0.02), Vector3(r * 2.6, r * 2.0, r * 2.0), Vector3(90, rng.randf_range(0, 360), 0))
+						# (Twice the size, round 10: at match distance the clumps read as specks.)
+						_mesh(parent, clump, moss, Vector3(x, my - r * 0.6, front_z + 0.06), Vector3(r * 5.0, r * 4.0, r * 3.6), Vector3(90, rng.randf_range(0, 360), 0))
 					else:
 						_mesh(parent, _sphere(1.0, 8), moss, Vector3(x, my, front_z + 0.02), Vector3(r * 1.8, r * 1.2, r))
 				x += r * rng.randf_range(1.2, 2.2)
@@ -1385,7 +1386,7 @@ static func _props(root: Node3D, theme_name: String, e: Array) -> void:
 			pool.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 			pool.disable_fog = true
 			var pg := Gradient.new()
-			pg.set_color(0, Color(1.0, 0.88, 0.6, 0.55))
+			pg.set_color(0, Color(1.0, 0.86, 0.56, 0.75))
 			pg.set_color(1, Color(1.0, 0.62, 0.32, 0.0))
 			var pt := GradientTexture2D.new()
 			pt.gradient = pg
@@ -2205,7 +2206,7 @@ const RIDGES := {
 	"meadow": [{"z": -170.0, "y": -50.0, "height": 88.0, "shape": 1, "seed": 3.0, "base": 0.32, "amplitude": 0.6, "frequency": 5.6,
 		# (More of its own blue and less haze, art review 6 round 31: at mix 0.55 the ridge was mostly horizon colour, a formless pale band
 		# behind the crisp painted hills; found with `--pick`.)
-		"tone": Color(0.2, 0.62, 0.6), "mix": 0.5, "edge": 0.15, "haze": 0.62,
+		"tone": Color(0.2, 0.62, 0.6), "mix": 0.38, "edge": 0.1, "haze": 0.72,
 		# (Teal, not blue: the owner's Origami King reference sets bright lime ground against cool teal mountains.)
 		# (A lit flank and a shaded flank on every peak, as the canyon's mesas have: a flat blue cut-out read as the least finished
 		# thing on the menu; the owner, 2026-10-17, raise the quality of what is there.)
@@ -2287,7 +2288,7 @@ static func ridge(root: Node3D, t: Dictionary, spec: Dictionary) -> MeshInstance
 ## The fog layers of each theme: [z, bottom y, height, strength].
 const MIST := {
 	# (The far bands thinner, art review 9: over the cut-card ranges they washed both layers into one pale band.)
-	"meadow": [[-56.0, -24.0, 12.0, 0.16], [-86.0, -26.0, 16.0, 0.14]],
+	"meadow": [[-56.0, -24.0, 12.0, 0.24], [-86.0, -26.0, 16.0, 0.18]],
 	"grove": [[-60.0, -24.0, 12.0, 0.08], [-90.0, -26.0, 16.0, 0.08]],
 	"sunset": [[-60.0, -26.0, 10.0, 0.07], [-95.0, -24.0, 16.0, 0.13]],
 	"ocean": [[-130.0, -10.0, 6.0, 0.08]],
