@@ -737,7 +737,9 @@ static func solid_block(parent: Node3D, t: Dictionary, left: float, right: float
 		_strata_ledges(parent, t, left, right, top, bottom, front_z, top)
 	elif t.get("terrace", false):
 		# (The mortar a dark grey-brown, art review 9: the red earth tile between the stones read as brick.)
-		body.material_override = FighterView.toon(Color(0.3, 0.27, 0.26))
+		# (Not too dark, gauntlet round 4's greyscale test: near-black joints round pale stones made the wall the most contrasty, busiest
+		# thing on screen, right under the fight.)
+		body.material_override = FighterView.toon(Color(0.4, 0.36, 0.34))
 		var field := t.duplicate()
 		# (Warm fieldstone, a step darker than the lawn is light, so the wall sits under the field instead of outshining it.)
 		field.soil = Color(0.68, 0.56, 0.42)
@@ -4835,8 +4837,11 @@ static func _seawall_stones(parent: Node3D, t: Dictionary, left: float, right: f
 					if rough:
 						basis = basis * Basis.from_euler(Vector3(rng.randf_range(-0.08, 0.08), rng.randf_range(-0.1, 0.1), rng.randf_range(-0.07, 0.07)))
 						size.z = rng.randf_range(0.25, 0.4)
-					var shade := a.lerp(b, rng.randf_range(0.0, 0.7)).lerp(stone_grey, 0.2)
+					var shade := a.lerp(b, rng.randf_range(0.0, 0.4 if rough else 0.7)).lerp(stone_grey, 0.2)
 					shade = shade.lightened(rng.randf_range(0.02, 0.14)) if rng.randf() < 0.6 else shade.darkened(rng.randf_range(0.0, 0.1))
+					if rough:
+						# (A quieter wall, the same test: a narrower spread of stone shades, a step darker overall, so it sits under the field.)
+						shade = shade.darkened(0.08)
 					# (Custom data reaches the shader as is, linear, where colour uniforms are converted from sRGB: convert it here, or every
 					# stone washes pale.)
 					items.append([Transform3D(basis.scaled_local(size), pos), shade.srgb_to_linear(), rng.randi() % FIELDSTONE_VARIANTS])
@@ -5129,7 +5134,9 @@ static func _dock_block(parent: Node3D, t: Dictionary, left: float, right: float
 	var rng := RandomNumberGenerator.new()
 	rng.seed = int(left * 7.0 + top * 3.0) + 77
 	var water := bottom - 1.0
-	var wood_c: Color = t.wood
+	# (A deeper, weathered wood for the deck, gauntlet round 4's greyscale test: in full sun the theme's light wood was the fighters' own
+	# value, about 0.7 of white, and a yellow fighter all but vanished against the boards it stood on.)
+	var wood_c: Color = (t.wood as Color).lerp(Color(0.5, 0.38, 0.3), 0.75)
 	var dark_c: Color = t.wood_dark
 	# The deck: rows of boards from the front back, staggered joints.
 	# (Longer boards in wider rows and a narrower range of shade, art review 9: hundreds of short boards in many shades read busy.)
