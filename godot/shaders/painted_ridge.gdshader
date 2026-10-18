@@ -33,6 +33,9 @@ uniform float aspect = 0.1;
 // shade starts (a share of the height; 0.2 left a pale lower half that read as a flat cloud band across the range).
 uniform int layers = 0;
 uniform float flank_from = 0.2;
+// Ridges and gullies (0 off): the finer crags' slopes carried down the face as narrow lit and shaded facets, each running from a crag on
+// the ridge line down and outward and fading as it goes, so a range reads as folded rock under one light, not a flat band (art review 7).
+uniform float gullies = 0.0;
 
 float hash(float n) {
 	return fract(sin(n) * 43758.5453);
@@ -127,6 +130,20 @@ void fragment() {
 		// (Down from the ridge line only so far: a flank's shade belongs to the peak, not a column to the foot.)
 		float reach = flank * smoothstep(flank_from, flank_from + 0.5, y / max(h, 0.001));
 		c = mix(c, mix(shade, c * 1.08, lit), reach);
+	}
+	if (gullies > 0.0) {
+		// Each point looks up the slope to the ridge line, a little sideways the deeper it is (the spurs fan out from the crags), and
+		// takes that point's fine slope: facing the sun lit, facing away shaded, in crisp painted steps.
+		float depth_k = 1.0 - clamp(y / max(h, 0.001), 0.0, 1.0);
+		float xs = x + (noise1(x * 3.0 + seed) - 0.5) * depth_k * 0.35;
+		float e2 = 0.03;
+		float fine = (ridge(xs + e2) - ridge(xs - e2)) - (ridge_broad(xs + e2) - ridge_broad(xs - e2));
+		float side = sign(pf_sun_dir.x + 0.0001);
+		float face = fine * side / e2 * amplitude * aspect;
+		float fade = smoothstep(0.0, 0.12, 1.0 - depth_k) * (1.0 - smoothstep(0.55, 0.95, depth_k));
+		vec3 shade2 = c * mix(vec3(1.0), pf_shadow_tint.rgb, 0.9) * 0.68;
+		c = mix(c, shade2, smoothstep(0.08, 0.16, -face) * fade * gullies);
+		c = mix(c, c * 1.15 + 0.04, smoothstep(0.08, 0.16, face) * fade * gullies * 0.8);
 	}
 	// The light catches the top of the ridge.
 	c = mix(c, edge_colour.rgb, smoothstep(h - 0.045, h - 0.008, y) * edge_amount);
