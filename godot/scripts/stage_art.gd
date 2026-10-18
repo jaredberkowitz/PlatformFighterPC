@@ -28,7 +28,7 @@ const THEMES := {
 		"sky_glow": [Color(1.0, 0.97, 0.86), 0.25], "sky_wisps": [Color(1.0, 1.0, 1.0), 0.5],
 		"soil": Color(0.76, 0.56, 0.36), "soil_dark": Color(0.52, 0.37, 0.25), "grass": Color(0.46, 0.82, 0.16),
 		"grass_light": Color(0.66, 0.92, 0.34), "wood": Color(0.86, 0.62, 0.36), "wood_dark": Color(0.62, 0.42, 0.24),
-		"pattern": "earth", "cap": "grass", "platform": "wood", "grass_vary": 0.17, "moss": Color(0.4, 0.66, 0.14),
+		"pattern": "earth", "cap": "grass", "platform": "wood", "grass_vary": 0.17, "grass_patch": 0.35, "moss": Color(0.4, 0.66, 0.14),
 	},
 	"grove": {
 		"sky_top": Color(0.28, 0.5, 0.98), "sky_mid": Color(0.52, 0.66, 1.0), "sky_horizon": Color(0.98, 0.76, 0.86),
@@ -519,6 +519,11 @@ static func _soil_material(t: Dictionary) -> ShaderMaterial:
 	if pattern == "seawall" or pattern == "strata":
 		m.set_shader_parameter("front_fall", 0.64)
 		m.set_shader_parameter("front_span", 4.5)
+	# (The grassy stages' earth falls into shade over the face you actually see, 2026-10-17: over 6.5 units most of the fall was below
+	# the screen and the block read as a flat illustration laid behind the grass (the owner's outside brief).)
+	if pattern == "earth" or pattern == "roots":
+		m.set_shader_parameter("front_fall", 0.6)
+		m.set_shader_parameter("front_span", 3.6)
 	# Moss draping over the top of the wall where the theme has it (`moss`: colour), in a wavy band under the lip.
 	if t.has("moss"):
 		m.set_shader_parameter("moss_color", t.moss)
@@ -659,6 +664,10 @@ static func solid_block(parent: Node3D, t: Dictionary, left: float, right: float
 			if t.has("grass_vary"):
 				grass = grass.duplicate()
 				grass.set_shader_parameter("world_vary", t.grass_vary)
+			# Painted tonal patches over it (shaders/toon_common.gdshaderinc `patch_amount`), a theme's `grass_patch`.
+			if t.has("grass_patch"):
+				grass = grass.duplicate()
+				grass.set_shader_parameter("patch_amount", t.grass_patch)
 			var cap_h := 0.55
 			_mesh(parent, _box(Vector3(w + 0.25, cap_h, depth + 0.1)), grass, Vector3(cx, top - cap_h / 2.0 + 0.04, front_z - depth / 2.0))
 			var lip := _mesh(parent, _cylinder(cap_h * 0.6, cap_h * 0.6, w + 0.25), grass, Vector3(cx, top - cap_h * 0.55, front_z + 0.02), Vector3.ONE, Vector3(0, 0, 90))
@@ -1623,7 +1632,7 @@ const RIDGES := {
 	"meadow": [{"z": -170.0, "y": -50.0, "height": 88.0, "shape": 1, "seed": 3.0, "base": 0.3, "amplitude": 0.62, "frequency": 3.2,
 		# (More of its own blue and less haze, art review 6 round 31: at mix 0.55 the ridge was mostly horizon colour, a formless pale band
 		# behind the crisp painted hills; found with `--pick`.)
-		"tone": Color(0.2, 0.62, 0.6), "mix": 0.85, "edge": 0.3, "haze": 0.06,
+		"tone": Color(0.2, 0.62, 0.6), "mix": 0.85, "edge": 0.3, "haze": 0.24,
 		# (Teal, not blue: the owner's Origami King reference sets bright lime ground against cool teal mountains.)
 		# (A lit flank and a shaded flank on every peak, as the canyon's mesas have: a flat blue cut-out read as the least finished
 		# thing on the menu; the owner, 2026-10-17, raise the quality of what is there.)

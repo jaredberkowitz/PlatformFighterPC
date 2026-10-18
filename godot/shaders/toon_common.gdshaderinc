@@ -13,6 +13,9 @@ uniform float world_tile = 0.0;
 // World-laid surfaces only: how much their colour drifts lighter and darker in broad, slow patches across the stage (0 = none), so a
 // repeating pattern does not read as one tile stamped over and over.
 uniform float world_vary = 0.08;
+// Painted patches (0 off): large tonal patches with soft but clear edges, a deeper tone and a sunlit one over the base, as a hand-painted
+// lawn is laid in (the owner's references and outside brief, 2026-10-17: grass as one flat sheet read cheap). How strong.
+uniform float patch_amount = 0.0;
 // World-laid surfaces only: a solid block's front falls gradually into a cool shade below its top edge (`front_top`, the block's top in
 // world units, set per block by stage_art.gd), so the stage reads as one solid mass with a lit rim rather than a flat repeated pattern.
 // `front_fall` is how dark it gets at most, reached `front_span` units down.
@@ -69,6 +72,13 @@ void fragment() {
 			vec2 p = abs(world_normal.y) > 0.5 ? world_pos.xz : world_pos.xy;
 			float drift = sin(p.x * 0.37 + sin(p.y * 0.53) * 1.7) * sin(p.y * 0.29 + p.x * 0.11 + 1.3);
 			c *= 1.0 + world_vary * drift;
+			if (patch_amount > 0.0) {
+				float big = sin(p.x * 0.21 + sin(p.y * 0.41) * 2.2) + sin(p.y * 0.33 - p.x * 0.09 + 0.7) * 0.8;
+				float deep = smoothstep(0.55, 0.75, big);
+				float sunlit = smoothstep(0.55, 0.75, -big - 0.2);
+				c *= 1.0 - patch_amount * 0.55 * deep;
+				c = mix(c, c * vec3(1.08, 1.1, 0.92) + 0.03, patch_amount * sunlit);
+			}
 			// And a slight drift in hue between warmer and cooler patches, slower still, so neighbouring areas differ a little.
 			float hue_drift = sin(p.x * 0.17 + 2.1 + sin(p.y * 0.23) * 1.3) * sin(p.y * 0.13 + p.x * 0.07);
 			c *= vec3(1.0) + vec3(0.035, 0.0, -0.035) * hue_drift * (world_vary / 0.08);
