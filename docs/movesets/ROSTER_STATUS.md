@@ -775,6 +775,9 @@ with diminishing returns (built); 3. no footage is coming, the estimates stay.
       in the jump squat comes out in the air (only the up special and up smash cancel it), as the reference's. Every special of all
       14 fighters, 1-4 frames after a ground or midair jump, now gets no higher than the jump or the move from a standstill
       (`special_start_momentum.rs`; the table in `SHARED_MECHANICS.md`).
+    * **The run mode's measured reach** (`sim_core::run::recovery_reach`, world units, after sim 142's merge): only two fighters
+      changed: the Gauntlets 12.50 high / 25.24 far to 15.88 / 27.63, the Bracers 9.46 / 22.99 to 14.83 / 33.98; the other twelve
+      are unchanged to the hundredth.
 
 ## Still open
 
