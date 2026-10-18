@@ -1064,10 +1064,11 @@ static func platform(parent: Node3D, t: Dictionary, left: float, right: float, t
 		var steel := _surface(plate_c, "steel", 3.0).duplicate() as ShaderMaterial
 		steel.set_shader_parameter("metal", 0.15)
 		steel.set_shader_parameter("rim_strength", 0.15)
-		_mesh(parent, _box(Vector3(w, 0.18, depth)), steel, Vector3(cx, top - 0.09, front_z - depth / 2.0))
-		_mesh(parent, _box(Vector3(w, 0.5, 0.16)), Materials.wood(t.wood_dark, Vector2(4, 1)), Vector3(cx, top - 0.4, front_z - 0.3))
+		# (Plate, web and flange rounded on their edges, the gauntlet's round 15: plain boxes read as slabs; a rounded edge catches a rim.)
+		_mesh(parent, _round_box(Vector3(w, 0.18, depth), 0.06, 3), steel, Vector3(cx, top - 0.09, front_z - depth / 2.0))
+		_mesh(parent, _round_box(Vector3(w, 0.5, 0.16), 0.05, 3), Materials.wood(t.wood_dark, Vector2(4, 1)), Vector3(cx, top - 0.4, front_z - 0.3))
 		# The flange underneath in a darker steel, so top, web and underside read as three parts of one beam.
-		_mesh(parent, _box(Vector3(w, 0.14, depth * 0.7)), _surface((t.wood_dark as Color).darkened(0.15), "steel", 3.0), Vector3(cx, top - 0.68, front_z - depth / 2.0))
+		_mesh(parent, _round_box(Vector3(w, 0.14, depth * 0.7), 0.05, 3), _surface((t.wood_dark as Color).darkened(0.15), "steel", 3.0), Vector3(cx, top - 0.68, front_z - depth / 2.0))
 		# A bright edge where the top plate meets its front (it catches the light and marks where the platform ends), and the plate's
 		# shade falling on the web below it.
 		_mesh(parent, _box(Vector3(w, 0.05, 0.06)), _soft((t.wood as Color).lightened(0.3)), Vector3(cx, top - 0.02, front_z + 0.005))
@@ -1090,11 +1091,15 @@ static func platform(parent: Node3D, t: Dictionary, left: float, right: float, t
 							bolt_st.append_from(bolt_mesh, 0, Transform3D(Basis.IDENTITY, Vector3(sx + side, top + 0.01, front_z - bz)))
 			_mesh(parent, seam_st.commit(), _soft(plate_c.darkened(0.4)), Vector3.ZERO)
 			_mesh(parent, bolt_st.commit(), _soft(plate_c.lightened(0.25)), Vector3.ZERO)
-		var rivet := _unshaded(Color(0.95, 0.82, 0.6))
+		# (Domed rivet heads lit by the scene, one mesh, the gauntlet's round 15: unshaded bright dots read as stickers.)
+		var rivet := FighterView.respond(FighterView.toon(Color(0.78, 0.7, 0.62), false), "metal")
+		var rivet_st := SurfaceTool.new()
+		var rivet_mesh := _sphere(0.065, 8)
 		var x := left + 0.35
 		while x < right - 0.2:
-			_mesh(parent, _sphere(0.06, 6), rivet, Vector3(x, top - 0.4, front_z - 0.2))
+			rivet_st.append_from(rivet_mesh, 0, Transform3D(Basis.IDENTITY.scaled(Vector3(1.0, 1.0, 0.55)), Vector3(x, top - 0.4, front_z - 0.21)))
 			x += 0.7
+		_mesh(parent, rivet_st.commit(), rivet, Vector3.ZERO)
 		_scaffold(parent, left, right, top - 0.75, front_z, depth)
 		return
 	if t.get("name", "") in ["meadow", "grove"]:
@@ -2361,6 +2366,10 @@ static func ridge(root: Node3D, t: Dictionary, spec: Dictionary) -> MeshInstance
 		land.set_shader_parameter("rim_strength", 0.0)
 		_place_prop(root, String(spec.model), Vector3(0, float(spec.y) - float(spec.get("land_drop", 0.0)),
 			float(spec.z) + float(spec.height) * 0.55), 1.0, 0.0, land)
+		# (No shadows from it, round 15: at that distance the shadow map is coarse, and its self-shadowing streaked the flanks.)
+		for c in root.get_children():
+			if c is GeometryInstance3D and String(c.name) == String(spec.model):
+				(c as GeometryInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		return null
 	m.set_shader_parameter("top_colour", top)
 	# (A spec's "foot_dark" takes the foot deeper and cooler than the top instead of toward the horizon: a pale foot read as a flat cloud
@@ -4748,6 +4757,10 @@ static func _skyline_layer(root: Node3D, rng: RandomNumberGenerator, layer: int,
 	m.set_shader_parameter("detail", 0.0 if layer >= 1 else 1.0)
 	m.set_shader_parameter("sign_energy", 3.0 - layer * 0.8)
 	m.set_shader_parameter("moon_edge", [0.9, 0.6, 0.35][layer])
+	# (Finer windows, finer further back, the gauntlet's round 15 after the owner's city reference: its windows are fine regular grids
+	# that read as texture; ours, a bay of 2 by 2.6 on every layer, read as stickers.)
+	m.set_shader_parameter("cell", [Vector2(1.5, 1.95), Vector2(1.15, 1.5), Vector2(0.9, 1.2)][layer])
+	m.set_shader_parameter("pane", [Vector2(0.56, 0.78), Vector2(0.44, 0.62), Vector2(0.36, 0.5)][layer])
 	var mi := MeshInstance3D.new()
 	mi.mesh = st.commit()
 	mi.material_override = m

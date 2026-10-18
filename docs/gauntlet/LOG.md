@@ -215,3 +215,17 @@ The modelled ranges lift Depth on both green stages (the meadow's the biggest be
 is gone. Regression: the beach's sails and palm fronds went dark (the faded outline hull z-fighting on thin surfaces). Gaps: (1) the box
 stage bodies and slab platforms, still; (2) the new landforms too loud for distance (mottled gullies, bright snowcaps, the meadow's
 range cropped by the frame).
+
+## Round 15 (2026-10-18, commit 15e1ad6)
+
+| Stage | Believ. | Cohesion | Lighting | Depth | Ground | Clarity | Mean |
+|---|---|---|---|---|---|---|---|
+| Meadow | 2 | 3 | 3 | 3 | 3 | 3 | 2.8 |
+| Canyon | 2 | 3 | 3 | 2 | 2 | 3 | 2.5 |
+| Beach | 3 | 3 | 3 | 3 | 2 | 3 | 2.8 |
+| City | 2 | 3 | 3 | 3 | 2 | 3 | 2.7 |
+| Grove | 3 | 3 | 3 | 3 | 3 | 3 | 3.0 |
+
+The meadow's range now reads as soft distant mountains; the beach's regression is fixed. Gaps: (1) the box stage bodies, a third round
+(tapering, irregular lower edges and sides on every stage); (2) the city's skyline and roof (stepped towers, a fine window texture,
+a detailed roof). The grove's far hills still mottled.

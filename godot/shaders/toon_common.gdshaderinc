@@ -286,7 +286,9 @@ void fragment() {
 #endif
 	// (On what faces up: on a wall the drifting field showed as long slanted stripes. Not on fighters: a passing shade over one read as
 	// it dimming, and every fighter keeps the same value on any spot of the stage.)
-	pf_sun = mix(1.0, pf_cloud_sun(world_pos, TIME), smoothstep(0.1, 0.6, world_normal.y) * (1.0 - fighter));
+	// (Only near the stage, the gauntlet's round 15: on the far ranges the dapples read as low-resolution mottling, not light.)
+	pf_sun = mix(1.0, pf_cloud_sun(world_pos, TIME), smoothstep(0.1, 0.6, world_normal.y) * (1.0 - fighter)
+		* (1.0 - smoothstep(25.0, 55.0, -world_pos.z)));
 	// (And the platforms' cast shadow on the ground under them, `pf_stage_sun`; not on fighters either.)
 	pf_sun *= mix(1.0, pf_stage_sun(world_pos, world_normal), 1.0 - fighter);
 	if (facets) {
