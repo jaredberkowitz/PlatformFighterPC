@@ -49,6 +49,11 @@ below, toothed leafy edges; soft painted grass). Done: round-tree crowns in lit/
 Found: the pale band across the meadow and menu is the mountain ridge washed out by post.gdshader's distance haze (not the mist or the
 sky); fixing it means exempting the ridge from that haze or lowering haze_max for the meadow.
 
+Phase 4b, models (2026-10-17): tree_crown_a/b/c, tree_trunk and a detailed cottage (make_props.py `cottage`: proud timbers, lapped
+shingle rows, plank door with strap hinges, mullioned window with shutters, curtains and a planter, lantern, stone footing, chimney)
+replace the code-built versions. Next (owner, 2026-10-17): the 'flat' feel of code-drawn background models and textures (the city's windows wait); the barn; stumps
+and rocks; the far haze still flattens background models, which limits how much of this detail reads at match distance.
+
 **Phase 5: rendering trials (Tooling review section)**
 9. ACES vs Filmic per stage, a light scenery SSAO A/B; keep only what wins on the look bench and the owner's eye.
 
