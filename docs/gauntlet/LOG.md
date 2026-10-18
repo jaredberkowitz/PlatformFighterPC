@@ -50,3 +50,18 @@ lighter and hazier). Gaps: (1) the city has no layer separation (towers as dark 
 windows as busy shapes); (2) the beach's materials and props short of the harbour reference (thin uniform planks, tall thin posts,
 hard foam strokes, town on a big saturated hill, primitive crates and barrels). Later: grove trunk hazier; contact under props;
 repetition (cobbles, worn-path strips, moss circles).
+
+## Round 4 (2026-10-18, commit 7f25ad9)
+
+| Stage | Believ. | Cohesion | Lighting | Depth | Ground | Clarity | Mean |
+|---|---|---|---|---|---|---|---|
+| Meadow | 2 | 3 | 3 | 3 | 2 | 3 | 2.7 |
+| Canyon | 3 | 4 | 4 | 3 | 3 | 4 | 3.5 |
+| Beach | 3 | 3 | 3 | 3 | 3 | 3 | 3.0 |
+| City | 3 | 3 | 3 | 3 | 2 | 3 | 2.8 |
+| Grove | 3 | 3 | 3 | 3 | 3 | 4 | 3.2 |
+
+The biggest gains so far: the city layered at night (+0.5), the dock's planks near the harbour reference, the grove trunk sitting back.
+Gaps: (1) the meadow, now the weakest (even cobble grid, flat lawn, outlined mountains), and the canyon's repeating strata; (2)
+primitive props and missing contact everywhere (scaffolds, crates, barrels, lamp, sailboats, mushrooms, stump, moss circles).
+Later: the city facade warm and quieter; the beach's foam strokes soft, town lower; the canyon arch into the haze.

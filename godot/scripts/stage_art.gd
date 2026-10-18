@@ -29,7 +29,7 @@ const THEMES := {
 		"sky_glow": [Color(1.0, 0.97, 0.86), 0.25], "sky_wisps": [Color(1.0, 1.0, 1.0), 0.5],
 		"soil": Color(0.76, 0.56, 0.36), "soil_dark": Color(0.52, 0.37, 0.25), "grass": Color(0.36, 0.6, 0.22),
 		"grass_light": Color(0.66, 0.92, 0.34), "wood": Color(0.86, 0.62, 0.36), "wood_dark": Color(0.62, 0.42, 0.24),
-		"pattern": "earth", "cap": "grass", "platform": "wood", "grass_vary": 0.17, "grass_patch": 0.35, "moss": Color(0.4, 0.66, 0.14),
+		"pattern": "earth", "cap": "grass", "platform": "wood", "grass_vary": 0.26, "grass_patch": 0.6, "moss": Color(0.4, 0.66, 0.14),
 		# (A step less saturated, deepening toward the back, gauntlet round 3: the brightest, flattest colour on screen.)
 		"grass_back": 1.0,
 		# The stage as a hillside farm terrace (2026-10-18, the owner: a place, not a box): a dry-stone retaining wall holding the field up,
@@ -659,6 +659,10 @@ static func _soil_material(t: Dictionary) -> ShaderMaterial:
 	# (Not the canyon's strata: its beds already carry the light, and the shapes read as stains across them.)
 	if pattern in ["earth", "roots"]:
 		m.set_shader_parameter("front_shapes", 0.6 if pattern == "earth" else 0.8)
+	# (The strata drift lighter and darker, warmer and cooler, over far longer than their 6-unit tile, the gauntlet's round 4: identical
+	# waves repeating read as a stamped pattern.)
+	if pattern == "strata":
+		m.set_shader_parameter("world_vary", 0.24)
 	# Moss draping over the top of the wall where the theme has it (`moss`: colour), in a wavy band under the lip.
 	if t.has("moss"):
 		m.set_shader_parameter("moss_color", t.moss)
@@ -1549,6 +1553,9 @@ static var _straw_cache := {}
 
 
 static func _barrel(root: Node3D, at: Vector3, size: float) -> void:
+	# (The modelled barrel, art/blender/make_props.py `barrel`, the gauntlet's round 4; the built one below stands in without it.)
+	if _place_prop(root, "barrel", at, size, float(hash(Vector2i(roundi(at.x * 10.0), roundi(at.z * 10.0))) % 360)):
+		return
 	# A cooper's barrel: a bulging body of staves (a lathe, the staves painted on so they run up it), two iron hoops that sit on the bulge,
 	# a rim where the staves stand above the lid, and the lid inset below it. Each part a different value, so it reads as built.
 	var body := Materials.as_family(FighterView.toon(Color.WHITE, true, _stave_texture(), Vector2.ONE), "wood")
@@ -1626,6 +1633,9 @@ static var _stave_cache := {}
 
 
 static func _crate(root: Node3D, at: Vector3, size: float, turn: float) -> void:
+	# (The modelled crate, art/blender/make_props.py `crate`, the gauntlet's round 4; the built one below stands in without it.)
+	if _place_prop(root, "crate", at, size, turn):
+		return
 	_mesh(root, _box(Vector3.ONE * size), Materials.wood(Color(0.86, 0.66, 0.42)), at + Vector3(0, size / 2.0, 0), Vector3.ONE, Vector3(0, turn, 0))
 	# The front: a frame of darker boards round its edge and an X brace across it (a crate is built, not a block).
 	var plank := FighterView.toon(Color(0.68, 0.48, 0.3), false)
@@ -2128,7 +2138,7 @@ const RIDGES := {
 	"meadow": [{"z": -170.0, "y": -50.0, "height": 88.0, "shape": 1, "seed": 3.0, "base": 0.32, "amplitude": 0.6, "frequency": 5.6,
 		# (More of its own blue and less haze, art review 6 round 31: at mix 0.55 the ridge was mostly horizon colour, a formless pale band
 		# behind the crisp painted hills; found with `--pick`.)
-		"tone": Color(0.2, 0.62, 0.6), "mix": 0.85, "edge": 0.3, "haze": 0.36,
+		"tone": Color(0.2, 0.62, 0.6), "mix": 0.62, "edge": 0.3, "haze": 0.5,
 		# (Teal, not blue: the owner's Origami King reference sets bright lime ground against cool teal mountains.)
 		# (A lit flank and a shaded flank on every peak, as the canyon's mesas have: a flat blue cut-out read as the least finished
 		# thing on the menu; the owner, 2026-10-17, raise the quality of what is there.)
@@ -2136,7 +2146,7 @@ const RIDGES := {
 		# A nearer, lower range in front, deeper teal and less hazed, casting its shadow on the far one: the backdrop as cut cards in layers
 		# with air between them, not one soft band (art review 9).
 		{"z": -140.0, "y": -36.0, "height": 62.0, "shape": 1, "seed": 9.0, "base": 0.4, "amplitude": 0.5, "frequency": 7.0,
-		"tone": Color(0.1, 0.38, 0.42), "mix": 0.95, "edge": 0.5, "haze": 0.16, "flank": 0.75, "foot_dark": 0.4, "layers": 3,
+		"tone": Color(0.1, 0.38, 0.42), "mix": 0.82, "edge": 0.5, "haze": 0.28, "flank": 0.75, "foot_dark": 0.4, "layers": 3,
 		"flank_from": 0.0, "gullies": 0.6, "paper": 0.05, "edge_width": 0.016, "shadow": 0.5}],
 	"grove": [{"z": -165.0, "y": -34.0, "height": 52.0, "shape": 0, "seed": 8.0, "base": 0.5, "amplitude": 0.32, "frequency": 3.5,
 		"tone": Color(0.5, 0.5, 0.84), "mix": 0.7, "edge": 0.3, "flank": 0.6, "foot_dark": 0.3, "layers": 4, "flank_from": 0.0, "gullies": 0.6,
@@ -4854,11 +4864,20 @@ static func _seawall_stones(parent: Node3D, t: Dictionary, left: float, right: f
 					if rough:
 						basis = basis * Basis.from_euler(Vector3(rng.randf_range(-0.08, 0.08), rng.randf_range(-0.1, 0.1), rng.randf_range(-0.07, 0.07)))
 						size.z = rng.randf_range(0.25, 0.4)
+						# (Each stone its own height and seat in the course, now and then a big one spanning two courses, the gauntlet's round 4:
+						# one height per course read as an even grid.)
+						var own := rng.randf_range(0.62, 1.0)
+						if rng.randf() < 0.14:
+							own = rng.randf_range(1.5, 1.85)
+						size.y = rh * own - gap
+						pos.y += (rh - rh * own) * rng.randf_range(-0.5, 0.5) - (rh * own - rh) * 0.5 * float(own > 1.0)
 					var shade := a.lerp(b, rng.randf_range(0.0, 0.4 if rough else 0.7)).lerp(stone_grey, 0.2)
 					shade = shade.lightened(rng.randf_range(0.02, 0.14)) if rng.randf() < 0.6 else shade.darkened(rng.randf_range(0.0, 0.1))
 					if rough:
 						# (A quieter wall, the same test: a narrower spread of stone shades, a step darker overall, so it sits under the field.)
 						shade = shade.darkened(0.08)
+						# (Varied in hue rather than value, round 4: warmer and cooler fieldstones.)
+						shade = shade * Color(1.0 + rng.randf_range(-0.06, 0.08), 1.0, 1.0 + rng.randf_range(-0.08, 0.06))
 					# (Custom data reaches the shader as is, linear, where colour uniforms are converted from sRGB: convert it here, or every
 					# stone washes pale.)
 					items.append([Transform3D(basis.scaled_local(size), pos), shade.srgb_to_linear(), rng.randi() % FIELDSTONE_VARIANTS])

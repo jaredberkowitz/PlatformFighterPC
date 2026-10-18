@@ -781,7 +781,83 @@ def windmill_tower():
     return root
 
 
+def crate():
+    """A slatted shipping crate (1 x 1 x 1, standing on the origin; the gauntlet's round 4 after the owner's harbour reference, in place of
+    the built box): corner posts, three slats a side with dark gaps between them showing the inside, top and bottom rails, and one
+    diagonal brace across the front and back, every board bevelled and a hair off true, a little varied in shade."""
+    rng = random.Random(41)
+    root = empty("crate")
+    bm_dark = bmesh.new()
+    add_box(bm_dark, (0.0, 0.0, 0.5), (0.86, 0.86, 0.9))
+    to_object("inside", bm_dark, (0.3, 0.2, 0.14), smooth=False).parent = root
+    shades = [(0.8, 0.6, 0.38), (0.74, 0.54, 0.34), (0.84, 0.64, 0.42)]
+    for i, (sx, sy) in enumerate([(-1, -1), (1, -1), (1, 1), (-1, 1)]):
+        bm = bmesh.new()
+        add_box(bm, (sx * 0.44, sy * 0.44, 0.5), (0.13, 0.13, 1.0))
+        to_object("post%d" % i, bm, WOOD, smooth=False, bevel=0.015).parent = root
+    for face, (nx, ny) in enumerate([(0, -1), (1, 0), (0, 1), (-1, 0)]):
+        for k in range(3):
+            z = 0.2 + 0.3 * k
+            w = (0.84, 0.05) if nx == 0 else (0.05, 0.84)
+            bm = bmesh.new()
+            add_box(bm, (nx * 0.465, ny * 0.465, z + rng.uniform(-0.01, 0.01)), (w[0], w[1], 0.24), rot=(0.0, 0.0, rng.uniform(-0.6, 0.6)))
+            to_object("slat%d_%d" % (face, k), bm, rng.choice(shades), smooth=False, bevel=0.012).parent = root
+        for z in (0.04, 0.96):
+            w = (0.86, 0.07) if nx == 0 else (0.07, 0.86)
+            bm = bmesh.new()
+            add_box(bm, (nx * 0.475, ny * 0.475, z), (w[0], w[1], 0.08))
+            to_object("rail%d_%d" % (face, int(z * 10)), bm, WOOD, smooth=False, bevel=0.012).parent = root
+        if face in (0, 2):
+            bm = bmesh.new()
+            add_box(bm, (0.0, ny * 0.49, 0.5), (1.1, 0.05, 0.09), rot=(0.0, 45.0 if face == 0 else -45.0, 0.0))
+            to_object("brace%d" % face, bm, WOOD, smooth=False, bevel=0.012).parent = root
+    bm = bmesh.new()
+    for k in range(4):
+        add_box(bm, (-0.33 + 0.22 * k, 0.0, 0.985), (0.2, 0.86, 0.04))
+    to_object("lid", bm, (0.78, 0.58, 0.36), smooth=False, bevel=0.01).parent = root
+    return root
+
+
+def barrel():
+    """A cooper's barrel (1.1 tall, standing on the origin): twelve bulging staves each its own shade with a hairline gap, two iron hoops
+    sitting on the bulge, the staves standing as a rim above a lid of boards."""
+    rng = random.Random(7)
+    root = empty("barrel")
+    prof = [(0.33, 0.0), (0.37, 0.06), (0.405, 0.22), (0.425, 0.4), (0.43, 0.55), (0.425, 0.7), (0.405, 0.88), (0.37, 1.04), (0.36, 1.1)]
+    staves = 12
+    for st in range(staves):
+        a0 = math.tau * (st + 0.04) / staves
+        a1 = math.tau * (st + 0.96) / staves
+        bm = bmesh.new()
+        cols = 4
+        rings = []
+        for (r, z) in prof:
+            row = []
+            for c in range(cols + 1):
+                a = a0 + (a1 - a0) * c / cols
+                rr = r * (1.0 + 0.01 * math.sin(c / cols * math.pi))
+                row.append(bm.verts.new((rr * math.cos(a), rr * math.sin(a), z)))
+            rings.append(row)
+        for k in range(len(rings) - 1):
+            for c in range(cols):
+                bm.faces.new((rings[k][c], rings[k][c + 1], rings[k + 1][c + 1], rings[k + 1][c]))
+        bmesh.ops.solidify(bm, geom=bm.faces[:], thickness=0.04)
+        shade = tuple(v * rng.uniform(0.9, 1.08) for v in (0.66, 0.44, 0.28))
+        to_object("stave%d" % st, bm, shade, smooth=True).parent = root
+    for h in (0.22, 0.88):
+        r = 0.405 + 0.012
+        bm = bmesh.new()
+        ring(bm, r, 0.03, h, sides=32, minor_sides=6)
+        to_object("hoop%d" % int(h * 100), bm, (0.32, 0.31, 0.38), smooth=True).parent = root
+    bm = bmesh.new()
+    cone(bm, 0.34, 0.34, 0.04, z0=1.0, sides=24)
+    to_object("lid", bm, (0.52, 0.34, 0.22), smooth=False).parent = root
+    return root
+
+
 PROPS = {
+    "crate": crate,
+    "barrel": barrel,
     "lighthouse": lighthouse,
     "sailboat": sailboat,
     "mesa_a": lambda: mesa("mesa_a", 3, 24.0, 15.0, 4),
