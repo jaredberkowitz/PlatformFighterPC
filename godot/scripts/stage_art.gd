@@ -69,7 +69,9 @@ const THEMES := {
 	"city": {
 		"sky_top": Color(0.08, 0.06, 0.22), "sky_mid": Color(0.22, 0.12, 0.36), "sky_horizon": Color(0.42, 0.22, 0.46),
 		"sky_glow": [Color(0.95, 0.38, 0.6), 0.45],
-		"soil": Color(0.42, 0.44, 0.54), "soil_dark": Color(0.3, 0.32, 0.4), "grass": Color(0.56, 0.58, 0.66),
+		# (A warm stone facade, the gauntlet's round 5 after the owner's city reference: the play building is the warm, detailed layer in
+		# front of the cool skyline; the cool grey-violet facade was the coldest thing on it.)
+		"soil": Color(0.6, 0.46, 0.42), "soil_dark": Color(0.44, 0.32, 0.32), "grass": Color(0.56, 0.58, 0.66),
 		"grass_light": Color(0.78, 0.8, 0.88), "wood": Color(0.84, 0.48, 0.41), "wood_dark": Color(0.5, 0.26, 0.27),
 		"pattern": "facade", "cap": "roof", "platform": "girder",
 	},
@@ -348,7 +350,8 @@ static func _facade_part_mats(fall: float) -> Dictionary:
 	if _facade_mat_cache.has(key):
 		return _facade_mat_cache[key]
 	var out := {}
-	var cols := {"frame": Color(0.88, 0.84, 0.86), "stone": Color(0.8, 0.76, 0.8), "ledge": Color(0.66, 0.6, 0.72), "vent": Color(0.38, 0.38, 0.46),
+	# (Warm gold frames and warm lit stone ledges, round 5, so the windows read as fine warm texture on a warm building.)
+	var cols := {"frame": Color(0.86, 0.7, 0.46), "stone": Color(0.9, 0.8, 0.68), "ledge": Color(0.9, 0.76, 0.62), "vent": Color(0.38, 0.38, 0.46),
 		"tube": Color(0.88, 0.3, 0.38), "pipe": Color(0.48, 0.48, 0.58), "pot": Color.WHITE, "ac": Color.WHITE}
 	for kind in cols:
 		var m := (FighterView.toon(cols[kind], kind in ["frame", "stone", "ledge", "tube", "ac"]) as ShaderMaterial).duplicate() as ShaderMaterial
@@ -1335,7 +1338,8 @@ static func _props(root: Node3D, theme_name: String, e: Array) -> void:
 			for k in 3:
 				var f := (float(k) + 0.5) / 3.0
 				var at := Vector3(l + 3.0, y + 4.6, -6.0).lerp(Vector3(r - 2.5, y + 5.6, -6.5), f) + Vector3(0, -1.6, 1.5)
-				_practical(root, at, [Color(1.0, 0.78, 0.5), Color(1.0, 0.6, 0.72), Color(1.0, 0.78, 0.5)][k], 1.1, 7.0)
+				# (Brighter, round 5: the string lights cast nothing visible on the roof.)
+				_practical(root, at, [Color(1.0, 0.78, 0.5), Color(1.0, 0.6, 0.72), Color(1.0, 0.78, 0.5)][k], 2.4, 8.0)
 			_practical(root, Vector3(r - 2.5, y + 6.1, -6.0), Color(1.0, 0.3, 0.3), 0.8, 4.0)
 	for p in patches:
 		_contact(root, Vector3(p[0], y, p[1]), Vector2(p[2], p[3]))
@@ -1433,7 +1437,8 @@ const GROUND_SHADOWS := 12
 ## Each rolled band's own material by its depth (see `_land_band`), for `_ground_shadow`.
 static var _band_mats := {}
 ## How dark a contact patch is at its middle (alpha).
-const CONTACT_STRENGTH := 0.55
+## (0.55 until the gauntlet's round 5: the props on the tops still read as floating.)
+const CONTACT_STRENGTH := 0.8
 
 
 static func _hay_bale(root: Node3D, at: Vector3, turn: float) -> void:
@@ -4965,9 +4970,12 @@ static func _fieldstone(variant: int) -> ArrayMesh:
 			v1 = v2
 			v2 = tmp
 		for v: Vector3 in [v0, v2, v1]:
-			st.set_normal(nrm)
 			st.set_color(Color.WHITE)
 			st.add_vertex(v)
+	# (Soft shading rather than flat facets, the gauntlet's round 5: hard-faceted stones read as cut gems beside the soft lawn; the
+	# shared points merged so the normals round over the stone.)
+	st.index()
+	st.generate_normals()
 	var mesh := st.commit()
 	_fieldstones[variant] = mesh
 	return mesh

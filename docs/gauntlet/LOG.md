@@ -65,3 +65,18 @@ The biggest gains so far: the city layered at night (+0.5), the dock's planks ne
 Gaps: (1) the meadow, now the weakest (even cobble grid, flat lawn, outlined mountains), and the canyon's repeating strata; (2)
 primitive props and missing contact everywhere (scaffolds, crates, barrels, lamp, sailboats, mushrooms, stump, moss circles).
 Later: the city facade warm and quieter; the beach's foam strokes soft, town lower; the canyon arch into the haze.
+
+## Round 5 (2026-10-18, commit 384b4d1)
+
+| Stage | Believ. | Cohesion | Lighting | Depth | Ground | Clarity | Mean |
+|---|---|---|---|---|---|---|---|
+| Meadow | 3 | 3 | 3 | 3 | 2 | 3 | 2.8 |
+| Canyon | 3 | 4 | 4 | 3 | 3 | 4 | 3.5 |
+| Beach | 3 | 3 | 3 | 3 | 3 | 3 | 3.0 |
+| City | 3 | 3 | 3 | 3 | 2 | 3 | 2.8 |
+| Grove | 3 | 3 | 3 | 3 | 3 | 4 | 3.2 |
+
+The meadow wall reads as dry stone (Believability 2 to 3); the modelled crates match the harbour reference. The canyon drift and the
+lawn patches too subtle at match distance. Gaps: (1) the city's facade cold and busy under the warm roof (the reverse of the
+reference), primitive scaffolds, string lights casting nothing; (2) grass tops still slabs with a hard lip, and no contact under props.
+Later: soften the meadow's gem-like stone facets; the beach's foam, ripples, town and lamp and boats; moss clumps; canyon arch.
