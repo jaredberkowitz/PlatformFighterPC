@@ -790,9 +790,11 @@ const ARM_BULK := {7: [Vector3(1.55, 1.08, 1.55), Vector3(1.45, 1.35, 1.45)]}
 ## The base body's proportions on top of its model (art review 10, after the reference cast and the crossover fighter's plumber: a big
 ## head that carries the face and the hat at play size, big gloved hands and chunky feet): uniform scales on the end bones, so a bent
 ## elbow or knee is never sheared. The head grows up from the neck; hats and face pieces follow it (`_follow_bones`).
-const HEAD_SIZE := 1.34
-const HAND_SIZE := 1.35
-const FOOT_SIZE := 1.15
+## (The body rebuild modelled the head to the proportion study's height; the reference's heads are wide ovals, so it is widened here,
+## across and front to back, the bone's own x and z.)
+const HEAD_SIZE := Vector3(1.2, 1.06, 1.14)
+const HAND_SIZE := 1.25
+const FOOT_SIZE := 1.05
 
 
 ## This class's arm bulk ([forearm, hand] scales) with the body's own hand size in it.
@@ -813,7 +815,7 @@ func _bulk_arms(cls: int) -> void:
 		return
 	if use_base_body:
 		if head_bone >= 0:
-			skeleton.set_bone_pose_scale(head_bone, Vector3.ONE * HEAD_SIZE)
+			skeleton.set_bone_pose_scale(head_bone, HEAD_SIZE)
 		for side in ["L", "R"]:
 			var f := skeleton.find_bone("foot." + side)
 			if f >= 0:

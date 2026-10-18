@@ -31,60 +31,59 @@ SUBDIV = 1   # subdivision levels baked into the exported body (1: ~2.7k quads, 
 # ---- Torso: rings from the crotch up. (z, half width, half depth at the front, half depth at the back, depth centre) -----------------
 # Angle 0 is the right side (+X), 90 the back (+Y), 180 the left side, 270 the front (-Y, Blender's front).
 TSEG = 16
-# (Broader at the hips and across the shoulders, the shoulders less sloped, art review 10: the reference cast's torso is a
-# squarer block with visible shoulders and wider-set legs; ours tapered to the neck like a bottle.)
+# Proportions (body rebuild, 2026-10-18, the owner's proportion study, docs/BODY_PROPORTIONS.md): after the reference cast, about 2.34
+# tall: the head a third of the height, the torso a wide sturdy block (hips 0.84 of the head's width) from the crotch at 0.80 to the
+# neck, the legs over a third of the height, thick and set well apart. (The old body was toddler-built: a head 43% of the height once
+# scaled up, short close-set legs, a narrow body.)
 TORSO = [
-    (0.70, 0.331, 0.264, 0.242, 0.000),   # an egg front-on and side-on: widest at the belly, round over the shoulders
-    (0.80, 0.380, 0.325, 0.275, 0.000),
-    (0.91, 0.402, 0.347, 0.284, 0.000),
-    (1.02, 0.395, 0.339, 0.277, 0.000),
-    (1.13, 0.378, 0.314, 0.259, 0.000),   # shoulder hole: rings 4..6
-    (1.24, 0.350, 0.270, 0.226, 0.000),
-    (1.34, 0.299, 0.218, 0.187, 0.000),
-    (1.42, 0.232, 0.167, 0.157, 0.000),
+    (0.88, 0.375, 0.270, 0.250, 0.000),   # a sturdy block front-on, an egg side-on: as wide at the hips as across the shoulders
+    (0.98, 0.395, 0.300, 0.270, 0.000),
+    (1.08, 0.402, 0.310, 0.275, 0.000),
+    (1.18, 0.398, 0.302, 0.270, 0.000),
+    (1.28, 0.388, 0.288, 0.258, 0.000),   # shoulder hole: rings 4..6
+    (1.37, 0.365, 0.262, 0.238, 0.000),
+    (1.45, 0.315, 0.222, 0.200, 0.000),
+    (1.52, 0.250, 0.182, 0.168, 0.000),
 ]
 HOLE_RINGS = (4, 5, 6)
-CROTCH = (0.0, 0.62)            # crotch vertex (y, z)
+CROTCH = (0.0, 0.80)            # crotch vertex (y, z)
 
 # ---- Neck and head: rings of the same 16 angles. (z, half width, half depth) then the sphere ------------------------------------------
-NECK = [(1.475, 0.225, 0.19)]   # (wider, art review 10: the head sits on the shoulders, not on a stalk)
-HEAD_C, HEAD_R = Vector((0.0, 0.0, 1.815)), 0.41
+NECK = [(1.57, 0.255, 0.215)]   # (wide: the head sits on the shoulders, not on a stalk)
+HEAD_C, HEAD_R = Vector((0.0, 0.0, 1.93)), 0.41
 HEAD_PHI = (38, 58, 78, 98, 118, 138, 156)   # degrees from the bottom pole; the 4x4 grid closes the last ring
 HEAD_TOP = 0.03                              # how far the cap's middle rises above a flat lid
 
 # ---- Limbs, right side (the left is mirrored). Each ring: (centre, axis, radius across u, radius across w below, w above, squareness) -
 # For the arm u starts as +Y (front/back) and w as +Z (the top of the hole becomes the outside of the arm); for the leg u starts as +X
 # (outside) and w as +Y (back), which the foot's bend turns into the sole.
-# (Arms 1.2 times as thick from the shoulder to the wrist, the fist 1.1, art review 10: thin tubes beside the reference cast's chunky
-# arms and the crossover fighter's plumber read as a simple, amateur figure. Same joints, so every clip still fits.)
 ARM = [
-    ((0.410, 0.000, 1.200), (1.0, 0.0, -0.9), 0.160, 0.160, 0.160, 2.0),   # shoulder cap
-    ((0.495, 0.000, 1.125), (0.5, 0.0, -1.0), 0.168, 0.168, 0.168, 2.0),
-    ((0.545, 0.000, 1.060), (0.4, 0.0, -1.0), 0.163, 0.163, 0.163, 2.0),
-    ((0.570, -0.002, 1.000), (0.4, -0.02, -1.0), 0.156, 0.156, 0.156, 2.0),  # elbow loops
-    ((0.585, -0.003, 0.960), (0.4, -0.02, -1.0), 0.151, 0.151, 0.151, 2.0),
-    ((0.600, -0.004, 0.920), (0.4, -0.02, -1.0), 0.151, 0.151, 0.151, 2.0),
-    ((0.630, -0.007, 0.850), (0.4, -0.03, -1.0), 0.148, 0.148, 0.148, 2.0),
-    ((0.655, -0.011, 0.785), (0.4, -0.03, -1.0), 0.138, 0.138, 0.138, 2.0),
-    ((0.670, -0.015, 0.735), (0.4, -0.03, -1.0), 0.126, 0.126, 0.126, 2.0),  # wrist
-    ((0.688, -0.018, 0.675), (0.4, -0.03, -1.0), 0.138, 0.121, 0.121, 2.6),  # fist
-    ((0.710, -0.020, 0.610), (0.4, -0.03, -1.0), 0.138, 0.121, 0.121, 2.6),
+    ((0.435, 0.000, 1.370), (1.0, 0.0, -0.9), 0.150, 0.150, 0.150, 2.0),   # shoulder cap
+    ((0.505, 0.000, 1.295), (0.5, 0.0, -1.0), 0.150, 0.150, 0.150, 2.0),
+    ((0.555, 0.000, 1.230), (0.4, 0.0, -1.0), 0.145, 0.145, 0.145, 2.0),
+    ((0.580, -0.002, 1.170), (0.4, -0.02, -1.0), 0.138, 0.138, 0.138, 2.0),  # elbow loops
+    ((0.595, -0.003, 1.130), (0.4, -0.02, -1.0), 0.134, 0.134, 0.134, 2.0),
+    ((0.610, -0.004, 1.090), (0.4, -0.02, -1.0), 0.134, 0.134, 0.134, 2.0),
+    ((0.640, -0.007, 1.020), (0.4, -0.03, -1.0), 0.130, 0.130, 0.130, 2.0),
+    ((0.665, -0.011, 0.955), (0.4, -0.03, -1.0), 0.122, 0.122, 0.122, 2.0),
+    ((0.680, -0.015, 0.905), (0.4, -0.03, -1.0), 0.112, 0.112, 0.112, 2.0),  # wrist
+    ((0.698, -0.018, 0.845), (0.4, -0.03, -1.0), 0.130, 0.114, 0.114, 2.6),  # fist
+    ((0.720, -0.020, 0.780), (0.4, -0.03, -1.0), 0.130, 0.114, 0.114, 2.6),
 ]
 ARM_CAP = 0.045
-LEG_C0 = Vector((0.19, 0.0))   # the leg's middle where it leaves the torso (x, y)
-# (Legs 1.12 times as thick and the feet 1.1, art review 10: the reference cast stand on thick straight columns into big round feet.)
+LEG_C0 = Vector((0.235, 0.0))   # the leg's middle where it leaves the torso (x, y)
 LEG = [
-    ((0.218, 0.000, 0.600), (-0.02, 0.0, -1.0), 0.168, 0.168, 0.168, 2.0),
-    ((0.227, 0.000, 0.510), (0.0, 0.0, -1.0), 0.171, 0.171, 0.171, 2.0),
-    ((0.238, 0.000, 0.440), (0.02, 0.0, -1.0), 0.170, 0.170, 0.170, 2.0),
-    ((0.245, -0.004, 0.390), (0.02, 0.0, -1.0), 0.168, 0.168, 0.168, 2.0),  # knee loops
-    ((0.246, -0.006, 0.355), (0.02, 0.0, -1.0), 0.166, 0.166, 0.166, 2.0),
-    ((0.247, -0.004, 0.320), (0.02, 0.0, -1.0), 0.166, 0.166, 0.166, 2.0),
-    ((0.249, 0.000, 0.250), (0.02, 0.0, -1.0), 0.164, 0.164, 0.164, 2.0),
-    ((0.251, 0.010, 0.180), (0.03, 0.0, -1.0), 0.159, 0.159, 0.159, 2.0),  # ankle
-    ((0.260, 0.035, 0.116), (0.05, -0.25, -1.0), 0.205, 0.209, 0.226, 2.2),  # heel and instep
-    ((0.270, -0.100, 0.106), (0.08, -1.0, -0.05), 0.218, 0.138, 0.127, 2.4),  # foot
-    ((0.278, -0.205, 0.104), (0.1, -1.0, 0.05), 0.202, 0.130, 0.121, 2.4),
+    ((0.235, 0.000, 0.780), (-0.02, 0.0, -1.0), 0.160, 0.160, 0.160, 2.0),
+    ((0.240, 0.000, 0.660), (0.0, 0.0, -1.0), 0.162, 0.162, 0.162, 2.0),
+    ((0.245, 0.000, 0.560), (0.0, 0.0, -1.0), 0.160, 0.160, 0.160, 2.0),
+    ((0.248, -0.004, 0.490), (0.0, 0.0, -1.0), 0.157, 0.157, 0.157, 2.0),  # knee loops
+    ((0.249, -0.006, 0.445), (0.0, 0.0, -1.0), 0.155, 0.155, 0.155, 2.0),
+    ((0.250, -0.004, 0.400), (0.0, 0.0, -1.0), 0.155, 0.155, 0.155, 2.0),
+    ((0.251, 0.000, 0.300), (0.0, 0.0, -1.0), 0.152, 0.152, 0.152, 2.0),
+    ((0.252, 0.010, 0.185), (0.01, 0.0, -1.0), 0.148, 0.148, 0.148, 2.0),  # ankle
+    ((0.258, 0.035, 0.118), (0.03, -0.25, -1.0), 0.200, 0.205, 0.220, 2.2),  # heel and instep
+    ((0.265, -0.105, 0.108), (0.05, -1.0, -0.05), 0.212, 0.135, 0.124, 2.4),  # foot
+    ((0.272, -0.215, 0.105), (0.06, -1.0, 0.05), 0.198, 0.128, 0.118, 2.4),
 ]
 FOOT_CAP = 0.05
 
