@@ -927,7 +927,114 @@ def moss_clump(name, seed):
     return root
 
 
+def _lathe_bm(bm, prof, sides=24, wobble=None):
+    rings = []
+    for k, (r, z) in enumerate(prof):
+        ring = []
+        for i in range(sides):
+            a = math.tau * i / sides
+            rr = r * (wobble(a, k) if wobble else 1.0)
+            ring.append(bm.verts.new((rr * math.cos(a), rr * math.sin(a), z)))
+        rings.append(ring)
+    for k in range(len(rings) - 1):
+        for i in range(sides):
+            j = (i + 1) % sides
+            bm.faces.new((rings[k][i], rings[k][j], rings[k + 1][j], rings[k + 1][i]))
+    return rings
+
+
+def mushroom():
+    """A toadstool (size 1: about 1 tall, standing on the origin; the gauntlet's round 10, in place of a cylinder under a half ball): a
+    stem that swells at its foot and bends a little, a domed cap with a rolled lip, gills under it, and pale warts on top."""
+    rng = random.Random(23)
+    root = empty("mushroom")
+    bm = bmesh.new()
+    prof = [(0.17, 0.0), (0.15, 0.08), (0.12, 0.25), (0.11, 0.45), (0.115, 0.62), (0.1, 0.7)]
+    rings = _lathe_bm(bm, prof, 18)
+    for k, ring in enumerate(rings):
+        for v in ring:
+            v.co.x += 0.04 * math.sin(k / 5.0 * math.pi * 0.8)
+    to_object("stem", bm, (0.97, 0.93, 0.84), smooth=True).parent = root
+    bm = bmesh.new()
+    prof = [(0.0, 1.02), (0.18, 1.0), (0.32, 0.94), (0.42, 0.84), (0.46, 0.74), (0.44, 0.68), (0.36, 0.68)]
+    rings = _lathe_bm(bm, prof, 28, wobble=lambda a, k: 1.0 + 0.03 * math.sin(a * 3.0 + 1.0) * (k / 6.0))
+    to_object("cap", bm, (0.9, 0.5, 0.58), smooth=True).parent = root
+    bm = bmesh.new()
+    prof = [(0.36, 0.69), (0.12, 0.72), (0.1, 0.73)]
+    rings = _lathe_bm(bm, prof, 28, wobble=lambda a, k: 1.0 + (0.06 * math.cos(a * 14.0) if k == 0 else 0.0))
+    to_object("gills", bm, (0.86, 0.76, 0.66), smooth=False).parent = root
+    for k in range(5):
+        a = math.tau * k / 5.0 + rng.uniform(-0.3, 0.3)
+        d = rng.uniform(0.12, 0.3)
+        bm = bmesh.new()
+        ret = bmesh.ops.create_icosphere(bm, subdivisions=1, radius=rng.uniform(0.04, 0.065))
+        z = 1.025 - 0.75 * d * d
+        for v in ret["verts"]:
+            v.co = Vector((v.co.x, v.co.y, v.co.z * 0.6)) + Vector((math.cos(a) * d, math.sin(a) * d, z))
+        to_object("spot%d" % k, bm, (1.0, 0.97, 0.93), smooth=True).parent = root
+    return root
+
+
+def stump():
+    """A tree stump (about 1.2 across at its foot and 0.75 tall, on the origin): a trunk that flares into four roots gripping the ground,
+    bark with deep vertical furrows, a bark lip standing a little above the cut top, and the top with growth rings and a crack."""
+    rng = random.Random(31)
+    root = empty("stump")
+    bm = bmesh.new()
+    prof = [(0.66, 0.0), (0.56, 0.08), (0.5, 0.2), (0.47, 0.45), (0.46, 0.66), (0.47, 0.74)]
+    def wob(a, k):
+        roots = 0.35 * max(0.0, math.cos(2.0 * (a + 0.4))) ** 3 * max(0.0, 1.0 - k / 3.0)
+        furrow = 0.035 * math.cos(a * 16.0 + rng.uniform(0, 0.01))
+        return 1.0 + roots + furrow
+    rings = _lathe_bm(bm, prof, 48, wobble=wob)
+    to_object("bark", bm, (0.5, 0.36, 0.26), smooth=True).parent = root
+    bm = bmesh.new()
+    rings = _lathe_bm(bm, [(0.47, 0.74), (0.42, 0.73), (0.0, 0.72)], 48, wobble=lambda a, k: 1.0 + 0.035 * math.cos(a * 16.0))
+    to_object("top", bm, (0.9, 0.76, 0.54), smooth=False).parent = root
+    for k, r in enumerate((0.12, 0.22, 0.32)):
+        bm = bmesh.new()
+        ring(bm, r, 0.008, 0.726 + 0.001 * k, sides=36, minor_sides=4)
+        to_object("ring%d" % k, bm, (0.72, 0.56, 0.38), smooth=True).parent = root
+    return root
+
+
+def lamp_post():
+    """A harbour lamp post (2.4 tall, on the origin): a square timber post on a stone footing, an iron bracket arm with a curl, and a glass
+    lantern hanging from it: an iron cap and base, four glass panes in an iron frame, a ring on top."""
+    root = empty("lamp_post")
+    bm = bmesh.new()
+    add_box(bm, (0.0, 0.0, 0.15), (0.34, 0.34, 0.3))
+    to_object("footing", bm, (0.62, 0.6, 0.58), smooth=False, bevel=0.03).parent = root
+    bm = bmesh.new()
+    add_box(bm, (0.0, 0.0, 1.25), (0.14, 0.14, 2.2), taper=0.12)
+    to_object("post", bm, (0.48, 0.34, 0.26), smooth=False, bevel=0.02).parent = root
+    bm = bmesh.new()
+    add_box(bm, (0.3, 0.0, 2.25), (0.66, 0.05, 0.06))
+    add_box(bm, (0.12, 0.0, 2.1), (0.3, 0.04, 0.04), rot=(0.0, 40.0, 0.0))
+    ring(bm, 0.05, 0.012, 0.0, sides=12, minor_sides=4)
+    to_object("iron_arm", bm, (0.22, 0.22, 0.26), smooth=False).parent = root
+    for v in root.children[-1].data.vertices:
+        pass
+    cx, cz = 0.58, 1.88
+    bm = bmesh.new()
+    for z, w in ((cz + 0.2, 0.17), (cz - 0.2, 0.15)):
+        add_box(bm, (cx, 0.0, z), (w, w, 0.05))
+    for dx in (-0.075, 0.075):
+        for dy in (-0.075, 0.075):
+            add_box(bm, (cx + dx, dy, cz), (0.02, 0.02, 0.4))
+    cone(bm, 0.12, 0.02, 0.12, z0=cz + 0.22, sides=8, at=(cx, 0.0))
+    add_box(bm, (cx, 0.0, cz + 0.3), (0.02, 0.02, 0.14))
+    to_object("iron_lantern", bm, (0.22, 0.22, 0.26), smooth=False).parent = root
+    bm = bmesh.new()
+    add_box(bm, (cx, 0.0, cz), (0.14, 0.14, 0.36))
+    to_object("glow", bm, (1.0, 0.86, 0.56), smooth=False).parent = root
+    return root
+
+
 PROPS = {
+    "mushroom": mushroom,
+    "stump": stump,
+    "lamp_post": lamp_post,
     "moss_a": lambda: moss_clump("moss_a", 3),
     "moss_b": lambda: moss_clump("moss_b", 8),
     "moss_c": lambda: moss_clump("moss_c", 13),

@@ -1754,6 +1754,16 @@ static func _mushroom(parent: Node3D, at: Vector3, size: float, cap: Color) -> v
 	root.phase = at.x * 1.7
 	parent.add_child(root)
 	at = Vector3.ZERO
+	# (The modelled toadstool, art/blender/make_props.py `mushroom`, its cap in this one's colour; the gauntlet's round 10.)
+	var model := Toonify.load_prop("mushroom", true)
+	if model != null:
+		model.scale = Vector3.ONE * size
+		model.rotation_degrees = Vector3(0, fmod(root.phase * 57.0, 360.0), 0)
+		root.add_child(model)
+		for mi in model.find_children("*", "MeshInstance3D", true, false):
+			if String(mi.name).begins_with("cap"):
+				(mi as MeshInstance3D).material_override = FighterView.toon(cap, true)
+		return
 	_mesh(root, _cylinder(0.12 * size, 0.18 * size, 0.7 * size, 8), FighterView.toon(Color(0.98, 0.94, 0.86)), at + Vector3(0, 0.35 * size, 0))
 	var top := _sphere(0.45 * size, 10)
 	top.is_hemisphere = true
@@ -1766,11 +1776,24 @@ static func _mushroom(parent: Node3D, at: Vector3, size: float, cap: Color) -> v
 
 
 static func _stump(root: Node3D, at: Vector3) -> void:
+	# (The modelled stump, art/blender/make_props.py `stump`; the gauntlet's round 10. The built one stands in without it.)
+	if _place_prop(root, "stump", at, 1.0, 20.0):
+		return
 	_mesh(root, _cylinder(0.5, 0.62, 0.7, 9), Materials.bark(Color(0.6, 0.42, 0.28), Vector2(2, 1)), at + Vector3(0, 0.35, 0))
 	_mesh(root, _cylinder(0.44, 0.44, 0.03, 9), FighterView.toon(Color(0.94, 0.8, 0.58), false), at + Vector3(0, 0.71, 0))
 
 
 static func _lantern_post(root: Node3D, at: Vector3, glow: Color) -> void:
+	# (The modelled lamp post, art/blender/make_props.py `lamp_post`, the gauntlet's round 10: its lantern glows in `glow`.)
+	var model := Toonify.load_prop("lamp_post", true)
+	if model != null:
+		model.position = at
+		root.add_child(model)
+		for mi in model.find_children("*", "MeshInstance3D", true, false):
+			if String(mi.name).begins_with("glow"):
+				(mi as MeshInstance3D).material_override = _unshaded(glow)
+		_halo(root, at + Vector3(0.58, 1.88, 0.25), glow, 1.3)
+		return
 	var wood := Materials.wood(Color(0.5, 0.36, 0.3))
 	_mesh(root, _box(Vector3(0.14, 2.2, 0.14)), wood, at + Vector3(0, 1.1, 0))
 	_mesh(root, _box(Vector3(0.7, 0.1, 0.1)), wood, at + Vector3(0.3, 2.15, 0))
