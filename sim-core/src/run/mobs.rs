@@ -89,7 +89,7 @@ fn kit_move(k: &MobKind, slot: u8) -> Option<MoveId> {
 }
 
 /// The first active frame of a grunt's move (its startup ends there).
-fn first_active(content: &Content, f: &Fighter, id: MoveId) -> u16 {
+pub(super) fn first_active(content: &Content, f: &Fighter, id: MoveId) -> u16 {
     let mv = weapon_of(content, params_of(content, f)).get(id as u8);
     u16::from(mv.hitboxes.iter().map(|h| h.start).min().unwrap_or(0))
 }
@@ -628,6 +628,11 @@ pub(super) fn after_step(state: &mut GameState, content: &Content, rc: &RunConte
                 1
             };
             credit = rc.rules.credit_frames;
+            // (R3: hot hands sets it burning.)
+            let burn = super::items::burn_frames(&state.run, rc);
+            if burn > 0 {
+                state.run.mobs[n].burn = burn;
+            }
         } else if f.grounded() && f.hitlag == 0 && f.state != S::Hitstun {
             // (On its feet again: the juggle is over.)
             juggle = 0;
@@ -792,6 +797,9 @@ fn knock_out(state: &mut GameState, content: &Content, rc: &RunContent, n: usize
             _ => 0,
         };
         let paid = pay_kill(run, rc, m.kind, air, bonus);
+        // (R3: lifesteal heals the player.)
+        super::items::steal(state, rc);
+        let run = &mut state.run;
         let call = match how {
             KO_SKY => {
                 run.sky_kos = run.sky_kos.saturating_add(1);
@@ -1094,7 +1102,9 @@ pub(super) fn player_touches(
     }
     state.projectiles.iter().any(|p| {
         let d = p.pos - centre;
+        // (R3: the shadow orbs circling the player strike grunts only.)
         p.active
+            && p.orb == crate::state::ORB_NONE
             && p.rest == REST_FLYING
             && usize::from(p.owner) == PLAYER
             && d.x.abs() <= half_w + radius + Fx::ONE

@@ -421,7 +421,7 @@ pub fn update(
     f.state_frame = f.state_frame.saturating_add(1);
     // The shield refills whenever it is not up (a broken shield is restored when the stun ends).
     if !matches!(f.state, S::Shield | S::ShieldBreak) {
-        f.shield_hp = (f.shield_hp + rules.shield_regen).min(rules.shield_max);
+        f.shield_hp = (f.shield_hp + rules.shield_regen).min(crate::combat::shield_max_of(rules, f));
     }
 
     // Walking or running off a platform takes the ground speed into the air the way a jump does (see `jump_squat`).
@@ -1518,7 +1518,12 @@ fn shield(f: &mut Fighter, p: &FighterParams, weapon: &Weapon, stage: &Stage, ru
     if !slide_on_platform(f, p, stage) {
         return;
     }
-    f.shield_hp -= rules.shield_deplete;
+    // (A run's sturdy shield wears slower: sim 142.)
+    f.shield_hp -= if f.shield_wear == 0 {
+        rules.shield_deplete
+    } else {
+        rules.shield_deplete * Fx::from_ratio(i32::from(f.shield_wear), 100)
+    };
     if f.shield_hp <= Fx::ZERO {
         break_shield(f, rules);
         return;
@@ -1796,7 +1801,8 @@ fn shield_break(f: &mut Fighter, p: &FighterParams, stage: &Stage, rules: &Rules
 
 /// A shield that broke comes back with part of its health.
 pub fn restore_shield(f: &mut Fighter, rules: &Ruleset) {
-    f.shield_hp = rules.shield_max * Fx::from_ratio(i32::from(rules.shield_restore_percent), 100);
+    f.shield_hp = crate::combat::shield_max_of(rules, f)
+        * Fx::from_ratio(i32::from(rules.shield_restore_percent), 100);
 }
 
 fn shield_drop(f: &mut Fighter, p: &FighterParams, stage: &Stage) {

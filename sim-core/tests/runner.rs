@@ -757,7 +757,7 @@ fn buying_by_walking_up_and_leaving() {
     assert_eq!(sim.state.run.shop_note, NOTE_NOT_NEEDED);
     assert_eq!(sim.state.run.coins, coins);
     // Away from the pedestals and the door, up does nothing.
-    stand_inside(&mut sim, (shop.pedestals[3].x + shop.keeper.x) / fx(2));
+    stand_inside(&mut sim, (shop.pedestals[1].x + shop.pedestals[2].x) / fx(2));
     sim.tick(Input::default());
     let acts = sim.state.run.shop_acts;
     press_up(&mut sim);

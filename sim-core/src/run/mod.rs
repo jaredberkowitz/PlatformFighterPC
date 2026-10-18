@@ -34,14 +34,15 @@
 pub mod data;
 mod mobs;
 pub use mobs::{grunt_weight, grunt_zone, slot as grunt_slot};
+pub mod items;
 mod props;
 mod reach;
 pub use reach::{jump_reach, recovery_reach};
 
 pub use data::{
     Building, CoinSpot, Deck, Footing, Interior, MobKind, MobSpawn, Piece, PieceSlot, PropKind,
-    PropSpot, Room, RoomLedge, RunContent, RunRules, ShopItem, Tier, ITEM_HEAL, ITEM_LIFE,
-    LOOK_NAMES, MAX_DECKS, ROOM_ALLEY, ROOM_ARENA, ROOM_EVENT, ROOM_REST, ROOM_SHOP, ROOM_STREET,
+    PropSpot, Room, RoomLedge, RunContent, RunRules, ShopItem, Tier, ITEM_HEAL, ITEM_KINDS,
+    ITEM_LIFE, LOOK_NAMES, MAX_DECKS, NO_ITEM, PEDESTALS, ROOM_ALLEY, ROOM_ARENA, ROOM_EVENT, ROOM_REST, ROOM_SHOP, ROOM_STREET,
 };
 
 use crate::collision;
@@ -97,6 +98,10 @@ pub const NOTE_SOLD_OUT: u8 = 3;
 pub const NOTE_NOT_NEEDED: u8 = 4;
 /// R2b: the shopkeeper is sulking after a bonk and will not sell.
 pub const NOTE_REFUSED: u8 = 5;
+/// R3: the one consumable slot is taken (a bubble up, a bomb not yet burst).
+pub const NOTE_SLOT_FULL: u8 = 6;
+/// R3: the bell was rung (the unsold pedestals re-drawn).
+pub const NOTE_REROLLED: u8 = 7;
 
 /// `Run::keeper_mood` values: what the shopkeeper is doing.
 pub const KEEPER_IDLE: u8 = 0;
@@ -111,6 +116,8 @@ pub const KEEPER_DIZZY: u8 = 4;
 /// Sulking after the bonk ("Hmph!", arms crossed): it refuses to sell until the player has gone on into a new room
 /// (`Run::keeper_grudge`; R2c, the owner's rule).
 pub const KEEPER_HMPH: u8 = 5;
+/// R3: ringing up fresh stock after the bell.
+pub const KEEPER_RESTOCK: u8 = 6;
 
 /// One entry of the stage's platform pool.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -190,6 +197,11 @@ pub struct RoomSlot {
     pub emerged_at: u32,
     /// R2e. Its skilled route is not offered to this run's fighter, who cannot make it (`skilled_offered`): laid without it.
     pub skill_off: bool,
+    /// R3 (F8). What it holds as a find (`data::FIND_*`, drawn as it is laid; where: [`items::find_spot`]), the item if an item
+    /// (`NO_ITEM` else), and whether it has been taken.
+    pub find: u8,
+    pub find_item: u8,
+    pub found: bool,
 }
 
 impl RoomSlot {
@@ -238,6 +250,8 @@ pub struct Mob {
     pub air: bool,
     pub juggle: u8,
     pub bowled: u16,
+    /// R3 (hot hands). Frames left of its burn.
+    pub burn: u8,
 }
 
 /// `Run::callout` values: the last bonus the HUD calls out.
@@ -493,6 +507,38 @@ pub struct Run {
     pub spike_kos: u16,
     pub bowls: u16,
     pub air_kos: u16,
+    /// R3, the shop's stock: the item on each drawn pedestal (`NO_ITEM` empty), the bell's rings in this shop, and the stream the
+    /// draws come from (each shop's own, from the run's seed and the shop's room: [`items::stock_shop`]).
+    pub shop_stock: [u8; PEDESTALS],
+    pub shop_rerolls: u8,
+    pub shop_rng: Rng,
+    /// R3. The run's seed (each shop's stream and nothing else).
+    pub seed: u64,
+    /// R3, the build: how many of each item kind the run owns (`data::ITEM_*`), and the one consumable slot (`NO_ITEM`, or the
+    /// bubble up or the bomb not yet burst).
+    pub owned: [u8; ITEM_KINDS],
+    pub slot: u8,
+    /// The bought bomb in the item pool (`state::NONE` until it is handed over at the door), and whether it has been thrown.
+    pub bomb: i8,
+    pub bomb_thrown: bool,
+    /// Second wind's frames still to give once the respawn invincibility ends; steady combo's forgiving hit (ready or spent); the
+    /// shadow orbs' clock to the next orb.
+    pub wind: u16,
+    pub guard: bool,
+    pub orb_timer: u16,
+    /// Where the run keeps its fighter's own parameters in its content copy (stat items rebuild from them: [`items::refresh`]), and
+    /// the body whose weapon has the shadow orbs (`NO_ITEM` none) with that move.
+    pub base_fighter: u8,
+    pub orb_body: u8,
+    pub orb_move: u8,
+    /// R3, cues for the game: bubbles popped, combos saved by steady combo, grunt knock-outs healed by lifesteal, finds taken (and
+    /// what the last was, `data::FIND_*`), and the "city" of the last 1-up found plus 1.
+    pub pops: u16,
+    pub saves: u16,
+    pub steals: u16,
+    pub finds: u16,
+    pub find_last: u8,
+    pub life_city: u32,
 }
 
 impl Run {
@@ -536,6 +582,9 @@ impl Run {
             lid: false,
             emerged_at: 0,
             skill_off: false,
+            find: 0,
+            find_item: NO_ITEM,
+            found: false,
         }; RING],
         platforms: [PoolPlatform {
             live: false,
@@ -569,6 +618,7 @@ impl Run {
             air: false,
             juggle: 0,
             bowled: 0,
+            burn: 0,
         }; MAX_MOBS],
         coins: 0,
         coins_picked: 0,
@@ -653,6 +703,26 @@ impl Run {
         spike_kos: 0,
         bowls: 0,
         air_kos: 0,
+        shop_stock: [NO_ITEM; PEDESTALS],
+        shop_rerolls: 0,
+        shop_rng: Rng::new(0),
+        seed: 0,
+        owned: [0; ITEM_KINDS],
+        slot: NO_ITEM,
+        bomb: NONE,
+        bomb_thrown: false,
+        wind: 0,
+        guard: false,
+        orb_timer: 0,
+        base_fighter: 0,
+        orb_body: NO_ITEM,
+        orb_move: 0,
+        pops: 0,
+        saves: 0,
+        steals: 0,
+        finds: 0,
+        find_last: 0,
+        life_city: 0,
     };
 
     /// Whole world units travelled (the HUD's metres).
@@ -1296,6 +1366,14 @@ pub fn new_run(world: &mut Content, rc: &RunContent, seed: u64, char_id: u8) -> 
     run.next_y = ground;
     run.room = 0;
     run.van.platform = NONE;
+    // (R3: each shop's stock and each room's find come from streams of their own, from the seed; the fighter's own parameters are
+    // kept in the run's content copy for the stat items to rebuild from; the orbs item fires the body whose weapon has them.)
+    run.seed = seed;
+    run.base_fighter = items::stash_base(world, char_id);
+    if let Some((body, mv)) = items::find_orbs(world) {
+        run.orb_body = body;
+        run.orb_move = mv;
+    }
     // (R2e: the fighter's reach, once: a skilled route it cannot make is not offered.)
     if let Some(p) = world.fighters.get(usize::from(char_id)) {
         let (h, d) = jump_reach(p);
@@ -1347,6 +1425,8 @@ pub fn step_run(
         return;
     }
     build_stage(&state.run, rc, &mut world.stage);
+    // (R3: the build on the fighter: its parameters rebuilt from its own with the stat items, its damage and its shield.)
+    items::refresh(state, world, rc);
     let input = inputs[PLAYER];
     if state.run.over {
         remember_input(&mut state.run, input);
@@ -1370,6 +1450,8 @@ pub fn step_run(
     mobs::through_gate(state, world, rc);
     let mut all = mobs::think(state, world, rc);
     all[..MAX_FIGHTERS].copy_from_slice(inputs);
+    items::before_step(state, world, rc);
+    let pops = state.run.pops;
     crate::step::step_bodies(state, world, &all);
     mobs::after_step(state, world, rc);
     mobs::bowl(state, world, rc);
@@ -1382,6 +1464,8 @@ pub fn step_run(
     }
     mobs::knock_outs(state, world, rc);
     collect_coins(state, rc);
+    items::take_finds(state, rc);
+    items::after_step(state, world, rc, pops);
     settle_combo(state);
     check_arena(state, rc);
     if let Some(seq) = door_here(state, rc).filter(|_| pressed_up(&state.run, input)) {
@@ -2088,9 +2172,14 @@ fn place_slot(run: &mut Run, rc: &RunContent, id: u8, x0: Fx, y0: Fx, mirror: bo
         lid: false,
         emerged_at: 0,
         skill_off: false,
+        find: 0,
+        find_item: NO_ITEM,
+        found: false,
     };
     slot.skill_off = room.platforms.iter().any(|f| f.skilled)
         && !skilled_offered(&rc.rules, room, run.reach_jump, run.reach_recovery);
+    // (R3, F8: a find on a skilled route, a treasure alley or a fork's road.)
+    items::roll_find(run, rc, &mut slot);
     let mut lo = slot.lo;
     for_each_footing(rc, &slot, |p| {
         lo = lo.min(p.platform.y.min(p.platform.top_right()));
@@ -2750,7 +2839,8 @@ fn collect_coins(state: &mut GameState, rc: &RunContent) {
         return;
     }
     let body = f.pos + Vec2::new(Fx::ZERO, Fx::ONE);
-    let reach = rc.rules.coin_reach;
+    // (R3: the coin magnet reaches further.)
+    let reach = items::coin_reach(&state.run, rc);
     let run = &mut state.run;
     for s in 0..RING {
         let slot = run.slots[s];
@@ -2884,12 +2974,19 @@ fn push_from_edge(state: &mut GameState, world: &Content, rules: &RunRules) {
     }
 }
 
-/// A hit taken (the percent rose) or a life lost breaks the combo.
+/// A hit taken (the percent rose) or a life lost breaks the combo. R3: with steady combo, the first hit taken in a combo does not
+/// (its forgiving hit comes back once the combo has broken).
 fn settle_combo(state: &mut GameState) {
     let f = state.fighters[PLAYER];
     let run = &mut state.run;
-    if f.percent > run.last_percent || f.stocks < run.last_stocks || !f.active {
+    let hit = f.percent > run.last_percent;
+    let lost = f.stocks < run.last_stocks || !f.active;
+    if hit && !lost && run.combo > 0 && run.guard && items::steady(run) {
+        run.guard = false;
+        run.saves = run.saves.wrapping_add(1);
+    } else if hit || lost {
         run.combo = 0;
+        run.guard = items::steady(run);
     }
     run.last_percent = f.percent;
     run.last_stocks = f.stocks;
@@ -2959,12 +3056,18 @@ pub fn shop_spot(state: &GameState, rc: &RunContent) -> Option<Option<usize>> {
     if (x - rc.interior.door).abs() <= reach {
         return Some(None);
     }
-    ware_near(rc, x).map(Some)
+    // (R3: the bell on the counter, `items::BELL_SPOT`, where nearer than any ware.)
+    let bell = (x - rc.interior.bell).abs();
+    match ware_near(rc, x) {
+        Some(i) if (rc.interior.pedestals[i].x - x).abs() <= bell => Some(Some(i)),
+        _ if bell <= reach => Some(Some(items::BELL_SPOT)),
+        w => w.map(Some),
+    }
 }
 
 /// The ware whose pedestal is nearest `x` (interior coordinates), within reach.
 fn ware_near(rc: &RunContent, x: Fx) -> Option<usize> {
-    let wares = rc.items.len().min(MAX_SHOP_ITEMS);
+    let wares = items::ware_spots(rc);
     rc.interior
         .pedestals
         .iter()
@@ -3002,6 +3105,8 @@ fn enter_shop(state: &mut GameState, world: &mut Content, rc: &RunContent, seq: 
     if run.shop_room != seq {
         run.shop_room = seq;
         run.shop_bought = [0; MAX_SHOP_ITEMS];
+        // (R3: a new shop's pedestals are stocked as you first walk in.)
+        items::stock_shop(run, rc, seq);
     }
     run.inside = true;
     run.shop_note = NOTE_NONE;
@@ -3069,6 +3174,9 @@ fn shop_step(state: &mut GameState, world: &mut Content, rc: &RunContent, input:
     }
     match shop_spot(state, rc) {
         Some(None) => leave_shop(state, world, rc),
+        Some(Some(items::BELL_SPOT)) => {
+            items::reroll(state, rc);
+        }
         Some(Some(i)) => {
             let note = buy(state, rc, i);
             let run = &mut state.run;
@@ -3084,49 +3192,9 @@ fn shop_step(state: &mut GameState, world: &mut Content, rc: &RunContent, input:
     }
 }
 
-/// Buys ware `i`: refused if that shop has sold its limit, the coins are short, or it would do nothing.
+/// Buys ware spot `i` of the shop the player is in (R3: [`items::buy`]).
 pub fn buy(state: &mut GameState, rc: &RunContent, i: usize) -> u8 {
-    let Some(item) = rc.items.get(i).filter(|_| i < MAX_SHOP_ITEMS) else {
-        return NOTE_NONE;
-    };
-    let note = {
-        let run = &state.run;
-        let f = &state.fighters[PLAYER];
-        if run.keeper_grudge != 0 {
-            NOTE_REFUSED
-        } else if item.limit > 0 && run.shop_bought[i] >= item.limit {
-            NOTE_SOLD_OUT
-        } else if run.coins < u32::from(item.price) {
-            NOTE_TOO_POOR
-        } else if match item.kind {
-            ITEM_HEAL => f.percent <= Fx::ZERO,
-            ITEM_LIFE => f.stocks >= MatchRules::MAX_STOCKS,
-            _ => true,
-        } {
-            NOTE_NOT_NEEDED
-        } else {
-            NOTE_BOUGHT
-        }
-    };
-    if note == NOTE_BOUGHT {
-        let f = &mut state.fighters[PLAYER];
-        match item.kind {
-            ITEM_HEAL => f.percent = (f.percent - item.amount).max(Fx::ZERO),
-            _ => {
-                let more = item.amount.floor_int().clamp(1, 9) as u8;
-                f.stocks = f.stocks.saturating_add(more).min(MatchRules::MAX_STOCKS);
-            }
-        }
-        let (percent, stocks) = (f.percent, f.stocks);
-        let run = &mut state.run;
-        run.coins -= u32::from(item.price);
-        run.shop_bought[i] = run.shop_bought[i].saturating_add(1);
-        run.last_percent = percent;
-        run.last_stocks = stocks;
-    }
-    state.run.shop_note = note;
-    state.run.shop_acts = state.run.shop_acts.wrapping_add(1);
-    note
+    items::buy(state, rc, i)
 }
 
 impl StateHash for Mob {
@@ -3144,6 +3212,7 @@ impl StateHash for Mob {
         h.write_bool(self.air);
         h.write_u8(self.juggle);
         h.write_u16(self.bowled);
+        h.write_u8(self.burn);
     }
 }
 
@@ -3195,6 +3264,9 @@ impl StateHash for Run {
             h.write_bool(s.lid);
             h.write_u32(s.emerged_at);
             h.write_bool(s.skill_off);
+            h.write_u8(s.find);
+            h.write_u8(s.find_item);
+            h.write_bool(s.found);
         }
         for p in &self.platforms {
             h.write_bool(p.live);
@@ -3288,5 +3360,29 @@ impl StateHash for Run {
         h.write_u16(self.spike_kos);
         h.write_u16(self.bowls);
         h.write_u16(self.air_kos);
+        for v in self.shop_stock {
+            h.write_u8(v);
+        }
+        h.write_u8(self.shop_rerolls);
+        self.shop_rng.hash_into(h);
+        h.write_u64(self.seed);
+        for v in self.owned {
+            h.write_u8(v);
+        }
+        h.write_u8(self.slot);
+        h.write_i8(self.bomb);
+        h.write_bool(self.bomb_thrown);
+        h.write_u16(self.wind);
+        h.write_bool(self.guard);
+        h.write_u16(self.orb_timer);
+        h.write_u8(self.base_fighter);
+        h.write_u8(self.orb_body);
+        h.write_u8(self.orb_move);
+        h.write_u16(self.pops);
+        h.write_u16(self.saves);
+        h.write_u16(self.steals);
+        h.write_u16(self.finds);
+        h.write_u8(self.find_last);
+        h.write_u32(self.life_city);
     }
 }

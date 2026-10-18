@@ -109,11 +109,59 @@ pub const ROOM_ALLEY: u8 = 5;
 /// How many room types there are.
 pub const ROOM_KINDS: u8 = 6;
 
-/// Shop wares ([`ShopItem::kind`]): heal `amount` percent, or `amount` extra lives.
+/// The run's items ([`ShopItem::kind`]; R3, `RUNNER_R3_PLAN.md` 3). Each kind is one entry of `RunContent::items`, and what it does
+/// is a rule of the sim (`run::items`), sized by the entry's numbers. Staples first (heal `amount` percent; `amount` extra lives).
 pub const ITEM_HEAL: u8 = 0;
 pub const ITEM_LIFE: u8 = 1;
-/// At most this many wares in the shop.
-pub const MAX_SHOP_ITEMS: usize = 4;
+/// Stat boosts (they stack, up to `cap`): damage dealt +`amount` percent a stack (`Fighter::damage_scale`); the creator's speed,
+/// weight and jump stats +`amount` points a stack, rebuilt through `stats::apply` into the run's own copy of the fighter.
+pub const ITEM_POWER: u8 = 2;
+pub const ITEM_SPEED: u8 = 3;
+pub const ITEM_WEIGHT: u8 = 4;
+pub const ITEM_SPRING: u8 = 5;
+/// Properties: a grunt knock-out heals `amount` percent; coins within `amount` come to you; a hit on a grunt burns it `amount`
+/// percent every `extra` frames for `frames` frames; super armor through a smash attack's startup; `amount` more midair jumps; the
+/// shield `amount` percent stronger and wearing `extra` percent slower; `frames` more invincibility after a lost life; the first hit
+/// taken in a combo forgiven; hitboxes `amount` percent bigger; `amount` of the Exile's shadow orbs circling you, one more every
+/// `frames` frames.
+pub const ITEM_LIFESTEAL: u8 = 6;
+pub const ITEM_MAGNET: u8 = 7;
+pub const ITEM_HOT_HANDS: u8 = 8;
+pub const ITEM_IRON: u8 = 9;
+pub const ITEM_WING: u8 = 10;
+pub const ITEM_STURDY: u8 = 11;
+pub const ITEM_SECOND_WIND: u8 = 12;
+pub const ITEM_STEADY: u8 = 13;
+pub const ITEM_REACH: u8 = 14;
+pub const ITEM_ORBS: u8 = 15;
+/// Consumables (the one slot): a bubble that absorbs the next hit (then `frames` frames untouchable), and a bomb (the buckler's,
+/// handed to you at the shop's door; it bursts where its throw lands or hits).
+pub const ITEM_BUBBLE: u8 = 16;
+pub const ITEM_BOMB: u8 = 17;
+/// How many item kinds there are (`Run::owned` has one count each).
+pub const ITEM_KINDS: usize = 18;
+/// No item (an empty pedestal, an empty slot).
+pub const NO_ITEM: u8 = 255;
+
+/// [`ShopItem::rarity`]: a staple has its own stand in every shop (heal, extra life); the others are drawn for the pedestals from
+/// their pool (common white, rare blue, prized gold from `RunRules::prized_tier`).
+pub const RARITY_STAPLE: u8 = 0;
+pub const RARITY_COMMON: u8 = 1;
+pub const RARITY_RARE: u8 = 2;
+pub const RARITY_PRIZED: u8 = 3;
+/// The staples' stands, then the drawn pedestals: the shop's wares by spot.
+pub const STAPLES: usize = 2;
+pub const PEDESTALS: usize = 4;
+pub const MAX_SHOP_ITEMS: usize = STAPLES + PEDESTALS;
+/// The catalogue holds at most this many items.
+pub const MAX_CATALOGUE: usize = 32;
+
+/// R3 (F8): what a room may hold as a find ([`super::RoomSlot::find`]): nothing, an item from the pools (free), food (heals
+/// `RunRules::food_heal`), a 1-up.
+pub const FIND_NONE: u8 = 0;
+pub const FIND_ITEM: u8 = 1;
+pub const FIND_FOOD: u8 = 2;
+pub const FIND_LIFE: u8 = 3;
 
 /// Obstacle slot kinds ([`PieceSlot::kind`]) and which a piece fits ([`Piece::fits`], a bit per kind).
 pub const SLOT_STREET: u8 = 0;
@@ -421,8 +469,10 @@ pub struct Interior {
     /// The shopkeeper's feet and body (a circle standing on them).
     pub keeper: Vec2,
     pub keeper_radius: Fx,
-    /// Where each ware stands (the middle of its pedestal's top), in the wares' order.
+    /// Where each ware stands (the middle of its pedestal's top): the staples' stands, then the drawn pedestals.
     pub pedestals: Vec<Vec2>,
+    /// R3. Where you stand to ring the counter's bell (x; it re-draws the unsold pedestals).
+    pub bell: Fx,
     /// How long the shopkeeper waves on entry, cheers a purchase, grumbles at a refusal and stays dizzy after a bonk (frames).
     pub wave_frames: u16,
     pub cheer_frames: u16,
@@ -518,18 +568,28 @@ pub struct PropKind {
     pub coins: u16,
 }
 
-/// One of the shop's wares (R1b: a placeholder list; R3 grows it).
+/// One of the run's items (R1b: the shop's two wares; R3: the catalogue of 18). Names and blurbs are labels; the rest is hashed.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ShopItem {
-    /// What the shop calls it (a label, not hashed).
+    /// What the shop calls it, and one line on what it does (labels, not hashed).
     pub name: String,
-    /// `ITEM_HEAL` or `ITEM_LIFE`.
+    pub blurb: String,
+    /// `ITEM_*`: the rule it is (each kind at most once in the catalogue).
     pub kind: u8,
+    /// `RARITY_*`.
+    pub rarity: u8,
+    /// Its price at the first tier (a staple's always; the others' rise `RunRules::price_step` percent a tier).
     pub price: u16,
-    /// Percent healed, or lives given.
+    /// Its numbers (see the `ITEM_*` kinds).
     pub amount: Fx,
-    /// How many one shop sells (0: no limit).
+    pub extra: Fx,
+    pub frames: u16,
+    /// How many one shop sells (0: no limit; a pedestal sells its item once).
     pub limit: u8,
+    /// How many a run may own (0: no limit). A stat stacks to 3; a property is owned once.
+    pub cap: u8,
+    /// How often it is drawn within its pool (a weight).
+    pub odds: u8,
 }
 
 /// The run's rules.
@@ -670,6 +730,21 @@ pub struct RunRules {
     /// versus hit, the player's), each once a launch.
     pub bowl_hit: Hitbox,
     pub bowl_speed: Fx,
+    /// R3, the shop: prices rise `price_step` percent a tier (staples stay); the bell's first ring costs `reroll_price` coins and
+    /// each ring after it in the same shop doubles; a pedestal is rare `rare_odds` percent of the time and, from tier
+    /// `prized_tier` (0 the first), prized `prized_odds` percent, else common.
+    pub price_step: u8,
+    pub reroll_price: u16,
+    pub rare_odds: u8,
+    pub prized_odds: u8,
+    pub prized_tier: u8,
+    /// R3 (F8), finds on routes: a skilled route, a treasure alley or a fork's road holds a find `find_chance` percent of the time
+    /// (food `find_food` percent of those, healing `food_heal` percent; else an item from the pools); and, once a city, a 1-up
+    /// `life_chance` percent of the time instead, until one has come.
+    pub find_chance: u8,
+    pub find_food: u8,
+    pub food_heal: Fx,
+    pub life_chance: u8,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -956,6 +1031,15 @@ impl RunRules {
             spike_bonus: 10,
             bowl_hit: mob_hit(0, 0, 14, 80, 45, 60, 80),
             bowl_speed: Fx::HALF,
+            price_step: 15,
+            reroll_price: 10,
+            rare_odds: 30,
+            prized_odds: 15,
+            prized_tier: 2,
+            find_chance: 40,
+            find_food: 50,
+            food_heal: int(20),
+            life_chance: 15,
         }
     }
 }
@@ -1299,34 +1383,93 @@ impl CoinSpot {
 
 /// The shop's inside (placeholder: see the art list in `RUNNER_PLAN.md`): the door on the left, four pedestals, the counter with
 /// the shopkeeper behind it on the right, shelves high on the back wall.
+/// The run's items (R3, `RUNNER_R3_PLAN.md` 3): the two staples, the four stat boosts, ten properties and two consumables.
+pub fn standard_items() -> Vec<ShopItem> {
+    #[allow(clippy::too_many_arguments)]
+    fn item(
+        name: &str,
+        blurb: &str,
+        kind: u8,
+        rarity: u8,
+        price: u16,
+        amount: Fx,
+        extra: Fx,
+        frames: u16,
+        cap: u8,
+    ) -> ShopItem {
+        ShopItem {
+            name: name.to_string(),
+            blurb: blurb.to_string(),
+            kind,
+            rarity,
+            price,
+            amount,
+            extra,
+            frames,
+            limit: if rarity == RARITY_STAPLE { 0 } else { 1 },
+            cap,
+            odds: 10,
+        }
+    }
+    let z = Fx::ZERO;
+    let mut life = item("Extra life", "One more life. One a shop.", ITEM_LIFE, RARITY_STAPLE, 150, int(1), z, 0, 0);
+    life.limit = 1;
+    vec![
+        item("Heal 30%", "Takes 30% damage off.", ITEM_HEAL, RARITY_STAPLE, 30, int(30), z, 0, 0),
+        life,
+        item("Power", "Your hits deal 8% more damage.", ITEM_POWER, RARITY_COMMON, 50, int(8), z, 0, 3),
+        item("Speed", "Faster on your feet and in the air; a little lighter.", ITEM_SPEED, RARITY_COMMON, 45, int(2), z, 0, 3),
+        item("Weight", "Heavier: harder to launch.", ITEM_WEIGHT, RARITY_COMMON, 45, int(1), z, 0, 3),
+        item("Spring", "Jumps 6% higher.", ITEM_SPRING, RARITY_COMMON, 45, int(2), z, 0, 3),
+        item("Lifesteal", "Every grunt you knock out heals 3%.", ITEM_LIFESTEAL, RARITY_RARE, 90, int(3), z, 0, 1),
+        item("Coin magnet", "Coins come to you from 4 away.", ITEM_MAGNET, RARITY_RARE, 70, int(4), z, 0, 1),
+        item("Hot hands", "Your hits burn grunts: 1% a second for 3 seconds.", ITEM_HOT_HANDS, RARITY_RARE, 90, int(1), int(60), 180, 1),
+        item("Iron startup", "Super armor while your smash attacks wind up.", ITEM_IRON, RARITY_PRIZED, 160, z, z, 0, 1),
+        item("Extra wing", "One more midair jump.", ITEM_WING, RARITY_RARE, 100, int(1), z, 0, 1),
+        item("Sturdy shield", "Shield 30% stronger, shrinks 25% slower.", ITEM_STURDY, RARITY_RARE, 80, int(30), int(25), 0, 1),
+        item("Second wind", "3 more seconds untouchable after losing a life.", ITEM_SECOND_WIND, RARITY_RARE, 80, z, z, 180, 1),
+        item("Steady combo", "The first hit you take keeps your combo.", ITEM_STEADY, RARITY_RARE, 90, int(1), z, 0, 1),
+        item("Long reach", "Your hitboxes are 10% bigger.", ITEM_REACH, RARITY_PRIZED, 170, int(10), z, 0, 1),
+        item("Shadow orbs", "Three shadow orbs circle you and strike grunts.", ITEM_ORBS, RARITY_PRIZED, 200, int(3), z, 90, 1),
+        item("Bubble", "Absorbs the next hit you take.", ITEM_BUBBLE, RARITY_COMMON, 35, z, z, 30, 0),
+        item("Bomb", "A bomb in your hands as you leave; it bursts where it lands.", ITEM_BOMB, RARITY_COMMON, 30, z, z, 0, 0),
+    ]
+}
+
 fn interior() -> Interior {
     Interior {
-        width: int(24),
+        width: int(30),
         platforms: vec![
-            solid(0, 240, 0, LOOK_SHOP_FLOOR),
+            solid(0, 300, 0, LOOK_SHOP_FLOOR),
             // The walls and the ceiling: nothing leaves but by the door.
             solid(-10, 0, 140, LOOK_SHOP_WALL),
-            solid(240, 250, 140, LOOK_SHOP_WALL),
-            slab(-10, 250, 95, 110, LOOK_SHOP_CEILING),
-            // The wares' pedestals (low stands you can hop on), the counter, and shelves high on the back wall.
-            plank(74, 86, 9, LOOK_PEDESTAL),
-            plank(104, 116, 9, LOOK_PEDESTAL),
-            plank(134, 146, 9, LOOK_PEDESTAL),
-            plank(164, 176, 9, LOOK_PEDESTAL),
-            solid(190, 215, 13, LOOK_COUNTER),
-            plank(60, 100, 46, LOOK_SHELF),
-            plank(130, 170, 46, LOOK_SHELF),
+            solid(300, 310, 140, LOOK_SHOP_WALL),
+            slab(-10, 310, 95, 110, LOOK_SHOP_CEILING),
+            // The staples' stands and the wares' pedestals (low stands you can hop on), the counter (its bell at its left end), and
+            // shelves high on the back wall. (R3: two stands and four pedestals, was four pedestals.)
+            plank(64, 76, 9, LOOK_PEDESTAL),
+            plank(94, 106, 9, LOOK_PEDESTAL),
+            plank(129, 141, 9, LOOK_PEDESTAL),
+            plank(159, 171, 9, LOOK_PEDESTAL),
+            plank(189, 201, 9, LOOK_PEDESTAL),
+            plank(219, 231, 9, LOOK_PEDESTAL),
+            solid(258, 284, 13, LOOK_COUNTER),
+            plank(60, 110, 46, LOOK_SHELF),
+            plank(140, 220, 46, LOOK_SHELF),
         ],
         enter: int(3),
         door: int(3),
-        keeper: Vec2::new(tenths(228), Fx::ZERO),
+        keeper: Vec2::new(tenths(292), Fx::ZERO),
         keeper_radius: tenths(7),
         pedestals: vec![
-            Vec2::new(int(8), tenths(9)),
-            Vec2::new(int(11), tenths(9)),
-            Vec2::new(int(14), tenths(9)),
-            Vec2::new(int(17), tenths(9)),
+            Vec2::new(int(7), tenths(9)),
+            Vec2::new(int(10), tenths(9)),
+            Vec2::new(tenths(135), tenths(9)),
+            Vec2::new(tenths(165), tenths(9)),
+            Vec2::new(tenths(195), tenths(9)),
+            Vec2::new(tenths(225), tenths(9)),
         ],
+        bell: tenths(250),
         wave_frames: 90,
         cheer_frames: 70,
         grumble_frames: 60,
@@ -2521,22 +2664,7 @@ impl RunContent {
             rooms,
             pieces: pieces(),
             mobs: MobKind::standard(),
-            items: vec![
-                ShopItem {
-                    name: "Heal 30%".to_string(),
-                    kind: ITEM_HEAL,
-                    price: 30,
-                    amount: int(30),
-                    limit: 0,
-                },
-                ShopItem {
-                    name: "Extra life".to_string(),
-                    kind: ITEM_LIFE,
-                    price: 150,
-                    amount: int(1),
-                    limit: 1,
-                },
-            ],
+            items: standard_items(),
             interior: interior(),
             tiers: Tier::standard(),
             props: PropKind::standard(),
@@ -2567,9 +2695,14 @@ impl RunContent {
         h.write_u32(self.items.len() as u32);
         for i in &self.items {
             h.write_u8(i.kind);
+            h.write_u8(i.rarity);
             h.write_u16(i.price);
             i.amount.hash_into(&mut h);
+            i.extra.hash_into(&mut h);
+            h.write_u16(i.frames);
             h.write_u8(i.limit);
+            h.write_u8(i.cap);
+            h.write_u8(i.odds);
         }
         let s = &self.interior;
         s.width.hash_into(&mut h);
@@ -2578,6 +2711,7 @@ impl RunContent {
         s.door.hash_into(&mut h);
         s.keeper.hash_into(&mut h);
         s.keeper_radius.hash_into(&mut h);
+        s.bell.hash_into(&mut h);
         h.write_u32(s.pedestals.len() as u32);
         for p in &s.pedestals {
             p.hash_into(&mut h);
@@ -2750,6 +2884,19 @@ impl StateHash for RunRules {
         h.write_u16(self.sky_bonus);
         h.write_u16(self.spike_bonus);
         self.bowl_hit.hash_into(h);
+        for v in [
+            self.price_step,
+            self.rare_odds,
+            self.prized_odds,
+            self.prized_tier,
+            self.find_chance,
+            self.find_food,
+            self.life_chance,
+        ] {
+            h.write_u8(v);
+        }
+        h.write_u16(self.reroll_price);
+        self.food_heal.hash_into(h);
     }
 }
 

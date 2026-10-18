@@ -9,8 +9,9 @@
 
 use sim_core::content::Platform;
 use sim_core::run::data::{
-    Room, BLOCK_BOTTOM, INTERIOR_PLATFORMS, ITEM_HEAL, ITEM_LIFE, LOOK_NAMES, MAX_ROOM_WIDTH,
-    MAX_SHOP_ITEMS, MIN_ROOM_WIDTH, MOB_MOVES, NO_MOVE, PROP_ROLES, PROP_SIGN, ROLES, ROLE_LOBBER,
+    Room, BLOCK_BOTTOM, INTERIOR_PLATFORMS, ITEM_BUBBLE, ITEM_HEAL, ITEM_KINDS, ITEM_LIFE,
+    ITEM_POWER, ITEM_REACH, ITEM_SPEED, ITEM_SPRING, ITEM_WEIGHT, LOOK_NAMES, MAX_CATALOGUE,
+    MAX_ROOM_WIDTH, MAX_SHOP_ITEMS, MIN_ROOM_WIDTH, RARITY_PRIZED, RARITY_STAPLE, STAPLES, MOB_MOVES, NO_MOVE, PROP_ROLES, PROP_SIGN, ROLES, ROLE_LOBBER,
     ROOM_ALLEY, ROOM_ARENA, ROOM_COINS, ROOM_EVENT, ROOM_KINDS, ROOM_LEDGES, ROOM_PARTS,
     ROOM_PLATFORMS, ROOM_PROPS, ROOM_REST, ROOM_SHOP, ROOM_SLOTS, ROOM_SPAWNS, ROOM_STREET,
     SLOT_AIR, SPOT_ANY,
@@ -151,21 +152,7 @@ pub fn check_run_shape(rc: &RunContent) -> Vec<String> {
         errors.push("run: rest_weight is above 0 but there is no rest room".to_string());
     }
     deck_problems(rc, &mut errors);
-    if rc.items.is_empty() || rc.items.len() > MAX_SHOP_ITEMS {
-        errors.push(format!("run: the shop needs 1 to {MAX_SHOP_ITEMS} wares"));
-    }
-    for (i, item) in rc.items.iter().enumerate() {
-        let at = format!("ware {i} ({})", item.name);
-        if item.kind != ITEM_HEAL && item.kind != ITEM_LIFE {
-            errors.push(format!("{at}: kind must be heal (0) or life (1)"));
-        }
-        if item.price == 0 {
-            errors.push(format!("{at}: price at least 1"));
-        }
-        if item.amount <= Fx::ZERO || item.kind == ITEM_LIFE && item.amount > Fx::from_int(9) {
-            errors.push(format!("{at}: amount above 0 (at most 9 lives)"));
-        }
-    }
+    item_problems(rc, &mut errors);
     if rc.mobs.is_empty() || rc.mobs.len() > 255 {
         errors.push("run: needs 1 to 255 mob kinds".to_string());
     }
@@ -895,6 +882,69 @@ fn room_deck_problems(rc: &RunContent, at: &str, c: &Room, errors: &mut Vec<Stri
     }
 }
 
+/// R3: the catalogue of items (each kind once, sane numbers, at most two staples) and the shop's odds.
+fn item_problems(rc: &RunContent, errors: &mut Vec<String>) {
+    if rc.items.is_empty() || rc.items.len() > MAX_CATALOGUE {
+        errors.push(format!("run: the shop needs 1 to {MAX_CATALOGUE} wares"));
+    }
+    let staples = rc.items.iter().filter(|i| i.rarity == RARITY_STAPLE).count();
+    if staples > STAPLES {
+        errors.push(format!("run: at most {STAPLES} staple wares"));
+    }
+    for (i, item) in rc.items.iter().enumerate() {
+        let at = format!("ware {i} ({})", item.name);
+        if usize::from(item.kind) >= ITEM_KINDS {
+            errors.push(format!("{at}: kind must be below {ITEM_KINDS}"));
+        }
+        if rc.items[..i].iter().any(|o| o.kind == item.kind) {
+            errors.push(format!("{at}: its kind is already in the catalogue"));
+        }
+        if item.rarity > RARITY_PRIZED {
+            errors.push(format!("{at}: rarity 0 to {RARITY_PRIZED}"));
+        }
+        if item.price == 0 {
+            errors.push(format!("{at}: price at least 1"));
+        }
+        if item.rarity != RARITY_STAPLE && item.odds == 0 {
+            errors.push(format!("{at}: a drawn ware needs odds above 0"));
+        }
+        let positive = matches!(
+            item.kind,
+            ITEM_HEAL | ITEM_LIFE | ITEM_POWER | ITEM_SPEED | ITEM_WEIGHT | ITEM_SPRING | ITEM_REACH
+        );
+        if positive && item.amount <= Fx::ZERO || item.amount < Fx::ZERO || item.extra < Fx::ZERO {
+            errors.push(format!("{at}: amount above 0"));
+        }
+        if item.kind == ITEM_LIFE && item.amount > Fx::from_int(9) {
+            errors.push(format!("{at}: at most 9 lives"));
+        }
+        if matches!(item.kind, ITEM_SPEED | ITEM_WEIGHT | ITEM_SPRING)
+            && item.amount.mul_int(i32::from(item.cap.max(1))) > Fx::from_int(12)
+        {
+            errors.push(format!("{at}: at most 12 stat points at its cap"));
+        }
+        if item.kind == ITEM_BUBBLE && item.frames > 255 {
+            errors.push(format!("{at}: the bubble's frames at most 255"));
+        }
+    }
+    let r = &rc.rules;
+    if u32::from(r.rare_odds) + u32::from(r.prized_odds) > 100 {
+        errors.push("run: rare_odds and prized_odds at most 100 together".to_string());
+    }
+    if r.reroll_price == 0 {
+        errors.push("run: reroll_price at least 1".to_string());
+    }
+    for (name, v) in [
+        ("find_chance", r.find_chance),
+        ("find_food", r.find_food),
+        ("life_chance", r.life_chance),
+    ] {
+        if v > 100 {
+            errors.push(format!("run: {name} is a percent (at most 100)"));
+        }
+    }
+}
+
 fn interior_problems(rc: &RunContent, errors: &mut Vec<String>) {
     let s = &rc.interior;
     if s.width < Fx::from_int(8) || s.width > Fx::from_int(MAX_ROOM_WIDTH) {
@@ -931,8 +981,18 @@ fn interior_problems(rc: &RunContent, errors: &mut Vec<String>) {
             ));
         }
     }
-    if s.pedestals.len() < rc.items.len() {
-        errors.push("shop interior: a pedestal for every ware".to_string());
+    if s.pedestals.len() <= STAPLES || s.pedestals.len() > MAX_SHOP_ITEMS {
+        errors.push(format!(
+            "shop interior: {} to {MAX_SHOP_ITEMS} ware stands (the staples' first)",
+            STAPLES + 1
+        ));
+    }
+    if s.bell <= Fx::ZERO
+        || s.bell >= s.width
+        || (s.bell - s.door).abs() <= rc.rules.door_reach.mul_int(2)
+        || s.pedestals.iter().any(|p| (p.x - s.bell).abs() < rc.rules.door_reach)
+    {
+        errors.push("shop interior: the bell must be inside, away from the door and the wares".to_string());
     }
     for (j, p) in s.pedestals.iter().enumerate() {
         if p.x <= Fx::ZERO
