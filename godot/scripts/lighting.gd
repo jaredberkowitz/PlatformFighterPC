@@ -63,6 +63,8 @@ const STYLE_DEFAULT := {
 	"paint": [Color(1.06, 1.01, 0.92), Color(0.9, 0.94, 1.06), 0.55],
 	# How strongly the effects and lit things (the city's windows, lamps) bloom.
 	"glow": 0.75,
+	# How much deeper the scenery's shade side is than its painted shadow colour (`pf_scenery_shade` in shaders/toon_light.gdshaderinc).
+	"scenery_shade": 0.32,
 	# The finishing pass's value range (shaders/post.gdshader): how far colours are eased toward grey (`desat`), how far the darks are
 	# lifted toward the haze (`lift`), the vignette, how far the far scenery fades into the haze at most (`haze_max`) and a gentle
 	# S-curve on the values (`s_curve`, 0 none). The fighters take half of the pastel and the curve.
@@ -252,5 +254,6 @@ static func _set_globals(mood: Dictionary, look: Dictionary) -> void:
 	RenderingServer.global_shader_parameter_set("pf_shadow_value", mood.shadow_value)
 	RenderingServer.global_shader_parameter_set("pf_shadow_tint", mood.shadow_tint)
 	RenderingServer.global_shader_parameter_set("pf_rim_color", mood.rim)
+	RenderingServer.global_shader_parameter_set("pf_scenery_shade", float(look.get("scenery_shade", 1.0)))
 	var cl: Array = look.clouds
 	RenderingServer.global_shader_parameter_set("pf_clouds", Vector4(cl[0], cl[1], cl[2], cl[3]))

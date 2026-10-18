@@ -12,6 +12,10 @@ global uniform float pf_shadow_value;
 global uniform vec4 pf_rim_color;
 global uniform sampler2D pf_ramp : filter_linear, repeat_disable;
 global uniform float pf_deep_shade;
+// How much deeper the scenery's shade side is than the painted shadow colour (1 as painted; the fighters always 1). The shadow value is
+// applied in linear light, so 0.56 shows on screen as only about a fifth darker: the scenery's light and shade read flat and cloud
+// shadows barely showed (2026-10-18, art review 9). Per stage (scripts/lighting.gd STYLES `scenery_shade`).
+global uniform float pf_scenery_shade;
 global uniform vec4 pf_edge_light;
 // Cloud shadows (scripts/lighting.gd, per mood): broad soft patches of shade drifting slowly across the stage and the scenery near it,
 // so a sunny day has light and shade moving over it rather than one even wash (the grove's are small, a canopy's dappled light). x how
@@ -143,7 +147,7 @@ void light() {
 	// Deep shade: a cast shadow falling on the side already turned from the light.
 	float deep = (1.0 - ATTENUATION) * (1.0 - band) * cast;
 	shade = mix(shade, shade * pf_deep_shade, deep);
-	shade *= mix(1.0, PF_FIGHTER_SHADE, fighter);
+	shade *= mix(pf_scenery_shade, PF_FIGHTER_SHADE, fighter);
 	vec3 tone = mix(shade, vec3(1.0), lit);
 	// A point or spot light (a practical lamp in the scenery) fades with distance: ATTENUATION carries its falloff, and the cel ramp would
 	// otherwise light everything inside its range evenly and stop dead at the edge.
