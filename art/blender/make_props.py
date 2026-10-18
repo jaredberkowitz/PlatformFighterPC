@@ -1183,7 +1183,7 @@ def mountain_range(name, seed, height, peaks, base, amplitude, rounded):
             t = min(abs(d - ridge_d) / span, 1.0)
             prof = 1.0 - t ** (2.0 if rounded else 1.4)
             # Spurs and gullies down the front: a ripple across x that grows toward the foot.
-            ripple = math.sin(x * (0.06 if rounded else 0.11) + 2.5 * math.sin(x * 0.021 + ph)) * (0.06 if rounded else 0.12)
+            ripple = math.sin(x * (0.06 if rounded else 0.11) + 2.5 * math.sin(x * 0.021 + ph)) * (0.03 if rounded else 0.06)
             z = height * crest(x) * prof * (1.0 + ripple * t)
             row.append(bm.verts.new((x, d, z)))
         grid.append(row)

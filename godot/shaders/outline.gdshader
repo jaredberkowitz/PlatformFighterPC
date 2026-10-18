@@ -30,6 +30,8 @@ instance uniform vec4 outline_tint : instance_index(5) = vec4(0.0);
 global uniform float pf_paper;
 #include "res://shaders/xray.gdshaderinc"
 varying vec3 xray_at;
+// How much of the line is left after the distance fade: a faded hull sits right on its surface and would fight it (dark sails, round 14).
+varying float ink_left;
 
 void vertex() {
 	vec4 view = MODELVIEW_MATRIX * vec4(VERTEX, 1.0);
@@ -40,7 +42,9 @@ void vertex() {
 	float w = clamp(-view.z * width, min_width, max_width) * outline_weight * COLOR.r * cover;
 	w *= 1.0 - pf_paper * (1.0 - step(0.62, outline_weight));
 	// (The scenery's line fades out with distance, gone on the far layers: the gauntlet's round 13, as in shaders/post.gdshader.)
-	w *= 1.0 - (1.0 - step(0.62, outline_weight)) * smoothstep(scenery_ink_near, scenery_ink_near + 18.0, -view.z);
+	float faded = (1.0 - step(0.62, outline_weight)) * smoothstep(scenery_ink_near, scenery_ink_near + 18.0, -view.z);
+	w *= 1.0 - faded;
+	ink_left = 1.0 - faded;
 	view.xy += across * w;
 	view.z -= w * push_back;
 	POSITION = PROJECTION_MATRIX * view;
@@ -53,6 +57,9 @@ const float HULL_ID = 0.7;
 
 void fragment() {
 	// (The scenery's line goes see-through with its surface where it covers a fighter, shaders/xray.gdshaderinc.)
+	if (ink_left < 0.15) {
+		discard;
+	}
 	if (outline_weight < 0.62 && pf_xray_cut(xray_at, CAMERA_POSITION_WORLD, FRAGCOORD.xy)) {
 		discard;
 	}

@@ -716,9 +716,10 @@ static func _box(size: Vector3) -> BoxMesh:
 
 ## A box of `size` with every edge and corner rounded to radius `r` (the gauntlet's round 13: square-edged slabs read as level-editor
 ## primitives; a rounded edge catches a lit rim, as the references' ground does). A cube's faces gridded densely near their edges, each
-## point pulled onto the rounded shell; flat faces stay flat. Cached by size. No UVs: for world-tiled materials.
+## point pulled onto the rounded shell; flat faces stay flat. Cached by size. Its UVs run u along x (0 to 1, a board's grain) and v across
+## the other two, for a board's wood; world-tiled materials ignore them.
 static func _round_box(size: Vector3, r: float, steps := 5) -> ArrayMesh:
-	var key := "%s|%s" % [size, r]
+	var key := "%s|%s|%d" % [size, r, steps]
 	if _round_boxes.has(key):
 		return _round_boxes[key]
 	var half := size / 2.0
@@ -762,7 +763,9 @@ static func _round_box(size: Vector3, r: float, steps := 5) -> ArrayMesh:
 					var quad := [pts[i][j], pts[i + 1][j], pts[i + 1][j + 1], pts[i][j + 1]]
 					var tri := [0, 2, 1, 0, 3, 2] if sgn > 0.0 else [0, 1, 2, 0, 2, 3]
 					for k in tri:
-						st.add_vertex(quad[k])
+						var p: Vector3 = quad[k]
+						st.set_uv(Vector2((p.x + half.x) / size.x, (p.y + half.y) / size.y + (p.z + half.z) / size.z))
+						st.add_vertex(p)
 	st.index()
 	st.generate_normals()
 	var mesh := st.commit()
@@ -1173,10 +1176,16 @@ static func _plank_platform(parent: Node3D, t: Dictionary, left: float, right: f
 	var mm := MultiMesh.new()
 	mm.transform_format = MultiMesh.TRANSFORM_3D
 	mm.use_custom_data = true
-	mm.mesh = _bevel_block()
+	# (Each board rounded on every edge, the gauntlet's round 14: boards bevelled on the front alone read as slabs. One rounded board
+	# made at this platform's first board's size and the rest scaled from it, near 1, so the rounding stays true.)
+	var nominal := (items[0][0] as Transform3D).basis.get_scale()
+	mm.mesh = _round_box(nominal, 0.07, 3)
 	mm.instance_count = items.size()
 	for i in items.size():
-		mm.set_instance_transform(i, items[i][0])
+		var xf: Transform3D = items[i][0]
+		var sc := xf.basis.get_scale()
+		xf.basis = xf.basis.orthonormalized().scaled_local(sc / nominal)
+		mm.set_instance_transform(i, xf)
 		mm.set_instance_custom_data(i, items[i][1])
 	var boards := MultiMeshInstance3D.new()
 	boards.multimesh = mm
@@ -2300,7 +2309,7 @@ const RIDGES := {
 	# (Taller, with real peaks, 2026-10-17: a low wavy strip under the pale horizon read as a flat cloud bank over the mountains, the
 	# owner's note.)
 	# (More, narrower peaks, gauntlet round 2: three broad concave sweeps with a pale crest read as breaking waves.)
-	"meadow": [{"model": "range_meadow_far", "z": -170.0, "y": -50.0, "height": 88.0, "shape": 1, "seed": 3.0, "base": 0.32, "amplitude": 0.6, "frequency": 5.6,
+	"meadow": [{"model": "range_meadow_far", "land_drop": 16.0, "z": -170.0, "y": -50.0, "height": 88.0, "shape": 1, "seed": 3.0, "base": 0.32, "amplitude": 0.6, "frequency": 5.6,
 		# (More of its own blue and less haze, art review 6 round 31: at mix 0.55 the ridge was mostly horizon colour, a formless pale band
 		# behind the crisp painted hills; found with `--pick`.)
 		"tone": Color(0.2, 0.62, 0.6), "mix": 0.38, "edge": 0.1, "haze": 0.72,
@@ -2310,15 +2319,15 @@ const RIDGES := {
 		"flank": 0.75, "foot_dark": 0.35, "layers": 4, "flank_from": 0.0, "gullies": 0.45, "paper": 0.05, "edge_width": 0.012},
 		# A nearer, lower range in front, deeper teal and less hazed, casting its shadow on the far one: the backdrop as cut cards in layers
 		# with air between them, not one soft band (art review 9).
-		{"model": "range_meadow_near", "land_haze": 0.5, "z": -140.0, "y": -36.0, "height": 62.0, "shape": 1, "seed": 9.0, "base": 0.4, "amplitude": 0.5, "frequency": 7.0,
+		{"model": "range_meadow_near", "land_haze": 0.5, "land_drop": 8.0, "z": -140.0, "y": -36.0, "height": 62.0, "shape": 1, "seed": 9.0, "base": 0.4, "amplitude": 0.5, "frequency": 7.0,
 		"tone": Color(0.1, 0.38, 0.42), "mix": 0.82, "edge": 0.5, "haze": 0.28, "flank": 0.75, "foot_dark": 0.4, "layers": 3,
 		"flank_from": 0.0, "gullies": 0.6, "paper": 0.05, "edge_width": 0.016, "shadow": 0.5}],
 	"grove": [{"model": "range_grove_far", "z": -165.0, "y": -34.0, "height": 52.0, "shape": 0, "seed": 8.0, "base": 0.5, "amplitude": 0.32, "frequency": 3.5,
-		"tone": Color(0.5, 0.5, 0.84), "mix": 0.7, "edge": 0.3, "flank": 0.6, "foot_dark": 0.3, "layers": 4, "flank_from": 0.0, "gullies": 0.6,
+		"tone": Color(0.54, 0.54, 0.78), "mix": 0.7, "edge": 0.3, "flank": 0.6, "foot_dark": 0.3, "layers": 4, "flank_from": 0.0, "gullies": 0.6,
 		"haze": 0.34, "paper": 0.05, "edge_width": 0.014},
 		# A nearer row of rounded hills in a deeper violet-blue, casting its shadow on the far one (art review 9: cut cards in layers).
 		{"model": "range_grove_near", "z": -138.0, "y": -24.0, "height": 40.0, "shape": 0, "seed": 4.0, "base": 0.5, "amplitude": 0.36, "frequency": 5.0,
-		"tone": Color(0.36, 0.38, 0.72), "mix": 0.82, "edge": 0.4, "flank": 0.6, "foot_dark": 0.35, "layers": 3, "flank_from": 0.0,
+		"tone": Color(0.42, 0.44, 0.66), "mix": 0.82, "edge": 0.4, "flank": 0.6, "foot_dark": 0.35, "layers": 3, "flank_from": 0.0,
 		"gullies": 0.4, "haze": 0.34, "paper": 0.05, "edge_width": 0.02, "shadow": 0.5}],
 	"sunset": [{"z": -175.0, "y": -36.0, "height": 58.0, "shape": 2, "seed": 5.0, "base": 0.4, "amplitude": 0.4, "frequency": 3.0,
 		"tone": Color(0.42, 0.26, 0.5), "mix": 0.62, "edge": 0.35, "layers": 3, "flank_from": 0.0},
@@ -2344,8 +2353,14 @@ static func ridge(root: Node3D, t: Dictionary, spec: Dictionary) -> MeshInstance
 	# hazed toward the horizon by the spec's own haze.)
 	if spec.has("model"):
 		# (A step darker than the card's top: lit by the stage's key, a pale range blew out white at its peaks. "land_haze" its own.)
-		var land := FighterView.toon(top.lerp(horizon, float(spec.get("land_haze", spec.get("haze", 0.14)))).darkened(0.16), false)
-		_place_prop(root, String(spec.model), Vector3(0, float(spec.y), float(spec.z) + float(spec.height) * 0.55), 1.0, 0.0, land)
+		# (Calmer, the gauntlet's round 14: a soft light ramp over it and a step nearer the sky, so its flanks read as distant form and not
+		# as mottled noise; "land_drop" seats it lower, its peaks inside the frame.)
+		var land_c := top.lerp(horizon, minf(float(spec.get("land_haze", spec.get("haze", 0.14))) + 0.12, 0.92)).darkened(0.1)
+		var land := (FighterView.toon(land_c, false) as ShaderMaterial).duplicate() as ShaderMaterial
+		land.set_shader_parameter("ramp_softness", 0.45)
+		land.set_shader_parameter("rim_strength", 0.0)
+		_place_prop(root, String(spec.model), Vector3(0, float(spec.y) - float(spec.get("land_drop", 0.0)),
+			float(spec.z) + float(spec.height) * 0.55), 1.0, 0.0, land)
 		return null
 	m.set_shader_parameter("top_colour", top)
 	# (A spec's "foot_dark" takes the foot deeper and cooler than the top instead of toward the horizon: a pale foot read as a flat cloud

@@ -200,3 +200,18 @@ The cream-peach key fixed the meadow's cast; the modelled bales read well. Gaps:
 plain slab (no bevel catching a lit rim, ruler-straight fronts); (2) the backgrounds flat outlined cutout cards (the strongest
 "Flash game" cue). The three cheapest-looking things: box silhouettes, outlined flat cutouts in the distance, uniform oversaturated
 large surfaces with little material detail.
+
+## Round 14 (2026-10-18, commit d2bff9c)
+
+| Stage | Believ. | Cohesion | Lighting | Depth | Ground | Clarity | Mean |
+|---|---|---|---|---|---|---|---|
+| Meadow | 2 | 3 | 3 | 3 | 3 | 3 | 2.8 |
+| Canyon | 2 | 3 | 3 | 2 | 2 | 3 | 2.5 |
+| Beach | 3 | 2 | 3 | 3 | 2 | 3 | 2.7 |
+| City | 2 | 3 | 3 | 3 | 2 | 3 | 2.7 |
+| Grove | 3 | 3 | 3 | 3 | 3 | 3 | 3.0 |
+
+The modelled ranges lift Depth on both green stages (the meadow's the biggest believability gain in many rounds) and the distance's ink
+is gone. Regression: the beach's sails and palm fronds went dark (the faded outline hull z-fighting on thin surfaces). Gaps: (1) the box
+stage bodies and slab platforms, still; (2) the new landforms too loud for distance (mottled gullies, bright snowcaps, the meadow's
+range cropped by the frame).
