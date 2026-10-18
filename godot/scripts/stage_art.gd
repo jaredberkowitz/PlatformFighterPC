@@ -990,7 +990,7 @@ static func platform(parent: Node3D, t: Dictionary, left: float, right: float, t
 ## The meadow's and the grove's platforms as built things, made like the dock's deck (art review 9, item 3: plain slabs read as prototype
 ## blocks): separate boards with bevelled edges, each its own shade within a narrow range and a hair off true, dark gaps between them over a
 ## dark underlay, a lit lip along the front. The meadow's are four long boards lashed with rope to two round poles under the ends; the
-## grove's a shelf of short planks laid across two branches, which run out past the ends to cut ends, moss over the front edge.
+## grove's a shelf of short planks laid across two branches ending flush with them in cut ends, moss over the front edge.
 ## The top of the boards is the platform's `top`; nothing stands on it. Deterministic (from the platform's place).
 static func _plank_platform(parent: Node3D, t: Dictionary, left: float, right: float, top: float, front_z: float, depth: float) -> void:
 	var rng := RandomNumberGenerator.new()
@@ -1007,9 +1007,10 @@ static func _plank_platform(parent: Node3D, t: Dictionary, left: float, right: f
 	var items: Array = []
 	if grove:
 		# Short planks across the two branches, side by side along the platform, their front ends a little ragged.
-		var x := left - 0.1
-		while x < right + 0.05:
-			var pw := minf(rng.randf_range(0.5, 0.68), right + 0.1 - x)
+		# (Exactly from end to end, as are the branches: past the ends they read as more platform than there is, the owner, 2026-10-18.)
+		var x := left
+		while x < right - 0.05:
+			var pw := minf(rng.randf_range(0.5, 0.68), right - x)
 			if pw > 0.2:
 				var back := front_z - depth + rng.randf_range(0.0, 0.15)
 				var fr := front_z + rng.randf_range(-0.04, 0.08)
@@ -1046,17 +1047,17 @@ static func _plank_platform(parent: Node3D, t: Dictionary, left: float, right: f
 	# The lit lip along the front edge: it catches the light, and says where the platform ends.
 	_mesh(parent, _box(Vector3(w, 0.04, 0.05)), _soft(wood_c.lightened(0.3)), Vector3(cx, top - 0.025, front_z + 0.02))
 	if grove:
-		# Two branches under the planks, running out past both ends to cut ends, a little crooked.
+		# Two branches under the planks, ending flush with them in cut ends, a little crooked.
 		var bark := Materials.bark_plates(Color(0.42, 0.29, 0.21), Vector2(4, 1))
 		bark.set_shader_parameter("facets", true)
 		var cut := FighterView.toon(Color(0.86, 0.7, 0.5))
 		var ring := FighterView.toon(Color(0.62, 0.44, 0.3))
 		for bz: float in [front_z - 0.55, front_z - depth + 0.65]:
 			var rad := 0.26 if bz > front_z - 1.0 else 0.22
-			var bl := left - rng.randf_range(0.35, 0.7)
-			var br := right + rng.randf_range(0.35, 0.7)
+			var bl := left + 0.04
+			var br := right - 0.04
 			var by := top - thick - 0.06 - rad
-			var tilt := rng.randf_range(-1.5, 1.5)
+			var tilt := rng.randf_range(-0.8, 0.8)
 			_mesh(parent, _cylinder(rad * 0.92, rad, br - bl, 8), bark, Vector3((bl + br) * 0.5, by, bz), Vector3.ONE, Vector3(0, 0, 90 + tilt))
 			var dy := sin(deg_to_rad(tilt)) * (br - bl) * 0.5
 			for end: Array in [[bl, dy], [br, -dy]]:
