@@ -743,6 +743,15 @@ with diminishing returns (built); 3. no footage is coming, the estimates stay.
     * **No footage is coming**: the animation-driven recovery heights and the flash dash's 5.5 a frame stay estimates.
 
 101. **The Longsword jab stays as built** (owner, 2026-10-17; no behaviour change, sim 141): jab 1's tip keeps the 13.0.1 pull (BK 30, KS 12, so tip > jab 2 combos from 90%), and jab 2 can act from its frame 16 [E].
+
+102. **Specials after the sim 141 playtest** (owner, 2026-10-17; sim 143, branch `special-fixes`). Each item measured by a test:
+    * **The Bracers' aerial spin rises** ("does not gain any height at all"): the published gravity multiplier 0.07 now multiplies
+      the body's gravity (as the headbutt's 0.5 does), so the spin rises the whole move, about 48 reference units (6 before); the
+      grounded spin stays on the ground. `recovery_rise.rs`.
+    * **The Gauntlets' leap rises higher** ("should gain more height"): held still through the startup, then fitted to the
+      reference's hitbox visualisation (the animation's own movement): 53 units up in the air (25 before), 62 from the ground (35),
+      then the flip down before the special fall [E: footage-derived]. `recovery_rise.rs`.
+
 ## Still open
 
 From the Embers' phase 2 (details in `docs/movesets/embers/IMPLEMENTATION_REPORT.md`, "Owner follow-up"):

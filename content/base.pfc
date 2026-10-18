@@ -5,8 +5,8 @@ bundle {
     schema 8
     name "Base Roster"
     description "The built-in roster: a longsword duelist and a close-range brawler."
-    sim_version 141
-    hash 1153b6b4caedc0e3
+    sim_version 143
+    hash 9048cfccea443845
 }
 
 ruleset {
@@ -2152,17 +2152,48 @@ weapon gauntlets {
         hitbox { start 13 end 13 x 1.7 y 1.09999 radius 0.7 damage 0 angle 361 bkb 0 kbg 0 priority 1 kind grab targets grounded command true }
         hitbox { start 14 end 29 x 0.79999 y 1.9 radius 0.59999 damage 0 angle 361 bkb 0 kbg 0 kind grab command true }
         hitbox { start 14 end 29 x 0.79999 y 1.4 radius 0.59999 damage 0 angle 361 bkb 0 kbg 0 priority 1 kind grab command true }
-        air { from 0 to 12 drift 95 accel 600 }
-        air { from 31 to 255 gravity 0.01286 drift 95 }
+        air { from 0 to 12 gravity 0 drift 95 accel 600 }
+        air { from 30 to 65 gravity 0 max_fall 0.5 drift 95 }
+        air { from 66 to 255 gravity 0.01286 drift 95 }
         script {
-            // Gauntlets up special, the leap (reference frame 14 is frame 13 here). Before it the move's air block gives the x6 acceleration, so
-            // the stick builds up horizontal speed ("Tokyo drift"); from frame 13 to 30 the rise carries that speed on, plus a little forward
-            // drive of its own, rising at 3.4 reference units a frame and slowing evenly to 0.4 (about 34 units up and 11 forward) [E: the
-            // reference's rise is its animation, not published]. After it, the move's second air block (gravity 0.103).
+            // Gauntlets up special, the leap (reference frame N is frame N-1 here). Its rise and fall are the reference's animation (no published
+            // speeds), fitted to the reference's hitbox visualisation (sim 143: the body's centre frame by frame, its scale from the standing grab's
+            // published box) [E, footage-derived]: held still to frame 12, then up fast, slowing to a peak on frame 45 (about 53 reference units
+            // above the start in the air, 62 from the ground, whose take-off is stronger), then the flip down (about 38 units in the air, 45 from the
+            // ground) to frame 65; the special fall after it. Before the leap the move's air block gives the x6 acceleration, so the stick builds up
+            // horizontal speed ("Tokyo drift"); from frame 13 to 29 the rise carries that speed on, plus a little forward drive of its own; from
+            // frame 30 the stick drifts it again (the move's second air block, no gravity: the fitted speed is the whole fall).
             var base;
+            var g;
+            if frame == 1 { g = grounded; }
             if frame == 13 { base = vx; }
-            if frame >= 13 && frame <= 30 {
-                set_vel(base + 0.075, 0.425 - 0.022 * (frame - 13));
+            let up = 0;
+            if g == 1 {
+                if frame >= 13 && frame <= 14 { up = 0.36875; }
+                if frame >= 15 && frame <= 17 { up = 0.59625; }
+                if frame >= 18 && frame <= 21 { up = 0.3875; }
+                if frame >= 22 && frame <= 29 { up = 0.235; }
+                if frame >= 30 && frame <= 38 { up = 0.14875; }
+                if frame >= 39 && frame <= 45 { up = 0.07375; }
+                if frame >= 46 && frame <= 51 { up = -0.16; }
+                if frame >= 52 && frame <= 57 { up = -0.2275; }
+                if frame >= 58 { up = -0.40625; }
+            } else {
+                if frame >= 13 && frame <= 14 { up = 0.2975; }
+                if frame >= 15 && frame <= 17 { up = 0.4175; }
+                if frame >= 18 && frame <= 21 { up = 0.2825; }
+                if frame >= 22 && frame <= 29 { up = 0.22; }
+                if frame >= 30 && frame <= 38 { up = 0.1475; }
+                if frame >= 39 && frame <= 45 { up = 0.0725; }
+                if frame >= 46 && frame <= 51 { up = -0.1575; }
+                if frame >= 52 && frame <= 57 { up = -0.195; }
+                if frame >= 58 { up = -0.32125; }
+            }
+            if frame >= 13 && frame <= 29 {
+                set_vel(base + 0.075, up);
+            }
+            if frame >= 30 && frame <= 65 {
+                add_vel(0, up - vy);
             }
         }
     }
@@ -5929,13 +5960,15 @@ weapon bracers {
         hitbox { start 38 end 42 x -0.4 y 1.4 radius 0.5 damage 2 angle 361 bkb 72 kbg 80 priority 3 group 2 shield_damage 150 angle_type position }
         part_intangible { start 9 end 37 limb true }
         script {
-            // Bracers up special in the air (the reference's rising spin): it starts rising at 0.9 of the reference's units a frame, falls at
-            // 0.07 a frame per frame (decision 41: read as the fall rate itself, not a multiplier [E]) down to the body's fall speed (1.63 [E]), and drifts with the
+            // Bracers up special in the air (the reference's rising spin): it starts rising at 0.9 of the reference's units a frame and slows by
+            // the body's gravity times the published gravity multiplier 0.07 (0.085 x 0.07 = 0.00595 a frame per frame; sim 143, owner decision
+            // 102: read as a multiplier, as the headbutt's 0.5 is, so the spin rises the whole move, about 48 units; before it 0.07 was read as the
+            // gravity itself and the spin peaked 6 units up after 13 frames, then sank) down to the body's fall speed (1.63 [E]), and drifts with the
             // stick at 0.05 a frame up to 1.7 [R] (world units: / 8). Its twelve 1% hits are each a fresh hit at the start of its span (13, 15,
             // 18, 20, 22, 25, 27, 30, 32, 34 and 37; move frames one less), re-armed then.
             var h;
             var u;
-            if frame == 1 { h = vx; u = 0.1125; } else { u = max(u - 0.00875, -0.20375); }
+            if frame == 1 { h = vx; u = 0.1125; } else { u = max(u - 0.00074375, -0.20375); }
             h = clamp(h + 0.00625 * stick_x, -0.2125, 0.2125);
             set_vel(h, u);
             if frame == 12 || frame == 14 || frame == 17 || frame == 19 || frame == 21 || frame == 24 || frame == 26 || frame == 29 || frame == 31 || frame == 33 || frame == 36 { rehit(); }

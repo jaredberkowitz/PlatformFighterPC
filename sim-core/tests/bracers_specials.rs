@@ -585,7 +585,7 @@ fn the_grounded_spin_hits_on_the_references_frames_and_the_aerial_one_on_its_own
 }
 
 #[test]
-fn the_aerial_spin_barely_rises_and_ends_in_a_special_fall_with_38_frames_of_landing_lag() {
+fn the_aerial_spin_rises_slowly_and_ends_in_a_special_fall_with_38_frames_of_landing_lag() {
     let mut sim = duel(Fx::from_int(12));
     sim.put_airborne(0, Fx::ZERO, Fx::from_int(30), Fx::ZERO, Fx::ZERO);
     let y0 = sim.f().pos.y;
@@ -600,9 +600,10 @@ fn the_aerial_spin_barely_rises_and_ends_in_a_special_fall_with_38_frames_of_lan
             fall_at = Some(t);
         }
     }
-    // 0.9 up at 0.07 a frame down: about 6 of the reference's units up (0.78 world) [E: conflict 6].
+    // 0.9 up, slowed by the gravity 0.085 x 0.07 (sim 143, owner decision 102: conflict 6 settled as a multiplier): still rising
+    // when the spin ends, about 48 of the reference's units up (6 world); `recovery_rise.rs` has the curve.
     let rise = peak - y0;
-    assert!(rise > fx(6, 10) && rise < fx(9, 10), "{rise:?}");
+    assert!(rise > fx(57, 10) && rise < fx(64, 10), "{rise:?}");
     // (The house's frame rule, as for every FAF: the move's last frame is the reference's 70, the fall starts as it ends.)
     assert_eq!(fall_at, Some(70), "70 frames then the fall");
     // Landing in the fall: 38 frames.

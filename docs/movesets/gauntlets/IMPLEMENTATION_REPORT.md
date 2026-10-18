@@ -273,3 +273,13 @@ ground) and the dive kick (14-27, diagonal), its landing (1-2), the wall crash (
 ## Sim 130: up specials halt their starting momentum
 
 Owner decision 97 (sim 130, branch `upspecial-momentum`): up specials halt the momentum they start with, as the reference does. The leap (up special) now sets `start_speed_y` 0: its 13-frame startup no longer carries a jump's rise (it still falls by the body's gravity from rest, as before from a standstill) [E: reading; no startup multiplier is published]. Before, out of a jump the move rose higher than from a standstill at the same height; now the two match (`sim-core/tests/upspecial_momentum.rs`). The audit of every fighter and its sources: `docs/movesets/SHARED_MECHANICS.md`, "Starting momentum of specials".
+
+## Sim 143: the leap's height (owner decision 102)
+
+The owner: "Sprinter's up special should gain more height." The leap's rise was an [E] (34 units, ending on frame 31, with the body's
+gravity in the startup: 25 units net in the air). It is now fitted to the reference's hitbox visualisation (`REFERENCE_DATA.md`, "Fitted
+distances"): held still through the startup (no gravity on frames 0-12), up to a peak on frame 45 (53 reference units in the air, 62
+from the ground), then the flip down to 15 / 18 units above the start as the special fall begins. Measured (`recovery_rise`): air
+peak 52.6 (before 25.5), ground 62.5 (before 34.9). The stick drifts it again from frame 30 (x0.95, the move's air block). The rise's
+horizontal drive is unchanged [E]. Tests: `recovery_rise::the_sprinters_leap_holds_still_then_rises_to_the_fitted_peak`,
+`gauntlets_specials::the_leap_rises_and_cannot_fast_fall_before_frame_50`, `the_up_specials_frame_data_is_the_references`.

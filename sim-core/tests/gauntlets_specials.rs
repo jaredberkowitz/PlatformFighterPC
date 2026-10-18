@@ -430,10 +430,12 @@ fn the_up_specials_frame_data_is_the_references() {
         .find(|b| b.from == 0)
         .expect("startup block");
     assert_eq!((before.to + 1, before.accel, before.drift), (13, 600, 95));
+    // (No gravity in the startup or the fitted flip: the motion is the move's own, sim 143; the published 0.103 after it.)
+    assert_eq!(before.gravity, Some(Fx::ZERO));
     let after = dive
         .air_blocks
         .iter()
-        .find(|b| b.from > 0)
+        .find(|b| b.from > 30)
         .expect("fall block");
     assert_eq!(after.gravity, Some(su(103)));
     assert_eq!(dive.catch_move, Some(DIVE_CATCH as u8));
@@ -624,10 +626,11 @@ fn the_leap_rises_and_cannot_fast_fall_before_frame_50() {
         }
         top = top.max(sim.f().pos.y);
     }
-    // [E] about 34 reference units (4.3 world units) above the start of the rise.
+    // [E: fitted, sim 143] by frame 41 about 50 reference units (6.3 world units) above the start of the rise, still rising
+    // (`recovery_rise.rs` has the whole curve).
     let risen = top - start;
-    assert!(risen > fx(35, 10) && risen < fx(50, 10), "{risen:?}");
-    // Frame 42: falling; a flick down does nothing yet.
+    assert!(risen > fx(60, 10) && risen < fx(66, 10), "{risen:?}");
+    // Frame 42: a flick down does nothing yet.
     sim.tick(inp(0, -127, 0));
     assert!(!sim.f().fast_fall);
     sim.ticks(6, inp(0, 0, 0));
