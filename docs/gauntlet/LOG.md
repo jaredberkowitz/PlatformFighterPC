@@ -317,3 +317,9 @@ perspective). The haze now takes colour away with distance, the town and farm ar
 
 The first 4 under the strict bar: the beach's town, set back into the air over a weathered quay, reads small, low, far and calm, as in
 the harbour reference. Gaps: (1) the grove's trees, forest and roots; (2) thin light everywhere (cast shadows, lit rims, cooler shade).
+
+## Round 23 (2026-10-18, commit f5994f2)
+
+Scores as round 22 (meadow 3.0, canyon 2.5, beach 3.2, city 3.0, grove 3.0). The grove's roots now read as roots gripping the bank (the
+far-left one's flare stuck out past the corner); the valley forest calmer. Gaps: (1) thin light (cast shadows, lit rims, the side
+crowns' shading); (2) flat fills on large surfaces (the meadow's vivid striped field and hill, the grove's bank, the headland).

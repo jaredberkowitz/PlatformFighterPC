@@ -3426,10 +3426,11 @@ static func _meadow(root: Node3D, t: Dictionary, stage: Array) -> void:
 		_cottage(root, Vector3(cx, hill_top(cx) - 0.6, -74.0), c[1], 1.0 if cx > 0.0 else -1.0)
 		_ground_shadow(Vector3(cx, 0, -74.0), Vector2(3.4, 2.6), -72.0)
 	# A low rise of meadow in front of the hills, and round trees standing along it (their feet just behind its edge).
-	_fore_band(root, -46.0, -10.0, Color(0.4, 0.76, 0.32))
-	_fields(root, -46.0, -10.0, [Color(0.42, 0.78, 0.3), Color(0.52, 0.8, 0.3), Color(0.38, 0.7, 0.3), Color(0.44, 0.76, 0.34), Color(0.78, 0.8, 0.42)],
+	_fore_band(root, -46.0, -10.0, Color(0.42, 0.68, 0.36))
+	# (Muted toward the valley's air, the gauntlet's round 23: the vivid lime and yellow stripes read as a flat painted card under the farm.)
+	_fields(root, -46.0, -10.0, [Color(0.44, 0.66, 0.38), Color(0.52, 0.68, 0.4), Color(0.42, 0.6, 0.4), Color(0.48, 0.64, 0.42), Color(0.72, 0.7, 0.5)],
 		# (The hedgerows a step nearer the fields' greens, art review 10: dark lines netting the whole valley were its busiest detail.)
-		Color(0.34, 0.64, 0.28))
+		Color(0.36, 0.58, 0.32))
 	for k in 6:
 		var tx := rng.randf_range(-70, 70)
 		rng.randf_range(-12, -6)
@@ -5909,7 +5910,8 @@ static func _harbour_town(root: Node3D, water: float) -> void:
 ## band of shade at the foot of the wall where it overhangs; so the stage is a terrace on a hillside rather than an island in the air.
 static func _meadow_hill(root: Node3D, t: Dictionary, l: float, r: float, bottom: float, front: float, top: float) -> void:
 	# (The valley fields' own green (`_fields`), so the hill runs into them as one land: the owner, 2026-10-18.)
-	var grass := (_surface(Color(0.42, 0.76, 0.32), "grass", 9.0) as ShaderMaterial).duplicate() as ShaderMaterial
+	# (A step less vivid, with the fields, round 23.)
+	var grass := (_surface(Color(0.42, 0.68, 0.36), "grass", 9.0) as ShaderMaterial).duplicate() as ShaderMaterial
 	grass.set_shader_parameter("world_vary", 0.18)
 	grass.set_shader_parameter("patch_amount", 0.35)
 	grass.set_shader_parameter("blades", 0.8)
@@ -6004,7 +6006,8 @@ static func _grove_roots(root: Node3D, e: Array) -> void:
 	# its own thickness; the outer ones loop free past the narrower tiers.
 	# (Uneven places and very different sizes, sweeping in toward the tap root as they fall, art review 9's gauntlet: evenly spaced roots
 	# falling straight down read as a row of table legs.)
-	var spots := [[0.05, 1.2], [0.2, 0.55], [0.36, 1.05], [0.52, 0.7], [0.66, 1.3], [0.82, 0.5], [0.95, 1.0]]
+	# (The first a step in from the corner, round 23: with its flare it stuck out past the bank as a dark wedge.)
+	var spots := [[0.09, 1.2], [0.2, 0.55], [0.36, 1.05], [0.52, 0.7], [0.66, 1.3], [0.82, 0.5], [0.95, 1.0]]
 	for k in spots.size():
 		var x0: float = l + w * float(spots[k][0]) + rng.randf_range(-0.4, 0.4)
 		var rad: float = float(spots[k][1]) * rng.randf_range(0.9, 1.1)
