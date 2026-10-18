@@ -1175,12 +1175,16 @@ static func _platform_dressing(parent: Node3D, t: Dictionary, left: float, right
 				if rng.randf() > 0.6:
 					_mesh(parent, _sphere(1.0, 8), moss, Vector3(x, top - 0.26 - r * rng.randf_range(0.2, 1.0), front_z + 0.02), Vector3(r * 1.8, r * 1.2, r))
 				x += r * rng.randf_range(1.2, 2.2)
+			# (No vines since 2026-10-18: a stem with a ball on its end under each platform read as a hanging music note. The draws stay, so
+			# the moss's layout is unchanged.)
 			var vine := Materials.foliage(Color(0.3, 0.58, 0.32), Vector2(1, 3), true)
+			var gone := Node3D.new()
 			for k in 2:
 				var vx := lerpf(left + 0.8, right - 0.8, rng.randf())
 				var vl := rng.randf_range(0.8, 1.6)
-				_mesh(parent, _cylinder(0.05, 0.07, vl, 6), vine, Vector3(vx, top - 0.45 - vl * 0.5, front_z - 0.1), Vector3.ONE, Vector3(0, 0, rng.randf_range(-8, 8)))
-				_mesh(parent, _sphere(0.13, 8), vine, Vector3(vx, top - 0.45 - vl, front_z - 0.1), Vector3(1.2, 0.8, 1.0))
+				_mesh(gone, _cylinder(0.05, 0.07, vl, 6), vine, Vector3(vx, top - 0.45 - vl * 0.5, front_z - 0.1), Vector3.ONE, Vector3(0, 0, rng.randf_range(-8, 8)))
+				_mesh(gone, _sphere(0.13, 8), vine, Vector3(vx, top - 0.45 - vl, front_z - 0.1), Vector3(1.2, 0.8, 1.0))
+			gone.free()
 		"meadow":
 			# (Nothing: hay tufts under the ends read as bread rolls, a flower below as a dangling berry. The meadow's plank is its own.)
 			pass
@@ -5388,7 +5392,8 @@ static func _harbour_town(root: Node3D, water: float) -> void:
 	var base := Vector3(-62.0, water, -78.0)
 	# The headland: a broad rise of land behind the quay.
 	# (Deeper and less blue, art review 9: through the haze the paler green turned the faceted headland glassy.)
-	var land := Materials.foliage(Color(0.34, 0.6, 0.3), Vector2(6, 3), false)
+	# (A step deeper again, 2026-10-18: still the brightest flat shape behind the fight.)
+	var land := Materials.foliage(Color(0.27, 0.5, 0.26), Vector2(6, 3), false)
 	var hills := [[Vector3(-6, 0.0, -14), Vector3(40, 16, 16)], [Vector3(22, -1.0, -18), Vector3(26, 10, 12)]]
 	for h in hills:
 		_mesh(root, _sphere(1.0, 9), land, base + (h[0] as Vector3), h[1])
