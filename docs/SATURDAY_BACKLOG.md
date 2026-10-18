@@ -150,7 +150,8 @@ The detail behind each step follows.
       backdrop. The biggest "shipped game" signal in the competitors' menus.
 - [ ] 2. Character select redesign: a big slot per player along the bottom (posed render in the player colour, name, costume,
       sliding in on pick), the roster grid above.
-- [ ] 3. Title screen: logo over the stage scene, a posing fighter, "press any button".
+- [x] 3. Title screen: logo over the stage scene, a posing fighter, "press any button" (2026-10-17: menu.gd `Title`, once a session
+      on a normal launch; `-- --title --shot=<png>` photographs it).
 - [x] 4. Results screen: winner's victory pose, banner, a few stats (KOs, damage dealt), loser dimmed (2026-10-17: the winner's card in
       their colour, the runner-up dimmed on its own card in a one-on-one; `--demo=results` works with `--stocks=1 --match`).
 - [x] 5. One written UI design system: type scale, palette, panel rules, motion timings, so every screen stays consistent.
