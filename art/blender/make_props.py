@@ -173,28 +173,39 @@ def ribbed_tube(bm, points, radius, ribs=8, rib_depth=0.12, sides=16, per_span=4
 
 
 def frond(bm, angle, droop, length, width, rng):
-    """One palm frond from the crown: a midrib arching out and down at `angle` about the vertical, its leaf a strip on either side cut
-    into leaflets (a zigzag edge), widest a third of the way out, slightly folded along the rib."""
-    steps = 12
+    """One palm frond from the crown: a midrib arching out and down at `angle` about the vertical, lined on either side with separate
+    leaflets, each a long pointed blade swept toward the tip and drooping from the rib, longest a third of the way out (2026-10-18, art
+    review 7: a continuous strip read as a flat green card; separate drooping leaflets catch the light one by one, flat-shaded)."""
+    steps = 20
     out = Vector((math.cos(angle), math.sin(angle), 0.0))
     side = Vector((-out.y, out.x, 0.0))
     rib = []
     for i in range(steps + 1):
         t = i / steps
         rib.append(out * length * t + Vector((0, 0, length * (0.75 * t - droop * t * t))))
+    # The rib itself, a thin strip, so the leaflets hang from something.
+    for i in range(steps):
+        a, b = rib[i], rib[i + 1]
+        n = Vector((0, 0, 0.025))
+        bm.faces.new((bm.verts.new(a - side * 0.03), bm.verts.new(b - side * 0.03), bm.verts.new(b + side * 0.03), bm.verts.new(a + side * 0.03)))
     for sgn in (-1.0, 1.0):
-        prev_in = None
-        prev_out = None
-        for i in range(steps + 1):
+        for i in range(1, steps):
             t = i / steps
-            w = width * math.sin(math.pi * min(1.0, t * 1.3)) * (1.0 - 0.3 * t)
-            notch = 0.72 if i % 2 else 1.0
-            vin = bm.verts.new(rib[i])
-            vout = bm.verts.new(rib[i] + side * sgn * w * notch + Vector((0, 0, -0.12 * w)))
-            if prev_in is not None:
-                f = (prev_in, vin, vout, prev_out) if sgn > 0 else (prev_in, prev_out, vout, vin)
-                bm.faces.new(f)
-            prev_in, prev_out = vin, vout
+            w = width * 1.15 * min(1.0, t * 4.0) * (1.0 - 0.72 * t) * rng.uniform(0.85, 1.1)
+            if w < 0.05:
+                continue
+            base0 = rib[i]
+            base1 = rib[min(steps, i + 1)]
+            tip = (base0 + base1) * 0.5 + side * sgn * w + out * w * 0.45 + Vector((0, 0, -w * rng.uniform(0.45, 0.7)))
+            mid = (base0 + base1) * 0.5 + side * sgn * w * 0.5 + out * w * 0.2 + Vector((0, 0, -w * 0.12))
+            v0, v1, vt, vm = bm.verts.new(base0), bm.verts.new(base1), bm.verts.new(tip), bm.verts.new(mid)
+            # Two facets folded along the leaflet's own spine (base to tip through `mid`), so each leaflet has a lit and a shaded half.
+            if sgn > 0:
+                bm.faces.new((v0, vm, vt))
+                bm.faces.new((vm, v1, vt))
+            else:
+                bm.faces.new((v0, vt, vm))
+                bm.faces.new((vm, vt, v1))
 
 
 def cactus():
@@ -223,8 +234,8 @@ def palm_crown():
     for k in range(8):
         a = math.tau * k / 8 + rng.uniform(-0.15, 0.15)
         frond(bm, a, rng.uniform(1.0, 1.25), rng.uniform(2.4, 2.9), rng.uniform(0.8, 0.95), rng)
-    bmesh.ops.solidify(bm, geom=bm.faces[:], thickness=0.03)
-    to_object("Fronds", bm, PALM, parent=root)
+    bmesh.ops.solidify(bm, geom=bm.faces[:], thickness=0.02)
+    to_object("Fronds", bm, PALM, smooth=False, parent=root)
     bm = bmesh.new()
     for k in range(3):
         a = math.tau * k / 3 + 0.4

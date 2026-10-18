@@ -774,8 +774,9 @@ static func solid_block(parent: Node3D, t: Dictionary, left: float, right: float
 				sand = sand.duplicate()
 				sand.set_shader_parameter("patch_amount", t.grass_patch)
 			_mesh(parent, _box(Vector3(w + 0.2, 0.45, depth + 0.1)), sand, Vector3(cx, top - 0.2, front_z - depth / 2.0))
-			_mesh(parent, _cylinder(0.26, 0.26, w + 0.2), sand, Vector3(cx, top - 0.26, front_z + 0.02), Vector3.ONE, Vector3(0, 0, 90))
-			_mesh(parent, _box(Vector3(w + 0.24, 0.1, 0.2)), _soft(t.grass_light), Vector3(cx, top - 0.05, front_z + 0.24))
+			# (A lip that rolls over the edge, its thickness and line wavering, in place of a straight tube and a lit strip along it that read
+			# as a ruled line, 2026-10-18, art review 7: the cel light gives it its own lit top and shaded underside.)
+			_edge_lip(parent, left - 0.1, right + 0.1, top - 0.26, front_z + 0.02, 0.28, sand)
 			# A few small clusters of pebbles and the odd shell on the back of the sand, gathered toward the ends so the middle stays clean.
 			# (Art review 6 round 3: one size of pebble every metre or two read as a dotted pattern, a row of dimples across the sand.)
 			var pebble := Materials.stone((t.soil as Color).lightened(0.2))
@@ -808,10 +809,10 @@ static func solid_block(parent: Node3D, t: Dictionary, left: float, right: float
 				grass.set_shader_parameter("blades", 0.8)
 			var cap_h := 0.55
 			_mesh(parent, _box(Vector3(w + 0.25, cap_h, depth + 0.1)), grass, Vector3(cx, top - cap_h / 2.0 + 0.04, front_z - depth / 2.0))
-			var lip := _mesh(parent, _cylinder(cap_h * 0.6, cap_h * 0.6, w + 0.25), grass, Vector3(cx, top - cap_h * 0.55, front_z + 0.02), Vector3.ONE, Vector3(0, 0, 90))
+			# (A turf lip rolling over the edge, its thickness and line wavering, in place of a straight tube with a lit strip along it that
+			# read as a ruled line, 2026-10-18, art review 7.)
+			var lip := _edge_lip(parent, left - 0.125, right + 0.125, top - cap_h * 0.55, front_z + 0.02, cap_h * 0.62, grass)
 			lip.name = "lip"
-			# (The lit edge a step off the lawn, not its lightest green: in full light it read as a hard yellow rule along the front.)
-			_mesh(parent, _box(Vector3(w + 0.3, 0.12, 0.2)), _soft((t.grass_light as Color).lerp(t.grass, 0.45)), Vector3(cx, top - 0.06, front_z + 0.3))
 			# Tufts hanging over at uneven gaps and sizes, now and then a small stone among them (not where moss drapes the wall instead).
 			var x := left + rng.randf_range(0.4, 0.9) if not t.has("moss") else right
 			var tuft_mesh := _sphere(0.32, 12)
@@ -4601,3 +4602,34 @@ static func _seawall_stone_mat() -> ShaderMaterial:
 		m.set_shader_parameter("ramp_softness", 0.06)
 		_seawall_mat = m
 	return _seawall_mat
+
+
+## The rolled lip along a stage top's front edge (sand or turf) from `x0` to `x1`, its middle at height `y` and depth `z`, `r` thick: a tube
+## whose thickness swells and thins and whose line rises and dips a little along its length (slow, so it reads as a soft natural edge, not a
+## ruled one), with rounded ends, in material `mat`. Deterministic from where it is.
+static func _edge_lip(parent: Node3D, x0: float, x1: float, y: float, z: float, r: float, mat: Material) -> MeshInstance3D:
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var seg := maxi(8, int((x1 - x0) / 0.25))
+	var sides := 14
+	var ph := x0 * 0.37
+	var rows: Array = []
+	for i in seg + 1:
+		var u := float(i) / seg
+		var x := lerpf(x0, x1, u)
+		# Rounded ends: the radius closes over the last few tenths of a unit.
+		var end_k := sqrt(clampf(minf(x - x0, x1 - x) / (r * 0.9), 0.0, 1.0))
+		var rr := r * (1.0 + 0.13 * sin(x * 1.3 + ph) + 0.07 * sin(x * 3.1 + ph * 2.0)) * maxf(end_k, 0.05)
+		var dy := 0.035 * sin(x * 0.9 + ph * 1.7) + 0.02 * sin(x * 2.3)
+		var row: Array = []
+		for j in sides + 1:
+			var a := TAU * float(j) / sides
+			row.append(Vector3(x, y + dy + sin(a) * rr, z + cos(a) * rr))
+		rows.append(row)
+	for i in seg:
+		for j in sides:
+			for c in [[i, j], [i, j + 1], [i + 1, j + 1], [i, j], [i + 1, j + 1], [i + 1, j]]:
+				st.add_vertex(rows[c[0]][c[1]])
+	st.generate_normals()
+	var mi := _mesh(parent, st.commit(), mat, Vector3.ZERO)
+	return mi
