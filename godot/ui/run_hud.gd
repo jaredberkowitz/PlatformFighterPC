@@ -12,6 +12,7 @@ extends CanvasLayer
 
 const D := preload("res://ui/ui_draw.gd")
 const Art := preload("res://ui/menu_art.gd")
+const ItemIcons := preload("res://ui/item_icons.gd")
 
 var board: Control
 
@@ -230,25 +231,72 @@ class Board extends Control:
 			var tw := font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, 13).x
 			draw_string(font, Vector2(x - 16.0 - tw, mid_y + 22.0), label, HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color(Art.CORAL, 0.95))
 
+	## `SimRunner.run_shop`'s header and each ware's numbers (R3), and the bell's spot.
+	const SHOP_HEAD := 14
+	const WARE_STRIDE := 7
+	const BELL_SPOT := 6
+
 	## Inside the shop: what pressing up does where the player stands (`shop`: `SimRunner.run_shop`), or nothing.
 	func shop_hint() -> String:
 		var shop: PackedInt32Array = data.get("shop", PackedInt32Array())
-		if shop.size() < 10 or shop[0] == 0:
+		if shop.size() < SHOP_HEAD or shop[0] == 0:
 			return ""
 		var spot := shop[1]
 		if spot == -1:
 			return "UP: LEAVE THE SHOP"
-		if spot < 0 or 10 + spot * 4 + 3 >= shop.size():
+		# (The shopkeeper's grudge: it sells nothing until the player has gone on into a new room, R2c.)
+		if spot >= 0 and shop[10] > 0:
+			return "HMPH! CLOSED TILL YOU MOVE ON"
+		if spot == BELL_SPOT:
+			return "UP: RING THE BELL FOR NEW WARES (%d)" % shop[11]
+		var o := SHOP_HEAD + spot * WARE_STRIDE
+		if spot < 0 or o + 6 >= shop.size():
 			return ""
+		if shop[o] < 0:
+			return "AN EMPTY PEDESTAL"
 		var names: PackedStringArray = data.get("shop_names", PackedStringArray())
 		var label := names[spot] if spot < names.size() else "?"
-		# (The last number is the shopkeeper's grudge: it sells nothing until the player has gone on into a new room, R2c.)
-		if shop[shop.size() - 1] > 0 and shop.size() == 10 + names.size() * 4 + 1:
-			return "HMPH! CLOSED TILL YOU MOVE ON"
-		var o := 10 + spot * 4
-		if shop[o + 2] > 0 and shop[o + 3] >= shop[o + 2]:
+		if shop[o + 4] > 0 and shop[o + 5] >= shop[o + 4]:
 			return "%s: SOLD OUT" % label.to_upper()
-		return "UP: BUY %s (%d)" % [label.to_upper(), shop[o + 1]]
+		return "UP: BUY %s (%d)" % [label.to_upper(), shop[o + 3]]
+
+	## R3: the build under the coins: a strip of the items owned (stats with their stacks), the consumable slot's item framed at its
+	## left end. `build`: `SimRunner.run_build` ([slot, bomb in hand, pops, saves, steals, finds, last find, wind, guard], then
+	## each kind's count, then each kind's rarity).
+	func draw_build(left: float, top: float) -> void:
+		var b: PackedInt32Array = data.get("build", PackedInt32Array())
+		if b.size() < 9 + ItemIcons.KINDS * 2:
+			return
+		var x := left
+		var r := 15.0
+		var slot := b[0]
+		if slot >= 0:
+			var frame := Rect2(Vector2(x - r - 6, top - r - 6), Vector2(r * 2 + 12, r * 2 + 12))
+			draw_rect(frame, Color(Art.INK, 0.8))
+			draw_rect(frame, Art.SUN, false, 2.0)
+			ItemIcons.draw(self, Vector2(x, top), r, slot, b[9 + ItemIcons.KINDS + slot])
+			x += r * 2 + 20
+		for kind in ItemIcons.KINDS:
+			if kind == ItemIcons.HEAL or kind == ItemIcons.LIFE or kind == ItemIcons.BUBBLE or kind == ItemIcons.BOMB:
+				continue
+			var n := b[9 + kind]
+			if n <= 0:
+				continue
+			ItemIcons.draw(self, Vector2(x, top), r, kind, b[9 + ItemIcons.KINDS + kind], n)
+			x += r * 2 + 8
+
+	## How many icons the build strip shows (for the tests).
+	func build_icons() -> int:
+		var b: PackedInt32Array = data.get("build", PackedInt32Array())
+		if b.size() < 9 + ItemIcons.KINDS:
+			return 0
+		var n := 1 if b[0] >= 0 else 0
+		for kind in ItemIcons.KINDS:
+			if kind in [ItemIcons.HEAL, ItemIcons.LIFE, ItemIcons.BUBBLE, ItemIcons.BOMB]:
+				continue
+			if b[9 + kind] > 0:
+				n += 1
+		return n
 
 	func _init() -> void:
 		set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -279,6 +327,7 @@ class Board extends Control:
 		draw_circle(coin_at + Vector2(-3, -3), 5.0, Color(1, 1, 1, 0.55))
 		draw_string(big, Vector2(78, 124), str(int(data.get("coins", 0))), HORIZONTAL_ALIGNMENT_LEFT, -1, 34, Color.WHITE)
 		draw_string(f, Vector2(80, 150), "%d beaten" % int(data.get("kills", 0)), HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Color(1, 1, 1, 0.8))
+		draw_build(50.0, 186.0)
 		# The combo, when there is one: the count, the multiplier on a gold stroke, a bar toward the next step.
 		var combo := int(data.get("combo", 0))
 		var mult := int(data.get("mult", 1))

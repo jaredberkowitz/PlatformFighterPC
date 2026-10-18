@@ -6,13 +6,15 @@ extends CanvasLayer
 const UI := preload("res://ui/ui_kit.gd")
 const D := preload("res://ui/ui_draw.gd")
 const Art := preload("res://ui/menu_art.gd")
+const ItemIcons := preload("res://ui/item_icons.gd")
 
 signal chosen(action: String)
 
 var buttons: Array = []
 var actions: Array = []
 var index := 0
-## {metres, coins, kills, best, rooms, cleared, seed, name}
+## {metres, coins, kills, best, rooms, cleared, seed, name, build, item_names} (R3: the build, `SimRunner.run_build`, and the item
+## names by kind, `SimRunner.run_item_names`)
 var stats := {}
 var board: Control
 
@@ -45,10 +47,40 @@ class Board extends Control:
 			draw_string(big, at + Vector2(0, 50), rows[n][1], HORIZONTAL_ALIGNMENT_LEFT, -1, 48, Art.INK)
 		draw_string(f, card.position + Vector2(36, card.size.y - 22), "Rooms %d    Arenas cleared %d    Seed %d" % [int(s.get("rooms", 0)), int(s.get("cleared", 0)), int(s.get("seed", 0))],
 			HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Color(Art.INK, 0.55))
+		# R3: the build the run carried, each item with its icon and stacks.
+		var names: PackedStringArray = s.get("item_names", PackedStringArray())
+		var shown: Array = owner_screen.build_items()
+		var bcard := Rect2(Vector2(card.end.x + 20, 200), Vector2(300, 330))
+		if shown.is_empty():
+			return
+		Art.card(self, bcard, Art.CREAM, 311, -1.0, -1.0, Art.SUN, 0.0, Color(0, 0, 0, 0), 7.0)
+		draw_string(big, bcard.position + Vector2(24, 40), "BUILD", HORIZONTAL_ALIGNMENT_LEFT, -1, 26, Art.INK)
+		for k in shown.size():
+			var e: Array = shown[k]
+			var col: int = k % 2
+			var rowy: int = k / 2
+			var at := bcard.position + Vector2(36 + col * 140, 80 + rowy * 34)
+			ItemIcons.draw(self, at, 13.0, e[0], e[1], e[2])
+			var label: String = names[e[0] * 2] if e[0] * 2 < names.size() else ItemIcons.glyph(e[0])
+			draw_string(f, at + Vector2(20, 6), label.left(12), HORIZONTAL_ALIGNMENT_LEFT, -1, 15, Art.INK)
 
 
 func _init() -> void:
 	layer = 10
+
+
+## The build's items to list: `[kind, rarity, count]` for every kind the run owned (the staples and the slot's consumables aside).
+func build_items() -> Array:
+	var b: PackedInt32Array = stats.get("build", PackedInt32Array())
+	var out := []
+	if b.size() < 9 + ItemIcons.KINDS * 2:
+		return out
+	for kind in ItemIcons.KINDS:
+		if kind in [ItemIcons.HEAL, ItemIcons.LIFE, ItemIcons.BUBBLE, ItemIcons.BOMB]:
+			continue
+		if b[9 + kind] > 0:
+			out.append([kind, b[9 + ItemIcons.KINDS + kind], b[9 + kind]])
+	return out
 
 
 ## `choices`: [[label, action], ...] (the first is selected).

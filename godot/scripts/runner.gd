@@ -45,6 +45,11 @@ var combo_flash := 0.0
 var rng_seed := RandomNumberGenerator.new()
 var shop := PackedInt32Array()
 var shop_before := PackedInt32Array()
+## R3: the build (`SimRunner.run_build`) this tick and last, the item names by kind, and the bubble drawn round the player.
+var build := PackedInt32Array()
+var build_before := PackedInt32Array()
+var item_names := PackedStringArray()
+var bubble_node: MeshInstance3D
 
 const MOB_STRIDE := 17
 const GRUNT_BASE := 100
@@ -52,7 +57,8 @@ const ROOM_REST := 3
 const ROOM_EVENT := 4
 const ROOM_ALLEY := 5
 const INFO_SIZE := 22
-const NOTES := ["", "THANK YOU!", "NOT ENOUGH COINS", "SOLD OUT", "NOT NEEDED", "HMPH! NO SALE"]
+const NOTES := ["", "THANK YOU!", "NOT ENOUGH COINS", "SOLD OUT", "NOT NEEDED", "HMPH! NO SALE", "YOUR SLOT IS FULL", "FRESH STOCK!"]
+const FIND_TEXT := ["", "FOUND IT!", "FOOD! +HEAL", "1-UP!"]
 ## Seconds after the last life goes before the results come up.
 const RESULTS_AFTER := 1.6
 
@@ -155,6 +161,9 @@ func _restart() -> void:
 	_refresh_grunts()
 	shop = sim.run_shop()
 	shop_before = shop
+	build = sim.run_build()
+	build_before = build
+	item_names = sim.run_item_names()
 	flash_text = ""
 	run_hud.visible = not OS.get_cmdline_user_args().has("--noui")
 	if run_stage != null:
@@ -171,6 +180,8 @@ func _tick_once_inner(advance := true) -> void:
 	view = sim.run_view()
 	info = sim.run_info()
 	shop = sim.run_shop()
+	build_before = build
+	build = sim.run_build()
 	mobs_cur = sim.run_mobs()
 	_refresh_grunts()
 	if view.size() > 0:
@@ -278,9 +289,19 @@ func _run_events() -> void:
 	if shop.size() >= 10 and shop_before.size() >= 10:
 		if shop[3] > shop_before[3] and shop[2] > 0 and shop[2] < NOTES.size():
 			_flash(NOTES[shop[2]], 1.0)
-			sfx.play("blip", 1.8 if shop[2] == 1 else 0.6, -3.0)
+			sfx.play("blip", 1.8 if shop[2] == 1 or shop[2] == 7 else 0.6, -3.0)
 		if shop[9] > shop_before[9]:
 			sfx.play_group("punch", 1.4)
+	# R3: the build's moments: a bubble popped, a combo saved, a find taken.
+	if build.size() >= 9 and build_before.size() >= 9:
+		if build[2] > build_before[2]:
+			_flash("BUBBLE!", 0.9)
+			sfx.play("blip", 2.2, -4.0)
+		if build[3] > build_before[3]:
+			_flash("COMBO SAVED!", 0.9)
+		if build[5] > build_before[5] and build[6] > 0 and build[6] < FIND_TEXT.size():
+			_flash(FIND_TEXT[build[6]], 1.2)
+			sfx.play("blip", 2.0, -3.0)
 
 
 ## A grunt's knock-out (R2c): the versus knock-out's beam, sparks and rings from where it left, pointed back across the view, in its
@@ -312,6 +333,33 @@ func _grunt_ko(at: Vector2, colour: Color) -> void:
 	cam_shake = maxf(cam_shake, 0.9)
 
 
+## R3: the bubble (the consumable slot holding one) drawn round the player as a soft blue sphere (placeholder for the art director).
+func _bubble(a: float) -> void:
+	var up := build.size() >= 1 and build[0] == 16 and view.size() >= 12 and view[9] < 0.5
+	if bubble_node == null:
+		if not up:
+			return
+		bubble_node = MeshInstance3D.new()
+		bubble_node.name = "Bubble"
+		var s := SphereMesh.new()
+		s.radius = 1.25
+		s.height = 2.5
+		bubble_node.mesh = s
+		var m := StandardMaterial3D.new()
+		m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		m.albedo_color = Color(0.55, 0.85, 1.0, 0.22)
+		bubble_node.material_override = m
+		bubble_node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		add_child(bubble_node)
+	bubble_node.visible = up
+	if up:
+		var p: Vector2 = prev_pos[0].lerp(cur_pos[0], a)
+		var wob := 1.0 + sin(Time.get_ticks_msec() * 0.006) * 0.04
+		bubble_node.position = Vector3(p.x, p.y + 1.0, 0.2)
+		bubble_node.scale = Vector3(wob, 2.0 - wob, wob)
+
+
 func _flash(text: String, seconds: float) -> void:
 	flash_text = text
 	flash_until = Time.get_ticks_msec() / 1000.0 + seconds
@@ -323,12 +371,15 @@ func _process_inner(delta: float) -> void:
 	if run_stage != null and info.size() >= 10:
 		run_stage.sync(sim, info[9])
 		run_stage.animate(delta)
-		run_stage.show_closed(shop.size() > 10 and shop[shop.size() - 1] > 0)
+		run_stage.show_closed(shop.size() > 10 and shop[10] > 0)
 		if view.size() >= 12 and view[9] > 0.5:
 			run_stage.build_interior(sim)
-			run_stage.animate_interior(shop, delta)
+			run_stage.sync_wares(sim)
+			run_stage.animate_interior(shop, delta, sim.run_shop_names(), sim.run_shop_blurbs())
 		elif view.size() > 1:
 			run_stage.follow(lerpf(edge_prev, edge_cur, a) + view[1] * 0.5, cam_y)
+		run_stage.sync_finds(sim, info[9])
+	_bubble(a)
 	var count := mini(mob_views.size(), mobs_cur.size() / MOB_STRIDE)
 	for n in count:
 		var o := n * MOB_STRIDE
@@ -383,6 +434,7 @@ func _update_hud(delta: float) -> void:
 		"plan": sim.run_plan(), "bonus": sim.run_bonus(), "delta": delta,
 		"door": info.size() >= INFO_SIZE and info[14] == 1 and not inside,
 		"gate": info.size() >= INFO_SIZE and info[11] == 1, "shop": shop, "shop_names": sim.run_shop_names(),
+		"build": build, "item_names": item_names,
 	})
 	if info[0] == 1 and results == null:
 		end_timer += delta
@@ -455,7 +507,7 @@ func _show_results(_winner: int) -> void:
 	results = RunResults.new()
 	add_child(results)
 	results.build({"metres": info[1], "coins": info[2], "kills": info[3], "best": info[5], "rooms": info[8] + 1, "cleared": info[12],
-		"seed": run_seed, "name": run_name}, choices)
+		"seed": run_seed, "name": run_name, "build": build, "item_names": item_names}, choices)
 	results.chosen.connect(_on_result)
 
 
