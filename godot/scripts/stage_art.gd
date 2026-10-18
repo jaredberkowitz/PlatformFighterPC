@@ -1540,8 +1540,12 @@ static func _canopy_mesh(radius: float, height: float, panels: int, parity: int)
 		for j in 4:
 			var a0 := TAU * (float(k) + float(j) / 4.0) / float(panels)
 			var a1 := TAU * (float(k) + float(j + 1) / 4.0) / float(panels)
-			var p0 := Vector3(cos(a0) * radius, -height / 2.0, sin(a0) * radius)
-			var p1 := Vector3(cos(a1) * radius, -height / 2.0, sin(a1) * radius)
+			# (Each panel's cloth sags between its ribs, art review 7: flat panels read as a paper disc; the sag gives every panel a lit and
+			# a shaded side.)
+			var s0 := sin(PI * float(j) / 4.0)
+			var s1 := sin(PI * float(j + 1) / 4.0)
+			var p0 := Vector3(cos(a0) * radius * (1.0 - 0.05 * s0), -height / 2.0 - 0.12 * s0, sin(a0) * radius * (1.0 - 0.05 * s0))
+			var p1 := Vector3(cos(a1) * radius * (1.0 - 0.05 * s1), -height / 2.0 - 0.12 * s1, sin(a1) * radius * (1.0 - 0.05 * s1))
 			for v in [tip, p0, p1]:
 				st.set_uv(Vector2(v.x, v.z))
 				st.add_vertex(v)
@@ -2924,9 +2928,12 @@ static func _sky_islands(root: Node3D, t: Dictionary, rng: RandomNumberGenerator
 		# (The stage's own painted soil, faded with distance, art review 6 round 25: a generic grey stone made the islands read as a lower
 		# grade of art than the block the fighters stand on; one material ties the background to the foreground.)
 		var air_t := t.duplicate()
-		air_t.soil = (t.soil as Color).lerp(air, fade)
-		air_t.soil_dark = (t.soil_dark as Color).lerp(air, fade)
-		var earth := _under_material(_soil_material(air_t), 0.45)
+		# (The keel's earth a step less faded than the turf, so the underside stays a darker mass under a lit top.)
+		air_t.soil = (t.soil as Color).lerp(air, fade * 0.7)
+		air_t.soil_dark = (t.soil_dark as Color).lerp(air, fade * 0.6)
+		# (Falling well into shade under the turf, art review 7: the pale keels read as flat slabs; a lit top over a shaded underside gives
+		# each island its volume even through the haze.)
+		var earth := _under_material(_soil_material(air_t), 0.8)
 		var turf := FighterView.toon(grass.lightened(0.05))
 		var lip := FighterView.toon(grass.darkened(0.12))
 		var z := lerpf(-70.0, -140.0, depth)
