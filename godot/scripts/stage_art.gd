@@ -2104,7 +2104,8 @@ static func painted_layers(root: Node3D, theme_name: String) -> int:
 const RIDGES := {
 	# (Taller, with real peaks, 2026-10-17: a low wavy strip under the pale horizon read as a flat cloud bank over the mountains, the
 	# owner's note.)
-	"meadow": [{"z": -170.0, "y": -50.0, "height": 88.0, "shape": 1, "seed": 3.0, "base": 0.3, "amplitude": 0.62, "frequency": 3.2,
+	# (More, narrower peaks, gauntlet round 2: three broad concave sweeps with a pale crest read as breaking waves.)
+	"meadow": [{"z": -170.0, "y": -50.0, "height": 88.0, "shape": 1, "seed": 3.0, "base": 0.32, "amplitude": 0.6, "frequency": 5.6,
 		# (More of its own blue and less haze, art review 6 round 31: at mix 0.55 the ridge was mostly horizon colour, a formless pale band
 		# behind the crisp painted hills; found with `--pick`.)
 		"tone": Color(0.2, 0.62, 0.6), "mix": 0.85, "edge": 0.3, "haze": 0.24,
@@ -2516,6 +2517,8 @@ static func _canopy(root: Node3D, z: float, y: float, colours: Array) -> void:
 		# (Low faceted crowns in clear greens, art review 9: lumpy clump balls read as mud at this distance.)
 		var leaf := Materials.foliage(colours[r % colours.size()], Vector2(2, 2), inked)
 		var leaf_lit := Materials.foliage((colours[r % colours.size()] as Color).lightened(0.18), Vector2(2, 2), inked)
+		var crown_lit := FighterView.toon((colours[r % colours.size()] as Color).lightened(0.3), inked)
+		var crown_shade := FighterView.toon((colours[r % colours.size()] as Color).darkened(0.05), inked)
 		var x := -150.0 + float(r) * 1.3
 		var k := 0
 		# Crowns, not equal puffs: each a big mass with two or three smaller lobes round its shoulders, of very different sizes, now and
@@ -2529,12 +2532,20 @@ static func _canopy(root: Node3D, z: float, y: float, colours: Array) -> void:
 			var jz := 0.8 * sin(k * 3.1 + r)
 			var main := leaf_lit if (k + r) % 3 == 0 else leaf
 			var c := Vector3(x, row_y + jy, rz + jz)
-			_mesh(root, _sphere(1.0, 7), main, c, Vector3(w, h, w * 0.7), Vector3(0, float(k * 47 % 360), 0))
+			# (The tree kit's modelled crowns of leaf clusters, lit and shaded sides, gauntlet round 2: smooth faceted balls read as pale
+			# crystals. Merged by colour with the rest, `merge_static`. The balls stand in if the models are missing.)
+			if _place_prop(root, ["tree_crown_a", "tree_crown_b", "tree_crown_c"][k % 3], c - Vector3(0, h * 0.55, 0), w * 0.42,
+					float(k * 47 % 360), crown_shade, crown_lit):
+				x += w * (1.35 + 0.4 * absf(sin(k * 0.71 + r * 1.3)))
+				k += 1
+				continue
+			# (More, smaller facets, gauntlet round 2: seven-sided crowns showed a few big flat faces and read as pale crystals.)
+			_mesh(root, _sphere(1.0, 11), main, c, Vector3(w, h, w * 0.7), Vector3(0, float(k * 47 % 360), 0))
 			var lobes := 2 + int(absf(sin(k * 4.1 + r)) * 1.99)
 			for li in lobes:
 				var side := -1.0 if li % 2 == 0 else 1.0
 				var lw := w * (0.45 + 0.15 * absf(sin(k + li * 2.7)))
-				_mesh(root, _sphere(1.0, 6), leaf if main == leaf_lit else leaf_lit,
+				_mesh(root, _sphere(1.0, 9), leaf if main == leaf_lit else leaf_lit,
 					c + Vector3(side * w * (0.7 + 0.1 * li), -h * 0.15 + h * 0.35 * float(li / 2), 0.25), Vector3(lw, lw * 0.9, lw * 0.7))
 			x += w * (1.6 + 0.5 * absf(sin(k * 0.71 + r * 1.3)))
 			k += 1
@@ -3031,7 +3042,8 @@ static func _under_haze(root: Node3D, t: Dictionary, from_y: float, depth: float
 ## An authored prop (godot/models/props/<name>.glb, from art/blender/make_props.py) at `at`, `size` times its modelled size, turned `turn`
 ## degrees about the vertical. Its parts go straight under `root` with their cel materials as overrides, so `merge_static` joins them
 ## with everything else drawn in the same colours (a few draw calls for a whole row of mesas). False if the prop is missing.
-static func _place_prop(root: Node3D, prop_name: String, at: Vector3, size: float, turn := 0.0, surface: Material = null) -> bool:
+static func _place_prop(root: Node3D, prop_name: String, at: Vector3, size: float, turn := 0.0, surface: Material = null,
+		lit_surface: Material = null) -> bool:
 	var prop := Toonify.load_prop(prop_name)
 	if prop == null:
 		push_warning("stage prop %s is missing (run art/blender/make_props.py)" % prop_name)
@@ -3047,6 +3059,9 @@ static func _place_prop(root: Node3D, prop_name: String, at: Vector3, size: floa
 		mi.mesh = part.mesh
 		# (`surface` puts every part in one material instead, e.g. the stage's own painted strata on a butte.)
 		mi.material_override = surface if surface != null else part.get_surface_override_material(0)
+		# (`lit_surface` for the parts modelled as the lit side, a tree crown's "lit" leaves, when `surface` colours the rest.)
+		if lit_surface != null and String(part.name).contains("lit"):
+			mi.material_override = lit_surface
 		mi.transform = place * prop.transform * xf
 		mi.name = prop_name
 		mi.set_meta("prop", true)
@@ -3713,7 +3728,8 @@ static func _grove(root: Node3D, t: Dictionary, stage: Array) -> void:
 	# Below it, the treetops of a forest falling away down the valley.
 	# (Deep, saturated forest greens: in the old pale mints, washed further by the air at that depth, the crowns either side of the stage
 	# read as shapeless fog blobs, the weakest thing on the stage. Art review 6, refinement round 1.)
-	_canopy(root, -49.0, top - 12.5, [Color(0.16, 0.44, 0.3), Color(0.26, 0.56, 0.32), Color(0.14, 0.4, 0.32), Color(0.3, 0.6, 0.34)])
+	# (Deeper and more saturated than they show: the depth haze lifts them toward mint, gauntlet round 2.)
+	_canopy(root, -49.0, top - 12.5, [Color(0.08, 0.36, 0.2), Color(0.16, 0.48, 0.2), Color(0.06, 0.32, 0.22), Color(0.2, 0.52, 0.2)])
 	# Round bushes along the back of the island.
 	var bush_greens := Materials.greens(Color(0.3, 0.66, 0.34))
 	var bush := _lobed(Materials.foliage(bush_greens[1]))
