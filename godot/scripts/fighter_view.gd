@@ -792,7 +792,7 @@ const ARM_BULK := {7: [Vector3(1.55, 1.08, 1.55), Vector3(1.45, 1.35, 1.45)]}
 ## elbow or knee is never sheared. The head grows up from the neck; hats and face pieces follow it (`_follow_bones`).
 const HEAD_SIZE := 1.25
 const HAND_SIZE := 1.35
-const FOOT_SIZE := 1.25
+const FOOT_SIZE := 1.15
 
 
 ## This class's arm bulk ([forearm, hand] scales) with the body's own hand size in it.
