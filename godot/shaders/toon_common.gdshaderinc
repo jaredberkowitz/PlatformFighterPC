@@ -22,6 +22,10 @@ uniform float patch_amount = 0.0;
 uniform float front_fall = 0.4;
 uniform float front_span = 5.0;
 uniform vec3 front_shade : source_color = vec3(0.6, 0.57, 0.72);
+// World-laid fronts only: broad painted shadow shapes over an earth wall (0 off), large soft-edged cool shapes in `front_shade` and warmer
+// lit ones between them, slow in x and leaning as they run down, so a dirt face reads as rounded packed earth under one light rather
+// than one flat colour (the owner's material notes, 2026-10-17: dirt wants broad shadow shapes and warm/cool shifts).
+uniform float front_shapes = 0.0;
 // World-laid fronts only: moss hanging over the top of the wall (0 = none), in `moss_color`, a band a little under a unit deep whose lower
 // edge drips in uneven tongues; it sits above the cool fall, so it stays lit like the lawn it grows from.
 uniform float moss_amount = 0.0;
@@ -90,6 +94,18 @@ void fragment() {
 			}
 			if (abs(world_normal.y) < 0.5) {
 				float below = smoothstep(0.6, front_span, front_top - world_pos.y);
+				if (front_shapes > 0.0) {
+					vec2 q = world_pos.xy;
+					// (Long shapes running down the face, a little wavering, as weathering falls down a bank: free blobs read as stains.)
+					float sh = sin(q.x * 0.55 + sin(q.y * 0.35 + q.x * 0.2) * 0.9) * 0.6 + sin(q.x * 0.21 + 1.9 + q.y * 0.05) * 0.55
+						+ sin(q.x * 1.3 + q.y * 0.15 + 0.6) * 0.2;
+					// (Kept clear of the lit rim at the top, where the wall turns to the light.)
+					float reach = smoothstep(0.3, 1.4, front_top - q.y);
+					float cool = smoothstep(0.38, 0.46, sh) * reach;
+					float warm = smoothstep(0.38, 0.46, -sh - 0.1);
+					c = mix(c, c * vec3(0.34, 0.36, 0.62), front_shapes * cool);
+					c = mix(c, c * vec3(1.3, 1.16, 0.82), front_shapes * warm);
+				}
 				c *= mix(vec3(1.0), front_shade, front_fall * below);
 				if (moss_amount > 0.0) {
 					float x = world_pos.x;

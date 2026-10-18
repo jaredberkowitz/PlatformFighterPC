@@ -10,14 +10,22 @@ global uniform vec4 pf_shadow_tint;
 global uniform vec4 pf_rim_color;
 uniform vec4 colour : source_color = vec4(1.0);
 // How far the cloud's colour goes into its shade (1 the mood's full shadow tint).
-uniform float shade_depth = 0.75;
+uniform float shade_depth = 1.0;
 // How lumpy the puffs are (a share of each puff's radius).
 uniform float lump = 0.07;
 // The world height of the cloud's flat base (its belly darkens toward it).
 uniform float base_y = 0.0;
 uniform float belly_height = 2.5;
 // How bright the cloud is drawn (the filmic tone curve takes plain white down to a dull grey; the effects' glow starts at 2.3).
-uniform float exposure = 1.55;
+uniform float exposure = 1.4;
+// How much each puff takes its light from where it sits in the heap (`heap`, set per puff by `_clouds`) rather than from its own
+// round surface: the crown puffs catch the sun, the puffs low and on the far side sit in the cloud's own shade, so the heap reads as
+// one solid form lit from one side instead of a row of identical lit balls (2026-10-17, the owner's brief: stronger light-facing
+// surfaces, a deliberate underside).
+uniform float heap_weight = 1.1;
+// Where the flat underside's crisp shade edge sits, a share of `belly_height` over the base.
+uniform float underside = 0.85;
+instance uniform vec3 heap = vec3(0.0, 1.0, 0.0);
 
 varying vec3 wn;
 varying vec3 wp;
@@ -45,23 +53,32 @@ void vertex() {
 void fragment() {
 	vec3 n = normalize(wn);
 	vec3 L = normalize(pf_sun_dir);
-	// (Lit mostly from above, leaning to the sun's side and a little toward the camera: a cloud seen against the light would otherwise be
-	// all shade, and painted cumulus are mostly white with their shade underneath and on the far side.)
-	float d = dot(n, normalize(vec3(L.x, 1.3, 0.5))) * 0.5 + 0.5;
-	// (The shade a clear lavender-blue, deeper than the mood's tint for pale things, so the cloud has two distinct tones after the finishing
-	// pass quiets the scenery; the lit tops a touch over white, so they catch the bloom.)
-	vec3 shade = mix(colour.rgb, colour.rgb * mix(pf_shadow_tint.rgb, vec3(0.56, 0.64, 1.0), 0.45) * 0.9, shade_depth);
-	vec3 soft = mix(shade, colour.rgb, 0.55);
-	vec3 c = mix(shade, soft, smoothstep(0.3, 0.36, d));
-	c = mix(c, colour.rgb * 1.1, smoothstep(0.5, 0.56, d));
-	// The belly: deeper shade toward the flat base, whatever the light.
-	float low = 1.0 - smoothstep(base_y, base_y + belly_height, wp.y);
-	c = mix(c, shade * 0.94, low * 0.55);
+	// The surface's light: its own normal bent toward where the puff sits in the heap, so one side of the whole cloud is lit.
+	vec3 nh = normalize(n + heap * heap_weight);
+	// (Lit from above and the sun's side, a little toward the camera: a cloud seen against the light would otherwise be all shade.)
+	float d = dot(nh, normalize(vec3(L.x * 1.4, 1.0, 0.45))) * 0.5 + 0.5;
+	// (The shade a clear lavender-blue, deeper than the mood's tint for pale things, so the cloud has distinct tones after the finishing
+	// pass quiets the scenery; the lit faces a touch over white and a breath warm, so they catch the bloom and read as sunlit.)
+	vec3 shade = mix(colour.rgb, colour.rgb * mix(pf_shadow_tint.rgb, vec3(0.52, 0.6, 1.0), 0.6) * 0.74, shade_depth);
+	vec3 soft = mix(shade, colour.rgb, 0.45);
+	vec3 lit = colour.rgb * vec3(1.12, 1.1, 1.06);
+	// Three flat tones with crisp painted edges (a slow noise wobbles each edge so it is brushed, not ruled).
+	float wob = (n3(wp * 0.5 + 3.0) - 0.5) * 0.08;
+	vec3 c = mix(shade, soft, smoothstep(0.4, 0.43, d + wob));
+	c = mix(c, lit, smoothstep(0.6, 0.63, d + wob));
+	// The underside: a flat, deliberate band of shade along the base, its top edge crisp and slightly ragged, deepest at the very bottom.
+	float edge_y = base_y + belly_height * underside + (n3(wp * vec3(0.35, 0.0, 0.35)) - 0.5) * belly_height * 0.5;
+	float under = 1.0 - smoothstep(edge_y - 0.15, edge_y + 0.15, wp.y);
+	float deep = 1.0 - smoothstep(base_y, base_y + belly_height * 0.5, wp.y);
+	c = mix(c, shade, under * 0.9);
+	c = mix(c, shade * 0.9, deep * 0.5);
 	// The silver lining.
 	vec3 V = normalize(CAMERA_POSITION_WORLD - wp);
-	float edge = 1.0 - clamp(dot(n, V), 0.0, 1.0);
+	float rim_edge = 1.0 - clamp(dot(n, V), 0.0, 1.0);
 	float behind = clamp(dot(-V, L) * 0.5 + 0.5, 0.0, 1.0);
-	float rim = smoothstep(0.55, 0.75, edge) * (0.3 + 0.7 * behind) * (1.0 - low * 0.7);
-	c = mix(c, mix(colour.rgb, pf_rim_color.rgb, 0.25) * 1.08, rim);
-	ALBEDO = c * exposure;
+	float rim = smoothstep(0.6, 0.78, rim_edge) * (0.3 + 0.7 * behind) * (1.0 - under * 0.8) * smoothstep(0.35, 0.6, d);
+	c = mix(c, mix(colour.rgb, pf_rim_color.rgb, 0.25) * 1.12, rim);
+	// (The exposure lifts the lit faces over the tone curve; the shade gets less of it, so it stays a real tone instead of washing pale.)
+	float lum = dot(c, vec3(0.33));
+	ALBEDO = c * mix(exposure * 0.85, exposure, smoothstep(0.75, 1.0, lum / max(dot(colour.rgb, vec3(0.33)), 0.01)));
 }

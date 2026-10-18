@@ -524,6 +524,11 @@ static func _soil_material(t: Dictionary) -> ShaderMaterial:
 	if pattern == "earth" or pattern == "roots":
 		m.set_shader_parameter("front_fall", 0.6)
 		m.set_shader_parameter("front_span", 3.6)
+	# Broad warm and cool shapes over the earth walls (the owner's material notes: dirt wants broad shadow shapes and warm/cool
+	# shifts); built walls (the sea wall, the facade) keep their even courses.
+	# (Not the canyon's strata: its beds already carry the light, and the shapes read as stains across them.)
+	if pattern in ["earth", "roots"]:
+		m.set_shader_parameter("front_shapes", 0.6 if pattern == "earth" else 0.8)
 	# Moss draping over the top of the wall where the theme has it (`moss`: colour), in a wavy band under the lip.
 	if t.has("moss"):
 		m.set_shader_parameter("moss_color", t.moss)
@@ -1845,21 +1850,28 @@ static func _clouds(root: Node3D, rng: RandomNumberGenerator, count: int, color:
 		var puffs: int = shape[0]
 		var span := float(puffs) * float(shape[1]) * size
 		var crowns := []
+		# (Each puff's place in the heap, `heap` in the shader: from the heap's middle, scaled to its width and height, so the crown
+		# and the sun's side catch the light and the low far puffs sit in the cloud's own shade.)
+		var mid_y := float(shape[2]) * size * 0.55
+		var half := Vector3(span * 0.5, float(shape[2]) * size, 3.0 * size)
 		for b in puffs:
 			var u := (float(b) + 0.5) / puffs * 2.0 - 1.0
 			# Taller toward the middle, so the heap domes; every puff sits on the same base line.
 			var r := (float(shape[2]) - absf(u) * float(shape[3])) * size * rng.randf_range(0.85, 1.15)
 			var at := Vector3(u * span * 0.5 + rng.randf_range(-0.4, 0.4), r * 0.55, rng.randf_range(-1.5, 1.5))
-			_mesh(cloud, puff, mat, at, Vector3(r, r * 0.85, r * 0.8))
+			var mi := _mesh(cloud, puff, mat, at, Vector3(r, r * 0.85, r * 0.8))
+			mi.set_instance_shader_parameter("heap", (at - Vector3(0, mid_y, 0)) / half)
 			crowns.append([at, r])
 		# Smaller puffs piled on the crown of a heap or a tower (the cauliflower top of a summer cumulus).
 		if kind != 1:
 			for c in crowns.slice(1, crowns.size() - 1):
 				var r2: float = float(c[1]) * rng.randf_range(0.45, 0.6)
 				var at2: Vector3 = c[0] + Vector3(rng.randf_range(-0.6, 0.6), float(c[1]) * 0.62, rng.randf_range(0.2, 1.0))
-				_mesh(cloud, puff, mat, at2, Vector3(r2, r2 * 0.9, r2 * 0.85))
+				var mc := _mesh(cloud, puff, mat, at2, Vector3(r2, r2 * 0.9, r2 * 0.85))
+				mc.set_instance_shader_parameter("heap", (at2 - Vector3(0, mid_y, 0)) / half + Vector3(0, 0.4, 0))
 		# The flat base: a wide squashed puff under them all.
-		_mesh(cloud, puff, mat, Vector3(0, 0.6 * size, 0.3), Vector3(span * 0.6, 1.3 * size, 3.4 * size))
+		var mb := _mesh(cloud, puff, mat, Vector3(0, 0.6 * size, 0.3), Vector3(span * 0.6, 1.3 * size, 3.4 * size))
+		mb.set_instance_shader_parameter("heap", Vector3(0, -0.8, 0))
 
 
 static func _birds(root: Node3D, rng: RandomNumberGenerator, colour: Color) -> void:
@@ -3849,8 +3861,11 @@ static func _tree(root: Node3D, base: Vector3, size: float, rng: RandomNumberGen
 	for k in 8:
 		var off := Vector3(rng.randf_range(-8.0, 8.0), rng.randf_range(1.5, 6.0), rng.randf_range(1.0, 3.0)) * size
 		masses.append([crown + off, rng.randf_range(2.2, 3.6) * size, 14])
-	_leaf_cards(sway, masses, g, 3.6 * size, rng, "leaf_cluster", false, leaf_mid)
-	var _unused := [leaf, leaf_light, leaf_sun]
+	# (Colour groups, 2026-10-17, the owner's brief: larger, more distinctive colour clusters instead of uniform green blobs. The low
+	# masses go a cool deep teal, the body stays, the crown's top masses catch a warm light green; each mass is painted with leaf clumps.)
+	var deep := Materials.foliage(Color.from_hsv(g[0].h + 0.06, minf(1.0, g[0].s * 1.05), g[0].v * 0.86))
+	_leaf_cards(sway, masses, g, 3.6 * size, rng, "leaf_cluster", false, leaf_mid, [deep, leaf_mid, leaf_light])
+	var _unused := [leaf, leaf_sun]
 
 
 ## Four-pointed glints that slowly turn and pulse. Cosmetic; they run on their own clock.
