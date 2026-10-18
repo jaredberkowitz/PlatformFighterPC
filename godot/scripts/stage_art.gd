@@ -940,7 +940,13 @@ static func platform(parent: Node3D, t: Dictionary, left: float, right: float, t
 	var depth := PLATFORM_DEPTH
 	var cx := (left + right) / 2.0
 	if t.get("platform", "wood") == "girder":
-		var steel := _surface(t.wood, "steel", 3.0)
+		# (A cool painted steel plate, a step lighter than the roof, art review 9's gauntlet: the theme's salmon wood made the plates the
+		# brightest, plainest slabs on screen.)
+		var plate_c := (t.wood as Color).lerp(Color(0.34, 0.33, 0.46), 0.85)
+		# (The metal response's highlight and the pink rim washed the lit top pale whatever its colour: both low on the plate.)
+		var steel := _surface(plate_c, "steel", 3.0).duplicate() as ShaderMaterial
+		steel.set_shader_parameter("metal", 0.15)
+		steel.set_shader_parameter("rim_strength", 0.15)
 		_mesh(parent, _box(Vector3(w, 0.18, depth)), steel, Vector3(cx, top - 0.09, front_z - depth / 2.0))
 		_mesh(parent, _box(Vector3(w, 0.5, 0.16)), Materials.wood(t.wood_dark, Vector2(4, 1)), Vector3(cx, top - 0.4, front_z - 0.3))
 		# The flange underneath in a darker steel, so top, web and underside read as three parts of one beam.
@@ -949,6 +955,24 @@ static func platform(parent: Node3D, t: Dictionary, left: float, right: float, t
 		# shade falling on the web below it.
 		_mesh(parent, _box(Vector3(w, 0.05, 0.06)), _soft((t.wood as Color).lightened(0.3)), Vector3(cx, top - 0.02, front_z + 0.005))
 		_mesh(parent, _shade_band(w, 0.28), _band_material(), Vector3(cx, top - 0.3, front_z - 0.21))
+		# The deck in separate plates: a dark seam across it every plate's width, a row of bolt heads either side of each, so the top reads as
+		# laid steel rather than one sheet.
+		# (One mesh each for the seams and the bolts: a run's many girders as separate pieces blew out its rendering, see `_scaffold`.)
+		var pn := maxi(1, int(round(w / 1.8)))
+		if pn > 1:
+			var seam_st := SurfaceTool.new()
+			var bolt_st := SurfaceTool.new()
+			var seam_mesh := _box(Vector3(0.06, 0.02, depth - 0.1))
+			var bolt_mesh := _cylinder(0.045, 0.05, 0.03, 6)
+			for k in range(1, pn):
+				var sx := left + w * float(k) / float(pn)
+				seam_st.append_from(seam_mesh, 0, Transform3D(Basis.IDENTITY, Vector3(sx, top + 0.005, front_z - depth / 2.0)))
+				for side in [-0.14, 0.14]:
+					for bz in [0.5, 1.5, 2.5, 3.5]:
+						if bz < depth:
+							bolt_st.append_from(bolt_mesh, 0, Transform3D(Basis.IDENTITY, Vector3(sx + side, top + 0.01, front_z - bz)))
+			_mesh(parent, seam_st.commit(), _soft(plate_c.darkened(0.4)), Vector3.ZERO)
+			_mesh(parent, bolt_st.commit(), _soft(plate_c.lightened(0.25)), Vector3.ZERO)
 		var rivet := _unshaded(Color(0.95, 0.82, 0.6))
 		var x := left + 0.35
 		while x < right - 0.2:
@@ -5498,23 +5522,39 @@ static func _grove_roots(root: Node3D, e: Array) -> void:
 	_root_tube(root, tap, 2.6, 1.0, bark)
 	# Roots out from under the turf at uneven places along the front, over the lip, down the face and gathering into the tap root, each
 	# its own thickness; the outer ones loop free past the narrower tiers.
-	var spots := [0.1, 0.27, 0.46, 0.63, 0.88]
+	# (Uneven places and very different sizes, sweeping in toward the tap root as they fall, art review 9's gauntlet: evenly spaced roots
+	# falling straight down read as a row of table legs.)
+	var spots := [[0.05, 1.2], [0.2, 0.55], [0.36, 1.05], [0.52, 0.7], [0.66, 1.3], [0.82, 0.5], [0.95, 1.0]]
 	for k in spots.size():
-		var x0: float = l + w * float(spots[k]) + rng.randf_range(-0.6, 0.6)
-		var rad := rng.randf_range(0.7, 1.25)
+		var x0: float = l + w * float(spots[k][0]) + rng.randf_range(-0.4, 0.4)
+		var rad: float = float(spots[k][1]) * rng.randf_range(0.9, 1.1)
+		var away := signf(x0 - cx + 0.01)
 		var pts: Array = []
 		# (Starting under the turf lip, so only the root's body shows, swelling out over the edge.)
-		pts.append(Vector3(x0, top - 1.2, front - 1.2))
-		pts.append(Vector3(x0, top - 1.1, front + 0.25))
+		# (Each as far under as it is thick: the thick ones' tops broke through the turf.)
+		var under := 0.7 + rad * 0.9
+		pts.append(Vector3(x0, top - under - 0.1, front - 1.2))
+		pts.append(Vector3(x0 + away * 0.2, top - under, front + 0.25))
 		var out := 0.55 + rad * 0.35
-		var steps := 7
+		var steps := 8
+		var deep := bottom - 4.0 - rng.randf_range(0.0, 3.0)
 		for j in range(1, steps + 1):
 			var t := float(j) / steps
-			var x := lerpf(x0, cx + (x0 - cx) * 0.15, t * t)
-			var y := lerpf(top - 1.6, bottom - 6.0 - rng.randf_range(0.0, 3.0) * t, t)
+			# Out a little over the lip (an S-bend, the root's knee), then sweeping in toward the tap root under the middle.
+			var knee := away * sin(clampf(t * 2.2, 0.0, 1.0) * PI) * (0.5 + rad * 0.4)
+			var x := lerpf(x0, cx + (x0 - cx) * 0.2, smoothstep(0.15, 1.0, t)) + knee
+			var y := lerpf(top - under - 0.5, deep, t)
 			var z := lerpf(front + out, front - 2.0, smoothstep(0.55, 1.0, t))
-			pts.append(Vector3(x + sin(t * 4.0 + float(k)) * 0.3, y, z))
-		_root_tube(root, pts, rad * 1.15, rad * 0.55, bark)
+			pts.append(Vector3(x + sin(t * 4.0 + float(k)) * 0.2, y, z))
+		_root_tube(root, pts, rad * 1.15, rad * 0.5, bark)
+		# A thinner root forking off the bigger ones and running down and outward on its own.
+		if rad > 0.9:
+			var from: Vector3 = pts[3]
+			var sub: Array = [from]
+			for j in range(1, 6):
+				var t := float(j) / 5.0
+				sub.append(from + Vector3(away * (1.4 * t + 0.3 * sin(t * 3.0)), -4.5 * t, 0.15 * t))
+			_root_tube(root, sub, rad * 0.42, rad * 0.12, bark)
 
 
 ## A tapering tube of bark along `pts` (a smooth path through them), `r0` thick at its start and `r1` at its end, with a little knobbly
