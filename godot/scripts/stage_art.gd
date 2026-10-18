@@ -145,6 +145,230 @@ static func _soft(c: Color) -> ShaderMaterial:
 ## all read under the noon sun (flat white shapes, the pain-point review).
 const BEACH_CLOUDS := {"exposure": 1.3, "shade_depth": 1.0}
 const FACADE_BAYS := [[22, 52], [96, 52], [190, 0], [232, 104], [372, 52], [448, 36]]
+## The facade tile's size in world units (its 512px repeat; see `_soil_material`) and one of its pixels.
+const FACADE_TILE := 6.6
+const FACADE_PX := FACADE_TILE / 512.0
+
+
+## The city building's windows as built pieces on its brick front (the face from `left` to `right`, `bottom` to `top`, at depth `front`),
+## in the facade tile's layout (`FACADE_BAYS`, four floors a repeat): each window a pale frame standing out from the wall with deep jambs
+## (their inner faces take the light, so the glass sits back in a real reveal), a cross of glazing bars, a stone sill standing out under it
+## and a lintel over it, both lit on top and casting their shadows down the bricks; a stone ledge along every floor; the blade signs on the
+## piers as round neon tubes with bulb lights; small vents; a flower pot on some sills and an air conditioner under a few windows; a
+## drainpipe down each tile's seam (the owner, 2026-10-18: the painted windows had no believable depth; after the papercraft village
+## reference). Everything falls into the front's shade below `fall_top` by `fall` as the wall does. Drawn as a few MultiMeshes, so a tall
+## run-mode facade costs a handful of draw calls.
+static func _facade_windows(parent: Node3D, left: float, right: float, top: float, bottom: float, front: float, fall_top: float, fall: float,
+		wall: ShaderMaterial) -> void:
+	if right - left < 1.0 or top - bottom < 1.0:
+		return
+	var px := FACADE_PX
+	var lists := {}
+	var curtains := [Color(0.92, 0.54, 0.58), Color(0.56, 0.72, 0.92), Color(0.92, 0.76, 0.44)]
+	var k0 := floori(left / FACADE_TILE)
+	var k1 := ceili(right / FACADE_TILE)
+	# (Floors counted down from the face's top, so a row of windows always sits just under the roofline; the sign on every fourth.)
+	var floor_h := 128.0 * px
+	var floors := ceili((top - bottom) / floor_h) + 1
+	for n in floors:
+		var floor_k := (n + 3) % 4
+		var m := n / 4
+		if true:
+			var fy := top - float(n) * floor_h
+			# The ledge along the foot of the floor, across the whole face.
+			var ly := fy - 122.0 * px
+			if ly < top - 0.2 and ly > bottom + 0.2:
+				_facade_add(lists, "ledge", Transform3D(Basis.IDENTITY.scaled(Vector3(right - left, 0.16, 0.2)), Vector3((left + right) * 0.5, ly, front + 0.1)))
+				_facade_add(lists, "shadow", Transform3D(Basis.IDENTITY.scaled(Vector3(right - left, 0.24, 1.0)), Vector3((left + right) * 0.5, ly - 0.2, front + 0.004)))
+			for k in range(k0, k1 + 1):
+				var tx := float(k) * FACADE_TILE
+				for bay in FACADE_BAYS:
+					var w: float = float(bay[1]) * px
+					var cx: float = tx + (float(bay[0]) + float(bay[1]) * 0.5) * px
+					var h := 76.0 * px
+					var cy := fy - 56.0 * px
+					if bay[1] == 0:
+						cx = tx + float(bay[0]) * px
+						if floor_k == 1:
+							var sh := 200.0 * px
+							var sy := fy - 130.0 * px
+							if cx > left + 0.4 and cx < right - 0.4 and sy + sh * 0.5 < top - 0.1 and sy - sh * 0.5 > bottom + 0.1:
+								_facade_add(lists, "tube", Transform3D(Basis.IDENTITY.scaled(Vector3(0.38, sh, 0.22)), Vector3(cx, sy, front + 0.18)))
+								_facade_add(lists, "shadow", Transform3D(Basis.IDENTITY.scaled(Vector3(0.16, sh, 1.0)), Vector3(cx + 0.27, sy - 0.1, front + 0.004)))
+								for g in 5:
+									_facade_add(lists, "bulb", Transform3D(Basis.IDENTITY.scaled(Vector3.ONE * 0.1), Vector3(cx, sy + sh * 0.5 - (26.0 + g * 36.0) * px, front + 0.3)))
+						elif floor_k != 2:
+							var vy := fy - 58.0 * px
+							if cx > left + 0.3 and cx < right - 0.3 and vy < top - 0.2 and vy > bottom + 0.2:
+								_facade_add(lists, "vent", Transform3D(Basis.IDENTITY.scaled(Vector3(0.3, 0.22, 0.08)), Vector3(cx, vy, front + 0.04)))
+						continue
+					var half_w := w * 0.5 + 0.12
+					if cx - half_w < left + 0.08 or cx + half_w > right - 0.08 or cy + h * 0.5 + 0.2 > top or cy - h * 0.5 - 0.2 < bottom:
+						continue
+					var hsh := absi(hash(Vector3i(k, m, floor_k * 8 + int(bay[0]))))
+					var lit := (hsh % 100) < 34
+					var curtain: Color = curtains[(hsh / 100) % 3]
+					_facade_add(lists, "glass", Transform3D(Basis.IDENTITY.scaled(Vector3(w, h, 1.0)), Vector3(cx, cy, front + 0.01)),
+						Color(curtain.r, curtain.g, curtain.b, 1.0 if lit else 0.0))
+					# Frame: jambs either side and head and foot pieces, standing out from the wall.
+					var d := 0.16
+					var fw := 0.07
+					for sx in [-1.0, 1.0]:
+						_facade_add(lists, "frame", Transform3D(Basis.IDENTITY.scaled(Vector3(fw, h + fw * 2.0, d)), Vector3(cx + sx * (w * 0.5 + fw * 0.5), cy, front + d * 0.5)))
+					for sy in [-1.0, 1.0]:
+						_facade_add(lists, "frame", Transform3D(Basis.IDENTITY.scaled(Vector3(w, fw, d)), Vector3(cx, cy + sy * (h * 0.5 + fw * 0.5), front + d * 0.5)))
+					# Glazing bars: one up the middle, one across the upper part.
+					_facade_add(lists, "frame", Transform3D(Basis.IDENTITY.scaled(Vector3(0.035, h, 0.05)), Vector3(cx, cy, front + 0.04)))
+					_facade_add(lists, "frame", Transform3D(Basis.IDENTITY.scaled(Vector3(w, 0.035, 0.05)), Vector3(cx, cy + h * 0.5 - 36.0 * px, front + 0.04)))
+					# Sill and lintel in stone.
+					_facade_add(lists, "stone", Transform3D(Basis.IDENTITY.scaled(Vector3(w + 0.34, 0.1, 0.3)), Vector3(cx, cy - h * 0.5 - fw - 0.05, front + 0.15)))
+					_facade_add(lists, "stone", Transform3D(Basis.IDENTITY.scaled(Vector3(w + 0.26, 0.13, 0.2)), Vector3(cx, cy + h * 0.5 + fw + 0.065, front + 0.1)))
+					# Their shadows painted into the brick (the light is up and to the left; at this scale the shadow map loses them): under
+					# the sill, and down the right of the frame.
+					_facade_add(lists, "shadow", Transform3D(Basis.IDENTITY.scaled(Vector3(w + 0.34, 0.36, 1.0)), Vector3(cx + 0.1, cy - h * 0.5 - fw - 0.28, front + 0.004)))
+					_facade_add(lists, "shadow", Transform3D(Basis.IDENTITY.scaled(Vector3(0.1, h + 0.14, 1.0)), Vector3(cx + w * 0.5 + fw + 0.05, cy - 0.08, front + 0.004)))
+					var extra := float((hsh / 300) % 100) / 100.0
+					if extra < 0.2:
+						_facade_add(lists, "pot", Transform3D(Basis.IDENTITY, Vector3(cx - w * 0.25, cy - h * 0.5 - fw, front + 0.2)))
+					elif extra < 0.32:
+						_facade_add(lists, "ac", Transform3D(Basis.IDENTITY, Vector3(cx + w * 0.1, cy - h * 0.5 - 0.42, front + 0.2)))
+	# The drainpipe down each tile's seam.
+	for k in range(k0, k1 + 1):
+		var dx := float(k) * FACADE_TILE + 7.0 * px
+		if dx > left + 0.15 and dx < right - 0.15:
+			_facade_add(lists, "pipe", Transform3D(Basis.IDENTITY.scaled(Vector3(0.13, top - bottom, 0.13)), Vector3(dx, (top + bottom) * 0.5, front + 0.08)))
+	var mats := _facade_part_mats(fall)
+	for kind in lists:
+		var items: Array = lists[kind]
+		var mm := MultiMesh.new()
+		mm.transform_format = MultiMesh.TRANSFORM_3D
+		mm.use_custom_data = kind == "glass"
+		mm.mesh = _facade_part_mesh("glass" if kind == "shadow" else kind)
+		mm.instance_count = items.size()
+		for i in items.size():
+			mm.set_instance_transform(i, items[i][0])
+			if kind == "glass":
+				mm.set_instance_custom_data(i, items[i][1])
+		var mi := MultiMeshInstance3D.new()
+		mi.multimesh = mm
+		mi.material_override = _facade_shadow_mat(wall) if kind == "shadow" else mats[kind]
+		mi.set_instance_shader_parameter("front_top", fall_top)
+		# (Only what stands out far enough to matter casts a shadow: sills, lintels, ledges, frames, the signs.)
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON if kind in ["stone", "ledge", "frame", "tube", "ac", "pipe"] \
+			else GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		mi.name = "facade_" + kind
+		parent.add_child(mi)
+
+
+static func _facade_add(lists: Dictionary, kind: String, xf: Transform3D, custom := Color(0, 0, 0, 0)) -> void:
+	if not lists.has(kind):
+		lists[kind] = []
+	(lists[kind] as Array).append([xf, custom])
+
+
+static var _facade_mesh_cache := {}
+static var _facade_shadow_cache := {}
+
+
+## The brick wall's own material a step into cool shade, for the shadows the facade pieces paint on it (`_facade_windows`): laid in world
+## space, so its bricks line up with the wall's.
+static func _facade_shadow_mat(wall: ShaderMaterial) -> ShaderMaterial:
+	var key := wall.get_instance_id()
+	if not _facade_shadow_cache.has(key):
+		var m := wall.duplicate() as ShaderMaterial
+		m.set_shader_parameter("albedo", Color(0.58, 0.55, 0.74))
+		m.next_pass = null
+		_facade_shadow_cache[key] = m
+	return _facade_shadow_cache[key]
+static var _facade_mat_cache := {}
+
+
+## The unit mesh of one kind of facade piece (`_facade_windows`): boxes and quads are unit-sized and scaled per instance; the pot and the air
+## conditioner are built at size, coloured by vertex.
+static func _facade_part_mesh(kind: String) -> Mesh:
+	if _facade_mesh_cache.has(kind):
+		return _facade_mesh_cache[kind]
+	var mesh: Mesh
+	match kind:
+		"glass":
+			var q := QuadMesh.new()
+			q.size = Vector2.ONE
+			mesh = q
+		"tube", "pipe":
+			# A rounded tube standing up the wall.
+			var c := CylinderMesh.new()
+			c.top_radius = 0.5
+			c.bottom_radius = 0.5
+			c.height = 1.0
+			c.radial_segments = 12 if kind == "tube" else 8
+			c.rings = 1
+			mesh = c
+		"bulb":
+			mesh = _sphere(1.0, 10)
+		"pot", "ac":
+			var st := SurfaceTool.new()
+			st.begin(Mesh.PRIMITIVE_TRIANGLES)
+			var parts: Array
+			if kind == "pot":
+				parts = [[Vector3(0.2, 0.15, 0.16), Vector3(0, 0.075, 0), Color(0.78, 0.4, 0.3)],
+					[Vector3(0.26, 0.2, 0.2), Vector3(0, 0.22, 0), Color(0.36, 0.62, 0.3)],
+					[Vector3(0.08, 0.08, 0.08), Vector3(0.05, 0.33, 0.06), Color(0.94, 0.42, 0.54)]]
+			else:
+				parts = [[Vector3(0.46, 0.3, 0.24), Vector3.ZERO, Color(0.74, 0.75, 0.8)],
+					[Vector3(0.38, 0.2, 0.02), Vector3(0, 0, 0.125), Color(0.46, 0.47, 0.54)]]
+			for part in parts:
+				var b := BoxMesh.new()
+				b.size = part[0]
+				var arr := b.get_mesh_arrays()
+				var cols := PackedColorArray()
+				cols.resize((arr[Mesh.ARRAY_VERTEX] as PackedVector3Array).size())
+				cols.fill(part[2])
+				arr[Mesh.ARRAY_COLOR] = cols
+				var am := ArrayMesh.new()
+				am.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr)
+				st.append_from(am, 0, Transform3D(Basis.IDENTITY, part[1]))
+			mesh = st.commit()
+		_:
+			var b := BoxMesh.new()
+			b.size = Vector3.ONE
+			mesh = b
+	_facade_mesh_cache[kind] = mesh
+	return mesh
+
+
+## The materials of the facade pieces, falling into the front's shade by `fall` (see `fall_by_height` in shaders/toon_common.gdshaderinc).
+static func _facade_part_mats(fall: float) -> Dictionary:
+	var key := "%.2f" % fall
+	if _facade_mat_cache.has(key):
+		return _facade_mat_cache[key]
+	var out := {}
+	var cols := {"frame": Color(0.88, 0.84, 0.86), "stone": Color(0.8, 0.76, 0.8), "ledge": Color(0.66, 0.6, 0.72), "vent": Color(0.38, 0.38, 0.46),
+		"tube": Color(0.88, 0.3, 0.38), "pipe": Color(0.48, 0.48, 0.58), "pot": Color.WHITE, "ac": Color.WHITE}
+	for kind in cols:
+		var m := (FighterView.toon(cols[kind], kind in ["frame", "stone", "ledge", "tube", "ac"]) as ShaderMaterial).duplicate() as ShaderMaterial
+		m.set_shader_parameter("fall_by_height", true)
+		m.set_shader_parameter("front_fall", fall)
+		m.set_shader_parameter("front_span", 6.5)
+		m.set_shader_parameter("ramp_softness", 0.08)
+		if kind in ["pot", "ac"]:
+			m.set_shader_parameter("vertex_shade", true)
+		if kind == "tube":
+			m = FighterView.respond(m, "paint")
+		if kind == "pipe":
+			m = FighterView.respond(m, "metal")
+		out[kind] = m
+	var g := ShaderMaterial.new()
+	g.shader = WINDOW_GLASS
+	out["glass"] = g
+	var bulb := StandardMaterial3D.new()
+	bulb.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	bulb.albedo_color = Color(1.0, 0.94, 0.8)
+	out["bulb"] = bulb
+	_facade_mat_cache[key] = out
+	return out
+
+
+const WINDOW_GLASS := preload("res://shaders/window_glass.gdshader")
 
 
 static func _soil_material(t: Dictionary) -> ShaderMaterial:
@@ -429,94 +653,14 @@ static func _soil_material(t: Dictionary) -> ShaderMaterial:
 			# flower pot on the sill), striped awnings over two, an air conditioner hung under one, and a drainpipe down the seam. (It was
 			# a flat grid of narrow windows on panels; a wall a fighter stands over the whole match needs a building's details.)
 			body += '<rect width="512" height="512" fill="#%s"/>' % A
-			# (Depth on every piece, 2026-10-18, the owner: the windows, doors and the pink sign strips read flat. The light comes from the
-			# upper left, so frames are lit on their top and left edges and shaded on the others, glass sits back in its frame under an
-			# inner shadow, lit rooms are brightest at the top, and what stands out from the wall casts a soft shadow down and right.)
-			body += '<defs>'
-			body += '<linearGradient id="room" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffe7b0"/><stop offset="1" stop-color="#d9a868"/></linearGradient>'
-			body += '<linearGradient id="dark" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3a4060"/><stop offset="1" stop-color="#1e2236"/></linearGradient>'
-			body += '<linearGradient id="tube" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#a8323a"/><stop offset="0.35" stop-color="#f07078"/><stop offset="0.6" stop-color="#e2525a"/><stop offset="1" stop-color="#8a2830"/></linearGradient>'
-			body += '<radialGradient id="bulb" cx="0.38" cy="0.35" r="0.7"><stop offset="0" stop-color="#ffffff"/><stop offset="0.5" stop-color="#fff2d8"/><stop offset="1" stop-color="#e8b880"/></radialGradient>'
-			body += '<linearGradient id="fold" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#000000" stop-opacity="0.28"/><stop offset="0.5" stop-color="#000000" stop-opacity="0"/><stop offset="1" stop-color="#ffffff" stop-opacity="0.18"/></linearGradient>'
-			body += '</defs>'
 			var brick_line := a.darkened(0.18).to_html(false)
 			for by in range(0, 512, 16):
 				body += '<rect x="0" y="%d" width="512" height="2" fill="#%s" opacity="0.45"/>' % [by, brick_line]
 				var off := 0 if (by / 16) % 2 == 0 else 20
 				for bx in range(off, 512, 40):
 					body += '<rect x="%d" y="%d" width="2" height="16" fill="#%s" opacity="0.35"/>' % [bx, by, brick_line]
-			var frame_col := Color(0.92, 0.88, 0.86).lerp(a, 0.25).to_html(false)
-			var curtain := ["e98a94", "8fb8e8", "e8c070"]
-			var awn := ["e2525a", "3f8f8a"]
-			for floor_k in 4:
-				var fy := floor_k * 128
-				# The ledge at the foot of the floor.
-				body += '<rect x="0" y="%d" width="512" height="12" fill="#%s"/>' % [fy + 116, hi]
-				body += '<rect x="0" y="%d" width="512" height="3" fill="#ffffff" opacity="0.25"/>' % [fy + 116]
-				body += '<rect x="0" y="%d" width="512" height="3" fill="#%s" opacity="0.6"/>' % [fy + 125, ink]
-				body += '<rect x="0" y="%d" width="512" height="6" fill="#000000" opacity="0.14"/>' % [(fy + 128) % 512]
-				for bay in FACADE_BAYS:
-					var wx: int = bay[0]
-					var w: int = bay[1]
-					var wy := fy + 18
-					if w == 0:
-						# The pier: a vertical blade sign across the middle two floors, else a small vent.
-						if floor_k == 1:
-							body += '<rect x="%d" y="%d" width="30" height="200" rx="6" fill="#000000" opacity="0.22"/>' % [wx - 9, fy + 36]
-							body += '<rect x="%d" y="%d" width="30" height="200" rx="5" fill="url(#tube)" stroke="#%s" stroke-width="3"/>' % [wx - 15, fy + 30, ink]
-							for g in 5:
-								body += '<circle cx="%d" cy="%d" r="8" fill="#000000" opacity="0.25"/>' % [wx + 1, fy + 58 + g * 36]
-								body += '<circle cx="%d" cy="%d" r="7" fill="url(#bulb)"/>' % [wx, fy + 56 + g * 36]
-						elif floor_k != 2:
-							body += '<rect x="%d" y="%d" width="22" height="16" fill="#5c5e70" stroke="#%s" stroke-width="2"/>' % [wx - 11, fy + 50, ink]
-						continue
-					var lit := rng.randf() < 0.34
-					# The frame stands out from the wall: its shadow down and right, then the frame lit on its top and left edges.
-					body += '<rect x="%d" y="%d" width="%d" height="88" rx="4" fill="#000000" opacity="0.18"/>' % [wx - 2, wy - 2, w + 12]
-					body += '<rect x="%d" y="%d" width="%d" height="88" rx="4" fill="#%s" stroke="#%s" stroke-width="3"/>' % [wx - 6, wy - 6, w + 12, frame_col, ink]
-					body += '<path d="M%d,%d l0,-82 l%d,0" fill="none" stroke="#ffffff" stroke-width="2.5" opacity="0.45"/>' % [wx - 3, wy + 79, w + 6]
-					body += '<path d="M%d,%d l0,82 l%d,0" fill="none" stroke="#000000" stroke-width="2.5" opacity="0.22"/>' % [wx + w + 3, wy - 3, -(w + 6)]
-					body += '<rect x="%d" y="%d" width="%d" height="76" fill="url(#%s)"/>' % [wx, wy, w, "room" if lit else "dark"]
-					if lit:
-						var cc: String = curtain[rng.randi_range(0, 2)]
-						body += '<path d="M%d,%d l16,0 q-6,38 -16,76 Z" fill="#%s" opacity="0.9"/>' % [wx, wy, cc]
-						body += '<path d="M%d,%d l-16,0 q6,38 16,76 Z" fill="#%s" opacity="0.9"/>' % [wx + w, wy, cc]
-					else:
-						body += '<path d="M%d,%d l14,0 l-14,22 Z" fill="#ffffff" opacity="0.12"/>' % [wx + 6, wy + 4]
-					# The glass sits back in the frame: an inner shadow along its top and left.
-					body += '<rect x="%d" y="%d" width="%d" height="9" fill="#000000" opacity="0.3"/>' % [wx, wy, w]
-					body += '<rect x="%d" y="%d" width="6" height="67" fill="#000000" opacity="0.22"/>' % [wx, wy + 9]
-					body += '<rect x="%d" y="%d" width="4" height="76" fill="#%s"/>' % [wx + w / 2 - 2, wy, frame_col]
-					body += '<rect x="%d" y="%d" width="%d" height="4" fill="#%s"/>' % [wx, wy + 34, w, frame_col]
-					# The sill: lit on top, its shadow on the wall under it.
-					body += '<rect x="%d" y="%d" width="%d" height="7" fill="#000000" opacity="0.2"/>' % [wx - 6, wy + 88, w + 16]
-					body += '<rect x="%d" y="%d" width="%d" height="8" rx="2" fill="#%s" stroke="#%s" stroke-width="2" stroke-opacity="0.5"/>' % [wx - 8, wy + 80, w + 16, hi, ink]
-					body += '<rect x="%d" y="%d" width="%d" height="2" fill="#ffffff" opacity="0.35"/>' % [wx - 6, wy + 81, w + 12]
-					var extra := rng.randf()
-					if extra < 0.2:
-						# A flower pot on the sill.
-						body += '<rect x="%d" y="%d" width="16" height="12" fill="#c8664c" stroke="#%s" stroke-width="2"/>' % [wx + 8, wy + 68, ink]
-						body += '<circle cx="%d" cy="%d" r="9" fill="#5aa04a"/><circle cx="%d" cy="%d" r="4" fill="#f06a8a"/>' % [wx + 16, wy + 62, wx + 18, wy + 58]
-					elif extra < 0.32:
-						# An air conditioner hung under the window.
-						body += '<rect x="%d" y="%d" width="36" height="22" rx="3" fill="#b9bcc8" stroke="#%s" stroke-width="2.5"/>' % [wx + 10, wy + 88, ink]
-						for g in 3:
-							body += '<rect x="%d" y="%d" width="26" height="2" fill="#%s" opacity="0.6"/>' % [wx + 15, wy + 93 + g * 5, ink]
-					elif extra < 0.44:
-						# A striped awning over it.
-						var ac: String = awn[rng.randi_range(0, 1)]
-						var stripes := (w + 20) / 15
-						for st_k in stripes:
-							body += '<rect x="%d" y="%d" width="15" height="16" fill="#%s"/>' % [wx - 10 + st_k * 15, wy - 22, ac if st_k % 2 == 0 else "f4efe6"]
-						for sc in stripes:
-							body += '<circle cx="%d" cy="%d" r="7.5" fill="#%s"/>' % [wx - 2 + sc * 15, wy - 6, ac if sc % 2 == 0 else "f4efe6"]
-						body += '<rect x="%d" y="%d" width="%d" height="16" fill="url(#fold)"/>' % [wx - 10, wy - 22, stripes * 15]
-						body += '<rect x="%d" y="%d" width="%d" height="8" fill="#000000" opacity="0.2"/>' % [wx - 4, wy + 2, stripes * 15 - 6]
-						body += '<rect x="%d" y="%d" width="%d" height="3" fill="#%s" opacity="0.5"/>' % [wx - 10, wy - 23, stripes * 15, ink]
-			# A drainpipe down the tile's seam, with brackets.
-			body += '<rect x="2" y="0" width="10" height="512" fill="#7d7f92" stroke="#%s" stroke-width="2" stroke-opacity="0.6"/>' % ink
-			for py in range(40, 512, 128):
-				body += '<rect x="0" y="%d" width="14" height="6" fill="#5c5e70"/>' % py
+			# (The windows, ledges, signs and drainpipes are modelled now, `_facade_windows`, 2026-10-18, the owner: painted on, they had no
+			# believable depth. The tile is the brick wall behind them.)
 		_:
 			# Quilted diamonds with a soft highlight along their upper edges.
 			body += '<rect width="256" height="256" fill="#%s"/>' % B
@@ -622,6 +766,8 @@ static func solid_block(parent: Node3D, t: Dictionary, left: float, right: float
 	body.name = "block"
 	# Its front falls into shade below the top edge (`front_fall` in shaders/toon_common.gdshaderinc).
 	body.set_instance_shader_parameter("front_top", top)
+	if t.get("pattern", "") == "facade":
+		_facade_windows(parent, left, right, top - 0.55, bottom, front_z, top, 0.52, body.material_override)
 	if not exposed:
 		return
 	var cx := (left + right) / 2.0
@@ -2542,6 +2688,7 @@ static func underside(root: Node3D, t: Dictionary, e: Array) -> void:
 			var tower := _mesh(root, _box(Vector3(r - l - 0.4, tall, 7.0)), _under_material(_soil_material(t), 0.55), Vector3(cx, street + tall / 2.0, front - 3.5))
 			tower.name = "Underside"
 			tower.set_instance_shader_parameter("front_top", e[2])
+			_facade_windows(root, cx - (r - l - 0.4) / 2.0, cx + (r - l - 0.4) / 2.0, bottom - 0.3, street + 4.4, front, e[2], 0.55, tower.material_override)
 			_mesh(root, _box(Vector3(r - l + 0.1, 0.32, 0.5)), _soft((t.soil as Color).lightened(0.1)), Vector3(cx, bottom - 0.12, front + 0.2))
 			_mesh(root, _shade_band(r - l - 0.4, 1.2), _band_material(), Vector3(cx, bottom - 0.9, front + 0.01))
 			_shopfront(root, cx, r - l - 0.4, street, front + 0.02)

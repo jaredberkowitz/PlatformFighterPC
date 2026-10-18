@@ -28,6 +28,9 @@ uniform float blade_scale = 1.0;
 uniform float front_fall = 0.4;
 uniform float front_span = 5.0;
 uniform vec3 front_shade : source_color = vec3(0.6, 0.57, 0.72);
+// Fall into the front shade by height (as `front_fall` does on a world-laid front) on any surface: the modelled pieces on a building
+// front (scripts/stage_art.gd `_facade_windows`) settle back with the wall they stand on.
+uniform bool fall_by_height = false;
 // World-laid fronts only: broad painted shadow shapes over an earth wall (0 off), large soft-edged cool shapes in `front_shade` and warmer
 // lit ones between them, slow in x and leaning as they run down, so a dirt face reads as rounded packed earth under one light rather
 // than one flat colour (the owner's material notes, 2026-10-17: dirt wants broad shadow shapes and warm/cool shifts).
@@ -146,6 +149,9 @@ void fragment() {
 	}
 	if (world_tile <= 0.0) {
 		c *= brush(UV);
+	}
+	if (fall_by_height) {
+		c *= mix(vec3(1.0), front_shade, front_fall * smoothstep(0.6, front_span, front_top - world_pos.y));
 	}
 	if (ground_shadow_count > 0) {
 		float gs = 0.0;
