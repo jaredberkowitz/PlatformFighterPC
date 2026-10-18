@@ -48,6 +48,8 @@ uniform float detail_scale = 3.0;
 // Multiply by the mesh's vertex colour (off by default: imported props may carry colours meant for nothing). The crowns' lobed clump balls
 // bake each leaf clump's own light into it (scripts/stage_art.gd `_clump_ball`): a lit top and a dark crevice between clumps.
 uniform bool vertex_shade = false;
+// Multiply by each MultiMesh instance's custom data (rgb): one material, every instance its own shade (the sea wall's stones).
+uniform bool instance_tint = false;
 // Painted ground shadows under background props (scripts/stage_art.gd `_ground_shadow`): soft ellipses on the ground in world x/z, each
 // (centre x, centre z, half width, half depth), darkening the surface toward a cool shade. 0 of them for everything else.
 uniform vec4 ground_shadows[12];
@@ -80,6 +82,9 @@ void vertex() {
 	world_pos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 	world_normal = normalize((MODEL_MATRIX * vec4(NORMAL, 0.0)).xyz);
 	vshade = vertex_shade ? COLOR.rgb : vec3(1.0);
+	if (instance_tint) {
+		vshade *= INSTANCE_CUSTOM.rgb;
+	}
 }
 
 void fragment() {

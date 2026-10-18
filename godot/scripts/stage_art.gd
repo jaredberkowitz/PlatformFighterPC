@@ -467,54 +467,7 @@ static func _soil_material(t: Dictionary) -> ShaderMaterial:
 			# foot does that job.)
 			var S := 512.0
 			body += '<rect width="512" height="512" fill="#%s"/>' % b.darkened(0.28).to_html(false)
-			# (Smaller stones than at first, chiselled rather than pillowed: corners only just softened, a lit bevel along the top and left
-			# of each and a shaded one along the bottom and right, darker mortar, and fine pits in the stone; the big soft-cornered blocks
-			# with a pale inner highlight read as cushions at play size.)
-			# (Warm sandstone, art review 6: a cool grey wall was the one cold thing on a warm sand island beside the lighthouse's brown rocks.)
-			var stone_grey := Color(0.86, 0.74, 0.6)
-			var y := 0.0
-			while y < S - 1.0:
-				var rh := rng.randf_range(36.0, 74.0)
-				if y + rh > S - 30.0:
-					rh = S - y
-				var widths: Array = []
-				var total := 0.0
-				while total < S - 40.0:
-					var ww := rng.randf_range(40.0, 150.0)
-					widths.append(ww)
-					total += ww
-				var x := -rng.randf_range(0.0, 50.0)
-				for wi in widths.size():
-					var w: float = float(widths[wi]) * S / total
-					# (A wide spread of stone, art review 6 round 2: within a narrow range of shades and sizes the wall read as a regular
-					# brick grid at play size, the most placeholder-looking surface on any stage. Now each stone its own shade, a few pale or
-					# deep ones, and a wider range of sizes.)
-					var shade := a.lerp(b, rng.randf_range(0.0, 0.7)).lerp(stone_grey, 0.2)
-					shade = shade.lightened(rng.randf_range(0.02, 0.14)) if rng.randf() < 0.6 else shade.darkened(rng.randf_range(0.0, 0.1))
-					var rad := rng.randf_range(3.0, 7.0)
-					var lit := shade.lightened(0.2).to_html(false)
-					var dark := shade.darkened(0.25).to_html(false)
-					var pits := []
-					for j in 4:
-						pits.append([rng.randf_range(8.0, w - 16.0), rng.randf_range(8.0, rh - 16.0), rng.randf_range(1.4, 3.2)])
-					var crack := rng.randf() < 0.25
-					var cxr := rng.randf_range(0.2, 0.7)
-					var cv := [rng.randf_range(-6, 6), rng.randf_range(10, 18), rng.randf_range(-6, 6), rng.randf_range(8, 14)]
-					for ox in [-S, 0.0, S]:
-						var bx: float = x + ox + 3.0
-						var by: float = y + 3.0
-						var bw: float = w - 6.0
-						var bh: float = rh - 6.0
-						body += '<rect x="%.1f" y="%.1f" width="%.1f" height="%.1f" rx="%.1f" fill="#%s" stroke="#%s" stroke-width="2.5" stroke-opacity="0.5"/>' % [bx, by, bw, bh, rad, shade.to_html(false), ink]
-						# The bevels: lit top and left, shaded bottom and right.
-						body += '<path d="M%.1f,%.1f L%.1f,%.1f L%.1f,%.1f L%.1f,%.1f L%.1f,%.1f L%.1f,%.1f Z" fill="#%s" opacity="0.55"/>' % [bx + 2, by + bh - 2, bx + 2, by + 2, bx + bw - 2, by + 2, bx + bw - 8, by + 8, bx + 8, by + 8, bx + 8, by + bh - 8, lit]
-						body += '<path d="M%.1f,%.1f L%.1f,%.1f L%.1f,%.1f L%.1f,%.1f L%.1f,%.1f L%.1f,%.1f Z" fill="#%s" opacity="0.5"/>' % [bx + bw - 2, by + 2, bx + bw - 2, by + bh - 2, bx + 2, by + bh - 2, bx + 8, by + bh - 8, bx + bw - 8, by + bh - 8, bx + bw - 8, by + 8, dark]
-						for pt in pits:
-							body += '<circle cx="%.1f" cy="%.1f" r="%.1f" fill="#%s" opacity="0.35"/>' % [bx + float(pt[0]), by + float(pt[1]), float(pt[2]), dark]
-						if crack:
-							body += '<path d="M%.1f,%.1f l%.1f,%.1f l%.1f,%.1f" fill="none" stroke="#%s" stroke-width="2" stroke-linecap="round" opacity="0.4"/>' % [bx + bw * cxr, by + 6.0, cv[0], cv[1], cv[2], cv[3], ink]
-					x += w
-				y += rh
+			# (The stones are built now, `_seawall_stones`, 2026-10-18: painted, the wall read flat. The tile is the mortar behind them.)
 		"earth":
 			# A bank of farm soil, painted (the meadow's own; the beach keeps the masonry): broad beds of warm earth with soft, gently waving
 			# boundaries, stones of very different sizes half buried in it (a few big boulders, more middling ones, many pebbles; each with a
@@ -768,6 +721,8 @@ static func solid_block(parent: Node3D, t: Dictionary, left: float, right: float
 	body.set_instance_shader_parameter("front_top", top)
 	if t.get("pattern", "") == "facade":
 		_facade_windows(parent, left, right, top - 0.55, bottom, front_z, top, 0.52, body.material_override)
+	elif t.get("pattern", "") == "seawall":
+		_seawall_stones(parent, t, left, right, top, bottom, front_z, depth, top)
 	if not exposed:
 		return
 	var cx := (left + right) / 2.0
@@ -4537,3 +4492,112 @@ class Waves extends Node3D:
 	func _process(_delta: float) -> void:
 		var t := Time.get_ticks_msec() / 1000.0
 		position.y = sin(t * 0.8) * 0.12
+
+
+## The beach's sea wall built stone by stone on a block's faces (the front from `left` to `right`, `bottom` to `top - 0.5` at depth
+## `front`, and the two ends back to `front - depth`): dressed sandstone blocks in random bond (each course its own height, each stone its
+## own width, so no joint runs far), every stone a bevelled block standing a little proud of the dark mortar, a touch off true, in its own
+## shade, so each catches the light on its top and left bevels, falls into shade on the others and casts its shadow into the joint (the
+## owner, 2026-10-18: the painted wall read flat; after the papercraft village reference). One MultiMesh per face; the block's own tile is
+## the mortar behind them. The stones fall into the wall's shade by height as the wall does.
+static func _seawall_stones(parent: Node3D, t: Dictionary, left: float, right: float, top: float, bottom: float, front: float, depth: float,
+		fall_top: float) -> void:
+	var a: Color = t.soil
+	var b: Color = t.soil_dark
+	var stone_grey := Color(0.86, 0.74, 0.6)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = int(left * 31.0 + top * 17.0) + 5
+	var items: Array = []
+	# Each face as (origin, across, up, outward normal, width).
+	var faces := [[Vector3(left, 0, front), Vector3.RIGHT, right - left, Vector3.BACK],
+		[Vector3(left, 0, front - depth), Vector3.BACK, depth, Vector3.LEFT],
+		[Vector3(right, 0, front), Vector3.FORWARD, depth, Vector3.RIGHT]]
+	for f in faces:
+		var origin: Vector3 = f[0]
+		var across: Vector3 = f[1]
+		var width: float = f[2]
+		var out: Vector3 = f[3]
+		var y := top - 0.5
+		while y > bottom + 0.2:
+			var rh := rng.randf_range(0.72, 1.25)
+			var x := -rng.randf_range(0.0, 0.7)
+			while x < width:
+				var w := rng.randf_range(0.9, 2.6)
+				var x0 := maxf(x, 0.0)
+				var x1 := minf(x + w, width)
+				if x1 - x0 > 0.25:
+					var gap := 0.13
+					var cx := (x0 + x1) * 0.5
+					var size := Vector3(x1 - x0 - gap, rh - gap, 0.22)
+					var basis := Basis(across, Vector3.UP, out)
+					basis = basis * Basis.from_euler(Vector3(rng.randf_range(-0.04, 0.04), rng.randf_range(-0.05, 0.05), rng.randf_range(-0.02, 0.02)))
+					var pos := origin + across * cx + Vector3(0, y - rh * 0.5, 0) + out * (0.06 + rng.randf_range(-0.04, 0.04))
+					var shade := a.lerp(b, rng.randf_range(0.0, 0.7)).lerp(stone_grey, 0.2)
+					shade = shade.lightened(rng.randf_range(0.02, 0.14)) if rng.randf() < 0.6 else shade.darkened(rng.randf_range(0.0, 0.1))
+					# (Custom data reaches the shader as is, linear, where colour uniforms are converted from sRGB: convert it here, or every
+					# stone washes pale.)
+					items.append([Transform3D(basis.scaled_local(size), pos), shade.srgb_to_linear()])
+				x += w
+			y -= rh
+	if items.is_empty():
+		return
+	var mm := MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.use_custom_data = true
+	mm.mesh = _bevel_block()
+	mm.instance_count = items.size()
+	for i in items.size():
+		mm.set_instance_transform(i, items[i][0])
+		mm.set_instance_custom_data(i, items[i][1])
+	var mi := MultiMeshInstance3D.new()
+	mi.multimesh = mm
+	mi.material_override = _seawall_stone_mat()
+	mi.set_instance_shader_parameter("front_top", fall_top)
+	mi.name = "seawall_stones"
+	parent.add_child(mi)
+
+
+static var _bevel_mesh: ArrayMesh
+static var _seawall_mat: ShaderMaterial
+
+
+## A unit block (1 × 1 × 1, its face toward +z) whose front edges are bevelled: the front face inset by `BEVEL` on every side and four
+## sloping faces round it, flat-shaded, so a stone's edges catch and lose the light.
+static func _bevel_block() -> ArrayMesh:
+	if _bevel_mesh != null:
+		return _bevel_mesh
+	var e := 0.5
+	var bv := 0.09
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var f := [Vector3(-e + bv, -e + bv, e), Vector3(e - bv, -e + bv, e), Vector3(e - bv, e - bv, e), Vector3(-e + bv, e - bv, e)]
+	var m := [Vector3(-e, -e, e - bv * 1.6), Vector3(e, -e, e - bv * 1.6), Vector3(e, e, e - bv * 1.6), Vector3(-e, e, e - bv * 1.6)]
+	var k := [Vector3(-e, -e, -e), Vector3(e, -e, -e), Vector3(e, e, -e), Vector3(-e, e, -e)]
+	var quads: Array = [[f[0], f[1], f[2], f[3]]]
+	for i in 4:
+		var j := (i + 1) % 4
+		quads.append([m[i], m[j], f[j], f[i]])
+		quads.append([k[i], k[j], m[j], m[i]])
+	for q in quads:
+		var n: Vector3 = (q[1] - q[0]).cross(q[2] - q[0]).normalized()
+		for idx in [0, 2, 1, 0, 3, 2]:
+			st.set_normal(n)
+			st.set_color(Color.WHITE)
+			st.add_vertex(q[idx])
+	_bevel_mesh = st.commit()
+	return _bevel_mesh
+
+
+## The sea wall stones' material: plain cel-lit sandstone (a grey stone tile only greyed them), white so each stone takes its own shade from its
+## instance's custom data (`instance_tint`), falling into the wall's shade by height.
+static func _seawall_stone_mat() -> ShaderMaterial:
+	if _seawall_mat == null:
+		var m := (FighterView.toon(Color.WHITE, true) as ShaderMaterial).duplicate() as ShaderMaterial
+		m.set_shader_parameter("rim_strength", 0.3)
+		m.set_shader_parameter("instance_tint", true)
+		m.set_shader_parameter("fall_by_height", true)
+		m.set_shader_parameter("front_fall", 0.64)
+		m.set_shader_parameter("front_span", 4.5)
+		m.set_shader_parameter("ramp_softness", 0.06)
+		_seawall_mat = m
+	return _seawall_mat
