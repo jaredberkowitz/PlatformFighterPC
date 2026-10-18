@@ -77,6 +77,19 @@ widget goes into `ui_kit.gd` first, with these rules, not into the screen.
 Ease out (fast start, soft land) for things arriving, ease in for things leaving; a small overshoot (bounce) only on focus. Nothing on
 a menu moves on its own except the backdrop and a fighter's idle.
 
+## Lessons from the owner's results-screen plan (2026-10-17), for every screen
+
+- One treatment for related pieces: the same border weight, shadow direction and panel construction; the strongest decoration only on
+  the one thing that matters most on the screen (the headline, the winner, the focused choice). Not every panel at full weight.
+- Supporting text quieter than headings: captions and stat labels in `font()` at 0.72 ink, values in `display_font()`; no redundant
+  labels ("P1 PLAYER 1" said the same thing twice).
+- State in words or shape as well as colour (the WINNER ribbon, not only gold).
+- A deliberate backdrop: a light veil deeper where text sits, so the world behind stays a place, not mud; no placeholder textures
+  (rays and hatching) behind a showcase.
+- One primary action per screen in the screen's accent, the others quieter.
+- Motion restrained and coordinated: things arrive in reading order and the screen settles in about a second; nothing loops but the
+  world and the fighters.
+
 ## Audit (2026-10-17): where screens leave the system
 
 - Raw colours in screens: `menu_art.gd` 57, `match_hud.gd` 43, `run_hud.gd` 38, `select.gd` 15, `controls.gd` 12, `creator.gd` 11,

@@ -189,6 +189,11 @@ class Spotlight extends Control:
 	var colour := Color(0.3, 0.5, 0.9)
 	var feet: Array = []
 	var seed := 3
+	## No rays or hatching: a clean gradient pool of light (the results showcase; the owner's results-screen plan, 2026-10-17).
+	var plain := false:
+		set(v):
+			plain = v
+			queue_redraw()
 	## The floor and contact shadows (off for a close-up on the face).
 	var show_floor := true:
 		set(v):
@@ -219,7 +224,7 @@ class Spotlight extends Control:
 			centre = sum / feet.size() - Vector2(0, h * 0.3)
 		# Rays fanning from behind the fighters.
 		var reach := maxf(w, h) * 1.2
-		for k in 14:
+		for k in (0 if plain else 14):
 			var a := TAU * (float(k) + Art.noise(seed + k) * 0.3) / 14.0
 			var spread := 0.07 + 0.04 * absf(Art.noise(seed * 3 + k))
 			draw_colored_polygon(PackedVector2Array([centre, centre + Vector2(cos(a - spread), sin(a - spread)) * reach,
@@ -229,7 +234,7 @@ class Spotlight extends Control:
 			draw_circle(centre, minf(w, h) * (0.62 - k * 0.07), Color(colour.lightened(0.6), 0.06))
 		# A fine hatch over it all.
 		var step := 10.0
-		var x := -h
+		var x := w if plain else -h
 		while x < w:
 			draw_line(Vector2(x, h), Vector2(x + h, 0), Color(1, 1, 1, 0.035), 2.0)
 			x += step
