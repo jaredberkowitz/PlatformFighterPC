@@ -767,12 +767,14 @@ static func solid_block(parent: Node3D, t: Dictionary, left: float, right: float
 			# shaded face and a drip shadow under it; the roofing's seams fall at uneven spacings, faint.)
 			# (Art review 6 round 3: the roofing was one flat pale lilac, nearly the coping's value, so the edge of the fighting surface did
 			# not read and the biggest surface on screen was blank. Now a step darker than the coping, with broad weathered patches.)
-			var roofing := (t.grass as Color).lerp(Color(0.62, 0.56, 0.58), 0.55).darkened(0.1)
+			# (Warmer, the gauntlet's round 3: the play building is the warm, detailed layer in front of a cool, hazy skyline.)
+			var roofing := (t.grass as Color).lerp(Color(0.78, 0.5, 0.4), 0.88)
 			var roof_mat := _surface(roofing, "roof", 4.0).duplicate() as ShaderMaterial
 			roof_mat.set_shader_parameter("world_vary", 0.16)
 			roof_mat.set_shader_parameter("patch_amount", 0.4)
 			_mesh(parent, _box(Vector3(w + 0.3, 0.35, depth + 0.3)), roof_mat, Vector3(cx, top - 0.15, front_z - depth / 2.0))
-			var coping := _soft((t.grass_light as Color).lerp(Color(0.86, 0.82, 0.8), 0.4))
+			# (A crisp lit edge, warm under the string lights, round 3.)
+			var coping := _soft((t.grass_light as Color).lerp(Color(1.0, 0.9, 0.78), 0.6))
 			var coping_face := _soft((t.grass as Color).darkened(0.18))
 			_mesh(parent, _box(Vector3(w + 0.5, 0.12, 0.5)), coping, Vector3(cx, top + 0.02, front_z + 0.02))
 			_mesh(parent, _box(Vector3(w + 0.5, 0.2, 0.08)), coping_face, Vector3(cx, top - 0.13, front_z + 0.25))
@@ -3944,7 +3946,9 @@ static func _city(root: Node3D, t: Dictionary, stage: Array) -> void:
 		# rooftop plan, art review 6.)
 		# (Toward a deep cool blue as much as the horizon, art review 9: drifting to the pink horizon alone, every layer read the same violet
 		# and the scene lost its value contrast.)
-		shade = shade.lerp((t.sky_horizon as Color).lerp(Color(0.12, 0.14, 0.3), 0.55), [0.0, 0.2, 0.4][layer])
+		# (Lighter, cooler and hazier with distance, the gauntlet's round 3 after the owner's city reference, kept at night: the towers sat
+		# as dark and saturated as the play building and nothing separated. A night haze of pale blue-lilac, more of it further back.)
+		shade = shade.lerp(Color(0.5, 0.52, 0.74), [0.4, 0.6, 0.76][layer])
 		_skyline_layer(root, rng, layer, z, shade, float(e[3]) - CITY_STREET_DROP)
 	# A water tower and an antenna on the roof behind the stage.
 	var roof: float = e[2]
@@ -4425,7 +4429,7 @@ const FACADE_SHADER := preload("res://shaders/facade.gdshader")
 ## (Art review 6, refinement round 1: all three layers were near-white and the near one bloomed right behind the fighters, a field of
 ## pale rectangles that was the noisiest backdrop in the game. Now none blooms, and each layer back is dimmer.)
 ## (The near layer brighter again, 1.15 to 1.5, still under the glow: art review 9, the warm windows are the city's accent against the violet.)
-const FACADE_LIT := [1.5, 0.95, 0.6]
+const FACADE_LIT := [1.5, 0.7, 0.45]
 ## The share of a skyline layer's windows that are lit (nearest first): a scattered glow behind the fighters, not a field of lights that
 ## outshines them (the near layers stand right behind the play area).
 ## (Fewer lit the further back, as distance would hide them: the far layer was the most lit, 36%.)
@@ -4568,8 +4572,8 @@ static func _tree(root: Node3D, base: Vector3, size: float, rng: RandomNumberGen
 	# (Broad plates, art review 6 round 28: repeated five times round the trunk the furrows were a busy fine pinstripe beside the
 	# foreground's few broad soft forms.)
 	# (Browner and darker, art review 9: the pinkish bark was the earth's own hue, so tree and island ran together.)
-	# (A step darker and cooler, the gauntlet's round 2: the trunk right behind the stage's middle competed with the fight.)
-	var bark := Materials.bark(Color(0.42, 0.3, 0.26), Vector2(2.5, 2))
+	# (Lighter and hazier toward the sky, the gauntlet's round 3: darker, it stood out more behind the fight, not less.)
+	var bark := Materials.bark(Color(0.56, 0.44, 0.42), Vector2(2.5, 2))
 	_mesh(root, trunk_mesh(trunk_h, 2.9 * size, 2.0 * size, 0.7 * size, 1.4 * size, 0.09), bark, base)
 	for k in 6:
 		var a := -1.25 + k * 0.5
@@ -5149,12 +5153,14 @@ static func _dock_block(parent: Node3D, t: Dictionary, left: float, right: float
 	var water := bottom - 1.0
 	# (A deeper, weathered wood for the deck, gauntlet round 4's greyscale test: in full sun the theme's light wood was the fighters' own
 	# value, about 0.7 of white, and a yellow fighter all but vanished against the boards it stood on.)
-	var wood_c: Color = (t.wood as Color).lerp(Color(0.5, 0.38, 0.3), 0.75)
+	# (Honey-toned after the owner's harbour reference, kept at a readable value, about half of white.)
+	var wood_c: Color = Color(0.55, 0.37, 0.21)
 	var dark_c: Color = t.wood_dark
 	# The deck: rows of boards from the front back, staggered joints.
 	# (Longer boards in wider rows and a narrower range of shade, art review 9: hundreds of short boards in many shades read busy.)
-	var row_w := 0.62
-	var thick := 0.2
+	# (Wide, chunky planks, the gauntlet's round 3 after the harbour reference: thin boards in a fine grid read as a uniform fill.)
+	var row_w := 0.92
+	var thick := 0.26
 	var items: Array = []
 	var rows := int(depth / row_w)
 	var deck_l := left - 0.15
@@ -5169,8 +5175,8 @@ static func _dock_block(parent: Node3D, t: Dictionary, left: float, right: float
 			if x1 - x0 > 0.3:
 				var basis := Basis(Vector3.RIGHT, Vector3.FORWARD, Vector3.UP) * Basis.from_euler(Vector3(rng.randf_range(-0.012, 0.012), rng.randf_range(-0.01, 0.01), rng.randf_range(-0.006, 0.006)))
 				var pos := Vector3((x0 + x1) * 0.5, top - thick * 0.5 + rng.randf_range(-0.012, 0.008), zc)
-				var shade := wood_c.lerp(dark_c, rng.randf_range(0.0, 0.16)).lightened(rng.randf_range(-0.02, 0.05))
-				items.append([Transform3D(basis.scaled_local(Vector3(x1 - x0 - 0.045, row_w - 0.05, thick)), pos), shade.srgb_to_linear()])
+				var shade := wood_c.lerp(dark_c, rng.randf_range(0.0, 0.24)).lightened(rng.randf_range(-0.03, 0.07))
+				items.append([Transform3D(basis.scaled_local(Vector3(x1 - x0 - 0.07, row_w - 0.08, thick)), pos), shade.srgb_to_linear()])
 			x += len
 	var mm := MultiMesh.new()
 	mm.transform_format = MultiMesh.TRANSFORM_3D
@@ -5215,7 +5221,7 @@ static func _dock_block(parent: Node3D, t: Dictionary, left: float, right: float
 		band.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	# Piles: a front row and a back row, round, a little off plumb, each with a dark wet band and green weed at the waterline.
 	var pile := Materials.bark(dark_c.lerp(Color(0.45, 0.38, 0.34), 0.4), Vector2(1, 3))
-	var wet := FighterView.toon(dark_c.darkened(0.45))
+	var wet := FighterView.toon(Color(0.66, 0.64, 0.48))
 	var weed := Materials.foliage(Color(0.26, 0.46, 0.3), Vector2(1, 1), false)
 	var span := right - left
 	var n := maxi(3, int(round(span / 2.6)))
@@ -5228,13 +5234,14 @@ static func _dock_block(parent: Node3D, t: Dictionary, left: float, right: float
 			var lean := Vector3(rng.randf_range(-1.6, 1.6), 0, rng.randf_range(-1.2, 1.2))
 			var mid := Vector3(px, water - 1.5 + h * 0.5, pz)
 			# (Thicker, art review 9: thin piles under a heavy deck looked spindly.)
-			_mesh(parent, _cylinder(0.31, 0.35, h, 9), pile, mid, Vector3.ONE, lean)
-			_mesh(parent, _cylinder(0.37, 0.38, 0.6, 9), wet, Vector3(px, water + 0.15, pz), Vector3.ONE, lean)
-			_mesh(parent, _cylinder(0.39, 0.41, 0.18, 9), weed, Vector3(px, water + 0.42, pz), Vector3(1.0, 1.0, 1.0), lean)
+			# (Thicker again, with a pale weathered band at the waterline, the harbour reference.)
+			_mesh(parent, _cylinder(0.4, 0.45, h, 11), pile, mid, Vector3.ONE, lean)
+			_mesh(parent, _cylinder(0.47, 0.48, 0.7, 11), wet, Vector3(px, water + 0.2, pz), Vector3.ONE, lean)
+			_mesh(parent, _cylinder(0.49, 0.51, 0.16, 11), weed, Vector3(px, water + 0.5, pz), Vector3(1.0, 1.0, 1.0), lean)
 			if row == 0:
 				fronts.append(px)
 				# A pile cap standing a little proud of the fascia, lit on top.
-				_mesh(parent, _cylinder(0.34, 0.34, 0.16, 9), pile, Vector3(px, top - thick - 0.47, pz + 0.12))
+				_mesh(parent, _cylinder(0.44, 0.44, 0.16, 11), pile, Vector3(px, top - thick - 0.47, pz + 0.12))
 	# Bracing between the front piles: one heavy diagonal timber in every other bay, leaning alternately, under a heavy waling below the
 	# fascia (art review 9: thin crossed planks read as a fence).
 	var brace := Materials.wood(dark_c.darkened(0.08), Vector2(4, 1))
@@ -5402,12 +5409,13 @@ static func _harbour_town(root: Node3D, water: float) -> void:
 	# The headland: a broad rise of land behind the quay.
 	# (Deeper and less blue, art review 9: through the haze the paler green turned the faceted headland glassy.)
 	# (A step deeper again, 2026-10-18: still the brightest flat shape behind the fight.)
-	var land := Materials.foliage(Color(0.27, 0.5, 0.26), Vector2(6, 3), false)
+	# (Softer and hazier, the harbour reference: its hills sit back blue-green in the haze.)
+	var land := Materials.foliage(Color(0.4, 0.56, 0.46), Vector2(6, 3), false)
 	var hills := [[Vector3(-6, 0.0, -14), Vector3(40, 16, 16)], [Vector3(22, -1.0, -18), Vector3(26, 10, 12)]]
 	for h in hills:
 		_mesh(root, _sphere(1.0, 9), land, base + (h[0] as Vector3), h[1])
 	# Higher hills behind the town, bluer with distance.
-	var far_land := Materials.foliage(Color(0.2, 0.42, 0.3), Vector2(6, 3), false)
+	var far_land := Materials.foliage(Color(0.42, 0.56, 0.56), Vector2(6, 3), false)
 	# (Finer facets and a deeper green, gauntlet round 3: nine-sided spheres this size were a few huge flat panes, pale through the haze,
 	# and read as glass.)
 	_mesh(root, _sphere(1.0, 18), far_land, base + Vector3(-18, 0.0, -34), Vector3(36, 26, 10))

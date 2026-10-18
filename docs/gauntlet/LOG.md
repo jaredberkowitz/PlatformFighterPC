@@ -34,3 +34,19 @@ mismatch (deferred to the F10 playtest). Gaps: (1) no light structure on stage b
 under each top's lip, contact under props, the city's roof lighter than its towers with warm pools from its lights; (2) background
 layers fight the play layer (beach town, grove trunk, canyon arch, meadow mountains). Later: worn paths as patches; repetition
 (cobbles, moss, windows); trestle posts varied with a waterline band.
+
+## Round 3 (2026-10-18, commit 998635c; beach vs the harbour reference, city vs the city reference at night)
+
+| Stage | Believ. | Cohesion | Lighting | Depth | Ground | Clarity | Mean |
+|---|---|---|---|---|---|---|---|
+| Meadow | 2 | 3 | 3 | 3 | 2 | 3 | 2.7 |
+| Canyon | 3 | 4 | 4 | 3 | 3 | 4 | 3.5 |
+| Beach | 2 | 3 | 3 | 3 | 3 | 3 | 2.8 |
+| City | 2 | 3 | 2 | 2 | 2 | 3 | 2.3 |
+| Grove | 3 | 3 | 3 | 3 | 3 | 3 | 3.0 |
+
+Better: canyon shade warm again, grove roots read as wood, beach town smaller. Worse: the darker grove trunk stands out more (wanted
+lighter and hazier). Gaps: (1) the city has no layer separation (towers as dark and saturated as the play building; no lit edges;
+windows as busy shapes); (2) the beach's materials and props short of the harbour reference (thin uniform planks, tall thin posts,
+hard foam strokes, town on a big saturated hill, primitive crates and barrels). Later: grove trunk hazier; contact under props;
+repetition (cobbles, worn-path strips, moss circles).
