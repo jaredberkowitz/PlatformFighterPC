@@ -20,6 +20,8 @@ var index := 0
 var t := 0.0
 var preview: Control
 var logo: Control
+## The title screen is shown once a session, on a normal launch (`Title`).
+static var title_shown := false
 
 ## [title, subtitle, scene, colour, icon, rect (x, y, w, h) on a 1280x720 screen]
 const ITEMS := [
@@ -62,6 +64,80 @@ class Logo extends Control:
 		Art.brush_band(self, b, Art.SUN, 37, 18.0, true, 1.0)
 		Art.title_centered(self, "FIGHTER", b.grow_individual(-8, 0, -18, 0), 62, Art.INK, 0.0)
 		Art.sparkle(self, Vector2(206, 66), 16.0, Color.WHITE)
+
+
+class Title extends CanvasLayer:
+	## The title screen: the game's name large over the live world behind the menu, the last fighter played in its victory pose, and
+	## "press any button" pulsing under them. Any key, pad button or click goes on to the menu (with the screen wipe). Over the menu,
+	## which is already built behind it, so leaving is instant. The UI pass, docs/UI_DESIGN_SYSTEM.md.
+	signal dismissed
+	var t := 0.0
+	var board: Control
+	var prompt: Control
+	var preview: Control
+	var cls := 0
+	var leaving := false
+
+	func _init() -> void:
+		layer = 50
+
+	func _ready() -> void:
+		board = Control.new()
+		board.set_anchors_preset(Control.PRESET_FULL_RECT)
+		board.mouse_filter = Control.MOUSE_FILTER_STOP
+		add_child(board)
+		var backdrop := UI.Backdrop.new(false)
+		board.add_child(backdrop)
+		var big := Logo.new()
+		big.position = Vector2(150, 120)
+		big.size = Vector2(600, 120)
+		big.scale = Vector2(1.6, 1.6)
+		big.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		board.add_child(big)
+		var entry := Roster.net_entry()
+		cls = int(entry.get("class", 0))
+		preview = Preview.new(Vector2i(420, 520), false, 8.6)
+		preview.position = Vector2(800, 150)
+		preview.spin = false
+		preview.facing_bias = -0.4
+		preview.set_loadout(entry.look)
+		board.add_child(preview)
+		# The prompt on its own layer over the world and the fighter (drawn on the board it sat under the backdrop).
+		prompt = Control.new()
+		prompt.set_anchors_preset(Control.PRESET_FULL_RECT)
+		prompt.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		prompt.draw.connect(_paint)
+		board.add_child(prompt)
+		board.add_child(UI.Reveal.new())
+
+	func _process(delta: float) -> void:
+		t += delta
+		if prompt != null:
+			prompt.queue_redraw()
+		if preview != null and preview.view != null:
+			preview.view.play_victory(cls, delta, t < 1.0)
+
+	func _paint() -> void:
+		# The prompt on an ink brush stroke under the name (the logo's own treatment, not a muddy floor), pulsing gently.
+		var band := Rect2(Vector2(190, 470), Vector2(560, 64))
+		Art.brush_band(prompt, band, Art.INK, 47, 18.0, true, 0.92)
+		var pulse := 0.6 + 0.4 * (0.5 + 0.5 * sin(t * 3.2))
+		Art.title_centered(prompt, "PRESS ANY BUTTON", band.grow_individual(-12, 0, -24, 0), UI.TYPE_HEADING, Color(Color.WHITE, pulse), 0.0)
+		D.draw_text_centered(prompt, "A playtest build", Rect2(190, 540, 560, 30), UI.TYPE_CAPTION, Color(Art.INK, 0.7))
+
+
+	func _input(event: InputEvent) -> void:
+		var go: bool = (event is InputEventKey and event.pressed and not event.echo) or (event is InputEventJoypadButton and event.pressed) 			or (event is InputEventMouseButton and event.pressed)
+		if not go:
+			return
+		board.get_viewport().set_input_as_handled()
+		# (A short grace so the key that launched the game, or a held one, does not skip it at once.)
+		if leaving or t < 0.4:
+			return
+		leaving = true
+		Sfx.of(board).play("confirm")
+		dismissed.emit()
+		queue_free()
 
 
 func _ready() -> void:
@@ -121,6 +197,14 @@ func _ready() -> void:
 	Music.of(self).play("menu")
 	UI.reveal(self)
 	Shot.attach(self)
+	# The title screen first, on a normal launch only (launch arguments and tests open the menu itself).
+	# (`--title` shows it anyway, for photographing it with `--shot`.)
+	var args := OS.get_cmdline_user_args()
+	if not title_shown and (args.is_empty() or args.has("--title")) and get_tree().current_scene == self:
+		title_shown = true
+		var title := Title.new()
+		title.dismissed.connect(func(): UI.reveal(self))
+		add_child(title)
 
 
 ## Fills a destination tile with its painted scene and its fighters (see VIGNETTES).

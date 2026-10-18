@@ -11,6 +11,7 @@ extends Control
 
 const Music := preload("res://scripts/music.gd")
 const UI := preload("res://ui/ui_kit.gd")
+const D := preload("res://ui/ui_draw.gd")
 const Art := preload("res://ui/menu_art.gd")
 const Preview := preload("res://ui/preview.gd")
 const Loadout := preload("res://scripts/loadout.gd")
@@ -205,12 +206,29 @@ class PlayerPanel extends Control:
 	var mask: Control
 	var scenery: Control
 	var name_text := ""
+	## The fighter's class, a quieter caption over its name.
+	var class_text := ""
 	var is_ready := false
 	var empty := true
 	var t := 0.0
 	## Played by the computer: the tag says CPU instead of the player number.
 	var cpu := false
 	const LEAN := 30.0
+	## The fighter's resting height in the panel, and how far it rises from on a new pick and hops on locking in.
+	const BASE_Y := -26.0
+	const PICK_RISE := 30.0
+	const LOCK_HOP := 18.0
+	var pick_t := 1.0
+	var lock_t := 1.0
+
+	func _process(delta: float) -> void:
+		if pick_t >= 1.0 and lock_t >= 1.0:
+			return
+		pick_t = minf(1.0, pick_t + delta / UI.MOTION_BASE)
+		lock_t = minf(1.0, lock_t + delta / (UI.MOTION_BASE * 1.5))
+		var k := 1.0 - pow(1.0 - pick_t, 3.0)
+		preview.position.y = BASE_Y + (1.0 - k) * PICK_RISE - sin(lock_t * PI) * LOCK_HOP
+		preview.modulate.a = lerpf(0.25, 1.0, k)
 	const MOODS := [0.85, -0.7, 0.35, 0.0]
 
 	func _init(p: int, disc: Color, flag: Color) -> void:
@@ -223,7 +241,10 @@ class PlayerPanel extends Control:
 		add_child(mask)
 		# (A spotlit card in the player's colour, as the main menu's tiles: the world itself is the live backdrop behind the screen.)
 		var spot := UI.Spotlight.new()
-		spot.colour = flag.darkened(0.15)
+		# (A clean pool of light in a softer take on the player's colour, no rays or hatching: the slots were the heaviest thing on the
+		# screen; the design system's lessons from the owner's results plan, 2026-10-17.)
+		spot.colour = Color.from_hsv(flag.h, 0.45, 0.78)
+		spot.plain = true
 		spot.feet = [[0.5, 0.72]]
 		spot.seed = 11 + p * 17
 		scenery = spot
@@ -243,7 +264,7 @@ class PlayerPanel extends Control:
 		scenery.size = mask.size
 		var pw := minf(w * 0.8, 300.0)
 		preview.size = Vector2(pw, 260)
-		preview.position = Vector2(w * 0.5 - pw * 0.5 + 10.0, -26)
+		preview.position = Vector2(w * 0.5 - pw * 0.5 + 10.0, BASE_Y)
 
 
 	func _draw() -> void:
@@ -278,6 +299,12 @@ class PlayerPanel extends Control:
 		Art.brush_band(over, band, flag_color.darkened(0.1), 70 + player, 16.0, true, 1.0)
 		var shown := name_text.to_upper() if not empty else "CHOOSE A FIGHTER"
 		Art.title_centered(over, shown, band.grow_individual(-10, 0, -24, 0), 40, Color.WHITE, 0.12)
+		if not empty and class_text != "":
+			var f_cap := D.font()
+			var cap_w := f_cap.get_string_size(class_text, HORIZONTAL_ALIGNMENT_LEFT, -1, UI.TYPE_CAPTION).x + 24.0
+			var cap := Rect2(Vector2(band.position.x + 18.0, band.position.y - 24.0), Vector2(cap_w, 24.0))
+			over.draw_rect(cap, Color(Art.INK, 0.85))
+			D.draw_text_centered(over, class_text, cap, UI.TYPE_CAPTION, D.CREAM)
 		var tab := Rect2(f.position + Vector2(-6, -14), Vector2(86, 48))
 		Art.brush_band(over, tab, flag_color.darkened(0.05), 90 + player, 10.0, true, 0.5)
 		Art.title_centered(over, "CPU" if cpu else "P%d" % (player + 1), tab, 30, Color.WHITE, 0.14)
@@ -287,12 +314,19 @@ class PlayerPanel extends Control:
 			Art.title_centered(over, "READY!", badge, 30, Art.INK, 0.0)
 
 	func show_entry(e: Dictionary, size_percent: float, ready: bool) -> void:
+		# A new fighter slides up into the light; locking in gives a hop (`_process`).
+		if not e.is_empty() and str(e.get("name", "")) != name_text:
+			pick_t = 0.0
+		if ready and not is_ready:
+			lock_t = 0.0
 		empty = e.is_empty()
 		preview.visible = not empty
 		if not empty:
 			preview.set_loadout(e.look)
 			preview.set_size_percent(size_percent)
 			name_text = e.name
+			var c := int(e.get("class", -1))
+			class_text = Roster.CLASS_NAMES[c].to_upper() if c >= 0 and c < Roster.CLASS_NAMES.size() else ""
 		is_ready = ready
 		queue_redraw()
 
