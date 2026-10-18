@@ -677,11 +677,14 @@ static func solid_block(parent: Node3D, t: Dictionary, left: float, right: float
 			if t.has("grass_patch"):
 				grass = grass.duplicate()
 				grass.set_shader_parameter("patch_amount", t.grass_patch)
+				# And painted blade clumps over the patches (`blades`).
+				grass.set_shader_parameter("blades", 0.8)
 			var cap_h := 0.55
 			_mesh(parent, _box(Vector3(w + 0.25, cap_h, depth + 0.1)), grass, Vector3(cx, top - cap_h / 2.0 + 0.04, front_z - depth / 2.0))
 			var lip := _mesh(parent, _cylinder(cap_h * 0.6, cap_h * 0.6, w + 0.25), grass, Vector3(cx, top - cap_h * 0.55, front_z + 0.02), Vector3.ONE, Vector3(0, 0, 90))
 			lip.name = "lip"
-			_mesh(parent, _box(Vector3(w + 0.3, 0.12, 0.2)), _soft(t.grass_light), Vector3(cx, top - 0.06, front_z + 0.3))
+			# (The lit edge a step off the lawn, not its lightest green: in full light it read as a hard yellow rule along the front.)
+			_mesh(parent, _box(Vector3(w + 0.3, 0.12, 0.2)), _soft((t.grass_light as Color).lerp(t.grass, 0.45)), Vector3(cx, top - 0.06, front_z + 0.3))
 			# Tufts hanging over at uneven gaps and sizes, now and then a small stone among them (not where moss drapes the wall instead).
 			var x := left + rng.randf_range(0.4, 0.9) if not t.has("moss") else right
 			var tuft_mesh := _sphere(0.32, 12)
@@ -1442,6 +1445,8 @@ static func _leaf_cards(parent: Node3D, masses: Array, greens: Array, card: floa
 	# while the volume stays whole: no sky through the middle of a tree. All of a crown's cores are one mesh (one draw call).
 	var cores: SurfaceTool = null
 	var ball := _sphere(1.0, 14)
+	# (Crowns take lobed clump balls, `_clump_ball`: a scalloped outline of leaf clumps instead of a compass-drawn curve.)
+	var lobed := not rooted
 	if core != null:
 		cores = SurfaceTool.new()
 	# With `core_tiers` (deep, body, sunlit materials) each clump takes the tier its height in the crown gives it, low clumps in the deep
@@ -1467,9 +1472,13 @@ static func _leaf_cards(parent: Node3D, masses: Array, greens: Array, card: floa
 			var tier := clampi(int(up * float(tier_tools.size()) - 0.15), 0, tier_tools.size() - 1)
 			if radius >= biggest * 0.99:
 				tier = mini(1, tier_tools.size() - 1)
-			(tier_tools[tier] as SurfaceTool).append_from(ball, 0, Transform3D(Basis.IDENTITY.scaled(Vector3.ONE * radius), centre))
+			var lump: Mesh = _clump_ball(int(absf(centre.x * 7.0 + centre.y * 3.0)) % CLUMP_VARIANTS) if lobed else ball
+			# (Each turned about its own axis so neighbours' lobes do not line up.)
+			var turn := Basis(Vector3.UP, fposmod(centre.x * 1.7 + centre.z, TAU))
+			(tier_tools[tier] as SurfaceTool).append_from(lump, 0, Transform3D(turn.scaled(Vector3.ONE * radius), centre))
 		elif cores != null:
-			cores.append_from(ball, 0, Transform3D(Basis.IDENTITY.scaled(Vector3.ONE * radius * (0.82 if rooted else 1.0)), centre))
+			var lump2: Mesh = _clump_ball(int(absf(centre.x * 7.0 + centre.y * 3.0)) % CLUMP_VARIANTS) if lobed else ball
+			cores.append_from(lump2, 0, Transform3D(Basis(Vector3.UP, fposmod(centre.x * 1.7 + centre.z, TAU)).scaled(Vector3.ONE * radius * (0.82 if rooted else 1.0)), centre))
 		for k in (int(float(m[2]) * share) if not rooted else maxi(1, int(m[2]))):
 			# A direction out from the middle, mostly toward the front (the back of a crown is never seen), placed about its surface.
 			var dir := Vector3(rng.randf_range(-1, 1), rng.randf_range(-0.8, 1), rng.randf_range(-0.2, 1)).normalized()
@@ -1495,8 +1504,12 @@ static func _leaf_cards(parent: Node3D, masses: Array, greens: Array, card: floa
 		if tc.mesh == null or (tc.mesh as ArrayMesh).get_surface_count() == 0:
 			continue
 		var tm := (core_tiers[ti] as ShaderMaterial).duplicate() as ShaderMaterial
+		tm.set_shader_parameter("vertex_shade", lobed)
 		tm.set_shader_parameter("ramp_softness", 0.08)
-		tm.set_shader_parameter("shadow_amount", 0.78)
+		tm.set_shader_parameter("shadow_amount", 0.6 if lobed else 0.78)
+		# (A softer step into shade on the lobed crowns: with each clump already lit on its own, the crisp step stacked a second hard edge.)
+		if lobed:
+			tm.set_shader_parameter("ramp_softness", 0.2)
 		tm.set_shader_parameter("rim_strength", 0.5)
 		tc.material_override = tm
 		parent.add_child(tc)
@@ -1508,6 +1521,7 @@ static func _leaf_cards(parent: Node3D, masses: Array, greens: Array, card: floa
 		if not rooted and core is ShaderMaterial:
 			crisp = (core as ShaderMaterial).duplicate()
 			crisp.set_shader_parameter("ramp_softness", 0.08)
+			crisp.set_shader_parameter("vertex_shade", true)
 			crisp.set_shader_parameter("shadow_amount", 0.78)
 			crisp.set_shader_parameter("rim_strength", 0.5)
 		c.material_override = crisp
@@ -1521,6 +1535,93 @@ static func _leaf_cards(parent: Node3D, masses: Array, greens: Array, card: floa
 
 
 static var _foliage_cache := {}
+
+static var _lobed_cache := {}
+
+
+## A copy of leaf material `m` that takes a clump ball's baked light (`vertex_shade`), for any leaf mass drawn with `_clump_ball`.
+static func _lobed(m: Material) -> Material:
+	if not (m is ShaderMaterial):
+		return m
+	var key := m.get_instance_id()
+	if not _lobed_cache.has(key):
+		var c := (m as ShaderMaterial).duplicate() as ShaderMaterial
+		c.set_shader_parameter("vertex_shade", true)
+		_lobed_cache[key] = c
+	return _lobed_cache[key]
+
+
+## How many different lobed clump balls the crowns share (`_clump_ball`).
+const CLUMP_VARIANTS := 4
+static var _clump_cache := {}
+
+
+## A leaf mass as a heap of leaf clumps: a unit ball whose surface swells into about two dozen round lobes (each a dome over its own
+## direction, the highest one wins, so a crisp crevice runs between neighbours), the normals following the lobes. Every clump takes the
+## light on its own (a lit top, a shaded foot) and the mass's outline is scalloped against the sky, as a painted tree's crown is, instead of
+## one smooth curve (the owner, 2026-10-17: the grove's leaves could use more detail). `variant` picks one of `CLUMP_VARIANTS` lobe
+## layouts. Unit radius on average, like `_sphere(1.0)`.
+static func _clump_ball(variant: int) -> ArrayMesh:
+	if _clump_cache.has(variant):
+		return _clump_cache[variant]
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 7700 + variant
+	var lobes: Array = []
+	var n := 16
+	for k in n:
+		# A Fibonacci spread over the ball, each lobe nudged and sized on its own.
+		var y := 1.0 - 2.0 * (float(k) + 0.5) / n
+		var r := sqrt(maxf(0.0, 1.0 - y * y))
+		var a := float(k) * 2.39996 + rng.randf_range(-0.25, 0.25)
+		var d := Vector3(cos(a) * r, y, sin(a) * r) + Vector3(rng.randf_range(-0.12, 0.12), rng.randf_range(-0.12, 0.12), rng.randf_range(-0.12, 0.12))
+		lobes.append([d.normalized(), rng.randf_range(0.5, 0.7), rng.randf_range(0.34, 0.42)])
+	var sphere := SphereMesh.new()
+	sphere.radius = 1.0
+	sphere.height = 2.0
+	sphere.radial_segments = 36
+	sphere.rings = 18
+	var arrays := sphere.get_mesh_arrays()
+	var verts: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+	var cols := PackedColorArray()
+	cols.resize(verts.size())
+	# (The light each clump is painted with: from above and a little in front, the way the stage's sun falls on the crowns.)
+	var key := Vector3(0.0, 1.0, 0.45).normalized()
+	for i in verts.size():
+		var v := verts[i].normalized()
+		var swell := 0.0
+		var second := 0.0
+		var top_dir := v
+		for l in lobes:
+			var ang := acos(clampf(v.dot(l[0]), -1.0, 1.0))
+			var t := ang / float(l[1])
+			if t < 1.0:
+				var h := float(l[2]) * sqrt(1.0 - t * t)
+				if h > swell:
+					second = swell
+					swell = h
+					top_dir = l[0]
+				elif h > second:
+					second = h
+		verts[i] = v * (0.7 + swell)
+		# Each clump lit on its own: its dome's facing (from the clump's middle out to this point) against the key, a crisp step into
+		# its shaded foot, and a dark crevice where two clumps meet.
+		var dome := (v - top_dir * 0.75).normalized()
+		var lit := smoothstep(-0.2, 0.3, dome.dot(key))
+		var crevice := 1.0 - smoothstep(0.0, 0.035, swell - second)
+		var val := lerpf(0.86, 1.08, lit) * lerpf(1.0, 0.72, crevice)
+		cols[i] = Color(val, val, val * 1.02)
+	arrays[Mesh.ARRAY_VERTEX] = verts
+	arrays[Mesh.ARRAY_COLOR] = cols
+	arrays[Mesh.ARRAY_NORMAL] = null
+	arrays[Mesh.ARRAY_TANGENT] = null
+	var st := SurfaceTool.new()
+	var raw := ArrayMesh.new()
+	raw.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	st.create_from(raw, 0)
+	st.generate_normals()
+	var m := st.commit()
+	_clump_cache[variant] = m
+	return m
 
 
 static func _foliage_material(tile: String, rooted: bool) -> ShaderMaterial:
@@ -2007,8 +2108,9 @@ static func _canopy(root: Node3D, z: float, y: float, colours: Array) -> void:
 		_land_band(root, [], row_y + size * 0.2, rz - size * 0.6, fill, 2.0, 0.0)
 		# (The two nearest rows inked like the trees by the stage; further rows without, as distance takes the line.)
 		var inked := r < 2
-		var leaf := Materials.foliage(colours[r % colours.size()], Vector2(2, 2), inked)
-		var leaf_lit := Materials.foliage((colours[r % colours.size()] as Color).lightened(0.12), Vector2(2, 2), inked)
+		# (Clump balls with their baked light, as the trees' crowns: the forest reads as treetops of leaf clumps, not smooth balls.)
+		var leaf := _lobed(Materials.foliage(colours[r % colours.size()], Vector2(2, 2), inked))
+		var leaf_lit := _lobed(Materials.foliage((colours[r % colours.size()] as Color).lightened(0.12), Vector2(2, 2), inked))
 		var x := -150.0 + float(r) * 1.3
 		var k := 0
 		# Crowns, not equal puffs: each a big mass with two or three smaller lobes round its shoulders, of very different sizes, now and
@@ -2022,12 +2124,12 @@ static func _canopy(root: Node3D, z: float, y: float, colours: Array) -> void:
 			var jz := 0.8 * sin(k * 3.1 + r)
 			var main := leaf_lit if (k + r) % 3 == 0 else leaf
 			var c := Vector3(x, row_y + jy, rz + jz)
-			_mesh(root, _sphere(1.0, 12), main, c, Vector3(w, h, w * 0.7))
+			_mesh(root, _clump_ball(k % CLUMP_VARIANTS), main, c, Vector3(w, h, w * 0.7), Vector3(0, float(k * 47 % 360), 0))
 			var lobes := 2 + int(absf(sin(k * 4.1 + r)) * 1.99)
 			for li in lobes:
 				var side := -1.0 if li % 2 == 0 else 1.0
 				var lw := w * (0.45 + 0.15 * absf(sin(k + li * 2.7)))
-				_mesh(root, _sphere(1.0, 10), leaf if main == leaf_lit else leaf_lit,
+				_mesh(root, _clump_ball((k + li + 1) % CLUMP_VARIANTS), leaf if main == leaf_lit else leaf_lit,
 					c + Vector3(side * w * (0.7 + 0.1 * li), -h * 0.15 + h * 0.35 * float(li / 2), 0.25), Vector3(lw, lw * 0.9, lw * 0.7))
 			x += w * (1.6 + 0.5 * absf(sin(k * 0.71 + r * 1.3)))
 			k += 1
@@ -2235,16 +2337,16 @@ static var _trunk_cache := {}
 ## A row of soft tree shapes far back on the hills: a short trunk under a ball or two, all in one hazy colour, so they read as a
 ## distant wood rather than as things to look at.
 static func _tree_line(root: Node3D, rng: RandomNumberGenerator, y: float, z: float, colour: Color) -> void:
-	var leaf := _soft(colour)
+	var leaf := _lobed(_soft(colour))
 	var trunk := _soft(colour.darkened(0.25))
 	var x := -110.0
 	while x < 110.0:
 		var s := rng.randf_range(3.0, 5.0)
 		var at := Vector3(x, y + rng.randf_range(-1.5, 1.5), z + rng.randf_range(-6, 6))
 		_mesh(root, _cylinder(0.35 * s * 0.3, 0.45 * s * 0.3, s * 0.9, 6), trunk, at + Vector3(0, s * 0.45, 0))
-		_mesh(root, _sphere(1.0, 10), leaf, at + Vector3(0, s * 1.3, 0), Vector3(s, s * 1.1, s))
+		_mesh(root, _clump_ball(int(absf(x)) % CLUMP_VARIANTS), leaf, at + Vector3(0, s * 1.3, 0), Vector3(s, s * 1.1, s))
 		if rng.randf() < 0.5:
-			_mesh(root, _sphere(1.0, 10), leaf, at + Vector3(s * 0.7, s * 0.95, -0.5), Vector3.ONE * s * 0.7)
+			_mesh(root, _clump_ball(int(absf(x) + 1.0) % CLUMP_VARIANTS), leaf, at + Vector3(s * 0.7, s * 0.95, -0.5), Vector3.ONE * s * 0.7)
 		x += rng.randf_range(7.0, 12.0)
 
 
@@ -3171,16 +3273,16 @@ static func _grove(root: Node3D, t: Dictionary, stage: Array) -> void:
 	_canopy(root, -49.0, top - 12.5, [Color(0.16, 0.44, 0.3), Color(0.26, 0.56, 0.32), Color(0.14, 0.4, 0.32), Color(0.3, 0.6, 0.34)])
 	# Round bushes along the back of the island.
 	var bush_greens := Materials.greens(Color(0.3, 0.66, 0.34))
-	var bush := Materials.foliage(bush_greens[1])
+	var bush := _lobed(Materials.foliage(bush_greens[1]))
 	# (A clump of overlapping lobes in two greens, inked and lit like the crowns: a pale ball stuck on the front read as a flat sticker.)
-	var bush_light := Materials.foliage(bush_greens[2])
+	var bush_light := _lobed(Materials.foliage(bush_greens[2]))
 	for x in [left + 1.4, left + 3.2, right - 3.2, right - 1.4]:
 		var s := rng.randf_range(1.1, 1.5)
-		_mesh(root, _sphere(1.0, 16), bush, Vector3(x, top + 0.6, -6.5), Vector3(s * 1.3, s, s))
+		_mesh(root, _clump_ball(0), bush, Vector3(x, top + 0.6, -6.5), Vector3(s * 1.3, s, s))
 		for j in 3:
 			var side := float(j - 1)
 			var lr := s * rng.randf_range(0.5, 0.65)
-			_mesh(root, _sphere(1.0, 12), bush_light if j != 1 else bush, Vector3(x + side * s * 0.75, top + 0.4 + lr * 0.6 + (0.35 * s if j == 1 else 0.0),
+			_mesh(root, _clump_ball(j + 1), bush_light if j != 1 else bush, Vector3(x + side * s * 0.75, top + 0.4 + lr * 0.6 + (0.35 * s if j == 1 else 0.0),
 				-6.2 + absf(side) * 0.2), Vector3(lr * 1.15, lr, lr))
 		_contact(root, Vector3(x, top, -6.5), Vector2(s * 1.15, s * 0.8))
 	# Little flowers and tufts on the grass behind the fighters, gathered toward the ends so the middle of the stage stays clean.
@@ -3863,8 +3965,11 @@ static func _tree(root: Node3D, base: Vector3, size: float, rng: RandomNumberGen
 		masses.append([crown + off, rng.randf_range(2.2, 3.6) * size, 14])
 	# (Colour groups, 2026-10-17, the owner's brief: larger, more distinctive colour clusters instead of uniform green blobs. The low
 	# masses go a cool deep teal, the body stays, the crown's top masses catch a warm light green; each mass is painted with leaf clumps.)
-	var deep := Materials.foliage(Color.from_hsv(g[0].h + 0.06, minf(1.0, g[0].s * 1.05), g[0].v * 0.86))
-	_leaf_cards(sway, masses, g, 3.6 * size, rng, "leaf_cluster", false, leaf_mid, [deep, leaf_mid, leaf_light])
+	# (Four steps, not three, and the deep one lifted, 2026-10-17: the owner found the jump from the dark underside to the lit top stark.)
+	var deep_c := Color.from_hsv(g[0].h + 0.04, minf(1.0, g[0].s * 1.02), g[0].v * 0.96)
+	var deep := Materials.foliage(deep_c)
+	var between := Materials.foliage(deep_c.lerp(g[1], 0.5), Vector2(3, 2), false)
+	_leaf_cards(sway, masses, g, 3.6 * size, rng, "leaf_cluster", false, leaf_mid, [deep, between, leaf_mid, Materials.foliage((g[2] as Color).lerp(g[3], 0.5), Vector2(2, 1), false)])
 	var _unused := [leaf, leaf_sun]
 
 
