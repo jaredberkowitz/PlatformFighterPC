@@ -83,8 +83,8 @@ a menu moves on its own except the backdrop and a fighter's idle.
   `replays.gd` 9, `menu.gd` 8, `results.gd` 7 (counts of `Color(`; many are the palette's values typed again).
 - Type sizes in use: 15 to 34 in thirteen steps, plus 54, 81 and 84; map each to the six steps above.
 - Player colours: `match_hud.gd` `PLAYER_COLORS` and the palette's `RED`/`BLUE` differ slightly.
-- Motion: only the screen wipe and the button and tile focus exist; screens appear at once after the wipe (no slide-in), and values
-  snap.
+- Motion: the screen wipe, the button and tile focus, and (2026-10-17) the cards arriving in sequence behind the wipe (`Entrance`);
+  values still snap, and leaving a screen has no wipe.
 - Missing screens or states, from the backlog: the character select's big player slots, the title screen, the results screen
   (`--demo=results` stops in the match first).
 

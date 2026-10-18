@@ -145,7 +145,8 @@ The detail behind each step follows.
       likely rim light on thin slivers where meshes meet, not an ink gap (keeping 60% ink at the wrist cut changed nothing). A rig fix.) Fighters: the clothes' outline sits close to the body outline, doubling the line at the waist and cuffs at play size.
 
 ## UI redesign toward shippable: ONE large UI pass doing all five (owner, 2026-10-15), on Saturday or right after the work above
-- [ ] 1. Motion: animated screen transitions (a wipe in the ink-panel style), tiles that scale/brighten on focus, an animated menu
+- [~] (2026-10-17: every screen's cards now arrive in sequence behind the wipe, `UiKit.Entrance`; focus scaling and the animated
+      backdrop already existed. Still to do: values easing, a wipe on leaving.) 1. Motion: animated screen transitions (a wipe in the ink-panel style), tiles that scale/brighten on focus, an animated menu
       backdrop. The biggest "shipped game" signal in the competitors' menus.
 - [ ] 2. Character select redesign: a big slot per player along the bottom (posed render in the player colour, name, costume,
       sliding in on pick), the roster grid above.
