@@ -421,7 +421,8 @@ pub fn update(
     f.state_frame = f.state_frame.saturating_add(1);
     // The shield refills whenever it is not up (a broken shield is restored when the stun ends).
     if !matches!(f.state, S::Shield | S::ShieldBreak) {
-        f.shield_hp = (f.shield_hp + rules.shield_regen).min(crate::combat::shield_max_of(rules, f));
+        f.shield_hp =
+            (f.shield_hp + rules.shield_regen).min(crate::combat::shield_max_of(rules, f));
     }
 
     // Walking or running off a platform takes the ground speed into the air the way a jump does (see `jump_squat`).

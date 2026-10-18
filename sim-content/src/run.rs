@@ -11,10 +11,10 @@ use sim_core::content::Platform;
 use sim_core::run::data::{
     Room, BLOCK_BOTTOM, INTERIOR_PLATFORMS, ITEM_BUBBLE, ITEM_HEAL, ITEM_KINDS, ITEM_LIFE,
     ITEM_POWER, ITEM_REACH, ITEM_SPEED, ITEM_SPRING, ITEM_WEIGHT, LOOK_NAMES, MAX_CATALOGUE,
-    MAX_ROOM_WIDTH, MAX_SHOP_ITEMS, MIN_ROOM_WIDTH, RARITY_PRIZED, RARITY_STAPLE, STAPLES, MOB_MOVES, NO_MOVE, PROP_ROLES, PROP_SIGN, ROLES, ROLE_LOBBER,
-    ROOM_ALLEY, ROOM_ARENA, ROOM_COINS, ROOM_EVENT, ROOM_KINDS, ROOM_LEDGES, ROOM_PARTS,
-    ROOM_PLATFORMS, ROOM_PROPS, ROOM_REST, ROOM_SHOP, ROOM_SLOTS, ROOM_SPAWNS, ROOM_STREET,
-    SLOT_AIR, SPOT_ANY,
+    MAX_ROOM_WIDTH, MAX_SHOP_ITEMS, MIN_ROOM_WIDTH, MOB_MOVES, NO_MOVE, PROP_ROLES, PROP_SIGN,
+    RARITY_PRIZED, RARITY_STAPLE, ROLES, ROLE_LOBBER, ROOM_ALLEY, ROOM_ARENA, ROOM_COINS,
+    ROOM_EVENT, ROOM_KINDS, ROOM_LEDGES, ROOM_PARTS, ROOM_PLATFORMS, ROOM_PROPS, ROOM_REST,
+    ROOM_SHOP, ROOM_SLOTS, ROOM_SPAWNS, ROOM_STREET, SLOT_AIR, SPOT_ANY, STAPLES,
 };
 use sim_core::run::{
     deck_at, exit_deck, for_each_coin, for_each_footing, is_deck_fork, leads_to, part_on,
@@ -887,7 +887,11 @@ fn item_problems(rc: &RunContent, errors: &mut Vec<String>) {
     if rc.items.is_empty() || rc.items.len() > MAX_CATALOGUE {
         errors.push(format!("run: the shop needs 1 to {MAX_CATALOGUE} wares"));
     }
-    let staples = rc.items.iter().filter(|i| i.rarity == RARITY_STAPLE).count();
+    let staples = rc
+        .items
+        .iter()
+        .filter(|i| i.rarity == RARITY_STAPLE)
+        .count();
     if staples > STAPLES {
         errors.push(format!("run: at most {STAPLES} staple wares"));
     }
@@ -910,7 +914,13 @@ fn item_problems(rc: &RunContent, errors: &mut Vec<String>) {
         }
         let positive = matches!(
             item.kind,
-            ITEM_HEAL | ITEM_LIFE | ITEM_POWER | ITEM_SPEED | ITEM_WEIGHT | ITEM_SPRING | ITEM_REACH
+            ITEM_HEAL
+                | ITEM_LIFE
+                | ITEM_POWER
+                | ITEM_SPEED
+                | ITEM_WEIGHT
+                | ITEM_SPRING
+                | ITEM_REACH
         );
         if positive && item.amount <= Fx::ZERO || item.amount < Fx::ZERO || item.extra < Fx::ZERO {
             errors.push(format!("{at}: amount above 0"));
@@ -990,9 +1000,13 @@ fn interior_problems(rc: &RunContent, errors: &mut Vec<String>) {
     if s.bell <= Fx::ZERO
         || s.bell >= s.width
         || (s.bell - s.door).abs() <= rc.rules.door_reach.mul_int(2)
-        || s.pedestals.iter().any(|p| (p.x - s.bell).abs() < rc.rules.door_reach)
+        || s.pedestals
+            .iter()
+            .any(|p| (p.x - s.bell).abs() < rc.rules.door_reach)
     {
-        errors.push("shop interior: the bell must be inside, away from the door and the wares".to_string());
+        errors.push(
+            "shop interior: the bell must be inside, away from the door and the wares".to_string(),
+        );
     }
     for (j, p) in s.pedestals.iter().enumerate() {
         if p.x <= Fx::ZERO
@@ -1581,6 +1595,49 @@ mod room_rules {
         let mut rc = RunContent::placeholder();
         rc.rooms.retain(|r| r.kind != ROOM_ARENA);
         assert!(check_run(&rc).iter().any(|e| e.contains("arena")));
+    }
+
+    /// R3: the item catalogue and the shop are checked: each kind once, at most two staples, sane numbers and odds, the bell inside
+    /// and away from the wares.
+    #[test]
+    fn the_catalogue_and_the_shop_are_checked() {
+        let base = RunContent::placeholder();
+        type Edit = Box<dyn Fn(&mut RunContent)>;
+        let cases: Vec<(&str, Edit)> = vec![
+            (
+                "already in the catalogue",
+                Box::new(|rc| rc.items[3].kind = rc.items[2].kind),
+            ),
+            ("staple", Box::new(|rc| rc.items[4].rarity = RARITY_STAPLE)),
+            ("rarity", Box::new(|rc| rc.items[4].rarity = 9)),
+            ("odds", Box::new(|rc| rc.items[4].odds = 0)),
+            ("price", Box::new(|rc| rc.items[6].price = 0)),
+            ("kind must be", Box::new(|rc| rc.items[6].kind = 40)),
+            (
+                "stat points",
+                Box::new(|rc| rc.items[3].amount = Fx::from_int(9)),
+            ),
+            ("rare_odds", Box::new(|rc| rc.rules.prized_odds = 90)),
+            ("reroll_price", Box::new(|rc| rc.rules.reroll_price = 0)),
+            ("find_chance", Box::new(|rc| rc.rules.find_chance = 101)),
+            (
+                "bell",
+                Box::new(|rc| rc.interior.bell = rc.interior.pedestals[3].x),
+            ),
+            (
+                "ware stands",
+                Box::new(|rc| rc.interior.pedestals.truncate(2)),
+            ),
+        ];
+        for (want, edit) in cases {
+            let mut rc = base.clone();
+            edit(&mut rc);
+            let errors = check_run_shape(&rc);
+            assert!(
+                errors.iter().any(|e| e.contains(want)),
+                "{want}: {errors:?}"
+            );
+        }
     }
 }
 

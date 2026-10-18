@@ -42,7 +42,8 @@ pub use reach::{jump_reach, recovery_reach};
 pub use data::{
     Building, CoinSpot, Deck, Footing, Interior, MobKind, MobSpawn, Piece, PieceSlot, PropKind,
     PropSpot, Room, RoomLedge, RunContent, RunRules, ShopItem, Tier, ITEM_HEAL, ITEM_KINDS,
-    ITEM_LIFE, LOOK_NAMES, MAX_DECKS, NO_ITEM, PEDESTALS, ROOM_ALLEY, ROOM_ARENA, ROOM_EVENT, ROOM_REST, ROOM_SHOP, ROOM_STREET,
+    ITEM_LIFE, LOOK_NAMES, MAX_DECKS, NO_ITEM, PEDESTALS, ROOM_ALLEY, ROOM_ARENA, ROOM_EVENT,
+    ROOM_REST, ROOM_SHOP, ROOM_STREET,
 };
 
 use crate::collision;

@@ -32,8 +32,7 @@ use crate::fixed::Fx;
 use crate::moves::MoveId;
 use crate::rng::Rng;
 use crate::state::{
-    FighterState as S, GameState, MatchRules, Projectile, ITEM_FREE, ITEM_THROWN, NONE,
-    ORB_CIRCLE,
+    FighterState as S, GameState, MatchRules, Projectile, ITEM_FREE, ITEM_THROWN, NONE, ORB_CIRCLE,
 };
 use crate::vec2::Vec2;
 use crate::MAX_FIGHTERS;
@@ -123,7 +122,11 @@ pub fn draw(rng: &mut Rng, rc: &RunContent, run: &Run, tier: u8, taken: &[u8]) -
     let r = &rc.rules;
     let roll = rng.range(100);
     let prized_ok = tier >= r.prized_tier;
-    let prized = if prized_ok { u32::from(r.prized_odds) } else { 0 };
+    let prized = if prized_ok {
+        u32::from(r.prized_odds)
+    } else {
+        0
+    };
     let want = if roll < prized {
         RARITY_PRIZED
     } else if roll < prized + u32::from(r.rare_odds) {
@@ -207,8 +210,9 @@ pub fn reroll(state: &mut GameState, rc: &RunContent) -> u8 {
         let mut rng = run.shop_rng;
         let mut stock = run.shop_stock;
         // (The sold pedestals stay empty; the others are drawn again, none twice.)
-        let unsold: [bool; PEDESTALS] =
-            core::array::from_fn(|k| run.shop_bought[STAPLES + k] == 0 && k + STAPLES < ware_spots(rc));
+        let unsold: [bool; PEDESTALS] = core::array::from_fn(|k| {
+            run.shop_bought[STAPLES + k] == 0 && k + STAPLES < ware_spots(rc)
+        });
         for k in 0..PEDESTALS {
             if unsold[k] {
                 stock[k] = NO_ITEM;
@@ -408,7 +412,11 @@ pub fn refresh(state: &mut GameState, world: &mut Content, rc: &RunContent) {
 }
 
 /// A fighter's own parameters `base` with the run's stat items, extra wings and reach on.
-pub fn built(base: crate::content::FighterParams, run: &Run, rc: &RunContent) -> crate::content::FighterParams {
+pub fn built(
+    base: crate::content::FighterParams,
+    run: &Run,
+    rc: &RunContent,
+) -> crate::content::FighterParams {
     let points = |kind: u8| stacked(run, rc, kind).floor_int();
     let (speed, weight, jump) = (points(ITEM_SPEED), points(ITEM_WEIGHT), points(ITEM_SPRING));
     let mut p = if speed == 0 && weight == 0 && jump == 0 {
@@ -539,7 +547,9 @@ fn burns(state: &mut GameState, rc: &RunContent) {
         return;
     };
     let period = item.extra.floor_int().clamp(1, 255) as u8;
-    let dose = item.amount.mul_int(i32::from(level(&state.run, ITEM_HOT_HANDS).max(1)));
+    let dose = item
+        .amount
+        .mul_int(i32::from(level(&state.run, ITEM_HOT_HANDS).max(1)));
     for n in 0..MAX_MOBS {
         let m = state.run.mobs[n];
         if !m.active || m.burn == 0 {
@@ -570,8 +580,15 @@ fn bomb(state: &mut GameState, world: &Content) {
         let f = state.fighters[PLAYER];
         if crate::items::can_hold(&f) && f.holding == NONE && f.state != S::Respawn {
             let at = crate::items::hand(&f, &world.rules);
-            if let Some(n) = crate::items::make_as(state, world, PLAYER, body, spec, at, crate::items::ITEM_THROW_KEY)
-            {
+            if let Some(n) = crate::items::make_as(
+                state,
+                world,
+                PLAYER,
+                body,
+                spec,
+                at,
+                crate::items::ITEM_THROW_KEY,
+            ) {
                 crate::items::hand_to(state, world, PLAYER, n);
                 state.run.bomb = n as i8;
                 state.run.bomb_thrown = false;
@@ -589,7 +606,8 @@ fn bomb(state: &mut GameState, world: &Content) {
     if it.rest == crate::state::ITEM_BLAST {
         return;
     }
-    if it.rest == ITEM_THROWN {
+    // (Thrown since it was handed over: its flight counts only while thrown, and a drop from a hit leaves it at 0.)
+    if it.rest == ITEM_THROWN || it.flight > 0 {
         state.run.bomb_thrown = true;
     }
     let hit = it.rest == ITEM_THROWN && it.hit_mask != 0;
@@ -608,7 +626,9 @@ fn may_find(rc: &RunContent, slot: &RoomSlot) -> bool {
     let Some(room) = rc.rooms.get(usize::from(slot.room)) else {
         return false;
     };
-    room.paired || room.kind == ROOM_ALLEY || (!slot.skill_off && room.platforms.iter().any(|p| p.skilled))
+    room.paired
+        || room.kind == ROOM_ALLEY
+        || (!slot.skill_off && room.platforms.iter().any(|p| p.skilled))
 }
 
 /// Where a room's find stands (its feet): on top of the middle of its highest skilled footing, or else of its highest pass-through
@@ -617,7 +637,8 @@ pub fn find_spot(rc: &RunContent, slot: &RoomSlot) -> Option<Vec2> {
     let mut all: Vec<Placed> = Vec::new();
     for_each_footing(rc, slot, |p| all.push(p));
     let top = |p: &Placed| p.platform.y.max(p.platform.top_right());
-    let best = |f: &dyn Fn(&Placed) -> bool| all.iter().filter(|p| f(p)).max_by_key(|p| top(p)).copied();
+    let best =
+        |f: &dyn Fn(&Placed) -> bool| all.iter().filter(|p| f(p)).max_by_key(|p| top(p)).copied();
     let p = best(&|p| p.skilled)
         .or_else(|| best(&|p| p.platform.pass_through))
         .or_else(|| best(&|_| true))?;
@@ -634,7 +655,9 @@ pub fn roll_find(run: &mut Run, rc: &RunContent, slot: &mut RoomSlot) {
         return;
     }
     let r = &rc.rules;
-    let mut rng = Rng::new(run.seed ^ 0x4649_4e44_4649_4e44 ^ u64::from(slot.seq).wrapping_mul(0xD6E8_FEB8_6659_FD93));
+    let mut rng = Rng::new(
+        run.seed ^ 0x4649_4e44_4649_4e44 ^ u64::from(slot.seq).wrapping_mul(0xD6E8_FEB8_6659_FD93),
+    );
     let city = city_of(rc, slot.seq) + 1;
     if run.life_city != city && rng.range(100) < u32::from(r.life_chance) {
         run.life_city = city;

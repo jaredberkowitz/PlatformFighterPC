@@ -757,7 +757,10 @@ fn buying_by_walking_up_and_leaving() {
     assert_eq!(sim.state.run.shop_note, NOTE_NOT_NEEDED);
     assert_eq!(sim.state.run.coins, coins);
     // Away from the pedestals and the door, up does nothing.
-    stand_inside(&mut sim, (shop.pedestals[1].x + shop.pedestals[2].x) / fx(2));
+    stand_inside(
+        &mut sim,
+        (shop.pedestals[1].x + shop.pedestals[2].x) / fx(2),
+    );
     sim.tick(Input::default());
     let acts = sim.state.run.shop_acts;
     press_up(&mut sim);
@@ -1588,6 +1591,31 @@ fn checksum_sees_every_run_field() {
         ("spike_kos", |r| r.spike_kos += 1),
         ("bowls", |r| r.bowls += 1),
         ("air_kos", |r| r.air_kos += 1),
+        // R3.
+        ("shop_stock", |r| r.shop_stock[3] ^= 1),
+        ("shop_rerolls", |r| r.shop_rerolls += 1),
+        ("shop_rng", |r| r.shop_rng = Rng::new(77)),
+        ("seed", |r| r.seed ^= 1 << 40),
+        ("owned", |r| r.owned[17] += 1),
+        ("slot", |r| r.slot ^= 1),
+        ("bomb", |r| r.bomb += 2),
+        ("bomb_thrown", |r| r.bomb_thrown ^= true),
+        ("wind", |r| r.wind += 1),
+        ("guard", |r| r.guard ^= true),
+        ("orb_timer", |r| r.orb_timer += 1),
+        ("base_fighter", |r| r.base_fighter ^= 1),
+        ("orb_body", |r| r.orb_body ^= 1),
+        ("orb_move", |r| r.orb_move ^= 1),
+        ("pops", |r| r.pops += 1),
+        ("saves", |r| r.saves += 1),
+        ("steals", |r| r.steals += 1),
+        ("finds", |r| r.finds += 1),
+        ("find_last", |r| r.find_last += 1),
+        ("life_city", |r| r.life_city += 1),
+        ("slots.find", |r| r.slots[RING - 1].find ^= 3),
+        ("slots.find_item", |r| r.slots[0].find_item ^= 1),
+        ("slots.found", |r| r.slots[0].found ^= true),
+        ("mob.burn", |r| r.mobs[MAX_MOBS - 1].burn += 1),
     ];
     for (name, edit) in edits {
         let mut s = base;
@@ -1691,6 +1719,34 @@ fn versus_has_no_run_and_run_content_hashes() {
             o.interior.dizzy_frames += 1;
             o
         }),
+        ("item rarity", {
+            let mut o = rc.clone();
+            o.items[5].rarity ^= 1;
+            o
+        }),
+        ("item numbers", {
+            let mut o = rc.clone();
+            o.items[8].extra += Fx::ONE;
+            o.items[9].frames += 1;
+            o
+        }),
+        ("item cap and odds", {
+            let mut o = rc.clone();
+            o.items[3].cap += 1;
+            o.items[4].odds += 1;
+            o
+        }),
+        ("shop rules", {
+            let mut o = rc.clone();
+            o.rules.reroll_price += 1;
+            o.rules.life_chance += 1;
+            o
+        }),
+        ("bell", {
+            let mut o = rc.clone();
+            o.interior.bell += Fx::ONE;
+            o
+        }),
         ("mob", {
             let mut o = rc.clone();
             o.mobs[0] = MobKind {
@@ -1706,6 +1762,7 @@ fn versus_has_no_run_and_run_content_hashes() {
     let mut renamed = rc.clone();
     renamed.rooms[0].name = "elsewhere".to_string();
     renamed.items[0].name = "Soup".to_string();
+    renamed.items[5].blurb = "Something else.".to_string();
     renamed.pieces[0].name = "skip".to_string();
     renamed.rooms[1].platforms[0].look = 9;
     assert_eq!(rc.hash(), renamed.hash(), "names are labels only");
@@ -4382,4 +4439,837 @@ fn the_planned_map_matches_the_rooms_that_come() {
     }
     println!("{checked} rooms checked ahead, {forks_seen} forks on the map, {deck_forks_seen} of them deck forks");
     assert!(checked > 1500 && forks_seen > 30 && deck_forks_seen > 5);
+}
+
+// ---- R3: shops and items (sim 142) ------------------------------------------------------------------------------------------------
+
+use run::data::{
+    FIND_FOOD, FIND_ITEM, FIND_LIFE, ITEM_BOMB, ITEM_BUBBLE, ITEM_HEAL, ITEM_HOT_HANDS, ITEM_IRON,
+    ITEM_KINDS, ITEM_LIFE, ITEM_LIFESTEAL, ITEM_MAGNET, ITEM_ORBS, ITEM_POWER, ITEM_REACH,
+    ITEM_SECOND_WIND, ITEM_SPEED, ITEM_SPRING, ITEM_STEADY, ITEM_STURDY, ITEM_WEIGHT, ITEM_WING,
+    NO_ITEM, PEDESTALS, RARITY_COMMON, RARITY_PRIZED, RARITY_RARE, RARITY_STAPLE, STAPLES,
+};
+use run::items;
+use run::{Run, NOTE_REFUSED, NOTE_REROLLED, NOTE_SLOT_FULL};
+
+/// The run gets one of item kind `kind` (as a buy or a find would give it).
+fn give(sim: &mut RunSim, kind: u8) {
+    let idx = items::index_of(&sim.rc, kind).expect("the catalogue has it");
+    items::grant(&mut sim.state, &sim.rc, idx);
+}
+
+/// Puts item kind `kind` on the first pedestal of the shop the run is in (as if drawn) and tries to buy it.
+fn buy_kind(sim: &mut RunSim, kind: u8) -> u8 {
+    let idx = items::index_of(&sim.rc, kind).unwrap();
+    sim.state.run.shop_stock[0] = idx as u8;
+    sim.state.run.shop_bought[STAPLES] = 0;
+    run::buy(&mut sim.state, &sim.rc, STAPLES)
+}
+
+/// The catalogue is data: eighteen items, each kind once, in the plan's rarities, every one valid content.
+#[test]
+fn the_catalogue_is_eighteen_items_of_data() {
+    let rc = RunContent::placeholder();
+    assert_eq!(rc.items.len(), 18);
+    for kind in 0..ITEM_KINDS as u8 {
+        assert_eq!(
+            rc.items.iter().filter(|i| i.kind == kind).count(),
+            1,
+            "kind {kind} once"
+        );
+    }
+    let rarity = |k: u8| items::item_of(&rc, k).unwrap().rarity;
+    for k in [ITEM_HEAL, ITEM_LIFE] {
+        assert_eq!(rarity(k), RARITY_STAPLE);
+    }
+    for k in [
+        ITEM_POWER,
+        ITEM_SPEED,
+        ITEM_WEIGHT,
+        ITEM_SPRING,
+        ITEM_BUBBLE,
+        ITEM_BOMB,
+    ] {
+        assert_eq!(rarity(k), RARITY_COMMON);
+    }
+    for k in [ITEM_IRON, ITEM_REACH, ITEM_ORBS] {
+        assert_eq!(rarity(k), RARITY_PRIZED);
+    }
+    for k in [
+        ITEM_LIFESTEAL,
+        ITEM_MAGNET,
+        ITEM_HOT_HANDS,
+        ITEM_WING,
+        ITEM_STURDY,
+        ITEM_SECOND_WIND,
+        ITEM_STEADY,
+    ] {
+        assert_eq!(rarity(k), RARITY_RARE);
+    }
+    for k in [ITEM_POWER, ITEM_SPEED, ITEM_WEIGHT, ITEM_SPRING] {
+        assert_eq!(items::item_of(&rc, k).unwrap().cap, 3, "stats stack to 3");
+    }
+    // Heal 30 and the extra life at 150, one a shop, as they were.
+    let heal = items::item_of(&rc, ITEM_HEAL).unwrap();
+    let life = items::item_of(&rc, ITEM_LIFE).unwrap();
+    assert_eq!((heal.price, heal.amount, heal.limit), (30, fx(30), 0));
+    assert_eq!((life.price, life.amount, life.limit), (150, fx(1), 1));
+}
+
+/// Prices rise about 15% a tier; the staples keep theirs.
+#[test]
+fn prices_rise_by_tier_and_staples_stay() {
+    let rc = RunContent::placeholder();
+    let power = items::index_of(&rc, ITEM_POWER).unwrap();
+    let heal = items::index_of(&rc, ITEM_HEAL).unwrap();
+    let got: Vec<u32> = (0..5).map(|t| items::price(&rc, power, t)).collect();
+    assert_eq!(got, vec![50, 58, 65, 73, 80]);
+    assert!((0..5).all(|t| items::price(&rc, heal, t) == 30));
+}
+
+/// The shop's draw is seeded (the same seed and shop give the same pedestals), never repeats an item in one shop, leaves out an item
+/// owned to its cap, and has no prized item before tier 3; prized ones come from tier 3.
+#[test]
+fn shop_draws_are_seeded_by_rarity_and_never_repeat() {
+    let rc = RunContent::placeholder();
+    let mut prized_early = 0;
+    let mut prized_late = 0;
+    let mut rare = 0;
+    for seed in 0..300u64 {
+        for (seq, tier) in [(3u32, 0u8), (8, 1), (14, 2), (31, 4)] {
+            assert_eq!(run::tier_of(&rc, seq), tier);
+            let mut a = Run::INACTIVE;
+            a.seed = seed;
+            items::stock_shop(&mut a, &rc, seq);
+            let mut b = Run::INACTIVE;
+            b.seed = seed;
+            items::stock_shop(&mut b, &rc, seq);
+            assert_eq!(a.shop_stock, b.shop_stock, "the same shop again");
+            for k in 0..PEDESTALS {
+                let i = a.shop_stock[k];
+                assert_ne!(i, NO_ITEM, "every pedestal filled");
+                assert!(
+                    !a.shop_stock[..k].contains(&i),
+                    "no repeats: {:?}",
+                    a.shop_stock
+                );
+                let item = &rc.items[usize::from(i)];
+                assert_ne!(item.rarity, RARITY_STAPLE, "staples have their own stands");
+                match item.rarity {
+                    RARITY_PRIZED if tier < 2 => prized_early += 1,
+                    RARITY_PRIZED => prized_late += 1,
+                    RARITY_RARE => rare += 1,
+                    _ => {}
+                }
+            }
+        }
+    }
+    assert_eq!(prized_early, 0, "nothing prized before tier 3");
+    assert!(
+        prized_late > 100 && rare > 300,
+        "{prized_late} prized, {rare} rare"
+    );
+    // Another shop of the same run is stocked differently (most of the time).
+    let differ = (0..50u64)
+        .filter(|&seed| {
+            let mut a = Run::INACTIVE;
+            a.seed = seed;
+            let mut b = a;
+            items::stock_shop(&mut a, &rc, 6);
+            items::stock_shop(&mut b, &rc, 12);
+            a.shop_stock != b.shop_stock
+        })
+        .count();
+    assert!(differ > 40);
+    // Owned to its cap: never drawn again.
+    let power = items::index_of(&rc, ITEM_POWER).unwrap() as u8;
+    for seed in 0..200u64 {
+        let mut a = Run::INACTIVE;
+        a.seed = seed;
+        a.owned[usize::from(ITEM_POWER)] = 3;
+        items::stock_shop(&mut a, &rc, 6);
+        assert!(!a.shop_stock.contains(&power));
+    }
+}
+
+/// The bell re-draws the unsold pedestals for 10 coins, then 20, then 40 (doubling in that shop); a sold pedestal stays sold; it is
+/// refused with too few coins or while the shopkeeper sulks. A new shop's bell starts at 10 again.
+#[test]
+fn the_bell_rerolls_unsold_pedestals_for_doubling_prices() {
+    let mut rc = only(&["shop"], (1, 0, 0));
+    rc.rules.shop_min = 1;
+    rc.rules.shop_max = 1;
+    let mut sim = RunSim::with(rc, 4);
+    let (_, door) = shop_door(&sim);
+    sim.stand(door);
+    sim.tick(Input::default());
+    press_up(&mut sim);
+    assert!(sim.state.run.inside);
+    let first = sim.state.run.shop_stock;
+    assert!(first.iter().all(|&i| i != NO_ITEM));
+    // At the bell: the spot says so.
+    let bell = sim.rc.interior.bell;
+    stand_inside(&mut sim, bell);
+    sim.tick(Input::default());
+    assert_eq!(
+        run::shop_spot(&sim.state, &sim.rc),
+        Some(Some(items::BELL_SPOT))
+    );
+    sim.state.run.coins = 5;
+    press_up(&mut sim);
+    assert_eq!(sim.state.run.shop_note, NOTE_TOO_POOR);
+    assert_eq!(sim.state.run.shop_stock, first, "nothing changed");
+    // Buy the first pedestal, then ring three times: 10, 20, 40.
+    sim.state.run.coins = 1000;
+    sim.state.fighters[PLAYER].percent = fx(50);
+    let bought = sim.state.run.shop_stock[0];
+    let note = run::buy(&mut sim.state, &sim.rc, STAPLES);
+    assert!(
+        note == NOTE_BOUGHT || note == NOTE_SLOT_FULL || note == NOTE_NOT_NEEDED,
+        "{note}"
+    );
+    sim.state.run.shop_bought[STAPLES] = 1;
+    let mut changed = 0;
+    for price in [10, 20, 40] {
+        let coins = sim.state.run.coins;
+        let before = sim.state.run.shop_stock;
+        assert_eq!(items::bell_price(&sim.state.run, &sim.rc), price);
+        press_up(&mut sim);
+        assert_eq!(sim.state.run.shop_note, NOTE_REROLLED);
+        assert_eq!(sim.state.run.keeper_mood, run::KEEPER_RESTOCK);
+        assert_eq!(sim.state.run.coins, coins - price);
+        let after = sim.state.run.shop_stock;
+        assert_eq!(after[0], bought, "the sold pedestal stays sold");
+        changed += (1..PEDESTALS).filter(|&k| after[k] != before[k]).count();
+        for k in 0..PEDESTALS {
+            assert!(!after[..k].contains(&after[k]), "no repeats");
+        }
+    }
+    assert!(changed >= 4, "the unsold pedestals were re-drawn");
+    assert_eq!(sim.state.run.shop_rerolls, 3);
+    // Sulking: refused.
+    sim.state.run.keeper_grudge = 99;
+    assert_eq!(items::reroll(&mut sim.state, &sim.rc), NOTE_REFUSED);
+    assert_eq!(sim.state.run.shop_rerolls, 3);
+}
+
+/// Purchase refusals, nothing paid: too few coins, a sulking shopkeeper, the extra life's one a shop and the most lives, a cap
+/// reached, an empty pedestal, and the one consumable slot taken.
+#[test]
+fn purchase_refusals() {
+    let mut rc = only(&["shop"], (1, 0, 0));
+    rc.rules.shop_min = 1;
+    rc.rules.shop_max = 1;
+    let mut sim = RunSim::with(rc, 2);
+    sim.state.run.shop_room = 1;
+    let check = |_: &mut RunSim, note: u8, want: u8, what: &str| {
+        assert_eq!(note, want, "{what}");
+    };
+    sim.state.run.coins = 10;
+    let n = buy_kind(&mut sim, ITEM_POWER);
+    check(&mut sim, n, NOTE_TOO_POOR, "too few coins");
+    assert_eq!(sim.state.run.coins, 10);
+    sim.state.run.coins = 2000;
+    sim.state.run.keeper_grudge = 5;
+    let n = buy_kind(&mut sim, ITEM_POWER);
+    check(&mut sim, n, NOTE_REFUSED, "closed");
+    sim.state.run.keeper_grudge = 0;
+    // The extra life: one a shop, and never past the most lives.
+    let n = run::buy(&mut sim.state, &sim.rc, 1);
+    check(&mut sim, n, NOTE_BOUGHT, "a life");
+    let n = run::buy(&mut sim.state, &sim.rc, 1);
+    check(&mut sim, n, NOTE_SOLD_OUT, "one life a shop");
+    sim.state.run.shop_bought[1] = 0;
+    sim.state.fighters[PLAYER].stocks = sim_core::MatchRules::MAX_STOCKS;
+    let n = run::buy(&mut sim.state, &sim.rc, 1);
+    check(&mut sim, n, NOTE_NOT_NEEDED, "the most lives");
+    // A stat to its cap of 3.
+    for _ in 0..3 {
+        let n = buy_kind(&mut sim, ITEM_POWER);
+        check(&mut sim, n, NOTE_BOUGHT, "power");
+    }
+    let coins = sim.state.run.coins;
+    let n = buy_kind(&mut sim, ITEM_POWER);
+    check(&mut sim, n, NOTE_NOT_NEEDED, "power past its cap");
+    assert_eq!(sim.state.run.coins, coins);
+    assert_eq!(items::level(&sim.state.run, ITEM_POWER), 3);
+    // A pedestal sold, or empty.
+    sim.state.run.shop_stock[1] = NO_ITEM;
+    let n = run::buy(&mut sim.state, &sim.rc, STAPLES + 1);
+    check(&mut sim, n, NOTE_SOLD_OUT, "empty");
+    // The one slot: a bubble up, then no bomb (and no second bubble) until it pops.
+    let n = buy_kind(&mut sim, ITEM_BUBBLE);
+    check(&mut sim, n, NOTE_BOUGHT, "a bubble");
+    assert_eq!(sim.state.run.slot, ITEM_BUBBLE);
+    for k in [ITEM_BOMB, ITEM_BUBBLE] {
+        let coins = sim.state.run.coins;
+        let n = buy_kind(&mut sim, k);
+        check(&mut sim, n, NOTE_SLOT_FULL, "the slot is full");
+        assert_eq!(sim.state.run.coins, coins);
+    }
+}
+
+/// Power: hits deal 8% more damage a stack (a jab on a grunt).
+#[test]
+fn power_adds_damage_by_the_stack() {
+    let jab = |stacks: u8| {
+        let mut sim = RunSim::with(quiet(), 1);
+        for _ in 0..stacks {
+            give(&mut sim, ITEM_POWER);
+        }
+        sim.clear_mobs();
+        let x = sim.player().pos.x;
+        let n = sim.add_mob(0, Vec2::new(x + fx(1), Fx::ZERO));
+        sim.hold(n);
+        for frame in 0..30 {
+            sim.tick(inp(0, 0, if frame == 0 { ATTACK } else { 0 }));
+            if sim.g(n).percent > Fx::ZERO {
+                break;
+            }
+        }
+        sim.g(n).percent
+    };
+    let base = jab(0);
+    assert!(base > Fx::ZERO);
+    for stacks in 1..=3u8 {
+        let want = base * Fx::from_ratio(100 + 8 * i32::from(stacks), 100);
+        let got = jab(stacks);
+        assert!(
+            (got - want).abs() <= Fx::from_ratio(1, 50),
+            "{stacks}: {got:?} against {want:?}"
+        );
+    }
+}
+
+/// Speed, weight and spring rebuild the run's copy of the fighter through the creator's stats (two speed points, one weight point,
+/// two jump points a stack); extra wing adds a midair jump and long reach makes hitboxes 10% bigger. The fighter's own parameters
+/// are kept, and the versus roster in a fresh content is untouched.
+#[test]
+fn stat_items_rebuild_the_fighter_through_the_creator_stats() {
+    let mut sim = RunSim::with(quiet(), 1);
+    let own = sim.world.fighters[0];
+    let n = sim_core::stats::NEUTRAL;
+    give(&mut sim, ITEM_SPEED);
+    give(&mut sim, ITEM_SPEED);
+    give(&mut sim, ITEM_WEIGHT);
+    give(&mut sim, ITEM_SPRING);
+    sim.tick(Input::default());
+    let want = sim_core::stats::apply(own, n, n + 4, n + 2, n + 1);
+    assert_eq!(sim.world.fighters[0], want);
+    assert!(want.run_speed > own.run_speed && want.full_hop_velocity > own.full_hop_velocity);
+    assert_eq!(
+        sim.world.fighters[usize::from(sim.state.run.base_fighter)],
+        own,
+        "its own kept"
+    );
+    give(&mut sim, ITEM_WING);
+    give(&mut sim, ITEM_REACH);
+    sim.tick(Input::default());
+    let p = sim.world.fighters[0];
+    assert_eq!(p.air_jumps, want.air_jumps + 1);
+    assert_eq!(p.hitbox_scale, want.hitbox_scale * Fx::from_ratio(110, 100));
+    // A new run on the same content starts from the fighter's own parameters again.
+    let rc = sim.rc.clone();
+    let state = new_run(&mut sim.world, &rc, 2, 0);
+    assert_eq!(sim.world.fighters[0], own);
+    assert_eq!(
+        state.run.base_fighter, sim.state.run.base_fighter,
+        "the same keeping place"
+    );
+    assert_eq!(
+        Content::placeholder().fighters[0],
+        own,
+        "versus content untouched"
+    );
+}
+
+/// Lifesteal: a grunt knock-out of the player's heals 3%.
+#[test]
+fn lifesteal_heals_on_a_knock_out() {
+    for owned in [false, true] {
+        let mut sim = RunSim::with(quiet(), 1);
+        if owned {
+            give(&mut sim, ITEM_LIFESTEAL);
+        }
+        sim.clear_mobs();
+        sim.idle(2);
+        sim.state.fighters[PLAYER].percent = fx(20);
+        sim.state.run.last_percent = fx(20);
+        let (_, _, _, top) = run::grunt_zone(&sim.state.run, &sim.rc.rules);
+        let a = sim.add_mob(0, Vec2::new(fx(20), top + fx(1)));
+        let g = sim.g_mut(a);
+        g.state = S::Hitstun;
+        g.hitstun = 40;
+        sim.state.run.mobs[a].credit = 30;
+        sim.tick(Input::default());
+        assert_eq!(sim.state.run.kills, 1);
+        let want = if owned { fx(17) } else { fx(20) };
+        assert_eq!(sim.player().percent, want);
+        assert_eq!(sim.state.run.steals, u16::from(owned));
+    }
+}
+
+/// Coin magnet: coins within 4 come to you (3 away: taken only with it).
+#[test]
+fn the_coin_magnet_reaches_four() {
+    for owned in [false, true] {
+        let mut sim = RunSim::with(only(&["street", "shop"], (1, 0, 0)), 3);
+        if owned {
+            give(&mut sim, ITEM_MAGNET);
+        }
+        sim.clear_mobs();
+        let slot = *sim.state.run.slot_of(1).unwrap();
+        let mut first = None;
+        run::for_each_coin(&sim.rc, &slot, |n, at| {
+            first.get_or_insert((n, at));
+        });
+        let (n, at) = first.unwrap();
+        sim.place(at - Vec2::new(fx(3), Fx::ONE));
+        sim.tick(Input::default());
+        let slot = *sim.state.run.slot_of(1).unwrap();
+        assert_eq!(slot.coins & (1 << n) != 0, owned, "magnet {owned}");
+    }
+}
+
+/// Hot hands: a hit leaves a burn of 1% a second for 3 seconds on the grunt (not a hit: the combo stays at one).
+#[test]
+fn hot_hands_burn_a_grunt_for_three_seconds() {
+    let mut sim = RunSim::with(quiet(), 1);
+    give(&mut sim, ITEM_HOT_HANDS);
+    sim.clear_mobs();
+    let x = sim.player().pos.x;
+    let n = sim.add_mob(0, Vec2::new(x + fx(1), Fx::ZERO));
+    sim.hold(n);
+    for frame in 0..30 {
+        sim.tick(inp(0, 0, if frame == 0 { ATTACK } else { 0 }));
+        if sim.g(n).percent > Fx::ZERO {
+            break;
+        }
+    }
+    let hit = sim.g(n).percent;
+    assert!(sim.state.run.mobs[n].burn > 0, "burning");
+    sim.idle(62);
+    assert_eq!(sim.g(n).percent, hit + fx(1));
+    sim.idle(60);
+    assert_eq!(sim.g(n).percent, hit + fx(2));
+    sim.idle(60);
+    assert_eq!(sim.g(n).percent, hit + fx(3));
+    sim.idle(120);
+    assert_eq!(sim.g(n).percent, hit + fx(3), "three seconds only");
+    assert_eq!(sim.state.run.combo, 1, "a burn is not a hit");
+}
+
+/// Iron startup: super armor through a smash attack's startup (and only then, and only with the item).
+#[test]
+fn iron_startup_armors_a_smash_startup() {
+    for owned in [false, true] {
+        let mut sim = RunSim::with(quiet(), 1);
+        if owned {
+            give(&mut sim, ITEM_IRON);
+        }
+        sim.clear_mobs();
+        sim.idle(3);
+        let mut armored = 0;
+        let mut after = 0;
+        for frame in 0..60 {
+            sim.tick(inp(
+                if frame < 2 { 127 } else { 0 },
+                0,
+                if frame < 2 { ATTACK | STRONG } else { 0 },
+            ));
+            let f = *sim.player();
+            if f.super_armor {
+                armored += 1;
+                assert_eq!(f.state, S::Attack);
+            } else if armored > 0 {
+                after += 1;
+            }
+        }
+        if owned {
+            assert!(armored >= 5, "armored through the startup: {armored}");
+            assert!(after > 0, "not after it");
+        } else {
+            assert_eq!(armored, 0);
+        }
+    }
+}
+
+/// Sturdy shield: 30% more shield health, worn 25% slower while held.
+#[test]
+fn the_sturdy_shield_is_stronger_and_wears_slower() {
+    let hold = |owned: bool| {
+        let mut sim = RunSim::with(quiet(), 1);
+        if owned {
+            give(&mut sim, ITEM_STURDY);
+        }
+        sim.clear_mobs();
+        sim.idle(400);
+        let full = sim.player().shield_hp;
+        for _ in 0..60 {
+            sim.tick(inp(0, 0, SHIELD));
+        }
+        (full, full - sim.player().shield_hp)
+    };
+    let (full, worn) = hold(false);
+    let (strong, slow) = hold(true);
+    assert_eq!(strong, full * Fx::from_ratio(130, 100));
+    assert!(slow < worn, "{slow:?} against {worn:?}");
+    assert!((slow - worn * Fx::from_ratio(75, 100)).abs() < Fx::ONE);
+}
+
+/// Second wind: after a lost life, 3 more seconds untouchable once the respawn's invincibility is over.
+#[test]
+fn second_wind_lengthens_the_respawn_invincibility() {
+    let untouchable = |owned: bool| {
+        let mut sim = RunSim::with(quiet(), 1);
+        if owned {
+            give(&mut sim, ITEM_SECOND_WIND);
+        }
+        sim.clear_mobs();
+        sim.idle(2);
+        let (bottom, _) = sim.state.run.blast_y(&sim.rc.rules);
+        let x = sim.player().pos.x;
+        sim.place(Vec2::new(x, bottom - fx(2)));
+        let mut frames = 0i32;
+        let mut left_platform = false;
+        for _ in 0..900 {
+            // (Off the revival platform at once, by a fresh press.)
+            sim.tick(if sim.player().state == S::Respawn {
+                inp(0, 0, if sim.state.frame % 2 == 0 { JUMP } else { 0 })
+            } else {
+                Input::default()
+            });
+            sim.clear_mobs();
+            let f = *sim.player();
+            if f.state != S::Respawn && f.stocks < 3 {
+                left_platform = true;
+            }
+            if left_platform && f.invuln > 0 {
+                frames += 1;
+            }
+        }
+        assert!(left_platform);
+        frames
+    };
+    let base = untouchable(false);
+    let more = untouchable(true);
+    assert!((more - base - 180).abs() <= 2, "{base} then {more}");
+}
+
+/// Steady combo: the first hit taken in a combo keeps it; the next breaks it; the forgiving hit comes back once it has.
+#[test]
+fn steady_combo_forgives_the_first_hit() {
+    let mut sim = RunSim::with(quiet(), 1);
+    give(&mut sim, ITEM_STEADY);
+    sim.clear_mobs();
+    let hurt = |sim: &mut RunSim| {
+        sim.state.fighters[PLAYER].percent += fx(5);
+        sim.tick(Input::default());
+    };
+    sim.state.run.combo = 6;
+    hurt(&mut sim);
+    assert_eq!(sim.state.run.combo, 6, "kept");
+    assert_eq!(sim.state.run.saves, 1);
+    hurt(&mut sim);
+    assert_eq!(sim.state.run.combo, 0, "the second hit breaks it");
+    assert!(sim.state.run.guard, "ready again");
+    sim.state.run.combo = 3;
+    hurt(&mut sim);
+    assert_eq!(sim.state.run.combo, 3);
+    // Without the item, the first hit breaks it.
+    let mut sim = RunSim::with(quiet(), 1);
+    sim.clear_mobs();
+    sim.state.run.combo = 6;
+    hurt(&mut sim);
+    assert_eq!(sim.state.run.combo, 0);
+}
+
+/// Shadow orbs: the Exile's orbs circle the player (one at once, the rest one every 1.5 seconds, up to three), never strike the
+/// player, and hit a grunt that comes near (the player's hit).
+#[test]
+fn shadow_orbs_circle_the_player_and_strike_grunts() {
+    let mut sim = RunSim::with(quiet(), 1);
+    assert_ne!(sim.state.run.orb_body, NO_ITEM, "a body has the orbs");
+    give(&mut sim, ITEM_ORBS);
+    sim.clear_mobs();
+    let circling = |sim: &RunSim| {
+        sim.state
+            .projectiles
+            .iter()
+            .filter(|p| {
+                p.active && p.orb == sim_core::state::ORB_CIRCLE && usize::from(p.held) == PLAYER
+            })
+            .count()
+    };
+    sim.tick(Input::default());
+    assert_eq!(circling(&sim), 1);
+    sim.idle(200);
+    assert_eq!(circling(&sim), 3);
+    sim.idle(700);
+    assert_eq!(circling(&sim), 3, "they never strike");
+    assert_eq!(sim.player().percent, Fx::ZERO);
+    let x = sim.player().pos.x;
+    let n = sim.add_mob(0, Vec2::new(x + fx(1), Fx::ZERO));
+    sim.hold(n);
+    let mut hit = false;
+    for _ in 0..120 {
+        sim.tick(Input::default());
+        if sim.state.run.mobs[n].active && sim.g(n).percent > Fx::ZERO {
+            hit = true;
+            break;
+        }
+    }
+    assert!(hit, "an orb struck the grunt");
+    assert!(sim.state.run.combo >= 1, "the player's hit");
+}
+
+/// The bubble absorbs the next hit (no damage, the slot free again, a moment untouchable); the hit after lands.
+#[test]
+fn the_bubble_absorbs_one_hit() {
+    let mut sim = RunSim::with(quiet(), 1);
+    give(&mut sim, ITEM_BUBBLE);
+    sim.clear_mobs();
+    let x = sim.player().pos.x;
+    sim.add_mob(0, Vec2::new(x + fx(5), Fx::ZERO));
+    let mut popped = false;
+    for _ in 0..600 {
+        sim.tick(Input::default());
+        if sim.state.run.pops == 1 && !popped {
+            popped = true;
+            assert_eq!(sim.player().percent, Fx::ZERO, "absorbed");
+            assert_eq!(sim.state.run.slot, NO_ITEM);
+            assert!(sim.player().invuln >= 20);
+        }
+        if sim.player().percent > Fx::ZERO {
+            break;
+        }
+    }
+    assert!(popped, "the bubble popped");
+    assert!(sim.player().percent > Fx::ZERO, "the next hit lands");
+    assert_eq!(sim.state.run.pops, 1);
+}
+
+/// The bomb: handed over once outside with a free hand, thrown at a grunt it bursts on the hit and launches it, never hurting the
+/// player; the slot is free once it has burst.
+#[test]
+fn the_bomb_is_handed_over_and_bursts_where_it_hits() {
+    let mut sim = RunSim::with(quiet(), 1);
+    sim.clear_mobs();
+    sim.idle(3);
+    give(&mut sim, ITEM_BOMB);
+    assert_eq!(sim.state.run.slot, ITEM_BOMB);
+    sim.tick(Input::default());
+    let f = *sim.player();
+    assert_ne!(f.holding, NONE, "in the hand");
+    assert_eq!(sim.state.run.bomb, f.holding);
+    let x = f.pos.x;
+    let n = sim.add_mob(0, Vec2::new(x + fx(3), Fx::ZERO));
+    sim.hold(n);
+    sim.state.fighters[PLAYER].facing = 1;
+    let mut burst = false;
+    for frame in 0..120 {
+        sim.tick(inp(
+            if frame < 3 { 127 } else { 0 },
+            0,
+            if frame == 1 { ATTACK } else { 0 },
+        ));
+        sim.hold(n);
+        if let Ok(b) = usize::try_from(sim.state.run.bomb) {
+            burst |= sim.state.items[b].rest == sim_core::state::ITEM_BLAST;
+        }
+        if sim.state.run.slot == NO_ITEM {
+            break;
+        }
+    }
+    assert!(burst, "it burst");
+    assert_eq!(sim.state.run.slot, NO_ITEM, "the slot is free");
+    assert_eq!(sim.player().percent, Fx::ZERO, "never hurts the player");
+    assert!(
+        !sim.state.run.mobs[n].active || sim.g(n).percent > fx(2),
+        "the grunt took the blast"
+    );
+}
+
+/// Finds on routes (F8): only in a fork's road, a treasure alley or a room with its skilled route laid; food, items and 1-ups all
+/// come; at most one 1-up a city. Taking one: food heals, a 1-up gives a life, an item is the player's; one that would do nothing
+/// stays.
+#[test]
+fn finds_come_on_routes_and_are_taken() {
+    let rc = quiet();
+    let (mut food, mut item, mut life) = (0, 0, 0);
+    let mut eligible = 0;
+    for seed in 0..30u64 {
+        let mut sim = RunSim::with(rc.clone(), seed);
+        let mut seen: Vec<u32> = Vec::new();
+        let mut lives_by_city = std::collections::BTreeMap::new();
+        for step in 0..72u64 {
+            sim.take_road(((seed + step) % 2) as usize);
+            let fresh: Vec<run::RoomSlot> = sim
+                .state
+                .run
+                .slots
+                .iter()
+                .filter(|s| s.live && !seen.contains(&s.seq))
+                .copied()
+                .collect();
+            for s in &fresh {
+                seen.push(s.seq);
+                let room = &sim.rc.rooms[usize::from(s.room)];
+                let may = room.paired
+                    || room.kind == run::ROOM_ALLEY
+                    || (!s.skill_off && room.platforms.iter().any(|p| p.skilled));
+                eligible += u32::from(may);
+                if s.find != 0 {
+                    assert!(may, "seed {seed}: a find in {}", room.name);
+                    assert!(items::find_spot(&sim.rc, s).is_some());
+                }
+                match s.find {
+                    FIND_FOOD => food += 1,
+                    FIND_ITEM => {
+                        item += 1;
+                        assert_ne!(s.find_item, NO_ITEM);
+                    }
+                    FIND_LIFE => {
+                        life += 1;
+                        *lives_by_city
+                            .entry(run::city_of(&sim.rc, s.seq))
+                            .or_insert(0) += 1;
+                    }
+                    _ => {}
+                }
+            }
+        }
+        assert!(
+            lives_by_city.values().all(|&n| n <= 1),
+            "one 1-up a city at most"
+        );
+    }
+    println!("{eligible} rooms could hold a find: {food} food, {item} items, {life} 1-ups");
+    assert!(food > 20 && item > 20 && life > 10);
+    // Taking them.
+    let mut sim = RunSim::with(quiet(), 1);
+    sim.clear_mobs();
+    let s = sim
+        .state
+        .run
+        .slots
+        .iter()
+        .position(|s| s.live && s.seq == 1)
+        .unwrap();
+    let take = |sim: &mut RunSim, what: u8, item: u8| {
+        let slot = &mut sim.state.run.slots[s];
+        slot.find = what;
+        slot.find_item = item;
+        slot.found = false;
+        let at = items::find_spot(&sim.rc, &sim.state.run.slots[s]).unwrap();
+        sim.place(at);
+        sim.tick(Input::default());
+        sim.state.run.slots[s].found
+    };
+    assert!(!take(&mut sim, FIND_FOOD, NO_ITEM), "food at 0% stays");
+    sim.state.fighters[PLAYER].percent = fx(50);
+    sim.state.run.last_percent = fx(50);
+    assert!(take(&mut sim, FIND_FOOD, NO_ITEM));
+    assert_eq!(sim.player().percent, fx(30));
+    let lives = sim.player().stocks;
+    assert!(take(&mut sim, FIND_LIFE, NO_ITEM));
+    assert_eq!(sim.player().stocks, lives + 1);
+    let wing = items::index_of(&sim.rc, ITEM_WING).unwrap() as u8;
+    assert!(take(&mut sim, FIND_ITEM, wing));
+    assert_eq!(items::level(&sim.state.run, ITEM_WING), 1);
+    assert!(!take(&mut sim, FIND_ITEM, wing), "owned once: it stays");
+    assert_eq!(sim.state.run.finds, 3);
+}
+
+/// A scripted run that buys in three shops replays exactly (every frame's checksum), and its build is what it bought.
+#[test]
+fn a_run_buying_in_three_shops_replays() {
+    let play = || {
+        let mut rc = only(&["street", "shop"], (1, 0, 0));
+        rc.rules.shop_min = 2;
+        rc.rules.shop_max = 2;
+        let mut sim = RunSim::with(rc, 8);
+        sim.clear_mobs();
+        let mut sums = vec![];
+        let mut shops = 0;
+        while shops < 3 {
+            sim.next_room();
+            sim.clear_mobs();
+            let slot = here(&sim);
+            if sim.rc.rooms[usize::from(slot.room)].kind != ROOM_SHOP {
+                continue;
+            }
+            shops += 1;
+            sim.state.run.coins += 300;
+            let door = run::door_of(&sim.rc, &slot).unwrap();
+            sim.stand(door);
+            sim.tick(Input::default());
+            press_up(&mut sim);
+            assert!(sim.state.run.inside);
+            // Ring the bell once, then walk along the pedestals pressing up at each.
+            let script: Vec<Input> = (0..200)
+                .map(|n| match n {
+                    10 | 40 | 70 | 100 | 130 => inp(0, 127, 0),
+                    _ => Input::default(),
+                })
+                .collect();
+            let bell = sim.rc.interior.bell;
+            stand_inside(&mut sim, bell);
+            for (n, i) in script.into_iter().enumerate() {
+                if n % 30 == 5 {
+                    let k = STAPLES + (n / 30) % PEDESTALS;
+                    let x = sim.rc.interior.pedestals[k].x;
+                    if n > 30 {
+                        stand_inside(&mut sim, x);
+                    }
+                }
+                sim.tick(i);
+                sums.push(sim.state.checksum());
+            }
+            let door = sim.rc.interior.door;
+            stand_inside(&mut sim, door);
+            sim.tick(Input::default());
+            press_up(&mut sim);
+            assert!(!sim.state.run.inside);
+            for _ in 0..30 {
+                sim.tick(inp(127, 0, 0));
+                sums.push(sim.state.checksum());
+            }
+        }
+        (sums, sim.state.run.owned, sim.state.run.shop_rerolls)
+    };
+    let (a, owned, _) = play();
+    let bought: u32 = owned.iter().map(|&n| u32::from(n)).sum();
+    assert!(bought >= 3, "it bought in the shops: {owned:?}");
+    let (b, owned_b, _) = play();
+    assert_eq!(a, b);
+    assert_eq!(owned, owned_b);
+}
+
+/// Every item property has no effect outside a run: a versus match with a run's build written into its (inactive) run state plays
+/// exactly as one without, and the fighter fields the items set stay 0 in versus.
+#[test]
+fn items_do_nothing_in_versus() {
+    let content = Content::placeholder();
+    let mut plain = GameState::new(&content, 3, [0, 13, 9, 4]);
+    let mut poisoned = plain;
+    let r = &mut poisoned.run;
+    r.owned = [3; ITEM_KINDS];
+    r.slot = ITEM_BUBBLE;
+    r.guard = true;
+    r.wind = 500;
+    r.orb_body = 13;
+    let inputs = random_inputs(&mut Rng::new(11), 1200);
+    for i in &inputs {
+        sim_core::step(&mut plain, &content, i);
+        sim_core::step(&mut poisoned, &content, i);
+        assert_eq!(plain.fighters, poisoned.fighters);
+        assert_eq!(plain.projectiles, poisoned.projectiles);
+        assert_eq!(plain.items, poisoned.items);
+        assert_eq!(plain.checksum(), poisoned.checksum());
+    }
+    assert!(plain
+        .fighters
+        .iter()
+        .all(|f| f.shield_scale == 0 && f.shield_wear == 0 && f.damage_scale == 0));
 }
