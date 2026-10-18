@@ -2059,7 +2059,7 @@ func _shirt_collar() -> void:
 ## Returns its height in the torso's design space, for what hangs from it.
 ## The hats modelled in Blender (art/blender/make_gear.py, godot/models/gear), by hat slot (the owner, 2026-10-18: moving the
 ## accessories from built primitives to models over time).
-const GEAR_HATS := {1: "sailor_cap", 2: "aviator_cap", 3: "straw_hat"}
+const GEAR_HATS := {1: "sailor_cap", 2: "aviator_cap", 3: "straw_hat", 5: "crown", 7: "plumed_helm"}
 
 
 ## Puts the modelled accessory `name` on the hat pivot, each part coloured by what it is made of (its name's first word): fabric in
@@ -2078,8 +2078,17 @@ func _gear_model(name: String, accent: Color) -> bool:
 	var brass := (respond(toon(Color(0.78, 0.64, 0.38)), "gold") as ShaderMaterial).duplicate() as ShaderMaterial
 	brass.set_shader_parameter("metal", 0.3)
 	brass.set_shader_parameter("rim_strength", 0.2)
+	# (A deep blued steel: a pale one vanished against light backgrounds.)
+	var steel := (respond(toon(Color(0.4, 0.43, 0.52)), "metal") as ShaderMaterial).duplicate() as ShaderMaterial
+	steel.set_shader_parameter("metal", 0.3)
+	steel.set_shader_parameter("rim_strength", 0.15)
+	var gold := (respond(toon(Color(0.86, 0.66, 0.24)), "gold") as ShaderMaterial).duplicate() as ShaderMaterial
+	gold.set_shader_parameter("metal", 0.3)
+	gold.set_shader_parameter("rim_strength", 0.2)
+	# (A model's "metal" is the helm's steel, or the caps' brass; "brass" and "gold" name themselves.)
 	var mats := {"fabric": _fabric(accent), "canvas": _cloth(toon(Color(0.95, 0.94, 0.9))), "leather": _cloth(toon(Color(0.52, 0.33, 0.21))),
-		"metal": brass, "glass": toon(Color(0.66, 0.84, 0.95), false), "straw": straw}
+		"metal": steel if name == "plumed_helm" else brass, "brass": brass, "gold": gold, "glass": toon(Color(0.66, 0.84, 0.95), false),
+		"straw": straw}
 	for mi: MeshInstance3D in model.find_children("*", "MeshInstance3D", true, false):
 		var kind := String(mi.name).get_slice("_", 0)
 		mi.material_override = mats.get(kind, toon(accent))

@@ -258,7 +258,172 @@ def straw_hat():
     return root
 
 
-GEAR = {"sailor_cap": sailor_cap, "aviator_cap": aviator_cap, "straw_hat": straw_hat}
+# ---- Plumed helm -----------------------------------------------------------------------------------------------------------------------
+
+def _bowl_phi_low(a, deg_back=100.0, deg_front=30.0):
+    front = max(0.0, -math.sin(a))
+    return math.radians(deg_back) - math.radians(deg_front) * front ** 1.4
+
+
+# (Taller than the caps' shell, 2026-10-18: on the wide head a low bowl read as a pot lid.)
+HELM_H = 0.82
+
+
+def plumed_helm():
+    """A knight's open helm: a steel bowl over the crown with a raised ridge from brow to nape, a brass brow band with rivets, short
+    cheek guards curving down beside the face, and a tall plume of feather blades in the outfit's colour sweeping back off a brass
+    socket on the crest."""
+    root = empty("plumed_helm")
+    bm = bmesh.new()
+    seg_u, seg_v = 40, 14
+    rows = []
+    for j in range(seg_v + 1):
+        phi = math.radians(8.0 + 92.0 * j / seg_v)
+        row = []
+        for i in range(seg_u):
+            a = math.tau * i / seg_u
+            ph = phi * (_bowl_phi_low(a) / math.radians(100.0))
+            x = 0.89 * math.sin(ph) * math.cos(a)
+            y = 0.89 * math.sin(ph) * math.sin(a)
+            z = 1.74 + HELM_H * math.cos(ph)
+            if abs(x) < 0.06:
+                z += 0.035 * (1.0 - abs(x) / 0.06) * math.sin(ph)
+            row.append(bm.verts.new((x, y, z)))
+        rows.append(row)
+    top = bm.verts.new((0.0, 0.0, 1.74 + HELM_H + 0.03))
+    for i in range(seg_u):
+        bm.faces.new((rows[0][i], rows[0][(i + 1) % seg_u], top))
+    for j in range(seg_v):
+        for i in range(seg_u):
+            k = (i + 1) % seg_u
+            bm.faces.new((rows[j][i], rows[j][k], rows[j + 1][k], rows[j + 1][i]))
+    bmesh.ops.solidify(bm, geom=bm.faces[:], thickness=-0.035)
+    o = to_object("metal_bowl", bm, sharp=50.0)
+    o.parent = root
+    # The brow band along the bowl's lower edge.
+    bm = bmesh.new()
+    sides = 40
+    rings = []
+    for dr, dz in [(0.02, -0.06), (0.035, -0.03), (0.035, 0.03), (0.02, 0.06)]:
+        ring = []
+        for i in range(sides):
+            a = math.tau * i / sides
+            ph = _bowl_phi_low(a) - math.radians(8.0)
+            r = 0.89 * math.sin(ph) + dr
+            ring.append(bm.verts.new((r * math.cos(a), r * math.sin(a), 1.74 + HELM_H * math.cos(ph) + dz)))
+        rings.append(ring)
+    for k in range(len(rings) - 1):
+        for i in range(sides):
+            j = (i + 1) % sides
+            bm.faces.new((rings[k][i], rings[k][j], rings[k + 1][j], rings[k + 1][i]))
+    o = to_object("brass_band", bm, sharp=60.0)
+    o.parent = root
+    for i in range(10):
+        a = math.tau * (i + 0.5) / 10.0
+        ph = _bowl_phi_low(a) - math.radians(8.0)
+        p = Vector((0.93 * math.sin(ph) * math.cos(a), 0.93 * math.sin(ph) * math.sin(a), 1.74 + HELM_H * math.cos(ph)))
+        bm = bmesh.new()
+        bmesh.ops.create_uvsphere(bm, u_segments=10, v_segments=6, radius=0.028)
+        bmesh.ops.translate(bm, vec=p, verts=bm.verts)
+        o = to_object("brass_rivet%d" % i, bm)
+        o.parent = root
+    # Cheek guards beside the face.
+    for sx in (-1.0, 1.0):
+        bm = bmesh.new()
+        rows = []
+        for j in range(5):
+            t = j / 4.0
+            row = []
+            for i in range(6):
+                u = i / 5.0
+                a = math.radians(-90.0 + sx * (52.0 + 30.0 * u))
+                r = 0.9 - 0.04 * t
+                row.append(bm.verts.new((r * math.cos(a), r * math.sin(a), 1.62 - 0.36 * t - 0.06 * u * t)))
+            rows.append(row)
+        for j in range(4):
+            for i in range(5):
+                bm.faces.new((rows[j][i], rows[j][i + 1], rows[j + 1][i + 1], rows[j + 1][i]))
+        bmesh.ops.solidify(bm, geom=bm.faces[:], thickness=0.03)
+        o = to_object("metal_cheek" + ("L" if sx < 0 else "R"), bm, sharp=50.0)
+        o.parent = root
+    # The plume: a socket on the crest and feather blades fanned along an arc sweeping up and back.
+    bm = bmesh.new()
+    cv = bmesh.ops.create_cone(bm, cap_ends=True, cap_tris=False, segments=14, radius1=0.09, radius2=0.06, depth=0.14)["verts"]
+    bmesh.ops.translate(bm, vec=Vector((0.0, 0.05, 1.74 + HELM_H + 0.05)), verts=cv)
+    o = to_object("brass_socket", bm)
+    o.parent = root
+    blades = 9
+    for b in range(blades):
+        f = b / (blades - 1)
+        # (Taller and more upright, 2026-10-18: swept far back it was hidden behind the bowl.)
+        base = Vector((0.0, 0.05 + 0.45 * f, 1.74 + HELM_H + 0.09 + 0.18 * math.sin(f * math.pi) - 0.08 * f))
+        length = 0.85 - 0.35 * f
+        lean = math.radians(8.0 + 55.0 * f)
+        bm = bmesh.new()
+        left, right, mid = [], [], []
+        for k in range(7):
+            t = k / 6.0
+            w = 0.12 * math.sin(math.pi * min(1.0, t * 1.15)) + 0.014
+            p = base + Vector((0.0, math.sin(lean) * length * t, math.cos(lean) * length * t + 0.06 * math.sin(t * math.pi)))
+            left.append(bm.verts.new(p + Vector((-w, 0.0, 0.0))))
+            right.append(bm.verts.new(p + Vector((w, 0.0, 0.0))))
+            mid.append(bm.verts.new(p + Vector((0.0, -0.02, 0.02))))
+        for k in range(6):
+            bm.faces.new((left[k], mid[k], mid[k + 1], left[k + 1]))
+            bm.faces.new((mid[k], right[k], right[k + 1], mid[k + 1]))
+        bmesh.ops.solidify(bm, geom=bm.faces[:], thickness=0.025)
+        o = to_object("fabric_feather%d" % b, bm, sharp=70.0)
+        o.parent = root
+    return root
+
+
+# ---- Crown ------------------------------------------------------------------------------------------------------------------------------
+
+def crown():
+    """A cast gold crown: a band flaring a little to a raised rim top and bottom, five pointed flat-faced leaves each with a ball on its
+    tip, and a set stone in the outfit colour under each point."""
+    root = empty("crown")
+    base = 2.04
+    bm = bmesh.new()
+    prof = [(0.555, base), (0.585, base + 0.005), (0.59, base + 0.04), (0.575, base + 0.05), (0.585, base + 0.17), (0.61, base + 0.2),
+            (0.6, base + 0.225), (0.575, base + 0.22)]
+    rings = lathe(bm, prof)
+    n = len(rings[0])
+    for i in range(n):
+        bm.faces.new((rings[-1][i], rings[-1][(i + 1) % n], rings[0][(i + 1) % n], rings[0][i]))
+    o = to_object("gold_band", bm, sharp=50.0)
+    o.parent = root
+    for i in range(5):
+        a = math.tau * i / 5.0 - math.pi / 2.0
+        out = Vector((math.cos(a), math.sin(a), 0.0))
+        side = Vector((-math.sin(a), math.cos(a), 0.0))
+        bm = bmesh.new()
+        left, right = [], []
+        for k in range(9):
+            t = k / 8.0
+            w = 0.13 * (1.0 - t) ** 0.8 + 0.004
+            left.append(bm.verts.new(out * 0.6 - side * w + Vector((0, 0, base + 0.2 + 0.32 * t))))
+            right.append(bm.verts.new(out * 0.6 + side * w + Vector((0, 0, base + 0.2 + 0.32 * t))))
+        for k in range(8):
+            bm.faces.new((left[k], right[k], right[k + 1], left[k + 1]))
+        bmesh.ops.solidify(bm, geom=bm.faces[:], thickness=0.035)
+        o = to_object("gold_point%d" % i, bm, sharp=40.0)
+        o.parent = root
+        bm = bmesh.new()
+        bmesh.ops.create_uvsphere(bm, u_segments=12, v_segments=8, radius=0.045)
+        bmesh.ops.translate(bm, vec=out * 0.6 + Vector((0, 0, base + 0.54)), verts=bm.verts)
+        o = to_object("gold_tip%d" % i, bm)
+        o.parent = root
+        bm = bmesh.new()
+        ret = bmesh.ops.create_uvsphere(bm, u_segments=12, v_segments=8, radius=1.0)
+        for v in ret["verts"]:
+            v.co = out * 0.62 + Vector((v.co.x * 0.05, v.co.y * 0.05, v.co.z * 0.06)) + Vector((0, 0, base + 0.11))
+        o = to_object("fabric_stone%d" % i, bm)
+        o.parent = root
+    return root
+
+
+GEAR = {"sailor_cap": sailor_cap, "aviator_cap": aviator_cap, "straw_hat": straw_hat, "plumed_helm": plumed_helm, "crown": crown}
 
 
 def export(root, path):

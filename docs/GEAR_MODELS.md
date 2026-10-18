@@ -9,8 +9,8 @@ made of (fabric, canvas, leather, metal, glass, straw) so the game colours it fo
 | Sailor cap | **modelled** (crown that swells and sags, rolled brim, seam, band) | | done |
 | Aviator cap | **modelled** (leather shell with a seam, ear flaps, brow band, brass goggles) | | done |
 | Straw hat | **modelled** (waved, rolled brim; pinched crown; band and bow) | | done |
-| Plumed helm | ball + cylinder + five spheres for the plume | a shaped helm with a brow ridge and cheek guards; a plume of real feather blades | high (Duelist) |
-| Crown | cylinder + five cones | a cast band with set stones and real points | high (Seer) |
+| Plumed helm | **modelled** (steel dome with a ridge, brass band and rivets, cheek guards, a plume of feather blades) | | done |
+| Crown | **modelled** (cast band with rims, five leaf points with ball tips, set stones) | | done |
 | Hood | open shell + cone cowl | already shaped; a folded edge and a draped cowl | medium (Rogue) |
 | Swept spikes, topknot | sphere + cones / spheres | sculpted hair masses | medium |
 | Beanie | squashed sphere + ball | a knit cuff and a ribbed crown | low |
