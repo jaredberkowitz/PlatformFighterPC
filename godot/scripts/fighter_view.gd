@@ -1975,23 +1975,24 @@ func _neck_on_rig(accent: Color) -> void:
 		2:
 			# Neckerchief: a collar ring round the top of the torso with a point hanging in front.
 			var at := _collar(accent)
-			var bib := BoxMesh.new()
-			bib.size = Vector3(0.34, 0.34, 0.06)
+			# (A folded triangle of cloth pointing down, 2026-10-18: a square turned on its corner read as a flat plastic diamond.)
+			var bib := PrismMesh.new()
+			bib.size = Vector3(0.46, 0.34, 0.06)
 			# (On a pivot at the knot, so it swings with the body: the `neck` spring.)
 			neck_pivot = Node3D.new()
 			neck_pivot.position = Vector3(0, at - 0.02, 0.5)
 			torso_rig.add_child(neck_pivot)
-			_part(neck_pivot, bib, toon(accent), Vector3(0, -0.14, 0), Vector3.ONE, Vector3(0, 0, 45))
+			_part(neck_pivot, bib, _fabric(accent), Vector3(0, -0.15, 0), Vector3.ONE, Vector3(-8, 0, 180))
 		3:
 			# Scarf: the collar ring and a tail hanging down the front on one side.
 			var at := _collar(accent)
 			# (A chain of pieces on springs, so it swings and whips with the body: `TailRig`.)
-			_tail(Vector3(0.26, at - 0.03, 0.46), toon(accent), 0.5, 0.2, 0.06, 4)
+			_tail(Vector3(0.26, at - 0.03, 0.46), _fabric(accent), 0.5, 0.2, 0.06, 4)
 		4:
 			# Cape: a collar ring and a broad cloth hanging down the back to the knees, on springs, so it streams behind the fighter's runs
 			# and jumps: the biggest change to the outline the wardrobe has.
 			var at := _collar(accent)
-			_tail(Vector3(0, at - 0.02, -0.42), toon(accent.darkened(0.08)), 1.15, 0.92, 0.05, 5)
+			_tail(Vector3(0, at - 0.02, -0.42), _fabric(accent.darkened(0.08)), 1.15, 0.92, 0.05, 5)
 
 
 ## The pivot the neckerchief's point hangs from (none for the other neckwear), and the cloth tails on spring chains (the scarf's end, the
@@ -2056,6 +2057,12 @@ func _shirt_collar() -> void:
 
 ## The collar ring of the neckerchief and the scarf, just under the chin (where the head meets the shoulders, from base_rig.json's `neck`).
 ## Returns its height in the torso's design space, for what hangs from it.
+## A fabric accessory's material (hats, neckwear, bands): the cloth's softer step and fine weave (`_cloth`), as the shirts and shorts
+## have (2026-10-18, the owner after the reference cast: the accessories in flat plastic read cheaper than the clothes).
+func _fabric(c: Color) -> Material:
+	return _cloth(toon(c))
+
+
 func _collar(accent: Color) -> float:
 	var ring := TorusMesh.new()
 	ring.inner_radius = 0.44
@@ -2066,7 +2073,8 @@ func _collar(accent: Color) -> float:
 	var info := _base_rig_info()
 	if info.has("neck") and torso_fit.basis.y.y > 0.001:
 		at = (float(info.neck) - COLLAR_BELOW_NECK - torso_fit.origin.y) / torso_fit.basis.y.y
-	_part(torso_rig, ring, toon(accent), Vector3(0, at, 0), Vector3(1.04, 1.0, 0.94))
+	# (A flatter band of cloth rather than a round tube, 2026-10-18: the tube read as a plastic ring.)
+	_part(torso_rig, ring, _fabric(accent), Vector3(0, at, 0), Vector3(1.06, 0.62, 0.96))
 	return at
 
 
@@ -2095,9 +2103,10 @@ func _hat() -> void:
 	match loadout.hat:
 		1:
 			# Sailor cap: white crown and brim with a band in the accent colour.
-			_part(hat_pivot, _cyl(0.5, 0.55, 0.32), white, Vector3(0, 2.18, 0) - HAT_PIVOT)
-			_part(hat_pivot, _cyl(0.62, 0.62, 0.08), white, Vector3(0, 2.02, 0) - HAT_PIVOT)
-			_part(hat_pivot, _cyl(0.5, 0.5, 0.05), toon(accent), Vector3(0, 2.1, 0) - HAT_PIVOT, Vector3(1.04, 1.0, 1.04))
+			var canvas := _cloth(white)
+			_part(hat_pivot, _cyl(0.5, 0.55, 0.32), canvas, Vector3(0, 2.18, 0) - HAT_PIVOT)
+			_part(hat_pivot, _cyl(0.62, 0.62, 0.08), canvas, Vector3(0, 2.02, 0) - HAT_PIVOT)
+			_part(hat_pivot, _cyl(0.5, 0.5, 0.05), _fabric(accent), Vector3(0, 2.1, 0) - HAT_PIVOT, Vector3(1.04, 1.0, 1.04))
 		2:
 			# Aviator cap: a leather skullcap with ear flaps, a band round it and goggles pushed up on the forehead.
 			var leather := toon(Color(0.55, 0.34, 0.2))
@@ -2121,11 +2130,11 @@ func _hat() -> void:
 			var straw := toon(Color(1, 1, 1), true, SvgArt.texture("res://art/cloth/straw.svg", {"#ff00ff": Color(0.92, 0.8, 0.48)}), Vector2(8, 2))
 			_part(hat_pivot, _cyl(1.15, 1.15, 0.07), straw, Vector3(0, 2.05, 0) - HAT_PIVOT)
 			_part(hat_pivot, _cyl(0.55, 0.62, 0.35), straw, Vector3(0, 2.25, 0) - HAT_PIVOT)
-			_part(hat_pivot, _cyl(0.63, 0.63, 0.08), toon(accent), Vector3(0, 2.14, 0) - HAT_PIVOT)
+			_part(hat_pivot, _cyl(0.63, 0.63, 0.08), _fabric(accent), Vector3(0, 2.14, 0) - HAT_PIVOT)
 		4:
 			# Beanie with a pompom.
-			_part(hat_pivot, _sphere(0.84), toon(accent), Vector3(0, 1.78, 0) - HAT_PIVOT, Vector3(1.0, 0.7, 1.0))
-			_part(hat_pivot, _sphere(0.18), white, Vector3(0, 2.38, 0) - HAT_PIVOT)
+			_part(hat_pivot, _sphere(0.84), _fabric(accent), Vector3(0, 1.78, 0) - HAT_PIVOT, Vector3(1.0, 0.7, 1.0))
+			_part(hat_pivot, _sphere(0.18), _cloth(white), Vector3(0, 2.38, 0) - HAT_PIVOT)
 		6:
 			# Hood: a soft shell of dark charcoal cloth (it reads against any body colour) wrapping over the head and forward round the face,
 			# its edge turned back in a soft fold of a lighter shade, a cowl of the same cloth lying round the shoulders, and a point behind
@@ -2150,10 +2159,13 @@ func _hat() -> void:
 			_part(hat_pivot, _cyl(0.0, 0.3, 0.8), cloth, Vector3(0, 1.95, -0.72) - HAT_PIVOT, Vector3.ONE, Vector3(-62, 0, 0))
 		7:
 			# Plumed helm: a steel cap with a brow band and a tall plume in the accent colour sweeping back off the crest.
-			var steel := respond(toon(Color(0.74, 0.76, 0.84)), "metal")
+			# (A darker steel with a quieter shine, 2026-10-18: pale steel at full metal read as a white glare.)
+			var steel := (respond(toon(Color(0.58, 0.6, 0.68)), "metal") as ShaderMaterial).duplicate() as ShaderMaterial
+			steel.set_shader_parameter("metal", 0.22)
+			steel.set_shader_parameter("rim_strength", 0.2)
 			_part(hat_pivot, _sphere(0.86), steel, Vector3(0, 1.76, -0.04) - HAT_PIVOT, Vector3(1.0, 0.7, 1.0))
 			_part(hat_pivot, _cyl(0.84, 0.84, 0.1), respond(toon(Color(0.95, 0.78, 0.32)), "gold"), Vector3(0, 1.88, -0.04) - HAT_PIVOT, Vector3(1.0, 1.0, 1.02))
-			var plume := toon(accent)
+			var plume := _fabric(accent)
 			for k in 5:
 				var f := float(k) / 4.0
 				_part(hat_pivot, _sphere(1.0), plume, Vector3(0, 2.42 + 0.2 * sin(f * PI) - 0.1 * f, -0.05 - 0.95 * f) - HAT_PIVOT,
@@ -2174,10 +2186,13 @@ func _hat() -> void:
 			var hair := toon(FaceLook.BROW_COLORS[clampi(loadout.brow_color, 0, FaceLook.BROW_COLORS.size() - 1)])
 			_part(hat_pivot, _sphere(0.86), hair, Vector3(0, 1.72, -0.1) - HAT_PIVOT, Vector3(1.02, 0.6, 1.0))
 			_part(hat_pivot, _sphere(0.32), hair, Vector3(0, 2.36, -0.15) - HAT_PIVOT, Vector3(1.0, 0.9, 1.0))
-			_part(hat_pivot, _cyl(0.2, 0.2, 0.1), toon(accent), Vector3(0, 2.12, -0.13) - HAT_PIVOT)
+			_part(hat_pivot, _cyl(0.2, 0.2, 0.1), _fabric(accent), Vector3(0, 2.12, -0.13) - HAT_PIVOT)
 		5:
 			# Crown: a gold band with five points.
-			var gold := toon(Color(0.96, 0.8, 0.25))
+			# (Gold as metal, 2026-10-18: flat yellow read as card.)
+			var gold := (respond(toon(Color(0.86, 0.66, 0.24)), "gold") as ShaderMaterial).duplicate() as ShaderMaterial
+			gold.set_shader_parameter("metal", 0.3)
+			gold.set_shader_parameter("rim_strength", 0.2)
 			_part(hat_pivot, _cyl(0.55, 0.58, 0.2), gold, Vector3(0, 2.1, 0) - HAT_PIVOT)
 			for i in 5:
 				var a := TAU * i / 5.0
