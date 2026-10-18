@@ -3133,7 +3133,7 @@ static func _barn(root: Node3D, at: Vector3) -> void:
 ## posts, a beam at the floor line, braces in the end bays), a deep shingled roof in `roof` overhanging the gables and the eaves with a
 ## ridge beam along its top, gable ends filled to the roof with a round attic window, a plank door on a stone step with a lantern, a lit
 ## window with shutters and a flower box, shrubs at its foot, and a stone chimney at one end (`side`) with smoke curling up from it.
-static func _cottage(root: Node3D, at: Vector3, roof: Color, side: float) -> void:
+static func _cottage(root: Node3D, at: Vector3, roof: Color, side: float, wall_tint := Color(0, 0, 0, 0)) -> void:
 	# The modelled cottage (art/blender/make_props.py `cottage`, after the owner's papercraft village reference): proud timbers, lapped
 	# shingle rows, an arched plank door, shutters, a stone footing and chimney. Its roof takes this cottage's colour; the window glows.
 	# The code-built cottage below stands in without it.
@@ -3150,6 +3150,9 @@ static func _cottage(root: Node3D, at: Vector3, roof: Color, side: float) -> voi
 				(mi as MeshInstance3D).material_override = FighterView.toon(roof, true)
 			elif nm.begins_with("glow"):
 				(mi as MeshInstance3D).material_override = _unshaded(Color(1.0, 0.86, 0.56))
+			elif nm.begins_with("wall") and wall_tint.a > 0.0:
+				# (A seaside town's painted walls, `wall_tint`.)
+				(mi as MeshInstance3D).material_override = FighterView.toon(Color(wall_tint.r, wall_tint.g, wall_tint.b), true)
 		return
 	# (Clean warm cream planes, not a plaster pattern that turns to noise at this distance: the owner's papercraft references, where
 	# each surface is one clear tone with a crisp edge.)
@@ -4825,7 +4828,9 @@ static func _dock_block(parent: Node3D, t: Dictionary, left: float, right: float
 	# (Plain boards, each its own shade, with a faint grain: the painted plank tile over them drew a second set of seams and the deck read
 	# as noise, darkening to a murky brown from afar.)
 	# (No ink shell per board: from afar 200 outlined boards turned the deck a murky purple.)
-	var deck_mat := (FighterView.toon(Color.WHITE, false) as ShaderMaterial).duplicate() as ShaderMaterial
+	# (The painted grain tile laid along each board (art/stage/png/wood.png), one plank of it per board: a world-laid tile drew a second set
+	# of seams across the boards.)
+	var deck_mat := (FighterView.toon(Color.WHITE, false, load("res://art/stage/png/wood.png") as Texture2D, Vector2(1.0, 0.25)) as ShaderMaterial).duplicate() as ShaderMaterial
 	deck_mat.set_shader_parameter("instance_tint", true)
 	deck_mat.set_shader_parameter("ramp_softness", 0.1)
 	deck.material_override = deck_mat
@@ -4939,7 +4944,8 @@ static func _dock_harbour(root: Node3D, e: Array, water: float) -> void:
 				_mesh(root, coil, rope, Vector3(px, water + ph * 0.7, pz), Vector3(0.9, 0.6, 0.9))
 	# The boardwalk from the back of the dock out to the fisherman's jetty (`_stilt_hut` at 30, the sea, -46: its deck 4.1 up).
 	var a := Vector3(r - 5.0, top - 0.1, front - 8.2)
-	var b := Vector3(25.0, water + 4.1, -45.0)
+	# (Onto the hut's deck, which runs from 27.4 to 32.6 across and -48.3 to -43.7 deep: it stopped just short of it.)
+	var b := Vector3(28.4, water + 4.1, -45.0)
 	var dir := b - a
 	var length := dir.length()
 	var n := int(length / 0.7)
@@ -4969,8 +4975,23 @@ static func _harbour_town(root: Node3D, water: float) -> void:
 	var base := Vector3(-62.0, water, -78.0)
 	# The headland: a broad rise of land behind the quay.
 	var land := Materials.foliage(Color(0.44, 0.7, 0.42), Vector2(6, 3), false)
-	_mesh(root, _sphere(1.0, 24), land, base + Vector3(-6, 0.0, -14), Vector3(40, 16, 16))
-	_mesh(root, _sphere(1.0, 20), land, base + Vector3(22, -1.0, -18), Vector3(26, 10, 12))
+	var hills := [[Vector3(-6, 0.0, -14), Vector3(40, 16, 16)], [Vector3(22, -1.0, -18), Vector3(26, 10, 12)]]
+	for h in hills:
+		_mesh(root, _sphere(1.0, 24), land, base + (h[0] as Vector3), h[1])
+	# Higher hills behind the town, bluer with distance.
+	var far_land := Materials.foliage(Color(0.42, 0.62, 0.58), Vector2(6, 3), false)
+	_mesh(root, _sphere(1.0, 24), far_land, base + Vector3(-18, 0.0, -34), Vector3(36, 26, 10))
+	_mesh(root, _sphere(1.0, 24), far_land, base + Vector3(14, 0.0, -38), Vector3(30, 20, 10))
+	# The land's height at (x, z) (relative to `base`): the highest of the hills' ellipsoid surfaces there.
+	var ground := func(x: float, z: float) -> float:
+		var best := 0.0
+		for h in hills:
+			var c: Vector3 = h[0]
+			var r: Vector3 = h[1]
+			var q := 1.0 - pow((x - c.x) / r.x, 2.0) - pow((z - c.z) / r.z, 2.0)
+			if q > 0.0:
+				best = maxf(best, c.y + r.y * sqrt(q))
+		return best
 	# The quay: a long stone wall along the water with a lit top.
 	var stone := Materials.stone(Color(0.78, 0.72, 0.66), Vector2(12, 1))
 	_mesh(root, _box(Vector3(64, 2.2, 6)), stone, base + Vector3(2, 1.0, 2))
@@ -4978,16 +4999,17 @@ static func _harbour_town(root: Node3D, water: float) -> void:
 	# Houses in rows up the slope.
 	var roofs := [Color(0.86, 0.36, 0.3), Color(0.32, 0.5, 0.74), Color(0.9, 0.58, 0.3), Color(0.5, 0.66, 0.5), Color(0.8, 0.42, 0.52)]
 	for row in 3:
-		var y := 2.3 + row * 3.4
 		var z := -1.0 - row * 4.5
 		var x := -26.0 + row * 4.0 + rng.randf_range(-1.0, 1.0)
 		while x < 28.0 - row * 6.0:
 			var house := Node3D.new()
-			house.position = base + Vector3(x, y, z)
+			# (Standing on the hill where it is, a little sunk in: on a fixed terrace the back rows were buried in it, roofs poking out.)
+			house.position = base + Vector3(x, maxf(2.3, ground.call(x, z) - 0.4), z)
 			house.rotation_degrees = Vector3(0, rng.randf_range(-12, 12), 0)
 			house.scale = Vector3.ONE * rng.randf_range(0.85, 1.15)
 			root.add_child(house)
-			_cottage(house, Vector3.ZERO, roofs[rng.randi() % roofs.size()], 1.0 if rng.randf() < 0.5 else -1.0)
+			var walls := [Color(0.98, 0.9, 0.72), Color(0.74, 0.88, 0.9), Color(0.98, 0.78, 0.7), Color(0.84, 0.92, 0.76), Color(0.96, 0.94, 0.9)]
+			_cottage(house, Vector3.ZERO, roofs[rng.randi() % roofs.size()], 1.0 if rng.randf() < 0.5 else -1.0, walls[rng.randi() % walls.size()])
 			x += rng.randf_range(5.6, 7.4)
 	# Boats moored along the quay.
 	for k in 3:

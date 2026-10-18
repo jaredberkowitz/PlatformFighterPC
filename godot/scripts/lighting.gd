@@ -89,8 +89,11 @@ const STYLES := {
 		"finish": {"desat": 0.0, "lift": 0.02, "haze_max": 0.08, "s_curve": 0.3, "quiet": 0.08}},
 	"night": {"edge": Color(0.78, 0.86, 1.0, 0.62), "paint": [Color(0.98, 1.0, 1.08), Color(0.86, 0.9, 1.1), 0.5], "deep": 0.74, "glow": 0.95,
 		"ramp": [[0.0, 0.0], [0.36, 0.0], [0.44, 0.5], [0.56, 0.5], [0.64, 1.0], [1.0, 1.0]]},
+	# (The harbour dock, 2026-10-18, the soft-shading trial from docs/COMPETITOR_GAP.md: a smooth turn from light into shade over the
+	# scenery rather than cel bands, and fainter ink on it; the modelled planks, piles and crates carry the detail now.)
 	"ocean": {"paint": [Color(1.05, 1.02, 0.94), Color(0.9, 0.97, 1.06), 0.5], "clouds": [0.55, 26.0, 0.36, 0.9],
-		"finish": {"desat": 0.0, "lift": 0.02, "haze_max": 0.07, "s_curve": 0.28, "quiet": 0.08}},
+		"ramp": [[0.0, 0.0], [0.3, 0.1], [0.45, 0.45], [0.6, 0.82], [0.75, 1.0], [1.0, 1.0]],
+		"finish": {"desat": 0.0, "lift": 0.02, "haze_max": 0.07, "s_curve": 0.28, "quiet": 0.08, "scenery_lines": 0.18}},
 	"city": {"edge": Color(1.0, 0.82, 0.92, 0.55), "paint": [Color(1.06, 0.96, 0.96), Color(0.9, 0.88, 1.1), 0.6], "deep": 0.72, "glow": 1.1,
 		"finish": {"lift": 0.02, "s_curve": 0.48, "quiet": 0.12}},
 }
@@ -230,6 +233,7 @@ static func stage_mood(env: Environment, root: Node, theme: Dictionary, post: Sh
 		post.set_shader_parameter("s_curve", finish.s_curve)
 		post.set_shader_parameter("bloom", finish.bloom)
 		post.set_shader_parameter("bloom_threshold", finish.bloom_from)
+		post.set_shader_parameter("scenery_lines", float(finish.get("scenery_lines", 0.4)))
 	var m := mood.duplicate()
 	if theme.has("sky_horizon"):
 		m.rim = (mood.rim as Color).lerp(theme.sky_horizon, 0.3)
