@@ -855,7 +855,61 @@ def barrel():
     return root
 
 
+def grass_tuft():
+    """A clump of grass for the lawns' front lip (the gauntlet's round 6: round turf tongues read as blobs and the lip as a ruled line):
+    eleven tapered, curving blades fanned from one root, leaning out and up, each its own length and twist, standing on the origin."""
+    rng = random.Random(19)
+    root = empty("grass_tuft")
+    bm = bmesh.new()
+    for b in range(11):
+        a = math.tau * b / 11.0 + rng.uniform(-0.2, 0.2)
+        lean = rng.uniform(0.25, 0.75)
+        length = rng.uniform(0.35, 0.62)
+        base = Vector((math.cos(a) * 0.05, math.sin(a) * 0.05, 0.0))
+        out = Vector((math.cos(a), math.sin(a), 0.0))
+        side = Vector((-math.sin(a), math.cos(a), 0.0))
+        left, right = [], []
+        for k in range(6):
+            t = k / 5.0
+            w = 0.045 * (1.0 - t) + 0.004
+            c = base + out * (lean * length * t * t) + Vector((0, 0, length * t * (1.0 - 0.25 * t)))
+            left.append(bm.verts.new(c - side * w))
+            right.append(bm.verts.new(c + side * w))
+        for k in range(5):
+            bm.faces.new((left[k], right[k], right[k + 1], left[k + 1]))
+    to_object("blades", bm, (0.4, 0.66, 0.3), smooth=True).parent = root
+    return root
+
+
+def truss_bay():
+    """One bay of a riveted steel scaffold tower (the gauntlet's round 6: the city's thin primitive struts): 1.0 wide (x), 1.8 tall (z,
+    standing on the origin and reaching up), flat in the frame's plane (y): two square posts with flanges, a cross rail of angle iron at
+    the top, an X of flat bars, gusset plates at every joint and rivet heads on them, every edge bevelled. One mesh, so the game stacks
+    and merges it."""
+    bm = bmesh.new()
+    for x in (-0.5, 0.5):
+        add_box(bm, (x, 0.0, 0.9), (0.11, 0.11, 1.8))
+        add_box(bm, (x, 0.0, 0.9), (0.16, 0.03, 1.8))
+    add_box(bm, (0.0, 0.0, 1.74), (1.1, 0.09, 0.09))
+    add_box(bm, (0.0, 0.03, 1.69), (1.1, 0.04, 0.05))
+    length = math.hypot(1.0, 1.55)
+    ang = math.degrees(math.atan2(1.0, 1.55))
+    for sgn in (-1.0, 1.0):
+        add_box(bm, (0.0, 0.04, 0.9), (0.06, 0.025, length), rot=(0.0, sgn * ang, 0.0))
+    for (x, z) in ((-0.5, 0.12), (0.5, 0.12), (-0.5, 1.68), (0.5, 1.68), (0.0, 0.9)):
+        add_box(bm, (x, 0.055, z), (0.2, 0.02, 0.2), rot=(0.0, 45.0, 0.0))
+        for (dx, dz) in ((-0.05, 0.0), (0.05, 0.0), (0.0, -0.05), (0.0, 0.05)):
+            ret = bmesh.ops.create_icosphere(bm, subdivisions=1, radius=0.018)
+            for v in ret["verts"]:
+                v.co += Vector((x + dx, 0.07, z + dz))
+    root = empty("truss_bay")
+    to_object("truss", bm, (0.5, 0.52, 0.6), smooth=False, bevel=0.01).parent = root
+    return root
+
+
 PROPS = {
+    "truss_bay": truss_bay,
+    "grass_tuft": grass_tuft,
     "crate": crate,
     "barrel": barrel,
     "lighthouse": lighthouse,

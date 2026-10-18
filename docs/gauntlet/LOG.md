@@ -80,3 +80,19 @@ The meadow wall reads as dry stone (Believability 2 to 3); the modelled crates m
 lawn patches too subtle at match distance. Gaps: (1) the city's facade cold and busy under the warm roof (the reverse of the
 reference), primitive scaffolds, string lights casting nothing; (2) grass tops still slabs with a hard lip, and no contact under props.
 Later: soften the meadow's gem-like stone facets; the beach's foam, ripples, town and lamp and boats; moss clumps; canyon arch.
+
+## Round 6 (2026-10-18, commit f8b106e)
+
+| Stage | Believ. | Cohesion | Lighting | Depth | Ground | Clarity | Mean |
+|---|---|---|---|---|---|---|---|
+| Meadow | 3 | 3 | 3 | 3 | 2 | 3 | 2.8 |
+| Canyon | 3 | 4 | 4 | 3 | 3 | 4 | 3.5 |
+| Beach | 3 | 3 | 3 | 3 | 3 | 3 | 3.0 |
+| City | 3 | 3 | 3 | 4 | 2 | 3 | 3.0 |
+| Grove | 3 | 3 | 3 | 3 | 3 | 4 | 3.2 |
+
+The city's warm play building in front of the cool skyline (Depth 4). The meadow's stones read as fieldstone. Contact shadows too
+diffuse to see. Gaps: (1) grass tops and ground detail (a ruler-straight lip; dotted flowers; a strip of wear; the grove's moss
+circles); (2) the remaining primitives (the city's scaffolds most of all; the beach's lamp and sailboats; the grove's mushrooms and
+stump) and contact as a tight dark core at each prop's base. Later: beach water and town; city windows quieter; canyon and meadow
+distance.

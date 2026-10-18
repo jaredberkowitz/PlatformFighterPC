@@ -859,8 +859,14 @@ static func solid_block(parent: Node3D, t: Dictionary, left: float, right: float
 			var lip := _edge_lip(parent, left - 0.125, right + 0.125, top - cap_h * 0.55, front_z + 0.02, cap_h * 0.62, grass)
 			lip.name = "lip"
 			# Tufts hanging over at uneven gaps and sizes, now and then a small stone among them (not where moss drapes the wall instead).
-			var x := left + rng.randf_range(0.4, 0.9) if not t.has("moss") else right
 			var tuft_mesh := _sphere(0.32, 12)
+			var grass_tuft := _prop_mesh("grass_tuft", "blades")
+			# (Their own soft blade material, lit like the lawn's lit side and without ink: in the lawn's ground material they shaded dark
+			# and outlined, reading as scribbles.)
+			var blade_mat := (FighterView.toon((t.grass as Color).lightened(0.12), false) as ShaderMaterial).duplicate() as ShaderMaterial
+			blade_mat.set_shader_parameter("ramp_softness", 0.3)
+			# (The modelled tufts stand on the lip, not over the wall, so they go where moss drapes it too.)
+			var x := left + rng.randf_range(0.4, 0.9) if (not t.has("moss") or grass_tuft != null) else right
 			var stone := Materials.stone((t.soil as Color).lightened(0.25))
 			while x < right - 0.4:
 				var k := rng.randf_range(0.75, 1.3)
@@ -872,8 +878,15 @@ static func solid_block(parent: Node3D, t: Dictionary, left: float, right: float
 				var long_drip := own.randf() < 0.18
 				var hang := own.randf_range(1.6, 2.4) if long_drip else own.randf_range(0.5, 1.3)
 				var wide := own.randf_range(0.7, 1.0) if long_drip else own.randf_range(1.0, 1.7)
-				_mesh(parent, tuft_mesh, grass, Vector3(x, top - cap_h + 0.1 - 0.17 * k * hang, front_z + 0.2 + own.randf_range(-0.04, 0.04)),
-					Vector3(1.2 * wide, 0.8 * hang, 0.6) * k)
+				# (Modelled grass tufts on the lip where there are, art/blender/make_props.py `grass_tuft`, the gauntlet's round 6: the round turf
+				# tongues read as blobs and left the lip a ruled line; a tuft breaks it with blades.)
+				if grass_tuft != null:
+					var tuft_mi := _mesh(parent, grass_tuft, blade_mat, Vector3(x, top - cap_h * 0.35, front_z + 0.3 + own.randf_range(-0.05, 0.05)),
+						Vector3.ONE * k * own.randf_range(1.3, 1.9), Vector3(28, own.randf_range(0, 360), 0))
+					tuft_mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+				else:
+					_mesh(parent, tuft_mesh, grass, Vector3(x, top - cap_h + 0.1 - 0.17 * k * hang, front_z + 0.2 + own.randf_range(-0.04, 0.04)),
+						Vector3(1.2 * wide, 0.8 * hang, 0.6) * k)
 				if rng.randf() < 0.22:
 					_mesh(parent, _sphere(0.16, 6), stone, Vector3(x + 0.5, top - cap_h - 0.3, front_z + 0.12), Vector3(1.3, 0.8, 0.7))
 				x += rng.randf_range(0.8, 1.6) * 0.62
@@ -1366,9 +1379,11 @@ static func _contact(root: Node3D, at: Vector3, half: Vector2) -> void:
 	if _contact_mat == null:
 		var g := Gradient.new()
 		var ink := Color(0.1, 0.05, 0.16)
+		# (A tight dark core at the base fading fast, the gauntlet's round 6: a broad soft patch read as nothing at match distance.)
 		g.set_color(0, Color(ink, CONTACT_STRENGTH))
 		g.set_color(1, Color(ink, 0.0))
-		g.add_point(0.55, Color(ink, CONTACT_STRENGTH * 0.85))
+		g.add_point(0.22, Color(ink, CONTACT_STRENGTH * 0.92))
+		g.add_point(0.5, Color(ink, CONTACT_STRENGTH * 0.3))
 		var tex := GradientTexture2D.new()
 		tex.gradient = g
 		tex.fill = GradientTexture2D.FILL_RADIAL
@@ -3103,6 +3118,28 @@ static func _place_prop(root: Node3D, prop_name: String, at: Vector3, size: floa
 		root.add_child(mi)
 	prop.free()
 	return true
+
+
+static var _prop_meshes := {}
+
+
+## One part's mesh from a modelled prop (godot/models/props/<file>.glb), or null without it. Cached.
+static func _prop_mesh(file: String, part: String) -> Mesh:
+	var key := file + "/" + part
+	if _prop_meshes.has(key):
+		return _prop_meshes[key]
+	var mesh: Mesh = null
+	var path := "res://models/props/%s.glb" % file
+	if ResourceLoader.exists(path):
+		var scene := load(path) as PackedScene
+		if scene != null:
+			var node := scene.instantiate()
+			var mi := node.find_child(part, true, false) as MeshInstance3D
+			if mi != null:
+				mesh = mi.mesh
+			node.free()
+	_prop_meshes[key] = mesh
+	return mesh
 
 
 ## Stage extent helpers: [left, right, top, bottom] of the solid ground, with defaults.
@@ -5704,6 +5741,27 @@ static func _root_tube(root: Node3D, pts: Array, r0: float, r1: float, mat: Mate
 	mi.name = "GroveRoot"
 
 
+static var _truss_towers := {}
+
+
+## A scaffold tower of the modelled truss bays stacked `drop` down from its top (its origin), built once per height; null without the
+## model.
+static func _truss_tower(drop: float) -> Mesh:
+	if _truss_towers.has(drop):
+		return _truss_towers[drop]
+	var bay := _prop_mesh("truss_bay", "truss")
+	var mesh: Mesh = null
+	if bay != null:
+		var st := SurfaceTool.new()
+		var y := 0.0
+		while y > -drop:
+			st.append_from(bay, 0, Transform3D(Basis.IDENTITY, Vector3(0, y - 1.8, 0)))
+			y -= 1.8
+		mesh = st.commit()
+	_truss_towers[drop] = mesh
+	return mesh
+
+
 ## Scaffolding holding a girder platform up (the city, 2026-10-18, the owner: platforms may look supported): at each end a tower of two
 ## galvanised poles front and back of the girder, set back behind the fighters' plane, with ledgers across every two units and a brace
 ## zigzagging up the back, running down from just under the girder until the roof (or the street) swallows them.
@@ -5720,6 +5778,15 @@ static func _scaffold(parent: Node3D, left: float, right: float, under: float, f
 	# (In the back plane of the girder, its frames facing the camera so the bracing reads: braced front to back it showed edge-on as bare
 	# stilts.)
 	var zb := front - depth + 0.25
+	# (The modelled riveted truss bay, art/blender/make_props.py `truss_bay`, stacked down each tower, the gauntlet's round 6: thin
+	# primitive struts were the most prominent primitive left on the city. The tubes below stand in without it.)
+	var tower := _truss_tower(drop)
+	if tower != null:
+		# (One tower mesh built once and shared: built per platform, a run's dozens of girders took minutes to lay out.)
+		for ex in [left + 0.75, right - 0.75]:
+			var tm := _mesh(parent, tower, steel, Vector3(ex, under, zb))
+			tm.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		return
 	for ex in [left + 0.75, right - 0.75]:
 		var xa: float = ex - 0.5
 		var xb: float = ex + 0.5
