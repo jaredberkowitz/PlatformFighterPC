@@ -1618,14 +1618,16 @@ static func painted_layers(root: Node3D, theme_name: String) -> int:
 ## The painted ridges of each theme, furthest first: {z, y (the card's foot), height, shape (0 hills, 1 mountains, 2 mesas, 3 cloud), seed,
 ## base, amplitude, frequency, tone (a colour the sky's horizon is mixed toward for the ridge), mix (how far), edge (the lit top)}.
 const RIDGES := {
-	"meadow": [{"z": -170.0, "y": -44.0, "height": 60.0, "shape": 1, "seed": 3.0, "base": 0.42, "amplitude": 0.5, "frequency": 4.5,
+	# (Taller, with real peaks, 2026-10-17: a low wavy strip under the pale horizon read as a flat cloud bank over the mountains, the
+	# owner's note.)
+	"meadow": [{"z": -170.0, "y": -50.0, "height": 88.0, "shape": 1, "seed": 3.0, "base": 0.3, "amplitude": 0.62, "frequency": 3.2,
 		# (More of its own blue and less haze, art review 6 round 31: at mix 0.55 the ridge was mostly horizon colour, a formless pale band
 		# behind the crisp painted hills; found with `--pick`.)
 		"tone": Color(0.2, 0.62, 0.6), "mix": 0.85, "edge": 0.3, "haze": 0.06,
 		# (Teal, not blue: the owner's Origami King reference sets bright lime ground against cool teal mountains.)
 		# (A lit flank and a shaded flank on every peak, as the canyon's mesas have: a flat blue cut-out read as the least finished
 		# thing on the menu; the owner, 2026-10-17, raise the quality of what is there.)
-		"flank": 0.75}],
+		"flank": 0.75, "foot_dark": 0.35, "layers": 4, "flank_from": 0.0}],
 	"grove": [{"z": -165.0, "y": -34.0, "height": 52.0, "shape": 0, "seed": 8.0, "base": 0.5, "amplitude": 0.32, "frequency": 3.5,
 		"tone": Color(0.5, 0.5, 0.84), "mix": 0.55, "edge": 0.5, "flank": 0.6}],
 	"sunset": [{"z": -175.0, "y": -36.0, "height": 58.0, "shape": 2, "seed": 5.0, "base": 0.4, "amplitude": 0.4, "frequency": 3.0,
@@ -1648,7 +1650,11 @@ static func ridge(root: Node3D, t: Dictionary, spec: Dictionary) -> MeshInstance
 	m.shader = RIDGE_SHADER
 	var top := horizon.lerp(tone, float(spec.mix))
 	m.set_shader_parameter("top_colour", top)
-	m.set_shader_parameter("foot_colour", top.lerp(horizon, 0.35))
+	# (A spec's "foot_dark" takes the foot deeper and cooler than the top instead of toward the horizon: a pale foot read as a flat cloud
+	# bank across the mountains.)
+	m.set_shader_parameter("foot_colour", top.darkened(float(spec.foot_dark)).lerp(Color(0.1, 0.24, 0.34), 0.25) if spec.has("foot_dark") else top.lerp(horizon, 0.35))
+	m.set_shader_parameter("layers", int(spec.get("layers", 0)))
+	m.set_shader_parameter("flank_from", float(spec.get("flank_from", 0.2)))
 	m.set_shader_parameter("edge_colour", horizon.lerp(Color.WHITE, 0.3))
 	m.set_shader_parameter("edge_amount", float(spec.edge))
 	m.set_shader_parameter("shape", int(spec.shape))

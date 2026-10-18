@@ -28,6 +28,11 @@ global uniform vec3 pf_sun_dir;
 global uniform vec4 pf_shadow_tint;
 uniform float flank = 0.0;
 uniform float aspect = 0.1;
+// Paper layers (0 off): the body cut into this many bands up from the foot, each a flat step lighter toward the peak with a lit edge on
+// top, following the ridge's own shape, as layered paper mountains are (the owner's style reference). `flank_from` is where the flank
+// shade starts (a share of the height; 0.2 left a pale lower half that read as a flat cloud band across the range).
+uniform int layers = 0;
+uniform float flank_from = 0.2;
 
 float hash(float n) {
 	return fract(sin(n) * 43758.5453);
@@ -101,7 +106,16 @@ void fragment() {
 	float h = base + amplitude * ridge(x);
 	float cut = 1.0 - smoothstep(h - softness, h + softness, y);
 	float k = clamp(y / max(h, 0.001), 0.0, 1.0);
-	vec3 c = mix(foot_colour.rgb, top_colour.rgb, k);
+	float kk = k;
+	float layer_edge = 0.0;
+	if (layers > 0) {
+		float f = k * float(layers);
+		kk = floor(f) / float(max(layers - 1, 1));
+		// A thin lit lip at the top of each band.
+		layer_edge = smoothstep(0.86, 0.97, fract(f)) * (1.0 - step(float(layers) - 0.5, f));
+	}
+	vec3 c = mix(foot_colour.rgb, top_colour.rgb, clamp(kk, 0.0, 1.0));
+	c = mix(c, c * 1.18 + 0.04, layer_edge * 0.8);
 	if (flank > 0.0) {
 		// (The slope of the broad shape only: the fine crags flipped it column by column into stripes.)
 		float e = 0.03;
@@ -111,7 +125,7 @@ void fragment() {
 		float lit = smoothstep(-0.03, 0.03, dot(nrm, sun) - dot(vec2(0.0, 1.0), sun));
 		vec3 shade = c * mix(vec3(1.0), pf_shadow_tint.rgb, 0.85) * 0.78;
 		// (Down from the ridge line only so far: a flank's shade belongs to the peak, not a column to the foot.)
-		float reach = flank * smoothstep(0.2, 0.7, y / max(h, 0.001));
+		float reach = flank * smoothstep(flank_from, flank_from + 0.5, y / max(h, 0.001));
 		c = mix(c, mix(shade, c * 1.08, lit), reach);
 	}
 	// The light catches the top of the ridge.
