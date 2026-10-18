@@ -14,16 +14,18 @@ const MOODS := {
 	# Magic hour: a lower, golden key that rakes across the props and fighters, violet fill and shadows, a lavender-peach haze.
 	# (Day stages' shade deeper, art review 6 round 21 after the owner's Wind Waker HD frame: lit and shaded faces of the props and
 	# scenery split clearly, as the reference's rocks and walls; meadow and grove 0.56, was 0.64; ocean 0.54, was 0.6.)
-	"meadow": {"key": [Color(1.0, 0.96, 0.86), 1.38, -44.0, -34.0], "fill": [Color(0.6, 0.76, 1.0), 0.4],
-		"ambient": [Color(0.86, 0.92, 1.0), 0.48], "shadow_hue": 0.66, "shadow_shift": 0.08, "shadow_value": 0.56,
-		"shadow_tint": Color(0.66, 0.72, 0.94), "rim": Color(1.0, 0.98, 0.9),
+	# (A warmer key and a cool blue-green shade, the gauntlet's round 11: the green stages' shade read neutral beside the benchmark's
+	# coloured light.)
+	"meadow": {"key": [Color(1.0, 0.93, 0.8), 1.38, -44.0, -34.0], "fill": [Color(0.56, 0.78, 1.0), 0.4],
+		"ambient": [Color(0.84, 0.94, 1.0), 0.48], "shadow_hue": 0.55, "shadow_shift": 0.14, "shadow_value": 0.56,
+		"shadow_tint": Color(0.52, 0.74, 0.86), "rim": Color(1.0, 0.98, 0.9),
 		"grade": [Color(0.92, 0.97, 1.06), Color(1.04, 1.02, 0.96), 0.5], "haze": Color(0.72, 0.87, 1.0)},
 	# (Art review 6 round 9: a weaker key, more pink ambient and a stronger grade than the meadow left the grove under a pale veil, the
 	# softest stage. Its colours kept; its contrast brought near the meadow's.)
 	# (Its pink grade and ambient eased, round 24: pink over the lawn's green cancelled toward grey, the palest stage left.)
 	"grove": {"key": [Color(1.0, 0.92, 0.84), 1.32, -40.0, -28.0], "fill": [Color(0.86, 0.66, 1.0), 0.38],
-		"ambient": [Color(1.0, 0.93, 0.95), 0.47], "shadow_hue": 0.8, "shadow_shift": 0.08, "shadow_value": 0.56,
-		"shadow_tint": Color(0.8, 0.7, 0.88), "rim": Color(1.0, 0.86, 0.92),
+		"ambient": [Color(1.0, 0.93, 0.95), 0.47], "shadow_hue": 0.78, "shadow_shift": 0.14, "shadow_value": 0.56,
+		"shadow_tint": Color(0.72, 0.62, 0.92), "rim": Color(1.0, 0.86, 0.92),
 		"grade": [Color(0.98, 0.9, 1.04), Color(1.04, 0.98, 0.96), 0.3], "haze": Color(0.84, 0.82, 1.0)},
 	"sunset": {"key": [Color(1.0, 0.72, 0.5), 1.25, -20.0, -42.0], "fill": [Color(0.6, 0.5, 1.0), 0.42],
 		"ambient": [Color(0.94, 0.84, 0.88), 0.5], "shadow_hue": 0.79, "shadow_shift": 0.1, "shadow_value": 0.58,
@@ -78,7 +80,7 @@ const STYLE_DEFAULT := {
 }
 const STYLES := {
 	# Dappled light under the great tree: small patches swaying slowly.
-	"grove": {"paint": [Color(1.06, 0.99, 0.94), Color(0.94, 0.9, 1.06), 0.55], "clouds": [0.5, 3.2, 0.42, 0.25],
+	"grove": {"paint": [Color(1.06, 0.99, 0.94), Color(0.94, 0.9, 1.06), 0.55], "clouds": [0.72, 4.5, 0.45, 0.25],
 		"finish": {"desat": 0.0, "lift": 0.02, "haze_max": 0.08, "s_curve": 0.3, "quiet": 0.08}},
 	# Crisper light-to-shadow steps (a clear lit side and shaded side on every prop, in the manner of a cel-shaded adventure), warmer tops
 	# and cooler undersides, and less of the pastel wash, so the colours carry.

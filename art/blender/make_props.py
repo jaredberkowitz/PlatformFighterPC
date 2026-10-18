@@ -940,6 +940,8 @@ def _lathe_bm(bm, prof, sides=24, wobble=None):
         for i in range(sides):
             j = (i + 1) % sides
             bm.faces.new((rings[k][i], rings[k][j], rings[k + 1][j], rings[k + 1][i]))
+    # (Faces outward whichever way the profile runs: the toadstool's cap, drawn top down, faced in and shaded dark.)
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
     return rings
 
 

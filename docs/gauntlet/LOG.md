@@ -155,3 +155,17 @@ patches; the grove's side trees with lit and shaded crowns.
 No stage now scores below 3 anywhere (the city roof's weathering lifted its Ground). The grove's new moss too small; the city's light
 pools too faint. Gaps: (1) the remaining primitive props (beach lamp and sailboats, grove mushrooms and stump, meadow hay bales); (2)
 the meadow the least refined (lawn clumps and wear, the far ridge near sky value, the village hazed, the wall's upper courses quieter).
+
+## Round 11 (2026-10-18, commit 139e629; the judge now says what a 5 needs)
+
+| Stage | Believ. | Cohesion | Lighting | Depth | Ground | Clarity | Mean |
+|---|---|---|---|---|---|---|---|
+| Meadow | 3 | 3 | 3 | 3 | 3 | 3 | 3.0 |
+| Canyon | 3 | 4 | 4 | 3 | 3 | 4 | 3.5 |
+| Beach | 3 | 4 | 4 | 4 | 3 | 4 | 3.7 |
+| City | 3 | 4 | 4 | 4 | 3 | 3 | 3.5 |
+| Grove | 4 | 4 | 3 | 3 | 3 | 4 | 3.5 |
+
+Up: the grove's moss and stump (Believability 4), the city's light pools (Lighting 4), the beach's lamp (Cohesion 4). Down a little:
+the grove's toadstool caps too dark. Gaps: (1) the meadow (lawn clumps and wear, cool shade and warm light, contact, ridges stepped,
+village hazed, wall quieter, hay bales); (2) the light on the grass stages (warm key, cool shade, soft casts, grove dappling).
