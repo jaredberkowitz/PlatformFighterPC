@@ -2057,6 +2057,36 @@ func _shirt_collar() -> void:
 
 ## The collar ring of the neckerchief and the scarf, just under the chin (where the head meets the shoulders, from base_rig.json's `neck`).
 ## Returns its height in the torso's design space, for what hangs from it.
+## The hats modelled in Blender (art/blender/make_gear.py, godot/models/gear), by hat slot (the owner, 2026-10-18: moving the
+## accessories from built primitives to models over time).
+const GEAR_HATS := {1: "sailor_cap", 2: "aviator_cap", 3: "straw_hat"}
+
+
+## Puts the modelled accessory `name` on the hat pivot, each part coloured by what it is made of (its name's first word): fabric in
+## `accent`, canvas white cloth, leather, metal (brass), glass, straw. False if the model is missing.
+func _gear_model(name: String, accent: Color) -> bool:
+	var path := "res://models/gear/%s.glb" % name
+	if not ResourceLoader.exists(path):
+		return false
+	var scene := load(path) as PackedScene
+	if scene == null:
+		return false
+	var model := scene.instantiate() as Node3D
+	model.position = -HAT_PIVOT
+	hat_pivot.add_child(model)
+	var straw := toon(Color(1, 1, 1), true, SvgArt.texture("res://art/cloth/straw.svg", {"#ff00ff": Color(0.92, 0.8, 0.48)}), Vector2(8, 2))
+	var brass := (respond(toon(Color(0.78, 0.64, 0.38)), "gold") as ShaderMaterial).duplicate() as ShaderMaterial
+	brass.set_shader_parameter("metal", 0.3)
+	brass.set_shader_parameter("rim_strength", 0.2)
+	var mats := {"fabric": _fabric(accent), "canvas": _cloth(toon(Color(0.95, 0.94, 0.9))), "leather": _cloth(toon(Color(0.52, 0.33, 0.21))),
+		"metal": brass, "glass": toon(Color(0.66, 0.84, 0.95), false), "straw": straw}
+	for mi: MeshInstance3D in model.find_children("*", "MeshInstance3D", true, false):
+		var kind := String(mi.name).get_slice("_", 0)
+		mi.material_override = mats.get(kind, toon(accent))
+		meshes.append(mi)
+	return true
+
+
 ## A fabric accessory's material (hats, neckwear, bands): the cloth's softer step and fine weave (`_cloth`), as the shirts and shorts
 ## have (2026-10-18, the owner after the reference cast: the accessories in flat plastic read cheaper than the clothes).
 func _fabric(c: Color) -> Material:
@@ -2100,6 +2130,9 @@ func _hat() -> void:
 	head_rig.add_child(hat_pivot)
 	var accent: Color = loadout.accent_color()
 	var white := toon(Color(0.97, 0.97, 1.0))
+	# The modelled hats (art/blender/make_gear.py) where there is one; the built ones below stand in.
+	if GEAR_HATS.has(loadout.hat) and _gear_model(GEAR_HATS[loadout.hat], accent):
+		return
 	match loadout.hat:
 		1:
 			# Sailor cap: white crown and brim with a band in the accent colour.
