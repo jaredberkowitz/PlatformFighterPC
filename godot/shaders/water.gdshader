@@ -53,6 +53,15 @@ void fragment() {
 		float swath_k = (1.0 - band * 0.7);
 		col = mix(col, deep.rgb * 0.92, smoothstep(0.45, 0.75, swath) * 0.5 * swath_k);
 		col = mix(col, mix(shallow.rgb, vec3(1.0), 0.18), (1.0 - smoothstep(0.22, 0.42, swath)) * 0.32 * swath_k);
+		// The swell as painted form (art review 7: the sea read as flat bands): long crests running along the shore, each lit on its face
+		// toward the light and falling into a deeper trough behind, wavering and breaking up along their length; strongest near the stage,
+		// gone toward the horizon where they would only shimmer.
+		float swell_k = 1.0 - smoothstep(10.0, 110.0, back);
+		float ph = world_pos.z * 0.62 + noise(q * vec2(0.035, 0.05)) * 5.0 + sin(world_pos.x * 0.06 + 1.3) * 1.2 + TIME * 0.7;
+		float slope = cos(ph);
+		float broken = smoothstep(0.3, 0.6, noise(q * vec2(0.09, 0.25) + vec2(TIME * 0.04, 0.0)));
+		col = mix(col, mix(col, shallow.rgb * 1.15 + 0.04, 0.6), smoothstep(0.6, 0.78, slope) * swell_k * broken * 0.75);
+		col = mix(col, deep.rgb * 0.8, smoothstep(0.55, 0.85, -slope) * swell_k * 0.35);
 		// Two layers of long streaks drifting at different speeds, stretched along the shore (crisp painted strokes, not soft smudges).
 		vec2 p = world_pos.xz;
 		float s1 = noise(p * vec2(0.06, 0.45) + vec2(TIME * 0.05, 0.0));
