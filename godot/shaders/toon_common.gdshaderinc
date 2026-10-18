@@ -31,6 +31,9 @@ uniform vec3 front_shade : source_color = vec3(0.6, 0.57, 0.72);
 // Fall into the front shade by height (as `front_fall` does on a world-laid front) on any surface: the modelled pieces on a building
 // front (scripts/stage_art.gd `_facade_windows`) settle back with the wall they stand on.
 uniform bool fall_by_height = false;
+// World-laid surfaces only: treat every face as a front (laid in x/y, falling into the front shade), however it tilts (the earth bulges,
+// whose lumps tilt past where a face would otherwise count as a top).
+uniform bool front_only = false;
 // World-laid fronts only: broad painted shadow shapes over an earth wall (0 off), large soft-edged cool shapes in `front_shade` and warmer
 // lit ones between them, slow in x and leaning as they run down, so a dirt face reads as rounded packed earth under one light rather
 // than one flat colour (the owner's material notes, 2026-10-17: dirt wants broad shadow shapes and warm/cool shifts).
@@ -94,11 +97,11 @@ void fragment() {
 	if (use_tex) {
 		vec2 uv = UV * tex_scale;
 		if (world_tile > 0.0) {
-			uv = (abs(world_normal.y) > 0.5 ? world_pos.xz : vec2(world_pos.x, -world_pos.y)) / world_tile;
+			uv = (abs(world_normal.y) > 0.5 && !front_only ? world_pos.xz : vec2(world_pos.x, -world_pos.y)) / world_tile;
 		}
 		c *= texture(albedo_tex, uv).rgb;
 		if (world_tile > 0.0) {
-			vec2 p = abs(world_normal.y) > 0.5 ? world_pos.xz : world_pos.xy;
+			vec2 p = abs(world_normal.y) > 0.5 && !front_only ? world_pos.xz : world_pos.xy;
 			float drift = sin(p.x * 0.37 + sin(p.y * 0.53) * 1.7) * sin(p.y * 0.29 + p.x * 0.11 + 1.3);
 			c *= 1.0 + world_vary * drift;
 			if (patch_amount > 0.0) {
@@ -118,7 +121,7 @@ void fragment() {
 				c *= 1.0 + detail_amount * (fine * 0.7 + broad * 1.3);
 				c *= vec3(1.0) + vec3(0.04, 0.0, -0.04) * broad * detail_amount * 2.0;
 			}
-			if (abs(world_normal.y) < 0.5) {
+			if (abs(world_normal.y) < 0.5 || front_only) {
 				float below = smoothstep(0.6, front_span, front_top - world_pos.y);
 				if (front_shapes > 0.0) {
 					vec2 q = world_pos.xy;

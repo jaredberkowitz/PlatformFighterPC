@@ -725,6 +725,8 @@ static func solid_block(parent: Node3D, t: Dictionary, left: float, right: float
 		_seawall_stones(parent, t, left, right, top, bottom, front_z, depth, top)
 	elif t.get("pattern", "") == "strata":
 		_strata_ledges(parent, t, left, right, top, bottom, front_z, top)
+	elif t.get("pattern", "") in ["earth", "roots"]:
+		_earth_bulges(parent, t, left, right, top, bottom, front_z)
 	if not exposed:
 		return
 	var cx := (left + right) / 2.0
@@ -4710,3 +4712,55 @@ static func _quad(st: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, d: Vector
 	for v in [a, c, b, a, d, c]:
 		st.set_normal(n)
 		st.add_vertex(v)
+
+
+## The meadow's and grove's earth front shaped as packed earth: a sheet over the block's front bulging out in broad rounded lumps and
+## tucking in between them, with the block's own painted earth on it (laid in world space, so the stones, roots and moss stay where they
+## were painted), so the face takes the light as a real bank of earth, lit on the tops of its lumps and shaded under them (art review 7:
+## the painted fronts were the flattest thing on screen). Flush with the block at its ends and under the turf lip.
+static func _earth_bulges(parent: Node3D, t: Dictionary, left: float, right: float, top: float, bottom: float, front: float) -> void:
+	var n := FastNoiseLite.new()
+	n.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
+	n.seed = 12
+	n.frequency = 0.22
+	var y_top := top - 0.35
+	var y_bot := maxf(bottom, top - 14.0)
+	var bulge_at := func(x: float, y: float) -> float:
+		var v := n.get_noise_2d(x, y * 1.3) * 0.5 + 0.5
+		var b := 0.05 + 1.0 * pow(v, 1.8)
+		# Flush at the ends and under the turf lip, gently (a steep rise there read as a top face to the shader).
+		return b * smoothstep(0.0, 1.2, minf(x - left, right - x)) * smoothstep(0.0, 0.8, y_top - y)
+	var step := 0.25
+	var cols := int(ceil((right - left) / step))
+	var rows := int(ceil((y_top - y_bot) / step))
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for j in rows + 1:
+		var y := lerpf(y_top, y_bot, float(j) / rows)
+		for i in cols + 1:
+			var x := lerpf(left, right, float(i) / cols)
+			var bz: float = bulge_at.call(x, y)
+			# Each lump's form baked in as well (the cel light alone barely turns on a face this close to flat): lit where the surface faces
+			# up and out toward the light, darker in the hollows between lumps.
+			var dx: float = (bulge_at.call(x + 0.1, y) - bulge_at.call(x - 0.1, y)) / 0.2
+			var dy: float = (bulge_at.call(x, y + 0.1) - bulge_at.call(x, y - 0.1)) / 0.2
+			var nrm := Vector3(-dx, -dy, 1.0).normalized()
+			var light := clampf(nrm.dot(Vector3(-0.35, 0.75, 0.55).normalized()), 0.0, 1.0)
+			var val := lerpf(0.62, 1.12, light) * lerpf(0.8, 1.0, clampf(bz / 0.6, 0.0, 1.0))
+			st.set_color(Color(val, val, val * 1.03))
+			st.add_vertex(Vector3(x, y, front + 0.01 + bz))
+	for j in rows:
+		for i in cols:
+			var a0 := j * (cols + 1) + i
+			var b0 := a0 + 1
+			var c0 := a0 + cols + 1
+			var d0 := c0 + 1
+			for idx in [a0, b0, d0, a0, d0, c0]:
+				st.add_index(idx)
+	st.generate_normals()
+	var m := _soil_material(t).duplicate() as ShaderMaterial
+	m.set_shader_parameter("vertex_shade", true)
+	m.set_shader_parameter("front_only", true)
+	var mi := _mesh(parent, st.commit(), m, Vector3.ZERO)
+	mi.set_instance_shader_parameter("front_top", top)
+	mi.name = "earth_bulges"
