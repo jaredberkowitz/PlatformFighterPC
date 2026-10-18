@@ -9,7 +9,11 @@ extends SceneTree
 ##   wood: four planks a repeat (as godot/art/stage/wood.svg, so it maps the same), each its own tone, a lit edge along its top and a
 ##         shaded one along its foot over a dark seam, long painted grain streaks wavering along it and a knot here and there that the
 ##         grain bends round (the owner's material notes, 2026-10-17: wood wants visible grain and clear light and shadow).
-## Run: Godot --headless -s tools/art/noise_tile.gd -- <bark|palm|leaves|wood> <out.png> [seed]
+##   paving: pavement slabs in staggered rows, each its own tone, every joint a dark groove with a lit lip on the slab's upper and left
+##         edges and shade on its lower and right ones, so the slabs read raised and bevelled (the owner, 2026-10-18: the street read flat);
+##   roofing: a flat roof's membrane in long sheets across the tile, each lapped over the next with a lit edge and a shadow under it,
+##         soft weathering stains and a fine gravel speckle.
+## Run: Godot --headless -s tools/art/noise_tile.gd -- <bark|palm|leaves|wood|paving|roofing> <out.png> [seed]
 
 const SIZE := 512
 ## Where the bark's crevices cross the tile (a share of its width), uneven so the plates differ in width.
@@ -67,10 +71,14 @@ func _initialize() -> void:
 					t = _leaves(clumps, u, v) * (0.9 + 0.1 * (0.5 + 0.5 * _tiled(fine, u, v, 1.0, 1.0)))
 				"wood":
 					t = _wood(soft, fine, u, v)
+				"paving":
+					t = _paving(soft, fine, u, v)
+				"roofing":
+					t = _roofing(soft, fine, u, v)
 			# A few flat values with soft steps between them (the same painted read as mm_tile), then the multiplier range, in sRGB.
 			t = lerpf(t, roundf(t * 3.0) / 3.0, 0.25 if kind == "wood" else 0.4)
 			# (Bark spans a deeper range: at the rings' 0.66 its plates all but vanished on the grove's great trunk.)
-			var value := lerpf({"bark": 0.42, "leaves": 0.6, "wood": 0.3}.get(kind, 0.66), 1.0, clampf(t, 0.0, 1.0))
+			var value := lerpf({"bark": 0.42, "leaves": 0.6, "wood": 0.3, "paving": 0.25, "roofing": 0.45}.get(kind, 0.66), 1.0, clampf(t, 0.0, 1.0))
 			value = pow(value, 1.0 / 2.2)
 			out.set_pixel(x, y, Color(value, value, value))
 	out.save_png(a[1])
@@ -179,4 +187,54 @@ func _wood(soft: FastNoiseLite, fine: FastNoiseLite, u: float, v: float) -> floa
 	t = lerpf(t, 1.0, 0.6 * (1.0 - smoothstep(0.0, 0.08, pv)))
 	t *= 1.0 - 0.25 * smoothstep(0.78, 0.94, pv)
 	t *= 1.0 - 0.75 * smoothstep(0.94, 0.965, pv)
+	return t
+
+
+## A paving tile's value at (u, v): see the `paving` kind. Three rows of slabs, each row offset, slabs of uneven length.
+func _paving(soft: FastNoiseLite, fine: FastNoiseLite, u: float, v: float) -> float:
+	var rows := 3.0
+	var row := floorf(v * rows)
+	var rv := fposmod(v * rows, 1.0)
+	var cuts: Array = [[0.0, 0.38, 0.7], [0.18, 0.55, 0.82], [0.1, 0.45, 0.76]][int(row) % 3]
+	var su := 0.0
+	var sw := 1.0
+	var slab := 0
+	for c in 3:
+		var a: float = cuts[c]
+		var b: float = cuts[(c + 1) % 3] + (1.0 if c == 2 else 0.0)
+		var uu := u if u >= a else u + 1.0
+		if uu >= a and uu < b:
+			su = (uu - a) / (b - a)
+			sw = (b - a) * 3.0
+			slab = c
+	var tone := 0.72 + 0.2 * fposmod(row * 0.37 + float(slab) * 0.618, 1.0)
+	var t := tone * (0.92 + 0.12 * (0.5 + 0.5 * _tiled(fine, u, v, 1.0, 1.0))) * (0.94 + 0.08 * _tiled(soft, u, v, 1.0, 1.0))
+	# Bevels: lit along the slab's top and left, shaded along its bottom and right, a dark groove at the joint.
+	var ex := 0.035 / sw
+	var ey := 0.06
+	if rv < ey or su < ex:
+		t = lerpf(t, 1.0, 0.55)
+	if rv > 1.0 - ey * 1.3 or su > 1.0 - ex * 1.3:
+		t *= 0.68
+	if rv < 0.02 or rv > 0.98 or su < 0.008 or su > 0.992:
+		t *= 0.35
+	return t
+
+
+## A roofing tile's value at (u, v): see the `roofing` kind. Four sheets down the tile.
+func _roofing(soft: FastNoiseLite, fine: FastNoiseLite, u: float, v: float) -> float:
+	var sheets := 4.0
+	var sv := fposmod(v * sheets, 1.0)
+	var sheet := floorf(v * sheets)
+	var tone := 0.8 + 0.12 * fposmod(sheet * 0.618, 1.0)
+	var stain := 0.5 + 0.5 * _tiled(soft, u, v, 1.0, 1.0)
+	var t := tone * (0.84 + 0.2 * stain)
+	# Gravel speckle.
+	var g := _tiled(fine, u * 3.0, v * 3.0, 3.0, 3.0)
+	t *= 0.96 + 0.06 * signf(g) * smoothstep(0.3, 0.5, absf(g))
+	# The lap: a lit edge where this sheet overlaps the next, a shadow just past it.
+	if sv < 0.05:
+		t = lerpf(t, 1.0, 0.5)
+	elif sv < 0.11:
+		t *= 0.72
 	return t

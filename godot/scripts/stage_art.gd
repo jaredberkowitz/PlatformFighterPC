@@ -791,7 +791,7 @@ static func solid_block(parent: Node3D, t: Dictionary, left: float, right: float
 			var roofing := (t.grass as Color).lerp(Color(0.62, 0.56, 0.58), 0.55).darkened(0.1)
 			var roof_mat := _surface(roofing, "roof", 4.0).duplicate() as ShaderMaterial
 			roof_mat.set_shader_parameter("world_vary", 0.16)
-			roof_mat.set_shader_parameter("patch_amount", 0.25)
+			roof_mat.set_shader_parameter("patch_amount", 0.4)
 			_mesh(parent, _box(Vector3(w + 0.3, 0.35, depth + 0.3)), roof_mat, Vector3(cx, top - 0.15, front_z - depth / 2.0))
 			var coping := _soft((t.grass_light as Color).lerp(Color(0.86, 0.82, 0.8), 0.4))
 			var coping_face := _soft((t.grass as Color).darkened(0.18))
@@ -3774,23 +3774,31 @@ const CITY_STREET_DROP := 6.0
 static func _street(root: Node3D, y: float, front: float) -> void:
 	# (Painted asphalt (godot/art/stage/asphalt.svg: grit, a sealed crack, a patch) laid in world space, and inked stone kerbs: flat fills read as a
 	# different, unfinished style beside the painted rooftop.)
-	var asphalt := Materials.world("asphalt", Color(0.3, 0.27, 0.4), 6.0, false)
-	var pave := Materials.stone(Color(0.46, 0.42, 0.56), Vector2(40, 2))
-	var kerb := Materials.stone(Color(0.6, 0.56, 0.7), Vector2(60, 1))
+	var asphalt := Materials.world("asphalt", Color(0.3, 0.27, 0.4), 6.0, false).duplicate() as ShaderMaterial
+	# (Broad painted patches on the road, darker where the tyres run: one flat sheet read as a Flash backdrop, 2026-10-18.)
+	asphalt.set_shader_parameter("patch_amount", 0.3)
+	# Paving slabs with bevelled, lit joints (art/stage/png/paving.png), laid in world space, two slabs a metre or so.
+	var pave := Materials.world("paving", Color(0.56, 0.52, 0.66), 4.5, false)
+	var kerb := Materials.stone(Color(0.66, 0.62, 0.76), Vector2(60, 1))
 	# The pavement round the stage building, the road, the far pavement and its kerb.
 	_mesh(root, _box(Vector3(300.0, 0.5, 6.0)), pave, Vector3(0, y, front + 1.0))
 	_mesh(root, _box(Vector3(300.0, 0.5, 22.0)), asphalt, Vector3(0, y - 0.25, front - 18.0))
 	_mesh(root, _box(Vector3(300.0, 0.5, 7.0)), pave, Vector3(0, y, front - 32.5))
+	# Kerbs: a stone with a lit top standing a step above the road, its face falling into shade, and a dark gutter line at its foot.
+	var gutter := FighterView.toon(Color(0.18, 0.15, 0.26), false)
 	for kz in [front + 4.0, front - 7.0, front - 29.0]:
-		_mesh(root, _box(Vector3(300.0, 0.18, 0.4)), kerb, Vector3(0, y + 0.2, kz))
+		_mesh(root, _box(Vector3(300.0, 0.34, 0.5)), kerb, Vector3(0, y + 0.12, kz))
+		var road_side := -1.0 if kz > front - 18.0 else 1.0
+		_mesh(root, _box(Vector3(300.0, 0.02, 0.22)), gutter, Vector3(0, y + 0.005, kz + road_side * 0.36))
 	# The line down the middle of the road.
-	var paint := _unshaded(Color(0.95, 0.82, 0.46))
+	# (Road paint lit like the road, a little worn, not unshaded strips glowing over it, 2026-10-18.)
+	var paint := Materials.world("asphalt", Color(0.95, 0.8, 0.42), 6.0, false)
 	var x := -150.0
 	while x < 150.0:
 		_mesh(root, _box(Vector3(2.4, 0.04, 0.3)), paint, Vector3(x, y + 0.01, front - 18.0))
 		x += 5.0
 	# Zebra crossings either side of the stage building, worn a little.
-	var zebra := _unshaded(Color(0.86, 0.84, 0.9))
+	var zebra := Materials.world("asphalt", Color(0.92, 0.9, 0.98), 6.0, false)
 	for cx in [-34.0, 36.0]:
 		for j in 7:
 			_mesh(root, _box(Vector3(1.0, 0.04, 2.4)), zebra, Vector3(cx + j * 1.7, y + 0.02, front - 11.0 - float(j % 2) * 0.1))
