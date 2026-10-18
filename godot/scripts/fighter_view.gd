@@ -1957,7 +1957,11 @@ func _neck_on_rig(accent: Color) -> void:
 			# (Over the shirt, which since the body rebuild hangs looser: fitted to the bare torso, the band sank into the cloth in pieces.)
 			var over := SASH_OVER_SHIRT if loadout.shirt > 0 else 1.0
 			sash.scale = Vector3(over, 1.0, 1.0 + (over - 1.0) * 0.45)
-			_part(sash, ring, toon(SASH, false), Vector3.ZERO, Vector3(0.88, 1.7, 1.0))
+			var strap := _gear_mesh("neckwear", "fabric_sash")
+			if strap != null:
+				_part(sash, strap, _cloth(toon(SASH, false)), Vector3.ZERO)
+			else:
+				_part(sash, ring, toon(SASH, false), Vector3.ZERO, Vector3(0.88, 1.7, 1.0))
 			# Round badges pinned on the front of the band, facing out from it.
 			var badge := CylinderMesh.new()
 			badge.top_radius = 0.068
@@ -1982,7 +1986,14 @@ func _neck_on_rig(accent: Color) -> void:
 			neck_pivot = Node3D.new()
 			neck_pivot.position = Vector3(0, at - 0.02, 0.5)
 			torso_rig.add_child(neck_pivot)
-			_part(neck_pivot, bib, _fabric(accent), Vector3(0, -0.15, 0), Vector3.ONE, Vector3(-8, 0, 180))
+			var kerchief := _gear_mesh("neckwear", "fabric_kerchief")
+			var knot := _gear_mesh("neckwear", "fabric_knot")
+			if kerchief != null and knot != null:
+				var out := Vector3(0, 0, 0.1 if loadout.shirt > 0 else 0.03)
+				_part(neck_pivot, kerchief, _fabric(accent), out, Vector3.ONE, Vector3(-14, 0, 0))
+				_part(neck_pivot, knot, _fabric(accent.darkened(0.08)), out)
+			else:
+				_part(neck_pivot, bib, _fabric(accent), Vector3(0, -0.15, 0), Vector3.ONE, Vector3(-8, 0, 180))
 		3:
 			# Scarf: the collar ring and a tail hanging down the front on one side.
 			var at := _collar(accent)
@@ -2114,7 +2125,14 @@ func _collar(accent: Color) -> float:
 	if info.has("neck") and torso_fit.basis.y.y > 0.001:
 		at = (float(info.neck) - COLLAR_BELOW_NECK - torso_fit.origin.y) / torso_fit.basis.y.y
 	# (A flatter band of cloth rather than a round tube, 2026-10-18: the tube read as a plastic ring.)
-	_part(torso_rig, ring, _fabric(accent), Vector3(0, at, 0), Vector3(1.06, 0.62, 0.96))
+	# (The modelled collar, art/blender/make_gear.py `neckwear`, where there is one: a rolled band of cloth gathered in folds.)
+	var modelled := _gear_mesh("neckwear", "fabric_collar")
+	if modelled != null:
+		# (A size out over a shirt, which stands off the body since the body rebuild.)
+		var over := 1.14 if loadout.shirt > 0 else 1.0
+		_part(torso_rig, modelled, _fabric(accent), Vector3(0, at, 0), Vector3(over, 1.0, over))
+	else:
+		_part(torso_rig, ring, _fabric(accent), Vector3(0, at, 0), Vector3(1.06, 0.62, 0.96))
 	return at
 
 
@@ -2252,42 +2270,88 @@ func _glasses() -> void:
 	var to_head: Transform3D = glasses_rig.transform
 	# The glasses' space is stretched across by the eyes' spacing and up by their size: a lens is made round again by this.
 	lens_aspect = glasses_fit.basis.get_scale().y / maxf(0.001, glasses_fit.basis.get_scale().x)
+	# The modelled frames (art/blender/make_gear.py `glasses`), each part at its own size, seated per lens by `_on_face`; the built ones
+	# stand in without them.
+	var g_rim_specs := _gear_mesh("glasses", "metal_specs_rim")
+	var g_rim_shades := _gear_mesh("glasses", "frame_shades_rim")
+	var g_lens := _gear_mesh("glasses", "glass_shades_lens")
+	var g_cup := _gear_mesh("glasses", "leather_goggle_cup")
+	var g_bridge := _gear_mesh("glasses", "frame_bridge")
+	var modelled := g_rim_specs != null and g_rim_shades != null and g_lens != null and g_cup != null and g_bridge != null
 	match loadout.glasses:
 		1:
-			# Shades: tinted glass the eyes show through, in thin dark rims, with a bridge.
+			# Shades: tinted glass the eyes show through, in a dark frame with a heavier brow bar, and a bridge.
 			var lens := StandardMaterial3D.new()
 			lens.albedo_color = Color(1.0, 0.55, 0.2, 0.5)
 			lens.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 			lens.roughness = 0.45
 			lens.metallic_specular = 0.3
-			var rim := TorusMesh.new()
-			rim.inner_radius = 0.95
-			rim.outer_radius = 1.05
-			for sx in [-1.0, 1.0]:
-				_on_face(_part(glasses_rig, _sphere(1.0), lens, Vector3.ZERO), to_head, sx * 0.32, 1.52, 0.04, Vector3(0.25, 0.18, 0.03))
-				_on_face(_part(glasses_rig, rim, frame, Vector3.ZERO), to_head, sx * 0.32, 1.52, 0.045, Vector3(0.25, 0.04, 0.18), true)
-			_on_face(_part(glasses_rig, _sphere(1.0), frame, Vector3.ZERO), to_head, 0.0, 1.56, 0.06, Vector3(0.1, 0.025, 0.025))
+			if modelled:
+				for sx in [-1.0, 1.0]:
+					_on_face(_part(glasses_rig, g_lens, lens, Vector3.ZERO), to_head, sx * 0.32, 1.52, 0.04, Vector3.ONE)
+					_on_face(_part(glasses_rig, g_rim_shades, frame, Vector3.ZERO), to_head, sx * 0.32, 1.52, 0.05, Vector3.ONE)
+				_on_face(_part(glasses_rig, g_bridge, frame, Vector3.ZERO), to_head, 0.0, 1.56, 0.06, Vector3.ONE)
+			else:
+				var rim := TorusMesh.new()
+				rim.inner_radius = 0.95
+				rim.outer_radius = 1.05
+				for sx in [-1.0, 1.0]:
+					_on_face(_part(glasses_rig, _sphere(1.0), lens, Vector3.ZERO), to_head, sx * 0.32, 1.52, 0.04, Vector3(0.25, 0.18, 0.03))
+					_on_face(_part(glasses_rig, rim, frame, Vector3.ZERO), to_head, sx * 0.32, 1.52, 0.045, Vector3(0.25, 0.04, 0.18), true)
+				_on_face(_part(glasses_rig, _sphere(1.0), frame, Vector3.ZERO), to_head, 0.0, 1.56, 0.06, Vector3(0.1, 0.025, 0.025))
 		2:
-			# Goggles: chunky rings with a strap round the head.
-			var ring := TorusMesh.new()
-			ring.inner_radius = 0.14
-			ring.outer_radius = 0.28
+			# Goggles: deep padded leather cups with glass, and a strap round the head.
+			var leather := _cloth(toon(Color(0.45, 0.28, 0.12)))
 			for sx in [-1.0, 1.0]:
-				_on_face(_part(glasses_rig, ring, toon(Color(0.45, 0.28, 0.12)), Vector3.ZERO), to_head, sx * 0.32, 1.52, 0.0, Vector3.ONE, true)
+				if modelled:
+					_on_face(_part(glasses_rig, g_cup, leather, Vector3.ZERO), to_head, sx * 0.32, 1.52, 0.04, Vector3.ONE)
+				else:
+					var ring := TorusMesh.new()
+					ring.inner_radius = 0.14
+					ring.outer_radius = 0.28
+					_on_face(_part(glasses_rig, ring, leather, Vector3.ZERO), to_head, sx * 0.32, 1.52, 0.0, Vector3.ONE, true)
 				_on_face(_part(glasses_rig, _sphere(1.0), toon(Color(0.7, 0.9, 1.0, 1.0), false), Vector3.ZERO), to_head, sx * 0.32, 1.52, 0.02,
 					Vector3(0.14, 0.14, 0.02))
 			var strap := TorusMesh.new()
 			strap.inner_radius = 0.78
 			strap.outer_radius = 0.84
-			_part(glasses_rig, strap, toon(Color(0.3, 0.2, 0.1)), Vector3(0, 1.52, 0), Vector3(1, 0.6, 1))
+			_part(glasses_rig, strap, _cloth(toon(Color(0.3, 0.2, 0.1))), Vector3(0, 1.52, 0), Vector3(1, 0.6, 1))
 		3:
-			# Round specs: thin rings and a bridge.
-			var thin := TorusMesh.new()
-			thin.inner_radius = 0.17
-			thin.outer_radius = 0.21
+			# Round specs: thin flat-faced wire rims and a bridge.
 			for sx in [-1.0, 1.0]:
-				_on_face(_part(glasses_rig, thin, frame, Vector3.ZERO), to_head, sx * 0.32, 1.52, 0.0, Vector3.ONE, true)
-			_on_face(_part(glasses_rig, _sphere(1.0), frame, Vector3.ZERO), to_head, 0.0, 1.54, 0.02, Vector3(0.1, 0.02, 0.02))
+				if modelled:
+					_on_face(_part(glasses_rig, g_rim_specs, frame, Vector3.ZERO), to_head, sx * 0.32, 1.52, 0.05, Vector3.ONE)
+				else:
+					var thin := TorusMesh.new()
+					thin.inner_radius = 0.17
+					thin.outer_radius = 0.21
+					_on_face(_part(glasses_rig, thin, frame, Vector3.ZERO), to_head, sx * 0.32, 1.52, 0.0, Vector3.ONE, true)
+			if modelled:
+				_on_face(_part(glasses_rig, g_bridge, frame, Vector3.ZERO), to_head, 0.0, 1.54, 0.06, Vector3.ONE)
+			else:
+				_on_face(_part(glasses_rig, _sphere(1.0), frame, Vector3.ZERO), to_head, 0.0, 1.54, 0.02, Vector3(0.1, 0.02, 0.02))
+
+
+static var _gear_meshes := {}
+
+
+## One part's mesh from a modelled accessory file (godot/models/gear/<file>.glb), or null without it. Cached.
+static func _gear_mesh(file: String, part: String) -> Mesh:
+	var key := file + "/" + part
+	if _gear_meshes.has(key):
+		return _gear_meshes[key]
+	var mesh: Mesh = null
+	var path := "res://models/gear/%s.glb" % file
+	if ResourceLoader.exists(path):
+		var scene := load(path) as PackedScene
+		if scene != null:
+			var node := scene.instantiate()
+			var mi := node.find_child(part, true, false) as MeshInstance3D
+			if mi != null:
+				mesh = mi.mesh
+			node.free()
+	_gear_meshes[key] = mesh
+	return mesh
 
 
 ## Seats a piece of the glasses on the face: over the drawn eye at (`x`, `y`) in the glasses' design space, on the head's surface

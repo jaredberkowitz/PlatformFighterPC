@@ -579,7 +579,153 @@ def beanie():
     return root
 
 
-GEAR = {"sailor_cap": sailor_cap, "aviator_cap": aviator_cap, "straw_hat": straw_hat, "plumed_helm": plumed_helm, "crown": crown,
+# ---- Glasses (one file of parts, each at its size round its own centre, facing -Y in Blender, +Z in the game) ----------------------
+
+def _frame_loop(bm, outline, width, depth, top_extra=0.0):
+    """A frame round a closed `outline` [(x, z), ...] (its centre at the origin): a flat-faced band `width` wide inward-outward and `depth`
+    deep, a little wider along the top (`top_extra`, a brow bar), its edges softened by a mid ring."""
+    n = len(outline)
+    rings = []
+    for depth_k, out_k in [(-0.5, 0.0), (-0.5, 1.0), (0.0, 1.08), (0.5, 1.0), (0.5, 0.0), (0.0, -0.06)]:
+        ring = []
+        for (x, z) in outline:
+            r = math.hypot(x, z)
+            ux, uz = (x / r, z / r) if r > 1e-6 else (0.0, 1.0)
+            w = width * (1.0 + top_extra * max(0.0, uz))
+            ring.append(bm.verts.new((x + ux * w * out_k, -depth * depth_k, z + uz * w * out_k)))
+        rings.append(ring)
+    for k in range(len(rings)):
+        a, b = rings[k], rings[(k + 1) % len(rings)]
+        for i in range(n):
+            j = (i + 1) % n
+            bm.faces.new((a[i], a[j], b[j], b[i]))
+
+
+def _superellipse(a, b, power, n=48):
+    return [(a * math.copysign(abs(math.cos(t)) ** (2.0 / power), math.cos(t)), b * math.copysign(abs(math.sin(t)) ** (2.0 / power), math.sin(t)))
+            for t in [math.tau * i / n for i in range(n)]]
+
+
+def glasses():
+    """The glasses' parts: round specs' rim (a thin flat-faced wire ring), shades' rim (a rounded-square frame with a heavier brow bar)
+    and lens (a filled, slightly domed pane), goggles' cup (a deep padded ring), and a bridge (a small arc)."""
+    root = empty("glasses")
+    bm = bmesh.new()
+    _frame_loop(bm, [(0.18 * math.cos(t), 0.18 * math.sin(t)) for t in [math.tau * i / 48 for i in range(48)]], 0.05, 0.035)
+    to_object("metal_specs_rim", bm).parent = root
+    bm = bmesh.new()
+    _frame_loop(bm, _superellipse(0.22, 0.16, 3.2), 0.035, 0.04, top_extra=0.8)
+    to_object("frame_shades_rim", bm).parent = root
+    bm = bmesh.new()
+    outline = _superellipse(0.225, 0.165, 3.2)
+    c = bm.verts.new((0.0, -0.012, 0.0))
+    ring = [bm.verts.new((x, 0.0, z)) for (x, z) in outline]
+    for i in range(len(ring)):
+        bm.faces.new((ring[i], ring[(i + 1) % len(ring)], c))
+    to_object("glass_shades_lens", bm, smooth=True).parent = root
+    bm = bmesh.new()
+    _frame_loop(bm, [(0.16 * math.cos(t), 0.16 * math.sin(t)) for t in [math.tau * i / 48 for i in range(48)]], 0.08, 0.1)
+    to_object("leather_goggle_cup", bm).parent = root
+    bm = bmesh.new()
+    pts = [(0.09 * (2.0 * k / 8.0 - 1.0), 0.025 * math.sin(math.pi * k / 8.0)) for k in range(9)]
+    rings = []
+    for (x, z) in pts:
+        rr = []
+        for i in range(6):
+            a = math.tau * i / 6
+            rr.append(bm.verts.new((x, 0.014 * math.cos(a), z + 0.014 * math.sin(a))))
+        rings.append(rr)
+    for k in range(len(rings) - 1):
+        for i in range(6):
+            j = (i + 1) % 6
+            bm.faces.new((rings[k][i], rings[k][j], rings[k + 1][j], rings[k + 1][i]))
+    to_object("frame_bridge", bm).parent = root
+    return root
+
+
+# ---- Neckwear (one file of parts, each in the game's own space for where it is placed, see fighter_view.gd) ---------------------------
+
+def _g(x, y, z):
+    """A point given in the game's axes (y up, z toward the camera) as Blender's (z up, -y toward the camera)."""
+    return Vector((x, -z, y))
+
+
+def neckwear():
+    """The neckwear's cloth: a rolled collar (a soft tube of cloth round the neck, gathered in shallow folds), a knot for the neckerchief,
+    the neckerchief's point (a draped triangle with a fold down its middle and soft creases), and the sash (a flat strap with turned
+    edges, worn on the diagonal)."""
+    root = empty("neckwear")
+    # The collar, round the torso rig's neck at its origin (the game places it at the collar's height): ellipse radii 0.54 by 0.49.
+    bm = bmesh.new()
+    seg, minor = 64, 10
+    rows = []
+    for i in range(seg):
+        a = math.tau * i / seg
+        fold = 1.0 + 0.03 * math.sin(a * 9.0)
+        cx, cz = 0.54 * math.cos(a), 0.49 * math.sin(a)
+        n = Vector((math.cos(a) / 0.54, 0.0, math.sin(a) / 0.49)).normalized()
+        row = []
+        for j in range(minor):
+            b = math.tau * j / minor
+            off = n * (0.065 * fold * math.cos(b))
+            row.append(bm.verts.new(_g(cx + off.x, 0.05 * fold * math.sin(b), cz + off.z)))
+        rows.append(row)
+    for i in range(seg):
+        for j in range(minor):
+            bm.faces.new((rows[i][j], rows[(i + 1) % seg][j], rows[(i + 1) % seg][(j + 1) % minor], rows[i][(j + 1) % minor]))
+    to_object("fabric_collar", bm).parent = root
+    # The neckerchief's knot and point, round the knot at the origin (the game's neck pivot).
+    bm = bmesh.new()
+    ret = bmesh.ops.create_uvsphere(bm, u_segments=16, v_segments=10, radius=1.0)
+    for v in ret["verts"]:
+        g = Vector((v.co.x * 0.08, v.co.z * 0.065, v.co.y * 0.05))
+        g.x *= 1.0 + 0.15 * math.sin(v.co.z * 4.0)
+        v.co = _g(g.x, g.y, g.z + 0.02)
+    to_object("fabric_knot", bm).parent = root
+    bm = bmesh.new()
+    rows_n, cols_n = 8, 9
+    grid = []
+    for r in range(rows_n + 1):
+        t = r / rows_n
+        half = 0.23 * (1.0 - t) + 0.006
+        row = []
+        for c in range(cols_n + 1):
+            u = c / cols_n * 2.0 - 1.0
+            x = half * u
+            y = -0.02 - 0.33 * t
+            # A fold down the middle standing out, the sides curling back a little, soft creases from the knot.
+            z = 0.035 * (1.0 - abs(u)) - 0.03 * u * u + 0.01 * math.sin(u * 6.0 + t * 3.0) * (1.0 - t)
+            row.append(bm.verts.new(_g(x, y, z)))
+        grid.append(row)
+    for r in range(rows_n):
+        for c in range(cols_n):
+            bm.faces.new((grid[r][c], grid[r][c + 1], grid[r + 1][c + 1], grid[r + 1][c]))
+    bmesh.ops.solidify(bm, geom=bm.faces[:], thickness=0.025)
+    to_object("fabric_kerchief", bm).parent = root
+    # The sash: a flat strap round the sash node's origin (the game turns it onto the diagonal), ellipse radii 0.5 by 0.57 in its x and z,
+    # 0.22 wide along its y, its edges turned.
+    bm = bmesh.new()
+    seg = 72
+    profile = [(-0.11, -0.012), (-0.1, 0.012), (0.0, 0.02), (0.1, 0.012), (0.11, -0.012), (0.0, -0.02)]
+    rows = []
+    for i in range(seg):
+        a = math.tau * i / seg
+        cx, cz = 0.5 * math.cos(a), 0.57 * math.sin(a)
+        n = Vector((math.cos(a) / 0.5, 0.0, math.sin(a) / 0.57)).normalized()
+        row = []
+        for (w, o) in profile:
+            q = Vector((cx, 0.0, cz)) + n * (0.012 + o)
+            row.append(bm.verts.new(_g(q.x, w, q.z)))
+        rows.append(row)
+    m = len(profile)
+    for i in range(seg):
+        for j in range(m):
+            bm.faces.new((rows[i][j], rows[(i + 1) % seg][j], rows[(i + 1) % seg][(j + 1) % m], rows[i][(j + 1) % m]))
+    to_object("fabric_sash", bm, sharp=50.0).parent = root
+    return root
+
+
+GEAR = {"neckwear": neckwear, "glasses": glasses, "sailor_cap": sailor_cap, "aviator_cap": aviator_cap, "straw_hat": straw_hat, "plumed_helm": plumed_helm, "crown": crown,
         "swept_spikes": swept_spikes, "topknot": topknot, "beanie": beanie}
 
 

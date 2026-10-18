@@ -14,6 +14,7 @@ made of (fabric, canvas, leather, metal, glass, straw) so the game colours it fo
 | Hood | open shell + cone cowl | already shaped; a folded edge and a draped cowl | medium (Rogue) |
 | Swept spikes, topknot | **modelled** (a hair cap with a pointed hairline wrapping the head; thick swept locks / a twisted bun with its band) | | done |
 | Beanie | **modelled** (ribbed crown, folded ribbed cuff, a pompom of soft lumps) | | done |
-| Glasses (shades, goggles, specs) | tori and spheres | frames with a real profile | medium |
-| Collar, neckerchief, scarf, cape, sash | torus, prism, spring-chain boxes | modelled folds; the spring chains can stay as the rig | medium |
+| Glasses (shades, goggles, specs) | **modelled** frames (a rounded-square shades frame with a brow bar and lens, padded goggle cups, flat-faced wire rims, a bridge), seated per lens on the face | goggle strap still a torus | done |
+| Collar, neckerchief, sash | **modelled** (a rolled collar gathered in folds, a knot and a draped point with a centre fold, a flat strap with turned edges) | | done |
+| Scarf, cape | spring-chain boxes | modelled cloth on the same spring chains | medium |
 | Shirt collar and placket | prisms and a box | part of the garment mesh (make_rigged_blob.py) | medium |
