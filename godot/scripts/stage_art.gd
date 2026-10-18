@@ -2741,6 +2741,23 @@ static func _barn(root: Node3D, at: Vector3) -> void:
 ## ridge beam along its top, gable ends filled to the roof with a round attic window, a plank door on a stone step with a lantern, a lit
 ## window with shutters and a flower box, shrubs at its foot, and a stone chimney at one end (`side`) with smoke curling up from it.
 static func _cottage(root: Node3D, at: Vector3, roof: Color, side: float) -> void:
+	# The modelled cottage (art/blender/make_props.py `cottage`, after the owner's papercraft village reference): proud timbers, lapped
+	# shingle rows, an arched plank door, shutters, a stone footing and chimney. Its roof takes this cottage's colour; the window glows.
+	# The code-built cottage below stands in without it.
+	var model := Toonify.load_prop("cottage", true)
+	if model != null:
+		model.position = at
+		model.scale = Vector3(side, 1.0, 1.0)
+		root.add_child(model)
+		for mi in model.find_children("*", "MeshInstance3D", true, false):
+			var nm := String(mi.name)
+			if nm.begins_with("roof_edge"):
+				(mi as MeshInstance3D).material_override = FighterView.toon(roof.lightened(0.3), true)
+			elif nm.begins_with("roof"):
+				(mi as MeshInstance3D).material_override = FighterView.toon(roof, true)
+			elif nm.begins_with("glow"):
+				(mi as MeshInstance3D).material_override = _unshaded(Color(1.0, 0.86, 0.56))
+		return
 	# (Clean warm cream planes, not a plaster pattern that turns to noise at this distance: the owner's papercraft references, where
 	# each surface is one clear tone with a crisp edge.)
 	var wall := FighterView.toon(Color(0.98, 0.93, 0.82))
