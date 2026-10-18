@@ -5023,7 +5023,8 @@ static func _dock_block(parent: Node3D, t: Dictionary, left: float, right: float
 	var wood_c: Color = t.wood
 	var dark_c: Color = t.wood_dark
 	# The deck: rows of boards from the front back, staggered joints.
-	var row_w := 0.5
+	# (Longer boards in wider rows and a narrower range of shade, art review 9: hundreds of short boards in many shades read busy.)
+	var row_w := 0.62
 	var thick := 0.2
 	var items: Array = []
 	var rows := int(depth / row_w)
@@ -5033,13 +5034,13 @@ static func _dock_block(parent: Node3D, t: Dictionary, left: float, right: float
 		var zc := front - (float(ri) + 0.5) * row_w
 		var x := deck_l - rng.randf_range(0.0, 1.6)
 		while x < deck_r:
-			var len := rng.randf_range(1.8, 3.8)
+			var len := rng.randf_range(3.5, 6.5)
 			var x0 := maxf(x, deck_l)
 			var x1 := minf(x + len, deck_r)
 			if x1 - x0 > 0.3:
 				var basis := Basis(Vector3.RIGHT, Vector3.FORWARD, Vector3.UP) * Basis.from_euler(Vector3(rng.randf_range(-0.012, 0.012), rng.randf_range(-0.01, 0.01), rng.randf_range(-0.006, 0.006)))
 				var pos := Vector3((x0 + x1) * 0.5, top - thick * 0.5 + rng.randf_range(-0.012, 0.008), zc)
-				var shade := wood_c.lerp(dark_c, rng.randf_range(0.0, 0.35)).lightened(rng.randf_range(-0.04, 0.08))
+				var shade := wood_c.lerp(dark_c, rng.randf_range(0.0, 0.16)).lightened(rng.randf_range(-0.02, 0.05))
 				items.append([Transform3D(basis.scaled_local(Vector3(x1 - x0 - 0.045, row_w - 0.05, thick)), pos), shade.srgb_to_linear()])
 			x += len
 	var mm := MultiMesh.new()
@@ -5063,6 +5064,8 @@ static func _dock_block(parent: Node3D, t: Dictionary, left: float, right: float
 	deck.material_override = deck_mat
 	deck.name = "dock_deck"
 	parent.add_child(deck)
+	# A lit lip along the deck's front edge: it catches the light and says where the stage ends.
+	_mesh(parent, _box(Vector3(deck_r - deck_l, 0.045, 0.06)), _soft(wood_c.lightened(0.3)), Vector3((left + right) * 0.5, top - 0.028, front + 0.02))
 	# Joists under the boards (the gaps show them) and the dark gap under the deck.
 	var joist := Materials.wood(dark_c.darkened(0.15), Vector2(6, 1))
 	_mesh(parent, _box(Vector3(deck_r - deck_l, 0.3, depth - 0.4)), FighterView.toon(dark_c.darkened(0.55), false), Vector3((left + right) * 0.5, top - thick - 0.15, front - depth * 0.5))
@@ -5092,14 +5095,16 @@ static func _dock_block(parent: Node3D, t: Dictionary, left: float, right: float
 			var h := top - thick - water + 1.5
 			var lean := Vector3(rng.randf_range(-1.6, 1.6), 0, rng.randf_range(-1.2, 1.2))
 			var mid := Vector3(px, water - 1.5 + h * 0.5, pz)
-			_mesh(parent, _cylinder(0.24, 0.28, h, 9), pile, mid, Vector3.ONE, lean)
-			_mesh(parent, _cylinder(0.3, 0.31, 0.6, 9), wet, Vector3(px, water + 0.15, pz), Vector3.ONE, lean)
-			_mesh(parent, _cylinder(0.32, 0.34, 0.18, 9), weed, Vector3(px, water + 0.42, pz), Vector3(1.0, 1.0, 1.0), lean)
+			# (Thicker, art review 9: thin piles under a heavy deck looked spindly.)
+			_mesh(parent, _cylinder(0.31, 0.35, h, 9), pile, mid, Vector3.ONE, lean)
+			_mesh(parent, _cylinder(0.37, 0.38, 0.6, 9), wet, Vector3(px, water + 0.15, pz), Vector3.ONE, lean)
+			_mesh(parent, _cylinder(0.39, 0.41, 0.18, 9), weed, Vector3(px, water + 0.42, pz), Vector3(1.0, 1.0, 1.0), lean)
 			if row == 0:
 				fronts.append(px)
 				# A pile cap standing a little proud of the fascia, lit on top.
-				_mesh(parent, _cylinder(0.27, 0.27, 0.16, 9), pile, Vector3(px, top - thick - 0.47, pz + 0.12))
-	# Cross bracing between the front piles: an X of planks in each bay, below the fascia.
+				_mesh(parent, _cylinder(0.34, 0.34, 0.16, 9), pile, Vector3(px, top - thick - 0.47, pz + 0.12))
+	# Bracing between the front piles: one heavy diagonal timber in every other bay, leaning alternately, under a heavy waling below the
+	# fascia (art review 9: thin crossed planks read as a fence).
 	var brace := Materials.wood(dark_c.darkened(0.08), Vector2(4, 1))
 	var y_hi := top - thick - 0.7
 	var y_lo := water + 0.9
@@ -5111,9 +5116,9 @@ static func _dock_block(parent: Node3D, t: Dictionary, left: float, right: float
 		var b: float = fronts[k + 1]
 		var len := Vector2(b - a, y_hi - y_lo).length()
 		var ang := rad_to_deg(atan2(y_hi - y_lo, b - a))
-		for sgn in [1.0, -1.0]:
-			_mesh(parent, _box(Vector3(len, 0.2, 0.08)), brace, Vector3((a + b) * 0.5, (y_hi + y_lo) * 0.5, front - 0.02 + 0.06 * sgn), Vector3.ONE, Vector3(0, 0, ang * sgn))
-		_mesh(parent, _box(Vector3(b - a, 0.18, 0.1)), brace, Vector3((a + b) * 0.5, y_hi + 0.05, front + 0.05))
+		var sgn := 1.0 if (k / 2) % 2 == 0 else -1.0
+		_mesh(parent, _box(Vector3(len, 0.34, 0.16)), brace, Vector3((a + b) * 0.5, (y_hi + y_lo) * 0.5, front + 0.04), Vector3.ONE, Vector3(0, 0, ang * sgn))
+	_mesh(parent, _box(Vector3(float(fronts.back()) - float(fronts.front()), 0.3, 0.16)), brace, Vector3((float(fronts.front()) + float(fronts.back())) * 0.5, y_hi + 0.05, front + 0.08))
 
 
 ## The harbour round the dock (`e` the stage's extent; the sea at `water`): in front of the stage, low on the water at both corners, a
@@ -5193,6 +5198,67 @@ static func _dock_harbour(root: Node3D, e: Array, water: float) -> void:
 		pk += 3.5
 
 
+## Where the harbour town's bell tower stands, across (relative to the town's origin).
+const TOWN_TOWER_X := 9.0
+
+
+## The harbour town's bell tower (`at` its foot): a tall whitewashed square tower on a stone footing, its belfry an open arch on each face
+## with a bell in it, under a steep four-sided red roof with a lit trim and a vane; the tallest thing in the town, so the skyline has one
+## landmark.
+static func _bell_tower(root: Node3D, at: Vector3) -> void:
+	var wall := FighterView.toon(Color(0.98, 0.94, 0.86))
+	var stone := Materials.stone(Color(0.7, 0.66, 0.62), Vector2(2, 1))
+	var trim := FighterView.toon(Color(0.62, 0.42, 0.3))
+	_mesh(root, _box(Vector3(3.6, 1.4, 3.6)), stone, at + Vector3(0, 0.7, 0))
+	_mesh(root, _box(Vector3(3.0, 10.0, 3.0)), wall, at + Vector3(0, 6.4, 0))
+	# The belfry: a dark arch on each face, the bell inside, a ledge under it and a cornice over it.
+	_mesh(root, _box(Vector3(3.3, 0.3, 3.3)), trim, at + Vector3(0, 9.0, 0))
+	_mesh(root, _box(Vector3(3.4, 0.35, 3.4)), trim, at + Vector3(0, 11.5, 0))
+	var dark := _unshaded(Color(0.2, 0.16, 0.22))
+	for f in 4:
+		var dir := Vector3(sin(f * PI * 0.5), 0, cos(f * PI * 0.5))
+		_mesh(root, _box(Vector3(1.4, 1.6, 0.1)), dark, at + Vector3(0, 10.2, 0) + dir * 1.51, Vector3.ONE, Vector3(0, f * 90.0, 0))
+		_mesh(root, _cylinder(0.7, 0.7, 0.1, 10), dark, at + Vector3(0, 11.0, 0) + dir * 1.51, Vector3.ONE, Vector3(90, f * 90.0, 0))
+	_mesh(root, _cylinder(0.25, 0.55, 0.8, 10), FighterView.respond(FighterView.toon(Color(0.86, 0.66, 0.3)), "gold"), at + Vector3(0, 10.3, 1.0))
+	# A clock face below the belfry.
+	_mesh(root, _cylinder(0.75, 0.75, 0.08, 16), FighterView.toon(Color(0.98, 0.96, 0.9)), at + Vector3(0, 7.6, 1.54), Vector3.ONE, Vector3(90, 0, 0))
+	_mesh(root, _cylinder(0.85, 0.85, 0.06, 16), trim, at + Vector3(0, 7.6, 1.52), Vector3.ONE, Vector3(90, 0, 0))
+	# The roof: a steep four-sided spire, its eave trim, and a vane.
+	_mesh(root, _cylinder(0.0, 2.75, 4.2, 4), Materials.shingles(Color(0.84, 0.34, 0.28), Vector2(4, 2)), at + Vector3(0, 13.8, 0), Vector3.ONE, Vector3(0, 45, 0))
+	_mesh(root, _cylinder(0.04, 0.04, 1.2, 5), trim, at + Vector3(0, 16.4, 0))
+
+
+## The harbour's warehouse (`at` its foot, on the quay): long and low, walls of weathered blue-grey boards on a stone footing, a broad
+## gabled roof in dark slate with its gable end to the sea, big double doors with a lit lintel and a hoist beam over a loft door.
+static func _warehouse(root: Node3D, at: Vector3) -> void:
+	var boards := Materials.wood(Color(0.56, 0.66, 0.72), Vector2(8, 2))
+	var trim := FighterView.toon(Color(0.96, 0.92, 0.84))
+	var roof := Materials.shingles(Color(0.42, 0.4, 0.46), Vector2(4, 3))
+	var timber := Materials.wood(Color(0.4, 0.3, 0.24), Vector2(1, 2))
+	var W := 7.0
+	var D := 11.0
+	var H := 4.6
+	_mesh(root, _box(Vector3(W + 0.3, 0.5, D + 0.3)), Materials.stone(Color(0.66, 0.62, 0.6), Vector2(4, 1)), at + Vector3(0, 0.25, 0))
+	_mesh(root, _box(Vector3(W, H, D)), boards, at + Vector3(0, H * 0.5 + 0.4, 0))
+	# The gable to the sea, filled up to the roof.
+	var gable := SurfaceTool.new()
+	gable.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for v: Vector3 in [Vector3(-W * 0.5, 0, 0), Vector3(0, 2.6, 0), Vector3(W * 0.5, 0, 0), Vector3(-W * 0.5, 0, 0), Vector3(W * 0.5, 0, 0), Vector3(0, 2.6, 0)]:
+		gable.add_vertex(v)
+	gable.generate_normals()
+	_mesh(root, gable.commit(), boards, at + Vector3(0, H + 0.4, D * 0.5))
+	for sgn: float in [-1.0, 1.0]:
+		_mesh(root, _box(Vector3(W * 0.5 / cos(deg_to_rad(36.6)) + 0.6, 0.28, D + 0.8)), roof, at + Vector3(sgn * W * 0.25, H + 0.4 + 1.3, 0), Vector3.ONE, Vector3(0, 0, -sgn * 36.6))
+	# The doors: two big leaves under a lit lintel, white trim round them.
+	_mesh(root, _box(Vector3(3.4, 3.4, 0.08)), trim, at + Vector3(0, 2.1, D * 0.5 + 0.02))
+	for sgn: float in [-1.0, 1.0]:
+		_mesh(root, _box(Vector3(1.5, 3.1, 0.1)), timber, at + Vector3(sgn * 0.78, 2.0, D * 0.5 + 0.05))
+		_mesh(root, _box(Vector3(0.14, 3.3, 0.06)), trim, at + Vector3(sgn * 0.78, 2.0, D * 0.5 + 0.11), Vector3.ONE, Vector3(0, 0, sgn * 25.0))
+	# The loft door and the hoist beam over it.
+	_mesh(root, _box(Vector3(1.4, 1.3, 0.1)), timber, at + Vector3(0, H + 1.1, D * 0.5 + 0.05))
+	_mesh(root, _box(Vector3(0.3, 0.3, 1.6)), timber, at + Vector3(0, H + 2.1, D * 0.5 + 0.7))
+
+
 ## A harbour town across the water on the left (the sea at `water`): a green headland rising from a stone quay, its houses climbing the
 ## slope in rows (the cottage model, each roof its own colour, walls tinted a few seaside pastels, turned a little), boats moored along
 ## the quay, and hills behind; the middle distance of a harbour, as the owner's references have (2026-10-18). Its own random numbers.
@@ -5201,12 +5267,13 @@ static func _harbour_town(root: Node3D, water: float) -> void:
 	rng.seed = 2718
 	var base := Vector3(-62.0, water, -78.0)
 	# The headland: a broad rise of land behind the quay.
-	var land := Materials.foliage(Color(0.44, 0.7, 0.42), Vector2(6, 3), false)
+	# (Deeper and less blue, art review 9: through the haze the paler green turned the faceted headland glassy.)
+	var land := Materials.foliage(Color(0.34, 0.6, 0.3), Vector2(6, 3), false)
 	var hills := [[Vector3(-6, 0.0, -14), Vector3(40, 16, 16)], [Vector3(22, -1.0, -18), Vector3(26, 10, 12)]]
 	for h in hills:
 		_mesh(root, _sphere(1.0, 9), land, base + (h[0] as Vector3), h[1])
 	# Higher hills behind the town, bluer with distance.
-	var far_land := Materials.foliage(Color(0.42, 0.62, 0.58), Vector2(6, 3), false)
+	var far_land := Materials.foliage(Color(0.3, 0.5, 0.38), Vector2(6, 3), false)
 	_mesh(root, _sphere(1.0, 9), far_land, base + Vector3(-18, 0.0, -34), Vector3(36, 26, 10))
 	_mesh(root, _sphere(1.0, 9), far_land, base + Vector3(14, 0.0, -38), Vector3(30, 20, 10))
 	# The land's height at (x, z) (relative to `base`): the highest of the hills' ellipsoid surfaces there.
@@ -5228,7 +5295,13 @@ static func _harbour_town(root: Node3D, water: float) -> void:
 	for row in 3:
 		var z := -1.0 - row * 4.5
 		var x := -26.0 + row * 4.0 + rng.randf_range(-1.0, 1.0)
-		while x < 28.0 - row * 6.0:
+		# (The front row stops short of the warehouse at the quay's east end.)
+		var stop := 14.0 if row == 0 else 28.0 - row * 6.0
+		while x < stop:
+			# (A gap in the back row for the bell tower.)
+			if row == 2 and absf(x - TOWN_TOWER_X) < 3.5:
+				x += rng.randf_range(5.6, 7.4)
+				continue
 			var house := Node3D.new()
 			# (Standing on the hill where it is, a little sunk in: on a fixed terrace the back rows were buried in it, roofs poking out.)
 			house.position = base + Vector3(x, maxf(2.3, ground.call(x, z) - 0.4), z)
@@ -5238,6 +5311,29 @@ static func _harbour_town(root: Node3D, water: float) -> void:
 			var walls := [Color(0.98, 0.9, 0.72), Color(0.74, 0.88, 0.9), Color(0.98, 0.78, 0.7), Color(0.84, 0.92, 0.76), Color(0.96, 0.94, 0.9)]
 			_cottage(house, Vector3.ZERO, roofs[rng.randi() % roofs.size()], 1.0 if rng.randf() < 0.5 else -1.0, walls[rng.randi() % walls.size()])
 			x += rng.randf_range(5.6, 7.4)
+	# A few buildings that are not houses, so the town reads as a town rather than one cottage repeated (art review 9): a bell tower up
+	# the hill, a long warehouse on the quay's east end, and a market of striped stalls along the quay.
+	_bell_tower(root, base + Vector3(TOWN_TOWER_X, ground.call(TOWN_TOWER_X, -11.0) - 0.6, -11.0))
+	_warehouse(root, base + Vector3(24.0, 2.35, -1.2))
+	var stripes := [[Color(0.92, 0.3, 0.28), Color(0.98, 0.95, 0.9)], [Color(0.28, 0.52, 0.82), Color(0.98, 0.95, 0.9)],
+		[Color(0.98, 0.72, 0.26), Color(0.98, 0.95, 0.9)]]
+	var post := Materials.wood(Color(0.5, 0.36, 0.26), Vector2(1, 3))
+	for k in 3:
+		var sx := -5.0 + k * 7.6
+		var y0 := base.y + 2.35
+		var z0 := base.z + 1.6
+		for px: float in [sx - 1.6, sx + 1.6]:
+			_mesh(root, _box(Vector3(0.18, 2.3, 0.18)), post, Vector3(base.x + px, y0 + 1.15, z0 + 2.2))
+			_mesh(root, _box(Vector3(0.18, 2.6, 0.18)), post, Vector3(base.x + px, y0 + 1.3, z0))
+		_awning(root, base.x + sx - 1.8, base.x + sx + 1.8, y0 + 2.7, z0, stripes[k][0], stripes[k][1], 2.4, true)
+		# The stall's counter and its goods.
+		_mesh(root, _box(Vector3(3.0, 0.9, 1.0)), post, Vector3(base.x + sx, y0 + 0.45, z0 + 1.6))
+		_crate(root, Vector3(base.x + sx - 0.8, y0 + 0.9, z0 + 1.6), 0.6, rng.randf_range(-10, 10))
+		_crate(root, Vector3(base.x + sx + 0.6, y0 + 0.9, z0 + 1.6), 0.6, rng.randf_range(-10, 10))
+	# A rocky shore where the headland meets the sea past the quay's ends: faceted rocks at the waterline.
+	for k in 9:
+		var rx: float = (rng.randf_range(-36.0, -29.0) if k < 4 else rng.randf_range(34.0, 42.0))
+		_rock(root, base + Vector3(rx, -0.4, rng.randf_range(-2.0, 4.0)), rng.randf_range(1.2, 2.4), rng, Color(0.66, 0.64, 0.66))
 	# Boats moored along the quay.
 	for k in 3:
 		var boat := Bob.new()
