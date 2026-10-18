@@ -61,7 +61,7 @@ static func draw(canvas: CanvasItem, at: Vector2, r: float, kind: int, rarity: i
 
 ## A 3D gem for kind `kind` (a ware on its pedestal, a find on a route): a sphere in its colour inside a soft rarity halo, its glyph on
 ## a label in front. Returns the node (its origin at the gem's middle).
-static func gem(kind: int, rarity: int, radius := 0.32) -> Node3D:
+static func gem(kind: int, rarity: int, radius := 0.42) -> Node3D:
 	var root := Node3D.new()
 	var mi := MeshInstance3D.new()
 	var s := SphereMesh.new()
@@ -92,10 +92,12 @@ static func gem(kind: int, rarity: int, radius := 0.32) -> Node3D:
 	root.add_child(halo)
 	var label := Label3D.new()
 	label.text = glyph(kind)
-	label.font_size = 48
-	label.pixel_size = 0.006
+	label.font_size = 64
+	label.pixel_size = 0.0065
 	label.outline_size = 10
 	label.position = Vector3(0, 0, radius + 0.05)
+	label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	label.no_depth_test = true
 	label.name = "Glyph"
 	root.add_child(label)
 	return root

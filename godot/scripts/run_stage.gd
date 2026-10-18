@@ -940,15 +940,15 @@ func build_interior(sim) -> void:
 	card.name = "Card"
 	card.visible = false
 	interior.add_child(card)
-	var paper := _box(card, Vector3(4.4, 1.7, 0.05), Vector3(0, 0, 0), _mat(Color(0.99, 0.96, 0.88), 1.0))
+	var paper := _box(card, Vector3(5.2, 2.1, 0.05), Vector3(0, 0, 0), _mat(Color(0.99, 0.96, 0.88), 1.0))
 	paper.name = "Paper"
-	_box(card, Vector3(4.55, 1.85, 0.04), Vector3(0, 0, -0.02), _mat(Color(0.12, 0.1, 0.14)))
-	var tail := _box(card, Vector3(0.3, 0.3, 0.05), Vector3(0, -0.95, 0), _mat(Color(0.99, 0.96, 0.88)))
+	_box(card, Vector3(5.4, 2.3, 0.04), Vector3(0, 0, -0.03), _mat(Color(0.12, 0.1, 0.14), 1.0))
+	var tail := _box(card, Vector3(0.4, 0.4, 0.05), Vector3(0, -1.1, 0), _mat(Color(0.99, 0.96, 0.88), 1.0))
 	tail.rotation.z = PI / 4.0
 	card_text = Label3D.new()
-	card_text.font_size = 40
+	card_text.font_size = 44
 	card_text.pixel_size = 0.0085
-	card_text.width = 480.0
+	card_text.width = 580.0
 	card_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	card_text.modulate = Color(0.12, 0.1, 0.14)
 	card_text.outline_size = 0
@@ -984,7 +984,7 @@ func build_interior(sim) -> void:
 	keeper_bubble.font_size = 64
 	keeper_bubble.pixel_size = 0.01
 	keeper_bubble.outline_size = 14
-	keeper_bubble.position = Vector3(0, r * 2.0 + 0.9, 0.4)
+	keeper_bubble.position = Vector3(-1.4, r * 2.0 + 1.9, 0.4)
 	keeper.add_child(keeper_bubble)
 	keeper_stars = Node3D.new()
 	keeper.add_child(keeper_stars)
@@ -1074,7 +1074,8 @@ func animate_interior(shop: PackedInt32Array, delta: float, names := PackedStrin
 	card.visible = show
 	if show:
 		var at: Vector2 = ware_spots[spot]
-		card.position = Vector3(clampf(at.x, ware_spots[0].x + 0.4, ware_spots[ware_spots.size() - 1].x), at.y + 3.4, 0.6)
+		# (Above the shelves, in front of everything in the shop.)
+		card.position = Vector3(clampf(at.x, ware_spots[0].x + 1.0, ware_spots[ware_spots.size() - 1].x - 0.5), at.y + 5.6, 1.8)
 		var out := shop[o2 + 4] > 0 and shop[o2 + 5] >= shop[o2 + 4]
 		var name := names[spot] if spot < names.size() else "?"
 		var blurb := blurbs[spot] if spot < blurbs.size() else ""
@@ -1155,7 +1156,8 @@ func sync_finds(sim, layout: int) -> void:
 		var seen := {}
 		for r in rows:
 			var row: PackedFloat32Array = r
-			var key := int(row[6])
+			# (By room, what and item: a run started again reuses room numbers.)
+			var key := "%d:%d:%d" % [int(row[6]), int(row[2]), int(row[3])]
 			seen[key] = true
 			if row[5] > 0.5:
 				if finds.has(key):
@@ -1199,7 +1201,7 @@ func sync_finds(sim, layout: int) -> void:
 	var t := Time.get_ticks_msec() * 0.001
 	for key in finds:
 		var top: Node3D = finds[key].get_node("Top")
-		top.position.y = 0.75 + sin(t * 3.0 + float(key)) * 0.12
+		top.position.y = 0.75 + sin(t * 3.0 + float(hash(key) % 7)) * 0.12
 		top.rotation.y = t * 1.5
 
 

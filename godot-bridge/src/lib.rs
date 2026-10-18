@@ -3533,16 +3533,15 @@ impl SimRunner {
         true
     }
 
-    /// Debug (tests and screenshots, F8): puts a find of `what` (1 an item of kind `kind`, 2 food, 3 a 1-up) in the room ahead (or the
-    /// current room with no room ahead), on its find spot. Returns the find's place (its feet), or nothing.
+    /// Debug (tests and screenshots, F8): puts a find of `what` (1 an item of kind `kind`, 2 food, 3 a 1-up) in the current room, on
+    /// its find spot. Returns the find's place (its feet), or nothing.
     #[func]
     fn run_debug_find(&mut self, what: i32, kind: i32) -> PackedFloat32Array {
         let Some((rc, _)) = &self.run else {
             return PackedFloat32Array::new();
         };
         let run = &self.state.run;
-        let (ahead, n) = run.ahead();
-        let seq = if n > 0 { ahead[0].seq } else { run.room };
+        let seq = run.room;
         let Some(s) = run.slots.iter().position(|s| s.live && s.seq == seq) else {
             return PackedFloat32Array::new();
         };

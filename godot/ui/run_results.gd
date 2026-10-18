@@ -34,7 +34,9 @@ class Board extends Control:
 		var banner := Rect2(Vector2(w * 0.5 - 300, 60), Vector2(600, 90))
 		Art.brush_band(self, banner, Art.INK, 303, 22.0, true, 1.0)
 		Art.title_centered(self, "RUN OVER", banner.grow_individual(-12, 0, -26, 0), 62, Color.WHITE, 0.0)
-		var card := Rect2(Vector2(w * 0.5 - 330, 200), Vector2(660, 330))
+		# (R3: with a build to list, the card moves left and the build's card stands beside it.)
+		var shift: float = -170.0 if not (owner_screen.build_items() as Array).is_empty() else 0.0
+		var card := Rect2(Vector2(w * 0.5 - 330 + shift, 200), Vector2(660, 330))
 		Art.card(self, card, Art.CREAM, 307, -1.0, -1.0, Art.SUN, 0.0, Color(0, 0, 0, 0), 7.0)
 		var big := D.display_font()
 		var f := D.font()
@@ -62,7 +64,7 @@ class Board extends Control:
 			var at := bcard.position + Vector2(36 + col * 140, 80 + rowy * 34)
 			ItemIcons.draw(self, at, 13.0, e[0], e[1], e[2])
 			var label: String = names[e[0] * 2] if e[0] * 2 < names.size() else ItemIcons.glyph(e[0])
-			draw_string(f, at + Vector2(20, 6), label.left(12), HORIZONTAL_ALIGNMENT_LEFT, -1, 15, Art.INK)
+			draw_string(f, at + Vector2(20, 6), label.left(14), HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Art.INK)
 
 
 func _init() -> void:
