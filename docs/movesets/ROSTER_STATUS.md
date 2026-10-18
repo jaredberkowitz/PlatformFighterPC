@@ -759,6 +759,12 @@ with diminishing returns (built); 3. no footage is coming, the estimates stay.
       aerial angle 60 / KS 60 in its own slot (ext3). The grounded version ends standing. The dash's 55 units stay [E].
       `sidespecial_momentum.rs` (`the_flash_dash_ends_in_the_special_fall_and_lands_with_29_frames_of_lag`,
       `the_flash_dashs_end_hit_lands_on_frame_20_spiking_airborne_targets`).
+    * **Landing keeps at most the dash speed** ("I slid way too far across the stage" with the Nodachi's up special aimed into the
+      stage): the blade dash's 11 units a frame carried into the landing and bled off at the gentle landing friction (0.04 a frame),
+      sliding off the stage or about 59 units. The owner's suggested general rule, as data: the ruleset's `landing_speed_cap` (100
+      percent of each body's dash speed; 0 off) caps the ground speed on landing out of a jump, a move or a special fall [E: no
+      published landing rule]. Of every built-in special aimed into the stage only the blade dash (now 37 units of slide, on the
+      stage) and the Popgun's flip (26 to 19) were faster and changed; nothing else did. `landing_momentum.rs`.
 
 ## Still open
 

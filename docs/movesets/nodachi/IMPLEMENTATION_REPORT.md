@@ -152,3 +152,12 @@ Every move falls back to the shared archetypes until it has its own clip. Moves 
 ## Sim 130: up specials halt their starting momentum
 
 Owner decision 97 (sim 130, branch `upspecial-momentum`): up specials halt the momentum they start with, as the reference does. The cause of the owner's "super-jump": the blade dash's script halved the sideways speed and zeroed the vertical on its frame 0, which never runs (a move's first frame in `attack()` is 1), so the 23-frame startup stall (0.9 of the speed kept a frame, a 0.0025 sink) carried a jump's whole rise: out of a full hop the dash rose 21.4 world units against 9.4 from a standstill, the eight slashes 22.5 against 5.7. The rule is now data on the move (`start_speed` 50, `start_speed_y` 0, applied before its first frame) and the dead line is gone. The slashes, reached by `goto`, inherit the stalled speed. Also checked: after its up special the exile acts only by landing (into its landing lag or the slashes' landing hit, decision 96) or catching a ledge; every button in the special fall does nothing (tested). Before, out of a jump the move rose higher than from a standstill at the same height; now the two match (`sim-core/tests/upspecial_momentum.rs`). The audit of every fighter and its sources: `docs/movesets/SHARED_MECHANICS.md`, "Starting momentum of specials".
+
+## Sim 143: the blade dash's landing (owner decision 102)
+
+The owner: "I slid way too far across the stage by doing up special pointed towards the stage into the stage." Aimed down into the
+stage, the blade dash landed at up to 7.8 reference units a frame along the ground and kept it into its 27 frames of landing lag,
+bleeding off only at the shared landing friction (0.04): it slid off the stage from a steep aim and about 59 units from a shallow one.
+The fix is general (`docs/movesets/SHARED_MECHANICS.md`, "Landing speed"): a landing keeps at most the body's dash speed (the ruleset's
+`landing_speed_cap` 100). Now it lands at the dash speed or less and slides about 37 units, staying on the stage. The reference's own
+landing rule for the move is not published [E]. Test: `landing_momentum::the_exiles_blade_dash_into_the_stage_keeps_at_most_its_dash_speed`.

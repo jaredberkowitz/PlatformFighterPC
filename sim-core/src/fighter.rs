@@ -1006,6 +1006,15 @@ fn land(f: &mut Fighter, p: &FighterParams, stage: &Stage, platform: usize) {
     f.wall_jumps = 0;
 }
 
+/// A landing keeps at most `Ruleset::landing_speed_cap` percent of the body's dash speed along the ground (sim 143, owner decision
+/// 102; 0: all of it).
+fn cap_landing_speed(f: &mut Fighter, p: &FighterParams, rules: &Ruleset) {
+    if rules.landing_speed_cap > 0 {
+        let cap = p.dash_speed * Fx::from_ratio(i32::from(rules.landing_speed_cap), 100);
+        f.vel.x = f.vel.x.clamp(-cap, cap);
+    }
+}
+
 fn enter_landing(f: &mut Fighter, lag: u8) {
     f.lag = lag;
     if lag == 0 {
@@ -1280,6 +1289,7 @@ fn airborne(
         if tumbling {
             tumble_landing(f, rules);
         } else {
+            cap_landing_speed(f, p, rules);
             enter_landing(f, lag);
         }
         return None;
@@ -1324,7 +1334,10 @@ fn helpless(
         match mv.fall_landing_move {
             // (A landing hit after the move, sim 128.)
             Some(next) => begin_attack(f, MoveId::from_index(next)),
-            None => enter_landing(f, lag),
+            None => {
+                cap_landing_speed(f, p, rules);
+                enter_landing(f, lag);
+            }
         }
         return None;
     }
@@ -3270,6 +3283,7 @@ fn attack(
                 land_out_of_move(f, mv, frame, plain_landing_lag(f, p));
                 return None;
             } else {
+                cap_landing_speed(f, p, rules);
                 enter_landing(f, mv.landing_lag);
                 return None;
             }
@@ -3307,6 +3321,7 @@ fn attack(
         }
         if landed && !mv.land_continue && frame >= u16::from(mv.lands_from) {
             // Landing early or late in the move autocancels: only the normal landing lag.
+            cap_landing_speed(f, p, rules);
             land_out_of_move(f, mv, frame, plain);
             return None;
         }

@@ -459,6 +459,10 @@ Line numbers inside a script count from its first non-blank line.
   shared rule), and the ruleset `jump_stick_share` (0 or 1, default 0; owner decision 100): how those bodies' ground jumps combine
   the stick with the ground speed: 0 takes the ground speed's kept share whenever there is any (the stick's `jump_speed_x` only from
   standing still), 1 the faster of the two the same way. A file without it plays as 0.
+  Still schema 8 (sim v143): the ruleset `landing_speed_cap` (a percent of each body's `dash_speed`, 0 to 200, default 100; 0 is no
+  cap; owner decision 102): a fighter landing (out of a jump, a move or a special fall) keeps at most that share of its dash speed
+  along the ground, so a fast recovery ending on the stage does not slide across it on the gentle `landing_friction`. A file without it
+  plays as 100 (the sim 143 rule; write 0 for the older free slide).
   Still schema 6 (sim v95): fighters may have `air_jump_drift`; moves `late_next` / `late_until`, `ledge_falling_only`,
   `drop_from` / `drop_frames` / `drop_while_down`; projectiles `bounce_keep_y`, `bounce_max_fall`; bursts `on_ground`, `on_expire`,
   `keep_hits`. Every one defaults to the old behaviour, so an older file loads unchanged.

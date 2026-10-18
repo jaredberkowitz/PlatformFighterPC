@@ -164,6 +164,12 @@ fn validate_previous_rules(r: &sim_core::content::Ruleset, errors: &mut Vec<Stri
         errors.push("ruleset: slip_lag cannot be above slip_max".to_string());
     }
     // (The ground jump's stick share is a switch: owner decision 100, sim 139.)
+    if r.landing_speed_cap > 200 {
+        errors.push(
+            "ruleset: landing_speed_cap is a percent of the dash speed, at most 200 (0: no cap)"
+                .to_string(),
+        );
+    }
     if r.jump_stick_share > 1 {
         errors.push("ruleset: jump_stick_share must be 0 or 1".to_string());
     }
@@ -1728,6 +1734,50 @@ mod combat_tests {
             .unwrap_err()
             .iter()
             .any(|e| e.contains("jump_stick_share")));
+    }
+
+    #[test]
+    fn the_landing_speed_cap_round_trips_and_is_checked() {
+        // Sim 143 (owner decision 102): the ruleset's `landing_speed_cap` (a percent of the body's dash speed, 0 for none) is written,
+        // read back, plays as the standard 100 in a file without it, and is refused above 200.
+        let base = Content::placeholder();
+        assert_eq!(base.rules.landing_speed_cap, 100);
+        let text = crate::bundle::to_text(&base, "test", "", "", false);
+        assert!(text.contains("landing_speed_cap 100"));
+        let back = crate::bundle::load(&text).expect("reads back").content;
+        assert_eq!(back, base);
+        let mut off = base.clone();
+        off.rules.landing_speed_cap = 0;
+        let text_off = crate::bundle::to_text(&off, "test", "", "", false);
+        assert!(text_off.contains("landing_speed_cap 0"));
+        let back = crate::bundle::load(&text_off).expect("reads back").content;
+        assert_eq!(back, off);
+        let stripped = text_off
+            .lines()
+            .filter(|l| !l.contains("landing_speed_cap"))
+            .collect::<Vec<_>>()
+            .join(
+                "
+",
+            );
+        let older = crate::bundle::load(&stripped)
+            .unwrap_or_else(|e| {
+                panic!(
+                    "{}",
+                    e.join(
+                        "
+"
+                    )
+                )
+            })
+            .content;
+        assert_eq!(older.rules.landing_speed_cap, 100);
+        let mut bad = base.clone();
+        bad.rules.landing_speed_cap = 201;
+        assert!(validate(&bad)
+            .unwrap_err()
+            .iter()
+            .any(|e| e.contains("landing_speed_cap")));
     }
 
     #[test]
