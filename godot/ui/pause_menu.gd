@@ -34,12 +34,14 @@ class Board extends Control:
 
 	func _draw() -> void:
 		var w := size.x
-		draw_rect(Rect2(Vector2.ZERO, size), Color(Art.INK, 0.45))
-		var banner := Rect2(Vector2(w * 0.5 - 220, 70), Vector2(440, 84))
+		# (Deeper, and the banner clear of the match clock, the UI pass: at 0.45 the busy stage competed with the menu, and the banner
+		# overlapped the clock.)
+		draw_rect(Rect2(Vector2.ZERO, size), Color(Art.INK, 0.66))
+		var banner := Rect2(Vector2(w * 0.5 - 220, 100), Vector2(440, 84))
 		Art.brush_band(self, banner, Art.INK, 503, 22.0, true, 1.0)
 		Art.title_centered(self, owner_screen.title, banner.grow_individual(-12, 0, -26, 0), 58, Color.WHITE, 0.0)
 		if owner_screen.online:
-			draw_string(D.font(), Vector2(w * 0.5 - 200, 182), "Online: the match keeps going while this is open.",
+			draw_string(D.font(), Vector2(w * 0.5 - 200, 212), "Online: the match keeps going while this is open.",
 				HORIZONTAL_ALIGNMENT_LEFT, 400, 18, Color(1, 1, 1, 0.85))
 
 
@@ -56,7 +58,7 @@ func build(choices: Array, is_online: bool, heading := "PAUSED") -> void:
 	add_child(board)
 	column = VBoxContainer.new()
 	column.add_theme_constant_override("separation", 12)
-	column.position = Vector2(640 - 150, 210)
+	column.position = Vector2(640 - 150, 236)
 	add_child(column)
 	for c in choices:
 		var b := UI.Btn.new(c[0], Vector2(300, 58))

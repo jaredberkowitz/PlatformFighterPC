@@ -86,7 +86,7 @@ class Board extends Control:
 			draw_string(big, rect.position + Vector2(100, 38), who, HORIZONTAL_ALIGNMENT_LEFT, -1, UI.TYPE_LABEL, Art.INK)
 			var cls_name: String = Roster.CLASS_NAMES[clampi(int(c.get("class", 0)), 0, Roster.CLASS_NAMES.size() - 1)]
 			var who_w := big.get_string_size(who, HORIZONTAL_ALIGNMENT_LEFT, -1, UI.TYPE_LABEL).x
-			draw_string(f, rect.position + Vector2(112 + who_w, 37), cls_name.to_upper(), HORIZONTAL_ALIGNMENT_LEFT, -1, UI.TYPE_CAPTION, Color(Art.INK, 0.72))
+			draw_string(D.label_font(), rect.position + Vector2(112 + who_w, 37), cls_name.to_upper(), HORIZONTAL_ALIGNMENT_LEFT, -1, UI.TYPE_CAPTION, D.LABEL)
 			# The winner says so in words as well as in gold (not by colour alone).
 			if first:
 				var ribbon := Rect2(rect.end.x - 150.0, rect.position.y + 10.0, 124.0, 30.0)
@@ -96,7 +96,7 @@ class Board extends Control:
 				["Taken", "%d%%" % int(c.get("taken", 0.0))], ["Stocks", str(c.stocks)]]
 			var sx := rect.position.x + 100.0
 			for st in stats:
-				draw_string(f, Vector2(sx, rect.position.y + card_h - 42.0), st[0], HORIZONTAL_ALIGNMENT_LEFT, -1, UI.TYPE_CAPTION, Color(Art.INK, 0.72))
+				draw_string(D.label_font(), Vector2(sx, rect.position.y + card_h - 42.0), str(st[0]).to_upper().replace("KOS", "KOs"), HORIZONTAL_ALIGNMENT_LEFT, -1, UI.TYPE_CAPTION, D.LABEL)
 				draw_string(big, Vector2(sx, rect.position.y + card_h - 16.0), st[1], HORIZONTAL_ALIGNMENT_LEFT, -1, UI.TYPE_LABEL, Art.INK)
 				sx += (rect.size.x - 124.0) / stats.size()
 		if r.note != "":

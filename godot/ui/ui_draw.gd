@@ -3,9 +3,10 @@ extends RefCounted
 ## bold italic type. Sleek but cartoony: flat colours, thick edges, a little bounce. Everything here only draws; menu
 ## screens decide what the pieces do.
 
-const INK := Color(0.11, 0.12, 0.17)
+## (One ink and one cream with menu_art.gd's since the UI pass, docs/UI_REVIEW.md: two near-identical palettes drifted apart.)
+const INK := Color("171b35")
 # (The panels' light surfaces: a clean cool white and a light steel, not a warm parchment, which read as dated.)
-const CREAM := Color(0.95, 0.96, 0.98)
+const CREAM := Color("f3f5fa")
 const CREAM_DARK := Color(0.78, 0.81, 0.88)
 const SKY := Color(0.74, 0.88, 0.95)
 const GOLD := Color(1.0, 0.82, 0.22)
@@ -32,6 +33,22 @@ static func display_font() -> Font:
 	if _display == null:
 		_display = _load("res://fonts/BarlowCondensed-ExtraBoldItalic.ttf")
 	return _display
+
+
+## The labels' type (the UI pass, docs/UI_REVIEW.md, a type scale with roles): the text face, letter-spaced, for small capitals over a
+## value (stat names, a class under a name), so labels read as labels and the big numbers lead.
+static func label_font() -> Font:
+	if _label == null:
+		var v := FontVariation.new()
+		v.base_font = font()
+		v.spacing_glyph = 2
+		_label = v
+	return _label
+
+
+static var _label: Font
+## The labels' colour: a muted slate, not a faded ink.
+const LABEL := Color("5a6382")
 
 
 static func _load(path: String) -> Font:

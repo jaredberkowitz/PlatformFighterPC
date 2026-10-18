@@ -456,7 +456,7 @@ class Tag extends Control:
 	var text := ""
 	var seed := 1
 	var fill := D.CREAM
-	var ink := Color(0.11, 0.12, 0.17)
+	var ink := INK
 	var edge := Color(0, 0, 0, 0)
 	var font_size := 24
 	var shadow := true
@@ -502,7 +502,7 @@ class Btn extends Control:
 		set(v):
 			fill = v
 			queue_redraw()
-	var ink := Color(0.11, 0.12, 0.17):
+	var ink := INK:
 		set(v):
 			ink = v
 			queue_redraw()
@@ -567,7 +567,8 @@ class Btn extends Control:
 		var rect := Rect2(Vector2.ZERO, size).grow(-6.0)
 		rect.size -= Vector2(4, 6)
 		var base := fill if not disabled else Color(0.6, 0.6, 0.6)
-		var shown := base.lerp(accent, pop * 0.55)
+		# (Solid gold when focused, the UI pass: a pale half-mix read as a disabled button.)
+		var shown := base.lerp(accent, pop * 0.9)
 		var lift := pop * 4.0
 		var r := Rect2(rect.position - Vector2(0, lift), rect.size)
 		Art.card_glow(self, r, accent, pop)
@@ -882,12 +883,12 @@ class Arrow extends Control:
 		var r := minf(size.x, size.y) * 0.5 - 3.0
 		draw_circle(c + Vector2(2, 3), r, Color(0, 0, 0, 0.3))
 		draw_circle(c, r, Color(1.0, 0.85, 0.3) if hover else fill)
-		draw_arc(c, r, 0, TAU, 32, Color(0.11, 0.12, 0.17), 3.0, true)
+		draw_arc(c, r, 0, TAU, 32, INK, 3.0, true)
 		var d := float(direction)
 		var tri := PackedVector2Array([c + Vector2(-5 * d, -9), c + Vector2(7 * d, 0), c + Vector2(-5 * d, 9)])
 		draw_colored_polygon(tri, Color(0.82, 0.45, 0.2))
 		tri.append(tri[0])
-		draw_polyline(tri, Color(0.11, 0.12, 0.17), 2.0, true)
+		draw_polyline(tri, INK, 2.0, true)
 
 
 # ---- Selector row: [label] <  value  > ----------------------------------------------------------------------------
@@ -966,7 +967,7 @@ class StatRow extends HBoxContainer:
 				var x := 6.0 + i * 27.0
 				var on := i < value
 				var rect := Rect2(x, 5.0, 22.0, 28.0)
-				D.draw_slant(self, rect, D.GOLD if on else Color(0.2, 0.24, 0.3), Color(0.11, 0.12, 0.17), 2.0, false)
+				D.draw_slant(self, rect, D.GOLD if on else Color(0.2, 0.24, 0.3), INK, 2.0, false)
 
 	func _init(label: String, start := 5) -> void:
 		add_theme_constant_override("separation", 6)
@@ -1018,7 +1019,7 @@ class Portrait extends Control:
 	var glasses := 0
 	var face := 0
 	var label := ""
-	var ring := Color(0.11, 0.12, 0.17)
+	var ring := INK
 	var ring_width := 4.0
 	var hover := false
 	var glyph := ""      # "?" for random, "+" for new
@@ -1058,17 +1059,17 @@ class Portrait extends Control:
 			# Body blob, hat, eyes and mouth: a tiny version of the 3D fighter.
 			var s := r / 38.0
 			draw_circle(c + Vector2(0, 6 * s), 27 * s * scale_hint, body)
-			draw_arc(c + Vector2(0, 6 * s), 27 * s * scale_hint, 0, TAU, 28, Color(0.11, 0.12, 0.17), 2.0, true)
+			draw_arc(c + Vector2(0, 6 * s), 27 * s * scale_hint, 0, TAU, 28, INK, 2.0, true)
 			for sx in [-1.0, 1.0]:
 				draw_circle(c + Vector2(sx * 10 * s, 4 * s), 5 * s, Color(1, 1, 1))
-				draw_circle(c + Vector2(sx * 10 * s + sx * -0.5, 5 * s), 2.2 * s, Color(0.11, 0.12, 0.17))
-			draw_line(c + Vector2(-5 * s, 16 * s), c + Vector2(5 * s, 16 * s), Color(0.11, 0.12, 0.17), 2.0)
+				draw_circle(c + Vector2(sx * 10 * s + sx * -0.5, 5 * s), 2.2 * s, INK)
+			draw_line(c + Vector2(-5 * s, 16 * s), c + Vector2(5 * s, 16 * s), INK, 2.0)
 			if hat != 0:
 				var col := accent if hat in [1, 3, 4] else Color(0.85, 0.7, 0.3)
 				draw_rect(Rect2(c + Vector2(-17 * s, -26 * s), Vector2(34 * s, 11 * s)), col)
-				draw_rect(Rect2(c + Vector2(-17 * s, -26 * s), Vector2(34 * s, 11 * s)), Color(0.11, 0.12, 0.17), false, 2.0)
+				draw_rect(Rect2(c + Vector2(-17 * s, -26 * s), Vector2(34 * s, 11 * s)), INK, false, 2.0)
 			if glasses != 0:
-				draw_line(c + Vector2(-17 * s, 3 * s), c + Vector2(17 * s, 3 * s), Color(0.11, 0.12, 0.17), 3.0)
+				draw_line(c + Vector2(-17 * s, 3 * s), c + Vector2(17 * s, 3 * s), INK, 3.0)
 		draw_arc(c, r, 0, TAU, 40, ring if not hover else D.GOLD, ring_width, true)
 		if label != "":
 			draw_string(D.font(), Vector2(4, size.y - 2), label, HORIZONTAL_ALIGNMENT_LEFT, size.x - 8, 14, Color(1, 1, 1))

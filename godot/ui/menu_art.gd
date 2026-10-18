@@ -8,7 +8,7 @@ extends RefCounted
 
 const D := preload("res://ui/ui_draw.gd")
 
-const INK := Color("171b35")
+const INK := D.INK
 const INDIGO := Color("25214d")
 const SKY_TOP := Color("3b86dd")
 const SKY := Color("67b8f7")
@@ -22,7 +22,7 @@ const VIOLET := Color("9256d8")
 const GREEN := Color("27a879")
 const TEAL := Color("25a7b3")
 const GLOW := Color("b5f4ff")
-const CREAM := Color("f3f5fa")
+const CREAM := D.CREAM
 
 
 # ---- Shape helpers -------------------------------------------------------------------------------------------------------------------
@@ -55,41 +55,37 @@ static func rough(points: PackedVector2Array, seed: int, amp: float, step := 18.
 ## A painted brush band across `rect`: a slanted stroke whose ends break into ragged bristle points, with a darker under-shadow, a few
 ## lighter streaks along it (the brush's grain) and a pale inner edge on top. `lean` slants it (pixels the top runs ahead of the bottom).
 static func brush_band(c: CanvasItem, rect: Rect2, fill: Color, seed: int, lean := 18.0, shadow := true, ends := 1.0) -> void:
-	var pts := PackedVector2Array()
+	# (Since the UI pass, docs/UI_REVIEW.md: a crisp slanted banner with chevron-cut ends, a gradient, a lit top edge and an accent
+	# stripe under it, in the same construction as the cards; the ragged bristle stroke beside crisp panels read as two styles at once.)
+	_banner(c, rect, fill, lean, shadow, ends)
+
+
+## A banner (`brush_band`'s shape): a slanted band, its ends cut into a shallow chevron, lighter at the top, a lit top edge, an ink
+## outline, a hard shadow and a thin gold stripe along its foot.
+static func _banner(c: CanvasItem, rect: Rect2, fill: Color, lean: float, shadow: bool, ends: float) -> void:
 	var h := rect.size.y
 	var x0 := rect.position.x
 	var x1 := rect.end.x
 	var y0 := rect.position.y
-	# The top edge (left to right), the ragged right end, the bottom edge (right to left), the ragged left end.
-	pts.append(Vector2(x0 + lean, y0))
-	pts.append(Vector2(x1 + lean * 0.5, y0 + noise(seed) * 3.0))
-	var spikes := 5
-	for k in range(1, spikes):
-		var u := float(k) / spikes
-		var reach := (16.0 + 14.0 * absf(noise(seed + k * 7))) * ends * (1.0 if k % 2 == 1 else 0.35)
-		pts.append(Vector2(x1 + lerpf(lean * 0.5, -lean * 0.5, u) + reach, y0 + h * u))
-	pts.append(Vector2(x1 - lean * 0.5, y0 + h))
-	pts.append(Vector2(x0, y0 + h))
-	for k in range(1, spikes):
-		var u := 1.0 - float(k) / spikes
-		var reach := (16.0 + 14.0 * absf(noise(seed + 50 + k * 7))) * ends * (1.0 if k % 2 == 1 else 0.35)
-		pts.append(Vector2(x0 + lean * u - reach, y0 + h * u))
-	pts = rough(pts, seed, 2.2, 22.0)
+	var tip := 14.0 * ends
+	var pts := PackedVector2Array([Vector2(x0 + lean, y0), Vector2(x1 + lean * 0.5, y0), Vector2(x1 + tip, y0 + h * 0.5),
+		Vector2(x1 - lean * 0.5, y0 + h), Vector2(x0, y0 + h), Vector2(x0 + lean * 0.5 - tip, y0 + h * 0.5)])
 	if shadow:
 		var sh := PackedVector2Array()
 		for p in pts:
-			sh.append(p + Vector2(5, 7))
-		c.draw_colored_polygon(sh, Color(INK, 0.45 * fill.a))
-	c.draw_colored_polygon(pts, fill)
-	# Streaks of the brush along the band.
-	for k in 4:
-		var y := y0 + h * (0.2 + 0.2 * k) + noise(seed + 300 + k) * 2.0
-		var sx := x0 + lean * (1.0 - (y - y0) / h) + 12.0 + 40.0 * absf(noise(seed + 310 + k))
-		var ex := x1 - 20.0 - 60.0 * absf(noise(seed + 320 + k))
-		var tint := Color(1, 1, 1, 0.08) if k % 2 == 0 else Color(0, 0, 0, 0.07)
-		c.draw_line(Vector2(sx, y), Vector2(ex, y), tint, maxf(2.0, h * 0.06), true)
-	# A pale edge along the top.
-	c.draw_line(Vector2(x0 + lean + 6.0, y0 + 3.0), Vector2(x1 + lean * 0.5 - 8.0, y0 + 3.0), Color(1, 1, 1, 0.3 * fill.a), 2.0, true)
+			sh.append(p + SHADOW)
+		c.draw_colored_polygon(sh, Color(INK, 0.5 * fill.a))
+	var top := fill.lightened(0.14)
+	var bottom := fill.darkened(0.16)
+	var cols := PackedColorArray()
+	for p in pts:
+		cols.append(top.lerp(bottom, clampf((p.y - y0) / maxf(h, 1.0), 0.0, 1.0)))
+	c.draw_polygon(pts, cols)
+	c.draw_line(Vector2(x0 + lean + 4.0, y0 + 3.0), Vector2(x1 + lean * 0.5 - 4.0, y0 + 3.0), Color(1, 1, 1, 0.35 * fill.a), 2.0, true)
+	c.draw_line(Vector2(x0 + 6.0, y0 + h - 4.0), Vector2(x1 - lean * 0.5 - 6.0, y0 + h - 4.0), Color(SUN, 0.9 * fill.a), 3.0, true)
+	var closed := pts.duplicate()
+	closed.append(pts[0])
+	c.draw_polyline(closed, Color(fill.darkened(0.55), fill.a).lerp(INK, 0.4), 3.0, true)
 
 
 ## The light: everything in the menus is lit from the upper left (the sun's glow is behind the logo), so shadows fall down and to the right
@@ -117,7 +113,8 @@ static func card(c: CanvasItem, rect: Rect2, fill: Color, seed: int, cut := -1.0
 	var sh := PackedVector2Array()
 	for q in shape:
 		sh.append(q + SHADOW + Vector2(0, lift * 0.6))
-	c.draw_colored_polygon(sh, Color(INK, (0.22 if slab > 0.0 else 0.32) * fill.a))
+	# (A hard offset shadow, the UI pass: the soft one read as a default drop shadow.)
+	c.draw_colored_polygon(sh, Color(INK, (0.3 if slab > 0.0 else 0.45) * fill.a))
 	# (By default a deep shade of the card's own colour, not black: the menus' one construction language, so cards read as painted tiles
 	# rather than stickers. Dark cards come out near the ink anyway.)
 	var edge := line if line.a > 0.0 else Color(fill.darkened(0.62), 1.0).lerp(INK, 0.25)
@@ -141,14 +138,11 @@ static func card(c: CanvasItem, rect: Rect2, fill: Color, seed: int, cut := -1.0
 	var band := PackedVector2Array([r.position + Vector2(cut, 0), Vector2(r.end.x, r.position.y), Vector2(r.end.x, r.position.y + r.size.y * 0.22),
 		Vector2(r.position.x, r.position.y + r.size.y * 0.46), r.position + Vector2(0, cut)])
 	c.draw_colored_polygon(band, Color(1, 1, 1, 0.07 * fill.a))
-	# Painted grain: a few long soft strokes across the card in a shade of its own colour, so it reads as brushed, not a flat fill.
-	for k in 5:
-		var y := r.position.y + r.size.y * (0.18 + 0.17 * k) + noise(seed * 5 + k) * 8.0
-		var x0 := r.position.x + r.size.x * (0.06 + 0.1 * noise(seed + k))
-		var x1 := r.end.x - r.size.x * (0.06 + 0.1 * noise(seed * 2 + k))
-		c.draw_line(Vector2(x0, y), Vector2(x1, y - r.size.y * 0.04), Color(fill.darkened(0.12), 0.18 * fill.a), clampf(short * 0.05, 3.0, 14.0), true)
-	# A warm bounce of light along the bottom edge (the cards are lit by the same sun as the world).
-	c.draw_line(Vector2(r.position.x + 6.0, r.end.y - 5.0), Vector2(r.end.x - cut - 2.0, r.end.y - 5.0), Color(1.0, 0.85, 0.6, 0.18 * fill.a), 3.0, true)
+	# A bevel: a darker inner band along the bottom edge, as if the card's face turns away there (the UI pass: brushed grain strokes
+	# across every card read as smudges, not material).
+	var bevel := clampf(short * 0.07, 3.0, 8.0)
+	c.draw_colored_polygon(PackedVector2Array([Vector2(r.position.x, r.end.y - bevel), Vector2(r.end.x - cut - bevel * 0.4, r.end.y - bevel),
+		Vector2(r.end.x - cut, r.end.y), Vector2(r.position.x, r.end.y)]), Color(fill.darkened(0.3), 0.55 * fill.a))
 	if border.a > 0.0:
 		var inner := PackedVector2Array()
 		var centre := r.get_center()
@@ -157,7 +151,7 @@ static func card(c: CanvasItem, rect: Rect2, fill: Color, seed: int, cut := -1.0
 		inner.append(inner[0])
 		c.draw_polyline(inner, border, 5.0, true)
 	c.draw_line(r.position + Vector2(cut + 3.0, outline * 0.5 + 2.5), Vector2(r.end.x - 5.0, r.position.y + outline * 0.5 + 2.5),
-		Color(1, 1, 1, 0.3 * fill.a), 2.5, true)
+		Color(1, 1, 1, 0.45 * fill.a), 2.5, true)
 	var closed := shape.duplicate()
 	closed.append(shape[0])
 	c.draw_polyline(closed, edge, outline, true)
@@ -169,21 +163,28 @@ static func card_shape(r: Rect2, cut: float, seed: int) -> PackedVector2Array:
 	var p := PackedVector2Array([
 		r.position + Vector2(cut, 0), Vector2(r.end.x, r.position.y), Vector2(r.end.x, r.end.y - cut),
 		Vector2(r.end.x - cut, r.end.y), Vector2(r.position.x, r.end.y), r.position + Vector2(0, cut)])
-	return rough(p, seed, 1.0, 30.0)
+	# (Crisp since the UI pass, docs/UI_REVIEW.md: the hand-inked wobble beside crisp panels was two edge languages at once.)
+	return p
 
 
 ## Focus feedback for a card: a few soft rings of `colour` that follow its shape (not a box), `strength` 0..1.
 static func card_glow(c: CanvasItem, rect: Rect2, colour: Color, strength: float, cut := -1.0) -> void:
+	# (Crisp since the UI pass, docs/UI_REVIEW.md: a solid ring in the focus colour round the card's shape and a thin pale line inside it,
+	# where soft blurred rings read as a default glow effect.)
 	if strength <= 0.01:
 		return
 	if cut < 0.0:
 		cut = clampf(minf(rect.size.x, rect.size.y) * 0.13, 8.0, 20.0)
-	for k in 3:
-		var g := rect.grow(3.0 + k * 4.0)
-		var shape := PackedVector2Array([g.position + Vector2(cut + k * 2.0, 0), Vector2(g.end.x, g.position.y), Vector2(g.end.x, g.end.y - cut - k * 2.0),
-			Vector2(g.end.x - cut - k * 2.0, g.end.y), Vector2(g.position.x, g.end.y), g.position + Vector2(0, cut + k * 2.0)])
-		shape.append(shape[0])
-		c.draw_polyline(shape, Color(colour, (0.55 - k * 0.17) * strength), 4.0, true)
+	var g := rect.grow(5.0)
+	var shape := PackedVector2Array([g.position + Vector2(cut + 2.0, 0), Vector2(g.end.x, g.position.y), Vector2(g.end.x, g.end.y - cut - 2.0),
+		Vector2(g.end.x - cut - 2.0, g.end.y), Vector2(g.position.x, g.end.y), g.position + Vector2(0, cut + 2.0)])
+	shape.append(shape[0])
+	c.draw_polyline(shape, Color(colour, strength), 5.0, true)
+	var gi := rect.grow(1.5)
+	var inner := PackedVector2Array([gi.position + Vector2(cut, 0), Vector2(gi.end.x, gi.position.y), Vector2(gi.end.x, gi.end.y - cut),
+		Vector2(gi.end.x - cut, gi.end.y), Vector2(gi.position.x, gi.end.y), gi.position + Vector2(0, cut)])
+	inner.append(inner[0])
+	c.draw_polyline(inner, Color(1, 1, 1, 0.8 * strength), 2.0, true)
 
 
 ## Text in the menus' display style: live text, outlined in ink, with a soft drop shadow.
