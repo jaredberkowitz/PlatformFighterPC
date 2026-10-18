@@ -126,3 +126,18 @@ The beach's soft water the clearest gain (Lighting and Clarity 4); the grove's o
 clusters too sparse. Gaps: (1) the canyon (not worked: the owner keeps it as it is for now); (2) the distant layers lag the foreground
 (the beach town high on its hill, the meadow's far ridges, the grove's hill bands; the beach's lamp and sailboats primitive). Later:
 the meadow's tufts denser; the city roof (tar, seams, warm pools) and windows; contact under the hay bales and stump; moss clumps.
+
+## Round 9 (2026-10-18, commit 4bae3c8)
+
+| Stage | Believ. | Cohesion | Lighting | Depth | Ground | Clarity | Mean |
+|---|---|---|---|---|---|---|---|
+| Meadow | 3 | 3 | 3 | 3 | 3 | 3 | 3.0 |
+| Canyon | 3 | 4 | 4 | 3 | 3 | 4 | 3.5 |
+| Beach | 3 | 3 | 4 | 4 | 3 | 4 | 3.5 |
+| City | 3 | 4 | 3 | 4 | 2 | 3 | 3.2 |
+| Grove | 3 | 4 | 3 | 3 | 3 | 4 | 3.3 |
+
+The beach town low at the waterline (Depth 4); the tuft density right. Gaps: (1) the city roof an unmarked sheet (Ground 2, the
+lowest score), the string lights casting nothing, the facade's bright window grid; (2) the remaining primitive props (the beach's lamp
+and sailboats, the grove's mushrooms, stump and moss, the meadow's hay bales). Later: the meadow's ridges softer still; lawn clump
+patches; the grove's side trees with lit and shaded crowns.

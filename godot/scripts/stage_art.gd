@@ -778,7 +778,11 @@ static func solid_block(parent: Node3D, t: Dictionary, left: float, right: float
 			var roofing := (t.grass as Color).lerp(Color(0.78, 0.5, 0.4), 0.88)
 			var roof_mat := _surface(roofing, "roof", 4.0).duplicate() as ShaderMaterial
 			roof_mat.set_shader_parameter("world_vary", 0.16)
-			roof_mat.set_shader_parameter("patch_amount", 0.4)
+			# (Weathered tar patches stronger and a scuffed, darker band along the play line, the gauntlet's round 9: an unmarked sheet was the
+			# game's lowest-scoring surface.)
+			roof_mat.set_shader_parameter("patch_amount", 0.85)
+			roof_mat.set_shader_parameter("worn_path", 0.7)
+			roof_mat.set_shader_parameter("worn_tint", Color(0.62, 0.52, 0.5))
 			_mesh(parent, _box(Vector3(w + 0.3, 0.35, depth + 0.3)), roof_mat, Vector3(cx, top - 0.15, front_z - depth / 2.0))
 			# (A crisp lit edge, warm under the string lights, round 3.)
 			var coping := _soft((t.grass_light as Color).lerp(Color(1.0, 0.9, 0.78), 0.6))
@@ -1213,7 +1217,13 @@ static func _platform_dressing(parent: Node3D, t: Dictionary, left: float, right
 			while x < right - 0.2:
 				var r := rng.randf_range(0.08, 0.22)
 				if rng.randf() > 0.6:
-					_mesh(parent, _sphere(1.0, 8), moss, Vector3(x, top - 0.26 - r * rng.randf_range(0.2, 1.0), front_z + 0.02), Vector3(r * 1.8, r * 1.2, r))
+					# (Modelled lumpy clumps, three shapes each turned its own way, the gauntlet's round 9: identical round balls read as beads.)
+					var clump := _prop_mesh(["moss_a", "moss_b", "moss_c"][rng.randi() % 3], "moss")
+					var my := top - 0.26 - r * rng.randf_range(0.2, 1.0)
+					if clump != null:
+						_mesh(parent, clump, moss, Vector3(x, my - r * 0.5, front_z + 0.02), Vector3(r * 2.6, r * 2.0, r * 2.0), Vector3(90, rng.randf_range(0, 360), 0))
+					else:
+						_mesh(parent, _sphere(1.0, 8), moss, Vector3(x, my, front_z + 0.02), Vector3(r * 1.8, r * 1.2, r))
 				x += r * rng.randf_range(1.2, 2.2)
 			# (No vines since 2026-10-18: a stem with a ball on its end under each platform read as a hanging music note. The draws stay, so
 			# the moss's layout is unchanged.)
@@ -1368,6 +1378,29 @@ static func _props(root: Node3D, theme_name: String, e: Array) -> void:
 				# (Brighter, round 5: the string lights cast nothing visible on the roof.)
 				_practical(root, at, [Color(1.0, 0.78, 0.5), Color(1.0, 0.6, 0.72), Color(1.0, 0.78, 0.5)][k], 2.4, 8.0)
 			_practical(root, Vector3(r - 2.5, y + 6.1, -6.0), Color(1.0, 0.3, 0.3), 0.8, 4.0)
+			# The bulbs' light painted on the roof under them: soft warm pools added over it (the practical lights alone showed nothing under the
+			# cel light, the gauntlet's round 9). Unshaded, a warm light colour laid over the roof (additive blending showed nothing).
+			var pool := StandardMaterial3D.new()
+			pool.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+			pool.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+			pool.disable_fog = true
+			var pg := Gradient.new()
+			pg.set_color(0, Color(1.0, 0.88, 0.6, 0.55))
+			pg.set_color(1, Color(1.0, 0.62, 0.32, 0.0))
+			var pt := GradientTexture2D.new()
+			pt.gradient = pg
+			pt.fill = GradientTexture2D.FILL_RADIAL
+			pt.fill_from = Vector2(0.5, 0.5)
+			pt.fill_to = Vector2(1.0, 0.5)
+			pool.albedo_texture = pt
+			for k in 4:
+				var f := (float(k) + 0.5) / 4.0
+				var px := lerpf(l + 3.0, r - 2.5, f)
+				var q := QuadMesh.new()
+				q.size = Vector2(5.0, 3.6)
+				q.orientation = PlaneMesh.FACE_Y
+				var pm := _mesh(root, q, pool, Vector3(px, y + 0.07, -3.8))
+				pm.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	for p in patches:
 		_contact(root, Vector3(p[0], y, p[1]), Vector2(p[2], p[3]))
 

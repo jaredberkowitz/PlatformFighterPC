@@ -907,7 +907,30 @@ def truss_bay():
     return root
 
 
+def moss_clump(name, seed):
+    """A clump of moss (about 1 across, its base on the origin; the gauntlet's round 9: identical round moss balls under the grove's
+    platforms): a squashed dome of soft lumps, each lump its own size, the whole a little lopsided."""
+    rng = random.Random(seed)
+    root = empty(name)
+    bm = bmesh.new()
+    lumps = [((0.0, 0.0, 0.18), 0.32)]
+    for k in range(rng.randint(4, 6)):
+        a = math.tau * k / 5.0 + rng.uniform(-0.4, 0.4)
+        r = rng.uniform(0.18, 0.3)
+        d = rng.uniform(0.18, 0.32)
+        lumps.append(((math.cos(a) * d, math.sin(a) * d * 0.7, r * 0.6), r))
+    for (c, r) in lumps:
+        ret = bmesh.ops.create_icosphere(bm, subdivisions=2, radius=r)
+        for v in ret["verts"]:
+            v.co = Vector((v.co.x, v.co.y, v.co.z * 0.75)) * (1.0 + rng.uniform(-0.06, 0.06)) + Vector(c)
+    to_object("moss", bm, (0.36, 0.64, 0.36), smooth=True).parent = root
+    return root
+
+
 PROPS = {
+    "moss_a": lambda: moss_clump("moss_a", 3),
+    "moss_b": lambda: moss_clump("moss_b", 8),
+    "moss_c": lambda: moss_clump("moss_c", 13),
     "truss_bay": truss_bay,
     "grass_tuft": grass_tuft,
     "crate": crate,
