@@ -15,6 +15,7 @@ const Materials := preload("res://scripts/materials.gd")
 const SUN_SHADER := preload("res://shaders/sun.gdshader")
 const CLOUD_SHADER := preload("res://shaders/cloud.gdshader")
 const RIDGE_SHADER := preload("res://shaders/painted_ridge.gdshader")
+const RIDGE_SHADOW_SHADER := preload("res://shaders/painted_ridge_shadow.gdshader")
 const FOLIAGE_SHADER := preload("res://shaders/toon_foliage.gdshader")
 const VisualSettings := preload("res://scripts/visual_settings.gd")
 const Toonify := preload("res://scripts/toonify.gd")
@@ -2086,10 +2087,19 @@ const RIDGES := {
 		# (Teal, not blue: the owner's Origami King reference sets bright lime ground against cool teal mountains.)
 		# (A lit flank and a shaded flank on every peak, as the canyon's mesas have: a flat blue cut-out read as the least finished
 		# thing on the menu; the owner, 2026-10-17, raise the quality of what is there.)
-		"flank": 0.75, "foot_dark": 0.35, "layers": 4, "flank_from": 0.0, "gullies": 0.8}],
+		"flank": 0.75, "foot_dark": 0.35, "layers": 4, "flank_from": 0.0, "gullies": 0.8, "paper": 0.05, "edge_width": 0.012},
+		# A nearer, lower range in front, deeper teal and less hazed, casting its shadow on the far one: the backdrop as cut cards in layers
+		# with air between them, not one soft band (art review 9).
+		{"z": -140.0, "y": -36.0, "height": 62.0, "shape": 1, "seed": 9.0, "base": 0.4, "amplitude": 0.5, "frequency": 7.0,
+		"tone": Color(0.1, 0.38, 0.42), "mix": 0.95, "edge": 0.5, "haze": 0.08, "flank": 0.75, "foot_dark": 0.4, "layers": 3,
+		"flank_from": 0.0, "gullies": 0.6, "paper": 0.05, "edge_width": 0.016, "shadow": 0.5}],
 	"grove": [{"z": -165.0, "y": -34.0, "height": 52.0, "shape": 0, "seed": 8.0, "base": 0.5, "amplitude": 0.32, "frequency": 3.5,
 		"tone": Color(0.5, 0.5, 0.84), "mix": 0.7, "edge": 0.3, "flank": 0.6, "foot_dark": 0.3, "layers": 4, "flank_from": 0.0, "gullies": 0.6,
-		"haze": 0.2}],
+		"haze": 0.2, "paper": 0.05, "edge_width": 0.014},
+		# A nearer row of rounded hills in a deeper violet-blue, casting its shadow on the far one (art review 9: cut cards in layers).
+		{"z": -138.0, "y": -24.0, "height": 40.0, "shape": 0, "seed": 4.0, "base": 0.5, "amplitude": 0.36, "frequency": 5.0,
+		"tone": Color(0.36, 0.38, 0.72), "mix": 0.82, "edge": 0.4, "flank": 0.6, "foot_dark": 0.35, "layers": 3, "flank_from": 0.0,
+		"gullies": 0.4, "haze": 0.12, "paper": 0.05, "edge_width": 0.02, "shadow": 0.5}],
 	"sunset": [{"z": -175.0, "y": -36.0, "height": 58.0, "shape": 2, "seed": 5.0, "base": 0.4, "amplitude": 0.4, "frequency": 3.0,
 		"tone": Color(0.42, 0.26, 0.5), "mix": 0.62, "edge": 0.35, "layers": 3, "flank_from": 0.0},
 		{"z": -132.0, "y": -34.0, "height": 46.0, "shape": 2, "seed": 11.0, "base": 0.36, "amplitude": 0.36, "frequency": 2.6,
@@ -2116,7 +2126,8 @@ static func ridge(root: Node3D, t: Dictionary, spec: Dictionary) -> MeshInstance
 	m.set_shader_parameter("layers", int(spec.get("layers", 0)))
 	m.set_shader_parameter("flank_from", float(spec.get("flank_from", 0.2)))
 	m.set_shader_parameter("gullies", float(spec.get("gullies", 0.0)))
-	m.set_shader_parameter("edge_colour", horizon.lerp(Color.WHITE, 0.3))
+	# (A paper card's edge in its own colour, lighter: the horizon's near-white along a lower range read as the crest of a wave.)
+	m.set_shader_parameter("edge_colour", top.lightened(0.3) if spec.has("paper") else horizon.lerp(Color.WHITE, 0.3))
 	m.set_shader_parameter("edge_amount", float(spec.edge))
 	m.set_shader_parameter("shape", int(spec.shape))
 	m.set_shader_parameter("seed", float(spec.seed))
@@ -2129,16 +2140,33 @@ static func ridge(root: Node3D, t: Dictionary, spec: Dictionary) -> MeshInstance
 	m.set_shader_parameter("aspect", float(spec.height) / 520.0)
 	var q := QuadMesh.new()
 	q.size = Vector2(520.0, float(spec.height))
+	m.set_shader_parameter("paper", float(spec.get("paper", 0.0)))
+	m.set_shader_parameter("edge_width", float(spec.get("edge_width", 0.03)))
 	var mi := _mesh(root, q, m, Vector3(0, float(spec.y) + float(spec.height) * 0.5, float(spec.z)))
 	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	mi.name = "Ridge"
+	# The shadow it casts on the layer behind (a spec's "shadow", its strength): a soft dark halo of its own outline just behind it, so the
+	# layers read as cut cards standing apart (art review 9).
+	if spec.has("shadow"):
+		var sm := ShaderMaterial.new()
+		sm.shader = RIDGE_SHADOW_SHADER
+		for key in ["shape", "seed", "base", "amplitude", "frequency"]:
+			sm.set_shader_parameter(key, m.get_shader_parameter(key))
+		sm.set_shader_parameter("shadow_colour", top.darkened(0.55).lerp(Color(0.08, 0.1, 0.26), 0.4))
+		sm.set_shader_parameter("strength", float(spec.shadow))
+		sm.set_shader_parameter("offset", Vector2(0.006, 0.006 * 520.0 / float(spec.height)))
+		sm.set_shader_parameter("softness", 3.0 / float(spec.height))
+		var sh := _mesh(root, q, sm, Vector3(0, float(spec.y) + float(spec.height) * 0.5, float(spec.z) - 3.0))
+		sh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		sh.name = "RidgeShadow"
 	return mi
 
 
 ## The fog layers of each theme: [z, bottom y, height, strength].
 const MIST := {
-	"meadow": [[-56.0, -24.0, 12.0, 0.16], [-86.0, -26.0, 16.0, 0.24]],
-	"grove": [[-60.0, -24.0, 12.0, 0.08], [-90.0, -26.0, 16.0, 0.14]],
+	# (The far bands thinner, art review 9: over the cut-card ranges they washed both layers into one pale band.)
+	"meadow": [[-56.0, -24.0, 12.0, 0.16], [-86.0, -26.0, 16.0, 0.14]],
+	"grove": [[-60.0, -24.0, 12.0, 0.08], [-90.0, -26.0, 16.0, 0.08]],
 	"sunset": [[-60.0, -26.0, 10.0, 0.07], [-95.0, -24.0, 16.0, 0.13]],
 	"ocean": [[-130.0, -10.0, 6.0, 0.08]],
 	"night": [[-70.0, -26.0, 18.0, 0.4]],

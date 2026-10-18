@@ -9,15 +9,11 @@ uniform vec4 top_colour : source_color = vec4(0.6, 0.7, 0.85, 1.0);
 uniform vec4 foot_colour : source_color = vec4(0.5, 0.6, 0.78, 1.0);
 uniform vec4 edge_colour : source_color = vec4(0.85, 0.9, 1.0, 1.0);
 uniform float edge_amount = 0.5;
-// 0 rolling hills, 1 peaked mountains, 2 flat-topped mesas, 3 a bank of cloud.
-uniform int shape = 0;
-uniform float seed = 0.0;
-// Bumps across the card, the ridge's height range (0..1 of the card), and how soft its edge is.
-uniform float frequency = 4.0;
-uniform float base = 0.45;
-uniform float amplitude = 0.35;
+// (Its shape: `shape`, `seed`, `frequency`, `base`, `amplitude`, in shaders/painted_ridge.gdshaderinc.) How soft its edge is.
 uniform float softness = 0.006;
 uniform float brush = 0.06;
+uniform float paper = 0.0;           // the paper fibre's strength (0 none)
+uniform float edge_width = 0.03;     // the lit edge's width, as a share of the card's height
 uniform float opacity = 1.0;
 uniform vec4 haze_colour : source_color = vec4(0.8, 0.9, 1.0, 1.0);
 uniform float haze = 0.3;
@@ -37,71 +33,7 @@ uniform float flank_from = 0.2;
 // the ridge line down and outward and fading as it goes, so a range reads as folded rock under one light, not a flat band (art review 7).
 uniform float gullies = 0.0;
 
-float hash(float n) {
-	return fract(sin(n) * 43758.5453);
-}
-
-float noise1(float x) {
-	float i = floor(x);
-	float f = fract(x);
-	f = f * f * (3.0 - 2.0 * f);
-	return mix(hash(i), hash(i + 1.0), f);
-}
-
-float noise2(vec2 p) {
-	vec2 i = floor(p);
-	vec2 f = fract(p);
-	f = f * f * (3.0 - 2.0 * f);
-	float a = hash(i.x + i.y * 57.0);
-	float b = hash(i.x + 1.0 + i.y * 57.0);
-	float c = hash(i.x + (i.y + 1.0) * 57.0);
-	float d = hash(i.x + 1.0 + (i.y + 1.0) * 57.0);
-	return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
-}
-
-// The ridge's height (0..1) at x.
-float ridge(float x) {
-	float h = 0.0;
-	float amp = 0.55;
-	float freq = 1.0;
-	for (int o = 0; o < 4; o++) {
-		float n = noise1(x * freq + seed * 17.0 + float(o) * 31.0);
-		if (shape == 1) {
-			n = 1.0 - abs(n * 2.0 - 1.0);
-			n = n * n;
-		}
-		h += n * amp;
-		amp *= shape == 1 ? 0.5 : 0.42;
-		freq *= 2.1;
-	}
-	if (shape == 2) {
-		// Mesas: the tops pressed flat, the sides steep.
-		h = smoothstep(0.38, 0.52, h) * 0.8 + h * 0.2;
-	}
-	if (shape == 3) {
-		// Cloud: round puffs.
-		h = 0.5 + 0.5 * sin(x * 3.1 + seed) * 0.3 + h * 0.6;
-	}
-	return h;
-}
-
-// The ridge's broad shape only (its first two octaves), for the light on its flanks: one lit side and one shaded side per big peak.
-float ridge_broad(float x) {
-	float h = 0.0;
-	float amp = 0.55;
-	float freq = 1.0;
-	for (int o = 0; o < 2; o++) {
-		float n = noise1(x * freq + seed * 17.0 + float(o) * 31.0);
-		if (shape == 1) {
-			n = 1.0 - abs(n * 2.0 - 1.0);
-			n = n * n;
-		}
-		h += n * amp;
-		amp *= shape == 1 ? 0.5 : 0.42;
-		freq *= 2.1;
-	}
-	return h;
-}
+#include "res://shaders/painted_ridge.gdshaderinc"
 
 void fragment() {
 	float x = UV.x * frequency;
@@ -145,11 +77,14 @@ void fragment() {
 		c = mix(c, shade2, smoothstep(0.08, 0.16, -face) * fade * gullies);
 		c = mix(c, c * 1.15 + 0.04, smoothstep(0.08, 0.16, face) * fade * gullies * 0.8);
 	}
-	// The light catches the top of the ridge.
-	c = mix(c, edge_colour.rgb, smoothstep(h - 0.045, h - 0.008, y) * edge_amount);
-	// Brush grain along the ridge.
+	// The light catches the top of the ridge: a thin crisp lit edge, as a cut card's edge catches it (`edge_width` of the card's height;
+	// a broad soft band read as haze, not a cut, art review 9).
+	c = mix(c, edge_colour.rgb, smoothstep(h - edge_width - 0.004, h - edge_width, y) * edge_amount);
+	// Brush grain along the ridge, and a faint paper fibre over the whole card.
 	float grain = noise2(vec2(x * 6.0 + noise2(vec2(x * 1.5, y * 3.0)) * 2.0, y * 55.0));
 	c *= 1.0 + (grain - 0.5) * brush;
+	float fibre = noise2(UV * vec2(900.0, 900.0 * aspect)) * 0.6 + noise2(UV * vec2(260.0, 2600.0 * aspect)) * 0.4;
+	c *= 1.0 + (fibre - 0.5) * paper;
 	// Thicker haze toward the foot, as the air near the ground is.
 	c = mix(c, haze_colour.rgb, haze * (1.0 - 0.5 * k));
 	ALBEDO = c;
