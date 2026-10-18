@@ -2741,7 +2741,9 @@ static func _barn(root: Node3D, at: Vector3) -> void:
 ## ridge beam along its top, gable ends filled to the roof with a round attic window, a plank door on a stone step with a lantern, a lit
 ## window with shutters and a flower box, shrubs at its foot, and a stone chimney at one end (`side`) with smoke curling up from it.
 static func _cottage(root: Node3D, at: Vector3, roof: Color, side: float) -> void:
-	var wall := Materials.plaster(Color(0.97, 0.93, 0.84), Vector2(2, 2))
+	# (Clean warm cream planes, not a plaster pattern that turns to noise at this distance: the owner's papercraft references, where
+	# each surface is one clear tone with a crisp edge.)
+	var wall := FighterView.toon(Color(0.98, 0.93, 0.82))
 	var roof_m := Materials.shingles(roof, Vector2(3, 2))
 	var timber := Materials.wood(Color(0.42, 0.28, 0.2), Vector2(1, 3))
 	var frame := Materials.wood(Color(0.56, 0.38, 0.26))
@@ -2769,6 +2771,9 @@ static func _cottage(root: Node3D, at: Vector3, roof: Color, side: float) -> voi
 		var mid := Vector3(0, H + rise / 2.0 + 0.05, sgn * run / 2.0)
 		_mesh(root, _box(Vector3(W + 1.2, 0.34, slab)), roof_m, at + mid, Vector3.ONE, Vector3(sgn * pitch, 0, 0))
 		_mesh(root, _box(Vector3(W + 1.25, 0.2, 0.16)), frame, at + Vector3(0, H - 0.08, sgn * (run - 0.05)))
+		# A crisp lit edge along the roof's eave, as a folded paper roof catches the light on its edge.
+		var eave := Vector3(0, H + 0.05 + 0.17 * cos(deg_to_rad(pitch)), sgn * (run + 0.02))
+		_mesh(root, _box(Vector3(W + 1.24, 0.12, 0.2)), FighterView.toon(roof.lightened(0.32)), at + eave, Vector3.ONE, Vector3(sgn * pitch, 0, 0))
 	_mesh(root, _cylinder(0.2, 0.2, W + 1.3, 10), timber, at + Vector3(0, H + rise + 0.12, 0), Vector3.ONE, Vector3(0, 0, 90))
 	# The gable ends, filled to the underside of the roof, each with a round attic window.
 	for ex in [-W / 2.0, W / 2.0]:
@@ -2798,9 +2803,19 @@ static func _cottage(root: Node3D, at: Vector3, roof: Color, side: float) -> voi
 		_mesh(root, _sphere(0.13, 8), FighterView.toon(Color(0.36, 0.62, 0.22)), at + Vector3(wx - 0.44 + j * 0.22, 1.2, D / 2.0 + 0.22))
 		_mesh(root, _sphere(0.08, 6), _unshaded(petals[j % 3]), at + Vector3(wx - 0.44 + j * 0.22, 1.3, D / 2.0 + 0.3))
 	# Shrubs at the corners of its foot.
+	# (The tree kit's faceted crown, small, as a shrub: one leaf language for every plant on the stage.)
 	var bush := Materials.foliage(Color(0.34, 0.6, 0.24), Vector2(2, 2), false)
 	for sx in [-1.0, 1.0]:
-		_mesh(root, _sphere(1.0, 12), bush, at + Vector3(sx * (W / 2.0 + 0.2), 0.45, D / 2.0 + 0.1), Vector3(0.85, 0.7, 0.7))
+		var shrub := Toonify.load_prop("tree_crown_c", true)
+		if shrub != null:
+			shrub.position = at + Vector3(sx * (W / 2.0 + 0.2), 0.15, D / 2.0 + 0.1)
+			shrub.scale = Vector3.ONE * 0.3
+			root.add_child(shrub)
+			for mi in shrub.find_children("*", "MeshInstance3D", true, false):
+				var lit := String(mi.name).contains("lit")
+				(mi as MeshInstance3D).material_override = FighterView.toon(Color.from_hsv(0.28, 0.5, 0.68) if lit else Color.from_hsv(0.42, 0.55, 0.32), true)
+		else:
+			_mesh(root, _sphere(1.0, 12), bush, at + Vector3(sx * (W / 2.0 + 0.2), 0.45, D / 2.0 + 0.1), Vector3(0.85, 0.7, 0.7))
 	_contact(root, at, Vector2(W / 2.0 + 0.5, D / 2.0 + 0.4))
 	var chimney := at + Vector3(1.5 * side, H + rise * 0.7, -0.7)
 	_mesh(root, _box(Vector3(0.75, 2.2, 0.75)), Materials.stone(Color(0.62, 0.58, 0.56), Vector2(1, 2)), chimney)
