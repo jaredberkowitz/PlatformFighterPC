@@ -3079,18 +3079,6 @@ static func _ocean(root: Node3D, t: Dictionary, stage: Array) -> void:
 		dinghy.position = Vector3(0, -0.9, 0)
 		dinghy.rotation_degrees = Vector3(0, 160, 0)
 		boat.add_child(dinghy)
-	# The far coast, a nearer headland and sea stacks, so the horizon between the islands is a coastline and not empty water (the
-	# owner, 2026-10-17: every stage wants more detailed background art).
-	_coastline(root, float(e[3]) - 1.0)
-	# A second, far sail on the horizon.
-	var far_boat := Bob.new()
-	far_boat.position = Vector3(18, float(e[3]) - 0.8, -150)
-	root.add_child(far_boat)
-	var far_dinghy := Toonify.load_prop("sailboat")
-	if far_dinghy != null:
-		far_dinghy.scale = Vector3.ONE * 1.1
-		far_dinghy.rotation_degrees = Vector3(0, 20, 0)
-		far_boat.add_child(far_dinghy)
 	# A fisherman's hut on stilts out over the water, a jetty of planks running to it, and floats bobbing off the end: people live here.
 	_stilt_hut(root, Vector3(30.0, float(e[3]) - 1.0, -46.0))
 	# Palms at the ends of the island, behind the fighters.
@@ -3098,49 +3086,6 @@ static func _ocean(root: Node3D, t: Dictionary, stage: Array) -> void:
 	_palm(root, Vector3(float(e[1]) - 1.6, float(e[2]), -6.0), 1.15, rng)
 	_contact(root, Vector3(float(e[0]) + 1.8, float(e[2]), -5.5), Vector2(0.4, 0.35))
 	_contact(root, Vector3(float(e[1]) - 1.6, float(e[2]), -6.0), Vector2(0.45, 0.38))
-
-
-## The beach's coastline (`sea` the water level): a far coast of low rolling hills along the horizon in the haze's blue-green, broken
-## by open sea; a nearer rocky headland on the left, a grassy top over pale cliffs with surf at their foot; and a cluster of sea stacks
-## in the middle distance, each with a cap of green and a ring of surf. Its own numbers, so the rest of the beach stays put.
-static func _coastline(root: Node3D, sea: float) -> void:
-	var rng := RandomNumberGenerator.new()
-	rng.seed = 77
-	var foam := _unshaded(Color(0.96, 0.99, 1.0))
-	# The far coast: runs of overlapping hills, two shades (nearer greener, farther bluer), with gaps of open sea between the runs.
-	for run in [[-150.0, -70.0], [-30.0, 30.0], [80.0, 160.0]]:
-		var x: float = run[0]
-		while x < run[1]:
-			var w := rng.randf_range(10.0, 18.0)
-			var h := rng.randf_range(3.0, 7.0)
-			_mesh(root, _sphere(1.0, 14), FighterView.toon(Color(0.5, 0.68, 0.72), false), Vector3(x, sea - 1.0, -185.0), Vector3(w, h, 4.0))
-			_mesh(root, _sphere(1.0, 14), FighterView.toon(Color(0.46, 0.66, 0.6), false), Vector3(x + w * 0.4, sea - 1.0, -178.0), Vector3(w * 0.7, h * 0.7, 4.0))
-			x += w * 1.1
-	# The headland on the left: pale stepped cliffs under a grassy top, surf along its foot.
-	var cliff := Materials.stone(Color(0.86, 0.8, 0.7), Vector2(3, 1))
-	var grass := Materials.foliage(Color(0.42, 0.68, 0.42), Vector2(4, 2))
-	var at := Vector3(-78.0, sea, -118.0)
-	for k in 4:
-		var cx := at.x + k * 9.0
-		var ch := 9.0 - k * 1.8 + rng.randf_range(-0.6, 0.6)
-		_mesh(root, _box(Vector3(10.0, ch, 8.0)), cliff, Vector3(cx, sea + ch * 0.5 - 0.6, at.z + k * 1.5))
-		_mesh(root, _sphere(1.0, 12), grass, Vector3(cx, sea + ch - 0.2, at.z + k * 1.5), Vector3(5.6, 1.4, 4.4))
-		_mesh(root, _cylinder(1.0, 1.0, 0.06, 18), foam, Vector3(cx, sea + 0.1, at.z + k * 1.5 + 2.0), Vector3(6.0, 1.0, 2.2))
-	# Sea stacks: tall rocks standing in the water, a green cap and surf on each.
-	# (Each a pile of lumpy boulders narrowing upward, in a darker weathered grey: smooth cylinders read as posts in the water.)
-	var rock := Materials.stone(Color(0.56, 0.52, 0.56), Vector2(1, 1))
-	for k in 3:
-		var sx := -40.0 + k * 5.5 + rng.randf_range(-1.0, 1.0)
-		var sz := -78.0 - k * 4.0
-		var sh := rng.randf_range(3.0, 5.0)
-		var lumps := 3
-		for j in lumps:
-			var u := float(j) / float(lumps)
-			var r := lerpf(1.9, 0.9, u) * rng.randf_range(0.85, 1.1)
-			_mesh(root, _sphere(1.0, 9), rock, Vector3(sx + rng.randf_range(-0.4, 0.4), sea + u * sh + r * 0.4, sz), Vector3(r, r * 0.95, r * 0.9),
-				Vector3(rng.randf_range(0, 30), rng.randf_range(0, 90), 0))
-		_mesh(root, _sphere(1.0, 10), grass, Vector3(sx, sea + sh + 0.6, sz), Vector3(1.0, 0.45, 0.9))
-		_mesh(root, _cylinder(1.0, 1.0, 0.06, 14), foam, Vector3(sx, sea + 0.1, sz), Vector3(2.8, 1.0, 2.3))
 
 
 ## The finer parts of a distant island at `isle` (its own numbers, from `k`, so the sea's layout is unchanged): a ring of white surf
