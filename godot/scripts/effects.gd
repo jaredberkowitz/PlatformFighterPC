@@ -116,10 +116,11 @@ enum Kind { BLADE, BLOW, FIRE, CLAW }
 ## (As the knock-out blast: the flare and body stay below the effects' glow threshold (luma 0.72, shaders/fx.gdshaderinc), so they keep
 ## their colour and only the white core blooms. Brighter bodies bloomed to white and the burst lost its ink and colour.)
 const BURST_COLOURS := {
-	Kind.BLADE: [Color(0.22, 0.46, 0.95), Color(0.45, 0.72, 1.0), Color(1.0, 1.0, 1.0)],
-	Kind.CLAW: [Color(0.52, 0.22, 0.95), Color(0.78, 0.5, 1.0), Color(1.0, 0.96, 1.0)],
-	Kind.BLOW: [Color(0.96, 0.4, 0.1), Color(1.0, 0.66, 0.16), Color(1.0, 1.0, 0.92)],
-	Kind.FIRE: [Color(0.88, 0.12, 0.06), Color(1.0, 0.5, 0.08), Color(1.0, 0.9, 0.4)],
+	# (Deeper and more saturated, art review 10: the bursts read pale, mostly white, beside the genre's leaders' strongly coloured sparks.)
+	Kind.BLADE: [Color(0.1, 0.3, 0.9), Color(0.3, 0.62, 1.0), Color(1.0, 1.0, 1.0)],
+	Kind.CLAW: [Color(0.42, 0.12, 0.88), Color(0.7, 0.4, 1.0), Color(1.0, 0.96, 1.0)],
+	Kind.BLOW: [Color(0.92, 0.28, 0.04), Color(1.0, 0.58, 0.08), Color(1.0, 1.0, 0.9)],
+	Kind.FIRE: [Color(0.82, 0.08, 0.04), Color(1.0, 0.42, 0.04), Color(1.0, 0.88, 0.36)],
 }
 
 
@@ -155,7 +156,8 @@ class Pow extends MeshInstance3D:
 		var im: ImmediateMesh = mesh
 		im.clear_surfaces()
 		# Ink, flare, body, core: each layer smaller, the outer ones leaving first as it breaks up.
-		var layers := [[1.0, INK, 0.0], [0.9, colours[0], 0.15], [0.66, colours[1], 0.3], [0.38, colours[2], 0.45]]
+		# (The white core smaller, 0.38 to 0.26, so the burst reads as its colour rather than a white flash.)
+		var layers := [[1.0, INK, 0.0], [0.9, colours[0], 0.15], [0.62, colours[1], 0.3], [0.26, colours[2], 0.45]]
 		var shown := []
 		for layer in layers:
 			var c: Color = layer[1]
@@ -210,8 +212,10 @@ static func hit(parent: Node, at: Vector3, dir: Vector2, color: Color, strength:
 	# (Art review 6, against the reference fighters: a light hit was a speck at play scale. Every tier a size up, the light ones most.)
 	# (Art review 6 round 6, checked in motion: at full size the strong burst and its ring covered both fighters for the frames of the
 	# hit. A little smaller at the top end; light hits as they were.)
-	pow_fx.size = (0.8 + 0.55 * s) * (0.85 if kind == Kind.BLADE or kind == Kind.CLAW else 1.0)
-	pow_fx.life = 0.2 + 0.12 * s
+	# (Art review 10: a strong hit's burst was head-sized; the leaders' are about a fighter tall and more. Light hits as they were, strong
+	# ones growing to about twice the size; it pops and shrinks fast, so the fighter shows again within the freeze.)
+	pow_fx.size = (0.8 + 0.55 * s + 1.4 * maxf(0.0, s - 0.4)) * (0.85 if kind == Kind.BLADE or kind == Kind.CLAW else 1.0)
+	pow_fx.life = 0.2 + 0.14 * s
 	pow_fx.position = at + Vector3(0, 0, 0.05)
 	parent.add_child(pow_fx)
 	# A quick small ring on every hit (the moment of contact), a wide thick shockwave on a strong one.

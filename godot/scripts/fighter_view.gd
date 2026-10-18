@@ -2384,6 +2384,12 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 		long_limbs = _cls(s) == 1
 		rebuild(loadout)
 	position = pos
+	# The hit freeze shake (as the genre's leaders do): a fighter frozen by a hit it takes vibrates side to side, harder for a harder hit
+	# (by the hitlag left) and settling as the freeze runs out, so every hit lands with weight. From the sim's frame, so a replay matches.
+	if int(s.hitlag) > 0 and s.launch_pending:
+		var k := clampf(float(s.hitlag) / 16.0, 0.0, 1.0)
+		var side := 1.0 if int(s.frame) % 2 == 0 else -1.0
+		position += Vector3(side * (0.04 + 0.16 * k), side * 0.03 * k, 0.0)
 	var state: String = s.state
 	# Flash Step: nothing to see while it teleports.
 	if model != null:
