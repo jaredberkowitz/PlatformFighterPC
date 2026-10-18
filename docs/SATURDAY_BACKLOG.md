@@ -123,7 +123,7 @@ The detail behind each step follows.
       (2026-10-15). Internal move ids (`fsmash` etc.) later, with the moveset session.
 - [ ] Ink painted into the stage textures (stone and plank edges, trims, strata ledges) eased toward the Wind Waker HD reference, where
       colour and value carry the scenery; the post-pass and outline-shell levers made no visible difference (art review 6 round 22).
-- [ ] Mend `--demo=results` (it stops in the match) and review the results screen.
+- [x] Mend `--demo=results`: it needs `--stocks=1 --match` (as its comment says); reviewed and improved 2026-10-17.
 - [ ] In-motion checks for the refinement rounds (the outside brief): an attack with its hit effect, both fighters airborne, fighters
       spread so the camera pulls out; look for outline flicker, shadow crawl, effects hiding fighters.
 - [ ] The run mode's own city windows (`run_stage.gd` facade values) to match the stage's calmer ones (check with the modes-online agent).
@@ -145,13 +145,16 @@ The detail behind each step follows.
       likely rim light on thin slivers where meshes meet, not an ink gap (keeping 60% ink at the wrist cut changed nothing). A rig fix.) Fighters: the clothes' outline sits close to the body outline, doubling the line at the waist and cuffs at play size.
 
 ## UI redesign toward shippable: ONE large UI pass doing all five (owner, 2026-10-15), on Saturday or right after the work above
-- [ ] 1. Motion: animated screen transitions (a wipe in the ink-panel style), tiles that scale/brighten on focus, an animated menu
+- [~] (2026-10-17: every screen's cards now arrive in sequence behind the wipe, `UiKit.Entrance`; focus scaling and the animated
+      backdrop already existed. Still to do: values easing, a wipe on leaving.) 1. Motion: animated screen transitions (a wipe in the ink-panel style), tiles that scale/brighten on focus, an animated menu
       backdrop. The biggest "shipped game" signal in the competitors' menus.
 - [ ] 2. Character select redesign: a big slot per player along the bottom (posed render in the player colour, name, costume,
       sliding in on pick), the roster grid above.
 - [ ] 3. Title screen: logo over the stage scene, a posing fighter, "press any button".
-- [ ] 4. Results screen: winner's victory pose, banner, a few stats (KOs, damage dealt), loser dimmed (mend `--demo=results` first).
-- [ ] 5. One written UI design system: type scale, palette, panel rules, motion timings, so every screen stays consistent.
+- [x] 4. Results screen: winner's victory pose, banner, a few stats (KOs, damage dealt), loser dimmed (2026-10-17: the winner's card in
+      their colour, the runner-up dimmed on its own card in a one-on-one; `--demo=results` works with `--stocks=1 --match`).
+- [x] 5. One written UI design system: type scale, palette, panel rules, motion timings, so every screen stays consistent.
+      (docs/UI_DESIGN_SYSTEM.md, 2026-10-17, with its audit and the pass's order; TYPE_* and MOTION_* in ui_kit.gd.)
 
 ## Skies (owner, 2026-10-15: the canyon's sun and clouds still look cheap)
 - [ ] A painted sunset for the canyon: the sun as a soft painted disc with a proper glow falloff, and clouds as painted shapes with a lit

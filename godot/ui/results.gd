@@ -24,6 +24,7 @@ var note := ""
 var winner := -1
 var order: Array = []   # player indices, first place first
 var preview: Control
+var runner_up: Control
 var t := 0.0
 
 
@@ -46,7 +47,7 @@ class Board extends Control:
 		Art.brush_band(self, Rect2(Vector2(46, 92), Vector2(560, 34)), tint, 81, 14.0, false, 0.8)
 		var banner := Rect2(Vector2(24, 28), Vector2(600, 82))
 		Art.brush_band(self, banner, Art.INK, 83, 22.0, true, 1.0)
-		Art.title_centered(self, r.title.to_upper(), banner.grow_individual(-12, 0, -26, 0), 56, Color.WHITE, 0.0)
+		Art.title_centered(self, r.title.to_upper(), banner.grow_individual(-12, 0, -26, 0), UI.TYPE_TITLE, Color.WHITE, 0.0)
 		# A card for each fighter, in finishing order.
 		var f := D.font()
 		var big := D.display_font()
@@ -65,18 +66,18 @@ class Board extends Control:
 			var tab := Rect2(rect.position + Vector2(-14, 10), Vector2(92, rect.size.y - 30))
 			Art.brush_band(self, tab, PLAYER_COLORS[i % 4], 100 + i, 10.0, true, 0.4)
 			Art.title_centered(self, str(place + 1), tab.grow_individual(0, 0, -10, 0), int(card_h * 0.55), Color.WHITE, 0.12)
-			draw_string(big, rect.position + Vector2(100, 38), "P%d  %s" % [i + 1, str(c.name).left(18).to_upper()], HORIZONTAL_ALIGNMENT_LEFT, -1, 26, Art.INK)
+			draw_string(big, rect.position + Vector2(100, 38), "P%d  %s" % [i + 1, str(c.name).left(18).to_upper()], HORIZONTAL_ALIGNMENT_LEFT, -1, UI.TYPE_LABEL, Art.INK)
 			var stats := [["KOs", str(c.get("kos", 0))], ["Falls", str(c.get("falls", 0))], ["Dealt", "%d%%" % int(c.get("dealt", 0.0))],
 				["Taken", "%d%%" % int(c.get("taken", 0.0))], ["Stocks", str(c.stocks)]]
 			var sx := rect.position.x + 100.0
 			for st in stats:
-				draw_string(f, Vector2(sx, rect.position.y + card_h - 42.0), st[0], HORIZONTAL_ALIGNMENT_LEFT, -1, 16, Color(Art.INK, 0.6))
-				draw_string(big, Vector2(sx, rect.position.y + card_h - 16.0), st[1], HORIZONTAL_ALIGNMENT_LEFT, -1, 28, Art.INK)
+				draw_string(f, Vector2(sx, rect.position.y + card_h - 42.0), st[0], HORIZONTAL_ALIGNMENT_LEFT, -1, UI.TYPE_CAPTION, Color(Art.INK, 0.6))
+				draw_string(big, Vector2(sx, rect.position.y + card_h - 16.0), st[1], HORIZONTAL_ALIGNMENT_LEFT, -1, UI.TYPE_LABEL, Art.INK)
 				sx += (rect.size.x - 124.0) / stats.size()
 		if r.note != "":
 			var band := Rect2(Vector2(w * 0.47, h - 152), Vector2(w * 0.5, 38))
 			draw_rect(band, Color(Art.INK, 0.78))
-			D.draw_text_centered(self, r.note, band, 20, Art.SUN)
+			D.draw_text_centered(self, r.note, band, UI.TYPE_BODY, Art.SUN)
 
 
 func _init() -> void:
@@ -112,6 +113,9 @@ func build(heading: String, cards: Array, choices: Array) -> void:
 		var stage := UI.Stage.new(Vector2(560, 470), 0.6, 13 + winner)
 		# (Its frame rimmed in the winner's colour.)
 		stage.rim = Color(PLAYER_COLORS[winner % 4], 0.9)
+		# (Its spotlight in the winner's own colour, not one warm pink for everyone: the UI pass, 2026-10-17.)
+		var pc: Color = PLAYER_COLORS[winner % 4]
+		stage.scene.colour = Color.from_hsv(pc.h, 0.5, 0.82)
 		stage.position = Vector2(40, 140)
 		add_child(stage)
 		preview = Preview.new(Vector2i(530, 438), false, 9.4)
@@ -122,13 +126,14 @@ func build(heading: String, cards: Array, choices: Array) -> void:
 		preview.body_at *= RESULTS_FRAME
 		preview.facing_bias = -0.5
 		preview.set_loadout(cards[winner].look)
+		_runner_up(cards)
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 16)
 	row.position = Vector2(560, 610)
 	add_child(row)
 	for c in choices:
 		var b := UI.Btn.new(c[0], Vector2(230, 64))
-		b.font_size = 26
+		b.font_size = UI.TYPE_LABEL
 		var action: String = c[1]
 		b.activated.connect(func(): chosen.emit(action))
 		row.add_child(b)
@@ -139,6 +144,31 @@ func build(heading: String, cards: Array, choices: Array) -> void:
 
 
 const RESULTS_FRAME := 1.15
+
+
+## In a one-on-one, the runner-up on a smaller stage of its own under the cards, dimmed and in its own colour, so the screen shows both
+## fighters, not one and an empty corner (with three or four players the cards fill that space).
+func _runner_up(cards: Array) -> void:
+	if order.size() != 2:
+		return
+	var i: int = order[1]
+	if not cards[i].has("look"):
+		return
+	var stage := UI.Stage.new(Vector2(300, 270), 0.2, 17 + i)
+	var pc: Color = PLAYER_COLORS[i % 4]
+	stage.rim = Color(pc, 0.7)
+	stage.scene.colour = Color.from_hsv(pc.h, 0.35, 0.6)
+	stage.position = Vector2(660, 318)
+	stage.modulate = RUNNER_UP_DIM
+	add_child(stage)
+	runner_up = Preview.new(Vector2i(270, 238), false, 9.4)
+	stage.add_fighter(runner_up)
+	runner_up.facing_bias = 0.5
+	runner_up.set_loadout(cards[i].look)
+
+
+## How far the runner-up's card is dimmed (it lost; the winner's card is the bright one).
+const RUNNER_UP_DIM := Color(0.8, 0.8, 0.86)
 
 
 func _process(delta: float) -> void:
