@@ -50,6 +50,13 @@ The detail behind each step follows.
 - [ ] Ship a build with everything since art 49 (canyon haze, city windows, pose atlas tool, anything below): export, desktop folder,
       zip, GitHub release (docs/STATUS.md and the desktop-build memory for the steps).
 
+## Input on slow machines (from the playtest prep, 17 Oct)
+- [ ] `InputReader` reads `Input.is_physical_key_pressed` in physics frames. When a slow render frame makes Godot run several
+      physics frames in a row, all of them see the same key state, so a quick tap can read as held for a frame or two, and a
+      press-and-release inside one render frame can be missed. Fix: latch presses from `_input` events, so every press counts for at
+      least one tick and a release ends it on the next one, then test with an artificially slow frame. The moveset session found
+      this with the input_e2e flake, which it fixed in the test (3f59215). Ask the playtesters about missed or "sticky" inputs.
+
 ## Run mode review (owner: "lacks the verticality and depth of Punch Quest")
 - [ ] Read `docs/modes/RUNNER_REVIEW.md` with the owner. Its proposed order is R2d verticality (three decks, vertical rooms, sure and
       skilled routes), R2e vertical combat and the node map, then R3, then R4a moving platforms and set pieces. Settle its four
