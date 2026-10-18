@@ -113,11 +113,13 @@ vec3 pf_calm_front(vec3 col, float depth) {
 	if (pf_front_calm.a <= 0.0 || depth < 0.0 || depth > 1000.0) {
 		return col;
 	}
+	// (Round 2's judge: tinting toward the haze washed the canyon's warm strata to mauve and the grove's roots to lavender. Now a light
+	// easing of saturation and contrast, and a darkening with depth that keeps each material's own hue, a touch cooler.)
 	float y = dot(col, vec3(0.3, 0.59, 0.11));
-	col = mix(col, vec3(y), 0.35 * pf_front_calm.a);
-	// (Contrast toward the middle: dark mortar and pale stones closer together.)
-	col = mix(col, vec3(y * 0.5 + 0.22), 0.3 * pf_front_calm.a);
-	return mix(col, pf_front_calm.rgb, pf_front_calm.a * 0.55 * smoothstep(0.8, 9.0, depth));
+	col = mix(col, vec3(y), 0.15 * pf_front_calm.a);
+	col = mix(col, vec3(y * 0.6 + 0.16), 0.18 * pf_front_calm.a);
+	float down = smoothstep(0.8, 9.0, depth) * pf_front_calm.a;
+	return col * mix(vec3(1.0), vec3(0.62, 0.64, 0.74), down);
 }
 
 

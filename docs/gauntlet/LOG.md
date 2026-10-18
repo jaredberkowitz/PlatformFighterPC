@@ -17,3 +17,20 @@ high-contrast tiling patterns filling the bottom third of every frame; (2) the p
 benchmark's scale cues (broad value variation, wear, a calm scatter breaking the lip) or soft contact under props.
 Later: city values (roof vs towers, string lights casting light); background scale (beach town, grove trunk, meadow mountains,
 canyon arch into haze); repetition (grove moss blobs, city window grids).
+
+## Round 2 (2026-10-18, after round 1's fixes, commit 04d5ed9)
+
+| Stage | Believ. | Cohesion | Lighting | Depth | Ground | Clarity | Mean |
+|---|---|---|---|---|---|---|---|
+| Meadow | 2 | 3 | 3 | 3 | 2 | 3 | 2.7 |
+| Canyon | 3 | 4 | 3 | 3 | 3 | 4 | 3.3 |
+| Beach | 3 | 3 | 3 | 3 | 3 | 3 | 3.0 |
+| City | 2 | 3 | 2 | 2 | 2 | 3 | 2.3 |
+| Grove | 2 | 3 | 3 | 3 | 3 | 3 | 2.8 |
+
+Changed: fronts calmer (meadow, canyon, grove); the beach deck's worn planks the best result (Ground 3); but the haze fade washed hue
+(canyon strata mauve, grove roots lavender), the meadow path near invisible, the grove's a stripe. Ink still the biggest style
+mismatch (deferred to the F10 playtest). Gaps: (1) no light structure on stage bodies: value darkening keeping hue, a soft band
+under each top's lip, contact under props, the city's roof lighter than its towers with warm pools from its lights; (2) background
+layers fight the play layer (beach town, grove trunk, canyon arch, meadow mountains). Later: worn paths as patches; repetition
+(cobbles, moss, windows); trestle posts varied with a waterline band.

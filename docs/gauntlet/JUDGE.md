@@ -9,6 +9,8 @@ compare across rounds.
 - `papercraft_reference.webp`: the papercraft adventure (the style benchmark): soft high-key light, pale large surfaces with saturated
   accents, no ink on scenery, crisp lit edges.
 - The big crossover fighter's stages (from memory): a clear readable play area framed by a calm, layered background.
+- Per stage: `STAGE_REFERENCES.md` (the owner's harbour and city references, described, with the images when added). Judge the beach
+  against the harbour reference and the city against the city reference first, then the general benchmarks.
 
 **What is judged:** the round's match-camera captures of each stage, `docs/gauntlet/round<N>/stage<k>.png` (0 meadow, 1 canyon,
 2 beach, 3 city, 4 grove). The fighters, UI and effects are not judged here.

@@ -2126,7 +2126,7 @@ const RIDGES := {
 	"meadow": [{"z": -170.0, "y": -50.0, "height": 88.0, "shape": 1, "seed": 3.0, "base": 0.32, "amplitude": 0.6, "frequency": 5.6,
 		# (More of its own blue and less haze, art review 6 round 31: at mix 0.55 the ridge was mostly horizon colour, a formless pale band
 		# behind the crisp painted hills; found with `--pick`.)
-		"tone": Color(0.2, 0.62, 0.6), "mix": 0.85, "edge": 0.3, "haze": 0.24,
+		"tone": Color(0.2, 0.62, 0.6), "mix": 0.85, "edge": 0.3, "haze": 0.36,
 		# (Teal, not blue: the owner's Origami King reference sets bright lime ground against cool teal mountains.)
 		# (A lit flank and a shaded flank on every peak, as the canyon's mesas have: a flat blue cut-out read as the least finished
 		# thing on the menu; the owner, 2026-10-17, raise the quality of what is there.)
@@ -2134,7 +2134,7 @@ const RIDGES := {
 		# A nearer, lower range in front, deeper teal and less hazed, casting its shadow on the far one: the backdrop as cut cards in layers
 		# with air between them, not one soft band (art review 9).
 		{"z": -140.0, "y": -36.0, "height": 62.0, "shape": 1, "seed": 9.0, "base": 0.4, "amplitude": 0.5, "frequency": 7.0,
-		"tone": Color(0.1, 0.38, 0.42), "mix": 0.95, "edge": 0.5, "haze": 0.08, "flank": 0.75, "foot_dark": 0.4, "layers": 3,
+		"tone": Color(0.1, 0.38, 0.42), "mix": 0.95, "edge": 0.5, "haze": 0.16, "flank": 0.75, "foot_dark": 0.4, "layers": 3,
 		"flank_from": 0.0, "gullies": 0.6, "paper": 0.05, "edge_width": 0.016, "shadow": 0.5}],
 	"grove": [{"z": -165.0, "y": -34.0, "height": 52.0, "shape": 0, "seed": 8.0, "base": 0.5, "amplitude": 0.32, "frequency": 3.5,
 		"tone": Color(0.5, 0.5, 0.84), "mix": 0.7, "edge": 0.3, "flank": 0.6, "foot_dark": 0.3, "layers": 4, "flank_from": 0.0, "gullies": 0.6,
@@ -4568,7 +4568,8 @@ static func _tree(root: Node3D, base: Vector3, size: float, rng: RandomNumberGen
 	# (Broad plates, art review 6 round 28: repeated five times round the trunk the furrows were a busy fine pinstripe beside the
 	# foreground's few broad soft forms.)
 	# (Browner and darker, art review 9: the pinkish bark was the earth's own hue, so tree and island ran together.)
-	var bark := Materials.bark(Color(0.5, 0.34, 0.24), Vector2(2.5, 2))
+	# (A step darker and cooler, the gauntlet's round 2: the trunk right behind the stage's middle competed with the fight.)
+	var bark := Materials.bark(Color(0.42, 0.3, 0.26), Vector2(2.5, 2))
 	_mesh(root, trunk_mesh(trunk_h, 2.9 * size, 2.0 * size, 0.7 * size, 1.4 * size, 0.09), bark, base)
 	for k in 6:
 		var a := -1.25 + k * 0.5
@@ -5396,7 +5397,8 @@ static func _warehouse(root: Node3D, at: Vector3) -> void:
 static func _harbour_town(root: Node3D, water: float) -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 2718
-	var base := Vector3(-62.0, water, -78.0)
+	# (Further back and out, the gauntlet's round 2: nearer, the town was the biggest, most saturated thing in the corner of the frame.)
+	var base := Vector3(-66.0, water, -100.0)
 	# The headland: a broad rise of land behind the quay.
 	# (Deeper and less blue, art review 9: through the haze the paler green turned the faceted headland glassy.)
 	# (A step deeper again, 2026-10-18: still the brightest flat shape behind the fight.)
