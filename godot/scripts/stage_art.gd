@@ -429,6 +429,16 @@ static func _soil_material(t: Dictionary) -> ShaderMaterial:
 			# flower pot on the sill), striped awnings over two, an air conditioner hung under one, and a drainpipe down the seam. (It was
 			# a flat grid of narrow windows on panels; a wall a fighter stands over the whole match needs a building's details.)
 			body += '<rect width="512" height="512" fill="#%s"/>' % A
+			# (Depth on every piece, 2026-10-18, the owner: the windows, doors and the pink sign strips read flat. The light comes from the
+			# upper left, so frames are lit on their top and left edges and shaded on the others, glass sits back in its frame under an
+			# inner shadow, lit rooms are brightest at the top, and what stands out from the wall casts a soft shadow down and right.)
+			body += '<defs>'
+			body += '<linearGradient id="room" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffe7b0"/><stop offset="1" stop-color="#d9a868"/></linearGradient>'
+			body += '<linearGradient id="dark" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3a4060"/><stop offset="1" stop-color="#1e2236"/></linearGradient>'
+			body += '<linearGradient id="tube" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#a8323a"/><stop offset="0.35" stop-color="#f07078"/><stop offset="0.6" stop-color="#e2525a"/><stop offset="1" stop-color="#8a2830"/></linearGradient>'
+			body += '<radialGradient id="bulb" cx="0.38" cy="0.35" r="0.7"><stop offset="0" stop-color="#ffffff"/><stop offset="0.5" stop-color="#fff2d8"/><stop offset="1" stop-color="#e8b880"/></radialGradient>'
+			body += '<linearGradient id="fold" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#000000" stop-opacity="0.28"/><stop offset="0.5" stop-color="#000000" stop-opacity="0"/><stop offset="1" stop-color="#ffffff" stop-opacity="0.18"/></linearGradient>'
+			body += '</defs>'
 			var brick_line := a.darkened(0.18).to_html(false)
 			for by in range(0, 512, 16):
 				body += '<rect x="0" y="%d" width="512" height="2" fill="#%s" opacity="0.45"/>' % [by, brick_line]
@@ -442,7 +452,9 @@ static func _soil_material(t: Dictionary) -> ShaderMaterial:
 				var fy := floor_k * 128
 				# The ledge at the foot of the floor.
 				body += '<rect x="0" y="%d" width="512" height="12" fill="#%s"/>' % [fy + 116, hi]
+				body += '<rect x="0" y="%d" width="512" height="3" fill="#ffffff" opacity="0.25"/>' % [fy + 116]
 				body += '<rect x="0" y="%d" width="512" height="3" fill="#%s" opacity="0.6"/>' % [fy + 125, ink]
+				body += '<rect x="0" y="%d" width="512" height="6" fill="#000000" opacity="0.14"/>' % [(fy + 128) % 512]
 				for bay in FACADE_BAYS:
 					var wx: int = bay[0]
 					var w: int = bay[1]
@@ -450,24 +462,36 @@ static func _soil_material(t: Dictionary) -> ShaderMaterial:
 					if w == 0:
 						# The pier: a vertical blade sign across the middle two floors, else a small vent.
 						if floor_k == 1:
-							body += '<rect x="%d" y="%d" width="30" height="200" rx="5" fill="#%s" stroke="#%s" stroke-width="3"/>' % [wx - 15, fy + 30, awn[0], ink]
+							body += '<rect x="%d" y="%d" width="30" height="200" rx="6" fill="#000000" opacity="0.22"/>' % [wx - 9, fy + 36]
+							body += '<rect x="%d" y="%d" width="30" height="200" rx="5" fill="url(#tube)" stroke="#%s" stroke-width="3"/>' % [wx - 15, fy + 30, ink]
 							for g in 5:
-								body += '<circle cx="%d" cy="%d" r="7" fill="#f4efe6"/>' % [wx, fy + 56 + g * 36]
+								body += '<circle cx="%d" cy="%d" r="8" fill="#000000" opacity="0.25"/>' % [wx + 1, fy + 58 + g * 36]
+								body += '<circle cx="%d" cy="%d" r="7" fill="url(#bulb)"/>' % [wx, fy + 56 + g * 36]
 						elif floor_k != 2:
 							body += '<rect x="%d" y="%d" width="22" height="16" fill="#5c5e70" stroke="#%s" stroke-width="2"/>' % [wx - 11, fy + 50, ink]
 						continue
 					var lit := rng.randf() < 0.34
+					# The frame stands out from the wall: its shadow down and right, then the frame lit on its top and left edges.
+					body += '<rect x="%d" y="%d" width="%d" height="88" rx="4" fill="#000000" opacity="0.18"/>' % [wx - 2, wy - 2, w + 12]
 					body += '<rect x="%d" y="%d" width="%d" height="88" rx="4" fill="#%s" stroke="#%s" stroke-width="3"/>' % [wx - 6, wy - 6, w + 12, frame_col, ink]
-					body += '<rect x="%d" y="%d" width="%d" height="76" fill="#%s"/>' % [wx, wy, w, "f2d394" if lit else "2a2f45"]
+					body += '<path d="M%d,%d l0,-82 l%d,0" fill="none" stroke="#ffffff" stroke-width="2.5" opacity="0.45"/>' % [wx - 3, wy + 79, w + 6]
+					body += '<path d="M%d,%d l0,82 l%d,0" fill="none" stroke="#000000" stroke-width="2.5" opacity="0.22"/>' % [wx + w + 3, wy - 3, -(w + 6)]
+					body += '<rect x="%d" y="%d" width="%d" height="76" fill="url(#%s)"/>' % [wx, wy, w, "room" if lit else "dark"]
 					if lit:
 						var cc: String = curtain[rng.randi_range(0, 2)]
 						body += '<path d="M%d,%d l16,0 q-6,38 -16,76 Z" fill="#%s" opacity="0.9"/>' % [wx, wy, cc]
 						body += '<path d="M%d,%d l-16,0 q6,38 16,76 Z" fill="#%s" opacity="0.9"/>' % [wx + w, wy, cc]
 					else:
 						body += '<path d="M%d,%d l14,0 l-14,22 Z" fill="#ffffff" opacity="0.12"/>' % [wx + 6, wy + 4]
+					# The glass sits back in the frame: an inner shadow along its top and left.
+					body += '<rect x="%d" y="%d" width="%d" height="9" fill="#000000" opacity="0.3"/>' % [wx, wy, w]
+					body += '<rect x="%d" y="%d" width="6" height="67" fill="#000000" opacity="0.22"/>' % [wx, wy + 9]
 					body += '<rect x="%d" y="%d" width="4" height="76" fill="#%s"/>' % [wx + w / 2 - 2, wy, frame_col]
 					body += '<rect x="%d" y="%d" width="%d" height="4" fill="#%s"/>' % [wx, wy + 34, w, frame_col]
+					# The sill: lit on top, its shadow on the wall under it.
+					body += '<rect x="%d" y="%d" width="%d" height="7" fill="#000000" opacity="0.2"/>' % [wx - 6, wy + 88, w + 16]
 					body += '<rect x="%d" y="%d" width="%d" height="8" rx="2" fill="#%s" stroke="#%s" stroke-width="2" stroke-opacity="0.5"/>' % [wx - 8, wy + 80, w + 16, hi, ink]
+					body += '<rect x="%d" y="%d" width="%d" height="2" fill="#ffffff" opacity="0.35"/>' % [wx - 6, wy + 81, w + 12]
 					var extra := rng.randf()
 					if extra < 0.2:
 						# A flower pot on the sill.
@@ -486,6 +510,8 @@ static func _soil_material(t: Dictionary) -> ShaderMaterial:
 							body += '<rect x="%d" y="%d" width="15" height="16" fill="#%s"/>' % [wx - 10 + st_k * 15, wy - 22, ac if st_k % 2 == 0 else "f4efe6"]
 						for sc in stripes:
 							body += '<circle cx="%d" cy="%d" r="7.5" fill="#%s"/>' % [wx - 2 + sc * 15, wy - 6, ac if sc % 2 == 0 else "f4efe6"]
+						body += '<rect x="%d" y="%d" width="%d" height="16" fill="url(#fold)"/>' % [wx - 10, wy - 22, stripes * 15]
+						body += '<rect x="%d" y="%d" width="%d" height="8" fill="#000000" opacity="0.2"/>' % [wx - 4, wy + 2, stripes * 15 - 6]
 						body += '<rect x="%d" y="%d" width="%d" height="3" fill="#%s" opacity="0.5"/>' % [wx - 10, wy - 23, stripes * 15, ink]
 			# A drainpipe down the tile's seam, with brackets.
 			body += '<rect x="2" y="0" width="10" height="512" fill="#7d7f92" stroke="#%s" stroke-width="2" stroke-opacity="0.6"/>' % ink
@@ -3761,9 +3787,7 @@ static func _street_furniture(root: Node3D, y: float, front: float) -> void:
 		var w := 7.0 + 2.0 * float(k % 3)
 		var cx := x + w * 0.5
 		# (Each shop its own, 2026-10-17, the owner: the shops were basic shapes in one repeated pattern. Pilasters either side, a stall riser
-		# under the window, goods on display behind the glass, a glazed door, a sign with lettering, and a built awning.)
-		var shop := RandomNumberGenerator.new()
-		shop.seed = 500 + k
+		# under the window, a panelled door, a sign and a built awning; glass and door with depth, not flat fills, 2026-10-18.)
 		var wall_c: Color = Color(0.26, 0.2, 0.34).lerp([Color(0.36, 0.22, 0.26), Color(0.22, 0.24, 0.36), Color(0.3, 0.26, 0.24)][k % 3], 0.5)
 		_mesh(root, _box(Vector3(w - 0.4, 3.2, 0.2)), FighterView.toon(wall_c), Vector3(cx, y + 1.85, shop_z))
 		var pil := FighterView.toon(wall_c.lightened(0.18))
@@ -3773,19 +3797,7 @@ static func _street_furniture(root: Node3D, y: float, front: float) -> void:
 		var pane: Color = glows[k % glows.size()]
 		var win_w := w * 0.6
 		var win_x := cx - w * 0.13
-		_mesh(root, _box(Vector3(win_w, 2.0, 0.1)), _unshaded(pane), Vector3(win_x, y + 1.75, shop_z + 0.12))
-		# Goods on display: a shelf and a few shapes in silhouette against the light (jars, boxes, a plant).
-		var goods := _unshaded(pane.darkened(0.55).lerp(Color(0.3, 0.2, 0.36), 0.4))
-		_mesh(root, _box(Vector3(win_w - 0.2, 0.06, 0.06)), goods, Vector3(win_x, y + 1.6, shop_z + 0.15))
-		var gx := win_x - win_w * 0.5 + 0.35
-		while gx < win_x + win_w * 0.5 - 0.3:
-			var gw := shop.randf_range(0.18, 0.4)
-			var gh := shop.randf_range(0.2, 0.55)
-			_mesh(root, _box(Vector3(gw, gh, 0.06)), goods, Vector3(gx, y + 1.63 + gh * 0.5, shop_z + 0.15))
-			if shop.randf() < 0.6:
-				var lh := shop.randf_range(0.15, 0.35)
-				_mesh(root, _box(Vector3(gw * 0.8, lh, 0.06)), goods, Vector3(gx + 0.05, y + 0.95 + lh * 0.5, shop_z + 0.15))
-			gx += gw + shop.randf_range(0.12, 0.35)
+		_glass(root, Vector2(win_w, 2.0), pane, Vector3(win_x, y + 1.75, shop_z + 0.175))
 		# The stall riser under the window, panelled.
 		var riser := FighterView.toon(wall_c.lightened(0.08))
 		_mesh(root, _box(Vector3(win_w + 0.1, 0.6, 0.16)), riser, Vector3(win_x, y + 0.45, shop_z + 0.14))
@@ -3801,25 +3813,65 @@ static func _street_furniture(root: Node3D, y: float, front: float) -> void:
 		var dx := cx + w * 0.32
 		var door_c: Color = [Color(0.5, 0.3, 0.26), Color(0.24, 0.4, 0.42), Color(0.46, 0.38, 0.22), Color(0.36, 0.28, 0.46)][k % 4]
 		_mesh(root, _box(Vector3(1.25, 2.55, 0.12)), FighterView.toon(wall_c.darkened(0.2)), Vector3(dx, y + 1.42, shop_z + 0.12))
-		_mesh(root, _box(Vector3(1.05, 2.4, 0.1)), FighterView.toon(door_c), Vector3(dx, y + 1.35, shop_z + 0.16))
-		_mesh(root, _box(Vector3(0.7, 1.0, 0.06)), _unshaded(pane.darkened(0.12)), Vector3(dx, y + 1.85, shop_z + 0.22))
+		_door_face(root, Vector2(1.05, 2.4), door_c, Vector3(dx, y + 1.35, shop_z + 0.185))
 		_mesh(root, _box(Vector3(0.08, 0.08, 0.12)), FighterView.respond(FighterView.toon(Color(0.9, 0.78, 0.4)), "gold"), Vector3(dx + 0.36, y + 1.2, shop_z + 0.25))
 		# The awning (`_awning`): a canopy of stripes, each sagging a little, over a valance with a scalloped or straight hem.
 		var pair: Array = awnings[k % awnings.size()]
 		_awning(root, x + 0.15, x + w - 0.15, y + 3.75, shop_z + 0.22, pair[0], pair[1], 1.35, k % 2 == 0)
-		# The sign over it: a board with a lit edge and lettering in the shop's colour.
+		# The sign over it: a lit panel in a dark frame.
 		var sign_c: Color = (glows[(k + 2) % glows.size()] as Color).lerp(Color.WHITE, 0.2)
 		var sw := w * 0.5
 		_mesh(root, _box(Vector3(sw + 0.16, 0.76, 0.1)), FighterView.toon(wall_c.darkened(0.25)), Vector3(cx, y + 4.3, shop_z + 0.1))
-		_mesh(root, _box(Vector3(sw, 0.6, 0.1)), _unshaded(sign_c), Vector3(cx, y + 4.3, shop_z + 0.14))
-		var letters := 3 + k % 4
-		var lw := sw * 0.8 / letters
-		var ink := _unshaded((pair[0] as Color).darkened(0.35))
-		for li in letters:
-			var lx := cx - sw * 0.4 + (li + 0.5) * lw
-			_mesh(root, _box(Vector3(lw * 0.62, 0.34, 0.04)), ink, Vector3(lx, y + 4.3, shop_z + 0.2))
+		_glass(root, Vector2(sw, 0.6), sign_c, Vector3(cx, y + 4.3, shop_z + 0.2))
 		x += w
 		k += 1
+
+
+const LIT_GLASS := preload("res://shaders/lit_glass.gdshader")
+static var _glass_cache := {}
+static var _door_tex: Texture2D
+
+
+## A lit pane of glass `size` (width, height) centred at `at`, facing the street (+z): the room's light falling off down the pane, an inner
+## shadow under its frame, a faint sheen (shaders/lit_glass.gdshader). One material per colour.
+static func _glass(root: Node3D, size: Vector2, colour: Color, at: Vector3) -> MeshInstance3D:
+	var key := colour.to_html()
+	if not _glass_cache.has(key):
+		var m := ShaderMaterial.new()
+		m.shader = LIT_GLASS
+		m.set_shader_parameter("colour", colour)
+		_glass_cache[key] = m
+	var q := QuadMesh.new()
+	q.size = size
+	var mi := _mesh(root, q, _glass_cache[key], at)
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	return mi
+
+
+## A door's face (a quad, `size`, centred at `at`, facing +z) in `colour`: stiles and rails round two recessed panels, each panel lit along
+## its lower and right bevels and shaded along its upper and left ones (it sits back under the light from the upper left), so the door has
+## depth instead of being a flat board. A grey value tile multiplied by the colour, on the cel shading.
+static func _door_face(root: Node3D, size: Vector2, colour: Color, at: Vector3) -> MeshInstance3D:
+	if _door_tex == null:
+		var svg := '<svg xmlns="http://www.w3.org/2000/svg" width="128" height="256" viewBox="0 0 128 256"><rect width="128" height="256" fill="#e6e6e6"/>'
+		for p in [[18, 16, 92, 92], [18, 132, 92, 108]]:
+			var x: int = p[0]
+			var y: int = p[1]
+			var w: int = p[2]
+			var h: int = p[3]
+			svg += '<rect x="%d" y="%d" width="%d" height="%d" fill="#c4c4c4"/>' % [x, y, w, h]
+			svg += '<path d="M%d,%d l%d,0 l-8,8 l%d,0 l0,%d l-8,8 Z" fill="#8a8a8a"/>' % [x, y, w, -(w - 16), h - 16]
+			svg += '<path d="M%d,%d l0,%d l-%d,0 l8,-8 l%d,0 l0,-%d Z" fill="#f6f6f6"/>' % [x + w, y, h, w, w - 16, h - 16]
+			svg += '<rect x="%d" y="%d" width="%d" height="%d" fill="#bdbdbd"/>' % [x + 8, y + 8, w - 16, h - 16]
+		svg += '<rect x="0" y="0" width="5" height="256" fill="#ffffff" opacity="0.5"/><rect x="123" y="0" width="5" height="256" fill="#000000" opacity="0.25"/>'
+		svg += '</svg>'
+		var img := Image.new()
+		img.load_svg_from_string(svg, 1.0)
+		img.generate_mipmaps()
+		_door_tex = ImageTexture.create_from_image(img)
+	var q := QuadMesh.new()
+	q.size = size
+	return _mesh(root, q, FighterView.toon(colour, false, _door_tex), at)
 
 
 ## A shop awning from `x0` to `x1`, its top against the wall at `top` (depth `z`), reaching `reach` out over the pavement: a canopy of
@@ -3877,14 +3929,15 @@ static func _awning(root: Node3D, x0: float, x1: float, top: float, z: float, a:
 ## window either side of a door, under a striped awning, and a sign over it.
 static func _shopfront(root: Node3D, cx: float, width: float, y: float, front: float) -> void:
 	var frame := FighterView.toon(Color(0.3, 0.22, 0.34))
-	var lit := _unshaded(Color(0.9, 0.76, 0.52))
 	_mesh(root, _box(Vector3(width, 3.4, 0.2)), frame, Vector3(cx, y + 1.95, front))
+	# (Glass with a room behind it and a panelled door, not flat fills: the owner, 2026-10-18.)
 	for side in [-1.0, 1.0]:
-		_mesh(root, _box(Vector3(width * 0.32, 2.2, 0.1)), lit, Vector3(cx + side * width * 0.27, y + 1.75, front + 0.12))
-	_mesh(root, _box(Vector3(1.4, 2.6, 0.1)), _unshaded(Color(0.62, 0.42, 0.3)), Vector3(cx, y + 1.55, front + 0.12))
+		_mesh(root, _box(Vector3(width * 0.32 + 0.16, 2.36, 0.1)), FighterView.toon(Color(0.3, 0.22, 0.34).darkened(0.25)), Vector3(cx + side * width * 0.27, y + 1.75, front + 0.1))
+		_glass(root, Vector2(width * 0.32, 2.2), Color(0.9, 0.76, 0.52), Vector3(cx + side * width * 0.27, y + 1.75, front + 0.16))
+	_door_face(root, Vector2(1.4, 2.6), Color(0.62, 0.42, 0.3), Vector3(cx, y + 1.55, front + 0.13))
 	# The awning: a canopy of stripes over a scalloped valance (`_awning`), tipped out over the pavement.
 	_awning(root, cx - width / 2.0, cx + width / 2.0, y + 3.8, front + 0.1, Color(0.92, 0.34, 0.42), Color(0.98, 0.94, 0.9), 1.5, true)
-	_mesh(root, _box(Vector3(width * 0.4, 0.8, 0.12)), _unshaded(Color(0.98, 0.5, 0.74)), Vector3(cx, y + 4.4, front + 0.14))
+	_glass(root, Vector2(width * 0.4, 0.8), Color(0.98, 0.5, 0.74), Vector3(cx, y + 4.4, front + 0.2))
 	_halo(root, Vector3(cx, y + 1.8, front + 0.8), Color(1.0, 0.8, 0.5), width * 0.35)
 
 
