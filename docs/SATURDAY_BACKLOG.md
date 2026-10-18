@@ -43,6 +43,12 @@ meadow, so richer backgrounds lift both): per stage, a nearer mid-ground layer o
 layers (buildings, trees, mesas, sea features), small life (birds, boats, lit windows, drifting leaves), and the menu backdrop's
 own dressing; judged against the competitors with the refinement loop's before/after captures.
 
+Phase 4b notes (2026-10-17): the owner's rule is to raise the quality of what is there, not add new things (the beach coastline and
+field life were reverted). Reference: a Wind Waker HD frame (trees as distinct leaf clumps, bright yellow-green lit and deep blue-green
+below, toothed leafy edges; soft painted grass). Done: round-tree crowns in lit/body/deep lobes; meadow and grove mountain flanks lit.
+Found: the pale band across the meadow and menu is the mountain ridge washed out by post.gdshader's distance haze (not the mist or the
+sky); fixing it means exempting the ridge from that haze or lowering haze_max for the meadow.
+
 **Phase 5: rendering trials (Tooling review section)**
 9. ACES vs Filmic per stage, a light scenery SSAO A/B; keep only what wins on the look bench and the owner's eye.
 

@@ -1400,7 +1400,7 @@ const CROWN_CARD_GROWTH := 1.35
 
 
 static func _leaf_cards(parent: Node3D, masses: Array, greens: Array, card: float, _stage_rng: RandomNumberGenerator,
-		tile := "leaf_cluster", rooted := false, core: Material = null) -> MultiMeshInstance3D:
+		tile := "leaf_cluster", rooted := false, core: Material = null, core_tiers: Array = []) -> MultiMeshInstance3D:
 	# Its own random numbers, seeded from where it is, so adding the cards leaves the rest of the stage's layout as it was.
 	var rng := RandomNumberGenerator.new()
 	rng.seed = hash(str(masses[0][0]) + tile)
@@ -1426,10 +1426,31 @@ static func _leaf_cards(parent: Node3D, masses: Array, greens: Array, card: floa
 	var ball := _sphere(1.0, 14)
 	if core != null:
 		cores = SurfaceTool.new()
+	# With `core_tiers` (deep, body, sunlit materials) each clump takes the tier its height in the crown gives it, low clumps in the deep
+	# green and high ones sunlit, so the crown reads as separate leaf masses in light and shade (the owner's Wind Waker HD reference,
+	# 2026-10-17) rather than one green blob.
+	var tier_tools: Array = []
+	for _t in core_tiers:
+		tier_tools.append(SurfaceTool.new())
+	var lo_y := INF
+	var hi_y := -INF
+	var biggest := 0.0
+	for m in masses:
+		biggest = maxf(biggest, float(m[1]))
+	for m in masses:
+		lo_y = minf(lo_y, (m[0] as Vector3).y)
+		hi_y = maxf(hi_y, (m[0] as Vector3).y + float(m[1]) * 0.3)
 	for m in masses:
 		var centre: Vector3 = m[0]
 		var radius: float = m[1]
-		if cores != null:
+		if not tier_tools.is_empty():
+			var up := clampf((centre.y + radius * 0.3 - lo_y) / maxf(0.01, hi_y - lo_y), 0.0, 1.0)
+			# (The biggest mass is the body, whatever its height: only the clumps round it go deep or sunlit.)
+			var tier := clampi(int(up * float(tier_tools.size()) - 0.15), 0, tier_tools.size() - 1)
+			if radius >= biggest * 0.99:
+				tier = mini(1, tier_tools.size() - 1)
+			(tier_tools[tier] as SurfaceTool).append_from(ball, 0, Transform3D(Basis.IDENTITY.scaled(Vector3.ONE * radius), centre))
+		elif cores != null:
 			cores.append_from(ball, 0, Transform3D(Basis.IDENTITY.scaled(Vector3.ONE * radius * (0.82 if rooted else 1.0)), centre))
 		for k in (int(float(m[2]) * share) if not rooted else maxi(1, int(m[2]))):
 			# A direction out from the middle, mostly toward the front (the back of a crown is never seen), placed about its surface.
@@ -1450,7 +1471,18 @@ static func _leaf_cards(parent: Node3D, masses: Array, greens: Array, card: floa
 			var light := clampf(0.45 + dir.y * 0.3 + dir.z * 0.3 + rng.randf_range(-0.15, 0.15), 0.0, 0.999)
 			mm.set_instance_color(i, greens[1 + int(light * 1.999)] if not rooted else greens[rng.randi_range(0, greens.size() - 1)])
 			i += 1
-	if cores != null:
+	for ti in tier_tools.size():
+		var tc := MeshInstance3D.new()
+		tc.mesh = (tier_tools[ti] as SurfaceTool).commit()
+		if tc.mesh == null or (tc.mesh as ArrayMesh).get_surface_count() == 0:
+			continue
+		var tm := (core_tiers[ti] as ShaderMaterial).duplicate() as ShaderMaterial
+		tm.set_shader_parameter("ramp_softness", 0.08)
+		tm.set_shader_parameter("shadow_amount", 0.78)
+		tm.set_shader_parameter("rim_strength", 0.5)
+		tc.material_override = tm
+		parent.add_child(tc)
+	if cores != null and tier_tools.is_empty():
 		var c := MeshInstance3D.new()
 		c.mesh = cores.commit()
 		# A crown takes the light the way a painted tree does: a crisp step from its lit top into a deep, cool underside, a warm rim.
@@ -2827,16 +2859,18 @@ static func _round_tree(root: Node3D, at: Vector3, size: float, rng: RandomNumbe
 	# round blob), and two branches forking from the top of the trunk up into it, seen in the gaps between the clumps.
 	for j in 4:
 		var ang := own.randf_range(0.0, TAU)
-		var reach := big * own.randf_range(0.75, 0.95)
+		# (Further out and larger, so each stands out of the crown as its own lobe in light or shade: the owner's Wind Waker HD reference.)
+		var reach := big * own.randf_range(0.95, 1.15)
 		masses.append([Vector3(cos(ang) * reach, 1.4 + sin(ang) * reach * 0.7, own.randf_range(0.2, 0.7)) * size,
-			own.randf_range(0.7, 0.95) * size, 12])
+			own.randf_range(0.85, 1.1) * size, 12])
 	var bark := Materials.bark_plates(Color(0.56, 0.37, 0.22), Vector2(1, 1))
 	for sx in [-1.0, 1.0]:
 		var tilt: float = sx * own.randf_range(28.0, 40.0)
 		var length := own.randf_range(1.1, 1.5) * size
 		_mesh(crown, _cylinder(0.08 * size, 0.15 * size, length, 6), bark,
 			Vector3(-sin(deg_to_rad(tilt)) * length * 0.5, length * 0.4, 0.3 * size), Vector3.ONE, Vector3(0, 0, tilt))
-	_leaf_cards(crown, masses, greens, 1.6 * size, rng, "leaf_cluster", false, Materials.foliage(greens[1], Vector2(3, 2), true))
+	_leaf_cards(crown, masses, greens, 1.6 * size, rng, "leaf_cluster", false, Materials.foliage(greens[1], Vector2(3, 2), true),
+		[Materials.foliage(greens[0], Vector2(3, 2), true), Materials.foliage(greens[1], Vector2(3, 2), true), Materials.foliage(greens[2].lerp(greens[3], 0.4), Vector2(3, 2), true)])
 
 
 static func _flowers(root: Node3D, e: Array, rng: RandomNumberGenerator, colors: Array) -> void:
