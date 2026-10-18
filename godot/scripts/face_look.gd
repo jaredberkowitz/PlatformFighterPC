@@ -56,19 +56,22 @@ const CHEEK_SIZE := 0.2
 ## Expressions: the player's face with its lids, brows, pupils and mouth changed. `lids` is (top, slope, lower) as in the shader;
 ## `eyes` swaps the eyes for shut or spiral ones; `mouth` for one of the expression mouths; `brow_turn` (radians, raising the outer
 ## ends: angry) and `brow_lift` move the brows; `pupil` and `scale` resize the pupils and the eyes; `look` is how far the pupils look ahead.
+## (Art review 10, refining how they are applied: `brows` is the brow an expression borrows from BROWS when the face has none, so the
+## brows' turn reads on the concept's browless face (the calm faces stay browless); `mouth_scale` draws an action mouth larger, so a yell
+## or a wince reads at play size rather than as a speck.)
 const EXPRESSIONS := {
 	"deadpan": {},
 	"sleepy": {"lids": Vector3(0.55, 0.0, 0.0), "brow_lift": -0.01},
-	"grumpy": {"lids": Vector3(0.36, 0.28, 0.0), "brow_turn": 0.3, "brow_lift": -0.02},
-	"smug": {"lids": Vector3(0.22, 0.0, 0.32), "brow_turn": -0.12},
+	"grumpy": {"lids": Vector3(0.36, 0.28, 0.0), "brow_turn": 0.3, "brow_lift": -0.02, "brows": 3},
+	"smug": {"lids": Vector3(0.22, 0.0, 0.32), "brow_turn": -0.12, "brows": 3},
 	"blink": {"eyes": "blink"},
-	"happy": {"eyes": "happy", "mouth": "x_happy", "brow_lift": 0.015},
-	"focus": {"lids": Vector3(0.24, 0.17, 0.0), "mouth": "x_focus", "brow_turn": 0.2, "brow_lift": -0.01},
-	"attack": {"lids": Vector3(0.3, 0.38, 0.0), "pupil": 0.85, "mouth": "x_attack", "brow_turn": 0.4, "brow_lift": -0.025},
-	"effort": {"eyes": "effort", "mouth": "x_effort", "brow_turn": 0.35, "brow_lift": -0.03},
-	"hurt": {"eyes": "hurt", "mouth": "x_hurt", "brow_turn": -0.35, "brow_lift": 0.01},
-	"shock": {"scale": 1.08, "pupil": 0.55, "look": 0.0, "mouth": "x_shock", "brow_lift": 0.03},
-	"dazed": {"eyes": "dazed", "mouth": "x_dazed", "brow_turn": -0.25},
+	"happy": {"eyes": "happy", "mouth": "x_happy", "brow_lift": 0.015, "mouth_scale": 1.3},
+	"focus": {"lids": Vector3(0.24, 0.17, 0.0), "mouth": "x_focus", "brow_turn": 0.2, "brow_lift": -0.01, "brows": 3, "mouth_scale": 1.2},
+	"attack": {"lids": Vector3(0.3, 0.38, 0.0), "pupil": 0.85, "mouth": "x_attack", "brow_turn": 0.4, "brow_lift": -0.025, "brows": 3, "mouth_scale": 1.7},
+	"effort": {"eyes": "effort", "mouth": "x_effort", "brow_turn": 0.35, "brow_lift": -0.03, "brows": 3, "mouth_scale": 1.6},
+	"hurt": {"eyes": "hurt", "mouth": "x_hurt", "brow_turn": -0.35, "brow_lift": 0.01, "brows": 3, "mouth_scale": 1.5},
+	"shock": {"scale": 1.08, "pupil": 0.55, "look": 0.0, "mouth": "x_shock", "brow_lift": 0.03, "mouth_scale": 1.5},
+	"dazed": {"eyes": "dazed", "mouth": "x_dazed", "brow_turn": -0.25, "mouth_scale": 1.2},
 }
 ## Which expressions shut the eyes (1) or put a spiral in them (2).
 const SHUT := {"blink": 1, "happy": 1, "effort": 1, "hurt": 1, "dazed": 2}
@@ -117,7 +120,7 @@ static func apply(mat: ShaderMaterial, look: RefCounted, expression := "deadpan"
 	mat.set_shader_parameter("eye_color", EYE_COLORS[look.eye_color])
 
 	# Brows.
-	var brow := int(look.brows)
+	var brow := int(look.brows) if int(look.brows) > 0 else int(e.get("brows", 0))
 	mat.set_shader_parameter("brow_tex", tex("brows/" + BROWS[brow]) if brow > 0 else null)
 	mat.set_shader_parameter("brow_place", Vector4(BROW_GAP + offset(look, "brow_gap") * 0.012,
 		BROW_Y + offset(look, "brow_y") * 0.011 - float(e.get("brow_lift", 0.0)),
@@ -133,7 +136,8 @@ static func apply(mat: ShaderMaterial, look: RefCounted, expression := "deadpan"
 	var mouth: String = str(e.get("mouth", MOUTHS[look.mouth]))
 	var ms := offset(look, "mouth_squash") * 0.07
 	mat.set_shader_parameter("mouth_tex", tex("mouths/" + mouth))
-	mat.set_shader_parameter("mouth_place", Vector4(0.5, MOUTH_Y + offset(look, "mouth_y") * 0.011, MOUTH_SIZE * (1.0 + offset(look, "mouth_size") * 0.07), 0.0))
+	mat.set_shader_parameter("mouth_place", Vector4(0.5, MOUTH_Y + offset(look, "mouth_y") * 0.011,
+		MOUTH_SIZE * (1.0 + offset(look, "mouth_size") * 0.07) * float(e.get("mouth_scale", 1.0)), 0.0))
 	mat.set_shader_parameter("mouth_squash", Vector2(1.0 + ms, 1.0 - ms * 0.5))
 
 	# Cheeks, following the eyes.
