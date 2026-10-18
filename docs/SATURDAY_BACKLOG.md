@@ -37,6 +37,12 @@ every demo fighter in its rest pose (content newer than the bridge); rebuild `ca
 8. Design system first (type, palette, panels, motion timings), then motion and transitions, the character select redesign, the title
    screen, the results screen (mend `--demo=results` first). Phantom Camera for menu/results moves if approved. Build.
 
+**Phase 4b: more detailed background art (owner, 2026-10-17), right after the UI pass**
+The owner: the UI and the game would both benefit from more detailed backgrounds. After the UI pass (the menus stand on the live
+meadow, so richer backgrounds lift both): per stage, a nearer mid-ground layer of props and silhouettes, more variety in the far
+layers (buildings, trees, mesas, sea features), small life (birds, boats, lit windows, drifting leaves), and the menu backdrop's
+own dressing; judged against the competitors with the refinement loop's before/after captures.
+
 **Phase 5: rendering trials (Tooling review section)**
 9. ACES vs Filmic per stage, a light scenery SSAO A/B; keep only what wins on the look bench and the owner's eye.
 
