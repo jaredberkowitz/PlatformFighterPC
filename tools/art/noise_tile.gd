@@ -6,7 +6,10 @@ extends SceneTree
 ##   palm: a palm trunk's horizontal ring scars, each ring a soft lip of light over a band of shade, wobbling a little round the trunk;
 ##   leaves: overlapping leaf clumps like scales, each lit along its top edge and deeper toward its foot, casting a soft crescent of
 ##         shade on the clump behind it (the owner, 2026-10-17: the grove's crowns read as uniform green blobs of embossed dimples).
-## Run: Godot --headless -s tools/art/noise_tile.gd -- <bark|palm|leaves> <out.png> [seed]
+##   wood: four planks a repeat (as godot/art/stage/wood.svg, so it maps the same), each its own tone, a lit edge along its top and a
+##         shaded one along its foot over a dark seam, long painted grain streaks wavering along it and a knot here and there that the
+##         grain bends round (the owner's material notes, 2026-10-17: wood wants visible grain and clear light and shadow).
+## Run: Godot --headless -s tools/art/noise_tile.gd -- <bark|palm|leaves|wood> <out.png> [seed]
 
 const SIZE := 512
 ## Where the bark's crevices cross the tile (a share of its width), uneven so the plates differ in width.
@@ -62,10 +65,12 @@ func _initialize() -> void:
 					t = 0.7 * ring + 0.3 * (0.5 + 0.5 * _tiled(fine, u, v, 1.0, 1.0))
 				"leaves":
 					t = _leaves(clumps, u, v) * (0.9 + 0.1 * (0.5 + 0.5 * _tiled(fine, u, v, 1.0, 1.0)))
+				"wood":
+					t = _wood(soft, fine, u, v)
 			# A few flat values with soft steps between them (the same painted read as mm_tile), then the multiplier range, in sRGB.
-			t = lerpf(t, roundf(t * 3.0) / 3.0, 0.4)
+			t = lerpf(t, roundf(t * 3.0) / 3.0, 0.25 if kind == "wood" else 0.4)
 			# (Bark spans a deeper range: at the rings' 0.66 its plates all but vanished on the grove's great trunk.)
-			var value := lerpf({"bark": 0.42, "leaves": 0.6}.get(kind, 0.66), 1.0, clampf(t, 0.0, 1.0))
+			var value := lerpf({"bark": 0.42, "leaves": 0.6, "wood": 0.3}.get(kind, 0.66), 1.0, clampf(t, 0.0, 1.0))
 			value = pow(value, 1.0 / 2.2)
 			out.set_pixel(x, y, Color(value, value, value))
 	out.save_png(a[1])
@@ -147,3 +152,31 @@ func _leaves(clumps: Array, u: float, v: float) -> float:
 func _lobe(off: Vector2, phase: float) -> float:
 	var a := atan2(off.y, off.x)
 	return 1.0 + 0.07 * sin(a * 5.0 + phase) + 0.04 * sin(a * 9.0 + phase * 2.0)
+
+
+## A wood tile's value at (u, v): see the `wood` kind.
+func _wood(soft: FastNoiseLite, fine: FastNoiseLite, u: float, v: float) -> float:
+	var plank := int(floor(v * 4.0))
+	var pv := fposmod(v * 4.0, 1.0)
+	var tone := 0.72 + 0.2 * fposmod(float(plank) * 0.618 + 0.3, 1.0)
+	# A knot on two of the four planks; the grain bends round it.
+	var bend := 0.0
+	var knot := 0.0
+	if plank == 1 or plank == 3:
+		var kc := Vector2(0.3 if plank == 1 else 0.72, 0.5)
+		var dk := Vector2((fposmod(u - kc.x + 0.5, 1.0) - 0.5) * 4.0, pv - kc.y)
+		var r := dk.length()
+		bend = 0.12 * exp(-r * r * 18.0) * signf(dk.y)
+		knot = 1.0 - smoothstep(0.06, 0.1, Vector2(dk.x * 0.8, dk.y * 1.4).length())
+		knot = maxf(knot, 0.5 * (1.0 - smoothstep(0.0, 0.03, absf(Vector2(dk.x * 0.8, dk.y * 1.4).length() - 0.14))))
+	# Grain: lines along the plank, wavering slowly, a few darker; and long painted streaks of lighter and darker.
+	var gy := (pv + bend + 0.05 * _tiled(soft, u, float(plank) * 0.25, 1.0, 1.0)) * 9.0 + float(plank) * 1.7
+	var line := 1.0 - smoothstep(0.015, 0.06, absf(fposmod(gy + 0.5, 1.0) - 0.5))
+	var streak := 0.5 + 0.5 * _tiled(fine, u * 0.35, pv * 3.0 + float(plank), 1.0, 1.0)
+	var t := tone * (1.0 - 0.4 * line) * (0.62 + 0.46 * streak)
+	t *= 1.0 - 0.45 * knot
+	# The edges: a lit lip along the plank's top, shade toward its foot, a dark seam under it.
+	t = lerpf(t, 1.0, 0.6 * (1.0 - smoothstep(0.0, 0.08, pv)))
+	t *= 1.0 - 0.25 * smoothstep(0.78, 0.94, pv)
+	t *= 1.0 - 0.75 * smoothstep(0.94, 0.965, pv)
+	return t
