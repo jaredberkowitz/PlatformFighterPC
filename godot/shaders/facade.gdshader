@@ -22,6 +22,12 @@ uniform float parapet = 0.55;          // the lighter cap along the top
 uniform float detail = 1.0;            // frames, sills and floor bands (0 for the far layer)
 uniform float sign_energy = 3.0;       // a sign's neon, times white
 
+varying vec3 wn;
+
+void vertex() {
+	wn = (MODEL_MATRIX * vec4(NORMAL, 0.0)).xyz;
+}
+
 float hash(vec2 p) {
 	p = fract(p * vec2(123.34, 456.21));
 	p += dot(p, p + 45.32);
@@ -92,6 +98,23 @@ void fragment() {
 		}
 		// Darker toward the street, a little lighter toward the top.
 		vec3 col = base * mix(0.72, 1.06, smoothstep(0.0, 16.0, at.y));
+		// The side walls a step darker than the fronts (the moon is up on the left, so the right sides darkest): the buildings read as
+		// blocks with depth, not flat cut-outs (the owner, 2026-10-17: basic shapes, no real detail).
+		float side = abs(wn.x) > 0.5 ? (wn.x > 0.0 ? 0.7 : 0.84) : 1.0;
+		col *= side;
+		// Each building's wall (`material`): brick courses, horizontal stone bands, or plain render with pilasters between the bays.
+		float material = hash(vec2(seed, 11.1));
+		if (!plain && detail > 0.0) {
+			if (material < 0.4) {
+				float course = floor(at.y / 0.3);
+				float bx = fract((at.x + mod(course, 2.0) * 0.3) / 0.6);
+				float mortar = max(step(fract(at.y / 0.3), 0.12), step(bx, 0.06));
+				col *= 1.0 - 0.07 * mortar - 0.04 * hash(vec2(floor((at.x + mod(course, 2.0) * 0.3) / 0.6), course) + seed);
+			} else if (material < 0.7) {
+				float groove = step(fract(at.y / 0.9), 0.08);
+				col *= 1.0 - 0.1 * groove * (at.y < 4.2 ? 1.6 : 1.0);
+			}
+		}
 		if (!plain) {
 			// This building's pattern.
 			vec2 bay_size = cell * vec2(mix(0.8, 1.3, hash(vec2(seed, 1.1))), mix(0.88, 1.16, hash(vec2(seed, 2.2))));
@@ -100,9 +123,11 @@ void fragment() {
 			// stack of identical bands.
 			float pier_every = floor(mix(3.0, 5.99, hash(vec2(seed, 9.9))));
 			float share = clamp(lit_share * mix(0.4, 1.55, hash(vec2(seed, 5.5))), 0.06, 0.85);
-			// The parapet cap.
+			// The parapet cap, and the cornice's shadow on the wall just under the roofline.
 			float cap = step(height - parapet, at.y);
-			col = mix(col, base * 1.28, cap);
+			col = mix(col, base * side * 1.28, cap);
+			float eave = step(height - parapet - 0.5, at.y) * (1.0 - cap);
+			col *= 1.0 - 0.22 * eave * smoothstep(height - parapet - 0.5, height - parapet, at.y);
 			// Bays fitted to the face so its windows sit evenly; rows from the street up to below the parapet.
 			float cols = max(1.0, floor(width / bay_size.x));
 			float bay_w = width / cols;
@@ -116,6 +141,14 @@ void fragment() {
 			vec2 in_bay = vec2(fract(at.x / bay_w) * bay_w, at.y - first_row - bay.y * bay_size.y);
 			float rows = floor((height - parapet - first_row) / bay_size.y);
 			bool inside = at.y > first_row && bay.y < rows && bay.y >= 0.0;
+			// Pilasters: a lighter strip up between the bays, with a shaded edge, on the rendered buildings.
+			if (material >= 0.7 && detail > 0.0 && at.y < height - parapet) {
+				float px = fract(at.x / bay_w) * bay_w;
+				float pil = 1.0 - step(0.16, min(px, bay_w - px));
+				float pil_edge = step(0.16, px) * (1.0 - step(0.24, px));
+				col = mix(col, base * side * 1.2, pil);
+				col *= 1.0 - 0.12 * pil_edge;
+			}
 			// A faint floor band every fourth floor.
 			float band = inside && mod(bay.y, 4.0) == 3.0 && in_bay.y > bay_size.y - 0.18 ? detail : 0.0;
 			col = mix(col, base * 1.18, band);
@@ -127,13 +160,29 @@ void fragment() {
 				if (strips && (mod(bay.x, pier_every) == pier_every - 1.0 || mod(bay.y, 6.0) == 5.0)) {
 					in_x = 0.0;
 				}
+				// Arched windows on some brick buildings: the pane's top rounded off.
+				bool arched = material < 0.4 && hash(vec2(seed, 12.2)) < 0.5 && !strips;
+				if (arched) {
+					float r = pane_size.x * 0.5;
+					vec2 q = in_bay - vec2((c0.x + c1.x) * 0.5, c1.y - r);
+					if (q.y > 0.0) {
+						in_y *= step(length(q), r);
+					}
+				}
 				if (detail > 0.0 && !strips) {
-					// The frame round the pane (a touch lighter than the wall) and the sill under it.
+					// The frame round the pane (a touch lighter than the wall), the sill under it standing out, and a lintel over it.
 					float frame_x = step(c0.x - 0.08, in_bay.x) * step(in_bay.x, c1.x + 0.08);
 					float frame_y = step(c0.y - 0.08, in_bay.y) * step(in_bay.y, c1.y + 0.06);
-					col = mix(col, base * 1.22, frame_x * frame_y * detail);
+					col = mix(col, base * side * 1.22, frame_x * frame_y * detail);
 					float sill = step(c0.x - 0.12, in_bay.x) * step(in_bay.x, c1.x + 0.12) * step(c0.y - 0.16, in_bay.y) * step(in_bay.y, c0.y - 0.06);
-					col = mix(col, base * 1.45, sill * detail);
+					col = mix(col, base * side * 1.45, sill * detail);
+					// (The sill's shadow on the wall under it.)
+					float under = step(c0.x - 0.12, in_bay.x) * step(in_bay.x, c1.x + 0.12) * step(c0.y - 0.26, in_bay.y) * step(in_bay.y, c0.y - 0.16);
+					col *= 1.0 - 0.18 * under * detail;
+					if (!arched) {
+						float lintel = step(c0.x - 0.1, in_bay.x) * step(in_bay.x, c1.x + 0.1) * step(c1.y + 0.06, in_bay.y) * step(in_bay.y, c1.y + 0.18);
+						col = mix(col, base * side * (material < 0.4 ? 1.35 : 1.15), lintel * detail);
+					}
 				}
 				// A strip's lit stretch is a run of a few bays (an office floor), not single windows.
 				vec2 key = strips ? vec2(floor(bay.x / pier_every), bay.y) : bay;
@@ -159,6 +208,27 @@ void fragment() {
 				vec3 dark = mix(base * 0.62, vec3(0.32, 0.36, 0.6), 0.18);
 				// (A strip's long runs of light would outshine everything at full strength: they glow at half.)
 				vec3 pane_col = lit > 0.5 ? glow * lit_energy * vary * room * (strips ? 0.5 : 1.0) : dark;
+				vec2 pu = (in_bay - c0) / max(pane_size, vec2(0.001));
+				if (detail > 0.0 && !strips) {
+					if (lit > 0.5) {
+						// Inside a lit room: curtains drawn to the sides, or blinds half down, or nothing.
+						float inner = hash(key * 4.7 + seed * 0.11);
+						if (inner < 0.35) {
+							float curtain = 1.0 - step(0.2, min(pu.x, 1.0 - pu.x));
+							pane_col *= mix(1.0, 0.55, curtain);
+						} else if (inner < 0.6) {
+							float blind = step(0.55, pu.y) * step(0.5, fract(pu.y * 9.0));
+							pane_col *= 1.0 - 0.35 * blind;
+						}
+					} else {
+						// A dark pane catches a faint diagonal glint of the sky.
+						float glint = step(abs(pu.x + pu.y * 0.6 - 0.7), 0.08);
+						pane_col = mix(pane_col, pane_col * 1.5 + vec3(0.03, 0.03, 0.06), glint * 0.6);
+					}
+					// Mullions: a cross of frame through the pane (two panes over two), in the frame's colour.
+					float mull = step(abs(pu.x - 0.5), 0.045) + step(abs(pu.y - 0.58), 0.035);
+					pane_col = mix(pane_col, base * side * 1.1, clamp(mull, 0.0, 1.0));
+				}
 				col = mix(col, pane_col, in_x * in_y);
 			}
 		}

@@ -3760,26 +3760,117 @@ static func _street_furniture(root: Node3D, y: float, front: float) -> void:
 	while x < 126.0:
 		var w := 7.0 + 2.0 * float(k % 3)
 		var cx := x + w * 0.5
-		_mesh(root, _box(Vector3(w - 0.4, 3.2, 0.2)), FighterView.toon(Color(0.26, 0.2, 0.34)), Vector3(cx, y + 1.85, shop_z))
-		# The shop window: lit from inside, warmer at the floor, divided into panes by a frame (art review 6 round 16: one flat pale fill
-		# read as a blank sign, not a window).
+		# (Each shop its own, 2026-10-17, the owner: the shops were basic shapes in one repeated pattern. Pilasters either side, a stall riser
+		# under the window, goods on display behind the glass, a glazed door, a sign with lettering, and a built awning.)
+		var shop := RandomNumberGenerator.new()
+		shop.seed = 500 + k
+		var wall_c: Color = Color(0.26, 0.2, 0.34).lerp([Color(0.36, 0.22, 0.26), Color(0.22, 0.24, 0.36), Color(0.3, 0.26, 0.24)][k % 3], 0.5)
+		_mesh(root, _box(Vector3(w - 0.4, 3.2, 0.2)), FighterView.toon(wall_c), Vector3(cx, y + 1.85, shop_z))
+		var pil := FighterView.toon(wall_c.lightened(0.18))
+		for px in [x + 0.35, x + w - 0.35]:
+			_mesh(root, _box(Vector3(0.36, 3.3, 0.34)), pil, Vector3(px, y + 1.85, shop_z + 0.1))
+			_mesh(root, _box(Vector3(0.5, 0.18, 0.44)), pil, Vector3(px, y + 3.45, shop_z + 0.12))
 		var pane: Color = glows[k % glows.size()]
-		_mesh(root, _box(Vector3(w * 0.62, 2.0, 0.1)), _unshaded(pane), Vector3(cx - w * 0.12, y + 1.6, shop_z + 0.12))
-		_mesh(root, _box(Vector3(w * 0.62, 0.7, 0.1)), _unshaded(pane.lerp(Color(1.0, 0.7, 0.45), 0.35).darkened(0.12)), Vector3(cx - w * 0.12, y + 0.95, shop_z + 0.13))
-		var mullion := _unshaded(Color(0.26, 0.2, 0.34))
-		for mi_k in 3:
-			var mx := cx - w * 0.12 - w * 0.31 + w * 0.62 * float(mi_k + 1) / 4.0
-			_mesh(root, _box(Vector3(0.12, 2.0, 0.1)), mullion, Vector3(mx, y + 1.6, shop_z + 0.15))
-		_mesh(root, _box(Vector3(w * 0.62, 0.12, 0.1)), mullion, Vector3(cx - w * 0.12, y + 2.1, shop_z + 0.15))
-		_mesh(root, _box(Vector3(1.1, 2.4, 0.1)), _unshaded(Color(0.5, 0.36, 0.3)), Vector3(cx + w * 0.32, y + 1.45, shop_z + 0.12))
+		var win_w := w * 0.6
+		var win_x := cx - w * 0.13
+		_mesh(root, _box(Vector3(win_w, 2.0, 0.1)), _unshaded(pane), Vector3(win_x, y + 1.75, shop_z + 0.12))
+		# Goods on display: a shelf and a few shapes in silhouette against the light (jars, boxes, a plant).
+		var goods := _unshaded(pane.darkened(0.55).lerp(Color(0.3, 0.2, 0.36), 0.4))
+		_mesh(root, _box(Vector3(win_w - 0.2, 0.06, 0.06)), goods, Vector3(win_x, y + 1.6, shop_z + 0.15))
+		var gx := win_x - win_w * 0.5 + 0.35
+		while gx < win_x + win_w * 0.5 - 0.3:
+			var gw := shop.randf_range(0.18, 0.4)
+			var gh := shop.randf_range(0.2, 0.55)
+			_mesh(root, _box(Vector3(gw, gh, 0.06)), goods, Vector3(gx, y + 1.63 + gh * 0.5, shop_z + 0.15))
+			if shop.randf() < 0.6:
+				var lh := shop.randf_range(0.15, 0.35)
+				_mesh(root, _box(Vector3(gw * 0.8, lh, 0.06)), goods, Vector3(gx + 0.05, y + 0.95 + lh * 0.5, shop_z + 0.15))
+			gx += gw + shop.randf_range(0.12, 0.35)
+		# The stall riser under the window, panelled.
+		var riser := FighterView.toon(wall_c.lightened(0.08))
+		_mesh(root, _box(Vector3(win_w + 0.1, 0.6, 0.16)), riser, Vector3(win_x, y + 0.45, shop_z + 0.14))
+		var panes := 2 + k % 3
+		var mullion := _unshaded(wall_c.darkened(0.1))
+		for mi_k in panes - 1:
+			var mx := win_x - win_w * 0.5 + win_w * float(mi_k + 1) / panes
+			_mesh(root, _box(Vector3(0.1, 2.0, 0.1)), mullion, Vector3(mx, y + 1.75, shop_z + 0.17))
+			_mesh(root, _box(Vector3(0.04, 0.5, 0.1)), mullion, Vector3(mx - win_w / panes * 0.5, y + 0.45, shop_z + 0.24))
+		_mesh(root, _box(Vector3(win_w, 0.1, 0.1)), mullion, Vector3(win_x, y + 2.35, shop_z + 0.17))
+		_mesh(root, _box(Vector3(win_w + 0.2, 0.12, 0.3)), riser, Vector3(win_x, y + 0.78, shop_z + 0.2))
+		# The door: a frame, a glazed upper panel lit from inside, a solid lower one and a handle.
+		var dx := cx + w * 0.32
+		var door_c: Color = [Color(0.5, 0.3, 0.26), Color(0.24, 0.4, 0.42), Color(0.46, 0.38, 0.22), Color(0.36, 0.28, 0.46)][k % 4]
+		_mesh(root, _box(Vector3(1.25, 2.55, 0.12)), FighterView.toon(wall_c.darkened(0.2)), Vector3(dx, y + 1.42, shop_z + 0.12))
+		_mesh(root, _box(Vector3(1.05, 2.4, 0.1)), FighterView.toon(door_c), Vector3(dx, y + 1.35, shop_z + 0.16))
+		_mesh(root, _box(Vector3(0.7, 1.0, 0.06)), _unshaded(pane.darkened(0.12)), Vector3(dx, y + 1.85, shop_z + 0.22))
+		_mesh(root, _box(Vector3(0.08, 0.08, 0.12)), FighterView.respond(FighterView.toon(Color(0.9, 0.78, 0.4)), "gold"), Vector3(dx + 0.36, y + 1.2, shop_z + 0.25))
+		# The awning (`_awning`): a canopy of stripes, each sagging a little, over a valance with a scalloped or straight hem.
 		var pair: Array = awnings[k % awnings.size()]
-		var n := int(w / 0.8)
-		for j in n:
-			_mesh(root, _box(Vector3((w - 0.4) / n, 0.1, 1.3)), FighterView.toon(pair[j % 2]), Vector3(x + 0.2 + (j + 0.5) * (w - 0.4) / n, y + 3.5, shop_z + 0.55),
-				Vector3.ONE, Vector3(24, 0, 0))
-		_mesh(root, _box(Vector3(w * 0.5, 0.6, 0.1)), _unshaded((glows[(k + 2) % glows.size()] as Color).lerp(Color.WHITE, 0.2)), Vector3(cx, y + 4.3, shop_z + 0.12))
+		_awning(root, x + 0.15, x + w - 0.15, y + 3.75, shop_z + 0.22, pair[0], pair[1], 1.35, k % 2 == 0)
+		# The sign over it: a board with a lit edge and lettering in the shop's colour.
+		var sign_c: Color = (glows[(k + 2) % glows.size()] as Color).lerp(Color.WHITE, 0.2)
+		var sw := w * 0.5
+		_mesh(root, _box(Vector3(sw + 0.16, 0.76, 0.1)), FighterView.toon(wall_c.darkened(0.25)), Vector3(cx, y + 4.3, shop_z + 0.1))
+		_mesh(root, _box(Vector3(sw, 0.6, 0.1)), _unshaded(sign_c), Vector3(cx, y + 4.3, shop_z + 0.14))
+		var letters := 3 + k % 4
+		var lw := sw * 0.8 / letters
+		var ink := _unshaded((pair[0] as Color).darkened(0.35))
+		for li in letters:
+			var lx := cx - sw * 0.4 + (li + 0.5) * lw
+			_mesh(root, _box(Vector3(lw * 0.62, 0.34, 0.04)), ink, Vector3(lx, y + 4.3, shop_z + 0.2))
 		x += w
 		k += 1
+
+
+## A shop awning from `x0` to `x1`, its top against the wall at `top` (depth `z`), reaching `reach` out over the pavement: a canopy of
+## alternating `a`/`b` stripes, each stripe sagging a little between its seams so it takes the light as cloth does, over a hanging valance
+## whose hem is a row of scallops (`scallop`) or straight. One mesh, its stripes in vertex colours (`vertex_shade`).
+static func _awning(root: Node3D, x0: float, x1: float, top: float, z: float, a: Color, b: Color, reach: float, scallop: bool) -> void:
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var n := maxi(4, int((x1 - x0) / 0.75))
+	var sw := (x1 - x0) / n
+	var drop := reach * 0.42
+	var val_h := 0.32
+	for j in n:
+		var col := a if j % 2 == 0 else b
+		var xa := x0 + j * sw
+		var xb := xa + sw
+		var xm := (xa + xb) * 0.5
+		# The canopy: from the wall out and down, sagging at the stripe's middle.
+		var back_a := Vector3(xa, top, z)
+		var back_m := Vector3(xm, top - 0.03, z)
+		var back_b := Vector3(xb, top, z)
+		var front_a := Vector3(xa, top - drop, z + reach)
+		var front_m := Vector3(xm, top - drop - 0.06, z + reach - 0.02)
+		var front_b := Vector3(xb, top - drop, z + reach)
+		for tri in [[back_a, front_m, front_a], [back_a, back_m, front_m], [back_m, front_b, front_m], [back_m, back_b, front_b]]:
+			for v in tri:
+				st.set_color(col)
+				st.add_vertex(v)
+		# The valance: straight down from the canopy's front edge, its hem a scallop per stripe.
+		var hem := 6
+		for h in hem:
+			var u0 := float(h) / hem
+			var u1 := float(h + 1) / hem
+			var p0 := front_a.lerp(front_b, u0)
+			var p1 := front_a.lerp(front_b, u1)
+			var d0 := val_h + (0.12 * sin(u0 * PI) if scallop else 0.0)
+			var d1 := val_h + (0.12 * sin(u1 * PI) if scallop else 0.0)
+			var q0 := p0 + Vector3(0, -d0, 0.01)
+			var q1 := p1 + Vector3(0, -d1, 0.01)
+			for tri in [[p0, q1, q0], [p0, p1, q1]]:
+				for v in tri:
+					st.set_color(col.darkened(0.06))
+					st.add_vertex(v)
+	st.generate_normals()
+	var m := (FighterView.toon(Color.WHITE, false) as ShaderMaterial).duplicate() as ShaderMaterial
+	m.set_shader_parameter("vertex_shade", true)
+	m.set_shader_parameter("ramp_softness", 0.1)
+	var mi := _mesh(root, st.commit(), m, Vector3.ZERO)
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	# Its frame: a thin bar along the front edge.
+	_mesh(root, _box(Vector3(x1 - x0, 0.05, 0.05)), FighterView.respond(FighterView.toon(Color(0.3, 0.28, 0.34)), "metal"), Vector3((x0 + x1) * 0.5, top - drop, z + reach))
 
 
 ## The ground floor of the stage building where it meets the street (`width` wide, centred on `cx`, its front at `front`): a lit shop
@@ -3791,12 +3882,8 @@ static func _shopfront(root: Node3D, cx: float, width: float, y: float, front: f
 	for side in [-1.0, 1.0]:
 		_mesh(root, _box(Vector3(width * 0.32, 2.2, 0.1)), lit, Vector3(cx + side * width * 0.27, y + 1.75, front + 0.12))
 	_mesh(root, _box(Vector3(1.4, 2.6, 0.1)), _unshaded(Color(0.62, 0.42, 0.3)), Vector3(cx, y + 1.55, front + 0.12))
-	# The awning: alternating stripes, tipped out over the pavement.
-	var stripes := [FighterView.toon(Color(0.92, 0.34, 0.42)), FighterView.toon(Color(0.98, 0.94, 0.9))]
-	var n := int(width / 0.9)
-	for k in n:
-		var sx := cx - width / 2.0 + (k + 0.5) * width / n
-		_mesh(root, _box(Vector3(width / n, 0.12, 1.4)), stripes[k % 2], Vector3(sx, y + 3.55, front + 0.6), Vector3.ONE, Vector3(22, 0, 0))
+	# The awning: a canopy of stripes over a scalloped valance (`_awning`), tipped out over the pavement.
+	_awning(root, cx - width / 2.0, cx + width / 2.0, y + 3.8, front + 0.1, Color(0.92, 0.34, 0.42), Color(0.98, 0.94, 0.9), 1.5, true)
 	_mesh(root, _box(Vector3(width * 0.4, 0.8, 0.12)), _unshaded(Color(0.98, 0.5, 0.74)), Vector3(cx, y + 4.4, front + 0.14))
 	_halo(root, Vector3(cx, y + 1.8, front + 0.8), Color(1.0, 0.8, 0.5), width * 0.35)
 
