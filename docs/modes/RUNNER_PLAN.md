@@ -1,11 +1,11 @@
-# Single-player mode: the endless run (plan, draft 3; R1 to R2e built)
+# Single-player mode: the endless run (plan, draft 3; R1 to R3 built)
 
 Status: **draft 3 (14 October 2026): the owner played R1 and replaced the creeping camera with rooms (section 3.1). R1 (the vertical
 slice) is built (sim 120, section 7); R1b (rooms) is built (sim 122, section 8); R2a (the world: slopes, room variants, the fork, the
 walk-in shop) is built on branch `runner-r2`, sim 124 and content schema 8: see section 9; R2b (fighter-shaped grunts, the difficulty
 curve, hazards, the runaway van, branching forks) is built on branch `runner-r2b`, sim 127: see section 10; R2c (combat parity: every
 grunt is a fighter; lighter grunts knocked out by blast zones that follow the view; the shopkeeper's grudge) is built on branch
-`runner-r2c`, sim 131: see section 11; R2d (verticality: three decks, climbs, drops, shafts, interiors, deck forks, sure and skilled routes) is built on branch `runner-r2d`, sim 137: see section 12; R2e (vertical combat, the node map, a believable city, fewer grunts at once) is built on branch `runner-r2e`, sim 140: see section 13.** Decisions are marked **Decided**. Owner brief, 14 October 2026: a single-player endless-runner mode inspired by the mobile
+`runner-r2c`, sim 131: see section 11; R2d (verticality: three decks, climbs, drops, shafts, interiors, deck forks, sure and skilled routes) is built on branch `runner-r2d`, sim 137: see section 12; R2e (vertical combat, the node map, a believable city, fewer grunts at once) is built on branch `runner-r2e`, sim 140: see section 13; R3 (shops and items, finds on routes) is built on branch `runner-r3`, sim 142: see section 14.** Decisions are marked **Decided**. Owner brief, 14 October 2026: a single-player endless-runner mode inspired by the mobile
 game *Punch Quest* (Rocketcat Games and Madgarden, 2012), using this game's fighters, physics and art. The player runs right, beats
 enemies for currency, spends it in shops on power-ups, stat boosts and other fighters' moves of the same archetype, fights a generated
 boss every so often, and tries to get as far as possible.
@@ -211,7 +211,7 @@ zone, and the street route is never more than one screen below the roofs, so bot
 | R2a | The world (owner, 14 Oct; see `RUNNER_WORLD.md`): slopes, room variants with optional parts, mirroring and obstacle pieces, the high/low fork, elevation lines, footing objects with `look` tags, the walk-in shop with a shopkeeper | rooms feel varied and believable; you can tell footing from decoration (built, sim 124) |
 | R2b | Enemies and the curve: fighter-shaped grunts (six kinds, base-game bodies with borrowed moves and tells), budgets and placement rules, hazards that hurt enemies, room pools by difficulty, the difficulty curve, the first rare event; the owner's R2a answers (coins 1, branching forks, the sulking shopkeeper) | runs differ and get harder smoothly (built, sim 127) |
 | R2c | Combat parity (owner, 14 Oct): grunts are fighters with every versus rule both ways, much lighter by tier, knocked out only by blast zones that follow the view; the shopkeeper closed until a new room | grabs, throws, techs and shields on grunts are versus's; a solid hit sends a tier-1 grunt off screen (built, sim 131) |
-| R3 | Shops and items: stat boosts, 10 properties, consumables, rerolls (planned: `RUNNER_R3_PLAN.md`) | a run's build changes how it plays |
+| R3 | Shops and items: stat boosts, 10 properties, consumables, rerolls (`RUNNER_R3_PLAN.md`), plus finds on routes (F8) | a run's build changes how it plays (built, sim 142) |
 | R4 | Bosses: generated CPU fighters with stamina and modifiers, an arena chunk | a boss every few shops, beatable in 2 to 3 tries at worst |
 | R5 | Archetype move swaps | a sword fighter can buy another sword fighter's moves |
 | R6 | The journey: city legs with arrival, boss and transit, generated names, palettes, time of day and weather; the first architecture kits from the art director; music | three cities in a row feel like a trip |
@@ -1252,6 +1252,150 @@ stats change little: the full table prints in `sim-content`'s `recovery_routes_p
 - **Bonus sizes:** launching a grunt off the top or spiking it off the bottom pays 10 extra coins; juggling pays the grunt's coins
   times the hits it took in the air (up to three times). More, less?
 - **The map:** it shows three rooms ahead. More (four is the most it can plan), or fewer?
+
+## 14. R3 progress (shops and items, finds on routes; sim 142, content schema 8, branch `runner-r3`)
+
+Spec: `RUNNER_R3_PLAN.md` (approved by the owner) with `RUNNER_REVIEW.md` F8 (finds on routes) folded in, and one polish note from the
+R2e review (shopfronts with awnings on rooftops).
+
+### What can be played
+- **The shop has six wares**: the two staples on their own stands by the door (heal 30% for 30 coins; an extra life for 150, one a
+  shop, as before), then **four pedestals drawn from the pools by rarity**: common (white halo), rare (blue) and, from tier 3, prized
+  (gold). The draw is seeded by the run's seed and the shop's room, so a replay gets the same shop. No item twice in a shop; an item
+  owned to its cap is never drawn.
+- **Standing by a ware** shows a speech-bubble card over it: its name and rarity, one line on what it does, its price and how many you
+  own. The HUD's prompt reads "UP: BUY POWER (58)".
+- **The bell** on the counter's left end: stand by it and press up to re-draw the unsold pedestals for 10 coins, then 20, 40 (doubling
+  in that shop; a new shop starts at 10 again). A sold pedestal stays sold. The shopkeeper rings up "Fresh stock!".
+- **Prices** rise 15% a tier (Power: 50, 58, 65, 73, 80); the staples keep theirs. The sulking shopkeeper still sells nothing (and
+  will not ring the bell) until you have entered a room further on.
+- **The 18 items** (all data in `RunContent::items`, `run::data::standard_items`):
+
+| Item | Rarity | Price (tier 1) | Effect | Cap |
+| --- | --- | --- | --- | --- |
+| Heal 30% | staple | 30 | as before | none |
+| Extra life | staple | 150 | as before, one a shop | none |
+| Power | common | 50 | damage dealt +8% a stack (`Fighter::damage_scale`) | 3 |
+| Speed | common | 45 | the creator's speed stat +2 a stack: walk, dash, run and air speed and responsiveness +8%, weight -6% | 3 |
+| Weight | common | 45 | the creator's weight stat +1 a stack: weight +8% (falls a little faster) | 3 |
+| Spring | common | 45 | the creator's jump stat +2 a stack: jumps +6% | 3 |
+| Lifesteal | rare | 90 | each grunt knock-out of yours heals 3% | 1 |
+| Coin magnet | rare | 70 | coins are picked up from 4 away | 1 |
+| Hot hands | rare | 90 | your hits on grunts burn: +1% a second for 3 seconds (not a hit: no combo, no credit) | 1 |
+| Iron startup | prized | 160 | super armor through your smash attacks' startup | 1 |
+| Extra wing | rare | 100 | one more midair jump | 1 |
+| Sturdy shield | rare | 80 | shield health +30%, worn 25% slower while held | 1 |
+| Second wind | rare | 80 | 3 more seconds untouchable after a lost life (after the respawn's own) | 1 |
+| Steady combo | rare | 90 | the first hit you take in a combo keeps it (the next breaks it; it comes back once the combo has broken) | 1 |
+| Long reach | prized | 170 | hitboxes 10% bigger | 1 |
+| Shadow orbs | prized | 200 | three of the Exile's shadow orbs (E59, `Move::orbs`) circle you and strike grunts they touch; a spent one comes back every 1.5 s | 1 |
+| Bubble | common | 35 | absorbs the next hit (then half a second untouchable) | slot |
+| Bomb | common | 30 | the buckler's bomb, put in your hands as you step out of the shop; thrown (attack, as any held item), it bursts where it hits or lands, and never hurts you | slot |
+
+- **One consumable slot, used on purchase** (the agent's pick, asked in the plan): the bubble goes up at once and stays until it
+  pops; the bomb waits in the slot and is handed to you at the shop's door, then thrown with the ordinary item throw. A second bubble
+  or bomb is refused ("YOUR SLOT IS FULL") until the first has popped or burst. Why: there is no free button on the owner's pad or keys
+  that does not already mean something in versus, and the item throw is already a versus control, so there is nothing new to learn
+  and nothing to clash.
+- **Finds on routes (F8)**: a skilled route, a treasure alley or a fork's road may hold a find on its highest skilled (else highest)
+  footing: an item from the same pools (free; walk into it), food (heals 20%) or, about once a city, a 1-up. One that would do nothing
+  (full health, the most lives, a cap reached, the slot taken) stays where it is. Measured over 30 seeds of 72 rooms: 758 rooms could
+  hold one; 133 food, 129 items, 73 1-ups (0.8 a city).
+- **HUD**: a strip of the build under the coins (the slot's item framed first, then each stat and property with its stacks);
+  callouts for "BUBBLE!", "COMBO SAVED!", "FOUND IT!", "FOOD! +HEAL", "1-UP!". A soft bubble is drawn round you while one is up.
+- **Results**: the build is listed in a card beside the run's numbers, each item with its icon and stacks.
+- Polish (R2e review): a shop on the rooftops or the skyline is a **rooftop kiosk** (a hut with a serving hatch), and an awning above
+  the street is a rooftop bar's **slatted canopy**, not a shop's striped one.
+
+### How it is built (and why)
+- **The catalogue** (`ShopItem`: kind, rarity, price, amount, extra, frames, limit, cap, odds; name and blurb are labels) is checked by
+  `sim_content::check_run` (each kind once, at most two staples, sane numbers and odds, the bell's place).
+- **The shop** (`run::items`): `stock_shop` draws the pedestals from a stream of the shop's own (`Run::shop_rng`, from `Run::seed` and
+  the shop's room); `reroll` re-draws the unsold; `buy` checks, in order: the grudge, an empty or sold pedestal, coins, "not needed"
+  (full health, the most lives, a cap), the slot. `Interior` gained `bell` and two more stands (30 wide, was 24).
+- **Stats rebuild through the recipe code.** The creator's stat arithmetic moved, unchanged, from `sim_content::recipe` to
+  `sim_core::stats::apply` (the recipe calls it, so made fighters are bit-identical: `content/base.pfc` changed only its sim version),
+  so sim-core can rebuild a fighter with it. As a run starts, `items::stash_base` keeps the fighter's own parameters as an extra entry
+  in the run's content copy (found again by name when the same content starts another run); every frame `items::refresh` writes
+  `stats::apply(own, 5, 5 + speed, 5 + jump, 5 + weight)` plus extra wings and reach into the fighter's entry. A test checks that for
+  every class the result equals the creator's `Recipe` with those stats. Versus content is never touched.
+- **Properties are run-only hooks**: lifesteal in the knock-out, the magnet in coin pick-up, hot hands in the grunts' after-step
+  (`Mob::burn`), iron startup sets the player's `super_armor` before the step, second wind keeps `invuln` up after a lost life
+  (`Run::wind`), steady combo in the combo's settling (`Run::guard`), shadow orbs are real orb projectiles held by the player and
+  fired as the orb body's move from the unplayed player slot 3 (the player's orb clock held so they never strike; the shopkeeper's
+  bonk ignores them). Two shared code paths gained run-only branches: `combat::apply_hit` lets the run's bubble take the player's hit
+  (only while `state.run.active`), and the shield reads two new fighter fields, `Fighter::shield_scale` and `shield_wear` (0 in
+  versus: the ruleset's numbers; the fighter is still 400 bytes). The bomb uses the items code: `items::make_as` and two small
+  crate-only helpers, `hand_to` and `burst_now`.
+- **Finds**: `RoomSlot::find`, `find_item`, `found`, drawn as a room is laid from a stream of the room's own (so the rooms themselves
+  are unchanged); `Run::life_city` keeps one 1-up a city; `items::find_spot` places it.
+- Every new field is hashed (`Run`: shop stock, rerolls, shop stream, seed, owned, slot, bomb, wind, guard, orb clock, keeping place,
+  orb body and move, cue counters, life city; `RoomSlot`: the find; `Mob::burn`; `Fighter::shield_scale`, `shield_wear`; the content's
+  item fields, rules and bell) and in the checksum tests.
+
+### Tunables added (`RunRules::standard`, `standard_items`)
+| Rule | Value | Meaning |
+| --- | --- | --- |
+| `price_step` | 15 | percent a tier on drawn wares |
+| `reroll_price` | 10 | the bell's first ring; doubling each ring in a shop |
+| `rare_odds` / `prized_odds` / `prized_tier` | 30 / 15 / 2 | a pedestal's rarity roll; prized from tier 3 |
+| `find_chance` / `find_food` / `food_heal` / `life_chance` | 40 / 50 / 20 / 15 | finds on routes |
+| items | see the table | amounts, frames, caps, odds (all 10) |
+
+### Tests and numbers
+- `sim-core/tests/runner.rs` (101; 20 new): the catalogue; prices by tier; seeded draws (the same shop again, no repeats, no prized
+  before tier 3 over 300 seeds, caps respected); the bell (10, 20, 40; sold stays sold; too poor; sulking); refusals (coins, closed,
+  one life a shop, the most lives, a cap, an empty pedestal, the slot full); power by the stack (a real jab); speed, weight, spring,
+  wing and reach rebuilding the fighter; lifesteal; the magnet; hot hands (three doses, no combo); iron startup; sturdy shield (130%,
+  75% wear); second wind (+180 frames); steady combo; shadow orbs (one at once, then three, never striking, hitting a grunt); the
+  bubble; the bomb (handed over, thrown, burst, the player unhurt, the slot free); finds (only on routes, at most one 1-up a city,
+  taking each kind); a scripted run buying in three shops replays frame for frame; items do nothing in versus (a match with a run's
+  build written into its inactive run plays identically); the checksum sees every new field; the content hash sees the item fields.
+- `sim-content`: the catalogue and shop checks; `tests/run_world.rs`: stat items equal the creator's recipe output for all 14 classes.
+- `cargo test --workspace`, clippy `-D warnings`, `cargo fmt`: pass. Godot headless: runner_test (now also the six wares and their
+  stands, buying, the bell, the card, the build strip, a find drawn, the build on the results), pause_test, match_flow_test,
+  online_flow_test, net_e2e, input_e2e, controls_test, replay_test, creator_flow_test, content_e2e, editor_api_test: all pass.
+  `tests/run_shot.gd -- --r3` photographs a full shop (`run_shop_full.png`), a card (`run_shop_card.png`), the bell rung
+  (`run_shop_reroll.png`), two bought (`run_shop_bought.png`), the HUD strip with the bubble and orbs (`run_hud_build.png`), a find
+  on the catwalks (`run_find.png`) and the results' build (`run_results_build.png`).
+- **Versus unchanged**: a digest of 60 random four- and two-player matches (900 frames each: every fighter's position, speeds,
+  percent, state, frame, shield, stocks, hitlag, hitstun, move, items, shots, winner, generator) is the same on main (sim 141) and
+  here; `pftool net-fuzz 200` and `fuzz-rollback 300` print the same lines (8,375 and 46,942 rollbacks). `fuzz-rollback 300` timed
+  12 times each, alternating against main built in a separate target folder: median 3.62 s here, 3.70 s on main (within noise).
+- **GameState is 11,824 bytes** (main 11,760; the run's part 3,488, was 3,424; a fighter still 400).
+
+### Known limits (R3)
+- Properties are owned once (no tiers yet); stats stack to 3.
+- Coins picked up by the magnet vanish as any coin does; their flight to you is presentation still to draw.
+- A find stands on the room's highest skilled (else highest) footing, chosen by rule, not authored per room.
+- The bell's re-draw may bring back an item that was on a pedestal before the ring (it never repeats one now on show).
+
+### For the art director (R3; **reused** = drawn now from existing art, **new** = needs a design)
+1. **Item icons, 18** (placeholder: a disc in the item's colour with a three-letter glyph, ringed by rarity): **new**, one per item,
+   for the HUD strip, the results and the pedestals' gems.
+2. **Rarity halos** on the pedestals (placeholder: a soft sphere, white, blue or gold): **new** glow or pedestal trims.
+3. **The bell** on the counter (placeholder: a gold dome on a wooden base): **new**, with a ring animation.
+4. **The speech-bubble card** (placeholder: a cream panel with a dark border and a tail): **new**, in the menus' painted style.
+5. **The staples' stands and the pedestals**: **reused** shop pedestals; distinct stands for the staples would help.
+6. **The wares' gems** (placeholder spheres): **new** item models or sprites.
+7. **Finds**: the stand is the **reused** pedestal look; **new**: an item crate or glowing pickup, food (placeholder apple), a 1-up
+   (placeholder green gem with "1UP").
+8. **The bubble** round the player (placeholder: a pale blue sphere): **new**, with a pop effect.
+9. **Shadow orbs**: **reused** from the Exile's move; **the bomb**: **reused** from the buckler.
+10. **The rooftop kiosk and slatted canopy** (placeholder boxes): **new** rooftop kit pieces (a kiosk, a bar canopy).
+
+### Decisions for the owner (plain words)
+- **Consumables are used when you buy them**: the bubble goes up at once; the bomb is put in your hands as you leave the shop and you
+  throw it like any held item. No new button. Keep, or would you rather hold one and use it with a button?
+- **Heal and the extra life always have their own stands**, and the four pedestals hold the drawn items. Keep, or should heal and the
+  life be drawn like the rest?
+- **Speed** is two of the creator's speed points a stack (+8% speed, -6% weight), **Spring** two jump points (+6%), **Weight** one
+  weight point (+8%). Right sizes?
+- **Prices**: commons 30 to 50, rares 70 to 100, prized 160 to 200, +15% a tier; the bell 10, doubling. A normal run should afford
+  about one good item a shop: too dear, too cheap?
+- **The bought bomb never hurts you** (the reference's does). Keep?
+- **Prized items from tier 3** (the plan's question). Earlier?
+- **Finds**: 40% of skilled routes, alleys and fork roads; food heals 20%; about one 1-up a city. More, fewer?
 
 Sources: [TouchArcade review](https://toucharcade.com/2012/10/26/punch-quest-review/),
 [AppSpy review](https://www.appspy.com/punch-quest-review), [Destructoid review](https://www.destructoid.com/reviews/review-punch-quest/),
