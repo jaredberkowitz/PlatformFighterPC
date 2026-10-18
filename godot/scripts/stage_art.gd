@@ -900,8 +900,9 @@ static func solid_block(parent: Node3D, t: Dictionary, left: float, right: float
 			var sx := left + 1.1
 			var j := 0
 			while sx < right - 0.6:
+				# (Standing seams, raised and rounded so they catch the light pools, the gauntlet's round 18: flat lines left the roof a sheet.)
 				_mesh(parent, _box(Vector3(0.07, 0.02, depth - 0.4)), seam, Vector3(sx, top + 0.031, front_z - depth / 2.0 - 0.1))
-				_mesh(parent, _box(Vector3(0.05, 0.02, depth - 0.4)), lap, Vector3(sx + 0.07, top + 0.03, front_z - depth / 2.0 - 0.1))
+				_mesh(parent, _round_box(Vector3(0.09, 0.07, depth - 0.4), 0.035, 2), lap, Vector3(sx + 0.08, top + 0.055, front_z - depth / 2.0 - 0.1))
 				sx += 2.1 + 1.3 * absf(sin(float(j) * 2.7 + 0.4))
 				j += 1
 		"sand":
@@ -4734,17 +4735,28 @@ static func _skyline_layer(root: Node3D, rng: RandomNumberGenerator, layer: int,
 		_facade_box(st, Vector3(lo.x - 0.25, hi.y - 0.35, lo.z - 0.25), Vector3(hi.x + 0.25, hi.y + 0.1, hi.z + 0.25), seed, true, 0.45)
 		var set_top := hi.y + 0.1
 		# (More of them, and a second, narrower step on the tallest: a skyline of stepped crowns, not flat-topped boxes.)
-		if h > 14.0 and shape.randf() < 0.68:
-			var inset := w * shape.randf_range(0.18, 0.3)
-			var sh := shape.randf_range(2.6, 5.5)
+		# (Every tall one stepped, deeper steps, the gauntlet's round 18 after the city reference's tiered towers: two in three left
+		# flat-topped boxes.)
+		if h > 12.0:
+			var inset := w * shape.randf_range(0.16, 0.26)
+			var sh := shape.randf_range(3.5, 7.0)
 			_facade_box(st, Vector3(lo.x + inset, set_top, lo.z + 0.6), Vector3(hi.x - inset, set_top + sh, hi.z - 0.6), seed, false, sh)
 			_facade_box(st, Vector3(lo.x + inset - 0.2, set_top + sh - 0.3, lo.z + 0.4), Vector3(hi.x - inset + 0.2, set_top + sh + 0.1, hi.z - 0.4), seed, true, 0.4)
-			if h > 24.0 and shape.randf() < 0.55:
-				var in2 := inset + w * 0.14
+			if h > 20.0:
+				var in2 := inset + w * 0.13
 				var t2 := set_top + sh + 0.1
-				var sh2 := shape.randf_range(1.8, 3.5)
+				var sh2 := shape.randf_range(2.4, 4.5)
 				_facade_box(st, Vector3(lo.x + in2, t2, lo.z + 1.0), Vector3(hi.x - in2, t2 + sh2, hi.z - 1.0), seed, false, sh2)
 				_facade_box(st, Vector3(lo.x + in2 - 0.15, t2 + sh2 - 0.25, lo.z + 0.85), Vector3(hi.x - in2 + 0.15, t2 + sh2 + 0.1, hi.z - 0.85), seed, true, 0.35)
+				# The crown: a narrow plain lantern storey and its cap, and on the tallest a spire.
+				var in3 := in2 + w * 0.1
+				var t3 := t2 + sh2 + 0.1
+				if hi.x - in3 - (lo.x + in3) > 0.8:
+					var sh3 := shape.randf_range(1.2, 2.2)
+					_facade_box(st, Vector3(lo.x + in3, t3, lo.z + 1.4), Vector3(hi.x - in3, t3 + sh3, hi.z - 1.4), seed, true, sh3)
+					if h > 27.0 and shape.randf() < 0.6:
+						var mx := (lo.x + hi.x) * 0.5
+						_facade_box(st, Vector3(mx - 0.12, t3 + sh3, z - 0.12), Vector3(mx + 0.12, t3 + sh3 + shape.randf_range(3.0, 6.0), z + 0.12), seed, true, 4.0)
 		if layer < 2 and signs.randf() < 0.34:
 			# A lit sign on the front: a tall blade sign near one side, or a wide one across the middle.
 			var front := hi.z + 0.08
@@ -5486,11 +5498,26 @@ static func _dock_block(parent: Node3D, t: Dictionary, left: float, right: float
 	var mm := MultiMesh.new()
 	mm.transform_format = MultiMesh.TRANSFORM_3D
 	mm.use_custom_data = true
-	mm.mesh = _bevel_block()
+	# (Rounded boards with UVs, so their edges catch the light and the grain tile shows, the gauntlet's round 18: the bevelled block had no
+	# UVs, and the deck read bare. One board of a typical length, the rest scaled from it.)
+	var nominal := Vector3(5.0, row_w - 0.08, thick)
+	mm.mesh = _round_box(nominal, 0.06, 3)
 	mm.instance_count = items.size()
+	# Nail heads: a pair at each end of every board, small dark domes in one mesh.
+	var nails := SurfaceTool.new()
+	var nail_mesh := _sphere(0.035, 6)
 	for i in items.size():
-		mm.set_instance_transform(i, items[i][0])
+		var xf: Transform3D = items[i][0]
+		var sc := xf.basis.get_scale()
+		var b0 := xf.basis.orthonormalized()
+		xf.basis = b0.scaled_local(sc / nominal)
+		mm.set_instance_transform(i, xf)
 		mm.set_instance_custom_data(i, items[i][1])
+		for ex in [-1.0, 1.0]:
+			for ey in [-0.25, 0.25]:
+				var at: Vector3 = xf.origin + b0.x * (ex * (sc.x * 0.5 - 0.14)) + b0.y * (ey * sc.y) + Vector3(0, thick * 0.5 + 0.004, 0)
+				nails.append_from(nail_mesh, 0, Transform3D(Basis.IDENTITY.scaled(Vector3(1.0, 0.35, 1.0)), at))
+	_mesh(parent, nails.commit(), FighterView.respond(FighterView.toon(Color(0.3, 0.27, 0.27), false), "metal"), Vector3.ZERO)
 	var deck := MultiMeshInstance3D.new()
 	deck.multimesh = mm
 	# (Plain boards, each its own shade, with a faint grain: the painted plank tile over them drew a second set of seams and the deck read
@@ -5514,7 +5541,7 @@ static func _dock_block(parent: Node3D, t: Dictionary, left: float, right: float
 	_mesh(parent, _box(Vector3(deck_r - deck_l, 0.3, depth - 0.4)), FighterView.toon(dark_c.darkened(0.55), false), Vector3((left + right) * 0.5, top - thick - 0.15, front - depth * 0.5))
 	# The fascia: a heavy beam along the front edge, lit on its top, and one along each end.
 	var fascia := Materials.wood(dark_c, Vector2(10, 1))
-	_mesh(parent, _box(Vector3(deck_r - deck_l + 0.3, 0.42, 0.32)), fascia, Vector3((left + right) * 0.5, top - thick - 0.2, front + 0.02))
+	_mesh(parent, _round_box(Vector3(deck_r - deck_l + 0.3, 0.42, 0.32), 0.07, 3), fascia, Vector3((left + right) * 0.5, top - thick - 0.2, front + 0.02))
 	for ex in [deck_l - 0.1, deck_r + 0.1]:
 		_mesh(parent, _box(Vector3(0.3, 0.42, depth)), fascia, Vector3(ex, top - thick - 0.2, front - depth * 0.5))
 	# The shade under the pier: the deck's underside, and a soft band of shadow falling from it down between the piles (the sea shows
@@ -5540,13 +5567,22 @@ static func _dock_block(parent: Node3D, t: Dictionary, left: float, right: float
 			var mid := Vector3(px, water - 1.5 + h * 0.5, pz)
 			# (Thicker, art review 9: thin piles under a heavy deck looked spindly.)
 			# (Thicker again, with a pale weathered band at the waterline, the harbour reference.)
-			_mesh(parent, _cylinder(0.4, 0.45, h, 11), pile, mid, Vector3.ONE, lean)
+			# (Each pile its own girth and weathering, its own random numbers so the layout is unchanged, the gauntlet's round 18: one size
+			# and shade repeated evenly read as a tiled trestle.)
+			var own := RandomNumberGenerator.new()
+			own.seed = hash(Vector2i(k, row)) + 61
+			var girth := own.randf_range(0.86, 1.14)
+			var pm := (pile as ShaderMaterial).duplicate() as ShaderMaterial
+			var base_c: Color = pm.get_shader_parameter("albedo")
+			var weather := own.randf_range(-0.12, 0.12)
+			pm.set_shader_parameter("albedo", Color(base_c.r * (1.0 + weather), base_c.g * (1.0 + weather * 0.8), base_c.b * (1.0 + weather * 0.5) * own.randf_range(0.94, 1.08), base_c.a))
+			_mesh(parent, _cylinder(0.4 * girth, 0.45 * girth, h, 11), pm, mid, Vector3.ONE, lean)
 			_mesh(parent, _cylinder(0.47, 0.48, 0.7, 11), wet, Vector3(px, water + 0.2, pz), Vector3.ONE, lean)
 			_mesh(parent, _cylinder(0.49, 0.51, 0.16, 11), weed, Vector3(px, water + 0.5, pz), Vector3(1.0, 1.0, 1.0), lean)
 			if row == 0:
 				fronts.append(px)
 				# A pile cap standing a little proud of the fascia, lit on top.
-				_mesh(parent, _cylinder(0.44, 0.44, 0.16, 11), pile, Vector3(px, top - thick - 0.47, pz + 0.12))
+				_mesh(parent, _cylinder(0.44 * girth, 0.44 * girth, own.randf_range(0.1, 0.24), 11), pm, Vector3(px, top - thick - 0.47 - own.randf_range(0.0, 0.08), pz + 0.12))
 	# Bracing between the front piles: one heavy diagonal timber in every other bay, leaning alternately, under a heavy waling below the
 	# fascia (art review 9: thin crossed planks read as a fence).
 	var brace := Materials.wood(dark_c.darkened(0.08), Vector2(4, 1))
