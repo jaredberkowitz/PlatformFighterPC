@@ -1508,11 +1508,25 @@ static func _hay_bale(root: Node3D, at: Vector3, turn: float) -> void:
 	# A round bale lying on its side: a drum whose rim rounds over into flat ends (a lathe, so its strands can run round it), the straw
 	# drawn as strands wrapping the body and as a rolled spiral on each end, tied with two bands of twine. Warm gold, lit and shaded by the
 	# stage's light like any surface, not a flat decal.
+	# (The modelled bale, art/blender/make_props.py `hay_bale`, the gauntlet's round 12; the built one below stands in without it.)
+	# It wears the same painted straw: the body's strands and the ends' rolled spiral (its own modelled grooves give that spiral relief).
+	var body_mat := Materials.as_family(FighterView.toon(Color.WHITE, true, _straw_texture(false), Vector2.ONE), "grass")
+	var end_mat := Materials.as_family(FighterView.toon(Color.WHITE, false, _straw_texture(true), Vector2.ONE), "grass")
+	var model := Toonify.load_prop("hay_bale", true)
+	if model != null:
+		model.position = at
+		model.rotation_degrees = Vector3(0, turn, 0)
+		root.add_child(model)
+		for mi: MeshInstance3D in model.find_children("*", "MeshInstance3D", true, false):
+			var part := String(mi.name)
+			if part.begins_with("straw"):
+				mi.material_override = body_mat
+			elif part.begins_with("end"):
+				mi.material_override = end_mat
+		return
 	var centre := at + Vector3(0, 0.55, 0)
 	var rot := Vector3(90, turn, 0)
-	var body_mat := Materials.as_family(FighterView.toon(Color.WHITE, true, _straw_texture(false), Vector2.ONE), "grass")
 	_mesh(root, _lathe(HAY_PROFILE, 22, 3.0), body_mat, centre, Vector3.ONE, rot)
-	var end_mat := Materials.as_family(FighterView.toon(Color.WHITE, false, _straw_texture(true), Vector2.ONE), "grass")
 	var axis := Basis.from_euler(rot * PI / 180.0) * Vector3.UP
 	for side in [-1.0, 1.0]:
 		_mesh(root, _disc(0.47, 22), end_mat, centre + axis * side * 0.645, Vector3.ONE, rot + Vector3(0.0 if side > 0.0 else 180.0, 0, 0))
@@ -2241,11 +2255,11 @@ const RIDGES := {
 		"flank_from": 0.0, "gullies": 0.6, "paper": 0.05, "edge_width": 0.016, "shadow": 0.5}],
 	"grove": [{"z": -165.0, "y": -34.0, "height": 52.0, "shape": 0, "seed": 8.0, "base": 0.5, "amplitude": 0.32, "frequency": 3.5,
 		"tone": Color(0.5, 0.5, 0.84), "mix": 0.7, "edge": 0.3, "flank": 0.6, "foot_dark": 0.3, "layers": 4, "flank_from": 0.0, "gullies": 0.6,
-		"haze": 0.2, "paper": 0.05, "edge_width": 0.014},
+		"haze": 0.34, "paper": 0.05, "edge_width": 0.014},
 		# A nearer row of rounded hills in a deeper violet-blue, casting its shadow on the far one (art review 9: cut cards in layers).
 		{"z": -138.0, "y": -24.0, "height": 40.0, "shape": 0, "seed": 4.0, "base": 0.5, "amplitude": 0.36, "frequency": 5.0,
 		"tone": Color(0.36, 0.38, 0.72), "mix": 0.82, "edge": 0.4, "flank": 0.6, "foot_dark": 0.35, "layers": 3, "flank_from": 0.0,
-		"gullies": 0.4, "haze": 0.24, "paper": 0.05, "edge_width": 0.02, "shadow": 0.5}],
+		"gullies": 0.4, "haze": 0.34, "paper": 0.05, "edge_width": 0.02, "shadow": 0.5}],
 	"sunset": [{"z": -175.0, "y": -36.0, "height": 58.0, "shape": 2, "seed": 5.0, "base": 0.4, "amplitude": 0.4, "frequency": 3.0,
 		"tone": Color(0.42, 0.26, 0.5), "mix": 0.62, "edge": 0.35, "layers": 3, "flank_from": 0.0},
 		{"z": -132.0, "y": -34.0, "height": 46.0, "shape": 2, "seed": 11.0, "base": 0.36, "amplitude": 0.36, "frequency": 2.6,
@@ -2312,7 +2326,7 @@ static func ridge(root: Node3D, t: Dictionary, spec: Dictionary) -> MeshInstance
 const MIST := {
 	# (The far bands thinner, art review 9: over the cut-card ranges they washed both layers into one pale band.)
 	"meadow": [[-56.0, -24.0, 12.0, 0.24], [-86.0, -26.0, 16.0, 0.18]],
-	"grove": [[-60.0, -24.0, 12.0, 0.08], [-90.0, -26.0, 16.0, 0.08]],
+	"grove": [[-60.0, -24.0, 12.0, 0.16], [-90.0, -26.0, 16.0, 0.14]],
 	"sunset": [[-60.0, -26.0, 10.0, 0.07], [-95.0, -24.0, 16.0, 0.13]],
 	"ocean": [[-130.0, -10.0, 6.0, 0.08]],
 	"night": [[-70.0, -26.0, 18.0, 0.4]],

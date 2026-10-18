@@ -16,9 +16,10 @@ const MOODS := {
 	# scenery split clearly, as the reference's rocks and walls; meadow and grove 0.56, was 0.64; ocean 0.54, was 0.6.)
 	# (A warmer key and a cool blue-green shade, the gauntlet's round 11: the green stages' shade read neutral beside the benchmark's
 	# coloured light.)
-	"meadow": {"key": [Color(1.0, 0.93, 0.8), 1.38, -44.0, -34.0], "fill": [Color(0.56, 0.78, 1.0), 0.4],
-		"ambient": [Color(0.84, 0.94, 1.0), 0.48], "shadow_hue": 0.55, "shadow_shift": 0.14, "shadow_value": 0.56,
-		"shadow_tint": Color(0.52, 0.74, 0.86), "rim": Color(1.0, 0.98, 0.9),
+	# (Round 12: that overshot into a yellow-green cast over every material. A cream-peach key; the cool kept to the shade.)
+	"meadow": {"key": [Color(1.0, 0.94, 0.88), 1.38, -44.0, -34.0], "fill": [Color(0.58, 0.76, 1.0), 0.4],
+		"ambient": [Color(0.88, 0.92, 1.0), 0.48], "shadow_hue": 0.6, "shadow_shift": 0.1, "shadow_value": 0.56,
+		"shadow_tint": Color(0.6, 0.72, 0.92), "rim": Color(1.0, 0.98, 0.9),
 		"grade": [Color(0.92, 0.97, 1.06), Color(1.04, 1.02, 0.96), 0.5], "haze": Color(0.72, 0.87, 1.0)},
 	# (Art review 6 round 9: a weaker key, more pink ambient and a stronger grade than the meadow left the grove under a pale veil, the
 	# softest stage. Its colours kept; its contrast brought near the meadow's.)

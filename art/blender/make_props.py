@@ -1033,7 +1033,115 @@ def lamp_post():
     return root
 
 
+def _on_side(bm, lift):
+    """Lay a part built round the z axis on its side (its axis along y, toward the game's camera: a quarter turn about x) and lift it by
+    `lift`."""
+    for v in bm.verts:
+        x, y, z = v.co
+        v.co = Vector((x, -z, y + lift))
+
+
+def _wrap_uv(bm, u_repeat, z0, z1):
+    """UVs for a part built round the z axis: u round it `u_repeat` times, v along it from z0 to z1 (the game's painted straw)."""
+    uv = bm.loops.layers.uv.new()
+    for f in bm.faces:
+        us = [math.atan2(l.vert.co.y, l.vert.co.x) / math.tau % 1.0 for l in f.loops]
+        seam = max(us) - min(us) > 0.5
+        for l, u in zip(f.loops, us):
+            if seam and u < 0.5:
+                u += 1.0
+            l[uv].uv = (u * u_repeat, (l.vert.co.z - z0) / (z1 - z0))
+
+
+def _flat_uv(bm, radius):
+    """UVs laid flat across a part built round the z axis: the middle at (0.5, 0.5), `radius` at the edge."""
+    uv = bm.loops.layers.uv.new()
+    for f in bm.faces:
+        for l in f.loops:
+            l[uv].uv = (0.5 + 0.5 * l.vert.co.x / radius, 0.5 + 0.5 * l.vert.co.y / radius)
+
+
+def hay_bale():
+    """A round bale lying on its side (1.3 long, 0.57 in radius, resting on the origin; the gauntlet's round 12, in place of the built
+    drum): a body rolled in uneven layers, lumpy and a touch fuller in the middle, its rim rounding over into ends dished a little
+    inward with the roll's spiral as raised grooves, two twine bands sunk into the straw, and loose wisps lying across the body."""
+    rng = random.Random(53)
+    root = empty("hay_bale")
+    lift = 0.55
+    bm = bmesh.new()
+    prof = [(0.44, -0.65), (0.5, -0.635), (0.535, -0.6), (0.552, -0.54), (0.56, -0.42), (0.565, -0.2), (0.567, 0.0),
+            (0.565, 0.2), (0.56, 0.42), (0.552, 0.54), (0.535, 0.6), (0.5, 0.635), (0.44, 0.65)]
+    phase = [rng.uniform(0, math.tau) for _ in range(4)]
+    def lumps(a, k):
+        t = k / (len(prof) - 1.0)
+        return (1.0 + 0.018 * math.sin(a * 5.0 + phase[0] + t * 3.0) + 0.012 * math.sin(a * 11.0 + phase[1])
+                + 0.01 * math.sin(t * 19.0 + phase[2]))
+    _lathe_bm(bm, prof, 40, wobble=lumps)
+    _wrap_uv(bm, 3.0, -0.65, 0.65)
+    _on_side(bm, lift)
+    to_object("straw", bm, (0.86, 0.68, 0.36), smooth=True).parent = root
+    for side in (-1.0, 1.0):
+        bm = bmesh.new()
+        end = [(0.44, 0.65), (0.3, 0.635), (0.15, 0.625), (0.0, 0.62)]
+        _lathe_bm(bm, [(r, z * side) for r, z in end], 40)
+        if side < 0.0:
+            bmesh.ops.reverse_faces(bm, faces=bm.faces[:])
+        _flat_uv(bm, 0.47)
+        _on_side(bm, lift)
+        to_object("end%d" % int(side), bm, (0.9, 0.74, 0.44), smooth=True).parent = root
+        bm = bmesh.new()
+        # The roll's spiral: a raised groove winding out from the core, drawn as a chain of short tubes.
+        turns, steps = 4.0, 120
+        prev = None
+        for i in range(steps + 1):
+            t = i / steps
+            a = t * turns * math.tau
+            r = 0.05 + 0.36 * t
+            z = side * (0.628 + 0.012 * t)
+            c = Vector((r * math.cos(a), r * math.sin(a), z))
+            if prev is not None:
+                d = c - prev
+                mid = (c + prev) / 2.0
+                ret = bmesh.ops.create_cone(bm, cap_ends=False, cap_tris=False, segments=5, radius1=0.012, radius2=0.012,
+                                            depth=d.length * 1.15)
+                q = d.normalized().to_track_quat("Z", "X")
+                for v in ret["verts"]:
+                    v.co = q @ v.co + mid
+            prev = c
+        _on_side(bm, lift)
+        to_object("groove%d" % int(side), bm, (0.7, 0.52, 0.28), smooth=True).parent = root
+    for dz in (-0.3, 0.3):
+        bm = bmesh.new()
+        ring(bm, 0.562, 0.016, dz, sides=40, minor_sides=6)
+        _on_side(bm, lift)
+        to_object("twine%d" % int(dz * 10), bm, (0.62, 0.4, 0.24), smooth=True).parent = root
+    bm = bmesh.new()
+    for w in range(16):
+        a = rng.uniform(0.0, math.tau)
+        z0 = rng.uniform(-0.55, 0.55)
+        length = rng.uniform(0.18, 0.34)
+        tilt = rng.uniform(-0.9, 0.9)
+        left, right = [], []
+        for k in range(5):
+            t = k / 4.0
+            aa = a + math.cos(tilt) * length * t / 0.57
+            z = z0 + math.sin(tilt) * length * t
+            r = 0.575 + 0.05 * t * t
+            c = Vector((r * math.cos(aa), r * math.sin(aa), z))
+            n = Vector((math.cos(aa), math.sin(aa), 0.0))
+            side_v = n.cross(Vector((0.0, 0.0, 1.0))).normalized() * math.sin(tilt) + Vector((0, 0, 1)) * -math.cos(tilt) * 0.0
+            wv = Vector((0.0, 0.0, 0.012 * (1.0 - t) + 0.003))
+            left.append(bm.verts.new(c - wv))
+            right.append(bm.verts.new(c + wv))
+        for k in range(4):
+            bm.faces.new((left[k], right[k], right[k + 1], left[k + 1]))
+    _on_side(bm, lift)
+    to_object("wisps", bm, (0.94, 0.8, 0.5), smooth=True).parent = root
+    return root
+
+
 PROPS = {
+    "hay_bale": hay_bale,
     "mushroom": mushroom,
     "stump": stump,
     "lamp_post": lamp_post,

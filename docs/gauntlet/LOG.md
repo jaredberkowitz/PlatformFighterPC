@@ -169,3 +169,17 @@ the meadow the least refined (lawn clumps and wear, the far ridge near sky value
 Up: the grove's moss and stump (Believability 4), the city's light pools (Lighting 4), the beach's lamp (Cohesion 4). Down a little:
 the grove's toadstool caps too dark. Gaps: (1) the meadow (lawn clumps and wear, cool shade and warm light, contact, ridges stepped,
 village hazed, wall quieter, hay bales); (2) the light on the grass stages (warm key, cool shade, soft casts, grove dappling).
+
+## Round 12 (2026-10-18, commit a8ae74a)
+
+| Stage | Believ. | Cohesion | Lighting | Depth | Ground | Clarity | Mean |
+|---|---|---|---|---|---|---|---|
+| Meadow | 3 | 3 | 3 | 3 | 3 | 3 | 3.0 |
+| Canyon | 3 | 4 | 4 | 3 | 3 | 4 | 3.5 |
+| Beach | 3 | 4 | 4 | 4 | 3 | 4 | 3.7 |
+| City | 3 | 4 | 4 | 4 | 3 | 3 | 3.5 |
+| Grove | 4 | 4 | 4 | 3 | 3 | 4 | 3.7 |
+
+The grove's lilac shade and dappling lift its Lighting to 4. The meadow's warmer key overshot into a yellow-green cast over every
+material. Gaps: (1) the meadow's light: a cream-peach key, cool only in the shadows, the materials' own colours back; (2) the green
+stages' distance (ridges stepped and hazed, the grove's side canopies lit and shaded, its far trees and hills hazier).

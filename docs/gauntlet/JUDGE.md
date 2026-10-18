@@ -16,7 +16,9 @@ compare across rounds.
 2 beach, 3 city, 4 grove). The fighters, UI and effects are not judged here. **The canyon is scored but not ranked as a gap:** the
 owner keeps it as it is for now.
 
-**Scores, 1 to 5 against the benchmarks** (5 = on par), per stage:
+**Scores, 1 to 5 against the benchmarks** (5 = on par), per stage. **The bar for a 5 (the owner, 2026-10-18):** only when a capture is
+hard to tell apart from the reference images in quality, fidelity and readability, at a similar level. One consistent, unified style;
+anything amateur-ish, cheap-looking or "Flash game"-like caps the score. Do not round up.
 1. Believability: do surfaces read as real materials (grass, dirt, stone, wood) with natural variation, or as flat fills and primitives?
 2. Cohesion: one consistent style across every element, no piece that looks like it came from another game.
 3. Lighting: soft, unified light; believable shadow and contact; colour of light and shade.
