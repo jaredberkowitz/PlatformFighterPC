@@ -350,10 +350,12 @@ fn smashes_that_cannot_rebound_clank_and_carry_on() {
 #[test]
 fn the_older_kits_clank_without_rebounding_where_the_reference_does() {
     // ssbwiki.com's raw tables (13.0.1): `rebound=f` without `clang=f` on every box of the Claws' (weapon 1) up smash and the Staff's
-    // (weapon 5) forward, up and down tilts and neutral air. No other older normal has it.
+    // (weapon 5) forward, up and down tilts and neutral air, and every box of the Claws' flash dash (sim 143). No other older move has it.
     let c = sim_core::Content::placeholder();
     let listed = [
         (1usize, MoveId::USmash),
+        (1, MoveId::SideSpecial),
+        (1, MoveId::Ext3),
         (5, MoveId::FTilt),
         (5, MoveId::UTilt),
         (5, MoveId::DTilt),

@@ -302,10 +302,12 @@ fn leaping_grab(w: &mut Weapon) {
     dive.hitboxes[1].targets = TARGETS_GROUNDED;
     dive.turn_at = Some((13, 25));
     dive.air_blocks = vec![
+        // (Held still through the startup: the move's motion is its animation, so no gravity until the fall [E: the reference's
+        // hitbox visualisation shows no drop before the leap; sim 143].)
         AirBlock {
             from: 0,
             to: 12,
-            gravity: None,
+            gravity: Some(Fx::ZERO),
             max_fall: None,
             friction: None,
             drift: 95,
@@ -313,8 +315,20 @@ fn leaping_grab(w: &mut Weapon) {
             speed: None,
             accel_stick: None,
         },
+        // (The flip's fitted fall is the script's, faster than the body's fall speed.)
         AirBlock {
-            from: 31,
+            from: 30,
+            to: 65,
+            gravity: Some(Fx::ZERO),
+            max_fall: Some(su(4000)),
+            friction: None,
+            drift: 95,
+            accel: 100,
+            speed: None,
+            accel_stick: None,
+        },
+        AirBlock {
+            from: 66,
             to: 255,
             gravity: Some(su(103)),
             max_fall: None,

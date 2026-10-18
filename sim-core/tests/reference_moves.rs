@@ -1335,7 +1335,7 @@ fn brawler_smash_attacks_charge_like_the_others() {
 // ---- Brawler specials --------------------------------------------------------------------------------------
 
 #[test]
-fn flash_dash_dashes_forward_about_seven_units_and_hits_for_3_percent_on_the_way() {
+fn flash_dash_hits_for_3_percent_on_the_way_on_the_references_frame_18() {
     let mut sim = ground_duel(BRAWLER, fx(40, 10));
     // (Its back turned: the reach is to the body, not to a guard held out in front.)
     sim.state.fighters[1].facing = 1;
@@ -1349,7 +1349,8 @@ fn flash_dash_dashes_forward_about_seven_units_and_hits_for_3_percent_on_the_way
             hit = Some(t);
         }
     }
-    assert_eq!(hit, Some(20), "the dash starts hitting on frame 20");
+    // (Sim 143: the trail is out on the reference's frames 18-19, the illusion's two frames; the tick count is the reference's frame.)
+    assert_eq!(hit, Some(18), "the dash starts hitting on frame 18");
     assert!(sim.fighter(1).percent >= pct(&sim, 30));
     let _ = x0;
 }

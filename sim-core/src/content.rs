@@ -2424,6 +2424,11 @@ pub struct Ruleset {
     /// `jump_speed_x` share only from standing still; 1 takes the faster of the two the same way (decision 99's first reading). Kept
     /// switchable for playtests.
     pub jump_stick_share: u8,
+    /// The fastest a fighter keeps moving along the ground as it lands (sim 143, owner decision 102), as a percent of its body's
+    /// `dash_speed` (the fastest it runs on its own): a landing out of a move, a special fall or a jump with more speed than that
+    /// keeps only that much, so a fast recovery that ends on the stage does not slide across it on the gentle `landing_friction`
+    /// [E: the reference publishes no landing rule]. 0: no cap (the rule before sim 143).
+    pub landing_speed_cap: u8,
     pub respawn_invuln: u8,
     /// A shield press this many frames before landing in hitstun is a tech.
     pub tech_window: u8,
@@ -2733,6 +2738,7 @@ impl Ruleset {
             jump_momentum: Fx::from_ratio(17, 20),
             jump_momentum_max: Fx::from_ratio(5, 4),
             jump_stick_share: 0,
+            landing_speed_cap: 100,
             respawn_invuln: 120,
             tech_window: 11,
             tech_lag: 4,
@@ -2913,6 +2919,7 @@ impl StateHash for Ruleset {
         self.jump_momentum.hash_into(h);
         self.jump_momentum_max.hash_into(h);
         h.write_u8(self.jump_stick_share);
+        h.write_u8(self.landing_speed_cap);
         h.write_u8(self.respawn_invuln);
         h.write_u8(self.tech_window);
         h.write_u8(self.tech_lag);
@@ -3301,6 +3308,7 @@ mod tests {
             |r: &mut Ruleset| r.jump_momentum += Fx::from_raw(1),
             |r: &mut Ruleset| r.jump_momentum_max += Fx::from_raw(1),
             |r: &mut Ruleset| r.jump_stick_share ^= 1,
+            |r: &mut Ruleset| r.landing_speed_cap += 1,
         ] {
             let mut c = base.clone();
             change(&mut c.rules);

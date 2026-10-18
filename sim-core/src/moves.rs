@@ -3786,6 +3786,11 @@ fn sword_kit() -> Weapon {
         Kind::Fighter,
         include_str!("scripts/sword_thrust.script"),
     ));
+    // Started in the air: half the sideways speed on startup and the move's own air friction 0.02 (ssbwiki.com 13.0.1, the
+    // parameters) [R]; the vertical speed is kept (none published). Sim 143: the lunge no longer leaves its whole speed behind (it
+    // carried the fighter off the stage); the script hands back a full drift's speed after it [E].
+    breaker.start_speed = 50;
+    breaker.air_friction = Some(Fx::from_ratio(20, 8000));
     moves[MoveId::NSpecial as usize] = breaker;
 
     // Side special, Blade Flurry: up to four hits, each started by pressing special again (the stick chooses the
@@ -3920,6 +3925,14 @@ fn sword_kit() -> Weapon {
         break_move: 0,
         still: false,
     });
+    // In the air (ssbwiki.com 13.0.1, the parameters): half the sideways speed on startup, air friction 0.0025, gravity 0.04, fall
+    // speed 1.2 [R]. The vertical speed is stopped on starting (sim 143, owner decision 102) [E: not published; with the stance's light
+    // pull a kept jump's rise would float the fighter far over its jump].
+    counter.start_speed = 50;
+    counter.start_speed_y = 0;
+    counter.air_friction = Some(Fx::from_ratio(25, 80_000));
+    counter.air_gravity = Some(Fx::from_ratio(40, 8000));
+    counter.air_max_fall = Some(Fx::from_ratio(1200, 8000));
     moves[MoveId::DownSpecial as usize] = counter;
     let mut answer = ref_move(
         40,
@@ -5407,6 +5420,9 @@ fn claws_up_special(w: &mut Weapon) {
 /// Short-reach, quick and heavy hitting: the longsword's moves pulled in close and sped up, with the
 /// forward tilt, neutral air, forward air and blaster built from reference frame data (a blaster-wielding
 /// brawler archetype).
+/// The Claws' aerial flash dash (its own trail angle: sim 143).
+const FLASH_AIR: MoveId = MoveId::Ext3;
+
 pub fn claws() -> Weapon {
     let mut w = sword_kit();
     // Claws, fists and feet: the limb throwing a hit can be hit.
@@ -5724,30 +5740,54 @@ pub fn claws() -> Weapon {
     dsmash.charge_at = Some(1);
     w.moves[MoveId::DSmash as usize] = dsmash;
 
-    // Flash dash (side special): after a 19 frame wind-up a dash of about 7 world units (3% on the way), ending in a
-    // 20% spike with a 15% hit around it. Helpless in the air. The stick at the start of the dash angles it up or
-    // down (a script). The distance, the ending hit knockback and the total length are estimates.
-    let mut flash = ref_move(
-        55,
-        0,
-        0,
-        255,
-        &[
-            r(19, 28, 12, 11, 11, 30, 361, 20, 0, 0, 0),
-            r(29, 32, 14, 3, 11, 200, 270, 70, 90, 0, 1),
-            r(29, 32, 15, 9, 13, 150, 290, 60, 90, 1, 1),
-        ],
-    );
-    flash.script = Some(script(
-        Kind::Fighter,
-        include_str!("scripts/flash_aim.script"),
-    ));
-    flash.helpless_after = true;
-    // Started in the air: 0.67 of the sideways speed ("horizontal speed multiplier on startup", ssbwiki.com 13.0.1) [R] and none of
-    // the vertical (held still until the startup gravity begins on frame 14 [R]; zeroed, not kept, is the reading [E]). Sim 139.
-    flash.start_speed = 67;
-    flash.start_speed_y = 0;
+    // Flash dash (side special), on the reference's numbers since sim 143 (owner decision 102; ssbwiki.com raw tables 13.0.1): held in
+    // its startup, the dash on frames 18-19 (the illusion's 2 frames [R]; its 55 units of travel [E]), then the slide (the script).
+    // The trail (frames 18-19): 3%, BK 68, angle 80 / KS 40 on the ground and 60 / KS 60 in the air (its own slot), forward, radius 3.0
+    // at 5.0 up, no rebound [R]; drawn back over the frame's travel as a lying capsule (the reference's hitboxes sweep between frames
+    // [D]). The end (20-21): 20% straight down (BK 20, KS 100, radius 4.0 at 5.5 up and 5.5 ahead) on airborne targets, 15% at 28
+    // forward (BK 30, KS 80, radius 7.0, same place) on grounded ones; hitlag x1.5, no clank, no rebound [R]. Animation 61, then the
+    // special fall in the air (helpless "upon finishing" [R]); landing during it or in the fall: 29 frames [R]. Ledges from frame 26 [R].
+    let flash_rows = |angle: i16, kbg: i16| {
+        [
+            r(18, 19, -17, 6, 4, 30, angle, 68, kbg, 0, 0),
+            r(20, 21, 7, 7, 5, 200, 270, 20, 100, 0, 1),
+            r(20, 21, 7, 7, 9, 150, 28, 30, 80, 1, 1),
+        ]
+    };
+    let flash_of = |angle: i16, kbg: i16| {
+        let mut flash = ref_move(61, 29, 0, 255, &flash_rows(angle, kbg));
+        set_rows(&mut flash, &[0], |h| {
+            h.half_width = Fx::from_ratio(17, 10);
+            h.angle_type = ANGLE_FORWARD;
+            h.rebounds = false;
+        });
+        set_rows(&mut flash, &[1, 2], |h| {
+            h.hitlag = 150;
+            h.clanks = false;
+            h.rebounds = false;
+        });
+        flash.hitboxes[1].targets = TARGETS_AERIAL;
+        flash.hitboxes[2].targets = TARGETS_GROUNDED;
+        flash.hitboxes[1].angle_type = ANGLE_BY_POSITION;
+        flash.hitboxes[2].angle_type = ANGLE_FORWARD;
+        flash.script = Some(script(
+            Kind::Fighter,
+            include_str!("scripts/flash_aim.script"),
+        ));
+        flash.helpless_after = true;
+        flash.fall_landing_lag = 29;
+        flash.ledge_front_from = 25;
+        flash.ledge_back_from = 25;
+        // Started in the air: 0.67 of the sideways speed ("horizontal speed multiplier on startup", ssbwiki.com 13.0.1) [R] and none
+        // of the vertical (held still until the startup gravity begins on frame 14 [R]; zeroed, not kept, is the reading [E]). Sim 139.
+        flash.start_speed = 67;
+        flash.start_speed_y = 0;
+        flash
+    };
+    let mut flash = flash_of(80, 40);
+    flash.air_version = Some(FLASH_AIR as u8);
     w.moves[MoveId::SideSpecial as usize] = flash;
+    w.moves[FLASH_AIR as usize] = flash_of(60, 60);
 
     claws_up_special(&mut w);
 

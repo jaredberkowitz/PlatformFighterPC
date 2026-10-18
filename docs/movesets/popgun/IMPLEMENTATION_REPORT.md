@@ -214,3 +214,9 @@ names and accessors are as in phase 1).
 3. **The kick's up-special bar**: does a hit clear it (as here) or only landing (switch it from the air flag to an air mark)?
 4. **The crash's 5% self damage**: the figure is the article's general text; keep, or remove until a 13.0.1 source confirms it?
 5. Still open from phase 1: footage for the rocket's flight and the peanut's and peel's arcs.
+
+## Sim 143: landing speed (owner decision 102)
+
+The shared landing cap (`docs/movesets/SHARED_MECHANICS.md`, "Landing speed": a landing keeps at most the body's dash speed) changes
+one Popgun landing: the monkey flip steered into the stage landed faster than the dash speed and slid 26 reference units; now 19.
+Test: `landing_momentum::no_special_lands_faster_than_its_bodys_dash_speed`.

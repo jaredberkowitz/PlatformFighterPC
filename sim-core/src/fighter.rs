@@ -1007,6 +1007,15 @@ fn land(f: &mut Fighter, p: &FighterParams, stage: &Stage, platform: usize) {
     f.wall_jumps = 0;
 }
 
+/// A landing keeps at most `Ruleset::landing_speed_cap` percent of the body's dash speed along the ground (sim 143, owner decision
+/// 102; 0: all of it).
+fn cap_landing_speed(f: &mut Fighter, p: &FighterParams, rules: &Ruleset) {
+    if rules.landing_speed_cap > 0 {
+        let cap = p.dash_speed * Fx::from_ratio(i32::from(rules.landing_speed_cap), 100);
+        f.vel.x = f.vel.x.clamp(-cap, cap);
+    }
+}
+
 fn enter_landing(f: &mut Fighter, lag: u8) {
     f.lag = lag;
     if lag == 0 {
@@ -1281,6 +1290,7 @@ fn airborne(
         if tumbling {
             tumble_landing(f, rules);
         } else {
+            cap_landing_speed(f, p, rules);
             enter_landing(f, lag);
         }
         return None;
@@ -1325,7 +1335,10 @@ fn helpless(
         match mv.fall_landing_move {
             // (A landing hit after the move, sim 128.)
             Some(next) => begin_attack(f, MoveId::from_index(next)),
-            None => enter_landing(f, lag),
+            None => {
+                cap_landing_speed(f, p, rules);
+                enter_landing(f, lag);
+            }
         }
         return None;
     }
@@ -3277,6 +3290,7 @@ fn attack(
                 land_out_of_move(f, mv, frame, plain_landing_lag(f, p));
                 return None;
             } else {
+                cap_landing_speed(f, p, rules);
                 enter_landing(f, mv.landing_lag);
                 return None;
             }
@@ -3314,6 +3328,7 @@ fn attack(
         }
         if landed && !mv.land_continue && frame >= u16::from(mv.lands_from) {
             // Landing early or late in the move autocancels: only the normal landing lag.
+            cap_landing_speed(f, p, rules);
             land_out_of_move(f, mv, frame, plain);
             return None;
         }
@@ -3582,6 +3597,14 @@ fn start_special(f: &mut Fighter, p: &FighterParams, weapon: &Weapon) -> bool {
     if mv.intangible_start(f.move_air) == 0 {
         f.invuln = f.invuln.max(mv.intangible);
     }
+    // Started in a full hop's fast opening (sim 143, owner decision 102): the opening is the jump's own (the reference's "initial
+    // height", a set height over the hop's first frames), not a speed a move can carry. A special that sets its own vertical rule
+    // (a share of the vertical speed, its own pull, a rise cap or motion) works from the arc's speed the hop goes on with, and the
+    // opening ends; one that keeps the jump as it is (the plain fall) lets the opening run on, as an aerial does [E: reading].
+    if !f.grounded() && f.hop_boost > 0 && sets_vertical(mv) {
+        f.vel.y = p.full_hop_velocity;
+        f.hop_boost = 0;
+    }
     // Started in the air, a special may keep only part of the fighter's momentum.
     if !f.grounded() && mv.start_speed != 100 {
         f.vel.x = f.vel.x * Fx::from_ratio(i32::from(mv.start_speed), 100);
@@ -3592,6 +3615,20 @@ fn start_special(f: &mut Fighter, p: &FighterParams, weapon: &Weapon) -> bool {
         f.hop_boost = 0;
     }
     true
+}
+
+/// Whether a move started in the air sets its own vertical rule (see `start_special`): a share of the vertical speed other than all
+/// of it, its own pull or fall speed, a cap on rising, or motion rows.
+fn sets_vertical(mv: &Move) -> bool {
+    mv.start_speed_y != 100
+        || mv.air_gravity.is_some()
+        || mv.air_max_fall.is_some()
+        || mv.air_max_rise.is_some()
+        || mv
+            .air_blocks
+            .iter()
+            .any(|b| b.gravity.is_some() || b.max_fall.is_some())
+        || !mv.motion.is_empty()
 }
 
 /// How many knockback frames this frame of a launch plays (the reference game's speed-up of strong launches, often called "balloon"

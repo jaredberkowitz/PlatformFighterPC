@@ -155,17 +155,18 @@ fn the_flash_dash_holds_angles_and_slides_as_the_reference() {
             assert_eq!(sim.f().pos.y, y0, "held still in the startup");
         }
         let before = sim.f().pos;
-        for _ in 13..=17 {
+        for _ in 13..=16 {
             sim.tick(inp(0, y, 0));
         }
         let start = sim.f().pos;
-        for _ in 18..=27 {
+        // (The dash is the reference's 2 illusion frames, its 17 and 18 here, since sim 143.)
+        for _ in 17..=18 {
             sim.tick(inp(0, y, 0));
         }
         let dash = sim.f().pos - start;
         sim.tick(inp(0, y, 0));
         let slide = sim.f().vel.x;
-        for _ in 29..=70 {
+        for _ in 20..=70 {
             sim.tick(inp(0, 0, 0));
         }
         (before, dash, slide, sim.f().state)
@@ -196,4 +197,90 @@ fn a_dash_into_the_flash_dash_does_not_carry_on() {
         sim.tick(inp(0, 0, 0));
     }
     assert!(sim.f().vel.x.abs() < fx(1, 100), "{:?}", sim.f().vel.x);
+}
+
+/// The flash dash's end (sim 143, owner decision 102: "should put him into the free-fall/helpless state"): in the air, the special
+/// fall when its 61 frames end [R]; landing during it (dashed into the stage) or in the fall: 29 frames of landing lag [R], not the
+/// free landing it had (0 frames: the fighter could act at once); on the ground it ends standing.
+#[test]
+fn the_flash_dash_ends_in_the_special_fall_and_lands_with_29_frames_of_lag() {
+    // In the air: helpless from the reference's frame 61 (move frame 59).
+    let mut sim = sim_for(1);
+    sim.put_airborne(0, Fx::ZERO, Fx::from_int(40), Fx::ZERO, Fx::ZERO);
+    sim.state.fighters[0].facing = 1;
+    sim.tick(inp(127, 0, SPECIAL));
+    let mut fall_at = None;
+    for t in 2..=70u32 {
+        sim.tick(inp(0, 0, 0));
+        if fall_at.is_none() && sim.f().state == S::Helpless {
+            fall_at = Some(t);
+        }
+    }
+    assert_eq!(fall_at, Some(60));
+    // Landing in that fall: 29 frames.
+    sim.put_airborne(0, Fx::ZERO, fx(1, 10), Fx::ZERO, -fx(1, 10));
+    sim.state.fighters[0].state = S::Helpless;
+    sim.tick(inp(0, 0, 0));
+    assert_eq!((sim.f().state, sim.f().lag), (S::Landing, 29));
+
+    // Dashed down into the stage from just above it: the move lands into 29 frames of landing lag.
+    let mut sim = sim_for(1);
+    sim.put_airborne(0, Fx::ZERO, fx(2, 1), Fx::ZERO, Fx::ZERO);
+    sim.state.fighters[0].facing = 1;
+    sim.tick(inp(127, 0, SPECIAL));
+    let mut landed = None;
+    for _ in 2..=40u32 {
+        sim.tick(inp(0, -127, 0));
+        if landed.is_none() && sim.f().state != S::Attack {
+            landed = Some((sim.f().state, sim.f().lag));
+        }
+    }
+    assert_eq!(landed, Some((S::Landing, 29)));
+
+    // On the ground: standing at the end, no lag.
+    let mut sim = sim_for(1);
+    sim.stand(0, Fx::from_int(-10), 1);
+    sim.tick(inp(127, 0, SPECIAL));
+    let mut states = Vec::new();
+    for _ in 2..=62u32 {
+        sim.tick(inp(0, 0, 0));
+        states.push(sim.f().state);
+    }
+    assert!(!states.contains(&S::Landing) && !states.contains(&S::Helpless));
+    assert_eq!(sim.f().state, S::Idle);
+}
+
+/// The flash dash's end hit is out on the reference's frames 20-21 [R] at the hand: 20% on an airborne target (the spike), 15% on a
+/// grounded one (sim 143; it was out on 29-32 before).
+#[test]
+fn the_flash_dashs_end_hit_lands_on_frame_20_spiking_airborne_targets() {
+    for airborne in [true, false] {
+        let mut sim = sim_for(1);
+        sim.stand(0, Fx::ZERO, 1);
+        let mut hit = None;
+        for t in 1..=30u32 {
+            // (The target held just past where the dash ends, out of the trail's reach.)
+            if hit.is_none() {
+                if airborne {
+                    sim.put_airborne(1, fx(80, 10), fx(2, 10), Fx::ZERO, Fx::ZERO);
+                } else {
+                    sim.stand(1, fx(84, 10), -1);
+                }
+            }
+            sim.tick(inp(
+                if t == 1 { 127 } else { 0 },
+                0,
+                if t == 1 { SPECIAL } else { 0 },
+            ));
+            if hit.is_none() && sim.fighter(1).percent > Fx::ZERO {
+                hit = Some((t, sim.fighter(1).percent));
+            }
+        }
+        let want = if airborne { 20 } else { 15 };
+        assert_eq!(
+            hit,
+            Some((20, Fx::from_int(want) * sim.content.rules.damage_mult)),
+            "airborne {airborne}"
+        );
+    }
 }

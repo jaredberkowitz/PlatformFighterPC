@@ -314,7 +314,7 @@ they are estimates chosen to look and reach about right, in reference units (wor
 | --- | --- | --- |
 | Side special, grounded dash | 0.8 a frame on frames 1-9, 2.0 on 10-25, 0.6 on 26-30 (the uppercut then cuts the speed to x0.18 [R]) | 42 units forward |
 | Side special, aerial dash | 0.5 forward on 1-9, then 1.8 forward and 0.3 down on 10-35 | 51 forward, 8 down |
-| Up special, the rise | from frame 14 the speed built by the x6 acceleration [R] plus 0.6 forward; upward 3.4 a frame slowing evenly to 0.4 on 31; then gravity 0.103 [R] | 34 up, 11 forward (plus the drift) |
+| Up special, the rise (sim 143: fitted to the reference's hitbox visualisation, see below) | held still (no gravity) to frame 13; from frame 14 the speed built by the x6 acceleration [R] plus 0.6 forward to 30; up 2.4, 3.3, 2.3, 1.8, 1.2, 0.6 a frame over 14-15, 16-18, 19-22, 23-30, 31-39, 40-46, then down 1.3, 1.6, 2.6 over 47-52, 53-58, 59-66 (in the air; from the ground 2.9, 4.8, 3.1, 1.9, 1.2, 0.6 and 1.3, 1.8, 3.3) | air: 53 up by frame 46, 15 up at the special fall; ground: 62 up, 18 up |
 | Up special, the backflip after the throw | held still to frame 17, then 0.8 back and 1.5 up slowing by 0.16 a frame to 24 | 6 back, 7 up |
 | Neutral special, the aerial boost | 1.0 a frame along 35 degrees up or down (the angle and the stick range are [R]) | (gap 2) |
 | Down special, the slide | 0.4 a frame to 12, 2.4 on 13-33, easing to a stop by 45; x0.8 once it hits [R] | 69 units |
@@ -322,6 +322,17 @@ they are estimates chosen to look and reach about right, in reference units (wor
 | Down special, the wall crash | pushed 0.4 a frame back for 6 frames, then still | 2.4 back |
 
 Their code: `sim-core/src/moves_gauntlets.rs` (`motion` blocks) and `sim-core/src/scripts/gauntlets_*.script`. Footage would replace them.
+
+**The leap's fit (sim 143, owner decision 102: "should gain more height")**: ultimateframedata.com's hitbox visualisations
+(`hitboxes/captain_falcon/CaptainFalconFalconDiveA.gif` and `...G.gif`, 66 frames, one per game frame, a fixed camera) draw the
+animation's own movement (the spinning clothesline of the Bracers, a physics rise, shows none in its own). The body's pixel centre was
+taken frame by frame (decoded in a browser, hitbox colours left out); the scale from the standing grab's visualisation, whose box is
+published (radius 3.3 along 4.0-9.7 at 8.0 up: 17 px a unit, both ways) and whose standing body is 318 px tall against 178 px in the
+leap's first frame: about 9.5 px a unit for the grounded leap, 10.1 for the aerial one (their same poses on frames 23-30 differ by 6%).
+Measured: in the air the body holds still to frame 13, rises 53 units by frame 46 and flips down to 15 units above its start by frame
+66; from the ground 62 and 18 units (the take-off on frames 14-22 is stronger; from frame 23 the two match within 5%). [E: footage-
+derived, about +-10% on the scale]. Before sim 143 ours rose 25 units in the air (it fell 9 in the startup) and 35 from the ground. The
+published "gravity when detaching 0.103" is kept for after the move (it cannot be the flip: that falls faster than any gravity would).
 
 ## Gaps (needed for 1:1, not published)
 
