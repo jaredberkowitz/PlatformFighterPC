@@ -902,7 +902,8 @@ static func solid_block(parent: Node3D, t: Dictionary, left: float, right: float
 						var tuft_mi := _mesh(parent, grass_tuft, blade_mat, Vector3(tx, top - cap_h * 0.35 + (0.32 if back > 0.0 else 0.0),
 							front_z + 0.3 - back), Vector3.ONE * tr.randf_range(0.8, 2.0), Vector3(28.0 if back == 0.0 else 4.0, tr.randf_range(0, 360), 0))
 						tuft_mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-					cxs += tr.randf_range(1.8, 4.2)
+					# (Denser, round 8: at 1.8 to 4.2 apart the straight lip showed again between the clusters.)
+					cxs += tr.randf_range(0.9, 2.1)
 
 
 ## What makes a stage's block a built shape rather than a box with a tiled front: at each top corner (the ledges, gameplay landmarks) a
@@ -2171,7 +2172,7 @@ const RIDGES := {
 	"meadow": [{"z": -170.0, "y": -50.0, "height": 88.0, "shape": 1, "seed": 3.0, "base": 0.32, "amplitude": 0.6, "frequency": 5.6,
 		# (More of its own blue and less haze, art review 6 round 31: at mix 0.55 the ridge was mostly horizon colour, a formless pale band
 		# behind the crisp painted hills; found with `--pick`.)
-		"tone": Color(0.2, 0.62, 0.6), "mix": 0.62, "edge": 0.3, "haze": 0.5,
+		"tone": Color(0.2, 0.62, 0.6), "mix": 0.5, "edge": 0.15, "haze": 0.62,
 		# (Teal, not blue: the owner's Origami King reference sets bright lime ground against cool teal mountains.)
 		# (A lit flank and a shaded flank on every peak, as the canyon's mesas have: a flat blue cut-out read as the least finished
 		# thing on the menu; the owner, 2026-10-17, raise the quality of what is there.)
@@ -2187,7 +2188,7 @@ const RIDGES := {
 		# A nearer row of rounded hills in a deeper violet-blue, casting its shadow on the far one (art review 9: cut cards in layers).
 		{"z": -138.0, "y": -24.0, "height": 40.0, "shape": 0, "seed": 4.0, "base": 0.5, "amplitude": 0.36, "frequency": 5.0,
 		"tone": Color(0.36, 0.38, 0.72), "mix": 0.82, "edge": 0.4, "flank": 0.6, "foot_dark": 0.35, "layers": 3, "flank_from": 0.0,
-		"gullies": 0.4, "haze": 0.12, "paper": 0.05, "edge_width": 0.02, "shadow": 0.5}],
+		"gullies": 0.4, "haze": 0.24, "paper": 0.05, "edge_width": 0.02, "shadow": 0.5}],
 	"sunset": [{"z": -175.0, "y": -36.0, "height": 58.0, "shape": 2, "seed": 5.0, "base": 0.4, "amplitude": 0.4, "frequency": 3.0,
 		"tone": Color(0.42, 0.26, 0.5), "mix": 0.62, "edge": 0.35, "layers": 3, "flank_from": 0.0},
 		{"z": -132.0, "y": -34.0, "height": 46.0, "shape": 2, "seed": 11.0, "base": 0.36, "amplitude": 0.36, "frequency": 2.6,
@@ -5488,7 +5489,9 @@ static func _harbour_town(root: Node3D, water: float) -> void:
 	# (A step deeper again, 2026-10-18: still the brightest flat shape behind the fight.)
 	# (Softer and hazier, the harbour reference: its hills sit back blue-green in the haze.)
 	var land := Materials.foliage(Color(0.4, 0.56, 0.46), Vector2(6, 3), false)
-	var hills := [[Vector3(-6, 0.0, -14), Vector3(40, 16, 16)], [Vector3(22, -1.0, -18), Vector3(26, 10, 12)]]
+	# (Lower, the gauntlet's round 8 after the owner's harbour reference: the town sits low along the waterline under soft hills, not high on
+	# a big one.)
+	var hills := [[Vector3(-6, 0.0, -14), Vector3(40, 9, 16)], [Vector3(22, -1.0, -18), Vector3(26, 6, 12)]]
 	for h in hills:
 		_mesh(root, _sphere(1.0, 9), land, base + (h[0] as Vector3), h[1])
 	# Higher hills behind the town, bluer with distance.

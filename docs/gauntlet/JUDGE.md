@@ -13,7 +13,8 @@ compare across rounds.
   against the harbour reference and the city against the city reference first, then the general benchmarks.
 
 **What is judged:** the round's match-camera captures of each stage, `docs/gauntlet/round<N>/stage<k>.png` (0 meadow, 1 canyon,
-2 beach, 3 city, 4 grove). The fighters, UI and effects are not judged here.
+2 beach, 3 city, 4 grove). The fighters, UI and effects are not judged here. **The canyon is scored but not ranked as a gap:** the
+owner keeps it as it is for now.
 
 **Scores, 1 to 5 against the benchmarks** (5 = on par), per stage:
 1. Believability: do surfaces read as real materials (grass, dirt, stone, wood) with natural variation, or as flat fills and primitives?

@@ -111,3 +111,18 @@ The city's modelled trusses read as steel (Cohesion 4); the meadow's tufts lift 
 drooping turf overhang to an even row of tufts. Gaps: (1) the beach behind the harbour reference (foam strokes, piles' waterline,
 the town high, the lamp and sailboats primitive, the cut-off crate stack); (2) the tuft rows mechanical, the grove's overhang to
 restore. Later: the canyon's strata and arch; the city's windows, roof pools and scuffs; the meadow's far ridges and hay-bale contact.
+
+## Round 8 (2026-10-18, commit 32c4868)
+
+| Stage | Believ. | Cohesion | Lighting | Depth | Ground | Clarity | Mean |
+|---|---|---|---|---|---|---|---|
+| Meadow | 3 | 3 | 3 | 3 | 3 | 3 | 3.0 |
+| Canyon | 3 | 4 | 4 | 3 | 3 | 4 | 3.5 |
+| Beach | 3 | 3 | 4 | 3 | 3 | 4 | 3.3 |
+| City | 3 | 4 | 3 | 4 | 2 | 3 | 3.2 |
+| Grove | 3 | 4 | 3 | 3 | 3 | 4 | 3.3 |
+
+The beach's soft water the clearest gain (Lighting and Clarity 4); the grove's overhang restored (Cohesion 4); the meadow's tuft
+clusters too sparse. Gaps: (1) the canyon (not worked: the owner keeps it as it is for now); (2) the distant layers lag the foreground
+(the beach town high on its hill, the meadow's far ridges, the grove's hill bands; the beach's lamp and sailboats primitive). Later:
+the meadow's tufts denser; the city roof (tar, seams, warm pools) and windows; contact under the hay bales and stump; moss clumps.
