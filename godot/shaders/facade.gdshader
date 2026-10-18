@@ -21,6 +21,7 @@ uniform float first_row = 1.0;         // street to the first bay
 uniform float parapet = 0.55;          // the lighter cap along the top
 uniform float detail = 1.0;            // frames, sills and floor bands (0 for the far layer)
 uniform float sign_energy = 3.0;       // a sign's neon, times white
+uniform float moon_edge = 1.0;         // how strong the moonlit edge up each front's left corner is
 
 varying vec3 wn;
 
@@ -102,6 +103,12 @@ void fragment() {
 		// blocks with depth, not flat cut-outs (the owner, 2026-10-17: basic shapes, no real detail).
 		float side = abs(wn.x) > 0.5 ? (wn.x > 0.0 ? 0.7 : 0.84) : 1.0;
 		col *= side;
+		// The moonlit edge: a thin bright strip up the corner of each front facing the moon, cool, so each tower's outline reads as a lit
+		// block against the one behind it (art review 9: the skyline towers were flat boxes). Not on the side walls or the roofs.
+		if (!plain && abs(wn.z) > 0.5) {
+			float edge = 1.0 - smoothstep(0.12, 0.3, at.x);
+			col = mix(col, base * vec3(1.55, 1.6, 1.95) + vec3(0.02, 0.03, 0.07), edge * moon_edge);
+		}
 		// Each building's wall (`material`): brick courses, horizontal stone bands, or plain render with pilasters between the bays.
 		float material = hash(vec2(seed, 11.1));
 		if (!plain && detail > 0.0) {

@@ -3854,12 +3854,15 @@ static func _city(root: Node3D, t: Dictionary, stage: Array) -> void:
 		var shade := Color(0.2, 0.17, 0.33).lerp(Color(0.29, 0.22, 0.42), layer / 2.0)
 		# (The further layers drift toward the sky's own horizon colour, so distance reads as air, not as three equal cut-outs: the owner's
 		# rooftop plan, art review 6.)
-		shade = shade.lerp(t.sky_horizon as Color, [0.0, 0.16, 0.34][layer])
+		# (Toward a deep cool blue as much as the horizon, art review 9: drifting to the pink horizon alone, every layer read the same violet
+		# and the scene lost its value contrast.)
+		shade = shade.lerp((t.sky_horizon as Color).lerp(Color(0.12, 0.14, 0.3), 0.55), [0.0, 0.2, 0.4][layer])
 		_skyline_layer(root, rng, layer, z, shade, float(e[3]) - CITY_STREET_DROP)
 	# A water tower and an antenna on the roof behind the stage.
 	var roof: float = e[2]
 	var tower := Vector3(float(e[0]) + 3.0, roof, -6.0)
-	var wood := Materials.wood(Color(0.55, 0.36, 0.26))
+	# (A red-brown tank, art review 9: one of the few warm things on the roof, pushed warmer.)
+	var wood := Materials.wood(Color(0.62, 0.32, 0.26))
 	for leg in [Vector3(-0.9, 0, -0.9), Vector3(0.9, 0, -0.9), Vector3(-0.9, 0, 0.9), Vector3(0.9, 0, 0.9)]:
 		_mesh(root, _box(Vector3(0.18, 2.4, 0.18)), wood, tower + leg + Vector3(0, 1.2, 0))
 	_mesh(root, _cylinder(1.3, 1.3, 2.2, 14), wood, tower + Vector3(0, 3.5, 0))
@@ -3903,6 +3906,34 @@ static func _city(root: Node3D, t: Dictionary, stage: Array) -> void:
 	_contact(root, tower, Vector2(1.2, 1.1))
 	_contact(root, mast, Vector2(0.2, 0.18))
 	_roof_marks(root, e, rng)
+	_roof_puddles(root, e, t)
+
+
+const PUDDLE_SHADER := preload("res://shaders/wet_puddle.gdshader")
+
+
+## The city roof after rain (art review 9: the roof was a flat lilac sheet): a few shallow puddles across it (`wet_puddle.gdshader`), dark
+## and glossy, with the horizon's pink along their far sides and the skyline's lit windows smeared down them. `e` the stage's extent.
+## Their own random numbers.
+static func _roof_puddles(root: Node3D, e: Array, t: Dictionary) -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 4321
+	var l: float = e[0]
+	var r: float = e[1]
+	var y: float = e[2]
+	var spots := [[0.2, -2.6, 3.4, 3.6], [0.45, -3.6, 4.2, 3.4], [0.66, -1.4, 2.8, 3.0], [0.86, -3.2, 3.6, 3.8]]
+	for k in spots.size():
+		var sp: Array = spots[k]
+		var q := PlaneMesh.new()
+		q.size = Vector2(float(sp[2]), float(sp[3]))
+		var m := ShaderMaterial.new()
+		m.shader = PUDDLE_SHADER
+		m.set_shader_parameter("seed", float(k) * 1.7 + 0.3)
+		m.set_shader_parameter("sky", (t.sky_horizon as Color))
+		m.set_shader_parameter("columns", roundf(float(sp[2]) * 5.0))
+		var mi := _mesh(root, q, m, Vector3(lerpf(l, r, float(sp[0])), y + 0.035, float(sp[1])), Vector3.ONE, Vector3(0, rng.randf_range(-6, 6), 0))
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		mi.name = "Puddle"
 
 
 ## How far below the stage's lowest block the street is (the buildings of the skyline stand on it too).
@@ -4305,7 +4336,8 @@ const FACADE_SHADER := preload("res://shaders/facade.gdshader")
 ## (emissive, not bloomed: the background should not outshine the fighters).
 ## (Art review 6, refinement round 1: all three layers were near-white and the near one bloomed right behind the fighters, a field of
 ## pale rectangles that was the noisiest backdrop in the game. Now none blooms, and each layer back is dimmer.)
-const FACADE_LIT := [1.15, 0.8, 0.55]
+## (The near layer brighter again, 1.15 to 1.5, still under the glow: art review 9, the warm windows are the city's accent against the violet.)
+const FACADE_LIT := [1.5, 0.95, 0.6]
 ## The share of a skyline layer's windows that are lit (nearest first): a scattered glow behind the fighters, not a field of lights that
 ## outshines them (the near layers stand right behind the play area).
 ## (Fewer lit the further back, as distance would hide them: the far layer was the most lit, 36%.)
@@ -4401,6 +4433,7 @@ static func _skyline_layer(root: Node3D, rng: RandomNumberGenerator, layer: int,
 	# The far layer: windows only (frames, sills and floor bands would be noise at that distance).
 	m.set_shader_parameter("detail", 0.0 if layer == 2 else 1.0)
 	m.set_shader_parameter("sign_energy", 3.0 - layer * 0.8)
+	m.set_shader_parameter("moon_edge", [0.9, 0.6, 0.35][layer])
 	var mi := MeshInstance3D.new()
 	mi.mesh = st.commit()
 	mi.material_override = m
