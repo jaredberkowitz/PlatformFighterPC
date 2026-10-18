@@ -5365,8 +5365,9 @@ static func _edge_lip(parent: Node3D, x0: float, x1: float, y: float, z: float, 
 		var x := lerpf(x0, x1, u)
 		# Rounded ends: the radius closes over the last few tenths of a unit.
 		var end_k := sqrt(clampf(minf(x - x0, x1 - x) / (r * 0.9), 0.0, 1.0))
-		var rr := r * (1.0 + 0.13 * sin(x * 1.3 + ph) + 0.07 * sin(x * 3.1 + ph * 2.0)) * maxf(end_k, 0.05)
-		var dy := 0.035 * sin(x * 0.9 + ph * 1.7) + 0.02 * sin(x * 2.3)
+		# (Swelling and dipping more, with a slow sag of its own, the gauntlet's round 24: the lip still read as a ruled line.)
+		var rr := r * (1.0 + 0.2 * sin(x * 1.3 + ph) + 0.1 * sin(x * 3.1 + ph * 2.0) + 0.12 * sin(x * 0.41 + ph * 0.7)) * maxf(end_k, 0.05)
+		var dy := 0.07 * sin(x * 0.9 + ph * 1.7) + 0.035 * sin(x * 2.3) + 0.06 * sin(x * 0.33 + ph)
 		var row: Array = []
 		for j in sides + 1:
 			var a := TAU * float(j) / sides
@@ -6079,7 +6080,8 @@ static func _root_tube(root: Node3D, pts: Array, r0: float, r1: float, mat: Mate
 		var f := float(i) / float(path.size() - 1)
 		# (Flaring at its start, half again as thick over its first stretch, so a root swells out of the bank under the turf rather than
 		# hanging from it at one width: the gauntlet's round 22.)
-		var flare := 1.0 + 0.5 * (1.0 - smoothstep(0.0, 0.22, f))
+		# (A quarter, round 24: at half, the flares ran together into one dark mass along the bank's front.)
+		var flare := 1.0 + 0.25 * (1.0 - smoothstep(0.0, 0.2, f))
 		var rr := lerpf(r0, r1, f) * flare * (1.0 + 0.12 * sin(f * 23.0) + 0.06 * sin(f * 51.0))
 		var ring: Array = []
 		for j in sides + 1:

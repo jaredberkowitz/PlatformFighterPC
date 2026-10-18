@@ -142,7 +142,8 @@ static func apply_paper(env: Environment, post: ShaderMaterial, base_lines: floa
 	if post != null:
 		post.set_shader_parameter("scenery_lines", 0.0 if paper else base_lines)
 		# (A lighter dose of the cut card's lit edge in the current look too, the gauntlet's round 23: the benchmark's crisp lit edges.)
-		post.set_shader_parameter("paper_edge", 0.9 if paper else 0.4)
+		# (0.8, round 24: at 0.4 it did not read at match distance.)
+		post.set_shader_parameter("paper_edge", 0.9 if paper else 0.8)
 
 
 ## The ramp's lookup texture: 256 steps across, each the ramp's lightness there, eased between the stops so each band's edge is soft.
