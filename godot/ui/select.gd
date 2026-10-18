@@ -214,6 +214,21 @@ class PlayerPanel extends Control:
 	## Played by the computer: the tag says CPU instead of the player number.
 	var cpu := false
 	const LEAN := 30.0
+	## The fighter's resting height in the panel, and how far it rises from on a new pick and hops on locking in.
+	const BASE_Y := -26.0
+	const PICK_RISE := 30.0
+	const LOCK_HOP := 18.0
+	var pick_t := 1.0
+	var lock_t := 1.0
+
+	func _process(delta: float) -> void:
+		if pick_t >= 1.0 and lock_t >= 1.0:
+			return
+		pick_t = minf(1.0, pick_t + delta / UI.MOTION_BASE)
+		lock_t = minf(1.0, lock_t + delta / (UI.MOTION_BASE * 1.5))
+		var k := 1.0 - pow(1.0 - pick_t, 3.0)
+		preview.position.y = BASE_Y + (1.0 - k) * PICK_RISE - sin(lock_t * PI) * LOCK_HOP
+		preview.modulate.a = lerpf(0.25, 1.0, k)
 	const MOODS := [0.85, -0.7, 0.35, 0.0]
 
 	func _init(p: int, disc: Color, flag: Color) -> void:
@@ -249,7 +264,7 @@ class PlayerPanel extends Control:
 		scenery.size = mask.size
 		var pw := minf(w * 0.8, 300.0)
 		preview.size = Vector2(pw, 260)
-		preview.position = Vector2(w * 0.5 - pw * 0.5 + 10.0, -26)
+		preview.position = Vector2(w * 0.5 - pw * 0.5 + 10.0, BASE_Y)
 
 
 	func _draw() -> void:
@@ -299,6 +314,11 @@ class PlayerPanel extends Control:
 			Art.title_centered(over, "READY!", badge, 30, Art.INK, 0.0)
 
 	func show_entry(e: Dictionary, size_percent: float, ready: bool) -> void:
+		# A new fighter slides up into the light; locking in gives a hop (`_process`).
+		if not e.is_empty() and str(e.get("name", "")) != name_text:
+			pick_t = 0.0
+		if ready and not is_ready:
+			lock_t = 0.0
 		empty = e.is_empty()
 		preview.visible = not empty
 		if not empty:

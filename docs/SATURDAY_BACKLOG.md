@@ -161,8 +161,8 @@ The detail behind each step follows.
 - [~] (2026-10-17: every screen's cards now arrive in sequence behind the wipe, `UiKit.Entrance`; focus scaling and the animated
       backdrop already existed. Still to do: values easing, a wipe on leaving.) 1. Motion: animated screen transitions (a wipe in the ink-panel style), tiles that scale/brighten on focus, an animated menu
       backdrop. The biggest "shipped game" signal in the competitors' menus.
-- [~] (2026-10-17: the big slots already existed; now a clean, softer spotlight per player and the fighter's class over its name.
-      Still: a slide-in on pick.) 2. Character select redesign: a big slot per player along the bottom (posed render in the player colour, name, costume,
+- [x] (2026-10-17: the big slots already existed; now a clean, softer spotlight per player, the fighter's class over its name, the
+      fighter sliding up into the light on each pick and hopping on lock-in.) 2. Character select redesign: a big slot per player along the bottom (posed render in the player colour, name, costume,
       sliding in on pick), the roster grid above.
 - [x] 3. Title screen: logo over the stage scene, a posing fighter, "press any button" (2026-10-17: menu.gd `Title`, once a session
       on a normal launch; `-- --title --shot=<png>` photographs it).
