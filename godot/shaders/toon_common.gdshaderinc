@@ -16,6 +16,11 @@ uniform float world_vary = 0.08;
 // Painted patches (0 off): large tonal patches with soft but clear edges, a deeper tone and a sunlit one over the base, as a hand-painted
 // lawn is laid in (the owner's references and outside brief, 2026-10-17: grass as one flat sheet read cheap). How strong.
 uniform float patch_amount = 0.0;
+// World-laid tops only: the top deepens and cools from `back_from` (world z) back over `back_span` units by `back_deepen` (0 off), so a
+// lawn reads as receding ground rather than one bright sheet (gauntlet round 3).
+uniform float back_deepen = 0.0;
+uniform float back_from = 1.0;
+uniform float back_span = 7.0;
 // World-laid tops only: painted grass-blade clumps (0 off), a few short tapered strokes leaning together in scattered clumps, lit in the
 // sunlit patches and deeper in the shaded ones (the owner's material notes, 2026-10-17: grass wants selective highlights and
 // directional variation, not one smooth sheet). How strong.
@@ -114,6 +119,11 @@ void fragment() {
 				c *= 1.0 - patch_amount * 0.55 * deep;
 				c = mix(c, c * vec3(1.08, 1.1, 0.92) + 0.03, patch_amount * sunlit);
 				blade_light = clamp(sunlit + 0.5 - deep, 0.0, 1.0);
+			}
+			if (back_deepen > 0.0 && world_normal.y > 0.5) {
+				float back = smoothstep(back_from, back_from - back_span, world_pos.z);
+				// (Strong in linear light: 0.84 showed as barely a tenth darker.)
+				c = mix(c, c * vec3(0.5, 0.6, 0.85), back * back_deepen);
 			}
 			// And a slight drift in hue between warmer and cooler patches, slower still, so neighbouring areas differ a little.
 			float hue_drift = sin(p.x * 0.17 + 2.1 + sin(p.y * 0.23) * 1.3) * sin(p.y * 0.13 + p.x * 0.07);

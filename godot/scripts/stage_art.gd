@@ -27,9 +27,11 @@ const THEMES := {
 	"meadow": {
 		"sky_top": Color(0.1, 0.36, 0.9), "sky_mid": Color(0.3, 0.62, 1.0), "sky_horizon": Color(0.78, 0.93, 1.0),
 		"sky_glow": [Color(1.0, 0.97, 0.86), 0.25], "sky_wisps": [Color(1.0, 1.0, 1.0), 0.5],
-		"soil": Color(0.76, 0.56, 0.36), "soil_dark": Color(0.52, 0.37, 0.25), "grass": Color(0.44, 0.74, 0.22),
+		"soil": Color(0.76, 0.56, 0.36), "soil_dark": Color(0.52, 0.37, 0.25), "grass": Color(0.42, 0.7, 0.24),
 		"grass_light": Color(0.66, 0.92, 0.34), "wood": Color(0.86, 0.62, 0.36), "wood_dark": Color(0.62, 0.42, 0.24),
 		"pattern": "earth", "cap": "grass", "platform": "wood", "grass_vary": 0.17, "grass_patch": 0.35, "moss": Color(0.4, 0.66, 0.14),
+		# (A step less saturated, deepening toward the back, gauntlet round 3: the brightest, flattest colour on screen.)
+		"grass_back": 1.0,
 		# The stage as a hillside farm terrace (2026-10-18, the owner: a place, not a box): a dry-stone retaining wall holding the field up,
 		# a grassy hill below it running down into the valley (`_meadow_hill`), a lower terrace in front, the farm nearby.
 		"terrace": true,
@@ -829,6 +831,12 @@ static func solid_block(parent: Node3D, t: Dictionary, left: float, right: float
 				grass.set_shader_parameter("patch_amount", t.grass_patch)
 				# And painted blade clumps over the patches (`blades`).
 				grass.set_shader_parameter("blades", 0.8)
+			# Deeper and cooler toward the back edge (a theme's `grass_back`), so the lawn recedes.
+			if t.has("grass_back"):
+				grass = grass.duplicate()
+				grass.set_shader_parameter("back_deepen", t.grass_back)
+				grass.set_shader_parameter("back_from", front_z)
+				grass.set_shader_parameter("back_span", depth - 2.0)
 			var cap_h := 0.55
 			_mesh(parent, _box(Vector3(w + 0.25, cap_h, depth + 0.1)), grass, Vector3(cx, top - cap_h / 2.0 + 0.04, front_z - depth / 2.0))
 			# (A turf lip rolling over the edge, its thickness and line wavering, in place of a straight tube with a lit strip along it that
@@ -5374,9 +5382,11 @@ static func _harbour_town(root: Node3D, water: float) -> void:
 	for h in hills:
 		_mesh(root, _sphere(1.0, 9), land, base + (h[0] as Vector3), h[1])
 	# Higher hills behind the town, bluer with distance.
-	var far_land := Materials.foliage(Color(0.3, 0.5, 0.38), Vector2(6, 3), false)
-	_mesh(root, _sphere(1.0, 9), far_land, base + Vector3(-18, 0.0, -34), Vector3(36, 26, 10))
-	_mesh(root, _sphere(1.0, 9), far_land, base + Vector3(14, 0.0, -38), Vector3(30, 20, 10))
+	var far_land := Materials.foliage(Color(0.2, 0.42, 0.3), Vector2(6, 3), false)
+	# (Finer facets and a deeper green, gauntlet round 3: nine-sided spheres this size were a few huge flat panes, pale through the haze,
+	# and read as glass.)
+	_mesh(root, _sphere(1.0, 18), far_land, base + Vector3(-18, 0.0, -34), Vector3(36, 26, 10))
+	_mesh(root, _sphere(1.0, 18), far_land, base + Vector3(14, 0.0, -38), Vector3(30, 20, 10))
 	# The land's height at (x, z) (relative to `base`): the highest of the hills' ellipsoid surfaces there.
 	var ground := func(x: float, z: float) -> float:
 		var best := 0.0
