@@ -37,6 +37,23 @@ every demo fighter in its rest pose (content newer than the bridge); rebuild `ca
 8. Design system first (type, palette, panels, motion timings), then motion and transitions, the character select redesign, the title
    screen, the results screen (mend `--demo=results` first). Phantom Camera for menu/results moves if approved. Build.
 
+**Phase 4b: more detailed background art (owner, 2026-10-17), right after the UI pass**
+The owner: the UI and the game would both benefit from more detailed backgrounds. After the UI pass (the menus stand on the live
+meadow, so richer backgrounds lift both): per stage, a nearer mid-ground layer of props and silhouettes, more variety in the far
+layers (buildings, trees, mesas, sea features), small life (birds, boats, lit windows, drifting leaves), and the menu backdrop's
+own dressing; judged against the competitors with the refinement loop's before/after captures.
+
+Phase 4b notes (2026-10-17): the owner's rule is to raise the quality of what is there, not add new things (the beach coastline and
+field life were reverted). Reference: a Wind Waker HD frame (trees as distinct leaf clumps, bright yellow-green lit and deep blue-green
+below, toothed leafy edges; soft painted grass). Done: round-tree crowns in lit/body/deep lobes; meadow and grove mountain flanks lit.
+Found: the pale band across the meadow and menu is the mountain ridge washed out by post.gdshader's distance haze (not the mist or the
+sky); fixing it means exempting the ridge from that haze or lowering haze_max for the meadow.
+
+Phase 4b, models (2026-10-17): tree_crown_a/b/c, tree_trunk and a detailed cottage (make_props.py `cottage`: proud timbers, lapped
+shingle rows, plank door with strap hinges, mullioned window with shutters, curtains and a planter, lantern, stone footing, chimney)
+replace the code-built versions. Next (owner, 2026-10-17): the 'flat' feel of code-drawn background models and textures (the city's windows wait); the barn; stumps
+and rocks; the far haze still flattens background models, which limits how much of this detail reads at match distance.
+
 **Phase 5: rendering trials (Tooling review section)**
 9. ACES vs Filmic per stage, a light scenery SSAO A/B; keep only what wins on the look bench and the owner's eye.
 
@@ -49,6 +66,13 @@ The detail behind each step follows.
 ## Builds
 - [ ] Ship a build with everything since art 49 (canyon haze, city windows, pose atlas tool, anything below): export, desktop folder,
       zip, GitHub release (docs/STATUS.md and the desktop-build memory for the steps).
+
+## Input on slow machines (from the playtest prep, 17 Oct)
+- [ ] `InputReader` reads `Input.is_physical_key_pressed` in physics frames. When a slow render frame makes Godot run several
+      physics frames in a row, all of them see the same key state, so a quick tap can read as held for a frame or two, and a
+      press-and-release inside one render frame can be missed. Fix: latch presses from `_input` events, so every press counts for at
+      least one tick and a release ends it on the next one, then test with an artificially slow frame. The moveset session found
+      this with the input_e2e flake, which it fixed in the test (3f59215). Ask the playtesters about missed or "sticky" inputs.
 
 ## Run mode review (owner: "lacks the verticality and depth of Punch Quest")
 - [ ] Read `docs/modes/RUNNER_REVIEW.md` with the owner. Its proposed order is R2d verticality (three decks, vertical rooms, sure and
@@ -123,7 +147,7 @@ The detail behind each step follows.
       (2026-10-15). Internal move ids (`fsmash` etc.) later, with the moveset session.
 - [ ] Ink painted into the stage textures (stone and plank edges, trims, strata ledges) eased toward the Wind Waker HD reference, where
       colour and value carry the scenery; the post-pass and outline-shell levers made no visible difference (art review 6 round 22).
-- [ ] Mend `--demo=results` (it stops in the match) and review the results screen.
+- [x] Mend `--demo=results`: it needs `--stocks=1 --match` (as its comment says); reviewed and improved 2026-10-17.
 - [ ] In-motion checks for the refinement rounds (the outside brief): an attack with its hit effect, both fighters airborne, fighters
       spread so the camera pulls out; look for outline flicker, shadow crawl, effects hiding fighters.
 - [ ] The run mode's own city windows (`run_stage.gd` facade values) to match the stage's calmer ones (check with the modes-online agent).
@@ -145,13 +169,18 @@ The detail behind each step follows.
       likely rim light on thin slivers where meshes meet, not an ink gap (keeping 60% ink at the wrist cut changed nothing). A rig fix.) Fighters: the clothes' outline sits close to the body outline, doubling the line at the waist and cuffs at play size.
 
 ## UI redesign toward shippable: ONE large UI pass doing all five (owner, 2026-10-15), on Saturday or right after the work above
-- [ ] 1. Motion: animated screen transitions (a wipe in the ink-panel style), tiles that scale/brighten on focus, an animated menu
+- [~] (2026-10-17: every screen's cards now arrive in sequence behind the wipe, `UiKit.Entrance`; focus scaling and the animated
+      backdrop already existed. Still to do: values easing, a wipe on leaving.) 1. Motion: animated screen transitions (a wipe in the ink-panel style), tiles that scale/brighten on focus, an animated menu
       backdrop. The biggest "shipped game" signal in the competitors' menus.
-- [ ] 2. Character select redesign: a big slot per player along the bottom (posed render in the player colour, name, costume,
+- [x] (2026-10-17: the big slots already existed; now a clean, softer spotlight per player, the fighter's class over its name, the
+      fighter sliding up into the light on each pick and hopping on lock-in.) 2. Character select redesign: a big slot per player along the bottom (posed render in the player colour, name, costume,
       sliding in on pick), the roster grid above.
-- [ ] 3. Title screen: logo over the stage scene, a posing fighter, "press any button".
-- [ ] 4. Results screen: winner's victory pose, banner, a few stats (KOs, damage dealt), loser dimmed (mend `--demo=results` first).
-- [ ] 5. One written UI design system: type scale, palette, panel rules, motion timings, so every screen stays consistent.
+- [x] 3. Title screen: logo over the stage scene, a posing fighter, "press any button" (2026-10-17: menu.gd `Title`, once a session
+      on a normal launch; `-- --title --shot=<png>` photographs it).
+- [x] 4. Results screen: winner's victory pose, banner, a few stats (KOs, damage dealt), loser dimmed (2026-10-17: the winner's card in
+      their colour, the runner-up dimmed on its own card in a one-on-one; `--demo=results` works with `--stocks=1 --match`).
+- [x] 5. One written UI design system: type scale, palette, panel rules, motion timings, so every screen stays consistent.
+      (docs/UI_DESIGN_SYSTEM.md, 2026-10-17, with its audit and the pass's order; TYPE_* and MOTION_* in ui_kit.gd.)
 
 ## Skies (owner, 2026-10-15: the canyon's sun and clouds still look cheap)
 - [ ] A painted sunset for the canyon: the sun as a soft painted disc with a proper glow falloff, and clouds as painted shapes with a lit

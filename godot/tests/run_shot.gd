@@ -3,7 +3,8 @@ extends SceneTree
 ## top), then (moving room to room) a slope, a fork and the inside of a shop; R2b: each grunt kind (one telling), and the rare event
 ## (the runaway van, waiting and ridden); R2d: a climb, a drop, a shaft, the interiors, the skyline and each deck; running back to the
 ## left wall, then the results (needs a window, so run it without
-## --headless).
+## --headless). R3: with `--r3` only the shop and items: a full shop, a ware's card, the bell rung, the build's strip, a find on a
+## route and the build on the results.
 ## Run: Godot --path godot --script res://tests/run_shot.gd -- --out=<folder>
 
 const Roster := preload("res://scripts/roster.gd")
@@ -23,6 +24,11 @@ func _initialize() -> void:
 	var main: Node = load("res://runner.tscn").instantiate()
 	root.add_child(main)
 	await create_timer(2.0).timeout
+	if OS.get_cmdline_user_args().has("--r3"):
+		await _r3(main, out)
+		main.queue_free()
+		quit(0)
+		return
 	_shot(out, "run_start.png")
 	main._send_key(KEY_D, true)
 	for shot in 3:
@@ -294,3 +300,79 @@ func _current(main: Node) -> PackedFloat32Array:
 		if int(r[5]) == info[8]:
 			return r
 	return PackedFloat32Array()
+
+
+## R3 (shops and items) only: a full shop, a ware's card, the bell rung, the build's strip in the HUD (with the bubble and the shadow
+## orbs), a find on a route, and the build on the results.
+func _r3(main: Node, out: String) -> void:
+	var inside := false
+	for n in 14:
+		main.sim.run_debug_next_room()
+		main.sim.run_debug_clear_grunts()
+		await create_timer(0.1).timeout
+		if main.sim.run_debug_enter_shop():
+			inside = true
+			break
+	print("  shop: %s" % str(inside))
+	main.sim.run_debug_coins(600)
+	main.sim.run_debug_shop_spot(1)
+	await create_timer(1.2).timeout
+	_shot(out, "run_shop_full.png")
+	main.sim.run_debug_shop_spot(3)
+	await create_timer(0.8).timeout
+	_shot(out, "run_shop_card.png")
+	print("  card: %s" % main.run_stage.card_text.text)
+	main.sim.run_debug_shop_spot(6)
+	await create_timer(0.3).timeout
+	main._send_key(KEY_W, true)
+	await create_timer(0.1).timeout
+	main._send_key(KEY_W, false)
+	await create_timer(0.35).timeout
+	_shot(out, "run_shop_reroll.png")
+	print("  rung: %s" % str(main.sim.run_shop().slice(0, 14)))
+	for spot in [2, 4]:
+		main.sim.run_debug_shop_spot(spot)
+		await create_timer(0.3).timeout
+		main._send_key(KEY_W, true)
+		await create_timer(0.1).timeout
+		main._send_key(KEY_W, false)
+		await create_timer(0.3).timeout
+	_shot(out, "run_shop_bought.png")
+	main.sim.run_debug_shop_spot(-1)
+	await create_timer(0.3).timeout
+	main._send_key(KEY_W, true)
+	await create_timer(0.1).timeout
+	main._send_key(KEY_W, false)
+	await create_timer(0.4).timeout
+	for kind in [2, 2, 3, 6, 11, 15, 16]:
+		main.sim.run_debug_give(kind)
+	main.sim.run_debug_clear_grunts()
+	await create_timer(3.4).timeout
+	main.sim.run_debug_clear_grunts()
+	_shot(out, "run_hud_build.png")
+	print("  build: %s" % str(main.sim.run_build()))
+	# A find on the catwalks' skilled route (placed there for the photograph).
+	main.sim.run_debug_only(PackedStringArray(["catwalks", "street"]), 1, 3)
+	for n in 20:
+		main.sim.run_debug_next_room()
+		await create_timer(0.08).timeout
+		var cur := _current(main)
+		if cur.size() > 15 and main.sim.run_room_names()[int(cur[15])] == "catwalks":
+			break
+	for kind in [2, 2, 3, 6, 11, 15, 16]:
+		main.sim.run_debug_give(kind)
+	main.sim.run_debug_clear_grunts()
+	var at: PackedFloat32Array = main.sim.run_debug_find(1, 10)
+	if at.size() == 2:
+		main.sim.debug_place_airborne(0, at[0] - 2.6, at[1] + 0.6)
+	await create_timer(0.5).timeout
+	main.sim.run_debug_clear_grunts()
+	await create_timer(2.0).timeout
+	main.sim.run_debug_clear_grunts()
+	_shot(out, "run_find.png")
+	print("  find at %s: %s" % [str(at), str(main.sim.run_finds())])
+	for life in 4:
+		main.sim.debug_place_airborne(0, main.sim.run_view()[0] + 10.0, main.sim.run_view()[3] - 4.0)
+		await create_timer(0.3).timeout
+	await create_timer(2.5).timeout
+	_shot(out, "run_results_build.png")

@@ -16,6 +16,9 @@ func _key(code: Key, down: bool) -> void:
 	e.keycode = code
 	e.pressed = down
 	Input.parse_input_event(e)
+	# Apply it now: a buffered event lands on the next idle frame, and under load several physics frames run before that, so a
+	# one-frame tap could read as held through the jump squat (a full hop) on a busy machine.
+	Input.flush_buffered_events()
 
 
 ## pattern: array of [frames, s_key_down]. Returns the fast_fall flag history and raw stick_y values.

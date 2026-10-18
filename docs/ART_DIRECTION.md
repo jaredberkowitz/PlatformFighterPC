@@ -97,3 +97,28 @@ restrained; distant buildings flat-shaded and simple.
 
 **What we do not add**: photographic textures, realistic wear everywhere, screen-space reflections, heavy depth of field in play, motion
 blur, film grain beyond the existing paper grain, chromatic aberration.
+
+## Lessons from the owner's style references (2026-10-17)
+
+The owner shared frames from a cel-shaded island adventure and from a papercraft adventure (forest, village and camp scenes). Names
+stay out of the repo; these are the lessons, which every stage, prop and the menu backdrop follow.
+
+1. **Quality comes from composition, not from muting.** The papercraft camp is bright: saturated lime grass, warm sand paths, and
+   it still reads as premium because every colour has a job. Vivid ground sits against cool teal mountains, deep pine-green trees
+   and warm wood. Don't desaturate the ground to look "grown up"; make the neighbouring colours contrast with it. (A muted-ground
+   try was reverted.)
+2. **A temperature plan per stage.** Warm foreground (ground, wood, sand), cool background (mountains teal or blue-green, far trees
+   deep blue-green). Distance shows as cooler and lighter, not just paler.
+3. **Low-poly done with intent.** Flat-shaded facets are fine and even striking when the shapes are designed: trees as stacked tiers
+   with long drooping panels, stumps with stepped rings and folded bark, rocks as a few big chunky planes with a light top face.
+   Each facet one tone; the light reads in crisp planes, not smooth plastic gradients.
+4. **Clear silhouettes, toothed or folded edges.** Leaves end in points, paper folds, bark in planes; outlines are never a smooth
+   ball. Small props (stumps, rocks, fence posts) have a clear lit top and a darker side, so they read from the match camera.
+5. **Layered mountains.** Mountains are built from overlapping paper-like layers, each band a step lighter toward the peak, with
+   crisp lighter edges. They are a backdrop shape that frames the stage, cool against the warm play area.
+6. **Restraint in detail.** Detail goes where the eye lands (the stage, nearby props); far layers stay simple big shapes. Raise the
+   quality of what is there before adding anything new (the owner's rule).
+7. **Light with a direction.** One clear sun side and shadow side on everything, shadows coloured (cool teal-blue), never grey.
+
+Applied so far: tiered faceted tree crowns and trunks (`art/blender/make_props.py` `tree_crown_*`, `tree_trunk`), the meadow's mountain
+flanks lit and turned teal. Next candidates: stumps, rocks and cottages in the same faceted language; the mountains' layered bands.

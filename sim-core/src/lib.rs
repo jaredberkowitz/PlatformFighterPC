@@ -26,6 +26,7 @@ pub mod rng;
 pub mod run;
 pub mod scripting;
 pub mod state;
+pub mod stats;
 pub mod step;
 pub mod trig;
 pub mod vec2;

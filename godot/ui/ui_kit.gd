@@ -16,6 +16,19 @@ const RED := D.RED
 const BLUE := D.BLUE
 const SKEW := D.SKEW
 
+## The type scale (docs/UI_DESIGN_SYSTEM.md): six sizes, nothing between them.
+const TYPE_CAPTION := 16
+const TYPE_BODY := 22
+const TYPE_LABEL := 28
+const TYPE_HEADING := 34
+const TYPE_TITLE := 54
+const TYPE_DISPLAY := 84
+## Motion timings (seconds, docs/UI_DESIGN_SYSTEM.md): focus pop and press, value and panel changes, the screen wipe, the gloss sweep.
+const MOTION_FAST := 0.12
+const MOTION_BASE := 0.2
+const MOTION_SCREEN := 0.38
+const MOTION_SHINE := 0.5
+
 
 static func font() -> Font:
 	return D.font()
@@ -176,6 +189,11 @@ class Spotlight extends Control:
 	var colour := Color(0.3, 0.5, 0.9)
 	var feet: Array = []
 	var seed := 3
+	## No rays or hatching: a clean gradient pool of light (the results showcase; the owner's results-screen plan, 2026-10-17).
+	var plain := false:
+		set(v):
+			plain = v
+			queue_redraw()
 	## The floor and contact shadows (off for a close-up on the face).
 	var show_floor := true:
 		set(v):
@@ -206,7 +224,7 @@ class Spotlight extends Control:
 			centre = sum / feet.size() - Vector2(0, h * 0.3)
 		# Rays fanning from behind the fighters.
 		var reach := maxf(w, h) * 1.2
-		for k in 14:
+		for k in (0 if plain else 14):
 			var a := TAU * (float(k) + Art.noise(seed + k) * 0.3) / 14.0
 			var spread := 0.07 + 0.04 * absf(Art.noise(seed * 3 + k))
 			draw_colored_polygon(PackedVector2Array([centre, centre + Vector2(cos(a - spread), sin(a - spread)) * reach,
@@ -216,7 +234,7 @@ class Spotlight extends Control:
 			draw_circle(centre, minf(w, h) * (0.62 - k * 0.07), Color(colour.lightened(0.6), 0.06))
 		# A fine hatch over it all.
 		var step := 10.0
-		var x := -h
+		var x := w if plain else -h
 		while x < w:
 			draw_line(Vector2(x, h), Vector2(x + h, 0), Color(1, 1, 1, 0.035), 2.0)
 			x += step
@@ -375,13 +393,13 @@ class Reveal extends CanvasLayer:
 	func _process(delta: float) -> void:
 		t += delta
 		board.queue_redraw()
-		if t > 0.45:
+		if t > MOTION_SCREEN + 0.07:
 			queue_free()
 
 	func _paint() -> void:
 		var w := board.size.x
 		var h := board.size.y
-		var k := clampf(t / 0.38, 0.0, 1.0)
+		var k := clampf(t / MOTION_SCREEN, 0.0, 1.0)
 		var ease := 1.0 - pow(1.0 - k, 3.0)
 		var lean := h * 0.35
 		var x1 := lerpf(-lean, w + lean, ease)
@@ -392,6 +410,43 @@ class Reveal extends CanvasLayer:
 
 static func reveal(screen: Node) -> void:
 	screen.add_child(Reveal.new())
+	screen.add_child(Entrance.new())
+
+
+## The cards arriving behind the wipe (docs/UI_DESIGN_SYSTEM.md, motion): once the bands are most of the way off, each of the screen's
+## cards (its direct children that are not full-screen layers) rises `ENTRANCE_RISE` into place and fades in, a beat after the one
+## before, so a screen lands as a sequence rather than all at once. Positions are read after the first layout, so it never moves a card
+## off where the screen put it.
+class Entrance extends Node:
+	const ENTRANCE_RISE := 24.0
+	const ENTRANCE_STAGGER := 0.035
+	const ENTRANCE_START := 0.18
+
+	func _ready() -> void:
+		await get_tree().process_frame
+		var screen := get_parent() as Control
+		if screen == null:
+			queue_free()
+			return
+		var full := screen.size
+		var k := 0
+		for c in screen.get_children():
+			var card := c as Control
+			if card == null or not card.visible or card.top_level:
+				continue
+			# (Full-screen layers, the backdrop and dimmers, stay put: only cards arrive.)
+			if card.size.x >= full.x * 0.95 and card.size.y >= full.y * 0.95:
+				continue
+			var home := card.position
+			var was := card.modulate.a
+			card.position = home + Vector2(0.0, ENTRANCE_RISE)
+			card.modulate.a = 0.0
+			var tw := card.create_tween().set_parallel(true).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+			var delay := ENTRANCE_START + ENTRANCE_STAGGER * float(k)
+			tw.tween_property(card, "position", home, MOTION_SCREEN * 0.8).set_delay(delay)
+			tw.tween_property(card, "modulate:a", was, MOTION_SCREEN * 0.6).set_delay(delay)
+			k += 1
+		queue_free()
 
 
 # ---- Slanted label ----------------------------------------------------------------------------------------------
@@ -491,10 +546,10 @@ class Btn extends Control:
 	func _process(delta: float) -> void:
 		var target := 1.0 if (selected or hover) and not disabled else 0.0
 		var was := pop
-		pop = move_toward(pop, target, delta * 7.0)
+		pop = move_toward(pop, target, delta / MOTION_FAST)
 		# The shine crosses once when the button is selected (brief focus feedback), then the button rests.
 		if selected and shine < 1.0:
-			shine = minf(1.0, shine + delta / 0.5)
+			shine = minf(1.0, shine + delta / MOTION_SHINE)
 			queue_redraw()
 		elif not selected:
 			shine = 0.0
@@ -587,7 +642,7 @@ class Tile extends Control:
 
 	func _process(delta: float) -> void:
 		var was := pop
-		pop = move_toward(pop, 1.0 if (selected or hover) else 0.0, delta * 8.0)
+		pop = move_toward(pop, 1.0 if (selected or hover) else 0.0, delta / MOTION_FAST)
 		var was_press := press
 		press = move_toward(press, 0.0, delta * 7.0)
 		if pop == was and press == was_press and _laid == size:

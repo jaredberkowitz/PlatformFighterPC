@@ -1,6 +1,6 @@
 # Run mode R3: shops and items (plan, for Saturday 17 October 2026)
 
-Status: **planned, not started.** Written by the executive producer on 15 October 2026, when the owner asked to commit R3 to a plan for
+Status: **built** on branch `runner-r3`, sim 142 (17 October 2026): progress, numbers and the owner's decisions are in `RUNNER_PLAN.md` section 14. (Was: planned, not started.) Written by the executive producer on 15 October 2026, when the owner asked to commit R3 to a plan for
 when usage resets. It builds on `RUNNER_PLAN.md` section 3.5 (shops and items) and section 11 (R2c, sim 131). The **modes-online
 agent** builds it, and the executive producer reviews and lands it.
 

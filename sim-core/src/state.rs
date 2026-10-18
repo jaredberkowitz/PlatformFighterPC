@@ -432,6 +432,10 @@ pub struct Fighter {
     pub super_armor: bool,
     /// Sim 131: the weight the knockback formula reads for this body instead of its body's (a grunt's, by its kind and tier).
     pub weight: Option<Fx>,
+    /// Sim 142 (the run's sturdy shield, R3): this body's shield health in percent of the ruleset's, and how fast a held shield
+    /// wears in percent of the ruleset's rate (0 for either: the ruleset's, as every versus fighter). Set only by the run.
+    pub shield_scale: u8,
+    pub shield_wear: u8,
     /// Persistent script variables of the move being performed.
     pub vars: [i32; FIGHTER_VARS],
     /// `history[0]` is this frame's input, `history[1]` the previous frame's, and so on.
@@ -876,6 +880,8 @@ impl Fighter {
             damage_scale: 0,
             super_armor: false,
             weight: None,
+            shield_scale: 0,
+            shield_wear: 0,
             vars: [0; FIGHTER_VARS],
             history: [Input::default(); HISTORY_LEN],
         }
@@ -1142,6 +1148,8 @@ impl StateHash for Fighter {
         h.write_bool(self.super_armor);
         h.write_bool(self.weight.is_some());
         self.weight.unwrap_or(Fx::ZERO).hash_into(h);
+        h.write_u8(self.shield_scale);
+        h.write_u8(self.shield_wear);
         for v in &self.vars {
             h.write_i32(*v);
         }
@@ -1819,6 +1827,17 @@ mod tests {
             ("weight", {
                 let mut s = state;
                 s.fighters[1].weight = Some(Fx::ZERO);
+                s
+            }),
+            // Sim 142 (the run's sturdy shield).
+            ("shield_scale", {
+                let mut s = state;
+                s.fighters[0].shield_scale = 130;
+                s
+            }),
+            ("shield_wear", {
+                let mut s = state;
+                s.fighters[0].shield_wear = 75;
                 s
             }),
             ("curse_by", {

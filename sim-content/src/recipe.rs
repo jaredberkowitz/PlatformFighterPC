@@ -46,11 +46,6 @@ impl Default for Recipe {
     }
 }
 
-/// `v` times `percent` / 100.
-fn scale(v: Fx, percent: i32) -> Fx {
-    v * Fx::from_ratio(percent, 100)
-}
-
 impl Recipe {
     /// The recipe with every value brought into range.
     pub fn clamped(self) -> Recipe {
@@ -66,13 +61,13 @@ impl Recipe {
 
     /// Body size as a percent of the archetype's: 68 at size 1, 100 at size 5, 132 at size 9.
     pub fn size_percent(self) -> i32 {
-        60 + 8 * i32::from(self.clamped().size)
+        sim_core::stats::size_percent(i32::from(self.clamped().size))
     }
 
     /// The archetype's parameters changed by the stats.
     pub fn params(self) -> FighterParams {
         let r = self.clamped();
-        let mut p = match r.class {
+        let p = match r.class {
             0 => FighterParams::duelist(),
             1 => FighterParams::brawler(),
             2 => FighterParams::rogue(),
@@ -88,88 +83,14 @@ impl Recipe {
             12 => FighterParams::phantom(),
             _ => FighterParams::exile(),
         };
-        let size = r.size_percent();
-        let speed = i32::from(r.speed);
-        let jump = i32::from(r.jump);
-        let weight = i32::from(r.weight);
-        let neutral = i32::from(NEUTRAL);
-
-        // Body: the collision box and where a ledge is held scale with size.
-        for v in [
-            &mut p.ecb_half_width,
-            &mut p.ecb_height,
-            &mut p.ecb_side_height,
-            &mut p.ledge_reach_x,
-            &mut p.ledge_min_drop,
-            &mut p.ledge_reach_down,
-            &mut p.ledge_hang_dx,
-            &mut p.ledge_hang_dy,
-        ] {
-            *v = scale(*v, size);
-        }
-
-        // Attacks are the size of the body: a big fighter's hitboxes are bigger and reach further.
-        p.hitbox_scale = scale(p.hitbox_scale, size);
-
-        // Ground and air speed: the speed stat, and bigger bodies are slower.
-        let bulk_slow = 100 - (size - 100) * 35 / 100;
-        let pace = (80 + 4 * speed) * bulk_slow / 100;
-        for v in [
-            &mut p.walk_speed,
-            &mut p.run_speed,
-            &mut p.dash_speed,
-            &mut p.dash_initial_speed,
-            &mut p.air_speed,
-            &mut p.jump_speed_x,
-            &mut p.jump_speed_x_max,
-            &mut p.air_dodge_speed,
-            &mut p.waveland_speed,
-        ] {
-            *v = scale(*v, pace);
-        }
-        // Responsiveness follows the speed stat alone.
-        let snap = 80 + 4 * speed;
-        for v in [
-            &mut p.dash_accel,
-            &mut p.dash_brake,
-            &mut p.walk_accel,
-            &mut p.walk_accel_stick,
-            &mut p.run_accel,
-            &mut p.run_accel_stick,
-            &mut p.ground_friction,
-            &mut p.run_decel,
-            &mut p.landing_friction,
-            &mut p.air_accel,
-            &mut p.air_accel_stick,
-        ] {
-            *v = scale(*v, snap);
-        }
-
-        // Jumps: the jump stat raises them, a big body lowers them.
-        let lift = (100 + (jump - neutral) * 3) * (100 - (size - 100) * 20 / 100) / 100;
-        for v in [
-            &mut p.full_hop_velocity,
-            &mut p.hop_burst_velocity,
-            &mut p.short_hop_velocity,
-            &mut p.air_jump_velocity,
-            &mut p.ledge_jump_velocity,
-        ] {
-            *v = scale(*v, lift);
-        }
-
-        // Falling: big and heavy bodies drop faster.
-        let pull = 100 + (size - 100) * 20 / 100 + (weight - neutral) * 2;
-        p.gravity = scale(p.gravity, pull);
-        let fall = 100 + (size - 100) * 15 / 100 + (weight - neutral) * 3;
-        p.max_fall_speed = scale(p.max_fall_speed, fall);
-        p.fast_fall_speed = scale(p.fast_fall_speed, fall);
-
-        // Weight: size and the weight stat add to it, the speed stat takes a little off.
-        let mass = (100 + (size - 100) * 120 / 100) * (100 + (weight - neutral) * 8) / 100
-            * (100 - (speed - neutral) * 3)
-            / 100;
-        p.weight = scale(p.weight, mass);
-        p
+        // (The stats' arithmetic lives in `sim_core::stats`, sim 142, so the run's stat items rebuild a fighter through it too.)
+        sim_core::stats::apply(
+            p,
+            i32::from(r.size),
+            i32::from(r.speed),
+            i32::from(r.jump),
+            i32::from(r.weight),
+        )
     }
 
     /// The fighter section for this recipe: every parameter written out, so it does not depend on any other fighter.

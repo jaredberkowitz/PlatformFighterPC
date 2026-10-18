@@ -1158,6 +1158,16 @@ fn to_hand(state: &mut GameState, content: &Content, i: usize, n: usize) {
     state.fighters[i].holding = n as i8;
 }
 
+/// Puts item `n` in fighter `i`'s empty hand (the run's bought bomb, R3, sim 142).
+pub(crate) fn hand_to(state: &mut GameState, content: &Content, i: usize, n: usize) {
+    to_hand(state, content, i, n);
+}
+
+/// Bursts item `n` now (the run's bought bomb where its throw lands or hits, R3, sim 142).
+pub(crate) fn burst_now(state: &mut GameState, content: &Content, n: usize) {
+    burst(state, content, n);
+}
+
 /// Takes out what fighter `i` put away (E42, `Move::unpocket`): an item into the empty hand, a projectile flying out in front at the
 /// speed it was caught with, turned the way the fighter faces, at the release's power, now the fighter's.
 fn unpocket(state: &mut GameState, content: &Content, i: usize) {

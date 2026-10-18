@@ -387,6 +387,311 @@ def mesa(name, seed, width, height, bands):
     return root
 
 
+LEAF_LIT = (0.55, 0.78, 0.3)
+LEAF_SHADE = (0.2, 0.42, 0.26)
+
+
+def leaf_clump(bm_lit, bm_shade, centre, radius, seed, teeth=9):
+    """One leaf clump of a crown, after the owner's Wind Waker HD reference: a leafy dome, lumpy over its top (a hash of soft bumps),
+    flattened underneath, with a skirt of pointed leaf tips round its lower rim (`teeth` of them, each its own length), so its outline
+    is toothed and leafy, not a smooth ball. Its upper faces go to `bm_lit`, its underside and leaf tips to `bm_shade` (the game paints
+    them in the tree's sunlit and deep greens)."""
+    rng = random.Random(seed)
+    tmp = bmesh.new()
+    bmesh.ops.create_icosphere(tmp, subdivisions=3, radius=1.0)
+    phase = rng.uniform(0, math.tau)
+    lens = [rng.uniform(0.75, 1.25) for _ in range(teeth)]
+    for v in tmp.verts:
+        d = v.co.normalized()
+        az = math.atan2(d.y, d.x) + phase
+        # Soft leafy lumps over the dome.
+        # (Faint: strong lumps broke the flat facets into noise; the reference's tiers are calm planes.)
+        lump = 0.025 * math.sin(az * 5.0 + d.z * 4.0)
+        r = 1.0 + lump
+        z = d.z
+        # Flattened underneath.
+        if z < 0.0:
+            z *= 0.62
+        else:
+            z *= 0.88
+        # The leaf tips: round the lower rim, every tooth pulled out and down to a point.
+        # (Two tiers of leaf tips, a lower skirt and a smaller one halfway up offset half a tooth, so a clump reads as layers of leaves,
+        # after the owner's second reference, a papercraft forest whose trees are stacked tiers with crisp zigzag edges.)
+        # (A wide, drooping skirt of a few long panels per tier, after the owner's papercraft references; a faint second row above.)
+        for centre_z, width, reach, drop, shift in ((-0.12, 0.42, 0.72, 0.5, 0.0), (0.45, 0.18, 0.16, 0.1, 0.5)):
+            band = max(0.0, 1.0 - abs(d.z - centre_z) / width)
+            if band <= 0.0:
+                continue
+            a2 = az + shift * math.tau / teeth
+            k = (a2 % (math.tau / teeth)) / (math.tau / teeth)
+            tip = max(0.0, 1.0 - abs(k - 0.5) * 2.0) ** 1.6
+            t = int((a2 % math.tau) / (math.tau / teeth)) % teeth
+            r += reach * tip * band * lens[t]
+            z -= drop * tip * band * lens[t]
+        v.co = Vector((d.x * r, d.y * r, z * r)) * radius + Vector(centre)
+    tmp.normal_update()
+    for f in tmp.faces:
+        fc = f.calc_center_median()
+        up = (fc.z - centre[2]) / radius
+        target = bm_lit if up > -0.05 else bm_shade
+        vs = [target.verts.new(v.co) for v in f.verts]
+        target.faces.new(vs)
+    tmp.free()
+
+
+def tree_crown(name, shape):
+    """A broadleaf tree's crown in clumps (the trunk and its sway are the game's, `StageArt._round_tree`): one of the game's three crown
+    shapes, a big body clump with smaller ones round it, each a `leaf_clump`. Two parts, `leaf_lit` and `leaf_shade`, centred on the
+    crown's middle, sized for a tree of size 1."""
+    root = empty(name)
+    lit = bmesh.new()
+    shade = bmesh.new()
+    # Stacked tiers, each smaller than the one under it and overlapping it by about half, so the crown is a rounded shape taller than it
+    # is wide that reads as layers of leaves (both of the owner's references); small clumps tucked in at the sides break the outline.
+    # ((x, depth, height), radius); the crown's middle is the game's crown origin.
+    # (Upper tiers a little toward the camera (Blender -y), so each tier's leaf skirt lies over the tier below and the layers read; set
+    # behind, the skirts sank inside and the crown read as one lumpy cone.)
+    if shape == 0:
+        masses = [((0, 0.4, 0.4), 2.0), ((-1.35, 0.3, 0.7), 1.0), ((1.4, 0.3, 0.55), 0.95), ((0.1, -0.35, 2.05), 1.55), ((-0.05, -0.7, 3.3), 1.0)]
+    elif shape == 1:
+        masses = [((0, 0.4, 0.3), 1.75), ((1.2, 0.3, 0.8), 0.8), ((0, -0.3, 1.75), 1.45), ((0.1, -0.65, 2.95), 1.15), ((0, -0.95, 3.95), 0.75)]
+    else:
+        masses = [((0, 0.4, 0.5), 2.1), ((-1.5, 0.2, 0.75), 1.25), ((1.55, 0.2, 0.65), 1.15), ((0.1, -0.35, 2.15), 1.5), ((0.25, -0.7, 3.2), 0.85)]
+    for k, (c, r) in enumerate(masses):
+        leaf_clump(lit, shade, c, r, shape * 100 + k, teeth=8 if r > 1.6 else 6)
+    for bm in (lit, shade):
+        bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=0.0001)
+        bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    # (Flat-shaded planes, as a papercraft forest's trees are (the owner's third reference): each facet one tone, so the light reads
+    # in crisp planes rather than a smooth plastic gradient.)
+    for nm, bm, col in (("leaf_lit", lit, LEAF_LIT), ("leaf_shade", shade, LEAF_SHADE)):
+        to_object(nm, bm, col, smooth=False, parent=root)
+    return root
+
+
+BARK_LIT = (0.5, 0.36, 0.28)
+
+
+def tree_trunk():
+    """A trunk to go with `tree_crown` (the papercraft references): seven flat sides tapering up, a little twist and bow, and five roots
+    flaring out at its foot as folded planes, so it reads as a solid faceted trunk standing in the ground, not a smooth tube. Height 3.2
+    and foot radius 0.42 for a tree of size 1 (the game's `_round_tree` proportions); flat-shaded."""
+    root = empty("tree_trunk")
+    bm = bmesh.new()
+    rng = random.Random(5)
+    sides = 7
+    rings = [(0.0, 0.46), (0.35, 0.36), (1.2, 0.3), (2.2, 0.26), (3.2, 0.22)]
+    loops = []
+    for k, (z, r) in enumerate(rings):
+        twist = k * 0.12
+        bow = 0.06 * math.sin(z / 3.2 * math.pi)
+        loops.append([bm.verts.new((math.cos(twist + j * math.tau / sides) * r * rng.uniform(0.92, 1.06) + bow,
+                                    math.sin(twist + j * math.tau / sides) * r * rng.uniform(0.92, 1.06), z)) for j in range(sides)])
+    for a_, b_ in zip(loops, loops[1:]):
+        for j in range(sides):
+            bm.faces.new((a_[j], a_[(j + 1) % sides], b_[(j + 1) % sides], b_[j]))
+    bm.faces.new(loops[-1])
+    # Roots: a folded wedge from low on the trunk out along the ground.
+    for j in range(5):
+        ang = j * math.tau / 5 + 0.3
+        d = Vector((math.cos(ang), math.sin(ang), 0))
+        side = Vector((-d.y, d.x, 0))
+        out = rng.uniform(0.75, 1.0)
+        base = d * 0.36
+        p_top = bm.verts.new(base + Vector((0, 0, 0.55)))
+        p_l = bm.verts.new(base + side * 0.16)
+        p_r = bm.verts.new(base - side * 0.16)
+        p_tip = bm.verts.new(d * out + Vector((0, 0, 0.02)))
+        bm.faces.new((p_l, p_tip, p_top))
+        bm.faces.new((p_tip, p_r, p_top))
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    to_object("bark", bm, BARK_LIT, smooth=False, parent=root)
+    return root
+
+
+# How far a box's corners wander (a share of its smallest side), so pieces read hand-made.
+HAND_JITTER = 0.12
+_JRNG = random.Random(99)
+
+
+def add_box(bm, centre, size, rot=(0.0, 0.0, 0.0), taper=0.0):
+    """A box into `bm` at `centre`, `size` (x, y, z), turned by `rot` degrees (x, y, z); `taper` narrows its top in x."""
+    m = (Matrix.Translation(Vector(centre)) @ Matrix.Rotation(math.radians(rot[2]), 4, "Z") @ Matrix.Rotation(math.radians(rot[1]), 4, "Y")
+         @ Matrix.Rotation(math.radians(rot[0]), 4, "X"))
+    sx, sy, sz = size[0] / 2.0, size[1] / 2.0, size[2] / 2.0
+    j = min(size) * HAND_JITTER
+    vs = []
+    for z in (-sz, sz):
+        k = 1.0 - taper if z > 0 else 1.0
+        for x, y in ((-sx, -sy), (sx, -sy), (sx, sy), (-sx, sy)):
+            vs.append(bm.verts.new(m @ Vector((x * k + _JRNG.uniform(-j, j), y + _JRNG.uniform(-j, j), z + _JRNG.uniform(-j, j)))))
+    for f in ((0, 3, 2, 1), (4, 5, 6, 7), (0, 1, 5, 4), (1, 2, 6, 5), (2, 3, 7, 6), (3, 0, 4, 7)):
+        bm.faces.new([vs[i] for i in f])
+
+
+def cottage():
+    """A half-timbered cottage after the owner's papercraft village reference: cream plaster panels between thick dark timbers standing
+    proud of the wall (posts, sill and wall plates, diagonal braces), a stone footing laid stone by stone, a deep roof of overlapping
+    shingle rows (each row a slab with a lit lower edge) over generous eaves, a dormer, a stone chimney with a cap, an arched plank door
+    with iron straps on a step, a framed window with shutters and a flower box. Parts are named by role (the game recolours `roof` and
+    `roof_edge` per cottage). Front faces -y. 5 wide, 3.6 deep, walls 3.2 high, on the origin (the game's `_cottage` size)."""
+    root = empty("cottage")
+    parts = {}
+
+    def part(name):
+        # (Stones, timbers and shingle rows each go to one of three tones at random, so no two neighbours are the same flat colour.)
+        if name in ("stone", "timber", "roof"):
+            name = "%s_%d" % (name, rng.randint(0, 2))
+        if name not in parts:
+            parts[name] = bmesh.new()
+        return parts[name]
+    rng = random.Random(11)
+    W, D, H = 5.0, 3.6, 3.8
+    fy = -D / 2.0
+    # Footing: a course of stones of their own sizes along the front, on a plinth.
+    x = -W / 2.0 - 0.15
+    while x < W / 2.0 + 0.15:
+        w = rng.uniform(0.45, 0.8)
+        add_box(part("stone"), (x + w / 2.0, fy - 0.08, 0.22), (w - 0.05, 0.3, rng.uniform(0.36, 0.46)), (0, 0, rng.uniform(-2, 2)))
+        x += w
+    add_box(part("stone"), (0, 0, 0.2), (W + 0.2, D + 0.2, 0.4))
+    add_box(part("wall"), (0, 0, 0.4 + (H - 0.4) / 2.0), (W, D, H - 0.4))
+    # The timber frame, proud of the front.
+    t = 0.22
+    front = fy - 0.06
+    for px in (-W / 2.0 + t / 2.0, W / 2.0 - t / 2.0, -0.85, 0.45):
+        add_box(part("timber"), (px, front, 0.4 + (H - 0.4) / 2.0), (t, 0.14, H - 0.4))
+    for z in (0.45, H - 0.08):
+        add_box(part("timber"), (0, front, z), (W + 0.04, 0.15, t))
+    add_box(part("timber"), (W / 2.0 - 1.1, front, 1.55), (2.2, 0.15, t))
+    for x0, x1, z0, z1 in ((-W / 2.0 + 0.2, -0.95, H - 0.15, 2.65), (-0.75, 0.35, 2.65, H - 0.15)):
+        L = math.hypot(x1 - x0, z1 - z0)
+        ang = math.degrees(math.atan2(z1 - z0, x1 - x0))
+        add_box(part("timber"), ((x0 + x1) / 2.0, front, (z0 + z1) / 2.0), (L, 0.13, 0.17), (0, -ang, 0))
+    for sx in (-1, 1):
+        for py in (-D / 2.0 + t / 2.0, D / 2.0 - t / 2.0, 0.0):
+            add_box(part("timber"), (sx * (W / 2.0 + 0.05), py, 0.4 + (H - 0.4) / 2.0), (0.14, t, H - 0.4))
+    # Gables.
+    pitch = 42.0
+    run = D / 2.0 + 0.75
+    rise = (D / 2.0) * math.tan(math.radians(pitch))
+    for sx in (-1, 1):
+        g = part("wall")
+        a_ = g.verts.new((sx * W / 2.0, -D / 2.0, H))
+        b_ = g.verts.new((sx * W / 2.0, D / 2.0, H))
+        c_ = g.verts.new((sx * W / 2.0, 0, H + rise))
+        g.faces.new((a_, b_, c_))
+        # (The other side too, so whichever way the gable faces it is drawn.)
+        g.faces.new([g.verts.new(v.co + Vector((sx * 0.01, 0, 0))) for v in (c_, b_, a_)])
+    # Roof: rows of shingle slabs from the eave up, each overlapping the next, its lower edge a lighter lip.
+    tanp = math.tan(math.radians(pitch))
+    ez = H - (run - D / 2.0) * tanp
+    slope = run / math.cos(math.radians(pitch))
+    rows = 5
+    for sgn in (-1, 1):
+        for r in range(rows):
+            u0 = r / rows
+            u1 = min(1.0, (r + 1.25) / rows)
+            um = (u0 + u1) / 2.0
+            length = slope * (u1 - u0)
+            lift = 0.14 + 0.08 * r
+            sag = rng.uniform(-0.06, 0.06)
+            cy = sgn * run * (1.0 - um)
+            cz = ez + (H + rise - ez) * um + lift + sag
+            add_box(part("roof"), (0, cy, cz), (W + 1.3 - r * 0.04, length, 0.18), (-sgn * pitch, rng.uniform(-1.2, 1.2), 0))
+            ly = sgn * run * (1.0 - u0)
+            lz = ez + (H + rise - ez) * u0 + lift + sag - 0.04
+            add_box(part("roof_edge"), (0, ly, lz - 0.02), (W + 1.36 - r * 0.04, 0.16, 0.26), (-sgn * pitch, 0, 0))
+    add_box(part("roof_edge"), (0, 0, H + rise + 0.32), (W + 1.4, 0.36, 0.26))
+    # A dormer on the front slope.
+    dz = H + rise * 0.3
+    dy = -D / 2.0 * 0.55
+    add_box(part("wall"), (-1.2, dy, dz + 0.35), (1.0, 0.9, 0.8))
+    add_box(part("frame"), (-1.2, dy - 0.46, dz + 0.38), (0.62, 0.06, 0.52))
+    add_box(part("glow"), (-1.2, dy - 0.48, dz + 0.38), (0.44, 0.04, 0.36))
+    for sg in (-1, 1):
+        add_box(part("roof"), (-1.2 + sg * 0.32, dy, dz + 0.95), (0.85, 1.2, 0.12), (0, sg * 40, 0))
+    add_box(part("roof_edge"), (-1.2, dy - 0.6, dz + 0.92), (1.35, 0.1, 0.14))
+    # A stone chimney with a cap.
+    cx, cyy = 1.4, 0.6
+    for k in range(7):
+        add_box(part("stone"), (cx + rng.uniform(-0.02, 0.02), cyy, H + rise * 0.4 + k * 0.32), (0.62, 0.62, 0.3))
+    add_box(part("stone"), (cx, cyy, H + rise * 0.4 + 7 * 0.32 - 0.05), (0.8, 0.8, 0.14))
+    # The door (after the owner: windows and doors carry believability): a timber surround (posts and a heavy lintel), planks with dark
+    # gaps between them and an arched head, two long strap hinges with curled ends, a ring handle, a little barred window, a stone step
+    # and a lantern on a bracket beside it.
+    dxc = -1.4
+    dfront = front - 0.02
+    add_box(part("gap"), (dxc, dfront + 0.02, 1.5), (0.9, 0.04, 2.3))
+    for k in range(4):
+        px = dxc - 0.33 + k * 0.22
+        top = math.sqrt(max(0.0, 0.45 ** 2 - (px - dxc) ** 2))
+        add_box(part("door"), (px, dfront - 0.03, 0.4 + (1.9 + top) / 2.0), (0.19, 0.08, 1.9 + top))
+    for z in (0.85, 1.85):
+        add_box(part("iron"), (dxc - 0.05, dfront - 0.09, z), (0.78, 0.03, 0.09))
+        add_box(part("iron"), (dxc + 0.36, dfront - 0.09, z), (0.12, 0.03, 0.16))
+    add_box(part("iron"), (dxc + 0.27, dfront - 0.11, 1.35), (0.05, 0.05, 0.14))
+    add_box(part("iron"), (dxc + 0.27, dfront - 0.11, 1.27), (0.12, 0.04, 0.04))
+    add_box(part("frame"), (dxc, dfront - 0.08, 2.05), (0.34, 0.04, 0.3))
+    add_box(part("glow"), (dxc, dfront - 0.09, 2.05), (0.24, 0.03, 0.2))
+    for k in range(2):
+        add_box(part("iron"), (dxc - 0.05 + k * 0.1, dfront - 0.11, 2.05), (0.025, 0.03, 0.22))
+    for sx in (-1, 1):
+        add_box(part("timber"), (dxc + sx * 0.55, front - 0.02, 1.5), (0.16, 0.16, 2.3))
+    add_box(part("timber"), (dxc, front - 0.04, 2.75), (1.4, 0.2, 0.22))
+    add_box(part("stone"), (dxc, fy - 0.45, 0.12), (1.4, 0.6, 0.24))
+    add_box(part("stone"), (dxc + 0.05, fy - 0.8, 0.06), (1.1, 0.4, 0.12))
+    lx = dxc + 0.85
+    add_box(part("iron"), (lx, front - 0.2, 2.35), (0.04, 0.36, 0.04))
+    add_box(part("iron"), (lx, front - 0.36, 2.22), (0.24, 0.24, 0.04))
+    add_box(part("glow"), (lx, front - 0.36, 2.05), (0.16, 0.16, 0.24))
+    add_box(part("iron"), (lx, front - 0.36, 1.92), (0.22, 0.22, 0.04))
+    # The window: a deep reveal (sill and lintel standing out), six panes in a mullion grid, curtains drawn to the sides inside, shutters
+    # of three boards with a Z brace, and a planter of leaf clumps and flowers under it.
+    wxc, wz = 1.15, 2.2
+    ww, wh = 0.86, 0.76
+    add_box(part("gap"), (wxc, front + 0.02, wz), (ww, 0.04, wh))
+    add_box(part("glow"), (wxc, front - 0.0, wz), (ww - 0.04, 0.03, wh - 0.04))
+    for sx in (-1, 1):
+        add_box(part("curtain"), (wxc + sx * (ww / 2.0 - 0.12), front - 0.02, wz + 0.02), (0.2, 0.03, wh - 0.06), (0, sx * 8, 0))
+    for k in range(1, 3):
+        add_box(part("frame"), (wxc - ww / 2.0 + k * ww / 3.0, front - 0.05, wz), (0.05, 0.04, wh))
+    add_box(part("frame"), (wxc, front - 0.05, wz), (ww, 0.04, 0.05))
+    for sx in (-1, 1):
+        add_box(part("frame"), (wxc + sx * (ww / 2.0 + 0.04), front - 0.06, wz), (0.09, 0.12, wh + 0.1))
+    add_box(part("frame"), (wxc, front - 0.08, wz + wh / 2.0 + 0.07), (ww + 0.3, 0.18, 0.13))
+    add_box(part("frame"), (wxc, front - 0.12, wz - wh / 2.0 - 0.05), (ww + 0.34, 0.26, 0.1))
+    for sx in (-1, 1):
+        sc = wxc + sx * (ww / 2.0 + 0.32)
+        for k in range(3):
+            add_box(part("shutter"), (sc + (k - 1) * 0.15, front - 0.07, wz), (0.14, 0.05, wh + 0.08))
+        for z in (wz - wh / 2.0 + 0.12, wz + wh / 2.0 - 0.12):
+            add_box(part("shutter_brace"), (sc, front - 0.1, z), (0.46, 0.03, 0.07))
+        add_box(part("shutter_brace"), (sc, front - 0.1, wz), (0.6, 0.03, 0.06), (0, sx * 52, 0))
+    add_box(part("frame"), (wxc, front - 0.26, wz - wh / 2.0 - 0.2), (ww + 0.3, 0.3, 0.22))
+    prng = random.Random(4)
+    for k in range(7):
+        x = wxc - ww / 2.0 - 0.08 + k * (ww + 0.16) / 6.0
+        add_box(part("leaves"), (x, front - 0.28, wz - wh / 2.0 - 0.05), (0.2, 0.22, 0.18), (prng.uniform(0, 40), 45, prng.uniform(0, 40)))
+        add_box(part("flowers" if k % 2 else "flowers_b"), (x + 0.02, front - 0.36, wz - wh / 2.0 + 0.05), (0.11, 0.11, 0.11), (0, 45, 45))
+    cols = {"wall": (0.97, 0.93, 0.82), "timber": (0.42, 0.28, 0.2), "stone": (0.72, 0.7, 0.72), "roof": RED, "roof_edge": (0.95, 0.5, 0.42),
+            "door": (0.86, 0.5, 0.26), "iron": (0.22, 0.2, 0.24), "frame": (0.58, 0.4, 0.28), "glow": GLASS, "shutter": (0.36, 0.56, 0.74),
+            "flowers": PINK, "leaves": (0.32, 0.6, 0.3), "gap": (0.16, 0.12, 0.12), "curtain": (0.95, 0.66, 0.6),
+            "shutter_brace": (0.26, 0.42, 0.6), "flowers_b": (1.0, 0.86, 0.36)}
+    tone = (0.9, 1.0, 1.1)
+    for name, bm in parts.items():
+        base = name.rsplit("_", 1)
+        if len(base) == 2 and base[1].isdigit():
+            col = tuple(min(1.0, c * tone[int(base[1])]) for c in cols[base[0]])
+        else:
+            col = cols[name]
+        bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+        # (Soft bevels on the chunky pieces: their edges catch a lit rim, the opposite of a flat cut-out.)
+        chunky = base[0] in ("stone", "timber", "roof", "roof_edge", "door", "frame")
+        to_object(name, bm, col, smooth=False, bevel=0.025 if chunky else 0.0, parent=root)
+    return root
+
+
 PROPS = {
     "lighthouse": lighthouse,
     "sailboat": sailboat,
@@ -394,6 +699,11 @@ PROPS = {
     "mesa_b": lambda: mesa("mesa_b", 8, 13.0, 22.0, 5),
     "cactus": lambda: cactus(),
     "palm_crown": lambda: palm_crown(),
+    "tree_trunk": tree_trunk,
+    "cottage": cottage,
+    "tree_crown_a": lambda: tree_crown("tree_crown_a", 0),
+    "tree_crown_b": lambda: tree_crown("tree_crown_b", 1),
+    "tree_crown_c": lambda: tree_crown("tree_crown_c", 2),
 }
 
 

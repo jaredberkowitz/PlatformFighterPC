@@ -1400,7 +1400,7 @@ const CROWN_CARD_GROWTH := 1.35
 
 
 static func _leaf_cards(parent: Node3D, masses: Array, greens: Array, card: float, _stage_rng: RandomNumberGenerator,
-		tile := "leaf_cluster", rooted := false, core: Material = null) -> MultiMeshInstance3D:
+		tile := "leaf_cluster", rooted := false, core: Material = null, core_tiers: Array = []) -> MultiMeshInstance3D:
 	# Its own random numbers, seeded from where it is, so adding the cards leaves the rest of the stage's layout as it was.
 	var rng := RandomNumberGenerator.new()
 	rng.seed = hash(str(masses[0][0]) + tile)
@@ -1426,10 +1426,31 @@ static func _leaf_cards(parent: Node3D, masses: Array, greens: Array, card: floa
 	var ball := _sphere(1.0, 14)
 	if core != null:
 		cores = SurfaceTool.new()
+	# With `core_tiers` (deep, body, sunlit materials) each clump takes the tier its height in the crown gives it, low clumps in the deep
+	# green and high ones sunlit, so the crown reads as separate leaf masses in light and shade (the owner's Wind Waker HD reference,
+	# 2026-10-17) rather than one green blob.
+	var tier_tools: Array = []
+	for _t in core_tiers:
+		tier_tools.append(SurfaceTool.new())
+	var lo_y := INF
+	var hi_y := -INF
+	var biggest := 0.0
+	for m in masses:
+		biggest = maxf(biggest, float(m[1]))
+	for m in masses:
+		lo_y = minf(lo_y, (m[0] as Vector3).y)
+		hi_y = maxf(hi_y, (m[0] as Vector3).y + float(m[1]) * 0.3)
 	for m in masses:
 		var centre: Vector3 = m[0]
 		var radius: float = m[1]
-		if cores != null:
+		if not tier_tools.is_empty():
+			var up := clampf((centre.y + radius * 0.3 - lo_y) / maxf(0.01, hi_y - lo_y), 0.0, 1.0)
+			# (The biggest mass is the body, whatever its height: only the clumps round it go deep or sunlit.)
+			var tier := clampi(int(up * float(tier_tools.size()) - 0.15), 0, tier_tools.size() - 1)
+			if radius >= biggest * 0.99:
+				tier = mini(1, tier_tools.size() - 1)
+			(tier_tools[tier] as SurfaceTool).append_from(ball, 0, Transform3D(Basis.IDENTITY.scaled(Vector3.ONE * radius), centre))
+		elif cores != null:
 			cores.append_from(ball, 0, Transform3D(Basis.IDENTITY.scaled(Vector3.ONE * radius * (0.82 if rooted else 1.0)), centre))
 		for k in (int(float(m[2]) * share) if not rooted else maxi(1, int(m[2]))):
 			# A direction out from the middle, mostly toward the front (the back of a crown is never seen), placed about its surface.
@@ -1450,7 +1471,18 @@ static func _leaf_cards(parent: Node3D, masses: Array, greens: Array, card: floa
 			var light := clampf(0.45 + dir.y * 0.3 + dir.z * 0.3 + rng.randf_range(-0.15, 0.15), 0.0, 0.999)
 			mm.set_instance_color(i, greens[1 + int(light * 1.999)] if not rooted else greens[rng.randi_range(0, greens.size() - 1)])
 			i += 1
-	if cores != null:
+	for ti in tier_tools.size():
+		var tc := MeshInstance3D.new()
+		tc.mesh = (tier_tools[ti] as SurfaceTool).commit()
+		if tc.mesh == null or (tc.mesh as ArrayMesh).get_surface_count() == 0:
+			continue
+		var tm := (core_tiers[ti] as ShaderMaterial).duplicate() as ShaderMaterial
+		tm.set_shader_parameter("ramp_softness", 0.08)
+		tm.set_shader_parameter("shadow_amount", 0.78)
+		tm.set_shader_parameter("rim_strength", 0.5)
+		tc.material_override = tm
+		parent.add_child(tc)
+	if cores != null and tier_tools.is_empty():
 		var c := MeshInstance3D.new()
 		c.mesh = cores.commit()
 		# A crown takes the light the way a painted tree does: a crisp step from its lit top into a deep, cool underside, a warm rim.
@@ -1589,9 +1621,13 @@ const RIDGES := {
 	"meadow": [{"z": -170.0, "y": -44.0, "height": 60.0, "shape": 1, "seed": 3.0, "base": 0.42, "amplitude": 0.5, "frequency": 4.5,
 		# (More of its own blue and less haze, art review 6 round 31: at mix 0.55 the ridge was mostly horizon colour, a formless pale band
 		# behind the crisp painted hills; found with `--pick`.)
-		"tone": Color(0.36, 0.56, 0.84), "mix": 0.8, "edge": 0.7, "haze": 0.06}],
+		"tone": Color(0.2, 0.62, 0.6), "mix": 0.85, "edge": 0.7, "haze": 0.06,
+		# (Teal, not blue: the owner's Origami King reference sets bright lime ground against cool teal mountains.)
+		# (A lit flank and a shaded flank on every peak, as the canyon's mesas have: a flat blue cut-out read as the least finished
+		# thing on the menu; the owner, 2026-10-17, raise the quality of what is there.)
+		"flank": 0.75}],
 	"grove": [{"z": -165.0, "y": -34.0, "height": 52.0, "shape": 0, "seed": 8.0, "base": 0.5, "amplitude": 0.32, "frequency": 3.5,
-		"tone": Color(0.5, 0.5, 0.84), "mix": 0.55, "edge": 0.5}],
+		"tone": Color(0.5, 0.5, 0.84), "mix": 0.55, "edge": 0.5, "flank": 0.6}],
 	"sunset": [{"z": -175.0, "y": -36.0, "height": 58.0, "shape": 2, "seed": 5.0, "base": 0.4, "amplitude": 0.4, "frequency": 3.0,
 		"tone": Color(0.42, 0.26, 0.5), "mix": 0.55, "edge": 0.4},
 		{"z": -132.0, "y": -34.0, "height": 46.0, "shape": 2, "seed": 11.0, "base": 0.36, "amplitude": 0.36, "frequency": 2.6,
@@ -2705,7 +2741,26 @@ static func _barn(root: Node3D, at: Vector3) -> void:
 ## ridge beam along its top, gable ends filled to the roof with a round attic window, a plank door on a stone step with a lantern, a lit
 ## window with shutters and a flower box, shrubs at its foot, and a stone chimney at one end (`side`) with smoke curling up from it.
 static func _cottage(root: Node3D, at: Vector3, roof: Color, side: float) -> void:
-	var wall := Materials.plaster(Color(0.97, 0.93, 0.84), Vector2(2, 2))
+	# The modelled cottage (art/blender/make_props.py `cottage`, after the owner's papercraft village reference): proud timbers, lapped
+	# shingle rows, an arched plank door, shutters, a stone footing and chimney. Its roof takes this cottage's colour; the window glows.
+	# The code-built cottage below stands in without it.
+	var model := Toonify.load_prop("cottage", true)
+	if model != null:
+		model.position = at
+		model.scale = Vector3(side, 1.0, 1.0)
+		root.add_child(model)
+		for mi in model.find_children("*", "MeshInstance3D", true, false):
+			var nm := String(mi.name)
+			if nm.begins_with("roof_edge"):
+				(mi as MeshInstance3D).material_override = FighterView.toon(roof.lightened(0.3), true)
+			elif nm.begins_with("roof"):
+				(mi as MeshInstance3D).material_override = FighterView.toon(roof, true)
+			elif nm.begins_with("glow"):
+				(mi as MeshInstance3D).material_override = _unshaded(Color(1.0, 0.86, 0.56))
+		return
+	# (Clean warm cream planes, not a plaster pattern that turns to noise at this distance: the owner's papercraft references, where
+	# each surface is one clear tone with a crisp edge.)
+	var wall := FighterView.toon(Color(0.98, 0.93, 0.82))
 	var roof_m := Materials.shingles(roof, Vector2(3, 2))
 	var timber := Materials.wood(Color(0.42, 0.28, 0.2), Vector2(1, 3))
 	var frame := Materials.wood(Color(0.56, 0.38, 0.26))
@@ -2733,6 +2788,9 @@ static func _cottage(root: Node3D, at: Vector3, roof: Color, side: float) -> voi
 		var mid := Vector3(0, H + rise / 2.0 + 0.05, sgn * run / 2.0)
 		_mesh(root, _box(Vector3(W + 1.2, 0.34, slab)), roof_m, at + mid, Vector3.ONE, Vector3(sgn * pitch, 0, 0))
 		_mesh(root, _box(Vector3(W + 1.25, 0.2, 0.16)), frame, at + Vector3(0, H - 0.08, sgn * (run - 0.05)))
+		# A crisp lit edge along the roof's eave, as a folded paper roof catches the light on its edge.
+		var eave := Vector3(0, H + 0.05 + 0.17 * cos(deg_to_rad(pitch)), sgn * (run + 0.02))
+		_mesh(root, _box(Vector3(W + 1.24, 0.12, 0.2)), FighterView.toon(roof.lightened(0.32)), at + eave, Vector3.ONE, Vector3(sgn * pitch, 0, 0))
 	_mesh(root, _cylinder(0.2, 0.2, W + 1.3, 10), timber, at + Vector3(0, H + rise + 0.12, 0), Vector3.ONE, Vector3(0, 0, 90))
 	# The gable ends, filled to the underside of the roof, each with a round attic window.
 	for ex in [-W / 2.0, W / 2.0]:
@@ -2762,9 +2820,19 @@ static func _cottage(root: Node3D, at: Vector3, roof: Color, side: float) -> voi
 		_mesh(root, _sphere(0.13, 8), FighterView.toon(Color(0.36, 0.62, 0.22)), at + Vector3(wx - 0.44 + j * 0.22, 1.2, D / 2.0 + 0.22))
 		_mesh(root, _sphere(0.08, 6), _unshaded(petals[j % 3]), at + Vector3(wx - 0.44 + j * 0.22, 1.3, D / 2.0 + 0.3))
 	# Shrubs at the corners of its foot.
+	# (The tree kit's faceted crown, small, as a shrub: one leaf language for every plant on the stage.)
 	var bush := Materials.foliage(Color(0.34, 0.6, 0.24), Vector2(2, 2), false)
 	for sx in [-1.0, 1.0]:
-		_mesh(root, _sphere(1.0, 12), bush, at + Vector3(sx * (W / 2.0 + 0.2), 0.45, D / 2.0 + 0.1), Vector3(0.85, 0.7, 0.7))
+		var shrub := Toonify.load_prop("tree_crown_c", true)
+		if shrub != null:
+			shrub.position = at + Vector3(sx * (W / 2.0 + 0.2), 0.15, D / 2.0 + 0.1)
+			shrub.scale = Vector3.ONE * 0.3
+			root.add_child(shrub)
+			for mi in shrub.find_children("*", "MeshInstance3D", true, false):
+				var lit := String(mi.name).contains("lit")
+				(mi as MeshInstance3D).material_override = FighterView.toon(Color.from_hsv(0.28, 0.5, 0.68) if lit else Color.from_hsv(0.42, 0.55, 0.32), true)
+		else:
+			_mesh(root, _sphere(1.0, 12), bush, at + Vector3(sx * (W / 2.0 + 0.2), 0.45, D / 2.0 + 0.1), Vector3(0.85, 0.7, 0.7))
 	_contact(root, at, Vector2(W / 2.0 + 0.5, D / 2.0 + 0.4))
 	var chimney := at + Vector3(1.5 * side, H + rise * 0.7, -0.7)
 	_mesh(root, _box(Vector3(0.75, 2.2, 0.75)), Materials.stone(Color(0.62, 0.58, 0.56), Vector2(1, 2)), chimney)
@@ -2796,8 +2864,18 @@ static func _gable(width: float, height: float, thick: float) -> ArrayMesh:
 ## A small round tree: a short trunk under one big ball and a couple of small ones.
 static func _round_tree(root: Node3D, at: Vector3, size: float, rng: RandomNumberGenerator) -> void:
 	# A tapering trunk with a slight bow and roots flaring at its foot (one mesh, `trunk_mesh`), in warm painted bark.
-	_mesh(root, trunk_mesh(3.2 * size, 0.42 * size, 0.26 * size, 0.18 * size * (1.0 if fmod(absf(at.x), 2.0) < 1.0 else -1.0), 0.35 * size),
-		Materials.bark_plates(Color(0.6, 0.4, 0.24), Vector2(2, 1)), at)
+	# The modelled faceted trunk with its roots (make_props.py `tree_trunk`), in a muted bark brown; the built trunk stands in without it.
+	var trunk := Toonify.load_prop("tree_trunk", true)
+	if trunk != null:
+		trunk.position = at
+		trunk.scale = Vector3.ONE * size
+		trunk.rotation_degrees.y = fmod(absf(at.x) * 37.0, 360.0)
+		root.add_child(trunk)
+		for mi in trunk.find_children("*", "MeshInstance3D", true, false):
+			(mi as MeshInstance3D).material_override = FighterView.toon(Color(0.44, 0.32, 0.27), true)
+	else:
+		_mesh(root, trunk_mesh(3.2 * size, 0.42 * size, 0.26 * size, 0.18 * size * (1.0 if fmod(absf(at.x), 2.0) < 1.0 else -1.0), 0.35 * size),
+			Materials.bark_plates(Color(0.6, 0.4, 0.24), Vector2(2, 1)), at)
 	var greens := Materials.greens(Materials.greens(Color(0.3, 0.62, 0.16))[rng.randi_range(0, 2)])
 	var crown := Sway.new()
 	crown.position = at + Vector3(0, 2.8 * size, 0)
@@ -2811,7 +2889,8 @@ static func _round_tree(root: Node3D, at: Vector3, size: float, rng: RandomNumbe
 	own.seed = hash(Vector2i(roundi(at.x * 10.0), roundi(at.z * 10.0)))
 	var big := own.randf_range(2.15, 2.55)
 	var masses: Array
-	match own.randi_range(0, 2):
+	var shape := own.randi_range(0, 2)
+	match shape:
 		0:
 			var lean := 1.0 if own.randf() < 0.5 else -1.0
 			masses = [[Vector3(0, 1.4, 0) * size, big * size, 64], [Vector3(1.4 * lean, 0.7, 0.5) * size, 1.4 * size, 26]]
@@ -2824,16 +2903,37 @@ static func _round_tree(root: Node3D, at: Vector3, size: float, rng: RandomNumbe
 	# round blob), and two branches forking from the top of the trunk up into it, seen in the gaps between the clumps.
 	for j in 4:
 		var ang := own.randf_range(0.0, TAU)
-		var reach := big * own.randf_range(0.75, 0.95)
+		# (Further out and larger, so each stands out of the crown as its own lobe in light or shade: the owner's Wind Waker HD reference.)
+		var reach := big * own.randf_range(0.95, 1.15)
 		masses.append([Vector3(cos(ang) * reach, 1.4 + sin(ang) * reach * 0.7, own.randf_range(0.2, 0.7)) * size,
-			own.randf_range(0.7, 0.95) * size, 12])
+			own.randf_range(0.85, 1.1) * size, 12])
 	var bark := Materials.bark_plates(Color(0.56, 0.37, 0.22), Vector2(1, 1))
 	for sx in [-1.0, 1.0]:
 		var tilt: float = sx * own.randf_range(28.0, 40.0)
 		var length := own.randf_range(1.1, 1.5) * size
 		_mesh(crown, _cylinder(0.08 * size, 0.15 * size, length, 6), bark,
 			Vector3(-sin(deg_to_rad(tilt)) * length * 0.5, length * 0.4, 0.3 * size), Vector3.ONE, Vector3(0, 0, tilt))
-	_leaf_cards(crown, masses, greens, 1.6 * size, rng, "leaf_cluster", false, Materials.foliage(greens[1], Vector2(3, 2), true))
+	# The modelled crown (art/blender/make_props.py `tree_crown`, the owner's Wind Waker HD reference): leafy domes with toothed leaf
+	# skirts, painted in this tree's sunlit and deep greens. Without the props the sphere crown below stands in.
+	var modelled := Toonify.load_prop("tree_crown_" + "abc"[shape], true)
+	if modelled != null:
+		modelled.scale = Vector3.ONE * size
+		crown.add_child(modelled)
+		# Muted greens, after the owner's papercraft forest reference: a soft sage where lit and a deep teal in shade, each tree its own
+		# near hue (saturated yellow-greens read cheap). Plain cel material, no leaf pattern: the facets are the texture.
+		var hue := 0.27 + own.randf_range(-0.03, 0.04)
+		var lit_c := Color.from_hsv(hue, 0.42, 0.66)
+		var shade_c := Color.from_hsv(hue + 0.13, 0.5, 0.3)
+		for mi in modelled.find_children("*", "MeshInstance3D", true, false):
+			var lit_part := String(mi.name).contains("lit")
+			var m := (FighterView.toon(lit_c if lit_part else shade_c, true) as ShaderMaterial).duplicate() as ShaderMaterial
+			m.set_shader_parameter("ramp_softness", 0.08)
+			m.set_shader_parameter("shadow_amount", 0.78)
+			m.set_shader_parameter("rim_strength", 0.5)
+			(mi as MeshInstance3D).material_override = m
+		return
+	_leaf_cards(crown, masses, greens, 1.6 * size, rng, "leaf_cluster", false, Materials.foliage(greens[1], Vector2(3, 2), true),
+		[Materials.foliage(greens[0], Vector2(3, 2), true), Materials.foliage(greens[1], Vector2(3, 2), true), Materials.foliage(greens[2].lerp(greens[3], 0.4), Vector2(3, 2), true)])
 
 
 static func _flowers(root: Node3D, e: Array, rng: RandomNumberGenerator, colors: Array) -> void:
