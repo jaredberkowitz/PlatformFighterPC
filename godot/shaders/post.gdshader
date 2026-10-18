@@ -51,6 +51,7 @@ uniform float stage_dist = 30.0;
 uniform float haze_start = 14.0;  // (4 until art review 6 round 23: the Wind Waker HD reference keeps near scenery vivid and hazes only the distance)
 uniform float haze_end = 110.0;
 uniform float haze_max = 0.36;
+uniform float haze_desat = 1.3;   // how much colour the haze takes away, relative to how much it lifts
 // A gentle S-curve on the values (0 none): darker darks and brighter lights for more depth in the picture. Only the 0..1 range is curved
 // (lit windows above white keep their brightness); fighters take half.
 uniform float s_curve = 0.0;
@@ -179,6 +180,9 @@ void fragment() {
 	// Distance haze on the scenery behind the stage (before the pastel finish and the ink, so far lines fade with it).
 	if (d0 < 400.0) {
 		float far_k = smoothstep(haze_start, haze_end, d0 - stage_dist) * haze_max;
+		// (Its colour thinning with the distance as well, `haze_desat`, the gauntlet's round 21: the far villages kept their roofs' full
+		// chroma under the lift and read as toys set against the calm, hazed ranges.)
+		col = mix(col, vec3(dot(col, vec3(0.299, 0.587, 0.114))), min(far_k * haze_desat, 0.6));
 		// (Toward the stage's own haze colour, not toward white: coloured air, as in a painted landscape, rather than a milky veil.)
 		col = mix(col, pastel_haze.rgb, far_k);
 		edge *= 1.0 - far_k;

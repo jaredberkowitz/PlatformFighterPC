@@ -298,3 +298,9 @@ remaining cards (beach headland and town, grove side trees, pines and roots, mea
 Every ranked stage a solid 3 in every category, none at 4 yet. The deck's boards and the roof's seams now read (Ground 3 on both); the
 headland is a calm landform. Gaps: (1) the remaining cutouts and box houses (grove trees, pines and roots; meadow village; beach town);
 (2) light and contact fine but never soft and rich (crevice occlusion, platform shadows, lit rims, cool shade).
+
+## Round 21 (2026-10-18, commit 87191f0)
+
+All four ranked stages at 3 in every category (canyon 2.5), unchanged: the occlusion is right but subtle. Gaps: (1) the grove's
+cutout-looking trees, pines and roots; (2) the meadow's farm and the beach town at foreground saturation on flat bases (no aerial
+perspective). The haze now takes colour away with distance, the town and farm are set back into the air, the quay weathered stone.

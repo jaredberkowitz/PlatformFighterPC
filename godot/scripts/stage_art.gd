@@ -804,6 +804,37 @@ static func _taper_box(left: float, right: float, top: float, bottom: float, fro
 	return st.commit()
 
 
+## Sets everything under `node` back into the air: each material's colour losing `desat` of its saturation and drawn `lift` toward
+## `haze`, for buildings in the middle distance that kept their foreground colours (the gauntlet's round 21). Materials are copied, so
+## shared ones elsewhere stay as they are.
+static func _mute(node: Node, desat: float, haze: Color, lift: float) -> void:
+	for mi: MeshInstance3D in node.find_children("*", "MeshInstance3D", true, false):
+		var mats: Array = []
+		if mi.material_override != null:
+			mats.append([-1, mi.material_override])
+		elif mi.mesh != null:
+			for i in mi.mesh.get_surface_count():
+				var m := mi.get_active_material(i)
+				if m != null:
+					mats.append([i, m])
+		for pair: Array in mats:
+			var m = pair[1]
+			if not (m is ShaderMaterial):
+				continue
+			var c = (m as ShaderMaterial).get_shader_parameter("albedo")
+			if not (c is Color):
+				continue
+			var col: Color = c
+			var grey := col.r * 0.299 + col.g * 0.587 + col.b * 0.114
+			col = col.lerp(Color(grey, grey, grey, col.a), desat).lerp(Color(haze, col.a), lift)
+			var copy := (m as ShaderMaterial).duplicate() as ShaderMaterial
+			copy.set_shader_parameter("albedo", col)
+			if int(pair[0]) < 0:
+				mi.material_override = copy
+			else:
+				mi.set_surface_override_material(int(pair[0]), copy)
+
+
 static func _cylinder(top: float, bottom: float, height: float, sides := 20) -> CylinderMesh:
 	var c := CylinderMesh.new()
 	c.top_radius = top
@@ -2944,6 +2975,8 @@ static func _fields(root: Node3D, z: float, y: float, colours: Array, hedge_colo
 	root.add_child(farm)
 	_barn(farm, Vector3.ZERO)
 	_cottage(farm, Vector3(8.0, 0.4, -0.3), Color(0.4, 0.46, 0.6), 1.0)
+	# (Into the valley's air, the gauntlet's round 21: the full red barn and blue roof read as toys at foreground strength.)
+	_mute(farm, 0.42, Color(0.8, 0.9, 0.96), 0.2)
 	merge_static(farm)
 	# The hedgerows across: a row of round, leafy bushes along each line (smaller and closer set further down), on the dark band as their
 	# shade, so a hedge has volume like the trees by the stage rather than being a drawn line.
@@ -5804,9 +5837,10 @@ static func _harbour_town(root: Node3D, water: float) -> void:
 				best = maxf(best, c.y + r.y * sqrt(q))
 		return best
 	# The quay: a long stone wall along the water with a lit top.
-	var stone := Materials.stone(Color(0.78, 0.72, 0.66), Vector2(12, 1))
+	# (Weathered grey-buff stone, a step down from near-white, the gauntlet's round 21: the stark white slab set the town on a table.)
+	var stone := Materials.stone(Color(0.64, 0.61, 0.57), Vector2(12, 1))
 	_mesh(root, _box(Vector3(64, 2.2, 6)), stone, base + Vector3(2, 1.0, 2))
-	_mesh(root, _box(Vector3(64.4, 0.3, 6.4)), FighterView.toon(Color(0.88, 0.84, 0.78)), base + Vector3(2, 2.2, 2))
+	_mesh(root, _box(Vector3(64.4, 0.3, 6.4)), FighterView.toon(Color(0.74, 0.71, 0.66)), base + Vector3(2, 2.2, 2))
 	# Houses in rows up the slope.
 	var roofs := [Color(0.86, 0.36, 0.3), Color(0.32, 0.5, 0.74), Color(0.9, 0.58, 0.3), Color(0.5, 0.66, 0.5), Color(0.8, 0.42, 0.52)]
 	for row in 3:
@@ -5827,6 +5861,8 @@ static func _harbour_town(root: Node3D, water: float) -> void:
 			root.add_child(house)
 			var walls := [Color(0.98, 0.9, 0.72), Color(0.74, 0.88, 0.9), Color(0.98, 0.78, 0.7), Color(0.84, 0.92, 0.76), Color(0.96, 0.94, 0.9)]
 			_cottage(house, Vector3.ZERO, roofs[rng.randi() % roofs.size()], 1.0 if rng.randf() < 0.5 else -1.0, walls[rng.randi() % walls.size()])
+			# (Each row back a step further into the air, the gauntlet's round 21: at foreground strength the town read as toys.)
+			_mute(house, 0.4 + 0.08 * row, Color(0.78, 0.88, 0.94), 0.18 + 0.05 * row)
 			x += rng.randf_range(5.6, 7.4)
 	# A few buildings that are not houses, so the town reads as a town rather than one cottage repeated (art review 9): a bell tower up
 	# the hill, a long warehouse on the quay's east end, and a market of striped stalls along the quay.
