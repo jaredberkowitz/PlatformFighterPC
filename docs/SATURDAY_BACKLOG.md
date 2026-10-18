@@ -151,7 +151,8 @@ The detail behind each step follows.
       sliding in on pick), the roster grid above.
 - [ ] 3. Title screen: logo over the stage scene, a posing fighter, "press any button".
 - [ ] 4. Results screen: winner's victory pose, banner, a few stats (KOs, damage dealt), loser dimmed (mend `--demo=results` first).
-- [ ] 5. One written UI design system: type scale, palette, panel rules, motion timings, so every screen stays consistent.
+- [x] 5. One written UI design system: type scale, palette, panel rules, motion timings, so every screen stays consistent.
+      (docs/UI_DESIGN_SYSTEM.md, 2026-10-17, with its audit and the pass's order; TYPE_* and MOTION_* in ui_kit.gd.)
 
 ## Skies (owner, 2026-10-15: the canyon's sun and clouds still look cheap)
 - [ ] A painted sunset for the canyon: the sun as a soft painted disc with a proper glow falloff, and clouds as painted shapes with a lit
