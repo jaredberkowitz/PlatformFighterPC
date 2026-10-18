@@ -81,7 +81,7 @@ const STYLES := {
 	# Crisper light-to-shadow steps (a clear lit side and shaded side on every prop, in the manner of a cel-shaded adventure), warmer tops
 	# and cooler undersides, and less of the pastel wash, so the colours carry.
 	"meadow": {"ramp": [[0.0, 0.0], [0.38, 0.0], [0.43, 0.52], [0.55, 0.52], [0.6, 1.0], [1.0, 1.0]],
-		"paint": [Color(1.1, 1.02, 0.88), Color(0.88, 0.88, 1.1), 0.65], "deep": 0.74, "clouds": [0.5, 14.0, 0.4, 0.7],
+		"paint": [Color(1.1, 1.02, 0.88), Color(0.88, 0.88, 1.1), 0.65], "deep": 0.74, "clouds": [0.65, 14.0, 0.42, 0.7],
 		# (Less haze and no greying of the scenery, 2026-10-17: together they washed the mid-distance cottages, trees and mountains into
 		# flat pastel shapes, the owner's "flat" feel; depth still reads through the cooler, lighter far colours.)
 		"finish": {"desat": 0.0, "lift": 0.01, "haze_max": 0.06, "s_curve": 0.3, "quiet": 0.0}},

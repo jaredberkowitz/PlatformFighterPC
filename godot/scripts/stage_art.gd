@@ -26,7 +26,7 @@ const THEMES := {
 	"meadow": {
 		"sky_top": Color(0.1, 0.36, 0.9), "sky_mid": Color(0.3, 0.62, 1.0), "sky_horizon": Color(0.78, 0.93, 1.0),
 		"sky_glow": [Color(1.0, 0.97, 0.86), 0.25], "sky_wisps": [Color(1.0, 1.0, 1.0), 0.5],
-		"soil": Color(0.76, 0.56, 0.36), "soil_dark": Color(0.52, 0.37, 0.25), "grass": Color(0.46, 0.82, 0.16),
+		"soil": Color(0.76, 0.56, 0.36), "soil_dark": Color(0.52, 0.37, 0.25), "grass": Color(0.44, 0.74, 0.22),
 		"grass_light": Color(0.66, 0.92, 0.34), "wood": Color(0.86, 0.62, 0.36), "wood_dark": Color(0.62, 0.42, 0.24),
 		"pattern": "earth", "cap": "grass", "platform": "wood", "grass_vary": 0.17, "grass_patch": 0.35, "moss": Color(0.4, 0.66, 0.14),
 		# The stage as a hillside farm terrace (2026-10-18, the owner: a place, not a box): a dry-stone retaining wall holding the field up,
@@ -36,7 +36,7 @@ const THEMES := {
 	"grove": {
 		"sky_top": Color(0.28, 0.5, 0.98), "sky_mid": Color(0.52, 0.66, 1.0), "sky_horizon": Color(0.98, 0.76, 0.86),
 		"sky_glow": [Color(1.0, 0.72, 0.82), 0.55], "sky_wisps": [Color(1.0, 0.9, 0.96), 0.45],
-		"soil": Color(0.86, 0.66, 0.38), "soil_dark": Color(0.72, 0.5, 0.27), "grass": Color(0.32, 0.72, 0.26),
+		"soil": Color(0.86, 0.66, 0.38), "soil_dark": Color(0.72, 0.5, 0.27), "grass": Color(0.32, 0.66, 0.28),
 		"grass_light": Color(0.6, 0.9, 0.34), "wood": Color(0.93, 0.74, 0.5), "wood_dark": Color(0.7, 0.48, 0.28),
 		"pattern": "roots", "cap": "grass", "platform": "wood", "grass_vary": 0.16, "grass_patch": 0.3,
 	},
@@ -2266,8 +2266,9 @@ static func _land_band(root: Node3D, bumps: Array, floor_y: float, z: float, col
 	# (Green land takes painted grass blades too, drawn larger for its distance (`blades` in shaders/toon_common.gdshaderinc), so the
 	# hills are grassy like the lawn the fighters stand on, not smooth felt: the owner, 2026-10-17. Not the shade band under a canopy.)
 	if roll > 0.0:
-		# (Its own material, so props standing on it can paint their shadows into it, `_ground_shadow`.)
+		# (Its own material, so props standing on it can paint their shadows into it, `_ground_shadow`; faceted, art review 9.)
 		land = land.duplicate() as ShaderMaterial
+		land.set_shader_parameter("facets", true)
 		_band_mats[z] = land
 	if roll > 0.0 and colour.g > colour.r and colour.g > colour.b * 0.9:
 		land.set_shader_parameter("blades", 0.7)
@@ -4996,11 +4997,11 @@ static func _harbour_town(root: Node3D, water: float) -> void:
 	var land := Materials.foliage(Color(0.44, 0.7, 0.42), Vector2(6, 3), false)
 	var hills := [[Vector3(-6, 0.0, -14), Vector3(40, 16, 16)], [Vector3(22, -1.0, -18), Vector3(26, 10, 12)]]
 	for h in hills:
-		_mesh(root, _sphere(1.0, 24), land, base + (h[0] as Vector3), h[1])
+		_mesh(root, _sphere(1.0, 9), land, base + (h[0] as Vector3), h[1])
 	# Higher hills behind the town, bluer with distance.
 	var far_land := Materials.foliage(Color(0.42, 0.62, 0.58), Vector2(6, 3), false)
-	_mesh(root, _sphere(1.0, 24), far_land, base + Vector3(-18, 0.0, -34), Vector3(36, 26, 10))
-	_mesh(root, _sphere(1.0, 24), far_land, base + Vector3(14, 0.0, -38), Vector3(30, 20, 10))
+	_mesh(root, _sphere(1.0, 9), far_land, base + Vector3(-18, 0.0, -34), Vector3(36, 26, 10))
+	_mesh(root, _sphere(1.0, 9), far_land, base + Vector3(14, 0.0, -38), Vector3(30, 20, 10))
 	# The land's height at (x, z) (relative to `base`): the highest of the hills' ellipsoid surfaces there.
 	var ground := func(x: float, z: float) -> float:
 		var best := 0.0

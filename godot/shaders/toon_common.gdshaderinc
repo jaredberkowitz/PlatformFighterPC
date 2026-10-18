@@ -34,6 +34,9 @@ uniform bool fall_by_height = false;
 // World-laid surfaces only: treat every face as a front (laid in x/y, falling into the front shade), however it tilts (the earth bulges,
 // whose lumps tilt past where a face would otherwise count as a top).
 uniform bool front_only = false;
+// Flat-shaded facets (2026-10-18, art review 9: one shape language, crisp folds as on paper and in a cel-shaded adventure, not smooth clay):
+// each triangle takes one light from its own face, whatever the mesh's normals.
+uniform bool facets = false;
 // World-laid fronts only: broad painted shadow shapes over an earth wall (0 off), large soft-edged cool shapes in `front_shade` and warmer
 // lit ones between them, slow in x and leaning as they run down, so a dirt face reads as rounded packed earth under one light rather
 // than one flat colour (the owner's material notes, 2026-10-17: dirt wants broad shadow shapes and warm/cool shifts).
@@ -232,6 +235,9 @@ void fragment() {
 	// (On what faces up: on a wall the drifting field showed as long slanted stripes. Not on fighters: a passing shade over one read as
 	// it dimming, and every fighter keeps the same value on any spot of the stage.)
 	pf_sun = mix(1.0, pf_cloud_sun(world_pos, TIME), smoothstep(0.1, 0.6, world_normal.y) * (1.0 - fighter));
+	if (facets) {
+		NORMAL = normalize(cross(dFdx(VERTEX), dFdy(VERTEX)));
+	}
 	ALBEDO = c;
 	EMISSION = flash.rgb * flash.a;
 	ROUGHNESS = object_id;
