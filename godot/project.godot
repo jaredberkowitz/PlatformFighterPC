@@ -103,6 +103,10 @@ pf_scenery_shade={
 "type": "float",
 "value": 1.0
 }
+pf_paper={
+"type": "float",
+"value": 0.0
+}
 pf_edge_light={
 "type": "color",
 "value": Color(1, 0.96, 0.9, 0.2)

@@ -22,6 +22,9 @@ uniform float line_fade_end = 180.0;
 // art, not of a cel-shaded world).
 uniform float scenery_lines = 0.4;
 uniform float inner_lines = 0.3;
+// The paper look under trial (scripts/lighting.gd `paper`): where a line would be drawn on the scenery, its nearer edge is lit instead, a
+// cut card's edge catching the light (0 off).
+uniform float paper_edge = 0.0;
 // The inverted-hull outlines' object id (shaders/outline.gdshader): where a silhouette has one, it is the line, and this pass adds none
 // beside it (a second line just inside doubled it into a thick, wavering stroke); where it has none (blades), this pass draws the line.
 const float HULL_ID = 0.7;          // how strong a line inside one fighter is (an arm in front of the body), against its silhouette
@@ -167,6 +170,7 @@ void fragment() {
 	edge *= 1.0 - smoothstep(line_fade_start, line_fade_end, d0);
 	// (Lines on blurred far scenery soften with it.)
 	edge *= 1.0 - 0.6 * blur_k;
+	float card_edge = id0 > 0.6 ? edge * paper_edge : 0.0;
 	edge *= id0 > 0.6 ? scenery_lines : 1.0;
 	// Distance haze on the scenery behind the stage (before the pastel finish and the ink, so far lines fade with it).
 	if (d0 < 400.0) {
@@ -174,6 +178,7 @@ void fragment() {
 		// (Toward the stage's own haze colour, not toward white: coloured air, as in a painted landscape, rather than a milky veil.)
 		col = mix(col, pastel_haze.rgb, far_k);
 		edge *= 1.0 - far_k;
+		card_edge *= 1.0 - far_k;
 	}
 	// The value hierarchy (see `stage_quiet`).
 	if (stage_quiet > 0.0 && d0 < 400.0) {
@@ -196,6 +201,7 @@ void fragment() {
 	vec3 c01 = clamp(col, 0.0, 1.0);
 	col += (c01 * c01 * (3.0 - 2.0 * c01) - c01) * s_curve * soften;
 	col = mix(col, ink.rgb, edge * line_strength);
+	col = mix(col, col * 1.12 + vec3(0.07, 0.07, 0.06), clamp(card_edge, 0.0, 1.0));
 
 	// A warm paper tone, soft blotches like paper fibre, and a fine print grain.
 	col = mix(col, col * tint.rgb, tint_amount);

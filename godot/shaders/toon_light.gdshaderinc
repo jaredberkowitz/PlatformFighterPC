@@ -16,6 +16,10 @@ global uniform float pf_deep_shade;
 // applied in linear light, so 0.56 shows on screen as only about a fifth darker: the scenery's light and shade read flat and cloud
 // shadows barely showed (2026-10-18, art review 9). Per stage (scripts/lighting.gd STYLES `scenery_shade`).
 global uniform float pf_scenery_shade;
+// The paper look under trial (scripts/lighting.gd `paper`, 0 off, 1 on; the papercraft adventure as the benchmark, 2026-10-18): on the
+// scenery a soft turn from light into shade instead of the cel ramp's bands, and a lighter, cooler shade (the soft occlusion gives the
+// depth instead). Fighters keep their own shading.
+global uniform float pf_paper;
 global uniform vec4 pf_edge_light;
 // Cloud shadows (scripts/lighting.gd, per mood): broad soft patches of shade drifting slowly across the stage and the scenery near it,
 // so a sunny day has light and shade moving over it rather than one even wash (the grove's are small, a canopy's dappled light). x how
@@ -137,6 +141,8 @@ void light() {
 	}
 	// (On a fighter, cast shadows count for much less: the shadow map is too coarse for a small round body, so a hat's or hair's shadow
 	// landed on the face as blotchy pink patches with wavering edges. The form light shades the body instead.)
+	float paper_k = pf_paper * (1.0 - fighter);
+	band = mix(band, smoothstep(0.18, 0.82, wrap), paper_k);
 	float cast = shadow_amount * mix(1.0, PF_FIGHTER_CAST, fighter);
 	float lit = band * mix(1.0, ATTENUATION, cast);
 #ifdef PF_CLOUDS
@@ -148,6 +154,7 @@ void light() {
 	float deep = (1.0 - ATTENUATION) * (1.0 - band) * cast;
 	shade = mix(shade, shade * pf_deep_shade, deep);
 	shade *= mix(pf_scenery_shade, PF_FIGHTER_SHADE, fighter);
+	shade = mix(shade, mix(shade, vec3(1.0), 0.2) * vec3(0.9, 0.94, 1.1), paper_k);
 	vec3 tone = mix(shade, vec3(1.0), lit);
 	// A point or spot light (a practical lamp in the scenery) fades with distance: ATTENUATION carries its falloff, and the cel ramp would
 	// otherwise light everything inside its range evenly and stop dead at the edge.

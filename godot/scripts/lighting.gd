@@ -116,6 +116,26 @@ static func style(name: String) -> Dictionary:
 
 static var _ramps := {}
 
+## The paper look under trial (the papercraft adventure as the benchmark, the owner, 2026-10-18), an A/B against the current look: no ink
+## on the scenery (its edges lit instead, a cut card's edge), a soft turn into a lighter, cooler shade on it, and soft occlusion where
+## things meet. Fighters unchanged. `--look=paper` starts with it on; F10 in a match flips it.
+static var paper := OS.get_cmdline_user_args().has("--look=paper")
+
+
+## Applies `paper` to the globals, the environment and the finishing pass `post` (if any).
+static func apply_paper(env: Environment, post: ShaderMaterial, base_lines: float) -> void:
+	RenderingServer.global_shader_parameter_set("pf_paper", 1.0 if paper else 0.0)
+	if env != null:
+		env.ssao_enabled = paper
+		env.ssao_radius = 1.6
+		env.ssao_intensity = 3.0
+		env.ssao_power = 1.4
+		env.ssao_light_affect = 0.6
+		env.ssao_ao_channel_affect = 1.0
+	if post != null:
+		post.set_shader_parameter("scenery_lines", 0.0 if paper else base_lines)
+		post.set_shader_parameter("paper_edge", 0.9 if paper else 0.0)
+
 
 ## The ramp's lookup texture: 256 steps across, each the ramp's lightness there, eased between the stops so each band's edge is soft.
 static func ramp_texture(stops: Array) -> ImageTexture:
@@ -236,6 +256,7 @@ static func stage_mood(env: Environment, root: Node, theme: Dictionary, post: Sh
 		post.set_shader_parameter("bloom", finish.bloom)
 		post.set_shader_parameter("bloom_threshold", finish.bloom_from)
 		post.set_shader_parameter("scenery_lines", float(finish.get("scenery_lines", 0.4)))
+	apply_paper(env, post, float(style(theme.get("name", "meadow")).finish.get("scenery_lines", 0.4)))
 	var m := mood.duplicate()
 	if theme.has("sky_horizon"):
 		m.rim = (mood.rim as Color).lerp(theme.sky_horizon, 0.3)

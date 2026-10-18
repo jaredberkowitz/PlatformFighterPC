@@ -24,6 +24,9 @@ uniform bool hide_under_shirt = false;
 uniform bool hide_under_shorts = false;
 // A fighter's line takes a little of its own colour (`rgb`, by `a`), so its line art reads as its own rather than a generic black.
 instance uniform vec4 outline_tint : instance_index(5) = vec4(0.0);
+// The paper look under trial (scripts/lighting.gd `paper`): the scenery's line goes (its edges are told by light instead); the fighters'
+// stays.
+global uniform float pf_paper;
 
 void vertex() {
 	vec4 view = MODELVIEW_MATRIX * vec4(VERTEX, 1.0);
@@ -32,6 +35,7 @@ void vertex() {
 	// A mesh can leave the line out in places through its vertex colour's red (the shirt, round the armpits); without colours it is white.
 	float cover = (hide_under_shirt ? COLOR.g : 1.0) * (hide_under_shorts ? COLOR.b : 1.0);
 	float w = clamp(-view.z * width, min_width, max_width) * outline_weight * COLOR.r * cover;
+	w *= 1.0 - pf_paper * (1.0 - step(0.62, outline_weight));
 	view.xy += across * w;
 	view.z -= w * push_back;
 	POSITION = PROJECTION_MATRIX * view;
