@@ -20,6 +20,8 @@ uniform float patch_amount = 0.0;
 // sunlit patches and deeper in the shaded ones (the owner's material notes, 2026-10-17: grass wants selective highlights and
 // directional variation, not one smooth sheet). How strong.
 uniform float blades = 0.0;
+// How big the blades are drawn (1 on the stage; the far hills take larger, so they still read at their distance).
+uniform float blade_scale = 1.0;
 // World-laid surfaces only: a solid block's front falls gradually into a cool shade below its top edge (`front_top`, the block's top in
 // world units, set per block by stage_art.gd), so the stage reads as one solid mass with a lit rim rather than a flat repeated pattern.
 // `front_fall` is how dark it gets at most, reached `front_span` units down.
@@ -75,6 +77,8 @@ void vertex() {
 
 void fragment() {
 	vec3 c = albedo.rgb * vshade;
+	// (How lit the grass blades are, -1 until the painted patches say; see `blades`.)
+	float blade_light = -1.0;
 	if (use_tex) {
 		vec2 uv = UV * tex_scale;
 		if (world_tile > 0.0) {
@@ -91,34 +95,7 @@ void fragment() {
 				float sunlit = smoothstep(0.55, 0.75, -big - 0.2);
 				c *= 1.0 - patch_amount * 0.55 * deep;
 				c = mix(c, c * vec3(1.08, 1.1, 0.92) + 0.03, patch_amount * sunlit);
-				if (blades > 0.0 && world_normal.y > 0.5) {
-					// Cells across the lawn (wider than deep: the top is seen at a low angle, so depth is squeezed on screen); about half hold
-					// a clump of three blades rooted at a random spot, each pointing back (up the screen), tapering to a tip, leaning together.
-					vec2 cs = vec2(0.42, 0.9);
-					float hit = 0.0;
-					for (int ox = -1; ox <= 1; ox++) {
-						vec2 cell = floor(p / cs) + vec2(float(ox), 0.0);
-						float h1 = fract(sin(dot(cell, vec2(127.1, 311.7))) * 43758.5453);
-						float h2 = fract(sin(dot(cell, vec2(269.5, 183.3))) * 43758.5453);
-						if (h1 < 0.4) {
-							vec2 root = (cell + vec2(h2, fract(h1 * 7.13))) * cs;
-							float lean = (h2 - 0.5) * 0.5;
-							for (int b = 0; b < 3; b++) {
-								float fb = float(b) - 1.0;
-								float len = 0.75 * (1.0 - 0.25 * abs(fb)) * (0.8 + 0.4 * h2);
-								vec2 d = p - root - vec2(fb * 0.07, 0.0);
-								float up = -d.y / len;
-								if (up > 0.0 && up < 1.0) {
-									float w = 0.045 * (1.0 - up);
-									hit = max(hit, 1.0 - smoothstep(w * 0.6, w, abs(d.x - (lean + fb * 0.12) * up * len)));
-								}
-							}
-						}
-					}
-					float lit_side = clamp(sunlit + 0.5 - deep, 0.0, 1.0);
-					vec3 blade_c = mix(c * vec3(0.62, 0.72, 0.8), c * vec3(1.25, 1.2, 0.8) + 0.04, lit_side);
-					c = mix(c, blade_c, hit * blades);
-				}
+				blade_light = clamp(sunlit + 0.5 - deep, 0.0, 1.0);
 			}
 			// And a slight drift in hue between warmer and cooler patches, slower still, so neighbouring areas differ a little.
 			float hue_drift = sin(p.x * 0.17 + 2.1 + sin(p.y * 0.23) * 1.3) * sin(p.y * 0.13 + p.x * 0.07);
@@ -165,6 +142,45 @@ void fragment() {
 	}
 	if (world_tile <= 0.0) {
 		c *= brush(UV);
+	}
+	// Painted grass blades (`blades`): on what faces up they are laid across the ground and point back (up the screen, the top being seen at
+	// a low angle); on a hillside facing the camera they stand up its face. Cells across the surface, about two in five holding a clump of
+	// three tapered blades leaning together; lit where the patches are sunlit (or where the land turns up to the sky), deeper elsewhere.
+	if (blades > 0.0 && world_normal.y > -0.2) {
+		bool on_top = world_normal.y > 0.75;
+		vec2 q = (on_top ? world_pos.xz : vec2(world_pos.x, -world_pos.y)) / blade_scale;
+		vec2 cs = on_top ? vec2(0.42, 0.9) : vec2(0.42, 0.5);
+		float blen = on_top ? 0.75 : 0.42;
+		float hit = 0.0;
+		float tint = 0.5;
+		for (int ox = -1; ox <= 1; ox++) {
+			for (int oy = 0; oy <= 1; oy++) {
+				vec2 cell = floor(q / cs) + vec2(float(ox), float(oy));
+				float h1 = fract(sin(dot(cell, vec2(127.1, 311.7))) * 43758.5453);
+				float h2 = fract(sin(dot(cell, vec2(269.5, 183.3))) * 43758.5453);
+				if (h1 < 0.4) {
+					vec2 root = (cell + vec2(h2, fract(h1 * 7.13))) * cs;
+					float lean = (h2 - 0.5) * 0.5;
+					for (int b = 0; b < 3; b++) {
+						float fb = float(b) - 1.0;
+						float len = blen * (1.0 - 0.25 * abs(fb)) * (0.8 + 0.4 * h2);
+						vec2 d = q - root - vec2(fb * 0.07, 0.0);
+						float up = -d.y / len;
+						if (up > 0.0 && up < 1.0) {
+							float w = 0.045 * (1.0 - up);
+							float hb = 1.0 - smoothstep(w * 0.6, w, abs(d.x - (lean + fb * 0.12) * up * len));
+							if (hb > hit) {
+								hit = hb;
+								tint = h2;
+							}
+						}
+					}
+				}
+			}
+		}
+		float lit_side = blade_light >= 0.0 ? blade_light : clamp(smoothstep(0.35, 0.8, world_normal.y) + (tint - 0.5) * 0.7, 0.0, 1.0);
+		vec3 blade_c = mix(c * vec3(0.62, 0.72, 0.8), c * vec3(1.25, 1.2, 0.8) + 0.04, lit_side);
+		c = mix(c, blade_c, hit * blades);
 	}
 	// The painted gradient (the stage's profile, scripts/lighting.gd): what faces up leans warm, what faces down leans cool. Fighters take
 	// a third of it, so their own colours stay true.

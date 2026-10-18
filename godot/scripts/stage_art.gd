@@ -1561,9 +1561,10 @@ static var _clump_cache := {}
 ## light on its own (a lit top, a shaded foot) and the mass's outline is scalloped against the sky, as a painted tree's crown is, instead of
 ## one smooth curve (the owner, 2026-10-17: the grove's leaves could use more detail). `variant` picks one of `CLUMP_VARIANTS` lobe
 ## layouts. Unit radius on average, like `_sphere(1.0)`.
-static func _clump_ball(variant: int) -> ArrayMesh:
-	if _clump_cache.has(variant):
-		return _clump_cache[variant]
+static func _clump_ball(variant: int, smooth := false) -> ArrayMesh:
+	var ckey := variant + (100 if smooth else 0)
+	if _clump_cache.has(ckey):
+		return _clump_cache[ckey]
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 7700 + variant
 	var lobes: Array = []
@@ -1612,6 +1613,14 @@ static func _clump_ball(variant: int) -> ArrayMesh:
 		cols[i] = Color(val, val, val * 1.02)
 	arrays[Mesh.ARRAY_VERTEX] = verts
 	arrays[Mesh.ARRAY_COLOR] = cols
+	# (`smooth`: the ball's own round normals, the clumps shown by their baked light alone. For small, far leaf masses (hedges), where the
+	# ink pass drew a line round every clump and the row turned to dark speckle.)
+	if smooth:
+		var sm := ArrayMesh.new()
+		arrays[Mesh.ARRAY_TANGENT] = null
+		sm.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+		_clump_cache[ckey] = sm
+		return sm
 	arrays[Mesh.ARRAY_NORMAL] = null
 	arrays[Mesh.ARRAY_TANGENT] = null
 	var st := SurfaceTool.new()
@@ -1620,7 +1629,7 @@ static func _clump_ball(variant: int) -> ArrayMesh:
 	st.create_from(raw, 0)
 	st.generate_normals()
 	var m := st.commit()
-	_clump_cache[variant] = m
+	_clump_cache[ckey] = m
 	return m
 
 
@@ -2053,7 +2062,14 @@ static func _land_band(root: Node3D, bumps: Array, floor_y: float, z: float, col
 			for c in [[i, j], [i + 1, j], [i + 1, j + 1], [i, j], [i + 1, j + 1], [i, j + 1]]:
 				st.add_vertex(cols[c[0]][c[1]])
 	st.generate_normals()
-	_mesh(root, st.commit(), _soft(colour), Vector3.ZERO)
+	var land := _soft(colour)
+	# (Green land takes painted grass blades too, drawn larger for its distance (`blades` in shaders/toon_common.gdshaderinc), so the
+	# hills are grassy like the lawn the fighters stand on, not smooth felt: the owner, 2026-10-17. Not the shade band under a canopy.)
+	if roll > 0.0 and colour.g > colour.r and colour.g > colour.b * 0.9:
+		land = land.duplicate() as ShaderMaterial
+		land.set_shader_parameter("blades", 0.7)
+		land.set_shader_parameter("blade_scale", clampf(-z / 22.0, 1.5, 5.0))
+	_mesh(root, st.commit(), land, Vector3.ZERO)
 
 
 ## A rolled band's cross-section (see `_land_band`): [drop below the crest, depth from the band's z], from behind the crest to the foot.
@@ -2262,6 +2278,7 @@ static func _fields(root: Node3D, z: float, y: float, colours: Array, hedge_colo
 	merge_static(farm)
 	# The hedgerows across: a row of round, leafy bushes along each line (smaller and closer set further down), on the dark band as their
 	# shade, so a hedge has volume like the trees by the stage rather than being a drawn line.
+	# (Plain balls, not `_clump_ball`: squashed this flat and this small, the clump balls rendered as black and blue blots, 2026-10-17.)
 	var leaf := Materials.foliage(hedge_colour, Vector2(2, 2), true)
 	var leaf_lit := Materials.foliage(hedge_colour.lightened(0.1), Vector2(2, 2), true)
 	for hi in hedges.size():
