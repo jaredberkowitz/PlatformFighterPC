@@ -685,7 +685,7 @@ Owner decision 2026-10-17 (built in sim 138, branch `longsword-jab`):
     * Engine tests that used the old placeholder jab as a generic weak hit now ask for it (`common::Sim::plain_jab`, used by
       `Sim::duel` and three other tests); the kit's three old jab tests in `kits.rs` were replaced by `longsword_jab.rs`.
 
-Open for the owner from decision 98:
+Open for the owner from decision 98: answered by decision 101 (keep the tip pull; jab 2 acts from frame 16).
 
 1. **The tip pull against the late window**: 13.0.1's pull (BK 30, KS 12) was made for 13.0.1's jab 2 window (from frame 11); on
    1.1.x's frame 18 it leaves only 0-4 frames, so tip > jab 2 combos only from 90%. Without the pull (pure 1.1.x, the tip at 90
@@ -742,6 +742,7 @@ with diminishing returns (built); 3. no footage is coming, the estimates stay.
       `the_blade_flurrys_count_builds_in_the_air_and_resets_on_landing`.
     * **No footage is coming**: the animation-driven recovery heights and the flash dash's 5.5 a frame stay estimates.
 
+101. **The Longsword jab stays as built** (owner, 2026-10-17; no behaviour change, sim 141): jab 1's tip keeps the 13.0.1 pull (BK 30, KS 12, so tip > jab 2 combos from 90%), and jab 2 can act from its frame 16 [E].
 ## Still open
 
 From the Embers' phase 2 (details in `docs/movesets/embers/IMPLEMENTATION_REPORT.md`, "Owner follow-up"):
