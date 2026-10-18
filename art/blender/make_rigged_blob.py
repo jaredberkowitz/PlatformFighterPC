@@ -385,7 +385,7 @@ def mitten(bm, x):
     # (Before 2026-10-15 four separate finger tubes and a big thumb: stubby sausages glued on, and the hand bent back at the wrist.)
     block = _mitt_block(bm, x, 0.12, (0.13, 0.115, 0.06), squareness=0.8, curl=0.035, segments=56, rings=36)
     _crease(block, x, 0.15, 0.012, 0.005, side=-1.0)
-    _fingers(block, x, 0.12, 0.12, 0.013, width=0.015)
+    _fingers(block, x, 0.12, 0.12, 0.01, width=0.016)
     tube(bm, [_at(x, 0.045, 0.06, -0.012), _at(x, 0.085, 0.118, -0.022), _at(x, 0.105, 0.132, -0.026)], [0.05, 0.045, 0.041],
          segments=16, per_span=4)
 
@@ -2110,7 +2110,8 @@ def build_garments(skin, J, neck):
         # held where they are, then push any point the smoothing pulled toward the body back out to the garment's distance from it.
         hems = {v for v in bm.verts if v.is_boundary}
         inner = [v for v in bm.verts if v not in hems]
-        for _ in range(GARMENT_SMOOTH):
+        # (The shorts twice over, 2026-10-18: over the hips and the crotch the cloth kept the body's lumps and shaded in blotches.)
+        for _ in range(GARMENT_SMOOTH * (3 if name == "Shorts" else 1)):
             bmesh.ops.smooth_vert(bm, verts=inner, factor=0.5, use_axis_x=True, use_axis_y=True, use_axis_z=True)
         bm.normal_update()
         for v in bm.verts:

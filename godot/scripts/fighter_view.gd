@@ -1953,7 +1953,7 @@ func _neck_on_rig(accent: Color) -> void:
 			torso_rig.add_child(sash)
 			# (Over the shirt, which since the body rebuild hangs looser: fitted to the bare torso, the band sank into the cloth in pieces.)
 			var over := SASH_OVER_SHIRT if loadout.shirt > 0 else 1.0
-			sash.scale = Vector3(over, 1.0, over)
+			sash.scale = Vector3(over, 1.0, 1.0 + (over - 1.0) * 0.45)
 			_part(sash, ring, toon(SASH, false), Vector3.ZERO, Vector3(0.88, 1.7, 1.0))
 			# Round badges pinned on the front of the band, facing out from it.
 			var badge := CylinderMesh.new()
