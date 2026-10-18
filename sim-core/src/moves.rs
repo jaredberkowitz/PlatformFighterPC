@@ -3786,6 +3786,11 @@ fn sword_kit() -> Weapon {
         Kind::Fighter,
         include_str!("scripts/sword_thrust.script"),
     ));
+    // Started in the air: half the sideways speed on startup and the move's own air friction 0.02 (ssbwiki.com 13.0.1, the
+    // parameters) [R]; the vertical speed is kept (none published). Sim 143: the lunge no longer leaves its whole speed behind (it
+    // carried the fighter off the stage); the script hands back a full drift's speed after it [E].
+    breaker.start_speed = 50;
+    breaker.air_friction = Some(Fx::from_ratio(20, 8000));
     moves[MoveId::NSpecial as usize] = breaker;
 
     // Side special, Blade Flurry: up to four hits, each started by pressing special again (the stick chooses the
@@ -3920,6 +3925,14 @@ fn sword_kit() -> Weapon {
         break_move: 0,
         still: false,
     });
+    // In the air (ssbwiki.com 13.0.1, the parameters): half the sideways speed on startup, air friction 0.0025, gravity 0.04, fall
+    // speed 1.2 [R]. The vertical speed is stopped on starting (sim 143, owner decision 102) [E: not published; with the stance's light
+    // pull a kept jump's rise would float the fighter far over its jump].
+    counter.start_speed = 50;
+    counter.start_speed_y = 0;
+    counter.air_friction = Some(Fx::from_ratio(25, 80_000));
+    counter.air_gravity = Some(Fx::from_ratio(40, 8000));
+    counter.air_max_fall = Some(Fx::from_ratio(1200, 8000));
     moves[MoveId::DownSpecial as usize] = counter;
     let mut answer = ref_move(
         40,

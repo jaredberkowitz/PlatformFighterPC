@@ -765,6 +765,16 @@ with diminishing returns (built); 3. no footage is coming, the estimates stay.
       percent of each body's dash speed; 0 off) caps the ground speed on landing out of a jump, a move or a special fall [E: no
       published landing rule]. Of every built-in special aimed into the stage only the blade dash (now 37 units of slide, on the
       stage) and the Popgun's flip (26 to 19) were faster and changed; nothing else did. `landing_momentum.rs`.
+    * **Specials right after a jump** ("characters gain too much height by inputting jump, and then using specials right after"):
+      the cause was the full hop's 4-frame opening (a set height at 4.6 units a frame): a special that sets its own vertical rule
+      scaled that speed (the Greatsword's beam rose 36-50 units over the jump), and a script's `add_vel` let the opening restore
+      the arc's speed afterwards (the Gauntlets' aerial punch rose the whole jump). Now such a special works from the arc's speed and
+      ends the opening; the cape's and the blade flurry's lifts add to a fall, not to a rise (50-58 units over a midair jump before)
+      [E: readings]. The Longsword's aerial thrust and counter got their published air rules (x0.5 sideways, friction; the counter's
+      0.04 pull and 1.2 fall with the rise stopped [E]); the thrust no longer flies off the stage after its lunge. A special pressed
+      in the jump squat comes out in the air (only the up special and up smash cancel it), as the reference's. Every special of all
+      14 fighters, 1-4 frames after a ground or midair jump, now gets no higher than the jump or the move from a standstill
+      (`special_start_momentum.rs`; the table in `SHARED_MECHANICS.md`).
 
 ## Still open
 

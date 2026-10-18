@@ -129,6 +129,45 @@ Side specials (sim 139, owner decision 99; ssbwiki.com `<Fighter>_(SSBU)/Side_sp
 | 12 Dagger | Joker's Eiha | none published | its own fall rule | unchanged |
 | 13 Nodachi | Sephiroth's Shadow Flare | none published | kept | unchanged |
 
+Neutral and down specials, and every special out of a jump's first frames (sim 143, owner decision 102: "characters gain too much
+height by inputting jump, and then using specials right after"). Measured by `special_start_momentum.rs`: every special of all 14
+fighters started 1, 2 and 4 frames after a ground jump and after a midair jump (a tap and a 40-frame hold) gets no higher than the
+higher of the jump alone and the same special from a standstill at that height (the shell keeps 0.8 [R]: up to 4 units over).
+
+* **The full hop's opening** (the cause of most of the extra height). A full hop rises 55% of its height in its first 4 frames at a
+  set speed (`hop_burst_velocity`, the reference's "initial height", ssbwiki.com `Jump`). A special that sets its own vertical rule
+  (a `start_speed_y` other than 100, its own gravity, fall speed or rise cap, or motion rows: `fighter.rs` `sets_vertical`) started
+  in that opening now works from the arc's speed (`full_hop_velocity`) and ends the opening; before, it scaled the opening's speed
+  (the Greatsword's aerial beam, x0.65 of it with its light 0.06 gravity, rose 36 to 50 reference units over the jump). A special
+  that keeps the jump as it is lets the opening run on, as an aerial does (the reference: an aerial on the first airborne frame
+  makes the jump only "slightly lower") [E: reading]. A script's `add_vel` with a vertical part now ends the opening too (as
+  `set_vel` always did): before, the opening's end put the arc's speed back over what the script set, so the Gauntlets' aerial
+  punch out of a jump's first frame (a set 0.2 up [R]) rose the whole jump.
+* **The lifts** (side specials, "vertical speed added" in the reference's parameters): the Embers' cape (0.3, first use) and the
+  Longsword's blade flurry (1.4, halving) add to a fall but no longer to a jump's rise (out of a midair jump they rose 50 to 58 units
+  over it with the cape's 0.031 pull); a later cape stops a rise [E: the reading of "added"].
+* **A special pressed during the jump squat**: only the up special (and the up smash, an item throw) cancels it, as the reference's
+  (ssbwiki.com `Jump_canceling`); any other comes out in the air on the first airborne frame (the aerial version). Unchanged, now tested.
+
+| Class | Neutral special: reference rule [source] | Ours | Down special: reference rule [source] | Ours |
+| --- | --- | --- | --- | --- |
+| 0 Longsword | Marth's Shield Breaker: horizontal x0.5 on startup, air friction 0.02 [R, parameters]; vertical not published; "when charging, loses aerial momentum; released in the air, adds lateral momentum" [R, overview] | **sim 143**: x0.5 and 0.02 added; vertical kept; the lunge no longer leaves its 3.6 units a frame behind (a thrust in the air flew off the stage): a full drift (1.07) after it [E] | Marth's Counter: horizontal x0.5, air friction 0.0025, gravity 0.04, fall 1.2 [R, parameters]; vertical not published | **sim 143**: all four added (it had none); the vertical stopped on starting [E: with the light pull a kept rise floats far over the jump] |
+| 1 Claws | Wolf's Blaster: no movement parameters | kept (the body's fall) | Wolf's Reflector: horizontal x0.5, gravity 0.13 from frame 0 [R] | kept; not changed (its body's gravity is 0.13; the x0.5 is a gap) |
+| 2 Needles | Sheik's Needle Storm: landing lag 12, no vertical rule [R] | kept | Sheik's Bouncing Fish: initial vertical speed 3 (set) [R] | set by its script |
+| 3 Embers | Mario's Fireball: no parameters published | kept | Mario's F.L.U.D.D.: recoil only [R] | kept |
+| 4 Gauntlets | Falcon's Punch: a set 0.2 up on starting, x0.92 a frame for 19 frames [R] | as the reference; now also from a jump's first frames (it rose the whole jump) | Falcon's Kick: the dive's own motion [R qualitative] | motion rows (sets) |
+| 5 Staff | Palutena's Autoreticle: horizontal x0.6 [R] | as the reference, vertical kept | Palutena's Counter: horizontal x0.33, top rise 0.8, gravity 0.04, fall 1.2 [R] | as the reference |
+| 6 Greatsword | Cloud's Blade Beam: air x0.4, vertical x0.65, gravity 0.06 [R]; "he will stall slightly" | as the reference; **sim 143**: from the arc's speed in a full hop's opening (36-50 units over the jump before) | Limit Charge: no movement parameters; Finishing Touch: x0.4, x0.4, gravity 0.03, fall 1 [R] | kept; the finishing touch as the reference |
+| 7 Bracers | DK's Giant Punch: no movement parameters | kept | DK's Hand Slap: landing lag 10 [R] | kept |
+| 8 Clutch | Yoshi's Egg Lay: a slight boost on release [R qualitative] | set by its script | Yoshi Bomb: stall-then-fall [R qualitative] | its script sets the stall and the drop (decision 60) |
+| 9 Buckler | Link's Bow: no movement parameters | kept | Remote Bomb: none | kept |
+| 10 Pockets | Villager's Pocket: none | kept | Timber: none | kept |
+| 11 Popgun | Diddy's Peanut Popgun: none published | kept | Banana Peel: none | kept |
+| 12 Dagger | Joker's Gun: the air stall (stopped, gravity 0.03, fall 0.8) [E, decision in its reference data] | as that | Rebel's Guard: none | kept |
+| 13 Nodachi | Sephiroth's Flare: none (moves while charging) | kept | Scintilla: none | kept |
+
+"Kept" means the jump goes on as it would (the body's fall): such a special never rises over the jump it was started from.
+
 Special-fall drift: every up special whose reference publishes its "helplessness air speed multiplier" uses it (`Move::fall_drift`:
 the Longsword 40, Claws 65, Needles 60 since sim 139 (it had the ruleset's 50), Embers 60, Gauntlets 70; tested by
 `upspecial_momentum::the_special_falls_drift_at_the_published_share`).

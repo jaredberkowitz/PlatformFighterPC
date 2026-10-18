@@ -3590,6 +3590,14 @@ fn start_special(f: &mut Fighter, p: &FighterParams, weapon: &Weapon) -> bool {
     if mv.intangible_start(f.move_air) == 0 {
         f.invuln = f.invuln.max(mv.intangible);
     }
+    // Started in a full hop's fast opening (sim 143, owner decision 102): the opening is the jump's own (the reference's "initial
+    // height", a set height over the hop's first frames), not a speed a move can carry. A special that sets its own vertical rule
+    // (a share of the vertical speed, its own pull, a rise cap or motion) works from the arc's speed the hop goes on with, and the
+    // opening ends; one that keeps the jump as it is (the plain fall) lets the opening run on, as an aerial does [E: reading].
+    if !f.grounded() && f.hop_boost > 0 && sets_vertical(mv) {
+        f.vel.y = p.full_hop_velocity;
+        f.hop_boost = 0;
+    }
     // Started in the air, a special may keep only part of the fighter's momentum.
     if !f.grounded() && mv.start_speed != 100 {
         f.vel.x = f.vel.x * Fx::from_ratio(i32::from(mv.start_speed), 100);
@@ -3600,6 +3608,20 @@ fn start_special(f: &mut Fighter, p: &FighterParams, weapon: &Weapon) -> bool {
         f.hop_boost = 0;
     }
     true
+}
+
+/// Whether a move started in the air sets its own vertical rule (see `start_special`): a share of the vertical speed other than all
+/// of it, its own pull or fall speed, a cap on rising, or motion rows.
+fn sets_vertical(mv: &Move) -> bool {
+    mv.start_speed_y != 100
+        || mv.air_gravity.is_some()
+        || mv.air_max_fall.is_some()
+        || mv.air_max_rise.is_some()
+        || mv
+            .air_blocks
+            .iter()
+            .any(|b| b.gravity.is_some() || b.max_fall.is_some())
+        || !mv.motion.is_empty()
 }
 
 /// How many knockback frames this frame of a launch plays (the reference game's speed-up of strong launches, often called "balloon"

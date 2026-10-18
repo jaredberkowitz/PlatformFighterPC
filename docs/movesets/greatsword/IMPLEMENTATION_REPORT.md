@@ -479,3 +479,10 @@ names.
 ## Sim 130: up specials halt their starting momentum
 
 Owner decision 97 (sim 130, branch `upspecial-momentum`): up specials halt the momentum they start with, as the reference does. The rising slash and the powered rise now set `start_speed_y` 0 (the published 0.6 / 0.67 horizontal kept); frames 1-6 no longer carry a jump's rise before the motion [E: reading; no vertical multiplier is published]. Before, out of a jump the move rose higher than from a standstill at the same height; now the two match (`sim-core/tests/upspecial_momentum.rs`). The audit of every fighter and its sources: `docs/movesets/SHARED_MECHANICS.md`, "Starting momentum of specials".
+
+## Sim 143: the aerial beam out of a full hop's opening (owner decision 102)
+
+The aerial beam keeps 0.65 of the vertical speed with a 0.06 pull [R]. Started in a full hop's 4-frame opening it took that share of
+the opening's set speed (4.6 units a frame) and rose 36 to 50 reference units over the jump; it now takes it of the arc's speed the
+hop goes on with (`docs/movesets/SHARED_MECHANICS.md`). Test:
+`special_start_momentum::the_beam_out_of_a_full_hops_opening_keeps_065_of_the_arcs_speed`.

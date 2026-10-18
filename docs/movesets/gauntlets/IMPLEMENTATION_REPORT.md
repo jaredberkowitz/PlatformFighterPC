@@ -283,3 +283,10 @@ from the ground), then the flip down to 15 / 18 units above the start as the spe
 peak 52.6 (before 25.5), ground 62.5 (before 34.9). The stick drifts it again from frame 30 (x0.95, the move's air block). The rise's
 horizontal drive is unchanged [E]. Tests: `recovery_rise::the_sprinters_leap_holds_still_then_rises_to_the_fitted_peak`,
 `gauntlets_specials::the_leap_rises_and_cannot_fast_fall_before_frame_50`, `the_up_specials_frame_data_is_the_references`.
+
+## Sim 143: the aerial punch out of a jump (owner decision 102)
+
+The aerial punch sets 0.2 up on starting [R]. Out of a full hop's first frames the opening ran on past it and then restored the arc's
+speed, so the punch rose the whole jump; a script's vertical `add_vel` now ends the opening, so the set 0.2 holds (it lands back soon
+when used just off the ground). Tests: `special_start_momentum.rs`,
+`scripted_moves::add_vel_with_a_vertical_part_ends_a_full_hops_opening`.

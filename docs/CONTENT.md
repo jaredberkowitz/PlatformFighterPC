@@ -343,6 +343,9 @@ Functions: `set_vel(forward, up)`, `add_vel(forward, up)`, `spawn(forward, up, s
 `boost_add(n)`, `set_charge(n)`, `detonate()`, `owns(kind)`, `air_mark(n)`, `set_air_mark(n)`,
 `ground(forward, up, forward2, up2)`.
 
+* `add_vel` with a vertical part ends a full hop's fast opening (sim 143), as `set_vel` always has: the opening's speed is the jump's,
+  so a script that steers the vertical speed works from what it set, not from the opening's speed restored when it ends.
+
 * `ground(forward, up, forward2, up2)` (sim 128) is 1 if the segment between the two points (from the fighter's feet, `forward` by its
   facing, `up` upward) goes into a solid block or across a pass-through platform's top (`collision::segment_meets_ground`), else 0:
   what the exile's forward air reads to stab into a wall ahead (a short segment level with the blade) but not with the ground too

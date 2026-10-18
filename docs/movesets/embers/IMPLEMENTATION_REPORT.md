@@ -328,3 +328,10 @@ Limit: a held full charge in the air has one frame without movement each 90 fram
 ## Sim 130: up specials halt their starting momentum
 
 Owner decision 97 (sim 130, branch `upspecial-momentum`): up specials halt the momentum they start with, as the reference does. The rising punch now sets `start_speed_y` 0 (the published 0.67 horizontal kept; no vertical multiplier is published, and the rise is the animation's) [E: reading]; frame 1 no longer carries a jump's rise. The Longsword's up special (whose rules are listed in this report too) the same: `start_speed_y` 0 next to its published 0.66 horizontal. Before, out of a jump the move rose higher than from a standstill at the same height; now the two match (`sim-core/tests/upspecial_momentum.rs`). The audit of every fighter and its sources: `docs/movesets/SHARED_MECHANICS.md`, "Starting momentum of specials".
+
+## Sim 143: the cape out of a jump (owner decision 102)
+
+The cape's lift (0.3, first use in an air time) is added to a fall but no longer to a jump's rise, and a later cape stops a rise: with
+the cape's 0.031 pull a kept rise floated the fighter 20 to 58 reference units over the jump it was started from [E: the reading of
+the reference's "vertical speed added"]. Tests: `special_start_momentum::the_lifts_do_not_keep_a_jumps_rise`,
+`no_special_rises_over_the_jump_it_was_started_from`.

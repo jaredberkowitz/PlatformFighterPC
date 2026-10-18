@@ -222,6 +222,10 @@ impl Host for FighterHost<'_> {
             api::F_ADD_VEL => {
                 self.f.vel.x += self.forward(arg(0));
                 self.f.vel.y += arg(1);
+                // (A script steering the vertical speed ends a full hop's fast opening, as a set speed does: sim 143.)
+                if arg(1) != Fx::ZERO {
+                    self.f.hop_boost = 0;
+                }
             }
             api::F_SPAWN | api::F_SPAWN_AT
                 if self.f.spawn_request && self.f.spawn_custom && !self.f.spawn2_request =>
