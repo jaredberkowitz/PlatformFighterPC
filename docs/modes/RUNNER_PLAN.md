@@ -1246,8 +1246,8 @@ stats change little: the full table prints in `sim-content`'s `recovery_routes_p
 
 ### Decisions for the owner (plain words)
 - **Grunts at once:** two at the start, three after the first six rooms, then one more every six rooms. Right pace?
-- **Who gets the harder routes:** eight of the fourteen fighters can use their up special to take the two hardest shortcuts; the
-  other six never see those shortcuts (the rooms are the same otherwise). Fine, or should every fighter get some shortcut of its
+- **Who gets the harder routes:** nine of the fourteen fighters (the Bracers joined at sim 143) can use their up special to take the two hardest shortcuts; the
+  other five never see those shortcuts (the rooms are the same otherwise). Fine, or should every fighter get some shortcut of its
   own kind?
 - **Bonus sizes:** launching a grunt off the top or spiking it off the bottom pays 10 extra coins; juggling pays the grunt's coins
   times the hits it took in the air (up to three times). More, less?
