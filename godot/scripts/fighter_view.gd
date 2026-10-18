@@ -1806,7 +1806,7 @@ static var _unshaded_cache := {}
 ## sharing one cel look: [parameter: value].
 const RESPONSES := {
 	# (Skin is matte and soft-stepped, as the concept art's bodies: flat colour that turns gently into shade, no glossy bands.)
-	"skin": {"ramp_softness": 0.16, "sheen": 0.0},
+	"skin": {"ramp_softness": 0.16, "sheen": 0.22},
 	"rubber": {"ramp_softness": 0.12, "sheen": 0.16},
 	"metal": {"ramp_softness": 0.08, "sheen": 0.0, "metal": 1.0, "rim_strength": 0.55},
 	"gold": {"ramp_softness": 0.1, "sheen": 0.0, "metal": 0.75, "rim_strength": 0.5},
