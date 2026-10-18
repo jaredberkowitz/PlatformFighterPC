@@ -1929,6 +1929,7 @@ func _update_camera(a: float, delta: float) -> void:
 	var calm := VisualSettings.shake()
 	cam.position = cam_base + (offset + punch) * calm + Vector3(0, lift, 0)
 	cam.rotation = Vector3(-deg_to_rad(CAMERA_PITCH), 0, roll * calm)
+	_update_xray()
 	# The distance haze starts at the stage plane (shaders/post.gdshader).
 	if post_mat != null and absf(cam.position.z - post_stage_dist) > 0.25:
 		post_stage_dist = cam.position.z
@@ -2694,3 +2695,15 @@ func _draw_cord(cord: MeshInstance3D, owner: int, to: Vector3, a: float) -> void
 func _exit_tree() -> void:
 	# Effects outside a match (the menus) go back to real time.
 	FxMaterial.stop_clock()
+
+
+## Where each fighter is, for the scenery in front of them to go see-through over them (shaders/xray.gdshaderinc): its body's middle and
+## half size on the fighters' plane; none for a slot with no fighter shown.
+func _update_xray() -> void:
+	for i in 4:
+		var v := Vector4(0, 0, 1, 0)
+		if i < views.size() and is_instance_valid(views[i]) and views[i].visible:
+			var p: Vector3 = views[i].global_position
+			# (Its bottom at the feet.)
+			v = Vector4(p.x, p.y + 1.1, 0.85, 1.1)
+		RenderingServer.global_shader_parameter_set("pf_xray_%d" % i, v)

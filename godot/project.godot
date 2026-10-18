@@ -107,6 +107,22 @@ pf_paper={
 "type": "float",
 "value": 0.0
 }
+pf_xray_0={
+"type": "vec4",
+"value": Vector4(0, 0, 1, 0)
+}
+pf_xray_1={
+"type": "vec4",
+"value": Vector4(0, 0, 1, 0)
+}
+pf_xray_2={
+"type": "vec4",
+"value": Vector4(0, 0, 1, 0)
+}
+pf_xray_3={
+"type": "vec4",
+"value": Vector4(0, 0, 1, 0)
+}
 pf_edge_light={
 "type": "color",
 "value": Color(1, 0.96, 0.9, 0.2)

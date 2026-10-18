@@ -27,6 +27,8 @@ instance uniform vec4 outline_tint : instance_index(5) = vec4(0.0);
 // The paper look under trial (scripts/lighting.gd `paper`): the scenery's line goes (its edges are told by light instead); the fighters'
 // stays.
 global uniform float pf_paper;
+#include "res://shaders/xray.gdshaderinc"
+varying vec3 xray_at;
 
 void vertex() {
 	vec4 view = MODELVIEW_MATRIX * vec4(VERTEX, 1.0);
@@ -39,6 +41,7 @@ void vertex() {
 	view.xy += across * w;
 	view.z -= w * push_back;
 	POSITION = PROJECTION_MATRIX * view;
+	xray_at = (INV_VIEW_MATRIX * view).xyz;
 }
 
 // The object id the ink lines' pass reads (shaders/post.gdshader, `HULL_ID`): this line is ink already, so that pass draws no second line
@@ -46,6 +49,10 @@ void vertex() {
 const float HULL_ID = 0.7;
 
 void fragment() {
+	// (The scenery's line goes see-through with its surface where it covers a fighter, shaders/xray.gdshaderinc.)
+	if (outline_weight < 0.62 && pf_xray_cut(xray_at, CAMERA_POSITION_WORLD, FRAGCOORD.xy)) {
+		discard;
+	}
 	vec3 c = mix(scenery_color.rgb, color.rgb, smoothstep(0.6, 1.0, outline_weight));
 	ALBEDO = vec3(0.0);
 	EMISSION = mix(c, outline_tint.rgb, outline_tint.a);

@@ -81,6 +81,7 @@ instance uniform float front_top : instance_index(6) = -100000.0;
 #include "res://shaders/toon_light.gdshaderinc"
 #include "res://shaders/brush.gdshaderinc"
 #include "res://shaders/stage_ao.gdshaderinc"
+#include "res://shaders/xray.gdshaderinc"
 
 #ifdef PF_TWO_SIDED
 // An ink line along the garment's bottom hem (the shirt's, over the shorts), `hem_ink` wide in rest units above `hem_low`; 0 for none.
@@ -99,6 +100,10 @@ void vertex() {
 }
 
 void fragment() {
+	// (Scenery in front of a fighter goes see-through over it, shaders/xray.gdshaderinc.)
+	if (fighter < 0.5 && pf_xray_cut(world_pos, CAMERA_POSITION_WORLD, FRAGCOORD.xy)) {
+		discard;
+	}
 	vec3 c = albedo.rgb * vshade;
 	// (How lit the grass blades are, -1 until the painted patches say; see `blades`.)
 	float blade_light = -1.0;

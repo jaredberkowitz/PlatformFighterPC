@@ -96,6 +96,12 @@ static func make(demo_name: String, m: Dictionary, dir: String):
 			d.timeline = [[0, 0, 0, 0], [60, 0, 127, 0], [61, 0, 0, 0]]
 			d.shots = [[6, "a_grab_swing"], [25, "b_hang"], [63, "c_climb1"], [67, "d_climb2"], [71, "e_climb3"], [76, "f_climb4"], [110, "g_idle"]]
 			d.end_frame = 120
+		"low":
+			# Both fighters low, recovering beside and under the stage, for checking that nothing in front of them hides them.
+			d.events = [[2, "place", 0, -12.5, -11.0], [2, "place", 1, 1.0, -13.0]]
+			d.timeline = [[0, 0, 0, 0]]
+			d.shots = [[5, "a_low"]]
+			d.end_frame = 8
 		"portrait":
 			d.cam_dist = 9.0
 			d.timeline = [[0, 0, 0, 0]]
