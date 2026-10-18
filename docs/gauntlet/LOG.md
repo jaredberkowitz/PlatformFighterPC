@@ -183,3 +183,20 @@ village hazed, wall quieter, hay bales); (2) the light on the grass stages (warm
 The grove's lilac shade and dappling lift its Lighting to 4. The meadow's warmer key overshot into a yellow-green cast over every
 material. Gaps: (1) the meadow's light: a cream-peach key, cool only in the shadows, the materials' own colours back; (2) the green
 stages' distance (ridges stepped and hazed, the grove's side canopies lit and shaded, its far trees and hills hazier).
+
+## Round 13 (2026-10-18, commit 94062e5): the owner's stricter bar
+
+From this round a 5 means "hard to tell apart from the references" (JUDGE.md). Every stage re-scored against it; the drop is the bar.
+
+| Stage | Believ. | Cohesion | Lighting | Depth | Ground | Clarity | Mean |
+|---|---|---|---|---|---|---|---|
+| Meadow | 2 | 2 | 3 | 2 | 3 | 3 | 2.5 |
+| Canyon | 2 | 3 | 3 | 2 | 2 | 3 | 2.5 |
+| Beach | 3 | 3 | 3 | 3 | 2 | 3 | 2.8 |
+| City | 2 | 3 | 3 | 3 | 2 | 3 | 2.7 |
+| Grove | 3 | 3 | 3 | 2 | 3 | 3 | 2.8 |
+
+The cream-peach key fixed the meadow's cast; the modelled bales read well. Gaps: (1) every stage body a hard box and every platform a
+plain slab (no bevel catching a lit rim, ruler-straight fronts); (2) the backgrounds flat outlined cutout cards (the strongest
+"Flash game" cue). The three cheapest-looking things: box silhouettes, outlined flat cutouts in the distance, uniform oversaturated
+large surfaces with little material detail.

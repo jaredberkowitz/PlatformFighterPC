@@ -17,6 +17,7 @@ uniform float normal_edge = 0.6;         // 1 - cosine between neighbouring surf
 uniform float line_strength = 0.9;
 uniform float line_fade_start = 60.0;     // world units from the camera
 uniform float line_fade_end = 180.0;
+uniform float scenery_ink_from = 9.0;   // world units behind the stage plane where the scenery's lines start to fade out
 // How strong the screen-space ink is on the stage and scenery (the fighters get it all): about half, so the world reads as painted, its
 // forms told by light and colour, and only the fighters are inked in full (one even black stroke round everything is the look of vector
 // art, not of a cel-shaded world).
@@ -168,6 +169,9 @@ void fragment() {
 		}
 	}
 	edge *= 1.0 - smoothstep(line_fade_start, line_fade_end, d0);
+	// The scenery behind the stage carries no ink (the gauntlet's round 13: outlined flat shapes in the distance were the strongest cheap
+	// cue; the references tell distant forms by light and haze alone). Its lines go from just behind the play area.
+	edge *= id0 > 0.6 ? 1.0 - smoothstep(stage_dist + scenery_ink_from, stage_dist + scenery_ink_from + 16.0, d0) : 1.0;
 	// (Lines on blurred far scenery soften with it.)
 	edge *= 1.0 - 0.6 * blur_k;
 	float card_edge = id0 > 0.6 ? edge * paper_edge : 0.0;

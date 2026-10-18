@@ -12,6 +12,7 @@ uniform vec4 color : source_color = vec4(0.07, 0.05, 0.09, 1.0);
 uniform float width = 0.0022;
 uniform float min_width = 0.028;
 uniform float max_width = 0.2;
+uniform float scenery_ink_near = 44.0;  // camera distance where a prop's line starts to fade
 uniform float push_back = 0.6;   // how far back the line sits, as a share of its width
 // The outline hierarchy: fighters get the full line (their meshes set this to 1, see `_tag_object` in fighter_view.gd); everything
 // else keeps this default, a thinner line in a softer ink, so the fighters are the clearest things on screen.
@@ -38,6 +39,8 @@ void vertex() {
 	float cover = (hide_under_shirt ? COLOR.g : 1.0) * (hide_under_shorts ? COLOR.b : 1.0);
 	float w = clamp(-view.z * width, min_width, max_width) * outline_weight * COLOR.r * cover;
 	w *= 1.0 - pf_paper * (1.0 - step(0.62, outline_weight));
+	// (The scenery's line fades out with distance, gone on the far layers: the gauntlet's round 13, as in shaders/post.gdshader.)
+	w *= 1.0 - (1.0 - step(0.62, outline_weight)) * smoothstep(scenery_ink_near, scenery_ink_near + 18.0, -view.z);
 	view.xy += across * w;
 	view.z -= w * push_back;
 	POSITION = PROJECTION_MATRIX * view;

@@ -1140,7 +1140,66 @@ def hay_bale():
     return root
 
 
+def mountain_range(name, seed, height, peaks, base, amplitude, rounded):
+    """A far range of mountains or hills as a landform (the gauntlet's round 13, in place of a painted cut card: flat outlined shapes in
+    the distance were the strongest cheap cue): 520 across (x, centred), `height` at its tallest, about as deep as it is tall (y, away
+    from the camera, its front foot on the origin). A crest line that wanders in depth, `peaks` main summits with smaller ones between
+    (sharp, or `rounded` hills), and spurs and gullies running down its front, so the stage's light shades every flank. One smooth mesh,
+    its foot carried below the horizon."""
+    rng = random.Random(seed)
+    root = empty(name)
+    W, D = 520.0, height * 1.1
+    tops = []
+    n = int(peaks)
+    for i in range(n):
+        x = -W / 2 + W * (i + 0.5) / n + rng.uniform(-0.25, 0.25) * W / n
+        tops.append((x, base + amplitude * rng.uniform(0.6, 1.0), W / n * rng.uniform(0.75, 1.15)))
+    for i in range(2 * n):
+        x = rng.uniform(-W / 2, W / 2)
+        tops.append((x, base + amplitude * rng.uniform(0.25, 0.55), W / n * rng.uniform(0.35, 0.6)))
+
+    def crest(x):
+        h = base * 0.8
+        for (px, ph, pw) in tops:
+            t = min(abs(x - px) / pw, 1.0)
+            f = (0.5 + 0.5 * math.cos(math.pi * t)) if rounded else (1.0 - t) ** 1.15
+            h = max(h, ph * f + base * 0.8 * (1.0 - f))
+        return h
+
+    ph = rng.uniform(0, math.tau)
+    nx, nd = 260, 40
+    bm = bmesh.new()
+    grid = []
+    for j in range(nd + 2):
+        row = []
+        for i in range(nx + 1):
+            x = -W / 2 + W * i / nx
+            if j == 0:
+                row.append(bm.verts.new((x, -D * 0.05, -height * 0.6)))
+                continue
+            d = D * (j - 1) / nd
+            ridge_d = D * (0.5 + 0.12 * math.sin(x * 0.017 + ph))
+            span = ridge_d if d < ridge_d else (D - ridge_d)
+            t = min(abs(d - ridge_d) / span, 1.0)
+            prof = 1.0 - t ** (2.0 if rounded else 1.4)
+            # Spurs and gullies down the front: a ripple across x that grows toward the foot.
+            ripple = math.sin(x * (0.06 if rounded else 0.11) + 2.5 * math.sin(x * 0.021 + ph)) * (0.06 if rounded else 0.12)
+            z = height * crest(x) * prof * (1.0 + ripple * t)
+            row.append(bm.verts.new((x, d, z)))
+        grid.append(row)
+    for j in range(nd + 1):
+        for i in range(nx):
+            bm.faces.new((grid[j][i], grid[j][i + 1], grid[j + 1][i + 1], grid[j + 1][i]))
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces[:])
+    to_object("land", bm, (0.5, 0.6, 0.6), smooth=True).parent = root
+    return root
+
+
 PROPS = {
+    "range_meadow_far": lambda: mountain_range("range_meadow_far", 3, 88.0, 6, 0.32, 0.6, False),
+    "range_meadow_near": lambda: mountain_range("range_meadow_near", 9, 62.0, 8, 0.4, 0.5, False),
+    "range_grove_far": lambda: mountain_range("range_grove_far", 8, 52.0, 4, 0.5, 0.32, True),
+    "range_grove_near": lambda: mountain_range("range_grove_near", 4, 40.0, 6, 0.5, 0.36, True),
     "hay_bale": hay_bale,
     "mushroom": mushroom,
     "stump": stump,

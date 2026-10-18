@@ -27,10 +27,11 @@ const THEMES := {
 	"meadow": {
 		"sky_top": Color(0.1, 0.36, 0.9), "sky_mid": Color(0.3, 0.62, 1.0), "sky_horizon": Color(0.78, 0.93, 1.0),
 		"sky_glow": [Color(1.0, 0.97, 0.86), 0.25], "sky_wisps": [Color(1.0, 1.0, 1.0), 0.5],
-		"soil": Color(0.76, 0.56, 0.36), "soil_dark": Color(0.52, 0.37, 0.25), "grass": Color(0.32, 0.55, 0.2),
-		"grass_light": Color(0.66, 0.92, 0.34), "wood": Color(0.86, 0.62, 0.36), "wood_dark": Color(0.62, 0.42, 0.24),
+		"soil": Color(0.76, 0.56, 0.36), "soil_dark": Color(0.52, 0.37, 0.25), "grass": Color(0.35, 0.53, 0.26),
+		"grass_light": Color(0.66, 0.86, 0.42), "wood": Color(0.86, 0.62, 0.36), "wood_dark": Color(0.62, 0.42, 0.24),
 		"pattern": "earth", "cap": "grass", "platform": "wood", "grass_vary": 0.3, "grass_patch": 0.85, "moss": Color(0.4, 0.66, 0.14),
 		# (A step less saturated, deepening toward the back, gauntlet round 3: the brightest, flattest colour on screen.)
+		# (And another, the same value, the gauntlet's round 13: the references keep large surfaces muted, saturation for small accents.)
 		"grass_back": 1.0,
 		# The stage as a hillside farm terrace (2026-10-18, the owner: a place, not a box): a dry-stone retaining wall holding the field up,
 		# a grassy hill below it running down into the valley (`_meadow_hill`), a lower terrace in front, the farm nearby.
@@ -713,6 +714,63 @@ static func _box(size: Vector3) -> BoxMesh:
 	return b
 
 
+## A box of `size` with every edge and corner rounded to radius `r` (the gauntlet's round 13: square-edged slabs read as level-editor
+## primitives; a rounded edge catches a lit rim, as the references' ground does). A cube's faces gridded densely near their edges, each
+## point pulled onto the rounded shell; flat faces stay flat. Cached by size. No UVs: for world-tiled materials.
+static func _round_box(size: Vector3, r: float, steps := 5) -> ArrayMesh:
+	var key := "%s|%s" % [size, r]
+	if _round_boxes.has(key):
+		return _round_boxes[key]
+	var half := size / 2.0
+	var rr := minf(r, minf(half.x, minf(half.y, half.z)) * 0.95)
+	var inner := half - Vector3.ONE * rr
+	# Each axis sampled from -1 to 1: `steps` points across the rounded band at each end and a few between.
+	var axes: Array = []
+	for c in 3:
+		var band := rr / half[c]
+		var l: Array = []
+		for k in steps + 1:
+			l.append(-1.0 + band * float(k) / steps)
+		for k in range(1, 4):
+			l.append(lerpf(-1.0 + band, 1.0 - band, float(k) / 4.0))
+		for k in range(steps, -1, -1):
+			l.append(1.0 - band * float(k) / steps)
+		axes.append(l)
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for axis in 3:
+		for sgn in [-1.0, 1.0]:
+			var ua := (axis + 1) % 3
+			var va := (axis + 2) % 3
+			var lu: Array = axes[ua]
+			var lv: Array = axes[va]
+			var pts: Array = []
+			for i in lu.size():
+				var row: Array = []
+				for j in lv.size():
+					var q := Vector3.ZERO
+					q[axis] = sgn
+					q[ua] = lu[i]
+					q[va] = lv[j]
+					var at := q * half
+					var core := at.clamp(-inner, inner)
+					var d := at - core
+					row.append(core + d.normalized() * rr if d.length() > 0.00001 else at)
+				pts.append(row)
+			for i in lu.size() - 1:
+				for j in lv.size() - 1:
+					var quad := [pts[i][j], pts[i + 1][j], pts[i + 1][j + 1], pts[i][j + 1]]
+					var tri := [0, 2, 1, 0, 3, 2] if sgn > 0.0 else [0, 1, 2, 0, 2, 3]
+					for k in tri:
+						st.add_vertex(quad[k])
+	st.index()
+	st.generate_normals()
+	var mesh := st.commit()
+	_round_boxes[key] = mesh
+	return mesh
+static var _round_boxes := {}
+
+
 static func _cylinder(top: float, bottom: float, height: float, sides := 20) -> CylinderMesh:
 	var c := CylinderMesh.new()
 	c.top_radius = top
@@ -787,8 +845,9 @@ static func solid_block(parent: Node3D, t: Dictionary, left: float, right: float
 			# (A crisp lit edge, warm under the string lights, round 3.)
 			var coping := _soft((t.grass_light as Color).lerp(Color(1.0, 0.9, 0.78), 0.6))
 			var coping_face := _soft((t.grass as Color).darkened(0.18))
-			_mesh(parent, _box(Vector3(w + 0.5, 0.12, 0.5)), coping, Vector3(cx, top + 0.02, front_z + 0.02))
-			_mesh(parent, _box(Vector3(w + 0.5, 0.2, 0.08)), coping_face, Vector3(cx, top - 0.13, front_z + 0.25))
+			# (Its edges rounded so they catch a crisp lit rim, the gauntlet's round 13.)
+			_mesh(parent, _round_box(Vector3(w + 0.5, 0.12, 0.5), 0.04), coping, Vector3(cx, top + 0.02, front_z + 0.02))
+			_mesh(parent, _round_box(Vector3(w + 0.5, 0.2, 0.08), 0.03), coping_face, Vector3(cx, top - 0.13, front_z + 0.25))
 			_mesh(parent, _box(Vector3(w + 0.3, 0.08, 0.1)), _soft((t.soil_dark as Color).darkened(0.35)), Vector3(cx, top - 0.27, front_z + 0.2))
 			# (A brass rail lit by the scene, not an unshaded yellow band: art review 7.)
 			var brass := FighterView.respond(FighterView.toon(Color(0.86, 0.66, 0.3)), "gold")
@@ -857,7 +916,8 @@ static func solid_block(parent: Node3D, t: Dictionary, left: float, right: float
 				grass.set_shader_parameter("back_from", front_z)
 				grass.set_shader_parameter("back_span", depth - 2.0)
 			var cap_h := 0.55
-			_mesh(parent, _box(Vector3(w + 0.25, cap_h, depth + 0.1)), grass, Vector3(cx, top - cap_h / 2.0 + 0.04, front_z - depth / 2.0))
+			# (Rounded on every edge, the gauntlet's round 13: the square-ended slab read as a primitive.)
+			_mesh(parent, _round_box(Vector3(w + 0.25, cap_h, depth + 0.1), 0.24), grass, Vector3(cx, top - cap_h / 2.0 + 0.04, front_z - depth / 2.0))
 			# (A turf lip rolling over the edge, its thickness and line wavering, in place of a straight tube with a lit strip along it that
 			# read as a ruled line, 2026-10-18, art review 7.)
 			var lip := _edge_lip(parent, left - 0.125, right + 0.125, top - cap_h * 0.55, front_z + 0.02, cap_h * 0.62, grass)
@@ -2240,7 +2300,7 @@ const RIDGES := {
 	# (Taller, with real peaks, 2026-10-17: a low wavy strip under the pale horizon read as a flat cloud bank over the mountains, the
 	# owner's note.)
 	# (More, narrower peaks, gauntlet round 2: three broad concave sweeps with a pale crest read as breaking waves.)
-	"meadow": [{"z": -170.0, "y": -50.0, "height": 88.0, "shape": 1, "seed": 3.0, "base": 0.32, "amplitude": 0.6, "frequency": 5.6,
+	"meadow": [{"model": "range_meadow_far", "z": -170.0, "y": -50.0, "height": 88.0, "shape": 1, "seed": 3.0, "base": 0.32, "amplitude": 0.6, "frequency": 5.6,
 		# (More of its own blue and less haze, art review 6 round 31: at mix 0.55 the ridge was mostly horizon colour, a formless pale band
 		# behind the crisp painted hills; found with `--pick`.)
 		"tone": Color(0.2, 0.62, 0.6), "mix": 0.38, "edge": 0.1, "haze": 0.72,
@@ -2250,14 +2310,14 @@ const RIDGES := {
 		"flank": 0.75, "foot_dark": 0.35, "layers": 4, "flank_from": 0.0, "gullies": 0.45, "paper": 0.05, "edge_width": 0.012},
 		# A nearer, lower range in front, deeper teal and less hazed, casting its shadow on the far one: the backdrop as cut cards in layers
 		# with air between them, not one soft band (art review 9).
-		{"z": -140.0, "y": -36.0, "height": 62.0, "shape": 1, "seed": 9.0, "base": 0.4, "amplitude": 0.5, "frequency": 7.0,
+		{"model": "range_meadow_near", "land_haze": 0.5, "z": -140.0, "y": -36.0, "height": 62.0, "shape": 1, "seed": 9.0, "base": 0.4, "amplitude": 0.5, "frequency": 7.0,
 		"tone": Color(0.1, 0.38, 0.42), "mix": 0.82, "edge": 0.5, "haze": 0.28, "flank": 0.75, "foot_dark": 0.4, "layers": 3,
 		"flank_from": 0.0, "gullies": 0.6, "paper": 0.05, "edge_width": 0.016, "shadow": 0.5}],
-	"grove": [{"z": -165.0, "y": -34.0, "height": 52.0, "shape": 0, "seed": 8.0, "base": 0.5, "amplitude": 0.32, "frequency": 3.5,
+	"grove": [{"model": "range_grove_far", "z": -165.0, "y": -34.0, "height": 52.0, "shape": 0, "seed": 8.0, "base": 0.5, "amplitude": 0.32, "frequency": 3.5,
 		"tone": Color(0.5, 0.5, 0.84), "mix": 0.7, "edge": 0.3, "flank": 0.6, "foot_dark": 0.3, "layers": 4, "flank_from": 0.0, "gullies": 0.6,
 		"haze": 0.34, "paper": 0.05, "edge_width": 0.014},
 		# A nearer row of rounded hills in a deeper violet-blue, casting its shadow on the far one (art review 9: cut cards in layers).
-		{"z": -138.0, "y": -24.0, "height": 40.0, "shape": 0, "seed": 4.0, "base": 0.5, "amplitude": 0.36, "frequency": 5.0,
+		{"model": "range_grove_near", "z": -138.0, "y": -24.0, "height": 40.0, "shape": 0, "seed": 4.0, "base": 0.5, "amplitude": 0.36, "frequency": 5.0,
 		"tone": Color(0.36, 0.38, 0.72), "mix": 0.82, "edge": 0.4, "flank": 0.6, "foot_dark": 0.35, "layers": 3, "flank_from": 0.0,
 		"gullies": 0.4, "haze": 0.34, "paper": 0.05, "edge_width": 0.02, "shadow": 0.5}],
 	"sunset": [{"z": -175.0, "y": -36.0, "height": 58.0, "shape": 2, "seed": 5.0, "base": 0.4, "amplitude": 0.4, "frequency": 3.0,
@@ -2279,6 +2339,14 @@ static func ridge(root: Node3D, t: Dictionary, spec: Dictionary) -> MeshInstance
 	var m := ShaderMaterial.new()
 	m.shader = RIDGE_SHADER
 	var top := horizon.lerp(tone, float(spec.mix))
+	# (A spec's "model" is the range as a modelled landform, art/blender/make_props.py `mountain_range`, the gauntlet's round 13: the stage's
+	# light shades its flanks, spurs and gullies where the card painted them flat. Its crest stands where the card stood; same colours,
+	# hazed toward the horizon by the spec's own haze.)
+	if spec.has("model"):
+		# (A step darker than the card's top: lit by the stage's key, a pale range blew out white at its peaks. "land_haze" its own.)
+		var land := FighterView.toon(top.lerp(horizon, float(spec.get("land_haze", spec.get("haze", 0.14)))).darkened(0.16), false)
+		_place_prop(root, String(spec.model), Vector3(0, float(spec.y), float(spec.z) + float(spec.height) * 0.55), 1.0, 0.0, land)
+		return null
 	m.set_shader_parameter("top_colour", top)
 	# (A spec's "foot_dark" takes the foot deeper and cooler than the top instead of toward the horizon: a pale foot read as a flat cloud
 	# bank across the mountains.)
@@ -4981,6 +5049,15 @@ static func _seawall_stones(parent: Node3D, t: Dictionary, left: float, right: f
 					w = rng.randf_range(2.0, 2.8)
 				var x0 := maxf(x, 0.0)
 				var x1 := minf(x + w, width)
+				# (Rough: the front's end stones stand out past the corner by their own amounts, so the wall's sides are ragged courses of
+				# quoins and not a ruled edge, the gauntlet's round 13. Their own random numbers, so the layout is unchanged.)
+				var quoin := false
+				if rough and out == Vector3.BACK and (x0 <= 0.0 or x1 >= width):
+					var own_q := RandomNumberGenerator.new()
+					own_q.seed = hash(Vector2i(roundi(y * 100.0), roundi(x0 * 10.0)))
+					x0 -= own_q.randf_range(0.04, 0.38) if x0 <= 0.0 else 0.0
+					x1 += own_q.randf_range(0.04, 0.38) if x1 >= width else 0.0
+					quoin = true
 				if x1 - x0 > 0.25:
 					var gap := 0.07 if rough else 0.13
 					var cx := (x0 + x1) * 0.5
@@ -4990,7 +5067,7 @@ static func _seawall_stones(parent: Node3D, t: Dictionary, left: float, right: f
 					var pos := origin + across * cx + Vector3(0, y - rh * 0.5 + (rng.randf_range(-0.1, 0.1) if rough else 0.0), 0) + out * (0.06 + rng.randf_range(-0.04, 0.04) * (2.5 if rough else 1.0))
 					if rough:
 						basis = basis * Basis.from_euler(Vector3(rng.randf_range(-0.08, 0.08), rng.randf_range(-0.1, 0.1), rng.randf_range(-0.07, 0.07)))
-						size.z = rng.randf_range(0.25, 0.4)
+						size.z = rng.randf_range(0.25, 0.4) + (0.35 if quoin else 0.0)
 						# (Each stone its own height and seat in the course, now and then a big one spanning two courses, the gauntlet's round 4:
 						# one height per course read as an even grid.)
 						var own := rng.randf_range(0.62, 1.0)
