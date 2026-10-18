@@ -37,96 +37,24 @@ static func font() -> Font:
 # ---- Backdrop -------------------------------------------------------------------------------------------------
 
 class Backdrop extends Control:
-	## The menus' world behind everything: the meadow stage's land and sky, live in 3D (the windmill and fields, the floating islands,
-	## lit cumulus drifting, the sun's light and the match's finishing pass), the camera drifting slowly past it, so the menus show the
-	## game's own world rather than a drawing of a sky. On the Fast tier, the painted sky (menu_art.gd) instead. Never takes the mouse.
-	const StageArt := preload("res://scripts/stage_art.gd")
-	const Lighting := preload("res://scripts/lighting.gd")
-	const VisualSettings := preload("res://scripts/visual_settings.gd")
-	const POST := preload("res://shaders/post.gdshader")
-	var t := 0.0
-	var cam: Camera3D
-	var env: Environment
-	var root: Node3D
-	var world_look := {}
-	var post_mat: ShaderMaterial
-	var lit_frames := 0
+	## The menus' ground behind everything: a stylised backdrop (shaders/menu_backdrop.gdshader), a deep gradient lit from the upper
+	## left with faint drifting stripes at the UI's slant, as the genre's leaders' menus are. (The owner, 2026-10-18: the live meadow
+	## that stood here read cheap and childish behind the cards.) `warm` leans it a little toward violet (the fighter select); `dim`
+	## darkens it for screens dense with text. Never takes the mouse.
+	const SHADER := preload("res://shaders/menu_backdrop.gdshader")
 
-	## `dim`: a cool shade laid over the world (0 none), for screens dense with text, so it sits calmly over a busy picture.
-	func _init(_warm := false, dim := 0.0) -> void:
+	func _init(warm := false, dim := 0.0) -> void:
 		set_anchors_preset(Control.PRESET_FULL_RECT)
 		mouse_filter = Control.MOUSE_FILTER_IGNORE
-		if dim > 0.0:
-			# (Drawn after the world, as the backdrop's last child, so it shades only the world.)
-			var shade := ColorRect.new()
-			shade.set_anchors_preset(Control.PRESET_FULL_RECT)
-			shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			shade.color = Color(0.08, 0.1, 0.2, dim)
-			add_child.call_deferred(shade)
-		if VisualSettings.get_index("quality") == 0:
-			var sky := Art.SkyScene.new()
-			sky.foliage = true
-			sky.set_anchors_preset(Control.PRESET_FULL_RECT)
-			add_child(sky)
-			return
-		var box := SubViewportContainer.new()
-		box.stretch = true
-		box.set_anchors_preset(Control.PRESET_FULL_RECT)
-		box.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		add_child(box)
-		var vp := SubViewport.new()
-		vp.own_world_3d = true
-		vp.msaa_3d = Viewport.MSAA_4X
-		box.add_child(vp)
-		root = Node3D.new()
-		vp.add_child(root)
-		env = Environment.new()
-		var we := WorldEnvironment.new()
-		we.environment = env
-		root.add_child(we)
-		Lighting.apply(env, root)
-		world_look = StageArt.theme({})
-		env.background_mode = Environment.BG_SKY
-		env.sky = StageArt.sky(world_look)
-		# The meadow's land and sky without its fighting island (its empty platforms showed through the gaps between the cards as clutter):
-		# the island's place is given far below the view, so what stands on it and hangs under it is out of sight.
-		var scenery := Node3D.new()
-		root.add_child(scenery)
-		StageArt.backdrop(scenery, world_look, [-14.0, 14.0, -60.0, -66.0, -14.0, 14.0])
-		cam = Camera3D.new()
-		cam.fov = 30.0
-		root.add_child(cam)
-		var post := MeshInstance3D.new()
-		var quad := QuadMesh.new()
-		quad.size = Vector2(2, 2)
-		post.mesh = quad
-		post.extra_cull_margin = 16384.0
-		post.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		post_mat = ShaderMaterial.new()
-		post_mat.shader = POST
-		post_mat.render_priority = -100
-		post_mat.set_shader_parameter("stage_dist", 62.0)
-		post.material_override = post_mat
-		post.position = Vector3(0, 0, -1)
-		cam.add_child(post)
-		_place_camera()
-
-	func _place_camera() -> void:
-		# A slow sway across the island, a little above it, so the world is never still and never busy.
-		var x := sin(t * 0.06) * 9.0
-		cam.look_at_from_position(Vector3(x, 9.0 + sin(t * 0.045) * 1.5, 62.0), Vector3(x * 0.4, 5.0, 0.0))
-
-	func _process(delta: float) -> void:
-		if cam == null:
-			return
-		t += delta
-		_place_camera()
-		# (The stage's light is set after the screen's own previews, which light themselves with the menus' neutral mood through the same
-		# shared shader values: a frame later, so the world and the fighters in front of it share the meadow's light.)
-		if lit_frames < 2:
-			lit_frames += 1
-			if lit_frames == 2:
-				Lighting.stage_mood(env, root, world_look, post_mat)
+		var rect := ColorRect.new()
+		rect.set_anchors_preset(Control.PRESET_FULL_RECT)
+		rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var m := ShaderMaterial.new()
+		m.shader = SHADER
+		m.set_shader_parameter("skew", D.SKEW)
+		m.set_shader_parameter("tint", Color(0.32, 0.14, 0.42, 0.18) if warm else Color(0.0, 0.0, 0.0, dim * 0.8))
+		rect.material = m
+		add_child(rect)
 
 
 # ---- Scenery ---------------------------------------------------------------------------------------------------
