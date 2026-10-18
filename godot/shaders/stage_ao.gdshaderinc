@@ -28,3 +28,18 @@ float pf_stage_ao_ground(vec3 p, vec3 n) {
 	float under = 1.0 - smoothstep(0.0, 1.2, outside);
 	return mix(ao, mix(1.0, ao, under), smoothstep(0.5, 0.85, n.y));
 }
+
+// The sun reaching the ground at world point `p` past the platforms above it (the map's second channel, scripts/stage_light.gd `_drop`;
+// 1 open sun): only on what faces up (`n` its world normal) and under the platforms' depth, its edge front and back a short soft fall.
+float pf_stage_sun(vec3 p, vec3 n) {
+	if (pf_ao_strength <= 0.0 || p.z < -9.0 || p.z > 2.5 || n.y < 0.5) {
+		return 1.0;
+	}
+	vec2 uv = (p.xy - pf_ao_rect.xy) / pf_ao_rect.zw;
+	if (uv.x < 0.0 || uv.y < 0.0 || uv.x > 1.0 || uv.y > 1.0) {
+		return 1.0;
+	}
+	float outside = max(pf_ao_depth.x - p.z, p.z - pf_ao_depth.y);
+	float under = 1.0 - smoothstep(-0.15, 0.35, outside);
+	return mix(1.0, texture(pf_ao_map, vec2(uv.x, 1.0 - uv.y)).g, under * smoothstep(0.5, 0.85, n.y));
+}

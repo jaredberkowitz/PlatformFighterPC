@@ -953,6 +953,9 @@ static func platform(parent: Node3D, t: Dictionary, left: float, right: float, t
 			x += 0.7
 		_scaffold(parent, left, right, top - 0.75, front_z, depth)
 		return
+	if t.get("name", "") in ["meadow", "grove"]:
+		_plank_platform(parent, t, left, right, top, front_z, depth)
+		return
 	var board := _surface(t.wood, "wood", 2.4)
 	_mesh(parent, _box(Vector3(w, 0.26, depth)), board, Vector3(cx, top - 0.13, front_z - depth / 2.0))
 	_mesh(parent, _box(Vector3(w - 0.3, 0.22, depth - 0.4)), Materials.wood(t.wood_dark, Vector2(4, 1)), Vector3(cx, top - 0.37, front_z - depth / 2.0))
@@ -984,6 +987,130 @@ static func platform(parent: Node3D, t: Dictionary, left: float, right: float, t
 	_platform_dressing(parent, t, left, right, top, front_z, depth)
 
 
+## The meadow's and the grove's platforms as built things, made like the dock's deck (art review 9, item 3: plain slabs read as prototype
+## blocks): separate boards with bevelled edges, each its own shade within a narrow range and a hair off true, dark gaps between them over a
+## dark underlay, a lit lip along the front. The meadow's are four long boards lashed with rope to two round poles under the ends; the
+## grove's a shelf of short planks laid across two branches, which run out past the ends to cut ends, moss over the front edge.
+## The top of the boards is the platform's `top`; nothing stands on it. Deterministic (from the platform's place).
+static func _plank_platform(parent: Node3D, t: Dictionary, left: float, right: float, top: float, front_z: float, depth: float) -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash(Vector2i(roundi(left * 10.0), roundi(top * 10.0))) + 9
+	var grove: bool = t.name == "grove"
+	var cx := (left + right) / 2.0
+	var w := right - left
+	var thick := 0.24
+	var wood_c: Color = t.wood
+	var dark_c: Color = t.wood_dark
+	if not grove:
+		# (The meadow's yellow slab was the loudest thing in the sky: a warmer, quieter wood.)
+		wood_c = Color(0.84, 0.64, 0.42)
+	var items: Array = []
+	if grove:
+		# Short planks across the two branches, side by side along the platform, their front ends a little ragged.
+		var x := left - 0.1
+		while x < right + 0.05:
+			var pw := minf(rng.randf_range(0.5, 0.68), right + 0.1 - x)
+			if pw > 0.2:
+				var back := front_z - depth + rng.randf_range(0.0, 0.15)
+				var fr := front_z + rng.randf_range(-0.04, 0.08)
+				var basis := Basis(Vector3.BACK, Vector3.RIGHT, Vector3.UP) * Basis.from_euler(Vector3(rng.randf_range(-0.012, 0.012), rng.randf_range(-0.01, 0.01), rng.randf_range(-0.008, 0.008)))
+				var pos := Vector3(x + pw * 0.5, top - thick * 0.5 + rng.randf_range(-0.014, 0.0), (back + fr) * 0.5)
+				items.append([Transform3D(basis.scaled_local(Vector3(fr - back, pw - 0.05, thick)), pos), _board_shade(wood_c, dark_c, rng)])
+			x += pw
+	else:
+		# Four long boards from the front back, their ends staggered past the platform's ends.
+		var rows := 4
+		var row_w := depth / rows
+		for ri in rows:
+			var zc := front_z - (float(ri) + 0.5) * row_w
+			var x0 := left - rng.randf_range(0.0, 0.22)
+			var x1 := right + rng.randf_range(0.0, 0.22)
+			var basis := Basis(Vector3.RIGHT, Vector3.FORWARD, Vector3.UP) * Basis.from_euler(Vector3(rng.randf_range(-0.01, 0.01), rng.randf_range(-0.006, 0.006), rng.randf_range(-0.004, 0.004)))
+			var pos := Vector3((x0 + x1) * 0.5, top - thick * 0.5 + rng.randf_range(-0.012, 0.0), zc)
+			items.append([Transform3D(basis.scaled_local(Vector3(x1 - x0, row_w - 0.06, thick)), pos), _board_shade(wood_c, dark_c, rng)])
+	var mm := MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.use_custom_data = true
+	mm.mesh = _bevel_block()
+	mm.instance_count = items.size()
+	for i in items.size():
+		mm.set_instance_transform(i, items[i][0])
+		mm.set_instance_custom_data(i, items[i][1])
+	var boards := MultiMeshInstance3D.new()
+	boards.multimesh = mm
+	boards.material_override = _board_material()
+	boards.name = "platform_boards"
+	parent.add_child(boards)
+	# The dark underlay the gaps show, a little inside the boards, with an ink edge so the platform keeps its silhouette.
+	_mesh(parent, _box(Vector3(w - 0.1, 0.12, depth - 0.12)), FighterView.toon(dark_c.darkened(0.5)), Vector3(cx, top - thick - 0.04, front_z - depth * 0.5))
+	# The lit lip along the front edge: it catches the light, and says where the platform ends.
+	_mesh(parent, _box(Vector3(w, 0.04, 0.05)), _soft(wood_c.lightened(0.3)), Vector3(cx, top - 0.025, front_z + 0.02))
+	if grove:
+		# Two branches under the planks, running out past both ends to cut ends, a little crooked.
+		var bark := Materials.bark_plates(Color(0.42, 0.29, 0.21), Vector2(4, 1))
+		bark.set_shader_parameter("facets", true)
+		var cut := FighterView.toon(Color(0.86, 0.7, 0.5))
+		var ring := FighterView.toon(Color(0.62, 0.44, 0.3))
+		for bz: float in [front_z - 0.55, front_z - depth + 0.65]:
+			var rad := 0.26 if bz > front_z - 1.0 else 0.22
+			var bl := left - rng.randf_range(0.35, 0.7)
+			var br := right + rng.randf_range(0.35, 0.7)
+			var by := top - thick - 0.06 - rad
+			var tilt := rng.randf_range(-1.5, 1.5)
+			_mesh(parent, _cylinder(rad * 0.92, rad, br - bl, 8), bark, Vector3((bl + br) * 0.5, by, bz), Vector3.ONE, Vector3(0, 0, 90 + tilt))
+			var dy := sin(deg_to_rad(tilt)) * (br - bl) * 0.5
+			for end: Array in [[bl, dy], [br, -dy]]:
+				var ex: float = end[0]
+				var ey: float = by + float(end[1])
+				var out := 1.0 if ex > cx else -1.0
+				_mesh(parent, _cylinder(rad * 0.86, rad * 0.86, 0.04, 8), cut, Vector3(ex + out * 0.02, ey, bz), Vector3.ONE, Vector3(0, 0, 90 + tilt))
+				_mesh(parent, _cylinder(rad * 0.4, rad * 0.4, 0.05, 8), ring, Vector3(ex + out * 0.025, ey, bz), Vector3.ONE, Vector3(0, 0, 90 + tilt))
+			# A knot or two along the front branch.
+			if bz > front_z - 1.0:
+				for k in 2:
+					var kx := lerpf(left + 0.6, right - 0.6, rng.randf())
+					_mesh(parent, _sphere(rad * 0.45, 7), bark, Vector3(kx, by - rad * 0.3, bz + rad * 0.75), Vector3(1.0, 0.8, 0.6))
+	else:
+		# Two round poles across under the ends, poking out past the front with lit cut ends, lashed to the front board with rope.
+		var pole := Materials.wood(dark_c.darkened(0.05), Vector2(1, 3))
+		var cut := FighterView.toon(Color(0.9, 0.76, 0.56))
+		var rope := Materials.wood(Color(0.88, 0.78, 0.58), Vector2(1, 6))
+		var rad := 0.17
+		for px: float in [left + 0.7, right - 0.7]:
+			var py := top - thick - 0.06 - rad
+			var z0 := front_z - depth - 0.1
+			var z1 := front_z + 0.3
+			_mesh(parent, _cylinder(rad, rad, z1 - z0, 8), pole, Vector3(px, py, (z0 + z1) * 0.5), Vector3.ONE, Vector3(90, 0, 0))
+			_mesh(parent, _cylinder(rad * 0.85, rad * 0.85, 0.04, 8), cut, Vector3(px, py, z1 + 0.01), Vector3.ONE, Vector3(90, 0, 0))
+			# The lashing: turns of rope down the front of the board and round the pole.
+			var lh := thick + rad * 2.0 + 0.1
+			for j in 3:
+				var rx: float = px + (float(j) - 1.0) * 0.12
+				_mesh(parent, _box(Vector3(0.07, lh, 0.06)), rope, Vector3(rx, top - lh * 0.5 + 0.02, front_z + 0.05 + (0.12 if j == 1 else 0.0)))
+	var band := _mesh(parent, _shade_band(w - 0.3, 0.3), _band_material(), Vector3(cx, top - thick - 0.2, front_z - 0.12))
+	band.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	if grove:
+		_platform_dressing(parent, t, left, right, top, front_z, depth)
+
+
+## One board's shade: the wood's colour toward its dark a little and a touch lighter or darker, a narrow range (the dock's wider one read
+## busy, art review 9), as linear colour for `instance_tint`.
+static func _board_shade(wood_c: Color, dark_c: Color, rng: RandomNumberGenerator) -> Color:
+	return wood_c.lerp(dark_c, rng.randf_range(0.0, 0.2)).lightened(rng.randf_range(-0.03, 0.05)).srgb_to_linear()
+
+
+static var _board_mat: ShaderMaterial
+
+
+## The platforms' boards' material: the painted grain along each board, each board its own shade (`instance_tint`).
+static func _board_material() -> ShaderMaterial:
+	if _board_mat == null:
+		_board_mat = (FighterView.toon(Color.WHITE, false, load("res://art/stage/png/wood.png") as Texture2D, Vector2(1.0, 0.25)) as ShaderMaterial).duplicate() as ShaderMaterial
+		_board_mat.set_shader_parameter("instance_tint", true)
+		_board_mat.set_shader_parameter("ramp_softness", 0.1)
+	return _board_mat
+
+
 ## Dresses a wooden platform for its stage, so it belongs to the place rather than being the same plank everywhere: rope lashings near
 ## each end on the beach and in the canyon; moss over the front edge and a vine or two hanging below in the grove; the meadow's
 ## plain plank. Only at the ends and below the top, so the play surface and fighters' feet stay clear.
@@ -1003,10 +1130,11 @@ static func _platform_dressing(parent: Node3D, t: Dictionary, left: float, right
 		"grove":
 			var moss := Materials.foliage(Color(0.36, 0.64, 0.36), Vector2(2, 2), true)
 			# (Overlapping clumps of very different sizes, gaps now and then: an even row read as beads.)
+			# (Sparse since the branch shelf, art review 9: a full row of moss hid the branches and the platform read as a hedge.)
 			var x := left + 0.3
 			while x < right - 0.2:
-				var r := rng.randf_range(0.1, 0.3)
-				if rng.randf() > 0.2:
+				var r := rng.randf_range(0.08, 0.22)
+				if rng.randf() > 0.6:
 					_mesh(parent, _sphere(1.0, 8), moss, Vector3(x, top - 0.26 - r * rng.randf_range(0.2, 1.0), front_z + 0.02), Vector3(r * 1.8, r * 1.2, r))
 				x += r * rng.randf_range(1.2, 2.2)
 			var vine := Materials.foliage(Color(0.3, 0.58, 0.32), Vector2(1, 3), true)

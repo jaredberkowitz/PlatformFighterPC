@@ -3,7 +3,9 @@ extends RefCounted
 ## once from its blocks and platforms (the stage is flat, so this is done in 2D): for every texel, the part of the upper half of the sky
 ## hidden behind each block or platform, nearer blockers counting more. Inside a block the map shades from the top down instead, so its
 ## front is lighter under the grass and darker at the foot. The result is a small greyscale texture handed to every cel shader through
-## global shader parameters (shaders/stage_ao.gdshaderinc); nothing happens at runtime but a texture read.
+## global shader parameters (shaders/stage_ao.gdshaderinc); nothing happens at runtime but a texture read. Its second channel is the
+## platforms' cast shadow (`_drop`): the sun each point of the ground below a platform gets, a crisp shape the cel light turns into its
+## painted shade (art review 9, item 4: at match distance the platforms cast nothing on the stage, so they floated).
 
 const TEXELS_PER_UNIT := 2.0
 const MARGIN := Vector2(8.0, 6.0)
@@ -28,14 +30,14 @@ static func bake(rects: Array, depth := Vector2(-1000.0, 1000.0)) -> ImageTextur
 	lo -= MARGIN
 	hi += Vector2(MARGIN.x, MARGIN.y + 4.0)
 	var size := Vector2i(ceili((hi.x - lo.x) * TEXELS_PER_UNIT), ceili((hi.y - lo.y) * TEXELS_PER_UNIT))
-	var img := Image.create_empty(size.x, size.y, false, Image.FORMAT_L8)
+	var img := Image.create_empty(size.x, size.y, false, Image.FORMAT_RGB8)
 	for ty in size.y:
 		var y := lo.y + (float(ty) + 0.5) / TEXELS_PER_UNIT
 		for tx in size.x:
 			var x := lo.x + (float(tx) + 0.5) / TEXELS_PER_UNIT
 			var v := _sky(x, y, rects)
 			# (The texture's first row is the top of the stage.)
-			img.set_pixel(tx, size.y - 1 - ty, Color(v, v, v))
+			img.set_pixel(tx, size.y - 1 - ty, Color(v, _drop(x, y, rects), v))
 	var tex := ImageTexture.create_from_image(img)
 	RenderingServer.global_shader_parameter_set("pf_ao_map", tex)
 	RenderingServer.global_shader_parameter_set("pf_ao_rect", Vector4(lo.x, lo.y, hi.x - lo.x, hi.y - lo.y))
@@ -85,3 +87,28 @@ static func _sky(x: float, y: float, rects: Array) -> float:
 		hidden += (cos(a_min) - cos(a_max)) * 0.5 * weight
 	# (Light bounces in under things, so even a covered spot keeps some.)
 	return clampf(1.0 - hidden * BLOCKING, 0.0, 1.0)
+
+
+## How far a platform's shadow leans to the right per unit it falls (the key light is up and to the left, as the painted ground shadows
+## lean, `StageArt._ground_shadow`), and how dark it is at most (0 none, 1 full shade).
+const DROP_LEAN := 0.12
+const DROP_STRENGTH := 0.9
+
+
+## How much sun (0..1) the point at `x`, `y` gets past the platforms above it: under one, the shade of its shape cast straight down and
+## leaning a little with the light, its edge softening and its shade thinning the further it falls.
+static func _drop(x: float, y: float, rects: Array) -> float:
+	var sun := 1.0
+	for r in rects:
+		if float(r[4]) < 0.5:
+			continue
+		var fall := float(r[3]) - y
+		# (Not on the platform itself, nor just under it, where the texture's smoothing would bleed the shade onto its own top.)
+		if fall < 0.6 or fall > 16.0:
+			continue
+		var sx := x - fall * DROP_LEAN
+		var soft := 0.25 + fall * 0.04
+		var cover := clampf((sx - float(r[0])) / soft + 0.5, 0.0, 1.0) * clampf((float(r[1]) - sx) / soft + 0.5, 0.0, 1.0)
+		cover *= smoothstep(0.6, 1.2, fall) * lerpf(1.0, 0.7, fall / 16.0)
+		sun = minf(sun, 1.0 - cover * DROP_STRENGTH)
+	return sun
