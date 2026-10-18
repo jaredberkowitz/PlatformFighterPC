@@ -2672,7 +2672,13 @@ static func _windmill(root: Node3D, at: Vector3) -> void:
 	# (A grassy mound it stands in, and its shade, so it is planted on the hill and does not hover over it.)
 	_mesh(root, _sphere(1.0, 16), Materials.foliage(Color(0.4, 0.74, 0.3), Vector2(3, 2), false), at + Vector3(0, 0.1, 0), Vector3(5.6, 1.3, 4.6))
 	_contact(root, at + Vector3(0, 0.4, 0), Vector2(4.2, 3.4))
-	_mesh(root, _cylinder(1.8, 3.0, 12.0, 14), plaster, at + Vector3(0, 7.0, 0))
+	# The modelled tower and cap (make_props.py `windmill_tower`: eight timbered faces, a tiered shingle cap); the round ones stand in.
+	var tower := Toonify.load_prop("windmill_tower", true)
+	if tower != null:
+		tower.position = at
+		root.add_child(tower)
+	else:
+		_mesh(root, _cylinder(1.8, 3.0, 12.0, 14), plaster, at + Vector3(0, 7.0, 0))
 	# The door at the foot, and two windows up the front, each a dark opening in a wooden frame with a shutter.
 	_mesh(root, _box(Vector3(1.6, 2.6, 0.3)), wood_dark, at + Vector3(0, 3.2, 2.85))
 	_mesh(root, _cylinder(0.8, 0.8, 0.3, 12), wood_dark, at + Vector3(0, 4.5, 2.85), Vector3.ONE, Vector3(90, 0, 0))
@@ -2688,9 +2694,10 @@ static func _windmill(root: Node3D, at: Vector3) -> void:
 		var ang := TAU * k / 12.0
 		_mesh(root, _box(Vector3(0.12, 0.9, 0.12)), wood_dark, at + Vector3(sin(ang) * 2.9, 9.05, cos(ang) * 2.9))
 	# The cap: a trim ring, a shingled cone and a knob on top.
-	_mesh(root, _cylinder(2.1, 2.1, 0.4, 16), wood_dark, at + Vector3(0, 13.2, 0))
-	_mesh(root, _cylinder(0.0, 2.6, 3.2, 16), Materials.shingles(Color(0.74, 0.34, 0.28), Vector2(6, 2)), at + Vector3(0, 15.0, 0))
-	_mesh(root, _sphere(0.3, 10), wood_dark, at + Vector3(0, 16.7, 0))
+	if tower == null:
+		_mesh(root, _cylinder(2.1, 2.1, 0.4, 16), wood_dark, at + Vector3(0, 13.2, 0))
+		_mesh(root, _cylinder(0.0, 2.6, 3.2, 16), Materials.shingles(Color(0.74, 0.34, 0.28), Vector2(6, 2)), at + Vector3(0, 15.0, 0))
+		_mesh(root, _sphere(0.3, 10), wood_dark, at + Vector3(0, 16.7, 0))
 	# The windshaft comes out of the cap through a wooden housing on the tower's face, tilted up a little as a real one is, into the hub.
 	_mesh(root, _box(Vector3(1.3, 1.1, 1.0)), wood_dark, at + Vector3(0, 12.5, 1.75))
 	_mesh(root, _cylinder(0.26, 0.26, 1.2, 10), wood, at + Vector3(0, 12.55, 2.6), Vector3.ONE, Vector3(84, 0, 0))

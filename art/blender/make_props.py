@@ -692,6 +692,84 @@ def cottage():
     return root
 
 
+def windmill_tower():
+    """The meadow windmill's tower and cap (its door, windows, gallery and turning sails stay the game's, `StageArt._windmill`), in the
+    cottage's language: eight plastered faces tapering up (apothem 3.0 at the foot to 1.8 at the top, as the round tower it replaces, so
+    the game's windows sit on it), a little off true, proud timber posts on the corners and two timber bands, a course of stones at the
+    foot, and a cap of three lapped shingle tiers with lit edges under a knob. Base at z 1 (the stone drum below is the game's)."""
+    root = empty("windmill_tower")
+    parts = {}
+    rng = random.Random(21)
+
+    def part(name):
+        if name in ("stone", "timber", "roof"):
+            name = "%s_%d" % (name, rng.randint(0, 2))
+        if name not in parts:
+            parts[name] = bmesh.new()
+        return parts[name]
+    sides = 8
+    k8 = 1.0 / math.cos(math.pi / sides)
+    z0, z1 = 1.0, 13.0
+
+    def apo(z):
+        return 3.0 + (1.8 - 3.0) * (z - z0) / (z1 - z0)
+    # The plastered faces.
+    bm = part("wall")
+    rings = []
+    for z in (z0, (z0 + z1) / 2.0, z1):
+        R = apo(z) * k8
+        rings.append([bm.verts.new((math.cos(j * math.tau / sides + math.pi / sides) * R * rng.uniform(0.98, 1.02),
+                                    math.sin(j * math.tau / sides + math.pi / sides) * R * rng.uniform(0.98, 1.02), z)) for j in range(sides)])
+    for ra, rb in zip(rings, rings[1:]):
+        for j in range(sides):
+            bm.faces.new((ra[j], ra[(j + 1) % sides], rb[(j + 1) % sides], rb[j]))
+    # Corner posts, standing a little proud, following the taper.
+    for j in range(sides):
+        ang = j * math.tau / sides + math.pi / sides
+        p0 = Vector((math.cos(ang) * apo(z0) * k8, math.sin(ang) * apo(z0) * k8, z0))
+        p1 = Vector((math.cos(ang) * apo(z1) * k8, math.sin(ang) * apo(z1) * k8, z1))
+        mid = (p0 + p1) / 2.0
+        L = (p1 - p0).length
+        tilt = math.degrees(math.atan2((p0 - p1).xy.length, z1 - z0))
+        add_box(part("timber"), mid, (0.3, 0.3, L), (0, -tilt, math.degrees(ang)))
+    # Timber bands round the tower, and a course of stones at its foot.
+    for zb in (4.6, 11.6):
+        R = apo(zb) * k8 + 0.06
+        for j in range(sides):
+            a0 = j * math.tau / sides + math.pi / sides
+            a1 = a0 + math.tau / sides
+            c = Vector((math.cos(a0) + math.cos(a1), math.sin(a0) + math.sin(a1), 0)) * R / 2.0
+            side_len = 2.0 * R * math.sin(math.pi / sides)
+            add_box(part("timber"), (c.x, c.y, zb), (side_len + 0.1, 0.22, 0.3), (0, 0, math.degrees((a0 + a1) / 2.0) + 90.0))
+    for j in range(16):
+        a0 = j * math.tau / 16
+        R = apo(z0) * k8 + 0.12
+        add_box(part("stone"), (math.cos(a0) * R, math.sin(a0) * R, z0 + 0.3), (1.25, 0.45, rng.uniform(0.5, 0.7)), (0, 0, math.degrees(a0) + 90.0))
+    # The cap: a trim ring and three lapped shingle tiers, each a cone with a lit lower lip, under a knob.
+    zc = z1
+    add_box(part("timber"), (0, 0, zc + 0.2), (4.4, 4.4, 0.4))
+    tiers = [(2.9, 1.4), (2.2, 1.3), (1.4, 1.2)]
+    zt = zc + 0.35
+    for r_bottom, h in tiers:
+        cone(part("roof"), r_bottom, r_bottom * 0.45, h, z0=zt, sides=12, wobble=0.06, rng=rng)
+        ring(part("roof_edge"), r_bottom - 0.05, 0.12, zt + 0.05, sides=16, minor_sides=6)
+        zt += h * 0.72
+    cone(part("roof"), 0.75, 0.0, 1.0, z0=zt, sides=12)
+    blob(part("timber"), 0.3, (0, 0, zt + 1.05), subdiv=1)
+    cols = {"wall": (0.97, 0.94, 0.86), "timber": (0.44, 0.3, 0.22), "stone": (0.68, 0.66, 0.66), "roof": (0.76, 0.34, 0.28),
+            "roof_edge": (0.95, 0.56, 0.46)}
+    tone = (0.9, 1.0, 1.1)
+    for name, bm in parts.items():
+        base = name.rsplit("_", 1)
+        if len(base) == 2 and base[1].isdigit():
+            col = tuple(min(1.0, c * tone[int(base[1])]) for c in cols[base[0]])
+        else:
+            col = cols[name]
+        bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+        to_object(name, bm, col, smooth=False, bevel=0.03 if base[0] in ("stone", "timber") else 0.0, parent=root)
+    return root
+
+
 PROPS = {
     "lighthouse": lighthouse,
     "sailboat": sailboat,
@@ -701,6 +779,7 @@ PROPS = {
     "palm_crown": lambda: palm_crown(),
     "tree_trunk": tree_trunk,
     "cottage": cottage,
+    "windmill_tower": windmill_tower,
     "tree_crown_a": lambda: tree_crown("tree_crown_a", 0),
     "tree_crown_b": lambda: tree_crown("tree_crown_b", 1),
     "tree_crown_c": lambda: tree_crown("tree_crown_c", 2),
