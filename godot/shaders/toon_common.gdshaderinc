@@ -45,6 +45,10 @@ uniform float detail_scale = 3.0;
 // Multiply by the mesh's vertex colour (off by default: imported props may carry colours meant for nothing). The crowns' lobed clump balls
 // bake each leaf clump's own light into it (scripts/stage_art.gd `_clump_ball`): a lit top and a dark crevice between clumps.
 uniform bool vertex_shade = false;
+// Painted ground shadows under background props (scripts/stage_art.gd `_ground_shadow`): soft ellipses on the ground in world x/z, each
+// (centre x, centre z, half width, half depth), darkening the surface toward a cool shade. 0 of them for everything else.
+uniform vec4 ground_shadows[12];
+uniform int ground_shadow_count = 0;
 varying vec3 vshade;
 varying vec3 world_pos;
 varying vec3 world_normal;
@@ -142,6 +146,19 @@ void fragment() {
 	}
 	if (world_tile <= 0.0) {
 		c *= brush(UV);
+	}
+	if (ground_shadow_count > 0) {
+		float gs = 0.0;
+		for (int i = 0; i < 12; i++) {
+			if (i >= ground_shadow_count) {
+				break;
+			}
+			vec4 e = ground_shadows[i];
+			float r = length((world_pos.xz - e.xy) / e.zw);
+			gs = max(gs, 1.0 - smoothstep(0.25, 1.0, r));
+		}
+		// (Strong: the cel light gives back only part of a change in surface colour.)
+		c = mix(c, c * vec3(0.26, 0.32, 0.56), gs);
 	}
 	// Painted grass blades (`blades`): on what faces up they are laid across the ground and point back (up the screen, the top being seen at
 	// a low angle); on a hillside facing the camera they stand up its face. Cells across the surface, about two in five holding a clump of

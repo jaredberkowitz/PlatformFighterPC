@@ -877,6 +877,9 @@ static func _platform_dressing(parent: Node3D, t: Dictionary, left: float, right
 ## Builds the scenery behind the stage for theme `t` under `root`. `stage` is the stage's extent: [left, right, top, bottom] of its
 ## solid blocks, so decorations sit on and around it.
 static func backdrop(root: Node3D, t: Dictionary, stage: Array) -> void:
+	# (Fresh per build: the painted ground shadows live in these materials, `_ground_shadow`.)
+	_band_mats.clear()
+	_desert_floor = null
 	match t.name:
 		"grove":
 			_grove(root, t, stage)
@@ -1056,6 +1059,48 @@ static func _contact(root: Node3D, at: Vector3, half: Vector2) -> void:
 
 
 static var _contact_mat: StandardMaterial3D
+
+
+## A painted shadow on the ground under a background prop (a house, a windmill, a tree) at `at` (its foot), `half` its footprint's half
+## size (x, z), painted into the rolled band of land at depth `band_z` it stands in (`ground_shadows` in shaders/toon_common.gdshaderinc,
+## the band's material from `_land_band`): a soft, cool, darker patch on the land's own surface, from the prop's foot forward over the crest
+## and a little to the right, so the prop stands on the land instead of floating over it (the owner, 2026-10-17: the
+## background elements float without casting shadows; real shadows stop 70 units from the camera, `Lighting`). (A see-through patch over
+## the land was tried first: the finishing pass turned it pale or lost it.)
+static func _ground_shadow(at: Vector3, half: Vector2, band_z: float) -> void:
+	var m: ShaderMaterial = _desert_floor_mat() if band_z == DESERT_KEY else _band_mats.get(band_z, null)
+	if m == null:
+		return
+	var list: Array = m.get_meta("ground_shadows", [])
+	if list.size() >= GROUND_SHADOWS:
+		return
+	# (Reaching forward over the crest in front of the prop: the props stand just behind it, so the land under and behind them is hidden.)
+	# (On flat ground, `DESERT_KEY`, from the foot forward.)
+	var front := (at.z if band_z == DESERT_KEY else band_z) + half.y * 0.5
+	list.append(Vector4(at.x + half.x * 0.25, front, half.x * 1.3, half.y * 1.4))
+	m.set_meta("ground_shadows", list)
+	var packed := PackedVector4Array(list)
+	m.set_shader_parameter("ground_shadows", packed)
+	m.set_shader_parameter("ground_shadow_count", list.size())
+
+
+## `_ground_shadow`'s key for the canyon's flat desert floor (`_desert_floor_mat`) instead of a band of land.
+const DESERT_KEY := 1.0e6
+static var _desert_floor: ShaderMaterial
+
+
+## The canyon's desert floor: painted sand laid in world space, one material for the whole floor (so the buttes can paint their shadows
+## into it, whichever is built first).
+static func _desert_floor_mat() -> ShaderMaterial:
+	if _desert_floor == null:
+		_desert_floor = Materials.world("sand", Color(0.9, 0.62, 0.44), 9.0, false).duplicate() as ShaderMaterial
+	return _desert_floor
+
+
+## How many painted ground shadows one band of land holds (`ground_shadows` in shaders/toon_common.gdshaderinc).
+const GROUND_SHADOWS := 12
+## Each rolled band's own material by its depth (see `_land_band`), for `_ground_shadow`.
+static var _band_mats := {}
 ## How dark a contact patch is at its middle (alpha).
 const CONTACT_STRENGTH := 0.55
 
@@ -2065,8 +2110,11 @@ static func _land_band(root: Node3D, bumps: Array, floor_y: float, z: float, col
 	var land := _soft(colour)
 	# (Green land takes painted grass blades too, drawn larger for its distance (`blades` in shaders/toon_common.gdshaderinc), so the
 	# hills are grassy like the lawn the fighters stand on, not smooth felt: the owner, 2026-10-17. Not the shade band under a canopy.)
-	if roll > 0.0 and colour.g > colour.r and colour.g > colour.b * 0.9:
+	if roll > 0.0:
+		# (Its own material, so props standing on it can paint their shadows into it, `_ground_shadow`.)
 		land = land.duplicate() as ShaderMaterial
+		_band_mats[z] = land
+	if roll > 0.0 and colour.g > colour.r and colour.g > colour.b * 0.9:
 		land.set_shader_parameter("blades", 0.7)
 		land.set_shader_parameter("blade_scale", clampf(-z / 22.0, 1.5, 5.0))
 	_mesh(root, st.commit(), land, Vector3.ZERO)
@@ -2419,7 +2467,7 @@ static func underside(root: Node3D, t: Dictionary, e: Array) -> void:
 			var floor_y := DESERT_FLOOR
 			# (Painted sand laid in world space with soil detail, not a flat fill, and a scatter of scrub and stones over it so the floor
 			# reads as ground going off into the distance.)
-			var sand_floor := Materials.world("sand", Color(0.9, 0.62, 0.44), 9.0, false)
+			var sand_floor := _desert_floor_mat()
 			_mesh(root, _box(Vector3(400.0, 1.0, 180.0)), sand_floor, Vector3(0, floor_y - 0.5, -80.0))
 			var scrub := Materials.foliage(Color(0.56, 0.6, 0.36), Vector2(2, 2), true)
 			var pebble := Materials.stone(Color(0.78, 0.5, 0.4))
@@ -2666,10 +2714,13 @@ static func _meadow(root: Node3D, t: Dictionary, stage: Array) -> void:
 	_birds(root, rng, Color(0.25, 0.22, 0.3))
 	# A windmill on the crest of a near hill (just behind the land's edge, so it stands in it), its sails turning slowly.
 	_windmill(root, Vector3(-34, hill_top(-34.0) - 0.8, -73))
+	# (Each standing on the land with a painted shadow under it, `_ground_shadow`.)
+	_ground_shadow(Vector3(-34, 0, -73), Vector2(4.4, 3.6), -72.0)
 	# A few cottages on the near hills (just behind the land's edge), smoke rising from their chimneys: someone lives here.
 	for c in [[18.0, Color(0.78, 0.34, 0.3)], [44.0, Color(0.36, 0.5, 0.72)], [-66.0, Color(0.74, 0.5, 0.3)]]:
 		var cx: float = c[0]
 		_cottage(root, Vector3(cx, hill_top(cx) - 0.6, -74.0), c[1], 1.0 if cx > 0.0 else -1.0)
+		_ground_shadow(Vector3(cx, 0, -74.0), Vector2(3.4, 2.6), -72.0)
 	# A low rise of meadow in front of the hills, and round trees standing along it (their feet just behind its edge).
 	_fore_band(root, -46.0, -10.0, Color(0.4, 0.76, 0.32))
 	_fields(root, -46.0, -10.0, [Color(0.42, 0.78, 0.3), Color(0.52, 0.8, 0.3), Color(0.38, 0.7, 0.3), Color(0.44, 0.76, 0.34), Color(0.78, 0.8, 0.42)],
@@ -2678,7 +2729,9 @@ static func _meadow(root: Node3D, t: Dictionary, stage: Array) -> void:
 		var tx := rng.randf_range(-70, 70)
 		rng.randf_range(-12, -6)
 		rng.randf_range(-62, -48)
-		_round_tree(root, Vector3(tx, fore_top(tx, -10.0) - 0.5, -47.0), rng.randf_range(0.7, 1.2), rng)
+		var ts := rng.randf_range(0.7, 1.2)
+		_round_tree(root, Vector3(tx, fore_top(tx, -10.0) - 0.5, -47.0), ts, rng)
+		_ground_shadow(Vector3(tx, 0, -47.0), Vector2(2.6, 2.0) * ts, -46.0)
 	# A wooden fence along the back of the stage, and flowers: pale posts with rounded caps, each in its own contact shade, and darker
 	# rails, so the fence reads as built (posts and rails) under the key light rather than one flat colour.
 	var post := Materials.wood(Color(0.9, 0.7, 0.46))
@@ -3153,9 +3206,12 @@ static func _sunset(root: Node3D, t: Dictionary, stage: Array) -> void:
 		var at := Vector3(-110.0 + k * 30.0 + rng.randf_range(-6, 6), -16.0, -110.0 if far else -78.0)
 		# (In the stage's own painted strata, laid in world space and falling into shade below the light, so the buttes are the same rock
 		# as the mesa the fighters stand on.)
-		_place_prop(root, "mesa_a" if k % 3 != 1 else "mesa_b", at, rng.randf_range(0.7, 1.05), rng.randf_range(0.0, 360.0), mesa_rock)
+		var ms := rng.randf_range(0.7, 1.05)
+		_place_prop(root, "mesa_a" if k % 3 != 1 else "mesa_b", at, ms, rng.randf_range(0.0, 360.0), mesa_rock)
+		_ground_shadow(at, Vector2(9.0, 6.0) * ms, DESERT_KEY)
 	# A rock arch on the left, standing on the desert floor.
 	_rock_arch(root, Vector3(-34, DESERT_FLOOR, -48), 12.0, 18.5)
+	_ground_shadow(Vector3(-34, DESERT_FLOOR, -48), Vector2(9.0, 3.0), DESERT_KEY)
 	# Cacti behind the stage.
 	for x in [e[0] + 1.5, e[1] - 2.0]:
 		_cactus(root, Vector3(x, e[2], -6.5), rng.randf_range(0.65, 0.85))
@@ -3284,6 +3340,8 @@ static func _grove(root: Node3D, t: Dictionary, stage: Array) -> void:
 	_fore_band(root, -52.0, top - 11.0, Color(0.34, 0.66, 0.42), ROLL_PROFILE)
 	_tree(root, Vector3(-30, fore_top(-30.0, top - 11.0) - 0.6, -55.0), 0.6, rng)
 	_tree(root, Vector3(32, fore_top(32.0, top - 11.0) - 0.6, -55.0), 0.55, rng)
+	_ground_shadow(Vector3(-30, 0, -55.0), Vector2(4.4, 3.0), -52.0)
+	_ground_shadow(Vector3(32, 0, -55.0), Vector2(4.0, 2.8), -52.0)
 	# Below it, the treetops of a forest falling away down the valley.
 	# (Deep, saturated forest greens: in the old pale mints, washed further by the air at that depth, the crowns either side of the stage
 	# read as shapeless fog blobs, the weakest thing on the stage. Art review 6, refinement round 1.)
