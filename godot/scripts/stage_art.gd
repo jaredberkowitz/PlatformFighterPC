@@ -895,8 +895,9 @@ static func solid_block(parent: Node3D, t: Dictionary, left: float, right: float
 			# (A brass rail lit by the scene, not an unshaded yellow band: art review 7.)
 			var brass := FighterView.respond(FighterView.toon(Color(0.86, 0.66, 0.3)), "gold")
 			_mesh(parent, _cylinder(0.065, 0.065, w + 0.3, 10), brass, Vector3(cx, top - 0.44, front_z + 0.18), Vector3.ONE, Vector3(0, 0, 90))
-			var seam := _soft(roofing.darkened(0.08))
-			var lap := _soft(roofing.lightened(0.05))
+			# (The seam's shaded side darker and its raised lap lighter, so each reads at match distance, the gauntlet's round 19.)
+			var seam := _soft(roofing.darkened(0.3))
+			var lap := _soft(roofing.lightened(0.2))
 			var sx := left + 1.1
 			var j := 0
 			while sx < right - 0.6:
@@ -4718,7 +4719,8 @@ static func _skyline_layer(root: Node3D, rng: RandomNumberGenerator, layer: int,
 	var signs := RandomNumberGenerator.new()
 	signs.seed = 77 + layer
 	# Two rooftop billboards on the middle layer, on the buildings nearest these places (in view, above the stage's roofline).
-	var billboard_at := [-20.0, 24.0] if layer == 1 else []
+	# (The right one at 4, not 24, round 19: there a near tower hid half of it.)
+	var billboard_at := [-20.0, 4.0] if layer == 1 else []
 	var billboard_best := {}
 	var x := -120.0
 	while x < 120.0:
@@ -4793,11 +4795,13 @@ static func _skyline_layer(root: Node3D, rng: RandomNumberGenerator, layer: int,
 		var bw := minf(float(b[2]) * 0.75, 7.0)
 		var left: float = bx + (float(b[2]) - bw) * 0.5
 		var top: float = b[3]
-		# Two legs and the sign standing on them, facing the stage.
+		# Two legs and the sign standing on them, facing the stage, at the front of the roof (round 19: at its middle the setback storeys
+		# now rising there hid all but a fragment of it).
+		var bz := z + depth / 2.0 - 0.35
 		for lx in [left + bw * 0.2, left + bw * 0.8]:
-			_facade_box(st, Vector3(lx - 0.1, top, z - 0.1), Vector3(lx + 0.1, top + 1.2, z + 0.1), float(b[4]), true, 1.2)
-		_facade_quad(st, [Vector3(left, top + 1.2, z + 0.12), Vector3(left + bw, top + 1.2, z + 0.12), Vector3(left + bw, top + 3.4, z + 0.12),
-			Vector3(left, top + 3.4, z + 0.12)], Vector3(0, 0, 1), Vector2(bw, 2.2), 0.0, Color(signs.randf(), 0.0, 1.0))
+			_facade_box(st, Vector3(lx - 0.1, top, bz - 0.1), Vector3(lx + 0.1, top + 1.2, bz + 0.1), float(b[4]), true, 1.2)
+		_facade_quad(st, [Vector3(left, top + 1.2, bz + 0.12), Vector3(left + bw, top + 1.2, bz + 0.12), Vector3(left + bw, top + 3.4, bz + 0.12),
+			Vector3(left, top + 3.4, bz + 0.12)], Vector3(0, 0, 1), Vector2(bw, 2.2), 0.0, Color(signs.randf(), 0.0, 1.0))
 	var m := ShaderMaterial.new()
 	m.shader = FACADE_SHADER
 	m.set_shader_parameter("base_shade", shade)
@@ -5493,7 +5497,16 @@ static func _dock_block(parent: Node3D, t: Dictionary, left: float, right: float
 				var basis := Basis(Vector3.RIGHT, Vector3.FORWARD, Vector3.UP) * Basis.from_euler(Vector3(rng.randf_range(-0.012, 0.012), rng.randf_range(-0.01, 0.01), rng.randf_range(-0.006, 0.006)))
 				var pos := Vector3((x0 + x1) * 0.5, top - thick * 0.5 + rng.randf_range(-0.012, 0.008), zc)
 				var shade := wood_c.lerp(dark_c, rng.randf_range(0.0, 0.24)).lightened(rng.randf_range(-0.03, 0.07))
-				items.append([Transform3D(basis.scaled_local(Vector3(x1 - x0 - 0.07, row_w - 0.08, thick)), pos), shade.srgb_to_linear()])
+				# (Now and then a board weathered toward silver-grey or a fresher honey one, from its own numbers, the gauntlet's round 19: the
+				# rounded boards read one tint at match distance.)
+				var own_b := RandomNumberGenerator.new()
+				own_b.seed = hash(Vector2i(roundi(x0 * 10.0), ri)) + 17
+				var roll := own_b.randf()
+				if roll < 0.22:
+					shade = shade.lerp(Color(0.6, 0.56, 0.5), own_b.randf_range(0.3, 0.5))
+				elif roll > 0.82:
+					shade = shade.lerp(Color(0.72, 0.5, 0.28), own_b.randf_range(0.3, 0.5))
+				items.append([Transform3D(basis.scaled_local(Vector3(x1 - x0 - 0.1, row_w - 0.11, thick)), pos), shade.srgb_to_linear()])
 			x += len
 	var mm := MultiMesh.new()
 	mm.transform_format = MultiMesh.TRANSFORM_3D
@@ -5505,7 +5518,7 @@ static func _dock_block(parent: Node3D, t: Dictionary, left: float, right: float
 	mm.instance_count = items.size()
 	# Nail heads: a pair at each end of every board, small dark domes in one mesh.
 	var nails := SurfaceTool.new()
-	var nail_mesh := _sphere(0.035, 6)
+	var nail_mesh := _sphere(0.05, 6)
 	for i in items.size():
 		var xf: Transform3D = items[i][0]
 		var sc := xf.basis.get_scale()
@@ -5517,7 +5530,7 @@ static func _dock_block(parent: Node3D, t: Dictionary, left: float, right: float
 			for ey in [-0.25, 0.25]:
 				var at: Vector3 = xf.origin + b0.x * (ex * (sc.x * 0.5 - 0.14)) + b0.y * (ey * sc.y) + Vector3(0, thick * 0.5 + 0.004, 0)
 				nails.append_from(nail_mesh, 0, Transform3D(Basis.IDENTITY.scaled(Vector3(1.0, 0.35, 1.0)), at))
-	_mesh(parent, nails.commit(), FighterView.respond(FighterView.toon(Color(0.3, 0.27, 0.27), false), "metal"), Vector3.ZERO)
+	_mesh(parent, nails.commit(), FighterView.respond(FighterView.toon(Color(0.18, 0.16, 0.17), false), "metal"), Vector3.ZERO)
 	var deck := MultiMeshInstance3D.new()
 	deck.multimesh = mm
 	# (Plain boards, each its own shade, with a faint grain: the painted plank tile over them drew a second set of seams and the deck read
@@ -5755,14 +5768,31 @@ static func _harbour_town(root: Node3D, water: float) -> void:
 	# (Lower, the gauntlet's round 8 after the owner's harbour reference: the town sits low along the waterline under soft hills, not high on
 	# a big one.)
 	var hills := [[Vector3(-6, 0.0, -14), Vector3(40, 9, 16)], [Vector3(22, -1.0, -18), Vector3(26, 6, 12)]]
-	for h in hills:
-		_mesh(root, _sphere(1.0, 9), land, base + (h[0] as Vector3), h[1])
+	# (Modelled hills, art/blender/make_props.py `hill_dome`, in a calm soft-lit land colour, the gauntlet's round 19: scaled spheres under
+	# the scaly foliage tile read as painted cards beside the modelled ranges. The spheres stand in without them.)
+	var near_hill := (FighterView.toon(Color(0.46, 0.6, 0.52), false) as ShaderMaterial).duplicate() as ShaderMaterial
+	near_hill.set_shader_parameter("ramp_softness", 0.4)
+	near_hill.set_shader_parameter("rim_strength", 0.0)
+	var far_hill := near_hill.duplicate() as ShaderMaterial
+	far_hill.set_shader_parameter("albedo", Color(0.5, 0.62, 0.64))
+	var dome := [_prop_mesh("hill_dome_a", "land"), _prop_mesh("hill_dome_b", "land")]
+	for hi in hills.size():
+		var h: Array = hills[hi]
+		if dome[hi % 2] != null:
+			var hm := _mesh(root, dome[hi % 2], near_hill, base + (h[0] as Vector3), h[1])
+			hm.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		else:
+			_mesh(root, _sphere(1.0, 9), land, base + (h[0] as Vector3), h[1])
 	# Higher hills behind the town, bluer with distance.
 	var far_land := Materials.foliage(Color(0.42, 0.56, 0.56), Vector2(6, 3), false)
 	# (Finer facets and a deeper green, gauntlet round 3: nine-sided spheres this size were a few huge flat panes, pale through the haze,
 	# and read as glass.)
-	_mesh(root, _sphere(1.0, 18), far_land, base + Vector3(-18, 0.0, -34), Vector3(36, 26, 10))
-	_mesh(root, _sphere(1.0, 18), far_land, base + Vector3(14, 0.0, -38), Vector3(30, 20, 10))
+	for fh: Array in [[Vector3(-18, 0.0, -34), Vector3(36, 26, 10), 1], [Vector3(14, 0.0, -38), Vector3(30, 20, 10), 0]]:
+		if dome[fh[2]] != null:
+			var fm := _mesh(root, dome[fh[2]], far_hill, base + (fh[0] as Vector3), fh[1])
+			fm.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		else:
+			_mesh(root, _sphere(1.0, 18), far_land, base + (fh[0] as Vector3), fh[1])
 	# The land's height at (x, z) (relative to `base`): the highest of the hills' ellipsoid surfaces there.
 	var ground := func(x: float, z: float) -> float:
 		var best := 0.0

@@ -270,3 +270,17 @@ and the beach and city bodies; (2) the city's massing and roof.
 The meadow's wall reads as dry stone in mortar with a leaning silhouette (Believability 3); the grove's bank is continuous. Gaps: (1)
 the city (box towers, a box play building with a coarse pane grid, a bare roof); (2) the beach's edges and surfaces (a straight deck
 edge, an even trestle, a bare deck, the headland and town as cards).
+
+## Round 19 (2026-10-18, commit 1680198)
+
+| Stage | Believ. | Cohesion | Lighting | Depth | Ground | Clarity | Mean |
+|---|---|---|---|---|---|---|---|
+| Meadow | 3 | 3 | 3 | 3 | 3 | 3 | 3.0 |
+| Canyon | 2 | 3 | 3 | 2 | 2 | 3 | 2.5 |
+| Beach | 3 | 3 | 3 | 3 | 2 | 3 | 2.8 |
+| City | 3 | 3 | 3 | 3 | 2 | 3 | 2.8 |
+| Grove | 3 | 3 | 3 | 3 | 3 | 3 | 3.0 |
+
+The stepped, crowned towers read as a skyline of buildings (the city's Believability 3). The billboard is clipped by a new setback. Gaps:
+(1) ground detail on the beach deck (its tint variety lost; nails and joints unreadable) and the city roof (seams too subtle); (2) the
+remaining cards (beach headland and town, grove side trees, pines and roots, meadow village).

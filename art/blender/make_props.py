@@ -1195,7 +1195,56 @@ def mountain_range(name, seed, height, peaks, base, amplitude, rounded):
     return root
 
 
+def hill_dome(name, seed):
+    """A rounded hill at unit size (radius 1 across, 1 tall, centred on the origin, its foot carried below it; the gauntlet's round 19, in
+    place of a scaled sphere under a scaly foliage tile): a dome swelling and dipping in broad soft lumps, with a couple of gentle spurs
+    and a hollow, its lower flanks steeper as a bank toward the water. Scaled per hill in the game, so its height there matches the
+    ellipsoid the town's houses are seated on, give or take its lumps."""
+    rng = random.Random(seed)
+    root = empty(name)
+    ph = [rng.uniform(0, math.tau) for _ in range(6)]
+    rings, sides = 22, 64
+    bm = bmesh.new()
+    grid = []
+    for k in range(rings + 1):
+        t = k / rings
+        el = math.pi / 2 * (1.0 - t)
+        row = []
+        for i in range(sides):
+            a = math.tau * i / sides
+            lump = (0.05 * math.sin(a * 3.0 + ph[0]) * math.sin(el * 2.0 + ph[1]) + 0.035 * math.sin(a * 5.0 + ph[2] + el * 3.0)
+                    + 0.02 * math.sin(a * 9.0 + ph[3]) * math.cos(el * 4.0 + ph[4]))
+            r = 1.0 + lump * (1.0 - 0.6 * t)
+            x = math.cos(el) * math.cos(a) * r
+            y = math.cos(el) * math.sin(a) * r
+            z = math.sin(el) * r
+            # A steeper bank at the foot.
+            if el < 0.35:
+                f = 1.0 - el / 0.35
+                x *= 1.0 - 0.06 * f
+                y *= 1.0 - 0.06 * f
+            row.append(bm.verts.new((x, y, z - 0.002)))
+        grid.append(row)
+    top = bm.verts.new((0.0, 0.0, 1.0 + 0.03 * math.sin(ph[5])))
+    for k in range(rings):
+        for i in range(sides):
+            j = (i + 1) % sides
+            bm.faces.new((grid[k][i], grid[k][j], grid[k + 1][j], grid[k + 1][i]))
+    for i in range(sides):
+        bm.faces.new((grid[rings][i], grid[rings][(i + 1) % sides], top))
+    # The foot carried under the waterline.
+    foot = [bm.verts.new((v.co.x, v.co.y, -0.4)) for v in grid[0]]
+    for i in range(sides):
+        j = (i + 1) % sides
+        bm.faces.new((foot[i], foot[j], grid[0][j], grid[0][i]))
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces[:])
+    to_object("land", bm, (0.4, 0.56, 0.46), smooth=True).parent = root
+    return root
+
+
 PROPS = {
+    "hill_dome_a": lambda: hill_dome("hill_dome_a", 5),
+    "hill_dome_b": lambda: hill_dome("hill_dome_b", 12),
     "range_meadow_far": lambda: mountain_range("range_meadow_far", 3, 88.0, 6, 0.32, 0.6, False),
     "range_meadow_near": lambda: mountain_range("range_meadow_near", 9, 62.0, 8, 0.4, 0.5, False),
     "range_grove_far": lambda: mountain_range("range_grove_far", 8, 52.0, 4, 0.5, 0.32, True),
