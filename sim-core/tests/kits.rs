@@ -40,19 +40,6 @@ fn pct(sim: &Sim, tenths: i32) -> Fx {
     Fx::from_ratio(tenths, 10) * sim.content.rules.damage_mult
 }
 
-/// Runs `first` on tick 1, then idle; returns the tick on which player 1's percent first rose.
-fn hit_tick(sim: &mut Sim, first: sim_core::Input) -> Option<usize> {
-    let before = sim.fighter(1).percent;
-    sim.tick(first);
-    for t in 2..=120 {
-        if sim.fighter(1).percent > before {
-            return Some(t - 1);
-        }
-        sim.tick(inp(0, 0, 0));
-    }
-    (sim.fighter(1).percent > before).then_some(120)
-}
-
 /// A down air with a fast fall during it, as a player does it: down and attack, the stick let go, then pressed down again (an
 /// aerial ends a fast fall, and one held from before the move does not start one). Returns the tick player 1's percent first rose.
 fn dair_fast_falling(sim: &mut Sim) -> Option<usize> {
@@ -70,71 +57,7 @@ fn dair_fast_falling(sim: &mut Sim) -> Option<usize> {
 
 // ---- Sword: jab, dash attack, down air ----------------------------------------------------------------
 
-#[test]
-fn the_jab_hits_on_frame_5_for_3_percent_close_and_5_at_the_tip() {
-    let mut close = duel(SWORD, fx(14, 10));
-    assert_eq!(hit_tick(&mut close, inp(0, 0, ATTACK)), Some(5));
-    assert_eq!(close.fighter(1).percent, pct(&close, 30));
-    let mut tip = duel(SWORD, fx(32, 10));
-    assert_eq!(hit_tick(&mut tip, inp(0, 0, ATTACK)), Some(5));
-    assert_eq!(tip.fighter(1).percent, pct(&tip, 50));
-}
-
-#[test]
-fn the_second_jab_hit_follows_if_attack_is_pressed_again_and_there_is_no_third() {
-    let mut sim = duel(SWORD, fx(32, 10));
-    sim.state.fighters[1].invuln = 255;
-    sim.tick(inp(0, 0, ATTACK));
-    // Press again near the end of the first hit (it is 23 frames long, the window is the last 10).
-    for _ in 0..16 {
-        sim.tick(inp(0, 0, 0));
-    }
-    sim.tick(inp(0, 0, ATTACK));
-    for _ in 0..12 {
-        sim.tick(inp(0, 0, 0));
-    }
-    assert_eq!(sim.f().move_id, MoveId::Jab2 as u8, "the jab continued");
-    // Jab 2 ends the chain: pressing at its end does not start a third hit.
-    assert!(sim.content.weapons[0].moves[MoveId::Jab2 as usize]
-        .next
-        .is_none());
-    assert!(sim.content.weapons[0].moves[MoveId::Jab3 as usize].is_empty());
-}
-
-#[test]
-fn the_second_jab_hit_does_4_percent_and_6_at_the_tip_on_its_frame_4() {
-    let mut sim = duel(SWORD, fx(32, 10));
-    // (Its back turned: the spacing is to the body, not to a guard held out in front.)
-    sim.state.fighters[1].facing = 1;
-    sim.state.fighters[1].invuln = 255;
-    sim.tick(inp(0, 0, ATTACK));
-    for _ in 0..16 {
-        sim.tick(inp(0, 0, 0));
-    }
-    sim.tick(inp(0, 0, ATTACK));
-    // Run to the first tick of the second hit, then let the dummy be hit.
-    let mut started = false;
-    for _ in 0..30 {
-        sim.tick(inp(0, 0, 0));
-        if sim.f().move_id == MoveId::Jab2 as u8 {
-            started = true;
-            break;
-        }
-    }
-    assert!(started, "the jab should have chained");
-    sim.state.fighters[1].invuln = 0;
-    sim.state.fighters[1].percent = Fx::ZERO;
-    let mut hit = None;
-    for t in 1..=8 {
-        sim.tick(inp(0, 0, 0));
-        if sim.fighter(1).percent > Fx::ZERO {
-            hit = Some(t);
-            break;
-        }
-    }
-    assert!(matches!(hit, Some(3..=4)), "second hit on tick {hit:?}");
-    assert_eq!(sim.fighter(1).percent, pct(&sim, 60));
-}
+// (The jab is the previous reference version's since sim 138, owner decision 98: its tests are in `longsword_jab.rs`.)
 
 #[test]
 fn the_dash_attack_hits_on_frame_13_for_13_percent_at_the_tip() {
@@ -805,8 +728,9 @@ fn flash_dash_aims_up_and_down_with_the_stick() {
         sim.f().pos - start
     };
     let flat = run(0);
-    let up = run(100);
-    let down = run(-100);
+    // (The stick at full tilt: since sim 139 the angle is the reference's, at most 10 degrees past half tilt.)
+    let up = run(127);
+    let down = run(-127);
     assert!(flat.x > Fx::from_int(4), "it dashes forward: {flat:?}");
     assert!(
         up.y > flat.y + Fx::from_int(1),
@@ -1051,14 +975,18 @@ fn blade_flurry_steps_leave_the_air_alone() {
     sim.put_airborne(0, Fx::ZERO, Fx::from_int(40), Fx::ZERO, Fx::ZERO);
     sim.put_airborne(1, Fx::from_int(30), Fx::from_int(40), Fx::ZERO, Fx::ZERO);
     sim.tick(inp(100, 0, SPECIAL));
-    for _ in 0..12 {
+    // (Since sim 139 the first hit adds the reference's 1.4 units of upward speed in the air, so it pops up first; gravity then
+    // acts on it every frame: nothing freezes it, and no step moves it sideways.)
+    sim.tick(inp(0, 0, 0));
+    let mut last = sim.f().vel.y;
+    assert!(last > Fx::ZERO, "the lift: {last:?}");
+    for _ in 0..30 {
         sim.tick(inp(0, 0, 0));
+        assert!(sim.f().vel.y <= last, "gravity acts: {:?}", sim.f().vel);
+        last = sim.f().vel.y;
     }
-    assert!(
-        sim.f().pos.y < Fx::from_int(40) - fx(5, 10),
-        "still falling: {:?}",
-        sim.f().pos
-    );
+    assert!(last < Fx::ZERO, "it falls again: {last:?}");
+    assert_eq!(sim.f().pos.x, Fx::ZERO, "no step in the air");
 }
 
 #[test]

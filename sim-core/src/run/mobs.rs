@@ -29,9 +29,9 @@ use super::data::{
     ROLE_SPEAR,
 };
 use super::{
-    count_combo, pay_kill, Mob, INTERIOR_X, MAX_MOBS, MODE_ATTACK, MODE_COOLDOWN, MODE_EMERGE,
-    MODE_IDLE, MODE_LEAP, MODE_MOVE, MODE_WINDUP, PLAYER, VAN_DRIVING, VAN_HALF, VAN_HEIGHT,
-    VAN_NONE, VAN_PARKED, VAN_WAITING,
+    call_out, count_combo, pay_kill, Mob, CALL_AIR, CALL_BOWL, CALL_SKY, CALL_SPIKE, INTERIOR_X,
+    MAX_MOBS, MODE_ATTACK, MODE_COOLDOWN, MODE_EMERGE, MODE_IDLE, MODE_LEAP, MODE_MOVE,
+    MODE_WINDUP, PLAYER, VAN_DRIVING, VAN_HALF, VAN_HEIGHT, VAN_NONE, VAN_PARKED, VAN_WAITING,
 };
 use crate::collision;
 use crate::combat::{self, params_of, weapon_of};
@@ -286,7 +286,7 @@ fn act(
     }
     match m.mode {
         MODE_IDLE => {
-            if player.is_some_and(|_| dx.abs() < k.aggro && dy.abs() < Fx::from_int(10)) {
+            if player.is_some_and(|_| dx.abs() < k.aggro && dy.abs() < k.aggro_y) {
                 m.mode = MODE_MOVE;
             }
         }
@@ -613,9 +613,24 @@ pub(super) fn after_step(state: &mut GameState, content: &Content, rc: &RunConte
         let f = state.fighters[i];
         let k = *kind_of(rc, &m);
         let mut credit = m.credit;
-        if f.percent > m.last_percent {
+        let hit = f.percent > m.last_percent;
+        let mut juggle = m.juggle;
+        if hit {
             count_combo(&mut state.run);
+            // (R2e, F3: a hit on a grunt in the air counts double toward the combo; a hit since it last stood is one more of a
+            // juggle, the first of them perhaps the launcher.)
+            if m.air {
+                count_combo(&mut state.run);
+            }
+            juggle = if m.air && m.juggle > 0 {
+                m.juggle.saturating_add(1)
+            } else {
+                1
+            };
             credit = rc.rules.credit_frames;
+        } else if f.grounded() && f.hitlag == 0 && f.state != S::Hitstun {
+            // (On its feet again: the juggle is over.)
+            juggle = 0;
         }
         if f.state == S::Grabbed && usize::try_from(f.grab_with) == Ok(PLAYER) {
             credit = rc.rules.credit_frames;
@@ -623,6 +638,12 @@ pub(super) fn after_step(state: &mut GameState, content: &Content, rc: &RunConte
         let g = &mut state.run.mobs[n];
         g.credit = credit;
         g.last_percent = f.percent;
+        g.juggle = juggle;
+        g.air = !f.grounded();
+        if f.state != S::Hitstun {
+            // (Its launch is over: it may bowl into each grunt once again next time.)
+            g.bowled = 0;
+        }
         if k.role == ROLE_LOBBER && target.active {
             aim_shell(state, i, &k, target.pos + Vec2::new(Fx::ZERO, Fx::ONE));
         }
@@ -630,7 +651,7 @@ pub(super) fn after_step(state: &mut GameState, content: &Content, rc: &RunConte
         if k.stamina > Fx::ZERO {
             let tough = Fx::from_ratio(i32::from(tier_row(rc, m.tier).stamina), 100);
             if f.percent >= k.stamina * tough {
-                knock_out(state, content, rc, n);
+                knock_out(state, content, rc, n, KO_SIDE);
             }
         }
     }
@@ -744,16 +765,51 @@ pub(super) fn spawn(
     Some(n)
 }
 
+/// How a grunt left (R2e, F3): off a side (or by its stamina), launched out of the top, spiked out of the bottom.
+const KO_SIDE: u8 = 0;
+const KO_SKY: u8 = 1;
+const KO_SPIKE: u8 = 2;
+
 /// A grunt knocked out: the KO's place for the game's effect, the player's kill if they hit it lately (the coins and the combo), and
-/// its slot freed.
-fn knock_out(state: &mut GameState, content: &Content, rc: &RunContent, n: usize) {
+/// its slot freed. R2e (F3): a juggle kept off the ground pays its coins times the juggle (at most `juggle_max`), a launch out of
+/// the top or a spike out of the bottom pays its bonus, and each is called out.
+fn knock_out(state: &mut GameState, content: &Content, rc: &RunContent, n: usize, how: u8) {
     let m = state.run.mobs[n];
     let f = state.fighters[slot(n)];
+    let rules = &rc.rules;
     let run = &mut state.run;
     run.kos = run.kos.wrapping_add(1);
     run.ko_at = f.pos;
     if m.credit > 0 {
-        pay_kill(run, rc, m.kind);
+        let air = if m.juggle >= 2 {
+            u32::from(m.juggle.min(rules.juggle_max.max(1)))
+        } else {
+            1
+        };
+        let bonus = match how {
+            KO_SKY => u32::from(rules.sky_bonus),
+            KO_SPIKE => u32::from(rules.spike_bonus),
+            _ => 0,
+        };
+        let paid = pay_kill(run, rc, m.kind, air, bonus);
+        let call = match how {
+            KO_SKY => {
+                run.sky_kos = run.sky_kos.saturating_add(1);
+                CALL_SKY
+            }
+            KO_SPIKE => {
+                run.spike_kos = run.spike_kos.saturating_add(1);
+                CALL_SPIKE
+            }
+            _ if air > 1 => CALL_AIR,
+            _ => 0,
+        };
+        if air > 1 {
+            run.air_kos = run.air_kos.saturating_add(1);
+        }
+        if call != 0 {
+            call_out(run, call, f.pos, paid);
+        }
     }
     remove(state, content, n);
 }
@@ -783,10 +839,63 @@ pub(super) fn knock_outs(state: &mut GameState, content: &Content, rc: &RunConte
             || p.x < wall - rules.gate_thickness - rules.blast_margin
             || p.x > end + rules.blast_margin;
         if launched && past_zone || out_of_world {
+            // (R2e: out of the top while launched is Skyward; out of the bottom while still driven down by the launch is Grounded.)
+            let how = if launched && (p.y > top || p.y > blast_top) {
+                KO_SKY
+            } else if launched && (p.y < bottom || p.y < blast_bottom) && f.kb_vel.y < Fx::ZERO {
+                KO_SPIKE
+            } else {
+                KO_SIDE
+            };
             if launched || state.run.mobs[n].credit > 0 {
-                knock_out(state, content, rc, n);
+                knock_out(state, content, rc, n, how);
             } else {
                 remove(state, content, n);
+            }
+        }
+    }
+}
+
+/// R2e (F3), bowling (Punch Quest's deadsplosion): a grunt the player launched, tumbling at `bowl_speed` or faster, that flies into
+/// another grunt hits it with `bowl_hit` through the versus hit (the player's: its combo, its credit, its kill), sent the way it was
+/// flying; each grunt once a launch (`Mob::bowled`). Called after the step.
+pub(super) fn bowl(state: &mut GameState, content: &Content, rc: &RunContent) {
+    let rules = &rc.rules;
+    for a in 0..MAX_MOBS {
+        let m = state.run.mobs[a];
+        let f = state.fighters[slot(a)];
+        if !m.active || m.credit == 0 || f.state != S::Hitstun || !f.tumble || f.hitlag > 0 {
+            continue;
+        }
+        let v = f.vel + f.kb_vel;
+        if v.x.abs().max(v.y.abs()) < rules.bowl_speed {
+            continue;
+        }
+        let p = params_of(content, &f);
+        let centre = f.pos + Vec2::new(Fx::ZERO, p.ecb_height * Fx::HALF);
+        let facing = if v.x >= Fx::ZERO { 1 } else { -1 };
+        for b in 0..MAX_MOBS {
+            let bit = 1u16 << b;
+            let o = state.run.mobs[b];
+            if b == a || !o.active || o.mode == MODE_EMERGE || state.run.mobs[a].bowled & bit != 0 {
+                continue;
+            }
+            if hit_body(
+                state,
+                content,
+                slot(b),
+                (centre, facing, v),
+                &rules.bowl_hit,
+                centre,
+            ) {
+                state.run.mobs[a].bowled |= bit;
+                // (It cannot bowl straight back into the one that hit it in the same launch.)
+                state.run.mobs[b].bowled |= 1 << a;
+                state.run.mobs[b].credit = rules.credit_frames;
+                let run = &mut state.run;
+                run.bowls = run.bowls.saturating_add(1);
+                let at = state.fighters[slot(b)].pos;
+                call_out(&mut state.run, CALL_BOWL, at, 0);
             }
         }
     }

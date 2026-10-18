@@ -268,6 +268,9 @@ macro_rules! params_io {
                 passive_shield: base.and_then(|b| b.passive_shield),
                 wing: base.and_then(|b| b.wing),
                 air_jump_drift: 100,
+                jump_speed_x: Fx::ZERO,
+                jump_speed_x_mul: 0,
+                jump_speed_x_max: Fx::ZERO,
                 item_throws: base.map_or(sim_core::content::ItemThrows::STANDARD, |b| b.item_throws),
                 weapon,
             }
@@ -430,6 +433,7 @@ rules_io! {
     push_speed: Fx,
     jump_momentum: Fx,
     jump_momentum_max: Fx,
+    jump_stick_share: u8,
     respawn_invuln: u8,
     tech_window: u8,
     tech_lag: u8,
@@ -2948,6 +2952,22 @@ pub fn read_content(root: &Block, errors: &mut Vec<String>) -> Content {
             base.map_or(100, |p| p.air_jump_drift),
             errors,
         );
+        // The ground jump's own horizontal rule (sim 139): optional, the inherited fighter's or none (`jump_speed_x_max` 0).
+        params.jump_speed_x = f.or(
+            "jump_speed_x",
+            base.map_or(Fx::ZERO, |p| p.jump_speed_x),
+            errors,
+        );
+        params.jump_speed_x_mul = f.or(
+            "jump_speed_x_mul",
+            base.map_or(0, |p| p.jump_speed_x_mul),
+            errors,
+        );
+        params.jump_speed_x_max = f.or(
+            "jump_speed_x_max",
+            base.map_or(Fx::ZERO, |p| p.jump_speed_x_max),
+            errors,
+        );
         f.finish(errors);
         // The gauge (schema 6): a `gauge { ... }` block, or the inherited fighter's, or none.
         if let Some(g) = at_most_one(children(b, "gauge"), "gauge", &context, errors) {
@@ -3423,6 +3443,11 @@ pub fn fighter_block(name: &str, p: &FighterParams, weapon_name: &str) -> Block 
     }
     if p.air_jump_drift != 100 {
         b.field("air_jump_drift", p.air_jump_drift.to_string());
+    }
+    if p.jump_speed_x_max != Fx::ZERO {
+        b.field("jump_speed_x", p.jump_speed_x.show());
+        b.field("jump_speed_x_mul", p.jump_speed_x_mul.to_string());
+        b.field("jump_speed_x_max", p.jump_speed_x_max.show());
     }
     if p.gauge != Gauge::NONE {
         b.push(write_gauge(&p.gauge));

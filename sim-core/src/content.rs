@@ -238,6 +238,14 @@ pub struct FighterParams {
     /// The midair jump's sideways speed in percent of the stick times the air speed (owner decision 59, sim 95: the reference's per-body
     /// `jump_aerial_speed_x_mul`); 100 (the default) is the shared rule.
     pub air_jump_drift: u8,
+    /// A ground jump's horizontal speed (sim 139, owner decision 99: the reference's per-body `jump_speed_x`, `jump_speed_x_mul` and
+    /// `jump_speed_x_max`): leaving the ground with ground speed it keeps `jump_speed_x_mul` percent of it; from standing still it
+    /// moves at the stick's sideways tilt times `jump_speed_x`; held within `jump_speed_x_max` either way (owner decision 100; with
+    /// `Ruleset::jump_stick_share` 1, the faster of the two the same way). `jump_speed_x_max` 0 (the default) keeps the older shared
+    /// rule (`Ruleset::jump_momentum`, capped by the air speed, and no stick share).
+    pub jump_speed_x: Fx,
+    pub jump_speed_x_mul: u8,
+    pub jump_speed_x_max: Fx,
     /// The frames on which the body lets go of an item it throws (E4, sim 111; see [`ItemThrows`]).
     pub item_throws: ItemThrows,
     /// A comeback form that comes when the fighter is in danger (E57, sim 125: the reference's one wing; see [`Wing`]). `None` (the
@@ -884,6 +892,9 @@ impl FighterParams {
             passive_shield: None,
             wing: None,
             air_jump_drift: 100,
+            jump_speed_x: Fx::ZERO,
+            jump_speed_x_mul: 0,
+            jump_speed_x_max: Fx::ZERO,
             item_throws: ItemThrows::STANDARD,
             walk_speed: gu(1400),
             run_speed: gu(1800),
@@ -1036,6 +1047,10 @@ impl FighterParams {
             dash_frames: 10,
             heavy_landing_lag: 3,
             air_speed: su(1071),
+            // The ground jump's horizontal rule (the parameter file, dragdown.wiki: `jump_speed_x` 0.95, `jump_speed_x_mul` 0.8, `jump_speed_x_max` 1.2) [R].
+            jump_speed_x: su(950),
+            jump_speed_x_mul: 80,
+            jump_speed_x_max: su(1200),
             air_friction: FighterParams::su_fine(375),
             gravity,
             max_fall_speed: su(1580),
@@ -1085,8 +1100,15 @@ impl FighterParams {
             heavy_landing_lag: 3,
             dash_initial_speed: gu(840),
             air_speed: su(1281),
+            // The ground jump's horizontal rule (the parameter file, dragdown.wiki: `jump_speed_x` 1.0, `jump_speed_x_mul` 0.8, `jump_speed_x_max` 1.3) [R].
+            jump_speed_x: su(1000),
+            jump_speed_x_mul: 80,
+            jump_speed_x_max: su(1300),
+            // The midair jump's sideways share (`jump_aerial_speed_x_mul` 0.9, the parameter file) [R].
+            air_jump_drift: 90,
             air_accel_stick: su(80),
-            air_friction: su(10),
+            // Air friction 0.004 (the parameter file and ssbwiki.com's attributes; 0.01 before sim 139) [R].
+            air_friction: FighterParams::su_fine(400),
             gravity,
             max_fall_speed: su(1800),
             fast_fall_speed: su(2880),
@@ -1143,6 +1165,10 @@ impl FighterParams {
             dash_shield_frame: 4,
             heavy_landing_lag: 6,
             air_speed: su(1155),
+            // The ground jump's horizontal rule (the parameter file, dragdown.wiki: `jump_speed_x` 0.76, `jump_speed_x_mul` 0.8, `jump_speed_x_max` 1.4) [R].
+            jump_speed_x: su(760),
+            jump_speed_x_mul: 80,
+            jump_speed_x_max: su(1400),
             air_accel: su(10),
             air_accel_stick: su(80),
             air_friction: su(15),
@@ -1219,6 +1245,12 @@ impl FighterParams {
             dash_frames: 10,
             heavy_landing_lag: 3,
             air_speed: su(1208),
+            // The ground jump's horizontal rule (the parameter file, dragdown.wiki: `jump_speed_x` 0.95, `jump_speed_x_mul` 0.8, `jump_speed_x_max` 1.3) [R].
+            jump_speed_x: su(950),
+            jump_speed_x_mul: 80,
+            jump_speed_x_max: su(1300),
+            // The midair jump's sideways share (`jump_aerial_speed_x_mul` 0.9, the parameter file) [R].
+            air_jump_drift: 90,
             air_accel: su(10),
             air_accel_stick: su(70),
             air_friction: su(15),
@@ -1282,6 +1314,12 @@ impl FighterParams {
             dash_shield_frame: 8,
             heavy_landing_lag: 3,
             air_speed: su(1218),
+            // The ground jump's horizontal rule (the parameter file, dragdown.wiki: `jump_speed_x` 0.9, `jump_speed_x_mul` 0.75, `jump_speed_x_max` 2.1) [R].
+            jump_speed_x: su(900),
+            jump_speed_x_mul: 75,
+            jump_speed_x_max: su(2100),
+            // The midair jump's sideways share (`jump_aerial_speed_x_mul` 0.9, the parameter file) [R].
+            air_jump_drift: 90,
             air_accel: su(10),
             air_accel_stick: su(65),
             air_friction: FighterParams::su_fine(750),
@@ -1352,6 +1390,12 @@ impl FighterParams {
             dash_frames: 10,
             heavy_landing_lag: 6,
             air_speed: su(1000),
+            // The ground jump's horizontal rule (the parameter file, dragdown.wiki: `jump_speed_x` 0.72, `jump_speed_x_mul` 0.7, `jump_speed_x_max` 1.1) [R].
+            jump_speed_x: su(720),
+            jump_speed_x_mul: 70,
+            jump_speed_x_max: su(1100),
+            // The midair jump's sideways share (`jump_aerial_speed_x_mul` 0.9, the parameter file) [R].
+            air_jump_drift: 90,
             air_accel: su(10),
             air_accel_stick: su(105),
             air_friction: su(10),
@@ -1423,6 +1467,10 @@ impl FighterParams {
             dash_frames: 10,
             heavy_landing_lag: 3,
             air_speed: su(1155),
+            // The ground jump's horizontal rule (the parameter file, dragdown.wiki: `jump_speed_x` 0.95, `jump_speed_x_mul` 0.9, `jump_speed_x_max` 1.2) [R].
+            jump_speed_x: su(950),
+            jump_speed_x_mul: 90,
+            jump_speed_x_max: su(1200),
             air_accel: su(10),
             air_accel_stick: su(60),
             air_friction: su(9),
@@ -1511,6 +1559,10 @@ impl FighterParams {
             dash_shield_frame: 8,
             heavy_landing_lag: 3,
             air_speed: su(1208),
+            // The ground jump's horizontal rule (the parameter file, dragdown.wiki: `jump_speed_x` 0.95, `jump_speed_x_mul` 0.8, `jump_speed_x_max` 1.6) [R].
+            jump_speed_x: su(950),
+            jump_speed_x_mul: 80,
+            jump_speed_x_max: su(1600),
             air_accel: su(10),
             air_accel_stick: su(50),
             air_friction: su(15),
@@ -1598,6 +1650,10 @@ impl FighterParams {
             dash_shield_frame: 7,
             heavy_landing_lag: 6,
             air_speed: su(1344),
+            // The ground jump's horizontal rule (the parameter file, dragdown.wiki: `jump_speed_x` 0.91, `jump_speed_x_mul` 0.7, `jump_speed_x_max` 1.5) [R].
+            jump_speed_x: su(910),
+            jump_speed_x_mul: 70,
+            jump_speed_x_max: su(1500),
             air_accel: su(30),
             air_accel_stick: su(68),
             air_friction: su(5),
@@ -1690,6 +1746,10 @@ impl FighterParams {
             dash_shield_frame: 6,
             heavy_landing_lag: 3,
             air_speed: su(924),
+            // The ground jump's horizontal rule (the parameter file, dragdown.wiki: `jump_speed_x` 0.95, `jump_speed_x_mul` 0.8, `jump_speed_x_max` 1.2) [R].
+            jump_speed_x: su(950),
+            jump_speed_x_mul: 80,
+            jump_speed_x_max: su(1200),
             air_accel: su(10),
             air_accel_stick: su(40),
             air_friction: FighterParams::su_fine(380),
@@ -1779,6 +1839,12 @@ impl FighterParams {
             dash_shield_frame: 7,
             heavy_landing_lag: 7,
             air_speed: su(987),
+            // The ground jump's horizontal rule (the parameter file, dragdown.wiki: `jump_speed_x` 0.95, `jump_speed_x_mul` 0.8, `jump_speed_x_max` 1.3) [R].
+            jump_speed_x: su(950),
+            jump_speed_x_mul: 80,
+            jump_speed_x_max: su(1300),
+            // The midair jump's sideways share (`jump_aerial_speed_x_mul` 0.9, the parameter file) [R].
+            air_jump_drift: 90,
             air_accel: su(10),
             air_accel_stick: su(50),
             air_friction: su(10),
@@ -1850,6 +1916,10 @@ impl FighterParams {
             dash_frames: 10,
             heavy_landing_lag: 6,
             air_speed: su(924),
+            // The ground jump's horizontal rule (the parameter file, dragdown.wiki: `jump_speed_x` 0.95, `jump_speed_x_mul` 0.8, `jump_speed_x_max` 1.3) [R].
+            jump_speed_x: su(950),
+            jump_speed_x_mul: 80,
+            jump_speed_x_max: su(1300),
             air_accel: Fx::ZERO,
             air_accel_stick: su(50),
             air_friction: su(8),
@@ -1927,6 +1997,10 @@ impl FighterParams {
             dash_frames: 10,
             heavy_landing_lag: 3,
             air_speed: su(1100),
+            // The ground jump's horizontal rule (the parameter file, dragdown.wiki: `jump_speed_x` 0.95, `jump_speed_x_mul` 0.75, `jump_speed_x_max` 1.2) [R].
+            jump_speed_x: su(950),
+            jump_speed_x_mul: 75,
+            jump_speed_x_max: su(1200),
             air_accel: su(10),
             air_accel_stick: su(70),
             air_friction: su(10),
@@ -1994,6 +2068,10 @@ impl FighterParams {
             dash_frames: 10,
             heavy_landing_lag: 2,
             air_speed: su(950),
+            // The ground jump's horizontal rule (the parameter file, dragdown.wiki: `jump_speed_x` 0.9, `jump_speed_x_mul` 0.9, `jump_speed_x_max` 1.2) [R].
+            jump_speed_x: su(900),
+            jump_speed_x_mul: 90,
+            jump_speed_x_max: su(1200),
             air_accel: su(10),
             air_accel_stick: su(70),
             air_friction: su(8),
@@ -2147,6 +2225,12 @@ impl StateHash for FighterParams {
             None => h.write_bool(false),
         }
         h.write_u8(self.air_jump_drift);
+        // (Sim 139: only a body with its own jump rule writes anything, so an older body's hash is unchanged.)
+        if self.jump_speed_x_max != Fx::ZERO {
+            self.jump_speed_x.hash_into(h);
+            h.write_u8(self.jump_speed_x_mul);
+            self.jump_speed_x_max.hash_into(h);
+        }
         for (_, v) in self.item_throws.frames() {
             h.write_u8(v);
         }
@@ -2335,6 +2419,11 @@ pub struct Ruleset {
     /// (the reference game's jump speed multiplier and cap; the values are estimates).
     pub jump_momentum: Fx,
     pub jump_momentum_max: Fx,
+    /// How a body with its own ground-jump rule (`FighterParams::jump_speed_x_max` above 0) combines the stick with its ground speed
+    /// (owner decision 100, sim 139): 0 (the standard) takes the run's kept share whenever the fighter has ground speed, the stick's
+    /// `jump_speed_x` share only from standing still; 1 takes the faster of the two the same way (decision 99's first reading). Kept
+    /// switchable for playtests.
+    pub jump_stick_share: u8,
     pub respawn_invuln: u8,
     /// A shield press this many frames before landing in hitstun is a tech.
     pub tech_window: u8,
@@ -2643,6 +2732,7 @@ impl Ruleset {
             push_speed: Fx::from_ratio(3, 40),
             jump_momentum: Fx::from_ratio(17, 20),
             jump_momentum_max: Fx::from_ratio(5, 4),
+            jump_stick_share: 0,
             respawn_invuln: 120,
             tech_window: 11,
             tech_lag: 4,
@@ -2822,6 +2912,7 @@ impl StateHash for Ruleset {
         self.push_speed.hash_into(h);
         self.jump_momentum.hash_into(h);
         self.jump_momentum_max.hash_into(h);
+        h.write_u8(self.jump_stick_share);
         h.write_u8(self.respawn_invuln);
         h.write_u8(self.tech_window);
         h.write_u8(self.tech_lag);
@@ -3158,6 +3249,17 @@ mod tests {
         let mut c = base.clone();
         c.fighters[0].air_jump_drift = 120;
         assert_ne!(h, c.hash());
+        // The ground jump's own rule (sim 139), every field of it.
+        let mut j = base.clone();
+        j.fighters[0].jump_speed_x_max = Fx::from_ratio(1, 8);
+        assert_ne!(h, j.hash());
+        let hj = j.hash();
+        let mut c = j.clone();
+        c.fighters[0].jump_speed_x += Fx::from_raw(1);
+        assert_ne!(hj, c.hash());
+        let mut c = j.clone();
+        c.fighters[0].jump_speed_x_mul += 1;
+        assert_ne!(hj, c.hash());
         let armor = FighterParams::bounder_air_jump_armor();
         let mut with = base.clone();
         with.fighters[0].air_jump_armor = Some(armor);
@@ -3198,6 +3300,7 @@ mod tests {
             |r: &mut Ruleset| r.push_speed += Fx::from_raw(1),
             |r: &mut Ruleset| r.jump_momentum += Fx::from_raw(1),
             |r: &mut Ruleset| r.jump_momentum_max += Fx::from_raw(1),
+            |r: &mut Ruleset| r.jump_stick_share ^= 1,
         ] {
             let mut c = base.clone();
             change(&mut c.rules);

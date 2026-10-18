@@ -3090,6 +3090,7 @@ pub fn longsword() -> Weapon {
         Fx::from_ratio(72, 100),
     );
     w.moves[MoveId::UpSpecial as usize] = longsword_up_special();
+    longsword_older_jab(&mut w);
     tipper_last(&mut w);
     // The down tilt's 35% trip chance (ssbwiki.com raw table, 13.0.1; E20, sim 86). At its 30-degree angle it lifts a grounded
     // target, so it can only trip on a slope (as the reference says): never on the flat stages here.
@@ -3116,6 +3117,75 @@ pub fn longsword() -> Weapon {
         ],
     );
     w
+}
+
+/// The longsword's jab: the previous reference version's (1.1.x) two-hit jab on that version's hit rules (sim 138, owner decision 98;
+/// E40), not 13.0.1's. Sources: ssbwiki.com's previous-version jab pages (hits 1 and 2, the 1.1.4 data) and kuroganehammer.com's 1.1.6
+/// table, which agree [R]. Written in the shortened blade's world tenths (it is built after `shorten_blade`) with the priorities
+/// before `tipper_last` (0 the tip, 1 the blade, 2 the arm: after it the blade is 0, the arm 1 and the tip 2, the reference's ids
+/// 0, 1 and 3). Hitlag x0.7, the tip x1.25 [R]. The positions and radii are [E]: the kit's slash path, plus an arm box.
+///
+/// Jab 1: frames 5-7, the blade 3% at 78 degrees, the arm 3% at 65, the tip 5% at 90, BK 55, KS 30; continuable from 18; FAF 26 [R].
+/// **The pull** (as the Settler's, decision 72): the tip takes 13.0.1's jab 1 tip (180 degrees, forward type, BK 30, KS 12 [R],
+/// ssbwiki.com's 13.0.1 jab 1, id 2) on the 1.1.x damage and rules; the 1.1.x tables have no pull. Jab 2: frames 3-5, 4% / 4% / 6%
+/// at 45 degrees, BK 62, KS 75 (the launcher, up and out); FAF 29 [R]. Both can be cancelled into any standing action (the previous
+/// version's jab cancel): jab 1 from its continuable frame 18 [R], jab 2 from 16 [E: the reference's jab 2 is the last hit and has no
+/// continuable frame; 16 is 11 frames after its last active frame, as jab 1's 18 is after its 7]. A press in either window carries on
+/// into the other hit, so the two repeat (the owner's account).
+fn longsword_older_jab(w: &mut Weapon) {
+    let mut jab1 = ref_move(
+        26,
+        0,
+        0,
+        255,
+        &[
+            // Frame 5 high in front, frames 6-7 level.
+            r(5, 5, 21, 22, 7, 50, 90, 55, 30, 0, 0),
+            r(6, 7, 24, 12, 7, 50, 90, 55, 30, 0, 0),
+            r(5, 5, 13, 17, 8, 30, 78, 55, 30, 1, 0),
+            r(6, 7, 15, 12, 8, 30, 78, 55, 30, 1, 0),
+            r(5, 5, 8, 15, 6, 30, 65, 55, 30, 2, 0),
+            r(6, 7, 9, 13, 6, 30, 65, 55, 30, 2, 0),
+        ],
+    );
+    for h in &mut jab1.hitboxes {
+        h.rules = RULES_PREVIOUS;
+        h.hitlag = if h.priority == 0 { 125 } else { 70 };
+        if h.priority == 0 {
+            h.angle = 180;
+            h.angle_type = ANGLE_FORWARD;
+            h.base_knockback = 30;
+            h.knockback_growth = 12;
+        }
+    }
+    chain(&mut jab1, MoveId::Jab2, 18);
+    jab1.cancel_from = 18 - 1;
+    w.moves[MoveId::Jab as usize] = jab1;
+
+    let mut jab2 = ref_move(
+        29,
+        0,
+        0,
+        255,
+        &[
+            // The backhand coming back up: low in front on frame 3, high on 5.
+            r(3, 3, 23, 6, 7, 60, 45, 62, 75, 0, 0),
+            r(4, 4, 24, 10, 7, 60, 45, 62, 75, 0, 0),
+            r(5, 5, 22, 19, 7, 60, 45, 62, 75, 0, 0),
+            r(3, 3, 14, 8, 8, 40, 45, 62, 75, 1, 0),
+            r(4, 4, 15, 10, 8, 40, 45, 62, 75, 1, 0),
+            r(5, 5, 14, 15, 8, 40, 45, 62, 75, 1, 0),
+            r(3, 5, 9, 11, 6, 40, 45, 62, 75, 2, 0),
+        ],
+    );
+    for h in &mut jab2.hitboxes {
+        h.rules = RULES_PREVIOUS;
+        h.hitlag = if h.priority == 0 { 125 } else { 70 };
+    }
+    chain(&mut jab2, MoveId::Jab, 16);
+    jab2.cancel_from = 16 - 1;
+    w.moves[MoveId::Jab2 as usize] = jab2;
+    w.moves[MoveId::Jab3 as usize] = Move::empty();
 }
 
 /// The longsword's up special, a rising slash (the reference swordfighter's up special: ssbwiki.com, 13.0.1).
@@ -3737,6 +3807,9 @@ fn sword_kit() -> Weapon {
         ],
     );
     db1.script = db_script(include_str!("scripts/blade_flurry_1.script"));
+    // Started in the air: half the sideways speed ("horizontal speed multiplier on startup" 0.5, ssbwiki.com 13.0.1) [R]; the script
+    // adds the published 1.4 of vertical speed on frame 1 (sim 139).
+    db1.start_speed = 50;
     moves[MoveId::SideSpecial as usize] = db1;
     let mut db2n = ref_move(
         38,
@@ -4383,6 +4456,8 @@ pub fn needles() -> Weapon {
         include_str!("scripts/flash_step.script"),
     ));
     flash_step.helpless_after = true;
+    // The special fall's drift: "helplessness air speed multiplier" 0.6 (ssbwiki.com 13.0.1) [R]; the ruleset's 0.5 before sim 139.
+    flash_step.fall_drift = 60;
     flash_step.grabs_ledge = true;
     w.moves[MoveId::UpSpecial as usize] = flash_step;
 
@@ -5668,6 +5743,10 @@ pub fn claws() -> Weapon {
         include_str!("scripts/flash_aim.script"),
     ));
     flash.helpless_after = true;
+    // Started in the air: 0.67 of the sideways speed ("horizontal speed multiplier on startup", ssbwiki.com 13.0.1) [R] and none of
+    // the vertical (held still until the startup gravity begins on frame 14 [R]; zeroed, not kept, is the reading [E]). Sim 139.
+    flash.start_speed = 67;
+    flash.start_speed_y = 0;
     w.moves[MoveId::SideSpecial as usize] = flash;
 
     claws_up_special(&mut w);

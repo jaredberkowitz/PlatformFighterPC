@@ -120,6 +120,8 @@ impl Recipe {
             &mut p.dash_speed,
             &mut p.dash_initial_speed,
             &mut p.air_speed,
+            &mut p.jump_speed_x,
+            &mut p.jump_speed_x_max,
             &mut p.air_dodge_speed,
             &mut p.waveland_speed,
         ] {

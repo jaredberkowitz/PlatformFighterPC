@@ -158,8 +158,8 @@ impl RunSim {
             slot.y
         );
         let kind = self.rc.rooms[usize::from(slot.room)].kind;
-        // (With every grunt slot taken, an arena's last grunts come out as slots free up: cleared again until it opens.)
-        for _ in 0..8 {
+        // (An arena's grunts come out in waves, the tier's cap at a time and a stagger apart (R2e): cleared again until it opens.)
+        for _ in 0..2000 {
             if !self.state.run.gate_closed {
                 break;
             }
@@ -169,6 +169,14 @@ impl RunSim {
         assert!(!self.state.run.gate_closed, "cleared");
         kind
     }
+}
+
+/// No cap on grunts alive and no stagger between doorways (R2e's note A off), for tests about something else.
+fn uncap(rc: &mut RunContent) {
+    for t in rc.tiers.iter_mut() {
+        t.cap = MAX_MOBS as u8;
+    }
+    rc.rules.emerge_gap = 0;
 }
 
 /// The built-in rooms with no mobs in the streets, no arenas (so walking on never locks), no rare events and no props.
@@ -452,21 +460,35 @@ fn an_optional_creep_pushes_but_never_crushes() {
 
 // ---- Lives -------------------------------------------------------------------------------------------------------------------------
 
+/// The owner's R2d answer 4 ("a floor below"): a fall into the gap room's gap lands on the lower roof in it, no life lost; a room
+/// still marked a true pit (none of the built-in ones is) costs a life.
 #[test]
-fn a_fall_into_a_pit_costs_a_life() {
-    let mut sim = RunSim::with(only(&["gap", "shop"], (1, 0, 0)), 1);
-    // (The gap room: put the player over its pit.)
-    let gap = sim.rc.rooms.iter().position(|r| r.name == "gap").unwrap();
-    let slot = *sim.state.run.slot_of(1).unwrap();
-    assert_eq!(usize::from(slot.room), gap, "the only street but the start");
-    sim.place(Vec2::new(slot.x + fx(13), fx(-3)));
-    for _ in 0..240 {
-        sim.tick(inp(0, -127, 0));
-        if sim.player().stocks < 3 {
-            break;
+fn a_fall_into_a_gap_lands_on_a_floor_below_and_a_true_pit_costs_a_life() {
+    for pit in [false, true] {
+        let mut rc = only(&["gap", "shop"], (1, 0, 0));
+        let gap = rc.rooms.iter().position(|r| r.name == "gap").unwrap();
+        if pit {
+            rc.rooms[gap].platforms.truncate(3);
+            rc.rooms[gap].pit = true;
+        }
+        let mut sim = RunSim::with(rc, 1);
+        let slot = *sim.state.run.slot_of(1).unwrap();
+        assert_eq!(usize::from(slot.room), gap, "the only street but the start");
+        sim.place(Vec2::new(slot.x + fx(13), fx(-3)));
+        for _ in 0..240 {
+            sim.tick(inp(0, -127, 0));
+            if sim.player().stocks < 3 {
+                break;
+            }
+        }
+        if pit {
+            assert_eq!(sim.player().stocks, 2, "a true pit");
+        } else {
+            assert_eq!(sim.player().stocks, 3, "a floor below");
+            assert!(sim.player().grounded());
+            assert!(sim.player().pos.y < slot.y - fx(3), "below the roofs");
         }
     }
-    assert_eq!(sim.player().stocks, 2);
 }
 
 #[test]
@@ -496,7 +518,10 @@ fn leaving_the_screen_costs_a_life_and_the_last_life_ends_the_run() {
 /// then the gate opens and the arena pays its bonus.
 #[test]
 fn an_arena_locks_until_its_mobs_are_beaten() {
-    let mut sim = RunSim::with(only(&["yard", "shop"], (0, 1, 0)), 4);
+    // (All its grunts out at once: no cap and no stagger here; the waves have their own test.)
+    let mut rc = only(&["yard", "shop"], (0, 1, 0));
+    uncap(&mut rc);
+    let mut sim = RunSim::with(rc, 4);
     let slot = *sim.state.run.slot_of(1).unwrap();
     let arena = &sim.rc.rooms[usize::from(slot.room)];
     assert_eq!(arena.kind, ROOM_ARENA);
@@ -999,7 +1024,11 @@ fn a_mob_launched_off_screen_is_a_kill_only_if_the_player_hit_it() {
     assert!(!sim.state.run.mobs[a].active && !sim.state.run.mobs[b].active);
     assert_eq!(sim.state.run.kos, 2, "both knocked out");
     assert_eq!(sim.state.run.kills, 1, "one the player's");
-    assert_eq!(sim.state.run.coins, u32::from(sim.rc.mobs[0].coins));
+    // (Out of the top: R2e's Skyward bonus on top of its coins.)
+    assert_eq!(
+        sim.state.run.coins,
+        u32::from(sim.rc.mobs[0].coins) + u32::from(sim.rc.rules.sky_bonus)
+    );
     // Not launched: a grunt standing high above the view is left alone.
     let mut sim = RunSim::with(quiet(), 1);
     sim.clear_mobs();
@@ -1423,11 +1452,11 @@ fn checksum_sees_every_run_field() {
         ("next_x", |r| r.next_x += Fx::from_raw(1)),
         ("next_y", |r| r.next_y += Fx::from_raw(1)),
         ("placed", |r| r.placed += 1),
-        ("last_room", |r| r.last_room ^= 1),
-        ("last_kind", |r| r.last_kind ^= 1),
+        ("planner.last_room", |r| r.planner.last_room ^= 1),
+        ("planner.last_kind", |r| r.planner.last_kind ^= 1),
         ("kinds_log", |r| r.kinds_log ^= 1 << 60),
-        ("since_shop", |r| r.since_shop += 1),
-        ("shop_due", |r| r.shop_due += 1),
+        ("planner.since_shop", |r| r.planner.since_shop += 1),
+        ("planner.shop_due", |r| r.planner.shop_due += 1),
         ("room", |r| r.room += 1),
         ("wall_x", |r| r.wall_x += Fx::from_raw(1)),
         ("gate_closed", |r| r.gate_closed ^= true),
@@ -1519,8 +1548,8 @@ fn checksum_sees_every_run_field() {
         ("props.hit_mobs", |r| r.props[0].hit_mobs ^= 1 << 15),
         ("props.hit_player", |r| r.props[0].hit_player ^= true),
         ("chests", |r| r.chests += 1),
-        ("event_pity", |r| r.event_pity += 1),
-        ("event_city", |r| r.event_city += 1),
+        ("planner.event_pity", |r| r.planner.event_pity += 1),
+        ("planner.event_city", |r| r.planner.event_city += 1),
         ("van.mode", |r| r.van.mode += 1),
         ("van.room", |r| r.van.room += 1),
         ("van.x", |r| r.van.x += Fx::from_raw(1)),
@@ -1531,6 +1560,34 @@ fn checksum_sees_every_run_field() {
         ("van.riding", |r| r.van.riding ^= true),
         ("van.hits", |r| r.van.hits += 1),
         ("skipped_log", |r| r.skipped_log ^= 1 << 15),
+        // R2e.
+        ("slots.emerged_at", |r| r.slots[0].emerged_at += 1),
+        ("slots.skill_off", |r| r.slots[0].skill_off ^= true),
+        ("mob.air", |r| r.mobs[0].air ^= true),
+        ("mob.juggle", |r| r.mobs[0].juggle += 1),
+        ("mob.bowled", |r| r.mobs[0].bowled ^= 1 << 11),
+        ("planner.rng", |r| r.planner.rng = Rng::new(5)),
+        ("planner.count", |r| r.planner.count += 1),
+        ("planner.y", |r| r.planner.y += Fx::from_raw(1)),
+        ("plan.room", |r| r.plan[run::PLAN - 1].room ^= 1),
+        ("plan.mirror", |r| r.plan[0].mirror ^= true),
+        ("plan.live", |r| r.plan[0].live ^= true),
+        ("plan.decks", |r| r.plan[0].deck_out ^= 1),
+        ("plan.seq", |r| r.plan[0].seq += 1),
+        ("forked", |r| r.forked ^= true),
+        ("roads", |r| r.roads[1].room ^= 1),
+        ("branch_planner", |r| r.branch_planner[1].count += 1),
+        ("branch_plan", |r| r.branch_plan[1][run::PLAN - 1].seq += 1),
+        ("reach_jump", |r| r.reach_jump.x += Fx::from_raw(1)),
+        ("reach_recovery", |r| r.reach_recovery.y += Fx::from_raw(1)),
+        ("callout", |r| r.callout += 1),
+        ("callouts", |r| r.callouts += 1),
+        ("callout_at", |r| r.callout_at.x += Fx::from_raw(1)),
+        ("callout_coins", |r| r.callout_coins += 1),
+        ("sky_kos", |r| r.sky_kos += 1),
+        ("spike_kos", |r| r.spike_kos += 1),
+        ("bowls", |r| r.bowls += 1),
+        ("air_kos", |r| r.air_kos += 1),
     ];
     for (name, edit) in edits {
         let mut s = base;
@@ -1567,6 +1624,46 @@ fn versus_has_no_run_and_run_content_hashes() {
         ("price", {
             let mut o = rc.clone();
             o.items[0].price += 1;
+            o
+        }),
+        ("tier cap", {
+            let mut o = rc.clone();
+            o.tiers[0].cap += 1;
+            o
+        }),
+        ("emerge_gap", {
+            let mut o = rc.clone();
+            o.rules.emerge_gap += 1;
+            o
+        }),
+        ("recovery", {
+            let mut o = rc.clone();
+            o.rooms[1].recovery ^= 1;
+            o
+        }),
+        ("skilled coin", {
+            let mut o = rc.clone();
+            o.rooms[1].coins[0].skilled ^= true;
+            o
+        }),
+        ("buildings", {
+            let mut o = rc.clone();
+            o.rooms[1].buildings[0].top += Fx::ONE;
+            o
+        }),
+        ("R2e rules", {
+            let mut o = rc.clone();
+            o.rules.bowl_speed += Fx::ONE;
+            o
+        }),
+        ("map_ahead", {
+            let mut o = rc.clone();
+            o.rules.map_ahead += 1;
+            o
+        }),
+        ("perch", {
+            let mut o = rc.clone();
+            o.mobs[0].perch ^= 1;
             o
         }),
         ("piece", {
@@ -1877,6 +1974,7 @@ fn a_fork_works_with_the_window_and_the_gate() {
     let mut rc = only(&["fork", "yard", "shop"], (1, 1, 0));
     rc.rules.fork_chance = 100;
     rc.rules.arena_weight = 50;
+    uncap(&mut rc);
     let mut sim = RunSim::with(rc, 5);
     let mut forks = 0;
     let mut gated_after_fork = false;
@@ -3493,8 +3591,8 @@ fn a_climb_scrolls_the_view_and_is_a_gate_once_left() {
     panic!("no climb came");
 }
 
-/// A drop: the view follows the player down a deck, and the rooms before the drop are gone once it is left (no lid: its back edge
-/// is its top, and nothing is left above it to go back to).
+/// A drop: the view follows the player down a deck, and the rooms before the drop are gone once it is left; a lid closes over it
+/// (R2e, the owner's answer), so you cannot go back up past it.
 #[test]
 fn a_drop_scrolls_the_view_down() {
     let mut rc = only(&["balcony_drop", "street", "shop"], (1, 0, 0));
@@ -3529,8 +3627,37 @@ fn a_drop_scrolls_the_view_down() {
         assert!(high - sim.state.run.cam_y >= fx(13), "the view came down");
         sim.next_room();
         let run = &sim.state.run;
+        let rules = sim.rc.rules;
         assert_eq!(run.wall_x, drop.x, "nothing before the drop is kept");
-        assert!(!run.slot_of(drop.seq).unwrap().lid, "no lid over a drop");
+        // (R2e, the owner's R2d answer 5: "Yes". A drop gets a lid too: a ceiling across it, `lid_clear` over its floor.)
+        assert!(run.slot_of(drop.seq).unwrap().lid, "a lid over the drop");
+        let under = drop.y_end + rules.lid_clear;
+        assert!(
+            run.platforms.iter().any(|p| p.live
+                && !p.pass_through
+                && p.left == drop.x
+                && p.right == drop.end
+                && p.bottom == under),
+            "the lid is a solid ceiling across the drop"
+        );
+        // A jump from the drop's floor stops under the lid: no way back up.
+        let foot = if drop.mirror {
+            drop.x + fx(8)
+        } else {
+            drop.end - fx(8)
+        };
+        sim.stand(Vec2::new(foot, drop.y_end));
+        let mut peak = drop.y_end;
+        for n in 0..90 {
+            let jump = if n < 12 || (20..24).contains(&n) {
+                JUMP
+            } else {
+                0
+            };
+            sim.tick(inp(0, 0, jump));
+            peak = peak.max(sim.player().pos.y);
+        }
+        assert!(peak < under, "under the lid: {peak:?}");
         return;
     }
     panic!("no drop came");
@@ -3588,8 +3715,8 @@ fn the_checksum_sees_the_decks() {
         ("slots.deck_in", |s| s.run.slots[0].deck_in ^= 1),
         ("slots.deck_out", |s| s.run.slots[0].deck_out ^= 1),
         ("slots.lid", |s| s.run.slots[0].lid ^= true),
-        ("plan_deck", |s| s.run.plan_deck ^= 1),
-        ("plan_left", |s| s.run.plan_left += 1),
+        ("planner.plan_deck", |s| s.run.planner.plan_deck ^= 1),
+        ("planner.plan_left", |s| s.run.planner.plan_left += 1),
         ("ledge_owner beyond versus's", |s| {
             s.ledge_owner[sim_core::state::LEDGE_SLOTS - 1] = 0
         }),
@@ -3646,4 +3773,613 @@ fn a_run_through_the_decks_replays() {
     let (b, _) = play(&rc);
     assert_eq!(a, b);
     assert!(vertical >= 2, "through {vertical} climbs and drops");
+}
+
+// ---- R2e, the owner's note A: a small cap on grunts at once, rising with the tier; a stagger between doorways ------------------
+
+fn alive(sim: &RunSim) -> usize {
+    sim.state.run.mobs.iter().filter(|m| m.active).count()
+}
+
+/// The cap per tier is data (tier 1 two, tier 2 three, then one more a tier), and over many seeds and rooms the grunts alive never
+/// pass the current tier's cap, which is reached.
+#[test]
+fn the_grunts_alive_never_pass_the_tiers_cap() {
+    let rc = RunContent::placeholder();
+    let caps: Vec<u8> = rc.tiers.iter().map(|t| t.cap).collect();
+    assert_eq!(caps, [2, 3, 4, 5, 6]);
+    assert!(caps.iter().all(|&c| usize::from(c) <= MAX_MOBS));
+    let mut reached = [false; 5];
+    for seed in 0..6u64 {
+        let mut sim = RunSim::new(seed);
+        for _ in 0..30 {
+            for _ in 0..90 {
+                sim.state.fighters[PLAYER].invuln = 5;
+                sim.tick(Input::default());
+                let tier = usize::from(run::tier_of(&sim.rc, sim.state.run.room));
+                let cap = usize::from(sim.rc.tiers[tier].cap);
+                assert!(
+                    alive(&sim) <= cap,
+                    "seed {seed}: {} alive, cap {cap}",
+                    alive(&sim)
+                );
+                reached[tier] |= alive(&sim) == cap;
+            }
+            sim.next_room();
+        }
+    }
+    assert!(reached[0] && reached[1], "the cap is reached: {reached:?}");
+}
+
+/// Grunts come out of doors one at a time in a room, `emerge_gap` frames apart at least; and a spot past the cap waits its turn,
+/// coming out once a grunt is beaten.
+#[test]
+fn spots_wait_their_turn_and_doorways_are_staggered() {
+    let rc = RunContent::placeholder();
+    let gap = u32::from(rc.rules.emerge_gap);
+    assert!(gap >= 50, "about a second between two doorways");
+    let mut stagger_seen = 0;
+    for seed in 0..8u64 {
+        let mut sim = RunSim::new(seed);
+        let emerge = u32::from(rc.rules.emerge_frames);
+        // (Each grunt's own frame of coming out: its emergence's timer tells how long ago.)
+        let mut out: Vec<(usize, u32, u32)> = Vec::new();
+        for _ in 0..12 {
+            for _ in 0..120 {
+                sim.state.fighters[PLAYER].invuln = 5;
+                sim.tick(Input::default());
+                for n in 0..MAX_MOBS {
+                    let m = sim.state.run.mobs[n];
+                    if !m.active || m.mode != run::MODE_EMERGE {
+                        continue;
+                    }
+                    let at = sim.state.frame - (emerge - u32::from(m.timer));
+                    if !out.iter().any(|&(k, _, f)| k == n && f == at) {
+                        out.push((n, m.room, at));
+                    }
+                }
+            }
+            sim.next_room();
+        }
+        out.sort_by_key(|&(_, room, at)| (room, at));
+        for w in out.windows(2) {
+            if w[0].1 == w[1].1 {
+                assert!(
+                    w[1].2 - w[0].2 >= gap,
+                    "seed {seed}: two grunts out of room {}'s doors {} frames apart",
+                    w[0].1,
+                    w[1].2 - w[0].2
+                );
+                stagger_seen += 1;
+            }
+        }
+    }
+    assert!(stagger_seen > 10, "{stagger_seen} staggered pairs");
+    // A room with more spots than the cap: the cap comes out, the rest wait; beat one and the next comes.
+    let mut rc = only(&["avenue", "shop"], (1, 0, 0));
+    let avenue = rc.rooms.iter().position(|r| r.name == "avenue").unwrap();
+    rc.rooms[avenue].min_tier = 0;
+    rc.rooms[avenue].spawns = RunContent::placeholder()
+        .rooms
+        .into_iter()
+        .find(|r| r.name == "avenue")
+        .unwrap()
+        .spawns;
+    for s in rc.rooms[avenue].spawns.iter_mut() {
+        s.kind = 0;
+    }
+    let mut sim = RunSim::with(rc, 2);
+    sim.next_room();
+    let cap = usize::from(sim.rc.tiers[0].cap);
+    for _ in 0..400 {
+        sim.state.fighters[PLAYER].invuln = 5;
+        for n in 0..MAX_MOBS {
+            if sim.state.run.mobs[n].active {
+                sim.hold(n);
+            }
+        }
+        sim.tick(Input::default());
+    }
+    let slot = here(&sim);
+    assert_eq!(alive(&sim), cap, "the cap is out");
+    let waiting =
+        (slot.spawned as u32 | !((1u32 << sim.rc.rooms[avenue].spawns.len()) - 1)).count_zeros();
+    assert!(waiting > 0, "spots wait");
+    let n = (0..MAX_MOBS)
+        .find(|&n| sim.state.run.mobs[n].active)
+        .unwrap();
+    run::remove_grunt(&mut sim.state, &sim.world, n);
+    sim.idle(gap + 2);
+    assert_eq!(alive(&sim), cap, "the next spot came out");
+    assert_eq!(
+        here(&sim).spawned.count_ones(),
+        slot.spawned.count_ones() + 1
+    );
+}
+
+/// An arena comes in waves under the cap and its gate opens only when every grunt of it, every wave, is beaten.
+#[test]
+fn an_arena_clears_in_waves() {
+    let mut rc = only(&["yard", "shop"], (0, 1, 0));
+    let yard = rc.rooms.iter().position(|r| r.name == "yard").unwrap();
+    for s in rc.rooms[yard].spawns.iter_mut() {
+        s.kind = 0;
+    }
+    let spots = rc.rooms[yard].spawns.len();
+    let mut sim = RunSim::with(rc, 4);
+    let cap = usize::from(sim.rc.tiers[0].cap);
+    assert!(spots > cap);
+    let slot = *sim.state.run.slot_of(1).unwrap();
+    sim.stand(Vec2::new(slot.x + fx(3), slot.y));
+    sim.tick(Input::default());
+    assert!(sim.state.run.gate_closed);
+    let mut beaten = 0;
+    let mut waves_max = 0;
+    for _ in 0..3000 {
+        sim.state.fighters[PLAYER].invuln = 5;
+        sim.tick(Input::default());
+        assert!(alive(&sim) <= cap);
+        waves_max = waves_max.max(alive(&sim));
+        if !sim.state.run.gate_closed {
+            break;
+        }
+        // (Beat whoever is out once it is out of its door.)
+        for n in 0..MAX_MOBS {
+            let m = sim.state.run.mobs[n];
+            if m.active && m.mode != run::MODE_EMERGE {
+                run::remove_grunt(&mut sim.state, &sim.world, n);
+                beaten += 1;
+            }
+        }
+    }
+    assert!(!sim.state.run.gate_closed, "the arena opened");
+    assert_eq!(beaten, spots, "every wave beaten first");
+    assert!(waves_max >= 1 && waves_max <= cap);
+    assert_eq!(sim.state.run.cleared, 1);
+}
+
+// ---- R2e: the owner's R2d answers, recovery routes, juggles, direction bonuses, bowling, height placement, the planned map --------
+
+/// The owner's R2d answers kept as they were: the run starts on the rooftops; deck stretches of 3 to 5 rooms and deck forks at 60%
+/// of stretch ends ("this is fine for now"); a shop that is due comes before a deck move ("I believe so": the shops keep their
+/// spacing through every deck change, over many seeds).
+#[test]
+fn the_owners_r2d_answers_hold() {
+    let rc = RunContent::placeholder();
+    assert_eq!(rc.decks[usize::from(rc.rules.start_deck)].name, "rooftops");
+    assert_eq!((rc.rules.deck_rooms_min, rc.rules.deck_rooms_max), (3, 5));
+    assert_eq!(rc.rules.deck_fork_chance, 60);
+    let r = rc.rules;
+    let mut quiet_rc = quiet();
+    quiet_rc.rules.event_base = 0;
+    for seed in 0..10u64 {
+        let mut sim = RunSim::with(quiet_rc.clone(), seed);
+        let mut since: Option<u32> = None;
+        for step in 0..60u64 {
+            sim.take_road(((seed + step) % 2) as usize);
+            let s = here(&sim);
+            let kind = sim.rc.rooms[usize::from(s.room)].kind;
+            if kind == ROOM_SHOP {
+                if let Some(n) = since {
+                    assert!(
+                        n + 1 >= u32::from(r.shop_min) && n < u32::from(r.shop_max) + 3,
+                        "seed {seed}: a shop {n} rooms after the last"
+                    );
+                }
+                since = Some(0);
+            } else if let Some(n) = since.as_mut() {
+                *n += 1;
+                assert!(
+                    *n <= u32::from(r.shop_max) + 2,
+                    "seed {seed}: a shop was late"
+                );
+            }
+        }
+    }
+}
+
+/// A recovery route is offered only to a fighter who can make it: the light well's high scaffold (a climb a double jump cannot
+/// make) is laid for the duelist (its up special reaches it) and left out, with its coins, for the brawler (it does not).
+#[test]
+fn a_recovery_route_is_offered_only_to_who_can_make_it() {
+    let rc = only(&["light_well", "street", "shop"], (1, 0, 0));
+    let well = rc
+        .rooms
+        .iter()
+        .position(|r| r.name == "light_well")
+        .unwrap();
+    assert_eq!(rc.rooms[well].recovery, run::data::RECOVER_UP);
+    for (char_id, offered) in [(0u8, true), (1u8, false)] {
+        let mut found = false;
+        for seed in 0..20u64 {
+            let mut sim = RunSim::with_char(rc.clone(), seed, char_id);
+            for _ in 0..8 {
+                if let Some(s) = sim
+                    .state
+                    .run
+                    .slots
+                    .iter()
+                    .find(|s| s.live && usize::from(s.room) == well)
+                {
+                    let s = *s;
+                    assert_eq!(s.skill_off, !offered, "fighter {char_id}");
+                    let mut skilled = 0;
+                    run::for_each_footing(&sim.rc, &s, |p| skilled += usize::from(p.skilled));
+                    let mut coins = 0;
+                    run::for_each_coin(&sim.rc, &s, |_, _| coins += 1);
+                    let all = sim.rc.rooms[well].coins.len();
+                    if offered {
+                        assert!(skilled > 0 && coins == all);
+                    } else {
+                        assert!(skilled == 0 && coins < all, "withheld, its coins too");
+                    }
+                    found = true;
+                    break;
+                }
+                sim.next_room();
+            }
+            if found {
+                break;
+            }
+        }
+        assert!(found, "the light well came for fighter {char_id}");
+    }
+    // The reaches are the run's, worked out once as it starts.
+    let sim = RunSim::with_char(RunContent::placeholder(), 1, 0);
+    assert!(sim.state.run.reach_recovery.y > sim.state.run.reach_jump.y);
+}
+
+/// Holds grunt `n` in the air at `at`, still (as if juggled): off the ground, in no state of its own.
+fn hang(sim: &mut RunSim, n: usize, at: Vec2) {
+    let g = sim.g_mut(n);
+    g.pos = at;
+    g.vel = Vec2::ZERO;
+    g.kb_vel = Vec2::ZERO;
+    g.platform = NONE;
+    g.state = S::Airborne;
+    g.hitstun = 0;
+    g.hitlag = 0;
+}
+
+/// A hit landed on grunt `n` this frame (its percent rises by 5, as a hit's damage does: the run counts hits by that rise).
+fn hit(sim: &mut RunSim, n: usize) {
+    sim.g_mut(n).percent += fx(5);
+}
+
+/// R2e (F3), the juggle: a hit on a grunt in the air counts double toward the combo (a real jab on a grunt held at the player's
+/// chest, against one standing), and a grunt knocked out after hits kept off the ground pays its coins times the juggle, called out.
+#[test]
+fn air_hits_count_double_and_a_juggle_pays_more() {
+    // A jab on the ground: one; the same jab on a grunt in the air: two.
+    for air in [false, true] {
+        let mut sim = open_street(quiet(), 4);
+        sim.state.fighters[PLAYER].facing = 1;
+        let at = sim.player().pos + Vec2::new(Fx::from_ratio(12, 10), Fx::ZERO);
+        let n = grunt(&mut sim, KIND_BRAWLER, at, 0);
+        sim.hold(n);
+        sim.state.run.combo = 0;
+        let mut frames = 0;
+        sim.tick(inp(0, 0, ATTACK));
+        while sim.state.run.combo == 0 && frames < 20 {
+            if air {
+                hang(&mut sim, n, at + Vec2::new(Fx::ZERO, Fx::HALF));
+                sim.state.run.mobs[n].air = true;
+            }
+            sim.tick(Input::default());
+            frames += 1;
+        }
+        assert_eq!(sim.state.run.combo, if air { 2 } else { 1 }, "air {air}");
+    }
+    // A juggle: launched (a hit on the ground), then two hits in the air; knocked out off the side: coins times three, "AIR".
+    let mut sim = open_street(quiet(), 0);
+    let at = Vec2::new(fx(20), Fx::ZERO);
+    let n = grunt(&mut sim, KIND_BRAWLER, at, 0);
+    sim.hold(n);
+    hit(&mut sim, n);
+    sim.tick(Input::default());
+    assert_eq!(sim.state.run.mobs[n].juggle, 1, "the launcher");
+    for k in 0..2 {
+        hang(&mut sim, n, at + Vec2::new(Fx::ZERO, fx(3)));
+        sim.tick(Input::default());
+        assert!(sim.state.run.mobs[n].air);
+        hit(&mut sim, n);
+        hang(&mut sim, n, at + Vec2::new(Fx::ZERO, fx(3)));
+        sim.tick(Input::default());
+        assert_eq!(sim.state.run.mobs[n].juggle, 2 + k, "kept off the ground");
+    }
+    // (Landing ends a juggle: checked on a second grunt.)
+    let m = grunt(&mut sim, KIND_BRAWLER, Vec2::new(fx(24), Fx::ZERO), 0);
+    sim.hold(m);
+    sim.state.run.mobs[m].juggle = 2;
+    sim.tick(Input::default());
+    assert_eq!(
+        sim.state.run.mobs[m].juggle, 0,
+        "on its feet: the juggle is over"
+    );
+    run::remove_grunt(&mut sim.state, &sim.world, m);
+    let (_, right, _, _) = run::grunt_zone(&sim.state.run, &sim.rc.rules);
+    let before = sim.state.run.coins;
+    let combo = sim.state.run.combo;
+    {
+        let g = sim.g_mut(n);
+        g.pos = Vec2::new(right + Fx::ONE, fx(4));
+        g.state = S::Hitstun;
+        g.hitstun = 40;
+        g.kb_vel = Vec2::new(Fx::ONE, Fx::ZERO);
+    }
+    sim.state.run.mobs[n].credit = 30;
+    sim.tick(Input::default());
+    let r = sim.rc.rules;
+    let mult = (1 + u32::from((combo + 1) / r.combo_step)).min(u32::from(r.combo_max));
+    let kind = &sim.rc.mobs[usize::from(KIND_BRAWLER)];
+    assert_eq!(
+        sim.state.run.coins - before,
+        u32::from(kind.coins) * 3 * mult,
+        "coins times the juggle"
+    );
+    assert_eq!(sim.state.run.callout, run::CALL_AIR);
+    assert_eq!(sim.state.run.air_kos, 1);
+}
+
+/// R2e (F3), direction bonuses: a launched grunt out of the top pays `sky_bonus` ("Skyward"), one spiked out of the bottom
+/// `spike_bonus` ("Grounded"), one out of a side nothing more.
+#[test]
+fn skyward_and_grounded_knock_outs_pay_their_bonus() {
+    let r = RunContent::placeholder().rules;
+    for (side, call, bonus) in [
+        (0, run::CALL_SKY, r.sky_bonus),
+        (1, run::CALL_SPIKE, r.spike_bonus),
+        (2, run::CALL_NONE, 0),
+    ] {
+        let mut sim = open_street(quiet(), 0);
+        sim.idle(2);
+        let n = grunt(&mut sim, KIND_BRAWLER, Vec2::new(fx(20), Fx::ZERO), 0);
+        sim.hold(n);
+        let (_, right, bottom, top) = run::grunt_zone(&sim.state.run, &sim.rc.rules);
+        let (at, kb) = match side {
+            0 => (Vec2::new(fx(20), top + Fx::ONE), Vec2::new(Fx::ZERO, fx(2))),
+            1 => (
+                Vec2::new(fx(20), bottom - Fx::ONE),
+                Vec2::new(Fx::ZERO, -fx(2)),
+            ),
+            _ => (
+                Vec2::new(right + Fx::ONE, fx(4)),
+                Vec2::new(fx(2), Fx::ZERO),
+            ),
+        };
+        {
+            let g = sim.g_mut(n);
+            g.pos = at;
+            g.platform = NONE;
+            g.state = S::Hitstun;
+            g.hitstun = 40;
+            g.vel = Vec2::ZERO;
+            g.kb_vel = kb;
+        }
+        sim.state.run.mobs[n].credit = 30;
+        sim.state.run.combo = 0;
+        let before = sim.state.run.coins;
+        sim.tick(Input::default());
+        assert!(!sim.state.run.mobs[n].active, "knocked out ({side})");
+        let kind = &sim.rc.mobs[usize::from(KIND_BRAWLER)];
+        assert_eq!(
+            sim.state.run.coins - before,
+            u32::from(kind.coins) + u32::from(bonus),
+            "side {side}"
+        );
+        assert_eq!(sim.state.run.callout, call, "side {side}");
+        assert_eq!(sim.state.run.sky_kos, u16::from(side == 0));
+        assert_eq!(sim.state.run.spike_kos, u16::from(side == 1));
+    }
+}
+
+/// R2e (F3), bowling: a grunt launched in tumble that flies into another hurts it through the versus hit, credited to the player
+/// (its combo, its kill), called out; each grunt once a launch, and the one bowled does not bowl straight back into it.
+#[test]
+fn a_launched_grunt_bowls_into_another_once_a_launch() {
+    let mut sim = open_street(quiet(), 0);
+    let a = grunt(&mut sim, KIND_BRAWLER, Vec2::new(fx(20), Fx::ZERO), 0);
+    let b = grunt(&mut sim, KIND_BRAWLER, Vec2::new(fx(22), Fx::ZERO), 0);
+    sim.hold(a);
+    sim.hold(b);
+    {
+        let g = sim.g_mut(a);
+        g.pos = Vec2::new(fx(21), Fx::ONE);
+        g.platform = NONE;
+        g.state = S::Hitstun;
+        g.tumble = true;
+        g.hitstun = 60;
+        g.vel = Vec2::ZERO;
+        g.kb_vel = Vec2::new(fx(1), Fx::ZERO);
+    }
+    sim.state.run.mobs[a].credit = 60;
+    sim.state.run.mobs[b].credit = 0;
+    let combo = sim.state.run.combo;
+    sim.tick(Input::default());
+    assert_eq!(sim.state.run.bowls, 1, "bowled");
+    assert!(sim.g(b).percent > Fx::ZERO, "it hurt");
+    assert!(sim.state.run.mobs[b].credit > 0, "the player's");
+    assert_eq!(sim.state.run.callout, run::CALL_BOWL);
+    assert_ne!(sim.state.run.mobs[a].bowled & 1 << b, 0);
+    // Once a launch: overlapping again, it does not hit again while the launch lasts.
+    for _ in 0..10 {
+        if !sim.state.run.mobs[a].active || !sim.state.run.mobs[b].active {
+            break;
+        }
+        let pa = sim.g(a).pos;
+        sim.g_mut(b).pos = pa;
+        sim.tick(Input::default());
+    }
+    assert_eq!(sim.state.run.bowls, 1, "once a launch");
+    sim.tick(Input::default());
+    assert!(
+        sim.state.run.combo > combo,
+        "the bowl counted toward the combo"
+    );
+    // A grunt not in a launch bowls nothing.
+    let mut sim = open_street(quiet(), 0);
+    let a = grunt(&mut sim, KIND_BRAWLER, Vec2::new(fx(20), Fx::ZERO), 0);
+    let b = grunt(&mut sim, KIND_BRAWLER, Vec2::new(fx(20), Fx::ZERO), 0);
+    sim.hold(a);
+    sim.hold(b);
+    sim.state.run.mobs[a].credit = 60;
+    sim.idle(5);
+    assert_eq!(sim.state.run.bowls, 0);
+    assert_eq!(sim.state.run.mobs[a].bowled, 0);
+}
+
+/// R2e (F3), grunts placed by height: with the existing placement rules and budget, leapers come far more often on catwalks,
+/// girders, balconies, fire escapes and scaffolds (where they perch to dive) than their share elsewhere, lobbers on cranes and water
+/// towers; in the rooms that climb or drop, a good share of the grunts stand above the floor the room is entered on; and leapers and
+/// lobbers notice the player further up or down than the others.
+#[test]
+fn grunts_are_placed_by_height() {
+    let rc = RunContent::placeholder();
+    let leaper = &rc.mobs[usize::from(run::data::KIND_LEAPER)];
+    let lobber = &rc.mobs[usize::from(KIND_LOBBER)];
+    assert!(leaper.aggro_y > rc.mobs[0].aggro_y && lobber.aggro_y > rc.mobs[0].aggro_y);
+    // (Counts by spot: [leapers, all] on a leaper's perch and elsewhere; [lobbers, all] on a lobber's perch and elsewhere.)
+    let mut leap = [[0u32; 2]; 2];
+    let mut lob = [[0u32; 2]; 2];
+    let (mut high, mut vertical) = (0u32, 0u32);
+    for seed in 0..40u64 {
+        let mut sim = RunSim::with(rc.clone(), seed);
+        for step in 0..40u64 {
+            sim.clear_mobs();
+            sim.take_road(((seed + step) % 2) as usize);
+            for s in sim.state.run.slots.iter().filter(|s| s.live) {
+                let room = &sim.rc.rooms[usize::from(s.room)];
+                let mut feet = Vec::new();
+                run::for_each_footing(&sim.rc, s, |p| feet.push(p));
+                for (j, spot) in room.spawns.iter().enumerate() {
+                    let k = s.kinds[j];
+                    if k == SPOT_ANY {
+                        continue;
+                    }
+                    let x = if s.mirror {
+                        s.x + room.width - spot.x
+                    } else {
+                        s.x + spot.x
+                    };
+                    let y = if s.mirror {
+                        s.y + spot.y - room.exit_y
+                    } else {
+                        s.y + spot.y
+                    };
+                    let Some(foot) = feet
+                        .iter()
+                        .filter(|p| {
+                            x >= p.platform.left
+                                && x <= p.platform.right
+                                && (p.platform.top_at(x) - y).abs() <= Fx::HALF
+                        })
+                        .max_by_key(|p| p.platform.top_at(x))
+                    else {
+                        continue;
+                    };
+                    let bit = 1u64 << foot.look;
+                    let on_leap = usize::from(leaper.perch & bit != 0);
+                    leap[on_leap][1] += 1;
+                    leap[on_leap][0] += u32::from(k == run::data::KIND_LEAPER);
+                    if s.tier >= lobber.min_tier {
+                        let on_lob = usize::from(lobber.perch & bit != 0);
+                        lob[on_lob][1] += 1;
+                        lob[on_lob][0] += u32::from(k == KIND_LOBBER);
+                    }
+                    if s.vertical() {
+                        vertical += 1;
+                        high += u32::from(y >= s.y.min(s.y_end) + rc.rules.high_ground);
+                    }
+                }
+            }
+        }
+    }
+    println!("leapers {leap:?}, lobbers {lob:?}, vertical rooms: {high} of {vertical} high");
+    // (Share on perches above one and a half times the share elsewhere: a[0]/a[1] > 1.5 b[0]/b[1], in whole numbers.)
+    let more = |a: [u32; 2], b: [u32; 2]| 2 * a[0] * b[1].max(1) > 3 * b[0] * a[1].max(1);
+    assert!(more(leap[1], leap[0]), "leapers perch: {leap:?}");
+    assert!(
+        lob[1][1] > 0 && more(lob[1], lob[0]),
+        "lobbers on cranes: {lob:?}"
+    );
+    assert!(
+        vertical > 50 && high * 3 >= vertical,
+        "fights span heights in vertical rooms: {high} of {vertical}"
+    );
+}
+
+/// R2e (F4), the map is truthful: over many seeds and both roads at every branching fork, every room the map shows ahead (laid or
+/// only planned, on the main line, a fork's roads and the line after each) comes exactly as shown: the room, its mirror and its
+/// number; the map reaches `map_ahead` rooms ahead, both branches of a fork with it; deck forks and road forks both appear.
+#[test]
+fn the_planned_map_matches_the_rooms_that_come() {
+    let rc = RunContent::placeholder();
+    let h = usize::from(rc.rules.map_ahead);
+    let (mut checked, mut forks_seen, mut deck_forks_seen) = (0u32, 0u32, 0u32);
+    for seed in 0..30u64 {
+        let mut sim = RunSim::with(rc.clone(), seed);
+        for step in 0..40u64 {
+            let before = run::map_ahead(&sim.state.run);
+            assert!(
+                before.iter().any(|n| usize::from(n.depth) >= h.min(2)),
+                "seed {seed}: the map reaches ahead: {before:?}"
+            );
+            let lines: Vec<u8> = before.iter().map(|n| n.line).collect();
+            if lines.contains(&1) && lines.contains(&2) {
+                forks_seen += 1;
+                let roads: Vec<&run::MapNode> = before.iter().filter(|n| n.line > 0).collect();
+                let deck = |l: u8| {
+                    roads
+                        .iter()
+                        .filter(|n| n.line == l)
+                        .map(|n| n.deck_out)
+                        .next()
+                };
+                if deck(1) != deck(2) {
+                    deck_forks_seen += 1;
+                }
+            }
+            let k = ((seed * 7 + step) % 2) as usize;
+            let fork_here = before.iter().any(|n| n.depth == 1 && n.line > 0);
+            sim.clear_mobs();
+            sim.take_road(k);
+            let entered = here(&sim);
+            let want_line = if fork_here { k as u8 + 1 } else { 0 };
+            let first = before
+                .iter()
+                .find(|n| n.depth == 1 && n.line == want_line)
+                .expect("the next room was on the map");
+            assert_eq!(
+                (first.seq, first.room, first.mirror),
+                (entered.seq, entered.room, entered.mirror),
+                "seed {seed} step {step}: the room entered is the one shown"
+            );
+            let after = run::map_ahead(&sim.state.run);
+            for n in before.iter().filter(|n| n.depth >= 2) {
+                let line = if fork_here {
+                    if n.line != k as u8 + 1 {
+                        continue;
+                    }
+                    0
+                } else {
+                    n.line
+                };
+                let found = after
+                    .iter()
+                    .find(|m| m.seq == n.seq && m.depth + 1 == n.depth && m.line == line);
+                let m = found.unwrap_or_else(|| {
+                    panic!("seed {seed} step {step}: room {} ({}) left the map: {before:?} then {after:?}", n.seq, n.room)
+                });
+                assert_eq!(
+                    (m.room, m.mirror),
+                    (n.room, n.mirror),
+                    "seed {seed} step {step}: room {} changed",
+                    n.seq
+                );
+                checked += 1;
+            }
+        }
+    }
+    println!("{checked} rooms checked ahead, {forks_seen} forks on the map, {deck_forks_seen} of them deck forks");
+    assert!(checked > 1500 && forks_seen > 30 && deck_forks_seen > 5);
 }

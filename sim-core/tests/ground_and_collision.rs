@@ -507,10 +507,13 @@ fn a_running_jump_keeps_some_of_its_ground_speed_into_the_air() {
         sim.tick(inp(127, 0, JUMP));
     }
     assert!(!sim.f().grounded());
-    // As in the reference game, the ground speed leaves the ground reduced and capped (sim v36): a running jump goes a little faster
-    // than a full drift, not at a run's speed (which made running jumps floaty).
-    let rules = sim.content.rules;
-    let takeoff = (run * rules.jump_momentum).min(p.air_speed * rules.jump_momentum_max);
+    // As in the reference game, the ground speed leaves the ground reduced and capped (sim v36; since sim 139 the body's own
+    // `jump_speed_x_mul` share, or the stick's `jump_speed_x` when faster, capped at `jump_speed_x_max`): a running jump goes a
+    // little faster than a full drift, not at a run's speed (which made running jumps floaty).
+    let stick = inp(127, 0, 0).stick_x_fx() * p.jump_speed_x;
+    let takeoff = (run * Fx::from_ratio(i32::from(p.jump_speed_x_mul), 100))
+        .max(stick)
+        .min(p.jump_speed_x_max);
     assert_eq!(sim.f().vel.x, takeoff);
     assert!(takeoff < run);
     // In the air it keeps almost all of that, since only light air friction acts on speed above the air speed.
@@ -676,8 +679,8 @@ fn jumping_out_of_a_cancelled_dash_keeps_the_momentum_in_the_air() {
     }
     assert!(!sim.f().grounded());
     // The jump squat itself loses nothing; the takeoff carries the reduced, capped share of it (see the running jump above).
-    let rules = sim.content.rules;
-    let takeoff = (squat_start * rules.jump_momentum).min(p.air_speed * rules.jump_momentum_max);
+    let takeoff =
+        (squat_start * Fx::from_ratio(i32::from(p.jump_speed_x_mul), 100)).min(p.jump_speed_x_max);
     assert_eq!(sim.f().vel.x, takeoff, "jump squat must not eat the speed");
     // With no stick held the air drift continues, slowed only by light air friction.
     sim.ticks(10, inp(0, 0, 0));
@@ -1162,4 +1165,57 @@ fn holding_down_walks_off_without_grabbing_the_ledge() {
         grabbed |= sim.f().state == S::LedgeHang;
     }
     assert!(grabbed || sim.f().grounded() || sim.f().pos.y < Fx::from_int(-3));
+}
+
+/// A block lower than a fighter's ECB at its widest (a run's table, 0.9 tall, standing on the floor): a fighter that has come down
+/// beside its corner, its feet outside but its ECB's lower half reaching past the face, walks, dashes or rolls into it and is
+/// stopped: its feet never go into the block. (R2e's random-play test found a roll sliding through a run's table, sim 141.)
+#[test]
+fn walking_dashing_or_rolling_into_a_low_block_beside_its_corner_stops() {
+    let face = Fx::from_int(2);
+    for (how, input) in [
+        ("walk", inp(50, 0, 0)),
+        ("dash", inp(127, 0, 0)),
+        ("roll", inp(127, 0, SHIELD)),
+    ] {
+        for start in [
+            face - Fx::from_ratio(1, 10),
+            face - Fx::from_ratio(1, 2),
+            face - Fx::ONE,
+        ] {
+            let mut sim = Sim::alone();
+            sim.content.stage.platforms.push(Platform {
+                left: face,
+                right: face + Fx::from_ratio(3, 2),
+                y: Fx::from_ratio(9, 10),
+                bottom: Fx::from_int(-8),
+                pass_through: false,
+                rise: Fx::ZERO,
+            });
+            // Down beside the corner: it lands on the floor next to the block.
+            sim.put_airborne(0, start, Fx::from_int(2), Fx::ZERO, Fx::ZERO);
+            for _ in 0..40 {
+                sim.tick(inp(0, 0, 0));
+            }
+            assert!(sim.f().grounded(), "{how} from {start:?}: landed");
+            if how == "roll" {
+                sim.tick(inp(0, 0, SHIELD));
+                sim.tick(inp(0, 0, SHIELD));
+            }
+            for n in 0..60 {
+                let i = if how == "roll" && n > 3 {
+                    inp(0, 0, SHIELD)
+                } else {
+                    input
+                };
+                sim.tick(i);
+                assert!(
+                    sim.f().pos.x <= face,
+                    "{how} from {start:?}, frame {n}: feet at {:?} inside the block ({:?})",
+                    sim.f().pos,
+                    sim.f().state
+                );
+            }
+        }
+    }
 }

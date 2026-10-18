@@ -486,6 +486,34 @@ fn air_momentum(vx: Fx, p: &FighterParams, rules: &Ruleset) -> Fx {
     (vx * rules.jump_momentum).clamp(-cap, cap)
 }
 
+/// A ground jump's horizontal speed as it leaves the ground (sim 139, owner decisions 99 and 100). A body with its own rule
+/// (`FighterParams::jump_speed_x_max` > 0, the reference's `jump_speed_x` / `_mul` / `_max`) with ground speed keeps
+/// `jump_speed_x_mul` percent of it (a run jump takes the run, whatever the stick); from standing still it moves at the stick's
+/// sideways tilt times `jump_speed_x`; held within `jump_speed_x_max` either way. With `Ruleset::jump_stick_share` 1 (decision 99's
+/// reading) it takes the faster of the two the same way, a stick held against the kept speed never cutting it (a reverse aerial rush
+/// keeps its dash). How the reference combines the two is not published. Without its own rule, the older shared rule
+/// (`air_momentum`).
+fn jump_takeoff_x(f: &Fighter, p: &FighterParams, rules: &Ruleset) -> Fx {
+    if p.jump_speed_x_max <= Fx::ZERO {
+        return air_momentum(f.vel.x, p, rules);
+    }
+    let input = f.history[0];
+    let stick = if x_active(input) {
+        input.stick_x_fx() * p.jump_speed_x
+    } else {
+        Fx::ZERO
+    };
+    let kept = f.vel.x * Fx::from_ratio(i32::from(p.jump_speed_x_mul), 100);
+    let take_stick = if rules.jump_stick_share == 0 {
+        kept == Fx::ZERO
+    } else {
+        let same_way = kept == Fx::ZERO || kept.signum_int() == stick.signum_int();
+        same_way && stick.abs() > kept.abs()
+    };
+    let vx = if take_stick { stick } else { kept };
+    vx.clamp(-p.jump_speed_x_max, p.jump_speed_x_max)
+}
+
 /// Ends whatever the fighter is doing: standing if it is on the ground, else falling (sim 113: balloons that let go on the ground).
 pub fn stand_or_fall(f: &mut Fighter) {
     enter(f, if f.grounded() { S::Idle } else { S::Airborne });
@@ -932,9 +960,9 @@ fn jump_squat(f: &mut Fighter, p: &FighterParams, weapon: &Weapon, stage: &Stage
     if f.state_frame >= u16::from(p.jump_squat_frames) {
         f.platform = NONE;
         f.fast_fall = false;
-        // The ground speed carries into the air reduced (`jump_momentum`) and capped (`jump_momentum_max` of the air speed), so a
-        // running jump is a little faster than a full drift, not a run's speed carried through the whole jump.
-        f.vel.x = air_momentum(f.vel.x, p, rules);
+        // The ground speed carries into the air reduced and capped, so a running jump is a little faster than a full drift, not a
+        // run's speed carried through the whole jump (a body's own rule, with the stick's share: `jump_takeoff_x`).
+        f.vel.x = jump_takeoff_x(f, p, rules);
         enter(f, S::Airborne);
         // An attack pressed during the jump squat (or with the jump) makes it a short hop, held jump or not: the short-hop aerial.
         // The aerial itself comes out of the buffer on the first airborne frame.

@@ -163,6 +163,10 @@ fn validate_previous_rules(r: &sim_core::content::Ruleset, errors: &mut Vec<Stri
     if r.slip_lag > r.slip_max {
         errors.push("ruleset: slip_lag cannot be above slip_max".to_string());
     }
+    // (The ground jump's stick share is a switch: owner decision 100, sim 139.)
+    if r.jump_stick_share > 1 {
+        errors.push("ruleset: jump_stick_share must be 0 or 1".to_string());
+    }
 }
 
 /// Names are how content files refer to things, so they must be present, tidy and unique.
@@ -224,6 +228,22 @@ fn validate_fighter(i: usize, f: &FighterParams, weapons: usize, errors: &mut Ve
         if value > Fx::ONE && MULTIPLIERS.contains(&name) {
             errors.push(format!("fighter {i}: {name} must be at most 1.0"));
         }
+    }
+    // The ground jump's own horizontal rule (sim 139): speeds within range, the ground share a percent up to 200.
+    for (name, value) in [
+        ("jump_speed_x", f.jump_speed_x),
+        ("jump_speed_x_max", f.jump_speed_x_max),
+    ] {
+        if value < Fx::ZERO || value > MAX_VALUE {
+            errors.push(format!(
+                "fighter {i}: {name} must be between 0 and the allowed maximum"
+            ));
+        }
+    }
+    if f.jump_speed_x_mul > 200 {
+        errors.push(format!(
+            "fighter {i}: jump_speed_x_mul is a percent up to 200"
+        ));
     }
     for (name, value) in f.int_fields() {
         let at_least_one = [
@@ -1677,6 +1697,40 @@ mod combat_tests {
     }
 
     #[test]
+    fn the_jump_stick_share_switch_round_trips_and_is_checked() {
+        // Sim 139 (owner decision 100): the ruleset's `jump_stick_share` is written, read back either way, defaults to 0 (the run's
+        // share) in a file without it, and is refused above 1.
+        let base = Content::placeholder();
+        assert_eq!(base.rules.jump_stick_share, 0);
+        let text = crate::bundle::to_text(&base, "test", "", "", false);
+        assert!(text.contains("jump_stick_share 0"));
+        let back = crate::bundle::load(&text).expect("reads back").content;
+        assert_eq!(back, base);
+        let mut on = base.clone();
+        on.rules.jump_stick_share = 1;
+        let text_on = crate::bundle::to_text(&on, "test", "", "", false);
+        assert!(text_on.contains("jump_stick_share 1"));
+        let back = crate::bundle::load(&text_on).expect("reads back").content;
+        assert_eq!(back.rules.jump_stick_share, 1);
+        assert_eq!(back, on);
+        let stripped = text_on
+            .lines()
+            .filter(|l| !l.contains("jump_stick_share"))
+            .collect::<Vec<_>>()
+            .join("\n");
+        let older = crate::bundle::load(&stripped)
+            .unwrap_or_else(|e| panic!("{}", e.join("\n")))
+            .content;
+        assert_eq!(older.rules.jump_stick_share, 0);
+        let mut bad = base.clone();
+        bad.rules.jump_stick_share = 2;
+        assert!(validate(&bad)
+            .unwrap_err()
+            .iter()
+            .any(|e| e.contains("jump_stick_share")));
+    }
+
+    #[test]
     fn the_popgun_banana_fields_round_trip_and_are_checked() {
         // Sim 117: the Popgun's (class 11) peel: the slip hits (E44), the toss (E47), the item's damage modifier, uses and trap (E45),
         // and the ruleset's soft-trip timings come back from a file unchanged; a file without them keeps today's behaviour; bad values
@@ -2473,5 +2527,37 @@ mod combat_tests {
         let mut c = Content::placeholder();
         c.fighters[0].weight = Fx::from_int(5);
         assert!(validate(&c).is_err());
+    }
+
+    #[test]
+    fn the_jump_rule_fields_round_trip_and_are_checked() {
+        // Sim 139 (owner decision 99): a body's own ground-jump rule comes back from a file unchanged; a file without it keeps the
+        // older shared rule; bad values are refused.
+        let base = Content::placeholder();
+        let text = crate::bundle::to_text(&base, "test", "", "", false);
+        for field in ["jump_speed_x ", "jump_speed_x_mul 80", "jump_speed_x_max "] {
+            assert!(text.contains(field), "{field}");
+        }
+        let back = crate::bundle::load(&text).expect("reads back").content;
+        assert_eq!(back, base);
+        let stripped = text
+            .lines()
+            .filter(|l| !l.trim_start().starts_with("jump_speed_x"))
+            .collect::<Vec<_>>()
+            .join("\n");
+        let old = crate::bundle::load(&stripped).expect("reads back").content;
+        assert!(old.fighters.iter().all(|p| p.jump_speed_x_max == Fx::ZERO));
+        let mut c = base.clone();
+        c.fighters[0].jump_speed_x_mul = 201;
+        assert!(validate(&c)
+            .unwrap_err()
+            .iter()
+            .any(|e| e.contains("jump_speed_x_mul")));
+        let mut c = base.clone();
+        c.fighters[0].jump_speed_x_max = -Fx::ONE;
+        assert!(validate(&c)
+            .unwrap_err()
+            .iter()
+            .any(|e| e.contains("jump_speed_x_max")));
     }
 }

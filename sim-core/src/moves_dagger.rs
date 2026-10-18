@@ -2490,6 +2490,9 @@ fn hook(w: &mut Weapon) {
         ));
         // (Every frame lands with the body's own landing lag [E: none published].)
         let mut m = moved(45, 0, 255, 255, b);
+        // It halts the vertical speed it starts with, as the recoveries do (sim 139, owner decision 99): a jump's rise is not carried
+        // into it, with or without the boost (the owner's call; the reference publishes no startup multiplier).
+        m.start_speed_y = 0;
         m.tether = Some(crate::moves::Tether {
             from: 11,
             to: 24,

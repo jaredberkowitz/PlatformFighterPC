@@ -28,6 +28,8 @@ class Board extends Control:
 	const ROOM_EVENT := 4
 	const ROOM_ALLEY := 5
 	const MAP_STRIDE := 5
+	## `SimRunner.run_plan`'s numbers a node (R2e).
+	const PLAN_STRIDE := 9
 
 	## One room's icon on the map (placeholder shapes for the art director): a street is a little building, an arena crossed
 	## swords, a shop a coin, a rest stop a green cross.
@@ -65,57 +67,104 @@ class Board extends Control:
 		draw_line(root + Vector2(r * 0.6, 0), root + Vector2(r * 1.6, -r * 0.5), c, 3.0)
 		draw_line(root + Vector2(r * 0.6, 0), root + Vector2(r * 1.7, 0), c, 3.0)
 
-	## The map: a short strip, oldest room on the left. Rows of `map` are [number, type, status (0 shut behind, 1 behind, 2 here,
-	## 3 ahead, 4 a road not taken), fork (0/1), tier]. A treasure alley is drawn over the room that follows it (its fork's other
-	## road), the branch line climbing to it from the fork. The current room's tier is written at the strip's right end.
+	## The map: the rooms behind (oldest on the left) and the current one, from `map` (rows [number, type, status (0 shut behind, 1
+	## behind, 2 here, 3 ahead, 4 a road not taken), fork (0/1), tier]); then (R2e, F4) the small node map ahead from `plan` (rows of
+	## `PLAN_STRIDE`: [how far ahead, line (0 main, 1 a fork's high road, 2 its low road), type, fork, deck change, chest, laid,
+	## number, a recovery route]): about three rooms, a branching fork's two roads one above the other with the line after each,
+	## each with its icon (a shop, a chest or alley, an arena, a "?" event, an arrow for a deck change up or down). The current room's
+	## tier is written at the right end.
 	func draw_map(centre_x: float, top: float) -> void:
 		var map: PackedInt32Array = data.get("map", PackedInt32Array())
+		var plan: PackedInt32Array = data.get("plan", PackedInt32Array())
 		var count := map.size() / MAP_STRIDE
 		if count == 0:
 			return
-		# Columns: an alley shares the column of the road after it.
+		# Behind and here (the rooms ahead are the node map's). A road not taken shares the column of the one taken.
+		var rows: Array[int] = []
+		for n in count:
+			if map[n * MAP_STRIDE + 2] != 3:
+				rows.append(n)
 		var cols: Array[int] = []
 		var col := 0
-		for n in count:
-			var alley := map[n * MAP_STRIDE + 1] == ROOM_ALLEY and n + 1 < count
+		var here_col := 0
+		for i in rows.size():
+			var n: int = rows[i]
+			var skipped := map[n * MAP_STRIDE + 2] == 4
+			if skipped and col > 0:
+				cols.append(col - 1)
+				continue
 			cols.append(col)
-			if not alley:
-				col += 1
-		var columns := maxi(col, 1)
-		var gap := 58.0
+			if map[n * MAP_STRIDE + 2] == 2:
+				here_col = col
+			col += 1
+		var ahead := 0
+		for k in plan.size() / PLAN_STRIDE:
+			ahead = maxi(ahead, plan[k * PLAN_STRIDE])
+		var columns := maxi(here_col + 1 + ahead, 1)
+		var gap := 54.0
 		var start := centre_x - (columns - 1) * gap * 0.5
-		var y := top + 30.0
-		draw_line(Vector2(start, y), Vector2(start + (columns - 1) * gap, y), Color(Art.INK, 0.6), 6.0)
-		for n in count:
-			var o := n * MAP_STRIDE
-			var kind := map[o + 1]
+		var y := top + 42.0
+		draw_line(Vector2(start, y), Vector2(start + here_col * gap, y), Color(Art.INK, 0.6), 6.0)
+		var placed := {}
+		for i in rows.size():
+			var o: int = rows[i] * MAP_STRIDE
 			var status := map[o + 2]
-			var fork := map[o + 3] == 1
-			var raised := kind == ROOM_ALLEY and n + 1 < count
-			var at := Vector2(start + cols[n] * gap, y - (34.0 if raised else 0.0))
-			var r := 24.0 if status == 2 else 19.0
-			var alpha := 1.0 if status == 2 or status == 3 else 0.55
-			if raised and cols[n] > 0:
-				# The branch climbing from the fork to its alley.
-				draw_line(Vector2(start + (cols[n] - 1) * gap, y), at, Color(Art.SUN, alpha * 0.8), 4.0)
+			var at := Vector2(start + cols[i] * gap, y + (22.0 if status == 4 else 0.0))
+			var r := 22.0 if status == 2 else 16.0
+			var alpha := 1.0 if status == 2 else 0.55
 			draw_circle(at, r + 3.0, Art.INK)
 			draw_circle(at, r, Color(Art.CREAM, 0.35 if status == 0 or status == 4 else alpha))
 			if status == 2:
 				draw_arc(at, r + 6.0, 0.0, TAU, 32, Art.SUN, 4.0)
+				placed["0:0"] = at
 			if status == 0:
-				# Shut behind the wall: bars across it.
 				for k in 3:
 					var bx := at.x - r * 0.5 + k * r * 0.5
 					draw_line(Vector2(bx, at.y - r * 0.8), Vector2(bx, at.y + r * 0.8), Color(Art.INK, 0.8), 3.0)
 			else:
-				room_icon(at, kind, r, alpha * (0.5 if status == 4 else 1.0))
-				if fork:
+				room_icon(at, map[o + 1], r, alpha * (0.5 if status == 4 else 1.0))
+				if map[o + 3] == 1:
 					fork_mark(at, r, alpha)
 				if status == 4:
-					# The road not taken: crossed out.
 					draw_line(at + Vector2(-r, -r) * 0.7, at + Vector2(r, r) * 0.7, Color(Art.INK, 0.85), 3.0)
-			if status == 3 and not raised:
-				draw_string(D.font(), at + Vector2(-14, r + 22), "next", HORIZONTAL_ALIGNMENT_LEFT, -1, 15, Color(1, 1, 1, 0.8))
+		# The node map ahead: each node joined to the one before it on its line (or the fork it splits from).
+		var here: Vector2 = placed.get("0:0", Vector2(start + here_col * gap, y))
+		var line_y := {0: 0.0, 1: -27.0, 2: 27.0}
+		var nodes := plan.size() / PLAN_STRIDE
+		for k in nodes:
+			var o := k * PLAN_STRIDE
+			var depth := plan[o]
+			var line := plan[o + 1]
+			var at := Vector2(here.x + depth * gap, y + float(line_y.get(line, 0.0)))
+			var from: Vector2 = placed.get("%d:%d" % [depth - 1, line], placed.get("%d:0" % (depth - 1), here))
+			draw_line(from, at, Color(Art.SUN if line > 0 else Art.INK, 0.75), 4.0)
+			placed["%d:%d" % [depth, line]] = at
+		for k in nodes:
+			var o := k * PLAN_STRIDE
+			var at: Vector2 = placed["%d:%d" % [plan[o], plan[o + 1]]]
+			var r := 16.0
+			var alpha := 1.0 if plan[o + 6] == 1 else 0.85
+			draw_circle(at, r + 3.0, Art.INK)
+			draw_circle(at, r, Color(Art.CREAM, alpha))
+			room_icon(at, plan[o + 2], r, alpha)
+			if plan[o + 3] == 1:
+				fork_mark(at, r, alpha)
+			if plan[o + 5] == 1 and plan[o + 2] != ROOM_ALLEY:
+				# A chest in it: a little chest at its foot.
+				var c := at + Vector2(r * 0.55, r * 0.55)
+				draw_rect(Rect2(c - Vector2(6, 3), Vector2(12, 7)), Color(0.58, 0.36, 0.2))
+				draw_rect(Rect2(c - Vector2(6, 6), Vector2(12, 4)), Art.SUN)
+			var change := plan[o + 4]
+			if change != 0:
+				# A deck change: an arrow up or down at its shoulder.
+				var tip := at + Vector2(r + 4.0, -r * 0.2 if change > 0 else r * 0.2)
+				var dy := -10.0 if change > 0 else 10.0
+				var c2 := Color(Art.CORAL, 0.95)
+				draw_line(tip - Vector2(0, dy), tip, c2, 3.0)
+				draw_line(tip, tip + Vector2(-4, -dy * 0.5), c2, 3.0)
+				draw_line(tip, tip + Vector2(4, -dy * 0.5), c2, 3.0)
+			if plan[o] == 1 and plan[o + 1] == 0:
+				draw_string(D.font(), at + Vector2(-14, r + 20), "next", HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color(1, 1, 1, 0.8))
 		draw_decks(start - 44.0, y)
 		# The difficulty tier.
 		var tier := int(data.get("tier", 0))
@@ -123,6 +172,24 @@ class Board extends Control:
 		draw_string(D.display_font(), Vector2(tx, y + 8.0), "TIER %d" % (tier + 1), HORIZONTAL_ALIGNMENT_LEFT, -1, 20, Color(1, 1, 1, 0.85))
 		for k in tier + 1:
 			draw_circle(Vector2(tx + 6.0 + k * 12.0, y + 22.0), 4.0, Art.CORAL)
+
+	## R2e (F3): the bonuses called out, each rising and fading for a second and a half under the map ("SKYWARD! +25"), and the
+	## juggle's multiplier by the combo while a grunt the player hit is kept in the air ("AIR x2").
+	func draw_bonuses(w: float) -> void:
+		var popups: Array = data.get("popups", [])
+		var k := 0
+		for p in popups:
+			var t := float(p.age)
+			var a := clampf(1.5 - t, 0.0, 1.0)
+			var r := Rect2(Vector2(w * 0.5 - 170, 120 + k * 50 - t * 16.0), Vector2(340, 46))
+			Art.brush_band(self, r, Color(Art.INK, 0.85 * a), 263, 10.0, true, 1.0)
+			Art.title_centered(self, str(p.text), r.grow_individual(-8, 0, -10, 0), 30, Color(Art.SUN, a), 0.0)
+			k += 1
+		var air := int(data.get("air", 1))
+		if air > 1:
+			var tag := Rect2(Vector2(w - 300, 150), Vector2(120, 44))
+			Art.brush_band(self, tag, Art.CORAL, 271, 10.0, true, 0.95)
+			Art.title_centered(self, "AIR x%d" % air, tag.grow_individual(0, 0, -8, 0), 30, Color.WHITE, 0.0)
 
 	## The decks (R2d): a little ladder left of the strip, one rung a deck (the street lowest), the player's deck lit, and an arrow
 	## at the next room's deck (two at a branching fork whose roads are on two decks), with the deck's name beside it. `decks`:
@@ -246,6 +313,7 @@ class Board extends Control:
 			draw_circle(at, 9.0, Color(0.95, 0.35, 0.4) if n < lives else Color(1, 1, 1, 0.25))
 		# The map, and what this spot offers.
 		draw_map(w * 0.5, 14.0)
+		draw_bonuses(w)
 		var hint := shop_hint()
 		if hint == "" and bool(data.get("door", false)):
 			hint = "UP: ENTER THE SHOP"
@@ -273,9 +341,40 @@ func build() -> void:
 	add_child(board)
 
 
+## R2e: the callouts shown now (each {text, age}), and the run's callout count last seen.
+var popups: Array = []
+var callouts_seen := -1
+const CALL_TEXT := ["", "AIR JUGGLE!", "SKYWARD!", "GROUNDED!", "BOWLED!"]
+
+
+## Turns the sim's last callout (`bonus`: `SimRunner.run_bonus`) into a popup when it is new, and ages the others.
+func _callouts(bonus: PackedFloat32Array, delta: float) -> void:
+	for p in popups:
+		p.age += delta
+	popups = popups.filter(func(p): return p.age < 1.5)
+	if bonus.size() < 6:
+		return
+	var n := int(bonus[1])
+	if callouts_seen >= 0 and n != callouts_seen:
+		var kind := int(bonus[0])
+		if kind > 0 and kind < CALL_TEXT.size():
+			var text: String = CALL_TEXT[kind]
+			if bonus[4] > 0.5:
+				text += " +%d" % int(bonus[4])
+			popups.append({"text": text, "age": 0.0})
+			if popups.size() > 3:
+				popups.pop_front()
+	callouts_seen = n
+
+
 func show_state(d: Dictionary) -> void:
 	if board == null:
 		build()
+	if d.has("bonus"):
+		var bonus: PackedFloat32Array = d["bonus"]
+		_callouts(bonus, float(d.get("delta", 0.016)))
+		d["popups"] = popups.duplicate(true)
+		d["air"] = int(bonus[5]) if bonus.size() > 5 else 1
 	if d != board.data:
 		board.data = d
 		board.queue_redraw()

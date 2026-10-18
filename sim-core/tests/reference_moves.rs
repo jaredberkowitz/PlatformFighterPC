@@ -1365,7 +1365,9 @@ fn flash_dash_covers_distance_and_leaves_the_brawler_helpless_in_the_air() {
     sim.ticks(40, inp(0, 0, 0));
     let travelled = sim.f().pos.x - x0;
     assert!(
-        travelled > fx(6, 1) && travelled < fx(8, 1),
+        // (Since sim 139 the dash slides on after its 10 frames at the reference's 2.3 units a frame, slowed by 0.07: about 10 world
+        // units by now, not the 7 of the dash alone.)
+        travelled > fx(9, 1) && travelled < fx(11, 1),
         "travelled {travelled:?}"
     );
     sim.ticks(20, inp(0, 0, 0));
