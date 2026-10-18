@@ -46,8 +46,7 @@ const THEMES := {
 		"soil": Color(0.86, 0.66, 0.38), "soil_dark": Color(0.72, 0.5, 0.27), "grass": Color(0.32, 0.66, 0.28),
 		"grass_light": Color(0.6, 0.9, 0.34), "wood": Color(0.93, 0.74, 0.5), "wood_dark": Color(0.7, 0.48, 0.28),
 		"pattern": "roots", "cap": "grass", "platform": "wood", "grass_vary": 0.16, "grass_patch": 0.3,
-		# (The earth under the turf narrowing as it falls toward the root crown, round 16: see the meadow's "taper".)
-		"taper": 0.17,
+		# (No "taper": tried in round 16, the upper tier narrowed past the one under it and bared its top as a pale ledge behind the roots.)
 	},
 	"sunset": {
 		"sky_top": Color(0.36, 0.28, 0.6), "sky_mid": Color(0.84, 0.46, 0.62), "sky_horizon": Color(1.0, 0.64, 0.4),
@@ -560,9 +559,11 @@ static func _soil_material(t: Dictionary) -> ShaderMaterial:
 			body += '<rect width="256" height="256" fill="#%s"/>' % B
 			for k in 4:
 				var y0 := 18.0 + k * 64.0
-				var band := a.lerp(b, [0.15, 0.55, 0.3, 0.7][k])
-				body += '<path d="M0,%.1f C64,%.1f 128,%.1f 192,%.1f S256,%.1f 256,%.1f L256,%.1f L0,%.1f Z" fill="#%s" opacity="0.7"/>' % [y0, y0 - 8.0,
-					y0 + 8.0, y0 - 4.0, y0 + 2.0, y0, y0 + 40.0, y0 + 40.0, band.to_html(false)]
+				# (Close in shade, fainter and wandering more, the gauntlet's round 17: four hard-edged layers a tile apart read as regular pale
+				# stripes across the grove's earth, a backing seam rather than soil.)
+				var band := a.lerp(b, [0.32, 0.5, 0.4, 0.56][k])
+				body += '<path d="M0,%.1f C64,%.1f 128,%.1f 192,%.1f S256,%.1f 256,%.1f L256,%.1f L0,%.1f Z" fill="#%s" opacity="0.4"/>' % [y0, y0 - 16.0,
+					y0 + 14.0, y0 - 10.0, y0 + 6.0, y0, y0 + 40.0, y0 + 40.0, band.to_html(false)]
 			var root_col := Color(0.56, 0.37, 0.24)
 			var roots := [[20.0, -10.0, 90.0, 120.0, 30.0, 270.0, 16.0], [150.0, -10.0, 230.0, 70.0, 120.0, 270.0, 11.0],
 				[-20.0, 120.0, 90.0, 170.0, 200.0, 140.0, 8.0], [200.0, 150.0, 140.0, 220.0, 250.0, 270.0, 9.0], [90.0, 30.0, 60.0, 90.0, 110.0, 150.0, 6.0]]
@@ -796,7 +797,8 @@ static func _taper_box(left: float, right: float, top: float, bottom: float, fro
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
 	for q: Array in quads:
-		for k in [0, 1, 2, 0, 2, 3]:
+		# (Clockwise seen from outside, Godot's front.)
+		for k in [0, 2, 1, 0, 3, 2]:
 			st.add_vertex(c[q[k]])
 	st.generate_normals()
 	return st.commit()
@@ -815,7 +817,12 @@ static func _cylinder(top: float, bottom: float, height: float, sides := 20) -> 
 
 ## A solid block in the theme: its patterned front, topped (if nothing sits on it) by the theme's cap: rolling grass with tufts, smooth sand
 ## with pebbles, or a rooftop ledge with a metal trim.
-static func solid_block(parent: Node3D, t: Dictionary, left: float, right: float, top: float, bottom: float, front_z: float, exposed: bool) -> void:
+## `fall_from`: the top of the whole stage, where a stack of blocks' fronts start falling into shade (each block's own top without it).
+static func solid_block(parent: Node3D, t: Dictionary, left: float, right: float, top: float, bottom: float, front_z: float, exposed: bool,
+		fall_from := INF) -> void:
+	# (The stage's top, not each tier's, the gauntlet's round 17: every tier of the grove's stack started lit again at its own top, a pale
+	# band at each joint.)
+	var fall := top if is_inf(fall_from) else fall_from
 	var depth := 8.0
 	if t.get("pattern", "") == "dock":
 		_dock_block(parent, t, left, right, top, bottom, front_z, depth)
@@ -829,7 +836,7 @@ static func solid_block(parent: Node3D, t: Dictionary, left: float, right: float
 			Vector3((left + right) / 2.0, (top + bottom) / 2.0, front_z - depth / 2.0))
 	body.name = "block"
 	# Its front falls into shade below the top edge (`front_fall` in shaders/toon_common.gdshaderinc).
-	body.set_instance_shader_parameter("front_top", top)
+	body.set_instance_shader_parameter("front_top", fall)
 	if t.get("pattern", "") == "facade":
 		_facade_windows(parent, left, right, top - 0.55, bottom, front_z, top, 0.52, body.material_override)
 	elif t.get("pattern", "") == "seawall":
@@ -847,7 +854,7 @@ static func solid_block(parent: Node3D, t: Dictionary, left: float, right: float
 		field.soil_dark = Color(0.44, 0.36, 0.32)
 		_seawall_stones(parent, field, left, right, top + 0.15, bottom, front_z, depth, top, true, taper)
 	elif t.get("pattern", "") in ["earth", "roots"]:
-		_earth_bulges(parent, t, left, right, top, bottom, front_z, taper)
+		_earth_bulges(parent, t, left, right, top, bottom, front_z, taper, exposed, fall)
 	if not exposed:
 		return
 	var cx := (left + right) / 2.0
@@ -5386,18 +5393,22 @@ static func _quad(st: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, d: Vector
 ## tucking in between them, with the block's own painted earth on it (laid in world space, so the stones, roots and moss stay where they
 ## were painted), so the face takes the light as a real bank of earth, lit on the tops of its lumps and shaded under them (art review 7:
 ## the painted fronts were the flattest thing on screen). Flush with the block at its ends and under the turf lip.
-static func _earth_bulges(parent: Node3D, t: Dictionary, left: float, right: float, top: float, bottom: float, front: float, taper := 0.0) -> void:
+static func _earth_bulges(parent: Node3D, t: Dictionary, left: float, right: float, top: float, bottom: float, front: float, taper := 0.0,
+		lipped := true, fall := INF) -> void:
 	var n := FastNoiseLite.new()
 	n.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
 	n.seed = 12
 	n.frequency = 0.22
-	var y_top := top - 0.35
+	# (Only a tier with the turf on it starts under the lip: the gauntlet's round 17, a tier under another left a bare strip of block at
+	# every joint, a pale line across the grove's earth.)
+	var y_top := top - 0.35 if lipped else top
 	var y_bot := maxf(bottom, top - 14.0)
 	var bulge_at := func(x: float, y: float) -> float:
 		var v := n.get_noise_2d(x, y * 1.3) * 0.5 + 0.5
 		var b := 0.05 + 1.0 * pow(v, 1.8)
 		# Flush at the ends and under the turf lip, gently (a steep rise there read as a top face to the shader).
-		return b * smoothstep(0.0, 1.2, minf(x - left, right - x)) * smoothstep(0.0, 0.8, y_top - y)
+		# (Under another tier, `lipped` false, it runs to the top unflattened, so one tier's sheet meets the next's as one bank.)
+		return b * smoothstep(0.0, 1.2, minf(x - left, right - x)) * (smoothstep(0.0, 0.8, y_top - y) if lipped else 1.0)
 	var step := 0.25
 	var cols := int(ceil((right - left) / step))
 	var rows := int(ceil((y_top - y_bot) / step))
@@ -5432,7 +5443,7 @@ static func _earth_bulges(parent: Node3D, t: Dictionary, left: float, right: flo
 	m.set_shader_parameter("vertex_shade", true)
 	m.set_shader_parameter("front_only", true)
 	var mi := _mesh(parent, st.commit(), m, Vector3.ZERO)
-	mi.set_instance_shader_parameter("front_top", top)
+	mi.set_instance_shader_parameter("front_top", top if is_inf(fall) else fall)
 	mi.name = "earth_bulges"
 
 

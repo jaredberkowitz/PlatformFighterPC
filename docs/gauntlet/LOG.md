@@ -242,3 +242,17 @@ a detailed roof). The grove's far hills still mottled.
 
 The city's finer window grid reads as texture; the girder platforms no longer flat dotted boxes; the far ranges' mottling gone (the
 grove's range now too featureless). Gaps: (1) the box stage bodies, a fourth round; (2) the city's massing and roof.
+
+## Round 17 (2026-10-18, commit 2595d2f)
+
+| Stage | Believ. | Cohesion | Lighting | Depth | Ground | Clarity | Mean |
+|---|---|---|---|---|---|---|---|
+| Meadow | 2 | 3 | 3 | 3 | 3 | 3 | 2.8 |
+| Canyon | 2 | 3 | 3 | 2 | 2 | 3 | 2.5 |
+| Beach | 3 | 3 | 3 | 3 | 2 | 3 | 2.8 |
+| City | 2 | 3 | 3 | 3 | 2 | 3 | 2.7 |
+| Grove | 3 | 3 | 3 | 3 | 3 | 3 | 3.0 |
+
+The battered meadow wall reads as a retaining wall, but a violet backing showed between its stones and a lilac band behind the grove's
+roots (the tapered block's faces wound the wrong way: its front culled, its inside showing). Gaps: (1) that, the batter's stair-steps,
+and the beach and city bodies; (2) the city's massing and roof.

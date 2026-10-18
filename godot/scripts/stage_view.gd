@@ -72,7 +72,7 @@ func build(sim) -> void:
 			for o in rects:
 				if o[4] < 0.5 and o != r and is_equal_approx(o[3], top) and o[0] <= left + 0.01 and o[1] >= right - 0.01:
 					exposed = false
-			StageArt.solid_block(self, theme, left, right, top, bottom, FRONT_Z, exposed)
+			StageArt.solid_block(self, theme, left, right, top, bottom, FRONT_Z, exposed, float(extent[2]))
 
 	# The soft shading under platforms and at the foot of walls, baked once for this stage.
 	StageLight.bake(rects, Vector2(FRONT_Z - StageArt.PLATFORM_DEPTH, FRONT_Z))
