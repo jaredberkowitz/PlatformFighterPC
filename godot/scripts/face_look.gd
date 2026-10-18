@@ -44,6 +44,7 @@ const EYE_SIZE := 0.37
 const BROW_GAP := 0.17
 const BROW_Y := 0.258
 const BROW_SIZE := 0.36
+const BROW_THICK := 2.1
 const NOSE_Y := 0.5
 const NOSE_SIZE := 0.14
 const MOUTH_Y := 0.582
@@ -128,6 +129,8 @@ static func apply(mat: ShaderMaterial, look: RefCounted, expression := "deadpan"
 		BROW_Y + offset(look, "brow_y") * 0.011 - float(e.get("brow_lift", 0.0)),
 		BROW_SIZE * (1.0 + offset(look, "brow_size") * 0.07), offset(look, "brow_turn") * 0.09 + float(e.get("brow_turn", 0.0))))
 	mat.set_shader_parameter("brow_color", BROW_COLORS[look.brow_color])
+	# (Drawn thick, 2026-10-18: the reference cast's brows are chunky dark bars; at the drawings' own weight they read as thin lines.)
+	mat.set_shader_parameter("brow_squash", Vector2(1.0, BROW_THICK))
 
 	# Nose.
 	var nose := int(look.nose)

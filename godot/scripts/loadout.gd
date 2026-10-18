@@ -77,7 +77,8 @@ var eye_gap := FaceLook.neutral("eye_gap")
 var eye_size := FaceLook.neutral("eye_size")
 var eye_squash := FaceLook.neutral("eye_squash")
 var eye_turn := FaceLook.neutral("eye_turn")
-var brows := 0
+# (Thick dark bar brows by default since 2026-10-18, after the reference cast: the browless concept face had no attitude.)
+var brows := 3
 var brow_color := 0
 var brow_y := FaceLook.neutral("brow_y")
 var brow_gap := FaceLook.neutral("brow_gap")

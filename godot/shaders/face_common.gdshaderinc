@@ -75,28 +75,14 @@ vec3 face_eye(vec3 col, vec2 uv, float side) {
 	vec2 m = t - 0.5;
 	vec3 e = cream_color.rgb;
 	if (eye_mode == 0) {
-		// The white is a dome, not a sticker: cooler and darker toward its rim, most of all under the upper lid, which shades its top.
-		float rr = clamp(length(m * vec2(1.0, 1.08)) / 0.36, 0.0, 1.0);
-		vec3 shade = cream_color.rgb * vec3(0.78, 0.76, 0.88);
-		e = mix(e, shade, 0.55 * smoothstep(0.55, 1.0, rr));
-		e = mix(e, shade * 0.92, 0.75 * smoothstep(-0.12, -0.34, m.y));
-		// The pupil, placed in the face's own left-right (not mirrored), so both eyes look the same way. An iris with depth: a darker
-		// rim, a deep core, a warm glow welling up in its lower half; a main catchlight up toward the light and a small one opposite.
+		// (Flat, after the reference cast, 2026-10-18: a plain pale white, a solid dark pupil and one small catchlight; the domed white, the
+		// glowing iris and two catchlights read as glossy doll's eyes, not the reference's deadpan drawn eyes.)
 		vec2 pc = vec2(pupil_shift.x * side, pupil_shift.y);
 		vec2 q = m - pc;
-		float pr = length(q) / pupil_size;
-		vec3 iris = eye_color.rgb;
-		vec3 glow = mix(eye_color.rgb, vec3(0.95, 0.72, 1.0), 0.42);
-		iris = mix(iris, glow, 0.85 * smoothstep(0.05, 0.75, q.y / pupil_size) * smoothstep(1.0, 0.45, pr));
-		iris = mix(iris, eye_color.rgb * 0.45, smoothstep(0.62, 0.98, pr));
-		iris = mix(iris, eye_color.rgb * 0.35, face_edge(pr - 0.42) * 0.9);
-		// (The lid's shadow falls across the top of the iris too.)
-		iris *= mix(1.0, 0.72, smoothstep(-0.05, -0.32, m.y));
+		vec3 iris = mix(eye_color.rgb, ink_color.rgb, 0.6);
 		e = mix(e, iris, face_edge(length(q) - pupil_size));
-		vec2 hc = pc + vec2(-0.38 * side, -0.4) * pupil_size;
-		e = mix(e, vec3(1.0), 0.95 * face_edge(length(m - hc) - max(0.026, 0.2 * pupil_size)));
-		vec2 hc2 = pc + vec2(0.36 * side, 0.42) * pupil_size;
-		e = mix(e, vec3(1.0, 0.96, 1.0), 0.75 * face_edge(length(m - hc2) - max(0.012, 0.09 * pupil_size)));
+		vec2 hc = pc + vec2(-0.36 * side, -0.36) * pupil_size;
+		e = mix(e, vec3(1.0), 0.9 * face_edge(length(m - hc) - max(0.02, 0.16 * pupil_size)));
 		// Lids in the fighter's colour (lit from above: lighter toward their top), each with an ink edge and a soft shadow on the eye
 		// below it.
 		if (lids.x > 0.001) {
@@ -116,7 +102,10 @@ vec3 face_eye(vec3 col, vec2 uv, float side) {
 	if (eye_mode == 2) {
 		col = mix(col, ink_color.rgb, face_mask(eye_extra_tex, t));
 	}
-	return mix(col, ink_color.rgb, face_mask(eye_line_tex, t));
+	// (Only the heavy upper lid line, 2026-10-18: the reference's eyes have no ring round them, just a thick dark line along the top
+	// that thins out toward the corners. Shut eyes keep their own drawing.)
+	float upper = smoothstep(0.06, -0.12, m.y);
+	return mix(col, ink_color.rgb, face_mask(eye_line_tex, t) * upper);
 }
 
 // The whole face over `base` (the skin).
