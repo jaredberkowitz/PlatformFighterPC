@@ -1621,7 +1621,8 @@ const RIDGES := {
 	"meadow": [{"z": -170.0, "y": -44.0, "height": 60.0, "shape": 1, "seed": 3.0, "base": 0.42, "amplitude": 0.5, "frequency": 4.5,
 		# (More of its own blue and less haze, art review 6 round 31: at mix 0.55 the ridge was mostly horizon colour, a formless pale band
 		# behind the crisp painted hills; found with `--pick`.)
-		"tone": Color(0.36, 0.56, 0.84), "mix": 0.8, "edge": 0.7, "haze": 0.06,
+		"tone": Color(0.2, 0.62, 0.6), "mix": 0.85, "edge": 0.7, "haze": 0.06,
+		# (Teal, not blue: the owner's Origami King reference sets bright lime ground against cool teal mountains.)
 		# (A lit flank and a shaded flank on every peak, as the canyon's mesas have: a flat blue cut-out read as the least finished
 		# thing on the menu; the owner, 2026-10-17, raise the quality of what is there.)
 		"flank": 0.75}],
@@ -2831,8 +2832,18 @@ static func _gable(width: float, height: float, thick: float) -> ArrayMesh:
 ## A small round tree: a short trunk under one big ball and a couple of small ones.
 static func _round_tree(root: Node3D, at: Vector3, size: float, rng: RandomNumberGenerator) -> void:
 	# A tapering trunk with a slight bow and roots flaring at its foot (one mesh, `trunk_mesh`), in warm painted bark.
-	_mesh(root, trunk_mesh(3.2 * size, 0.42 * size, 0.26 * size, 0.18 * size * (1.0 if fmod(absf(at.x), 2.0) < 1.0 else -1.0), 0.35 * size),
-		Materials.bark_plates(Color(0.6, 0.4, 0.24), Vector2(2, 1)), at)
+	# The modelled faceted trunk with its roots (make_props.py `tree_trunk`), in a muted bark brown; the built trunk stands in without it.
+	var trunk := Toonify.load_prop("tree_trunk", true)
+	if trunk != null:
+		trunk.position = at
+		trunk.scale = Vector3.ONE * size
+		trunk.rotation_degrees.y = fmod(absf(at.x) * 37.0, 360.0)
+		root.add_child(trunk)
+		for mi in trunk.find_children("*", "MeshInstance3D", true, false):
+			(mi as MeshInstance3D).material_override = FighterView.toon(Color(0.44, 0.32, 0.27), true)
+	else:
+		_mesh(root, trunk_mesh(3.2 * size, 0.42 * size, 0.26 * size, 0.18 * size * (1.0 if fmod(absf(at.x), 2.0) < 1.0 else -1.0), 0.35 * size),
+			Materials.bark_plates(Color(0.6, 0.4, 0.24), Vector2(2, 1)), at)
 	var greens := Materials.greens(Materials.greens(Color(0.3, 0.62, 0.16))[rng.randi_range(0, 2)])
 	var crown := Sway.new()
 	crown.position = at + Vector3(0, 2.8 * size, 0)

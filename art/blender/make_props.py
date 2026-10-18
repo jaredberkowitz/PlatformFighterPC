@@ -469,6 +469,46 @@ def tree_crown(name, shape):
     return root
 
 
+BARK_LIT = (0.5, 0.36, 0.28)
+
+
+def tree_trunk():
+    """A trunk to go with `tree_crown` (the papercraft references): seven flat sides tapering up, a little twist and bow, and five roots
+    flaring out at its foot as folded planes, so it reads as a solid faceted trunk standing in the ground, not a smooth tube. Height 3.2
+    and foot radius 0.42 for a tree of size 1 (the game's `_round_tree` proportions); flat-shaded."""
+    root = empty("tree_trunk")
+    bm = bmesh.new()
+    rng = random.Random(5)
+    sides = 7
+    rings = [(0.0, 0.46), (0.35, 0.36), (1.2, 0.3), (2.2, 0.26), (3.2, 0.22)]
+    loops = []
+    for k, (z, r) in enumerate(rings):
+        twist = k * 0.12
+        bow = 0.06 * math.sin(z / 3.2 * math.pi)
+        loops.append([bm.verts.new((math.cos(twist + j * math.tau / sides) * r * rng.uniform(0.92, 1.06) + bow,
+                                    math.sin(twist + j * math.tau / sides) * r * rng.uniform(0.92, 1.06), z)) for j in range(sides)])
+    for a_, b_ in zip(loops, loops[1:]):
+        for j in range(sides):
+            bm.faces.new((a_[j], a_[(j + 1) % sides], b_[(j + 1) % sides], b_[j]))
+    bm.faces.new(loops[-1])
+    # Roots: a folded wedge from low on the trunk out along the ground.
+    for j in range(5):
+        ang = j * math.tau / 5 + 0.3
+        d = Vector((math.cos(ang), math.sin(ang), 0))
+        side = Vector((-d.y, d.x, 0))
+        out = rng.uniform(0.75, 1.0)
+        base = d * 0.36
+        p_top = bm.verts.new(base + Vector((0, 0, 0.55)))
+        p_l = bm.verts.new(base + side * 0.16)
+        p_r = bm.verts.new(base - side * 0.16)
+        p_tip = bm.verts.new(d * out + Vector((0, 0, 0.02)))
+        bm.faces.new((p_l, p_tip, p_top))
+        bm.faces.new((p_tip, p_r, p_top))
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    to_object("bark", bm, BARK_LIT, smooth=False, parent=root)
+    return root
+
+
 PROPS = {
     "lighthouse": lighthouse,
     "sailboat": sailboat,
@@ -476,6 +516,7 @@ PROPS = {
     "mesa_b": lambda: mesa("mesa_b", 8, 13.0, 22.0, 5),
     "cactus": lambda: cactus(),
     "palm_crown": lambda: palm_crown(),
+    "tree_trunk": tree_trunk,
     "tree_crown_a": lambda: tree_crown("tree_crown_a", 0),
     "tree_crown_b": lambda: tree_crown("tree_crown_b", 1),
     "tree_crown_c": lambda: tree_crown("tree_crown_c", 2),
