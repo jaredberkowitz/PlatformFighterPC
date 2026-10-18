@@ -343,14 +343,37 @@ def _crease(verts, x, d, width, depth, side=1.0):
         v.co -= out * side * depth * k * HAND_SCALE
 
 
+def _fingers(verts, x, d_from, centre_d, depth, width=0.012, splits=(-0.052, 0.0, 0.052)):
+    """Grooves pressed in along the hand from `d_from` down it to its end, between four fingers held together (at `splits` across its
+    front), the surface drawn in toward the block's middle (`centre_d` down the forearm's line), deepest at the fingertips, so the end of
+    the hand reads as four fingertips, not one paddle (the body rebuild, 2026-10-18, the owner after the reference cast's hands)."""
+    w, down, front, out = _hand_frame(x)
+    for v in verts:
+        rel = (v.co - w) / HAND_SCALE
+        dd = rel.dot(down)
+        if dd <= d_from:
+            continue
+        along = min(1.0, (dd - d_from) / 0.04)
+        fr = rel.dot(front)
+        k = max(math.exp(-((fr - s0) / width) ** 2) for s0 in splits) * along
+        if k < 0.01:
+            continue
+        towards = (down * centre_d - rel)
+        towards -= front * towards.dot(front)
+        if towards.length > 1e-6:
+            v.co += towards.normalized() * depth * k * HAND_SCALE
+
+
 def fist(bm, x):
     """A closed fist on the `x` side, straight on from the forearm: the concept's mitten clenched, one soft block (the fingers are curled
     into it, a faint knuckle line across its back) and a thumb lying across its front. Small: the fist is about the forearm's width and
     a little more, so a punch reads as a punch and not a club."""
     # (Before 2026-10-15 a round glove with four knuckle balls under it and a big tube thumb: separate sausages at play size, and it sat off
     # the forearm's line, so a punch landed with a bent wrist.)
-    block = _mitt_block(bm, x, 0.115, (0.115, 0.13, 0.108), squareness=0.74)
+    block = _mitt_block(bm, x, 0.115, (0.115, 0.13, 0.108), squareness=0.74, segments=56, rings=36)
     _crease(block, x, 0.18, 0.016, 0.013)
+    # (Knuckles: the curled fingers' grooves over the fist's end, the body rebuild.)
+    _fingers(block, x, 0.14, 0.115, 0.009, width=0.014, splits=(-0.06, -0.005, 0.05))
     tube(bm, [_at(x, 0.07, 0.122, -0.055), _at(x, 0.115, 0.14, -0.005), _at(x, 0.14, 0.132, 0.035)], [0.044, 0.042, 0.038],
          segments=16, per_span=4)
 
@@ -360,8 +383,9 @@ def mitten(bm, x):
     paddle (the fingers together) a little flatter side to side than wide, its end curled gently in toward the palm, and a short round
     thumb standing off its front."""
     # (Before 2026-10-15 four separate finger tubes and a big thumb: stubby sausages glued on, and the hand bent back at the wrist.)
-    block = _mitt_block(bm, x, 0.12, (0.13, 0.115, 0.06), squareness=0.8, curl=0.035)
+    block = _mitt_block(bm, x, 0.12, (0.13, 0.115, 0.06), squareness=0.8, curl=0.035, segments=56, rings=36)
     _crease(block, x, 0.15, 0.012, 0.005, side=-1.0)
+    _fingers(block, x, 0.12, 0.12, 0.013, width=0.015)
     tube(bm, [_at(x, 0.045, 0.06, -0.012), _at(x, 0.085, 0.118, -0.022), _at(x, 0.105, 0.132, -0.026)], [0.05, 0.045, 0.041],
          segments=16, per_span=4)
 
