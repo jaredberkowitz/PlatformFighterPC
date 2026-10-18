@@ -20,6 +20,7 @@ every demo fighter in its rest pose (content newer than the bridge); rebuild `ca
 4. Review and merge the remodelled body and mitten hands (branch `body-cage`, Body section), test and look bench, build.
 
 **Phase 2: poses and animation (the main job; Animation overhaul section, docs/POSE_REVIEW.md)**
+- [ ] (Owner's outside advice, 2026-10-17, for when animation resumes) Stance and weight: a wide, grounded battle stance even in idle (bent knees, lower centre of gravity, weight shifting), not upright and stiff. Life: subtle idle breathing, secondary motion (floppy hats, hair), squash and stretch on jumps and landings.
 - [ ] (Sim 143, from the moveset session; animation polish paused by the owner 2026-10-17) Claws' aerial side special (ext3) borrows the side special's clip in anim_library.gd: give it its own; Bracers' up special now rises in the air; Gauntlets' up special peaks near frame 45 then flips down; Claws' flash dash has 29 frames of landing lag. Check the dive, spin and landing poses.
 5. The fix order from the pose review: arched-back up moves, locked straight arms, flung free arm; then hurt and launch; then
    per-family pose sets; then the smaller items. Cascadeur for key posing if approved; AnimationTree for locomotion blends (no root
