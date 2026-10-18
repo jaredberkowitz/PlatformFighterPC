@@ -723,6 +723,8 @@ static func solid_block(parent: Node3D, t: Dictionary, left: float, right: float
 		_facade_windows(parent, left, right, top - 0.55, bottom, front_z, top, 0.52, body.material_override)
 	elif t.get("pattern", "") == "seawall":
 		_seawall_stones(parent, t, left, right, top, bottom, front_z, depth, top)
+	elif t.get("pattern", "") == "strata":
+		_strata_ledges(parent, t, left, right, top, bottom, front_z, top)
 	if not exposed:
 		return
 	var cx := (left + right) / 2.0
@@ -4646,3 +4648,65 @@ static func _edge_lip(parent: Node3D, x0: float, x1: float, y: float, z: float, 
 	st.generate_normals()
 	var mi := _mesh(parent, st.commit(), mat, Vector3.ZERO)
 	return mi
+
+
+## The canyon block's front built as ledges: each sandstone bed of the strata tile (`_soil_material`, the same beds where they are painted)
+## a slab standing out from the wall by its own amount, its top edge following the painted bed's waving boundary, so every bed is a real
+## ledge stepping out over or tucking in under its neighbours, its top catching the light and its foot in shade, and the painting stays on
+## it (laid in world space, it lines up exactly) (art review 7: the painted strata read flat). The front from `left` to `right`, from
+## `top` (under the sand cap) down to `bottom`, at depth `front`.
+static func _strata_ledges(parent: Node3D, t: Dictionary, left: float, right: float, top: float, bottom: float, front: float, fall_top: float) -> void:
+	const TILE := 6.0
+	var bed_y := [0.0, 38.0, 60.0, 106.0, 122.0, 162.0, 192.0, 212.0, 256.0]
+	var proud := [0.04, 0.2, 0.08, 0.3, 0.12, 0.26, 0.05, 0.18]
+	var wave := func(xw: float, k: int) -> float:
+		var x := xw / TILE * 256.0
+		return sin(x / 256.0 * TAU * float(1 + k % 8 % 2) + float(k % 8) * 1.7) * 4.0 + sin(x / 256.0 * TAU * 3.0 + float(k % 8)) * 1.5
+	# World height of the top of bed k in tile repeat m at x.
+	var edge := func(xw: float, m: int, k: int) -> float:
+		var py: float = float(bed_y[k]) + (wave.call(xw, k) if k < 8 else wave.call(xw, 0))
+		return -(float(m) * 256.0 + py) * TILE / 256.0
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	# (The ledges' tops apart, in a plain lit sandstone: the world-laid tile across a top face drew stripes of the other beds' colours.)
+	var tops := SurfaceTool.new()
+	tops.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var step := 0.25
+	var m0 := floori(-top / TILE) - 1
+	var m1 := ceili(-bottom / TILE) + 1
+	var face_top := top - 0.4
+	for m in range(m0, m1 + 1):
+		for k in 8:
+			var z: float = front + float(proud[k])
+			var x := left
+			while x < right - 0.001:
+				var x2 := minf(x + step, right)
+				var ya: float = minf(edge.call(x, m, k), face_top)
+				var yb: float = minf(edge.call(x2, m, k), face_top)
+				var ya2: float = maxf(edge.call(x, m, k + 1 if k < 7 else 8), bottom)
+				var yb2: float = maxf(edge.call(x2, m, k + 1 if k < 7 else 8), bottom)
+				if ya > ya2 + 0.01 or yb > yb2 + 0.01:
+					ya2 = minf(ya2, ya)
+					yb2 = minf(yb2, yb)
+					# Front.
+					_quad(st, Vector3(x, ya2, z), Vector3(x2, yb2, z), Vector3(x2, yb, z), Vector3(x, ya, z), Vector3.BACK)
+					# Top (the ledge's lit lip, back to the wall) and underside.
+					_quad(tops, Vector3(x, ya, z), Vector3(x2, yb, z), Vector3(x2, yb, front), Vector3(x, ya, front), Vector3.UP)
+					_quad(st, Vector3(x, ya2, front), Vector3(x2, yb2, front), Vector3(x2, yb2, z), Vector3(x, ya2, z), Vector3.DOWN)
+				x = x2
+	var mi := _mesh(parent, st.commit(), _soil_material(t), Vector3.ZERO)
+	mi.set_instance_shader_parameter("front_top", fall_top)
+	mi.name = "strata_ledges"
+	var lip := (FighterView.toon((t.soil as Color).lerp(Color(1.0, 0.86, 0.7), 0.3), false) as ShaderMaterial).duplicate() as ShaderMaterial
+	lip.set_shader_parameter("fall_by_height", true)
+	lip.set_shader_parameter("front_fall", 0.5)
+	lip.set_shader_parameter("front_span", 4.5)
+	var tm := _mesh(parent, tops.commit(), lip, Vector3.ZERO)
+	tm.set_instance_shader_parameter("front_top", fall_top)
+
+
+## A quad a-b-c-d (counter-clockwise seen from outside) into `st`, with normal `n`.
+static func _quad(st: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, d: Vector3, n: Vector3) -> void:
+	for v in [a, c, b, a, d, c]:
+		st.set_normal(n)
+		st.add_vertex(v)
