@@ -13,7 +13,9 @@ extends SceneTree
 ##         edges and shade on its lower and right ones, so the slabs read raised and bevelled (the owner, 2026-10-18: the street read flat);
 ##   roofing: a flat roof's membrane in long sheets across the tile, each lapped over the next with a lit edge and a shadow under it,
 ##         soft weathering stains and a fine gravel speckle.
-## Run: Godot --headless -s tools/art/noise_tile.gd -- <bark|palm|leaves|wood|paving|roofing> <out.png> [seed]
+##   sand: wind ripples across the sand, each a soft crest lit on its windward slope and shaded on its lee, wavering and forking a
+##         little, over a fine grain (art review 7: the sand tops read as flat fills).
+## Run: Godot --headless -s tools/art/noise_tile.gd -- <bark|palm|leaves|wood|paving|roofing|sand> <out.png> [seed]
 
 const SIZE := 512
 ## Where the bark's crevices cross the tile (a share of its width), uneven so the plates differ in width.
@@ -75,10 +77,12 @@ func _initialize() -> void:
 					t = _paving(soft, fine, u, v)
 				"roofing":
 					t = _roofing(soft, fine, u, v)
+				"sand":
+					t = _sand(soft, fine, u, v)
 			# A few flat values with soft steps between them (the same painted read as mm_tile), then the multiplier range, in sRGB.
 			t = lerpf(t, roundf(t * 3.0) / 3.0, 0.25 if kind == "wood" else 0.4)
 			# (Bark spans a deeper range: at the rings' 0.66 its plates all but vanished on the grove's great trunk.)
-			var value := lerpf({"bark": 0.42, "leaves": 0.6, "wood": 0.3, "paving": 0.25, "roofing": 0.45}.get(kind, 0.66), 1.0, clampf(t, 0.0, 1.0))
+			var value := lerpf({"bark": 0.42, "leaves": 0.6, "wood": 0.3, "paving": 0.25, "roofing": 0.45, "sand": 0.62}.get(kind, 0.66), 1.0, clampf(t, 0.0, 1.0))
 			value = pow(value, 1.0 / 2.2)
 			out.set_pixel(x, y, Color(value, value, value))
 	out.save_png(a[1])
@@ -237,4 +241,18 @@ func _roofing(soft: FastNoiseLite, fine: FastNoiseLite, u: float, v: float) -> f
 		t = lerpf(t, 1.0, 0.5)
 	elif sv < 0.11:
 		t *= 0.72
+	return t
+
+
+## A sand tile's value at (u, v): see the `sand` kind. Seven ripples down the tile.
+func _sand(soft: FastNoiseLite, fine: FastNoiseLite, u: float, v: float) -> float:
+	var wv := v + 0.035 * _tiled(soft, u, v, 1.0, 1.0) + 0.012 * sin(u * TAU * 2.0)
+	var ph := fposmod(wv * 7.0, 1.0)
+	# Each ripple: a gentle rise lit toward the light, a sharp crest, a short shaded lee.
+	var t := 0.78
+	if ph < 0.7:
+		t = lerpf(0.72, 0.96, smoothstep(0.0, 0.7, ph))
+	else:
+		t = lerpf(0.62, 0.74, smoothstep(0.7, 1.0, ph))
+	t *= 0.95 + 0.07 * _tiled(fine, u * 2.0, v * 2.0, 2.0, 2.0)
 	return t

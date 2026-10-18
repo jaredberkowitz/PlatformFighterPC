@@ -753,7 +753,9 @@ static func solid_block(parent: Node3D, t: Dictionary, left: float, right: float
 			_mesh(parent, _box(Vector3(w + 0.5, 0.12, 0.5)), coping, Vector3(cx, top + 0.02, front_z + 0.02))
 			_mesh(parent, _box(Vector3(w + 0.5, 0.2, 0.08)), coping_face, Vector3(cx, top - 0.13, front_z + 0.25))
 			_mesh(parent, _box(Vector3(w + 0.3, 0.08, 0.1)), _soft((t.soil_dark as Color).darkened(0.35)), Vector3(cx, top - 0.27, front_z + 0.2))
-			_mesh(parent, _box(Vector3(w + 0.3, 0.1, 0.1)), _unshaded(Color(0.95, 0.75, 0.3)), Vector3(cx, top - 0.44, front_z + 0.16))
+			# (A brass rail lit by the scene, not an unshaded yellow band: art review 7.)
+			var brass := FighterView.respond(FighterView.toon(Color(0.86, 0.66, 0.3)), "gold")
+			_mesh(parent, _cylinder(0.065, 0.065, w + 0.3, 10), brass, Vector3(cx, top - 0.44, front_z + 0.18), Vector3.ONE, Vector3(0, 0, 90))
 			var seam := _soft(roofing.darkened(0.08))
 			var lap := _soft(roofing.lightened(0.05))
 			var sx := left + 1.1
@@ -2493,14 +2495,16 @@ static func fore_top(x: float, y: float) -> float:
 
 ## A trunk as one mesh: rings up a gentle bow (`bend` sideways at most), tapering from `r_bottom` to `r_top` and flaring by `flare` at the
 ## foot; bark UVs run round (u) and up (v). One mesh, so its ink outline has no seams.
-static func trunk_mesh(height: float, r_bottom: float, r_top: float, bend: float, flare: float) -> ArrayMesh:
-	var key := "%.2f,%.2f,%.2f,%.2f,%.2f" % [height, r_bottom, r_top, bend, flare]
+static func trunk_mesh(height: float, r_bottom: float, r_top: float, bend: float, flare: float, ridges := 0.0) -> ArrayMesh:
+	var key := "%.2f,%.2f,%.2f,%.2f,%.2f,%.2f" % [height, r_bottom, r_top, bend, flare, ridges]
 	if _trunk_cache.has(key):
 		return _trunk_cache[key]
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
-	var sides := 22
-	var rings := 12
+	# (With `ridges`, the bark's plates and furrows are in the trunk's shape too (2026-10-18, art review 7: drawn stripes on a smooth
+	# cylinder read flat): long plates round the trunk wandering as they rise, so its silhouette is rough and each ridge takes the light.)
+	var sides := 22 if ridges <= 0.0 else 72
+	var rings := 12 if ridges <= 0.0 else 28
 	var rows: Array = []
 	for j in rings + 1:
 		var v := float(j) / rings
@@ -2510,15 +2514,23 @@ static func trunk_mesh(height: float, r_bottom: float, r_top: float, bend: float
 		for i in sides + 1:
 			var a := TAU * i / sides
 			var n := Vector3(sin(a), 0, cos(a))
-			row.append([centre + n * r, n, Vector2(float(i) / sides, 1.0 - v)])
+			var rr := r
+			if ridges > 0.0:
+				var ridge := 0.5 + 0.5 * cos(a * 9.0 + 0.7 * sin(v * 6.0 + a * 2.0) + 0.4 * sin(v * 17.0 + a * 5.0))
+				rr *= 1.0 + ridges * (smoothstep(0.12, 0.45, ridge) - 0.55)
+			row.append([centre + n * rr, n, Vector2(float(i) / sides, 1.0 - v)])
 		rows.append(row)
 	for j in rings:
 		for i in sides:
 			for c in [[j, i], [j + 1, i], [j + 1, i + 1], [j, i], [j + 1, i + 1], [j, i + 1]]:
 				var vtx: Array = rows[c[0]][c[1]]
-				st.set_normal(vtx[1])
+				if ridges <= 0.0:
+					st.set_normal(vtx[1])
 				st.set_uv(vtx[2])
 				st.add_vertex(vtx[0])
+	if ridges > 0.0:
+		st.index()
+		st.generate_normals()
 	var mesh := st.commit()
 	_trunk_cache[key] = mesh
 	return mesh
@@ -4259,7 +4271,7 @@ static func _tree(root: Node3D, base: Vector3, size: float, rng: RandomNumberGen
 	# (Broad plates, art review 6 round 28: repeated five times round the trunk the furrows were a busy fine pinstripe beside the
 	# foreground's few broad soft forms.)
 	var bark := Materials.bark(Color(0.62, 0.42, 0.26), Vector2(2.5, 2))
-	_mesh(root, trunk_mesh(trunk_h, 2.9 * size, 2.0 * size, 0.7 * size, 1.4 * size), bark, base)
+	_mesh(root, trunk_mesh(trunk_h, 2.9 * size, 2.0 * size, 0.7 * size, 1.4 * size, 0.09), bark, base)
 	for k in 6:
 		var a := -1.25 + k * 0.5
 		var reach := rng.randf_range(0.85, 1.15)
