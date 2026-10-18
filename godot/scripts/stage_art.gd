@@ -5207,6 +5207,13 @@ static func _root_tube(root: Node3D, pts: Array, r0: float, r1: float, mat: Mate
 static func _scaffold(parent: Node3D, left: float, right: float, under: float, front: float, depth: float) -> void:
 	var steel := FighterView.respond(FighterView.toon(Color(0.62, 0.64, 0.72)), "metal")
 	var drop := 26.0
+	# (All one mesh: as separate pieces a run's dozens of platforms made thousands of objects, and the renderer broke down.)
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var tube := func(rad: float, len: float, at: Vector3, rot_deg: Vector3) -> void:
+		var c := _cylinder(rad, rad, len, 6)
+		var xf := Transform3D(Basis.from_euler(rot_deg * (PI / 180.0)), at)
+		st.append_from(c, 0, xf)
 	# (In the back plane of the girder, its frames facing the camera so the bracing reads: braced front to back it showed edge-on as bare
 	# stilts.)
 	var zb := front - depth + 0.25
@@ -5214,16 +5221,18 @@ static func _scaffold(parent: Node3D, left: float, right: float, under: float, f
 		var xa: float = ex - 0.5
 		var xb: float = ex + 0.5
 		for px in [xa, xb]:
-			_mesh(parent, _cylinder(0.08, 0.08, drop, 6), steel, Vector3(px, under - drop * 0.5, zb))
+			tube.call(0.08, drop, Vector3(px, under - drop * 0.5, zb), Vector3.ZERO)
 		var y := under - 0.2
 		var k := 0
 		while y > under - drop:
-			_mesh(parent, _cylinder(0.055, 0.055, xb - xa + 0.2, 6), steel, Vector3(ex, y, zb + 0.02), Vector3.ONE, Vector3(0, 0, 90))
+			tube.call(0.055, xb - xa + 0.2, Vector3(ex, y, zb + 0.02), Vector3(0, 0, 90))
 			var ny := y - 1.8
 			var a := Vector3(xa if k % 2 == 0 else xb, y, zb + 0.04)
 			var b := Vector3(xb if k % 2 == 0 else xa, ny, zb + 0.04)
 			var len := (b - a).length()
 			var ang := rad_to_deg(atan2(b.x - a.x, a.y - b.y))
-			_mesh(parent, _cylinder(0.045, 0.045, len, 6), steel, (a + b) * 0.5, Vector3.ONE, Vector3(0, 0, ang))
+			tube.call(0.045, len, (a + b) * 0.5, Vector3(0, 0, ang))
 			y = ny
 			k += 1
+	var mi := _mesh(parent, st.commit(), steel, Vector3.ZERO)
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
