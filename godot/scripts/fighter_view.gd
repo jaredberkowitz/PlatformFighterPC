@@ -790,7 +790,7 @@ const ARM_BULK := {7: [Vector3(1.55, 1.08, 1.55), Vector3(1.45, 1.35, 1.45)]}
 ## The base body's proportions on top of its model (art review 10, after the reference cast and the crossover fighter's plumber: a big
 ## head that carries the face and the hat at play size, big gloved hands and chunky feet): uniform scales on the end bones, so a bent
 ## elbow or knee is never sheared. The head grows up from the neck; hats and face pieces follow it (`_follow_bones`).
-const HEAD_SIZE := 1.25
+const HEAD_SIZE := 1.34
 const HAND_SIZE := 1.35
 const FOOT_SIZE := 1.15
 
