@@ -733,6 +733,8 @@ static func solid_block(parent: Node3D, t: Dictionary, left: float, right: float
 	elif t.get("pattern", "") == "strata":
 		_strata_ledges(parent, t, left, right, top, bottom, front_z, top)
 	elif t.get("terrace", false):
+		# (The mortar a dark grey-brown, art review 9: the red earth tile between the stones read as brick.)
+		body.material_override = FighterView.toon(Color(0.3, 0.27, 0.26))
 		var field := t.duplicate()
 		# (Warm fieldstone, a step darker than the lawn is light, so the wall sits under the field instead of outshining it.)
 		field.soil = Color(0.68, 0.56, 0.42)
@@ -3012,9 +3014,11 @@ static func _meadow(root: Node3D, t: Dictionary, stage: Array) -> void:
 	var e := _ext(stage)
 	_hills(root, rng, Color(0.36, 0.72, 0.34), Color(0.42, 0.66, 0.6))
 	_clouds(root, rng, 11, Color(1.0, 1.0, 1.0), Vector2(14, 34))
-	# Islands floating in the sky beyond the stage, at several depths (smaller and paler with distance).
-	# (Six, round 40: nine crowded the top of the frame, several clipped by its edge.)
-	_sky_islands(root, t, rng, 6)
+	# (No islands floating in the sky since the stage became a terrace on a hillside, art review 9: they were pale, flat, pulled the eye, and
+	# said the land floats when it no longer does. Still drawn and thrown away, so the random layout of everything after them stays put.)
+	var gone := Node3D.new()
+	_sky_islands(gone, t, rng, 6)
+	gone.free()
 	_birds(root, rng, Color(0.25, 0.22, 0.3))
 	# A windmill on the crest of a near hill (just behind the land's edge, so it stands in it), its sails turning slowly.
 	_windmill(root, Vector3(-34, hill_top(-34.0) - 0.8, -73))
@@ -4708,15 +4712,17 @@ static func _seawall_stones(parent: Node3D, t: Dictionary, left: float, right: f
 			var x := -rng.randf_range(0.0, 0.7)
 			while x < width:
 				var w := rng.randf_range(0.45, 2.0) if rough else rng.randf_range(0.9, 2.6)
+				if rough and rng.randf() < 0.1:
+					w = rng.randf_range(2.0, 2.8)
 				var x0 := maxf(x, 0.0)
 				var x1 := minf(x + w, width)
 				if x1 - x0 > 0.25:
-					var gap := 0.13
+					var gap := 0.07 if rough else 0.13
 					var cx := (x0 + x1) * 0.5
 					var size := Vector3(x1 - x0 - gap, rh - gap, 0.22)
 					var basis := Basis(across, Vector3.UP, out)
 					basis = basis * Basis.from_euler(Vector3(rng.randf_range(-0.04, 0.04), rng.randf_range(-0.05, 0.05), rng.randf_range(-0.02, 0.02)))
-					var pos := origin + across * cx + Vector3(0, y - rh * 0.5 + (rng.randf_range(-0.06, 0.06) if rough else 0.0), 0) + out * (0.06 + rng.randf_range(-0.04, 0.04) * (2.5 if rough else 1.0))
+					var pos := origin + across * cx + Vector3(0, y - rh * 0.5 + (rng.randf_range(-0.1, 0.1) if rough else 0.0), 0) + out * (0.06 + rng.randf_range(-0.04, 0.04) * (2.5 if rough else 1.0))
 					if rough:
 						basis = basis * Basis.from_euler(Vector3(rng.randf_range(-0.08, 0.08), rng.randf_range(-0.1, 0.1), rng.randf_range(-0.07, 0.07)))
 						size.z = rng.randf_range(0.25, 0.4)
@@ -4724,28 +4730,97 @@ static func _seawall_stones(parent: Node3D, t: Dictionary, left: float, right: f
 					shade = shade.lightened(rng.randf_range(0.02, 0.14)) if rng.randf() < 0.6 else shade.darkened(rng.randf_range(0.0, 0.1))
 					# (Custom data reaches the shader as is, linear, where colour uniforms are converted from sRGB: convert it here, or every
 					# stone washes pale.)
-					items.append([Transform3D(basis.scaled_local(size), pos), shade.srgb_to_linear()])
+					items.append([Transform3D(basis.scaled_local(size), pos), shade.srgb_to_linear(), rng.randi() % FIELDSTONE_VARIANTS])
 				x += w
 			y -= rh
 	if items.is_empty():
 		return
-	var mm := MultiMesh.new()
-	mm.transform_format = MultiMesh.TRANSFORM_3D
-	mm.use_custom_data = true
-	mm.mesh = _bevel_block()
-	mm.instance_count = items.size()
-	for i in items.size():
-		mm.set_instance_transform(i, items[i][0])
-		mm.set_instance_custom_data(i, items[i][1])
-	var mi := MultiMeshInstance3D.new()
-	mi.multimesh = mm
-	mi.material_override = _seawall_stone_mat()
-	mi.set_instance_shader_parameter("front_top", fall_top)
-	mi.name = "seawall_stones"
-	parent.add_child(mi)
+	# (Rough: the stones in a few rounded shapes, `_fieldstone`, one MultiMesh each; dressed: all the one bevelled block.)
+	var groups := {}
+	for it: Array in items:
+		var key: int = it[2] if rough else -1
+		if not groups.has(key):
+			groups[key] = []
+		groups[key].append(it)
+	for key: int in groups:
+		var list: Array = groups[key]
+		var mm := MultiMesh.new()
+		mm.transform_format = MultiMesh.TRANSFORM_3D
+		mm.use_custom_data = true
+		mm.mesh = _bevel_block() if key < 0 else _fieldstone(key)
+		mm.instance_count = list.size()
+		for i in list.size():
+			mm.set_instance_transform(i, list[i][0])
+			mm.set_instance_custom_data(i, list[i][1])
+		var mi := MultiMeshInstance3D.new()
+		mi.multimesh = mm
+		mi.material_override = _seawall_stone_mat()
+		mi.set_instance_shader_parameter("front_top", fall_top)
+		mi.name = "seawall_stones"
+		parent.add_child(mi)
 
 
 static var _bevel_mesh: ArrayMesh
+static var _fieldstones := {}
+## How many shapes of fieldstone a dry-stone wall picks from.
+const FIELDSTONE_VARIANTS := 4
+
+
+## A unit fieldstone (in a 1 × 1 × 1 box, its face toward +z), shape `variant`: a rounded outline, a little irregular, with a broad bevel
+## round its face and the face itself folded up to a low point off its middle, all flat-shaded, so it reads as a cut-paper stone with crisp
+## folds rather than a brick (art review 9: the meadow's wall stones were near-rectangular and read as brick).
+static func _fieldstone(variant: int) -> ArrayMesh:
+	if _fieldstones.has(variant):
+		return _fieldstones[variant]
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 900 + variant
+	var n := 12
+	var outline: Array = []
+	for i in n:
+		var a := TAU * (float(i) + rng.randf_range(-0.2, 0.2)) / n
+		var c := cos(a)
+		var sn := sin(a)
+		# A superellipse: a rounded rectangle, so the stones still pack in courses.
+		var r := pow(pow(absf(c), 4.5) + pow(absf(sn), 4.5), -1.0 / 4.5) * 0.5 * rng.randf_range(0.86, 1.0)
+		outline.append(Vector2(c, sn) * r)
+	var inset := 0.74
+	var peak := Vector3(rng.randf_range(-0.12, 0.12), rng.randf_range(-0.08, 0.12), 0.56)
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var tris: Array = []
+	for i in n:
+		var j := (i + 1) % n
+		var o0: Vector2 = outline[i]
+		var o1: Vector2 = outline[j]
+		var f0 := Vector3(o0.x * inset, o0.y * inset, 0.46)
+		var f1 := Vector3(o1.x * inset, o1.y * inset, 0.46)
+		var m0 := Vector3(o0.x, o0.y, 0.3)
+		var m1 := Vector3(o1.x, o1.y, 0.3)
+		var b0 := Vector3(o0.x, o0.y, -0.5)
+		var b1 := Vector3(o1.x, o1.y, -0.5)
+		tris.append([peak, f0, f1])
+		tris.append([f0, m0, m1])
+		tris.append([f0, m1, f1])
+		tris.append([m0, b0, b1])
+		tris.append([m0, b1, m1])
+	for tri: Array in tris:
+		var v0: Vector3 = tri[0]
+		var v1: Vector3 = tri[1]
+		var v2: Vector3 = tri[2]
+		var nrm := (v1 - v0).cross(v2 - v0).normalized()
+		# (Wound outward: the face's normal points away from the stone's middle.)
+		if nrm.dot((v0 + v1 + v2) / 3.0) < 0.0:
+			nrm = -nrm
+			var tmp := v1
+			v1 = v2
+			v2 = tmp
+		for v: Vector3 in [v0, v2, v1]:
+			st.set_normal(nrm)
+			st.set_color(Color.WHITE)
+			st.add_vertex(v)
+	var mesh := st.commit()
+	_fieldstones[variant] = mesh
+	return mesh
 static var _seawall_mat: ShaderMaterial
 
 
