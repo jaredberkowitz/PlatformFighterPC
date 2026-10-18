@@ -36,6 +36,9 @@ const THEMES := {
 		# The stage as a hillside farm terrace (2026-10-18, the owner: a place, not a box): a dry-stone retaining wall holding the field up,
 		# a grassy hill below it running down into the valley (`_meadow_hill`), a lower terrace in front, the farm nearby.
 		"terrace": true,
+		# (The wall battered, leaning back into the field as a dry-stone retaining wall does, narrowing this much each side per unit down: the
+		# gauntlet's round 16, a straight-sided block read as a level-editor box. Visual only; the collision is the block's.)
+		"taper": 0.13,
 	},
 	"grove": {
 		"sky_top": Color(0.28, 0.5, 0.98), "sky_mid": Color(0.52, 0.66, 1.0), "sky_horizon": Color(0.98, 0.76, 0.86),
@@ -43,6 +46,8 @@ const THEMES := {
 		"soil": Color(0.86, 0.66, 0.38), "soil_dark": Color(0.72, 0.5, 0.27), "grass": Color(0.32, 0.66, 0.28),
 		"grass_light": Color(0.6, 0.9, 0.34), "wood": Color(0.93, 0.74, 0.5), "wood_dark": Color(0.7, 0.48, 0.28),
 		"pattern": "roots", "cap": "grass", "platform": "wood", "grass_vary": 0.16, "grass_patch": 0.3,
+		# (The earth under the turf narrowing as it falls toward the root crown, round 16: see the meadow's "taper".)
+		"taper": 0.17,
 	},
 	"sunset": {
 		"sky_top": Color(0.36, 0.28, 0.6), "sky_mid": Color(0.84, 0.46, 0.62), "sky_horizon": Color(1.0, 0.64, 0.4),
@@ -774,6 +779,29 @@ static func _round_box(size: Vector3, r: float, steps := 5) -> ArrayMesh:
 static var _round_boxes := {}
 
 
+## How far in each side a battered block is at height `y` (`taper` a unit per unit down from `top`), never more than a third of `width`.
+static func _taper_inset(top: float, y: float, taper: float, width: float) -> float:
+	return minf(maxf(top - y, 0.0) * taper, width / 3.0)
+
+
+## A block from `left` to `right` and `bottom` to `top`, its front at `front_z` and `depth` deep, narrowing toward its foot by `taper` each
+## side per unit down (a battered wall, an earth bank under a root crown): flat faces, the stage's world-laid materials on it.
+static func _taper_box(left: float, right: float, top: float, bottom: float, front_z: float, depth: float, taper: float) -> ArrayMesh:
+	var ib := _taper_inset(top, bottom, taper, right - left)
+	var zf := front_z
+	var zb := front_z - depth
+	var c := [Vector3(left, top, zf), Vector3(right, top, zf), Vector3(right, top, zb), Vector3(left, top, zb),
+		Vector3(left + ib, bottom, zf), Vector3(right - ib, bottom, zf), Vector3(right - ib, bottom, zb), Vector3(left + ib, bottom, zb)]
+	var quads := [[0, 1, 2, 3], [7, 6, 5, 4], [4, 5, 1, 0], [5, 6, 2, 1], [6, 7, 3, 2], [7, 4, 0, 3]]
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for q: Array in quads:
+		for k in [0, 1, 2, 0, 2, 3]:
+			st.add_vertex(c[q[k]])
+	st.generate_normals()
+	return st.commit()
+
+
 static func _cylinder(top: float, bottom: float, height: float, sides := 20) -> CylinderMesh:
 	var c := CylinderMesh.new()
 	c.top_radius = top
@@ -792,8 +820,13 @@ static func solid_block(parent: Node3D, t: Dictionary, left: float, right: float
 	if t.get("pattern", "") == "dock":
 		_dock_block(parent, t, left, right, top, bottom, front_z, depth)
 		return
-	var body := _mesh(parent, _box(Vector3(right - left, top - bottom, depth)), _soil_material(t),
-		Vector3((left + right) / 2.0, (top + bottom) / 2.0, front_z - depth / 2.0))
+	var taper := float(t.get("taper", 0.0))
+	var body: MeshInstance3D
+	if taper > 0.0:
+		body = _mesh(parent, _taper_box(left, right, top, bottom, front_z, depth, taper), _soil_material(t), Vector3.ZERO)
+	else:
+		body = _mesh(parent, _box(Vector3(right - left, top - bottom, depth)), _soil_material(t),
+			Vector3((left + right) / 2.0, (top + bottom) / 2.0, front_z - depth / 2.0))
 	body.name = "block"
 	# Its front falls into shade below the top edge (`front_fall` in shaders/toon_common.gdshaderinc).
 	body.set_instance_shader_parameter("front_top", top)
@@ -812,9 +845,9 @@ static func solid_block(parent: Node3D, t: Dictionary, left: float, right: float
 		# (Warm fieldstone, a step darker than the lawn is light, so the wall sits under the field instead of outshining it.)
 		field.soil = Color(0.68, 0.56, 0.42)
 		field.soil_dark = Color(0.44, 0.36, 0.32)
-		_seawall_stones(parent, field, left, right, top + 0.15, bottom, front_z, depth, top, true)
+		_seawall_stones(parent, field, left, right, top + 0.15, bottom, front_z, depth, top, true, taper)
 	elif t.get("pattern", "") in ["earth", "roots"]:
-		_earth_bulges(parent, t, left, right, top, bottom, front_z)
+		_earth_bulges(parent, t, left, right, top, bottom, front_z, taper)
 	if not exposed:
 		return
 	var cx := (left + right) / 2.0
@@ -5050,7 +5083,7 @@ class Waves extends Node3D:
 ## owner, 2026-10-18: the painted wall read flat; after the papercraft village reference). One MultiMesh per face; the block's own tile is
 ## the mortar behind them. The stones fall into the wall's shade by height as the wall does.
 static func _seawall_stones(parent: Node3D, t: Dictionary, left: float, right: float, top: float, bottom: float, front: float, depth: float,
-		fall_top: float, rough := false) -> void:
+		fall_top: float, rough := false, taper := 0.0) -> void:
 	var a: Color = t.soil
 	var b: Color = t.soil_dark
 	# (`rough`: a farm's dry-stone wall, fieldstones of very different sizes, rounder and further off true, in their own greys.)
@@ -5071,20 +5104,25 @@ static func _seawall_stones(parent: Node3D, t: Dictionary, left: float, right: f
 		while y > bottom + 0.2:
 			var rh := rng.randf_range(0.35, 1.15) if rough else rng.randf_range(0.72, 1.25)
 			var x := -rng.randf_range(0.0, 0.7)
+			# (A battered wall, `taper`: each course set in from the one above, the front's ends and the sides drawn in with it.)
+			var inset := _taper_inset(top, y - rh * 0.5, taper, right - left)
+			var lo_x := inset if out == Vector3.BACK else 0.0
+			var hi_x := width - inset if out == Vector3.BACK else width
+			var side_in := -out * inset if out != Vector3.BACK else Vector3.ZERO
 			while x < width:
 				var w := rng.randf_range(0.45, 2.0) if rough else rng.randf_range(0.9, 2.6)
 				if rough and rng.randf() < 0.1:
 					w = rng.randf_range(2.0, 2.8)
-				var x0 := maxf(x, 0.0)
-				var x1 := minf(x + w, width)
+				var x0 := maxf(x, lo_x)
+				var x1 := minf(x + w, hi_x)
 				# (Rough: the front's end stones stand out past the corner by their own amounts, so the wall's sides are ragged courses of
 				# quoins and not a ruled edge, the gauntlet's round 13. Their own random numbers, so the layout is unchanged.)
 				var quoin := false
-				if rough and out == Vector3.BACK and (x0 <= 0.0 or x1 >= width):
+				if rough and out == Vector3.BACK and (x0 <= lo_x or x1 >= hi_x):
 					var own_q := RandomNumberGenerator.new()
 					own_q.seed = hash(Vector2i(roundi(y * 100.0), roundi(x0 * 10.0)))
-					x0 -= own_q.randf_range(0.04, 0.38) if x0 <= 0.0 else 0.0
-					x1 += own_q.randf_range(0.04, 0.38) if x1 >= width else 0.0
+					x0 -= own_q.randf_range(0.04, 0.38) if x0 <= lo_x else 0.0
+					x1 += own_q.randf_range(0.04, 0.38) if x1 >= hi_x else 0.0
 					quoin = true
 				if x1 - x0 > 0.25:
 					var gap := 0.07 if rough else 0.13
@@ -5092,7 +5130,7 @@ static func _seawall_stones(parent: Node3D, t: Dictionary, left: float, right: f
 					var size := Vector3(x1 - x0 - gap, rh - gap, 0.22)
 					var basis := Basis(across, Vector3.UP, out)
 					basis = basis * Basis.from_euler(Vector3(rng.randf_range(-0.04, 0.04), rng.randf_range(-0.05, 0.05), rng.randf_range(-0.02, 0.02)))
-					var pos := origin + across * cx + Vector3(0, y - rh * 0.5 + (rng.randf_range(-0.1, 0.1) if rough else 0.0), 0) + out * (0.06 + rng.randf_range(-0.04, 0.04) * (2.5 if rough else 1.0))
+					var pos := origin + side_in + across * cx + Vector3(0, y - rh * 0.5 + (rng.randf_range(-0.1, 0.1) if rough else 0.0), 0) + out * (0.06 + rng.randf_range(-0.04, 0.04) * (2.5 if rough else 1.0))
 					if rough:
 						basis = basis * Basis.from_euler(Vector3(rng.randf_range(-0.08, 0.08), rng.randf_range(-0.1, 0.1), rng.randf_range(-0.07, 0.07)))
 						size.z = rng.randf_range(0.25, 0.4) + (0.35 if quoin else 0.0)
@@ -5348,7 +5386,7 @@ static func _quad(st: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, d: Vector
 ## tucking in between them, with the block's own painted earth on it (laid in world space, so the stones, roots and moss stay where they
 ## were painted), so the face takes the light as a real bank of earth, lit on the tops of its lumps and shaded under them (art review 7:
 ## the painted fronts were the flattest thing on screen). Flush with the block at its ends and under the turf lip.
-static func _earth_bulges(parent: Node3D, t: Dictionary, left: float, right: float, top: float, bottom: float, front: float) -> void:
+static func _earth_bulges(parent: Node3D, t: Dictionary, left: float, right: float, top: float, bottom: float, front: float, taper := 0.0) -> void:
 	var n := FastNoiseLite.new()
 	n.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
 	n.seed = 12
@@ -5367,8 +5405,10 @@ static func _earth_bulges(parent: Node3D, t: Dictionary, left: float, right: flo
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
 	for j in rows + 1:
 		var y := lerpf(y_top, y_bot, float(j) / rows)
+		# (Narrowing with the block below when it is battered, `taper`.)
+		var inset := _taper_inset(top, y, taper, right - left)
 		for i in cols + 1:
-			var x := lerpf(left, right, float(i) / cols)
+			var x := lerpf(left + inset, right - inset, float(i) / cols)
 			var bz: float = bulge_at.call(x, y)
 			# Each lump's form baked in as well (the cel light alone barely turns on a face this close to flat): lit where the surface faces
 			# up and out toward the light, darker in the hollows between lumps.
