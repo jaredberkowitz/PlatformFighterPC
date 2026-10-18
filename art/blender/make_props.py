@@ -387,6 +387,88 @@ def mesa(name, seed, width, height, bands):
     return root
 
 
+LEAF_LIT = (0.55, 0.78, 0.3)
+LEAF_SHADE = (0.2, 0.42, 0.26)
+
+
+def leaf_clump(bm_lit, bm_shade, centre, radius, seed, teeth=9):
+    """One leaf clump of a crown, after the owner's Wind Waker HD reference: a leafy dome, lumpy over its top (a hash of soft bumps),
+    flattened underneath, with a skirt of pointed leaf tips round its lower rim (`teeth` of them, each its own length), so its outline
+    is toothed and leafy, not a smooth ball. Its upper faces go to `bm_lit`, its underside and leaf tips to `bm_shade` (the game paints
+    them in the tree's sunlit and deep greens)."""
+    rng = random.Random(seed)
+    tmp = bmesh.new()
+    bmesh.ops.create_icosphere(tmp, subdivisions=3, radius=1.0)
+    phase = rng.uniform(0, math.tau)
+    lens = [rng.uniform(0.75, 1.25) for _ in range(teeth)]
+    for v in tmp.verts:
+        d = v.co.normalized()
+        az = math.atan2(d.y, d.x) + phase
+        # Soft leafy lumps over the dome.
+        # (Faint: strong lumps broke the flat facets into noise; the reference's tiers are calm planes.)
+        lump = 0.025 * math.sin(az * 5.0 + d.z * 4.0)
+        r = 1.0 + lump
+        z = d.z
+        # Flattened underneath.
+        if z < 0.0:
+            z *= 0.62
+        else:
+            z *= 0.88
+        # The leaf tips: round the lower rim, every tooth pulled out and down to a point.
+        # (Two tiers of leaf tips, a lower skirt and a smaller one halfway up offset half a tooth, so a clump reads as layers of leaves,
+        # after the owner's second reference, a papercraft forest whose trees are stacked tiers with crisp zigzag edges.)
+        # (A wide, drooping skirt of a few long panels per tier, after the owner's papercraft references; a faint second row above.)
+        for centre_z, width, reach, drop, shift in ((-0.12, 0.42, 0.72, 0.5, 0.0), (0.45, 0.18, 0.16, 0.1, 0.5)):
+            band = max(0.0, 1.0 - abs(d.z - centre_z) / width)
+            if band <= 0.0:
+                continue
+            a2 = az + shift * math.tau / teeth
+            k = (a2 % (math.tau / teeth)) / (math.tau / teeth)
+            tip = max(0.0, 1.0 - abs(k - 0.5) * 2.0) ** 1.6
+            t = int((a2 % math.tau) / (math.tau / teeth)) % teeth
+            r += reach * tip * band * lens[t]
+            z -= drop * tip * band * lens[t]
+        v.co = Vector((d.x * r, d.y * r, z * r)) * radius + Vector(centre)
+    tmp.normal_update()
+    for f in tmp.faces:
+        fc = f.calc_center_median()
+        up = (fc.z - centre[2]) / radius
+        target = bm_lit if up > -0.05 else bm_shade
+        vs = [target.verts.new(v.co) for v in f.verts]
+        target.faces.new(vs)
+    tmp.free()
+
+
+def tree_crown(name, shape):
+    """A broadleaf tree's crown in clumps (the trunk and its sway are the game's, `StageArt._round_tree`): one of the game's three crown
+    shapes, a big body clump with smaller ones round it, each a `leaf_clump`. Two parts, `leaf_lit` and `leaf_shade`, centred on the
+    crown's middle, sized for a tree of size 1."""
+    root = empty(name)
+    lit = bmesh.new()
+    shade = bmesh.new()
+    # Stacked tiers, each smaller than the one under it and overlapping it by about half, so the crown is a rounded shape taller than it
+    # is wide that reads as layers of leaves (both of the owner's references); small clumps tucked in at the sides break the outline.
+    # ((x, depth, height), radius); the crown's middle is the game's crown origin.
+    # (Upper tiers a little toward the camera (Blender -y), so each tier's leaf skirt lies over the tier below and the layers read; set
+    # behind, the skirts sank inside and the crown read as one lumpy cone.)
+    if shape == 0:
+        masses = [((0, 0.4, 0.4), 2.0), ((-1.35, 0.3, 0.7), 1.0), ((1.4, 0.3, 0.55), 0.95), ((0.1, -0.35, 2.05), 1.55), ((-0.05, -0.7, 3.3), 1.0)]
+    elif shape == 1:
+        masses = [((0, 0.4, 0.3), 1.75), ((1.2, 0.3, 0.8), 0.8), ((0, -0.3, 1.75), 1.45), ((0.1, -0.65, 2.95), 1.15), ((0, -0.95, 3.95), 0.75)]
+    else:
+        masses = [((0, 0.4, 0.5), 2.1), ((-1.5, 0.2, 0.75), 1.25), ((1.55, 0.2, 0.65), 1.15), ((0.1, -0.35, 2.15), 1.5), ((0.25, -0.7, 3.2), 0.85)]
+    for k, (c, r) in enumerate(masses):
+        leaf_clump(lit, shade, c, r, shape * 100 + k, teeth=8 if r > 1.6 else 6)
+    for bm in (lit, shade):
+        bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=0.0001)
+        bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    # (Flat-shaded planes, as a papercraft forest's trees are (the owner's third reference): each facet one tone, so the light reads
+    # in crisp planes rather than a smooth plastic gradient.)
+    for nm, bm, col in (("leaf_lit", lit, LEAF_LIT), ("leaf_shade", shade, LEAF_SHADE)):
+        to_object(nm, bm, col, smooth=False, parent=root)
+    return root
+
+
 PROPS = {
     "lighthouse": lighthouse,
     "sailboat": sailboat,
@@ -394,6 +476,9 @@ PROPS = {
     "mesa_b": lambda: mesa("mesa_b", 8, 13.0, 22.0, 5),
     "cactus": lambda: cactus(),
     "palm_crown": lambda: palm_crown(),
+    "tree_crown_a": lambda: tree_crown("tree_crown_a", 0),
+    "tree_crown_b": lambda: tree_crown("tree_crown_b", 1),
+    "tree_crown_c": lambda: tree_crown("tree_crown_c", 2),
 }
 
 

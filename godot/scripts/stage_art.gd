@@ -2846,7 +2846,8 @@ static func _round_tree(root: Node3D, at: Vector3, size: float, rng: RandomNumbe
 	own.seed = hash(Vector2i(roundi(at.x * 10.0), roundi(at.z * 10.0)))
 	var big := own.randf_range(2.15, 2.55)
 	var masses: Array
-	match own.randi_range(0, 2):
+	var shape := own.randi_range(0, 2)
+	match shape:
 		0:
 			var lean := 1.0 if own.randf() < 0.5 else -1.0
 			masses = [[Vector3(0, 1.4, 0) * size, big * size, 64], [Vector3(1.4 * lean, 0.7, 0.5) * size, 1.4 * size, 26]]
@@ -2869,6 +2870,25 @@ static func _round_tree(root: Node3D, at: Vector3, size: float, rng: RandomNumbe
 		var length := own.randf_range(1.1, 1.5) * size
 		_mesh(crown, _cylinder(0.08 * size, 0.15 * size, length, 6), bark,
 			Vector3(-sin(deg_to_rad(tilt)) * length * 0.5, length * 0.4, 0.3 * size), Vector3.ONE, Vector3(0, 0, tilt))
+	# The modelled crown (art/blender/make_props.py `tree_crown`, the owner's Wind Waker HD reference): leafy domes with toothed leaf
+	# skirts, painted in this tree's sunlit and deep greens. Without the props the sphere crown below stands in.
+	var modelled := Toonify.load_prop("tree_crown_" + "abc"[shape], true)
+	if modelled != null:
+		modelled.scale = Vector3.ONE * size
+		crown.add_child(modelled)
+		# Muted greens, after the owner's papercraft forest reference: a soft sage where lit and a deep teal in shade, each tree its own
+		# near hue (saturated yellow-greens read cheap). Plain cel material, no leaf pattern: the facets are the texture.
+		var hue := 0.27 + own.randf_range(-0.03, 0.04)
+		var lit_c := Color.from_hsv(hue, 0.42, 0.66)
+		var shade_c := Color.from_hsv(hue + 0.13, 0.5, 0.3)
+		for mi in modelled.find_children("*", "MeshInstance3D", true, false):
+			var lit_part := String(mi.name).contains("lit")
+			var m := (FighterView.toon(lit_c if lit_part else shade_c, true) as ShaderMaterial).duplicate() as ShaderMaterial
+			m.set_shader_parameter("ramp_softness", 0.08)
+			m.set_shader_parameter("shadow_amount", 0.78)
+			m.set_shader_parameter("rim_strength", 0.5)
+			(mi as MeshInstance3D).material_override = m
+		return
 	_leaf_cards(crown, masses, greens, 1.6 * size, rng, "leaf_cluster", false, Materials.foliage(greens[1], Vector2(3, 2), true),
 		[Materials.foliage(greens[0], Vector2(3, 2), true), Materials.foliage(greens[1], Vector2(3, 2), true), Materials.foliage(greens[2].lerp(greens[3], 0.4), Vector2(3, 2), true)])
 
