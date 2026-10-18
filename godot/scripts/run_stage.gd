@@ -563,6 +563,18 @@ func _interior(node: Node3D, room: PackedFloat32Array, rows: Array) -> void:
 ## The city's striped awning (its shops' colours), laid flat enough to stand on, with a lighter lip.
 func _awning(node: Node3D, left: float, right: float, top: float) -> void:
 	var w := right - left
+	# (R3 polish: above the street, an awning is a rooftop bar's slatted canopy, not a shop's striped one.)
+	if _deck_of(top - 4.0) > 0:
+		var wood := FighterView.toon(Color(0.5, 0.34, 0.22))
+		var canvas := FighterView.toon(Color(0.36, 0.56, 0.52))
+		var m := maxi(int(w / 0.5), 2)
+		for j in m:
+			_box(node, Vector3(w / m * 0.6, 0.12, 1.6), Vector3(left + (j + 0.5) * w / m, top - 0.06, Z - 0.8), wood)
+		_box(node, Vector3(w, 0.22, 0.14), Vector3((left + right) * 0.5, top - 0.2, Z + 0.02), wood)
+		_top_edge(node, left, right, top, top, Color(0.5, 0.34, 0.22))
+		var back2 := (Z - 1.6) - BACK_Z
+		_box(node, Vector3(w, 0.06, back2), Vector3((left + right) * 0.5, top + 0.12, BACK_Z + back2 * 0.5), canvas)
+		return
 	var pair: Array = AWNING_STRIPES[int(absf(left)) % AWNING_STRIPES.size()]
 	var n := maxi(int(w / 0.8), 1)
 	for j in n:
@@ -656,7 +668,12 @@ func _storefront(parent: Node3D, door_x: float, door_y: float) -> void:
 	var front := Node3D.new()
 	front.name = "Storefront"
 	parent.add_child(front)
-	StageArt._shopfront(front, door_x, 7.0, door_y, -1.2)
+	# (R3 polish, from the R2e review: a shop above the street is a rooftop kiosk, not a street shopfront with an awning.)
+	var roof := _deck_of(door_y) > 0
+	if roof:
+		_kiosk(front, door_x, door_y)
+	else:
+		StageArt._shopfront(front, door_x, 7.0, door_y, -1.2)
 	var label := Label3D.new()
 	label.text = "SHOP"
 	label.font_size = 96
@@ -680,6 +697,23 @@ func _storefront(parent: Node3D, door_x: float, door_y: float) -> void:
 	closed.visible = shops_closed
 	front.add_child(closed)
 	closed_signs.append(closed)
+
+
+## A rooftop kiosk at a shop's door (R3; placeholder for the art director): a little hut standing on the roof, its door in the middle,
+## a lit serving hatch with a short striped canopy, a flat roof with an overhang, a crate beside it.
+func _kiosk(parent: Node3D, cx: float, y: float) -> void:
+	var wall := FighterView.toon(Color(0.42, 0.5, 0.58))
+	var trim := FighterView.toon(Color(0.26, 0.22, 0.3))
+	_box(parent, Vector3(4.6, 3.0, 1.6), Vector3(cx, y + 1.5, -1.9), wall)
+	_box(parent, Vector3(5.2, 0.25, 2.1), Vector3(cx, y + 3.1, -1.8), trim)
+	_box(parent, Vector3(1.2, 2.3, 0.1), Vector3(cx, y + 1.15, -1.05), _mat(Color(0.62, 0.42, 0.3), 1.0))
+	_box(parent, Vector3(1.3, 0.9, 0.08), Vector3(cx + 1.55, y + 1.7, -1.05), _mat(Color(0.95, 0.8, 0.52), 1.0))
+	_box(parent, Vector3(1.5, 0.12, 0.25), Vector3(cx + 1.55, y + 1.2, -0.95), trim)
+	var stripes := [FighterView.toon(Color(0.92, 0.34, 0.42)), FighterView.toon(Color(0.98, 0.94, 0.9))]
+	for k in 4:
+		var b := _box(parent, Vector3(0.4, 0.08, 0.7), Vector3(cx + 1.0 + k * 0.38, y + 2.35, -0.8), stripes[k % 2])
+		b.rotation.x = deg_to_rad(20.0)
+	_box(parent, Vector3(0.8, 0.7, 0.8), Vector3(cx - 1.9, y + 0.35, -0.9), FighterView.toon(Color(0.58, 0.42, 0.26)))
 
 
 ## Hangs (or takes down) the "CLOSED" board on every storefront: `closed` is the shop's grudge (`SimRunner.run_shop`'s last number).
