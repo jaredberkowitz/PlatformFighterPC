@@ -3102,7 +3102,8 @@ static func _meadow(root: Node3D, t: Dictionary, stage: Array) -> void:
 	# (Each standing on the land with a painted shadow under it, `_ground_shadow`.)
 	_ground_shadow(Vector3(-34, 0, -73), Vector2(4.4, 3.6), -72.0)
 	# A few cottages on the near hills (just behind the land's edge), smoke rising from their chimneys: someone lives here.
-	for c in [[18.0, Color(0.78, 0.34, 0.3)], [44.0, Color(0.36, 0.5, 0.72)], [-66.0, Color(0.74, 0.5, 0.3)]]:
+	# (Not the one at 18 since art review 10: right behind the right platform it crowded the fight; two, out at the sides, frame it.)
+	for c in [[44.0, Color(0.36, 0.5, 0.72)], [-66.0, Color(0.74, 0.5, 0.3)]]:
 		var cx: float = c[0]
 		_cottage(root, Vector3(cx, hill_top(cx) - 0.6, -74.0), c[1], 1.0 if cx > 0.0 else -1.0)
 		_ground_shadow(Vector3(cx, 0, -74.0), Vector2(3.4, 2.6), -72.0)
