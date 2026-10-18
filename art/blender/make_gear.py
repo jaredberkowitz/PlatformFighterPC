@@ -4,6 +4,7 @@ domes and sags, a brim that rolls, seams pressed in), named by what they are mad
   fabric*  the outfit's accent cloth          canvas*  white cloth
   leather* brown leather                      metal*   brass or steel
   glass*   lens glass                         straw*   woven straw (the game lays the straw weave on it)
+  hair*    the fighter's hair (brow) colour
 Built in the head's design space (the game's hat pivot space before it subtracts the pivot): a head of radius 0.8 centred 1.42 up, so
 its crown is at 2.22. Blender z up (exported y up); the face looks along -Y in Blender (+Z in the game).
 
@@ -423,7 +424,163 @@ def crown():
     return root
 
 
-GEAR = {"sailor_cap": sailor_cap, "aviator_cap": aviator_cap, "straw_hat": straw_hat, "plumed_helm": plumed_helm, "crown": crown}
+# ---- Hair ------------------------------------------------------------------------------------------------------------------------------
+
+def _hair_cap(name, front_deg, back_deg, height, bumps=0.0, seed=0.0):
+    """A cap of hair over the crown on the caps' ellipsoid (clear of the oval head): down to `front_deg` from the top at the face and
+    `back_deg` behind, its hairline in front notched into a few soft points, the surface swelling in `bumps` of locks."""
+    bm = bmesh.new()
+    seg_u, seg_v = 48, 12
+    rows = []
+    for j in range(seg_v + 1):
+        t = j / seg_v
+        row = []
+        for i in range(seg_u):
+            a = math.tau * i / seg_u
+            front = max(0.0, -math.sin(a))
+            low = math.radians(back_deg) - math.radians(back_deg - front_deg) * front ** 1.2
+            # The hairline's points across the brow.
+            low += math.radians(7.0) * front * (0.5 + 0.5 * math.cos(a * 7.0 + seed)) * (t ** 4)
+            ph = math.radians(4.0) + (low - math.radians(4.0)) * t
+            r = 0.88 * (1.0 + bumps * math.sin(a * 5.0 + seed) * math.sin(ph * 3.0))
+            row.append(bm.verts.new((r * math.sin(ph) * math.cos(a), r * math.sin(ph) * math.sin(a), 1.74 + height * math.cos(ph))))
+        rows.append(row)
+    top = bm.verts.new((0.0, 0.0, 1.74 + height))
+    for i in range(seg_u):
+        bm.faces.new((rows[0][i], rows[0][(i + 1) % seg_u], top))
+    for j in range(seg_v):
+        for i in range(seg_u):
+            k = (i + 1) % seg_u
+            bm.faces.new((rows[j][i], rows[j][k], rows[j + 1][k], rows[j + 1][i]))
+    bmesh.ops.solidify(bm, geom=bm.faces[:], thickness=-0.04)
+    return to_object(name, bm, sharp=60.0)
+
+
+def _lock(name, base, direction, length, width, curl, sides=7, rings=8):
+    """A lock of hair: a thick tapered cone from `base` along `direction`, curving up by `curl`, its cross-section a soft leaf (wider than
+    thick), ending in a blunt point."""
+    bm = bmesh.new()
+    d = Vector(direction).normalized()
+    side = d.cross(Vector((0, 0, 1)))
+    if side.length < 0.01:
+        side = Vector((1, 0, 0))
+    side.normalize()
+    up = side.cross(d).normalized()
+    ring_vs = []
+    for k in range(rings):
+        t = k / (rings - 1)
+        c = Vector(base) + d * length * t + up * curl * t * t
+        w = width * (1.0 - t) ** 0.85 + 0.01
+        ring = []
+        for i in range(sides):
+            a = math.tau * i / sides
+            ring.append(bm.verts.new(c + side * math.cos(a) * w + up * math.sin(a) * w * 0.6))
+        ring_vs.append(ring)
+    for k in range(rings - 1):
+        for i in range(sides):
+            j = (i + 1) % sides
+            bm.faces.new((ring_vs[k][i], ring_vs[k][j], ring_vs[k + 1][j], ring_vs[k + 1][i]))
+    bm.faces.new(ring_vs[0])
+    tip = bm.verts.new(Vector(base) + d * length * 1.04 + up * curl)
+    for i in range(sides):
+        bm.faces.new((ring_vs[-1][i], ring_vs[-1][(i + 1) % sides], tip))
+    return to_object(name, bm, sharp=55.0)
+
+
+def swept_spikes():
+    """Spiky hair swept up and back: a cap of hair with a pointed hairline, and seven thick locks rising from it, fanned across the crown and
+    swept back, each a tapered curving blade with a blunt tip (not straight cones)."""
+    root = empty("swept_spikes")
+    _hair_cap("hair_cap", 62.0, 118.0, 0.62, bumps=0.03, seed=1.3).parent = root
+    # (Thick swept blades lying back over the head, 2026-10-18: thin upright cones read as a crown of thorns.)
+    locks = [(-0.38, -0.3, 2.12, (-0.45, 0.55, 0.7), 0.7, 0.3, 0.16), (0.0, -0.38, 2.22, (0.0, 0.6, 0.8), 0.8, 0.32, 0.18),
+             (0.38, -0.3, 2.12, (0.45, 0.55, 0.7), 0.7, 0.3, 0.16), (-0.42, 0.15, 2.18, (-0.4, 0.9, 0.35), 0.72, 0.28, 0.12),
+             (0.42, 0.15, 2.18, (0.4, 0.9, 0.35), 0.72, 0.28, 0.12), (0.0, 0.2, 2.3, (0.0, 1.0, 0.3), 0.75, 0.3, 0.1)]
+    for k, (x, y, z, d, ln, w, c) in enumerate(locks):
+        _lock("hair_lock%d" % k, (x, y, z), d, ln, w, c).parent = root
+    return root
+
+
+def topknot():
+    """Close-cropped hair with a round knot of hair tied on top: the cap with a straight hairline, a bun of three twisted lobes, and a band
+    of the outfit's colour where the knot is tied."""
+    root = empty("topknot")
+    _hair_cap("hair_cap", 66.0, 118.0, 0.6, bumps=0.015, seed=0.4).parent = root
+    for k in range(3):
+        a = math.tau * k / 3.0
+        bm = bmesh.new()
+        ret = bmesh.ops.create_uvsphere(bm, u_segments=18, v_segments=12, radius=1.0)
+        for v in ret["verts"]:
+            v.co = Vector((v.co.x * 0.22, v.co.y * 0.22, v.co.z * 0.17)) + Vector((0.08 * math.cos(a), 0.12 + 0.08 * math.sin(a), 2.5 + 0.04 * k))
+        to_object("hair_knot%d" % k, bm).parent = root
+    bm = bmesh.new()
+    rows = lathe(bm, [(0.17, 2.34), (0.19, 2.36), (0.19, 2.41), (0.17, 2.43)], sides=24)
+    for ring in rows:
+        for v in ring:
+            v.co.y += 0.12
+    to_object("fabric_band", bm, sharp=60.0).parent = root
+    return root
+
+
+def beanie():
+    """A knit beanie: a ribbed crown pulled over the head (vertical ribs pressed into it), a thick folded cuff with its own ribs, and a
+    pompom of soft lumps on top."""
+    root = empty("beanie")
+    bm = bmesh.new()
+    seg_u, seg_v = 56, 14
+    rows = []
+    for j in range(seg_v + 1):
+        t = j / seg_v
+        row = []
+        for i in range(seg_u):
+            a = math.tau * i / seg_u
+            front = max(0.0, -math.sin(a))
+            low = math.radians(98.0) - math.radians(26.0) * front ** 1.3
+            ph = math.radians(3.0) + (low - math.radians(3.0)) * t
+            rib = 1.0 + 0.012 * math.cos(a * 28.0) * min(1.0, t * 3.0)
+            r = 0.9 * rib
+            row.append(bm.verts.new((r * math.sin(ph) * math.cos(a), r * math.sin(ph) * math.sin(a), 1.74 + 0.68 * math.cos(ph))))
+        rows.append(row)
+    top = bm.verts.new((0.0, 0.0, 1.74 + 0.68))
+    for i in range(seg_u):
+        bm.faces.new((rows[0][i], rows[0][(i + 1) % seg_u], top))
+    for j in range(seg_v):
+        for i in range(seg_u):
+            k = (i + 1) % seg_u
+            bm.faces.new((rows[j][i], rows[j][k], rows[j + 1][k], rows[j + 1][i]))
+    bmesh.ops.solidify(bm, geom=bm.faces[:], thickness=-0.04)
+    to_object("fabric_crown", bm).parent = root
+    # The folded cuff: a thick band round the lower edge, a little proud.
+    bm = bmesh.new()
+    sides = 56
+    rings = []
+    for dr, dph in [(0.0, -2.0), (0.06, -1.0), (0.07, 8.0), (0.06, 16.0), (0.0, 17.0)]:
+        ring = []
+        for i in range(sides):
+            a = math.tau * i / sides
+            front = max(0.0, -math.sin(a))
+            ph = math.radians(98.0 - dph) - math.radians(26.0) * front ** 1.3
+            r = 0.9 * math.sin(ph) + dr * (1.0 + 0.15 * math.cos(a * 28.0))
+            ring.append(bm.verts.new((r * math.cos(a), r * math.sin(a), 1.74 + 0.68 * math.cos(ph))))
+        rings.append(ring)
+    for k in range(len(rings) - 1):
+        for i in range(sides):
+            j = (i + 1) % sides
+            bm.faces.new((rings[k][i], rings[k][j], rings[k + 1][j], rings[k + 1][i]))
+    to_object("fabric_cuff", bm).parent = root
+    # The pompom: a cluster of soft lumps.
+    for k in range(7):
+        a = math.tau * k / 6.0
+        off = Vector((0.0, 0.0, 0.0)) if k == 6 else Vector((0.09 * math.cos(a), 0.09 * math.sin(a), -0.02))
+        bm = bmesh.new()
+        bmesh.ops.create_icosphere(bm, subdivisions=2, radius=0.12)
+        bmesh.ops.translate(bm, vec=Vector((0.0, 0.0, 2.48)) + off, verts=bm.verts)
+        to_object("canvas_pom%d" % k, bm).parent = root
+    return root
+
+
+GEAR = {"sailor_cap": sailor_cap, "aviator_cap": aviator_cap, "straw_hat": straw_hat, "plumed_helm": plumed_helm, "crown": crown,
+        "swept_spikes": swept_spikes, "topknot": topknot, "beanie": beanie}
 
 
 def export(root, path):

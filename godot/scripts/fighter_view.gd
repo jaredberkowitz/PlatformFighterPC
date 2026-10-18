@@ -2059,7 +2059,8 @@ func _shirt_collar() -> void:
 ## Returns its height in the torso's design space, for what hangs from it.
 ## The hats modelled in Blender (art/blender/make_gear.py, godot/models/gear), by hat slot (the owner, 2026-10-18: moving the
 ## accessories from built primitives to models over time).
-const GEAR_HATS := {1: "sailor_cap", 2: "aviator_cap", 3: "straw_hat", 5: "crown", 7: "plumed_helm"}
+const GEAR_HATS := {1: "sailor_cap", 2: "aviator_cap", 3: "straw_hat", 4: "beanie", 5: "crown", 7: "plumed_helm", 8: "swept_spikes",
+	9: "topknot"}
 
 
 ## Puts the modelled accessory `name` on the hat pivot, each part coloured by what it is made of (its name's first word): fabric in
@@ -2088,7 +2089,7 @@ func _gear_model(name: String, accent: Color) -> bool:
 	# (A model's "metal" is the helm's steel, or the caps' brass; "brass" and "gold" name themselves.)
 	var mats := {"fabric": _fabric(accent), "canvas": _cloth(toon(Color(0.95, 0.94, 0.9))), "leather": _cloth(toon(Color(0.52, 0.33, 0.21))),
 		"metal": steel if name == "plumed_helm" else brass, "brass": brass, "gold": gold, "glass": toon(Color(0.66, 0.84, 0.95), false),
-		"straw": straw}
+		"straw": straw, "hair": toon(FaceLook.BROW_COLORS[clampi(loadout.brow_color, 0, FaceLook.BROW_COLORS.size() - 1)])}
 	for mi: MeshInstance3D in model.find_children("*", "MeshInstance3D", true, false):
 		var kind := String(mi.name).get_slice("_", 0)
 		mi.material_override = mats.get(kind, toon(accent))
