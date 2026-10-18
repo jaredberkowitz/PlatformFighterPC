@@ -2036,12 +2036,19 @@ const COLLAR_BELOW_NECK := 0.1
 
 ## The hat sits on a pivot at the crown of the head that lags behind sudden moves and bounces on landings (the `hat_roll` and `hat_drop` springs, see `_secondary`).
 const HAT_PIVOT := Vector3(0, 1.95, 0)
+## How much bigger than modelled every hat is drawn (`_hat`).
+const HAT_SIZE := 1.22
 var hat_pivot: Node3D
 
 
 func _hat() -> void:
 	hat_pivot = Node3D.new()
 	hat_pivot.position = HAT_PIVOT
+	# (Oversized, as the reference's hats are, art review 10: at play size the hats read as small caps and every fighter as the same
+	# round head; a bigger hat is most of a fighter's silhouette. Scaled about the top of the head, so each still sits on it.)
+	# (Only the hats that sit on top of the head: scaled, the caps that wrap it (aviator cap, beanie, hood, topknot) came down over the eyes.)
+	if loadout.hat in [1, 3, 5, 7, 8]:
+		hat_pivot.scale = Vector3.ONE * HAT_SIZE
 	head_rig.add_child(hat_pivot)
 	var accent: Color = loadout.accent_color()
 	var white := toon(Color(0.97, 0.97, 1.0))

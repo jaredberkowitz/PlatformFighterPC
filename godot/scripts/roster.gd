@@ -196,6 +196,8 @@ static func builtins() -> Array:
 	knight.neck = 4
 	knight.shirt = 2
 	knight.gear = 1
+	# (Each fighter's outfit in its own colour, art review 10: ten of the fourteen wore the same blue shirt and read alike at play size.)
+	knight.accent = 6
 	var duelist := neutral_entry("Duelist", 0, knight)
 	duelist.builtin = true
 	duelist.base_index = 0
@@ -203,6 +205,7 @@ static func builtins() -> Array:
 	scrapper.neck = 3
 	scrapper.shirt = 3
 	scrapper.gear = 2
+	scrapper.accent = 2
 	var brawler := neutral_entry("Brawler", 1, scrapper)
 	brawler.builtin = true
 	brawler.base_index = 1
@@ -211,6 +214,7 @@ static func builtins() -> Array:
 	hooded.glasses = 0
 	hooded.shirt = 2
 	hooded.gear = 1
+	hooded.accent = 11
 	var rogue := neutral_entry("Rogue", 2, hooded)
 	rogue.builtin = true
 	rogue.base_index = 2
@@ -229,6 +233,7 @@ static func builtins() -> Array:
 	racer.neck = 3
 	racer.gear = 2
 	racer.shirt = 2
+	racer.accent = 0
 	var sprinter := neutral_entry("Sprinter", 4, racer)
 	sprinter.builtin = true
 	sprinter.base_index = 4
@@ -240,6 +245,7 @@ static func builtins() -> Array:
 	oracle.neck = 4
 	oracle.gear = 1
 	oracle.shirt = 2
+	oracle.accent = 8
 	var seer := neutral_entry("Seer", 5, oracle)
 	seer.builtin = true
 	seer.base_index = 5
@@ -253,6 +259,7 @@ static func builtins() -> Array:
 	hero.gear = 3
 	hero.shirt = 2
 	hero.face = 2
+	hero.accent = 4
 	var champion := neutral_entry("Champion", 6, hero)
 	champion.builtin = true
 	champion.base_index = 6
@@ -285,6 +292,7 @@ static func builtins() -> Array:
 	traveller.neck = 3
 	traveller.gear = 3
 	traveller.shirt = 2
+	traveller.accent = 10
 	var wanderer := neutral_entry("Wanderer", 9, traveller)
 	wanderer.builtin = true
 	wanderer.base_index = 9
@@ -293,6 +301,7 @@ static func builtins() -> Array:
 	villager.hat = 3
 	villager.shirt = 4
 	villager.gear = 1
+	villager.accent = 1
 	var settler := neutral_entry("Settler", 10, villager)
 	settler.builtin = true
 	settler.base_index = 10
@@ -301,6 +310,7 @@ static func builtins() -> Array:
 	monkey.hat = 2
 	monkey.shirt = 3
 	monkey.gear = 1
+	monkey.accent = 7
 	var scamp := neutral_entry("Scamp", 11, monkey)
 	scamp.builtin = true
 	scamp.base_index = 11
