@@ -59,7 +59,7 @@ const MENU_MOOD := {"shadow_hue": 0.73, "shadow_shift": 0.07, "shadow_value": 0.
 const STYLE_DEFAULT := {
 	"ramp": [[0.0, 0.0], [0.34, 0.0], [0.42, 0.56], [0.55, 0.56], [0.62, 1.0], [1.0, 1.0]],
 	"deep": 0.78,
-	"edge": Color(1.0, 0.97, 0.9, 0.26),
+	"edge": Color(1.0, 0.97, 0.9, 0.14),
 	"paint": [Color(1.06, 1.01, 0.92), Color(0.9, 0.94, 1.06), 0.55],
 	# How strongly the effects and lit things (the city's windows, lamps) bloom.
 	"glow": 0.75,
@@ -182,8 +182,10 @@ static func apply(env: Environment, root: Node, preview := false) -> void:
 	env.glow_blend_mode = Environment.GLOW_BLEND_MODE_SCREEN
 	RenderingServer.global_shader_parameter_set("pf_fx_glow", FX_GLOW)
 	env.adjustment_enabled = true
-	env.adjustment_saturation = 1.1
-	env.adjustment_contrast = 1.06
+	# (Neutral since the muted trial, 2026-10-18, the owner after the reference cast: 1.1 and 1.06 pushed every colour, fighters and stages
+	# alike, toward striking rather than calm.)
+	env.adjustment_saturation = 1.0
+	env.adjustment_contrast = 1.02
 	# (The haze behind the stage is the match's own, in its stage's colour (`haze_*` in shaders/post.gdshader), not the engine's fog.)
 	env.ssao_enabled = false
 	var key := DirectionalLight3D.new()

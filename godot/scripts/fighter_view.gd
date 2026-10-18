@@ -1349,7 +1349,8 @@ func build(p: int, l: RefCounted = null) -> void:
 		tree_entered.connect(_follow_bones, CONNECT_ONE_SHOT)
 
 
-const FIGHTER_RIM_BOOST := 1.4
+## (1.4 until the muted trial, 2026-10-18: a strong rim on every fighter read as glossy and striking.)
+const FIGHTER_RIM_BOOST := 1.1
 
 
 ## Gives every cel-shaded part of this fighter its own object id (see `object_id` in shaders/toon.gdshader), so the ink pass draws a line
@@ -1628,11 +1629,12 @@ const CLOTH_OUTLINE_THIN := 0.65
 ## How much the rim light flares with a hit's flash (times its usual strength at a full flash).
 const HIT_RIM_FLARE := 2.5
 ## How much of its own colour a fighter's outline takes, and how dark that colour is made first.
-const OUTLINE_TINT := 0.75
+const OUTLINE_TINT := 0.9
 ## The fighters' line weight against the scenery's 0.6 (outline.gdshader): still the strongest line on screen, but a thinner, warmer line
 ## like the concept art's, not a heavy black one.
-const FIGHTER_OUTLINE_WEIGHT := 0.76
-const OUTLINE_TINT_DARKEN := 0.56
+## (Thinner and more of the fighter's own colour since the muted trial: the reference figures have no ink line at all.)
+const FIGHTER_OUTLINE_WEIGHT := 0.62
+const OUTLINE_TINT_DARKEN := 0.45
 const OUTLINE_TINT_DARKEN_PALE := 0.8
 const CLOTH_RAMP_SOFTNESS := 0.32
 ## (Finer and fainter, 2026-10-18: long strokes on a pale shirt read as wood grain; the reference's cloth is a fine fleck.)
@@ -1836,7 +1838,8 @@ static var _unshaded_cache := {}
 ## sharing one cel look: [parameter: value].
 const RESPONSES := {
 	# (Skin is matte and soft-stepped, as the concept art's bodies: flat colour that turns gently into shade, no glossy bands.)
-	"skin": {"ramp_softness": 0.16, "sheen": 0.22},
+	# (Matte again, 2026-10-18: the glossy highlight read as shiny plastic beside the reference's matte figures.)
+	"skin": {"ramp_softness": 0.16, "sheen": 0.04},
 	"rubber": {"ramp_softness": 0.12, "sheen": 0.16},
 	"metal": {"ramp_softness": 0.08, "sheen": 0.0, "metal": 1.0, "rim_strength": 0.55},
 	"gold": {"ramp_softness": 0.1, "sheen": 0.0, "metal": 0.75, "rim_strength": 0.5},

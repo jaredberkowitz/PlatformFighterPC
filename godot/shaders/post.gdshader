@@ -184,8 +184,9 @@ void fragment() {
 	if (stage_quiet > 0.0 && d0 < 400.0) {
 		float yq = dot(col, vec3(0.3, 0.59, 0.11));
 		if (id0 < 0.6) {
-			col = mix(vec3(yq), col, 1.0 + 0.35 * stage_quiet);
-			col = (col - 0.5) * (1.0 + 0.12 * stage_quiet) + 0.5;
+			// (A small lift only since the muted trial, 2026-10-18: a strong one made the fighters the most saturated, striking thing on screen.)
+			col = mix(vec3(yq), col, 1.0 + 0.1 * stage_quiet);
+			col = (col - 0.5) * (1.0 + 0.04 * stage_quiet) + 0.5;
 		} else {
 			col = mix(col, vec3(yq), 0.45 * stage_quiet);
 			col = mix(col, vec3(mix(yq, 0.58, 0.5)), 0.1 * stage_quiet);

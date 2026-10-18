@@ -120,7 +120,8 @@ const float PF_FIGHTER_CAST = 0.25;
 // A fighter is shaded in two flat tones, lit and shadow, split by a hard step (the stage's ramp, with its midtone band, is for the
 // scenery): where on the wrap the step falls, and how wide its edge is (just enough to anti-alias it).
 const float PF_FIGHTER_STEP = 0.62;
-const float PF_FIGHTER_EDGE = 0.07;
+// (0.07 until the muted trial, 2026-10-18: a softer turn into shade, as the reference's soft studio light.)
+const float PF_FIGHTER_EDGE = 0.14;
 // How much of the stage's shadow hue turn a fighter's shadow takes: a little, so an orange shades a deeper orange, not salmon and pink.
 const float PF_FIGHTER_HUE = 0.35;
 // A fighter's rim and edge light are kept to a thin line at the very edge (`rim_width` on a fighter) and take the fighter's own colour
