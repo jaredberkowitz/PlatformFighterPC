@@ -304,3 +304,16 @@ headland is a calm landform. Gaps: (1) the remaining cutouts and box houses (gro
 All four ranked stages at 3 in every category (canyon 2.5), unchanged: the occlusion is right but subtle. Gaps: (1) the grove's
 cutout-looking trees, pines and roots; (2) the meadow's farm and the beach town at foreground saturation on flat bases (no aerial
 perspective). The haze now takes colour away with distance, the town and farm are set back into the air, the quay weathered stone.
+
+## Round 22 (2026-10-18, commit 4ab54eb)
+
+| Stage | Believ. | Cohesion | Lighting | Depth | Ground | Clarity | Mean |
+|---|---|---|---|---|---|---|---|
+| Meadow | 3 | 3 | 3 | 3 | 3 | 3 | 3.0 |
+| Canyon | 2 | 3 | 3 | 2 | 2 | 3 | 2.5 |
+| Beach | 3 | 3 | 3 | 4 | 3 | 3 | 3.2 |
+| City | 3 | 3 | 3 | 3 | 3 | 3 | 3.0 |
+| Grove | 3 | 3 | 3 | 3 | 3 | 3 | 3.0 |
+
+The first 4 under the strict bar: the beach's town, set back into the air over a weathered quay, reads small, low, far and calm, as in
+the harbour reference. Gaps: (1) the grove's trees, forest and roots; (2) thin light everywhere (cast shadows, lit rims, cooler shade).

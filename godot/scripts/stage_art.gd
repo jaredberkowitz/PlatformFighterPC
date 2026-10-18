@@ -2817,8 +2817,12 @@ static func _canopy(root: Node3D, z: float, y: float, colours: Array) -> void:
 		# (Low faceted crowns in clear greens, art review 9: lumpy clump balls read as mud at this distance.)
 		var leaf := Materials.foliage(colours[r % colours.size()], Vector2(2, 2), inked)
 		var leaf_lit := Materials.foliage((colours[r % colours.size()] as Color).lightened(0.18), Vector2(2, 2), inked)
-		var crown_lit := FighterView.toon((colours[r % colours.size()] as Color).lightened(0.3), inked)
-		var crown_shade := FighterView.toon((colours[r % colours.size()] as Color).darkened(0.05), inked)
+		# (A softer light ramp and the lit clusters nearer the shaded ones, the gauntlet's round 22: hard-edged facets in two far-apart greens
+		# read as crumpled paper cones, not treetops in the valley's air.)
+		var crown_lit := (FighterView.toon((colours[r % colours.size()] as Color).lightened(0.16), inked) as ShaderMaterial).duplicate() as ShaderMaterial
+		var crown_shade := (FighterView.toon((colours[r % colours.size()] as Color).lightened(0.02), inked) as ShaderMaterial).duplicate() as ShaderMaterial
+		for cm: ShaderMaterial in [crown_lit, crown_shade]:
+			cm.set_shader_parameter("ramp_softness", 0.45)
 		var x := -150.0 + float(r) * 1.3
 		var k := 0
 		# Crowns, not equal puffs: each a big mass with two or three smaller lobes round its shoulders, of very different sizes, now and
@@ -5979,7 +5983,10 @@ static func _grove_roots(root: Node3D, e: Array) -> void:
 	var w := r - l
 	# (A deep brown bark, faceted, art review 9: smooth pink-brown tubes read as sausages.)
 	var bark := (Materials.bark_plates(Color(0.42, 0.29, 0.21), Vector2(1, 3)) as ShaderMaterial).duplicate() as ShaderMaterial
-	bark.set_shader_parameter("facets", true)
+	# (Smooth-shaded and softly lit, the gauntlet's round 22: faceted, each root's flat faces under vertical bark stripes read as planks
+	# pasted on the bank rather than round roots swelling out of it.)
+	bark.set_shader_parameter("facets", false)
+	bark.set_shader_parameter("ramp_softness", 0.35)
 	# (Falling into shade and the stage's haze below the turf as the earth does, the gauntlet's round 1: dark roots ran at full strength
 	# to the bottom of the frame and broke the soft style.)
 	bark.set_shader_parameter("fall_by_height", true)
@@ -6067,7 +6074,10 @@ static func _root_tube(root: Node3D, pts: Array, r0: float, r1: float, mat: Mate
 		var nrm := side.cross(tan).normalized()
 		prev_n = nrm
 		var f := float(i) / float(path.size() - 1)
-		var rr := lerpf(r0, r1, f) * (1.0 + 0.12 * sin(f * 23.0) + 0.06 * sin(f * 51.0))
+		# (Flaring at its start, half again as thick over its first stretch, so a root swells out of the bank under the turf rather than
+		# hanging from it at one width: the gauntlet's round 22.)
+		var flare := 1.0 + 0.5 * (1.0 - smoothstep(0.0, 0.22, f))
+		var rr := lerpf(r0, r1, f) * flare * (1.0 + 0.12 * sin(f * 23.0) + 0.06 * sin(f * 51.0))
 		var ring: Array = []
 		for j in sides + 1:
 			var ang := TAU * float(j) / sides
