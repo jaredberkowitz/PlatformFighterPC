@@ -3512,6 +3512,8 @@ static func _grove(root: Node3D, t: Dictionary, stage: Array) -> void:
 	_tree_line(root, rng, top - 16.0, -78.0, Color(0.5, 0.72, 0.56))
 	# The great tree, set back behind the island's middle.
 	_tree(root, Vector3(0, top - 2.0, -19.0), 1.0, rng)
+	# Its roots holding the island (`_grove_roots`).
+	_grove_roots(root, [left, right, top, stage[3] if stage.size() >= 4 else top - 6.0])
 	# A low rise of land in front of the hills, and two smaller trees standing on it either side (feet just behind its edge).
 	# (A rounded ridge, not the meadow's valley floor: the forest canopy fills the valley below it.)
 	_fore_band(root, -52.0, top - 11.0, Color(0.34, 0.66, 0.42), ROLL_PROFILE)
@@ -5103,3 +5105,96 @@ static func _meadow_hill(root: Node3D, t: Dictionary, l: float, r: float, bottom
 		_hay_bale(root, Vector3(ex + side * 0.5, y + 0.8, z + 0.3), rng.randf_range(-30, 30))
 		_barrel(root, Vector3(ex - side * 1.6, y, z - 0.2), 0.8)
 		_rock(root, Vector3(ex - side * 2.6, y - 0.2, z + 0.6), 0.5, rng)
+
+
+## The grove's stage as the great tree's root crown (the owner, 2026-10-18: a place, not a box): great bark roots come out from under the
+## turf along the front, bulge over the edge and run down the stepped earth, the outer ones hanging free past the narrower tiers, all
+## descending into the forest below and splitting into smaller roots, so the island is held in the tree's roots rather than floating.
+## `e` is the stage's extent [left, right, top, bottom]. Deterministic.
+static func _grove_roots(root: Node3D, e: Array) -> void:
+	var l: float = e[0]
+	var r: float = e[1]
+	var top: float = e[2]
+	var bottom: float = e[3]
+	var front := STAGE_FRONT
+	var cx := (l + r) * 0.5
+	var w := r - l
+	# (The great trunk's own bark, a little darker under the island.)
+	var bark := Materials.bark(Color(0.52, 0.34, 0.22), Vector2(1, 3))
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 4040
+	# The tap root: the island gathers into one great root under its middle, running down into the forest.
+	var tap: Array = []
+	for j in 8:
+		var t := float(j) / 7.0
+		tap.append(Vector3(cx + sin(t * 2.5) * 0.8, lerpf(bottom + 1.0, bottom - 16.0, t), front - 3.5 + t * 1.5))
+	_root_tube(root, tap, 2.6, 1.0, bark)
+	# Roots out from under the turf at uneven places along the front, over the lip, down the face and gathering into the tap root, each
+	# its own thickness; the outer ones loop free past the narrower tiers.
+	var spots := [0.1, 0.27, 0.46, 0.63, 0.88]
+	for k in spots.size():
+		var x0: float = l + w * float(spots[k]) + rng.randf_range(-0.6, 0.6)
+		var rad := rng.randf_range(0.55, 1.05)
+		var pts: Array = []
+		pts.append(Vector3(x0, top - 0.6, front - 0.8))
+		pts.append(Vector3(x0, top - 0.85, front + 0.3))
+		var out := 0.55 + rad * 0.35
+		var steps := 7
+		for j in range(1, steps + 1):
+			var t := float(j) / steps
+			var x := lerpf(x0, cx + (x0 - cx) * 0.15, t * t)
+			var y := lerpf(top - 1.6, bottom - 6.0 - rng.randf_range(0.0, 3.0) * t, t)
+			var z := lerpf(front + out, front - 2.0, smoothstep(0.55, 1.0, t))
+			pts.append(Vector3(x + sin(t * 4.0 + float(k)) * 0.3, y, z))
+		_root_tube(root, pts, rad, rad * 0.55, bark)
+
+
+## A tapering tube of bark along `pts` (a smooth path through them), `r0` thick at its start and `r1` at its end, with a little knobbly
+## swelling along it; one mesh.
+static func _root_tube(root: Node3D, pts: Array, r0: float, r1: float, mat: Material) -> void:
+	# A Catmull-Rom path through the points, finely sampled.
+	var path: Array = []
+	var m := pts.size()
+	for i in m - 1:
+		var p0: Vector3 = pts[maxi(i - 1, 0)]
+		var p1: Vector3 = pts[i]
+		var p2: Vector3 = pts[i + 1]
+		var p3: Vector3 = pts[mini(i + 2, m - 1)]
+		for s in 6:
+			var t := float(s) / 6.0
+			var t2 := t * t
+			var t3 := t2 * t
+			path.append(0.5 * ((2.0 * p1) + (-p0 + p2) * t + (2.0 * p0 - 5.0 * p1 + 4.0 * p2 - p3) * t2 + (-p0 + 3.0 * p1 - 3.0 * p2 + p3) * t3))
+	path.append(pts[m - 1])
+	var sides := 10
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var rings: Array = []
+	var prev_n := Vector3.FORWARD
+	for i in path.size():
+		var a: Vector3 = path[maxi(i - 1, 0)]
+		var b: Vector3 = path[mini(i + 1, path.size() - 1)]
+		var tan := (b - a).normalized()
+		var side := tan.cross(prev_n)
+		if side.length() < 0.01:
+			side = tan.cross(Vector3.RIGHT)
+		side = side.normalized()
+		var nrm := side.cross(tan).normalized()
+		prev_n = nrm
+		var f := float(i) / float(path.size() - 1)
+		var rr := lerpf(r0, r1, f) * (1.0 + 0.12 * sin(f * 23.0) + 0.06 * sin(f * 51.0))
+		var ring: Array = []
+		for j in sides + 1:
+			var ang := TAU * float(j) / sides
+			var dir := nrm * cos(ang) + side * sin(ang)
+			ring.append([path[i] + dir * rr, Vector2(float(j) / sides, f * 6.0)])
+		rings.append(ring)
+	for i in rings.size() - 1:
+		for j in sides:
+			for c in [[i, j], [i + 1, j], [i + 1, j + 1], [i, j], [i + 1, j + 1], [i, j + 1]]:
+				var v: Array = rings[c[0]][c[1]]
+				st.set_uv(v[1])
+				st.add_vertex(v[0])
+	st.generate_normals()
+	var mi := _mesh(root, st.commit(), mat, Vector3.ZERO)
+	mi.name = "GroveRoot"
