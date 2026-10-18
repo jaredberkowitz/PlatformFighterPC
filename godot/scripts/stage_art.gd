@@ -58,7 +58,7 @@ const THEMES := {
 		"sky_glow": [Color(1.0, 0.96, 0.86), 0.15], "sky_wisps": [Color(1.0, 1.0, 1.0), 0.45],
 		"soil": Color(0.82, 0.66, 0.5), "soil_dark": Color(0.6, 0.48, 0.46), "grass": Color(0.96, 0.8, 0.5),
 		"grass_light": Color(1.0, 0.95, 0.78), "wood": Color(0.8, 0.62, 0.42), "wood_dark": Color(0.58, 0.42, 0.28),
-		"pattern": "seawall", "cap": "sand", "platform": "wood", "grass_vary": 0.14, "grass_patch": 0.25,
+		"pattern": "dock", "cap": "dock", "platform": "wood", "grass_vary": 0.14, "grass_patch": 0.25,
 	},
 	"city": {
 		"sky_top": Color(0.08, 0.06, 0.22), "sky_mid": Color(0.22, 0.12, 0.36), "sky_horizon": Color(0.42, 0.22, 0.46),
@@ -714,6 +714,9 @@ static func _cylinder(top: float, bottom: float, height: float, sides := 20) -> 
 ## with pebbles, or a rooftop ledge with a metal trim.
 static func solid_block(parent: Node3D, t: Dictionary, left: float, right: float, top: float, bottom: float, front_z: float, exposed: bool) -> void:
 	var depth := 8.0
+	if t.get("pattern", "") == "dock":
+		_dock_block(parent, t, left, right, top, bottom, front_z, depth)
+		return
 	var body := _mesh(parent, _box(Vector3(right - left, top - bottom, depth)), _soil_material(t),
 		Vector3((left + right) / 2.0, (top + bottom) / 2.0, front_z - depth / 2.0))
 	body.name = "block"
@@ -1119,12 +1122,15 @@ static func _props(root: Node3D, theme_name: String, e: Array) -> void:
 			_lantern_post(root, Vector3(l + 8.0, y, -4.8), Color(1.0, 0.75, 0.4))
 			_rock(root, Vector3(r - 7.5, y, -3.6), 0.35, rng, CANYON_ROCK)
 		"ocean":
-			patches = [[l + 4.5, -4.6, 0.25, 0.2], [r - 4.4, -4.8, 0.25, 0.2], [l + 6.4, -3.6, 0.38, 0.3], [r - 6.5, -4.0, 0.9, 0.55]]
-			_umbrella(root, Vector3(l + 4.5, y, -4.6), Color(0.98, 0.55, 0.55))
+			# (A harbour dock's things, 2026-10-18: crates and barrels of the day's catch and fruit, a lamp, the life ring.)
+			patches = [[l + 2.6, -4.6, 1.0, 0.8], [l + 3.9, -4.2, 0.6, 0.5], [r - 4.4, -4.8, 0.25, 0.2], [r - 2.8, -4.4, 0.7, 0.6], [r - 3.8, -3.8, 0.55, 0.45]]
+			_crate(root, Vector3(l + 2.6, y, -4.8), 1.1, 6.0)
+			_crate(root, Vector3(l + 2.7, y + 1.1, -4.8), 0.8, -10.0)
+			_barrel(root, Vector3(l + 4.0, y, -4.2), 0.8)
 			_life_ring(root, Vector3(r - 4.4, y, -4.8))
-			_bucket(root, Vector3(l + 6.4, y, -3.6), Color(0.45, 0.7, 1.0))
-			_rock(root, Vector3(r - 6.8, y, -3.8), 0.4, rng, BEACH_ROCK)
-			_rock(root, Vector3(r - 6.2, y, -4.2), 0.3, rng, BEACH_ROCK)
+			_barrel(root, Vector3(r - 2.8, y, -4.4), 0.85)
+			_barrel(root, Vector3(r - 3.8, y, -3.9), 0.7)
+			_lantern_post(root, Vector3(l + 7.5, y, -5.2), Color(1.0, 0.82, 0.5))
 		"city":
 			patches = [[l + 2.2, -4.5, 1.6, 0.75], [r - 4.0, -4.0, 0.5, 0.4]]
 			_crate(root, Vector3(l + 1.6, y, -4.6), 1.0, 0.0)
@@ -2636,6 +2642,9 @@ static func underside(root: Node3D, t: Dictionary, e: Array) -> void:
 				var size := rng.randf_range(0.6, 1.2) * (1.5 if k == 0 or k == 8 else 1.0)
 				_mesh(root, _sphere(1.0, 8), rubble, Vector3(x, floor_y + size * 0.2, front - 2.0 + rng.randf_range(-1.5, 0.5)),
 					Vector3(size * 1.3, size, size), Vector3(0, rng.randf_range(0, 90), rng.randf_range(-12, 12)))
+		"ocean" when t.get("pattern", "") == "dock":
+			# (The dock's own piles run down into the sea, `_dock_block`.)
+			pass
 		"ocean":
 			# A rock shelf the island stands on, a little wider at the waterline, with boulders where the sea meets it.
 			var shelf := _hanging_mass(bottom, 3.0, l, r, front, 3.4, 0.14, 3, func(s: float) -> float: return 1.0 + 0.06 * s,
@@ -3570,11 +3579,10 @@ static func _ocean(root: Node3D, t: Dictionary, stage: Array) -> void:
 		boat.add_child(dinghy)
 	# A fisherman's hut on stilts out over the water, a jetty of planks running to it, and floats bobbing off the end: people live here.
 	_stilt_hut(root, Vector3(30.0, float(e[3]) - 1.0, -46.0))
-	# Palms at the ends of the island, behind the fighters.
-	_palm(root, Vector3(float(e[0]) + 1.8, float(e[2]), -5.5), 1.0, rng)
-	_palm(root, Vector3(float(e[1]) - 1.6, float(e[2]), -6.0), 1.15, rng)
-	_contact(root, Vector3(float(e[0]) + 1.8, float(e[2]), -5.5), Vector2(0.4, 0.35))
-	_contact(root, Vector3(float(e[1]) - 1.6, float(e[2]), -6.0), Vector2(0.45, 0.38))
+	if t.get("pattern", "") == "dock":
+		_dock_harbour(root, e, float(e[3]) - 1.0)
+		_harbour_town(root, float(e[3]) - 1.0)
+	# (No palms on the dock, 2026-10-18: a harbour, not a beach.)
 
 
 ## The finer parts of a distant island at `isle` (its own numbers, from `k`, so the sea's layout is unchanged): a ring of white surf
@@ -4771,3 +4779,224 @@ static func _earth_bulges(parent: Node3D, t: Dictionary, left: float, right: flo
 	var mi := _mesh(parent, st.commit(), m, Vector3.ZERO)
 	mi.set_instance_shader_parameter("front_top", top)
 	mi.name = "earth_bulges"
+
+
+## The beach stage as a harbour dock (the owner, 2026-10-18, after a competitor's harbour stage: the stage should be a place, not a
+## box): the block's top is a deck of planks in rows across the stage, each board its own length, shade and a hair off true with gaps
+## between, over a heavy fascia beam along the front; under it the dark space beneath a pier, two rows of round piles running down into
+## the sea with weed and wet wood at the waterline, and cross bracing between the front piles. Same collision: the deck's top is the
+## block's `top`. The sea is a unit under the block's `bottom`.
+static func _dock_block(parent: Node3D, t: Dictionary, left: float, right: float, top: float, bottom: float, front: float, depth: float) -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = int(left * 7.0 + top * 3.0) + 77
+	var water := bottom - 1.0
+	var wood_c: Color = t.wood
+	var dark_c: Color = t.wood_dark
+	# The deck: rows of boards from the front back, staggered joints.
+	var row_w := 0.5
+	var thick := 0.2
+	var items: Array = []
+	var rows := int(depth / row_w)
+	var deck_l := left - 0.15
+	var deck_r := right + 0.15
+	for ri in rows:
+		var zc := front - (float(ri) + 0.5) * row_w
+		var x := deck_l - rng.randf_range(0.0, 1.6)
+		while x < deck_r:
+			var len := rng.randf_range(1.8, 3.8)
+			var x0 := maxf(x, deck_l)
+			var x1 := minf(x + len, deck_r)
+			if x1 - x0 > 0.3:
+				var basis := Basis(Vector3.RIGHT, Vector3.FORWARD, Vector3.UP) * Basis.from_euler(Vector3(rng.randf_range(-0.012, 0.012), rng.randf_range(-0.01, 0.01), rng.randf_range(-0.006, 0.006)))
+				var pos := Vector3((x0 + x1) * 0.5, top - thick * 0.5 + rng.randf_range(-0.012, 0.008), zc)
+				var shade := wood_c.lerp(dark_c, rng.randf_range(0.0, 0.35)).lightened(rng.randf_range(-0.04, 0.08))
+				items.append([Transform3D(basis.scaled_local(Vector3(x1 - x0 - 0.045, row_w - 0.05, thick)), pos), shade.srgb_to_linear()])
+			x += len
+	var mm := MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.use_custom_data = true
+	mm.mesh = _bevel_block()
+	mm.instance_count = items.size()
+	for i in items.size():
+		mm.set_instance_transform(i, items[i][0])
+		mm.set_instance_custom_data(i, items[i][1])
+	var deck := MultiMeshInstance3D.new()
+	deck.multimesh = mm
+	# (Plain boards, each its own shade, with a faint grain: the painted plank tile over them drew a second set of seams and the deck read
+	# as noise, darkening to a murky brown from afar.)
+	# (No ink shell per board: from afar 200 outlined boards turned the deck a murky purple.)
+	var deck_mat := (FighterView.toon(Color.WHITE, false) as ShaderMaterial).duplicate() as ShaderMaterial
+	deck_mat.set_shader_parameter("instance_tint", true)
+	deck_mat.set_shader_parameter("ramp_softness", 0.1)
+	deck.material_override = deck_mat
+	deck.name = "dock_deck"
+	parent.add_child(deck)
+	# Joists under the boards (the gaps show them) and the dark gap under the deck.
+	var joist := Materials.wood(dark_c.darkened(0.15), Vector2(6, 1))
+	_mesh(parent, _box(Vector3(deck_r - deck_l, 0.3, depth - 0.4)), FighterView.toon(dark_c.darkened(0.55), false), Vector3((left + right) * 0.5, top - thick - 0.15, front - depth * 0.5))
+	# The fascia: a heavy beam along the front edge, lit on its top, and one along each end.
+	var fascia := Materials.wood(dark_c, Vector2(10, 1))
+	_mesh(parent, _box(Vector3(deck_r - deck_l + 0.3, 0.42, 0.32)), fascia, Vector3((left + right) * 0.5, top - thick - 0.2, front + 0.02))
+	for ex in [deck_l - 0.1, deck_r + 0.1]:
+		_mesh(parent, _box(Vector3(0.3, 0.42, depth)), fascia, Vector3(ex, top - thick - 0.2, front - depth * 0.5))
+	# The shade under the pier: the deck's underside, and a soft band of shadow falling from it down between the piles (the sea shows
+	# through below it; a solid dark wall there read as a black void).
+	var under := FighterView.toon(Color(0.12, 0.13, 0.2), false)
+	_mesh(parent, _box(Vector3(deck_r - deck_l, 0.2, depth - 0.8)), under, Vector3((left + right) * 0.5, top - thick - 0.45, front - depth * 0.5))
+	for zz in [front - 0.6, front - depth * 0.5]:
+		var band := _mesh(parent, _shade_band(deck_r - deck_l, 2.4), _band_material(), Vector3((left + right) * 0.5, top - thick - 1.6, zz))
+		band.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	# Piles: a front row and a back row, round, a little off plumb, each with a dark wet band and green weed at the waterline.
+	var pile := Materials.bark(dark_c.lerp(Color(0.45, 0.38, 0.34), 0.4), Vector2(1, 3))
+	var wet := FighterView.toon(dark_c.darkened(0.45))
+	var weed := Materials.foliage(Color(0.26, 0.46, 0.3), Vector2(1, 1), false)
+	var span := right - left
+	var n := maxi(3, int(round(span / 2.6)))
+	var fronts: Array = []
+	for row in 2:
+		var pz := front - 0.1 if row == 0 else front - depth + 1.2
+		for k in n + 1:
+			var px := lerpf(left + 0.1, right - 0.1, float(k) / float(n)) + rng.randf_range(-0.12, 0.12)
+			var h := top - thick - water + 1.5
+			var lean := Vector3(rng.randf_range(-1.6, 1.6), 0, rng.randf_range(-1.2, 1.2))
+			var mid := Vector3(px, water - 1.5 + h * 0.5, pz)
+			_mesh(parent, _cylinder(0.24, 0.28, h, 9), pile, mid, Vector3.ONE, lean)
+			_mesh(parent, _cylinder(0.3, 0.31, 0.6, 9), wet, Vector3(px, water + 0.15, pz), Vector3.ONE, lean)
+			_mesh(parent, _cylinder(0.32, 0.34, 0.18, 9), weed, Vector3(px, water + 0.42, pz), Vector3(1.0, 1.0, 1.0), lean)
+			if row == 0:
+				fronts.append(px)
+				# A pile cap standing a little proud of the fascia, lit on top.
+				_mesh(parent, _cylinder(0.27, 0.27, 0.16, 9), pile, Vector3(px, top - thick - 0.47, pz + 0.12))
+	# Cross bracing between the front piles: an X of planks in each bay, below the fascia.
+	var brace := Materials.wood(dark_c.darkened(0.08), Vector2(4, 1))
+	var y_hi := top - thick - 0.7
+	var y_lo := water + 0.9
+	for k in fronts.size() - 1:
+		# (Every other bay: an X in every bay read as a fence.)
+		if k % 2 == 1:
+			continue
+		var a: float = fronts[k]
+		var b: float = fronts[k + 1]
+		var len := Vector2(b - a, y_hi - y_lo).length()
+		var ang := rad_to_deg(atan2(y_hi - y_lo, b - a))
+		for sgn in [1.0, -1.0]:
+			_mesh(parent, _box(Vector3(len, 0.2, 0.08)), brace, Vector3((a + b) * 0.5, (y_hi + y_lo) * 0.5, front - 0.02 + 0.06 * sgn), Vector3.ONE, Vector3(0, 0, ang * sgn))
+		_mesh(parent, _box(Vector3(b - a, 0.18, 0.1)), brace, Vector3((a + b) * 0.5, y_hi + 0.05, front + 0.05))
+
+
+## The harbour round the dock (`e` the stage's extent; the sea at `water`): in front of the stage, low on the water at both corners, a
+## floating landing of planks with the day's goods on it (crates of fruit, barrels, a heap of net, a coil of rope), framed by mooring
+## posts standing up out of the sea, so the shot has a foreground as a harbour stage's does (the owner's references, 2026-10-18); and
+## behind the stage a boardwalk on posts from the back of the dock out to the fisherman's jetty, so the dock belongs to the harbour.
+static func _dock_harbour(root: Node3D, e: Array, water: float) -> void:
+	var l: float = e[0]
+	var r: float = e[1]
+	var top: float = e[2]
+	var front := STAGE_FRONT
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 314
+	var plank := Materials.wood(Color(0.72, 0.56, 0.4), Vector2(6, 1))
+	var dark := Materials.wood(Color(0.46, 0.34, 0.26), Vector2(1, 3))
+	var rope := FighterView.toon(Color(0.86, 0.74, 0.52))
+	for side in [-1.0, 1.0]:
+		var cx: float = (l + 3.2) if side < 0.0 else (r - 3.2)
+		# A lower landing in front of each end of the dock, a few steps down, inside the stage's width (clear of the ledges' recovery
+		# space beyond the ends), so it frames the bottom of the shot as a foreground.
+		var at := Vector3(cx, top - 3.7, front + 3.4)
+		var bob := Node3D.new()
+		bob.position = at
+		root.add_child(bob)
+		for k in 8:
+			_mesh(bob, _box(Vector3(0.66, 0.2, 3.6)), plank, Vector3(-2.5 + k * 0.72, 0.1, 0), Vector3.ONE, Vector3(rng.randf_range(-1, 1), 0, rng.randf_range(-1.2, 1.2)))
+		_mesh(bob, _box(Vector3(6.0, 0.3, 0.26)), dark, Vector3(0, -0.1, 1.85))
+		for px2 in [-2.7, 2.7]:
+			for pz2 in [-1.5, 1.6]:
+				var hh := at.y - water + 1.5
+				_mesh(root, _cylinder(0.2, 0.24, hh, 8), dark, Vector3(at.x + px2, water - 1.5 + hh * 0.5, at.z + pz2))
+		# Goods: a crate of oranges, barrels, a heap of net, a coil of rope.
+		_crate(bob, Vector3(-1.2 * side, 0.24, -0.3), 1.0, rng.randf_range(-15, 15))
+		_crate(bob, Vector3(1.4 * side, 0.24, 0.2), 1.1, rng.randf_range(-15, 15))
+		_crate(bob, Vector3(1.3 * side, 1.34, 0.1), 0.9, rng.randf_range(-20, 20))
+		var fruit := FighterView.toon(Color(1.0, 0.56, 0.18) if side < 0.0 else Color(0.9, 0.24, 0.24))
+		for f in 9:
+			_mesh(bob, _sphere(0.17, 8), fruit, Vector3(-1.2 * side + rng.randf_range(-0.32, 0.32), 1.22 + rng.randf_range(0.0, 0.12), -0.3 + rng.randf_range(-0.32, 0.32)))
+		_barrel(bob, Vector3(0.3 * side, 0.24, 0.4), 0.85)
+		_barrel(bob, Vector3(-0.4 * side, 0.24, -0.8), 0.75)
+		_mesh(bob, _clump_ball(int(side) + 1), _lobed(FighterView.toon(Color(0.3, 0.46, 0.44))), Vector3(1.6 * side, 0.45, 0.8), Vector3(0.9, 0.35, 0.7))
+		var coil := TorusMesh.new()
+		coil.inner_radius = 0.2
+		coil.outer_radius = 0.42
+		_mesh(bob, coil, rope, Vector3(-0.2 * side, 0.32, 1.1))
+		_mesh(bob, coil, rope, Vector3(-0.2 * side, 0.42, 1.1), Vector3(0.85, 1.0, 0.85))
+		# Mooring posts out of the sea beside it, a rope loop round the nearest.
+		for mp in 2:
+			var px: float = cx + side * (6.4 + mp * 1.4)
+			var pz := front + 7.6 + mp * 1.6
+			var ph := 3.2 + mp * 0.5
+			_mesh(root, _cylinder(0.26, 0.3, ph + 2.0, 9), dark, Vector3(px, water - 1.0 + (ph + 2.0) * 0.5, pz), Vector3.ONE, Vector3(rng.randf_range(-3, 3), 0, rng.randf_range(-4, 4)))
+			_mesh(root, _cylinder(0.3, 0.3, 0.12, 9), dark, Vector3(px, water + ph + 0.9, pz))
+			if mp == 0:
+				_mesh(root, coil, rope, Vector3(px, water + ph * 0.7, pz), Vector3(0.9, 0.6, 0.9))
+	# The boardwalk from the back of the dock out to the fisherman's jetty (`_stilt_hut` at 30, the sea, -46: its deck 4.1 up).
+	var a := Vector3(r - 5.0, top - 0.1, front - 8.2)
+	var b := Vector3(25.0, water + 4.1, -45.0)
+	var dir := b - a
+	var length := dir.length()
+	var n := int(length / 0.7)
+	var basis := Basis.looking_at(dir.normalized(), Vector3.UP)
+	for k in n:
+		var p := a + dir * (float(k) + 0.5) / float(n)
+		_mesh(root, _box(Vector3(1.8, 0.16, 0.6)), plank, p, Vector3.ONE, basis.get_euler() * (180.0 / PI) + Vector3(0, 0, rng.randf_range(-1.2, 1.2)))
+	var side_v := basis.x
+	var pk := 0.0
+	while pk < length:
+		var p2 := a + dir.normalized() * pk
+		for sv in [-0.85, 0.85]:
+			var post_at: Vector3 = p2 + side_v * sv
+			var ph: float = post_at.y - water + 1.5
+			_mesh(root, _cylinder(0.12, 0.14, ph, 7), dark, Vector3(post_at.x, water - 1.5 + ph * 0.5, post_at.z))
+			# A rail along the walk.
+			_mesh(root, _cylinder(0.06, 0.06, 1.0, 6), dark, post_at + Vector3(0, 0.5, 0))
+		pk += 3.5
+
+
+## A harbour town across the water on the left (the sea at `water`): a green headland rising from a stone quay, its houses climbing the
+## slope in rows (the cottage model, each roof its own colour, walls tinted a few seaside pastels, turned a little), boats moored along
+## the quay, and hills behind; the middle distance of a harbour, as the owner's references have (2026-10-18). Its own random numbers.
+static func _harbour_town(root: Node3D, water: float) -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 2718
+	var base := Vector3(-62.0, water, -78.0)
+	# The headland: a broad rise of land behind the quay.
+	var land := Materials.foliage(Color(0.44, 0.7, 0.42), Vector2(6, 3), false)
+	_mesh(root, _sphere(1.0, 24), land, base + Vector3(-6, 0.0, -14), Vector3(40, 16, 16))
+	_mesh(root, _sphere(1.0, 20), land, base + Vector3(22, -1.0, -18), Vector3(26, 10, 12))
+	# The quay: a long stone wall along the water with a lit top.
+	var stone := Materials.stone(Color(0.78, 0.72, 0.66), Vector2(12, 1))
+	_mesh(root, _box(Vector3(64, 2.2, 6)), stone, base + Vector3(2, 1.0, 2))
+	_mesh(root, _box(Vector3(64.4, 0.3, 6.4)), FighterView.toon(Color(0.88, 0.84, 0.78)), base + Vector3(2, 2.2, 2))
+	# Houses in rows up the slope.
+	var roofs := [Color(0.86, 0.36, 0.3), Color(0.32, 0.5, 0.74), Color(0.9, 0.58, 0.3), Color(0.5, 0.66, 0.5), Color(0.8, 0.42, 0.52)]
+	for row in 3:
+		var y := 2.3 + row * 3.4
+		var z := -1.0 - row * 4.5
+		var x := -26.0 + row * 4.0 + rng.randf_range(-1.0, 1.0)
+		while x < 28.0 - row * 6.0:
+			var house := Node3D.new()
+			house.position = base + Vector3(x, y, z)
+			house.rotation_degrees = Vector3(0, rng.randf_range(-12, 12), 0)
+			house.scale = Vector3.ONE * rng.randf_range(0.85, 1.15)
+			root.add_child(house)
+			_cottage(house, Vector3.ZERO, roofs[rng.randi() % roofs.size()], 1.0 if rng.randf() < 0.5 else -1.0)
+			x += rng.randf_range(5.6, 7.4)
+	# Boats moored along the quay.
+	for k in 3:
+		var boat := Bob.new()
+		boat.position = base + Vector3(-18.0 + k * 15.0, 0.0, 7.0)
+		root.add_child(boat)
+		var dinghy := Toonify.load_prop("sailboat")
+		if dinghy != null:
+			dinghy.scale = Vector3.ONE * rng.randf_range(0.9, 1.2)
+			dinghy.position = Vector3(0, -0.6, 0)
+			dinghy.rotation_degrees = Vector3(0, rng.randf_range(160, 200), 0)
+			boat.add_child(dinghy)
