@@ -263,15 +263,28 @@ class Board extends Control:
 	func _portrait(i: int, centre: Vector2, color: Color, out: bool) -> void:
 		draw_set_transform_matrix(card_xf * Transform2D(deg_to_rad(-7.0), centre))
 		var r := Rect2(-50, -50, 100, 100)
-		draw_rect(Rect2(r.position + Vector2(5, 7), r.size), Color(0, 0, 0, 0.28))
-		# The backing in the player's colour, a little muted, so four cards read as one calm strip and the damage numbers lead.
-		var back := color.lerp(Color(0.32, 0.3, 0.4), 0.22) if not out else Color(0.55, 0.55, 0.58)
-		draw_polygon(PackedVector2Array([r.position, Vector2(r.end.x, r.position.y), r.end, Vector2(r.position.x, r.end.y)]),
-			PackedColorArray([back.lightened(0.45), back.lightened(0.3), back.darkened(0.1), back]))
+		# (The menus' card construction since the UI pass, docs/UI_REVIEW.md: cut corners, a hard shadow, the player's colour deepening
+		# downward, a lit inner edge; a pale square with a thin unsmoothed line read as stippled and unfinished.)
+		var cut := 14.0
+		var shape := PackedVector2Array([r.position + Vector2(cut, 0), Vector2(r.end.x, r.position.y), Vector2(r.end.x, r.end.y - cut),
+			Vector2(r.end.x - cut, r.end.y), Vector2(r.position.x, r.end.y), r.position + Vector2(0, cut)])
+		var sh := PackedVector2Array()
+		for q in shape:
+			sh.append(q + Vector2(5, 7))
+		draw_colored_polygon(sh, Color(D.INK, 0.5))
+		var back := color.lerp(Color(0.32, 0.3, 0.4), 0.15) if not out else Color(0.55, 0.55, 0.58)
+		var cols := PackedColorArray()
+		for q in shape:
+			cols.append(back.lightened(0.15).lerp(back.darkened(0.4), (q.y - r.position.y) / r.size.y))
+		draw_polygon(shape, cols)
 		var tex: Texture2D = portraits[i] if i < portraits.size() else null
 		if tex != null:
 			draw_texture_rect(tex, r.grow(-3.0), false, Color(1, 1, 1) if not out else Color(0.55, 0.55, 0.6))
-		draw_rect(r.grow(-4.0), Color(1, 1, 1, 0.55), false, 1.5)
+		var inner := PackedVector2Array()
+		for q in shape:
+			inner.append(q * 0.9)
+		inner.append(inner[0])
+		draw_polyline(inner, Color(1, 1, 1, 0.5), 2.0, true)
 		# Just lost a stock: a red flash over the portrait that fades.
 		var since := float(Time.get_ticks_msec() - int(lost_at[i]))
 		if lost_at[i] > 0 and since < LOST_MS:
@@ -280,7 +293,9 @@ class Board extends Control:
 		var hurt := float(Time.get_ticks_msec() - int(hurt_at[i]))
 		if hurt_at[i] > 0 and hurt < HURT_MS:
 			draw_rect(r, Color(1, 1, 1, 0.6 * (1.0 - hurt / HURT_MS)))
-		draw_rect(r, D.INK, false, 4.0)
+		var closed := shape.duplicate()
+		closed.append(shape[0])
+		draw_polyline(closed, D.INK, 4.0, true)
 		draw_set_transform_matrix(card_xf)
 
 	## A stock: a little round head in the player's colour with two eyes, in ink (`scale` and `alpha` for the one popping off).

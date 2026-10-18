@@ -31,3 +31,11 @@ fighter). Screens reviewed: main menu, fighter select, in-match display, pause, 
 
 Order: tokens and the panel and button style in `ui_kit.gd` first (every screen picks them up), then each screen's layout and type:
 pause, results, fighter select, main menu, in-match display.
+
+## Progress (2026-10-18)
+
+- Done: one construction for banners, cards and buttons (crisp, gradient, lit edge, hard shadow, bevel); crisp gold focus; one palette;
+  label type (letter-spaced small capitals); the pause screen's framing; the menus on a stylised backdrop (shaders/menu_backdrop.gdshader)
+  instead of the live meadow; the fighter select's player panels and the results' portraits in the card construction and deeper colour;
+  the in-match portrait card in the same construction.
+- Open: the results' winner's sword breaks its frame (kept as a hero shot for now); the run mode's screens not yet reviewed.
