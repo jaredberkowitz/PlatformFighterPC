@@ -35,7 +35,7 @@ const THEMES := {
 		"sky_glow": [Color(1.0, 0.72, 0.82), 0.55], "sky_wisps": [Color(1.0, 0.9, 0.96), 0.45],
 		"soil": Color(0.86, 0.66, 0.38), "soil_dark": Color(0.72, 0.5, 0.27), "grass": Color(0.32, 0.72, 0.26),
 		"grass_light": Color(0.6, 0.9, 0.34), "wood": Color(0.93, 0.74, 0.5), "wood_dark": Color(0.7, 0.48, 0.28),
-		"pattern": "roots", "cap": "grass", "platform": "wood", "grass_vary": 0.16,
+		"pattern": "roots", "cap": "grass", "platform": "wood", "grass_vary": 0.16, "grass_patch": 0.3,
 	},
 	"sunset": {
 		"sky_top": Color(0.36, 0.28, 0.6), "sky_mid": Color(0.84, 0.46, 0.62), "sky_horizon": Color(1.0, 0.64, 0.4),
@@ -44,7 +44,7 @@ const THEMES := {
 		# (Sun-bleached, in the other stages' range of wood: art review 6 round 8, the canyon's dark maroon planks read as black bars
 		# against its bright sky, the one stage whose platforms broke the family.)
 		"grass_light": Color(0.98, 0.86, 0.6), "wood": Color(0.82, 0.57, 0.42), "wood_dark": Color(0.58, 0.37, 0.29),
-		"pattern": "strata", "cap": "sand", "platform": "wood", "grass_vary": 0.18,
+		"pattern": "strata", "cap": "sand", "platform": "wood", "grass_vary": 0.18, "grass_patch": 0.3,
 	},
 	"night": {
 		"sky_top": Color(0.05, 0.07, 0.2), "sky_mid": Color(0.12, 0.13, 0.36), "sky_horizon": Color(0.2, 0.25, 0.48),
@@ -58,7 +58,7 @@ const THEMES := {
 		"sky_glow": [Color(1.0, 0.96, 0.86), 0.15], "sky_wisps": [Color(1.0, 1.0, 1.0), 0.45],
 		"soil": Color(0.82, 0.66, 0.5), "soil_dark": Color(0.6, 0.48, 0.46), "grass": Color(0.96, 0.8, 0.5),
 		"grass_light": Color(1.0, 0.95, 0.78), "wood": Color(0.8, 0.62, 0.42), "wood_dark": Color(0.58, 0.42, 0.28),
-		"pattern": "seawall", "cap": "sand", "platform": "wood", "grass_vary": 0.14,
+		"pattern": "seawall", "cap": "sand", "platform": "wood", "grass_vary": 0.14, "grass_patch": 0.25,
 	},
 	"city": {
 		"sky_top": Color(0.08, 0.06, 0.22), "sky_mid": Color(0.22, 0.12, 0.36), "sky_horizon": Color(0.42, 0.22, 0.46),
@@ -614,6 +614,7 @@ static func solid_block(parent: Node3D, t: Dictionary, left: float, right: float
 			var roofing := (t.grass as Color).lerp(Color(0.62, 0.56, 0.58), 0.55).darkened(0.1)
 			var roof_mat := _surface(roofing, "roof", 4.0).duplicate() as ShaderMaterial
 			roof_mat.set_shader_parameter("world_vary", 0.16)
+			roof_mat.set_shader_parameter("patch_amount", 0.25)
 			_mesh(parent, _box(Vector3(w + 0.3, 0.35, depth + 0.3)), roof_mat, Vector3(cx, top - 0.15, front_z - depth / 2.0))
 			var coping := _soft((t.grass_light as Color).lerp(Color(0.86, 0.82, 0.8), 0.4))
 			var coping_face := _soft((t.grass as Color).darkened(0.18))
@@ -637,6 +638,9 @@ static func solid_block(parent: Node3D, t: Dictionary, left: float, right: float
 			if t.has("grass_vary"):
 				sand = sand.duplicate()
 				sand.set_shader_parameter("world_vary", t.grass_vary)
+			if t.has("grass_patch"):
+				sand = sand.duplicate()
+				sand.set_shader_parameter("patch_amount", t.grass_patch)
 			_mesh(parent, _box(Vector3(w + 0.2, 0.45, depth + 0.1)), sand, Vector3(cx, top - 0.2, front_z - depth / 2.0))
 			_mesh(parent, _cylinder(0.26, 0.26, w + 0.2), sand, Vector3(cx, top - 0.26, front_z + 0.02), Vector3.ONE, Vector3(0, 0, 90))
 			_mesh(parent, _box(Vector3(w + 0.24, 0.1, 0.2)), _soft(t.grass_light), Vector3(cx, top - 0.05, front_z + 0.24))
@@ -1638,11 +1642,12 @@ const RIDGES := {
 		# thing on the menu; the owner, 2026-10-17, raise the quality of what is there.)
 		"flank": 0.75, "foot_dark": 0.35, "layers": 4, "flank_from": 0.0}],
 	"grove": [{"z": -165.0, "y": -34.0, "height": 52.0, "shape": 0, "seed": 8.0, "base": 0.5, "amplitude": 0.32, "frequency": 3.5,
-		"tone": Color(0.5, 0.5, 0.84), "mix": 0.55, "edge": 0.5, "flank": 0.6}],
+		"tone": Color(0.5, 0.5, 0.84), "mix": 0.7, "edge": 0.3, "flank": 0.6, "foot_dark": 0.3, "layers": 4, "flank_from": 0.0,
+		"haze": 0.2}],
 	"sunset": [{"z": -175.0, "y": -36.0, "height": 58.0, "shape": 2, "seed": 5.0, "base": 0.4, "amplitude": 0.4, "frequency": 3.0,
-		"tone": Color(0.42, 0.26, 0.5), "mix": 0.55, "edge": 0.4},
+		"tone": Color(0.42, 0.26, 0.5), "mix": 0.62, "edge": 0.35, "layers": 3, "flank_from": 0.0},
 		{"z": -132.0, "y": -34.0, "height": 46.0, "shape": 2, "seed": 11.0, "base": 0.36, "amplitude": 0.36, "frequency": 2.6,
-		"tone": Color(0.55, 0.26, 0.3), "mix": 0.62, "edge": 0.5}],
+		"tone": Color(0.55, 0.26, 0.3), "mix": 0.68, "edge": 0.4, "layers": 4, "flank_from": 0.0}],
 	"night": [{"z": -160.0, "y": -42.0, "height": 56.0, "shape": 1, "seed": 2.0, "base": 0.4, "amplitude": 0.45, "frequency": 4.0,
 		"tone": Color(0.08, 0.1, 0.24), "mix": 0.55, "edge": 0.35}],
 	# (The sea's horizon is the bank of piled cumulus modelled in `_ocean`, with the distant islands in front of it. A far coast drawn

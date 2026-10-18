@@ -122,3 +122,16 @@ stay out of the repo; these are the lessons, which every stage, prop and the men
 
 Applied so far: tiered faceted tree crowns and trunks (`art/blender/make_props.py` `tree_crown_*`, `tree_trunk`), the meadow's mountain
 flanks lit and turned teal. Next candidates: stumps, rocks and cottages in the same faceted language; the mountains' layered bands.
+
+## Depth and dimension rules, every stage (owner's outside brief, 2026-10-17)
+
+Applied to all five stages, each tuned to its own palette and light:
+- **Depth separation:** the play area is the most saturated and sharpest layer; far layers sit back in the stage's own air colour
+  (painted ridges' `haze`, the finishing pass's `haze_max`). The finishing pass greys scenery only a little (`quiet` 0.0-0.12 by stage,
+  was 0.25): greying flattened the mid distance.
+- **Painted surfaces:** walkable tops take large tonal patches, a deeper and a sunlit tone (`patch_amount` in toon_common, a theme's
+  `grass_patch`; roofs 0.25), instead of one flat sheet.
+- **Terrain as a solid:** the block front falls into cool shade over the face you see (`front_fall`/`front_span` per pattern).
+- **Layered mountains:** ridges cut into flat paper bands with lit lips and a deep foot (`layers`, `foot_dark`, `flank_from`).
+- **One language for plants:** faceted tiered crowns and pointed turf, never round blobs; distant plants simpler than near ones.
+- Never make the stage more complicated than the fighters.

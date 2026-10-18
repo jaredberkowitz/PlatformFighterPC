@@ -77,7 +77,7 @@ const STYLE_DEFAULT := {
 const STYLES := {
 	# Dappled light under the great tree: small patches swaying slowly.
 	"grove": {"paint": [Color(1.06, 0.99, 0.94), Color(0.94, 0.9, 1.06), 0.55], "clouds": [0.5, 3.2, 0.42, 0.25],
-		"finish": {"desat": 0.0, "lift": 0.02, "haze_max": 0.12, "s_curve": 0.3}},
+		"finish": {"desat": 0.0, "lift": 0.02, "haze_max": 0.08, "s_curve": 0.3, "quiet": 0.08}},
 	# Crisper light-to-shadow steps (a clear lit side and shaded side on every prop, in the manner of a cel-shaded adventure), warmer tops
 	# and cooler undersides, and less of the pastel wash, so the colours carry.
 	"meadow": {"ramp": [[0.0, 0.0], [0.38, 0.0], [0.43, 0.52], [0.55, 0.52], [0.6, 1.0], [1.0, 1.0]],
@@ -86,13 +86,13 @@ const STYLES := {
 		# flat pastel shapes, the owner's "flat" feel; depth still reads through the cooler, lighter far colours.)
 		"finish": {"desat": 0.0, "lift": 0.01, "haze_max": 0.06, "s_curve": 0.3, "quiet": 0.0}},
 	"sunset": {"clouds": [0.35, 30.0, 0.3, 0.4], "edge": Color(1.0, 0.86, 0.74, 0.44), "paint": [Color(1.1, 0.98, 0.86), Color(0.86, 0.86, 1.08), 0.7], "deep": 0.72,
-		"finish": {"desat": 0.0, "lift": 0.02, "haze_max": 0.1, "s_curve": 0.3}},
+		"finish": {"desat": 0.0, "lift": 0.02, "haze_max": 0.08, "s_curve": 0.3, "quiet": 0.08}},
 	"night": {"edge": Color(0.78, 0.86, 1.0, 0.62), "paint": [Color(0.98, 1.0, 1.08), Color(0.86, 0.9, 1.1), 0.5], "deep": 0.74, "glow": 0.95,
 		"ramp": [[0.0, 0.0], [0.36, 0.0], [0.44, 0.5], [0.56, 0.5], [0.64, 1.0], [1.0, 1.0]]},
 	"ocean": {"paint": [Color(1.05, 1.02, 0.94), Color(0.9, 0.97, 1.06), 0.5], "clouds": [0.55, 26.0, 0.36, 0.9],
-		"finish": {"desat": 0.0, "lift": 0.02, "haze_max": 0.07, "s_curve": 0.28}},
+		"finish": {"desat": 0.0, "lift": 0.02, "haze_max": 0.07, "s_curve": 0.28, "quiet": 0.08}},
 	"city": {"edge": Color(1.0, 0.82, 0.92, 0.55), "paint": [Color(1.06, 0.96, 0.96), Color(0.9, 0.88, 1.1), 0.6], "deep": 0.72, "glow": 1.1,
-		"finish": {"lift": 0.02, "s_curve": 0.48}},
+		"finish": {"lift": 0.02, "s_curve": 0.48, "quiet": 0.12}},
 }
 
 
