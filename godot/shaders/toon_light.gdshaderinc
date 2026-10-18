@@ -161,6 +161,18 @@ void light() {
 		float band = smoothstep(0.9, 0.93, nh) + 0.35 * smoothstep(0.62, 0.7, nh) * (1.0 - smoothstep(0.84, 0.9, nh));
 		SPECULAR_LIGHT += vec3(band * metal * 1.4) * LIGHT_COLOR / PI * ATTENUATION;
 		SPECULAR_LIGHT += pf_rim_color.rgb * rim * metal * 0.5 * LIGHT_COLOR / PI;
+		// The painted sky in the metal: a crisp bright stripe where the surface reflects the horizon, a little of the sky above it, and the
+		// reflected ground below it a step darker, as a cel-shaded adventure paints steel (the owner's material notes, 2026-10-17: metal
+		// wants clearer highlights and to differ from wood). In view space, which is close to the world's for this game's level camera.
+		vec3 refl = reflect(-VIEW, NORMAL);
+		float stripe = smoothstep(0.02, 0.07, refl.y) * (1.0 - smoothstep(0.2, 0.26, refl.y));
+		float sky = smoothstep(0.26, 0.6, refl.y);
+		// And a crisp upright streak on the side toward the light, where a round post or a hoop turns (the reflection above gives an upright
+		// cylinder none).
+		float toward = NORMAL.x * sign(LIGHT.x + 0.0001);
+		float streak = smoothstep(0.3, 0.36, toward) * (1.0 - smoothstep(0.52, 0.6, toward)) * (1.0 - abs(NORMAL.y));
+		SPECULAR_LIGHT += vec3(max(stripe * 0.9, streak * 1.1) + sky * 0.2) * metal * LIGHT_COLOR / PI * 0.5;
+		DIFFUSE_LIGHT *= 1.0 - 0.18 * metal * smoothstep(0.0, -0.3, refl.y);
 	}
 	// A fighter's edge light: pale, all round the silhouette whatever the light's direction (half from each of the two lights).
 	float around = smoothstep(0.62, 0.95, edge);

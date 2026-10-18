@@ -25,10 +25,12 @@ const FAMILIES := {
 	"foliage": {"ramp_softness": 0.26, "sheen": 0.0, "rim_strength": 0.35},
 	"stone": {"ramp_softness": 0.1, "sheen": 0.03, "rim_strength": 0.3},
 	"plain": {"ramp_softness": 0.16, "sheen": 0.0, "rim_strength": 0.3},
+	# (Steel: a crisp step and the metal response's highlights, so it reads apart from wood and stone, 2026-10-17.)
+	"metal": {"ramp_softness": 0.08, "sheen": 0.0, "rim_strength": 0.5, "metal": 0.6},
 }
 
 ## Which family each stage tile is.
-const TILE_FAMILY := {"wood": "wood", "grass": "grass", "field": "grass", "asphalt": "stone", "sand": "grass", "roof": "stone", "steel": "plain", "bark": "bark",
+const TILE_FAMILY := {"wood": "wood", "grass": "grass", "field": "grass", "asphalt": "stone", "sand": "grass", "roof": "stone", "steel": "metal", "bark": "bark",
 	"foliage": "foliage", "stone": "stone"}
 
 ## The painted detail laid over each world-laid stage tile (shaders/toon_common.gdshaderinc `detail_*`): [detail tile, amount, world units
