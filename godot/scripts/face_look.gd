@@ -36,9 +36,11 @@ const ADJUST := {
 ## The concept art's face: where each part sits with every adjustment in the middle (in the face square, 0..1). Measured off the concept
 ## sheet's front view in head radii (eyes 0.41 out and 0.185 up, 0.25 across; the mouth 0.16 down, 0.36 wide; cheeks 0.51 out and 0.2
 ## down) and turned into the square: the head shows the square 1.75 radii across, the drawing 1.15 times larger (face.gdshader).
-const EYE_GAP := 0.2017
-const EYE_Y := 0.408
-const EYE_SIZE := 0.315
+## (Bigger and a little wider apart since the body rebuild, 2026-10-18: on the new wide head the concept's eyes read small at play size;
+## the reference cast's eyes span about half the face.)
+const EYE_GAP := 0.225
+const EYE_Y := 0.415
+const EYE_SIZE := 0.37
 const BROW_GAP := 0.17
 const BROW_Y := 0.258
 const BROW_SIZE := 0.36
