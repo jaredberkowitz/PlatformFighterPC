@@ -6,7 +6,7 @@ bundle {
     name "Base Roster"
     description "The built-in roster: a longsword duelist and a close-range brawler."
     sim_version 143
-    hash 9048cfccea443845
+    hash 7e70c3068a105b25
 }
 
 ruleset {
@@ -771,19 +771,58 @@ weapon claws {
         }
     }
     move side_special {
-        total_frames 53
+        total_frames 59
+        landing_lag 29
         helpless_after true
+        ledge_front_from 25
+        ledge_back_from 25
+        fall_landing_lag 29
         start_speed 67
         start_speed_y 0
-        hitbox { start 18 end 27 x 1.2 y 1.09999 radius 1.09999 damage 3 angle 361 bkb 20 kbg 0 }
-        hitbox { start 28 end 31 x 1.4 y 0.29999 radius 1.09999 damage 20 angle 270 bkb 70 kbg 90 group 1 }
-        hitbox { start 28 end 31 x 1.5 y 0.9 radius 1.29999 damage 15 angle 290 bkb 60 kbg 90 priority 1 group 1 }
+        air_version ext3
+        hitbox { start 17 end 18 x -1.7 y 0.59999 radius 0.4 damage 3 angle 80 bkb 68 kbg 40 rebounds false half_width 1.7 angle_type forward }
+        hitbox {
+            start 19
+            end 20
+            x 0.7
+            y 0.7
+            radius 0.5
+            damage 20
+            angle 270
+            bkb 20
+            kbg 100
+            group 1
+            hitlag 150
+            targets aerial
+            clanks false
+            rebounds false
+            angle_type position
+        }
+        hitbox {
+            start 19
+            end 20
+            x 0.7
+            y 0.7
+            radius 0.9
+            damage 15
+            angle 28
+            bkb 30
+            kbg 80
+            priority 1
+            group 1
+            hitlag 150
+            targets grounded
+            clanks false
+            rebounds false
+            angle_type forward
+        }
         script {
-            // Side special (dash), on the reference's parameters (sim 139): started in the air it keeps 0.67 of its sideways speed (the move's
-            // start_speed) and none of its vertical speed, the sideways part slowing by 0.05 reference units a frame, held still 13 frames, then
-            // falling at 0.017 gravity. On frame 17 the stick past half tilt angles the dash up to 10 degrees up or down. After the dash it slides on
-            // at 2.3 units a frame in the air (2.5 on the ground), slowed by 0.07 (0.15), and from 5 frames after the dash falls at 0.08 gravity.
-            // The dash's own speed (5.5 units a frame, frames 18-27) is an estimate.
+            // Side special (dash), on the reference's parameters (sims 139 and 143; move frame N is the reference's N+1): started in the air it
+            // keeps 0.67 of its sideways speed (the move's start_speed) and none of its vertical speed, the sideways part slowing by 0.05 reference
+            // units a frame, held still 13 frames, then falling at 0.017 gravity. On frame 16 the stick past half tilt angles the dash up to 10
+            // degrees up or down. The dash is the illusion's 2 frames (17-18; its 27.5 units a frame are an estimate: 55 units in all). After it it
+            // slides on at 2.3 units a frame in the air (2.5 on the ground), slowed by 0.07 (0.15), and from 5 frames after the dash falls at 0.08
+            // gravity.
             var deg;
             var h;
             var v;
@@ -794,20 +833,20 @@ weapon claws {
                 if frame >= 14 { v = max(vy - 0.002125, -0.225); }
                 set_vel(h, v);
             }
-            if frame == 17 {
+            if frame == 16 {
                 deg = 0;
                 if abs(stick_y) > 0.5 { deg = sign(stick_y) * min((abs(stick_y) - 0.5) / 0.5, 1) * 10; }
             }
-            if frame >= 18 && frame <= 27 { set_vel(0.6875 * cos(deg), 0.6875 * sin(deg)); }
-            if frame == 28 {
+            if frame >= 17 && frame <= 18 { set_vel(3.4375 * cos(deg), 3.4375 * sin(deg)); }
+            if frame == 19 {
                 h = 0.2875;
                 if grounded { h = 0.3125; }
                 v = h * sin(deg);
                 h = h * cos(deg);
             }
-            if frame >= 28 {
+            if frame >= 19 {
                 if grounded { h = max(h - 0.01875, 0); } else { h = max(h - 0.00875, 0); }
-                if frame >= 33 { v = max(v - 0.01, -0.225); }
+                if frame >= 24 { v = max(v - 0.01, -0.225); }
                 if grounded { v = 0; }
                 set_vel(h, v);
             }
@@ -1089,6 +1128,87 @@ weapon claws {
                 set_vel(vx * 0.4, 0.375);
             } else {
                 set_vel(sign(vx) * max(abs(vx) - 0.02, 0), vy - 0.025);
+            }
+        }
+    }
+    move ext3 {
+        total_frames 59
+        landing_lag 29
+        helpless_after true
+        ledge_front_from 25
+        ledge_back_from 25
+        fall_landing_lag 29
+        start_speed 67
+        start_speed_y 0
+        hitbox { start 17 end 18 x -1.7 y 0.59999 radius 0.4 damage 3 angle 60 bkb 68 kbg 60 rebounds false half_width 1.7 angle_type forward }
+        hitbox {
+            start 19
+            end 20
+            x 0.7
+            y 0.7
+            radius 0.5
+            damage 20
+            angle 270
+            bkb 20
+            kbg 100
+            group 1
+            hitlag 150
+            targets aerial
+            clanks false
+            rebounds false
+            angle_type position
+        }
+        hitbox {
+            start 19
+            end 20
+            x 0.7
+            y 0.7
+            radius 0.9
+            damage 15
+            angle 28
+            bkb 30
+            kbg 80
+            priority 1
+            group 1
+            hitlag 150
+            targets grounded
+            clanks false
+            rebounds false
+            angle_type forward
+        }
+        script {
+            // Side special (dash), on the reference's parameters (sims 139 and 143; move frame N is the reference's N+1): started in the air it
+            // keeps 0.67 of its sideways speed (the move's start_speed) and none of its vertical speed, the sideways part slowing by 0.05 reference
+            // units a frame, held still 13 frames, then falling at 0.017 gravity. On frame 16 the stick past half tilt angles the dash up to 10
+            // degrees up or down. The dash is the illusion's 2 frames (17-18; its 27.5 units a frame are an estimate: 55 units in all). After it it
+            // slides on at 2.3 units a frame in the air (2.5 on the ground), slowed by 0.07 (0.15), and from 5 frames after the dash falls at 0.08
+            // gravity.
+            var deg;
+            var h;
+            var v;
+            if grounded == 0 && frame <= 16 {
+                h = max(vx - 0.00625, 0);
+                if vx < 0 { h = min(vx + 0.00625, 0); }
+                v = 0;
+                if frame >= 14 { v = max(vy - 0.002125, -0.225); }
+                set_vel(h, v);
+            }
+            if frame == 16 {
+                deg = 0;
+                if abs(stick_y) > 0.5 { deg = sign(stick_y) * min((abs(stick_y) - 0.5) / 0.5, 1) * 10; }
+            }
+            if frame >= 17 && frame <= 18 { set_vel(3.4375 * cos(deg), 3.4375 * sin(deg)); }
+            if frame == 19 {
+                h = 0.2875;
+                if grounded { h = 0.3125; }
+                v = h * sin(deg);
+                h = h * cos(deg);
+            }
+            if frame >= 19 {
+                if grounded { h = max(h - 0.01875, 0); } else { h = max(h - 0.00875, 0); }
+                if frame >= 24 { v = max(v - 0.01, -0.225); }
+                if grounded { v = 0; }
+                set_vel(h, v);
             }
         }
     }
@@ -5961,9 +6081,9 @@ weapon bracers {
         part_intangible { start 9 end 37 limb true }
         script {
             // Bracers up special in the air (the reference's rising spin): it starts rising at 0.9 of the reference's units a frame and slows by
-            // the body's gravity times the published gravity multiplier 0.07 (0.085 x 0.07 = 0.00595 a frame per frame; sim 143, owner decision
-            // 102: read as a multiplier, as the headbutt's 0.5 is, so the spin rises the whole move, about 48 units; before it 0.07 was read as the
-            // gravity itself and the spin peaked 6 units up after 13 frames, then sank) down to the body's fall speed (1.63 [E]), and drifts with the
+            // the body's pull (0.085) times the published multiplier 0.07: 0.00595 a frame per frame (sim 143, owner decision 102: read as a
+            // multiplier, as the headbutt's 0.5 is, so the spin rises the whole move, about 48 units; before it 0.07 was read as the pull itself
+            // and the spin peaked 6 units up after 13 frames, then sank) down to the body's fall speed (1.63 [E]), and drifts with the
             // stick at 0.05 a frame up to 1.7 [R] (world units: / 8). Its twelve 1% hits are each a fresh hit at the start of its span (13, 15,
             // 18, 20, 22, 25, 27, 30, 32, 34 and 37; move frames one less), re-armed then.
             var h;

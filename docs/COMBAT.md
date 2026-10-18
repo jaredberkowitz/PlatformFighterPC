@@ -132,7 +132,8 @@ The up tilt's three phases are placed as an arc in front of, above and behind th
 For the brawler, the fire rush (up special), flash dash (side special) and jab pages were not in the sources: the fire rush travel
 (5.6 up, 2.6 forward) and its drag hits' knockback, the flash dash distance (7 world units), its ending hit's knockback and the
 total lengths, the reflector's frames, size and reflected speed, and every hitbox position are estimates. (Angling both
-specials and the reflector's intangibility are done, see "Kit completion".)
+specials and the reflector's intangibility are done, see "Kit completion". Since sim 143 the flash dash's frames, hits, landing
+lag and ledge frame are the reference's, only its 55-unit dash is still an estimate: `docs/movesets/ROSTER_STATUS.md`, decision 102.)
 
 Two sources disagreed on some values, so: damage numbers come from ultimateframedata and kuroganehammer, which agree; the
 down smash tipper's first-hit base knockback is 50 (kuroganehammer) rather than 57 (SmashWiki); the up air's first actionable

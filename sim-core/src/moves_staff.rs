@@ -67,6 +67,8 @@ fn along(x0: i32, x1: i32, step: i32) -> Vec<i32> {
 /// move's pose [E]. The specials are still the claws' (phase 2 builds the reference's).
 pub fn staff() -> Weapon {
     let mut w = claws();
+    // (The claws' aerial flash dash slot, sim 143, is not the staff's: its own specials leave it unused.)
+    w.moves[MoveId::Ext3 as usize] = Move::empty();
     // A held staff and shield: the hits reach out beyond the body, so no limb reaches out to be hit with them.
     w.limbs = false;
     jabs(&mut w);

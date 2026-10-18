@@ -50,6 +50,9 @@ fn expected() -> Vec<(usize, MoveId, Vec<u8>)> {
         (1, DownSpecial, all(P)),
         (1, Ext0, all(F)),
         (1, Ext1, all(F)),
+        // The flash dash (sim 143): the trail forward, the spike by position (no `af`), the grounded targets' hit forward.
+        (1, SideSpecial, vec![F, P, F]),
+        (1, Ext3, vec![F, P, F]),
         (1, GetUpAttack, all(P)),
         // The up special's wind-up hit by position, its eight looping hits from the direction of travel (type 1: sim 73, owner
         // decision 23).
@@ -230,7 +233,7 @@ fn the_older_movesets_carry_their_reference_angle_types() {
         }
         checked += 1;
     }
-    assert_eq!(checked, 146);
+    assert_eq!(checked, 148);
     // Every move not in the list keeps the default (boxes wholly in front, where it cannot change anything; and the moves whose
     // reference type is not built, like the claws' up special loop).
     for w in 0..5 {

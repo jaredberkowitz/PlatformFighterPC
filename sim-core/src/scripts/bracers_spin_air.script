@@ -1,7 +1,7 @@
 // Bracers up special in the air (the reference's rising spin): it starts rising at 0.9 of the reference's units a frame and slows by
-// the body's gravity times the published gravity multiplier 0.07 (0.085 x 0.07 = 0.00595 a frame per frame; sim 143, owner decision
-// 102: read as a multiplier, as the headbutt's 0.5 is, so the spin rises the whole move, about 48 units; before it 0.07 was read as the
-// gravity itself and the spin peaked 6 units up after 13 frames, then sank) down to the body's fall speed (1.63 [E]), and drifts with the
+// the body's pull (0.085) times the published multiplier 0.07: 0.00595 a frame per frame (sim 143, owner decision 102: read as a
+// multiplier, as the headbutt's 0.5 is, so the spin rises the whole move, about 48 units; before it 0.07 was read as the pull itself
+// and the spin peaked 6 units up after 13 frames, then sank) down to the body's fall speed (1.63 [E]), and drifts with the
 // stick at 0.05 a frame up to 1.7 [R] (world units: / 8). Its twelve 1% hits are each a fresh hit at the start of its span (13, 15,
 // 18, 20, 22, 25, 27, 30, 32, 34 and 37; move frames one less), re-armed then.
 var h;

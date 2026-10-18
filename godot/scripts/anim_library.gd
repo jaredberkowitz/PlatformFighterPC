@@ -106,6 +106,8 @@ const CLASS_MOVES := {
 		"dair": "kick_dair",
 		"neutral special": "blaster",
 		"side special": "attack_kick",
+		# (The flash dash started in the air, its own slot since sim 143: the side special's clip.)
+		"extra move 3": "attack_kick",
 		"up special": "attack_kick",
 		"down special": "attack_kick",
 	},
