@@ -140,7 +140,8 @@ func build(heading: String, cards: Array, choices: Array) -> void:
 		stage.rim = Color(PLAYER_COLORS[winner % 4], 0.9)
 		# (Its spotlight in the winner's own colour, not one warm pink for everyone: the UI pass, 2026-10-17.)
 		var pc: Color = PLAYER_COLORS[winner % 4]
-		stage.scene.colour = Color.from_hsv(pc.h, 0.5, 0.82)
+		# (Deeper since the UI pass: the pale pool washed the winner out.)
+		stage.scene.colour = Color.from_hsv(pc.h, 0.62, 0.55)
 		stage.scene.plain = true
 		stage.position = Vector2(40, 140)
 		add_child(stage)
@@ -186,7 +187,7 @@ func _runner_up(cards: Array) -> void:
 	var stage := UI.Stage.new(Vector2(300, 270), 0.2, 17 + i)
 	var pc: Color = PLAYER_COLORS[i % 4]
 	stage.rim = Color(pc, 0.7)
-	stage.scene.colour = Color.from_hsv(pc.h, 0.35, 0.6)
+	stage.scene.colour = Color.from_hsv(pc.h, 0.45, 0.42)
 	stage.scene.plain = true
 	stage.position = Vector2(660, 318)
 	stage.modulate = RUNNER_UP_DIM

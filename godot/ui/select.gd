@@ -243,7 +243,8 @@ class PlayerPanel extends Control:
 		var spot := UI.Spotlight.new()
 		# (A clean pool of light in a softer take on the player's colour, no rays or hatching: the slots were the heaviest thing on the
 		# screen; the design system's lessons from the owner's results plan, 2026-10-17.)
-		spot.colour = Color.from_hsv(flag.h, 0.45, 0.78)
+		# (Richer since the UI pass: the pale pool washed the panels out against the menus' deep backdrop.)
+		spot.colour = Color.from_hsv(flag.h, 0.62, 0.5)
 		spot.plain = true
 		spot.feet = [[0.5, 0.72]]
 		spot.seed = 11 + p * 17
@@ -271,20 +272,26 @@ class PlayerPanel extends Control:
 		var f := _frame()
 		var outer := PackedVector2Array([f.position + Vector2(LEAN, 0), Vector2(f.end.x, f.position.y), Vector2(f.end.x - LEAN, f.end.y),
 			Vector2(f.position.x, f.end.y)])
-		var rough := Art.rough(outer, 40 + player, 2.5, 30.0)
+		# (Crisp since the UI pass, docs/UI_REVIEW.md: the hand-wobbled frame beside the crisp cards read as two styles.)
+		var rough := outer
 		var sh := PackedVector2Array()
 		for q in rough:
-			sh.append(q + Vector2(7, 9))
-		draw_colored_polygon(sh, Color(Art.INK, 0.55))
+			sh.append(q + Art.SHADOW)
+		draw_colored_polygon(sh, Color(Art.INK, 0.6))
 		if is_ready:
-			var glow := 0.32
-			for k in 3:
-				var g := PackedVector2Array()
-				for q in rough:
-					g.append(f.get_center() + (q - f.get_center()) * (1.0 + 0.012 * (k + 1)))
-				g.append(g[0])
-				draw_polyline(g, Color(Art.SUN, glow * (1.0 - k * 0.3)), 5.0, true)
-		draw_colored_polygon(rough, flag_color)
+			var g := PackedVector2Array()
+			for q in rough:
+				g.append(f.get_center() + (q - f.get_center()) * 1.025)
+			g.append(g[0])
+			draw_polyline(g, Art.SUN, 6.0, true)
+		# The player's colour, deep and lighter toward the top, as the cards are.
+		var top := flag_color.darkened(0.05)
+		var bottom := flag_color.darkened(0.45)
+		var cols := PackedColorArray()
+		for q in rough:
+			cols.append(top.lerp(bottom, clampf((q.y - f.position.y) / maxf(f.size.y, 1.0), 0.0, 1.0)))
+		draw_polygon(rough, cols)
+		draw_line(f.position + Vector2(LEAN + 6.0, 6.0), Vector2(f.end.x - 8.0, f.position.y + 6.0), Color(1, 1, 1, 0.4), 2.5, true)
 		var closed := rough.duplicate()
 		closed.append(rough[0])
 		draw_polyline(closed, Art.INK, 5.0, true)
