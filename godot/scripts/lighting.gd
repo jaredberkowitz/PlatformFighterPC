@@ -10,6 +10,8 @@ extends RefCounted
 ## The look of each theme: key light [colour, energy, pitch, yaw], fill [colour, energy], ambient [colour, energy], shadows (the hue they
 ## turn toward 0..1, how far at most, how dark, the tint for pale colours), the rim colour, the colour grade and the haze its darks are
 ## lifted toward (the pastel finish in shaders/post.gdshader).
+const VisualSettings := preload("res://scripts/visual_settings.gd")
+
 const MOODS := {
 	# Magic hour: a lower, golden key that rakes across the props and fighters, violet fill and shadows, a lavender-peach haze.
 	# (Day stages' shade deeper, art review 6 round 21 after the owner's Wind Waker HD frame: lit and shaded faces of the props and
@@ -129,11 +131,13 @@ static var paper := OS.get_cmdline_user_args().has("--look=paper")
 static func apply_paper(env: Environment, post: ShaderMaterial, base_lines: float) -> void:
 	RenderingServer.global_shader_parameter_set("pf_paper", 1.0 if paper else 0.0)
 	if env != null:
-		env.ssao_enabled = paper
-		env.ssao_radius = 1.6
-		env.ssao_intensity = 3.0
-		env.ssao_power = 1.4
-		env.ssao_light_affect = 0.6
+		# (Soft occlusion where things meet in the current look too, gentler than the paper look's, the gauntlet's round 20: the wall's
+		# joints, the boards' gaps, under the lawn's lip and round the props' feet read lit flat. Off on Fast.)
+		env.ssao_enabled = VisualSettings.get_index("quality") > 0
+		env.ssao_radius = 1.6 if paper else 1.2
+		env.ssao_intensity = 3.0 if paper else 1.8
+		env.ssao_power = 1.4 if paper else 1.25
+		env.ssao_light_affect = 0.6 if paper else 0.35
 		env.ssao_ao_channel_affect = 1.0
 	if post != null:
 		post.set_shader_parameter("scenery_lines", 0.0 if paper else base_lines)

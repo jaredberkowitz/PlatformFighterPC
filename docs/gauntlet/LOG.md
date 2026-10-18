@@ -284,3 +284,17 @@ edge, an even trestle, a bare deck, the headland and town as cards).
 The stepped, crowned towers read as a skyline of buildings (the city's Believability 3). The billboard is clipped by a new setback. Gaps:
 (1) ground detail on the beach deck (its tint variety lost; nails and joints unreadable) and the city roof (seams too subtle); (2) the
 remaining cards (beach headland and town, grove side trees, pines and roots, meadow village).
+
+## Round 20 (2026-10-18, commit dd2aa1e)
+
+| Stage | Believ. | Cohesion | Lighting | Depth | Ground | Clarity | Mean |
+|---|---|---|---|---|---|---|---|
+| Meadow | 3 | 3 | 3 | 3 | 3 | 3 | 3.0 |
+| Canyon | 2 | 3 | 3 | 2 | 2 | 3 | 2.5 |
+| Beach | 3 | 3 | 3 | 3 | 3 | 3 | 3.0 |
+| City | 3 | 3 | 3 | 3 | 3 | 3 | 3.0 |
+| Grove | 3 | 3 | 3 | 3 | 3 | 3 | 3.0 |
+
+Every ranked stage a solid 3 in every category, none at 4 yet. The deck's boards and the roof's seams now read (Ground 3 on both); the
+headland is a calm landform. Gaps: (1) the remaining cutouts and box houses (grove trees, pines and roots; meadow village; beach town);
+(2) light and contact fine but never soft and rich (crevice occlusion, platform shadows, lit rims, cool shade).
