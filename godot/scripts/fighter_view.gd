@@ -1635,8 +1635,9 @@ const FIGHTER_OUTLINE_WEIGHT := 0.76
 const OUTLINE_TINT_DARKEN := 0.56
 const OUTLINE_TINT_DARKEN_PALE := 0.8
 const CLOTH_RAMP_SOFTNESS := 0.32
-const CLOTH_WEAVE := 0.14
-const CLOTH_WEAVE_SCALE := 0.32
+## (Finer and fainter, 2026-10-18: long strokes on a pale shirt read as wood grain; the reference's cloth is a fine fleck.)
+const CLOTH_WEAVE := 0.1
+const CLOTH_WEAVE_SCALE := 0.12
 ## The shirt's bottom hem: how far below the waist it is cut (art/blender/make_rigged_blob.py) and how wide its ink line is (rest units).
 const SHIRT_HEM_BELOW_WAIST := 0.012
 const SHIRT_HEM_INK := 0.01
