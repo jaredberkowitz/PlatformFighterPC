@@ -2605,8 +2605,18 @@ static func _sky_islands(root: Node3D, t: Dictionary, rng: RandomNumberGenerator
 		if on_top < 0.45:
 			_round_tree(island, Vector3(rng.randf_range(-0.4, 0.4) * hw, 0.6, 0), clampf(size / 6.0, 0.7, 1.4), rng)
 		elif on_top < 0.75:
-			var bush := Materials.foliage(Materials.greens(grass)[1], Vector2(2, 2), false)
-			_mesh(island, _sphere(1.0, 12), bush, Vector3(rng.randf_range(-0.5, 0.5) * hw, 0.9, 0), Vector3(1.6, 1.1, 1.2) * size / 6.0)
+			# (A shrub from the tree kit's faceted crown, as on the cottages, not a round bush.)
+			var shrub := Toonify.load_prop("tree_crown_c", true)
+			if shrub != null:
+				shrub.position = Vector3(rng.randf_range(-0.5, 0.5) * hw, 0.5, 0)
+				shrub.scale = Vector3.ONE * 0.45 * size / 6.0
+				island.add_child(shrub)
+				for mi in shrub.find_children("*", "MeshInstance3D", true, false):
+					var lit := String(mi.name).contains("lit")
+					(mi as MeshInstance3D).material_override = FighterView.toon(Color.from_hsv(0.28, 0.5, 0.68) if lit else Color.from_hsv(0.42, 0.55, 0.32), true)
+			else:
+				var bush := Materials.foliage(Materials.greens(grass)[1], Vector2(2, 2), false)
+				_mesh(island, _sphere(1.0, 12), bush, Vector3(rng.randf_range(-0.5, 0.5) * hw, 0.9, 0), Vector3(1.6, 1.1, 1.2) * size / 6.0)
 		# (Its still parts merged by material, as the root's are: an island is a couple of dozen small shapes.)
 		merge_static(island)
 
@@ -2631,7 +2641,8 @@ static func _island_detail(island: Node3D, hw: float, size: float, t: Dictionary
 		var vl := rng.randf_range(0.5, 1.2) * size * 0.5
 		var vz := sqrt(maxf(0.0, 1.0 - pow(vx / hw, 2.0))) * hw * 0.6
 		_mesh(island, _cylinder(0.03 * size, 0.02 * size, vl, 5), vine, Vector3(vx, -0.2 - vl / 2.0, vz))
-		_mesh(island, _sphere(0.09 * size, 8), vine, Vector3(vx, -0.2 - vl, vz), Vector3(1.0, 1.3, 1.0))
+		# (A pointed leaf at the end, not a ball: one leaf language.)
+		_mesh(island, _cylinder(0.11 * size, 0.0, 0.3 * size, 5), vine, Vector3(vx, -0.2 - vl - 0.1 * size, vz))
 	for j in 5:
 		var a := rng.randf_range(-0.7, 0.7)
 		var down := rng.randf_range(0.25, 0.55) * size
@@ -2645,8 +2656,11 @@ static func _island_detail(island: Node3D, hw: float, size: float, t: Dictionary
 		var u := (float(j) + rng.randf_range(0.0, 1.0)) / float(n) * 2.0 - 1.0
 		var r := rng.randf_range(0.1, 0.3) * size * 0.5
 		var hang := rng.randf_range(1.0, 2.6)
-		_mesh(island, _sphere(1.0, 8), drip, Vector3(u * hw * 0.92, -0.12 - r * hang * 0.55, sqrt(maxf(0.0, 1.0 - u * u)) * hw * 0.6),
-			Vector3(r * rng.randf_range(1.6, 2.4), r * hang, r))
+		# (Pointed, faceted flaps of turf, as the tree crowns' leaf skirts are, not round bulbs: the owner, 2026-10-17, the bulbs clashed
+		# with the faceted trees standing on the islands.)
+		var flap_w := r * rng.randf_range(1.6, 2.4)
+		_mesh(island, _cylinder(flap_w, 0.0, r * hang * 1.6, 5), drip, Vector3(u * hw * 0.92, -0.05 - r * hang * 0.8, sqrt(maxf(0.0, 1.0 - u * u)) * hw * 0.6),
+			Vector3(1.0, 1.0, 0.45), Vector3(0, rng.randf_range(0, 72), 0))
 	# Roots trailing from the keel: thin, tapering to a point, in two bent lengths each, close to the earth's own colour (dark sticks read
 	# as posts).
 	var root_m := FighterView.toon((t.soil_dark as Color).darkened(0.28), false)
