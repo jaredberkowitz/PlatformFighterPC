@@ -2567,7 +2567,9 @@ static func _sky_islands(root: Node3D, t: Dictionary, rng: RandomNumberGenerator
 		# full-strength earth and grass on the islands made them the sharpest things in the sky, pulling the eye from the fight. Art
 		# review 6, background cohesion.)
 		var air := t.sky_horizon as Color
-		var fade := 0.15 + 0.22 * depth
+		# (Far more of the sky's colour, 2026-10-17, after the owner's reference: distant islands sit back into the air as quiet
+		# silhouettes; at 0.15 to 0.37 their lime caps pulled the eye from the fight.)
+		var fade := 0.38 + 0.25 * depth
 		var grass: Color = (t.grass as Color).lerp(air, fade)
 		# (The stage's own painted soil, faded with distance, art review 6 round 25: a generic grey stone made the islands read as a lower
 		# grade of art than the block the fighters stand on; one material ties the background to the foreground.)
@@ -2590,18 +2592,21 @@ static func _sky_islands(root: Node3D, t: Dictionary, rng: RandomNumberGenerator
 		# (A rocky tuber rather than a cone: full under the turf, bulging and pinching as it narrows to a point, in more rings so its outline
 		# reads as rounded rock, not a faceted pyramid.)
 		var lump := float(k) * 1.7
-		var keel := _hanging_mass(0.0, size * rng.randf_range(1.0, 1.5), -hw, hw, size * 0.6, size * 0.6, 0.1, 13,
+		# (Wide and shallow, a slab of layered rock rather than a tall pointed tuber, after the owner's reference.)
+		var keel := _hanging_mass(0.0, size * rng.randf_range(0.45, 0.7), -hw * 1.25, hw * 1.25, size * 0.6, size * 0.6, 0.1, 13,
 			func(u: float) -> float: return (1.0 - 0.12 * u) * (1.0 - pow(u, 2.8)) * (1.0 + 0.1 * sin(u * 9.0 + lump)),
 			func(u: float) -> float: return 0.06 * u * u + 0.03 * sin(u * 5.0 + lump))
 		_mesh(island, keel, earth, Vector3.ZERO)
 		# The grassy top: a thick squashed disc, its rim rolling down over the earth.
-		_mesh(island, _cylinder(hw * 0.98, hw * 1.02, 0.7, 20), turf, Vector3(0, 0.35, 0), Vector3(1.0, 1.0, 0.62))
-		_mesh(island, _cylinder(hw * 1.04, hw * 0.96, 0.4, 20), lip, Vector3(0, -0.05, 0), Vector3(1.0, 1.0, 0.64))
+		_mesh(island, _cylinder(hw * 1.23, hw * 1.27, 0.9, 20), turf, Vector3(0, 0.35, 0), Vector3(1.0, 1.0, 0.5))
+		_mesh(island, _cylinder(hw * 1.29, hw * 1.2, 0.3, 20), lip, Vector3(0, -0.05, 0), Vector3(1.0, 1.0, 0.52))
 		var faded := t.duplicate()
 		for key in ["soil", "soil_dark", "grass"]:
 			faded[key] = (t[key] as Color).lerp(air, fade)
 		_island_detail(island, hw, size, faded, k)
-		var on_top := rng.randf()
+		# (Nothing stands on them now: full-colour trees on faded, distant islands broke the depth, 2026-10-17. The draw stays, so the
+		# sky's layout does not move.)
+		var on_top := rng.randf() + 1.0
 		if on_top < 0.45:
 			_round_tree(island, Vector3(rng.randf_range(-0.4, 0.4) * hw, 0.6, 0), clampf(size / 6.0, 0.7, 1.4), rng)
 		elif on_top < 0.75:
@@ -2636,7 +2641,8 @@ static func _island_detail(island: Node3D, hw: float, size: float, t: Dictionary
 		Vector3(0, -0.5 - size * 0.32, 0), Vector3(1.0, 1.0, 0.6))
 	# Vines hanging over the lip at the front, ending in a leafy tuft.
 	var vine := FighterView.toon((t.grass as Color).darkened(0.25), false)
-	for j in 3:
+	# (No vines or roots now the islands are distant slabs, 2026-10-17: they dangled as fussy marks under a quiet silhouette.)
+	for j in 0:
 		var vx := rng.randf_range(-0.7, 0.7) * hw
 		var vl := rng.randf_range(0.5, 1.2) * size * 0.5
 		var vz := sqrt(maxf(0.0, 1.0 - pow(vx / hw, 2.0))) * hw * 0.6
@@ -2654,8 +2660,8 @@ static func _island_detail(island: Node3D, hw: float, size: float, t: Dictionary
 	var n := 9
 	for j in n:
 		var u := (float(j) + rng.randf_range(0.0, 1.0)) / float(n) * 2.0 - 1.0
-		var r := rng.randf_range(0.1, 0.3) * size * 0.5
-		var hang := rng.randf_range(1.0, 2.6)
+		var r := rng.randf_range(0.08, 0.18) * size * 0.5
+		var hang := rng.randf_range(0.6, 1.3)
 		# (Pointed, faceted flaps of turf, as the tree crowns' leaf skirts are, not round bulbs: the owner, 2026-10-17, the bulbs clashed
 		# with the faceted trees standing on the islands.)
 		var flap_w := r * rng.randf_range(1.6, 2.4)
@@ -2664,7 +2670,7 @@ static func _island_detail(island: Node3D, hw: float, size: float, t: Dictionary
 	# Roots trailing from the keel: thin, tapering to a point, in two bent lengths each, close to the earth's own colour (dark sticks read
 	# as posts).
 	var root_m := FighterView.toon((t.soil_dark as Color).darkened(0.28), false)
-	for j in 4:
+	for j in 0:
 		var u := rng.randf_range(-0.6, 0.6)
 		var len := rng.randf_range(0.5, 1.1) * size * 0.6
 		var bend := rng.randf_range(-25.0, 25.0)
