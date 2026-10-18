@@ -72,6 +72,10 @@ def make_armature():
 
 # ---- Meshes ------------------------------------------------------------------------------------------------------------------------
 def to_object(name, bm, bone, rig):
+    # (Faces turned outward on the hands: the glove was built inside out, so the game drew its ink hull over the palm as a dark oval,
+    # the body rebuild, 2026-10-18.)
+    if name.startswith(("Hand", "Mitt", "Fist")):
+        bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
     mesh = bpy.data.meshes.new(name)
     obj = bpy.data.objects.new(name, mesh)
     bpy.context.collection.objects.link(obj)
@@ -1874,7 +1878,7 @@ def shirt_front(shirt, skin, neck_line, waist, trunk_weights):
 
 # ---- Clothes: garments cut from the skin ------------------------------------------------------------------------------------------------
 # (Puffier, art review 6: PEAK's shirts and shorts are thick soft garments standing off the body; ours hugged it like paint.)
-SHIRT_LIFT = 0.065      # how far off the skin the shirt sits
+SHIRT_LIFT = 0.085      # how far off the skin the shirt sits (0.065 until the body rebuild: it read painted on; the reference's shirts hang loose)
 # Where the waist is, as a share of the way from the hips up to the neck. (The owner, 2026-10-14: PEAK's figures have a waistline; ours
 # had the shorts' top almost at the crotch, 0.12, so the shirt ran in one straight box to the hips. Now the shorts come up to a belt at the
 # body's narrowest, and the shirt is tucked in under it.)
@@ -1902,6 +1906,10 @@ CLOTH_THICKNESS = 0.0     # none: an inner layer crossed the outer one where the
 SLEEVE = 0.85           # how far down the upper arm the sleeves reach (0 at the shoulder joint, 1 at the elbow; the joint sits low in the
                        # shoulder, so 0.55 left only a cap over it: PEAK's short sleeves reach most of the way to the elbow)
 HEM_FLARE = 0.035
+# The body rebuild (the owner: the clothes read painted on beside the reference cast): the sleeves stand off the arm and open a little at
+# the hem, the shorts' legs flare wide, as the reference's cloth hangs.
+SLEEVE_FLARE = 0.02
+SHORTS_FLARE = 0.075
 ARM_RADIUS = 0.145     # how far from the arm's axis a point still counts as the arm (the cage body's arm is at most 0.125 round and hangs with
                        # the torso's side 0.16 from its axis, so this sits between them; at 0.2, made for the generated figure, the torso's
                        # sides took arm weights and tore when the arms moved)
@@ -1923,7 +1931,8 @@ def build_garments(skin, J, neck):
     crotch = FIT["crotch"]
     knee = (J["shin.L"].z + J["shin.R"].z) / 2.0
     waist = hips + WAIST_SHARE * (neck - hips)
-    shorts_end = crotch - 0.42 * (crotch - knee)
+    # (Longer, half way to the knee, the body rebuild: the reference's shorts are long and wide.)
+    shorts_end = crotch - 0.55 * (crotch - knee)
     neck_line = neck - 0.015
     ankle = (J["foot.L"].z + J["foot.R"].z) / 2.0
     boot_top = ankle + BOOT_ABOVE_ANKLE
@@ -2084,6 +2093,8 @@ def build_garments(skin, J, neck):
             flare = HEM_FLARE * (1.0 - min(1.0, hem(v.co) / 0.06))
             # The shorts' waistband hugs the body (two thirds of their distance), well inside the shirt's hem over it.
             snug = 0.67 if name == "Shorts" and v.co.z > waist - 0.05 else 1.0
+            if name == "Shorts":
+                flare = SHORTS_FLARE * (1.0 - min(1.0, hem(v.co) / 0.16)) ** 1.5
             if name == "Shirt" and not on_arm(v.co) and v.co.z > neck_line - 0.06:
                 flare = 0.0
             elif name == "Shirt" and not on_arm(v.co):
@@ -2100,8 +2111,10 @@ def build_garments(skin, J, neck):
                 a, b = arm["L" if v.co.x < 0.0 else "R"]
                 near_end = 1.0 - min(1.0, abs(sleeve_t(v.co) - SLEEVE) * (b - a).length / 0.08)
                 if abs(v.co.z - neck_line) > 0.06:
-                    flare = 0.0
-                    snug = 1.0 - (1.0 - SLEEVE_SNUG) * near_end
+                    # (Standing off the arm and opening at the hem, the body rebuild; a snug band read as a painted sleeve.)
+                    # (Not too open: the arm's ink hull showed through the gap as a dark patch under the arm.)
+                    flare = SLEEVE_FLARE * near_end
+                    snug = 1.0 - 0.35 * near_end
             v.co = v.co + v.normal * (lift * snug + flare)
             if name in ("Boot", "BootSole"):
                 v.co.z = max(v.co.z, -0.004 if name == "BootSole" else 0.0)

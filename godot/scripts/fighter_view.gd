@@ -1929,6 +1929,10 @@ func _glasses_fit(face_centre: float, face_size: float, depth_scale: float, dept
 	return Transform3D(Basis.from_scale(Vector3(kx, ky, depth_scale)), Vector3(0.0, eye_y - 1.52 * ky, depth))
 
 
+## How much wider the sash is drawn over a shirt (the shirt stands off the skin, make_rigged_blob.py SHIRT_LIFT).
+const SASH_OVER_SHIRT := 1.2
+
+
 ## Neckwear for the rigged torso (TORSO_CENTRE_Y, TORSO_RADII). Rings are tori sized to hug it, so nothing pokes through the body whatever
 ## the pose.
 func _neck_on_rig(accent: Color) -> void:
@@ -1946,6 +1950,9 @@ func _neck_on_rig(accent: Color) -> void:
 			sash.position = centre
 			sash.rotation_degrees = Vector3(0, 0, -42)
 			torso_rig.add_child(sash)
+			# (Over the shirt, which since the body rebuild hangs looser: fitted to the bare torso, the band sank into the cloth in pieces.)
+			var over := SASH_OVER_SHIRT if loadout.shirt > 0 else 1.0
+			sash.scale = Vector3(over, 1.0, over)
 			_part(sash, ring, toon(SASH, false), Vector3.ZERO, Vector3(0.88, 1.7, 1.0))
 			# Round badges pinned on the front of the band, facing out from it.
 			var badge := CylinderMesh.new()
