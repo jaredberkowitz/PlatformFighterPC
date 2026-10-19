@@ -42,25 +42,30 @@ TORSO = [
     (1.18, 0.398, 0.302, 0.270, 0.000),
     (1.28, 0.388, 0.288, 0.258, 0.000),   # shoulder hole: rings 4..6
     (1.37, 0.365, 0.262, 0.238, 0.000),
-    (1.45, 0.315, 0.222, 0.200, 0.000),
-    (1.52, 0.250, 0.182, 0.168, 0.000),
+    # (Fuller to the top, the character pass, 2026-10-19, the owner's reference: the shoulders ran up into the head instead of narrowing
+    # to a stalk under it, which read as a lightbulb.)
+    (1.45, 0.335, 0.240, 0.218, 0.000),
+    (1.52, 0.300, 0.215, 0.198, 0.000),
 ]
 HOLE_RINGS = (4, 5, 6)
 CROTCH = (0.0, 0.80)            # crotch vertex (y, z)
 
 # ---- Neck and head: rings of the same 16 angles. (z, half width, half depth) then the sphere ------------------------------------------
-NECK = [(1.57, 0.255, 0.215)]   # (wide: the head sits on the shoulders, not on a stalk)
-HEAD_C, HEAD_R = Vector((0.0, 0.0, 1.93)), 0.41
-HEAD_PHI = (38, 58, 78, 98, 118, 138, 156)   # degrees from the bottom pole; the 4x4 grid closes the last ring
+# (Wider still and the head a little lower, its lowest ring as wide as the neck, the character pass, 2026-10-19: the head sits straight on
+# the shoulders, a squat oval with no neck showing, as the reference cast's.)
+NECK = [(1.57, 0.305, 0.245)]
+HEAD_C, HEAD_R = Vector((0.0, 0.0, 1.89)), 0.41
+HEAD_PHI = (50, 66, 82, 98, 118, 138, 156)   # degrees from the bottom pole; the 4x4 grid closes the last ring
 HEAD_TOP = 0.03                              # how far the cap's middle rises above a flat lid
 
 # ---- Limbs, right side (the left is mirrored). Each ring: (centre, axis, radius across u, radius across w below, w above, squareness) -
 # For the arm u starts as +Y (front/back) and w as +Z (the top of the hole becomes the outside of the arm); for the leg u starts as +X
 # (outside) and w as +Y (back), which the foot's bend turns into the sole.
 ARM = [
-    ((0.435, 0.000, 1.370), (1.0, 0.0, -0.9), 0.150, 0.150, 0.150, 2.0),   # shoulder cap
-    ((0.505, 0.000, 1.295), (0.5, 0.0, -1.0), 0.150, 0.150, 0.150, 2.0),
-    ((0.555, 0.000, 1.230), (0.4, 0.0, -1.0), 0.145, 0.145, 0.145, 2.0),
+    # (Sturdier at the shoulder, tapering to the wrist, the character pass: even tubes read as sticks.)
+    ((0.435, 0.000, 1.370), (1.0, 0.0, -0.9), 0.168, 0.168, 0.168, 2.0),   # shoulder cap
+    ((0.505, 0.000, 1.295), (0.5, 0.0, -1.0), 0.165, 0.165, 0.165, 2.0),
+    ((0.555, 0.000, 1.230), (0.4, 0.0, -1.0), 0.156, 0.156, 0.156, 2.0),
     ((0.580, -0.002, 1.170), (0.4, -0.02, -1.0), 0.138, 0.138, 0.138, 2.0),  # elbow loops
     ((0.595, -0.003, 1.130), (0.4, -0.02, -1.0), 0.134, 0.134, 0.134, 2.0),
     ((0.610, -0.004, 1.090), (0.4, -0.02, -1.0), 0.134, 0.134, 0.134, 2.0),
@@ -73,9 +78,10 @@ ARM = [
 ARM_CAP = 0.045
 LEG_C0 = Vector((0.235, 0.0))   # the leg's middle where it leaves the torso (x, y)
 LEG = [
-    ((0.235, 0.000, 0.780), (-0.02, 0.0, -1.0), 0.160, 0.160, 0.160, 2.0),
-    ((0.240, 0.000, 0.660), (0.0, 0.0, -1.0), 0.162, 0.162, 0.162, 2.0),
-    ((0.245, 0.000, 0.560), (0.0, 0.0, -1.0), 0.160, 0.160, 0.160, 2.0),
+    # (Thighs fuller, tapering to the knee, the character pass: even tubes read as sticks.)
+    ((0.235, 0.000, 0.780), (-0.02, 0.0, -1.0), 0.190, 0.190, 0.190, 2.0),
+    ((0.240, 0.000, 0.660), (0.0, 0.0, -1.0), 0.184, 0.184, 0.184, 2.0),
+    ((0.245, 0.000, 0.560), (0.0, 0.0, -1.0), 0.170, 0.170, 0.170, 2.0),
     ((0.248, -0.004, 0.490), (0.0, 0.0, -1.0), 0.157, 0.157, 0.157, 2.0),  # knee loops
     ((0.249, -0.006, 0.445), (0.0, 0.0, -1.0), 0.155, 0.155, 0.155, 2.0),
     ((0.250, -0.004, 0.400), (0.0, 0.0, -1.0), 0.155, 0.155, 0.155, 2.0),

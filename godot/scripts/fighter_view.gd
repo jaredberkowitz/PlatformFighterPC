@@ -792,7 +792,8 @@ const ARM_BULK := {7: [Vector3(1.55, 1.08, 1.55), Vector3(1.45, 1.35, 1.45)]}
 ## elbow or knee is never sheared. The head grows up from the neck; hats and face pieces follow it (`_follow_bones`).
 ## (The body rebuild modelled the head to the proportion study's height; the reference's heads are wide ovals, so it is widened here,
 ## across and front to back, the bone's own x and z.)
-const HEAD_SIZE := Vector3(1.2, 1.06, 1.14)
+## (Wider and squatter again, the character pass, 2026-10-19: the reference cast's heads are broad squat ovals, wider than the shoulders.)
+const HEAD_SIZE := Vector3(1.32, 1.0, 1.2)
 const HAND_SIZE := 1.25
 const FOOT_SIZE := 1.05
 
