@@ -1663,7 +1663,8 @@ const SHIRT_HEM_INK := 0.01
 const BELT_LEATHER := Color(0.4, 0.26, 0.18)
 ## (Darker, the character judge's round 1: the reference's shoes are a small dark leather.)
 const BOOT_LEATHER := Color(0.28, 0.17, 0.13)
-const BOOT_SOLE := Color(0.94, 0.88, 0.76)
+## (Dark, a step under the leather, the character judge's round 3: pale soles read as a second outline under each foot.)
+const BOOT_SOLE := Color(0.2, 0.13, 0.1)
 const BELT_BRASS := Color(0.95, 0.74, 0.32)
 
 
@@ -1967,11 +1968,12 @@ func _neck_on_rig(accent: Color) -> void:
 			# collar points on the chest left a hard cut where the head meets the shirt.)
 			if loadout.shirt > 0:
 				# (Snug round the neck with two small points turned down at the front, the character judge's round 2: wide, it read as a bar.)
-				var cat := _collar(_collar_colour(), 0.9)
+				# (Narrower and raised to meet the head, the points in toward the middle, the character judge's round 3: a bar across the chest.)
+				var cat := _collar(_collar_colour(), 0.74, 0.06)
 				var point := PrismMesh.new()
-				point.size = Vector3(0.16, 0.14, 0.04)
+				point.size = Vector3(0.13, 0.12, 0.04)
 				for sx in [-1.0, 1.0]:
-					_part(torso_rig, point, _fabric(_collar_colour()), Vector3(sx * 0.1, cat - 0.06, 0.5), Vector3.ONE, Vector3(0, 0, 180.0 + sx * 18.0))
+					_part(torso_rig, point, _fabric(_collar_colour()), Vector3(sx * 0.07, cat - 0.04, 0.42), Vector3.ONE, Vector3(-10, 0, 180.0 - sx * 22.0))
 			# Sash: a ring worn diagonally from shoulder to hip.
 			var ring := TorusMesh.new()
 			ring.inner_radius = 0.5
@@ -2221,7 +2223,7 @@ func _fabric(c: Color) -> Material:
 	return _cloth(toon(c))
 
 
-func _collar(accent: Color, snug := 1.0) -> float:
+func _collar(accent: Color, snug := 1.0, lift := 0.0) -> float:
 	var ring := TorusMesh.new()
 	ring.inner_radius = 0.44
 	ring.outer_radius = 0.58
@@ -2230,7 +2232,7 @@ func _collar(accent: Color, snug := 1.0) -> float:
 	var at := 1.1
 	var info := _base_rig_info()
 	if info.has("neck") and torso_fit.basis.y.y > 0.001:
-		at = (float(info.neck) - COLLAR_BELOW_NECK - torso_fit.origin.y) / torso_fit.basis.y.y
+		at = (float(info.neck) - COLLAR_BELOW_NECK + lift - torso_fit.origin.y) / torso_fit.basis.y.y
 	# (A flatter band of cloth rather than a round tube, 2026-10-18: the tube read as a plastic ring.)
 	# (The modelled collar, art/blender/make_gear.py `neckwear`, where there is one: a rolled band of cloth gathered in folds.)
 	var modelled := _gear_mesh("neckwear", "fabric_collar")
