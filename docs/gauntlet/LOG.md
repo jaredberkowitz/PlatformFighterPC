@@ -380,3 +380,17 @@ Scores as round 27 (meadow 3.0, canyon 2.5, beach 3.2, city 3.0, grove 3.2). The
 read as fine hatching, all one value; the roof's repairs only faint. Gaps: (1) no cast shadows from overhead geometry; (2) material
 features too fine for the match camera (author each tile for it: main features 8 to 10 screen pixels). Next material: the meadow's
 platforms (a rendered plank tile at the beach deck's level).
+
+## Round 29 (2026-10-18, commit da133d1)
+
+| Stage | Believ. | Cohesion | Lighting | Depth | Ground | Clarity | Mean |
+|---|---|---|---|---|---|---|---|
+| Meadow | 3 | 3 | 3 | 4 | 3 | 3 | 3.2 |
+| Canyon | 2 | 3 | 3 | 2 | 2 | 3 | 2.5 |
+| Beach | 3 | 3 | 3 | 4 | 3 | 3 | 3.2 |
+| City | 3 | 3 | 3 | 3 | 3 | 3 | 3.0 |
+| Grove | 4 | 3 | 3 | 3 | 3 | 3 | 3.2 |
+
+The fields' patchwork and wider rows read as farmland stepping down the valley: the meadow's Depth 4. The planks show on the dock but
+not at the floating platforms' size; the SHOP billboard clipped again. Gaps: (1) no cast shadows from overhead geometry; (2) the
+floating platforms now the cheapest pieces on the meadow and grove. Next material: the grove's side crowns.

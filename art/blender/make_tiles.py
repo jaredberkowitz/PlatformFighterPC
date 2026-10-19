@@ -373,12 +373,70 @@ def planks():
     return bpy.context.scene
 
 
+def leaf(bm, centre, length, width, turn, tilt):
+    """One leaf: a pointed oval folded a little along its midrib, `turn` round the view and `tilt` toward it."""
+    rows = []
+    for k in range(7):
+        t = k / 6.0
+        w = width * math.sin(math.pi * t) ** 1.5
+        y = (t - 0.5) * length
+        rows.append([(-w, y, 0.25 * w), (0.0, y, 0.0), (w, y, 0.25 * w)])
+    verts = []
+    for row in rows:
+        vs = []
+        for (x, y, z) in row:
+            y2, z2 = y * math.cos(tilt) - z * math.sin(tilt), y * math.sin(tilt) + z * math.cos(tilt) + length * 0.5 * math.sin(tilt)
+            x2, y3 = x * math.cos(turn) - y2 * math.sin(turn), x * math.sin(turn) + y2 * math.cos(turn)
+            vs.append(bm.verts.new(Vector((x2, y3, z2)) + centre))
+        verts.append(vs)
+    for k in range(6):
+        for i in range(2):
+            bm.faces.new((verts[k][i], verts[k][i + 1], verts[k + 1][i + 1], verts[k + 1][i]))
+
+
+def leaves():
+    """Foliage for every leaf mass (crowns, bushes, hedges): leaves in clumps, each clump a dome of overlapping leaves pointing out from
+    its middle and tipped up toward the light, the clumps overlapping like scales, dark gaps between them; lit from above (image-up), so a
+    clump is bright along its top and falls into shade toward its foot."""
+    rng = random.Random(71)
+    reset()
+    bm = bmesh.new()
+    bmesh.ops.create_grid(bm, x_segments=1, y_segments=1, size=1.5)
+    link("dark", bm, grey_material("dark", 0.2))
+    shades = [grey_material("leaf%d" % k, v) for k, v in enumerate((0.6, 0.7, 0.8, 0.9))]
+    bms = [bmesh.new() for _ in shades]
+    n = 5
+    for j in range(n):
+        for i in range(n):
+            cx = -0.5 + (i + 0.5 * (j % 2) + rng.uniform(-0.2, 0.2)) / n
+            cy = -0.5 + (j + rng.uniform(-0.2, 0.2)) / n
+            r = rng.uniform(0.1, 0.14)
+            sh = rng.randrange(len(shades))
+            lv = []
+            for k in range(rng.randint(60, 80)):
+                a = rng.uniform(0, math.tau)
+                d = r * math.sqrt(rng.uniform(0.0, 1.0))
+                h = 0.16 * (1.0 - (d / r) ** 2) + 0.02 * j / n
+                lv.append((a, d, h, rng.uniform(0.05, 0.075), rng.uniform(0.012, 0.018), rng.uniform(0.3, 0.9)))
+            for (px, py) in wrapped(cx, cy, r + 0.05):
+                for (a, d, h, ln, wd, tilt) in lv:
+                    c = Vector((px + math.cos(a) * d, py + math.sin(a) * d, h))
+                    leaf(bms[sh], c, ln, wd, a - math.pi / 2, tilt)
+    for k, b in enumerate(bms):
+        link("leaves%d" % k, b, shades[k])
+    sun((0.25, -0.85, -0.45), 4.0)
+    return bpy.context.scene
+
+
 # (The lawn's range narrower and brighter, the gauntlet's round 26: at 0.55 the meadow's lawn read as a dark speckled felt.)
-TILES = {"lawn": (lawn, 0.68), "soil_bank": (soil_bank, 0.4), "roof_render": (roof, 0.6), "furrows": (furrows, 0.62), "planks": (planks, 0.45)}
+TILES = {"lawn": (lawn, 0.68), "soil_bank": (soil_bank, 0.4), "roof_render": (roof, 0.6), "furrows": (furrows, 0.62), "planks": (planks, 0.45),
+         # (The floating platforms' boards, the same planks in a wider range: at their size on screen the deck's range averaged out to a
+         # plain tone, the gauntlet's round 29.)
+         "planks_bold": (planks, 0.2), "leaves": (leaves, 0.42)}
 
 
 # The share of a render's pixels at or under the tile's white (most of the planks tile is board top, which would clip at 0.98).
-HI = {"planks": 0.99}
+HI = {"planks": 0.99, "planks_bold": 0.99}
 
 
 def render_tile(name):

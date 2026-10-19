@@ -135,8 +135,10 @@ static func palm(c: Color, tile := Vector2(2, 1), outline := true) -> ShaderMate
 
 
 ## Leaves: soft clumps with a shaded underside, for crowns and bushes.
+## (In the rendered leaves where they are made, art/blender/make_tiles.py `leaves`: clumps of modelled leaves lit from above, the
+## owner's painted materials, 2026-10-18; the painted foliage tile without them.)
 static func foliage(c: Color, tile := Vector2(3, 2), outline := true) -> ShaderMaterial:
-	return _make("foliage", c, "foliage", tile, 0.0, outline)
+	return _make("foliage", c, "leaves" if _png_tile("leaves") != null else "foliage", tile, 0.0, outline)
 
 
 ## Stone: faint facets, a hairline crack or two and speckles.

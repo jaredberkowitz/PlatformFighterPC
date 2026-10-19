@@ -1345,14 +1345,17 @@ static var _board_mat: ShaderMaterial
 ## The platforms' boards' material: the painted grain along each board, each board its own shade (`instance_tint`).
 ## The boards' grain tile, four planks a repeat: the rendered planks (art/blender/make_tiles.py `planks`: grain bending round knots,
 ## worn ends, nail heads, the owner's painted materials, 2026-10-18), or the noise-painted wood tile without them.
-static func _plank_tile() -> Texture2D:
-	var t := Materials._png_tile("planks")
+## `bold`: the wider-ranged render, for the floating platforms' boards (smaller on screen than the dock's).
+static func _plank_tile(bold := false) -> Texture2D:
+	var t := Materials._png_tile("planks_bold" if bold else "planks")
+	if t == null:
+		t = Materials._png_tile("planks")
 	return t if t != null else load("res://art/stage/png/wood.png") as Texture2D
 
 
 static func _board_material() -> ShaderMaterial:
 	if _board_mat == null:
-		_board_mat = (FighterView.toon(Color.WHITE, false, _plank_tile(), Vector2(1.0, 0.25)) as ShaderMaterial).duplicate() as ShaderMaterial
+		_board_mat = (FighterView.toon(Color.WHITE, false, _plank_tile(true), Vector2(1.0, 0.25)) as ShaderMaterial).duplicate() as ShaderMaterial
 		_board_mat.set_shader_parameter("instance_tint", true)
 		_board_mat.set_shader_parameter("ramp_softness", 0.1)
 	return _board_mat
@@ -4875,7 +4878,8 @@ static func _skyline_layer(root: Node3D, rng: RandomNumberGenerator, layer: int,
 		var top: float = b[3]
 		# Two legs and the sign standing on them, facing the stage, at the front of the roof (round 19: at its middle the setback storeys
 		# now rising there hid all but a fragment of it).
-		var bz := z + depth / 2.0 - 0.35
+		# (At the very front edge, round 29: a hair inside it, a crown storey still cut the end of its lettering.)
+		var bz := z + depth / 2.0 + 0.15
 		for lx in [left + bw * 0.2, left + bw * 0.8]:
 			_facade_box(st, Vector3(lx - 0.1, top, bz - 0.1), Vector3(lx + 0.1, top + 1.2, bz + 0.1), float(b[4]), true, 1.2)
 		_facade_quad(st, [Vector3(left, top + 1.2, bz + 0.12), Vector3(left + bw, top + 1.2, bz + 0.12), Vector3(left + bw, top + 3.4, bz + 0.12),
@@ -4974,10 +4978,12 @@ static func _tree(root: Node3D, base: Vector3, size: float, rng: RandomNumberGen
 	# (Colour groups, 2026-10-17, the owner's brief: larger, more distinctive colour clusters instead of uniform green blobs. The low
 	# masses go a cool deep teal, the body stays, the crown's top masses catch a warm light green; each mass is painted with leaf clumps.)
 	# (Four steps, not three, and the deep one lifted, 2026-10-17: the owner found the jump from the dark underside to the lit top stark.)
-	var deep_c := Color.from_hsv(g[0].h + 0.04, minf(1.0, g[0].s * 1.02), g[0].v * 0.96)
+	# (Cooler and deeper below, warmer and lighter on top, the gauntlet's round 29: in the rendered leaves the crowns still read evenly lit.)
+	var deep_c := Color.from_hsv(g[0].h + 0.07, minf(1.0, g[0].s * 1.02), g[0].v * 0.84)
 	var deep := Materials.foliage(deep_c)
 	var between := Materials.foliage(deep_c.lerp(g[1], 0.5), Vector2(3, 2), false)
-	_leaf_cards(sway, masses, g, 3.6 * size, rng, "leaf_cluster", false, leaf_mid, [deep, between, leaf_mid, Materials.foliage((g[2] as Color).lerp(g[3], 0.5), Vector2(2, 1), false)])
+	var top_c := (g[3] as Color).lerp(Color(1.0, 0.95, 0.62), 0.18)
+	_leaf_cards(sway, masses, g, 3.6 * size, rng, "leaf_cluster", false, leaf_mid, [deep, between, leaf_mid, Materials.foliage(top_c, Vector2(2, 1), false)])
 	var _unused := [leaf, leaf_sun]
 
 

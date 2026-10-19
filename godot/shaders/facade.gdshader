@@ -46,13 +46,16 @@ vec3 neon_sign(vec2 at, vec2 size, float seed) {
 	// A real word in neon tubes (the owner, round 41): SHOP or CAFE by the sign's seed, four letters, each built from segments like a
 	// seven-segment display. Bits: 1 top, 2 middle, 4 bottom, 8 left upper, 16 left lower, 32 right upper, 64 right lower.
 	float n = 4.0;
-	int k = int(clamp(floor(at.x / (size.x / n)), 0.0, 3.0));
-	float in_k = fract(at.x / (size.x / n));
+	// (Across the sign's inner width, inside its border: laid across the whole sign, the last letter's right-hand strokes fell in the
+	// border's clip and a narrow sign read SHOF, the gauntlet's round 29.)
+	float lx = (at.x - 0.5) / max(size.x - 1.0, 0.1);
+	int k = int(clamp(floor(lx * n), 0.0, 3.0));
+	float in_k = fract(clamp(lx, 0.0, 0.9999) * n);
 	int word = hash(vec2(seed, 5.0)) < 0.6 ? 0 : 1;
 	int glyphs[8] = int[](79, 122, 125, 59, 29, 123, 27, 31);
 	int mask = glyphs[word * 4 + k];
 	float v = (at.y - size.y * 0.5) / (size.y * 0.62 * 0.5) * 0.5 + 0.5;
-	float inside = step(0.14, in_k) * step(in_k, 0.86) * step(0.0, v) * step(v, 1.0) * step(0.45, e.x) * step(0.4, e.y);
+	float inside = step(0.14, in_k) * step(in_k, 0.86) * step(0.0, v) * step(v, 1.0) * step(0.0, lx) * step(lx, 1.0) * step(0.4, e.y);
 	float u = (in_k - 0.14) / 0.72;
 	float t = 0.2;
 	float strokes = 0.0;
