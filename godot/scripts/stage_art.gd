@@ -4719,11 +4719,12 @@ static func _city(root: Node3D, t: Dictionary, stage: Array) -> void:
 	# plan, step 3 (rooftop clutter), 2026-10-19. The built ones stand in without the models.)
 	if Toonify.load_prop("ac_unit") != null and Toonify.load_prop("roof_vent") != null:
 		_place_prop(root, "ac_unit", unit, 1.0, 0.0)
-		_place_prop(root, "ac_unit", Vector3(float(e[1]) - 9.5, roof, -7.0), 0.85, 8.0)
+		# (On the roof, which reaches back to z -6: at -7 these two hung past its back edge, the owner, 2026-10-19.)
+		_place_prop(root, "ac_unit", Vector3(float(e[1]) - 9.5, roof, -5.2), 0.85, 8.0)
 		_place_prop(root, "roof_vent", vent, 1.0, 200.0)
-		_place_prop(root, "roof_vent", Vector3(float(e[0]) + 11.0, roof, -7.2), 0.9, -30.0)
-		_contact(root, Vector3(float(e[1]) - 9.5, roof, -7.0), Vector2(0.85, 0.6))
-		_contact(root, Vector3(float(e[0]) + 11.0, roof, -7.2), Vector2(0.4, 0.34))
+		_place_prop(root, "roof_vent", Vector3(float(e[0]) + 11.0, roof, -5.3), 0.9, -30.0)
+		_contact(root, Vector3(float(e[1]) - 9.5, roof, -5.2), Vector2(0.85, 0.6))
+		_contact(root, Vector3(float(e[0]) + 11.0, roof, -5.3), Vector2(0.4, 0.34))
 	else:
 		_built_roof_units(root, unit, vent, metal)
 	_finish_roof(root, e, t, rng, unit, vent, tower, mast)

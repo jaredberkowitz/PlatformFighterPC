@@ -1423,14 +1423,21 @@ def roof_vent():
     to_object("stack", bm, (0.62, 0.64, 0.72), smooth=True).parent = root
     bm = bmesh.new()
     # (One continuous bend from the top of the stack, up, over and down, ending in the hood, so nothing floats: the owner, 2026-10-19.)
-    path = [Vector((0.3 - 0.3 * math.cos(math.pi * t / 10), 0.0, 0.78 + 0.3 * math.sin(math.pi * t / 10))) for t in range(11)]
-    for i in range(len(path) - 1):
-        a, b = path[i], path[i + 1]
-        d = b - a
-        ret = bmesh.ops.create_cone(bm, cap_ends=False, cap_tris=False, segments=14, radius1=0.22, radius2=0.22, depth=d.length * 1.25)
-        q = d.normalized().to_track_quat("Z", "X")
-        for v in ret["verts"]:
-            v.co = q @ v.co + (a + b) / 2
+    # (Swept as one tube with shared rings, the owner, 2026-10-19: overlapping short pieces left gaps and read as detached.)
+    n, sides = 16, 14
+    path = [Vector((0.3 - 0.3 * math.cos(math.pi * t / n), 0.0, 0.78 + 0.3 * math.sin(math.pi * t / n))) for t in range(n + 1)]
+    rings = []
+    for t in range(n + 1):
+        a = math.pi * t / n
+        tangent = Vector((math.sin(a), 0.0, math.cos(a))).normalized()
+        side = Vector((0.0, 1.0, 0.0))
+        up = tangent.cross(side).normalized()
+        rings.append([bm.verts.new(path[t] + (side * math.cos(math.tau * k / sides) + up * math.sin(math.tau * k / sides)) * 0.22)
+                      for k in range(sides)])
+    for t in range(n):
+        for k in range(sides):
+            bm.faces.new((rings[t][k], rings[t][(k + 1) % sides], rings[t + 1][(k + 1) % sides], rings[t + 1][k]))
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces[:])
     cone(bm, 0.32, 0.23, 0.18, z0=0.62, sides=14, at=(0.6, 0.0))
     to_object("hood", bm, (0.56, 0.58, 0.66), smooth=True).parent = root
     bm = bmesh.new()
