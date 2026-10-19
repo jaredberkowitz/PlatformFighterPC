@@ -1982,7 +1982,7 @@ func _neck_on_rig(accent: Color) -> void:
 	if loadout.neck == 5 and loadout.shirt > 0:
 		_sailor_collar(accent)
 	if loadout.neck == 1 and loadout.shirt == 2:
-		_kerchief_knot(Color(0.82, 0.24, 0.22))
+		_kerchief_knot(Color(0.7, 0.16, 0.16))
 
 
 ## A small neckerchief knotted at the throat over the pointed collar (the ranger, after the reference, the character judge's round 6): a
@@ -1992,11 +1992,12 @@ func _kerchief_knot(c: Color) -> void:
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
 	var top := TORSO_CENTRE_Y + TORSO_RADII.y * 0.86
 	var z := TORSO_RADII.z * 1.12
-	var knot := SphereMesh.new()
-	knot.radius = 0.08
-	knot.height = 0.12
+	var knot := BoxMesh.new()
+	knot.size = Vector3(0.1, 0.08, 0.06)
 	# (On the open side of the chest, clear of the sash across the other.)
-	var off := Vector3(0.12, 0.0, 0.0)
+	# (At the collar's centre, high at the throat above where the sash crosses, the character judge's round 7: on the chest the round
+	# knot read as a rose.)
+	var off := Vector3(0.0, 0.06, 0.04)
 	st.append_from(knot, 0, Transform3D(Basis.IDENTITY, Vector3(0, top - 0.05, z) + off))
 	for sx in [-1.0, 1.0]:
 		var tail := PrismMesh.new()
@@ -2020,10 +2021,12 @@ func _sailor_collar(accent: Color) -> void:
 		st.append_from(b, 0, Transform3D(Basis.from_euler(rot_deg * PI / 180.0), at))
 	# The back flap, square, leaning back with the shoulders.
 	# (Out past the loose shirt, which stands off the body.)
-	var back_z := -TORSO_RADII.z * 1.2
-	add.call(cloth, Vector3(0.8, 0.5, 0.03), Vector3(0, top - 0.2, back_z), Vector3(24, 0, 0))
+	var back_z := -TORSO_RADII.z * 1.1
+	# (In two strips bending with the back, shorter, the character judge's round 7: one flat plate stood off as a fin.)
+	add.call(cloth, Vector3(0.8, 0.2, 0.03), Vector3(0, top - 0.06, back_z + 0.1), Vector3(52, 0, 0))
+	add.call(cloth, Vector3(0.78, 0.22, 0.03), Vector3(0, top - 0.24, back_z + 0.02), Vector3(22, 0, 0))
 	for k in 2:
-		add.call(stripes, Vector3(0.72 - k * 0.1, 0.026, 0.034), Vector3(0, top - 0.4 + k * 0.06, back_z - 0.06 + k * 0.025), Vector3(24, 0, 0))
+		add.call(stripes, Vector3(0.7 - k * 0.1, 0.026, 0.034), Vector3(0, top - 0.32 + k * 0.05, back_z - 0.0 + k * 0.018), Vector3(22, 0, 0))
 	# Over each shoulder and down to the knot in front.
 	for sx in [-1.0, 1.0]:
 		# (Lying flat over the shoulders only, no lapels down the front, the character judge's round 6: the lapels, the kerchief and the

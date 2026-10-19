@@ -129,12 +129,15 @@ static func apply(mat: ShaderMaterial, look: RefCounted, expression := "deadpan"
 	# Brows.
 	var brow := int(look.brows) if int(look.brows) > 0 else int(e.get("brows", 0))
 	mat.set_shader_parameter("brow_tex", tex("brows/" + BROWS[brow]) if brow > 0 else null)
-	mat.set_shader_parameter("brow_place", Vector4(BROW_GAP + offset(look, "brow_gap") * 0.012,
+	# (The curl is one mark in the middle of the forehead, the character judge's round 7: drawn per side like brows it showed twice; its two
+	# mirrored halves meet at the middle into one curl.)
+	var curl: bool = BROWS[brow] == "curl"
+	mat.set_shader_parameter("brow_place", Vector4(0.035 if curl else BROW_GAP + offset(look, "brow_gap") * 0.012,
 		BROW_Y + offset(look, "brow_y") * 0.011 - float(e.get("brow_lift", 0.0)),
-		BROW_SIZE * (1.0 + offset(look, "brow_size") * 0.07), offset(look, "brow_turn") * 0.09 + float(e.get("brow_turn", 0.0))))
+		BROW_SIZE * (0.8 if curl else 1.0 + offset(look, "brow_size") * 0.07), 0.0 if curl else offset(look, "brow_turn") * 0.09 + float(e.get("brow_turn", 0.0))))
 	mat.set_shader_parameter("brow_color", BROW_COLORS[look.brow_color])
 	# (Drawn thick, 2026-10-18: the reference cast's brows are chunky dark bars; at the drawings' own weight they read as thin lines.)
-	mat.set_shader_parameter("brow_squash", Vector2(1.0, BROW_THICK))
+	mat.set_shader_parameter("brow_squash", Vector2(1.0, 1.0 if curl else BROW_THICK))
 
 	# Nose.
 	var nose := int(look.nose)
