@@ -570,13 +570,15 @@ def steel():
 
 
 # (The lawn's range narrower and brighter, the gauntlet's round 26: at 0.55 the meadow's lawn read as a dark speckled felt.)
-TILES = {"lawn": (lawn, 0.68), "soil_bank": (soil_bank, 0.4), "roof_render": (roof, 0.6), "furrows": (furrows, 0.62), "planks": (planks, 0.45),
+TILES = {"lawn": (lawn, 0.78), "soil_bank": (soil_bank, 0.4), "roof_render": (roof, 0.6), "furrows": (furrows, 0.62), "planks": (planks, 0.45),
          # (The floating platforms' boards, the same planks in a wider range: at their size on screen the deck's range averaged out to a
          # plain tone, the gauntlet's round 29.)
-         "planks_bold": (planks, 0.2), "leaves": (leaves, 0.42), "brick": (brick, 0.5), "fieldstone": (fieldstone, 0.74), "steel_plate": (steel, 0.5)}
+         "planks_bold": (planks, 0.2), "leaves": (leaves, 0.42), "brick": (brick, 0.5), "fieldstone": (fieldstone, 0.9), "steel_plate": (steel, 0.5)}
 
 
 # The share of a render's pixels at or under the tile's white (most of the planks tile is board top, which would clip at 0.98).
+# And the share at or under its black (the lawn's darkest tenth clipped away, round 33: it read as dark speckle).
+LO = {"lawn": 0.1}
 HI = {"planks": 0.99, "planks_bold": 0.99, "brick": 0.999}
 
 
@@ -593,7 +595,7 @@ def render_tile(name):
     px = list(img.pixels)
     lum = [0.2126 * px[i] + 0.7152 * px[i + 1] + 0.0722 * px[i + 2] for i in range(0, len(px), 4)]
     ordered = sorted(lum)
-    lo = ordered[int(len(ordered) * 0.02)]
+    lo = ordered[int(len(ordered) * LO.get(name, 0.02))]
     hi = ordered[min(int(len(ordered) * HI.get(name, 0.98)), len(ordered) - 1)]
     out = []
     for l in lum:

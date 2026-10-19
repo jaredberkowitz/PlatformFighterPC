@@ -420,3 +420,19 @@ the city's girders and skyline walls). Next material: the meadow's stone wall (f
 Scores as round 31 (meadow 3.2, canyon 2.5, beach 3.2, city 3.2, grove 3.3). The fieldstone face gives the stones a surface, but its pits
 read as cheese and its lichen does not show. Gaps: (1) no cast shadows; (2) the pieces left behind (grove trunk bark, the meadow's log
 ends, the city's girders and skyline walls). Next material: the city's girder plates and skyline walls.
+
+## Round 33 (2026-10-19, commit 5ba4e66): the style sheet's first round, the meadow pilot
+
+| Stage | Believ. | Cohesion | Lighting | Depth | Ground | Clarity | Mean |
+|---|---|---|---|---|---|---|---|
+| Meadow | 3 | 3 | 3 | 4 | 3 | 3 | 3.2 |
+| Canyon | 2 | 2 | 3 | 2 | 2 | 3 | 2.3 |
+| Beach | 3 | 3 | 3 | 4 | 3 | 3 | 3.2 |
+| City | 4 | 3 | 3 | 3 | 3 | 3 | 3.2 |
+| Grove | 4 | 3 | 3 | 4 | 3 | 3 | 3.3 |
+
+Judged against docs/art/STYLE_SHEET.md, with measured value bands. The pilot half done: the lawn's colour, the platforms' value and the
+modelled logs follow the sheet. Outliers: the wall (upper courses at the lawn's value, stones 0.22 to 0.46), the lawn (low at the back,
+dark speckle), the bales' bright ends, the fence and props without contact, the village and windmill inked and bright in the
+mid-ground, a cropped pine and house at the top right. Contact sheet: the canyon reads as another game (held); the city's sign and
+beacon outshine the fighters.

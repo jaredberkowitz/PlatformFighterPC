@@ -27,7 +27,7 @@ const THEMES := {
 	"meadow": {
 		"sky_top": Color(0.1, 0.36, 0.9), "sky_mid": Color(0.3, 0.62, 1.0), "sky_horizon": Color(0.78, 0.93, 1.0),
 		"sky_glow": [Color(1.0, 0.97, 0.86), 0.25], "sky_wisps": [Color(1.0, 1.0, 1.0), 0.5],
-		"soil": Color(0.76, 0.56, 0.36), "soil_dark": Color(0.52, 0.37, 0.25), "grass": Color(0.3, 0.52, 0.19),
+		"soil": Color(0.76, 0.56, 0.36), "soil_dark": Color(0.52, 0.37, 0.25), "grass": Color(0.31, 0.55, 0.2),
 		"grass_light": Color(0.62, 0.88, 0.34), "wood": Color(0.86, 0.62, 0.36), "wood_dark": Color(0.62, 0.42, 0.24),
 		"pattern": "earth", "cap": "grass", "platform": "wood", "grass_vary": 0.42, "grass_patch": 0.85, "moss": Color(0.4, 0.66, 0.14),
 		# (A step less saturated, deepening toward the back, gauntlet round 3: the brightest, flattest colour on screen.)
@@ -820,7 +820,8 @@ static func _taper_box(left: float, right: float, top: float, bottom: float, fro
 ## Sets everything under `node` back into the air: each material's colour losing `desat` of its saturation and drawn `lift` toward
 ## `haze`, for buildings in the middle distance that kept their foreground colours (the gauntlet's round 21). Materials are copied, so
 ## shared ones elsewhere stay as they are.
-static func _mute(node: Node, desat: float, haze: Color, lift: float) -> void:
+## `ink` false also takes the ink outline off (the style sheet: no ink in the mid-ground).
+static func _mute(node: Node, desat: float, haze: Color, lift: float, ink := true) -> void:
 	for mi: MeshInstance3D in node.find_children("*", "MeshInstance3D", true, false):
 		var mats: Array = []
 		if mi.material_override != null:
@@ -842,6 +843,8 @@ static func _mute(node: Node, desat: float, haze: Color, lift: float) -> void:
 			col = col.lerp(Color(grey, grey, grey, col.a), desat).lerp(Color(haze, col.a), lift)
 			var copy := (m as ShaderMaterial).duplicate() as ShaderMaterial
 			copy.set_shader_parameter("albedo", col)
+			if not ink:
+				copy.next_pass = null
 			if int(pair[0]) < 0:
 				mi.material_override = copy
 			else:
@@ -894,7 +897,8 @@ static func solid_block(parent: Node3D, t: Dictionary, left: float, right: float
 		body.material_override = FighterView.toon(Color(0.4, 0.36, 0.34))
 		var field := t.duplicate()
 		# (Warm fieldstone, a step darker than the lawn is light, so the wall sits under the field instead of outshining it.)
-		field.soil = Color(0.68, 0.56, 0.42)
+		# (A step deeper, round 33: the upper courses matched the lawn's value, so the front did not sit under the top.)
+		field.soil = Color(0.62, 0.51, 0.39)
 		field.soil_dark = Color(0.44, 0.36, 0.32)
 		_seawall_stones(parent, field, left, right, top + 0.15, bottom, front_z, depth, top, true, taper)
 	elif t.get("pattern", "") in ["earth", "roots"]:
@@ -1522,7 +1526,7 @@ static func _props(root: Node3D, theme_name: String, e: Array) -> void:
 	var patches: Array = []
 	match theme_name:
 		"meadow":
-			patches = [[l + 3.0, -4.6, 0.95, 0.75], [l + 4.3, -5.0, 0.95, 0.75], [r - 4.0, -4.4, 0.55, 0.45], [r - 2.4, -4.0, 0.3, 0.25],
+			patches = [[l + 3.0, -4.6, 1.15, 0.85], [l + 4.3, -5.0, 1.15, 0.85], [r - 4.0, -4.4, 0.55, 0.45], [r - 2.4, -4.0, 0.3, 0.25],
 				[l + 7.5, -3.8, 0.6, 0.45]]
 			_hay_bale(root, Vector3(l + 3.0, y, -4.6), 0.0)
 			_hay_bale(root, Vector3(l + 4.3, y, -5.0), 25.0)
@@ -1703,7 +1707,8 @@ static func _hay_bale(root: Node3D, at: Vector3, turn: float) -> void:
 	# (The modelled bale, art/blender/make_props.py `hay_bale`, the gauntlet's round 12; the built one below stands in without it.)
 	# It wears the same painted straw: the body's strands and the ends' rolled spiral (its own modelled grooves give that spiral relief).
 	var body_mat := Materials.as_family(FighterView.toon(Color.WHITE, true, _straw_texture(false), Vector2.ONE), "grass")
-	var end_mat := Materials.as_family(FighterView.toon(Color.WHITE, false, _straw_texture(true), Vector2.ONE), "grass")
+	# (The ends a step down, round 33: the spiral ends were the brightest scenery by the fighters.)
+	var end_mat := Materials.as_family(FighterView.toon(Color(0.8, 0.77, 0.72), false, _straw_texture(true), Vector2.ONE), "grass")
 	var model := Toonify.load_prop("hay_bale", true)
 	if model != null:
 		model.position = at
@@ -3046,7 +3051,8 @@ static func _fields(root: Node3D, z: float, y: float, colours: Array, hedge_colo
 	_barn(farm, Vector3.ZERO)
 	_cottage(farm, Vector3(8.0, 0.4, -0.3), Color(0.4, 0.46, 0.6), 1.0)
 	# (Into the valley's air, the gauntlet's round 21: the full red barn and blue roof read as toys at foreground strength.)
-	_mute(farm, 0.42, Color(0.8, 0.9, 0.96), 0.2)
+	# (No ink and its whites a step under the play area, the meadow pilot of docs/art/STYLE_SHEET.md: its walls peaked at 0.74, inked.)
+	_mute(farm, 0.42, Color(0.72, 0.82, 0.88), 0.22, false)
 	merge_static(farm)
 	# The hedgerows across: a row of round, leafy bushes along each line (smaller and closer set further down), on the dark band as their
 	# shade, so a hedge has volume like the trees by the stage rather than being a drawn line.
@@ -3482,14 +3488,22 @@ static func _meadow(root: Node3D, t: Dictionary, stage: Array) -> void:
 	gone.free()
 	_birds(root, rng, Color(0.25, 0.22, 0.3))
 	# A windmill on the crest of a near hill (just behind the land's edge, so it stands in it), its sails turning slowly.
-	_windmill(root, Vector3(-34, hill_top(-34.0) - 0.8, -73))
+	# (Into the mid-ground's air without ink, the meadow pilot: its sails at full ink and contrast; its red cap stays the stage's accent.)
+	var mill := Node3D.new()
+	root.add_child(mill)
+	_windmill(mill, Vector3(-34, hill_top(-34.0) - 0.8, -73))
+	_mute(mill, 0.15, Color(0.74, 0.86, 0.92), 0.12, false)
 	# (Each standing on the land with a painted shadow under it, `_ground_shadow`.)
 	_ground_shadow(Vector3(-34, 0, -73), Vector2(4.4, 3.6), -72.0)
 	# A few cottages on the near hills (just behind the land's edge), smoke rising from their chimneys: someone lives here.
 	# (Not the one at 18 since art review 10: right behind the right platform it crowded the fight; two, out at the sides, frame it.)
 	for c in [[44.0, Color(0.36, 0.5, 0.72)], [-66.0, Color(0.74, 0.5, 0.3)]]:
 		var cx: float = c[0]
-		_cottage(root, Vector3(cx, hill_top(cx) - 0.6, -74.0), c[1], 1.0 if cx > 0.0 else -1.0)
+		# (Set back into the air without ink, the meadow pilot: inked and bright, the right one read as cropped foreground.)
+		var house := Node3D.new()
+		root.add_child(house)
+		_cottage(house, Vector3(cx, hill_top(cx) - 0.6, -74.0), c[1], 1.0 if cx > 0.0 else -1.0)
+		_mute(house, 0.35, Color(0.74, 0.86, 0.92), 0.25, false)
 		_ground_shadow(Vector3(cx, 0, -74.0), Vector2(3.4, 2.6), -72.0)
 	# A low rise of meadow in front of the hills, and round trees standing along it (their feet just behind its edge).
 	_fore_band(root, -46.0, -10.0, Color(0.42, 0.68, 0.36))
@@ -3503,7 +3517,11 @@ static func _meadow(root: Node3D, t: Dictionary, stage: Array) -> void:
 		rng.randf_range(-12, -6)
 		rng.randf_range(-62, -48)
 		var ts := rng.randf_range(0.7, 1.2)
-		_round_tree(root, Vector3(tx, fore_top(tx, -10.0) - 0.5, -47.0), ts, rng)
+		# (The rise's trees in the mid-ground's air without ink, the meadow pilot.)
+		var tree := Node3D.new()
+		root.add_child(tree)
+		_round_tree(tree, Vector3(tx, fore_top(tx, -10.0) - 0.5, -47.0), ts, rng)
+		_mute(tree, 0.15, Color(0.74, 0.86, 0.92), 0.12, false)
 		_ground_shadow(Vector3(tx, 0, -47.0), Vector2(2.6, 2.0) * ts, -46.0)
 	# A wooden fence along the back of the stage, and flowers: pale posts with rounded caps, each in its own contact shade, and darker
 	# rails, so the fence reads as built (posts and rails) under the key light rather than one flat colour.
@@ -5278,7 +5296,8 @@ static func _seawall_stones(parent: Node3D, t: Dictionary, left: float, right: f
 					if rough:
 						# (Fewer value steps between the stones, the meadow pilot: the wall was the busiest thing in the frame. The spread
 						# drawn halfway back to the course's middle tone.)
-						shade = shade.lerp(a.lerp(b, 0.2).lerp(stone_grey, 0.2).lightened(0.06), 0.5)
+						# (Three quarters of the way, round 33: the stones still spanned 0.22 to 0.46.)
+						shade = shade.lerp(a.lerp(b, 0.2).lerp(stone_grey, 0.2).lightened(0.02), 0.75)
 					if rough:
 						# (A quieter wall, the same test: a narrower spread of stone shades, a step darker overall, so it sits under the field.)
 						shade = shade.darkened(0.08)
