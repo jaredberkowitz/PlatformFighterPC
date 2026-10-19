@@ -508,6 +508,14 @@ fn jump_takeoff_x(f: &Fighter, p: &FighterParams, rules: &Ruleset) -> Fx {
     };
     let kept = f.vel.x * Fx::from_ratio(i32::from(p.jump_speed_x_mul), 100);
     if rules.jump_stick_share == 2 {
+        // (Sim 145, the owner after `docs/MOMENTUM.md`: the stick held back out of a dash or a run, faster than a walk, is a reverse
+        // aerial rush, which carries the run's share whole, as the reference's does; it no longer takes a standing jump's speed off
+        // it. Out of a walk the stick back still makes a backward jump.)
+        let against =
+            stick != Fx::ZERO && kept != Fx::ZERO && stick.signum_int() != kept.signum_int();
+        if against && f.vel.x.abs() > p.walk_speed {
+            return kept.clamp(-p.jump_speed_x_max, p.jump_speed_x_max);
+        }
         return (kept + stick).clamp(-p.jump_speed_x_max, p.jump_speed_x_max);
     }
     let take_stick = if rules.jump_stick_share == 0 {
