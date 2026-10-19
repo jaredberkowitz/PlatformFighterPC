@@ -757,7 +757,7 @@ fn the_scamp_is_the_references_quick_middleweight() {
             p.air_dodge_dir_side_frames,
             p.air_dodge_dir_up_frames
         ),
-        (45, 63, 75, 97)
+        (44, 62, 74, 96)
     );
     assert_eq!(
         (
@@ -769,7 +769,7 @@ fn the_scamp_is_the_references_quick_middleweight() {
     );
     assert_eq!(
         (p.roll_frames, p.roll_back_frames, p.spot_dodge_frames),
-        (29, 34, 24)
+        (28, 33, 24)
     );
     assert_eq!(
         (

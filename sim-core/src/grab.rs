@@ -24,6 +24,9 @@ pub fn grabbable(f: &Fighter) -> bool {
         && !matches!(
             f.state,
             S::Hitstun
+                // (Lying on the ground, the reference's rule: "they do not work against foes knocked down on the floor"; weak hits
+                // jab lock instead. Sim 144, from a playtest.)
+                | S::Knockdown
                 | S::LedgeHang
                 | S::LedgeGetUp
                 | S::LedgeAttack
@@ -62,6 +65,14 @@ pub fn can_catch(hb: &crate::moves::Hitbox, f: &Fighter) -> bool {
     } else {
         grabbable(f)
     }
+}
+
+/// Whether an ordinary grab box of `holder` may catch `f` for where `f` stands (sim 144, from a playtest): not behind the holder. A
+/// pivot grab's slide could carry the holder into someone it had been running at, whose body overlapped the grab box's near end, and
+/// the catch then pulled that fighter round to the front in one frame. [E: the reference publishes no such rule; its grab boxes
+/// simply sit in front.] Command grabs (`Hitbox::command`) keep their own reach.
+pub fn in_front(hb: &crate::moves::Hitbox, holder: &Fighter, f: &Fighter) -> bool {
+    hb.command || (f.pos.x - holder.pos.x).mul_int(i32::from(holder.facing)) >= Fx::ZERO
 }
 
 /// Frames a fighter at `percent` stays held before breaking free on its own.

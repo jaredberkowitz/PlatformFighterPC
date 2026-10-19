@@ -73,7 +73,7 @@ stage proving_grounds { blast_left -28 ... platform { ... } ledge { ... } spawn 
   `jump_speed_x_max` (a speed) (sim 139, owner decision 99; optional, inherited, written only when `jump_speed_x_max` is above 0) are
   the ground jump's horizontal rule, the reference's per-body parameters of those names: it leaves the ground at `jump_speed_x_mul` of
   its ground speed, or from standing still the stick's tilt times `jump_speed_x` (with the ruleset's `jump_stick_share` 1: whichever
-  is faster the same way), held within `jump_speed_x_max`;
+  is faster the same way; 2, the standard since sim 144: the two added), held within `jump_speed_x_max`;
   `jump_speed_x_max` 0 (the default, and any older file) keeps the older shared rule (the ruleset's `jump_momentum` and
   `jump_momentum_max`). The recipes scale both speeds with the air speed.
 * **A fighter's gauge** (schema 6, sim 85): an optional `gauge { max per_dealt per_taken mode_frames [walk] [dash] [run] [traction]
@@ -466,6 +466,13 @@ Line numbers inside a script count from its first non-blank line.
   cap; owner decision 102): a fighter landing (out of a jump, a move or a special fall) keeps at most that share of its dash speed
   along the ground, so a fast recovery ending on the stage does not slide across it on the gentle `landing_friction`. A file without it
   plays as 100 (the sim 143 rule; write 0 for the older free slide).
+  Still schema 8 (sim v144, the 2026-10-19 playtest): `jump_stick_share` may be 2 (the standard now: the ground speed's kept share
+  plus the stick's, within `jump_speed_x_max`; a file without it plays as 2); the ruleset `ledge_exposed_frames` (default 2: a fighter
+  that has just grabbed a ledge can be hit for that many frames before its ledge intangibility starts, the reference's "two-frame");
+  `stick_platform_drop` is 1 again, on a hard flick only (a quick flick on a stick, a double tap of down on a keyboard). Fighters may
+  have `roll_back_intangible_start` / `roll_back_intangible_end` (optional, inherited, written only when the end is above 0): the
+  backward roll's own intangible frames; none means the forward roll's. Dodge intangibility frames count from 1, the frame of the
+  input, as the reference's (they came one frame late before).
   Still schema 6 (sim v95): fighters may have `air_jump_drift`; moves `late_next` / `late_until`, `ledge_falling_only`,
   `drop_from` / `drop_frames` / `drop_while_down`; projectiles `bounce_keep_y`, `bounce_max_fall`; bursts `on_ground`, `on_expire`,
   `keep_hits`. Every one defaults to the old behaviour, so an older file loads unchanged.

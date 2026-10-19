@@ -147,6 +147,9 @@ pub struct Fighter {
     /// Ledge currently held, or [`NONE`].
     pub ledge: i8,
     pub ledge_invuln: u8,
+    /// Frames left before a fresh ledge grab's intangibility takes hold (sim 144: the ruleset's `ledge_exposed_frames`, the
+    /// reference's "two-frame"); while above 0, `ledge_invuln` does not protect.
+    pub ledge_exposed: u8,
     /// Ledge grabs since last landing or being hit: only the first gives ledge intangibility, the options' intangibility shrinks
     /// on later ones, and there is a limit (`FighterParams::ledge_grab_limit`).
     pub ledge_grab_count: u8,
@@ -749,6 +752,7 @@ impl Fighter {
             platform_ignore: 0,
             ledge: NONE,
             ledge_invuln: 0,
+            ledge_exposed: 0,
             ledge_grab_count: 0,
             airtime: 0,
             buffer_used: 0,
@@ -1014,6 +1018,7 @@ impl StateHash for Fighter {
         h.write_u8(self.platform_ignore);
         h.write_i8(self.ledge);
         h.write_u8(self.ledge_invuln);
+        h.write_u8(self.ledge_exposed);
         h.write_u8(self.ledge_grab_count);
         h.write_u16(self.airtime);
         h.write_u16(self.buffer_used);
@@ -1356,6 +1361,11 @@ mod tests {
             ("ledge_invuln", {
                 let mut s = state;
                 s.fighters[0].ledge_invuln = 1;
+                s
+            }),
+            ("ledge_exposed", {
+                let mut s = state;
+                s.fighters[0].ledge_exposed = 1;
                 s
             }),
             ("ledge_grab_count", {

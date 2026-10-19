@@ -417,6 +417,7 @@ pub fn update(
     f.grab_immune = f.grab_immune.saturating_sub(1);
     f.ledge_cooldown = f.ledge_cooldown.saturating_sub(1);
     f.ledge_invuln = f.ledge_invuln.saturating_sub(1);
+    f.ledge_exposed = f.ledge_exposed.saturating_sub(1);
     f.invuln = f.invuln.saturating_sub(1);
     f.state_frame = f.state_frame.saturating_add(1);
     // The shield refills whenever it is not up (a broken shield is restored when the stun ends).
@@ -492,7 +493,8 @@ fn air_momentum(vx: Fx, p: &FighterParams, rules: &Ruleset) -> Fx {
 /// `jump_speed_x_mul` percent of it (a run jump takes the run, whatever the stick); from standing still it moves at the stick's
 /// sideways tilt times `jump_speed_x`; held within `jump_speed_x_max` either way. With `Ruleset::jump_stick_share` 1 (decision 99's
 /// reading) it takes the faster of the two the same way, a stick held against the kept speed never cutting it (a reverse aerial rush
-/// keeps its dash). How the reference combines the two is not published. Without its own rule, the older shared rule
+/// keeps its dash). With 2 (the standard since sim 144) the two add up. How the reference combines the two is not published. Without
+/// its own rule, the older shared rule
 /// (`air_momentum`).
 fn jump_takeoff_x(f: &Fighter, p: &FighterParams, rules: &Ruleset) -> Fx {
     if p.jump_speed_x_max <= Fx::ZERO {
@@ -505,6 +507,9 @@ fn jump_takeoff_x(f: &Fighter, p: &FighterParams, rules: &Ruleset) -> Fx {
         Fx::ZERO
     };
     let kept = f.vel.x * Fx::from_ratio(i32::from(p.jump_speed_x_mul), 100);
+    if rules.jump_stick_share == 2 {
+        return (kept + stick).clamp(-p.jump_speed_x_max, p.jump_speed_x_max);
+    }
     let take_stick = if rules.jump_stick_share == 0 {
         kept == Fx::ZERO
     } else {
@@ -688,14 +693,18 @@ fn ground(
         enter(f, S::Shield);
         return;
     }
-    // A platform drop (owner decision 63, the reference's): the down flick keeps the fighter on the platform for
+    // A platform drop (owner decision 63, the reference's): the down flick (a hard, fast one, `Fighter::hard_down`, since sim 144: on a
+    // stick a quick flick, on a keyboard a double tap of down; a slow tilt or a single key press crouches) keeps the fighter on the
+    // platform for
     // `platform_drop_frames` more frames, crouching, and it falls on the frame after. A special on the flick's frame, on any of
     // those, or on the frame it falls comes out on the ground instead: with the stick down, the down special. Nothing else
     // interrupts it (an attack or grab pressed meanwhile is buffered into the air).
-    // (Off since sim 112, owner decision 2026-10-14: `Ruleset::stick_platform_drop`; the drop is shield + special.)
+    // (Off from sim 112 to 143, owner decision 2026-10-14: `Ruleset::stick_platform_drop`, when any push past half down dropped and
+    // down tilts could not be made on platforms. Back on in sim 144, the owner after a playtest, on the hard flick only; the shield
+    // drop, shield + special, stays.)
     if !initial_dash && rules.stick_platform_drop != 0 && on_pass_through(f, stage) {
         let mut left = drop_pending;
-        if left == 0 && f.flicked_down(TAP_BUFFER) {
+        if left == 0 && f.hard_down(TAP_BUFFER) {
             left = rules.platform_drop_frames.saturating_add(1);
         }
         if left > 0 {
@@ -1448,7 +1457,7 @@ fn air_dodge(f: &mut Fighter, p: &FighterParams, stage: &Stage, rules: &Ruleset)
     } else {
         p.air_dodge_dir_intangible_end
     };
-    if within(f.state_frame, p.air_dodge_intangible_start, intangible_end) {
+    if within(dodge_frame(f), p.air_dodge_intangible_start, intangible_end) {
         f.invuln = f.invuln.max(1);
     }
     if neutral {
@@ -1505,12 +1514,17 @@ fn landing(f: &mut Fighter, p: &FighterParams, stage: &Stage) {
 
 fn wave_land(f: &mut Fighter, p: &FighterParams, stage: &Stage) {
     f.vel.x = f.vel.x * p.waveland_friction;
-    // A wavedash stops at the edge of the platform instead of sliding off it.
+    // A wavedash stops at the edge of the platform instead of sliding off it, except at an edge with a ledge (sim 144, the
+    // playtest of 2026-10-19: wavedashing off the stage to catch its ledge, the earlier game in the series' way back to the edge).
     if let Some(plat) = collision::platform(stage, f.platform) {
         let next = f.pos.x + f.vel.x;
+        let side: i8 = if next < plat.left { -1 } else { 1 };
+        let edge = if side < 0 { plat.left } else { plat.right };
+        let ledge = stage.ledges.iter().any(|l| l.side == side && l.x == edge);
         // (Unless a slope carries on from that end.)
         if (next < plat.left || next > plat.right)
             && collision::continuation(stage, f.platform, next).is_none()
+            && !ledge
         {
             f.pos.x = if next < plat.left {
                 plat.left
@@ -1659,6 +1673,13 @@ fn shield_release(f: &mut Fighter, p: &FighterParams, weapon: &Weapon, stage: &S
 }
 
 /// True if `frame` is within `start..=end`.
+/// A dodge's frame as the reference counts it, 1 being the frame it began on (the frame of the input). A dodge's state runs from the
+/// frame after it began, with `state_frame` 1, so this is `state_frame` + 1: before sim 144 the dodges' intangibility windows were
+/// read against `state_frame` and came one frame late (a roll's 4-15 was 5-16; found from a playtest).
+fn dodge_frame(f: &Fighter) -> u16 {
+    f.state_frame.saturating_add(1)
+}
+
 fn within(frame: u16, start: u8, end: u8) -> bool {
     frame >= u16::from(start) && frame <= u16::from(end)
 }
@@ -1713,11 +1734,13 @@ fn roll(f: &mut Fighter, p: &FighterParams, stage: &Stage, rules: &Ruleset) {
         rules.dodge_stale_roll
     };
     let shift = stale_shift(rules.dodge_stale_roll_shift, level, rules);
-    if within(
-        f.state_frame,
-        p.roll_intangible_start.saturating_add(shift),
-        p.roll_intangible_end,
-    ) {
+    // (A backward roll has its own window, the reference's, when the body gives one: sim 144.)
+    let (start, end) = if back && p.roll_back_intangible_end > 0 {
+        (p.roll_back_intangible_start, p.roll_back_intangible_end)
+    } else {
+        (p.roll_intangible_start, p.roll_intangible_end)
+    };
+    if within(dodge_frame(f), start.saturating_add(shift), end) {
         f.invuln = f.invuln.max(1);
     }
     if within(
@@ -1746,7 +1769,7 @@ fn spot_dodge(f: &mut Fighter, p: &FighterParams, stage: &Stage, rules: &Ruleset
     let level = f.dodge_level;
     let shift = stale_shift(rules.dodge_stale_spot_shift, level, rules);
     if within(
-        f.state_frame,
+        dodge_frame(f),
         p.spot_intangible_start.saturating_add(shift),
         p.spot_intangible_end,
     ) {
@@ -2467,9 +2490,23 @@ fn grabbing(f: &mut Fighter, weapon: &Weapon) {
         if mv.intangible > 0 && mv.intangible_start(false) == 0 {
             f.invuln = f.invuln.max(mv.intangible);
         }
-    } else if f.take(buttons::ATTACK, ATTACK_BUFFER) {
+    } else if f.take(buttons::ATTACK, ATTACK_BUFFER) || take_pummel_press(f) {
         begin_attack(f, MoveId::Pummel);
     }
+}
+
+/// Any other button's new press pummels too (sim 144, the owner after a playtest: "any button", where the reference takes attack or
+/// grab only). A press, not a hold, so a button still held from before the catch (the grab's own, the shield's) does not pummel.
+fn take_pummel_press(f: &mut Fighter) -> bool {
+    const OTHERS: u16 = buttons::GRAB | buttons::SPECIAL | buttons::SHIELD | buttons::JUMP;
+    let fresh = (0..5)
+        .map(|k| 1u16 << k)
+        .filter(|&b| OTHERS & b != 0)
+        .find(|&b| f.buffer_used & b == 0 && f.pressed_within(b, ATTACK_BUFFER + 1));
+    if let Some(b) = fresh {
+        f.buffer_used |= b;
+    }
+    fresh.is_some()
 }
 
 /// Carrying a held fighter (E7, see `moves::Carry`; the move that lifted it is still `move_id`): walking only, at the carry's share of

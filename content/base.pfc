@@ -5,8 +5,8 @@ bundle {
     schema 8
     name "Base Roster"
     description "The built-in roster: a longsword duelist and a close-range brawler."
-    sim_version 143
-    hash 527a40d028c7788f
+    sim_version 144
+    hash 5b2b34f3a68f60a7
 }
 
 ruleset {
@@ -25,8 +25,9 @@ ruleset {
     push_speed 0.075
     jump_momentum 0.84999
     jump_momentum_max 1.25
-    jump_stick_share 0
+    jump_stick_share 2
     landing_speed_cap 100
+    ledge_exposed_frames 2
     respawn_invuln 120
     tech_window 11
     tech_lag 4
@@ -87,7 +88,7 @@ ruleset {
     special_turn_window 3
     special_reverse_window 4
     platform_drop_frames 2
-    stick_platform_drop 0
+    stick_platform_drop 1
     dodge_stale_max 5
     dodge_stale_first 60
     dodge_stale_every 120
@@ -18602,6 +18603,8 @@ fighter duelist {
     jump_speed_x 0.11874
     jump_speed_x_mul 80
     jump_speed_x_max 0.15
+    roll_back_intangible_start 5
+    roll_back_intangible_end 16
     item_throws { forward 10 back 14 up 15 down 8 dash 6 drop 7 }
 }
 
@@ -18724,6 +18727,8 @@ fighter brawler {
     jump_speed_x 0.125
     jump_speed_x_mul 80
     jump_speed_x_max 0.16249
+    roll_back_intangible_start 5
+    roll_back_intangible_end 16
 }
 
 fighter rogue {
@@ -18844,6 +18849,8 @@ fighter rogue {
     jump_speed_x 0.09499
     jump_speed_x_mul 80
     jump_speed_x_max 0.17499
+    roll_back_intangible_start 4
+    roll_back_intangible_end 14
     item_throws { forward 8 back 11 up 11 down 8 dash 6 drop 6 }
 }
 
@@ -18966,6 +18973,8 @@ fighter tumbler {
     jump_speed_x 0.11874
     jump_speed_x_mul 80
     jump_speed_x_max 0.16249
+    roll_back_intangible_start 5
+    roll_back_intangible_end 16
 }
 
 fighter sprinter {
@@ -19087,6 +19096,8 @@ fighter sprinter {
     jump_speed_x 0.11249
     jump_speed_x_mul 75
     jump_speed_x_max 0.2625
+    roll_back_intangible_start 5
+    roll_back_intangible_end 16
 }
 
 fighter seer {
@@ -19208,6 +19219,8 @@ fighter seer {
     jump_speed_x 0.09
     jump_speed_x_mul 70
     jump_speed_x_max 0.1375
+    roll_back_intangible_start 5
+    roll_back_intangible_end 16
     item_throws { forward 7 back 9 up 11 down 6 dash 4 drop 5 }
 }
 
@@ -19329,6 +19342,8 @@ fighter champion {
     jump_speed_x 0.11874
     jump_speed_x_mul 90
     jump_speed_x_max 0.15
+    roll_back_intangible_start 5
+    roll_back_intangible_end 16
     gauge { max 100 per_dealt 0.66699 per_taken 1 mode_frames 900 walk 115 dash 110 run 110 traction 115 air_speed 120 air_accel 120 air_friction 115 gravity 110 fall 110 }
 }
 
@@ -19450,6 +19465,8 @@ fighter hauler {
     jump_speed_x 0.11874
     jump_speed_x_mul 80
     jump_speed_x_max 0.2
+    roll_back_intangible_start 5
+    roll_back_intangible_end 16
     item_throws { forward 10 back 14 up 15 down 8 dash 6 drop 7 }
 }
 
@@ -19573,6 +19590,8 @@ fighter bounder {
     jump_speed_x 0.11374
     jump_speed_x_mul 70
     jump_speed_x_max 0.1875
+    roll_back_intangible_start 5
+    roll_back_intangible_end 16
     air_jump_armor { start 0 end 43 kind knockback threshold 120 subtract true min_kb 60 }
     item_throws { forward 8 back 7 up 8 down 7 dash 7 drop 6 }
 }
@@ -19695,6 +19714,8 @@ fighter wanderer {
     jump_speed_x 0.11874
     jump_speed_x_mul 80
     jump_speed_x_max 0.15
+    roll_back_intangible_start 5
+    roll_back_intangible_end 16
     passive_shield { x 0.59999 y 1 crouch_y 0.4 half_height 0.34999 radius 0.45 }
     item_throws { forward 7 back 9 up 11 down 6 dash 4 drop 5 }
 }
@@ -19738,16 +19759,16 @@ fighter settler {
     landing_lag 2
     heavy_landing_lag 7
     input_buffer 9
-    air_dodge_frames 58
+    air_dodge_frames 57
     air_dodge_speed 0.4
     air_dodge_decay 0.9
     air_dodge_windup 5
     air_dodge_sling 0.25
     air_dodge_landing_lag 10
     air_dodge_buffer 6
-    air_dodge_dir_down_frames 81
-    air_dodge_dir_side_frames 97
-    air_dodge_dir_up_frames 129
+    air_dodge_dir_down_frames 80
+    air_dodge_dir_side_frames 96
+    air_dodge_dir_up_frames 128
     air_dodge_intangible_start 3
     air_dodge_intangible_end 30
     air_dodge_dir_intangible_end 21
@@ -19763,14 +19784,14 @@ fighter settler {
     shield_drop_buffer 4
     shield_drop_recovery 6
     shield_release_frames 11
-    roll_frames 30
-    roll_back_frames 35
+    roll_frames 29
+    roll_back_frames 34
     roll_speed 0.14
     roll_move_start 5
     roll_move_end 24
     roll_intangible_start 4
     roll_intangible_end 15
-    spot_dodge_frames 26
+    spot_dodge_frames 25
     spot_intangible_start 3
     spot_intangible_end 17
     shield_drop_speed 0.06
@@ -19818,6 +19839,8 @@ fighter settler {
     jump_speed_x 0.11874
     jump_speed_x_mul 80
     jump_speed_x_max 0.16249
+    roll_back_intangible_start 5
+    roll_back_intangible_end 16
     item_throws { forward 11 back 11 up 10 down 10 dash 5 drop 6 }
 }
 
@@ -19860,16 +19883,16 @@ fighter scamp {
     landing_lag 2
     heavy_landing_lag 6
     input_buffer 9
-    air_dodge_frames 45
+    air_dodge_frames 44
     air_dodge_speed 0.4
     air_dodge_decay 0.9
     air_dodge_windup 5
     air_dodge_sling 0.25
     air_dodge_landing_lag 10
     air_dodge_buffer 6
-    air_dodge_dir_down_frames 63
-    air_dodge_dir_side_frames 75
-    air_dodge_dir_up_frames 97
+    air_dodge_dir_down_frames 62
+    air_dodge_dir_side_frames 74
+    air_dodge_dir_up_frames 96
     air_dodge_intangible_start 2
     air_dodge_intangible_end 27
     air_dodge_dir_intangible_end 19
@@ -19885,8 +19908,8 @@ fighter scamp {
     shield_drop_buffer 4
     shield_drop_recovery 6
     shield_release_frames 11
-    roll_frames 29
-    roll_back_frames 34
+    roll_frames 28
+    roll_back_frames 33
     roll_speed 0.14
     roll_move_start 5
     roll_move_end 24
@@ -19940,6 +19963,8 @@ fighter scamp {
     jump_speed_x 0.11874
     jump_speed_x_mul 80
     jump_speed_x_max 0.16249
+    roll_back_intangible_start 4
+    roll_back_intangible_end 15
     item_throws { forward 7 back 9 up 11 down 6 dash 4 drop 5 }
 }
 
@@ -19982,16 +20007,16 @@ fighter phantom {
     landing_lag 2
     heavy_landing_lag 3
     input_buffer 9
-    air_dodge_frames 48
+    air_dodge_frames 47
     air_dodge_speed 0.4
     air_dodge_decay 0.9
     air_dodge_windup 5
     air_dodge_sling 0.25
     air_dodge_landing_lag 10
     air_dodge_buffer 6
-    air_dodge_dir_down_frames 68
-    air_dodge_dir_side_frames 84
-    air_dodge_dir_up_frames 101
+    air_dodge_dir_down_frames 67
+    air_dodge_dir_side_frames 83
+    air_dodge_dir_up_frames 100
     air_dodge_intangible_start 3
     air_dodge_intangible_end 30
     air_dodge_dir_intangible_end 21
@@ -20007,8 +20032,8 @@ fighter phantom {
     shield_drop_buffer 4
     shield_drop_recovery 6
     shield_release_frames 11
-    roll_frames 30
-    roll_back_frames 35
+    roll_frames 29
+    roll_back_frames 34
     roll_speed 0.14
     roll_move_start 5
     roll_move_end 24
@@ -20062,6 +20087,8 @@ fighter phantom {
     jump_speed_x 0.11874
     jump_speed_x_mul 75
     jump_speed_x_max 0.15
+    roll_back_intangible_start 5
+    roll_back_intangible_end 16
     gauge {
         max 100
         per_dealt 1.29999
@@ -20124,16 +20151,16 @@ fighter exile {
     landing_lag 2
     heavy_landing_lag 2
     input_buffer 9
-    air_dodge_frames 45
+    air_dodge_frames 44
     air_dodge_speed 0.4
     air_dodge_decay 0.9
     air_dodge_windup 5
     air_dodge_sling 0.25
     air_dodge_landing_lag 10
     air_dodge_buffer 6
-    air_dodge_dir_down_frames 62
-    air_dodge_dir_side_frames 75
-    air_dodge_dir_up_frames 98
+    air_dodge_dir_down_frames 61
+    air_dodge_dir_side_frames 74
+    air_dodge_dir_up_frames 97
     air_dodge_intangible_start 3
     air_dodge_intangible_end 30
     air_dodge_dir_intangible_end 21
@@ -20149,14 +20176,14 @@ fighter exile {
     shield_drop_buffer 4
     shield_drop_recovery 6
     shield_release_frames 11
-    roll_frames 30
-    roll_back_frames 35
+    roll_frames 29
+    roll_back_frames 34
     roll_speed 0.14
     roll_move_start 5
     roll_move_end 24
     roll_intangible_start 4
     roll_intangible_end 15
-    spot_dodge_frames 26
+    spot_dodge_frames 25
     spot_intangible_start 3
     spot_intangible_end 17
     shield_drop_speed 0.06
@@ -20203,6 +20230,8 @@ fighter exile {
     jump_speed_x 0.11249
     jump_speed_x_mul 90
     jump_speed_x_max 0.15
+    roll_back_intangible_start 5
+    roll_back_intangible_end 16
     wing {
         points_m2 110
         points_m1 100

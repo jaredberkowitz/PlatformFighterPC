@@ -69,6 +69,8 @@ var impact_until := -1
 var cam_punch := 0.0
 ## A hit that will knock a fighter out: the camera closes in on them for a moment.
 var ko_focus := -1
+## Who landed the finishing hit (or -1): the knock-out close-up keeps them in the frame too.
+var ko_by := -1
 var ko_time := 0.0
 var shake_rng := RandomNumberGenerator.new()
 ## The shake's direction (the way the last hit sent its fighter; random for one with no direction) and where it is in its swing.
@@ -462,7 +464,8 @@ func _pause_camera(delta: float) -> void:
 ## directly, quitting. (The run overrides it.)
 func _quit_match() -> void:
 	if Roster.session.get("from_menu", false):
-		_leave_to("online" if (net_mode or spectate_mode or group_mode or quick_mode) else "select")
+		# (Leaving an online match goes to the main menu, as players expect: playtest 2026-10-19.)
+		_leave_to("menu" if (net_mode or spectate_mode or group_mode or quick_mode) else "select")
 	else:
 		get_tree().quit()
 
@@ -1633,6 +1636,7 @@ func _on_hit(i: int, befores: Array = []) -> void:
 		_screen_flash(0.18 + 0.2 * strength)
 	if not replay_mode and sim.fighter_will_ko(i, 200):
 		ko_focus = i
+		ko_by = by
 		# The finishing hit: two frames in two tones. The one that decides the match holds the close-up longer, in slow motion.
 		if VisualSettings.two_tone():
 			impact_until = int(sim.frame()) + 2
@@ -1868,6 +1872,8 @@ const CAMERA_PITCH := 10.0
 ## game frames a close exchange. It came in to 19 before, where a fighter filled over a fifth of the screen and the stage did not fit,
 ## so every speed (which follow the reference's published numbers) read faster than the reference's.
 const CAMERA_NEAREST := 26.0
+## The nearest the knock-out close-up comes (it never comes in past the match framing it starts from).
+const KO_NEAREST := 21.0
 
 
 func _update_camera(a: float, delta: float) -> void:
@@ -1898,10 +1904,20 @@ func _update_camera(a: float, delta: float) -> void:
 	if cam_base == Vector3.INF:
 		cam_base = cam.position
 	if ko_time > 0.0 and ko_focus >= 0:
+		# The knock-out close-up: in on the finishing hit, but framing the one who landed it as well as the one sent flying (it framed
+		# only the one sent flying, at 17, and the winner of the exchange lost sight of themselves: playtest 2026-10-19).
 		ko_time -= delta
 		var v: Vector2 = prev_pos[ko_focus].lerp(cur_pos[ko_focus], a)
-		target = Vector3(v.x, v.y + 1.2, 17.0)
-		rate = 9.0
+		var lo2 := v
+		var hi2 := v + Vector2(0, 2.2)
+		if ko_by >= 0 and ko_by != ko_focus and _in_play(ko_by):
+			var w: Vector2 = prev_pos[ko_by].lerp(cur_pos[ko_by], a)
+			lo2 = lo2.min(w)
+			hi2 = hi2.max(w + Vector2(0, 2.2))
+		var mid := (lo2 + hi2) / 2.0
+		var fit := maxf(hi2.x - lo2.x + 9.0, (hi2.y - lo2.y + 6.0) * 1.78) / 0.95
+		target = Vector3(mid.x, mid.y + 0.4, clampf(fit, KO_NEAREST, dist))
+		rate = 6.0
 	cam_base = cam_base.lerp(target, clampf(delta * rate, 0.0, 1.0))
 	# A heavy hit's punch-in: the camera jumps closer and eases back.
 	var punch := Vector3(0, 0, -cam_base.z * 0.12 * cam_punch)

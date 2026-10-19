@@ -645,11 +645,11 @@ fn the_phantom_is_the_references_quick_middleweight_and_is_class_12() {
             p.air_dodge_dir_side_frames,
             p.air_dodge_dir_up_frames
         ),
-        (48, 68, 84, 101)
+        (47, 67, 83, 100)
     );
     assert_eq!(
         (p.roll_frames, p.roll_back_frames, p.spot_dodge_frames),
-        (30, 35, 25)
+        (29, 34, 25)
     );
     assert_eq!(
         (p.wall_jump, p.wall_jump_vx, p.wall_jump_vy),

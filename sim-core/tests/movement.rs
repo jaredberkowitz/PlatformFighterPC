@@ -776,16 +776,53 @@ fn a_wavedash_cannot_land_on_the_first_frame_after_a_jump() {
 
 #[test]
 fn a_wavedash_stops_at_the_edge_instead_of_sliding_off() {
+    // A floating platform's edge has no ledge: the slide stops on it.
     let mut sim = Sim::new();
-    let right = sim.content.stage.platforms[0].right;
-    sim.state.fighters[0].pos.x = right - Fx::from_ratio(3, 2);
+    let plat = sim.content.stage.platforms[1];
+    assert!(plat.pass_through);
+    sim.state.fighters[0].pos = sim_core::Vec2::new(plat.right - Fx::from_ratio(3, 2), plat.y);
+    sim.state.fighters[0].platform = 1;
     sim.tick(inp(0, 0, JUMP));
     sim.tick(inp(127, -100, SHIELD));
     for _ in 0..80 {
         sim.tick(inp(127, -100, 0));
-        assert!(sim.f().pos.x <= right, "slid off to {:?}", sim.f().pos.x);
+        assert!(
+            sim.f().pos.x <= plat.right,
+            "slid off to {:?}",
+            sim.f().pos.x
+        );
     }
-    assert!(sim.f().grounded(), "still on the stage");
+    assert!(sim.f().grounded(), "still on the platform");
+}
+
+#[test]
+fn a_wavedash_off_the_stages_edge_catches_its_ledge() {
+    // Sim 144 (the playtest of 2026-10-19): an edge with a ledge lets the slide go over, and the fighter catches the ledge, the way
+    // back to the edge of the earlier game in the series. Back to the edge, as it is done, and facing it.
+    for (facing, stick) in [(-1i8, 127i8), (1, 127)] {
+        let mut sim = Sim::new();
+        let right = sim.content.stage.platforms[0].right;
+        sim.state.fighters[0].pos.x = right - Fx::from_ratio(3, 2);
+        sim.state.fighters[0].facing = facing;
+        sim.tick(inp(0, 0, JUMP));
+        sim.tick(inp(stick, -100, SHIELD));
+        let mut hung = false;
+        // (The stick held for the dodge, then let go: held outward the fighter drifts past the ledge's reach.)
+        for k in 0..80 {
+            sim.tick(if k < 6 {
+                inp(stick, -100, 0)
+            } else {
+                inp(0, 0, 0)
+            });
+            hung |= sim.f().state == S::LedgeHang;
+        }
+        assert!(
+            hung,
+            "facing {facing}: {:?} at {:?}",
+            sim.f().state,
+            sim.f().pos
+        );
+    }
 }
 
 #[test]

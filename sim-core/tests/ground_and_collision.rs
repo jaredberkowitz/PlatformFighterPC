@@ -141,16 +141,28 @@ fn jumping_works_out_of_every_ground_state() {
 
 #[test]
 fn down_on_a_pass_through_platform_crouches_and_stays_on_it() {
-    // Owner decision 2026-10-14 (sim 112): the drop is shield + special, so down is a crouch on a platform as on the ground.
-    for down in [-127, -70] {
+    // Sim 144 (the owner after a playtest): only a hard, fast flick drops (a stick's quick flick, a keyboard's double tap of down).
+    // A push to half down (a keyboard's single press, a gentle tilt), or a stick rolled down slowly, crouches and stays.
+    let slow: [i8; 10] = [-20, -30, -40, -50, -60, -70, -80, -90, -100, -127];
+    for (name, path) in [("half", &[-70i8][..]), ("rolled", &slow[..])] {
         let mut sim = Sim::new();
         sim.state.fighters[0].pos = sim_core::Vec2::new(Fx::from_int(-5), Fx::from_ratio(18, 5));
         sim.state.fighters[0].platform = 1;
         sim.tick(inp(0, 0, 0));
-        sim.ticks(20, inp(0, down, 0));
-        assert_eq!(sim.f().state, S::Crouch, "down {down}");
+        for &y in path {
+            sim.tick(inp(0, y, 0));
+        }
+        sim.ticks(20, inp(0, *path.last().unwrap(), 0));
+        assert_eq!(sim.f().state, S::Crouch, "{name}");
         assert_eq!(sim.f().platform, 1);
     }
+    // A hard flick drops through.
+    let mut sim = Sim::new();
+    sim.state.fighters[0].pos = sim_core::Vec2::new(Fx::from_int(-5), Fx::from_ratio(18, 5));
+    sim.state.fighters[0].platform = 1;
+    sim.tick(inp(0, 0, 0));
+    sim.ticks(6, inp(0, -127, 0));
+    assert_eq!(sim.f().platform, sim_core::state::NONE, "flicked");
 }
 
 #[test]
