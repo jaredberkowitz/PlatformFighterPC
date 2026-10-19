@@ -46,3 +46,20 @@ modelled wardrobe (hats, glasses, neckwear, shirts, shorts, gloves, socks, shoes
 - **Hands**: four chunky fingers split clearly on the open hand and the fist (`make_rigged_blob.py` `fist`, `mitten`).
 - Refitted with `fit_body.py --shoulder-lift 0.11` (the default 0.07 dropped the shoulder joint 0.1 and would move every arm), every
   clip rebuilt. Before/after: `body_before_after.png` (in a match), `turnaround_before_after.png`.
+
+## Exact comparison (2026-10-19, after dressing the defaults): `reference_vs_ours.png`
+Our aviator scout against the reference's, same outfit idea. The silhouette, colour and face now match; the gap is detail density and
+material, not bone structure (the reference's bodies are as simple as ours: a soft ball head on a block body, no anatomy):
+
+1. **Hair and hat volume.** The reference's head carries big soft shapes: a fleece aviator hat with ear flaps, long ginger hair spilling
+   out under it. Ours is a thin skull cap, so the head reads bare. Biggest single difference.
+2. **Material texture.** Every reference surface has a soft painted texture: fleece, cotton weave, knit socks, enamel badges. Ours are
+   flat fills; the shirt and shorts read as plastic.
+3. **Clothes stand off the body with real thickness.** Reference sleeves are wide cuffs with a coloured trim stripe, the collar a raised
+   green band, socks thick ribbed tubes; ours lie on the body (the shirt's collar is a flat painted V).
+4. **Badges.** The reference's sash carries six small square enamel badges with pictures; ours has three large plain coloured dots.
+5. **Hands.** The reference's gloves are slim, long four-fingered cartoon gloves with clear separate fingers; ours are puffy mittens.
+6. **Glasses.** The reference's are thin wire frames drawn wider than the eyes; ours are thick black plastic and sit on the eyes.
+7. **Neck.** The reference's head sinks into the collar, no neck at all; ours still shows a short skin band between head and shirt.
+8. **Lighting.** The reference has a warm bounce and soft occlusion where clothes meet the body (under the head, the sash edges); ours
+   has none on the fighters.
