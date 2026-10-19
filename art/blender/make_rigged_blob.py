@@ -390,18 +390,19 @@ def mitten(bm, x):
     # (front offset across the hand, length, spread) per finger: index to little.
     # (All four out, each curled a little more toward the little finger, the character judge's round 17: unevenly curled, from the front
     # the hand read as pointing.)
-    for k_f, (f0, ln, spread) in enumerate(((0.072, 1.0, 0.03), (0.024, 1.08, 0.01), (-0.024, 1.02, -0.01), (-0.07, 0.9, -0.032))):
+    for k_f, (f0, ln, spread) in enumerate(((0.072, 1.0, 0.04), (0.024, 1.06, 0.014), (-0.024, 1.02, -0.014), (-0.07, 0.92, -0.04))):
         pts, radii = [], []
         for k, t in enumerate((0.0, 0.45, 0.8, 1.0)):
             # (Short fat fingers, the character judge's round 18: about 45 per cent of the hand.)
-            d = 0.13 + 0.12 * ln * t
+            d = 0.13 + 0.09 * ln * t   # (stubs, 40 per cent of the hand, round 19)
             f = f0 + spread * t
-            o = -0.004 - (0.03 + 0.012 * k_f) * t * t      # curling toward the palm
+            o = -0.004 - 0.03 * t * t      # curling toward the palm, evenly (round 19: uneven curls still read as pointing)
             pts.append(_at(x, d, f, o))
             radii.append((0.048, 0.046, 0.042, 0.033)[k])
         tube(bm, pts, radii, segments=14, per_span=3)
-    tube(bm, [_at(x, 0.04, 0.085, -0.02), _at(x, 0.09, 0.14, -0.05), _at(x, 0.13, 0.16, -0.07), _at(x, 0.155, 0.162, -0.078)],
-         [0.046, 0.044, 0.038, 0.028], segments=16, per_span=3)
+    # (Small and low, about 30 degrees off the hand, round 19.)
+    tube(bm, [_at(x, 0.04, 0.085, -0.02), _at(x, 0.08, 0.13, -0.045), _at(x, 0.11, 0.15, -0.06), _at(x, 0.13, 0.155, -0.066)],
+         [0.04, 0.038, 0.033, 0.025], segments=16, per_span=3)
 
 
 ## The blob's wrist, which `fist` and `cuff` are built round.
@@ -1281,7 +1282,7 @@ FIST_SCALE = 0.74
 GLOVE_SCALE = 0.74
 GLOVE_GROW = 1.0     # the base body's glove against its bare hand (1.1 until the aviator scout pilot, 2026-10-19: the reference's gloves are slim, ours read puffy)
 ## The wrist radius FIST_SCALE and FIST_CLOSED are set for (the cage body's, 2026-10-15); a body with thicker wrists gets bigger hands.
-HAND_WRIST = 0.082
+HAND_WRIST = 0.072   # (0.082 until the character judge's round 19: the slimmer arm tapers into the hand, which keeps its size)
 FIST_CLOSED = 0.74   # the closed fist (`fist`, built to the open hand's size) against the blob's
 ## How far the head is lowered onto the shoulders: the old generated body had a short neck between them, which the character has none of.
 ## The scripted body (make_base_body.py) has no neck, so it is built with `--neck-drop 0`.
@@ -1969,14 +1970,14 @@ SLEEVE_SNUG = 0.55      # the sleeve's opening hugs the arm (this share of the s
 SHORTS_TOP = -0.002   # the shorts reach just under the shirt's hem (below it a little, they could poke through)
 SHORTS_LIFT = 0.04     # the shorts sit a little closer in, so the shirt's hem lies over their waistband
 CLOTH_THICKNESS = 0.0     # none: an inner layer crossed the outer one where the cloth folds (the game draws cloth two-sided)
-SLEEVE = 1.05  # (just past the elbow, the character judge's round 18: to the wrist it gathered at the shoulder in a bend)
+SLEEVE = 0.85  # (a short puffed cap, the character judge's round 19 and the owner: about a fifth of shoulder to fingertip)
                        # shoulder, so 0.55 left only a cap over it: PEAK's short sleeves reach most of the way to the elbow)
 HEM_FLARE = 0.035
 # The body rebuild (the owner: the clothes read painted on beside the reference cast): the sleeves stand off the arm and open a little at
 # the hem, the shorts' legs flare wide, as the reference's cloth hangs.
-SLEEVE_FLARE = 0.02
+SLEEVE_FLARE = 0.05   # (puffed, the owner's choice, round 19)
 SHORTS_FLARE = 0.075
-ARM_RADIUS = 0.19   # (the thicker sausage arm, the owner's second reference; 0.145 before)     # how far from the arm's axis a point still counts as the arm (the cage body's arm is at most 0.125 round and hangs with
+ARM_RADIUS = 0.15   # (the slimmer arm, the character judge's round 19; 0.19 for the thicker sausage arm)     # how far from the arm's axis a point still counts as the arm (the cage body's arm is at most 0.125 round and hangs with
                        # the torso's side 0.16 from its axis, so this sits between them; at 0.2, made for the generated figure, the torso's
                        # sides took arm weights and tore when the arms moved)
 HEM_SMOOTH = 30
@@ -2199,7 +2200,7 @@ def build_garments(skin, J, neck):
             elif name == "Shirt":
                 # The sleeve's opening hugs the arm, a clean band, not a flared cone with the dark inside showing.
                 a, b = arm["L" if v.co.x < 0.0 else "R"]
-                near_end = 1.0 - min(1.0, abs(sleeve_t(v.co) - SLEEVE) * (b - a).length / 0.08)
+                near_end = 1.0 - min(1.0, abs(sleeve_t(v.co) - SLEEVE) * (b - a).length / 0.14)
                 if abs(v.co.z - neck_line) > 0.06:
                     # (Standing off the arm and opening at the hem, the body rebuild; a snug band read as a painted sleeve.)
                     # (Not too open: the arm's ink hull showed through the gap as a dark patch under the arm.)
@@ -2290,6 +2291,9 @@ def build_garments(skin, J, neck):
                 sh = J["armU." + ("L" if co.x < 0.0 else "R")]
                 dist = (Vector((abs(co.x), co.y, co.z)) - Vector((abs(sh.x), sh.y, sh.z))).length
                 t = max(0.0, 1.0 - dist / SHOULDER_BLEND) * SHOULDER_SHARE
+                # (Over the shoulder only, none under the arm, the character judge's round 19: the armpit's cloth taking the arm's bone
+                # tore into spikes when the arm rose.)
+                t *= max(0.0, min(1.0, (co.z - sh.z + 0.1) / 0.08))
                 arm_g = index.get("armU." + ("L" if v.co.x < 0.0 else "R"))
                 if t > 0.0 and arm_g is not None:
                     for k in list(v[deform].keys()):
