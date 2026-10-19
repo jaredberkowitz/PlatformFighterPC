@@ -5208,7 +5208,8 @@ static func _skyline_layer(root: Node3D, rng: RandomNumberGenerator, layer: int,
 	signs.seed = 77 + layer
 	# Two rooftop billboards on the middle layer, on the buildings nearest these places (in view, above the stage's roofline).
 	# (The right one at 4, not 24, round 19: there a near tower hid half of it.)
-	var billboard_at := [-20.0, 4.0] if layer == 1 else []
+	# (On the nearest layer, on a low building, the owner's city plan step 4, 2026-10-19: on the middle layer nearer towers hid them.)
+	var billboard_at := [-26.0, 24.0] if layer == 0 else []
 	var billboard_best := {}
 	var x := -120.0
 	while x < 120.0:
@@ -5280,7 +5281,9 @@ static func _skyline_layer(root: Node3D, rng: RandomNumberGenerator, layer: int,
 					if h > 27.0 and shape.randf() < 0.6:
 						var mx := (lo.x + hi.x) * 0.5
 						_facade_box(st, Vector3(mx - 0.12, t3 + sh3, z - 0.12), Vector3(mx + 0.12, t3 + sh3 + shape.randf_range(3.0, 6.0), z + 0.12), seed, true, 4.0)
-		if layer < 2 and signs.randf() < 0.34:
+		# (More signs, a busier city, step 4.)
+		# (None in the strip right behind the fighters, step 4: a lit sign there pulled the eye from the fight.)
+		if layer < 2 and signs.randf() < 0.55 and absf(x + w * 0.5) > 13.0:
 			# A lit sign on the front: a tall blade sign near one side, or a wide one across the middle.
 			var front := hi.z + 0.08
 			var tall := signs.randf() < 0.5
@@ -5292,7 +5295,7 @@ static func _skyline_layer(root: Node3D, rng: RandomNumberGenerator, layer: int,
 				Vector3(0, 0, 1), Vector2(sw, sh), 0.0, Color(signs.randf(), 0.0, 1.0))
 		for b in billboard_at:
 			var d := absf(x + w / 2.0 - float(b))
-			if not billboard_best.has(b) or d < float(billboard_best[b][0]):
+			if h < 20.0 and (not billboard_best.has(b) or d < float(billboard_best[b][0])):
 				billboard_best[b] = [d, x, w, street + h, seed]
 		# Something on the roof now and then: a vent box, a round tank on legs (a box here, at this distance) or an antenna.
 		var top := street + h
@@ -5333,7 +5336,8 @@ static func _skyline_layer(root: Node3D, rng: RandomNumberGenerator, layer: int,
 	# The far layer: windows only (frames, sills and floor bands would be noise at that distance).
 	# (And the middle layer too since art review 10, so only the nearest buildings carry frames and sills.)
 	m.set_shader_parameter("detail", 0.0 if layer >= 1 else 1.0)
-	m.set_shader_parameter("sign_energy", 3.0 - layer * 0.8)
+	# (Dimmer, so no sign outshines the fighters, step 4.)
+	m.set_shader_parameter("sign_energy", 1.9 - layer * 0.5)
 	m.set_shader_parameter("moon_edge", [0.9, 0.6, 0.35][layer])
 	# (Finer windows, finer further back, the gauntlet's round 15 after the owner's city reference: its windows are fine regular grids
 	# that read as texture; ours, a bay of 2 by 2.6 on every layer, read as stickers.)
