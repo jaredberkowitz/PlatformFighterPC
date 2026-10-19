@@ -88,3 +88,24 @@ The meadow goes first; the others follow once its result is approved. Its checkl
 - Fence, bales, barrel, sign: a contact shadow under each, a lit top edge.
 - Valley: the fields and farm sit in the mid-ground band; the village houses' colours a step under the play area's.
 - Distance: the ranges are on the sheet; keep them.
+
+
+## 9. The rules the meadow rebuild proved (2026-10-19), for every stage
+
+The meadow, rebuilt against the owner's blue-mountain reference, is the template. Each stage keeps its own palette, place and
+personality; these rules are what makes them one game:
+
+1. **Form over texture.** Quality comes from modelled shapes and light, not surface tiles. Big faceted planes, flat-shaded, each one
+   clean tone: mountains, hills, ledges, rocks, pines. Texture only where it earns its place (wood grain, brick, roof sheets) and kept
+   faint; no texture on large natural surfaces (lawns, hillsides, cliffs).
+2. **One construction language.** The stage front is built like the land behind it (the meadow's faceted rock ledge matches its
+   faceted hills). Nothing in view drawn in a different technique (painted cobbles, cut cards, primitives).
+3. **Clean, bright play surface.** The walkable top is the stage's brightest clean colour, untextured, shaded by the light; a calm path
+   or worn line in a warm pale tone where the fighters stand. The ground may be lighter than the fighters; they read by outline and colour.
+4. **Dark, simple front.** The face under the top is a deep version of the land's colour, plain and recessive, so the lit top pops.
+5. **Shade is a deeper version of each colour** (a small hue turn only), crisp; never grey, olive or violet wash.
+6. **Clear air.** Distance reads through cooler, lighter, simpler shapes, not through milky haze or fog bands. Mist only where the
+   place has it (the city's night haze).
+7. **Measure against the reference.** Each stage's target image gets a measured colour table (`STAGE_REFERENCES.md`); the judge diffs
+   the capture against it and the table (`JUDGE.md`, round 35 on).
+8. **Mid-ground props unified:** no ink, colours a step under the play area, simple shapes (pines as stacked faceted cones).

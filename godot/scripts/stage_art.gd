@@ -875,6 +875,51 @@ static func _pine_cluster(root: Node3D, at: Vector3, size: float) -> bool:
 	return true
 
 
+## A stage front as a faceted rock ledge (the meadow, in the language of its faceted hills and mountains): a sheet over the block's
+## front in big irregular flat-shaded planes, bulging out and tucking in, following the block's batter (`taper`), in `colour`, falling
+## into shade below the lit top as the stage fronts do.
+static func _faceted_ledge(parent: Node3D, left: float, right: float, top: float, bottom: float, front: float, taper: float, colour: Color) -> void:
+	var y_top := top - 0.3
+	var y_bot := maxf(bottom, top - 14.0)
+	var stepx := 1.7
+	var stepy := 1.3
+	var cols := int(ceil((right - left) / stepx))
+	var rows := int(ceil((y_top - y_bot) / stepy))
+	var pts: Array = []
+	for j in rows + 1:
+		var y := lerpf(y_top, y_bot, float(j) / rows)
+		var inset := _taper_inset(top, y, taper, right - left)
+		var row: Array = []
+		for i in cols + 1:
+			var own := RandomNumberGenerator.new()
+			own.seed = hash(Vector2i(i, j)) + 71
+			var edge := i == 0 or i == cols
+			var x := lerpf(left + inset, right - inset, float(i) / cols) + (0.0 if edge else own.randf_range(-0.45, 0.45) * stepx)
+			var yy := y + (0.0 if j == 0 or j == rows else own.randf_range(-0.35, 0.35) * stepy)
+			var out := 0.0 if j == 0 else own.randf_range(0.1, 1.3) * smoothstep(0.0, 1.0, float(j))
+			row.append(Vector3(x, yy, front + 0.02 + out))
+		pts.append(row)
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for j in rows:
+		for i in cols:
+			var a: Vector3 = pts[j][i]
+			var b: Vector3 = pts[j][i + 1]
+			var c: Vector3 = pts[j + 1][i + 1]
+			var d: Vector3 = pts[j + 1][i]
+			for v in [a, b, c, a, c, d]:
+				st.add_vertex(v)
+	st.generate_normals()
+	var m := (FighterView.toon(colour, true) as ShaderMaterial).duplicate() as ShaderMaterial
+	m.set_shader_parameter("facets", true)
+	m.set_shader_parameter("fall_by_height", true)
+	m.set_shader_parameter("front_fall", 0.45)
+	m.set_shader_parameter("front_span", 6.0)
+	var mi := _mesh(parent, st.commit(), m, Vector3.ZERO)
+	mi.set_instance_shader_parameter("front_top", top)
+	mi.name = "faceted_ledge"
+
+
 static func _cylinder(top: float, bottom: float, height: float, sides := 20) -> CylinderMesh:
 	var c := CylinderMesh.new()
 	c.top_radius = top
@@ -918,14 +963,20 @@ static func solid_block(parent: Node3D, t: Dictionary, left: float, right: float
 		# (The mortar a dark grey-brown, art review 9: the red earth tile between the stones read as brick.)
 		# (Not too dark, gauntlet round 4's greyscale test: near-black joints round pale stones made the wall the most contrasty, busiest
 		# thing on screen, right under the fight.)
-		body.material_override = FighterView.toon(Color(0.6, 0.54, 0.48) if t.name == "meadow" else Color(0.4, 0.36, 0.34))
+		body.material_override = FighterView.toon(Color(0.2, 0.27, 0.23) if t.name == "meadow" else Color(0.4, 0.36, 0.34))
 		var field := t.duplicate()
 		# (Warm fieldstone, a step darker than the lawn is light, so the wall sits under the field instead of outshining it.)
 		# (A step deeper, round 33: the upper courses matched the lawn's value, so the front did not sit under the top.)
-		# (Light, warm and clean with the bright lawn, the owner, 2026-10-19: the dark wall read muddy.)
-		field.soil = Color(0.84, 0.74, 0.6)
-		field.soil_dark = Color(0.44, 0.36, 0.32)
-		_seawall_stones(parent, field, left, right, top + 0.15, bottom, front_z, depth, top, true, taper)
+		# (The reference's ledge face, the meadow rebuild's step 3: a dark green-grey that the lit lime top pops above; a light warm wall
+		# read as busy hand-drawn cobbles from another style.)
+		field.soil = Color(0.36, 0.46, 0.4) if t.name == "meadow" else Color(0.84, 0.74, 0.6)
+		field.soil_dark = Color(0.28, 0.36, 0.32) if t.name == "meadow" else Color(0.44, 0.36, 0.32)
+		if t.name == "meadow":
+			# (A faceted rock ledge in big planes, as the hills and mountains behind are built, the owner, 2026-10-19: the drawn cobbles
+			# clashed with the faceted background. One style across the scene.)
+			_faceted_ledge(parent, left, right, top, bottom, front_z, taper, Color(0.34, 0.46, 0.4))
+		else:
+			_seawall_stones(parent, field, left, right, top + 0.15, bottom, front_z, depth, top, true, taper)
 	elif t.get("pattern", "") in ["earth", "roots"]:
 		_earth_bulges(parent, t, left, right, top, bottom, front_z, taper, exposed, fall)
 	if not exposed:
@@ -2599,7 +2650,8 @@ static func ridge(root: Node3D, t: Dictionary, spec: Dictionary) -> MeshInstance
 ## The fog layers of each theme: [z, bottom y, height, strength].
 const MIST := {
 	# (The far bands thinner, art review 9: over the cut-card ranges they washed both layers into one pale band.)
-	"meadow": [[-56.0, -24.0, 12.0, 0.24], [-86.0, -26.0, 16.0, 0.18]],
+	# (Clear air, the meadow rebuild's step 3: the reference has none of this milky band at the ranges' foot.)
+	"meadow": [[-56.0, -24.0, 12.0, 0.08], [-86.0, -26.0, 16.0, 0.06]],
 	"grove": [[-60.0, -24.0, 12.0, 0.16], [-90.0, -26.0, 16.0, 0.14]],
 	"sunset": [[-60.0, -26.0, 10.0, 0.07], [-95.0, -24.0, 16.0, 0.13]],
 	"ocean": [[-130.0, -10.0, 6.0, 0.08]],
@@ -5334,7 +5386,7 @@ static func _seawall_stones(parent: Node3D, t: Dictionary, left: float, right: f
 	var a: Color = t.soil
 	var b: Color = t.soil_dark
 	# (`rough`: a farm's dry-stone wall, fieldstones of very different sizes, rounder and further off true, in their own greys.)
-	var stone_grey := Color(0.72, 0.7, 0.66) if rough else Color(0.86, 0.74, 0.6)
+	var stone_grey := (Color(0.4, 0.48, 0.44) if t.get("name", "") == "meadow" else Color(0.72, 0.7, 0.66)) if rough else Color(0.86, 0.74, 0.6)
 	var rng := RandomNumberGenerator.new()
 	rng.seed = int(left * 31.0 + top * 17.0) + 5
 	var items: Array = []
