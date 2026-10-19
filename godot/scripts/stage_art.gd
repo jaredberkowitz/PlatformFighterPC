@@ -25,7 +25,8 @@ const Particles := preload("res://scripts/particles.gd")
 ## block (`grass`, `sand` or `roof`), and the platforms (`wood` planks or steel `girder`s) and their colours.
 const THEMES := {
 	"meadow": {
-		"sky_top": Color(0.1, 0.36, 0.9), "sky_mid": Color(0.3, 0.62, 1.0), "sky_horizon": Color(0.78, 0.93, 1.0),
+		# (Cyan, sampled from the owner's blue-mountain reference, 2026-10-19: ours read grey-blue beside it.)
+		"sky_top": Color(0.0, 0.5, 0.82), "sky_mid": Color(0.12, 0.7, 0.9), "sky_horizon": Color(0.66, 0.92, 0.96),
 		"sky_glow": [Color(1.0, 0.97, 0.86), 0.25], "sky_wisps": [Color(1.0, 1.0, 1.0), 0.5],
 		"soil": Color(0.76, 0.56, 0.36), "soil_dark": Color(0.52, 0.37, 0.25), "grass": Color(0.46, 0.8, 0.24),
 		"grass_light": Color(0.72, 0.95, 0.4), "wood": Color(0.86, 0.62, 0.36), "wood_dark": Color(0.62, 0.42, 0.24),
@@ -860,7 +861,8 @@ static func _pine_cluster(root: Node3D, at: Vector3, size: float) -> bool:
 		return false
 	var own := RandomNumberGenerator.new()
 	own.seed = hash(Vector2i(roundi(at.x * 10.0), roundi(at.z * 10.0)))
-	var greens := [Color(0.12, 0.36, 0.26), Color(0.16, 0.42, 0.28), Color(0.1, 0.32, 0.26)]
+	# (Dark and muted, sampled from the reference: its pines are a grey-green near 0.31, 0.41, 0.36.)
+	var greens := [Color(0.18, 0.28, 0.24), Color(0.22, 0.32, 0.26), Color(0.16, 0.26, 0.24)]
 	for k in own.randi_range(3, 5):
 		var s := size * (1.0 if k == 0 else own.randf_range(0.55, 0.85))
 		var p := at + Vector3(own.randf_range(-1.2, 1.2) * size * 0.5 * float(k > 0), 0.0, own.randf_range(-0.6, 0.3) * size * 0.4)
@@ -2464,7 +2466,7 @@ const RIDGES := {
 	# (Taller, with real peaks, 2026-10-17: a low wavy strip under the pale horizon read as a flat cloud bank over the mountains, the
 	# owner's note.)
 	# (More, narrower peaks, gauntlet round 2: three broad concave sweeps with a pale crest read as breaking waves.)
-	"meadow": [{"model": "range_meadow_far", "facets": true, "land_colour": Color(0.62, 0.84, 0.84), "land_drop": 16.0, "z": -170.0, "y": -50.0, "height": 88.0, "shape": 1, "seed": 3.0, "base": 0.32, "amplitude": 0.6, "frequency": 5.6,
+	"meadow": [{"model": "range_meadow_far", "facets": true, "land_colour": Color(0.42, 0.82, 0.8), "land_drop": 16.0, "z": -170.0, "y": -50.0, "height": 88.0, "shape": 1, "seed": 3.0, "base": 0.32, "amplitude": 0.6, "frequency": 5.6,
 		# (More of its own blue and less haze, art review 6 round 31: at mix 0.55 the ridge was mostly horizon colour, a formless pale band
 		# behind the crisp painted hills; found with `--pick`.)
 		"tone": Color(0.3, 0.62, 0.72), "mix": 0.55, "edge": 0.1, "haze": 0.5,
@@ -2474,7 +2476,7 @@ const RIDGES := {
 		"flank": 0.75, "foot_dark": 0.35, "layers": 4, "flank_from": 0.0, "gullies": 0.45, "paper": 0.05, "edge_width": 0.012},
 		# A nearer, lower range in front, deeper teal and less hazed, casting its shadow on the far one: the backdrop as cut cards in layers
 		# with air between them, not one soft band (art review 9).
-		{"model": "range_meadow_near", "facets": true, "land_colour": Color(0.36, 0.68, 0.66), "land_haze": 0.12, "land_drop": 8.0, "z": -140.0, "y": -36.0, "height": 62.0, "shape": 1, "seed": 9.0, "base": 0.4, "amplitude": 0.5, "frequency": 7.0,
+		{"model": "range_meadow_near", "facets": true, "land_colour": Color(0.18, 0.62, 0.6), "land_haze": 0.12, "land_drop": 8.0, "z": -140.0, "y": -36.0, "height": 62.0, "shape": 1, "seed": 9.0, "base": 0.4, "amplitude": 0.5, "frequency": 7.0,
 		"tone": Color(0.14, 0.46, 0.54), "mix": 0.85, "edge": 0.5, "haze": 0.28, "flank": 0.75, "foot_dark": 0.4, "layers": 3,
 		"flank_from": 0.0, "gullies": 0.6, "paper": 0.05, "edge_width": 0.016, "shadow": 0.5}],
 	"grove": [{"model": "range_grove_far", "z": -165.0, "y": -34.0, "height": 52.0, "shape": 0, "seed": 8.0, "base": 0.5, "amplitude": 0.32, "frequency": 3.5,
@@ -2993,9 +2995,10 @@ static func _fields(root: Node3D, z: float, y: float, colours: Array, hedge_colo
 			st.set_normal(Vector3(0.0, 0.25, 1.0).normalized())
 			st.add_vertex(v)
 	# (A field's own coordinates for its furrow tile, the owner's painted materials, 2026-10-18: `uv` gives each corner's.)
-	var quad_uv := func(st: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, d: Vector3, uv: Array) -> void:
+	var quad_uv := func(st: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, d: Vector3, uv: Array, tone: Array = [1.0, 1.0, 1.0, 1.0]) -> void:
 		var vs := [a, b, c, d]
 		for i in [0, 2, 1, 0, 3, 2]:
+			st.set_color(Color(tone[i], tone[i], tone[i]))
 			st.set_uv(uv[i])
 			st.add_vertex(vs[i])
 	var furrowed := Materials._png_tile("furrows") != null
@@ -3025,6 +3028,11 @@ static func _fields(root: Node3D, z: float, y: float, colours: Array, hedge_colo
 			# (Each field a gently domed plot of land, swelling toward the camera in its middle so the sun catches it at its own angle, the
 			# meadow rebuild's step 2 after the papercraft camp, 2026-10-19: flat fills read as paint on a card.)
 			var dome_amp := (d1 - d0) * 0.07
+			# (The hedge above a field shades its upper edge, and the field's lower edge, where the land rolls over toward the next hedge,
+			# catches a lit lip: the papercraft camp's ledges, step 2.)
+			var edge_tone := func(pd: float) -> float:
+				var v := clampf((pd - d0) / (d1 - d0), 0.0, 1.0)
+				return lerpf(0.74, 1.0, smoothstep(0.0, 0.4, v)) + 0.12 * smoothstep(0.82, 1.0, v)
 			var dome := func(px: float, pd: float) -> Vector3:
 				var u := clampf((px - x) / w, 0.0, 1.0)
 				var v := clampf((pd - d0) / (d1 - d0), 0.0, 1.0)
@@ -3037,7 +3045,8 @@ static func _fields(root: Node3D, z: float, y: float, colours: Array, hedge_colo
 						var da := lerpf(d0, d1, float(sub) / 3.0)
 						var db := lerpf(d0, d1, float(sub + 1) / 3.0)
 						quad_uv.call(st, at.call(xa, db) + dome.call(xa, db), at.call(xb, db) + dome.call(xb, db), at.call(xb, da) + dome.call(xb, da),
-							at.call(xa, da) + dome.call(xa, da), [uv_at.call(xa, db), uv_at.call(xb, db), uv_at.call(xb, da), uv_at.call(xa, da)])
+							at.call(xa, da) + dome.call(xa, da), [uv_at.call(xa, db), uv_at.call(xb, db), uv_at.call(xb, da), uv_at.call(xa, da)],
+							[edge_tone.call(db), edge_tone.call(db), edge_tone.call(da), edge_tone.call(da)])
 				else:
 					quad.call(st, at.call(xa, d1) + front, at.call(xb, d1) + front, at.call(xb, d0) + front, at.call(xa, d0) + front)
 				xa = xb
@@ -3097,6 +3106,7 @@ static func _fields(root: Node3D, z: float, y: float, colours: Array, hedge_colo
 		var fm := (Materials._make("grass", c, "furrows", Vector2.ONE, 0.0, false) if furrowed else Materials.world("field", c, 6.0, false)).duplicate() as ShaderMaterial
 		fm.set_shader_parameter("world_vary", 0.05)
 		fm.set_shader_parameter("ramp_softness", 0.5)
+		fm.set_shader_parameter("vertex_shade", furrowed)
 		Materials.set_detail(fm, "soil", 0.25, 5.0)
 		materials.append(fm)
 	materials.append(_soft(hedge_colour.darkened(0.12)))
