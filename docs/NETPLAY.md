@@ -93,6 +93,24 @@ match both players can ask for a **rematch**: each side then runs a new handshak
 ends with a one-byte epoch (matches played on this link), so nothing from a finished match reaches the next one. Details and tests:
 `docs/MATCHES.md`, `netplay/tests/rematch.rs`.
 
+## The lobby and keeping one code (19 October 2026, the owner after a playtest)
+
+Duels started from the online screen (by code, Direct or Relay) go through a **lobby** before every match (`Peer::with_lobby`,
+`netplay/src/peer.rs`; the screen is `godot/ui/net_lobby.gd`). Each player chooses a fighter and locks it in, then a stage and locks it
+in; both see the other's choices as they change. Each side sends its whole choice (`LobbyPick`: fighter spec, cosmetics, stage, two
+locks) whenever it changes and every 10 ticks, so a lost datagram only delays it; the lobby datagram also carries the sender's sim
+version and content hash, so two different builds find out at once (rejected before any handshake), and a player leaving says so
+(reject reason 5, `Left`). When both have locked both, the host draws the stage (their common choice, else one of the two by the
+match seed) and the ordinary handshake runs with the chosen fighters; the joiner plays on the host's draw. A **rematch** (both ask, as
+before) goes back to the lobby with the last choices selected but not locked. Tests: `netplay/tests/lobby.rs` (six rounds of
+rematches over six lossy links, the draw, leaving, a different build) and `godot/tests/online_flow_test.gd`.
+
+**One code per launch.** The code's socket (`Roster.netcode`) is opened once and kept while the game is open, polled from every
+screen (`godot/scripts/code_keeper.gd`) so its keepalive holds the router's mapping. A code match borrows it; leaving the match gives it
+back (`SimRunner.net_leave_to_code`, `CodeLink::release`) with the same port, public address and nonce, so the code stays the same
+and a friend's saved code keeps working until one of you restarts the game. (Choosing Direct or Relay closes it, so Direct can host on
+the same port; the next code is then new.)
+
 ## What is tested
 
 * `netplay/tests/session.rs`: handshake accept, refusal on a different version or content, survival at 50% packet loss; sessions over a

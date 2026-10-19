@@ -20,6 +20,8 @@ pub enum RejectReason {
     Full = 3,
     /// A fighter that is missing, cannot be decoded, does not exist, or is over the point budget under ranked rules.
     BadFighter = 4,
+    /// The other player left the lobby (or the match) for the menus.
+    Left = 5,
 }
 
 impl RejectReason {
@@ -29,6 +31,7 @@ impl RejectReason {
             2 => Some(RejectReason::ContentHash),
             3 => Some(RejectReason::Full),
             4 => Some(RejectReason::BadFighter),
+            5 => Some(RejectReason::Left),
             _ => None,
         }
     }

@@ -19,6 +19,7 @@ const DebugOverlay := preload("res://scripts/debug_overlay.gd")
 const Demo := preload("res://scripts/demo.gd")
 const MatchHud := preload("res://ui/match_hud.gd")
 const Results := preload("res://ui/results.gd")
+const NetLobby := preload("res://ui/net_lobby.gd")
 const VisualSettings := preload("res://scripts/visual_settings.gd")
 const Replays := preload("res://scripts/replays.gd")
 const PauseMenu := preload("res://ui/pause_menu.gd")
@@ -375,7 +376,7 @@ func _input(event: InputEvent) -> void:
 
 ## A match is on screen and playing: not over, not a replay, a demo or a screenshot run.
 func _can_pause() -> bool:
-	return warmed and results == null and not replay_mode and demo == null and shot_wait == ""
+	return warmed and results == null and net_lobby == null and not replay_mode and demo == null and shot_wait == ""
 
 
 func _open_pause() -> void:
@@ -654,6 +655,14 @@ var their_look_applied := false
 var net_status := 0
 var net_failed := ""
 var net_lines: Array[String] = []
+## The online lobby while it is open (`ui/net_lobby.gd`), and the choice it last had (selected again in the next one).
+var net_lobby: CanvasLayer = null
+var lobby_fighter := -1
+var lobby_stage := 0
+## Online duels from the online screen go through the lobby before every match.
+var lobby_on := false
+## The code socket lent to this match (a bridge `NetCode`), given back when the match is left so the code stays the same.
+var lent_code: RefCounted = null
 
 
 ## The connection to make, from the online screen (`Roster.session.online`) or from launch arguments. Empty means no network.
@@ -739,6 +748,13 @@ func _connect_pair(cfg: Dictionary, me: Dictionary) -> void:
 		print("group mode: ", "host" if cfg.host else "guest")
 		return
 	var code: RefCounted = cfg.get("netcode", null)
+	lent_code = code
+	# A duel from the online screen starts in the lobby: both players choose a fighter and a stage there (the owner, 19 October).
+	lobby_on = Roster.session.has("online")
+	sim.net_use_lobby(lobby_on)
+	if lobby_on:
+		lobby_stage = int(Roster.session.get("stage", 0))
+		sim.set_match_stage(lobby_stage)
 	if code != null:
 		# Connected by code on the online screen: the match plays over the socket that found the way through.
 		if cfg.host:
@@ -788,7 +804,7 @@ func pad_scheme(_pad: int) -> Dictionary:
 		return {"up": KEY_UP, "down": KEY_DOWN, "confirm": KEY_ENTER, "back": KEY_ESCAPE, "start": KEY_ESCAPE}
 	if replay_mode:
 		return {"up": KEY_UP, "down": KEY_DOWN, "left": KEY_LEFT, "right": KEY_RIGHT, "confirm": KEY_SPACE, "back": KEY_ESCAPE, "start": KEY_SPACE, "menu": KEY_ESCAPE}
-	if results != null:
+	if results != null or net_lobby != null:
 		return PadNav.DEFAULT
 	if _can_pause():
 		return {"start": KEY_ESCAPE}
@@ -955,6 +971,13 @@ func _net_step() -> void:
 	var r: Dictionary = InputReader.read(0, masks, sim.fighter_keeps_dash(local))
 	inputs[local] = r
 	net_status = sim.net_update(r.x, r.y, r.buttons)
+	if net_status == 4:
+		_lobby_step()
+		return
+	if net_lobby != null and net_status != 3:
+		_close_lobby()
+	elif net_lobby != null:
+		_lobby_left()
 	# Once the handshake is done the other player's look arrives (or is missing, and they keep the default look).
 	if (net_status == 1 or net_status == 2) and not their_look_applied:
 		their_look_applied = true
@@ -982,6 +1005,69 @@ func _net_step() -> void:
 		_tick_once(false)
 	else:
 		overlay_dirty = true
+
+
+## The lobby is open (net_update said 4): open its screen if it is not up yet (the first match, or a rematch that both asked
+## for, which closes the results), and show the other player's choices.
+func _lobby_step() -> void:
+	if results != null:
+		results.queue_free()
+		results = null
+		end_timer = 0.0
+	if net_lobby == null:
+		_open_lobby()
+	var view: Dictionary = sim.net_lobby_view()
+	net_lobby.show_view(view.get("theirs", {}))
+	for line in sim.net_take_log():
+		net_lines.append(line)
+	overlay_dirty = true
+
+
+func _open_lobby() -> void:
+	_close_pause()
+	var entries := Roster.all()
+	if lobby_fighter < 0:
+		var me := Roster.net_entry()
+		lobby_fighter = 0
+		for i in entries.size():
+			if entries[i].slug == me.slug:
+				lobby_fighter = i
+	net_lobby = NetLobby.new()
+	add_child(net_lobby)
+	net_lobby.build(entries, lobby_fighter, lobby_stage)
+	net_lobby.set_friend_name(names[1 - local_slot] if names[1 - local_slot] != "Player %d" % (2 - local_slot) else "")
+	net_lobby.changed.connect(_on_lobby_changed)
+	net_lobby.leave.connect(_quit_match)
+	# A new match will bring the other player's look again, and its own stage.
+	their_look_applied = false
+	_on_lobby_changed(lobby_fighter, lobby_stage, false, false)
+
+
+func _on_lobby_changed(fighter_index: int, stage: int, fighter_locked: bool, stage_locked: bool) -> void:
+	var entries := Roster.all()
+	lobby_fighter = clampi(fighter_index, 0, entries.size() - 1)
+	lobby_stage = stage
+	var e: Dictionary = entries[lobby_fighter]
+	sim.net_lobby_set(Roster.spec_bytes(e), Roster.profile_bytes(e), fighter_locked, stage, stage_locked)
+
+
+## Both locked in: the match is starting. This player's fighter is the one chosen in the lobby.
+func _close_lobby() -> void:
+	var entries := Roster.all()
+	var e: Dictionary = entries[clampi(lobby_fighter, 0, entries.size() - 1)]
+	Roster.save_last(e.slug)
+	views[local_slot].rebuild(e.look)
+	views[local_slot].set_name_tag(e.name)
+	names[local_slot] = e.name
+	net_lobby.queue_free()
+	net_lobby = null
+
+
+## The other player left while the lobby was open.
+func _lobby_left() -> void:
+	for line in sim.net_take_log():
+		net_lines.append(line)
+	net_lobby.show_left()
 
 
 func _tick_once(advance := true) -> void:
@@ -1384,7 +1470,8 @@ func _update_hud(delta: float) -> void:
 		"status": _net_status_text(),
 		"offscreen": _offscreen_markers(),
 	})
-	if winner != -1 and results == null and not replay_mode and not (spectate_mode and spectate_status != 1 and sim.spectate_behind() > 0):
+	# (Not while a new online match is still being set up: the last match's winner is still in the state then.)
+	if winner != -1 and results == null and net_lobby == null and not (net_mode and net_status in [0, 4]) and not replay_mode and not (spectate_mode and spectate_status != 1 and sim.spectate_behind() > 0):
 		end_timer += delta
 		if end_timer > 2.0:
 			_show_results(winner)
@@ -1481,7 +1568,12 @@ func _leave_to(screen: String) -> void:
 		if screen == "menu":
 			screen = "online"
 	if net_mode:
-		sim.net_leave()
+		# A match by code gives its socket back, so this player's code stays the same (`Roster.netcode`).
+		if lent_code != null:
+			sim.net_leave_to_code(lent_code)
+			lent_code = null
+		else:
+			sim.net_leave()
 		net_mode = false
 	get_tree().change_scene_to_file("res://%s.tscn" % screen)
 
