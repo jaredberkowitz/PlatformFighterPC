@@ -1966,7 +1966,12 @@ func _neck_on_rig(accent: Color) -> void:
 			# (A raised collar band round the neck in the shirt's collar colour, the character judge's round 1 after the owner's reference: flat
 			# collar points on the chest left a hard cut where the head meets the shirt.)
 			if loadout.shirt > 0:
-				_collar(_collar_colour())
+				# (Snug round the neck with two small points turned down at the front, the character judge's round 2: wide, it read as a bar.)
+				var cat := _collar(_collar_colour(), 0.9)
+				var point := PrismMesh.new()
+				point.size = Vector3(0.16, 0.14, 0.04)
+				for sx in [-1.0, 1.0]:
+					_part(torso_rig, point, _fabric(_collar_colour()), Vector3(sx * 0.1, cat - 0.06, 0.5), Vector3.ONE, Vector3(0, 0, 180.0 + sx * 18.0))
 			# Sash: a ring worn diagonally from shoulder to hip.
 			var ring := TorusMesh.new()
 			ring.inner_radius = 0.5
@@ -1992,18 +1997,19 @@ func _neck_on_rig(accent: Color) -> void:
 			# (Smaller, spaced apart and of different shapes, each with its own little mark, the character judge's round 1: six bright
 			# squares in a tight row read as stickers.)
 			var square := BoxMesh.new()
-			square.size = Vector3(0.088, 0.024, 0.088)
+			# (A fifth smaller, thinner rims and muted, the character judge's round 2: the brightest things on the fighter.)
+			square.size = Vector3(0.068, 0.02, 0.068)
 			var round_plate := CylinderMesh.new()
-			round_plate.top_radius = 0.048
-			round_plate.bottom_radius = 0.048
+			round_plate.top_radius = 0.037
+			round_plate.bottom_radius = 0.037
 			round_plate.height = 0.024
 			round_plate.radial_segments = 14
 			var plates := [square, round_plate, square, round_plate, square, round_plate]
 			var sq_face := BoxMesh.new()
-			sq_face.size = Vector3(0.064, 0.03, 0.064)
+			sq_face.size = Vector3(0.058, 0.026, 0.058)
 			var rd_face := CylinderMesh.new()
-			rd_face.top_radius = 0.035
-			rd_face.bottom_radius = 0.035
+			rd_face.top_radius = 0.031
+			rd_face.bottom_radius = 0.031
 			rd_face.height = 0.03
 			rd_face.radial_segments = 14
 			var faces := [sq_face, rd_face, sq_face, rd_face, sq_face, rd_face]
@@ -2042,7 +2048,8 @@ func _neck_on_rig(accent: Color) -> void:
 			var bm := _part(sash, badges, null, Vector3.ZERO)
 			for i in order.size():
 				var key: String = order[i]
-				var m: Material = brass if key == "brass" else (toon(Color(0.98, 0.95, 0.88)) if key == "mark" else toon(colours[int(key.substr(4))]))
+				var c_b: Color = colours[int(key.substr(4))] if key.begins_with("face") else Color.WHITE
+				var m: Material = brass if key == "brass" else (toon(Color(0.98, 0.95, 0.88)) if key == "mark" else respond(toon(c_b.lerp(Color(0.55, 0.5, 0.5), 0.28)), "rubber"))
 				bm.set_surface_override_material(i, m)
 			# The sash's knotted end hanging at the hip, swinging with the body (`TailRig`).
 			# (No knotted tail since the character judge's round 1: the reference's sash ends at the hip.)
@@ -2214,7 +2221,7 @@ func _fabric(c: Color) -> Material:
 	return _cloth(toon(c))
 
 
-func _collar(accent: Color) -> float:
+func _collar(accent: Color, snug := 1.0) -> float:
 	var ring := TorusMesh.new()
 	ring.inner_radius = 0.44
 	ring.outer_radius = 0.58
@@ -2229,7 +2236,7 @@ func _collar(accent: Color) -> float:
 	var modelled := _gear_mesh("neckwear", "fabric_collar")
 	if modelled != null:
 		# (A size out over a shirt, which stands off the body since the body rebuild.)
-		var over := 1.14 if loadout.shirt > 0 else 1.0
+		var over := (1.14 if loadout.shirt > 0 else 1.0) * snug
 		_part(torso_rig, modelled, _fabric(accent), Vector3(0, at, 0), Vector3(over, 1.0, over))
 	else:
 		_part(torso_rig, ring, _fabric(accent), Vector3(0, at, 0), Vector3(1.06, 0.62, 0.96))

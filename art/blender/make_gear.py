@@ -193,8 +193,9 @@ def aviator_cap():
         for j in range(minor):
             b_ = math.tau * j / minor
             # (Fat, the character judge's round 1: a thin ring read as a brim.)
-            r = 0.2 * lump * (1.0 + 0.12 * math.sin(b_ * 3.0 + i))
-            loop.append(bm.verts.new(c - out * 0.04 + (out * math.cos(b_) + up * math.sin(b_)) * r))
+            # (A fifth smaller and drawn in to the head's width, the character judge's round 2: wider than the head it read as a brim.)
+            r = 0.16 * lump * (1.0 + 0.12 * math.sin(b_ * 3.0 + i))
+            loop.append(bm.verts.new(c - out * 0.09 + Vector((0.0, 0.0, 0.16)) + (out * math.cos(b_) + up * math.sin(b_)) * r))
         loops.append(loop)
     # (UVs round and along the roll, so the game's curly fleece tile lies on it.)
     uv = bm.loops.layers.uv.new("UVMap")
@@ -209,14 +210,15 @@ def aviator_cap():
         nm = "L" if sx < 0 else "R"
         # (Hugging the cheeks, the leather outside and only a rim of fleece showing, the character judge's round 1: pale paddles hanging
         # free read as bunny ears.)
-        for part, k, inset in (("leather_flap", 1.0, 0.0), ("fleece_flap", 1.06, -0.03)):
+        for part, k, inset in (("leather_flap", 1.0, 0.0), ("fleece_flap", 1.05, -0.05)):
             bm = bmesh.new()
             ret = bmesh.ops.create_uvsphere(bm, u_segments=20, v_segments=14, radius=1.0, calc_uvs=True)
             for v in ret["verts"]:
-                v.co = Vector((v.co.x * 0.12, v.co.y * 0.34 * k, v.co.z * 0.5 * k))
+                # (A quarter smaller and padded thicker, folded in at its lower edge, the character judge's round 2.)
+                v.co = Vector((v.co.x * 0.2, v.co.y * 0.26 * k, v.co.z * 0.38 * k))
                 # (Curving in under the jaw, following the cheek.)
-                v.co.x -= sx * 0.12 * max(0.0, -v.co.z / 0.5) ** 2
-            bmesh.ops.translate(bm, vec=Vector((sx * (0.9 + inset), -0.08, 1.12)), verts=ret["verts"])
+                v.co.x -= sx * 0.14 * max(0.0, -v.co.z / 0.38) ** 2
+            bmesh.ops.translate(bm, vec=Vector((sx * (0.88 + inset), -0.04, 1.18)), verts=ret["verts"])
             to_object(part + nm, bm).parent = root
     # Hair spilling out under the hat round the sides and back: soft thick locks hanging down and out.
     locks = 13

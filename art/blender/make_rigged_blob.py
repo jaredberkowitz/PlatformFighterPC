@@ -1590,9 +1590,10 @@ def build_body_meshes(rig):
         r = radii_at_wrist[len(radii_at_wrist) // 2] if radii_at_wrist else 0.08
         bm = bmesh.new()
         # (A longer flared cuff, the character judge's round 1: a short one left a ring of skin showing at the wrist.)
-        bmesh.ops.create_cone(bm, cap_ends=True, cap_tris=False, segments=24, radius1=r * 1.14, radius2=r * 1.5, depth=0.13)
+        bmesh.ops.create_cone(bm, cap_ends=True, cap_tris=False, segments=24, radius1=r * 1.1, radius2=r * 1.5, depth=0.17)
         bmesh.ops.transform(bm, matrix=Vector((0.0, 0.0, 1.0)).rotation_difference(fore).to_matrix().to_4x4(), verts=bm.verts)
-        bmesh.ops.translate(bm, vec=J["hand." + side] - fore * 0.075, verts=bm.verts)
+        # (Further up the forearm, over the wrist ring, the character judge's round 2: a ring of skin showed under it.)
+        bmesh.ops.translate(bm, vec=J["hand." + side] - fore * 0.11, verts=bm.verts)
         parts["Cuff." + side] = to_object("Cuff." + side, bm, "hand." + side, rig)
 
     # The face shell, as the blob's: a ball fitted to the head, its front only, the face drawing projected straight on.
@@ -1934,11 +1935,11 @@ CUFF_LIFT = 0.06
 # this share of the upper arm long and lifted this far off the skin.
 SLEEVE_TRIM = 0.12
 # Tall thick ribbed socks (the character judge's round 1): how far up from the ankle, how far off the skin, and their turned-down top.
-SOCK_HEIGHT = 0.34
+SOCK_HEIGHT = 0.42
 SOCK_LIFT = 0.03
 SOCK_TOP_BAND = 0.045
 SOCK_TOP_LIFT = 0.045
-SLEEVE_TRIM_LIFT = 0.098
+SLEEVE_TRIM_LIFT = 0.09   # (just over the shirt's own lift, the character judge's round 2: further out it stood off as a fin)
 SLEEVE_SNUG = 0.55      # the sleeve's opening hugs the arm (this share of the shirt's distance), so no dark gap shows inside it
 SHORTS_TOP = -0.002   # the shorts reach just under the shirt's hem (below it a little, they could poke through)
 SHORTS_LIFT = 0.04     # the shorts sit a little closer in, so the shirt's hem lies over their waistband
@@ -2114,7 +2115,6 @@ def build_garments(skin, J, neck):
     for name, inside, hem, lift in (("Shirt", in_shirt, shirt_hem, SHIRT_LIFT), ("Shorts", in_shorts, shorts_hem, SHORTS_LIFT),
                                     ("Belt", in_belt, belt_hem, BELT_LIFT), ("Boot", in_boot, boot_hem, BOOT_LIFT),
                                     ("BootSole", in_sole, belt_hem, SOLE_LIFT), ("BootCuff", in_boot_cuff, belt_hem, BOOT_CUFF_LIFT), ("ShortsCuff", in_cuff, belt_hem, CUFF_LIFT),
-                                    ("SleeveTrim", in_sleeve_trim, belt_hem, SLEEVE_TRIM_LIFT),
                                     ("Sock", in_sock, belt_hem, SOCK_LIFT), ("SockTop", in_sock_top, belt_hem, SOCK_TOP_LIFT)):
         obj = skin.copy()
         obj.data = skin.data.copy()
