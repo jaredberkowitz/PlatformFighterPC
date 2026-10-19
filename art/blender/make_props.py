@@ -1140,7 +1140,7 @@ def hay_bale():
     return root
 
 
-def mountain_range(name, seed, height, peaks, base, amplitude, rounded):
+def mountain_range(name, seed, height, peaks, base, amplitude, rounded, res=(260, 40)):
     """A far range of mountains or hills as a landform (the gauntlet's round 13, in place of a painted cut card: flat outlined shapes in
     the distance were the strongest cheap cue): 520 across (x, centred), `height` at its tallest, about as deep as it is tall (y, away
     from the camera, its front foot on the origin). A crest line that wanders in depth, `peaks` main summits with smaller ones between
@@ -1167,7 +1167,8 @@ def mountain_range(name, seed, height, peaks, base, amplitude, rounded):
         return h
 
     ph = rng.uniform(0, math.tau)
-    nx, nd = 260, 40
+    # (`res`: a coarse grid for faceted mountains, big clean planes as the papercraft camp's, 2026-10-19.)
+    nx, nd = res
     bm = bmesh.new()
     grid = []
     for j in range(nd + 2):
@@ -1328,13 +1329,49 @@ def rope_lash():
     return root
 
 
+def pine():
+    """A pine in the papercraft camp's language (the owner's meadow target, 2026-10-19): five stacked faceted tiers, each a wide low cone
+    of nine flat panels whose rim droops into points, every tier a hair turned and narrower than the one under it, over a short trunk.
+    About 1 wide and 2.4 tall, standing on the origin. Parts `needles` (flat-shaded) and `trunk`."""
+    rng = random.Random(127)
+    root = empty("pine")
+    bm = bmesh.new()
+    tiers = 5
+    for k in range(tiers):
+        t = k / (tiers - 1)
+        r = 0.8 * (1.0 - 0.7 * t)
+        z0 = 0.35 + 0.42 * k
+        h = 0.62 - 0.06 * k
+        sides = 9
+        turn = rng.uniform(0, math.tau)
+        tip = bm.verts.new((0.0, 0.0, z0 + h))
+        rim = []
+        for i in range(sides * 2):
+            a = turn + math.tau * i / (sides * 2)
+            point = i % 2 == 0
+            rr = r * (1.0 if point else 0.78)
+            rim.append(bm.verts.new((math.cos(a) * rr, math.sin(a) * rr, z0 - (0.08 if point else 0.0) + rng.uniform(-0.02, 0.02))))
+        for i in range(len(rim)):
+            bm.faces.new((tip, rim[i], rim[(i + 1) % len(rim)]))
+        under = bm.verts.new((0.0, 0.0, z0 + 0.05))
+        for i in range(len(rim)):
+            bm.faces.new((under, rim[(i + 1) % len(rim)], rim[i]))
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces[:])
+    to_object("needles", bm, (0.16, 0.42, 0.3), smooth=False).parent = root
+    bm = bmesh.new()
+    cone(bm, 0.08, 0.06, 0.5, 0.0, sides=6)
+    to_object("trunk", bm, (0.4, 0.28, 0.2), smooth=False).parent = root
+    return root
+
+
 PROPS = {
+    "pine": pine,
     "log_pole": log_pole,
     "rope_lash": rope_lash,
     "hill_dome_a": lambda: hill_dome("hill_dome_a", 5),
     "hill_dome_b": lambda: hill_dome("hill_dome_b", 12),
-    "range_meadow_far": lambda: mountain_range("range_meadow_far", 3, 88.0, 6, 0.32, 0.6, False),
-    "range_meadow_near": lambda: mountain_range("range_meadow_near", 9, 62.0, 8, 0.4, 0.5, False),
+    "range_meadow_far": lambda: mountain_range("range_meadow_far", 3, 88.0, 6, 0.32, 0.6, False, (90, 12)),
+    "range_meadow_near": lambda: mountain_range("range_meadow_near", 9, 62.0, 8, 0.4, 0.5, False, (110, 12)),
     "range_grove_far": lambda: mountain_range("range_grove_far", 8, 52.0, 4, 0.5, 0.32, True),
     "range_grove_near": lambda: mountain_range("range_grove_near", 4, 40.0, 6, 0.5, 0.36, True),
     "hay_bale": hay_bale,
