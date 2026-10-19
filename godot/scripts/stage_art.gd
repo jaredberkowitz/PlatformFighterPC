@@ -78,7 +78,8 @@ const THEMES := {
 		"pattern": "diamonds", "cap": "grass", "platform": "wood",
 	},
 	"ocean": {
-		"sky_top": Color(0.06, 0.34, 0.9), "sky_mid": Color(0.2, 0.58, 1.0), "sky_horizon": Color(0.5, 0.8, 1.0),
+		# (A pale warm horizon above a deepening far sea, 2026-10-19: at the sea's own pale blue the two ran together.)
+		"sky_top": Color(0.06, 0.38, 0.9), "sky_mid": Color(0.26, 0.64, 0.98), "sky_horizon": Color(0.86, 0.93, 0.96),
 		"sky_glow": [Color(1.0, 0.96, 0.86), 0.15], "sky_wisps": [Color(1.0, 1.0, 1.0), 0.45],
 		"soil": Color(0.82, 0.66, 0.5), "soil_dark": Color(0.6, 0.48, 0.46), "grass": Color(0.96, 0.8, 0.5),
 		"grass_light": Color(1.0, 0.95, 0.78), "wood": Color(0.8, 0.62, 0.42), "wood_dark": Color(0.58, 0.42, 0.28),
@@ -4515,11 +4516,13 @@ static func _ocean(root: Node3D, t: Dictionary, stage: Array) -> void:
 	sea.level = float(e[3]) - 1.0
 	root.add_child(sea)
 	sea.build()
-	_clouds(root, rng, 8, Color(1, 1, 1), Vector2(16, 34), Vector2(-120, -85), [0, 1, 2], 1.0, Vector2(-90, 90), BEACH_CLOUDS)
+	# (Higher in the sky, 2026-10-19: low over the horizon they sat on the sea.)
+	_clouds(root, rng, 8, Color(1, 1, 1), Vector2(30, 48), Vector2(-120, -85), [0, 1, 2], 1.0, Vector2(-90, 90), BEACH_CLOUDS)
 	# A bank of cumulus piled along the horizon, behind the far coast (its own random numbers, so the rest of the layout stays put).
 	var bank_rng := RandomNumberGenerator.new()
 	bank_rng.seed = 41
-	_clouds(root, bank_rng, 16, Color(1, 1, 1), Vector2(-10.0, -5.0), Vector2(-215, -195), [1, 0, 1], 1.9, Vector2(-90, 90), BEACH_CLOUDS)
+	# (Lifted clear of the horizon, the owner, 2026-10-19: sitting on it, the clouds read too low and blurred the sea into the sky.)
+	_clouds(root, bank_rng, 16, Color(1, 1, 1), Vector2(10.0, 18.0), Vector2(-215, -195), [1, 0, 1], 1.9, Vector2(-90, 90), BEACH_CLOUDS)
 	_birds(root, rng, Color(0.97, 0.97, 1.0))
 	# Distant islands.
 	for k in 3:
@@ -6136,21 +6139,25 @@ static func _dock_harbour(root: Node3D, e: Array, water: float) -> void:
 			for pz2 in [-1.5, 1.6]:
 				var hh := at.y - water + 1.5
 				_mesh(root, _cylinder(0.2, 0.24, hh, 8), dark, Vector3(at.x + px2, water - 1.5 + hh * 0.5, at.z + pz2))
+		# (The goods drawn and thrown away, 2026-10-19: the crates stacked on the foreground landings were cut by the frame's bottom
+		# corners. Still made, so the random layout after them stays put.)
+		var goods := Node3D.new()
 		# Goods: a crate of oranges, barrels, a heap of net, a coil of rope.
-		_crate(bob, Vector3(-1.2 * side, 0.24, -0.3), 1.0, rng.randf_range(-15, 15))
-		_crate(bob, Vector3(1.4 * side, 0.24, 0.2), 1.1, rng.randf_range(-15, 15))
-		_crate(bob, Vector3(1.3 * side, 1.34, 0.1), 0.9, rng.randf_range(-20, 20))
+		_crate(goods, Vector3(-1.2 * side, 0.24, -0.3), 1.0, rng.randf_range(-15, 15))
+		_crate(goods, Vector3(1.4 * side, 0.24, 0.2), 1.1, rng.randf_range(-15, 15))
+		_crate(goods, Vector3(1.3 * side, 1.34, 0.1), 0.9, rng.randf_range(-20, 20))
 		var fruit := FighterView.toon(Color(1.0, 0.56, 0.18) if side < 0.0 else Color(0.9, 0.24, 0.24))
 		for f in 9:
-			_mesh(bob, _sphere(0.17, 8), fruit, Vector3(-1.2 * side + rng.randf_range(-0.32, 0.32), 1.22 + rng.randf_range(0.0, 0.12), -0.3 + rng.randf_range(-0.32, 0.32)))
-		_barrel(bob, Vector3(0.3 * side, 0.24, 0.4), 0.85)
-		_barrel(bob, Vector3(-0.4 * side, 0.24, -0.8), 0.75)
-		_mesh(bob, _clump_ball(int(side) + 1), _lobed(FighterView.toon(Color(0.3, 0.46, 0.44))), Vector3(1.6 * side, 0.45, 0.8), Vector3(0.9, 0.35, 0.7))
+			_mesh(goods, _sphere(0.17, 8), fruit, Vector3(-1.2 * side + rng.randf_range(-0.32, 0.32), 1.22 + rng.randf_range(0.0, 0.12), -0.3 + rng.randf_range(-0.32, 0.32)))
+		_barrel(goods, Vector3(0.3 * side, 0.24, 0.4), 0.85)
+		_barrel(goods, Vector3(-0.4 * side, 0.24, -0.8), 0.75)
+		_mesh(goods, _clump_ball(int(side) + 1), _lobed(FighterView.toon(Color(0.3, 0.46, 0.44))), Vector3(1.6 * side, 0.45, 0.8), Vector3(0.9, 0.35, 0.7))
 		var coil := TorusMesh.new()
 		coil.inner_radius = 0.2
 		coil.outer_radius = 0.42
-		_mesh(bob, coil, rope, Vector3(-0.2 * side, 0.32, 1.1))
-		_mesh(bob, coil, rope, Vector3(-0.2 * side, 0.42, 1.1), Vector3(0.85, 1.0, 0.85))
+		_mesh(goods, coil, rope, Vector3(-0.2 * side, 0.32, 1.1))
+		_mesh(goods, coil, rope, Vector3(-0.2 * side, 0.42, 1.1), Vector3(0.85, 1.0, 0.85))
+		goods.free()
 		# Mooring posts out of the sea beside it, a rope loop round the nearest.
 		for mp in 2:
 			var px: float = cx + side * (6.4 + mp * 1.4)
@@ -6264,13 +6271,13 @@ static func _harbour_town(root: Node3D, water: float) -> void:
 	# (Modelled hills, art/blender/make_props.py `hill_dome`, in a calm soft-lit land colour, the gauntlet's round 19: scaled spheres under
 	# the scaly foliage tile read as painted cards beside the modelled ranges. The spheres stand in without them.)
 	# (Plain and calm: laid in the rendered turf, the gauntlet's round 26, it read as dark lichen noise in front of the hazed town.)
-	var near_hill := (FighterView.toon(Color(0.46, 0.66, 0.5), false) as ShaderMaterial).duplicate() as ShaderMaterial
+	var near_hill := (FighterView.toon(Color(0.28, 0.52, 0.42), false) as ShaderMaterial).duplicate() as ShaderMaterial
 	# (Faceted planes, as the meadow's hills, 2026-10-19.)
 	near_hill.set_shader_parameter("facets", true)
 	near_hill.set_shader_parameter("ramp_softness", 0.12)
 	near_hill.set_shader_parameter("rim_strength", 0.0)
 	var far_hill := near_hill.duplicate() as ShaderMaterial
-	far_hill.set_shader_parameter("albedo", Color(0.5, 0.62, 0.64))
+	far_hill.set_shader_parameter("albedo", Color(0.38, 0.56, 0.58))
 	var dome := [_prop_mesh("hill_dome_a", "land"), _prop_mesh("hill_dome_b", "land")]
 	for hi in hills.size():
 		var h: Array = hills[hi]

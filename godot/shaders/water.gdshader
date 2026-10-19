@@ -11,8 +11,8 @@ uniform vec4 shallow : source_color = vec4(0.12, 0.74, 0.88, 1.0);
 uniform vec4 deep : source_color = vec4(0.04, 0.36, 0.84, 1.0);
 uniform vec4 streak : source_color = vec4(0.5, 0.88, 1.0, 1.0);
 uniform vec4 foam : source_color = vec4(0.95, 0.99, 1.0, 1.0);
-uniform vec4 haze : source_color = vec4(0.56, 0.84, 1.0, 1.0);
-uniform float haze_max = 0.3;
+uniform vec4 haze : source_color = vec4(0.22, 0.56, 0.86, 1.0);
+uniform float haze_max = 0.15;
 uniform float foam_width = 2.0;    // world units of foam out from where something meets the water
 uniform bool cheap = false;
 varying vec3 world_pos;
@@ -41,8 +41,10 @@ void vertex() {
 void fragment() {
 	// How far back (behind the stage plane at z = 0) this water is: bands of colour, lighter and paler toward the horizon.
 	float back = max(-world_pos.z, 0.0);
-	float band = floor(smoothstep(0.0, 180.0, back) * 4.0) / 3.0;
-	vec3 col = mix(deep.rgb, shallow.rgb, 0.35 + band * 0.45);
+	// (One smooth gradient, deepening toward the horizon, 2026-10-19: four hard steps read as bright bands across the sea, and a far
+	// sea paling toward the horizon ran into the sky.)
+	float band = smoothstep(0.0, 180.0, back);
+	vec3 col = mix(deep.rgb, shallow.rgb, 0.72 - band * 0.5);
 	// The shallows near the stage a lighter turquoise (the water over sand), in one soft step.
 	col = mix(col, mix(shallow.rgb, vec3(0.75, 1.0, 0.95), 0.35), (1.0 - smoothstep(6.0, 22.0, back)) * 0.55);
 	if (!cheap) {
