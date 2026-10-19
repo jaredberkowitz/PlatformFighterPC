@@ -1422,17 +1422,16 @@ def roof_vent():
     cone(bm, 0.22, 0.22, 0.7, z0=0.08, sides=14)
     to_object("stack", bm, (0.62, 0.64, 0.72), smooth=True).parent = root
     bm = bmesh.new()
-    path = [Vector((0.0, 0.0, 0.78 + 0.25 * math.sin(t / 8 * math.pi / 2))) + Vector((0.3 * (1 - math.cos(t / 8 * math.pi)), 0.0, 0.0)) for t in range(9)]
+    # (One continuous bend from the top of the stack, up, over and down, ending in the hood, so nothing floats: the owner, 2026-10-19.)
+    path = [Vector((0.3 - 0.3 * math.cos(math.pi * t / 10), 0.0, 0.78 + 0.3 * math.sin(math.pi * t / 10))) for t in range(11)]
     for i in range(len(path) - 1):
         a, b = path[i], path[i + 1]
         d = b - a
-        ret = bmesh.ops.create_cone(bm, cap_ends=False, cap_tris=False, segments=14, radius1=0.22, radius2=0.22, depth=d.length * 1.2)
+        ret = bmesh.ops.create_cone(bm, cap_ends=False, cap_tris=False, segments=14, radius1=0.22, radius2=0.22, depth=d.length * 1.25)
         q = d.normalized().to_track_quat("Z", "X")
         for v in ret["verts"]:
             v.co = q @ v.co + (a + b) / 2
-    cone(bm, 0.3, 0.26, 0.12, z0=0.0, sides=14, at=(0.0, 0.0))
-    for v in bm.verts[-30:]:
-        v.co = Vector((v.co.x + 0.6, v.co.y, v.co.z + 0.72))
+    cone(bm, 0.32, 0.23, 0.18, z0=0.62, sides=14, at=(0.6, 0.0))
     to_object("hood", bm, (0.56, 0.58, 0.66), smooth=True).parent = root
     bm = bmesh.new()
     ring(bm, 0.24, 0.025, 0.5, sides=14, minor_sides=4)
