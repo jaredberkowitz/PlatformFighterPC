@@ -37,3 +37,16 @@ The papercraft adventure's blue-mountain camp, the meadow's target for colour, l
 - **Ground:** nearly flat bright lime, shaded softly by the shape of the land; paths one warm sand tone; crisp lit edges on every ledge.
 - **Light:** high-key, one clear sun, soft cool shade; contact shadows under everything.
 - **Depth:** foreground greens and warm sand, mid-ground deep pines, distance cool teal and pale; each layer simpler than the one in front.
+
+**Measured colours** (linear-ish screen RGB averages from the reference image, 2026-10-19; the meadow's targets):
+
+| Element | Reference | 
+|---|---|
+| Sky | 0.18, 0.74, 0.87 (saturated cyan) |
+| Mountain, lit plane | 0.32, 0.83, 0.81 |
+| Mountain, shaded plane | 0.17, 0.59, 0.49 |
+| Pines | 0.31, 0.41, 0.36 (dark, muted grey-green) |
+| Foreground grass, lit | 0.41, 0.83, 0.26 (bright lime) |
+| Foreground grass, shade | 0.08, 0.34, 0.12 (deep green, crisp-edged) |
+| Path | about 0.95, 0.94, 0.78 (pale warm cream) |
+| Ledge face under the grass | 0.18, 0.29, 0.22 (dark green-grey) |

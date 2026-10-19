@@ -44,3 +44,17 @@ anything amateur-ish, cheap-looking or "Flash game"-like caps the score. Do not 
 (Blender) assets over code-built primitives; keep the play area's collision and the camera as they are.
 
 **Log:** each round's verdict goes in `docs/gauntlet/LOG.md` with the round's commit, so progress is measured.
+
+
+## From round 35: reference diff (the owner, 2026-10-19)
+
+Scores plateaued at 3 and stopped steering the work. The judge now compares a stage's capture **side by side with its target image**
+(the meadow: `docs/art/benchmarks/papercraft_mountains_reference.png`, its look, not its paper aesthetic) and returns:
+1. **Differences, ranked by how much each shows** at a glance: what the reference does, what ours does instead, where in the frame,
+   and the concrete change (e.g. "the reference's grass shadow is a crisp deep green; ours is a soft olive gradient").
+2. **The colour table check:** our colours sampled at the same elements against `STAGE_REFERENCES.md`'s measured table, with the
+   ones off by more than about 0.1 in any channel called out.
+3. **What already matches**, so it is kept.
+4. A single overall line: closer, same, or further than the previous round, and why.
+The six scores are optional from now on (give them only when asked). Framing differences (the reference's lower, wider camera) are not
+art differences; ignore them. The style sheet's rules still apply.
