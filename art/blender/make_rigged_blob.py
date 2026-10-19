@@ -373,7 +373,9 @@ def fist(bm, x):
     block = _mitt_block(bm, x, 0.115, (0.115, 0.13, 0.108), squareness=0.74, segments=56, rings=36)
     _crease(block, x, 0.18, 0.016, 0.013)
     # (Knuckles: the curled fingers' grooves over the fist's end, the body rebuild.)
-    _fingers(block, x, 0.14, 0.115, 0.009, width=0.014, splits=(-0.06, -0.005, 0.05))
+    # (Deep clear splits between four chunky curled fingers, the character pass, 2026-10-19, the owner's reference cast's cartoon hands:
+    # faint grooves left the fist one soft knob at play size.)
+    _fingers(block, x, 0.1, 0.1, 0.028, width=0.017, splits=(-0.062, -0.005, 0.052))
     tube(bm, [_at(x, 0.07, 0.122, -0.055), _at(x, 0.115, 0.14, -0.005), _at(x, 0.14, 0.132, 0.035)], [0.044, 0.042, 0.038],
          segments=16, per_span=4)
 
@@ -385,7 +387,8 @@ def mitten(bm, x):
     # (Before 2026-10-15 four separate finger tubes and a big thumb: stubby sausages glued on, and the hand bent back at the wrist.)
     block = _mitt_block(bm, x, 0.12, (0.13, 0.115, 0.06), squareness=0.8, curl=0.035, segments=56, rings=36)
     _crease(block, x, 0.15, 0.012, 0.005, side=-1.0)
-    _fingers(block, x, 0.12, 0.12, 0.01, width=0.016)
+    # (Four chunky fingers split well down the hand, the character pass, 2026-10-19: a paddle with faint grooves read as a mitten.)
+    _fingers(block, x, 0.07, 0.1, 0.032, width=0.02)
     tube(bm, [_at(x, 0.045, 0.06, -0.012), _at(x, 0.085, 0.118, -0.022), _at(x, 0.105, 0.132, -0.026)], [0.05, 0.045, 0.041],
          segments=16, per_span=4)
 

@@ -37,3 +37,12 @@ modelled wardrobe (hats, glasses, neckwear, shirts, shorts, gloves, socks, shoes
 - One command for a character review round: turnaround (full colour, neutral, greyscale), the lineup, and an in-match close-up on two
   stages, with a before/after.
 - A character brief for the judge (`docs/gauntlet/JUDGE.md`), scoring against the reference and the shared style rules.
+
+## Done (2026-10-19, the body before the clothes, the owner's order)
+- **Matte shading** (`shaders/toon_light.gdshaderinc`: `PF_FIGHTER_STEP` 0.74, `PF_FIGHTER_SHADE` 0.7, `PF_FIGHTER_EDGE` 0.06): a definite
+  shadow side on every form; nearly all-lit, the fighters read as one flat shiny tone.
+- **Head on the shoulders** (`art/blender/make_cage_body.py`): the upper torso fuller, the neck widened into the jaw, the head lowered.
+- **Sturdier limbs**: fuller upper arms and thighs, tapering.
+- **Hands**: four chunky fingers split clearly on the open hand and the fist (`make_rigged_blob.py` `fist`, `mitten`).
+- Refitted with `fit_body.py --shoulder-lift 0.11` (the default 0.07 dropped the shoulder joint 0.1 and would move every arm), every
+  clip rebuilt. Before/after: `body_before_after.png` (in a match), `turnaround_before_after.png`.
