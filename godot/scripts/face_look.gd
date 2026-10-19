@@ -39,17 +39,18 @@ const ADJUST := {
 ## (Bigger and a little wider apart since the body rebuild, 2026-10-18: on the new wide head the concept's eyes read small at play size;
 ## the reference cast's eyes span about half the face.)
 const EYE_GAP := 0.225
-const EYE_Y := 0.415
-const EYE_SIZE := 0.37
+## (Bigger and lower, mouths wider, the character judge's round 16: the reference's features fill the middle of the face.)
+const EYE_Y := 0.44
+const EYE_SIZE := 0.45
 const BROW_GAP := 0.17
 const BROW_Y := 0.258
 const BROW_SIZE := 0.36
 const BROW_THICK := 1.45   # (2.1 until the owner, 2026-10-19: far too thick)
 const NOSE_Y := 0.5
 const NOSE_SIZE := 0.14
-const MOUTH_Y := 0.582
+const MOUTH_Y := 0.615
 ## (Larger, its line bolder with it, the character pass, 2026-10-19: the reference's mouths carry the expression.)
-const MOUTH_SIZE := 0.26
+const MOUTH_SIZE := 0.32
 ## (Smaller, the character pass, 2026-10-19: the reference cast's pupils are small dots in a wide white.)
 const PUPIL := 0.19
 const LOOK := Vector2(0.051, 0.01)

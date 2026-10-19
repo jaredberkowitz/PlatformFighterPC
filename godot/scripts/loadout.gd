@@ -61,10 +61,13 @@ const POSE_CLIPS := {"ready": "idle", "relaxed": "idle_tool", "wave": "victory_b
 const POSE_OPEN := {"relaxed": true, "broad": true}
 ## The head's shape (the character judge's round 12: four of one clean egg head read generic; the reference's heads each have their own):
 ## its scale across, up and front to back on the shared head.
+## Gloved or bare hands with the kit (the character judge's round 16: in the reference only the aviator wears gloves).
+const HANDS := ["gloves", "bare"]
 const HEADS := ["round", "bean", "bun", "ball", "onion"]
 # (Twice as far apart, the character judge's round 13: side by side the four read as one egg.)
-const HEAD_SCALES := {"round": Vector3(1.32, 1.0, 1.2), "bean": Vector3(1.06, 1.24, 1.0), "bun": Vector3(1.58, 0.82, 1.3),
-	"ball": Vector3(1.3, 1.16, 1.34), "onion": Vector3(1.16, 1.14, 1.06)}
+# (A tenth bigger again, the character judge's round 16: the reference's heads dwarf the body.)
+const HEAD_SCALES := {"round": Vector3(1.45, 1.1, 1.32), "bean": Vector3(1.17, 1.36, 1.1), "bun": Vector3(1.74, 0.9, 1.43),
+	"ball": Vector3(1.43, 1.28, 1.47), "onion": Vector3(1.28, 1.25, 1.17)}
 
 ## The slots in the order they are written, each with its catalog size. New slots go at the end (see the top).
 const SLOTS := ["color", "face", "hat", "glasses", "neck", "accent", "shirt",
@@ -72,7 +75,7 @@ const SLOTS := ["color", "face", "hat", "glasses", "neck", "accent", "shirt",
 	"brows", "brow_color", "brow_y", "brow_gap", "brow_size", "brow_turn",
 	"nose", "nose_y", "nose_size",
 	"mouth", "mouth_y", "mouth_size", "mouth_squash",
-	"cheeks", "cheek_color", "gear", "pose", "head", "face_lean"]
+	"cheeks", "cheek_color", "gear", "pose", "head", "face_lean", "hands"]
 
 var color := 0
 var face := 0
@@ -109,6 +112,7 @@ var cheek_color := 0
 var gear := 0
 var pose := 0
 var head := 0
+var hands := 0
 ## How the face is uneven (FaceLook `face_lean` steps; the middle even): one lid lower and the mouth off to that side.
 var face_lean := FaceLook.neutral("face_lean")
 
@@ -118,7 +122,7 @@ func has_shorts() -> bool:
 
 
 func has_gloves() -> bool:
-	return gear >= 2
+	return gear >= 2 and hands == 0
 
 
 func has_shoes() -> bool:
@@ -145,6 +149,8 @@ static func slot_size(slot: String) -> int:
 			return POSES.size()
 		"head":
 			return HEADS.size()
+		"hands":
+			return HANDS.size()
 		"eyes":
 			return FaceLook.EYES.size()
 		"eye_color":
@@ -184,6 +190,8 @@ static func slot_names(slot: String) -> Array:
 			return POSES
 		"head":
 			return HEADS
+		"hands":
+			return HANDS
 		"eyes":
 			return FaceLook.EYES
 		"eye_color":
@@ -270,6 +278,8 @@ static func default_for(player: int) -> RefCounted:
 	# (A head and an uneven face of its own each: the sailor a bean drooping left, the aviator a wide bun, the blue a ball frowning right,
 	# the ranger an onion with a lazy right lid.)
 	l.head = [1, 2, 3, 4][player % 4]
+	# (Bare hands in the body's colour but for the aviator's gloves, as the reference's cast.)
+	l.hands = 0 if player % 4 == 1 else 1
 	l.face_lean = FaceLook.neutral("face_lean") + [-3, 2, 3, 4][player % 4]
 	# (Each fighter's signature pushed, the character judge's round 13: the aviator's freckles, the blue's heavy brows and deep frown, the
 	# ranger's thick block brows.)

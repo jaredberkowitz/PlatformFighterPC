@@ -837,7 +837,7 @@ GEAR = {"neckwear": neckwear, "glasses": glasses, "sailor_cap": sailor_cap, "dix
         "swept_spikes": swept_spikes, "topknot": topknot, "beanie": beanie}
 
 
-def _lumpy(root, amount=0.025, seed=1.0):
+def _lumpy(root, amount=0.045, seed=1.0):
     """The hand-made pass (the character judge's round 14, after the reference's soft lumpy shapes): every crown and shell of a hat
     pushed in and out along its normals by a slow smooth noise, soft dents rather than a machined surface."""
     for c in root.children_recursive:

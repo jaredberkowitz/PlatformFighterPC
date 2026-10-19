@@ -324,7 +324,8 @@ func _build_rig(skin: Material) -> bool:
 	var shoe := respond(toon(Color(0.27, 0.2, 0.3)), "rubber")
 	var shirt := _shirt_material()
 	# The shorts take the outfit colour (the accent, a shade darker) under a plain shirt, and navy under a coloured one.
-	var shorts_colour: Color = loadout.accent_color().darkened(0.2) if loadout.shirt <= 1 else Color(0.22, 0.25, 0.42)
+	# (Khaki under the holiday shirt and olive under the outfit shirt, as the reference's blue and ranger, the character judge's round 16.)
+	var shorts_colour: Color = loadout.accent_color().darkened(0.2) if loadout.shirt <= 1 else {4: Color(0.7, 0.6, 0.42), 2: Color(0.4, 0.42, 0.26)}.get(loadout.shirt, Color(0.22, 0.25, 0.42))
 	var shorts := toon(shorts_colour)
 	var skin_colour: Color = loadout.body_color()
 	# Arms and legs carry their clothes as painted bands (shaders/limb.gdshader): a sleeve from the shoulder when there is a shirt; the
@@ -822,7 +823,7 @@ const ARM_BULK := {7: [Vector3(1.55, 1.08, 1.55), Vector3(1.45, 1.35, 1.45)]}
 ## (The body rebuild modelled the head to the proportion study's height; the reference's heads are wide ovals, so it is widened here,
 ## across and front to back, the bone's own x and z.)
 ## (Wider and squatter again, the character pass, 2026-10-19: the reference cast's heads are broad squat ovals, wider than the shoulders.)
-const HEAD_SIZE := Vector3(1.32, 1.0, 1.2)
+const HEAD_SIZE := Vector3(1.45, 1.1, 1.32)
 ## (1.4, the character judge's round 7: the reference's gloves are about half the head's width, a main shape.)
 const HAND_SIZE := 1.2   # (1.2, the character judge's round 9: at 1.4 the fists covered the chest in pose)
 ## How strong the skin's faint painted grain is (`skin_grain` in shaders/skin.gdshader), the character pass, 2026-10-19.
