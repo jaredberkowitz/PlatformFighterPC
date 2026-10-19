@@ -1701,7 +1701,8 @@ def build_body_meshes(rig):
         "neck": round(neck - 0.015, 4),
         "waist": round(hips + WAIST_SHARE * (neck - hips), 4),
         "shorts_end": round(crotch - 0.42 * (crotch - knee), 4),
-        "sock_top": round(ankle + 0.19, 4),
+        # (Tall, to just under the knee, the character judge's round 1 after the owner's reference: thick socks give the legs structure.)
+        "sock_top": round(ankle + SOCK_HEIGHT, 4),
         "shoe_top": round(ankle + 0.03, 4),
         "sole_top": round(0.035, 4),
         "shoulder_l": [round(J["armU.L"].x, 4), round(J["armU.L"].z, 4)], "elbow_l": [round(J["armL.L"].x, 4), round(J["armL.L"].z, 4)],
@@ -1930,7 +1931,12 @@ CUFF_LIFT = 0.06
 # The sleeves' trim (the aviator scout pilot, 2026-10-19, the owner's reference: a coloured band round each sleeve's end, standing proud),
 # this share of the upper arm long and lifted this far off the skin.
 SLEEVE_TRIM = 0.12
-SLEEVE_TRIM_LIFT = 0.112
+# Tall thick ribbed socks (the character judge's round 1): how far up from the ankle, how far off the skin, and their turned-down top.
+SOCK_HEIGHT = 0.34
+SOCK_LIFT = 0.03
+SOCK_TOP_BAND = 0.045
+SOCK_TOP_LIFT = 0.045
+SLEEVE_TRIM_LIFT = 0.098
 SLEEVE_SNUG = 0.55      # the sleeve's opening hugs the arm (this share of the shirt's distance), so no dark gap shows inside it
 SHORTS_TOP = -0.002   # the shorts reach just under the shirt's hem (below it a little, they could poke through)
 SHORTS_LIFT = 0.04     # the shorts sit a little closer in, so the shirt's hem lies over their waistband
@@ -2025,6 +2031,14 @@ def build_garments(skin, J, neck):
     def in_cuff(co):
         return not on_arm(co) and shorts_end < co.z < cuff_top and co.z < crotch
 
+    sock_top = ankle + SOCK_HEIGHT
+
+    def in_sock(co):
+        return not on_arm(co) and boot_top - 0.02 < co.z < sock_top - SOCK_TOP_BAND
+
+    def in_sock_top(co):
+        return not on_arm(co) and sock_top - SOCK_TOP_BAND < co.z < sock_top
+
     def in_sleeve_trim(co):
         return co.z < neck_line and on_arm(co) and SLEEVE - SLEEVE_TRIM < sleeve_t(co) < SLEEVE
 
@@ -2045,7 +2059,9 @@ def build_garments(skin, J, neck):
             (Vector((0, 0, shorts_end)), Vector((0, 0, 1))), (Vector((0, 0, waist + SHORTS_TOP)), Vector((0, 0, 1))),
             (Vector((0, 0, waist - BELT_HALF)), Vector((0, 0, 1))), (Vector((0, 0, waist + BELT_HALF)), Vector((0, 0, 1))),
             (Vector((0, 0, boot_top)), Vector((0, 0, 1))), (Vector((0, 0, SOLE_HEIGHT)), Vector((0, 0, 1))),
-            (Vector((0, 0, cuff_top)), Vector((0, 0, 1))), (Vector((0, 0, boot_top - BOOT_CUFF)), Vector((0, 0, 1)))]
+            (Vector((0, 0, cuff_top)), Vector((0, 0, 1))), (Vector((0, 0, boot_top - BOOT_CUFF)), Vector((0, 0, 1))),
+            (Vector((0, 0, sock_top)), Vector((0, 0, 1))), (Vector((0, 0, sock_top - SOCK_TOP_BAND)), Vector((0, 0, 1))),
+            (Vector((0, 0, boot_top - 0.02)), Vector((0, 0, 1)))]
     for side in "LR":
         a, b = arm[side]
         cuts.append((a + (b - a) * SLEEVE, (b - a).normalized()))
@@ -2096,7 +2112,8 @@ def build_garments(skin, J, neck):
     for name, inside, hem, lift in (("Shirt", in_shirt, shirt_hem, SHIRT_LIFT), ("Shorts", in_shorts, shorts_hem, SHORTS_LIFT),
                                     ("Belt", in_belt, belt_hem, BELT_LIFT), ("Boot", in_boot, boot_hem, BOOT_LIFT),
                                     ("BootSole", in_sole, belt_hem, SOLE_LIFT), ("BootCuff", in_boot_cuff, belt_hem, BOOT_CUFF_LIFT), ("ShortsCuff", in_cuff, belt_hem, CUFF_LIFT),
-                                    ("SleeveTrim", in_sleeve_trim, belt_hem, SLEEVE_TRIM_LIFT)):
+                                    ("SleeveTrim", in_sleeve_trim, belt_hem, SLEEVE_TRIM_LIFT),
+                                    ("Sock", in_sock, belt_hem, SOCK_LIFT), ("SockTop", in_sock_top, belt_hem, SOCK_TOP_LIFT)):
         obj = skin.copy()
         obj.data = skin.data.copy()
         obj.name = name
@@ -2183,7 +2200,8 @@ def build_garments(skin, J, neck):
         levels = {"Shirt": [waist - 0.012, neck_line], "Shorts": [waist + SHORTS_TOP, shorts_end],
                   "Belt": [waist - BELT_HALF, waist + BELT_HALF], "Boot": [boot_top], "BootSole": [SOLE_HEIGHT],
                   "BootCuff": [boot_top - BOOT_CUFF, boot_top],
-                  "ShortsCuff": [shorts_end, cuff_top], "SleeveTrim": []}[name]
+                  "ShortsCuff": [shorts_end, cuff_top], "SleeveTrim": [], "Sock": [boot_top - 0.02, sock_top - SOCK_TOP_BAND],
+                  "SockTop": [sock_top - SOCK_TOP_BAND, sock_top]}[name]
         for v in hems:
             if on_arm(v.co) or not levels:
                 continue

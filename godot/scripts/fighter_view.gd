@@ -378,6 +378,10 @@ func _build_rig(skin: Material) -> bool:
 			# The shorts' rolled cuffs and pocket flaps (make_rigged_blob.py), a shade darker than the shorts.
 			mi.material_override = _cloth(toon(shorts_colour.darkened(0.12)))
 			mi.visible = loadout.has_shorts()
+		elif part.begins_with("Sock"):
+			# Tall thick socks, with a turned-down top (the character judge's round 1, the owner's reference): white knit.
+			mi.material_override = _cloth(toon(Color(0.96, 0.95, 0.92) if part.begins_with("SockTop") else Color(1.0, 1.0, 0.98)))
+			mi.visible = loadout.has_shoes()
 		elif part.begins_with("BootCuff"):
 			mi.material_override = toon(BOOT_LEATHER.darkened(0.3))
 			mi.visible = loadout.has_shoes()
@@ -802,7 +806,8 @@ const HEAD_SIZE := Vector3(1.32, 1.0, 1.2)
 const HAND_SIZE := 1.25
 ## How strong the skin's faint painted grain is (`skin_grain` in shaders/skin.gdshader), the character pass, 2026-10-19.
 const SKIN_GRAIN := 0.15
-const FOOT_SIZE := 1.05
+## (0.9, the character judge's round 1: the reference's shoes are small; big rounded ones read as clown shoes.)
+const FOOT_SIZE := 0.9
 
 
 ## This class's arm bulk ([forearm, hand] scales) with the body's own hand size in it.
@@ -1656,7 +1661,8 @@ const CLOTH_WEAVE_SCALE := 0.12
 const SHIRT_HEM_BELOW_WAIST := 0.012
 const SHIRT_HEM_INK := 0.01
 const BELT_LEATHER := Color(0.4, 0.26, 0.18)
-const BOOT_LEATHER := Color(0.4, 0.25, 0.17)
+## (Darker, the character judge's round 1: the reference's shoes are a small dark leather.)
+const BOOT_LEATHER := Color(0.28, 0.17, 0.13)
 const BOOT_SOLE := Color(0.94, 0.88, 0.76)
 const BELT_BRASS := Color(0.95, 0.74, 0.32)
 
