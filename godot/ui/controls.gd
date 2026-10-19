@@ -145,7 +145,7 @@ func _ready() -> void:
 	about.ink = Color(1, 1, 1, 0.92)
 	about.font_size = 19
 	about.shadow = false
-	about.position = Vector2(190, 430)
+	about.position = Vector2(190, 130 + VisualSettings.ORDER.size() * 72)
 	about.name = "About"
 	display_page.add_child(about)
 	status = UI.notice(Vector2(60, 632), 1100, 22)
