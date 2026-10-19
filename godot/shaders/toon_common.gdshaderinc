@@ -289,9 +289,6 @@ void fragment() {
 		float above = (1.0 - UV.y) - hem_low;
 		c = mix(hem_color.rgb, c, smoothstep(hem_ink * 0.6, hem_ink, above));
 	}
-	if (neck_shade_z > -90.0) {
-		c *= mix(0.74, 1.0, smoothstep(0.0, 0.12, neck_shade_z - (1.0 - UV.y)));
-	}
 	// The inside of a garment (seen through a hem): lit from its own side, a shade darker.
 	if (!FRONT_FACING) {
 		NORMAL = -NORMAL;

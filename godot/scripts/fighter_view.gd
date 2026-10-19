@@ -388,7 +388,8 @@ func _build_rig(skin: Material) -> bool:
 			mi.visible = loadout.has_shorts()
 		elif part.begins_with("Sock"):
 			# Tall thick socks, with a turned-down top (the character judge's round 1, the owner's reference): white knit.
-			mi.material_override = _cloth(toon(Color(0.96, 0.95, 0.92) if part.begins_with("SockTop") else Color(1.0, 1.0, 0.98)))
+			# (A warm cream, the turn-down a shaded step under it, the character judge's round 10: pure white tubes were the brightest mass.)
+			mi.material_override = _cloth(toon(Color(0.84, 0.81, 0.74) if part.begins_with("SockTop") else Color(0.95, 0.93, 0.87)))
 			mi.visible = loadout.has_shoes()
 		elif part.begins_with("BootCuff"):
 			mi.material_override = toon(BOOT_LEATHER.darkened(0.3))
@@ -2087,7 +2088,7 @@ func _neck_piece(accent: Color, kind: int) -> void:
 			# squares in a tight row read as stickers.)
 			var square := BoxMesh.new()
 			# (A fifth smaller, thinner rims and muted, the character judge's round 2: the brightest things on the fighter.)
-			square.size = Vector3(0.068, 0.02, 0.068)
+			square.size = Vector3(0.061, 0.02, 0.061)
 			var round_plate := CylinderMesh.new()
 			round_plate.top_radius = 0.037
 			round_plate.bottom_radius = 0.037
@@ -2095,7 +2096,7 @@ func _neck_piece(accent: Color, kind: int) -> void:
 			round_plate.radial_segments = 14
 			var plates := [square, round_plate, square, round_plate, square, round_plate]
 			var sq_face := BoxMesh.new()
-			sq_face.size = Vector3(0.058, 0.026, 0.058)
+			sq_face.size = Vector3(0.052, 0.026, 0.052)
 			var rd_face := CylinderMesh.new()
 			rd_face.top_radius = 0.031
 			rd_face.bottom_radius = 0.031
@@ -2138,7 +2139,7 @@ func _neck_piece(accent: Color, kind: int) -> void:
 			for i in order.size():
 				var key: String = order[i]
 				var c_b: Color = colours[int(key.substr(4))] if key.begins_with("face") else Color.WHITE
-				var m: Material = brass if key == "brass" else (toon(Color(0.98, 0.95, 0.88)) if key == "mark" else respond(toon(c_b.lerp(Color(0.55, 0.5, 0.5), 0.28)), "rubber"))
+				var m: Material = brass if key == "brass" else (toon(Color(0.98, 0.95, 0.88)) if key == "mark" else respond(toon(c_b.lerp(Color(0.55, 0.5, 0.5), 0.45)), "rubber"))
 				bm.set_surface_override_material(i, m)
 			# The sash's knotted end hanging at the hip, swinging with the body (`TailRig`).
 			# (No knotted tail since the character judge's round 1: the reference's sash ends at the hip.)

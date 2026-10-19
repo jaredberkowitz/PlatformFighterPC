@@ -196,14 +196,8 @@ void fragment() {
 		float tooth = g_noise(rest * 70.0);
 		c *= 1.0 + ((mottle - 0.5) * 1.0 + (tooth - 0.5) * 0.45) * skin_grain;
 	}
-	if (!arm) {
-		if (hat_z < 90.0 && p.y < hat_z) {
-			c *= mix(0.8, 1.0, smoothstep(0.0, 0.11, hat_z - p.y));
-		}
-		if (p.y > neck_z) {
-			c *= mix(0.84, 1.0, smoothstep(0.0, 0.09, p.y - neck_z));
-		}
-	}
+	// (The soft shade where pieces meet comes from the game's ambient occlusion, scripts/lighting.gd, the owner, 2026-10-19: painted bands
+	// under the hat and at the neck looked bad. `hat_z` is kept, unused.)
 	ALBEDO = c;
 	EMISSION = flash.rgb * flash.a + c * bounce.rgb * bounce_amount * clamp(-world_normal.y, 0.0, 1.0);
 	ROUGHNESS = object_id;

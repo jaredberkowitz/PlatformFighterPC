@@ -66,7 +66,8 @@ const MENU_MOOD := {"shadow_hue": 0.73, "shadow_shift": 0.07, "shadow_value": 0.
 const STYLE_DEFAULT := {
 	"ramp": [[0.0, 0.0], [0.34, 0.0], [0.42, 0.56], [0.55, 0.56], [0.62, 1.0], [1.0, 1.0]],
 	"deep": 0.78,
-	"edge": Color(1.0, 0.97, 0.9, 0.14),
+	# (Half, the character judge's round 10: close up in the menus the pale rim read as a sticker edge round every piece.)
+	"edge": Color(1.0, 0.97, 0.9, 0.06),
 	"paint": [Color(1.06, 1.01, 0.92), Color(0.9, 0.94, 1.06), 0.55],
 	# How strongly the effects and lit things (the city's windows, lamps) bloom.
 	"glow": 0.75,
@@ -137,8 +138,10 @@ static func apply_paper(env: Environment, post: ShaderMaterial, base_lines: floa
 		# (Soft occlusion where things meet in the current look too, gentler than the paper look's, the gauntlet's round 20: the wall's
 		# joints, the boards' gaps, under the lawn's lip and round the props' feet read lit flat. Off on Fast.)
 		env.ssao_enabled = VisualSettings.get_index("quality") > 0
-		env.ssao_radius = 1.6 if paper else 1.2
-		env.ssao_intensity = 3.0 if paper else 1.8
+		# (A tighter radius and stronger, the owner, 2026-10-19: the soft shade where a fighter's pieces meet (under the hats, at the
+		# neck, the sash, between the arms and the body) comes from here; at 1.2 it was too broad for a fighter's small joins.)
+		env.ssao_radius = 1.6 if paper else 0.7
+		env.ssao_intensity = 3.0 if paper else 2.4
 		env.ssao_power = 1.4 if paper else 1.25
 		env.ssao_light_affect = 0.6 if paper else 0.35
 		env.ssao_ao_channel_affect = 1.0
@@ -207,6 +210,12 @@ static func apply(env: Environment, root: Node, preview := false) -> void:
 	# between light and shade fell across the flat chest as a pale soft patch.)
 	if preview:
 		key.rotation_degrees.y += KEY_SIDE
+		# (The fighters' soft shade where their pieces meet, the ambient occlusion, in the previews too, as in a match.)
+		env.ssao_enabled = true
+		env.ssao_radius = 0.7
+		env.ssao_intensity = 2.4
+		env.ssao_power = 1.25
+		env.ssao_light_affect = 0.35
 	key.light_color = Color(1.0, 0.93, 0.82)
 	key.light_energy = 1.25
 	key.shadow_enabled = not preview
