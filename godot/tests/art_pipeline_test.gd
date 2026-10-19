@@ -70,5 +70,27 @@ func _initialize() -> void:
 	view.free()
 	FighterView.use_base_body = false
 	FighterView.release_caches()
+	_check_palettes()
 	print("art pipeline test ", "FAILED" if failed else "PASSED")
 	quit(1 if failed else 0)
+
+
+## Every stage's palette file (res://stages/palettes, docs/ART_WORKFLOW.md) loads with the theme keys the stage art reads and an [air]
+## curve; and building each stage's scenery asks for no colour its palette lacks.
+func _check_palettes() -> void:
+	for name in StageArt.THEME_NAMES:
+		var pal := StageArt.palette(name)
+		var theme: Dictionary = pal.get("theme", {})
+		for key in ["sky_top", "sky_horizon", "soil", "soil_dark", "grass", "grass_light", "wood", "wood_dark", "pattern", "cap", "platform"]:
+			check(theme.has(key), "%s palette has theme %s" % [name, key])
+		var air: Dictionary = pal.get("air", {})
+		for key in ["start", "end", "desat", "lift", "haze"]:
+			check(air.has(key), "%s palette has air %s" % [name, key])
+		check(pal.get("mist", {}).has("layers"), "%s palette has mist layers" % name)
+		var t := StageArt.theme({"backdrop": name})
+		check(t.name == name, "%s theme loads by name" % name)
+		var root := Node3D.new()
+		StageArt.palette_misses.clear()
+		StageArt.backdrop(root, t, [-11.0, 11.0, 0.0, -6.0])
+		check(StageArt.palette_misses.is_empty(), "%s scenery finds all its colours: missing %s" % [name, StageArt.palette_misses])
+		root.free()

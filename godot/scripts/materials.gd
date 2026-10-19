@@ -11,7 +11,7 @@ extends RefCounted
 ## material (the family's settings must not reach other users of a shared one); the ink outline pass is shared.
 ##
 ## What belongs where: the shapes (bevels, curvature, roots) are modelled in code in stage_art.gd (or in Blender for imported props, whose
-## plain materials `toonify.gd` turns into cel ones); the colours come from the stage theme (`StageArt.THEMES`); the surface character
+## plain materials `toonify.gd` turns into cel ones); the colours come from the stage theme (its palette file, `godot/stages/palettes/<name>.cfg`); the surface character
 ## (the tiles and these settings) lives here.
 
 const FighterView := preload("res://scripts/fighter_view.gd")

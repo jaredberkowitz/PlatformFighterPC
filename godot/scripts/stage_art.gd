@@ -23,87 +23,67 @@ const Particles := preload("res://scripts/particles.gd")
 
 ## The look of one theme: sky colours (top, horizon), block colours and pattern (`diamonds`, `strata`, `cobble` or `facade`), what tops a
 ## block (`grass`, `sand` or `roof`), and the platforms (`wood` planks or steel `girder`s) and their colours.
-const THEMES := {
-	"meadow": {
-		# (Cyan, sampled from the owner's blue-mountain reference, 2026-10-19: ours read grey-blue beside it.)
-		"sky_top": Color(0.0, 0.5, 0.82), "sky_mid": Color(0.12, 0.7, 0.9), "sky_horizon": Color(0.66, 0.92, 0.96),
-		"sky_glow": [Color(1.0, 0.97, 0.86), 0.25], "sky_wisps": [Color(1.0, 1.0, 1.0), 0.5],
-		"soil": Color(0.76, 0.56, 0.36), "soil_dark": Color(0.52, 0.37, 0.25), "grass": Color(0.46, 0.8, 0.24),
-		"grass_light": Color(0.72, 0.95, 0.4), "wood": Color(0.86, 0.62, 0.36), "wood_dark": Color(0.62, 0.42, 0.24),
-		"pattern": "earth", "cap": "grass", "platform": "wood", "grass_vary": 0.18, "grass_patch": 0.35, "moss": Color(0.4, 0.66, 0.14),
-		# (Bright lime, clean, the owner, 2026-10-19, after the papercraft adventure's blue-mountain camp: the foreground had gone dark and
-		# muddy; vivid ground against cool blue mountains, high-key light. Fighters read by their outlines and colour, lighter or darker.)
-		# (A step less saturated, deepening toward the back, gauntlet round 3: the brightest, flattest colour on screen.)
-		# (And another, the same value, the gauntlet's round 13: the references keep large surfaces muted, saturation for small accents.)
-		# (Its colour back, a hair deeper, the meadow pilot of docs/art/STYLE_SHEET.md, 2026-10-19: the ground stays colourful, calmed by
-		# lowering its contrast and noise; muted it read dull; and at least 0.05 under the orange fighter in greyscale.)
-		"grass_back": 0.4,
-		# (The clean top with a calm pale path where the fighters stand, docs/art/STYLE_SHEET.md section 9.)
-		"path_colour": Color(0.95, 0.93, 0.76),
-		# The stage as a hillside farm terrace (2026-10-18, the owner: a place, not a box): a dry-stone retaining wall holding the field up,
-		# a grassy hill below it running down into the valley (`_meadow_hill`), a lower terrace in front, the farm nearby.
-		"terrace": true,
-		# (The wall battered, leaning back into the field as a dry-stone retaining wall does, narrowing this much each side per unit down: the
-		# gauntlet's round 16, a straight-sided block read as a level-editor box. Visual only; the collision is the block's.)
-		"taper": 0.13,
-	},
-	"grove": {
-		"sky_top": Color(0.28, 0.5, 0.98), "sky_mid": Color(0.52, 0.66, 1.0), "sky_horizon": Color(0.98, 0.76, 0.86),
-		"sky_glow": [Color(1.0, 0.72, 0.82), 0.55], "sky_wisps": [Color(1.0, 0.9, 0.96), 0.45],
-		"soil": Color(0.86, 0.66, 0.38), "soil_dark": Color(0.72, 0.5, 0.27), "grass": Color(0.42, 0.8, 0.36),
-		"grass_light": Color(0.66, 0.94, 0.46), "wood": Color(0.93, 0.74, 0.5), "wood_dark": Color(0.7, 0.48, 0.28),
-		"pattern": "roots", "cap": "grass", "platform": "wood", "grass_vary": 0.16, "grass_patch": 0.3,
-		# (No "taper": tried in round 16, the upper tier narrowed past the one under it and bared its top as a pale ledge behind the roots.)
-		# (The style sheet's section 9, carried from the meadow, 2026-10-19: a clean top with a pale pink-cream path, and a faceted ledge in
-		# a deep version of its terracotta earth in place of the clod bank; its roots stay.)
-		"path_colour": Color(0.96, 0.88, 0.82),
-		# (A padded quilt of diamonds under the grass, the owner, 2026-10-19: the grove is a fantasy island, and a cartoonish front suits it
-		# better than rock; each stage's front may differ. Modelled, not painted.)
-		"quilt": Color(0.88, 0.66, 0.42),
-	},
-	"sunset": {
-		"sky_top": Color(0.36, 0.28, 0.6), "sky_mid": Color(0.84, 0.46, 0.62), "sky_horizon": Color(1.0, 0.64, 0.4),
-		# (Half the glow, 2026-10-19: at 0.7 it washed the whole frame in one orange haze.)
-		"sky_glow": [Color(1.0, 0.56, 0.26), 0.35], "sky_wisps": [Color(1.0, 0.7, 0.62), 0.5],
-		"soil": Color(0.86, 0.5, 0.32), "soil_dark": Color(0.68, 0.34, 0.24), "grass": Color(0.93, 0.74, 0.46),
-		# (Sun-bleached, in the other stages' range of wood: art review 6 round 8, the canyon's dark maroon planks read as black bars
-		# against its bright sky, the one stage whose platforms broke the family.)
-		"grass_light": Color(0.98, 0.86, 0.6), "wood": Color(0.82, 0.57, 0.42), "wood_dark": Color(0.58, 0.37, 0.29),
-		"pattern": "strata", "cap": "sand", "platform": "wood", "grass_vary": 0.18, "grass_patch": 0.3,
-		# (A clean sand top, the style sheet's section 9; the drawn strata front kept, the owner preferring it to a faceted ledge, 2026-10-19.)
-		"clean_top": true,
-	},
-	"night": {
-		"sky_top": Color(0.05, 0.07, 0.2), "sky_mid": Color(0.12, 0.13, 0.36), "sky_horizon": Color(0.2, 0.25, 0.48),
-		"sky_glow": [Color(0.46, 0.42, 0.86), 0.35],
-		"soil": Color(0.36, 0.4, 0.56), "soil_dark": Color(0.27, 0.3, 0.44), "grass": Color(0.38, 0.62, 0.6),
-		"grass_light": Color(0.52, 0.78, 0.74), "wood": Color(0.62, 0.66, 0.78), "wood_dark": Color(0.42, 0.45, 0.58),
-		"pattern": "diamonds", "cap": "grass", "platform": "wood",
-	},
-	"ocean": {
-		# (A pale warm horizon above a deepening far sea, 2026-10-19: at the sea's own pale blue the two ran together.)
-		"sky_top": Color(0.06, 0.38, 0.9), "sky_mid": Color(0.24, 0.62, 0.98), "sky_horizon": Color(0.6, 0.86, 1.0),
-		"sky_glow": [Color(1.0, 0.96, 0.86), 0.15], "sky_wisps": [Color(1.0, 1.0, 1.0), 0.45],
-		"soil": Color(0.82, 0.66, 0.5), "soil_dark": Color(0.6, 0.48, 0.46), "grass": Color(0.96, 0.8, 0.5),
-		"grass_light": Color(1.0, 0.95, 0.78), "wood": Color(0.8, 0.62, 0.42), "wood_dark": Color(0.58, 0.42, 0.28),
-		"pattern": "dock", "cap": "dock", "platform": "wood", "grass_vary": 0.14, "grass_patch": 0.25,
-	},
-	"city": {
-		"sky_top": Color(0.08, 0.06, 0.22), "sky_mid": Color(0.22, 0.12, 0.36), "sky_horizon": Color(0.42, 0.22, 0.46),
-		"sky_glow": [Color(0.95, 0.38, 0.6), 0.45],
-		# (A warm stone facade, the gauntlet's round 5 after the owner's city reference: the play building is the warm, detailed layer in
-		# front of the cool skyline; the cool grey-violet facade was the coldest thing on it.)
-		"soil": Color(0.6, 0.46, 0.42), "soil_dark": Color(0.44, 0.32, 0.32), "grass": Color(0.56, 0.58, 0.66),
-		"grass_light": Color(0.78, 0.8, 0.88), "wood": Color(0.84, 0.48, 0.41), "wood_dark": Color(0.5, 0.26, 0.27),
-		"pattern": "facade", "cap": "roof", "platform": "girder",
-	},
-}
+## The stages' palettes: one file per theme in res://stages/palettes/<name>.cfg (docs/ART_WORKFLOW.md), its [theme] section the
+## theme's colours and kinds (sky, ground, wood, pattern...), [mist] its fog layers, [backdrop] the scenery's colours and counts read
+## through `_pal`, and [air] how the scenery fades with distance (`_air`). Tune there, not here.
+const THEME_NAMES := ["meadow", "grove", "sunset", "night", "ocean", "city"]
+const PALETTES := "res://stages/palettes/%s.cfg"
+static var _palette_cache := {}
+## The palette of the stage being built (`backdrop` sets it), for `_pal` and `_air`.
+static var _palette := {}
+## Keys the scenery asked for that its palette lacks (the art pipeline test fails on any).
+static var palette_misses: Array = []
+
+
+## A theme's palette file as {section: {key: value}}.
+static func palette(name: String) -> Dictionary:
+	if _palette_cache.has(name):
+		return _palette_cache[name]
+	var out := {}
+	var cfg := ConfigFile.new()
+	if cfg.load(PALETTES % name) == OK:
+		for section in cfg.get_sections():
+			var d := {}
+			for key in cfg.get_section_keys(section):
+				d[key] = cfg.get_value(section, key)
+			out[section] = d
+	else:
+		push_error("stage palette %s is missing" % name)
+	_palette_cache[name] = out
+	return out
+
+
+## A value from the current stage's [backdrop] palette.
+static func _pal(key: String) -> Variant:
+	var b: Dictionary = _palette.get("backdrop", {})
+	if not b.has(key):
+		push_error("stage palette %s has no backdrop key %s" % [_palette.get("_name", "?"), key])
+		palette_misses.append("%s/%s" % [_palette.get("_name", "?"), key])
+		return Color.MAGENTA
+	return b[key]
+
+
+## The air between the fight and scenery `z` units behind the stage plane (docs/art/STYLE_SHEET.md section 9, rule 6): every material
+## under `node` loses a little colour and lifts toward the stage's haze, by the current palette's [air] curve (none nearer than `start`,
+## the most, `desat` and `lift`, at `end` and beyond), and its ink comes off. One rule for everything at the same depth, in place of a
+## hand-tuned `_mute` per object, which drifted (the buildings once greyed far past the trees beside them).
+static func _air(node: Node, z: float) -> void:
+	var air: Dictionary = _palette.get("air", {})
+	if air.is_empty():
+		push_error("stage palette %s has no [air]" % _palette.get("_name", "?"))
+		palette_misses.append("%s/[air]" % _palette.get("_name", "?"))
+		return
+	var k := clampf((absf(z) - float(air.start)) / maxf(float(air.end) - float(air.start), 0.01), 0.0, 1.0)
+	_mute(node, float(air.desat) * k, air.haze, float(air.lift) * k, false)
+
 
 
 static func theme(look: Dictionary) -> Dictionary:
 	var name: String = look.get("backdrop", "meadow")
-	var t: Dictionary = THEMES.get(name, THEMES.meadow).duplicate()
-	t.name = name if THEMES.has(name) else "meadow"
+	if not THEME_NAMES.has(name):
+		name = "meadow"
+	var t: Dictionary = (palette(name).get("theme", {}) as Dictionary).duplicate()
+	t.name = name
 	# The stage editor can override the sky colours.
 	var top: String = look.get("sky_top", "")
 	var bottom: String = look.get("sky_bottom", "")
@@ -173,8 +153,6 @@ static func _soft(c: Color) -> ShaderMaterial:
 ## pier, a wide picture window, a narrow one.
 ## The beach's clouds (`_clouds` look): a little less exposure and a deeper shade, so the lit tops, the soft middle and the cool belly
 ## all read under the noon sun (flat white shapes, the pain-point review).
-# (Exposure 1.05, the judge's round 39: at 1.3 the clouds were brighter than anything in the play area.)
-const BEACH_CLOUDS := {"exposure": 1.05, "shade_depth": 1.0}
 const FACADE_BAYS := [[22, 52], [96, 52], [190, 0], [232, 104], [372, 52], [448, 36]]
 ## The facade tile's size in world units (its 512px repeat; see `_soil_material`) and one of its pixels.
 const FACADE_TILE := 6.6
@@ -886,7 +864,7 @@ static func _pine_cluster(root: Node3D, at: Vector3, size: float) -> bool:
 	# (Dark and muted, sampled from the reference: its pines are a grey-green near 0.31, 0.41, 0.36.)
 	# (Four greens, as the reference's pine belt mixes them, 2026-10-19: a slate, a forest green, a teal and a fresh green; one grey-green
 	# for all read as a flat grey clump.)
-	var greens := [Color(0.2, 0.36, 0.28), Color(0.22, 0.3, 0.3), Color(0.16, 0.38, 0.34), Color(0.26, 0.44, 0.26)]
+	var greens: Array = _pal("pine_greens")
 	for k in own.randi_range(3, 5):
 		var s := size * (1.0 if k == 0 else own.randf_range(0.55, 0.85))
 		var p := at + Vector3(own.randf_range(-1.2, 1.2) * size * 0.5 * float(k > 0), 0.0, own.randf_range(-0.6, 0.3) * size * 0.4)
@@ -1167,7 +1145,7 @@ static func solid_block(parent: Node3D, t: Dictionary, left: float, right: float
 			# clashed with the faceted background. One style across the scene.)
 			# (A deep green-grey, the reference's ledge 0.18, 0.29, 0.22, the judge's round 39: lighter, it read pale blue-grey in the stage's
 			# light, barely darker than the far ranges.)
-			_faceted_ledge(parent, left, right, top, bottom, front_z, taper, Color(0.2, 0.3, 0.25))
+			_faceted_ledge(parent, left, right, top, bottom, front_z, taper, t.ledge)
 		else:
 			_seawall_stones(parent, field, left, right, top + 0.15, bottom, front_z, depth, top, true, taper)
 	elif t.has("quilt"):
@@ -1758,6 +1736,8 @@ static func _platform_dressing(parent: Node3D, t: Dictionary, left: float, right
 ## Builds the scenery behind the stage for theme `t` under `root`. `stage` is the stage's extent: [left, right, top, bottom] of its
 ## solid blocks, so decorations sit on and around it.
 static func backdrop(root: Node3D, t: Dictionary, stage: Array) -> void:
+	_palette = palette(t.name).duplicate()
+	_palette["_name"] = t.name
 	_chunky_hills = false
 	# (Fresh per build: the painted ground shadows live in these materials, `_ground_shadow`.)
 	_band_mats.clear()
@@ -1782,7 +1762,7 @@ static func backdrop(root: Node3D, t: Dictionary, stage: Array) -> void:
 	# Fog layers: soft bands of haze in the horizon's colour between the layers of scenery, thickest at the bottom, so each layer sits
 	# further back than the one before (a painted depth, at the cost of a few see-through cards).
 	var haze: Color = (t.sky_horizon as Color).lerp(Color.WHITE, 0.1)
-	for layer in MIST.get(t.name, []):
+	for layer in (_palette.get("mist", {}) as Dictionary).get("layers", []):
 		_mist(root, haze, layer[0], layer[1], layer[2], layer[3])
 	painted_layers(root, t.name)
 	# What hangs under the stage, fitted to its lowest block (the extent's last two numbers) where it has one.
@@ -2870,16 +2850,7 @@ static func ridge(root: Node3D, t: Dictionary, spec: Dictionary) -> MeshInstance
 
 
 ## The fog layers of each theme: [z, bottom y, height, strength].
-const MIST := {
-	# (The far bands thinner, art review 9: over the cut-card ranges they washed both layers into one pale band.)
-	# (Clear air, the meadow rebuild's step 3: the reference has none of this milky band at the ranges' foot.)
-	"meadow": [[-56.0, -24.0, 12.0, 0.08], [-86.0, -26.0, 16.0, 0.06]],
-	"grove": [[-90.0, -26.0, 16.0, 0.04]],
-	"sunset": [[-95.0, -24.0, 16.0, 0.02]],
-	"ocean": [[-130.0, -10.0, 6.0, 0.08]],
-	"night": [[-70.0, -26.0, 18.0, 0.4]],
-	"city": [[-80.0, -30.0, 24.0, 0.35]],
-}
+## (The fog layers of each theme, [z, bottom y, height, strength], are the palette's [mist] layers.)
 
 
 static func _mist(root: Node3D, colour: Color, z: float, bottom: float, height: float, strength: float) -> void:
@@ -3418,7 +3389,7 @@ static func _fields(root: Node3D, z: float, y: float, colours: Array, hedge_colo
 	_cottage(farm, Vector3(8.0, 0.4, -0.3), Color(0.4, 0.46, 0.6), 1.0)
 	# (Into the valley's air, the gauntlet's round 21: the full red barn and blue roof read as toys at foreground strength.)
 	# (No ink and its whites a step under the play area, the meadow pilot of docs/art/STYLE_SHEET.md: its walls peaked at 0.74, inked.)
-	_mute(farm, 0.42, Color(0.72, 0.82, 0.88), 0.22, false)
+	_air(farm, farm.position.z)
 	merge_static(farm)
 	# The hedgerows across: a row of round, leafy bushes along each line (smaller and closer set further down), on the dark band as their
 	# shade, so a hedge has volume like the trees by the stage rather than being a drawn line.
@@ -3855,7 +3826,7 @@ static func _meadow(root: Node3D, t: Dictionary, stage: Array) -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 42
 	var e := _ext(stage)
-	_hills(root, rng, Color(0.36, 0.72, 0.34), Color(0.42, 0.66, 0.6))
+	_hills(root, rng, _pal("hills_near"), _pal("hills_far"))
 	_clouds(root, rng, 11, Color(1.0, 1.0, 1.0), Vector2(14, 34))
 	# (No islands floating in the sky since the stage became a terrace on a hillside, art review 9: they were pale, flat, pulled the eye, and
 	# said the land floats when it no longer does. Still drawn and thrown away, so the random layout of everything after them stays put.)
@@ -3870,29 +3841,29 @@ static func _meadow(root: Node3D, t: Dictionary, stage: Array) -> void:
 	_windmill(mill, Vector3(-34, hill_top(-34.0) - 0.8, -73))
 	# (A light hand, 2026-10-19, the owner: greyed and lifted toward the sky it read as a pale cut-out from another game; the reference's
 	# mid-ground keeps clean colour and sits back by being cooler and simpler.)
-	_mute(mill, 0.1, Color(0.72, 0.88, 0.9), 0.1, false)
+	_air(mill, -73.0)
 	# (Each standing on the land with a painted shadow under it, `_ground_shadow`.)
 	_ground_shadow(Vector3(-34, 0, -73), Vector2(4.4, 3.6), -72.0)
 	# A few cottages on the near hills (just behind the land's edge), smoke rising from their chimneys: someone lives here.
 	# (Not the one at 18 since art review 10: right behind the right platform it crowded the fight; two, out at the sides, frame it.)
 	# (A red and a honey roof, 2026-10-19: the blue one went grey in the valley's air.)
-	for c in [[44.0, Color(0.82, 0.36, 0.28)], [-66.0, Color(0.84, 0.58, 0.3)]]:
+	for c in [[44.0, (_pal("cottage_roofs") as Array)[0]], [-66.0, (_pal("cottage_roofs") as Array)[1]]]:
 		var cx: float = c[0]
 		# (Set back into the air without ink, the meadow pilot: inked and bright, the right one read as cropped foreground.)
 		var house := Node3D.new()
 		root.add_child(house)
 		_cottage(house, Vector3(cx, hill_top(cx) - 0.6, -74.0), c[1], 1.0 if cx > 0.0 else -1.0)
-		_mute(house, 0.12, Color(0.72, 0.88, 0.9), 0.12, false)
+		_air(house, -74.0)
 		_ground_shadow(Vector3(cx, 0, -74.0), Vector2(3.4, 2.6), -72.0)
 	# A low rise of meadow in front of the hills, and round trees standing along it (their feet just behind its edge).
-	_fore_band(root, -46.0, -10.0, Color(0.46, 0.76, 0.32))
+	_fore_band(root, -46.0, -10.0, _pal("fore_band"))
 	# (Muted toward the valley's air, the gauntlet's round 23: the vivid lime and yellow stripes read as a flat painted card under the farm.)
 	# (A patchwork of crops, fallow earth and pale stubble, round 28: in near-equal greens the fields read as one even texture.)
 	# (Brighter with the lawn, 2026-10-19: the papercraft camp's patchwork of lime crops and warm earth.)
 	# (Sage and one warm sand in place of the yellow stubble, round 35's diff: the reference's mid-ground is clean greens.)
-	_fields(root, -46.0, -10.0, [Color(0.5, 0.78, 0.32), Color(0.62, 0.76, 0.5), Color(0.6, 0.82, 0.36), Color(0.86, 0.82, 0.64), Color(0.56, 0.72, 0.46)],
+	_fields(root, -46.0, -10.0, _pal("fields"),
 		# (The hedgerows a step nearer the fields' greens, art review 10: dark lines netting the whole valley were its busiest detail.)
-		Color(0.36, 0.58, 0.32))
+		_pal("hedgerow"))
 	for k in 6:
 		var tx := rng.randf_range(-70, 70)
 		rng.randf_range(-12, -6)
@@ -3905,7 +3876,7 @@ static func _meadow(root: Node3D, t: Dictionary, stage: Array) -> void:
 		# 2026-10-19), in place of a round tree; the round tree without the model. Its own numbers, so the layout is unchanged.)
 		if not _pine_cluster(tree, Vector3(tx, fore_top(tx, -10.0) - 0.5, -47.0), ts * 4.6):
 			_round_tree(tree, Vector3(tx, fore_top(tx, -10.0) - 0.5, -47.0), ts, rng)
-		_mute(tree, 0.05, Color(0.74, 0.86, 0.92), 0.02, false)
+		_air(tree, -47.0)
 		_ground_shadow(Vector3(tx, 0, -47.0), Vector2(2.6, 2.0) * ts, -46.0)
 	# (A fuller belt of pines along the rise, 2026-10-19: the reference's depth comes from many pines overlapping at different
 	# distances; six scattered clumps read sparse. Their own random numbers, so the rest of the layout is unchanged.)
@@ -3920,7 +3891,7 @@ static func _meadow(root: Node3D, t: Dictionary, stage: Array) -> void:
 		var tree := Node3D.new()
 		root.add_child(tree)
 		if _pine_cluster(tree, Vector3(tx, fore_top(tx, -10.0) - 0.5, tz), belt.randf_range(3.6, 5.4)):
-			_mute(tree, 0.05, Color(0.74, 0.86, 0.92), 0.02, false)
+			_air(tree, tz)
 	# A wooden fence along the back of the stage, and flowers: pale posts with rounded caps, each in its own contact shade, and darker
 	# rails, so the fence reads as built (posts and rails) under the key light rather than one flat colour.
 	var post := Materials.wood(Color(0.9, 0.7, 0.46))
@@ -4398,8 +4369,8 @@ static func _sunset(root: Node3D, t: Dictionary, stage: Array) -> void:
 	var rows := []
 	# (Half the fade and a rosier violet, the judge's round 39 and the owner's canyon reference: far rock reads by value and size in clear
 	# air; at 0.3 and 0.55 toward a pale lavender the buttes read through fog.)
-	var haze := Color(0.66, 0.5, 0.7)
-	for fade in [0.14, 0.3]:
+	var haze: Color = _pal("butte_haze")
+	for fade in _pal("butte_fades"):
 		var air := t.duplicate()
 		air.soil = (t.soil as Color).lerp(haze, fade)
 		air.soil_dark = (t.soil_dark as Color).lerp(haze, fade)
@@ -4533,7 +4504,7 @@ static func _grove(root: Node3D, t: Dictionary, stage: Array) -> void:
 	rng.seed = 3
 	# (Deeper and cooler, the judge's round 39 and the owner's grove reference, a lush island over a darker violet distance: the pale
 	# green hills read as a milky fog band and the island did not pop.)
-	_hills(root, rng, Color(0.2, 0.46, 0.4), Color(0.38, 0.4, 0.7))
+	_hills(root, rng, _pal("hills_near"), _pal("hills_far"))
 	_clouds(root, rng, 8, Color(1, 0.97, 1), Vector2(10, 36))
 	_birds(root, rng, Color(0.25, 0.22, 0.3))
 	var top: float = stage[2] if stage.size() == 4 else 0.0
@@ -4546,7 +4517,7 @@ static func _grove(root: Node3D, t: Dictionary, stage: Array) -> void:
 	# (No roots under the quilted island, the owner, 2026-10-19: they conflicted with its front. `_grove_roots` kept for other uses.)
 	# A low rise of land in front of the hills, and two smaller trees standing on it either side (feet just behind its edge).
 	# (A rounded ridge, not the meadow's valley floor: the forest canopy fills the valley below it.)
-	_fore_band(root, -52.0, top - 11.0, Color(0.26, 0.54, 0.38), ROLL_PROFILE)
+	_fore_band(root, -52.0, top - 11.0, _pal("fore_band"), ROLL_PROFILE)
 	_tree(root, Vector3(-30, fore_top(-30.0, top - 11.0) - 0.6, -55.0), 0.6, rng)
 	_tree(root, Vector3(32, fore_top(32.0, top - 11.0) - 0.6, -55.0), 0.55, rng)
 	_ground_shadow(Vector3(-30, 0, -55.0), Vector2(4.4, 3.0), -52.0)
@@ -4608,14 +4579,15 @@ static func _ocean(root: Node3D, t: Dictionary, stage: Array) -> void:
 	root.add_child(sea)
 	sea.build()
 	# (Higher in the sky, 2026-10-19: low over the horizon they sat on the sea.)
-	_clouds(root, rng, 8, Color(1, 1, 1), Vector2(30, 48), Vector2(-120, -85), [0, 1, 2], 1.0, Vector2(-90, 90), BEACH_CLOUDS)
+	var cloud_look := {"exposure": float(_pal("cloud_exposure")), "shade_depth": 1.0}
+	_clouds(root, rng, 8, Color(1, 1, 1), Vector2(30, 48), Vector2(-120, -85), [0, 1, 2], 1.0, Vector2(-90, 90), cloud_look)
 	# A bank of cumulus piled along the horizon, behind the far coast (its own random numbers, so the rest of the layout stays put).
 	var bank_rng := RandomNumberGenerator.new()
 	bank_rng.seed = 41
 	# (Lifted clear of the horizon, the owner, 2026-10-19: sitting on it, the clouds read too low and blurred the sea into the sky.)
 	# (Seven, not sixteen, the judge's round 39: sixteen piled into one heavy lumpy band across the top third, the busiest area of the
 	# frame; a few apart leave open sky over the fight.)
-	_clouds(root, bank_rng, 7, Color(1, 1, 1), Vector2(10.0, 18.0), Vector2(-215, -195), [1, 0, 1], 1.9, Vector2(-90, 90), BEACH_CLOUDS)
+	_clouds(root, bank_rng, int(_pal("cloud_bank")), Color(1, 1, 1), Vector2(10.0, 18.0), Vector2(-215, -195), [1, 0, 1], 1.9, Vector2(-90, 90), cloud_look)
 	_birds(root, rng, Color(0.97, 0.97, 1.0))
 	# Distant islands.
 	for k in 3:
@@ -4775,7 +4747,7 @@ static func _city(root: Node3D, t: Dictionary, stage: Array) -> void:
 		# and the scene lost its value contrast.)
 		# (Lighter, cooler and hazier with distance, the gauntlet's round 3 after the owner's city reference, kept at night: the towers sat
 		# as dark and saturated as the play building and nothing separated. A night haze of pale blue-lilac, more of it further back.)
-		shade = [Color(0.17, 0.14, 0.32), Color(0.36, 0.3, 0.56), Color(0.62, 0.56, 0.82)][layer]
+		shade = (_pal("skyline_shades") as Array)[layer]
 		_skyline_layer(root, rng, layer, z, shade, float(e[3]) - CITY_STREET_DROP)
 	# A water tower and an antenna on the roof behind the stage.
 	var roof: float = e[2]
@@ -5434,7 +5406,7 @@ static func _skyline_layer(root: Node3D, rng: RandomNumberGenerator, layer: int,
 	m.set_shader_parameter("detail", 0.0 if layer >= 1 else 1.0)
 	# (Dimmer, so no sign outshines the fighters, step 4.)
 	# (Four tenths dimmer again, the judge's round 39: the signs were still the brightest, most saturated things on screen.)
-	m.set_shader_parameter("sign_energy", (1.9 - layer * 0.5) * 0.6)
+	m.set_shader_parameter("sign_energy", (1.9 - layer * 0.5) * float(_pal("sign_dim")))
 	m.set_shader_parameter("moon_edge", [0.9, 0.6, 0.35][layer])
 	# (Finer windows, finer further back, the gauntlet's round 15 after the owner's city reference: its windows are fine regular grids
 	# that read as texture; ours, a bay of 2 by 2.6 on every layer, read as stickers.)
@@ -5492,7 +5464,7 @@ static func _tree(root: Node3D, base: Vector3, size: float, rng: RandomNumberGen
 	if Toonify.load_prop("tree_crown_a") != null:
 		# (A step lighter and without ink, the judge's round 39: dark and inked dead centre, it framed the fighters in a dark block and
 		# was the last inked natural form.)
-		bark = (FighterView.toon(Color(0.66, 0.49, 0.38), false) as ShaderMaterial).duplicate() as ShaderMaterial
+		bark = (FighterView.toon(_pal("great_bark"), false) as ShaderMaterial).duplicate() as ShaderMaterial
 		bark.set_shader_parameter("facets", true)
 		bark.set_shader_parameter("ramp_softness", 0.08)
 	# (Broad bark ridges in the trunk's shape, faceted, 2026-10-19: at 0.09 the great trunk read as one flat column mid-frame.)
@@ -6538,7 +6510,7 @@ static func _harbour_town(root: Node3D, water: float) -> void:
 	_mesh(root, _box(Vector3(64.4, 0.3, 6.4)), FighterView.toon(Color(0.74, 0.71, 0.66)), base + Vector3(2, 2.2, 2))
 	# Houses in rows up the slope.
 	# (Warm reds and oranges with one teal, 2026-10-19: the blue roofs went grey in the air.)
-	var roofs := [Color(0.86, 0.36, 0.3), Color(0.26, 0.6, 0.62), Color(0.9, 0.58, 0.3), Color(0.92, 0.46, 0.34), Color(0.8, 0.42, 0.52)]
+	var roofs: Array = _pal("town_roofs")
 	for row in 3:
 		var z := -1.0 - row * 4.5
 		var x := -26.0 + row * 4.0 + rng.randf_range(-1.0, 1.0)
@@ -6555,11 +6527,11 @@ static func _harbour_town(root: Node3D, water: float) -> void:
 			house.rotation_degrees = Vector3(0, rng.randf_range(-12, 12), 0)
 			house.scale = Vector3.ONE * rng.randf_range(0.85, 1.15)
 			root.add_child(house)
-			var walls := [Color(0.98, 0.9, 0.72), Color(0.74, 0.88, 0.9), Color(0.98, 0.78, 0.7), Color(0.84, 0.92, 0.76), Color(0.96, 0.94, 0.9)]
+			var walls: Array = _pal("town_walls")
 			_cottage(house, Vector3.ZERO, roofs[rng.randi() % roofs.size()], 1.0 if rng.randf() < 0.5 else -1.0, walls[rng.randi() % walls.size()])
 			# (Each row back a step further into the air, the gauntlet's round 21: at foreground strength the town read as toys.)
 			# (Clean pastels, 2026-10-19, the owner: at 0.4 grey and a fifth haze the whole town read as one blue-grey wash.)
-			_mute(house, 0.12 + 0.06 * row, Color(0.78, 0.88, 0.94), 0.08 + 0.05 * row, false)
+			_air(house, house.position.z)
 			x += rng.randf_range(5.6, 7.4)
 	# A few buildings that are not houses, so the town reads as a town rather than one cottage repeated (art review 9): a bell tower up
 	# the hill, a long warehouse on the quay's east end, and a market of striped stalls along the quay.

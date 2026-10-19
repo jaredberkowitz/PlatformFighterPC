@@ -213,3 +213,10 @@ Still to do for the base body: the neckwear's fit, and the licence of the free-p
   the triangle budget, and neither floats above nor is buried below its origin (props placed by their middle are listed with why).
 - **A review round in one command**: `tools/art/review.sh <round> [stages...]` captures the stages into `docs/gauntlet/round<N>/` with a
   greyscale of each (the readability check), a before/after against the round before, and a contact sheet; `PROPS=a,b` adds a lineup.
+- **Stage palettes**: each stage's colours live in `godot/stages/palettes/<theme>.cfg` (meadow, grove, sunset = the canyon, ocean = the
+  beach, city, night), not in the code: `[theme]` (sky, ground, wood, the front's pattern), `[mist]` (fog layers), `[backdrop]` (the
+  scenery's colours and counts, read by `StageArt._pal`) and `[air]`. Tune a colour there and recapture; the art pipeline test fails if
+  a stage asks for a key its palette lacks. `tools/art/review/diff.gd` measures how much a capture changed (camera noise shows as edges).
+- **Air by distance**: background scenery fades by how far behind the fight it stands, by the palette's `[air]` curve (`StageArt._air`:
+  none before `start`, at most `desat` and `lift` toward `haze` by `end`), one rule for everything at a depth instead of a hand-tuned haze
+  per object.
