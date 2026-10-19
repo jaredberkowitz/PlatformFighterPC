@@ -104,7 +104,7 @@ def folded_dome(bm_lit, bm_shade, centre, r, pleats, rng, rows=None):
             f.normal_flip()
 
 
-def folded_peak(bm, px, py, h, reach, foot, rng, rounded=False):
+def folded_peak(bm, px, py, h, reach, foot, rng, rounded=False, lean_k=1.8):
     """One summit folded like paper (the owner's blue-mountain reference, 2026-10-19), into `bm`: an apex at (px, py, h) with ridges
     running straight down from it to `foot` about `reach` away, a crease between each pair, so its flanks are a few big planes each
     wholly lit or in shade. `rounded`: a blunt dome of a hill rather than a sharp peak. Faces are left for the caller to orient."""
@@ -112,7 +112,7 @@ def folded_peak(bm, px, py, h, reach, foot, rng, rounded=False):
     base_turn = rng.uniform(0, math.tau / ridges)
     # (Each summit leans off its footprint's middle and is wider than deep, and some ridges hold a shoulder partway down, so no two
     # peaks are the same pyramid: an even row of symmetric cones read as a diagram.)
-    lean = rng.uniform(-0.3, 0.3) * reach * (1.0 if rounded else 1.8)
+    lean = rng.uniform(-0.3, 0.3) * reach * (1.0 if rounded else lean_k)
     apex = bm.verts.new((px, py, h))
     lines = []
     for k in range(ridges * 2):

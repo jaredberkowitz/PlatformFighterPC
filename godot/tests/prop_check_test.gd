@@ -14,7 +14,7 @@ const CENTRED := {
 	"hill_dome_a": "foot carried under the waterline", "hill_dome_b": "as hill_dome_a",
 	"range_meadow_far": "foot carried below the horizon", "range_meadow_near": "as range_meadow_far",
 	"range_grove_far": "as range_meadow_far", "range_grove_near": "as range_meadow_far",
-	"range_canyon_far": "as range_meadow_far", "range_canyon_near": "as range_meadow_far",
+	"dunes_canyon_far": "foot carried below the horizon", "dunes_canyon_near": "as dunes_canyon_far",
 	"windmill_tower": "stands on the game's stone drum, base at 1", "palm_crown": "sits on the trunk's top",
 	"lighthouse": "its rock footing runs under the sea",
 }

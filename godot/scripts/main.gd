@@ -1237,6 +1237,7 @@ func _process(delta: float) -> void:
 	var t0 := Time.get_ticks_usec()
 	_process_inner(delta)
 	_pause_camera(delta)
+	_sun_rays()
 	if perf and warmed:
 		perf_frame += float(Time.get_ticks_usec() - t0) / 1000.0
 
@@ -2705,3 +2706,19 @@ func _update_xray() -> void:
 			# (Its bottom at the feet.)
 			v = Vector4(p.x, p.y + 1.1, 0.85, 1.1)
 		RenderingServer.global_shader_parameter_set("pf_xray_%d" % i, v)
+
+
+## The light shafts from a stage's low sun (`rays` in shaders/post.gdshader): where the sun is on screen this frame, and how strong its
+## shafts are (the stage's palette `rays`; none on the Fast tier, or without a sun, or with the sun behind the camera).
+func _sun_rays() -> void:
+	if post_mat == null or cam == null:
+		return
+	var strength := 0.0
+	var sun := StageArt.sun_world
+	if sun.is_finite() and VisualSettings.get_index("quality") > 0 and stage_view != null and not cam.is_position_behind(sun):
+		strength = float(stage_view.theme.get("rays", 0.0))
+		var px := cam.unproject_position(sun)
+		post_mat.set_shader_parameter("sun_uv", px / get_viewport().get_visible_rect().size)
+		if stage_view.theme.has("sky_glow"):
+			post_mat.set_shader_parameter("rays_colour", (stage_view.theme.sky_glow as Array)[0])
+	post_mat.set_shader_parameter("rays", strength)

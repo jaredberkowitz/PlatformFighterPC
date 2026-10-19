@@ -3,13 +3,13 @@
 importer="scene"
 importer_version=1
 type="PackedScene"
-uid="uid://caa3m5fa5reyo"
-path="res://.godot/imported/range_canyon_near.glb-b754f70f9b3883906dbd3e92970917c7.scn"
+uid="uid://br2xebju4ku8v"
+path="res://.godot/imported/dunes_canyon_far.glb-e19723eb640a33b40fa29b0e228f7212.scn"
 
 [deps]
 
-source_file="res://models/props/range_canyon_near.glb"
-dest_files=["res://.godot/imported/range_canyon_near.glb-b754f70f9b3883906dbd3e92970917c7.scn"]
+source_file="res://models/props/dunes_canyon_far.glb"
+dest_files=["res://.godot/imported/dunes_canyon_far.glb-e19723eb640a33b40fa29b0e228f7212.scn"]
 
 [params]
 

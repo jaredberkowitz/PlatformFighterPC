@@ -31,6 +31,10 @@ const PALETTES := "res://stages/palettes/%s.cfg"
 static var _palette_cache := {}
 ## The palette of the stage being built (`backdrop` sets it), for `_pal` and `_air`.
 static var _palette := {}
+## The depths (front, back) the current stage's modelled ranges fill, for `_clouds` to keep out of.
+static var _cloud_keep_out: Array = []
+## Where the current stage's sun is drawn (`_painted_sun`), for its light shafts; INF without one.
+static var sun_world := Vector3.INF
 ## Keys the scenery asked for that its palette lacks (the art pipeline test fails on any).
 static var palette_misses: Array = []
 
@@ -112,12 +116,21 @@ static func sky(t: Dictionary) -> Sky:
 	if t.has("sky_wisps"):
 		mat.set_shader_parameter("wisp_color", t.sky_wisps[0])
 		mat.set_shader_parameter("wisp_amount", t.sky_wisps[1])
+	# The sky answering the sun (the theme's `sun_at`, where its sun is drawn, or `sun_dir`; `sun_side`, `halo`): the judge's round 41.
+	if t.has("sun_at") or t.has("sun_dir"):
+		var dir: Vector3 = (t.sun_at - SKY_EYE).normalized() if t.has("sun_at") else (t.sun_dir as Vector3).normalized()
+		mat.set_shader_parameter("sun_dir", dir)
+		mat.set_shader_parameter("glow_dir", dir)
+		mat.set_shader_parameter("sun_side", float(t.get("sun_side", 0.0)))
+		mat.set_shader_parameter("halo", float(t.get("halo", 0.0)))
 	var s := Sky.new()
 	s.sky_material = mat
 	return s
 
 
 const SKY_SHADER := preload("res://shaders/sky.gdshader")
+## About where the match camera looks from, for aiming the sky's sun term at a drawn sun.
+const SKY_EYE := Vector3(0, 4, 30)
 
 
 # ---- Materials --------------------------------------------------------------------------------------------------------------------
@@ -1739,6 +1752,13 @@ static func _platform_dressing(parent: Node3D, t: Dictionary, left: float, right
 ## Builds the scenery behind the stage for theme `t` under `root`. `stage` is the stage's extent: [left, right, top, bottom] of its
 ## solid blocks, so decorations sit on and around it.
 static func backdrop(root: Node3D, t: Dictionary, stage: Array) -> void:
+	sun_world = Vector3.INF
+	# The depths the modelled ranges fill (front, back), which the clouds keep out of (`_clouds`).
+	_cloud_keep_out.clear()
+	for spec in RIDGES.get(t.name, []):
+		if spec.has("model"):
+			var front := float(spec.z) + float(spec.height) * 0.55
+			_cloud_keep_out.append(Vector2(front, front - float(spec.height) * 1.1))
 	_palette = palette(t.name).duplicate()
 	_palette["_name"] = t.name
 	_chunky_hills = false
@@ -2761,12 +2781,10 @@ const RIDGES := {
 		"tone": Color(0.42, 0.44, 0.66), "mix": 0.82, "edge": 0.4, "flank": 0.6, "foot_dark": 0.35, "layers": 3, "flank_from": 0.0,
 		"gullies": 0.4, "haze": 0.34, "paper": 0.05, "edge_width": 0.02, "shadow": 0.5}],
 	# (More of their own colour, the judge's round 39: at mix 0.62 and 0.68 the far ridges were mostly horizon, a pale fog band.)
-	# (Folded mesa ranges in the stage's own rock, the judge's round 40 and the owner's canyon reference, in place of smooth painted
-	# cards that read as a pale fog band: summits cut flat, lit planes and brick shade.)
-	"sunset": [{"model": "range_canyon_far", "facets": true, "land_colour": Color(0.9, 0.5, 0.36), "land_haze": 0.05, "land_drop": -6.0, "z": -175.0, "y": -36.0, "height": 58.0, "shape": 2, "seed": 5.0, "base": 0.4, "amplitude": 0.4, "frequency": 3.0,
-		"tone": Color(0.42, 0.26, 0.5), "mix": 0.78, "edge": 0.35, "layers": 3, "flank_from": 0.0},
-		{"model": "range_canyon_near", "facets": true, "land_colour": Color(0.82, 0.36, 0.24), "land_haze": 0.0, "land_drop": -2.0, "z": -132.0, "y": -34.0, "height": 46.0, "shape": 2, "seed": 11.0, "base": 0.36, "amplitude": 0.36, "frequency": 2.6,
-		"tone": Color(0.55, 0.26, 0.3), "mix": 0.84, "edge": 0.4, "layers": 4, "flank_from": 0.0}],
+	# (Rolling sand dunes in the ground's own sand, the owner, 2026-10-19: mountain ranges, even flat-topped, conflicted with a desert.
+	# art/blender/make_props.py `dune_range`: a long lit windward slope and a shaded slip face under a sharp crest.)
+	"sunset": [{"model": "dunes_canyon_far", "facets": true, "land_colour": Color(1.0, 0.8, 0.52), "land_haze": 0.05, "land_drop": -14.0, "z": -175.0, "y": -36.0, "height": 22.0, "tone": Color(0.94, 0.7, 0.46), "mix": 0.8, "no_fall": true},
+		{"model": "dunes_canyon_near", "facets": true, "land_colour": Color(1.0, 0.74, 0.44), "land_haze": 0.0, "land_drop": -8.0, "z": -132.0, "y": -34.0, "height": 14.0, "tone": Color(0.92, 0.64, 0.4), "mix": 0.8, "no_fall": true}],
 	"night": [{"z": -160.0, "y": -42.0, "height": 56.0, "shape": 1, "seed": 2.0, "base": 0.4, "amplitude": 0.45, "frequency": 4.0,
 		"tone": Color(0.08, 0.1, 0.24), "mix": 0.55, "edge": 0.35}],
 	# (The sea's horizon is the bank of piled cumulus modelled in `_ocean`, with the distant islands in front of it. A far coast drawn
@@ -2802,7 +2820,8 @@ static func ridge(root: Node3D, t: Dictionary, spec: Dictionary) -> MeshInstance
 		if faceted:
 			land.set_shader_parameter("facets", true)
 			land.set_shader_parameter("ramp_softness", 0.1)
-			land.set_shader_parameter("fall_by_height", true)
+			# (Not on dunes, a spec's "no_fall": falling into shade toward their foot, the sand read mauve against the golden floor.)
+			land.set_shader_parameter("fall_by_height", not spec.get("no_fall", false))
 			land.set_shader_parameter("front_fall", 0.38)
 			land.set_shader_parameter("front_span", float(spec.height) * 0.75)
 		_place_prop(root, String(spec.model), Vector3(0, float(spec.y) - float(spec.get("land_drop", 0.0)),
@@ -2991,6 +3010,11 @@ static func _clouds(root: Node3D, rng: RandomNumberGenerator, count: int, color:
 		var cloud := Drift.new()
 		cloud.speed = rng.randf_range(0.6, 1.6)
 		cloud.position = Vector3(rng.randf_range(x_range.x, x_range.y), rng.randf_range(y_range.x, y_range.y), rng.randf_range(z_range.x, z_range.y))
+		# (Never inside a mountain range: drawn at a depth the range fills, a cloud passed through the peaks, the owner, 2026-10-19. One
+		# that would is set just in front of the range instead.)
+		for band: Vector2 in _cloud_keep_out:
+			if cloud.position.z < band.x + 10.0 and cloud.position.z > band.y - 10.0:
+				cloud.position.z = band.x + 10.0
 		root.add_child(cloud)
 		var mat := ShaderMaterial.new()
 		mat.shader = CLOUD_SHADER
@@ -4372,7 +4396,7 @@ static func _sunset(root: Node3D, t: Dictionary, stage: Array) -> void:
 	rng.seed = 7
 	var e := _ext(stage)
 	# (Smaller, lower and off to the left, art review 6 round 39: a huge disc right behind the stage outshone the fight.)
-	_painted_sun(root, Vector3(-46, -4, -140), 10.0)
+	_painted_sun(root, t.get("sun_at", Vector3(-46, -4, -140)), float(t.get("sun_size", 10.0)))
 	# (Each row's rock takes on the dusk sky's colour with its distance, as the meadow's islands do: at full strength the far buttes were
 	# as dark and saturated as the mesa the fighters stand on, so nothing receded. Art review 6, background cohesion.)
 	# (The stage's own painted strata, as the arch and the stage's front are (the owner, 2026-10-19: flat faceted tones made the buttes a
@@ -4480,8 +4504,11 @@ static func _rock_arch(root: Node3D, at: Vector3, span: float, height: float) ->
 ## rim, a soft corona and faint slow rays on one card; and long thin bands of lilac and rose cloud drawn across its lower half, the way
 ## evening cloud lies over a low sun.
 static func _painted_sun(root: Node3D, at: Vector3, r: float) -> void:
+	sun_world = at
 	var m := ShaderMaterial.new()
 	m.shader = SUN_SHADER
+	# (No painted rays, the judge's round 41: the post pass draws real shafts from it, broken by what stands in front.)
+	m.set_shader_parameter("rays", 0.0)
 	var q := QuadMesh.new()
 	q.size = Vector2(r * 10.0, r * 10.0)
 	m.set_shader_parameter("disc", 0.2)

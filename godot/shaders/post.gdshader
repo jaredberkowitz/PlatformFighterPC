@@ -71,6 +71,13 @@ uniform float far_blur_ramp = 30.0;
 // walls, a white hat in the sun) bleeds a wide, soft light over its neighbours, screened on at `bloom` (0 off). Gathered from the screen's
 // small mip levels, so it costs a dozen lookups. The fighters take `bloom_fighter` of it, so their own colours stay crisp; the effects
 // bloom on their own, after this pass.
+// Light shafts from a low sun (the judge's round 41: painted ray strokes on the sun card read flat): from each pixel toward the sun's
+// place on screen (`sun_uv`), the bright open sky along the way is gathered and added in `rays_colour`, so the shafts stream from the
+// sky round whatever stands in front of the sun (the arch, the buttes) and break where it does. `rays` 0 turns it off.
+uniform vec2 sun_uv = vec2(-10.0, -10.0);
+uniform float rays = 0.0;
+uniform vec4 rays_colour : source_color = vec4(1.0, 0.78, 0.5, 1.0);
+uniform float rays_reach = 0.9;
 uniform float bloom = 0.0;
 uniform float bloom_threshold = 0.62;
 // (0.5 until art review 5: screened on, the glow pushed a pure body colour toward white, so a yellow fighter on the bright beach read as
@@ -227,6 +234,33 @@ void fragment() {
 	float grade_k = id0 < 0.6 && d0 < 400.0 ? 0.33 : 1.0;
 	col = mix(col, col * mix(grade_shadows.rgb, grade_lights.rgb, smoothstep(0.1, 0.85, luma)), grade_amount * grade_k);
 
+	if (rays > 0.0) {
+		vec2 to_sun = sun_uv - uv;
+		float aspect = VIEWPORT_SIZE.x / VIEWPORT_SIZE.y;
+		float dist = length(to_sun * vec2(aspect, 1.0));
+		float reach = 1.0 - smoothstep(0.0, rays_reach, dist);
+		if (reach > 0.0) {
+			const int N = 28;
+			vec2 stp = to_sun / float(N);
+			float acc = 0.0;
+			float w = 1.0;
+			for (int i = 0; i < N; i++) {
+				vec2 q = uv + stp * (float(i) + hash(uv * 311.0 + float(i)));
+				if (q.x < 0.0 || q.y < 0.0 || q.x > 1.0 || q.y > 1.0) {
+					continue;
+				}
+				// Only open sky lights a shaft; anything in front of it (depth nearer than the sky) blocks it.
+				float sky = step(400.0, view_depth(q, INV_PROJECTION_MATRIX));
+				float b = dot(texture(screen_tex, q).rgb, vec3(0.3, 0.59, 0.11));
+				acc += sky * smoothstep(0.45, 1.1, b) * w;
+				w *= 0.965;
+			}
+			acc /= float(N);
+			// Not over the open sky itself (it is the source), only across what stands in front of it and the sky's edges.
+			float here_sky = step(400.0, d0);
+			col += rays_colour.rgb * acc * rays * reach * reach * mix(1.0, 0.35, here_sky);
+		}
+	}
 	if (bloom > 0.0) {
 		vec2 t4 = 1.5 / (VIEWPORT_SIZE / 16.0);
 		vec3 g = textureLod(screen_tex, uv, 4.0).rgb * 0.2;

@@ -20,6 +20,13 @@ uniform vec3 glow_dir = vec3(-0.45, 0.08, -1.0);
 uniform float glow_size = 0.2;
 uniform vec4 wisp_color : source_color = vec4(1.0, 0.86, 0.86, 1.0);
 uniform float wisp_amount = 0.0;
+// The sun's place in the sky (toward it), and how strongly the sky answers it (the judge's round 41, the owner: the skies read as flat
+// cards behind the modelled land): `sun_side` warms and lifts the whole low sky on the sun's side and cools it a step on the far side, as
+// light scattered forward through the air; `halo` a bright aureole hugging the sun and a wider soft one round it. 0 leaves the sky as it
+// was.
+uniform vec3 sun_dir = vec3(-0.26, -0.04, -0.96);
+uniform float sun_side = 0.0;
+uniform float halo = 0.0;
 
 float hash(vec2 p) {
 	p = fract(p * vec2(123.34, 456.21));
@@ -57,6 +64,22 @@ void sky() {
 		float band = smoothstep(0.02, 0.07, e) * (1.0 - smoothstep(0.24, 0.36, e));
 		float wisp = smoothstep(0.55, 0.78, n) * band * wisp_amount;
 		col = mix(col, mix(wisp_color.rgb, glow_color.rgb, clamp(glow * 1.5, 0.0, 0.7)), wisp);
+	}
+	if (sun_side > 0.0 || halo > 0.0) {
+		vec3 sd = normalize(sun_dir);
+		vec2 flat_d = normalize(d.xz + vec2(1e-4));
+		vec2 flat_s = normalize(sd.xz + vec2(1e-4));
+		float facing = dot(flat_d, flat_s);
+		// The low sky on the sun's side: warmer and lighter, fading up the sky and round it.
+		float side = pow(max(facing, 0.0), 3.0) * (1.0 - smoothstep(0.0, 0.3, max(e, 0.0)));
+		col = mix(col, glow_color.rgb, clamp(side * sun_side, 0.0, 0.85));
+		// The far side a step cooler and deeper.
+		float away = pow(max(-facing, 0.0), 2.0);
+		col = mix(col, col * vec3(0.88, 0.9, 1.06), away * sun_side * 0.7);
+		// The aureole.
+		float mu = max(dot(d, sd), 0.0);
+		// (Broad, not a hot core: a bright core round the drawn sun washed its disc into the sky.)
+		col += glow_color.rgb * (pow(mu, 60.0) * 0.18 + pow(mu, 12.0) * 0.1) * halo;
 	}
 	COLOR = col;
 }

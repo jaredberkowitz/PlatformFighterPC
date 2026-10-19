@@ -1423,7 +1423,7 @@ def bush():
     return root
 
 
-def folded_range(name, seed, height, peaks, rounded, plateau=0.0):
+def folded_range(name, seed, height, peaks, rounded, plateau=0.0, lean_k=1.8):
     """A range of mountains folded like paper (the owner's blue-mountain reference, 2026-10-19, in place of `mountain_range`'s faceted
     terrain grid, which read as random low-poly noise): every peak an apex with ridges running straight down from it to the foot and a
     crease between each pair, so its flanks are a few big planes, each wholly lit or wholly in shade. `peaks` main summits across 520
@@ -1461,7 +1461,7 @@ def folded_range(name, seed, height, peaks, rounded, plateau=0.0):
         x = -W / 2 + W * i / n + rng.uniform(-0.3, 0.3) * W / n
         spots.append((x, height * rng.uniform(0.15, 0.28), height * rng.uniform(0.26, 0.4), W / n * rng.uniform(0.8, 1.0)))
     for (px, py, h, reach) in spots:
-        folded_peak(bm, px, py, h, reach, -0.35 * height, rng, rounded)
+        folded_peak(bm, px, py, h, reach, -0.35 * height, rng, rounded, lean_k)
     # (`plateau`: every summit cut off flat at that share of the height, a range of mesas for the canyon, the judge's round 40.)
     if plateau > 0.0:
         for v in bm.verts:
@@ -1471,6 +1471,57 @@ def folded_range(name, seed, height, peaks, rounded, plateau=0.0):
         if f.normal.z < 0.0:
             f.normal_flip()
     to_object("land", bm, (0.5, 0.6, 0.6), smooth=False).parent = root
+    return root
+
+
+def dune_range(name, seed, height, rows):
+    """A field of rolling sand dunes for the canyon's distance (the owner, 2026-10-19: mountain ranges conflicted with the desert; dunes
+    in the ground's own sand instead): `rows` dunes one behind another across 520 (x, centred), each crest a sinuous line swelling and
+    sinking along its length, the windward side a long gentle slope and the lee a short steep slip face below a sharp crest, so every
+    dune has one wide lit plane and one shaded one, the game's folded language in sand. A coarse flat-shaded height field, its front foot
+    on the origin, `height` at the tallest crest, its foot carried below the horizon."""
+    rng = random.Random(seed)
+    root = empty(name)
+    W, D = 520.0, height * 4.0
+    dunes = []
+    for r in range(rows):
+        dunes.append({"y": D * (0.18 + 0.72 * r / max(rows - 1, 1)) + rng.uniform(-0.05, 0.05) * D,
+                      "amp": height * rng.uniform(0.55, 1.0) * (0.75 + 0.25 * r / max(rows - 1, 1)),
+                      "wave": rng.uniform(0.008, 0.016), "ph": rng.uniform(0, math.tau), "sway": D * rng.uniform(0.04, 0.08),
+                      "pulse": rng.uniform(0.01, 0.022), "pph": rng.uniform(0, math.tau)})
+
+    def h(x, y):
+        best = 0.0
+        for dn in dunes:
+            crest = dn["y"] + dn["sway"] * math.sin(x * dn["wave"] + dn["ph"])
+            amp = dn["amp"] * (0.55 + 0.45 * math.sin(x * dn["pulse"] + dn["pph"]))
+            d = y - crest
+            # Windward (toward the camera, d < 0): long and gentle. Lee (behind the crest): a short steep slip face.
+            f = max(0.0, 1.0 + d / (amp * 4.5)) if d < 0.0 else max(0.0, 1.0 - d / (amp * 1.4))
+            best = max(best, amp * f ** 1.3)
+        return best
+    nx, ny = 72, 22
+    bm = bmesh.new()
+    grid = []
+    for j in range(ny + 2):
+        row = []
+        for i in range(nx + 1):
+            x = -W / 2 + W * i / nx
+            if j == 0:
+                row.append(bm.verts.new((x, -D * 0.02, -height * 0.5)))
+                continue
+            y = D * (j - 1) / ny
+            row.append(bm.verts.new((x, y, h(x, y))))
+        grid.append(row)
+    for j in range(ny + 1):
+        for i in range(nx):
+            bm.faces.new((grid[j][i], grid[j][i + 1], grid[j + 1][i + 1], grid[j + 1][i]))
+    bmesh.ops.triangulate(bm, faces=bm.faces[:])
+    bm.normal_update()
+    for f in bm.faces:
+        if f.normal.z < 0.0:
+            f.normal_flip()
+    to_object("land", bm, (0.9, 0.66, 0.42), smooth=False).parent = root
     return root
 
 
@@ -1587,8 +1638,8 @@ PROPS = {
     "range_meadow_near": lambda: folded_range("range_meadow_near", 9, 62.0, 8, False),
     "range_grove_far": lambda: folded_range("range_grove_far", 8, 52.0, 4, True),
     "range_grove_near": lambda: folded_range("range_grove_near", 4, 40.0, 6, True),
-    "range_canyon_far": lambda: folded_range("range_canyon_far", 5, 58.0, 4, False, 0.48),
-    "range_canyon_near": lambda: folded_range("range_canyon_near", 11, 46.0, 5, False, 0.44),
+    "dunes_canyon_far": lambda: dune_range("dunes_canyon_far", 5, 22.0, 4),
+    "dunes_canyon_near": lambda: dune_range("dunes_canyon_near", 11, 14.0, 3),
     "hay_bale": hay_bale,
     "mushroom": mushroom,
     "stump": stump,
