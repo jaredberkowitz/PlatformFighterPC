@@ -17,7 +17,7 @@ const PadBindings := preload("res://scripts/pad_bindings.gd")
 ##     gives a small nudge, not a full drift.
 ##   - A second press within DASH_TAP_FRAMES of the previous press (double tap, or tapping the other
 ##     direction while dash dancing) is full strength at once, which is a flick: it dashes.
-##   - Down: tap = soft (crouch, drop through), double tap = hard (fast fall).
+##   - Down: tap = soft (crouch, down tilt), double tap = hard (fast fall; on a platform, drop through).
 ## Gamepads: left stick as is (analog); a hard flick down fast falls. Buttons come from `pad_bindings.gd` (the Controls screen's
 ## Controller page changes them). Defaults: A/Y jump, B attack, X special, triggers shield, bumpers (and a right-stick click) grab.
 ## The right stick is by default the attack stick (the reference's C-stick): a smash in its direction on the ground, an aerial in the
@@ -42,9 +42,9 @@ static var _x_state := {}
 static var _hop_state := {}
 static var _down_state := {}
 
-## Keyboard "down" is a soft press (about half tilt) so it can crouch, drop through platforms and
-## shield-drop, but it does NOT fast fall. A second tap within DOUBLE_TAP_FRAMES is a hard press
-## (full tilt at once), which is what fast fall listens for, like flicking or hard-pressing a stick.
+## Keyboard "down" is a soft press (about half tilt) so it can crouch and down tilt (on a platform too), but it does NOT
+## fast fall or drop through. A second tap within DOUBLE_TAP_FRAMES is a hard press (full tilt at once), which is what fast
+## fall and, on a platform, the drop through it listen for (sim 144), like flicking a stick.
 ## Holding down ramps to full tilt after SOFT_HOLD_FRAMES. That is a slow roll, not a hard press.
 const SOFT_DOWN := 0.55
 const SOFT_HOLD_FRAMES := 4

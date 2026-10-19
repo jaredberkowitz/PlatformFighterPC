@@ -255,6 +255,12 @@ pub fn step_bodies(state: &mut GameState, content: &Content, inputs: &[Input; MA
         let f = &state.fighters[winner];
         let params = params_of(content, f).moving(f.gauge_mode > 0, crate::wing::out(f));
         fighter::grab_ledge(&mut state.fighters[winner], &params, stage, l);
+        // (Hit for the ruleset's `ledge_exposed_frames` frames from the next, before the ledge's intangibility: the "two-frame".
+        // The hits of this frame are already resolved, so one more for the countdown's first tick.)
+        if state.fighters[winner].ledge_invuln > 0 {
+            state.fighters[winner].ledge_exposed =
+                content.rules.ledge_exposed_frames.saturating_add(1);
+        }
         state.ledge_owner[l] = winner as i8;
     }
 

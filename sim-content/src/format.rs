@@ -271,6 +271,8 @@ macro_rules! params_io {
                 jump_speed_x: Fx::ZERO,
                 jump_speed_x_mul: 0,
                 jump_speed_x_max: Fx::ZERO,
+                roll_back_intangible_start: 0,
+                roll_back_intangible_end: 0,
                 item_throws: base.map_or(sim_core::content::ItemThrows::STANDARD, |b| b.item_throws),
                 weapon,
             }
@@ -435,6 +437,7 @@ rules_io! {
     jump_momentum_max: Fx,
     jump_stick_share: u8,
     landing_speed_cap: u8,
+    ledge_exposed_frames: u8,
     respawn_invuln: u8,
     tech_window: u8,
     tech_lag: u8,
@@ -2969,6 +2972,17 @@ pub fn read_content(root: &Block, errors: &mut Vec<String>) -> Content {
             base.map_or(Fx::ZERO, |p| p.jump_speed_x_max),
             errors,
         );
+        // A backward roll's own intangible frames (sim 144): optional, the inherited fighter's or none (0: the forward roll's).
+        params.roll_back_intangible_start = f.or(
+            "roll_back_intangible_start",
+            base.map_or(0, |p| p.roll_back_intangible_start),
+            errors,
+        );
+        params.roll_back_intangible_end = f.or(
+            "roll_back_intangible_end",
+            base.map_or(0, |p| p.roll_back_intangible_end),
+            errors,
+        );
         f.finish(errors);
         // The gauge (schema 6): a `gauge { ... }` block, or the inherited fighter's, or none.
         if let Some(g) = at_most_one(children(b, "gauge"), "gauge", &context, errors) {
@@ -3449,6 +3463,16 @@ pub fn fighter_block(name: &str, p: &FighterParams, weapon_name: &str) -> Block 
         b.field("jump_speed_x", p.jump_speed_x.show());
         b.field("jump_speed_x_mul", p.jump_speed_x_mul.to_string());
         b.field("jump_speed_x_max", p.jump_speed_x_max.show());
+    }
+    if p.roll_back_intangible_end != 0 {
+        b.field(
+            "roll_back_intangible_start",
+            p.roll_back_intangible_start.to_string(),
+        );
+        b.field(
+            "roll_back_intangible_end",
+            p.roll_back_intangible_end.to_string(),
+        );
     }
     if p.gauge != Gauge::NONE {
         b.push(write_gauge(&p.gauge));

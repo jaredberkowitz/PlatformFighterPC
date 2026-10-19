@@ -296,17 +296,29 @@ fn a_flick_sideways_in_the_shield_rolls_that_way() {
 
 #[test]
 fn a_roll_is_intangible_for_part_of_its_length() {
-    let intangible_on = |frame: usize| {
-        let mut sim = start_roll(127);
-        sim.ticks(frame, inp(0, 0, 0));
+    // Frame 1 is the roll's first, the frame of the flick (the reference's count; sim 144 fixed a one-frame lag). A backward roll has
+    // its own window (most bodies 5-16 against 4-15 forward).
+    let intangible_on = |x: i8, frame: usize| {
+        let mut sim = start_roll(x);
+        sim.ticks(frame - 1, inp(0, 0, 0));
         sim_core::combat::is_intangible(sim.f())
     };
     let p = Sim::new().content.fighters[0];
-    assert!(!intangible_on(1), "not yet");
-    for f in usize::from(p.roll_intangible_start)..=usize::from(p.roll_intangible_end) {
-        assert!(intangible_on(f), "intangible on roll frame {f}");
+    for (x, start, end) in [
+        (127, p.roll_intangible_start, p.roll_intangible_end),
+        (
+            -127,
+            p.roll_back_intangible_start,
+            p.roll_back_intangible_end,
+        ),
+    ] {
+        assert_eq!((start, end), if x > 0 { (4, 15) } else { (5, 16) });
+        assert!(!intangible_on(x, usize::from(start) - 1), "not yet");
+        for f in usize::from(start)..=usize::from(end) {
+            assert!(intangible_on(x, f), "intangible on roll frame {f} ({x})");
+        }
+        assert!(!intangible_on(x, usize::from(end) + 1), "over ({x})");
     }
-    assert!(!intangible_on(usize::from(p.roll_intangible_end) + 2));
 }
 
 #[test]

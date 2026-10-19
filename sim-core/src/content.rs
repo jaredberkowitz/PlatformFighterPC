@@ -155,6 +155,10 @@ pub struct FighterParams {
     pub roll_move_end: u8,
     pub roll_intangible_start: u8,
     pub roll_intangible_end: u8,
+    /// A backward roll's intangible frames, when they differ from the forward roll's (sim 144: the reference gives most bodies 5-16
+    /// backward against 4-15 forward). `roll_back_intangible_end` 0 uses the forward roll's window (content written before sim 144).
+    pub roll_back_intangible_start: u8,
+    pub roll_back_intangible_end: u8,
     pub spot_dodge_frames: u8,
     pub spot_intangible_start: u8,
     pub spot_intangible_end: u8,
@@ -895,6 +899,9 @@ impl FighterParams {
             jump_speed_x: Fx::ZERO,
             jump_speed_x_mul: 0,
             jump_speed_x_max: Fx::ZERO,
+            // The reference's most common backward roll (ultimateframedata.com, 13.0.1): intangible 5-16 [R].
+            roll_back_intangible_start: 5,
+            roll_back_intangible_end: 16,
             item_throws: ItemThrows::STANDARD,
             walk_speed: gu(1400),
             run_speed: gu(1800),
@@ -1216,6 +1223,8 @@ impl FighterParams {
                 dash: 6,
                 drop: 6,
             },
+            roll_back_intangible_start: 4,
+            roll_back_intangible_end: 14,
             ..FighterParams::base()
         }
     }
@@ -1851,10 +1860,10 @@ impl FighterParams {
             gravity,
             max_fall_speed: su(1320),
             fast_fall_speed: su(2112),
-            air_dodge_frames: 58,
-            air_dodge_dir_down_frames: 81,
-            air_dodge_dir_side_frames: 97,
-            air_dodge_dir_up_frames: 129,
+            air_dodge_frames: 57,
+            air_dodge_dir_down_frames: 80,
+            air_dodge_dir_side_frames: 96,
+            air_dodge_dir_up_frames: 128,
             air_dodge_intangible_start: 3,
             air_dodge_intangible_end: 30,
             air_dodge_dir_intangible_end: 21,
@@ -1869,9 +1878,9 @@ impl FighterParams {
             ledge_jump_velocity: Self::ledge_jump_velocity_for(gravity, su(36250)),
             weight: Fx::from_int(92),
             weapon: 10,
-            roll_frames: 30,
-            roll_back_frames: 35,
-            spot_dodge_frames: 26,
+            roll_frames: 29,
+            roll_back_frames: 34,
+            spot_dodge_frames: 25,
             // A wall jump (the parameter file: 1.3 away, 2.3 up).
             wall_jump: 1,
             wall_jump_vx: su(1300),
@@ -1926,10 +1935,10 @@ impl FighterParams {
             gravity,
             max_fall_speed: su(1750),
             fast_fall_speed: su(2800),
-            air_dodge_frames: 45,
-            air_dodge_dir_down_frames: 63,
-            air_dodge_dir_side_frames: 75,
-            air_dodge_dir_up_frames: 97,
+            air_dodge_frames: 44,
+            air_dodge_dir_down_frames: 62,
+            air_dodge_dir_side_frames: 74,
+            air_dodge_dir_up_frames: 96,
             air_dodge_intangible_start: 2,
             air_dodge_intangible_end: 27,
             air_dodge_dir_intangible_end: 19,
@@ -1945,8 +1954,8 @@ impl FighterParams {
             ledge_jump_velocity: Self::ledge_jump_velocity_for(gravity, su(40605)),
             weight: Fx::from_int(90),
             weapon: 11,
-            roll_frames: 29,
-            roll_back_frames: 34,
+            roll_frames: 28,
+            roll_back_frames: 33,
             roll_intangible_start: 4,
             roll_intangible_end: 14,
             spot_dodge_frames: 24,
@@ -1965,6 +1974,8 @@ impl FighterParams {
                 dash: 4,
                 drop: 5,
             },
+            roll_back_intangible_start: 4,
+            roll_back_intangible_end: 15,
             ..FighterParams::base()
         }
     }
@@ -2007,10 +2018,10 @@ impl FighterParams {
             gravity,
             max_fall_speed: su(1630),
             fast_fall_speed: su(3097),
-            air_dodge_frames: 48,
-            air_dodge_dir_down_frames: 68,
-            air_dodge_dir_side_frames: 84,
-            air_dodge_dir_up_frames: 101,
+            air_dodge_frames: 47,
+            air_dodge_dir_down_frames: 67,
+            air_dodge_dir_side_frames: 83,
+            air_dodge_dir_up_frames: 100,
             air_dodge_intangible_start: 3,
             air_dodge_intangible_end: 30,
             air_dodge_dir_intangible_end: 21,
@@ -2026,8 +2037,8 @@ impl FighterParams {
             ledge_jump_velocity: Self::ledge_jump_velocity_for(gravity, su(36250)),
             weight: Fx::from_int(93),
             weapon: 12,
-            roll_frames: 30,
-            roll_back_frames: 35,
+            roll_frames: 29,
+            roll_back_frames: 34,
             roll_intangible_start: 4,
             roll_intangible_end: 15,
             spot_dodge_frames: 25,
@@ -2078,10 +2089,10 @@ impl FighterParams {
             gravity,
             max_fall_speed: su(1840),
             fast_fall_speed: su(2944),
-            air_dodge_frames: 45,
-            air_dodge_dir_down_frames: 62,
-            air_dodge_dir_side_frames: 75,
-            air_dodge_dir_up_frames: 98,
+            air_dodge_frames: 44,
+            air_dodge_dir_down_frames: 61,
+            air_dodge_dir_side_frames: 74,
+            air_dodge_dir_up_frames: 97,
             air_dodge_intangible_start: 3,
             air_dodge_intangible_end: 30,
             air_dodge_dir_intangible_end: 21,
@@ -2096,11 +2107,11 @@ impl FighterParams {
             ledge_jump_velocity: Self::ledge_jump_velocity_for(gravity, su(35250)),
             weight: Fx::from_int(79),
             weapon: 13,
-            roll_frames: 30,
-            roll_back_frames: 35,
+            roll_frames: 29,
+            roll_back_frames: 34,
             roll_intangible_start: 4,
             roll_intangible_end: 15,
-            spot_dodge_frames: 26,
+            spot_dodge_frames: 25,
             spot_intangible_start: 3,
             spot_intangible_end: 17,
             // No wall jump (the parameter file's `wall_jump_type` false); the wall tech's jump is 1.3 away, 2.4 up.
@@ -2225,6 +2236,8 @@ impl StateHash for FighterParams {
             None => h.write_bool(false),
         }
         h.write_u8(self.air_jump_drift);
+        h.write_u8(self.roll_back_intangible_start);
+        h.write_u8(self.roll_back_intangible_end);
         // (Sim 139: only a body with its own jump rule writes anything, so an older body's hash is unchanged.)
         if self.jump_speed_x_max != Fx::ZERO {
             self.jump_speed_x.hash_into(h);
@@ -2421,14 +2434,19 @@ pub struct Ruleset {
     pub jump_momentum_max: Fx,
     /// How a body with its own ground-jump rule (`FighterParams::jump_speed_x_max` above 0) combines the stick with its ground speed
     /// (owner decision 100, sim 139): 0 (the standard) takes the run's kept share whenever the fighter has ground speed, the stick's
-    /// `jump_speed_x` share only from standing still; 1 takes the faster of the two the same way (decision 99's first reading). Kept
-    /// switchable for playtests.
+    /// `jump_speed_x` share only from standing still; 1 takes the faster of the two the same way (decision 99's first reading); 2
+    /// (the standard since sim 144, the owner after a playtest: jumping back or forward out of a run should differ) adds them, the
+    /// run's kept share plus the stick's, within `jump_speed_x_max` (the earlier game in the series' published rule: initial
+    /// horizontal jump speed times the stick plus the ground speed times its multiplier, capped; the reference's own is unpublished).
     pub jump_stick_share: u8,
     /// The fastest a fighter keeps moving along the ground as it lands (sim 143, owner decision 102), as a percent of its body's
     /// `dash_speed` (the fastest it runs on its own): a landing out of a move, a special fall or a jump with more speed than that
     /// keeps only that much, so a fast recovery that ends on the stage does not slide across it on the gentle `landing_friction`
     /// [E: the reference publishes no landing rule]. 0: no cap (the rule before sim 143).
     pub landing_speed_cap: u8,
+    /// A fighter that has just grabbed a ledge can still be hit for this many frames before its ledge intangibility starts (sim 144,
+    /// from a playtest: the reference's "two-frame", ssbwiki.com `Edge`: "exactly two frames ... before the intangibility activates").
+    pub ledge_exposed_frames: u8,
     pub respawn_invuln: u8,
     /// A shield press this many frames before landing in hitstun is a tech.
     pub tech_window: u8,
@@ -2545,7 +2563,9 @@ pub struct Ruleset {
     /// drop is 11 with 9 extra frames added for command specials; owner decision 63, `docs/movesets/ROSTER_STATUS.md`).
     pub platform_drop_frames: u8,
     /// Whether a down flick on a pass-through platform drops through it (1) or not (0). Owner decision 2026-10-14 (sim 112): 0, the
-    /// drop is shield + special instead, so down tilts, down smashes, crouches and spot dodges work on platforms.
+    /// drop is shield + special instead, so down tilts, down smashes, crouches and spot dodges work on platforms. Sim 144 (the owner
+    /// after a playtest): 1, on a hard flick only (`Fighter::hard_down`: a quick flick on a stick, a double tap of down on a keyboard),
+    /// so a slow tilt or a single key press still crouches and down tilts; the shield drop stays.
     pub stick_platform_drop: u8,
     /// Dodge staling (sim 112, SmashWiki "Dodge staling", 13.0.1): each roll or spot dodge out of a shield and each air dodge makes
     /// dodges one level staler, up to `dodge_stale_max`. A level comes off `dodge_stale_first` frames after the last dodge ended and
@@ -2737,8 +2757,9 @@ impl Ruleset {
             push_speed: Fx::from_ratio(3, 40),
             jump_momentum: Fx::from_ratio(17, 20),
             jump_momentum_max: Fx::from_ratio(5, 4),
-            jump_stick_share: 0,
+            jump_stick_share: 2,
             landing_speed_cap: 100,
+            ledge_exposed_frames: 2,
             respawn_invuln: 120,
             tech_window: 11,
             tech_lag: 4,
@@ -2799,7 +2820,7 @@ impl Ruleset {
             special_turn_window: 3,
             special_reverse_window: 4,
             platform_drop_frames: 2,
-            stick_platform_drop: 0,
+            stick_platform_drop: 1,
             dodge_stale_max: 5,
             dodge_stale_first: 60,
             dodge_stale_every: 120,
@@ -2920,6 +2941,7 @@ impl StateHash for Ruleset {
         self.jump_momentum_max.hash_into(h);
         h.write_u8(self.jump_stick_share);
         h.write_u8(self.landing_speed_cap);
+        h.write_u8(self.ledge_exposed_frames);
         h.write_u8(self.respawn_invuln);
         h.write_u8(self.tech_window);
         h.write_u8(self.tech_lag);
@@ -3256,6 +3278,12 @@ mod tests {
         let mut c = base.clone();
         c.fighters[0].air_jump_drift = 120;
         assert_ne!(h, c.hash());
+        let mut c = base.clone();
+        c.fighters[0].roll_back_intangible_end += 1;
+        assert_ne!(h, c.hash());
+        let mut c = base.clone();
+        c.fighters[0].roll_back_intangible_start += 1;
+        assert_ne!(h, c.hash());
         // The ground jump's own rule (sim 139), every field of it.
         let mut j = base.clone();
         j.fighters[0].jump_speed_x_max = Fx::from_ratio(1, 8);
@@ -3307,8 +3335,9 @@ mod tests {
             |r: &mut Ruleset| r.push_speed += Fx::from_raw(1),
             |r: &mut Ruleset| r.jump_momentum += Fx::from_raw(1),
             |r: &mut Ruleset| r.jump_momentum_max += Fx::from_raw(1),
-            |r: &mut Ruleset| r.jump_stick_share ^= 1,
+            |r: &mut Ruleset| r.jump_stick_share ^= 3,
             |r: &mut Ruleset| r.landing_speed_cap += 1,
+            |r: &mut Ruleset| r.ledge_exposed_frames += 1,
         ] {
             let mut c = base.clone();
             change(&mut c.rules);

@@ -170,8 +170,8 @@ fn validate_previous_rules(r: &sim_core::content::Ruleset, errors: &mut Vec<Stri
                 .to_string(),
         );
     }
-    if r.jump_stick_share > 1 {
-        errors.push("ruleset: jump_stick_share must be 0 or 1".to_string());
+    if r.jump_stick_share > 2 {
+        errors.push("ruleset: jump_stick_share must be 0, 1 or 2".to_string());
     }
 }
 
@@ -245,6 +245,12 @@ fn validate_fighter(i: usize, f: &FighterParams, weapons: usize, errors: &mut Ve
                 "fighter {i}: {name} must be between 0 and the allowed maximum"
             ));
         }
+    }
+    if f.roll_back_intangible_end != 0 && f.roll_back_intangible_start > f.roll_back_intangible_end
+    {
+        errors.push(format!(
+            "fighter {i}: roll_back_intangible_start must not come after roll_back_intangible_end"
+        ));
     }
     if f.jump_speed_x_mul > 200 {
         errors.push(format!(
@@ -1704,12 +1710,12 @@ mod combat_tests {
 
     #[test]
     fn the_jump_stick_share_switch_round_trips_and_is_checked() {
-        // Sim 139 (owner decision 100): the ruleset's `jump_stick_share` is written, read back either way, defaults to 0 (the run's
-        // share) in a file without it, and is refused above 1.
+        // Sim 139 (owner decision 100): the ruleset's `jump_stick_share` is written, read back each way, plays as the standard
+        // (2 since sim 144: the run's share plus the stick's) in a file without it, and is refused above 2.
         let base = Content::placeholder();
-        assert_eq!(base.rules.jump_stick_share, 0);
+        assert_eq!(base.rules.jump_stick_share, 2);
         let text = crate::bundle::to_text(&base, "test", "", "", false);
-        assert!(text.contains("jump_stick_share 0"));
+        assert!(text.contains("jump_stick_share 2"));
         let back = crate::bundle::load(&text).expect("reads back").content;
         assert_eq!(back, base);
         let mut on = base.clone();
@@ -1727,9 +1733,9 @@ mod combat_tests {
         let older = crate::bundle::load(&stripped)
             .unwrap_or_else(|e| panic!("{}", e.join("\n")))
             .content;
-        assert_eq!(older.rules.jump_stick_share, 0);
+        assert_eq!(older.rules.jump_stick_share, 2);
         let mut bad = base.clone();
-        bad.rules.jump_stick_share = 2;
+        bad.rules.jump_stick_share = 3;
         assert!(validate(&bad)
             .unwrap_err()
             .iter()

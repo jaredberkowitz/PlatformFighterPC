@@ -565,11 +565,11 @@ fn the_exile_is_the_references_light_fast_faller_and_is_class_13() {
             p.air_dodge_dir_side_frames,
             p.air_dodge_dir_up_frames
         ),
-        (45, 62, 75, 98)
+        (44, 61, 74, 97)
     );
     assert_eq!(
         (p.roll_frames, p.roll_back_frames, p.spot_dodge_frames),
-        (30, 35, 26)
+        (29, 34, 25)
     );
     assert_eq!(
         (p.wall_jump, p.wall_jump_vx, p.wall_jump_vy),

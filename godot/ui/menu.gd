@@ -291,4 +291,6 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		KEY_ENTER, KEY_KP_ENTER, KEY_SPACE, KEY_J:
 			_choose(ITEMS[index][2])
 		KEY_ESCAPE:
-			get_tree().quit()
+			# Back (Esc, or B on a controller) only points at Quit: leaving the game takes a second, deliberate press. (It quit at once,
+			# and players backing out of an online match with B closed the game: playtest 2026-10-19.)
+			_select(ITEMS.size() - 1)

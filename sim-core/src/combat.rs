@@ -199,7 +199,7 @@ fn poke(rules: &crate::content::Ruleset, fd: &Fighter, hb: &mut Hitbox, at: Vec2
 
 /// True while a fighter cannot be hit.
 pub fn is_intangible(f: &Fighter) -> bool {
-    !f.active || f.invuln > 0 || f.ledge_invuln > 0
+    !f.active || f.invuln > 0 || (f.ledge_invuln > 0 && f.ledge_exposed == 0)
 }
 
 /// The move's hitboxes that are active this frame, with their world-space centres.
@@ -555,7 +555,10 @@ fn resolve_hits_n<const N: usize>(state: &mut GameState, content: &Content) {
                             stopped[a] |= 1 << hb.group;
                             (false, false)
                         } else {
-                            (touch && grab::can_catch(&hb, fd), false)
+                            (
+                                touch && grab::can_catch(&hb, fd) && grab::in_front(&hb, fa, fd),
+                                false,
+                            )
                         }
                     }
                     _ if fa.grab_with == d as i8 => (false, false),
