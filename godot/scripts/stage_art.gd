@@ -1235,7 +1235,9 @@ static func solid_block(parent: Node3D, t: Dictionary, left: float, right: float
 			_mesh(parent, _box(Vector3(w + 0.2, 0.45, depth + 0.1)), sand, Vector3(cx, top - 0.2, front_z - depth / 2.0))
 			# (A lip that rolls over the edge, its thickness and line wavering, in place of a straight tube and a lit strip along it that read
 			# as a ruled line, 2026-10-18, art review 7: the cel light gives it its own lit top and shaded underside.)
-			_edge_lip(parent, left - 0.1, right + 0.1, top - 0.26, front_z + 0.02, 0.28, sand)
+			# (Not on a clean top, the owner, 2026-10-19: the canyon's sand lip removed.)
+			if not t.get("clean_top", false):
+				_edge_lip(parent, left - 0.1, right + 0.1, top - 0.26, front_z + 0.02, 0.28, sand)
 			# A few small clusters of pebbles and the odd shell on the back of the sand, gathered toward the ends so the middle stays clean.
 			# (Art review 6 round 3: one size of pebble every metre or two read as a dotted pattern, a row of dimples across the sand.)
 			var pebble := Materials.stone((t.soil as Color).lightened(0.2))
