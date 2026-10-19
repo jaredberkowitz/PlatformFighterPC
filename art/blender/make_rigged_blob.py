@@ -388,7 +388,8 @@ def mitten(bm, x):
     block = _mitt_block(bm, x, 0.12, (0.13, 0.115, 0.06), squareness=0.8, curl=0.035, segments=56, rings=36)
     _crease(block, x, 0.15, 0.012, 0.005, side=-1.0)
     # (Four chunky fingers split well down the hand, the character pass, 2026-10-19: a paddle with faint grooves read as a mitten.)
-    _fingers(block, x, 0.07, 0.1, 0.032, width=0.02)
+    # (Split deeper and further back, the character judge's round 1: the reference's gloves have four clearly separate fingers.)
+    _fingers(block, x, 0.045, 0.09, 0.055, width=0.016)
     tube(bm, [_at(x, 0.045, 0.06, -0.012), _at(x, 0.085, 0.118, -0.022), _at(x, 0.105, 0.132, -0.026)], [0.05, 0.045, 0.041],
          segments=16, per_span=4)
 
@@ -1268,7 +1269,7 @@ FIST_SCALE = 0.74
 # The glove's fist (it is built bigger and rounder than the bare hand, with knuckles and a cuff): smaller, or a gloved fighter carried two
 # white balloons.
 GLOVE_SCALE = 0.74
-GLOVE_GROW = 1.1     # the base body's glove against its bare hand
+GLOVE_GROW = 1.0     # the base body's glove against its bare hand (1.1 until the aviator scout pilot, 2026-10-19: the reference's gloves are slim, ours read puffy)
 ## The wrist radius FIST_SCALE and FIST_CLOSED are set for (the cage body's, 2026-10-15); a body with thicker wrists gets bigger hands.
 HAND_WRIST = 0.082
 FIST_CLOSED = 0.74   # the closed fist (`fist`, built to the open hand's size) against the blob's
@@ -1588,9 +1589,11 @@ def build_body_meshes(rig):
         radii_at_wrist = sorted(wrist_r[side])
         r = radii_at_wrist[len(radii_at_wrist) // 2] if radii_at_wrist else 0.08
         bm = bmesh.new()
-        bmesh.ops.create_cone(bm, cap_ends=True, cap_tris=False, segments=24, radius1=r * 1.2, radius2=r * 1.38, depth=0.075)
+        # (A longer flared cuff, the character judge's round 1: a short one left a ring of skin showing at the wrist.)
+        bmesh.ops.create_cone(bm, cap_ends=True, cap_tris=False, segments=24, radius1=r * 1.1, radius2=r * 1.5, depth=0.17)
         bmesh.ops.transform(bm, matrix=Vector((0.0, 0.0, 1.0)).rotation_difference(fore).to_matrix().to_4x4(), verts=bm.verts)
-        bmesh.ops.translate(bm, vec=J["hand." + side] - fore * 0.055, verts=bm.verts)
+        # (Further up the forearm, over the wrist ring, the character judge's round 2: a ring of skin showed under it.)
+        bmesh.ops.translate(bm, vec=J["hand." + side] - fore * 0.11, verts=bm.verts)
         parts["Cuff." + side] = to_object("Cuff." + side, bm, "hand." + side, rig)
 
     # The face shell, as the blob's: a ball fitted to the head, its front only, the face drawing projected straight on.
@@ -1701,7 +1704,8 @@ def build_body_meshes(rig):
         "neck": round(neck - 0.015, 4),
         "waist": round(hips + WAIST_SHARE * (neck - hips), 4),
         "shorts_end": round(crotch - 0.42 * (crotch - knee), 4),
-        "sock_top": round(ankle + 0.19, 4),
+        # (Tall, to just under the knee, the character judge's round 1 after the owner's reference: thick socks give the legs structure.)
+        "sock_top": round(ankle + SOCK_HEIGHT, 4),
         "shoe_top": round(ankle + 0.03, 4),
         "sole_top": round(0.035, 4),
         "shoulder_l": [round(J["armU.L"].x, 4), round(J["armU.L"].z, 4)], "elbow_l": [round(J["armL.L"].x, 4), round(J["armL.L"].z, 4)],
@@ -1927,6 +1931,15 @@ BOOT_CUFF_LIFT = 0.046
 # The shorts' rolled cuffs, a band round each leg opening standing a little proud of the cloth.
 CUFF_HEIGHT = 0.06
 CUFF_LIFT = 0.06
+# The sleeves' trim (the aviator scout pilot, 2026-10-19, the owner's reference: a coloured band round each sleeve's end, standing proud),
+# this share of the upper arm long and lifted this far off the skin.
+SLEEVE_TRIM = 0.12
+# Tall thick ribbed socks (the character judge's round 1): how far up from the ankle, how far off the skin, and their turned-down top.
+SOCK_HEIGHT = 0.42
+SOCK_LIFT = 0.03
+SOCK_TOP_BAND = 0.045
+SOCK_TOP_LIFT = 0.045
+SLEEVE_TRIM_LIFT = 0.09   # (just over the shirt's own lift, the character judge's round 2: further out it stood off as a fin)
 SLEEVE_SNUG = 0.55      # the sleeve's opening hugs the arm (this share of the shirt's distance), so no dark gap shows inside it
 SHORTS_TOP = -0.002   # the shorts reach just under the shirt's hem (below it a little, they could poke through)
 SHORTS_LIFT = 0.04     # the shorts sit a little closer in, so the shirt's hem lies over their waistband
@@ -2021,6 +2034,17 @@ def build_garments(skin, J, neck):
     def in_cuff(co):
         return not on_arm(co) and shorts_end < co.z < cuff_top and co.z < crotch
 
+    sock_top = ankle + SOCK_HEIGHT
+
+    def in_sock(co):
+        return not on_arm(co) and boot_top - 0.02 < co.z < sock_top - SOCK_TOP_BAND
+
+    def in_sock_top(co):
+        return not on_arm(co) and sock_top - SOCK_TOP_BAND < co.z < sock_top
+
+    def in_sleeve_trim(co):
+        return co.z < neck_line and on_arm(co) and SLEEVE - SLEEVE_TRIM < sleeve_t(co) < SLEEVE
+
     def boot_hem(co):
         return abs(co.z - boot_top)
 
@@ -2038,10 +2062,13 @@ def build_garments(skin, J, neck):
             (Vector((0, 0, shorts_end)), Vector((0, 0, 1))), (Vector((0, 0, waist + SHORTS_TOP)), Vector((0, 0, 1))),
             (Vector((0, 0, waist - BELT_HALF)), Vector((0, 0, 1))), (Vector((0, 0, waist + BELT_HALF)), Vector((0, 0, 1))),
             (Vector((0, 0, boot_top)), Vector((0, 0, 1))), (Vector((0, 0, SOLE_HEIGHT)), Vector((0, 0, 1))),
-            (Vector((0, 0, cuff_top)), Vector((0, 0, 1))), (Vector((0, 0, boot_top - BOOT_CUFF)), Vector((0, 0, 1)))]
+            (Vector((0, 0, cuff_top)), Vector((0, 0, 1))), (Vector((0, 0, boot_top - BOOT_CUFF)), Vector((0, 0, 1))),
+            (Vector((0, 0, sock_top)), Vector((0, 0, 1))), (Vector((0, 0, sock_top - SOCK_TOP_BAND)), Vector((0, 0, 1))),
+            (Vector((0, 0, boot_top - 0.02)), Vector((0, 0, 1)))]
     for side in "LR":
         a, b = arm[side]
         cuts.append((a + (b - a) * SLEEVE, (b - a).normalized()))
+        cuts.append((a + (b - a) * (SLEEVE - SLEEVE_TRIM), (b - a).normalized()))
     skin_points = kdtree.KDTree(len(skin.data.vertices))
     for v in skin.data.vertices:
         skin_points.insert(v.co, v.index)
@@ -2087,7 +2114,8 @@ def build_garments(skin, J, neck):
     out = {}
     for name, inside, hem, lift in (("Shirt", in_shirt, shirt_hem, SHIRT_LIFT), ("Shorts", in_shorts, shorts_hem, SHORTS_LIFT),
                                     ("Belt", in_belt, belt_hem, BELT_LIFT), ("Boot", in_boot, boot_hem, BOOT_LIFT),
-                                    ("BootSole", in_sole, belt_hem, SOLE_LIFT), ("BootCuff", in_boot_cuff, belt_hem, BOOT_CUFF_LIFT), ("ShortsCuff", in_cuff, belt_hem, CUFF_LIFT)):
+                                    ("BootSole", in_sole, belt_hem, SOLE_LIFT), ("BootCuff", in_boot_cuff, belt_hem, BOOT_CUFF_LIFT), ("ShortsCuff", in_cuff, belt_hem, CUFF_LIFT),
+                                    ("Sock", in_sock, belt_hem, SOCK_LIFT), ("SockTop", in_sock_top, belt_hem, SOCK_TOP_LIFT)):
         obj = skin.copy()
         obj.data = skin.data.copy()
         obj.name = name
@@ -2174,9 +2202,10 @@ def build_garments(skin, J, neck):
         levels = {"Shirt": [waist - 0.012, neck_line], "Shorts": [waist + SHORTS_TOP, shorts_end],
                   "Belt": [waist - BELT_HALF, waist + BELT_HALF], "Boot": [boot_top], "BootSole": [SOLE_HEIGHT],
                   "BootCuff": [boot_top - BOOT_CUFF, boot_top],
-                  "ShortsCuff": [shorts_end, cuff_top]}[name]
+                  "ShortsCuff": [shorts_end, cuff_top], "SleeveTrim": [], "Sock": [boot_top - 0.02, sock_top - SOCK_TOP_BAND],
+                  "SockTop": [sock_top - SOCK_TOP_BAND, sock_top]}[name]
         for v in hems:
-            if on_arm(v.co):
+            if on_arm(v.co) or not levels:
                 continue
             nearest = min(levels, key=lambda z: abs(v.co.z - z))
             if abs(v.co.z - nearest) < 0.04:

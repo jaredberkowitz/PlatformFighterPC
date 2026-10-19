@@ -6,7 +6,7 @@ render_mode unshaded, cull_back, shadows_disabled, depth_draw_never;
 uniform vec4 tint : source_color = vec4(1.0, 0.72, 0.5, 0.32);
 uniform float glare = 0.85;
 // The lens's half size in its own space (the modelled lens has no UVs; its own coordinates place the streaks).
-uniform vec2 half_size = vec2(0.225, 0.165);
+uniform vec2 half_size = vec2(0.25, 0.18);
 varying vec2 local;
 
 void vertex() {

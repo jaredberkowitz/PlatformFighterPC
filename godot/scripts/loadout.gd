@@ -210,6 +210,8 @@ static func default_for(player: int) -> RefCounted:
 	l.mouth = f[1]
 	l.eyes = f[2]
 	l.cheeks = 0
+	# (The aviator scout's hair ginger, as the reference's: the hair takes the brows' colour.)
+	l.brow_color = 4 if player % 4 == 1 else 0
 	# Dressed, as the reference cast always is (the character pass, 2026-10-19; bare, the defaults read as naked blobs in a match):
 	# [shirt, neck, accent, glasses]: a sailor (white shirt, neckerchief, cobalt), an aviator scout (white shirt, sash, meadow green), a
 	# holiday shirt (flowers, sash, biscuit), a ranger (outfit shirt, sash, sunny); every one in the full kit (shorts, gloves, socks, shoes).
