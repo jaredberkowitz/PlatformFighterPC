@@ -1802,9 +1802,9 @@ static func _hay_bale(root: Node3D, at: Vector3, turn: float) -> void:
 	# stage's light like any surface, not a flat decal.
 	# (The modelled bale, art/blender/make_props.py `hay_bale`, the gauntlet's round 12; the built one below stands in without it.)
 	# It wears the same painted straw: the body's strands and the ends' rolled spiral (its own modelled grooves give that spiral relief).
-	var body_mat := Materials.as_family(FighterView.toon(Color.WHITE, true, _straw_texture(false), Vector2.ONE), "grass")
+	var body_mat := Materials.as_family(FighterView.toon(Color(1.0, 0.97, 0.82), true, _straw_texture(false), Vector2.ONE), "grass")
 	# (The ends a step down, round 33: the spiral ends were the brightest scenery by the fighters.)
-	var end_mat := Materials.as_family(FighterView.toon(Color(0.8, 0.77, 0.72), false, _straw_texture(true), Vector2.ONE), "grass")
+	var end_mat := Materials.as_family(FighterView.toon(Color(0.86, 0.84, 0.72), false, _straw_texture(true), Vector2.ONE), "grass")
 	var model := Toonify.load_prop("hay_bale", true)
 	if model != null:
 		model.position = at
@@ -3637,7 +3637,7 @@ static func _meadow(root: Node3D, t: Dictionary, stage: Array) -> void:
 	var mill := Node3D.new()
 	root.add_child(mill)
 	_windmill(mill, Vector3(-34, hill_top(-34.0) - 0.8, -73))
-	_mute(mill, 0.15, Color(0.74, 0.86, 0.92), 0.12, false)
+	_mute(mill, 0.3, Color(0.72, 0.88, 0.9), 0.22, false)
 	# (Each standing on the land with a painted shadow under it, `_ground_shadow`.)
 	_ground_shadow(Vector3(-34, 0, -73), Vector2(4.4, 3.6), -72.0)
 	# A few cottages on the near hills (just behind the land's edge), smoke rising from their chimneys: someone lives here.
@@ -3648,14 +3648,15 @@ static func _meadow(root: Node3D, t: Dictionary, stage: Array) -> void:
 		var house := Node3D.new()
 		root.add_child(house)
 		_cottage(house, Vector3(cx, hill_top(cx) - 0.6, -74.0), c[1], 1.0 if cx > 0.0 else -1.0)
-		_mute(house, 0.35, Color(0.74, 0.86, 0.92), 0.25, false)
+		_mute(house, 0.4, Color(0.72, 0.88, 0.9), 0.32, false)
 		_ground_shadow(Vector3(cx, 0, -74.0), Vector2(3.4, 2.6), -72.0)
 	# A low rise of meadow in front of the hills, and round trees standing along it (their feet just behind its edge).
 	_fore_band(root, -46.0, -10.0, Color(0.46, 0.76, 0.32))
 	# (Muted toward the valley's air, the gauntlet's round 23: the vivid lime and yellow stripes read as a flat painted card under the farm.)
 	# (A patchwork of crops, fallow earth and pale stubble, round 28: in near-equal greens the fields read as one even texture.)
 	# (Brighter with the lawn, 2026-10-19: the papercraft camp's patchwork of lime crops and warm earth.)
-	_fields(root, -46.0, -10.0, [Color(0.5, 0.78, 0.32), Color(0.78, 0.6, 0.42), Color(0.6, 0.82, 0.36), Color(0.9, 0.82, 0.56), Color(0.86, 0.76, 0.44)],
+	# (Sage and one warm sand in place of the yellow stubble, round 35's diff: the reference's mid-ground is clean greens.)
+	_fields(root, -46.0, -10.0, [Color(0.5, 0.78, 0.32), Color(0.62, 0.76, 0.5), Color(0.6, 0.82, 0.36), Color(0.86, 0.82, 0.64), Color(0.56, 0.72, 0.46)],
 		# (The hedgerows a step nearer the fields' greens, art review 10: dark lines netting the whole valley were its busiest detail.)
 		Color(0.36, 0.58, 0.32))
 	for k in 6:
