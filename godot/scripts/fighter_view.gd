@@ -795,6 +795,8 @@ const ARM_BULK := {7: [Vector3(1.55, 1.08, 1.55), Vector3(1.45, 1.35, 1.45)]}
 ## (Wider and squatter again, the character pass, 2026-10-19: the reference cast's heads are broad squat ovals, wider than the shoulders.)
 const HEAD_SIZE := Vector3(1.32, 1.0, 1.2)
 const HAND_SIZE := 1.25
+## How strong the skin's faint painted grain is (`skin_grain` in shaders/skin.gdshader), the character pass, 2026-10-19.
+const SKIN_GRAIN := 0.2
 const FOOT_SIZE := 1.05
 
 
@@ -1687,6 +1689,7 @@ func _skin_material(skin_c: Color, shorts_c: Color, painted_clothes := true) -> 
 	var m := ShaderMaterial.new()
 	m.shader = SKIN_SHADER
 	m.set_shader_parameter("skin", skin_c)
+	m.set_shader_parameter("skin_grain", SKIN_GRAIN)
 	var accent: Color = loadout.accent_color()
 	match loadout.shirt:
 		1:

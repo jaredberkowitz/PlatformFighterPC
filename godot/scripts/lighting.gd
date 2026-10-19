@@ -203,6 +203,10 @@ static func apply(env: Environment, root: Node, preview := false) -> void:
 	var key := DirectionalLight3D.new()
 	key.name = "KeyLight"
 	key.rotation_degrees = Vector3(-38, -32, 0)
+	# (The menus' previews lit from the side as a match is, `KEY_SIDE`, the character pass, 2026-10-19: from nearly in front the edge
+	# between light and shade fell across the flat chest as a pale soft patch.)
+	if preview:
+		key.rotation_degrees.y += KEY_SIDE
 	key.light_color = Color(1.0, 0.93, 0.82)
 	key.light_energy = 1.25
 	key.shadow_enabled = not preview

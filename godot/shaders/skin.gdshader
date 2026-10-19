@@ -59,6 +59,25 @@ instance uniform float object_id : instance_index(1) = 0.95;
 
 varying vec3 world_pos;
 
+// A faint painted grain on the skin (the character pass, 2026-10-19, the owner's reference cast: their skin has a soft hand-painted
+// feel, and a perfectly even fill kept a hint of plastic once matte): broad soft mottling and a finer tooth, laid on the body's rest
+// position so it moves with the skin and never swims. `skin_grain` how strong (0 off); kept faint, form over texture.
+uniform float skin_grain = 0.0;
+
+float g_hash(vec3 q) {
+	q = fract(q * vec3(0.1031, 0.1030, 0.0973));
+	q += dot(q, q.yxz + 33.33);
+	return fract((q.x + q.y) * q.z);
+}
+
+float g_noise(vec3 q) {
+	vec3 i = floor(q);
+	vec3 f = fract(q);
+	f = f * f * (3.0 - 2.0 * f);
+	return mix(mix(mix(g_hash(i), g_hash(i + vec3(1, 0, 0)), f.x), mix(g_hash(i + vec3(0, 1, 0)), g_hash(i + vec3(1, 1, 0)), f.x), f.y),
+		mix(mix(g_hash(i + vec3(0, 0, 1)), g_hash(i + vec3(1, 0, 1)), f.x), mix(g_hash(i + vec3(0, 1, 1)), g_hash(i + vec3(1, 1, 1)), f.x), f.y), f.z);
+}
+
 void vertex() {
 	world_pos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 }
@@ -161,6 +180,12 @@ void fragment() {
 		float ring = smoothstep(0.72, 0.76, low) * (1.0 - smoothstep(0.79, 0.83, low));
 		// (A soft crease, not a collar: at 65% ink it read as a hard dark ring round the neck. Art review 6.)
 		c = mix(c, mix(hem.rgb, c, 0.72), on_ball * ring * chin_line);
+	}
+	if (skin_grain > 0.0) {
+		vec3 rest = vec3(p.x, p.y, UV2.x);
+		float mottle = g_noise(rest * 7.0) * 0.6 + g_noise(rest * 19.0 + 4.0) * 0.4;
+		float tooth = g_noise(rest * 70.0);
+		c *= 1.0 + ((mottle - 0.5) * 1.0 + (tooth - 0.5) * 0.45) * skin_grain;
 	}
 	ALBEDO = c;
 	EMISSION = flash.rgb * flash.a;
