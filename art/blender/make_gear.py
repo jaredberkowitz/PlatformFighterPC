@@ -184,14 +184,15 @@ def aviator_cap():
             x = r * math.sin(ph) * math.cos(a)
             y = r * math.sin(ph) * math.sin(a)
             # (Domed up, the character judge's round 9: a thin cap over the fleece in pose.)
-            z = 1.52 + 0.98 * math.cos(ph)
+            # (A tall dome, the character judge's round 14: it read flat from above.)
+            z = 1.52 + 1.3 * math.cos(ph)
             # The seam down the middle of the crown.
             if abs(x) < 0.03:
                 x *= 0.6
                 z -= 0.008
             row.append(bm.verts.new((x, y, z)))
         rows.append(row)
-    top = bm.verts.new((0.0, 0.0, 1.52 + 0.98))
+    top = bm.verts.new((0.0, 0.0, 1.52 + 1.3))
     for i in range(seg_u):
         bm.faces.new((rows[0][i], rows[0][(i + 1) % seg_u], top))
     for j in range(seg_v):
@@ -223,12 +224,12 @@ def aviator_cap():
             b_ = math.tau * j / minor
             # (Fat, the character judge's round 1: a thin ring read as a brim.)
             # (A fifth smaller and drawn in to the head's width, the character judge's round 2: wider than the head it read as a brim.)
-            r = 0.16 * lump * (1.0 + 0.12 * math.sin(b_ * 3.0 + i))
+            r = 0.14 * lump * (1.0 + 0.12 * math.sin(b_ * 3.0 + i))
             # (Dipping lower over the ears, so it follows the head, the character judge's round 3: level, it read as a plate.)
             side_k = abs(c.x) / max(Vector((c.x, c.y, 0.0)).length, 1e-4)
             # (Taller in section than wide: the game widens the head, and the hat with it, 1.32 times across, which flattened a round tube
             # into a plate, the character judge's round 4.)
-            loop.append(bm.verts.new(c - out * 0.09 + Vector((0.0, 0.0, 0.26 - 0.1 * side_k)) + out * math.cos(b_) * r + up * math.sin(b_) * r * 1.35))
+            loop.append(bm.verts.new(c - out * 0.15 + Vector((0.0, 0.0, 0.26 - 0.1 * side_k)) + out * math.cos(b_) * r + up * math.sin(b_) * r * 1.35))
         loops.append(loop)
     # (UVs round and along the roll, so the game's curly fleece tile lies on it.)
     uv = bm.loops.layers.uv.new("UVMap")
@@ -261,6 +262,34 @@ def aviator_cap():
             bmesh.ops.translate(bm, vec=Vector((sx * (0.84 + inset), -0.22, 0.98)), verts=ret["verts"])
             to_object(part + nm, bm).parent = root
     # (No hair: the hat covers it all, the owner, 2026-10-19; hair pieces are to be their own items.)
+    # The goggles pushed up on the front of the crown, oversized (the character judge's round 14: the aviator's signature from every angle,
+    # lost with the hair): two brass rims with glass on a leather strap round the crown.
+    bm = bmesh.new()
+    lathe(bm, [(0.93, 1.98), (0.9, 2.08)])
+    to_object("leather_band", bm, sharp=60.0).parent = root
+    for sx in (-1.0, 1.0):
+        centre = Vector((sx * 0.3, -0.86, 2.06))
+        tilt = Matrix.Rotation(math.radians(-28.0), 3, "X")
+        bm = bmesh.new()
+        sides, minor = 28, 10
+        rows = []
+        for i in range(sides):
+            a_ = math.tau * i / sides
+            row = []
+            for j in range(minor):
+                b_ = math.tau * j / minor
+                rr = 0.22 + 0.06 * math.cos(b_)
+                row.append(bm.verts.new(centre + tilt @ Vector((rr * math.cos(a_), -0.06 * math.sin(b_) - 0.03, rr * math.sin(a_)))))
+            rows.append(row)
+        for i in range(sides):
+            for j in range(minor):
+                bm.faces.new((rows[i][j], rows[(i + 1) % sides][j], rows[(i + 1) % sides][(j + 1) % minor], rows[i][(j + 1) % minor]))
+        to_object("brass_rim" + ("L" if sx < 0 else "R"), bm).parent = root
+        bm = bmesh.new()
+        ret = bmesh.ops.create_uvsphere(bm, u_segments=20, v_segments=10, radius=1.0)
+        for v in ret["verts"]:
+            v.co = centre + tilt @ Vector((v.co.x * 0.22, v.co.y * 0.04 - 0.04, v.co.z * 0.22))
+        to_object("glass_lens" + ("L" if sx < 0 else "R"), bm).parent = root
     return root
 
 
@@ -275,13 +304,14 @@ def straw_hat():
     bm = bmesh.new()
     sides = 48
     rings = []
-    radii = [0.5, 0.6, 0.7, 0.8, 0.87, 0.9]
+    # (Wider, drooping at the front and back, the character judge's round 14: a neat cowboy hat, not the reference's floppy straw.)
+    radii = [0.5, 0.62, 0.74, 0.86, 0.96, 1.02]
     for k, r in enumerate(radii):
         ring = []
-        u = (r - 0.5) / 0.4
+        u = (r - 0.5) / 0.52
         for i in range(sides):
             a = math.tau * i / sides
-            curl = 0.26 * abs(math.cos(a)) ** 2 * u ** 2
+            curl = 0.26 * abs(math.cos(a)) ** 2 * u ** 2 - 0.16 * abs(math.sin(a)) ** 2 * u ** 2
             ring.append(bm.verts.new((r * math.cos(a), r * math.sin(a), base + 0.03 + curl - 0.03 * u)))
         rings.append(ring)
     # (UVs round and across the brim, so the game's woven straw tile lies on it, the character judge's round 5: smooth, it read as plastic.)

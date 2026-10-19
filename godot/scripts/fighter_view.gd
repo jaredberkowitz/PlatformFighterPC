@@ -2385,7 +2385,11 @@ func _hat() -> void:
 	# round head; a bigger hat is most of a fighter's silhouette. Scaled about the top of the head, so each still sits on it.)
 	# (Only the hats that sit on top of the head: scaled, the caps that wrap it (aviator cap, beanie, hood, topknot) came down over the eyes.)
 	if loadout.hat in [1, 3, 5, 7, 8]:
-		hat_pivot.scale = Vector3.ONE * HAT_SIZE
+		# (Only part of the head shape's stretch reaches the hat, the character judge's round 14: on the wide bun head the aviator's hat
+		# spread into a flat platter. The hat fits the head without taking its proportions.)
+		var hs: Vector3 = Loadout.HEAD_SCALES.get(Loadout.HEADS[clampi(int(loadout.get("head")), 0, Loadout.HEADS.size() - 1)], HEAD_SIZE)
+		var k := Vector3(pow(HEAD_SIZE.x / hs.x, 0.7), pow(HEAD_SIZE.y / hs.y, 0.7), pow(HEAD_SIZE.z / hs.z, 0.7))
+		hat_pivot.scale = k * HAT_SIZE
 	head_rig.add_child(hat_pivot)
 	var accent: Color = loadout.accent_color()
 	var white := toon(Color(0.97, 0.97, 1.0))
