@@ -11,7 +11,7 @@ use godot::classes::{INode, Node};
 use godot::prelude::*;
 use netplay::group::{GroupGuest, GroupHost, GroupParams, GroupSetup, GroupStatus};
 use netplay::packet::Setup;
-use netplay::peer::{Link, Peer, Status};
+use netplay::peer::{Link, LobbyPick, Peer, Status};
 use netplay::replay::{MatchRecord, Recorder};
 use netplay::session::{Advance, Event};
 use netplay::spectate::{SpectatorClient, SpectatorServer};
@@ -34,7 +34,7 @@ enum NetLink {
     Udp(UdpLink),
     Relay(RelayLink),
     /// A connection made by swapping codes (hole punched, `netcode::NetCode`).
-    Code(CodeLink),
+    Code(Box<CodeLink>),
 }
 
 impl Link for NetLink {
@@ -170,6 +170,8 @@ pub struct SimRunner {
     my_cosmetics: Vec<u8>,
     /// The fighter this player brings to an online match (`FighterSpec` bytes; empty uses the characters as given).
     my_fighter: Vec<u8>,
+    /// Online duels start from a lobby (`net_use_lobby`).
+    lobby_on: bool,
     /// Ranked rules for the match this player hosts: fighters over the point budget are refused.
     ranked: bool,
     /// Stocks and time limit of the next match (also sent to the other side when this player hosts). Unlimited by default,
@@ -441,6 +443,7 @@ impl INode for SimRunner {
             players: 0b0011,
             my_cosmetics: Vec::new(),
             my_fighter: Vec::new(),
+            lobby_on: false,
             ranked: false,
             match_rules: UNLIMITED,
             match_stage: 0,
@@ -1846,7 +1849,7 @@ impl SimRunner {
         let mut code = code;
         let link = code.bind_mut().take_link();
         match link {
-            Some(link) => self.net_start_host(NetLink::Code(link), &chars, input_delay),
+            Some(link) => self.net_start_host(NetLink::Code(Box::new(link)), &chars, input_delay),
             None => GString::from("not connected to your friend yet"),
         }
     }
@@ -1857,7 +1860,7 @@ impl SimRunner {
         let mut code = code;
         let link = code.bind_mut().take_link();
         match link {
-            Some(link) => self.net_start_join(NetLink::Code(link)),
+            Some(link) => self.net_start_join(NetLink::Code(Box::new(link))),
             None => GString::from("not connected to your friend yet"),
         }
     }
@@ -1894,24 +1897,41 @@ impl SimRunner {
             rules: self.match_rules,
             stage: self.match_stage,
         };
-        self.net = Some(Peer::host(link, &self.content, setup));
+        let peer = Peer::host(link, &self.content, setup);
+        self.net = Some(self.lobby_or_not(peer));
         self.net_log.clear();
         GString::new()
     }
 
+    /// With `net_use_lobby` on, a new peer starts in the lobby with this player's fighter, look and stage selected.
+    fn lobby_or_not(&self, peer: Peer<NetLink>) -> Peer<NetLink> {
+        if !self.lobby_on {
+            return peer;
+        }
+        peer.with_lobby(LobbyPick {
+            fighter: self.my_fighter.clone(),
+            cosmetics: self.my_cosmetics.clone(),
+            fighter_locked: false,
+            stage: self.match_stage,
+            stage_locked: false,
+        })
+    }
+
     fn net_start_join(&mut self, link: NetLink) -> GString {
-        self.net = Some(Peer::join_with_fighter(
+        let peer = Peer::join_with_fighter(
             link,
             &self.content,
             self.my_cosmetics.clone(),
             self.my_fighter.clone(),
-        ));
+        );
+        self.net = Some(self.lobby_or_not(peer));
         self.net_log.clear();
         GString::new()
     }
 
     /// One frame of network play: -1 not networked, 0 still connecting, 1 simulated a frame, 2 waiting for the other
-    /// player (nothing simulated), 3 refused (different version or content).
+    /// player (nothing simulated), 3 refused (different version or content, or the other player left), 4 in the lobby
+    /// (`net_lobby_view`).
     #[func]
     fn net_update(&mut self, stick_x: i32, stick_y: i32, button_mask: i32) -> i32 {
         let Some(peer) = self.net.as_mut() else {
@@ -1959,6 +1979,7 @@ impl SimRunner {
         }
         match status {
             Status::Connecting => 0,
+            Status::Lobby => 4,
             Status::Running(Advance::Ran) => 1,
             Status::Running(Advance::Stalled) => 2,
             Status::Rejected {
@@ -1966,7 +1987,9 @@ impl SimRunner {
                 their_version,
                 their_hash,
             } => {
-                if reason == netplay::packet::RejectReason::BadFighter {
+                if reason == netplay::packet::RejectReason::Left {
+                    self.net_log.push("your friend left".to_string());
+                } else if reason == netplay::packet::RejectReason::BadFighter {
                     self.net_log.push(
                         "refused: a fighter in this match is not allowed (over the point budget under ranked rules, or not one this game has)"
                             .to_string(),
@@ -2412,6 +2435,90 @@ impl SimRunner {
     #[func]
     fn quickmatch_stop(&mut self) {
         self.quick = None;
+    }
+
+    /// The stage of the online match being played (the lobby's draw), or -1 outside one.
+    #[func]
+    fn net_match_stage(&self) -> i32 {
+        self.net
+            .as_ref()
+            .and_then(|p| p.match_setup())
+            .map_or(-1, |s| i32::from(s.stage))
+    }
+
+    /// Online duels start from a lobby (both players choose a fighter and a stage there, and a rematch comes back to it) when on.
+    /// Call before `net_host*` / `net_join*`.
+    #[func]
+    fn net_use_lobby(&mut self, on: bool) {
+        self.lobby_on = on;
+    }
+
+    /// This player's lobby choice: the fighter (`FighterSpec` bytes) and its look (cosmetics), the stage, and whether each is
+    /// locked in. The match starts once both players have locked both.
+    #[func]
+    fn net_lobby_set(
+        &mut self,
+        fighter: PackedByteArray,
+        cosmetics: PackedByteArray,
+        fighter_locked: bool,
+        stage: i32,
+        stage_locked: bool,
+    ) {
+        if let Some(p) = self.net.as_mut() {
+            p.set_lobby_pick(LobbyPick {
+                fighter: fighter.as_slice().iter().take(16).copied().collect(),
+                cosmetics: cosmetics.as_slice().iter().take(64).copied().collect(),
+                fighter_locked,
+                stage: stage.clamp(0, i32::from(stages::COUNT) - 1) as u8,
+                stage_locked,
+            });
+        }
+    }
+
+    /// The lobby while it is open: `{mine: pick, theirs: pick}` (`theirs` missing until it arrives), each pick
+    /// `{fighter, cosmetics, fighter_locked, stage, stage_locked}`; an empty dictionary outside the lobby.
+    #[func]
+    fn net_lobby_view(&self) -> VarDictionary {
+        let mut out = VarDictionary::new();
+        let Some(v) = self.net.as_ref().and_then(|p| p.lobby_view()) else {
+            return out;
+        };
+        let dict = |p: &LobbyPick| {
+            let mut d = VarDictionary::new();
+            d.set("fighter", &PackedByteArray::from(p.fighter.as_slice()));
+            d.set("cosmetics", &PackedByteArray::from(p.cosmetics.as_slice()));
+            d.set("fighter_locked", p.fighter_locked);
+            d.set("stage", i32::from(p.stage));
+            d.set("stage_locked", p.stage_locked);
+            d
+        };
+        out.set("mine", &dict(&v.mine));
+        if let Some(t) = &v.theirs {
+            out.set("theirs", &dict(t));
+        }
+        out
+    }
+
+    /// Leaves a match (or its lobby) played by code, handing the socket back to `code` so this player keeps the same code
+    /// (`CodeLink::release`). Any other kind of match is just left. Returns whether the socket went back.
+    #[func]
+    fn net_leave_to_code(&mut self, code: Gd<netcode::NetCode>) -> bool {
+        let mut code = code;
+        let back = match self.net.take() {
+            Some(mut p) => {
+                p.leave();
+                match p.into_link() {
+                    NetLink::Code(link) => {
+                        code.bind_mut().adopt((*link).release());
+                        true
+                    }
+                    _ => false,
+                }
+            }
+            None => false,
+        };
+        self.net_leave();
+        back
     }
 
     #[func]

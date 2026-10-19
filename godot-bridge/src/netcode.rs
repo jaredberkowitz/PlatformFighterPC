@@ -23,6 +23,12 @@ const CONNECTED: i32 = 3;
 const FAILED: i32 = 4;
 
 impl NetCode {
+    /// Takes a socket back after a match (`CodeLink::release`): the same code, waiting for a friend again.
+    pub fn adopt(&mut self, sock: CodeSocket) {
+        self.sock = Some(sock);
+        self.their = None;
+    }
+
     /// Takes the punched link out (once connected); the `NetCode` is spent after that.
     pub fn take_link(&mut self) -> Option<CodeLink> {
         let sock = self.sock.take()?;

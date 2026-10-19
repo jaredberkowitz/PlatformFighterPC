@@ -9,6 +9,9 @@ const VERSION := 1
 
 ## What the menus pass to the match: {"content_text", "chars": [i, j], "entries": [e1, e2], "from_menu": true}.
 static var session := {}
+## This player's connection-code socket (a bridge `NetCode`), opened the first time the online screen offers a code and kept for as
+## long as the game is open, so the code stays the same (`scripts/code_keeper.gd` polls it). Lent to a match while one is on.
+static var netcode: RefCounted = null
 ## A character the creator should open when it starts (a slug), or "".
 static var edit_slug := ""
 

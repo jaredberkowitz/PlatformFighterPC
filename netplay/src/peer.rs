@@ -7,6 +7,12 @@
 //! **Rematches.** When a match is over, either player calls [`Peer::request_rematch`]; once both have, each side starts a
 //! fresh handshake over the same link (the host picks a new seed) and a new match begins. Every datagram carries a one-byte
 //! *epoch* (the number of matches this link has played), so late packets of the finished match can never reach the next one.
+//!
+//! **The lobby** (a peer made with [`Peer::with_lobby`]). Before each match the two players choose a fighter and a stage, each
+//! locking the choice in; both see the other's choices as they change ([`Peer::lobby_view`]). Each side keeps sending its whole
+//! choice ([`LobbyPick`]) a few times a second, so a lost datagram only delays things. Once both have locked both, the host draws
+//! the stage (their common choice, or one of the two at random) and the handshake starts with those fighters, as it would without a
+//! lobby. A rematch goes back to the lobby with the last choices selected but not locked.
 
 use crate::handshake::{BaseCounts, Handshake, Outcome};
 use crate::packet::MAGIC;
@@ -19,6 +25,113 @@ use sim_core::{Content, GameState, Input, SIM_VERSION};
 const T_REMATCH: u8 = 8;
 /// Ticks between resends of a rematch request.
 const REMATCH_EVERY: u32 = 6;
+/// Datagram type of a lobby choice ([`LobbyPick`]). Handled here, like the rematch request.
+const T_LOBBY: u8 = 9;
+/// Ticks between resends of this side's lobby choice (it is also sent at once whenever it changes).
+const LOBBY_EVERY: u32 = 10;
+/// The most bytes a fighter spec or cosmetics may take in a lobby datagram.
+const LOBBY_FIELD_MAX: usize = 64;
+
+/// One player's choices in the lobby: the fighter (`sim_content::recipe::FighterSpec` bytes) with its look and name (cosmetics,
+/// opaque), and the stage (an index into `sim_content::stages`), each locked in or not.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct LobbyPick {
+    pub fighter: Vec<u8>,
+    pub cosmetics: Vec<u8>,
+    pub fighter_locked: bool,
+    pub stage: u8,
+    pub stage_locked: bool,
+}
+
+impl LobbyPick {
+    /// Both choices locked in.
+    pub fn ready(&self) -> bool {
+        self.fighter_locked && self.stage_locked
+    }
+}
+
+/// What the lobby shows: this side's choices, and the other side's as last heard (`None` until they arrive).
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct LobbyView {
+    pub mine: LobbyPick,
+    pub theirs: Option<LobbyPick>,
+}
+
+const LOBBY_FIGHTER_LOCKED: u8 = 1;
+const LOBBY_STAGE_LOCKED: u8 = 2;
+/// The sender has left (back to the menus): the other side ends the lobby.
+const LOBBY_LEFT: u8 = 4;
+
+/// A lobby datagram: magic, type, the sender's sim version and base content hash (so two different builds find out at once),
+/// flags, stage, then the fighter and cosmetics, each with a length byte.
+fn encode_lobby(pick: &LobbyPick, version: u16, hash: u64, left: bool) -> Vec<u8> {
+    let mut out = MAGIC.to_le_bytes().to_vec();
+    out.push(T_LOBBY);
+    out.extend_from_slice(&version.to_le_bytes());
+    out.extend_from_slice(&hash.to_le_bytes());
+    let mut flags = 0;
+    if pick.fighter_locked {
+        flags |= LOBBY_FIGHTER_LOCKED;
+    }
+    if pick.stage_locked {
+        flags |= LOBBY_STAGE_LOCKED;
+    }
+    if left {
+        flags |= LOBBY_LEFT;
+    }
+    out.push(flags);
+    out.push(pick.stage);
+    for field in [&pick.fighter, &pick.cosmetics] {
+        let n = field.len().min(LOBBY_FIELD_MAX);
+        out.push(n as u8);
+        out.extend_from_slice(&field[..n]);
+    }
+    out
+}
+
+/// A decoded lobby datagram: (the sender's version, its hash, its choice, whether it has left).
+fn decode_lobby(bytes: &[u8]) -> Option<(u16, u64, LobbyPick, bool)> {
+    if bytes.len() < 17 || bytes[..2] != MAGIC.to_le_bytes() || bytes[2] != T_LOBBY {
+        return None;
+    }
+    let version = u16::from_le_bytes([bytes[3], bytes[4]]);
+    let hash = u64::from_le_bytes(bytes[5..13].try_into().ok()?);
+    let flags = bytes[13];
+    let stage = bytes[14];
+    let mut at = 15;
+    let mut fields = [Vec::new(), Vec::new()];
+    for f in &mut fields {
+        let n = usize::from(*bytes.get(at)?);
+        at += 1;
+        if n > LOBBY_FIELD_MAX {
+            return None;
+        }
+        *f = bytes.get(at..at + n)?.to_vec();
+        at += n;
+    }
+    let [fighter, cosmetics] = fields;
+    Some((
+        version,
+        hash,
+        LobbyPick {
+            fighter,
+            cosmetics,
+            fighter_locked: flags & LOBBY_FIGHTER_LOCKED != 0,
+            stage,
+            stage_locked: flags & LOBBY_STAGE_LOCKED != 0,
+        },
+        flags & LOBBY_LEFT != 0,
+    ))
+}
+
+/// The lobby between matches (see the module notes).
+#[derive(Clone, Debug, Default)]
+struct Lobby {
+    view: LobbyView,
+    ticks: u32,
+    /// This side's choice changed since it was last sent.
+    dirty: bool,
+}
 
 /// Anything that can move datagrams: a UDP socket, a relay connection, or a simulated lossy link in tests.
 pub trait Link {
@@ -31,6 +144,8 @@ pub trait Link {
 pub enum Status {
     /// Still agreeing on version and settings.
     Connecting,
+    /// In the lobby: the players are choosing (see [`Peer::lobby_view`]).
+    Lobby,
     /// In a match; whether this call simulated a frame or stalled waiting for the other side.
     Running(Advance),
     /// The other side runs a different sim version or content: no match.
@@ -65,6 +180,14 @@ pub struct Peer<L: Link> {
     join_info: Option<(Vec<u8>, Vec<u8>)>,
     base_hash: u64,
     base_counts: BaseCounts,
+    /// Whether matches start from a lobby (`with_lobby`), the lobby while it is open, and the choice it ended with (resent while
+    /// the other side may still be in the lobby, and selected again in the next one).
+    uses_lobby: bool,
+    lobby: Option<Lobby>,
+    last_pick: Option<LobbyPick>,
+    lobby_ticks: u32,
+    /// The other side left, or runs a different build (found from its lobby datagrams).
+    lobby_rejected: Option<(RejectReason, u16, u64)>,
 }
 
 impl<L: Link> Peer<L> {
@@ -128,7 +251,84 @@ impl<L: Link> Peer<L> {
             join_info: None,
             base_hash: content.hash(),
             base_counts: counts(content),
+            uses_lobby: false,
+            lobby: None,
+            last_pick: None,
+            lobby_ticks: 0,
+            lobby_rejected: None,
         }
+    }
+
+    /// Starts in the lobby instead of handshaking at once: the players choose fighters and a stage first (see the module notes),
+    /// and every rematch comes back to it. The host's other settings (rules, delay, ranked) stay those it was made with.
+    pub fn with_lobby(mut self, pick: LobbyPick) -> Peer<L> {
+        self.uses_lobby = true;
+        self.lobby = Some(Lobby {
+            view: LobbyView {
+                mine: pick,
+                theirs: None,
+            },
+            ticks: 0,
+            dirty: true,
+        });
+        self
+    }
+
+    /// The lobby's choices while it is open (`None` during a match).
+    pub fn lobby_view(&self) -> Option<&LobbyView> {
+        self.lobby.as_ref().map(|l| &l.view)
+    }
+
+    /// Changes this side's lobby choice (ignored outside the lobby).
+    pub fn set_lobby_pick(&mut self, pick: LobbyPick) {
+        if let Some(l) = &mut self.lobby {
+            if l.view.mine != pick {
+                l.view.mine = pick;
+                l.dirty = true;
+            }
+        }
+    }
+
+    /// The stage the host draws for two choices: the common one, else one of the two by the seed.
+    pub fn draw_stage(mine: u8, theirs: u8, seed: u64) -> u8 {
+        if mine == theirs || (seed >> 33) & 1 == 0 {
+            mine
+        } else {
+            theirs
+        }
+    }
+
+    /// Both players have locked in: the lobby closes and the match's handshake starts with their choices.
+    fn close_lobby(&mut self) {
+        let Some(lobby) = self.lobby.take() else {
+            return;
+        };
+        let mine = lobby.view.mine;
+        let theirs = lobby.view.theirs.unwrap_or_default();
+        self.handshake = if self.host {
+            let mut setup = self.host_setup.clone().unwrap_or_default();
+            setup.fighter = mine.fighter.clone();
+            setup.cosmetics = mine.cosmetics.clone();
+            setup.stage = Peer::<L>::draw_stage(mine.stage, theirs.stage, setup.seed);
+            self.host_setup = Some(setup.clone());
+            Handshake::host(SIM_VERSION, self.base_hash, self.base_counts, setup)
+        } else {
+            self.join_info = Some((mine.cosmetics.clone(), mine.fighter.clone()));
+            Handshake::join(
+                SIM_VERSION,
+                self.base_hash,
+                self.base_counts,
+                mine.cosmetics.clone(),
+                mine.fighter.clone(),
+            )
+        };
+        self.last_pick = Some(mine);
+        self.lobby_ticks = 0;
+    }
+
+    fn send_lobby(&mut self, pick: &LobbyPick, left: bool) {
+        let bytes = encode_lobby(pick, SIM_VERSION, self.base_hash, left);
+        self.send(&bytes);
     }
 
     /// The settings of the match in progress (seed, characters as agreed, rules...), once it has started.
@@ -204,14 +404,30 @@ impl<L: Link> Peer<L> {
         self.match_content = None;
         self.heard_from_remote = false;
         self.events.clear();
-        self.handshake = if self.host {
-            let mut setup = self.host_setup.clone().unwrap_or_default();
+        if let Some(setup) = &mut self.host_setup {
             // A new seed for the new match, the same on every run of the same host.
             setup.seed = setup
                 .seed
                 .wrapping_mul(6_364_136_223_846_793_005)
                 .wrapping_add(1_442_695_040_888_963_407);
-            self.host_setup = Some(setup.clone());
+        }
+        if self.uses_lobby {
+            // Back to the lobby, the last choices selected but not locked.
+            let mut pick = self.last_pick.clone().unwrap_or_default();
+            pick.fighter_locked = false;
+            pick.stage_locked = false;
+            self.lobby = Some(Lobby {
+                view: LobbyView {
+                    mine: pick,
+                    theirs: None,
+                },
+                ticks: 0,
+                dirty: true,
+            });
+            return;
+        }
+        self.handshake = if self.host {
+            let setup = self.host_setup.clone().unwrap_or_default();
             Handshake::host(SIM_VERSION, self.base_hash, self.base_counts, setup)
         } else {
             let (cosmetics, fighter) = self.join_info.clone().unwrap_or_default();
@@ -258,6 +474,11 @@ impl<L: Link> Peer<L> {
         &mut self.link
     }
 
+    /// The link back, done with this peer (call [`Peer::leave`] first to tell the other side).
+    pub fn into_link(self) -> L {
+        self.link
+    }
+
     pub fn stats(&self) -> Stats {
         self.session
             .as_ref()
@@ -281,6 +502,18 @@ impl<L: Link> Peer<L> {
 
     /// Tells the other side this peer is leaving.
     pub fn leave(&mut self) {
+        if self.uses_lobby {
+            // (Whether in the lobby or in a match: the other side may be in either.)
+            let pick = self
+                .lobby
+                .as_ref()
+                .map(|l| l.view.mine.clone())
+                .or_else(|| self.last_pick.clone())
+                .unwrap_or_default();
+            for _ in 0..3 {
+                self.send_lobby(&pick, true);
+            }
+        }
         if let Some(s) = &mut self.session {
             s.disconnect();
             let outgoing = s.drain_outgoing();
@@ -296,6 +529,23 @@ impl<L: Link> Peer<L> {
             if bytes.len() == 3 && bytes[..2] == MAGIC.to_le_bytes() && bytes[2] == T_REMATCH {
                 if self.session.is_some() {
                     self.remote_wants_rematch = true;
+                }
+                continue;
+            }
+            if let Some((version, hash, pick, left)) = decode_lobby(&bytes) {
+                if left {
+                    if self.lobby_rejected.is_none() && self.session.is_none() {
+                        self.events.push(Event::Disconnected {
+                            player: u8::from(self.host),
+                        });
+                    }
+                    self.lobby_rejected = Some((RejectReason::Left, version, hash));
+                } else if version != SIM_VERSION {
+                    self.lobby_rejected = Some((RejectReason::SimVersion, version, hash));
+                } else if hash != self.base_hash {
+                    self.lobby_rejected = Some((RejectReason::ContentHash, version, hash));
+                } else if let Some(l) = &mut self.lobby {
+                    l.view.theirs = Some(pick);
                 }
                 continue;
             }
@@ -319,6 +569,40 @@ impl<L: Link> Peer<L> {
                 let mut request = MAGIC.to_le_bytes().to_vec();
                 request.push(T_REMATCH);
                 self.send(&request);
+            }
+        }
+
+        if let Some((reason, their_version, their_hash)) = self.lobby_rejected {
+            if self.session.is_none() {
+                return Status::Rejected {
+                    reason,
+                    their_version,
+                    their_hash,
+                };
+            }
+        }
+        // The lobby: send this side's choice when it changes and every few ticks; close it once both have locked in.
+        if let Some(mut lobby) = self.lobby.take() {
+            lobby.ticks += 1;
+            let send = lobby.dirty || lobby.ticks % LOBBY_EVERY == 1;
+            lobby.dirty = false;
+            let pick = lobby.view.mine.clone();
+            let both = pick.ready() && lobby.view.theirs.as_ref().is_some_and(LobbyPick::ready);
+            self.lobby = Some(lobby);
+            if send || both {
+                self.send_lobby(&pick, false);
+            }
+            if !both {
+                return Status::Lobby;
+            }
+            self.close_lobby();
+        } else if self.uses_lobby && !self.heard_from_remote {
+            // The other side may still be in the lobby, waiting to hear that this one locked in.
+            self.lobby_ticks += 1;
+            if self.lobby_ticks % LOBBY_EVERY == 1 {
+                if let Some(pick) = self.last_pick.clone() {
+                    self.send_lobby(&pick, false);
+                }
             }
         }
 

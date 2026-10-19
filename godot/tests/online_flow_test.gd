@@ -146,6 +146,7 @@ func _code_screen() -> void:
 	check(screen.code_label.text == mine, "on the screen")
 	check(_shown(screen, "mycode") and _shown(screen, "friend"), "the code rows show")
 	check(not _shown(screen, "role") and not _shown(screen, "address") and not _shown(screen, "port") and not _shown(screen, "room"), "and the role, address, port and room rows do not")
+	check(not _shown(screen, "fighter") and not _shown(screen, "stage"), "a duel's fighter and stage are chosen in the lobby, not here")
 	check(_shown(screen, "stocks"), "either player may host, so both see the rules")
 	check(screen.connect_button.text == "Connect!", "the button says Connect!")
 	screen.edits["friend"].text = ""
@@ -262,10 +263,36 @@ func _code_scene_inner() -> void:
 		await process_frame
 	var join = ClassDB.instantiate("SimRunner")
 	root.add_child(join)
-	join.set_fighter(Roster.spec_bytes(Roster.net_entry()))
+	var theirs: Dictionary = Roster.builtins()[3]
+	join.set_fighter(Roster.spec_bytes(theirs))
+	join.set_cosmetics(Roster.profile_bytes(theirs))
+	join.net_use_lobby(true)
 	var host_side: bool = Roster.session.online.host
 	var err: String = join.net_host_code(other, PackedInt32Array([0, 1, 0, 1]), 2) if not host_side else join.net_join_code(other)
 	check(err == "", "the friend's side starts too: " + err)
+	# Both arrive in the lobby (the owner, 19 October): the match waits for both players' choices.
+	var lobby_seen := false
+	for i in 600:
+		join.net_update(0, 0, 0)
+		await process_frame
+		if scene.net_lobby != null and join.net_lobby_view().has("theirs"):
+			lobby_seen = true
+			break
+	check(lobby_seen, "both players are in the lobby (status %d)" % scene.net_status)
+	check(scene.net_status == 4, "and the match waits there")
+	if not lobby_seen:
+		return
+	# The friend locks in a fighter and the third stage; this player locks in the second stage.
+	join.net_lobby_set(Roster.spec_bytes(theirs), Roster.profile_bytes(theirs), true, 2, true)
+	for i in 20:
+		join.net_update(0, 0, 0)
+		await process_frame
+	check(scene.net_lobby.their_state.text.begins_with("Ready"), "this player sees the friend is ready: " + scene.net_lobby.their_state.text)
+	scene.net_lobby.fighter_row.step(1)
+	scene.net_lobby._unhandled_key_input(key(KEY_ENTER))
+	scene.net_lobby.stage_row.step(1)
+	scene.net_lobby._unhandled_key_input(key(KEY_ENTER))
+	check(scene.net_lobby.phase == 2, "Enter twice locks the fighter and the stage in")
 	var ran := 0
 	for i in 900:
 		if join.net_update(0, 0, 0) == 1:
@@ -274,6 +301,18 @@ func _code_scene_inner() -> void:
 		if ran > 60 and scene.net_mode and scene.net_status == 1:
 			break
 	check(scene.net_mode and scene.net_status == 1, "the match scene plays by code (status %d) %s" % [scene.net_status, str(join.net_take_log())])
+	check(scene.net_lobby == null, "the lobby closes when the match starts")
+	var stage: int = scene.sim.net_match_stage()
+	check(stage == 1 or stage == 2, "the match is on one of the two chosen stages (%d)" % stage)
+	# Leaving gives the code's socket back: the same code, ready for the next friend (one code per launch, the owner).
+	var lent: RefCounted = scene.lent_code
+	check(lent != null, "the match holds the code's socket")
+	if lent != null:
+		check(scene.sim.net_leave_to_code(lent), "leaving gives the socket back")
+		var state: int = lent.poll()
+		check(state == 1, "the code is ready again (%d)" % state)
+		check(lent.my_code() != "", "with a code")
+		scene.net_mode = false
 	join.net_leave()
 	scene.queue_free()
 	if is_instance_valid(screen):

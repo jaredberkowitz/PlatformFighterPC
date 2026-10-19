@@ -460,25 +460,22 @@ impl CodeSocket {
         let peer = self.chosen?;
         let their = self.their?;
         Some(CodeLink {
-            socket: self.socket,
             peer,
-            verified: self.verified,
             mine: self.nonce,
             theirs: their.nonce,
-            buf: self.buf,
+            inner: self,
         })
     }
 }
 
 /// The punched connection: like a direct `UdpLink`, but it only accepts datagrams from addresses that proved themselves with
-/// the right nonces, answers late probes itself, and never passes a probe or a STUN packet to the session.
+/// the right nonces, answers late probes itself, and never passes a probe or a STUN packet to the session. It keeps the whole
+/// [`CodeSocket`] it came from, so after the match [`CodeLink::release`] gives the socket back with the same code.
 pub struct CodeLink {
-    socket: UdpSocket,
+    inner: CodeSocket,
     peer: SocketAddr,
-    verified: Vec<SocketAddr>,
     mine: u16,
     theirs: u16,
-    buf: Vec<u8>,
 }
 
 impl CodeLink {
@@ -488,37 +485,56 @@ impl CodeLink {
     }
 
     pub fn local_addr(&self) -> io::Result<SocketAddr> {
-        self.socket.local_addr()
+        self.inner.socket.local_addr()
+    }
+
+    /// Done with this friend: the socket goes back to waiting for a code to connect to, with the same code as before (the same
+    /// port, public address and nonce), so a player keeps one code for as long as the game is open. The router's mapping stayed
+    /// alive through the match's traffic; the keepalive takes over again from now.
+    pub fn release(self) -> CodeSocket {
+        let mut s = self.inner;
+        s.their = None;
+        s.targets.clear();
+        s.punch_started = None;
+        s.last_probe = None;
+        s.verified.clear();
+        s.chosen = None;
+        s.failed = false;
+        s.last_keepalive = Instant::now()
+            .checked_sub(s.opts.keepalive)
+            .unwrap_or_else(Instant::now);
+        s
     }
 }
 
 impl Link for CodeLink {
     fn send(&mut self, bytes: &[u8]) {
-        let _ = self.socket.send_to(bytes, self.peer);
+        let _ = self.inner.socket.send_to(bytes, self.peer);
     }
 
     fn recv(&mut self) -> Option<Vec<u8>> {
+        let s = &mut self.inner;
         loop {
-            let (n, from) = match self.socket.recv_from(&mut self.buf) {
+            let (n, from) = match s.socket.recv_from(&mut s.buf) {
                 Ok(x) => x,
                 Err(e) if e.kind() == ErrorKind::WouldBlock => return None,
                 Err(e) if e.kind() == ErrorKind::ConnectionReset => continue,
                 Err(_) => return None,
             };
-            let bytes = &self.buf[..n];
+            let bytes = &s.buf[..n];
             if let Some(kind) = read_probe(bytes, self.mine, self.theirs) {
                 // The friend is still probing (our answer was lost, or it has not seen one yet): answer, and trust the path.
-                if !self.verified.contains(&from) && self.verified.len() < MAX_VERIFIED {
-                    self.verified.push(from);
+                if !s.verified.contains(&from) && s.verified.len() < MAX_VERIFIED {
+                    s.verified.push(from);
                 }
                 if kind == PROBE {
-                    let _ = self
+                    let _ = s
                         .socket
                         .send_to(&probe_bytes(PROBE_ACK, self.mine, self.theirs), from);
                 }
                 continue;
             }
-            if is_probe(bytes) || stun::looks_like_stun(bytes) || !self.verified.contains(&from) {
+            if is_probe(bytes) || stun::looks_like_stun(bytes) || !s.verified.contains(&from) {
                 continue;
             }
             return Some(bytes.to_vec());
@@ -748,6 +764,52 @@ mod tests {
         );
         la.send(b"back");
         assert!(run_until(|| lb.recv().as_deref() == Some(&b"back"[..])));
+    }
+
+    #[test]
+    fn a_released_link_keeps_its_code_and_connects_again() {
+        // One code for as long as the game is open: after a match the socket goes back to waiting, with the same code, and the
+        // two can connect again with the codes they already swapped.
+        let mut server = FakeStun::new(0);
+        let mut a = CodeSocket::bind(0, opts(vec![server.addr()])).unwrap();
+        let mut b = CodeSocket::bind(0, opts(vec![server.addr()])).unwrap();
+        assert!(run_until(|| {
+            server.pump();
+            a.poll();
+            b.poll();
+            a.state() == CodeState::Ready && b.state() == CodeState::Ready
+        }));
+        let (ca, cb) = (a.my_code().unwrap(), b.my_code().unwrap());
+        for round in 0..3 {
+            a.connect(cb).unwrap();
+            b.connect(ca).unwrap();
+            assert!(
+                run_until(|| {
+                    a.poll();
+                    b.poll();
+                    matches!(a.state(), CodeState::Connected(_))
+                        && matches!(b.state(), CodeState::Connected(_))
+                }),
+                "round {round}: connected"
+            );
+            let mut la = a.into_link().unwrap();
+            let mut lb = b.into_link().unwrap();
+            la.send(b"match");
+            assert!(run_until(|| lb.recv().as_deref() == Some(&b"match"[..])));
+            a = la.release();
+            b = lb.release();
+            assert_eq!(a.state(), CodeState::Ready, "round {round}");
+            assert_eq!(a.my_code(), Some(ca), "round {round}: the same code");
+            assert_eq!(b.my_code(), Some(cb), "round {round}: the same code");
+            // A late game datagram from the friend does not disturb the waiting socket.
+            assert!(run_until(|| {
+                server.pump();
+                a.poll();
+                b.poll();
+                true
+            }));
+            assert_eq!(a.state(), CodeState::Ready);
+        }
     }
 
     #[test]

@@ -13,6 +13,7 @@ const Preview := preload("res://ui/preview.gd")
 const Roster := preload("res://scripts/roster.gd")
 const Shot := preload("res://ui/shot.gd")
 const PadNav := preload("res://scripts/pad_nav.gd")
+const CodeKeeper := preload("res://scripts/code_keeper.gd")
 
 const SETTINGS_PATH := "user://online.json"
 const DEFAULT_PORT := 47000
@@ -238,7 +239,10 @@ func _row_shown(id: String) -> bool:
 			return not _code()
 		"mode":
 			return not _code() and not _watching() and not _quick()
-		"fighter", "delay":
+		"fighter":
+			# A duel's fighter is chosen in the lobby once connected; a group match still brings the one chosen here.
+			return not _watching() and not _code() and selectors["mode"].index == 1
+		"delay":
 			return not _watching()
 		"address":
 			return not _code() and (not _hosting() or _relay())
@@ -246,7 +250,10 @@ func _row_shown(id: String) -> bool:
 			return not _code() and _hosting() and not _relay()
 		"room":
 			return not _code() and _relay() and not _quick()
-		"stage", "stocks", "time", "rules":
+		"stage":
+			# A duel's stage is chosen in the lobby; a group match's host still sets it here.
+			return not _code() and _hosting() and selectors["mode"].index == 1
+		"stocks", "time", "rules":
 			# By code either player may end up hosting, so both set rules (the host's are used).
 			return _code() or _hosting() or _quick()
 	return true
@@ -367,7 +374,8 @@ func _back() -> void:
 		status.set_text("Stopped waiting. Press Connect to try again.")
 		return
 	_save_settings()
-	_stop_code()
+	# (The code's socket stays open, so the code is the same next time: `Roster.netcode`.)
+	netcode = null
 	get_tree().change_scene_to_file("res://menu.tscn")
 
 
@@ -507,17 +515,26 @@ func _connect() -> void:
 
 # ---- Playing by code ------------------------------------------------------------------------------------------------------------
 
-## Opens the code socket when Code is chosen and closes it otherwise (so Direct can host on the same port).
+## Opens the code socket when Code is chosen, or takes up the one already open (`Roster.netcode`: one code per launch), and closes
+## it when another way is chosen (so Direct can host on the same port).
 func _sync_code() -> void:
 	if _code() and netcode == null:
-		netcode = ClassDB.instantiate("NetCode")
-		var err: String = netcode.start(DEFAULT_PORT, code_stun, code_lan)
-		if err != "":
-			status.set_text(err)
-			netcode = null
-			return
+		# (A socket a match never gave back, a crash or an old scene, reads -1: open a fresh one.)
+		if Roster.netcode != null and Roster.netcode.poll() != -1 and code_stun.is_empty():
+			netcode = Roster.netcode
+			Roster.netcode.cancel()
+		else:
+			netcode = ClassDB.instantiate("NetCode")
+			var err: String = netcode.start(DEFAULT_PORT, code_stun, code_lan)
+			if err != "":
+				status.set_text(err)
+				netcode = null
+				return
+			if code_stun.is_empty():
+				Roster.netcode = netcode
 		code_state = -1
 		code_label.set_text("...")
+		CodeKeeper.attach(self)
 	elif not _code():
 		_stop_code()
 
@@ -525,6 +542,8 @@ func _sync_code() -> void:
 func _stop_code() -> void:
 	if netcode != null:
 		netcode.stop()
+		if Roster.netcode == netcode:
+			Roster.netcode = null
 		netcode = null
 	code_state = -1
 
@@ -589,7 +608,7 @@ func _go_code() -> void:
 		return
 	c.host = netcode.i_host()
 	c.netcode = netcode
-	netcode = null  # the match scene owns it now
+	netcode = null  # lent to the match scene, which gives the socket back afterwards (`Roster.netcode`)
 	Roster.save_last(c.entry.slug)
 	Roster.session = {"from_menu": true, "online": c, "stocks": c.stocks, "time": c.time, "stage": c.stage}
 	get_tree().change_scene_to_file("res://main.tscn")
