@@ -220,9 +220,11 @@ static func default_for(player: int) -> RefCounted:
 	l.brows = 7 if player % 4 == 0 else 3
 	if player % 4 == 0:
 		# (The curl high on the forehead, its two halves meeting in the middle.)
-		l.brow_y = FaceLook.neutral("brow_y") - 2
-		l.brow_gap = FaceLook.neutral("brow_gap") - 5
-		l.brow_size = FaceLook.neutral("brow_size") - 4
+		# (Each half drawn at its inner edge, so the two meet as one curl in the middle of the forehead, clear of the eyelids, the
+		# character judge's round 6.)
+		l.brow_y = FaceLook.neutral("brow_y") - 5
+		l.brow_gap = FaceLook.neutral("brow_gap") - 6
+		l.brow_size = FaceLook.neutral("brow_size") - 3
 	else:
 		l.brow_y = FaceLook.neutral("brow_y")
 		l.brow_gap = FaceLook.neutral("brow_gap")

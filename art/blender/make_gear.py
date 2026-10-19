@@ -250,7 +250,8 @@ def aviator_cap():
                 # (Hanging below the fleece in front of the hair as a padded tongue, the character judge's round 3: hidden, its top read as a
                 # dark disc on the cheek.)
                 # (Thin, hugging the cheek, the character judge's round 4: thick, it cupped out as a headphone.)
-                v.co = Vector((v.co.x * 0.06, v.co.y * 0.28 * k, v.co.z * 0.44 * k))
+                # (Narrow front to back, so side-on it is a strap down the cheek, not a disc, the character judge's round 6.)
+                v.co = Vector((v.co.x * 0.06, v.co.y * 0.17 * k, v.co.z * 0.44 * k))
                 # (Curving in under the jaw, following the cheek.)
                 v.co.x -= sx * 0.12 * max(0.0, -v.co.z / 0.44) ** 2
             bmesh.ops.translate(bm, vec=Vector((sx * (0.86 + inset), -0.1, 1.02)), verts=ret["verts"])
