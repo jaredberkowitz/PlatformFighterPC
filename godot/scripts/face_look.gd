@@ -49,7 +49,8 @@ const NOSE_Y := 0.5
 const NOSE_SIZE := 0.14
 const MOUTH_Y := 0.582
 const MOUTH_SIZE := 0.22
-const PUPIL := 0.257
+## (Smaller, the character pass, 2026-10-19: the reference cast's pupils are small dots in a wide white.)
+const PUPIL := 0.19
 const LOOK := Vector2(0.051, 0.01)
 ## Cheeks sit out from and below the eyes and grow with them (the concept's: just outside the eyes and well below them, 0.2 across).
 const CHEEK_OUT := 0.053
@@ -63,7 +64,8 @@ const CHEEK_SIZE := 0.2
 ## brows' turn reads on the concept's browless face (the calm faces stay browless); `mouth_scale` draws an action mouth larger, so a yell
 ## or a wince reads at play size rather than as a speck.)
 const EXPRESSIONS := {
-	"deadpan": {},
+	# (A little lidded at rest, the character pass, 2026-10-19: the reference cast's neutral face is unimpressed, not wide-eyed.)
+	"deadpan": {"lids": Vector3(0.2, 0.0, 0.0)},
 	"sleepy": {"lids": Vector3(0.55, 0.0, 0.0), "brow_lift": -0.01},
 	"grumpy": {"lids": Vector3(0.36, 0.28, 0.0), "brow_turn": 0.3, "brow_lift": -0.02, "brows": 3},
 	"smug": {"lids": Vector3(0.22, 0.0, 0.32), "brow_turn": -0.12, "brows": 3},

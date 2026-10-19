@@ -201,7 +201,15 @@ static func default_for(player: int) -> RefCounted:
 			l.hat = 3
 	l.glasses = 1 if player % 4 == 1 or player % 4 == 2 else 0
 	l.neck = 0
-	l.face = 0
+	# A face of its own for each default fighter (the character pass, 2026-10-19, after the owner's reference cast, where most of each
+	# character's personality is its face): sleepy with an open mouth, smug with a cat mouth, grumpy with a frown, deadpan with a blep;
+	# no blush (the reference's faces have none).
+	var faces := [[1, 3, 0], [3, 4, 0], [2, 7, 0], [0, 8, 4]]
+	var f: Array = faces[player % 4]
+	l.face = f[0]
+	l.mouth = f[1]
+	l.eyes = f[2]
+	l.cheeks = 0
 	l.accent = 2
 	l.shirt = 0
 	l.gear = 0

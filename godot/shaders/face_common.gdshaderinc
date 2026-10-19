@@ -81,8 +81,8 @@ vec3 face_eye(vec3 col, vec2 uv, float side) {
 		vec2 q = m - pc;
 		vec3 iris = mix(eye_color.rgb, ink_color.rgb, 0.6);
 		e = mix(e, iris, face_edge(length(q) - pupil_size));
-		vec2 hc = pc + vec2(-0.36 * side, -0.36) * pupil_size;
-		e = mix(e, vec3(1.0), 0.9 * face_edge(length(m - hc) - max(0.02, 0.16 * pupil_size)));
+		// (No catchlight, the character pass, 2026-10-19: the reference cast's pupils are plain dark dots; a shine read as glossy doll's
+		// eyes.)
 		// Lids in the fighter's colour (lit from above: lighter toward their top), each with an ink edge and a soft shadow on the eye
 		// below it.
 		if (lids.x > 0.001) {

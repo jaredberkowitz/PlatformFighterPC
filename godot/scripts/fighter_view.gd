@@ -796,7 +796,7 @@ const ARM_BULK := {7: [Vector3(1.55, 1.08, 1.55), Vector3(1.45, 1.35, 1.45)]}
 const HEAD_SIZE := Vector3(1.32, 1.0, 1.2)
 const HAND_SIZE := 1.25
 ## How strong the skin's faint painted grain is (`skin_grain` in shaders/skin.gdshader), the character pass, 2026-10-19.
-const SKIN_GRAIN := 0.2
+const SKIN_GRAIN := 0.15
 const FOOT_SIZE := 1.05
 
 

@@ -137,7 +137,9 @@ func _budget() -> void:
 			check((mat.get_shader_parameter(tex_name) == null) == none, "%s %s has its drawing" % [slot, Loadout.slot_names(slot)[i]])
 	# Old looks (before the face had parts: seven slots) still read, with the standard face.
 	var old := Loadout.from_bytes(PackedByteArray([Loadout.VERSION, 3, 1, 2, 1, 2, 4, 3]), 0)
-	check(old.color == 3 and old.face == 1 and old.eyes == 0 and old.cheeks == 1 and old.eye_y == FaceLook.neutral("eye_y"), "an old look keeps the standard face")
+	# (The standard face is the player's default parts, which each default fighter has its own of since the character pass, 2026-10-19.)
+	var std := Loadout.default_for(0)
+	check(old.color == 3 and old.face == 1 and old.eyes == std.eyes and old.cheeks == std.cheeks and old.eye_y == FaceLook.neutral("eye_y"), "an old look keeps the standard face")
 	# Glasses follow the eyes.
 	var spread := Loadout.default_for(0)
 	spread.eye_gap = Loadout.slot_size("eye_gap") - 1
