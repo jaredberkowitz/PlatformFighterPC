@@ -1542,8 +1542,9 @@ const HUD_LIFT := 0.022
 ## How soft the stage behind the results screen goes.
 const RESULTS_BLUR := 0.09
 ## Far scenery's blur in play (pixels at 1080 lines, `far_blur` in shaders/post.gdshader): the Best tier only. (3, was 1, art review 10:
-## a camera's focus on the fight, so the far scenery's fine detail calms behind it.)
-const PLAY_BLUR := 3.0
+## a camera's focus on the fight, so the far scenery's fine detail calms behind it.) (1, 2026-10-19: the far scenery is now big clean
+## folded planes with no fine detail to calm, and the owner's reference is crisp to the horizon; at 3 the folds smeared.)
+const PLAY_BLUR := 1.0
 ## Hitlag (frames) above which a hit shakes the camera.
 const HIT_SHAKE_FROM := 9.0
 

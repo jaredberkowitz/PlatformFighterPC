@@ -874,15 +874,23 @@ static func _pine_cluster(root: Node3D, at: Vector3, size: float) -> bool:
 	var own := RandomNumberGenerator.new()
 	own.seed = hash(Vector2i(roundi(at.x * 10.0), roundi(at.z * 10.0)))
 	# (Dark and muted, sampled from the reference: its pines are a grey-green near 0.31, 0.41, 0.36.)
-	var greens := [Color(0.18, 0.28, 0.24), Color(0.22, 0.32, 0.26), Color(0.16, 0.26, 0.24)]
+	# (Four greens, as the reference's pine belt mixes them, 2026-10-19: a slate, a forest green, a teal and a fresh green; one grey-green
+	# for all read as a flat grey clump.)
+	var greens := [Color(0.2, 0.36, 0.28), Color(0.22, 0.3, 0.3), Color(0.16, 0.38, 0.34), Color(0.26, 0.44, 0.26)]
 	for k in own.randi_range(3, 5):
 		var s := size * (1.0 if k == 0 else own.randf_range(0.55, 0.85))
 		var p := at + Vector3(own.randf_range(-1.2, 1.2) * size * 0.5 * float(k > 0), 0.0, own.randf_range(-0.6, 0.3) * size * 0.4)
 		var g: Color = greens[k % greens.size()]
-		var lit := (FighterView.toon(g.lightened(0.18), false) as ShaderMaterial).duplicate() as ShaderMaterial
+		var lit := (FighterView.toon(g, false) as ShaderMaterial).duplicate() as ShaderMaterial
 		lit.set_shader_parameter("facets", true)
+		# (A crisp step between the lit and shaded side of each fold, as the faceted ranges have.)
+		lit.set_shader_parameter("ramp_softness", 0.1)
+		# (The folded skirts in the tree's green, their undersides and the trunk a deep shade of it, 2026-10-19: the pleats catch the key
+		# on one side of every fold, as the reference's pines do.)
+		var under := (FighterView.toon(g.darkened(0.5), false) as ShaderMaterial).duplicate() as ShaderMaterial
+		under.set_shader_parameter("facets", true)
 		# (Sunk a little into the slope and in a soft shadow, so the group stands in the land, not on it.)
-		_place_prop(root, "pine", p - Vector3(0, 0.15 * s, 0), s, own.randf_range(0.0, 360.0), lit)
+		_place_prop(root, "pine", p - Vector3(0, 0.15 * s, 0), s, own.randf_range(0.0, 360.0), under, lit)
 	_ground_shadow(at, Vector2(1.6, 1.0) * size * 0.5, at.z + 1.0)
 	return true
 
@@ -3868,8 +3876,22 @@ static func _meadow(root: Node3D, t: Dictionary, stage: Array) -> void:
 		# 2026-10-19), in place of a round tree; the round tree without the model. Its own numbers, so the layout is unchanged.)
 		if not _pine_cluster(tree, Vector3(tx, fore_top(tx, -10.0) - 0.5, -47.0), ts * 4.6):
 			_round_tree(tree, Vector3(tx, fore_top(tx, -10.0) - 0.5, -47.0), ts, rng)
-		_mute(tree, 0.05, Color(0.74, 0.86, 0.92), 0.04, false)
+		_mute(tree, 0.05, Color(0.74, 0.86, 0.92), 0.02, false)
 		_ground_shadow(Vector3(tx, 0, -47.0), Vector2(2.6, 2.0) * ts, -46.0)
+	# (A fuller belt of pines along the rise, 2026-10-19: the reference's depth comes from many pines overlapping at different
+	# distances; six scattered clumps read sparse. Their own random numbers, so the rest of the layout is unchanged.)
+	var belt := RandomNumberGenerator.new()
+	belt.seed = 4711
+	for k in 7:
+		var tx := -66.0 + k * 22.0 + belt.randf_range(-6.0, 6.0)
+		var tz := belt.randf_range(-52.0, -44.0)
+		# (None right behind the fight, nor over the windmill.)
+		if absf(tx) < 14.0 or (tx > -54.0 and tx < -34.0):
+			continue
+		var tree := Node3D.new()
+		root.add_child(tree)
+		if _pine_cluster(tree, Vector3(tx, fore_top(tx, -10.0) - 0.5, tz), belt.randf_range(3.6, 5.4)):
+			_mute(tree, 0.05, Color(0.74, 0.86, 0.92), 0.02, false)
 	# A wooden fence along the back of the stage, and flowers: pale posts with rounded caps, each in its own contact shade, and darker
 	# rails, so the fence reads as built (posts and rails) under the key light rather than one flat colour.
 	var post := Materials.wood(Color(0.9, 0.7, 0.46))

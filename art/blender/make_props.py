@@ -1330,63 +1330,158 @@ def rope_lash():
     return root
 
 
+def pleated_tier(bm_out, bm_under, at, z_bot, r, h, pleats, turn, rng, flare=0.42, droop=0.1):
+    """One tier of a papercraft conifer or a bush (the owner's blue-mountain reference, 2026-10-19): a skirt folded in and out like a
+    paper fan, `pleats` points round its rim, so the key light falls on one side of every fold and not the other and each tier reads as
+    crisp stripes of light and shade. Steep near its tip and flaring at the foot (`flare`, the waist's radius as a share of the rim's),
+    the points hanging lower than the folds between them (`droop`), so the rim is a deep sawtooth; its underside a shallow dark cone
+    in `bm_under`."""
+    ax, ay = at
+    tip = bm_out.verts.new((ax, ay, z_bot + h))
+    waist, rim = [], []
+    n = pleats * 2
+    for i in range(n):
+        a = turn + math.tau * i / n
+        point = i % 2 == 0
+        jit = rng.uniform(0.92, 1.08) if point else 1.0
+        rr = r * (1.0 if point else 0.8) * jit
+        zr = z_bot - (droop * jit if point else -0.6 * droop)
+        rw = r * flare * (1.0 if point else 0.8)
+        zw = z_bot + h * 0.45
+        rim.append((ax + math.cos(a) * rr, ay + math.sin(a) * rr, zr))
+        waist.append((ax + math.cos(a) * rw, ay + math.sin(a) * rw, zw))
+    wv = [bm_out.verts.new(p) for p in waist]
+    rv = [bm_out.verts.new(p) for p in rim]
+    for i in range(n):
+        j = (i + 1) % n
+        bm_out.faces.new((tip, wv[i], wv[j]))
+        # Two triangles per panel, each its own plane: the folds stay crisp.
+        bm_out.faces.new((wv[i], rv[i], rv[j]))
+        bm_out.faces.new((wv[i], rv[j], wv[j]))
+    under = bm_under.verts.new((ax, ay, z_bot + h * 0.18))
+    uv = [bm_under.verts.new(p) for p in rim]
+    for i in range(n):
+        bm_under.faces.new((under, uv[(i + 1) % n], uv[i]))
+
+
+def _outward(bm, axis):
+    """Turns every face of an open shell to face away from `axis` (a point under its middle): recalc_face_normals guesses on open
+    meshes."""
+    bm.normal_update()
+    for f in bm.faces:
+        if f.normal.dot(f.calc_center_median() - Vector(axis)) < 0.0:
+            f.normal_flip()
+
+
 def pine():
-    """A pine in the papercraft camp's language (the owner's meadow target, 2026-10-19): five stacked faceted tiers, each a wide low cone
-    of nine flat panels whose rim droops into points, every tier a hair turned and narrower than the one under it, over a short trunk.
-    About 1 wide and 2.4 tall, standing on the origin. Parts `needles` (flat-shaded) and `trunk`."""
+    """A pine in the papercraft camp's language (the owner's blue-mountain reference, 2026-10-19): five stacked pleated tiers
+    (`pleated_tier`), each overlapping the one under it and a hair turned, narrowing to a spire, over a short trunk. About 1.6 wide and
+    2.5 tall, standing on the origin. Parts `needles_lit` (the folded skirts, flat-shaded), `under` (their dark undersides) and
+    `trunk`."""
     rng = random.Random(127)
     root = empty("pine")
-    bm = bmesh.new()
+    out, under = bmesh.new(), bmesh.new()
     tiers = 5
     for k in range(tiers):
         t = k / (tiers - 1)
-        r = 0.8 * (1.0 - 0.7 * t)
-        z0 = 0.35 + 0.42 * k
-        h = 0.62 - 0.06 * k
-        sides = 9
-        turn = rng.uniform(0, math.tau)
-        tip = bm.verts.new((0.0, 0.0, z0 + h))
-        rim = []
-        for i in range(sides * 2):
-            a = turn + math.tau * i / (sides * 2)
-            point = i % 2 == 0
-            rr = r * (1.0 if point else 0.78)
-            rim.append(bm.verts.new((math.cos(a) * rr, math.sin(a) * rr, z0 - (0.08 if point else 0.0) + rng.uniform(-0.02, 0.02))))
-        for i in range(len(rim)):
-            bm.faces.new((tip, rim[i], rim[(i + 1) % len(rim)]))
-        under = bm.verts.new((0.0, 0.0, z0 + 0.05))
-        for i in range(len(rim)):
-            bm.faces.new((under, rim[(i + 1) % len(rim)], rim[i]))
-    bmesh.ops.recalc_face_normals(bm, faces=bm.faces[:])
-    to_object("needles", bm, (0.16, 0.42, 0.3), smooth=False).parent = root
+        r = 0.8 * (1.0 - 0.72 * t)
+        z0 = 0.32 + 0.36 * k
+        h = 0.78 - 0.08 * k if k < tiers - 1 else 0.9
+        pleated_tier(out, under, (0.0, 0.0), z0, r, h, 7 if k < 3 else 6, rng.uniform(0, math.tau), rng, flare=0.5, droop=0.2 - 0.025 * k)
+    for bm in (out, under):
+        _outward(bm, (0.0, 0.0, 0.0))
+    to_object("needles_lit", out, (0.3, 0.5, 0.38), smooth=False).parent = root
+    to_object("under", under, (0.12, 0.22, 0.2), smooth=False).parent = root
     bm = bmesh.new()
-    cone(bm, 0.08, 0.06, 0.5, 0.0, sides=6)
-    to_object("trunk", bm, (0.4, 0.28, 0.2), smooth=False).parent = root
+    cone(bm, 0.09, 0.06, 0.55, 0.0, sides=6)
+    to_object("trunk", bm, (0.32, 0.24, 0.2), smooth=False).parent = root
     return root
 
 
 def bush():
-    """A faceted bush (the style sheet's section 9, 2026-10-19): five low-poly lumps of different sizes heaped into one mound, about 2.4
-    wide, 1.3 tall and 1.4 deep, standing on the origin; each lump's faces split by direction into `leaf_lit` (facing up) and
-    `leaf_shade`, flat-shaded, so it reads as clean planes of light and shade like the faceted trees and hills."""
+    """A bush in the same folded language as the pines (the owner's blue-mountain reference, 2026-10-19): a low rosette of three pleated
+    tiers, a wide flat skirt of long leaf points, a smaller steeper one inside it and a tuft on top, about 2.4 wide, 1.3 tall and 2.2
+    deep, standing on the origin. Parts `leaf_lit` (the leaves, flat-shaded, so the light falls in folds) and `leaf_shade` (under)."""
     rng = random.Random(131)
     root = empty("bush")
-    lit, shade = bmesh.new(), bmesh.new()
-    lumps = [((0.0, 0.0, 0.62), 0.7), ((-0.72, 0.1, 0.42), 0.5), ((0.74, 0.05, 0.45), 0.52), ((-0.3, -0.25, 0.85), 0.45),
-             ((0.35, 0.2, 0.9), 0.42)]
-    for (c, r) in lumps:
-        tmp = bmesh.new()
-        ret = bmesh.ops.create_icosphere(tmp, subdivisions=1, radius=r)
-        for v in ret["verts"]:
-            v.co *= 1.0 + rng.uniform(-0.12, 0.12)
-            v.co = Vector((v.co.x * 1.15, v.co.y, max(v.co.z * 0.85, -r * 0.35))) + Vector(c)
-        tmp.normal_update()
-        for f in tmp.faces:
-            target = lit if f.normal.z > 0.35 else shade
-            target.faces.new([target.verts.new(v.co) for v in f.verts])
-        tmp.free()
-    to_object("leaf_shade", shade, (0.2, 0.46, 0.3), smooth=False).parent = root
-    to_object("leaf_lit", lit, (0.46, 0.74, 0.36), smooth=False).parent = root
+    out, under = bmesh.new(), bmesh.new()
+    for (r, z0, h, n, droop) in ((1.2, 0.2, 0.7, 11, 0.16), (0.85, 0.5, 0.62, 9, 0.12), (0.5, 0.82, 0.48, 7, 0.08)):
+        pleated_tier(out, under, (0.0, 0.0), z0, r, h, n, rng.uniform(0, math.tau), rng, flare=0.66, droop=droop)
+    for bm in (out, under):
+        _outward(bm, (0.0, 0.0, -0.5))
+    to_object("leaf_shade", under, (0.2, 0.46, 0.3), smooth=False).parent = root
+    to_object("leaf_lit", out, (0.46, 0.74, 0.36), smooth=False).parent = root
+    return root
+
+
+def folded_range(name, seed, height, peaks, rounded):
+    """A range of mountains folded like paper (the owner's blue-mountain reference, 2026-10-19, in place of `mountain_range`'s faceted
+    terrain grid, which read as random low-poly noise): every peak an apex with ridges running straight down from it to the foot and a
+    crease between each pair, so its flanks are a few big planes, each wholly lit or wholly in shade. `peaks` main summits across 520
+    (x, centred), `height` at the tallest, smaller summits and foothills in front of and between them, all one open shell whose foot is
+    carried below the horizon; about as deep as it is tall (y, away from the camera, its front foot on the origin). `rounded`: lower,
+    broader summits with blunt tops (the grove's hills)."""
+    rng = random.Random(seed)
+    root = empty(name)
+    W = 520.0
+    bm = bmesh.new()
+    spots = []
+    n = int(peaks)
+    for i in range(n):
+        x = -W / 2 + W * (i + 0.5) / n + rng.uniform(-0.2, 0.2) * W / n
+        spots.append((x, height * rng.uniform(0.5, 0.65), height * rng.uniform(0.72, 1.0), W / n * rng.uniform(1.1, 1.4)))
+    # (Spur summits on the main peaks' flanks, lower and a little nearer, so each mountain is a crumpled mass of folds with secondary
+    # tops, as the reference's are, not one clean pyramid.)
+    for (x, y, h, reach) in list(spots):
+        for side in (-1.0, 1.0):
+            if rng.random() < 0.75:
+                spots.append((x + side * reach * rng.uniform(0.35, 0.6), y - height * rng.uniform(0.05, 0.15), h * rng.uniform(0.55, 0.78),
+                              reach * rng.uniform(0.5, 0.7)))
+    # (A back row between the summits and foothills in front: one continuous massif with shoulders, not a row of separate cones.)
+    for i in range(n + 1):
+        x = -W / 2 + W * i / n + rng.uniform(-0.15, 0.15) * W / n
+        spots.append((x, height * rng.uniform(0.75, 0.9), height * rng.uniform(0.5, 0.7), W / n * rng.uniform(1.0, 1.3)))
+    for i in range(n + 1):
+        x = -W / 2 + W * i / n + rng.uniform(-0.3, 0.3) * W / n
+        spots.append((x, height * rng.uniform(0.15, 0.28), height * rng.uniform(0.26, 0.4), W / n * rng.uniform(0.8, 1.0)))
+    for (px, py, h, reach) in spots:
+        foot = -0.35 * height
+        ridges = rng.randint(6, 9)
+        base_turn = rng.uniform(0, math.tau / ridges)
+        # (Each summit leans off its footprint's middle and is wider than deep, and some ridges hold a shoulder partway down, so no two
+        # peaks are the same pyramid: an even row of symmetric cones read as a diagram.)
+        lean = rng.uniform(-0.3, 0.3) * reach
+        apex = bm.verts.new((px, py, h))
+        lines = []
+        for k in range(ridges * 2):
+            ridge = k % 2 == 0
+            a = base_turn + math.tau * k / (ridges * 2) + rng.uniform(-0.12, 0.12)
+            L = reach * (rng.uniform(0.8, 1.2) if rounded else rng.uniform(0.55, 1.45)) * (1.0 if ridge else (0.85 if rounded else 0.72))
+            shoulder = rng.uniform(0.06, 0.16) * h if ridge and not rounded and rng.random() < 0.4 else 0.0
+            pts = []
+            for j, t in enumerate((0.2, 0.42, 0.68, 1.0)):
+                # A ridge drops straight then eases out at its foot; a crease sinks a little deeper between its ridges.
+                tt = t + rng.uniform(-0.04, 0.04) * (t < 1.0)
+                z = h - (h - foot) * (tt ** (0.85 if not rounded else 1.5))
+                z += shoulder * (j in (1, 2))
+                side = rng.uniform(-0.1, 0.1) * L * (0.3 if rounded else 1.0)
+                d = L * tt
+                pts.append(bm.verts.new((px - lean * tt + (math.cos(a) * d - math.sin(a) * side) * 1.25,
+                                         py + math.sin(a) * d + math.cos(a) * side,
+                                         z - (0.0 if ridge else (0.03 if rounded else 0.07) * h * math.sin(math.pi * tt)))))
+            lines.append(pts)
+        m = len(lines)
+        for k in range(m):
+            a_line, b_line = lines[k], lines[(k + 1) % m]
+            bm.faces.new((apex, a_line[0], b_line[0]))
+            for j in range(3):
+                bm.faces.new((a_line[j], a_line[j + 1], b_line[j + 1]))
+                bm.faces.new((a_line[j], b_line[j + 1], b_line[j]))
+    bm.normal_update()
+    for f in bm.faces:
+        if f.normal.z < 0.0:
+            f.normal_flip()
+    to_object("land", bm, (0.5, 0.6, 0.6), smooth=False).parent = root
     return root
 
 
@@ -1498,10 +1593,10 @@ PROPS = {
     "rope_lash": rope_lash,
     "hill_dome_a": lambda: hill_dome("hill_dome_a", 5),
     "hill_dome_b": lambda: hill_dome("hill_dome_b", 12),
-    "range_meadow_far": lambda: mountain_range("range_meadow_far", 3, 88.0, 6, 0.32, 0.6, False, (90, 12)),
-    "range_meadow_near": lambda: mountain_range("range_meadow_near", 9, 62.0, 8, 0.4, 0.5, False, (110, 12)),
-    "range_grove_far": lambda: mountain_range("range_grove_far", 8, 52.0, 4, 0.5, 0.32, True, (40, 7)),
-    "range_grove_near": lambda: mountain_range("range_grove_near", 4, 40.0, 6, 0.5, 0.36, True, (46, 7)),
+    "range_meadow_far": lambda: folded_range("range_meadow_far", 3, 88.0, 6, False),
+    "range_meadow_near": lambda: folded_range("range_meadow_near", 9, 62.0, 8, False),
+    "range_grove_far": lambda: folded_range("range_grove_far", 8, 52.0, 4, True),
+    "range_grove_near": lambda: folded_range("range_grove_near", 4, 40.0, 6, True),
     "hay_bale": hay_bale,
     "mushroom": mushroom,
     "stump": stump,
@@ -1556,6 +1651,7 @@ def preview(root, path):
     cam_data = bpy.data.cameras.new("cam")
     cam_data.type = "ORTHO"
     cam_data.ortho_scale = size * 1.2
+    cam_data.clip_end = size * 10.0
     cam = bpy.data.objects.new("cam", cam_data)
     scene.collection.objects.link(cam)
     scene.camera = cam

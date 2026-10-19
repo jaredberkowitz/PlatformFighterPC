@@ -109,3 +109,9 @@ personality; these rules are what makes them one game:
 7. **Measure against the reference.** Each stage's target image gets a measured colour table (`STAGE_REFERENCES.md`); the judge diffs
    the capture against it and the table (`JUDGE.md`, round 35 on).
 8. **Mid-ground props unified:** no ink, colours a step under the play area, simple shapes (pines as stacked faceted cones).
+9. **Folded, not crumpled** (the owner, 2026-10-19, round 37). The reference's quality comes from forms folded like paper: a pine is
+   stacked skirts pleated in and out, so the key light falls on one side of every fold; a mountain is ridges running straight down from
+   each summit with a crease between each pair, so every flank is a few big planes wholly lit or wholly in shade, with spur summits and
+   shoulders so no two peaks are the same pyramid. Random facets (a jittered grid, lumpy icospheres) read as low-poly noise, not as
+   this. Background trees grow in belts at several depths and in a few greens, never one scattered grey-green clump. Far scenery stays
+   crisp (the play blur is 1 px, not 3).
