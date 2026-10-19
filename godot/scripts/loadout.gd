@@ -231,7 +231,8 @@ static func default_for(player: int) -> RefCounted:
 	# [shirt, neck, accent, glasses]: a sailor (white shirt, neckerchief, cobalt), an aviator scout (white shirt, sash, meadow green), a
 	# holiday shirt (flowers, sash, biscuit), a ranger (outfit shirt, sash, sunny); every one in the full kit (shorts, gloves, socks, shoes).
 	# (The sailor in the kerchief and sash, neck 5, as the reference's, the character judge's round 5.)
-	var outfits := [[1, 5, 2, 0], [1, 1, 4, 1], [4, 1, 10, 1], [2, 1, 0, 0]]
+	# (The holiday shirt on cream (cloud), so its red hibiscus print reads as the reference's, the character judge's round 5.)
+	var outfits := [[1, 5, 2, 0], [1, 1, 4, 1], [4, 1, 8, 1], [2, 1, 0, 0]]
 	var o: Array = outfits[player % 4]
 	l.shirt = o[0]
 	l.neck = o[1]

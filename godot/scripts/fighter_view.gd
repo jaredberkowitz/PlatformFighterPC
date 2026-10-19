@@ -1584,7 +1584,7 @@ func _shirt_material() -> Material:
 		3:
 			return toon(Color(1, 1, 1), true, SvgArt.texture("res://art/cloth/stripes.svg", {"#ff00ff": accent}), Vector2(1, 7))
 		4:
-			return toon(Color(1, 1, 1), true, SvgArt.texture("res://art/cloth/aloha.svg", {"#ff00ff": accent}), Vector2(4, 2))
+			return toon(Color(1, 1, 1), true, SvgArt.texture("res://art/cloth/hibiscus.svg", {"#ff00ff": accent}), Vector2(2.4, 1.2))
 	return null
 
 
@@ -1600,7 +1600,7 @@ func _garment_shirt_material() -> Material:
 		3:
 			return toon(Color(1, 1, 1), true, SvgArt.texture("res://art/cloth/stripes.svg", {"#ff00ff": accent}), Vector2(1.5, 12.0))
 		4:
-			return toon(Color(1, 1, 1), true, SvgArt.texture("res://art/cloth/aloha.svg", {"#ff00ff": accent}), Vector2(4.0, 4.0))
+			return toon(Color(1, 1, 1), true, SvgArt.texture("res://art/cloth/hibiscus.svg", {"#ff00ff": accent}), Vector2(2.4, 2.4))
 	return null
 
 
@@ -1716,7 +1716,7 @@ func _skin_material(skin_c: Color, shorts_c: Color, painted_clothes := true) -> 
 			m.set_shader_parameter("shirt_tex_scale", Vector2(1.5, 12.0))
 		4:
 			m.set_shader_parameter("shirt", Color.WHITE)
-			m.set_shader_parameter("shirt_tex", SvgArt.texture("res://art/cloth/aloha.svg", {"#ff00ff": accent}))
+			m.set_shader_parameter("shirt_tex", SvgArt.texture("res://art/cloth/hibiscus.svg", {"#ff00ff": accent}))
 			m.set_shader_parameter("use_shirt_tex", true)
 			m.set_shader_parameter("shirt_tex_scale", Vector2(4.0, 4.0))
 		_:
