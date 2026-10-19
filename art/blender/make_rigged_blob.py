@@ -1564,7 +1564,8 @@ def build_body_meshes(rig):
         ink = mitt.data.color_attributes.new("outline", "FLOAT_COLOR", "POINT")
         for v in mitt.data.vertices:
             up = (v.co - wrist_at).dot(-fore)
-            w = min(1.0, max(0.0, (-0.02 - up) / 0.06))
+            # (Over a longer stretch, the character pass, 2026-10-19: the line came back just past the wrist as a ring.)
+            w = min(1.0, max(0.0, (-0.05 - up) / 0.09))
             ink.data[v.index].color = (w, 1.0, 1.0, 1.0)
         mitt.data.color_attributes.active_color = ink
         # Closed fists to match, bare and gloved (`FistBare`, `FistGlove`): the game shows them on a hand that grips a weapon and on
@@ -1582,7 +1583,7 @@ def build_body_meshes(rig):
                 ink = f.data.color_attributes.new("outline", "FLOAT_COLOR", "POINT")
                 for v in f.data.vertices:
                     up = (v.co - wrist_at).dot(-fore)
-                    ink.data[v.index].color = (min(1.0, max(0.0, (-0.02 - up) / 0.06)), 1.0, 1.0, 1.0)
+                    ink.data[v.index].color = (min(1.0, max(0.0, (-0.05 - up) / 0.09)), 1.0, 1.0, 1.0)
                 f.data.color_attributes.active_color = ink
         radii_at_wrist = sorted(wrist_r[side])
         r = radii_at_wrist[len(radii_at_wrist) // 2] if radii_at_wrist else 0.08
