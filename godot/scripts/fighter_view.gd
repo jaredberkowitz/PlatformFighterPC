@@ -1964,6 +1964,39 @@ func _neck_on_rig(accent: Color) -> void:
 	# (The kerchief and sash together, neck 5: the reference's sailor wears both, the character judge's round 5.)
 	for piece in ([2, 1] if loadout.neck == 5 else [loadout.neck]):
 		_neck_piece(accent, piece)
+	if loadout.neck == 5 and loadout.shirt > 0:
+		_sailor_collar(accent)
+
+
+## The sailor's square collar (the character judge's round 5, after the owner's reference): a broad flap hanging square down the back and
+## running forward over the shoulders to the kerchief's knot, in the outfit colour with two white stripes along its edge. One mesh, two
+## surfaces (the cloth and the stripes), for the loadout's mesh budget.
+func _sailor_collar(accent: Color) -> void:
+	var cloth := SurfaceTool.new()
+	cloth.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var stripes := SurfaceTool.new()
+	stripes.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var top := TORSO_CENTRE_Y + TORSO_RADII.y * 0.82
+	var add := func(st: SurfaceTool, size: Vector3, at: Vector3, rot_deg: Vector3) -> void:
+		var b := BoxMesh.new()
+		b.size = size
+		st.append_from(b, 0, Transform3D(Basis.from_euler(rot_deg * PI / 180.0), at))
+	# The back flap, square, leaning back with the shoulders.
+	# (Out past the loose shirt, which stands off the body.)
+	var back_z := -TORSO_RADII.z * 1.32
+	add.call(cloth, Vector3(0.8, 0.5, 0.03), Vector3(0, top - 0.2, back_z), Vector3(14, 0, 0))
+	for k in 2:
+		add.call(stripes, Vector3(0.72 - k * 0.1, 0.026, 0.034), Vector3(0, top - 0.4 + k * 0.06, back_z - 0.03 + k * 0.012), Vector3(14, 0, 0))
+	# Over each shoulder and down to the knot in front.
+	for sx in [-1.0, 1.0]:
+		add.call(cloth, Vector3(0.18, 0.42, 0.03), Vector3(sx * 0.22, top - 0.1, TORSO_RADII.z * 1.12), Vector3(-24, 0, sx * 34.0))
+		add.call(cloth, Vector3(0.2, 0.6, 0.03), Vector3(sx * 0.42, top + 0.06, 0.0), Vector3(90, 0, sx * 14.0))
+		add.call(stripes, Vector3(0.024, 0.4, 0.034), Vector3(sx * 0.28, top - 0.11, TORSO_RADII.z * 1.12 + 0.012), Vector3(-24, 0, sx * 34.0))
+	var mesh := cloth.commit()
+	stripes.commit(mesh)
+	var mi := _part(torso_rig, mesh, null, Vector3.ZERO)
+	mi.set_surface_override_material(0, _fabric(accent))
+	mi.set_surface_override_material(1, _fabric(Color(0.97, 0.96, 0.92)))
 
 
 func _neck_piece(accent: Color, kind: int) -> void:
