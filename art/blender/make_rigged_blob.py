@@ -381,17 +381,23 @@ def fist(bm, x):
 
 
 def mitten(bm, x):
-    """An open hand on the `x` side, built round the same wrist as `fist`, straight on from the forearm: the concept's mitten, one soft
-    paddle (the fingers together) a little flatter side to side than wide, its end curled gently in toward the palm, and a short round
-    thumb standing off its front."""
-    # (Before 2026-10-15 four separate finger tubes and a big thumb: stubby sausages glued on, and the hand bent back at the wrist.)
-    block = _mitt_block(bm, x, 0.12, (0.13, 0.115, 0.06), squareness=0.8, curl=0.035, segments=56, rings=36)
-    _crease(block, x, 0.15, 0.012, 0.005, side=-1.0)
-    # (Four chunky fingers split well down the hand, the character pass, 2026-10-19: a paddle with faint grooves read as a mitten.)
-    # (Split deeper and further back, the character judge's round 1: the reference's gloves have four clearly separate fingers.)
-    _fingers(block, x, 0.045, 0.09, 0.055, width=0.016)
-    tube(bm, [_at(x, 0.045, 0.06, -0.012), _at(x, 0.085, 0.118, -0.022), _at(x, 0.105, 0.132, -0.026)], [0.05, 0.045, 0.041],
-         segments=16, per_span=4)
+    """An open hand on the `x` side, built round the same wrist as `fist`, straight on from the forearm, after the owner's reference cast's
+    soft chunky hands (the character judge's round 12: a flat paddle with grooves read as a cut-out): a palm pad with real thickness, four
+    separate fingers growing out of it that taper to rounded tips, each curled a little toward the palm and fanned at its own angle and
+    length, and a fat thumb set low on the heel of the palm, turned forward."""
+    _mitt_block(bm, x, 0.1, (0.105, 0.118, 0.078), squareness=0.82, curl=0.02, segments=40, rings=26)
+    # (front offset across the hand, length, spread) per finger: index to little.
+    for (f0, ln, spread) in ((0.072, 1.0, 0.02), (0.024, 1.1, 0.004), (-0.024, 1.02, -0.012), (-0.07, 0.84, -0.03)):
+        pts, radii = [], []
+        for k, t in enumerate((0.0, 0.45, 0.8, 1.0)):
+            d = 0.13 + 0.16 * ln * t
+            f = f0 + spread * t
+            o = -0.004 - 0.05 * t * t      # curling toward the palm
+            pts.append(_at(x, d, f, o))
+            radii.append((0.036, 0.034, 0.03, 0.022)[k])
+        tube(bm, pts, radii, segments=14, per_span=3)
+    tube(bm, [_at(x, 0.04, 0.085, -0.02), _at(x, 0.09, 0.14, -0.05), _at(x, 0.13, 0.16, -0.07), _at(x, 0.155, 0.162, -0.078)],
+         [0.046, 0.044, 0.038, 0.028], segments=16, per_span=3)
 
 
 ## The blob's wrist, which `fist` and `cuff` are built round.
@@ -1590,11 +1596,11 @@ def build_body_meshes(rig):
         r = radii_at_wrist[len(radii_at_wrist) // 2] if radii_at_wrist else 0.08
         bm = bmesh.new()
         # (A longer flared cuff, the character judge's round 1: a short one left a ring of skin showing at the wrist.)
-        bmesh.ops.create_cone(bm, cap_ends=True, cap_tris=False, segments=24, radius1=r * 1.14, radius2=r * 1.45, depth=0.085)
+        bmesh.ops.create_cone(bm, cap_ends=True, cap_tris=False, segments=24, radius1=r * 1.2, radius2=r * 1.5, depth=0.08)
         bmesh.ops.transform(bm, matrix=Vector((0.0, 0.0, 1.0)).rotation_difference(fore).to_matrix().to_4x4(), verts=bm.verts)
         # (Short, so a clear stretch of forearm shows between it and a short sleeve, as on the reference's scouts, the character judge's
-        # round 4: a long cuff left only a sliver that read as a seam.)
-        bmesh.ops.translate(bm, vec=J["hand." + side] - fore * 0.06, verts=bm.verts)
+        # round 4; right up against the glove, round 12: set back down the forearm it floated apart from the hand when the wrist bent.)
+        bmesh.ops.translate(bm, vec=J["hand." + side] + fore * 0.005, verts=bm.verts)
         parts["Cuff." + side] = to_object("Cuff." + side, bm, "hand." + side, rig)
 
     # The face shell, as the blob's: a ball fitted to the head, its front only, the face drawing projected straight on.
@@ -1946,6 +1952,9 @@ CUFF_LIFT = 0.06
 # The sleeves' trim (the aviator scout pilot, 2026-10-19, the owner's reference: a coloured band round each sleeve's end, standing proud),
 # this share of the upper arm long and lifted this far off the skin.
 SLEEVE_TRIM = 0.12
+# How far round the shoulder joint the shirt takes the upper arm's bone, and how much of it at most.
+SHOULDER_BLEND = 0.24
+SHOULDER_SHARE = 0.55
 # Tall thick ribbed socks (the character judge's round 1): how far up from the ankle, how far off the skin, and their turned-down top.
 SOCK_HEIGHT = 0.375   # (just under the knee-length shorts, the character judge's round 12: higher, the turn-down poked through them in a bend)
 SOCK_LIFT = 0.03
@@ -2268,6 +2277,18 @@ def build_garments(skin, J, neck):
                     swapped = n[:-2] + (".L" if n.endswith(".R") else ".R") if n.endswith((".L", ".R")) else n
                     group = index.get(swapped, gi)
                 v[deform][group] = w / whole
+            if name == "Shirt" and not on_arm(co):
+                # (The shirt's shoulder follows the upper arm, the character judge's round 12: tied to the torso alone, the sleeve stayed a
+                # fixed box and the arm swung out of it as from a doll's socket.) Over the shoulder cap a share of the upper arm's bone,
+                # most at the armhole, none by the collar and the chest.
+                sh = J["armU." + ("L" if co.x < 0.0 else "R")]
+                dist = (Vector((abs(co.x), co.y, co.z)) - Vector((abs(sh.x), sh.y, sh.z))).length
+                t = max(0.0, 1.0 - dist / SHOULDER_BLEND) * SHOULDER_SHARE
+                arm_g = index.get("armU." + ("L" if v.co.x < 0.0 else "R"))
+                if t > 0.0 and arm_g is not None:
+                    for k in list(v[deform].keys()):
+                        v[deform][k] = v[deform][k] * (1.0 - t)
+                    v[deform][arm_g] = v[deform].get(arm_g, 0.0) + t
             if name in ("Shorts", "ShortsCuff") and v.co.z < crotch:
                 # Below the crotch each leg of the shorts follows its own thigh, fully at the hem: the leg openings keep their place on
                 # the thighs in any pose rather than riding up or standing off like a skirt.
