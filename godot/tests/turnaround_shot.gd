@@ -4,6 +4,7 @@ extends SceneTree
 ## Run: Godot --path godot --script res://tests/turnaround_shot.gd -- --out=<file.png> [--look=N] [--neutral] [--bare]
 ##   --look=N    the default look of fighter N (0 by default)
 ##   --neutral   every surface in one plain grey cel material and no face: shape only, with the shading taken out of the comparison
+##   --tpose     arms raised straight out to the sides, the hands open (for judging limb and hand shapes without overlap)
 ##   --bare      no hat, glasses, neckwear or shirt: the body alone, as on the sheet
 ##   --hat=N, --neck=N, --glasses=N, --shirt=N, --gear=N   wear that piece (loadout.gd's lists)
 
@@ -17,6 +18,7 @@ func _initialize() -> void:
 	var look := 0
 	var neutral := false
 	var bare := false
+	var tpose := false
 	var wear := {}
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--out="):
@@ -27,6 +29,8 @@ func _initialize() -> void:
 			neutral = true
 		elif a == "--bare":
 			bare = true
+		elif a == "--tpose":
+			tpose = true
 		else:
 			for slot in ["hat", "neck", "glasses", "shirt", "gear"]:
 				if a.begins_with("--%s=" % slot):
@@ -46,14 +50,18 @@ func _initialize() -> void:
 		l.shirt = 0
 	for slot in wear:
 		l.set(slot, wear[slot])
-	for turn in [0.0, 0.8, PI / 2.0, PI]:
-		var pv := Preview.new(Vector2i(400, 720), false, 6.4)
+	for turn in ([0.0, 0.8, PI / 2.0] if tpose else [0.0, 0.8, PI / 2.0, PI]):
+		var pv := Preview.new(Vector2i(560, 720) if tpose else Vector2i(400, 720), false, 8.6 if tpose else 6.4)
 		pv.spin = false
 		pv.facing_bias = turn
 		row.add_child(pv)
 		pv.set_loadout(l)
 		if neutral:
 			_neutral(pv)
+	if tpose:
+		await create_timer(0.3).timeout
+		for pv in row.get_children():
+			_tpose(pv.view)
 	await create_timer(1.0).timeout
 	root.get_viewport().get_texture().get_image().save_png(out)
 	quit(0)
@@ -67,3 +75,29 @@ func _neutral(n: Node) -> void:
 			(c as MeshInstance3D).material_override = grey
 		elif c is GeometryInstance3D:
 			(c as GeometryInstance3D).visible = false
+
+
+## Raises both arms straight out to the sides and opens the hands, the clip stopped, so every limb and hand is seen whole.
+func _tpose(v) -> void:
+	if v.anim != null:
+		v.anim.stop()
+	var sk: Skeleton3D = v.skeleton
+	if sk == null:
+		return
+	sk.reset_bone_poses()
+	for side in ["L", "R"]:
+		var b := sk.find_bone("armU." + side)
+		if b < 0:
+			continue
+		var g := sk.get_bone_global_pose(b)
+		var hand := sk.find_bone("hand." + side)
+		var tip := sk.get_bone_global_pose(hand).origin if hand >= 0 else g.origin + Vector3(0, -1, 0)
+		var now := (tip - g.origin).normalized()
+		var want := Vector3(1.0 if (tip - g.origin).x > 0.0 else -1.0, -0.05, 0.0).normalized()
+		var turn := Quaternion(now, want)
+		var parent := sk.get_bone_parent(b)
+		var pg := sk.get_bone_global_pose(parent) if parent >= 0 else Transform3D.IDENTITY
+		var new_g := Transform3D(Basis(turn) * g.basis, g.origin)
+		sk.set_bone_pose(b, pg.affine_inverse() * new_g)
+	v._clench(false, false)
+	v._follow_bones()

@@ -10,6 +10,9 @@ notes in `docs/art/characters/CHARACTER_ANALYSIS.md`.
 
 - From round 9: a posed group close-up (`godot/tests/beauty_shot.gd`: the cast in an idle pose, three-quarter, head and torso), the
   like-for-like comparison with the reference's lit group shot; judge it first.
+- From round 17: a T-pose turnaround per fighter (`turnaround_shot.gd --tpose`, limbs and hands whole, no overlap) and a hand sheet
+  (`godot/tests/hand_sheet.gd`: the right hand open and closed, from the front and from past the fingertips). Judge shapes there, bends
+  in the posed shot.
 
 ## What to judge, in order
 1. **Silhouette and proportion**: head size and shape (a broad squat oval sitting on the shoulders, no neck), body block, limb weight,
