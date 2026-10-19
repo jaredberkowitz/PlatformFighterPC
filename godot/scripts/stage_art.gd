@@ -56,7 +56,10 @@ const THEMES := {
 		# (No "taper": tried in round 16, the upper tier narrowed past the one under it and bared its top as a pale ledge behind the roots.)
 		# (The style sheet's section 9, carried from the meadow, 2026-10-19: a clean top with a pale pink-cream path, and a faceted ledge in
 		# a deep version of its terracotta earth in place of the clod bank; its roots stay.)
-		"path_colour": Color(0.96, 0.88, 0.82), "ledge": Color(0.46, 0.3, 0.28),
+		"path_colour": Color(0.96, 0.88, 0.82),
+		# (A padded quilt of diamonds under the grass, the owner, 2026-10-19: the grove is a fantasy island, and a cartoonish front suits it
+		# better than rock; each stage's front may differ. Modelled, not painted.)
+		"quilt": Color(0.88, 0.66, 0.42),
 	},
 	"sunset": {
 		"sky_top": Color(0.36, 0.28, 0.6), "sky_mid": Color(0.84, 0.46, 0.62), "sky_horizon": Color(1.0, 0.64, 0.4),
@@ -887,8 +890,9 @@ static func _faceted_ledge(parent: Node3D, left: float, right: float, top: float
 		fall := INF) -> void:
 	var y_top := top - 0.3
 	var y_bot := maxf(bottom, top - 14.0)
-	var stepx := 1.7
-	var stepy := 1.3
+	# (Big planes of their own sizes, the owner, 2026-10-19: an even fine grid of facets read cheap.)
+	var stepx := 2.6
+	var stepy := 2.0
 	var cols := int(ceil((right - left) / stepx))
 	var rows := int(ceil((y_top - y_bot) / stepy))
 	var pts: Array = []
@@ -924,6 +928,54 @@ static func _faceted_ledge(parent: Node3D, left: float, right: float, top: float
 	var mi := _mesh(parent, st.commit(), m, Vector3.ZERO)
 	mi.set_instance_shader_parameter("front_top", top if is_inf(fall) else fall)
 	mi.name = "faceted_ledge"
+
+
+## A stage front as a padded quilt of diamonds (the grove's fantasy island): a sheet over the block's front, each diamond a soft pillow
+## swelling out from creased seams, so the key light gives every one a lit top and a shaded foot; in `colour`, the seams a step deeper,
+## falling into shade below the top as the fronts do (`fall`, the stage's top).
+static func _quilted_front(parent: Node3D, left: float, right: float, top: float, bottom: float, front: float, colour: Color, fall := INF) -> void:
+	var size := 1.9
+	var puff := 0.32
+	var y_top := top - 0.3
+	var y_bot := maxf(bottom, top - 14.0)
+	var height := func(x: float, y: float) -> Array:
+		var u := (x + y) / size
+		var v := (x - y) / size
+		var d := maxf(absf(u - roundf(u)), absf(v - roundf(v))) * 2.0
+		var edge := smoothstep(0.0, 0.6, minf(x - left, right - x)) * smoothstep(0.0, 0.25, y_top - y)
+		return [puff * (1.0 - d * d) * edge, d]
+	var step := 0.14
+	var cols := int(ceil((right - left) / step))
+	var rows := int(ceil((y_top - y_bot) / step))
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for j in rows + 1:
+		var y := lerpf(y_top, y_bot, float(j) / rows)
+		for i in cols + 1:
+			var x := lerpf(left, right, float(i) / cols)
+			var h: Array = height.call(x, y)
+			var seam := smoothstep(0.82, 1.0, float(h[1]))
+			var val := lerpf(1.0, 0.62, seam)
+			st.set_color(Color(val, val, val))
+			st.add_vertex(Vector3(x, y, front + 0.02 + float(h[0])))
+	for j in rows:
+		for i in cols:
+			var a0 := j * (cols + 1) + i
+			var b0 := a0 + 1
+			var c0 := a0 + cols + 1
+			var d0 := c0 + 1
+			for idx in [a0, b0, d0, a0, d0, c0]:
+				st.add_index(idx)
+	st.generate_normals()
+	var m := (FighterView.toon(colour, true) as ShaderMaterial).duplicate() as ShaderMaterial
+	m.set_shader_parameter("vertex_shade", true)
+	m.set_shader_parameter("ramp_softness", 0.3)
+	m.set_shader_parameter("fall_by_height", true)
+	m.set_shader_parameter("front_fall", 0.4)
+	m.set_shader_parameter("front_span", 7.0)
+	var mi := _mesh(parent, st.commit(), m, Vector3.ZERO)
+	mi.set_instance_shader_parameter("front_top", top if is_inf(fall) else fall)
+	mi.name = "quilted_front"
 
 
 static func _cylinder(top: float, bottom: float, height: float, sides := 20) -> CylinderMesh:
@@ -983,6 +1035,9 @@ static func solid_block(parent: Node3D, t: Dictionary, left: float, right: float
 			_faceted_ledge(parent, left, right, top, bottom, front_z, taper, Color(0.34, 0.46, 0.4))
 		else:
 			_seawall_stones(parent, field, left, right, top + 0.15, bottom, front_z, depth, top, true, taper)
+	elif t.has("quilt"):
+		body.material_override = FighterView.toon((t.quilt as Color).darkened(0.4))
+		_quilted_front(parent, left, right, top if exposed else top + 0.3, bottom, front_z, t.quilt, fall)
 	elif t.has("ledge"):
 		body.material_override = FighterView.toon((t.ledge as Color).darkened(0.35))
 		_faceted_ledge(parent, left, right, top if exposed else top + 0.3, bottom, front_z, taper, t.ledge, fall)
@@ -4292,8 +4347,7 @@ static func _grove(root: Node3D, t: Dictionary, stage: Array) -> void:
 	_tree_line(root, rng, top - 16.0, -78.0, Color(0.5, 0.72, 0.56))
 	# The great tree, set back behind the island's middle.
 	_tree(root, Vector3(0, top - 2.0, -19.0), 1.0, rng)
-	# Its roots holding the island (`_grove_roots`).
-	_grove_roots(root, [left, right, top, stage[3] if stage.size() >= 4 else top - 6.0])
+	# (No roots under the quilted island, the owner, 2026-10-19: they conflicted with its front. `_grove_roots` kept for other uses.)
 	# A low rise of land in front of the hills, and two smaller trees standing on it either side (feet just behind its edge).
 	# (A rounded ridge, not the meadow's valley floor: the forest canopy fills the valley below it.)
 	_fore_band(root, -52.0, top - 11.0, Color(0.34, 0.66, 0.42), ROLL_PROFILE)
@@ -4305,14 +4359,25 @@ static func _grove(root: Node3D, t: Dictionary, stage: Array) -> void:
 	# (Deep, saturated forest greens: in the old pale mints, washed further by the air at that depth, the crowns either side of the stage
 	# read as shapeless fog blobs, the weakest thing on the stage. Art review 6, refinement round 1.)
 	# (Deeper and more saturated than they show: the depth haze lifts them toward mint, gauntlet round 2.)
-	_canopy(root, -49.0, top - 12.5, [Color(0.08, 0.36, 0.2), Color(0.16, 0.48, 0.2), Color(0.06, 0.32, 0.22), Color(0.2, 0.52, 0.2)])
+	# (Far below and further back, the owner, 2026-10-19: level with the island, its crowns read as trees standing in the air beside it.)
+	_canopy(root, -58.0, top - 21.0, [Color(0.08, 0.36, 0.2), Color(0.16, 0.48, 0.2), Color(0.06, 0.32, 0.22), Color(0.2, 0.52, 0.2)])
 	# Round bushes along the back of the island.
 	var bush_greens := Materials.greens(Color(0.3, 0.66, 0.34))
 	var bush := _lobed(Materials.foliage(bush_greens[1]))
 	# (A clump of overlapping lobes in two greens, inked and lit like the crowns: a pale ball stuck on the front read as a flat sticker.)
 	var bush_light := _lobed(Materials.foliage(bush_greens[2]))
+	# (Faceted bushes, art/blender/make_props.py `bush`, the owner, 2026-10-19: the textured leaf balls broke the section 9 rules.)
+	var bush_shade := (FighterView.toon(Color(0.2, 0.46, 0.3), true) as ShaderMaterial).duplicate() as ShaderMaterial
+	bush_shade.set_shader_parameter("facets", true)
+	var bush_lit := (FighterView.toon(Color(0.46, 0.76, 0.38), true) as ShaderMaterial).duplicate() as ShaderMaterial
+	bush_lit.set_shader_parameter("facets", true)
+	var faceted_bush := Toonify.load_prop("bush") != null
 	for x in [left + 1.4, left + 3.2, right - 3.2, right - 1.4]:
 		var s := rng.randf_range(1.1, 1.5)
+		if faceted_bush:
+			_place_prop(root, "bush", Vector3(x, top, -6.5), s * 0.95, rng.randf_range(-20.0, 20.0), bush_shade, bush_lit)
+			_contact(root, Vector3(x, top, -6.5), Vector2(s * 1.15, s * 0.8))
+			continue
 		_mesh(root, _clump_ball(0), bush, Vector3(x, top + 0.6, -6.5), Vector3(s * 1.3, s, s))
 		for j in 3:
 			var side := float(j - 1)
@@ -6263,11 +6328,11 @@ static func _grove_roots(root: Node3D, e: Array) -> void:
 	var cx := (l + r) * 0.5
 	var w := r - l
 	# (A deep brown bark, faceted, art review 9: smooth pink-brown tubes read as sausages.)
-	var bark := (Materials.bark_plates(Color(0.42, 0.29, 0.21), Vector2(1, 3)) as ShaderMaterial).duplicate() as ShaderMaterial
-	# (Smooth-shaded and softly lit, the gauntlet's round 22: faceted, each root's flat faces under vertical bark stripes read as planks
-	# pasted on the bank rather than round roots swelling out of it.)
-	bark.set_shader_parameter("facets", false)
-	bark.set_shader_parameter("ramp_softness", 0.35)
+	# (Plain faceted wood in a deep brown, the owner, 2026-10-19: smooth striped tubes conflicted with the faceted ledge they grip; one
+	# construction language, the style sheet's section 9.)
+	var bark := (FighterView.toon(Color(0.32, 0.21, 0.18)) as ShaderMaterial).duplicate() as ShaderMaterial
+	bark.set_shader_parameter("facets", true)
+	bark.set_shader_parameter("ramp_softness", 0.2)
 	# (Falling into shade and the stage's haze below the turf as the earth does, the gauntlet's round 1: dark roots ran at full strength
 	# to the bottom of the frame and broke the soft style.)
 	bark.set_shader_parameter("fall_by_height", true)

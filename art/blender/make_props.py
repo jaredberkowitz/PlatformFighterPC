@@ -1364,7 +1364,33 @@ def pine():
     return root
 
 
+def bush():
+    """A faceted bush (the style sheet's section 9, 2026-10-19): five low-poly lumps of different sizes heaped into one mound, about 2.4
+    wide, 1.3 tall and 1.4 deep, standing on the origin; each lump's faces split by direction into `leaf_lit` (facing up) and
+    `leaf_shade`, flat-shaded, so it reads as clean planes of light and shade like the faceted trees and hills."""
+    rng = random.Random(131)
+    root = empty("bush")
+    lit, shade = bmesh.new(), bmesh.new()
+    lumps = [((0.0, 0.0, 0.62), 0.7), ((-0.72, 0.1, 0.42), 0.5), ((0.74, 0.05, 0.45), 0.52), ((-0.3, -0.25, 0.85), 0.45),
+             ((0.35, 0.2, 0.9), 0.42)]
+    for (c, r) in lumps:
+        tmp = bmesh.new()
+        ret = bmesh.ops.create_icosphere(tmp, subdivisions=1, radius=r)
+        for v in ret["verts"]:
+            v.co *= 1.0 + rng.uniform(-0.12, 0.12)
+            v.co = Vector((v.co.x * 1.15, v.co.y, max(v.co.z * 0.85, -r * 0.35))) + Vector(c)
+        tmp.normal_update()
+        for f in tmp.faces:
+            target = lit if f.normal.z > 0.35 else shade
+            target.faces.new([target.verts.new(v.co) for v in f.verts])
+        tmp.free()
+    to_object("leaf_shade", shade, (0.2, 0.46, 0.3), smooth=False).parent = root
+    to_object("leaf_lit", lit, (0.46, 0.74, 0.36), smooth=False).parent = root
+    return root
+
+
 PROPS = {
+    "bush": bush,
     "pine": pine,
     "log_pole": log_pole,
     "rope_lash": rope_lash,
