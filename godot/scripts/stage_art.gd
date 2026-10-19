@@ -867,7 +867,9 @@ static func _pine_cluster(root: Node3D, at: Vector3, size: float) -> bool:
 		var g: Color = greens[k % greens.size()]
 		var lit := (FighterView.toon(g.lightened(0.18), false) as ShaderMaterial).duplicate() as ShaderMaterial
 		lit.set_shader_parameter("facets", true)
-		_place_prop(root, "pine", p, s, own.randf_range(0.0, 360.0), lit)
+		# (Sunk a little into the slope and in a soft shadow, so the group stands in the land, not on it.)
+		_place_prop(root, "pine", p - Vector3(0, 0.15 * s, 0), s, own.randf_range(0.0, 360.0), lit)
+	_ground_shadow(at, Vector2(1.6, 1.0) * size * 0.5, at.z + 1.0)
 	return true
 
 
@@ -2462,7 +2464,7 @@ const RIDGES := {
 	# (Taller, with real peaks, 2026-10-17: a low wavy strip under the pale horizon read as a flat cloud bank over the mountains, the
 	# owner's note.)
 	# (More, narrower peaks, gauntlet round 2: three broad concave sweeps with a pale crest read as breaking waves.)
-	"meadow": [{"model": "range_meadow_far", "facets": true, "land_drop": 16.0, "z": -170.0, "y": -50.0, "height": 88.0, "shape": 1, "seed": 3.0, "base": 0.32, "amplitude": 0.6, "frequency": 5.6,
+	"meadow": [{"model": "range_meadow_far", "facets": true, "land_colour": Color(0.62, 0.84, 0.84), "land_drop": 16.0, "z": -170.0, "y": -50.0, "height": 88.0, "shape": 1, "seed": 3.0, "base": 0.32, "amplitude": 0.6, "frequency": 5.6,
 		# (More of its own blue and less haze, art review 6 round 31: at mix 0.55 the ridge was mostly horizon colour, a formless pale band
 		# behind the crisp painted hills; found with `--pick`.)
 		"tone": Color(0.3, 0.62, 0.72), "mix": 0.55, "edge": 0.1, "haze": 0.5,
@@ -2472,7 +2474,7 @@ const RIDGES := {
 		"flank": 0.75, "foot_dark": 0.35, "layers": 4, "flank_from": 0.0, "gullies": 0.45, "paper": 0.05, "edge_width": 0.012},
 		# A nearer, lower range in front, deeper teal and less hazed, casting its shadow on the far one: the backdrop as cut cards in layers
 		# with air between them, not one soft band (art review 9).
-		{"model": "range_meadow_near", "facets": true, "land_haze": 0.12, "land_drop": 8.0, "z": -140.0, "y": -36.0, "height": 62.0, "shape": 1, "seed": 9.0, "base": 0.4, "amplitude": 0.5, "frequency": 7.0,
+		{"model": "range_meadow_near", "facets": true, "land_colour": Color(0.36, 0.68, 0.66), "land_haze": 0.12, "land_drop": 8.0, "z": -140.0, "y": -36.0, "height": 62.0, "shape": 1, "seed": 9.0, "base": 0.4, "amplitude": 0.5, "frequency": 7.0,
 		"tone": Color(0.14, 0.46, 0.54), "mix": 0.85, "edge": 0.5, "haze": 0.28, "flank": 0.75, "foot_dark": 0.4, "layers": 3,
 		"flank_from": 0.0, "gullies": 0.6, "paper": 0.05, "edge_width": 0.016, "shadow": 0.5}],
 	"grove": [{"model": "range_grove_far", "z": -165.0, "y": -34.0, "height": 52.0, "shape": 0, "seed": 8.0, "base": 0.5, "amplitude": 0.32, "frequency": 3.5,
@@ -2515,6 +2517,9 @@ static func ridge(root: Node3D, t: Dictionary, spec: Dictionary) -> MeshInstance
 		# (A spec's "facets": flat-shaded planes, each one clean tone, lit planes pale and shaded ones in the range's colour, and lighter
 		# toward the peaks, as the papercraft camp's mountains, the owner's meadow target, 2026-10-19.)
 		var faceted := bool(spec.get("facets", false))
+		# (A spec's own "land_colour", the reference's teal, in place of the horizon mix that read blue-grey.)
+		if spec.has("land_colour"):
+			land.set_shader_parameter("albedo", spec.land_colour)
 		if faceted:
 			land.set_shader_parameter("facets", true)
 			land.set_shader_parameter("ramp_softness", 0.2)
@@ -2776,8 +2781,8 @@ static func _hills(root: Node3D, rng: RandomNumberGenerator, near: Color, far: C
 		var x := -105.0 + k * 30.0 + rng.randf_range(-8, 8)
 		var h := rng.randf_range(10.0, 18.0)
 		(_hill_bumps[1 if is_far else 0] as Array).append([x, w, h, -22.0])
-	_land_band(root, _hill_bumps[1], -17.0, -100.0, far, 9.0 if _chunky_hills else 2.0, 1.0, ROLL_PROFILE, 1.0 if _chunky_hills else 0.0)
-	_land_band(root, _hill_bumps[0], -17.0, -72.0, near, 7.0 if _chunky_hills else 2.0, 1.0, ROLL_PROFILE, 1.0 if _chunky_hills else 0.0)
+	_land_band(root, _hill_bumps[1], -17.0, -100.0, far, 12.0 if _chunky_hills else 2.0, 1.0, ROLL_PROFILE, 1.8 if _chunky_hills else 0.0)
+	_land_band(root, _hill_bumps[0], -17.0, -72.0, near, 9.0 if _chunky_hills else 2.0, 1.0, ROLL_PROFILE, 1.8 if _chunky_hills else 0.0)
 
 
 ## The bumps of the two rows of hills ([centre x, half width, height, base y]; near row first), set by `_hills`.
