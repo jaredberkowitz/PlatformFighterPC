@@ -115,18 +115,18 @@ float pf_band(float wrap) {
 // lit a round body evenly from the front; without that part the light grazes the form from the side and above, so every head, body and
 // limb shows a lit side, a turn into shade and a shadow side facing the camera (a character light rig's usual move). Shading only: cast
 // shadows still come from the stage's light.
-const float PF_FIGHTER_FORM = 0.85;
+const float PF_FIGHTER_FORM = 0.6;
 // How much of a cast shadow lands on a fighter (a share of a stage surface's).
 const float PF_FIGHTER_CAST = 0.25;
 // A fighter is shaded in two flat tones, lit and shadow, split by a hard step (the stage's ramp, with its midtone band, is for the
 // scenery): where on the wrap the step falls, and how wide its edge is (just enough to anti-alias it).
 // (0.74, the character pass, 2026-10-19: at 0.62 nearly the whole fighter sat in light, one flat tone that read as shiny plastic; the
 // reference's matte figures show a definite shadow side on every form.)
-const float PF_FIGHTER_STEP = 0.74;
+const float PF_FIGHTER_STEP = 0.68;
 // (0.07 until the muted trial, 2026-10-18: a softer turn into shade, as the reference's soft studio light.)
 // (0.06, the character pass, 2026-10-19: a crisp but soft turn, as the reference's shadow shapes; at 0.14 the turn was a blurry
 // lit blob in the middle of each form.)
-const float PF_FIGHTER_EDGE = 0.06;
+const float PF_FIGHTER_EDGE = 0.2;
 // How much of the stage's shadow hue turn a fighter's shadow takes: a little, so an orange shades a deeper orange, not salmon and pink.
 const float PF_FIGHTER_HUE = 0.35;
 // A fighter's rim and edge light are kept to a thin line at the very edge (`rim_width` on a fighter) and take the fighter's own colour

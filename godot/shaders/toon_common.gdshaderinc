@@ -82,6 +82,9 @@ uniform int ground_shadow_count = 0;
 varying vec3 vshade;
 varying vec3 world_pos;
 varying vec3 world_normal;
+// A faint warm light from below on fighters (bounce off the ground).
+uniform vec4 fighter_bounce : source_color = vec4(1.0, 0.78, 0.55, 1.0);
+uniform float fighter_bounce_amount = 0.14;
 
 // A flash over the whole fighter, per mesh (set by the game with `set_instance_shader_parameter`): white when hit, yellow while charging.
 instance uniform vec4 flash : source_color, instance_index(0) = vec4(1.0, 1.0, 1.0, 0.0);
@@ -100,6 +103,8 @@ instance uniform float front_top : instance_index(6) = -100000.0;
 #ifdef PF_TWO_SIDED
 // An ink line along the garment's bottom hem (the shirt's, over the shorts), `hem_ink` wide in rest units above `hem_low`; 0 for none.
 uniform float hem_low = -99.0;
+// Soft occlusion at a garment's top edge (the neckline under the head; the character judge's round 8), its rest height, -90 or less none.
+uniform float neck_shade_z = -99.0;
 uniform float hem_ink = 0.0;
 uniform vec4 hem_color : source_color = vec4(0.1, 0.07, 0.12, 1.0);
 #endif
@@ -284,6 +289,9 @@ void fragment() {
 		float above = (1.0 - UV.y) - hem_low;
 		c = mix(hem_color.rgb, c, smoothstep(hem_ink * 0.6, hem_ink, above));
 	}
+	if (neck_shade_z > -90.0) {
+		c *= mix(0.74, 1.0, smoothstep(0.0, 0.12, neck_shade_z - (1.0 - UV.y)));
+	}
 	// The inside of a garment (seen through a hem): lit from its own side, a shade darker.
 	if (!FRONT_FACING) {
 		NORMAL = -NORMAL;
@@ -301,7 +309,7 @@ void fragment() {
 		NORMAL = normalize(cross(dFdx(VERTEX), dFdy(VERTEX)));
 	}
 	ALBEDO = c;
-	EMISSION = flash.rgb * flash.a;
+	EMISSION = flash.rgb * flash.a + c * fighter_bounce.rgb * fighter_bounce_amount * fighter * clamp(-world_normal.y, 0.0, 1.0);
 	ROUGHNESS = object_id;
 	AO = pf_stage_ao_ground(world_pos, world_normal);
 	AO_LIGHT_AFFECT = 0.45;

@@ -63,6 +63,12 @@ varying vec3 world_pos;
 // feel, and a perfectly even fill kept a hint of plastic once matte): broad soft mottling and a finer tooth, laid on the body's rest
 // position so it moves with the skin and never swims. `skin_grain` how strong (0 off); kept faint, form over texture.
 uniform float skin_grain = 0.0;
+// Soft occlusion where pieces meet (the character judge's round 8: the hat, collar and sash read pasted on with hard even fills): the
+// head's skin darkens a little just under the hat's line (`hat_z`, rest height; above 90 none) and at its foot over the collar.
+uniform float hat_z = 99.0;
+// A faint warm light from below on the fighter (bounce off the ground), on surfaces turned down.
+uniform vec4 bounce : source_color = vec4(1.0, 0.78, 0.55, 1.0);
+uniform float bounce_amount = 0.14;
 
 float g_hash(vec3 q) {
 	q = fract(q * vec3(0.1031, 0.1030, 0.0973));
@@ -78,8 +84,11 @@ float g_noise(vec3 q) {
 		mix(mix(g_hash(i + vec3(0, 0, 1)), g_hash(i + vec3(1, 0, 1)), f.x), mix(g_hash(i + vec3(0, 1, 1)), g_hash(i + vec3(1, 1, 1)), f.x), f.y), f.z);
 }
 
+varying vec3 world_normal;
+
 void vertex() {
 	world_pos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+	world_normal = normalize((MODEL_MATRIX * vec4(NORMAL, 0.0)).xyz);
 }
 
 // How far (0 at the shoulder, 1 at the elbow) a point is down the upper arm.
@@ -187,8 +196,16 @@ void fragment() {
 		float tooth = g_noise(rest * 70.0);
 		c *= 1.0 + ((mottle - 0.5) * 1.0 + (tooth - 0.5) * 0.45) * skin_grain;
 	}
+	if (!arm) {
+		if (hat_z < 90.0 && p.y < hat_z) {
+			c *= mix(0.8, 1.0, smoothstep(0.0, 0.11, hat_z - p.y));
+		}
+		if (p.y > neck_z) {
+			c *= mix(0.84, 1.0, smoothstep(0.0, 0.09, p.y - neck_z));
+		}
+	}
 	ALBEDO = c;
-	EMISSION = flash.rgb * flash.a;
+	EMISSION = flash.rgb * flash.a + c * bounce.rgb * bounce_amount * clamp(-world_normal.y, 0.0, 1.0);
 	ROUGHNESS = object_id;
 	AO = pf_stage_ao(world_pos);
 	AO_LIGHT_AFFECT = 0.45;

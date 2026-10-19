@@ -436,6 +436,8 @@ func _build_rig(skin: Material) -> bool:
 				# An ink line along the bottom hem, so where the shirt meets the shorts reads as one clean edge at any size.
 				shirt_mat.set_shader_parameter("hem_low", float(_base_rig_info().get("clothes", {}).get("waist", 0.89)) - SHIRT_HEM_BELOW_WAIST)
 				shirt_mat.set_shader_parameter("hem_ink", SHIRT_HEM_INK)
+				# (Soft shade at the neckline under the head, the character judge's round 8.)
+				shirt_mat.set_shader_parameter("neck_shade_z", float(_base_rig_info().get("clothes", {}).get("neck", -99.0)))
 				shirt_mat.set_shader_parameter("hem_color", INK)
 				mi.material_override = shirt_mat
 		elif part.begins_with("Foot"):
@@ -1669,7 +1671,7 @@ const OUTLINE_TINT_DARKEN := 0.45
 const OUTLINE_TINT_DARKEN_PALE := 0.8
 const CLOTH_RAMP_SOFTNESS := 0.32
 ## (Finer and fainter, 2026-10-18: long strokes on a pale shirt read as wood grain; the reference's cloth is a fine fleck.)
-const CLOTH_WEAVE := 0.1
+const CLOTH_WEAVE := 0.2   # (twice as strong, the character judge's round 8: the cloth read as flat fills)
 const CLOTH_WEAVE_SCALE := 0.12
 ## The shirt's bottom hem: how far below the waist it is cut (art/blender/make_rigged_blob.py) and how wide its ink line is (rest units).
 const SHIRT_HEM_BELOW_WAIST := 0.012
@@ -1718,6 +1720,11 @@ func _skin_material(skin_c: Color, shorts_c: Color, painted_clothes := true) -> 
 	m.shader = SKIN_SHADER
 	m.set_shader_parameter("skin", skin_c)
 	m.set_shader_parameter("skin_grain", SKIN_GRAIN)
+	# The hat's line on the head for its soft shade (shaders/skin.gdshader `hat_z`): a share of the head's radius above its middle, per hat.
+	var hb: Array = _base_rig_info().get("head_ball", [])
+	var hat_line: float = {1: 0.5, 2: 0.32, 3: 0.48, 10: 0.62}.get(loadout.hat, 99.0)
+	if hb.size() == 3 and hat_line < 90.0:
+		m.set_shader_parameter("hat_z", float(hb[0]) + float(hb[2]) * hat_line)
 	var accent: Color = loadout.accent_color()
 	match loadout.shirt:
 		1:
@@ -1997,12 +2004,13 @@ func _kerchief_knot(c: Color) -> void:
 	# (On the open side of the chest, clear of the sash across the other.)
 	# (At the collar's centre, high at the throat above where the sash crosses, the character judge's round 7: on the chest the round
 	# knot read as a rose.)
-	var off := Vector3(0.0, 0.06, 0.04)
+	var off := Vector3(0.0, 0.06, -0.02)
 	st.append_from(knot, 0, Transform3D(Basis.IDENTITY, Vector3(0, top - 0.05, z) + off))
 	for sx in [-1.0, 1.0]:
 		var tail := PrismMesh.new()
-		tail.size = Vector3(0.12, 0.22, 0.03)
-		st.append_from(tail, 0, Transform3D(Basis.from_euler(Vector3(0, 0, PI + sx * 0.35)), Vector3(sx * 0.05, top - 0.17, z - 0.01) + off))
+		tail.size = Vector3(0.1, 0.14, 0.025)
+		# (Short, splayed outward and lying on the shirt, the character judge's round 8: long, one read as a necktie and stood off the chest.)
+		st.append_from(tail, 0, Transform3D(Basis.from_euler(Vector3(-0.35, 0, PI + sx * 0.7)), Vector3(sx * 0.07, top - 0.12, z - 0.03) + off))
 	_part(torso_rig, st.commit(), _fabric(c), Vector3.ZERO)
 
 
@@ -2023,8 +2031,8 @@ func _sailor_collar(accent: Color) -> void:
 	# (Out past the loose shirt, which stands off the body.)
 	var back_z := -TORSO_RADII.z * 1.1
 	# (In two strips bending with the back, shorter, the character judge's round 7: one flat plate stood off as a fin.)
-	add.call(cloth, Vector3(0.8, 0.2, 0.03), Vector3(0, top - 0.06, back_z + 0.1), Vector3(52, 0, 0))
-	add.call(cloth, Vector3(0.78, 0.22, 0.03), Vector3(0, top - 0.24, back_z + 0.02), Vector3(22, 0, 0))
+	add.call(cloth, Vector3(0.8, 0.2, 0.05), Vector3(0, top - 0.06, back_z + 0.1), Vector3(52, 0, 0))
+	add.call(cloth, Vector3(0.78, 0.22, 0.05), Vector3(0, top - 0.24, back_z + 0.02), Vector3(22, 0, 0))
 	for k in 2:
 		add.call(stripes, Vector3(0.7 - k * 0.1, 0.026, 0.034), Vector3(0, top - 0.32 + k * 0.05, back_z - 0.0 + k * 0.018), Vector3(22, 0, 0))
 	# Over each shoulder and down to the knot in front.

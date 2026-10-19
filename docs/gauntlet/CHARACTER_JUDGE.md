@@ -8,6 +8,9 @@ notes in `docs/art/characters/CHARACTER_ANALYSIS.md`.
 - A turnaround of the fighter being worked on (front, three-quarter, side), the reference crop of its counterpart beside it, the default
   lineup, and the fighter in a match at a close camera on two stages (one bright, one dark), with greyscale and a before/after.
 
+- From round 9: a posed group close-up (`godot/tests/beauty_shot.gd`: the cast in an idle pose, three-quarter, head and torso), the
+  like-for-like comparison with the reference's lit group shot; judge it first.
+
 ## What to judge, in order
 1. **Silhouette and proportion**: head size and shape (a broad squat oval sitting on the shoulders, no neck), body block, limb weight,
    hands and feet; read at match size first, close up second.
