@@ -104,6 +104,11 @@ def grain_material(name, value, seed):
 
 
 def link(name, bm, mat):
+    # Flat pieces laid on the ground (discs, stains, flakes) face up: a circle's face can come out facing down, and shades dark.
+    for f in bm.faces:
+        f.normal_update()
+        if abs(f.normal.z) > 0.99 and f.normal.z < 0.0 and len(f.verts) > 4:
+            f.normal_flip()
     me = bpy.data.meshes.new(name)
     bm.to_mesh(me)
     bm.free()
@@ -477,7 +482,8 @@ def fieldstone():
     reset()
     bm = bmesh.new()
     bmesh.ops.create_grid(bm, x_segments=200, y_segments=200, size=0.5)
-    pits = [(rng.uniform(-0.5, 0.5), rng.uniform(-0.5, 0.5), rng.uniform(0.006, 0.016)) for _ in range(140)]
+    # (Fewer and shallow, the gauntlet's round 32: 140 deep pits read as cheese.)
+    pits = [(rng.uniform(-0.5, 0.5), rng.uniform(-0.5, 0.5), rng.uniform(0.01, 0.022)) for _ in range(35)]
     # (Broad soft bumps of their own sizes and heights, not waves: whole sine waves read as diagonal stripes.)
     bumps = [(rng.uniform(-0.5, 0.5), rng.uniform(-0.5, 0.5), rng.uniform(0.05, 0.16), rng.uniform(-0.012, 0.012)) for _ in range(70)]
     for v in bm.verts:
@@ -492,26 +498,74 @@ def fieldstone():
             dy = (y - py + 0.5) % 1.0 - 0.5
             d2 = (dx * dx + dy * dy) / (r * r)
             if d2 < 4.0:
-                z -= 0.006 * math.exp(-d2 * 1.5)
+                z -= 0.0025 * math.exp(-d2 * 1.5)
         v.co.z = z
-    link("stone", bm, grey_material("stone", 0.7))
-    lichen = [grey_material("lichen_a", 0.95), grey_material("lichen_b", 0.85)]
+    link("stone", bm, grey_material("stone", 0.5))
+    lichen = [grey_material("lichen_a", 1.0), grey_material("lichen_b", 0.9)]
     lb = [bmesh.new(), bmesh.new()]
-    for k in range(9):
+    # (Fewer, larger, softer blotches, round 32: small flake clusters did not show at match distance.)
+    for k in range(4):
         cx, cy = rng.uniform(-0.5, 0.5), rng.uniform(-0.5, 0.5)
-        rad = rng.uniform(0.04, 0.09)
-        for f in range(rng.randint(40, 70)):
+        rad = rng.uniform(0.09, 0.14)
+        for f in range(rng.randint(70, 100)):
             a = rng.uniform(0, math.tau)
             d = rad * math.sqrt(rng.uniform(0, 1))
             fx, fy = cx + math.cos(a) * d, cy + math.sin(a) * d
-            fr = rng.uniform(0.004, 0.009)
+            fr = rng.uniform(0.012, 0.022)
+            fz = 0.014 + rng.uniform(0.0, 0.002)
             for (px, py) in wrapped(fx, fy, fr):
-                ret = bmesh.ops.create_circle(lb[k % 2], cap_ends=True, segments=7, radius=fr)
-                for v in ret["verts"]:
-                    v.co += Vector((px, py, 0.014))
+                # (Wound counter-clockwise seen from above, so it faces up, each at its own height: overlapping flat flakes fought.)
+                ring = [lb[k % 2].verts.new((px + math.cos(math.tau * i / 7) * fr, py + math.sin(math.tau * i / 7) * fr, fz)) for i in range(7)]
+                lb[k % 2].faces.new(ring)
     for k in range(2):
         link("lichen%d" % k, lb[k], lichen[k])
     sun((0.4, -0.8, -0.45), 4.0)
+    return bpy.context.scene
+
+
+def steel():
+    """The city's girder decks: painted steel plate (the tile is 3 units of deck): a seam across it with a row of domed rivets either side,
+    and rivets along the edges, the paint worn paler round the rivets and along the seam, a few soft grime blotches; lit as the lawn is."""
+    rng = random.Random(109)
+    reset()
+    bm = bmesh.new()
+    bmesh.ops.create_grid(bm, x_segments=1, y_segments=1, size=1.5)
+    link("plate", bm, grey_material("plate", 0.62))
+    seam = bmesh.new()
+    slab(seam, (0.0, 0.0, 0.002), (0.012, 1.6, 0.004))
+    link("seam", seam, grey_material("seam", 0.25))
+    wear = grey_material("wear", 0.85)
+    wb = bmesh.new()
+    rb = bmesh.new()
+    for x in (-0.03, 0.03, -0.47, 0.47):
+        y = -0.5
+        while y < 0.5:
+            for (px, py) in wrapped(x, y, 0.02):
+                ret = bmesh.ops.create_icosphere(rb, subdivisions=2, radius=0.012)
+                for v in ret["verts"]:
+                    v.co = Vector((v.co.x, v.co.y, v.co.z * 0.5)) + Vector((px, py, 0.003))
+                if rng.random() < 0.7:
+                    ret = bmesh.ops.create_circle(wb, cap_ends=True, segments=12, radius=rng.uniform(0.018, 0.03))
+                    for v in ret["verts"]:
+                        v.co += Vector((px + rng.uniform(-0.004, 0.004), py + rng.uniform(-0.004, 0.004), 0.0015))
+            y += 1.0 / 12.0
+    link("wear", wb, wear)
+    link("rivets", rb, grey_material("rivet", 0.7))
+    grime = grey_material("grime", 0.42)
+    for k in range(5):
+        cx, cy = rng.uniform(-0.5, 0.5), rng.uniform(-0.5, 0.5)
+        r = rng.uniform(0.06, 0.12)
+        ph = rng.uniform(0, math.tau)
+        for (px, py) in wrapped(cx, cy, r * 1.3):
+            b = bmesh.new()
+            ring = []
+            for i in range(24):
+                a = math.tau * i / 24
+                rr = r * (1.0 + 0.3 * math.sin(a * 3 + ph))
+                ring.append(b.verts.new((px + math.cos(a) * rr, py + math.sin(a) * rr * 0.6, 0.001)))
+            b.faces.new(ring)
+            link("grime%d" % k, b, grime)
+    sun((0.45, 0.75, -0.55), 4.0)
     return bpy.context.scene
 
 
@@ -519,7 +573,7 @@ def fieldstone():
 TILES = {"lawn": (lawn, 0.68), "soil_bank": (soil_bank, 0.4), "roof_render": (roof, 0.6), "furrows": (furrows, 0.62), "planks": (planks, 0.45),
          # (The floating platforms' boards, the same planks in a wider range: at their size on screen the deck's range averaged out to a
          # plain tone, the gauntlet's round 29.)
-         "planks_bold": (planks, 0.2), "leaves": (leaves, 0.42), "brick": (brick, 0.5), "fieldstone": (fieldstone, 0.62)}
+         "planks_bold": (planks, 0.2), "leaves": (leaves, 0.42), "brick": (brick, 0.5), "fieldstone": (fieldstone, 0.62), "steel_plate": (steel, 0.5)}
 
 
 # The share of a render's pixels at or under the tile's white (most of the planks tile is board top, which would clip at 0.98).

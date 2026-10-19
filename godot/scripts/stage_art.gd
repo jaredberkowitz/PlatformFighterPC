@@ -1150,7 +1150,8 @@ static func platform(parent: Node3D, t: Dictionary, left: float, right: float, t
 		# brightest, plainest slabs on screen.)
 		var plate_c := (t.wood as Color).lerp(Color(0.34, 0.33, 0.46), 0.85)
 		# (The metal response's highlight and the pink rim washed the lit top pale whatever its colour: both low on the plate.)
-		var steel := _surface(plate_c, "steel", 3.0).duplicate() as ShaderMaterial
+		# (The rendered steel plate, art/blender/make_tiles.py `steel`: a riveted seam, worn paint, grime; the drawn tile without it.)
+		var steel := _surface(plate_c, "steel_plate" if Materials._png_tile("steel_plate") != null else "steel", 3.0).duplicate() as ShaderMaterial
 		steel.set_shader_parameter("metal", 0.15)
 		steel.set_shader_parameter("rim_strength", 0.15)
 		# (Plate, web and flange rounded on their edges, the gauntlet's round 15: plain boxes read as slabs; a rounded edge catches a rim.)

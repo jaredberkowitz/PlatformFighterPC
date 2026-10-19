@@ -414,3 +414,9 @@ geometry; (2) abrupt light ramps on the new materials. Next material: the city's
 The rendered brick reads as real masonry (the city's Believability 4); the grove's crowns are one material of lit and shaded leafy domes
 (its Depth 4). Gaps: (1) no cast shadows; (2) the pieces the material passes left behind (the grove's trunk, the meadow's log ends,
 the city's girders and skyline walls). Next material: the meadow's stone wall (fieldstone), then the grove trunk's bark.
+
+## Round 32 (2026-10-18, commit 95bfd31)
+
+Scores as round 31 (meadow 3.2, canyon 2.5, beach 3.2, city 3.2, grove 3.3). The fieldstone face gives the stones a surface, but its pits
+read as cheese and its lichen does not show. Gaps: (1) no cast shadows; (2) the pieces left behind (grove trunk bark, the meadow's log
+ends, the city's girders and skyline walls). Next material: the city's girder plates and skyline walls.
