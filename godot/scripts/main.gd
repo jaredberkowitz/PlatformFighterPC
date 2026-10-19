@@ -2081,10 +2081,6 @@ func _unhandled_key_input(event: InputEvent) -> void:
 	match event.keycode:
 		KEY_F4:
 			Music.of(self).set_muted(sfx.toggle_mute())
-		KEY_F10:
-			# The paper look's A/B (scripts/lighting.gd `paper`): flips it live.
-			Lighting.paper = not Lighting.paper
-			_apply_sky()
 		KEY_F5:
 			# Player 2 played by the computer, or by a person again.
 			cpu_levels[1] = 0 if cpu_levels[1] > 0 else CPU_LEVEL

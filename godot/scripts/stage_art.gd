@@ -27,11 +27,13 @@ const THEMES := {
 	"meadow": {
 		"sky_top": Color(0.1, 0.36, 0.9), "sky_mid": Color(0.3, 0.62, 1.0), "sky_horizon": Color(0.78, 0.93, 1.0),
 		"sky_glow": [Color(1.0, 0.97, 0.86), 0.25], "sky_wisps": [Color(1.0, 1.0, 1.0), 0.5],
-		"soil": Color(0.76, 0.56, 0.36), "soil_dark": Color(0.52, 0.37, 0.25), "grass": Color(0.35, 0.53, 0.26),
-		"grass_light": Color(0.66, 0.86, 0.42), "wood": Color(0.86, 0.62, 0.36), "wood_dark": Color(0.62, 0.42, 0.24),
+		"soil": Color(0.76, 0.56, 0.36), "soil_dark": Color(0.52, 0.37, 0.25), "grass": Color(0.3, 0.52, 0.19),
+		"grass_light": Color(0.62, 0.88, 0.34), "wood": Color(0.86, 0.62, 0.36), "wood_dark": Color(0.62, 0.42, 0.24),
 		"pattern": "earth", "cap": "grass", "platform": "wood", "grass_vary": 0.42, "grass_patch": 0.85, "moss": Color(0.4, 0.66, 0.14),
 		# (A step less saturated, deepening toward the back, gauntlet round 3: the brightest, flattest colour on screen.)
 		# (And another, the same value, the gauntlet's round 13: the references keep large surfaces muted, saturation for small accents.)
+		# (Its colour back, a hair deeper, the meadow pilot of docs/art/STYLE_SHEET.md, 2026-10-19: the ground stays colourful, calmed by
+		# lowering its contrast and noise; muted it read dull; and at least 0.05 under the orange fighter in greyscale.)
 		"grass_back": 1.0,
 		# The stage as a hillside farm terrace (2026-10-18, the owner: a place, not a box): a dry-stone retaining wall holding the field up,
 		# a grassy hill below it running down into the valley (`_meadow_hill`), a lower terrace in front, the farm nearby.
@@ -1242,7 +1244,9 @@ static func _plank_platform(parent: Node3D, t: Dictionary, left: float, right: f
 	var dark_c: Color = t.wood_dark
 	if not grove:
 		# (The meadow's yellow slab was the loudest thing in the sky: a warmer, quieter wood.)
-		wood_c = Color(0.84, 0.64, 0.42)
+		# (A deeper honey, the meadow pilot: at 0.68 in greyscale the boards were brighter than the fighters; the style sheet's play
+		# surface is 0.40 to 0.55.)
+		wood_c = Color(0.62, 0.44, 0.27)
 	var items: Array = []
 	if grove:
 		# Short planks across the two branches, side by side along the platform, their front ends a little ragged.
@@ -1326,6 +1330,20 @@ static func _plank_platform(parent: Node3D, t: Dictionary, left: float, right: f
 			var py := top - thick - 0.06 - rad
 			var z0 := front_z - depth - 0.1
 			var z1 := front_z + 0.3
+			# (The modelled log and rope, art/blender/make_props.py `log_pole` and `rope_lash`, the meadow pilot of docs/art/STYLE_SHEET.md,
+			# 2026-10-19: a cylinder with a flat disc on its end and boxes for rope were the last primitives in the play area. The built ones
+			# stand in without them.)
+			var log := Toonify.load_prop("log_pole", true)
+			var lash := Toonify.load_prop("rope_lash", true)
+			if log != null and lash != null:
+				log.position = Vector3(px, py, (z0 + z1) * 0.5)
+				log.scale = Vector3(rad, rad, z1 - z0)
+				parent.add_child(log)
+				var lh0 := thick + rad * 2.0 + 0.1
+				lash.position = Vector3(px, top - lh0 * 0.5 + 0.02, front_z + 0.12)
+				lash.scale = Vector3(1.0, lh0, 1.0)
+				parent.add_child(lash)
+				continue
 			_mesh(parent, _cylinder(rad, rad, z1 - z0, 8), pole, Vector3(px, py, (z0 + z1) * 0.5), Vector3.ONE, Vector3(90, 0, 0))
 			_mesh(parent, _cylinder(rad * 0.85, rad * 0.85, 0.04, 8), cut, Vector3(px, py, z1 + 0.01), Vector3.ONE, Vector3(90, 0, 0))
 			# The lashing: turns of rope down the front of the board and round the pole.
@@ -5257,6 +5275,10 @@ static func _seawall_stones(parent: Node3D, t: Dictionary, left: float, right: f
 						pos.y += (rh - rh * own) * rng.randf_range(-0.5, 0.5) - (rh * own - rh) * 0.5 * float(own > 1.0)
 					var shade := a.lerp(b, rng.randf_range(0.0, 0.4 if rough else 0.7)).lerp(stone_grey, 0.2)
 					shade = shade.lightened(rng.randf_range(0.02, 0.14)) if rng.randf() < 0.6 else shade.darkened(rng.randf_range(0.0, 0.1))
+					if rough:
+						# (Fewer value steps between the stones, the meadow pilot: the wall was the busiest thing in the frame. The spread
+						# drawn halfway back to the course's middle tone.)
+						shade = shade.lerp(a.lerp(b, 0.2).lerp(stone_grey, 0.2).lightened(0.06), 0.5)
 					if rough:
 						# (A quieter wall, the same test: a narrower spread of stone shades, a step darker overall, so it sits under the field.)
 						shade = shade.darkened(0.08)

@@ -1242,7 +1242,95 @@ def hill_dome(name, seed):
     return root
 
 
+def log_pole():
+    """A round log for the meadow's platforms to rest on (unit size: radius 1, 1 long along y, centred; the game scales it to each
+    platform): bark in long rounded ridges that wander and split a little, the log a hair bowed and uneven in girth, each end sawn flat
+    with growth rings and a lighter rim of sapwood, a chip off one edge. Parts `bark` and `end`, coloured by the game."""
+    rng = random.Random(113)
+    root = empty("log_pole")
+    bm = bmesh.new()
+    sides, rows = 28, 24
+    ph = [rng.uniform(0, math.tau) for _ in range(4)]
+    rings = []
+    for k in range(rows + 1):
+        t = k / rows
+        y = t - 0.5
+        loop = []
+        for i in range(sides):
+            a = math.tau * i / sides
+            ridge = 0.06 * abs(math.sin(a * 5.0 + 0.6 * math.sin(t * 7.0 + ph[0]) + ph[1]))
+            r = 1.0 + ridge + 0.04 * math.sin(t * 9.0 + ph[2]) * math.cos(a * 2.0)
+            loop.append(bm.verts.new((math.cos(a) * r + 0.05 * math.sin(t * math.pi), y, math.sin(a) * r)))
+        rings.append(loop)
+    for k in range(rows):
+        for i in range(sides):
+            j = (i + 1) % sides
+            bm.faces.new((rings[k][i], rings[k][j], rings[k + 1][j], rings[k + 1][i]))
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces[:])
+    ends = [[v.co.copy() for v in rings[0]], [v.co.copy() for v in rings[-1]]]
+    to_object("bark", bm, (0.42, 0.3, 0.22), smooth=True).parent = root
+    for side in (-1.0, 1.0):
+        bm = bmesh.new()
+        src = ends[0] if side < 0 else ends[1]
+        centre = bm.verts.new((0.05 * math.sin(0.0 if side < 0 else math.pi), 0.5 * side, 0.0))
+        rim = [bm.verts.new((v.x * 0.97, v.y, v.z * 0.97)) for v in src]
+        for i in range(sides):
+            j = (i + 1) % sides
+            bm.faces.new((centre, rim[j], rim[i]) if side > 0 else (centre, rim[i], rim[j]))
+        to_object("end%d" % int(side), bm, (0.86, 0.72, 0.52), smooth=False).parent = root
+        for r in (0.3, 0.55, 0.8):
+            b = bmesh.new()
+            ring(b, r, 0.025, 0.0, sides=28, minor_sides=4)
+            for v in b.verts:
+                x, y, z = v.co
+                v.co = Vector((x, 0.5 * side + 0.004 * side, y))
+            to_object("ring%d_%d" % (int(side), int(r * 10)), b, (0.66, 0.5, 0.34), smooth=True).parent = root
+    return root
+
+
+def rope_lash():
+    """A rope lashing (unit size: 1 tall along z, about 0.3 wide, its loops lying in the x-z plane): three turns of rope, each a tall
+    rounded loop of two twisted strands, side by side; the game sets it down the front of a platform's board and round its log."""
+    root = empty("rope_lash")
+    bm = bmesh.new()
+    for turn in range(3):
+        x0 = (turn - 1) * 0.1
+        path = []
+        n = 72
+        for i in range(n):
+            u = i / n
+            # A stadium: up one side, over the top, down the other, under the bottom.
+            a = u * math.tau
+            px = x0 + 0.04 * math.cos(a)
+            pz = 0.5 * max(-1.0, min(1.0, math.sin(a) * 1.6))
+            path.append(Vector((px, 0.06 * math.cos(a), pz)))
+        for strand in range(2):
+            loops = []
+            for i in range(n):
+                c = path[i]
+                d = (path[(i + 1) % n] - path[i - 1]).normalized()
+                side = d.cross(Vector((0.0, 1.0, 0.0))).normalized()
+                up = d.cross(side).normalized()
+                tw = i / n * math.tau * 14.0 + strand * math.pi
+                cc = c + (side * math.cos(tw) + up * math.sin(tw)) * 0.012
+                ring_v = []
+                for j in range(6):
+                    b = math.tau * j / 6
+                    ring_v.append(bm.verts.new(cc + (side * math.cos(b) + up * math.sin(b)) * 0.014))
+                loops.append(ring_v)
+            for i in range(n):
+                for j in range(6):
+                    a0, b0 = loops[i][j], loops[(i + 1) % n][j]
+                    c0, d0 = loops[(i + 1) % n][(j + 1) % 6], loops[i][(j + 1) % 6]
+                    bm.faces.new((a0, b0, c0, d0))
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces[:])
+    to_object("rope", bm, (0.86, 0.74, 0.52), smooth=True).parent = root
+    return root
+
+
 PROPS = {
+    "log_pole": log_pole,
+    "rope_lash": rope_lash,
     "hill_dome_a": lambda: hill_dome("hill_dome_a", 5),
     "hill_dome_b": lambda: hill_dome("hill_dome_b", 12),
     "range_meadow_far": lambda: mountain_range("range_meadow_far", 3, 88.0, 6, 0.32, 0.6, False),

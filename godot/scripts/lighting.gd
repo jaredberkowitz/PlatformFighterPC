@@ -123,7 +123,8 @@ static var _ramps := {}
 
 ## The paper look under trial (the papercraft adventure as the benchmark, the owner, 2026-10-18), an A/B against the current look: no ink
 ## on the scenery (its edges lit instead, a cut card's edge), a soft turn into a lighter, cooler shade on it, and soft occlusion where
-## things meet. Fighters unchanged. `--look=paper` starts with it on; F10 in a match flips it.
+## things meet. Fighters unchanged. Retired as the game's look (the owner, 2026-10-19: the current look is better; docs/art/STYLE_SHEET.md);
+## `--look=paper` still starts with it on, for comparison captures only.
 static var paper := OS.get_cmdline_user_args().has("--look=paper")
 
 

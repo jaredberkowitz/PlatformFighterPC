@@ -573,7 +573,7 @@ def steel():
 TILES = {"lawn": (lawn, 0.68), "soil_bank": (soil_bank, 0.4), "roof_render": (roof, 0.6), "furrows": (furrows, 0.62), "planks": (planks, 0.45),
          # (The floating platforms' boards, the same planks in a wider range: at their size on screen the deck's range averaged out to a
          # plain tone, the gauntlet's round 29.)
-         "planks_bold": (planks, 0.2), "leaves": (leaves, 0.42), "brick": (brick, 0.5), "fieldstone": (fieldstone, 0.62), "steel_plate": (steel, 0.5)}
+         "planks_bold": (planks, 0.2), "leaves": (leaves, 0.42), "brick": (brick, 0.5), "fieldstone": (fieldstone, 0.74), "steel_plate": (steel, 0.5)}
 
 
 # The share of a render's pixels at or under the tile's white (most of the planks tile is board top, which would clip at 0.98).
