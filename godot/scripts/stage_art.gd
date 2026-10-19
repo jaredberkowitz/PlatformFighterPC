@@ -3842,18 +3842,21 @@ static func _meadow(root: Node3D, t: Dictionary, stage: Array) -> void:
 	var mill := Node3D.new()
 	root.add_child(mill)
 	_windmill(mill, Vector3(-34, hill_top(-34.0) - 0.8, -73))
-	_mute(mill, 0.3, Color(0.72, 0.88, 0.9), 0.22, false)
+	# (A light hand, 2026-10-19, the owner: greyed and lifted toward the sky it read as a pale cut-out from another game; the reference's
+	# mid-ground keeps clean colour and sits back by being cooler and simpler.)
+	_mute(mill, 0.1, Color(0.72, 0.88, 0.9), 0.1, false)
 	# (Each standing on the land with a painted shadow under it, `_ground_shadow`.)
 	_ground_shadow(Vector3(-34, 0, -73), Vector2(4.4, 3.6), -72.0)
 	# A few cottages on the near hills (just behind the land's edge), smoke rising from their chimneys: someone lives here.
 	# (Not the one at 18 since art review 10: right behind the right platform it crowded the fight; two, out at the sides, frame it.)
-	for c in [[44.0, Color(0.36, 0.5, 0.72)], [-66.0, Color(0.74, 0.5, 0.3)]]:
+	# (A red and a honey roof, 2026-10-19: the blue one went grey in the valley's air.)
+	for c in [[44.0, Color(0.82, 0.36, 0.28)], [-66.0, Color(0.84, 0.58, 0.3)]]:
 		var cx: float = c[0]
 		# (Set back into the air without ink, the meadow pilot: inked and bright, the right one read as cropped foreground.)
 		var house := Node3D.new()
 		root.add_child(house)
 		_cottage(house, Vector3(cx, hill_top(cx) - 0.6, -74.0), c[1], 1.0 if cx > 0.0 else -1.0)
-		_mute(house, 0.4, Color(0.72, 0.88, 0.9), 0.32, false)
+		_mute(house, 0.12, Color(0.72, 0.88, 0.9), 0.12, false)
 		_ground_shadow(Vector3(cx, 0, -74.0), Vector2(3.4, 2.6), -72.0)
 	# A low rise of meadow in front of the hills, and round trees standing along it (their feet just behind its edge).
 	_fore_band(root, -46.0, -10.0, Color(0.46, 0.76, 0.32))
@@ -4057,7 +4060,8 @@ static func _windmill(root: Node3D, at: Vector3) -> void:
 	var wood_dark := Materials.wood(Color(0.42, 0.28, 0.2), Vector2(2, 1))
 	_mesh(root, _cylinder(3.3, 3.6, 2.0, 14), Materials.stone(Color(0.66, 0.62, 0.58), Vector2(4, 1)), at + Vector3(0, 1.0, 0))
 	# (A grassy mound it stands in, and its shade, so it is planted on the hill and does not hover over it.)
-	_mesh(root, _sphere(1.0, 16), Materials.foliage(Color(0.4, 0.74, 0.3), Vector2(3, 2), false), at + Vector3(0, 0.1, 0), Vector3(5.6, 1.3, 4.6))
+	# (In the lawn's clean green, 2026-10-19: the leaf tile read as a grey lichen pad under it.)
+	_mesh(root, _sphere(1.0, 16), FighterView.toon(Color(0.44, 0.76, 0.3), false), at + Vector3(0, 0.1, 0), Vector3(5.6, 1.3, 4.6))
 	_contact(root, at + Vector3(0, 0.4, 0), Vector2(4.2, 3.4))
 	# The modelled tower and cap (make_props.py `windmill_tower`: eight timbered faces, a tiered shingle cap); the round ones stand in.
 	var tower := Toonify.load_prop("windmill_tower", true)
@@ -4096,6 +4100,8 @@ static func _windmill(root: Node3D, at: Vector3) -> void:
 	_mesh(hub, _cylinder(0.62, 0.62, 0.7, 14), wood_dark, Vector3.ZERO, Vector3.ONE, Vector3(90, 0, 0))
 	_mesh(hub, _cylinder(0.32, 0.4, 0.3, 12), FighterView.respond(FighterView.toon(Color(0.36, 0.34, 0.42)), "metal"), Vector3(0, 0, 0.45), Vector3.ONE, Vector3(90, 0, 0))
 	var sail := FighterView.toon(Color(0.95, 0.9, 0.8))
+	# (The lattice a step under the canvas, not dark wood, 2026-10-19: dark slats over pale cloth read as a busy grey grid.)
+	var slat := FighterView.toon(Color(0.8, 0.66, 0.5))
 	for k in 4:
 		var arm := Node3D.new()
 		arm.rotation.z = TAU * k / 4.0
@@ -4104,8 +4110,8 @@ static func _windmill(root: Node3D, at: Vector3) -> void:
 		# over the cloth; on the other a narrow leading board.
 		_mesh(arm, _box(Vector3(0.32, 7.6, 0.26)), wood, Vector3(0, 3.8, 0))
 		_mesh(arm, _box(Vector3(0.14, 5.8, 0.16)), wood, Vector3(1.85, 4.6, 0.06))
-		for j in 7:
-			_mesh(arm, _box(Vector3(1.9, 0.1, 0.12)), wood, Vector3(0.95, 1.9 + j * 0.9, 0.08))
+		for j in 4:
+			_mesh(arm, _box(Vector3(1.9, 0.1, 0.12)), slat, Vector3(0.95, 2.2 + j * 1.6, 0.08))
 		_mesh(arm, _box(Vector3(1.66, 5.2, 0.08)), sail, Vector3(0.95, 4.75, -0.04))
 		_mesh(arm, _box(Vector3(0.42, 5.6, 0.08)), wood_dark, Vector3(-0.36, 4.7, -0.02))
 
@@ -6394,9 +6400,10 @@ static func _bell_tower(root: Node3D, at: Vector3) -> void:
 ## The harbour's warehouse (`at` its foot, on the quay): long and low, walls of weathered blue-grey boards on a stone footing, a broad
 ## gabled roof in dark slate with its gable end to the sea, big double doors with a lit lintel and a hoist beam over a loft door.
 static func _warehouse(root: Node3D, at: Vector3) -> void:
-	var boards := Materials.wood(Color(0.56, 0.66, 0.72), Vector2(8, 2))
+	# (Warmer, 2026-10-19: blue-grey boards under a slate roof were the coldest, greyest thing on the beach.)
+	var boards := Materials.wood(Color(0.86, 0.66, 0.5), Vector2(8, 2))
 	var trim := FighterView.toon(Color(0.96, 0.92, 0.84))
-	var roof := Materials.shingles(Color(0.42, 0.4, 0.46), Vector2(4, 3))
+	var roof := Materials.shingles(Color(0.3, 0.56, 0.6), Vector2(4, 3))
 	var timber := Materials.wood(Color(0.4, 0.3, 0.24), Vector2(1, 2))
 	var W := 7.0
 	var D := 11.0
@@ -6482,7 +6489,8 @@ static func _harbour_town(root: Node3D, water: float) -> void:
 	_mesh(root, _box(Vector3(64, 2.2, 6)), stone, base + Vector3(2, 1.0, 2))
 	_mesh(root, _box(Vector3(64.4, 0.3, 6.4)), FighterView.toon(Color(0.74, 0.71, 0.66)), base + Vector3(2, 2.2, 2))
 	# Houses in rows up the slope.
-	var roofs := [Color(0.86, 0.36, 0.3), Color(0.32, 0.5, 0.74), Color(0.9, 0.58, 0.3), Color(0.5, 0.66, 0.5), Color(0.8, 0.42, 0.52)]
+	# (Warm reds and oranges with one teal, 2026-10-19: the blue roofs went grey in the air.)
+	var roofs := [Color(0.86, 0.36, 0.3), Color(0.26, 0.6, 0.62), Color(0.9, 0.58, 0.3), Color(0.92, 0.46, 0.34), Color(0.8, 0.42, 0.52)]
 	for row in 3:
 		var z := -1.0 - row * 4.5
 		var x := -26.0 + row * 4.0 + rng.randf_range(-1.0, 1.0)
@@ -6502,7 +6510,8 @@ static func _harbour_town(root: Node3D, water: float) -> void:
 			var walls := [Color(0.98, 0.9, 0.72), Color(0.74, 0.88, 0.9), Color(0.98, 0.78, 0.7), Color(0.84, 0.92, 0.76), Color(0.96, 0.94, 0.9)]
 			_cottage(house, Vector3.ZERO, roofs[rng.randi() % roofs.size()], 1.0 if rng.randf() < 0.5 else -1.0, walls[rng.randi() % walls.size()])
 			# (Each row back a step further into the air, the gauntlet's round 21: at foreground strength the town read as toys.)
-			_mute(house, 0.4 + 0.08 * row, Color(0.78, 0.88, 0.94), 0.18 + 0.05 * row, false)
+			# (Clean pastels, 2026-10-19, the owner: at 0.4 grey and a fifth haze the whole town read as one blue-grey wash.)
+			_mute(house, 0.12 + 0.06 * row, Color(0.78, 0.88, 0.94), 0.08 + 0.05 * row, false)
 			x += rng.randf_range(5.6, 7.4)
 	# A few buildings that are not houses, so the town reads as a town rather than one cottage repeated (art review 9): a bell tower up
 	# the hill, a long warehouse on the quay's east end, and a market of striped stalls along the quay.

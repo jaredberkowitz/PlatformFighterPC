@@ -469,7 +469,16 @@ def tree_crown(name, shape):
     else:
         masses = [((0, 0.4, 0.5), 2.1), ((-1.5, 0.2, 0.75), 1.25), ((1.55, 0.2, 0.65), 1.15), ((0.1, -0.35, 2.15), 1.5), ((0.25, -0.7, 3.2), 0.85)]
     for k, (c, r) in enumerate(masses):
-        leaf_clump(lit, shade, c, r, shape * 100 + k, teeth=8 if r > 1.6 else 6)
+        # (Folded, 2026-10-19, the owner's blue-mountain reference: each clump a dome of pleated skirts, as the pines are, in place of
+        # `leaf_clump`'s crumpled ball, whose random facets read as low-poly noise.)
+        crng = random.Random(shape * 100 + k)
+        n = 11 if r > 1.6 else 9
+        # (Broad, low domes with short leaf points, a broadleaf's rounded crown, not the pines' tall skirts.)
+        # (The lowest skirt in the deep green, the upper two lit, so each clump is darker below and lighter on top.)
+        for (rr, dz, hh, flare, droop, outer) in ((1.1, -0.45, 0.5, 0.86, 0.14, shade), (0.86, -0.12, 0.5, 0.82, 0.1, lit),
+                                                  (0.55, 0.2, 0.36, 0.76, 0.06, lit)):
+            pleated_tier(outer, shade, (c[0], c[1]), c[2] + dz * r, rr * r, hh * r, n, crng.uniform(0, math.tau), crng, flare=flare,
+                         droop=droop * r)
     for bm in (lit, shade):
         bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=0.0001)
         bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
