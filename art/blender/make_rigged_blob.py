@@ -388,7 +388,8 @@ def mitten(bm, x):
     block = _mitt_block(bm, x, 0.12, (0.13, 0.115, 0.06), squareness=0.8, curl=0.035, segments=56, rings=36)
     _crease(block, x, 0.15, 0.012, 0.005, side=-1.0)
     # (Four chunky fingers split well down the hand, the character pass, 2026-10-19: a paddle with faint grooves read as a mitten.)
-    _fingers(block, x, 0.07, 0.1, 0.032, width=0.02)
+    # (Split deeper and further back, the character judge's round 1: the reference's gloves have four clearly separate fingers.)
+    _fingers(block, x, 0.045, 0.09, 0.055, width=0.016)
     tube(bm, [_at(x, 0.045, 0.06, -0.012), _at(x, 0.085, 0.118, -0.022), _at(x, 0.105, 0.132, -0.026)], [0.05, 0.045, 0.041],
          segments=16, per_span=4)
 
@@ -1588,9 +1589,10 @@ def build_body_meshes(rig):
         radii_at_wrist = sorted(wrist_r[side])
         r = radii_at_wrist[len(radii_at_wrist) // 2] if radii_at_wrist else 0.08
         bm = bmesh.new()
-        bmesh.ops.create_cone(bm, cap_ends=True, cap_tris=False, segments=24, radius1=r * 1.2, radius2=r * 1.38, depth=0.075)
+        # (A longer flared cuff, the character judge's round 1: a short one left a ring of skin showing at the wrist.)
+        bmesh.ops.create_cone(bm, cap_ends=True, cap_tris=False, segments=24, radius1=r * 1.14, radius2=r * 1.5, depth=0.13)
         bmesh.ops.transform(bm, matrix=Vector((0.0, 0.0, 1.0)).rotation_difference(fore).to_matrix().to_4x4(), verts=bm.verts)
-        bmesh.ops.translate(bm, vec=J["hand." + side] - fore * 0.055, verts=bm.verts)
+        bmesh.ops.translate(bm, vec=J["hand." + side] - fore * 0.075, verts=bm.verts)
         parts["Cuff." + side] = to_object("Cuff." + side, bm, "hand." + side, rig)
 
     # The face shell, as the blob's: a ball fitted to the head, its front only, the face drawing projected straight on.
