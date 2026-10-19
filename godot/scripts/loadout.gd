@@ -59,6 +59,11 @@ const GEAR_FULL := 3
 const POSES := ["ready", "relaxed", "wave", "guard", "broad"]
 const POSE_CLIPS := {"ready": "idle", "relaxed": "idle_tool", "wave": "victory_b", "guard": "idle_look", "broad": "idle_heavy"}
 const POSE_OPEN := {"relaxed": true, "broad": true}
+## The head's shape (the character judge's round 12: four of one clean egg head read generic; the reference's heads each have their own):
+## its scale across, up and front to back on the shared head.
+const HEADS := ["round", "bean", "bun", "ball", "onion"]
+const HEAD_SCALES := {"round": Vector3(1.32, 1.0, 1.2), "bean": Vector3(1.18, 1.12, 1.1), "bun": Vector3(1.44, 0.9, 1.24),
+	"ball": Vector3(1.3, 1.08, 1.26), "onion": Vector3(1.24, 1.08, 1.14)}
 
 ## The slots in the order they are written, each with its catalog size. New slots go at the end (see the top).
 const SLOTS := ["color", "face", "hat", "glasses", "neck", "accent", "shirt",
@@ -66,7 +71,7 @@ const SLOTS := ["color", "face", "hat", "glasses", "neck", "accent", "shirt",
 	"brows", "brow_color", "brow_y", "brow_gap", "brow_size", "brow_turn",
 	"nose", "nose_y", "nose_size",
 	"mouth", "mouth_y", "mouth_size", "mouth_squash",
-	"cheeks", "cheek_color", "gear", "pose"]
+	"cheeks", "cheek_color", "gear", "pose", "head", "face_lean"]
 
 var color := 0
 var face := 0
@@ -102,6 +107,9 @@ var cheeks := 1
 var cheek_color := 0
 var gear := 0
 var pose := 0
+var head := 0
+## How the face is uneven (FaceLook `face_lean` steps; the middle even): one lid lower and the mouth off to that side.
+var face_lean := FaceLook.neutral("face_lean")
 
 
 func has_shorts() -> bool:
@@ -134,6 +142,8 @@ static func slot_size(slot: String) -> int:
 			return GEAR.size()
 		"pose":
 			return POSES.size()
+		"head":
+			return HEADS.size()
 		"eyes":
 			return FaceLook.EYES.size()
 		"eye_color":
@@ -171,6 +181,8 @@ static func slot_names(slot: String) -> Array:
 			return GEAR
 		"pose":
 			return POSES
+		"head":
+			return HEADS
 		"eyes":
 			return FaceLook.EYES
 		"eye_color":
@@ -253,6 +265,10 @@ static func default_for(player: int) -> RefCounted:
 	l.gear = 3
 	# (Each default fighter its own stance in the menus: the sailor relaxed, the aviator waving, the blue on guard, the ranger broad.)
 	l.pose = [1, 2, 3, 4][player % 4]
+	# (A head and an uneven face of its own each: the sailor a bean drooping left, the aviator a wide bun, the blue a ball frowning right,
+	# the ranger an onion with a lazy right lid.)
+	l.head = [1, 2, 3, 4][player % 4]
+	l.face_lean = FaceLook.neutral("face_lean") + [-3, 2, 3, 4][player % 4]
 	return l
 
 

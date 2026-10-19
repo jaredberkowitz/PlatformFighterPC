@@ -30,7 +30,7 @@ const ADJUST := {
 	"eye_y": 15, "eye_gap": 13, "eye_size": 13, "eye_squash": 11, "eye_turn": 11,
 	"brow_y": 15, "brow_gap": 13, "brow_size": 13, "brow_turn": 11,
 	"nose_y": 13, "nose_size": 13,
-	"mouth_y": 15, "mouth_size": 13, "mouth_squash": 11,
+	"mouth_y": 15, "mouth_size": 13, "mouth_squash": 11, "face_lean": 11,
 }
 
 ## The concept art's face: where each part sits with every adjustment in the middle (in the face square, 0..1). Measured off the concept
@@ -151,6 +151,11 @@ static func apply(mat: ShaderMaterial, look: RefCounted, expression := "deadpan"
 	mat.set_shader_parameter("mouth_place", Vector4(0.5, MOUTH_Y + offset(look, "mouth_y") * 0.011,
 		MOUTH_SIZE * (1.0 + offset(look, "mouth_size") * 0.07) * float(e.get("mouth_scale", 1.0)), 0.0))
 	mat.set_shader_parameter("mouth_squash", Vector2(1.0 + ms, 1.0 - ms * 0.5))
+	# The face uneven (the character judge's round 12, after the reference's drawn faces): one lid a little lower and the mouth off to its side.
+	var lean := offset(look, "face_lean")
+	mat.set_shader_parameter("lid_lean", lean * 0.045)
+	var mp: Vector4 = mat.get_shader_parameter("mouth_place")
+	mat.set_shader_parameter("mouth_place", Vector4(0.5 + lean * 0.011, mp.y, mp.z, mp.w + lean * 0.03))
 
 	# Cheeks, following the eyes.
 	var cheek := int(look.cheeks)

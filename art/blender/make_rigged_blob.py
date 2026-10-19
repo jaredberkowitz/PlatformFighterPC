@@ -1947,7 +1947,7 @@ CUFF_LIFT = 0.06
 # this share of the upper arm long and lifted this far off the skin.
 SLEEVE_TRIM = 0.12
 # Tall thick ribbed socks (the character judge's round 1): how far up from the ankle, how far off the skin, and their turned-down top.
-SOCK_HEIGHT = 0.42
+SOCK_HEIGHT = 0.375   # (just under the knee-length shorts, the character judge's round 12: higher, the turn-down poked through them in a bend)
 SOCK_LIFT = 0.03
 SOCK_TOP_BAND = 0.045
 SOCK_TOP_LIFT = 0.045

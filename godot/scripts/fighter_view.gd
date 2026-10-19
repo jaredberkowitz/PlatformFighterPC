@@ -849,7 +849,7 @@ func _bulk_arms(cls: int) -> void:
 		return
 	if use_base_body:
 		if head_bone >= 0:
-			skeleton.set_bone_pose_scale(head_bone, HEAD_SIZE)
+			skeleton.set_bone_pose_scale(head_bone, Loadout.HEAD_SCALES.get(Loadout.HEADS[clampi(int(loadout.get("head")), 0, Loadout.HEADS.size() - 1)], HEAD_SIZE) if loadout != null else HEAD_SIZE)
 		for side in ["L", "R"]:
 			var f := skeleton.find_bone("foot." + side)
 			if f >= 0:

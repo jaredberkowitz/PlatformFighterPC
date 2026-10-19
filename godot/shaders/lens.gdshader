@@ -3,7 +3,8 @@ shader_type spatial;
 // lens, as the owner's reference cast's shades are drawn (the character pass, 2026-10-19: a heavy flat tint turned the eyes behind brown).
 render_mode unshaded, cull_back, shadows_disabled, depth_draw_never;
 
-uniform vec4 tint : source_color = vec4(1.0, 0.72, 0.5, 0.32);
+// (A saturated orange, the reference's signature lenses, the owner, 2026-10-19.)
+uniform vec4 tint : source_color = vec4(1.0, 0.56, 0.22, 0.42);
 uniform float glare = 0.85;
 // The lens's half size in its own space (the modelled lens has no UVs; its own coordinates place the streaks).
 uniform vec2 half_size = vec2(0.225, 0.17);

@@ -25,6 +25,10 @@ uniform float pupil_size = 0.257;
 uniform vec2 pupil_shift = vec2(0.051, 0.01);
 // The lids: how far the top one is down (0 open .. 1 shut), its slope (lowers the inner end), how far the lower one is up.
 uniform vec3 lids = vec3(0.0);
+// Extra upper lid on one side (positive the right, negative the left): an uneven face.
+uniform float lid_lean = 0.0;
+// A faint hand-drawn wobble on every part's lines (in the face square's units).
+uniform float line_wobble = 0.0012;
 uniform vec4 eye_color : source_color = vec4(0.176, 0.102, 0.235, 1.0);
 uniform vec4 lid_color : source_color = vec4(1.0, 0.85, 0.2, 1.0);
 uniform vec4 brow_place = vec4(0.17, 0.258, 0.36, 0.0);
@@ -51,6 +55,8 @@ vec2 face_part_uv(vec2 uv, vec2 centre, float size, vec2 squash, float turn, flo
 	p = vec2(c * p.x - s * p.y, s * p.x + c * p.y);
 	p /= size * squash;
 	p.x *= side;
+	// (A hand-drawn wobble, the character judge's round 12: crisp vector lines read as an emoji set.)
+	p += vec2(sin(p.y * 23.0 + side * 1.7), sin(p.x * 19.0 + 0.6)) * line_wobble / max(size, 0.05);
 	return p + 0.5;
 }
 
@@ -85,8 +91,9 @@ vec3 face_eye(vec3 col, vec2 uv, float side) {
 		// eyes.)
 		// Lids in the fighter's colour (lit from above: lighter toward their top), each with an ink edge and a soft shadow on the eye
 		// below it.
-		if (lids.x > 0.001) {
-			float d = m.y - (-0.36 + 0.72 * lids.x + lids.y * -m.x);
+		float lid_x = lids.x + max(lid_lean * side, 0.0);
+		if (lid_x > 0.001) {
+			float d = m.y - (-0.36 + 0.72 * lid_x + lids.y * -m.x);
 			e *= mix(1.0, 0.7, smoothstep(0.14, 0.0, -d) * step(-d, 0.0) + 0.0);
 			vec3 lid = lid_color.rgb * mix(1.12, 0.92, smoothstep(-0.36, 0.2, m.y));
 			e = mix(e, lid, face_edge(d));
