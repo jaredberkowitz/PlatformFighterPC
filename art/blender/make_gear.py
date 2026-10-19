@@ -258,48 +258,7 @@ def aviator_cap():
             # (Forward and down beside the cheeks, so they show at three-quarter, the character judge's round 9.)
             bmesh.ops.translate(bm, vec=Vector((sx * (0.84 + inset), -0.22, 0.98)), verts=ret["verts"])
             to_object(part + nm, bm).parent = root
-    # Hair spilling out under the hat round the sides and back: soft thick locks hanging down and out.
-    # (Six thick rounded locks with soft tips, the character judge's round 10: thirteen flat shards read as cut paper or flames.)
-    locks = 6
-    for k in range(locks):
-        a = math.radians(-20.0 + 220.0 * k / (locks - 1))   # from the right side round the back to the left (front is -y)
-        a = math.radians(-10.0) + (math.pi + math.radians(20.0)) * k / (locks - 1)
-        base = Vector((0.82 * math.cos(a), 0.82 * math.sin(a), 1.4))
-        out = Vector((math.cos(a), math.sin(a), 0.0))
-        # (Falling down, only a little out, the character judge's round 10.)
-        d = out * 0.02 + Vector((0.0, 0.0, -1.0))
-        _lock("hair_spill%d" % k, base, d, rng.uniform(0.5, 0.66), rng.uniform(0.22, 0.27), 0.05, sides=12, rings=9, depth=0.75,
-              across=(-math.sin(a), math.cos(a), 0.0)).parent = root
-    # The goggles' band round the brow, and the goggles on it.
-    bm = bmesh.new()
-    lathe(bm, [(head_r(1.86) + 0.14, 1.86), (head_r(1.95) + 0.14, 1.95)])
-    o = to_object("leather_band", bm, sharp=60.0)
-    o.parent = root
-    for sx in (-1.0, 1.0):
-        centre = Vector((sx * 0.25, -(head_r(1.92) + 0.16), 1.92))
-        bm = bmesh.new()
-        tor = []
-        sides, minor = 28, 10
-        rows = []
-        for i in range(sides):
-            a = math.tau * i / sides
-            row = []
-            for j in range(minor):
-                b = math.tau * j / minor
-                rr = 0.15 + 0.045 * math.cos(b)
-                row.append(bm.verts.new(centre + Vector((rr * math.cos(a), -0.045 * math.sin(b) - 0.02, rr * math.sin(a)))))
-            rows.append(row)
-        for i in range(sides):
-            for j in range(minor):
-                bm.faces.new((rows[i][j], rows[(i + 1) % sides][j], rows[(i + 1) % sides][(j + 1) % minor], rows[i][(j + 1) % minor]))
-        o = to_object("metal_rim" + ("L" if sx < 0 else "R"), bm)
-        o.parent = root
-        bm = bmesh.new()
-        ret = bmesh.ops.create_uvsphere(bm, u_segments=20, v_segments=10, radius=1.0)
-        for v in ret["verts"]:
-            v.co = centre + Vector((v.co.x * 0.15, v.co.y * 0.03 - 0.03, v.co.z * 0.15))
-        o = to_object("glass_lens" + ("L" if sx < 0 else "R"), bm)
-        o.parent = root
+    # (No hair: the hat covers it all, the owner, 2026-10-19; hair pieces are to be their own items.)
     return root
 
 

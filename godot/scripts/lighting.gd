@@ -67,7 +67,7 @@ const STYLE_DEFAULT := {
 	"ramp": [[0.0, 0.0], [0.34, 0.0], [0.42, 0.56], [0.55, 0.56], [0.62, 1.0], [1.0, 1.0]],
 	"deep": 0.78,
 	# (Half, the character judge's round 10: close up in the menus the pale rim read as a sticker edge round every piece.)
-	"edge": Color(1.0, 0.97, 0.9, 0.06),
+	"edge": Color(1.0, 0.97, 0.9, 0.0),
 	"paint": [Color(1.06, 1.01, 0.92), Color(0.9, 0.94, 1.06), 0.55],
 	# How strongly the effects and lit things (the city's windows, lamps) bloom.
 	"glow": 0.75,
@@ -212,9 +212,10 @@ static func apply(env: Environment, root: Node, preview := false) -> void:
 		key.rotation_degrees.y += KEY_SIDE
 		# (The fighters' soft shade where their pieces meet, the ambient occlusion, in the previews too, as in a match.)
 		env.ssao_enabled = true
-		env.ssao_radius = 0.7
-		env.ssao_intensity = 2.4
-		env.ssao_power = 1.25
+		# (Stronger than a match's, the character judge's round 11: at a menu's size the shade under the brims did not read.)
+		env.ssao_radius = 0.8
+		env.ssao_intensity = 3.6
+		env.ssao_power = 1.35
 		env.ssao_light_affect = 0.35
 	key.light_color = Color(1.0, 0.93, 0.82)
 	key.light_energy = 1.25

@@ -389,7 +389,11 @@ func _build_rig(skin: Material) -> bool:
 		elif part.begins_with("Sock"):
 			# Tall thick socks, with a turned-down top (the character judge's round 1, the owner's reference): white knit.
 			# (A warm cream, the turn-down a shaded step under it, the character judge's round 10: pure white tubes were the brightest mass.)
-			mi.material_override = _cloth(toon(Color(0.84, 0.81, 0.74) if part.begins_with("SockTop") else Color(0.95, 0.93, 0.87)))
+			mi.material_override = _cloth(toon(Color(0.76, 0.72, 0.64) if part.begins_with("SockTop") else Color(0.88, 0.85, 0.78)))
+			mi.visible = loadout.has_shoes()
+		elif part.begins_with("BootToe"):
+			# The toe cap, a polished step over the leather.
+			mi.material_override = toon(BOOT_LEATHER.lightened(0.14))
 			mi.visible = loadout.has_shoes()
 		elif part.begins_with("BootCuff"):
 			mi.material_override = toon(BOOT_LEATHER.darkened(0.3))
@@ -1681,7 +1685,8 @@ const BELT_LEATHER := Color(0.4, 0.26, 0.18)
 ## (Darker, the character judge's round 1: the reference's shoes are a small dark leather.)
 const BOOT_LEATHER := Color(0.28, 0.17, 0.13)
 ## (Dark, a step under the leather, the character judge's round 3: pale soles read as a second outline under each foot.)
-const BOOT_SOLE := Color(0.2, 0.13, 0.1)
+## (A step lighter than the leather again, a lit edge round the foot, the character judge's round 11; pale, it read as a second outline.)
+const BOOT_SOLE := Color(0.46, 0.36, 0.3)
 const BELT_BRASS := Color(0.95, 0.74, 0.32)
 
 
