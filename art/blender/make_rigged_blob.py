@@ -393,11 +393,12 @@ def mitten(bm, x):
     for k_f, (f0, ln, spread) in enumerate(((0.072, 1.0, 0.03), (0.024, 1.08, 0.01), (-0.024, 1.02, -0.01), (-0.07, 0.9, -0.032))):
         pts, radii = [], []
         for k, t in enumerate((0.0, 0.45, 0.8, 1.0)):
-            d = 0.13 + 0.16 * ln * t
+            # (Short fat fingers, the character judge's round 18: about 45 per cent of the hand.)
+            d = 0.13 + 0.12 * ln * t
             f = f0 + spread * t
             o = -0.004 - (0.03 + 0.012 * k_f) * t * t      # curling toward the palm
             pts.append(_at(x, d, f, o))
-            radii.append((0.044, 0.042, 0.038, 0.03)[k])
+            radii.append((0.048, 0.046, 0.042, 0.033)[k])
         tube(bm, pts, radii, segments=14, per_span=3)
     tube(bm, [_at(x, 0.04, 0.085, -0.02), _at(x, 0.09, 0.14, -0.05), _at(x, 0.13, 0.16, -0.07), _at(x, 0.155, 0.162, -0.078)],
          [0.046, 0.044, 0.038, 0.028], segments=16, per_span=3)
@@ -1954,21 +1955,21 @@ CUFF_HEIGHT = 0.06
 CUFF_LIFT = 0.072   # (outside the shorts' flared hem, the character judge's round 13: at 0.06 the shorts poked through it in teeth when a leg bent)
 # The sleeves' trim (the aviator scout pilot, 2026-10-19, the owner's reference: a coloured band round each sleeve's end, standing proud),
 # this share of the upper arm long and lifted this far off the skin.
-SLEEVE_TRIM = 0.22
+SLEEVE_TRIM = 0.2
 # How far round the shoulder joint the shirt takes the upper arm's bone, and how much of it at most.
-SHOULDER_BLEND = 0.32
-SHOULDER_SHARE = 0.85   # (more, the owner: a raised arm came out from under the sleeve)
+SHOULDER_BLEND = 0.2
+SHOULDER_SHARE = 0.55   # (the character judge's round 18: more lifted the shirt's shoulder into a flat shelf with the arm)
 # Tall thick ribbed socks (the character judge's round 1): how far up from the ankle, how far off the skin, and their turned-down top.
 SOCK_HEIGHT = 0.375   # (just under the knee-length shorts, the character judge's round 12: higher, the turn-down poked through them in a bend)
 SOCK_LIFT = 0.03
 SOCK_TOP_BAND = 0.045
 SOCK_TOP_LIFT = 0.045
-SLEEVE_TRIM_LIFT = 0.13   # (a fat rolled cuff standing proud of the sleeve, the owner's second reference)
+SLEEVE_TRIM_LIFT = 0.11   # (about 1.15 times the arm round, the character judge's round 18)
 SLEEVE_SNUG = 0.55      # the sleeve's opening hugs the arm (this share of the shirt's distance), so no dark gap shows inside it
 SHORTS_TOP = -0.002   # the shorts reach just under the shirt's hem (below it a little, they could poke through)
 SHORTS_LIFT = 0.04     # the shorts sit a little closer in, so the shirt's hem lies over their waistband
 CLOTH_THICKNESS = 0.0     # none: an inner layer crossed the outer one where the cloth folds (the game draws cloth two-sided)
-SLEEVE = 1.35  # (past the elbow, onto the forearm, ending in a fat rolled cuff, the owner's second reference, 2026-10-19)
+SLEEVE = 1.05  # (just past the elbow, the character judge's round 18: to the wrist it gathered at the shoulder in a bend)
                        # shoulder, so 0.55 left only a cap over it: PEAK's short sleeves reach most of the way to the elbow)
 HEM_FLARE = 0.035
 # The body rebuild (the owner: the clothes read painted on beside the reference cast): the sleeves stand off the arm and open a little at
