@@ -29,7 +29,7 @@ const MOODS := {
 	# softest stage. Its colours kept; its contrast brought near the meadow's.)
 	# (Its pink grade and ambient eased, round 24: pink over the lawn's green cancelled toward grey, the palest stage left.)
 	"grove": {"key": [Color(1.0, 0.92, 0.84), 1.32, -40.0, -28.0], "fill": [Color(0.86, 0.66, 1.0), 0.38],
-		"ambient": [Color(1.0, 0.93, 0.95), 0.47], "shadow_hue": 0.78, "shadow_shift": 0.14, "shadow_value": 0.56,
+		"ambient": [Color(1.0, 0.93, 0.95), 0.47], "shadow_hue": 0.78, "shadow_shift": 0.06, "shadow_value": 0.42,
 		"shadow_tint": Color(0.72, 0.62, 0.92), "rim": Color(1.0, 0.86, 0.92),
 		"grade": [Color(0.98, 0.9, 1.04), Color(1.04, 0.98, 0.96), 0.3], "haze": Color(0.84, 0.82, 1.0)},
 	"sunset": {"key": [Color(1.0, 0.72, 0.5), 1.25, -20.0, -42.0], "fill": [Color(0.6, 0.5, 1.0), 0.42],

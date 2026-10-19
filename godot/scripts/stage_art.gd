@@ -38,6 +38,8 @@ const THEMES := {
 		# (Its colour back, a hair deeper, the meadow pilot of docs/art/STYLE_SHEET.md, 2026-10-19: the ground stays colourful, calmed by
 		# lowering its contrast and noise; muted it read dull; and at least 0.05 under the orange fighter in greyscale.)
 		"grass_back": 0.4,
+		# (The clean top with a calm pale path where the fighters stand, docs/art/STYLE_SHEET.md section 9.)
+		"path_colour": Color(0.95, 0.93, 0.76),
 		# The stage as a hillside farm terrace (2026-10-18, the owner: a place, not a box): a dry-stone retaining wall holding the field up,
 		# a grassy hill below it running down into the valley (`_meadow_hill`), a lower terrace in front, the farm nearby.
 		"terrace": true,
@@ -48,10 +50,13 @@ const THEMES := {
 	"grove": {
 		"sky_top": Color(0.28, 0.5, 0.98), "sky_mid": Color(0.52, 0.66, 1.0), "sky_horizon": Color(0.98, 0.76, 0.86),
 		"sky_glow": [Color(1.0, 0.72, 0.82), 0.55], "sky_wisps": [Color(1.0, 0.9, 0.96), 0.45],
-		"soil": Color(0.86, 0.66, 0.38), "soil_dark": Color(0.72, 0.5, 0.27), "grass": Color(0.32, 0.66, 0.28),
-		"grass_light": Color(0.6, 0.9, 0.34), "wood": Color(0.93, 0.74, 0.5), "wood_dark": Color(0.7, 0.48, 0.28),
+		"soil": Color(0.86, 0.66, 0.38), "soil_dark": Color(0.72, 0.5, 0.27), "grass": Color(0.42, 0.8, 0.36),
+		"grass_light": Color(0.66, 0.94, 0.46), "wood": Color(0.93, 0.74, 0.5), "wood_dark": Color(0.7, 0.48, 0.28),
 		"pattern": "roots", "cap": "grass", "platform": "wood", "grass_vary": 0.16, "grass_patch": 0.3,
 		# (No "taper": tried in round 16, the upper tier narrowed past the one under it and bared its top as a pale ledge behind the roots.)
+		# (The style sheet's section 9, carried from the meadow, 2026-10-19: a clean top with a pale pink-cream path, and a faceted ledge in
+		# a deep version of its terracotta earth in place of the clod bank; its roots stay.)
+		"path_colour": Color(0.96, 0.88, 0.82), "ledge": Color(0.46, 0.3, 0.28),
 	},
 	"sunset": {
 		"sky_top": Color(0.36, 0.28, 0.6), "sky_mid": Color(0.84, 0.46, 0.62), "sky_horizon": Color(1.0, 0.64, 0.4),
@@ -878,7 +883,8 @@ static func _pine_cluster(root: Node3D, at: Vector3, size: float) -> bool:
 ## A stage front as a faceted rock ledge (the meadow, in the language of its faceted hills and mountains): a sheet over the block's
 ## front in big irregular flat-shaded planes, bulging out and tucking in, following the block's batter (`taper`), in `colour`, falling
 ## into shade below the lit top as the stage fronts do.
-static func _faceted_ledge(parent: Node3D, left: float, right: float, top: float, bottom: float, front: float, taper: float, colour: Color) -> void:
+static func _faceted_ledge(parent: Node3D, left: float, right: float, top: float, bottom: float, front: float, taper: float, colour: Color,
+		fall := INF) -> void:
 	var y_top := top - 0.3
 	var y_bot := maxf(bottom, top - 14.0)
 	var stepx := 1.7
@@ -916,7 +922,7 @@ static func _faceted_ledge(parent: Node3D, left: float, right: float, top: float
 	m.set_shader_parameter("front_fall", 0.45)
 	m.set_shader_parameter("front_span", 6.0)
 	var mi := _mesh(parent, st.commit(), m, Vector3.ZERO)
-	mi.set_instance_shader_parameter("front_top", top)
+	mi.set_instance_shader_parameter("front_top", top if is_inf(fall) else fall)
 	mi.name = "faceted_ledge"
 
 
@@ -977,6 +983,9 @@ static func solid_block(parent: Node3D, t: Dictionary, left: float, right: float
 			_faceted_ledge(parent, left, right, top, bottom, front_z, taper, Color(0.34, 0.46, 0.4))
 		else:
 			_seawall_stones(parent, field, left, right, top + 0.15, bottom, front_z, depth, top, true, taper)
+	elif t.has("ledge"):
+		body.material_override = FighterView.toon((t.ledge as Color).darkened(0.35))
+		_faceted_ledge(parent, left, right, top if exposed else top + 0.3, bottom, front_z, taper, t.ledge, fall)
 	elif t.get("pattern", "") in ["earth", "roots"]:
 		_earth_bulges(parent, t, left, right, top, bottom, front_z, taper, exposed, fall)
 	if not exposed:
@@ -1084,7 +1093,7 @@ static func solid_block(parent: Node3D, t: Dictionary, left: float, right: float
 			# A worn path along the play line (the gauntlet's round 1), and broader patches.
 			grass = grass.duplicate()
 			grass.set_shader_parameter("worn_path", 0.55)
-			if t.name == "meadow":
+			if t.has("path_colour"):
 				# (The meadow rebuild's step 3, after the owner's blue-mountain reference: a nearly flat lime lawn, no texture, with a continuous
 				# pale cream path along the play line; its shading from the light alone.)
 				# (The drawn tile carries the colour over a white base: off, the lawn takes its colour itself.)
@@ -1097,7 +1106,7 @@ static func solid_block(parent: Node3D, t: Dictionary, left: float, right: float
 				grass.set_shader_parameter("worn_width", 2.2)
 				grass.set_shader_parameter("worn_back", 1.2)
 				# (The tint multiplies the lawn's linear colour up to the cream; colour uniforms are read as sRGB, so it is given in sRGB.)
-				var cream := Color(0.95, 0.93, 0.76).srgb_to_linear()
+				var cream := (t.path_colour as Color).srgb_to_linear()
 				var lin := lawn_c.srgb_to_linear()
 				grass.set_shader_parameter("worn_tint", Color(cream.r / lin.r, cream.g / lin.g, cream.b / lin.b).linear_to_srgb())
 			grass.set_shader_parameter("patch_amount", maxf(float(t.get("grass_patch", 0.0)), 0.45))
@@ -2546,11 +2555,11 @@ const RIDGES := {
 		{"model": "range_meadow_near", "facets": true, "land_colour": Color(0.18, 0.62, 0.6), "land_haze": 0.12, "land_drop": 8.0, "z": -140.0, "y": -36.0, "height": 62.0, "shape": 1, "seed": 9.0, "base": 0.4, "amplitude": 0.5, "frequency": 7.0,
 		"tone": Color(0.14, 0.46, 0.54), "mix": 0.85, "edge": 0.5, "haze": 0.28, "flank": 0.75, "foot_dark": 0.4, "layers": 3,
 		"flank_from": 0.0, "gullies": 0.6, "paper": 0.05, "edge_width": 0.016, "shadow": 0.5}],
-	"grove": [{"model": "range_grove_far", "z": -165.0, "y": -34.0, "height": 52.0, "shape": 0, "seed": 8.0, "base": 0.5, "amplitude": 0.32, "frequency": 3.5,
+	"grove": [{"model": "range_grove_far", "facets": true, "land_colour": Color(0.74, 0.68, 0.9), "z": -165.0, "y": -34.0, "height": 52.0, "shape": 0, "seed": 8.0, "base": 0.5, "amplitude": 0.32, "frequency": 3.5,
 		"tone": Color(0.54, 0.54, 0.78), "mix": 0.7, "edge": 0.3, "flank": 0.6, "foot_dark": 0.3, "layers": 4, "flank_from": 0.0, "gullies": 0.6,
 		"haze": 0.34, "paper": 0.05, "edge_width": 0.014},
 		# A nearer row of rounded hills in a deeper violet-blue, casting its shadow on the far one (art review 9: cut cards in layers).
-		{"model": "range_grove_near", "z": -138.0, "y": -24.0, "height": 40.0, "shape": 0, "seed": 4.0, "base": 0.5, "amplitude": 0.36, "frequency": 5.0,
+		{"model": "range_grove_near", "facets": true, "land_colour": Color(0.56, 0.5, 0.8), "z": -138.0, "y": -24.0, "height": 40.0, "shape": 0, "seed": 4.0, "base": 0.5, "amplitude": 0.36, "frequency": 5.0,
 		"tone": Color(0.42, 0.44, 0.66), "mix": 0.82, "edge": 0.4, "flank": 0.6, "foot_dark": 0.35, "layers": 3, "flank_from": 0.0,
 		"gullies": 0.4, "haze": 0.34, "paper": 0.05, "edge_width": 0.02, "shadow": 0.5}],
 	"sunset": [{"z": -175.0, "y": -36.0, "height": 58.0, "shape": 2, "seed": 5.0, "base": 0.4, "amplitude": 0.4, "frequency": 3.0,
@@ -2652,7 +2661,7 @@ const MIST := {
 	# (The far bands thinner, art review 9: over the cut-card ranges they washed both layers into one pale band.)
 	# (Clear air, the meadow rebuild's step 3: the reference has none of this milky band at the ranges' foot.)
 	"meadow": [[-56.0, -24.0, 12.0, 0.08], [-86.0, -26.0, 16.0, 0.06]],
-	"grove": [[-60.0, -24.0, 12.0, 0.16], [-90.0, -26.0, 16.0, 0.14]],
+	"grove": [[-60.0, -24.0, 12.0, 0.06], [-90.0, -26.0, 16.0, 0.05]],
 	"sunset": [[-60.0, -26.0, 10.0, 0.07], [-95.0, -24.0, 16.0, 0.13]],
 	"ocean": [[-130.0, -10.0, 6.0, 0.08]],
 	"night": [[-70.0, -26.0, 18.0, 0.4]],
@@ -4270,6 +4279,7 @@ static func _night(root: Node3D, t: Dictionary) -> void:
 ## The grove: a giant old tree behind a floating island, a few smaller trees, bushes on the island, pastel hills and clouds, and
 ## sparkles drifting in the canopy.
 static func _grove(root: Node3D, t: Dictionary, stage: Array) -> void:
+	_chunky_hills = true
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 3
 	_hills(root, rng, Color(0.3, 0.66, 0.4), Color(0.4, 0.54, 0.84))
