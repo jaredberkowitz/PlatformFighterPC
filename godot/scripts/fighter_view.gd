@@ -1969,7 +1969,7 @@ func _neck_on_rig(accent: Color) -> void:
 			if loadout.shirt > 0:
 				# (Snug round the neck with two small points turned down at the front, the character judge's round 2: wide, it read as a bar.)
 				# (Narrower and raised to meet the head, the points in toward the middle, the character judge's round 3: a bar across the chest.)
-				var cat := _collar(_collar_colour(), 0.74, 0.06)
+				var cat := _collar(_collar_colour(), 0.74, 0.12)
 				var point := PrismMesh.new()
 				point.size = Vector3(0.13, 0.12, 0.04)
 				for sx in [-1.0, 1.0]:
@@ -2057,7 +2057,8 @@ func _neck_on_rig(accent: Color) -> void:
 			# (No knotted tail since the character judge's round 1: the reference's sash ends at the hip.)
 		2:
 			# Neckerchief: a collar ring round the top of the torso with a point hanging in front.
-			var at := _collar(accent)
+			# (Snug round the neck and up to the head, the character judge's round 4: wide, it read as a bar across the chest.)
+			var at := _collar(accent, 0.74, 0.12)
 			# (A folded triangle of cloth pointing down, 2026-10-18: a square turned on its corner read as a flat plastic diamond.)
 			var bib := PrismMesh.new()
 			bib.size = Vector3(0.46, 0.34, 0.06)
