@@ -373,3 +373,10 @@ front of the town (Depth 4 to 3, reverted). Next material: the city roof, then t
 The rendered roofing reads as worn material but its repairs read as grime and it went darker than the facade; the meadow's lawn now a
 mown field; the headland's calm back (Depth 4). Next material: the valley field (ploughed rows that converge), then the meadow's
 platforms.
+
+## Round 28 (2026-10-18, commit 87830f5)
+
+Scores as round 27 (meadow 3.0, canyon 2.5, beach 3.2, city 3.0, grove 3.2). The fields no longer read as a printed card, but their rows
+read as fine hatching, all one value; the roof's repairs only faint. Gaps: (1) no cast shadows from overhead geometry; (2) material
+features too fine for the match camera (author each tile for it: main features 8 to 10 screen pixels). Next material: the meadow's
+platforms (a rendered plank tile at the beach deck's level).

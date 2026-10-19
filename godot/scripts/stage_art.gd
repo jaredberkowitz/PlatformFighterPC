@@ -1343,9 +1343,16 @@ static var _board_mat: ShaderMaterial
 
 
 ## The platforms' boards' material: the painted grain along each board, each board its own shade (`instance_tint`).
+## The boards' grain tile, four planks a repeat: the rendered planks (art/blender/make_tiles.py `planks`: grain bending round knots,
+## worn ends, nail heads, the owner's painted materials, 2026-10-18), or the noise-painted wood tile without them.
+static func _plank_tile() -> Texture2D:
+	var t := Materials._png_tile("planks")
+	return t if t != null else load("res://art/stage/png/wood.png") as Texture2D
+
+
 static func _board_material() -> ShaderMaterial:
 	if _board_mat == null:
-		_board_mat = (FighterView.toon(Color.WHITE, false, load("res://art/stage/png/wood.png") as Texture2D, Vector2(1.0, 0.25)) as ShaderMaterial).duplicate() as ShaderMaterial
+		_board_mat = (FighterView.toon(Color.WHITE, false, _plank_tile(), Vector2(1.0, 0.25)) as ShaderMaterial).duplicate() as ShaderMaterial
 		_board_mat.set_shader_parameter("instance_tint", true)
 		_board_mat.set_shader_parameter("ramp_softness", 0.1)
 	return _board_mat
@@ -2923,14 +2930,15 @@ static func _fields(root: Node3D, z: float, y: float, colours: Array, hedge_colo
 			var step := 3.0
 			var front := Vector3(0, 0, 0.05)
 			var xa := x
-			# (Ploughed rows from the furrow tile: in some fields across, eight to a field, so they thin where the fields do; in the others
+			# (Ploughed rows from the furrow tile: in some fields across, four to a field, so they thin where the fields do; in the others
 			# down the field, following its sides as the fields fan out, so they converge. The gauntlet's round 27: the stripes read as a
 			# flat card.)
 			var across := absf(sin(row * 5.3 + k * 2.9)) > 0.45
 			var uv_at := func(px: float, pd: float) -> Vector2:
 				if across:
-					return Vector2(px / 6.0, (pd - d0) / (d1 - d0))
-				return Vector2(pd / 4.0, (px - x) / 8.0)
+					return Vector2(px / 6.0, 0.5 * (pd - d0) / (d1 - d0))
+				# (Four rows a field across and one every two units down it, round 28: at eight they read as fine hatching.)
+				return Vector2(pd / 4.0, (px - x) / 16.0)
 			while xa < x + w:
 				var xb := minf(xa + step, x + w)
 				if furrowed:
@@ -3459,7 +3467,8 @@ static func _meadow(root: Node3D, t: Dictionary, stage: Array) -> void:
 	# A low rise of meadow in front of the hills, and round trees standing along it (their feet just behind its edge).
 	_fore_band(root, -46.0, -10.0, Color(0.42, 0.68, 0.36))
 	# (Muted toward the valley's air, the gauntlet's round 23: the vivid lime and yellow stripes read as a flat painted card under the farm.)
-	_fields(root, -46.0, -10.0, [Color(0.44, 0.66, 0.38), Color(0.52, 0.68, 0.4), Color(0.42, 0.6, 0.4), Color(0.48, 0.64, 0.42), Color(0.72, 0.7, 0.5)],
+	# (A patchwork of crops, fallow earth and pale stubble, round 28: in near-equal greens the fields read as one even texture.)
+	_fields(root, -46.0, -10.0, [Color(0.44, 0.64, 0.38), Color(0.62, 0.52, 0.42), Color(0.5, 0.66, 0.42), Color(0.76, 0.72, 0.56), Color(0.72, 0.68, 0.48)],
 		# (The hedgerows a step nearer the fields' greens, art review 10: dark lines netting the whole valley were its busiest detail.)
 		Color(0.36, 0.58, 0.32))
 	for k in 6:
@@ -5545,7 +5554,8 @@ static func _dock_block(parent: Node3D, t: Dictionary, left: float, right: float
 	# (A deeper, weathered wood for the deck, gauntlet round 4's greyscale test: in full sun the theme's light wood was the fighters' own
 	# value, about 0.7 of white, and a yellow fighter all but vanished against the boards it stood on.)
 	# (Honey-toned after the owner's harbour reference, kept at a readable value, about half of white.)
-	var wood_c: Color = Color(0.55, 0.37, 0.21)
+	# (A step deeper again with the rendered planks, whose grain lifts the boards' tops: the orange fighter came within 0.04 of them.)
+	var wood_c: Color = Color(0.5, 0.335, 0.19)
 	var dark_c: Color = t.wood_dark
 	# The deck: rows of boards from the front back, staggered joints.
 	# (Longer boards in wider rows and a narrower range of shade, art review 9: hundreds of short boards in many shades read busy.)
@@ -5608,7 +5618,7 @@ static func _dock_block(parent: Node3D, t: Dictionary, left: float, right: float
 	# (No ink shell per board: from afar 200 outlined boards turned the deck a murky purple.)
 	# (The painted grain tile laid along each board (art/stage/png/wood.png), one plank of it per board: a world-laid tile drew a second set
 	# of seams across the boards.)
-	var deck_mat := (FighterView.toon(Color.WHITE, false, load("res://art/stage/png/wood.png") as Texture2D, Vector2(1.0, 0.25)) as ShaderMaterial).duplicate() as ShaderMaterial
+	var deck_mat := (FighterView.toon(Color.WHITE, false, _plank_tile(), Vector2(1.0, 0.25)) as ShaderMaterial).duplicate() as ShaderMaterial
 	deck_mat.set_shader_parameter("instance_tint", true)
 	deck_mat.set_shader_parameter("ramp_softness", 0.1)
 	# (Scuffed paler along the play line where feet wear the boards, the gauntlet's round 1: a uniform deck read as a flat fill.)

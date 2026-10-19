@@ -24,7 +24,9 @@ SIZE = 512
 # The tile is 1 x 1 in Blender units, centred on the origin, seen from above; image up is +y.
 
 
-def reset():
+def reset(area=(1.0, 1.0)):
+    """A fresh scene looking straight down on `area` (width, height) about the origin, rendered at SIZE across its height... squeezed
+    to the square tile afterwards when it is not square (see `render_tile`)."""
     bpy.ops.wm.read_factory_settings(use_empty=True)
     scene = bpy.context.scene
     try:
@@ -33,8 +35,8 @@ def reset():
         pass
     scene.cycles.samples = 48
     scene.cycles.use_denoising = True
-    scene.render.resolution_x = SIZE
-    scene.render.resolution_y = SIZE
+    scene.render.resolution_x = int(SIZE * 2 * area[0] / area[1]) if area[0] != area[1] else SIZE
+    scene.render.resolution_y = SIZE * 2 if area[0] != area[1] else SIZE
     scene.render.film_transparent = False
     scene.view_settings.view_transform = "Standard"
     world = bpy.data.worlds.new("w")
@@ -45,7 +47,7 @@ def reset():
     scene.world = world
     cam_data = bpy.data.cameras.new("cam")
     cam_data.type = "ORTHO"
-    cam_data.ortho_scale = 1.0
+    cam_data.ortho_scale = max(area)
     cam = bpy.data.objects.new("cam", cam_data)
     cam.location = (0.0, 0.0, 5.0)
     scene.collection.objects.link(cam)
@@ -69,6 +71,35 @@ def grey_material(name, value):
     bsdf = next(n for n in m.node_tree.nodes if n.type == "BSDF_PRINCIPLED")
     bsdf.inputs["Base Color"].default_value = (value, value, value, 1.0)
     bsdf.inputs["Roughness"].default_value = 1.0
+    return m
+
+
+def grain_material(name, value, seed):
+    """Wood grain as colour, as a board's grain mostly is: Blender's distorted wave bands stretched along x (the board's length) over a
+    finer noise, ramped from a step darker than `value` to `value`."""
+    m = grey_material(name, value)
+    nt = m.node_tree
+    bsdf = next(n for n in nt.nodes if n.type == "BSDF_PRINCIPLED")
+    coord = nt.nodes.new("ShaderNodeTexCoord")
+    mapping = nt.nodes.new("ShaderNodeMapping")
+    mapping.inputs["Scale"].default_value = (0.09, 1.0, 1.0)
+    mapping.inputs["Location"].default_value = (seed * 3.7, seed * 1.3, 0.0)
+    wave = nt.nodes.new("ShaderNodeTexWave")
+    wave.wave_type = "BANDS"
+    wave.bands_direction = "Y"
+    wave.inputs["Scale"].default_value = 3.2
+    wave.inputs["Distortion"].default_value = 7.0
+    wave.inputs["Detail"].default_value = 3.0
+    wave.inputs["Detail Scale"].default_value = 1.6
+    ramp = nt.nodes.new("ShaderNodeValToRGB")
+    ramp.color_ramp.elements[0].position = 0.25
+    ramp.color_ramp.elements[0].color = (value * 0.7, value * 0.7, value * 0.7, 1.0)
+    ramp.color_ramp.elements[1].position = 0.75
+    ramp.color_ramp.elements[1].color = (value, value, value, 1.0)
+    nt.links.new(coord.outputs["Object"], mapping.inputs["Vector"])
+    nt.links.new(mapping.outputs["Vector"], wave.inputs["Vector"])
+    nt.links.new(wave.outputs["Fac"], ramp.inputs["Fac"])
+    nt.links.new(ramp.outputs["Color"], bsdf.inputs["Base Color"])
     return m
 
 
@@ -298,8 +329,56 @@ def furrows():
     return bpy.context.scene
 
 
+def planks():
+    """Four boards a tile, as the game's wood tile maps (one tile along a board's length, a quarter of it across): each board 10 long and
+    0.94 wide here, rendered at its true proportions and squeezed to the square tile, so its features keep their shape on the board.
+    Grain running along each board and bending round a knot or two, the long edges rounded over, the ends worn lower and chipped, two
+    nail heads at each end, dark gaps between the boards. Lit low from the upper left so the grain reads."""
+    rng = random.Random(61)
+    reset(area=(10.0, 4.0))
+    bm = bmesh.new()
+    bmesh.ops.create_grid(bm, x_segments=1, y_segments=1, size=8.0)
+    link("gap", bm, grey_material("gap", 0.22))
+    nail = grey_material("nail", 0.3)
+    nb = bmesh.new()
+    for k in range(4):
+        cy = -1.5 + k
+        knots = [(rng.uniform(-4.0, 4.0), rng.uniform(-0.25, 0.25), rng.uniform(0.6, 1.0)) for _ in range(rng.randint(1, 2))]
+        ph = rng.uniform(0, math.tau)
+        b = bmesh.new()
+        bmesh.ops.create_grid(b, x_segments=320, y_segments=26, size=0.5)
+        for v in b.verts:
+            x, y = v.co.x * 10.0, v.co.y * 0.94
+            warp = 0.0
+            z = 0.06
+            for (kx, ky, ks) in knots:
+                d = math.hypot((x - kx) * 0.6, (y - ky) * 2.2)
+                warp += 1.6 * ks * math.exp(-d * 3.0) * (1.0 if y > ky else -1.0)
+                z -= 0.05 * ks * math.exp(-(d * 7.0) ** 2)
+            z += 0.006 * math.sin(y * 42.0 + 2.2 * math.sin(x * 0.45 + ph) + warp)
+            # Rounded long edges, worn and chipped ends.
+            e = abs(y) / 0.47
+            z -= 0.05 * max(0.0, e - 0.75) ** 2 * 16.0
+            end = max(0.0, abs(x) - 4.6) / 0.4
+            z -= 0.03 * end * end * (1.0 + 0.6 * math.sin(y * 23.0 + ph))
+            v.co = Vector((x, y + cy, z))
+        link("board%d" % k, b, grain_material("board%d" % k, (0.8, 0.74, 0.84, 0.77)[k], k))
+        for ex in (-4.7, 4.7):
+            for ey in (-0.24, 0.24):
+                ret = bmesh.ops.create_icosphere(nb, subdivisions=2, radius=0.045)
+                for v in ret["verts"]:
+                    v.co = Vector((v.co.x, v.co.y, v.co.z * 0.45)) + Vector((ex + rng.uniform(-0.05, 0.05), cy + ey, 0.065))
+    link("nails", nb, nail)
+    sun((0.55, -0.55, -0.45), 4.0)
+    return bpy.context.scene
+
+
 # (The lawn's range narrower and brighter, the gauntlet's round 26: at 0.55 the meadow's lawn read as a dark speckled felt.)
-TILES = {"lawn": (lawn, 0.68), "soil_bank": (soil_bank, 0.4), "roof_render": (roof, 0.6), "furrows": (furrows, 0.62)}
+TILES = {"lawn": (lawn, 0.68), "soil_bank": (soil_bank, 0.4), "roof_render": (roof, 0.6), "furrows": (furrows, 0.62), "planks": (planks, 0.45)}
+
+
+# The share of a render's pixels at or under the tile's white (most of the planks tile is board top, which would clip at 0.98).
+HI = {"planks": 0.99}
 
 
 def render_tile(name):
@@ -310,11 +389,13 @@ def render_tile(name):
     scene.render.image_settings.file_format = "PNG"
     bpy.ops.render.render(write_still=True)
     img = bpy.data.images.load(raw)
+    if img.size[0] != SIZE or img.size[1] != SIZE:
+        img.scale(SIZE, SIZE)
     px = list(img.pixels)
     lum = [0.2126 * px[i] + 0.7152 * px[i + 1] + 0.0722 * px[i + 2] for i in range(0, len(px), 4)]
     ordered = sorted(lum)
     lo = ordered[int(len(ordered) * 0.02)]
-    hi = ordered[int(len(ordered) * 0.98)]
+    hi = ordered[min(int(len(ordered) * HI.get(name, 0.98)), len(ordered) - 1)]
     out = []
     for l in lum:
         t = min(max((l - lo) / max(hi - lo, 1e-4), 0.0), 1.0)
