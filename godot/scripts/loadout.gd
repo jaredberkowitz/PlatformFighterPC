@@ -54,6 +54,11 @@ const SHIRTS := ["none", "white shirt", "outfit shirt", "striped shirt", "flower
 ## last. Looks saved before this slot existed wear the full kit, as they did.
 const GEAR := ["none", "shorts", "shorts and gloves", "full kit"]
 const GEAR_FULL := 3
+## How a fighter stands in the menus (character select, previews; never in a match, where the fists stay closed): the clip it holds and
+## whether its hands are open (the character judge's round 10: the cast all held one raised-fist pose). Cosmetic only.
+const POSES := ["ready", "relaxed", "wave", "guard", "broad"]
+const POSE_CLIPS := {"ready": "idle", "relaxed": "idle_tool", "wave": "victory_b", "guard": "idle_look", "broad": "idle_heavy"}
+const POSE_OPEN := {"relaxed": true, "broad": true}
 
 ## The slots in the order they are written, each with its catalog size. New slots go at the end (see the top).
 const SLOTS := ["color", "face", "hat", "glasses", "neck", "accent", "shirt",
@@ -61,7 +66,7 @@ const SLOTS := ["color", "face", "hat", "glasses", "neck", "accent", "shirt",
 	"brows", "brow_color", "brow_y", "brow_gap", "brow_size", "brow_turn",
 	"nose", "nose_y", "nose_size",
 	"mouth", "mouth_y", "mouth_size", "mouth_squash",
-	"cheeks", "cheek_color", "gear"]
+	"cheeks", "cheek_color", "gear", "pose"]
 
 var color := 0
 var face := 0
@@ -96,6 +101,7 @@ var mouth_squash := FaceLook.neutral("mouth_squash")
 var cheeks := 1
 var cheek_color := 0
 var gear := 0
+var pose := 0
 
 
 func has_shorts() -> bool:
@@ -126,6 +132,8 @@ static func slot_size(slot: String) -> int:
 			return SHIRTS.size()
 		"gear":
 			return GEAR.size()
+		"pose":
+			return POSES.size()
 		"eyes":
 			return FaceLook.EYES.size()
 		"eye_color":
@@ -161,6 +169,8 @@ static func slot_names(slot: String) -> Array:
 			return SHIRTS
 		"gear":
 			return GEAR
+		"pose":
+			return POSES
 		"eyes":
 			return FaceLook.EYES
 		"eye_color":
@@ -241,6 +251,8 @@ static func default_for(player: int) -> RefCounted:
 	l.accent = o[2]
 	l.glasses = o[3]
 	l.gear = 3
+	# (Each default fighter its own stance in the menus: the sailor relaxed, the aviator waving, the blue on guard, the ranger broad.)
+	l.pose = [1, 2, 3, 4][player % 4]
 	return l
 
 

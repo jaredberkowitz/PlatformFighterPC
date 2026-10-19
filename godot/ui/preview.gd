@@ -82,6 +82,7 @@ func _tidy() -> void:
 func set_loadout(l: RefCounted) -> void:
 	view.rebuild(l)
 	_tidy()
+	view.hold_pose()
 
 
 func set_expression(e: Dictionary) -> void:
@@ -113,6 +114,8 @@ func _process(delta: float) -> void:
 	t += delta
 	if framed:
 		_frame_camera(delta)
+	# The look's menu stance (loadout.gd `pose`), held and gently moving.
+	view.step_pose(delta)
 	# (The body's proportions, as in a match: fighter_view.gd `HEAD_SIZE` and the rest.)
 	view.apply_proportions()
 	if view.model != null:

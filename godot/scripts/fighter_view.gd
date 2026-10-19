@@ -1132,6 +1132,32 @@ var open_hands := {}
 
 ## Closes a hand into a fist (or opens it): a hand that grips a weapon, and an unarmed fighter's hands while it attacks. (An open hand
 ## beside a sword's hilt read as not holding it; a punch with an open hand read as a slap.)
+## The look's menu stance (Loadout.POSES, the character judge's round 10): its clip playing slowly from a resting moment, the hands open
+## or closed by the stance. Menus only; a match poses the fighter from its state.
+func hold_pose() -> void:
+	if anim == null or loadout == null:
+		return
+	var p: String = Loadout.POSES[clampi(int(loadout.get("pose")), 0, Loadout.POSES.size() - 1)]
+	var clip: String = Loadout.POSE_CLIPS.get(p, "idle")
+	if not anim.has_animation(clip):
+		clip = "idle"
+	if anim.has_animation(clip):
+		anim.play(clip)
+		anim.seek(0.6 * anim.current_animation_length, true)
+		anim.speed_scale = 0.35
+		current_clip = clip
+		shown_clip = clip
+	var open: bool = Loadout.POSE_OPEN.get(p, false)
+	if not fists.is_empty():
+		_clench(not open, not open)
+
+
+func step_pose(delta: float) -> void:
+	if anim != null and anim.is_playing():
+		anim.advance(0.0)
+	_follow_bones()
+
+
 func _clench(free: bool, weapon: bool, facing := 1) -> void:
 	for side in fists:
 		var closed: bool = weapon if side == _weapon_side(facing) else free

@@ -10,7 +10,7 @@ const Loadout := preload("res://scripts/loadout.gd")
 
 func _initialize() -> void:
 	var out := "user://beauty.png"
-	var clip := "idle"
+	var clip := ""   # (By default each look's own menu stance, loadout.gd `pose`; --clip= overrides it.)
 	var at := 0.6
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--out="):
@@ -40,7 +40,7 @@ func _initialize() -> void:
 	await create_timer(0.3).timeout
 	for pv in views:
 		var v = pv.view
-		if v.anim != null and v.anim.has_animation(clip):
+		if clip != "" and v.anim != null and v.anim.has_animation(clip):
 			v.anim.play(clip)
 			v.anim.seek(at * v.anim.current_animation_length, true)
 			v.anim.speed_scale = 0.0
