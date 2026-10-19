@@ -2316,11 +2316,10 @@ func _glasses() -> void:
 	match loadout.glasses:
 		1:
 			# Shades: tinted glass the eyes show through, in a dark frame with a heavier brow bar, and a bridge.
-			var lens := StandardMaterial3D.new()
-			lens.albedo_color = Color(1.0, 0.55, 0.2, 0.5)
-			lens.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-			lens.roughness = 0.45
-			lens.metallic_specular = 0.3
+			# (A light peach tint with white glare streaks, shaders/lens.gdshader, the character pass, 2026-10-19, after the reference cast's
+			# shades: a heavy flat orange turned the eyes behind brown.)
+			var lens := ShaderMaterial.new()
+			lens.shader = preload("res://shaders/lens.gdshader")
 			if modelled:
 				for sx in [-1.0, 1.0]:
 					_on_face(_part(glasses_rig, g_lens, lens, Vector3.ZERO), to_head, sx * 0.32, 1.52, 0.04, Vector3.ONE)

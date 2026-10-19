@@ -54,11 +54,14 @@ func _format() -> void:
 	var dressed := Loadout.default_for(1)
 	dressed.gear = Loadout.GEAR_FULL
 	check(newer.equals(dressed), "unknown catalog entries fall back slot by slot")
-	# New players start as the concept's bare body; a look saved before the gear slot keeps its kit.
-	check(default.gear == 0 and default.shirt == 0 and default.neck == 0, "the default look is the bare body")
+	# New players start dressed, as the reference cast (the owner, 2026-10-19; before, the concept's bare body); a look saved before the
+	# gear slot keeps its kit.
+	check(default.gear == Loadout.GEAR_FULL and default.shirt > 0 and default.neck > 0, "the default look is dressed")
 	var old_look: PackedByteArray = default.to_bytes().slice(0, Loadout.SLOTS.find("gear") + 1)
 	check(Loadout.from_bytes(old_look, 1).gear == Loadout.GEAR_FULL, "an old look keeps its gear")
-	check(Loadout.from_bytes(default.to_bytes(), 1).gear == 0, "a new bare look stays bare")
+	var bare := Loadout.default_for(1)
+	bare.gear = 0
+	check(Loadout.from_bytes(bare.to_bytes(), 1).gear == 0, "a new bare look stays bare")
 	var partial := Loadout.from_bytes(PackedByteArray([Loadout.VERSION, 5, 99]), 1)
 	check(partial.color == 5 and partial.face == default.face, "a known slot is kept, an unknown one falls back")
 	check(Loadout.from_code("not hex!", 0).equals(Loadout.default_for(0)), "a bad code gives the default")

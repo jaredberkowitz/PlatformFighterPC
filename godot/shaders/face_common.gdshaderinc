@@ -90,7 +90,8 @@ vec3 face_eye(vec3 col, vec2 uv, float side) {
 			e *= mix(1.0, 0.7, smoothstep(0.14, 0.0, -d) * step(-d, 0.0) + 0.0);
 			vec3 lid = lid_color.rgb * mix(1.12, 0.92, smoothstep(-0.36, 0.2, m.y));
 			e = mix(e, lid, face_edge(d));
-			e = mix(e, ink_color.rgb, face_edge(abs(d) - 0.024));
+			// (Bolder, the character pass, 2026-10-19: the reference's lids are confident ink strokes.)
+			e = mix(e, ink_color.rgb, face_edge(abs(d) - 0.036));
 		}
 		if (lids.z > 0.001) {
 			float d = (0.36 - 0.72 * lids.z) - m.y;

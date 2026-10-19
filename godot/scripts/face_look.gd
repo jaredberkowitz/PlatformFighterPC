@@ -48,7 +48,8 @@ const BROW_THICK := 2.1
 const NOSE_Y := 0.5
 const NOSE_SIZE := 0.14
 const MOUTH_Y := 0.582
-const MOUTH_SIZE := 0.22
+## (Larger, its line bolder with it, the character pass, 2026-10-19: the reference's mouths carry the expression.)
+const MOUTH_SIZE := 0.26
 ## (Smaller, the character pass, 2026-10-19: the reference cast's pupils are small dots in a wide white.)
 const PUPIL := 0.19
 const LOOK := Vector2(0.051, 0.01)

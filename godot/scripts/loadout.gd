@@ -210,9 +210,16 @@ static func default_for(player: int) -> RefCounted:
 	l.mouth = f[1]
 	l.eyes = f[2]
 	l.cheeks = 0
-	l.accent = 2
-	l.shirt = 0
-	l.gear = 0
+	# Dressed, as the reference cast always is (the character pass, 2026-10-19; bare, the defaults read as naked blobs in a match):
+	# [shirt, neck, accent, glasses]: a sailor (white shirt, neckerchief, cobalt), an aviator scout (white shirt, sash, meadow green), a
+	# holiday shirt (flowers, sash, biscuit), a ranger (outfit shirt, sash, sunny); every one in the full kit (shorts, gloves, socks, shoes).
+	var outfits := [[1, 2, 2, 0], [1, 1, 4, 1], [4, 1, 10, 1], [2, 1, 0, 0]]
+	var o: Array = outfits[player % 4]
+	l.shirt = o[0]
+	l.neck = o[1]
+	l.accent = o[2]
+	l.glasses = o[3]
+	l.gear = 3
 	return l
 
 
