@@ -196,9 +196,13 @@ def aviator_cap():
             r = 0.2 * lump * (1.0 + 0.12 * math.sin(b_ * 3.0 + i))
             loop.append(bm.verts.new(c - out * 0.04 + (out * math.cos(b_) + up * math.sin(b_)) * r))
         loops.append(loop)
+    # (UVs round and along the roll, so the game's curly fleece tile lies on it.)
+    uv = bm.loops.layers.uv.new("UVMap")
     for i in range(n):
         for j in range(minor):
-            bm.faces.new((loops[i][j], loops[(i + 1) % n][j], loops[(i + 1) % n][(j + 1) % minor], loops[i][(j + 1) % minor]))
+            f = bm.faces.new((loops[i][j], loops[(i + 1) % n][j], loops[(i + 1) % n][(j + 1) % minor], loops[i][(j + 1) % minor]))
+            for lp, (a_, b_) in zip(f.loops, ((i, j), (i + 1, j), (i + 1, j + 1), (i, j + 1))):
+                lp[uv].uv = (a_ / n * 7.0, b_ / minor * 0.6)
     to_object("fleece_trim", bm).parent = root
     # Ear flaps: long leather tabs hanging past the jaw, each lined with fleece that shows round its edge.
     for sx in (-1.0, 1.0):
@@ -207,7 +211,7 @@ def aviator_cap():
         # free read as bunny ears.)
         for part, k, inset in (("leather_flap", 1.0, 0.0), ("fleece_flap", 1.06, -0.03)):
             bm = bmesh.new()
-            ret = bmesh.ops.create_uvsphere(bm, u_segments=20, v_segments=14, radius=1.0)
+            ret = bmesh.ops.create_uvsphere(bm, u_segments=20, v_segments=14, radius=1.0, calc_uvs=True)
             for v in ret["verts"]:
                 v.co = Vector((v.co.x * 0.12, v.co.y * 0.34 * k, v.co.z * 0.5 * k))
                 # (Curving in under the jaw, following the cheek.)

@@ -1963,6 +1963,10 @@ func _neck_on_rig(accent: Color) -> void:
 	var centre := Vector3(0, TORSO_CENTRE_Y, 0)
 	match loadout.neck:
 		1:
+			# (A raised collar band round the neck in the shirt's collar colour, the character judge's round 1 after the owner's reference: flat
+			# collar points on the chest left a hard cut where the head meets the shirt.)
+			if loadout.shirt > 0:
+				_collar(_collar_colour())
 			# Sash: a ring worn diagonally from shoulder to hip.
 			var ring := TorusMesh.new()
 			ring.inner_radius = 0.5
@@ -1976,7 +1980,8 @@ func _neck_on_rig(accent: Color) -> void:
 			torso_rig.add_child(sash)
 			# (Over the shirt, which since the body rebuild hangs looser: fitted to the bare torso, the band sank into the cloth in pieces.)
 			var over := SASH_OVER_SHIRT if loadout.shirt > 0 else 1.0
-			sash.scale = Vector3(over, 1.0, 1.0 + (over - 1.0) * 0.45)
+			# (Twice as wide, the character judge's round 1: the reference's sash is a broad band.)
+			sash.scale = Vector3(over, 1.9, 1.0 + (over - 1.0) * 0.45)
 			var strap := _gear_mesh("neckwear", "fabric_sash")
 			if strap != null:
 				_part(sash, strap, _cloth(toon(SASH, false)), Vector3.ZERO)
@@ -1984,12 +1989,34 @@ func _neck_on_rig(accent: Color) -> void:
 				_part(sash, ring, toon(SASH, false), Vector3.ZERO, Vector3(0.88, 1.7, 1.0))
 			# Six small square enamel badges along the band, facing out from it (the aviator scout pilot, 2026-10-19, after the owner's
 			# reference: three big plain dots read as buttons): each a brass plate with a coloured enamel face and a pale mark on it.
-			var plate := BoxMesh.new()
-			plate.size = Vector3(0.108, 0.024, 0.108)
-			var face := BoxMesh.new()
-			face.size = Vector3(0.078, 0.03, 0.078)
-			var mark := BoxMesh.new()
-			mark.size = Vector3(0.03, 0.036, 0.03)
+			# (Smaller, spaced apart and of different shapes, each with its own little mark, the character judge's round 1: six bright
+			# squares in a tight row read as stickers.)
+			var square := BoxMesh.new()
+			square.size = Vector3(0.088, 0.024, 0.088)
+			var round_plate := CylinderMesh.new()
+			round_plate.top_radius = 0.048
+			round_plate.bottom_radius = 0.048
+			round_plate.height = 0.024
+			round_plate.radial_segments = 14
+			var plates := [square, round_plate, square, round_plate, square, round_plate]
+			var sq_face := BoxMesh.new()
+			sq_face.size = Vector3(0.064, 0.03, 0.064)
+			var rd_face := CylinderMesh.new()
+			rd_face.top_radius = 0.035
+			rd_face.bottom_radius = 0.035
+			rd_face.height = 0.03
+			rd_face.radial_segments = 14
+			var faces := [sq_face, rd_face, sq_face, rd_face, sq_face, rd_face]
+			var dot := CylinderMesh.new()
+			dot.top_radius = 0.014
+			dot.bottom_radius = 0.014
+			dot.height = 0.036
+			dot.radial_segments = 8
+			var bar := BoxMesh.new()
+			bar.size = Vector3(0.04, 0.036, 0.012)
+			var tri := PrismMesh.new()
+			tri.size = Vector3(0.036, 0.036, 0.03)
+			var marks := [tri, dot, bar, dot, tri, bar]
 			var brass := respond(toon(Color(0.86, 0.68, 0.32)), "gold")
 			var colours := [Color(0.92, 0.32, 0.28), accent, Color(0.3, 0.52, 0.86), Color(0.98, 0.8, 0.28), Color(0.4, 0.7, 0.42),
 				Color(0.62, 0.42, 0.8)]
@@ -1997,11 +2024,11 @@ func _neck_on_rig(accent: Color) -> void:
 			var tools := {}
 			var order: Array = []
 			for k in 6:
-				var t := deg_to_rad(62.0 + 11.0 * k)
+				var t := deg_to_rad(58.0 + 13.5 * k)
 				var out := Vector3(0.88 * cos(t), 0.0, sin(t)).normalized()
 				var at_b := Vector3(0.88 * 0.655 * cos(t), 0.0, 0.655 * sin(t))
 				var turn := Basis(Quaternion(Vector3.UP, out)) * Basis(Vector3.UP, deg_to_rad(8.0 * float(k % 3 - 1)))
-				for piece in [[plate, "brass"], [face, "face%d" % k], [mark, "mark"]]:
+				for piece in [[plates[k], "brass"], [faces[k], "face%d" % k], [marks[k], "mark"]]:
 					var key: String = piece[1]
 					if not tools.has(key):
 						var st := SurfaceTool.new()
@@ -2018,7 +2045,7 @@ func _neck_on_rig(accent: Color) -> void:
 				var m: Material = brass if key == "brass" else (toon(Color(0.98, 0.95, 0.88)) if key == "mark" else toon(colours[int(key.substr(4))]))
 				bm.set_surface_override_material(i, m)
 			# The sash's knotted end hanging at the hip, swinging with the body (`TailRig`).
-			_tail(centre + Vector3(0.3, -0.36, 0.4), toon(SASH, false), 0.36, 0.13, 0.05, 3)
+			# (No knotted tail since the character judge's round 1: the reference's sash ends at the hip.)
 		2:
 			# Neckerchief: a collar ring round the top of the torso with a point hanging in front.
 			var at := _collar(accent)
@@ -2145,7 +2172,8 @@ func _gear_model(name: String, accent: Color) -> bool:
 		"metal": steel if name == "plumed_helm" else brass, "brass": brass, "gold": gold, "glass": toon(Color(0.66, 0.84, 0.95), false),
 		"straw": straw, "hair": toon(FaceLook.BROW_COLORS[clampi(loadout.brow_color, 0, FaceLook.BROW_COLORS.size() - 1)]),
 		# (Cream fleece, the aviator scout pilot, 2026-10-19.)
-		"fleece": _cloth(toon(Color(0.93, 0.86, 0.72)))}
+		# (A soft curly painted tile, the character judge's round 1: the fleece read as a smooth ring.)
+		"fleece": toon(Color(1, 1, 1), true, SvgArt.texture("res://art/cloth/fleece.svg", {"#ff00ff": Color(0.93, 0.86, 0.72)}), Vector2(1, 2))}
 	# One mesh per material, its parts merged (the loadout budget, docs plan 7.3: the crown's set stones and the helm's plume feathers, a
 	# mesh each, came to 16 and 24 meshes on one hat).
 	var groups := {}
