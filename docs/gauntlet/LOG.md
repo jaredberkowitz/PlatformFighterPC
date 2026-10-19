@@ -345,3 +345,17 @@ single-value fills (lawn, field, soil, crowns, headland, roof).
   girder deck and water tower, parapet flashing; a calmer SHOP glow and a cool rim on the skyline's ledges.
 - Grove: the side crowns lit (warm tops, cool undersides, core shadow, canopy shadow on the lawn); a soil material for the bank (clods,
   stones, occlusion under the turf, moss at the roots); a lawn material breakup like the meadow's.
+
+## Round 26 (2026-10-18, commit 5604376): painted materials, first pass
+
+| Stage | Believ. | Cohesion | Lighting | Depth | Ground | Clarity | Mean |
+|---|---|---|---|---|---|---|---|
+| Meadow | 3 | 3 | 3 | 3 | 3 | 3 | 3.0 |
+| Canyon | 2 | 3 | 3 | 2 | 2 | 3 | 2.5 |
+| Beach | 3 | 3 | 3 | 3 | 3 | 3 | 3.0 |
+| City | 3 | 3 | 3 | 3 | 3 | 3 | 3.0 |
+| Grove | 4 | 3 | 3 | 3 | 3 | 3 | 3.2 |
+
+Ground tiles rendered from modelled geometry (art/blender/make_tiles.py). The grove's clod bank and turf work (its Believability 4,
+the first 4 for material quality); the meadow's turf came out a dark, even felt; the headland in the turf read as lichen noise in
+front of the town (Depth 4 to 3, reverted). Next material: the city roof, then the meadow's valley field.

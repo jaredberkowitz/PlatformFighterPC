@@ -29,7 +29,7 @@ const THEMES := {
 		"sky_glow": [Color(1.0, 0.97, 0.86), 0.25], "sky_wisps": [Color(1.0, 1.0, 1.0), 0.5],
 		"soil": Color(0.76, 0.56, 0.36), "soil_dark": Color(0.52, 0.37, 0.25), "grass": Color(0.35, 0.53, 0.26),
 		"grass_light": Color(0.66, 0.86, 0.42), "wood": Color(0.86, 0.62, 0.36), "wood_dark": Color(0.62, 0.42, 0.24),
-		"pattern": "earth", "cap": "grass", "platform": "wood", "grass_vary": 0.3, "grass_patch": 0.85, "moss": Color(0.4, 0.66, 0.14),
+		"pattern": "earth", "cap": "grass", "platform": "wood", "grass_vary": 0.42, "grass_patch": 0.85, "moss": Color(0.4, 0.66, 0.14),
 		# (A step less saturated, deepening toward the back, gauntlet round 3: the brightest, flattest colour on screen.)
 		# (And another, the same value, the gauntlet's round 13: the references keep large surfaces muted, saturation for small accents.)
 		"grass_back": 1.0,
@@ -914,7 +914,9 @@ static func solid_block(parent: Node3D, t: Dictionary, left: float, right: float
 			# not read and the biggest surface on screen was blank. Now a step darker than the coping, with broad weathered patches.)
 			# (Warmer, the gauntlet's round 3: the play building is the warm, detailed layer in front of a cool, hazy skyline.)
 			var roofing := (t.grass as Color).lerp(Color(0.78, 0.5, 0.4), 0.88)
-			var roof_mat := _surface(roofing, "roof", 4.0).duplicate() as ShaderMaterial
+			# (The rendered roofing, art/blender/make_tiles.py `roof`, where it is made: lapped sheets, patched repairs, grit and puddle
+			# stains, the owner's painted materials, 2026-10-18; the painted tile without it.)
+			var roof_mat := _surface(roofing, "roof_render" if Materials._png_tile("roof_render") != null else "roof", 4.0).duplicate() as ShaderMaterial
 			roof_mat.set_shader_parameter("world_vary", 0.16)
 			# (Weathered tar patches stronger and a scuffed, darker band along the play line, the gauntlet's round 9: an unmarked sheet was the
 			# game's lowest-scoring surface.)
@@ -5817,13 +5819,10 @@ static func _harbour_town(root: Node3D, water: float) -> void:
 	var hills := [[Vector3(-6, 0.0, -14), Vector3(40, 9, 16)], [Vector3(22, -1.0, -18), Vector3(26, 6, 12)]]
 	# (Modelled hills, art/blender/make_props.py `hill_dome`, in a calm soft-lit land colour, the gauntlet's round 19: scaled spheres under
 	# the scaly foliage tile read as painted cards beside the modelled ranges. The spheres stand in without them.)
-	# (In the rendered turf, laid large, with broad patches over it, the owner's painted materials, 2026-10-18: one smooth colour read as
-	# a single mass, not land.)
-	var near_hill := (Materials.world("lawn" if Materials._png_tile("lawn") != null else "grass", Color(0.48, 0.62, 0.54), 12.0, false) as ShaderMaterial).duplicate() as ShaderMaterial
+	# (Plain and calm: laid in the rendered turf, the gauntlet's round 26, it read as dark lichen noise in front of the hazed town.)
+	var near_hill := (FighterView.toon(Color(0.46, 0.6, 0.52), false) as ShaderMaterial).duplicate() as ShaderMaterial
 	near_hill.set_shader_parameter("ramp_softness", 0.4)
 	near_hill.set_shader_parameter("rim_strength", 0.0)
-	near_hill.set_shader_parameter("world_vary", 0.3)
-	near_hill.set_shader_parameter("patch_amount", 0.55)
 	var far_hill := near_hill.duplicate() as ShaderMaterial
 	far_hill.set_shader_parameter("albedo", Color(0.5, 0.62, 0.64))
 	var dome := [_prop_mesh("hill_dome_a", "land"), _prop_mesh("hill_dome_b", "land")]

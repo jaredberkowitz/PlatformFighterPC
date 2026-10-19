@@ -162,7 +162,8 @@ def soil_bank():
     reset()
     bm = bmesh.new()
     bmesh.ops.create_grid(bm, x_segments=1, y_segments=1, size=1.5)
-    link("back", bm, grey_material("back", 0.3))
+    # (Lighter joints, round 26: the clods' outlines read a touch dark and even.)
+    link("back", bm, grey_material("back", 0.42))
     tones = [grey_material("clod%d" % k, v) for k, v in enumerate((0.5, 0.6, 0.7, 0.8))]
     bms = [bmesh.new() for _ in tones]
     n = 9
@@ -191,7 +192,74 @@ def soil_bank():
     return bpy.context.scene
 
 
-TILES = {"lawn": (lawn, 0.55), "soil_bank": (soil_bank, 0.4)}
+def slab(bm, centre, size, tilt=0.0, turn=0.0):
+    """A thin box at `centre`, `size` across, tipped by `tilt` about x and turned by `turn` about z (radians)."""
+    ret = bmesh.ops.create_cube(bm, size=1.0)
+    for v in ret["verts"]:
+        x, y, z = v.co.x * size[0], v.co.y * size[1], v.co.z * size[2]
+        y, z = y * math.cos(tilt) - z * math.sin(tilt), y * math.sin(tilt) + z * math.cos(tilt)
+        x, y = x * math.cos(turn) - y * math.sin(turn), x * math.sin(turn) + y * math.cos(turn)
+        v.co = Vector((x, y, z)) + Vector(centre)
+
+
+def roof():
+    """A flat roof's covering (the city's fighting surface; the tile is 4 units of roof): two rows of roofing sheet a tile, each a
+    little tipped so its lower edge laps over the row in front and catches the light, each row its own tone; a few patched repairs laid
+    over them at their own angles; grit scattered over everything; and a few soft puddle stains where water stood. Lit as the lawn is."""
+    rng = random.Random(37)
+    reset()
+    bm = bmesh.new()
+    bmesh.ops.create_grid(bm, x_segments=1, y_segments=1, size=1.5)
+    link("deck", bm, grey_material("deck", 0.4))
+    rows = 2
+    for j in range(rows + 2):
+        y = -0.5 + (j - 0.5) / rows
+        mat = grey_material("sheet%d" % j, (0.66, 0.6, 0.7, 0.63)[j % 4])
+        b = bmesh.new()
+        slab(b, (0.0, y, 0.004), (1.6, 1.0 / rows + 0.03, 0.006), tilt=math.radians(-1.2))
+        link("sheet%d" % j, b, mat)
+    patch = [grey_material("patch_a", 0.58), grey_material("patch_b", 0.7)]
+    for k in range(3):
+        cx, cy = rng.uniform(-0.5, 0.5), rng.uniform(-0.5, 0.5)
+        w, h = rng.uniform(0.08, 0.2), rng.uniform(0.06, 0.14)
+        turn = rng.uniform(-0.3, 0.3)
+        m = patch[k % 2]
+        for (px, py) in wrapped(cx, cy, 0.15):
+            b = bmesh.new()
+            slab(b, (px, py, 0.012), (w, h, 0.003), turn=turn)
+            link("patch%d" % k, b, m)
+    stain = grey_material("stain", 0.45)
+    for k in range(4):
+        cx, cy = rng.uniform(-0.5, 0.5), rng.uniform(-0.5, 0.5)
+        r = rng.uniform(0.05, 0.1)
+        ph = [rng.uniform(0, math.tau) for _ in range(3)]
+        for (px, py) in wrapped(cx, cy, r * 1.4):
+            b = bmesh.new()
+            ring = []
+            for i in range(24):
+                a = math.tau * i / 24
+                rr = r * (1.0 + 0.25 * math.sin(a * 3 + ph[0]) + 0.12 * math.sin(a * 5 + ph[1]))
+                ring.append(b.verts.new((px + math.cos(a) * rr * 1.4, py + math.sin(a) * rr, 0.0105)))
+            b.faces.new(ring)
+            link("stain%d" % k, b, stain)
+    grit = [grey_material("grit_a", 0.9), grey_material("grit_b", 0.25)]
+    gb = [bmesh.new(), bmesh.new()]
+    for k in range(1600):
+        x, y = rng.uniform(-0.5, 0.5), rng.uniform(-0.5, 0.5)
+        r = rng.uniform(0.0015, 0.0035)
+        for (px, py) in wrapped(x, y, r):
+            ret = bmesh.ops.create_icosphere(gb[k % 2], subdivisions=1, radius=r)
+            for v in ret["verts"]:
+                v.co += Vector((px, py, 0.012))
+    for k in range(2):
+        link("grit%d" % k, gb[k], grit[k])
+    sun((0.45, 0.75, -0.55), 4.0)
+    return bpy.context.scene
+
+
+
+# (The lawn's range narrower and brighter, the gauntlet's round 26: at 0.55 the meadow's lawn read as a dark speckled felt.)
+TILES = {"lawn": (lawn, 0.68), "soil_bank": (soil_bank, 0.4), "roof_render": (roof, 0.5)}
 
 
 def render_tile(name):
