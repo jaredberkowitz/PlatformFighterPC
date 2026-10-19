@@ -213,13 +213,14 @@ def frond(bm, angle, droop, length, width, rng):
 
 def cactus():
     """A saguaro: a ribbed trunk with two arms curving up from it at different heights, rounded tops, a pink flower on the crown.
-    About 4.5 tall."""
+    About 4.5 tall. (Folded, the judge's round 39 and rule 9: a few deep ribs, flat-shaded, so each rib is a lit plane and a shaded one;
+    eight shallow smooth ribs read as a capsule, the most primitive shape in the game.)"""
     root = empty("cactus")
     bm = bmesh.new()
-    ribbed_tube(bm, [(0, 0, -0.2), (0, 0, 1.6), (0.02, 0, 3.2), (0, 0, 4.1)], 0.48)
-    ribbed_tube(bm, [(-0.3, 0, 1.4), (-0.95, 0, 1.55), (-1.2, 0, 2.1), (-1.2, 0, 2.9)], 0.3)
-    ribbed_tube(bm, [(0.3, 0, 2.1), (0.85, 0, 2.2), (1.05, 0, 2.7), (1.08, 0, 3.4)], 0.27)
-    to_object("Cactus", bm, CACTUS, parent=root)
+    ribbed_tube(bm, [(0, 0, -0.2), (0, 0, 1.6), (0.02, 0, 3.2), (0, 0, 4.1)], 0.48, ribs=7, rib_depth=0.26, sides=14)
+    ribbed_tube(bm, [(-0.3, 0, 1.4), (-0.95, 0, 1.55), (-1.2, 0, 2.1), (-1.2, 0, 2.9)], 0.3, ribs=6, rib_depth=0.26, sides=12)
+    ribbed_tube(bm, [(0.3, 0, 2.1), (0.85, 0, 2.2), (1.05, 0, 2.7), (1.08, 0, 3.4)], 0.27, ribs=6, rib_depth=0.26, sides=12)
+    to_object("Cactus", bm, CACTUS, smooth=False, parent=root)
     bm = bmesh.new()
     for k in range(5):
         a = math.tau * k / 5

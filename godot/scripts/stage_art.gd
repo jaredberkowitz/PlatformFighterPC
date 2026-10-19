@@ -173,7 +173,8 @@ static func _soft(c: Color) -> ShaderMaterial:
 ## pier, a wide picture window, a narrow one.
 ## The beach's clouds (`_clouds` look): a little less exposure and a deeper shade, so the lit tops, the soft middle and the cool belly
 ## all read under the noon sun (flat white shapes, the pain-point review).
-const BEACH_CLOUDS := {"exposure": 1.3, "shade_depth": 1.0}
+# (Exposure 1.05, the judge's round 39: at 1.3 the clouds were brighter than anything in the play area.)
+const BEACH_CLOUDS := {"exposure": 1.05, "shade_depth": 1.0}
 const FACADE_BAYS := [[22, 52], [96, 52], [190, 0], [232, 104], [372, 52], [448, 36]]
 ## The facade tile's size in world units (its 512px repeat; see `_soil_material`) and one of its pixels.
 const FACADE_TILE := 6.6
@@ -2773,10 +2774,11 @@ const RIDGES := {
 		{"model": "range_grove_near", "facets": true, "land_colour": Color(0.56, 0.5, 0.8), "z": -138.0, "y": -24.0, "height": 40.0, "shape": 0, "seed": 4.0, "base": 0.5, "amplitude": 0.36, "frequency": 5.0,
 		"tone": Color(0.42, 0.44, 0.66), "mix": 0.82, "edge": 0.4, "flank": 0.6, "foot_dark": 0.35, "layers": 3, "flank_from": 0.0,
 		"gullies": 0.4, "haze": 0.34, "paper": 0.05, "edge_width": 0.02, "shadow": 0.5}],
+	# (More of their own colour, the judge's round 39: at mix 0.62 and 0.68 the far ridges were mostly horizon, a pale fog band.)
 	"sunset": [{"z": -175.0, "y": -36.0, "height": 58.0, "shape": 2, "seed": 5.0, "base": 0.4, "amplitude": 0.4, "frequency": 3.0,
-		"tone": Color(0.42, 0.26, 0.5), "mix": 0.62, "edge": 0.35, "layers": 3, "flank_from": 0.0},
+		"tone": Color(0.42, 0.26, 0.5), "mix": 0.78, "edge": 0.35, "layers": 3, "flank_from": 0.0},
 		{"z": -132.0, "y": -34.0, "height": 46.0, "shape": 2, "seed": 11.0, "base": 0.36, "amplitude": 0.36, "frequency": 2.6,
-		"tone": Color(0.55, 0.26, 0.3), "mix": 0.68, "edge": 0.4, "layers": 4, "flank_from": 0.0}],
+		"tone": Color(0.55, 0.26, 0.3), "mix": 0.84, "edge": 0.4, "layers": 4, "flank_from": 0.0}],
 	"night": [{"z": -160.0, "y": -42.0, "height": 56.0, "shape": 1, "seed": 2.0, "base": 0.4, "amplitude": 0.45, "frequency": 4.0,
 		"tone": Color(0.08, 0.1, 0.24), "mix": 0.55, "edge": 0.35}],
 	# (The sea's horizon is the bank of piled cumulus modelled in `_ocean`, with the distant islands in front of it. A far coast drawn
@@ -2872,8 +2874,8 @@ const MIST := {
 	# (The far bands thinner, art review 9: over the cut-card ranges they washed both layers into one pale band.)
 	# (Clear air, the meadow rebuild's step 3: the reference has none of this milky band at the ranges' foot.)
 	"meadow": [[-56.0, -24.0, 12.0, 0.08], [-86.0, -26.0, 16.0, 0.06]],
-	"grove": [[-60.0, -24.0, 12.0, 0.06], [-90.0, -26.0, 16.0, 0.05]],
-	"sunset": [[-60.0, -26.0, 10.0, 0.03], [-95.0, -24.0, 16.0, 0.05]],
+	"grove": [[-90.0, -26.0, 16.0, 0.04]],
+	"sunset": [[-95.0, -24.0, 16.0, 0.02]],
 	"ocean": [[-130.0, -10.0, 6.0, 0.08]],
 	"night": [[-70.0, -26.0, 18.0, 0.4]],
 	"city": [[-80.0, -30.0, 24.0, 0.35]],
@@ -4394,8 +4396,10 @@ static func _sunset(root: Node3D, t: Dictionary, stage: Array) -> void:
 	# (The stage's own painted strata, as the arch and the stage's front are (the owner, 2026-10-19: flat faceted tones made the buttes a
 	# different rock), faded with distance toward a cool lavender rather than the orange horizon, so they still recede.)
 	var rows := []
-	var haze := Color(0.7, 0.6, 0.82)
-	for fade in [0.3, 0.55]:
+	# (Half the fade and a rosier violet, the judge's round 39 and the owner's canyon reference: far rock reads by value and size in clear
+	# air; at 0.3 and 0.55 toward a pale lavender the buttes read through fog.)
+	var haze := Color(0.66, 0.5, 0.7)
+	for fade in [0.14, 0.3]:
 		var air := t.duplicate()
 		air.soil = (t.soil as Color).lerp(haze, fade)
 		air.soil_dark = (t.soil_dark as Color).lerp(haze, fade)
@@ -4527,7 +4531,9 @@ static func _grove(root: Node3D, t: Dictionary, stage: Array) -> void:
 	_chunky_hills = true
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 3
-	_hills(root, rng, Color(0.3, 0.66, 0.4), Color(0.4, 0.54, 0.84))
+	# (Deeper and cooler, the judge's round 39 and the owner's grove reference, a lush island over a darker violet distance: the pale
+	# green hills read as a milky fog band and the island did not pop.)
+	_hills(root, rng, Color(0.2, 0.46, 0.4), Color(0.38, 0.4, 0.7))
 	_clouds(root, rng, 8, Color(1, 0.97, 1), Vector2(10, 36))
 	_birds(root, rng, Color(0.25, 0.22, 0.3))
 	var top: float = stage[2] if stage.size() == 4 else 0.0
@@ -4540,7 +4546,7 @@ static func _grove(root: Node3D, t: Dictionary, stage: Array) -> void:
 	# (No roots under the quilted island, the owner, 2026-10-19: they conflicted with its front. `_grove_roots` kept for other uses.)
 	# A low rise of land in front of the hills, and two smaller trees standing on it either side (feet just behind its edge).
 	# (A rounded ridge, not the meadow's valley floor: the forest canopy fills the valley below it.)
-	_fore_band(root, -52.0, top - 11.0, Color(0.34, 0.66, 0.42), ROLL_PROFILE)
+	_fore_band(root, -52.0, top - 11.0, Color(0.26, 0.54, 0.38), ROLL_PROFILE)
 	_tree(root, Vector3(-30, fore_top(-30.0, top - 11.0) - 0.6, -55.0), 0.6, rng)
 	_tree(root, Vector3(32, fore_top(32.0, top - 11.0) - 0.6, -55.0), 0.55, rng)
 	_ground_shadow(Vector3(-30, 0, -55.0), Vector2(4.4, 3.0), -52.0)
@@ -4607,7 +4613,9 @@ static func _ocean(root: Node3D, t: Dictionary, stage: Array) -> void:
 	var bank_rng := RandomNumberGenerator.new()
 	bank_rng.seed = 41
 	# (Lifted clear of the horizon, the owner, 2026-10-19: sitting on it, the clouds read too low and blurred the sea into the sky.)
-	_clouds(root, bank_rng, 16, Color(1, 1, 1), Vector2(10.0, 18.0), Vector2(-215, -195), [1, 0, 1], 1.9, Vector2(-90, 90), BEACH_CLOUDS)
+	# (Seven, not sixteen, the judge's round 39: sixteen piled into one heavy lumpy band across the top third, the busiest area of the
+	# frame; a few apart leave open sky over the fight.)
+	_clouds(root, bank_rng, 7, Color(1, 1, 1), Vector2(10.0, 18.0), Vector2(-215, -195), [1, 0, 1], 1.9, Vector2(-90, 90), BEACH_CLOUDS)
 	_birds(root, rng, Color(0.97, 0.97, 1.0))
 	# Distant islands.
 	for k in 3:
@@ -4776,6 +4784,9 @@ static func _city(root: Node3D, t: Dictionary, stage: Array) -> void:
 	var wood := Materials.wood(Color(0.62, 0.32, 0.26))
 	for leg in [Vector3(-0.9, 0, -0.9), Vector3(0.9, 0, -0.9), Vector3(-0.9, 0, 0.9), Vector3(0.9, 0, 0.9)]:
 		_mesh(root, _box(Vector3(0.18, 2.4, 0.18)), wood, tower + leg + Vector3(0, 1.2, 0))
+		# (A crisp shade at each foot, the judge's round 39: the roof's props stood on the light pools ungrounded.)
+		_contact(root, tower + leg, Vector2(0.22, 0.2))
+	_contact(root, tower, Vector2(1.5, 1.2))
 	_mesh(root, _cylinder(1.3, 1.3, 2.2, 14), wood, tower + Vector3(0, 3.5, 0))
 	_mesh(root, _cylinder(0.0, 1.5, 1.0, 14), FighterView.toon(Color(0.4, 0.28, 0.22)), tower + Vector3(0, 5.1, 0))
 	# Iron hoops round the staves, a hatch on the roof and a ladder up the side: they say what it is made of and how big it is.
@@ -4802,6 +4813,8 @@ static func _city(root: Node3D, t: Dictionary, stage: Array) -> void:
 	# plan, step 3 (rooftop clutter), 2026-10-19. The built ones stand in without the models.)
 	if Toonify.load_prop("ac_unit") != null and Toonify.load_prop("roof_vent") != null:
 		_place_prop(root, "ac_unit", unit, 1.0, 0.0)
+		_contact(root, unit, Vector2(0.95, 0.7))
+		_contact(root, vent, Vector2(0.45, 0.38))
 		# (On the roof, which reaches back to z -6: at -7 these two hung past its back edge, the owner, 2026-10-19.)
 		_place_prop(root, "ac_unit", Vector3(float(e[1]) - 9.5, roof, -5.2), 0.85, 8.0)
 		_place_prop(root, "roof_vent", vent, 1.0, 200.0)
@@ -5420,7 +5433,8 @@ static func _skyline_layer(root: Node3D, rng: RandomNumberGenerator, layer: int,
 	# (And the middle layer too since art review 10, so only the nearest buildings carry frames and sills.)
 	m.set_shader_parameter("detail", 0.0 if layer >= 1 else 1.0)
 	# (Dimmer, so no sign outshines the fighters, step 4.)
-	m.set_shader_parameter("sign_energy", 1.9 - layer * 0.5)
+	# (Four tenths dimmer again, the judge's round 39: the signs were still the brightest, most saturated things on screen.)
+	m.set_shader_parameter("sign_energy", (1.9 - layer * 0.5) * 0.6)
 	m.set_shader_parameter("moon_edge", [0.9, 0.6, 0.35][layer])
 	# (Finer windows, finer further back, the gauntlet's round 15 after the owner's city reference: its windows are fine regular grids
 	# that read as texture; ours, a bay of 2 by 2.6 on every layer, read as stickers.)
