@@ -207,3 +207,9 @@ Still to do for the base body: the neckwear's fit, and the licence of the free-p
   mood (shadows turned to the stage's hue still read); nothing clips or floats; the name and the design are original.
 - Tests: `godot/tests/art_pipeline_test.gd` (materials swapped to cel ones in the same colour, textures kept, absent props and layers
   are simply absent).
+- **A prop in a stage's light** (not Blender's studio light): `--demo=stage --stage=N --noui --shots=<dir> --props=pine,bush` lines the
+  named props up along the stage's top, each scaled to about 3 units tall and standing on its own origin (`StageView.prop_lineup`).
+- **Prop checks**: `godot/tests/prop_check_test.gd` (add `-- --report` for a table): every prop in `godot/models/props` loads, keeps to
+  the triangle budget, and neither floats above nor is buried below its origin (props placed by their middle are listed with why).
+- **A review round in one command**: `tools/art/review.sh <round> [stages...]` captures the stages into `docs/gauntlet/round<N>/` with a
+  greyscale of each (the readability check), a before/after against the round before, and a contact sheet; `PROPS=a,b` adds a lineup.

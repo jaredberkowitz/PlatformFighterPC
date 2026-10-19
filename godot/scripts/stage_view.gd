@@ -85,6 +85,10 @@ func build(sim) -> void:
 	scenery.name = "Backdrop"
 	add_child(scenery)
 	StageArt.backdrop(scenery, theme, extent)
+	# `--props=a,b,c` (art preview, docs/ART_WORKFLOW.md): the named props lined up along the stage's top under its own light.
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--props="):
+			prop_lineup(self, arg.substr(8).split(","), extent)
 
 	for i in sim.ledge_count():
 		var l: Vector3 = sim.ledge_pos(i)
@@ -135,3 +139,35 @@ func _blast_zone(b: PackedFloat32Array) -> void:
 	mi.mesh = im
 	add_child(mi)
 	guides.append(mi)
+
+
+## A preview row of authored props (art/blender/make_props.py) on the stage's top, each scaled to `height` (at most `width` wide) and
+## standing on the top a little in front of the fighters' line, so a prop is judged in the stage's real light, haze and ink rather than in
+## Blender's studio light. Its foot is where its model's lowest point is, so a prop that floats or sinks in its own file shows here.
+static func prop_lineup(root: Node3D, names: PackedStringArray, extent: Array, height := 3.0, width := 5.0) -> void:
+	if extent.size() < 3:
+		return
+	var left: float = extent[0] + 2.0
+	var right: float = extent[1] - 2.0
+	for i in names.size():
+		var prop: Node3D = StageArt.Toonify.load_prop(names[i].strip_edges())
+		if prop == null:
+			push_warning("prop_lineup: no prop %s" % names[i])
+			continue
+		var box := AABB()
+		var first := true
+		for mi: MeshInstance3D in prop.find_children("*", "MeshInstance3D", true, false):
+			var xf := Transform3D.IDENTITY
+			var up: Node = mi
+			while up != null and up != prop:
+				xf = (up as Node3D).transform * xf
+				up = up.get_parent()
+			var b := xf * mi.get_aabb()
+			box = b if first else box.merge(b)
+			first = false
+		var k := minf(height / maxf(box.size.y, 0.01), width / maxf(box.size.x, 0.01))
+		var x := lerpf(left, right, (i + 0.5) / float(names.size()))
+		prop.scale = Vector3.ONE * k
+		# (The prop's own origin on the top: its model decides whether it stands, floats or sinks.)
+		prop.position = Vector3(x, float(extent[2]), FRONT_Z - 1.2)
+		root.add_child(prop)
