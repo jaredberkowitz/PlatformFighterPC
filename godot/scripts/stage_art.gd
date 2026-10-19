@@ -4625,6 +4625,11 @@ static func _ocean(root: Node3D, t: Dictionary, stage: Array) -> void:
 	sea.level = float(e[3]) - 1.0
 	root.add_child(sea)
 	sea.build()
+	# (The sun's path on the water and the horizon's colour, from the palette, the judge's round 41.)
+	var wm := (sea.get_child(0) as MeshInstance3D).material_override as ShaderMaterial
+	wm.set_shader_parameter("sun_dir", t.get("sun_dir", Vector3(-0.42, 0.25, -0.88)))
+	wm.set_shader_parameter("horizon", t.sky_horizon)
+	wm.set_shader_parameter("glint_path", float(_pal("glint_path")))
 	# (Higher in the sky, 2026-10-19: low over the horizon they sat on the sea.)
 	var cloud_look := {"exposure": float(_pal("cloud_exposure")), "shade_depth": 1.0}
 	_clouds(root, rng, 8, Color(1, 1, 1), Vector2(30, 48), Vector2(-120, -85), [0, 1, 2], 1.0, Vector2(-90, 90), cloud_look)

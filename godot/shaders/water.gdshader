@@ -15,6 +15,12 @@ uniform vec4 haze : source_color = vec4(0.22, 0.56, 0.86, 1.0);
 uniform float haze_max = 0.15;
 uniform float foam_width = 2.0;    // world units of foam out from where something meets the water
 uniform bool cheap = false;
+// The sun's direction (toward it) and the sky's horizon colour (the judge's round 41: the sea read as a painted floor): a broken path of
+// glints on the water under the sun, and the far sea brightening toward the horizon as water does at a low angle, softening the line
+// where it meets the sky. `glint_path` 0 turns the path off.
+uniform vec3 sun_dir = vec3(-0.42, 0.25, -0.88);
+uniform vec4 horizon : source_color = vec4(0.6, 0.86, 1.0, 1.0);
+uniform float glint_path = 0.0;
 varying vec3 world_pos;
 
 float hash(vec2 p) {
@@ -115,6 +121,19 @@ void fragment() {
 		col = mix(col, foam.rgb, ring1 * 0.55);
 		float ring2 = smoothstep(0.12, 0.2, shore) * (1.0 - smoothstep(0.24, 0.32, shore)) * smoothstep(0.35, 0.6, noise(p * 2.1 - vec2(TIME * 0.2, 0.0)));
 		col = mix(col, foam.rgb, ring2 * 0.3);
+	}
+	// The far sea brightening toward the horizon, and the line softened into the sky's own colour.
+	col = mix(col, horizon.rgb, smoothstep(80.0, 200.0, back) * 0.45);
+	if (!cheap && glint_path > 0.0) {
+		// The sun's path: a column of broken sparkle along the line from the camera toward the sun, wider and denser further off.
+		vec3 to_p = normalize(world_pos - CAMERA_POSITION_WORLD);
+		vec2 sd = normalize(sun_dir.xz);
+		float across = abs(to_p.x * sd.y - to_p.z * sd.x);
+		float path = (1.0 - smoothstep(0.02, 0.12 + 0.1 * band, across)) * smoothstep(20.0, 90.0, back);
+		vec2 gp = world_pos.xz * vec2(0.5, 1.6) + vec2(TIME * 0.2, TIME * 0.05);
+		float sparkle = smoothstep(0.62, 0.8, noise(gp) * 0.6 + noise(gp * 2.7 + 5.0) * 0.4);
+		col = mix(col, vec3(1.0, 0.98, 0.9), path * sparkle * glint_path);
+		col = mix(col, mix(col, vec3(1.0), 0.25), path * 0.3 * glint_path);
 	}
 	// The stage's distance haze (the scenery gets it from the finishing pass; the water is drawn after it).
 	col = mix(col, mix(haze.rgb, vec3(1.0), 0.3), smoothstep(4.0, 110.0, back) * haze_max);
