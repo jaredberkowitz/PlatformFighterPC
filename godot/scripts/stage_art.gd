@@ -63,12 +63,15 @@ const THEMES := {
 	},
 	"sunset": {
 		"sky_top": Color(0.36, 0.28, 0.6), "sky_mid": Color(0.84, 0.46, 0.62), "sky_horizon": Color(1.0, 0.64, 0.4),
-		"sky_glow": [Color(1.0, 0.56, 0.26), 0.7], "sky_wisps": [Color(1.0, 0.7, 0.62), 0.5],
+		# (Half the glow, 2026-10-19: at 0.7 it washed the whole frame in one orange haze.)
+		"sky_glow": [Color(1.0, 0.56, 0.26), 0.35], "sky_wisps": [Color(1.0, 0.7, 0.62), 0.5],
 		"soil": Color(0.86, 0.5, 0.32), "soil_dark": Color(0.68, 0.34, 0.24), "grass": Color(0.93, 0.74, 0.46),
 		# (Sun-bleached, in the other stages' range of wood: art review 6 round 8, the canyon's dark maroon planks read as black bars
 		# against its bright sky, the one stage whose platforms broke the family.)
 		"grass_light": Color(0.98, 0.86, 0.6), "wood": Color(0.82, 0.57, 0.42), "wood_dark": Color(0.58, 0.37, 0.29),
 		"pattern": "strata", "cap": "sand", "platform": "wood", "grass_vary": 0.18, "grass_patch": 0.3,
+		# (A clean sand top, the style sheet's section 9; the drawn strata front kept, the owner preferring it to a faceted ledge, 2026-10-19.)
+		"clean_top": true,
 	},
 	"night": {
 		"sky_top": Color(0.05, 0.07, 0.2), "sky_mid": Color(0.12, 0.13, 0.36), "sky_horizon": Color(0.2, 0.25, 0.48),
@@ -887,8 +890,9 @@ static func _pine_cluster(root: Node3D, at: Vector3, size: float) -> bool:
 ## A stage front as a faceted rock ledge (the meadow, in the language of its faceted hills and mountains): a sheet over the block's
 ## front in big irregular flat-shaded planes, bulging out and tucking in, following the block's batter (`taper`), in `colour`, falling
 ## into shade below the lit top as the stage fronts do.
+## `strata`: broad horizontal bands of lighter and deeper rock across it, wavering a little (the canyon).
 static func _faceted_ledge(parent: Node3D, left: float, right: float, top: float, bottom: float, front: float, taper: float, colour: Color,
-		fall := INF) -> void:
+		fall := INF, strata := false) -> void:
 	var y_top := top - 0.3
 	var y_bot := maxf(bottom, top - 14.0)
 	# (Big planes of their own sizes, the owner, 2026-10-19: an even fine grid of facets read cheap.)
@@ -912,17 +916,27 @@ static func _faceted_ledge(parent: Node3D, left: float, right: float, top: float
 		pts.append(row)
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var band := func(p: Vector3) -> Color:
+		if not strata:
+			return Color.WHITE
+		var k := fposmod((top - p.y + 0.25 * sin(p.x * 0.31)) / 1.6, 4.0)
+		var v: float = [1.0, 0.7, 0.88, 0.58][int(k)]
+		return Color(v, v, v)
 	for j in rows:
 		for i in cols:
 			var a: Vector3 = pts[j][i]
 			var b: Vector3 = pts[j][i + 1]
 			var c: Vector3 = pts[j + 1][i + 1]
 			var d: Vector3 = pts[j + 1][i]
-			for v in [a, b, c, a, c, d]:
-				st.add_vertex(v)
+			for tri in [[a, b, c], [a, c, d]]:
+				var tone: Color = band.call((tri[0] + tri[1] + tri[2]) / 3.0)
+				for v in tri:
+					st.set_color(tone)
+					st.add_vertex(v)
 	st.generate_normals()
 	var m := (FighterView.toon(colour, true) as ShaderMaterial).duplicate() as ShaderMaterial
 	m.set_shader_parameter("facets", true)
+	m.set_shader_parameter("vertex_shade", strata)
 	m.set_shader_parameter("fall_by_height", true)
 	m.set_shader_parameter("front_fall", 0.45)
 	m.set_shader_parameter("front_span", 6.0)
@@ -1111,6 +1125,11 @@ static func solid_block(parent: Node3D, t: Dictionary, left: float, right: float
 		_facade_windows(parent, left, right, top - 0.55, bottom, front_z, top, 0.52, body.material_override)
 	elif t.get("pattern", "") == "seawall":
 		_seawall_stones(parent, t, left, right, top, bottom, front_z, depth, top)
+	elif t.get("pattern", "") == "strata" and t.has("ledge"):
+		# (A faceted rock ledge in broad strata bands, the style sheet's section 9, the owner, 2026-10-19: the drawn strata tile with inked
+		# waves was a technique of its own.)
+		body.material_override = FighterView.toon((t.ledge as Color).darkened(0.4))
+		_faceted_ledge(parent, left, right, top, bottom, front_z, 0.0, t.ledge, fall, true)
 	elif t.get("pattern", "") == "strata":
 		_strata_ledges(parent, t, left, right, top, bottom, front_z, top)
 	elif t.get("terrace", false):
@@ -1200,6 +1219,11 @@ static func solid_block(parent: Node3D, t: Dictionary, left: float, right: float
 				j += 1
 		"sand":
 			var sand := _surface(t.grass, "sand", 5.0)
+			if t.get("clean_top", false):
+				# (Clean, untextured, shaded by the light alone: the style sheet's play surface.)
+				sand = sand.duplicate() as ShaderMaterial
+				sand.set_shader_parameter("use_tex", false)
+				sand.set_shader_parameter("albedo", t.grass)
 			# Broad warm and cool drifts across the sand where the theme asks for them (`grass_vary`), as on the lawns: the canyon's top was
 			# one flat sheet beside its banded strata front (the owner's outside brief; art review 6 round 5).
 			if t.has("grass_vary"):
@@ -2824,7 +2848,7 @@ const MIST := {
 	# (Clear air, the meadow rebuild's step 3: the reference has none of this milky band at the ranges' foot.)
 	"meadow": [[-56.0, -24.0, 12.0, 0.08], [-86.0, -26.0, 16.0, 0.06]],
 	"grove": [[-60.0, -24.0, 12.0, 0.06], [-90.0, -26.0, 16.0, 0.05]],
-	"sunset": [[-60.0, -26.0, 10.0, 0.07], [-95.0, -24.0, 16.0, 0.13]],
+	"sunset": [[-60.0, -26.0, 10.0, 0.03], [-95.0, -24.0, 16.0, 0.05]],
 	"ocean": [[-130.0, -10.0, 6.0, 0.08]],
 	"night": [[-70.0, -26.0, 18.0, 0.4]],
 	"city": [[-80.0, -30.0, 24.0, 0.35]],
@@ -4310,13 +4334,13 @@ static func _sunset(root: Node3D, t: Dictionary, stage: Array) -> void:
 	_painted_sun(root, Vector3(-46, -4, -140), 10.0)
 	# (Each row's rock takes on the dusk sky's colour with its distance, as the meadow's islands do: at full strength the far buttes were
 	# as dark and saturated as the mesa the fighters stand on, so nothing receded. Art review 6, background cohesion.)
+	# (Clean faceted tones that cool with distance, the owner, 2026-10-19: in the stage's own painted strata, warmed by the dusk, every
+	# row was the near mesa's orange and nothing receded. Near a dusky rose, far a lavender.)
 	var rows := []
-	var haze := (t.sky_horizon as Color).lerp(Color.WHITE, 0.35)
-	for fade in [0.35, 0.55]:
-		var air := t.duplicate()
-		air.soil = (t.soil as Color).lerp(haze, fade)
-		air.soil_dark = (t.soil_dark as Color).lerp(haze, fade)
-		rows.append(_under_material(_soil_material(air), 0.35 * (1.0 - fade)))
+	for c in [Color(0.74, 0.46, 0.46), Color(0.66, 0.54, 0.74)]:
+		var rm := (FighterView.toon(c, false) as ShaderMaterial).duplicate() as ShaderMaterial
+		rm.set_shader_parameter("facets", true)
+		rows.append(rm)
 	# Buttes and mesas in strata on rubble slopes (art/blender/make_props.py), a nearer row and a farther one.
 	for k in 8:
 		var far := k % 2 == 1
