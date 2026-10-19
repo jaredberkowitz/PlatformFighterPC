@@ -51,7 +51,7 @@ def outward(bm, axis):
             f.normal_flip()
 
 
-def folded_dome(bm_lit, bm_shade, centre, r, pleats, rng):
+def folded_dome(bm_lit, bm_shade, centre, r, pleats, rng, rows=None):
     """A round leaf clump folded like the pines (the owner's blue-mountain reference, 2026-10-19): a dome wider than tall whose surface is
     pleated in and out from its crown to its rim, the folds deepest at the rim and fading toward the top, the rim a skirt of leaf points
     hanging a little; so the key light falls on one side of every fold and the clump reads as crisp stripes over a round mass. The skirt
@@ -60,7 +60,10 @@ def folded_dome(bm_lit, bm_shade, centre, r, pleats, rng):
     turn = rng.uniform(0, math.tau)
     n = pleats * 2
     # (elevation as a share of a quarter turn, how deep the folds are there)
-    rows = [(-0.12, 0.3), (0.12, 0.24), (0.42, 0.16), (0.72, 0.07)]
+    # (Two bands and a cap, the judge's round 39: four bands of many pleats read as small evenly lit triangles, crumpled noise; a few
+    # big folds read as planes of light and shade.)
+    if rows is None:
+        rows = [(-0.12, 0.34), (0.32, 0.22), (0.68, 0.1)]
     made = []
     rings = []
     for (el, depth) in rows:
@@ -107,7 +110,7 @@ def folded_peak(bm, px, py, h, reach, foot, rng, rounded=False):
     base_turn = rng.uniform(0, math.tau / ridges)
     # (Each summit leans off its footprint's middle and is wider than deep, and some ridges hold a shoulder partway down, so no two
     # peaks are the same pyramid: an even row of symmetric cones read as a diagram.)
-    lean = rng.uniform(-0.3, 0.3) * reach
+    lean = rng.uniform(-0.3, 0.3) * reach * (1.0 if rounded else 1.8)
     apex = bm.verts.new((px, py, h))
     lines = []
     for k in range(ridges * 2):

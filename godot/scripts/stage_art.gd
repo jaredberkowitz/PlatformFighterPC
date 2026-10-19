@@ -852,6 +852,15 @@ static func _mute(node: Node, desat: float, haze: Color, lift: float, ink := tru
 				continue
 			var c = (m as ShaderMaterial).get_shader_parameter("albedo")
 			if not (c is Color):
+				# (Its ink taken off all the same, the judge's round 39: the windmill's painted-wood parts have no plain albedo, so they
+				# kept their outline in the mid-ground.)
+				if not ink and (m as ShaderMaterial).next_pass != null:
+					var bare := (m as ShaderMaterial).duplicate() as ShaderMaterial
+					bare.next_pass = null
+					if int(pair[0]) < 0:
+						mi.material_override = bare
+					else:
+						mi.set_surface_override_material(int(pair[0]), bare)
 				continue
 			var col: Color = c
 			var grey := col.r * 0.299 + col.g * 0.587 + col.b * 0.114
@@ -1155,7 +1164,9 @@ static func solid_block(parent: Node3D, t: Dictionary, left: float, right: float
 		if t.name == "meadow":
 			# (A faceted rock ledge in big planes, as the hills and mountains behind are built, the owner, 2026-10-19: the drawn cobbles
 			# clashed with the faceted background. One style across the scene.)
-			_faceted_ledge(parent, left, right, top, bottom, front_z, taper, Color(0.34, 0.46, 0.4))
+			# (A deep green-grey, the reference's ledge 0.18, 0.29, 0.22, the judge's round 39: lighter, it read pale blue-grey in the stage's
+			# light, barely darker than the far ranges.)
+			_faceted_ledge(parent, left, right, top, bottom, front_z, taper, Color(0.2, 0.3, 0.25))
 		else:
 			_seawall_stones(parent, field, left, right, top + 0.15, bottom, front_z, depth, top, true, taper)
 	elif t.has("quilt"):
@@ -3448,8 +3459,10 @@ static func fore_top(x: float, y: float) -> float:
 
 ## A trunk as one mesh: rings up a gentle bow (`bend` sideways at most), tapering from `r_bottom` to `r_top` and flaring by `flare` at the
 ## foot; bark UVs run round (u) and up (v). One mesh, so its ink outline has no seams.
-static func trunk_mesh(height: float, r_bottom: float, r_top: float, bend: float, flare: float, ridges := 0.0) -> ArrayMesh:
-	var key := "%.2f,%.2f,%.2f,%.2f,%.2f,%.2f" % [height, r_bottom, r_top, bend, flare, ridges]
+## `folds`: in place of `ridges`, that many long folded ridges with a crease between each, twisting a little as they rise, each face one
+## plane (the style sheet's rule 9 and the owner's grove reference, a great trunk of long ropey ridges, 2026-10-19).
+static func trunk_mesh(height: float, r_bottom: float, r_top: float, bend: float, flare: float, ridges := 0.0, folds := 0) -> ArrayMesh:
+	var key := "%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%d" % [height, r_bottom, r_top, bend, flare, ridges, folds]
 	if _trunk_cache.has(key):
 		return _trunk_cache[key]
 	var st := SurfaceTool.new()
@@ -3458,6 +3471,9 @@ static func trunk_mesh(height: float, r_bottom: float, r_top: float, bend: float
 	# cylinder read flat): long plates round the trunk wandering as they rise, so its silhouette is rough and each ridge takes the light.)
 	var sides := 22 if ridges <= 0.0 else 72
 	var rings := 12 if ridges <= 0.0 else 28
+	if folds > 0:
+		sides = folds * 2
+		rings = 7
 	var rows: Array = []
 	for j in rings + 1:
 		var v := float(j) / rings
@@ -3466,9 +3482,13 @@ static func trunk_mesh(height: float, r_bottom: float, r_top: float, bend: float
 		var row: Array = []
 		for i in sides + 1:
 			var a := TAU * i / sides
+			if folds > 0:
+				a += v * 0.7
 			var n := Vector3(sin(a), 0, cos(a))
 			var rr := r
-			if ridges > 0.0:
+			if folds > 0:
+				rr *= 1.0 if i % 2 == 0 else 0.76
+			elif ridges > 0.0:
 				var ridge := 0.5 + 0.5 * cos(a * 9.0 + 0.7 * sin(v * 6.0 + a * 2.0) + 0.4 * sin(v * 17.0 + a * 5.0))
 				rr *= 1.0 + ridges * (smoothstep(0.12, 0.45, ridge) - 0.55)
 			row.append([centre + n * rr, n, Vector2(float(i) / sides, 1.0 - v)])
@@ -3481,7 +3501,7 @@ static func trunk_mesh(height: float, r_bottom: float, r_top: float, bend: float
 					st.set_normal(vtx[1])
 				st.set_uv(vtx[2])
 				st.add_vertex(vtx[0])
-	if ridges > 0.0:
+	if ridges > 0.0 or folds > 0:
 		st.index()
 		st.generate_normals()
 	var mesh := st.commit()
@@ -4072,6 +4092,9 @@ static func _windmill(root: Node3D, at: Vector3) -> void:
 	if tower != null:
 		tower.position = at
 		root.add_child(tower)
+		# (Warm plaster, the judge's round 39: the near-white tower was the brightest, coolest thing in the mid-ground.)
+		for mi in tower.find_children("wall*", "MeshInstance3D", true, false):
+			(mi as MeshInstance3D).material_override = FighterView.toon(Color(0.9, 0.82, 0.7))
 	else:
 		_mesh(root, _cylinder(1.8, 3.0, 12.0, 14), plaster, at + Vector3(0, 7.0, 0))
 	# The door at the foot, and two windows up the front, each a dark opening in a wooden frame with a shutter.
@@ -4103,7 +4126,7 @@ static func _windmill(root: Node3D, at: Vector3) -> void:
 	# The hub: a drum the stocks pass through, an iron cap on its nose.
 	_mesh(hub, _cylinder(0.62, 0.62, 0.7, 14), wood_dark, Vector3.ZERO, Vector3.ONE, Vector3(90, 0, 0))
 	_mesh(hub, _cylinder(0.32, 0.4, 0.3, 12), FighterView.respond(FighterView.toon(Color(0.36, 0.34, 0.42)), "metal"), Vector3(0, 0, 0.45), Vector3.ONE, Vector3(90, 0, 0))
-	var sail := FighterView.toon(Color(0.95, 0.9, 0.8))
+	var sail := FighterView.toon(Color(0.96, 0.86, 0.68))
 	# (The lattice a step under the canvas, not dark wood, 2026-10-19: dark slats over pale cloth read as a busy grey grid.)
 	var slat := FighterView.toon(Color(0.8, 0.66, 0.5))
 	for k in 4:
@@ -5453,10 +5476,14 @@ static func _tree(root: Node3D, base: Vector3, size: float, rng: RandomNumberGen
 	# (Faceted in clean tones, the style sheet's section 9, the owner, 2026-10-19: the textured leaf crowns and striped bark clashed with
 	# the faceted ledge, hills and the meadow's pines.)
 	if Toonify.load_prop("tree_crown_a") != null:
-		bark = (FighterView.toon(Color(0.56, 0.41, 0.33)) as ShaderMaterial).duplicate() as ShaderMaterial
+		# (A step lighter and without ink, the judge's round 39: dark and inked dead centre, it framed the fighters in a dark block and
+		# was the last inked natural form.)
+		bark = (FighterView.toon(Color(0.66, 0.49, 0.38), false) as ShaderMaterial).duplicate() as ShaderMaterial
 		bark.set_shader_parameter("facets", true)
+		bark.set_shader_parameter("ramp_softness", 0.08)
 	# (Broad bark ridges in the trunk's shape, faceted, 2026-10-19: at 0.09 the great trunk read as one flat column mid-frame.)
-	_mesh(root, trunk_mesh(trunk_h, 2.9 * size, 2.0 * size, 0.7 * size, 1.4 * size, 0.22), bark, base)
+	# (Nine long twisting folds, round 39 and the owner's grove reference: fine ridges read as a smooth grooved column.)
+	_mesh(root, trunk_mesh(trunk_h, 2.9 * size, 2.0 * size, 0.7 * size, 1.4 * size, 0.0, 9), bark, base)
 	for k in 6:
 		var a := -1.25 + k * 0.5
 		var reach := rng.randf_range(0.85, 1.15)
