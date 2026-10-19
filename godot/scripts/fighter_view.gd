@@ -376,7 +376,15 @@ func _build_rig(skin: Material) -> bool:
 			mi.material_override = toon(loadout.accent_color())
 		elif part.begins_with("ShortsCuff") or part.begins_with("ShortsPocket"):
 			# The shorts' rolled cuffs and pocket flaps (make_rigged_blob.py), a shade darker than the shorts.
-			mi.material_override = _cloth(toon(shorts_colour.darkened(0.12)))
+			# (A cuff of its own per neckwear, so the cast's shorts differ, the character judge's round 6: a white sailor's stripe with the
+			# kerchief, a cream turn-up on the holiday shirt, else a shade darker than the shorts.)
+			var cuff_c: Color = shorts_colour.darkened(0.12)
+			if part.begins_with("ShortsCuff"):
+				if loadout.neck == 5:
+					cuff_c = Color(0.97, 0.96, 0.92)
+				elif loadout.shirt == 4:
+					cuff_c = Color(0.95, 0.9, 0.78)
+			mi.material_override = _cloth(toon(cuff_c))
 			mi.visible = loadout.has_shorts()
 		elif part.begins_with("Sock"):
 			# Tall thick socks, with a turned-down top (the character judge's round 1, the owner's reference): white knit.
@@ -407,10 +415,15 @@ func _build_rig(skin: Material) -> bool:
 			# on a coloured or printed one.
 			mi.visible = loadout.shirt > 0
 			mi.material_override = _cloth(toon(loadout.accent_color() if loadout.shirt == 1 else SHIRT_WHITE))
+		elif part.begins_with("ShirtCampCollar"):
+			# The holiday shirt's open camp collar, in its own print.
+			mi.visible = loadout.shirt == 4
+			# (A plain cream to stand out from the print, as the reference's collar's lining shows.)
+			mi.material_override = _cloth(toon(Color(0.98, 0.94, 0.86)))
 		elif part.begins_with("ShirtCollar") or part.begins_with("ShirtPlacket"):
 			# The collar and the placket, modelled on the shirt's front (make_rigged_blob.py's `shirt_front`): a shade darker than a plain
 			# shirt, white on a printed one; the collar hides under a ring of neckwear.
-			mi.visible = loadout.shirt > 0 and not (part.begins_with("ShirtCollar") and loadout.neck >= 2)
+			mi.visible = loadout.shirt > 0 and not (part.begins_with("ShirtCollar") and (loadout.neck >= 2 or loadout.shirt == 4))
 			mi.material_override = _cloth(toon(_collar_colour()))
 		elif part.begins_with("Buttons"):
 			mi.visible = loadout.shirt > 0
@@ -1675,7 +1688,8 @@ func _collar_colour() -> Color:
 			# (The outfit colour on a white shirt, as the reference scout's green collar, the aviator scout pilot.)
 			return loadout.accent_color()
 		2:
-			return loadout.accent_color().darkened(0.12)
+			# (A clear step darker, so the collar reads on the shirt, the character judge's round 6.)
+			return loadout.accent_color().darkened(0.28)
 	return SHIRT_WHITE
 
 
@@ -1966,6 +1980,28 @@ func _neck_on_rig(accent: Color) -> void:
 		_neck_piece(accent, piece)
 	if loadout.neck == 5 and loadout.shirt > 0:
 		_sailor_collar(accent)
+	if loadout.neck == 1 and loadout.shirt == 2:
+		_kerchief_knot(Color(0.82, 0.24, 0.22))
+
+
+## A small neckerchief knotted at the throat over the pointed collar (the ranger, after the reference, the character judge's round 6): a
+## knot and two short tails, one mesh.
+func _kerchief_knot(c: Color) -> void:
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var top := TORSO_CENTRE_Y + TORSO_RADII.y * 0.86
+	var z := TORSO_RADII.z * 1.12
+	var knot := SphereMesh.new()
+	knot.radius = 0.08
+	knot.height = 0.12
+	# (On the open side of the chest, clear of the sash across the other.)
+	var off := Vector3(0.12, 0.0, 0.0)
+	st.append_from(knot, 0, Transform3D(Basis.IDENTITY, Vector3(0, top - 0.05, z) + off))
+	for sx in [-1.0, 1.0]:
+		var tail := PrismMesh.new()
+		tail.size = Vector3(0.12, 0.22, 0.03)
+		st.append_from(tail, 0, Transform3D(Basis.from_euler(Vector3(0, 0, PI + sx * 0.35)), Vector3(sx * 0.05, top - 0.17, z - 0.01) + off))
+	_part(torso_rig, st.commit(), _fabric(c), Vector3.ZERO)
 
 
 ## The sailor's square collar (the character judge's round 5, after the owner's reference): a broad flap hanging square down the back and

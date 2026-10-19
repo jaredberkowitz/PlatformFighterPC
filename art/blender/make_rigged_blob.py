@@ -1890,6 +1890,15 @@ def shirt_front(shirt, skin, neck_line, waist, trunk_weights):
         tri = [Vector((sx * 0.03, neck_line - 0.1)), Vector((sx * 0.24, neck_line - 0.05)), Vector((sx * 0.15, neck_line - 0.3))]
         merge(bm, patch(tri, 8, 0.014, 0.016))
     out["ShirtCollar"] = finish("ShirtCollar", bm, 0.014)
+    # The holiday shirt's open camp collar (the character judge's round 6, after the reference's): two broad flat lapels lying open from
+    # the throat out over the collarbones, their points squared. The game shows one collar or the other by the shirt.
+    bm = bmesh.new()
+    for sx in (-1.0, 1.0):
+        quad = [Vector((sx * 0.02, neck_line - 0.04)), Vector((sx * 0.3, neck_line - 0.03)), Vector((sx * 0.28, neck_line - 0.2)),
+                Vector((sx * 0.08, neck_line - 0.34))]
+        # (Standing off the shirt at its free edges, so the lapels' fold and edge read even in the same print.)
+        merge(bm, patch(quad, 8, 0.02))
+    out["ShirtCampCollar"] = finish("ShirtCampCollar", bm, 0.03)
     top, bottom = neck_line - 0.2, waist + BELT_HALF + 0.005
     plk = patch([Vector((-0.032, top)), Vector((0.032, top)), Vector((0.032, bottom)), Vector((-0.032, bottom))], 12, 0.006)
     out["ShirtPlacket"] = finish("ShirtPlacket", plk, 0.01)
