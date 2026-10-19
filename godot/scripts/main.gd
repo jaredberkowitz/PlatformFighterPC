@@ -383,16 +383,22 @@ func _open_pause() -> void:
 	var local := _local_match()
 	var choices: Array
 	if local:
-		choices = [["Resume", "resume"], ["Restart", "restart"], ["Camera", "camera"],
+		choices = [["Resume", "resume"], ["Restart", "restart"], ["Camera", "camera"], [_view_label(), "view"],
 			["Show display" if hud_hidden else "Hide display", "hud"], ["Quit", "quit"]]
 		paused = true
 	else:
-		choices = [["Resume", "resume"], ["Show display" if hud_hidden else "Hide display", "hud"], ["Leave match", "quit"]]
+		choices = [["Resume", "resume"], [_view_label(), "view"], ["Show display" if hud_hidden else "Hide display", "hud"],
+			["Leave match", "quit"]]
 	pause_menu = PauseMenu.new()
 	add_child(pause_menu)
 	pause_menu.build(choices, not local, "PAUSED" if local else "MENU")
 	pause_menu.chosen.connect(_on_pause_choice)
 	sfx.play("blip", 0.9)
+
+
+## The pause screen's camera-style choice: the camera it switches to.
+func _view_label() -> String:
+	return "View: steady" if VisualSettings.steady_camera() else "View: follow"
 
 
 func _close_pause() -> void:
@@ -419,6 +425,11 @@ func _on_pause_choice(action: String) -> void:
 		"camera_done":
 			pause_cam = Vector3.ZERO
 			pause_menu.set_camera_mode(false)
+		"view":
+			# The steady or the following camera (the Display setting), switched here to compare the two in play.
+			VisualSettings.set_index("camera", 1 - VisualSettings.get_index("camera"))
+			_close_pause()
+			_open_pause()
 		"hud":
 			hud_hidden = not hud_hidden
 			_show_display(not hud_hidden)
@@ -1968,13 +1979,35 @@ const CAMERA_NEAREST := 26.0
 const KO_NEAREST := 21.0
 
 
+## The steady camera (the Display setting, on by default): a fighter in the air counts at the height it last stood on until it is more
+## than this far above it (world units: above any fighter's full hop, the tallest 5.2), and only by what it rises past that; below
+## it (off an edge, or dropping through a platform) it counts where it is. So ordinary jumps leave the view still, as the reference's
+## camera does, and launches, double jumps up high and recoveries still move it.
+const CAM_JUMP_BAND := 5.5
+## The height each fighter last stood on, for the steady camera.
+var cam_ground: Array[float] = [NAN, NAN, NAN, NAN]
+
+
+## Where the camera frames fighter `i` this frame (`p`, its drawn position): itself, or with the steady camera its height held while
+## it is in an ordinary jump.
+func _camera_point(i: int, p: Vector2) -> Vector2:
+	if int(snaps[i].get("platform", -1)) >= 0 or is_nan(cam_ground[i]):
+		cam_ground[i] = cur_pos[i].y
+	if not VisualSettings.steady_camera():
+		return p
+	var g: float = cam_ground[i]
+	if p.y < g:
+		return p
+	return Vector2(p.x, g + maxf(0.0, p.y - g - CAM_JUMP_BAND))
+
+
 func _update_camera(a: float, delta: float) -> void:
 	var lo := Vector2(1e9, 1e9)
 	var hi := Vector2(-1e9, -1e9)
 	for i in PLAYERS:
 		if not _in_play(i):
 			continue
-		var p: Vector2 = prev_pos[i].lerp(cur_pos[i], a)
+		var p: Vector2 = _camera_point(i, prev_pos[i].lerp(cur_pos[i], a))
 		lo = lo.min(p)
 		hi = hi.max(p + Vector2(0, 2.2))
 	if lo.x > hi.x:

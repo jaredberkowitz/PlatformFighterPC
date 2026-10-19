@@ -15,8 +15,10 @@ const OPTIONS := {
 		"about": "How many sparks, dust puffs and confetti hit effects throw."},
 	"quality": {"label": "Quality", "choices": ["Fast", "Balanced", "Best"], "default": 2,
 		"about": "Fast turns off shadows, anti-aliasing and glow for slower machines; Balanced uses lighter anti-aliasing."},
+	"camera": {"label": "Camera", "choices": ["Follow", "Steady"], "default": 1,
+		"about": "Steady holds the view still through ordinary jumps, as the reference game does (it moves for big launches and recoveries). Follow rises with every jump."},
 }
-const ORDER := ["shake", "flashes", "effects", "quality"]
+const ORDER := ["shake", "flashes", "effects", "quality", "camera"]
 
 const SHAKE_SCALE := [0.0, 0.5, 1.0]
 const FLASH_SCALE := [0.0, 0.45, 1.0]
@@ -55,6 +57,12 @@ static func flashes() -> float:
 ## The finishing blow's two-tone frames are a hard full-screen flash: only with flashes at Full.
 static func two_tone() -> bool:
 	return get_index("flashes") == 2
+
+
+## Whether the match camera holds still through ordinary jumps (`main.gd` `_update_camera`; the owner's playtest of 19 October 2026,
+## to test whether the camera rising with every jump is what made movement feel floaty).
+static func steady_camera() -> bool:
+	return get_index("camera") == 1
 
 
 static func effects() -> float:
