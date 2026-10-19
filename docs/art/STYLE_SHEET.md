@@ -9,6 +9,11 @@ fighters are.
 
 **The look:** the current cel look. The paper look (F10) is retired (the owner, 2026-10-19: the current look is marginally better).
 
+**The colour, light and depth target (the owner, 2026-10-19):** the papercraft adventure's blue-mountain camp, without its paper
+aesthetic. High-key and clean: bright saturated lime ground, warm wood and sand, cool saturated blue mountains layered lighter toward the
+peaks, a clear blue sky. The foreground had drifted dark and muddy under value rules that kept the ground darker than the fighters;
+the fighters read by their outlines, edge light and colour, and may stand on ground lighter than they are.
+
 ## 1. Layers, values and edges
 
 Measured in greyscale at the match camera (0 black, 1 white). Every stage has these layers, front to back:
@@ -16,8 +21,8 @@ Measured in greyscale at the match camera (0 black, 1 white). Every stage has th
 | Layer | What | Value | Saturation | Detail | Edges |
 |---|---|---|---|---|---|
 | Fighters | the players | their full range | highest on screen | their own | full ink outline |
-| Play surface | the tops, platforms, props on the tops | 0.40 to 0.55, and at least 0.05 from every fighter | rich, a step under the fighters | main features at least 8 px | soft ink, a lit rim on top edges |
-| Stage front | the wall, bank, facade or deck under the top | 0.25 to 0.45, falling into shade downward | a step under the top | calmer than the top | soft ink |
+| Play surface | the tops, platforms, props on the tops | 0.45 to 0.72, at least 0.05 from every fighter, lighter or darker | rich and bright: vivid ground | main features at least 8 px | soft ink, a lit rim on top edges |
+| Stage front | the wall, bank, facade or deck under the top | a step under the top (0.35 to 0.55 on a bright stage), falling into shade downward | a step under the top | calmer than the top | soft ink |
 | Mid-ground | towns, trees, fields, near hills | 0.45 to 0.70 | medium, cooler than the front | features at least 8 px, fewer than near | no ink |
 | Distance | ranges, far skyline, far hills | within 0.15 of the sky behind it | low, cool | big shapes only | no ink |
 | Sky | | 0.75 to 0.95 (night: its own darks) | low | clouds only | none |

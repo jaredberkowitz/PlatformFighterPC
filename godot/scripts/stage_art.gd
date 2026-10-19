@@ -27,14 +27,16 @@ const THEMES := {
 	"meadow": {
 		"sky_top": Color(0.1, 0.36, 0.9), "sky_mid": Color(0.3, 0.62, 1.0), "sky_horizon": Color(0.78, 0.93, 1.0),
 		"sky_glow": [Color(1.0, 0.97, 0.86), 0.25], "sky_wisps": [Color(1.0, 1.0, 1.0), 0.5],
-		"soil": Color(0.76, 0.56, 0.36), "soil_dark": Color(0.52, 0.37, 0.25), "grass": Color(0.31, 0.55, 0.2),
-		"grass_light": Color(0.62, 0.88, 0.34), "wood": Color(0.86, 0.62, 0.36), "wood_dark": Color(0.62, 0.42, 0.24),
-		"pattern": "earth", "cap": "grass", "platform": "wood", "grass_vary": 0.42, "grass_patch": 0.85, "moss": Color(0.4, 0.66, 0.14),
+		"soil": Color(0.76, 0.56, 0.36), "soil_dark": Color(0.52, 0.37, 0.25), "grass": Color(0.46, 0.8, 0.24),
+		"grass_light": Color(0.72, 0.95, 0.4), "wood": Color(0.86, 0.62, 0.36), "wood_dark": Color(0.62, 0.42, 0.24),
+		"pattern": "earth", "cap": "grass", "platform": "wood", "grass_vary": 0.18, "grass_patch": 0.35, "moss": Color(0.4, 0.66, 0.14),
+		# (Bright lime, clean, the owner, 2026-10-19, after the papercraft adventure's blue-mountain camp: the foreground had gone dark and
+		# muddy; vivid ground against cool blue mountains, high-key light. Fighters read by their outlines and colour, lighter or darker.)
 		# (A step less saturated, deepening toward the back, gauntlet round 3: the brightest, flattest colour on screen.)
 		# (And another, the same value, the gauntlet's round 13: the references keep large surfaces muted, saturation for small accents.)
 		# (Its colour back, a hair deeper, the meadow pilot of docs/art/STYLE_SHEET.md, 2026-10-19: the ground stays colourful, calmed by
 		# lowering its contrast and noise; muted it read dull; and at least 0.05 under the orange fighter in greyscale.)
-		"grass_back": 1.0,
+		"grass_back": 0.4,
 		# The stage as a hillside farm terrace (2026-10-18, the owner: a place, not a box): a dry-stone retaining wall holding the field up,
 		# a grassy hill below it running down into the valley (`_meadow_hill`), a lower terrace in front, the farm nearby.
 		"terrace": true,
@@ -894,11 +896,12 @@ static func solid_block(parent: Node3D, t: Dictionary, left: float, right: float
 		# (The mortar a dark grey-brown, art review 9: the red earth tile between the stones read as brick.)
 		# (Not too dark, gauntlet round 4's greyscale test: near-black joints round pale stones made the wall the most contrasty, busiest
 		# thing on screen, right under the fight.)
-		body.material_override = FighterView.toon(Color(0.4, 0.36, 0.34))
+		body.material_override = FighterView.toon(Color(0.6, 0.54, 0.48) if t.name == "meadow" else Color(0.4, 0.36, 0.34))
 		var field := t.duplicate()
 		# (Warm fieldstone, a step darker than the lawn is light, so the wall sits under the field instead of outshining it.)
 		# (A step deeper, round 33: the upper courses matched the lawn's value, so the front did not sit under the top.)
-		field.soil = Color(0.62, 0.51, 0.39)
+		# (Light, warm and clean with the bright lawn, the owner, 2026-10-19: the dark wall read muddy.)
+		field.soil = Color(0.84, 0.74, 0.6)
 		field.soil_dark = Color(0.44, 0.36, 0.32)
 		_seawall_stones(parent, field, left, right, top + 0.15, bottom, front_z, depth, top, true, taper)
 	elif t.get("pattern", "") in ["earth", "roots"]:
@@ -1005,7 +1008,7 @@ static func solid_block(parent: Node3D, t: Dictionary, left: float, right: float
 				grass.set_shader_parameter("blades", 0.8)
 			# A worn path along the play line (the gauntlet's round 1), and broader patches.
 			grass = grass.duplicate()
-			grass.set_shader_parameter("worn_path", 0.55)
+			grass.set_shader_parameter("worn_path", 0.25 if t.name == "meadow" else 0.55)
 			grass.set_shader_parameter("patch_amount", maxf(float(t.get("grass_patch", 0.0)), 0.45))
 			# Deeper and cooler toward the back edge (a theme's `grass_back`), so the lawn recedes.
 			if t.has("grass_back"):
@@ -1250,7 +1253,8 @@ static func _plank_platform(parent: Node3D, t: Dictionary, left: float, right: f
 		# (The meadow's yellow slab was the loudest thing in the sky: a warmer, quieter wood.)
 		# (A deeper honey, the meadow pilot: at 0.68 in greyscale the boards were brighter than the fighters; the style sheet's play
 		# surface is 0.40 to 0.55.)
-		wood_c = Color(0.62, 0.44, 0.27)
+		# (Warm honey again with the bright lawn, 2026-10-19.)
+		wood_c = Color(0.8, 0.6, 0.38)
 	var items: Array = []
 	if grove:
 		# Short planks across the two branches, side by side along the platform, their front ends a little ragged.
@@ -2440,15 +2444,15 @@ const RIDGES := {
 	"meadow": [{"model": "range_meadow_far", "land_drop": 16.0, "z": -170.0, "y": -50.0, "height": 88.0, "shape": 1, "seed": 3.0, "base": 0.32, "amplitude": 0.6, "frequency": 5.6,
 		# (More of its own blue and less haze, art review 6 round 31: at mix 0.55 the ridge was mostly horizon colour, a formless pale band
 		# behind the crisp painted hills; found with `--pick`.)
-		"tone": Color(0.2, 0.62, 0.6), "mix": 0.38, "edge": 0.1, "haze": 0.72,
+		"tone": Color(0.3, 0.56, 0.9), "mix": 0.55, "edge": 0.1, "haze": 0.5,
 		# (Teal, not blue: the owner's Origami King reference sets bright lime ground against cool teal mountains.)
 		# (A lit flank and a shaded flank on every peak, as the canyon's mesas have: a flat blue cut-out read as the least finished
 		# thing on the menu; the owner, 2026-10-17, raise the quality of what is there.)
 		"flank": 0.75, "foot_dark": 0.35, "layers": 4, "flank_from": 0.0, "gullies": 0.45, "paper": 0.05, "edge_width": 0.012},
 		# A nearer, lower range in front, deeper teal and less hazed, casting its shadow on the far one: the backdrop as cut cards in layers
 		# with air between them, not one soft band (art review 9).
-		{"model": "range_meadow_near", "land_haze": 0.5, "land_drop": 8.0, "z": -140.0, "y": -36.0, "height": 62.0, "shape": 1, "seed": 9.0, "base": 0.4, "amplitude": 0.5, "frequency": 7.0,
-		"tone": Color(0.1, 0.38, 0.42), "mix": 0.82, "edge": 0.5, "haze": 0.28, "flank": 0.75, "foot_dark": 0.4, "layers": 3,
+		{"model": "range_meadow_near", "land_haze": 0.12, "land_drop": 8.0, "z": -140.0, "y": -36.0, "height": 62.0, "shape": 1, "seed": 9.0, "base": 0.4, "amplitude": 0.5, "frequency": 7.0,
+		"tone": Color(0.16, 0.42, 0.72), "mix": 0.85, "edge": 0.5, "haze": 0.28, "flank": 0.75, "foot_dark": 0.4, "layers": 3,
 		"flank_from": 0.0, "gullies": 0.6, "paper": 0.05, "edge_width": 0.016, "shadow": 0.5}],
 	"grove": [{"model": "range_grove_far", "z": -165.0, "y": -34.0, "height": 52.0, "shape": 0, "seed": 8.0, "base": 0.5, "amplitude": 0.32, "frequency": 3.5,
 		"tone": Color(0.54, 0.54, 0.78), "mix": 0.7, "edge": 0.3, "flank": 0.6, "foot_dark": 0.3, "layers": 4, "flank_from": 0.0, "gullies": 0.6,
@@ -3506,10 +3510,11 @@ static func _meadow(root: Node3D, t: Dictionary, stage: Array) -> void:
 		_mute(house, 0.35, Color(0.74, 0.86, 0.92), 0.25, false)
 		_ground_shadow(Vector3(cx, 0, -74.0), Vector2(3.4, 2.6), -72.0)
 	# A low rise of meadow in front of the hills, and round trees standing along it (their feet just behind its edge).
-	_fore_band(root, -46.0, -10.0, Color(0.42, 0.68, 0.36))
+	_fore_band(root, -46.0, -10.0, Color(0.46, 0.76, 0.32))
 	# (Muted toward the valley's air, the gauntlet's round 23: the vivid lime and yellow stripes read as a flat painted card under the farm.)
 	# (A patchwork of crops, fallow earth and pale stubble, round 28: in near-equal greens the fields read as one even texture.)
-	_fields(root, -46.0, -10.0, [Color(0.44, 0.64, 0.38), Color(0.62, 0.52, 0.42), Color(0.5, 0.66, 0.42), Color(0.76, 0.72, 0.56), Color(0.72, 0.68, 0.48)],
+	# (Brighter with the lawn, 2026-10-19: the papercraft camp's patchwork of lime crops and warm earth.)
+	_fields(root, -46.0, -10.0, [Color(0.5, 0.78, 0.32), Color(0.78, 0.6, 0.42), Color(0.6, 0.82, 0.36), Color(0.9, 0.82, 0.56), Color(0.86, 0.76, 0.44)],
 		# (The hedgerows a step nearer the fields' greens, art review 10: dark lines netting the whole valley were its busiest detail.)
 		Color(0.36, 0.58, 0.32))
 	for k in 6:
@@ -6011,7 +6016,7 @@ static func _harbour_town(root: Node3D, water: float) -> void:
 static func _meadow_hill(root: Node3D, t: Dictionary, l: float, r: float, bottom: float, front: float, top: float) -> void:
 	# (The valley fields' own green (`_fields`), so the hill runs into them as one land: the owner, 2026-10-18.)
 	# (A step less vivid, with the fields, round 23.)
-	var grass := (_surface(Color(0.42, 0.68, 0.36), "grass", 9.0) as ShaderMaterial).duplicate() as ShaderMaterial
+	var grass := (_surface(Color(0.46, 0.76, 0.3), "grass", 9.0) as ShaderMaterial).duplicate() as ShaderMaterial
 	grass.set_shader_parameter("world_vary", 0.18)
 	grass.set_shader_parameter("patch_amount", 0.35)
 	grass.set_shader_parameter("blades", 0.8)
