@@ -275,11 +275,9 @@ static func default_for(player: int) -> RefCounted:
 	# ranger's thick block brows.)
 	l.cheeks = 3 if player % 4 == 1 else 0
 	l.cheek_color = 1
+	# (Brows at their own size, the owner, 2026-10-19: enlarged they were far too thick.)
 	if player % 4 == 2:
-		l.brow_size = FaceLook.neutral("brow_size") + 3
 		l.mouth_size = FaceLook.neutral("mouth_size") + 3
-	elif player % 4 == 3:
-		l.brow_size = FaceLook.neutral("brow_size") + 4
 	return l
 
 

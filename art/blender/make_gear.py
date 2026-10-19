@@ -224,12 +224,12 @@ def aviator_cap():
             b_ = math.tau * j / minor
             # (Fat, the character judge's round 1: a thin ring read as a brim.)
             # (A fifth smaller and drawn in to the head's width, the character judge's round 2: wider than the head it read as a brim.)
-            r = 0.14 * lump * (1.0 + 0.12 * math.sin(b_ * 3.0 + i))
+            r = 0.12 * lump * (1.0 + 0.12 * math.sin(b_ * 3.0 + i))
             # (Dipping lower over the ears, so it follows the head, the character judge's round 3: level, it read as a plate.)
             side_k = abs(c.x) / max(Vector((c.x, c.y, 0.0)).length, 1e-4)
             # (Taller in section than wide: the game widens the head, and the hat with it, 1.32 times across, which flattened a round tube
             # into a plate, the character judge's round 4.)
-            loop.append(bm.verts.new(c - out * 0.15 + Vector((0.0, 0.0, 0.26 - 0.1 * side_k)) + out * math.cos(b_) * r + up * math.sin(b_) * r * 1.35))
+            loop.append(bm.verts.new(c - out * 0.07 + Vector((0.0, 0.0, 0.1 - 0.08 * side_k)) + out * math.cos(b_) * r + up * math.sin(b_) * r * 1.35))
         loops.append(loop)
     # (UVs round and along the roll, so the game's curly fleece tile lies on it.)
     uv = bm.loops.layers.uv.new("UVMap")
@@ -261,6 +261,16 @@ def aviator_cap():
             # (Forward and down beside the cheeks, so they show at three-quarter, the character judge's round 9.)
             bmesh.ops.translate(bm, vec=Vector((sx * (0.84 + inset), -0.22, 0.98)), verts=ret["verts"])
             to_object(part + nm, bm).parent = root
+    # A fleece edge down the front of each ear flap (the character judge's round 14: the bare leather flaps framed the face like a bowl
+    # haircut): a lumpy fleece roll from under the brim to the flap's foot.
+    for sx in (-1.0, 1.0):
+        bm = bmesh.new()
+        pts = [Vector((sx * 0.9, -0.38, 1.36 - 0.11 * k)) - Vector((sx * 0.03 * k, 0.0, 0.0)) for k in range(5)]
+        for k, p in enumerate(pts):
+            ret = bmesh.ops.create_uvsphere(bm, u_segments=10, v_segments=7, radius=0.075 - 0.006 * k, calc_uvs=True)
+            for v in ret["verts"]:
+                v.co += p
+        to_object("fleece_edge" + ("L" if sx < 0 else "R"), bm).parent = root
     # (No hair: the hat covers it all, the owner, 2026-10-19; hair pieces are to be their own items.)
     # The goggles pushed up on the front of the crown, oversized (the character judge's round 14: the aviator's signature from every angle,
     # lost with the hair): two brass rims with glass on a leather strap round the crown.
@@ -827,6 +837,23 @@ GEAR = {"neckwear": neckwear, "glasses": glasses, "sailor_cap": sailor_cap, "dix
         "swept_spikes": swept_spikes, "topknot": topknot, "beanie": beanie}
 
 
+def _lumpy(root, amount=0.025, seed=1.0):
+    """The hand-made pass (the character judge's round 14, after the reference's soft lumpy shapes): every crown and shell of a hat
+    pushed in and out along its normals by a slow smooth noise, soft dents rather than a machined surface."""
+    for c in root.children_recursive:
+        if c.type != "MESH" or not any(k in c.name for k in ("crown", "shell")):
+            continue
+        me = c.data
+        lo = min(v.co.z for v in me.vertices)
+        hi = max(v.co.z for v in me.vertices)
+        for v in me.vertices:
+            p = v.co
+            n = (math.sin(p.x * 3.1 + seed) * math.sin(p.y * 2.7 + 1.3 * seed) + 0.6 * math.sin(p.z * 4.3 + p.x * 1.7 + 2.0 * seed)) / 1.6
+            # (None at the rim, so the band, trim or fleece seated there stays seated.)
+            up = max(0.0, min(1.0, ((p.z - lo) / max(hi - lo, 1e-4) - 0.35) / 0.3))
+            v.co = p + v.normal * amount * n * up
+
+
 def export(root, path):
     bpy.ops.object.select_all(action="DESELECT")
     root.select_set(True)
@@ -868,6 +895,7 @@ def main():
     for name in only:
         bpy.ops.wm.read_factory_settings(use_empty=True)
         root = GEAR[name]()
+        _lumpy(root, seed=float(len(name)))
         export(root, os.path.join(OUT, name + ".glb"))
         tris = sum(sum(len(p.vertices) - 2 for p in c.data.polygons) for c in root.children_recursive if c.type == "MESH")
         print("gear %s: %d triangles" % (name, tris))
