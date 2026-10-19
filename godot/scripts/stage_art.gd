@@ -1320,6 +1320,11 @@ static func solid_block(parent: Node3D, t: Dictionary, left: float, right: float
 			var lip := _edge_lip(parent, left - 0.125, right + 0.125, top - cap_h * 0.55 - (0.6 if t.has("quilt") else 0.0),
 				front_z + (0.3 if t.has("quilt") else 0.02), lip_r, grass)
 			lip.name = "lip"
+			if t.has("quilt"):
+				# (The underside of the curl in a deep green, the judge's round 41: lime all round, the thick lip read as a cushion, not turf
+				# rolling over and falling into its own shade.)
+				var under := (FighterView.toon((t.grass as Color).darkened(0.42), false) as ShaderMaterial).duplicate() as ShaderMaterial
+				_edge_lip(parent, left - 0.05, right + 0.05, top - cap_h * 0.55 - 1.2, front_z + 0.2, lip_r * 0.95, under)
 			# Tufts hanging over at uneven gaps and sizes, now and then a small stone among them (not where moss drapes the wall instead).
 			var tuft_mesh := _sphere(0.32, 12)
 			var grass_tuft := _prop_mesh("grass_tuft", "blades")
