@@ -11,7 +11,7 @@ const DIR := "res://art/face_parts/"
 const DETAIL := 1.5
 
 const EYES := ["round", "tall", "wide", "almond", "droopy", "cat", "dot", "lash"]
-const BROWS := ["none", "arch", "thin", "bar", "slant", "round", "bushy"]
+const BROWS := ["none", "arch", "thin", "bar", "slant", "round", "bushy", "curl"]
 const NOSES := ["none", "dot", "curve", "button", "hook", "nostrils", "wide"]
 const MOUTHS := ["smile", "grin", "flat", "oh", "cat", "smirk", "toothy", "frown", "blep"]
 const CHEEKS := ["none", "round", "oval", "freckles", "lines", "swirl", "heart"]
@@ -69,7 +69,8 @@ const EXPRESSIONS := {
 	"deadpan": {"lids": Vector3(0.2, 0.0, 0.0)},
 	"sleepy": {"lids": Vector3(0.55, 0.0, 0.0), "brow_lift": -0.01},
 	"grumpy": {"lids": Vector3(0.36, 0.28, 0.0), "brow_turn": 0.3, "brow_lift": -0.02, "brows": 3},
-	"smug": {"lids": Vector3(0.22, 0.0, 0.32), "brow_turn": -0.12, "brows": 3},
+	# (Looking sideways, the reference ranger's sly look, the character judge's round 5.)
+	"smug": {"lids": Vector3(0.32, 0.0, 0.3), "brow_turn": -0.06, "brows": 3, "look": 0.1},
 	"blink": {"eyes": "blink"},
 	"happy": {"eyes": "happy", "mouth": "x_happy", "brow_lift": 0.015, "mouth_scale": 1.3},
 	"focus": {"lids": Vector3(0.24, 0.17, 0.0), "mouth": "x_focus", "brow_turn": 0.2, "brow_lift": -0.01, "brows": 3, "mouth_scale": 1.2},

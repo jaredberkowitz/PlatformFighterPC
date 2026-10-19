@@ -317,10 +317,14 @@ def straw_hat():
             curl = 0.26 * abs(math.cos(a)) ** 2 * u ** 2
             ring.append(bm.verts.new((r * math.cos(a), r * math.sin(a), base + 0.03 + curl - 0.03 * u)))
         rings.append(ring)
+    # (UVs round and across the brim, so the game's woven straw tile lies on it, the character judge's round 5: smooth, it read as plastic.)
+    uv = bm.loops.layers.uv.new("UVMap")
     for k in range(len(rings) - 1):
         for i in range(sides):
             j = (i + 1) % sides
-            bm.faces.new((rings[k][i], rings[k][j], rings[k + 1][j], rings[k + 1][i]))
+            f = bm.faces.new((rings[k][i], rings[k][j], rings[k + 1][j], rings[k + 1][i]))
+            for lp, (a_, b_) in zip(f.loops, ((i, k), (i + 1, k), (i + 1, k + 1), (i, k + 1))):
+                lp[uv].uv = (a_ / sides * 6.0, b_ / (len(rings) - 1) * 0.6)
     bmesh.ops.solidify(bm, geom=bm.faces[:], thickness=0.03)
     to_object("straw_brim", bm, sharp=70.0).parent = root
     bm = bmesh.new()
@@ -331,17 +335,23 @@ def straw_hat():
         # The pinch: two dents in the front of the crown's upper half (the front is -y, angle 270 degrees).
         front = max(0.0, -math.sin(a))
         side = abs(math.cos(a))
-        return 1.0 - (0.18 * front ** 3 * side * 2.0 if k >= 2 else 0.0)
+        return 1.0 - (0.3 * front ** 2 * side * 2.0 if k >= 2 else 0.0)
     rings = lathe(bm, prof, wobble=pinch)
     cap_ring(bm, rings[-1], base + 0.69)
+    uv = bm.loops.layers.uv.new("UVMap")
+    for f in bm.faces:
+        for lp in f.loops:
+            co = lp.vert.co
+            lp[uv].uv = ((math.atan2(co.y, co.x) / math.tau + 0.5) * 4.0, (co.z - base) * 1.6)
     # The crease along the top, front to back.
     for ring in rings[3:]:
         for v in ring:
             v.co.z -= 0.07 * max(0.0, 1.0 - abs(v.co.x) / 0.25)
     to_object("straw_crown", bm).parent = root
     bm = bmesh.new()
-    lathe(bm, [(0.565, base + 0.05), (0.572, base + 0.07), (0.568, base + 0.14), (0.56, base + 0.16)])
-    to_object("fabric_band", bm, sharp=60.0).parent = root
+    lathe(bm, [(0.585, base + 0.05), (0.592, base + 0.07), (0.588, base + 0.14), (0.58, base + 0.16)])
+    # (A dark leather band, as the reference's.)
+    to_object("leather_band", bm, sharp=60.0).parent = root
     _tilt(root, -5.0, base)
     return root
 

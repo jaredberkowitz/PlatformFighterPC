@@ -47,7 +47,7 @@ const HAPPY_FACE := {"name": "happy"}
 
 const HATS := ["none", "sailor cap", "aviator cap", "straw hat", "beanie", "crown", "hood", "plumed helm", "swept spikes", "topknot", "dixie cap"]
 const GLASSES := ["none", "shades", "goggles", "round specs"]
-const NECKS := ["none", "sash", "neckerchief", "scarf", "cape"]
+const NECKS := ["none", "sash", "neckerchief", "scarf", "cape", "kerchief and sash"]
 ## Shirts: a plain white one, one in the outfit (accent) colour, stripes and a flower print (godot/art/cloth/).
 const SHIRTS := ["none", "white shirt", "outfit shirt", "striped shirt", "flower shirt"]
 ## Gear over the bare body (the concept art's plain body is the default): shorts, then gloves, then socks and shoes, each step adding to the
@@ -207,7 +207,9 @@ static func default_for(player: int) -> RefCounted:
 	# A face of its own for each default fighter (the character pass, 2026-10-19, after the owner's reference cast, where most of each
 	# character's personality is its face): sleepy with an open mouth, smug with a cat mouth, grumpy with a frown, deadpan with a blep;
 	# no blush (the reference's faces have none).
-	var faces := [[1, 3, 0], [3, 4, 0], [2, 7, 0], [0, 8, 4]]
+	# (The ranger smug with droopy sideways eyes and a smirk, the sailor with a curl on its forehead in place of brows, the character judge's
+	# round 5 after the reference's ranger and sailor.)
+	var faces := [[1, 3, 0], [3, 4, 0], [2, 7, 0], [3, 5, 4]]
 	var f: Array = faces[player % 4]
 	l.face = f[0]
 	l.mouth = f[1]
@@ -215,10 +217,21 @@ static func default_for(player: int) -> RefCounted:
 	l.cheeks = 0
 	# (The aviator scout's hair ginger, as the reference's: the hair takes the brows' colour.)
 	l.brow_color = 4 if player % 4 == 1 else 0
+	l.brows = 7 if player % 4 == 0 else 3
+	if player % 4 == 0:
+		# (The curl high on the forehead, its two halves meeting in the middle.)
+		l.brow_y = FaceLook.neutral("brow_y") - 2
+		l.brow_gap = FaceLook.neutral("brow_gap") - 5
+		l.brow_size = FaceLook.neutral("brow_size") - 4
+	else:
+		l.brow_y = FaceLook.neutral("brow_y")
+		l.brow_gap = FaceLook.neutral("brow_gap")
+		l.brow_size = FaceLook.neutral("brow_size")
 	# Dressed, as the reference cast always is (the character pass, 2026-10-19; bare, the defaults read as naked blobs in a match):
 	# [shirt, neck, accent, glasses]: a sailor (white shirt, neckerchief, cobalt), an aviator scout (white shirt, sash, meadow green), a
 	# holiday shirt (flowers, sash, biscuit), a ranger (outfit shirt, sash, sunny); every one in the full kit (shorts, gloves, socks, shoes).
-	var outfits := [[1, 2, 2, 0], [1, 1, 4, 1], [4, 1, 10, 1], [2, 1, 0, 0]]
+	# (The sailor in the kerchief and sash, neck 5, as the reference's, the character judge's round 5.)
+	var outfits := [[1, 5, 2, 0], [1, 1, 4, 1], [4, 1, 10, 1], [2, 1, 0, 0]]
 	var o: Array = outfits[player % 4]
 	l.shirt = o[0]
 	l.neck = o[1]

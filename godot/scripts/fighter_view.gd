@@ -1961,8 +1961,14 @@ const SASH_OVER_SHIRT := 1.2
 ## Neckwear for the rigged torso (TORSO_CENTRE_Y, TORSO_RADII). Rings are tori sized to hug it, so nothing pokes through the body whatever
 ## the pose.
 func _neck_on_rig(accent: Color) -> void:
+	# (The kerchief and sash together, neck 5: the reference's sailor wears both, the character judge's round 5.)
+	for piece in ([2, 1] if loadout.neck == 5 else [loadout.neck]):
+		_neck_piece(accent, piece)
+
+
+func _neck_piece(accent: Color, kind: int) -> void:
 	var centre := Vector3(0, TORSO_CENTRE_Y, 0)
-	match loadout.neck:
+	match kind:
 		1:
 			# (A raised collar band round the neck in the shirt's collar colour, the character judge's round 1 after the owner's reference: flat
 			# collar points on the chest left a hard cut where the head meets the shirt.)
@@ -2166,7 +2172,7 @@ func _gear_model(name: String, accent: Color) -> bool:
 	var model := scene.instantiate() as Node3D
 	model.position = -HAT_PIVOT
 	hat_pivot.add_child(model)
-	var straw := toon(Color(1, 1, 1), true, SvgArt.texture("res://art/cloth/straw.svg", {"#ff00ff": Color(0.92, 0.8, 0.48)}), Vector2(8, 2))
+	var straw := toon(Color(1, 1, 1), true, SvgArt.texture("res://art/cloth/straw.svg", {"#ff00ff": Color(0.92, 0.8, 0.48)}), Vector2(3, 3))
 	var brass := (respond(toon(Color(0.78, 0.64, 0.38)), "gold") as ShaderMaterial).duplicate() as ShaderMaterial
 	brass.set_shader_parameter("metal", 0.3)
 	brass.set_shader_parameter("rim_strength", 0.2)
