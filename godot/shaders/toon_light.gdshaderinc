@@ -72,7 +72,8 @@ instance uniform float fighter : instance_index(3) = 0.0;
 // a light shape and a shadow shape at play size (the edge light and the stage's quieting keep the shadow side off the background).
 // (0.78, art review 6 round 13, against the competition: at 0.88 the shadow side was a barely deeper tone of the same colour, so the
 // bodies read as flat cut-outs; the reference fighters carry a clearly darker shadow shape that models the volume.)
-const float PF_FIGHTER_SHADE = 0.78;
+// (0.7, a step deeper, the character pass, 2026-10-19.)
+const float PF_FIGHTER_SHADE = 0.7;
 
 vec3 pf_rgb2hsv(vec3 c) {
 	vec4 k = vec4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);
@@ -119,9 +120,13 @@ const float PF_FIGHTER_FORM = 0.85;
 const float PF_FIGHTER_CAST = 0.25;
 // A fighter is shaded in two flat tones, lit and shadow, split by a hard step (the stage's ramp, with its midtone band, is for the
 // scenery): where on the wrap the step falls, and how wide its edge is (just enough to anti-alias it).
-const float PF_FIGHTER_STEP = 0.62;
+// (0.74, the character pass, 2026-10-19: at 0.62 nearly the whole fighter sat in light, one flat tone that read as shiny plastic; the
+// reference's matte figures show a definite shadow side on every form.)
+const float PF_FIGHTER_STEP = 0.74;
 // (0.07 until the muted trial, 2026-10-18: a softer turn into shade, as the reference's soft studio light.)
-const float PF_FIGHTER_EDGE = 0.14;
+// (0.06, the character pass, 2026-10-19: a crisp but soft turn, as the reference's shadow shapes; at 0.14 the turn was a blurry
+// lit blob in the middle of each form.)
+const float PF_FIGHTER_EDGE = 0.06;
 // How much of the stage's shadow hue turn a fighter's shadow takes: a little, so an orange shades a deeper orange, not salmon and pink.
 const float PF_FIGHTER_HUE = 0.35;
 // A fighter's rim and edge light are kept to a thin line at the very edge (`rim_width` on a fighter) and take the fighter's own colour
