@@ -1984,7 +1984,7 @@ static var _desert_floor: ShaderMaterial
 ## into it, whichever is built first).
 static func _desert_floor_mat() -> ShaderMaterial:
 	if _desert_floor == null:
-		_desert_floor = Materials.world("sand", Color(0.9, 0.62, 0.44), 9.0, false).duplicate() as ShaderMaterial
+		_desert_floor = Materials.world("sand", _pal("desert_floor"), 9.0, false).duplicate() as ShaderMaterial
 	return _desert_floor
 
 
@@ -2755,9 +2755,11 @@ const RIDGES := {
 		"tone": Color(0.42, 0.44, 0.66), "mix": 0.82, "edge": 0.4, "flank": 0.6, "foot_dark": 0.35, "layers": 3, "flank_from": 0.0,
 		"gullies": 0.4, "haze": 0.34, "paper": 0.05, "edge_width": 0.02, "shadow": 0.5}],
 	# (More of their own colour, the judge's round 39: at mix 0.62 and 0.68 the far ridges were mostly horizon, a pale fog band.)
-	"sunset": [{"z": -175.0, "y": -36.0, "height": 58.0, "shape": 2, "seed": 5.0, "base": 0.4, "amplitude": 0.4, "frequency": 3.0,
+	# (Folded mesa ranges in the stage's own rock, the judge's round 40 and the owner's canyon reference, in place of smooth painted
+	# cards that read as a pale fog band: summits cut flat, lit planes and brick shade.)
+	"sunset": [{"model": "range_canyon_far", "facets": true, "land_colour": Color(0.9, 0.5, 0.36), "land_haze": 0.05, "land_drop": -6.0, "z": -175.0, "y": -36.0, "height": 58.0, "shape": 2, "seed": 5.0, "base": 0.4, "amplitude": 0.4, "frequency": 3.0,
 		"tone": Color(0.42, 0.26, 0.5), "mix": 0.78, "edge": 0.35, "layers": 3, "flank_from": 0.0},
-		{"z": -132.0, "y": -34.0, "height": 46.0, "shape": 2, "seed": 11.0, "base": 0.36, "amplitude": 0.36, "frequency": 2.6,
+		{"model": "range_canyon_near", "facets": true, "land_colour": Color(0.82, 0.36, 0.24), "land_haze": 0.0, "land_drop": -2.0, "z": -132.0, "y": -34.0, "height": 46.0, "shape": 2, "seed": 11.0, "base": 0.36, "amplitude": 0.36, "frequency": 2.6,
 		"tone": Color(0.55, 0.26, 0.3), "mix": 0.84, "edge": 0.4, "layers": 4, "flank_from": 0.0}],
 	"night": [{"z": -160.0, "y": -42.0, "height": 56.0, "shape": 1, "seed": 2.0, "base": 0.4, "amplitude": 0.45, "frequency": 4.0,
 		"tone": Color(0.08, 0.1, 0.24), "mix": 0.55, "edge": 0.35}],
@@ -4386,7 +4388,12 @@ static func _sunset(root: Node3D, t: Dictionary, stage: Array) -> void:
 		_place_prop(root, "mesa_a" if k % 3 != 1 else "mesa_b", at, ms, rng.randf_range(0.0, 360.0), mesa_rock)
 		_ground_shadow(at, Vector2(9.0, 6.0) * ms, DESERT_KEY)
 	# A rock arch on the left, standing on the desert floor.
-	_rock_arch(root, Vector3(-34, DESERT_FLOOR, -48), 12.0, 18.5)
+	# (Modelled in the buttes' chunky cut ledges, art/blender/make_props.py `rock_arch`, the judge's round 40, and in the same painted
+	# strata as the buttes and the stage's front, unfaded, as the nearest rock; the built one stands in without the model.)
+	if Toonify.load_prop("rock_arch") != null:
+		_place_prop(root, "rock_arch", Vector3(-34, DESERT_FLOOR, -48), 1.0, 0.0, _under_material(_soil_material(t), 0.35))
+	else:
+		_rock_arch(root, Vector3(-34, DESERT_FLOOR, -48), 12.0, 18.5)
 	_ground_shadow(Vector3(-34, DESERT_FLOOR, -48), Vector2(9.0, 3.0), DESERT_KEY)
 	# Cacti behind the stage.
 	for x in [e[0] + 1.5, e[1] - 2.0]:
@@ -4482,7 +4489,11 @@ static func _painted_sun(root: Node3D, at: Vector3, r: float) -> void:
 
 ## A ribbed saguaro with curving arms and a flower on top (art/blender/make_props.py), `size` about 4 units tall at 1.
 static func _cactus(root: Node3D, at: Vector3, size: float) -> void:
-	_place_prop(root, "cactus", at, size * 0.88)
+	# (Without ink, the judge's round 40: its deep flat ribs carry its form, as the folded scenery's do.)
+	var holder := Node3D.new()
+	root.add_child(holder)
+	_place_prop(holder, "cactus", at, size * 0.88)
+	_mute(holder, 0.0, Color.WHITE, 0.0, false)
 
 
 static func _night(root: Node3D, t: Dictionary) -> void:

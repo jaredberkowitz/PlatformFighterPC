@@ -18,7 +18,7 @@ import bpy
 from mathutils import Matrix, Vector
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from fold_kit import folded_dome, folded_peak, outward, pleated_tier  # noqa: E402
+from fold_kit import block_tier, folded_dome, folded_peak, outward, pleated_tier  # noqa: E402
 
 OUT = "godot/models/props"
 
@@ -212,19 +212,34 @@ def frond(bm, angle, droop, length, width, rng):
 
 
 def cactus():
-    """A saguaro: a ribbed trunk with two arms curving up from it at different heights, rounded tops, a pink flower on the crown.
-    About 4.5 tall. (Folded, the judge's round 39 and rule 9: a few deep ribs, flat-shaded, so each rib is a lit plane and a shaded one;
-    eight shallow smooth ribs read as a capsule, the most primitive shape in the game.)"""
+    """A saguaro in chunky pleated columns (the judge's round 40 and the owner's canyon reference: blocky, bevelled; ribbed tubes read as
+    smooth capsules): a trunk of three stacked fourteen-cornered prisms whose corners alternate in and out, so it is seven deep flat
+    ribs, each a lit plane and a shaded one, tapering to a blunt cut top; two arms the same, each a short elbow block out from the trunk
+    and a column up from it, at different heights; a pink flower on the crown. About 4.5 tall, standing on the origin."""
+    rng = random.Random(97)
     root = empty("cactus")
     bm = bmesh.new()
-    ribbed_tube(bm, [(0, 0, -0.2), (0, 0, 1.6), (0.02, 0, 3.2), (0, 0, 4.1)], 0.48, ribs=7, rib_depth=0.26, sides=14)
-    ribbed_tube(bm, [(-0.3, 0, 1.4), (-0.95, 0, 1.55), (-1.2, 0, 2.1), (-1.2, 0, 2.9)], 0.3, ribs=6, rib_depth=0.26, sides=12)
-    ribbed_tube(bm, [(0.3, 0, 2.1), (0.85, 0, 2.2), (1.05, 0, 2.7), (1.08, 0, 3.4)], 0.27, ribs=6, rib_depth=0.26, sides=12)
+
+    def column(at, z0, r, h, segs, top_taper):
+        z = z0
+        for k in range(segs):
+            last = k == segs - 1
+            rr = r * (1.0 - 0.04 * k)
+            block_tier(bm, at, z, h / segs, [rr * (1.0 if i % 2 == 0 else 0.78) for i in range(14)], 0.0,
+                       taper=top_taper if last else 0.98)
+            z += h / segs
+        return z
+    column((0.0, 0.0), -0.15, 0.5, 4.25, 3, 0.6)
+    for (side, z_out, reach, r, up) in ((-1.0, 1.4, 0.75, 0.32, 1.5), (1.0, 2.1, 0.62, 0.29, 1.3)):
+        # The elbow: a short block out from the trunk.
+        block_tier(bm, (side * (0.42 + reach * 0.5), 0.0), z_out, r * 1.6, [math.hypot(reach * 0.5 + 0.2, r) * rng.uniform(0.95, 1.05) for _ in range(4)],
+                   math.atan2(r, reach * 0.5 + 0.2), taper=0.96)
+        column((side * (0.42 + reach), 0.0), z_out + r * 0.6, r, up, 2, 0.6)
     to_object("Cactus", bm, CACTUS, smooth=False, parent=root)
     bm = bmesh.new()
     for k in range(5):
         a = math.tau * k / 5
-        blob(bm, 0.11, (math.cos(a) * 0.13, math.sin(a) * 0.13, 4.6), (1.0, 1.0, 0.55), 1)
+        blob(bm, 0.11, (math.cos(a) * 0.13, math.sin(a) * 0.13, 4.18), (1.0, 1.0, 0.55), 1)
     to_object("Flower", bm, PINK, parent=root)
     return root
 
@@ -365,40 +380,85 @@ def sailboat():
 
 
 def mesa(name, seed, width, height, bands):
-    """A sandstone butte: a slope of rubble at its foot, then near-vertical cliffs in strata, each band wobbly at the rim and nudged a
-    little sideways, alternating three warm shades, under a flat, slightly overhanging cap; fallen boulders round the foot. `width`
-    across the cliffs, `height` tall."""
+    """A sandstone butte in chunky cut ledges (the judge's round 40 and the owner's canyon reference, 2026-10-19: blocky sculpted
+    cliffs, each ledge a few big planes, in place of stacked smooth wobbly discs that read as pancakes): a slope of fallen blocks at its
+    foot, then `bands` ledges, each an irregular six- or seven-sided prism of its own height, stepping in or jutting out from the one
+    under it so the cliff has shelves and overhangs, under a wider flat cap; boulders round the foot. `width` across the cliffs, `height`
+    tall. The game paints every part in the stage's strata, so the parts keep their old names and colours."""
     rng = random.Random(seed)
     root = empty(name)
     shades = [SAND_A, SAND_B, SAND_C]
     r = width * 0.5
-    # The rubble slope.
     slope = height * 0.22
     bm = bmesh.new()
-    cone(bm, r * 1.45, r * 1.02, slope, 0.0, sides=12, wobble=0.08, rng=rng)
-    to_object("%s_slope" % name, bm, SAND_C, smooth=False, bevel=0.1, parent=root)
+    block_tier(bm, (0.0, 0.0), 0.0, slope, [r * rng.uniform(1.3, 1.55) for _ in range(7)], rng.uniform(0, math.tau), taper=0.72)
+    to_object("%s_slope" % name, bm, SAND_C, smooth=False, parent=root)
     z = slope
     x = 0.0
     cliff = (height - slope) * 0.94
+    sides = rng.choice((6, 7))
     for i in range(bands):
         h = cliff / bands * rng.uniform(0.75, 1.25)
-        r_top = r * rng.uniform(0.96, 1.0)
+        # A shelf or an overhang now and then: the ledge steps in, or juts out past the one below.
+        step = rng.choice((0.9, 0.94, 1.0, 1.06)) if i > 0 else 1.0
+        r *= step
         bm = bmesh.new()
-        cone(bm, r, r_top, h, z, sides=11, wobble=0.07, rng=rng, at=(x, 0.0))
-        to_object("%s_band%d" % (name, i), bm, shades[i % 3], smooth=False, bevel=0.1, parent=root)
+        block_tier(bm, (x, 0.0), z, h, [r * rng.uniform(0.82, 1.08) for _ in range(sides)], rng.uniform(-0.25, 0.25), taper=rng.uniform(0.9, 0.97),
+                   lean=(rng.uniform(-0.03, 0.03) * width, 0.0))
+        to_object("%s_band%d" % (name, i), bm, shades[i % 3], smooth=False, parent=root)
         z += h
-        r = r_top
+        r *= 0.95
         x += rng.uniform(-0.04, 0.04) * width
     bm = bmesh.new()
-    cone(bm, r * 1.07, r * 1.03, height * 0.06, z, sides=11, wobble=0.05, rng=rng, at=(x, 0.0))
-    to_object("%s_cap" % name, bm, SAND_B, smooth=False, bevel=0.08, parent=root)
+    block_tier(bm, (x, 0.0), z, height * 0.06, [r * rng.uniform(1.04, 1.12) for _ in range(sides)], rng.uniform(-0.2, 0.2), taper=0.97)
+    to_object("%s_cap" % name, bm, SAND_B, smooth=False, parent=root)
     bm = bmesh.new()
     for k in range(9):
         a = rng.uniform(0, math.tau)
         d = width * 0.5 * rng.uniform(1.35, 1.7)
-        s = width * rng.uniform(0.04, 0.09)
-        blob(bm, s, (math.cos(a) * d, math.sin(a) * d, s * 0.4), (1.2, 1.0, 0.75), 1, 0.2, rng)
+        s_ = width * rng.uniform(0.04, 0.09)
+        block_tier(bm, (math.cos(a) * d, math.sin(a) * d), -s_ * 0.2, s_ * 1.1, [s_ * rng.uniform(0.8, 1.2) for _ in range(5)], rng.uniform(0, math.tau), taper=0.7)
     to_object("%s_boulders" % name, bm, SAND_C, smooth=False, parent=root)
+    return root
+
+
+def rock_arch():
+    """The canyon's rock arch in the buttes' chunky cut ledges (the judge's round 40: smooth discs and boxes in four inked stone colours):
+    two legs of stacked irregular prisms narrowing as they rise, leaning a little toward each other, joined by a thick span of blocks
+    along a shallow bow, with fallen blocks at the feet. 12 across between the legs' middles, 18.5 tall, standing on the origin, front -y.
+    Parts `band0` to `band2` and `blocks`, painted by the game in the stage's strata."""
+    rng = random.Random(171)
+    root = empty("rock_arch")
+    parts = [bmesh.new() for _ in range(3)]
+    span, height = 12.0, 18.5
+    for side in (-1.0, 1.0):
+        z, k = 0.0, 0
+        while z < height - 2.0:
+            u = z / height
+            r = (3.2 + (2.1 - 3.2) * u) * rng.uniform(0.92, 1.08)
+            h = 2.4 * rng.uniform(0.8, 1.2)
+            x = side * span * 0.5 - side * 0.6 * u
+            block_tier(parts[k % 3], (x, 0.0), z, h, [r * rng.uniform(0.82, 1.08) * (0.8 if i % 3 == 1 else 1.0) for i in range(6)],
+                       rng.uniform(0, math.tau), taper=rng.uniform(0.9, 0.98))
+            z += h
+            k += 1
+    # The span: chunky blocks along a shallow bow from leg to leg, two courses.
+    for course, (lift, thick) in enumerate(((0.0, 2.4), (2.4, 1.6))):
+        n = 7
+        for j in range(n):
+            t = (j + 0.5) / n
+            x = -span * 0.5 - 1.6 + (span + 3.2) * t
+            zc = height - 2.2 + lift + 1.6 * math.sin(t * math.pi)
+            w = (span + 3.2) / n * rng.uniform(1.05, 1.25)
+            d = (3.2 - lift * 0.3) * rng.uniform(0.9, 1.1)
+            block_tier(parts[(j + course) % 3], (x, 0.0), zc, thick * rng.uniform(0.9, 1.1),
+                       [math.hypot(w, d) * 0.5 * rng.uniform(0.9, 1.05) for _ in range(4)], math.atan2(d, w), taper=0.96)
+    blocks = bmesh.new()
+    for (bx, s_) in ((-span * 0.5 - 3.2, 1.1), (-span * 0.5 + 2.6, 0.7), (span * 0.5 + 3.0, 1.3), (span * 0.5 - 2.4, 0.6)):
+        block_tier(blocks, (bx, -1.0), 0.0, 1.2 * s_, [0.9 * s_ * rng.uniform(0.8, 1.2) for _ in range(5)], rng.uniform(0, math.tau), taper=0.8)
+    for i, bm in enumerate(parts):
+        to_object("band%d" % i, bm, [SAND_A, SAND_B, SAND_C][i], smooth=False, parent=root)
+    to_object("blocks", blocks, SAND_C, smooth=False, parent=root)
     return root
 
 
@@ -1361,7 +1421,7 @@ def bush():
     return root
 
 
-def folded_range(name, seed, height, peaks, rounded):
+def folded_range(name, seed, height, peaks, rounded, plateau=0.0):
     """A range of mountains folded like paper (the owner's blue-mountain reference, 2026-10-19, in place of `mountain_range`'s faceted
     terrain grid, which read as random low-poly noise): every peak an apex with ridges running straight down from it to the foot and a
     crease between each pair, so its flanks are a few big planes, each wholly lit or wholly in shade. `peaks` main summits across 520
@@ -1400,6 +1460,10 @@ def folded_range(name, seed, height, peaks, rounded):
         spots.append((x, height * rng.uniform(0.15, 0.28), height * rng.uniform(0.26, 0.4), W / n * rng.uniform(0.8, 1.0)))
     for (px, py, h, reach) in spots:
         folded_peak(bm, px, py, h, reach, -0.35 * height, rng, rounded)
+    # (`plateau`: every summit cut off flat at that share of the height, a range of mesas for the canyon, the judge's round 40.)
+    if plateau > 0.0:
+        for v in bm.verts:
+            v.co.z = min(v.co.z, height * plateau)
     bm.normal_update()
     for f in bm.faces:
         if f.normal.z < 0.0:
@@ -1506,6 +1570,7 @@ def car():
 
 
 PROPS = {
+    "rock_arch": rock_arch,
     "ac_unit": ac_unit,
     "roof_vent": roof_vent,
     "street_lamp": street_lamp,
@@ -1520,6 +1585,8 @@ PROPS = {
     "range_meadow_near": lambda: folded_range("range_meadow_near", 9, 62.0, 8, False),
     "range_grove_far": lambda: folded_range("range_grove_far", 8, 52.0, 4, True),
     "range_grove_near": lambda: folded_range("range_grove_near", 4, 40.0, 6, True),
+    "range_canyon_far": lambda: folded_range("range_canyon_far", 5, 58.0, 4, False, 0.48),
+    "range_canyon_near": lambda: folded_range("range_canyon_near", 11, 46.0, 5, False, 0.44),
     "hay_bale": hay_bale,
     "mushroom": mushroom,
     "stump": stump,

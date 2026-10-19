@@ -137,3 +137,21 @@ def folded_peak(bm, px, py, h, reach, foot, rng, rounded=False):
         for j in range(3):
             bm.faces.new((a_line[j], a_line[j + 1], b_line[j + 1]))
             bm.faces.new((a_line[j], b_line[j + 1], b_line[j]))
+
+
+def block_tier(bm, at, z0, h, radii, turn, taper=0.94, lean=(0.0, 0.0)):
+    """One chunky ledge of cut rock (the owner's canyon reference, 2026-10-19: blocky sculpted cliffs, a few planes per tier): a prism on
+    an irregular footprint of `len(radii)` corners round `at` (each corner its own reach, so the sides are uneven planes), `h` tall from
+    `z0`, its top a little smaller (`taper`) and shifted by `lean`; capped top and bottom. Faces are built outward."""
+    n = len(radii)
+    ax, ay = at
+    lo, hi = [], []
+    for i, r in enumerate(radii):
+        a = turn + math.tau * i / n
+        lo.append(bm.verts.new((ax + math.cos(a) * r, ay + math.sin(a) * r, z0)))
+        hi.append(bm.verts.new((ax + lean[0] + math.cos(a) * r * taper, ay + lean[1] + math.sin(a) * r * taper, z0 + h)))
+    for i in range(n):
+        j = (i + 1) % n
+        bm.faces.new((lo[i], lo[j], hi[j], hi[i]))
+    bm.faces.new(list(reversed(lo)))
+    bm.faces.new(hi)
