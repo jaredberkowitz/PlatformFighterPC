@@ -450,6 +450,54 @@ def leaf_clump(bm_lit, bm_shade, centre, radius, seed, teeth=9):
     tmp.free()
 
 
+def folded_dome(bm_lit, bm_shade, centre, r, pleats, rng):
+    """A round leaf clump folded like the pines (the owner's blue-mountain reference, 2026-10-19): a dome wider than tall whose surface is
+    pleated in and out from its crown to its rim, the folds deepest at the rim and fading toward the top, the rim a skirt of leaf points
+    hanging a little; so the key light falls on one side of every fold and the clump reads as crisp stripes over a round mass. The skirt
+    and the underside go to `bm_shade` (the deep green), the dome above to `bm_lit`."""
+    cx, cy, cz = centre
+    turn = rng.uniform(0, math.tau)
+    n = pleats * 2
+    # (elevation as a share of a quarter turn, how deep the folds are there)
+    rows = [(-0.12, 0.3), (0.12, 0.24), (0.42, 0.16), (0.72, 0.07)]
+    made = []
+    rings = []
+    for (el, depth) in rows:
+        e = el * math.pi / 2.0
+        ring_v = []
+        for i in range(n):
+            a = turn + math.tau * i / n
+            point = i % 2 == 0
+            rr = math.cos(e) * (1.0 if point else 1.0 - depth) * r
+            z = math.sin(e) * 0.78 * r
+            if el < 0.0 and point:
+                z -= 0.24 * r * rng.uniform(0.8, 1.2)
+            ring_v.append((cx + math.cos(a) * rr * 1.08, cy + math.sin(a) * rr, cz + z))
+        rings.append(ring_v)
+    top = (cx, cy, cz + 0.8 * r)
+    for k in range(len(rings) - 1):
+        bm = bm_shade if k == 0 else bm_lit
+        lo = [bm.verts.new(p) for p in rings[k]]
+        hi = [bm.verts.new(p) for p in rings[k + 1]]
+        for i in range(n):
+            j = (i + 1) % n
+            made.append(bm.faces.new((lo[i], lo[j], hi[j])))
+            made.append(bm.faces.new((lo[i], hi[j], hi[i])))
+    hi = [bm_lit.verts.new(p) for p in rings[-1]]
+    t = bm_lit.verts.new(top)
+    for i in range(n):
+        made.append(bm_lit.faces.new((hi[i], hi[(i + 1) % n], t)))
+    # The underside: a shallow dark cone under the rim.
+    rim = [bm_shade.verts.new(p) for p in rings[0]]
+    u = bm_shade.verts.new((cx, cy, cz - 0.1 * r))
+    for i in range(n):
+        made.append(bm_shade.faces.new((u, rim[(i + 1) % n], rim[i])))
+    for f in made:
+        f.normal_update()
+        if f.normal.dot(f.calc_center_median() - Vector((cx, cy, cz - 0.3 * r))) < 0.0:
+            f.normal_flip()
+
+
 def tree_crown(name, shape):
     """A broadleaf tree's crown in clumps (the trunk and its sway are the game's, `StageArt._round_tree`): one of the game's three crown
     shapes, a big body clump with smaller ones round it, each a `leaf_clump`. Two parts, `leaf_lit` and `leaf_shade`, centred on the
@@ -457,31 +505,19 @@ def tree_crown(name, shape):
     root = empty(name)
     lit = bmesh.new()
     shade = bmesh.new()
-    # Stacked tiers, each smaller than the one under it and overlapping it by about half, so the crown is a rounded shape taller than it
-    # is wide that reads as layers of leaves (both of the owner's references); small clumps tucked in at the sides break the outline.
+    # (Round, 2026-10-19, the owner: a broadleaf's crown as a cloud of folded domes, a big one in the middle, shoulders at its sides and a
+    # top one a little forward, wider than tall, in place of stacked tiers that read as a fir.)
     # ((x, depth, height), radius); the crown's middle is the game's crown origin.
-    # (Upper tiers a little toward the camera (Blender -y), so each tier's leaf skirt lies over the tier below and the layers read; set
-    # behind, the skirts sank inside and the crown read as one lumpy cone.)
     if shape == 0:
-        masses = [((0, 0.4, 0.4), 2.0), ((-1.35, 0.3, 0.7), 1.0), ((1.4, 0.3, 0.55), 0.95), ((0.1, -0.35, 2.05), 1.55), ((-0.05, -0.7, 3.3), 1.0)]
+        masses = [((0, 0.3, 0.6), 2.1), ((-1.75, 0.2, 0.15), 1.35), ((1.8, 0.2, 0.25), 1.3), ((-0.6, -0.3, 1.9), 1.45), ((0.9, -0.2, 1.7), 1.25)]
     elif shape == 1:
-        masses = [((0, 0.4, 0.3), 1.75), ((1.2, 0.3, 0.8), 0.8), ((0, -0.3, 1.75), 1.45), ((0.1, -0.65, 2.95), 1.15), ((0, -0.95, 3.95), 0.75)]
+        masses = [((0, 0.3, 0.5), 1.9), ((1.5, 0.1, 0.1), 1.2), ((-1.4, 0.2, 0.3), 1.1), ((0.2, -0.35, 1.75), 1.4)]
     else:
-        masses = [((0, 0.4, 0.5), 2.1), ((-1.5, 0.2, 0.75), 1.25), ((1.55, 0.2, 0.65), 1.15), ((0.1, -0.35, 2.15), 1.5), ((0.25, -0.7, 3.2), 0.85)]
+        masses = [((0, 0.3, 0.6), 2.2), ((-1.9, 0.2, 0.2), 1.3), ((1.85, 0.1, 0.3), 1.35), ((-0.4, -0.3, 1.95), 1.3), ((1.0, -0.4, 1.6), 1.05)]
     for k, (c, r) in enumerate(masses):
-        # (Folded, 2026-10-19, the owner's blue-mountain reference: each clump a dome of pleated skirts, as the pines are, in place of
-        # `leaf_clump`'s crumpled ball, whose random facets read as low-poly noise.)
-        crng = random.Random(shape * 100 + k)
-        n = 11 if r > 1.6 else 9
-        # (Broad, low domes with short leaf points, a broadleaf's rounded crown, not the pines' tall skirts.)
-        # (The lowest skirt in the deep green, the upper two lit, so each clump is darker below and lighter on top.)
-        for (rr, dz, hh, flare, droop, outer) in ((1.1, -0.45, 0.5, 0.86, 0.14, shade), (0.86, -0.12, 0.5, 0.82, 0.1, lit),
-                                                  (0.55, 0.2, 0.36, 0.76, 0.06, lit)):
-            pleated_tier(outer, shade, (c[0], c[1]), c[2] + dz * r, rr * r, hh * r, n, crng.uniform(0, math.tau), crng, flare=flare,
-                         droop=droop * r)
+        folded_dome(lit, shade, c, r, 11 if r > 1.6 else 9, random.Random(shape * 100 + k))
     for bm in (lit, shade):
         bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=0.0001)
-        bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
     # (Flat-shaded planes, as a papercraft forest's trees are (the owner's third reference): each facet one tone, so the light reads
     # in crisp planes rather than a smooth plastic gradient.)
     for nm, bm, col in (("leaf_lit", lit, LEAF_LIT), ("leaf_shade", shade, LEAF_SHADE)):
@@ -918,21 +954,22 @@ def truss_bay():
 
 def moss_clump(name, seed):
     """A clump of moss (about 1 across, its base on the origin; the gauntlet's round 9: identical round moss balls under the grove's
-    platforms): a squashed dome of soft lumps, each lump its own size, the whole a little lopsided."""
+    platforms), folded like the grove's crowns (2026-10-19): a few small `folded_dome`s of their own sizes heaped together and squashed,
+    the whole a little lopsided, so it reads as leafy folds in the stage's light rather than a smooth lump."""
     rng = random.Random(seed)
     root = empty(name)
     bm = bmesh.new()
-    lumps = [((0.0, 0.0, 0.18), 0.32)]
-    for k in range(rng.randint(4, 6)):
-        a = math.tau * k / 5.0 + rng.uniform(-0.4, 0.4)
-        r = rng.uniform(0.18, 0.3)
-        d = rng.uniform(0.18, 0.32)
-        lumps.append(((math.cos(a) * d, math.sin(a) * d * 0.7, r * 0.6), r))
-    for (c, r) in lumps:
-        ret = bmesh.ops.create_icosphere(bm, subdivisions=2, radius=r)
-        for v in ret["verts"]:
-            v.co = Vector((v.co.x, v.co.y, v.co.z * 0.75)) * (1.0 + rng.uniform(-0.06, 0.06)) + Vector(c)
-    to_object("moss", bm, (0.36, 0.64, 0.36), smooth=True).parent = root
+    lumps = [((0.0, 0.0, 0.05), 0.34)]
+    for k in range(rng.randint(2, 4)):
+        a = math.tau * k / 3.5 + rng.uniform(-0.4, 0.4)
+        r = rng.uniform(0.18, 0.28)
+        d = rng.uniform(0.22, 0.34)
+        lumps.append(((math.cos(a) * d, math.sin(a) * d * 0.7, 0.0), r))
+    for k, (c, r) in enumerate(lumps):
+        folded_dome(bm, bm, c, r, 8, random.Random(seed * 10 + k))
+    for v in bm.verts:
+        v.co.z = max(v.co.z, -0.02) * 0.7
+    to_object("moss", bm, (0.36, 0.64, 0.36), smooth=False).parent = root
     return root
 
 
@@ -1206,50 +1243,41 @@ def mountain_range(name, seed, height, peaks, base, amplitude, rounded, res=(260
 
 
 def hill_dome(name, seed):
-    """A rounded hill at unit size (radius 1 across, 1 tall, centred on the origin, its foot carried below it; the gauntlet's round 19, in
-    place of a scaled sphere under a scaly foliage tile): a dome swelling and dipping in broad soft lumps, with a couple of gentle spurs
-    and a hollow, its lower flanks steeper as a bank toward the water. Scaled per hill in the game, so its height there matches the
-    ellipsoid the town's houses are seated on, give or take its lumps."""
+    """A rounded hill at unit size (radius 1 across, 1 tall, centred on the origin, its foot carried below it), folded like the ranges
+    (the owner's blue-mountain reference, 2026-10-19, in place of a lumpy faceted sphere that read as a pale glassy blob): ridges running
+    down from its crown with a crease between each pair, so its flanks are big planes wholly lit or in shade. Its ridges follow the
+    ellipsoid the game seats the town's houses on (`_harbour_town`'s `ground`), its creases sink a little under it."""
     rng = random.Random(seed)
     root = empty(name)
-    ph = [rng.uniform(0, math.tau) for _ in range(6)]
-    # (Coarse, for big faceted planes, 2026-10-19.)
-    rings, sides = 8, 22
     bm = bmesh.new()
-    grid = []
-    for k in range(rings + 1):
-        t = k / rings
-        el = math.pi / 2 * (1.0 - t)
-        row = []
-        for i in range(sides):
-            a = math.tau * i / sides
-            lump = (0.05 * math.sin(a * 3.0 + ph[0]) * math.sin(el * 2.0 + ph[1]) + 0.035 * math.sin(a * 5.0 + ph[2] + el * 3.0)
-                    + 0.02 * math.sin(a * 9.0 + ph[3]) * math.cos(el * 4.0 + ph[4]))
-            r = 1.0 + lump * (1.0 - 0.6 * t)
-            x = math.cos(el) * math.cos(a) * r
-            y = math.cos(el) * math.sin(a) * r
-            z = math.sin(el) * r
-            # A steeper bank at the foot.
-            if el < 0.35:
-                f = 1.0 - el / 0.35
-                x *= 1.0 - 0.06 * f
-                y *= 1.0 - 0.06 * f
-            row.append(bm.verts.new((x, y, z - 0.002)))
-        grid.append(row)
-    top = bm.verts.new((0.0, 0.0, 1.0 + 0.03 * math.sin(ph[5])))
-    for k in range(rings):
-        for i in range(sides):
-            j = (i + 1) % sides
-            bm.faces.new((grid[k][i], grid[k][j], grid[k + 1][j], grid[k + 1][i]))
-    for i in range(sides):
-        bm.faces.new((grid[rings][i], grid[rings][(i + 1) % sides], top))
-    # The foot carried under the waterline.
-    foot = [bm.verts.new((v.co.x, v.co.y, -0.4)) for v in grid[0]]
-    for i in range(sides):
-        j = (i + 1) % sides
-        bm.faces.new((foot[i], foot[j], grid[0][j], grid[0][i]))
-    bmesh.ops.recalc_face_normals(bm, faces=bm.faces[:])
-    to_object("land", bm, (0.4, 0.56, 0.46), smooth=True).parent = root
+    ridges = 9
+    turn = rng.uniform(0, math.tau)
+    apex = bm.verts.new((rng.uniform(-0.05, 0.05), rng.uniform(-0.05, 0.05), 1.0))
+    lines = []
+    for k in range(ridges * 2):
+        ridge = k % 2 == 0
+        a = turn + math.tau * k / (ridges * 2) + rng.uniform(-0.1, 0.1)
+        reach = rng.uniform(0.97, 1.04) if ridge else rng.uniform(0.86, 0.92)
+        pts = []
+        for t in (0.32, 0.58, 0.8, 0.94, 1.0):
+            r = t * reach
+            z = math.sqrt(max(0.0, 1.0 - t * t)) * (1.0 if ridge else 0.94)
+            pts.append(bm.verts.new((math.cos(a) * r, math.sin(a) * r, z)))
+        # The foot carried under the waterline.
+        pts.append(bm.verts.new((math.cos(a) * reach, math.sin(a) * reach, -0.4)))
+        lines.append(pts)
+    m = len(lines)
+    for k in range(m):
+        p, q = lines[k], lines[(k + 1) % m]
+        bm.faces.new((apex, p[0], q[0]))
+        for j in range(len(p) - 1):
+            bm.faces.new((p[j], p[j + 1], q[j + 1]))
+            bm.faces.new((p[j], q[j + 1], q[j]))
+    bm.normal_update()
+    for f in bm.faces:
+        if f.normal.dot(f.calc_center_median() - Vector((0.0, 0.0, -0.2))) < 0.0:
+            f.normal_flip()
+    to_object("land", bm, (0.4, 0.56, 0.46), smooth=False).parent = root
     return root
 
 
@@ -1408,18 +1436,15 @@ def pine():
 
 
 def bush():
-    """A bush in the same folded language as the pines (the owner's blue-mountain reference, 2026-10-19): a low rosette of three pleated
-    tiers, a wide flat skirt of long leaf points, a smaller steeper one inside it and a tuft on top, about 2.4 wide, 1.3 tall and 2.2
-    deep, standing on the origin. Parts `leaf_lit` (the leaves, flat-shaded, so the light falls in folds) and `leaf_shade` (under)."""
-    rng = random.Random(131)
+    """A bush in the grove crowns' folded language (the owner, 2026-10-19: round, as the trees are): a heap of four `folded_dome`s, a
+    big one in the middle, two lower at its sides and one behind, about 2.4 wide, 1.3 tall and 1.6 deep, standing on the origin. Parts
+    `leaf_lit` (the domes, flat-shaded, so the light falls in folds) and `leaf_shade` (their leafy skirts and undersides)."""
     root = empty("bush")
-    out, under = bmesh.new(), bmesh.new()
-    for (r, z0, h, n, droop) in ((1.2, 0.2, 0.7, 11, 0.16), (0.85, 0.5, 0.62, 9, 0.12), (0.5, 0.82, 0.48, 7, 0.08)):
-        pleated_tier(out, under, (0.0, 0.0), z0, r, h, n, rng.uniform(0, math.tau), rng, flare=0.66, droop=droop)
-    for bm in (out, under):
-        _outward(bm, (0.0, 0.0, -0.5))
-    to_object("leaf_shade", under, (0.2, 0.46, 0.3), smooth=False).parent = root
-    to_object("leaf_lit", out, (0.46, 0.74, 0.36), smooth=False).parent = root
+    lit, shade = bmesh.new(), bmesh.new()
+    for k, (c, r) in enumerate((((0.0, 0.0, 0.3), 0.72), ((-0.72, 0.05, 0.16), 0.5), ((0.74, 0.0, 0.18), 0.52), ((0.15, 0.35, 0.5), 0.48))):
+        folded_dome(lit, shade, c, r, 9 if r > 0.6 else 8, random.Random(131 + k))
+    to_object("leaf_shade", shade, (0.2, 0.46, 0.3), smooth=False).parent = root
+    to_object("leaf_lit", lit, (0.46, 0.74, 0.36), smooth=False).parent = root
     return root
 
 

@@ -1718,7 +1718,11 @@ static func _platform_dressing(parent: Node3D, t: Dictionary, left: float, right
 					var my := top - 0.26 - r * rng.randf_range(0.2, 1.0)
 					if clump != null:
 						# (Twice the size, round 10: at match distance the clumps read as specks.)
-						_mesh(parent, clump, moss, Vector3(x, my - r * 0.6, front_z + 0.06), Vector3(r * 5.0, r * 4.0, r * 3.6), Vector3(90, rng.randf_range(0, 360), 0))
+						# (Facing the camera, 2026-10-19: the folded clumps are domes, and a random turn about the vertical aimed some into the
+						# board, where only their torn backs showed; tilted up toward the key, so their folds catch it rather than the clump
+						# sitting in its own shade. The draw stays, so the layout is unchanged.)
+						rng.randf()
+						_mesh(parent, clump, moss, Vector3(x, my - r * 0.6, front_z + 0.06), Vector3(r * 5.0, r * 4.0, r * 3.6), Vector3(50, 0, 0))
 					else:
 						_mesh(parent, _sphere(1.0, 8), moss, Vector3(x, my, front_z + 0.02), Vector3(r * 1.8, r * 1.2, r))
 				x += r * rng.randf_range(1.2, 2.2)
@@ -6454,7 +6458,9 @@ static func _harbour_town(root: Node3D, water: float) -> void:
 	near_hill.set_shader_parameter("ramp_softness", 0.12)
 	near_hill.set_shader_parameter("rim_strength", 0.0)
 	var far_hill := near_hill.duplicate() as ShaderMaterial
-	far_hill.set_shader_parameter("albedo", Color(0.38, 0.56, 0.58))
+	# (Deeper and with a crisper turn, 2026-10-19: the folded headland's planes went one pale tone and it read as a glassy blob.)
+	far_hill.set_shader_parameter("albedo", Color(0.26, 0.52, 0.52))
+	far_hill.set_shader_parameter("ramp_softness", 0.06)
 	var dome := [_prop_mesh("hill_dome_a", "land"), _prop_mesh("hill_dome_b", "land")]
 	for hi in hills.size():
 		var h: Array = hills[hi]
@@ -6467,7 +6473,8 @@ static func _harbour_town(root: Node3D, water: float) -> void:
 	var far_land := Materials.foliage(Color(0.42, 0.56, 0.56), Vector2(6, 3), false)
 	# (Finer facets and a deeper green, gauntlet round 3: nine-sided spheres this size were a few huge flat panes, pale through the haze,
 	# and read as glass.)
-	for fh: Array in [[Vector3(-18, 0.0, -34), Vector3(36, 26, 10), 1], [Vector3(14, 0.0, -38), Vector3(30, 20, 10), 0]]:
+	# (Deeper, 2026-10-19: ten deep, their flanks all faced the camera and took one tone; at twenty they turn to the light and away.)
+	for fh: Array in [[Vector3(-18, 0.0, -40), Vector3(36, 26, 20), 1], [Vector3(14, 0.0, -44), Vector3(30, 20, 20), 0]]:
 		if dome[fh[2]] != null:
 			var fm := _mesh(root, dome[fh[2]], far_hill, base + (fh[0] as Vector3), fh[1])
 			fm.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
