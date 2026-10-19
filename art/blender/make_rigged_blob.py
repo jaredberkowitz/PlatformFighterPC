@@ -1895,8 +1895,9 @@ def shirt_front(shirt, skin, neck_line, waist, trunk_weights):
     bm = bmesh.new()
     for sx in (-1.0, 1.0):
         # (Spread out over the shoulders past the sash's top edge, the character judge's round 7: narrower, the sash hid one.)
-        quad = [Vector((sx * 0.02, neck_line - 0.04)), Vector((sx * 0.44, neck_line - 0.02)), Vector((sx * 0.4, neck_line - 0.2)),
-                Vector((sx * 0.1, neck_line - 0.36))]
+        # (Half the size, open in a V from the neck, the character judge's round 9: big, it read as a paper bib over the print.)
+        quad = [Vector((sx * 0.02, neck_line - 0.03)), Vector((sx * 0.24, neck_line - 0.02)), Vector((sx * 0.2, neck_line - 0.12)),
+                Vector((sx * 0.05, neck_line - 0.22))]
         # (Standing off the shirt at its free edges, so the lapels' fold and edge read even in the same print.)
         merge(bm, patch(quad, 8, 0.02))
     out["ShirtCampCollar"] = finish("ShirtCampCollar", bm, 0.03)
@@ -1984,7 +1985,8 @@ def build_garments(skin, J, neck):
     knee = (J["shin.L"].z + J["shin.R"].z) / 2.0
     waist = hips + WAIST_SHARE * (neck - hips)
     # (Longer, half way to the knee, the body rebuild: the reference's shorts are long and wide.)
-    shorts_end = crotch - 0.55 * (crotch - knee)
+    # (Down to the knee, overlapping the socks' tops in a crouch, the character judge's round 9: a band of skin showed above them.)
+    shorts_end = crotch - 0.85 * (crotch - knee)
     neck_line = neck - 0.015
     ankle = (J["foot.L"].z + J["foot.R"].z) / 2.0
     boot_top = ankle + BOOT_ABOVE_ANKLE

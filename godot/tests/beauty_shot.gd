@@ -34,8 +34,8 @@ func _initialize() -> void:
 		pv.facing_bias = 0.55 if k < 2 else -0.55
 		row.add_child(pv)
 		pv.set_loadout(Loadout.default_for(k))
-		pv.body_at = Vector3(0, 1.45, 0)
-		pv.body_from = Vector3(0, 1.7, 5.4)
+		# (Room round each fighter, the character judge's round 9: cropped tight, the panels cut the hair and overlapped.)
+		pv.camera.look_at_from_position(Vector3(0, 1.7, 6.6), Vector3(0, 1.4, 0))
 		views.append(pv)
 	await create_timer(0.3).timeout
 	for pv in views:

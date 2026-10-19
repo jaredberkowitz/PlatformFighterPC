@@ -183,14 +183,15 @@ def aviator_cap():
             r = 1.0
             x = r * math.sin(ph) * math.cos(a)
             y = r * math.sin(ph) * math.sin(a)
-            z = 1.52 + 0.84 * math.cos(ph)
+            # (Domed up, the character judge's round 9: a thin cap over the fleece in pose.)
+            z = 1.52 + 0.98 * math.cos(ph)
             # The seam down the middle of the crown.
             if abs(x) < 0.03:
                 x *= 0.6
                 z -= 0.008
             row.append(bm.verts.new((x, y, z)))
         rows.append(row)
-    top = bm.verts.new((0.0, 0.0, 1.52 + 0.84))
+    top = bm.verts.new((0.0, 0.0, 1.52 + 0.98))
     for i in range(seg_u):
         bm.faces.new((rows[0][i], rows[0][(i + 1) % seg_u], top))
     for j in range(seg_v):
@@ -227,7 +228,7 @@ def aviator_cap():
             side_k = abs(c.x) / max(Vector((c.x, c.y, 0.0)).length, 1e-4)
             # (Taller in section than wide: the game widens the head, and the hat with it, 1.32 times across, which flattened a round tube
             # into a plate, the character judge's round 4.)
-            loop.append(bm.verts.new(c - out * 0.09 + Vector((0.0, 0.0, 0.16 - 0.1 * side_k)) + out * math.cos(b_) * r + up * math.sin(b_) * r * 1.35))
+            loop.append(bm.verts.new(c - out * 0.09 + Vector((0.0, 0.0, 0.26 - 0.1 * side_k)) + out * math.cos(b_) * r + up * math.sin(b_) * r * 1.35))
         loops.append(loop)
     # (UVs round and along the roll, so the game's curly fleece tile lies on it.)
     uv = bm.loops.layers.uv.new("UVMap")
@@ -254,7 +255,8 @@ def aviator_cap():
                 v.co = Vector((v.co.x * 0.06, v.co.y * 0.17 * k, v.co.z * 0.44 * k))
                 # (Curving in under the jaw, following the cheek.)
                 v.co.x -= sx * 0.12 * max(0.0, -v.co.z / 0.44) ** 2
-            bmesh.ops.translate(bm, vec=Vector((sx * (0.86 + inset), -0.1, 1.02)), verts=ret["verts"])
+            # (Forward and down beside the cheeks, so they show at three-quarter, the character judge's round 9.)
+            bmesh.ops.translate(bm, vec=Vector((sx * (0.84 + inset), -0.22, 0.98)), verts=ret["verts"])
             to_object(part + nm, bm).parent = root
     # Hair spilling out under the hat round the sides and back: soft thick locks hanging down and out.
     locks = 13
@@ -713,10 +715,11 @@ def glasses():
     to_object("metal_specs_rim", bm).parent = root
     bm = bmesh.new()
     # (Thin wire drawn wider than the eyes, the aviator scout pilot, after the owner's reference: a heavy plastic frame sat on the eyes.)
-    _frame_loop(bm, _superellipse(0.25, 0.18, 3.0), 0.016, 0.025, top_extra=0.35)
+    # (A tenth narrower, the character judge's round 9: at three-quarter the far lens broke out past the head.)
+    _frame_loop(bm, _superellipse(0.225, 0.17, 3.0), 0.016, 0.025, top_extra=0.35)
     to_object("frame_shades_rim", bm).parent = root
     bm = bmesh.new()
-    outline = _superellipse(0.25, 0.18, 3.0)
+    outline = _superellipse(0.225, 0.17, 3.0)
     c = bm.verts.new((0.0, -0.012, 0.0))
     ring = [bm.verts.new((x, 0.0, z)) for (x, z) in outline]
     for i in range(len(ring)):
