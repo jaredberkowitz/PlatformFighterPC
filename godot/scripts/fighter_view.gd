@@ -2105,10 +2105,37 @@ func _gear_model(name: String, accent: Color) -> bool:
 	var mats := {"fabric": _fabric(accent), "canvas": _cloth(toon(Color(0.95, 0.94, 0.9))), "leather": _cloth(toon(Color(0.52, 0.33, 0.21))),
 		"metal": steel if name == "plumed_helm" else brass, "brass": brass, "gold": gold, "glass": toon(Color(0.66, 0.84, 0.95), false),
 		"straw": straw, "hair": toon(FaceLook.BROW_COLORS[clampi(loadout.brow_color, 0, FaceLook.BROW_COLORS.size() - 1)])}
+	# One mesh per material, its parts merged (the loadout budget, docs plan 7.3: the crown's set stones and the helm's plume feathers, a
+	# mesh each, came to 16 and 24 meshes on one hat).
+	var groups := {}
+	var order: Array = []
 	for mi: MeshInstance3D in model.find_children("*", "MeshInstance3D", true, false):
 		var kind := String(mi.name).get_slice("_", 0)
-		mi.material_override = mats.get(kind, toon(accent))
-		meshes.append(mi)
+		if not mats.has(kind):
+			kind = "_accent"
+		if not groups.has(kind):
+			groups[kind] = []
+			order.append(kind)
+		groups[kind].append(mi)
+	for kind in order:
+		var st := SurfaceTool.new()
+		for mi: MeshInstance3D in groups[kind]:
+			var xf := Transform3D.IDENTITY
+			var up: Node = mi
+			while up != null and up != model:
+				xf = (up as Node3D).transform * xf
+				up = up.get_parent()
+			for surface in mi.mesh.get_surface_count():
+				st.append_from(mi.mesh, surface, xf)
+		var one := MeshInstance3D.new()
+		one.name = String(kind)
+		one.mesh = st.commit()
+		one.material_override = mats.get(kind, toon(accent))
+		model.add_child(one)
+		for mi: MeshInstance3D in groups[kind]:
+			mi.get_parent().remove_child(mi)
+			mi.queue_free()
+		meshes.append(one)
 	return true
 
 
