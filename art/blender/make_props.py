@@ -1184,7 +1184,7 @@ def mountain_range(name, seed, height, peaks, base, amplitude, rounded, res=(260
             t = min(abs(d - ridge_d) / span, 1.0)
             prof = 1.0 - t ** (2.0 if rounded else 1.4)
             # Spurs and gullies down the front: a ripple across x that grows toward the foot.
-            ripple = math.sin(x * (0.06 if rounded else 0.11) + 2.5 * math.sin(x * 0.021 + ph)) * (0.03 if rounded else 0.06)
+            ripple = math.sin(x * (0.06 if rounded else 0.11) + 2.5 * math.sin(x * 0.021 + ph)) * (0.12 if rounded else 0.06)
             z = height * crest(x) * prof * (1.0 + ripple * t)
             row.append(bm.verts.new((x, d, z)))
         grid.append(row)
@@ -1398,8 +1398,8 @@ PROPS = {
     "hill_dome_b": lambda: hill_dome("hill_dome_b", 12),
     "range_meadow_far": lambda: mountain_range("range_meadow_far", 3, 88.0, 6, 0.32, 0.6, False, (90, 12)),
     "range_meadow_near": lambda: mountain_range("range_meadow_near", 9, 62.0, 8, 0.4, 0.5, False, (110, 12)),
-    "range_grove_far": lambda: mountain_range("range_grove_far", 8, 52.0, 4, 0.5, 0.32, True, (80, 10)),
-    "range_grove_near": lambda: mountain_range("range_grove_near", 4, 40.0, 6, 0.5, 0.36, True, (90, 10)),
+    "range_grove_far": lambda: mountain_range("range_grove_far", 8, 52.0, 4, 0.5, 0.32, True, (40, 7)),
+    "range_grove_near": lambda: mountain_range("range_grove_near", 4, 40.0, 6, 0.5, 0.36, True, (46, 7)),
     "hay_bale": hay_bale,
     "mushroom": mushroom,
     "stump": stump,

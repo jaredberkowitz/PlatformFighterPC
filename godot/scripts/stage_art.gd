@@ -2759,7 +2759,7 @@ static func ridge(root: Node3D, t: Dictionary, spec: Dictionary) -> MeshInstance
 			land.set_shader_parameter("albedo", spec.land_colour)
 		if faceted:
 			land.set_shader_parameter("facets", true)
-			land.set_shader_parameter("ramp_softness", 0.2)
+			land.set_shader_parameter("ramp_softness", 0.1)
 			land.set_shader_parameter("fall_by_height", true)
 			land.set_shader_parameter("front_fall", 0.38)
 			land.set_shader_parameter("front_span", float(spec.height) * 0.75)
@@ -4495,7 +4495,7 @@ static func _grove(root: Node3D, t: Dictionary, stage: Array) -> void:
 	_string_lights(root, Vector3(-4.0, top + 12.0, -17.0), Vector3(-22.0, top + 8.0, -30.0))
 	_string_lights(root, Vector3(4.0, top + 12.0, -17.0), Vector3(22.0, top + 8.0, -30.0))
 	# Pale pink motes drifting under the great tree, and light falling through its canopy.
-	_light_shafts(root, Color(1.0, 0.84, 0.9), [left, right, top, top - 10.0])
+	# (No light shafts, the style sheet's clear air, 2026-10-19: their see-through card veiled the faceted ranges and hills into soft bands.)
 	_motes(root, Color(1.0, 0.86, 0.94), [left, right, top, top - 10.0])
 	# Sparkles in the canopy: four-pointed glints that twinkle (see `Twinkle`).
 	var tw := Twinkle.new()
@@ -5319,9 +5319,10 @@ static func _tree(root: Node3D, base: Vector3, size: float, rng: RandomNumberGen
 	# (Faceted in clean tones, the style sheet's section 9, the owner, 2026-10-19: the textured leaf crowns and striped bark clashed with
 	# the faceted ledge, hills and the meadow's pines.)
 	if Toonify.load_prop("tree_crown_a") != null:
-		bark = (FighterView.toon(Color(0.58, 0.44, 0.4)) as ShaderMaterial).duplicate() as ShaderMaterial
+		bark = (FighterView.toon(Color(0.56, 0.41, 0.33)) as ShaderMaterial).duplicate() as ShaderMaterial
 		bark.set_shader_parameter("facets", true)
-	_mesh(root, trunk_mesh(trunk_h, 2.9 * size, 2.0 * size, 0.7 * size, 1.4 * size, 0.09), bark, base)
+	# (Broad bark ridges in the trunk's shape, faceted, 2026-10-19: at 0.09 the great trunk read as one flat column mid-frame.)
+	_mesh(root, trunk_mesh(trunk_h, 2.9 * size, 2.0 * size, 0.7 * size, 1.4 * size, 0.22), bark, base)
 	for k in 6:
 		var a := -1.25 + k * 0.5
 		var reach := rng.randf_range(0.85, 1.15)
@@ -5367,7 +5368,9 @@ static func _tree(root: Node3D, base: Vector3, size: float, rng: RandomNumberGen
 		shade_m.set_shader_parameter("facets", true)
 		var lit_m := (FighterView.toon(Color(0.46, 0.74, 0.36), true) as ShaderMaterial).duplicate() as ShaderMaterial
 		lit_m.set_shader_parameter("facets", true)
-		for c in [[Vector3(0, 1.5, 0), 3.6, "tree_crown_a"], [Vector3(-6.0, -1.5, 0.8), 2.6, "tree_crown_b"], [Vector3(6.2, -1.0, 0.6), 2.7, "tree_crown_c"]]:
+		# (Five spread into a wide rounded broadleaf mass, the grove's own tree rather than the meadow's pines.)
+		for c in [[Vector3(0, 0.5, 0), 3.4, "tree_crown_a"], [Vector3(-6.8, -2.4, 0.8), 2.7, "tree_crown_b"], [Vector3(6.9, -2.0, 0.6), 2.7, "tree_crown_c"],
+				[Vector3(-3.4, 2.4, -0.6), 2.5, "tree_crown_c"], [Vector3(3.6, 2.2, -0.5), 2.5, "tree_crown_b"]]:
 			_place_prop(sway, String(c[2]), crown * 0.0 + (c[0] as Vector3) * size, float(c[1]) * size, rng.randf_range(0.0, 360.0), shade_m, lit_m)
 		return
 	_leaf_cards(sway, masses, g, 3.6 * size, rng, "leaf_cluster", false, leaf_mid, [deep, between, leaf_mid, Materials.foliage(top_c, Vector2(2, 1), false)])
