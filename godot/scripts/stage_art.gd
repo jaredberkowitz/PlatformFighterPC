@@ -5193,9 +5193,21 @@ static func _skyline_layer(root: Node3D, rng: RandomNumberGenerator, layer: int,
 		var w := rng.randf_range(6.0, 13.0)
 		var h := rng.randf_range(10.0, 34.0) * (1.0 - layer * 0.15)
 		var seed := rng.randf()
+		# Each building one of a few kinds (the owner's city plan, 2026-10-19: one kind of slab read as a pattern, not a city): plain
+		# slabs; slender glass towers; wide low brick blocks; stepped art-deco towers under a pyramid crown. Its own numbers, so the
+		# rest of the layout stays put.
+		var kind_rng := RandomNumberGenerator.new()
+		kind_rng.seed = hash(Vector2i(roundi(x * 10.0), layer)) + 5
+		var btype := kind_rng.randi() % 5
+		if btype == 2:
+			w *= 0.6
+			h *= 1.2
+		elif btype == 3:
+			h *= 0.55
+			w *= 1.2
 		var lo := Vector3(x, street, z - depth / 2.0)
 		var hi := Vector3(x + w, street + h, z + depth / 2.0)
-		_facade_box(st, lo, hi, seed, false, h)
+		_facade_box(st, lo, hi, seed, false, h, btype == 2)
 		# The roofline: a cornice lip a little proud all round, and on some taller buildings a narrower setback storey or two above it,
 		# so the skyline's silhouette steps instead of being a row of plain boxes. (Its own random numbers, so the layout is unchanged.)
 		var shape := RandomNumberGenerator.new()
@@ -5205,7 +5217,28 @@ static func _skyline_layer(root: Node3D, rng: RandomNumberGenerator, layer: int,
 		# (More of them, and a second, narrower step on the tallest: a skyline of stepped crowns, not flat-topped boxes.)
 		# (Every tall one stepped, deeper steps, the gauntlet's round 18 after the city reference's tiered towers: two in three left
 		# flat-topped boxes.)
-		if h > 12.0:
+		if btype == 4 and h > 12.0:
+			# Art deco: two narrowing tiers and a pyramid crown.
+			var t0 := set_top
+			var in1 := w * 0.14
+			var s1 := shape.randf_range(3.0, 5.0)
+			_facade_box(st, Vector3(lo.x + in1, t0, lo.z + 0.6), Vector3(hi.x - in1, t0 + s1, hi.z - 0.6), seed, false, s1)
+			_facade_box(st, Vector3(lo.x + in1 - 0.2, t0 + s1 - 0.3, lo.z + 0.4), Vector3(hi.x - in1 + 0.2, t0 + s1 + 0.1, hi.z - 0.4), seed, true, 0.4)
+			var in2 := in1 + w * 0.13
+			var t1 := t0 + s1 + 0.1
+			var s2 := shape.randf_range(2.0, 3.4)
+			_facade_box(st, Vector3(lo.x + in2, t1, lo.z + 1.0), Vector3(hi.x - in2, t1 + s2, hi.z - 1.0), seed, false, s2)
+			var pl := lo.x + in2 - 0.1
+			var pr := hi.x - in2 + 0.1
+			var pf := hi.z - 0.9
+			var pb := lo.z + 0.9
+			var py := t1 + s2
+			var apex := Vector3((pl + pr) * 0.5, py + (pr - pl) * 0.7, z)
+			var pc := Color(seed, 1.0, 0.0)
+			_facade_quad(st, [Vector3(pl, py, pf), Vector3(pr, py, pf), apex, apex], Vector3(0, 0.6, 0.8).normalized(), Vector2(pr - pl, 1.0), 0.0, pc)
+			_facade_quad(st, [Vector3(pr, py, pf), Vector3(pr, py, pb), apex, apex], Vector3(0.8, 0.6, 0).normalized(), Vector2(pf - pb, 1.0), 0.0, pc)
+			_facade_quad(st, [Vector3(pl, py, pb), Vector3(pl, py, pf), apex, apex], Vector3(-0.8, 0.6, 0).normalized(), Vector2(pf - pb, 1.0), 0.0, pc)
+		elif h > 12.0 and btype != 2 and btype != 3:
 			var inset := w * shape.randf_range(0.16, 0.26)
 			var sh := shape.randf_range(3.5, 7.0)
 			_facade_box(st, Vector3(lo.x + inset, set_top, lo.z + 0.6), Vector3(hi.x - inset, set_top + sh, hi.z - 0.6), seed, false, sh)
@@ -5294,8 +5327,9 @@ static func _skyline_layer(root: Node3D, rng: RandomNumberGenerator, layer: int,
 
 ## A box from `lo` to `hi` into `st` for the facade shader: its front and sides as walls (windows unless `plain`), its top plain. Each
 ## face's UV runs in world units across it and up from the street; UV2 holds the face's width and the building's height `h`.
-static func _facade_box(st: SurfaceTool, lo: Vector3, hi: Vector3, seed: float, plain: bool, h: float) -> void:
-	var col := Color(seed, 1.0 if plain else 0.0, 0.0)
+static func _facade_box(st: SurfaceTool, lo: Vector3, hi: Vector3, seed: float, plain: bool, h: float, glass := false) -> void:
+	# (Blue 0.3 marks a glass tower's walls for the facade shader; 1 is a neon sign.)
+	var col := Color(seed, 1.0 if plain else 0.0, 0.3 if glass and not plain else 0.0)
 	var w := hi.x - lo.x
 	var d := hi.z - lo.z
 	var y0 := 0.0 if not plain else 0.0

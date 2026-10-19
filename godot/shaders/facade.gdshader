@@ -78,6 +78,9 @@ void fragment() {
 	// (Rounded to a whole number: an interpolated colour wobbles in its last bits, which the hash would turn into stripes.)
 	float seed = floor(COLOR.r * 255.0 + 0.5);
 	bool plain = COLOR.g > 0.5;
+	// A glass tower (blue 0.3): a cool curtain wall in bands of glass, lighter toward its top where it takes the sky (the owner's city
+	// plan, 2026-10-19: a skyline of one kind of slab read as a pattern).
+	bool glass = COLOR.b > 0.2 && COLOR.b < 0.5;
 	vec2 at = UV;
 	float width = max(UV2.x, 0.001);
 	float height = max(UV2.y, 0.001);
@@ -86,6 +89,10 @@ void fragment() {
 		ROUGHNESS = 0.95;
 	} else {
 		vec3 base = plain ? roof_shade.rgb : base_shade.rgb;
+		if (glass && !plain) {
+			base = base * vec3(0.78, 0.98, 1.3) + vec3(0.0, 0.02, 0.05);
+			base *= mix(0.9, 1.25, smoothstep(0.0, height, at.y));
+		}
 		// Each building's own shade, a touch lighter or darker than its layer's, and its own muted hue: plum, indigo, mauve or blue-grey
 		// (so neighbouring buildings read as different buildings, not one wall).
 		base *= mix(0.88, 1.12, hash(vec2(seed, 6.6)));
@@ -128,7 +135,7 @@ void fragment() {
 		if (!plain) {
 			// This building's pattern.
 			vec2 bay_size = cell * vec2(mix(0.8, 1.3, hash(vec2(seed, 1.1))), mix(0.88, 1.16, hash(vec2(seed, 2.2))));
-			bool strips = hash(vec2(seed, 3.3)) < 0.12;
+			bool strips = glass || hash(vec2(seed, 3.3)) < 0.12;
 			// A strip building's runs are broken by a pier every few bays and a plain service floor every sixth, so its face is not one
 			// stack of identical bands.
 			float pier_every = floor(mix(3.0, 5.99, hash(vec2(seed, 9.9))));
