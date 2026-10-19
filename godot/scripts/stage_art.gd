@@ -995,7 +995,9 @@ static func solid_block(parent: Node3D, t: Dictionary, left: float, right: float
 			# A thick grass cap that rolls over the front edge, with tufts hanging over.
 			# (The rendered turf tile, art/blender/make_tiles.py `lawn`, where it is made: clumps of real blades, the owner's painted
 			# materials, 2026-10-18. The drawn grass tile without it.)
-			var grass := _surface(t.grass, "lawn" if Materials._png_tile("lawn") != null else "grass", 9.0)
+			# (The meadow back on the drawn grass tile, the owner, 2026-10-19: the rendered turf read less detailed and nice than earlier
+			# builds' lawn, a fine noise over a simple shape.)
+			var grass := _surface(t.grass, "lawn" if Materials._png_tile("lawn") != null and t.name != "meadow" else "grass", 9.0)
 			# Broad sunlit and shaded patches across the lawn where the theme asks for them (`grass_vary`), so the top is not one sheet.
 			if t.has("grass_vary"):
 				grass = grass.duplicate()

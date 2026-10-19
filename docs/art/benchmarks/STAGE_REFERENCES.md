@@ -28,3 +28,12 @@ The crossover fighter's skyscraper-rooftop stage:
 - **Light:** bright daylight, cool sky ambient, clean shading, soft atmospheric perspective.
 - **Lesson for ours:** our night city keeps everything in one dark purple band. The reference separates its layers by value and
   temperature (warm, detailed foreground; pale, hazy, cool distance) and gives the play building crisp lit edges.
+
+## Meadow (the owner, 2026-10-19): `papercraft_mountains_reference.png`
+
+The papercraft adventure's blue-mountain camp, the meadow's target for colour, light, depth and cohesion (not its paper look):
+- **Where the quality comes from:** forms and light, almost no texture. Mountains are big faceted planes, each one clean tone, lit
+  planes pale and warm, shaded planes teal, layered lighter toward the peaks. Pines are stacked faceted cones in deep green.
+- **Ground:** nearly flat bright lime, shaded softly by the shape of the land; paths one warm sand tone; crisp lit edges on every ledge.
+- **Light:** high-key, one clear sun, soft cool shade; contact shadows under everything.
+- **Depth:** foreground greens and warm sand, mid-ground deep pines, distance cool teal and pale; each layer simpler than the one in front.
