@@ -1165,15 +1165,16 @@ static func solid_block(parent: Node3D, t: Dictionary, left: float, right: float
 			# not read and the biggest surface on screen was blank. Now a step darker than the coping, with broad weathered patches.)
 			# (Warmer, the gauntlet's round 3: the play building is the warm, detailed layer in front of a cool, hazy skyline.)
 			# (A step lighter, the gauntlet's round 27: in the rendered roofing it sat darker than the facade under it.)
-			var roofing := (t.grass as Color).lerp(Color(0.78, 0.5, 0.4), 0.88).lightened(0.14)
+			var roofing := (t.grass as Color).lerp(Color(0.84, 0.56, 0.42), 0.9).lightened(0.18)
 			# (The rendered roofing, art/blender/make_tiles.py `roof`, where it is made: lapped sheets, patched repairs, grit and puddle
 			# stains, the owner's painted materials, 2026-10-18; the painted tile without it.)
 			var roof_mat := _surface(roofing, "roof_render" if Materials._png_tile("roof_render") != null else "roof", 4.0).duplicate() as ShaderMaterial
 			roof_mat.set_shader_parameter("world_vary", 0.16)
 			# (Weathered tar patches stronger and a scuffed, darker band along the play line, the gauntlet's round 9: an unmarked sheet was the
 			# game's lowest-scoring surface.)
-			roof_mat.set_shader_parameter("patch_amount", 0.85)
-			roof_mat.set_shader_parameter("worn_path", 0.7)
+			# (Cleaner, the style sheet's play surface, the owner's city plan, 2026-10-19: weathered patches and a scuffed band read as grime.)
+			roof_mat.set_shader_parameter("patch_amount", 0.3)
+			roof_mat.set_shader_parameter("worn_path", 0.25)
 			roof_mat.set_shader_parameter("worn_tint", Color(0.62, 0.52, 0.5))
 			_mesh(parent, _box(Vector3(w + 0.3, 0.35, depth + 0.3)), roof_mat, Vector3(cx, top - 0.15, front_z - depth / 2.0))
 			# (A crisp lit edge, warm under the string lights, round 3.)
@@ -1415,7 +1416,8 @@ static func platform(parent: Node3D, t: Dictionary, left: float, right: float, t
 	if t.get("platform", "wood") == "girder":
 		# (A cool painted steel plate, a step lighter than the roof, art review 9's gauntlet: the theme's salmon wood made the plates the
 		# brightest, plainest slabs on screen.)
-		var plate_c := (t.wood as Color).lerp(Color(0.34, 0.33, 0.46), 0.85)
+		# (A deeper slate, the city plan: the pink plates pulled the eye.)
+		var plate_c := (t.wood as Color).lerp(Color(0.3, 0.3, 0.42), 0.95)
 		# (The metal response's highlight and the pink rim washed the lit top pale whatever its colour: both low on the plate.)
 		# (The rendered steel plate, art/blender/make_tiles.py `steel`: a riveted seam, worn paint, grime; the drawn tile without it.)
 		var steel := _surface(plate_c, "steel_plate" if Materials._png_tile("steel_plate") != null else "steel", 3.0).duplicate() as ShaderMaterial
@@ -4673,13 +4675,16 @@ static func _city(root: Node3D, t: Dictionary, stage: Array) -> void:
 		# (The nearest layer 52 back, not 40: nearer, its towers stood right behind the fighters. The owner, 2026-10-17.)
 		var z := -52.0 - layer * 28.0
 		var shade := Color(0.2, 0.17, 0.33).lerp(Color(0.29, 0.22, 0.42), layer / 2.0)
+		# (A value ladder in the purple, the owner's city plan, 2026-10-19: near towers deep indigo-violet silhouettes, the middle a mid
+		# violet, the far ones a pale hazy lavender, so the layers separate by value and the warm play building leads; at one mid violet
+		# everything ran together.)
 		# (The further layers drift toward the sky's own horizon colour, so distance reads as air, not as three equal cut-outs: the owner's
 		# rooftop plan, art review 6.)
 		# (Toward a deep cool blue as much as the horizon, art review 9: drifting to the pink horizon alone, every layer read the same violet
 		# and the scene lost its value contrast.)
 		# (Lighter, cooler and hazier with distance, the gauntlet's round 3 after the owner's city reference, kept at night: the towers sat
 		# as dark and saturated as the play building and nothing separated. A night haze of pale blue-lilac, more of it further back.)
-		shade = shade.lerp(Color(0.5, 0.52, 0.74), [0.4, 0.6, 0.76][layer])
+		shade = [Color(0.17, 0.14, 0.32), Color(0.36, 0.3, 0.56), Color(0.62, 0.56, 0.82)][layer]
 		_skyline_layer(root, rng, layer, z, shade, float(e[3]) - CITY_STREET_DROP)
 	# A water tower and an antenna on the roof behind the stage.
 	var roof: float = e[2]
@@ -4704,7 +4709,8 @@ static func _city(root: Node3D, t: Dictionary, stage: Array) -> void:
 	var blink := Blinker.new()
 	blink.position = mast + Vector3(0, 6.1, 0)
 	root.add_child(blink)
-	blink.build(Color(1.0, 0.25, 0.25))
+	# (A smaller, dimmer warning light, the city plan: the beacon outshone the fighters.)
+	blink.build(Color(0.8, 0.3, 0.32))
 	# Vents and an air conditioner.
 	var metal := FighterView.respond(FighterView.toon(Color(0.66, 0.68, 0.76)), "paint")
 	var unit := Vector3(float(e[0]) + 6.5, roof, -4.5)
