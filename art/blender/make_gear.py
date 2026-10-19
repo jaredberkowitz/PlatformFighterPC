@@ -180,19 +180,20 @@ def aviator_cap():
             # (Lower and fuller, the aviator scout pilot: on the head's crown it sat high as a beret; the reference's hat comes down to the
             # brow and round over the ears.)
             # (A big round dome, the aviator scout pilot round 2: the reference's hat is a wide padded bowl well over the head.)
-            r = 1.0
+            # (Close to the head, the character judge's round 17: wider, it read as an acorn cap in the run.)
+            r = 0.9
             x = r * math.sin(ph) * math.cos(a)
             y = r * math.sin(ph) * math.sin(a)
             # (Domed up, the character judge's round 9: a thin cap over the fleece in pose.)
             # (A tall dome, the character judge's round 14: it read flat from above.)
-            z = 1.52 + 1.3 * math.cos(ph)
+            z = 1.52 + 1.1 * math.cos(ph)
             # The seam down the middle of the crown.
             if abs(x) < 0.03:
                 x *= 0.6
                 z -= 0.008
             row.append(bm.verts.new((x, y, z)))
         rows.append(row)
-    top = bm.verts.new((0.0, 0.0, 1.52 + 1.3))
+    top = bm.verts.new((0.0, 0.0, 1.52 + 1.1))
     for i in range(seg_u):
         bm.faces.new((rows[0][i], rows[0][(i + 1) % seg_u], top))
     for j in range(seg_v):
@@ -895,7 +896,8 @@ def main():
     for name in only:
         bpy.ops.wm.read_factory_settings(use_empty=True)
         root = GEAR[name]()
-        _lumpy(root, seed=float(len(name)))
+        # (Shallow on the aviator's leather, round 17: deep dents read as blotches on its dark dome.)
+        _lumpy(root, amount=0.015 if name == "aviator_cap" else 0.045, seed=float(len(name)))
         export(root, os.path.join(OUT, name + ".glb"))
         tris = sum(sum(len(p.vertices) - 2 for p in c.data.polygons) for c in root.children_recursive if c.type == "MESH")
         print("gear %s: %d triangles" % (name, tris))

@@ -388,12 +388,14 @@ def mitten(bm, x):
     length, and a fat thumb set low on the heel of the palm, turned forward."""
     _mitt_block(bm, x, 0.1, (0.105, 0.118, 0.078), squareness=0.82, curl=0.02, segments=40, rings=26)
     # (front offset across the hand, length, spread) per finger: index to little.
-    for (f0, ln, spread) in ((0.072, 1.0, 0.02), (0.024, 1.1, 0.004), (-0.024, 1.02, -0.012), (-0.07, 0.84, -0.03)):
+    # (All four out, each curled a little more toward the little finger, the character judge's round 17: unevenly curled, from the front
+    # the hand read as pointing.)
+    for k_f, (f0, ln, spread) in enumerate(((0.072, 1.0, 0.03), (0.024, 1.08, 0.01), (-0.024, 1.02, -0.01), (-0.07, 0.9, -0.032))):
         pts, radii = [], []
         for k, t in enumerate((0.0, 0.45, 0.8, 1.0)):
             d = 0.13 + 0.16 * ln * t
             f = f0 + spread * t
-            o = -0.004 - 0.05 * t * t      # curling toward the palm
+            o = -0.004 - (0.03 + 0.012 * k_f) * t * t      # curling toward the palm
             pts.append(_at(x, d, f, o))
             radii.append((0.036, 0.034, 0.03, 0.022)[k])
         tube(bm, pts, radii, segments=14, per_span=3)
@@ -1954,8 +1956,8 @@ CUFF_LIFT = 0.072   # (outside the shorts' flared hem, the character judge's rou
 # this share of the upper arm long and lifted this far off the skin.
 SLEEVE_TRIM = 0.12
 # How far round the shoulder joint the shirt takes the upper arm's bone, and how much of it at most.
-SHOULDER_BLEND = 0.24
-SHOULDER_SHARE = 0.55
+SHOULDER_BLEND = 0.32
+SHOULDER_SHARE = 0.85   # (more, the owner: a raised arm came out from under the sleeve)
 # Tall thick ribbed socks (the character judge's round 1): how far up from the ankle, how far off the skin, and their turned-down top.
 SOCK_HEIGHT = 0.375   # (just under the knee-length shorts, the character judge's round 12: higher, the turn-down poked through them in a bend)
 SOCK_LIFT = 0.03
