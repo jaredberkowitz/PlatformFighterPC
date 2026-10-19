@@ -365,14 +365,20 @@ def _fingers(verts, x, d_from, centre_d, depth, width=0.012, splits=(-0.052, 0.0
 
 
 def fist(bm, x):
-    """A closed fist on the `x` side, straight on from the forearm, after the owner's reference cast's chunky hands (the character judge's
-    round 13: a grooved ball): a blockier body with a flat row of four knuckles across its end, each a rounded bump of its own, and the
-    thumb folded across the front of the curled fingers. About the forearm's width and a little more."""
-    _mitt_block(bm, x, 0.11, (0.11, 0.13, 0.1), squareness=0.62, segments=40, rings=26)
-    for f0 in (0.07, 0.024, -0.024, -0.068):
-        ball(bm, 0.038, tuple(_at(x, 0.2, f0, 0.035)), segments=12, rings=8)
-    tube(bm, [_at(x, 0.06, 0.12, -0.06), _at(x, 0.11, 0.1, -0.1), _at(x, 0.15, 0.04, -0.11), _at(x, 0.165, -0.01, -0.1)],
-         [0.044, 0.042, 0.038, 0.03], segments=16, per_span=3)
+    """A closed fist on the `x` side, straight on from the forearm (the owner, 2026-10-19: a ball with a thumb on its side did not read as a
+    fist): a squarer palm block, four fingers each a thick roll curling from its knuckle over the end of the hand and back under the
+    palm, set side by side so the curled fingers read as a stack of rolls, and the thumb folded across the front of the curled index and
+    middle fingers. About the forearm's width and a little more."""
+    _mitt_block(bm, x, 0.095, (0.095, 0.115, 0.085), squareness=0.5, segments=36, rings=24)
+    for k, f0 in enumerate((0.07, 0.024, -0.022, -0.066)):
+        r = 0.036 if k < 3 else 0.031
+        reach = 1.0 if k in (1, 2) else 0.94
+        tube(bm, [_at(x, 0.15, f0, 0.06), _at(x, 0.2 * reach + 0.01, f0, 0.035), _at(x, 0.215 * reach + 0.005, f0, -0.01),
+                  _at(x, 0.19 * reach, f0, -0.06), _at(x, 0.15, f0, -0.075)],
+             [r, r, r, r, r * 0.9], segments=12, per_span=3)
+    # The thumb: from the heel of the hand on its front side, folded across the curled fingers' middle joints.
+    tube(bm, [_at(x, 0.05, 0.115, -0.03), _at(x, 0.1, 0.12, -0.075), _at(x, 0.155, 0.075, -0.1), _at(x, 0.175, 0.02, -0.1)],
+         [0.042, 0.04, 0.036, 0.03], segments=14, per_span=3)
 
 
 def mitten(bm, x):
