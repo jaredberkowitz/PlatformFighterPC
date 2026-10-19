@@ -646,9 +646,15 @@ static func _soil_material(t: Dictionary) -> ShaderMaterial:
 	var img := Image.new()
 	img.load_svg_from_string(svg, 1.0)
 	img.generate_mipmaps()
-	var tex := ImageTexture.create_from_image(img)
+	var tex: Texture2D = ImageTexture.create_from_image(img)
+	var tint := Color.WHITE
+	# (The grove's bank in the rendered soil tile, art/blender/make_tiles.py `soil_bank`, in the soil's own colour: clods and bedded
+	# stones in place of the drawn layers, the owner's painted materials, 2026-10-18.)
+	if pattern == "roots" and Materials._png_tile("soil_bank") != null:
+		tex = Materials._png_tile("soil_bank")
+		tint = a
 	# On the stage's cel shading, laid in world space (one repeat every 3 units, so the stones and bands read large and calm; a facade's every 6.6).
-	var m := FighterView.toon(Color.WHITE, true, tex, Vector2.ONE, {"facade": 6.6, "masonry": 7.0, "strata": 6.0, "roots": 8.0, "earth": 12.0, "seawall": 10.0}.get(pattern, 3.0))
+	var m := FighterView.toon(tint, true, tex, Vector2.ONE, {"facade": 6.6, "masonry": 7.0, "strata": 6.0, "roots": 8.0, "earth": 12.0, "seawall": 10.0}.get(pattern, 3.0))
 	# The front falls further into the cool shade below its lit rim than the default, so the fighting surface and the fighters on it
 	# lead and the wall under them settles back (the attention hierarchy in docs/ART_DIRECTION.md).
 	m = m.duplicate()
@@ -970,7 +976,9 @@ static func solid_block(parent: Node3D, t: Dictionary, left: float, right: float
 					_mesh(parent, _sphere(0.13, 10), shell, sp, Vector3(1.0, 0.35, 0.8), Vector3(0, rng.randf_range(0, 180), 0))
 		_:
 			# A thick grass cap that rolls over the front edge, with tufts hanging over.
-			var grass := _surface(t.grass, "grass", 9.0)
+			# (The rendered turf tile, art/blender/make_tiles.py `lawn`, where it is made: clumps of real blades, the owner's painted
+			# materials, 2026-10-18. The drawn grass tile without it.)
+			var grass := _surface(t.grass, "lawn" if Materials._png_tile("lawn") != null else "grass", 9.0)
 			# Broad sunlit and shaded patches across the lawn where the theme asks for them (`grass_vary`), so the top is not one sheet.
 			if t.has("grass_vary"):
 				grass = grass.duplicate()
@@ -5809,9 +5817,13 @@ static func _harbour_town(root: Node3D, water: float) -> void:
 	var hills := [[Vector3(-6, 0.0, -14), Vector3(40, 9, 16)], [Vector3(22, -1.0, -18), Vector3(26, 6, 12)]]
 	# (Modelled hills, art/blender/make_props.py `hill_dome`, in a calm soft-lit land colour, the gauntlet's round 19: scaled spheres under
 	# the scaly foliage tile read as painted cards beside the modelled ranges. The spheres stand in without them.)
-	var near_hill := (FighterView.toon(Color(0.46, 0.6, 0.52), false) as ShaderMaterial).duplicate() as ShaderMaterial
+	# (In the rendered turf, laid large, with broad patches over it, the owner's painted materials, 2026-10-18: one smooth colour read as
+	# a single mass, not land.)
+	var near_hill := (Materials.world("lawn" if Materials._png_tile("lawn") != null else "grass", Color(0.48, 0.62, 0.54), 12.0, false) as ShaderMaterial).duplicate() as ShaderMaterial
 	near_hill.set_shader_parameter("ramp_softness", 0.4)
 	near_hill.set_shader_parameter("rim_strength", 0.0)
+	near_hill.set_shader_parameter("world_vary", 0.3)
+	near_hill.set_shader_parameter("patch_amount", 0.55)
 	var far_hill := near_hill.duplicate() as ShaderMaterial
 	far_hill.set_shader_parameter("albedo", Color(0.5, 0.62, 0.64))
 	var dome := [_prop_mesh("hill_dome_a", "land"), _prop_mesh("hill_dome_b", "land")]

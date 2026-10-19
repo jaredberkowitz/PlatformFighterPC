@@ -30,12 +30,12 @@ const FAMILIES := {
 }
 
 ## Which family each stage tile is.
-const TILE_FAMILY := {"paving": "stone", "wood": "wood", "grass": "grass", "field": "grass", "asphalt": "stone", "sand": "grass", "roof": "stone", "steel": "metal", "bark": "bark",
+const TILE_FAMILY := {"lawn": "grass", "paving": "stone", "wood": "wood", "grass": "grass", "field": "grass", "asphalt": "stone", "sand": "grass", "roof": "stone", "steel": "metal", "bark": "bark",
 	"foliage": "foliage", "stone": "stone"}
 
 ## The painted detail laid over each world-laid stage tile (shaders/toon_common.gdshaderinc `detail_*`): [detail tile, amount, world units
 ## per fine repeat]. Tiles not listed have none.
-const TILE_DETAIL := {"paving": ["concrete", 0.3, 3.0], "roof": ["concrete", 0.5, 3.0], "asphalt": ["concrete", 0.35, 4.0], "steel": ["concrete", 0.3, 2.5], "grass": ["soil", 0.35, 2.5],
+const TILE_DETAIL := {"paving": ["concrete", 0.3, 3.0], "roof": ["concrete", 0.5, 3.0], "asphalt": ["concrete", 0.35, 4.0], "steel": ["concrete", 0.3, 2.5], "grass": ["soil", 0.35, 2.5], "lawn": ["soil", 0.2, 2.5],
 	"sand": ["soil", 0.3, 3.0], "stone": ["stone", 0.4, 3.5], "wood": ["stone", 0.18, 4.0]}
 
 static var _cache := {}
