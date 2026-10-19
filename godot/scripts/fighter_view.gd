@@ -2151,7 +2151,7 @@ func _shirt_collar() -> void:
 ## The hats modelled in Blender (art/blender/make_gear.py, godot/models/gear), by hat slot (the owner, 2026-10-18: moving the
 ## accessories from built primitives to models over time).
 const GEAR_HATS := {1: "sailor_cap", 2: "aviator_cap", 3: "straw_hat", 4: "beanie", 5: "crown", 7: "plumed_helm", 8: "swept_spikes",
-	9: "topknot"}
+	9: "topknot", 10: "dixie_cap"}
 
 
 ## Puts the modelled accessory `name` on the hat pivot, each part coloured by what it is made of (its name's first word): fabric in
@@ -2183,6 +2183,7 @@ func _gear_model(name: String, accent: Color) -> bool:
 		"straw": straw, "hair": toon(FaceLook.BROW_COLORS[clampi(loadout.brow_color, 0, FaceLook.BROW_COLORS.size() - 1)]),
 		# (Cream fleece, the aviator scout pilot, 2026-10-19.)
 		# (A soft curly painted tile, the character judge's round 1: the fleece read as a smooth ring.)
+		"navy": _cloth(toon(Color(0.2, 0.28, 0.58))),
 		"fleece": toon(Color(1, 1, 1), true, SvgArt.texture("res://art/cloth/fleece.svg", {"#ff00ff": Color(0.93, 0.86, 0.72)}), Vector2(1, 2))}
 	# One mesh per material, its parts merged (the loadout budget, docs plan 7.3: the crown's set stones and the helm's plume feathers, a
 	# mesh each, came to 16 and 24 meshes on one hat).

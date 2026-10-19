@@ -45,7 +45,7 @@ const DAZED_FACE := {"name": "dazed"}
 const SHOCK_FACE := {"name": "shock"}
 const HAPPY_FACE := {"name": "happy"}
 
-const HATS := ["none", "sailor cap", "aviator cap", "straw hat", "beanie", "crown", "hood", "plumed helm", "swept spikes", "topknot"]
+const HATS := ["none", "sailor cap", "aviator cap", "straw hat", "beanie", "crown", "hood", "plumed helm", "swept spikes", "topknot", "dixie cap"]
 const GLASSES := ["none", "shades", "goggles", "round specs"]
 const NECKS := ["none", "sash", "neckerchief", "scarf", "cape"]
 ## Shirts: a plain white one, one in the outfit (accent) colour, stripes and a flower print (godot/art/cloth/).
@@ -193,8 +193,11 @@ static func default_for(player: int) -> RefCounted:
 	var l: RefCounted = load("res://scripts/loadout.gd").new()
 	l.color = player % 4
 	match player % 4:
-		0, 2:
+		0:
 			l.hat = 1
+		2:
+			# (The little dixie cap, as the reference's blue scout, the character pass, 2026-10-19.)
+			l.hat = 10
 		1:
 			l.hat = 2
 		3:

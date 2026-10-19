@@ -19,7 +19,7 @@ import sys
 
 import bmesh
 import bpy
-from mathutils import Vector
+from mathutils import Matrix, Vector
 
 OUT = "godot/models/gear"
 HEAD_C = Vector((0.0, 0.0, 1.42))
@@ -90,41 +90,69 @@ def empty(name):
 
 # ---- Sailor cap -------------------------------------------------------------------------------------------------------------------------
 
+def add_box(bm, centre, size):
+    """An axis-aligned box into `bm`, `size` its full extents."""
+    ret = bmesh.ops.create_cube(bm, size=1.0)
+    for v in ret["verts"]:
+        v.co = Vector((v.co.x * size[0], v.co.y * size[1], v.co.z * size[2])) + Vector(centre)
+
+
+def _tilt(root, deg, pivot_z):
+    """Tips every part of a hat back by `deg` round the x axis at height `pivot_z` (worn pushed back on the head)."""
+    m = Matrix.Translation((0, 0, pivot_z)) @ Matrix.Rotation(math.radians(deg), 4, "X") @ Matrix.Translation((0, 0, -pivot_z))
+    for c in root.children:
+        c.data.transform(m)
+
+
 def sailor_cap():
-    """A soft white sailor's cap: a crown that rises from the head, swells a little and domes over with a soft sag in the middle (cloth
-    over no frame), a brim rolled up all round as a thick soft lip, a pressed seam round the crown's top, and a band of the outfit's
-    colour just above the brim."""
+    """The yellow sailor's soft white cap, after the owner's reference cast (2026-10-19): a tall puffy crown of cloth rising from a wide
+    band of the outfit's colour at its foot, swelling out and over at the top in a soft overhang with a sag in its middle, worn tipped
+    back on the head. (A flat boater-like cap before.)"""
     root = empty("sailor_cap")
-    base = 2.02
-    # The crown: from just inside the head, out and up, swelling, then over the top with a sag.
-    prof = [(head_r(base) - 0.02, base - 0.04), (0.54, base + 0.02), (0.56, base + 0.12), (0.57, base + 0.24), (0.55, base + 0.31),
-            (0.5, base + 0.355), (0.4, base + 0.37), (0.26, base + 0.36), (0.12, base + 0.345)]
+    base = 2.0
+    prof = [(head_r(base) - 0.02, base - 0.04), (0.56, base + 0.0), (0.58, base + 0.2), (0.62, base + 0.36), (0.66, base + 0.48),
+            (0.64, base + 0.56), (0.54, base + 0.62), (0.36, base + 0.6), (0.16, base + 0.57)]
     bm = bmesh.new()
-    rings = lathe(bm, prof, wobble=lambda a, k: 1.0 + (0.015 * math.sin(a * 3.0) if 2 <= k <= 4 else 0.0))
-    cap_ring(bm, rings[-1], base + 0.34)
-    # The seam round the top: pressed in at the shoulder.
-    for v in rings[5]:
-        v.co.x *= 0.985
-        v.co.y *= 0.985
-        v.co.z -= 0.006
-    o = to_object("canvas_crown", bm)
-    o.parent = root
-    # The rolled brim: a thick soft lip turned up, its outline a little uneven.
-    prof = [(0.5, base - 0.02), (0.6, base - 0.04), (0.68, base - 0.01), (0.7, base + 0.05), (0.66, base + 0.1), (0.58, base + 0.08),
-            (0.55, base + 0.04)]
+    rings = lathe(bm, prof, wobble=lambda a, k: 1.0 + (0.025 * math.sin(a * 3.0 + 0.4) if k >= 3 else 0.0))
+    cap_ring(bm, rings[-1], base + 0.56)
+    to_object("canvas_crown", bm).parent = root
     bm = bmesh.new()
-    rings = lathe(bm, prof, wobble=lambda a, k: 1.0 + 0.012 * math.sin(a * 2.0 + 0.7))
+    lathe(bm, [(0.575, base - 0.02), (0.595, base + 0.0), (0.6, base + 0.16), (0.585, base + 0.19)])
+    to_object("fabric_band", bm, sharp=60.0).parent = root
+    _tilt(root, -12.0, base)
+    return root
+
+
+def dixie_cap():
+    """The blue fighter's little white sailor's hat, after the owner's reference cast (2026-10-19): a small round crown sitting high on
+    the head, its brim turned straight up all round as a stiff wall with a navy stripe along its top edge, and a navy anchor on the front
+    of the brim."""
+    root = empty("dixie_cap")
+    base = 2.1
+    bm = bmesh.new()
+    rings = lathe(bm, [(head_r(base) - 0.02, base - 0.04), (0.44, base + 0.02), (0.46, base + 0.22), (0.45, base + 0.36), (0.38, base + 0.46),
+                       (0.2, base + 0.5)])
+    cap_ring(bm, rings[-1], base + 0.505)
+    to_object("canvas_crown", bm).parent = root
+    bm = bmesh.new()
+    rings = lathe(bm, [(0.44, base + 0.0), (0.52, base + 0.02), (0.55, base + 0.1), (0.55, base + 0.18), (0.52, base + 0.2), (0.47, base + 0.17)])
     n = len(rings[0])
     for i in range(n):
         bm.faces.new((rings[-1][i], rings[-1][(i + 1) % n], rings[0][(i + 1) % n], rings[0][i]))
-    o = to_object("canvas_brim", bm, sharp=60.0)
-    o.parent = root
-    # The band, just above the brim.
-    prof = [(0.575, base + 0.09), (0.585, base + 0.11), (0.585, base + 0.17), (0.575, base + 0.19)]
+    to_object("canvas_brim", bm, sharp=60.0).parent = root
     bm = bmesh.new()
-    lathe(bm, prof)
-    o = to_object("fabric_band", bm, sharp=60.0)
-    o.parent = root
+    lathe(bm, [(0.553, base + 0.13), (0.558, base + 0.15), (0.558, base + 0.175), (0.553, base + 0.19)])
+    to_object("navy_stripe", bm, sharp=60.0).parent = root
+    # The anchor on the front of the brim (the front is -y): a shank, a stock across its top, a ring, and the arms curving up at its foot.
+    bm = bmesh.new()
+    y = -0.565
+    for (cx, cz, w, h) in ((0.0, base + 0.085, 0.014, 0.1), (0.0, base + 0.125, 0.06, 0.012)):
+        add_box(bm, (cx, y, cz), (w, 0.012, h))
+    for k in range(7):
+        t = (k / 6.0) * 2.0 - 1.0
+        add_box(bm, (t * 0.04, y, base + 0.045 + 0.022 * t * t), (0.016, 0.012, 0.012))
+    to_object("navy_anchor", bm, smooth=False).parent = root
+    _tilt(root, -6.0, base)
     return root
 
 
@@ -272,49 +300,49 @@ def aviator_cap():
 # ---- Straw hat --------------------------------------------------------------------------------------------------------------------------
 
 def straw_hat():
-    """A boater-ish straw hat: a wide brim that waves gently and dips a little at front and back, rolled at its edge; a crown that rises
-    straight with a soft pinch at the top; a band of the outfit's colour round its foot with a little bow at the side."""
+    """The pink ranger's straw hat, after the owner's reference cast (2026-10-19): a fedora-like crown pinched in at the front and creased
+    along its top, a brim flat at the front and back and curled up at the sides, and a band of the outfit's colour round the crown's foot.
+    (A wide flat boater before.)"""
     root = empty("straw_hat")
     base = 2.0
-    wave = lambda a: 0.025 * math.cos(2.0 * a) + 0.012 * math.sin(5.0 * a + 0.4)
     bm = bmesh.new()
     sides = 48
-    prof_r = [0.5, 0.8, 1.05, 1.17, 1.2, 1.16, 1.06]
-    prof_z = [0.04, 0.035, 0.02, 0.0, 0.03, 0.06, 0.05]
     rings = []
-    for k, (r, z) in enumerate(zip(prof_r, prof_z)):
+    radii = [0.5, 0.6, 0.7, 0.8, 0.87, 0.9]
+    for k, r in enumerate(radii):
         ring = []
+        u = (r - 0.5) / 0.4
         for i in range(sides):
             a = math.tau * i / sides
-            dz = z + wave(a) * min(1.0, r / 1.0) - (0.04 if k >= 3 else 0.0) * abs(math.sin(a))
-            ring.append(bm.verts.new((r * math.cos(a), r * math.sin(a), base + dz)))
+            curl = 0.26 * abs(math.cos(a)) ** 2 * u ** 2
+            ring.append(bm.verts.new((r * math.cos(a), r * math.sin(a), base + 0.03 + curl - 0.03 * u)))
         rings.append(ring)
     for k in range(len(rings) - 1):
         for i in range(sides):
             j = (i + 1) % sides
             bm.faces.new((rings[k][i], rings[k][j], rings[k + 1][j], rings[k + 1][i]))
     bmesh.ops.solidify(bm, geom=bm.faces[:], thickness=0.03)
-    o = to_object("straw_brim", bm, sharp=70.0)
-    o.parent = root
+    to_object("straw_brim", bm, sharp=70.0).parent = root
     bm = bmesh.new()
-    prof = [(0.5, base + 0.03), (0.6, base + 0.05), (0.6, base + 0.3), (0.58, base + 0.37), (0.48, base + 0.4), (0.3, base + 0.37),
-            (0.12, base + 0.385)]
-    rings = lathe(bm, prof, wobble=lambda a, k: 1.0 + (0.02 * math.cos(2.0 * a) if k >= 3 else 0.0))
-    cap_ring(bm, rings[-1], base + 0.39)
-    o = to_object("straw_crown", bm)
-    o.parent = root
+    # (Tall enough to stand clear of the game's head, which is drawn taller and wider than the design head.)
+    prof = [(0.5, base + 0.03), (0.58, base + 0.05), (0.57, base + 0.48), (0.52, base + 0.64), (0.38, base + 0.7), (0.18, base + 0.69)]
+
+    def pinch(a, k):
+        # The pinch: two dents in the front of the crown's upper half (the front is -y, angle 270 degrees).
+        front = max(0.0, -math.sin(a))
+        side = abs(math.cos(a))
+        return 1.0 - (0.18 * front ** 3 * side * 2.0 if k >= 2 else 0.0)
+    rings = lathe(bm, prof, wobble=pinch)
+    cap_ring(bm, rings[-1], base + 0.69)
+    # The crease along the top, front to back.
+    for ring in rings[3:]:
+        for v in ring:
+            v.co.z -= 0.07 * max(0.0, 1.0 - abs(v.co.x) / 0.25)
+    to_object("straw_crown", bm).parent = root
     bm = bmesh.new()
-    lathe(bm, [(0.612, base + 0.05), (0.618, base + 0.07), (0.618, base + 0.15), (0.612, base + 0.17)])
-    o = to_object("fabric_band", bm, sharp=60.0)
-    o.parent = root
-    # The bow at the side: two small loops.
-    for side in (-1.0, 1.0):
-        bm = bmesh.new()
-        ret = bmesh.ops.create_uvsphere(bm, u_segments=14, v_segments=8, radius=1.0)
-        for v in ret["verts"]:
-            v.co = Vector((0.63 + v.co.x * 0.02, side * 0.07 + v.co.y * 0.075, base + 0.11 + v.co.z * 0.045))
-        o = to_object("fabric_bow" + ("L" if side < 0 else "R"), bm)
-        o.parent = root
+    lathe(bm, [(0.565, base + 0.05), (0.572, base + 0.07), (0.568, base + 0.14), (0.56, base + 0.16)])
+    to_object("fabric_band", bm, sharp=60.0).parent = root
+    _tilt(root, -5.0, base)
     return root
 
 
@@ -785,7 +813,7 @@ def neckwear():
     return root
 
 
-GEAR = {"neckwear": neckwear, "glasses": glasses, "sailor_cap": sailor_cap, "aviator_cap": aviator_cap, "straw_hat": straw_hat, "plumed_helm": plumed_helm, "crown": crown,
+GEAR = {"neckwear": neckwear, "glasses": glasses, "sailor_cap": sailor_cap, "dixie_cap": dixie_cap, "aviator_cap": aviator_cap, "straw_hat": straw_hat, "plumed_helm": plumed_helm, "crown": crown,
         "swept_spikes": swept_spikes, "topknot": topknot, "beanie": beanie}
 
 
