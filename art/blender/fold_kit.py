@@ -66,11 +66,13 @@ def folded_dome(bm_lit, bm_shade, centre, r, pleats, rng, rows=None):
         rows = [(-0.12, 0.34), (0.32, 0.22), (0.68, 0.1)]
     made = []
     rings = []
-    for (el, depth) in rows:
+    for row, (el, depth) in enumerate(rows):
         e = el * math.pi / 2.0
         ring_v = []
         for i in range(n):
-            a = turn + math.tau * i / n
+            # (Each band turned half a fold from the one below, the judge's round 40: folds stacked straight over each other met in
+            # right-angle steps and the round crowns read as stacked boxes; staggered, they meet at angles round the dome.)
+            a = turn + math.tau * (i + 0.5 * row) / n
             point = i % 2 == 0
             rr = math.cos(e) * (1.0 if point else 1.0 - depth) * r
             z = math.sin(e) * 0.78 * r

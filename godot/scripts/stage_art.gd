@@ -1301,8 +1301,11 @@ static func solid_block(parent: Node3D, t: Dictionary, left: float, right: float
 			_mesh(parent, _round_box(Vector3(w + 0.25, cap_h, depth + 0.1), 0.24), grass, Vector3(cx, top - cap_h / 2.0 + 0.04, front_z - depth / 2.0))
 			# (A turf lip rolling over the edge, its thickness and line wavering, in place of a straight tube with a lit strip along it that
 			# read as a ruled line, 2026-10-18, art review 7.)
-			var lip_r := cap_h * (0.85 if t.has("quilt") else 0.62)
-			var lip := _edge_lip(parent, left - 0.125, right + 0.125, top - cap_h * 0.55 - (0.12 if t.has("quilt") else 0.0), front_z + 0.02, lip_r, grass)
+			# (On the quilted island a thick rolling mat overhanging the rim, the judge's round 40 and the owner's grove reference: a lush
+			# grass top whose edge curls over in a deep, soft lip.)
+			var lip_r := cap_h * (1.5 if t.has("quilt") else 0.62)
+			var lip := _edge_lip(parent, left - 0.125, right + 0.125, top - cap_h * 0.55 - (0.6 if t.has("quilt") else 0.0),
+				front_z + (0.3 if t.has("quilt") else 0.02), lip_r, grass)
 			lip.name = "lip"
 			# Tufts hanging over at uneven gaps and sizes, now and then a small stone among them (not where moss drapes the wall instead).
 			var tuft_mesh := _sphere(0.32, 12)

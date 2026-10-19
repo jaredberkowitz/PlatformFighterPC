@@ -531,7 +531,7 @@ def tree_crown(name, shape):
     else:
         masses = [((0, 0.3, 0.6), 2.2), ((-1.9, 0.2, 0.2), 1.3), ((1.85, 0.1, 0.3), 1.35), ((-0.4, -0.3, 1.95), 1.3), ((1.0, -0.4, 1.6), 1.05)]
     for k, (c, r) in enumerate(masses):
-        folded_dome(lit, shade, c, r, 6 if r > 1.6 else 5, random.Random(shape * 100 + k))
+        folded_dome(lit, shade, c, r, 7 if r > 1.6 else 6, random.Random(shape * 100 + k))
     for bm in (lit, shade):
         bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=0.0001)
     # (Flat-shaded planes, as a papercraft forest's trees are (the owner's third reference): each facet one tone, so the light reads
