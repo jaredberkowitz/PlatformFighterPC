@@ -5147,6 +5147,11 @@ static func _tree(root: Node3D, base: Vector3, size: float, rng: RandomNumberGen
 	# (Browner and darker, art review 9: the pinkish bark was the earth's own hue, so tree and island ran together.)
 	# (Lighter and hazier toward the sky, the gauntlet's round 3: darker, it stood out more behind the fight, not less.)
 	var bark := Materials.bark(Color(0.56, 0.44, 0.42), Vector2(2.5, 2))
+	# (Faceted in clean tones, the style sheet's section 9, the owner, 2026-10-19: the textured leaf crowns and striped bark clashed with
+	# the faceted ledge, hills and the meadow's pines.)
+	if Toonify.load_prop("tree_crown_a") != null:
+		bark = (FighterView.toon(Color(0.58, 0.44, 0.4)) as ShaderMaterial).duplicate() as ShaderMaterial
+		bark.set_shader_parameter("facets", true)
 	_mesh(root, trunk_mesh(trunk_h, 2.9 * size, 2.0 * size, 0.7 * size, 1.4 * size, 0.09), bark, base)
 	for k in 6:
 		var a := -1.25 + k * 0.5
@@ -5186,6 +5191,16 @@ static func _tree(root: Node3D, base: Vector3, size: float, rng: RandomNumberGen
 	var deep := Materials.foliage(deep_c)
 	var between := Materials.foliage(deep_c.lerp(g[1], 0.5), Vector2(3, 2), false)
 	var top_c := (g[2] as Color).lerp(g[3], 0.6).lerp(Color(1.0, 0.95, 0.62), 0.06)
+	if Toonify.load_prop("tree_crown_a") != null:
+		# The crown as a few tiered faceted crowns (art/blender/make_props.py `tree_crown_*`): a big middle one and two at its shoulders,
+		# each lit on its upper planes and shaded below in clean greens.
+		var shade_m := (FighterView.toon(Color(0.2, 0.46, 0.3), true) as ShaderMaterial).duplicate() as ShaderMaterial
+		shade_m.set_shader_parameter("facets", true)
+		var lit_m := (FighterView.toon(Color(0.46, 0.74, 0.36), true) as ShaderMaterial).duplicate() as ShaderMaterial
+		lit_m.set_shader_parameter("facets", true)
+		for c in [[Vector3(0, 1.5, 0), 3.6, "tree_crown_a"], [Vector3(-6.0, -1.5, 0.8), 2.6, "tree_crown_b"], [Vector3(6.2, -1.0, 0.6), 2.7, "tree_crown_c"]]:
+			_place_prop(sway, String(c[2]), crown * 0.0 + (c[0] as Vector3) * size, float(c[1]) * size, rng.randf_range(0.0, 360.0), shade_m, lit_m)
+		return
 	_leaf_cards(sway, masses, g, 3.6 * size, rng, "leaf_cluster", false, leaf_mid, [deep, between, leaf_mid, Materials.foliage(top_c, Vector2(2, 1), false)])
 	var _unused := [leaf, leaf_sun]
 
