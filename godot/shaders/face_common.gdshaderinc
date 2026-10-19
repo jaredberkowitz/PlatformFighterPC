@@ -28,7 +28,7 @@ uniform vec3 lids = vec3(0.0);
 // Extra upper lid on one side (positive the right, negative the left): an uneven face.
 uniform float lid_lean = 0.0;
 // A faint hand-drawn wobble on every part's lines (in the face square's units).
-uniform float line_wobble = 0.0012;
+uniform float line_wobble = 0.0024;
 uniform vec4 eye_color : source_color = vec4(0.176, 0.102, 0.235, 1.0);
 uniform vec4 lid_color : source_color = vec4(1.0, 0.85, 0.2, 1.0);
 uniform vec4 brow_place = vec4(0.17, 0.258, 0.36, 0.0);

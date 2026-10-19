@@ -62,8 +62,9 @@ const POSE_OPEN := {"relaxed": true, "broad": true}
 ## The head's shape (the character judge's round 12: four of one clean egg head read generic; the reference's heads each have their own):
 ## its scale across, up and front to back on the shared head.
 const HEADS := ["round", "bean", "bun", "ball", "onion"]
-const HEAD_SCALES := {"round": Vector3(1.32, 1.0, 1.2), "bean": Vector3(1.18, 1.12, 1.1), "bun": Vector3(1.44, 0.9, 1.24),
-	"ball": Vector3(1.3, 1.08, 1.26), "onion": Vector3(1.24, 1.08, 1.14)}
+# (Twice as far apart, the character judge's round 13: side by side the four read as one egg.)
+const HEAD_SCALES := {"round": Vector3(1.32, 1.0, 1.2), "bean": Vector3(1.06, 1.24, 1.0), "bun": Vector3(1.58, 0.82, 1.3),
+	"ball": Vector3(1.3, 1.16, 1.34), "onion": Vector3(1.16, 1.14, 1.06)}
 
 ## The slots in the order they are written, each with its catalog size. New slots go at the end (see the top).
 const SLOTS := ["color", "face", "hat", "glasses", "neck", "accent", "shirt",
@@ -269,6 +270,15 @@ static func default_for(player: int) -> RefCounted:
 	# the ranger an onion with a lazy right lid.)
 	l.head = [1, 2, 3, 4][player % 4]
 	l.face_lean = FaceLook.neutral("face_lean") + [-3, 2, 3, 4][player % 4]
+	# (Each fighter's signature pushed, the character judge's round 13: the aviator's freckles, the blue's heavy brows and deep frown, the
+	# ranger's thick block brows.)
+	l.cheeks = 3 if player % 4 == 1 else 0
+	l.cheek_color = 1
+	if player % 4 == 2:
+		l.brow_size = FaceLook.neutral("brow_size") + 3
+		l.mouth_size = FaceLook.neutral("mouth_size") + 3
+	elif player % 4 == 3:
+		l.brow_size = FaceLook.neutral("brow_size") + 4
 	return l
 
 

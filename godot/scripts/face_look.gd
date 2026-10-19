@@ -134,7 +134,7 @@ static func apply(mat: ShaderMaterial, look: RefCounted, expression := "deadpan"
 	var curl: bool = BROWS[brow] == "curl"
 	mat.set_shader_parameter("brow_place", Vector4(0.035 if curl else BROW_GAP + offset(look, "brow_gap") * 0.012,
 		BROW_Y + offset(look, "brow_y") * 0.011 - float(e.get("brow_lift", 0.0)),
-		BROW_SIZE * (0.8 if curl else 1.0 + offset(look, "brow_size") * 0.07), 0.0 if curl else offset(look, "brow_turn") * 0.09 + float(e.get("brow_turn", 0.0))))
+		BROW_SIZE * (1.1 if curl else 1.0 + offset(look, "brow_size") * 0.07), 0.0 if curl else offset(look, "brow_turn") * 0.09 + float(e.get("brow_turn", 0.0))))
 	mat.set_shader_parameter("brow_color", BROW_COLORS[look.brow_color])
 	# (Drawn thick, 2026-10-18: the reference cast's brows are chunky dark bars; at the drawings' own weight they read as thin lines.)
 	mat.set_shader_parameter("brow_squash", Vector2(1.0, 1.0 if curl else BROW_THICK))
@@ -153,9 +153,9 @@ static func apply(mat: ShaderMaterial, look: RefCounted, expression := "deadpan"
 	mat.set_shader_parameter("mouth_squash", Vector2(1.0 + ms, 1.0 - ms * 0.5))
 	# The face uneven (the character judge's round 12, after the reference's drawn faces): one lid a little lower and the mouth off to its side.
 	var lean := offset(look, "face_lean")
-	mat.set_shader_parameter("lid_lean", lean * 0.045)
+	mat.set_shader_parameter("lid_lean", lean * 0.08)
 	var mp: Vector4 = mat.get_shader_parameter("mouth_place")
-	mat.set_shader_parameter("mouth_place", Vector4(0.5 + lean * 0.011, mp.y, mp.z, mp.w + lean * 0.03))
+	mat.set_shader_parameter("mouth_place", Vector4(0.5 + lean * 0.018, mp.y, mp.z, mp.w + lean * 0.05))
 
 	# Cheeks, following the eyes.
 	var cheek := int(look.cheeks)

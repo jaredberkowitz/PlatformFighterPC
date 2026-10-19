@@ -243,7 +243,9 @@ def aviator_cap():
         nm = "L" if sx < 0 else "R"
         # (Hugging the cheeks, the leather outside and only a rim of fleece showing, the character judge's round 1: pale paddles hanging
         # free read as bunny ears.)
-        for part, k, inset in (("leather_flap", 1.0, 0.0), ("fleece_flap", 1.08, -0.025)):
+        # (One padded leather tongue with its fleece rim, no separate lining, the character judge's round 13: from the far side the lining
+        # read as an empty shell.)
+        for part, k, inset in (("leather_flap", 1.0, 0.0),):
             bm = bmesh.new()
             ret = bmesh.ops.create_uvsphere(bm, u_segments=20, v_segments=14, radius=1.0, calc_uvs=True)
             for v in ret["verts"]:
@@ -252,7 +254,7 @@ def aviator_cap():
                 # dark disc on the cheek.)
                 # (Thin, hugging the cheek, the character judge's round 4: thick, it cupped out as a headphone.)
                 # (Narrow front to back, so side-on it is a strap down the cheek, not a disc, the character judge's round 6.)
-                v.co = Vector((v.co.x * 0.06, v.co.y * 0.17 * k, v.co.z * 0.44 * k))
+                v.co = Vector((v.co.x * 0.1, v.co.y * 0.19 * k, v.co.z * 0.44 * k))
                 # (Curving in under the jaw, following the cheek.)
                 v.co.x -= sx * 0.12 * max(0.0, -v.co.z / 0.44) ** 2
             # (Forward and down beside the cheeks, so they show at three-quarter, the character judge's round 9.)
