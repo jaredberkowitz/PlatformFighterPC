@@ -82,7 +82,17 @@ camera and pose (`cloth_sleeve_fix.png`: red strip before, green after); run and
 loadout and animation library tests pass. Rebuilding the unchanged script reproduces the committed rig (only float noise in the face's
 normals), so the before/after differences are this change alone. The torso's cloth under a raised arm still stretches in a soft web.
 
-**Found, not fixed (needs the owner's call).** The shorts' cuff (0.54 to 0.60 high) and the socks' turned-down tops (0.49 to 0.55) both
+**Found, then fixed (the owner chose shorter shorts, below).** The shorts' cuff (0.54 to 0.60 high) and the socks' turned-down tops (0.49 to 0.55) both
 lie over the knee joint (0.51). In the stance's slight knee bend the skin folds out through them: the band of bare leg under the
 shorts and the white teeth along the cuff. Matching their weights to the skin did not help (tried and reverted); the fix is to move
 one of them off the knee: shorter shorts (the cuff above about 0.58) or lower socks, leaving some bare knee as the references do.
+
+## Cloth clean-up: shorts above the knee (2026-10-19, the owner's choice)
+**Fix.** The shorts now end a little above the knee's bend (`shorts_end` = the knee joint + `KNEE_BLEND` + `SHORTS_KNEE_CLEAR` 0.02,
+about 0.59 high; 0.54 before), so the cuff lies wholly on the thigh. The socks are unchanged; a strip of bare knee shows between them
+and the cuff, as on the reference cast. Higher up the thighs are closer together and the two leg openings flared into each other
+between the legs, so a leg opening no longer flares on its inner side (facing the other leg).
+
+**Checked.** Leg close-ups at rest, arms forward and overhead, and the down tilt's deep kneel, before and after in the same camera
+(`shorts_above_knee.png`: red strip before, green after): the white teeth and the band of leg pushing through the cuff are gone, the
+crotch's arch stays clean. Run and jump-squat sheets bend cleanly; fighter view, art pipeline, loadout and animation library tests pass.

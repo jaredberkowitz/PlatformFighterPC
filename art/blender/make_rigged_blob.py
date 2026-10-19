@@ -1953,6 +1953,7 @@ BOOT_CUFF = 0.04        # a padded collar round the boot's top
 BOOT_CUFF_LIFT = 0.046
 # The shorts' rolled cuffs, a band round each leg opening standing a little proud of the cloth.
 CUFF_HEIGHT = 0.06
+SHORTS_KNEE_CLEAR = 0.02   # how far above the top of the knee's bend (the knee joint plus KNEE_BLEND) the shorts end
 CUFF_LIFT = 0.072   # (outside the shorts' flared hem, the character judge's round 13: at 0.06 the shorts poked through it in teeth when a leg bent)
 # The sleeves' trim (the aviator scout pilot, 2026-10-19, the owner's reference: a coloured band round each sleeve's end, standing proud),
 # this share of the upper arm long and lifted this far off the skin.
@@ -2000,7 +2001,10 @@ def build_garments(skin, J, neck):
     waist = hips + WAIST_SHARE * (neck - hips)
     # (Longer, half way to the knee, the body rebuild: the reference's shorts are long and wide.)
     # (Down to the knee, overlapping the socks' tops in a crouch, the character judge's round 9: a band of skin showed above them.)
-    shorts_end = crotch - 0.85 * (crotch - knee)
+    # (Just above the knee's bend since the cloth clean-up, the owner's choice, 2026-10-19: down to it, the cuff lay over the joint and
+    # the skin folded out through it in the stance's slight bend, a band of bare leg and white teeth under the shorts. A little bare knee
+    # shows above the socks now, as on the reference cast.)
+    shorts_end = knee + KNEE_BLEND + SHORTS_KNEE_CLEAR
     neck_line = neck - 0.015
     ankle = (J["foot.L"].z + J["foot.R"].z) / 2.0
     boot_top = ankle + BOOT_ABOVE_ANKLE
@@ -2192,6 +2196,11 @@ def build_garments(skin, J, neck):
             snug = 0.67 if name == "Shorts" and v.co.z > waist - 0.05 else 1.0
             if name == "Shorts":
                 flare = SHORTS_FLARE * (1.0 - min(1.0, hem(v.co) / 0.16)) ** 1.5
+                # None on the inside of each leg, facing the other one: with the hem above the knee, where the thighs are close, the
+                # two leg openings flared into each other and crossed between the legs.
+                if v.co.z < crotch:
+                    outward = v.normal.x * (1.0 if v.co.x > 0.0 else -1.0)
+                    flare *= max(0.0, min(1.0, (outward + 0.6) / 0.8))
             if name == "Shirt" and v not in sleeve_pts and v.co.z > neck_line - 0.06:
                 flare = 0.0
             elif name == "Shirt" and v not in sleeve_pts:
