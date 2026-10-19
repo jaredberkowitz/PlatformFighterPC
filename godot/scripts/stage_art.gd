@@ -79,7 +79,7 @@ const THEMES := {
 	},
 	"ocean": {
 		# (A pale warm horizon above a deepening far sea, 2026-10-19: at the sea's own pale blue the two ran together.)
-		"sky_top": Color(0.06, 0.38, 0.9), "sky_mid": Color(0.26, 0.64, 0.98), "sky_horizon": Color(0.86, 0.93, 0.96),
+		"sky_top": Color(0.06, 0.38, 0.9), "sky_mid": Color(0.24, 0.62, 0.98), "sky_horizon": Color(0.6, 0.86, 1.0),
 		"sky_glow": [Color(1.0, 0.96, 0.86), 0.15], "sky_wisps": [Color(1.0, 1.0, 1.0), 0.45],
 		"soil": Color(0.82, 0.66, 0.5), "soil_dark": Color(0.6, 0.48, 0.46), "grass": Color(0.96, 0.8, 0.5),
 		"grass_light": Color(1.0, 0.95, 0.78), "wood": Color(0.8, 0.62, 0.42), "wood_dark": Color(0.58, 0.42, 0.28),
