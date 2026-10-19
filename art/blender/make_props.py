@@ -1266,18 +1266,20 @@ def hill_dome(name, seed):
     rng = random.Random(seed)
     root = empty(name)
     bm = bmesh.new()
-    ridges = 9
+    # (Six, three of them strong spurs standing proud, the judge's round 40: nine even ridges read as one faceted dome at its size.)
+    ridges = 6
     turn = rng.uniform(0, math.tau)
     apex = bm.verts.new((rng.uniform(-0.05, 0.05), rng.uniform(-0.05, 0.05), 1.0))
     lines = []
     for k in range(ridges * 2):
         ridge = k % 2 == 0
         a = turn + math.tau * k / (ridges * 2) + rng.uniform(-0.1, 0.1)
-        reach = rng.uniform(0.97, 1.04) if ridge else rng.uniform(0.86, 0.92)
+        spur = ridge and (k // 2) % 2 == 0
+        reach = (rng.uniform(1.02, 1.08) if spur else rng.uniform(0.95, 1.0)) if ridge else rng.uniform(0.78, 0.84)
         pts = []
         for t in (0.32, 0.58, 0.8, 0.94, 1.0):
             r = t * reach
-            z = math.sqrt(max(0.0, 1.0 - t * t)) * (1.0 if ridge else 0.94)
+            z = math.sqrt(max(0.0, 1.0 - t * t)) * (1.0 if ridge else 0.86)
             pts.append(bm.verts.new((math.cos(a) * r, math.sin(a) * r, z)))
         # The foot carried under the waterline.
         pts.append(bm.verts.new((math.cos(a) * reach, math.sin(a) * reach, -0.4)))
