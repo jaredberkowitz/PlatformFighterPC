@@ -913,7 +913,8 @@ static func solid_block(parent: Node3D, t: Dictionary, left: float, right: float
 			# (Art review 6 round 3: the roofing was one flat pale lilac, nearly the coping's value, so the edge of the fighting surface did
 			# not read and the biggest surface on screen was blank. Now a step darker than the coping, with broad weathered patches.)
 			# (Warmer, the gauntlet's round 3: the play building is the warm, detailed layer in front of a cool, hazy skyline.)
-			var roofing := (t.grass as Color).lerp(Color(0.78, 0.5, 0.4), 0.88)
+			# (A step lighter, the gauntlet's round 27: in the rendered roofing it sat darker than the facade under it.)
+			var roofing := (t.grass as Color).lerp(Color(0.78, 0.5, 0.4), 0.88).lightened(0.14)
 			# (The rendered roofing, art/blender/make_tiles.py `roof`, where it is made: lapped sheets, patched repairs, grit and puddle
 			# stains, the owner's painted materials, 2026-10-18; the painted tile without it.)
 			var roof_mat := _surface(roofing, "roof_render" if Materials._png_tile("roof_render") != null else "roof", 4.0).duplicate() as ShaderMaterial
@@ -2900,6 +2901,14 @@ static func _fields(root: Node3D, z: float, y: float, colours: Array, hedge_colo
 		for v in [a, c, b, a, d, c]:
 			st.set_normal(Vector3(0.0, 0.25, 1.0).normalized())
 			st.add_vertex(v)
+	# (A field's own coordinates for its furrow tile, the owner's painted materials, 2026-10-18: `uv` gives each corner's.)
+	var quad_uv := func(st: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, d: Vector3, uv: Array) -> void:
+		var vs := [a, b, c, d]
+		for i in [0, 2, 1, 0, 3, 2]:
+			st.set_normal(Vector3(0.0, 0.25, 1.0).normalized())
+			st.set_uv(uv[i])
+			st.add_vertex(vs[i])
+	var furrowed := Materials._png_tile("furrows") != null
 	var side_hedges: Array = []
 	# The fields: between each pair of hedges, patches of a few to a few tens of units, their colours picked by a hash.
 	for row in hedges.size() - 1:
@@ -2914,9 +2923,21 @@ static func _fields(root: Node3D, z: float, y: float, colours: Array, hedge_colo
 			var step := 3.0
 			var front := Vector3(0, 0, 0.05)
 			var xa := x
+			# (Ploughed rows from the furrow tile: in some fields across, eight to a field, so they thin where the fields do; in the others
+			# down the field, following its sides as the fields fan out, so they converge. The gauntlet's round 27: the stripes read as a
+			# flat card.)
+			var across := absf(sin(row * 5.3 + k * 2.9)) > 0.45
+			var uv_at := func(px: float, pd: float) -> Vector2:
+				if across:
+					return Vector2(px / 6.0, (pd - d0) / (d1 - d0))
+				return Vector2(pd / 4.0, (px - x) / 8.0)
 			while xa < x + w:
 				var xb := minf(xa + step, x + w)
-				quad.call(st, at.call(xa, d1) + front, at.call(xb, d1) + front, at.call(xb, d0) + front, at.call(xa, d0) + front)
+				if furrowed:
+					quad_uv.call(st, at.call(xa, d1) + front, at.call(xb, d1) + front, at.call(xb, d0) + front, at.call(xa, d0) + front,
+						[uv_at.call(xa, d1), uv_at.call(xb, d1), uv_at.call(xb, d0), uv_at.call(xa, d0)])
+				else:
+					quad.call(st, at.call(xa, d1) + front, at.call(xb, d1) + front, at.call(xb, d0) + front, at.call(xa, d0) + front)
 				xa = xb
 			# (Crop rows are in the field tile now.)
 			if false:
@@ -2971,7 +2992,7 @@ static func _fields(root: Node3D, z: float, y: float, colours: Array, hedge_colo
 		# (Laid big and light: the tile only breaks up the fill, each field keeps its own colour.)
 		# (A painted field of crop rows (godot/art/stage/field.svg) in the field's own colour, laid in world space at the size of the farm,
 		# with the soil detail over it.)
-		var fm := Materials.world("field", c, 6.0, false).duplicate() as ShaderMaterial
+		var fm := (Materials._make("grass", c, "furrows", Vector2.ONE, 0.0, false) if furrowed else Materials.world("field", c, 6.0, false)).duplicate() as ShaderMaterial
 		fm.set_shader_parameter("world_vary", 0.05)
 		Materials.set_detail(fm, "soil", 0.25, 5.0)
 		materials.append(fm)

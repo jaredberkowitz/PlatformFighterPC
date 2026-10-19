@@ -359,3 +359,17 @@ single-value fills (lawn, field, soil, crowns, headland, roof).
 Ground tiles rendered from modelled geometry (art/blender/make_tiles.py). The grove's clod bank and turf work (its Believability 4,
 the first 4 for material quality); the meadow's turf came out a dark, even felt; the headland in the turf read as lichen noise in
 front of the town (Depth 4 to 3, reverted). Next material: the city roof, then the meadow's valley field.
+
+## Round 27 (2026-10-18, commit c1e883b)
+
+| Stage | Believ. | Cohesion | Lighting | Depth | Ground | Clarity | Mean |
+|---|---|---|---|---|---|---|---|
+| Meadow | 3 | 3 | 3 | 3 | 3 | 3 | 3.0 |
+| Canyon | 2 | 3 | 3 | 2 | 2 | 3 | 2.5 |
+| Beach | 3 | 3 | 3 | 4 | 3 | 3 | 3.2 |
+| City | 3 | 3 | 3 | 3 | 3 | 3 | 3.0 |
+| Grove | 4 | 3 | 3 | 3 | 3 | 3 | 3.2 |
+
+The rendered roofing reads as worn material but its repairs read as grime and it went darker than the facade; the meadow's lawn now a
+mown field; the headland's calm back (Depth 4). Next material: the valley field (ploughed rows that converge), then the meadow's
+platforms.

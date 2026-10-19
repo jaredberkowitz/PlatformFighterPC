@@ -218,10 +218,11 @@ def roof():
         b = bmesh.new()
         slab(b, (0.0, y, 0.004), (1.6, 1.0 / rows + 0.03, 0.006), tilt=math.radians(-1.2))
         link("sheet%d" % j, b, mat)
-    patch = [grey_material("patch_a", 0.58), grey_material("patch_b", 0.7)]
+    patch = [grey_material("patch_a", 0.8), grey_material("patch_b", 0.86)]
     for k in range(3):
         cx, cy = rng.uniform(-0.5, 0.5), rng.uniform(-0.5, 0.5)
-        w, h = rng.uniform(0.08, 0.2), rng.uniform(0.06, 0.14)
+        # (Larger, so each repair reads as a shape at match distance, the gauntlet's round 27.)
+        w, h = rng.uniform(0.16, 0.3), rng.uniform(0.1, 0.2)
         turn = rng.uniform(-0.3, 0.3)
         m = patch[k % 2]
         for (px, py) in wrapped(cx, cy, 0.15):
@@ -258,8 +259,47 @@ def roof():
 
 
 
+def furrows():
+    """Ploughed farmland for the meadow's valley fields: eight ridges a tile running across it, each a rounded mound of earth with a
+    row of small crop tufts along its crown, darker troughs between them; laid by the fields' own coordinates in the game so the rows
+    follow (and converge with) the fields. Lit from image-up, as the land faces the sky."""
+    rng = random.Random(53)
+    reset()
+    bm = bmesh.new()
+    bmesh.ops.create_grid(bm, x_segments=1, y_segments=1, size=1.5)
+    link("trough", bm, grey_material("trough", 0.35))
+    ridge = grey_material("ridge", 0.62)
+    crop = [grey_material("crop_a", 0.82), grey_material("crop_b", 0.95)]
+    rows = 8
+    rb = bmesh.new()
+    cb = [bmesh.new(), bmesh.new()]
+    for j in range(rows + 2):
+        y = -0.5 + (j - 0.5) / rows
+        # The ridge: a long squashed tube along x, a hair wavy.
+        ret = bmesh.ops.create_cone(rb, cap_ends=False, cap_tris=False, segments=12, radius1=0.045, radius2=0.045, depth=1.8)
+        for v in ret["verts"]:
+            x, yy, z = v.co.z, v.co.x, v.co.y
+            v.co = Vector((x, y + yy + 0.004 * math.sin(x * 9.0 + j), z * 0.45))
+        # Crop tufts along its crown.
+        x = -0.6
+        while x < 0.6:
+            for (px, py) in wrapped(x, y, 0.03) if abs(y) < 0.5 else [(x, y)]:
+                for b in range(rng.randint(5, 9)):
+                    a = rng.uniform(0, math.tau)
+                    out = Vector((math.cos(a), math.sin(a), 0.0))
+                    blade(cb[j % 2], Vector((px, py, 0.016)) + out * 0.004, out, rng.uniform(0.018, 0.03), rng.uniform(0.003, 0.005),
+                          rng.uniform(0.4, 0.9), rng.uniform(-1, 1))
+            x += rng.uniform(0.022, 0.036)
+    rb.normal_update()
+    link("ridges", rb, ridge)
+    for k in range(2):
+        link("crop%d" % k, cb[k], crop[k])
+    sun((0.3, -0.85, -0.6), 4.0)
+    return bpy.context.scene
+
+
 # (The lawn's range narrower and brighter, the gauntlet's round 26: at 0.55 the meadow's lawn read as a dark speckled felt.)
-TILES = {"lawn": (lawn, 0.68), "soil_bank": (soil_bank, 0.4), "roof_render": (roof, 0.5)}
+TILES = {"lawn": (lawn, 0.68), "soil_bank": (soil_bank, 0.4), "roof_render": (roof, 0.6), "furrows": (furrows, 0.62)}
 
 
 def render_tile(name):
