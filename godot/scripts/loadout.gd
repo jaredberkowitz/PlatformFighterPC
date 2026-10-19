@@ -232,7 +232,8 @@ static func default_for(player: int) -> RefCounted:
 	# no blush (the reference's faces have none).
 	# (The ranger smug with droopy sideways eyes and a smirk, the sailor with a curl on its forehead in place of brows, the character judge's
 	# round 5 after the reference's ranger and sailor.)
-	var faces := [[1, 3, 0], [3, 4, 0], [2, 7, 0], [3, 5, 4]]
+	# (The sailor deadpan with a flat mouth at rest, the owner, 2026-10-19: sleepy with an open mouth read as dazed; that look is its hurt face.)
+	var faces := [[0, 2, 0], [3, 4, 0], [2, 7, 0], [3, 5, 4]]
 	var f: Array = faces[player % 4]
 	l.face = f[0]
 	l.mouth = f[1]
