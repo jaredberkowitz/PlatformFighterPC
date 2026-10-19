@@ -1390,7 +1390,102 @@ def bush():
     return root
 
 
+def ac_unit():
+    """A rooftop air conditioner (1.6 wide, 1.1 tall, 1.2 deep, on the origin, its front -y): a bevelled cabinet on a plinth, a louvred
+    grille across the front, a round fan grille on top with a hub, and a pipe running down its side. Parts: `body`, `grille`, `fan`, `pipe`."""
+    root = empty("ac_unit")
+    bm = bmesh.new()
+    add_box(bm, (0.0, 0.0, 0.06), (1.8, 1.4, 0.12))
+    add_box(bm, (0.0, 0.0, 0.62), (1.6, 1.2, 1.0))
+    to_object("body", bm, (0.66, 0.68, 0.76), smooth=False, bevel=0.04).parent = root
+    bm = bmesh.new()
+    for k in range(6):
+        add_box(bm, (0.0, -0.61, 0.28 + k * 0.12), (1.3, 0.05, 0.05), rot=(math.radians(-25), 0.0, 0.0))
+    to_object("grille", bm, (0.42, 0.42, 0.52), smooth=False).parent = root
+    bm = bmesh.new()
+    ring(bm, 0.42, 0.04, 1.14, sides=20, minor_sides=6)
+    cone(bm, 0.36, 0.36, 0.03, z0=1.1, sides=20)
+    cone(bm, 0.12, 0.1, 0.08, z0=1.12, sides=10)
+    to_object("fan", bm, (0.38, 0.38, 0.48), smooth=True).parent = root
+    bm = bmesh.new()
+    cone(bm, 0.06, 0.06, 0.9, z0=0.15, sides=8, at=(0.86, 0.3))
+    to_object("pipe", bm, (0.56, 0.58, 0.66), smooth=True).parent = root
+    return root
+
+
+def roof_vent():
+    """A gooseneck roof vent (about 1.2 tall, on the origin): a flanged foot, a round stack bending over into a hooded mouth facing
+    down and to the side, a band round the stack."""
+    root = empty("roof_vent")
+    bm = bmesh.new()
+    cone(bm, 0.42, 0.36, 0.08, z0=0.0, sides=14)
+    cone(bm, 0.22, 0.22, 0.7, z0=0.08, sides=14)
+    to_object("stack", bm, (0.62, 0.64, 0.72), smooth=True).parent = root
+    bm = bmesh.new()
+    path = [Vector((0.0, 0.0, 0.78 + 0.25 * math.sin(t / 8 * math.pi / 2))) + Vector((0.3 * (1 - math.cos(t / 8 * math.pi)), 0.0, 0.0)) for t in range(9)]
+    for i in range(len(path) - 1):
+        a, b = path[i], path[i + 1]
+        d = b - a
+        ret = bmesh.ops.create_cone(bm, cap_ends=False, cap_tris=False, segments=14, radius1=0.22, radius2=0.22, depth=d.length * 1.2)
+        q = d.normalized().to_track_quat("Z", "X")
+        for v in ret["verts"]:
+            v.co = q @ v.co + (a + b) / 2
+    cone(bm, 0.3, 0.26, 0.12, z0=0.0, sides=14, at=(0.0, 0.0))
+    for v in bm.verts[-30:]:
+        v.co = Vector((v.co.x + 0.6, v.co.y, v.co.z + 0.72))
+    to_object("hood", bm, (0.56, 0.58, 0.66), smooth=True).parent = root
+    bm = bmesh.new()
+    ring(bm, 0.24, 0.025, 0.5, sides=14, minor_sides=4)
+    to_object("band", bm, (0.42, 0.42, 0.52), smooth=True).parent = root
+    return root
+
+
+def street_lamp():
+    """A city street lamp (4.2 tall, on the origin): a fluted iron post on a stepped base, a curved arm and a lantern head with a
+    glowing panel underneath. Parts: `iron`, `glow`."""
+    root = empty("street_lamp")
+    bm = bmesh.new()
+    cone(bm, 0.24, 0.2, 0.3, z0=0.0, sides=8)
+    cone(bm, 0.12, 0.08, 3.7, z0=0.3, sides=8)
+    add_box(bm, (0.35, 0.0, 4.0), (0.8, 0.08, 0.08))
+    cone(bm, 0.12, 0.28, 0.24, z0=3.82, sides=8, at=(0.72, 0.0))
+    to_object("iron", bm, (0.24, 0.22, 0.3), smooth=False).parent = root
+    bm = bmesh.new()
+    cone(bm, 0.22, 0.22, 0.06, z0=3.78, sides=8, at=(0.72, 0.0))
+    to_object("glow", bm, (1.0, 0.86, 0.56), smooth=False).parent = root
+    return root
+
+
+def car():
+    """A chunky toy-like car (3.4 long along x, 1.6 wide, 1.4 tall, on the origin): a rounded body, a smaller cabin with glass, four
+    wheels, headlights at +x and tail lights at -x. Parts: `body` (the game colours it), `glass`, `wheels`, `head`, `tail`."""
+    root = empty("car")
+    bm = bmesh.new()
+    add_box(bm, (0.0, 0.0, 0.6), (3.4, 1.5, 0.6))
+    to_object("body", bm, (0.8, 0.3, 0.3), smooth=False, bevel=0.12).parent = root
+    bm = bmesh.new()
+    add_box(bm, (-0.2, 0.0, 1.12), (1.8, 1.3, 0.5), taper=0.15)
+    to_object("glass", bm, (0.36, 0.42, 0.56), smooth=False, bevel=0.08).parent = root
+    bm = bmesh.new()
+    for x in (-1.05, 1.05):
+        for y in (-0.72, 0.72):
+            ret = bmesh.ops.create_cone(bm, cap_ends=True, cap_tris=False, segments=12, radius1=0.34, radius2=0.34, depth=0.28)
+            for v in ret["verts"]:
+                v.co = Vector((v.co.x, v.co.z, v.co.y)) + Vector((x, y, 0.34))
+    to_object("wheels", bm, (0.12, 0.1, 0.14), smooth=True).parent = root
+    for name, x, col in (("head", 1.71, (1.0, 0.95, 0.8)), ("tail", -1.71, (1.0, 0.25, 0.25))):
+        bm = bmesh.new()
+        for y in (-0.5, 0.5):
+            add_box(bm, (x, y, 0.68), (0.04, 0.3, 0.16))
+        to_object(name, bm, col, smooth=False).parent = root
+    return root
+
+
 PROPS = {
+    "ac_unit": ac_unit,
+    "roof_vent": roof_vent,
+    "street_lamp": street_lamp,
+    "car": car,
     "bush": bush,
     "pine": pine,
     "log_pole": log_pole,

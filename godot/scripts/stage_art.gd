@@ -4714,6 +4714,22 @@ static func _city(root: Node3D, t: Dictionary, stage: Array) -> void:
 	# Vents and an air conditioner.
 	var metal := FighterView.respond(FighterView.toon(Color(0.66, 0.68, 0.76)), "paint")
 	var unit := Vector3(float(e[0]) + 6.5, roof, -4.5)
+	var vent := Vector3(float(e[1]) - 6.0, roof, -4.0)
+	# (Modelled, art/blender/make_props.py `ac_unit` and `roof_vent`, and a second of each along the back of the roof, the owner's city
+	# plan, step 3 (rooftop clutter), 2026-10-19. The built ones stand in without the models.)
+	if Toonify.load_prop("ac_unit") != null and Toonify.load_prop("roof_vent") != null:
+		_place_prop(root, "ac_unit", unit, 1.0, 0.0)
+		_place_prop(root, "ac_unit", Vector3(float(e[1]) - 9.5, roof, -7.0), 0.85, 8.0)
+		_place_prop(root, "roof_vent", vent, 1.0, 200.0)
+		_place_prop(root, "roof_vent", Vector3(float(e[0]) + 11.0, roof, -7.2), 0.9, -30.0)
+		_contact(root, Vector3(float(e[1]) - 9.5, roof, -7.0), Vector2(0.85, 0.6))
+		_contact(root, Vector3(float(e[0]) + 11.0, roof, -7.2), Vector2(0.4, 0.34))
+	else:
+		_built_roof_units(root, unit, vent, metal)
+	_finish_roof(root, e, t, rng, unit, vent, tower, mast)
+
+
+static func _built_roof_units(root: Node3D, unit: Vector3, vent: Vector3, metal: Material) -> void:
 	_mesh(root, _box(Vector3(1.6, 1.0, 1.2)), metal, unit + Vector3(0, 0.5, 0))
 	# A lip round its top and a plinth under it: the box gets a lit top edge and sits on something, not straight on the roof.
 	var trim := FighterView.respond(FighterView.toon(Color(0.56, 0.58, 0.66)), "metal")
@@ -4725,10 +4741,14 @@ static func _city(root: Node3D, t: Dictionary, stage: Array) -> void:
 		_mesh(root, _box(Vector3(1.3, 0.05, 0.03)), slat, unit + Vector3(0, 0.22 + k * 0.14, 0.61))
 	_mesh(root, _cylinder(0.42, 0.42, 0.06, 16), slat, unit + Vector3(0, 1.03, 0))
 	_mesh(root, _cylinder(0.12, 0.12, 0.08, 10), metal, unit + Vector3(0, 1.06, 0))
-	var vent := Vector3(float(e[1]) - 6.0, roof, -4.0)
 	_mesh(root, _cylinder(0.3, 0.3, 0.9, 10), metal, vent + Vector3(0, 0.45, 0))
 	# A wider cap on the vent.
 	_mesh(root, _cylinder(0.42, 0.42, 0.1, 12), slat, vent + Vector3(0, 0.95, 0))
+
+
+static func _finish_roof(root: Node3D, e: Array, t: Dictionary, rng: RandomNumberGenerator, unit: Vector3, vent: Vector3, tower: Vector3, mast: Vector3) -> void:
+	var slat := FighterView.toon(Color(0.42, 0.42, 0.52), false)
+	var roof := float(e[2])
 	_mesh(root, _box(Vector3(0.5, 0.06, 0.5)), slat, mast + Vector3(0, 0.03, 0))
 	_contact(root, Vector3(float(e[0]) + 6.5, roof, -4.5), Vector2(0.95, 0.7))
 	_contact(root, Vector3(float(e[1]) - 6.0, roof, -4.0), Vector2(0.38, 0.32))
@@ -4828,6 +4848,7 @@ static func _street(root: Node3D, y: float, front: float) -> void:
 		root.add_child(car)
 		_car(car, colours[k % colours.size()], dir, k == 2)
 	_street_furniture(root, y, front)
+	_street_life(root, y, front)
 
 
 ## A little car pointing along `dir` (+1 right, -1 left), `taxi` for a cab: a body with a bonnet and a boot stepping down from the cabin,
@@ -5426,6 +5447,60 @@ static func _tree(root: Node3D, base: Vector3, size: float, rng: RandomNumberGen
 
 
 ## Four-pointed glints that slowly turn and pulse. Cosmetic; they run on their own clock.
+## Street life below the city stage (the owner's city plan, step 3, 2026-10-19): street lamps along the far pavement with a soft glow
+## each, and cars drifting both ways along the road with lit head and tail lights (`Traffic`). Modelled (art/blender/make_props.py
+## `street_lamp`, `car`), no ink (mid-ground); nothing without the models.
+static func _street_life(root: Node3D, y: float, front: float) -> void:
+	if Toonify.load_prop("street_lamp") == null or Toonify.load_prop("car") == null:
+		return
+	var warm := Color(1.0, 0.84, 0.56)
+	var lx := -96.0
+	while lx <= 96.0:
+		var lamp := Toonify.load_prop("street_lamp", false)
+		lamp.position = Vector3(lx, y + 0.25, front - 30.6)
+		lamp.rotation_degrees = Vector3(0, -90, 0)
+		root.add_child(lamp)
+		for mi in lamp.find_children("*", "MeshInstance3D", true, false):
+			if String(mi.name).begins_with("glow"):
+				(mi as MeshInstance3D).material_override = _unshaded(warm)
+		_halo(root, lamp.position + Vector3(0, 3.8, 0.72), warm, 2.4)
+		lx += 16.0
+	var traffic := Traffic.new()
+	root.add_child(traffic)
+	var paints := [Color(0.82, 0.34, 0.34), Color(0.3, 0.5, 0.74), Color(0.92, 0.78, 0.4), Color(0.86, 0.86, 0.9), Color(0.34, 0.62, 0.52)]
+	var k := 0
+	for lane: Array in [[front - 12.5, 5.0], [front - 22.5, -4.2]]:
+		for c in 3:
+			var car := Toonify.load_prop("car", false)
+			car.position = Vector3(-90.0 + c * 70.0 + float(lane[1]) * 3.0, y, float(lane[0]))
+			car.rotation_degrees = Vector3(0, 0 if float(lane[1]) > 0.0 else 180, 0)
+			traffic.add_child(car)
+			for mi in car.find_children("*", "MeshInstance3D", true, false):
+				var nm := String(mi.name)
+				if nm.begins_with("body"):
+					(mi as MeshInstance3D).material_override = FighterView.toon(paints[k % paints.size()], false)
+				elif nm.begins_with("head"):
+					(mi as MeshInstance3D).material_override = _unshaded(Color(1.0, 0.95, 0.8))
+				elif nm.begins_with("tail"):
+					(mi as MeshInstance3D).material_override = _unshaded(Color(1.0, 0.3, 0.3))
+			traffic.cars.append([car, float(lane[1])])
+			k += 1
+
+
+## Cars drifting along the road and round again past the ends of the street. Cosmetic.
+class Traffic extends Node3D:
+	var cars: Array = []
+
+	func _process(delta: float) -> void:
+		for c: Array in cars:
+			var n: Node3D = c[0]
+			n.position.x += float(c[1]) * delta
+			if n.position.x > 110.0:
+				n.position.x -= 220.0
+			elif n.position.x < -110.0:
+				n.position.x += 220.0
+
+
 class Twinkle extends Node3D:
 	var glints: Array = []  # [node, phase]
 
