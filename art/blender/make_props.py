@@ -1204,7 +1204,8 @@ def hill_dome(name, seed):
     rng = random.Random(seed)
     root = empty(name)
     ph = [rng.uniform(0, math.tau) for _ in range(6)]
-    rings, sides = 22, 64
+    # (Coarse, for big faceted planes, 2026-10-19.)
+    rings, sides = 8, 22
     bm = bmesh.new()
     grid = []
     for k in range(rings + 1):

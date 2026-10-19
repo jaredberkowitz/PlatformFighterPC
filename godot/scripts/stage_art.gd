@@ -4525,8 +4525,13 @@ static func _ocean(root: Node3D, t: Dictionary, stage: Array) -> void:
 	for k in 3:
 		var isle := Vector3(-70.0 + k * 65.0 + rng.randf_range(-10, 10), float(e[3]) - 3.0, -110.0 + rng.randf_range(-10, 10))
 		# (The sand painted as the stage's own beach is, the green a leafy foliage mound, both inked: the same finish as the props by the stage.)
-		_mesh(root, _sphere(1.0, 16), Materials.world("sand", Color(0.98, 0.88, 0.62), 6.0), isle, Vector3(rng.randf_range(10, 16), 3.5, 6.0))
-		_mesh(root, _sphere(1.0, 16), Materials.foliage(Color(0.3, 0.62, 0.42), Vector2(4, 2)), isle + Vector3(0, 2.0, 0), Vector3(rng.randf_range(6, 9), 3.5, 4.0))
+		# (Faceted sand and a faceted green mound, plain tones, no ink, 2026-10-19: smooth balls in tiles read as another technique.)
+		var isle_sand := (FighterView.toon(Color(0.98, 0.88, 0.62), false) as ShaderMaterial).duplicate() as ShaderMaterial
+		isle_sand.set_shader_parameter("facets", true)
+		var isle_green := (FighterView.toon(Color(0.3, 0.62, 0.42), false) as ShaderMaterial).duplicate() as ShaderMaterial
+		isle_green.set_shader_parameter("facets", true)
+		_mesh(root, _sphere(1.0, 9), isle_sand, isle, Vector3(rng.randf_range(10, 16), 3.5, 6.0))
+		_mesh(root, _sphere(1.0, 9), isle_green, isle + Vector3(0, 2.0, 0), Vector3(rng.randf_range(6, 9), 3.5, 4.0))
 		_palm(root, isle + Vector3(rng.randf_range(-4, 4), 4.0, 2.0), 1.4, rng)
 		_isle_detail(root, isle, k)
 	# A lighthouse on its rocks on the right (art/blender/make_props.py), its lantern glowing.
@@ -5959,7 +5964,8 @@ static func _dock_block(parent: Node3D, t: Dictionary, left: float, right: float
 	# value, about 0.7 of white, and a yellow fighter all but vanished against the boards it stood on.)
 	# (Honey-toned after the owner's harbour reference, kept at a readable value, about half of white.)
 	# (A step deeper again with the rendered planks, whose grain lifts the boards' tops: the orange fighter came within 0.04 of them.)
-	var wood_c: Color = Color(0.5, 0.335, 0.19)
+	# (A warmer, brighter honey, the style sheet's section 9 (clean, bright play surface), 2026-10-19: murky mid-brown.)
+	var wood_c: Color = Color(0.86, 0.7, 0.5)
 	var dark_c: Color = t.wood_dark
 	# The deck: rows of boards from the front back, staggered joints.
 	# (Longer boards in wider rows and a narrower range of shade, art review 9: hundreds of short boards in many shades read busy.)
@@ -5986,10 +5992,11 @@ static func _dock_block(parent: Node3D, t: Dictionary, left: float, right: float
 				var own_b := RandomNumberGenerator.new()
 				own_b.seed = hash(Vector2i(roundi(x0 * 10.0), ri)) + 17
 				var roll := own_b.randf()
+				# (A calmer spread, 2026-10-19: the grey and honey outliers read as a patchwork.)
 				if roll < 0.22:
-					shade = shade.lerp(Color(0.6, 0.56, 0.5), own_b.randf_range(0.3, 0.5))
+					shade = shade.lerp(Color(0.66, 0.58, 0.48), own_b.randf_range(0.1, 0.2))
 				elif roll > 0.82:
-					shade = shade.lerp(Color(0.72, 0.5, 0.28), own_b.randf_range(0.3, 0.5))
+					shade = shade.lerp(Color(0.8, 0.58, 0.32), own_b.randf_range(0.1, 0.2))
 				items.append([Transform3D(basis.scaled_local(Vector3(x1 - x0 - 0.1, row_w - 0.11, thick)), pos), shade.srgb_to_linear()])
 			x += len
 	var mm := MultiMesh.new()
@@ -6049,7 +6056,9 @@ static func _dock_block(parent: Node3D, t: Dictionary, left: float, right: float
 		var band := _mesh(parent, _shade_band(deck_r - deck_l, 2.4), _band_material(), Vector3((left + right) * 0.5, top - thick - 1.6, zz))
 		band.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	# Piles: a front row and a back row, round, a little off plumb, each with a dark wet band and green weed at the waterline.
-	var pile := Materials.bark(dark_c.lerp(Color(0.45, 0.38, 0.34), 0.4), Vector2(1, 3))
+	# (Plain faceted wood in a deep brown, the stage's dark simple front, 2026-10-19: striped bark piles were the busiest thing on screen.)
+	var pile := (FighterView.toon(Color(0.36, 0.26, 0.2)) as ShaderMaterial).duplicate() as ShaderMaterial
+	pile.set_shader_parameter("facets", true)
 	var wet := FighterView.toon(Color(0.66, 0.64, 0.48))
 	var weed := Materials.foliage(Color(0.26, 0.46, 0.3), Vector2(1, 1), false)
 	var span := right - left
@@ -6255,8 +6264,10 @@ static func _harbour_town(root: Node3D, water: float) -> void:
 	# (Modelled hills, art/blender/make_props.py `hill_dome`, in a calm soft-lit land colour, the gauntlet's round 19: scaled spheres under
 	# the scaly foliage tile read as painted cards beside the modelled ranges. The spheres stand in without them.)
 	# (Plain and calm: laid in the rendered turf, the gauntlet's round 26, it read as dark lichen noise in front of the hazed town.)
-	var near_hill := (FighterView.toon(Color(0.46, 0.6, 0.52), false) as ShaderMaterial).duplicate() as ShaderMaterial
-	near_hill.set_shader_parameter("ramp_softness", 0.4)
+	var near_hill := (FighterView.toon(Color(0.46, 0.66, 0.5), false) as ShaderMaterial).duplicate() as ShaderMaterial
+	# (Faceted planes, as the meadow's hills, 2026-10-19.)
+	near_hill.set_shader_parameter("facets", true)
+	near_hill.set_shader_parameter("ramp_softness", 0.12)
 	near_hill.set_shader_parameter("rim_strength", 0.0)
 	var far_hill := near_hill.duplicate() as ShaderMaterial
 	far_hill.set_shader_parameter("albedo", Color(0.5, 0.62, 0.64))
@@ -6314,7 +6325,7 @@ static func _harbour_town(root: Node3D, water: float) -> void:
 			var walls := [Color(0.98, 0.9, 0.72), Color(0.74, 0.88, 0.9), Color(0.98, 0.78, 0.7), Color(0.84, 0.92, 0.76), Color(0.96, 0.94, 0.9)]
 			_cottage(house, Vector3.ZERO, roofs[rng.randi() % roofs.size()], 1.0 if rng.randf() < 0.5 else -1.0, walls[rng.randi() % walls.size()])
 			# (Each row back a step further into the air, the gauntlet's round 21: at foreground strength the town read as toys.)
-			_mute(house, 0.4 + 0.08 * row, Color(0.78, 0.88, 0.94), 0.18 + 0.05 * row)
+			_mute(house, 0.4 + 0.08 * row, Color(0.78, 0.88, 0.94), 0.18 + 0.05 * row, false)
 			x += rng.randf_range(5.6, 7.4)
 	# A few buildings that are not houses, so the town reads as a town rather than one cottage repeated (art review 9): a bell tower up
 	# the hill, a long warehouse on the quay's east end, and a market of striped stalls along the quay.
