@@ -653,6 +653,11 @@ static func _soil_material(t: Dictionary) -> ShaderMaterial:
 	if pattern == "roots" and Materials._png_tile("soil_bank") != null:
 		tex = Materials._png_tile("soil_bank")
 		tint = a
+	# (The city building's wall in the rendered brick, `brick`, in the brick's own colour: courses of bevelled bricks in their own tones,
+	# recessed mortar, soot streaks, the owner's painted materials, 2026-10-18.)
+	elif pattern == "facade" and Materials._png_tile("brick") != null:
+		tex = Materials._png_tile("brick")
+		tint = a
 	# On the stage's cel shading, laid in world space (one repeat every 3 units, so the stones and bands read large and calm; a facade's every 6.6).
 	var m := FighterView.toon(tint, true, tex, Vector2.ONE, {"facade": 6.6, "masonry": 7.0, "strata": 6.0, "roots": 8.0, "earth": 12.0, "seawall": 10.0}.get(pattern, 3.0))
 	# The front falls further into the cool shade below its lit rim than the default, so the fighting surface and the fighters on it
@@ -4979,10 +4984,11 @@ static func _tree(root: Node3D, base: Vector3, size: float, rng: RandomNumberGen
 	# masses go a cool deep teal, the body stays, the crown's top masses catch a warm light green; each mass is painted with leaf clumps.)
 	# (Four steps, not three, and the deep one lifted, 2026-10-17: the owner found the jump from the dark underside to the lit top stark.)
 	# (Cooler and deeper below, warmer and lighter on top, the gauntlet's round 29: in the rendered leaves the crowns still read evenly lit.)
-	var deep_c := Color.from_hsv(g[0].h + 0.07, minf(1.0, g[0].s * 1.02), g[0].v * 0.84)
+	# (A narrower step, round 30: at a full warm cap over a deep blue-green each crown read as two materials stacked.)
+	var deep_c := Color.from_hsv(g[0].h + 0.05, minf(1.0, g[0].s * 1.02), g[0].v * 0.92)
 	var deep := Materials.foliage(deep_c)
 	var between := Materials.foliage(deep_c.lerp(g[1], 0.5), Vector2(3, 2), false)
-	var top_c := (g[3] as Color).lerp(Color(1.0, 0.95, 0.62), 0.18)
+	var top_c := (g[2] as Color).lerp(g[3], 0.6).lerp(Color(1.0, 0.95, 0.62), 0.06)
 	_leaf_cards(sway, masses, g, 3.6 * size, rng, "leaf_cluster", false, leaf_mid, [deep, between, leaf_mid, Materials.foliage(top_c, Vector2(2, 1), false)])
 	var _unused := [leaf, leaf_sun]
 

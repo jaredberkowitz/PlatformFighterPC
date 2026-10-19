@@ -428,15 +428,56 @@ def leaves():
     return bpy.context.scene
 
 
+def brick():
+    """The city building's brick wall (the facade tile: 6.6 units, 32 courses a repeat as the drawn tile had, so the modelled ledges
+    and windows keep their places): bricks in stretcher bond, 13 a course, each a bevelled block a little off true and its own tone,
+    recessed mortar between them, and a few streaks of soot down the wall where the bricks run darker. Lit from the upper left, as the
+    game's walls are."""
+    rng = random.Random(83)
+    reset()
+    bm = bmesh.new()
+    bmesh.ops.create_grid(bm, x_segments=1, y_segments=1, size=1.5)
+    link("mortar", bm, grey_material("mortar", 0.55))
+    tones = [grey_material("brick%d" % k, v) for k, v in enumerate((0.36, 0.5, 0.62, 0.74, 0.88))]
+    bms = [bmesh.new() for _ in tones]
+    courses, per = 32, 13
+    soot = [rng.uniform(-0.5, 0.5) for _ in range(4)]
+    h = 1.0 / courses
+    w = 1.0 / per
+    for j in range(courses):
+        y = 0.5 - (j + 0.5) * h
+        off = 0.5 * w if j % 2 else 0.0
+        for i in range(per + 1):
+            x = -0.5 + off + i * w
+            tone = rng.choice((1, 2, 2, 3, 3, 4))
+            for sx in soot:
+                dx = abs((x - sx + 0.5) % 1.0 - 0.5)
+                if dx < 0.035 * (0.6 + 0.4 * j / courses) and rng.random() < 0.85:
+                    tone = rng.choice((0, 0, 1))
+            for (px, py) in wrapped(x, y, w):
+                ret = bmesh.ops.create_cube(bms[tone], size=1.0)
+                tilt = rng.uniform(-0.02, 0.02)
+                for v in ret["verts"]:
+                    vx, vy, vz = v.co.x * (w - 0.006), v.co.y * (h - 0.005), v.co.z * 0.012
+                    v.co = Vector((vx + vy * tilt, vy, vz + rng.uniform(0.0, 0.0008))) + Vector((px, py, 0.006))
+    for k, b in enumerate(bms):
+        obj = link("bricks%d" % k, b, tones[k])
+        bev = obj.modifiers.new("bevel", "BEVEL")
+        bev.width = 0.0016
+        bev.segments = 2
+    sun((0.4, -0.8, -0.45), 4.0)
+    return bpy.context.scene
+
+
 # (The lawn's range narrower and brighter, the gauntlet's round 26: at 0.55 the meadow's lawn read as a dark speckled felt.)
 TILES = {"lawn": (lawn, 0.68), "soil_bank": (soil_bank, 0.4), "roof_render": (roof, 0.6), "furrows": (furrows, 0.62), "planks": (planks, 0.45),
          # (The floating platforms' boards, the same planks in a wider range: at their size on screen the deck's range averaged out to a
          # plain tone, the gauntlet's round 29.)
-         "planks_bold": (planks, 0.2), "leaves": (leaves, 0.42)}
+         "planks_bold": (planks, 0.2), "leaves": (leaves, 0.42), "brick": (brick, 0.5)}
 
 
 # The share of a render's pixels at or under the tile's white (most of the planks tile is board top, which would clip at 0.98).
-HI = {"planks": 0.99, "planks_bold": 0.99}
+HI = {"planks": 0.99, "planks_bold": 0.99, "brick": 0.999}
 
 
 def render_tile(name):
