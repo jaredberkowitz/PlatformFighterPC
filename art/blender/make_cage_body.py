@@ -62,16 +62,17 @@ HEAD_TOP = 0.03                              # how far the cap's middle rises ab
 # For the arm u starts as +Y (front/back) and w as +Z (the top of the hole becomes the outside of the arm); for the leg u starts as +X
 # (outside) and w as +Y (back), which the foot's bend turns into the sole.
 ARM = [
-    # (Sturdier at the shoulder, tapering to the wrist, the character pass: even tubes read as sticks.)
-    ((0.435, 0.000, 1.370), (1.0, 0.0, -0.9), 0.168, 0.168, 0.168, 2.0),   # shoulder cap
-    ((0.505, 0.000, 1.295), (0.5, 0.0, -1.0), 0.165, 0.165, 0.165, 2.0),
-    ((0.555, 0.000, 1.230), (0.4, 0.0, -1.0), 0.156, 0.156, 0.156, 2.0),
-    ((0.580, -0.002, 1.170), (0.4, -0.02, -1.0), 0.146, 0.146, 0.146, 2.0),  # elbow loops (fuller, the character judge's round 13: they pinched)
-    ((0.595, -0.003, 1.130), (0.4, -0.02, -1.0), 0.146, 0.146, 0.146, 2.0),
-    ((0.610, -0.004, 1.090), (0.4, -0.02, -1.0), 0.136, 0.136, 0.136, 2.0),   # (tapering to the wrist again, the owner: the arm read fat)
-    ((0.640, -0.007, 1.020), (0.4, -0.03, -1.0), 0.124, 0.124, 0.124, 2.0),
-    ((0.665, -0.011, 0.955), (0.4, -0.03, -1.0), 0.114, 0.114, 0.114, 2.0),
-    ((0.680, -0.015, 0.905), (0.4, -0.03, -1.0), 0.106, 0.106, 0.106, 2.0),  # wrist
+    # (One thick smooth tube from the shoulder to the hand, the owner's second reference, 2026-10-19: the reference's arm has no visible
+    # elbow, shoulder or wrist; it is a soft sausage about as wide as the hand, tapering only gently, the hand growing straight out of it.)
+    ((0.435, 0.000, 1.370), (1.0, 0.0, -0.9), 0.172, 0.172, 0.172, 2.0),   # shoulder cap
+    ((0.505, 0.000, 1.295), (0.5, 0.0, -1.0), 0.168, 0.168, 0.168, 2.0),
+    ((0.555, 0.000, 1.230), (0.4, 0.0, -1.0), 0.164, 0.164, 0.164, 2.0),
+    ((0.580, -0.002, 1.170), (0.4, -0.02, -1.0), 0.16, 0.16, 0.16, 2.0),  # elbow loops (no narrowing: the joint does not show)
+    ((0.595, -0.003, 1.130), (0.4, -0.02, -1.0), 0.158, 0.158, 0.158, 2.0),
+    ((0.610, -0.004, 1.090), (0.4, -0.02, -1.0), 0.156, 0.156, 0.156, 2.0),
+    ((0.640, -0.007, 1.020), (0.4, -0.03, -1.0), 0.152, 0.152, 0.152, 2.0),
+    ((0.665, -0.011, 0.955), (0.4, -0.03, -1.0), 0.146, 0.146, 0.146, 2.0),
+    ((0.680, -0.015, 0.905), (0.4, -0.03, -1.0), 0.14, 0.14, 0.14, 2.0),  # wrist, as thick as the hand's base
     ((0.698, -0.018, 0.845), (0.4, -0.03, -1.0), 0.130, 0.114, 0.114, 2.6),  # fist
     ((0.720, -0.020, 0.780), (0.4, -0.03, -1.0), 0.130, 0.114, 0.114, 2.6),
 ]

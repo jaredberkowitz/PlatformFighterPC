@@ -420,7 +420,10 @@ func _build_rig(skin: Material) -> bool:
 			# The band round each sleeve's end (the aviator scout pilot, the owner's reference): the outfit colour on a white shirt, white
 			# on a coloured or printed one.
 			mi.visible = loadout.shirt > 0
-			mi.material_override = _cloth(toon(loadout.accent_color() if loadout.shirt == 1 else SHIRT_WHITE))
+			# (Since the owner's second reference: a rolled cuff of the shirt's own cloth.)
+			var cuff_cloth := _garment_shirt_material()
+			if cuff_cloth != null:
+				mi.material_override = _cloth(cuff_cloth)
 		elif part.begins_with("ShirtCampCollar"):
 			# The holiday shirt's open camp collar, in its own print.
 			mi.visible = loadout.shirt == 4
@@ -825,7 +828,7 @@ const ARM_BULK := {7: [Vector3(1.55, 1.08, 1.55), Vector3(1.45, 1.35, 1.45)]}
 ## (Wider and squatter again, the character pass, 2026-10-19: the reference cast's heads are broad squat ovals, wider than the shoulders.)
 const HEAD_SIZE := Vector3(1.45, 1.1, 1.32)
 ## (1.4, the character judge's round 7: the reference's gloves are about half the head's width, a main shape.)
-const HAND_SIZE := 1.2   # (1.2, the character judge's round 9: at 1.4 the fists covered the chest in pose)
+const HAND_SIZE := 1.32   # (1.2, the character judge's round 9: at 1.4 the fists covered the chest in pose)
 ## How strong the skin's faint painted grain is (`skin_grain` in shaders/skin.gdshader), the character pass, 2026-10-19.
 const SKIN_GRAIN := 0.15
 ## (0.9, the character judge's round 1: the reference's shoes are small; big rounded ones read as clown shoes.)

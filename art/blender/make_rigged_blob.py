@@ -397,7 +397,7 @@ def mitten(bm, x):
             f = f0 + spread * t
             o = -0.004 - (0.03 + 0.012 * k_f) * t * t      # curling toward the palm
             pts.append(_at(x, d, f, o))
-            radii.append((0.036, 0.034, 0.03, 0.022)[k])
+            radii.append((0.044, 0.042, 0.038, 0.03)[k])
         tube(bm, pts, radii, segments=14, per_span=3)
     tube(bm, [_at(x, 0.04, 0.085, -0.02), _at(x, 0.09, 0.14, -0.05), _at(x, 0.13, 0.16, -0.07), _at(x, 0.155, 0.162, -0.078)],
          [0.046, 0.044, 0.038, 0.028], segments=16, per_span=3)
@@ -1954,7 +1954,7 @@ CUFF_HEIGHT = 0.06
 CUFF_LIFT = 0.072   # (outside the shorts' flared hem, the character judge's round 13: at 0.06 the shorts poked through it in teeth when a leg bent)
 # The sleeves' trim (the aviator scout pilot, 2026-10-19, the owner's reference: a coloured band round each sleeve's end, standing proud),
 # this share of the upper arm long and lifted this far off the skin.
-SLEEVE_TRIM = 0.12
+SLEEVE_TRIM = 0.22
 # How far round the shoulder joint the shirt takes the upper arm's bone, and how much of it at most.
 SHOULDER_BLEND = 0.32
 SHOULDER_SHARE = 0.85   # (more, the owner: a raised arm came out from under the sleeve)
@@ -1963,19 +1963,19 @@ SOCK_HEIGHT = 0.375   # (just under the knee-length shorts, the character judge'
 SOCK_LIFT = 0.03
 SOCK_TOP_BAND = 0.045
 SOCK_TOP_LIFT = 0.045
-SLEEVE_TRIM_LIFT = 0.09   # (just over the shirt's own lift, the character judge's round 2: further out it stood off as a fin)
+SLEEVE_TRIM_LIFT = 0.13   # (a fat rolled cuff standing proud of the sleeve, the owner's second reference)
 SLEEVE_SNUG = 0.55      # the sleeve's opening hugs the arm (this share of the shirt's distance), so no dark gap shows inside it
 SHORTS_TOP = -0.002   # the shorts reach just under the shirt's hem (below it a little, they could poke through)
 SHORTS_LIFT = 0.04     # the shorts sit a little closer in, so the shirt's hem lies over their waistband
 CLOTH_THICKNESS = 0.0     # none: an inner layer crossed the outer one where the cloth folds (the game draws cloth two-sided)
-SLEEVE = 0.85           # how far down the upper arm the sleeves reach (0 at the shoulder joint, 1 at the elbow; the joint sits low in the
+SLEEVE = 1.35  # (past the elbow, onto the forearm, ending in a fat rolled cuff, the owner's second reference, 2026-10-19)
                        # shoulder, so 0.55 left only a cap over it: PEAK's short sleeves reach most of the way to the elbow)
 HEM_FLARE = 0.035
 # The body rebuild (the owner: the clothes read painted on beside the reference cast): the sleeves stand off the arm and open a little at
 # the hem, the shorts' legs flare wide, as the reference's cloth hangs.
 SLEEVE_FLARE = 0.02
 SHORTS_FLARE = 0.075
-ARM_RADIUS = 0.145     # how far from the arm's axis a point still counts as the arm (the cage body's arm is at most 0.125 round and hangs with
+ARM_RADIUS = 0.19   # (the thicker sausage arm, the owner's second reference; 0.145 before)     # how far from the arm's axis a point still counts as the arm (the cage body's arm is at most 0.125 round and hangs with
                        # the torso's side 0.16 from its axis, so this sits between them; at 0.2, made for the generated figure, the torso's
                        # sides took arm weights and tore when the arms moved)
 HEM_SMOOTH = 30
@@ -2146,6 +2146,7 @@ def build_garments(skin, J, neck):
                                     ("Belt", in_belt, belt_hem, BELT_LIFT), ("Boot", in_boot, boot_hem, BOOT_LIFT),
                                     ("BootSole", in_sole, belt_hem, SOLE_LIFT), ("BootCuff", in_boot_cuff, belt_hem, BOOT_CUFF_LIFT), ("ShortsCuff", in_cuff, belt_hem, CUFF_LIFT),
                                     ("BootToe", in_toe, belt_hem, BOOT_LIFT + 0.014),
+                                    ("SleeveTrim", in_sleeve_trim, belt_hem, SLEEVE_TRIM_LIFT),
                                     ("Sock", in_sock, belt_hem, SOCK_LIFT), ("SockTop", in_sock_top, belt_hem, SOCK_TOP_LIFT)):
         obj = skin.copy()
         obj.data = skin.data.copy()
