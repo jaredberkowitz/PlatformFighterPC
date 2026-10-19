@@ -59,15 +59,16 @@ const GEAR_FULL := 3
 const POSES := ["ready", "relaxed", "wave", "guard", "broad"]
 const POSE_CLIPS := {"ready": "idle", "relaxed": "idle_tool", "wave": "victory_b", "guard": "idle_look", "broad": "idle_heavy"}
 const POSE_OPEN := {"relaxed": true, "broad": true}
-## The head's shape (the character judge's round 12: four of one clean egg head read generic; the reference's heads each have their own):
-## its scale across, up and front to back on the shared head.
+## The head's shape: its scale across, up and front to back on the shared head. Every one is near a circle with only small differences
+## (the owner, 2026-10-19; the character judge's round 12 had made them clearly different, which read too varied).
 ## Gloved or bare hands with the kit (the character judge's round 16: in the reference only the aviator wears gloves).
 const HANDS := ["gloves", "bare"]
 const HEADS := ["round", "bean", "bun", "ball", "onion"]
-# (Twice as far apart, the character judge's round 13: side by side the four read as one egg.)
 # (A tenth bigger again, the character judge's round 16: the reference's heads dwarf the body.)
-const HEAD_SCALES := {"round": Vector3(1.45, 1.1, 1.32), "bean": Vector3(1.17, 1.36, 1.1), "bun": Vector3(1.74, 0.9, 1.43),
-	"ball": Vector3(1.43, 1.28, 1.47), "onion": Vector3(1.28, 1.25, 1.17)}
+# (Each close to a circle from the front, the owner, 2026-10-19: the varied shapes read too different; the reference's heads are all
+# near-round balls. The head mesh is about 1.18 times as wide as it is tall at an even scale, so a circle is about x/1.18 up.)
+const HEAD_SCALES := {"round": Vector3(1.45, 1.23, 1.36), "bean": Vector3(1.41, 1.25, 1.33), "bun": Vector3(1.49, 1.22, 1.39),
+	"ball": Vector3(1.47, 1.26, 1.40), "onion": Vector3(1.43, 1.24, 1.34)}
 
 ## The slots in the order they are written, each with its catalog size. New slots go at the end (see the top).
 const SLOTS := ["color", "face", "hat", "glasses", "neck", "accent", "shirt",
