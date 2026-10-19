@@ -4336,13 +4336,15 @@ static func _sunset(root: Node3D, t: Dictionary, stage: Array) -> void:
 	_painted_sun(root, Vector3(-46, -4, -140), 10.0)
 	# (Each row's rock takes on the dusk sky's colour with its distance, as the meadow's islands do: at full strength the far buttes were
 	# as dark and saturated as the mesa the fighters stand on, so nothing receded. Art review 6, background cohesion.)
-	# (Clean faceted tones that cool with distance, the owner, 2026-10-19: in the stage's own painted strata, warmed by the dusk, every
-	# row was the near mesa's orange and nothing receded. Near a dusky rose, far a lavender.)
+	# (The stage's own painted strata, as the arch and the stage's front are (the owner, 2026-10-19: flat faceted tones made the buttes a
+	# different rock), faded with distance toward a cool lavender rather than the orange horizon, so they still recede.)
 	var rows := []
-	for c in [Color(0.74, 0.46, 0.46), Color(0.66, 0.54, 0.74)]:
-		var rm := (FighterView.toon(c, false) as ShaderMaterial).duplicate() as ShaderMaterial
-		rm.set_shader_parameter("facets", true)
-		rows.append(rm)
+	var haze := Color(0.7, 0.6, 0.82)
+	for fade in [0.3, 0.55]:
+		var air := t.duplicate()
+		air.soil = (t.soil as Color).lerp(haze, fade)
+		air.soil_dark = (t.soil_dark as Color).lerp(haze, fade)
+		rows.append(_under_material(_soil_material(air), 0.35 * (1.0 - fade)))
 	# Buttes and mesas in strata on rubble slopes (art/blender/make_props.py), a nearer row and a farther one.
 	for k in 8:
 		var far := k % 2 == 1
