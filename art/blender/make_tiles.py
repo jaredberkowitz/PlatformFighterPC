@@ -469,11 +469,57 @@ def brick():
     return bpy.context.scene
 
 
+def fieldstone():
+    """The face of weathered fieldstone, laid over each of the meadow wall's modelled stones: a surface swelling in broad soft bumps
+    (placed across the tile's wrap, so it tiles), pitted with small hollows, with patches of pale crusty lichen made of tiny flat flakes. No stone
+    outlines (the stones are the modelled ones). Lit from the upper left, as the game's walls are; kept low in contrast."""
+    rng = random.Random(97)
+    reset()
+    bm = bmesh.new()
+    bmesh.ops.create_grid(bm, x_segments=200, y_segments=200, size=0.5)
+    pits = [(rng.uniform(-0.5, 0.5), rng.uniform(-0.5, 0.5), rng.uniform(0.006, 0.016)) for _ in range(140)]
+    # (Broad soft bumps of their own sizes and heights, not waves: whole sine waves read as diagonal stripes.)
+    bumps = [(rng.uniform(-0.5, 0.5), rng.uniform(-0.5, 0.5), rng.uniform(0.05, 0.16), rng.uniform(-0.012, 0.012)) for _ in range(70)]
+    for v in bm.verts:
+        x, y = v.co.x, v.co.y
+        z = 0.0
+        for (bx, by, br, bh) in bumps:
+            dx = (x - bx + 0.5) % 1.0 - 0.5
+            dy = (y - by + 0.5) % 1.0 - 0.5
+            z += bh * math.exp(-(dx * dx + dy * dy) / (br * br))
+        for (px, py, r) in pits:
+            dx = (x - px + 0.5) % 1.0 - 0.5
+            dy = (y - py + 0.5) % 1.0 - 0.5
+            d2 = (dx * dx + dy * dy) / (r * r)
+            if d2 < 4.0:
+                z -= 0.006 * math.exp(-d2 * 1.5)
+        v.co.z = z
+    link("stone", bm, grey_material("stone", 0.7))
+    lichen = [grey_material("lichen_a", 0.95), grey_material("lichen_b", 0.85)]
+    lb = [bmesh.new(), bmesh.new()]
+    for k in range(9):
+        cx, cy = rng.uniform(-0.5, 0.5), rng.uniform(-0.5, 0.5)
+        rad = rng.uniform(0.04, 0.09)
+        for f in range(rng.randint(40, 70)):
+            a = rng.uniform(0, math.tau)
+            d = rad * math.sqrt(rng.uniform(0, 1))
+            fx, fy = cx + math.cos(a) * d, cy + math.sin(a) * d
+            fr = rng.uniform(0.004, 0.009)
+            for (px, py) in wrapped(fx, fy, fr):
+                ret = bmesh.ops.create_circle(lb[k % 2], cap_ends=True, segments=7, radius=fr)
+                for v in ret["verts"]:
+                    v.co += Vector((px, py, 0.014))
+    for k in range(2):
+        link("lichen%d" % k, lb[k], lichen[k])
+    sun((0.4, -0.8, -0.45), 4.0)
+    return bpy.context.scene
+
+
 # (The lawn's range narrower and brighter, the gauntlet's round 26: at 0.55 the meadow's lawn read as a dark speckled felt.)
 TILES = {"lawn": (lawn, 0.68), "soil_bank": (soil_bank, 0.4), "roof_render": (roof, 0.6), "furrows": (furrows, 0.62), "planks": (planks, 0.45),
          # (The floating platforms' boards, the same planks in a wider range: at their size on screen the deck's range averaged out to a
          # plain tone, the gauntlet's round 29.)
-         "planks_bold": (planks, 0.2), "leaves": (leaves, 0.42), "brick": (brick, 0.5)}
+         "planks_bold": (planks, 0.2), "leaves": (leaves, 0.42), "brick": (brick, 0.5), "fieldstone": (fieldstone, 0.62)}
 
 
 # The share of a render's pixels at or under the tile's white (most of the planks tile is board top, which would clip at 0.98).

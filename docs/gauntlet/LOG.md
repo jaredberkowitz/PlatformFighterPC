@@ -400,3 +400,17 @@ floating platforms now the cheapest pieces on the meadow and grove. Next materia
 Scores as round 29 (meadow 3.2, canyon 2.5, beach 3.2, city 3.0, grove 3.2). The rendered leaves turn the bushes and hedges into leaf
 masses; the grove crowns' warm tops and cool bottoms too far apart (two materials stacked). Gaps: (1) no cast shadows from overhead
 geometry; (2) abrupt light ramps on the new materials. Next material: the city's play facade (brick), then the meadow wall.
+
+## Round 31 (2026-10-18, commit 104a35f)
+
+| Stage | Believ. | Cohesion | Lighting | Depth | Ground | Clarity | Mean |
+|---|---|---|---|---|---|---|---|
+| Meadow | 3 | 3 | 3 | 4 | 3 | 3 | 3.2 |
+| Canyon | 2 | 3 | 3 | 2 | 2 | 3 | 2.5 |
+| Beach | 3 | 3 | 3 | 4 | 3 | 3 | 3.2 |
+| City | 4 | 3 | 3 | 3 | 3 | 3 | 3.2 |
+| Grove | 4 | 3 | 3 | 4 | 3 | 3 | 3.3 |
+
+The rendered brick reads as real masonry (the city's Believability 4); the grove's crowns are one material of lit and shaded leafy domes
+(its Depth 4). Gaps: (1) no cast shadows; (2) the pieces the material passes left behind (the grove's trunk, the meadow's log ends,
+the city's girders and skyline walls). Next material: the meadow's stone wall (fieldstone), then the grove trunk's bark.

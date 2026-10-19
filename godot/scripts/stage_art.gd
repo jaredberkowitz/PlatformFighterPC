@@ -5391,7 +5391,10 @@ static func _bevel_block() -> ArrayMesh:
 ## instance's custom data (`instance_tint`), falling into the wall's shade by height.
 static func _seawall_stone_mat() -> ShaderMaterial:
 	if _seawall_mat == null:
-		var m := (FighterView.toon(Color.WHITE, true) as ShaderMaterial).duplicate() as ShaderMaterial
+		# (The rendered fieldstone face laid over every stone, art/blender/make_tiles.py `fieldstone`: soft bumps, pitting and lichen,
+		# the owner's painted materials, 2026-10-18; plain without it.)
+		var face := Materials._png_tile("fieldstone")
+		var m := (FighterView.toon(Color.WHITE, true, face, Vector2.ONE, 2.0 if face != null else 0.0) as ShaderMaterial).duplicate() as ShaderMaterial
 		m.set_shader_parameter("rim_strength", 0.3)
 		m.set_shader_parameter("instance_tint", true)
 		m.set_shader_parameter("fall_by_height", true)
