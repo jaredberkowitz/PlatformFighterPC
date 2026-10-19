@@ -58,6 +58,7 @@ func build(sim) -> void:
 			else:
 				extent[4] = r[0]
 				extent[5] = r[1]
+	StageArt.island_mode = theme.has("quilt")
 	for i in rects.size():
 		var r: PackedFloat32Array = rects[i]
 		var left := r[0]
@@ -73,6 +74,9 @@ func build(sim) -> void:
 				if o[4] < 0.5 and o != r and is_equal_approx(o[3], top) and o[0] <= left + 0.01 and o[1] >= right - 0.01:
 					exposed = false
 			StageArt.solid_block(self, theme, left, right, top, bottom, FRONT_Z, exposed, float(extent[2]))
+	if StageArt.island_mode:
+		StageArt.quilted_island(self, theme, rects, FRONT_Z)
+	StageArt.island_mode = false
 
 	# The soft shading under platforms and at the foot of walls, baked once for this stage.
 	StageLight.bake(rects, Vector2(FRONT_Z - StageArt.PLATFORM_DEPTH, FRONT_Z))

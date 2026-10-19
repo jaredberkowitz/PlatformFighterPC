@@ -933,6 +933,101 @@ static func _faceted_ledge(parent: Node3D, left: float, right: float, top: float
 ## A stage front as a padded quilt of diamonds (the grove's fantasy island): a sheet over the block's front, each diamond a soft pillow
 ## swelling out from creased seams, so the key light gives every one a lit top and a shaded foot; in `colour`, the seams a step deeper,
 ## falling into shade below the top as the fronts do (`fall`, the stage's top).
+## True while the stage view lays a whole stage's blocks: a quilted theme then leaves its blocks' fronts to `quilted_island`.
+static var island_mode := false
+
+
+## The grove's island as one rounded quilted hull over all its solid blocks (`rects` from the sim, as the stage view has them), its
+## front at `front_z`: each row's sides follow the blocks' widths there, smoothed into a rounded taper (so the tiers read as one island,
+## not stacked boxes, the owner, 2026-10-19), curving back round its sides and rounding off under the lowest block; padded diamonds as
+## `_quilted_front`. Visual only: it keeps within a unit of the blocks' outline, so fighters never pass behind what is not solid.
+static func quilted_island(parent: Node3D, t: Dictionary, rects: Array, front_z: float) -> void:
+	var solids: Array = []
+	for r in rects:
+		if float(r[4]) < 0.5:
+			solids.append(r)
+	if solids.is_empty():
+		return
+	var top := -INF
+	var low := INF
+	for r in solids:
+		top = maxf(top, float(r[2]))
+		low = minf(low, float(r[3]))
+	var span := func(y: float) -> Vector2:
+		var l := INF
+		var rr := -INF
+		for r in solids:
+			if y <= float(r[2]) + 0.001 and y >= float(r[3]) - 0.001:
+				l = minf(l, float(r[0]))
+				rr = maxf(rr, float(r[1]))
+		return Vector2(l, rr)
+	# Each row's sides: the blocks' spans averaged over a window above and below it, so the steps ease into slopes.
+	var y_top := top - 0.3
+	var round_h := 1.6
+	var y_bot := low - round_h
+	var step := 0.14
+	var rows := int(ceil((y_top - y_bot) / step))
+	var cols := 120
+	var edges: Array = []
+	for j in rows + 1:
+		var y := lerpf(y_top, y_bot, float(j) / rows)
+		var sum := Vector2.ZERO
+		var n := 0
+		for k in 9:
+			var yy := clampf(y + lerpf(-1.1, 1.1, float(k) / 8.0), low + 0.01, top - 0.01)
+			var sp: Vector2 = span.call(yy)
+			if not is_inf(sp.x):
+				sum += sp
+				n += 1
+		var e: Vector2 = sum / float(maxi(n, 1))
+		if y < low:
+			var f := sqrt(maxf(0.0, 1.0 - pow((low - y) / round_h, 2.0)))
+			var mid := (e.x + e.y) * 0.5
+			e = Vector2(mid - (mid - e.x) * f, mid + (e.y - mid) * f)
+		edges.append([y, e])
+	var size := 1.9
+	var puff := 0.32
+	var bend := 1.3
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for j in rows + 1:
+		var y: float = edges[j][0]
+		var e: Vector2 = edges[j][1]
+		for i in cols + 1:
+			var x := lerpf(e.x, e.y, float(i) / cols)
+			var u := (x + y) / size
+			var v := (x - y) / size
+			var d := maxf(absf(u - roundf(u)), absf(v - roundf(v))) * 2.0
+			var to_edge := minf(x - e.x, e.y - x)
+			var soft := smoothstep(0.0, 0.6, to_edge) * smoothstep(0.0, 0.25, y_top - y)
+			var z := front_z + 0.02 + puff * (1.0 - d * d) * soft
+			if to_edge < bend:
+				var q := (bend - to_edge) / bend
+				z -= bend * (1.0 - sqrt(maxf(0.0, 1.0 - q * q)))
+			var seam := smoothstep(0.82, 1.0, d)
+			var val := lerpf(1.0, 0.62, seam)
+			st.set_color(Color(val, val, val))
+			st.add_vertex(Vector3(x, y, z))
+	for j in rows:
+		for i in cols:
+			var a0 := j * (cols + 1) + i
+			var b0 := a0 + 1
+			var c0 := a0 + cols + 1
+			var d0 := c0 + 1
+			for idx in [a0, b0, d0, a0, d0, c0]:
+				st.add_index(idx)
+	st.generate_normals()
+	var m := (FighterView.toon(t.quilt, true) as ShaderMaterial).duplicate() as ShaderMaterial
+	m.set_shader_parameter("vertex_shade", true)
+	m.set_shader_parameter("ramp_softness", 0.3)
+	m.set_shader_parameter("fall_by_height", true)
+	m.set_shader_parameter("front_fall", 0.4)
+	m.set_shader_parameter("front_span", 7.0)
+	var mi := _mesh(parent, st.commit(), m, Vector3.ZERO)
+	mi.set_instance_shader_parameter("front_top", top)
+	mi.name = "quilted_island"
+
+
 static func _quilted_front(parent: Node3D, left: float, right: float, top: float, bottom: float, front: float, colour: Color, fall := INF) -> void:
 	var size := 1.9
 	var puff := 0.32
@@ -1037,7 +1132,11 @@ static func solid_block(parent: Node3D, t: Dictionary, left: float, right: float
 			_seawall_stones(parent, field, left, right, top + 0.15, bottom, front_z, depth, top, true, taper)
 	elif t.has("quilt"):
 		body.material_override = FighterView.toon((t.quilt as Color).darkened(0.4))
-		_quilted_front(parent, left, right, top if exposed else top + 0.3, bottom, front_z, t.quilt, fall)
+		if island_mode:
+			# (One rounded quilted island over all the blocks, `quilted_island`, drawn by the stage view: the blocks' own boxes hidden.)
+			body.visible = false
+		else:
+			_quilted_front(parent, left, right, top if exposed else top + 0.3, bottom, front_z, t.quilt, fall)
 	elif t.has("ledge"):
 		body.material_override = FighterView.toon((t.ledge as Color).darkened(0.35))
 		_faceted_ledge(parent, left, right, top if exposed else top + 0.3, bottom, front_z, taper, t.ledge, fall)
@@ -1176,7 +1275,8 @@ static func solid_block(parent: Node3D, t: Dictionary, left: float, right: float
 			_mesh(parent, _round_box(Vector3(w + 0.25, cap_h, depth + 0.1), 0.24), grass, Vector3(cx, top - cap_h / 2.0 + 0.04, front_z - depth / 2.0))
 			# (A turf lip rolling over the edge, its thickness and line wavering, in place of a straight tube with a lit strip along it that
 			# read as a ruled line, 2026-10-18, art review 7.)
-			var lip := _edge_lip(parent, left - 0.125, right + 0.125, top - cap_h * 0.55, front_z + 0.02, cap_h * 0.62, grass)
+			var lip_r := cap_h * (0.85 if t.has("quilt") else 0.62)
+			var lip := _edge_lip(parent, left - 0.125, right + 0.125, top - cap_h * 0.55 - (0.12 if t.has("quilt") else 0.0), front_z + 0.02, lip_r, grass)
 			lip.name = "lip"
 			# Tufts hanging over at uneven gaps and sizes, now and then a small stone among them (not where moss drapes the wall instead).
 			var tuft_mesh := _sphere(0.32, 12)
@@ -1200,8 +1300,10 @@ static func solid_block(parent: Node3D, t: Dictionary, left: float, right: float
 				# (Modelled grass tufts on the lip where there are, art/blender/make_props.py `grass_tuft`, the gauntlet's round 6: the round turf
 				# tongues read as blobs and left the lip a ruled line; a tuft breaks it with blades.)
 				# (The turf tongues stay, the drooping overhang: replaced by tufts the grove's lip went ruler-straight, the gauntlet's round 7.)
-				_mesh(parent, tuft_mesh, grass, Vector3(x, top - cap_h + 0.1 - 0.17 * k * hang, front_z + 0.2 + own.randf_range(-0.04, 0.04)),
-					Vector3(1.2 * wide, 0.8 * hang, 0.6) * k)
+				# (Not on the quilted island, the owner, 2026-10-19: smooth dangling blobs from an older pass; its rim is one fuller rounded lip.)
+				if not t.has("quilt"):
+					_mesh(parent, tuft_mesh, grass, Vector3(x, top - cap_h + 0.1 - 0.17 * k * hang, front_z + 0.2 + own.randf_range(-0.04, 0.04)),
+						Vector3(1.2 * wide, 0.8 * hang, 0.6) * k)
 				if rng.randf() < 0.22:
 					_mesh(parent, _sphere(0.16, 6), stone, Vector3(x + 0.5, top - cap_h - 0.3, front_z + 0.12), Vector3(1.3, 0.8, 0.7))
 				x += rng.randf_range(0.8, 1.6) * 0.62
@@ -1565,7 +1667,9 @@ static func _platform_dressing(parent: Node3D, t: Dictionary, left: float, right
 				for j in 3:
 					_mesh(parent, _box(Vector3(0.09, 0.3, 0.08)), rope, Vector3(ex + (j - 1) * 0.13, top - 0.16, front_z + 0.03))
 		"grove":
-			var moss := Materials.foliage(Color(0.36, 0.64, 0.36), Vector2(2, 2), true)
+			# (Plain faceted green, the style sheet's section 9, 2026-10-19: in the leaf texture the clumps read in another technique.)
+			var moss := (FighterView.toon(Color(0.36, 0.66, 0.38), true) as ShaderMaterial).duplicate() as ShaderMaterial
+			moss.set_shader_parameter("facets", true)
 			# (Overlapping clumps of very different sizes, gaps now and then: an even row read as beads.)
 			# (Sparse since the branch shelf, art review 9: a full row of moss hid the branches and the platform read as a hedge.)
 			var x := left + 0.3
