@@ -151,17 +151,18 @@ def aviator_cap():
             # (On the built cap's own ellipsoid, centred high on the head, so it clears the face shell and the oval head everywhere.)
             # (Lower and fuller, the aviator scout pilot: on the head's crown it sat high as a beret; the reference's hat comes down to the
             # brow and round over the ears.)
-            r = 0.9
+            # (A big round dome, the aviator scout pilot round 2: the reference's hat is a wide padded bowl well over the head.)
+            r = 1.0
             x = r * math.sin(ph) * math.cos(a)
             y = r * math.sin(ph) * math.sin(a)
-            z = 1.6 + 0.7 * math.cos(ph)
+            z = 1.52 + 0.84 * math.cos(ph)
             # The seam down the middle of the crown.
             if abs(x) < 0.03:
                 x *= 0.6
                 z -= 0.008
             row.append(bm.verts.new((x, y, z)))
         rows.append(row)
-    top = bm.verts.new((0.0, 0.0, 1.6 + 0.7))
+    top = bm.verts.new((0.0, 0.0, 1.52 + 0.84))
     for i in range(seg_u):
         bm.faces.new((rows[0][i], rows[0][(i + 1) % seg_u], top))
     for j in range(seg_v):
@@ -208,14 +209,14 @@ def aviator_cap():
                 v.co = Vector((v.co.x * 0.09, v.co.y * 0.36 * k, v.co.z * 0.6 * k))
                 # (Splayed out toward the bottom, as the reference's flaps hang loose.)
                 v.co.x += sx * 0.16 * max(0.0, -v.co.z / 0.6)
-            bmesh.ops.translate(bm, vec=Vector((sx * (0.92 + inset), 0.1, 1.1)), verts=ret["verts"])
+            bmesh.ops.translate(bm, vec=Vector((sx * (1.0 + inset), 0.1, 1.05)), verts=ret["verts"])
             to_object(part + nm, bm).parent = root
     # Hair spilling out under the hat round the sides and back: soft thick locks hanging down and out.
     locks = 13
     for k in range(locks):
         a = math.radians(-20.0 + 220.0 * k / (locks - 1))   # from the right side round the back to the left (front is -y)
         a = math.radians(-10.0) + (math.pi + math.radians(20.0)) * k / (locks - 1)
-        base = Vector((0.84 * math.cos(a), 0.84 * math.sin(a), 1.5))
+        base = Vector((0.9 * math.cos(a), 0.9 * math.sin(a), 1.42))
         out = Vector((math.cos(a), math.sin(a), 0.0))
         d = out * 0.25 + Vector((0.0, 0.0, -1.0))
         _lock("hair_spill%d" % k, base, d, rng.uniform(0.7, 1.0), rng.uniform(0.18, 0.24), 0.1).parent = root
@@ -656,10 +657,11 @@ def glasses():
     _frame_loop(bm, [(0.18 * math.cos(t), 0.18 * math.sin(t)) for t in [math.tau * i / 48 for i in range(48)]], 0.05, 0.035)
     to_object("metal_specs_rim", bm).parent = root
     bm = bmesh.new()
-    _frame_loop(bm, _superellipse(0.22, 0.16, 3.2), 0.035, 0.04, top_extra=0.8)
+    # (Thin wire drawn wider than the eyes, the aviator scout pilot, after the owner's reference: a heavy plastic frame sat on the eyes.)
+    _frame_loop(bm, _superellipse(0.25, 0.18, 3.0), 0.016, 0.025, top_extra=0.35)
     to_object("frame_shades_rim", bm).parent = root
     bm = bmesh.new()
-    outline = _superellipse(0.225, 0.165, 3.2)
+    outline = _superellipse(0.25, 0.18, 3.0)
     c = bm.verts.new((0.0, -0.012, 0.0))
     ring = [bm.verts.new((x, 0.0, z)) for (x, z) in outline]
     for i in range(len(ring)):

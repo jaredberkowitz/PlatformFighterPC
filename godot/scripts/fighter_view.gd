@@ -2135,7 +2135,7 @@ func _gear_model(name: String, accent: Color) -> bool:
 	gold.set_shader_parameter("metal", 0.3)
 	gold.set_shader_parameter("rim_strength", 0.2)
 	# (A model's "metal" is the helm's steel, or the caps' brass; "brass" and "gold" name themselves.)
-	var mats := {"fabric": _fabric(accent), "canvas": _cloth(toon(Color(0.95, 0.94, 0.9))), "leather": _cloth(toon(Color(0.52, 0.33, 0.21))),
+	var mats := {"fabric": _fabric(accent), "canvas": _cloth(toon(Color(0.95, 0.94, 0.9))), "leather": _cloth(toon(Color(0.4, 0.25, 0.17))),
 		"metal": steel if name == "plumed_helm" else brass, "brass": brass, "gold": gold, "glass": toon(Color(0.66, 0.84, 0.95), false),
 		"straw": straw, "hair": toon(FaceLook.BROW_COLORS[clampi(loadout.brow_color, 0, FaceLook.BROW_COLORS.size() - 1)]),
 		# (Cream fleece, the aviator scout pilot, 2026-10-19.)
@@ -2327,7 +2327,8 @@ func _hat() -> void:
 
 
 func _glasses() -> void:
-	var frame := toon(INK, false)
+	# (Dark brown wire, the aviator scout pilot, after the owner's reference.)
+	var frame := toon(Color(0.3, 0.17, 0.12), false)
 	# The glasses are placed in design space through their own fit (see `_glasses_fit`): a node under the head whose transform turns
 	# the head's fit into it.
 	var glasses_rig := Node3D.new()
