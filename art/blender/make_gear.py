@@ -197,7 +197,9 @@ def aviator_cap():
             r = 0.16 * lump * (1.0 + 0.12 * math.sin(b_ * 3.0 + i))
             # (Dipping lower over the ears, so it follows the head, the character judge's round 3: level, it read as a plate.)
             side_k = abs(c.x) / max(Vector((c.x, c.y, 0.0)).length, 1e-4)
-            loop.append(bm.verts.new(c - out * 0.09 + Vector((0.0, 0.0, 0.16 - 0.1 * side_k)) + (out * math.cos(b_) + up * math.sin(b_)) * r))
+            # (Taller in section than wide: the game widens the head, and the hat with it, 1.32 times across, which flattened a round tube
+            # into a plate, the character judge's round 4.)
+            loop.append(bm.verts.new(c - out * 0.09 + Vector((0.0, 0.0, 0.16 - 0.1 * side_k)) + out * math.cos(b_) * r + up * math.sin(b_) * r * 1.35))
         loops.append(loop)
     # (UVs round and along the roll, so the game's curly fleece tile lies on it.)
     uv = bm.loops.layers.uv.new("UVMap")
@@ -212,17 +214,18 @@ def aviator_cap():
         nm = "L" if sx < 0 else "R"
         # (Hugging the cheeks, the leather outside and only a rim of fleece showing, the character judge's round 1: pale paddles hanging
         # free read as bunny ears.)
-        for part, k, inset in (("leather_flap", 1.0, 0.0), ("fleece_flap", 1.05, -0.05)):
+        for part, k, inset in (("leather_flap", 1.0, 0.0), ("fleece_flap", 1.08, -0.025)):
             bm = bmesh.new()
             ret = bmesh.ops.create_uvsphere(bm, u_segments=20, v_segments=14, radius=1.0, calc_uvs=True)
             for v in ret["verts"]:
                 # (A quarter smaller and padded thicker, folded in at its lower edge, the character judge's round 2.)
                 # (Hanging below the fleece in front of the hair as a padded tongue, the character judge's round 3: hidden, its top read as a
                 # dark disc on the cheek.)
-                v.co = Vector((v.co.x * 0.16, v.co.y * 0.28 * k, v.co.z * 0.44 * k))
+                # (Thin, hugging the cheek, the character judge's round 4: thick, it cupped out as a headphone.)
+                v.co = Vector((v.co.x * 0.06, v.co.y * 0.28 * k, v.co.z * 0.44 * k))
                 # (Curving in under the jaw, following the cheek.)
                 v.co.x -= sx * 0.12 * max(0.0, -v.co.z / 0.44) ** 2
-            bmesh.ops.translate(bm, vec=Vector((sx * (0.92 + inset), -0.1, 1.02)), verts=ret["verts"])
+            bmesh.ops.translate(bm, vec=Vector((sx * (0.86 + inset), -0.1, 1.02)), verts=ret["verts"])
             to_object(part + nm, bm).parent = root
     # Hair spilling out under the hat round the sides and back: soft thick locks hanging down and out.
     locks = 13
