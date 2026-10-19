@@ -2172,6 +2172,12 @@ def build_garments(skin, J, neck):
         bmesh.ops.symmetrize(bm, input=list(bm.verts) + list(bm.edges) + list(bm.faces), direction="X", dist=0.001)
         if min(v.co.x for v in bm.verts) > -0.05:
             raise RuntimeError(name + ": mirroring kept only one side")
+        # Where each point lay on the skin, before the cloth is smoothed and pushed out: whether it is sleeve or body, and whose weights
+        # it takes, are told from there. (Told from the pushed-out cloth, a puffed sleeve's sides lay further from the arm's line than
+        # ARM_RADIUS, so they took the torso's bones and stayed behind when the arm moved, tearing the sleeve; their hem points missed the
+        # sleeve's hem smoothing and stood out as spikes.)
+        src = {v: v.co.copy() for v in bm.verts}
+        sleeve_pts = {v for v in bm.verts if on_arm(src[v])}
         # Cloth drapes over the body's small bumps (the belly, the chest) rather than following each one: smooth the surface, the hems
         # held where they are, then push any point the smoothing pulled toward the body back out to the garment's distance from it.
         hems = {v for v in bm.verts if v.is_boundary}
@@ -2186,9 +2192,9 @@ def build_garments(skin, J, neck):
             snug = 0.67 if name == "Shorts" and v.co.z > waist - 0.05 else 1.0
             if name == "Shorts":
                 flare = SHORTS_FLARE * (1.0 - min(1.0, hem(v.co) / 0.16)) ** 1.5
-            if name == "Shirt" and not on_arm(v.co) and v.co.z > neck_line - 0.06:
+            if name == "Shirt" and v not in sleeve_pts and v.co.z > neck_line - 0.06:
                 flare = 0.0
-            elif name == "Shirt" and not on_arm(v.co):
+            elif name == "Shirt" and v not in sleeve_pts:
                 if v.co.z < waist + BELT_HALF:
                     # Tucked in under the belt: close in, no flare.
                     snug, flare = 0.8, 0.0
@@ -2220,7 +2226,7 @@ def build_garments(skin, J, neck):
         # The hems themselves: held still while the cloth was smoothed, they kept every bump of the body's surface, which the flare then
         # turned into a torn-looking edge. Each hem (not the sleeves') is smoothed along its own loop, across but not up or down.
         loop = {v: [e.other_vert(v) for e in v.link_edges if e.is_boundary] for v in hems}
-        sleeve_hem = {v for v in hems if on_arm(v.co)}
+        sleeve_hem = hems & sleeve_pts
         for _ in range(HEM_SMOOTH):
             moved = {}
             for v, nbrs in loop.items():
@@ -2239,7 +2245,7 @@ def build_garments(skin, J, neck):
                   "ShortsCuff": [shorts_end, cuff_top], "SleeveTrim": [], "Sock": [boot_top - 0.02, sock_top - SOCK_TOP_BAND],
                   "SockTop": [sock_top - SOCK_TOP_BAND, sock_top], "BootToe": []}[name]
         for v in hems:
-            if on_arm(v.co) or not levels:
+            if v in sleeve_pts or not levels:
                 continue
             nearest = min(levels, key=lambda z: abs(v.co.z - z))
             if abs(v.co.z - nearest) < 0.04:
@@ -2254,10 +2260,11 @@ def build_garments(skin, J, neck):
         index = {n: k for k, n in enumerate(names)}
         for v in bm.verts:
             left = v.co.x < 0.0
-            co = Vector((-v.co.x, v.co.y, v.co.z)) if left else v.co
+            # (From the point's place on the skin: see `src`.)
+            co = Vector((-src[v].x, src[v].y, src[v].z)) if left else src[v]
             # The skin's weights blurred over a few centimetres round the point (Blender's automatic weights alternate between bones
             # from one point to the next, which made a hem zigzag in a pose); the sleeves keep the nearest point's.
-            if on_arm(co):
+            if v in sleeve_pts:
                 _, i, _ = skin_points.find(co)
                 near = [(skin.data.vertices[i], 1.0)]
             else:
@@ -2266,7 +2273,7 @@ def build_garments(skin, J, neck):
                     found = [torso_points.find(co)]
                 near = [(skin.data.vertices[i], max(0.0, 1.0 - d / WEIGHT_BLUR) + 1e-4) for _, i, d in found]
             blend = {}
-            even = None if on_arm(co) or co.z < crotch else trunk_weights(co.z)
+            even = None if v in sleeve_pts or co.z < crotch else trunk_weights(co.z)
             if even is not None:
                 blend = dict(even)
                 near = []
@@ -2284,7 +2291,7 @@ def build_garments(skin, J, neck):
                     swapped = n[:-2] + (".L" if n.endswith(".R") else ".R") if n.endswith((".L", ".R")) else n
                     group = index.get(swapped, gi)
                 v[deform][group] = w / whole
-            if name == "Shirt" and not on_arm(co):
+            if name == "Shirt" and v not in sleeve_pts:
                 # (The shirt's shoulder follows the upper arm, the character judge's round 12: tied to the torso alone, the sleeve stayed a
                 # fixed box and the arm swung out of it as from a doll's socket.) Over the shoulder cap a share of the upper arm's bone,
                 # most at the armhole, none by the collar and the chest.
@@ -2308,6 +2315,9 @@ def build_garments(skin, J, neck):
                     for k in list(v[deform].keys()):
                         v[deform][k] = v[deform][k] * (1.0 - t)
                     v[deform][thigh] = v[deform].get(thigh, 0.0) + t
+        # The sleeves' weights as copied from the skin under them, kept to put back after the shirt's weights are smoothed below.
+        bm.verts.index_update()
+        sleeve_w = {v.index: dict(v[deform]) for v in sleeve_pts}
         bm.to_mesh(obj.data)
         bm.free()
         for poly in obj.data.polygons:
@@ -2354,6 +2364,14 @@ def build_garments(skin, J, neck):
                         group.add([v.index], w, "REPLACE")
                     elif n in now:
                         group.remove([v.index])
+            # The sleeves bend exactly as the arm's skin under them: the smoothing and `release_trunk` above (both told sleeve from body by
+            # the pushed-out cloth) gave the puffed sleeve's underside to the spine, so a raised arm left it behind in torn white sheets.
+            groups = list(obj.vertex_groups)
+            for i, w in sleeve_w.items():
+                for g in groups:
+                    g.remove([i])
+                for gi, x in w.items():
+                    groups[gi].add([i], x, "REPLACE")
             # Where the sleeve meets the side the cloth pinches when the elbows come in; the ink outline is left out there (the vertex
             # colour's red is how much outline a point gets: shaders/outline.gdshader), so the folds do not turn into black scratches.
             ink = obj.data.color_attributes.new("outline", "FLOAT_COLOR", "POINT")

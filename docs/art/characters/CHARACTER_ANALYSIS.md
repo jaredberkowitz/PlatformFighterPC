@@ -63,3 +63,26 @@ material, not bone structure (the reference's bodies are as simple as ours: a so
 7. **Neck.** The reference's head sinks into the collar, no neck at all; ours still shows a short skin band between head and shirt.
 8. **Lighting.** The reference has a warm bounce and soft occlusion where clothes meet the body (under the head, the sash edges); ours
    has none on the fighters.
+
+## Cloth clean-up: sleeves that tore (2026-10-19, after round 19)
+**Defect.** The shirt's sleeves tore into white sheets and spikes whenever an arm moved (attacks, a raised arm), and the sleeve hems
+were ragged even at rest. Rounds 18 and 19 saw it as the sleeve "gathering at the shoulder in a bend".
+
+**Cause** (`make_rigged_blob.py`, `build_garments`). A cloth point was told to be sleeve or body by `on_arm` on its *pushed-out*
+position. A puffed sleeve stands about 0.26 from the arm's line, beyond `ARM_RADIUS` (0.15 since round 19, 0.19 before), so most of the
+sleeve counted as torso: it took the trunk's bones and stayed behind when the arm moved, and its hem points missed the sleeve hem's
+smoothing. The shirt's weight smoothing and `release_trunk` (both judging by the pushed-out cloth too) then handed the sleeve's underside
+to the spine.
+
+**Fix.** Each cloth point is classified by where it lay on the skin before it was smoothed and pushed out (`src`, `sleeve_pts`), and
+takes the weights of that skin point; the sleeves keep those weights after the shirt's smoothing. No proportion, colour or clip changed.
+
+**Checked.** Close-ups at rest, arms forward and arms overhead, and the forward-thrust attack sheet, before and after in the same
+camera and pose (`cloth_sleeve_fix.png`: red strip before, green after); run and hurt sheets unchanged; fighter view, art pipeline,
+loadout and animation library tests pass. Rebuilding the unchanged script reproduces the committed rig (only float noise in the face's
+normals), so the before/after differences are this change alone. The torso's cloth under a raised arm still stretches in a soft web.
+
+**Found, not fixed (needs the owner's call).** The shorts' cuff (0.54 to 0.60 high) and the socks' turned-down tops (0.49 to 0.55) both
+lie over the knee joint (0.51). In the stance's slight knee bend the skin folds out through them: the band of bare leg under the
+shorts and the white teeth along the cuff. Matching their weights to the skin did not help (tried and reverted); the fix is to move
+one of them off the knee: shorter shorts (the cuff above about 0.58) or lower socks, leaving some bare knee as the references do.
