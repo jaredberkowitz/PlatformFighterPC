@@ -13,6 +13,7 @@ Writes godot/models/gear/<name>.glb (then `Godot --headless --path godot --impor
 """
 
 import math
+import random
 import os
 import sys
 
@@ -148,35 +149,76 @@ def aviator_cap():
             ph = min(phi, low) if j == seg_v else phi * (low / math.radians(88.0))
             # (Well clear of the head: the fighter's head is an oval the design sphere only approximates, and 0.045 off it sank in.)
             # (On the built cap's own ellipsoid, centred high on the head, so it clears the face shell and the oval head everywhere.)
-            r = 0.87
+            # (Lower and fuller, the aviator scout pilot: on the head's crown it sat high as a beret; the reference's hat comes down to the
+            # brow and round over the ears.)
+            r = 0.9
             x = r * math.sin(ph) * math.cos(a)
             y = r * math.sin(ph) * math.sin(a)
-            z = 1.74 + 0.6 * math.cos(ph)
+            z = 1.6 + 0.7 * math.cos(ph)
             # The seam down the middle of the crown.
             if abs(x) < 0.03:
                 x *= 0.6
                 z -= 0.008
             row.append(bm.verts.new((x, y, z)))
         rows.append(row)
-    top = bm.verts.new((0.0, 0.0, 1.74 + 0.6))
+    top = bm.verts.new((0.0, 0.0, 1.6 + 0.7))
     for i in range(seg_u):
         bm.faces.new((rows[0][i], rows[0][(i + 1) % seg_u], top))
     for j in range(seg_v):
         for i in range(seg_u):
             k = (i + 1) % seg_u
             bm.faces.new((rows[j][i], rows[j][k], rows[j + 1][k], rows[j + 1][i]))
+    rim = [v.co.copy() for v in rows[-1]]
     bmesh.ops.solidify(bm, geom=bm.faces[:], thickness=-0.03)
     o = to_object("leather_shell", bm)
     o.parent = root
-    # Ear flaps: rounded tabs at the sides, curving with the head.
+    # (The aviator scout pilot, 2026-10-19, after the owner's reference: a fleece-lined flying hat, its fleece rolled out round the rim and
+    # lining big ear flaps, and hair spilling out under it; the close leather cap alone read as a bare skull cap.)
+    # The fleece roll round the rim: a fat lumpy tube following the shell's lower edge, a little out from it.
+    rng = random.Random(23)
+    bm = bmesh.new()
+    n = len(rim)
+    minor = 10
+    loops = []
+    for i in range(n):
+        c = rim[i]
+        out = Vector((c.x, c.y, 0.0)).normalized()
+        tangent = (rim[(i + 1) % n] - rim[i - 1]).normalized()
+        up = tangent.cross(out).normalized()
+        if up.z < 0.0:
+            up = -up
+        lump = 1.0 + 0.12 * math.sin(i * 1.7) + rng.uniform(-0.06, 0.06)
+        loop = []
+        for j in range(minor):
+            b_ = math.tau * j / minor
+            r = 0.13 * lump * (1.0 + 0.1 * math.sin(b_ * 3.0 + i))
+            loop.append(bm.verts.new(c + out * 0.01 + (out * math.cos(b_) + up * math.sin(b_)) * r))
+        loops.append(loop)
+    for i in range(n):
+        for j in range(minor):
+            bm.faces.new((loops[i][j], loops[(i + 1) % n][j], loops[(i + 1) % n][(j + 1) % minor], loops[i][(j + 1) % minor]))
+    to_object("fleece_trim", bm).parent = root
+    # Ear flaps: long leather tabs hanging past the jaw, each lined with fleece that shows round its edge.
     for sx in (-1.0, 1.0):
-        bm = bmesh.new()
-        ret = bmesh.ops.create_uvsphere(bm, u_segments=18, v_segments=12, radius=1.0)
-        for v in ret["verts"]:
-            v.co = Vector((v.co.x * 0.09, v.co.y * 0.24, v.co.z * 0.3))
-        bmesh.ops.translate(bm, vec=Vector((sx * 0.83, 0.04, 1.48)), verts=ret["verts"])
-        o = to_object("leather_flap" + ("L" if sx < 0 else "R"), bm)
-        o.parent = root
+        nm = "L" if sx < 0 else "R"
+        for part, k, inset in (("leather_flap", 1.0, 0.0), ("fleece_flap", 1.12, -0.035)):
+            bm = bmesh.new()
+            ret = bmesh.ops.create_uvsphere(bm, u_segments=20, v_segments=14, radius=1.0)
+            for v in ret["verts"]:
+                v.co = Vector((v.co.x * 0.09, v.co.y * 0.36 * k, v.co.z * 0.6 * k))
+                # (Splayed out toward the bottom, as the reference's flaps hang loose.)
+                v.co.x += sx * 0.16 * max(0.0, -v.co.z / 0.6)
+            bmesh.ops.translate(bm, vec=Vector((sx * (0.92 + inset), 0.1, 1.1)), verts=ret["verts"])
+            to_object(part + nm, bm).parent = root
+    # Hair spilling out under the hat round the sides and back: soft thick locks hanging down and out.
+    locks = 13
+    for k in range(locks):
+        a = math.radians(-20.0 + 220.0 * k / (locks - 1))   # from the right side round the back to the left (front is -y)
+        a = math.radians(-10.0) + (math.pi + math.radians(20.0)) * k / (locks - 1)
+        base = Vector((0.84 * math.cos(a), 0.84 * math.sin(a), 1.5))
+        out = Vector((math.cos(a), math.sin(a), 0.0))
+        d = out * 0.25 + Vector((0.0, 0.0, -1.0))
+        _lock("hair_spill%d" % k, base, d, rng.uniform(0.7, 1.0), rng.uniform(0.18, 0.24), 0.1).parent = root
     # The goggles' band round the brow, and the goggles on it.
     bm = bmesh.new()
     lathe(bm, [(head_r(1.86) + 0.14, 1.86), (head_r(1.95) + 0.14, 1.95)])

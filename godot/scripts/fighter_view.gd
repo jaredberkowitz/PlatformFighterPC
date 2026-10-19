@@ -398,6 +398,11 @@ func _build_rig(skin: Material) -> bool:
 		elif part.begins_with("Buckle"):
 			mi.material_override = respond(toon(BELT_BRASS), "rubber")
 			mi.visible = loadout.has_shorts()
+		elif part.begins_with("SleeveTrim"):
+			# The band round each sleeve's end (the aviator scout pilot, the owner's reference): the outfit colour on a white shirt, white
+			# on a coloured or printed one.
+			mi.visible = loadout.shirt > 0
+			mi.material_override = _cloth(toon(loadout.accent_color() if loadout.shirt == 1 else SHIRT_WHITE))
 		elif part.begins_with("ShirtCollar") or part.begins_with("ShirtPlacket"):
 			# The collar and the placket, modelled on the shirt's front (make_rigged_blob.py's `shirt_front`): a shade darker than a plain
 			# shirt, white on a printed one; the collar hides under a ring of neckwear.
@@ -1660,7 +1665,8 @@ const BELT_BRASS := Color(0.95, 0.74, 0.32)
 func _collar_colour() -> Color:
 	match loadout.shirt:
 		1:
-			return SHIRT_WHITE.darkened(0.06)
+			# (The outfit colour on a white shirt, as the reference scout's green collar, the aviator scout pilot.)
+			return loadout.accent_color()
 		2:
 			return loadout.accent_color().darkened(0.12)
 	return SHIRT_WHITE
@@ -1970,18 +1976,41 @@ func _neck_on_rig(accent: Color) -> void:
 				_part(sash, strap, _cloth(toon(SASH, false)), Vector3.ZERO)
 			else:
 				_part(sash, ring, toon(SASH, false), Vector3.ZERO, Vector3(0.88, 1.7, 1.0))
-			# Round badges pinned on the front of the band, facing out from it.
-			var badge := CylinderMesh.new()
-			badge.top_radius = 0.068
-			badge.bottom_radius = 0.068
-			badge.height = 0.03
-			badge.radial_segments = 16
-			var colours := [Color(1.0, 0.82, 0.3), accent, Color(0.95, 0.95, 0.92)]
-			for k in 3:
-				var t := deg_to_rad(78.0 + 15.0 * k)
+			# Six small square enamel badges along the band, facing out from it (the aviator scout pilot, 2026-10-19, after the owner's
+			# reference: three big plain dots read as buttons): each a brass plate with a coloured enamel face and a pale mark on it.
+			var plate := BoxMesh.new()
+			plate.size = Vector3(0.108, 0.024, 0.108)
+			var face := BoxMesh.new()
+			face.size = Vector3(0.078, 0.03, 0.078)
+			var mark := BoxMesh.new()
+			mark.size = Vector3(0.03, 0.036, 0.03)
+			var brass := respond(toon(Color(0.86, 0.68, 0.32)), "gold")
+			var colours := [Color(0.92, 0.32, 0.28), accent, Color(0.3, 0.52, 0.86), Color(0.98, 0.8, 0.28), Color(0.4, 0.7, 0.42),
+				Color(0.62, 0.42, 0.8)]
+			# (All six in one mesh, a surface per material, so the sash keeps to the loadout's mesh budget.)
+			var tools := {}
+			var order: Array = []
+			for k in 6:
+				var t := deg_to_rad(62.0 + 11.0 * k)
 				var out := Vector3(0.88 * cos(t), 0.0, sin(t)).normalized()
-				var b := _part(sash, badge, toon(colours[k]), Vector3(0.88 * 0.655 * cos(t), 0.0, 0.655 * sin(t)))
-				b.basis = Basis(Quaternion(Vector3.UP, out))
+				var at_b := Vector3(0.88 * 0.655 * cos(t), 0.0, 0.655 * sin(t))
+				var turn := Basis(Quaternion(Vector3.UP, out)) * Basis(Vector3.UP, deg_to_rad(8.0 * float(k % 3 - 1)))
+				for piece in [[plate, "brass"], [face, "face%d" % k], [mark, "mark"]]:
+					var key: String = piece[1]
+					if not tools.has(key):
+						var st := SurfaceTool.new()
+						st.begin(Mesh.PRIMITIVE_TRIANGLES)
+						tools[key] = st
+						order.append(key)
+					(tools[key] as SurfaceTool).append_from(piece[0], 0, Transform3D(turn, at_b))
+			var badges := ArrayMesh.new()
+			for key in order:
+				(tools[key] as SurfaceTool).commit(badges)
+			var bm := _part(sash, badges, null, Vector3.ZERO)
+			for i in order.size():
+				var key: String = order[i]
+				var m: Material = brass if key == "brass" else (toon(Color(0.98, 0.95, 0.88)) if key == "mark" else toon(colours[int(key.substr(4))]))
+				bm.set_surface_override_material(i, m)
 			# The sash's knotted end hanging at the hip, swinging with the body (`TailRig`).
 			_tail(centre + Vector3(0.3, -0.36, 0.4), toon(SASH, false), 0.36, 0.13, 0.05, 3)
 		2:
@@ -2108,7 +2137,9 @@ func _gear_model(name: String, accent: Color) -> bool:
 	# (A model's "metal" is the helm's steel, or the caps' brass; "brass" and "gold" name themselves.)
 	var mats := {"fabric": _fabric(accent), "canvas": _cloth(toon(Color(0.95, 0.94, 0.9))), "leather": _cloth(toon(Color(0.52, 0.33, 0.21))),
 		"metal": steel if name == "plumed_helm" else brass, "brass": brass, "gold": gold, "glass": toon(Color(0.66, 0.84, 0.95), false),
-		"straw": straw, "hair": toon(FaceLook.BROW_COLORS[clampi(loadout.brow_color, 0, FaceLook.BROW_COLORS.size() - 1)])}
+		"straw": straw, "hair": toon(FaceLook.BROW_COLORS[clampi(loadout.brow_color, 0, FaceLook.BROW_COLORS.size() - 1)]),
+		# (Cream fleece, the aviator scout pilot, 2026-10-19.)
+		"fleece": _cloth(toon(Color(0.93, 0.86, 0.72)))}
 	# One mesh per material, its parts merged (the loadout budget, docs plan 7.3: the crown's set stones and the helm's plume feathers, a
 	# mesh each, came to 16 and 24 meshes on one hat).
 	var groups := {}

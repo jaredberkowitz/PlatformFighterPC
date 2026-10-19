@@ -1268,7 +1268,7 @@ FIST_SCALE = 0.74
 # The glove's fist (it is built bigger and rounder than the bare hand, with knuckles and a cuff): smaller, or a gloved fighter carried two
 # white balloons.
 GLOVE_SCALE = 0.74
-GLOVE_GROW = 1.1     # the base body's glove against its bare hand
+GLOVE_GROW = 1.0     # the base body's glove against its bare hand (1.1 until the aviator scout pilot, 2026-10-19: the reference's gloves are slim, ours read puffy)
 ## The wrist radius FIST_SCALE and FIST_CLOSED are set for (the cage body's, 2026-10-15); a body with thicker wrists gets bigger hands.
 HAND_WRIST = 0.082
 FIST_CLOSED = 0.74   # the closed fist (`fist`, built to the open hand's size) against the blob's
@@ -1927,6 +1927,10 @@ BOOT_CUFF_LIFT = 0.046
 # The shorts' rolled cuffs, a band round each leg opening standing a little proud of the cloth.
 CUFF_HEIGHT = 0.06
 CUFF_LIFT = 0.06
+# The sleeves' trim (the aviator scout pilot, 2026-10-19, the owner's reference: a coloured band round each sleeve's end, standing proud),
+# this share of the upper arm long and lifted this far off the skin.
+SLEEVE_TRIM = 0.12
+SLEEVE_TRIM_LIFT = 0.112
 SLEEVE_SNUG = 0.55      # the sleeve's opening hugs the arm (this share of the shirt's distance), so no dark gap shows inside it
 SHORTS_TOP = -0.002   # the shorts reach just under the shirt's hem (below it a little, they could poke through)
 SHORTS_LIFT = 0.04     # the shorts sit a little closer in, so the shirt's hem lies over their waistband
@@ -2021,6 +2025,9 @@ def build_garments(skin, J, neck):
     def in_cuff(co):
         return not on_arm(co) and shorts_end < co.z < cuff_top and co.z < crotch
 
+    def in_sleeve_trim(co):
+        return co.z < neck_line and on_arm(co) and SLEEVE - SLEEVE_TRIM < sleeve_t(co) < SLEEVE
+
     def boot_hem(co):
         return abs(co.z - boot_top)
 
@@ -2042,6 +2049,7 @@ def build_garments(skin, J, neck):
     for side in "LR":
         a, b = arm[side]
         cuts.append((a + (b - a) * SLEEVE, (b - a).normalized()))
+        cuts.append((a + (b - a) * (SLEEVE - SLEEVE_TRIM), (b - a).normalized()))
     skin_points = kdtree.KDTree(len(skin.data.vertices))
     for v in skin.data.vertices:
         skin_points.insert(v.co, v.index)
@@ -2087,7 +2095,8 @@ def build_garments(skin, J, neck):
     out = {}
     for name, inside, hem, lift in (("Shirt", in_shirt, shirt_hem, SHIRT_LIFT), ("Shorts", in_shorts, shorts_hem, SHORTS_LIFT),
                                     ("Belt", in_belt, belt_hem, BELT_LIFT), ("Boot", in_boot, boot_hem, BOOT_LIFT),
-                                    ("BootSole", in_sole, belt_hem, SOLE_LIFT), ("BootCuff", in_boot_cuff, belt_hem, BOOT_CUFF_LIFT), ("ShortsCuff", in_cuff, belt_hem, CUFF_LIFT)):
+                                    ("BootSole", in_sole, belt_hem, SOLE_LIFT), ("BootCuff", in_boot_cuff, belt_hem, BOOT_CUFF_LIFT), ("ShortsCuff", in_cuff, belt_hem, CUFF_LIFT),
+                                    ("SleeveTrim", in_sleeve_trim, belt_hem, SLEEVE_TRIM_LIFT)):
         obj = skin.copy()
         obj.data = skin.data.copy()
         obj.name = name
@@ -2174,9 +2183,9 @@ def build_garments(skin, J, neck):
         levels = {"Shirt": [waist - 0.012, neck_line], "Shorts": [waist + SHORTS_TOP, shorts_end],
                   "Belt": [waist - BELT_HALF, waist + BELT_HALF], "Boot": [boot_top], "BootSole": [SOLE_HEIGHT],
                   "BootCuff": [boot_top - BOOT_CUFF, boot_top],
-                  "ShortsCuff": [shorts_end, cuff_top]}[name]
+                  "ShortsCuff": [shorts_end, cuff_top], "SleeveTrim": []}[name]
         for v in hems:
-            if on_arm(v.co):
+            if on_arm(v.co) or not levels:
                 continue
             nearest = min(levels, key=lambda z: abs(v.co.z - z))
             if abs(v.co.z - nearest) < 0.04:
