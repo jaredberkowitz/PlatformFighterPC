@@ -1032,7 +1032,23 @@ static func solid_block(parent: Node3D, t: Dictionary, left: float, right: float
 				grass.set_shader_parameter("blades", 0.8)
 			# A worn path along the play line (the gauntlet's round 1), and broader patches.
 			grass = grass.duplicate()
-			grass.set_shader_parameter("worn_path", 0.25 if t.name == "meadow" else 0.55)
+			grass.set_shader_parameter("worn_path", 0.55)
+			if t.name == "meadow":
+				# (The meadow rebuild's step 3, after the owner's blue-mountain reference: a nearly flat lime lawn, no texture, with a continuous
+				# pale cream path along the play line; its shading from the light alone.)
+				# (The drawn tile carries the colour over a white base: off, the lawn takes its colour itself.)
+				var lawn_c: Color = t.grass
+				grass.set_shader_parameter("use_tex", false)
+				grass.set_shader_parameter("albedo", lawn_c)
+				grass.set_shader_parameter("blades", 0.0)
+				grass.set_shader_parameter("worn_path", 1.0)
+				grass.set_shader_parameter("worn_breaks", 0.0)
+				grass.set_shader_parameter("worn_width", 2.2)
+				grass.set_shader_parameter("worn_back", 1.2)
+				# (The tint multiplies the lawn's linear colour up to the cream; colour uniforms are read as sRGB, so it is given in sRGB.)
+				var cream := Color(0.95, 0.93, 0.76).srgb_to_linear()
+				var lin := lawn_c.srgb_to_linear()
+				grass.set_shader_parameter("worn_tint", Color(cream.r / lin.r, cream.g / lin.g, cream.b / lin.b).linear_to_srgb())
 			grass.set_shader_parameter("patch_amount", maxf(float(t.get("grass_patch", 0.0)), 0.45))
 			# Deeper and cooler toward the back edge (a theme's `grass_back`), so the lawn recedes.
 			if t.has("grass_back"):

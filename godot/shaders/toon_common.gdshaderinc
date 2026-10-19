@@ -42,6 +42,11 @@ global uniform vec4 pf_front_calm;
 // without the benchmark's wear). `worn_tint` is what the ground wears toward.
 uniform float worn_path = 0.0;
 uniform vec3 worn_tint : source_color = vec3(1.45, 1.2, 0.55);
+// How much the worn band breaks into patches (1 as drawn; 0 a continuous path, the meadow's cream path after the owner's reference).
+uniform float worn_breaks = 1.0;
+// The worn band's width (times its drawn width) and how far back its middle sits (world units).
+uniform float worn_width = 1.0;
+uniform float worn_back = 0.0;
 // Fall into the front shade by height (as `front_fall` does on a world-laid front) on any surface: the modelled pieces on a building
 // front (scripts/stage_art.gd `_facade_windows`) settle back with the wall they stand on.
 uniform bool fall_by_height = false;
@@ -209,10 +214,11 @@ void fragment() {
 		float x = world_pos.x;
 		// (Its middle wanders a little either side of the play line, its width breathes, and it breaks into patches.)
 		float mid = -0.4 + 0.35 * sin(x * 0.23 + 1.1) + 0.2 * sin(x * 0.61);
-		float half_w = 0.9 + 0.35 * sin(x * 0.41 + 2.0);
+		mid -= worn_back;
+		float half_w = (0.9 + 0.35 * sin(x * 0.41 + 2.0)) * worn_width;
 		float band = 1.0 - smoothstep(half_w * 0.5, half_w, abs(world_pos.z - mid));
 		float breaks = smoothstep(-0.35, 0.25, sin(x * 0.53 + sin(x * 0.17) * 2.0) + 0.5 * sin(x * 1.7 + world_pos.z * 2.3));
-		float w = band * breaks * worn_path;
+		float w = band * mix(1.0, breaks, worn_breaks) * worn_path;
 		c = mix(c, c * worn_tint, w);
 		blade_light = blade_light < 0.0 ? blade_light : blade_light * (1.0 - 0.6 * w);
 	}
