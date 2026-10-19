@@ -816,7 +816,8 @@ const ARM_BULK := {7: [Vector3(1.55, 1.08, 1.55), Vector3(1.45, 1.35, 1.45)]}
 ## across and front to back, the bone's own x and z.)
 ## (Wider and squatter again, the character pass, 2026-10-19: the reference cast's heads are broad squat ovals, wider than the shoulders.)
 const HEAD_SIZE := Vector3(1.32, 1.0, 1.2)
-const HAND_SIZE := 1.25
+## (1.4, the character judge's round 7: the reference's gloves are about half the head's width, a main shape.)
+const HAND_SIZE := 1.4
 ## How strong the skin's faint painted grain is (`skin_grain` in shaders/skin.gdshader), the character pass, 2026-10-19.
 const SKIN_GRAIN := 0.15
 ## (0.9, the character judge's round 1: the reference's shoes are small; big rounded ones read as clown shoes.)

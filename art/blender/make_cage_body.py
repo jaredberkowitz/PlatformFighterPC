@@ -249,8 +249,45 @@ def build_cage():
     return cage
 
 
+# The character judge's round 7 (2026-10-19), after the owner's reference cast: thighs shorter (the reference's scouts stand on stubby legs,
+# shorts nearly meeting the socks), the upper body a broader block (wide sloping shoulders, nearly as wide as the head) and the hips a
+# little narrower, so the shirts stop reading pear-shaped. Applied to the cage as a whole, so every ring and loop keeps its place.
+KNEE_Z, CROTCH_Z = 0.445, 0.80
+THIGH_DROP = 0.05          # how much shorter the thighs are; everything above them comes down by it
+SHOULDER_WIDEN = 1.1       # across the chest and shoulders
+HIP_NARROW = 0.95          # across the hips
+TORSO_CORE = 0.36          # inside this distance from the middle a point is scaled; outside it (the sides, the arms) shifted
+
+
+def _reshape(co):
+    x, y, z = co
+    if z > KNEE_Z:
+        z -= THIGH_DROP * min(1.0, (z - KNEE_Z) / (CROTCH_Z - KNEE_Z))
+    # Width by height (in the original heights): the hips narrowed, ramping to the shoulders widened, the neck and head as they were.
+    oz = co[2]
+
+    def ramp(a, b, t):
+        return a + (b - a) * max(0.0, min(1.0, t))
+    if oz < 0.82:
+        k = 1.0
+    elif oz < 0.95:
+        k = ramp(1.0, HIP_NARROW, (oz - 0.82) / 0.13)
+    elif oz < 1.25:
+        k = ramp(HIP_NARROW, SHOULDER_WIDEN, (oz - 0.95) / 0.3)
+    elif oz < 1.5:
+        k = SHOULDER_WIDEN
+    else:
+        k = ramp(SHOULDER_WIDEN, 1.0, (oz - 1.5) / 0.08)
+    if abs(x) <= TORSO_CORE:
+        x *= k
+    else:
+        x += math.copysign(TORSO_CORE * (k - 1.0), x)
+    return (x, y, z)
+
+
 def build(name="BaseBody", levels=SUBDIV):
     cage = build_cage()
+    cage.verts = [Vector(_reshape(v)) for v in cage.verts]
     used = sorted({i for f in cage.faces for i in f})
     remap = {old: new for new, old in enumerate(used)}
     me = bpy.data.meshes.new(name)
