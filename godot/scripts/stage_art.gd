@@ -2996,7 +2996,6 @@ static func _fields(root: Node3D, z: float, y: float, colours: Array, hedge_colo
 	var quad_uv := func(st: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, d: Vector3, uv: Array) -> void:
 		var vs := [a, b, c, d]
 		for i in [0, 2, 1, 0, 3, 2]:
-			st.set_normal(Vector3(0.0, 0.25, 1.0).normalized())
 			st.set_uv(uv[i])
 			st.add_vertex(vs[i])
 	var furrowed := Materials._png_tile("furrows") != null
@@ -3023,11 +3022,22 @@ static func _fields(root: Node3D, z: float, y: float, colours: Array, hedge_colo
 					return Vector2(px / 6.0, 0.5 * (pd - d0) / (d1 - d0))
 				# (Four rows a field across and one every two units down it, round 28: at eight they read as fine hatching.)
 				return Vector2(pd / 4.0, (px - x) / 16.0)
+			# (Each field a gently domed plot of land, swelling toward the camera in its middle so the sun catches it at its own angle, the
+			# meadow rebuild's step 2 after the papercraft camp, 2026-10-19: flat fills read as paint on a card.)
+			var dome_amp := (d1 - d0) * 0.07
+			var dome := func(px: float, pd: float) -> Vector3:
+				var u := clampf((px - x) / w, 0.0, 1.0)
+				var v := clampf((pd - d0) / (d1 - d0), 0.0, 1.0)
+				var b := dome_amp * sin(PI * u) * sin(PI * v)
+				return front + Vector3(0.0, b * 0.8, b * 0.35)
 			while xa < x + w:
 				var xb := minf(xa + step, x + w)
 				if furrowed:
-					quad_uv.call(st, at.call(xa, d1) + front, at.call(xb, d1) + front, at.call(xb, d0) + front, at.call(xa, d0) + front,
-						[uv_at.call(xa, d1), uv_at.call(xb, d1), uv_at.call(xb, d0), uv_at.call(xa, d0)])
+					for sub in 3:
+						var da := lerpf(d0, d1, float(sub) / 3.0)
+						var db := lerpf(d0, d1, float(sub + 1) / 3.0)
+						quad_uv.call(st, at.call(xa, db) + dome.call(xa, db), at.call(xb, db) + dome.call(xb, db), at.call(xb, da) + dome.call(xb, da),
+							at.call(xa, da) + dome.call(xa, da), [uv_at.call(xa, db), uv_at.call(xb, db), uv_at.call(xb, da), uv_at.call(xa, da)])
 				else:
 					quad.call(st, at.call(xa, d1) + front, at.call(xb, d1) + front, at.call(xb, d0) + front, at.call(xa, d0) + front)
 				xa = xb
@@ -3086,11 +3096,15 @@ static func _fields(root: Node3D, z: float, y: float, colours: Array, hedge_colo
 		# with the soil detail over it.)
 		var fm := (Materials._make("grass", c, "furrows", Vector2.ONE, 0.0, false) if furrowed else Materials.world("field", c, 6.0, false)).duplicate() as ShaderMaterial
 		fm.set_shader_parameter("world_vary", 0.05)
+		fm.set_shader_parameter("ramp_softness", 0.5)
 		Materials.set_detail(fm, "soil", 0.25, 5.0)
 		materials.append(fm)
 	materials.append(_soft(hedge_colour.darkened(0.12)))
 	materials.append(_soft(Color(0.9, 0.8, 0.58)))
 	for i in tools.size():
+		# (The domed fields shade by their own normals.)
+		if furrowed and i < colours.size():
+			(tools[i] as SurfaceTool).generate_normals()
 		_mesh(root, (tools[i] as SurfaceTool).commit(), materials[i], Vector3.ZERO)
 	_mesh(root, furrow_green.commit(), _soft((colours[0] as Color).darkened(0.16)), Vector3.ZERO)
 	_mesh(root, furrow_gold.commit(), _soft((colours[colours.size() - 1] as Color).darkened(0.14)), Vector3.ZERO)
@@ -6081,7 +6095,8 @@ static func _meadow_hill(root: Node3D, t: Dictionary, l: float, r: float, bottom
 	var x1 := cx + w * 1.6 + 20.0
 	var z0 := front - 14.0
 	var z1 := front + 22.0
-	var step := 1.0
+	# (Big faceted planes, the meadow rebuild's step 2, as the hills behind: a fine smooth field read as one flat green.)
+	var step := 2.6
 	var nx := int((x1 - x0) / step)
 	var nz := int((z1 - z0) / step)
 	var n := FastNoiseLite.new()
@@ -6095,7 +6110,7 @@ static func _meadow_hill(root: Node3D, t: Dictionary, l: float, r: float, bottom
 			var dz := maxf(0.0, z - front)
 			var d := sqrt(dx * dx + dz * dz)
 			# (A long falling slope, steepening a little, not a dome.)
-			var y := bottom + 0.05 - 0.55 * d - 0.006 * d * d + n.get_noise_2d(x, z) * 1.6 * smoothstep(5.0, 12.0, d)
+			var y := bottom + 0.05 - 0.55 * d - 0.006 * d * d + n.get_noise_2d(x, z) * 2.4 * smoothstep(2.0, 8.0, d)
 			st.add_vertex(Vector3(x, y, z))
 	for j in nz:
 		for i in nx:
@@ -6106,7 +6121,10 @@ static func _meadow_hill(root: Node3D, t: Dictionary, l: float, r: float, bottom
 			for idx in [a0, b0, d0, a0, d0, c0]:
 				st.add_index(idx)
 	st.generate_normals()
-	var hill := _mesh(root, st.commit(), grass, Vector3.ZERO)
+	var hill_mat := grass.duplicate() as ShaderMaterial
+	hill_mat.set_shader_parameter("facets", true)
+	hill_mat.set_shader_parameter("blades", 0.0)
+	var hill := _mesh(root, st.commit(), hill_mat, Vector3.ZERO)
 	hill.name = "Underside"
 	# Shade at the wall's foot.
 	var band := _mesh(root, _shade_band(w + 0.4, 1.2), _band_material(), Vector3(cx, bottom + 0.3, front + 0.45))
