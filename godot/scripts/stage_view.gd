@@ -95,7 +95,12 @@ func build(sim) -> void:
 	var trees = StageBake.tree_source(String(theme.get("name", "")))
 	StageArt.tree_mock = trees != null
 	StageArt.tree_slots.clear()
+	StageArt.ground_mock = StageBake.flag("--ground-mock=") != ""
+	StageArt.bush_slots.clear()
 	StageArt.backdrop(scenery, theme, extent)
+	if StageArt.ground_mock:
+		StageBake.mock_ground(scenery, theme)
+		StageArt.ground_mock = false
 	if StageArt.tree_mock:
 		StageBake.place_trees(scenery, theme, StageArt.tree_slots, trees)
 		StageArt.tree_mock = false

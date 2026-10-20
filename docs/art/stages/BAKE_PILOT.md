@@ -133,3 +133,16 @@ The owner, after the front: the background now lacked by comparison; improve the
   it in the old lighter bark if the owner wants it back. The crowns no longer sway (the code-built crowns did). Re-baked: 83 background
   meshes take baked light.
 - **Tests:** all seven Godot tests pass.
+
+## Step 4 mocks: the grove's ground and bushes (2026-10-20)
+
+- **Hook:** `--ground-mock=<glb>` and `--bush-mock=<glb>` on the stage demo (`StageArt.ground_mock`, `StageBake.mock_ground`): the
+  grove's hill rows, rise, forest canopy, far tree line and bushes are built into a node that is thrown away (their random numbers still
+  drawn, so nothing else moves), the bushes' places kept in `bush_slots`; the model is placed in world space, each piece painted from the
+  palette with its own vertex occlusion and the air of its depth. The far mountain ranges stay.
+- **Builder:** `art/blender/make_grove_ground.py --variant A|B|C` (ground on the side trees' measured footing, -9.3 at x -30 and 32,
+  depth -55; bush at size 1). A stepped ledges (27,500 triangles), B a forest of pleated trees falling away (136,000, to be cut if
+  picked), C floating islets (10,200). Bushes: folded leaf heaps (A, C) or pleated fern rosettes (B).
+- **First renders fixed:** the terraces' faces wound away from the camera (culled; the trees stood on nothing), and the cliffs went a pale
+  grey under the distance air; now a deep teal.
+- Options in `mocks/grove_ground/` (wide and match camera) and on the owner's fidelity page. Recommended C.

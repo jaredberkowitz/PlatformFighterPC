@@ -1002,6 +1002,11 @@ static var front_modelled := false
 ## (its random numbers still drawn, so nothing else moves) and records where each tree stands in `tree_slots` ([base, size]).
 static var tree_mock := false
 static var tree_slots: Array = []
+## True while the grove is built with a modelled ground (`--ground-mock=`, StageBake.mock_ground): its hill rows, rise, forest canopy and
+## far tree line are built into a node that is thrown away (their random numbers still drawn, so nothing else moves), and its bushes
+## likewise, each recorded in `bush_slots` ([position, size, turn]) for the modelled bush (`--bush-mock=`).
+static var ground_mock := false
+static var bush_slots: Array = []
 
 
 ## The grove's island as one rounded quilted hull over all its solid blocks (`rects` from the sim, as the stage view has them), its
@@ -4773,20 +4778,21 @@ static func _grove(root: Node3D, t: Dictionary, stage: Array) -> void:
 	rng.seed = 3
 	# (Deeper and cooler, the judge's round 39 and the owner's grove reference, a lush island over a darker violet distance: the pale
 	# green hills read as a milky fog band and the island did not pop.)
-	_hills(root, rng, _pal("hills_near"), _pal("hills_far"))
+	var ground: Node3D = Node3D.new() if ground_mock else root
+	_hills(ground, rng, _pal("hills_near"), _pal("hills_far"))
 	_clouds(root, rng, 8, Color(1, 0.97, 1), Vector2(10, 36))
 	_birds(root, rng, Color(0.25, 0.22, 0.3))
 	var top: float = stage[2] if stage.size() == 4 else 0.0
 	var left: float = stage[0] if stage.size() == 4 else -11.0
 	var right: float = stage[1] if stage.size() == 4 else 11.0
 	# A far line of soft tree shapes on the hills, between them and the trees, for one more layer of depth (the haze fades it).
-	_tree_line(root, rng, top - 16.0, -78.0, Color(0.5, 0.72, 0.56))
+	_tree_line(ground, rng, top - 16.0, -78.0, Color(0.5, 0.72, 0.56))
 	# The great tree, set back behind the island's middle.
 	_tree(root, Vector3(0, top - 2.0, -19.0), 1.0, rng)
 	# (No roots under the quilted island, the owner, 2026-10-19: they conflicted with its front. `_grove_roots` kept for other uses.)
 	# A low rise of land in front of the hills, and two smaller trees standing on it either side (feet just behind its edge).
 	# (A rounded ridge, not the meadow's valley floor: the forest canopy fills the valley below it.)
-	_fore_band(root, -52.0, top - 11.0, _pal("fore_band"), ROLL_PROFILE)
+	_fore_band(ground, -52.0, top - 11.0, _pal("fore_band"), ROLL_PROFILE)
 	_tree(root, Vector3(-30, fore_top(-30.0, top - 11.0) - 0.6, -55.0), 0.6, rng)
 	_tree(root, Vector3(32, fore_top(32.0, top - 11.0) - 0.6, -55.0), 0.55, rng)
 	_ground_shadow(Vector3(-30, 0, -55.0), Vector2(4.4, 3.0), -52.0)
@@ -4796,7 +4802,7 @@ static func _grove(root: Node3D, t: Dictionary, stage: Array) -> void:
 	# read as shapeless fog blobs, the weakest thing on the stage. Art review 6, refinement round 1.)
 	# (Deeper and more saturated than they show: the depth haze lifts them toward mint, gauntlet round 2.)
 	# (Far below and further back, the owner, 2026-10-19: level with the island, its crowns read as trees standing in the air beside it.)
-	_canopy(root, -58.0, top - 21.0, [Color(0.08, 0.36, 0.2), Color(0.16, 0.48, 0.2), Color(0.06, 0.32, 0.22), Color(0.2, 0.52, 0.2)])
+	_canopy(ground, -58.0, top - 21.0, [Color(0.08, 0.36, 0.2), Color(0.16, 0.48, 0.2), Color(0.06, 0.32, 0.22), Color(0.2, 0.52, 0.2)])
 	# Round bushes along the back of the island.
 	var bush_greens := Materials.greens(Color(0.3, 0.66, 0.34))
 	var bush := _lobed(Materials.foliage(bush_greens[1]))
@@ -4811,7 +4817,10 @@ static func _grove(root: Node3D, t: Dictionary, stage: Array) -> void:
 	for x in [left + 1.4, left + 3.2, right - 3.2, right - 1.4]:
 		var s := rng.randf_range(1.1, 1.5)
 		if faceted_bush:
-			_place_prop(root, "bush", Vector3(x, top, -6.5), s * 0.95, rng.randf_range(-20.0, 20.0), bush_shade, bush_lit)
+			var turn := rng.randf_range(-20.0, 20.0)
+			_place_prop(ground, "bush", Vector3(x, top, -6.5), s * 0.95, turn, bush_shade, bush_lit)
+			if ground_mock:
+				bush_slots.append([Vector3(x, top, -6.5), s * 0.95, turn])
 			_contact(root, Vector3(x, top, -6.5), Vector2(s * 1.15, s * 0.8))
 			continue
 		_mesh(root, _clump_ball(0), bush, Vector3(x, top + 0.6, -6.5), Vector3(s * 1.3, s, s))
@@ -4821,6 +4830,8 @@ static func _grove(root: Node3D, t: Dictionary, stage: Array) -> void:
 			_mesh(root, _clump_ball(j + 1), bush_light if j != 1 else bush, Vector3(x + side * s * 0.75, top + 0.4 + lr * 0.6 + (0.35 * s if j == 1 else 0.0),
 				-6.2 + absf(side) * 0.2), Vector3(lr * 1.15, lr, lr))
 		_contact(root, Vector3(x, top, -6.5), Vector2(s * 1.15, s * 0.8))
+	if ground_mock:
+		ground.free()
 	# Little flowers and tufts on the grass behind the fighters, gathered toward the ends so the middle of the stage stays clean.
 	_flower_clusters(root, [left, right, top], rng, [Color(1, 1, 1), Color(1, 0.8, 0.9)], Color(0.46, 0.84, 0.42))
 	# Strings of lanterns hung from the great tree out to the smaller ones, under the canopy: the grove is looked after.

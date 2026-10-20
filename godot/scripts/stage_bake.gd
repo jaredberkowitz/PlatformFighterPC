@@ -345,3 +345,62 @@ static func place_trees(root: Node3D, t: Dictionary, slots: Array, source: Varia
 			mi.set_meta("prebaked", true)
 	if source is String:
 		print("tree mock: placed %d trees from %s" % [slots.size(), (source as String).get_file()])
+
+
+## A command-line value (`<prefix><value>`), or "".
+static func flag(prefix: String) -> String:
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with(prefix):
+			return a.substr(prefix.length())
+	return ""
+
+
+## The colour of each modelled background family, from the stage's palette.
+static func _ground_colours(t: Dictionary) -> Dictionary:
+	var bd: Dictionary = StageArt.palette(String(t.get("name", ""))).get("backdrop", {})
+	var land: Color = bd.get("fore_band", Color(0.26, 0.54, 0.38))
+	return {"grass": land, "grass_far": bd.get("hills_near", Color(0.2, 0.46, 0.4)), "cliff": Color(0.16, 0.36, 0.32),
+		"earth": Color(0.24, 0.2, 0.18), "rock": Color(0.48, 0.55, 0.44), "root": Color(0.46, 0.37, 0.3), "bark": Color(0.46, 0.37, 0.3),
+		"leaf_lit": Color(0.46, 0.74, 0.36), "leaf_shade": Color(0.2, 0.46, 0.3), "moss": (t.get("grass", Color(0.5, 0.8, 0.3)) as Color).darkened(0.12),
+		"fern": Color(0.36, 0.66, 0.34), "fern_shade": Color(0.18, 0.42, 0.26)}
+
+
+## Paints a modelled background piece: each family's toon material, its own baked occlusion (vertex colours), and the air at its depth.
+static func _paint_ground(node: Node3D, colours: Dictionary) -> void:
+	for mi: MeshInstance3D in node.find_children("*", "MeshInstance3D", true, false):
+		for s in mi.mesh.get_surface_count():
+			var src := mi.mesh.surface_get_material(s)
+			var fam := src.resource_name if src != null else "grass"
+			var m := (FighterView.toon(colours.get(fam, Color(0.6, 0.6, 0.6)), false) as ShaderMaterial).duplicate() as ShaderMaterial
+			m.set_shader_parameter("facets", fam != "bark")
+			m.set_shader_parameter("vertex_shade", true)
+			m.set_shader_parameter("ramp_softness", 0.12)
+			mi.set_surface_override_material(s, m)
+		mi.set_meta("prebaked", true)
+		var depth := -(mi.global_transform * mi.mesh.get_aabb().get_center()).z
+		StageArt._air(mi, depth)
+
+
+## A modelled grove ground and bushes to try (`--ground-mock=<glb>`, `--bush-mock=<glb>`, art/blender/make_grove_ground.py): the ground
+## placed as built (world space), the bush at each of the code-built bushes' places (`StageArt.bush_slots`). For mocks only.
+static func mock_ground(root: Node3D, t: Dictionary) -> void:
+	var colours := _ground_colours(t)
+	var doc := GLTFDocument.new()
+	var state := GLTFState.new()
+	if doc.append_from_file(flag("--ground-mock="), state) == OK:
+		var ground := doc.generate_scene(state)
+		ground.name = "ModelledGround"
+		root.add_child(ground)
+		_paint_ground(ground, colours)
+	var bush_path := flag("--bush-mock=")
+	var bdoc := GLTFDocument.new()
+	var bstate := GLTFState.new()
+	if bush_path != "" and bdoc.append_from_file(bush_path, bstate) == OK:
+		for slot in StageArt.bush_slots:
+			var bush := bdoc.generate_scene(bstate)
+			bush.position = slot[0]
+			bush.scale = Vector3.ONE * float(slot[1])
+			bush.rotation_degrees.y = float(slot[2])
+			root.add_child(bush)
+			_paint_ground(bush, colours)
+	print("ground mock: trees at %s, bushes %d" % [str(StageArt.tree_slots), StageArt.bush_slots.size()])
