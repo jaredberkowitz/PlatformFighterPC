@@ -160,3 +160,15 @@ The owner, after the front: the background now lacked by comparison; improve the
   (793). Fighters 0.55 and 0.56 stand on the path (0.75). The lawn strip in front of the path reads 0.54 to 0.60 since the front pass
   (step 2), close to the fighters' value; it is under their feet, not behind them, but worth a look in the next grove pass.
 - **Re-baked:** 81 background meshes take baked light. **Tests:** all seven Godot tests pass.
+
+## The meadow's front: mocks (2026-10-20)
+
+The same method on the next stage. `art/blender/make_meadow_front.py --variant A|B|C` builds the front on the meadow's block (following
+its 0.13 batter, from under the lawn's slab to the block's foot, where the meadow's hill takes over), with a grass overhang along the top
+and its own occlusion bake (stones in their own tones). A folded rock in the light moss (3,800 triangles), B two courses of logs over
+bevelled stone courses (14,500), C an earth bank with stones set in it (6,600). Options in `mocks/meadow_front/` (close-up, match,
+wide) on the owner's fidelity page; recommended A.
+
+Fixed on the way: `mock_front` hid the meadow's hill (a terrace stage's `Underside` is the hill it stands on, not a keel); the turf
+tongues no longer hang over a modelled front; the overhang's tufts turned over had their undersides facing the sky inside the lawn's
+slab and baked a dark purple band, so they stand upright.

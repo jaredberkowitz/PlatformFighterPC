@@ -258,7 +258,9 @@ static func mock_front(root: Node3D, t: Dictionary) -> bool:
 		if _dying(n):
 			continue
 		var nm := String(n.name)
-		if n is Node3D and (nm.begins_with("quilted_island") or nm.begins_with("Underside") or nm == "block" or nm.begins_with("faceted_ledge")):
+		# (The keel only where the island floats: on a terrace stage `Underside` is the hill the stage stands on, the meadow's.)
+		var keel: bool = nm.begins_with("Underside") and not t.get("terrace", false)
+		if n is Node3D and (nm.begins_with("quilted_island") or keel or nm == "block" or nm.begins_with("faceted_ledge")):
 			(n as Node3D).visible = false
 	place_front(root, t, doc.generate_scene(state))
 	print("front mock: placed %s" % path.get_file())
@@ -274,7 +276,11 @@ static func place_front(root: Node3D, t: Dictionary, scene: Node3D) -> void:
 	var colours := {"quilt": quilt, "button": quilt.darkened(0.35), "earth": (t.get("soil_dark", Color(0.5, 0.35, 0.2)) as Color).darkened(0.55),
 		# (Greyed toward green and the roots a darker bark: under the grove's pink light grey stone read lavender and the bark pink.)
 		"rock": Color(0.48, 0.55, 0.44), "root": Color(0.46, 0.37, 0.3), "moss": grass.darkened(0.12),
-		"moss_shade": grass.darkened(0.5)}
+		"moss_shade": grass.darkened(0.5),
+		# (The meadow's families, art/blender/make_meadow_front.py: its light-moss ledge, the farm's wood, warm stone, soil, the lawn.)
+		"ledge": t.get("ledge", Color(0.4, 0.62, 0.32)), "log": (t.get("wood", Color(0.86, 0.62, 0.36)) as Color).darkened(0.12),
+		"log_end": (t.get("wood", Color(0.86, 0.62, 0.36)) as Color).lightened(0.25), "stone": Color(0.66, 0.64, 0.6),
+		"soil": t.get("soil", Color(0.76, 0.56, 0.36)), "grass": grass}
 	scene.name = "ModelledFront"
 	root.add_child(scene)
 	var top := -INF

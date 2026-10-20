@@ -1400,7 +1400,8 @@ static func solid_block(parent: Node3D, t: Dictionary, left: float, right: float
 				# tongues read as blobs and left the lip a ruled line; a tuft breaks it with blades.)
 				# (The turf tongues stay, the drooping overhang: replaced by tufts the grove's lip went ruler-straight, the gauntlet's round 7.)
 				# (Not on the quilted island, the owner, 2026-10-19: smooth dangling blobs from an older pass; its rim is one fuller rounded lip.)
-				if not t.has("quilt"):
+				# (Nor over a modelled front, which hangs its own grass over its top: with the lip gone the tongues showed as a dark strip.)
+				if not t.has("quilt") and not front_modelled:
 					_mesh(parent, tuft_mesh, grass, Vector3(x, top - cap_h + 0.1 - 0.17 * k * hang, front_z + 0.2 + own.randf_range(-0.04, 0.04)),
 						Vector3(1.2 * wide, 0.8 * hang, 0.6) * k)
 				if rng.randf() < 0.22 and not front_modelled:
