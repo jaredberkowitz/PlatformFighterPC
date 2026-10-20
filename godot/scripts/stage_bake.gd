@@ -21,7 +21,8 @@ const FRONTS := {"grove_14d06e65": "res://models/stages/grove_front.glb", "meado
 const TREES := {"grove": "res://models/stages/grove_tree.glb"}
 ## Modelled background ground and bushes, by the exact stage they were built round ([ground, bush]; make_grove_ground.py, option A, the
 ## owner's pick): the ground stands on the side trees' footing for this layout.
-const GROUNDS := {"grove_14d06e65": ["res://models/stages/grove_ground.glb", "res://models/stages/grove_bush.glb"]}
+const GROUNDS := {"grove_14d06e65": ["res://models/stages/grove_ground.glb", "res://models/stages/grove_bush.glb"],
+	"meadow_62409190": ["res://models/stages/meadow_ground.glb", "res://models/stages/meadow_pines.glb"]}
 ## The toon shaders whose materials take the baked occlusion (they share shaders/toon_common.gdshaderinc).
 const BAKEABLE := ["res://shaders/toon.gdshader"]
 ## Shaders that cast occlusion on the baked meshes without being baked themselves.
@@ -108,7 +109,7 @@ static func export_ground(bake_key: String) -> void:
 		var at: Vector3 = slot[0]
 		pines.append([at.x, at.y, at.z, slot[1], slot[2]])
 	var doc := {"hills_near": StageArt._hill_bumps[0], "hills_far": StageArt._hill_bumps[1], "fore": StageArt._fore_bumps, "pines": pines,
-		"farm": StageArt.farm_span}
+		"farm": StageArt.farm_span, "hill": StageArt.hill_spec}
 	FileAccess.open((DIR % bake_key) + "ground.json", FileAccess.WRITE).store_string(JSON.stringify(doc))
 
 
@@ -434,14 +435,24 @@ static func _ground_colours(t: Dictionary) -> Dictionary:
 		"fern": Color(0.36, 0.66, 0.34), "fern_shade": Color(0.18, 0.42, 0.26),
 		# (The meadow's, art/blender/make_meadow_ground.py: its hill rows, the rise and its fields and hedgerows from the palette, the paper's
 		# cut edge a pale card, its pines in the palette's four greens over a deep shade of them.)
-		"hill_near": bd.get("hills_near", Color(0.36, 0.72, 0.34)), "hill_far": bd.get("hills_far", Color(0.42, 0.66, 0.6)),
-		"rise": bd.get("fore_band", Color(0.46, 0.76, 0.32)), "hedge": bd.get("hedgerow", Color(0.36, 0.58, 0.32)),
-		"card": (bd.get("fore_band", Color(0.46, 0.76, 0.32)) as Color).lerp(Color(0.96, 0.94, 0.78), 0.35), "pine_under": (pines[0] as Color).darkened(0.5), "trunk": Color(0.32, 0.24, 0.2)}
+		# (Calmer than the palette's lime, the owner's paper-layers pick, 2026-10-20: the hill tops and the stage's hill outshone the lawn.)
+		"hill_near": _calm(bd.get("hills_near", Color(0.36, 0.72, 0.34))), "hill_far": bd.get("hills_far", Color(0.42, 0.66, 0.6)),
+		"rise": _calm(bd.get("fore_band", Color(0.46, 0.76, 0.32))), "hedge": bd.get("hedgerow", Color(0.36, 0.58, 0.32)),
+		"hill": _calm(Color(0.46, 0.76, 0.3)).darkened(0.06), "pine_under": (pines[0] as Color).darkened(0.5), "trunk": Color(0.32, 0.24, 0.2)}
 	for k in fields.size():
-		out["field_%d" % k] = fields[k]
+		out["field_%d" % k] = _calm(fields[k])
+	# (Each sheet's cut edge a pale step of its own land, catching the light: in one pale lime they read as snow, then as lime stripes.)
+	for band in ["far", "near", "rise", "hill"]:
+		var own: Color = out["hill_" + band] if band in ["far", "near"] else out[band]
+		out["card_" + band] = own.lerp(Color(0.92, 0.93, 0.86), 0.22)
 	for k in pines.size():
 		out["pine_%d" % k] = pines[k]
 	return out
+
+
+## A palette green a step calmer: less saturated and a touch darker.
+static func _calm(c: Color) -> Color:
+	return Color.from_hsv(c.h, c.s * 0.72, c.v * 0.95)
 
 
 ## Paints a modelled background piece: each family's toon material, its own baked occlusion (vertex colours), and the air at its depth.
@@ -519,6 +530,14 @@ static func place_ground(root: Node3D, t: Dictionary, source: Array) -> void:
 			var y := _height_at(ground, farm.position.x, farm.position.z)
 			if not is_nan(y):
 				farm.position.y = y
+		# (And the hay, barrels and rocks on the stage's hill, each by how far the model's surface lies from the slope it stood on.)
+		var props := root.get_node_or_null("HillProps")
+		if props != null:
+			for c in props.get_children():
+				var n := c as Node3D
+				var y := _height_at(ground, n.position.x, n.position.z)
+				if not is_nan(y) and n.has_meta("seat"):
+					n.position.y += y - float(n.get_meta("seat"))
 	for slot in StageArt.bush_slots:
 		var bush := _scene_from(source[1])
 		if bush == null:

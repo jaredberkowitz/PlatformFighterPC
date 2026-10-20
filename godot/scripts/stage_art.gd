@@ -1012,6 +1012,8 @@ static var bush_slots: Array = []
 ## Where the meadow's pine clusters stand ([base, size, turn]), set by `_meadow` (for the ground export, art/blender/make_meadow_ground.py).
 ## With a modelled ground (`ground_mock`) the clusters are not built and these go to `bush_slots`, for the modelled pines.
 static var pine_slots: Array = []
+## The meadow hill's wall [left, right, foot, front], set by `_meadow_hill` (for the ground export).
+static var hill_spec: Array = []
 ## The meadow farm's span across the valley [left, right], set by `_fields`.
 static var farm_span: Array = []
 
@@ -4217,7 +4219,9 @@ static func _meadow(root: Node3D, t: Dictionary, stage: Array) -> void:
 static func _pine_slot(at: Vector3, size: float) -> void:
 	var slot := [at, size, float(absi(hash(Vector2i(roundi(at.x * 10.0), roundi(at.z * 10.0)))) % 360)]
 	pine_slots.append(slot)
-	if ground_mock:
+	# (Under the modelled ground, none right behind the fight, nor in front of a cottage, the owner, 2026-10-20: the clusters stood over
+	# the platforms and hid both cottages.)
+	if ground_mock and absf(at.x) >= 22.0 and absf(at.x - 44.0) >= 5.0 and absf(at.x + 66.0) >= 5.0:
 		bush_slots.append(slot)
 
 
@@ -6934,6 +6938,7 @@ static func _harbour_town(root: Node3D, water: float) -> void:
 ## foot of the wall down into the valley, wide at the sides and toward the camera, in the lawn's own painted grass with blades, a darker
 ## band of shade at the foot of the wall where it overhangs; so the stage is a terrace on a hillside rather than an island in the air.
 static func _meadow_hill(root: Node3D, t: Dictionary, l: float, r: float, bottom: float, front: float, top: float) -> void:
+	hill_spec = [l, r, bottom, front]
 	# (The valley fields' own green (`_fields`), so the hill runs into them as one land: the owner, 2026-10-18.)
 	# (A step less vivid, with the fields, round 23.)
 	var grass := (_surface(Color(0.46, 0.76, 0.3), "grass", 9.0) as ShaderMaterial).duplicate() as ShaderMaterial
@@ -6978,26 +6983,37 @@ static func _meadow_hill(root: Node3D, t: Dictionary, l: float, r: float, bottom
 	var hill_mat := grass.duplicate() as ShaderMaterial
 	hill_mat.set_shader_parameter("facets", true)
 	hill_mat.set_shader_parameter("blades", 0.0)
-	var hill := _mesh(root, st.commit(), hill_mat, Vector3.ZERO)
-	hill.name = "Underside"
-	# Shade at the wall's foot.
-	var band := _mesh(root, _shade_band(w + 0.4, 1.2), _band_material(), Vector3(cx, bottom + 0.3, front + 0.45))
-	band.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	# (Not under a modelled ground, which builds the hill itself: art/blender/make_meadow_ground.py.)
+	if not ground_mock:
+		var hill := _mesh(root, st.commit(), hill_mat, Vector3.ZERO)
+		hill.name = "Underside"
+		# Shade at the wall's foot.
+		var band := _mesh(root, _shade_band(w + 0.4, 1.2), _band_material(), Vector3(cx, bottom + 0.3, front + 0.45))
+		band.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	# The farm's things on the slope in front of each end of the wall (the owner, 2026-10-18: no terrace steps, keep the stage's outline
 	# simple): hay bales, a barrel and rocks, inside the stage's width; they show as the camera pulls back.
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 808
 	var slope := func(d: float) -> float: return bottom + 0.05 - 0.55 * d - 0.006 * d * d
+	# (Gathered, each piece with the slope's height under it, so a modelled hill can seat them on its own surface: StageBake.place_ground.)
+	var props := Node3D.new()
+	props.name = "HillProps"
+	root.add_child(props)
 	for side in [-1.0, 1.0]:
 		var ex: float = (l + 2.8) if side < 0.0 else (r - 2.8)
 		var d := 1.6
 		var y: float = slope.call(d)
 		var z := front + d
-		_hay_bale(root, Vector3(ex, y, z), rng.randf_range(-30, 30))
-		_hay_bale(root, Vector3(ex + side * 1.4, slope.call(d + 0.8) - 0.1, z + 0.8), rng.randf_range(-30, 30))
-		_hay_bale(root, Vector3(ex + side * 0.5, y + 0.8, z + 0.3), rng.randf_range(-30, 30))
-		_barrel(root, Vector3(ex - side * 1.6, y, z - 0.2), 0.8)
-		_rock(root, Vector3(ex - side * 2.6, y - 0.2, z + 0.6), 0.5, rng)
+		_hay_bale(props, Vector3(ex, y, z), rng.randf_range(-30, 30))
+		_hay_bale(props, Vector3(ex + side * 1.4, slope.call(d + 0.8) - 0.1, z + 0.8), rng.randf_range(-30, 30))
+		_hay_bale(props, Vector3(ex + side * 0.5, y + 0.8, z + 0.3), rng.randf_range(-30, 30))
+		_barrel(props, Vector3(ex - side * 1.6, y, z - 0.2), 0.8)
+		_rock(props, Vector3(ex - side * 2.6, y - 0.2, z + 0.6), 0.5, rng)
+	for c in props.get_children():
+		var p := (c as Node3D).position
+		var dz := maxf(0.0, p.z - front)
+		var dx := maxf(0.0, absf(p.x - cx) - w * 0.5)
+		c.set_meta("seat", slope.call(sqrt(dx * dx + dz * dz)))
 
 
 ## The grove's stage as the great tree's root crown (the owner, 2026-10-18: a place, not a box): great bark roots come out from under the

@@ -221,7 +221,7 @@ def layered_band(name, fam, bumps, floor_y, z, profile, rng, fields=False):
             face(part(name, mats[j]), (P(xa, ya, zba), P(xa, ya, za), P(xb, yb, zb), P(xb, yb, zbb)))
             # Its cut edge, down to the next sheet.
             ya1, yb1 = land_top(bumps, floor_y, xa) - d1, land_top(bumps, floor_y, xb) - d1
-            face(part(name, "card"), (P(xa, ya, za), P(xa, ya1, za), P(xb, yb1, zb), P(xb, yb, zb)))
+            face(part(name, "card_" + name), (P(xa, ya, za), P(xa, ya1, za), P(xb, yb1, zb), P(xb, yb, zb)))
         if k == 0:
             # Behind the crest the top sheet falls away as one back edge.
             for j in range(len(xs) - 1):
@@ -241,7 +241,8 @@ def pine_discs(lit, under, trunk, base, sc, rng):
     layers = 7
     for k in range(layers):
         t = k / (layers - 1)
-        r = 0.82 * (1.0 - 0.8 * t) * sc
+        # (As narrow as the code-built pine: wider, the clusters crowded the platforms and hid the cottage.)
+        r = 0.6 * (1.0 - 0.75 * t) * sc
         z0 = base.z + (0.35 + 0.3 * k) * sc
         n = 12
         turn = rng.uniform(0, math.tau)
@@ -259,6 +260,104 @@ def pine_discs(lit, under, trunk, base, sc, rng):
     res = bmesh.ops.create_cone(trunk, cap_ends=True, segments=6, radius1=0.1 * sc, radius2=0.07 * sc, depth=0.6 * sc)
     for v in res["verts"]:
         v.co += base + Vector((0, 0, 0.3 * sc))
+
+
+def hill_slope(bottom, d):
+    """StageArt._meadow_hill's fall from the wall's foot, `d` out from it."""
+    return bottom + 0.05 - 0.55 * d - 0.006 * d * d
+
+
+def hill_ring(l, r, front, back, d, n_side=8, n_arc=8, n_front=12):
+    """The outline `d` out from the wall (left side, front-left corner, front, front-right corner, right side), back to front and round;
+    the same count of points at every `d`, so two rings make a strip."""
+    cx, hw = (l + r) * 0.5, (r - l) * 0.5
+    pts = []
+    for i in range(n_side):
+        pts.append((cx - hw - d, back + (front - back) * i / n_side))
+    for i in range(n_arc):
+        a = math.pi + (math.pi * 0.5) * i / n_arc
+        pts.append((cx - hw + math.cos(a) * d, front - math.sin(a) * d))
+    for i in range(n_front + 1):
+        pts.append((cx - hw + 2.0 * hw * i / n_front, front + d))
+    for i in range(1, n_arc + 1):
+        a = math.pi * 1.5 + (math.pi * 0.5) * i / n_arc
+        pts.append((cx + hw + math.cos(a) * d, front - math.sin(a) * d))
+    for i in range(1, n_side + 1):
+        pts.append((cx + hw + d, front + (back - front) * i / n_side))
+    return pts
+
+
+def hill_layers(rng):
+    """The stage's hill as stacked sheets of card, contours of the code-built hill's fall: each sheet flat at its contour's height, its cut
+    edge standing at the next contour, thin near the wall and thicker further out."""
+    if not LAYOUT.get("hill"):
+        return
+    l, r, bottom, front = LAYOUT["hill"]
+    back = front - 14.0
+    levels = [0.0]
+    k = 0
+    while levels[-1] < 22.0:
+        drop = 0.5 * (1.0 + k * 0.1)
+        y = hill_slope(bottom, levels[-1]) - drop
+        # The distance where the slope reaches `y`.
+        a, b, c = 0.006, 0.55, y - bottom - 0.05
+        levels.append((-b + math.sqrt(b * b - 4 * a * c)) / (2 * a))
+        k += 1
+    phase = rng.uniform(0, 6)
+
+    def ring(d, kk):
+        pts = hill_ring(l, r, front, back, d)
+        out = []
+        for i, (x, z) in enumerate(pts):
+            w = 0.0 if d == 0.0 else 0.18 * math.sin(i * 0.9 + kk * 1.3 + phase) + 0.1 * math.sin(i * 2.3 + kk)
+            out.append((x, z, w))
+        return out
+
+    rings = [ring(d, kk) for kk, d in enumerate(levels)]
+    cx = (l + r) * 0.5
+
+    def at(pt, d):
+        """A ring point pushed out from the wall by its wobble."""
+        x, z, w = pt
+        if d == 0.0:
+            return x, z
+        hx = x - cx
+        out_x = (1.0 if hx > 0 else -1.0) if abs(hx) > (r - l) * 0.5 + 0.01 else 0.0
+        out_z = 1.0 if z > front + 0.01 else 0.0
+        return x + out_x * w, z + out_z * w
+
+    for kk in range(len(levels) - 1):
+        y = hill_slope(bottom, levels[kk])
+        y_next = hill_slope(bottom, levels[kk + 1])
+        inner, outer = rings[kk], rings[kk + 1]
+        for i in range(len(inner) - 1):
+            ax, az = at(inner[i], levels[kk])
+            bx, bz = at(inner[i + 1], levels[kk])
+            cx2, cz = at(outer[i + 1], levels[kk + 1])
+            dx, dz = at(outer[i], levels[kk + 1])
+            face(part("hill", "hill"), (P(ax, y, az), P(bx, y, bz), P(cx2, y, cz), P(dx, y, dz)))
+            bottom_y = y_next if kk < len(levels) - 2 else y_next - 30.0
+            face(part("hill", "card_hill"), (P(dx, y, dz), P(cx2, y, cz), P(cx2, bottom_y, cz), P(dx, bottom_y, dz)))
+
+
+def hill_field():
+    """The stage's hill as the code builds it (its slope in plain faceted planes), for the looks without paper layers."""
+    if not LAYOUT.get("hill"):
+        return
+    l, r, bottom, front = LAYOUT["hill"]
+    cx, w = (l + r) * 0.5, r - l
+    xs = [cx - w * 1.6 - 20.0 + 2.6 * i for i in range(int((w * 3.2 + 40.0) / 2.6) + 1)]
+    zs = [front - 14.0 + 2.6 * j for j in range(int(36.0 / 2.6) + 1)]
+
+    def y(x, z):
+        dx = max(0.0, abs(x - cx) - w * 0.5)
+        dz = max(0.0, z - front)
+        return hill_slope(bottom, math.sqrt(dx * dx + dz * dz))
+
+    for j in range(len(zs) - 1):
+        for i in range(len(xs) - 1):
+            a, b, c, d = (xs[i], zs[j]), (xs[i + 1], zs[j]), (xs[i + 1], zs[j + 1]), (xs[i], zs[j + 1])
+            face(part("hill", "hill"), [P(x, y(x, z), z) for (x, z) in (a, b, c, d)])
 
 
 # ---- C: faceted ---------------------------------------------------------------------------------------------------------------------
@@ -322,6 +421,10 @@ def build_ground():
     band("far", "hill_far", LAYOUT["hills_far"], -17.0, -100.0, ROLL, rng)
     band("near", "hill_near", LAYOUT["hills_near"], -17.0, -72.0, ROLL, rng)
     band("rise", "rise", LAYOUT["fore"], -11.0, -46.0, VALLEY, rng, fields=True)
+    if VARIANT == "B":
+        hill_layers(rng)
+    else:
+        hill_field()
 
 
 PINE_SPOTS = [(0.0, 0.0, 1.0), (-0.55, -0.12, 0.72), (0.5, -0.2, 0.8), (0.22, 0.12, 0.6), (-0.3, -0.3, 0.66)]
@@ -352,6 +455,13 @@ def make_objects():
                 # (Away from its own pine's trunk, sideways: undersides face out and down, skirts out and up.)
                 sx, sz = min(PINE_SPOTS, key=lambda p: (c.x - p[0]) ** 2 + (c.y + p[1]) ** 2)[:2]
                 away = Vector((c.x - sx, c.y + sz, 0.0))
+            elif name == "hill" and LAYOUT.get("hill"):
+                # (The hill's sheets face up, their cut edges out from the wall.)
+                hl, hr, _, hf = LAYOUT["hill"]
+                hx = c.x - (hl + hr) * 0.5
+                hx = (hx - math.copysign((hr - hl) * 0.5, hx)) if abs(hx) > (hr - hl) * 0.5 else 0.0
+                hz = max(-c.y - hf, 0.0)
+                away = Vector((hx, -hz, 0.0)) + Vector((0.0, 0.0, 0.3))
             else:
                 # (The land faces the camera and the sky.)
                 away = Vector((0.0, -0.7, 1.0))

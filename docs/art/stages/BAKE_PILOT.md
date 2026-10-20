@@ -281,3 +281,19 @@ mountains, windmill, cottages and farm stay code-built.
   - C faceted: 3,900 triangles, pines 290.
 - **Note:** all three lose the code-built fields' round hedge bushes.
 - **Next:** options in `mocks/meadow_ground/` (with a local `review.html`) and on the owner's page; recommended A.
+
+## The meadow's background built: B, paper layers (2026-10-20)
+
+The owner picked B, with three asks: calm the bright greens, stop things overlapping, and bring the hill under the stage into the style or
+remove it. Shipped as `godot/models/stages/meadow_ground.glb` (20,500 triangles) and `meadow_pines.glb` (1,800 a cluster), for the exact
+meadow layout (`StageBake.GROUNDS`).
+- **Greens:** the hill rows, the rise, its fields and the hill are a step calmer than the palette (`StageBake._calm`: saturation x0.72,
+  value x0.95). Each sheet's cut edge is a pale step of its own land (`card_far`, `card_near`, `card_rise`, `card_hill`), not one lime.
+- **The stage's hill** is stacked sheets too: contours of the code-built hill's fall, thin near the wall and thicker further out
+  (`hill_layers`). Under a modelled ground the code-built hill is not made. The hay, barrels and rocks on it are gathered in `HillProps`
+  and re-seated on the sheets, as the farm is on the valley.
+- **Overlaps:** under the modelled ground, no pine cluster stands within 22 units of the middle (they rose over both platforms), nor within
+  5 of a cottage (they hid both). The disc pines are as narrow as the code-built pine.
+- **Result** (round 64, `meadow_ground_built.png`: match camera, wide, fighters in play): the valley, hills and the hill under the stage
+  read as one paper model. The valley's saturation is 0.22 (0.40 before); the lawn is unchanged at 0.63. Cheaper: 770 draw calls against
+  843, 0.63 M primitives against 1.30 M, GPU 2.2 ms against 2.4 ms (two timings each). **Tests:** all seven pass.
