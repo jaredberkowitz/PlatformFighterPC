@@ -493,3 +493,15 @@ animation library, art pipeline, match flow, replay and loadout tests pass.
 
 `idle_hand_pass.png`: close-ups (at rest, a raised hand, the arm forward), before above after, then a match frame before and after.
 Rig rebuilt (mesh only). Fighter view, art pipeline, loadout, animation library and match flow tests pass.
+
+## Armpit fold (2026-10-20, item 8 above)
+- **Found by elimination.** With the arm swung forward, a black arc ran across the side under the arm. Hiding the shirt removed it;
+  turning off the fighters' bold outline (the new Fine setting) removed it too, leaving only a soft fold in the cloth. So it was the
+  shirt's own ink outline, drawn along the cloth folding under the arm.
+- Two narrower fixes made no visible difference and were taken back out: stretching the armpit's ink-free patch down the side, and
+  leaving the ink off the sleeve's body-facing side.
+- **Fix**: the shirt's ink-free patch round each armpit is wider (`ARMPIT_NO_INK` 0.07 to 0.2, `make_rigged_blob.py`). The fold now
+  reads as a soft shade; the match's ink pass still draws the shirt's silhouette there and a light line for the fold.
+
+`armpit_pass.png`: the close-ups, before above after (the arm forward from the side is the fourth panel), then a match frame before
+and after. Rig rebuilt (mesh only). Fighter view, art pipeline, loadout, animation library and match flow tests pass.

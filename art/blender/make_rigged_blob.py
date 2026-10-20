@@ -2092,7 +2092,9 @@ TORSO_SLICE_SPREAD = 4   # how many slices either side are averaged in       # h
 WEIGHT_BLUR = 0.06     # how far round each cloth point the skin's bone weights are averaged
 GARMENT_SMOOTH = 14     # how many smoothing steps the cloth gets (it drapes over the body's small bumps)
 GARMENT_WEIGHT_SMOOTH = 24
-ARMPIT_NO_INK = 0.07          # how far round each armpit the shirt has no ink outline   # how many smoothing steps the cloth's bone weights get        # how much further out a hem stands than the rest of the garment (a soft, cartoony flare)
+# (0.07 until the armpit pass, 2026-10-20: with the arm swung forward, the shirt's cloth folds under the arm further out than that, and
+# its outline drew the fold as a black arc across the side. The match's ink pass still draws the silhouette, and a light line for the fold.)
+ARMPIT_NO_INK = 0.2          # how far round each armpit the shirt has no ink outline   # how many smoothing steps the cloth's bone weights get        # how much further out a hem stands than the rest of the garment (a soft, cartoony flare)
 
 
 # The hem pass (2026-10-19, the owner's references: their hems are thick and clean, ours read as torn paper): the bands that end a garment
