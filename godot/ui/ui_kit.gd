@@ -260,6 +260,35 @@ class ScreenTitle extends Control:
 		Art.title_centered(self, text.to_upper(), band.grow_individual(-10, 0, -22, 0), 44, Color.WHITE, 0.0)
 
 
+## The bar along the top of a screen (fighter select's, stage select's): an ink band across the width with a gold line under it, the
+## screen's name at the left and, at the right, `items` ([text, colour] pairs, right to left as read left to right), such as the
+## match a screen is setting up.
+class TopBar extends Control:
+	const HEIGHT := 58.0
+	var title := ""
+	var items: Array = []
+
+	func _init(label: String, list := []) -> void:
+		title = label
+		items = list
+		# (Edges pinned to the screen's, not sized from it: a screen not yet laid out has no size to measure.)
+		set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
+		offset_bottom = HEIGHT + 4.0
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	func _draw() -> void:
+		draw_rect(Rect2(0, 0, size.x, HEIGHT), Color(Art.INK, 0.94))
+		draw_line(Vector2(0, HEIGHT), Vector2(size.x, HEIGHT), D.GOLD, 3.0)
+		Art.title(self, title, Vector2(40, 43), TYPE_HEADING, Color.WHITE, 0.0)
+		var f := D.display_font()
+		var x := size.x - 40.0
+		for k in range(items.size() - 1, -1, -1):
+			var text: String = items[k][0]
+			x -= f.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 26).x
+			draw_string(f, Vector2(x, 39), text, HORIZONTAL_ALIGNMENT_LEFT, -1, 26, items[k][1])
+			x -= 14.0
+
+
 ## A line of news for the player (a status, a warning) on a dark band in gold, so it reads over the sky; nothing while it is empty.
 static func notice(at: Vector2, width: float, font_size := 22) -> Tag:
 	var t := Tag.new("", Vector2(width, 38))

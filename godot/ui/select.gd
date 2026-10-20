@@ -60,7 +60,7 @@ const RANDOM_COLOR := Color("252a52")
 const NEW_COLOR := Color("1f7a5a")
 ## The keys along the bottom.
 const KEYS := [["WASD", "P1 move   J lock   K back"], ["\u2190\u2192", "P2 move   Enter lock   Bksp back"], ["C", "Computer"],
-	["E", "Edit"], ["T", "Stocks"], ["Y", "Time"], ["G", "Stage"], ["Esc", "Menu"]]
+	["E", "Edit"], ["T", "Stocks"], ["Y", "Time"], ["Esc", "Menu"]]
 const RUN_KEYS := [["WASD", "Move   J lock   K back"], ["Enter", "Run"], ["E", "Edit"], ["Esc", "Menu"]]
 ## The players' panels' top and height (between the top bar and the news line over the roster).
 const PANEL_TOP := 64.0
@@ -93,7 +93,6 @@ var ranked := false
 var rules_button: Control
 var stocks_button: Control
 var time_button: Control
-var stage_button: Control
 var thumbs_frozen := false
 var panels_overlay: Control
 var frames := 0
@@ -522,9 +521,9 @@ func _ready() -> void:
 	rules_button = _rule_button("Rules: Casual", 170.0, _toggle_ranked)
 	stocks_button = _rule_button("", 160.0, func(): _cycle_rules(true))
 	time_button = _rule_button("", 140.0, func(): _cycle_rules(false))
-	stage_button = _rule_button("", 230.0, _cycle_stage)
+	# (The stage is chosen on its own screen after this one since 2026-10-20, `stage_select.gd`.)
 	var x := 1250.0
-	for b in [stage_button, time_button, stocks_button, rules_button, players_button]:
+	for b in [time_button, stocks_button, rules_button, players_button]:
 		x -= b.custom_minimum_size.x
 		b.position = Vector2(x, 5)
 		x -= 4.0
@@ -540,7 +539,7 @@ func _ready() -> void:
 
 	if run_mode:
 		count = 1
-		for b in [players_button, rules_button, stocks_button, time_button, stage_button]:
+		for b in [players_button, rules_button, stocks_button, time_button]:
 			b.visible = false
 		status.set_text("Single player run: choose your fighter.")
 
@@ -552,6 +551,9 @@ func _ready() -> void:
 			if entries[i].slug == pre:
 				cursor[0] = i
 				_lock(0)
+	# Back from stage select: everyone as they were, locked in on the same fighters.
+	if Roster.session.get("reselect", false):
+		_reselect()
 	_layout_panels()
 	_refresh()
 	PadNav.attach(self)
@@ -635,9 +637,6 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		KEY_Y:
 			if not run_mode:
 				_cycle_rules(false)
-		KEY_G:
-			if not run_mode:
-				_cycle_stage()
 		KEY_ESCAPE:
 			get_tree().change_scene_to_file("res://menu.tscn")
 
@@ -673,20 +672,11 @@ func _cycle_rules(stocks: bool) -> void:
 	_show_match_rules()
 
 
-func _cycle_stage() -> void:
-	Roster.match_stage = (Roster.match_stage + 1) % Roster.stage_names().size()
-	Roster.save_match_rules()
-	_show_match_rules()
-	status.set_text(Roster.stage_blurb(Roster.match_stage))
-
-
 func _show_match_rules() -> void:
 	stocks_button.text = "Stocks: " + Roster.stocks_text(Roster.match_stocks)
 	time_button.text = "Time: " + Roster.time_text(Roster.match_time)
 	stocks_button.queue_redraw()
 	time_button.queue_redraw()
-	stage_button.text = "Stage: " + Roster.stage_names()[Roster.match_stage]
-	stage_button.queue_redraw()
 
 
 func _toggle_ranked() -> void:
@@ -875,4 +865,22 @@ func _start() -> void:
 		"stocks": Roster.match_stocks, "time": Roster.match_time, "stage": Roster.match_stage,
 		"cpu": range(4).map(func(p): return CPU_LEVEL if cpu[p] and p < count else 0),
 	}
-	get_tree().change_scene_to_file("res://main.tscn")
+	# The stage next, on its own screen (it starts the match).
+	get_tree().change_scene_to_file("res://stage.tscn")
+
+
+## Puts everyone back as they were when the match was set up (stage select's Back): the same number of players, the computer
+## slots, the rules, and each player locked in on the fighter they had.
+func _reselect() -> void:
+	var chosen: Array = Roster.session.get("entries", [])
+	count = clampi(chosen.size(), 1, 4)
+	ranked = bool(Roster.session.get("ranked", false))
+	rules_button.text = "Rules: Ranked" if ranked else "Rules: Casual"
+	var levels: Array = Roster.session.get("cpu", [])
+	for p in count:
+		cpu[p] = p < levels.size() and int(levels[p]) > 0
+		for i in entries.size():
+			if entries[i].slug == chosen[p].slug:
+				cursor[p] = i
+		picked[p] = chosen[p]
+		locked[p] = true

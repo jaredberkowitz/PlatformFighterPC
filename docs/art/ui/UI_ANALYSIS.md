@@ -104,3 +104,24 @@ fighters and display hidden: `mocks/stages/`). Sheet: `mocks/stage_options.png` 
 Layout 2 grows a row every three stages; 1 and 3 fit about eight in a row before the cards get small. An aside: the stage names describe
 their layouts (Triple Tier, Flat Island) while the pictures read as places (a canyon, a harbour); worth a look when the stages are named
 for good.
+
+## Pass 3: stage select, a new screen with both of the owner's favoured views (2026-10-20)
+
+The owner prefers layout 1 (preview) and expects some testers to prefer layout 3 (full); both are built, switchable, while opinions come
+in. Captures: `pass3/stage_preview.png`, `pass3/stage_full.png`, `pass3/stage_full_random.png`.
+
+| What | Where |
+| --- | --- |
+| The screen: stage cards with real stills, Random, the match on the top bar, two views (V, Tab or a controller's Y; remembered) | `ui/stage_select.gd`, `stage.tscn` |
+| The stills (1280x720 webp, ~80 KB each) and the tool that makes them (one stage per run: a second match scene in one run keeps the first one's scenery) | `art/ui/stages/`, `tests/stage_stills.gd` |
+| Fighter select's Start goes to stage select; Back from it restores every lock (`_reselect`); the Stage button and the G key are gone from fighter select | `ui/select.gd` |
+| A controller's Y as an "alt" action that sends nothing unless a screen asks (stage select maps it to V) | `scripts/pad_nav.gd` |
+| `UI.TopBar` in the kit (fighter select keeps its own bar with the VS for now) | `ui/ui_kit.gd` |
+
+Found on the way: the key was marked handled after Back had already left the tree (an error on every Esc), fixed by handling it first;
+the top bar's anchoring measured a screen not yet sized and drew the match line off screen, fixed by pinning its edges; the focused
+card's long shadow dimmed the key bar, fixed by drawing the keys above the cards.
+
+Checked: `tests/stage_select_test.gd` (new) drives Start, both views, Random, Back with the locks kept, the remembered view and the
+match starting on the chosen stage, and puts the player's own settings back. Not checked: the mouse, a real controller's Y, the online
+lobby (it keeps its arrow row: a follow-up).

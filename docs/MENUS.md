@@ -48,8 +48,23 @@ Names are 1 to 24 letters, digits, spaces, `-` and `_`, cannot be a built-in fig
 A strip of roster cards along the bottom (**Players: 2/3/4**, see `docs/MATCHES.md`): the built-in fighters, every fighter you saved, a **?** (random) and a **+** (make a new one). Each
 player has a tall panel above it with the fighter large (two face each other across a VS), and the match rules sit on the bar along the top. **Player 1:** W A S D move, J locks in, K takes it back. **Player 2:** arrow
 keys, Enter locks in, Backspace takes it back. **Mouse:** left click picks for player 1, right click for player 2. **E** edits the
-saved fighter player 1 is on. When both are locked in, Space (or Enter, or the Start Battle button) starts the match; Esc in a match
+saved fighter player 1 is on. When both are locked in, Space (or Enter, or the READY band) goes on to **stage select**; Esc in a match
 returns to select, Esc in select returns to the menu.
+
+## Stage select
+
+Between character select and the match (`godot/stage.tscn`, `ui/stage_select.gd`; 2026-10-20). Every stage as a card with a still of
+it as a match shows it, plus **Random**; the top bar names the match it is for. Left and right (A D, the arrows) choose, Enter (J,
+Space) fights there, R picks at random, Esc (K, Backspace) goes back to character select with everyone still locked in. A chosen stage
+is remembered as the next default (a random pick is not).
+
+Two views of the same choice, kept while testers' opinions come in: **preview** (the focused stage large, its name and what it plays like
+beside it, the cards in a row under it; the default) and **full** (the focused stage fills the screen, its name large over it, the cards
+in a strip at the foot). **V**, Tab or a controller's **Y** switches; the choice is remembered (`user://stage_view.txt`).
+
+The pictures are `godot/art/ui/stages/stage_<n>.webp`, made by `tests/stage_stills.gd` (one stage per run, in a window; see its header).
+Render them again when a stage's art changes, then import. A stage without a picture gets a plain card. Test: `tests/stage_select_test.gd`.
+The online lobby still has its own arrow row for the stage.
 
 **Run mode** (sim 120, `docs/modes/RUNNER_PLAN.md`): the main menu's **Run** tile (under Play) opens this screen for one player, headed
 RUN, with no match rules; locking in (J or Enter) and Enter again starts the single-player run (`runner.tscn`). Built-in and made fighters
@@ -125,7 +140,7 @@ To play online with a made fighter, make it in the creator, then either play one
 * The point budget is a plain sum of the four stats; it does not weigh them differently, and nothing yet checks whether a legal
   build is balanced (a tiny, fast, high-jumping, featherweight fighter is legal and strong in some ways). Real balance tooling is Phase 8.
 * The character art is the placeholder blob. Real models come later; the menus show whatever the fighter view draws.
-* One stage and one mode (versus). Stage select is still to do (stocks, results and rematch are done: `docs/MATCHES.md`).
+* One mode (versus) besides the run. Stage select is its own screen now; the online lobby still chooses the stage with an arrow row.
 * Not tried by a person yet: whether the screens feel good to use is unproven until someone plays with them.
 
 ## Tests
