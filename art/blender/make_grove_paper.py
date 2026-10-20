@@ -70,11 +70,12 @@ def disc_pine(name, x, y, z, sc, rng):
     base = P(x, y, z)
     AXES.setdefault(name, []).append((base.x, base.y))
     lit, under, trunk = part(name, "leaf_lit"), part(name, "leaf_shade"), part(name, "bark")
-    for k in range(6):
-        t = k / 5.0
+    # (Five discs of eight points, built: six of twelve made the ledges' trees most of the model's triangles.)
+    for k in range(5):
+        t = k / 4.0
         r = 0.62 * (1.0 - 0.75 * t) * sc
-        z0 = base.z + (0.35 + 0.32 * k) * sc
-        n = 12
+        z0 = base.z + (0.35 + 0.4 * k) * sc
+        n = 8
         turn = rng.uniform(0, math.tau)
         rim = [Vector((base.x + math.cos(turn + math.tau * i / n) * r * (1.0 if i % 2 else 0.9),
                        base.y + math.sin(turn + math.tau * i / n) * r * (1.0 if i % 2 else 0.9), z0)) for i in range(n)]

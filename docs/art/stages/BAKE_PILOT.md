@@ -338,3 +338,16 @@ footing; the island, its front and the great tree are unchanged.
 - **Range flats tuned:** the crest's per-bin peaks made a sawtooth, so it is smoothed (a rolling max, then a light average). At the
   painted range's height the flats sat low; much taller, they walled off the sky. They are now 1.08, 1.0 and 0.9 of it, back to front.
 - **Next:** options in `mocks/grove_paper/` (with a local `review.html`) and on the owner's page; recommended A.
+
+## The grove's background built: A, card terraces (2026-10-20)
+
+The owner picked A. Shipped as `godot/models/stages/grove_paper.glb` (30,300 triangles) in place of the faceted stepped ledges
+(`grove_ground.glb`, retired; `make_grove_ground.py` still builds it), with the same modelled bushes (`StageBake.GROUNDS`).
+- **Pieces:** each ledge is a stack of card sheets with a green top over teal cut edges, the small trees are paper disc pines, and the
+  far ranges are standing cut-out flats, which hide the painted ranges.
+- **Trimmed for the build:** five discs of eight points a pine (six of twelve made the trees most of the triangles).
+
+**Result** (round 66, `grove_paper_built.png`: match camera, wide, fighters in play): the island stands in one paper diorama with the
+meadow and the beach. The background is lighter than the faceted ledges: the mid-ground reads 0.50 (0.38) and the distance 0.64 (0.49).
+That is inside the style sheet's mid-ground band, but closer to the fighters' 0.55; worth a look if the fighters lose any edge against it.
+The lawn is unchanged (0.67). Cost: 814 draw calls against 806, GPU 2.4 ms both ways (two timings each). **Tests:** all seven pass.

@@ -3,13 +3,13 @@
 importer="scene"
 importer_version=1
 type="PackedScene"
-uid="uid://b3j5beufin002"
-path="res://.godot/imported/grove_ground.glb-f7fa7a777e8f7528aef20eb88a1e824e.scn"
+uid="uid://jr3mkcn6i2a8"
+path="res://.godot/imported/grove_paper.glb-4234a8c14e72dddd5773221b4fffed83.scn"
 
 [deps]
 
-source_file="res://models/stages/grove_ground.glb"
-dest_files=["res://.godot/imported/grove_ground.glb-f7fa7a777e8f7528aef20eb88a1e824e.scn"]
+source_file="res://models/stages/grove_paper.glb"
+dest_files=["res://.godot/imported/grove_paper.glb-4234a8c14e72dddd5773221b4fffed83.scn"]
 
 [params]
 

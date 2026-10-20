@@ -21,7 +21,7 @@ const FRONTS := {"grove_14d06e65": "res://models/stages/grove_front.glb", "meado
 const TREES := {"grove": "res://models/stages/grove_tree.glb"}
 ## Modelled background ground and bushes, by the exact stage they were built round ([ground, bush]; make_grove_ground.py, option A, the
 ## owner's pick): the ground stands on the side trees' footing for this layout.
-const GROUNDS := {"grove_14d06e65": ["res://models/stages/grove_ground.glb", "res://models/stages/grove_bush.glb"],
+const GROUNDS := {"grove_14d06e65": ["res://models/stages/grove_paper.glb", "res://models/stages/grove_bush.glb"],
 	"meadow_62409190": ["res://models/stages/meadow_ground.glb", "res://models/stages/meadow_pines.glb"],
 	# (The beach's land only: nothing stands on it in the bushes' place.)
 	"ocean_d9c5edff": ["res://models/stages/beach_ground.glb", ""]}
