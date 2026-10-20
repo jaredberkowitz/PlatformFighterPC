@@ -48,4 +48,6 @@ and names at 15 px, half again today's):
 | 2, grid over tall panels | ~31% | 2 rows of 11 across the top | 4 panels, as today |
 | 3, fighters forward | ~42%, facing across a VS | a 2-row strip along the bottom | 4 fighters in a row |
 
-Waiting for the owner's pick; only the chosen ones get built.
+**The owner's picks (2026-10-19): colour/focus option 2, daylight; fighter select layout 3, fighters forward.** Next: the daylight ground
+and the lifted, tilted focus in the kit (`UI_DESIGN_SYSTEM.md` first), proved on the main menu, then the fighter select rebuilt as
+layout 3 on it.
