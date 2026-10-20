@@ -267,3 +267,15 @@ From behind, three things read as broken:
 `back_pass.png` (top before, bottom after: the four default looks from behind). Fighter view, loadout, art pipeline and animation
 library tests pass.
 
+## Weave pass: no ripples across the cloth (2026-10-19)
+From behind and up close the shorts carried dark wavy vertical bands, read as ripples or creases in the cloth. The neutral grey render
+was smooth, so they were the painted weave (`brush.gdshaderinc` through `CLOTH_WEAVE`), not the mesh: at strength 0.32 (the matte pass
+had raised it) and scale 0.12 its strokes ran about 18 cm apart. A finer scale alone read as wood grain. Now a faint fine cotton weave
+(`CLOTH_WEAVE` 0.12, `CLOTH_WEAVE_SCALE` 1.2). A smoothing pass on the shorts' mesh was tried first and changed nothing (reverted).
+
+Also kept from the back-view pass: the sash's depth over a shirt (0.8 of the widening) checked from the side, where it does not stand
+out behind the back as a pack.
+
+`weave_pass.png` (top: the seat before and after; bottom: the lineup before and after). Fighter view, loadout, art pipeline, animation
+library and match flow tests pass.
+

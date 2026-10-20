@@ -1715,8 +1715,8 @@ const OUTLINE_TINT_DARKEN := 0.45
 const OUTLINE_TINT_DARKEN_PALE := 0.8
 const CLOTH_RAMP_SOFTNESS := 0.32
 ## (Finer and fainter, 2026-10-18: long strokes on a pale shirt read as wood grain; the reference's cloth is a fine fleck.)
-const CLOTH_WEAVE := 0.32   # (twice as strong, the character judge's round 8: the cloth read as flat fills; 0.2 until the matte pass)
-const CLOTH_WEAVE_SCALE := 0.12
+const CLOTH_WEAVE := 0.12   # (a fine faint cotton weave since the weave pass, 2026-10-19: 0.32 at scale 0.12 drew strokes 18 cm apart that read as ripples across the cloth)
+const CLOTH_WEAVE_SCALE := 1.2
 ## The shirt's bottom hem: how far below the waist it is cut (art/blender/make_rigged_blob.py) and how wide its ink line is (rest units).
 const SHIRT_HEM_BELOW_WAIST := 0.012
 const SHIRT_HEM_INK := 0.01
