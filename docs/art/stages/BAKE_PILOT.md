@@ -251,3 +251,16 @@ face, and left in, they baked the new wall black. Every family keeps part of its
 
 In the game: the facade's MultiMeshes, the shade band under the coping, the corner brackets and the tower's cornice and band are marked
 `code_front`. The tower itself is hidden as a floating island's keel is.
+
+## The city's front built: A, brownstone (2026-10-20)
+
+The owner picked A. Shipped as `godot/models/stages/city_front.glb` for the exact city layout (`StageBake.FRONTS`). It replaces the
+code-built facade, its windows and the tower under the block; the roof, its coping and brass rail, the shopfront and the street stay.
+Under a modelled front the code-built tower is no longer made. Trimmed for the build from 51,600 to 26,500 triangles: the trim's bevels are
+single chamfers, and the body behind the face (`brick_back`) is not subdivided.
+
+**Result** (round 63, `city_front_built.png`: match camera, wide, fighters in play): brick pilasters between pairs of windows, arched
+stone heads, a stone band at every floor and a bracketed cornice under the roof's edge; the floor under the block steps back over the
+shopfront. Front 0.29 (0.41 before, as light as the roof's 0.40), so the play surface now reads first. Cost: about 15 more draw calls
+(892 to 897 against 879 to 881) and 0.2 to 0.4 ms more GPU time (3.1 to 4.4 ms against 2.9 to 3.9 ms, two timings each, on a loaded
+machine). **Tests:** all seven pass.

@@ -9,7 +9,7 @@ looks for the owner to pick from (`--front-mock=` on the stage demo):
      bracketed cornice under the roof;
   B  fire escape: plain lintels and sills, and a black iron fire escape down two bays, landings, rails and ladders;
   C  deco piers: tall stone piers running the full height, the windows in narrow columns between them with dark panels between floors.
-Families: `brick` (the city's own brick, laid in world space), `trim`, `frame`, `glass_lit`, `glass_dark`, `curtain_a/b/c`, `neon`,
+Families: `brick` and `brick_back` (the city's own brick, laid in world space; the body behind the face is not subdivided), `trim`, `frame`, `glass_lit`, `glass_dark`, `curtain_a/b/c`, `neon`,
 `bulb`, `pipe`, `iron`, `pot`, `leaf`, `ac`, `spandrel`; each piece bakes its occlusion into linear vertex colours with the built city
 round it.
 
@@ -71,7 +71,7 @@ def box(mat, x0, x1, y0, y1, z0, z1, bevel=0.0, t=1.0):
         v.co = P(x0 + (v.co.x + 0.5) * (x1 - x0), y0 + (v.co.z + 0.5) * (y1 - y0), z0 + (-v.co.y + 0.5) * (z1 - z0))
     if bevel > 0.0:
         bmesh.ops.bevel(bm, geom=bm.edges[:] + bm.verts[:], offset=min(bevel, (x1 - x0) * 0.45, (y1 - y0) * 0.45, (z1 - z0) * 0.45),
-                        segments=2, affect="EDGES", profile=0.5)
+                        segments=1, affect="EDGES", profile=0.5)
     _merge(part(mat), bm, t)
 
 
@@ -271,10 +271,10 @@ def cornice(y, rng, brackets=True):
 def backing():
     """The building's body behind the face (its sides and back), so nothing behind shows through the openings' back faces: the block's
     part, and under its foot the part that steps back."""
-    box("brick", LEFT, RIGHT, BOTTOM, Y_TOP, FZ - DEPTH, FZ - 0.4, 0.0, 0.7)
+    box("brick_back", LEFT, RIGHT, BOTTOM, Y_TOP, FZ - DEPTH, FZ - 0.4, 0.0, 0.7)
     quad("glass_dark", LEFT + 0.1, RIGHT - 0.1, BOTTOM, Y_TOP, FZ - REVEAL - 0.02, 0.6)
     lz = FZ - UNDER_RECESS
-    box("brick", LEFT + 0.2, RIGHT - 0.2, STREET, BOTTOM, FZ - DEPTH, lz - 0.4, 0.0, 0.7)
+    box("brick_back", LEFT + 0.2, RIGHT - 0.2, STREET, BOTTOM, FZ - DEPTH, lz - 0.4, 0.0, 0.7)
     quad("glass_dark", LEFT + 0.3, RIGHT - 0.3, STREET, BOTTOM, lz - REVEAL - 0.02, 0.6)
     # The returns at each end, between the face and the body.
     for x0, x1, y0, y1, zf in ((LEFT, LEFT + 0.15, BOTTOM, Y_TOP, FZ), (RIGHT - 0.15, RIGHT, BOTTOM, Y_TOP, FZ),
@@ -441,7 +441,7 @@ def make_objects():
         bmesh.ops.remove_doubles(bm, verts=bm.verts[:], dist=0.0005)
         bmesh.ops.triangulate(bm, faces=bm.faces[:])
         # (Finer on the wall, so the occlusion baked into the vertices follows the shapes: on big faces it samples only the corners.)
-        if mat in ("brick", "glass_dark"):
+        if mat == "brick":
             for _ in range(5):
                 long_edges = [e for e in bm.edges if e.calc_length() > 0.7]
                 if not long_edges:

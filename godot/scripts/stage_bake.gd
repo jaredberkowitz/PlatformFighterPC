@@ -14,7 +14,8 @@ const StageArt := preload("res://scripts/stage_art.gd")
 const DIR := "res://art/baked/%s/"
 ## Modelled stage fronts, by the exact stage they were built on (`key`): art/blender/make_grove_front.py, the grove pilot's step 2.
 const FRONTS := {"grove_14d06e65": "res://models/stages/grove_front.glb", "meadow_62409190": "res://models/stages/meadow_front.glb",
-	"ocean_d9c5edff": "res://models/stages/beach_front.glb", "sunset_19cad55b": "res://models/stages/canyon_front.glb"}
+	"ocean_d9c5edff": "res://models/stages/beach_front.glb", "sunset_19cad55b": "res://models/stages/canyon_front.glb",
+	"city_2eadbb68": "res://models/stages/city_front.glb"}
 ## Modelled trees by theme (art/blender/make_grove_trees.py, option C, the owner's pick): placed where each code-built tree stood, so
 ## custom stages on the theme take them too.
 const TREES := {"grove": "res://models/stages/grove_tree.glb"}
@@ -327,7 +328,7 @@ static func place_front(root: Node3D, t: Dictionary, scene: Node3D) -> void:
 				mi.set_surface_override_material(s, g)
 				continue
 			# (The city's wall in its own brick, laid in world space as the code-built facade's.)
-			var m := ((StageArt._soil_material(t) if fam == "brick" else FighterView.toon(colours.get(fam, Color(0.6, 0.6, 0.6)), true)) \
+			var m := ((StageArt._soil_material(t) if fam.begins_with("brick") else FighterView.toon(colours.get(fam, Color(0.6, 0.6, 0.6)), true)) \
 				as ShaderMaterial).duplicate() as ShaderMaterial
 			m.set_shader_parameter("facets", fam != "quilt")
 			# (The model carries its own baked occlusion in its vertex colours.)

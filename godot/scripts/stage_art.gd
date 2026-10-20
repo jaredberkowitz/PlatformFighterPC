@@ -3869,12 +3869,14 @@ static func underside(root: Node3D, t: Dictionary, e: Array) -> void:
 			var cx := (l + r) / 2.0
 			var street := bottom - CITY_STREET_DROP
 			var tall := bottom + 0.3 - street
-			var tower := _mesh(root, _box(Vector3(r - l - 0.4, tall, 7.0)), _under_material(_soil_material(t), 0.55), Vector3(cx, street + tall / 2.0, front - 3.5))
-			tower.name = "Underside"
-			tower.set_instance_shader_parameter("front_top", e[2])
-			_facade_windows(root, cx - (r - l - 0.4) / 2.0, cx + (r - l - 0.4) / 2.0, bottom - 0.3, street + 4.4, front, e[2], 0.55, tower.material_override)
-			_mesh(root, _box(Vector3(r - l + 0.1, 0.32, 0.5)), _soft((t.soil as Color).lightened(0.1)), Vector3(cx, bottom - 0.12, front + 0.2)).set_meta("code_front", true)
-			_mesh(root, _shade_band(r - l - 0.4, 1.2), _band_material(), Vector3(cx, bottom - 0.9, front + 0.01)).set_meta("code_front", true)
+			# (Not under a modelled front, which builds the floors down to the street itself, art/blender/make_city_front.py.)
+			if not front_modelled:
+				var tower := _mesh(root, _box(Vector3(r - l - 0.4, tall, 7.0)), _under_material(_soil_material(t), 0.55), Vector3(cx, street + tall / 2.0, front - 3.5))
+				tower.name = "Underside"
+				tower.set_instance_shader_parameter("front_top", e[2])
+				_facade_windows(root, cx - (r - l - 0.4) / 2.0, cx + (r - l - 0.4) / 2.0, bottom - 0.3, street + 4.4, front, e[2], 0.55, tower.material_override)
+				_mesh(root, _box(Vector3(r - l + 0.1, 0.32, 0.5)), _soft((t.soil as Color).lightened(0.1)), Vector3(cx, bottom - 0.12, front + 0.2)).set_meta("code_front", true)
+				_mesh(root, _shade_band(r - l - 0.4, 1.2), _band_material(), Vector3(cx, bottom - 0.9, front + 0.01)).set_meta("code_front", true)
 			_shopfront(root, cx, r - l - 0.4, street, front + 0.02)
 			_street(root, street, front)
 		_:
