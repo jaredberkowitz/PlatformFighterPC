@@ -91,3 +91,15 @@ Recommended C.
 `cloud_style=3` on the meadow, grove, beach (ocean) and canyon (sunset): folded puffs, every other one left out and the rest larger.
 Before/after `fold2_clouds.png` (beach whole and close up, grove, canyon; round 50). Cheaper too: the beach 0.90 M → 0.83 M primitives,
 draw calls 921 → 918. Tests: all six pass.
+
+## Step 3: the grove's crowns and trunks (2026-10-20)
+
+- **Crowns** (`tree_crown_a/b/c`, rebuilt with `make_props.py`): `folded_dome` gains `stagger`; the crowns now run each fold unbroken from
+  the rim to the cap (`stagger=False`) and deeper (rim 0.44, middle 0.3, top 0.14). Staggered band by band, the folds met in a diamond
+  pattern of small facets and read as crumpled low-poly; now each dome carries long lit and shaded pleats like the pines. Bushes and
+  moss keep the staggered fold. 300 to 372 triangles each, within the prop budget.
+- **Trunks** (`trunk_mesh` `folds`, the grove's `_tree`): seven folds (was nine) and creases at 0.6 of the ridges' reach (was 0.76), so
+  each plane turns far enough to leave the lit cel band; the great trunk and the side trees read folded at the match camera.
+
+Before/after `fold3_grove_trees.png` (round 51, and close-ups of a side tree). Contrast in the trunk's region 0.072 → 0.077, a side
+crown's 0.089 → 0.096 (values unchanged). Tests: all six pass.

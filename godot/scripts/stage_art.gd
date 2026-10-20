@@ -3649,7 +3649,9 @@ static func trunk_mesh(height: float, r_bottom: float, r_top: float, bend: float
 			var n := Vector3(sin(a), 0, cos(a))
 			var rr := r
 			if folds > 0:
-				rr *= 1.0 if i % 2 == 0 else 0.76
+				# (Creases at 0.6 of the ridges' reach, the owner's folded style, 2026-10-20: at 0.76 the folds' planes turned too little to leave
+				# the lit cel band and the trunk read as a smooth column at the match camera.)
+				rr *= 1.0 if i % 2 == 0 else 0.6
 			elif ridges > 0.0:
 				var ridge := 0.5 + 0.5 * cos(a * 9.0 + 0.7 * sin(v * 6.0 + a * 2.0) + 0.4 * sin(v * 17.0 + a * 5.0))
 				rr *= 1.0 + ridges * (smoothstep(0.12, 0.45, ridge) - 0.55)
@@ -5685,7 +5687,8 @@ static func _tree(root: Node3D, base: Vector3, size: float, rng: RandomNumberGen
 		bark.set_shader_parameter("ramp_softness", 0.08)
 	# (Broad bark ridges in the trunk's shape, faceted, 2026-10-19: at 0.09 the great trunk read as one flat column mid-frame.)
 	# (Nine long twisting folds, round 39 and the owner's grove reference: fine ridges read as a smooth grooved column.)
-	_mesh(root, trunk_mesh(trunk_h, 2.9 * size, 2.0 * size, 0.7 * size, 1.4 * size, 0.0, 9), bark, base)
+	# (Seven, deeper, 2026-10-20: wider planes, each wholly toward the key or away from it.)
+	_mesh(root, trunk_mesh(trunk_h, 2.9 * size, 2.0 * size, 0.7 * size, 1.4 * size, 0.0, 7), bark, base)
 	for k in 6:
 		var a := -1.25 + k * 0.5
 		var reach := rng.randf_range(0.85, 1.15)

@@ -51,11 +51,12 @@ def outward(bm, axis):
             f.normal_flip()
 
 
-def folded_dome(bm_lit, bm_shade, centre, r, pleats, rng, rows=None):
+def folded_dome(bm_lit, bm_shade, centre, r, pleats, rng, rows=None, stagger=True):
     """A round leaf clump folded like the pines (the owner's blue-mountain reference, 2026-10-19): a dome wider than tall whose surface is
     pleated in and out from its crown to its rim, the folds deepest at the rim and fading toward the top, the rim a skirt of leaf points
     hanging a little; so the key light falls on one side of every fold and the clump reads as crisp stripes over a round mass. The skirt
-    and the underside go to `bm_shade` (the deep green), the dome above to `bm_lit`."""
+    and the underside go to `bm_shade` (the deep green), the dome above to `bm_lit`. `stagger` False runs each fold unbroken from the rim
+    to the cap, as a pine's pleats run (the tree crowns, docs/art/stages/FOLDED_STYLE.md)."""
     cx, cy, cz = centre
     turn = rng.uniform(0, math.tau)
     n = pleats * 2
@@ -72,7 +73,7 @@ def folded_dome(bm_lit, bm_shade, centre, r, pleats, rng, rows=None):
         for i in range(n):
             # (Each band turned half a fold from the one below, the judge's round 40: folds stacked straight over each other met in
             # right-angle steps and the round crowns read as stacked boxes; staggered, they meet at angles round the dome.)
-            a = turn + math.tau * (i + 0.5 * row) / n
+            a = turn + math.tau * (i + (0.5 * row if stagger else 0.0)) / n
             point = i % 2 == 0
             rr = math.cos(e) * (1.0 if point else 1.0 - depth) * r
             z = math.sin(e) * 0.78 * r
