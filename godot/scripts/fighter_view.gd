@@ -386,7 +386,7 @@ func _build_rig(skin: Material) -> bool:
 				elif loadout.shirt == 4:
 					cuff_c = Color(0.95, 0.9, 0.78)
 			mi.material_override = _cloth(toon(cuff_c))
-			mi.visible = loadout.has_shorts()
+			mi.visible = loadout.has_belt() if part.begins_with("ShortsPocket") else loadout.has_shorts()
 		elif part.begins_with("Sock"):
 			# Tall thick socks, with a turned-down top (the character judge's round 1, the owner's reference): white knit.
 			# (A warm cream, the turn-down a shaded step under it, the character judge's round 10: pure white tubes were the brightest mass.)
@@ -412,10 +412,10 @@ func _build_rig(skin: Material) -> bool:
 		elif part.begins_with("Belt"):
 			# The belt the shirt is tucked under (the owner saw PEAK's figures have a waistline): leather, with a brass buckle.
 			mi.material_override = _cloth(toon(BELT_LEATHER))
-			mi.visible = loadout.has_shorts()
+			mi.visible = loadout.has_belt()
 		elif part.begins_with("Buckle"):
 			mi.material_override = respond(toon(BELT_BRASS), "rubber")
-			mi.visible = loadout.has_shorts()
+			mi.visible = loadout.has_belt()
 		elif part.begins_with("SleeveTrim"):
 			# The band round each sleeve's end (the aviator scout pilot, the owner's reference): the outfit colour on a white shirt, white
 			# on a coloured or printed one.

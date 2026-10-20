@@ -192,3 +192,21 @@ library and match flow tests pass.
 **Left:** the shirt's shoulder still makes a slight horizontal shelf in a straight front view; the socks' turn-down edges are softer
 but still uneven where the sock follows the calf.
 
+## Outfit pass: bare legs on the default looks (2026-10-19, gaps #2 and #3, the owner's choice of option B)
+Four options were mocked first without changing the game (current; socks with canvas shoes; socks with low dark shoes; bare legs;
+trimmed lighter boots), close up and at play size. The owner chose bare legs, after the T-pose lineup.
+
+**Change**: the four default looks (`Loadout.default_for`) wear `gear` 2 (shorts, and gloves where `hands` asks: the aviator) instead of
+the full kit, and no belt: a new loadout slot `belt` (`BELTS`: belt and pockets, or none; `has_belt()`) shows the belt, buckle and the
+shorts' pocket flaps. Legs and feet are the body's colour. Bands down the body go from about ten to five (hat band, collar, sash, shorts
+cuff, sleeve trim).
+
+**Kept available**: the full kit and the belt stay in the loadout (the editor's look tab lists the new slot; the creator's simplified
+categories do not show it, as they never showed `hands`). Looks saved before the belt slot keep their belt (`from_bytes`), and the
+built-in roster keeps its belts (`Roster.builtins`): `roster_shot.gd` renders the same before and after.
+
+**Checked**: `outfit_bare_legs.png` (red before, green after: the default cast close up, and the sailor and the aviator on the meadow).
+Loadout (with new checks: the default look is bare-legged without a belt, an old look keeps its belt), fighter view, art pipeline,
+animation library, match flow, editor UI and select grid tests pass. The creator flow test fails before and after this change with the
+same errors (`unknown field ledge_exposed_frames in the ruleset`: the built bridge is behind the content), not from this pass.
+
