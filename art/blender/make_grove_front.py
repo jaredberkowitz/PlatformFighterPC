@@ -38,7 +38,9 @@ ROUND = 4.0          # how far under the lowest block the island rounds off to i
 Y_TOP = TOP - 0.3
 Y_BOT = LOW - ROUND
 BEND = 1.3           # how far in from each side the front curves back
-CURL = TOP - 2.1     # the foot of the code-built turf lip's curl (`solid_block`), which stays in front of the top of every front
+# Where the front meets the lawn: just under the lawn's slab (`solid_block`, 0.55 deep). (The thick rolled turf lip that hung 2.1 down
+# is left out over a modelled front, the owner, 2026-10-20.)
+CURL = TOP - 0.6
 
 
 def P(x, y, z):
@@ -115,15 +117,26 @@ def sheet(bm, displace, y_top=Y_TOP, y_bot=Y_BOT, step=0.13, cols=150):
 
 
 def rock(bm, c, r, rng):
-    """A faceted stone: a low icosphere, each corner pushed in or out, flattened against the island."""
-    res = bmesh.ops.create_icosphere(bm, subdivisions=1, radius=1.0)
-    s = Vector((rng.uniform(0.9, 1.3), rng.uniform(0.55, 0.75), rng.uniform(0.7, 1.0))) * r
-    rot = Matrix.Rotation(rng.uniform(0, math.tau), 3, "Y")
-    for v in res["verts"]:
-        v.co = rot @ Vector((v.co.x * s.x, v.co.y * s.y, v.co.z * s.z)) * rng.uniform(0.85, 1.12) + c
+    """A blocky stone (the grove reference's packed stones: squared, chamfered, a few big planes each): a box, its corners pushed in
+    or out, its edges bevelled, turned a little, flattened against the island."""
+    res = bmesh.ops.create_cube(bm, size=2.0)
+    verts = res["verts"]
+    s = Vector((rng.uniform(0.9, 1.35), rng.uniform(0.5, 0.7), rng.uniform(0.65, 0.95))) * r
+    rot = Matrix.Rotation(rng.uniform(-0.35, 0.35), 3, "Y") @ Matrix.Rotation(rng.uniform(-0.2, 0.2), 3, "X")
+    for v in verts:
+        v.co = rot @ Vector((v.co.x * s.x * rng.uniform(0.85, 1.1), v.co.y * s.y, v.co.z * s.z * rng.uniform(0.85, 1.1))) + c
+    edges = list({e for v in verts for e in v.link_edges})
+    out = bmesh.ops.bevel(bm, geom=edges, offset=r * 0.16, segments=1, affect="EDGES")
+    # (Each stone its own tone, as packed field stones are; multiplied into its baked occlusion, `tone`.)
+    layer = bm.verts.layers.float.get("tone")
+    # (Its own random numbers from where it sits, so the stones' layout does not move with it.)
+    tone = random.Random(round(c.x * 10.0) * 7919 + round(c.z * 10.0)).uniform(0.72, 1.05)
+    for v in out["verts"]:
+        if layer is not None and v.is_valid:
+            v[layer] = tone
 
 
-def tube(bm, pts, r0, r1, rng, sides=8, ribs=5, rib=0.14):
+def tube(bm, pts, r0, r1, rng, sides=10, ribs=6, rib=0.2):
     """A ribbed root along `pts` (Blender points), its radius tapering from `r0` to `r1`, its ridges twisting a little as it goes."""
     rings = []
     twist = rng.uniform(0, math.tau)
@@ -135,11 +148,12 @@ def tube(bm, pts, r0, r1, rng, sides=8, ribs=5, rib=0.14):
             side = Vector((1, 0, 0))
         side.normalize()
         up = side.cross(fwd).normalized()
-        rad = r0 + (r1 - r0) * t
+        # (Thick most of the way and thinning toward the tip, a little swell where it bends.)
+        rad = (r0 + (r1 - r0) * t ** 1.6) * (1.0 + 0.08 * math.sin(t * 9.0 + twist))
         ring = []
         for i in range(sides):
             a = math.tau * i / sides
-            rr = rad * (1.0 + rib * math.cos(ribs * a + twist + t * 2.0))
+            rr = rad * (1.0 + rib * math.cos(ribs * a + twist + t * 7.0))
             ring.append(bm.verts.new(p + (side * math.cos(a) + up * math.sin(a)) * rr))
         rings.append((p, ring))
     for k in range(len(rings) - 1):
@@ -159,20 +173,27 @@ def tube(bm, pts, r0, r1, rng, sides=8, ribs=5, rib=0.14):
             f.normal_flip()
 
 
-def root_path(x0, y_end, rng, lift, follow):
-    """A root from under the lip at `x0` down to `y_end`, drifting toward the island's middle as it narrows, `lift` in front of the
-    surface under it (`follow(x, y)`)."""
+def root_path(x0, y_end, rng, lift, follow, x1=None, sway=0.35, y0=None):
+    """A root from `y0` (under the lip's curl) at `x0` down to `y_end`: as a share of the island's width it sweeps from `x0` toward
+    `x1` (default: drifting toward the middle as the island narrows) with a slow S of `sway`, kept on the island and wrapping round its
+    curved sides, `lift` in front of the surface under it (`follow(x, y)`)."""
     pts = []
-    lo0, hi0 = edges(Y_TOP)
-    half0 = (hi0 - lo0) * 0.5
+    y0 = CURL + 0.2 if y0 is None else y0
+    lo0, hi0 = edges(min(y0, Y_TOP))
+    mid0, half0 = (lo0 + hi0) * 0.5, (hi0 - lo0) * 0.5
+    k0 = (x0 - mid0) / half0
+    k1 = k0 * 0.92 if x1 is None else (x1 - mid0) / half0
     phase = rng.uniform(0, math.tau)
-    y = CURL + 0.2
+    y = y0
     while y > y_end:
+        t = (y0 - y) / max(y0 - y_end, 0.01)
+        e = t * t * (3.0 - 2.0 * t)
         lo, hi = edges(max(y, Y_BOT + 0.2))
         mid, half = (lo + hi) * 0.5, (hi - lo) * 0.5
-        x = mid + (x0 - (lo0 + hi0) * 0.5) * (half / half0) * 0.92 + 0.35 * math.sin(y * 0.9 + phase)
+        x = mid + (k0 + (k1 - k0) * e) * half + sway * math.sin(t * 5.0 + phase)
+        x = min(max(x, lo + 0.25), hi - 0.25)
         pts.append(P(x, y, base_z(x, y) + follow(x, y) + lift))
-        y -= 0.3
+        y -= 0.25
     return pts
 
 
@@ -181,19 +202,32 @@ def lip_tufts(bm_lit, bm_shade, rng):
     lo, hi = edges(Y_TOP)
     x = lo + 0.5
     while x < hi - 0.4:
-        r = rng.uniform(0.32, 0.5)
-        c = P(x, CURL - 0.15, base_z(x, CURL) + 0.75)
+        r = rng.uniform(0.5, 0.85)
+        c = P(x, CURL - 0.05 + rng.uniform(-0.15, 0.1), base_z(x, CURL) + 0.7 + rng.uniform(-0.1, 0.15))
         n_lit, n_shade = len(bm_lit.verts), len(bm_shade.verts)
         folded_dome(bm_lit, bm_shade, tuple(c), r, 6, rng)
-        flip = Matrix.Rotation(math.pi + rng.uniform(-0.25, 0.25), 3, "X") @ Matrix.Diagonal((1.0, 1.0, 0.7))
+        flip = Matrix.Rotation(math.pi + rng.uniform(-0.25, 0.25), 3, "X") @ Matrix.Diagonal((1.15, 1.0, rng.uniform(0.5, 0.95)))
         for bm, n in ((bm_lit, n_lit), (bm_shade, n_shade)):
             bm.verts.ensure_lookup_table()
             for v in bm.verts[n:]:
                 v.co = flip @ (v.co - c) + c
-        x += r * rng.uniform(1.2, 1.6)
+        x += r * rng.uniform(0.9, 1.3)
+
+
+def clamp_outline(bm, margin=0.9):
+    """Keeps every point under the walkable top and within `margin` of the blocks' exact outline at its height (the eased outline the sheet follows runs up to a
+    unit wider at each step, and stones and roots near the sides went further), so no fighter passes in front of or behind what is not
+    solid (tests/stage_front_test.gd)."""
+    for v in bm.verts:
+        y = min(max(v.co.z, LOW), TOP)
+        lo, hi = span(y)
+        v.co.x = min(max(v.co.x, lo - margin), hi + margin)
+        # (And under the walkable top: with the turf lip gone the top stones rose over the lawn's front edge.)
+        v.co.z = min(v.co.z, TOP - 0.3)
 
 
 def obj(name, bm, mat_name, colour, flat=True):
+    clamp_outline(bm)
     me = bpy.data.meshes.new(name)
     bm.normal_update()
     bm.to_mesh(me)
@@ -241,31 +275,58 @@ def build():
     if VARIANT in ("B", "C"):
         # The stones: packed across the face (B) or gathered in the keel under the quilt (C).
         bm = bmesh.new()
+        bm.verts.layers.float.new("tone")
         y = CURL - 0.4 if VARIANT == "B" else LOW + 0.6
         tops = []
         while y > Y_BOT + 0.4:
             lo, hi = edges(y)
             x = lo + rng.uniform(0.3, 0.9)
             while x < hi - 0.3:
-                r = rng.uniform(0.45, 1.3) * (0.8 if y < LOW else 1.0)
+                r = (rng.uniform(0.8, 1.6) if VARIANT == "B" else rng.uniform(0.45, 1.3)) * (0.8 if y < LOW else 1.0)
                 c = P(x, y, base_z(x, y) + r * 0.3)
                 rock(bm, c, r, rng)
-                if rng.random() < 0.35:
+                if rng.random() < 0.55:
                     tops.append((c, r))
-                x += r * rng.uniform(1.5, 1.9)
-            y -= rng.uniform(0.95, 1.2)
+                x += r * rng.uniform(1.55, 1.85)
+            y -= rng.uniform(1.25, 1.6) if VARIANT == "B" else rng.uniform(0.95, 1.2)
         obj("Rocks", bm, "rock", (0.6, 0.56, 0.66))
         for c, r in tops:
-            folded_dome(lit, shade, tuple(c + Vector((0, -r * 0.2, r * 0.55))), r * 0.45, 5, rng)
+            # (Moss on the stones' tops, the reference's soft green caps: wide and low.)
+            n_lit, n_shade = len(lit.verts), len(shade.verts)
+            top_c = c + Vector((rng.uniform(-0.2, 0.2) * r, -r * 0.25, r * 0.6))
+            folded_dome(lit, shade, tuple(top_c), r * rng.uniform(0.65, 0.9), 7, rng)
+            squash = Matrix.Diagonal((1.25, 1.0, 0.55))
+            for bm_, n in ((lit, n_lit), (shade, n_shade)):
+                bm_.verts.ensure_lookup_table()
+                for v in bm_.verts[n:]:
+                    v.co = squash @ (v.co - top_c) + top_c
         # The roots: from under the lip, wrapping down over the face, a few dangling under the island.
         bm = bmesh.new()
-        follow = quilt_puff if VARIANT == "C" else (lambda x, y: 0.55)
-        starts = [-9.0, -6.2, -3.4, -0.6, 2.4, 5.4, 8.6] if VARIANT == "B" else [-8.0, -4.2, 0.4, 4.6, 8.2]
-        for x0 in starts:
-            y_end = Y_BOT - rng.uniform(0.5, 2.5) if rng.random() < 0.5 else LOW - rng.uniform(0.0, 2.0)
-            pts = root_path(x0 + rng.uniform(-0.4, 0.4), y_end, rng, 0.32, follow)
-            if len(pts) > 2:
-                tube(bm, pts, rng.uniform(0.32, 0.42), 0.07, rng)
+        if VARIANT == "B":
+            # (A few thick roots sweeping across the stones and crossing, after the grove reference, in place of a row of thin parallel
+            # ones; branches split off them; the side roots wrap round the island's curved flanks; some dangle under the keel.)
+            def follow(x, y):
+                return 0.75
+            mains = [(-10.2, -2.0, 0.75, Y_BOT - 2.5), (-5.5, 3.0, 0.68, LOW - 1.0), (-0.8, -6.0, 0.62, Y_BOT - 1.5),
+                     (4.2, 1.5, 0.72, Y_BOT - 3.0), (9.8, 3.5, 0.7, LOW + 0.5)]
+            for x0, x1, r0, y_end in mains:
+                pts = root_path(x0, y_end, rng, 0.25, follow, x1=x1, sway=0.9)
+                if len(pts) > 2:
+                    tube(bm, pts, r0, 0.12, rng)
+                    # A branch from a third of the way down, sweeping the other way.
+                    k = len(pts) // 3
+                    bx, by = pts[k].x, pts[k].z
+                    bend = 3.5 if x1 < x0 else -3.5
+                    bpts = root_path(bx, by - rng.uniform(2.5, 4.0), rng, 0.15, follow, x1=bx + bend, sway=0.4, y0=by)
+                    if len(bpts) > 2:
+                        tube(bm, bpts, r0 * 0.45, 0.06, rng, sides=8)
+        else:
+            follow = quilt_puff
+            for x0 in [-8.0, -4.2, 0.4, 4.6, 8.2]:
+                y_end = Y_BOT - rng.uniform(0.5, 2.5) if rng.random() < 0.5 else LOW - rng.uniform(0.0, 2.0)
+                pts = root_path(x0 + rng.uniform(-0.4, 0.4), y_end, rng, 0.32, follow)
+                if len(pts) > 2:
+                    tube(bm, pts, rng.uniform(0.32, 0.42), 0.07, rng)
         obj("Roots", bm, "root", (0.5, 0.36, 0.28))
     if len(lit.verts):
         obj("MossLit", lit, "moss", (0.42, 0.66, 0.24))
@@ -313,6 +374,13 @@ def bake_occlusion():
     bpy.context.view_layer.objects.active = mock[0]
     bpy.ops.object.bake(type="AO", target="VERTEX_COLORS")
     for o in mock:
+        tone = o.data.attributes.get("tone")
+        if tone is not None:
+            col = o.data.color_attributes["Col"].data
+            for v in o.data.vertices:
+                k = tone.data[v.index].value or 1.0
+                c = col[v.index].color
+                col[v.index].color = (c[0] * k, c[1] * k, c[2] * k, 1.0)
         if o.name != "Quilt":
             continue
         col = o.data.color_attributes["Col"].data

@@ -12,6 +12,8 @@ extends RefCounted
 const FighterView := preload("res://scripts/fighter_view.gd")
 const StageArt := preload("res://scripts/stage_art.gd")
 const DIR := "res://art/baked/%s/"
+## Modelled stage fronts, by the exact stage they were built on (`key`): art/blender/make_grove_front.py, the grove pilot's step 2.
+const FRONTS := {"grove_14d06e65": "res://models/stages/grove_front.glb"}
 ## The toon shaders whose materials take the baked occlusion (they share shaders/toon_common.gdshaderinc).
 const BAKEABLE := ["res://shaders/toon.gdshader"]
 ## Shaders that cast occlusion on the baked meshes without being baked themselves.
@@ -42,8 +44,20 @@ static func _shader_path(m: Material) -> String:
 
 
 ## Whether every surface of `mi` is drawn by a bakeable toon material.
+## Whether `n` or anything above it is about to be freed (a stage rebuilt in the same frame leaves the old one in the tree until then).
+static func _dying(n: Node) -> bool:
+	while n != null:
+		if n.is_queued_for_deletion():
+			return true
+		n = n.get_parent()
+	return false
+
+
 static func _bakeable(mi: MeshInstance3D) -> bool:
-	if mi.mesh == null or not mi.is_visible_in_tree() or mi.mesh.get_surface_count() == 0:
+	# (A modelled front carries its own baked occlusion: it casts occlusion on the rest, it is not baked again.)
+	if mi.has_meta("prebaked"):
+		return false
+	if mi.mesh == null or not mi.is_visible_in_tree() or mi.mesh.get_surface_count() == 0 or _dying(mi):
 		return false
 	for s in mi.mesh.get_surface_count():
 		if not BAKEABLE.has(_shader_path(mi.get_active_material(s))):
@@ -52,7 +66,7 @@ static func _bakeable(mi: MeshInstance3D) -> bool:
 
 
 static func _occludes(gi: GeometryInstance3D) -> bool:
-	if not gi.is_visible_in_tree():
+	if not gi.is_visible_in_tree() or _dying(gi):
 		return false
 	if gi is MeshInstance3D:
 		var mi := gi as MeshInstance3D
@@ -164,6 +178,9 @@ static func apply(root: Node3D, bake_key: String) -> int:
 		if (entry.surfaces as Array).size() != mi.mesh.get_surface_count() or Vector3(entry.aabb[0], entry.aabb[1], entry.aabb[2]).distance_to(size) > 0.01:
 			continue
 		var src: Mesh = baked[nm]
+		# (And the baked copy itself the same size: a bake made before the scenery changed, under the same names, swapped other meshes in.)
+		if src.get_aabb().size.distance_to(size) > 0.02:
+			continue
 		# The baked surfaces back in the built mesh's order, by their material names (`b0007_2` is surface 2).
 		var order := {}
 		for s in src.get_surface_count():
@@ -204,14 +221,26 @@ static func apply(root: Node3D, bake_key: String) -> int:
 	return swapped
 
 
+## The modelled front for this exact stage, or "" (none, or `--no-front` on the command line for comparisons).
+static func front_path(bake_key: String) -> String:
+	if OS.get_cmdline_user_args().has("--no-front") or front_mock_path() != "":
+		return ""
+	var path: String = FRONTS.get(bake_key, "")
+	return path if path != "" and ResourceLoader.exists(path) else ""
+
+
+static func front_mock_path() -> String:
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("--front-mock="):
+			return a.substr(13)
+	return ""
+
+
 ## A modelled stage front to try (`--front-mock=<glb>`, the grove pilot's step 2 mocks, art/blender/make_grove_front.py): the code-built
 ## island (`quilted_island`, `Underside`) hidden and the model placed in its stead, each material family painted from the stage's
 ## palette with the scenery's toon material, falling into shade down the front as the code-built fronts do. Returns whether it placed one.
 static func mock_front(root: Node3D, t: Dictionary) -> bool:
-	var path := ""
-	for a in OS.get_cmdline_user_args():
-		if a.begins_with("--front-mock="):
-			path = a.substr(13)
+	var path := front_mock_path()
 	if path == "" or not FileAccess.file_exists(path):
 		return false
 	var doc := GLTFDocument.new()
@@ -220,16 +249,27 @@ static func mock_front(root: Node3D, t: Dictionary) -> bool:
 		push_warning("front mock %s could not be read" % path)
 		return false
 	for n in root.find_children("*", "", true, false):
+		if _dying(n):
+			continue
 		var nm := String(n.name)
 		if n is Node3D and (nm.begins_with("quilted_island") or nm.begins_with("Underside") or nm == "block" or nm.begins_with("faceted_ledge")):
 			(n as Node3D).visible = false
+	place_front(root, t, doc.generate_scene(state))
+	print("front mock: placed %s" % path.get_file())
+	return true
+
+
+## Places a modelled front (`scene`, from make_grove_front.py) under `root`: each material family painted from the stage's palette with
+## the scenery's toon material and the model's own baked occlusion (vertex colours), falling into shade down the front as the
+## code-built fronts do.
+static func place_front(root: Node3D, t: Dictionary, scene: Node3D) -> void:
 	var quilt: Color = t.get("quilt", Color(0.88, 0.66, 0.42))
 	var grass: Color = t.get("grass", Color(0.5, 0.8, 0.3))
-	var bd: Dictionary = StageArt.palette(String(t.get("name", ""))).get("backdrop", {})
 	var colours := {"quilt": quilt, "button": quilt.darkened(0.35), "earth": (t.get("soil_dark", Color(0.5, 0.35, 0.2)) as Color).darkened(0.55),
-		"rock": Color(0.62, 0.57, 0.52), "root": bd.get("great_bark", Color(0.6, 0.45, 0.35)), "moss": grass.darkened(0.25),
+		# (Greyed toward green and the roots a darker bark: under the grove's pink light grey stone read lavender and the bark pink.)
+		"rock": Color(0.48, 0.55, 0.44), "root": Color(0.46, 0.37, 0.3), "moss": grass.darkened(0.12),
 		"moss_shade": grass.darkened(0.5)}
-	var scene := doc.generate_scene(state)
+	scene.name = "ModelledFront"
 	root.add_child(scene)
 	var top := -INF
 	for mi: MeshInstance3D in scene.find_children("*", "MeshInstance3D", true, false):
@@ -240,7 +280,7 @@ static func mock_front(root: Node3D, t: Dictionary) -> bool:
 			var fam := src.resource_name if src != null else "rock"
 			var m := (FighterView.toon(colours.get(fam, Color(0.6, 0.6, 0.6)), true) as ShaderMaterial).duplicate() as ShaderMaterial
 			m.set_shader_parameter("facets", fam != "quilt")
-			# (Each mock carries its own baked occlusion in its vertex colours.)
+			# (The model carries its own baked occlusion in its vertex colours.)
 			m.set_shader_parameter("vertex_shade", true)
 			m.set_shader_parameter("ramp_softness", 0.3 if fam == "quilt" else 0.1)
 			m.set_shader_parameter("fall_by_height", true)
@@ -248,5 +288,4 @@ static func mock_front(root: Node3D, t: Dictionary) -> bool:
 			m.set_shader_parameter("front_span", 7.0)
 			mi.set_surface_override_material(s, m)
 		mi.set_instance_shader_parameter("front_top", top)
-	print("front mock: placed %s" % path.get_file())
-	return true
+		mi.set_meta("prebaked", true)

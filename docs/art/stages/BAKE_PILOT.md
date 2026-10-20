@@ -89,3 +89,26 @@ stays code-built, folded and baked.
   are left out of the bake's context.
 - **Options** (`mocks/grove_front/`, match camera, wide and close-up; on the owner's fidelity page): A the quilt modelled (34,100
   triangles), B roots and rocks (12,700), C the quilt with roots (37,100). At the match camera only the top third of the front shows.
+
+## Step 2 built: the grove's front, B roots and rocks (2026-10-20)
+
+The owner picked B (after first saying A, then correcting), then asked to remove the rolled turf lip over it (it drew the eye from the
+fighters and read as a separate piece).
+
+- **Shape pass** (`make_grove_front.py`): blocky bevelled stones in their own tones (a per-stone tone multiplied into the baked
+  occlusion), five thick ribbed roots sweeping diagonally across the stones with a branch each, the side roots wrapping round the
+  island's curved flanks, some dangling under the keel, wide moss caps on the stones, a moss fringe under the lawn's edge. 16,300
+  triangles. Every point clamped under the walkable top and within 0.9 of the blocks' exact outline.
+- **Shipped:** `godot/models/stages/grove_front.glb`, an imported model, placed by `StageView` for the exact grove layout
+  (`StageBake.FRONTS`, keyed like the bake) in place of the code-built quilt; `StageArt.front_modelled` leaves out the keel, the turf lip
+  and its curl over it. Custom editor stages on the grove theme keep the code-built front. `--no-front` for comparisons.
+- **Test:** `godot/tests/stage_front_test.gd` reads the sim's stages and checks each modelled front was built for one of them, stays
+  under the walkable top, within a unit of the blocks' outline, and no further forward than the old lip. It caught both: points a unit
+  outside the outline (the eased outline copied from the code-built quilt), and the top stones over the lawn's edge once the lip went.
+- **Bugs fixed on the way:** the bake export picked up the previous stage still waiting to be freed (the demo builds the meadow first),
+  704 meshes where the grove has 230, so in a normal match most of the first bake would have been skipped; the bake check now also
+  compares the baked mesh itself, so a stale bake is refused instead of swapping wrong meshes in.
+- **Result** (round 57, `pilot_grove_front.png`: match camera, wide, fighters in play): the front reads as roots and stones holding the
+  island, close to the grove reference; the lawn's edge is one clean line. Fighters 0.55 and 0.56 on a lawn of 0.72. Fewer primitives
+  than before (0.68 M against 0.71 M), draw calls about the same. Re-baked: 95 background meshes take baked light around the new front.
+- **Tests:** all seven Godot tests pass.

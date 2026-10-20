@@ -995,6 +995,9 @@ static func _faceted_ledge(parent: Node3D, left: float, right: float, top: float
 ## falling into shade below the top as the fronts do (`fall`, the stage's top).
 ## True while the stage view lays a whole stage's blocks: a quilted theme then leaves its blocks' fronts to `quilted_island`.
 static var island_mode := false
+## True while a stage is built with a modelled front (`StageBake.FRONTS`): the island's keel, skirt and roots are the model's, so
+## `underside` leaves them out.
+static var front_modelled := false
 
 
 ## The grove's island as one rounded quilted hull over all its solid blocks (`rects` from the sim, as the stage view has them), its
@@ -1354,10 +1357,13 @@ static func solid_block(parent: Node3D, t: Dictionary, left: float, right: float
 			# (On the quilted island a thick rolling mat overhanging the rim, the judge's round 40 and the owner's grove reference: a lush
 			# grass top whose edge curls over in a deep, soft lip.)
 			var lip_r := cap_h * (1.5 if t.has("quilt") else 0.62)
-			var lip := _edge_lip(parent, left - 0.125, right + 0.125, top - cap_h * 0.55 - (0.6 if t.has("quilt") else 0.0),
-				front_z + (0.3 if t.has("quilt") else 0.02), lip_r, grass)
-			lip.name = "lip"
-			if t.has("quilt"):
+			# (No lip over a modelled front, the owner, 2026-10-20: the thick rolled turf drew the eye from the fighters and read as a
+			# separate piece on the modelled roots and stones; the front's own moss fringe meets the lawn's edge instead.)
+			if not front_modelled:
+				var lip := _edge_lip(parent, left - 0.125, right + 0.125, top - cap_h * 0.55 - (0.6 if t.has("quilt") else 0.0),
+					front_z + (0.3 if t.has("quilt") else 0.02), lip_r, grass)
+				lip.name = "lip"
+			if t.has("quilt") and not front_modelled:
 				# (The underside of the curl in a deep green, the judge's round 41: lime all round, the thick lip read as a cushion, not turf
 				# rolling over and falling into its own shade.)
 				var under := (FighterView.toon((t.grass as Color).darkened(0.42), false) as ShaderMaterial).duplicate() as ShaderMaterial
@@ -1388,7 +1394,7 @@ static func solid_block(parent: Node3D, t: Dictionary, left: float, right: float
 				if not t.has("quilt"):
 					_mesh(parent, tuft_mesh, grass, Vector3(x, top - cap_h + 0.1 - 0.17 * k * hang, front_z + 0.2 + own.randf_range(-0.04, 0.04)),
 						Vector3(1.2 * wide, 0.8 * hang, 0.6) * k)
-				if rng.randf() < 0.22:
+				if rng.randf() < 0.22 and not front_modelled:
 					_mesh(parent, _sphere(0.16, 6), stone, Vector3(x + 0.5, top - cap_h - 0.3, front_z + 0.12), Vector3(1.3, 0.8, 0.7))
 				x += rng.randf_range(0.8, 1.6) * 0.62
 			# Grass tufts growing from the lip (art/blender/make_props.py `grass_tuft`, the gauntlet's round 6) in clusters of three to five with
@@ -3858,6 +3864,8 @@ static func underside(root: Node3D, t: Dictionary, e: Array) -> void:
 		_:
 			if t.get("terrace", false):
 				_meadow_hill(root, t, l, r, bottom, front, float(e[2]))
+				return
+			if front_modelled:
 				return
 			# A floating island: a keel of earth tapering to a point a little off-centre, rocks set in it, roots hanging from the rim.
 			var length := clampf((r - l) * 0.42, 4.0, 8.0)

@@ -59,6 +59,10 @@ func build(sim) -> void:
 			else:
 				extent[4] = r[0]
 				extent[5] = r[1]
+	# Baked light and a modelled front belong to this exact stage (scripts/stage_bake.gd).
+	var bake_key := StageBake.key(String(theme.get("name", "")), rects)
+	var front := StageBake.front_path(bake_key)
+	StageArt.front_modelled = front != "" or StageBake.front_mock_path() != ""
 	StageArt.island_mode = theme.has("quilt")
 	for i in rects.size():
 		var r: PackedFloat32Array = rects[i]
@@ -75,7 +79,9 @@ func build(sim) -> void:
 				if o[4] < 0.5 and o != r and is_equal_approx(o[3], top) and o[0] <= left + 0.01 and o[1] >= right - 0.01:
 					exposed = false
 			StageArt.solid_block(self, theme, left, right, top, bottom, FRONT_Z, exposed, float(extent[2]))
-	if StageArt.island_mode:
+	if front != "":
+		StageBake.place_front(self, theme, (load(front) as PackedScene).instantiate())
+	elif StageArt.island_mode:
 		StageArt.quilted_island(self, theme, rects, FRONT_Z)
 	StageArt.island_mode = false
 
@@ -90,13 +96,13 @@ func build(sim) -> void:
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--props="):
 			prop_lineup(self, arg.substr(8).split(","), extent)
-	# Baked light for this exact stage, if it has one (scripts/stage_bake.gd); `--bake-export` writes the scenery out for Blender instead.
-	var bake_key := StageBake.key(String(theme.get("name", "")), rects)
+	# Baked light for this exact stage, if it has one; `--bake-export` writes the scenery out for Blender instead.
 	if OS.get_cmdline_user_args().has("--bake-export"):
 		StageBake.export_scene(self, bake_key, rects, FRONT_Z)
 	else:
 		StageBake.apply(self, bake_key)
 	StageBake.mock_front(self, theme)
+	StageArt.front_modelled = false
 
 	for i in sim.ledge_count():
 		var l: Vector3 = sim.ledge_pos(i)
