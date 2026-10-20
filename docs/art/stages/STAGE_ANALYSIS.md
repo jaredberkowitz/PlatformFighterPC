@@ -88,3 +88,43 @@ must sit a step under whatever it becomes.
 `replay_test` pass. `runner_test` failed 2 of 6 runs on "the way out" (the run shop's hint read three frames after the bell, before the
 HUD updated, while the machine was under load): a timing race in the test, unrelated to stage art (the run mode is built from the city,
 untouched here); passed on the other runs.
+
+## Pass 3: the city's readability (2026-10-20)
+
+**Defect** (`REFERENCE.md`, weakness 1). The look bench fails (the midnight body on the city's dark backdrop, edge 0.39); the near tower
+layer is the darkest large area behind the fighters (0.22); the OPEN and SHOP signs (0.55) outshine both fighters (0.47 to 0.52); the
+sky is a hot magenta (saturation 0.68) against blue-violet towers, where the reference's night is one muted violet family.
+
+**Fixed** (`city.cfg`):
+- The skyline's three shades lighter and a little redder: near 0.22 → 0.30, far 0.34 → 0.36 (hue 262 → 267, the lighting pulls them
+  blue; the reference is 286 to 306).
+- `sign_dim` 0.6 → 0.3: the signs 0.55 → 0.45 to 0.47, at or under the fighters, still legible.
+
+**Mocked, for the owner** (`mocks/city_sky_options.png`, with the new towers and signs; the committed sky is unchanged, A):
+
+| Option | `sky_horizon` / `sky_glow` / `sun_side` | Sky value, hue, sat |
+|---|---|---|
+| A, today | 0.42, 0.22, 0.46 / 0.95, 0.38, 0.6 at 0.45 / 0.4 | 0.43, 324, 0.67 |
+| B, calmer pink | 0.42, 0.24, 0.48 / 0.8, 0.42, 0.62 at 0.32 / 0.25 | 0.37, 310, 0.59 |
+| C, deep violet | 0.42, 0.26, 0.5 / 0.78, 0.44, 0.62 at 0.2 / 0.15 | 0.31, 300, 0.57 |
+| D, grey violet | 0.38, 0.3, 0.46 / 0.66, 0.5, 0.62 at 0.2 / 0.15 | 0.31, 279, 0.48 (the reference: 0.25, 286, 0.36) |
+
+The sky's pink is mostly `sun_side`, which tints the whole sky ahead with the glow's colour (the camera looks close to the horizon).
+
+**The look bench, diagnosed, not fixed.** It still fails (0.39 → 0.39). Tried and reverted, each with no effect on that cell: the city's
+edge light 0.55 → 0.65, its fill 0.48 → 0.62 (0.41), its ambient 0.55 → 0.75 (0.41). The causes:
+- The fighters' edge light is scaled by each body's own colour (`PF_FIGHTER_CREAM` in `toon_light.gdshaderinc`, the character pass), so
+  on the near-black midnight body it is about a third as strong; and the stage's lights multiply that same near-black colour.
+- The bench's dark backdrop is synthetic: the mood's ambient darkened by 0.72 (0.23 here), not the stage. It builds every mood before
+  rendering, so per-mood globals (edge, rim, ramp) are not compared per mood either.
+- In the game the midnight fighter reads (`pass3_city.png`, bottom row: player 1 given the midnight body for the capture, reverted): it
+  stands on the roof (0.40) against towers now at 0.30 or more, and its head reads better against the lighter towers.
+Fixing the cell needs a fighter-side floor on the edge light for very dark bodies, or the bench measuring against each stage's real
+darkest backdrop. Both are outside this pass; the owner's call.
+
+**Checked.** Round 47 (city); `pass3_city.png` (match camera, a 2x close-up of the signs and towers, and the midnight fighter in play,
+before and after); the run mode (`run_shot`, before and after: its own facades fill most of the frame, the far towers a touch lighter,
+nothing breaks); `prop_check_test`, `art_pipeline_test`, `match_flow_test`, `runner_test`, `editor_ui_test`, `replay_test` pass.
+
+**Left.** The sky, per the owner's pick. The roof (0.40) stays under the fighters by 0.06 or more; the reference makes its play pieces
+the palest things, but lifting the roof would close that gap.
