@@ -1028,7 +1028,16 @@ class Bubble extends Control:
 		var rect := Rect2(Vector2.ZERO, size).grow(-4)
 		var pad := rect.size.y * D.SKEW
 		label.position = Vector2(rect.position.x + pad + 14.0, rect.position.y + 8.0)
-		label.size = Vector2(maxf(rect.size.x - pad * 1.4 - 28.0, 10.0), maxf(rect.size.y - 16.0, 10.0))
+		var room := maxf(rect.size.y - 16.0, 10.0)
+		label.size = Vector2(maxf(rect.size.x - pad * 1.4 - 28.0, 10.0), room)
+		# The text steps down the type scale until it fits the card (a long help text spilled out under it in the online screen). Measured
+		# against `room`: a wrapping label grows itself to fit its text, so its own height says nothing.
+		var fs := TYPE_BODY
+		while true:
+			label.add_theme_font_size_override("font_size", fs)
+			if fs <= TYPE_CAPTION or label.get_line_count() * label.get_line_height() <= room:
+				break
+			fs -= 2
 
 	func _notification(what: int) -> void:
 		if what == NOTIFICATION_RESIZED:

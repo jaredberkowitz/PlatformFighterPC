@@ -193,7 +193,7 @@ class PTab extends Control:
 
 	func _draw() -> void:
 		Art.brush_band(self, Rect2(Vector2.ZERO, size), fill, seed, 8.0, true, 0.4)
-		Art.title_centered(self, text, Rect2(Vector2(0, 0), size - Vector2(6, 0)), 20, Color.WHITE, 0.14)
+		Art.title_centered(self, text, Rect2(Vector2(0, 0), size - Vector2(6, 0)), clampi(int(size.y * 0.72), 12, 20), Color.WHITE, 0.14)
 
 
 class PlayerPanel extends Control:
@@ -387,12 +387,12 @@ class Ribbon extends Control:
 		Art.brush_band(self, Rect2(r.position + Vector2(80, r.size.y * 0.7), Vector2(r.size.x - 220, r.size.y * 0.16)), Color(1, 1, 1, 0.12), 27, 6.0, false, 0.6)
 		var f := UI.D.display_font()
 		var text := "READY TO FIGHT!"
-		var size_big := 64
+		var size_big := UI.TYPE_TITLE
 		var tw := f.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, size_big).x
 		var x := r.position.x + (r.size.x - tw) * 0.5 - 90.0
 		var y := r.position.y + r.size.y * 0.5 + f.get_ascent(size_big) * 0.36
 		Art.title(self, text, Vector2(x, y), size_big, Color.WHITE, 0.12)
-		Art.title(self, "Press Start", Vector2(x + tw + 30.0, y - 8.0), 28, Color(1, 0.86, 0.8), 0.0)
+		Art.title(self, "Press Start", Vector2(x + tw + 30.0, y - 6.0), UI.TYPE_LABEL, Color(1, 0.86, 0.8), 0.0)
 
 
 func _ready() -> void:
@@ -459,8 +459,11 @@ func _ready() -> void:
 		var tags := []
 		for p in 4:
 			var flag := PTab.new("P%d" % (p + 1), P_COLORS[p], 60 + p)
-			flag.size = Vector2(50, 28)
-			flag.position = [Vector2(-6, -1), Vector2(token - 46, -1), Vector2(-6, token - 24), Vector2(token - 46, token - 24)][p]
+			# Sized with the card and kept inside it, two to a row (players 3 and 4 under 1 and 2, clear of the name): they hung over the
+			# card's edges, so two players on neighbouring cards stacked their tabs (the UI pass, docs/art/ui/UI_ANALYSIS.md).
+			var tab := Vector2(clampf(token * 0.46, 28.0, 50.0), clampf(token * 0.26, 16.0, 28.0))
+			flag.size = tab
+			flag.position = Vector2(0.0 if p % 2 == 0 else token - tab.x, -1.0 + (p / 2) * (tab.y + 1.0))
 			flag.visible = false
 			card.add_child(flag)
 			tags.append(flag)
@@ -524,8 +527,9 @@ func _ready() -> void:
 
 	# The band across the screen once everyone has locked in.
 	start_button = Ribbon.new()
-	start_button.position = Vector2(-20, 296)
-	start_button.size = Vector2(1320, 96)
+	# (In the gap between the grid and the players' panels, 2026-10-19: at 296-392 it covered the P tabs and the panels' tops.)
+	start_button.position = Vector2(-20, 304)
+	start_button.size = Vector2(1320, 72)
 	start_button.activated.connect(_start)
 	start_button.visible = false
 	add_child(start_button)
