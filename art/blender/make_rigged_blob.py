@@ -1917,24 +1917,91 @@ def shirt_front(shirt, skin, neck_line, waist, trunk_weights):
         bpy.data.meshes.remove(tmp)
 
     out = {}
-    bm = bmesh.new()
-    for sx in (-1.0, 1.0):
-        # Inner corner at the throat, outer corner out along the shoulder line, the point down and out over the chest; the free edges
-        # stand a little further off, as a folded collar does.
-        tri = [Vector((sx * 0.03, neck_line - 0.1)), Vector((sx * 0.24, neck_line - 0.05)), Vector((sx * 0.15, neck_line - 0.3))]
-        merge(bm, patch(tri, 8, 0.014, 0.016))
-    out["ShirtCollar"] = finish("ShirtCollar", bm, 0.014)
-    # The holiday shirt's open camp collar (the character judge's round 6, after the reference's): two broad flat lapels lying open from
-    # the throat out over the collarbones, their points squared. The game shows one collar or the other by the shirt.
-    bm = bmesh.new()
-    for sx in (-1.0, 1.0):
-        # (Spread out over the shoulders past the sash's top edge, the character judge's round 7: narrower, the sash hid one.)
-        # (Half the size, open in a V from the neck, the character judge's round 9: big, it read as a paper bib over the print.)
-        quad = [Vector((sx * 0.02, neck_line - 0.03)), Vector((sx * 0.24, neck_line - 0.02)), Vector((sx * 0.2, neck_line - 0.12)),
-                Vector((sx * 0.05, neck_line - 0.22))]
-        # (Standing off the shirt at its free edges, so the lapels' fold and edge read even in the same print.)
-        merge(bm, patch(quad, 8, 0.02))
-    out["ShirtCampCollar"] = finish("ShirtCampCollar", bm, 0.03)
+    # The collar: one band round the neck, folded over along its top edge, narrow at the back and widening into two points at the
+    # front, laid on the shirt by walking down its surface from the neckline (so it lies on the chest in front and on the shoulders at
+    # the sides alike). (Two flat triangles on the chest until the shirt pass, 2026-10-20: the owner, "it just reads as triangles on the
+    # shirt"; nothing joined them round the neck.)
+    ring = [v.co for v in sbm.verts if abs(v.co.z - neck_line) < 0.04]
+    yc = sum(c.y for c in ring) / len(ring) if ring else 0.0
+
+    def outward(p, n):
+        axis = Vector((0.0, yc, p.z))
+        return n if n.dot(p - axis) >= 0.0 else -n
+
+    def walk(theta, length, steps):
+        # From the neckline at this angle round the neck (0 the front), down the cloth's slope in equal steps.
+        d = Vector((math.sin(theta), -math.cos(theta), 0.0))
+        hit, _, _, _ = tree.ray_cast(Vector((0.0, yc, neck_line - 0.012)), d, 2.0)
+        # (Only a hit close round the neck: wide of it, the ray can miss the cloth there and find a far part of the shirt.)
+        if hit is None or (hit - Vector((0.0, yc, hit.z))).length > COLLAR_REACH:
+            return None
+        pts = [hit]
+        step = length / max(steps, 1)
+        for _ in range(steps):
+            loc, nrm, _, _ = tree.find_nearest(pts[-1])
+            nrm = outward(loc, nrm)
+            t = Vector((0.0, 0.0, -1.0)) + nrm * nrm.z
+            if t.length < 1e-4:
+                t = d.copy()
+            t.normalize()
+            loc2, _, _, _ = tree.find_nearest(pts[-1] + t * step)
+            # (A step that jumps has snapped to another part of the cloth: the column is left out.)
+            if (loc2 - pts[-1]).length > 2.5 * step + 0.004:
+                return None
+            pts.append(loc2)
+        return pts
+
+    def width(theta):
+        for (t0, w0), (t1, w1) in zip(COLLAR_SHAPE, COLLAR_SHAPE[1:]):
+            if t0 <= theta <= t1:
+                return w0 + (w1 - w0) * (theta - t0) / (t1 - t0)
+        return COLLAR_SHAPE[-1][1]
+
+    def collar(out_by, n_t=72, n_d=8):
+        bm = bmesh.new()
+        t_open = COLLAR_SHAPE[0][0]
+        for sx in (-1.0, 1.0):
+            cols = []
+            for i in range(n_t + 1):
+                th = t_open + (math.pi - 0.01 - t_open) * (i / n_t) ** 1.4
+                cols.append(walk(th * sx, width(th), n_d))
+            # A column left out is blended from its neighbours either side (and laid on the cloth below with the rest), so the band
+            # runs on unbroken; joined straight across, a gap at the shoulder made one long face cutting through the shirt.
+            good = [i for i, c in enumerate(cols) if c is not None]
+            if not good:
+                continue
+            for i, c in enumerate(cols):
+                if c is None:
+                    lo = max([g for g in good if g < i], default=good[0])
+                    hi = min([g for g in good if g > i], default=good[-1])
+                    f = 0.0 if hi == lo else (i - lo) / (hi - lo)
+                    cols[i] = [p.lerp(q, f) for p, q in zip(cols[lo], cols[hi])]
+            # Smoothed along the band (each row averaged with its neighbours, then laid back on the cloth), so the free edge runs in one
+            # clean curve instead of a row of small steps.
+            for _ in range(COLLAR_SMOOTH):
+                cols = [cols[0]] + [[(a + 2.0 * b + c) / 4.0 for a, b, c in zip(cols[k - 1], cols[k], cols[k + 1])]
+                                    for k in range(1, len(cols) - 1)] + [cols[-1]]
+            grid = {}
+            for i, pts in enumerate(cols):
+                for j, p in enumerate(pts):
+                    loc, nrm, _, _ = tree.find_nearest(p)
+                    nrm = outward(loc, nrm)
+                    k = j / n_d
+                    # The fold along the top stands off the shirt and rounds over; the free edge lifts a little, as a pressed collar does.
+                    lift = out_by + COLLAR_FOLD * (1.0 - k) ** 2 + COLLAR_EDGE_LIFT * k ** 3
+                    grid[i, j] = bm.verts.new(loc + nrm * lift)
+            for (i, j), v in list(grid.items()):
+                a, b, c = grid.get((i + 1, j)), grid.get((i, j + 1)), grid.get((i + 1, j + 1))
+                if a and b and c:
+                    bm.faces.new((v, a, c, b) if sx > 0 else (v, b, c, a))
+        bmesh.ops.dissolve_degenerate(bm, dist=1e-5, edges=list(bm.edges))
+        return bm
+
+    # (One sheet, drawn from both sides as all the cloth is: thickened, the tiny faces at its points threw a few corners metres off.)
+    out["ShirtCollar"] = finish("ShirtCollar", collar(0.012), 0.0)
+    # The holiday shirt's camp collar: the same band, in the shirt's print (fighter_view.gd), standing a hair further off.
+    # (Two squared cream lapels until the shirt pass, 2026-10-20: they read as a white slab across the shoulders.)
+    out["ShirtCampCollar"] = finish("ShirtCampCollar", collar(0.016), 0.0)
     top, bottom = neck_line - 0.2, waist + BELT_HALF + 0.005
     plk = patch([Vector((-0.032, top)), Vector((0.032, top)), Vector((0.032, bottom)), Vector((-0.032, bottom))], 12, 0.006)
     out["ShirtPlacket"] = finish("ShirtPlacket", plk, 0.01)
@@ -1957,6 +2024,14 @@ def shirt_front(shirt, skin, neck_line, waist, trunk_weights):
 
 # ---- Clothes: garments cut from the skin ------------------------------------------------------------------------------------------------
 # (Puffier, art review 6: PEAK's shirts and shorts are thick soft garments standing off the body; ours hugged it like paint.)
+# The shirt's collar (shirt_front): its width down the cloth (head-relative units) at each angle round the neck from the front (radians),
+# so narrow at the back and widening into a point either side of the throat; how far from the neck's middle the neckline is looked for;
+# how many smoothing passes along the band; how far the fold along its top and its free edge stand off the shirt.
+COLLAR_SHAPE = [(0.1, 0.03), (0.42, 0.26), (0.9, 0.11), (1.6, 0.075), (math.pi, 0.065)]
+COLLAR_REACH = 0.36
+COLLAR_SMOOTH = 3
+COLLAR_FOLD = 0.014
+COLLAR_EDGE_LIFT = 0.01
 SHIRT_LIFT = 0.085      # how far off the skin the shirt sits (0.065 until the body rebuild: it read painted on; the reference's shirts hang loose)
 # Where the waist is, as a share of the way from the hips up to the neck. (The owner, 2026-10-14: PEAK's figures have a waistline; ours
 # had the shorts' top almost at the crotch, 0.12, so the shirt ran in one straight box to the hips. Now the shorts come up to a belt at the

@@ -438,3 +438,20 @@ content files).
 `finish_pass.png`: close-up and group shot, then the meadow match: before, Bold, Fine; then the city match: Bold, Fine.
 `finish_pass_setting.png`: the Display page with the new row. Controls, camera, pause, fighter view, art pipeline, loadout, animation
 library, match flow, select grid and editor UI tests pass.
+
+## Shirt collar and buttons (2026-10-20, item 4 above)
+- **Mocked first** (scratch rig builds): bigger collar points, a more fitted shirt, and both. The owner could barely tell them apart
+  under the sash, preferred the puffy shoulders, and with the sash off chose the current collar's size, but "it just reads as
+  triangles on the shirt": two flat patches laid on the chest, starting 0.1 below the neckline, with nothing joining them round the neck.
+- **The collar** (`make_rigged_blob.py` `shirt_front`, `COLLAR_SHAPE` and the other `COLLAR_` constants) is now one band round the neck,
+  laid on the shirt by walking down its surface from the neckline at each angle round the neck (so it lies on the chest in front and
+  on the shoulders at the sides alike): narrow at the back, widening into the same two points at the front, its fold standing off and
+  rounding over along the top. Built as one sheet (the cloth is drawn from both sides): thickened, the tiny faces at its points threw
+  a few corners metres off. A column the walk cannot place is blended from its neighbours, and the band is smoothed along its length.
+- **The flower shirt's collar** is the same band in the shirt's own print (it was two squared cream lapels, a white slab).
+- **Buttons** are drawn without ink rings: three ringed buttons stacked read as the figure 8.
+- The shirt's shape is unchanged (the owner's choice).
+
+`collar_pass.png`, before above after: front and back with no neckwear, then the default looks. The collar follows the torso through
+the run, forward smash, jump, grab and hit animations without poking through. Rig rebuilt (mesh only; `base_rig.json` unchanged).
+Fighter view, art pipeline, loadout, animation library, match flow, select grid and editor UI tests pass.

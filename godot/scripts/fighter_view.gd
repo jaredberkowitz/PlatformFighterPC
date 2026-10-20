@@ -426,10 +426,12 @@ func _build_rig(skin: Material) -> bool:
 			if cuff_cloth != null:
 				mi.material_override = _cloth(cuff_cloth)
 		elif part.begins_with("ShirtCampCollar"):
-			# The holiday shirt's open camp collar, in its own print.
+			# The holiday shirt's collar, in its own print.
 			mi.visible = loadout.shirt == 4
-			# (A plain cream to stand out from the print, as the reference's collar's lining shows.)
-			mi.material_override = _cloth(toon(Color(0.98, 0.94, 0.86)))
+			# (A plain cream until the shirt pass, 2026-10-20, as the reference's collar's lining shows: it read as a white slab across the
+			# shoulders. Its fold and edge stand off the shirt, so it reads in the same print.)
+			var print_cloth := _garment_shirt_material()
+			mi.material_override = _cloth(print_cloth) if print_cloth != null else _cloth(toon(Color(0.98, 0.94, 0.86)))
 		elif part.begins_with("ShirtCollar") or part.begins_with("ShirtPlacket"):
 			# The collar and the placket, modelled on the shirt's front (make_rigged_blob.py's `shirt_front`): a shade darker than a plain
 			# shirt, white on a printed one; the collar hides under a ring of neckwear.
@@ -439,7 +441,8 @@ func _build_rig(skin: Material) -> bool:
 			# (Not under a sash, the badge pass, 2026-10-19: the band crosses the button line and the buttons poked through it as a row of
 			# pale dots in the middle of the chest.)
 			mi.visible = loadout.shirt > 0 and not (loadout.neck == 1 or loadout.neck == 5)
-			mi.material_override = toon(Color(0.95, 0.9, 0.78))
+			# (No ink ring round each since the shirt pass, 2026-10-20: three ringed buttons stacked read as the figure 8.)
+			mi.material_override = toon(Color(0.95, 0.9, 0.78), false)
 		elif part.begins_with("Shirt"):
 			var cloth := _garment_shirt_material()
 			mi.visible = cloth != null
