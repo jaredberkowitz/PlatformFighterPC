@@ -109,8 +109,11 @@ static func _air_colour(c: Color, z: float, desat := true) -> Color:
 	var grey := c.r * 0.299 + c.g * 0.587 + c.b * 0.114
 	if not desat:
 		# (Toward a light tint of its own hue at the haze's brightness: lifted toward the pale haze itself, it still greyed.)
+		# (A palette's [air] `range_tint` takes that tint toward the haze's own hue instead, 0 to 1: the canyon's cooler dusk mocks, where
+		# the far dunes should recede into lilac air, 2026-10-20.)
 		var haze: Color = air.haze
-		return c.lerp(Color.from_hsv(c.h, c.s * 0.85, maxf(c.v, haze.v), c.a), amount.y)
+		var own := Color.from_hsv(c.h, c.s * 0.85, maxf(c.v, haze.v), c.a)
+		return c.lerp(own.lerp(Color(haze, c.a), float(air.get("range_tint", 0.0))), amount.y)
 	return c.lerp(Color(grey, grey, grey, c.a), amount.x).lerp(Color(air.haze as Color, c.a), amount.y)
 
 

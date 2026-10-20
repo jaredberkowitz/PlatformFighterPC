@@ -171,3 +171,21 @@ read by outline and hue only; the grove reference's lawn is a yellow-green (hue 
 **Result** (round 54, `pass5_grove_lawn.png`: match camera, fighters in play, and their greyscale): the lawn 0.64 to 0.71 (hue 105 → 74),
 at least 0.08 over both fighters; the teal plain behind stays 0.53, so the island stands further out. The lip's shade is a deep
 yellow-green (hue 85), as the reference's own grass shade is. Tests: all six pass.
+
+## Pass 6: the canyon's cooler dusk (mocks, 2026-10-20)
+
+The owner likes the canyon as it is and wants it refined by learning from the reference (the hazy desert: warm sand under a cool lilac
+sky and distance), not replaced. Every layer of ours is one warm hue (sky 11, dunes 24, rock 356, sand 25). Mocks keep the sun, the warm
+horizon glow, the sand and the rock (the sand under the fighters 0.65 in all four), in `mocks/canyon_dusk/`, on the owner's review page
+beside the reference:
+
+| Option | Changes in `sunset.cfg` | Upper sky | Far dunes |
+|---|---|---|---|
+| A, today | | 0.63, hue 11, sat 0.44 | hue 24, sat 0.37 |
+| B | `sky_top` 0.4, 0.36, 0.7; `sky_mid` 0.7, 0.56, 0.8; `sun_side` 0.55 → 0.4 | 0.66, hue 347, sat 0.30 | unchanged |
+| C | B, and `[air]` `haze` lilac 0.78, 0.7, 0.88, `far` 175, `far_lift` 0.35, `range_tint` 0.6; `butte_haze` 0.62, 0.56, 0.8 | as B | hue 20, sat 0.34 |
+| D | C with `sky_top` 0.42, 0.42, 0.78, `sky_mid` 0.6, 0.58, 0.86, `sun_side` 0.3, `far_lift` 0.5, `range_tint` 1.0 | 0.66, hue 328, sat 0.26 | hue 9, sat 0.27 |
+
+New: `[air]` `range_tint` (0 to 1, default 0) lets a stage's modelled ranges lift toward the haze's own hue instead of a tint of their own
+(pass 1 kept their hue on purpose, so the lilac air could not reach the dunes). The dunes stay rose rather than lilac: the canyon's orange
+key still lights them. Recommended D.
