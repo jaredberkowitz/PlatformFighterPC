@@ -100,8 +100,9 @@ const SHADOW := Vector2(6, 8)
 ## few cards that should lead (the Play tile, the roster cards).
 ## `line` colours the outline (clear: the ink); `slab` draws the card's thickness under it, that many pixels of a darker shade of its
 ## own colour (a tile with a body, rather than a flat sticker).
+## `shadow` false leaves out its short shadow (a focused card stands on the long one from `focus_frame` instead).
 static func card(c: CanvasItem, rect: Rect2, fill: Color, seed: int, cut := -1.0, outline := -1.0, border := Color(0, 0, 0, 0), lift := 0.0,
-		line := Color(0, 0, 0, 0), slab := 0.0) -> PackedVector2Array:
+		line := Color(0, 0, 0, 0), slab := 0.0, shadow := true) -> PackedVector2Array:
 	var r := rect
 	r.position.y -= lift
 	var short := minf(r.size.x, r.size.y)
@@ -114,7 +115,8 @@ static func card(c: CanvasItem, rect: Rect2, fill: Color, seed: int, cut := -1.0
 	for q in shape:
 		sh.append(q + SHADOW + Vector2(0, lift * 0.6))
 	# (A hard offset shadow, the UI pass: the soft one read as a default drop shadow.)
-	c.draw_colored_polygon(sh, Color(INK, (0.3 if slab > 0.0 else 0.45) * fill.a))
+	if shadow:
+		c.draw_colored_polygon(sh, Color(INK, (0.3 if slab > 0.0 else 0.45) * fill.a))
 	# (By default a deep shade of the card's own colour, not black: the menus' one construction language, so cards read as painted tiles
 	# rather than stickers. Dark cards come out near the ink anyway.)
 	var edge := line if line.a > 0.0 else Color(fill.darkened(0.62), 1.0).lerp(INK, 0.25)
@@ -167,27 +169,39 @@ static func card_shape(r: Rect2, cut: float, seed: int) -> PackedVector2Array:
 	return p
 
 
-## Focus feedback for a card: a few soft rings of `colour` that follow its shape (not a box), `strength` 0..1.
-static func card_glow(c: CanvasItem, rect: Rect2, colour: Color, strength: float, cut := -1.0) -> void:
-	# (Crisp since the UI pass, docs/UI_REVIEW.md: a solid ring in the focus colour round the card's shape and a thin pale line inside it,
-	# where soft blurred rings read as a default glow effect.)
+## Focus feedback for a card: `focus_frame` (kept under this name for its callers; `colour` is no longer used: focus is shape and
+## depth, not a colour, docs/UI_DESIGN_SYSTEM.md, daylight).
+static func card_glow(c: CanvasItem, rect: Rect2, _colour: Color, strength: float, cut := -1.0) -> void:
+	focus_frame(c, rect, strength, cut)
+
+
+## How far the focused card's long hard shadow falls (down and right, with the light), against `SHADOW` at rest.
+const FOCUS_SHADOW := Vector2(14, 16)
+
+
+## The focused card's frame (the owner's daylight pick, 2026-10-19): a long hard ink shadow, then a thick frame, ink outside and white
+## inside, round the card's own cut shape. Drawn before the card, so the card sits in it. `below` extends it down over the card's body
+## (a tile's slab). Its weights follow the card's size so a small button is not drowned. `strength` 0..1 (the focus easing in).
+static func focus_frame(c: CanvasItem, rect: Rect2, strength: float, cut := -1.0, below := 0.0) -> void:
 	if strength <= 0.01:
 		return
+	var short := minf(rect.size.x, rect.size.y)
 	if cut < 0.0:
-		cut = clampf(minf(rect.size.x, rect.size.y) * 0.13, 8.0, 20.0)
-	var g := rect.grow(5.0)
-	var shape := PackedVector2Array([g.position + Vector2(cut + 2.0, 0), Vector2(g.end.x, g.position.y), Vector2(g.end.x, g.end.y - cut - 2.0),
-		Vector2(g.end.x - cut - 2.0, g.end.y), Vector2(g.position.x, g.end.y), g.position + Vector2(0, cut + 2.0)])
-	shape.append(shape[0])
-	c.draw_polyline(shape, Color(colour, strength), 5.0, true)
-	var gi := rect.grow(1.5)
-	var inner := PackedVector2Array([gi.position + Vector2(cut, 0), Vector2(gi.end.x, gi.position.y), Vector2(gi.end.x, gi.end.y - cut),
-		Vector2(gi.end.x - cut, gi.end.y), Vector2(gi.position.x, gi.end.y), gi.position + Vector2(0, cut)])
-	inner.append(inner[0])
-	c.draw_polyline(inner, Color(1, 1, 1, 0.8 * strength), 2.0, true)
+		cut = clampf(short * 0.13, 8.0, 20.0)
+	var white := clampf(short * 0.05, 3.0, 6.0)
+	var ink := clampf(short * 0.045, 3.0, 6.0)
+	var body := Rect2(rect.position, rect.size + Vector2(0, below))
+	var outer := body.grow(white + ink)
+	var outer_shape := card_shape(outer, cut + (white + ink) * 0.5, 0)
+	var sh := PackedVector2Array()
+	var fall := FOCUS_SHADOW * clampf(short / 120.0, 0.45, 1.0) * strength
+	for q in outer_shape:
+		sh.append(q + fall)
+	c.draw_colored_polygon(sh, Color(INK, 0.38 * strength))
+	c.draw_colored_polygon(outer_shape, Color(INK, strength))
+	c.draw_colored_polygon(card_shape(body.grow(white), cut + white * 0.5, 0), Color(1, 1, 1, strength))
 
 
-## Text in the menus' display style: live text, outlined in ink, with a soft drop shadow.
 static func title(c: CanvasItem, text: String, at: Vector2, size: int, fill := Color.WHITE, outline_scale := 0.16) -> void:
 	var f := D.display_font()
 	var o := maxi(4, int(size * outline_scale))

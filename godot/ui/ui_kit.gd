@@ -28,6 +28,10 @@ const MOTION_FAST := 0.12
 const MOTION_BASE := 0.2
 const MOTION_SCREEN := 0.38
 const MOTION_SHINE := 0.5
+## The focused card's tilt (degrees) and how much it grows (docs/UI_DESIGN_SYSTEM.md, focus): it stands out of its row, drawn over its
+## neighbours. Tiles in a tight mosaic use less (`Tile.focus_scale`).
+const FOCUS_TILT := -2.5
+const FOCUS_SCALE := 1.06
 
 
 static func font() -> Font:
@@ -37,10 +41,10 @@ static func font() -> Font:
 # ---- Backdrop -------------------------------------------------------------------------------------------------
 
 class Backdrop extends Control:
-	## The menus' ground behind everything: a stylised backdrop (shaders/menu_backdrop.gdshader), a deep gradient lit from the upper
-	## left with faint drifting stripes at the UI's slant, as the genre's leaders' menus are. (The owner, 2026-10-18: the live meadow
-	## that stood here read cheap and childish behind the cards.) `warm` leans it a little toward violet (the fighter select); `dim`
-	## darkens it for screens dense with text. Never takes the mouse.
+	## The menus' ground behind everything: a stylised backdrop (shaders/menu_backdrop.gdshader). Daylight since the owner's pick of
+	## 2026-10-19 (docs/UI_DESIGN_SYSTEM.md): a cool white falling to a light steel with faint slanted stripes, so the saturated cards
+	## carry the colour. `warm` leans it a little toward peach (the fighter select); `dim` cools it a step toward the steel for screens
+	## dense with text (it darkened the old navy ground). Never takes the mouse.
 	const SHADER := preload("res://shaders/menu_backdrop.gdshader")
 
 	func _init(warm := false, dim := 0.0) -> void:
@@ -52,7 +56,11 @@ class Backdrop extends Control:
 		var m := ShaderMaterial.new()
 		m.shader = SHADER
 		m.set_shader_parameter("skew", D.SKEW)
-		m.set_shader_parameter("tint", Color(0.32, 0.14, 0.42, 0.18) if warm else Color(0.0, 0.0, 0.0, dim * 0.8))
+		m.set_shader_parameter("top", D.GROUND_TOP)
+		m.set_shader_parameter("bottom", D.GROUND_BOTTOM)
+		m.set_shader_parameter("mark", Color(D.GROUND_MARK, 0.06))
+		var tint := Color(1.0, 0.78, 0.7, 0.14) if warm else Color(D.GROUND_BOTTOM.darkened(0.06), dim * 0.5)
+		m.set_shader_parameter("tint", tint)
 		rect.material = m
 		add_child(rect)
 
@@ -140,7 +148,8 @@ class Spotlight extends Control:
 		var h := size.y
 		if w < 4.0 or h < 4.0:
 			return
-		var top := colour.lightened(0.28)
+		# (Less washed toward white since the daylight ground, 2026-10-19: the colour lives in the cards, so they keep it.)
+		var top := colour.lightened(0.14)
 		var bottom := colour.darkened(0.45)
 		draw_polygon(PackedVector2Array([Vector2.ZERO, Vector2(w, 0), Vector2(w, h), Vector2(0, h)]),
 			PackedColorArray([top, top, bottom, bottom]))
@@ -159,7 +168,7 @@ class Spotlight extends Control:
 				centre + Vector2(cos(a + spread), sin(a + spread)) * reach]), Color(1, 1, 1, 0.05))
 		# The pool of light.
 		for k in 8:
-			draw_circle(centre, minf(w, h) * (0.62 - k * 0.07), Color(colour.lightened(0.6), 0.06))
+			draw_circle(centre, minf(w, h) * (0.62 - k * 0.07), Color(colour.lightened(0.5), 0.035))
 		# A fine hatch over it all.
 		var step := 10.0
 		var x := w if plain else -h
@@ -173,7 +182,7 @@ class Spotlight extends Control:
 			for k in 33:
 				var a := TAU * k / 32.0
 				floor_poly.append(Vector2(w * 0.5, fy + h * 0.02) + Vector2(cos(a) * w * 0.62, sin(a) * h * 0.11))
-			draw_colored_polygon(floor_poly, Color(colour.lightened(0.45), 0.35))
+			draw_colored_polygon(floor_poly, Color(colour.lightened(0.4), 0.26))
 			for f in feet:
 				var at := Vector2(float(f[0]) * w + 4.0, float(f[1]) * h + 2.0)
 				var sh := PackedVector2Array()
@@ -499,8 +508,9 @@ class Btn extends Control:
 		var shown := base.lerp(accent, pop * 0.9)
 		var lift := pop * 4.0
 		var r := Rect2(rect.position - Vector2(0, lift), rect.size)
-		Art.card_glow(self, r, accent, pop)
-		var shape := Art.card(self, rect, shown, seed, -1.0, -1.0, Color(0, 0, 0, 0), lift)
+		# Focused: the frame and the long shadow (daylight, docs/UI_DESIGN_SYSTEM.md), never tilted, so rows stay aligned.
+		Art.focus_frame(self, r, pop)
+		var shape := Art.card(self, rect, shown, seed, -1.0, -1.0, Color(0, 0, 0, 0), lift, Color(0, 0, 0, 0), 0.0, pop < 0.5)
 		if selected and shine < 1.0:
 			# The shine, crossing once.
 			var sx := lerpf(r.position.x - 40.0, r.end.x + 40.0, shine)
@@ -547,6 +557,10 @@ class Tile extends Control:
 	## 0 primary (a destination: bigger type, a deeper body under the card), 1 utility (quieter: a thinner line, a shallower body, smaller
 	## type).
 	var tier := 0
+	## How much the tile grows when focused (the main menu's mosaic has 20 px gaps, so less than a free-standing card).
+	var focus_scale := 1.03
+	## The subtitle under the title (off where the screen shows one description line for the focused tile instead).
+	var show_subtitle := true
 	## A press: the card sinks into its body for a moment (1 at the press, easing to 0).
 	var press := 0.0
 	const TILE_SKEW := 0.08
@@ -577,6 +591,11 @@ class Tile extends Control:
 		if pop == was and press == was_press and _laid == size:
 			return
 		_laid = size
+		# Focused, the tile stands out of the mosaic: tilted, a little bigger, over its neighbours (daylight, docs/UI_DESIGN_SYSTEM.md).
+		pivot_offset = size * 0.5
+		rotation = deg_to_rad(FOCUS_TILT) * pop
+		scale = Vector2.ONE * lerpf(1.0, focus_scale, pop)
+		z_index = 1 if pop > 0.01 else 0
 		if mask != null:
 			var r := _card_rect()
 			mask.position = r.position + Vector2(10, 10 - _lift())
@@ -656,18 +675,13 @@ class Tile extends Control:
 
 	func _draw() -> void:
 		var r := _card_rect()
-		Art.card_glow(self, Rect2(r.position - Vector2(0, _lift()), r.size), Color(1, 0.92, 0.6), pop, CUT)
+		Art.focus_frame(self, Rect2(r.position - Vector2(0, _lift()), r.size), pop, CUT, _slab() + _lift() * 0.5)
 		var fill := color.lerp(color.lightened(0.1), pop)
 		# The line in a deep shade of the card's own colour (the hero keeps the ink, with its gold rim), thinner for a utility card.
 		var line := Art.INK if hero else color.darkened(0.62)
 		var weight := 4.0 if tier == 0 else 3.0
-		Art.card(self, r, fill, absi(title.hash()) % 997, CUT, weight, Color(Art.SUN, 0.85) if hero else Color(0, 0, 0, 0), _lift(), line, _slab())
-		# Focused: a bright accent along the top and left edges (it reads without the colour, as a lit edge with the lift).
-		if pop > 0.01:
-			var lr := Rect2(r.position - Vector2(0, _lift()), r.size)
-			var a := Color(1, 0.97, 0.85, 0.95 * pop)
-			draw_polyline(PackedVector2Array([Vector2(lr.position.x + 3.0, lr.end.y - 6.0), Vector2(lr.position.x + 3.0, lr.position.y + CUT + 1.0),
-				Vector2(lr.position.x + CUT + 1.0, lr.position.y + 3.0), Vector2(lr.end.x - 6.0, lr.position.y + 3.0)]), a, 4.0, true)
+		Art.card(self, r, fill, absi(title.hash()) % 997, CUT, weight, Color(Art.SUN, 0.85) if hero else Color(0, 0, 0, 0), _lift(), line, _slab(),
+			pop < 0.5)
 		if top == null:
 			paint_text(self)
 
@@ -704,7 +718,7 @@ class Tile extends Control:
 			big -= 2
 		var body := D.font()
 		var sub_size := 18 if rect.size.y > 200.0 else (16 if tier == 0 else 14)
-		var has_sub := subtitle != "" and body.get_string_size(subtitle, HORIZONTAL_ALIGNMENT_LEFT, -1, sub_size).x <= room
+		var has_sub := show_subtitle and subtitle != "" and body.get_string_size(subtitle, HORIZONTAL_ALIGNMENT_LEFT, -1, sub_size).x <= room
 		var pad := 22.0 if rect.size.y > 200.0 else 16.0
 		var base := rect.end.y - (pad + sub_size + 8.0 if has_sub else pad)
 		Art.title(c, title, Vector2(rect.position.x + pad, base), big, Color.WHITE, 0.09)

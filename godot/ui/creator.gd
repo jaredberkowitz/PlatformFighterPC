@@ -139,11 +139,11 @@ class Pick extends Control:
 
 	func _draw() -> void:
 		var r := _card_rect()
-		Art.card(self, r, Art.SUN if chosen else fill, seed, cut, 3.0 if not chosen else 4.0)
-		# The keyboard's focus: the kit's gold ring round the card's own cut shape (a square coral box before, the UI pass: gold is the one
-		# focus colour, docs/UI_DESIGN_SYSTEM.md).
+		# The keyboard's focus: the kit's focus frame round the card's own cut shape (a square coral box before; docs/UI_DESIGN_SYSTEM.md).
 		if focused:
-			Art.card_glow(self, r, UI.GOLD, 1.0, cut)
+			Art.focus_frame(self, r, 1.0, cut)
+		Art.card(self, r, Art.SUN if chosen else fill, seed, cut, 3.0 if not chosen else 4.0, Color(0, 0, 0, 0), 0.0, Color(0, 0, 0, 0), 0.0,
+			not focused)
 		_paint(r)
 		if caption != "":
 			Art.title_centered(self, caption, Rect2(r.position.x, r.end.y - 26.0, r.size.x, 24.0), 17, Color.WHITE, 0.14)

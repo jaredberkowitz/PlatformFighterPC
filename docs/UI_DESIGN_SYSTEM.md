@@ -7,9 +7,10 @@ Original art only: no names, logos or layouts copied from any other game.
 
 ## Character
 
-Sleek but cartoony, the game's own world behind every screen: flat colour, thick ink edges, a slight forward lean (the slant), bold
-condensed italic type, a little bounce. Panels are painted cards, not system widgets. Dark ink on light cards; light text only on the
-dark ink panels (HUD plates, key bars, the action band on the controls screen).
+Sleek but cartoony: flat colour, thick ink edges, a slight forward lean (the slant), bold condensed italic type, a little bounce.
+Panels are painted cards, not system widgets. **Daylight** (the owner's pick, 2026-10-19, `docs/art/ui/mocks/style_options.png`
+option 2): the menus stand on a pale cool ground, and the colour lives in the cards, which are fully saturated. Ink text on the ground
+and on light cards; white text only on coloured cards, their shaded label bands and the dark ink panels (HUD plates, key bars, banners).
 
 ## Palette (`ui_draw.gd`; use the names, never a raw `Color(...)` in a screen)
 
@@ -22,11 +23,14 @@ dark ink panels (HUD plates, key bars, the action band on the controls screen).
 | `GOLD` | 1.0, 0.82, 0.22 | Focus and selection (glow, the focused button's accent), the reveal wipe's stripe, "free play" |
 | `TEAL` | 0.2, 0.62, 0.66 | Confirm, online, positive state |
 | `RED` / `BLUE` | 0.92, 0.28, 0.3 / 0.25, 0.5, 0.95 | Player 1 / player 2 only (and the HUD's player plates) |
-| `SLATE_TOP` / `SLATE_BOTTOM` | 0.25, 0.3, 0.36 / 0.12, 0.15, 0.2 | The backdrop shade behind dense screens |
+| `SLATE_TOP` / `SLATE_BOTTOM` | 0.25, 0.3, 0.36 / 0.12, 0.15, 0.2 | Dark panels over the match (pause, results) |
+| `GROUND_TOP` / `GROUND_BOTTOM` | `f4f7fc` / `c9d3e8` | The daylight ground behind every menu (`Backdrop`): a cool white falling to a light steel |
+| `GROUND_MARK` | `3c5a9c` at low alpha | The ground's faint slanted stripes and corner halftone |
+| `LABEL` | `5a6382` | Secondary text on the ground and on light cards (subtitles, captions, stat names) |
 
 Players 3 and 4 take the HUD's yellow and green (`match_hud.gd` `PLAYER_COLORS`); keep them out of menus' chrome. (The HUD's
 player 1 and 2 are a touch off `RED` and `BLUE`: one set for both, step 2.) Gold means "this is
-selected", nothing else.
+selected" (a focused button's fill, READY, the reveal's stripe), nothing else. Focus on cards is shape and depth, not gold (below).
 
 ## Type (`UiKit.font()` text, `ui_draw.gd` `display_font()` titles; Barlow Condensed, SIL OFL)
 
@@ -48,7 +52,8 @@ Constants: `UiKit.TYPE_CAPTION` ... `UiKit.TYPE_DISPLAY`. Upper case for titles 
 - Slant: panels, buttons and tags lean `SKEW` (0.22) forward; tiles lean `TILE_SKEW` (0.08). Nothing leans back.
 - Edges: ink, at the widths `ui_draw.gd` and the widgets already draw (to be named as constants in step 2); never a coloured edge
   on a card.
-- Depth: a soft two-step shadow under every card (`ui_draw.gd` panel), a gloss band under the top edge; no other drop shadows.
+- Depth: a hard ink offset shadow under every card (`Art.SHADOW`, 6 by 8 px), a gloss band under the top edge; no soft drop shadows.
+  On the light ground the shadow is what separates a card from it, so every card keeps one.
 - Corners: square on slanted panels (the slant is the shape); round only for round things (arrows, stock icons).
 
 ## Layout
@@ -56,11 +61,24 @@ Constants: `UiKit.TYPE_CAPTION` ... `UiKit.TYPE_DISPLAY`. Upper case for titles 
 - Safe margin 40 px left and right, 40 px top, 48 px bottom (the key bar sits in the bottom margin).
 - Screen title top-left at (40, 40); the key bar (`KeyBar`) bottom across the width; content between.
 - Gutters between cards 16 px; between groups 32 px.
-- One focus at a time: exactly one thing glows gold.
+- One focus at a time: exactly one thing is lifted and framed (below).
+- A screen's titles and descriptions sit on the ground in `INK`; subtitles and captions in `LABEL`. No white text on the ground.
+
+## Focus (daylight, the owner's pick 2026-10-19)
+
+The focused card is the loudest thing on the screen through shape and depth, readable without colour:
+
+| | Rest | Focused |
+| --- | --- | --- |
+| Cards and tiles (main menu, mode cards, roster cards, the creator's choices) | its hard shadow, its own deep-shade outline | lifted, on a long hard shadow (`FOCUS_SHADOW`, 14 by 16 px), in a thick frame (ink outside, white inside, `Art.focus_frame`), tilted `FOCUS_TILT` (-2.5 degrees) and scaled up to `FOCUS_SCALE` (1.04-1.08, as the gaps allow), drawn over its neighbours |
+| Buttons in lists and rows | cream, hard shadow | gold fill (selected), the same frame and long shadow, lifted; never tilted, so rows stay aligned |
+
+The motion is `MOTION_FAST` with the small overshoot (`pop`); the frame, lift, tilt and scale all follow one value. No glow rings.
+Destinations show one description line for the focused one (bottom centre, `TYPE_LABEL`, ink) instead of a subtitle on every card.
 
 ## Components (`ui_kit.gd`)
 
-`Backdrop` (the live meadow behind every screen; `dim` for dense screens), `ScreenTitle`, `Btn` (lists and main actions), `Tile`
+`Backdrop` (the daylight ground behind every screen; `dim` cools it a step for dense screens, `warm` leans it toward peach), `ScreenTitle`, `Btn` (lists and main actions), `Tile`
 (the main menu's destinations, with a scene or spotlight), `Tag` (labels, values), `Arrow` (left/right choosers), `KeyBar` (the
 controls for this screen), `notice` (a passing message), `Stage` (a framed fighter preview). A new screen is built from these; a new
 widget goes into `ui_kit.gd` first, with these rules, not into the screen.

@@ -51,3 +51,19 @@ and names at 15 px, half again today's):
 **The owner's picks (2026-10-19): colour/focus option 2, daylight; fighter select layout 3, fighters forward.** Next: the daylight ground
 and the lifted, tilted focus in the kit (`UI_DESIGN_SYSTEM.md` first), proved on the main menu, then the fighter select rebuilt as
 layout 3 on it.
+
+## Pass 1: the daylight ground and the lifted, tilted focus (2026-10-20)
+
+Before/after: `pass1_daylight.png` (rows: main menu with Play focused, online, replays, creator). The rules are in
+`docs/UI_DESIGN_SYSTEM.md` (Character, Palette, Focus).
+
+| Change | Where |
+| --- | --- |
+| The ground: a cool white falling to a light steel with faint pale-blue stripes and corner dots (was a deep navy); `dim` now cools it a step instead of darkening, `warm` leans it peach | `shaders/menu_backdrop.gdshader`, `UI.Backdrop`, `D.GROUND_*` |
+| Focus: a long hard ink shadow and a thick ink-and-white frame round the card's cut shape (`Art.focus_frame`; `card_glow` now calls it), the card's own short shadow left out while focused; tiles also tilt 2.5 degrees, grow 3% and draw over their neighbours; list buttons keep the gold fill and never tilt | `ui/menu_art.gd`, `UI.Tile`, `UI.Btn`, `creator.gd` |
+| Main menu: no subtitle on every tile; one ink description line for the focused tile at the bottom left, the key bar moved to the right; the logo stays above a tilting tile | `ui/menu.gd` |
+| Spotlit cards keep their colour on the light ground (top highlight, pool and floor a step lighter-handed: they bleached the tiles to pastel) | `UI.Spotlight` |
+
+Checked: every menu screen captured on the new ground (`pass1/`): titles are ink banners, key bars dark, cards keep their colour, the
+online help and replays rows read. The eight UI tests pass. Left for their own passes: the controls screen draws its own gold-outline
+focus (not the kit's); the title screen was not captured.
