@@ -1323,6 +1323,15 @@ func _capture(label: String) -> void:
 	var img := get_viewport().get_texture().get_image()
 	var path := "%s/%s.png" % [demo.out_dir if demo.out_dir != "" else "user://", label]
 	img.save_png(path)
+	# The camera beside it (for authoring stage art in Blender from the same view, docs/art/stages/BAKE_PILOT.md).
+	var c := get_viewport().get_camera_3d()
+	if c != null:
+		var o := c.global_transform.origin
+		var f := -c.global_transform.basis.z
+		var u := c.global_transform.basis.y
+		FileAccess.open(path.get_basename() + ".cam.json", FileAccess.WRITE).store_string(JSON.stringify({"fov": c.fov,
+			"origin": [o.x, o.y, o.z], "forward": [f.x, f.y, f.z], "up": [u.x, u.y, u.z],
+			"size": [img.get_width(), img.get_height()]}))
 	print("saved ", path)
 	shot_wait = ""
 

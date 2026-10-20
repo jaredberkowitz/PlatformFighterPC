@@ -75,3 +75,17 @@ stays code-built, folded and baked.
 7. **Production:** diorama and bake as imported resources under `godot/models/stages/`, so they ship.
 
 **Owner decisions needed:** which front (A, B or C, from the mocks); the triangle budget; whether bake output goes into git.
+
+## Step 2 mocks: three grove fronts (2026-10-20)
+
+- **Guides:** the bake manifest now carries the stage's rectangles and front plane (`StageBake.export_scene`), and every demo shot writes
+  its camera beside it (`<shot>.cam.json`: field of view, position, direction), for authoring from the game's view.
+- **Builder:** `art/blender/make_grove_front.py --variant A|B|C` models the front on those rectangles (the island's outline kept within
+  the blocks', starting under the turf lip's curl at 2.1 under the top), bakes its occlusion into linear vertex colours with the rest of
+  the built grove imported round it, and writes a glTF. Families `quilt`, `button`, `earth`, `rock`, `root`, `moss`.
+- **In the game:** `--front-mock=<glb>` on the stage demo (`StageBake.mock_front`) hides the code-built quilt, keel, block and inner
+  ledge and places the model, painted from the palette with the scenery's toon material and its vertex occlusion.
+- **First run fixed:** the hidden block and inner ledge sat inside the island against the new surfaces and baked them nearly black; they
+  are left out of the bake's context.
+- **Options** (`mocks/grove_front/`, match camera, wide and close-up; on the owner's fidelity page): A the quilt modelled (34,100
+  triangles), B roots and rocks (12,700), C the quilt with roots (37,100). At the match camera only the top third of the front shows.

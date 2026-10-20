@@ -9,6 +9,8 @@ extends RefCounted
 ## 3. `apply` swaps each built mesh for its baked copy and turns on the toon shader's `use_baked_ao` with its texture.
 ## The bake belongs to one exact stage (its theme and block layout, `key`), so custom stages on the same theme are left as they are.
 
+const FighterView := preload("res://scripts/fighter_view.gd")
+const StageArt := preload("res://scripts/stage_art.gd")
 const DIR := "res://art/baked/%s/"
 ## The toon shaders whose materials take the baked occlusion (they share shaders/toon_common.gdshaderinc).
 const BAKEABLE := ["res://shaders/toon.gdshader"]
@@ -76,14 +78,19 @@ static func candidates(root: Node) -> Array:
 
 
 ## Writes the built scenery under `root` to `<DIR>/scene_in.glb` for Blender, with a manifest. Returns how many meshes it wrote.
-static func export_scene(root: Node3D, bake_key: String) -> int:
+static func export_scene(root: Node3D, bake_key: String, rects: Array = [], front_z := 0.0) -> int:
 	var dir := DIR % bake_key
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(dir))
 	# (Godot's importer leaves the folder alone: the files are read at run time as they are.)
 	FileAccess.open(dir + ".gdignore", FileAccess.WRITE).store_string("")
 	var out := Node3D.new()
 	out.name = "Bake"
-	var manifest := {"key": bake_key, "meshes": []}
+	# (The stage's collision as guides for authoring in Blender: each block or platform [left, right, top, bottom, platform], and the
+	# plane the fronts stand on.)
+	var guides: Array = []
+	for r in rects:
+		guides.append(Array(r as PackedFloat32Array))
+	var manifest := {"key": bake_key, "rects": guides, "front_z": front_z, "meshes": []}
 	var list := candidates(root)
 	for i in list.size():
 		var mi: MeshInstance3D = list[i]
@@ -195,3 +202,51 @@ static func apply(root: Node3D, bake_key: String) -> int:
 	scene.free()
 	print("stage bake: %d of %d meshes take baked light (%s)" % [swapped, list.size(), bake_key])
 	return swapped
+
+
+## A modelled stage front to try (`--front-mock=<glb>`, the grove pilot's step 2 mocks, art/blender/make_grove_front.py): the code-built
+## island (`quilted_island`, `Underside`) hidden and the model placed in its stead, each material family painted from the stage's
+## palette with the scenery's toon material, falling into shade down the front as the code-built fronts do. Returns whether it placed one.
+static func mock_front(root: Node3D, t: Dictionary) -> bool:
+	var path := ""
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("--front-mock="):
+			path = a.substr(13)
+	if path == "" or not FileAccess.file_exists(path):
+		return false
+	var doc := GLTFDocument.new()
+	var state := GLTFState.new()
+	if doc.append_from_file(path, state) != OK:
+		push_warning("front mock %s could not be read" % path)
+		return false
+	for n in root.find_children("*", "", true, false):
+		var nm := String(n.name)
+		if n is Node3D and (nm.begins_with("quilted_island") or nm.begins_with("Underside") or nm == "block" or nm.begins_with("faceted_ledge")):
+			(n as Node3D).visible = false
+	var quilt: Color = t.get("quilt", Color(0.88, 0.66, 0.42))
+	var grass: Color = t.get("grass", Color(0.5, 0.8, 0.3))
+	var bd: Dictionary = StageArt.palette(String(t.get("name", ""))).get("backdrop", {})
+	var colours := {"quilt": quilt, "button": quilt.darkened(0.35), "earth": (t.get("soil_dark", Color(0.5, 0.35, 0.2)) as Color).darkened(0.55),
+		"rock": Color(0.62, 0.57, 0.52), "root": bd.get("great_bark", Color(0.6, 0.45, 0.35)), "moss": grass.darkened(0.25),
+		"moss_shade": grass.darkened(0.5)}
+	var scene := doc.generate_scene(state)
+	root.add_child(scene)
+	var top := -INF
+	for mi: MeshInstance3D in scene.find_children("*", "MeshInstance3D", true, false):
+		top = maxf(top, (mi.global_transform * mi.mesh.get_aabb().end).y)
+	for mi: MeshInstance3D in scene.find_children("*", "MeshInstance3D", true, false):
+		for s in mi.mesh.get_surface_count():
+			var src := mi.mesh.surface_get_material(s)
+			var fam := src.resource_name if src != null else "rock"
+			var m := (FighterView.toon(colours.get(fam, Color(0.6, 0.6, 0.6)), true) as ShaderMaterial).duplicate() as ShaderMaterial
+			m.set_shader_parameter("facets", fam != "quilt")
+			# (Each mock carries its own baked occlusion in its vertex colours.)
+			m.set_shader_parameter("vertex_shade", true)
+			m.set_shader_parameter("ramp_softness", 0.3 if fam == "quilt" else 0.1)
+			m.set_shader_parameter("fall_by_height", true)
+			m.set_shader_parameter("front_fall", 0.4)
+			m.set_shader_parameter("front_span", 7.0)
+			mi.set_surface_override_material(s, m)
+		mi.set_instance_shader_parameter("front_top", top)
+	print("front mock: placed %s" % path.get_file())
+	return true
