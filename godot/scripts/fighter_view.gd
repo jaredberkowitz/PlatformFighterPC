@@ -2240,9 +2240,11 @@ func _neck_piece(accent: Color, kind: int) -> void:
 				_part(neck_pivot, bib, _fabric(accent), Vector3(0, -0.15, 0), Vector3.ONE, Vector3(-8, 0, 180))
 		3:
 			# Scarf: the collar ring and a tail hanging down the front on one side.
-			var at := _collar(accent)
+			# (Up at the neck over the shirt's neckline and fuller, the scarf pass, 2026-10-20: at the plain collar's height it sank inside
+			# the puffed shirt and showed only as a thin stripe across the chest, its tail hidden inside the shirt.)
+			var at := _collar(accent, SCARF_SNUG, SCARF_LIFT, SCARF_THICK)
 			# (A chain of pieces on springs, so it swings and whips with the body: `TailRig`.)
-			_tail(Vector3(0.26, at - 0.03, 0.46), _fabric(accent), 0.5, 0.2, 0.06, 4)
+			_tail(Vector3(0.24, at - 0.06, 0.62), _fabric(accent), 0.52, 0.22, 0.07, 4)
 		4:
 			# Cape: a collar ring and a broad cloth hanging down the back to the knees, on springs, so it streams behind the fighter's runs
 			# and jumps: the biggest change to the outline the wardrobe has.
@@ -2390,7 +2392,7 @@ func _fabric(c: Color) -> Material:
 	return _cloth(toon(c))
 
 
-func _collar(accent: Color, snug := 1.0, lift := 0.0) -> float:
+func _collar(accent: Color, snug := 1.0, lift := 0.0, thick := 1.0) -> float:
 	var ring := TorusMesh.new()
 	ring.inner_radius = 0.44
 	ring.outer_radius = 0.58
@@ -2406,7 +2408,7 @@ func _collar(accent: Color, snug := 1.0, lift := 0.0) -> float:
 	if modelled != null:
 		# (A size out over a shirt, which stands off the body since the body rebuild.)
 		var over := (1.14 if loadout.shirt > 0 else 1.0) * snug
-		_part(torso_rig, modelled, _fabric(accent), Vector3(0, at, 0), Vector3(over, 1.0, over))
+		_part(torso_rig, modelled, _fabric(accent), Vector3(0, at, 0), Vector3(over, thick, over))
 	else:
 		_part(torso_rig, ring, _fabric(accent), Vector3(0, at, 0), Vector3(1.06, 0.62, 0.96))
 	return at
@@ -2414,6 +2416,10 @@ func _collar(accent: Color, snug := 1.0, lift := 0.0) -> float:
 
 ## How far below the neck (where the head meets the shoulders) the collar ring sits: its top just shows under the chin.
 const COLLAR_BELOW_NECK := 0.1
+## The scarf's collar: how snug, how far up and how much thicker than the plain collar ring (the scarf pass, 2026-10-20).
+const SCARF_SNUG := 0.98
+const SCARF_LIFT := 0.1
+const SCARF_THICK := 1.6
 
 
 ## The hat sits on a pivot at the crown of the head that lags behind sudden moves and bounces on landings (the `hat_roll` and `hat_drop` springs, see `_secondary`).
@@ -2481,7 +2487,9 @@ func _hat() -> void:
 			# its edge turned back in a soft fold of a lighter shade, a cowl of the same cloth lying round the shoulders, and a point behind
 			# that droops. (A shell open at the front, seen from both sides like the clothes: a closed ball drew its front across the face,
 			# which showed as a disc in a dark ring; and a wide cream rim round a small opening read as a porthole.)
-			var charcoal := Color(0.24, 0.22, 0.32)
+			# (In the outfit colour, a shade deeper, since the hood pass, 2026-10-20: near-black charcoal was the heaviest mass on the
+			# fighter, a dark slab round the face; the reference's hood is the character's own coloured cloth.)
+			var charcoal := accent.darkened(0.18)
 			var cloth := _cloth(toon(charcoal))
 			var at := Vector3(0, 1.52, 0.02) - HAT_PIVOT
 			var fit := Vector3(1.1, 1.06, 1.02)
@@ -2489,14 +2497,15 @@ func _hat() -> void:
 			_part(hat_pivot, _shell_lip(0.9, _hood_edge, 0.06), toon(charcoal.lightened(0.24)), at, fit)
 			# The cowl: an open cone of the same cloth from inside the hood's lower edge flaring out over the shoulders.
 			var cowl := CylinderMesh.new()
+			# (Shorter and barely flared, the hood pass: a wide stiff cone read as a flat bar across the shoulders.)
 			cowl.top_radius = 0.66
-			cowl.bottom_radius = 0.98
-			cowl.height = 0.42
+			cowl.bottom_radius = 0.78
+			cowl.height = 0.3
 			cowl.radial_segments = 28
 			cowl.rings = 2
 			cowl.cap_top = false
 			cowl.cap_bottom = false
-			_part(hat_pivot, cowl, cloth, Vector3(0, 0.62, -0.12) - HAT_PIVOT, Vector3(1.0, 1.0, 0.86), Vector3(16, 0, 0))
+			_part(hat_pivot, cowl, cloth, Vector3(0, 0.68, -0.08) - HAT_PIVOT, Vector3(1.0, 1.0, 0.9), Vector3(10, 0, 0))
 			_part(hat_pivot, _cyl(0.0, 0.3, 0.8), cloth, Vector3(0, 1.95, -0.72) - HAT_PIVOT, Vector3.ONE, Vector3(-62, 0, 0))
 		7:
 			# Plumed helm: a steel cap with a brow band and a tall plume in the accent colour sweeping back off the crest.

@@ -375,3 +375,14 @@ select grid tests pass. The creator flow test fails as on main (`ledge_exposed_f
 `hats_buttons_pass.png`: the two gear sheets, before above after. Fighter view, loadout, art pipeline and animation library tests pass.
 Still open from the list: the hood and the scarf (dark, heavy slabs).
 
+## Hood and scarf (2026-10-20, item 9 above)
+- **Scarf** (`fighter_view.gd`, neckwear 3): it did not show at all. Its collar ring sat at the plain collar's height, below the puffed
+  shirt's neckline, so only a thin stripe poked through the cloth, and its tail hung inside the shirt. Now the collar is lifted to the
+  neck over the shirt and thicker (`SCARF_LIFT` 0.1, `SCARF_THICK` 1.6, `_collar`'s new `thick`), and the tail hangs out in front of the
+  shirt. It swings through the run (`scarf_run`, checked).
+- **Hood** (hat 6): in the outfit's own colour a shade deeper (it was near-black charcoal, the heaviest mass on the fighter, as a dark
+  slab round the face), and the cowl round the shoulders shorter and barely flared (a wide stiff cone read as a flat bar).
+
+`hood_scarf_pass.png`: front, three-quarter, side and back; the hood before and after, then the scarf before and after. Fighter view,
+loadout and art pipeline tests pass. That closes the accessory list from the comparison above.
+
