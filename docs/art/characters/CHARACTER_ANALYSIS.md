@@ -455,3 +455,17 @@ library, match flow, select grid and editor UI tests pass.
 `collar_pass.png`, before above after: front and back with no neckwear, then the default looks. The collar follows the torso through
 the run, forward smash, jump, grab and hit animations without poking through. Rig rebuilt (mesh only; `base_rig.json` unchanged).
 Fighter view, art pipeline, loadout, animation library, match flow, select grid and editor UI tests pass.
+
+## Jump crouch and landing squash (2026-10-20, item 8 above, the playtest's "no crouch before a jump, no landing squash")
+- **Measured at real speed.** The demos save a picture every frame, which slows the game and stretches each frame's time to 0.02 to
+  0.15 seconds, so the squash springs ran ahead and the captures understated both. A new demo, `--demo=hop` (a short hop and its
+  landing, a picture every frame), run with Godot's `--fixed-fps 60` shows what a player sees.
+- **The crouch was there, but late.** The jump's crouch lasts three sim frames; the squash spring eased in from standing (0.02, then
+  0.07, 0.12...) and only reached its depth as the feet left the ground, and its clip blended in over 0.1 seconds, longer than the
+  crouch. Now the crouch starts partway down (`JUMP_SQUAT_START` 0.2) and its clip blends in over 0.03 seconds (`JUMP_SQUAT_BLEND`),
+  so it reads from its first frame. (A kick to the spring instead overshot into a flat pancake, 0.43; reverted.)
+- **The landing needed nothing.** At real speed it squashes to 0.32 over four frames with dust and eases back up with a small rebound.
+  A held landing squash was tried and made no difference; reverted.
+
+`jump_crouch_pass.png`: the take-off at real speed, before above after, then the landing (after). Fighter view, animation library,
+match flow and replay tests pass.

@@ -793,7 +793,7 @@ func _animate(s: Dictionary, delta: float) -> void:
 		var follows: bool = float(pick[2]) >= 0.0
 		# Likewise a hit's pose: a fighter frozen by hitlag is already in it for the whole freeze (the animation does not move on then).
 		var frozen: bool = int(s.hitlag) > 0
-		anim.play(shown, 0.1 if current_clip != "" and not follows and not frozen and not clip.begins_with("attack") else 0.0)
+		anim.play(shown, (JUMP_SQUAT_BLEND if clip == "jumpsquat" else 0.1) if current_clip != "" and not follows and not frozen and not clip.begins_with("attack") else 0.0)
 		shown_clip = shown
 		if frozen and not follows:
 			anim.advance(0.0)
@@ -2735,6 +2735,12 @@ const SPRING_K := 420.0
 const SPRING_DAMP := 22.0  # a bit under critical (2*sqrt(K) = 41), so there is a small rebound
 ## How hard the take-off throws the squash spring into a stretch (its velocity, per second).
 const TAKE_OFF_KICK := 9.0
+## How far down the jump's crouch starts, on its first frame (the spring eases it on to `SQUASH.JumpSquat`): the crouch lasts three
+## frames, and eased in by the spring from standing it only reached its depth as the feet left the ground, so it hardly read (the
+## owner's playtest notes, 2026-10-19: "no crouch before a jump"). (A kick to the spring instead overshot into a flat pancake.)
+const JUMP_SQUAT_START := 0.2
+## How long the jump's crouch clip takes to blend in (seconds; other clips take 0.1, longer than the whole crouch).
+const JUMP_SQUAT_BLEND := 0.03
 
 var squash := 0.0
 var squash_vel := 0.0
@@ -2885,6 +2891,9 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 	# Touching down: kick the squash spring in proportion to how fast we were falling.
 	if grounded and not was_grounded:
 		squash_vel += clampf(absf(last_vy), 0.0, 0.35) * 55.0
+	if state == "JumpSquat" and last_state != "JumpSquat":
+		squash = maxf(squash, JUMP_SQUAT_START)
+		squash_vel = maxf(squash_vel, 0.0)
 	was_grounded = grounded
 	if not grounded:
 		last_vy = vy
