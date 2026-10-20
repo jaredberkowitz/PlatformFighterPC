@@ -189,3 +189,8 @@ beside the reference:
 New: `[air]` `range_tint` (0 to 1, default 0) lets a stage's modelled ranges lift toward the haze's own hue instead of a tint of their own
 (pass 1 kept their hue on purpose, so the lilac air could not reach the dunes). The dunes stay rose rather than lilac: the canyon's orange
 key still lights them. Recommended D.
+
+**The owner picked D** (2026-10-20). Applied in `sunset.cfg` as mocked. Round 55, `pass6_canyon_dusk.png` (match camera, and fighters in
+play; the in-play "before" is round 44's, so it predates the folded clouds): the upper sky hue 11 → 328 (saturation 0.44 → 0.26), the far
+dunes hue 24 → 8, the sand under the fighters unchanged (0.65; the fighters 0.51 and 0.52). The orange fighter now has a cooler band
+behind it in play. The editor's custom stages on this theme take the same sky. Tests: all six pass.
