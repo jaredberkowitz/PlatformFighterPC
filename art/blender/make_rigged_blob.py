@@ -403,18 +403,21 @@ def mitten(bm, x):
     _mitt_block(bm, x, 0.085, (0.088, 0.112, 0.074), squareness=0.82, curl=0.02, segments=28, rings=18)
     # (front offset across the hand, length, spread) per finger: index to little.
     # (All four out, evenly curled, round 19: unevenly curled, from the front the hand read as pointing.)
-    for k_f, (f0, ln, spread) in enumerate(((0.078, 0.96, 0.045), (0.027, 1.04, 0.016), (-0.025, 1.0, -0.016), (-0.074, 0.86, -0.045))):
+    # (Relaxed since the idle-hand pass, 2026-10-20, the owner's pick of three mocks: fanned apart, slim and curled at the tips, the open
+    # hand read as a claw at rest. The fingers lie close together, a little fuller and shorter, curled further in toward the palm.)
+    for k_f, (f0, ln, spread) in enumerate(((0.07, 0.92, 0.014), (0.024, 1.0, 0.004), (-0.022, 0.97, -0.004), (-0.066, 0.84, -0.014))):
         pts, radii = [], []
         for k, t in enumerate((0.0, 0.45, 0.8, 1.0)):
-            d = 0.115 + 0.105 * ln * t
+            d = 0.115 + 0.1 * ln * t
             f = f0 + spread * t
-            o = -0.004 - 0.03 * t * t      # curling toward the palm, evenly
+            o = -0.004 - 0.045 * t * t      # curling toward the palm, evenly
             pts.append(_at(x, d, f, o))
-            radii.append((0.036, 0.034, 0.031, 0.026)[k])
+            radii.append((0.038, 0.037, 0.034, 0.03)[k])
         tube(bm, pts, radii, segments=10, per_span=3)
     # The thumb: thicker than a finger, set low on the heel of the palm and turned well out to the front, so it reads as its own digit.
-    tube(bm, [_at(x, 0.035, 0.08, -0.02), _at(x, 0.075, 0.135, -0.04), _at(x, 0.105, 0.165, -0.05), _at(x, 0.128, 0.178, -0.055)],
-         [0.042, 0.039, 0.034, 0.027], segments=12, per_span=3)
+    # (Closer in to the hand since the idle-hand pass, turned a little toward the palm.)
+    tube(bm, [_at(x, 0.035, 0.08, -0.02), _at(x, 0.075, 0.12, -0.045), _at(x, 0.105, 0.14, -0.06), _at(x, 0.125, 0.145, -0.07)],
+         [0.042, 0.04, 0.036, 0.03], segments=12, per_span=3)
 
 
 ## The blob's wrist, which `fist` and `cuff` are built round.

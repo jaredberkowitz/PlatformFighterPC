@@ -482,3 +482,14 @@ match flow and replay tests pass.
 
 `grab_pass.png`: each grab's sheet, before above after (dash grab, then pivot grab). Rig rebuilt (two new clips). Fighter view,
 animation library, art pipeline, match flow, replay and loadout tests pass.
+
+## Idle hands (2026-10-20, item 8 above)
+- Mocked three open hands from scratch rig builds (current, relaxed, a soft mitten); the owner chose the relaxed one.
+- `make_rigged_blob.py` `mitten` (bare hands and gloves alike): the fingers lie close together instead of fanned apart, a little fuller
+  and shorter, curled further in toward the palm; the thumb sits closer in, turned toward the palm. Spread, slim and curled at the
+  tips, the open hand read as a claw at rest.
+- In a match the change shows little: armed fighters grip their weapons and unarmed ones hold their guard in fists. It shows in the
+  menus, idle poses and open-handed moves.
+
+`idle_hand_pass.png`: close-ups (at rest, a raised hand, the arm forward), before above after, then a match frame before and after.
+Rig rebuilt (mesh only). Fighter view, art pipeline, loadout, animation library and match flow tests pass.
