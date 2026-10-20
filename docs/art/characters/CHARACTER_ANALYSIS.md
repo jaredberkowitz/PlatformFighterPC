@@ -96,3 +96,19 @@ between the legs, so a leg opening no longer flares on its inner side (facing th
 **Checked.** Leg close-ups at rest, arms forward and overhead, and the down tilt's deep kneel, before and after in the same camera
 (`shorts_above_knee.png`: red strip before, green after): the white teeth and the band of leg pushing through the cuff are gone, the
 crotch's arch stays clean. Run and jump-squat sheets bend cleanly; fighter view, art pipeline, loadout and animation library tests pass.
+
+## Cloth clean-up: hands' budget, and what is left (2026-10-19)
+**Hands.** The fist and open hand (`fist`, `mitten` in `make_rigged_blob.py`) are built at about two thirds of their old resolution:
+each hand was 4,700 to 5,300 triangles, nearly the whole body's 5,000. Now 2,900 to 3,600; the rig went from 56,600 to 44,200
+triangles. The hand sheet (`tests/hand_sheet.gd`) at full size shows no new facets.
+
+**In a match** (`--demo=moves`, the meadow, round 19 against now: `cloth_cleanup_in_match.png`): the sword arm's sleeve wraps the arm
+instead of fraying under it, and the shorts end above the knee. At this distance the change is small; it shows most in close-ups,
+the character select and the results screen.
+
+**Left as is.**
+- With an arm swung fully forward, the puffed sleeve cap folds over itself on the inside of the bend (it stands about 0.13 off the
+  arm, the owner's puffed sleeve, round 19). Spreading the arm's weights over the shirt round the armhole was tried and changed
+  nothing; the fold comes from the puff itself. A smaller `SLEEVE_FLARE` would ease it, at the cost of the puff.
+- The torso cloth under a raised arm still stretches in a soft web.
+
