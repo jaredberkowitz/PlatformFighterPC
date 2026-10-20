@@ -53,10 +53,19 @@ func _format() -> void:
 	# (A look this short was saved before the gear slot: it keeps the full kit it wore then.)
 	var dressed := Loadout.default_for(1)
 	dressed.gear = Loadout.GEAR_FULL
+	dressed.belt = 0
+	dressed.freckles = 0
 	check(newer.equals(dressed), "unknown catalog entries fall back slot by slot")
 	# New players start dressed, as the reference cast (the owner, 2026-10-19; before, the concept's bare body); a look saved before the
 	# gear slot keeps its kit.
-	check(default.gear == Loadout.GEAR_FULL and default.shirt > 0 and default.neck > 0, "the default look is dressed")
+	check(default.has_shorts() and default.shirt > 0 and default.neck > 0, "the default look is dressed")
+	# (Bare legs and no belt since the outfit pass; a look saved before the belt slot keeps its belt.)
+	check(not default.has_shoes() and not default.has_belt(), "the default look has bare legs and no belt")
+	var pre_belt: PackedByteArray = default.to_bytes().slice(0, Loadout.SLOTS.find("belt") + 1)
+	check(Loadout.from_bytes(pre_belt, 1).has_belt(), "an old look keeps its belt")
+	# (Freckles are their own slot since the face pass; a look from before it has none of its own, whatever the default.)
+	var pre_freckles: PackedByteArray = default.to_bytes().slice(0, Loadout.SLOTS.find("freckles") + 1)
+	check(Loadout.from_bytes(pre_freckles, 1).freckles == 0 and default.freckles > 0, "an old look gets no new freckles")
 	var old_look: PackedByteArray = default.to_bytes().slice(0, Loadout.SLOTS.find("gear") + 1)
 	check(Loadout.from_bytes(old_look, 1).gear == Loadout.GEAR_FULL, "an old look keeps its gear")
 	var bare := Loadout.default_for(1)

@@ -45,7 +45,7 @@ TORSO = [
     # (Fuller to the top, the character pass, 2026-10-19, the owner's reference: the shoulders ran up into the head instead of narrowing
     # to a stalk under it, which read as a lightbulb.)
     (1.45, 0.335, 0.240, 0.218, 0.000),
-    (1.52, 0.300, 0.215, 0.198, 0.000),
+    (1.52, 0.280, 0.215, 0.198, 0.000),   # (narrower, the shoulders sloping down from the collar, round 19)
 ]
 HOLE_RINGS = (4, 5, 6)
 CROTCH = (0.0, 0.80)            # crotch vertex (y, z)
@@ -64,17 +64,19 @@ HEAD_TOP = 0.03                              # how far the cap's middle rises ab
 ARM = [
     # (One thick smooth tube from the shoulder to the hand, the owner's second reference, 2026-10-19: the reference's arm has no visible
     # elbow, shoulder or wrist; it is a soft sausage about as wide as the hand, tapering only gently, the hand growing straight out of it.)
-    ((0.435, 0.000, 1.370), (1.0, 0.0, -0.9), 0.172, 0.172, 0.172, 2.0),   # shoulder cap
-    ((0.505, 0.000, 1.295), (0.5, 0.0, -1.0), 0.17, 0.17, 0.17, 2.0),
-    ((0.555, 0.000, 1.230), (0.4, 0.0, -1.0), 0.166, 0.166, 0.166, 2.0),
-    ((0.580, -0.002, 1.170), (0.4, -0.02, -1.0), 0.162, 0.162, 0.162, 2.0),  # elbow loops (no narrowing: the joint does not show)
-    ((0.595, -0.003, 1.130), (0.4, -0.02, -1.0), 0.16, 0.16, 0.16, 2.0),
-    ((0.610, -0.004, 1.090), (0.4, -0.02, -1.0), 0.157, 0.157, 0.157, 2.0),
-    ((0.640, -0.007, 1.020), (0.4, -0.03, -1.0), 0.15, 0.15, 0.15, 2.0),
-    ((0.665, -0.011, 0.955), (0.4, -0.03, -1.0), 0.143, 0.143, 0.143, 2.0),
-    ((0.680, -0.015, 0.905), (0.4, -0.03, -1.0), 0.136, 0.136, 0.136, 2.0),  # wrist, as thick as the hand's base
-    ((0.698, -0.018, 0.845), (0.4, -0.03, -1.0), 0.130, 0.114, 0.114, 2.6),  # fist
-    ((0.720, -0.020, 0.780), (0.4, -0.03, -1.0), 0.130, 0.114, 0.114, 2.6),
+    # (A fifth thinner and a tenth shorter, the character judge's round 19 on the owner's T-pose references: the arm about 0.2 of the
+    # head's height thick, 0.9 long to the fingertips.)
+    ((0.435, 0.000, 1.370), (1.0, 0.0, -0.9), 0.155, 0.155, 0.155, 2.0),   # shoulder cap (fuller, to meet the torso's armhole)
+    ((0.498, 0.000, 1.302), (0.5, 0.0, -1.0), 0.136, 0.136, 0.136, 2.0),
+    ((0.543, 0.000, 1.244), (0.4, 0.0, -1.0), 0.133, 0.133, 0.133, 2.0),
+    ((0.566, -0.002, 1.190), (0.4, -0.02, -1.0), 0.13, 0.13, 0.13, 2.0),  # elbow loops (no narrowing: the joint does not show)
+    ((0.579, -0.003, 1.154), (0.4, -0.02, -1.0), 0.128, 0.128, 0.128, 2.0),
+    ((0.593, -0.004, 1.118), (0.4, -0.02, -1.0), 0.126, 0.126, 0.126, 2.0),
+    ((0.620, -0.006, 1.055), (0.4, -0.03, -1.0), 0.118, 0.118, 0.118, 2.0),
+    ((0.642, -0.010, 0.996), (0.4, -0.03, -1.0), 0.106, 0.106, 0.106, 2.0),
+    ((0.656, -0.013, 0.952), (0.4, -0.03, -1.0), 0.096, 0.096, 0.096, 2.0),  # wrist, tapering into the hand (the hands grow with it, make_rigged_blob HAND_WRIST)
+    ((0.672, -0.016, 0.897), (0.4, -0.03, -1.0), 0.092, 0.08, 0.08, 2.6),  # fist
+    ((0.692, -0.018, 0.839), (0.4, -0.03, -1.0), 0.092, 0.08, 0.08, 2.6),
 ]
 ARM_CAP = 0.045
 LEG_C0 = Vector((0.235, 0.0))   # the leg's middle where it leaves the torso (x, y)
@@ -88,9 +90,11 @@ LEG = [
     ((0.250, -0.004, 0.400), (0.0, 0.0, -1.0), 0.155, 0.155, 0.155, 2.0),
     ((0.251, 0.000, 0.300), (0.0, 0.0, -1.0), 0.152, 0.152, 0.152, 2.0),
     ((0.252, 0.010, 0.185), (0.01, 0.0, -1.0), 0.148, 0.148, 0.148, 2.0),  # ankle
-    ((0.258, 0.035, 0.118), (0.03, -0.25, -1.0), 0.200, 0.205, 0.220, 2.2),  # heel and instep
-    ((0.265, -0.105, 0.108), (0.05, -1.0, -0.05), 0.212, 0.135, 0.124, 2.4),  # foot
-    ((0.272, -0.215, 0.105), (0.06, -1.0, 0.05), 0.198, 0.128, 0.118, 2.4),
+    # (Broader and set a little further out, the owner's T-pose lineup measured, 2026-10-19: the feet's outer span 0.96 of the head's
+    # width, ours 0.84; widened only inward they would have met.)
+    ((0.278, 0.035, 0.118), (0.03, -0.25, -1.0), 0.224, 0.205, 0.220, 2.2),  # heel and instep
+    ((0.295, -0.105, 0.108), (0.05, -1.0, -0.05), 0.238, 0.135, 0.124, 2.4),  # foot
+    ((0.302, -0.215, 0.105), (0.06, -1.0, 0.05), 0.222, 0.128, 0.118, 2.4),
 ]
 FOOT_CAP = 0.05
 
@@ -228,6 +232,7 @@ def build_cage():
         prev = row
     cage.cap(prev, 4, 4, Z, HEAD_TOP)
     # Arms and fists.
+    arm_from = len(cage.verts)
     for side in (1, -1):
         hole = holes[side]
         c0 = sum((cage.verts[i] for i in hole), Vector()) / len(hole)
@@ -235,6 +240,7 @@ def build_cage():
         last = loops[-1]
         ax = Vector((ARM[-1][1][0] * side, ARM[-1][1][1], ARM[-1][1][2]))
         cage.cap(last, 2, 2, ax, ARM_CAP)
+    cage.arm_verts = set(range(arm_from, len(cage.verts)))
     # Legs and feet: the bottom ring split by the crotch vertex.
     crotch = cage.v((0.0, CROTCH[0], CROTCH[1]))
     q = TSEG // 4
@@ -253,42 +259,80 @@ def build_cage():
 # The character judge's round 7 (2026-10-19), after the owner's reference cast: thighs shorter (the reference's scouts stand on stubby legs,
 # shorts nearly meeting the socks), the upper body a broader block (wide sloping shoulders, nearly as wide as the head) and the hips a
 # little narrower, so the shirts stop reading pear-shaped. Applied to the cage as a whole, so every ring and loop keeps its place.
-KNEE_Z, CROTCH_Z = 0.445, 0.80
-THIGH_DROP = 0.05          # how much shorter the thighs are; everything above them comes down by it
-SHOULDER_WIDEN = 1.1       # across the chest and shoulders
+# Refit to the owner's T-pose lineup, measured (docs/art/characters/REFERENCE.md, 2026-10-19), in head widths: the torso under the arms
+# 0.68 (ours 0.82) and the waist 0.59 (ours 0.74), so the torso narrows from the hips up; the body below the chin 1.62 tall (ours 1.42),
+# so the shins, the thighs and a little of the torso grow; the arm span 2.03 (ours 2.27), so the arms are shorter from the shoulder.
+KNEE_Z, CROTCH_Z, ANKLE_Z = 0.445, 0.80, 0.185
+THIGH_DROP = -0.02         # how much shorter the thighs are (negative: longer); everything above them moves by it (0.05 until the refit)
+SHIN_GROW = 0.12           # added to the shins, between the ankle and the knee
+TORSO_GROW = 0.04          # added to the torso, from the hips (TORSO_GROW_FROM) to the chest
+TORSO_GROW_FROM, TORSO_GROW_SPAN = 0.90, 0.35
 HIP_NARROW = 0.95          # across the hips
+WAIST_NARROW = 0.64        # across the waist (by 1.08 high)
+CHEST_NARROW = 0.78        # across the chest under the arms (by 1.25)
+SHOULDER_NARROW = 0.86     # across the shoulders (by 1.5; 1.1 wider until round 19, 1.0 until the refit), the arms set in with them
+ARM_SHORTEN = 1.0          # the arm's length from its shoulder cap (the narrower shoulders bring the span in to the lineup's on their own)
+ARM_SPLAY = 6.0            # degrees the hanging arm turns out from its shoulder cap, clear of the narrower torso
+ARM_ROOT = Vector((0.435, 0.0, 1.37))   # the shoulder cap's middle (ARM[0]), right side
+BODY_HEIGHT = 2.24         # the finished body's height (as before the refit)
 TORSO_CORE = 0.36          # inside this distance from the middle a point is scaled; outside it (the sides, the arms) shifted
 
 
-def _reshape(co):
-    x, y, z = co
-    if z > KNEE_Z:
-        z -= THIGH_DROP * min(1.0, (z - KNEE_Z) / (CROTCH_Z - KNEE_Z))
-    # Width by height (in the original heights): the hips narrowed, ramping to the shoulders widened, the neck and head as they were.
-    oz = co[2]
+def _rise(z):
+    """How far a point at height z (as built) moves up: the shins' and thighs' growth below it and the torso's."""
+    dz = SHIN_GROW * max(0.0, min(1.0, (z - ANKLE_Z) / (KNEE_Z - ANKLE_Z)))
+    dz -= THIGH_DROP * max(0.0, min(1.0, (z - KNEE_Z) / (CROTCH_Z - KNEE_Z)))
+    dz += TORSO_GROW * max(0.0, min(1.0, (z - TORSO_GROW_FROM) / TORSO_GROW_SPAN))
+    return dz
 
+
+def _width(oz):
+    """The width factor at height oz (as built): the hips narrowed, the waist most, easing out through the chest and shoulders, the
+    neck and head as they were."""
     def ramp(a, b, t):
         return a + (b - a) * max(0.0, min(1.0, t))
     if oz < 0.82:
-        k = 1.0
-    elif oz < 0.95:
-        k = ramp(1.0, HIP_NARROW, (oz - 0.82) / 0.13)
-    elif oz < 1.25:
-        k = ramp(HIP_NARROW, SHOULDER_WIDEN, (oz - 0.95) / 0.3)
-    elif oz < 1.5:
-        k = SHOULDER_WIDEN
-    else:
-        k = ramp(SHOULDER_WIDEN, 1.0, (oz - 1.5) / 0.08)
+        return 1.0
+    if oz < 0.95:
+        return ramp(1.0, HIP_NARROW, (oz - 0.82) / 0.13)
+    if oz < 1.08:
+        return ramp(HIP_NARROW, WAIST_NARROW, (oz - 0.95) / 0.13)
+    if oz < 1.25:
+        return ramp(WAIST_NARROW, CHEST_NARROW, (oz - 1.08) / 0.17)
+    if oz < 1.5:
+        return ramp(CHEST_NARROW, SHOULDER_NARROW, (oz - 1.25) / 0.25)
+    return ramp(SHOULDER_NARROW, 1.0, (oz - 1.5) / 0.08)
+
+
+def _reshape(co, arm=False):
+    x, y, z = co
+    if arm:
+        # The arm shortens toward its shoulder cap, then moves as the shoulder does (up with the torso, in with the shoulders), all of
+        # it alike: given each point's own height's width and rise, the hanging forearm and hand were pulled in with the waist.
+        root = Vector((math.copysign(ARM_ROOT.x, x), ARM_ROOT.y, ARM_ROOT.z))
+        rel = (Vector(co) - root) * ARM_SHORTEN
+        a = math.radians(ARM_SPLAY) * (1.0 if x > 0.0 else -1.0)
+        rel = Vector((rel.x * math.cos(a) - rel.z * math.sin(a), rel.y, rel.x * math.sin(a) + rel.z * math.cos(a)))
+        p = root + rel
+        k = _width(ARM_ROOT.z)
+        return (p.x + math.copysign(1.0, x) * TORSO_CORE * (k - 1.0), p.y, p.z + _rise(ARM_ROOT.z))
+    k = _width(z)
     if abs(x) <= TORSO_CORE:
         x *= k
     else:
-        x += math.copysign(TORSO_CORE * (k - 1.0), x)
-    return (x, y, z)
+        # (copysign(1, x) times the shift: copysign(shift, x) dropped the shift's own sign, so until the refit every narrowing outside the
+        # core widened instead; the hips stood 0.018 wider than HIP_NARROW asked.)
+        x += math.copysign(1.0, x) * TORSO_CORE * (k - 1.0)
+    return (x, y, z + _rise(z))
 
 
 def build(name="BaseBody", levels=SUBDIV):
     cage = build_cage()
-    cage.verts = [Vector(_reshape(v)) for v in cage.verts]
+    cage.verts = [Vector(_reshape(v, i in cage.arm_verts)) for i, v in enumerate(cage.verts)]
+    # The whole body scaled to BODY_HEIGHT: the refit's proportions are shares of the head, and the fighters' hurtboxes and collision box
+    # (content, never the mesh) were sized to a body this tall. (Taller, the head stood above what can be hit.)
+    k = BODY_HEIGHT / max(v.z for v in cage.verts)
+    cage.verts = [v * k for v in cage.verts]
     used = sorted({i for f in cage.faces for i in f})
     remap = {old: new for new, old in enumerate(used)}
     me = bpy.data.meshes.new(name)

@@ -133,6 +133,9 @@ const float PF_FIGHTER_HUE = 0.35;
 // (`PF_FIGHTER_CREAM` of the way), so they read as a soft creamy light round the form, not white plastic glare across it.
 const float PF_FIGHTER_RIM_WIDTH = 0.3;
 const float PF_FIGHTER_CREAM = 0.55;
+// How much of a material's `sheen` a fighter keeps (the matte pass, 2026-10-19, the owner's PEAK references: their figures are matte
+// all over, gloves and boots too; the small soft highlight read as vinyl). Metal and gold keep their own bands (`metal`).
+const float PF_FIGHTER_SHEEN = 0.0;
 
 void light() {
 	vec3 L = LIGHT;
@@ -172,7 +175,7 @@ void light() {
 	SPECULAR_LIGHT += pf_rim_color.rgb * rim * rim_strength * rim_boost * LIGHT_COLOR / PI * ALBEDO * falloff;
 	vec3 half_dir = normalize(LIGHT + VIEW);
 	float s = pow(clamp(dot(NORMAL, half_dir), 0.0, 1.0), 24.0);
-	SPECULAR_LIGHT += vec3(smoothstep(0.4, 0.6, s) * sheen) * LIGHT_COLOR / PI * ATTENUATION;
+	SPECULAR_LIGHT += vec3(smoothstep(0.4, 0.6, s) * sheen * mix(1.0, PF_FIGHTER_SHEEN, fighter)) * LIGHT_COLOR / PI * ATTENUATION;
 	if (metal > 0.0) {
 		float nh = clamp(dot(NORMAL, half_dir), 0.0, 1.0);
 		float band = smoothstep(0.9, 0.93, nh) + 0.35 * smoothstep(0.62, 0.7, nh) * (1.0 - smoothstep(0.84, 0.9, nh));
