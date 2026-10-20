@@ -390,23 +390,24 @@ def mitten(bm, x):
     soft chunky hands (the character judge's round 12: a flat paddle with grooves read as a cut-out): a palm pad with real thickness, four
     separate fingers growing out of it that taper to rounded tips, each curled a little toward the palm and fanned at its own angle and
     length, and a fat thumb set low on the heel of the palm, turned forward."""
-    _mitt_block(bm, x, 0.1, (0.105, 0.118, 0.078), squareness=0.82, curl=0.02, segments=28, rings=18)
+    # (The hand pass, 2026-10-19, the owner's references: their open hands show four clearly separate fingers and a thumb standing off
+    # the hand; ours were a mitten, the fingers fat tubes overlapping one another and mostly buried in the palm. The palm is shorter,
+    # the fingers slimmer, set apart so a gap shows between each, and longer out of the palm; the hand's whole length is about as before.)
+    _mitt_block(bm, x, 0.085, (0.088, 0.112, 0.074), squareness=0.82, curl=0.02, segments=28, rings=18)
     # (front offset across the hand, length, spread) per finger: index to little.
-    # (All four out, each curled a little more toward the little finger, the character judge's round 17: unevenly curled, from the front
-    # the hand read as pointing.)
-    for k_f, (f0, ln, spread) in enumerate(((0.072, 1.0, 0.04), (0.024, 1.06, 0.014), (-0.024, 1.02, -0.014), (-0.07, 0.92, -0.04))):
+    # (All four out, evenly curled, round 19: unevenly curled, from the front the hand read as pointing.)
+    for k_f, (f0, ln, spread) in enumerate(((0.078, 0.96, 0.045), (0.027, 1.04, 0.016), (-0.025, 1.0, -0.016), (-0.074, 0.86, -0.045))):
         pts, radii = [], []
         for k, t in enumerate((0.0, 0.45, 0.8, 1.0)):
-            # (Short fat fingers, the character judge's round 18: about 45 per cent of the hand.)
-            d = 0.13 + 0.09 * ln * t   # (stubs, 40 per cent of the hand, round 19)
+            d = 0.115 + 0.105 * ln * t
             f = f0 + spread * t
-            o = -0.004 - 0.03 * t * t      # curling toward the palm, evenly (round 19: uneven curls still read as pointing)
+            o = -0.004 - 0.03 * t * t      # curling toward the palm, evenly
             pts.append(_at(x, d, f, o))
-            radii.append((0.048, 0.046, 0.042, 0.033)[k])
+            radii.append((0.036, 0.034, 0.031, 0.026)[k])
         tube(bm, pts, radii, segments=10, per_span=3)
-    # (Small and low, about 30 degrees off the hand, round 19.)
-    tube(bm, [_at(x, 0.04, 0.085, -0.02), _at(x, 0.08, 0.13, -0.045), _at(x, 0.11, 0.15, -0.06), _at(x, 0.13, 0.155, -0.066)],
-         [0.04, 0.038, 0.033, 0.025], segments=12, per_span=3)
+    # The thumb: thicker than a finger, set low on the heel of the palm and turned well out to the front, so it reads as its own digit.
+    tube(bm, [_at(x, 0.035, 0.08, -0.02), _at(x, 0.075, 0.135, -0.04), _at(x, 0.105, 0.165, -0.05), _at(x, 0.128, 0.178, -0.055)],
+         [0.042, 0.039, 0.034, 0.027], segments=12, per_span=3)
 
 
 ## The blob's wrist, which `fist` and `cuff` are built round.

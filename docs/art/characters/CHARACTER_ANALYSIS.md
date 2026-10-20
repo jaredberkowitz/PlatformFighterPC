@@ -210,3 +210,16 @@ Loadout (with new checks: the default look is bare-legged without a belt, an old
 animation library, match flow, editor UI and select grid tests pass. The creator flow test fails before and after this change with the
 same errors (`unknown field ledge_exposed_frames in the ruleset`: the built bridge is behind the content), not from this pass.
 
+## Hand pass: separate fingers on the open hand (2026-10-19, gap #5)
+The open hand (`mitten` in `make_rigged_blob.py`, also the glove's shape) was a mitten: fat finger tubes overlapping one another and
+mostly buried in the palm. Now the palm is shorter, the four fingers slimmer, spread so a gap shows between each and longer out of the
+palm, and the thumb thicker, low on the heel and turned well out; the hand's length is about as before. The fist is unchanged.
+`hand_pass.png` (left before, right after, the sailor's relaxed hands in the lineup). Fighter view, art pipeline, loadout and
+animation library tests pass.
+
+**Outline (gap #4), reviewed and left:** since the hem pass the doubled, wavering line round the cuffs and sleeve flaps is gone; what
+remains is a steady line, which the references' style allows. No change made.
+
+**Tool note:** `tests/hand_sheet.gd` frames the hands from above since the proportion refit (its camera was set for the old arms);
+the lineup's relaxed pose was used instead.
+
