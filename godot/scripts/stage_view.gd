@@ -5,6 +5,7 @@ extends Node3D
 const FighterView := preload("res://scripts/fighter_view.gd")
 const StageArt := preload("res://scripts/stage_art.gd")
 const StageLight := preload("res://scripts/stage_light.gd")
+const StageBake := preload("res://scripts/stage_bake.gd")
 
 ## Fighters live in the z = 0 plane. Stage geometry is pushed BACK so its front face sits just in front of
 ## that plane. If a block were centred on z = 0, perspective would make its front face look wider than the
@@ -89,6 +90,12 @@ func build(sim) -> void:
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--props="):
 			prop_lineup(self, arg.substr(8).split(","), extent)
+	# Baked light for this exact stage, if it has one (scripts/stage_bake.gd); `--bake-export` writes the scenery out for Blender instead.
+	var bake_key := StageBake.key(String(theme.get("name", "")), rects)
+	if OS.get_cmdline_user_args().has("--bake-export"):
+		StageBake.export_scene(self, bake_key)
+	else:
+		StageBake.apply(self, bake_key)
 
 	for i in sim.ledge_count():
 		var l: Vector3 = sim.ledge_pos(i)

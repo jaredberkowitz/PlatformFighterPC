@@ -73,6 +73,15 @@ uniform float detail_scale = 3.0;
 // Multiply by the mesh's vertex colour (off by default: imported props may carry colours meant for nothing). The crowns' lobed clump balls
 // bake each leaf clump's own light into it (scripts/stage_art.gd `_clump_ball`): a lit top and a dark crevice between clumps.
 uniform bool vertex_shade = false;
+// Baked occlusion (scenery only, off by default, so the fighters never take it; scripts/stage_bake.gd, the grove pilot): a texture baked
+// in Blender over the mesh's second UV set, the crevices and contact shade the cel light cannot find, multiplied into AO.
+uniform bool use_baked_ao = false;
+uniform sampler2D baked_ao : hint_default_white, filter_linear_mipmap, repeat_disable;
+uniform float baked_ao_strength = 1.0;
+// How far the baked occlusion also dims the direct light (the engine's AO_LIGHT_AFFECT; 0.45 otherwise), and a curve on it (above 1
+// deepens the crevices and keeps the open faces clean).
+uniform float baked_ao_light = 0.45;
+uniform float baked_ao_curve = 1.0;
 // Multiply by each MultiMesh instance's custom data (rgb): one material, every instance its own shade (the sea wall's stones).
 uniform bool instance_tint = false;
 // Painted ground shadows under background props (scripts/stage_art.gd `_ground_shadow`): soft ellipses on the ground in world x/z, each
@@ -309,6 +318,10 @@ void fragment() {
 	EMISSION = flash.rgb * flash.a + c * fighter_bounce.rgb * fighter_bounce_amount * fighter * clamp(-world_normal.y, 0.0, 1.0);
 	ROUGHNESS = object_id;
 	AO = pf_stage_ao_ground(world_pos, world_normal);
+	if (use_baked_ao) {
+		AO *= mix(1.0, pow(texture(baked_ao, UV2).r, baked_ao_curve), baked_ao_strength);
+		AO_LIGHT_AFFECT = baked_ao_light;
+	}
 	AO_LIGHT_AFFECT = 0.45;
 	SPECULAR = 0.0;
 }
