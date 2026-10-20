@@ -297,3 +297,18 @@ meadow layout (`StageBake.GROUNDS`).
 - **Result** (round 64, `meadow_ground_built.png`: match camera, wide, fighters in play): the valley, hills and the hill under the stage
   read as one paper model. The valley's saturation is 0.22 (0.40 before); the lawn is unchanged at 0.63. Cheaper: 770 draw calls against
   843, 0.63 M primitives against 1.30 M, GPU 2.2 ms against 2.4 ms (two timings each). **Tests:** all seven pass.
+
+## The beach's background in paper: mocks (2026-10-20)
+
+The owner's paper pick on the meadow, carried to the beach: the harbour headland's hills and the three islands' mounds.
+- **Kept:** the sea, quay, town, palms, rocks, hut, lighthouse and stilt hut stay code-built.
+- **Layout export:** `ground.json` now also carries each island's sand and green mounds and each headland hill (`island_specs`,
+  `headland_specs`), as the half-axes of their domes. Contours of those domes keep the houses, palms and hut on their footing.
+- **Hook:** under a ground mock the mounds and hill domes are built into a node that is thrown away.
+- **Builder:** `art/blender/make_beach_ground.py --variant A|B|C`.
+  - A card contours: 14,900 triangles.
+  - B foam board, thicker layers with a pale lip: 11,600 triangles.
+  - C pop-up, the tall back hills as standing cut-out flats and the rest as card contours: 11,000 triangles.
+- **First renders fixed:** concentric contours read as a mint wedding cake. Each layer now drifts and lobes by the dome's own shape, and
+  the green land's cut edges are a shade under its tops (the camera sees the edges more than the tops out there).
+- **Next:** options in `mocks/beach_ground/` (with a local `review.html`) and on the owner's page; recommended C.

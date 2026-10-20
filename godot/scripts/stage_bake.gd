@@ -108,7 +108,18 @@ static func export_ground(bake_key: String) -> void:
 	for slot in StageArt.pine_slots:
 		var at: Vector3 = slot[0]
 		pines.append([at.x, at.y, at.z, slot[1], slot[2]])
-	var doc := {"hills_near": StageArt._hill_bumps[0], "hills_far": StageArt._hill_bumps[1], "fore": StageArt._fore_bumps, "pines": pines,
+	var isles: Array = []
+	for i in StageArt.island_specs:
+		var c: Vector3 = i[0]
+		var a: Vector3 = i[1]
+		var b: Vector3 = i[2]
+		isles.append([c.x, c.y, c.z, a.x, a.y, a.z, b.x, b.y, b.z])
+	var heads: Array = []
+	for h in StageArt.headland_specs:
+		var c: Vector3 = h[1]
+		var r: Vector3 = h[2]
+		heads.append([h[0], c.x, c.y, c.z, r.x, r.y, r.z])
+	var doc := {"islands": isles, "headland": heads, "hills_near": StageArt._hill_bumps[0], "hills_far": StageArt._hill_bumps[1], "fore": StageArt._fore_bumps, "pines": pines,
 		"farm": StageArt.farm_span, "hill": StageArt.hill_spec}
 	FileAccess.open((DIR % bake_key) + "ground.json", FileAccess.WRITE).store_string(JSON.stringify(doc))
 
@@ -442,6 +453,15 @@ static func _ground_colours(t: Dictionary) -> Dictionary:
 	for k in fields.size():
 		out["field_%d" % k] = _calm(fields[k])
 	# (Each sheet's cut edge a pale step of its own land, catching the light: in one pale lime they read as snow, then as lime stripes.)
+	# (The beach's, art/blender/make_beach_ground.py: the islands' sand and green and the headland's hills, as the code-built mounds had them.)
+	out["sand"] = Color(0.98, 0.88, 0.62)
+	out["isle_green"] = Color(0.3, 0.62, 0.42)
+	out["head_near"] = Color(0.28, 0.52, 0.42)
+	out["head_far"] = Color(0.26, 0.52, 0.52)
+	for fam in ["sand", "isle_green", "head_near", "head_far"]:
+		# (The sand's edge a pale step; the green land's a shade under its top: far off, the camera sees the cut edges more than the tops,
+		# and in a pale step the headland read as a mint wedding cake.)
+		out["card_" + fam] = (out[fam] as Color).lerp(Color(0.96, 0.95, 0.88), 0.2) if fam == "sand" else (out[fam] as Color).darkened(0.12)
 	for band in ["far", "near", "rise", "hill"]:
 		var own: Color = out["hill_" + band] if band in ["far", "near"] else out[band]
 		out["card_" + band] = own.lerp(Color(0.92, 0.93, 0.86), 0.22)

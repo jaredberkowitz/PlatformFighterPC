@@ -1012,6 +1012,10 @@ static var bush_slots: Array = []
 ## Where the meadow's pine clusters stand ([base, size, turn]), set by `_meadow` (for the ground export, art/blender/make_meadow_ground.py).
 ## With a modelled ground (`ground_mock`) the clusters are not built and these go to `bush_slots`, for the modelled pines.
 static var pine_slots: Array = []
+## The beach's islands [centre, sand mound's size, green mound's size] and the harbour headland's hills [row, centre, size] (half-axes
+## of their domes), set by `_ocean` (for the ground export, art/blender/make_beach_ground.py).
+static var island_specs: Array = []
+static var headland_specs: Array = []
 ## The meadow hill's wall [left, right, foot, front], set by `_meadow_hill` (for the ground export).
 static var hill_spec: Array = []
 ## The meadow farm's span across the valley [left, right], set by `_fields`.
@@ -4916,6 +4920,12 @@ static func _ocean(root: Node3D, t: Dictionary, stage: Array) -> void:
 	# frame; a few apart leave open sky over the fight.)
 	_clouds(root, bank_rng, int(_pal("cloud_bank")), Color(1, 1, 1), Vector2(10.0, 18.0), Vector2(-215, -195), [1, 0, 1], 1.9, Vector2(-90, 90), cloud_look)
 	_birds(root, rng, Color(0.97, 0.97, 1.0))
+	# (Under a modelled ground the islands' mounds and the headland's hills are built into a node that is thrown away, their numbers
+	# still drawn; what stands on them stays: art/blender/make_beach_ground.py.)
+	var gone := Node3D.new()
+	var land: Node3D = gone if ground_mock else root
+	island_specs.clear()
+	headland_specs.clear()
 	# Distant islands.
 	for k in 3:
 		var isle := Vector3(-70.0 + k * 65.0 + rng.randf_range(-10, 10), float(e[3]) - 3.0, -110.0 + rng.randf_range(-10, 10))
@@ -4926,8 +4936,11 @@ static func _ocean(root: Node3D, t: Dictionary, stage: Array) -> void:
 		var isle_green := (FighterView.toon(Color(0.3, 0.62, 0.42), false) as ShaderMaterial).duplicate() as ShaderMaterial
 		isle_green.set_shader_parameter("facets", true)
 		# (Folded mounds, the owner's folded style step 4, 2026-10-20: scaled nine-sided spheres read as primitives beside the folded headland.)
-		_puff(root, _pleated_puff(8, 4, 0.18), isle_sand, isle, Vector3(rng.randf_range(10, 16), 3.5, 6.0))
-		_puff(root, _pleated_puff(6, 5, 0.36), isle_green, isle + Vector3(0, 2.0, 0), Vector3(rng.randf_range(6, 9), 3.5, 4.0))
+		var sand_size := Vector3(rng.randf_range(10, 16), 3.5, 6.0)
+		_puff(land, _pleated_puff(8, 4, 0.18), isle_sand, isle, sand_size)
+		var green_size := Vector3(rng.randf_range(6, 9), 3.5, 4.0)
+		_puff(land, _pleated_puff(6, 5, 0.36), isle_green, isle + Vector3(0, 2.0, 0), green_size)
+		island_specs.append([isle, sand_size, green_size])
 		_palm(root, isle + Vector3(rng.randf_range(-4, 4), 4.0, 2.0), 1.4, rng)
 		_isle_detail(root, isle, k)
 	# A lighthouse on its rocks on the right (art/blender/make_props.py), its lantern glowing.
@@ -4949,7 +4962,8 @@ static func _ocean(root: Node3D, t: Dictionary, stage: Array) -> void:
 	_stilt_hut(root, Vector3(30.0, float(e[3]) - 1.0, -46.0))
 	if t.get("pattern", "") == "dock":
 		_dock_harbour(root, e, float(e[3]) - 1.0)
-		_harbour_town(root, float(e[3]) - 1.0)
+		_harbour_town(root, float(e[3]) - 1.0, land)
+	gone.free()
 	# (No palms on the dock, 2026-10-18: a harbour, not a beach.)
 
 
@@ -6812,7 +6826,9 @@ static func _warehouse(root: Node3D, at: Vector3) -> void:
 ## A harbour town across the water on the left (the sea at `water`): a green headland rising from a stone quay, its houses climbing the
 ## slope in rows (the cottage model, each roof its own colour, walls tinted a few seaside pastels, turned a little), boats moored along
 ## the quay, and hills behind; the middle distance of a harbour, as the owner's references have (2026-10-18). Its own random numbers.
-static func _harbour_town(root: Node3D, water: float) -> void:
+static func _harbour_town(root: Node3D, water: float, land_root: Node3D = null) -> void:
+	if land_root == null:
+		land_root = root
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 2718
 	# (Further back and out, the gauntlet's round 2: nearer, the town was the biggest, most saturated thing in the corner of the frame.)
@@ -6841,22 +6857,24 @@ static func _harbour_town(root: Node3D, water: float) -> void:
 	var dome := [_prop_mesh("hill_dome_a", "land"), _prop_mesh("hill_dome_b", "land")]
 	for hi in hills.size():
 		var h: Array = hills[hi]
+		headland_specs.append(["near", base + (h[0] as Vector3), h[1]])
 		if dome[hi % 2] != null:
-			var hm := _mesh(root, dome[hi % 2], near_hill, base + (h[0] as Vector3), h[1])
+			var hm := _mesh(land_root, dome[hi % 2], near_hill, base + (h[0] as Vector3), h[1])
 			hm.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		else:
-			_mesh(root, _sphere(1.0, 9), land, base + (h[0] as Vector3), h[1])
+			_mesh(land_root, _sphere(1.0, 9), land, base + (h[0] as Vector3), h[1])
 	# Higher hills behind the town, bluer with distance.
 	var far_land := Materials.foliage(Color(0.42, 0.56, 0.56), Vector2(6, 3), false)
 	# (Finer facets and a deeper green, gauntlet round 3: nine-sided spheres this size were a few huge flat panes, pale through the haze,
 	# and read as glass.)
 	# (Deeper, 2026-10-19: ten deep, their flanks all faced the camera and took one tone; at twenty they turn to the light and away.)
 	for fh: Array in [[Vector3(-18, 0.0, -40), Vector3(36, 26, 20), 1], [Vector3(14, 0.0, -44), Vector3(30, 20, 20), 0]]:
+		headland_specs.append(["far", base + (fh[0] as Vector3), fh[1]])
 		if dome[fh[2]] != null:
-			var fm := _mesh(root, dome[fh[2]], far_hill, base + (fh[0] as Vector3), fh[1])
+			var fm := _mesh(land_root, dome[fh[2]], far_hill, base + (fh[0] as Vector3), fh[1])
 			fm.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		else:
-			_mesh(root, _sphere(1.0, 18), far_land, base + (fh[0] as Vector3), fh[1])
+			_mesh(land_root, _sphere(1.0, 18), far_land, base + (fh[0] as Vector3), fh[1])
 	# The land's height at (x, z) (relative to `base`): the highest of the hills' ellipsoid surfaces there.
 	var ground := func(x: float, z: float) -> float:
 		var best := 0.0
