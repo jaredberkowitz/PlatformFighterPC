@@ -11,6 +11,8 @@ extends Node
 const DEFAULT := {
 	"up": KEY_UP, "down": KEY_DOWN, "left": KEY_LEFT, "right": KEY_RIGHT,
 	"confirm": KEY_ENTER, "back": KEY_ESCAPE, "start": KEY_ENTER, "menu": KEY_ESCAPE,
+	# Y: nothing unless a screen's `pad_scheme` gives it a key (stage select: its view).
+	"alt": 0,
 }
 ## Seconds before a held direction repeats, and between repeats.
 const FIRST_REPEAT := 0.4
@@ -50,6 +52,7 @@ func _process(delta: float) -> void:
 			"back": Input.is_joy_button_pressed(pad, JOY_BUTTON_B),
 			"start": Input.is_joy_button_pressed(pad, JOY_BUTTON_START),
 			"menu": Input.is_joy_button_pressed(pad, JOY_BUTTON_BACK),
+			"alt": Input.is_joy_button_pressed(pad, JOY_BUTTON_Y),
 		}
 		for action in state:
 			var id := "%d:%s" % [pad, action]

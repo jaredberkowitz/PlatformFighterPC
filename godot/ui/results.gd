@@ -154,12 +154,14 @@ func build(heading: String, cards: Array, choices: Array) -> void:
 		preview.facing_bias = -0.5
 		preview.set_loadout(cards[winner].look)
 		_runner_up(cards)
+	# The choices share the room from x 560 to the right safe margin (1240), so the last one never runs off the screen.
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 16)
 	row.position = Vector2(560, 610)
 	add_child(row)
+	var button_w := minf(230.0, (680.0 - 16.0 * (choices.size() - 1)) / maxf(1.0, choices.size()))
 	for c in choices:
-		var b := UI.Btn.new(c[0], Vector2(230, 64))
+		var b := UI.Btn.new(c[0], Vector2(button_w, 64))
 		b.font_size = UI.TYPE_LABEL
 		# The first choice (Rematch) is the primary action, in the winner's colour; the rest stay the quiet cream.
 		if buttons.is_empty() and winner >= 0:
