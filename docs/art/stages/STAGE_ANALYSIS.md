@@ -128,3 +128,7 @@ nothing breaks); `prop_check_test`, `art_pipeline_test`, `match_flow_test`, `run
 
 **Left.** The sky, per the owner's pick. The roof (0.40) stays under the fighters by 0.06 or more; the reference makes its play pieces
 the palest things, but lifting the roof would close that gap.
+
+**The owner picked sky B** (calmer pink, 2026-10-20; reviewed on a flip/slider page). Applied in `city.cfg`: `sky_horizon` 0.42, 0.24,
+0.48; `sky_glow` 0.8, 0.42, 0.62 at 0.32; `sun_side` 0.25. The sky 0.43 → 0.37, saturation 0.67 → 0.59, hue 324 → 310 (round 48,
+`pass3_city_sky.png`). The run mode's sky calms the same way (checked with `run_shot`). Tests as above, all pass.
