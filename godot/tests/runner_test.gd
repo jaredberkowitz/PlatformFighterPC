@@ -263,8 +263,7 @@ func _scene() -> void:
 	check(not moving_light and not moving_shadow, "no light or cast shadow travels with the backdrop")
 	# R2b: grunts drawn with the fighter rig in their outfits, the tell's "!" over a telling one.
 	var g: int = main.sim.run_debug_grunt(2, 4.0, true)
-	for i in 6:
-		await process_frame
+	await _ticks(main, 3)
 	check(g >= 0 and main.mob_views[g].visible and main.mob_views[g].fighter != null, "a grunt is drawn with the fighter rig")
 	if g >= 0:
 		check(main.mob_views[g].role == 2 and main.mob_views[g].tell_label.visible, "a shieldbearer, telling")
@@ -274,15 +273,14 @@ func _scene() -> void:
 		check(not fv.percent_label.visible and not fv.name_label.visible, "no fighter labels over a grunt")
 		check(not main.mob_views[g].pct_label.visible, "and its damage hidden while it tells")
 		var quiet: int = main.sim.run_debug_grunt(0, 6.0, false)
-		for i in 4:
-			await process_frame
+		await _ticks(main, 2)
 		if quiet >= 0:
 			check(main.mob_views[quiet].pct_label.visible and main.mob_views[quiet].pct_label.text == "0%", "a grunt's damage, small: " + main.mob_views[quiet].pct_label.text)
 			check(not main.mob_views[quiet].fighter.percent_label.visible, "one label only")
 			# Launched out of the view: knocked out, with the knock-out's effect.
 			var kos: int = main.grunt_kos
 			main.sim.run_debug_launch_grunt(quiet, 1.8, 0.5)
-			await create_timer(1.2).timeout
+			await _ticks(main, 72)
 			check(main.grunt_kos > kos, "the knock-out was shown")
 	# R2c: the camera's height is the sim's.
 	check(absf(main.cam_y - main.sim.run_view()[12]) < 1.0, "the camera keeps the sim's height: %.2f vs %.2f" % [main.cam_y, main.sim.run_view()[12]])
@@ -290,8 +288,7 @@ func _scene() -> void:
 	# R2b: a coin picked up vanishes at once (the owner's R2a bug: it stayed until the stage next changed).
 	# (Into the next room first, where the coins are in the view: the blast zone follows the camera.)
 	main.sim.run_debug_next_room()
-	for i in 4:
-		await process_frame
+	await _ticks(main, 2)
 	var coins: PackedFloat32Array = main.sim.run_coins()
 	var shown_before: int = main.run_stage.coins_shown()
 	var seen: PackedFloat32Array = main.sim.run_view()
@@ -300,8 +297,7 @@ func _scene() -> void:
 		if coins[c * 4 + 2] < 0.5 and coins[c * 4] > seen[0] + 2.0 and coins[c * 4] < seen[0] + seen[1] - 2.0:
 			main.sim.debug_place_airborne(0, coins[c * 4], coins[c * 4 + 1] - 1.0)
 			break
-	for i in 4:
-		await process_frame
+	await _ticks(main, 4)
 	check(main.run_stage.coins_shown() < shown_before or shown_before == 0, "a coin picked up is gone: %d from %d" % [main.run_stage.coins_shown(), shown_before])
 	var far_x: float = main.run_stage.far_layer.position.x
 	var mid_x: float = main.run_stage.mid_layer.position.x
@@ -314,8 +310,7 @@ func _scene() -> void:
 			found = true
 			break
 	check(found, "a shop came and was walked into")
-	for i in 6:
-		await process_frame
+	await _ticks(main, 3)
 	check(main.run_stage.interior != null and main.run_stage.keeper != null, "the shop's interior and its shopkeeper")
 	check(main.run_stage.ware_nodes.size() == 6 and main.run_stage.price_labels.size() == 6, "six ware spots and their prices: %d" % main.run_stage.ware_nodes.size())
 	check(main.run_stage.wares_shown() == 6, "every stand filled: %d" % main.run_stage.wares_shown())
@@ -323,33 +318,28 @@ func _scene() -> void:
 	check(main.run_stage.keeper_bubble.visible and main.run_stage.keeper_bubble.text == "Welcome!", "the shopkeeper waves hello: " + main.run_stage.keeper_bubble.text)
 
 	# R3: the card over the ware stood by, the bell re-drawing the wares.
+	# (The display and the shop read the sim on its ticks, so these wait for ticks, not frames or time: a loaded machine runs
+	# frames with no tick in them.)
 	main.sim.run_debug_coins(1000)
 	main.sim.run_debug_shop_spot(3)
-	await create_timer(0.2).timeout
+	await _ticks(main, 2)
 	check(main.run_stage.card.visible and main.run_stage.card_text.text.contains("You own"), "the card: " + main.run_stage.card_text.text)
 	check(main.run_hud.board.shop_hint().begins_with("UP: BUY"), "the hint: " + main.run_hud.board.shop_hint())
 	var sig_before: String = main.run_stage.ware_sig
 	main.sim.run_debug_shop_spot(6)
-	await create_timer(0.2).timeout
+	await _ticks(main, 2)
 	check(main.run_hud.board.shop_hint().begins_with("UP: RING THE BELL"), "the bell's hint: " + main.run_hud.board.shop_hint())
-	main._send_key(KEY_W, true)
-	await create_timer(0.1).timeout
-	main._send_key(KEY_W, false)
-	await create_timer(0.2).timeout
+	await _press_up(main)
 	check(main.sim.run_shop()[12] == 1 and main.run_stage.ware_sig != sig_before, "the bell re-drew the wares: " + main.run_stage.ware_sig)
 	check(main.run_stage.keeper_bubble.text == "Fresh stock!" or main.sim.run_shop()[6] != 6, "the shopkeeper restocks")
 	main.sim.run_debug_shop_spot(-1)
-	for i in 3:
-		await process_frame
+	await _ticks(main, 2)
 	# R2c: every storefront has its CLOSED board, hidden while the shopkeeper sells.
 	check(main.run_stage.closed_signs.size() >= 1 and not main.run_stage.shops_closed, "the closed boards, down: %d" % main.run_stage.closed_signs.size())
 	check(main.cam.position.x < -10000.0, "the camera is inside: %.0f" % main.cam.position.x)
 	check(main.run_hud.board.shop_hint() == "UP: LEAVE THE SHOP", "the way out: " + main.run_hud.board.shop_hint())
 	# (Back out, for the rest.)
-	main._send_key(KEY_W, true)
-	await create_timer(0.1).timeout
-	main._send_key(KEY_W, false)
-	await create_timer(0.2).timeout
+	await _press_up(main)
 	check(main.sim.run_info()[13] == 0, "out again with up at the door")
 	check(not main.hud.visible, "the versus display is hidden")
 
@@ -362,23 +352,22 @@ func _scene() -> void:
 		main.sim.run_debug_only(PackedStringArray([room_name, "street"]), 1, 3)
 		for n in 6:
 			main.sim.run_debug_next_room()
-			await process_frame
-			await process_frame
+			await _ticks(main, 1)
 			depth_bad.append_array(_background_in_front(main))
 	check(depth_bad.is_empty(), "every background mesh stands behind the play plane: " + str(depth_bad.slice(0, 6)))
 	# R3: the build's strip under the coins, and a find drawn on a route.
 	main.sim.run_debug_give(2)
 	main.sim.run_debug_give(2)
 	main.sim.run_debug_give(12)
-	await create_timer(0.2).timeout
+	await _ticks(main, 2)
 	check(main.run_hud.board.build_icons() >= 2, "the build strip: %d" % main.run_hud.board.build_icons())
 	main.sim.run_debug_find(1, 7)
-	await create_timer(0.2).timeout
+	await _ticks(main, 2)
 	check(main.run_stage.finds_shown() >= 1, "a find drawn: %d" % main.run_stage.finds_shown())
 	# Losing every life ends the run.
 	for life in 3:
 		main.sim.debug_place_airborne(0, main.sim.run_view()[0] + 10.0, main.sim.run_view()[3] - 4.0)
-		await create_timer(0.25).timeout
+		await _ticks(main, 15)
 	check(main.sim.run_info()[0] == 1, "out of lives: the run is over")
 	await create_timer(2.2).timeout
 	check(main.results != null, "the results appear")
@@ -394,6 +383,26 @@ func _scene() -> void:
 		check(main.run_seed != 42, "on a new seed")
 	main.queue_free()
 	await process_frame
+
+
+## Waits until the sim has run `ticks` more ticks and the scene has drawn once after the last: the run screen takes the sim's numbers
+## on a tick (`_physics_process`) and shows them in the next `_process`. (A frame can run with no tick, and a timer can end before
+## the tick it waited for has been drawn, so neither is enough on a loaded machine.) Gives up after ten seconds; the checks then fail.
+func _ticks(main: Node, ticks: int) -> void:
+	var until: int = main.sim.frame() + ticks
+	var give_up := Time.get_ticks_msec() + 10000
+	while main.sim.frame() < until and Time.get_ticks_msec() < give_up:
+		await process_frame
+	# (`process_frame` comes before the nodes' `_process` in a frame: one more, and the last tick has been drawn.)
+	await process_frame
+
+
+## Presses up for six ticks (as long as a tap of a tenth of a second), lets go, and waits six more for what it did to be drawn.
+func _press_up(main: Node) -> void:
+	main._send_key(KEY_W, true)
+	await _ticks(main, 6)
+	main._send_key(KEY_W, false)
+	await _ticks(main, 6)
 
 
 ## Background meshes (the rooms' building masses and the backdrop) whose front reaches past the back of the play plane's deepest
