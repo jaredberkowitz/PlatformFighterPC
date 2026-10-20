@@ -158,3 +158,16 @@ Recommended B, the reference's honey under the fighters.
 0.48 (saturation 0.28 → 0.48, hue 41 → 27, the harbour reference's honey), the posts 0.23 → 0.25 and warm brown (hue 210 → 17), the
 fighters 0.53 and 0.60, both at least 0.05 clear. The crates, barrels and the far jetty keep their paler wood: the props stand off the
 deck and the jetty sits back. Only the beach theme builds a dock (and the editor's custom stages with that theme). Tests: all six pass.
+
+## Pass 5: the grove's lawn (2026-10-20)
+
+**Defect** (`REFERENCE.md`, weakness 5): the fighters stood on their own value, the lawn under them 0.56 against 0.55 and 0.56, so they
+read by outline and hue only; the grove reference's lawn is a yellow-green (hue 69) well clear of everything round it.
+
+**Fix** (the owner's direction, lighter and yellower): `grove.cfg` `grass` 0.42, 0.8, 0.36 → 0.58, 0.9, 0.3 and `grass_light` → 0.8, 0.98,
+0.44 (the lip, the blades and the vines follow it as darker or lighter shades). Tried first: 0.58, 0.86, 0.3, whose lip shade went olive
+(hue 77), and 0.5, 0.84, 0.3, whose right-hand lawn fell to 0.58, too near the fighters.
+
+**Result** (round 54, `pass5_grove_lawn.png`: match camera, fighters in play, and their greyscale): the lawn 0.64 to 0.71 (hue 105 → 74),
+at least 0.08 over both fighters; the teal plain behind stays 0.53, so the island stands further out. The lip's shade is a deep
+yellow-green (hue 85), as the reference's own grass shade is. Tests: all six pass.
