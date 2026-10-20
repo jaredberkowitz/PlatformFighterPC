@@ -172,3 +172,15 @@ wide) on the owner's fidelity page; recommended A.
 Fixed on the way: `mock_front` hid the meadow's hill (a terrace stage's `Underside` is the hill it stands on, not a keel); the turf
 tongues no longer hang over a modelled front; the overhang's tufts turned over had their undersides facing the sky inside the lawn's
 slab and baked a dark purple band, so they stand upright.
+
+## The meadow's front built: B, log and stone wall (2026-10-20)
+
+The owner picked B. Shipped as `godot/models/stages/meadow_front.glb` (14,500 triangles), placed for the exact meadow layout
+(`StageBake.FRONTS`), in place of the code-built faceted ledge and block box; the meadow's hill below stays. The step that hides the
+code-built front is now shared by the shipped path and the mocks (`hide_code_front`): the shipped path had left the meadow's ledge in
+place behind the model, and the block's box takes a number when a stage is rebuilt (`block2`), which the old exact-name check missed.
+
+**Result** (round 60, `meadow_front_built.png`: match camera, wide, fighters in play): two courses of logs with cut ends over bevelled
+stone courses in their own tones, a grass overhang along the top: the farm's own build under its fence and bales. Front 0.38 (in the
+sheet's 0.35 to 0.55 band, warm grey; it was 0.36 light moss), lawn 0.64, fighters 0.59. Cost: 19 more draw calls, 0.2 to 0.4 ms GPU
+(two A/B timings each way; a first reading of 6.2 ms was machine load). The alignment test covers both fronts. **Tests:** all seven pass.

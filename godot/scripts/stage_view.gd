@@ -80,6 +80,7 @@ func build(sim) -> void:
 					exposed = false
 			StageArt.solid_block(self, theme, left, right, top, bottom, FRONT_Z, exposed, float(extent[2]))
 	if front != "":
+		StageBake.hide_code_front(self, theme)
 		StageBake.place_front(self, theme, (load(front) as PackedScene).instantiate())
 	elif StageArt.island_mode:
 		StageArt.quilted_island(self, theme, rects, FRONT_Z)

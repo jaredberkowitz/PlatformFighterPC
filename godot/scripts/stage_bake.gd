@@ -13,7 +13,7 @@ const FighterView := preload("res://scripts/fighter_view.gd")
 const StageArt := preload("res://scripts/stage_art.gd")
 const DIR := "res://art/baked/%s/"
 ## Modelled stage fronts, by the exact stage they were built on (`key`): art/blender/make_grove_front.py, the grove pilot's step 2.
-const FRONTS := {"grove_14d06e65": "res://models/stages/grove_front.glb"}
+const FRONTS := {"grove_14d06e65": "res://models/stages/grove_front.glb", "meadow_62409190": "res://models/stages/meadow_front.glb"}
 ## Modelled trees by theme (art/blender/make_grove_trees.py, option C, the owner's pick): placed where each code-built tree stood, so
 ## custom stages on the theme take them too.
 const TREES := {"grove": "res://models/stages/grove_tree.glb"}
@@ -254,17 +254,23 @@ static func mock_front(root: Node3D, t: Dictionary) -> bool:
 	if doc.append_from_file(path, state) != OK:
 		push_warning("front mock %s could not be read" % path)
 		return false
+	hide_code_front(root, t)
+	place_front(root, t, doc.generate_scene(state))
+	print("front mock: placed %s" % path.get_file())
+	return true
+
+
+## Hides the code-built front a modelled one replaces: the quilt, the block's box and its faceted ledge, and a floating island's keel.
+static func hide_code_front(root: Node3D, t: Dictionary) -> void:
 	for n in root.find_children("*", "", true, false):
-		if _dying(n):
+		if _dying(n) or not (n is Node3D):
 			continue
 		var nm := String(n.name)
 		# (The keel only where the island floats: on a terrace stage `Underside` is the hill the stage stands on, the meadow's.)
 		var keel: bool = nm.begins_with("Underside") and not t.get("terrace", false)
-		if n is Node3D and (nm.begins_with("quilted_island") or keel or nm == "block" or nm.begins_with("faceted_ledge")):
+		# (`begins_with`: a rebuilt stage's nodes take a number, `block2`.)
+		if nm.begins_with("quilted_island") or keel or nm.begins_with("block") or nm.begins_with("faceted_ledge"):
 			(n as Node3D).visible = false
-	place_front(root, t, doc.generate_scene(state))
-	print("front mock: placed %s" % path.get_file())
-	return true
 
 
 ## Places a modelled front (`scene`, from make_grove_front.py) under `root`: each material family painted from the stage's palette with
