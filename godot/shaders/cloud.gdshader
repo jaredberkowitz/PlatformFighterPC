@@ -26,6 +26,9 @@ uniform float heap_weight = 1.1;
 // Where the flat underside's crisp shade edge sits, a share of `belly_height` over the base.
 uniform float underside = 0.85;
 instance uniform vec3 heap = vec3(0.0, 1.0, 0.0);
+// Flat-shaded planes (the folded and faceted clouds, docs/art/stages/FOLDED_STYLE.md): each panel lit as one plane, and the heap bends
+// it less, so the folds read.
+uniform bool flat_planes = false;
 
 varying vec3 wn;
 varying vec3 wp;
@@ -52,9 +55,13 @@ void vertex() {
 
 void fragment() {
 	vec3 n = normalize(wn);
+	if (flat_planes) {
+		vec3 fn = normalize(cross(dFdx(wp), dFdy(wp)));
+		n = dot(fn, n) < 0.0 ? -fn : fn;
+	}
 	vec3 L = normalize(pf_sun_dir);
 	// The surface's light: its own normal bent toward where the puff sits in the heap, so one side of the whole cloud is lit.
-	vec3 nh = normalize(n + heap * heap_weight);
+	vec3 nh = normalize(n + heap * heap_weight * (flat_planes ? 0.25 : 1.0));
 	// (Lit from above and the sun's side, a little toward the camera: a cloud seen against the light would otherwise be all shade.)
 	float d = dot(nh, normalize(vec3(L.x * 1.4, 1.0, 0.45))) * 0.5 + 0.5;
 	// (The shade a clear lavender-blue, deeper than the mood's tint for pale things, so the cloud has distinct tones after the finishing

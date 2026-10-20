@@ -76,3 +76,12 @@ Measured (round 49): the meadow's valley 0.63 → 0.61 against its ranges' 0.59 
 0.071 (the folds, still calm); the grove's plain 0.58 → 0.53, now under its lawn (0.56), so the island stands out more. Frame time: no
 cost (same draw calls and primitives; an A/B of folds off and on under the same load gave the same GPU time, 4.7 ms). Before/after:
 `fold1_hills.png` (match camera, close-ups, and the wide `--cam=60` view of both stages). Tests: all six pass.
+
+## Step 2 mocks: clouds (2026-10-20)
+
+`_clouds` takes a palette key `[backdrop] cloud_style` (off by default): 1 faceted (low-poly puffs), 2 folded (`_pleated_puff`: each
+puff pleated from its crown down, the folds deepest round its lower half), 3 folded with every other puff left out and the rest larger
+(the same random numbers, so the layout stays). `cloud.gdshader` gains `flat_planes` (each panel lit as one plane, the heap bending it
+less). The first pleats (0.24 deep, the heap at 0.55) lit both sides of every fold alike in the shader's bright tone; at 0.42 and 0.25
+they read. Mocks on the meadow, grove, beach and canyon, match camera, in `mocks/clouds/` (A to D), on the owner's review page.
+Recommended C.

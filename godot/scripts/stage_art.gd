@@ -3045,7 +3045,14 @@ static func _soft_dot() -> GradientTexture2D:
 ## outline: they are far, and the haze softens them.
 static func _clouds(root: Node3D, rng: RandomNumberGenerator, count: int, color: Color, y_range: Vector2, z_range := Vector2(-120, -85),
 		kinds := [0, 1, 2], scale := 1.0, x_range := Vector2(-90, 90), look := {}) -> void:
-	var puff := _sphere(1.0, 32)
+	# The clouds' construction (the palette's [backdrop] `cloud_style`; docs/art/stages/FOLDED_STYLE.md): 0 smooth painted puffs, 1
+	# faceted puffs, 2 folded puffs (pleated from crown to rim like the fold kit's domes), 3 folded with fewer, larger puffs.
+	var style := int((_palette.get("backdrop", {}) as Dictionary).get("cloud_style", 0))
+	var puff: Mesh = _sphere(1.0, 32)
+	if style == 1:
+		puff = _sphere(1.0, 10)
+	elif style >= 2:
+		puff = _pleated_puff(9, 7)
 	for k in count:
 		var cloud := Drift.new()
 		cloud.speed = rng.randf_range(0.6, 1.6)
@@ -3060,6 +3067,9 @@ static func _clouds(root: Node3D, rng: RandomNumberGenerator, count: int, color:
 		mat.shader = CLOUD_SHADER
 		mat.set_shader_parameter("colour", color)
 		mat.set_shader_parameter("base_y", cloud.position.y)
+		if style >= 1:
+			mat.set_shader_parameter("flat_planes", true)
+			mat.set_shader_parameter("lump", 0.0)
 		# (A stage's own exposure and shade depth, `look`: under the beach's noon light the default washed every tone to white.)
 		for key in look:
 			mat.set_shader_parameter(key, look[key])
@@ -3080,7 +3090,12 @@ static func _clouds(root: Node3D, rng: RandomNumberGenerator, count: int, color:
 			# Taller toward the middle, so the heap domes; every puff sits on the same base line.
 			var r := (float(shape[2]) - absf(u) * float(shape[3])) * size * rng.randf_range(0.85, 1.15)
 			var at := Vector3(u * span * 0.5 + rng.randf_range(-0.4, 0.4), r * 0.55, rng.randf_range(-1.5, 1.5))
-			var mi := _mesh(cloud, puff, mat, at, Vector3(r, r * 0.85, r * 0.8))
+			# (Style 3: every other puff left out and the rest larger, from the same random numbers, so the layout stays put.)
+			if style == 3 and b % 2 == 1 and b != puffs - 1:
+				crowns.append([at, r, true])
+				continue
+			var rs := r * (1.3 if style == 3 else 1.0)
+			var mi := _mesh(cloud, puff, mat, at, Vector3(rs, rs * 0.85, rs * 0.8))
 			mi.set_instance_shader_parameter("heap", (at - Vector3(0, mid_y, 0)) / half)
 			crowns.append([at, r])
 		# Smaller puffs piled on the crown of a heap or a tower (the cauliflower top of a summer cumulus).
@@ -3088,11 +3103,42 @@ static func _clouds(root: Node3D, rng: RandomNumberGenerator, count: int, color:
 			for c in crowns.slice(1, crowns.size() - 1):
 				var r2: float = float(c[1]) * rng.randf_range(0.45, 0.6)
 				var at2: Vector3 = c[0] + Vector3(rng.randf_range(-0.6, 0.6), float(c[1]) * 0.62, rng.randf_range(0.2, 1.0))
+				if c.size() > 2:
+					continue
 				var mc := _mesh(cloud, puff, mat, at2, Vector3(r2, r2 * 0.9, r2 * 0.85))
 				mc.set_instance_shader_parameter("heap", (at2 - Vector3(0, mid_y, 0)) / half + Vector3(0, 0.4, 0))
 		# The flat base: a wide squashed puff under them all.
 		var mb := _mesh(cloud, puff, mat, Vector3(0, 0.6 * size, 0.3), Vector3(span * 0.6, 1.3 * size, 3.4 * size))
 		mb.set_instance_shader_parameter("heap", Vector3(0, -0.8, 0))
+
+
+## A cloud puff folded like the fold kit's domes (art/blender/fold_kit.py `folded_dome`): a unit ball whose surface is pleated in and out
+## from its crown down, `pleats` folds round it and `rings` bands from top to bottom, the folds deepest round its widest and lower half
+## and fading toward the top, each panel its own plane (the cloud shader shades it flat).
+static func _pleated_puff(pleats: int, rings: int) -> ArrayMesh:
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var n := pleats * 2
+	var pts: Array = []
+	for i in rings + 1:
+		var th := PI * float(i) / rings
+		var row: Array = []
+		for j in n:
+			var ph := TAU * float(j) / n
+			var deep := 0.42 * smoothstep(0.12, 0.55, th / PI) * float(j % 2)
+			var rad := sin(th) * (1.0 - deep)
+			row.append(Vector3(cos(ph) * rad, cos(th), sin(ph) * rad))
+		pts.append(row)
+	for i in rings:
+		for j in n:
+			var a: Vector3 = pts[i][j]
+			var b: Vector3 = pts[i][(j + 1) % n]
+			var c: Vector3 = pts[i + 1][(j + 1) % n]
+			var d: Vector3 = pts[i + 1][j]
+			for v in [a, c, b, a, d, c]:
+				st.add_vertex(v)
+	st.generate_normals()
+	return st.commit()
 
 
 static func _birds(root: Node3D, rng: RandomNumberGenerator, colour: Color) -> void:
