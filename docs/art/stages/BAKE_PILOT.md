@@ -112,3 +112,24 @@ fighters and read as a separate piece).
   island, close to the grove reference; the lawn's edge is one clean line. Fighters 0.55 and 0.56 on a lawn of 0.72. Fewer primitives
   than before (0.68 M against 0.71 M), draw calls about the same. Re-baked: 95 background meshes take baked light around the new front.
 - **Tests:** all seven Godot tests pass.
+
+## Step 3: the grove's trees (2026-10-20)
+
+The owner, after the front: the background now lacked by comparison; improve the trees, leaves and ground the same way. Trees first.
+
+- **Mocks** (`art/blender/make_grove_trees.py --variant A|B|C`, `--tree-mock=<glb>` on the stage demo; `mocks/grove_trees/`, today and
+  A to C at the match camera and wide): A a twisted trunk of ropey ridges under big deep-pleated folded domes; B the same trunk with
+  thick limbs carrying heaps of leaf clumps; C a trunk of broad folded planes under stacked pleated tiers. Every option has buttress
+  roots splaying into the ground, a mossy foot, and its own occlusion baked into vertex colours. The first crowns were a third smaller than
+  the code-built footprint (the side trees read as bonsai) and were scaled up.
+- **The owner picked the fourth panel, C** (named "D" by its place in the sheets). Built with five tiers from two thirds up the trunk
+  (from the top, the side trees read as pines on stilts): 2,860 triangles, within the prop budget. Shipped as
+  `godot/models/stages/grove_tree.glb`, by theme (`StageBake.TREES`), so custom grove stages take it too: `_tree` draws its random
+  numbers as before (nothing else moves) and records where each tree stands; the model is placed there at that tree's size. Bark in the
+  front's roots' brown, so the great tree and its roots are one tree. `--no-trees` for comparisons.
+- **Result** (round 58, `pilot_grove_trees.png`: match camera, wide, fighters in play): the great tree, the side trees, the folded hills
+  and the pines elsewhere in the game now share one pleated language. Draw calls 830 → 793, primitives about the same. The great trunk is
+  0.27 behind the fighters (0.55): a clear step, darker than the style sheet's mid-ground band (0.45 to 0.70); `--tree-bark=light` shows
+  it in the old lighter bark if the owner wants it back. The crowns no longer sway (the code-built crowns did). Re-baked: 83 background
+  meshes take baked light.
+- **Tests:** all seven Godot tests pass.

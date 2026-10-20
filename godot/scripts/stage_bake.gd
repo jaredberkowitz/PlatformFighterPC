@@ -14,6 +14,9 @@ const StageArt := preload("res://scripts/stage_art.gd")
 const DIR := "res://art/baked/%s/"
 ## Modelled stage fronts, by the exact stage they were built on (`key`): art/blender/make_grove_front.py, the grove pilot's step 2.
 const FRONTS := {"grove_14d06e65": "res://models/stages/grove_front.glb"}
+## Modelled trees by theme (art/blender/make_grove_trees.py, option C, the owner's pick): placed where each code-built tree stood, so
+## custom stages on the theme take them too.
+const TREES := {"grove": "res://models/stages/grove_tree.glb"}
 ## The toon shaders whose materials take the baked occlusion (they share shaders/toon_common.gdshaderinc).
 const BAKEABLE := ["res://shaders/toon.gdshader"]
 ## Shaders that cast occlusion on the baked meshes without being baked themselves.
@@ -289,3 +292,56 @@ static func place_front(root: Node3D, t: Dictionary, scene: Node3D) -> void:
 			mi.set_surface_override_material(s, m)
 		mi.set_instance_shader_parameter("front_top", top)
 		mi.set_meta("prebaked", true)
+
+
+## The theme's modelled tree: a glTF path to try (`--tree-mock=<glb>`), the shipped model (`TREES`), or null (none, or `--no-trees`).
+static func tree_source(theme_name: String) -> Variant:
+	var mock := tree_mock_path()
+	if mock != "":
+		return mock
+	if OS.get_cmdline_user_args().has("--no-trees") or not TREES.has(theme_name) or not ResourceLoader.exists(TREES[theme_name]):
+		return null
+	return load(TREES[theme_name])
+
+
+static func tree_mock_path() -> String:
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("--tree-mock="):
+			return a.substr(12)
+	return ""
+
+
+## Places the modelled tree (`source`: a PackedScene, or a glTF path for mocks) where each code-built tree stood (`StageArt.tree_slots`),
+## at its size, painted from the stage's palette with the scenery's toon material and the model's own baked occlusion (vertex colours).
+static func place_trees(root: Node3D, t: Dictionary, slots: Array, source: Variant) -> void:
+	var doc := GLTFDocument.new()
+	var state := GLTFState.new()
+	if source is String and doc.append_from_file(source, state) != OK:
+		push_warning("tree mock %s could not be read" % source)
+		return
+	var grass: Color = t.get("grass", Color(0.5, 0.8, 0.3))
+	# (The bark the front's roots wear, so the great tree and its roots are one tree.)
+	var bark := Color(0.46, 0.37, 0.3)
+	for a in OS.get_cmdline_user_args():
+		if a == "--tree-bark=light":
+			bark = t.get("great_bark", StageArt.palette(String(t.get("name", ""))).get("backdrop", {}).get("great_bark", Color(0.66, 0.49, 0.38)))
+	var colours := {"bark": bark, "leaf_lit": Color(0.46, 0.74, 0.36), "leaf_shade": Color(0.2, 0.46, 0.3),
+		"moss": grass.darkened(0.12)}
+	for slot in slots:
+		var tree: Node3D = (source as PackedScene).instantiate() if source is PackedScene else doc.generate_scene(state)
+		tree.name = "ModelledTree"
+		tree.position = slot[0]
+		tree.scale = Vector3.ONE * float(slot[1])
+		root.add_child(tree)
+		for mi: MeshInstance3D in tree.find_children("*", "MeshInstance3D", true, false):
+			for s in mi.mesh.get_surface_count():
+				var src := mi.mesh.surface_get_material(s)
+				var fam := src.resource_name if src != null else "bark"
+				var m := (FighterView.toon(colours.get(fam, Color(0.6, 0.6, 0.6)), fam != "bark") as ShaderMaterial).duplicate() as ShaderMaterial
+				m.set_shader_parameter("facets", fam != "bark")
+				m.set_shader_parameter("vertex_shade", true)
+				m.set_shader_parameter("ramp_softness", 0.25 if fam == "bark" else 0.1)
+				mi.set_surface_override_material(s, m)
+			mi.set_meta("prebaked", true)
+	if source is String:
+		print("tree mock: placed %d trees from %s" % [slots.size(), (source as String).get_file()])

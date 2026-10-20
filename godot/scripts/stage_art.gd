@@ -998,6 +998,10 @@ static var island_mode := false
 ## True while a stage is built with a modelled front (`StageBake.FRONTS`): the island's keel, skirt and roots are the model's, so
 ## `underside` leaves them out.
 static var front_modelled := false
+## True while a stage is built with modelled trees (StageBake.TREES, or `--tree-mock=`; StageBake.place_trees): `_tree` builds nothing
+## (its random numbers still drawn, so nothing else moves) and records where each tree stands in `tree_slots` ([base, size]).
+static var tree_mock := false
+static var tree_slots: Array = []
 
 
 ## The grove's island as one rounded quilted hull over all its solid blocks (`rects` from the sim, as the stage view has them), its
@@ -5733,6 +5737,13 @@ static func _facade_quad(st: SurfaceTool, c: Array, normal: Vector3, size: Vecto
 
 ## A big round cartoon tree: a tapered trunk with bark grooves and roots, under a canopy of soft green balls.
 static func _tree(root: Node3D, base: Vector3, size: float, rng: RandomNumberGenerator) -> void:
+	if tree_mock and not root.has_meta("tree_sink"):
+		var sink := Node3D.new()
+		sink.set_meta("tree_sink", true)
+		_tree(sink, base, size, rng)
+		sink.free()
+		tree_slots.append([base, size])
+		return
 	var trunk_h := 18.0 * size
 	# Bark drawn on (grooves and knots, `Materials.bark`) rather than built of boxes, on one trunk that bows gently as it rises, tapers,
 	# and flares into broad roots at its foot.

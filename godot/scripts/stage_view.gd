@@ -91,7 +91,14 @@ func build(sim) -> void:
 	var scenery := Node3D.new()
 	scenery.name = "Backdrop"
 	add_child(scenery)
+	# Modelled trees for the theme, if it has them (scripts/stage_bake.gd TREES).
+	var trees = StageBake.tree_source(String(theme.get("name", "")))
+	StageArt.tree_mock = trees != null
+	StageArt.tree_slots.clear()
 	StageArt.backdrop(scenery, theme, extent)
+	if StageArt.tree_mock:
+		StageBake.place_trees(scenery, theme, StageArt.tree_slots, trees)
+		StageArt.tree_mock = false
 	# `--props=a,b,c` (art preview, docs/ART_WORKFLOW.md): the named props lined up along the stage's top under its own light.
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--props="):
