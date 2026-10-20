@@ -279,3 +279,39 @@ out behind the back as a pack.
 `weave_pass.png` (top: the seat before and after; bottom: the lineup before and after). Fighter view, loadout, art pipeline, animation
 library and match flow tests pass.
 
+## Expressions and accessories against the references (2026-10-19, after the clean-up)
+`faces_gear_vs_reference.png`, top to bottom:
+- the owner's references: the salute, the frown, and the T-pose lineup's faces;
+- our four default faces straight on;
+- every hat, pair of glasses and neckwear on the four bodies (the lineup's two gear sheets).
+
+The bodies and the head shapes now match closely. Most of the gap left is in two places: how the faces are drawn, and some of the
+accessories.
+
+### Expressions (`godot/art/face_parts/`, `face.gdshader`, `FaceLook`)
+1. **No catch-light in the eyes.** The salute reference's eyes have a big white shine, which makes them read as alive at any size.
+   Ours are flat dark pupils on a soft grey-beige white. They read as sleepy or dull at play distance, even on the non-sleepy faces.
+2. **Thin, small mouths and lines.** The reference's mouths are bold black strokes, about a third of the face wide (the frown, the
+   toothy grin). Ours are thin purple lines about a sixth of the face wide; the cat mouth almost vanishes in a match.
+3. **The far eye is lost on a turned head.** The face is projected straight on. At three-quarters, as the menus mostly show it, the
+   far eye squashes into the head's edge and is cut off (`faces_shot.gd`, every expression). The reference's faces stay readable
+   at three-quarters.
+4. **Faint freckles and cheeks.** The salute's freckles are bold dots in small round patches. The aviator's are a faint orange
+   dusting that disappears.
+
+### Accessories (`art/blender/make_gear.py`, `fighter_view.gd`)
+5. **Round specs** (glasses 3): thick brown donut rims standing off the face, with arms that stick out past the head's sides. They
+   read as goggles, or as plastic toy glasses. The reference draws glasses as bold frames lying flat on the face (the frown).
+6. **Plumed helm**: a grey dish over the head, like a pan lid. Its cheek plates are flat grey slabs that cut through the glasses.
+7. **Beanie**: from the front a flat yellow bowl; it does not read as a knit hat.
+8. **Crown**: floats tilted above the head, with a gap under it.
+9. **Hood and scarf**: dark, heavy slabs; the scarf is a flat black bar across the neck.
+10. **Shirts without neckwear**: the placket's three buttons are big pale balls, the biggest detail on the chest. The outfit shirt's
+    collar reads as a turtleneck band.
+
+### Suggested order
+- First the eye shine and bolder mouths (1, 2): every fighter, every screen, cheap (face parts and shader).
+- Then the round specs and the plumed helm (5, 6): the two accessories that clip or read wrong.
+- Then the three-quarter face (3), which needs a change to how the face is laid on the head.
+- The rest are smaller.
+
