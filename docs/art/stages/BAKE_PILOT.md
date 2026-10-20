@@ -264,3 +264,20 @@ stone heads, a stone band at every floor and a bracketed cornice under the roof'
 shopfront. Front 0.29 (0.41 before, as light as the roof's 0.40), so the play surface now reads first. Cost: about 15 more draw calls
 (892 to 897 against 879 to 881) and 0.2 to 0.4 ms more GPU time (3.1 to 4.4 ms against 2.9 to 3.9 ms, two timings each, on a loaded
 machine). **Tests:** all seven pass.
+
+## The meadow's background: mocks (2026-10-20)
+
+The grove's ground method on the meadow: its two hill rows, the rise behind the stage with its fields, and the pine clusters. The far
+mountains, windmill, cottages and farm stay code-built.
+- **Layout export:** `--bake-export` also writes `ground.json` (`StageBake.export_ground`): the hill rows' and the rise's bumps, each pine
+  cluster's place, size and turn (`StageArt.pine_slots`) and the farm's span (`farm_span`). The modelled crests follow the same bumps,
+  so whatever stands on them keeps its feet.
+- **Hook:** `--ground-mock=` and `--bush-mock=` now work on the meadow. The hills, rise, fields and pine clusters are built into a node
+  that is thrown away, with their numbers still drawn. The pine model (the "bush") goes at each cluster's spot. The farm is kept,
+  re-seated on the modelled valley (`StageBake._height_at`, a ray against the model's triangles), and the land is kept level under it.
+- **Builder:** `art/blender/make_meadow_ground.py --variant A|B|C`.
+  - A deep folds: 11,400 triangles, pines 1,800 a cluster.
+  - B paper layers: 17,600 triangles, pines 1,800. Its card edges are a pale tint of the rise's green; in cream they read as snow.
+  - C faceted: 3,900 triangles, pines 290.
+- **Note:** all three lose the code-built fields' round hedge bushes.
+- **Next:** options in `mocks/meadow_ground/` (with a local `review.html`) and on the owner's page; recommended A.

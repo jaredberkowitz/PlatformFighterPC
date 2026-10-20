@@ -100,6 +100,18 @@ static func candidates(root: Node) -> Array:
 
 
 ## Writes the built scenery under `root` to `<DIR>/scene_in.glb` for Blender, with a manifest. Returns how many meshes it wrote.
+## The background's layout for Blender (art/blender/make_meadow_ground.py): the hill rows' and the rise's bumps ([centre x, half width,
+## height, base y]) and where the pine clusters stand ([x, y, z, size, turn]), as `ground.json` beside the bake manifest.
+static func export_ground(bake_key: String) -> void:
+	var pines: Array = []
+	for slot in StageArt.pine_slots:
+		var at: Vector3 = slot[0]
+		pines.append([at.x, at.y, at.z, slot[1], slot[2]])
+	var doc := {"hills_near": StageArt._hill_bumps[0], "hills_far": StageArt._hill_bumps[1], "fore": StageArt._fore_bumps, "pines": pines,
+		"farm": StageArt.farm_span}
+	FileAccess.open((DIR % bake_key) + "ground.json", FileAccess.WRITE).store_string(JSON.stringify(doc))
+
+
 static func export_scene(root: Node3D, bake_key: String, rects: Array = [], front_z := 0.0) -> int:
 	var dir := DIR % bake_key
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(dir))
@@ -414,10 +426,22 @@ static func _ground_colours(t: Dictionary) -> Dictionary:
 	# (The ledges' tops in the island lawn's yellow-green, a step deeper, and the far ones a cooler green, against deep-teal cliffs: in
 	# the rise's own teal, top and cliff ran together and the ledges read as one mass.)
 	land = Color(0.44, 0.7, 0.3)
-	return {"grass": land, "grass_far": Color(0.38, 0.62, 0.36), "cliff": Color(0.16, 0.36, 0.32),
+	var fields: Array = bd.get("fields", [])
+	var pines: Array = bd.get("pine_greens", [Color(0.2, 0.36, 0.28)])
+	var out := {"grass": land, "grass_far": Color(0.38, 0.62, 0.36), "cliff": Color(0.16, 0.36, 0.32),
 		"earth": Color(0.24, 0.2, 0.18), "rock": Color(0.48, 0.55, 0.44), "root": Color(0.46, 0.37, 0.3), "bark": Color(0.46, 0.37, 0.3),
 		"leaf_lit": Color(0.46, 0.74, 0.36), "leaf_shade": Color(0.2, 0.46, 0.3), "moss": (t.get("grass", Color(0.5, 0.8, 0.3)) as Color).darkened(0.12),
-		"fern": Color(0.36, 0.66, 0.34), "fern_shade": Color(0.18, 0.42, 0.26)}
+		"fern": Color(0.36, 0.66, 0.34), "fern_shade": Color(0.18, 0.42, 0.26),
+		# (The meadow's, art/blender/make_meadow_ground.py: its hill rows, the rise and its fields and hedgerows from the palette, the paper's
+		# cut edge a pale card, its pines in the palette's four greens over a deep shade of them.)
+		"hill_near": bd.get("hills_near", Color(0.36, 0.72, 0.34)), "hill_far": bd.get("hills_far", Color(0.42, 0.66, 0.6)),
+		"rise": bd.get("fore_band", Color(0.46, 0.76, 0.32)), "hedge": bd.get("hedgerow", Color(0.36, 0.58, 0.32)),
+		"card": (bd.get("fore_band", Color(0.46, 0.76, 0.32)) as Color).lerp(Color(0.96, 0.94, 0.78), 0.35), "pine_under": (pines[0] as Color).darkened(0.5), "trunk": Color(0.32, 0.24, 0.2)}
+	for k in fields.size():
+		out["field_%d" % k] = fields[k]
+	for k in pines.size():
+		out["pine_%d" % k] = pines[k]
+	return out
 
 
 ## Paints a modelled background piece: each family's toon material, its own baked occlusion (vertex colours), and the air at its depth.
@@ -449,6 +473,25 @@ static func ground_source(bake_key: String) -> Array:
 	return [load(paths[0]), load(paths[1])]
 
 
+## The height of the highest surface of `node`'s meshes straight under (`x`, `z`), or NAN where there is none.
+static func _height_at(node: Node3D, x: float, z: float) -> float:
+	var best := NAN
+	var from := Vector3(x, 200.0, z)
+	for mi: MeshInstance3D in node.find_children("*", "MeshInstance3D", true, false):
+		# (Its transform within `node`, which stands at the origin: the scene may not be in the tree yet.)
+		var xf := Transform3D.IDENTITY
+		var n: Node = mi
+		while n != node and n is Node3D:
+			xf = (n as Node3D).transform * xf
+			n = n.get_parent()
+		var faces := mi.mesh.get_faces()
+		for i in range(0, faces.size(), 3):
+			var hit = Geometry3D.ray_intersects_triangle(from, Vector3.DOWN, xf * faces[i], xf * faces[i + 1], xf * faces[i + 2])
+			if hit != null and (is_nan(best) or (hit as Vector3).y > best):
+				best = (hit as Vector3).y
+	return best
+
+
 ## A scene from `source`: a PackedScene, or a glTF path (mocks); null without one.
 static func _scene_from(source: Variant) -> Node3D:
 	if source is PackedScene:
@@ -470,6 +513,12 @@ static func place_ground(root: Node3D, t: Dictionary, source: Array) -> void:
 		ground.name = "ModelledGround"
 		root.add_child(ground)
 		_paint_ground(ground, colours)
+		# (The meadow's farm stands on the modelled valley, not on the code-built folds it was seated on.)
+		var farm := root.get_node_or_null("Farm") as Node3D
+		if farm != null:
+			var y := _height_at(ground, farm.position.x, farm.position.z)
+			if not is_nan(y):
+				farm.position.y = y
 	for slot in StageArt.bush_slots:
 		var bush := _scene_from(source[1])
 		if bush == null:

@@ -1009,6 +1009,11 @@ static var tree_slots: Array = []
 ## else moves), and its bushes likewise, each recorded in `bush_slots` ([position, size, turn]) for the modelled bush.
 static var ground_mock := false
 static var bush_slots: Array = []
+## Where the meadow's pine clusters stand ([base, size, turn]), set by `_meadow` (for the ground export, art/blender/make_meadow_ground.py).
+## With a modelled ground (`ground_mock`) the clusters are not built and these go to `bush_slots`, for the modelled pines.
+static var pine_slots: Array = []
+## The meadow farm's span across the valley [left, right], set by `_fields`.
+static var farm_span: Array = []
 
 
 ## The grove's island as one rounded quilted hull over all its solid blocks (`rects` from the sim, as the stage view has them), its
@@ -3642,6 +3647,9 @@ static func _fields(root: Node3D, z: float, y: float, colours: Array, hedge_colo
 	farm.position = at.call(-30.0, 5.0) + Vector3(0, 0, 0.6)
 	farm.position.y = seat.call(-30.0)
 	farm.scale = Vector3.ONE * 0.6
+	farm.name = "Farm"
+	# (Its span across the valley, for a modelled ground to keep level under it: art/blender/make_meadow_ground.py.)
+	farm_span = [farm.position.x - 3.0, farm.position.x + 8.0]
 	root.add_child(farm)
 	_barn(farm, Vector3.ZERO)
 	# (The farmhouse on the land under it, `at`: seated with the barn, it sank into a fold of the valley.)
@@ -4097,7 +4105,11 @@ static func _meadow(root: Node3D, t: Dictionary, stage: Array) -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 42
 	var e := _ext(stage)
-	_hills(root, rng, _pal("hills_near"), _pal("hills_far"))
+	# (With a modelled ground, the hills, the rise, its fields and the pines are built into a node that is thrown away, their numbers
+	# still drawn so nothing else moves; the windmill and cottages still stand on `hill_top`.)
+	var ground: Node3D = Node3D.new() if ground_mock else root
+	pine_slots.clear()
+	_hills(ground, rng, _pal("hills_near"), _pal("hills_far"))
 	_clouds(root, rng, 11, Color(1.0, 1.0, 1.0), Vector2(14, 34))
 	# (No islands floating in the sky since the stage became a terrace on a hillside, art review 9: they were pale, flat, pulled the eye, and
 	# said the land floats when it no longer does. Still drawn and thrown away, so the random layout of everything after them stays put.)
@@ -4127,12 +4139,12 @@ static func _meadow(root: Node3D, t: Dictionary, stage: Array) -> void:
 		_air(house, -74.0)
 		_ground_shadow(Vector3(cx, 0, -74.0), Vector2(3.4, 2.6), -72.0)
 	# A low rise of meadow in front of the hills, and round trees standing along it (their feet just behind its edge).
-	_fore_band(root, -46.0, -10.0, _pal("fore_band"))
+	_fore_band(ground, -46.0, -10.0, _pal("fore_band"))
 	# (Muted toward the valley's air, the gauntlet's round 23: the vivid lime and yellow stripes read as a flat painted card under the farm.)
 	# (A patchwork of crops, fallow earth and pale stubble, round 28: in near-equal greens the fields read as one even texture.)
 	# (Brighter with the lawn, 2026-10-19: the papercraft camp's patchwork of lime crops and warm earth.)
 	# (Sage and one warm sand in place of the yellow stubble, round 35's diff: the reference's mid-ground is clean greens.)
-	_fields(root, -46.0, -10.0, _pal("fields"),
+	_fields(ground, -46.0, -10.0, _pal("fields"),
 		# (The hedgerows a step nearer the fields' greens, art review 10: dark lines netting the whole valley were its busiest detail.)
 		_pal("hedgerow"))
 	for k in 6:
@@ -4142,7 +4154,8 @@ static func _meadow(root: Node3D, t: Dictionary, stage: Array) -> void:
 		var ts := rng.randf_range(0.7, 1.2)
 		# (The rise's trees in the mid-ground's air without ink, the meadow pilot.)
 		var tree := Node3D.new()
-		root.add_child(tree)
+		ground.add_child(tree)
+		_pine_slot(Vector3(tx, fore_top(tx, -10.0) - 0.5, -47.0), ts * 4.6)
 		# (A cluster of faceted pines, art/blender/make_props.py `pine`, the papercraft camp's trees (the owner's meadow target,
 		# 2026-10-19), in place of a round tree; the round tree without the model. Its own numbers, so the layout is unchanged.)
 		if not _pine_cluster(tree, Vector3(tx, fore_top(tx, -10.0) - 0.5, -47.0), ts * 4.6):
@@ -4160,9 +4173,17 @@ static func _meadow(root: Node3D, t: Dictionary, stage: Array) -> void:
 		if absf(tx) < 14.0 or (tx > -54.0 and tx < -34.0):
 			continue
 		var tree := Node3D.new()
-		root.add_child(tree)
-		if _pine_cluster(tree, Vector3(tx, fore_top(tx, -10.0) - 0.5, tz), belt.randf_range(3.6, 5.4)):
+		ground.add_child(tree)
+		var size := belt.randf_range(3.6, 5.4)
+		_pine_slot(Vector3(tx, fore_top(tx, -10.0) - 0.5, tz), size)
+		if _pine_cluster(tree, Vector3(tx, fore_top(tx, -10.0) - 0.5, tz), size):
 			_air(tree, tz)
+	if ground_mock:
+		# (The farm stays, on the modelled ground, which is kept level under it.)
+		var farm := ground.get_node_or_null("Farm")
+		if farm != null:
+			farm.reparent(root, false)
+		ground.free()
 	# A wooden fence along the back of the stage, and flowers: pale posts with rounded caps, each in its own contact shade, and darker
 	# rails, so the fence reads as built (posts and rails) under the key light rather than one flat colour.
 	var post := Materials.wood(Color(0.9, 0.7, 0.46))
@@ -4190,6 +4211,14 @@ static func _meadow(root: Node3D, t: Dictionary, stage: Array) -> void:
 	_flowers(root, e, rng, [Color(1, 0.55, 0.6), Color(1, 1, 1), Color(1, 0.85, 0.3)])
 	# A bright day: a few motes of pollen in the air, no shafts of light (golden, small and few: pale ones on the blue sky read as snow).
 	_motes(root, Color(1.0, 0.82, 0.4), e)
+
+
+## Records a pine cluster's place (`pine_slots`, and `bush_slots` under a modelled ground), turned by its own hash.
+static func _pine_slot(at: Vector3, size: float) -> void:
+	var slot := [at, size, float(absi(hash(Vector2i(roundi(at.x * 10.0), roundi(at.z * 10.0)))) % 360)]
+	pine_slots.append(slot)
+	if ground_mock:
+		bush_slots.append(slot)
 
 
 ## Islands floating in the sky behind the stage (the way the stage itself floats): an earth keel tapering to a point, a thick grassy cap

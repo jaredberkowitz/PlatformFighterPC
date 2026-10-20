@@ -114,6 +114,7 @@ func build(sim) -> void:
 	# Baked light for this exact stage, if it has one; `--bake-export` writes the scenery out for Blender instead.
 	if OS.get_cmdline_user_args().has("--bake-export"):
 		StageBake.export_scene(self, bake_key, rects, FRONT_Z)
+		StageBake.export_ground(bake_key)
 	else:
 		StageBake.apply(self, bake_key)
 	StageBake.mock_front(self, theme)
