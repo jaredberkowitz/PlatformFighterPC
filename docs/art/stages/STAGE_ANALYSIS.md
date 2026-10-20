@@ -152,3 +152,9 @@ over about 0.65. Mocks (`mocks/beach_wood/`, the match camera and fighters in pl
 
 A first B (0.7, 0.46, 0.26) measured 0.61, the fighters' own value: the stage's light lifts the boards more than their colour suggests.
 Recommended B, the reference's honey under the fighters.
+
+**The owner picked B** (2026-10-20). Applied in `ocean.cfg`: `deck_wood` 0.5, 0.32, 0.18; `deck_worn` 1.16, 1.1, 1.04; `pile_wood`
+0.44, 0.29, 0.19. Round 53, `pass4_beach_wood.png` (match camera, close-up of the deck and posts, fighters in play): the deck 0.76 →
+0.48 (saturation 0.28 → 0.48, hue 41 → 27, the harbour reference's honey), the posts 0.23 → 0.25 and warm brown (hue 210 → 17), the
+fighters 0.53 and 0.60, both at least 0.05 clear. The crates, barrels and the far jetty keep their paler wood: the props stand off the
+deck and the jetty sits back. Only the beach theme builds a dock (and the editor's custom stages with that theme). Tests: all six pass.
