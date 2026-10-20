@@ -85,3 +85,9 @@ puff pleated from its crown down, the folds deepest round its lower half), 3 fol
 less). The first pleats (0.24 deep, the heap at 0.55) lit both sides of every fold alike in the shader's bright tone; at 0.42 and 0.25
 they read. Mocks on the meadow, grove, beach and canyon, match camera, in `mocks/clouds/` (A to D), on the owner's review page.
 Recommended C.
+
+## Step 2 done: clouds, the owner's pick D (2026-10-20)
+
+`cloud_style=3` on the meadow, grove, beach (ocean) and canyon (sunset): folded puffs, every other one left out and the rest larger.
+Before/after `fold2_clouds.png` (beach whole and close up, grove, canyon; round 50). Cheaper too: the beach 0.90 M → 0.83 M primitives,
+draw calls 921 → 918. Tests: all six pass.
