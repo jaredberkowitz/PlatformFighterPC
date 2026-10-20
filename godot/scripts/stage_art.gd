@@ -3171,21 +3171,15 @@ static func _land_band(root: Node3D, bumps: Array, floor_y: float, z: float, col
 	# stands proud and the ones between sink, growing from the crest down, so the land runs in ridges and creases like the ranges behind
 	# it. Steep enough that a fold's far side turns out of the stage's lit cel band; shallow folds light both sides alike and vanish.
 	var fold := float((_palette.get("backdrop", {}) as Dictionary).get("hill_fold", 0.0)) if roll > 0.0 else 0.0
+	_last_fold = [rows, step, fold]
 	var x := -240.0
 	while x <= 240.0:
 		var top := _land_top(bumps, floor_y, x)
 		var col: Array = []
-		var ridge := 1.0 if posmod(roundi((x + 240.0) / step), 2) == 1 else -0.4
 		for ri in rows.size():
 			var r: Array = rows[ri]
 			var v := Vector3(x, top - float(r[0]), z + float(r[1]))
-			if fold > 0.0 and float(r[1]) > 0.0:
-				# (Along the surface's own normal, from the cross-section: toward the camera on a steep face, up on a valley floor, where a
-				# push toward the camera only slid the columns along the ground and tilted nothing.)
-				var r0: Array = rows[maxi(ri - 1, 0)]
-				var r1: Array = rows[mini(ri + 1, rows.size() - 1)]
-				var n := Vector3(0.0, float(r1[1]) - float(r0[1]), float(r1[0]) - float(r0[0])).normalized()
-				v += n * ridge * fold * step * clampf(float(r[0]) / 3.0, 0.0, 1.0)
+			v += _fold_offset(x, ri, rows, step, fold)
 			if chunky > 0.0 and ri > 0 and not bool((_palette.get("backdrop", {}) as Dictionary).get("hill_fold_clean", false)):
 				var own := RandomNumberGenerator.new()
 				own.seed = hash(Vector3i(roundi(x * 10.0), ri, roundi(z)))
@@ -3210,6 +3204,53 @@ static func _land_band(root: Node3D, bumps: Array, floor_y: float, z: float, col
 		land.set_shader_parameter("blades", 0.7)
 		land.set_shader_parameter("blade_scale", clampf(-z / 22.0, 1.5, 5.0))
 	_mesh(root, st.commit(), land, Vector3.ZERO)
+
+
+## The fold `_land_band` gives a vertex at column `x` and cross-section row `ri` of `rows` (columns `step` apart, `fold` a share of it):
+## every other column stands proud along the surface's own normal and the ones between sink, growing in a few units under the crest. Things laid
+## on the land use `_fold_at`, so they follow the same folds (docs/art/stages/FOLDED_STYLE.md).
+static func _fold_offset(x: float, ri: int, rows: Array, step: float, fold: float) -> Vector3:
+	var r: Array = rows[ri]
+	if fold <= 0.0 or float(r[1]) <= 0.0:
+		return Vector3.ZERO
+	var c := (x + 240.0) / step
+	var c0 := floori(c + 0.0001)
+	var t := clampf(c - float(c0), 0.0, 1.0)
+	var ridge := lerpf(1.0 if posmod(c0, 2) == 1 else -0.4, 1.0 if posmod(c0 + 1, 2) == 1 else -0.4, t)
+	# (Along the surface's own normal, from the cross-section: toward the camera on a steep face, up on a valley floor, where a push toward
+	# the camera only slid the columns along the ground and tilted nothing.)
+	var r0: Array = rows[maxi(ri - 1, 0)]
+	var r1: Array = rows[mini(ri + 1, rows.size() - 1)]
+	var n := Vector3(0.0, float(r1[1]) - float(r0[1]), float(r1[0]) - float(r0[0])).normalized()
+	# (From a few units under the crest: folds right at the crest stood up in front of the houses and trees on it and hid their feet.)
+	# (And out again where the face stops coming toward the camera and falls as a wall, the grove's rise under the island: folded all the
+	# way down, it hung in long vertical stripes like a curtain.)
+	var deepest: float = rows[rows.size() - 1][1]
+	var wall := float(rows[rows.size() - 1][0])
+	for row: Array in rows:
+		if float(row[1]) >= 0.95 * deepest:
+			wall = float(row[0])
+			break
+	var fade := 1.0 - smoothstep(wall, wall * 2.5, float(r[0]))
+	return n * ridge * fold * step * smoothstep(1.2, 5.0, float(r[0])) * fade
+
+
+## The fold's offset at `x`, `drop` below the crest of a band laid with `rows`, `step` and `fold` (`_fold_offset` between the rows).
+static func _fold_at(x: float, drop: float, rows: Array, step: float, fold: float) -> Vector3:
+	if fold <= 0.0 or rows.is_empty():
+		return Vector3.ZERO
+	for ri in range(1, rows.size()):
+		var a: float = rows[ri - 1][0]
+		var b: float = rows[ri][0]
+		if drop <= b and b > a:
+			return _fold_offset(x, ri - 1, rows, step, fold).lerp(_fold_offset(x, ri, rows, step, fold), clampf((drop - a) / (b - a), 0.0, 1.0))
+	return _fold_offset(x, rows.size() - 1, rows, step, fold)
+
+
+## The last band's cross-section rows, column step and fold, for what is laid on it (`_fore_band` keeps its own in `_fore_fold`).
+static var _last_fold: Array = [[], 1.0, 0.0]
+## The fore band's, for the fields laid on it.
+static var _fore_fold: Array = [[], 1.0, 0.0]
 
 
 ## A rolled band's cross-section (see `_land_band`): [drop below the crest, depth from the band's z], from behind the crest to the foot.
@@ -3245,6 +3286,7 @@ static func _fore_band(root: Node3D, z: float, y: float, colour: Color, profile:
 		k += 1
 	_fore_bumps = bumps
 	_land_band(root, bumps, y - 1.0, z, colour, 6.0 if _chunky_hills else 2.0, 1.0, profile, 0.8 if _chunky_hills else 0.0)
+	_fore_fold = _last_fold.duplicate()
 
 
 static var _fore_bumps: Array = []
@@ -3322,7 +3364,9 @@ static func _fields(root: Node3D, z: float, y: float, colours: Array, hedge_colo
 	var at := func(u: float, d: float) -> Vector3:
 		var x := u * (1.0 + d * 0.03)
 		var ly: float = line.call(x, d)
-		return Vector3(x, ly, z + roll_z(fore_top(x, y_ref) - ly, VALLEY_PROFILE) + 0.12)
+		# (On the folded land, `_fold_at`: laid on the unfolded face, the fields and hedges floated off the ridges or sank into them.)
+		var drop := fore_top(x, y_ref) - ly
+		return Vector3(x, ly, z + roll_z(drop, VALLEY_PROFILE) + 0.12) + _fold_at(x, drop, _fore_fold[0], _fore_fold[1], _fore_fold[2])
 	var tools: Array = []
 	for c in colours.size() + 2:
 		var st := SurfaceTool.new()
@@ -3471,11 +3515,21 @@ static func _fields(root: Node3D, z: float, y: float, colours: Array, hedge_colo
 	# A farm beside the lane: a red barn and a white farmhouse, a little in front of the face.
 	# (Smaller than the cottages on the hills: they are nearer, but the farm should read as far below the stage.)
 	var farm := Node3D.new()
+	# (Each building on the highest point of the land across its footprint, `seat`: on a folded valley the ground just below a building can
+	# rise over its foot.)
+	var seat := func(u: float) -> float:
+		var top := -INF
+		for su in [-2.0, 0.0, 2.0]:
+			for sd in [4.0, 5.0, 6.0, 7.0]:
+				top = maxf(top, (at.call(u + su, sd) as Vector3).y)
+		return top
 	farm.position = at.call(-30.0, 5.0) + Vector3(0, 0, 0.6)
+	farm.position.y = seat.call(-30.0)
 	farm.scale = Vector3.ONE * 0.6
 	root.add_child(farm)
 	_barn(farm, Vector3.ZERO)
-	_cottage(farm, Vector3(8.0, 0.4, -0.3), Color(0.4, 0.46, 0.6), 1.0)
+	# (The farmhouse on the land under it, `at`: seated with the barn, it sank into a fold of the valley.)
+	_cottage(farm, Vector3(8.0, (seat.call((-30.0 + 8.0 * 0.6) / 1.15) - farm.position.y) / 0.6 + 0.4, -0.3), Color(0.4, 0.46, 0.6), 1.0)
 	# (Into the valley's air, the gauntlet's round 21: the full red barn and blue roof read as toys at foreground strength.)
 	# (No ink and its whites a step under the play area, the meadow pilot of docs/art/STYLE_SHEET.md: its walls peaked at 0.74, inked.)
 	_air(farm, farm.position.z)

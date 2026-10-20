@@ -60,3 +60,19 @@ pushed the columns toward the camera, which slid the meadow's near-flat valley f
 fold on faces and floors alike. Options rendered on the meadow and the grove (`mocks/hill_folds/`, A to D: none, 0.35, 0.6, 0.6 clean),
 reviewed on the owner's flip page. Recommended D. Known catch: deep folds move the land up to about 5 units, so the houses, trees and
 the windmill must be re-seated on the folded ground before it ships.
+
+## Step 1 done: hill folds, the owner's pick D (2026-10-20)
+
+Applied to the meadow and the grove (`hill_fold=0.6`, `hill_fold_clean=true`). One function, `_fold_offset`/`_fold_at`, gives the fold
+at any point of a band, so what is laid on the land follows it:
+- the meadow's fields, hedgerows and their bushes are laid through `_fields`' `at`, which adds the fold;
+- the farm's barn and farmhouse each stand on the highest point of the folded ground across their footprint (the farmhouse sank into a
+  fold when seated with the barn);
+- the folds start a few units under each crest (smoothstep 1.2 to 5), so the houses, the windmill and the trees on the crests keep
+  their feet in view (folds at the crest stood up in front of the meadow's left cottage);
+- they fade out where a band's face turns into a wall (the grove's rise under the island hung in long vertical stripes like a curtain).
+
+Measured (round 49): the meadow's valley 0.63 → 0.61 against its ranges' 0.59 (the depth step nearly even now), its contrast 0.048 →
+0.071 (the folds, still calm); the grove's plain 0.58 → 0.53, now under its lawn (0.56), so the island stands out more. Frame time: no
+cost (same draw calls and primitives; an A/B of folds off and on under the same load gave the same GPU time, 4.7 ms). Before/after:
+`fold1_hills.png` (match camera, close-ups, and the wide `--cam=60` view of both stages). Tests: all six pass.
