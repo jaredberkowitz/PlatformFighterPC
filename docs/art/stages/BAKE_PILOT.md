@@ -220,3 +220,13 @@ page; recommended A.
 
 In the game: the strata tops are named `strata_tops` and marked `code_front`, and `hide_code_front` hides `strata_ledges` too; the
 mesa's column (`Underside`) is hidden as a floating island's keel is.
+
+## The canyon's front built: A, stacked slabs (2026-10-20)
+
+The owner picked A. Shipped as `godot/models/stages/canyon_front.glb` (10,900 triangles) for the exact canyon layout
+(`StageBake.FRONTS`), in place of the strata tile, its ledges and the mesa's column; the sand top stays. The code-built column is no longer
+made under a modelled front (the model carries the mesa down to the desert floor itself).
+
+**Result** (round 62, `canyon_front_built.png`: match camera, wide, fighters in play): tiers of chunky rock, two or three slabs to a tier,
+in the same blocky language as the far mesas and the arch. Front 0.28 (0.32 before, so a touch calmer under the fight); sand 0.65;
+fighters 0.52 and 0.50. Cost unchanged: 882 draw calls against 885, GPU 2.5 to 2.7 ms both ways. **Tests:** all seven pass.

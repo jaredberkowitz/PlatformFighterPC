@@ -3804,11 +3804,13 @@ static func underside(root: Node3D, t: Dictionary, e: Array) -> void:
 		"sunset":
 			# The stage is the top of a mesa: the column carries on down in the same strata, a little wider at its foot, into the haze.
 			# (Narrower than the block at first, so the block reads as the mesa's cap; in shade, below the light.)
-			var mesa := _hanging_mass(bottom, 34.0, l, r, front, 3.6, 0.06, 7, func(s: float) -> float: return 0.9 + 0.14 * s,
-				func(_s: float) -> float: return 0.0)
-			var col := _mesh(root, mesa, _under_material(_soil_material(t), 0.62), Vector3.ZERO)
-			col.name = "Underside"
-			col.set_instance_shader_parameter("front_top", e[2])
+			# (Not under a modelled front, which carries the mesa down to the floor itself.)
+			if not front_modelled:
+				var mesa := _hanging_mass(bottom, 34.0, l, r, front, 3.6, 0.06, 7, func(s: float) -> float: return 0.9 + 0.14 * s,
+					func(_s: float) -> float: return 0.0)
+				var col := _mesh(root, mesa, _under_material(_soil_material(t), 0.62), Vector3.ZERO)
+				col.name = "Underside"
+				col.set_instance_shader_parameter("front_top", e[2])
 			_under_haze(root, t, bottom - 1.0, 6.0, 0.5)
 			# The desert floor the mesa stands in (level with the far buttes' feet) and fallen rock heaped round its foot.
 			var floor_y := DESERT_FLOOR
