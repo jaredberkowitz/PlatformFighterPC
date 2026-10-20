@@ -2317,7 +2317,9 @@ const BEACH_ROCK := Color(0.82, 0.76, 0.68)
 ## beach's warm palettes).
 static func _rock(root: Node3D, at: Vector3, size: float, rng: RandomNumberGenerator, colour := Color(0.74, 0.72, 0.8)) -> void:
 	var s := Vector3(rng.randf_range(1.1, 1.4), rng.randf_range(0.6, 0.8), 1.0) * size
-	_mesh(root, _sphere(1.0, 6), Materials.stone(colour), at + Vector3(0, s.y * 0.7, 0), s, Vector3(0, rng.randf_range(0, 60), rng.randf_range(-8, 8)))
+	# (A folded boulder, a few deep pleats in flat planes, the owner's folded style step 4, 2026-10-20: a six-sided ball under the stone
+	# tile read as a smooth blob.)
+	_puff(root, _pleated_puff(4, 4, 0.34), _faceted(Materials.stone(colour)), at + Vector3(0, s.y * 0.7, 0), s, Vector3(0, rng.randf_range(0, 60), rng.randf_range(-8, 8)))
 
 
 ## A mushroom: a pale stem under a round cap with white spots, with a tiny idle squash and stretch (see `Squish`).
@@ -3115,7 +3117,10 @@ static func _clouds(root: Node3D, rng: RandomNumberGenerator, count: int, color:
 ## A cloud puff folded like the fold kit's domes (art/blender/fold_kit.py `folded_dome`): a unit ball whose surface is pleated in and out
 ## from its crown down, `pleats` folds round it and `rings` bands from top to bottom, the folds deepest round its widest and lower half
 ## and fading toward the top, each panel its own plane (the cloud shader shades it flat).
-static func _pleated_puff(pleats: int, rings: int) -> ArrayMesh:
+static func _pleated_puff(pleats: int, rings: int, depth := 0.42) -> ArrayMesh:
+	var key := Vector3i(pleats, rings, roundi(depth * 100.0))
+	if _puff_cache.has(key):
+		return _puff_cache[key]
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
 	var n := pleats * 2
@@ -3125,20 +3130,62 @@ static func _pleated_puff(pleats: int, rings: int) -> ArrayMesh:
 		var row: Array = []
 		for j in n:
 			var ph := TAU * float(j) / n
-			var deep := 0.42 * smoothstep(0.12, 0.55, th / PI) * float(j % 2)
+			var deep := depth * smoothstep(0.12, 0.55, th / PI) * float(j % 2)
 			var rad := sin(th) * (1.0 - deep)
 			row.append(Vector3(cos(ph) * rad, cos(th), sin(ph) * rad))
 		pts.append(row)
+	# (No zero-area triangles at the poles, where a ring shrinks to a point, and normals set from the ball, not generated: a degenerate
+	# triangle's generated normal is NaN, and hundreds of hedge clumps spread NaN through the glow pass over the whole meadow.)
 	for i in rings:
 		for j in n:
 			var a: Vector3 = pts[i][j]
 			var b: Vector3 = pts[i][(j + 1) % n]
 			var c: Vector3 = pts[i + 1][(j + 1) % n]
 			var d: Vector3 = pts[i + 1][j]
-			for v in [a, c, b, a, d, c]:
-				st.add_vertex(v)
-	st.generate_normals()
-	return st.commit()
+			# (With UVs round and down the ball, as a sphere has: without them a tiled material, the hedges' leaves, sampled one pale texel.)
+			var ua := Vector2(float(j) / n, float(i) / rings)
+			var ub := Vector2(float(j + 1) / n, float(i) / rings)
+			var uc := Vector2(float(j + 1) / n, float(i + 1) / rings)
+			var ud := Vector2(float(j) / n, float(i + 1) / rings)
+			for tri in [[a, c, b, ua, uc, ub], [a, d, c, ua, ud, uc]]:
+				if ((tri[1] as Vector3) - (tri[0] as Vector3)).cross((tri[2] as Vector3) - (tri[0] as Vector3)).length_squared() < 1e-10:
+					continue
+				for q in 3:
+					var v: Vector3 = tri[q]
+					st.set_normal(v.normalized() if v.length_squared() > 1e-8 else Vector3.UP)
+					st.set_uv(tri[q + 3])
+					st.add_vertex(v)
+	# (Tangents as a sphere has: the leaf material reads them, and without them half the hedge clumps rendered see-through.)
+	st.generate_tangents()
+	var mesh := st.commit()
+	_puff_cache[key] = mesh
+	return mesh
+
+
+static var _puff_cache := {}
+
+
+## A copy of material `m` shaded in flat planes (the toon shader's `facets`), for the folded small things (FOLDED_STYLE.md step 4).
+static func _faceted(m: Material) -> Material:
+	# (One copy per source material, so the things that share it still merge into one mesh, `merge_static`.)
+	var key := m.get_instance_id()
+	if _faceted_cache.has(key):
+		return _faceted_cache[key]
+	var f := (m as ShaderMaterial).duplicate() as ShaderMaterial
+	f.set_shader_parameter("facets", true)
+	_faceted_cache[key] = f
+	return f
+
+
+static var _faceted_cache := {}
+
+
+## Places a folded small thing (`_pleated_puff`) as `_mesh` does, marked so `merge_static` merges it with the rest of its material:
+## hundreds of separate hedge clumps overflowed the renderer's per-instance shader buffer and painted the meadow in garbage.
+static func _puff(parent: Node3D, mesh: Mesh, mat: Material, pos: Vector3, scl := Vector3.ONE, rot := Vector3.ZERO) -> MeshInstance3D:
+	var mi := _mesh(parent, mesh, mat, pos, scl, rot)
+	mi.set_meta("prop", true)
+	return mi
 
 
 static func _birds(root: Node3D, rng: RandomNumberGenerator, colour: Color) -> void:
@@ -3583,6 +3630,8 @@ static func _fields(root: Node3D, z: float, y: float, colours: Array, hedge_colo
 	# The hedgerows across: a row of round, leafy bushes along each line (smaller and closer set further down), on the dark band as their
 	# shade, so a hedge has volume like the trees by the stage rather than being a drawn line.
 	# (Plain balls, not `_clump_ball`: squashed this flat and this small, the clump balls rendered as black and blue blots, 2026-10-17.)
+	# (Kept as leafy balls, the folded style step 4, 2026-10-20: as folded puffs half the clumps went missing at the wide camera, cause
+	# not found; at this size the leaf tile already reads as bushes. docs/art/stages/FOLDED_STYLE.md.)
 	var leaf := Materials.foliage(hedge_colour, Vector2(2, 2), true)
 	var leaf_lit := Materials.foliage(hedge_colour.lightened(0.1), Vector2(2, 2), true)
 	for hi in hedges.size():
@@ -3679,16 +3728,18 @@ static var _trunk_cache := {}
 ## A row of soft tree shapes far back on the hills: a short trunk under a ball or two, all in one hazy colour, so they read as a
 ## distant wood rather than as things to look at.
 static func _tree_line(root: Node3D, rng: RandomNumberGenerator, y: float, z: float, colour: Color) -> void:
-	var leaf := _lobed(_soft(colour))
+	# (Folded crowns in flat planes, the owner's folded style step 4, 2026-10-20: the lobed balls read as smooth blobs on the horizon.)
+	var leaf := _faceted(_soft(colour))
 	var trunk := _soft(colour.darkened(0.25))
+	var crown := _pleated_puff(6, 5, 0.4)
 	var x := -110.0
 	while x < 110.0:
 		var s := rng.randf_range(3.0, 5.0)
 		var at := Vector3(x, y + rng.randf_range(-1.5, 1.5), z + rng.randf_range(-6, 6))
 		_mesh(root, _cylinder(0.35 * s * 0.3, 0.45 * s * 0.3, s * 0.9, 6), trunk, at + Vector3(0, s * 0.45, 0))
-		_mesh(root, _clump_ball(int(absf(x)) % CLUMP_VARIANTS), leaf, at + Vector3(0, s * 1.3, 0), Vector3(s, s * 1.1, s))
+		_puff(root, crown, leaf, at + Vector3(0, s * 1.3, 0), Vector3(s, s * 1.1, s))
 		if rng.randf() < 0.5:
-			_mesh(root, _clump_ball(int(absf(x) + 1.0) % CLUMP_VARIANTS), leaf, at + Vector3(s * 0.7, s * 0.95, -0.5), Vector3.ONE * s * 0.7)
+			_puff(root, crown, leaf, at + Vector3(s * 0.7, s * 0.95, -0.5), Vector3.ONE * s * 0.7)
 		x += rng.randf_range(7.0, 12.0)
 
 
@@ -4806,8 +4857,9 @@ static func _ocean(root: Node3D, t: Dictionary, stage: Array) -> void:
 		isle_sand.set_shader_parameter("facets", true)
 		var isle_green := (FighterView.toon(Color(0.3, 0.62, 0.42), false) as ShaderMaterial).duplicate() as ShaderMaterial
 		isle_green.set_shader_parameter("facets", true)
-		_mesh(root, _sphere(1.0, 9), isle_sand, isle, Vector3(rng.randf_range(10, 16), 3.5, 6.0))
-		_mesh(root, _sphere(1.0, 9), isle_green, isle + Vector3(0, 2.0, 0), Vector3(rng.randf_range(6, 9), 3.5, 4.0))
+		# (Folded mounds, the owner's folded style step 4, 2026-10-20: scaled nine-sided spheres read as primitives beside the folded headland.)
+		_puff(root, _pleated_puff(8, 4, 0.18), isle_sand, isle, Vector3(rng.randf_range(10, 16), 3.5, 6.0))
+		_puff(root, _pleated_puff(6, 5, 0.36), isle_green, isle + Vector3(0, 2.0, 0), Vector3(rng.randf_range(6, 9), 3.5, 4.0))
 		_palm(root, isle + Vector3(rng.randf_range(-4, 4), 4.0, 2.0), 1.4, rng)
 		_isle_detail(root, isle, k)
 	# A lighthouse on its rocks on the right (art/blender/make_props.py), its lantern glowing.
@@ -4841,13 +4893,14 @@ static func _isle_detail(root: Node3D, isle: Vector3, k: int) -> void:
 	rng.seed = 500 + k
 	var foam := _unshaded(Color(0.96, 0.99, 1.0))
 	_mesh(root, _cylinder(1.0, 1.0, 0.08, 28), foam, isle + Vector3(0, 0.15, 0), Vector3(17.5, 1.0, 7.0))
+	# (A leafy ball still: under the leaf tile a folded puff rendered pale and see-through, as the hedge clumps did; FOLDED_STYLE.md.)
 	_mesh(root, _sphere(1.0, 12), Materials.foliage(Color(0.36, 0.68, 0.46), Vector2(3, 2)), isle + Vector3(rng.randf_range(-6.0, -3.0), 1.8, 1.0), Vector3(4.0, 2.6, 3.0))
 	_palm(root, isle + Vector3(rng.randf_range(3.0, 6.0), 2.8, 2.6), 1.0, rng)
-	var rock := Materials.stone(Color(0.62, 0.6, 0.66))
+	var rock := _faceted(Materials.stone(Color(0.62, 0.6, 0.66)))
 	var end := -1.0 if k % 2 == 0 else 1.0
 	for j in 3:
 		var r := rng.randf_range(1.0, 1.8)
-		_mesh(root, _sphere(1.0, 8), rock, isle + Vector3(end * (12.0 + j * 1.8), 0.4, 2.0 - j), Vector3(r * 1.2, r, r), Vector3(0, rng.randf_range(0, 90), 0))
+		_puff(root, _pleated_puff(4, 4, 0.34), rock, isle + Vector3(end * (12.0 + j * 1.8), 0.4, 2.0 - j), Vector3(r * 1.2, r, r), Vector3(0, rng.randf_range(0, 90), 0))
 		_mesh(root, _cylinder(1.0, 1.0, 0.06, 14), foam, isle + Vector3(end * (12.0 + j * 1.8), 0.12, 2.0 - j), Vector3(r * 1.6, 1.0, r * 1.3))
 	if k == 1:
 		var hut := isle + Vector3(-1.5, 3.2, 2.2)

@@ -103,3 +103,22 @@ draw calls 921 → 918. Tests: all six pass.
 
 Before/after `fold3_grove_trees.png` (round 51, and close-ups of a side tree). Contrast in the trunk's region 0.072 → 0.077, a side
 crown's 0.089 → 0.096 (values unchanged). Tests: all six pass.
+
+## Step 4: the small round things (2026-10-20)
+
+**Done** (`fold4_small_things.png`, round 52):
+- `_pleated_puff` gains a fold depth, UVs, tangents and safe normals, and is cached; `_puff` places one marked so `merge_static` merges it
+  (hundreds of unmerged puffs overflowed the renderer's per-instance shader buffer and painted the meadow in garbage on the first try);
+  `_faceted` gives a cached flat-shaded copy of a material.
+- Rocks (`_rock`: the beach's quay, the canyon's rocks on the stage top) and the islet's rocks: folded boulders, four deep pleats.
+- The beach islet's sand and green mounds: folded mounds (they were scaled spheres).
+- The grove's far tree line: folded crowns in flat planes (lobed balls before); the clearest change of the step.
+
+**Tried and put back:**
+- The meadow's hedge clumps and the islet's small leafy mound: a folded puff under the leaf-tiled foliage material rendered pale and
+  see-through, and about half the hedge clumps went missing at the wide camera. UVs, tangents, the winding both ways and an unshared
+  material did not fix it; the cause is not found. At their size the leafy balls read as bushes, so they stay balls.
+- The cactus: six ribs creased to 0.6 (was seven at 0.78) made no visible difference at the match camera; reverted.
+
+The gains here are small at the match camera except the tree line; the big wins of the folded style were steps 1 to 3. Tests: all six pass;
+no stage reports a shader-buffer overflow.
