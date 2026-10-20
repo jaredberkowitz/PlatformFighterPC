@@ -223,3 +223,17 @@ remains is a steady line, which the references' style allows. No change made.
 **Tool note:** `tests/hand_sheet.gd` frames the hands from above since the proportion refit (its camera was set for the old arms);
 the lineup's relaxed pose was used instead.
 
+## Wrist pass: arms flowing into the hands (2026-10-19, the owner: the hands and arms looked disconnected)
+**Cause.** `fit_body.py` puts the wrist joint a fixed share of the height (0.075) above the fingertips. Since the proportion refit the
+arm is shorter, so the joint sat about 6 cm up the forearm where it is still thick; the skin is cut at the joint, so the forearm ended
+in a wide flat rim and the narrower hand sat on it like a ledge.
+
+**Fix.** A `--wrist-lift` option for `fit_body.py` (default 0.075, as before); the base body is refitted with 0.045, which lands the
+joint on the cage's modelled wrist where the forearm has tapered. The body mesh is unchanged. The refit command for the base body is now:
+`fit_body.py -- --in art/models/base_body/base_body.glb --out art/models/base_body/joints.json --shoulder-lift 0.07 --wrist-lift 0.045`.
+The hands are measured from the thinner wrist and come out about 7% smaller (`grow` 1.126 to 1.05).
+
+**Checked**: `wrist_pass.png` (left before, right after, the sailor's relaxed hands): the forearm tapers into the hand with no step.
+Forward smash (sword in the fist through the swing), the brawler's jab, the run and the in-match moves demo look right. Fighter view,
+art pipeline, loadout, animation library and match flow tests pass.
+
