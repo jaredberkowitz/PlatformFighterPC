@@ -197,3 +197,14 @@ In the game: `_dock_block` marks its fascia, piles, waterline pieces and braces 
 stay), which `hide_code_front` hides; the beach's families (`post`, `beam`, `waterline`, `iron`, `rope`, `harbour_stone`, `foam`,
 `weed`) are painted from its palette; on the dock nothing falls into the fronts' calm haze (the stone went flat grey, the posts blue),
 and the foam never does.
+
+## The beach's dock front built: A, timber pier (2026-10-20)
+
+The owner picked A. Shipped as `godot/models/stages/beach_front.glb` (4,500 triangles) for the exact beach layout (`StageBake.FRONTS`),
+in place of the code-built fascia, piles, braces and waterline pieces (`code_front`); the deck, joists and the shade under it stay.
+
+**Result** (round 61, `beach_front_built.png`: match camera, wide, fighters in play): thick chamfered posts in two rows, a bolted front
+beam, X bracing in alternate bays and a low rail, pale waterline bands and ripple rings at the sea. Deck 0.48 unchanged; posts 0.32
+(0.16 to 0.25 before); fighters 0.53 and 0.60. Cheaper: 732 draw calls against about 920, GPU time the same (3.1 ms both ways, two
+timings each). **Tests:** all pass; `runner_test` failed once on its known shop-hint timing race (fixed on its own branch, not merged
+here) and passed on the next two runs.
