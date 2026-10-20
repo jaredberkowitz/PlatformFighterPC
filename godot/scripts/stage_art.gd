@@ -3167,14 +3167,26 @@ static func _land_band(root: Node3D, bumps: Array, floor_y: float, z: float, col
 		for d in [0.0, 0.4, 1.2, 2.6, 5.0, 9.0, 18.0, 40.0, 90.0, 180.0]:
 			rows.append([d, 0.0])
 	var cols: Array = []
+	# Folds (the palette's [backdrop] `hill_fold`, a share of `step`; docs/art/stages/FOLDED_STYLE.md): every other column of the face
+	# stands proud and the ones between sink, growing from the crest down, so the land runs in ridges and creases like the ranges behind
+	# it. Steep enough that a fold's far side turns out of the stage's lit cel band; shallow folds light both sides alike and vanish.
+	var fold := float((_palette.get("backdrop", {}) as Dictionary).get("hill_fold", 0.0)) if roll > 0.0 else 0.0
 	var x := -240.0
 	while x <= 240.0:
 		var top := _land_top(bumps, floor_y, x)
 		var col: Array = []
+		var ridge := 1.0 if posmod(roundi((x + 240.0) / step), 2) == 1 else -0.4
 		for ri in rows.size():
 			var r: Array = rows[ri]
 			var v := Vector3(x, top - float(r[0]), z + float(r[1]))
-			if chunky > 0.0 and ri > 0:
+			if fold > 0.0 and float(r[1]) > 0.0:
+				# (Along the surface's own normal, from the cross-section: toward the camera on a steep face, up on a valley floor, where a
+				# push toward the camera only slid the columns along the ground and tilted nothing.)
+				var r0: Array = rows[maxi(ri - 1, 0)]
+				var r1: Array = rows[mini(ri + 1, rows.size() - 1)]
+				var n := Vector3(0.0, float(r1[1]) - float(r0[1]), float(r1[0]) - float(r0[0])).normalized()
+				v += n * ridge * fold * step * clampf(float(r[0]) / 3.0, 0.0, 1.0)
+			if chunky > 0.0 and ri > 0 and not bool((_palette.get("backdrop", {}) as Dictionary).get("hill_fold_clean", false)):
 				var own := RandomNumberGenerator.new()
 				own.seed = hash(Vector3i(roundi(x * 10.0), ri, roundi(z)))
 				v += Vector3(own.randf_range(-0.3, 0.3) * step, own.randf_range(-0.5, 0.5) * (0.4 + 0.12 * float(ri)), own.randf_range(-0.6, 0.6)) * chunky
