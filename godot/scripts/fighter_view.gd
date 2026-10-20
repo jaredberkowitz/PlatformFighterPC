@@ -2120,7 +2120,8 @@ func _neck_piece(accent: Color, kind: int) -> void:
 			# (Over the shirt, which since the body rebuild hangs looser: fitted to the bare torso, the band sank into the cloth in pieces.)
 			var over := SASH_OVER_SHIRT if loadout.shirt > 0 else 1.0
 			# (Twice as wide, the character judge's round 1: the reference's sash is a broad band.)
-			sash.scale = Vector3(over, 1.9, 1.0 + (over - 1.0) * 0.45)
+			# (Deeper too, the cap pass, 2026-10-19: at 0.45 of the widening the puffed shirt showed through the band on the back.)
+			sash.scale = Vector3(over, 1.9, 1.0 + (over - 1.0) * 0.8)
 			var strap := _gear_mesh("neckwear", "fabric_sash")
 			if strap != null:
 				_part(sash, strap, _cloth(toon(SASH, false)), Vector3.ZERO)

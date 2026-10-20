@@ -230,7 +230,10 @@ def aviator_cap():
             side_k = abs(c.x) / max(Vector((c.x, c.y, 0.0)).length, 1e-4)
             # (Taller in section than wide: the game widens the head, and the hat with it, 1.32 times across, which flattened a round tube
             # into a plate, the character judge's round 4.)
-            loop.append(bm.verts.new(c - out * 0.07 + Vector((0.0, 0.0, 0.1 - 0.08 * side_k)) + out * math.cos(b_) * r + up * math.sin(b_) * r * 1.35))
+            # (Lower at the back, over the shell's edge, the cap pass, 2026-10-19: seen from behind the leather's rim showed under the roll
+            # as a ragged dark band.)
+            back_k = max(0.0, c.y) / max(Vector((c.x, c.y, 0.0)).length, 1e-4)
+            loop.append(bm.verts.new(c - out * 0.07 + Vector((0.0, 0.0, 0.1 - 0.08 * side_k - 0.08 * back_k)) + out * math.cos(b_) * r + up * math.sin(b_) * r * 1.35))
         loops.append(loop)
     # (UVs round and along the roll, so the game's curly fleece tile lies on it.)
     uv = bm.loops.layers.uv.new("UVMap")
@@ -268,7 +271,11 @@ def aviator_cap():
     # The goggles pushed up on the front of the crown, oversized (the character judge's round 14: the aviator's signature from every angle,
     # lost with the hair): two brass rims with glass on a leather strap round the crown.
     bm = bmesh.new()
-    lathe(bm, [(0.93, 1.98), (0.9, 2.08)])
+    # (On the shell, a strap's thickness off it, the cap pass, 2026-10-19: at a fixed 0.93 it stood 0.12 off the dome as a brim round the
+    # back of the hat.)
+    def shell_r(z):
+        return 0.9 * math.sqrt(max(0.0, 1.0 - ((z - 1.52) / 1.1) ** 2))
+    lathe(bm, [(shell_r(1.98) + 0.045, 1.98), (shell_r(2.08) + 0.045, 2.08)])   # (clear of the shell's dents, _lumpy)
     to_object("leather_band", bm, sharp=60.0).parent = root
     for sx in (-1.0, 1.0):
         centre = Vector((sx * 0.3, -0.86, 2.06))

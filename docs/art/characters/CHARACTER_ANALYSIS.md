@@ -256,3 +256,14 @@ separate balls) as a string of beads. In the owner's style reference the flaps a
 rim, wider at the top and tapering past the jaw; the leather tongues and the bead edges are gone (two fewer meshes per side).
 `aviator_cap_pass.png` (top before, bottom after: front, three-quarter, side). Loadout, fighter view and art pipeline tests pass.
 
+## Back-view pass (2026-10-19)
+From behind, three things read as broken:
+- **The aviator cap's goggle strap stood 0.12 off the dome as a brim** round the back (`make_gear.py`: a fixed radius 0.93). It now
+  follows the shell (`shell_r`), just clear of its dents.
+- **The cap's leather rim showed under the fleece roll** at the back as a ragged dark band: the roll sits lower at the back (`back_k`).
+- **The shirt showed through the sash on the back** in white patches: the band now stands out as far in depth as in width over a shirt
+  (`fighter_view.gd`, the sash's depth scale 0.8 of the widening, from 0.45).
+
+`back_pass.png` (top before, bottom after: the four default looks from behind). Fighter view, loadout, art pipeline and animation
+library tests pass.
+
