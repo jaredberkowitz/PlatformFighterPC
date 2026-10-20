@@ -5,7 +5,8 @@ what is next when we return. Latest captures: `docs/gauntlet/round43/`. Latest f
 canyon 3/3, city 3/3, grove 3/3; reference / ship-ready out of 5).
 
 ## Next, in order
-1. **Distance in steps.** Each row of ranges, hill bands and city tower layers a clear step lighter and cooler than the one in front,
+1. **Distance in steps.** *(Meadow and beach done, stage refinement pass 1, 2026-10-20: `docs/art/stages/STAGE_ANALYSIS.md`; the city
+   in pass 3; the grove by darkening its surroundings in its own pass.)* Each row of ranges, hill bands and city tower layers a clear step lighter and cooler than the one in front,
    toward the sky's horizon colour (extend the palettes' `[air]` curve, `StageArt._air`, to the ranges and land bands).
 2. **Light edges against the sky.** A rim toward the sun on far ridges, tree crowns and towers (a fresnel term in the toon shader for
    scenery, gated per material).

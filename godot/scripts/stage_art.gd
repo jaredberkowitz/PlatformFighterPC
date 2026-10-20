@@ -77,8 +77,41 @@ static func _air(node: Node, z: float) -> void:
 		push_error("stage palette %s has no [air]" % _palette.get("_name", "?"))
 		palette_misses.append("%s/[air]" % _palette.get("_name", "?"))
 		return
-	var k := clampf((absf(z) - float(air.start)) / maxf(float(air.end) - float(air.start), 0.01), 0.0, 1.0)
-	_mute(node, float(air.desat) * k, air.haze, float(air.lift) * k, false)
+	var amount := _air_amount(z)
+	_mute(node, amount.x, air.haze, amount.y, false)
+
+
+## How much air lies over scenery `z` units behind the stage plane, (desat, lift), by the current palette's [air] curve: nothing nearer
+## than `start`, `desat` and `lift` at `end`, and past `end` the lift keeps growing to `far_lift` at `far` (where the palette sets them),
+## so each row of far land and ranges is a step lighter toward the horizon than the row in front (docs/art/STAGE_BACKLOG.md item 1; the
+## stage refinement audit measured the meadow's, grove's and beach's ranges darker than the mid-ground in front of them).
+static func _air_amount(z: float) -> Vector2:
+	var air: Dictionary = _palette.get("air", {})
+	if air.is_empty():
+		return Vector2.ZERO
+	var d := absf(z)
+	var k := clampf((d - float(air.start)) / maxf(float(air.end) - float(air.start), 0.01), 0.0, 1.0)
+	var lift := float(air.lift) * k
+	if air.has("far") and d > float(air.end):
+		var f := clampf((d - float(air.end)) / maxf(float(air.far) - float(air.end), 0.01), 0.0, 1.0)
+		lift = lerpf(float(air.lift), float(air.get("far_lift", air.lift)), f)
+	return Vector2(float(air.desat) * k, lift)
+
+
+## Colour `c` seen through the air at depth `z` (`_air_amount`), for scenery coloured directly rather than through `_air` (land bands,
+## modelled ranges). `desat` false keeps the colour's own saturation and only lifts it toward the haze (the ranges, whose colours were
+## set from the references: greyed, the meadow's teal fell from the camp's 0.48 saturation to 0.34 and read as milky haze).
+static func _air_colour(c: Color, z: float, desat := true) -> Color:
+	var air: Dictionary = _palette.get("air", {})
+	if air.is_empty():
+		return c
+	var amount := _air_amount(z)
+	var grey := c.r * 0.299 + c.g * 0.587 + c.b * 0.114
+	if not desat:
+		# (Toward a light tint of its own hue at the haze's brightness: lifted toward the pale haze itself, it still greyed.)
+		var haze: Color = air.haze
+		return c.lerp(Color.from_hsv(c.h, c.s * 0.85, maxf(c.v, haze.v), c.a), amount.y)
+	return c.lerp(Color(grey, grey, grey, c.a), amount.x).lerp(Color(air.haze as Color, c.a), amount.y)
 
 
 
@@ -2820,8 +2853,9 @@ static func ridge(root: Node3D, t: Dictionary, spec: Dictionary) -> MeshInstance
 		# toward the peaks, as the papercraft camp's mountains, the owner's meadow target, 2026-10-19.)
 		var faceted := bool(spec.get("facets", false))
 		# (A spec's own "land_colour", the reference's teal, in place of the horizon mix that read blue-grey.)
-		if spec.has("land_colour"):
-			land.set_shader_parameter("albedo", spec.land_colour)
+		# (Through the air at its depth, `_air_colour`, the stage refinement's pass 1: the ranges took no air, so the near range read
+		# darker than the valley in front of it.)
+		land.set_shader_parameter("albedo", _air_colour(spec.land_colour if spec.has("land_colour") else land_c, float(spec.z), false))
 		if faceted:
 			land.set_shader_parameter("facets", true)
 			land.set_shader_parameter("ramp_softness", 0.1)
@@ -3117,6 +3151,8 @@ static func _land_top(bumps: Array, floor_y: float, x: float) -> float:
 ## camp's faceted hills, the owner's meadow target, 2026-10-19); no painted blades then, the planes carry the form.
 static func _land_band(root: Node3D, bumps: Array, floor_y: float, z: float, colour: Color, step := 2.0, roll := 1.0, profile: Array = ROLL_PROFILE,
 		chunky := 0.0) -> void:
+	# (Through the air at its depth, as the trees and houses on it are: unaired, the far hill row read darker than the valley before it.)
+	colour = _air_colour(colour, z)
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
 	# The cross-section, back to front: [drop below the crest, depth from z]. With `roll` the land is a rounded ridge: it rolls away
@@ -6533,14 +6569,15 @@ static func _harbour_town(root: Node3D, water: float) -> void:
 	# (Modelled hills, art/blender/make_props.py `hill_dome`, in a calm soft-lit land colour, the gauntlet's round 19: scaled spheres under
 	# the scaly foliage tile read as painted cards beside the modelled ranges. The spheres stand in without them.)
 	# (Plain and calm: laid in the rendered turf, the gauntlet's round 26, it read as dark lichen noise in front of the hazed town.)
-	var near_hill := (FighterView.toon(Color(0.28, 0.52, 0.42), false) as ShaderMaterial).duplicate() as ShaderMaterial
+	# (Through the air at their depths, `_air_colour`, the stage refinement's pass 1: unaired, the headland read darker than the town on it.)
+	var near_hill := (FighterView.toon(_air_colour(Color(0.28, 0.52, 0.42), base.z - 14.0), false) as ShaderMaterial).duplicate() as ShaderMaterial
 	# (Faceted planes, as the meadow's hills, 2026-10-19.)
 	near_hill.set_shader_parameter("facets", true)
 	near_hill.set_shader_parameter("ramp_softness", 0.12)
 	near_hill.set_shader_parameter("rim_strength", 0.0)
 	var far_hill := near_hill.duplicate() as ShaderMaterial
 	# (Deeper and with a crisper turn, 2026-10-19: the folded headland's planes went one pale tone and it read as a glassy blob.)
-	far_hill.set_shader_parameter("albedo", Color(0.26, 0.52, 0.52))
+	far_hill.set_shader_parameter("albedo", _air_colour(Color(0.26, 0.52, 0.52), base.z - 42.0))
 	far_hill.set_shader_parameter("ramp_softness", 0.06)
 	var dome := [_prop_mesh("hill_dome_a", "land"), _prop_mesh("hill_dome_b", "land")]
 	for hi in hills.size():
