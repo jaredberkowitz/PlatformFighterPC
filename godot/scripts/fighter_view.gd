@@ -2571,7 +2571,8 @@ func _glasses() -> void:
 			# Round specs: thin flat-faced wire rims and a bridge.
 			for sx in [-1.0, 1.0]:
 				if modelled:
-					_on_face(_part(glasses_rig, g_rim_specs, frame, Vector3.ZERO), to_head, sx * 0.32, 1.52, 0.05, Vector3.ONE)
+					# (Closer to the face, the helm pass, 2026-10-19: with the finer wire, 0.05 off it stood out from the head side-on.)
+					_on_face(_part(glasses_rig, g_rim_specs, frame, Vector3.ZERO), to_head, sx * 0.32, 1.52, 0.03, Vector3.ONE)
 				else:
 					var thin := TorusMesh.new()
 					thin.inner_radius = 0.17

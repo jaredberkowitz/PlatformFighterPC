@@ -327,3 +327,14 @@ Both go through `FaceLook.apply`, so the creator's face pictures (`face_ui.gdsha
 `face_pass.png`: the four default faces straight on (top before, below after), then every expression (rows 1 and 3 before, 2 and 4
 after). Checked in a match on the meadow. Fighter view, loadout, art pipeline, editor UI and select grid tests pass.
 
+## Accessory pass: round specs and plumed helm (2026-10-19, items 5 and 6 above)
+- **Round specs** (`make_gear.py` `glasses`, `metal_specs_rim`): fine wire, 0.022 wide and 0.018 deep (0.05 and 0.035 before),
+  seated closer to the face (`fighter_view.gd`, lift 0.03 from 0.05). They read as drawn glasses on the face, no longer as plastic
+  donuts, and the far rim side-on is a thin line rather than a bar past the head.
+- **Plumed helm** (`plumed_helm`): a tall dome built on the aviator cap's shell (`HELM_C` 1.52, `HELM_H` 1.12, `HELM_R` 0.9), coming
+  down over the head with the front cut up over the brows (`HELM_FRONT` 46), instead of a wide dish sitting on top (a pan lid). The
+  flat cheek guards, which crossed the eyes and the glasses at three-quarters, are gone.
+
+`specs_helm_pass.png`: front, three-quarter, side and back; pairs of rows, before above after: the specs, the helm with the specs,
+the helm alone. Fighter view, loadout and art pipeline tests pass.
+

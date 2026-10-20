@@ -371,12 +371,17 @@ def _bowl_phi_low(a, deg_back=100.0, deg_front=30.0):
 
 
 # (Taller than the caps' shell, 2026-10-18: on the wide head a low bowl read as a pot lid.)
-HELM_H = 0.82
+HELM_H = 1.12
+# (The helm pass, 2026-10-19: a tall dome on the aviator cap's shell, centred low, so it comes down over the head like a kettle helm;
+# centred at 1.74 with a 0.82 rise it sat on top as a wide dish, a pan lid. Its sides come down past the ears, so the separate cheek
+# guards, flat slabs that crossed the eyes at three-quarters, are gone.)
+HELM_C = 1.52
+HELM_R = 0.9
+HELM_BACK, HELM_FRONT = 104.0, 46.0   # (the front cut up over the brows, so the face and brows show)
 
 
 def plumed_helm():
-    """A knight's open helm: a steel bowl over the crown with a raised ridge from brow to nape, a brass brow band with rivets, short
-    cheek guards curving down beside the face, and a tall plume of feather blades in the outfit's colour sweeping back off a brass
+    """A knight's open helm: a steel bowl over the head with a raised ridge from brow to nape and a brass brow band with rivets, and a tall plume of feather blades in the outfit's colour sweeping back off a brass
     socket on the crest."""
     root = empty("plumed_helm")
     bm = bmesh.new()
@@ -387,15 +392,15 @@ def plumed_helm():
         row = []
         for i in range(seg_u):
             a = math.tau * i / seg_u
-            ph = phi * (_bowl_phi_low(a) / math.radians(100.0))
-            x = 0.89 * math.sin(ph) * math.cos(a)
-            y = 0.89 * math.sin(ph) * math.sin(a)
-            z = 1.74 + HELM_H * math.cos(ph)
+            ph = phi * (_bowl_phi_low(a, HELM_BACK, HELM_FRONT) / math.radians(100.0))
+            x = HELM_R * math.sin(ph) * math.cos(a)
+            y = HELM_R * math.sin(ph) * math.sin(a)
+            z = HELM_C + HELM_H * math.cos(ph)
             if abs(x) < 0.06:
                 z += 0.035 * (1.0 - abs(x) / 0.06) * math.sin(ph)
             row.append(bm.verts.new((x, y, z)))
         rows.append(row)
-    top = bm.verts.new((0.0, 0.0, 1.74 + HELM_H + 0.03))
+    top = bm.verts.new((0.0, 0.0, HELM_C + HELM_H + 0.03))
     for i in range(seg_u):
         bm.faces.new((rows[0][i], rows[0][(i + 1) % seg_u], top))
     for j in range(seg_v):
@@ -413,9 +418,9 @@ def plumed_helm():
         ring = []
         for i in range(sides):
             a = math.tau * i / sides
-            ph = _bowl_phi_low(a) - math.radians(8.0)
-            r = 0.89 * math.sin(ph) + dr
-            ring.append(bm.verts.new((r * math.cos(a), r * math.sin(a), 1.74 + HELM_H * math.cos(ph) + dz)))
+            ph = _bowl_phi_low(a, HELM_BACK, HELM_FRONT) - math.radians(8.0)
+            r = HELM_R * math.sin(ph) + dr
+            ring.append(bm.verts.new((r * math.cos(a), r * math.sin(a), HELM_C + HELM_H * math.cos(ph) + dz)))
         rings.append(ring)
     for k in range(len(rings) - 1):
         for i in range(sides):
@@ -425,43 +430,24 @@ def plumed_helm():
     o.parent = root
     for i in range(10):
         a = math.tau * (i + 0.5) / 10.0
-        ph = _bowl_phi_low(a) - math.radians(8.0)
-        p = Vector((0.93 * math.sin(ph) * math.cos(a), 0.93 * math.sin(ph) * math.sin(a), 1.74 + HELM_H * math.cos(ph)))
+        ph = _bowl_phi_low(a, HELM_BACK, HELM_FRONT) - math.radians(8.0)
+        p = Vector(((HELM_R + 0.04) * math.sin(ph) * math.cos(a), (HELM_R + 0.04) * math.sin(ph) * math.sin(a), HELM_C + HELM_H * math.cos(ph)))
         bm = bmesh.new()
         bmesh.ops.create_uvsphere(bm, u_segments=10, v_segments=6, radius=0.028)
         bmesh.ops.translate(bm, vec=p, verts=bm.verts)
         o = to_object("brass_rivet%d" % i, bm)
         o.parent = root
-    # Cheek guards beside the face.
-    for sx in (-1.0, 1.0):
-        bm = bmesh.new()
-        rows = []
-        for j in range(5):
-            t = j / 4.0
-            row = []
-            for i in range(6):
-                u = i / 5.0
-                a = math.radians(-90.0 + sx * (52.0 + 30.0 * u))
-                r = 0.9 - 0.04 * t
-                row.append(bm.verts.new((r * math.cos(a), r * math.sin(a), 1.62 - 0.36 * t - 0.06 * u * t)))
-            rows.append(row)
-        for j in range(4):
-            for i in range(5):
-                bm.faces.new((rows[j][i], rows[j][i + 1], rows[j + 1][i + 1], rows[j + 1][i]))
-        bmesh.ops.solidify(bm, geom=bm.faces[:], thickness=0.03)
-        o = to_object("metal_cheek" + ("L" if sx < 0 else "R"), bm, sharp=50.0)
-        o.parent = root
     # The plume: a socket on the crest and feather blades fanned along an arc sweeping up and back.
     bm = bmesh.new()
     cv = bmesh.ops.create_cone(bm, cap_ends=True, cap_tris=False, segments=14, radius1=0.09, radius2=0.06, depth=0.14)["verts"]
-    bmesh.ops.translate(bm, vec=Vector((0.0, 0.05, 1.74 + HELM_H + 0.05)), verts=cv)
+    bmesh.ops.translate(bm, vec=Vector((0.0, 0.05, HELM_C + HELM_H + 0.05)), verts=cv)
     o = to_object("brass_socket", bm)
     o.parent = root
     blades = 9
     for b in range(blades):
         f = b / (blades - 1)
         # (Taller and more upright, 2026-10-18: swept far back it was hidden behind the bowl.)
-        base = Vector((0.0, 0.05 + 0.45 * f, 1.74 + HELM_H + 0.09 + 0.18 * math.sin(f * math.pi) - 0.08 * f))
+        base = Vector((0.0, 0.05 + 0.45 * f, HELM_C + HELM_H + 0.09 + 0.18 * math.sin(f * math.pi) - 0.08 * f))
         length = 0.85 - 0.35 * f
         lean = math.radians(8.0 + 55.0 * f)
         bm = bmesh.new()
@@ -717,7 +703,9 @@ def glasses():
     and lens (a filled, slightly domed pane), goggles' cup (a deep padded ring), and a bridge (a small arc)."""
     root = empty("glasses")
     bm = bmesh.new()
-    _frame_loop(bm, [(0.18 * math.cos(t), 0.18 * math.sin(t)) for t in [math.tau * i / 48 for i in range(48)]], 0.05, 0.035)
+    # (Fine wire, the helm pass, 2026-10-19: at 0.05 wide and 0.035 deep the rims read as plastic donuts, and the far one, edge-on at
+    # three-quarters, as a bar sticking out past the head.)
+    _frame_loop(bm, [(0.19 * math.cos(t), 0.19 * math.sin(t)) for t in [math.tau * i / 48 for i in range(48)]], 0.022, 0.018)
     to_object("metal_specs_rim", bm).parent = root
     bm = bmesh.new()
     # (Thin wire drawn wider than the eyes, the aviator scout pilot, after the owner's reference: a heavy plastic frame sat on the eyes.)
