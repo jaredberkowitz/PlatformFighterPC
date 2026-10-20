@@ -312,3 +312,14 @@ The owner's paper pick on the meadow, carried to the beach: the harbour headland
 - **First renders fixed:** concentric contours read as a mint wedding cake. Each layer now drifts and lobes by the dome's own shape, and
   the green land's cut edges are a shade under its tops (the camera sees the edges more than the tops out there).
 - **Next:** options in `mocks/beach_ground/` (with a local `review.html`) and on the owner's page; recommended C.
+
+## The beach's background built: C, pop-up (2026-10-20)
+
+The owner picked C. Shipped as `godot/models/stages/beach_ground.glb` (11,000 triangles) for the exact beach layout
+(`StageBake.GROUNDS`, with no second model: `GROUNDS` now allows an empty "bush"). It replaces the code-built island mounds and headland
+domes; the tall back hills are standing cut-out flats, and the low hills and the islands are card contours.
+
+**Result** (round 65, `beach_ground_built.png`: match camera, wide, fighters in play): the headland reads as a pop-up behind the town,
+with a clean, calm silhouette, and the islands as stacked paper under their palms. The distance's value is unchanged (0.64) and the town's
+is the same; the deck reads 0.49. Cost unchanged: 738 draw calls against 730, GPU 2.2 ms both ways (two timings each). **Tests:** all
+seven pass.

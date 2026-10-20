@@ -22,7 +22,9 @@ const TREES := {"grove": "res://models/stages/grove_tree.glb"}
 ## Modelled background ground and bushes, by the exact stage they were built round ([ground, bush]; make_grove_ground.py, option A, the
 ## owner's pick): the ground stands on the side trees' footing for this layout.
 const GROUNDS := {"grove_14d06e65": ["res://models/stages/grove_ground.glb", "res://models/stages/grove_bush.glb"],
-	"meadow_62409190": ["res://models/stages/meadow_ground.glb", "res://models/stages/meadow_pines.glb"]}
+	"meadow_62409190": ["res://models/stages/meadow_ground.glb", "res://models/stages/meadow_pines.glb"],
+	# (The beach's land only: nothing stands on it in the bushes' place.)
+	"ocean_d9c5edff": ["res://models/stages/beach_ground.glb", ""]}
 ## The toon shaders whose materials take the baked occlusion (they share shaders/toon_common.gdshaderinc).
 const BAKEABLE := ["res://shaders/toon.gdshader"]
 ## Shaders that cast occlusion on the baked meshes without being baked themselves.
@@ -499,9 +501,9 @@ static func ground_source(bake_key: String) -> Array:
 	if OS.get_cmdline_user_args().has("--no-ground") or not GROUNDS.has(bake_key):
 		return []
 	var paths: Array = GROUNDS[bake_key]
-	if not ResourceLoader.exists(paths[0]) or not ResourceLoader.exists(paths[1]):
+	if not ResourceLoader.exists(paths[0]) or (paths[1] != "" and not ResourceLoader.exists(paths[1])):
 		return []
-	return [load(paths[0]), load(paths[1])]
+	return [load(paths[0]), load(paths[1]) if paths[1] != "" else null]
 
 
 ## The height of the highest surface of `node`'s meshes straight under (`x`, `z`), or NAN where there is none.
