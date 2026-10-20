@@ -6552,9 +6552,13 @@ static func _dock_block(parent: Node3D, t: Dictionary, left: float, right: float
 	_mesh(parent, _box(Vector3(deck_r - deck_l, 0.3, depth - 0.4)), FighterView.toon(dark_c.darkened(0.36), false), Vector3((left + right) * 0.5, top - thick - 0.15, front - depth * 0.5))
 	# The fascia: a heavy beam along the front edge, lit on its top, and one along each end.
 	var fascia := Materials.wood(dark_c, Vector2(10, 1))
+	# (The fascia, piles, bracing and their waterline pieces are the dock's front: marked `code_front`, so a modelled front replaces them,
+	# StageBake.hide_code_front. The deck, its joists and the shade under it stay.)
+	var f0 := parent.get_child_count()
 	_mesh(parent, _round_box(Vector3(deck_r - deck_l + 0.3, 0.42, 0.32), 0.07, 3), fascia, Vector3((left + right) * 0.5, top - thick - 0.2, front + 0.02))
 	for ex in [deck_l - 0.1, deck_r + 0.1]:
 		_mesh(parent, _box(Vector3(0.3, 0.42, depth)), fascia, Vector3(ex, top - thick - 0.2, front - depth * 0.5))
+	var f1 := parent.get_child_count()
 	# The shade under the pier: the deck's underside, and a soft band of shadow falling from it down between the piles (the sea shows
 	# through below it; a solid dark wall there read as a black void).
 	var under := FighterView.toon(Color(0.12, 0.13, 0.2), false)
@@ -6564,6 +6568,7 @@ static func _dock_block(parent: Node3D, t: Dictionary, left: float, right: float
 		band.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	# Piles: a front row and a back row, round, a little off plumb, each with a dark wet band and green weed at the waterline.
 	# (Plain faceted wood in a deep brown, the stage's dark simple front, 2026-10-19: striped bark piles were the busiest thing on screen.)
+	var f2 := parent.get_child_count()
 	var pile := (FighterView.toon(bd.get("pile_wood", Color(0.36, 0.26, 0.2))) as ShaderMaterial).duplicate() as ShaderMaterial
 	pile.set_shader_parameter("facets", true)
 	var wet := FighterView.toon(Color(0.66, 0.64, 0.48))
@@ -6612,6 +6617,9 @@ static func _dock_block(parent: Node3D, t: Dictionary, left: float, right: float
 		var sgn := 1.0 if (k / 2) % 2 == 0 else -1.0
 		_mesh(parent, _box(Vector3(len, 0.34, 0.16)), brace, Vector3((a + b) * 0.5, (y_hi + y_lo) * 0.5, front + 0.04), Vector3.ONE, Vector3(0, 0, ang * sgn))
 	_mesh(parent, _box(Vector3(float(fronts.back()) - float(fronts.front()), 0.3, 0.16)), brace, Vector3((float(fronts.front()) + float(fronts.back())) * 0.5, y_hi + 0.05, front + 0.08))
+	for i in range(f0, parent.get_child_count()):
+		if i < f1 or i >= f2:
+			parent.get_child(i).set_meta("code_front", true)
 
 
 ## The harbour round the dock (`e` the stage's extent; the sea at `water`): in front of the stage, low on the water at both corners, a

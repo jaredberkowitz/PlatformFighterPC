@@ -260,6 +260,11 @@ static func mock_front(root: Node3D, t: Dictionary) -> bool:
 	return true
 
 
+## A colour from the stage's [backdrop] palette.
+static func _pal_of(t: Dictionary, key: String, default: Color) -> Color:
+	return StageArt.palette(String(t.get("name", ""))).get("backdrop", {}).get(key, default)
+
+
 ## Hides the code-built front a modelled one replaces: the quilt, the block's box and its faceted ledge, and a floating island's keel.
 static func hide_code_front(root: Node3D, t: Dictionary) -> void:
 	for n in root.find_children("*", "", true, false):
@@ -269,7 +274,7 @@ static func hide_code_front(root: Node3D, t: Dictionary) -> void:
 		# (The keel only where the island floats: on a terrace stage `Underside` is the hill the stage stands on, the meadow's.)
 		var keel: bool = nm.begins_with("Underside") and not t.get("terrace", false)
 		# (`begins_with`: a rebuilt stage's nodes take a number, `block2`.)
-		if nm.begins_with("quilted_island") or keel or nm.begins_with("block") or nm.begins_with("faceted_ledge"):
+		if nm.begins_with("quilted_island") or keel or nm.begins_with("block") or nm.begins_with("faceted_ledge") or n.has_meta("code_front"):
 			(n as Node3D).visible = false
 
 
@@ -286,7 +291,14 @@ static func place_front(root: Node3D, t: Dictionary, scene: Node3D) -> void:
 		# (The meadow's families, art/blender/make_meadow_front.py: its light-moss ledge, the farm's wood, warm stone, soil, the lawn.)
 		"ledge": t.get("ledge", Color(0.4, 0.62, 0.32)), "log": (t.get("wood", Color(0.86, 0.62, 0.36)) as Color).darkened(0.12),
 		"log_end": (t.get("wood", Color(0.86, 0.62, 0.36)) as Color).lightened(0.25), "stone": Color(0.66, 0.64, 0.6),
-		"soil": t.get("soil", Color(0.76, 0.56, 0.36)), "grass": grass}
+		"soil": t.get("soil", Color(0.76, 0.56, 0.36)), "grass": grass,
+		# (The beach's families, art/blender/make_beach_front.py: the deck's honey for beams, the posts' brown, a pale waterline, iron,
+		# rope, harbour stone, foam.)
+		# (A step lighter than the old piles: under the deck's baked shade they read nearly black.)
+		"post": _pal_of(t, "pile_wood", Color(0.44, 0.29, 0.19)).lightened(0.18), "beam": _pal_of(t, "deck_wood", Color(0.5, 0.32, 0.18)),
+		"waterline": Color(0.72, 0.7, 0.58), "iron": Color(0.22, 0.2, 0.22), "rope": Color(0.78, 0.64, 0.42),
+		# (The harbour town's own quay stone, warm: a neutral grey went cold blue-grey under the sea's sky light.)
+		"harbour_stone": _pal_of(t, "quay", Color(0.7, 0.6, 0.48)), "foam": Color(0.9, 0.97, 1.0), "weed": Color(0.26, 0.46, 0.3)}
 	scene.name = "ModelledFront"
 	root.add_child(scene)
 	var top := -INF
@@ -301,8 +313,12 @@ static func place_front(root: Node3D, t: Dictionary, scene: Node3D) -> void:
 			# (The model carries its own baked occlusion in its vertex colours.)
 			m.set_shader_parameter("vertex_shade", true)
 			m.set_shader_parameter("ramp_softness", 0.3 if fam == "quilt" else 0.1)
-			m.set_shader_parameter("fall_by_height", true)
-			m.set_shader_parameter("front_fall", 0.4)
+			# (Not the foam on the water: falling into the front's shade it went grey.)
+			# (Nor on the beach's dock: its supports stand in open sea and air, not in a bank of earth; falling into the front's calm haze
+			# the stone went flat grey and the posts blue.)
+			m.set_shader_parameter("fall_by_height", fam != "foam" and String(t.get("name", "")) != "ocean")
+			# (Gentler on posts standing in the sea: at the cliffs' 0.4 the beach's piles fell nearly black.)
+			m.set_shader_parameter("front_fall", 0.15 if fam in ["post", "waterline", "weed", "rope"] else 0.4)
 			m.set_shader_parameter("front_span", 7.0)
 			mi.set_surface_override_material(s, m)
 		mi.set_instance_shader_parameter("front_top", top)

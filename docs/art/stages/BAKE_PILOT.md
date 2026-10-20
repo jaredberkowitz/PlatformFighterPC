@@ -184,3 +184,16 @@ place behind the model, and the block's box takes a number when a stage is rebui
 stone courses in their own tones, a grass overhang along the top: the farm's own build under its fence and bales. Front 0.38 (in the
 sheet's 0.35 to 0.55 band, warm grey; it was 0.36 light moss), lawn 0.64, fighters 0.59. Cost: 19 more draw calls, 0.2 to 0.4 ms GPU
 (two A/B timings each way; a first reading of 6.2 ms was machine load). The alignment test covers both fronts. **Tests:** all seven pass.
+
+## The beach's dock front: mocks (2026-10-20)
+
+`art/blender/make_beach_front.py --variant A|B|C` builds the dock's supports on its collision (under the code-built deck, down into the
+sea a unit under the block's foot, a front row and a back row), with pale waterline bands, weed and ripple rings at the water, and its
+own occlusion bake (at half strength: under the closed deck every post baked nearly black). A timber pier (4,500 triangles), B stone quay
+in the harbour town's quay stone (13,100), C bundled piles lashed in threes (6,100). Options in `mocks/beach_front/` on the owner's page;
+recommended A.
+
+In the game: `_dock_block` marks its fascia, piles, waterline pieces and braces `code_front` (the deck, joists and the shade under it
+stay), which `hide_code_front` hides; the beach's families (`post`, `beam`, `waterline`, `iron`, `rope`, `harbour_stone`, `foam`,
+`weed`) are painted from its palette; on the dock nothing falls into the fronts' calm haze (the stone went flat grey, the posts blue),
+and the foam never does.
