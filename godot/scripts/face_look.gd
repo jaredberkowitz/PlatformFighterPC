@@ -22,7 +22,8 @@ const FRECKLE_COLOR := Color(0.25, 0.15, 0.12, 0.9)
 const EYE_COLORS := [Color("2d1a3c"), Color("5b3418"), Color("2f5fb3"), Color("2f8a4a"), Color("a0661c"), Color("4a4f5c"), Color("8a2a62"),
 	Color("111014")]
 const EYE_COLOR_NAMES := ["plum", "brown", "blue", "green", "amber", "grey", "berry", "black"]
-const BROW_COLORS := [Color("2a1a33"), Color("3b2416"), Color("7a4a24"), Color("d9a441"), Color("c0562c"), Color("9a9aa4"), Color("f2efe6"),
+## (The first, "ink", the faces' own near-black since the face finish pass, 2026-10-20: a dark plum read soft and printed on.)
+const BROW_COLORS := [Color("120e14"), Color("3b2416"), Color("7a4a24"), Color("d9a441"), Color("c0562c"), Color("9a9aa4"), Color("f2efe6"),
 	Color("2f5fd0"), Color("e070a8"), Color("3fa860")]
 const BROW_COLOR_NAMES := ["ink", "dark brown", "chestnut", "blond", "ginger", "grey", "white", "blue", "pink", "green"]
 const CHEEK_COLORS := [Color("f59393"), Color("ff8a5c"), Color("f7b38a"), Color("e0607a"), Color("b48ae6"), Color("e04848")]
@@ -41,28 +42,31 @@ const ADJUST := {
 ## down) and turned into the square: the head shows the square 1.75 radii across, the drawing 1.15 times larger (face.gdshader).
 ## (Bigger and a little wider apart since the body rebuild, 2026-10-18: on the new wide head the concept's eyes read small at play size;
 ## the reference cast's eyes span about half the face.)
-const EYE_GAP := 0.225
+## (Smaller and further apart since the face finish pass, 2026-10-20, the owner's pick of mocked options: each eye was about 0.3 of the
+## head's width and the two nearly touched, crowding the whole front of the head; the salute reference's are about 0.22 with clear skin
+## between, the features in the middle of a lot of face.)
+const EYE_GAP := 0.237
 ## (Bigger and lower, mouths wider, the character judge's round 16: the reference's features fill the middle of the face.)
 const EYE_Y := 0.44
-const EYE_SIZE := 0.45
+const EYE_SIZE := 0.351   # (0.45 until the face finish pass)
 const BROW_GAP := 0.17
-const BROW_Y := 0.258
-const BROW_SIZE := 0.36
+const BROW_Y := 0.288   # (0.258 until the face finish pass: down with the smaller eyes)
+const BROW_SIZE := 0.306   # (0.36 until the face finish pass)
 const BROW_THICK := 1.45   # (2.1 until the owner, 2026-10-19: far too thick)
 const NOSE_Y := 0.5
 const NOSE_SIZE := 0.14
 const MOUTH_Y := 0.615
 ## (Larger, its line bolder with it, the character pass, 2026-10-19: the reference's mouths carry the expression.)
-const MOUTH_SIZE := 0.36   # (0.32 until the face pass, 2026-10-19: the reference's mouths are about a third of the face wide)
+const MOUTH_SIZE := 0.306   # (0.36 until the face finish pass, 2026-10-20) # (0.32 until the face pass, 2026-10-19: the reference's mouths are about a third of the face wide)
 ## (Smaller, the character pass, 2026-10-19: the reference cast's pupils are small dots in a wide white.)
-const PUPIL := 0.19
+const PUPIL := 0.266   # (0.19 until the face finish pass, 2026-10-20: small dots in big whites read as a vacant side-eye)
 ## The catch-light's radius as a share of the pupil's (face_common.gdshaderinc `catchlight`), the face pass, 2026-10-19.
-const CATCHLIGHT := 0.46
+const CATCHLIGHT := 0.55
 const LOOK := Vector2(0.051, 0.01)
 ## Cheeks sit out from and below the eyes and grow with them (the concept's: just outside the eyes and well below them, 0.2 across).
 const CHEEK_OUT := 0.053
-const CHEEK_DOWN := 0.194
-const CHEEK_SIZE := 0.2
+const CHEEK_DOWN := 0.174
+const CHEEK_SIZE := 0.156   # (0.2 until the face finish pass, with the eyes)
 
 ## Expressions: the player's face with its lids, brows, pupils and mouth changed. `lids` is (top, slope, lower) as in the shader;
 ## `eyes` swaps the eyes for shut or spiral ones; `mouth` for one of the expression mouths; `brow_turn` (radians, raising the outer

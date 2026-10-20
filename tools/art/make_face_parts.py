@@ -22,7 +22,8 @@ import math
 import os
 
 ROOT = __file__.replace('\\', '/').rsplit('/tools/', 1)[0] + '/godot/art/face_parts/'
-INK = '#2a1a33'
+# (A near-black since the face finish pass, 2026-10-20, as the face shader's ink: the dark plum read soft beside the references' black.)
+INK = '#120e14'
 MOUTH_IN = '#6b2234'
 TONGUE = '#ef7f8e'
 TEETH = '#ffffff'

@@ -505,3 +505,27 @@ Rig rebuilt (mesh only). Fighter view, art pipeline, loadout, animation library 
 
 `armpit_pass.png`: the close-ups, before above after (the arm forward from the side is the fourth panel), then a match frame before
 and after. Rig rebuilt (mesh only). Fighter view, art pipeline, loadout, animation library and match flow tests pass.
+
+## Expressions against the references, and the face finish (2026-10-20)
+Compared every expression and the four default faces with the salute, the frown and the T-pose lineup. The owner: ours look "a bit
+more clumsy, maybe too large, and too drawn on rather than a part of the character".
+- **Too large, crowded**: each eye was about 0.3 of the head's width and the two nearly touched (`EYE_SIZE` 0.45, centres 0.34 of
+  the head apart); the salute's are about 0.22 with clear skin between, the features in the middle of a lot of face.
+- **Drawn on**: a dark plum ink with a hand-drawn wobble, and flat greyish-cream whites with soft edges, laid on the skin like a
+  sticker; the references draw in even near-black strokes on clean whites.
+- **Small pupils** in big whites read as a vacant side-eye.
+- **One mood**: all four defaults are half-lidded and unimpressed (deadpan, smug, grumpy, smug); the reference cast each have their
+  own eyes. (Mocked as option D, not chosen; still open.)
+
+Mocked six options (scratch script laying settings over the face material); the owner chose F:
+- `face_look.gd`: the eyes about a fifth smaller and a little further apart (`EYE_SIZE` 0.351, `EYE_GAP` 0.237), the brows down with
+  them and smaller (`BROW_Y` 0.288, `BROW_SIZE` 0.306), the mouth smaller (`MOUTH_SIZE` 0.306), cheeks following the eyes; bigger
+  pupils (`PUPIL` 0.266) with a bigger shine (`CATCHLIGHT` 0.55); the "ink" brow colour near-black.
+- `face_common.gdshaderinc`: near-black ink, no line wobble, clean whites, and each white set into the head with a soft warm shade
+  inside its edge (from a blurred copy of its own shape).
+- `tools/art/make_face_parts.py`: the mouths drawn in the same near-black ink (regenerated).
+- The face on the head and the creator's pictures share the shader, so both follow.
+
+`face_finish_pass.png`, before above after: the four default faces; every expression; a match frame; the creator's mood page. At
+match distance the change is small; it shows most in the menus and close-ups. Fighter view, art pipeline, loadout, editor UI, select
+grid and match flow tests pass; `creator_flow_test` fails as on `main` (the locally built bridge).

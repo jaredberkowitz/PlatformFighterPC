@@ -30,7 +30,9 @@ uniform vec3 lids = vec3(0.0);
 // Extra upper lid on one side (positive the right, negative the left): an uneven face.
 uniform float lid_lean = 0.0;
 // A faint hand-drawn wobble on every part's lines (in the face square's units).
-uniform float line_wobble = 0.0024;
+// (None since the face finish pass, 2026-10-20, the owner after the references: their faces are drawn in even, confident strokes; the
+// wobble read as clumsy.)
+uniform float line_wobble = 0.0;
 uniform vec4 eye_color : source_color = vec4(0.176, 0.102, 0.235, 1.0);
 uniform vec4 lid_color : source_color = vec4(1.0, 0.85, 0.2, 1.0);
 uniform vec4 brow_place = vec4(0.17, 0.258, 0.36, 0.0);
@@ -40,15 +42,17 @@ uniform vec4 brow_color : source_color = vec4(0.165, 0.102, 0.2, 1.0);
 uniform vec4 mouth_place = vec4(0.5, 0.582, 0.22, 0.0);
 uniform vec2 mouth_squash = vec2(1.0);
 uniform vec3 nose_place = vec3(0.5, 0.5, 0.14);
-uniform vec4 nose_color : source_color = vec4(0.165, 0.102, 0.2, 0.8);
+uniform vec4 nose_color : source_color = vec4(0.07, 0.055, 0.08, 0.8);
 // Cheeks: distance from the middle, height, size.
 uniform vec3 cheek_place = vec3(0.309, 0.566, 0.2);
 uniform vec4 cheek_color : source_color = vec4(0.96, 0.576, 0.576, 0.85);
 // Freckles over the cheeks (their own part, in their own colour, placed as the cheeks are).
 uniform sampler2D freckle_tex : filter_linear_mipmap, repeat_disable, hint_default_transparent;
 uniform vec4 freckle_color : source_color = vec4(0.25, 0.15, 0.12, 1.0);
-uniform vec4 ink_color : source_color = vec4(0.165, 0.102, 0.2, 1.0);
-uniform vec4 cream_color : source_color = vec4(1.0, 0.957, 0.863, 1.0);
+// (A near-black since the face finish pass, 2026-10-20: the dark plum read soft and printed on beside the references' solid black.)
+uniform vec4 ink_color : source_color = vec4(0.07, 0.055, 0.08, 1.0);
+// (A clean white since the face finish pass: the warm cream read greyish and dull.)
+uniform vec4 cream_color : source_color = vec4(1.0, 0.985, 0.95, 1.0);
 
 // Where `uv` falls in a part's drawing (0..1 inside it) for a part at `centre`. `side` is 1 for the right-hand part (or a single one)
 // and -1 for the left, which is mirrored and turned the other way.
@@ -85,6 +89,10 @@ vec3 face_eye(vec3 col, vec2 uv, float side) {
 	float white = face_mask(eye_fill_tex, t);
 	vec2 m = t - 0.5;
 	vec3 e = cream_color.rgb;
+	// The white set into the head (the face finish pass, 2026-10-20): a soft warm shade inside its edge, from a blurred copy of its own
+	// shape, so it reads as part of the face rather than a flat sticker laid on it.
+	float set_in = (t.x < 0.0 || t.x > 1.0 || t.y < 0.0 || t.y > 1.0) ? 0.0 : textureLod(eye_fill_tex, t, 4.0).a;
+	e *= mix(vec3(0.8, 0.74, 0.7), vec3(1.0), smoothstep(0.35, 0.85, set_in));
 	if (eye_mode == 0) {
 		// (Flat, after the reference cast, 2026-10-18: a plain pale white, a solid dark pupil and one small catchlight; the domed white, the
 		// glowing iris and two catchlights read as glossy doll's eyes, not the reference's deadpan drawn eyes.)
