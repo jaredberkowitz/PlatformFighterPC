@@ -275,7 +275,7 @@ static func hide_code_front(root: Node3D, t: Dictionary) -> void:
 		# (The keel only where the island floats: on a terrace stage `Underside` is the hill the stage stands on, the meadow's.)
 		var keel: bool = nm.begins_with("Underside") and not t.get("terrace", false)
 		# (`begins_with`: a rebuilt stage's nodes take a number, `block2`.)
-		if nm.begins_with("quilted_island") or keel or nm.begins_with("block") or nm.begins_with("faceted_ledge") or n.has_meta("code_front"):
+		if nm.begins_with("quilted_island") or keel or nm.begins_with("block") or nm.begins_with("faceted_ledge") or nm.begins_with("strata_ledges") 				or n.has_meta("code_front"):
 			(n as Node3D).visible = false
 
 
@@ -299,7 +299,11 @@ static func place_front(root: Node3D, t: Dictionary, scene: Node3D) -> void:
 		"post": _pal_of(t, "pile_wood", Color(0.44, 0.29, 0.19)).lightened(0.18), "beam": _pal_of(t, "deck_wood", Color(0.5, 0.32, 0.18)),
 		"waterline": Color(0.72, 0.7, 0.58), "iron": Color(0.22, 0.2, 0.22), "rope": Color(0.78, 0.64, 0.42),
 		# (The harbour town's own quay stone, warm: a neutral grey went cold blue-grey under the sea's sky light.)
-		"harbour_stone": _pal_of(t, "quay", Color(0.7, 0.6, 0.48)), "foam": Color(0.9, 0.97, 1.0), "weed": Color(0.26, 0.46, 0.3)}
+		"harbour_stone": _pal_of(t, "quay", Color(0.7, 0.6, 0.48)), "foam": Color(0.9, 0.97, 1.0), "weed": Color(0.26, 0.46, 0.3),
+		# (The canyon's strata, art/blender/make_canyon_front.py: its sandstone, its deep brick and a pale band, as the code-built strata.)
+		# (Wider apart than the code-built strata's: under the dusk light three close reds read as one.)
+		"strata_a": t.get("soil", Color(0.86, 0.5, 0.32)), "strata_b": (t.get("soil_dark", Color(0.68, 0.34, 0.24)) as Color).darkened(0.12),
+		"strata_c": (t.get("soil", Color(0.86, 0.5, 0.32)) as Color).lerp(Color(1.0, 0.86, 0.66), 0.6)}
 	scene.name = "ModelledFront"
 	root.add_child(scene)
 	var top := -INF

@@ -6386,6 +6386,9 @@ static func _strata_ledges(parent: Node3D, t: Dictionary, left: float, right: fl
 	lip.set_shader_parameter("front_span", 4.5)
 	var tm := _mesh(parent, tops.commit(), lip, Vector3.ZERO)
 	tm.set_instance_shader_parameter("front_top", fall_top)
+	# (Part of the front a modelled one replaces, StageBake.hide_code_front.)
+	tm.name = "strata_tops"
+	tm.set_meta("code_front", true)
 
 
 ## A quad a-b-c-d (counter-clockwise seen from outside) into `st`, with normal `n`.

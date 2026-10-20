@@ -208,3 +208,15 @@ beam, X bracing in alternate bays and a low rail, pale waterline bands and rippl
 (0.16 to 0.25 before); fighters 0.53 and 0.60. Cheaper: 732 draw calls against about 920, GPU time the same (3.1 ms both ways, two
 timings each). **Tests:** all pass; `runner_test` failed once on its known shop-hint timing race (fixed on its own branch, not merged
 here) and passed on the next two runs.
+
+## The canyon's front: mocks (2026-10-20)
+
+`art/blender/make_canyon_front.py --variant A|B|C` builds the mesa on the canyon's block: from under the sand top down to the desert floor
+(-16), the column a touch narrower under the block and widening toward the floor as the code-built mesa did, a plain core behind the face
+(so no gap shows the sky), in the canyon's strata colours with the bands set further apart (`strata_a/b/c`: three close reds read as
+one under the dusk). A stacked slabs (10,900 triangles), B fluted cliff (42,300), C stepped ledges (14,700). Faces are subdivided before
+the occlusion bake (on big faces the vertex bake sampled only the corners and smeared). Options in `mocks/canyon_front/` on the owner's
+page; recommended A.
+
+In the game: the strata tops are named `strata_tops` and marked `code_front`, and `hide_code_front` hides `strata_ledges` too; the
+mesa's column (`Underside`) is hidden as a floating island's keel is.
