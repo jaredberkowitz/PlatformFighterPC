@@ -87,3 +87,20 @@ checks rows against the card's real height (`tests/select_grid_test.gd`). `docs/
 
 Checked: choosing, both locked in, four players (badge and tab no longer collide in a narrow panel), run mode; the eight UI tests pass.
 Not checked: a long roster (30 and 100 fighters, which scroll), a long made-up fighter name in a panel, a real gamepad, 1920x1080.
+
+## Mocks for the owner: stage select (2026-10-20)
+
+Today there is no stage select: a "Stage: Meadow" button on fighter select cycles the name (key G), and the online lobby has an arrow
+row. Three layouts, on the daylight ground with the kit's focus, using real stills of the five stages (rendered with the match scene,
+fighters and display hidden: `mocks/stages/`). Sheet: `mocks/stage_options.png` (today's lobby chooser, then layouts 1-3); real size
+`mocks/stage_1.png` to `stage_3.png`. All three keep the match on the top bar (the two fighters in their colours) and a Random card.
+
+| | What leads | Stage cards | Words |
+| --- | --- | --- | --- |
+| 1, preview and row | the focused stage large (60% of the width) | a row of six small cards under it | the name and its line in a column beside the preview |
+| 2, card wall | every stage at once, big | three to a row, the focused one lifted and tilted | its line along the bottom |
+| 3, full bleed | the focused stage fills the screen | a strip of six on an ink band at the foot | the name huge over the picture, its line under it |
+
+Layout 2 grows a row every three stages; 1 and 3 fit about eight in a row before the cards get small. An aside: the stage names describe
+their layouts (Triple Tier, Flat Island) while the pictures read as places (a canyon, a harbour); worth a look when the stages are named
+for good.
