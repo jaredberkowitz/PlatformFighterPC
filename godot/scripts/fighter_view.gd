@@ -3054,7 +3054,7 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 		flip += (-1.0 if way < 0 else 1.0) * TAU * smoothstep(ROLL_SPIN_FROM, ROLL_SPIN_TO, dodge)
 		# (About the curled ball's middle, high enough that the head clears the floor as it comes round.)
 		pivot = Vector3(0, 0.8, 0)
-	model.rotation = Vector3(deg_to_rad(lean) + flip, yaw, 0)
+	model.rotation = Vector3(deg_to_rad(lean) + flip, yaw + _pivot_spin(s), 0)
 	# A spinning neutral air turns the whole body over once backward, in the plane of the stage (see NAIR_SPIN).
 	var spin := _spin(s)
 	if spin != 0.0:
@@ -3767,6 +3767,20 @@ func _place_buckler(s: Dictionary) -> void:
 		return
 	var at: Vector3 = _skeleton_to_frame() * skeleton.get_bone_global_pose(hb).origin
 	shield_disc.position = stage_frame.transform * at + Vector3(0.12 * facing, -0.05, 0.25)
+
+
+## The pivot grab's turn (radians added to the body's yaw): the simulation turns the fighter round at once as the grab starts, so the
+## body spins back from the way it was running, round through the camera, and faces its new way by the grab's first active frame
+## (the playtest notes, 2026-10-19: the pivot grab showed no turn).
+const PIVOT_SPIN := PI
+
+
+func _pivot_spin(s: Dictionary) -> float:
+	if String(s.state) != "Attack" or String(s.move_name) != "pivot grab":
+		return 0.0
+	var first := maxf(1.0, float(s.move_timing[1]))
+	var k := clampf(float(s.state_frame) / first, 0.0, 1.0)
+	return PIVOT_SPIN * float(s.facing) * (1.0 - k * k * (3.0 - 2.0 * k))
 
 
 ## Whether a move of class `cls` is done with the body (a kick, a grab, a throw, a landing hit) rather than the weapon.

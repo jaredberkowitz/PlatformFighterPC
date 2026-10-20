@@ -469,3 +469,16 @@ Fighter view, art pipeline, loadout, animation library, match flow, select grid 
 
 `jump_crouch_pass.png`: the take-off at real speed, before above after, then the landing (after). Fighter view, animation library,
 match flow and replay tests pass.
+
+## Dash and pivot grabs (2026-10-20, item 8 above, the playtest's "dash grabs and pivot grabs need their own animations")
+- Both played the standing grab (`anim_library.gd`), so neither read, and the pivot grab showed no turn: the simulation turns the
+  fighter round at once as it starts.
+- **Dash grab**: its own clip, `body_dash_grab` (`make_rigged_blob.py`): a lunge out of the run, hips dropped, the body pitched forward
+  over a long front step, the back leg stretched out behind, both arms thrown out low.
+- **Pivot grab**: its own clip, `body_pivot_grab`, winding the torso against the turn and whipping it round into the reach, and the
+  body spins round from the way it was running to its new facing by the grab's first active frame (`fighter_view.gd` `PIVOT_SPIN`).
+- Both are body clips (no weapon swing), with the standing grab as their stand-in on a rig without them. Every class maps its grabs
+  through the shared table, so all 14 fighters get them.
+
+`grab_pass.png`: each grab's sheet, before above after (dash grab, then pivot grab). Rig rebuilt (two new clips). Fighter view,
+animation library, art pipeline, match flow, replay and loadout tests pass.

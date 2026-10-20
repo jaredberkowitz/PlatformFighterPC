@@ -3620,6 +3620,20 @@ def main() -> None:
             {"hips": -0.14, "spine": (26.0, 46.0), "head": (-14.0, -30.0), "stance": (64.0, -46.0), "shin.L": (-60.0,), "shin.R": (-4.0,),
              "armL.R": (130.0,), "arms": (-40.0, 40.0)},
             {"hips": -0.08, "spine": (12.0, 20.0), "stance": (40.0, -24.0), "arms": (10.0, 26.0)})
+    # The dash grab (the playtest notes, 2026-10-19: it played the standing grab, so it did not read): a lunge out of the run, the hips
+    # dropped and the body pitched forward over a long front step, the back leg stretched out behind, both arms thrown out low to catch.
+    move_of("body_dash_grab",
+            {"hips": -0.1, "spine": (24.0, 0.0), "head": (-10.0, 0.0), "stance": (40.0, -30.0), "shin.L": (-30.0,), "arms": (48.0, 14.0)},
+            {"hips": -0.16, "spine": (34.0, 0.0), "head": (-16.0, 0.0), "stance": (62.0, -44.0), "shin.L": (-46.0,), "shin.R": (-6.0,),
+             "arms": (84.0, 8.0), "armL.L": (8.0,), "armL.R": (8.0,)},
+            {"hips": -0.1, "spine": (22.0, 0.0), "stance": (42.0, -30.0), "shin.L": (-30.0,), "arms": (70.0, 12.0)})
+    # The pivot grab (the same notes: it showed no turn): the game spins the body round from the way it was running (fighter_view.gd
+    # `PIVOT_SPIN`); the clip winds the torso against the spin and whips it round into the reach, the arms swinging out wide and in.
+    move_of("body_pivot_grab",
+            {"hips": -0.06, "spine": (8.0, 36.0), "head": (0.0, 24.0), "stance": (22.0, -20.0), "arms": (30.0, 44.0)},
+            {"hips": -0.12, "spine": (24.0, -12.0), "head": (-10.0, -6.0), "stance": (40.0, -30.0), "shin.L": (-30.0,),
+             "arms": (84.0, 10.0), "armL.L": (12.0,), "armL.R": (12.0,)},
+            {"hips": -0.08, "spine": (16.0, -4.0), "stance": (30.0, -22.0), "arms": (68.0, 12.0)})
     # Blaster: draw and fire, arm out level, braced.
     move_of("blaster",
             {"spine": (6.0, -20.0), "head": (0.0, 14.0), "stance": (20.0, -20.0)},
