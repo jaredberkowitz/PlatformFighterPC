@@ -67,3 +67,23 @@ Before/after: `pass1_daylight.png` (rows: main menu with Play focused, online, r
 Checked: every menu screen captured on the new ground (`pass1/`): titles are ink banners, key bars dark, cards keep their colour, the
 online help and replays rows read. The eight UI tests pass. Left for their own passes: the controls screen draws its own gold-outline
 focus (not the kit's); the title screen was not captured.
+
+## Pass 2: fighter select rebuilt as "fighters forward" (2026-10-20)
+
+Before/after: `pass2_select.png` (choosing; both locked in); `pass2_select_states.png` (four players; the run's one player).
+
+| | Before | After |
+| --- | --- | --- |
+| Chosen fighters | ~28% of the screen's height, in panels along the bottom | ~37-40%, in tall panels under the top bar, facing across a gold VS with two players; bigger again with four (narrower panels keep the height) |
+| Roster | 2 rows of square cards across the top, names 10 px (1.0% of the height) | a strip of wide cards (0.78 as tall as wide) along the bottom, names 17 px; portraits aimed lower and framed wider so the face clears the name band and the hats stay in |
+| Match rules | Players and Rules top right; Stocks, Time and Stage floating between the grid and the panels | all five on the top bar at the right, dark setting buttons with the value in gold |
+| Title | "VERSUS" and "CHOOSE YOUR FIGHTER" on two banners | the mode on a slim ink bar (the screen says what it is by its layout) |
+| READY TO FIGHT | a band over the panels | over the roster strip, which is done with by then |
+| News (status) | white text straight on the ground | the kit's notice (gold on an ink band) between the fighters and the strip |
+
+Causes and files: `ui/select.gd` (`GRID_AREA`, `GRID_TOP`, `CARD_H`, `card_height`, `PANEL_TOP`, `PANEL_H`, `Header`, `_layout_panels`,
+`_rule_button`; the panel's `lay_out` takes a height and `BASE_Y` moved down so the feet stand on the name band). The grid test now
+checks rows against the card's real height (`tests/select_grid_test.gd`). `docs/MENUS.md` describes the new screen.
+
+Checked: choosing, both locked in, four players (badge and tab no longer collide in a narrow panel), run mode; the eight UI tests pass.
+Not checked: a long roster (30 and 100 fighters, which scroll), a long made-up fighter name in a panel, a real gamepad, 1920x1080.

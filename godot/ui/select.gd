@@ -1,7 +1,8 @@
 extends Control
-## Character select: a grid of roster cards (each with the fighter's own 3D portrait; the built-in fighters, every fighter saved from
-## the creator, a random pick and a "new fighter" door), a big card for each player along the bottom, and a "ready to fight" band
-## once everyone has locked in.
+## Character select, "fighters forward" (the owner's pick of 2026-10-19, docs/art/ui/mocks/select_options.png layout 3): the chosen
+## fighters large in a tall panel each (facing across a VS with two players), the roster as a strip of cards along the bottom (each with
+## the fighter's own 3D portrait; the built-in fighters, every fighter saved from the creator, a random pick and a "new fighter" door),
+## the match rules in a bar along the top, and a "ready to fight" band over the strip once everyone has locked in.
 ##
 ## Player 1: W A S D move, J locks in, K takes it back.   Player 2: arrow keys move, Enter locks in, Backspace takes it back.
 ## Mouse: left click picks for player 1, right click for player 2.   E edits the saved fighter player 1 is on.
@@ -19,10 +20,13 @@ const Roster := preload("res://scripts/roster.gd")
 const Shot := preload("res://ui/shot.gd")
 const PadNav := preload("res://scripts/pad_nav.gd")
 
-## The roster grid fits its cards into the band under the header (GRID_AREA): as many fighters are saved, it starts new rows and makes
-## every card smaller (from TOKEN_MAX down to TOKEN_MIN), so a long roster still shows whole at once; past what fits at the smallest
-## size (the roster holds up to Roster.MAX_FIGHTERS) it scrolls. `grid_layout` picks the columns and the card size.
-const GRID_AREA := Vector2(1180, 236)
+## The roster grid fits its cards into the strip along the bottom (GRID_AREA, from GRID_TOP): as many fighters are saved, it starts new
+## rows and makes every card smaller (from TOKEN_MAX down to TOKEN_MIN wide), so a long roster still shows whole at once; past what fits
+## at the smallest size (the roster holds up to Roster.MAX_FIGHTERS) it scrolls. `grid_layout` picks the columns and the card width; a
+## card is CARD_H of its width tall (wider than tall: head and shoulders), plus 12 for its lift and body.
+const GRID_AREA := Vector2(1192, 214)
+const GRID_TOP := 452.0
+const CARD_H := 0.78
 const TOKEN_MAX := 132
 const TOKEN_MIN := 52
 const GRID_GAP := Vector2(10, 12)
@@ -38,13 +42,18 @@ static func grid_layout(n: int) -> Array:
 	for cols in range(1, maxi(1, n) + 1):
 		var rows := ceili(float(n) / float(cols))
 		var by_width := floori((GRID_AREA.x - GRID_GAP.x) / float(cols) - GRID_GAP.x)
-		var by_height := floori(GRID_AREA.y / float(rows) - GRID_GAP.y - 12.0)
+		var by_height := floori((GRID_AREA.y / float(rows) - GRID_GAP.y - 12.0) / CARD_H)
 		var t := mini(TOKEN_MAX, mini(by_width, by_height))
 		if t > int(best[1]):
 			best = [cols, t]
 	if int(best[1]) < TOKEN_MIN:
 		return [floori((GRID_AREA.x - GRID_GAP.x) / (TOKEN_MIN + GRID_GAP.x)), TOKEN_MIN]
 	return best
+## A card's face height for a card `t` wide.
+static func card_height(t: int) -> int:
+	return int(t * CARD_H)
+
+
 ## The roster cards' colours, in turn (the built-in fighters first), and the random and new-fighter cards'.
 const CARD_COLORS := [Art.CORAL, Art.BLUE, Art.SUN, Art.VIOLET, Art.GREEN, Art.TEAL]
 const RANDOM_COLOR := Color("252a52")
@@ -53,6 +62,9 @@ const NEW_COLOR := Color("1f7a5a")
 const KEYS := [["WASD", "P1 move   J lock   K back"], ["\u2190\u2192", "P2 move   Enter lock   Bksp back"], ["C", "Computer"],
 	["E", "Edit"], ["T", "Stocks"], ["Y", "Time"], ["G", "Stage"], ["Esc", "Menu"]]
 const RUN_KEYS := [["WASD", "Move   J lock   K back"], ["Enter", "Run"], ["E", "Edit"], ["Esc", "Menu"]]
+## The players' panels' top and height (between the top bar and the news line over the roster).
+const PANEL_TOP := 64.0
+const PANEL_H := 348.0
 const P_COLORS := [Color(0.92, 0.36, 0.36), Color(0.36, 0.52, 0.95), Color(0.95, 0.78, 0.3), Color(0.4, 0.8, 0.5)]
 const P_DISC := [Color(0.98, 0.72, 0.72), Color(0.74, 0.8, 0.98), Color(0.99, 0.9, 0.62), Color(0.76, 0.94, 0.8)]
 
@@ -85,6 +97,7 @@ var stage_button: Control
 var thumbs_frozen := false
 var panels_overlay: Control
 var frames := 0
+var header: Control
 
 
 class Card extends Control:
@@ -105,7 +118,7 @@ class Card extends Control:
 
 	func _init(t := 118) -> void:
 		token = t
-		custom_minimum_size = Vector2(token, token + 12)
+		custom_minimum_size = Vector2(token, int(token * CARD_H) + 12)
 		mouse_filter = Control.MOUSE_FILTER_STOP
 		mouse_entered.connect(func():
 			hover = true
@@ -142,7 +155,7 @@ class Card extends Control:
 		r.position.y -= lift
 		draw_circle(r.get_center() + Vector2(0, -10), r.size.x * 0.34, Color(1, 1, 1, 0.14))
 		if glyph != "":
-			Art.title_centered(self, glyph, Rect2(r.position, r.size - Vector2(0, 26)), int(70.0 * token / 118.0), Art.SUN, 0.12)
+			Art.title_centered(self, glyph, Rect2(r.position, r.size - Vector2(0, 26)), int(58.0 * token / 118.0), Art.SUN, 0.12)
 
 	## Drawn over the portrait: the name on its brush stroke, the player outlines and the casual tag.
 	func paint_over(over: Control) -> void:
@@ -152,7 +165,8 @@ class Card extends Control:
 		var band := Rect2(Vector2(r.position.x + 2, r.end.y - 30.0 * scale_k), Vector2(r.size.x - 6, 28.0 * scale_k))
 		Art.brush_band(over, band, Color(Art.INK, 0.92), seed + 5, 8.0 * scale_k, false, 0.4)
 		if name_text != "":
-			Art.title_centered(over, name_text.to_upper(), band.grow_individual(-6, 0, -10, 0), maxi(9, int(17.0 * scale_k)), Color.WHITE, 0.14)
+			# (Bigger since the select rebuild, 2026-10-19: at 1.0% of the screen's height the names were unreadable from a couch.)
+			Art.title_centered(over, name_text.to_upper(), band.grow_individual(-6, 0, -10, 0), maxi(11, int(19.0 * scale_k)), Color.WHITE, 0.14)
 		for k in rings.size():
 			var g := r.grow(3.0 + k * 6.0)
 			var pts := PackedVector2Array([g.position + Vector2(12, 0), Vector2(g.end.x, g.position.y), Vector2(g.end.x, g.end.y - 12),
@@ -215,7 +229,8 @@ class PlayerPanel extends Control:
 	var cpu := false
 	const LEAN := 30.0
 	## The fighter's resting height in the panel, and how far it rises from on a new pick and hops on locking in.
-	const BASE_Y := -26.0
+	# (Lower since the select rebuild, 2026-10-19: in the tall panels the fighter's feet floated over its name and its hat left the frame.)
+	const BASE_Y := 4.0
 	const PICK_RISE := 30.0
 	const LOCK_HOP := 18.0
 	var pick_t := 1.0
@@ -235,7 +250,7 @@ class PlayerPanel extends Control:
 		player = p
 		disc_color = disc
 		flag_color = flag
-		custom_minimum_size = Vector2(300, 290)
+		custom_minimum_size = Vector2(200, 200)
 		mouse_filter = Control.MOUSE_FILTER_IGNORE
 		mask = UI.Mask.new()
 		add_child(mask)
@@ -256,15 +271,17 @@ class PlayerPanel extends Control:
 	func _frame() -> Rect2:
 		return Rect2(Vector2(10, 8), size - Vector2(20, 22))
 
-	func lay_out(w: float) -> void:
-		size = Vector2(w, 290)
+	func lay_out(w: float, h := 290.0) -> void:
+		size = Vector2(w, h)
 		var f := _frame()
 		mask.position = f.position + Vector2(8, 8)
 		mask.size = f.size - Vector2(16, 16)
 		mask.set_shape(PackedVector2Array([Vector2(LEAN, 0), Vector2(mask.size.x, 0), Vector2(mask.size.x - LEAN, mask.size.y), Vector2(0, mask.size.y)]))
 		scenery.size = mask.size
-		var pw := minf(w * 0.8, 300.0)
-		preview.size = Vector2(pw, 260)
+		# The fighter fills the panel's height (the camera keeps the height, so a taller view is a bigger fighter).
+		var ph := h - 30.0
+		var pw := minf(w * 0.86, ph * 1.1)
+		preview.size = Vector2(pw, ph)
 		preview.position = Vector2(w * 0.5 - pw * 0.5 + 10.0, BASE_Y)
 
 
@@ -302,10 +319,10 @@ class PlayerPanel extends Control:
 		f.position += position
 		if empty:
 			Art.title_centered(over, "?", Rect2(f.position, f.size - Vector2(0, 60)), 110, Color(1, 1, 1, 0.75))
-		var band := Rect2(Vector2(f.position.x + 24, f.end.y - 52), Vector2(minf(f.size.x * 0.62, 420.0), 58))
+		var band := Rect2(Vector2(f.position.x + 24, f.end.y - 60), Vector2(minf(f.size.x * 0.7, 440.0), 66))
 		Art.brush_band(over, band, flag_color.darkened(0.1), 70 + player, 16.0, true, 1.0)
 		var shown := name_text.to_upper() if not empty else "CHOOSE A FIGHTER"
-		Art.title_centered(over, shown, band.grow_individual(-10, 0, -24, 0), 40, Color.WHITE, 0.12)
+		Art.title_centered(over, shown, band.grow_individual(-10, 0, -24, 0), 48 if f.size.x > 400.0 else 36, Color.WHITE, 0.12)
 		if not empty and class_text != "":
 			var f_cap := D.font()
 			var cap_w := f_cap.get_string_size(class_text, HORIZONTAL_ALIGNMENT_LEFT, -1, UI.TYPE_CAPTION).x + 24.0
@@ -316,7 +333,9 @@ class PlayerPanel extends Control:
 		Art.brush_band(over, tab, flag_color.darkened(0.05), 90 + player, 10.0, true, 0.5)
 		Art.title_centered(over, "CPU" if cpu else "P%d" % (player + 1), tab, 30, Color.WHITE, 0.14)
 		if is_ready:
-			var badge := Rect2(Vector2(f.end.x - 196, f.position.y + 6), Vector2(170, 48))
+			# (Narrower in a narrow panel, the select rebuild: with four players it ran into the P tab.)
+			var bw := minf(170.0, f.size.x - 140.0)
+			var badge := Rect2(Vector2(f.end.x - bw - 26.0, f.position.y + 6), Vector2(bw, 48))
 			Art.brush_band(over, badge, Art.SUN, 110 + player, 12.0, true, 0.6)
 			Art.title_centered(over, "READY!", badge, 30, Art.INK, 0.0)
 
@@ -353,19 +372,28 @@ class PanelsOverlay extends Control:
 
 
 class Header extends Control:
-	## The screen's title: "VERSUS" (or "RUN") on a gold brush stroke and "CHOOSE YOUR FIGHTER" on a dark one.
+	## The bar along the top: an ink band across the screen with a gold line under it, the mode ("VERSUS" or "RUN") at its left; the
+	## match rules sit on it at the right (the screen places them). With two players, the gold "VS" between their panels.
 	var mode_text := "VERSUS"
+	var show_vs := true:
+		set(v):
+			show_vs = v
+			queue_redraw()
 
 	func _init() -> void:
+		set_anchors_preset(Control.PRESET_FULL_RECT)
 		mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 	func _draw() -> void:
-		var big := Rect2(Vector2(250, 8), Vector2(490, 74))
-		Art.brush_band(self, big, Art.INK, 3, 22.0, true, 1.0)
-		Art.title(self, "CHOOSE YOUR FIGHTER", Vector2(big.position.x + 32, big.end.y - 18), 54, Color.WHITE, 0.0)
-		var small := Rect2(Vector2(22, 14), Vector2(210, 62))
-		Art.brush_band(self, small, Art.SUN, 5, 18.0, true, 0.8)
-		Art.title_centered(self, mode_text, small.grow_individual(-8, 0, -14, 0), 40, Art.INK, 0.0)
+		draw_rect(Rect2(0, 0, size.x, TOP_BAR), Color(Art.INK, 0.94))
+		draw_line(Vector2(0, TOP_BAR), Vector2(size.x, TOP_BAR), D.GOLD, 3.0)
+		Art.title(self, mode_text, Vector2(40, 43), UI.TYPE_HEADING, Color.WHITE, 0.0)
+		if show_vs:
+			Art.title_centered(self, "VS", Rect2(Vector2(580, 180), Vector2(120, 110)), 80, D.GOLD, 0.12)
+
+
+## The top bar's height.
+const TOP_BAR := 58.0
 
 
 class Ribbon extends Control:
@@ -403,10 +431,9 @@ func _ready() -> void:
 	add_child(UI.Backdrop.new(true))
 
 	run_mode = Roster.session.get("mode", "") == "run"
-	var header := Header.new()
+	header = Header.new()
 	if run_mode:
 		header.mode_text = "RUN"
-	header.size = Vector2(800, 100)
 	add_child(header)
 
 	entries = Roster.all()
@@ -419,7 +446,7 @@ func _ready() -> void:
 	token = fit[1]
 	var shown := mini(columns, entries.size() + specials.size())
 	var grid_w := shown * (token + int(GRID_GAP.x)) + int(GRID_GAP.x)
-	scroll.position = Vector2(640 - grid_w * 0.5, 92)
+	scroll.position = Vector2(640 - grid_w * 0.5, GRID_TOP)
 	scroll.size = Vector2(grid_w + 16, GRID_AREA.y)
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	add_child(scroll)
@@ -436,15 +463,17 @@ func _ready() -> void:
 			card.name_text = entries[i].name
 			card.casual = not Roster.ranked_legal(entries[i])
 			# The fighter's own 3D portrait, rendered once (see `_process`).
-			var thumb := Preview.new(Vector2i(maxi(24, token - 24), maxi(24, token - 30)), false, 4.6)
+			# (Down to the card's foot, under the name band, since the cards went wide in the select rebuild: the face had only half the card.)
+			var thumb := Preview.new(Vector2i(maxi(24, token - 24), maxi(24, card_height(token) - 14)), false, 4.6)
 			thumb.position = Vector2(10, 12)
 			thumb.spin = false
 			thumb.facing_bias = 0.35
 			# Head and shoulders, as the reference fighters' portraits are (art review 6 round 2: the whole body at this size left the face a
 			# few pixels across and the roster a row of near-identical dolls; the face, hair and hat are what tell fighters apart).
 			# (Up and back a little for the rebuilt body's bigger head, 2026-10-18: framed for the old one, it cut the hats and crowns off.)
-			thumb.camera.position = Vector3(0, 2.02, 3.5)
-			thumb.camera.look_at_from_position(thumb.camera.position, Vector3(0, 1.8, 0))
+			# (Closer since the select rebuild: a wide card shows the head small at the old distance.)
+			thumb.camera.position = Vector3(0, 1.86, 3.95)
+			thumb.camera.look_at_from_position(thumb.camera.position, Vector3(0, 1.56, 0))
 			thumb.set_loadout(entries[i].look)
 			card.add_child(thumb)
 		else:
@@ -461,7 +490,7 @@ func _ready() -> void:
 			var flag := PTab.new("P%d" % (p + 1), P_COLORS[p], 60 + p)
 			# Sized with the card and kept inside it, two to a row (players 3 and 4 under 1 and 2, clear of the name): they hung over the
 			# card's edges, so two players on neighbouring cards stacked their tabs (the UI pass, docs/art/ui/UI_ANALYSIS.md).
-			var tab := Vector2(clampf(token * 0.46, 28.0, 50.0), clampf(token * 0.26, 16.0, 28.0))
+			var tab := Vector2(clampf(token * 0.4, 28.0, 46.0), clampf(token * 0.22, 16.0, 26.0))
 			flag.size = tab
 			flag.position = Vector2(0.0 if p % 2 == 0 else token - tab.x, -1.0 + (p / 2) * (tab.y + 1.0))
 			flag.visible = false
@@ -479,57 +508,32 @@ func _ready() -> void:
 
 	var footer := UI.KeyBar.new(RUN_KEYS if run_mode else KEYS)
 	# (Up from 686, 2026-10-18: the bar's keys were cut by the bottom of the screen.)
-	footer.position = Vector2(60, 672)
+	footer.position = Vector2(60, 674)
 	footer.size = Vector2(1160, 30)
 	add_child(footer)
 
-	status = UI.Tag.new("", Vector2(760, 30))
-	status.fill = Color(1, 1, 1, 0)
-	status.ink = Color(1, 1, 1)
-	status.shadow = false
-	status.font_size = 20
-	status.position = Vector2(260, 372)
+	# News (the rules' meaning, players 3 and 4) on a dark band between the fighters and the roster.
+	status = UI.notice(Vector2(340, 410), 600, UI.TYPE_BODY)
 	add_child(status)
 
-	rules_button = UI.Btn.new("Rules: Casual", Vector2(260, 50))
-	rules_button.setting = true
-	rules_button.font_size = 22
-	rules_button.position = Vector2(1006, 8)
-	rules_button.activated.connect(_toggle_ranked)
-	add_child(rules_button)
-
-	players_button = UI.Btn.new("Players: 2", Vector2(220, 50))
-	players_button.setting = true
-	players_button.font_size = 22
-	players_button.position = Vector2(780, 8)
-	players_button.activated.connect(_cycle_players)
-	add_child(players_button)
+	# The match rules, on the top bar at the right (they floated between the grid and the panels before the rebuild).
 	Roster.load_match_rules()
-	stocks_button = UI.Btn.new("", Vector2(220, 44))
-	stocks_button.setting = true
-	stocks_button.font_size = 20
-	stocks_button.position = Vector2(250, 330)
-	stocks_button.activated.connect(func(): _cycle_rules(true))
-	add_child(stocks_button)
-	time_button = UI.Btn.new("", Vector2(220, 44))
-	time_button.setting = true
-	time_button.font_size = 20
-	time_button.position = Vector2(480, 330)
-	time_button.activated.connect(func(): _cycle_rules(false))
-	add_child(time_button)
-	stage_button = UI.Btn.new("", Vector2(320, 44))
-	stage_button.setting = true
-	stage_button.font_size = 20
-	stage_button.position = Vector2(710, 330)
-	stage_button.activated.connect(_cycle_stage)
-	add_child(stage_button)
+	players_button = _rule_button("Players: 2", 150.0, _cycle_players)
+	rules_button = _rule_button("Rules: Casual", 170.0, _toggle_ranked)
+	stocks_button = _rule_button("", 160.0, func(): _cycle_rules(true))
+	time_button = _rule_button("", 140.0, func(): _cycle_rules(false))
+	stage_button = _rule_button("", 230.0, _cycle_stage)
+	var x := 1250.0
+	for b in [stage_button, time_button, stocks_button, rules_button, players_button]:
+		x -= b.custom_minimum_size.x
+		b.position = Vector2(x, 5)
+		x -= 4.0
 	_show_match_rules()
 
-	# The band across the screen once everyone has locked in.
+	# The band across the roster once everyone has locked in (the roster is done with by then).
 	start_button = Ribbon.new()
-	# (In the gap between the grid and the players' panels, 2026-10-19: at 296-392 it covered the P tabs and the panels' tops.)
-	start_button.position = Vector2(-20, 304)
-	start_button.size = Vector2(1320, 72)
+	start_button.position = Vector2(-20, 500)
+	start_button.size = Vector2(1320, 84)
 	start_button.activated.connect(_start)
 	start_button.visible = false
 	add_child(start_button)
@@ -554,6 +558,16 @@ func _ready() -> void:
 	Music.of(self).play("menu")
 	UI.reveal(self)
 	Shot.attach(self)
+
+
+## A match rule on the top bar: a dark setting button, its value in gold.
+func _rule_button(text: String, w: float, action: Callable) -> Control:
+	var b := UI.Btn.new(text, Vector2(w, 48))
+	b.setting = true
+	b.font_size = 20
+	b.activated.connect(action)
+	add_child(b)
+	return b
 
 
 ## The roster portraits are rendered for a few frames when the screen opens, then left as still pictures (they cost nothing after).
@@ -780,13 +794,18 @@ func _all_locked() -> bool:
 
 
 ## The players' cards share the bottom of the screen.
+## The players' panels between the top bar and the roster: two face each other across the VS; three or four stand side by side; the run's
+## one stands in the middle.
 func _layout_panels() -> void:
-	var gap := 16.0
-	var w := (1280.0 - 40.0 - gap * (count - 1)) / count
+	var gap := 80.0 if count == 2 else 12.0
+	var w := (1220.0 - gap * (count - 1)) / count if count > 1 else 600.0
+	var x0 := 30.0 if count > 1 else 640.0 - w * 0.5
 	for p in 4:
 		var panel: Control = panels[p]
-		panel.position = Vector2(20.0 + p * (w + gap), 378)
-		panel.lay_out(w)
+		panel.position = Vector2(x0 + p * (w + gap), PANEL_TOP)
+		panel.lay_out(w, PANEL_H)
+	if header != null:
+		header.show_vs = count == 2
 	if panels_overlay != null:
 		panels_overlay.queue_redraw()
 	players_button.text = "Players: %d" % count
