@@ -249,3 +249,10 @@ through it as pale dots. (`fighter_view.gd`)
 **Checked**: `sash_pass.png` (left before, right after, the lineup), chest close-ups at rest and arms forward and overhead, the roster
 sheet and the in-match moves demo. Fighter view, loadout, art pipeline, animation library and match flow tests pass.
 
+## Aviator cap pass: fleece ear flaps (2026-10-19)
+Side-on, each ear flap of the aviator's cap read as a flat brown disc pasted on the cheek, and the fleece edge down its front (five
+separate balls) as a string of beads. In the owner's style reference the flaps are the same fleece as the rim. `make_gear.py`
+`aviator_cap`: each flap is now one soft lumpy fleece pad (`fleece_flap`), its top tucked up under the fleece roll so it hangs from the
+rim, wider at the top and tapering past the jaw; the leather tongues and the bead edges are gone (two fewer meshes per side).
+`aviator_cap_pass.png` (top before, bottom after: front, three-quarter, side). Loadout, fighter view and art pipeline tests pass.
+

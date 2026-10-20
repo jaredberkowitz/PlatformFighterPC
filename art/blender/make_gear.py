@@ -240,38 +240,30 @@ def aviator_cap():
             for lp, (a_, b_) in zip(f.loops, ((i, j), (i + 1, j), (i + 1, j + 1), (i, j + 1))):
                 lp[uv].uv = (a_ / n * 7.0, b_ / minor * 0.6)
     to_object("fleece_trim", bm).parent = root
-    # Ear flaps: long leather tabs hanging past the jaw, each lined with fleece that shows round its edge.
+    # Ear flaps: fleece pads hanging from the fleece roll down beside each cheek.
+    # (Fleece all through since the cap pass, 2026-10-19, after the owner's style reference, whose flaps are the same fleece as the rim:
+    # the leather tongue read side-on as a flat brown disc pasted on the cheek, and the fleece edge down its front, five separate balls,
+    # as a string of beads. Now one soft lumpy pad, wider at the top where it joins the roll, tapering down past the jaw.)
+    rng_f = random.Random(7)
     for sx in (-1.0, 1.0):
         nm = "L" if sx < 0 else "R"
-        # (Hugging the cheeks, the leather outside and only a rim of fleece showing, the character judge's round 1: pale paddles hanging
-        # free read as bunny ears.)
-        # (One padded leather tongue with its fleece rim, no separate lining, the character judge's round 13: from the far side the lining
-        # read as an empty shell.)
-        for part, k, inset in (("leather_flap", 1.0, 0.0),):
-            bm = bmesh.new()
-            ret = bmesh.ops.create_uvsphere(bm, u_segments=20, v_segments=14, radius=1.0, calc_uvs=True)
-            for v in ret["verts"]:
-                # (A quarter smaller and padded thicker, folded in at its lower edge, the character judge's round 2.)
-                # (Hanging below the fleece in front of the hair as a padded tongue, the character judge's round 3: hidden, its top read as a
-                # dark disc on the cheek.)
-                # (Thin, hugging the cheek, the character judge's round 4: thick, it cupped out as a headphone.)
-                # (Narrow front to back, so side-on it is a strap down the cheek, not a disc, the character judge's round 6.)
-                v.co = Vector((v.co.x * 0.1, v.co.y * 0.19 * k, v.co.z * 0.44 * k))
-                # (Curving in under the jaw, following the cheek.)
-                v.co.x -= sx * 0.12 * max(0.0, -v.co.z / 0.44) ** 2
-            # (Forward and down beside the cheeks, so they show at three-quarter, the character judge's round 9.)
-            bmesh.ops.translate(bm, vec=Vector((sx * (0.84 + inset), -0.22, 0.98)), verts=ret["verts"])
-            to_object(part + nm, bm).parent = root
-    # A fleece edge down the front of each ear flap (the character judge's round 14: the bare leather flaps framed the face like a bowl
-    # haircut): a lumpy fleece roll from under the brim to the flap's foot.
-    for sx in (-1.0, 1.0):
         bm = bmesh.new()
-        pts = [Vector((sx * 0.9, -0.38, 1.36 - 0.11 * k)) - Vector((sx * 0.03 * k, 0.0, 0.0)) for k in range(5)]
-        for k, p in enumerate(pts):
-            ret = bmesh.ops.create_uvsphere(bm, u_segments=10, v_segments=7, radius=0.075 - 0.006 * k, calc_uvs=True)
-            for v in ret["verts"]:
-                v.co += p
-        to_object("fleece_edge" + ("L" if sx < 0 else "R"), bm).parent = root
+        ret = bmesh.ops.create_uvsphere(bm, u_segments=20, v_segments=14, radius=1.0, calc_uvs=True)
+        bumps = [(Vector((rng_f.uniform(-1, 1), rng_f.uniform(-1, 1), rng_f.uniform(-1, 1))).normalized(), rng_f.uniform(0.04, 0.08))
+                 for _ in range(9)]
+        for v in ret["verts"]:
+            n0 = v.co.normalized()
+            # (Soft lumps, as the rim's roll: fleece, not a smooth egg.)
+            k_l = 1.0 + sum(h * max(0.0, n0.dot(d)) ** 6 for d, h in bumps)
+            down = max(0.0, -v.co.z)
+            # Wider at the top, tapering toward its foot.
+            w = 1.0 - 0.4 * down
+            v.co = Vector((v.co.x * 0.15 * k_l, v.co.y * 0.19 * w * k_l, v.co.z * 0.5 * k_l))
+            # (Curving in under the jaw, following the cheek.)
+            v.co.x -= sx * 0.12 * max(0.0, -v.co.z / 0.5) ** 2
+        # (Its top tucked up under the fleece roll, so it hangs from the rim rather than sitting on the cheek as a separate pad.)
+        bmesh.ops.translate(bm, vec=Vector((sx * 0.87, -0.16, 1.2)), verts=ret["verts"])
+        to_object("fleece_flap" + nm, bm).parent = root
     # (No hair: the hat covers it all, the owner, 2026-10-19; hair pieces are to be their own items.)
     # The goggles pushed up on the front of the crown, oversized (the character judge's round 14: the aviator's signature from every angle,
     # lost with the hair): two brass rims with glass on a leather strap round the crown.
