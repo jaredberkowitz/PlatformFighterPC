@@ -435,7 +435,9 @@ func _build_rig(skin: Material) -> bool:
 			mi.visible = loadout.shirt > 0 and not (part.begins_with("ShirtCollar") and (loadout.neck >= 2 or loadout.shirt == 4))
 			mi.material_override = _cloth(toon(_collar_colour()))
 		elif part.begins_with("Buttons"):
-			mi.visible = loadout.shirt > 0
+			# (Not under a sash, the badge pass, 2026-10-19: the band crosses the button line and the buttons poked through it as a row of
+			# pale dots in the middle of the chest.)
+			mi.visible = loadout.shirt > 0 and not (loadout.neck == 1 or loadout.neck == 5)
 			mi.material_override = toon(Color(0.95, 0.9, 0.78))
 		elif part.begins_with("Shirt"):
 			var cloth := _garment_shirt_material()
@@ -1692,6 +1694,13 @@ static func _cloth(m: Material) -> Material:
 	return c
 
 
+## The sash's badges: how many, where along the band (degrees round it), how much bigger than built, and how much of their enamel colour
+## is muted toward grey (0.45 until the badge pass, 2026-10-19: pale, they read as rings, not badges).
+const SASH_BADGES := 4
+const SASH_BADGE_FROM := 44.0
+const SASH_BADGE_STEP := 31.0
+const SASH_BADGE_SIZE := 1.2
+const SASH_BADGE_MUTE := 0.25
 const CLOTH_OUTLINE_PUSH_BACK := 2.2
 const CLOTH_OUTLINE_THIN := 0.65
 ## How much the rim light flares with a hit's flash (times its usual strength at a full flash).
@@ -2013,7 +2022,7 @@ func _glasses_fit(face_centre: float, face_size: float, depth_scale: float, dept
 
 
 ## How much wider the sash is drawn over a shirt (the shirt stands off the skin, make_rigged_blob.py SHIRT_LIFT).
-const SASH_OVER_SHIRT := 1.2
+const SASH_OVER_SHIRT := 1.36   # (1.2 until the badge pass, 2026-10-19: the puffed shirt broke through the band in white wedges)
 
 
 ## Neckwear for the rigged torso (TORSO_CENTRE_Y, TORSO_RADII). Rings are tori sized to hug it, so nothing pokes through the body whatever
@@ -2151,14 +2160,16 @@ func _neck_piece(accent: Color, kind: int) -> void:
 			var brass := respond(toon(Color(0.86, 0.68, 0.32)), "gold")
 			var colours := [Color(0.92, 0.32, 0.28), accent, Color(0.3, 0.52, 0.86), Color(0.98, 0.8, 0.28), Color(0.4, 0.7, 0.42),
 				Color(0.62, 0.42, 0.8)]
-			# (All six in one mesh, a surface per material, so the sash keeps to the loadout's mesh budget.)
+			# (Four, spread along the strap from the shoulder to the hip, a little bigger, since the badge pass, 2026-10-19: six packed into the
+			# middle of the chest every 13.5 degrees merged into one cluster of rings at any distance; the reference's sit apart.)
+			# (All in one mesh, a surface per material, so the sash keeps to the loadout's mesh budget.)
 			var tools := {}
 			var order: Array = []
-			for k in 6:
-				var t := deg_to_rad(58.0 + 13.5 * k)
+			for k in SASH_BADGES:
+				var t := deg_to_rad(SASH_BADGE_FROM + SASH_BADGE_STEP * k)
 				var out := Vector3(0.88 * cos(t), 0.0, sin(t)).normalized()
 				var at_b := Vector3(0.88 * 0.655 * cos(t), 0.0, 0.655 * sin(t))
-				var turn := Basis(Quaternion(Vector3.UP, out)) * Basis(Vector3.UP, deg_to_rad(8.0 * float(k % 3 - 1)))
+				var turn := Basis(Quaternion(Vector3.UP, out)) * Basis(Vector3.UP, deg_to_rad(8.0 * float(k % 3 - 1))) * Basis.from_scale(Vector3.ONE * SASH_BADGE_SIZE)
 				for piece in [[plates[k], "brass"], [faces[k], "face%d" % k], [marks[k], "mark"]]:
 					var key: String = piece[1]
 					if not tools.has(key):
@@ -2174,7 +2185,7 @@ func _neck_piece(accent: Color, kind: int) -> void:
 			for i in order.size():
 				var key: String = order[i]
 				var c_b: Color = colours[int(key.substr(4))] if key.begins_with("face") else Color.WHITE
-				var m: Material = brass if key == "brass" else (toon(Color(0.98, 0.95, 0.88)) if key == "mark" else respond(toon(c_b.lerp(Color(0.55, 0.5, 0.5), 0.45)), "rubber"))
+				var m: Material = brass if key == "brass" else (toon(Color(0.98, 0.95, 0.88)) if key == "mark" else respond(toon(c_b.lerp(Color(0.55, 0.5, 0.5), SASH_BADGE_MUTE)), "rubber"))
 				bm.set_surface_override_material(i, m)
 			# The sash's knotted end hanging at the hip, swinging with the body (`TailRig`).
 			# (No knotted tail since the character judge's round 1: the reference's sash ends at the hip.)

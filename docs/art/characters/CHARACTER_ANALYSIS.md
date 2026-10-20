@@ -237,3 +237,15 @@ The hands are measured from the thinner wrist and come out about 7% smaller (`gr
 Forward smash (sword in the fist through the swing), the brawler's jab, the run and the in-match moves demo look right. Fighter view,
 art pipeline, loadout, animation library and match flow tests pass.
 
+## Sash pass: a clean band (2026-10-19)
+The most visible clutter left was the chest: six badges packed into the middle of the sash every 13.5 degrees and greyed toward their
+brass rims read as a cluster of rings; the puffed shirt broke through the band in white wedges; and the shirt's three buttons poked
+through it as pale dots. (`fighter_view.gd`)
+- Four badges (`SASH_BADGES`), spread from the shoulder to the hip (`SASH_BADGE_FROM` 44, `SASH_BADGE_STEP` 31 degrees), a fifth
+  bigger (`SASH_BADGE_SIZE`), the enamel less muted (`SASH_BADGE_MUTE` 0.25, from 0.45).
+- The band sits further out over a shirt (`SASH_OVER_SHIRT` 1.36, from 1.2): solid, with no gap at the sides.
+- The shirt's buttons are hidden under a sash (neckwear 1 and 5); the placket stays.
+
+**Checked**: `sash_pass.png` (left before, right after, the lineup), chest close-ups at rest and arms forward and overhead, the roster
+sheet and the in-match moves demo. Fighter view, loadout, art pipeline, animation library and match flow tests pass.
+
