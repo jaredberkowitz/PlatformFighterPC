@@ -1178,7 +1178,8 @@ static func solid_block(parent: Node3D, t: Dictionary, left: float, right: float
 		# (The mortar a dark grey-brown, art review 9: the red earth tile between the stones read as brick.)
 		# (Not too dark, gauntlet round 4's greyscale test: near-black joints round pale stones made the wall the most contrasty, busiest
 		# thing on screen, right under the fight.)
-		body.material_override = FighterView.toon(Color(0.2, 0.27, 0.23) if t.name == "meadow" else Color(0.4, 0.36, 0.34))
+		# (The meadow's body behind its ledge a step under the ledge's own colour, as the other ledged fronts are, stage refinement pass 2.)
+		body.material_override = FighterView.toon((t.ledge as Color).darkened(0.35) if t.name == "meadow" else Color(0.4, 0.36, 0.34))
 		var field := t.duplicate()
 		# (Warm fieldstone, a step darker than the lawn is light, so the wall sits under the field instead of outshining it.)
 		# (A step deeper, round 33: the upper courses matched the lawn's value, so the front did not sit under the top.)

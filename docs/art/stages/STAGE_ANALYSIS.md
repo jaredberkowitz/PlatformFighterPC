@@ -68,3 +68,23 @@ top-left, top-right, bottom-left, bottom-right):
 Two first tries were dropped: a warm grey stone (0.5, 0.44, 0.36) came out concrete grey (sat 0.08) under the stage's cool fill, and a
 light sage (0.42, 0.54, 0.44) went the pale blue-grey the judge's round 39 rejected. Recommended: D. Seen in every option: the facets
 barely show (contrast 0.03); once a colour is picked, the next step is a stronger lit/shaded split between the planes.
+
+**The owner picked D** (2026-10-20). Applied: `meadow.cfg` `ledge` (0.4, 0.62, 0.32), and the block's body behind the ledge now follows it
+(`ledge` a step darker; it was hard-coded to the old dark green-grey).
+
+**Result** (`pass2_meadow_cliff.png`: match camera, close-up and fighters in play; round 46): the cliff 0.17 → 0.36, in the sheet's
+band, hue 182 → 133 (the land's green, not a teal void); the lawn's lit top still stands 0.28 above it; the fighters stay the clearest
+thing. Stage fronts now: meadow 0.36, grove 0.48 to 0.53, city 0.41, beach 0.33 (pass 4), canyon 0.32 (held).
+
+**Tried and reverted:** folding the ledge (columns alternately out and in, the sheet's rule 9) to split its planes into lit and shaded:
+no measurable change (contrast 0.036 → 0.035) and a dark sliver at one crease. The meadow's key falls nearly straight onto the face, so
+planes turned left and right light alike; a real split needs the face's planes tilted up and down (toward and away from a high key) or
+a scenery rim term (backlog item 2, pass 6).
+
+**Moved:** the beach's posts (0.16) go with the beach's wood mocks in pass 4: the deck's colour is the owner's pick there, and the posts
+must sit a step under whatever it becomes.
+
+**Checked.** `prop_check_test`, `art_pipeline_test`, `match_flow_test`, `editor_ui_test` (the editor's meadow stages use this ledge),
+`replay_test` pass. `runner_test` failed 2 of 6 runs on "the way out" (the run shop's hint read three frames after the bell, before the
+HUD updated, while the machine was under load): a timing race in the test, unrelated to stage art (the run mode is built from the city,
+untouched here); passed on the other runs.
