@@ -474,10 +474,12 @@ def crown():
     """A cast gold crown: a band flaring a little to a raised rim top and bottom, five pointed flat-faced leaves each with a ball on its
     tip, and a set stone in the outfit colour under each point."""
     root = empty("crown")
-    base = 2.04
+    # (Lower and snug, the crown pass, 2026-10-19: at 2.04 with a 0.555 band it stood off the head with a gap all round, and floated.)
+    base = 1.97
+    fit = (head_r(base) + 0.01) / 0.555
     bm = bmesh.new()
-    prof = [(0.555, base), (0.585, base + 0.005), (0.59, base + 0.04), (0.575, base + 0.05), (0.585, base + 0.17), (0.61, base + 0.2),
-            (0.6, base + 0.225), (0.575, base + 0.22)]
+    prof = [(0.555 * fit, base), (0.585 * fit, base + 0.005), (0.59 * fit, base + 0.04), (0.575 * fit, base + 0.05), (0.585 * fit, base + 0.17),
+            (0.61 * fit, base + 0.2), (0.6 * fit, base + 0.225), (0.575 * fit, base + 0.22)]
     rings = lathe(bm, prof)
     n = len(rings[0])
     for i in range(n):
@@ -493,8 +495,8 @@ def crown():
         for k in range(9):
             t = k / 8.0
             w = 0.13 * (1.0 - t) ** 0.8 + 0.004
-            left.append(bm.verts.new(out * 0.6 - side * w + Vector((0, 0, base + 0.2 + 0.32 * t))))
-            right.append(bm.verts.new(out * 0.6 + side * w + Vector((0, 0, base + 0.2 + 0.32 * t))))
+            left.append(bm.verts.new(out * 0.6 * fit - side * w + Vector((0, 0, base + 0.2 + 0.32 * t))))
+            right.append(bm.verts.new(out * 0.6 * fit + side * w + Vector((0, 0, base + 0.2 + 0.32 * t))))
         for k in range(8):
             bm.faces.new((left[k], right[k], right[k + 1], left[k + 1]))
         bmesh.ops.solidify(bm, geom=bm.faces[:], thickness=0.035)
@@ -502,13 +504,13 @@ def crown():
         o.parent = root
         bm = bmesh.new()
         bmesh.ops.create_uvsphere(bm, u_segments=12, v_segments=8, radius=0.045)
-        bmesh.ops.translate(bm, vec=out * 0.6 + Vector((0, 0, base + 0.54)), verts=bm.verts)
+        bmesh.ops.translate(bm, vec=out * 0.6 * fit + Vector((0, 0, base + 0.54)), verts=bm.verts)
         o = to_object("gold_tip%d" % i, bm)
         o.parent = root
         bm = bmesh.new()
         ret = bmesh.ops.create_uvsphere(bm, u_segments=12, v_segments=8, radius=1.0)
         for v in ret["verts"]:
-            v.co = out * 0.62 + Vector((v.co.x * 0.05, v.co.y * 0.05, v.co.z * 0.06)) + Vector((0, 0, base + 0.11))
+            v.co = out * 0.62 * fit + Vector((v.co.x * 0.05, v.co.y * 0.05, v.co.z * 0.06)) + Vector((0, 0, base + 0.11))
         o = to_object("fabric_stone%d" % i, bm)
         o.parent = root
     return root
@@ -614,6 +616,12 @@ def topknot():
     return root
 
 
+# (Pulled down over the head, the beanie pass, 2026-10-19, as the helm: centred at 1.74 with a 0.68 rise it sat on top of the head as a
+# flat bowl.)
+BEANIE_C = 1.52
+BEANIE_H = 0.98
+
+
 def beanie():
     """A knit beanie: a ribbed crown pulled over the head (vertical ribs pressed into it), a thick folded cuff with its own ribs, and a
     pompom of soft lumps on top."""
@@ -629,11 +637,12 @@ def beanie():
             front = max(0.0, -math.sin(a))
             low = math.radians(98.0) - math.radians(26.0) * front ** 1.3
             ph = math.radians(3.0) + (low - math.radians(3.0)) * t
-            rib = 1.0 + 0.012 * math.cos(a * 28.0) * min(1.0, t * 3.0)
+            # (Deeper ribs, the beanie pass, 2026-10-19: at 0.012 the knit did not show and it read as a smooth plastic bowl.)
+            rib = 1.0 + 0.028 * math.cos(a * 28.0) * min(1.0, t * 3.0)
             r = 0.9 * rib
-            row.append(bm.verts.new((r * math.sin(ph) * math.cos(a), r * math.sin(ph) * math.sin(a), 1.74 + 0.68 * math.cos(ph))))
+            row.append(bm.verts.new((r * math.sin(ph) * math.cos(a), r * math.sin(ph) * math.sin(a), BEANIE_C + BEANIE_H * math.cos(ph))))
         rows.append(row)
-    top = bm.verts.new((0.0, 0.0, 1.74 + 0.68))
+    top = bm.verts.new((0.0, 0.0, BEANIE_C + BEANIE_H))
     for i in range(seg_u):
         bm.faces.new((rows[0][i], rows[0][(i + 1) % seg_u], top))
     for j in range(seg_v):
@@ -653,7 +662,7 @@ def beanie():
             front = max(0.0, -math.sin(a))
             ph = math.radians(98.0 - dph) - math.radians(26.0) * front ** 1.3
             r = 0.9 * math.sin(ph) + dr * (1.0 + 0.15 * math.cos(a * 28.0))
-            ring.append(bm.verts.new((r * math.cos(a), r * math.sin(a), 1.74 + 0.68 * math.cos(ph))))
+            ring.append(bm.verts.new((r * math.cos(a), r * math.sin(a), BEANIE_C + BEANIE_H * math.cos(ph))))
         rings.append(ring)
     for k in range(len(rings) - 1):
         for i in range(sides):
@@ -666,7 +675,7 @@ def beanie():
         off = Vector((0.0, 0.0, 0.0)) if k == 6 else Vector((0.09 * math.cos(a), 0.09 * math.sin(a), -0.02))
         bm = bmesh.new()
         bmesh.ops.create_icosphere(bm, subdivisions=2, radius=0.12)
-        bmesh.ops.translate(bm, vec=Vector((0.0, 0.0, 2.48)) + off, verts=bm.verts)
+        bmesh.ops.translate(bm, vec=Vector((0.0, 0.0, BEANIE_C + BEANIE_H + 0.08)) + off, verts=bm.verts)
         to_object("canvas_pom%d" % k, bm).parent = root
     return root
 

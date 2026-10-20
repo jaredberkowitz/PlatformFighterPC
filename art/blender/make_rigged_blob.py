@@ -1927,8 +1927,9 @@ def shirt_front(shirt, skin, neck_line, waist, trunk_weights):
         if co is None:
             continue
         b = bmesh.new()
-        bmesh.ops.create_uvsphere(b, u_segments=12, v_segments=8, radius=0.028)
-        bmesh.ops.scale(b, vec=(1.0, 0.45, 1.0), verts=b.verts)
+        # (Smaller and flatter, the button pass, 2026-10-19: at 0.028 the three pale balls were the biggest detail on the chest.)
+        bmesh.ops.create_uvsphere(b, u_segments=12, v_segments=8, radius=0.019)
+        bmesh.ops.scale(b, vec=(1.0, 0.35, 1.0), verts=b.verts)
         bmesh.ops.translate(b, vec=co, verts=b.verts)
         merge(bm, b)
     out["Buttons"] = finish("Buttons", bm, 0.0)

@@ -364,3 +364,14 @@ own part:
 `freckles_pass.png` (the aviator before and after; the creator's new category). Loadout, fighter view, art pipeline, editor UI and
 select grid tests pass. The creator flow test fails as on main (`ledge_exposed_frames`, the built bridge).
 
+## Beanie, crown and shirt buttons (2026-10-20, items 7, 8 and 10 above)
+- **Beanie** (`make_gear.py` `beanie`): pulled down over the head (`BEANIE_C` 1.52, `BEANIE_H` 0.98; it sat on top as a flat bowl), with
+  deeper ribs (0.028 from 0.012), so it reads as a knit hat with its cuff at the brows.
+- **Crown** (`crown`): lower and sized to the head at its band (`fit`, from `head_r`), so it sits on the head instead of floating with a
+  gap round it.
+- **Shirt buttons** (`make_rigged_blob.py` `shirt_front`): smaller and flatter (radius 0.019 from 0.028); the three pale balls were the
+  biggest detail on a shirt without a sash.
+
+`hats_buttons_pass.png`: the two gear sheets, before above after. Fighter view, loadout, art pipeline and animation library tests pass.
+Still open from the list: the hood and the scarf (dark, heavy slabs).
+
