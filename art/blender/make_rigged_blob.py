@@ -268,6 +268,13 @@ FACE_CLEARANCE = 0.006
 # How far under the skin the face shell's rim is sunk (so its edge never shows).
 FACE_RIM_SINK = 0.01
 FACE_CENTRE = 1.585
+# How far round the head the face shell reaches, as the head's depth (0 is its side, -1 its front, positive past the side). The drawing
+# slides toward the camera on a turned head (face.gdshader `face_slide`, up to 0.5 rad), which carries the near eye's outer edge to
+# about 78 degrees round; a shell cut at 72 (its rim sunk under the skin to about 65) cut that eye's white off square. Past the side,
+# the straight-on texture map folds back, but within 0.1 of the depth the fold stays outside the drawing.
+FACE_WRAP = 0.1
+# How the face shell's depth is kept in its colour (8 bits a channel in the game): the lowest depth and the span, in head radii.
+FACE_DEPTH_CODE = (-0.25, 1.5)
 
 
 # Clothing skinned across the joints it covers, so it bends with the body instead of slicing through the next piece: the shirt and the
@@ -1623,7 +1630,7 @@ def build_body_meshes(rig):
     ball(bm, 1.0, (0, 0, 0), segments=48, rings=32)
     for v in bm.verts:
         v.co = Vector((centre.x + v.co.x * radii.x * 1.03, centre.y + v.co.y * radii.y * 1.03, centre.z + v.co.z * radii.z * 1.03))
-    bmesh.ops.delete(bm, geom=[v for v in bm.verts if v.co.y > centre.y - 0.3 * radii.y], context="VERTS")
+    bmesh.ops.delete(bm, geom=[v for v in bm.verts if v.co.y > centre.y + FACE_WRAP * radii.y], context="VERTS")
     # The head is not quite a ball: toward the jaw the skin bulges past it and would hide the lower face (a mouth moved down, big eyes).
     # Each point of the shell is pushed out, along the line from the head's middle, until it is just outside the skin.
     skin_bm = bmesh.new()
@@ -1656,6 +1663,17 @@ def build_body_meshes(rig):
             co = loop.vert.co
             loop[uv].uv = (0.5 + co.x / face_size, 0.5 + (co.z - face_centre) / face_size)
     parts["Face"] = to_object("Face", bm, "head", rig)
+    # How far forward each point of the shell lies (in head radii, as the texture map's x), in its colour's green (FACE_DEPTH_CODE; blue 0
+    # marks it there): face.gdshader slides the drawing round the head by turning each point about the head's upright axis and
+    # projecting it straight on again. Worked out from a ball instead, the head's sides, wider than the ball, all took one angle and
+    # showed a stretched sliver of the drawing once the shell wrapped round them (FACE_WRAP).
+    f = parts["Face"]
+    depth = f.data.color_attributes.new("depth", "FLOAT_COLOR", "POINT")
+    lo_d, span_d = FACE_DEPTH_CODE
+    for v in f.data.vertices:
+        d = (centre.y - v.co.y) / radii.x
+        depth.data[v.index].color = (1.0, min(1.0, max(0.0, (d - lo_d) / span_d)), 0.0, 1.0)
+    f.data.color_attributes.active_color = depth
 
     # The skin, weighted to the skeleton by Blender's automatic weights.
     bpy.ops.object.select_all(action="DESELECT")

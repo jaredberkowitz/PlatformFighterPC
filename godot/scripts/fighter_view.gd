@@ -914,6 +914,9 @@ const FACE_SLIDE := 0.45
 var glasses_node: Node3D
 var glasses_base := Transform3D()
 const FACE_SLIDE_MAX := 0.5
+## Seen from behind, the slide fades out between these angles round the head (radians from its front): it is for the far eye at
+## three-quarters, and from behind it only pulled the face round into view at the head's edge.
+const FACE_SLIDE_BACK := Vector2(1.75, 2.6)
 
 
 func _slide_face() -> void:
@@ -927,6 +930,7 @@ func _slide_face() -> void:
 	var local := head.affine_inverse() * cam.global_position
 	var around := atan2(local.x, local.z)
 	var slide := clampf(around * FACE_SLIDE, -FACE_SLIDE_MAX, FACE_SLIDE_MAX)
+	slide *= 1.0 - smoothstep(FACE_SLIDE_BACK.x, FACE_SLIDE_BACK.y, absf(around))
 	face_mat.set_shader_parameter("face_slide", slide)
 	# The glasses turn round the head with the drawing, so the eyes stay behind their lenses (in the head's design space, a ball about
 	# 1.42 up).

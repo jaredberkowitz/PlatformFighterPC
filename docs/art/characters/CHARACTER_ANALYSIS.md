@@ -386,3 +386,39 @@ Still open from the list: the hood and the scarf (dark, heavy slabs).
 `hood_scarf_pass.png`: front, three-quarter, side and back; the hood before and after, then the scarf before and after. Fighter view,
 loadout and art pipeline tests pass. That closes the accessory list from the comparison above.
 
+
+## Weak points before beta (2026-10-20, after the UI merge)
+A fresh look against the references (the lineup, roster, faces, close-ups, animation sheets and the moves demo, all re-captured). The
+owner: the model "still reads as a bit sloppy or amateurish compared to the references". Ranked by how much each costs the finish:
+1. **The eye whites cut off at three-quarters**, as the menus show the fighters: a bug from the three-quarter face pass (below, fixed).
+2. **A fuzzy, unfinished surface**: skin grain, cloth weave, a wobbly brown ink line and pale fringes along the hems together read as
+   felt or a soft render; the references are smooth and clean with crisp edges. (Which of these costs most is still to be measured.)
+3. **The sash**: wide, the same maroon band with the same four badges on every default look, standing off the body like a backpack
+   from the side with its badges floating; the reference's is a thin leather strap lying on the shirt.
+4. **Shapeless shirts**: no collars, puffed blobs, sleeves that just end; the reference's crisp collars, kerchief and sailor collar
+   give each its identity. The printed shirt has a flat white slab across the shoulders.
+5. **Everyone the same**: one sash on every default look, one belt with a gold buckle across the built-in roster, half-lidded smug
+   eyes on most faces.
+6. **The built-in roster's boots and socks**: blocky brown boots with a white sock band, crude beside the bare legs.
+7. **Cluttered accessories**: cap, goggles and glasses on one head; brows showing under the beanie's brim.
+8. **Smaller**: idle open hands read as claws; the armpit fold; dash and pivot grabs reuse the standing grab; no crouch before a jump
+   or squash on landing (the playtest notes).
+
+The owner's order: 1, then 2, 4 and 8, then the expressions.
+
+## Eye whites at three-quarters (2026-10-20, item 1 above)
+- **Cause**: the face shell was the head's front cap, cut 72 degrees round from the front, its rim sunk under the skin (the drawing
+  showed to about 65). The three-quarter pass slides the drawing toward the camera by up to 0.5 rad, which carried the near eye's outer
+  edge to about 78 degrees: past the shell, so its white was cut off square, with a notch. The side view had it too.
+- **Fix**: the shell wraps a little past the head's side (`make_rigged_blob.py` `FACE_WRAP`). Wider, it reached the head's upper sides
+  and jaw, which bulge past the ball the slide was worked out on, so the slide's angle clamped there and a stretched sliver of the
+  drawing showed on the side of the head. The slide is no longer done on a ball: each shell point keeps its own depth in its vertex
+  colour (`FACE_DEPTH_CODE`), and `face.gdshader` turns the point about the head's upright axis and projects it straight on again
+  (the same result as before on a round head, so the front view is unchanged).
+- **From behind**, the slide pulled the face round into view at the head's edge; it now fades out past the head's side
+  (`fighter_view.gd` `FACE_SLIDE_BACK`).
+
+`eye_wrap_pass.png`, before left of each pair: three-quarter close-up and side view, the six expressions at three-quarters, the back
+three-quarter views. Rig rebuilt (mesh only; `base_rig.json` unchanged). Fighter view, art pipeline, loadout, animation library, match
+flow, select grid and editor UI tests pass; `creator_flow_test` fails as before in this checkout (its built bridge is older than the
+content files).
