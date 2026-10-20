@@ -148,3 +148,24 @@ materials).
 the same numbers as before or a little better (the palest look on the night stage's bright haze from 0.84 to 0.86, no longer low); the
 city's dark backdrop still fails as it did at round 19. Fighter view, art pipeline, loadout and animation library tests pass.
 
+## Where we stand after the clean-up (2026-10-19): biggest differences left
+`analysis_vs_reference.png`, top to bottom: the owner's T-pose lineup, our four default looks in T-pose, the owner's style reference
+(the four scouts in the vehicle), our lineup close-up. Proportions, head shape, faces and colours now hold up; the gaps are in the
+clothes and the lower body.
+
+1. **Cloth edges read as torn paper.** Hems are thin single-sided bands with a deliberately wobbly edge (round 14), and the sleeves
+   stand off the arm as flat flaps (`SLEEVE_FLARE`, no thickness: `CLOTH_THICKNESS` 0). The reference's hems are thick and clean, the
+   sleeves solid tubes with a trim stripe. Visible in every capture, close and in a match. (Model script.)
+2. **Too many bands across the body.** Top to bottom ours has about ten breaks (hat band, collar, sash with badges, belt and buckle,
+   pocket, shorts cuff, sock top, sock, boot cuff, boot toe, sole); the T-pose lineup has three or four (shirt, strap, shorts, legs).
+   The figure reads as stacked stripes and the small badges turn to noise at play size. (Loadout and art direction: the owner's call.)
+3. **Heavy dark boots, hidden legs.** The reference's legs are bare, thick tubes in the body's colour ending in soft round feet (the
+   style reference adds white socks, no boots). Ours are covered by socks and dark brown boots, the darkest mass on the fighter, which
+   pulls the eye to the feet and, with the belt and the sash, makes three competing browns.
+4. **Noisy outline.** Our brown ink hull wavers and doubles round the boots, cuffs and sleeve flaps; the reference has a thin steady
+   line or none. Part of it is #1 (each flap and band draws its own hull).
+5. **Hands.** Puffy mittens and fists against the reference's flat hands with clearly separate fingers. Smaller than the rest at play
+   size.
+
+Strengths to keep: the round head at the lineup's size against the body, the drawn faces, the matte colours, the proportions.
+
