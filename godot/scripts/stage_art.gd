@@ -1015,6 +1015,8 @@ static var pine_slots: Array = []
 ## The beach's islands [centre, sand mound's size, green mound's size] and the harbour headland's hills [row, centre, size] (half-axes
 ## of their domes), set by `_ocean` (for the ground export, art/blender/make_beach_ground.py).
 static var island_specs: Array = []
+## The painted ridges built by `backdrop` ([mesh, its RIDGES entry]), for the ground export.
+static var ridge_nodes: Array = []
 static var headland_specs: Array = []
 ## The meadow hill's wall [left, right, foot, front], set by `_meadow_hill` (for the ground export).
 static var hill_spec: Array = []
@@ -1853,8 +1855,13 @@ static func backdrop(root: Node3D, t: Dictionary, stage: Array) -> void:
 			_meadow(root, t, stage)
 	# Painted ridges far behind everything (shaders/painted_ridge.gdshader), coloured from the theme's own sky so the backdrop, the
 	# stage and the fighters' light share one scheme.
+	ridge_nodes.clear()
 	for spec in RIDGES.get(t.name, []):
-		ridge(root, t, spec)
+		var rm := ridge(root, t, spec)
+		if rm != null:
+			# (Marked, so a modelled far land can stand in for them, StageBake.place_ground; kept for the ground export.)
+			rm.set_meta("ridge", true)
+			ridge_nodes.append([rm, spec])
 	# Fog layers: soft bands of haze in the horizon's colour between the layers of scenery, thickest at the bottom, so each layer sits
 	# further back than the one before (a painted depth, at the cost of a few see-through cards).
 	var haze: Color = (t.sky_horizon as Color).lerp(Color.WHITE, 0.1)
@@ -2903,12 +2910,15 @@ static func ridge(root: Node3D, t: Dictionary, spec: Dictionary) -> MeshInstance
 		_place_prop(root, String(spec.model), Vector3(0, float(spec.y) - float(spec.get("land_drop", 0.0)),
 			float(spec.z) + float(spec.height) * 0.55), 1.0, 0.0, land)
 		# (No shadows from it, round 15: at that distance the shadow map is coarse, and its self-shadowing streaked the flanks.)
+		var placed: MeshInstance3D = null
 		for c in root.get_children():
 			if c is GeometryInstance3D and String(c.name) == String(spec.model):
 				(c as GeometryInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 				if faceted:
 					(c as GeometryInstance3D).set_instance_shader_parameter("front_top", float(spec.y) - float(spec.get("land_drop", 0.0)) + float(spec.height) * 0.9)
-		return null
+				if c is MeshInstance3D:
+					placed = c
+		return placed
 	m.set_shader_parameter("top_colour", top)
 	# (A spec's "foot_dark" takes the foot deeper and cooler than the top instead of toward the horizon: a pale foot read as a flat cloud
 	# bank across the mountains.)

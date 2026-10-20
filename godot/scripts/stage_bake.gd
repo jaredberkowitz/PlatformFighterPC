@@ -121,7 +121,25 @@ static func export_ground(bake_key: String) -> void:
 		var c: Vector3 = h[1]
 		var r: Vector3 = h[2]
 		heads.append([h[0], c.x, c.y, c.z, r.x, r.y, r.z])
-	var doc := {"islands": isles, "headland": heads, "hills_near": StageArt._hill_bumps[0], "hills_far": StageArt._hill_bumps[1], "fore": StageArt._fore_bumps, "pines": pines,
+	# Each ridge's crest: the highest point of its mesh in 4-unit bins across x (art/blender/make_grove_paper.py's cut-out flats).
+	var ranges: Array = []
+	for rn in StageArt.ridge_nodes:
+		var mi := rn[0] as MeshInstance3D
+		if not is_instance_valid(mi) or mi.mesh == null:
+			continue
+		var bins := {}
+		var xf := mi.global_transform
+		for v in mi.mesh.get_faces():
+			var w := xf * v
+			var b := floori(w.x / 4.0)
+			bins[b] = maxf(float(bins.get(b, -INF)), w.y)
+		var keys := bins.keys()
+		keys.sort()
+		var top: Array = []
+		for b in keys:
+			top.append([float(b) * 4.0 + 2.0, bins[b]])
+		ranges.append({"z": (xf * mi.mesh.get_aabb()).get_center().z, "top": top})
+	var doc := {"ranges": ranges, "islands": isles, "headland": heads, "hills_near": StageArt._hill_bumps[0], "hills_far": StageArt._hill_bumps[1], "fore": StageArt._fore_bumps, "pines": pines,
 		"farm": StageArt.farm_span, "hill": StageArt.hill_spec}
 	FileAccess.open((DIR % bake_key) + "ground.json", FileAccess.WRITE).store_string(JSON.stringify(doc))
 
@@ -460,6 +478,12 @@ static func _ground_colours(t: Dictionary) -> Dictionary:
 	out["isle_green"] = Color(0.3, 0.62, 0.42)
 	out["head_near"] = Color(0.28, 0.52, 0.42)
 	out["head_far"] = Color(0.26, 0.52, 0.52)
+	# (The grove's paper far land, in the ranges' own violets.)
+	# (A step deeper than the ranges' land colours: the flats take the air of their depth on top, and came out a pale lilac.)
+	out["range_far"] = Color(0.62, 0.55, 0.84)
+	out["range_near"] = Color(0.46, 0.4, 0.72)
+	for fam in ["range_far", "range_near", "cliff", "grass", "grass_far"]:
+		out["card_" + fam] = (out[fam] as Color).darkened(0.12) if fam.begins_with("range") else (out[fam] as Color).lerp(Color(0.92, 0.93, 0.86), 0.18)
 	for fam in ["sand", "isle_green", "head_near", "head_far"]:
 		# (The sand's edge a pale step; the green land's a shade under its top: far off, the camera sees the cut edges more than the tops,
 		# and in a pale step the headland read as a mint wedding cake.)
@@ -546,6 +570,11 @@ static func place_ground(root: Node3D, t: Dictionary, source: Array) -> void:
 		ground.name = "ModelledGround"
 		root.add_child(ground)
 		_paint_ground(ground, colours)
+		# (A modelled far land stands in for the painted ridges.)
+		if ground.find_children("range*", "", true, false).size() > 0:
+			for r in root.find_children("*", "GeometryInstance3D", true, false):
+				if r.has_meta("ridge"):
+					(r as Node3D).visible = false
 		# (The meadow's farm stands on the modelled valley, not on the code-built folds it was seated on.)
 		var farm := root.get_node_or_null("Farm") as Node3D
 		if farm != null:

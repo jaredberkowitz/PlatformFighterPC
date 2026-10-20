@@ -323,3 +323,18 @@ domes; the tall back hills are standing cut-out flats, and the low hills and the
 with a clean, calm silhouette, and the islands as stacked paper under their palms. The distance's value is unchanged (0.64) and the town's
 is the same; the deck reads 0.49. Cost unchanged: 738 draw calls against 730, GPU 2.2 ms both ways (two timings each). **Tests:** all
 seven pass.
+
+## The grove's background in paper: mocks (2026-10-20)
+
+The paper style on the grove: the ledges behind the island, the small trees on them and the far violet ranges. The side trees keep their
+footing; the island, its front and the great tree are unchanged.
+- **Far land:** `ground.json` now carries each painted range's crest (the highest vertex in 4-unit bins of its mesh, and its centre
+  depth). `ridge()` returns the placed range model and marks it `ridge`. A ground model with `range*` pieces hides the marked ranges
+  (`StageBake.place_ground`), so the shipped grove ground keeps today's ranges until a paper one ships.
+- **Builder:** `art/blender/make_grove_paper.py --variant A|B|C`, every look with the ranges as three standing cut-out flats each.
+  - A card terraces: 41,100 triangles.
+  - B pop-up: shelves with a scalloped grass fringe and jagged cliff cards, and cross-slotted cut-out trees; 13,400 triangles.
+  - C contour hills: 54,600 triangles (216,000 before its rings and hills were cut down).
+- **Range flats tuned:** the crest's per-bin peaks made a sawtooth, so it is smoothed (a rolling max, then a light average). At the
+  painted range's height the flats sat low; much taller, they walled off the sky. They are now 1.08, 1.0 and 0.9 of it, back to front.
+- **Next:** options in `mocks/grove_paper/` (with a local `review.html`) and on the owner's page; recommended A.
