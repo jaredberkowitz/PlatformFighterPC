@@ -815,7 +815,12 @@ func pad_scheme(_pad: int) -> Dictionary:
 		return {"up": KEY_UP, "down": KEY_DOWN, "confirm": KEY_ENTER, "back": KEY_ESCAPE, "start": KEY_ESCAPE}
 	if replay_mode:
 		return {"up": KEY_UP, "down": KEY_DOWN, "left": KEY_LEFT, "right": KEY_RIGHT, "confirm": KEY_SPACE, "back": KEY_ESCAPE, "start": KEY_SPACE, "menu": KEY_ESCAPE}
-	if results != null or net_lobby != null:
+	if net_lobby != null:
+		# Y switches the stage step's view, as on stage select.
+		var scheme: Dictionary = PadNav.DEFAULT.duplicate()
+		scheme["alt"] = KEY_V
+		return scheme
+	if results != null:
 		return PadNav.DEFAULT
 	if _can_pause():
 		return {"start": KEY_ESCAPE}
@@ -1044,6 +1049,7 @@ func _open_lobby() -> void:
 			if entries[i].slug == me.slug:
 				lobby_fighter = i
 	net_lobby = NetLobby.new()
+	net_lobby.slot = local_slot
 	add_child(net_lobby)
 	# The match's display (timer, percents) hides while the lobby is up: it showed through the lobby's veil, the timer's plate peeking
 	# out above the LOBBY banner (the UI pass, docs/art/ui/UI_ANALYSIS.md).

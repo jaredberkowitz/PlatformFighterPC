@@ -290,7 +290,11 @@ func _code_scene_inner() -> void:
 	check(scene.net_lobby.their_state.text.begins_with("Ready"), "this player sees the friend is ready: " + scene.net_lobby.their_state.text)
 	scene.net_lobby.fighter_row.step(1)
 	scene.net_lobby._unhandled_key_input(key(KEY_ENTER))
-	scene.net_lobby.stage_row.step(1)
+	check(scene.net_lobby.stage_step.visible and scene.net_lobby.picker.cards.size() == scene.net_lobby.stage_names.size(),
+		"the stage step shows a card for every stage")
+	check(scene.net_lobby.picker.cards[2].badge != "", "the friend's stage is badged on its card")
+	scene.net_lobby._step(1)
+	check(scene.net_lobby.picker.index == scene.net_lobby.stage, "the focused card is the stage chosen")
 	scene.net_lobby._unhandled_key_input(key(KEY_ENTER))
 	check(scene.net_lobby.phase == 2, "Enter twice locks the fighter and the stage in")
 	var ran := 0

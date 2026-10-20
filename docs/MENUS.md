@@ -64,7 +64,9 @@ in a strip at the foot). **V**, Tab or a controller's **Y** switches; the choice
 
 The pictures are `godot/art/ui/stages/stage_<n>.webp`, made by `tests/stage_stills.gd` (one stage per run, in a window; see its header).
 Render them again when a stage's art changes, then import. A stage without a picture gets a plain card. Test: `tests/stage_select_test.gd`.
-The online lobby still has its own arrow row for the stage.
+The cards and both views are the kit's `StagePicker` (`ui/ui_kit.gd`), shared with the online lobby: there, once a player's fighter is
+locked in, the stage step is this screen's look in the same remembered view, the friend's stage badged with their name, without
+Random (the friend sees the very stage the player would fight on). Test: `tests/online_flow_test.gd`; capture: `tests/lobby_shot.gd`.
 
 **Run mode** (sim 120, `docs/modes/RUNNER_PLAN.md`): the main menu's **Run** tile (under Play) opens this screen for one player, headed
 RUN, with no match rules; locking in (J or Enter) and Enter again starts the single-player run (`runner.tscn`). Built-in and made fighters
@@ -140,7 +142,7 @@ To play online with a made fighter, make it in the creator, then either play one
 * The point budget is a plain sum of the four stats; it does not weigh them differently, and nothing yet checks whether a legal
   build is balanced (a tiny, fast, high-jumping, featherweight fighter is legal and strong in some ways). Real balance tooling is Phase 8.
 * The character art is the placeholder blob. Real models come later; the menus show whatever the fighter view draws.
-* One mode (versus) besides the run. Stage select is its own screen now; the online lobby still chooses the stage with an arrow row.
+* One mode (versus) besides the run. Stage select is its own screen now, and the online lobby chooses the stage with the same cards.
 * Not tried by a person yet: whether the screens feel good to use is unproven until someone plays with them.
 
 ## Tests

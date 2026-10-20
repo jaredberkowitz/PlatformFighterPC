@@ -289,6 +289,306 @@ class TopBar extends Control:
 			x -= 14.0
 
 
+# ---- Stage cards ---------------------------------------------------------------------------------------------------
+
+## A stage card: the stage's picture in the card's cut shape, its name on an ink band; focused, the kit's frame, lifted and tilted
+## (docs/UI_DESIGN_SYSTEM.md, focus). With `show_name` off and never focused it is a large preview. `badge` names another player
+## whose choice this is (the friend in the online lobby) on a chip over the card's top edge.
+class StageCard extends Control:
+	signal activated
+	signal hovered
+	var tex: Texture2D
+	var name_text := ""
+	var name_size := 18
+	var show_name := true
+	var selected := false
+	var badge := ""
+	var badge_colour := D.BLUE
+	var pop := 0.0
+
+	func _init() -> void:
+		mouse_filter = Control.MOUSE_FILTER_STOP
+		mouse_entered.connect(func(): hovered.emit())
+
+	func _gui_input(event: InputEvent) -> void:
+		if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+			activated.emit()
+
+	func _process(delta: float) -> void:
+		var was := pop
+		pop = move_toward(pop, 1.0 if selected else 0.0, delta / MOTION_FAST)
+		if pop == was:
+			return
+		pivot_offset = size * 0.5
+		rotation = deg_to_rad(FOCUS_TILT) * pop
+		scale = Vector2.ONE * lerpf(1.0, FOCUS_SCALE, pop)
+		z_index = 1 if pop > 0.01 else 0
+		queue_redraw()
+
+	func set_badge(text: String, colour: Color) -> void:
+		if text != badge or colour != badge_colour:
+			badge = text
+			badge_colour = colour
+			queue_redraw()
+
+	func _draw() -> void:
+		var r := Rect2(Vector2.ZERO, size)
+		var cut := clampf(minf(size.x, size.y) * 0.13, 8.0, 20.0)
+		var shape := Art.card_shape(r, cut, 0)
+		Art.focus_frame(self, r, pop, cut)
+		if pop < 0.5:
+			var sh := PackedVector2Array()
+			for q in shape:
+				sh.append(q + Art.SHADOW)
+			draw_colored_polygon(sh, Color(D.INK, 0.35))
+		if tex != null:
+			# Cover: the 16:9 picture cropped to the card's shape around its centre.
+			var ta := float(tex.get_width()) / maxf(1.0, tex.get_height())
+			var ca := size.x / size.y
+			var uw := 1.0 if ca >= ta else ca / ta
+			var vh := 1.0 if ca <= ta else ta / ca
+			var uvs := PackedVector2Array()
+			var cols := PackedColorArray()
+			for q in shape:
+				uvs.append(Vector2(0.5 - uw * 0.5 + uw * q.x / size.x, 0.5 - vh * 0.5 + vh * q.y / size.y))
+				cols.append(Color.WHITE)
+			draw_polygon(shape, cols, uvs, tex)
+		else:
+			# No picture (Random, or a stage without its still): the menus' deep indigo, and a "?" for Random.
+			var cols := PackedColorArray()
+			for q in shape:
+				cols.append(Art.INDIGO.lightened(0.12).lerp(Art.INDIGO.darkened(0.2), q.y / size.y))
+			draw_polygon(shape, cols)
+			if name_text == "Random":
+				Art.title_centered(self, "?", Rect2(Vector2.ZERO, size - Vector2(0, name_size + 10)), int(size.y * 0.42), Art.SUN, 0.12)
+		if show_name:
+			var bh := name_size + 14.0
+			var band := PackedVector2Array([Vector2(0, size.y - bh), Vector2(size.x, size.y - bh), Vector2(size.x, size.y - cut),
+				Vector2(size.x - cut, size.y), Vector2(0, size.y)])
+			draw_colored_polygon(band, Color(D.INK, 0.8))
+			var fs := name_size
+			while fs > 12 and D.display_font().get_string_size(name_text.to_upper(), HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x > size.x - 24.0:
+				fs -= 1
+			draw_string(D.display_font(), Vector2(12, size.y - 10), name_text.to_upper(), HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color.WHITE)
+		if pop < 0.5:
+			var closed := shape.duplicate()
+			closed.append(shape[0])
+			draw_polyline(closed, D.INK, 3.0, true)
+		if badge != "":
+			# A slanted chip in the player's colour with an ink edge, over the card's top edge so it reads on any picture.
+			var bf := D.display_font()
+			var tw := bf.get_string_size(badge, HORIZONTAL_ALIGNMENT_LEFT, -1, 18).x
+			var chip := Rect2(Vector2(cut, -14.0), Vector2(tw + 28.0, 30.0))
+			D.draw_slant(self, chip, badge_colour, D.INK, 3.0, true)
+			draw_string(bf, Vector2(chip.position.x + 14.0, chip.position.y + 22.0), badge, HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Color.WHITE)
+
+
+## Choosing a stage with stage cards (stage select, the online lobby's stage step), in either of two views of the same choice (the
+## owner, 2026-10-20: docs/art/ui/mocks/stage_options.png), the player's pick remembered in VIEW_PATH:
+## - "preview": the focused stage large, its name and what it plays like beside it, every stage as a card in a row under it;
+## - "full": the focused stage fills the screen, its name large over it, the stages as a strip of cards on an ink band at the foot.
+## The pictures are stills of each stage as a match shows it (art/ui/stages, made by tests/stage_stills.gd); a stage without one gets a
+## plain card. With `random` the last card is Random. It fills a 1280x720 screen under a `TopBar`; the screen owns the keys and calls
+## `focus`, `step` and `toggle_view`; `hovered` and `activated` come from the mouse. `mark` badges another player's card, and `FREE`
+## is where each view leaves room for a screen's own lines.
+class StagePicker extends Control:
+	signal hovered(i: int)
+	signal activated(i: int)
+	const VIEWS := ["preview", "full"]
+	const VIEW_PATH := "user://stage_view.txt"
+	const STILLS := "res://art/ui/stages/stage_%d.webp"
+	## Under the words beside the preview; over the top right of the full picture.
+	const FREE := {"preview": Rect2(840, 420, 400, 96), "full": Rect2(800, 78, 440, 96)}
+	var view := "preview"
+	var names: Array = []
+	var blurbs: Array = []
+	var stills: Array = []
+	var random := true
+	var index := 0
+	var cards: Array = []
+	var marked := -1
+	var mark_text := ""
+	var mark_colour := D.BLUE
+	## The view's own pieces (rebuilt when the view changes).
+	var layer: Control
+	var big: Control
+	var words: Control
+	var full: TextureRect
+
+	func _init(stage_names: Array, stage_blurbs: Array, with_random := true, start := 0) -> void:
+		set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+		names = stage_names
+		blurbs = stage_blurbs
+		random = with_random
+		for i in names.size():
+			var path := STILLS % i
+			stills.append(load(path) if ResourceLoader.exists(path) else null)
+		index = clampi(start, 0, count() - 1)
+		view = load_view()
+		_build()
+
+	## The number of cards: the stages, and Random.
+	func count() -> int:
+		return names.size() + (1 if random else 0)
+
+	static func load_view() -> String:
+		if FileAccess.file_exists(VIEW_PATH):
+			var f := FileAccess.open(VIEW_PATH, FileAccess.READ)
+			if f != null:
+				var v := f.get_as_text().strip_edges()
+				if v in VIEWS:
+					return v
+		return VIEWS[0]
+
+	## The other view, remembered for next time (in every screen that uses the picker).
+	func toggle_view() -> void:
+		view = VIEWS[(VIEWS.find(view) + 1) % VIEWS.size()]
+		var f := FileAccess.open(VIEW_PATH, FileAccess.WRITE)
+		if f != null:
+			f.store_string(view)
+		_build()
+
+	## Focuses card `i` (no sound: the screen plays its own).
+	func focus(i: int) -> void:
+		index = clampi(i, 0, count() - 1)
+		_refresh()
+
+	## The next card left (-1) or right (1), round the ends.
+	func step(delta: int) -> void:
+		focus((index + delta + count()) % count())
+
+	## Another player's choice: a chip reading `text` on card `i` (-1 for none) in their `colour`.
+	func mark(i: int, text: String, colour := D.BLUE) -> void:
+		marked = i
+		mark_text = text
+		mark_colour = colour
+		for k in cards.size():
+			cards[k].set_badge(text if k == i else "", colour)
+
+	func _build() -> void:
+		if layer != null:
+			layer.queue_free()
+		cards.clear()
+		big = null
+		full = null
+		layer = Control.new()
+		layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		add_child(layer)
+		var n := count()
+		if view == "full":
+			full = TextureRect.new()
+			full.size = Vector2(1280, 720)
+			full.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+			full.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+			full.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			layer.add_child(full)
+			words = _painter(_paint_full_words)
+			var cw := (1200.0 - 14.0 * (n - 1)) / n
+			for i in n:
+				_add_card(i, Rect2(Vector2(40 + i * (cw + 14), 574), Vector2(cw, 96)), 16)
+		else:
+			big = StageCard.new()
+			big.show_name = false
+			big.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			big.position = Vector2(40, 82)
+			big.size = Vector2(768, 432)
+			layer.add_child(big)
+			words = _painter(_paint_preview_words)
+			# (No wider than six to the row, centred when there are fewer: wider cards grew taller, into the key bar.)
+			var cw := minf((1200.0 - 16.0 * (n - 1)) / n, 1120.0 / 6.0)
+			var x0 := 640.0 - (cw * n + 16.0 * (n - 1)) * 0.5
+			for i in n:
+				_add_card(i, Rect2(Vector2(x0 + i * (cw + 16), 548), Vector2(cw, cw * 9.0 / 16.0 + 4.0)), 17)
+		mark(marked, mark_text, mark_colour)
+		_refresh()
+
+	func _painter(paint: Callable) -> Control:
+		var c := Control.new()
+		c.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		c.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		c.draw.connect(func(): paint.call(c))
+		layer.add_child(c)
+		return c
+
+	func _add_card(i: int, rect: Rect2, name_size: int) -> void:
+		var card := StageCard.new()
+		card.position = rect.position
+		card.size = rect.size
+		card.name_size = name_size
+		if i < names.size():
+			card.tex = stills[i]
+			card.name_text = names[i]
+		else:
+			card.name_text = "Random"
+		card.hovered.connect(func(): hovered.emit(i))
+		card.activated.connect(func(): activated.emit(i))
+		layer.add_child(card)
+		cards.append(card)
+
+	func _refresh() -> void:
+		for k in cards.size():
+			cards[k].selected = k == index
+		var tex: Texture2D = stills[index] if index < stills.size() else null
+		if big != null:
+			big.tex = tex
+			big.name_text = stage_name()
+			big.queue_redraw()
+		if full != null:
+			full.texture = tex
+		if words != null:
+			words.queue_redraw()
+
+	func stage_name() -> String:
+		return names[index] if index < names.size() else "Random"
+
+	func _blurb() -> String:
+		return blurbs[index] if index < blurbs.size() else "Any of the %d stages, chosen when the match starts." % names.size()
+
+	func _paint_preview_words(c: Control) -> void:
+		Art.title(c, stage_name().to_upper(), Vector2(840, 150), TYPE_TITLE, D.INK, 0.0)
+		c.draw_line(Vector2(842, 168), Vector2(1100, 168), D.GOLD, 4.0)
+		var y := 210.0
+		for line in _wrap(_blurb(), 390.0, TYPE_LABEL):
+			c.draw_string(D.font(), Vector2(842, y), line, HORIZONTAL_ALIGNMENT_LEFT, -1, TYPE_LABEL, D.INK)
+			y += 36.0
+
+	func _paint_full_words(c: Control) -> void:
+		if full.texture == null:
+			# Random (or a stage without its still): the deep indigo of the Random card, and its sign large.
+			var top := Art.INDIGO.lightened(0.12)
+			var bottom := Art.INDIGO.darkened(0.2)
+			c.draw_polygon(PackedVector2Array([Vector2(0, 0), Vector2(1280, 0), Vector2(1280, 720), Vector2(0, 720)]),
+				PackedColorArray([top, top, bottom, bottom]))
+			if index >= names.size():
+				Art.title_centered(c, "?", Rect2(Vector2(0, 40), Vector2(1280, 400)), 300, Color(Art.SUN, 0.85), 0.06)
+		# A veil deepening toward the foot, where the words and the strip sit, so the picture stays a place above them.
+		var clear := Color(D.INK, 0.0)
+		var deep := Color(D.INK, 0.82)
+		c.draw_polygon(PackedVector2Array([Vector2(0, 330), Vector2(1280, 330), Vector2(1280, 720), Vector2(0, 720)]),
+			PackedColorArray([clear, clear, deep, deep]))
+		c.draw_colored_polygon(PackedVector2Array([Vector2(0, 556), Vector2(1280, 556), Vector2(1280, 720), Vector2(0, 720)]), Color(D.INK, 0.6))
+		c.draw_line(Vector2(0, 556), Vector2(1280, 556), D.GOLD, 3.0)
+		Art.title(c, stage_name().to_upper(), Vector2(44, 478), TYPE_DISPLAY, Color.WHITE, 0.1)
+		c.draw_string(D.font(), Vector2(48, 526), _blurb(), HORIZONTAL_ALIGNMENT_LEFT, 1180, TYPE_LABEL, Color(1, 1, 1, 0.92))
+
+	static func _wrap(text: String, width: float, fs: int) -> Array:
+		var f := D.font()
+		var lines := []
+		var line := ""
+		for word in text.split(" "):
+			var trial := word if line == "" else line + " " + word
+			if f.get_string_size(trial, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x > width and line != "":
+				lines.append(line)
+				line = word
+			else:
+				line = trial
+		if line != "":
+			lines.append(line)
+		return lines
+
+
 ## A line of news for the player (a status, a warning) on a dark band in gold, so it reads over the sky; nothing while it is empty.
 static func notice(at: Vector2, width: float, font_size := 22) -> Tag:
 	var t := Tag.new("", Vector2(width, 38))
