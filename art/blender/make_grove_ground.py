@@ -148,7 +148,9 @@ def build_ground():
                                            ("T1R", 24, 140, -74, -90, -4.5, 24), ("T2", -160, 160, -100, -120, -1.0, 36)):
             for k in range(n):
                 x = rng.uniform(x0, x1)
-                if abs(x + 30) < 8 or abs(x - 32) < 8 or abs(x) < 14:
+                # (Clear of the side trees, and of the space behind the fight on the near ledges: a small tree behind the left
+                # platform drew the eye at the match camera.)
+                if abs(x + 30) < 8 or abs(x - 32) < 8 or abs(x) < (24 if name != "T2" else 14):
                     continue
                 mini_tree(name + "_trees", P(x, y, rng.uniform(z0, z1)), rng.uniform(1.6, 2.8), rng)
     elif VARIANT == "B":

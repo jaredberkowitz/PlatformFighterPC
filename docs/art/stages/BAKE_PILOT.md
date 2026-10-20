@@ -146,3 +146,17 @@ The owner, after the front: the background now lacked by comparison; improve the
 - **First renders fixed:** the terraces' faces wound away from the camera (culled; the trees stood on nothing), and the cliffs went a pale
   grey under the distance air; now a deep teal.
 - Options in `mocks/grove_ground/` (wide and match camera) and on the owner's fidelity page. Recommended C.
+
+## Step 4 built: the grove's ground and bushes, A stepped ledges (2026-10-20)
+
+- **Shape pass:** the ledges' tops in a deeper version of the island lawn's yellow-green (the far ones cooler) against deep-teal cliffs
+  (in the rise's own teal, top and cliff ran together); the small pleated trees kept out of the space behind the fight on the near
+  ledges (one behind the left platform drew the eye). 27,450 triangles; bush 372.
+- **Shipped:** `godot/models/stages/grove_ground.glb` and `grove_bush.glb`, placed for the exact grove layout (`StageBake.GROUNDS`; the
+  ground stands on that layout's side-tree footing) in place of the code-built hill rows, rise, forest canopy, far tree line and bushes.
+  `--no-ground` for comparisons. Custom grove stages keep the code-built ground (they still take the modelled trees).
+- **Result** (round 59, `pilot_grove_ground.png`: match camera, wide, fighters in play): stepped green ledges with teal cliffs and small
+  pleated trees recede behind the island, in one language with its front and trees. 0.57 M primitives (0.68 M before), 805 draw calls
+  (793). Fighters 0.55 and 0.56 stand on the path (0.75). The lawn strip in front of the path reads 0.54 to 0.60 since the front pass
+  (step 2), close to the fighters' value; it is under their feet, not behind them, but worth a look in the next grove pass.
+- **Re-baked:** 81 background meshes take baked light. **Tests:** all seven Godot tests pass.

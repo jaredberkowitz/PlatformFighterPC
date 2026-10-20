@@ -1002,9 +1002,9 @@ static var front_modelled := false
 ## (its random numbers still drawn, so nothing else moves) and records where each tree stands in `tree_slots` ([base, size]).
 static var tree_mock := false
 static var tree_slots: Array = []
-## True while the grove is built with a modelled ground (`--ground-mock=`, StageBake.mock_ground): its hill rows, rise, forest canopy and
-## far tree line are built into a node that is thrown away (their random numbers still drawn, so nothing else moves), and its bushes
-## likewise, each recorded in `bush_slots` ([position, size, turn]) for the modelled bush (`--bush-mock=`).
+## True while the grove is built with a modelled ground (StageBake.GROUNDS, or `--ground-mock=`; StageBake.place_ground): its hill
+## rows, rise, forest canopy and far tree line are built into a node that is thrown away (their random numbers still drawn, so nothing
+## else moves), and its bushes likewise, each recorded in `bush_slots` ([position, size, turn]) for the modelled bush.
 static var ground_mock := false
 static var bush_slots: Array = []
 

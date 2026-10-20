@@ -17,6 +17,9 @@ const FRONTS := {"grove_14d06e65": "res://models/stages/grove_front.glb"}
 ## Modelled trees by theme (art/blender/make_grove_trees.py, option C, the owner's pick): placed where each code-built tree stood, so
 ## custom stages on the theme take them too.
 const TREES := {"grove": "res://models/stages/grove_tree.glb"}
+## Modelled background ground and bushes, by the exact stage they were built round ([ground, bush]; make_grove_ground.py, option A, the
+## owner's pick): the ground stands on the side trees' footing for this layout.
+const GROUNDS := {"grove_14d06e65": ["res://models/stages/grove_ground.glb", "res://models/stages/grove_bush.glb"]}
 ## The toon shaders whose materials take the baked occlusion (they share shaders/toon_common.gdshaderinc).
 const BAKEABLE := ["res://shaders/toon.gdshader"]
 ## Shaders that cast occlusion on the baked meshes without being baked themselves.
@@ -359,7 +362,10 @@ static func flag(prefix: String) -> String:
 static func _ground_colours(t: Dictionary) -> Dictionary:
 	var bd: Dictionary = StageArt.palette(String(t.get("name", ""))).get("backdrop", {})
 	var land: Color = bd.get("fore_band", Color(0.26, 0.54, 0.38))
-	return {"grass": land, "grass_far": bd.get("hills_near", Color(0.2, 0.46, 0.4)), "cliff": Color(0.16, 0.36, 0.32),
+	# (The ledges' tops in the island lawn's yellow-green, a step deeper, and the far ones a cooler green, against deep-teal cliffs: in
+	# the rise's own teal, top and cliff ran together and the ledges read as one mass.)
+	land = Color(0.44, 0.7, 0.3)
+	return {"grass": land, "grass_far": Color(0.38, 0.62, 0.36), "cliff": Color(0.16, 0.36, 0.32),
 		"earth": Color(0.24, 0.2, 0.18), "rock": Color(0.48, 0.55, 0.44), "root": Color(0.46, 0.37, 0.3), "bark": Color(0.46, 0.37, 0.3),
 		"leaf_lit": Color(0.46, 0.74, 0.36), "leaf_shade": Color(0.2, 0.46, 0.3), "moss": (t.get("grass", Color(0.5, 0.8, 0.3)) as Color).darkened(0.12),
 		"fern": Color(0.36, 0.66, 0.34), "fern_shade": Color(0.18, 0.42, 0.26)}
@@ -381,26 +387,46 @@ static func _paint_ground(node: Node3D, colours: Dictionary) -> void:
 		StageArt._air(mi, depth)
 
 
-## A modelled grove ground and bushes to try (`--ground-mock=<glb>`, `--bush-mock=<glb>`, art/blender/make_grove_ground.py): the ground
-## placed as built (world space), the bush at each of the code-built bushes' places (`StageArt.bush_slots`). For mocks only.
-static func mock_ground(root: Node3D, t: Dictionary) -> void:
+## The modelled ground and bush for this exact stage: glTF paths to try (`--ground-mock=`, `--bush-mock=`), the shipped models
+## (`GROUNDS`, as PackedScenes), or [] (none, or `--no-ground`).
+static func ground_source(bake_key: String) -> Array:
+	if flag("--ground-mock=") != "":
+		return [flag("--ground-mock="), flag("--bush-mock=")]
+	if OS.get_cmdline_user_args().has("--no-ground") or not GROUNDS.has(bake_key):
+		return []
+	var paths: Array = GROUNDS[bake_key]
+	if not ResourceLoader.exists(paths[0]) or not ResourceLoader.exists(paths[1]):
+		return []
+	return [load(paths[0]), load(paths[1])]
+
+
+## A scene from `source`: a PackedScene, or a glTF path (mocks); null without one.
+static func _scene_from(source: Variant) -> Node3D:
+	if source is PackedScene:
+		return (source as PackedScene).instantiate() as Node3D
+	if source is String and source != "":
+		var doc := GLTFDocument.new()
+		var state := GLTFState.new()
+		if doc.append_from_file(source, state) == OK:
+			return doc.generate_scene(state)
+	return null
+
+
+## Places the modelled ground (`source[0]`, built in world space; art/blender/make_grove_ground.py) and the modelled bush (`source[1]`)
+## at each of the code-built bushes' places (`StageArt.bush_slots`), painted by `_paint_ground`.
+static func place_ground(root: Node3D, t: Dictionary, source: Array) -> void:
 	var colours := _ground_colours(t)
-	var doc := GLTFDocument.new()
-	var state := GLTFState.new()
-	if doc.append_from_file(flag("--ground-mock="), state) == OK:
-		var ground := doc.generate_scene(state)
+	var ground := _scene_from(source[0])
+	if ground != null:
 		ground.name = "ModelledGround"
 		root.add_child(ground)
 		_paint_ground(ground, colours)
-	var bush_path := flag("--bush-mock=")
-	var bdoc := GLTFDocument.new()
-	var bstate := GLTFState.new()
-	if bush_path != "" and bdoc.append_from_file(bush_path, bstate) == OK:
-		for slot in StageArt.bush_slots:
-			var bush := bdoc.generate_scene(bstate)
-			bush.position = slot[0]
-			bush.scale = Vector3.ONE * float(slot[1])
-			bush.rotation_degrees.y = float(slot[2])
-			root.add_child(bush)
-			_paint_ground(bush, colours)
-	print("ground mock: trees at %s, bushes %d" % [str(StageArt.tree_slots), StageArt.bush_slots.size()])
+	for slot in StageArt.bush_slots:
+		var bush := _scene_from(source[1])
+		if bush == null:
+			break
+		bush.position = slot[0]
+		bush.scale = Vector3.ONE * float(slot[1])
+		bush.rotation_degrees.y = float(slot[2])
+		root.add_child(bush)
+		_paint_ground(bush, colours)
