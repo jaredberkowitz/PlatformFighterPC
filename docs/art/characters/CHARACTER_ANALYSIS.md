@@ -112,3 +112,24 @@ the character select and the results screen.
   nothing; the fold comes from the puff itself. A smaller `SLEEVE_FLARE` would ease it, at the cost of the puff.
 - The torso cloth under a raised arm still stretches in a soft web.
 
+## Proportion refit to the owner's T-pose lineup (2026-10-19)
+Targets measured in `REFERENCE.md` (the owner chose the three-character lineup). In `art/blender/make_cage_body.py` (`_reshape`,
+`_width`, `_rise`): the torso narrows from the hips up (`WAIST_NARROW` 0.64, `CHEST_NARROW` 0.78, `SHOULDER_NARROW` 0.86), the arms
+moving in with the shoulders as a whole (a hanging forearm given its own height's narrowing was pulled into the waist); the shins
+(`SHIN_GROW`) and thighs (`THIGH_DROP` -0.02) longer and the torso a little taller (`TORSO_GROW`); the feet broader and set further out;
+then the whole body scaled back to `BODY_HEIGHT` 2.24 so it still matches the content's hurtboxes. Refitted with `fit_body.py
+--shoulder-lift 0.07` (0.11 was for the old arm running into the trunk; the narrower torso shows the armpit higher) and rigged.
+
+**A bug found on the way.** `_reshape` shifted points outside the torso's core with `copysign(TORSO_CORE * (k - 1), x)`, which drops the
+shift's own sign: every narrowing there widened instead (the hips stood about 0.02 wider than `HIP_NARROW` asked since round 7). Fixed;
+with large narrowings it had swollen the waist into a bulge that hid the armpits from `fit_body.py`.
+
+**Checked** (before red, after green): `refit_turnaround.png` (T-pose and turnaround), `refit_lineup_in_match.png` (the default cast and
+an up tilt on the meadow). Every hat, pair of glasses, hood and neckwear (`lineup_shot.gd` gear sheets) still sits; run, jab, up smash,
+down tilt and hit sheets and the ledge hang look as before; the menu and character select previews frame the new body. Fighter view,
+art pipeline, loadout, animation library and match flow tests pass.
+
+**Not this change:** `tests/look_bench.gd` fails (the palest look on the night stage's bright haze, and four looks against the city's
+dark backdrop, edge 0.60 to 0.85 against the bench's 0.85) at the round 19 checkpoint as well, with the same numbers; left for a
+lighting or outline pass.
+

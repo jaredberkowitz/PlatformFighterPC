@@ -46,3 +46,21 @@ sleeves as torso; measured, the reference's torso is narrower than ours, not wid
 3. **Arms shorter**: the span 2.27 → 2.03; most of it comes back from the narrower shoulders, the rest from the arm itself.
 4. **Feet a little broader**: 0.84 → 0.96.
 5. Unchanged: the head, the shorts' and legs' widths, the shoulder line with its sleeves, the arm's thickness.
+
+## After the refit (2026-10-19, `make_cage_body.py`, measured the same way)
+
+| Measure (head widths) | Reference | Before | **After** |
+|---|---|---|---|
+| Torso just under the arms | 0.68 | 0.82 | **0.68** |
+| Waist | 0.59 | 0.74 | **0.63** |
+| Arm span, T-pose | 2.03 | 2.27 | **1.99** |
+| Shorts' hem | 0.81 | 0.82 | **0.83** |
+| Legs, outer span | 0.76 | 0.74 | **0.74** |
+| Feet, outer span | 0.96 | 0.84 | **0.93** |
+| Chin to sole | 1.62 | 1.42 | **1.60** |
+| Head ÷ torso under the arms | 1.48 | 1.22 | **1.46** |
+
+The body is then scaled as a whole back to its old height (2.24, `BODY_HEIGHT`): the fighters' hurtboxes and collision box are content,
+sized to that height, and the refit's targets are shares of the head. So in the world the body is as tall as before and the head about
+9% smaller; against the body, the proportions are the lineup's.
+
