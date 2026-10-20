@@ -1980,7 +1980,10 @@ SLEEVE = 0.85  # (a short puffed cap, the character judge's round 19 and the own
 HEM_FLARE = 0.035
 # The body rebuild (the owner: the clothes read painted on beside the reference cast): the sleeves stand off the arm and open a little at
 # the hem, the shorts' legs flare wide, as the reference's cloth hangs.
-SLEEVE_FLARE = 0.05   # (puffed, the owner's choice, round 19)
+SLEEVE_FLARE = 0.02   # (0.05, puffed, the owner's choice in round 19, until the hem pass: the sleeves stood out as flat wings)
+# How far off the arm a sleeve sits, as a share of the shirt's lift, over its length and at its end: a solid tube about 1.4 times the
+# arm's width, as the references' short sleeves (the hem pass, 2026-10-19; the whole lift made them a shelf twice the arm's width).
+SLEEVE_SIT = (0.6, 0.45)
 SHORTS_FLARE = 0.075
 ARM_RADIUS = 0.15   # (the slimmer arm, the character judge's round 19; 0.19 for the thicker sausage arm)     # how far from the arm's axis a point still counts as the arm (the cage body's arm is at most 0.125 round and hangs with
                        # the torso's side 0.16 from its axis, so this sits between them; at 0.2, made for the generated figure, the torso's
@@ -1992,6 +1995,208 @@ WEIGHT_BLUR = 0.06     # how far round each cloth point the skin's bone weights 
 GARMENT_SMOOTH = 14     # how many smoothing steps the cloth gets (it drapes over the body's small bumps)
 GARMENT_WEIGHT_SMOOTH = 24
 ARMPIT_NO_INK = 0.07          # how far round each armpit the shirt has no ink outline   # how many smoothing steps the cloth's bone weights get        # how much further out a hem stands than the rest of the garment (a soft, cartoony flare)
+
+
+# The hem pass (2026-10-19, the owner's references: their hems are thick and clean, ours read as torn paper): the bands that end a garment
+# get a round roll along each edge, this thick (radius), so the edge reads as cloth with body rather than a cut sheet.
+HEM_ROLL = {"SockTop": 0.014, "BootCuff": 0.014}
+# The shorts' cuffs and the sleeves' trim are built on the garment's own hem rather than cut from the skin and lifted: a solid band (a
+# rounded section this tall and this thick) round each leg opening and sleeve end. (Cut from the skin, each sat at its own distance from
+# the body while the garment's flared hem sat at another, so the two crossed: the cuff showed only as a ragged fringe under the hem, and
+# the sleeve end as a loose flap.)
+CUFF_BAND = (0.06, 0.024)
+TRIM_BAND = (0.05, 0.022)
+BAND_STEP = 0.025       # the spacing of a band's sections along the hem
+HEM_ROLL_SEGMENTS = 8
+
+
+def hem_rolls(bm, deform, radius):
+    """A tube along every open edge of the garment in `bm`, centred on the edge and lifted half its radius off the cloth's outer side,
+    each ring taking the bone weights of the edge point it is built round (so it moves exactly as the edge does)."""
+    bm.normal_update()
+    nbrs = {}
+    for e in bm.edges:
+        if e.is_boundary:
+            a, b = e.verts
+            nbrs.setdefault(a, []).append(b)
+            nbrs.setdefault(b, []).append(a)
+    seen = set()
+    new_faces = []
+    for start in list(nbrs):
+        if start in seen or len(nbrs[start]) != 2:
+            continue
+        loop = [start]
+        seen.add(start)
+        prev, cur = None, start
+        while True:
+            nxt = [n for n in nbrs[cur] if n is not prev]
+            if not nxt or len(nbrs[cur]) != 2:
+                loop = None
+                break
+            prev, cur = cur, nxt[0]
+            if cur is start:
+                break
+            if cur in seen:
+                loop = None
+                break
+            seen.add(cur)
+            loop.append(cur)
+        if not loop or len(loop) < 6:
+            continue
+        # (Sections every BAND_STEP along the edge, not at every one of its points: thousands of triangles otherwise.)
+        picked, run = [loop[0]], 0.0
+        for p0, p1 in zip(loop, loop[1:]):
+            run += (p1.co - p0.co).length
+            if run >= BAND_STEP:
+                picked.append(p1)
+                run = 0.0
+        if len(picked) < 6:
+            continue
+        loop = picked
+        rings = []
+        n_loop = len(loop)
+        for i, v in enumerate(loop):
+            t = (loop[(i + 1) % n_loop].co - loop[i - 1].co).normalized()
+            nrm = v.normal.normalized()
+            across = t.cross(nrm).normalized()
+            # (Pointing off the cloth, away from the faces at this edge.)
+            inward = sum((f.calc_center_median() for f in v.link_faces), Vector()) / max(1, len(v.link_faces)) - v.co
+            if across.dot(inward) > 0.0:
+                across = -across
+            centre = v.co + nrm * radius * 0.5
+            ring = []
+            for k in range(HEM_ROLL_SEGMENTS):
+                a = 2.0 * math.pi * k / HEM_ROLL_SEGMENTS
+                nv = bm.verts.new(centre + (nrm * math.cos(a) + across * math.sin(a)) * radius)
+                for g, w in v[deform].items():
+                    nv[deform][g] = w
+                ring.append(nv)
+            rings.append(ring)
+        for i in range(n_loop):
+            r0, r1 = rings[i], rings[(i + 1) % n_loop]
+            for k in range(HEM_ROLL_SEGMENTS):
+                k1 = (k + 1) % HEM_ROLL_SEGMENTS
+                new_faces.append(bm.faces.new((r0[k], r0[k1], r1[k1], r1[k])))
+    if new_faces:
+        bmesh.ops.recalc_face_normals(bm, faces=new_faces)
+        for f in new_faces:
+            f.smooth = True
+
+
+def _boundary_loops(bm):
+    """The garment's open edges as ordered, closed loops of verts."""
+    nbrs = {}
+    for e in bm.edges:
+        if e.is_boundary:
+            a, b = e.verts
+            nbrs.setdefault(a, []).append(b)
+            nbrs.setdefault(b, []).append(a)
+    seen, loops = set(), []
+    for start in list(nbrs):
+        if start in seen or len(nbrs[start]) != 2:
+            continue
+        loop, prev, cur = [start], None, start
+        seen.add(start)
+        while True:
+            nxt = [n for n in nbrs[cur] if n is not prev]
+            if not nxt or len(nbrs[cur]) != 2:
+                loop = None
+                break
+            prev, cur = cur, nxt[0]
+            if cur is start:
+                break
+            if cur in seen:
+                loop = None
+                break
+            seen.add(cur)
+            loop.append(cur)
+        if loop and len(loop) >= 6:
+            loops.append(loop)
+    return loops
+
+
+def band_on_hems(garment, skin, name, keep, height, thickness):
+    """A solid band round each open edge of `garment` that `keep(loop)` accepts: a rounded section `height` tall (from just below the
+    edge up over the cloth) and `thickness` deep (its outer face standing off the cloth), every section taking the bone weights of the
+    hem point it is built on, so the band moves exactly as the hem does. Returns the new object (a copy of the skin's object, for its
+    bone groups and armature)."""
+    src = bmesh.new()
+    src.from_mesh(garment.data)
+    src.normal_update()
+    sdef = src.verts.layers.deform.verify()
+    bm = bmesh.new()
+    deform = bm.verts.layers.deform.verify()
+    faces = []
+    seg = 12
+    for loop in _boundary_loops(src):
+        if not keep(loop):
+            continue
+        picked, run = [loop[0]], 0.0
+        for a, b in zip(loop, loop[1:]):
+            run += (b.co - a.co).length
+            if run >= BAND_STEP:
+                picked.append(b)
+                run = 0.0
+        n = len(picked)
+        if n < 6:
+            continue
+        # The band's frame from the whole opening, not each hem point's own normal (the hem follows every small bump, and a band laid on
+        # it wobbled in and out, so the garment showed through it in teeth): the opening's middle and axis, and round them each point's
+        # direction and distance, smoothed along the loop.
+        c = sum((v.co for v in picked), Vector()) / n
+        axis = Vector()
+        for i in range(n):
+            p0, p1 = picked[i].co - c, picked[(i + 1) % n].co - c
+            axis += p0.cross(p1)
+        axis.normalize()
+        inward = sum((f.calc_center_median() - v.co for v in picked for f in v.link_faces), Vector())
+        if axis.dot(inward) < 0.0:
+            axis = -axis
+        radial = []
+        for i in range(n):
+            q = sum((picked[(i + k) % n].co for k in range(-2, 3)), Vector()) / 5.0 - c
+            radial.append((q - axis * q.dot(axis), q.dot(axis)))
+        rings = []
+        for i, v in enumerate(picked):
+            r = max(sum(radial[(i + k) % n][0].length for k in range(-2, 3)) / 5.0, radial[i][0].length)
+            nrm = radial[i][0].normalized()
+            up = axis
+            base = c + axis * radial[i][1] + nrm * r
+            centre = base + up * (height * 0.5 - 0.012) + nrm * thickness * 0.55
+            ring = []
+            for k in range(seg):
+                a = 2.0 * math.pi * k / seg
+                cu, sw = math.cos(a), math.sin(a)
+                # (A rounded rectangle, not an ellipse: a cuff is a flat band with soft edges.)
+                cu = math.copysign(abs(cu) ** 0.5, cu)
+                sw = math.copysign(abs(sw) ** 0.5, sw)
+                nv = bm.verts.new(centre + up * (height * 0.5 * sw) + nrm * (thickness * 0.5 * cu))
+                for g, w in v[sdef].items():
+                    nv[deform][g] = w
+                ring.append(nv)
+            rings.append(ring)
+        for i in range(n):
+            r0, r1 = rings[i], rings[(i + 1) % n]
+            for k in range(seg):
+                k1 = (k + 1) % seg
+                faces.append(bm.faces.new((r0[k], r0[k1], r1[k1], r1[k])))
+    src.free()
+    if faces:
+        bmesh.ops.recalc_face_normals(bm, faces=faces)
+        for f in faces:
+            f.smooth = True
+    obj = skin.copy()
+    # (A copy of the skin's mesh, its geometry then replaced: the bone groups' names live on the mesh, and a new empty mesh had none,
+    # so the band's weights were dropped and it stayed behind when the limb moved.)
+    obj.data = skin.data.copy()
+    obj.data.name = name
+    obj.name = name
+    bpy.context.collection.objects.link(obj)
+    bm.to_mesh(obj.data)
+    bm.free()
+    for layer in list(obj.data.color_attributes):
+        obj.data.color_attributes.remove(layer)
+    return obj
 
 
 def build_garments(skin, J, neck):
@@ -2154,9 +2359,8 @@ def build_garments(skin, J, neck):
     out = {}
     for name, inside, hem, lift in (("Shirt", in_shirt, shirt_hem, SHIRT_LIFT), ("Shorts", in_shorts, shorts_hem, SHORTS_LIFT),
                                     ("Belt", in_belt, belt_hem, BELT_LIFT), ("Boot", in_boot, boot_hem, BOOT_LIFT),
-                                    ("BootSole", in_sole, belt_hem, SOLE_LIFT), ("BootCuff", in_boot_cuff, belt_hem, BOOT_CUFF_LIFT), ("ShortsCuff", in_cuff, belt_hem, CUFF_LIFT),
+                                    ("BootSole", in_sole, belt_hem, SOLE_LIFT), ("BootCuff", in_boot_cuff, belt_hem, BOOT_CUFF_LIFT),
                                     ("BootToe", in_toe, belt_hem, BOOT_LIFT + 0.014),
-                                    ("SleeveTrim", in_sleeve_trim, belt_hem, SLEEVE_TRIM_LIFT),
                                     ("Sock", in_sock, belt_hem, SOCK_LIFT), ("SockTop", in_sock_top, belt_hem, SOCK_TOP_LIFT)):
         obj = skin.copy()
         obj.data = skin.data.copy()
@@ -2224,7 +2428,7 @@ def build_garments(skin, J, neck):
                     # (Standing off the arm and opening at the hem, the body rebuild; a snug band read as a painted sleeve.)
                     # (Not too open: the arm's ink hull showed through the gap as a dark patch under the arm.)
                     flare = SLEEVE_FLARE * near_end
-                    snug = 1.0 - 0.35 * near_end
+                    snug = SLEEVE_SIT[0] + (SLEEVE_SIT[1] - SLEEVE_SIT[0]) * near_end
             v.co = v.co + v.normal * (lift * snug + flare)
             if name in ("Boot", "BootSole"):
                 v.co.z = max(v.co.z, -0.004 if name == "BootSole" else 0.0)
@@ -2262,8 +2466,9 @@ def build_garments(skin, J, neck):
                 continue
             nearest = min(levels, key=lambda z: abs(v.co.z - z))
             if abs(v.co.z - nearest) < 0.04:
-                # (A little uneven round the hem, the character judge's round 14: ruler-straight hems read as machined.)
-                v.co.z = nearest + 0.009 * math.sin(v.co.x * 11.0 + v.co.y * 7.0)
+                # (Level since the hem pass, 2026-10-19: the round 14 waver, meant against a machined look, read as torn paper on a
+                # thin edge; the rolled hems below give the edge its softness.)
+                v.co.z = nearest
         # Every point takes the bone weights of the nearest point of the skin (the cuts and the mirroring made new points, and an
         # unweighted point would be left behind when the body moves).
         # The left half copies the right half's weights, left and right swapped, so both sides of the garment move alike (the body's own
@@ -2328,6 +2533,9 @@ def build_garments(skin, J, neck):
                     for k in list(v[deform].keys()):
                         v[deform][k] = v[deform][k] * (1.0 - t)
                     v[deform][thigh] = v[deform].get(thigh, 0.0) + t
+        # A rolled hem along both edges of each band (the cuffs, the sleeve's trim, the socks' turn-down): see `hem_rolls`.
+        if name in HEM_ROLL:
+            hem_rolls(bm, deform, HEM_ROLL[name])
         # The sleeves' weights as copied from the skin under them, kept to put back after the shirt's weights are smoothed below.
         bm.verts.index_update()
         sleeve_w = {v.index: dict(v[deform]) for v in sleeve_pts}
@@ -2420,6 +2628,11 @@ def build_garments(skin, J, neck):
         group = buckle.vertex_groups.get(names[gi]) or buckle.vertex_groups.new(name=names[gi])
         group.add(every, w, "REPLACE")
     out["Buckle"] = buckle
+    # The cuffs and the sleeves' trim, on the finished hems (see CUFF_BAND).
+    out["ShortsCuff"] = band_on_hems(out["Shorts"], skin, "ShortsCuff",
+                                     lambda loop: sum(v.co.z for v in loop) / len(loop) < crotch, *CUFF_BAND)
+    out["SleeveTrim"] = band_on_hems(out["Shirt"], skin, "SleeveTrim",
+                                     lambda loop: abs(sum(v.co.x for v in loop) / len(loop)) > 0.3, *TRIM_BAND)
     out.update(shirt_front(out["Shirt"], skin, neck_line, waist, trunk_weights))
     out.update(shorts_pockets(out["Shorts"], skin, waist, crotch))
     # The skin's marks for the game's outline (shaders/outline.gdshader): green is how much line a point gets under the shirt, blue under

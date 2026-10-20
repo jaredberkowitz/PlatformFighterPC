@@ -169,3 +169,26 @@ clothes and the lower body.
 
 Strengths to keep: the round head at the lineup's size against the body, the drawn faces, the matte colours, the proportions.
 
+## Hem pass: clean thick hems, solid sleeves (2026-10-19, gap #1 above)
+**Cause of the torn-paper edges.** The shorts' cuffs and the sleeves' trim were cut from the skin and lifted their own distance off it,
+while the garment's flared hem stood at another, so the two crossed: most of a cuff sat inside the shorts and showed only as a ragged
+fringe under the hem. The hems also carried a deliberate waver (round 14), and the sleeves stood off the arm as flat wings twice its
+width (`SLEEVE_FLARE` 0.05 and the shirt's whole lift).
+
+**Fix** (`art/blender/make_rigged_blob.py`):
+- `band_on_hems`: the cuffs (`CUFF_BAND`) and the sleeves' trim (`TRIM_BAND`) are built on the finished garment's own hem, a solid band
+  with a rounded section laid on a frame from the whole opening (its middle and axis, smoothed round the loop), each section taking the
+  hem point's bone weights. The band's object copies the skin's mesh so it keeps the bone groups' names (a new empty mesh dropped them).
+- `hem_rolls`: a round roll along both edges of the socks' turn-down and the boots' collar (`HEM_ROLL`), sections every `BAND_STEP`.
+- Hems level again (no waver).
+- Sleeves sit closer (`SLEEVE_SIT`, `SLEEVE_FLARE` 0.02): a tube about 1.4 times the arm's width, as the references' short sleeves.
+- The rig goes from 43.5k to 48.6k triangles.
+
+**Checked** (`hem_pass.png`, red before, green after: two looks at rest, arms forward and overhead, and the lineup): the cuffs read as
+solid rolled bands, the sleeve ends as clean tubes, and the arms-forward sleeve no longer folds into flaps. Run and down tilt (deep kneel)
+sheets, the brawler's jab, the gear sheets and the in-match moves demo look right. Fighter view, art pipeline, loadout, animation
+library and match flow tests pass.
+
+**Left:** the shirt's shoulder still makes a slight horizontal shelf in a straight front view; the socks' turn-down edges are softer
+but still uneven where the sock follows the calf.
+
