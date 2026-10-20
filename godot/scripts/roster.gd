@@ -340,6 +340,9 @@ static func builtins() -> Array:
 	var exile := neutral_entry("Exile", 13, wanderer_look)
 	exile.builtin = true
 	exile.base_index = 13
+	# (The built-in fighters keep their belts: the outfit pass took them off the default looks only.)
+	for l in [knight, scrapper, hooded, plumber, racer, oracle, hero, bruiser, hopper, traveller, villager, monkey, thief, wanderer_look]:
+		l.belt = 0
 	return [duelist, brawler, rogue, tumbler, sprinter, seer, champion, hauler, bounder, wanderer, settler, scamp, phantom, exile]
 
 

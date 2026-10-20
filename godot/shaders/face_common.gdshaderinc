@@ -21,6 +21,8 @@ uniform vec2 eye_squash = vec2(1.0);
 // 0 open (a pupil and lids drawn inside the white), 1 shut (only `eye_extra_tex`, in ink), 2 a spiral in the white (dazed).
 uniform int eye_mode = 0;
 uniform float pupil_size = 0.257;
+// A catch-light in each pupil (0 none): its radius as a share of the pupil's, up and to the side the light comes from.
+uniform float catchlight = 0.0;
 // Where the pupil sits in the eye (the eyes look toward the fighter's front).
 uniform vec2 pupil_shift = vec2(0.051, 0.01);
 // The lids: how far the top one is down (0 open .. 1 shut), its slope (lowers the inner end), how far the lower one is up.
@@ -42,6 +44,9 @@ uniform vec4 nose_color : source_color = vec4(0.165, 0.102, 0.2, 0.8);
 // Cheeks: distance from the middle, height, size.
 uniform vec3 cheek_place = vec3(0.309, 0.566, 0.2);
 uniform vec4 cheek_color : source_color = vec4(0.96, 0.576, 0.576, 0.85);
+// Freckles over the cheeks (their own part, in their own colour, placed as the cheeks are).
+uniform sampler2D freckle_tex : filter_linear_mipmap, repeat_disable, hint_default_transparent;
+uniform vec4 freckle_color : source_color = vec4(0.25, 0.15, 0.12, 1.0);
 uniform vec4 ink_color : source_color = vec4(0.165, 0.102, 0.2, 1.0);
 uniform vec4 cream_color : source_color = vec4(1.0, 0.957, 0.863, 1.0);
 
@@ -89,6 +94,12 @@ vec3 face_eye(vec3 col, vec2 uv, float side) {
 		e = mix(e, iris, face_edge(length(q) - pupil_size));
 		// (No catchlight, the character pass, 2026-10-19: the reference cast's pupils are plain dark dots; a shine read as glossy doll's
 		// eyes.)
+		// (One again since the face pass, 2026-10-19, the owner: without it the eyes read dull and sleepy at play size; the salute
+		// reference's eyes carry a big shine. One flat cream dot, up and to the same side in both eyes, not a glossy dome.)
+		if (catchlight > 0.0) {
+			vec2 at = q - pupil_size * vec2(-0.32, -0.36);
+			e = mix(e, cream_color.rgb * 1.04, face_edge(length(at) - pupil_size * catchlight) * step(length(q), pupil_size));
+		}
 		// Lids in the fighter's colour (lit from above: lighter toward their top), each with an ink edge and a soft shadow on the eye
 		// below it.
 		float lid_x = lids.x + max(lid_lean * side, 0.0);
@@ -125,6 +136,7 @@ vec3 face_draw(vec2 uv, vec3 base) {
 		// (Soft toward its edge, as a flush of colour is.)
 		float soft = smoothstep(0.5, 0.18, length((t - 0.5) * vec2(1.0, 1.5)));
 		col = mix(col, cheek_color.rgb, cheek_color.a * face_mask(cheek_tex, t) * mix(0.55, 1.0, soft));
+		col = mix(col, freckle_color.rgb, freckle_color.a * face_mask(freckle_tex, t));
 	}
 	vec2 nt = face_part_uv(uv, nose_place.xy, nose_place.z, vec2(1.0), 0.0, 1.0);
 	col = mix(col, nose_color.rgb, nose_color.a * face_mask(nose_tex, nt));

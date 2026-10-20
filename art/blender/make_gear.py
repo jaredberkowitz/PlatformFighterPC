@@ -230,7 +230,10 @@ def aviator_cap():
             side_k = abs(c.x) / max(Vector((c.x, c.y, 0.0)).length, 1e-4)
             # (Taller in section than wide: the game widens the head, and the hat with it, 1.32 times across, which flattened a round tube
             # into a plate, the character judge's round 4.)
-            loop.append(bm.verts.new(c - out * 0.07 + Vector((0.0, 0.0, 0.1 - 0.08 * side_k)) + out * math.cos(b_) * r + up * math.sin(b_) * r * 1.35))
+            # (Lower at the back, over the shell's edge, the cap pass, 2026-10-19: seen from behind the leather's rim showed under the roll
+            # as a ragged dark band.)
+            back_k = max(0.0, c.y) / max(Vector((c.x, c.y, 0.0)).length, 1e-4)
+            loop.append(bm.verts.new(c - out * 0.07 + Vector((0.0, 0.0, 0.1 - 0.08 * side_k - 0.08 * back_k)) + out * math.cos(b_) * r + up * math.sin(b_) * r * 1.35))
         loops.append(loop)
     # (UVs round and along the roll, so the game's curly fleece tile lies on it.)
     uv = bm.loops.layers.uv.new("UVMap")
@@ -240,43 +243,39 @@ def aviator_cap():
             for lp, (a_, b_) in zip(f.loops, ((i, j), (i + 1, j), (i + 1, j + 1), (i, j + 1))):
                 lp[uv].uv = (a_ / n * 7.0, b_ / minor * 0.6)
     to_object("fleece_trim", bm).parent = root
-    # Ear flaps: long leather tabs hanging past the jaw, each lined with fleece that shows round its edge.
+    # Ear flaps: fleece pads hanging from the fleece roll down beside each cheek.
+    # (Fleece all through since the cap pass, 2026-10-19, after the owner's style reference, whose flaps are the same fleece as the rim:
+    # the leather tongue read side-on as a flat brown disc pasted on the cheek, and the fleece edge down its front, five separate balls,
+    # as a string of beads. Now one soft lumpy pad, wider at the top where it joins the roll, tapering down past the jaw.)
+    rng_f = random.Random(7)
     for sx in (-1.0, 1.0):
         nm = "L" if sx < 0 else "R"
-        # (Hugging the cheeks, the leather outside and only a rim of fleece showing, the character judge's round 1: pale paddles hanging
-        # free read as bunny ears.)
-        # (One padded leather tongue with its fleece rim, no separate lining, the character judge's round 13: from the far side the lining
-        # read as an empty shell.)
-        for part, k, inset in (("leather_flap", 1.0, 0.0),):
-            bm = bmesh.new()
-            ret = bmesh.ops.create_uvsphere(bm, u_segments=20, v_segments=14, radius=1.0, calc_uvs=True)
-            for v in ret["verts"]:
-                # (A quarter smaller and padded thicker, folded in at its lower edge, the character judge's round 2.)
-                # (Hanging below the fleece in front of the hair as a padded tongue, the character judge's round 3: hidden, its top read as a
-                # dark disc on the cheek.)
-                # (Thin, hugging the cheek, the character judge's round 4: thick, it cupped out as a headphone.)
-                # (Narrow front to back, so side-on it is a strap down the cheek, not a disc, the character judge's round 6.)
-                v.co = Vector((v.co.x * 0.1, v.co.y * 0.19 * k, v.co.z * 0.44 * k))
-                # (Curving in under the jaw, following the cheek.)
-                v.co.x -= sx * 0.12 * max(0.0, -v.co.z / 0.44) ** 2
-            # (Forward and down beside the cheeks, so they show at three-quarter, the character judge's round 9.)
-            bmesh.ops.translate(bm, vec=Vector((sx * (0.84 + inset), -0.22, 0.98)), verts=ret["verts"])
-            to_object(part + nm, bm).parent = root
-    # A fleece edge down the front of each ear flap (the character judge's round 14: the bare leather flaps framed the face like a bowl
-    # haircut): a lumpy fleece roll from under the brim to the flap's foot.
-    for sx in (-1.0, 1.0):
         bm = bmesh.new()
-        pts = [Vector((sx * 0.9, -0.38, 1.36 - 0.11 * k)) - Vector((sx * 0.03 * k, 0.0, 0.0)) for k in range(5)]
-        for k, p in enumerate(pts):
-            ret = bmesh.ops.create_uvsphere(bm, u_segments=10, v_segments=7, radius=0.075 - 0.006 * k, calc_uvs=True)
-            for v in ret["verts"]:
-                v.co += p
-        to_object("fleece_edge" + ("L" if sx < 0 else "R"), bm).parent = root
+        ret = bmesh.ops.create_uvsphere(bm, u_segments=20, v_segments=14, radius=1.0, calc_uvs=True)
+        bumps = [(Vector((rng_f.uniform(-1, 1), rng_f.uniform(-1, 1), rng_f.uniform(-1, 1))).normalized(), rng_f.uniform(0.04, 0.08))
+                 for _ in range(9)]
+        for v in ret["verts"]:
+            n0 = v.co.normalized()
+            # (Soft lumps, as the rim's roll: fleece, not a smooth egg.)
+            k_l = 1.0 + sum(h * max(0.0, n0.dot(d)) ** 6 for d, h in bumps)
+            down = max(0.0, -v.co.z)
+            # Wider at the top, tapering toward its foot.
+            w = 1.0 - 0.4 * down
+            v.co = Vector((v.co.x * 0.15 * k_l, v.co.y * 0.19 * w * k_l, v.co.z * 0.5 * k_l))
+            # (Curving in under the jaw, following the cheek.)
+            v.co.x -= sx * 0.12 * max(0.0, -v.co.z / 0.5) ** 2
+        # (Its top tucked up under the fleece roll, so it hangs from the rim rather than sitting on the cheek as a separate pad.)
+        bmesh.ops.translate(bm, vec=Vector((sx * 0.87, -0.16, 1.2)), verts=ret["verts"])
+        to_object("fleece_flap" + nm, bm).parent = root
     # (No hair: the hat covers it all, the owner, 2026-10-19; hair pieces are to be their own items.)
     # The goggles pushed up on the front of the crown, oversized (the character judge's round 14: the aviator's signature from every angle,
     # lost with the hair): two brass rims with glass on a leather strap round the crown.
     bm = bmesh.new()
-    lathe(bm, [(0.93, 1.98), (0.9, 2.08)])
+    # (On the shell, a strap's thickness off it, the cap pass, 2026-10-19: at a fixed 0.93 it stood 0.12 off the dome as a brim round the
+    # back of the hat.)
+    def shell_r(z):
+        return 0.9 * math.sqrt(max(0.0, 1.0 - ((z - 1.52) / 1.1) ** 2))
+    lathe(bm, [(shell_r(1.98) + 0.045, 1.98), (shell_r(2.08) + 0.045, 2.08)])   # (clear of the shell's dents, _lumpy)
     to_object("leather_band", bm, sharp=60.0).parent = root
     for sx in (-1.0, 1.0):
         centre = Vector((sx * 0.3, -0.86, 2.06))
@@ -372,12 +371,17 @@ def _bowl_phi_low(a, deg_back=100.0, deg_front=30.0):
 
 
 # (Taller than the caps' shell, 2026-10-18: on the wide head a low bowl read as a pot lid.)
-HELM_H = 0.82
+HELM_H = 1.12
+# (The helm pass, 2026-10-19: a tall dome on the aviator cap's shell, centred low, so it comes down over the head like a kettle helm;
+# centred at 1.74 with a 0.82 rise it sat on top as a wide dish, a pan lid. Its sides come down past the ears, so the separate cheek
+# guards, flat slabs that crossed the eyes at three-quarters, are gone.)
+HELM_C = 1.52
+HELM_R = 0.9
+HELM_BACK, HELM_FRONT = 104.0, 46.0   # (the front cut up over the brows, so the face and brows show)
 
 
 def plumed_helm():
-    """A knight's open helm: a steel bowl over the crown with a raised ridge from brow to nape, a brass brow band with rivets, short
-    cheek guards curving down beside the face, and a tall plume of feather blades in the outfit's colour sweeping back off a brass
+    """A knight's open helm: a steel bowl over the head with a raised ridge from brow to nape and a brass brow band with rivets, and a tall plume of feather blades in the outfit's colour sweeping back off a brass
     socket on the crest."""
     root = empty("plumed_helm")
     bm = bmesh.new()
@@ -388,15 +392,15 @@ def plumed_helm():
         row = []
         for i in range(seg_u):
             a = math.tau * i / seg_u
-            ph = phi * (_bowl_phi_low(a) / math.radians(100.0))
-            x = 0.89 * math.sin(ph) * math.cos(a)
-            y = 0.89 * math.sin(ph) * math.sin(a)
-            z = 1.74 + HELM_H * math.cos(ph)
+            ph = phi * (_bowl_phi_low(a, HELM_BACK, HELM_FRONT) / math.radians(100.0))
+            x = HELM_R * math.sin(ph) * math.cos(a)
+            y = HELM_R * math.sin(ph) * math.sin(a)
+            z = HELM_C + HELM_H * math.cos(ph)
             if abs(x) < 0.06:
                 z += 0.035 * (1.0 - abs(x) / 0.06) * math.sin(ph)
             row.append(bm.verts.new((x, y, z)))
         rows.append(row)
-    top = bm.verts.new((0.0, 0.0, 1.74 + HELM_H + 0.03))
+    top = bm.verts.new((0.0, 0.0, HELM_C + HELM_H + 0.03))
     for i in range(seg_u):
         bm.faces.new((rows[0][i], rows[0][(i + 1) % seg_u], top))
     for j in range(seg_v):
@@ -414,9 +418,9 @@ def plumed_helm():
         ring = []
         for i in range(sides):
             a = math.tau * i / sides
-            ph = _bowl_phi_low(a) - math.radians(8.0)
-            r = 0.89 * math.sin(ph) + dr
-            ring.append(bm.verts.new((r * math.cos(a), r * math.sin(a), 1.74 + HELM_H * math.cos(ph) + dz)))
+            ph = _bowl_phi_low(a, HELM_BACK, HELM_FRONT) - math.radians(8.0)
+            r = HELM_R * math.sin(ph) + dr
+            ring.append(bm.verts.new((r * math.cos(a), r * math.sin(a), HELM_C + HELM_H * math.cos(ph) + dz)))
         rings.append(ring)
     for k in range(len(rings) - 1):
         for i in range(sides):
@@ -426,43 +430,24 @@ def plumed_helm():
     o.parent = root
     for i in range(10):
         a = math.tau * (i + 0.5) / 10.0
-        ph = _bowl_phi_low(a) - math.radians(8.0)
-        p = Vector((0.93 * math.sin(ph) * math.cos(a), 0.93 * math.sin(ph) * math.sin(a), 1.74 + HELM_H * math.cos(ph)))
+        ph = _bowl_phi_low(a, HELM_BACK, HELM_FRONT) - math.radians(8.0)
+        p = Vector(((HELM_R + 0.04) * math.sin(ph) * math.cos(a), (HELM_R + 0.04) * math.sin(ph) * math.sin(a), HELM_C + HELM_H * math.cos(ph)))
         bm = bmesh.new()
         bmesh.ops.create_uvsphere(bm, u_segments=10, v_segments=6, radius=0.028)
         bmesh.ops.translate(bm, vec=p, verts=bm.verts)
         o = to_object("brass_rivet%d" % i, bm)
         o.parent = root
-    # Cheek guards beside the face.
-    for sx in (-1.0, 1.0):
-        bm = bmesh.new()
-        rows = []
-        for j in range(5):
-            t = j / 4.0
-            row = []
-            for i in range(6):
-                u = i / 5.0
-                a = math.radians(-90.0 + sx * (52.0 + 30.0 * u))
-                r = 0.9 - 0.04 * t
-                row.append(bm.verts.new((r * math.cos(a), r * math.sin(a), 1.62 - 0.36 * t - 0.06 * u * t)))
-            rows.append(row)
-        for j in range(4):
-            for i in range(5):
-                bm.faces.new((rows[j][i], rows[j][i + 1], rows[j + 1][i + 1], rows[j + 1][i]))
-        bmesh.ops.solidify(bm, geom=bm.faces[:], thickness=0.03)
-        o = to_object("metal_cheek" + ("L" if sx < 0 else "R"), bm, sharp=50.0)
-        o.parent = root
     # The plume: a socket on the crest and feather blades fanned along an arc sweeping up and back.
     bm = bmesh.new()
     cv = bmesh.ops.create_cone(bm, cap_ends=True, cap_tris=False, segments=14, radius1=0.09, radius2=0.06, depth=0.14)["verts"]
-    bmesh.ops.translate(bm, vec=Vector((0.0, 0.05, 1.74 + HELM_H + 0.05)), verts=cv)
+    bmesh.ops.translate(bm, vec=Vector((0.0, 0.05, HELM_C + HELM_H + 0.05)), verts=cv)
     o = to_object("brass_socket", bm)
     o.parent = root
     blades = 9
     for b in range(blades):
         f = b / (blades - 1)
         # (Taller and more upright, 2026-10-18: swept far back it was hidden behind the bowl.)
-        base = Vector((0.0, 0.05 + 0.45 * f, 1.74 + HELM_H + 0.09 + 0.18 * math.sin(f * math.pi) - 0.08 * f))
+        base = Vector((0.0, 0.05 + 0.45 * f, HELM_C + HELM_H + 0.09 + 0.18 * math.sin(f * math.pi) - 0.08 * f))
         length = 0.85 - 0.35 * f
         lean = math.radians(8.0 + 55.0 * f)
         bm = bmesh.new()
@@ -489,10 +474,12 @@ def crown():
     """A cast gold crown: a band flaring a little to a raised rim top and bottom, five pointed flat-faced leaves each with a ball on its
     tip, and a set stone in the outfit colour under each point."""
     root = empty("crown")
-    base = 2.04
+    # (Lower and snug, the crown pass, 2026-10-19: at 2.04 with a 0.555 band it stood off the head with a gap all round, and floated.)
+    base = 1.97
+    fit = (head_r(base) + 0.01) / 0.555
     bm = bmesh.new()
-    prof = [(0.555, base), (0.585, base + 0.005), (0.59, base + 0.04), (0.575, base + 0.05), (0.585, base + 0.17), (0.61, base + 0.2),
-            (0.6, base + 0.225), (0.575, base + 0.22)]
+    prof = [(0.555 * fit, base), (0.585 * fit, base + 0.005), (0.59 * fit, base + 0.04), (0.575 * fit, base + 0.05), (0.585 * fit, base + 0.17),
+            (0.61 * fit, base + 0.2), (0.6 * fit, base + 0.225), (0.575 * fit, base + 0.22)]
     rings = lathe(bm, prof)
     n = len(rings[0])
     for i in range(n):
@@ -508,8 +495,8 @@ def crown():
         for k in range(9):
             t = k / 8.0
             w = 0.13 * (1.0 - t) ** 0.8 + 0.004
-            left.append(bm.verts.new(out * 0.6 - side * w + Vector((0, 0, base + 0.2 + 0.32 * t))))
-            right.append(bm.verts.new(out * 0.6 + side * w + Vector((0, 0, base + 0.2 + 0.32 * t))))
+            left.append(bm.verts.new(out * 0.6 * fit - side * w + Vector((0, 0, base + 0.2 + 0.32 * t))))
+            right.append(bm.verts.new(out * 0.6 * fit + side * w + Vector((0, 0, base + 0.2 + 0.32 * t))))
         for k in range(8):
             bm.faces.new((left[k], right[k], right[k + 1], left[k + 1]))
         bmesh.ops.solidify(bm, geom=bm.faces[:], thickness=0.035)
@@ -517,13 +504,13 @@ def crown():
         o.parent = root
         bm = bmesh.new()
         bmesh.ops.create_uvsphere(bm, u_segments=12, v_segments=8, radius=0.045)
-        bmesh.ops.translate(bm, vec=out * 0.6 + Vector((0, 0, base + 0.54)), verts=bm.verts)
+        bmesh.ops.translate(bm, vec=out * 0.6 * fit + Vector((0, 0, base + 0.54)), verts=bm.verts)
         o = to_object("gold_tip%d" % i, bm)
         o.parent = root
         bm = bmesh.new()
         ret = bmesh.ops.create_uvsphere(bm, u_segments=12, v_segments=8, radius=1.0)
         for v in ret["verts"]:
-            v.co = out * 0.62 + Vector((v.co.x * 0.05, v.co.y * 0.05, v.co.z * 0.06)) + Vector((0, 0, base + 0.11))
+            v.co = out * 0.62 * fit + Vector((v.co.x * 0.05, v.co.y * 0.05, v.co.z * 0.06)) + Vector((0, 0, base + 0.11))
         o = to_object("fabric_stone%d" % i, bm)
         o.parent = root
     return root
@@ -629,6 +616,12 @@ def topknot():
     return root
 
 
+# (Pulled down over the head, the beanie pass, 2026-10-19, as the helm: centred at 1.74 with a 0.68 rise it sat on top of the head as a
+# flat bowl.)
+BEANIE_C = 1.52
+BEANIE_H = 0.98
+
+
 def beanie():
     """A knit beanie: a ribbed crown pulled over the head (vertical ribs pressed into it), a thick folded cuff with its own ribs, and a
     pompom of soft lumps on top."""
@@ -644,11 +637,12 @@ def beanie():
             front = max(0.0, -math.sin(a))
             low = math.radians(98.0) - math.radians(26.0) * front ** 1.3
             ph = math.radians(3.0) + (low - math.radians(3.0)) * t
-            rib = 1.0 + 0.012 * math.cos(a * 28.0) * min(1.0, t * 3.0)
+            # (Deeper ribs, the beanie pass, 2026-10-19: at 0.012 the knit did not show and it read as a smooth plastic bowl.)
+            rib = 1.0 + 0.028 * math.cos(a * 28.0) * min(1.0, t * 3.0)
             r = 0.9 * rib
-            row.append(bm.verts.new((r * math.sin(ph) * math.cos(a), r * math.sin(ph) * math.sin(a), 1.74 + 0.68 * math.cos(ph))))
+            row.append(bm.verts.new((r * math.sin(ph) * math.cos(a), r * math.sin(ph) * math.sin(a), BEANIE_C + BEANIE_H * math.cos(ph))))
         rows.append(row)
-    top = bm.verts.new((0.0, 0.0, 1.74 + 0.68))
+    top = bm.verts.new((0.0, 0.0, BEANIE_C + BEANIE_H))
     for i in range(seg_u):
         bm.faces.new((rows[0][i], rows[0][(i + 1) % seg_u], top))
     for j in range(seg_v):
@@ -668,7 +662,7 @@ def beanie():
             front = max(0.0, -math.sin(a))
             ph = math.radians(98.0 - dph) - math.radians(26.0) * front ** 1.3
             r = 0.9 * math.sin(ph) + dr * (1.0 + 0.15 * math.cos(a * 28.0))
-            ring.append(bm.verts.new((r * math.cos(a), r * math.sin(a), 1.74 + 0.68 * math.cos(ph))))
+            ring.append(bm.verts.new((r * math.cos(a), r * math.sin(a), BEANIE_C + BEANIE_H * math.cos(ph))))
         rings.append(ring)
     for k in range(len(rings) - 1):
         for i in range(sides):
@@ -681,7 +675,7 @@ def beanie():
         off = Vector((0.0, 0.0, 0.0)) if k == 6 else Vector((0.09 * math.cos(a), 0.09 * math.sin(a), -0.02))
         bm = bmesh.new()
         bmesh.ops.create_icosphere(bm, subdivisions=2, radius=0.12)
-        bmesh.ops.translate(bm, vec=Vector((0.0, 0.0, 2.48)) + off, verts=bm.verts)
+        bmesh.ops.translate(bm, vec=Vector((0.0, 0.0, BEANIE_C + BEANIE_H + 0.08)) + off, verts=bm.verts)
         to_object("canvas_pom%d" % k, bm).parent = root
     return root
 
@@ -718,7 +712,9 @@ def glasses():
     and lens (a filled, slightly domed pane), goggles' cup (a deep padded ring), and a bridge (a small arc)."""
     root = empty("glasses")
     bm = bmesh.new()
-    _frame_loop(bm, [(0.18 * math.cos(t), 0.18 * math.sin(t)) for t in [math.tau * i / 48 for i in range(48)]], 0.05, 0.035)
+    # (Fine wire, the helm pass, 2026-10-19: at 0.05 wide and 0.035 deep the rims read as plastic donuts, and the far one, edge-on at
+    # three-quarters, as a bar sticking out past the head.)
+    _frame_loop(bm, [(0.19 * math.cos(t), 0.19 * math.sin(t)) for t in [math.tau * i / 48 for i in range(48)]], 0.022, 0.018)
     to_object("metal_specs_rim", bm).parent = root
     bm = bmesh.new()
     # (Thin wire drawn wider than the eyes, the aviator scout pilot, after the owner's reference: a heavy plastic frame sat on the eyes.)

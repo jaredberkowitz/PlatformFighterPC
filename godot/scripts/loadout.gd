@@ -54,6 +54,9 @@ const SHIRTS := ["none", "white shirt", "outfit shirt", "striped shirt", "flower
 ## last. Looks saved before this slot existed wear the full kit, as they did.
 const GEAR := ["none", "shorts", "shorts and gloves", "full kit"]
 const GEAR_FULL := 3
+## The belt with its buckle and the shorts' pocket flaps, worn over the shorts (the outfit pass, 2026-10-19: the default looks go without,
+## after the owner's T-pose lineup; the belt was one of about ten bands stacked down the body). Looks saved before this slot keep theirs.
+const BELTS := ["belt and pockets", "none"]
 ## How a fighter stands in the menus (character select, previews; never in a match, where the fists stay closed): the clip it holds and
 ## whether its hands are open (the character judge's round 10: the cast all held one raised-fist pose). Cosmetic only.
 const POSES := ["ready", "relaxed", "wave", "guard", "broad"]
@@ -76,7 +79,7 @@ const SLOTS := ["color", "face", "hat", "glasses", "neck", "accent", "shirt",
 	"brows", "brow_color", "brow_y", "brow_gap", "brow_size", "brow_turn",
 	"nose", "nose_y", "nose_size",
 	"mouth", "mouth_y", "mouth_size", "mouth_squash",
-	"cheeks", "cheek_color", "gear", "pose", "head", "face_lean", "hands"]
+	"cheeks", "cheek_color", "gear", "pose", "head", "face_lean", "hands", "belt", "freckles"]
 
 var color := 0
 var face := 0
@@ -114,6 +117,8 @@ var gear := 0
 var pose := 0
 var head := 0
 var hands := 0
+var belt := 0
+var freckles := 0
 ## How the face is uneven (FaceLook `face_lean` steps; the middle even): one lid lower and the mouth off to that side.
 var face_lean := FaceLook.neutral("face_lean")
 
@@ -128,6 +133,10 @@ func has_gloves() -> bool:
 
 func has_shoes() -> bool:
 	return gear >= 3
+
+
+func has_belt() -> bool:
+	return has_shorts() and belt == 0
 
 
 static func slot_size(slot: String) -> int:
@@ -152,6 +161,10 @@ static func slot_size(slot: String) -> int:
 			return HEADS.size()
 		"hands":
 			return HANDS.size()
+		"belt":
+			return BELTS.size()
+		"freckles":
+			return FaceLook.FRECKLES.size()
 		"eyes":
 			return FaceLook.EYES.size()
 		"eye_color":
@@ -193,6 +206,10 @@ static func slot_names(slot: String) -> Array:
 			return HEADS
 		"hands":
 			return HANDS
+		"belt":
+			return BELTS
+		"freckles":
+			return FaceLook.FRECKLES
 		"eyes":
 			return FaceLook.EYES
 		"eye_color":
@@ -273,7 +290,10 @@ static func default_for(player: int) -> RefCounted:
 	l.neck = o[1]
 	l.accent = o[2]
 	l.glasses = o[3]
-	l.gear = 3
+	# (Shorts and bare legs and feet in the body's colour since the outfit pass, 2026-10-19, the owner's choice after the T-pose lineup:
+	# no socks, boots, belt or pocket flaps; the aviator keeps its gloves (`hands`). The full kit stays in the loadout.)
+	l.gear = 2
+	l.belt = 1
 	# (Each default fighter its own stance in the menus: the sailor relaxed, the aviator waving, the blue on guard, the ranger broad.)
 	l.pose = [1, 2, 3, 4][player % 4]
 	# (A head and an uneven face of its own each: the sailor a bean drooping left, the aviator a wide bun, the blue a ball frowning right,
@@ -284,7 +304,9 @@ static func default_for(player: int) -> RefCounted:
 	l.face_lean = FaceLook.neutral("face_lean") + [-3, 2, 3, 4][player % 4]
 	# (Each fighter's signature pushed, the character judge's round 13: the aviator's freckles, the blue's heavy brows and deep frown, the
 	# ranger's thick block brows.)
-	l.cheeks = 3 if player % 4 == 1 else 0
+	# (The aviator's freckles their own part since the face pass, 2026-10-19: bold dark dots over a soft round blush, as the reference's.)
+	l.cheeks = 1 if player % 4 == 1 else 0
+	l.freckles = 1 if player % 4 == 1 else 0
 	l.cheek_color = 1
 	# (Brows at their own size, the owner, 2026-10-19: enlarged they were far too thick.)
 	if player % 4 == 2:
@@ -316,6 +338,12 @@ static func from_bytes(b: PackedByteArray, player := 0) -> RefCounted:
 	# (A look from before the gear slot was dressed in the full kit: it keeps it.)
 	if b.size() <= SLOTS.find("gear") + 1:
 		l.gear = GEAR_FULL
+	# (And one from before the belt slot wore the belt.)
+	if b.size() <= SLOTS.find("belt") + 1:
+		l.belt = 0
+	# (And one from before the freckles slot had none of its own.)
+	if b.size() <= SLOTS.find("freckles") + 1:
+		l.freckles = 0
 	for i in SLOTS.size():
 		if i + 1 < b.size():
 			var v := int(b[i + 1])

@@ -28,7 +28,7 @@ TONGUE = '#ef7f8e'
 TEETH = '#ffffff'
 MASK = '#ffffff'
 LINE = 11          # the eye outline's width: a fine line, as the concept's
-MOUTH_LINE = 21
+MOUTH_LINE = 30   # (21 until the face pass, 2026-10-19: the reference's mouths are bold strokes; thin, they vanished in a match)
 
 
 def svg(body):
@@ -180,7 +180,17 @@ for name, d in EYES.items():
     write('eyes', name + '_line', stroke(d) + (LASHES if name == 'lash' else ''))
 for name, body in CLOSED.items():
     write('eyes', 'closed_' + name, body)
-for folder, table in (('brows', BROWS), ('noses', NOSES), ('cheeks', CHEEKS), ('mouths', MOUTHS)):
+# ---- Freckles (their own slot since the face pass, 2026-10-19, so they go with any cheeks: bold dots in a loose cluster over the cheek,
+# drawn in a dark brown by the game, as the owner's salute reference) ---------------------------------------------------------------------
+FRECKLES = {
+    'dots': ''.join(fill(ellipse_d(x, y, r, r)) for x, y, r in ((84, 104, 15), (128, 92, 15), (170, 106, 14), (102, 146, 14),
+                                                               (150, 150, 15))),
+    'sprinkle': ''.join(fill(ellipse_d(x, y, 10, 10)) for x, y in ((74, 110), (106, 92), (140, 98), (176, 112), (92, 140), (126, 132),
+                                                                    (160, 142), (116, 168))),
+    'few': ''.join(fill(ellipse_d(x, y, 16, 16)) for x, y in ((96, 110), (148, 104), (124, 150))),
+}
+
+for folder, table in (('brows', BROWS), ('noses', NOSES), ('cheeks', CHEEKS), ('mouths', MOUTHS), ('freckles', FRECKLES)):
     for name, body in table.items():
         write(folder, name, body)
 print('face parts written to', ROOT)

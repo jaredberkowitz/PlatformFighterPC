@@ -386,7 +386,7 @@ func _build_rig(skin: Material) -> bool:
 				elif loadout.shirt == 4:
 					cuff_c = Color(0.95, 0.9, 0.78)
 			mi.material_override = _cloth(toon(cuff_c))
-			mi.visible = loadout.has_shorts()
+			mi.visible = loadout.has_belt() if part.begins_with("ShortsPocket") else loadout.has_shorts()
 		elif part.begins_with("Sock"):
 			# Tall thick socks, with a turned-down top (the character judge's round 1, the owner's reference): white knit.
 			# (A warm cream, the turn-down a shaded step under it, the character judge's round 10: pure white tubes were the brightest mass.)
@@ -412,10 +412,10 @@ func _build_rig(skin: Material) -> bool:
 		elif part.begins_with("Belt"):
 			# The belt the shirt is tucked under (the owner saw PEAK's figures have a waistline): leather, with a brass buckle.
 			mi.material_override = _cloth(toon(BELT_LEATHER))
-			mi.visible = loadout.has_shorts()
+			mi.visible = loadout.has_belt()
 		elif part.begins_with("Buckle"):
 			mi.material_override = respond(toon(BELT_BRASS), "rubber")
-			mi.visible = loadout.has_shorts()
+			mi.visible = loadout.has_belt()
 		elif part.begins_with("SleeveTrim"):
 			# The band round each sleeve's end (the aviator scout pilot, the owner's reference): the outfit colour on a white shirt, white
 			# on a coloured or printed one.
@@ -435,7 +435,9 @@ func _build_rig(skin: Material) -> bool:
 			mi.visible = loadout.shirt > 0 and not (part.begins_with("ShirtCollar") and (loadout.neck >= 2 or loadout.shirt == 4))
 			mi.material_override = _cloth(toon(_collar_colour()))
 		elif part.begins_with("Buttons"):
-			mi.visible = loadout.shirt > 0
+			# (Not under a sash, the badge pass, 2026-10-19: the band crosses the button line and the buttons poked through it as a row of
+			# pale dots in the middle of the chest.)
+			mi.visible = loadout.shirt > 0 and not (loadout.neck == 1 or loadout.neck == 5)
 			mi.material_override = toon(Color(0.95, 0.9, 0.78))
 		elif part.begins_with("Shirt"):
 			var cloth := _garment_shirt_material()
@@ -828,9 +830,9 @@ const ARM_BULK := {7: [Vector3(1.55, 1.08, 1.55), Vector3(1.45, 1.35, 1.45)]}
 ## (Wider and squatter again, the character pass, 2026-10-19: the reference cast's heads are broad squat ovals, wider than the shoulders.)
 const HEAD_SIZE := Vector3(1.45, 1.1, 1.32)
 ## (1.4, the character judge's round 7: the reference's gloves are about half the head's width, a main shape.)
-const HAND_SIZE := 1.1   # (the character judge's round 18: at 1.32 the hands were three quarters of the head's height; the reference's are about half)
+const HAND_SIZE := 1.0   # (the character judge's round 19 wanted the hand about 0.3 of the head's height; with the slimmer wrist (the hand grows with it) 0.8 read tiny to the owner)
 ## How strong the skin's faint painted grain is (`skin_grain` in shaders/skin.gdshader), the character pass, 2026-10-19.
-const SKIN_GRAIN := 0.15
+const SKIN_GRAIN := 0.3   # (0.15 until the matte pass, 2026-10-19: the reference cast's skin carries a visible soft speckle)
 ## (0.9, the character judge's round 1: the reference's shoes are small; big rounded ones read as clown shoes.)
 const FOOT_SIZE := 0.9
 
@@ -903,6 +905,35 @@ func _follow_bones() -> void:
 	var spine_delta: Transform3D = skeleton.get_bone_global_pose(spine_bone) * spine_rest_inv
 	head_rig.transform = to_model * head_delta * to_model.affine_inverse() * head_fit
 	torso_rig.transform = to_model * spine_delta * to_model.affine_inverse() * torso_fit
+	_slide_face()
+
+
+## How much of the camera's angle round the head the face drawing follows (face.gdshader `face_slide`), and the most it slides: the far eye
+## stays readable at three-quarters, while the face still turns with the head (the face pass, 2026-10-19).
+const FACE_SLIDE := 0.45
+var glasses_node: Node3D
+var glasses_base := Transform3D()
+const FACE_SLIDE_MAX := 0.5
+
+
+func _slide_face() -> void:
+	if face_mat == null or not head_rig.is_inside_tree():
+		return
+	var cam := get_viewport().get_camera_3d() if is_inside_tree() else null
+	if cam == null:
+		return
+	# The camera's direction in the head's own frame (its front is +z), the frame's scale taken out.
+	var head := head_rig.global_transform.orthonormalized()
+	var local := head.affine_inverse() * cam.global_position
+	var around := atan2(local.x, local.z)
+	var slide := clampf(around * FACE_SLIDE, -FACE_SLIDE_MAX, FACE_SLIDE_MAX)
+	face_mat.set_shader_parameter("face_slide", slide)
+	# The glasses turn round the head with the drawing, so the eyes stay behind their lenses (in the head's design space, a ball about
+	# 1.42 up).
+	if glasses_node != null and is_instance_valid(glasses_node):
+		var turn := Basis(Vector3.UP, slide)
+		var pivot := Vector3(0.0, 1.42, 0.0)
+		glasses_node.transform = Transform3D(turn, pivot - turn * pivot) * glasses_base
 
 
 ## The rest of the body answers the limb that is reaching for a hit (the kicking leg, or the weapon arm): the torso bends at the waist
@@ -1692,6 +1723,13 @@ static func _cloth(m: Material) -> Material:
 	return c
 
 
+## The sash's badges: how many, where along the band (degrees round it), how much bigger than built, and how much of their enamel colour
+## is muted toward grey (0.45 until the badge pass, 2026-10-19: pale, they read as rings, not badges).
+const SASH_BADGES := 4
+const SASH_BADGE_FROM := 44.0
+const SASH_BADGE_STEP := 31.0
+const SASH_BADGE_SIZE := 1.2
+const SASH_BADGE_MUTE := 0.25
 const CLOTH_OUTLINE_PUSH_BACK := 2.2
 const CLOTH_OUTLINE_THIN := 0.65
 ## How much the rim light flares with a hit's flash (times its usual strength at a full flash).
@@ -1706,8 +1744,8 @@ const OUTLINE_TINT_DARKEN := 0.45
 const OUTLINE_TINT_DARKEN_PALE := 0.8
 const CLOTH_RAMP_SOFTNESS := 0.32
 ## (Finer and fainter, 2026-10-18: long strokes on a pale shirt read as wood grain; the reference's cloth is a fine fleck.)
-const CLOTH_WEAVE := 0.2   # (twice as strong, the character judge's round 8: the cloth read as flat fills)
-const CLOTH_WEAVE_SCALE := 0.12
+const CLOTH_WEAVE := 0.12   # (a fine faint cotton weave since the weave pass, 2026-10-19: 0.32 at scale 0.12 drew strokes 18 cm apart that read as ripples across the cloth)
+const CLOTH_WEAVE_SCALE := 1.2
 ## The shirt's bottom hem: how far below the waist it is cut (art/blender/make_rigged_blob.py) and how wide its ink line is (rest units).
 const SHIRT_HEM_BELOW_WAIST := 0.012
 const SHIRT_HEM_INK := 0.01
@@ -2013,7 +2051,7 @@ func _glasses_fit(face_centre: float, face_size: float, depth_scale: float, dept
 
 
 ## How much wider the sash is drawn over a shirt (the shirt stands off the skin, make_rigged_blob.py SHIRT_LIFT).
-const SASH_OVER_SHIRT := 1.2
+const SASH_OVER_SHIRT := 1.36   # (1.2 until the badge pass, 2026-10-19: the puffed shirt broke through the band in white wedges)
 
 
 ## Neckwear for the rigged torso (TORSO_CENTRE_Y, TORSO_RADII). Rings are tori sized to hug it, so nothing pokes through the body whatever
@@ -2111,7 +2149,8 @@ func _neck_piece(accent: Color, kind: int) -> void:
 			# (Over the shirt, which since the body rebuild hangs looser: fitted to the bare torso, the band sank into the cloth in pieces.)
 			var over := SASH_OVER_SHIRT if loadout.shirt > 0 else 1.0
 			# (Twice as wide, the character judge's round 1: the reference's sash is a broad band.)
-			sash.scale = Vector3(over, 1.9, 1.0 + (over - 1.0) * 0.45)
+			# (Deeper too, the cap pass, 2026-10-19: at 0.45 of the widening the puffed shirt showed through the band on the back.)
+			sash.scale = Vector3(over, 1.9, 1.0 + (over - 1.0) * 0.8)
 			var strap := _gear_mesh("neckwear", "fabric_sash")
 			if strap != null:
 				_part(sash, strap, _cloth(toon(SASH, false)), Vector3.ZERO)
@@ -2151,14 +2190,16 @@ func _neck_piece(accent: Color, kind: int) -> void:
 			var brass := respond(toon(Color(0.86, 0.68, 0.32)), "gold")
 			var colours := [Color(0.92, 0.32, 0.28), accent, Color(0.3, 0.52, 0.86), Color(0.98, 0.8, 0.28), Color(0.4, 0.7, 0.42),
 				Color(0.62, 0.42, 0.8)]
-			# (All six in one mesh, a surface per material, so the sash keeps to the loadout's mesh budget.)
+			# (Four, spread along the strap from the shoulder to the hip, a little bigger, since the badge pass, 2026-10-19: six packed into the
+			# middle of the chest every 13.5 degrees merged into one cluster of rings at any distance; the reference's sit apart.)
+			# (All in one mesh, a surface per material, so the sash keeps to the loadout's mesh budget.)
 			var tools := {}
 			var order: Array = []
-			for k in 6:
-				var t := deg_to_rad(58.0 + 13.5 * k)
+			for k in SASH_BADGES:
+				var t := deg_to_rad(SASH_BADGE_FROM + SASH_BADGE_STEP * k)
 				var out := Vector3(0.88 * cos(t), 0.0, sin(t)).normalized()
 				var at_b := Vector3(0.88 * 0.655 * cos(t), 0.0, 0.655 * sin(t))
-				var turn := Basis(Quaternion(Vector3.UP, out)) * Basis(Vector3.UP, deg_to_rad(8.0 * float(k % 3 - 1)))
+				var turn := Basis(Quaternion(Vector3.UP, out)) * Basis(Vector3.UP, deg_to_rad(8.0 * float(k % 3 - 1))) * Basis.from_scale(Vector3.ONE * SASH_BADGE_SIZE)
 				for piece in [[plates[k], "brass"], [faces[k], "face%d" % k], [marks[k], "mark"]]:
 					var key: String = piece[1]
 					if not tools.has(key):
@@ -2174,7 +2215,7 @@ func _neck_piece(accent: Color, kind: int) -> void:
 			for i in order.size():
 				var key: String = order[i]
 				var c_b: Color = colours[int(key.substr(4))] if key.begins_with("face") else Color.WHITE
-				var m: Material = brass if key == "brass" else (toon(Color(0.98, 0.95, 0.88)) if key == "mark" else respond(toon(c_b.lerp(Color(0.55, 0.5, 0.5), 0.45)), "rubber"))
+				var m: Material = brass if key == "brass" else (toon(Color(0.98, 0.95, 0.88)) if key == "mark" else respond(toon(c_b.lerp(Color(0.55, 0.5, 0.5), SASH_BADGE_MUTE)), "rubber"))
 				bm.set_surface_override_material(i, m)
 			# The sash's knotted end hanging at the hip, swinging with the body (`TailRig`).
 			# (No knotted tail since the character judge's round 1: the reference's sash ends at the hip.)
@@ -2199,9 +2240,11 @@ func _neck_piece(accent: Color, kind: int) -> void:
 				_part(neck_pivot, bib, _fabric(accent), Vector3(0, -0.15, 0), Vector3.ONE, Vector3(-8, 0, 180))
 		3:
 			# Scarf: the collar ring and a tail hanging down the front on one side.
-			var at := _collar(accent)
+			# (Up at the neck over the shirt's neckline and fuller, the scarf pass, 2026-10-20: at the plain collar's height it sank inside
+			# the puffed shirt and showed only as a thin stripe across the chest, its tail hidden inside the shirt.)
+			var at := _collar(accent, SCARF_SNUG, SCARF_LIFT, SCARF_THICK)
 			# (A chain of pieces on springs, so it swings and whips with the body: `TailRig`.)
-			_tail(Vector3(0.26, at - 0.03, 0.46), _fabric(accent), 0.5, 0.2, 0.06, 4)
+			_tail(Vector3(0.24, at - 0.06, 0.62), _fabric(accent), 0.52, 0.22, 0.07, 4)
 		4:
 			# Cape: a collar ring and a broad cloth hanging down the back to the knees, on springs, so it streams behind the fighter's runs
 			# and jumps: the biggest change to the outline the wardrobe has.
@@ -2349,7 +2392,7 @@ func _fabric(c: Color) -> Material:
 	return _cloth(toon(c))
 
 
-func _collar(accent: Color, snug := 1.0, lift := 0.0) -> float:
+func _collar(accent: Color, snug := 1.0, lift := 0.0, thick := 1.0) -> float:
 	var ring := TorusMesh.new()
 	ring.inner_radius = 0.44
 	ring.outer_radius = 0.58
@@ -2365,7 +2408,7 @@ func _collar(accent: Color, snug := 1.0, lift := 0.0) -> float:
 	if modelled != null:
 		# (A size out over a shirt, which stands off the body since the body rebuild.)
 		var over := (1.14 if loadout.shirt > 0 else 1.0) * snug
-		_part(torso_rig, modelled, _fabric(accent), Vector3(0, at, 0), Vector3(over, 1.0, over))
+		_part(torso_rig, modelled, _fabric(accent), Vector3(0, at, 0), Vector3(over, thick, over))
 	else:
 		_part(torso_rig, ring, _fabric(accent), Vector3(0, at, 0), Vector3(1.06, 0.62, 0.96))
 	return at
@@ -2373,6 +2416,10 @@ func _collar(accent: Color, snug := 1.0, lift := 0.0) -> float:
 
 ## How far below the neck (where the head meets the shoulders) the collar ring sits: its top just shows under the chin.
 const COLLAR_BELOW_NECK := 0.1
+## The scarf's collar: how snug, how far up and how much thicker than the plain collar ring (the scarf pass, 2026-10-20).
+const SCARF_SNUG := 0.98
+const SCARF_LIFT := 0.1
+const SCARF_THICK := 1.6
 
 
 ## The hat sits on a pivot at the crown of the head that lags behind sudden moves and bounces on landings (the `hat_roll` and `hat_drop` springs, see `_secondary`).
@@ -2440,7 +2487,9 @@ func _hat() -> void:
 			# its edge turned back in a soft fold of a lighter shade, a cowl of the same cloth lying round the shoulders, and a point behind
 			# that droops. (A shell open at the front, seen from both sides like the clothes: a closed ball drew its front across the face,
 			# which showed as a disc in a dark ring; and a wide cream rim round a small opening read as a porthole.)
-			var charcoal := Color(0.24, 0.22, 0.32)
+			# (In the outfit colour, a shade deeper, since the hood pass, 2026-10-20: near-black charcoal was the heaviest mass on the
+			# fighter, a dark slab round the face; the reference's hood is the character's own coloured cloth.)
+			var charcoal := accent.darkened(0.18)
 			var cloth := _cloth(toon(charcoal))
 			var at := Vector3(0, 1.52, 0.02) - HAT_PIVOT
 			var fit := Vector3(1.1, 1.06, 1.02)
@@ -2448,14 +2497,15 @@ func _hat() -> void:
 			_part(hat_pivot, _shell_lip(0.9, _hood_edge, 0.06), toon(charcoal.lightened(0.24)), at, fit)
 			# The cowl: an open cone of the same cloth from inside the hood's lower edge flaring out over the shoulders.
 			var cowl := CylinderMesh.new()
+			# (Shorter and barely flared, the hood pass: a wide stiff cone read as a flat bar across the shoulders.)
 			cowl.top_radius = 0.66
-			cowl.bottom_radius = 0.98
-			cowl.height = 0.42
+			cowl.bottom_radius = 0.78
+			cowl.height = 0.3
 			cowl.radial_segments = 28
 			cowl.rings = 2
 			cowl.cap_top = false
 			cowl.cap_bottom = false
-			_part(hat_pivot, cowl, cloth, Vector3(0, 0.62, -0.12) - HAT_PIVOT, Vector3(1.0, 1.0, 0.86), Vector3(16, 0, 0))
+			_part(hat_pivot, cowl, cloth, Vector3(0, 0.68, -0.08) - HAT_PIVOT, Vector3(1.0, 1.0, 0.9), Vector3(10, 0, 0))
 			_part(hat_pivot, _cyl(0.0, 0.3, 0.8), cloth, Vector3(0, 1.95, -0.72) - HAT_PIVOT, Vector3.ONE, Vector3(-62, 0, 0))
 		7:
 			# Plumed helm: a steel cap with a brow band and a tall plume in the accent colour sweeping back off the crest.
@@ -2507,6 +2557,8 @@ func _glasses() -> void:
 	var glasses_rig := Node3D.new()
 	glasses_rig.transform = head_fit.affine_inverse() * glasses_fit
 	head_rig.add_child(glasses_rig)
+	glasses_node = glasses_rig
+	glasses_base = glasses_rig.transform
 	var to_head: Transform3D = glasses_rig.transform
 	# The glasses' space is stretched across by the eyes' spacing and up by their size: a lens is made round again by this.
 	lens_aspect = glasses_fit.basis.get_scale().y / maxf(0.001, glasses_fit.basis.get_scale().x)
@@ -2559,7 +2611,8 @@ func _glasses() -> void:
 			# Round specs: thin flat-faced wire rims and a bridge.
 			for sx in [-1.0, 1.0]:
 				if modelled:
-					_on_face(_part(glasses_rig, g_rim_specs, frame, Vector3.ZERO), to_head, sx * 0.32, 1.52, 0.05, Vector3.ONE)
+					# (Closer to the face, the helm pass, 2026-10-19: with the finer wire, 0.05 off it stood out from the head side-on.)
+					_on_face(_part(glasses_rig, g_rim_specs, frame, Vector3.ZERO), to_head, sx * 0.32, 1.52, 0.03, Vector3.ONE)
 				else:
 					var thin := TorusMesh.new()
 					thin.inner_radius = 0.17

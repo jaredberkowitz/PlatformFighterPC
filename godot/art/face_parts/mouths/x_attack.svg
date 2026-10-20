@@ -2,5 +2,5 @@
   <clipPath id="m"><path d="M46,92 L210,92 Q205,173 128,182 Q51,173 46,92 Z"/></clipPath>
   <path d="M46,92 L210,92 Q205,173 128,182 Q51,173 46,92 Z" fill="#6b2234"/>
   <ellipse cx="128" cy="166" rx="56" ry="28" fill="#ef7f8e" clip-path="url(#m)"/>
-  <path d="M46,92 L210,92 Q205,173 128,182 Q51,173 46,92 Z" fill="none" stroke="#2a1a33" stroke-width="20" stroke-linejoin="round"/>
+  <path d="M46,92 L210,92 Q205,173 128,182 Q51,173 46,92 Z" fill="none" stroke="#2a1a33" stroke-width="29" stroke-linejoin="round"/>
 </svg>

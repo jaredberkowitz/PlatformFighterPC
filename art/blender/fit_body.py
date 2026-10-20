@@ -1,7 +1,8 @@
 """Measures a body model and places the game's skeleton in it (docs/ART_WORKFLOW.md, Characters).
 
     blender --background --python art/blender/fit_body.py -- --in art/generated/base_body/base_body.glb --out art/generated/base_body/joints.json
-    (the modelled base body: --in art/models/base_body/base_body.glb --out art/models/base_body/joints.json --shoulder-lift 0.11)
+    (the modelled base body: --in art/models/base_body/base_body.glb --out art/models/base_body/joints.json --shoulder-lift 0.07
+     --wrist-lift 0.045)
 
 The body must stand upright on the ground, facing -Y (Blender's front), arms hanging at its sides, as `import_generated.py --kind fighter`
 leaves it. It is cut into thin horizontal slices; in each slice the points are grouped by gaps across X (two arms and the trunk, or two
@@ -69,7 +70,7 @@ def clusters(xs, gap):
     return out
 
 
-def fit(pts, shoulder_lift=0.07):
+def fit(pts, shoulder_lift=0.07, wrist_lift=0.075):
     height = pts[:, 2].max()
     step = height / 120.0
     gap = height * 0.02
@@ -177,7 +178,10 @@ def fit(pts, shoulder_lift=0.07):
         # stayed with the torso and the arm broke in the middle when it moved, the elbow bending above the modelled elbow.)
         shoulder = [sx * 0.92, sy, sz + height * shoulder_lift]
         tip = arm[-1]
-        wrist_z = tip[0] + height * 0.075
+        # (`wrist_lift`, a share of the height, 0.075 by default. The base body passes 0.045 since its refit to the owner's T-pose
+        # lineup, 2026-10-19: its arm is shorter, and at 0.075 the wrist sat up the forearm where it is still thick, so the skin was cut
+        # there and the narrower hand sat on a flat ledge, reading as stuck on.)
+        wrist_z = tip[0] + height * wrist_lift
         near = min(arm, key=lambda t: abs(t[0] - wrist_z))
         wrist = [near[1], near[2], wrist_z]
         elbow = [(shoulder[0] + wrist[0]) / 2.0, (shoulder[1] + wrist[1]) / 2.0, (shoulder[2] + wrist[2]) / 2.0]
@@ -206,7 +210,7 @@ def fit(pts, shoulder_lift=0.07):
 
 def main():
     a = args()
-    result = fit(load_points(os.path.abspath(a["in"])), float(a.get("shoulder-lift", 0.07)))
+    result = fit(load_points(os.path.abspath(a["in"])), float(a.get("shoulder-lift", 0.07)), float(a.get("wrist-lift", 0.075)))
     with open(os.path.abspath(a["out"]), "w") as f:
         json.dump(result, f, indent=1)
     print("FIT neck %.3f armpit %.3f crotch %.3f head centre %s radius %.3f" % (result["neck"], result["armpit"], result["crotch"],

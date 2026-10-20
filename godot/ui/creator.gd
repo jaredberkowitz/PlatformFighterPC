@@ -33,6 +33,7 @@ const CATEGORIES := [
 	{"id": "nose", "title": "Nose", "slot": "nose", "adjust": ["nose_y", "nose_size"], "face": true, "view": ["nose", 2.6]},
 	{"id": "mouth", "title": "Mouth", "slot": "mouth", "adjust": ["mouth_y", "mouth_size", "mouth_squash"], "face": true, "view": ["mouth", 2.4]},
 	{"id": "cheeks", "title": "Cheeks", "slot": "cheeks", "color": "cheek_color", "face": true, "view": ["cheek", 1.3]},
+	{"id": "freckles", "title": "Freckles", "slot": "freckles", "face": true, "view": ["freckle", 3.2]},
 	{"id": "mood", "title": "Mood", "slot": "face", "face": true, "view": ["face", 1.05]},
 	{"id": "hat", "title": "Hat", "slot": "hat", "shot": "head"},
 	{"id": "glasses", "title": "Glasses", "slot": "glasses", "shot": "head"},
@@ -54,8 +55,8 @@ const TOOLS := {
 const BAR_KEYS := ["Size", "Run speed", "Jump height", "Weight", "Fall speed"]
 ## The face shader's drawings for each part (the others are left out of a part's picture).
 const PART_TEXTURES := {"eye": ["eye_fill_tex", "eye_line_tex", "eye_extra_tex"], "brow": ["brow_tex"], "nose": ["nose_tex"],
-	"mouth": ["mouth_tex"], "cheek": ["cheek_tex"]}
-const ALL_PART_TEXTURES := ["eye_fill_tex", "eye_line_tex", "eye_extra_tex", "brow_tex", "nose_tex", "mouth_tex", "cheek_tex"]
+	"mouth": ["mouth_tex"], "cheek": ["cheek_tex", "freckle_tex"], "freckle": ["freckle_tex", "cheek_tex"]}
+const ALL_PART_TEXTURES := ["eye_fill_tex", "eye_line_tex", "eye_extra_tex", "brow_tex", "nose_tex", "mouth_tex", "cheek_tex", "freckle_tex"]
 
 # Layout (a 1280x720 screen).
 const RAIL := Rect2(12, 78, 56, 630)
@@ -179,6 +180,9 @@ class RailTab extends Pick:
 			"cheeks":
 				draw_circle(c + Vector2(-s * 0.55, 0), s * 0.38, Color(Art.CORAL, 0.8))
 				draw_circle(c + Vector2(s * 0.55, 0), s * 0.38, Color(Art.CORAL, 0.8))
+			"freckles":
+				for d in [Vector2(-0.55, -0.3), Vector2(0.0, -0.45), Vector2(0.5, -0.25), Vector2(-0.3, 0.3), Vector2(0.3, 0.35)]:
+					draw_circle(c + d * s, s * 0.17, ink)
 			"mood":
 				draw_arc(c, s, 0, TAU, 24, ink, w, true)
 				draw_circle(c + Vector2(-s * 0.35, -s * 0.2), s * 0.13, ink)
@@ -602,9 +606,13 @@ func _paint_thumb(t: Dictionary) -> void:
 			y = FaceLook.NOSE_Y + FaceLook.offset(variant, "nose_y") * 0.01
 		"mouth":
 			y = FaceLook.MOUTH_Y + FaceLook.offset(variant, "mouth_y") * 0.011
-		"cheek":
+		"cheek", "freckle":
 			y = FaceLook.EYE_Y + 0.1
 	mat.set_shader_parameter("view", Vector3(0.5, y, float(t.view[1])))
+	if str(t.view[0]) == "freckle":
+		# (Close on one cheek: the whole face showed the dots as specks.)
+		var cp: Vector3 = mat.get_shader_parameter("cheek_place")
+		mat.set_shader_parameter("view", Vector3(0.5 + cp.x, cp.y, float(t.view[1])))
 	# A part's picture shows that part alone on the skin (the mood's, the whole face).
 	var part := str(t.view[0])
 	if PART_TEXTURES.has(part):
