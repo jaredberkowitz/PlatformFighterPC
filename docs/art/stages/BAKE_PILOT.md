@@ -230,3 +230,24 @@ made under a modelled front (the model carries the mesa down to the desert floor
 **Result** (round 62, `canyon_front_built.png`: match camera, wide, fighters in play): tiers of chunky rock, two or three slabs to a tier,
 in the same blocky language as the far mesas and the arch. Front 0.28 (0.32 before, so a touch calmer under the fight); sand 0.65;
 fighters 0.52 and 0.50. Cost unchanged: 882 draw calls against 885, GPU 2.5 to 2.7 ms both ways. **Tests:** all seven pass.
+
+## The city's front: mocks (2026-10-20)
+
+`art/blender/make_city_front.py --variant A|B|C` builds the building on the city's block: from under the roof's coping and brass rail
+(which stay, with the roof) down to the street, where the code-built shopfront and awning stay. There are four floors on the block. Under
+its foot the building steps back `UNDER_RECESS` (0.9), as the code-built tower does, with a stone belt and a row of windows. The windows
+are real openings with the glass set back 0.28. Lit rooms (about a third) are warm with curtains, and dark rooms are a deep blue. The
+glass, the bulbs and the neon are unshaded (`glow` in `place_front`), and the wall is the city's own brick material (`brick` family).
+- A brownstone: 51,600 triangles.
+- B fire escape: 40,500 triangles.
+- C deco piers: 36,100 triangles.
+
+The front measures 0.29, 0.27 and 0.30 against today's 0.41 (the roof is 0.40, so today's wall was as light as the play surface).
+Options in `mocks/city_front/` on the owner's page; recommended A.
+
+The occlusion bake also drops the code-built facade's pieces from the context. They are exported as occluders lying on the wall's own
+face, and left in, they baked the new wall black. Every family keeps part of its brightness (0.3; the frames and curtains in their reveals
+0.55; the glass 0.6).
+
+In the game: the facade's MultiMeshes, the shade band under the coping, the corner brackets and the tower's cornice and band are marked
+`code_front`. The tower itself is hidden as a floating island's keel is.

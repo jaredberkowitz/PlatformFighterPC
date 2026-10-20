@@ -315,6 +315,8 @@ static func _facade_windows(parent: Node3D, left: float, right: float, top: floa
 		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON if kind in ["stone", "ledge", "frame", "tube", "ac", "pipe"] \
 			else GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		mi.name = "facade_" + kind
+		# (A modelled city front, art/blender/make_city_front.py, replaces it.)
+		mi.set_meta("code_front", true)
 		parent.add_child(mi)
 
 
@@ -1231,7 +1233,9 @@ static func solid_block(parent: Node3D, t: Dictionary, left: float, right: float
 	# A soft shadow on the front just under the cap, where its overhang keeps the light off: it makes the edge of the fighting surface
 	# read at a glance.
 	var cap_depth := {"roof": 0.42, "sand": 0.5}.get(t.get("cap", "grass"), 0.62) as float
-	_mesh(parent, _shade_band(w + 0.2, 0.9), _band_material(), Vector3(cx, top - cap_depth - 0.45, front_z + 0.012))
+	var band := _mesh(parent, _shade_band(w + 0.2, 0.9), _band_material(), Vector3(cx, top - cap_depth - 0.45, front_z + 0.012))
+	if t.get("pattern", "") == "facade":
+		band.set_meta("code_front", true)
 	_ledges_and_buttresses(parent, t, left, right, top, bottom, front_z, cap_depth)
 	match t.get("cap", "grass"):
 		"roof":
@@ -1449,7 +1453,7 @@ static func _ledges_and_buttresses(parent: Node3D, t: Dictionary, left: float, r
 		if city:
 			# A metal corner cap over the ledge: a bracket down the corner and a bright cap on top.
 			var steel := FighterView.respond(FighterView.toon(Color(0.62, 0.64, 0.74)), "metal")
-			_mesh(parent, _box(Vector3(0.34, 0.9, 0.34)), steel, Vector3(edge_x - side * 0.08, top - 0.55, front_z + 0.1))
+			_mesh(parent, _box(Vector3(0.34, 0.9, 0.34)), steel, Vector3(edge_x - side * 0.08, top - 0.55, front_z + 0.1)).set_meta("code_front", true)
 			_mesh(parent, _box(Vector3(0.44, 0.14, 0.44)), steel, Vector3(edge_x - side * 0.08, top - 0.1, front_z + 0.12))
 			continue
 		# The corner stone: a squat, slightly turned block, a hair proud of the front and the side.
@@ -3869,8 +3873,8 @@ static func underside(root: Node3D, t: Dictionary, e: Array) -> void:
 			tower.name = "Underside"
 			tower.set_instance_shader_parameter("front_top", e[2])
 			_facade_windows(root, cx - (r - l - 0.4) / 2.0, cx + (r - l - 0.4) / 2.0, bottom - 0.3, street + 4.4, front, e[2], 0.55, tower.material_override)
-			_mesh(root, _box(Vector3(r - l + 0.1, 0.32, 0.5)), _soft((t.soil as Color).lightened(0.1)), Vector3(cx, bottom - 0.12, front + 0.2))
-			_mesh(root, _shade_band(r - l - 0.4, 1.2), _band_material(), Vector3(cx, bottom - 0.9, front + 0.01))
+			_mesh(root, _box(Vector3(r - l + 0.1, 0.32, 0.5)), _soft((t.soil as Color).lightened(0.1)), Vector3(cx, bottom - 0.12, front + 0.2)).set_meta("code_front", true)
+			_mesh(root, _shade_band(r - l - 0.4, 1.2), _band_material(), Vector3(cx, bottom - 0.9, front + 0.01)).set_meta("code_front", true)
 			_shopfront(root, cx, r - l - 0.4, street, front + 0.02)
 			_street(root, street, front)
 		_:

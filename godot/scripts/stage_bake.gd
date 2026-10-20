@@ -303,7 +303,13 @@ static func place_front(root: Node3D, t: Dictionary, scene: Node3D) -> void:
 		# (The canyon's strata, art/blender/make_canyon_front.py: its sandstone, its deep brick and a pale band, as the code-built strata.)
 		# (Wider apart than the code-built strata's: under the dusk light three close reds read as one.)
 		"strata_a": t.get("soil", Color(0.86, 0.5, 0.32)), "strata_b": (t.get("soil_dark", Color(0.68, 0.34, 0.24)) as Color).darkened(0.12),
-		"strata_c": (t.get("soil", Color(0.86, 0.5, 0.32)) as Color).lerp(Color(1.0, 0.86, 0.66), 0.6)}
+		"strata_c": (t.get("soil", Color(0.86, 0.5, 0.32)) as Color).lerp(Color(1.0, 0.86, 0.66), 0.6),
+		# (The city's, art/blender/make_city_front.py: the code-built facade's warm stone, gold frames, curtains, neon and fittings.)
+		"trim": Color(0.9, 0.8, 0.68), "frame": Color(0.86, 0.7, 0.46), "curtain_a": Color(0.92, 0.54, 0.58), "curtain_b": Color(0.56, 0.72, 0.92),
+		"curtain_c": Color(0.92, 0.76, 0.44), "neon": Color(0.88, 0.3, 0.38), "pipe": Color(0.48, 0.48, 0.58), "pot": Color(0.78, 0.4, 0.3),
+		"leaf": Color(0.36, 0.62, 0.3), "ac": Color(0.74, 0.75, 0.8), "spandrel": (t.get("soil_dark", Color(0.4, 0.3, 0.4)) as Color).darkened(0.3)}
+	# (Lit rooms, dark panes and bulbs keep their own colour whatever the light, as the code-built facade's glass does.)
+	var glow := {"glass_lit": Color(1.0, 0.72, 0.4), "glass_dark": Color(0.12, 0.13, 0.26), "bulb": Color(1.0, 0.94, 0.8)}
 	scene.name = "ModelledFront"
 	root.add_child(scene)
 	var top := -INF
@@ -313,7 +319,16 @@ static func place_front(root: Node3D, t: Dictionary, scene: Node3D) -> void:
 		for s in mi.mesh.get_surface_count():
 			var src := mi.mesh.surface_get_material(s)
 			var fam := src.resource_name if src != null else "rock"
-			var m := (FighterView.toon(colours.get(fam, Color(0.6, 0.6, 0.6)), true) as ShaderMaterial).duplicate() as ShaderMaterial
+			if glow.has(fam):
+				var g := StandardMaterial3D.new()
+				g.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+				g.albedo_color = glow[fam]
+				g.vertex_color_use_as_albedo = true
+				mi.set_surface_override_material(s, g)
+				continue
+			# (The city's wall in its own brick, laid in world space as the code-built facade's.)
+			var m := ((StageArt._soil_material(t) if fam == "brick" else FighterView.toon(colours.get(fam, Color(0.6, 0.6, 0.6)), true)) \
+				as ShaderMaterial).duplicate() as ShaderMaterial
 			m.set_shader_parameter("facets", fam != "quilt")
 			# (The model carries its own baked occlusion in its vertex colours.)
 			m.set_shader_parameter("vertex_shade", true)
