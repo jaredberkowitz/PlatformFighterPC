@@ -48,3 +48,23 @@ render CPU unchanged (meadow 2.48 / 1.27 ms, beach 2.66 / 1.46 ms; draw calls eq
 - The skies sit under the sheet's 0.75 band (meadow 0.71), but the owner's references are deeper still (the camp 0.58, the harbour
   0.42): the band, not the skies, may need revising. Not changed.
 - The city's tower layers: pass 3, with the same curve.
+
+## Pass 2: stage fronts, the meadow cliff (mocks, 2026-10-20)
+
+**Defect.** The meadow's cliff under the lawn is 0.17, a near-black slab across a quarter of the frame, against the sheet's 0.35 to 0.55
+for a stage front (`REFERENCE.md`, weakness 2). Its colour is `meadow.cfg` `ledge` (0.2, 0.3, 0.25), the camp reference's ledge face,
+which there is a thin strip.
+
+**Mocks** (a scratch palette swap, reverted; match camera `mocks/cliff_options.png`, close-up `mocks/cliff_options_close.png`; order
+top-left, top-right, bottom-left, bottom-right):
+
+| Option | `ledge` | Measured front | Hue, sat | Reads as |
+|---|---|---|---|---|
+| A, today | 0.2, 0.3, 0.25 | 0.17 | 182, 0.31 | a dark teal void |
+| B, deep moss | 0.3, 0.44, 0.3 | 0.25 | 153, 0.33 | the reference's dark green-grey, out of the void, still under the band |
+| C, warm earth | 0.66, 0.44, 0.26 | 0.35 | 26, 0.42 | soil under turf; the strongest split from the lawn by hue, ties to the wood and bales |
+| D, light moss | 0.4, 0.62, 0.32 | 0.36 | 133, 0.38 | the land's own green in band; the lit top still pops (lawn 0.64) |
+
+Two first tries were dropped: a warm grey stone (0.5, 0.44, 0.36) came out concrete grey (sat 0.08) under the stage's cool fill, and a
+light sage (0.42, 0.54, 0.44) went the pale blue-grey the judge's round 39 rejected. Recommended: D. Seen in every option: the facets
+barely show (contrast 0.03); once a colour is picked, the next step is a stronger lit/shaded split between the planes.
