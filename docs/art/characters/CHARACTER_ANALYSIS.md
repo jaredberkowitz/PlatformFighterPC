@@ -133,3 +133,18 @@ art pipeline, loadout, animation library and match flow tests pass.
 dark backdrop, edge 0.60 to 0.85 against the bench's 0.85) at the round 19 checkpoint as well, with the same numbers; left for a
 lighting or outline pass.
 
+## Matte material pass (2026-10-19)
+Fighters only; the stages and props are unchanged (every change is keyed on the `fighter` instance flag or on the fighters' own
+materials).
+- **No highlight on fighters** (`toon_light.gdshaderinc`, `PF_FIGHTER_SHEEN` 0): the small soft highlight every material carried
+  (`sheen`, 0.04 on skin and cloth, 0.16 on the "rubber" gloves, soles and buckle) is gone on a fighter, so shorts, boots and gloves
+  stop reading as vinyl. Weapons keep their metal bands.
+- **Painted texture**: the skin's grain (`SKIN_GRAIN` 0.15 to 0.3) shows as the reference's soft speckle up close and disappears at
+  play distance; the cloth's woven strokes a little stronger (`CLOTH_WEAVE` 0.2 to 0.32).
+- Left as they were: the two-tone shading (`PF_FIGHTER_STEP`, `EDGE`, `SHADE`, which rounds 8 and 19 settled), the edge light, and the
+  fighters' reduced bloom (`post.gdshader` `bloom_fighter`).
+
+**Checked**: close-ups in the same camera (`matte_pass.png`, left before, right after), in a match on the meadow, and the look bench:
+the same numbers as before or a little better (the palest look on the night stage's bright haze from 0.84 to 0.86, no longer low); the
+city's dark backdrop still fails as it did at round 19. Fighter view, art pipeline, loadout and animation library tests pass.
+

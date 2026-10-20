@@ -830,7 +830,7 @@ const HEAD_SIZE := Vector3(1.45, 1.1, 1.32)
 ## (1.4, the character judge's round 7: the reference's gloves are about half the head's width, a main shape.)
 const HAND_SIZE := 1.0   # (the character judge's round 19 wanted the hand about 0.3 of the head's height; with the slimmer wrist (the hand grows with it) 0.8 read tiny to the owner)
 ## How strong the skin's faint painted grain is (`skin_grain` in shaders/skin.gdshader), the character pass, 2026-10-19.
-const SKIN_GRAIN := 0.15
+const SKIN_GRAIN := 0.3   # (0.15 until the matte pass, 2026-10-19: the reference cast's skin carries a visible soft speckle)
 ## (0.9, the character judge's round 1: the reference's shoes are small; big rounded ones read as clown shoes.)
 const FOOT_SIZE := 0.9
 
@@ -1706,7 +1706,7 @@ const OUTLINE_TINT_DARKEN := 0.45
 const OUTLINE_TINT_DARKEN_PALE := 0.8
 const CLOTH_RAMP_SOFTNESS := 0.32
 ## (Finer and fainter, 2026-10-18: long strokes on a pale shirt read as wood grain; the reference's cloth is a fine fleck.)
-const CLOTH_WEAVE := 0.2   # (twice as strong, the character judge's round 8: the cloth read as flat fills)
+const CLOTH_WEAVE := 0.32   # (twice as strong, the character judge's round 8: the cloth read as flat fills; 0.2 until the matte pass)
 const CLOTH_WEAVE_SCALE := 0.12
 ## The shirt's bottom hem: how far below the waist it is cut (art/blender/make_rigged_blob.py) and how wide its ink line is (rest units).
 const SHIRT_HEM_BELOW_WAIST := 0.012
