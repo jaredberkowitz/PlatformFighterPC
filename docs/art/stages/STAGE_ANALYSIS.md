@@ -132,3 +132,23 @@ the palest things, but lifting the roof would close that gap.
 **The owner picked sky B** (calmer pink, 2026-10-20; reviewed on a flip/slider page). Applied in `city.cfg`: `sky_horizon` 0.42, 0.24,
 0.48; `sky_glow` 0.8, 0.42, 0.62 at 0.32; `sun_side` 0.25. The sky 0.43 → 0.37, saturation 0.67 → 0.59, hue 324 → 310 (round 48,
 `pass3_city_sky.png`). The run mode's sky calms the same way (checked with `run_shot`). Tests as above, all pass.
+
+## Pass 4: the beach's wood (mocks, 2026-10-20)
+
+**Defect** (`REFERENCE.md`, weakness 4): the deck bleached (0.76, saturation 0.28; the harbour reference's honey 0.55, saturation 0.60)
+and the posts nearly black (0.16 to 0.23). **Cause:** `_dock_block` hard-coded the deck colour (0.86, 0.7, 0.5) and the post colour,
+and lifts the play line by `worn_tint` 1.6. They are now the palette's `[backdrop]` `deck_wood`, `deck_worn` and `pile_wood` (read from
+the theme's own palette by name: the blocks are built before `backdrop` sets `_palette`), today's values the defaults.
+
+**The constraint:** the fighters measure 0.54 (orange) and 0.60 (yellow) on the deck, so a deck 0.05 from both sits under about 0.49 or
+over about 0.65. Mocks (`mocks/beach_wood/`, the match camera and fighters in play, on the owner's review page):
+
+| Option | `deck_wood` / `deck_worn` / `pile_wood` | Deck | Posts |
+|---|---|---|---|
+| A, today | 0.86, 0.7, 0.5 / 1.6, 1.45, 1.25 / 0.36, 0.26, 0.2 | 0.76, sat 0.28 | 0.23 |
+| B, deep honey | 0.5, 0.32, 0.18 / 1.16, 1.1, 1.04 / 0.44, 0.29, 0.19 | 0.48, sat 0.48 | 0.25 |
+| C, rich light honey | 0.92, 0.7, 0.42 / 1.35, 1.28, 1.15 / 0.5, 0.34, 0.22 | 0.75, sat 0.38 | 0.30 |
+| D, mid honey | 0.8, 0.54, 0.3 / 1.25, 1.18, 1.1 / 0.55, 0.36, 0.22 | 0.67, sat 0.47 | 0.33 |
+
+A first B (0.7, 0.46, 0.26) measured 0.61, the fighters' own value: the stage's light lifts the boards more than their colour suggests.
+Recommended B, the reference's honey under the fighters.

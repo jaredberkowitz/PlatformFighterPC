@@ -6433,7 +6433,11 @@ static func _dock_block(parent: Node3D, t: Dictionary, left: float, right: float
 	# (Honey-toned after the owner's harbour reference, kept at a readable value, about half of white.)
 	# (A step deeper again with the rendered planks, whose grain lifts the boards' tops: the orange fighter came within 0.04 of them.)
 	# (A warmer, brighter honey, the style sheet's section 9 (clean, bright play surface), 2026-10-19: murky mid-brown.)
-	var wood_c: Color = Color(0.86, 0.7, 0.5)
+	# (From the palette, [backdrop] `deck_wood`, `deck_worn` and `pile_wood`, so the owner's pick of the mocks is a palette change, the
+	# stage refinement's pass 4, 2026-10-20; these defaults are the look before it.)
+	# (The theme's own palette by name: the blocks are built before `backdrop` sets `_palette`.)
+	var bd: Dictionary = palette(String(t.get("name", "ocean"))).get("backdrop", {})
+	var wood_c: Color = bd.get("deck_wood", Color(0.86, 0.7, 0.5))
 	var dark_c: Color = t.wood_dark
 	# The deck: rows of boards from the front back, staggered joints.
 	# (Longer boards in wider rows and a narrower range of shade, art review 9: hundreds of short boards in many shades read busy.)
@@ -6502,7 +6506,7 @@ static func _dock_block(parent: Node3D, t: Dictionary, left: float, right: float
 	deck_mat.set_shader_parameter("ramp_softness", 0.1)
 	# (Scuffed paler along the play line where feet wear the boards, the gauntlet's round 1: a uniform deck read as a flat fill.)
 	deck_mat.set_shader_parameter("worn_path", 0.6)
-	deck_mat.set_shader_parameter("worn_tint", Color(1.6, 1.45, 1.25))
+	deck_mat.set_shader_parameter("worn_tint", bd.get("deck_worn", Color(1.6, 1.45, 1.25)))
 	deck.material_override = deck_mat
 	deck.name = "dock_deck"
 	parent.add_child(deck)
@@ -6526,7 +6530,7 @@ static func _dock_block(parent: Node3D, t: Dictionary, left: float, right: float
 		band.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	# Piles: a front row and a back row, round, a little off plumb, each with a dark wet band and green weed at the waterline.
 	# (Plain faceted wood in a deep brown, the stage's dark simple front, 2026-10-19: striped bark piles were the busiest thing on screen.)
-	var pile := (FighterView.toon(Color(0.36, 0.26, 0.2)) as ShaderMaterial).duplicate() as ShaderMaterial
+	var pile := (FighterView.toon(bd.get("pile_wood", Color(0.36, 0.26, 0.2))) as ShaderMaterial).duplicate() as ShaderMaterial
 	pile.set_shader_parameter("facets", true)
 	var wet := FighterView.toon(Color(0.66, 0.64, 0.48))
 	var weed := Materials.foliage(Color(0.26, 0.46, 0.3), Vector2(1, 1), false)
