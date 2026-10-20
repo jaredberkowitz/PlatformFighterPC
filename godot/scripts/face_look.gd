@@ -50,9 +50,11 @@ const NOSE_Y := 0.5
 const NOSE_SIZE := 0.14
 const MOUTH_Y := 0.615
 ## (Larger, its line bolder with it, the character pass, 2026-10-19: the reference's mouths carry the expression.)
-const MOUTH_SIZE := 0.32
+const MOUTH_SIZE := 0.36   # (0.32 until the face pass, 2026-10-19: the reference's mouths are about a third of the face wide)
 ## (Smaller, the character pass, 2026-10-19: the reference cast's pupils are small dots in a wide white.)
 const PUPIL := 0.19
+## The catch-light's radius as a share of the pupil's (face_common.gdshaderinc `catchlight`), the face pass, 2026-10-19.
+const CATCHLIGHT := 0.46
 const LOOK := Vector2(0.051, 0.01)
 ## Cheeks sit out from and below the eyes and grow with them (the concept's: just outside the eyes and well below them, 0.2 across).
 const CHEEK_OUT := 0.053
@@ -124,6 +126,7 @@ static func apply(mat: ShaderMaterial, look: RefCounted, expression := "deadpan"
 	mat.set_shader_parameter("eye_extra_tex", tex("eyes/closed_" + str(e.eyes)) if shut > 0 else null)
 	mat.set_shader_parameter("lids", e.get("lids", Vector3.ZERO))
 	mat.set_shader_parameter("pupil_size", PUPIL * float(e.get("pupil", 1.0)))
+	mat.set_shader_parameter("catchlight", CATCHLIGHT)
 	mat.set_shader_parameter("pupil_shift", Vector2(float(e.get("look", LOOK.x)), LOOK.y))
 	mat.set_shader_parameter("eye_color", EYE_COLORS[look.eye_color])
 

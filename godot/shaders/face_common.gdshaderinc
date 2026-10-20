@@ -21,6 +21,8 @@ uniform vec2 eye_squash = vec2(1.0);
 // 0 open (a pupil and lids drawn inside the white), 1 shut (only `eye_extra_tex`, in ink), 2 a spiral in the white (dazed).
 uniform int eye_mode = 0;
 uniform float pupil_size = 0.257;
+// A catch-light in each pupil (0 none): its radius as a share of the pupil's, up and to the side the light comes from.
+uniform float catchlight = 0.0;
 // Where the pupil sits in the eye (the eyes look toward the fighter's front).
 uniform vec2 pupil_shift = vec2(0.051, 0.01);
 // The lids: how far the top one is down (0 open .. 1 shut), its slope (lowers the inner end), how far the lower one is up.
@@ -89,6 +91,12 @@ vec3 face_eye(vec3 col, vec2 uv, float side) {
 		e = mix(e, iris, face_edge(length(q) - pupil_size));
 		// (No catchlight, the character pass, 2026-10-19: the reference cast's pupils are plain dark dots; a shine read as glossy doll's
 		// eyes.)
+		// (One again since the face pass, 2026-10-19, the owner: without it the eyes read dull and sleepy at play size; the salute
+		// reference's eyes carry a big shine. One flat cream dot, up and to the same side in both eyes, not a glossy dome.)
+		if (catchlight > 0.0) {
+			vec2 at = q - pupil_size * vec2(-0.32, -0.36);
+			e = mix(e, cream_color.rgb * 1.04, face_edge(length(at) - pupil_size * catchlight) * step(length(q), pupil_size));
+		}
 		// Lids in the fighter's colour (lit from above: lighter toward their top), each with an ink edge and a soft shadow on the eye
 		// below it.
 		float lid_x = lids.x + max(lid_lean * side, 0.0);

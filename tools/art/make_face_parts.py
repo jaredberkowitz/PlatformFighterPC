@@ -28,7 +28,7 @@ TONGUE = '#ef7f8e'
 TEETH = '#ffffff'
 MASK = '#ffffff'
 LINE = 11          # the eye outline's width: a fine line, as the concept's
-MOUTH_LINE = 21
+MOUTH_LINE = 30   # (21 until the face pass, 2026-10-19: the reference's mouths are bold strokes; thin, they vanished in a match)
 
 
 def svg(body):

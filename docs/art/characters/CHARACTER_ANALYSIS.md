@@ -315,3 +315,15 @@ accessories.
 - Then the three-quarter face (3), which needs a change to how the face is laid on the head.
 - The rest are smaller.
 
+## Face pass: eye catch-lights and bolder mouths (2026-10-19, items 1 and 2 above, the owner's go-ahead)
+- **Catch-lights** (`face_common.gdshaderinc` `catchlight`, set by `FaceLook.CATCHLIGHT` 0.46 of the pupil's radius): one flat cream
+  dot up and to the left in each pupil, under the lids so a lidded eye keeps it only where the eye is open. (Round 19 had taken the
+  shine out as glossy; the owner wants the salute reference's lively eyes. Flat, not a domed doll's eye.)
+- **Bolder mouths**: the mouth strokes 30 wide in the drawings (`tools/art/make_face_parts.py` `MOUTH_LINE`, from 21; every mouth and
+  expression mouth regenerated) and the mouth a little wider on the face (`FaceLook.MOUTH_SIZE` 0.36, from 0.32).
+
+Both go through `FaceLook.apply`, so the creator's face pictures (`face_ui.gdshader`) match the fighters.
+
+`face_pass.png`: the four default faces straight on (top before, below after), then every expression (rows 1 and 3 before, 2 and 4
+after). Checked in a match on the meadow. Fighter view, loadout, art pipeline, editor UI and select grid tests pass.
+
