@@ -529,3 +529,32 @@ Mocked six options (scratch script laying settings over the face material); the 
 `face_finish_pass.png`, before above after: the four default faces; every expression; a match frame; the creator's mood page. At
 match distance the change is small; it shows most in the menus and close-ups. Fighter view, art pipeline, loadout, editor UI, select
 grid and match flow tests pass; `creator_flow_test` fails as on `main` (the locally built bridge).
+
+## The faces after the reference, and a round head (2026-10-20)
+The owner, after the face finish: the faces "still read as a bit cheap, sometimes scary"; "adapt how they are in the reference ...
+they can all use the same eyes as a base, and we can adjust to differentiate from there ... match the materials, softness, shapes".
+Sampled off the salute reference: the pupils and lines one deep navy (0.03, 0.03, 0.24), the whites a warm ivory (0.85, 0.83, 0.68),
+the pupil about 70% of the eye's width and sitting low, a big soft shine at its top, no outline round the eye, every edge a little
+soft; the mouth a thin navy line with ivory teeth. Mocked over five rounds with the owner (scratch faces and a scratch body build);
+built as chosen:
+- **One base eye** for every face (`face_common.gdshaderinc`, `face_look.gd`): navy ink (`ink_color`) and pupils (the eye colour, now
+  navy first, a quarter toward the ink), ivory whites set into the head, a big soft shine (`CATCHLIGHT` 0.85), `PUPIL` 0.245 sitting
+  low (`LOOK`), no eye outline (`eye_line`; the lashes eye keeps its line for its lashes), and every part's edge a little soft.
+- **Lids arched** like a real lid, the middle higher than the corners, more so as the lid closes, their ink line thinning toward the
+  corners (a straight lid line read sharp). The resting moods vary the base eye only by their lids and look: deadpan open, sleepy
+  half-lidded, grumpy lidded at a slant, smug lidded above and below and looking aside; none borrows brows at rest.
+- **Eyes closer** (`EYE_GAP` 0.195: the salute's eye centres are 0.39 of the head apart, ours were 0.48).
+- **Mouths redrawn** (`tools/art/make_face_parts.py`): a thinner navy line (`MOUTH_LINE` 18), small rounded shapes, ivory teeth in one
+  band, the salute's toothy grin with rounded corners; the action mouths to match (a rounded D yell, a clenched grin, a small open
+  frown, a small o, in place of a dark trapezoid, a box of teeth, a lipstick bean and a big dark oval). Brows (arch, bar, slant) are
+  soft rounded strokes.
+- **Default looks** (`loadout.gd`): all the round eye; no brows (the sailor's forehead curl and the others' bars; brows stay in the
+  creator); the mouth centred (no `face_lean`); the sailor with the salute's grin, the aviator sleepy.
+- **A round head** (`make_cage_body.py`): the neck narrower and the sphere carried further down. The neck as wide as the head's lowest
+  ring ran its lower sides straight to the shoulders, 3 to 4 cm longer than a circle below its widest; it now follows a circle of its
+  width within about 1 cm. A taller top with a narrower neck read as an egg (mocked, not chosen). The joints moved at most 2 cm (the
+  neck up); glasses follow the eyes (`_glasses_fit` reads the eye spacing).
+
+`reference_face_pass.png`: the reference beside ours; the defaults close up before and after; front views before and after (the head);
+every expression before and after; the creator's eyes page and a match frame before and after. Fighter view, art pipeline, loadout,
+animation library, editor UI, select grid, match flow, replay and prop check tests pass.

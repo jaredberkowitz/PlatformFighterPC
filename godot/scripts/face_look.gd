@@ -19,11 +19,12 @@ const CHEEKS := ["none", "round", "oval", "freckles", "lines", "swirl", "heart"]
 const FRECKLES := ["none", "dots", "sprinkle", "few"]
 const FRECKLE_COLOR := Color(0.25, 0.15, 0.12, 0.9)
 
-const EYE_COLORS := [Color("2d1a3c"), Color("5b3418"), Color("2f5fb3"), Color("2f8a4a"), Color("a0661c"), Color("4a4f5c"), Color("8a2a62"),
+## (The first a deep navy since the reference pass, 2026-10-20, as the salute reference's pupils; it was plum.)
+const EYE_COLORS := [Color("0b0b38"), Color("5b3418"), Color("2f5fb3"), Color("2f8a4a"), Color("a0661c"), Color("4a4f5c"), Color("8a2a62"),
 	Color("111014")]
-const EYE_COLOR_NAMES := ["plum", "brown", "blue", "green", "amber", "grey", "berry", "black"]
+const EYE_COLOR_NAMES := ["navy", "brown", "blue", "green", "amber", "grey", "berry", "black"]
 ## (The first, "ink", the faces' own near-black since the face finish pass, 2026-10-20: a dark plum read soft and printed on.)
-const BROW_COLORS := [Color("120e14"), Color("3b2416"), Color("7a4a24"), Color("d9a441"), Color("c0562c"), Color("9a9aa4"), Color("f2efe6"),
+const BROW_COLORS := [Color("0b0b38"), Color("3b2416"), Color("7a4a24"), Color("d9a441"), Color("c0562c"), Color("9a9aa4"), Color("f2efe6"),
 	Color("2f5fd0"), Color("e070a8"), Color("3fa860")]
 const BROW_COLOR_NAMES := ["ink", "dark brown", "chestnut", "blond", "ginger", "grey", "white", "blue", "pink", "green"]
 const CHEEK_COLORS := [Color("f59393"), Color("ff8a5c"), Color("f7b38a"), Color("e0607a"), Color("b48ae6"), Color("e04848")]
@@ -45,7 +46,9 @@ const ADJUST := {
 ## (Smaller and further apart since the face finish pass, 2026-10-20, the owner's pick of mocked options: each eye was about 0.3 of the
 ## head's width and the two nearly touched, crowding the whole front of the head; the salute reference's are about 0.22 with clear skin
 ## between, the features in the middle of a lot of face.)
-const EYE_GAP := 0.237
+## (Closer since the reference pass, 2026-10-20, the owner: too spread apart. The salute reference's eye centres are 0.39 of the head's
+## width apart; at 0.237 ours were 0.48.)
+const EYE_GAP := 0.195
 ## (Bigger and lower, mouths wider, the character judge's round 16: the reference's features fill the middle of the face.)
 const EYE_Y := 0.44
 const EYE_SIZE := 0.351   # (0.45 until the face finish pass)
@@ -59,10 +62,11 @@ const MOUTH_Y := 0.615
 ## (Larger, its line bolder with it, the character pass, 2026-10-19: the reference's mouths carry the expression.)
 const MOUTH_SIZE := 0.306   # (0.36 until the face finish pass, 2026-10-20) # (0.32 until the face pass, 2026-10-19: the reference's mouths are about a third of the face wide)
 ## (Smaller, the character pass, 2026-10-19: the reference cast's pupils are small dots in a wide white.)
-const PUPIL := 0.266   # (0.19 until the face finish pass, 2026-10-20: small dots in big whites read as a vacant side-eye)
+const PUPIL := 0.245   # (0.19 until the face finish pass, 2026-10-20: small dots in big whites read as a vacant side-eye; 0.266 until the
+                       # reference pass: the salute's pupil is about 70% of its eye's width, sitting a little low)
 ## The catch-light's radius as a share of the pupil's (face_common.gdshaderinc `catchlight`), the face pass, 2026-10-19.
-const CATCHLIGHT := 0.55
-const LOOK := Vector2(0.051, 0.01)
+const CATCHLIGHT := 0.85   # (a big soft blob since the reference pass, as the salute's)
+const LOOK := Vector2(0.02, 0.035)   # (0.051, 0.01 until the reference pass: the salute's pupils sit low and nearly central)
 ## Cheeks sit out from and below the eyes and grow with them (the concept's: just outside the eyes and well below them, 0.2 across).
 const CHEEK_OUT := 0.053
 const CHEEK_DOWN := 0.174
@@ -76,11 +80,13 @@ const CHEEK_SIZE := 0.156   # (0.2 until the face finish pass, with the eyes)
 ## or a wince reads at play size rather than as a speck.)
 const EXPRESSIONS := {
 	# (A little lidded at rest, the character pass, 2026-10-19: the reference cast's neutral face is unimpressed, not wide-eyed.)
-	"deadpan": {"lids": Vector3(0.2, 0.0, 0.0)},
-	"sleepy": {"lids": Vector3(0.55, 0.0, 0.0), "brow_lift": -0.01},
-	"grumpy": {"lids": Vector3(0.36, 0.28, 0.0), "brow_turn": 0.3, "brow_lift": -0.02, "brows": 3},
+	# (The resting moods since the reference pass, 2026-10-20, the owner's pick of mocked faces: the reference's round open eye as the base,
+	# each mood varying it with an arched lid; no borrowed brows at rest, the owner: no brows by default.)
+	"deadpan": {"lids": Vector3(0.0, 0.0, 0.0)},
+	"sleepy": {"lids": Vector3(0.38, 0.0, 0.0), "brow_lift": -0.01},
+	"grumpy": {"lids": Vector3(0.24, 0.24, 0.0), "brow_turn": 0.3, "brow_lift": -0.02},
 	# (Looking sideways, the reference ranger's sly look, the character judge's round 5.)
-	"smug": {"lids": Vector3(0.32, 0.0, 0.3), "brow_turn": -0.06, "brows": 3, "look": 0.1},
+	"smug": {"lids": Vector3(0.2, 0.0, 0.16), "brow_turn": -0.06, "look": 0.075},
 	"blink": {"eyes": "blink"},
 	"happy": {"eyes": "happy", "mouth": "x_happy", "brow_lift": 0.015, "mouth_scale": 1.3},
 	"focus": {"lids": Vector3(0.24, 0.17, 0.0), "mouth": "x_focus", "brow_turn": 0.2, "brow_lift": -0.01, "brows": 3, "mouth_scale": 1.2},
@@ -128,6 +134,8 @@ static func apply(mat: ShaderMaterial, look: RefCounted, expression := "deadpan"
 	mat.set_shader_parameter("eye_squash", Vector2(1.0 - squash * 0.6, 1.0 + squash))
 	mat.set_shader_parameter("eye_fill_tex", tex("eyes/%s_fill" % eye))
 	mat.set_shader_parameter("eye_line_tex", tex("eyes/%s_line" % eye))
+	# (No outline round the eye since the reference pass, but for the lashes eye, whose lashes are in its line.)
+	mat.set_shader_parameter("eye_line", 1.0 if eye == "lash" else 0.0)
 	var shut: int = SHUT.get(str(e.get("eyes", "")), 0)
 	mat.set_shader_parameter("eye_mode", shut)
 	mat.set_shader_parameter("eye_extra_tex", tex("eyes/closed_" + str(e.eyes)) if shut > 0 else null)

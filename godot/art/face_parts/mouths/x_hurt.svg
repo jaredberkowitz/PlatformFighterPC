@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
-  <clipPath id="m"><path d="M46,155 Q78,87 128,114 Q178,87 210,155 Q128,182 46,155 Z"/></clipPath>
-  <path d="M46,155 Q78,87 128,114 Q178,87 210,155 Q128,182 46,155 Z" fill="#6b2234"/>
-  <path d="M46,155 Q78,87 128,114 Q178,87 210,155 Q128,182 46,155 Z" fill="none" stroke="#120e14" stroke-width="29" stroke-linejoin="round"/>
+  <clipPath id="m"><path d="M74,156 Q78,112 128,110 Q178,112 182,156 Q128,146 74,156 Z"/></clipPath>
+  <path d="M74,156 Q78,112 128,110 Q178,112 182,156 Q128,146 74,156 Z" fill="#3a1830"/>
+  <path d="M74,156 Q78,112 128,110 Q178,112 182,156 Q128,146 74,156 Z" fill="none" stroke="#0b0b38" stroke-width="13" stroke-linejoin="round"/>
 </svg>

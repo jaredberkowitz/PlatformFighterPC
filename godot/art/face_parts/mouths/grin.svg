@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
-  <clipPath id="m"><path d="M50,104 Q128,110 206,104 Q198,186 128,190 Q58,186 50,104 Z"/></clipPath>
-  <path d="M50,104 Q128,110 206,104 Q198,186 128,190 Q58,186 50,104 Z" fill="#6b2234"/>
-  <ellipse cx="128" cy="160" rx="56" ry="28" fill="#ef7f8e" clip-path="url(#m)"/>
-  <path d="M50,104 Q128,110 206,104 Q198,186 128,190 Q58,186 50,104 Z" fill="none" stroke="#120e14" stroke-width="29" stroke-linejoin="round"/>
+  <clipPath id="m"><path d="M58,106 Q128,124 198,106 Q192,176 128,180 Q64,176 58,106 Z"/></clipPath>
+  <path d="M58,106 Q128,124 198,106 Q192,176 128,180 Q64,176 58,106 Z" fill="#3a1830"/>
+  <ellipse cx="128" cy="160" rx="52" ry="26" fill="#ef7f8e" clip-path="url(#m)"/>
+  <path d="M58,106 Q128,124 198,106 Q192,176 128,180 Q64,176 58,106 Z" fill="none" stroke="#0b0b38" stroke-width="13" stroke-linejoin="round"/>
 </svg>

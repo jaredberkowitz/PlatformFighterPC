@@ -23,13 +23,14 @@ import os
 
 ROOT = __file__.replace('\\', '/').rsplit('/tools/', 1)[0] + '/godot/art/face_parts/'
 # (A near-black since the face finish pass, 2026-10-20, as the face shader's ink: the dark plum read soft beside the references' black.)
-INK = '#120e14'
-MOUTH_IN = '#6b2234'
+INK = '#0b0b38'   # (a deep navy since the reference pass, 2026-10-20, as the salute reference's lines)
+MOUTH_IN = '#3a1830'
 TONGUE = '#ef7f8e'
-TEETH = '#ffffff'
+TEETH = '#f1ecd6'   # (ivory, as the eyes' whites)
 MASK = '#ffffff'
 LINE = 11          # the eye outline's width: a fine line, as the concept's
-MOUTH_LINE = 30   # (21 until the face pass, 2026-10-19: the reference's mouths are bold strokes; thin, they vanished in a match)
+MOUTH_LINE = 18   # (21 until the face pass, 2026-10-19: the reference's mouths are bold strokes; thin, they vanished in a match; 30 until the
+                  # reference pass, 2026-10-20: the salute's line is about a twentieth of its mouth's width)
 
 
 def svg(body):
@@ -96,10 +97,11 @@ CLOSED['dazed'] = spiral()
 
 # ---- Brows ---------------------------------------------------------------------------------------------------------------------------
 BROWS = {
-    'arch': fill('M34,152 Q120,56 222,126 Q218,144 202,142 Q120,104 54,172 Q34,174 34,152 Z'),
+    # (The arch, bar and slant soft rounded strokes since the reference pass, 2026-10-20: cornered blocks read sharp, the owner.)
+    'arch': stroke('M48,150 Q124,84 206,126', 26),
     'thin': stroke('M44,146 Q124,92 212,134', 18),
-    'bar': fill('M40,112 L216,104 Q228,104 228,118 L228,130 Q228,142 216,142 L40,148 Q28,148 28,136 L28,124 Q28,112 40,112 Z'),
-    'slant': fill('M36,156 L212,92 Q226,88 228,102 L230,114 Q230,124 220,128 L48,184 Q34,188 32,174 Z'),
+    'bar': stroke('M50,134 Q128,100 206,124', 34),
+    'slant': stroke('M48,154 Q130,112 208,104', 32),
     'round': fill(ellipse_d(128, 126, 44, 28)),
     'bushy': fill('M30,150 Q44,108 70,116 Q80,88 110,98 Q128,74 152,92 Q176,78 192,100 Q220,96 226,126 Q200,118 176,126 '
                   'Q150,112 128,128 Q104,116 84,134 Q60,128 30,150 Z'),
@@ -128,45 +130,49 @@ CHEEKS = {
 # ---- Mouths ---------------------------------------------------------------------------------------------------------------------------
 
 
+# (Redrawn since the reference pass, 2026-10-20, after the salute reference: a thinner navy line, small rounded shapes, ivory teeth in one
+# band with plain gaps; the owner: ours read sharp, striking and sometimes scary, theirs soft and cute. The corners of the grins rounded.)
+
+
 def open_mouth(path, tongue=True, tongue_y=160):
     out = f'  <clipPath id="m"><path d="{path}"/></clipPath>\n' + fill(path, MOUTH_IN)
     if tongue:
-        out += f'  <ellipse cx="128" cy="{tongue_y}" rx="56" ry="28" fill="{TONGUE}" clip-path="url(#m)"/>\n'
-    return out + f'  <path d="{path}" fill="none" stroke="{INK}" stroke-width="{MOUTH_LINE - 1}" stroke-linejoin="round"/>\n'
+        out += f'  <ellipse cx="128" cy="{tongue_y}" rx="52" ry="26" fill="{TONGUE}" clip-path="url(#m)"/>\n'
+    return out + f'  <path d="{path}" fill="none" stroke="{INK}" stroke-width="13" stroke-linejoin="round"/>\n'
 
 
-def teeth(path, rows=False):
+def teeth(path, gaps):
     out = f'  <clipPath id="t"><path d="{path}"/></clipPath>\n' + fill(path, TEETH)
-    if rows:
-        out += stroke('M20,126 L236,126', 12, INK).replace('/>', ' clip-path="url(#t)"/>')
-    for x in (96, 160):
-        out += stroke(f'M{x},60 L{x},200', 10, INK).replace('/>', ' clip-path="url(#t)"/>')
-    return out + f'  <path d="{path}" fill="none" stroke="{INK}" stroke-width="{MOUTH_LINE - 1}" stroke-linejoin="round"/>\n'
+    for x in gaps:
+        out += stroke(f'M{x},40 L{x},220', 9, INK).replace('/>', ' clip-path="url(#t)"/>')
+    return out + f'  <path d="{path}" fill="none" stroke="{INK}" stroke-width="13" stroke-linejoin="round"/>\n'
 
 
 MOUTHS = {
     # Resting mouths a player can choose (the concept's small smile first).
-    # (As wide as the concept's: about 0.36 of the head's radius on the game's face, a gentle curve.)
-    'smile': stroke('M24,110 Q128,182 232,110', MOUTH_LINE, INK),
-    'grin': open_mouth('M50,104 Q128,110 206,104 Q198,186 128,190 Q58,186 50,104 Z'),
-    'flat': stroke('M78,128 L178,128', MOUTH_LINE, INK),
-    'oh': open_mouth(ellipse_d(128, 130, 34, 38), tongue=False),
-    'cat': stroke('M48,116 Q88,164 128,122 Q168,164 208,116', MOUTH_LINE, INK),
-    'smirk': stroke('M64,140 Q140,160 202,102', MOUTH_LINE, INK),
-    'toothy': teeth('M44,102 Q128,118 212,102 Q200,178 128,184 Q56,178 44,102 Z'),
-    'frown': stroke('M64,150 Q128,100 192,150', MOUTH_LINE, INK),
-    'blep': f'  <path d="M136,126 L176,126 L176,150 Q156,176 136,150 Z" fill="{TONGUE}" stroke="{INK}" stroke-width="12" '
-            f'stroke-linejoin="round"/>\n' + stroke('M60,116 Q128,152 196,116', MOUTH_LINE, INK),
+    'smile': stroke('M44,112 Q128,170 212,112', MOUTH_LINE, INK),
+    'grin': open_mouth('M58,106 Q128,124 198,106 Q192,176 128,180 Q64,176 58,106 Z'),
+    'flat': stroke('M88,130 L168,130', MOUTH_LINE, INK),
+    'oh': open_mouth(ellipse_d(128, 130, 28, 32), tongue=False),
+    'cat': stroke('M60,118 Q94,158 128,124 Q162,158 196,118', MOUTH_LINE, INK),
+    'smirk': stroke('M76,138 Q140,154 194,108', MOUTH_LINE, INK),
+    # The salute's grin: its top following the smile, tall teeth, three gaps, rounded at the corners.
+    'toothy': teeth('M58,104 C90,120 166,120 198,104 C214,96 224,110 216,128 C202,166 168,184 128,184 C88,184 54,166 40,128 '
+                    'C32,110 42,96 58,104 Z', (84, 128, 172)),
+    'frown': stroke('M74,150 Q128,110 182,150', MOUTH_LINE, INK),
+    'blep': f'  <path d="M136,126 L170,126 L170,146 Q153,168 136,146 Z" fill="{TONGUE}" stroke="{INK}" stroke-width="10" '
+            f'stroke-linejoin="round"/>\n' + stroke('M70,126 L186,126', MOUTH_LINE, INK),
     # The expressions' mouths (the same for everyone).
-    'x_attack': open_mouth('M46,92 L210,92 Q205,173 128,182 Q51,173 46,92 Z', tongue_y=166),
-    'x_effort': teeth('M40,88 Q40,84 48,84 L208,84 Q216,84 216,92 L216,160 Q216,168 208,168 L48,168 Q40,168 40,160 Z', rows=True),
-    'x_hurt': open_mouth('M46,155 Q78,87 128,114 Q178,87 210,155 Q128,182 46,155 Z', tongue=False),
-    'x_shock': open_mouth(ellipse_d(128, 132, 40, 46), tongue=False),
-    'x_happy': open_mouth('M38,96 Q128,102 218,96 Q210,178 128,184 Q46,178 38,96 Z', tongue_y=168),
-    'x_focus': stroke('M84,124 L172,124', MOUTH_LINE, INK),
-    'x_dazed': stroke('M50,128 Q89,94 128,128 Q167,162 206,128', MOUTH_LINE, INK),
+    # (A rounded open D for the yell, a clenched grin for the strain, a small open frown for the ouch, a small o for the gasp: a dark
+    # trapezoid, a box of teeth in a grid, a lipstick bean and a big dark oval before.)
+    'x_attack': open_mouth('M62,100 Q128,90 194,100 Q188,170 128,176 Q68,170 62,100 Z', tongue_y=166),
+    'x_effort': teeth('M54,112 Q128,98 202,112 Q198,158 128,164 Q58,158 54,112 Z', (100, 128, 156)),
+    'x_hurt': open_mouth('M74,156 Q78,112 128,110 Q178,112 182,156 Q128,146 74,156 Z', tongue=False),
+    'x_shock': open_mouth(ellipse_d(128, 132, 26, 32), tongue=False),
+    'x_happy': open_mouth('M50,100 Q128,112 206,100 Q198,176 128,182 Q58,176 50,100 Z', tongue_y=166),
+    'x_focus': stroke('M92,126 L164,126', MOUTH_LINE, INK),
+    'x_dazed': stroke('M62,128 Q95,100 128,128 Q161,156 194,128', MOUTH_LINE, INK),
 }
-
 
 def write(folder, name, body):
     os.makedirs(ROOT + folder, exist_ok=True)

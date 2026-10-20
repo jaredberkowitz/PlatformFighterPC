@@ -21,6 +21,9 @@ uniform vec2 eye_squash = vec2(1.0);
 // 0 open (a pupil and lids drawn inside the white), 1 shut (only `eye_extra_tex`, in ink), 2 a spiral in the white (dazed).
 uniform int eye_mode = 0;
 uniform float pupil_size = 0.257;
+// How much of the eye's own outline is drawn (the face pass after the salute reference, 2026-10-20: its eyes have none; only the lashes
+// eye keeps its line, for its lashes).
+uniform float eye_line = 0.0;
 // A catch-light in each pupil (0 none): its radius as a share of the pupil's, up and to the side the light comes from.
 uniform float catchlight = 0.0;
 // Where the pupil sits in the eye (the eyes look toward the fighter's front).
@@ -37,12 +40,12 @@ uniform vec4 eye_color : source_color = vec4(0.176, 0.102, 0.235, 1.0);
 uniform vec4 lid_color : source_color = vec4(1.0, 0.85, 0.2, 1.0);
 uniform vec4 brow_place = vec4(0.17, 0.258, 0.36, 0.0);
 uniform vec2 brow_squash = vec2(1.0);
-uniform vec4 brow_color : source_color = vec4(0.165, 0.102, 0.2, 1.0);
+uniform vec4 brow_color : source_color = vec4(0.04, 0.04, 0.22, 1.0);
 // The mouth: across, height, size, turn.
 uniform vec4 mouth_place = vec4(0.5, 0.582, 0.22, 0.0);
 uniform vec2 mouth_squash = vec2(1.0);
 uniform vec3 nose_place = vec3(0.5, 0.5, 0.14);
-uniform vec4 nose_color : source_color = vec4(0.07, 0.055, 0.08, 0.8);
+uniform vec4 nose_color : source_color = vec4(0.04, 0.04, 0.22, 0.8);
 // Cheeks: distance from the middle, height, size.
 uniform vec3 cheek_place = vec3(0.309, 0.566, 0.2);
 uniform vec4 cheek_color : source_color = vec4(0.96, 0.576, 0.576, 0.85);
@@ -50,9 +53,12 @@ uniform vec4 cheek_color : source_color = vec4(0.96, 0.576, 0.576, 0.85);
 uniform sampler2D freckle_tex : filter_linear_mipmap, repeat_disable, hint_default_transparent;
 uniform vec4 freckle_color : source_color = vec4(0.25, 0.15, 0.12, 1.0);
 // (A near-black since the face finish pass, 2026-10-20: the dark plum read soft and printed on beside the references' solid black.)
-uniform vec4 ink_color : source_color = vec4(0.07, 0.055, 0.08, 1.0);
+// (A deep navy since the reference pass the same day, sampled off the salute reference's pupils and lines: 0.03, 0.03, 0.24. The owner:
+// ours read "more striking", theirs "softer, cuter" and part of the face.)
+uniform vec4 ink_color : source_color = vec4(0.04, 0.04, 0.22, 1.0);
 // (A clean white since the face finish pass: the warm cream read greyish and dull.)
-uniform vec4 cream_color : source_color = vec4(1.0, 0.985, 0.95, 1.0);
+// (A warm ivory since the reference pass, sampled off the salute's whites, 0.85, 0.83, 0.68; the owner: too white.)
+uniform vec4 cream_color : source_color = vec4(0.86, 0.83, 0.69, 1.0);
 
 // Where `uv` falls in a part's drawing (0..1 inside it) for a part at `centre`. `side` is 1 for the right-hand part (or a single one)
 // and -1 for the left, which is mirrored and turned the other way.
@@ -73,12 +79,14 @@ float face_mask(sampler2D t, vec2 p) {
 	if (p.x < 0.0 || p.x > 1.0 || p.y < 0.0 || p.y > 1.0) {
 		return 0.0;
 	}
-	return texture(t, p).a;
+	// (A little soft, the reference pass: the salute's drawn parts have soft painted edges, not razor-cut ones.)
+	return texture(t, p, 0.9).a;
 }
 
 // Coverage of a shape from its signed distance (negative inside), smoothed over about a pixel.
 float face_edge(float d) {
-	return clamp(0.5 - d / max(fwidth(d), 1e-5), 0.0, 1.0);
+	// (Over about two and a half pixels since the reference pass, as the parts' own edges in `face_mask`.)
+	return clamp(0.5 - d / max(fwidth(d) * 2.6, 1e-5), 0.0, 1.0);
 }
 
 vec3 face_eye(vec3 col, vec2 uv, float side) {
@@ -92,35 +100,39 @@ vec3 face_eye(vec3 col, vec2 uv, float side) {
 	// The white set into the head (the face finish pass, 2026-10-20): a soft warm shade inside its edge, from a blurred copy of its own
 	// shape, so it reads as part of the face rather than a flat sticker laid on it.
 	float set_in = (t.x < 0.0 || t.x > 1.0 || t.y < 0.0 || t.y > 1.0) ? 0.0 : textureLod(eye_fill_tex, t, 4.0).a;
-	e *= mix(vec3(0.8, 0.74, 0.7), vec3(1.0), smoothstep(0.35, 0.85, set_in));
+	e *= mix(vec3(0.86, 0.82, 0.72), vec3(1.0), smoothstep(0.3, 0.9, set_in));
 	if (eye_mode == 0) {
 		// (Flat, after the reference cast, 2026-10-18: a plain pale white, a solid dark pupil and one small catchlight; the domed white, the
 		// glowing iris and two catchlights read as glossy doll's eyes, not the reference's deadpan drawn eyes.)
 		vec2 pc = vec2(pupil_shift.x * side, pupil_shift.y);
 		vec2 q = m - pc;
-		vec3 iris = mix(eye_color.rgb, ink_color.rgb, 0.6);
+		// (The eye colour itself, a little toward the ink, since the reference pass: the salute's pupils are one flat deep navy.)
+		vec3 iris = mix(eye_color.rgb, ink_color.rgb, 0.25);
 		e = mix(e, iris, face_edge(length(q) - pupil_size));
 		// (No catchlight, the character pass, 2026-10-19: the reference cast's pupils are plain dark dots; a shine read as glossy doll's
 		// eyes.)
 		// (One again since the face pass, 2026-10-19, the owner: without it the eyes read dull and sleepy at play size; the salute
 		// reference's eyes carry a big shine. One flat cream dot, up and to the same side in both eyes, not a glossy dome.)
 		if (catchlight > 0.0) {
-			vec2 at = q - pupil_size * vec2(-0.32, -0.36);
-			e = mix(e, cream_color.rgb * 1.04, face_edge(length(at) - pupil_size * catchlight) * step(length(q), pupil_size));
+			// (A big soft blob at the top of the pupil since the reference pass, as the salute's: a hard small dot read glossy.)
+			vec2 at = q - pupil_size * vec2(0.08, -0.42);
+			e = mix(e, vec3(0.98, 0.98, 0.95), smoothstep(pupil_size * catchlight * 0.62, pupil_size * catchlight * 0.42, length(at)));
 		}
 		// Lids in the fighter's colour (lit from above: lighter toward their top), each with an ink edge and a soft shadow on the eye
 		// below it.
 		float lid_x = lids.x + max(lid_lean * side, 0.0);
 		if (lid_x > 0.001) {
-			float d = m.y - (-0.36 + 0.72 * lid_x + lids.y * -m.x);
+			// (Arched like a real lid since the reference pass, its middle higher than its corners, more so as it closes: a straight lid line
+			// read sharp, the owner.)
+			float d = m.y - (-0.36 + 0.72 * lid_x + lids.y * -m.x + (1.1 * m.x * m.x - 0.05) * smoothstep(0.0, 0.25, lid_x));
 			e *= mix(1.0, 0.7, smoothstep(0.14, 0.0, -d) * step(-d, 0.0) + 0.0);
 			vec3 lid = lid_color.rgb * mix(1.12, 0.92, smoothstep(-0.36, 0.2, m.y));
 			e = mix(e, lid, face_edge(d));
 			// (Bolder, the character pass, 2026-10-19: the reference's lids are confident ink strokes.)
-			e = mix(e, ink_color.rgb, face_edge(abs(d) - 0.036));
+			e = mix(e, ink_color.rgb, face_edge(abs(d) - 0.034 * clamp(1.0 - 4.0 * m.x * m.x, 0.25, 1.0)));
 		}
 		if (lids.z > 0.001) {
-			float d = (0.36 - 0.72 * lids.z) - m.y;
+			float d = (0.36 - 0.72 * lids.z + (0.05 - 1.1 * m.x * m.x) * smoothstep(0.0, 0.25, lids.z)) - m.y;
 			e = mix(e, lid_color.rgb * 0.95, face_edge(d));
 			e = mix(e, ink_color.rgb, face_edge(abs(d) - 0.022));
 		}
@@ -132,7 +144,7 @@ vec3 face_eye(vec3 col, vec2 uv, float side) {
 	// (Only the heavy upper lid line, 2026-10-18: the reference's eyes have no ring round them, just a thick dark line along the top
 	// that thins out toward the corners. Shut eyes keep their own drawing.)
 	float upper = smoothstep(0.06, -0.12, m.y);
-	return mix(col, ink_color.rgb, face_mask(eye_line_tex, t) * upper);
+	return mix(col, ink_color.rgb, face_mask(eye_line_tex, t) * upper * eye_line);
 }
 
 // The whole face over `base` (the skin).
