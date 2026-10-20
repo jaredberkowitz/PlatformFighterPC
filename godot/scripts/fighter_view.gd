@@ -905,6 +905,35 @@ func _follow_bones() -> void:
 	var spine_delta: Transform3D = skeleton.get_bone_global_pose(spine_bone) * spine_rest_inv
 	head_rig.transform = to_model * head_delta * to_model.affine_inverse() * head_fit
 	torso_rig.transform = to_model * spine_delta * to_model.affine_inverse() * torso_fit
+	_slide_face()
+
+
+## How much of the camera's angle round the head the face drawing follows (face.gdshader `face_slide`), and the most it slides: the far eye
+## stays readable at three-quarters, while the face still turns with the head (the face pass, 2026-10-19).
+const FACE_SLIDE := 0.45
+var glasses_node: Node3D
+var glasses_base := Transform3D()
+const FACE_SLIDE_MAX := 0.5
+
+
+func _slide_face() -> void:
+	if face_mat == null or not head_rig.is_inside_tree():
+		return
+	var cam := get_viewport().get_camera_3d() if is_inside_tree() else null
+	if cam == null:
+		return
+	# The camera's direction in the head's own frame (its front is +z), the frame's scale taken out.
+	var head := head_rig.global_transform.orthonormalized()
+	var local := head.affine_inverse() * cam.global_position
+	var around := atan2(local.x, local.z)
+	var slide := clampf(around * FACE_SLIDE, -FACE_SLIDE_MAX, FACE_SLIDE_MAX)
+	face_mat.set_shader_parameter("face_slide", slide)
+	# The glasses turn round the head with the drawing, so the eyes stay behind their lenses (in the head's design space, a ball about
+	# 1.42 up).
+	if glasses_node != null and is_instance_valid(glasses_node):
+		var turn := Basis(Vector3.UP, slide)
+		var pivot := Vector3(0.0, 1.42, 0.0)
+		glasses_node.transform = Transform3D(turn, pivot - turn * pivot) * glasses_base
 
 
 ## The rest of the body answers the limb that is reaching for a hit (the kicking leg, or the weapon arm): the torso bends at the waist
@@ -2519,6 +2548,8 @@ func _glasses() -> void:
 	var glasses_rig := Node3D.new()
 	glasses_rig.transform = head_fit.affine_inverse() * glasses_fit
 	head_rig.add_child(glasses_rig)
+	glasses_node = glasses_rig
+	glasses_base = glasses_rig.transform
 	var to_head: Transform3D = glasses_rig.transform
 	# The glasses' space is stretched across by the eyes' spacing and up by their size: a lens is made round again by this.
 	lens_aspect = glasses_fit.basis.get_scale().y / maxf(0.001, glasses_fit.basis.get_scale().x)

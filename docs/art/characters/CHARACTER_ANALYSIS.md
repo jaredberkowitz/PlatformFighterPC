@@ -338,3 +338,16 @@ after). Checked in a match on the meadow. Fighter view, loadout, art pipeline, e
 `specs_helm_pass.png`: front, three-quarter, side and back; pairs of rows, before above after: the specs, the helm with the specs,
 the helm alone. Fighter view, loadout and art pipeline tests pass.
 
+## Three-quarter face (2026-10-19, item 3 above)
+The face is drawn on a shell whose texture map is a straight-on projection, so on a head turned three-quarters (the menus' usual view,
+and a fighter in a match) the far eye squashed into the head's edge and was cut off.
+
+**Fix.** The drawing slides round the head toward the camera by part of the camera's angle (`face.gdshader` `face_slide`, set each frame
+in `fighter_view.gd` `_slide_face`: `FACE_SLIDE` 0.45 of the angle, at most `FACE_SLIDE_MAX` 0.5 rad). The slide is done on the ball (u
+back to an angle round the head, turned, projected again), so the parts keep their shapes. The glasses turn round the head with it, so
+the eyes stay behind their lenses. Straight on nothing changes; side-on the near eye stays readable.
+
+`three_quarter_face.png`: front, three-quarter and side for the sailor and the aviator (pairs of rows, before above after), then the
+expressions sheet at three-quarters before and after. Checked in a match. Fighter view, loadout, art pipeline, editor UI and select
+grid tests pass.
+
