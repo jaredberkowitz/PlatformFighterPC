@@ -422,3 +422,19 @@ The owner's order: 1, then 2, 4 and 8, then the expressions.
 three-quarter views. Rig rebuilt (mesh only; `base_rig.json` unchanged). Fighter view, art pipeline, loadout, animation library, match
 flow, select grid and editor UI tests pass; `creator_flow_test` fails as before in this checkout (its built bridge is older than the
 content files).
+
+## Surface finish (2026-10-20, item 2 above)
+- **Measured by switching each piece off** in turn (a throwaway mock: current, no skin grain, no grain and no cloth weave, a plain ink
+  line, no outline). The skin grain (`SKIN_GRAIN` 0.3) and the cloth weave (`CLOTH_WEAVE` 0.12) made most of the felt look: blotches on
+  the skin, fine stripes on the shirts and shorts. Both are now 0, so surfaces are clean colour and light, as on the references.
+- **The outline is the owner's choice in the game:** they could not choose between the bold outline and none, so it is a new Display
+  setting, **Fighter outline: Bold** (the default, as before) **or Fine** (`visual_settings.gd` `outline`, `fighter_outline()`). Fine
+  sets the fighters' `outline_weight` to 0 and the outline shader draws nothing; in a match the ink pass (`post.gdshader`) still draws
+  its thin line round each fighter, while the menus show the figures with no line at all.
+- **Readability:** the look bench is unchanged on Bold (it fails only on the midnight body against the city's dark backdrop, as it
+  already did). On Fine it loses about a third of the silhouettes against the bright hazes, but it measures the menus' previews, which
+  have no ink pass; in a match (meadow and city, `--demo=moves`) Fine fighters keep a crisp thin edge and read clearly.
+
+`finish_pass.png`: close-up and group shot, then the meadow match: before, Bold, Fine; then the city match: Bold, Fine.
+`finish_pass_setting.png`: the Display page with the new row. Controls, camera, pause, fighter view, art pipeline, loadout, animation
+library, match flow, select grid and editor UI tests pass.

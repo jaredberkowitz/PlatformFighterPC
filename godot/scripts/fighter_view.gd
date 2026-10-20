@@ -30,6 +30,7 @@ const TOON_SHADER := preload("res://shaders/toon.gdshader")
 const TOON_CLOTH_SHADER := preload("res://shaders/toon_cloth.gdshader")
 const FACE_SHADER := preload("res://shaders/face.gdshader")
 const OUTLINE_SHADER := preload("res://shaders/outline.gdshader")
+const VisualSettings := preload("res://scripts/visual_settings.gd")
 const SHIELD_SHADER := preload("res://shaders/shield.gdshader")
 const Effects := preload("res://scripts/effects.gd")
 const LIMB_SHADER := preload("res://shaders/limb.gdshader")
@@ -832,7 +833,9 @@ const HEAD_SIZE := Vector3(1.45, 1.1, 1.32)
 ## (1.4, the character judge's round 7: the reference's gloves are about half the head's width, a main shape.)
 const HAND_SIZE := 1.0   # (the character judge's round 19 wanted the hand about 0.3 of the head's height; with the slimmer wrist (the hand grows with it) 0.8 read tiny to the owner)
 ## How strong the skin's faint painted grain is (`skin_grain` in shaders/skin.gdshader), the character pass, 2026-10-19.
-const SKIN_GRAIN := 0.3   # (0.15 until the matte pass, 2026-10-19: the reference cast's skin carries a visible soft speckle)
+const SKIN_GRAIN := 0.0   # (0.15 until the matte pass, 2026-10-19: the reference cast's skin carries a visible soft speckle; 0.3 until the
+                           # finish pass, 2026-10-20: with the cloth's weave it read as felt, the owner's "sloppy", against the references'
+                           # clean surfaces)
 ## (0.9, the character judge's round 1: the reference's shoes are small; big rounded ones read as clown shoes.)
 const FOOT_SIZE := 0.9
 
@@ -1466,7 +1469,10 @@ func _tag_object(node: Node) -> void:
 				(node as GeometryInstance3D).set_instance_shader_parameter("object_id", 0.06 + 0.07 * float(player % 8))
 				# The fighters are the clearest things on screen: the full ink outline (the scenery's is thinner and softer) and a
 				# stronger rim.
-				(node as GeometryInstance3D).set_instance_shader_parameter("outline_weight", FIGHTER_OUTLINE_WEIGHT)
+				# (None with the Display setting Fighter outline off: the match's ink pass, shaders/post.gdshader, then draws its own fine line
+				# round the fighter, and the menus show it with none, as the reference figures are drawn.)
+				var weight := FIGHTER_OUTLINE_WEIGHT if VisualSettings.fighter_outline() else 0.0
+				(node as GeometryInstance3D).set_instance_shader_parameter("outline_weight", weight)
 				# (Clothes keep the plain rim: a strong one picks out every fold as a bright streak.)
 				var cloth := str(node.name).begins_with("Shirt") or str(node.name).begins_with("Shorts")
 				(node as GeometryInstance3D).set_instance_shader_parameter("rim_boost", 1.0 if cloth else FIGHTER_RIM_BOOST)
@@ -1748,7 +1754,7 @@ const OUTLINE_TINT_DARKEN := 0.45
 const OUTLINE_TINT_DARKEN_PALE := 0.8
 const CLOTH_RAMP_SOFTNESS := 0.32
 ## (Finer and fainter, 2026-10-18: long strokes on a pale shirt read as wood grain; the reference's cloth is a fine fleck.)
-const CLOTH_WEAVE := 0.12   # (a fine faint cotton weave since the weave pass, 2026-10-19: 0.32 at scale 0.12 drew strokes 18 cm apart that read as ripples across the cloth)
+const CLOTH_WEAVE := 0.0   # (a fine faint cotton weave since the weave pass, 2026-10-19: 0.32 at scale 0.12 drew strokes 18 cm apart that read as ripples across the cloth; 0.12 until the finish pass, 2026-10-20, see SKIN_GRAIN)
 const CLOTH_WEAVE_SCALE := 1.2
 ## The shirt's bottom hem: how far below the waist it is cut (art/blender/make_rigged_blob.py) and how wide its ink line is (rest units).
 const SHIRT_HEM_BELOW_WAIST := 0.012
