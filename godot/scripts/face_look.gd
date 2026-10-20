@@ -15,6 +15,9 @@ const BROWS := ["none", "arch", "thin", "bar", "slant", "round", "bushy", "curl"
 const NOSES := ["none", "dot", "curve", "button", "hook", "nostrils", "wide"]
 const MOUTHS := ["smile", "grin", "flat", "oh", "cat", "smirk", "toothy", "frown", "blep"]
 const CHEEKS := ["none", "round", "oval", "freckles", "lines", "swirl", "heart"]
+## Freckles, their own part over any cheeks (the face pass, 2026-10-19), drawn in FRECKLE_COLOR.
+const FRECKLES := ["none", "dots", "sprinkle", "few"]
+const FRECKLE_COLOR := Color(0.25, 0.15, 0.12, 0.9)
 
 const EYE_COLORS := [Color("2d1a3c"), Color("5b3418"), Color("2f5fb3"), Color("2f8a4a"), Color("a0661c"), Color("4a4f5c"), Color("8a2a62"),
 	Color("111014")]
@@ -165,6 +168,9 @@ static func apply(mat: ShaderMaterial, look: RefCounted, expression := "deadpan"
 	var cheek := int(look.cheeks)
 	mat.set_shader_parameter("cheek_tex", tex("cheeks/" + CHEEKS[cheek]) if cheek > 0 else null)
 	mat.set_shader_parameter("cheek_place", Vector3(gap + CHEEK_OUT * size_ratio, eye_y + CHEEK_DOWN * size_ratio, CHEEK_SIZE * size_ratio))
+	var fr := int(look.get("freckles")) if look.get("freckles") != null else 0
+	mat.set_shader_parameter("freckle_tex", tex("freckles/" + FRECKLES[fr]) if fr > 0 else null)
+	mat.set_shader_parameter("freckle_color", FRECKLE_COLOR)
 	var cc: Color = CHEEK_COLORS[look.cheek_color]
 	mat.set_shader_parameter("cheek_color", Color(cc, 0.85))
 

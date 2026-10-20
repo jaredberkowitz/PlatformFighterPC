@@ -351,3 +351,16 @@ the eyes stay behind their lenses. Straight on nothing changes; side-on the near
 expressions sheet at three-quarters before and after. Checked in a match. Fighter view, loadout, art pipeline, editor UI and select
 grid tests pass.
 
+## Freckles as their own creator option (2026-10-19, item 4 above, the owner's request)
+Freckles were one of the cheek styles, so they replaced the blush and were drawn as faint dots in the blush colour. Now they are their
+own part:
+- **A new loadout slot** `freckles` (`FaceLook.FRECKLES`: none, dots, sprinkle, few), drawn in a dark brown (`FRECKLE_COLOR`) over
+  whatever cheeks the look has (`face_common.gdshaderinc` `freckle_tex`, placed as the cheeks are). The drawings come from
+  `tools/art/make_face_parts.py` (`FRECKLES`, written to `godot/art/face_parts/freckles/`).
+- **A Freckles category in the creator**, after Cheeks, with its own icon. Its pictures are framed close on one cheek.
+- **Defaults and old looks.** The aviator now wears a round blush with dot freckles, as in the reference. Looks saved before the slot
+  get none (`from_bytes`, with a test). The old cheek style "freckles" stays, so saved looks keep it.
+
+`freckles_pass.png` (the aviator before and after; the creator's new category). Loadout, fighter view, art pipeline, editor UI and
+select grid tests pass. The creator flow test fails as on main (`ledge_exposed_frames`, the built bridge).
+

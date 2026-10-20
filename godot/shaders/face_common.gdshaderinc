@@ -44,6 +44,9 @@ uniform vec4 nose_color : source_color = vec4(0.165, 0.102, 0.2, 0.8);
 // Cheeks: distance from the middle, height, size.
 uniform vec3 cheek_place = vec3(0.309, 0.566, 0.2);
 uniform vec4 cheek_color : source_color = vec4(0.96, 0.576, 0.576, 0.85);
+// Freckles over the cheeks (their own part, in their own colour, placed as the cheeks are).
+uniform sampler2D freckle_tex : filter_linear_mipmap, repeat_disable, hint_default_transparent;
+uniform vec4 freckle_color : source_color = vec4(0.25, 0.15, 0.12, 1.0);
 uniform vec4 ink_color : source_color = vec4(0.165, 0.102, 0.2, 1.0);
 uniform vec4 cream_color : source_color = vec4(1.0, 0.957, 0.863, 1.0);
 
@@ -133,6 +136,7 @@ vec3 face_draw(vec2 uv, vec3 base) {
 		// (Soft toward its edge, as a flush of colour is.)
 		float soft = smoothstep(0.5, 0.18, length((t - 0.5) * vec2(1.0, 1.5)));
 		col = mix(col, cheek_color.rgb, cheek_color.a * face_mask(cheek_tex, t) * mix(0.55, 1.0, soft));
+		col = mix(col, freckle_color.rgb, freckle_color.a * face_mask(freckle_tex, t));
 	}
 	vec2 nt = face_part_uv(uv, nose_place.xy, nose_place.z, vec2(1.0), 0.0, 1.0);
 	col = mix(col, nose_color.rgb, nose_color.a * face_mask(nose_tex, nt));
