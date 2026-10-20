@@ -1015,6 +1015,9 @@ static var pine_slots: Array = []
 ## The beach's islands [centre, sand mound's size, green mound's size] and the harbour headland's hills [row, centre, size] (half-axes
 ## of their domes), set by `_ocean` (for the ground export, art/blender/make_beach_ground.py).
 static var island_specs: Array = []
+## The canyon's buttes [bounds, far row] and its arch [bounds], set by `_sunset` (for the ground export).
+static var mesa_specs: Array = []
+static var arch_spec: Array = []
 ## The painted ridges built by `backdrop` ([mesh, its RIDGES entry]), for the ground export.
 static var ridge_nodes: Array = []
 static var headland_specs: Array = []
@@ -4693,6 +4696,12 @@ static func _sunset(root: Node3D, t: Dictionary, stage: Array) -> void:
 		air.soil = (t.soil as Color).lerp(haze, fade)
 		air.soil_dark = (t.soil_dark as Color).lerp(haze, fade)
 		rows.append(_under_material(_soil_material(air), 0.35 * (1.0 - fade)))
+	# (Under a modelled ground the buttes and the arch are built into a node that is thrown away, their numbers still drawn, their bounds
+	# kept for the ground export: art/blender/make_canyon_paper.py.)
+	var gone := Node3D.new()
+	var land: Node3D = gone if ground_mock else root
+	mesa_specs.clear()
+	arch_spec = []
 	# Buttes and mesas in strata on rubble slopes (art/blender/make_props.py), a nearer row and a farther one.
 	for k in 8:
 		var far := k % 2 == 1
@@ -4701,15 +4710,21 @@ static func _sunset(root: Node3D, t: Dictionary, stage: Array) -> void:
 		# (In the stage's own painted strata, laid in world space and falling into shade below the light, so the buttes are the same rock
 		# as the mesa the fighters stand on.)
 		var ms := rng.randf_range(0.7, 1.05)
-		_place_prop(root, "mesa_a" if k % 3 != 1 else "mesa_b", at, ms, rng.randf_range(0.0, 360.0), mesa_rock)
+		var before := land.get_child_count()
+		_place_prop(land, "mesa_a" if k % 3 != 1 else "mesa_b", at, ms, rng.randf_range(0.0, 360.0), mesa_rock)
+		if land.get_child_count() > before:
+			mesa_specs.append([_bounds_from(land, before), far])
 		_ground_shadow(at, Vector2(9.0, 6.0) * ms, DESERT_KEY)
 	# A rock arch on the left, standing on the desert floor.
 	# (Modelled in the buttes' chunky cut ledges, art/blender/make_props.py `rock_arch`, the judge's round 40, and in the same painted
 	# strata as the buttes and the stage's front, unfaded, as the nearest rock; the built one stands in without the model.)
+	var arch_before := land.get_child_count()
 	if Toonify.load_prop("rock_arch") != null:
-		_place_prop(root, "rock_arch", Vector3(-34, DESERT_FLOOR, -48), 1.0, 0.0, _under_material(_soil_material(t), 0.35))
+		_place_prop(land, "rock_arch", Vector3(-34, DESERT_FLOOR, -48), 1.0, 0.0, _under_material(_soil_material(t), 0.35))
 	else:
-		_rock_arch(root, Vector3(-34, DESERT_FLOOR, -48), 12.0, 18.5)
+		_rock_arch(land, Vector3(-34, DESERT_FLOOR, -48), 12.0, 18.5)
+	if land.get_child_count() > arch_before:
+		arch_spec = [_bounds_from(land, arch_before)]
 	_ground_shadow(Vector3(-34, DESERT_FLOOR, -48), Vector2(9.0, 3.0), DESERT_KEY)
 	# Cacti behind the stage.
 	for x in [e[0] + 1.5, e[1] - 2.0]:
@@ -4739,6 +4754,34 @@ static func _sunset(root: Node3D, t: Dictionary, stage: Array) -> void:
 				seg.basis = Basis.looking_at(q - last, Vector3.UP)
 				last = q
 		prev = hook
+	gone.free()
+
+
+## The bounds of `parent`'s children from `first` on (a prop is placed as one child per part).
+static func _bounds_from(parent: Node3D, first: int) -> AABB:
+	var box := _bounds(parent.get_child(first))
+	for i in range(first + 1, parent.get_child_count()):
+		box = box.merge(_bounds(parent.get_child(i)))
+	return box
+
+
+## The bounds of `node`'s meshes within its parent's space (which stands at the world's origin here): for the ground export.
+static func _bounds(node: Node3D) -> AABB:
+	var box := AABB()
+	var first := true
+	var all: Array = node.find_children("*", "MeshInstance3D", true, false)
+	if node is MeshInstance3D:
+		all.append(node)
+	for mi: MeshInstance3D in all:
+		var xf := Transform3D.IDENTITY
+		var n: Node = mi
+		while n != node.get_parent() and n is Node3D:
+			xf = (n as Node3D).transform * xf
+			n = n.get_parent()
+		var b := xf * mi.mesh.get_aabb()
+		box = b if first else box.merge(b)
+		first = false
+	return box
 
 
 ## A natural arch of layered sandstone (`at` the middle of its foot on the ground, legs `span` apart, `height` to the top of the span):

@@ -139,7 +139,15 @@ static func export_ground(bake_key: String) -> void:
 		for b in keys:
 			top.append([float(b) * 4.0 + 2.0, bins[b]])
 		ranges.append({"z": (xf * mi.mesh.get_aabb()).get_center().z, "top": top})
-	var doc := {"ranges": ranges, "islands": isles, "headland": heads, "hills_near": StageArt._hill_bumps[0], "hills_far": StageArt._hill_bumps[1], "fore": StageArt._fore_bumps, "pines": pines,
+	var mesas: Array = []
+	for m in StageArt.mesa_specs:
+		var b: AABB = m[0]
+		mesas.append([b.position.x, b.position.y, b.position.z, b.end.x, b.end.y, b.end.z, 1 if m[1] else 0])
+	var arch: Array = []
+	for a in StageArt.arch_spec:
+		var b: AABB = a
+		arch = [b.position.x, b.position.y, b.position.z, b.end.x, b.end.y, b.end.z]
+	var doc := {"mesas": mesas, "arch": arch, "ranges": ranges, "islands": isles, "headland": heads, "hills_near": StageArt._hill_bumps[0], "hills_far": StageArt._hill_bumps[1], "fore": StageArt._fore_bumps, "pines": pines,
 		"farm": StageArt.farm_span, "hill": StageArt.hill_spec}
 	FileAccess.open((DIR % bake_key) + "ground.json", FileAccess.WRITE).store_string(JSON.stringify(doc))
 
@@ -482,6 +490,16 @@ static func _ground_colours(t: Dictionary) -> Dictionary:
 	# (A step deeper than the ranges' land colours: the flats take the air of their depth on top, and came out a pale lilac.)
 	out["range_far"] = Color(0.62, 0.55, 0.84)
 	out["range_near"] = Color(0.46, 0.4, 0.72)
+	# (The canyon's paper, art/blender/make_canyon_paper.py: its strata as the modelled front has them, and the dunes' sands.)
+	var soil: Color = t.get("soil", Color(0.86, 0.5, 0.32))
+	out["rock_a"] = soil
+	out["rock_b"] = (t.get("soil_dark", Color(0.68, 0.34, 0.24)) as Color).darkened(0.12)
+	# (A step paler, not the front's 0.6: in thin plates the pale bands striped the arch like candy.)
+	out["rock_c"] = soil.lerp(Color(1.0, 0.86, 0.66), 0.35)
+	out["dune_far"] = Color(1.0, 0.8, 0.52)
+	out["dune_near"] = Color(1.0, 0.74, 0.44)
+	for fam in ["rock_a", "rock_b", "rock_c", "dune_far", "dune_near"]:
+		out["card_" + fam] = (out[fam] as Color).darkened(0.1)
 	for fam in ["range_far", "range_near", "cliff", "grass", "grass_far"]:
 		out["card_" + fam] = (out[fam] as Color).darkened(0.12) if fam.begins_with("range") else (out[fam] as Color).lerp(Color(0.92, 0.93, 0.86), 0.18)
 	for fam in ["sand", "isle_green", "head_near", "head_far"]:

@@ -351,3 +351,19 @@ The owner picked A. Shipped as `godot/models/stages/grove_paper.glb` (30,300 tri
 meadow and the beach. The background is lighter than the faceted ledges: the mid-ground reads 0.50 (0.38) and the distance 0.64 (0.49).
 That is inside the style sheet's mid-ground band, but closer to the fighters' 0.55; worth a look if the fighters lose any edge against it.
 The lawn is unchanged (0.67). Cost: 814 draw calls against 806, GPU 2.4 ms both ways (two timings each). **Tests:** all seven pass.
+
+## The canyon's background in paper: mocks (2026-10-20)
+
+The paper style on the canyon: the buttes, the rock arch and the dunes. The desert floor, cacti, telegraph poles and sun stay code-built.
+- **Layout export:** `ground.json` now carries each butte's and the arch's bounds. A prop is placed as one child per part, so the bounds
+  merge every part placed (`StageArt._bounds_from`); the last child alone was only its rubble skirt. The dunes come with the ranges' crests.
+- **Hook:** under a ground mock the buttes and the arch are built into a node that is thrown away. The dunes hide behind the model's
+  `range*` cut-outs.
+- **Builder:** `art/blender/make_canyon_paper.py --variant A|B|C`.
+  - A card stacks, plates in the strata on a low skirt: 9,300 triangles.
+  - B pop-up cut-outs: 3,800 triangles.
+  - C both, near stacks and far cut-outs: 7,600 triangles.
+- **First renders fixed:** the pale band was a step too pale in thin plates (the arch striped like candy; now 0.35 toward cream, not
+  0.6). The skirts at the bounds' full width read as hat brims, and B's palest card stood in front and washed the buttes out (now at the
+  back).
+- **Next:** options in `mocks/canyon_paper/` (with a local `review.html`) and on the owner's page; recommended A.
