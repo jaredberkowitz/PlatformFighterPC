@@ -171,3 +171,12 @@ The owner's picks: A for the new props, with B's stump, crate and cactus.
   - `stage_front_test` checks the kit has every prop the builders ask for.
 - **Result:** `paper_props_built.jpg` (fighters in play, today left, built right: grove, canyon, beach, city).
 **Tests:** all seven Godot tests pass (runner_test's shop check flaked once and passed on the next full run).
+
+## Every front at the full paper finish (2026-10-21, idea 3's cheap part)
+
+The owner's go-ahead. Each stage's palette sets `front_finish="C"`. The shader's `paper_own` gives the front's surfaces that finish level
+instead of the stage's (it replaces the pilot's `paper_boost`, which could only scale a level: the beach's and city's "A" has no cut
+edge to scale). `--front-finish=off` compares. The fronts take a stronger fibre and sheet wobble and a pale cut-card rim, so the timber,
+brick, roots and slabs read as card like the backgrounds. Before/after: `front_finish_all.jpg` (before left; meadow, grove, beach,
+canyon, city).
+**Tests:** all seven Godot tests pass.

@@ -11,6 +11,7 @@ extends RefCounted
 
 const FighterView := preload("res://scripts/fighter_view.gd")
 const StageArt := preload("res://scripts/stage_art.gd")
+const Lighting := preload("res://scripts/lighting.gd")
 const DIR := "res://art/baked/%s/"
 ## Modelled stage fronts, by the exact stage they were built on (`key`): art/blender/make_grove_front.py, the grove pilot's step 2.
 const FRONTS := {"grove_14d06e65": "res://models/stages/grove_front.glb", "meadow_62409190": "res://models/stages/meadow_front.glb",
@@ -639,8 +640,8 @@ static func print_for(theme_name: String, family: String) -> Array:
 
 
 ## The printed surfaces (tools/art/make_prints.py, fidelity review 3's idea 2) on the modelled front and play area and the paper props, by
-## each surface's material family (`PRINTS`), and the front's share of the paper finish (`paper_boost`; 1.6 takes the meadow's "B" to
-## about "C", the full finish): from the stage's palette ([backdrop] `paper_print`, a folder in art/stage/prints/, and `front_finish`),
+## each surface's material family (`PRINTS`), and the front's own paper finish level (`paper_own`; "C" the full finish, the owner's
+## pick for every front, 2026-10-21): from the stage's palette ([backdrop] `paper_print`, a folder in art/stage/prints/, and `front_finish`),
 ## or to try, `--print-mock=<folder>` and `--front-finish=<x>`; `--no-print` to compare.
 static func surfaces(root: Node3D, theme_name: String) -> void:
 	var look: Dictionary = StageArt.palette(theme_name).get("backdrop", {})
@@ -649,8 +650,9 @@ static func surfaces(root: Node3D, theme_name: String) -> void:
 		dir = "res://art/stage/prints/%s" % String(look.paper_print)
 	if OS.get_cmdline_user_args().has("--no-print"):
 		dir = ""
-	var boost := float(flag("--front-finish=")) if flag("--front-finish=") != "" else float(look.get("front_finish", 0.0))
-	if dir == "" and boost <= 0.0:
+	var front_look := flag("--front-finish=") if flag("--front-finish=") != "" else String(look.get("front_finish", ""))
+	var own := Lighting.finish_vector(front_look)
+	if dir == "" and own == Vector4.ZERO:
 		return
 	var printed := {}
 	var boosted := 0
@@ -694,15 +696,15 @@ static func surfaces(root: Node3D, theme_name: String) -> void:
 					m.set_shader_parameter("print_amount", spec[1])
 					m.set_shader_parameter("print_scale", spec[2])
 					printed[fam] = int(printed.get(fam, 0)) + 1
-			if front and boost > 0.0:
-				m.set_shader_parameter("paper_boost", boost)
+			if front and own != Vector4.ZERO:
+				m.set_shader_parameter("paper_own", own)
 				boosted += 1
 			if mi.material_override != null:
 				mi.material_override = m
 			else:
 				mi.set_surface_override_material(s, m)
-	print("stage surfaces: printed %d surfaces in %d families; %d front surfaces at %.1f of the paper finish" % [
-		printed.values().reduce(func(a, b): return a + b, 0), printed.size(), boosted, boost])
+	print("stage surfaces: printed %d surfaces in %d families; %d front surfaces at the paper finish '%s'" % [
+		printed.values().reduce(func(a, b): return a + b, 0), printed.size(), boosted, front_look])
 
 
 ## The theme's modelled tree: a glTF path to try (`--tree-mock=<glb>`), the shipped model (`TREES`), or null (none, or `--no-trees`).

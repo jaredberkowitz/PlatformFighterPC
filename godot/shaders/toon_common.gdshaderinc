@@ -79,8 +79,8 @@ uniform float detail_scale = 3.0;
 uniform sampler2D print_tex : filter_linear_mipmap_anisotropic, repeat_enable, hint_default_white;
 uniform float print_amount = 0.0;
 uniform float print_scale = 2.0;
-// How much of the stage's paper finish this surface takes (1 as the stage has it; above 1 more, as on a stage front at the full finish).
-uniform float paper_boost = 1.0;
+// This surface's own paper finish instead of the stage's (a stage front at the full finish, "C"); x below 0 takes the stage's.
+uniform vec4 paper_own = vec4(-1.0);
 // Multiply by the mesh's vertex colour (off by default: imported props may carry colours meant for nothing). The crowns' lobed clump balls
 // bake each leaf clump's own light into it (scripts/stage_art.gd `_clump_ball`): a lit top and a dark crevice between clumps.
 uniform bool vertex_shade = false;
@@ -328,7 +328,7 @@ void fragment() {
 		vec2 pp = abs(world_normal.y) > 0.5 ? vec2(world_pos.x, world_pos.z * 0.2) : (abs(world_normal.x) > 0.6 ? vec2(world_pos.z, -world_pos.y) : vec2(world_pos.x, -world_pos.y));
 		c *= 1.0 + print_amount * (texture(print_tex, pp / print_scale).r - 0.5) * 2.0;
 	}
-	vec4 paper_fin = pf_paper_finish * paper_boost;
+	vec4 paper_fin = paper_own.x >= 0.0 ? paper_own : pf_paper_finish;
 	if (fighter < 0.5 && paper_fin.x + paper_fin.y + paper_fin.z > 0.0) {
 		// Fibre: fine grain stretched along the sheet, on whichever plane the surface lies.
 		vec2 fp = abs(world_normal.y) > 0.5 ? world_pos.xz : (abs(world_normal.x) > 0.6 ? world_pos.zy : world_pos.xy);
