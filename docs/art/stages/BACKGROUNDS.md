@@ -47,3 +47,20 @@ C with scattered detail and soft shade; then the grove and the canyon. The cloud
   over it (`light_stage.py` on the front, the play area and the ground). 120 fps in the match, the GPU at 2.6 ms.
 - **Card clouds** on every stage with clouds: `cloud_style=4` in the grove, meadow, ocean and sunset palettes (the city has none).
 - Before and after: `ground_clouds_built.jpg`.
+
+## Round 2 mocks: the grove's land and the canyon's floor (2026-10-21)
+
+- **The grove** (`make_grove_paper.py --variant FA|FB|FC`, mocked with `--ground-mock=` and no bush): the striped ledges broken into
+  floating islands at varied heights, as the grove's reference floats its land, each a grass sheet whose lip drapes over its edge above a
+  stone underside of stepped card plates narrowing to a point, over two sheets of pale violet mist in place of the dark band; the side
+  trees keep an island each. **FB** hangs moss down the stone and dots the tops with tufts, flowers and stones; **FC** adds the far
+  forest, rows of giant trunks fading into the violet. (First try: the undersides alternated dark teal and grey plates, stripes again; one
+  violet stone, `isle_rock`, sits in the grove's air. Pale stone read ghostly.) The old ledge's bushes go with it. About 23,000 to 25,000
+  triangles. New families `mist`, `card_mist`, `tuft`, `canopy`, `isle_rock`, `isle_moss`.
+- **The canyon** (`make_canyon_paper.py --variant DA|DB|DC`, A's buttes): the floor laid over with long cut sheets of sand in three tones
+  round the desert floor's, lifted a step each with the cut edge showing, wind ripples as pale strips on some; **DB** adds a dry wash
+  winding in from the far right through the gap in the near buttes (first routed past x 60, off the frame), pebbles on its banks; **DC**
+  adds paper scrub and stones with soft shade under them, seated on the topmost sheet, and hides the code-built scatter (`floor_scatter`
+  meta, hidden by `StageBake.place_ground` when the ground has `scatter*` pieces). About 22,000 to 25,000 triangles with the buttes. New
+  families `sand_a/b/c` and their cut edges, `ripple`, `wash`, `card_wash`, `pebble`, `scrub`, `sand_shade`.
+- Options on the Stage Look Review and `mocks/look/` (`gl_*`, `cf_*`). Recommended: grove B, canyon C.

@@ -4015,10 +4015,12 @@ static func underside(root: Node3D, t: Dictionary, e: Array) -> void:
 				if absf(sx) < r - l and sz > -20.0:
 					continue
 				var sc := rng.randf_range(0.5, 1.3) * lerpf(1.0, 1.8, -sz / 130.0)
+				# (Marked, so a floor modelled with its own scatter can hide them, StageBake.place_ground.)
 				if k % 3 == 0:
-					_mesh(root, _sphere(1.0, 7), pebble, Vector3(sx, floor_y + sc * 0.25, sz), Vector3(sc * 1.3, sc * 0.7, sc), Vector3(0, rng.randf_range(0, 90), 0))
+					_mesh(root, _sphere(1.0, 7), pebble, Vector3(sx, floor_y + sc * 0.25, sz), Vector3(sc * 1.3, sc * 0.7, sc),
+						Vector3(0, rng.randf_range(0, 90), 0)).set_meta("floor_scatter", true)
 				else:
-					_mesh(root, _sphere(1.0, 8), scrub, Vector3(sx, floor_y + sc * 0.35, sz), Vector3(sc * 1.2, sc * 0.7, sc))
+					_mesh(root, _sphere(1.0, 8), scrub, Vector3(sx, floor_y + sc * 0.35, sz), Vector3(sc * 1.2, sc * 0.7, sc)).set_meta("floor_scatter", true)
 			var rubble := Materials.stone((t.soil_dark as Color).lerp(Color(0.9, 0.62, 0.44), 0.45))
 			for k in 9:
 				var x := lerpf(l - 2.5, r + 2.5, (k + rng.randf_range(0.2, 0.8)) / 9.0)

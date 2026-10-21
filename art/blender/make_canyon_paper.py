@@ -6,6 +6,12 @@ the stage demo):
      canyon's strata colours band by band, on a low skirt of wide plates for the rubble;
   B  pop-up: every butte a few standing cut-outs one behind another, stepped like the strata; the arch a cut-out with its opening cut;
   C  both: the near buttes and the arch as card stacks, the far row as pop-up cut-outs.
+After the backgrounds audit (docs/art/stages/BACKGROUNDS.md, 2026-10-21; the floor one plain sand sheet), three more, each with A's
+buttes and the desert floor laid in paper over the code-built sand:
+  DA dune sheets: the floor laid over with long cut sheets of sand in three tones, each a little lifted with its cut edge showing, wind
+     ripples drawn on some as pale strips;
+  DB DA with a dry wash winding in from the far right to the front, a pale sheet with darker banks and pebbles along them;
+  DC DB with paper scrub, stones and the soft shade under them in place of the code-built scrub (which is hidden under it).
 Every look carries the dunes as standing cut-out flats along the crests of the dune ranges they stand in for.
 Each piece is its own object so the game can lay the air of its depth over it, and bakes its occlusion into linear vertex colours.
 Families `rock_a`, `rock_b`, `rock_c` (the strata), `dune_far`, `dune_near`, and their cut edges `card_<family>`.
@@ -223,11 +229,200 @@ def dune_flats():
             cutout("range%d_%d" % (r_i, k), fam, pts, z + dz, base - 20.0, thick=0.8)
 
 
+# ---- DA, DB, DC: the desert floor in paper ------------------------------------------------------------------------------------------
+
+
+SHEETS = []        # (ring, y): the floor's sheets, for seating things on the topmost under them
+
+
+def oblong(cx, cz, rx, rz, rng, n=22):
+    """A sheet's cut outline in (x, z): a long rounded oblong along the floor, its edges a little hand-cut."""
+    p1, p2 = rng.uniform(0, math.tau), rng.uniform(0, math.tau)
+    out = []
+    for i in range(n):
+        a = math.tau * i / n
+        c, s_ = math.cos(a), math.sin(a)
+        w = 1.0 + 0.05 * math.sin(3 * a + p1) + 0.03 * math.sin(7 * a + p2)
+        out.append((cx + rx * w * math.copysign(abs(c) ** 0.5, c), cz + rz * w * math.copysign(abs(s_) ** 0.7, s_)))
+    return out
+
+
+def floor_sheet(name, fam, ring, y):
+    """A cut sheet lying on the floor: its top a fan from the middle, its cut edge down to the sand."""
+    cx = sum(q[0] for q in ring) / len(ring)
+    cz = sum(q[1] for q in ring) / len(ring)
+    n = len(ring)
+    for i in range(n):
+        j = (i + 1) % n
+        face(part(name, fam), (P(cx, y, cz), P(ring[i][0], y, ring[i][1]), P(ring[j][0], y, ring[j][1])))
+        face(part(name, "card_" + fam), (P(ring[i][0], y, ring[i][1]), P(ring[i][0], FLOOR - 0.05, ring[i][1]),
+                                          P(ring[j][0], FLOOR - 0.05, ring[j][1]), P(ring[j][0], y, ring[j][1])))
+    SHEETS.append((ring, y))
+
+
+def inside(ring, x, z):
+    hit = False
+    for i in range(len(ring)):
+        (xa, za), (xb, zb) = ring[i], ring[i - 1]
+        if (za > z) != (zb > z) and x < xa + (z - za) * (xb - xa) / (zb - za):
+            hit = not hit
+    return hit
+
+
+def seat(x, z):
+    """The height of the topmost sheet under (x, z), or the sand's."""
+    return max([y for (ring, y) in SHEETS if inside(ring, x, z)], default=FLOOR)
+
+
+def ripples(name, ring, y, rng):
+    """Wind ripples on a sheet: two or three pale strips following its front edge, inset."""
+    cx = sum(q[0] for q in ring) / len(ring)
+    cz = sum(q[1] for q in ring) / len(ring)
+    front = [q for q in ring if q[1] > cz]
+    front.sort()
+    for k, f in enumerate((0.75, 0.5, 0.28)[:rng.randrange(2, 4)]):
+        pts = [(cx + (x - cx) * f, cz + (z - cz) * f) for (x, z) in front]
+        for i in range(len(pts) - 1):
+            (xa, za), (xb, zb) = pts[i], pts[i + 1]
+            face(part(name, "ripple"), (P(xa, y + 0.02, za), P(xb, y + 0.02, zb), P(xb, y + 0.02, zb - 0.6), P(xa, y + 0.02, za - 0.6)))
+
+
+# (Through the gap between the near buttes right of the stage, where the cameras see it: past x 60 is off the frame.)
+WASH = [(72.0, -150.0), (40.0, -118.0), (32.0, -88.0), (36.0, -58.0), (44.0, -32.0), (50.0, -10.0), (58.0, 14.0)]
+
+
+def wash_line(step=2.0):
+    """The dry wash's centre line, smoothed (Catmull-Rom through WASH) and resampled every `step`."""
+    pts = []
+    w = [WASH[0]] + WASH + [WASH[-1]]
+    for i in range(1, len(w) - 2):
+        p0, p1, p2, p3 = w[i - 1], w[i], w[i + 1], w[i + 2]
+        seg = math.dist(p1, p2)
+        for k in range(max(2, int(seg / step))):
+            t = k / max(2, int(seg / step))
+            pts.append(tuple(0.5 * ((2 * p1[c]) + (-p0[c] + p2[c]) * t + (2 * p0[c] - 5 * p1[c] + 4 * p2[c] - p3[c]) * t * t
+                                    + (-p0[c] + 3 * p1[c] - 3 * p2[c] + p3[c]) * t ** 3) for c in (0, 1)))
+    pts.append(WASH[-1])
+    return pts
+
+
+def dry_wash(rng):
+    """A pale wash winding in from the far right to the front: its bed a sheet over the dunes, darker banks either side, pebbles on them."""
+    line = wash_line()
+    y = 0.75 + FLOOR
+    left, right, bl, br = [], [], [], []
+    for i, (x, z) in enumerate(line):
+        a, b = line[max(0, i - 1)], line[min(len(line) - 1, i + 1)]
+        tx, tz = b[0] - a[0], b[1] - a[1]
+        ln = math.hypot(tx, tz) or 1.0
+        nx, nz = -tz / ln, tx / ln
+        t = (z + 150.0) / 166.0
+        half = 2.0 + 2.6 * t + 0.4 * math.sin(i * 0.7)
+        left.append((x + nx * half, z + nz * half))
+        right.append((x - nx * half, z - nz * half))
+        bl.append((x + nx * (half + 0.9), z + nz * (half + 0.9)))
+        br.append((x - nx * (half + 0.9), z - nz * (half + 0.9)))
+        if rng.random() < 0.5:
+            side = rng.choice((1.0, -1.0))
+            sc = rng.uniform(0.3, 0.6) * (1.0 + t)
+            res = bmesh.ops.create_icosphere(part("wash_pebbles", "pebble"), subdivisions=1, radius=sc)
+            for v in res["verts"]:
+                v.co.z *= 0.55
+                v.co += P(x + side * nx * (half + 0.4), y + sc * 0.2, z + side * nz * (half + 0.4))
+    for i in range(len(line) - 1):
+        face(part("wash", "wash"), (P(left[i][0], y, left[i][1]), P(left[i + 1][0], y, left[i + 1][1]),
+                                    P(right[i + 1][0], y, right[i + 1][1]), P(right[i][0], y, right[i][1])))
+        for (o, n_) in ((bl, left), (br, right)):
+            face(part("wash", "card_wash"), (P(o[i][0], y - 0.15, o[i][1]), P(o[i + 1][0], y - 0.15, o[i + 1][1]),
+                                             P(n_[i + 1][0], y, n_[i + 1][1]), P(n_[i][0], y, n_[i][1])))
+            face(part("wash", "card_wash"), (P(o[i][0], y - 0.15, o[i][1]), P(o[i + 1][0], y - 0.15, o[i + 1][1]),
+                                             P(o[i + 1][0], FLOOR - 0.05, o[i + 1][1]), P(o[i][0], FLOOR - 0.05, o[i][1])))
+    return line
+
+
+def near_wash(line, x, z, pad):
+    return any(math.hypot(x - a, z - b) < pad for (a, b) in line[::2])
+
+
+def scrub(name, x, y, z, sc, rng):
+    """A clump of desert scrub in paper: five or six upright card leaves round a point, and the soft shade under it."""
+    for k in range(rng.randrange(5, 7)):
+        a = math.tau * k / 6 + rng.uniform(-0.3, 0.3)
+        lean = rng.uniform(0.25, 0.5)
+        dx, dz = math.cos(a), math.sin(a)
+        w = 0.32 * sc
+        h = sc * rng.uniform(0.8, 1.1)
+        face(part(name, "scrub"), (P(x - dz * w, y, z + dx * w), P(x + dz * w, y, z - dx * w),
+                                   P(x + dx * h * lean + dz * w * 0.4, y + h * 0.7, z + dz * h * lean - dx * w * 0.4),
+                                   P(x + dx * h * lean * 1.4, y + h, z + dz * h * lean * 1.4),
+                                   P(x + dx * h * lean - dz * w * 0.4, y + h * 0.7, z + dz * h * lean + dx * w * 0.4)))
+    shade(name, x, y, z, sc * 0.9)
+
+
+def shade(name, x, y, z, rad):
+    for i in range(12):
+        a, b = math.tau * i / 12, math.tau * (i + 1) / 12
+        face(part(name, "sand_shade"), (P(x + rad * 0.15, y + 0.03, z - rad * 0.1), P(x + rad * 0.15 + rad * 1.3 * math.cos(a), y + 0.03, z - rad * 0.1 + rad * 0.8 * math.sin(a)),
+                                        P(x + rad * 0.15 + rad * 1.3 * math.cos(b), y + 0.03, z - rad * 0.1 + rad * 0.8 * math.sin(b))))
+
+
+def desert_floor(rng):
+    level = {"DA": 1, "DB": 2, "DC": 3}[VARIANT]
+    tones = ["sand_a", "sand_b", "sand_c"]
+    k = 0
+    z = 10.0
+    row = 0
+    while z > -150.0:
+        far = (10.0 - z) / 160.0
+        rz = rng.uniform(4.0, 6.5) * (1.0 + 0.8 * far)
+        x = -215.0 + rng.uniform(0, 14)
+        while x < 215.0:
+            rx = rng.uniform(14.0, 28.0) * (1.0 + 0.5 * far)
+            if rng.random() < 0.78:
+                ring = oblong(x + rx, z + rng.uniform(-1.5, 1.5), rx, rz, rng)
+                y = FLOOR + 0.12 + 0.12 * ((k + row) % 3)
+                floor_sheet("sheet%d" % (k // 24), tones[(k + row) % 3], ring, y)
+                if rng.random() < 0.45:
+                    ripples("ripple%d" % (k // 24), ring, y, rng)
+                k += 1
+            x += rx * 2.0 * rng.uniform(0.75, 1.05)
+        z -= rz * 1.25
+        row += 1
+    line = dry_wash(rng) if level >= 2 else []
+    if level >= 3:
+        # Scrub and stones over the floor, bigger with distance as the code-built scatter was, kept off the wash and the buttes' feet.
+        feet = [((m[0] + m[3]) * 0.5, (m[2] + m[5]) * 0.5, (m[3] - m[0]) * 0.35, (m[5] - m[2]) * 0.35) for m in LAYOUT.get("mesas", [])]
+        placed = 0
+        tries = 0
+        while placed < 70 and tries < 2000:
+            tries += 1
+            x, z = rng.uniform(-150.0, 150.0), rng.uniform(-135.0, 12.0)
+            if abs(x) < 30 and z > -24.0:
+                continue
+            if any(((x - fx) / fr) ** 2 + ((z - fz) / fd) ** 2 < 1.0 for (fx, fz, fr, fd) in feet):
+                continue
+            if line and near_wash(line, x, z, 7.0):
+                continue
+            sc = rng.uniform(1.0, 1.8) * (1.0 + 0.8 * (-z / 135.0 if z < 0 else 0.0))
+            y = seat(x, z)
+            if placed % 3 == 0:
+                res = bmesh.ops.create_icosphere(part("scatter_stones", "pebble"), subdivisions=1, radius=sc * 0.7)
+                for v in res["verts"]:
+                    v.co.z *= 0.6
+                    v.co += P(x, y + sc * 0.2, z)
+                shade("scatter_stones", x, y, z, sc * 0.8)
+            else:
+                scrub("scatter_scrub", x, y, z, sc, rng)
+            placed += 1
+
+
 # ---- Build --------------------------------------------------------------------------------------------------------------------------
 
 
 def build_ground():
     rng = random.Random(53)
+    if VARIANT in ("DA", "DB", "DC"):
+        desert_floor(random.Random(61))
     for k, m in enumerate(LAYOUT.get("mesas", [])):
         far = m[6] == 1
         name = "butte%d" % k

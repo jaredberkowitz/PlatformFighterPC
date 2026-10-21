@@ -6,6 +6,11 @@ from (`--ground-mock=` on the stage demo):
   B  pop-up: each ledge a shelf with standing flats in front of it, a scalloped grass fringe over a jagged teal cliff; trees as two cut-out
      pine silhouettes slotted together crosswise, as in a pop-up book;
   C  contour hills: rolling hills of stacked card in place of the ledges, a flat top under each side tree; paper disc pines.
+After the backgrounds audit (docs/art/stages/BACKGROUNDS.md, 2026-10-21; the ledges read as teal stripes over one dark band), three more:
+  FA floating ledges: the ledges broken into islands at varied heights, as the grove's reference floats them, each a grass sheet whose
+     lip drapes over its edge above a rock underside tapering to a point, over a sea of pale violet mist in place of the dark band;
+  FB FA with moss hanging down the cliffs and tufts, flowers and stones on the tops;
+  FC FB with the reference's far forest: rows of giant trunks fading into the violet under a canopy band.
 Every look carries the far ranges as standing cut-out flats, three to a range, their crests from the painted ranges they stand in for.
 Each piece is its own object so the game can lay the air of its depth over it, and bakes its occlusion into linear vertex colours.
 Families `grass`, `grass_far`, `cliff`, `range_far`, `range_near`, their cut edges `card_<family>`, `leaf_lit`, `leaf_shade`, `bark`.
@@ -124,6 +129,24 @@ def cutout_tree(name, x, y, z, sc, rng):
         face(tb, tuple(reversed(quad)))
 
 
+def plant_trees_floating(rng):
+    """Small paper pines on the floating ledges' tops (`AXES` holds each island's middle; the trees stand within the inner half)."""
+    for name, axes in list(AXES.items()):
+        if not name.startswith("F"):
+            continue
+        cx, cz_neg = axes[0]
+        # (The top's height is the island's own: read back from its top sheet's middle vertex.)
+        for bm_key in [key for key in PARTS if key[0] == name and key[1] in ("grass", "grass_far")]:
+            PARTS[bm_key].verts.ensure_lookup_table()
+            top = PARTS[bm_key].verts[0].co.z
+            for _ in range(rng.randrange(0, 3)):
+                x = cx + rng.uniform(-3.5, 3.5)
+                if abs(x + 30) < 8 or abs(x - 32) < 8:
+                    continue
+                disc_pine(name + "_trees", x, top, -cz_neg + rng.uniform(-2, 2), rng.uniform(1.8, 2.8), rng)
+            break
+
+
 def plant_trees(rng, tree):
     """Small trees on the ledges, as the shipped ground has them: clear of the side trees and of the space behind the fight."""
     for name, x0, x1, zf, zb, top, _ in LEDGES:
@@ -240,6 +263,148 @@ def contour_hills(rng):
             x += rx * rng.uniform(2.0, 2.6)
 
 
+# ---- FA, FB, FC: floating ledges -----------------------------------------------------------------------------------------------------
+
+
+def isle_ring(cx, cz, rx, rz, rng, n=24):
+    p1, p2 = rng.uniform(0, math.tau), rng.uniform(0, math.tau)
+    return [(cx + rx * (1.0 + 0.12 * math.sin(2 * a + p1) + 0.06 * math.sin(5 * a + p2)) * math.cos(a),
+             cz + rz * (1.0 + 0.12 * math.sin(2 * a + p1) + 0.06 * math.sin(5 * a + p2)) * math.sin(a)) for a in [math.tau * i / n for i in range(n)]]
+
+
+def floating_isle(name, cx, cz, rx, rz, top, fam, rng, depth, detail):
+    """A floating ledge: a grass sheet on top, its lip draped over the edge in scallops, and under it a rock body of stacked card plates
+    narrowing to a point; `detail` 2 hangs moss down the rock and dots the top with tufts, flowers and stones."""
+    AXES[name] = [(cx, -cz)]
+    ring = isle_ring(cx, cz, rx, rz, rng)
+    n = len(ring)
+    # The top sheet, a fan from its middle.
+    c = P(cx, top, cz)
+    for i in range(n):
+        j = (i + 1) % n
+        face(part(name, fam), (c, P(ring[i][0], top, ring[i][1]), P(ring[j][0], top, ring[j][1])))
+    # The lip: a scalloped strip of the grass hanging over the edge, a little outward.
+    for i in range(n):
+        j = (i + 1) % n
+        (xa, za), (xb, zb) = ring[i], ring[j]
+        ox, oz = (xa - cx) / max(rx, 1e-3) * 0.25, (za - cz) / max(rz, 1e-3) * 0.25
+        hang = 0.7 + 0.35 * rng.random()
+        xm, zm = (xa + xb) * 0.5 + ox, (za + zb) * 0.5 + oz
+        face(part(name, "card_" + fam), (P(xa, top, za), P(xb, top, zb), P(xb + ox, top - 0.45, zb + oz), P(xm, top - hang, zm), P(xa + ox, top - 0.45, za + oz)))
+    # The rock: plates stepping in and down to a point.
+    plates = 5
+    rings = [ring]
+    ys = [top - 0.4]
+    for k in range(1, plates + 1):
+        f = 1.0 - k / (plates + 0.6)
+        ph = rng.uniform(0, 1)
+        rings.append([(cx + (x - cx) * f * (0.92 + 0.08 * math.sin(i * 1.3 + ph * 6)), cz + (z - cz) * f) for i, (x, z) in enumerate(ring)])
+        ys.append(top - 0.4 - depth * (k / plates) ** 0.85)
+    for k in range(plates):
+        a_ring, b_ring = rings[k], rings[k + 1]
+        fam_r = "isle_rock"
+        for i in range(n):
+            j = (i + 1) % n
+            face(part(name, fam_r), (P(a_ring[i][0], ys[k], a_ring[i][1]), P(a_ring[j][0], ys[k], a_ring[j][1]),
+                                     P(b_ring[j][0], ys[k + 1], b_ring[j][1]), P(b_ring[i][0], ys[k + 1], b_ring[i][1])))
+    tip = P(cx + rng.uniform(-1, 1), top - 0.4 - depth * 1.18, cz)
+    for i in range(n):
+        j = (i + 1) % n
+        face(part(name, "isle_rock"), (P(rings[-1][i][0], ys[-1], rings[-1][i][1]), P(rings[-1][j][0], ys[-1], rings[-1][j][1]), tip))
+    if detail >= 2:
+        # Moss hanging down the rock from the lip, in strips.
+        for i in range(0, n, 3):
+            (xa, za) = ring[i]
+            if za < cz:
+                continue
+            ln = depth * rng.uniform(0.18, 0.4)
+            w = 0.5 + 0.4 * rng.random()
+            dx = (xa - cx) / max(rx, 1e-3) * 0.3
+            dz = (za - cz) / max(rz, 1e-3) * 0.3
+            pts = [(xa - w + dx, top - 0.3, za + dz), (xa + w + dx, top - 0.3, za + dz), (xa + w * 0.6 + dx * 0.6, top - ln * 0.7, za + dz * 0.6),
+                   (xa + dx * 0.5, top - ln, za + dz * 0.5), (xa - w * 0.6 + dx * 0.6, top - ln * 0.8, za + dz * 0.6)]
+            face(part(name, "isle_moss"), [P(*q) for q in pts])
+        # Tufts, flowers and stones on the top.
+        for _ in range(int(rx * rz * 0.08) + 2):
+            a = rng.uniform(0, math.tau)
+            u = rng.uniform(0.1, 0.8)
+            x, z = cx + rx * u * math.cos(a), cz + rz * u * math.sin(a)
+            kind = rng.random()
+            if kind < 0.55:
+                for t in range(3):
+                    ang = rng.uniform(0, math.pi)
+                    dx, dz = math.cos(ang) * 0.35, math.sin(ang) * 0.1
+                    face(part(name, "tuft"), (P(x - dx, top + 0.01, z - dz), P(x + dx, top + 0.01, z + dz), P(x + dx * 0.2, top + 0.9, z + dz * 0.2)))
+            elif kind < 0.8:
+                res = bmesh.ops.create_cone(part(name, rng.choice(("flower_a", "flower_b"))), cap_ends=True, segments=6, radius1=0.25, radius2=0.1, depth=0.2)
+                for v in res["verts"]:
+                    v.co += P(x, top + 0.3, z)
+            else:
+                res = bmesh.ops.create_icosphere(part(name, "stone"), subdivisions=1, radius=0.5)
+                for v in res["verts"]:
+                    v.co.z *= 0.5
+                    v.co += P(x, top + 0.15, z)
+
+
+def mist_sea():
+    """A sea of pale violet mist under the islands: two sheets with scalloped fronts, the nearer a step lower."""
+    for k, (y, zf) in enumerate(((-24.0, -38.0), (-31.0, -30.0))):
+        name = "mist%d" % k
+        xs = xs_across(-220, 220, 4.0)
+        for i in range(len(xs) - 1):
+            xa, xb = xs[i], xs[i + 1]
+            fa = zf + 1.6 * math.sin(xa * 0.11 + k) + 0.8 * math.sin(xa * 0.31 + 2 * k)
+            fb = zf + 1.6 * math.sin(xb * 0.11 + k) + 0.8 * math.sin(xb * 0.31 + 2 * k)
+            face(part(name, "mist"), (P(xa, y, -200.0), P(xa, y, fa), P(xb, y, fb), P(xb, y, -200.0)))
+            face(part(name, "card_mist"), (P(xa, y, fa), P(xa, y - 1.2, fa), P(xb, y - 1.2, fb), P(xb, y, fb)))
+
+
+def far_forest(rng):
+    """The reference's far forest: rows of giant trunks rising from the mist past the frame, fading into the violet, under a canopy band."""
+    for row, (z, r0, fam) in enumerate(((-150.0, 3.2, "range_near"), (-175.0, 3.8, "range_far"))):
+        x = -230.0 + rng.uniform(0, 10)
+        while x < 230.0:
+            if abs(x) > 18:
+                name = "forest%d" % row
+                bm = part(name, fam)
+                res = bmesh.ops.create_cone(bm, cap_ends=False, segments=7, radius1=r0 * 1.25, radius2=r0, depth=90.0)
+                for v in res["verts"]:
+                    v.co += P(x, 15.0, z + rng.uniform(-6, 6))
+            x += rng.uniform(16.0, 26.0)
+        # The canopy: a scalloped band across the top.
+        name = "canopy%d" % row
+        xs = xs_across(-240, 240, 6.0)
+        y0 = 34.0 + row * 4.0
+        for i in range(len(xs) - 1):
+            xa, xb = xs[i], xs[i + 1]
+            ya = y0 - 3.0 * abs(math.sin(xa * 0.09 + row))
+            yb = y0 - 3.0 * abs(math.sin(xb * 0.09 + row))
+            face(part(name, "canopy"), (P(xa, ya, z - 2), P(xb, yb, z - 2), P(xb, 90.0, z - 2), P(xa, 90.0, z - 2)))
+
+
+def floating_ledges(rng):
+    detail = {"FA": 1, "FB": 2, "FC": 2}[VARIANT]
+    k = 0
+    for name, x0, x1, zf, zb, top, fam in LEDGES:
+        depth = {"T0": 10.0}.get(name, 7.0)
+        cz = (zf + zb) * 0.5
+        # (The side trees keep their islands: one centred under each.)
+        starts = [tx for (tx, tz) in SIDE_TREES] if name == "T0" else []
+        for tx in starts:
+            floating_isle("F%d" % k, tx, -55.0, 11.0, 7.5, -9.3 if tx < 0 else -9.0, fam, rng, depth, detail)
+            k += 1
+        x = x0 + rng.uniform(0, 8)
+        while x < x1:
+            rx = rng.uniform(7.0, 13.0)
+            if all(abs(x - tx) > rx + 13.0 for tx in starts) and abs(x) > (14 if name != "T2" else 6):
+                floating_isle("F%d" % k, x, cz + rng.uniform(-3, 3), rx, rng.uniform(5.0, 8.0), top + rng.uniform(-2.0, 1.5), fam, rng, depth, detail)
+                k += 1
+            x += rx * 2.0 + rng.uniform(4.0, 10.0)
+    mist_sea()
+    if VARIANT == "FC":
+        far_forest(rng)
+
+
 # ---- Far land: the ranges as cut-out flats ------------------------------------------------------------------------------------------
 
 
@@ -271,7 +436,10 @@ def range_flats():
 
 def build_ground():
     rng = random.Random(29)
-    if VARIANT == "A":
+    if VARIANT in ("FA", "FB", "FC"):
+        floating_ledges(rng)
+        plant_trees_floating(rng)
+    elif VARIANT == "A":
         for name, x0, x1, zf, zb, top, fam in LEDGES:
             terrace(name, x0, x1, zf, zb, top, fam, rng)
         plant_trees(rng, disc_pine)

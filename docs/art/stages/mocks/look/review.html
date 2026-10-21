@@ -88,6 +88,34 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
     <p>Two lessons from the reference screenshots, mocked from the match camera: the scenery without ink outlines, its edges lit as card bevels instead, and the paper houses rebuilt at the characters' proportions. The earlier rounds stay on the <a href="https://claude.ai/artifact/D1du6MREVumiJDrEdNypW4">Stage Fidelity Review</a>, which is full.</p>
   </header>
 
+  <section class="panel" aria-labelledby="ld-h" id="lands">
+    <div class="eyebrow">Your picks are needed &middot; the backgrounds audit, round 2</div>
+    <h2 id="ld-h">The grove's land and the canyon's floor</h2>
+    <p>The same method as the meadow, on the two stages review 4 scored lowest for background land (2 of 5 each). The grove's land was flat teal stripes either side of the island over one dark band; the canyon's floor one plain sand sheet.</p>
+    <h3>The grove</h3>
+    <p>The grove's island already floats over the abyss, as the reference grove floats its land. These options break the striped ledges into floating islands in the same family: each a grass sheet whose lip drapes over its edge, above a stone underside stepping down to a point, at varied heights and sizes, over a sea of pale violet mist in place of the dark band. The two side trees keep their own islands.</p>
+    <div class="tablewrap"><table><thead><tr><th>Option</th><th>What it adds</th></tr></thead><tbody>
+      <tr><td>A &middot; Floating ledges</td><td>The islands and the mist</td></tr>
+      <tr><td>B &middot; Moss and tufts</td><td>A, with moss hanging down the stone, and tufts, flowers and stones on the tops</td></tr>
+      <tr><td>C &middot; The far forest</td><td>B, with rows of giant trunks behind, rising from the mist and fading into the violet, as in the reference forest</td></tr>
+    </tbody></table></div>
+    <p class="muted">The biggest change on any stage this round: the grove reads as a place in the sky rather than a lawn with stripes. The bushes that stood on the old ledge behind the play area are gone with it (they would float), and the trunks of C are faint at the match camera. My pick: <b>B</b>. The moss ties the islands to the main island's leafy underside; C's trunks crowd the tree village behind.</p>
+    <div class="row" role="group" aria-label="View"><button data-lv="w">Wide</button><button data-lv="m">Match camera</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-lo="T">Today</button><button data-lo="A">A &middot; Floating ledges</button><button data-lo="B">B &middot; Moss and tufts</button><button data-lo="C">C &middot; The far forest</button></div>
+    <div class="viewer"><img id="limg" alt="Grove land option"><span class="vtag" id="ltag"></span></div>
+    <h3>The canyon</h3>
+    <p>The floor laid over with long cut sheets of sand in three tones round the floor's own, each a little lifted with its cut edge showing, wind ripples drawn on some. The buttes stay as they ship (they are the next item in the order).</p>
+    <div class="tablewrap"><table><thead><tr><th>Option</th><th>What it adds</th></tr></thead><tbody>
+      <tr><td>A &middot; Dune sheets</td><td>The sheets and their ripples</td></tr>
+      <tr><td>B &middot; A dry wash</td><td>A, with a pale wash winding in from the far right through the gap in the buttes to the front, pebbles along its banks</td></tr>
+      <tr><td>C &middot; Scrub and stones</td><td>B, with scrub and stones in paper, each with a soft shade under it, in place of today's round scrub</td></tr>
+    </tbody></table></div>
+    <p class="muted">The floor reads most at the wide camera; at the match camera only its left side shows below the arch. The wash runs where the telegraph poles do, so it also reads as the road they follow. My pick: <b>C</b>. The paper scrub matches the rest of the stage, where today's round puffs were the last code-built things on the floor.</p>
+    <div class="row" role="group" aria-label="View"><button data-fv="w">Wide</button><button data-fv="m">Match camera</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-fo="T">Today</button><button data-fo="A">A &middot; Dune sheets</button><button data-fo="B">B &middot; A dry wash</button><button data-fo="C">C &middot; Scrub and stones</button></div>
+    <div class="viewer"><img id="fimg" alt="Canyon floor option"><span class="vtag" id="ftag"></span></div>
+  </section>
+
   <section class="panel" aria-labelledby="r4-h" id="review4">
     <div class="eyebrow">Fidelity review 4 &middot; every stage scored, the pain points ranked</div>
     <h2 id="r4-h">Where the stages stand</h2>
@@ -105,8 +133,10 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
   </section>
 
   <section class="panel" aria-labelledby="mg-h" id="grounds">
-    <div class="eyebrow">Your pick is needed &middot; the backgrounds audit, round 1</div>
+    <div class="eyebrow">Built &middot; the backgrounds audit, round 1</div>
     <h2 id="mg-h">The meadow's ground as patchwork, and clouds cut from card</h2>
+    <p><b>Built (2026-10-21):</b> ground B on the meadow, and the card clouds on every stage with clouds. Before and after, the meadow and the beach wide:</p>
+    <div class="viewer"><img src="../../ground_clouds_built.jpg" alt="Meadow and beach before and after the new ground and card clouds"></div>
     <p>The audit's first two items (docs/art/stages/BACKGROUNDS.md). The meadow's land behind the stage was horizontal mint stripes edge to edge. These options lay it as the references do: fields of card in rounded, hand-cut shapes along the hills, each lifted over the land with its cut edge showing, in the palette's greens and a little wheat, with the land's own green between them as the field edges. The stage's own terraced hill stays as it is.</p>
     <div class="tablewrap"><table><thead><tr><th>Option</th><th>What it adds</th></tr></thead><tbody>
       <tr><td>A &middot; Patchwork</td><td>The fields of card, no stripes</td></tr>
@@ -272,5 +302,25 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
   group("data-rs", function (v) { rs = v; }, rrender);
   group("data-rv", function (v) { rv = v; }, rrender);
   rrender();
+  var lv = "w", lo = "B";
+  var LO = { T: "Today", A: "A \u00b7 Floating ledges", B: "B \u00b7 Moss and tufts", C: "C \u00b7 The far forest" };
+  function lrender() {
+    document.getElementById("limg").src = "gl_" + lv + "_" + lo + ".jpg";
+    document.getElementById("ltag").textContent = "Grove \u00b7 " + LO[lo] + (lv === "w" ? " \u00b7 wide" : " \u00b7 match camera");
+    pressed("data-lv", lv); pressed("data-lo", lo);
+  }
+  group("data-lv", function (v) { lv = v; }, lrender);
+  group("data-lo", function (v) { lo = v; }, lrender);
+  lrender();
+  var fv = "w", fo = "C";
+  var FO = { T: "Today", A: "A \u00b7 Dune sheets", B: "B \u00b7 A dry wash", C: "C \u00b7 Scrub and stones" };
+  function frender() {
+    document.getElementById("fimg").src = "cf_" + fv + "_" + fo + ".jpg";
+    document.getElementById("ftag").textContent = "Canyon \u00b7 " + FO[fo] + (fv === "w" ? " \u00b7 wide" : " \u00b7 match camera");
+    pressed("data-fv", fv); pressed("data-fo", fo);
+  }
+  group("data-fv", function (v) { fv = v; }, frender);
+  group("data-fo", function (v) { fo = v; }, frender);
+  frender();
 })();
 </script>
