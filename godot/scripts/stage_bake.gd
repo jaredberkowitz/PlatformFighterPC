@@ -555,7 +555,10 @@ const WORLD_COLOURS := {"hull": Color(0.32, 0.5, 0.62), "hull_stripe": Color(0.9
 	"engine": Color(0.22, 0.24, 0.3), "engine_cab": Color(0.7, 0.22, 0.22), "car_a": Color(0.78, 0.5, 0.3), "car_b": Color(0.46, 0.58, 0.5),
 	"tank": Color(0.62, 0.4, 0.3), "tank_dark": Color(0.42, 0.28, 0.24), "trail": Color(0.96, 0.84, 0.68), "canvas": Color(0.96, 0.93, 0.84),
 	"ox": Color(0.55, 0.38, 0.28), "blade": Color(0.86, 0.84, 0.8), "cattle_a": Color(0.52, 0.34, 0.26), "cattle_b": Color(0.3, 0.24, 0.22),
-	"adobe": Color(0.9, 0.66, 0.5), "adobe_dark": Color(0.74, 0.5, 0.38), "window": Color(1.0, 0.82, 0.5)}
+	"adobe": Color(0.9, 0.66, 0.5), "adobe_dark": Color(0.74, 0.5, 0.38), "window": Color(1.0, 0.82, 0.5),
+	"wool": Color(0.97, 0.96, 0.92), "cow": Color(0.92, 0.88, 0.82), "straw": Color(0.98, 0.84, 0.46), "gate_red": Color(0.86, 0.3, 0.26),
+	"gate_dark": Color(0.3, 0.22, 0.24), "rock": Color(0.6, 0.56, 0.62), "turf": Color(0.48, 0.74, 0.36), "bark": Color(0.55, 0.38, 0.26),
+	"bus": Color(0.95, 0.72, 0.28), "board_frame": Color(0.3, 0.28, 0.4), "steel": Color(0.4, 0.4, 0.52), "train": Color(0.36, 0.5, 0.7)}
 
 
 ## World-building (art/blender/make_world.py, docs/art/stages/WORLD.md, the owner's picks 2026-10-21): the beach's working pier and

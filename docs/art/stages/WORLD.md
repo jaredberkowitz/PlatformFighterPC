@@ -40,44 +40,57 @@ nothing says anyone passes this way.
 3. **A ranch** (mock C): a windpump and its tank, a corral with cattle, and an adobe house with chimney smoke. It is the most homely,
    and smaller in frame.
 
-## Meadow: a hilltop farm (to mock next)
+## Meadow: a hilltop farm
 
 **The place:** a farm on a hill above a valley village with a windmill. The stage is a stone-walled terrace in the farm's field.
 
-**Missing:** the farm at work. There is no road up to it, no animals and no people. **Changes:**
-- a farm track winding down from the terrace to the village, with a cart;
-- sheep or cows grazing in the near fields;
-- chimney smoke over the cottages;
-- the windmill's sails turning (motion).
+**What is missing:** the farm at work. There is no road up to it, no animals and no people.
 
-## Grove: the great tree's festival (to mock next)
+**Changes, ranked:**
+1. **Sheep and cows** (mock B): a flock grazing in the near fields on both sides of the terrace and a few cows by the village. It is the
+   clearest sign of a working farm, and it reads at the match camera.
+2. **Village life** (mock C): chimney smoke over the cottages, a washing line and a scarecrow in the field. The smoke says someone lives
+   here.
+3. **A farm track** (mock A): a pale track winding down from the terrace's left toward the village, with a hay cart on it. It is small in
+   frame.
+- Later, with motion: the windmill's sails turning.
+
+## Grove: the great tree's festival
 
 **The place:** a floating island round a great tree, strung with lanterns for a festival.
 
-**Missing:** who hung the lanterns. **Changes:**
-- a treehouse or shrine platform in the great tree, with a ladder;
-- paper streamers and a festival gate at the island's edge;
-- fireflies or drifting petals (motion);
-- a rope bridge to a smaller floating island.
+**What is missing:** who hung the lanterns.
 
-## City: a rooftop over a busy street (to mock next)
+**Changes, ranked:**
+1. **A treehouse** (mock A): a shrine platform in the great tree above the top platform, with a rail, a roof and a ladder. Someone lives
+   in the tree.
+2. **Festival gates** (mock B): red gates at the island's edges and paper streamers hanging from the lantern strings. They say what the
+   lanterns are for.
+3. **Floating islets** (mock C): small islands in the sky either side, each with grass and a tree. They add scale but no story.
+- Later, with motion: fireflies or drifting petals.
+
+## City: a rooftop over a busy street
 
 **The place:** a rooftop above a shopping street at night, with searchlights over the skyline.
 
-**Missing:** the city's life. **Changes:**
-- traffic below (cars passing with their lights; some exist);
-- windows lighting and going dark;
-- a rooftop billboard;
-- a neighbour's lit rooftop party in the distance;
-- a train on an elevated line.
+**What is missing:** the city's life. The street below is empty.
+
+**Changes, ranked:**
+1. **Billboard and rooftop party** (mock B): a billboard top right and a lit rooftop party with string lights on a neighbouring roof.
+2. **Street traffic** (mock A): a bus and pedestrians on the street at the rooftop's left and right.
+3. **An elevated train** (mock C): a train on an elevated line behind the stage. The rooftop hides most of it, so it reads weakly.
+- Later, with motion: windows lighting and going dark, the traffic moving.
 
 ## Method
-- **Mocks:** `art/blender/make_world.py --theme ocean|sunset --variant A|B|C` builds each change in world space. `--world-mock=<glb>` on
-  the stage demo places it (`StageBake.place_world`, painted by family, `WORLD_COLOURS`).
+- **Mocks:** `art/blender/make_world.py --theme ocean|sunset|meadow|grove|city --variant A|B|C` (variants combine: `--variant AB`)
+  builds each change in world space. `--world-mock=<glb>` on the stage demo places it (`StageBake.place_world`, painted by family, `WORLD_COLOURS`).
 - **Options:** `mocks/world/` (match camera and wide, with a local `review.html`) and on the owner's page.
 - **Picks recommended:**
   - Beach: A and B together. They are the strongest pair: the pier's purpose and its life.
   - Canyon: A, the railroad. It fixes the empty floor most and gives the frame a strong horizontal behind the buttes.
+  - Meadow: B and C together (the flock and the village's smoke).
+  - Grove: A and B together (the treehouse and the festival gates).
+  - City: B, with A's traffic if the street should be busy too.
 
 ## Built: the beach's working pier and harbour life, the canyon's railroad (2026-10-21)
 
