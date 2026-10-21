@@ -7,6 +7,9 @@ const FX_TOP_SHADER := preload("res://shaders/fx_top.gdshader")
 
 static var _cache := {}
 
+## The effects' look: the cut-paper language of the stages (on), or the older brush and ink (off: `--fx=ink` for comparisons).
+static var paper := true
+
 ## Effects run on match time when a match is on (they stop with a pause, slow with the knock-out slow motion, and line up with demo
 ## screenshots); `tick` is called by the match every frame with its clock, and `delta` turns a frame's real time into match time.
 static var clocked := false
@@ -33,8 +36,11 @@ static func delta(real: float) -> float:
 ## `on_top` draws over everything; `texture` is laid on each quad (a soft disc for particles); `priority` orders see-through effects;
 ## `glow` scales how much the material's bright cores bloom (0: never); `paint` lays it on in brush strokes that break up into ragged
 ## chunks as it fades (0: a flat fill that fades), and `puff` draws each quad as a cel-shaded ball of smoke (shaders/fx.gdshaderinc).
-static func get_material(on_top: bool, priority := 0, texture: Texture2D = null, glow := 1.0, paint := 0.0, puff := false) -> ShaderMaterial:
-	var key := "%s|%d|%s|%.2f|%.2f|%s" % [on_top, priority, texture.get_rid() if texture != null else 0, glow, paint, puff]
+## `opacity` makes the whole effect see-through (a sheet's shadow). In the paper look (`paper`) nothing glows much: paper does not shine.
+static func get_material(on_top: bool, priority := 0, texture: Texture2D = null, glow := 1.0, paint := 0.0, puff := false, opacity := 1.0) -> ShaderMaterial:
+	if paper:
+		glow *= 0.25
+	var key := "%s|%d|%s|%.2f|%.2f|%s|%s|%.2f" % [on_top, priority, texture.get_rid() if texture != null else 0, glow, paint, puff, paper, opacity]
 	if _cache.has(key):
 		return _cache[key]
 	var m := ShaderMaterial.new()
@@ -46,6 +52,8 @@ static func get_material(on_top: bool, priority := 0, texture: Texture2D = null,
 	m.set_shader_parameter("glow_scale", glow)
 	m.set_shader_parameter("paint", paint)
 	m.set_shader_parameter("puff", puff)
+	m.set_shader_parameter("paper", paper)
+	m.set_shader_parameter("opacity", opacity)
 	_cache[key] = m
 	return m
 
