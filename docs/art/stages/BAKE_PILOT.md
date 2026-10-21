@@ -461,3 +461,13 @@ The meadow pilot rolled out to the grove, canyon, beach and city.
   owner's page.
 - **Gotcha:** in a bash double-quoted path, `\$` escapes the dollar sign. `"$W\${1}_A.glb"` wrote every model to one literal
   `playall${1}_A.glb`, so use `/`.
+
+## The paper play area built on every stage: grove B, canyon B, beach A, city A (2026-10-20)
+
+The owner's picks. Shipped as `godot/models/stages/{grove,canyon,beach,city}_play.glb` (5,900 / 5,400 / 1,700 / 2,400 triangles) for each
+exact layout (`StageBake.PLAYS`). Each stage's palette sets its paper finish (grove and canyon "B" with the cut edge, beach and city "A").
+`--no-play --paper-finish=off` for comparisons. The alignment test checks all five play models.
+
+**Result** (round 71, `<stage>_play_built.png`: match camera and fighters in play, before above after): every play area reads as
+paper card with the backgrounds, and the fighters keep their contact shadows. Cheaper on every stage (draw calls before → after): grove
+813 → 482, canyon 907 → 570, beach 738 → 732, city 899 → 787; GPU time the same or lower. **Tests:** all seven pass.

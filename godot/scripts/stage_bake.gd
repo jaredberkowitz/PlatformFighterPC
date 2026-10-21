@@ -465,7 +465,9 @@ static func place_play(root: Node3D, t: Dictionary, path: String) -> void:
 
 
 ## Modelled play areas (the stage's top and its platforms, art/blender/make_meadow_play.py), by the exact stage they were built on.
-const PLAYS := {"meadow_62409190": "res://models/stages/meadow_play.glb"}
+const PLAYS := {"meadow_62409190": "res://models/stages/meadow_play.glb", "grove_14d06e65": "res://models/stages/grove_play.glb",
+	"sunset_19cad55b": "res://models/stages/canyon_play.glb", "ocean_d9c5edff": "res://models/stages/beach_play.glb",
+	"city_2eadbb68": "res://models/stages/city_play.glb"}
 
 
 ## The play area to place: `--play-mock=<glb>`, else the shipped model for this exact stage, else "" (none, or `--no-play`).
