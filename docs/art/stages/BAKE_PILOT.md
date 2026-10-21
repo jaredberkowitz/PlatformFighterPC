@@ -518,3 +518,32 @@ sim stage and stays behind the fighters' plane over the play space.
 **Result** (`mood_built.png`, before left, after right: city wide, grove match, beach match and wide): the city's sky gets its beams,
 the grove its warm lanterns, and the beach's waterline its rings, the boardwalk's in the match camera. The fighters are untouched.
 **Tests:** all seven Godot tests pass.
+
+## Contact shade on every stage (2026-10-21, review 2's idea 3)
+
+The grove pilot's texture bake covered only code-built meshes, was read from a git-ignored folder at run time (so it never shipped) and
+had gone stale: 0 of the grove's 38 code-built meshes still matched it. Since then the fronts, play areas and backgrounds became Blender
+pieces, each with occlusion baked on its own, so nothing shaded them where they meet the rest of the stage. This re-bake lights those
+pieces in place and ships inside them.
+- **Export:** `--light-export` on the stage demo (`StageBake.export_light`) writes everything else the game builds (props, trees, fences,
+  the code-built scenery) to `godot/art/baked/<key>/light_in.glb`. The modelled pieces are left out: they are marked `lit_piece`,
+  not found by name, since a second build beside a first still being freed gets `@Node3D@2`.
+- **Bake:** `art/blender/light_stage.py` bakes ambient occlusion (Cycles, reach 2.5) on each piece twice, once with the whole assembled
+  stage and once alone, and keeps the ratio raised to 2.5: the shade the rest of the stage adds. It fades back to 0.3 by 60 units deep,
+  as the pilot's did, never goes under 0.45, and is multiplied into the piece's vertex colours.
+  - The alpha keeps how much was applied (never quite 1), so a re-run divides the old shade out first. The test also reads it as the
+    mark that the piece is lit.
+  - Rebuild: run the demo with `--light-export`, then
+    `blender --background --python art/blender/light_stage.py -- --dir godot/art/baked/<key> --pieces <front>,<play>,<ground> --curve 2.5 --reach 2.5`.
+    Do this after rebuilding any piece or moving props.
+- **Where it shows:** under props on the play areas (the meadow's hay bales, the grove's stumps and mushrooms), under each play
+  area's lip on the front (the meadow's logs and fringe, the grove's roots, the canyon's top slab), the deck's and the roof's front
+  edges over the beach's and city's fronts, and round the background's cottages and props.
+- **Gotchas:**
+  - Blender renames a material whose name another imported file also used (`top.001`), and the game paints by name. Names are put
+    back before export.
+  - Any UV set stops the exporter sharing vertices: the files grew two to three times, so the shade is not in a UV set.
+  - The game never sees the vertex colours' alpha, so the shade is not in the alpha alone either.
+- **Cost:** none at run time (no new materials, textures or draw calls); file sizes unchanged within 1 %.
+- **Test:** `tests/stage_front_test.gd` checks every modelled front, play area and ground carries the shade.
+**Tests:** all seven pass (runner_test's coin-timing flake passes on re-run).

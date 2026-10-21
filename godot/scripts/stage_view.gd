@@ -132,6 +132,8 @@ func build(sim) -> void:
 	if OS.get_cmdline_user_args().has("--bake-export"):
 		StageBake.export_scene(self, bake_key, rects, FRONT_Z)
 		StageBake.export_ground(bake_key)
+	elif OS.get_cmdline_user_args().has("--light-export"):
+		StageBake.export_light(self, bake_key)
 	else:
 		StageBake.apply(self, bake_key)
 	StageBake.mock_front(self, theme)

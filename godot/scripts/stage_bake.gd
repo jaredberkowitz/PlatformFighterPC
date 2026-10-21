@@ -211,6 +211,48 @@ static func export_scene(root: Node3D, bake_key: String, rects: Array = [], fron
 	return list.size()
 
 
+## Writes everything that casts light on the modelled pieces to `<DIR>/light_in.glb` for art/blender/light_stage.py (`--light-export`
+## on the stage demo): every visible solid piece of the built stage in world space, without the modelled front, play area, ground and
+## mood light themselves (marked `lit_piece`: Blender reads those from their own files; not by name, as a second build beside a first still
+## being freed gets `@Node3D@2`). Returns how many it wrote.
+static func export_light(root: Node3D, bake_key: String) -> int:
+	var dir := DIR % bake_key
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(dir))
+	FileAccess.open(dir + ".gdignore", FileAccess.WRITE).store_string("")
+	var out := Node3D.new()
+	out.name = "Light"
+	var k := 0
+	for gi: GeometryInstance3D in root.find_children("*", "GeometryInstance3D", true, false):
+		if not _occludes(gi):
+			continue
+		var skip := false
+		var n: Node = gi
+		while n != null and n != root and not skip:
+			skip = n.has_meta("lit_piece")
+			n = n.get_parent()
+		if skip:
+			continue
+		var copy: GeometryInstance3D
+		if gi is MultiMeshInstance3D:
+			copy = MultiMeshInstance3D.new()
+			(copy as MultiMeshInstance3D).multimesh = (gi as MultiMeshInstance3D).multimesh
+		else:
+			copy = MeshInstance3D.new()
+			(copy as MeshInstance3D).mesh = (gi as MeshInstance3D).mesh
+		copy.name = "o%04d" % k
+		copy.transform = gi.global_transform
+		out.add_child(copy)
+		k += 1
+	var doc := GLTFDocument.new()
+	var state := GLTFState.new()
+	var err := doc.append_from_scene(out, state)
+	if err == OK:
+		err = doc.write_to_filesystem(state, ProjectSettings.globalize_path(dir + "light_in.glb"))
+	out.free()
+	print("stage light: exported %d occluders to %s (%s)" % [k, dir, error_string(err)])
+	return k
+
+
 ## Swaps the built meshes under `root` for their baked copies, if this stage has a bake. Returns how many it swapped.
 static func apply(root: Node3D, bake_key: String) -> int:
 	var dir := DIR % bake_key
@@ -365,6 +407,7 @@ static func place_front(root: Node3D, t: Dictionary, scene: Node3D) -> void:
 	# (Lit rooms, dark panes and bulbs keep their own colour whatever the light, as the code-built facade's glass does.)
 	var glow := {"glass_lit": Color(1.0, 0.72, 0.4), "glass_dark": Color(0.12, 0.13, 0.26), "bulb": Color(1.0, 0.94, 0.8)}
 	scene.name = "ModelledFront"
+	scene.set_meta("lit_piece", true)
 	root.add_child(scene)
 	var top := -INF
 	for mi: MeshInstance3D in scene.find_children("*", "MeshInstance3D", true, false):
@@ -444,6 +487,7 @@ static func place_play(root: Node3D, t: Dictionary, path: String) -> void:
 	colours.merge({"top": top, "top_card": top.lerp(cream, 0.45), "layer1": layer1, "layer2": layer2, "fringe": fringe,
 		"steel": plate, "steel_dark": (t.get("wood_dark", plate.darkened(0.3)) as Color).darkened(0.15), "steel_card": plate.lerp(cream, 0.35)}, true)
 	scene.name = "ModelledPlay"
+	scene.set_meta("lit_piece", true)
 	root.add_child(scene)
 	for mi: MeshInstance3D in scene.find_children("*", "MeshInstance3D", true, false):
 		for s in mi.mesh.get_surface_count():
@@ -514,6 +558,7 @@ static func place_mood(root: Node3D, source: Variant) -> void:
 		"spark": [Color(1.0, 1.0, 0.96), true, true, false], "cap": [Color(0.32, 0.16, 0.14), false, true, true],
 		"cord": [Color(0.2, 0.17, 0.22), false, true, true]}
 	scene.name = "ModelledMood"
+	scene.set_meta("lit_piece", true)
 	root.add_child(scene)
 	for mi: MeshInstance3D in scene.find_children("*", "MeshInstance3D", true, false):
 		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
@@ -730,6 +775,7 @@ static func place_ground(root: Node3D, t: Dictionary, source: Array) -> void:
 	var ground := _scene_from(source[0])
 	if ground != null:
 		ground.name = "ModelledGround"
+		ground.set_meta("lit_piece", true)
 		root.add_child(ground)
 		_paint_ground(ground, colours)
 		# (A modelled far land stands in for the painted ridges.)
