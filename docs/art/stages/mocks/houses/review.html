@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Paper House Kit</title>
+<style>
+/* Layout: a scorecard heat grid first, then the ranked weak points as severity rows, then per-stage ours-vs-reference, then the approach ideas. */
+:root {
+  --bg: #eef0f5; --panel: #ffffff; --fg: #1d1b2a; --muted: #5d5a70; --line: #d6d8e3; --accent: #6a3fd1; --accent-ink: #ffffff;
+  --s1: #d64545; --s2: #e8874a; --s3: #e9c25a; --s4: #8cc56b; --s5: #3fa66a; --s-ink: #1d1b2a;
+  --display: "Barlow Condensed", "Arial Narrow", sans-serif;
+  --body: "Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #15141d; --panel: #1f1d2a; --fg: #ecebf4; --muted: #a8a5bd; --line: #34314a; --accent: #a98bff; --accent-ink: #15141d;
+    --s1: #c94848; --s2: #d07a42; --s3: #cfae52; --s4: #7cb25e; --s5: #3a9460; --s-ink: #15141d; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #15141d; --panel: #1f1d2a; --fg: #ecebf4; --muted: #a8a5bd; --line: #34314a; --accent: #a98bff; --accent-ink: #15141d;
+  --s1: #c94848; --s2: #d07a42; --s3: #cfae52; --s4: #7cb25e; --s5: #3a9460; --s-ink: #15141d; color-scheme: dark;
+}
+body {
+  background: var(--bg); color: var(--fg); font-family: var(--body); font-size: 16px; line-height: 1.5;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 24px 48px;
+}
+.wrap { max-width: 1100px; margin: 0 auto; display: grid; gap: 28px; }
+h1, h2, h3 { font-family: var(--display); font-weight: 800; margin: 0; line-height: 1.05; text-wrap: balance; }
+h1 { font-size: clamp(2rem, 5vw, 3rem); }
+h2 { font-size: clamp(1.5rem, 3.2vw, 2rem); }
+h3 { font-size: 1.35rem; }
+p { margin: 0; max-width: 70ch; }
+.lede, .muted { color: var(--muted); }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 18px; display: grid; gap: 14px; min-width: 0; }
+.eyebrow { font-family: var(--display); font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.95rem; color: var(--accent); }
+.tablewrap { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+th, td { padding: 8px 10px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+th { font-family: var(--display); font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); font-size: 0.95rem; }
+.score { text-align: center; font-weight: 700; color: var(--s-ink); border-radius: 6px; min-width: 2.2em; display: inline-block; padding: 2px 0; }
+.v1 { background: var(--s1); } .v2 { background: var(--s2); } .v3 { background: var(--s3); } .v4 { background: var(--s4); } .v5 { background: var(--s5); }
+td.c { text-align: center; }
+.legend { display: flex; flex-wrap: wrap; gap: 12px; font-size: 0.9rem; color: var(--muted); align-items: center; }
+.legend .score { font-size: 0.85rem; min-width: 1.8em; }
+.weak { display: grid; grid-template-columns: 3.2em 1fr; gap: 6px 14px; padding: 14px 0; border-bottom: 1px solid var(--line); }
+.weak:last-child { border-bottom: 0; }
+.sev { display: grid; gap: 4px; justify-items: center; }
+.sev .num { font-family: var(--display); font-weight: 800; font-size: 1.9rem; line-height: 1; }
+.bar { display: flex; gap: 2px; }
+.bar i { width: 6px; height: 14px; border-radius: 2px; background: var(--line); }
+.bar i.on { background: var(--s1); }
+.weak h3 { font-size: 1.25rem; }
+.tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.tag { font-size: 0.8rem; border: 1px solid var(--line); border-radius: 999px; padding: 0 8px; color: var(--muted); }
+.stage { display: grid; gap: 10px; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.pair figure { margin: 0; display: grid; gap: 4px; min-width: 0; }
+.pair img { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 6px; background: #000; display: block; }
+.pair figcaption { font-size: 0.85rem; color: var(--muted); }
+@media (max-width: 640px) { .pair { grid-template-columns: 1fr; } }
+.ideas { display: grid; gap: 12px; }
+.idea { display: grid; grid-template-columns: 1fr auto; gap: 4px 14px; border-top: 1px solid var(--line); padding-top: 12px; }
+.idea:first-child { border-top: 0; padding-top: 0; }
+.meter { display: grid; grid-template-columns: auto auto; gap: 2px 8px; font-size: 0.85rem; color: var(--muted); align-content: start; }
+.meter b { color: var(--fg); }
+.rec { border-left: 4px solid var(--accent); padding-left: 12px; }
+.viewer { position: relative; width: 100%; aspect-ratio: 16 / 9; max-width: 100%; border-radius: 8px; overflow: hidden; background: #000; }
+.viewer img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+.vtag { position: absolute; top: 10px; left: 10px; z-index: 3; font-family: var(--display); font-weight: 800; font-size: 1.1rem; padding: 2px 10px; border-radius: 6px; color: #fff; background: rgba(0,0,0,0.55); pointer-events: none; }
+.vline { position: absolute; top: 0; bottom: 0; width: 3px; background: #fff; z-index: 2; pointer-events: none; }
+.row { display: flex; flex-wrap: wrap; gap: 8px; }
+button { font: inherit; font-weight: 700; border: 1px solid var(--line); background: transparent; color: var(--fg); border-radius: 999px; padding: 6px 14px; cursor: pointer; }
+button:hover { border-color: var(--accent); }
+button:focus-visible, input:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.range { width: 100%; }
+kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4px; padding: 0 5px; font-size: 0.85em; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+.up { color: var(--s5); font-size: 0.8em; }
+.r2note, .r3note { display: grid; gap: 6px; }
+[hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <section class="panel" aria-labelledby="hk-h" id="houses">
+    <div class="eyebrow">Your pick is needed &middot; the paper house kit</div>
+    <h2 id="hk-h">Paper houses for the far towns, at true size</h2>
+    <p>The meadow's village and farm and the beach's harbour town repeat one cottage model from before the paper look (fifteen times over in the town). The kit replaces it with four paper houses (a cottage, a two-storey townhouse, a longhouse and a barn) built at true size: a door is about a fighter's height. Three styles: <b>A</b> scored card (crisp folds, scored roof rows, card frames), <b>B</b> layered card (applied timber strips, shutters, flower boxes, overlapping roof rows), <b>C</b> rolled (corners, frames, eaves and ridges as rolled tubes, arched doors, as your props).</p>
+    <p><b>The scale and footing pass:</b> the houses, the town's warehouse and bell tower and the haystacks are life size. The meadow's farm stays at 0.6: it stands on the valley's painted face, a forced-perspective layer whose fields and hedges shrink down it, and at life size it filled the frame's corner. The rule for that face: whatever stands on it takes its scale. Every house sits on a footing sunk into its ground; none floats. Details in docs/art/stages/HOUSES.md.</p>
+    <p class="muted">My pick: <b>B</b>. At play distance its shutters and flower boxes read as lived-in; A is crisp but plain, and C's rolled edges are lost (its arched doors remain).</p>
+    <h3>The four houses per style (studio light; the yellow marker is a fighter's height)</h3>
+    <div class="viewer"><img src="hk_sheets.jpg" alt="The four houses in styles A, B and C, top to bottom"><span class="vtag">A scored card &middot; B layered card &middot; C rolled (top to bottom)</span></div>
+    <h3>At play distance, 2x crops of the match camera</h3>
+    <div class="viewer"><img src="hk_crops.jpg" alt="The harbour town and the meadow's farm: today, A, B, C"><span class="vtag">Town: today, A (top) &middot; B, C &middot; then the farm: today, A, B, C</span></div>
+    <h3>The whole frame</h3>
+    <div class="row" role="group" aria-label="Stage"><button data-hks="beach">Beach</button><button data-hks="meadow">Meadow</button></div>
+    <div class="row" role="group" aria-label="View"><button data-hkv="m">Match camera</button><button data-hkv="w">Wide</button></div>
+    <div class="row" role="group" aria-label="Option">
+      <button data-hko="T">1 &middot; Today</button><button data-hko="A">2 &middot; A</button><button data-hko="B">3 &middot; B</button><button data-hko="C">4 &middot; C</button>
+    </div>
+    <div class="viewer"><img id="hkimg" alt="House kit option"><span class="vtag" id="hktag"></span></div>
+  </section>
+
+</div>
+<script>
+(function () {
+  // The paper house kit.
+  var hks = "beach", hkv = "m", hko = "B";
+  var HKS = { beach: "Beach", meadow: "Meadow" };
+  var HKO = { T: "Today", A: "A \u00b7 scored card", B: "B \u00b7 layered card", C: "C \u00b7 rolled" };
+  function hkrender() {
+    document.getElementById("hkimg").src = "hk_" + hks + "_" + hkv + "_" + hko + ".jpg";
+    document.getElementById("hktag").textContent = HKS[hks] + " \u00b7 " + HKO[hko];
+    document.querySelectorAll("[data-hks]").forEach(function (b) { b.setAttribute("aria-pressed", b.dataset.hks === hks ? "true" : "false"); });
+    document.querySelectorAll("[data-hkv]").forEach(function (b) { b.setAttribute("aria-pressed", b.dataset.hkv === hkv ? "true" : "false"); });
+    document.querySelectorAll("[data-hko]").forEach(function (b) { b.setAttribute("aria-pressed", b.dataset.hko === hko ? "true" : "false"); });
+  }
+  document.querySelectorAll("[data-hks]").forEach(function (b) { b.addEventListener("click", function () { hks = b.dataset.hks; hkrender(); }); });
+  document.querySelectorAll("[data-hkv]").forEach(function (b) { b.addEventListener("click", function () { hkv = b.dataset.hkv; hkrender(); }); });
+  document.querySelectorAll("[data-hko]").forEach(function (b) { b.addEventListener("click", function () { hko = b.dataset.hko; hkrender(); }); });
+  hkrender();
+  document.addEventListener("keydown", function (e) {
+    var k = { "1": "T", "2": "A", "3": "B", "4": "C" }[e.key];
+    if (k) { hko = k; hkrender(); }
+  });
+})();
+</script>
+</body>
+</html>

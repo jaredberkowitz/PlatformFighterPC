@@ -1006,6 +1006,11 @@ static var tree_mock := false
 ## The meadow pilot's paper props to try (`--prop-mock=<glb>`, art/blender/make_paper_props.py; fidelity review 3's idea 1), set by
 ## StageView while it builds the scenery: each prop builder hands its place to the matching `prop_<name>` in it. Null otherwise.
 static var paper_kit: Node3D = null
+## The paper houses (art/blender/make_paper_houses.py, `StageBake.house_kit`): `_cottage` and `_barn` hand their places to them, at true
+## size; the towns' houses take their types in turn (`_house_n`, so no random numbers are drawn).
+static var house_kit: Node3D = null
+static var _house_n := 0
+const TOWN_TYPES := ["cottage", "townhouse", "cottage", "longhouse", "townhouse", "cottage"]
 ## The paper props' colours by family (`<family>_back` a step darker); `tint` in `_paper` overrides one (a rock's stage colour, a petal).
 const PAPER_COLOURS := {"straw": Color(0.98, 0.84, 0.46), "straw_end": Color(0.9, 0.74, 0.4), "band": Color(0.66, 0.46, 0.28),
 	"wood": Color(0.74, 0.52, 0.32), "wood_light": Color(0.9, 0.72, 0.48), "wood_dark": Color(0.55, 0.36, 0.22),
@@ -1016,7 +1021,11 @@ const PAPER_COLOURS := {"straw": Color(0.98, 0.84, 0.46), "straw_end": Color(0.9
 	"bark": Color(0.6, 0.42, 0.28), "ring_top": Color(0.94, 0.8, 0.58), "crate": Color(0.86, 0.66, 0.42), "crate_dark": Color(0.68, 0.48, 0.3),
 	"iron": Color(0.36, 0.34, 0.42), "glow": Color(1.0, 0.8, 0.5), "red": Color(1.0, 0.45, 0.42), "white": Color(0.98, 0.96, 0.92),
 	"pot": Color(0.86, 0.5, 0.42), "leaf": Color(0.4, 0.72, 0.5), "cactus": Color(0.3, 0.6, 0.36), "tank": Color(0.62, 0.32, 0.26),
-	"tank_dark": Color(0.4, 0.28, 0.22), "metal": Color(0.66, 0.68, 0.76), "metal_dark": Color(0.45, 0.47, 0.55)}
+	"tank_dark": Color(0.4, 0.28, 0.22), "metal": Color(0.66, 0.68, 0.76), "metal_dark": Color(0.45, 0.47, 0.55),
+	# (The paper houses; `roof`, its edges and `wall` take each house's own colours.)
+	"wall": Color(0.98, 0.93, 0.82), "roof": Color(0.8, 0.36, 0.3), "roof_edge": Color(0.92, 0.58, 0.5), "roof_score": Color(0.6, 0.26, 0.22),
+	"trim": Color(0.56, 0.38, 0.26), "timber": Color(0.42, 0.28, 0.2), "door": Color(0.5, 0.32, 0.22), "shutter": Color(0.36, 0.52, 0.6),
+	"barn": Color(0.78, 0.26, 0.22), "barn_door": Color(0.62, 0.2, 0.18), "barn_trim": Color(0.98, 0.95, 0.9), "shadow": Color(0.24, 0.16, 0.14)}
 ## Paper prop families drawn in their own light, not the stage's (a lamp's lantern).
 const PAPER_LIT := ["glow"]
 
@@ -1029,10 +1038,12 @@ static func _paper_or_prop(root: Node3D, prop_name: String, at: Vector3, size: f
 
 ## Places the paper kit's `prop_<prop_name>` at `xf` (see `paper_kit`), each part in the toon material of its family's colour with its
 ## own baked occlusion; false without a kit or that prop, so the caller builds its own.
-static func _paper(root: Node3D, prop_name: String, xf: Transform3D, tint := {}) -> bool:
-	if paper_kit == null:
+static func _paper(root: Node3D, prop_name: String, xf: Transform3D, tint := {}, kit: Node3D = null) -> bool:
+	if kit == null:
+		kit = paper_kit
+	if kit == null:
 		return false
-	var src := paper_kit.find_child("prop_" + prop_name, true, false) as Node3D
+	var src := kit.find_child("prop_" + prop_name, true, false) as Node3D
 	if src == null:
 		return false
 	var copy := src.duplicate() as Node3D
@@ -1895,6 +1906,7 @@ static func backdrop(root: Node3D, t: Dictionary, stage: Array) -> void:
 			_cloud_keep_out.append(Vector2(front, front - float(spec.height) * 1.1))
 	_palette = palette(t.name).duplicate()
 	_palette["_name"] = t.name
+	_house_n = 0
 	_chunky_hills = false
 	# (Fresh per build: the painted ground shadows live in these materials, `_ground_shadow`.)
 	_band_mats.clear()
@@ -3744,6 +3756,8 @@ static func _fields(root: Node3D, z: float, y: float, colours: Array, hedge_colo
 		return top
 	farm.position = at.call(-30.0, 5.0) + Vector3(0, 0, 0.6)
 	farm.position.y = seat.call(-30.0)
+	# (Kept at 0.6 by the scale pass, 2026-10-21: the farm stands on the valley's painted face, whose fields and hedges shrink down it in
+	# forced perspective, and belongs to its scale; life size there, it filled the frame's corner. Whatever stands on the face takes it.)
 	farm.scale = Vector3.ONE * 0.6
 	farm.name = "Farm"
 	# (Its span across the valley, for a modelled ground to keep level under it: art/blender/make_meadow_ground.py.)
@@ -4520,6 +4534,8 @@ static func _windmill(root: Node3D, at: Vector3) -> void:
 
 ## A red barn (`at` its foot): plank walls under a steep roof, white trim round the big doors with a cross brace, and a hay loft door.
 static func _barn(root: Node3D, at: Vector3) -> void:
+	if house_kit != null and _paper(root, "house_barn", Transform3D(Basis.IDENTITY, at), {}, house_kit):
+		return
 	var red := Materials.wood(Color(0.78, 0.26, 0.22), Vector2(4, 2))
 	var trim := FighterView.toon(Color(0.98, 0.95, 0.9))
 	var roof := Materials.shingles(Color(0.4, 0.34, 0.36), Vector2(4, 2))
@@ -4542,7 +4558,14 @@ static func _barn(root: Node3D, at: Vector3) -> void:
 ## posts, a beam at the floor line, braces in the end bays), a deep shingled roof in `roof` overhanging the gables and the eaves with a
 ## ridge beam along its top, gable ends filled to the roof with a round attic window, a plank door on a stone step with a lantern, a lit
 ## window with shutters and a flower box, shrubs at its foot, and a stone chimney at one end (`side`) with smoke curling up from it.
-static func _cottage(root: Node3D, at: Vector3, roof: Color, side: float, wall_tint := Color(0, 0, 0, 0)) -> void:
+static func _cottage(root: Node3D, at: Vector3, roof: Color, side: float, wall_tint := Color(0, 0, 0, 0), kind := "cottage") -> void:
+	# A paper house, when the stage has them (`house_kit`), its roof and walls in this cottage's colours.
+	if house_kit != null:
+		var tint := {"roof": roof, "roof_edge": roof.lightened(0.3), "roof_score": roof.darkened(0.25), "shutter": roof.lightened(0.15)}
+		if wall_tint.a > 0.0:
+			tint["wall"] = Color(wall_tint.r, wall_tint.g, wall_tint.b)
+		if _paper(root, "house_" + kind, Transform3D(Basis.from_scale(Vector3(side, 1.0, 1.0)), at), tint, house_kit):
+			return
 	# The modelled cottage (art/blender/make_props.py `cottage`, after the owner's papercraft village reference): proud timbers, lapped
 	# shingle rows, an arched plank door, shutters, a stone footing and chimney. Its roof takes this cottage's colour; the window glows.
 	# The code-built cottage below stands in without it.
@@ -7156,7 +7179,9 @@ static func _harbour_town(root: Node3D, water: float, land_root: Node3D = null) 
 			house.scale = Vector3.ONE * rng.randf_range(0.85, 1.15)
 			root.add_child(house)
 			var walls: Array = _pal("town_walls")
-			_cottage(house, Vector3.ZERO, roofs[rng.randi() % roofs.size()], 1.0 if rng.randf() < 0.5 else -1.0, walls[rng.randi() % walls.size()])
+			_cottage(house, Vector3.ZERO, roofs[rng.randi() % roofs.size()], 1.0 if rng.randf() < 0.5 else -1.0, walls[rng.randi() % walls.size()],
+				TOWN_TYPES[_house_n % TOWN_TYPES.size()])
+			_house_n += 1
 			# (Each row back a step further into the air, the gauntlet's round 21: at foreground strength the town read as toys.)
 			# (Clean pastels, 2026-10-19, the owner: at 0.4 grey and a fifth haze the whole town read as one blue-grey wash.)
 			_air(house, house.position.z)

@@ -681,6 +681,13 @@ static func paper_kit(theme_name: String) -> Node3D:
 	return (load(PAPER_KITS[theme_name]) as PackedScene).instantiate() as Node3D
 
 
+## The paper houses (art/blender/make_paper_houses.py, docs/art/stages/HOUSES.md): a glTF to try (`--house-mock=<glb>`), or null.
+static func house_kit() -> Node3D:
+	if flag("--house-mock=") != "":
+		return _scene_from(flag("--house-mock="))
+	return null
+
+
 ## Each material family's print (tools/art/make_prints.py) and how strongly and how large it is laid: [print, amount, units per tile].
 const PRINTS := {"grass": ["grass", 0.45, 5.0], "lawn": ["grass", 0.45, 5.0], "lawn_under": ["grass", 0.35, 5.0], "moss": ["grass", 0.35, 3.0],
 	"fringe": ["grass", 0.3, 3.0], "soil": ["soil", 0.35, 4.0], "soil2": ["soil", 0.35, 4.0], "path": ["path", 0.3, 4.0],
