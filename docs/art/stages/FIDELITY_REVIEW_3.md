@@ -121,3 +121,23 @@ options from the match camera.
 - **Picks recommended:** C's props with B's print. Options in `mocks/meadow_kit/` (match camera, fighters in play, close-up; a local
   `review.html`) and on the owner's page.
 **Tests:** all seven Godot tests pass (nothing changes without the mock flags).
+
+## The meadow pilot built: C's props, B's print, the full finish on the front (2026-10-21)
+
+The owner's picks.
+- **Props:** `godot/models/props/paper_meadow.glb` (`make_paper_props.py --style C`, 8,300 triangles), the meadow's kit in
+  `StageBake.PAPER_KITS`. The hay bales, barrel, signpost, rock, fence and flowers are rolled and scored paper, each where the built
+  prop stood. `--no-paper-props` compares.
+- **Print:** `godot/art/stage/prints/hatched/` (`make_prints.py --style B`). The meadow's palette sets `paper_print="hatched"`;
+  `StageBake.surfaces` lays it on the front, play area and paper props by family. `--no-print` compares.
+- **Front:** the palette's `front_finish=1.6`, the front at about the full paper finish.
+- **Light:** the meadow's pieces re-lit around the new props (`light_stage.py`).
+- **Test:** `tests/stage_front_test.gd` checks every kit has each prop the builders ask for, in families the game paints.
+
+**Result** (`meadow_kit_built.jpg`, before left, after right; match camera above, fighters in play below):
+- The lawn's value is unchanged (0.66 → 0.67) and the path has printed marks (contrast 0.048 → 0.067).
+- The front is unchanged in value (0.39).
+- The fighters read as before.
+- Surfaces on the meadow: 3 → 4 by eye. Up close, the lawn, logs, stones, bales and posts now carry printed paper marks, where they
+  were flat colour.
+**Tests:** all seven Godot tests pass.

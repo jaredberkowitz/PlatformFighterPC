@@ -583,9 +583,18 @@ static func place_mood(root: Node3D, source: Variant) -> void:
 	print("mood light: placed %s" % (source.get_file() if source is String else (source as PackedScene).resource_path.get_file()))
 
 
-## The meadow pilot's paper props to try (`--prop-mock=<glb>`, art/blender/make_paper_props.py), or null.
-static func paper_kit() -> Node3D:
-	return _scene_from(flag("--prop-mock=")) if flag("--prop-mock=") != "" else null
+## Paper props by theme (art/blender/make_paper_props.py; the meadow's "C" rolled and scored, the owner's pick 2026-10-21): the prop
+## builders hand their places to it (`StageArt.paper_kit`).
+const PAPER_KITS := {"meadow": "res://models/props/paper_meadow.glb"}
+
+
+## The theme's paper props: a glTF to try (`--prop-mock=<glb>`), the shipped kit (`PAPER_KITS`), or null (none, or `--no-paper-props`).
+static func paper_kit(theme_name: String) -> Node3D:
+	if flag("--prop-mock=") != "":
+		return _scene_from(flag("--prop-mock="))
+	if OS.get_cmdline_user_args().has("--no-paper-props") or not PAPER_KITS.has(theme_name) or not ResourceLoader.exists(PAPER_KITS[theme_name]):
+		return null
+	return (load(PAPER_KITS[theme_name]) as PackedScene).instantiate() as Node3D
 
 
 ## Each material family's print (tools/art/make_prints.py) and how strongly and how large it is laid: [print, amount, units per tile].
@@ -598,12 +607,18 @@ const PRINTS := {"grass": ["grass", 0.45, 5.0], "lawn": ["grass", 0.45, 5.0], "l
 static var _print_tex := {}
 
 
-## The printed surfaces to try (`--print-mock=<folder>`, tools/art/make_prints.py, fidelity review 3's idea 2) on the modelled front and
-## play area and the paper props, by each surface's material family (`PRINTS`); and `--front-finish=<x>`, the front's share of the
-## paper finish (`paper_boost`; 1.6 takes the meadow's "B" to about "C", the full finish).
-static func mock_surfaces(root: Node3D) -> void:
+## The printed surfaces (tools/art/make_prints.py, fidelity review 3's idea 2) on the modelled front and play area and the paper props, by
+## each surface's material family (`PRINTS`), and the front's share of the paper finish (`paper_boost`; 1.6 takes the meadow's "B" to
+## about "C", the full finish): from the stage's palette ([backdrop] `paper_print`, a folder in art/stage/prints/, and `front_finish`),
+## or to try, `--print-mock=<folder>` and `--front-finish=<x>`; `--no-print` to compare.
+static func surfaces(root: Node3D, theme_name: String) -> void:
+	var look: Dictionary = StageArt.palette(theme_name).get("backdrop", {})
 	var dir := flag("--print-mock=")
-	var boost := float(flag("--front-finish=")) if flag("--front-finish=") != "" else 0.0
+	if dir == "" and String(look.get("paper_print", "")) != "":
+		dir = "res://art/stage/prints/%s" % String(look.paper_print)
+	if OS.get_cmdline_user_args().has("--no-print"):
+		dir = ""
+	var boost := float(flag("--front-finish=")) if flag("--front-finish=") != "" else float(look.get("front_finish", 0.0))
 	if dir == "" and boost <= 0.0:
 		return
 	var printed := {}
@@ -631,7 +646,15 @@ static func mock_surfaces(root: Node3D) -> void:
 				var spec: Array = PRINTS[fam.trim_suffix("_back")]
 				var path := dir.path_join(String(spec[0]) + ".png")
 				if not _print_tex.has(path):
-					var img := Image.load_from_file(path)
+					# (The shipped prints are imported textures; mocks are read from their files. Either way with their own mipmaps.)
+					var img: Image = null
+					if path.begins_with("res://"):
+						var tex := load(path) as Texture2D
+						img = tex.get_image() if tex != null else null
+						if img != null and img.is_compressed():
+							img.decompress()
+					else:
+						img = Image.load_from_file(path)
 					if img != null:
 						img.generate_mipmaps()
 					_print_tex[path] = ImageTexture.create_from_image(img) if img != null else null
@@ -647,7 +670,8 @@ static func mock_surfaces(root: Node3D) -> void:
 				mi.material_override = m
 			else:
 				mi.set_surface_override_material(s, m)
-	print("mock surfaces: printed %s; %d front surfaces at %.1f of the paper finish" % [printed, boosted, boost])
+	print("stage surfaces: printed %d surfaces in %d families; %d front surfaces at %.1f of the paper finish" % [
+		printed.values().reduce(func(a, b): return a + b, 0), printed.size(), boosted, boost])
 
 
 ## The theme's modelled tree: a glTF path to try (`--tree-mock=<glb>`), the shipped model (`TREES`), or null (none, or `--no-trees`).

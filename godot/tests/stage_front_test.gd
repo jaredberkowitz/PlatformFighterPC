@@ -140,6 +140,24 @@ func _initialize() -> void:
 					unlit += 1
 		model.free()
 		check(unlit == 0, "%s carries the contact shade: %d surfaces without it (run art/blender/light_stage.py after rebuilding it)" % [path, unlit])
+	# The paper props (StageBake.PAPER_KITS, art/blender/make_paper_props.py): every kit has each prop the builders hand their places to
+	# (StageArt._paper), each part in a family the game paints, so no prop falls back to the built one or goes grey.
+	for theme_name in StageBake.PAPER_KITS:
+		var path: String = StageBake.PAPER_KITS[theme_name]
+		check(ResourceLoader.exists(path), "%s exists" % path)
+		if not ResourceLoader.exists(path):
+			continue
+		var kit := (load(path) as PackedScene).instantiate()
+		for prop_name in ["hay_bale", "barrel", "signpost", "rock", "fence_post", "fence_rail", "flower"]:
+			var prop := kit.find_child("prop_" + prop_name, true, false)
+			check(prop != null, "%s has prop_%s" % [path, prop_name])
+			if prop == null:
+				continue
+			for mi: MeshInstance3D in prop.find_children("*", "MeshInstance3D", true, false):
+				var m := mi.mesh.surface_get_material(0)
+				var fam := (m.resource_name if m != null else "").get_slice(".", 0).trim_suffix("_back")
+				check(StageArt.PAPER_COLOURS.has(fam), "%s prop_%s: part %s is in a family the game paints (%s)" % [path, prop_name, mi.name, fam])
+		kit.free()
 	# The mood light (StageBake.MOODS, art/blender/make_mood.py): built for one of the sim's stages, and over the play space (the stage's
 	# span, from its lowest top up to ten units over its highest) it stays behind the fighters' plane, so no beam, lantern or pool of
 	# light ever crosses a fighter.
