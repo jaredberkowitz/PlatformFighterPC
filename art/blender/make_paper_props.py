@@ -791,7 +791,8 @@ PROPS = [("hay_bale", hay_bale), ("barrel", barrel), ("signpost", signpost), ("r
          ("water_tower", water_tower), ("ac_unit", ac_unit), ("roof_vent", roof_vent)]
 
 
-def bake_occlusion(distance):
+def bake_occlusion(distance, floor_z=0.0, floor_at=(80.0, 0.0), floor_size=320.0):
+    """Occlusion into each part's vertex colours, a floor at `floor_z` (Blender z) under them all."""
     scene = bpy.context.scene
     parts = [o for o in scene.objects if o.type == "MESH"]
     scene.render.engine = "CYCLES"
@@ -809,7 +810,7 @@ def bake_occlusion(distance):
         scene.world = bpy.data.worlds.new("Bake")
     scene.world.light_settings.distance = distance
     # (A floor under them all, so each prop takes the ground's shade at its foot.)
-    bpy.ops.mesh.primitive_plane_add(size=320.0, location=(80.0, 0.0, 0.0))
+    bpy.ops.mesh.primitive_plane_add(size=floor_size, location=(floor_at[0], floor_at[1], floor_z))
     floor = bpy.context.active_object
     bpy.ops.object.select_all(action="DESELECT")
     for o in parts:
@@ -862,4 +863,6 @@ def main():
     print("paper props %s, new designs %s: %d triangles -> %s" % (STYLE, VARIANT, tris, out))
 
 
-main()
+# (Run as a script; art/blender/make_world.py imports its helpers.)
+if __name__ == "__main__":
+    main()

@@ -544,6 +544,45 @@ static func mood_source(bake_key: String) -> Variant:
 	return load(MOODS[bake_key])
 
 
+## The world-building pieces' colours by family (art/blender/make_world.py, docs/art/stages/WORLD.md).
+const WORLD_COLOURS := {"hull": Color(0.32, 0.5, 0.62), "hull_stripe": Color(0.95, 0.92, 0.84), "deck": Color(0.78, 0.6, 0.42),
+	"cabin": Color(0.96, 0.94, 0.88), "cabin_roof": Color(0.82, 0.32, 0.28), "wood_dark": Color(0.45, 0.32, 0.24), "sail": Color(0.95, 0.9, 0.8),
+	"rope": Color(0.86, 0.74, 0.52), "net": Color(0.42, 0.56, 0.52), "fish_crate": Color(0.84, 0.66, 0.44), "gull": Color(0.98, 0.98, 0.96),
+	"gull_tip": Color(0.42, 0.44, 0.5), "beak": Color(1.0, 0.76, 0.3), "awning_a": Color(0.92, 0.4, 0.38), "awning_b": Color(0.98, 0.94, 0.86),
+	"stall": Color(0.76, 0.56, 0.38), "coat_a": Color(0.36, 0.48, 0.72), "coat_b": Color(0.82, 0.5, 0.32), "coat_c": Color(0.5, 0.62, 0.4),
+	"skin": Color(0.96, 0.8, 0.66), "flag_a": Color(0.92, 0.36, 0.36), "flag_b": Color(1.0, 0.84, 0.36), "flag_c": Color(0.4, 0.66, 0.86),
+	"smoke": Color(0.9, 0.88, 0.92), "timber": Color(0.62, 0.42, 0.3), "timber_dark": Color(0.44, 0.3, 0.24), "iron": Color(0.32, 0.3, 0.36),
+	"engine": Color(0.22, 0.24, 0.3), "engine_cab": Color(0.7, 0.22, 0.22), "car_a": Color(0.78, 0.5, 0.3), "car_b": Color(0.46, 0.58, 0.5),
+	"tank": Color(0.62, 0.4, 0.3), "tank_dark": Color(0.42, 0.28, 0.24), "trail": Color(0.96, 0.84, 0.68), "canvas": Color(0.96, 0.93, 0.84),
+	"ox": Color(0.55, 0.38, 0.28), "blade": Color(0.86, 0.84, 0.8), "cattle_a": Color(0.52, 0.34, 0.26), "cattle_b": Color(0.3, 0.24, 0.22),
+	"adobe": Color(0.9, 0.66, 0.5), "adobe_dark": Color(0.74, 0.5, 0.38), "window": Color(1.0, 0.82, 0.5)}
+
+
+## World-building pieces to try (`--world-mock=<glb>`, art/blender/make_world.py): painted by family in the scenery's toon material
+## with their own occlusion; the windows lit.
+static func place_world(root: Node3D, path: String) -> void:
+	var scene := _scene_from(path)
+	if scene == null:
+		push_warning("world mock %s could not be read" % path)
+		return
+	scene.name = "WorldMock"
+	root.add_child(scene)
+	for mi: MeshInstance3D in scene.find_children("*", "MeshInstance3D", true, false):
+		var src := mi.mesh.surface_get_material(0)
+		var fam := (src.resource_name if src != null else "").get_slice(".", 0)
+		var colour: Color = WORLD_COLOURS.get(fam, Color(0.7, 0.7, 0.7))
+		if fam == "window":
+			var lit := StandardMaterial3D.new()
+			lit.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+			lit.albedo_color = colour
+			mi.material_override = lit
+			continue
+		var m := FighterView.toon(colour, true).duplicate() as ShaderMaterial
+		m.set_shader_parameter("vertex_shade", true)
+		mi.material_override = m
+	print("world mock: placed %s" % path.get_file())
+
+
 ## Places the mood light (`source`: a PackedScene, or a glTF path for mocks): searchlight beams, paper lanterns, ripple rings, each
 ## piece unshaded with its own brightness and fade in its vertex colours, so it reads as light whatever the scene's.
 static func place_mood(root: Node3D, source: Variant) -> void:
