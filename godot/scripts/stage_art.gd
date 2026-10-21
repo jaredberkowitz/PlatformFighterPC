@@ -2849,7 +2849,7 @@ const RIDGES := {
 		# (More of its own blue and less haze, art review 6 round 31: at mix 0.55 the ridge was mostly horizon colour, a formless pale band
 		# behind the crisp painted hills; found with `--pick`.)
 		"tone": Color(0.3, 0.62, 0.72), "mix": 0.55, "edge": 0.1, "haze": 0.5,
-		# (Teal, not blue: the owner's Origami King reference sets bright lime ground against cool teal mountains.)
+		# (Teal, not blue: the owner's papercraft reference sets bright lime ground against cool teal mountains.)
 		# (A lit flank and a shaded flank on every peak, as the canyon's mesas have: a flat blue cut-out read as the least finished
 		# thing on the menu; the owner, 2026-10-17, raise the quality of what is there.)
 		"flank": 0.75, "foot_dark": 0.35, "layers": 4, "flank_from": 0.0, "gullies": 0.45, "paper": 0.05, "edge_width": 0.012},
