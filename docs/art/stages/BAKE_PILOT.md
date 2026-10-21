@@ -503,3 +503,18 @@ Light as cut paper on the three stages where it suits the setting. The owner app
   - Rings of 0.4 to 0.6 hid behind the posts; 0.5 to 0.8 and 1.05 to 1.2 read from the match camera.
 - **Picks recommended:** city B, grove C, beach B. Options in `mocks/mood/` (with a local `review.html`) and on the owner's page.
 **Tests:** all seven Godot tests pass.
+
+## Mood light: built (2026-10-20)
+
+The owner's picks:
+- **City B:** four searchlight beams in pairs, rising from behind the skyline (48 triangles).
+- **Grove C:** lanterns under the platforms and along the strings, with warm pools on the lawn (4,100 triangles).
+- **Beach B:** ripple rings with a near-side crescent round the dock's and the boardwalk's posts (9,280 triangles).
+
+Shipped as `godot/models/stages/{city,grove,beach}_mood.glb` for each exact layout (`StageBake.MOODS`, placed by `place_mood` from
+`stage_view.gd`). `--no-mood` to compare; `--mood-mock=<glb>` still tries one. `tests/stage_front_test.gd` checks each was built for a
+sim stage and stays behind the fighters' plane over the play space.
+
+**Result** (`mood_built.png`, before left, after right: city wide, grove match, beach match and wide): the city's sky gets its beams,
+the grove its warm lanterns, and the beach's waterline its rings, the boardwalk's in the match camera. The fighters are untouched.
+**Tests:** all seven Godot tests pass.

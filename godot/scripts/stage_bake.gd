@@ -482,12 +482,29 @@ static func play_path(bake_key: String) -> String:
 	return PLAYS[bake_key]
 
 
-## Mood light in paper to try (`--mood-mock=<glb>`, art/blender/make_mood.py, review 2's idea 5): searchlight beams, paper lanterns,
-## ripple rings, each piece unshaded with its own brightness and fade in its vertex colours, so it reads as light whatever the scene's.
-static func place_mood(root: Node3D, path: String) -> void:
-	var scene := _scene_from(path)
+## Mood light in paper (art/blender/make_mood.py, review 2's idea 5, the owner's picks): the city's four searchlight beams in pairs
+## (B), the grove's lanterns under the platforms and along the strings with warm pools on the lawn (C), the beach's ripple rings with
+## a near-side crescent round the dock's and the boardwalk's posts (B). By the exact stage they were built on.
+const MOODS := {"city_2eadbb68": "res://models/stages/city_mood.glb", "grove_14d06e65": "res://models/stages/grove_mood.glb",
+	"ocean_d9c5edff": "res://models/stages/beach_mood.glb"}
+
+
+## The mood light to place: a glTF path to try (`--mood-mock=<glb>`), the shipped model for this exact stage (`MOODS`), or null (none,
+## or `--no-mood`).
+static func mood_source(bake_key: String) -> Variant:
+	if flag("--mood-mock=") != "":
+		return flag("--mood-mock=")
+	if OS.get_cmdline_user_args().has("--no-mood") or not MOODS.has(bake_key) or not ResourceLoader.exists(MOODS[bake_key]):
+		return null
+	return load(MOODS[bake_key])
+
+
+## Places the mood light (`source`: a PackedScene, or a glTF path for mocks): searchlight beams, paper lanterns, ripple rings, each
+## piece unshaded with its own brightness and fade in its vertex colours, so it reads as light whatever the scene's.
+static func place_mood(root: Node3D, source: Variant) -> void:
+	var scene := _scene_from(source)
 	if scene == null:
-		push_warning("mood mock %s could not be read" % path)
+		push_warning("mood light %s could not be read" % str(source))
 		return
 	# [colour, additive, double-sided, lit like the scenery]
 	var looks := {"beam": [Color(1.0, 0.94, 0.86), true, true, false], "beam_card": [Color(0.86, 0.82, 0.95), false, true, false],
@@ -518,7 +535,7 @@ static func place_mood(root: Node3D, path: String) -> void:
 			m.disable_receive_shadows = true
 			mi.set_surface_override_material(s, m)
 		mi.set_meta("prebaked", true)
-	print("mood mock: placed %s" % path.get_file())
+	print("mood light: placed %s" % (source.get_file() if source is String else (source as PackedScene).resource_path.get_file()))
 
 
 ## The theme's modelled tree: a glTF path to try (`--tree-mock=<glb>`), the shipped model (`TREES`), or null (none, or `--no-trees`).
