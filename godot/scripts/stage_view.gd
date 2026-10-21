@@ -119,7 +119,12 @@ func build(sim) -> void:
 	StageArt.bush_slots.clear()
 	# The theme's paper props, if it has them (scripts/stage_bake.gd PAPER_KITS): the prop builders hand their places to it.
 	StageArt.paper_kit = StageBake.paper_kit(String(theme.get("name", "")))
+	# And its paper houses, which `_cottage` and `_barn` hand their places to.
+	StageArt.house_kit = StageBake.house_kit(String(theme.get("name", "")))
 	StageArt.backdrop(scenery, theme, extent)
+	if StageArt.house_kit != null:
+		StageArt.house_kit.free()
+		StageArt.house_kit = null
 	# World-building for this exact stage (docs/art/stages/WORLD.md; `--world-mock=<glb>` to try one, `--no-world` to compare), after the
 	# backdrop, whose palette gives it the stage's air.
 	var world = StageBake.world_source(bake_key)

@@ -160,6 +160,21 @@ func _initialize() -> void:
 				var fam := (m.resource_name if m != null else "").get_slice(".", 0).trim_suffix("_back")
 				check(StageArt.PAPER_COLOURS.has(fam), "%s prop_%s: part %s is in a family the game paints (%s)" % [path, prop_name, mi.name, fam])
 		kit.free()
+	# The paper houses (StageBake.HOUSE_KIT, art/blender/make_paper_houses.py): each house `_cottage` and `_barn` hand their places to,
+	# each part in a family the game paints, so no house falls back to the old cottage or goes grey.
+	check(ResourceLoader.exists(StageBake.HOUSE_KIT), "%s exists" % StageBake.HOUSE_KIT)
+	if ResourceLoader.exists(StageBake.HOUSE_KIT):
+		var houses := (load(StageBake.HOUSE_KIT) as PackedScene).instantiate()
+		for kind in StageArt.TOWN_TYPES + ["barn"]:
+			var house := houses.find_child("prop_house_" + kind, true, false)
+			check(house != null, "%s has prop_house_%s" % [StageBake.HOUSE_KIT, kind])
+			if house == null:
+				continue
+			for mi: MeshInstance3D in house.find_children("*", "MeshInstance3D", true, false):
+				var m := mi.mesh.surface_get_material(0)
+				var fam := (m.resource_name if m != null else "").get_slice(".", 0)
+				check(StageArt.PAPER_COLOURS.has(fam), "prop_house_%s: part %s is in a family the game paints (%s)" % [kind, mi.name, fam])
+		houses.free()
 	# The mood light and the world-building (StageBake.MOODS and WORLDS, art/blender/make_mood.py and make_world.py): built for one of
 	# the sim's stages, and over the play space (the stage's span, from its lowest top up to ten units over its highest) they stay
 	# behind the fighters' plane, so no beam, lantern, gull or boat ever crosses a fighter.
