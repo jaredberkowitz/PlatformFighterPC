@@ -4187,6 +4187,8 @@ var dizzy: Node3D
 var launch_frame: Node3D
 var launch_lines: Node3D
 var launch_trail: Node3D
+## The launch trail's colour in the paper look: the player's (set by the match).
+var trail_tint := Color(0.3, 0.55, 0.95)
 ## (Units per frame: 0.5 was faster than nearly any launch, so the streaks and trail never showed. Art review 6.)
 const LAUNCH_LINES_FROM := 0.2
 
@@ -4276,6 +4278,7 @@ func _launch_look(s: Dictionary) -> void:
 	# The launch trail (scripts/effects.gd `LaunchTrail`), behind the body along the way it flies.
 	if launch_trail == null and lines_on:
 		launch_trail = Effects.LaunchTrail.new()
+		launch_trail.tint = trail_tint
 		launch_trail.material_override = Effects._material(false)
 		add_child(launch_trail)
 	if launch_trail != null:

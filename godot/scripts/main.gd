@@ -239,6 +239,7 @@ func _build_world() -> void:
 		var v := FighterView.new()
 		add_child(v)
 		v.build(i, Loadout.load_saved(i))
+		v.trail_tint = PLAYER_COLORS[i % PLAYER_COLORS.size()]
 		views.append(v)
 		snaps.append({})
 		inputs.append({"x": 0, "y": 0, "buttons": 0})
@@ -289,6 +290,9 @@ func _parse_demo_args() -> void:
 			cam_override = float(a.substr(6))
 	var user_args := OS.get_cmdline_user_args()
 	flag_noui = user_args.has("--noui")
+	# (`--fx=ink` draws the effects in the older brush-and-ink look, for before/after captures; the paper look is the default.)
+	if user_args.has("--fx=ink"):
+		FxMaterial.paper = false
 	flag_noecb = user_args.has("--noecb")
 	if user_args.has("--nomsaa"):
 		get_viewport().msaa_3d = Viewport.MSAA_DISABLED

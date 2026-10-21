@@ -7,8 +7,47 @@ const FxMaterial := preload("res://scripts/fx_material.gd")
 ## They animate on twos (30 pictures a second, `STEP`) like hand-drawn effects, while the game runs at 60, and are laid on in brush
 ## strokes that break up into ragged chunks as they go (`paint` in shaders/fx.gdshaderinc) rather than fading out like vector shapes.
 
+## In the paper look (FxMaterial.paper, the default) they are cut paper as the stages are (docs/art/stages/PAINTOVERS.md): flat sheets of
+## colour, each with a pale cut edge where the ink line was, lifted off the scene on a soft drop shadow, and torn away crisply at the end.
+
 const STEP := 1.0 / 30.0
 const INK := Color(0.12, 0.07, 0.12, 1.0)
+## The paper look's cut edge (in place of the ink line) and its sheet shadow, cast down and to the right as the stages' sheets are.
+const CUT := Color(1.0, 0.97, 0.9, 1.0)
+const SHADOW := Color(0.14, 0.08, 0.2, 1.0)
+const SHADOW_OFFSET := Vector3(0.1, -0.14, -0.02)
+
+
+## The paper look's sheet shadow under an effect: a see-through dark copy of its outer shape, drawn a little down and right of it (the
+## effect feeds it the outer layer's triangles with `add`, then `finish`). Nothing in the ink look.
+class Shade extends MeshInstance3D:
+	var _open := false
+
+	static func make(owner: Node3D, on_top: bool) -> Shade:
+		var sh := Shade.new()
+		sh.mesh = ImmediateMesh.new()
+		sh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		sh.extra_cull_margin = 64.0
+		sh.material_override = FxMaterial.get_material(on_top, 5 if on_top else -1, null, 0.0, 1.0, false, 0.5)
+		sh.position = SHADOW_OFFSET
+		owner.add_child(sh)
+		return sh
+
+	func clear() -> void:
+		(mesh as ImmediateMesh).clear_surfaces()
+
+	func add(v: Vector3, alpha: float) -> void:
+		var im: ImmediateMesh = mesh
+		if not _open:
+			im.surface_begin(Mesh.PRIMITIVE_TRIANGLES)
+			_open = true
+		im.surface_set_color(Color(SHADOW, alpha))
+		im.surface_add_vertex(v)
+
+	func finish() -> void:
+		if _open:
+			(mesh as ImmediateMesh).surface_end()
+			_open = false
 
 
 static func _material(on_top: bool) -> ShaderMaterial:
@@ -47,7 +86,7 @@ class Ring extends MeshInstance3D:
 		# Painted as the other effects are: a thin ink line along the outer and inner edges with the colour between (`inked`), side by side
 		# so a see-through ring does not show ink through its colour.
 		var ink_w := minf(0.04 + w * 0.12, w * 0.3) if inked else 0.0
-		var ink := Color(INK, fade)
+		var ink := Color(CUT if FxMaterial.paper else INK, fade)
 		var bands := [[r + ink_w, r, ink], [r, maxf(r - w, 0.0), c], [maxf(r - w, 0.0), maxf(r - w - ink_w, 0.0), ink]] if inked else [[r, maxf(r - w, 0.0), c]]
 		var n := 40
 		for band in bands:
@@ -93,7 +132,7 @@ class Streaks extends MeshInstance3D:
 		im.surface_begin(Mesh.PRIMITIVE_TRIANGLES)
 		var fade := colour.a * (1.0 - t)
 		# Painted in layers as the knock-out blast is (an ink sliver, the colour, a thin white core), unless `plain` (a flat white flash).
-		var layers := [[1.0, 1.0, Color(colour, fade)]] if plain else [[1.9, 1.05, Color(INK, fade)], [1.0, 1.0, Color(colour, fade)],
+		var layers := [[1.0, 1.0, Color(colour, fade)]] if plain else [[1.3 if FxMaterial.paper else 1.9, 1.05, Color(CUT if FxMaterial.paper else INK, fade)], [1.0, 1.0, Color(colour, fade)],
 			[0.4, 0.86, Color(1.0, 1.0, 0.95, fade)]]
 		for layer in layers:
 			for a in angles:
@@ -134,12 +173,18 @@ class Pow extends MeshInstance3D:
 	var dir := Vector2.RIGHT
 	var colours: Array = []
 	var spikes: Array = []     # [angle, length 0..1]
+	var shade: Shade
+	var _turn := 0.0
 
 	func _ready() -> void:
 		mesh = ImmediateMesh.new()
 		cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		extra_cull_margin = 64.0
-		var n := 11
+		if FxMaterial.paper:
+			shade = Shade.make(self, true)
+			_turn = randf_range(-1.0, 1.0)
+		# (Fewer, broader points in paper, as a star cut with scissors.)
+		var n := 9 if FxMaterial.paper else 11
 		var turn := randf() * TAU
 		for k in n:
 			var a := turn + TAU * (float(k) + randf_range(-0.22, 0.22)) / n
@@ -158,10 +203,19 @@ class Pow extends MeshInstance3D:
 		# Ink, flare, body, core: each layer smaller, the outer ones leaving first as it breaks up.
 		# (The white core smaller, 0.38 to 0.26, so the burst reads as its colour rather than a white flash.)
 		var layers := [[1.0, INK, 0.0], [0.9, colours[0], 0.15], [0.62, colours[1], 0.3], [0.26, colours[2], 0.45]]
+		if FxMaterial.paper:
+			# Paper: the cut edge where the ink was, a warm cream core (white paper, not light), the sheets torn together at the end (the
+			# material's breakup) rather than leaving one by one, and a small flutter on twos.
+			var core: Color = (colours[2] as Color).lerp(Color(1.0, 0.95, 0.82), 0.6)
+			# (The cut edge a thin rim: at the ink line's 0.88 the long points were all cream.)
+			layers = [[1.0, CUT, 0.0], [0.95, colours[0], 0.0], [0.64, colours[1], 0.0], [0.3, core, 0.0]]
+			if shade != null:
+				shade.position = SHADOW_OFFSET * maxf(1.0, size * 1.6)
+			rotation.z = _turn * 0.06 * sin(floorf(age * 30.0) * 1.7)
 		var shown := []
 		for layer in layers:
 			var c: Color = layer[1]
-			c.a *= 1.0 - clampf(breakup * 1.6 - float(layer[2]), 0.0, 1.0)
+			c.a *= (1.0 - breakup * 0.97) if FxMaterial.paper else 1.0 - clampf(breakup * 1.6 - float(layer[2]), 0.0, 1.0)
 			if c.a > 0.01:
 				shown.append([layer[0], c])
 		# (Once every layer has gone there is nothing to draw: an empty surface is an error.)
@@ -171,9 +225,22 @@ class Pow extends MeshInstance3D:
 		for layer in shown:
 			_star(im, size * float(layer[0]) * pop * (1.0 - 0.35 * breakup), layer[1], 1.0 - 0.55 * breakup)
 		im.surface_end()
+		if shade != null:
+			shade.clear()
+			var outer: Array = shown[0]
+			for v in _star_points(size * float(outer[0]) * pop * (1.0 - 0.35 * breakup), 1.0 - 0.55 * breakup):
+				shade.add(v, (outer[1] as Color).a)
+			shade.finish()
 
 	## One layer: a fan of spikes round the middle, `reach` scaling how far the spikes go beyond the round inner part.
 	func _star(im: ImmediateMesh, r: float, c: Color, reach: float) -> void:
+		for v in _star_points(r, reach):
+			im.surface_set_color(c)
+			im.surface_add_vertex(v)
+
+	## The triangles of one layer (as `_star` draws them).
+	func _star_points(r: float, reach: float) -> Array:
+		var out: Array = []
 		var inner := r * 0.36
 		var along := Vector3(dir.x, dir.y, 0).normalized()
 		var across := Vector3(-along.y, along.x, 0)
@@ -188,9 +255,8 @@ class Pow extends MeshInstance3D:
 			var p_tip := _at(a0, tip, along, across)
 			var p_mid := _at(mid, inner, along, across)
 			var p_before := _at(a0 - (a1 - a0) * 0.5, inner, along, across)
-			for v in [Vector3.ZERO, p_before, p_tip, Vector3.ZERO, p_tip, p_mid]:
-				im.surface_set_color(c)
-				im.surface_add_vertex(v)
+			out.append_array([Vector3.ZERO, p_before, p_tip, Vector3.ZERO, p_tip, p_mid])
+		return out
 
 	func _at(angle: float, radius: float, along: Vector3, across: Vector3) -> Vector3:
 		# Stretched 1.3 times along the hit and pinched across it.
@@ -243,7 +309,7 @@ static func hit(parent: Node, at: Vector3, dir: Vector2, color: Color, strength:
 	if s > 0.45:
 		var lines := Streaks.new()
 		lines.material_override = _material(true)
-		lines.colour = Color((pow_fx.colours[0] as Color), 0.95)
+		lines.colour = Color((pow_fx.colours[0] as Color), 1.0 if FxMaterial.paper else 0.95)
 		lines.count = 10
 		lines.reach = 1.6 + 1.6 * s
 		lines.life = 0.2
@@ -265,11 +331,23 @@ class LaunchTrail extends MeshInstance3D:
 	var feeding := false
 	var body := Color(0.96, 0.94, 0.9, 0.95)
 	var edge := Color(0.62, 0.8, 1.0, 0.95)
+	## The streamer's colour in the paper look (the player's).
+	var tint := Color(0.3, 0.55, 0.95)
+	var shade: Shade
 
 	func _ready() -> void:
 		mesh = ImmediateMesh.new()
 		cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		top_level = true
+		if FxMaterial.paper:
+			# A paper streamer: wider, in the player's colour under its cream, folded (alternate lengths a shade darker), on a sheet shadow.
+			# (The ink trail was a thin pale wedge that the light skies swallowed, the art audit of 2026-10-21.)
+			width = 1.25
+			life = 0.6
+			edge = Color(tint, 1.0)
+			# (Its middle a pale wash of the colour, not cream: a cream streamer vanished into the light skies.)
+			body = Color(tint, 1.0).lerp(Color(1.0, 0.96, 0.88), 0.5)
+			shade = Shade.make(self, false)
 
 	func feed(at: Vector3, on: bool) -> void:
 		feeding = on
@@ -284,12 +362,23 @@ class LaunchTrail extends MeshInstance3D:
 			points.pop_front()
 		var im: ImmediateMesh = mesh
 		im.clear_surfaces()
+		if shade != null:
+			shade.clear()
 		if points.size() < 2:
 			return
 		global_transform = Transform3D.IDENTITY
 		var n := points.size()
+		var paper := FxMaterial.paper
 		im.surface_begin(Mesh.PRIMITIVE_TRIANGLES)
-		for layer in [[1.0, Color(INK, 0.9)], [0.82, edge], [0.62, body], [0.24, Color(1, 1, 1, 1)]]:
+		var layers := [[1.0, Color(INK, 0.9)], [0.82, edge], [0.62, body], [0.24, Color(1, 1, 1, 1)]]
+		if paper:
+			layers = [[1.0, Color(CUT, 1.0)], [0.84, edge], [0.5, body], [0.18, Color(1, 1, 1, 1)]]
+		# The distance along the streamer at each point, for its folds.
+		var run: Array = [0.0]
+		for i in range(1, n):
+			run.append(float(run[i - 1]) + ((points[i][0] as Vector3) - (points[i - 1][0] as Vector3)).length())
+		for li in layers.size():
+			var layer: Array = layers[li]
 			var k: float = layer[0]
 			var col: Color = layer[1]
 			for i in n - 1:
@@ -302,15 +391,22 @@ class LaunchTrail extends MeshInstance3D:
 				# Wide at the fighter, narrowing behind, and thinning as each point ages.
 				var wa := width * k * (float(i) / float(n - 1)) * (1.0 - float(points[i][1]) / life)
 				var wb := width * k * (float(i + 1) / float(n - 1)) * (1.0 - float(points[i + 1][1]) / life)
-				var ca := Color(col, col.a * (1.0 - float(points[i][1]) / life))
-				var cb := Color(col, col.a * (1.0 - float(points[i + 1][1]) / life))
+				var seg := col
+				if paper and li > 0 and int(float(run[i]) / 0.9) % 2 == 1:
+					seg = Color(col.r * 0.86, col.g * 0.86, col.b * 0.9, col.a)
+				var ca := Color(seg, seg.a * (1.0 - float(points[i][1]) / life))
+				var cb := Color(seg, seg.a * (1.0 - float(points[i + 1][1]) / life))
 				var z := Vector3(0, 0, -0.05 + 0.02 * (1.0 - k))
 				var quad := [[a + side * wa + z, ca], [a - side * wa + z, ca], [b + side * wb + z, cb], [b - side * wb + z, cb]]
 				# (Both windings: whichever way the flight turns, the ribbon faces the camera.)
 				for idx in [0, 1, 2, 2, 1, 3, 0, 2, 1, 2, 3, 1]:
 					im.surface_set_color(quad[idx][1])
 					im.surface_add_vertex(quad[idx][0])
+					if shade != null and li == 0:
+						shade.add(quad[idx][0], (quad[idx][1] as Color).a)
 		im.surface_end()
+		if shade != null:
+			shade.finish()
 
 
 ## The directional impact of a hit: a sharp white spike with a coloured edge thrust along `dir` (where the hit sends the fighter) and a
@@ -341,7 +437,8 @@ class Spike extends MeshInstance3D:
 		var im: ImmediateMesh = mesh
 		im.clear_surfaces()
 		im.surface_begin(Mesh.PRIMITIVE_TRIANGLES)
-		for spec in [[1.08, INK, 1.25], [1.0, edge, 1.0], [1.0, core, 0.45], [-0.5, INK, 1.0], [-0.45, edge, 0.8], [-0.45, core, 0.35]]:
+		var rim := CUT if FxMaterial.paper else INK
+		for spec in [[1.08, rim, 1.25], [1.0, edge, 1.0], [1.0, core, 0.45], [-0.5, rim, 1.0], [-0.45, edge, 0.8], [-0.45, core, 0.35]]:
 			var reach: float = length * float(spec[0]) * grow
 			var w: float = width * float(spec[2]) * shrink
 			var c: Color = spec[1]
@@ -395,11 +492,17 @@ class Beam extends MeshInstance3D:
 	var colour := Color.WHITE
 	var _step := -1
 	var _seed := randf() * 100.0
+	var shade: Shade
 
 	func _ready() -> void:
 		mesh = ImmediateMesh.new()
 		cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		extra_cull_margin = 64.0
+		if FxMaterial.paper:
+			shade = Shade.make(self, false)
+			# (A larger drop for the big plume, so its sheet reads lifted at its size; turned back by the plume's own turn, so it still falls
+			# down and to the right on screen.)
+			shade.position = (SHADOW_OFFSET * 3.0).rotated(Vector3(0, 0, 1), -rotation.z)
 
 	func _process(delta: float) -> void:
 		age += FxMaterial.delta(delta)
@@ -429,8 +532,8 @@ class Beam extends MeshInstance3D:
 			var y := u * length * open + t * 2.0 * (1.0 - u)
 			puffs.append([Vector3(wob * width * 0.22, y, 0), r * lerpf(1.0, 0.6, smoothstep(0.5, 1.0, t)), u])
 		# Layers back to front: the ink round everything, the colour, the lit tops (shifted up), the hot core (near the blast only).
-		var layers := [[1.0, Vector3.ZERO, Color(INK, fade), 1.0], [0.88, Vector3.ZERO, Color(body, fade), 1.0],
-			[0.5, Vector3(-0.12, 0.4, 0), Color(light, fade), 1.0], [0.3, Vector3(0.0, 0.05, 0), Color(1, 1, 0.95, fade), 0.3]]
+		var layers := [[1.0, Vector3.ZERO, Color(CUT if FxMaterial.paper else INK, fade), 1.0], [0.88, Vector3.ZERO, Color(body, fade), 1.0],
+			[0.66 if FxMaterial.paper else 0.5, Vector3(-0.08, 0.32, 0) if FxMaterial.paper else Vector3(-0.12, 0.4, 0), Color(light, fade), 1.0], [0.3, Vector3(0.0, 0.05, 0), Color(1, 1, 0.95, fade), 0.3]]
 		for layer in layers:
 			for p in puffs:
 				if float(p[2]) > float(layer[3]):
@@ -438,6 +541,18 @@ class Beam extends MeshInstance3D:
 				var r: float = float(p[1]) * float(layer[0])
 				_disc(im, (p[0] as Vector3) + (layer[1] as Vector3) * float(p[1]), r, layer[2])
 		im.surface_end()
+		if shade != null:
+			shade.clear()
+			var seg := 18
+			for p in puffs:
+				var c: Vector3 = p[0]
+				var r: float = float(p[1])
+				for k in seg:
+					var a0 := TAU * k / seg
+					var a1 := TAU * (k + 1) / seg
+					for v in [c, c + Vector3(cos(a0), sin(a0), 0) * r, c + Vector3(cos(a1), sin(a1), 0) * r]:
+						shade.add(v, fade)
+			shade.finish()
 
 	func _disc(im: ImmediateMesh, c: Vector3, r: float, col: Color) -> void:
 		var seg := 18
