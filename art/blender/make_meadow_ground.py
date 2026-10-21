@@ -435,7 +435,7 @@ def surface(bumps, floor_y, z, profile):
     return at, normal
 
 
-def blob(cx, cd, rx, rd, rng, n=28):
+def blob(cx, cd, rx, rd, rng, n=20):
     """A field's cut outline in (x, drop): a rounded oblong laid along the land's contour, its edges a little hand-cut. (Round blobs of
     every size overlapped into camouflage, not fields.)"""
     p1 = rng.uniform(0, math.tau)
@@ -521,8 +521,9 @@ def patchwork_band(name, fam, bumps, floor_y, z, profile, rng, fields=False):
             rad = 0.18 + 0.006 * cd
             pts = [lifted(q) + normal(q.x, land_top(bumps, floor_y, q.x) - q.y) * rad for q in ring]
             n = len(pts)
-            for i in range(n // 2 - 1, n):
-                tube_seg(bm, P(*pts[i]), P(*pts[(i + 1) % n]), rad)
+            # (Every other point: at this distance a hedgerow of half the segments reads the same, for half the triangles.)
+            for i in range(n // 2 - 1, n, 2):
+                tube_seg(bm, P(*pts[i]), P(*pts[(i + 2) % n]), rad, segs=5)
         if level >= 3:
             for _ in range(rng.randrange(1, 4)):
                 a = rng.uniform(0, math.tau)

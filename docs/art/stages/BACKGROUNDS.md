@@ -39,3 +39,11 @@ C with scattered detail and soft shade; then the grove and the canyon. The cloud
   base, a deeper card behind each, still lit by the cloud shader (smooth, not its flat planes: those shaded each triangle of the face on its
   own, as crinkled shards). The tower kind lower with four bumps (three read as a box).
 - Options on the Stage Look Review and `mocks/look/` (`mg_*`, `cl_*`). Recommended: ground B, card clouds.
+
+## Round 1 built (2026-10-21): meadow ground B and card clouds
+
+- **The meadow's ground B** is in the game (`make_meadow_ground.py --variant PB` into `meadow_ground.glb` and `meadow_pines.glb`), trimmed to
+  about 76,000 triangles (the fields' rows and the hedgerows' segments cut to what the match camera resolves); the contact shade re-baked
+  over it (`light_stage.py` on the front, the play area and the ground). 120 fps in the match, the GPU at 2.6 ms.
+- **Card clouds** on every stage with clouds: `cloud_style=4` in the grove, meadow, ocean and sunset palettes (the city has none).
+- Before and after: `ground_clouds_built.jpg`.
