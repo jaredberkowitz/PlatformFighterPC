@@ -1025,7 +1025,9 @@ const PAPER_COLOURS := {"straw": Color(0.98, 0.84, 0.46), "straw_end": Color(0.9
 	# (The paper houses; `roof`, its edges and `wall` take each house's own colours.)
 	"wall": Color(0.98, 0.93, 0.82), "roof": Color(0.8, 0.36, 0.3), "roof_edge": Color(0.92, 0.58, 0.5), "roof_score": Color(0.6, 0.26, 0.22),
 	"trim": Color(0.56, 0.38, 0.26), "timber": Color(0.42, 0.28, 0.2), "door": Color(0.5, 0.32, 0.22), "shutter": Color(0.36, 0.52, 0.6),
-	"barn": Color(0.78, 0.26, 0.22), "barn_door": Color(0.62, 0.2, 0.18), "barn_trim": Color(0.98, 0.95, 0.9), "shadow": Color(0.24, 0.16, 0.14)}
+	"barn": Color(0.78, 0.26, 0.22), "barn_door": Color(0.62, 0.2, 0.18), "barn_trim": Color(0.98, 0.95, 0.9), "shadow": Color(0.24, 0.16, 0.14),
+	# (The houses at the characters' proportions, make_paper_houses_v2.py: daylight glass, the doors' plank seams and knobs.)
+	"glass": Color(0.36, 0.6, 0.86), "door_seam": Color(0.36, 0.24, 0.16), "knob": Color(0.92, 0.9, 0.86)}
 ## Paper prop families drawn in their own light, not the stage's (a lamp's lantern).
 const PAPER_LIT := ["glow"]
 

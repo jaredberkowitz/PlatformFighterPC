@@ -374,4 +374,6 @@ def main():
     print("paper houses %s: %d triangles -> %s" % (STYLE, tris, out))
 
 
-main()
+# (Run as a script; make_paper_houses_v2.py imports its helpers.)
+if __name__ == "__main__":
+    main()

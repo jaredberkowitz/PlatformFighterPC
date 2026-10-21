@@ -62,3 +62,13 @@ The owner's pick, shipped as `godot/models/props/paper_houses.glb` (`make_paper_
 - `tests/stage_front_test.gd` checks the kit has every house `_cottage` and `_barn` ask for, each part in a family the game paints.
 - Before/after: `houses_built.jpg` (before left; the beach above, the meadow below).
 - **Tests:** all seven Godot tests pass.
+
+## Version 2: at the characters' proportions (mocks, 2026-10-21)
+
+After the owner's papercraft screenshots (docs/art/stages/LOOK.md): the reference's houses are as chibi as its people. `art/blender/
+make_paper_houses_v2.py --shape A|B|C` keeps the layered card and the four houses (so the game places them the same way) and changes their
+proportions and details: an arched door 2.6 high in a surround of chunky stones, walls 3.2 to 3.4 high, roofs as tall as the walls (rise
+2.8 to 3.2) with a deep, thick overhang that kicks out shallow (carried on a steep roof's own slope it dropped below the wall top and hid
+the windows), bigger windows in thick frames with blue daylight glass, timber X braces, a stone base course, tall chimneys, roof rows
+with their edges showing. **A** chunky (straight roofs), **B** bell (flared bell roofs on the cottage and townhouse, gambrels on the long
+house and the barn), **C** hand-made (B with sagging ridges, leaning walls, rippling rows). About 6,500 triangles a house. Recommended: B.
