@@ -681,8 +681,9 @@ static func paper_kit(theme_name: String) -> Node3D:
 	return (load(PAPER_KITS[theme_name]) as PackedScene).instantiate() as Node3D
 
 
-## The paper houses (art/blender/make_paper_houses.py `--style B`, the owner's pick 2026-10-21, docs/art/stages/HOUSES.md): the far towns'
-## cottages, townhouses, longhouses and the farm's barn, at true size. By the themes that have towns.
+## The paper houses (art/blender/make_paper_houses_v2.py `--shape B`, the owner's pick 2026-10-21, docs/art/stages/HOUSES.md): the far
+## towns' cottages, townhouses, long houses and the farm's barn, at the characters' proportions, bell and gambrel roofs. By the themes that
+## have towns.
 const HOUSE_KIT := "res://models/props/paper_houses.glb"
 const HOUSE_THEMES := ["meadow", "ocean"]
 

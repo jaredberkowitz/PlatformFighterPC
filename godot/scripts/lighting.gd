@@ -135,6 +135,20 @@ static var _ramps := {}
 ## things meet. Fighters unchanged. Retired as the game's look (the owner, 2026-10-19: the current look is better; docs/art/STYLE_SHEET.md);
 ## `--look=paper` still starts with it on, for comparison captures only.
 static var paper := OS.get_cmdline_user_args().has("--look=paper")
+## Scenery without ink (the owner, 2026-10-21, after the papercraft adventure's screenshots: its world has no outlines, its edges lit as
+## card bevels; docs/art/stages/LOOK.md); unlike the retired `paper` look, the light and the shade stay as they are.
+##   A  no ink on the scenery (its hull outlines and its screen lines off), the lit edge as before;
+##   B  A, its lit bevel edges twice as strong (the owner's pick, the game's look);
+##   C  B, and the soft occlusion in every crease the references have.
+## The fighters keep all their ink. `--scenery-ink=A|B|C` tries another, `--scenery-ink=today` brings back the inked scenery to compare.
+static var scenery_ink := _flag_value("--scenery-ink=") if _flag_value("--scenery-ink=") != "" else "B"
+
+
+static func _flag_value(prefix: String) -> String:
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with(prefix):
+			return a.substr(prefix.length()).to_upper()
+	return ""
 
 
 ## The paper finish on the scenery (the stage refinement's paper pilot, 2026-10-20; not the retired `paper` look above: the ink and the
@@ -158,7 +172,9 @@ static func finish_vector(look: String) -> Vector4:
 
 ## Applies `paper` to the globals, the environment and the finishing pass `post` (if any).
 static func apply_paper(env: Environment, post: ShaderMaterial, base_lines: float) -> void:
-	RenderingServer.global_shader_parameter_set("pf_paper", 1.0 if paper else 0.0)
+	var no_ink := paper or scenery_ink in ["A", "B", "C"]
+	# (The scenery's hull outlines go with `pf_paper`, shaders/outline.gdshader; the fighters' stay.)
+	RenderingServer.global_shader_parameter_set("pf_paper", 1.0 if no_ink else 0.0)
 	RenderingServer.global_shader_parameter_set("pf_paper_finish", paper_finish())
 	if env != null:
 		# (Soft occlusion where things meet in the current look too, gentler than the paper look's, the gauntlet's round 20: the wall's
@@ -166,16 +182,17 @@ static func apply_paper(env: Environment, post: ShaderMaterial, base_lines: floa
 		env.ssao_enabled = VisualSettings.get_index("quality") > 0
 		# (A tighter radius and stronger, the owner, 2026-10-19: the soft shade where a fighter's pieces meet (under the hats, at the
 		# neck, the sash, between the arms and the body) comes from here; at 1.2 it was too broad for a fighter's small joins.)
-		env.ssao_radius = 1.6 if paper else 0.7
-		env.ssao_intensity = 3.0 if paper else 2.4
-		env.ssao_power = 1.4 if paper else 1.25
-		env.ssao_light_affect = 0.6 if paper else 0.35
+		var deep := paper or scenery_ink == "C"
+		env.ssao_radius = 1.6 if deep else 0.7
+		env.ssao_intensity = 3.0 if deep else 2.4
+		env.ssao_power = 1.4 if deep else 1.25
+		env.ssao_light_affect = 0.6 if deep else 0.35
 		env.ssao_ao_channel_affect = 1.0
 	if post != null:
-		post.set_shader_parameter("scenery_lines", 0.0 if paper else base_lines)
+		post.set_shader_parameter("scenery_lines", 0.0 if no_ink else base_lines)
 		# (A lighter dose of the cut card's lit edge in the current look too, the gauntlet's round 23: the benchmark's crisp lit edges.)
 		# (0.8, round 24: at 0.4 it did not read at match distance.)
-		post.set_shader_parameter("paper_edge", 0.9 if paper else 0.8)
+		post.set_shader_parameter("paper_edge", 1.6 if scenery_ink in ["B", "C"] else (0.9 if paper else 0.8))
 
 
 ## The ramp's lookup texture: 256 steps across, each the ramp's lightness there, eased between the stops so each band's edge is soft.
