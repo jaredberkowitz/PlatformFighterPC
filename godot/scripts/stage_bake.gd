@@ -482,6 +482,45 @@ static func play_path(bake_key: String) -> String:
 	return PLAYS[bake_key]
 
 
+## Mood light in paper to try (`--mood-mock=<glb>`, art/blender/make_mood.py, review 2's idea 5): searchlight beams, paper lanterns,
+## ripple rings, each piece unshaded with its own brightness and fade in its vertex colours, so it reads as light whatever the scene's.
+static func place_mood(root: Node3D, path: String) -> void:
+	var scene := _scene_from(path)
+	if scene == null:
+		push_warning("mood mock %s could not be read" % path)
+		return
+	# [colour, additive, double-sided, lit like the scenery]
+	var looks := {"beam": [Color(1.0, 0.94, 0.86), true, true, false], "beam_card": [Color(0.86, 0.82, 0.95), false, true, false],
+		"beam_edge": [Color(0.7, 0.62, 0.86), false, true, false],
+		"glow": [Color(1.0, 0.76, 0.44), false, true, false], "halo": [Color(1.0, 0.72, 0.38), true, true, false],
+		"pool": [Color(1.0, 0.78, 0.48), true, true, false], "ring": [Color(0.95, 0.98, 1.0), true, true, false],
+		"spark": [Color(1.0, 1.0, 0.96), true, true, false], "cap": [Color(0.32, 0.16, 0.14), false, true, true],
+		"cord": [Color(0.2, 0.17, 0.22), false, true, true]}
+	scene.name = "ModelledMood"
+	root.add_child(scene)
+	for mi: MeshInstance3D in scene.find_children("*", "MeshInstance3D", true, false):
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		for s in mi.mesh.get_surface_count():
+			var src := mi.mesh.surface_get_material(s)
+			var look: Array = looks.get(src.resource_name if src != null else "glow", looks["glow"])
+			if look[3]:
+				mi.set_surface_override_material(s, FighterView.toon(look[0], false))
+				continue
+			var m := StandardMaterial3D.new()
+			m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+			m.vertex_color_use_as_albedo = true
+			m.albedo_color = look[0]
+			m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+			if look[1]:
+				m.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+			if look[2]:
+				m.cull_mode = BaseMaterial3D.CULL_DISABLED
+			m.disable_receive_shadows = true
+			mi.set_surface_override_material(s, m)
+		mi.set_meta("prebaked", true)
+	print("mood mock: placed %s" % path.get_file())
+
+
 ## The theme's modelled tree: a glTF path to try (`--tree-mock=<glb>`), the shipped model (`TREES`), or null (none, or `--no-trees`).
 static func tree_source(theme_name: String) -> Variant:
 	var mock := tree_mock_path()

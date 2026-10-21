@@ -483,3 +483,23 @@ Fighters measured against what is behind and under them in play (the orange figh
 - **Meadow:** the inlaid path is narrower (0.7 either side of the play line, was 1.1). The lawn's saturation went from 0.38 to 0.43.
 
 Before/after (fighters in play, before above after): `readability_pass.png`. **Tests:** all seven pass.
+
+## Mood light in paper: mocks (2026-10-20, review 2's idea 5)
+
+Light as cut paper on the three stages where it suits the setting. The owner approved it as an addition.
+- **Builder:** `art/blender/make_mood.py --theme city|grove|ocean --variant A|B|C`, built in world space from the bake's manifest (and,
+  for the beach, the dock's posts read from `beach_front.glb` via `--front`).
+  - City searchlight beams: A two soft beams; B four narrower beams in pairs; C three flat paper beams with a deeper edge.
+  - Grove lanterns: A six under the platforms; B sixteen along the strings; C both, with warm pools on the lawn.
+  - Beach ripple rings round the dock's posts and the boardwalk's: A two rings; B plus a near-side crescent and a faint third ring;
+    C two rings plus paper sparkles on the open water. The match camera crops the dock's own waterline, so the boardwalk behind it
+    carries the rings into that shot.
+- **Placer:** `StageBake.place_mood` (`--mood-mock=<glb>`, from `stage_view.gd`) gives each family an unshaded material (additive for
+  beams, halos, pools, rings and sparkles), with no shadows; caps and cords are toon.
+- **Gotchas:**
+  - glTF export drops a vertex colour's alpha, so each fade is baked into the rgb (shade times fade, alpha 1) and the light is additive.
+  - Keep only the `Col` attribute, set active and for rendering: with a second colour set beside it, the export wrote a white
+    `COLOR_0`, which the game reads.
+  - Rings of 0.4 to 0.6 hid behind the posts; 0.5 to 0.8 and 1.05 to 1.2 read from the match camera.
+- **Picks recommended:** city B, grove C, beach B. Options in `mocks/mood/` (with a local `review.html`) and on the owner's page.
+**Tests:** all seven Godot tests pass.
