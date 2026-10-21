@@ -558,14 +558,30 @@ const WORLD_COLOURS := {"hull": Color(0.32, 0.5, 0.62), "hull_stripe": Color(0.9
 	"adobe": Color(0.9, 0.66, 0.5), "adobe_dark": Color(0.74, 0.5, 0.38), "window": Color(1.0, 0.82, 0.5)}
 
 
-## World-building pieces to try (`--world-mock=<glb>`, art/blender/make_world.py): painted by family in the scenery's toon material
-## with their own occlusion; the windows lit.
-static func place_world(root: Node3D, path: String) -> void:
-	var scene := _scene_from(path)
+## World-building (art/blender/make_world.py, docs/art/stages/WORLD.md, the owner's picks 2026-10-21): the beach's working pier and
+## harbour life (a fishing boat at its buoy, nets and crates, gulls, a rowboat), the canyon's railroad (a trestle and train, a water
+## tower). By the exact stage they were built on.
+const WORLDS := {"ocean_d9c5edff": "res://models/stages/beach_world.glb", "sunset_19cad55b": "res://models/stages/canyon_world.glb"}
+
+
+## The world-building to place: a glTF path to try (`--world-mock=<glb>`), the shipped model for this exact stage (`WORLDS`), or null
+## (none, or `--no-world`).
+static func world_source(bake_key: String) -> Variant:
+	if flag("--world-mock=") != "":
+		return flag("--world-mock=")
+	if OS.get_cmdline_user_args().has("--no-world") or not WORLDS.has(bake_key) or not ResourceLoader.exists(WORLDS[bake_key]):
+		return null
+	return load(WORLDS[bake_key])
+
+
+## Places the world-building pieces (`source`: a PackedScene, or a glTF path for mocks): painted by family in the scenery's toon
+## material with their own occlusion; the windows lit.
+static func place_world(root: Node3D, source: Variant) -> void:
+	var scene := _scene_from(source)
 	if scene == null:
-		push_warning("world mock %s could not be read" % path)
+		push_warning("world-building %s could not be read" % str(source))
 		return
-	scene.name = "WorldMock"
+	scene.name = "World"
 	root.add_child(scene)
 	for mi: MeshInstance3D in scene.find_children("*", "MeshInstance3D", true, false):
 		var src := mi.mesh.surface_get_material(0)
@@ -580,7 +596,7 @@ static func place_world(root: Node3D, path: String) -> void:
 		var m := FighterView.toon(colour, true).duplicate() as ShaderMaterial
 		m.set_shader_parameter("vertex_shade", true)
 		mi.material_override = m
-	print("world mock: placed %s" % path.get_file())
+	print("world-building: placed %s" % (source.get_file() if source is String else (source as PackedScene).resource_path.get_file()))
 
 
 ## Places the mood light (`source`: a PackedScene, or a glTF path for mocks): searchlight beams, paper lanterns, ripple rings, each

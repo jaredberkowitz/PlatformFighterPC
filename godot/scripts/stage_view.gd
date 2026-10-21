@@ -93,9 +93,10 @@ func build(sim) -> void:
 	var mood = StageBake.mood_source(bake_key)
 	if mood != null:
 		StageBake.place_mood(self, mood)
-	# World-building pieces to try (`--world-mock=<glb>`, docs/art/stages/WORLD.md).
-	if StageBake.flag("--world-mock=") != "":
-		StageBake.place_world(self, StageBake.flag("--world-mock="))
+	# World-building for this exact stage (docs/art/stages/WORLD.md; `--world-mock=<glb>` to try one, `--no-world` to compare).
+	var world = StageBake.world_source(bake_key)
+	if world != null:
+		StageBake.place_world(self, world)
 	# The paper finish on the scenery, as this stage's palette asks (`paper_finish`), or the command line's.
 	Lighting.stage_finish = String(StageArt.palette(String(theme.get("name", ""))).get("backdrop", {}).get("paper_finish", ""))
 	RenderingServer.global_shader_parameter_set("pf_paper_finish", Lighting.paper_finish())

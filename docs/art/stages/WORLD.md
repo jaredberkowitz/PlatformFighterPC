@@ -78,3 +78,12 @@ nothing says anyone passes this way.
 - **Picks recommended:**
   - Beach: A and B together. They are the strongest pair: the pier's purpose and its life.
   - Canyon: A, the railroad. It fixes the empty floor most and gives the frame a strong horizontal behind the buttes.
+
+## Built: the beach's working pier and harbour life, the canyon's railroad (2026-10-21)
+
+The owner's picks, shipped as `godot/models/stages/beach_world.glb` (`make_world.py --theme ocean --variant AB`) and
+`canyon_world.glb` (`--theme sunset --variant A`), for each exact layout (`StageBake.WORLDS`, placed by `place_world`).
+- `--no-world` compares.
+- `tests/stage_front_test.gd` keeps them behind the fighters' plane over the play space, as it does the mood light.
+- Before/after: `world_built_1.jpg` (before left; beach above, canyon below).
+- **Tests:** all seven Godot tests pass.

@@ -159,11 +159,17 @@ func _initialize() -> void:
 				var fam := (m.resource_name if m != null else "").get_slice(".", 0).trim_suffix("_back")
 				check(StageArt.PAPER_COLOURS.has(fam), "%s prop_%s: part %s is in a family the game paints (%s)" % [path, prop_name, mi.name, fam])
 		kit.free()
-	# The mood light (StageBake.MOODS, art/blender/make_mood.py): built for one of the sim's stages, and over the play space (the stage's
-	# span, from its lowest top up to ten units over its highest) it stays behind the fighters' plane, so no beam, lantern or pool of
-	# light ever crosses a fighter.
+	# The mood light and the world-building (StageBake.MOODS and WORLDS, art/blender/make_mood.py and make_world.py): built for one of
+	# the sim's stages, and over the play space (the stage's span, from its lowest top up to ten units over its highest) they stay
+	# behind the fighters' plane, so no beam, lantern, gull or boat ever crosses a fighter.
+	var pieces: Array = []
 	for key in StageBake.MOODS:
-		var path: String = StageBake.MOODS[key]
+		pieces.append([key, StageBake.MOODS[key]])
+	for key in StageBake.WORLDS:
+		pieces.append([key, StageBake.WORLDS[key]])
+	for piece in pieces:
+		var key: String = piece[0]
+		var path: String = piece[1]
 		check(ResourceLoader.exists(path), "%s exists" % path)
 		check(stages.has(key), "%s is built for one of the sim's stages (%s): rebuild it if the stage changed" % [path, key])
 		if not stages.has(key) or not ResourceLoader.exists(path):

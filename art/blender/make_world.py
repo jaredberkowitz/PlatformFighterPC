@@ -11,7 +11,9 @@
 Every part names its family (painted by the game, `StageBake.place_world`), with its occlusion baked.
 
 Run (Blender 5.2):
-  blender --background --python art/blender/make_world.py -- --theme ocean --variant A --out <file.glb>
+  blender --background --python art/blender/make_world.py -- --theme ocean --variant A --out <file.glb>   (`--variant AB` for both)
+Shipped (the owner's picks, 2026-10-21): godot/models/stages/beach_world.glb (`--theme ocean --variant AB`), canyon_world.glb
+(`--theme sunset --variant A`).
 """
 
 import math
@@ -493,7 +495,9 @@ def main():
     bpy.ops.wm.read_factory_settings(use_empty=True)
     ROOT = bpy.data.objects.new("World", None)
     bpy.context.scene.collection.objects.link(ROOT)
-    BUILDS[(THEME, VARIANT)]()
+    # (Options combine: `--variant AB` builds both.)
+    for v in VARIANT:
+        BUILDS[(THEME, v)]()
     # (The water or the desert floor under them, for the ground's shade at their feet.)
     kit.bake_occlusion(0.6, floor_z=SEA if THEME == "ocean" else FLOOR, floor_at=(0.0, 100.0), floor_size=600.0)
     tris = sum(sum(len(p.vertices) - 2 for p in o.data.polygons) for o in bpy.context.scene.objects if o.type == "MESH")
