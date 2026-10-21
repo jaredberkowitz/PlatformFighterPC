@@ -136,12 +136,12 @@ static var _ramps := {}
 ## `--look=paper` still starts with it on, for comparison captures only.
 static var paper := OS.get_cmdline_user_args().has("--look=paper")
 ## Scenery without ink (the owner, 2026-10-21, after the papercraft adventure's screenshots: its world has no outlines, its edges lit as
-## card bevels), the mock `--scenery-ink=A|B|C`; unlike the retired `paper` look, the light and the shade stay as they are.
-##   A  no ink on the scenery (its hull outlines and its screen lines off), the lit edge as today;
-##   B  A, its lit bevel edges twice as strong;
+## card bevels; docs/art/stages/LOOK.md); unlike the retired `paper` look, the light and the shade stay as they are.
+##   A  no ink on the scenery (its hull outlines and its screen lines off), the lit edge as before;
+##   B  A, its lit bevel edges twice as strong (the owner's pick, the game's look);
 ##   C  B, and the soft occlusion in every crease the references have.
-## The fighters keep all their ink.
-static var scenery_ink := _flag_value("--scenery-ink=")
+## The fighters keep all their ink. `--scenery-ink=A|B|C` tries another, `--scenery-ink=today` brings back the inked scenery to compare.
+static var scenery_ink := _flag_value("--scenery-ink=") if _flag_value("--scenery-ink=") != "" else "B"
 
 
 static func _flag_value(prefix: String) -> String:

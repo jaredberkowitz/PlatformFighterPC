@@ -11,6 +11,7 @@ The same four houses as version 1 (`prop_house_<type>`: cottage, townhouse, long
 
 Run (Blender 5.2):
   blender --background --python art/blender/make_paper_houses_v2.py -- --shape A --out <file.glb> [--render <sheet.png>]
+Shipped (the owner's pick, 2026-10-21): godot/models/props/paper_houses.glb, `--shape B`.
 """
 
 import math

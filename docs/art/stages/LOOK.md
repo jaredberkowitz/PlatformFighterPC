@@ -30,3 +30,10 @@ stages can learn from them. Options on the owner's Stage Look Review page and `m
 outline shader reads for everything but the fighters), the lit edge as today; B A with the lit bevel edge doubled (post `paper_edge` 1.6);
 C B with the deeper soft occlusion of the retired paper look. Unlike that look (retired 2026-10-19), the light and shade stay as they are.
 Recommended: B.
+
+## Built: lit bevels and the houses at the characters' proportions (2026-10-21)
+
+The owner's picks. **Scenery ink B is the game's look:** `Lighting.scenery_ink` defaults to B (the scenery's outlines and screen lines off,
+its lit bevel edges at 1.6; the fighters keep their ink); `--scenery-ink=today` brings back the inked scenery to compare. **House kit v2,
+shape B** (bell and gambrel roofs) replaces version 1 in `godot/models/props/paper_houses.glb` (docs/art/stages/HOUSES.md).
+Before/after: `look_built.jpg` (before left; the meadow, the beach, the city). All seven Godot tests pass.

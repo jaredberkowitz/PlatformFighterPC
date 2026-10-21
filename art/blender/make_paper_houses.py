@@ -11,7 +11,8 @@ baked. Each house is `prop_house_<type>`, its foot at the origin, its front towa
 
 Run (Blender 5.2):
   blender --background --python art/blender/make_paper_houses.py -- --style A --out <file.glb> [--render <sheet.png>]
-Shipped (the owner's pick, 2026-10-21): godot/models/props/paper_houses.glb, `--style B`.
+Shipped as version 1 (the owner's pick, 2026-10-21, `--style B`); replaced the same day by make_paper_houses_v2.py, which reuses its
+helpers.
 (`--render`: the four houses side by side in Blender's studio light, for the review page.)
 """
 

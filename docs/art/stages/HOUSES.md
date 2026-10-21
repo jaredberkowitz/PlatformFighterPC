@@ -72,3 +72,6 @@ proportions and details: an arched door 2.6 high in a surround of chunky stones,
 the windows), bigger windows in thick frames with blue daylight glass, timber X braces, a stone base course, tall chimneys, roof rows
 with their edges showing. **A** chunky (straight roofs), **B** bell (flared bell roofs on the cottage and townhouse, gambrels on the long
 house and the barn), **C** hand-made (B with sagging ridges, leaning walls, rippling rows). About 6,500 triangles a house. Recommended: B.
+
+**Built (2026-10-21):** the owner's pick, version 2 shape B, shipped in `godot/models/props/paper_houses.glb` (`make_paper_houses_v2.py
+--shape B`), replacing version 1; about 6,000 to 7,000 triangles a house, footings 0.5 under the floor (`prop_check_test` passes).
