@@ -73,6 +73,14 @@ uniform vec3 moss_color : source_color = vec3(0.4, 0.66, 0.14);
 uniform sampler2D detail_tex : filter_linear_mipmap, repeat_enable, hint_default_white;
 uniform float detail_amount = 0.0;
 uniform float detail_scale = 3.0;
+// A printed paper surface (scenery only, off by default; tools/art/make_prints.py, fidelity review 3's idea 2): a tiling print, grey
+// around the middle, laid in world space on whichever plane the surface faces, every `print_scale` units, darkening and lightening the
+// surface's own colour by `print_amount`.
+uniform sampler2D print_tex : filter_linear_mipmap_anisotropic, repeat_enable, hint_default_white;
+uniform float print_amount = 0.0;
+uniform float print_scale = 2.0;
+// This surface's own paper finish instead of the stage's (a stage front at the full finish, "C"); x below 0 takes the stage's.
+uniform vec4 paper_own = vec4(-1.0);
 // Multiply by the mesh's vertex colour (off by default: imported props may carry colours meant for nothing). The crowns' lobed clump balls
 // bake each leaf clump's own light into it (scripts/stage_art.gd `_clump_ball`): a lit top and a dark crevice between clumps.
 uniform bool vertex_shade = false;
@@ -314,20 +322,27 @@ void fragment() {
 		* (1.0 - smoothstep(25.0, 55.0, -world_pos.z)));
 	// (And the platforms' cast shadow on the ground under them, `pf_stage_sun`; not on fighters either.)
 	pf_sun *= mix(1.0, pf_stage_sun(world_pos, world_normal), 1.0 - fighter);
-	if (fighter < 0.5 && pf_paper_finish.x + pf_paper_finish.y + pf_paper_finish.z > 0.0) {
+	if (fighter < 0.5 && print_amount > 0.0) {
+		// (On what faces up, stretched five times along the depth: the match camera sees a top almost edge on, squeezed about that much,
+		// and laid evenly every mark blurred into the grey of the texture's smallest copies.)
+		vec2 pp = abs(world_normal.y) > 0.5 ? vec2(world_pos.x, world_pos.z * 0.2) : (abs(world_normal.x) > 0.6 ? vec2(world_pos.z, -world_pos.y) : vec2(world_pos.x, -world_pos.y));
+		c *= 1.0 + print_amount * (texture(print_tex, pp / print_scale).r - 0.5) * 2.0;
+	}
+	vec4 paper_fin = paper_own.x >= 0.0 ? paper_own : pf_paper_finish;
+	if (fighter < 0.5 && paper_fin.x + paper_fin.y + paper_fin.z > 0.0) {
 		// Fibre: fine grain stretched along the sheet, on whichever plane the surface lies.
 		vec2 fp = abs(world_normal.y) > 0.5 ? world_pos.xz : (abs(world_normal.x) > 0.6 ? world_pos.zy : world_pos.xy);
 		float fib = brush_noise(fp * vec2(7.0, 26.0)) * 0.6 + brush_noise(fp * vec2(19.0, 57.0)) * 0.4;
-		c *= 1.0 + pf_paper_finish.x * 0.22 * (fib - 0.5);
+		c *= 1.0 + paper_fin.x * 0.22 * (fib - 0.5);
 		// Sheet to sheet: each piece a touch lighter or darker and warmer or cooler, broad across the merged meshes.
 		float sheet = fract(sin(dot(NODE_POSITION_WORLD, vec3(12.9898, 78.233, 37.719))) * 43758.5453);
 		float broad = brush_noise(world_pos.xy * 0.11 + world_pos.zz * 0.07);
 		float w = (sheet - 0.5) * 0.6 + (broad - 0.5);
-		c *= 1.0 + pf_paper_finish.y * 0.14 * w;
-		c *= mix(vec3(1.0), vec3(1.02, 1.0, 0.97), pf_paper_finish.y * clamp(w + 0.5, 0.0, 1.0));
+		c *= 1.0 + paper_fin.y * 0.14 * w;
+		c *= mix(vec3(1.0), vec3(1.02, 1.0, 0.97), paper_fin.y * clamp(w + 0.5, 0.0, 1.0));
 		// The cut edge: where the surface turns away from the eye, a pale card edge.
 		float rim = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 5.0);
-		c = mix(c, c * 0.4 + vec3(0.56, 0.54, 0.5), rim * pf_paper_finish.z * 0.55);
+		c = mix(c, c * 0.4 + vec3(0.56, 0.54, 0.5), rim * paper_fin.z * 0.55);
 	}
 	if (facets) {
 		NORMAL = normalize(cross(dFdx(VERTEX), dFdy(VERTEX)));

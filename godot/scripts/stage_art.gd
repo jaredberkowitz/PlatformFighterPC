@@ -1003,6 +1003,58 @@ static var front_modelled := false
 ## True while a stage is built with modelled trees (StageBake.TREES, or `--tree-mock=`; StageBake.place_trees): `_tree` builds nothing
 ## (its random numbers still drawn, so nothing else moves) and records where each tree stands in `tree_slots` ([base, size]).
 static var tree_mock := false
+## The meadow pilot's paper props to try (`--prop-mock=<glb>`, art/blender/make_paper_props.py; fidelity review 3's idea 1), set by
+## StageView while it builds the scenery: each prop builder hands its place to the matching `prop_<name>` in it. Null otherwise.
+static var paper_kit: Node3D = null
+## The paper props' colours by family (`<family>_back` a step darker); `tint` in `_paper` overrides one (a rock's stage colour, a petal).
+const PAPER_COLOURS := {"straw": Color(0.98, 0.84, 0.46), "straw_end": Color(0.9, 0.74, 0.4), "band": Color(0.66, 0.46, 0.28),
+	"wood": Color(0.74, 0.52, 0.32), "wood_light": Color(0.9, 0.72, 0.48), "wood_dark": Color(0.55, 0.36, 0.22),
+	"stone": Color(0.74, 0.72, 0.8), "stone_light": Color(0.86, 0.85, 0.92), "petal": Color(1, 0.6, 0.65), "heart": Color(1, 0.85, 0.3),
+	"stem": Color(0.4, 0.68, 0.34),
+	# (The other stages' props, as their built ones were coloured.)
+	"stalk": Color(0.98, 0.94, 0.86), "cap": Color(0.95, 0.5, 0.6), "gill": Color(0.9, 0.84, 0.76), "spot": Color(1.0, 0.97, 0.95),
+	"bark": Color(0.6, 0.42, 0.28), "ring_top": Color(0.94, 0.8, 0.58), "crate": Color(0.86, 0.66, 0.42), "crate_dark": Color(0.68, 0.48, 0.3),
+	"iron": Color(0.36, 0.34, 0.42), "glow": Color(1.0, 0.8, 0.5), "red": Color(1.0, 0.45, 0.42), "white": Color(0.98, 0.96, 0.92),
+	"pot": Color(0.86, 0.5, 0.42), "leaf": Color(0.4, 0.72, 0.5), "cactus": Color(0.3, 0.6, 0.36), "tank": Color(0.62, 0.32, 0.26),
+	"tank_dark": Color(0.4, 0.28, 0.22), "metal": Color(0.66, 0.68, 0.76), "metal_dark": Color(0.45, 0.47, 0.55)}
+## Paper prop families drawn in their own light, not the stage's (a lamp's lantern).
+const PAPER_LIT := ["glow"]
+
+
+## The paper kit's prop where it has one, else the modelled prop (`_place_prop`), `size` and `turn` as that takes them.
+static func _paper_or_prop(root: Node3D, prop_name: String, at: Vector3, size: float, turn: float) -> void:
+	if not _paper(root, prop_name, Transform3D(Basis(Vector3.UP, deg_to_rad(turn)).scaled(Vector3.ONE * size), at)):
+		_place_prop(root, prop_name, at, size, turn)
+
+
+## Places the paper kit's `prop_<prop_name>` at `xf` (see `paper_kit`), each part in the toon material of its family's colour with its
+## own baked occlusion; false without a kit or that prop, so the caller builds its own.
+static func _paper(root: Node3D, prop_name: String, xf: Transform3D, tint := {}) -> bool:
+	if paper_kit == null:
+		return false
+	var src := paper_kit.find_child("prop_" + prop_name, true, false) as Node3D
+	if src == null:
+		return false
+	var copy := src.duplicate() as Node3D
+	copy.transform = xf
+	copy.set_meta("paper_prop", true)
+	root.add_child(copy)
+	for mi: MeshInstance3D in copy.find_children("*", "MeshInstance3D", true, false):
+		var m0 := mi.mesh.surface_get_material(0)
+		var fam := (m0.resource_name if m0 != null else "wood").get_slice(".", 0)
+		var base := fam.trim_suffix("_back")
+		var colour: Color = tint.get(base, PAPER_COLOURS.get(base, Color(0.7, 0.7, 0.7)))
+		if fam.ends_with("_back"):
+			colour = colour.darkened(0.25)
+		mi.set_meta("family", fam)
+		if PAPER_LIT.has(base):
+			mi.material_override = _unshaded(colour)
+			continue
+		var m := FighterView.toon(colour, true).duplicate() as ShaderMaterial
+		m.set_shader_parameter("vertex_shade", true)
+		mi.material_override = m
+		mi.set_meta("family", fam)
+	return true
 static var tree_slots: Array = []
 ## True while the grove is built with a modelled ground (StageBake.GROUNDS, or `--ground-mock=`; StageBake.place_ground): its hill
 ## rows, rise, forest canopy and far tree line are built into a node that is thrown away (their random numbers still drawn, so nothing
@@ -2111,6 +2163,9 @@ const CONTACT_STRENGTH := 0.8
 
 
 static func _hay_bale(root: Node3D, at: Vector3, turn: float) -> void:
+	# (The paper kit's bale lies along x; the built one's ends face the camera.)
+	if _paper(root, "hay_bale", Transform3D(Basis(Vector3.UP, deg_to_rad(turn + 90.0)), at)):
+		return
 	# A round bale lying on its side: a drum whose rim rounds over into flat ends (a lathe, so its strands can run round it), the straw
 	# drawn as strands wrapping the body and as a rolled spiral on each end, tied with two bands of twine. Warm gold, lit and shaded by the
 	# stage's light like any surface, not a flat decal.
@@ -2242,6 +2297,8 @@ static var _straw_cache := {}
 
 
 static func _barrel(root: Node3D, at: Vector3, size: float) -> void:
+	if _paper(root, "barrel", Transform3D(Basis(Vector3.UP, deg_to_rad(float(hash(Vector2i(roundi(at.x * 10.0), roundi(at.z * 10.0))) % 360))).scaled(Vector3.ONE * size), at)):
+		return
 	# (The modelled barrel, art/blender/make_props.py `barrel`, the gauntlet's round 4; the built one below stands in without it.)
 	if _place_prop(root, "barrel", at, size, float(hash(Vector2i(roundi(at.x * 10.0), roundi(at.z * 10.0))) % 360)):
 		return
@@ -2322,6 +2379,8 @@ static var _stave_cache := {}
 
 
 static func _crate(root: Node3D, at: Vector3, size: float, turn: float) -> void:
+	if _paper(root, "crate", Transform3D(Basis(Vector3.UP, deg_to_rad(turn)).scaled(Vector3.ONE * size), at)):
+		return
 	# (The modelled crate, art/blender/make_props.py `crate`, the gauntlet's round 4; the built one below stands in without it.)
 	if _place_prop(root, "crate", at, size, turn):
 		return
@@ -2350,6 +2409,8 @@ static func _crate(root: Node3D, at: Vector3, size: float, turn: float) -> void:
 
 
 static func _signpost(root: Node3D, at: Vector3, points: float) -> void:
+	if _paper(root, "signpost", Transform3D(Basis.from_scale(Vector3(signf(points), 1.0, 1.0)), at)):
+		return
 	_mesh(root, _box(Vector3(0.14, 1.7, 0.14)), Materials.wood(Color(0.74, 0.54, 0.34)), at + Vector3(0, 0.85, 0))
 	var board := Materials.wood(Color(0.9, 0.72, 0.48))
 	_mesh(root, _box(Vector3(1.1, 0.34, 0.08)), board, at + Vector3(points * 0.3, 1.4, 0.08), Vector3.ONE, Vector3(0, 0, -4))
@@ -2365,9 +2426,12 @@ const BEACH_ROCK := Color(0.82, 0.76, 0.68)
 ## beach's warm palettes).
 static func _rock(root: Node3D, at: Vector3, size: float, rng: RandomNumberGenerator, colour := Color(0.74, 0.72, 0.8)) -> void:
 	var s := Vector3(rng.randf_range(1.1, 1.4), rng.randf_range(0.6, 0.8), 1.0) * size
+	var turn := Vector3(0, rng.randf_range(0, 60), rng.randf_range(-8, 8))
+	if _paper(root, "rock", Transform3D(Basis.from_euler(turn * PI / 180.0).scaled(Vector3(s.x / 1.25, s.y * 1.4, size)), at), {"stone": colour}):
+		return
 	# (A folded boulder, a few deep pleats in flat planes, the owner's folded style step 4, 2026-10-20: a six-sided ball under the stone
 	# tile read as a smooth blob.)
-	_puff(root, _pleated_puff(4, 4, 0.34), _faceted(Materials.stone(colour)), at + Vector3(0, s.y * 0.7, 0), s, Vector3(0, rng.randf_range(0, 60), rng.randf_range(-8, 8)))
+	_puff(root, _pleated_puff(4, 4, 0.34), _faceted(Materials.stone(colour)), at + Vector3(0, s.y * 0.7, 0), s, turn)
 
 
 ## A mushroom: a pale stem under a round cap with white spots, with a tiny idle squash and stretch (see `Squish`).
@@ -2377,6 +2441,8 @@ static func _mushroom(parent: Node3D, at: Vector3, size: float, cap: Color) -> v
 	root.phase = at.x * 1.7
 	parent.add_child(root)
 	at = Vector3.ZERO
+	if _paper(root, "mushroom", Transform3D(Basis(Vector3.UP, deg_to_rad(fmod(root.phase * 57.0, 360.0))).scaled(Vector3.ONE * size), at), {"cap": cap}):
+		return
 	# (The modelled toadstool, art/blender/make_props.py `mushroom`, its cap in this one's colour; the gauntlet's round 10.)
 	var model := Toonify.load_prop("mushroom", true)
 	if model != null:
@@ -2399,6 +2465,8 @@ static func _mushroom(parent: Node3D, at: Vector3, size: float, cap: Color) -> v
 
 
 static func _stump(root: Node3D, at: Vector3) -> void:
+	if _paper(root, "stump", Transform3D(Basis(Vector3.UP, deg_to_rad(20.0)), at)):
+		return
 	# (The modelled stump, art/blender/make_props.py `stump`; the gauntlet's round 10. The built one stands in without it.)
 	if _place_prop(root, "stump", at, 1.0, 20.0):
 		return
@@ -2407,6 +2475,9 @@ static func _stump(root: Node3D, at: Vector3) -> void:
 
 
 static func _lantern_post(root: Node3D, at: Vector3, glow: Color) -> void:
+	if _paper(root, "lamp_post", Transform3D(Basis.IDENTITY, at), {"glow": glow}):
+		_halo(root, at + Vector3(0.58, 1.86, 0.25), glow, 1.3)
+		return
 	# (The modelled lamp post, art/blender/make_props.py `lamp_post`, the gauntlet's round 10: its lantern glows in `glow`.)
 	var model := Toonify.load_prop("lamp_post", true)
 	if model != null:
@@ -2471,6 +2542,8 @@ static func _canopy_mesh(radius: float, height: float, panels: int, parity: int)
 
 
 static func _life_ring(root: Node3D, at: Vector3) -> void:
+	if _paper(root, "life_ring", Transform3D(Basis.IDENTITY, at)):
+		return
 	_mesh(root, _box(Vector3(0.12, 1.6, 0.12)), Materials.wood(Color(0.86, 0.7, 0.5)), at + Vector3(0, 0.8, -0.1))
 	var ring := TorusMesh.new()
 	ring.inner_radius = 0.28
@@ -2486,6 +2559,8 @@ static func _bucket(root: Node3D, at: Vector3, colour: Color) -> void:
 
 
 static func _potted_plant(root: Node3D, at: Vector3) -> void:
+	if _paper(root, "potted_plant", Transform3D(Basis.IDENTITY, at)):
+		return
 	_mesh(root, _cylinder(0.36, 0.26, 0.6, 8), FighterView.toon(Color(0.86, 0.5, 0.42)), at + Vector3(0, 0.3, 0))
 	var leaf := Materials.foliage(Color(0.4, 0.72, 0.5), Vector2(1, 1))
 	for k in 5:
@@ -4219,8 +4294,9 @@ static func _meadow(root: Node3D, t: Dictionary, stage: Array) -> void:
 	while x <= e[1] - 0.5:
 		var tall := 0.94 + rng.randf_range(-0.05, 0.05)
 		var lean := rng.randf_range(-2.5, 2.5)
-		_mesh(root, _box(Vector3(0.22, tall, 0.22)), post, Vector3(x, e[2] + tall / 2.0, -6.2), Vector3.ONE, Vector3(0, 0, lean))
-		_mesh(root, _sphere(0.145, 8), cap, Vector3(x - sin(deg_to_rad(lean)) * tall, e[2] + tall + 0.02, -6.2), Vector3(1.0, 0.55, 1.0))
+		if not _paper(root, "fence_post", Transform3D(Basis(Vector3.BACK, deg_to_rad(lean)).scaled(Vector3(1.0, tall, 1.0)), Vector3(x, e[2], -6.2))):
+			_mesh(root, _box(Vector3(0.22, tall, 0.22)), post, Vector3(x, e[2] + tall / 2.0, -6.2), Vector3.ONE, Vector3(0, 0, lean))
+			_mesh(root, _sphere(0.145, 8), cap, Vector3(x - sin(deg_to_rad(lean)) * tall, e[2] + tall + 0.02, -6.2), Vector3(1.0, 0.55, 1.0))
 		_contact(root, Vector3(x, e[2], -6.2), Vector2(0.22, 0.17))
 		posts.append(x)
 		x += 1.6
@@ -4229,8 +4305,9 @@ static func _meadow(root: Node3D, t: Dictionary, stage: Array) -> void:
 		var a1: float = posts[i + 1]
 		for h in [0.32, 0.7]:
 			var tilt := rng.randf_range(-1.6, 1.6)
-			_mesh(root, _box(Vector3(a1 - a0 + 0.12, 0.15, 0.09)), rail, Vector3((a0 + a1) / 2.0, e[2] + h + rng.randf_range(-0.02, 0.02), -6.06),
-				Vector3.ONE, Vector3(0, 0, tilt))
+			var at := Vector3((a0 + a1) / 2.0, e[2] + h + rng.randf_range(-0.02, 0.02), -6.06)
+			if not _paper(root, "fence_rail", Transform3D(Basis(Vector3.BACK, deg_to_rad(tilt)).scaled(Vector3(a1 - a0 + 0.12, 1.0, 1.0)), at)):
+				_mesh(root, _box(Vector3(a1 - a0 + 0.12, 0.15, 0.09)), rail, at, Vector3.ONE, Vector3(0, 0, tilt))
 	_flowers(root, e, rng, [Color(1, 0.55, 0.6), Color(1, 1, 1), Color(1, 0.85, 0.3)])
 	# A bright day: a few motes of pollen in the air, no shafts of light (golden, small and few: pale ones on the blue sky read as snow).
 	_motes(root, Color(1.0, 0.82, 0.4), e)
@@ -4670,8 +4747,9 @@ static func _flowers(root: Node3D, e: Array, rng: RandomNumberGenerator, colors:
 	var k := 0
 	while x < e[1] - 0.8:
 		var z := rng.randf_range(-4.5, -2.0)
-		_mesh(root, _sphere(0.13, 8), _unshaded(colors[k % colors.size()]), Vector3(x, e[2] + 0.08, z))
-		_mesh(root, _sphere(0.06, 6), heart, Vector3(x, e[2] + 0.12, z + 0.08))
+		if not _paper(root, "flower", Transform3D(Basis(Vector3.UP, float(k) * 1.3), Vector3(x, e[2], z)), {"petal": colors[k % colors.size()]}):
+			_mesh(root, _sphere(0.13, 8), _unshaded(colors[k % colors.size()]), Vector3(x, e[2] + 0.08, z))
+			_mesh(root, _sphere(0.06, 6), heart, Vector3(x, e[2] + 0.12, z + 0.08))
 		x += rng.randf_range(0.9, 1.8)
 		k += 1
 
@@ -4855,6 +4933,8 @@ static func _painted_sun(root: Node3D, at: Vector3, r: float) -> void:
 
 ## A ribbed saguaro with curving arms and a flower on top (art/blender/make_props.py), `size` about 4 units tall at 1.
 static func _cactus(root: Node3D, at: Vector3, size: float) -> void:
+	if _paper(root, "cactus", Transform3D(Basis.IDENTITY.scaled(Vector3.ONE * size * 0.88), at)):
+		return
 	# (Without ink, the judge's round 40: its deep flat ribs carry its form, as the folded scenery's do.)
 	var holder := Node3D.new()
 	root.add_child(holder)
@@ -5154,22 +5234,25 @@ static func _city(root: Node3D, t: Dictionary, stage: Array) -> void:
 	var tower := Vector3(float(e[0]) + 3.0, roof, -6.0)
 	# (A red-brown tank, art review 9: one of the few warm things on the roof, pushed warmer.)
 	var wood := Materials.wood(Color(0.62, 0.32, 0.26))
+	var paper_tower := _paper(root, "water_tower", Transform3D(Basis.IDENTITY, tower))
 	for leg in [Vector3(-0.9, 0, -0.9), Vector3(0.9, 0, -0.9), Vector3(-0.9, 0, 0.9), Vector3(0.9, 0, 0.9)]:
-		_mesh(root, _box(Vector3(0.18, 2.4, 0.18)), wood, tower + leg + Vector3(0, 1.2, 0))
+		if not paper_tower:
+			_mesh(root, _box(Vector3(0.18, 2.4, 0.18)), wood, tower + leg + Vector3(0, 1.2, 0))
 		# (A crisp shade at each foot, the judge's round 39: the roof's props stood on the light pools ungrounded.)
 		_contact(root, tower + leg, Vector2(0.22, 0.2))
 	_contact(root, tower, Vector2(1.5, 1.2))
-	_mesh(root, _cylinder(1.3, 1.3, 2.2, 14), wood, tower + Vector3(0, 3.5, 0))
-	_mesh(root, _cylinder(0.0, 1.5, 1.0, 14), FighterView.toon(Color(0.4, 0.28, 0.22)), tower + Vector3(0, 5.1, 0))
-	# Iron hoops round the staves, a hatch on the roof and a ladder up the side: they say what it is made of and how big it is.
-	var iron := FighterView.respond(FighterView.toon(Color(0.3, 0.26, 0.32)), "metal")
-	for hy in [2.6, 3.5, 4.4]:
-		_mesh(root, _cylinder(1.34, 1.34, 0.08, 14), iron, tower + Vector3(0, hy, 0))
-	_mesh(root, _box(Vector3(0.5, 0.12, 0.5)), iron, tower + Vector3(0.3, 5.45, 0.55), Vector3.ONE, Vector3(-30, 0, 0))
-	for lx in [-0.18, 0.18]:
-		_mesh(root, _box(Vector3(0.05, 3.4, 0.05)), iron, tower + Vector3(1.0 + lx, 2.2, 0.95))
-	for ly in range(5):
-		_mesh(root, _box(Vector3(0.4, 0.04, 0.04)), iron, tower + Vector3(1.0, 0.8 + ly * 0.7, 0.95))
+	if not paper_tower:
+		_mesh(root, _cylinder(1.3, 1.3, 2.2, 14), wood, tower + Vector3(0, 3.5, 0))
+		_mesh(root, _cylinder(0.0, 1.5, 1.0, 14), FighterView.toon(Color(0.4, 0.28, 0.22)), tower + Vector3(0, 5.1, 0))
+		# Iron hoops round the staves, a hatch on the roof and a ladder up the side: they say what it is made of and how big it is.
+		var iron := FighterView.respond(FighterView.toon(Color(0.3, 0.26, 0.32)), "metal")
+		for hy in [2.6, 3.5, 4.4]:
+			_mesh(root, _cylinder(1.34, 1.34, 0.08, 14), iron, tower + Vector3(0, hy, 0))
+		_mesh(root, _box(Vector3(0.5, 0.12, 0.5)), iron, tower + Vector3(0.3, 5.45, 0.55), Vector3.ONE, Vector3(-30, 0, 0))
+		for lx in [-0.18, 0.18]:
+			_mesh(root, _box(Vector3(0.05, 3.4, 0.05)), iron, tower + Vector3(1.0 + lx, 2.2, 0.95))
+		for ly in range(5):
+			_mesh(root, _box(Vector3(0.4, 0.04, 0.04)), iron, tower + Vector3(1.0, 0.8 + ly * 0.7, 0.95))
 	var mast := Vector3(float(e[1]) - 2.5, roof, -6.5)
 	_mesh(root, _cylinder(0.08, 0.15, 6.0, 6), FighterView.respond(FighterView.toon(Color(0.6, 0.62, 0.7)), "metal"), mast + Vector3(0, 3, 0))
 	var blink := Blinker.new()
@@ -5184,13 +5267,13 @@ static func _city(root: Node3D, t: Dictionary, stage: Array) -> void:
 	# (Modelled, art/blender/make_props.py `ac_unit` and `roof_vent`, and a second of each along the back of the roof, the owner's city
 	# plan, step 3 (rooftop clutter), 2026-10-19. The built ones stand in without the models.)
 	if Toonify.load_prop("ac_unit") != null and Toonify.load_prop("roof_vent") != null:
-		_place_prop(root, "ac_unit", unit, 1.0, 0.0)
+		_paper_or_prop(root, "ac_unit", unit, 1.0, 0.0)
 		_contact(root, unit, Vector2(0.95, 0.7))
 		_contact(root, vent, Vector2(0.45, 0.38))
 		# (On the roof, which reaches back to z -6: at -7 these two hung past its back edge, the owner, 2026-10-19.)
-		_place_prop(root, "ac_unit", Vector3(float(e[1]) - 9.5, roof, -5.2), 0.85, 8.0)
-		_place_prop(root, "roof_vent", vent, 1.0, 200.0)
-		_place_prop(root, "roof_vent", Vector3(float(e[0]) + 11.0, roof, -5.3), 0.9, -30.0)
+		_paper_or_prop(root, "ac_unit", Vector3(float(e[1]) - 9.5, roof, -5.2), 0.85, 8.0)
+		_paper_or_prop(root, "roof_vent", vent, 1.0, 200.0)
+		_paper_or_prop(root, "roof_vent", Vector3(float(e[0]) + 11.0, roof, -5.3), 0.9, -30.0)
 		_contact(root, Vector3(float(e[1]) - 9.5, roof, -5.2), Vector2(0.85, 0.6))
 		_contact(root, Vector3(float(e[0]) + 11.0, roof, -5.3), Vector2(0.4, 0.34))
 	else:

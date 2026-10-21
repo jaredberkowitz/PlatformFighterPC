@@ -148,6 +148,11 @@ static func paper_finish() -> Vector4:
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--paper-finish="):
 			look = a.substr(15)
+	return finish_vector(look)
+
+
+## A paper finish level ("A", "B", "C") as the shader takes it; anything else is off.
+static func finish_vector(look: String) -> Vector4:
 	return {"A": Vector4(0.6, 0.5, 0.0, 0.0), "B": Vector4(0.6, 0.5, 0.6, 0.0), "C": Vector4(1.0, 0.8, 0.9, 0.0)}.get(look, Vector4.ZERO)
 
 

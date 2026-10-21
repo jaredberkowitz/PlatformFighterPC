@@ -11,6 +11,8 @@ extends RefCounted
 
 const FighterView := preload("res://scripts/fighter_view.gd")
 const StageArt := preload("res://scripts/stage_art.gd")
+const Lighting := preload("res://scripts/lighting.gd")
+const WorldMotion := preload("res://scripts/world_motion.gd")
 const DIR := "res://art/baked/%s/"
 ## Modelled stage fronts, by the exact stage they were built on (`key`): art/blender/make_grove_front.py, the grove pilot's step 2.
 const FRONTS := {"grove_14d06e65": "res://models/stages/grove_front.glb", "meadow_62409190": "res://models/stages/meadow_front.glb",
@@ -543,6 +545,86 @@ static func mood_source(bake_key: String) -> Variant:
 	return load(MOODS[bake_key])
 
 
+## The world-building pieces' colours by family (art/blender/make_world.py, docs/art/stages/WORLD.md).
+const WORLD_COLOURS := {"hull": Color(0.32, 0.5, 0.62), "hull_stripe": Color(0.95, 0.92, 0.84), "deck": Color(0.78, 0.6, 0.42),
+	"cabin": Color(0.96, 0.94, 0.88), "cabin_roof": Color(0.82, 0.32, 0.28), "wood_dark": Color(0.45, 0.32, 0.24), "sail": Color(0.95, 0.9, 0.8),
+	"rope": Color(0.86, 0.74, 0.52), "net": Color(0.42, 0.56, 0.52), "fish_crate": Color(0.84, 0.66, 0.44),
+	"awning_a": Color(0.92, 0.4, 0.38), "awning_b": Color(0.98, 0.94, 0.86),
+	"stall": Color(0.76, 0.56, 0.38), "coat_a": Color(0.36, 0.48, 0.72), "coat_b": Color(0.82, 0.5, 0.32), "coat_c": Color(0.5, 0.62, 0.4),
+	"skin": Color(0.96, 0.8, 0.66), "flag_a": Color(0.92, 0.36, 0.36), "flag_b": Color(1.0, 0.84, 0.36), "flag_c": Color(0.4, 0.66, 0.86),
+	"smoke": Color(0.9, 0.88, 0.92), "timber": Color(0.62, 0.42, 0.3), "timber_dark": Color(0.44, 0.3, 0.24), "iron": Color(0.32, 0.3, 0.36),
+	"engine": Color(0.22, 0.24, 0.3), "engine_cab": Color(0.7, 0.22, 0.22), "car_a": Color(0.78, 0.5, 0.3), "car_b": Color(0.46, 0.58, 0.5),
+	"tank": Color(0.62, 0.4, 0.3), "tank_dark": Color(0.42, 0.28, 0.24), "trail": Color(0.96, 0.84, 0.68), "canvas": Color(0.96, 0.93, 0.84),
+	"blade": Color(0.86, 0.84, 0.8),
+	"adobe": Color(0.9, 0.66, 0.5), "adobe_dark": Color(0.74, 0.5, 0.38), "window": Color(1.0, 0.82, 0.5),
+	"straw": Color(0.98, 0.84, 0.46), "gate_red": Color(0.86, 0.3, 0.26),
+	"gate_dark": Color(0.3, 0.22, 0.24), "rock": Color(0.6, 0.56, 0.62), "turf": Color(0.48, 0.74, 0.36), "bark": Color(0.55, 0.38, 0.26),
+	"bus": Color(0.95, 0.72, 0.28), "board_frame": Color(0.3, 0.28, 0.4), "steel": Color(0.4, 0.4, 0.52), "train": Color(0.36, 0.5, 0.7),
+	"crown": Color(0.22, 0.42, 0.32), "firefly": Color(0.95, 1.0, 0.62)}
+
+
+## World-building (art/blender/make_world.py, docs/art/stages/WORLD.md, the owner's picks 2026-10-21): the beach's working pier and
+## harbour life (a fishing boat at its buoy, nets and crates, a rowboat), the canyon's railroad (a trestle and train, a water tower), the
+## meadow's fields at work and village life (haystacks, chimney smoke, a washing line, a scarecrow), the grove's far tree village and
+## festival (great trees with lit huts and rope bridges, gates, streamers, fireflies), the city's billboard, rooftop party and street
+## traffic. No animals (the owner). By the exact stage they were built on.
+const WORLDS := {"ocean_d9c5edff": "res://models/stages/beach_world.glb", "sunset_19cad55b": "res://models/stages/canyon_world.glb",
+	"meadow_62409190": "res://models/stages/meadow_world.glb", "grove_14d06e65": "res://models/stages/grove_world.glb",
+	"city_2eadbb68": "res://models/stages/city_world.glb"}
+
+
+## The world-building to place: a glTF path to try (`--world-mock=<glb>`), the shipped model for this exact stage (`WORLDS`), or null
+## (none, or `--no-world`).
+static func world_source(bake_key: String) -> Variant:
+	if flag("--world-mock=") != "":
+		return flag("--world-mock=")
+	if OS.get_cmdline_user_args().has("--no-world") or not WORLDS.has(bake_key) or not ResourceLoader.exists(WORLDS[bake_key]):
+		return null
+	return load(WORLDS[bake_key])
+
+
+## Places the world-building pieces (`source`: a PackedScene, or a glTF path for mocks): painted by family in the scenery's toon
+## material with their own occlusion; the windows lit.
+static func place_world(root: Node3D, source: Variant) -> void:
+	var scene := _scene_from(source)
+	if scene == null:
+		push_warning("world-building %s could not be read" % str(source))
+		return
+	scene.name = "World"
+	root.add_child(scene)
+	for mi: MeshInstance3D in scene.find_children("*", "MeshInstance3D", true, false):
+		var src := mi.mesh.surface_get_material(0)
+		var fam := (src.resource_name if src != null else "").get_slice(".", 0)
+		var colour: Color = WORLD_COLOURS.get(fam, Color(0.7, 0.7, 0.7))
+		if fam == "window" or fam == "firefly":
+			var lit := StandardMaterial3D.new()
+			lit.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+			lit.albedo_color = colour
+			mi.material_override = lit
+			# (A firefly glows, as the lamps do: a speck alone was lost among the lanterns.)
+			if fam == "firefly":
+				StageArt._halo(mi, Vector3.ZERO, colour, 1.4)
+			continue
+		# (Through the stage's air at its depth, as the rest of the scenery: flat colours read pasted on far out. Lights cut through it.)
+		var xf := Transform3D.IDENTITY
+		var up: Node = mi
+		while up != null and up != root:
+			xf = (up as Node3D).transform * xf
+			up = up.get_parent()
+		colour = StageArt._air_colour(colour, (xf * mi.get_aabb().get_center()).z)
+		var m := FighterView.toon(colour, true).duplicate() as ShaderMaterial
+		m.set_shader_parameter("vertex_shade", true)
+		mi.material_override = m
+	# Its life (scripts/world_motion.gd): `--world-motion=off|place|all`.
+	var mode := flag("--world-motion=")
+	if mode != "off":
+		var motion := WorldMotion.new()
+		motion.name = "WorldMotion"
+		motion.setup(scene, mode)
+		scene.add_child(motion)
+	print("world-building: placed %s" % (source.get_file() if source is String else (source as PackedScene).resource_path.get_file()))
+
+
 ## Places the mood light (`source`: a PackedScene, or a glTF path for mocks): searchlight beams, paper lanterns, ripple rings, each
 ## piece unshaded with its own brightness and fade in its vertex colours, so it reads as light whatever the scene's.
 static func place_mood(root: Node3D, source: Variant) -> void:
@@ -581,6 +663,129 @@ static func place_mood(root: Node3D, source: Variant) -> void:
 			mi.set_surface_override_material(s, m)
 		mi.set_meta("prebaked", true)
 	print("mood light: placed %s" % (source.get_file() if source is String else (source as PackedScene).resource_path.get_file()))
+
+
+## Paper props by theme (art/blender/make_paper_props.py, rolled and scored: the meadow pilot's "C", and for the other stages' props A
+## with B's stump, crate and cactus, the owner's picks 2026-10-21): the prop builders hand their places to it (`StageArt.paper_kit`).
+## One kit for every stage.
+const PAPER_KIT := "res://models/props/paper_props.glb"
+const PAPER_KITS := {"meadow": PAPER_KIT, "grove": PAPER_KIT, "sunset": PAPER_KIT, "ocean": PAPER_KIT, "city": PAPER_KIT}
+
+
+## The theme's paper props: a glTF to try (`--prop-mock=<glb>`), the shipped kit (`PAPER_KITS`), or null (none, or `--no-paper-props`).
+static func paper_kit(theme_name: String) -> Node3D:
+	if flag("--prop-mock=") != "":
+		return _scene_from(flag("--prop-mock="))
+	if OS.get_cmdline_user_args().has("--no-paper-props") or not PAPER_KITS.has(theme_name) or not ResourceLoader.exists(PAPER_KITS[theme_name]):
+		return null
+	return (load(PAPER_KITS[theme_name]) as PackedScene).instantiate() as Node3D
+
+
+## Each material family's print (tools/art/make_prints.py) and how strongly and how large it is laid: [print, amount, units per tile].
+const PRINTS := {"grass": ["grass", 0.45, 5.0], "lawn": ["grass", 0.45, 5.0], "lawn_under": ["grass", 0.35, 5.0], "moss": ["grass", 0.35, 3.0],
+	"fringe": ["grass", 0.3, 3.0], "soil": ["soil", 0.35, 4.0], "soil2": ["soil", 0.35, 4.0], "path": ["path", 0.3, 4.0],
+	"log": ["wood", 0.4, 3.0], "log_end": ["wood", 0.3, 1.5], "plank": ["wood", 0.4, 3.0], "plank_b": ["wood", 0.4, 3.0],
+	"plank_card": ["wood", 0.35, 3.0], "wood": ["wood", 0.4, 1.6], "wood_light": ["wood", 0.4, 1.6], "wood_dark": ["wood", 0.35, 1.6],
+	"band": ["wood", 0.3, 1.2], "stem": ["grass", 0.2, 1.0], "stone": ["stone", 0.35, 2.5], "stone2": ["stone", 0.35, 2.5],
+	"stone_light": ["stone", 0.35, 2.5], "straw": ["straw", 0.45, 1.4], "straw_end": ["straw", 0.4, 1.0]}
+## Each stage's own families where they mean something else there (`top` is grass on the grove, sand on the canyon, boards on the
+## beach, roofing on the city), and the other stages' props; over `PRINTS`.
+const PRINTS_BY_THEME := {
+	"grove": {"top": ["grass", 0.45, 5.0], "top_card": ["grass", 0.35, 5.0], "layer1": ["soil", 0.35, 4.0], "layer2": ["soil", 0.35, 4.0],
+		"earth": ["soil", 0.35, 4.0], "rock": ["stone", 0.35, 2.5], "root": ["wood", 0.4, 3.0], "moss_shade": ["grass", 0.3, 3.0]},
+	"sunset": {"top": ["sand", 0.45, 5.0], "top_card": ["sand", 0.35, 5.0], "layer1": ["strata", 0.4, 4.0], "layer2": ["strata", 0.4, 4.0],
+		"strata_a": ["strata", 0.4, 4.0], "strata_b": ["strata", 0.4, 4.0], "strata_c": ["strata", 0.4, 4.0]},
+	"ocean": {"top": ["wood", 0.22, 3.0], "top_card": ["wood", 0.22, 3.0], "layer1": ["wood", 0.3, 3.0], "beam": ["wood", 0.4, 3.0],
+		"post": ["wood", 0.4, 2.0], "iron": ["steel", 0.3, 1.5]},
+	"city": {"top": ["roof", 0.4, 5.0], "top_card": ["roof", 0.3, 5.0], "layer1": ["stone", 0.3, 2.5], "steel": ["steel", 0.3, 1.5],
+		"steel_card": ["steel", 0.3, 1.5], "steel_dark": ["steel", 0.3, 1.5], "brick": ["stone", 0.2, 2.0], "trim": ["stone", 0.25, 2.0],
+		"frame": ["wood", 0.25, 1.5], "pipe": ["steel", 0.3, 1.5], "iron": ["steel", 0.3, 1.5], "ac": ["steel", 0.3, 1.5],
+		"leaf": ["grass", 0.25, 1.0]},
+}
+## The other stages' paper props, on every stage.
+const PRINTS_PROPS := {"crate": ["wood", 0.4, 1.0], "crate_dark": ["wood", 0.35, 1.0], "bark": ["wood", 0.4, 1.0], "ring_top": ["wood", 0.3, 0.8],
+	"tank": ["wood", 0.35, 1.6], "tank_dark": ["wood", 0.3, 1.6], "metal": ["steel", 0.3, 1.0], "metal_dark": ["steel", 0.3, 1.0],
+	"iron": ["steel", 0.25, 1.0]}
+static var _print_tex := {}
+
+
+## The print for a surface of `family` on `theme_name`, or [] for none.
+static func print_for(theme_name: String, family: String) -> Array:
+	var fam := family.trim_suffix("_back")
+	var own: Dictionary = PRINTS_BY_THEME.get(theme_name, {})
+	if own.has(fam):
+		return own[fam]
+	if PRINTS.has(fam):
+		return PRINTS[fam]
+	return PRINTS_PROPS.get(fam, [])
+
+
+## The printed surfaces (tools/art/make_prints.py, fidelity review 3's idea 2) on the modelled front and play area and the paper props, by
+## each surface's material family (`PRINTS`), and the front's own paper finish level (`paper_own`; "C" the full finish, the owner's
+## pick for every front, 2026-10-21): from the stage's palette ([backdrop] `paper_print`, a folder in art/stage/prints/, and `front_finish`),
+## or to try, `--print-mock=<folder>` and `--front-finish=<x>`; `--no-print` to compare.
+static func surfaces(root: Node3D, theme_name: String) -> void:
+	var look: Dictionary = StageArt.palette(theme_name).get("backdrop", {})
+	var dir := flag("--print-mock=")
+	if dir == "" and String(look.get("paper_print", "")) != "":
+		dir = "res://art/stage/prints/%s" % String(look.paper_print)
+	if OS.get_cmdline_user_args().has("--no-print"):
+		dir = ""
+	var front_look := flag("--front-finish=") if flag("--front-finish=") != "" else String(look.get("front_finish", ""))
+	var own := Lighting.finish_vector(front_look)
+	if dir == "" and own == Vector4.ZERO:
+		return
+	var printed := {}
+	var boosted := 0
+	for mi: MeshInstance3D in root.find_children("*", "MeshInstance3D", true, false):
+		var front := false
+		var piece := false
+		var n: Node = mi
+		while n != null and n != root:
+			piece = piece or n.has_meta("lit_piece") or n.has_meta("paper_prop")
+			front = front or String(n.name).contains("ModelledFront")
+			n = n.get_parent()
+		if not piece or String(mi.name).begins_with("Mood_"):
+			continue
+		for s in mi.mesh.get_surface_count():
+			var fam: String = mi.get_meta("family", "")
+			if fam == "":
+				var src := mi.mesh.surface_get_material(s)
+				fam = (src.resource_name if src != null else "").get_slice(".", 0)
+			var m := (mi.material_override if mi.material_override != null else mi.get_surface_override_material(s)) as ShaderMaterial
+			if m == null:
+				continue
+			m = m.duplicate() as ShaderMaterial
+			var spec := print_for(theme_name, fam)
+			if dir != "" and not spec.is_empty():
+				var path := dir.path_join(String(spec[0]) + ".png")
+				if not _print_tex.has(path):
+					# (The shipped prints are imported textures; mocks are read from their files. Either way with their own mipmaps.)
+					var img: Image = null
+					if path.begins_with("res://"):
+						var tex := load(path) as Texture2D
+						img = tex.get_image() if tex != null else null
+						if img != null and img.is_compressed():
+							img.decompress()
+					else:
+						img = Image.load_from_file(path)
+					if img != null:
+						img.generate_mipmaps()
+					_print_tex[path] = ImageTexture.create_from_image(img) if img != null else null
+				if _print_tex[path] != null:
+					m.set_shader_parameter("print_tex", _print_tex[path])
+					m.set_shader_parameter("print_amount", spec[1])
+					m.set_shader_parameter("print_scale", spec[2])
+					printed[fam] = int(printed.get(fam, 0)) + 1
+			if front and own != Vector4.ZERO:
+				m.set_shader_parameter("paper_own", own)
+				boosted += 1
+			if mi.material_override != null:
+				mi.material_override = m
+			else:
+				mi.set_surface_override_material(s, m)
+	print("stage surfaces: printed %d surfaces in %d families; %d front surfaces at the paper finish '%s'" % [
+		printed.values().reduce(func(a, b): return a + b, 0), printed.size(), boosted, front_look])
 
 
 ## The theme's modelled tree: a glTF path to try (`--tree-mock=<glb>`), the shipped model (`TREES`), or null (none, or `--no-trees`).

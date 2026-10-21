@@ -117,7 +117,17 @@ func build(sim) -> void:
 	var ground := StageBake.ground_source(bake_key)
 	StageArt.ground_mock = not ground.is_empty()
 	StageArt.bush_slots.clear()
+	# The theme's paper props, if it has them (scripts/stage_bake.gd PAPER_KITS): the prop builders hand their places to it.
+	StageArt.paper_kit = StageBake.paper_kit(String(theme.get("name", "")))
 	StageArt.backdrop(scenery, theme, extent)
+	# World-building for this exact stage (docs/art/stages/WORLD.md; `--world-mock=<glb>` to try one, `--no-world` to compare), after the
+	# backdrop, whose palette gives it the stage's air.
+	var world = StageBake.world_source(bake_key)
+	if world != null:
+		StageBake.place_world(self, world)
+	if StageArt.paper_kit != null:
+		StageArt.paper_kit.free()
+		StageArt.paper_kit = null
 	if StageArt.ground_mock:
 		StageBake.place_ground(scenery, theme, ground)
 		StageArt.ground_mock = false
@@ -138,6 +148,8 @@ func build(sim) -> void:
 		StageBake.apply(self, bake_key)
 	StageBake.mock_front(self, theme)
 	StageArt.front_modelled = false
+	# The printed surfaces and the front's share of the paper finish, as the stage's palette asks (StageBake.surfaces).
+	StageBake.surfaces(self, String(theme.get("name", "")))
 
 	for i in sim.ledge_count():
 		var l: Vector3 = sim.ledge_pos(i)

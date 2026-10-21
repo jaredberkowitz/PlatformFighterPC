@@ -6,6 +6,7 @@ extends SceneTree
 
 const StageBake := preload("res://scripts/stage_bake.gd")
 const StageArt := preload("res://scripts/stage_art.gd")
+const WorldMotion := preload("res://scripts/world_motion.gd")
 
 var failed := false
 
@@ -140,11 +141,36 @@ func _initialize() -> void:
 					unlit += 1
 		model.free()
 		check(unlit == 0, "%s carries the contact shade: %d surfaces without it (run art/blender/light_stage.py after rebuilding it)" % [path, unlit])
-	# The mood light (StageBake.MOODS, art/blender/make_mood.py): built for one of the sim's stages, and over the play space (the stage's
-	# span, from its lowest top up to ten units over its highest) it stays behind the fighters' plane, so no beam, lantern or pool of
-	# light ever crosses a fighter.
+	# The paper props (StageBake.PAPER_KITS, art/blender/make_paper_props.py): every kit has each prop the builders hand their places to
+	# (StageArt._paper), each part in a family the game paints, so no prop falls back to the built one or goes grey.
+	for theme_name in StageBake.PAPER_KITS:
+		var path: String = StageBake.PAPER_KITS[theme_name]
+		check(ResourceLoader.exists(path), "%s exists" % path)
+		if not ResourceLoader.exists(path):
+			continue
+		var kit := (load(path) as PackedScene).instantiate()
+		for prop_name in ["hay_bale", "barrel", "signpost", "rock", "fence_post", "fence_rail", "flower", "mushroom", "stump", "crate",
+				"lamp_post", "life_ring", "potted_plant", "cactus", "water_tower", "ac_unit", "roof_vent"]:
+			var prop := kit.find_child("prop_" + prop_name, true, false)
+			check(prop != null, "%s has prop_%s" % [path, prop_name])
+			if prop == null:
+				continue
+			for mi: MeshInstance3D in prop.find_children("*", "MeshInstance3D", true, false):
+				var m := mi.mesh.surface_get_material(0)
+				var fam := (m.resource_name if m != null else "").get_slice(".", 0).trim_suffix("_back")
+				check(StageArt.PAPER_COLOURS.has(fam), "%s prop_%s: part %s is in a family the game paints (%s)" % [path, prop_name, mi.name, fam])
+		kit.free()
+	# The mood light and the world-building (StageBake.MOODS and WORLDS, art/blender/make_mood.py and make_world.py): built for one of
+	# the sim's stages, and over the play space (the stage's span, from its lowest top up to ten units over its highest) they stay
+	# behind the fighters' plane, so no beam, lantern, gull or boat ever crosses a fighter.
+	var pieces: Array = []
 	for key in StageBake.MOODS:
-		var path: String = StageBake.MOODS[key]
+		pieces.append([key, StageBake.MOODS[key]])
+	for key in StageBake.WORLDS:
+		pieces.append([key, StageBake.WORLDS[key]])
+	for piece in pieces:
+		var key: String = piece[0]
+		var path: String = piece[1]
 		check(ResourceLoader.exists(path), "%s exists" % path)
 		check(stages.has(key), "%s is built for one of the sim's stages (%s): rebuild it if the stage changed" % [path, key])
 		if not stages.has(key) or not ResourceLoader.exists(path):
@@ -168,9 +194,15 @@ func _initialize() -> void:
 					verts += 1
 					if w.x > x0 and w.x < x1 and w.y > y0 and w.y < y1 and w.z > -0.4:
 						crossing += 1
+		# (What moves in it, art/blender/make_world.py's `move_<kind>_<n>` pivots, is a kind scripts/world_motion.gd knows.)
+		var unknown: Array = []
+		for m in model.find_children("move_*", "Node3D", true, false):
+			if not WorldMotion.KINDS.has(WorldMotion.kind_of(m)):
+				unknown.append(String(m.name))
 		model.free()
 		check(verts > 0, "%s has geometry" % path)
 		check(crossing == 0, "%s stays behind the fighters' plane over the play space: %d of %d points in front" % [path, crossing, verts])
+		check(unknown.is_empty(), "%s: every moving thing is a kind the world's motion knows: %s" % [path, unknown])
 	sim.free()
 	print("stage front test %s" % ("FAILED" if failed else "PASSED"))
 	quit(1 if failed else 0)
