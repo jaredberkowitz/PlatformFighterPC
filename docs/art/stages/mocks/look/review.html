@@ -88,6 +88,30 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
     <p>Two lessons from the reference screenshots, mocked from the match camera: the scenery without ink outlines, its edges lit as card bevels instead, and the paper houses rebuilt at the characters' proportions. The earlier rounds stay on the <a href="https://claude.ai/artifact/D1du6MREVumiJDrEdNypW4">Stage Fidelity Review</a>, which is full.</p>
   </header>
 
+  <section class="panel" aria-labelledby="wq-h" id="worldq">
+    <div class="eyebrow">Your call is needed &middot; the world pieces' quality pass</div>
+    <h2 id="wq-h">The world pieces, rebuilt to match the scenery</h2>
+    <p>Your note: the newer background pieces did not match the rest of the scenery's style or quality. They were quick mock builds shipped as they were: flat colour with no print, primitive shapes (boxes, cards, low-poly balls), none of the paper construction the props and houses have. Now they take the scenery's hatched print and are rebuilt in the props' language:</p>
+    <div class="tablewrap"><table><thead><tr><th>Piece</th><th>Before</th><th>After</th></tr></thead><tbody>
+      <tr><td>Billboard (city)</td><td>Two hot rectangles on a board</td><td>A framed, lit poster of cut-paper shapes (a sun over waves, lettering) in the night palette, on a braced scaffold with a catwalk and hood lamps</td></tr>
+      <tr><td>People (city)</td><td>A disc on a rectangle</td><td>Layered paper dolls: legs, a coat with arms, a big round head with a cap of hair</td></tr>
+      <tr><td>Train (canyon)</td><td>Boxes on rings</td><td>A banded boiler with its smokebox door, domes and a flared stack, a cab with windows, a cowcatcher, spoked wheels with a rod; boxcars plank-scored, roofed, with doors and bogies</td></tr>
+      <tr><td>Water tower (canyon)</td><td>A plain tank on legs</td><td>Iron hoops, braced legs, a ladder</td></tr>
+      <tr><td>Smoke (meadow, train)</td><td>Low-poly balls</td><td>Cut-card puffs, scalloped and thick</td></tr>
+      <tr><td>Haystacks (meadow)</td><td>A plain dome (read as a mushroom)</td><td>Rolled and a little uneven, two straw ropes, a twist on top</td></tr>
+      <tr><td>Far trees (grove)</td><td>Cone umbrellas</td><td>Pleated tiers, as the grove's own pines</td></tr>
+      <tr><td>Boats (beach)</td><td>Flat card sides</td><td>Lofted hulls with rolled gunwales; the fishing boat's lit wheelhouse, life ring and fenders; the rowboat's thwarts</td></tr>
+      <tr><td>Bus, gates, crates</td><td>Plain boxes and bars</td><td>A rounded bus with a stripe and hubs; gates with swept-up beams, bases and a plaque; slatted crates</td></tr>
+    </tbody></table></div>
+    <p class="muted">The paper houses take the hatched print now too (their timber, trim, doors and roofs). Not yet in the game: this is the rebuilt set placed as a mock; say the word and it ships.</p>
+    <h3>At play distance, 2x crops (before left, after right): the city, the canyon and the meadow, the grove, the beach</h3>
+    <div class="viewer"><img src="wq_crops.jpg" alt="Before and after crops of the rebuilt world pieces on every stage"></div>
+    <h3>The whole frame</h3>
+    <div class="row" role="group" aria-label="Stage"><button data-qs="city">City</button><button data-qs="canyon">Canyon</button><button data-qs="meadow">Meadow</button><button data-qs="grove">Grove</button><button data-qs="beach">Beach</button></div>
+    <div class="row" role="group" aria-label="Version"><button data-qo="T">Before</button><button data-qo="N">After</button></div>
+    <div class="viewer"><img id="qimg" alt="World pieces before or after"><span class="vtag" id="qtag"></span></div>
+  </section>
+
   <section class="panel" aria-labelledby="built-h" id="built">
     <div class="eyebrow">In the game</div>
     <h2 id="built-h">Both picks built</h2>
@@ -170,5 +194,15 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
     if (k && !e.target.matches("input")) { io = k; irender(); }
   });
   irender(); hrender();
+  var qs = "city", qo = "N";
+  var QS = { city: "City", canyon: "Canyon", meadow: "Meadow", grove: "Grove", beach: "Beach" };
+  function qrender() {
+    document.getElementById("qimg").src = "wq_" + qs + "_" + qo + ".jpg";
+    document.getElementById("qtag").textContent = QS[qs] + " \u00b7 " + (qo === "N" ? "After" : "Before");
+    pressed("data-qs", qs); pressed("data-qo", qo);
+  }
+  group("data-qs", function (v) { qs = v; }, qrender);
+  group("data-qo", function (v) { qo = v; }, qrender);
+  qrender();
 })();
 </script>

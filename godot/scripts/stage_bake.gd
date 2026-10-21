@@ -560,7 +560,15 @@ const WORLD_COLOURS := {"hull": Color(0.32, 0.5, 0.62), "hull_stripe": Color(0.9
 	"straw": Color(0.98, 0.84, 0.46), "gate_red": Color(0.86, 0.3, 0.26),
 	"gate_dark": Color(0.3, 0.22, 0.24), "rock": Color(0.6, 0.56, 0.62), "turf": Color(0.48, 0.74, 0.36), "bark": Color(0.55, 0.38, 0.26),
 	"bus": Color(0.95, 0.72, 0.28), "board_frame": Color(0.3, 0.28, 0.4), "steel": Color(0.4, 0.4, 0.52), "train": Color(0.36, 0.5, 0.7),
-	"crown": Color(0.22, 0.42, 0.32), "firefly": Color(0.95, 1.0, 0.62)}
+	"crown": Color(0.22, 0.42, 0.32), "firefly": Color(0.95, 1.0, 0.62),
+	# (The quality pass's pieces, 2026-10-21: the paper dolls' trousers and hair, the train's brass bands and dark iron, the boxcars'
+	# seams and roofs, the billboard's poster in a muted night palette, the crowns' lit tiers, the bus's stripe.)
+	"trousers": Color(0.28, 0.3, 0.42), "hair": Color(0.3, 0.2, 0.16), "engine_band": Color(0.86, 0.66, 0.34),
+	"engine_dark": Color(0.16, 0.17, 0.22), "car_seam": Color(0.42, 0.28, 0.22), "car_roof": Color(0.3, 0.27, 0.3),
+	"poster": Color(0.96, 0.9, 0.78), "poster_a": Color(0.95, 0.55, 0.45), "poster_b": Color(0.38, 0.66, 0.7), "poster_c": Color(0.3, 0.3, 0.48),
+	"board_back": Color(0.22, 0.2, 0.3), "crown_lit": Color(0.3, 0.52, 0.4), "bus_stripe": Color(0.98, 0.94, 0.86)}
+## World-building families drawn in their own light: lit windows, fireflies, the billboard's lit poster.
+const WORLD_LIT := ["window", "firefly", "poster", "poster_a", "poster_b", "poster_c"]
 
 
 ## World-building (art/blender/make_world.py, docs/art/stages/WORLD.md, the owner's picks 2026-10-21): the beach's working pier and
@@ -591,12 +599,14 @@ static func place_world(root: Node3D, source: Variant) -> void:
 		push_warning("world-building %s could not be read" % str(source))
 		return
 	scene.name = "World"
+	# (Printed and finished as the paper props are, `surfaces`.)
+	scene.set_meta("paper_prop", true)
 	root.add_child(scene)
 	for mi: MeshInstance3D in scene.find_children("*", "MeshInstance3D", true, false):
 		var src := mi.mesh.surface_get_material(0)
 		var fam := (src.resource_name if src != null else "").get_slice(".", 0)
 		var colour: Color = WORLD_COLOURS.get(fam, Color(0.7, 0.7, 0.7))
-		if fam == "window" or fam == "firefly":
+		if WORLD_LIT.has(fam):
 			var lit := StandardMaterial3D.new()
 			lit.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 			lit.albedo_color = colour
@@ -722,7 +732,16 @@ const PRINTS_BY_THEME := {
 ## The other stages' paper props, on every stage.
 const PRINTS_PROPS := {"crate": ["wood", 0.4, 1.0], "crate_dark": ["wood", 0.35, 1.0], "bark": ["wood", 0.4, 1.0], "ring_top": ["wood", 0.3, 0.8],
 	"tank": ["wood", 0.35, 1.6], "tank_dark": ["wood", 0.3, 1.6], "metal": ["steel", 0.3, 1.0], "metal_dark": ["steel", 0.3, 1.0],
-	"iron": ["steel", 0.25, 1.0]}
+	"iron": ["steel", 0.25, 1.0],
+	# (The paper houses and the world-building's pieces, the quality pass after the owner's note, 2026-10-21: unprinted, they read as
+	# plastic beside the printed scenery.)
+	"timber": ["wood", 0.4, 1.2], "timber_dark": ["wood", 0.35, 1.2], "trim": ["wood", 0.3, 0.8], "door": ["wood", 0.4, 0.8],
+	"barn": ["wood", 0.4, 1.6], "barn_door": ["wood", 0.35, 1.2], "shutter": ["wood", 0.3, 0.6], "roof": ["roof", 0.4, 2.0],
+	"roof_edge": ["roof", 0.25, 1.0], "deck": ["wood", 0.4, 1.2], "hull": ["wood", 0.3, 1.6], "fish_crate": ["wood", 0.4, 0.8],
+	"stall": ["wood", 0.35, 1.0], "car_a": ["wood", 0.35, 1.4], "car_b": ["wood", 0.35, 1.4], "board_frame": ["wood", 0.3, 1.2],
+	"board_back": ["wood", 0.3, 1.6], "trail": ["path", 0.3, 4.0], "rock": ["stone", 0.35, 2.0], "turf": ["grass", 0.35, 2.0],
+	"engine": ["steel", 0.3, 1.0], "engine_dark": ["steel", 0.25, 1.0], "steel": ["steel", 0.3, 1.5], "bus": ["steel", 0.2, 1.4],
+	"gate_red": ["wood", 0.3, 1.2], "gate_dark": ["wood", 0.3, 1.2], "far_trunk": ["wood", 0.35, 2.0]}
 static var _print_tex := {}
 
 
