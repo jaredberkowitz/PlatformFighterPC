@@ -2428,6 +2428,12 @@ pub struct Ruleset {
     pub push_ratio: Fx,
     pub push_hard: Fx,
     pub push_speed: Fx,
+    /// Whether bodies push each other when either of them is in the air (1: sims 67 to 145, a fighter could not drift, jump or fall
+    /// through another) or only when both stand on the ground (0, the standard since sim 146 after a playtest: the reference's jostle
+    /// holds fighters apart on the ground only, so a short hop crosses over a standing opponent and fighters pass in the air; landing
+    /// inside someone eases apart along the ground). With 1 even the soft edge alone (both moved `push_speed` a frame) cancelled a
+    /// short hop's drift, so no short hop out of a stand crossed a standing opponent.
+    pub air_push: u8,
     /// A jump leaves the ground with `jump_momentum` of the ground speed, at most `jump_momentum_max` times the fighter's air speed
     /// (the reference game's jump speed multiplier and cap; the values are estimates).
     pub jump_momentum: Fx,
@@ -2757,6 +2763,7 @@ impl Ruleset {
             push_ratio: Fx::from_ratio(3, 5),
             push_hard: Fx::from_ratio(7, 10),
             push_speed: Fx::from_ratio(3, 40),
+            air_push: 0,
             jump_momentum: Fx::from_ratio(17, 20),
             jump_momentum_max: Fx::from_ratio(5, 4),
             jump_stick_share: 2,
@@ -2939,6 +2946,7 @@ impl StateHash for Ruleset {
         self.push_ratio.hash_into(h);
         self.push_hard.hash_into(h);
         self.push_speed.hash_into(h);
+        h.write_u8(self.air_push);
         self.jump_momentum.hash_into(h);
         self.jump_momentum_max.hash_into(h);
         h.write_u8(self.jump_stick_share);
@@ -3335,6 +3343,7 @@ mod tests {
             |r: &mut Ruleset| r.push_ratio += Fx::from_raw(1),
             |r: &mut Ruleset| r.push_hard += Fx::from_raw(1),
             |r: &mut Ruleset| r.push_speed += Fx::from_raw(1),
+            |r: &mut Ruleset| r.air_push ^= 1,
             |r: &mut Ruleset| r.jump_momentum += Fx::from_raw(1),
             |r: &mut Ruleset| r.jump_momentum_max += Fx::from_raw(1),
             |r: &mut Ruleset| r.jump_stick_share ^= 3,

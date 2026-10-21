@@ -292,10 +292,14 @@ lag; `reference_moves.rs` checks the windows.)
 from it with the stick still held that way goes straight back into the run when the landing ends (`exit_landing`), instead of standing.
 Let go, or a jump from standing, and the landing ends standing (or walking, stick held) as before. A hit, a ledge or anything else done on
 the ground forgets it. Tests: `sim-core/tests/landing_buffer.rs`.
-**Bodies in the air** (sim 67): fighters cannot drift, jump or fall through each other in the air any more than they can walk through
-each other on the ground (`push.rs`): bodies that overlap in height as well as side to side are pushed apart sideways, stopping at walls.
-An air dodge passes through, as do an aerial attack (multi-hit aerials and drag-downs need the overlap), anyone hanging on a ledge, and the
-ground's exemptions (intangible, hit, held, rolling). Tests: `sim-core/tests/air_bodies.rs`.
+**Bodies in the air** (sim 67, undone in sim 146): from sim 67 fighters could not drift, jump or fall through each other in the air.
+A playtest found short hops could not cross a standing opponent: a short hop peaks below a body's height (the Longsword's 16.3 reference
+units under 17.6), and even the soft edge alone, pushing both apart 0.6 units a frame, cancelled a hop's drift of about 1.2; from a stand
+only the rogue and the scamp got over. The reference's jostle holds fighters apart on the ground only (ssbwiki `Jostle`: grounded fighters
+"can no longer walk or run past each other"; nothing pushes in the air), so since sim 146 only two fighters both on the ground push
+(the ruleset's `air_push` 0; 1 restores the sim 67 rule): every fighter's short and full hop, from a stand or a dash, now crosses a
+standing mirror without shoving it, fighters pass in the air, and one landing inside another eases apart along the ground. Tests:
+`sim-core/tests/air_bodies.rs`.
 
 **Dashes buffered from the air and out of throws** (sims 79, 82 and 93; `keeps_dash` and `Fighter::dash_buffer` in `fighter.rs`): a dash
 flicked during lag is kept, as long as the stick stays pushed that way, and comes out on the first frame the fighter can act. That lag is a
