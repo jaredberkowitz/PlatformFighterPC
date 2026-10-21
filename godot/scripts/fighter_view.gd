@@ -3996,6 +3996,11 @@ func _aim_leg(s: Dictionary, kicking: bool, delta: float) -> void:
 # none.
 
 const ARC_FADE := 3
+## How much of the swing the arc shows behind its head (degrees), how thick it is (a share of its radius), and the most the hitboxes may
+## grow its radius past the authored circle's. (After the reference game's sword trails, the owner, 2026-10-21.)
+const ARC_TAIL_DEGREES := 110.0
+const ARC_WIDTH := 0.22
+const ARC_MAX_GROW := 1.15
 ## The highest a sword arm points (degrees above forward) when the blade goes up overhead.
 const HIGH_BLADE_ARM := 80.0
 ## How see-through the swing arcs and smears are: painted, but a trail of light, not a solid shape (the fighter shows through it).
@@ -4114,7 +4119,8 @@ func _arc_now(s: Dictionary, tip: Vector2) -> Dictionary:
 		var edge := _hit_edge(s, centre)
 		if not edge.is_empty():
 			# The arc reaches the hitboxes' outer edge (the furthest yet in this swing), and its head is where that edge is.
-			r = maxf(r, float(edge[1]))
+			# (No further than a little past the authored circle, so one far hitbox never makes a giant arc.)
+			r = minf(maxf(r, float(edge[1])), float(_arc_circle(w)[1]) * ARC_MAX_GROW)
 			var from := deg_to_rad(float(w[3]))
 			var span := deg_to_rad(float(w[4])) - from
 			var d := wrapf((float(edge[0]) - from) * signf(span), -PI, PI)
@@ -4127,8 +4133,9 @@ func _arc_now(s: Dictionary, tip: Vector2) -> Dictionary:
 	return out
 
 
-## The live hitboxes' outer edge as seen from `centre` (forward space): [angle, distance] of the point of the hitbox reaching furthest
-## from it, or empty when no hitbox is live.
+## Where the live hitboxes reach as seen from `centre` (forward space): [angle, distance] of the furthest hitbox's middle (on a sword,
+## the tip), or empty when no hitbox is live. (Its middle, not its outer edge: the reference game's trail follows the blade's tip, and
+## the hitboxes reach well past it; at their outer edge the arcs were far too big, the owner, 2026-10-21.)
 func _hit_edge(s: Dictionary, centre: Vector2) -> Array:
 	var hits: PackedFloat32Array = s.get("hits", PackedFloat32Array())
 	var pos: Vector2 = s.get("pos", Vector2.ZERO)
@@ -4137,7 +4144,7 @@ func _hit_edge(s: Dictionary, centre: Vector2) -> Array:
 	var ang := 0.0
 	for k in range(0, hits.size(), 4):
 		var rel := Vector2((hits[k] - pos.x) * facing, hits[k + 1] - pos.y) - centre
-		var reach := rel.length() + hits[k + 2]
+		var reach := rel.length()
 		if reach > best:
 			best = reach
 			ang = rel.angle()
@@ -4188,14 +4195,20 @@ func _draw_arc() -> void:
 	var q := clampf(float(arc_shown.q), 0.0, 1.0)
 	# The fading arc is eaten from the tail toward the head.
 	var head := lerpf(deg_to_rad(float(w[3])), deg_to_rad(float(w[4])), float(arc_shown.k))
-	var tail := lerpf(deg_to_rad(float(w[3])), head, q * 0.75)
+	# Only the last stretch of the swing shows, a comet's tail behind the head (the reference game's trail never shows the whole sweep
+	# at once), eaten from the tail toward the head as it fades.
+	var start := deg_to_rad(float(w[3]))
+	var swept := head - start
+	start = head - signf(swept) * minf(absf(swept), deg_to_rad(ARC_TAIL_DEGREES))
+	var tail := lerpf(start, head, q * 0.75)
 	if absf(head - tail) < 0.03:
 		return
 	var circle := _arc_circle(w)
 	var centre: Vector2 = circle[0]
 	var r: float = _arc_radius(arc_shown)
 	# (As thick as the authored circle's arc, however far the hitboxes reach: at the hitboxes' radius a smash's arc was a slab.)
-	var width := float(circle[1]) * 0.34 * (1.0 - 0.35 * q)
+	# (0.22 of the radius: the reference's trail is a thin bright sliver; at 0.34 ours read as a heavy blade of its own.)
+	var width := float(circle[1]) * ARC_WIDTH * (1.0 - 0.35 * q)
 	var alpha := 1.0 - q
 	var colours := trail_colours_of(int(arc_shown.cls))
 	# Painted as the knock-out blast is (effects.gd `Beam`): layers of solid paint back to front, an ink silhouette round the whole
