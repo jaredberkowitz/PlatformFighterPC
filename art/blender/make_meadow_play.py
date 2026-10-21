@@ -106,7 +106,8 @@ def lawn(rng):
         box(x0, x1, top - 0.15, top, zb, zf, "lawn", "card", "lawn_under")
         # The ground row: a standing card in front of the lawn's edge, cut in grass scallops, never above the walking surface.
         scallops(x0 - 0.2, x1 + 0.2, top - 0.02, top - 1.4, zf + 0.35, "fringe", 0.55, up=True)
-    path_strip(BLOCK[0] + 0.2, BLOCK[1] - 0.2, FZ - 1.9, 1.1, rng)
+    # (Nearer the painted path's width: at 1.1 either side, in the pilot's build, it took a third of the lawn and paled it.)
+    path_strip(BLOCK[0] + 0.2, BLOCK[1] - 0.2, FZ - 1.9, 0.7, rng)
 
 
 def platform(r, rng):

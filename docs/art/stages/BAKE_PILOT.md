@@ -471,3 +471,15 @@ exact layout (`StageBake.PLAYS`). Each stage's palette sets its paper finish (gr
 **Result** (round 71, `<stage>_play_built.png`: match camera and fighters in play, before above after): every play area reads as
 paper card with the backgrounds, and the fighters keep their contact shadows. Cheaper on every stage (draw calls before → after): grove
 813 → 482, canyon 907 → 570, beach 738 → 732, city 899 → 787; GPU time the same or lower. **Tests:** all seven pass.
+
+## Readability pass (2026-10-20, review 2's idea 4)
+
+Fighters measured against what is behind and under them in play (the orange fighter's body is about 0.52):
+- **Canyon:** the play area's sand is a step paler and cooler (`place_play`, sunset `top`). Its saturation went from 0.46 to 0.34, value
+  0.76 to 0.80, hue 32 to 30 against the fighter's 20, so the orange fighter no longer stands on sand of its own hue. The buttes are a
+  step deeper (`rock_a/b/c`).
+- **Grove:** the paper terraces' cliffs are deeper (`cliff` 0.1, 0.24, 0.23) with fainter pale edges. Behind the fighters they went from
+  0.50–0.52 to 0.46; the distance air lifts them, so more would blacken the grove's distance.
+- **Meadow:** the inlaid path is narrower (0.7 either side of the play line, was 1.1). The lawn's saturation went from 0.38 to 0.43.
+
+Before/after (fighters in play, before above after): `readability_pass.png`. **Tests:** all seven pass.

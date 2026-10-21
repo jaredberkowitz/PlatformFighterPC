@@ -424,6 +424,9 @@ static func place_play(root: Node3D, t: Dictionary, path: String) -> void:
 	var fringe: Color = grass.lightened(0.08)
 	match String(t.get("name", "")):
 		"sunset":
+			# (A step paler and cooler than the stage's sand, the readability pass: the orange fighter stood on sand of its own hue,
+			# apart by value alone.)
+			top = grass.lerp(Color(0.98, 0.93, 0.82), 0.35)
 			layer1 = soil
 			layer2 = soil_dark.darkened(0.12)
 			fringe = soil
@@ -549,7 +552,8 @@ static func _ground_colours(t: Dictionary) -> Dictionary:
 	land = Color(0.44, 0.7, 0.3)
 	var fields: Array = bd.get("fields", [])
 	var pines: Array = bd.get("pine_greens", [Color(0.2, 0.36, 0.28)])
-	var out := {"grass": land, "grass_far": Color(0.38, 0.62, 0.36), "cliff": Color(0.16, 0.36, 0.32),
+	# (The cliffs a step deeper, the readability pass: the grove's paper terraces right behind the fighters measured their value.)
+	var out := {"grass": land, "grass_far": Color(0.38, 0.62, 0.36), "cliff": Color(0.1, 0.24, 0.23),
 		"earth": Color(0.24, 0.2, 0.18), "rock": Color(0.48, 0.55, 0.44), "root": Color(0.46, 0.37, 0.3), "bark": Color(0.46, 0.37, 0.3),
 		"leaf_lit": Color(0.46, 0.74, 0.36), "leaf_shade": Color(0.2, 0.46, 0.3), "moss": (t.get("grass", Color(0.5, 0.8, 0.3)) as Color).darkened(0.12),
 		"fern": Color(0.36, 0.66, 0.34), "fern_shade": Color(0.18, 0.42, 0.26),
@@ -573,17 +577,19 @@ static func _ground_colours(t: Dictionary) -> Dictionary:
 	out["range_near"] = Color(0.46, 0.4, 0.72)
 	# (The canyon's paper, art/blender/make_canyon_paper.py: its strata as the modelled front has them, and the dunes' sands.)
 	var soil: Color = t.get("soil", Color(0.86, 0.5, 0.32))
-	out["rock_a"] = soil
-	out["rock_b"] = (t.get("soil_dark", Color(0.68, 0.34, 0.24)) as Color).darkened(0.12)
+	# (A step deeper, the readability pass: the butte behind the fight measured the fighters' own value.)
+	out["rock_a"] = soil.darkened(0.12)
+	out["rock_b"] = (t.get("soil_dark", Color(0.68, 0.34, 0.24)) as Color).darkened(0.22)
 	# (A step paler, not the front's 0.6: in thin plates the pale bands striped the arch like candy.)
-	out["rock_c"] = soil.lerp(Color(1.0, 0.86, 0.66), 0.35)
+	out["rock_c"] = soil.lerp(Color(1.0, 0.86, 0.66), 0.35).darkened(0.08)
 	# (Deeper and rosier than the painted dunes' sands: as flats they take the full air of their depth and faded into the horizon.)
 	out["dune_far"] = Color(0.9, 0.6, 0.5)
 	out["dune_near"] = Color(0.92, 0.58, 0.42)
 	for fam in ["rock_a", "rock_b", "rock_c", "dune_far", "dune_near"]:
 		out["card_" + fam] = (out[fam] as Color).darkened(0.1)
 	for fam in ["range_far", "range_near", "cliff", "grass", "grass_far"]:
-		out["card_" + fam] = (out[fam] as Color).darkened(0.12) if fam.begins_with("range") else (out[fam] as Color).lerp(Color(0.92, 0.93, 0.86), 0.18)
+		var pale := 0.04 if fam == "cliff" else 0.18
+		out["card_" + fam] = (out[fam] as Color).darkened(0.12) if fam.begins_with("range") else (out[fam] as Color).lerp(Color(0.92, 0.93, 0.86), pale)
 	for fam in ["sand", "isle_green", "head_near", "head_far"]:
 		# (The sand's edge a pale step; the green land's a shade under its top: far off, the camera sees the cut edges more than the tops,
 		# and in a pale step the headland read as a mint wedding cake.)
