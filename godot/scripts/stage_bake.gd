@@ -399,6 +399,45 @@ static func place_front(root: Node3D, t: Dictionary, scene: Node3D) -> void:
 		mi.set_meta("prebaked", true)
 
 
+## A modelled play area to try (`--play-mock=<glb>`, art/blender/make_meadow_play.py, the paper pilot): the stage's top and its
+## platforms as paper card, placed in world space, each family painted from the palette with the scenery's toon material and the model's
+## own baked occlusion.
+static func place_play(root: Node3D, t: Dictionary, path: String) -> void:
+	var scene := _scene_from(path)
+	if scene == null:
+		push_warning("play mock %s could not be read" % path)
+		return
+	var grass: Color = t.get("grass", Color(0.5, 0.8, 0.3))
+	var wood: Color = t.get("wood", Color(0.86, 0.62, 0.36))
+	var path_c: Color = t.get("path_colour", Color(0.94, 0.9, 0.74))
+	var colours := {"lawn": grass, "lawn_under": grass.darkened(0.3), "path": path_c, "card": grass.lerp(Color(0.97, 0.96, 0.86), 0.45),
+		"soil": t.get("soil", Color(0.76, 0.56, 0.36)), "stone": Color(0.66, 0.64, 0.6), "fringe": grass.lightened(0.08),
+		"plank": wood, "plank_b": wood.darkened(0.1), "plank_card": wood.lerp(Color(0.98, 0.94, 0.84), 0.45), "rope": Color(0.78, 0.64, 0.42),
+		"shadow": Color(0.1, 0.12, 0.08)}
+	scene.name = "ModelledPlay"
+	root.add_child(scene)
+	for mi: MeshInstance3D in scene.find_children("*", "MeshInstance3D", true, false):
+		for s in mi.mesh.get_surface_count():
+			var src := mi.mesh.surface_get_material(s)
+			var fam := src.resource_name if src != null else "lawn"
+			if fam == "shadow":
+				var sh := StandardMaterial3D.new()
+				sh.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+				sh.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+				sh.albedo_color = Color(0.08, 0.1, 0.06, 0.35)
+				mi.set_surface_override_material(s, sh)
+				continue
+			var m := (FighterView.toon(colours.get(fam, Color(0.6, 0.6, 0.6)), false) as ShaderMaterial).duplicate() as ShaderMaterial
+			# (No facets: every piece is flat, and on the lawn's top the normal rebuilt from screen derivatives turned over, so it lit as an
+			# underside and the fighters' contact shadows, which only fall on what faces up, vanished.)
+			m.set_shader_parameter("facets", false)
+			m.set_shader_parameter("vertex_shade", true)
+			m.set_shader_parameter("ramp_softness", 0.12)
+			mi.set_surface_override_material(s, m)
+		mi.set_meta("prebaked", true)
+	print("play mock: placed %s" % path.get_file())
+
+
 ## The theme's modelled tree: a glTF path to try (`--tree-mock=<glb>`), the shipped model (`TREES`), or null (none, or `--no-trees`).
 static func tree_source(theme_name: String) -> Variant:
 	var mock := tree_mock_path()

@@ -1,6 +1,9 @@
 // The soft cel material's body, shared by toon.gdshader (one-sided) and toon_cloth.gdshader (two-sided).
 
 global uniform vec4 pf_paint_warm;
+// The paper finish on the scenery (scripts/lighting.gd `paper_finish`; the stage refinement's paper pilot): x a fine fibre grain, y a
+// slight wobble of colour from sheet to sheet, z a pale cut edge where a surface turns away from the eye. Never on fighters; off is 0.
+global uniform vec4 pf_paper_finish;
 global uniform vec4 pf_paint_cool;
 global uniform float pf_paint_amount;
 uniform vec4 albedo : source_color = vec4(1.0);
@@ -311,6 +314,21 @@ void fragment() {
 		* (1.0 - smoothstep(25.0, 55.0, -world_pos.z)));
 	// (And the platforms' cast shadow on the ground under them, `pf_stage_sun`; not on fighters either.)
 	pf_sun *= mix(1.0, pf_stage_sun(world_pos, world_normal), 1.0 - fighter);
+	if (fighter < 0.5 && pf_paper_finish.x + pf_paper_finish.y + pf_paper_finish.z > 0.0) {
+		// Fibre: fine grain stretched along the sheet, on whichever plane the surface lies.
+		vec2 fp = abs(world_normal.y) > 0.5 ? world_pos.xz : (abs(world_normal.x) > 0.6 ? world_pos.zy : world_pos.xy);
+		float fib = brush_noise(fp * vec2(7.0, 26.0)) * 0.6 + brush_noise(fp * vec2(19.0, 57.0)) * 0.4;
+		c *= 1.0 + pf_paper_finish.x * 0.22 * (fib - 0.5);
+		// Sheet to sheet: each piece a touch lighter or darker and warmer or cooler, broad across the merged meshes.
+		float sheet = fract(sin(dot(NODE_POSITION_WORLD, vec3(12.9898, 78.233, 37.719))) * 43758.5453);
+		float broad = brush_noise(world_pos.xy * 0.11 + world_pos.zz * 0.07);
+		float w = (sheet - 0.5) * 0.6 + (broad - 0.5);
+		c *= 1.0 + pf_paper_finish.y * 0.14 * w;
+		c *= mix(vec3(1.0), vec3(1.02, 1.0, 0.97), pf_paper_finish.y * clamp(w + 0.5, 0.0, 1.0));
+		// The cut edge: where the surface turns away from the eye, a pale card edge.
+		float rim = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 5.0);
+		c = mix(c, c * 0.4 + vec3(0.56, 0.54, 0.5), rim * pf_paper_finish.z * 0.55);
+	}
 	if (facets) {
 		NORMAL = normalize(cross(dFdx(VERTEX), dFdy(VERTEX)));
 	}

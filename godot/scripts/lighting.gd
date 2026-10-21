@@ -131,9 +131,19 @@ static var _ramps := {}
 static var paper := OS.get_cmdline_user_args().has("--look=paper")
 
 
+## The paper finish on the scenery under trial (the stage refinement's paper pilot, 2026-10-20; not the retired `paper` look above: the
+## ink and the light stay): `--paper-finish=A|B|C` for the pilot's captures, [fibre grain, sheet wobble, cut-edge rim]. Off by default.
+static func paper_finish() -> Vector4:
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("--paper-finish="):
+			return {"A": Vector4(0.6, 0.5, 0.0, 0.0), "B": Vector4(0.6, 0.5, 0.6, 0.0), "C": Vector4(1.0, 0.8, 0.9, 0.0)}.get(a.substr(15), Vector4.ZERO)
+	return Vector4.ZERO
+
+
 ## Applies `paper` to the globals, the environment and the finishing pass `post` (if any).
 static func apply_paper(env: Environment, post: ShaderMaterial, base_lines: float) -> void:
 	RenderingServer.global_shader_parameter_set("pf_paper", 1.0 if paper else 0.0)
+	RenderingServer.global_shader_parameter_set("pf_paper_finish", paper_finish())
 	if env != null:
 		# (Soft occlusion where things meet in the current look too, gentler than the paper look's, the gauntlet's round 20: the wall's
 		# joints, the boards' gaps, under the lawn's lip and round the props' feet read lit flat. Off on Fast.)

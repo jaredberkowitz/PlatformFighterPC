@@ -64,6 +64,10 @@ func build(sim) -> void:
 	var front := StageBake.front_path(bake_key)
 	StageArt.front_modelled = front != "" or StageBake.front_mock_path() != ""
 	StageArt.island_mode = theme.has("quilt")
+	# (A modelled play area to try, `--play-mock=<glb>`, the paper pilot: everything the blocks and platforms build is marked, and hidden
+	# when the model stands in for it.)
+	var play_mock := StageBake.flag("--play-mock=")
+	var built_from := get_child_count()
 	for i in rects.size():
 		var r: PackedFloat32Array = rects[i]
 		var left := r[0]
@@ -79,6 +83,10 @@ func build(sim) -> void:
 				if o[4] < 0.5 and o != r and is_equal_approx(o[3], top) and o[0] <= left + 0.01 and o[1] >= right - 0.01:
 					exposed = false
 			StageArt.solid_block(self, theme, left, right, top, bottom, FRONT_Z, exposed, float(extent[2]))
+	if play_mock != "":
+		for i in range(built_from, get_child_count()):
+			(get_child(i) as Node3D).visible = false
+		StageBake.place_play(self, theme, play_mock)
 	if front != "":
 		StageBake.hide_code_front(self, theme)
 		StageBake.place_front(self, theme, (load(front) as PackedScene).instantiate())

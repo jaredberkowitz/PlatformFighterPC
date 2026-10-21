@@ -410,3 +410,20 @@ lighter (0.39, was 0.36). Cost: about 899 draw calls against 893, GPU the same (
 
 With this, every stage has its background in paper: the meadow (layers), the beach (pop-up), the grove (card terraces), the canyon (card
 stacks) and the city (die-cut cards).
+
+## The meadow pilot: paper play area and the paper finish, mocks (2026-10-20)
+
+Ideas 1 and 2 of `FIDELITY_REVIEW_2.md` on the meadow.
+- **Paper finish:** `pf_paper_finish` (a shader global, [fibre grain, sheet wobble, cut-edge rim]) in `toon_common.gdshaderinc`, on
+  scenery only (the shader's `fighter` flag), off by default; `--paper-finish=A|B|C` for the captures (`Lighting.paper_finish`). It is
+  not the retired paper look: ink and light are untouched.
+- **Paper play area:** `--play-mock=<glb>` (`StageView`): everything the blocks and platforms build is hidden and the model placed
+  (`StageBake.place_play`). The builder is `art/blender/make_meadow_play.py --variant A|B|C`, on the manifest's collision, with every
+  walking surface at the sim's height.
+  - A card slab, with finish A: 2,600 triangles.
+  - B layered sheets, with finish B: 5,300 triangles.
+  - C pop-up ground row, with finish C: 2,600 triangles.
+- **First render fixed:** the toon option `facets` rebuilds the normal from screen derivatives. On the lawn's flat top it turned over: the
+  lawn lit as an underside (dull) and the fighters' contact shadow decals, which only fall on what faces up (`normal_fade`), vanished.
+  The play pieces are flat, so they take no facets.
+- **Next:** options in `mocks/meadow_play/` (with a local `review.html`) and on the owner's page; recommended B.
