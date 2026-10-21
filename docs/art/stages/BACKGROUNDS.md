@@ -64,3 +64,13 @@ C with scattered detail and soft shade; then the grove and the canyon. The cloud
   meta, hidden by `StageBake.place_ground` when the ground has `scatter*` pieces). About 22,000 to 25,000 triangles with the buttes. New
   families `sand_a/b/c` and their cut edges, `ripple`, `wash`, `card_wash`, `pebble`, `scrub`, `sand_shade`.
 - Options on the Stage Look Review and `mocks/look/` (`gl_*`, `cf_*`). Recommended: grove B, canyon C.
+
+## Round 2 built (2026-10-21): grove B and canyon C
+
+- **The grove's floating ledges with moss and tufts** (`make_grove_paper.py --variant FB` into `grove_paper.glb`, 22,900 triangles); the
+  grove's ground has no bushes now (`GROUNDS`, the bush path empty: they stood on the old ledge). `grove_bush.glb` stays on disk, unused.
+- **The canyon's floor with the dry wash, paper scrub and stones** (`make_canyon_paper.py --variant DC` into `canyon_paper.glb`, 25,400
+  triangles with the buttes); the code-built scrub and pebbles hidden under it.
+- Both stages re-lit (`--light-export`, then `light_stage.py` on the front, the play area and the ground, curve and reach 2.5). The canyon
+  at 290 fps, the GPU at 2.6 ms.
+- Before and after, wide: `lands_built.jpg`.
