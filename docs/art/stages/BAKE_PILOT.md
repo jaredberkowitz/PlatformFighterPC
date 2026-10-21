@@ -427,3 +427,19 @@ Ideas 1 and 2 of `FIDELITY_REVIEW_2.md` on the meadow.
   lawn lit as an underside (dull) and the fighters' contact shadow decals, which only fall on what faces up (`normal_fade`), vanished.
   The play pieces are flat, so they take no facets.
 - **Next:** options in `mocks/meadow_play/` (with a local `review.html`) and on the owner's page; recommended B.
+
+## The meadow pilot built: B, layered sheets with the paper finish (2026-10-20)
+
+The owner picked B. Shipped as `godot/models/stages/meadow_play.glb` (5,300 triangles) for the exact meadow layout (`StageBake.PLAYS`;
+`--no-play` for comparisons).
+- **Pieces:** the lawn is a green sheet over soil and stone sheets with an inlaid cream path, and the platforms are green sheets over
+  plank card with a scalloped grass fringe. It replaces everything the blocks and platforms built.
+- **Paper finish:** the meadow palette's [backdrop] `paper_finish="B"` turns on grain, wobble and the cut edge for the meadow's scenery
+  (StageView sets the global from it; `--paper-finish=off` for comparisons; other stages stay off).
+- **Test:** `tests/stage_front_test.gd` now checks every `PLAYS` model. Each walkable top must stand at the sim's height (within 0.02)
+  across its span, with nothing poking up out of it.
+
+**Result** (round 70, `meadow_play_built.png`: match camera, wide, fighters in play): the lawn and platforms read as paper with the
+background. The fighters keep their contact shadows. The lawn region measures lighter and less saturated (value 0.67, was 0.63;
+saturation 0.38, was 0.64): the inlaid path is wider than the painted one. Cheaper: 669 draw calls against 770, 0.49 M primitives
+against 0.63 M, GPU 2.1 ms against 2.2 ms (two timings each). **Tests:** all seven pass.

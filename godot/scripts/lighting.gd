@@ -131,13 +131,18 @@ static var _ramps := {}
 static var paper := OS.get_cmdline_user_args().has("--look=paper")
 
 
-## The paper finish on the scenery under trial (the stage refinement's paper pilot, 2026-10-20; not the retired `paper` look above: the
-## ink and the light stay): `--paper-finish=A|B|C` for the pilot's captures, [fibre grain, sheet wobble, cut-edge rim]. Off by default.
+## The paper finish on the scenery (the stage refinement's paper pilot, 2026-10-20; not the retired `paper` look above: the ink and the
+## light stay), [fibre grain, sheet wobble, cut-edge rim]: `--paper-finish=A|B|C|off` on the command line, else the stage's palette
+## (`stage_finish`, set by StageView from [backdrop] `paper_finish`), else off.
+static var stage_finish := ""
+
+
 static func paper_finish() -> Vector4:
+	var look := stage_finish
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--paper-finish="):
-			return {"A": Vector4(0.6, 0.5, 0.0, 0.0), "B": Vector4(0.6, 0.5, 0.6, 0.0), "C": Vector4(1.0, 0.8, 0.9, 0.0)}.get(a.substr(15), Vector4.ZERO)
-	return Vector4.ZERO
+			look = a.substr(15)
+	return {"A": Vector4(0.6, 0.5, 0.0, 0.0), "B": Vector4(0.6, 0.5, 0.6, 0.0), "C": Vector4(1.0, 0.8, 0.9, 0.0)}.get(look, Vector4.ZERO)
 
 
 ## Applies `paper` to the globals, the environment and the finishing pass `post` (if any).

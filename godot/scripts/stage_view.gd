@@ -6,6 +6,7 @@ const FighterView := preload("res://scripts/fighter_view.gd")
 const StageArt := preload("res://scripts/stage_art.gd")
 const StageLight := preload("res://scripts/stage_light.gd")
 const StageBake := preload("res://scripts/stage_bake.gd")
+const Lighting := preload("res://scripts/lighting.gd")
 
 ## Fighters live in the z = 0 plane. Stage geometry is pushed BACK so its front face sits just in front of
 ## that plane. If a block were centred on z = 0, perspective would make its front face look wider than the
@@ -66,7 +67,7 @@ func build(sim) -> void:
 	StageArt.island_mode = theme.has("quilt")
 	# (A modelled play area to try, `--play-mock=<glb>`, the paper pilot: everything the blocks and platforms build is marked, and hidden
 	# when the model stands in for it.)
-	var play_mock := StageBake.flag("--play-mock=")
+	var play_mock := StageBake.play_path(bake_key)
 	var built_from := get_child_count()
 	for i in rects.size():
 		var r: PackedFloat32Array = rects[i]
@@ -87,6 +88,9 @@ func build(sim) -> void:
 		for i in range(built_from, get_child_count()):
 			(get_child(i) as Node3D).visible = false
 		StageBake.place_play(self, theme, play_mock)
+	# The paper finish on the scenery, as this stage's palette asks (`paper_finish`), or the command line's.
+	Lighting.stage_finish = String(StageArt.palette(String(theme.get("name", ""))).get("backdrop", {}).get("paper_finish", ""))
+	RenderingServer.global_shader_parameter_set("pf_paper_finish", Lighting.paper_finish())
 	if front != "":
 		StageBake.hide_code_front(self, theme)
 		StageBake.place_front(self, theme, (load(front) as PackedScene).instantiate())

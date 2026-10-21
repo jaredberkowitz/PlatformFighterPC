@@ -403,7 +403,7 @@ static func place_front(root: Node3D, t: Dictionary, scene: Node3D) -> void:
 ## platforms as paper card, placed in world space, each family painted from the palette with the scenery's toon material and the model's
 ## own baked occlusion.
 static func place_play(root: Node3D, t: Dictionary, path: String) -> void:
-	var scene := _scene_from(path)
+	var scene := _scene_from(load(path) if path.begins_with("res://") else path)
 	if scene == null:
 		push_warning("play mock %s could not be read" % path)
 		return
@@ -436,6 +436,19 @@ static func place_play(root: Node3D, t: Dictionary, path: String) -> void:
 			mi.set_surface_override_material(s, m)
 		mi.set_meta("prebaked", true)
 	print("play mock: placed %s" % path.get_file())
+
+
+## Modelled play areas (the stage's top and its platforms, art/blender/make_meadow_play.py), by the exact stage they were built on.
+const PLAYS := {"meadow_62409190": "res://models/stages/meadow_play.glb"}
+
+
+## The play area to place: `--play-mock=<glb>`, else the shipped model for this exact stage, else "" (none, or `--no-play`).
+static func play_path(bake_key: String) -> String:
+	if flag("--play-mock=") != "":
+		return flag("--play-mock=")
+	if OS.get_cmdline_user_args().has("--no-play") or not PLAYS.has(bake_key) or not ResourceLoader.exists(PLAYS[bake_key]):
+		return ""
+	return PLAYS[bake_key]
 
 
 ## The theme's modelled tree: a glTF path to try (`--tree-mock=<glb>`), the shipped model (`TREES`), or null (none, or `--no-trees`).

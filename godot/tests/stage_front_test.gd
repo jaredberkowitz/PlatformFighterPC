@@ -83,6 +83,38 @@ func _initialize() -> void:
 		check(highest <= top - 0.25, "%s stays under the walkable top: %.2f against %.2f" % [path, highest, top])
 		check(outside == 0, "%s stays within a unit of the blocks' outline: %d of %d points outside %s" % [path, outside, verts, where])
 		check(nearest <= StageArt.STAGE_FRONT + 2.6, "%s stands no further forward than the turf's lip: %.2f" % [path, nearest])
+	# The modelled play areas (StageBake.PLAYS, art/blender/make_meadow_play.py): what fighters walk on is the model now, so every
+	# walkable top must stand at the sim's height across its span, and nothing may poke up out of it where fighters stand.
+	for key in StageBake.PLAYS:
+		var path: String = StageBake.PLAYS[key]
+		check(ResourceLoader.exists(path), "%s exists" % path)
+		check(stages.has(key), "%s is built for one of the sim's stages (%s): rebuild it if the stage changed" % [path, key])
+		if not stages.has(key) or not ResourceLoader.exists(path):
+			continue
+		var model := (load(path) as PackedScene).instantiate() as Node3D
+		var points: Array = []
+		for mi: MeshInstance3D in model.find_children("*", "MeshInstance3D", true, false):
+			for s in mi.mesh.get_surface_count():
+				for v: Vector3 in mi.mesh.surface_get_arrays(s)[Mesh.ARRAY_VERTEX]:
+					points.append(_xf(mi, model) * v)
+		model.free()
+		for r in stages[key]:
+			var depth := 4.0 if r[4] > 0.5 else 8.0
+			var x0: float = r[0] + 0.3
+			var x1: float = r[1] - 0.3
+			var z0 := StageArt.STAGE_FRONT - depth + 0.3
+			var z1 := StageArt.STAGE_FRONT - 0.3
+			var top_here := -INF
+			var poking := 0
+			for w: Vector3 in points:
+				if w.x < x0 or w.x > x1 or w.z < z0 or w.z > z1:
+					continue
+				if w.y <= r[2] + 0.03:
+					top_here = maxf(top_here, w.y)
+				elif w.y < r[2] + 1.5:
+					poking += 1
+			check(absf(top_here - r[2]) <= 0.02, "%s: the walkable top over [%.1f, %.1f] stands at the sim's %.2f: %.2f" % [path, r[0], r[1], r[2], top_here])
+			check(poking == 0, "%s: nothing pokes up out of the walkable top over [%.1f, %.1f]: %d points" % [path, r[0], r[1], poking])
 	sim.free()
 	print("stage front test %s" % ("FAILED" if failed else "PASSED"))
 	quit(1 if failed else 0)
