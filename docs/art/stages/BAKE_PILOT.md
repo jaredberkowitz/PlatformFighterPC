@@ -379,3 +379,20 @@ stacks of thick card plates in the strata, and the dunes are cut-out flats along
 **Result** (round 67, `canyon_paper_built.png`: match camera, wide, fighters in play): the buttes, the arch and the mesa's stacked-slab
 front read as one stacked-card place. The near butte behind the fight reads 0.55 (0.50 before); the sand is unchanged (0.65). Cost: 907
 draw calls against 884, GPU 2.2 ms both ways (two timings each). **Tests:** all seven pass.
+
+## The city's skyline in paper: mocks (2026-10-20)
+
+The towers are not props: each skyline layer is one procedurally built mesh whose windows, signs and billboards a facade shader paints.
+Rebuilt in Blender they would lose all of that, so the paper looks are made in Godot (`--paper-sky=A|B|C` on the stage demo; unchanged
+without it).
+- **How:** `_paper_skyline` squashes each building into a standing card at its own stagger in depth. `_paper_edges` traces each card's
+  silhouette from its own vertices (the highest in each half-unit, gaps filled) for a pale die-cut edge and a soft shadow behind it.
+  The street (road, shops, lamps, cars) stays: it is built detail at the fight's foot.
+- **Looks:**
+  - A die-cut: thin staggered cards with a pale edge.
+  - B shadowed: one flat card per layer, each tower shadowed.
+  - C both: thicker staggered board with the edge and the shadow.
+- **First renders fixed:** squashed alone, the cards looked exactly like the boxes from the match camera. The edge and the shadow are
+  what read as paper. The edge cards were wound the wrong way (culled), and C's lean pushed the crowns behind their own edge, so it was
+  dropped.
+- **Next:** options in `mocks/city_paper/` (with a local `review.html`) and on the owner's page; recommended C.

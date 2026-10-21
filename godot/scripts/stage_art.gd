@@ -5675,6 +5675,7 @@ static func _skyline_layer(root: Node3D, rng: RandomNumberGenerator, layer: int,
 	# (On the nearest layer, on a low building, the owner's city plan step 4, 2026-10-19: on the middle layer nearer towers hid them.)
 	var billboard_at := [-26.0, 24.0] if layer == 0 else []
 	var billboard_best := {}
+	var cards: Array = []
 	var x := -120.0
 	while x < 120.0:
 		var w := rng.randf_range(6.0, 13.0)
@@ -5694,6 +5695,10 @@ static func _skyline_layer(root: Node3D, rng: RandomNumberGenerator, layer: int,
 			w *= 1.2
 		var lo := Vector3(x, street, z - depth / 2.0)
 		var hi := Vector3(x + w, street + h, z + depth / 2.0)
+		# (Its span and its own stagger in depth, for the paper looks, `_paper_skyline`; its own numbers.)
+		var stagger := RandomNumberGenerator.new()
+		stagger.seed = hash(Vector2i(roundi(x * 10.0), layer)) + 11
+		cards.append([x - 0.4, x + w + 0.4, stagger.randf_range(-1.0, 1.0), street + h])
 		_facade_box(st, lo, hi, seed, false, h, btype == 2)
 		# The roofline: a cornice lip a little proud all round, and on some taller buildings a narrower setback storey or two above it,
 		# so the skyline's silhouette steps instead of being a row of plain boxes. (Its own random numbers, so the layout is unchanged.)
@@ -5819,15 +5824,104 @@ static func _skyline_layer(root: Node3D, rng: RandomNumberGenerator, layer: int,
 	m.set_shader_parameter("cell", [Vector2(1.5, 1.95), Vector2(1.15, 1.5), Vector2(0.9, 1.2)][layer])
 	m.set_shader_parameter("pane", [Vector2(0.56, 0.78), Vector2(0.44, 0.62), Vector2(0.36, 0.5)][layer])
 	var mi := MeshInstance3D.new()
-	mi.mesh = st.commit()
+	mi.mesh = _paper_skyline(st.commit(), cards, z, layer)
 	mi.material_override = m
 	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	mi.name = "skyline_%d" % layer
 	root.add_child(mi)
+	_paper_edges(root, mi.mesh, cards, z, layer, shade, street)
 
 
 ## A box from `lo` to `hi` into `st` for the facade shader: its front and sides as walls (windows unless `plain`), its top plain. Each
 ## face's UV runs in world units across it and up from the street; UV2 holds the face's width and the building's height `h`.
+## The skyline as paper (`--paper-sky=A|B|C` on the stage demo, the stage refinement's paper pass): each building squashed into a
+## standing card, its printed windows and signs kept. A: thin cards, each staggered in depth by its own amount, as a pop-up book's;
+## B: one flat card per layer, every building on the same plane; C: thicker board, staggered. `cards` [left, right, stagger (-1 to 1), top] per building; `z` the layer's middle. Unchanged without the flag.
+static func _paper_skyline(mesh: ArrayMesh, cards: Array, z: float, layer: int) -> ArrayMesh:
+	var look := ""
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("--paper-sky="):
+			look = a.substr(12)
+	if look == "":
+		return mesh
+	var thin: float = {"A": 0.1, "B": 0.08, "C": 0.22}.get(look, 0.1)
+	var spread: float = {"A": 3.0, "B": 0.0, "C": 2.4}.get(look, 3.0) * (1.0 - 0.25 * float(layer))
+	var out := ArrayMesh.new()
+	for si in mesh.get_surface_count():
+		var arr := mesh.surface_get_arrays(si)
+		var verts: PackedVector3Array = arr[Mesh.ARRAY_VERTEX]
+		for i in verts.size():
+			var v := verts[i]
+			var dz := 0.0
+			for c in cards:
+				if v.x >= float(c[0]) and v.x <= float(c[1]):
+					dz = float(c[2]) * spread
+					break
+			verts[i] = Vector3(v.x, v.y, z + dz + (v.z - z) * thin)
+		arr[Mesh.ARRAY_VERTEX] = verts
+		out.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr)
+	return out
+
+
+## The paper looks' cut: behind each building's card, its own silhouette a little larger as the card's pale die-cut edge (A, C), and a
+## soft shadow of it down and to the right (B, C), so the cards read as paper standing apart. Traced from the card's own vertices: the
+## highest in each half-unit across it, the gaps between corners filled in.
+static func _paper_edges(root: Node3D, mesh: ArrayMesh, cards: Array, z: float, layer: int, shade: Color, street: float) -> void:
+	var look := ""
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("--paper-sky="):
+			look = a.substr(12)
+	if look == "":
+		return
+	var thin: float = {"A": 0.1, "B": 0.08, "C": 0.22}.get(look, 0.1)
+	var spread: float = {"A": 3.0, "B": 0.0, "C": 2.4}.get(look, 3.0) * (1.0 - 0.25 * float(layer))
+	var tops := {}
+	for si in mesh.get_surface_count():
+		for v: Vector3 in (mesh.surface_get_arrays(si)[Mesh.ARRAY_VERTEX] as PackedVector3Array):
+			var b := floori(v.x * 2.0)
+			tops[b] = maxf(float(tops.get(b, -INF)), v.y)
+	var edge := StandardMaterial3D.new()
+	edge.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	edge.albedo_color = shade.lerp(Color(0.92, 0.86, 0.96), 0.55)
+	var dark := StandardMaterial3D.new()
+	dark.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	dark.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	dark.albedo_color = Color(0.08, 0.03, 0.14, 0.45)
+	var pad := 0.35
+	for c in cards:
+		var x0 := float(c[0]) + 0.4
+		var x1 := float(c[1]) - 0.4
+		var back := z + float(c[2]) * spread - 2.5 * thin
+		# The card's top across it, the gaps between corners filled from the nearest found on each side.
+		var cols: Array = []
+		var last := float(c[3])
+		var b := floori(x0 * 2.0)
+		while float(b) * 0.5 <= x1:
+			if tops.has(b):
+				last = float(tops[b])
+			cols.append([float(b) * 0.5, maxf(last, float(c[3]) - 0.4)])
+			b += 1
+		for kind in (["edge"] if look == "A" else ["shadow"] if look == "B" else ["edge", "shadow"]):
+			var st := SurfaceTool.new()
+			st.begin(Mesh.PRIMITIVE_TRIANGLES)
+			st.set_normal(Vector3(0, 0, 1))
+			var off := Vector3(0, 0, -0.05) if kind == "edge" else Vector3(0.6, -0.6, -0.1)
+			var grow := pad if kind == "edge" else 0.0
+			for i in cols.size():
+				var xa: float = cols[i][0] - (grow if i == 0 else 0.0)
+				var xb: float = (cols[i][0] + 0.5) + (grow if i == cols.size() - 1 else 0.0)
+				var yt: float = cols[i][1] + grow
+				var q := [Vector3(xa, street - 1.0, back), Vector3(xb, street - 1.0, back), Vector3(xb, yt, back), Vector3(xa, yt, back)]
+				for idx in [0, 2, 1, 0, 3, 2]:
+					st.add_vertex(q[idx] + off)
+			var e := MeshInstance3D.new()
+			e.mesh = st.commit()
+			e.material_override = edge if kind == "edge" else dark
+			e.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			e.name = "skyline_%s_%d" % [kind, layer]
+			root.add_child(e)
+
+
 static func _facade_box(st: SurfaceTool, lo: Vector3, hi: Vector3, seed: float, plain: bool, h: float, glass := false) -> void:
 	# (Blue 0.3 marks a glass tower's walls for the facade shader; 1 is a neon sign.)
 	var col := Color(seed, 1.0 if plain else 0.0, 0.3 if glass and not plain else 0.0)
