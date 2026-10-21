@@ -134,20 +134,43 @@ def turned(pts, centre, angle):
     return [(centre[0] + x * c + z * s, centre[1] + y, centre[2] - x * s + z * c) for (x, y, z) in pts]
 
 
+
+def loft(sections, fam, name, smooth=True, cap=True):
+    """A skin through `sections` (each a list of game points, all the same count), its ends capped: a lofted hull or body."""
+    bm = bmesh.new()
+    rings = [[bm.verts.new(P(*q)) for q in sec] for sec in sections]
+    n = len(sections[0])
+    for r0, r1 in zip(rings, rings[1:]):
+        for i in range(n - 1):
+            bm.faces.new((r0[i], r0[i + 1], r1[i + 1], r1[i]))
+    if cap:
+        for r in (rings[0], rings[-1]):
+            if len(set(v.co.to_tuple(4) for v in r)) > 2:
+                bm.faces.new(r)
+    return ob(name, bm, fam, smooth=smooth)
+
+
+def scallop(cx, cy, z, rx, ry, lobes, phase, depth=0.16, n=28):
+    """The outline of a rounded, scalloped cut-out (a puff of smoke, a leafy edge) in the front plane."""
+    out = []
+    for k in range(n):
+        a = math.tau * k / n
+        w = 1.0 + depth * math.sin(lobes * a + phase)
+        out.append((cx + rx * w * math.cos(a), cy + ry * w * math.sin(a), z))
+    return out
+
 # ---- Shared pieces -------------------------------------------------------------------------------------------------------------------
 
 
 def smoke(at, n=5, size=0.6, rng=None):
-    """Chimney smoke as rolled paper puffs rising and drifting, smaller and paler up the column (each puff its own part, so the column
-    can curl: `move_smoke`)."""
+    """Chimney smoke as cut-card puffs, scalloped and thick, rising and drifting, larger up the column (each puff its own part, so the
+    column can curl: `move_smoke`). (Faceted balls read as low-poly rock beside the paper clouds.)"""
     rng = rng or random.Random(5)
     for k in range(n):
         t = k / max(1, n - 1)
-        c = Vector(at) + Vector((t * 1.6 + rng.uniform(-0.2, 0.2), k * size * 1.3, 0.0))
+        c = Vector(at) + Vector((t * 1.6 + rng.uniform(-0.2, 0.2), k * size * 1.3, 0.02 * k))
         r = size * (0.7 + 0.6 * t)
-        bm = bmesh.new()
-        bmesh.ops.create_icosphere(bm, subdivisions=1, radius=r, matrix=Matrix.Translation(P(*c)))
-        ob("smoke", bm, "smoke")
+        card(scallop(c.x, c.y, c.z, r, r * 0.86, rng.choice((3, 4)), rng.uniform(0.0, math.tau)), "smoke", "smoke", thick=0.3 * r)
 
 
 def smoke_column(at, n=5, size=0.6, rng=None):
@@ -156,13 +179,20 @@ def smoke_column(at, n=5, size=0.6, rng=None):
 
 
 def figure(at, height, fam, rng, turn=0.0):
-    """A townsperson as a paper standee: a rounded body card, a head disc, facing the camera."""
+    """A townsperson as a layered paper doll, as chibi as the fighters: legs, a coat with its arms, a big round head with a cap of hair,
+    each its own thin card one layer in front of the last."""
     x, y, z = at
     h = height
-    body = [(x - 0.22 * h, y, z), (x + 0.22 * h, y, z), (x + 0.18 * h, y + 0.62 * h, z), (x - 0.18 * h, y + 0.62 * h, z)]
-    card(body, fam, "figure")
-    head = [(x + 0.13 * h * math.cos(math.tau * i / 10), y + 0.8 * h + 0.13 * h * math.sin(math.tau * i / 10), z + 0.01) for i in range(10)]
-    card(head, "skin", "head")
+    for lx in (-0.08, 0.08):
+        card([(x + lx - 0.055 * h, y, z), (x + lx + 0.055 * h, y, z), (x + lx + 0.05 * h, y + 0.24 * h, z), (x + lx - 0.05 * h, y + 0.24 * h, z)],
+             "trousers", "figure_legs", thick=0.04)
+    coat = [(x - 0.2 * h, y + 0.2 * h, z + 0.01), (x + 0.2 * h, y + 0.2 * h, z + 0.01), (x + 0.24 * h, y + 0.34 * h, z + 0.01),
+            (x + 0.17 * h, y + 0.36 * h, z + 0.01), (x + 0.15 * h, y + 0.56 * h, z + 0.01), (x - 0.15 * h, y + 0.56 * h, z + 0.01),
+            (x - 0.17 * h, y + 0.36 * h, z + 0.01), (x - 0.24 * h, y + 0.34 * h, z + 0.01)]
+    card(coat, fam, "figure", thick=0.05)
+    card(scallop(x, y + 0.76 * h, z + 0.02, 0.2 * h, 0.19 * h, 0, 0.0, depth=0.0, n=18), "skin", "head", thick=0.05)
+    hair = [(x + 0.205 * h * math.cos(a), y + 0.79 * h + 0.2 * h * math.sin(a), z + 0.03) for a in [math.pi * k / 12 for k in range(13)]]
+    card(hair, "hair", "hair", thick=0.03)
 
 
 # ---- The beach -----------------------------------------------------------------------------------------------------------------------
@@ -178,27 +208,59 @@ def walk_at(t):
 
 
 def fishing_boat(at, angle):
-    """A small fishing boat of scored card: a hull with a raked bow, a wheelhouse, a mast with a furled sail and a boom."""
-    hull = [(-2.6, 0.0, 0.0), (2.2, 0.0, 0.0), (3.0, 1.2, 0.0), (-2.8, 1.1, 0.0)]
-    for side in (-0.8, 0.8):
-        card(turned([(x, y + at[1] - 0.4, side) for (x, y, _z) in hull], (at[0], 0.0, at[2]), angle), "hull", "hull_side", thick=0.06,
-             normal=(math.sin(angle) * side, 0, math.cos(angle) * side))
-    deck = [(-2.7, 0.9, -0.8), (2.6, 0.9, -0.8), (2.95, 0.9, 0.0), (2.6, 0.9, 0.8), (-2.7, 0.9, 0.8)]
-    card(turned([(x, y + at[1] - 0.4, z) for (x, y, z) in deck], (at[0], 0.0, at[2]), angle), "deck", "deck", thick=0.08, normal=(0, 1, 0))
-    stripe = [(-2.75, 0.55, 0.0), (2.6, 0.55, 0.0), (2.8, 0.8, 0.0), (-2.78, 0.8, 0.0)]
-    for side in (-0.82, 0.82):
-        card(turned([(x, y + at[1] - 0.4, side) for (x, y, _z) in stripe], (at[0], 0.0, at[2]), angle), "hull_stripe", "stripe", thick=0.01,
-             normal=(math.sin(angle) * side, 0, math.cos(angle) * side))
-    wx, wz = at[0] + math.cos(angle) * -0.9, at[2] - math.sin(angle) * -0.9
-    boxg(wx - 0.6, wx + 0.6, at[1] + 0.5, at[1] + 1.8, wz - 0.55, wz + 0.55, "cabin", "wheelhouse")
-    boxg(wx - 0.75, wx + 0.75, at[1] + 1.8, at[1] + 1.95, wz - 0.7, wz + 0.7, "cabin_roof", "roof")
+    """A small fishing boat of card: a lofted hull with a raked bow and a sheer rising to it, a rolled gunwale, a deck, a wheelhouse with
+    windows and an overhanging roof, a life ring, fenders on the side, a mast with a furled sail and a boom."""
+    y0 = at[1] - 0.4
+
+    def hull_points(scale_w, top_lift):
+        secs = []
+        for k in range(9):
+            u = -2.8 + 5.8 * k / 8
+            bow = max(0.0, (u - 1.0) / 2.0)
+            w = 0.9 * scale_w * (1.0 - bow ** 1.6 * 0.92)
+            top = 1.15 + top_lift + 0.4 * max(0.0, u) / 3.0
+            keel = 0.05 + 0.35 * bow ** 2
+            pts = [(u, y0 + top, -w), (u, y0 + 0.55, -w * 0.97), (u, y0 + keel + 0.12, -w * 0.62), (u, y0 + keel, 0.0),
+                   (u, y0 + keel + 0.12, w * 0.62), (u, y0 + 0.55, w * 0.97), (u, y0 + top, w)]
+            secs.append(turned(pts, (at[0], 0.0, at[2]), angle))
+        return secs
+
+    secs = hull_points(1.0, 0.0)
+    loft(secs, "hull", "hull")
+    # The rolled gunwale along each side, and a coloured stripe below it.
+    for i in (0, 6):
+        bm = bmesh.new()
+        for a, b in zip(secs, secs[1:]):
+            kit.tube(bm, P(*a[i]), P(*b[i]), 0.09, segs=6)
+        ob("gunwale", bm, "hull_stripe", smooth=True)
+    stripe = hull_points(1.015, -0.45)
+    loft([[sec[0], sec[1]] for sec in stripe], "hull_stripe", "stripe", cap=False)
+    loft([[sec[5], sec[6]] for sec in stripe], "hull_stripe", "stripe", cap=False)
+    deck = [sec[0] for sec in secs] + [sec[6] for sec in reversed(secs)]
+    card([(q[0], q[1] - 0.12, q[2]) for q in deck], "deck", "deck", thick=0.1, normal=(0, 1, 0))
+    # The wheelhouse: walls, windows, a roof that overhangs, a life ring on its side.
+    c = turned([(-0.9, 0.0, 0.0)], (at[0], 0.0, at[2]), angle)[0]
+    wx, wz = c[0], c[2]
+    boxg(wx - 0.65, wx + 0.65, y0 + 1.0, y0 + 2.45, wz - 0.6, wz + 0.6, "cabin", "wheelhouse")
+    boxg(wx - 0.85, wx + 0.85, y0 + 2.45, y0 + 2.65, wz - 0.8, wz + 0.8, "cabin_roof", "roof")
+    for dx in (-0.32, 0.32):
+        boxg(wx + dx - 0.2, wx + dx + 0.2, y0 + 1.75, y0 + 2.2, wz + 0.6, wz + 0.64, "window", "wheelhouse_window")
+    bm = bmesh.new()
+    kit.torus(bm, P(wx + 0.0, y0 + 1.5, wz + 0.66), Vector((0.0, -1.0, 0.0)), 0.26, 0.07, segs=14, rsegs=5)
+    ob("life_ring", bm, "flag_a", smooth=True)
+    # Fenders hung over the side.
+    bm = bmesh.new()
+    for u in (-1.6, 0.0, 1.4):
+        q = turned([(u, 0.0, 0.95)], (at[0], 0.0, at[2]), angle)[0]
+        kit.tube(bm, P(q[0], y0 + 0.75, q[2]), P(q[0], y0 + 0.35, q[2]), 0.12, segs=8)
+    ob("fenders", bm, "rope", smooth=True)
     mx, mz = at[0] + math.cos(angle) * 0.9, at[2] - math.sin(angle) * 0.9
     bm = bmesh.new()
-    tube(bm, (mx, at[1] + 0.5, mz), (mx, at[1] + 5.2, mz), 0.07, segs=8)
-    tube(bm, (mx, at[1] + 1.4, mz), (mx - math.cos(angle) * 2.4, at[1] + 1.5, mz + math.sin(angle) * 2.4), 0.05, segs=8)
+    tube(bm, (mx, at[1] + 0.5, mz), (mx, at[1] + 5.2, mz), 0.08, segs=8)
+    tube(bm, (mx, at[1] + 1.4, mz), (mx - math.cos(angle) * 2.4, at[1] + 1.5, mz + math.sin(angle) * 2.4), 0.06, segs=8)
     ob("mast", bm, "wood_dark", smooth=True)
     bm = bmesh.new()
-    tube(bm, (mx - math.cos(angle) * 0.2, at[1] + 1.6, mz + math.sin(angle) * 0.2), (mx - math.cos(angle) * 2.3, at[1] + 1.7, mz + math.sin(angle) * 2.3), 0.14, segs=10)
+    tube(bm, (mx - math.cos(angle) * 0.2, at[1] + 1.65, mz + math.sin(angle) * 0.2), (mx - math.cos(angle) * 2.3, at[1] + 1.75, mz + math.sin(angle) * 2.3), 0.16, segs=10)
     ob("furled_sail", bm, "sail", smooth=True)
 
 
@@ -225,6 +287,15 @@ def beach_a():
     beach_walk()
 
 
+def crate(x, y, z, w, h, d):
+    """A slatted crate of the catch: its box, slats across its front, posts at its corners."""
+    boxg(x - w / 2.0, x + w / 2.0, y, y + h, z - d / 2.0, z + d / 2.0, "fish_crate", "crate")
+    for k in (0.25, 0.7):
+        boxg(x - w / 2.0, x + w / 2.0, y + h * k, y + h * k + h * 0.16, z + d / 2.0, z + d / 2.0 + 0.04, "timber_dark", "crate_slat")
+    for sx in (-1.0, 1.0):
+        boxg(x + sx * w / 2.0 - 0.06 * sx - 0.03, x + sx * w / 2.0 - 0.06 * sx + 0.03, y, y + h, z + d / 2.0, z + d / 2.0 + 0.05, "timber_dark", "crate_post")
+
+
 def boat_moored(bx, bz, angle):
     scaled((bx, SEA, bz), 1.6, fishing_boat, (bx, SEA + 0.1, bz), angle)
     bm = bmesh.new()
@@ -236,7 +307,7 @@ def boat_moored(bx, bz, angle):
     card([(bx - 2.0, SEA + 1.6, bz + 1.35), (bx + 1.2, SEA + 1.6, bz + 1.4), (bx + 0.8, SEA + 0.2, bz + 1.45), (bx - 1.6, SEA + 0.4, bz + 1.4)],
          "net", "boat_net", thick=0.03)
     for k, dx in enumerate((-3.0, -2.2)):
-        boxg(bx + dx - 0.45, bx + dx + 0.45, SEA + 1.55, SEA + 2.25, bz - 0.4, bz + 0.4, "fish_crate", "boat_crate%d" % k)
+        crate(bx + dx, SEA + 1.55, bz, 0.9, 0.7, 0.8)
 
 
 def beach_walk():
@@ -250,7 +321,7 @@ def beach_walk():
         card(net, "net", "net%d" % k, thick=0.02, normal=(side.x, 0, side.z))
     for k, (tt, h) in enumerate(((0.12, 0.0), (0.135, 0.0), (0.125, 0.45))):
         p = walk_at(tt) - side * 0.3
-        boxg(p.x - 0.3, p.x + 0.3, p.y + 0.1 + h, p.y + 0.55 + h, p.z - 0.25, p.z + 0.25, "fish_crate", "crate%d" % k)
+        crate(p.x, p.y + 0.1 + h, p.z, 0.6, 0.45, 0.5)
 
 
 def beach_b():
@@ -259,12 +330,23 @@ def beach_b():
 
 
 def rowboat(x0, z0):
-    """A rowboat beside the sailboat, its oars shipped."""
-    hull = [(-1.4, 0.0, 0.0), (1.2, 0.0, 0.0), (1.6, 0.55, 0.0), (-1.5, 0.5, 0.0)]
-    for side in (-0.5, 0.5):
-        card([(x0 + x, SEA - 0.1 + y, z0 + side) for (x, y, _z) in hull], "hull", "row_side", thick=0.05, normal=(0, 0, side))
-    card([(x0 - 1.45, SEA + 0.35, z0 - 0.5), (x0 + 1.4, SEA + 0.35, z0 - 0.5), (x0 + 1.4, SEA + 0.35, z0 + 0.5), (x0 - 1.45, SEA + 0.35, z0 + 0.5)],
-         "deck", "row_floor", thick=0.05, normal=(0, 1, 0))
+    """A rowboat beside the sailboat: a lofted hull, pointed at the bow, a rolled gunwale, two thwarts, its oars shipped."""
+    secs = []
+    for k in range(7):
+        u = -1.5 + 3.1 * k / 6
+        bow = max(0.0, (u - 0.3) / 1.3)
+        w = 0.55 * (1.0 - bow ** 1.5 * 0.9)
+        top = 0.55 + 0.15 * max(0.0, u) / 1.6
+        secs.append([(x0 + u, SEA - 0.1 + top, z0 - w), (x0 + u, SEA - 0.1 + 0.15, z0 - w * 0.6), (x0 + u, SEA - 0.1, z0),
+                     (x0 + u, SEA - 0.1 + 0.15, z0 + w * 0.6), (x0 + u, SEA - 0.1 + top, z0 + w)])
+    loft(secs, "hull", "row_hull")
+    for i in (0, 4):
+        bm = bmesh.new()
+        for a, b in zip(secs, secs[1:]):
+            kit.tube(bm, P(*a[i]), P(*b[i]), 0.05, segs=6)
+        ob("row_gunwale", bm, "hull_stripe", smooth=True)
+    for u in (-0.6, 0.4):
+        boxg(x0 + u - 0.14, x0 + u + 0.14, SEA + 0.3, SEA + 0.36, z0 - 0.45, z0 + 0.45, "deck", "thwart")
     bm = bmesh.new()
     tube(bm, (x0 - 0.2, SEA + 0.6, z0 - 0.4), (x0 + 1.0, SEA + 0.6, z0 + 0.6), 0.04, segs=6)
     tube(bm, (x0 - 0.6, SEA + 0.6, z0 + 0.4), (x0 + 0.6, SEA + 0.6, z0 - 0.6), 0.04, segs=6)
@@ -347,42 +429,96 @@ def canyon_a():
 
 
 def train(tx, y0, z, rng):
+    """A little steam train of card: a banded boiler with its smokebox door, a sand dome and a steam dome, a flared stack, a cab with
+    windows and an overhanging roof, a cowcatcher, spoked drive wheels with their rod; two boxcars, plank-scored, roofed, on bogies."""
+    def lathe_x(prof, fam, name, x, y, segs=18):
+        bm = bmesh.new()
+        kit.lathe(bm, prof, segs, axis="x")
+        for v in bm.verts:
+            v.co = P(x + v.co.x, y + v.co.z, z - v.co.y)
+        return ob(name, bm, fam, smooth=True)
+
+    def lathe_up(prof, fam, name, x, y, segs=14):
+        bm = bmesh.new()
+        kit.lathe(bm, prof, segs)
+        for v in bm.verts:
+            v.co = P(x + v.co.x, y + v.co.z, z - v.co.y)
+        return ob(name, bm, fam, smooth=True)
+
+    cy = y0 + 1.35
+    lathe_x([(0.75, 0.0), (0.75, 2.9)], "engine", "boiler", tx - 0.1, cy)
+    lathe_x([(0.0, 0.0), (0.8, 0.0), (0.8, 0.35), (0.0, 0.35)], "engine_dark", "smokebox", tx + 2.8, cy)
     bm = bmesh.new()
-    kit.lathe(bm, [(0.75, 0.0), (0.75, 3.2)], 14, axis="x")
-    for v in bm.verts:
-        v.co = P(tx + v.co.x, y0 + 1.3 + v.co.z, z + -v.co.y)
-    ob("boiler", bm, "engine", smooth=True)
-    boxg(tx - 1.6, tx, y0 + 0.4, y0 + 2.7, z - 0.9, z + 0.9, "engine_cab", "cab")
-    boxg(tx - 1.8, tx + 0.2, y0 + 2.7, y0 + 2.9, z - 1.05, z + 1.05, "engine", "cab_roof")
+    for xb in (tx + 0.5, tx + 1.5, tx + 2.5):
+        kit.torus(bm, P(xb, cy, z), Vector((1.0, 0.0, 0.0)), 0.77, 0.06, segs=20, rsegs=4)
+    kit.torus(bm, P(tx + 3.17, cy, z), Vector((1.0, 0.0, 0.0)), 0.45, 0.05, segs=18, rsegs=4)
+    ob("boiler_bands", bm, "engine_band", smooth=True)
+    lathe_up([(0.32, 0.0), (0.32, 0.22), (0.2, 0.42), (0.0, 0.48)], "engine_band", "steam_dome", tx + 1.2, cy + 0.68)
+    lathe_up([(0.26, 0.0), (0.26, 0.16), (0.16, 0.32), (0.0, 0.36)], "engine_band", "sand_dome", tx + 0.3, cy + 0.68)
+    lathe_up([(0.2, 0.0), (0.18, 0.45), (0.34, 0.9), (0.4, 1.02), (0.0, 1.02)], "engine_dark", "stack", tx + 2.6, cy + 0.6)
+    boxg(tx - 1.7, tx - 0.1, y0 + 0.5, y0 + 2.7, z - 0.95, z + 0.95, "engine_cab", "cab")
+    boxg(tx - 1.95, tx + 0.15, y0 + 2.7, y0 + 2.9, z - 1.15, z + 1.15, "engine_dark", "cab_roof")
+    boxg(tx - 1.35, tx - 0.45, y0 + 1.7, y0 + 2.35, z + 0.95, z + 0.99, "window", "cab_window")
+    boxg(tx - 0.1, tx + 3.15, y0 + 0.55, y0 + 0.72, z - 0.95, z + 0.95, "engine_dark", "running_board")
+    card([(tx + 3.15, y0 + 0.62, z + 0.8), (tx + 3.95, y0 + 0.1, z + 0.8), (tx + 3.15, y0 + 0.1, z + 0.8)], "engine_cab", "cowcatcher", thick=1.6)
     bm = bmesh.new()
-    tube(bm, (tx + 2.6, y0 + 2.0, z), (tx + 2.6, y0 + 3.0, z), 0.22, segs=10)
-    ob("stack", bm, "engine", smooth=True)
+    for wx in (tx + 0.4, tx + 1.45, tx + 2.5):
+        kit.torus(bm, P(wx, y0 + 0.55, z + 0.98), Vector((0.0, -1.0, 0.0)), 0.48, 0.08, segs=16, rsegs=4)
+        for k in range(6):
+            a = math.tau * k / 6
+            kit.tube(bm, P(wx, y0 + 0.55, z + 0.98), P(wx + 0.46 * math.cos(a), y0 + 0.55 + 0.46 * math.sin(a), z + 0.98), 0.035, segs=4)
+    kit.torus(bm, P(tx - 0.95, y0 + 0.45, z + 0.98), Vector((0.0, -1.0, 0.0)), 0.32, 0.07, segs=14, rsegs=4)
+    ob("wheels", bm, "iron", smooth=True)
+    bm = bmesh.new()
+    kit.tube(bm, P(tx + 0.4, y0 + 0.55, z + 1.06), P(tx + 2.5, y0 + 0.55, z + 1.06), 0.05, segs=5)
+    ob("rod", bm, "engine_band", smooth=True)
     for k in range(2):
         cx = tx - 2.2 - k * 4.0
-        boxg(cx - 3.6, cx - 0.2, y0 + 0.4, y0 + 2.2, z - 0.85, z + 0.85, "car_a" if k == 0 else "car_b", "car%d" % k)
-    bm = bmesh.new()
-    for wx in (tx + 2.4, tx + 0.8, tx - 2.6, tx - 5.0, tx - 6.6, tx - 9.0):
-        kit.torus(bm, P(wx, y0 + 0.4, z + 0.95), P(0, 0, 1) - P(0, 0, 0), 0.35, 0.08, segs=12, rsegs=5)
-    ob("wheels", bm, "iron", smooth=True)
-    smoke_column((tx + 2.6, y0 + 3.4, z), 6, 0.55, rng)
+        fam = "car_a" if k == 0 else "car_b"
+        boxg(cx - 3.6, cx - 0.2, y0 + 0.65, y0 + 2.3, z - 0.85, z + 0.85, fam, "car%d" % k)
+        boxg(cx - 3.75, cx - 0.05, y0 + 2.3, y0 + 2.48, z - 1.0, z + 1.0, "car_roof", "car_roof%d" % k)
+        for j in range(1, 7):
+            px = cx - 3.6 + j * 0.486
+            boxg(px - 0.025, px + 0.025, y0 + 0.7, y0 + 2.25, z + 0.85, z + 0.88, "car_seam", "car_seam")
+        boxg(cx - 2.35, cx - 1.45, y0 + 0.75, y0 + 2.15, z + 0.86, z + 0.92, "car_seam", "car_door")
+        bm = bmesh.new()
+        for wx in (cx - 3.1, cx - 2.5, cx - 1.3, cx - 0.7):
+            kit.torus(bm, P(wx, y0 + 0.36, z + 0.9), Vector((0.0, -1.0, 0.0)), 0.26, 0.07, segs=12, rsegs=4)
+        ob("car_wheels", bm, "iron", smooth=True)
+    smoke_column((tx + 2.6, y0 + 3.2, z), 6, 0.55, rng)
 
 
 def water_tower(wx, wz):
-    # A water tower by the track.
+    """A water tower by the track: a rolled tank bound in iron hoops, a coiled cap, four legs braced in an X, a ladder up one side."""
     bm = bmesh.new()
     for (dx, dz) in ((-1.2, -1.2), (1.2, -1.2), (-1.2, 1.2), (1.2, 1.2)):
         tube(bm, (wx + dx, FLOOR, wz + dz), (wx + dx * 0.85, FLOOR + 6.0, wz + dz * 0.85), 0.16, segs=8)
+    for (a, b) in (((-1.2, 1.2), (1.2, 1.2)), ((-1.2, -1.2), (-1.2, 1.2)), ((1.2, -1.2), (1.2, 1.2))):
+        tube(bm, (wx + a[0], FLOOR + 0.6, wz + a[1]), (wx + b[0] * 0.87, FLOOR + 5.6, wz + b[1] * 0.87), 0.07, segs=5)
+        tube(bm, (wx + b[0], FLOOR + 0.6, wz + b[1]), (wx + a[0] * 0.87, FLOOR + 5.6, wz + a[1] * 0.87), 0.07, segs=5)
     ob("tower_legs", bm, "timber", smooth=True)
     bm = bmesh.new()
-    kit.lathe(bm, [(1.6, 6.0), (1.7, 6.2), (1.7, 9.0), (1.6, 9.1)], 20)
+    kit.lathe(bm, [(1.6, 6.0), (1.7, 6.2), (1.7, 9.0), (1.6, 9.1)], 22)
     for v in bm.verts:
         v.co = P(wx + v.co.x, FLOOR + v.co.z, wz - v.co.y)
     ob("tank", bm, "tank", smooth=True)
+    bm = bmesh.new()
+    for hy in (6.5, 7.6, 8.7):
+        kit.torus(bm, P(wx, FLOOR + hy, wz), Vector((0.0, 0.0, 1.0)), 1.73, 0.06, segs=24, rsegs=4)
+    ob("tank_hoops", bm, "iron", smooth=True)
     bm = bmesh.new()
     kit.coil_stack(bm, 0.0, 1.1, 1.9, 0.2, 6, 0.09, segs=20)
     for v in bm.verts:
         v.co = P(wx + v.co.x, FLOOR + 9.15 + v.co.z, wz - v.co.y)
     ob("tank_roof", bm, "tank_dark", smooth=True)
+    bm = bmesh.new()
+    lx = wx + 1.0
+    for dz in (-0.25, 0.25):
+        tube(bm, (lx, FLOOR + 0.2, wz + 1.85 + dz), (lx, FLOOR + 8.8, wz + 1.85 + dz), 0.04, segs=4)
+    for k in range(17):
+        hy = FLOOR + 0.6 + k * 0.5
+        tube(bm, (lx, hy, wz + 1.6), (lx, hy, wz + 2.1), 0.03, segs=4)
+    ob("ladder", bm, "iron", smooth=True)
 
 
 def canyon_b():
@@ -569,16 +705,22 @@ MEADOW_FIELDS = [(-61.5, -13.2, -97.8), (-57.1, -13.5, -98.4), (-52.6, -13.8, -9
 
 
 def haystack(at, r=1.6, h=3.2):
-    """A haystack of rolled straw, domed, bound round its middle; set a little into the ground so it sits on a slope."""
+    """A rolled haystack, domed and a little uneven, bound by two straw ropes, a twist of straw on top; set into the ground a little so
+    it sits on a slope. (A plain dome read as a mushroom cap.)"""
     x, y, z = at
     bm = bmesh.new()
-    kit.lathe(bm, [(r * 0.95, -0.5), (r, 0.0), (r * 1.02, 0.3 * h), (r * 0.88, 0.58 * h), (r * 0.5, 0.86 * h), (0.0, h)], 14)
+    kit.lathe(bm, [(r * 0.95, -0.5), (r, 0.0), (r * 1.03, 0.28 * h), (r * 0.94, 0.55 * h), (r * 0.66, 0.8 * h), (r * 0.3, 0.95 * h),
+                   (0.0, h)], 22, wobble=lambda a, k: 1.0 + 0.05 * math.sin(3.0 * a + k * 1.7))
     for v in bm.verts:
         v.co = P(x + v.co.x, y + v.co.z, z - v.co.y)
     ob("haystack", bm, "straw", smooth=True)
     bm = bmesh.new()
-    kit.torus(bm, P(x, y + 0.42 * h, z), Vector((0.0, 0.0, 1.0)), r * 0.98, 0.07, segs=16, rsegs=4)
+    for k, (hy, rr) in enumerate(((0.3, 1.02), (0.58, 0.92))):
+        kit.torus(bm, P(x, y + hy * h, z), Vector((0.0, 0.0, 1.0)), r * rr, 0.09, segs=22, rsegs=5)
     ob("haystack_band", bm, "rope", smooth=True)
+    bm = bmesh.new()
+    bmesh.ops.create_cone(bm, cap_ends=True, segments=7, radius1=0.28, radius2=0.0, depth=0.6, matrix=Matrix.Translation(P(x, y + h + 0.15, z)))
+    ob("haystack_top", bm, "straw")
 
 
 def meadow_b():
@@ -629,18 +771,34 @@ def meadow_c():
 GROVE_FAR = [(-49.0, -1.0, -106.0, 30.0), (-31.0, -1.1, -116.0, 26.0), (47.0, -1.0, -106.0, 31.0), (30.0, -1.0, -112.0, 25.0)]
 
 
+def pleated_cone(cx, y_base, cz, R, h, n=11, turn=0.0, fam="crown"):
+    """A pleated paper cone (a tier of a tree's crown): its rim folded in and out, the out-folds drooping a little."""
+    bm = bmesh.new()
+    apex = bm.verts.new(P(cx, y_base + h, cz))
+    centre = bm.verts.new(P(cx, y_base + h * 0.12, cz))
+    rim = []
+    for i in range(2 * n):
+        a = turn + math.pi * i / n
+        r = R if i % 2 == 0 else R * 0.78
+        y = y_base - (0.12 * R if i % 2 == 0 else 0.0)
+        rim.append(bm.verts.new(P(cx + r * math.cos(a), y, cz + r * math.sin(a))))
+    for i in range(2 * n):
+        j = (i + 1) % (2 * n)
+        bm.faces.new((apex, rim[i], rim[j]))
+        bm.faces.new((centre, rim[j], rim[i]))
+    return ob("far_crown", bm, fam)
+
+
 def far_tree(x, y0, z, height, r=2.0):
-    """A great tree far off, as the grove's own: a trunk of folded paper (seven faces, flared at its foot) and a pleated crown in tiers."""
+    """A great tree far off, as the grove's own: a trunk of folded paper (seven faces, flared at its foot) and a crown of pleated tiers."""
     bm = bmesh.new()
     kit.lathe(bm, [(r * 1.7, -3.0), (r * 1.25, 0.6), (r, height * 0.35), (r * 0.8, height)], 7)
     for v in bm.verts:
         v.co = P(x + v.co.x, y0 + v.co.z, z - v.co.y)
     ob("far_trunk", bm, "bark")
-    bm = bmesh.new()
-    for k, (base, rad, tall) in enumerate(((height * 0.5, r * 4.2, 6.0), (height * 0.5 + 4.5, r * 3.4, 5.5), (height * 0.5 + 8.5, r * 2.4, 5.0))):
-        bmesh.ops.create_cone(bm, cap_ends=True, segments=9, radius1=rad, radius2=rad * 0.25, depth=tall,
-                              matrix=Matrix.Translation(P(x, y0 + base + tall / 2, z)) @ Matrix.Rotation(k * 0.35, 4, "Z"))
-    ob("far_crown", bm, "crown")
+    for k, (base, rad, tall) in enumerate(((height * 0.5, r * 4.4, 5.0), (height * 0.5 + 3.8, r * 3.6, 4.6), (height * 0.5 + 7.2, r * 2.6, 4.4),
+                                           (height * 0.5 + 10.2, r * 1.6, 4.0))):
+        pleated_cone(x, y0 + base, z, rad, tall, turn=k * 0.3, fam="crown" if k % 2 == 0 else "crown_lit")
 
 
 def far_hut(x, y, z, r, side):
@@ -709,10 +867,16 @@ def grove_b():
     def gate(x, y, z):
         bm = bmesh.new()
         for dx in (-1.6, 1.6):
-            tube(bm, (x + dx, y, z), (x + dx * 0.9, y + 4.2, z), 0.18, segs=10)
-        tube(bm, (x - 2.4, y + 3.4, z), (x + 2.4, y + 3.4, z), 0.13, segs=8)
+            tube(bm, (x + dx, y, z), (x + dx * 0.9, y + 4.2, z), 0.18, segs=12)
+        tube(bm, (x - 2.3, y + 3.35, z), (x + 2.3, y + 3.35, z), 0.13, segs=10)
         ob("gate_posts", bm, "gate_red", smooth=True)
-        card([(x - 2.8, y + 4.15, z), (x + 2.8, y + 4.15, z), (x + 3.1, y + 4.6, z), (x - 3.1, y + 4.6, z)], "gate_dark", "gate_top", thick=0.3)
+        for dx in (-1.6, 1.6):
+            boxg(x + dx - 0.3, x + dx + 0.3, y - 0.2, y + 0.35, z - 0.3, z + 0.3, "gate_dark", "gate_base")
+        top = [(x - 2.9, y + 4.1, z), (x + 2.9, y + 4.1, z), (x + 3.35, y + 4.55, z), (x + 3.0, y + 4.48, z), (x + 2.6, y + 4.42, z),
+               (x - 2.6, y + 4.42, z), (x - 3.0, y + 4.48, z), (x - 3.35, y + 4.55, z)]
+        card([(p[0], p[1], p[2] + 0.25) for p in top], "gate_dark", "gate_top", thick=0.5)
+        card([(x - 2.6, y + 3.95, z + 0.2), (x + 2.6, y + 3.95, z + 0.2), (x + 2.6, y + 4.12, z + 0.2), (x - 2.6, y + 4.12, z + 0.2)], "gate_red", "gate_lintel", thick=0.4)
+        card([(x - 0.35, y + 3.45, z + 0.22), (x + 0.35, y + 3.45, z + 0.22), (x + 0.35, y + 3.98, z + 0.22), (x - 0.35, y + 3.98, z + 0.22)], "gate_dark", "gate_plaque", thick=0.1)
     scaled((-31.0, -9.1, -53.0), 2.0, gate, -31.0, -9.1, -53.0)
     scaled((33.0, -9.1, -56.0), 2.0, gate, 33.0, -9.1, -56.0)
     for sgn in (-1.0, 1.0):
@@ -755,14 +919,32 @@ def grove_c():
 
 
 def bus(x, y, z, d):
-    boxg(x - 3.0, x + 3.0, y + 0.3, y + 2.4, z - 0.9, z + 0.9, "bus", "bus")
+    """A town bus of card: a body rounded at its edges, a stripe, a band of lit windows, a windscreen and a lit sign, bumpers, wheels with
+    hubs."""
+    r = 0.38
+    y0, y1, z0, z1 = y + 0.3, y + 2.6, z - 0.95, z + 0.95
+    prof = []
+    for (cy, cz, a0) in ((y1 - r, z1 - r, 0.0), (y1 - r, z0 + r, 90.0), (y0 + r, z0 + r, 180.0), (y0 + r, z1 - r, 270.0)):
+        for k in range(5):
+            a = math.radians(a0 + 90.0 * k / 4)
+            prof.append((x + 3.0, cy + r * math.sin(a), cz + r * math.cos(a)))
+    card(prof, "bus", "bus", thick=6.0, normal=(1.0, 0.0, 0.0))
+    boxg(x - 2.95, x + 2.95, y + 0.95, y + 1.15, z1 - 0.01, z1 + 0.03, "bus_stripe", "bus_stripe")
     for k in range(5):
-        wx = x - 2.4 + k * 1.15
-        boxg(wx - 0.4, wx + 0.4, y + 1.3, y + 2.0, z + 0.9, z + 0.95, "window", "bus_window")
+        wx = x - 2.35 + k * 1.1
+        boxg(wx - 0.42, wx + 0.42, y + 1.45, y + 2.2, z1 - 0.01, z1 + 0.04, "window", "bus_window")
+    boxg(x + 2.99, x + 3.04, y + 1.4, y + 2.25, z0 + 0.25, z1 - 0.25, "window", "windscreen")
+    boxg(x + 2.99, x + 3.05, y + 2.3, y + 2.5, z0 + 0.4, z1 - 0.4, "window", "bus_sign")
+    for bx in (x - 3.08, x + 3.0):
+        boxg(bx, bx + 0.08, y + 0.35, y + 0.6, z0 + 0.05, z1 - 0.05, "engine_dark", "bumper")
     bm = bmesh.new()
     for wx in (x - 2.0, x + 2.0):
-        kit.torus(bm, P(wx, y + 0.35, z + 0.92), (0.0, -1.0, 0.0), 0.3, 0.1, segs=10, rsegs=5)
+        kit.torus(bm, P(wx, y + 0.4, z1 + 0.02), (0.0, -1.0, 0.0), 0.32, 0.13, segs=14, rsegs=5)
     ob("bus_wheels", bm, "engine", smooth=True)
+    bm = bmesh.new()
+    for wx in (x - 2.0, x + 2.0):
+        kit.torus(bm, P(wx, y + 0.4, z1 + 0.06), (0.0, -1.0, 0.0), 0.09, 0.08, segs=10, rsegs=4)
+    ob("bus_hubs", bm, "iron", smooth=True)
 
 
 def city_a():
@@ -777,14 +959,35 @@ def city_a():
 def city_b():
     # A lit billboard on the near tower at the right, and a party on the rooftop at the left: string lights and people.
     def billboard(x, y, z):
-        card([(x - 4.0, y, z), (x + 4.0, y, z), (x + 4.0, y + 4.0, z), (x - 4.0, y + 4.0, z)], "board_frame", "board", thick=0.3)
-        card([(x - 3.6, y + 0.4, z + 0.05), (x + 3.6, y + 0.4, z + 0.05), (x + 3.6, y + 3.6, z + 0.05), (x - 3.6, y + 3.6, z + 0.05)], "window", "poster", thick=0.02)
-        card([(x - 3.0, y + 1.0, z + 0.08), (x + 0.2, y + 1.0, z + 0.08), (x + 0.2, y + 3.0, z + 0.08), (x - 3.0, y + 3.0, z + 0.08)], "flag_a", "poster_art", thick=0.01)
-        card([(x + 0.8, y + 1.6, z + 0.08), (x + 3.0, y + 1.6, z + 0.08), (x + 3.0, y + 2.4, z + 0.08), (x + 0.8, y + 2.4, z + 0.08)], "flag_c", "poster_text", thick=0.01)
+        # A framed board, its poster cut-paper shapes (a sun over waves, a line of lettering) lit for the night.
+        boxg(x - 4.0, x + 4.0, y, y + 4.0, z - 0.35, z - 0.1, "board_back", "board")
+        for (x0, x1, y0, y1) in ((x - 4.2, x + 4.2, y - 0.2, y + 0.2), (x - 4.2, x + 4.2, y + 3.8, y + 4.2), (x - 4.2, x - 3.8, y, y + 4.0),
+                                 (x + 3.8, x + 4.2, y, y + 4.0)):
+            boxg(x0, x1, y0, y1, z - 0.15, z + 0.2, "board_frame", "board_frame")
+        card([(x - 3.8, y + 0.2, z - 0.08), (x + 3.8, y + 0.2, z - 0.08), (x + 3.8, y + 3.8, z - 0.08), (x - 3.8, y + 3.8, z - 0.08)], "poster", "poster", thick=0.02)
+        card(scallop(x - 1.9, y + 2.3, z - 0.05, 1.05, 1.05, 0, 0.0, depth=0.0, n=24), "poster_a", "poster_sun", thick=0.02)
+        wave = [(x - 3.8 + 4.2 * k / 16, y + 1.2 + 0.25 * math.sin(k * 0.9), z - 0.03) for k in range(17)]
+        card(wave + [(x + 0.4, y + 0.2, z - 0.03), (x - 3.8, y + 0.2, z - 0.03)], "poster_b", "poster_wave", thick=0.02)
+        for (yy, w) in ((y + 2.7, 2.6), (y + 2.05, 2.1), (y + 1.4, 2.4)):
+            card([(x + 0.7, yy, z - 0.03), (x + 0.7 + w, yy, z - 0.03), (x + 0.7 + w, yy + 0.38, z - 0.03), (x + 0.7, yy + 0.38, z - 0.03)],
+                 "poster_c", "poster_text", thick=0.02)
+        # The scaffold: two legs braced in an X, a catwalk with its rail along the board's foot, three hood lamps leaning over it.
         bm = bmesh.new()
         for dx in (-2.5, 2.5):
-            tube(bm, (x + dx, y - 3.0, z - 0.3), (x + dx, y, z - 0.3), 0.12, segs=6)
+            tube(bm, (x + dx, y - 3.0, z - 0.4), (x + dx, y, z - 0.4), 0.12, segs=6)
+        tube(bm, (x - 2.5, y - 2.8, z - 0.4), (x + 2.5, y - 0.2, z - 0.4), 0.06, segs=5)
+        tube(bm, (x + 2.5, y - 2.8, z - 0.4), (x - 2.5, y - 0.2, z - 0.4), 0.06, segs=5)
+        for k in range(7):
+            px = x - 4.0 + k * 8.0 / 6
+            tube(bm, (px, y - 0.22, z + 0.85), (px, y + 0.5, z + 0.85), 0.035, segs=4)
+        tube(bm, (x - 4.0, y + 0.5, z + 0.85), (x + 4.0, y + 0.5, z + 0.85), 0.035, segs=4)
+        for lx in (x - 2.6, x, x + 2.6):
+            tube(bm, (lx, y + 4.2, z - 0.25), (lx, y + 4.65, z + 0.85), 0.05, segs=5)
         ob("board_legs", bm, "iron", smooth=True)
+        boxg(x - 4.2, x + 4.2, y - 0.32, y - 0.2, z - 0.3, z + 0.95, "steel", "catwalk")
+        for lx in (x - 2.6, x, x + 2.6):
+            boxg(lx - 0.35, lx + 0.35, y + 4.55, y + 4.75, z + 0.65, z + 1.05, "engine_dark", "lamp_hood")
+            boxg(lx - 0.28, lx + 0.28, y + 4.5, y + 4.56, z + 0.7, z + 1.0, "window", "lamp_light")
     scaled((28.0, 4.0, -50.0), 1.4, billboard, 28.0, 4.0, -50.0)
     rng = random.Random(16)
     x0, y0, z0 = -24.0, 2.5, -50.0

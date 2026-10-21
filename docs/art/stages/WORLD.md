@@ -166,3 +166,24 @@ true size and take the air, and the frame's distance is where a place's story is
   (`StageArt._air_colour`), as the rest of the scenery; it is placed after the backdrop, whose palette holds the air. Lights cut through.
 - Shipped: beach `--variant AB`, canyon `A`, meadow `BC`, grove `ABL`, city `AB`. Before/after: `world_refined.jpg` (before left; meadow
   above, grove below); clips re-shot in `mocks/world_life/`.
+
+## Round 4: the quality pass (2026-10-21)
+
+**The owner's note:** the newer background pieces did not match the rest of the scenery's style or quality. **Why:** they were quick mock
+builds shipped as they were: flat colour with no print (the world model carried neither `paper_prop` nor `lit_piece`, so
+`StageBake.surfaces` skipped it, and its families had no print), and primitive shapes (boxes, cards, low-poly balls) with none of the
+paper construction the props and houses have.
+
+**Done:**
+- **The finish (live):** `place_world` marks the world model `paper_prop`, and `PRINTS_PROPS` maps the world's and the houses' families
+  (timber, trim, door, roof, hull, deck, crates, cars, the board, engine, steel, trail, rock, turf, gates) to the hatched prints; the
+  billboard's poster is drawn lit at night (`WORLD_LIT`).
+- **The pieces (`make_world.py`, mocked, not yet shipped):** the billboard a framed, lit poster of cut-paper shapes on a braced scaffold with
+  a catwalk and hood lamps; the people layered paper dolls; the train a banded boiler, smokebox door, domes, flared stack, cab with
+  windows, cowcatcher, spoked wheels and rod, the boxcars plank-scored, roofed, doored, on bogies; the water tower hooped, braced, with a
+  ladder; the smoke cut-card puffs (`scallop`); the haystacks rolled, uneven, roped; the far trees' crowns pleated tiers
+  (`pleated_cone`); the boats lofted hulls (`loft`) with rolled gunwales, the fishing boat's lit wheelhouse, life ring and fenders; the
+  bus rounded with a stripe and hubs; the gates with swept-up beams, bases and a plaque; the crates slatted.
+- Before/after on the Stage Look Review and `mocks/look/` (`wq_*`).
+- **Shipped (the owner's call, 2026-10-21):** the five world models rebuilt from `make_world.py` with the same variants (beach AB, canyon A,
+  meadow BC, grove ABL, city AB) and placed as before.
