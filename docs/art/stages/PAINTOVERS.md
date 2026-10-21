@@ -36,3 +36,30 @@ the owner can pick which ones become the target.
 
 The pattern on every stage: the play area a step lighter, the distance lighter and softer, the near layers' edges and their shadows sharper.
 A stage reaching the paint-over's numbers and its layered look would score 5 on lighting and cohesion.
+
+## Built: the owner's picks (2026-10-21)
+
+The owner picked sheet shadows and cut edges on every stage, the light lift round the fight, and air on the meadow and beach. All are in
+the match's finishing pass (`shaders/post.gdshader`), set per stage in `Lighting.STYLES` `finish`. They reach the stage and scenery
+only (object ids from 0.8 up; the fighters and their outline hulls are untouched) and cost nothing new to build.
+- **`sheets`:** each scenery pixel looks toward the stage's key light on screen (`sheet_dir`, from the key light). Where something stands
+  half a unit to three nearer, it is in that thing's shadow; six depth taps at 5, 11 and 20 pixels. The game casts along the real
+  light, so the shadows fall down and away from it, where the paint-over cast them a fixed way. Fighters cast it, never take it.
+- **`cut_edge`:** the near side of each step back of more than half a unit, two pixels across, mixed toward a paper cream.
+- **`fight_lift`:** a soft lift of the light round the frame's middle.
+- Shadows and edges are full to 12 units behind the play area and gone by 50. (A first try faded them from 2 units behind and showed
+  nothing: the camera is about 27 units out with a 30° lens, and the sheets that take the shadows are 15 to 60 units back.)
+- **Air:** the meadow's and beach's `haze_max` 0.06 and 0.07 to 0.24.
+- **Per stage** (sheets / cut edge / lift): meadow 0.49 / 0.5 / 0.15, grove 0.56 / 0.5 / 0.18, beach 0.42 / 0.45 / 0.15, canyon
+  0.56 / 0.5 / 0.15, city 0.63 / 0.55 / 0.24.
+
+**Result** (`paper_target_built.jpg`, today left, built right), against the paint-overs' numbers:
+
+| Stage | Play area: today → built (target) | Distance value: today → built (target) |
+|---|---|---|
+| Meadow | lawn 0.64 → 0.66 (0.69) | 0.61 → 0.67 (0.66) |
+| Grove | lawn 0.74 → 0.76 (0.78) | 0.62 → 0.63 (0.63) |
+| Beach | deck 0.50 → 0.52 (0.53) | 0.63 → 0.67 (0.69) |
+| Canyon | sand 0.72 → 0.74 (0.74) | 0.75 → 0.76 (0.75) |
+| City | roof 0.59 → 0.63 (0.64) | 0.39 → 0.39 (0.32; the light move, not picked) |
+**Tests:** all seven Godot tests pass.

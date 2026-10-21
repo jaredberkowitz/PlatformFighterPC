@@ -83,6 +83,16 @@ uniform float bloom_threshold = 0.62;
 // (0.5 until art review 5: screened on, the glow pushed a pure body colour toward white, so a yellow fighter on the bright beach read as
 // one flat glowing shape with soft edges, its shading gone.)
 uniform float bloom_fighter = 0.15;
+// The paper target (the stage paint-overs, docs/art/stages/PAINTOVERS.md, the owner's picks 2026-10-21), on the stage and scenery only:
+// `sheets` each nearer sheet's soft shadow on the one behind it, cast along the key light's way across the screen (`sheet_dir`, set from
+// the stage's key light): where something stands nearer toward the light, this pixel is in its shadow (fighters cast it too, never take
+// it); `cut_edge` a pale die-cut edge on the near side of each step back in depth; `fight_lift` a soft lift of the light round the fight.
+// All fade out behind the play area, so the distance keeps its air. 0 turns each off.
+uniform float sheets = 0.0;
+uniform vec2 sheet_dir = vec2(0.0, 1.0);
+uniform float cut_edge = 0.0;
+uniform vec4 cut_colour : source_color = vec4(1.0, 0.97, 0.9, 1.0);
+uniform float fight_lift = 0.0;
 uniform float impact = 0.0;
 uniform vec4 impact_dark : source_color = vec4(0.1, 0.05, 0.13, 1.0);
 uniform vec4 impact_light : source_color = vec4(1.0, 0.97, 0.9, 1.0);
@@ -218,6 +228,48 @@ void fragment() {
 	col += (c01 * c01 * (3.0 - 2.0 * c01) - c01) * s_curve * soften;
 	col = mix(col, ink.rgb, edge * line_strength);
 	col = mix(col, col * 1.12 + vec3(0.07, 0.07, 0.06), clamp(card_edge, 0.0, 1.0));
+
+	// The paper target on the stage and scenery (see `sheets`), full to 12 units behind the play area and gone by 50, as in the
+	// paint-overs: the sheets that take the shadows are the hills, terraces and towers behind it.
+	// (Ids from 0.8 up: the fighters' outline hulls, 0.7, are theirs.)
+	if (id0 > 0.8 && d0 < 400.0 && (sheets > 0.0 || cut_edge > 0.0 || fight_lift > 0.0)) {
+		float near_k = 1.0 - smoothstep(stage_dist + 12.0, stage_dist + 50.0, d0);
+		float scale = VIEWPORT_SIZE.y / 720.0;
+		vec2 to_px = scale / VIEWPORT_SIZE;
+		if (sheets > 0.0 && near_k > 0.0) {
+			// Toward the light at three reaches (5, 11 and 20 pixels at 720 lines), each a little to either side for a soft edge: how far
+			// nearer than this pixel is what stands there, in world units, from half a unit to three.
+			vec2 side = vec2(-sheet_dir.y, sheet_dir.x);
+			float shade = 0.0;
+			float reach[3] = float[](5.0, 11.0, 20.0);
+			float weight[3] = float[](0.45, 0.35, 0.2);
+			for (int k = 0; k < 3; k++) {
+				for (int j = -1; j <= 1; j += 2) {
+					vec2 q = uv - (sheet_dir * reach[k] + side * float(j) * reach[k] * 0.25) * to_px;
+					float gap = d0 - view_depth(q, INV_PROJECTION_MATRIX);
+					shade += weight[k] * 0.5 * smoothstep(0.4, 3.0, gap);
+				}
+			}
+			col *= 1.0 - sheets * shade * near_k;
+		}
+		if (cut_edge > 0.0 && near_k > 0.0) {
+			// The near side of a step back of more than half a unit, two pixels across (at 720 lines), softer at the outer one.
+			float back = 0.0;
+			for (int k = 0; k < 8; k++) {
+				float a = float(k) * 0.785398;
+				vec2 o = vec2(cos(a), sin(a)) * to_px;
+				back = max(back, view_depth(uv + o, INV_PROJECTION_MATRIX) - d0);
+				back = max(back, 0.5 * (view_depth(uv + o * 2.0, INV_PROJECTION_MATRIX) - d0));
+			}
+			col = mix(col, cut_colour.rgb, cut_edge * smoothstep(0.6, 4.0, back) * near_k);
+		}
+		if (fight_lift > 0.0) {
+			// Round the fight: the frame's middle, a little below centre.
+			vec2 c2 = uv - vec2(0.5, 0.58);
+			float r = length(vec2(c2.x / 0.62, c2.y / 0.5));
+			col *= 1.0 + fight_lift * (1.0 - smoothstep(0.0, 1.0, r));
+		}
+	}
 
 	// A warm paper tone, soft blotches like paper fibre, and a fine print grain.
 	col = mix(col, col * tint.rgb, tint_amount);
