@@ -2,23 +2,25 @@
 (rolled tubes, scored card, cut-outs), built in world space for the exact stage and placed by the stage demo's `--world-mock=<glb>`.
   ocean (the beach, a fishing harbour)
     A  a working pier: a fishing boat moored along the far boardwalk with lines to its posts, nets hung on its rail, fish crates;
-    B  harbour life: gulls perched on posts and the lamp and gliding over the water, a rowboat tied off the dock's left end;
+    B  harbour life: a rowboat tied off the dock's left end (its gulls taken out: no animals in the backgrounds, the owner);
     C  the town at work: market awnings and townsfolk on the quay, bunting, chimney smoke.
   sunset (the canyon, a desert crossing at dusk)
     A  a railroad: a timber trestle across the floor behind the buttes with a little train on it and a water tower by the track;
     B  a wagon trail: a pale trail winding across the floor to the horizon, telegraph poles along it, a covered wagon on it;
-    C  a ranch: a windpump and its tank, a corral with cattle, an adobe house with chimney smoke.
-  meadow  A a farm track and hay cart, B sheep and cows, C village life (smoke, washing, a scarecrow)
-  grove   A a treehouse, B festival gates and streamers, C floating islets
+    C  a ranch: a windpump and its tank, a corral, an adobe house with chimney smoke.
+  meadow  A a farm track and hay cart, B the fields at work (haystacks), C village life (smoke, washing, a scarecrow)
+  grove   A a far tree village (great trees with lit huts and rope bridges), B festival gates and streamers, C floating islets
   city    A street traffic (a bus, people), B a billboard and a rooftop party, C an elevated train
-  L  (every stage that has them) new living things: the canyon's hawks, the grove's fireflies.
+  L  (every stage that has them) new living things: the grove's fireflies.
+No animals in the backgrounds (the owner, 2026-10-21: at the sizes that read they never looked believable beside the rest); what is far is
+built at its true size, as the cottages are, and takes the stage's air in the game.
 Every part names its family (painted by the game, `StageBake.place_world`), with its occlusion baked; what moves is grouped under a
 pivot empty `move_<kind>_<n>` (scripts/world_motion.gd).
 
 Run (Blender 5.2):
   blender --background --python art/blender/make_world.py -- --theme ocean --variant A --out <file.glb>   (`--variant AB` for both)
 Shipped (the owner's picks, 2026-10-21), in godot/models/stages/: beach_world.glb (`--theme ocean --variant AB`), canyon_world.glb
-(`--theme sunset --variant AL`), meadow_world.glb (`--theme meadow --variant BC`), grove_world.glb (`--theme grove --variant ABL`),
+(`--theme sunset --variant A`), meadow_world.glb (`--theme meadow --variant BC`), grove_world.glb (`--theme grove --variant ABL`),
 city_world.glb (`--theme city --variant AB`).
 """
 
@@ -163,33 +165,6 @@ def figure(at, height, fam, rng, turn=0.0):
     card(head, "skin", "head")
 
 
-def gull(at, span, glide=True, turn=0.0, body_fam="gull", tip_fam="gull_tip"):
-    """A gull cut from card: a white body, wings in a shallow V (gliding) or folded (perched), grey tips, a yellow beak (a hawk in its
-    own colours)."""
-    x, y, z = at
-    s = span
-    d = 1.0 if math.cos(turn) >= 0 else -1.0
-    body = [(x - 0.3 * s * d, y, z), (x + 0.25 * s * d, y + 0.03 * s, z), (x + 0.32 * s * d, y + 0.08 * s, z),
-            (x + 0.2 * s * d, y + 0.12 * s, z), (x - 0.25 * s * d, y + 0.08 * s, z)]
-    card(body, body_fam, "gull_body", thick=0.02)
-    card([(x + 0.32 * s * d, y + 0.08 * s, z + 0.01), (x + 0.42 * s * d, y + 0.07 * s, z + 0.01), (x + 0.32 * s * d, y + 0.05 * s, z + 0.01)],
-         "beak", "gull_beak", thick=0.01)
-    if glide:
-        for side in (-1.0, 1.0):
-            w = [(x - 0.05 * s, y + 0.08 * s, z), (x + 0.12 * s, y + 0.1 * s, z), (x + 0.02 * s, y + 0.28 * s, z + side * 0.5 * s),
-                 (x - 0.12 * s, y + 0.3 * s, z + side * 0.5 * s)]
-            card(w, body_fam, "gull_wing", thick=0.015, normal=(0, 1, 0))
-            tip = [(x + 0.02 * s, y + 0.28 * s, z + side * 0.5 * s), (x - 0.12 * s, y + 0.3 * s, z + side * 0.5 * s),
-                   (x - 0.08 * s, y + 0.33 * s, z + side * 0.62 * s)]
-            card(tip, tip_fam, "gull_tip", thick=0.015, normal=(0, 1, 0))
-    else:
-        card([(x - 0.22 * s * d, y + 0.05 * s, z + 0.02), (x + 0.15 * s * d, y + 0.1 * s, z + 0.02), (x - 0.28 * s * d, y + 0.12 * s, z + 0.02)],
-             "gull_tip", "gull_wing", thick=0.01)
-        bm = bmesh.new()
-        tube(bm, (x, y - 0.12 * s, z), (x, y, z), 0.012 * s, segs=5)
-        ob("gull_leg", bm, "beak")
-
-
 # ---- The beach -----------------------------------------------------------------------------------------------------------------------
 
 
@@ -279,15 +254,7 @@ def beach_walk():
 
 
 def beach_b():
-    # Perched on what stands on the dock (StageArt._props on the beach): the lamp post's top, the stacked crates, the life ring's post.
-    for (x, y, z) in ((-6.5, 2.27, -5.2), (-11.3, 1.92, -4.8), (9.6, 1.62, -4.7)):
-        moving("perch", (x, y + 0.12, z), gull, (x, y + 0.12, z), 1.4, False)
-    # Gliding over the water to either side of the fight, high enough to stay clear of it.
-    rng = random.Random(3)
-    for (x, y, z, s) in ((-14, 8, -26, 2.6), (15, 10, -32, 2.8), (-28, 12, -46, 3.0), (30, 13, -52, 3.0), (2, 17, -72, 3.4)):
-        turn = rng.uniform(-0.5, 3.6)
-        # (`r` or `l`: the way it faces, so it turns to face the way it flies.)
-        moving("wheel_%s" % ("r" if math.cos(turn) >= 0 else "l"), (x, y, z), gull, (x, y, z), s, True, turn)
+    # A rowboat by the sailboat, bobbing. (Its gulls are gone: no animals in the backgrounds.)
     moving("bob", (-20.0, SEA, -62.0), scaled, (-20.0, SEA, -62.0), 1.6, rowboat, -20.0, -62.0)
 
 
@@ -462,7 +429,7 @@ def canyon_b():
                     kit.tube(wires, P(*last), P(*cur), 0.05, segs=4)
                 last = cur
     kit.to_object("wires", wires, "iron", ROOT, smooth=True)
-    # A covered wagon on the trail, its oxen ahead, twice and more life size to read at the floor's distance.
+    # A covered wagon on the trail, twice and more life size to read at the floor's distance.
     p = pts[6]
     d = (pts[7] - pts[5]).normalized()
     scaled((p.x, FLOOR, p.z), 2.4, wagon, p, math.atan2(-d.z, d.x))
@@ -487,10 +454,6 @@ def wagon(p, ang):
         g = turned([(wx, 0.55, wz)], (p.x, FLOOR, p.z), ang)[0]
         kit.torus(bm, P(*g), (math.sin(ang), math.cos(ang), 0.0), 0.5, 0.07, segs=12, rsegs=5)
     ob("wheels", bm, "timber_dark", smooth=True)
-    for k in range(2):
-        g = turned([(3.2 + k * 0.1, 0.0, -0.5 + k * 1.0)], (p.x, FLOOR, p.z), ang)[0]
-        body = turned([(-0.8, 0.6, 0.0), (0.7, 0.6, 0.0), (1.0, 1.2, 0.0), (0.8, 1.5, 0.0), (-0.8, 1.4, 0.0)], g, ang)
-        card(body, "ox", "ox", thick=0.5)
 
 
 def canyon_c():
@@ -527,7 +490,7 @@ def windpump(wx, wz):
 
 
 def corral(cx, cz, rng):
-    # A corral of rolled rails with cattle in it.
+    # A corral of rolled rails and its trough.
     r = 6.0
     bm = bmesh.new()
     posts = [(cx + r * math.cos(math.tau * k / 12), cz + r * math.sin(math.tau * k / 12)) for k in range(12)]
@@ -537,17 +500,7 @@ def corral(cx, cz, rng):
         for h in (0.6, 1.3):
             tube(bm, (a[0], FLOOR + h, a[1]), (b[0], FLOOR + h, b[1]), 0.05, segs=5)
     ob("corral", bm, "timber", smooth=True)
-    for k in range(4):
-        x = cx + rng.uniform(-3.5, 3.5)
-        z = cz + rng.uniform(-3.0, 3.0)
-        d = rng.choice((-1.0, 1.0))
-        body = [(x - 1.0 * d, FLOOR + 0.7, z), (x + 0.8 * d, FLOOR + 0.7, z), (x + 1.3 * d, FLOOR + 1.3, z), (x + 1.1 * d, FLOOR + 1.6, z),
-                (x - 1.0 * d, FLOOR + 1.5, z)]
-        card(body, "cattle_" + ("a" if k % 2 == 0 else "b"), "cow", thick=0.7)
-        bm = bmesh.new()
-        for lx in (-0.7, -0.4, 0.4, 0.7):
-            tube(bm, (x + lx * d, FLOOR, z - 0.25), (x + lx * d, FLOOR + 0.75, z - 0.25), 0.06, segs=5)
-        ob("cow_legs", bm, "cattle_b", smooth=True)
+    boxg(cx - 1.6, cx + 1.6, FLOOR, FLOOR + 0.7, cz - 0.5, cz + 0.5, "timber_dark", "trough")
 
 
 def adobe(hx, hz, rng):
@@ -610,37 +563,28 @@ def meadow_a():
     scaled((-28.0, -16.0, -31.0), 1.4, hay_cart, (-28.0, -16.0, -31.0), 0.9)
 
 
-def sheep(at, s=1.0, fam="wool"):
+# A row on the far field left of the windmill, read from the match camera's depth: the field is level there, and in frame nothing stands
+# over it (nearer, the stooks crowded the cottages and the frame's edge; to the right they showed under the platforms, by the fight).
+MEADOW_FIELDS = [(-61.5, -13.2, -97.8), (-57.1, -13.5, -98.4), (-52.6, -13.8, -98.9)]
+
+
+def haystack(at, r=1.6, h=3.2):
+    """A haystack of rolled straw, domed, bound round its middle; set a little into the ground so it sits on a slope."""
     x, y, z = at
     bm = bmesh.new()
-    for (dx, dy, r) in ((0.0, 0.55, 0.42), (-0.3, 0.6, 0.32), (0.3, 0.6, 0.32), (0.0, 0.8, 0.3)):
-        bmesh.ops.create_icosphere(bm, subdivisions=1, radius=r * s, matrix=Matrix.Translation(P(x + dx * s, y + dy * s, z)))
-    ob("sheep", bm, fam)
+    kit.lathe(bm, [(r * 0.95, -0.5), (r, 0.0), (r * 1.02, 0.3 * h), (r * 0.88, 0.58 * h), (r * 0.5, 0.86 * h), (0.0, h)], 14)
+    for v in bm.verts:
+        v.co = P(x + v.co.x, y + v.co.z, z - v.co.y)
+    ob("haystack", bm, "straw", smooth=True)
     bm = bmesh.new()
-    bmesh.ops.create_icosphere(bm, subdivisions=1, radius=0.2 * s, matrix=Matrix.Translation(P(x + 0.5 * s, y + 0.7 * s, z + 0.05)))
-    for lx in (-0.25, 0.25):
-        tube(bm, (x + lx * s, y, z), (x + lx * s, y + 0.35 * s, z), 0.05 * s, segs=5)
-    ob("sheep_head", bm, "cattle_b")
+    kit.torus(bm, P(x, y + 0.42 * h, z), Vector((0.0, 0.0, 1.0)), r * 0.98, 0.07, segs=16, rsegs=4)
+    ob("haystack_band", bm, "rope", smooth=True)
 
 
 def meadow_b():
-    # Sheep grazing the near fields, two cows by the farm, and a flock dotted on the far hills.
-    for p in ((-30.4, -13.2, -33.4), (-28.6, -14.6, -33.2), (-26.7, -13.2, -33.4), (-31.9, -10.5, -39.6), (-28.6, -9.1, -40.5),
-              (-30.2, -15.9, -30.4)):
-        moving("graze", p, sheep, p, 1.4)
-    for (x, y, z) in ((-25.9, -17.4, -29.5), (-23.5, -8.0, -42.6)):
-        moving("graze", (x, y, z), cow, x, y, z)
-    for p in ((-28.3, -12.4, -73.7), (-25.0, -11.5, -69.4), (10.5, -8.0, -68.1), (13.0, -8.4, -70.0)):
-        moving("graze", p, sheep, p, 2.2)
-
-
-def cow(x, y, z):
-    body = [(x - 1.0, y + 0.7, z), (x + 0.8, y + 0.7, z), (x + 1.3, y + 1.3, z), (x + 1.1, y + 1.6, z), (x - 1.0, y + 1.5, z)]
-    card(body, "cow", "cow", thick=0.7)
-    bm = bmesh.new()
-    for lx in (-0.7, -0.4, 0.4, 0.7):
-        tube(bm, (x + lx, y, z - 0.25), (x + lx, y + 0.75, z - 0.25), 0.07, segs=5)
-    ob("cow_legs", bm, "cattle_b", smooth=True)
+    # The fields at work: haystacks dotted over the far fields, life size (as the cottages are), so they shrink with the distance.
+    for p in MEADOW_FIELDS:
+        haystack((p[0], p[1] - 0.2, p[2]))
 
 
 def scarecrow(at):
@@ -681,31 +625,83 @@ def meadow_c():
     moving("sway", (-27.6, -15.5, -33.0), scaled, (-27.6, -15.5, -33.0), 1.5, scarecrow, (-27.6, -15.5, -33.0))
 
 
+# Where the far terraces are, read from the match camera's depth: about a unit under the stage's base level, 100 to 120 units back.
+GROVE_FAR = [(-49.0, -1.0, -106.0, 30.0), (-31.0, -1.1, -116.0, 26.0), (47.0, -1.0, -106.0, 31.0), (30.0, -1.0, -112.0, 25.0)]
+
+
+def far_tree(x, y0, z, height, r=2.0):
+    """A great tree far off, as the grove's own: a trunk of folded paper (seven faces, flared at its foot) and a pleated crown in tiers."""
+    bm = bmesh.new()
+    kit.lathe(bm, [(r * 1.7, -3.0), (r * 1.25, 0.6), (r, height * 0.35), (r * 0.8, height)], 7)
+    for v in bm.verts:
+        v.co = P(x + v.co.x, y0 + v.co.z, z - v.co.y)
+    ob("far_trunk", bm, "bark")
+    bm = bmesh.new()
+    for k, (base, rad, tall) in enumerate(((height * 0.5, r * 4.2, 6.0), (height * 0.5 + 4.5, r * 3.4, 5.5), (height * 0.5 + 8.5, r * 2.4, 5.0))):
+        bmesh.ops.create_cone(bm, cap_ends=True, segments=9, radius1=rad, radius2=rad * 0.25, depth=tall,
+                              matrix=Matrix.Translation(P(x, y0 + base + tall / 2, z)) @ Matrix.Rotation(k * 0.35, 4, "Z"))
+    ob("far_crown", bm, "crown")
+
+
+def far_hut(x, y, z, r, side):
+    """A hut of dark wood on a ring of planks round a far trunk: a lit window, a cone of thatch."""
+    bm = bmesh.new()
+    kit.lathe(bm, [(r + 1.8, 0.0), (r + 1.8, 0.3)], 18)
+    for v in bm.verts:
+        v.co = P(x + v.co.x, y + v.co.z, z - v.co.y)
+    ob("far_deck", bm, "timber")
+    hx = x + side * (r + 0.6)
+    hz = z + 1.4
+    # (Dark wood, as the reference's huts: on pale walls the warm window had nothing to glow against.)
+    boxg(hx - 1.1, hx + 1.1, y + 0.3, y + 2.1, hz - 0.9, hz + 0.9, "timber_dark", "far_hut")
+    bm = bmesh.new()
+    kit.lathe(bm, [(1.6, 0.0), (1.0, 0.5), (0.0, 1.4)], 10)
+    for v in bm.verts:
+        v.co = P(hx + v.co.x, y + 2.1 + v.co.z, hz - v.co.y)
+    ob("far_thatch", bm, "straw")
+    boxg(hx - 0.5, hx + 0.5, y + 0.8, y + 1.7, hz + 0.9, hz + 0.96, "window", "far_window")
+
+
+def rope_bridge(a, b, sag=1.2):
+    """A rope bridge between two decks (game points): plank cards along the sag, two hand ropes over them."""
+    bm = bmesh.new()
+    n = 14
+    for k in range(n):
+        t = (k + 0.5) / n
+        p = a.lerp(b, t) + Vector((0.0, -sag * math.sin(t * math.pi), 0.0))
+        d = (b - a).normalized()
+        side = Vector((-d.z, 0.0, d.x)) * 0.6
+        q0, q1 = p - side, p + side
+        boxg(min(q0.x, q1.x) - 0.25, max(q0.x, q1.x) + 0.25, p.y - 0.08, p.y + 0.08, min(q0.z, q1.z), max(q0.z, q1.z), "timber", "plank")
+    for h in (0.0, 1.0):
+        last = None
+        for k in range(n + 1):
+            t = k / n
+            p = a.lerp(b, t) + Vector((0.0, 1.0 - sag * 0.8 * math.sin(t * math.pi), 0.0))
+            cur = (p.x, p.y, p.z + (0.6 if h else -0.6))
+            if last:
+                kit.tube(bm, P(*last), P(*cur), 0.05, segs=4)
+            last = cur
+    kit.to_object("bridge_ropes", bm, "rope", ROOT, smooth=True)
+
+
 def grove_a():
-    # A treehouse in the great tree, above the top platform: a ring of planks round the trunk, a little hut with a cone of thatch,
-    # a lit round window, and lanterns strung from its eaves to the strings.
-    tx, ty, tz = 0.0, 6.5, -15.0
-    bm = bmesh.new()
-    kit.lathe(bm, [(3.4, 0.0), (3.4, 0.25)], 24)
-    for v in bm.verts:
-        v.co = P(tx + v.co.x, ty + v.co.z, tz - v.co.y)
-    ob("deck_ring", bm, "timber", smooth=True)
-    card([(tx + 3.4 * math.cos(a), ty + 0.25, tz + 3.4 * math.sin(a)) for a in [math.tau * i / 24 for i in range(24)]], "timber_dark", "deck_top",
-         thick=0.05, normal=(0, 1, 0))
-    hx, hz = tx - 2.0, tz + 2.2
-    boxg(hx - 1.1, hx + 1.1, ty + 0.25, ty + 2.0, hz - 0.9, hz + 0.9, "canvas", "hut")
-    bm = bmesh.new()
-    kit.lathe(bm, [(1.7, 0.0), (1.2, 0.4), (0.4, 1.1), (0.0, 1.3)], 12)
-    for v in bm.verts:
-        v.co = P(hx + v.co.x, ty + 2.0 + v.co.z, hz - v.co.y)
-    ob("thatch", bm, "straw", smooth=True)
-    card([(hx + 0.35 * math.cos(math.tau * i / 12), ty + 1.2 + 0.35 * math.sin(math.tau * i / 12), hz + 0.92) for i in range(12)], "window", "window", thick=0.02)
-    boxg(hx - 0.35, hx + 0.35, ty + 0.25, ty + 1.3, hz + 0.9, hz + 0.95, "timber_dark", "door")
-    bm = bmesh.new()
-    for x in (-3.0, -1.0, 1.0, 3.0):
-        tube(bm, (tx + x, ty + 0.25, tz + 3.2), (tx + x, ty + 1.2, tz + 3.2), 0.05, segs=5)
-    tube(bm, (tx - 3.0, ty + 1.15, tz + 3.2), (tx + 3.0, ty + 1.15, tz + 3.2), 0.04, segs=5)
-    ob("rail", bm, "timber_dark", smooth=True)
+    # A tree village far off, as in the reference's violet forest: great trees on the far terraces either side of the island, small
+    # huts with lit windows on rings of planks round their trunks, rope bridges between them. True size, so the distance reads.
+    huts = []
+    for k, (x, y0, z, height) in enumerate(GROVE_FAR):
+        far_tree(x, y0, z, height)
+        side = -1.0 if x < 0 else 1.0
+        # (Low on the trunks, against the violet hills where the lit windows show: higher, they were lost among the lantern strings.)
+        y = y0 + (4.0 if k % 2 == 0 else 5.5)
+        far_hut(x, y, z, 2.0, side if k < 2 else -side)
+        huts.append(Vector((x, y + 0.3, z)))
+    for i, j in ((0, 1), (2, 3)):
+        a, b = huts[i], huts[j]
+        d = (b - a)
+        d.y = 0.0
+        d.normalize()
+        rope_bridge(a + d * 3.8, b - d * 3.8)
 
 
 def grove_b():
@@ -831,13 +827,6 @@ def city_c():
         boxg(cx - 2.1, cx + 2.1, deck + 1.0, deck + 1.7, z + 1.0, z + 1.05, "window", "car_windows%d" % k)
 
 
-def canyon_l():
-    # Two hawks wheeling high over the buttes, dark against the dusk.
-    # (Not much higher: the match camera looks down, and at 22 units up they were above the frame.)
-    for (x, y, z, s, d) in ((-34.0, 8.0, -80.0, 4.6, "r"), (38.0, 10.0, -96.0, 4.2, "l")):
-        moving("soar_%s" % d, (x, y, z), gull, (x, y, z), s, True, 0.0 if d == "r" else math.pi, "hawk", "hawk_tip")
-
-
 def grove_l():
     # Fireflies round the treehouse and under the lantern strings, high over the fight and behind it.
     rng = random.Random(21)
@@ -852,7 +841,7 @@ BUILDS = {("ocean", "A"): beach_a, ("ocean", "B"): beach_b, ("ocean", "C"): beac
           ("meadow", "A"): meadow_a, ("meadow", "B"): meadow_b, ("meadow", "C"): meadow_c,
           ("grove", "A"): grove_a, ("grove", "B"): grove_b, ("grove", "C"): grove_c,
           ("city", "A"): city_a, ("city", "B"): city_b, ("city", "C"): city_c,
-          ("sunset", "L"): canyon_l, ("grove", "L"): grove_l}
+          ("grove", "L"): grove_l}
 # The ground the occlusion bake lays under each stage's pieces.
 FLOORS = {"ocean": SEA, "sunset": FLOOR, "meadow": -20.0, "grove": -12.0, "city": -13.5}
 

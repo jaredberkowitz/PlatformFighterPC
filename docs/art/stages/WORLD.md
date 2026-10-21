@@ -142,3 +142,27 @@ the hawks and fireflies); `scripts/world_motion.gd` moves them; `StageBake.place
 - `tests/stage_front_test.gd` checks every `move_` pivot is a kind the motion knows.
 - **Gotchas:** the match camera looks down 10°, so far things sit higher in frame than their height suggests (hawks at 22 units up were
   out of frame); a lone speck is lost among the grove's lanterns without a glow.
+
+## Round 3: the owner's notes, refined from the references (2026-10-21)
+
+**The notes:** the background animals never read at a believable size or in our style (to read at the match camera they were built
+1.4 to 2.4 times life size, which is exactly what made them wrong), so no animals in the backgrounds; and the grove's treehouse sat too
+close to the fight and did not look good: refine with details further back instead.
+
+**What the references teach** (`docs/art/benchmarks/`): the grove's reference keeps its treehouses far back, on distant giant trunks in the
+violet haze, small, dark, with lit windows and rope bridges between them, and nothing like that near the fight; the harbour's life is the
+far town at the waterline; the papercraft camp gets its depth from repeated simpler things growing smaller with distance. Far things are
+true size and take the air, and the frame's distance is where a place's story is told.
+
+**Changes:**
+- **No animals:** the beach's gulls, the meadow's sheep and cows and the canyon's hawks are gone (and the oxen and cattle from the unbuilt
+  mocks); the motion kinds only they used (perch, wheel, soar, graze) went with them. The fireflies stay: they read as lights.
+- **The meadow's fields at work:** a row of three haystacks on the far field left of the windmill, life size, where the field is level
+  and nothing in frame stands over it (nearer, stooks crowded the cottages; to the right they showed under the platforms).
+- **The grove's far tree village** (in place of the treehouse): four great trees on the far terraces either side of the island, 100 to
+  120 units back, each with a hut of dark wood and a lit window on a ring of planks low on its trunk, and rope bridges between them.
+  Placed low on the trunks against the violet hills (higher, they were lost among the lantern strings), dark so the windows glow.
+- **The air on every world piece:** `StageBake.place_world` now colours each piece through the stage's air at its depth
+  (`StageArt._air_colour`), as the rest of the scenery; it is placed after the backdrop, whose palette holds the air. Lights cut through.
+- Shipped: beach `--variant AB`, canyon `A`, meadow `BC`, grove `ABL`, city `AB`. Before/after: `world_refined.jpg` (before left; meadow
+  above, grove below); clips re-shot in `mocks/world_life/`.

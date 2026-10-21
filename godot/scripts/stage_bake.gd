@@ -548,26 +548,26 @@ static func mood_source(bake_key: String) -> Variant:
 ## The world-building pieces' colours by family (art/blender/make_world.py, docs/art/stages/WORLD.md).
 const WORLD_COLOURS := {"hull": Color(0.32, 0.5, 0.62), "hull_stripe": Color(0.95, 0.92, 0.84), "deck": Color(0.78, 0.6, 0.42),
 	"cabin": Color(0.96, 0.94, 0.88), "cabin_roof": Color(0.82, 0.32, 0.28), "wood_dark": Color(0.45, 0.32, 0.24), "sail": Color(0.95, 0.9, 0.8),
-	"rope": Color(0.86, 0.74, 0.52), "net": Color(0.42, 0.56, 0.52), "fish_crate": Color(0.84, 0.66, 0.44), "gull": Color(0.98, 0.98, 0.96),
-	"gull_tip": Color(0.42, 0.44, 0.5), "beak": Color(1.0, 0.76, 0.3), "awning_a": Color(0.92, 0.4, 0.38), "awning_b": Color(0.98, 0.94, 0.86),
+	"rope": Color(0.86, 0.74, 0.52), "net": Color(0.42, 0.56, 0.52), "fish_crate": Color(0.84, 0.66, 0.44),
+	"awning_a": Color(0.92, 0.4, 0.38), "awning_b": Color(0.98, 0.94, 0.86),
 	"stall": Color(0.76, 0.56, 0.38), "coat_a": Color(0.36, 0.48, 0.72), "coat_b": Color(0.82, 0.5, 0.32), "coat_c": Color(0.5, 0.62, 0.4),
 	"skin": Color(0.96, 0.8, 0.66), "flag_a": Color(0.92, 0.36, 0.36), "flag_b": Color(1.0, 0.84, 0.36), "flag_c": Color(0.4, 0.66, 0.86),
 	"smoke": Color(0.9, 0.88, 0.92), "timber": Color(0.62, 0.42, 0.3), "timber_dark": Color(0.44, 0.3, 0.24), "iron": Color(0.32, 0.3, 0.36),
 	"engine": Color(0.22, 0.24, 0.3), "engine_cab": Color(0.7, 0.22, 0.22), "car_a": Color(0.78, 0.5, 0.3), "car_b": Color(0.46, 0.58, 0.5),
 	"tank": Color(0.62, 0.4, 0.3), "tank_dark": Color(0.42, 0.28, 0.24), "trail": Color(0.96, 0.84, 0.68), "canvas": Color(0.96, 0.93, 0.84),
-	"ox": Color(0.55, 0.38, 0.28), "blade": Color(0.86, 0.84, 0.8), "cattle_a": Color(0.52, 0.34, 0.26), "cattle_b": Color(0.3, 0.24, 0.22),
+	"blade": Color(0.86, 0.84, 0.8),
 	"adobe": Color(0.9, 0.66, 0.5), "adobe_dark": Color(0.74, 0.5, 0.38), "window": Color(1.0, 0.82, 0.5),
-	"wool": Color(0.97, 0.96, 0.92), "cow": Color(0.92, 0.88, 0.82), "straw": Color(0.98, 0.84, 0.46), "gate_red": Color(0.86, 0.3, 0.26),
+	"straw": Color(0.98, 0.84, 0.46), "gate_red": Color(0.86, 0.3, 0.26),
 	"gate_dark": Color(0.3, 0.22, 0.24), "rock": Color(0.6, 0.56, 0.62), "turf": Color(0.48, 0.74, 0.36), "bark": Color(0.55, 0.38, 0.26),
 	"bus": Color(0.95, 0.72, 0.28), "board_frame": Color(0.3, 0.28, 0.4), "steel": Color(0.4, 0.4, 0.52), "train": Color(0.36, 0.5, 0.7),
-	"hawk": Color(0.36, 0.24, 0.22), "hawk_tip": Color(0.22, 0.15, 0.15), "firefly": Color(0.95, 1.0, 0.62)}
+	"crown": Color(0.22, 0.42, 0.32), "firefly": Color(0.95, 1.0, 0.62)}
 
 
 ## World-building (art/blender/make_world.py, docs/art/stages/WORLD.md, the owner's picks 2026-10-21): the beach's working pier and
-## harbour life (a fishing boat at its buoy, nets and crates, gulls, a rowboat), the canyon's railroad (a trestle and train, a water
-## tower), the meadow's flock and village life (sheep and cows, chimney smoke, a washing line, a scarecrow), the grove's treehouse and
-## festival (a shrine platform in the great tree, gates, streamers), the city's billboard, rooftop party and street traffic. By the exact
-## stage they were built on.
+## harbour life (a fishing boat at its buoy, nets and crates, a rowboat), the canyon's railroad (a trestle and train, a water tower), the
+## meadow's fields at work and village life (haystacks, chimney smoke, a washing line, a scarecrow), the grove's far tree village and
+## festival (great trees with lit huts and rope bridges, gates, streamers, fireflies), the city's billboard, rooftop party and street
+## traffic. No animals (the owner). By the exact stage they were built on.
 const WORLDS := {"ocean_d9c5edff": "res://models/stages/beach_world.glb", "sunset_19cad55b": "res://models/stages/canyon_world.glb",
 	"meadow_62409190": "res://models/stages/meadow_world.glb", "grove_14d06e65": "res://models/stages/grove_world.glb",
 	"city_2eadbb68": "res://models/stages/city_world.glb"}
@@ -605,6 +605,13 @@ static func place_world(root: Node3D, source: Variant) -> void:
 			if fam == "firefly":
 				StageArt._halo(mi, Vector3.ZERO, colour, 1.4)
 			continue
+		# (Through the stage's air at its depth, as the rest of the scenery: flat colours read pasted on far out. Lights cut through it.)
+		var xf := Transform3D.IDENTITY
+		var up: Node = mi
+		while up != null and up != root:
+			xf = (up as Node3D).transform * xf
+			up = up.get_parent()
+		colour = StageArt._air_colour(colour, (xf * mi.get_aabb().get_center()).z)
 		var m := FighterView.toon(colour, true).duplicate() as ShaderMaterial
 		m.set_shader_parameter("vertex_shade", true)
 		mi.material_override = m
