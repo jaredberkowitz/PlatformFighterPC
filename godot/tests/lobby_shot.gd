@@ -19,6 +19,8 @@ func _initialize() -> void:
 	var entries := Roster.all()
 	var lobby: CanvasLayer = NetLobby.new()
 	root.add_child(lobby)
+	# As main.gd's _open_lobby does: the match's display hides under the lobby.
+	main.hud.visible = false
 	lobby.build(entries, 1, 0)
 	lobby.set_friend_name("Sam")
 	var theirs: Dictionary = entries[4]

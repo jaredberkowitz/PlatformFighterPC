@@ -1,8 +1,8 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
-  <clipPath id="t"><path d="M40,88 Q40,84 48,84 L208,84 Q216,84 216,92 L216,160 Q216,168 208,168 L48,168 Q40,168 40,160 Z"/></clipPath>
-  <path d="M40,88 Q40,84 48,84 L208,84 Q216,84 216,92 L216,160 Q216,168 208,168 L48,168 Q40,168 40,160 Z" fill="#ffffff"/>
-  <path d="M20,126 L236,126" fill="none" stroke="#2a1a33" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" clip-path="url(#t)"/>
-  <path d="M96,60 L96,200" fill="none" stroke="#2a1a33" stroke-width="10" stroke-linecap="round" stroke-linejoin="round" clip-path="url(#t)"/>
-  <path d="M160,60 L160,200" fill="none" stroke="#2a1a33" stroke-width="10" stroke-linecap="round" stroke-linejoin="round" clip-path="url(#t)"/>
-  <path d="M40,88 Q40,84 48,84 L208,84 Q216,84 216,92 L216,160 Q216,168 208,168 L48,168 Q40,168 40,160 Z" fill="none" stroke="#2a1a33" stroke-width="29" stroke-linejoin="round"/>
+  <clipPath id="t"><path d="M54,112 Q128,98 202,112 Q198,158 128,164 Q58,158 54,112 Z"/></clipPath>
+  <path d="M54,112 Q128,98 202,112 Q198,158 128,164 Q58,158 54,112 Z" fill="#f1ecd6"/>
+  <path d="M100,40 L100,220" fill="none" stroke="#0b0b38" stroke-width="9" stroke-linecap="round" stroke-linejoin="round" clip-path="url(#t)"/>
+  <path d="M128,40 L128,220" fill="none" stroke="#0b0b38" stroke-width="9" stroke-linecap="round" stroke-linejoin="round" clip-path="url(#t)"/>
+  <path d="M156,40 L156,220" fill="none" stroke="#0b0b38" stroke-width="9" stroke-linecap="round" stroke-linejoin="round" clip-path="url(#t)"/>
+  <path d="M54,112 Q128,98 202,112 Q198,158 128,164 Q58,158 54,112 Z" fill="none" stroke="#0b0b38" stroke-width="13" stroke-linejoin="round"/>
 </svg>

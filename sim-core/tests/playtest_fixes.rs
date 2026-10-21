@@ -195,13 +195,46 @@ fn run_jump_speed(stick_x: i8) -> Fx {
 }
 
 #[test]
-fn a_run_jump_carries_further_with_the_stick_forward_than_back() {
-    // Sim 144 (the owner after a playtest): the run's kept share plus the stick's, within the body's maximum.
-    let (back, neutral, forward) = (run_jump_speed(-127), run_jump_speed(0), run_jump_speed(127));
-    assert!(
-        back < neutral && neutral <= forward,
-        "{back:?} {neutral:?} {forward:?}"
-    );
+fn a_run_jump_carries_further_with_the_stick_forward() {
+    // Sim 144 (the owner after a playtest): the run's kept share plus the stick's, within the body's maximum. (The stick back out of a
+    // run is a reverse aerial rush, which keeps the run's share: sim 145, below.)
+    let (neutral, forward) = (run_jump_speed(0), run_jump_speed(127));
+    assert!(neutral <= forward, "{neutral:?} {forward:?}");
     let p = Sim::new().content.fighters[0];
     assert!(forward <= p.jump_speed_x_max);
+    // A body whose run's share is under its maximum gains from the stick: the Claws.
+    assert!(takeoff_speed(127, 25, 0) < takeoff_speed(127, 25, 127));
+}
+
+/// Player 0's horizontal speed on the first airborne frame of a jump made with `jump_stick`, after `before` frames holding `stick`.
+fn takeoff_speed(stick: i8, before: usize, jump_stick: i8) -> Fx {
+    let mut sim = Sim::with_chars([1, 0, 0, 0]);
+    sim.state = GameState::new_with_active(&sim.content, 1, [1, 0, 0, 0], 0b0001);
+    sim.stand(0, Fx::from_int(-8), 1);
+    sim.ticks(before, inp(stick, 0, 0));
+    for _ in 0..10 {
+        sim.tick(inp(jump_stick, 0, JUMP));
+        if sim.f().state == S::Airborne {
+            break;
+        }
+    }
+    sim.f().vel.x
+}
+
+#[test]
+fn a_reverse_aerial_rush_carries_the_runs_momentum() {
+    // Sim 145 (the owner after docs/MOMENTUM.md): the stick back with the jump out of a run turns the fighter round and keeps the run's
+    // share whole (it took a standing jump's speed off it in sim 144: the Claws left at 0.23 reference units a frame).
+    let (neutral, rar) = (takeoff_speed(127, 25, 0), takeoff_speed(127, 25, -127));
+    assert_eq!(
+        rar, neutral,
+        "the run's share, as a jump with the stick let go"
+    );
+    assert!(rar > Fx::ZERO);
+    // Out of a walk (slower than a walk's top speed), the stick back still jumps backward.
+    let walk_back = takeoff_speed(40, 6, -127);
+    assert!(
+        walk_back < Fx::ZERO,
+        "a backward jump out of a walk: {walk_back:?}"
+    );
 }

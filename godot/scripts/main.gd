@@ -1045,6 +1045,10 @@ func _open_lobby() -> void:
 				lobby_fighter = i
 	net_lobby = NetLobby.new()
 	add_child(net_lobby)
+	# The match's display (timer, percents) hides while the lobby is up: it showed through the lobby's veil, the timer's plate peeking
+	# out above the LOBBY banner (the UI pass, docs/art/ui/UI_ANALYSIS.md).
+	if hud != null:
+		hud.visible = false
 	net_lobby.build(entries, lobby_fighter, lobby_stage)
 	net_lobby.set_friend_name(names[1 - local_slot] if names[1 - local_slot] != "Player %d" % (2 - local_slot) else "")
 	net_lobby.changed.connect(_on_lobby_changed)
@@ -1072,6 +1076,7 @@ func _close_lobby() -> void:
 	names[local_slot] = e.name
 	net_lobby.queue_free()
 	net_lobby = null
+	_show_display(not hud_hidden)
 
 
 ## The other player left while the lobby was open.

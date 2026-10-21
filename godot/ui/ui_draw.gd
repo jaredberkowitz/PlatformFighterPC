@@ -13,6 +13,11 @@ const GOLD := Color(1.0, 0.82, 0.22)
 const TEAL := Color(0.2, 0.62, 0.66)
 const SLATE_TOP := Color(0.25, 0.3, 0.36)
 const SLATE_BOTTOM := Color(0.12, 0.15, 0.2)
+## The daylight ground behind every menu (the owner's pick, 2026-10-19, docs/UI_DESIGN_SYSTEM.md): a cool white falling to a light
+## steel, and the pale blue ink of its faint stripes and dots. The colour lives in the cards.
+const GROUND_TOP := Color("f4f7fc")
+const GROUND_BOTTOM := Color("c9d3e8")
+const GROUND_MARK := Color("3c5a9c")
 const RED := Color(0.92, 0.28, 0.3)
 const BLUE := Color(0.25, 0.5, 0.95)
 const SKEW := 0.22

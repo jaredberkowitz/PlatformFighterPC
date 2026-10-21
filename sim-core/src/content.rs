@@ -2437,7 +2437,9 @@ pub struct Ruleset {
     /// `jump_speed_x` share only from standing still; 1 takes the faster of the two the same way (decision 99's first reading); 2
     /// (the standard since sim 144, the owner after a playtest: jumping back or forward out of a run should differ) adds them, the
     /// run's kept share plus the stick's, within `jump_speed_x_max` (the earlier game in the series' published rule: initial
-    /// horizontal jump speed times the stick plus the ground speed times its multiplier, capped; the reference's own is unpublished).
+    /// horizontal jump speed times the stick plus the ground speed times its multiplier, capped; the reference's own is unpublished);
+    /// with 2, the stick held back out of a dash or a run (faster than a walk: a reverse aerial rush) keeps the run's share whole
+    /// (sim 145).
     pub jump_stick_share: u8,
     /// The fastest a fighter keeps moving along the ground as it lands (sim 143, owner decision 102), as a percent of its body's
     /// `dash_speed` (the fastest it runs on its own): a landing out of a move, a special fall or a jump with more speed than that
