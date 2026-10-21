@@ -81,31 +81,37 @@ const STYLE_DEFAULT := {
 	"clouds": [0.0, 24.0, 0.4, 0.5],
 	# (`quiet` 0.25, art review 6 round 19, after the owner's Wind Waker HD reference: at 0.5 every stage was greyed by a fifth, so the
 	# scenery read milky beside the reference's clean, saturated colour; the fighters keep their lift over it.)
+	# The paper target (the stage paint-overs, docs/art/stages/PAINTOVERS.md): each sheet's shadow on the one behind (`sheets`), the
+	# die-cut edge (`cut_edge`) and the lift round the fight (`fight_lift`); 0 off (shaders/post.gdshader).
 	"finish": {"desat": 0.0, "lift": 0.03, "vignette": 0.16, "haze_max": 0.22, "s_curve": 0.22, "quiet": 0.25, "bloom": 0.4,
-		"bloom_from": 0.6},
+		"bloom_from": 0.6, "sheets": 0.0, "cut_edge": 0.0, "fight_lift": 0.0},
 }
 const STYLES := {
 	# Dappled light under the great tree: small patches swaying slowly.
 	"grove": {"paint": [Color(1.06, 0.99, 0.94), Color(0.94, 0.9, 1.06), 0.55], "clouds": [0.72, 4.5, 0.45, 0.25],
-		"finish": {"desat": 0.0, "lift": 0.02, "haze_max": 0.08, "s_curve": 0.3, "quiet": 0.08}},
+		"finish": {"desat": 0.0, "lift": 0.02, "haze_max": 0.08, "s_curve": 0.3, "quiet": 0.08, "sheets": 0.56, "cut_edge": 0.5, "fight_lift": 0.18}},
 	# Crisper light-to-shadow steps (a clear lit side and shaded side on every prop, in the manner of a cel-shaded adventure), warmer tops
 	# and cooler undersides, and less of the pastel wash, so the colours carry.
 	"meadow": {"ramp": [[0.0, 0.0], [0.38, 0.0], [0.43, 0.52], [0.55, 0.52], [0.6, 1.0], [1.0, 1.0]],
 		"paint": [Color(1.1, 1.02, 0.88), Color(0.88, 0.88, 1.1), 0.65], "deep": 0.74, "clouds": [0.65, 14.0, 0.42, 0.7],
 		# (Less haze and no greying of the scenery, 2026-10-17: together they washed the mid-distance cottages, trees and mountains into
 		# flat pastel shapes, the owner's "flat" feel; depth still reads through the cooler, lighter far colours.)
-		"finish": {"desat": 0.0, "lift": 0.01, "haze_max": 0.06, "s_curve": 0.3, "quiet": 0.0}},
+		# (Air again, the owner's paint-over pick 2026-10-21: the distance lighter and softer, `haze_max` 0.06 to 0.24.)
+		"finish": {"desat": 0.0, "lift": 0.01, "haze_max": 0.24, "s_curve": 0.3, "quiet": 0.0, "sheets": 0.49, "cut_edge": 0.5,
+			"fight_lift": 0.15}},
 	"sunset": {"clouds": [0.35, 30.0, 0.3, 0.4], "edge": Color(1.0, 0.86, 0.74, 0.44), "paint": [Color(1.1, 0.98, 0.86), Color(0.86, 0.86, 1.08), 0.7], "deep": 0.72,
-		"finish": {"desat": 0.0, "lift": 0.02, "haze_max": 0.08, "s_curve": 0.3, "quiet": 0.08}},
+		"finish": {"desat": 0.0, "lift": 0.02, "haze_max": 0.08, "s_curve": 0.3, "quiet": 0.08, "sheets": 0.56, "cut_edge": 0.5, "fight_lift": 0.15}},
 	"night": {"edge": Color(0.78, 0.86, 1.0, 0.62), "paint": [Color(0.98, 1.0, 1.08), Color(0.86, 0.9, 1.1), 0.5], "deep": 0.74, "glow": 0.95,
 		"ramp": [[0.0, 0.0], [0.36, 0.0], [0.44, 0.5], [0.56, 0.5], [0.64, 1.0], [1.0, 1.0]]},
 	# (The harbour dock, 2026-10-18, the soft-shading trial from docs/COMPETITOR_GAP.md: a smooth turn from light into shade over the
 	# scenery rather than cel bands, and fainter ink on it; the modelled planks, piles and crates carry the detail now.)
 	"ocean": {"paint": [Color(1.05, 1.02, 0.94), Color(0.9, 0.97, 1.06), 0.5], "clouds": [0.55, 26.0, 0.36, 0.9],
 		"ramp": [[0.0, 0.0], [0.3, 0.1], [0.45, 0.45], [0.6, 0.82], [0.75, 1.0], [1.0, 1.0]],
-		"finish": {"desat": 0.0, "lift": 0.02, "haze_max": 0.07, "s_curve": 0.28, "quiet": 0.08, "scenery_lines": 0.18}},
+		# (Air, the owner's paint-over pick 2026-10-21: `haze_max` 0.07 to 0.24.)
+		"finish": {"desat": 0.0, "lift": 0.02, "haze_max": 0.24, "s_curve": 0.28, "quiet": 0.08, "scenery_lines": 0.18, "sheets": 0.42,
+			"cut_edge": 0.45, "fight_lift": 0.15}},
 	"city": {"edge": Color(1.0, 0.82, 0.92, 0.55), "paint": [Color(1.06, 0.96, 0.96), Color(0.9, 0.88, 1.1), 0.6], "deep": 0.72, "glow": 1.1,
-		"finish": {"lift": 0.02, "s_curve": 0.48, "quiet": 0.12}},
+		"finish": {"lift": 0.02, "s_curve": 0.48, "quiet": 0.12, "sheets": 0.63, "cut_edge": 0.55, "fight_lift": 0.24}},
 }
 
 
@@ -303,6 +309,14 @@ static func stage_mood(env: Environment, root: Node, theme: Dictionary, post: Sh
 		post.set_shader_parameter("bloom", finish.bloom)
 		post.set_shader_parameter("bloom_threshold", finish.bloom_from)
 		post.set_shader_parameter("scenery_lines", float(finish.get("scenery_lines", 0.4)))
+		post.set_shader_parameter("sheets", finish.sheets)
+		post.set_shader_parameter("cut_edge", finish.cut_edge)
+		post.set_shader_parameter("fight_lift", finish.fight_lift)
+		# The key light's way across the screen (the camera looks straight down the stage, so its x and y), for the sheets' shadows.
+		if key != null:
+			var way := -key.basis.z
+			var on_screen := Vector2(way.x, -way.y)
+			post.set_shader_parameter("sheet_dir", on_screen.normalized() if on_screen.length() > 0.05 else Vector2(0.0, 1.0))
 	apply_paper(env, post, float(style(theme.get("name", "meadow")).finish.get("scenery_lines", 0.4)))
 	# The stage fronts calmed into the stage's own haze (`pf_front_calm`, shaders/toon_common.gdshaderinc; the gauntlet's round 1).
 	var haze: Color = (theme.get("sky_horizon", Color(0.8, 0.85, 0.95)) as Color).lerp(mood.ambient[0], 0.4)

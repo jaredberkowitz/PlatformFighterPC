@@ -122,6 +122,55 @@ func _initialize() -> void:
 					poking += 1
 			check(absf(top_here - r[2]) <= 0.02, "%s: the walkable top over [%.1f, %.1f] stands at the sim's %.2f: %.2f" % [path, r[0], r[1], r[2], top_here])
 			check(poking == 0, "%s: nothing pokes up out of the walkable top over [%.1f, %.1f]: %d points" % [path, r[0], r[1], poking])
+	# The contact shade (art/blender/light_stage.py, review 2's idea 3): every modelled front, play area and ground carries it, its
+	# vertex colours' alpha under 1 throughout (the shade, kept so the next run can take it out), so a piece rebuilt without lighting it
+	# again is caught.
+	var lit: Array = StageBake.FRONTS.values() + StageBake.PLAYS.values()
+	for g in StageBake.GROUNDS.values():
+		lit.append(g[0])
+	for path: String in lit:
+		if not ResourceLoader.exists(path):
+			continue
+		var model := (load(path) as PackedScene).instantiate() as Node3D
+		var unlit := 0
+		for mi: MeshInstance3D in model.find_children("*", "MeshInstance3D", true, false):
+			for s in mi.mesh.get_surface_count():
+				var cols = mi.mesh.surface_get_arrays(s)[Mesh.ARRAY_COLOR]
+				if cols == null or (cols as PackedColorArray).is_empty() or (cols as PackedColorArray)[0].a > 0.999:
+					unlit += 1
+		model.free()
+		check(unlit == 0, "%s carries the contact shade: %d surfaces without it (run art/blender/light_stage.py after rebuilding it)" % [path, unlit])
+	# The mood light (StageBake.MOODS, art/blender/make_mood.py): built for one of the sim's stages, and over the play space (the stage's
+	# span, from its lowest top up to ten units over its highest) it stays behind the fighters' plane, so no beam, lantern or pool of
+	# light ever crosses a fighter.
+	for key in StageBake.MOODS:
+		var path: String = StageBake.MOODS[key]
+		check(ResourceLoader.exists(path), "%s exists" % path)
+		check(stages.has(key), "%s is built for one of the sim's stages (%s): rebuild it if the stage changed" % [path, key])
+		if not stages.has(key) or not ResourceLoader.exists(path):
+			continue
+		var x0 := INF
+		var x1 := -INF
+		var y0 := INF
+		var y1 := -INF
+		for r in stages[key]:
+			x0 = minf(x0, r[0] - 1.0)
+			x1 = maxf(x1, r[1] + 1.0)
+			y0 = minf(y0, r[2])
+			y1 = maxf(y1, r[2] + 10.0)
+		var model := (load(path) as PackedScene).instantiate() as Node3D
+		var verts := 0
+		var crossing := 0
+		for mi: MeshInstance3D in model.find_children("*", "MeshInstance3D", true, false):
+			for s in mi.mesh.get_surface_count():
+				for v: Vector3 in mi.mesh.surface_get_arrays(s)[Mesh.ARRAY_VERTEX]:
+					var w := _xf(mi, model) * v
+					verts += 1
+					if w.x > x0 and w.x < x1 and w.y > y0 and w.y < y1 and w.z > -0.4:
+						crossing += 1
+		model.free()
+		check(verts > 0, "%s has geometry" % path)
+		check(crossing == 0, "%s stays behind the fighters' plane over the play space: %d of %d points in front" % [path, crossing, verts])
 	sim.free()
 	print("stage front test %s" % ("FAILED" if failed else "PASSED"))
 	quit(1 if failed else 0)

@@ -1337,6 +1337,62 @@ func _capture(label: String) -> void:
 		FileAccess.open(path.get_basename() + ".cam.json", FileAccess.WRITE).store_string(JSON.stringify({"fov": c.fov,
 			"origin": [o.x, o.y, o.z], "forward": [f.x, f.y, f.z], "up": [u.x, u.y, u.z],
 			"size": [img.get_width(), img.get_height()]}))
+		# `--depth`: the same view's distance from the camera beside it (`<label>_depth.png`, white at the camera to black at 160 units)
+		# and the frame without the fighters, for the stage paint-overs (tools/art/paintover.py, docs/art/stages/PAINTOVERS.md).
+		if OS.get_cmdline_user_args().has("--depth"):
+			var sh := Shader.new()
+			sh.code = """shader_type spatial;
+render_mode unshaded, fog_disabled, depth_test_disabled, skip_vertex_transform, cull_disabled;
+uniform sampler2D depth_tex : hint_depth_texture, filter_nearest;
+void vertex() { POSITION = vec4(VERTEX.xy, 1.0, 1.0); }
+void fragment() {
+	float d = texture(depth_tex, SCREEN_UV).r;
+	vec4 v = INV_PROJECTION_MATRIX * vec4(SCREEN_UV * 2.0 - 1.0, d, 1.0);
+	// (Written so the 8-bit sRGB image holds the value itself.)
+	ALBEDO = vec3(pow(1.0 - clamp(-v.z / v.w / 160.0, 0.0, 1.0), 2.2));
+}"""
+			var mat := ShaderMaterial.new()
+			mat.shader = sh
+			var quad := MeshInstance3D.new()
+			var qm := QuadMesh.new()
+			qm.size = Vector2(2, 2)
+			quad.mesh = qm
+			quad.material_override = mat
+			quad.extra_cull_margin = 16384.0
+			c.add_child(quad)
+			# (The value as written: no tone mapping, glow or grading on it.)
+			var env: Environment = c.environment if c.environment != null else get_viewport().find_world_3d().environment
+			var kept := []
+			if env != null:
+				kept = [env.tonemap_mode, env.tonemap_exposure, env.glow_enabled, env.adjustment_enabled]
+				env.tonemap_mode = Environment.TONE_MAPPER_LINEAR
+				env.tonemap_exposure = 1.0
+				env.glow_enabled = false
+				env.adjustment_enabled = false
+			await RenderingServer.frame_post_draw
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(path.get_basename() + "_depth.png")
+			quad.queue_free()
+			if env != null:
+				env.tonemap_mode = kept[0]
+				env.tonemap_exposure = kept[1]
+				env.glow_enabled = kept[2]
+				env.adjustment_enabled = kept[3]
+			# And the frame without the fighters (`<label>_stage.png`, their meshes moved to a layer the camera skips for two frames):
+			# where it differs from the frame is theirs (bodies, shadows, markers), and a paint-over leaves it be.
+			var moved := {}
+			for fv in views:
+				for vi: VisualInstance3D in (fv as Node).find_children("*", "VisualInstance3D", true, false):
+					moved[vi] = vi.layers
+					vi.layers = 1 << 19
+			var mask := c.cull_mask
+			c.cull_mask = mask & ~(1 << 19)
+			await RenderingServer.frame_post_draw
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(path.get_basename() + "_stage.png")
+			c.cull_mask = mask
+			for vi in moved:
+				(vi as VisualInstance3D).layers = moved[vi]
 	print("saved ", path)
 	shot_wait = ""
 

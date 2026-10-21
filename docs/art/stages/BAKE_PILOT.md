@@ -471,3 +471,79 @@ exact layout (`StageBake.PLAYS`). Each stage's palette sets its paper finish (gr
 **Result** (round 71, `<stage>_play_built.png`: match camera and fighters in play, before above after): every play area reads as
 paper card with the backgrounds, and the fighters keep their contact shadows. Cheaper on every stage (draw calls before → after): grove
 813 → 482, canyon 907 → 570, beach 738 → 732, city 899 → 787; GPU time the same or lower. **Tests:** all seven pass.
+
+## Readability pass (2026-10-20, review 2's idea 4)
+
+Fighters measured against what is behind and under them in play (the orange fighter's body is about 0.52):
+- **Canyon:** the play area's sand is a step paler and cooler (`place_play`, sunset `top`). Its saturation went from 0.46 to 0.34, value
+  0.76 to 0.80, hue 32 to 30 against the fighter's 20, so the orange fighter no longer stands on sand of its own hue. The buttes are a
+  step deeper (`rock_a/b/c`).
+- **Grove:** the paper terraces' cliffs are deeper (`cliff` 0.1, 0.24, 0.23) with fainter pale edges. Behind the fighters they went from
+  0.50–0.52 to 0.46; the distance air lifts them, so more would blacken the grove's distance.
+- **Meadow:** the inlaid path is narrower (0.7 either side of the play line, was 1.1). The lawn's saturation went from 0.38 to 0.43.
+
+Before/after (fighters in play, before above after): `readability_pass.png`. **Tests:** all seven pass.
+
+## Mood light in paper: mocks (2026-10-20, review 2's idea 5)
+
+Light as cut paper on the three stages where it suits the setting. The owner approved it as an addition.
+- **Builder:** `art/blender/make_mood.py --theme city|grove|ocean --variant A|B|C`, built in world space from the bake's manifest (and,
+  for the beach, the dock's posts read from `beach_front.glb` via `--front`).
+  - City searchlight beams: A two soft beams; B four narrower beams in pairs; C three flat paper beams with a deeper edge.
+  - Grove lanterns: A six under the platforms; B sixteen along the strings; C both, with warm pools on the lawn.
+  - Beach ripple rings round the dock's posts and the boardwalk's: A two rings; B plus a near-side crescent and a faint third ring;
+    C two rings plus paper sparkles on the open water. The match camera crops the dock's own waterline, so the boardwalk behind it
+    carries the rings into that shot.
+- **Placer:** `StageBake.place_mood` (`--mood-mock=<glb>`, from `stage_view.gd`) gives each family an unshaded material (additive for
+  beams, halos, pools, rings and sparkles), with no shadows; caps and cords are toon.
+- **Gotchas:**
+  - glTF export drops a vertex colour's alpha, so each fade is baked into the rgb (shade times fade, alpha 1) and the light is additive.
+  - Keep only the `Col` attribute, set active and for rendering: with a second colour set beside it, the export wrote a white
+    `COLOR_0`, which the game reads.
+  - Rings of 0.4 to 0.6 hid behind the posts; 0.5 to 0.8 and 1.05 to 1.2 read from the match camera.
+- **Picks recommended:** city B, grove C, beach B. Options in `mocks/mood/` (with a local `review.html`) and on the owner's page.
+**Tests:** all seven Godot tests pass.
+
+## Mood light: built (2026-10-20)
+
+The owner's picks:
+- **City B:** four searchlight beams in pairs, rising from behind the skyline (48 triangles).
+- **Grove C:** lanterns under the platforms and along the strings, with warm pools on the lawn (4,100 triangles).
+- **Beach B:** ripple rings with a near-side crescent round the dock's and the boardwalk's posts (9,280 triangles).
+
+Shipped as `godot/models/stages/{city,grove,beach}_mood.glb` for each exact layout (`StageBake.MOODS`, placed by `place_mood` from
+`stage_view.gd`). `--no-mood` to compare; `--mood-mock=<glb>` still tries one. `tests/stage_front_test.gd` checks each was built for a
+sim stage and stays behind the fighters' plane over the play space.
+
+**Result** (`mood_built.png`, before left, after right: city wide, grove match, beach match and wide): the city's sky gets its beams,
+the grove its warm lanterns, and the beach's waterline its rings, the boardwalk's in the match camera. The fighters are untouched.
+**Tests:** all seven Godot tests pass.
+
+## Contact shade on every stage (2026-10-21, review 2's idea 3)
+
+The grove pilot's texture bake covered only code-built meshes, was read from a git-ignored folder at run time (so it never shipped) and
+had gone stale: 0 of the grove's 38 code-built meshes still matched it. Since then the fronts, play areas and backgrounds became Blender
+pieces, each with occlusion baked on its own, so nothing shaded them where they meet the rest of the stage. This re-bake lights those
+pieces in place and ships inside them.
+- **Export:** `--light-export` on the stage demo (`StageBake.export_light`) writes everything else the game builds (props, trees, fences,
+  the code-built scenery) to `godot/art/baked/<key>/light_in.glb`. The modelled pieces are left out: they are marked `lit_piece`,
+  not found by name, since a second build beside a first still being freed gets `@Node3D@2`.
+- **Bake:** `art/blender/light_stage.py` bakes ambient occlusion (Cycles, reach 2.5) on each piece twice, once with the whole assembled
+  stage and once alone, and keeps the ratio raised to 2.5: the shade the rest of the stage adds. It fades back to 0.3 by 60 units deep,
+  as the pilot's did, never goes under 0.45, and is multiplied into the piece's vertex colours.
+  - The alpha keeps how much was applied (never quite 1), so a re-run divides the old shade out first. The test also reads it as the
+    mark that the piece is lit.
+  - Rebuild: run the demo with `--light-export`, then
+    `blender --background --python art/blender/light_stage.py -- --dir godot/art/baked/<key> --pieces <front>,<play>,<ground> --curve 2.5 --reach 2.5`.
+    Do this after rebuilding any piece or moving props.
+- **Where it shows:** under props on the play areas (the meadow's hay bales, the grove's stumps and mushrooms), under each play
+  area's lip on the front (the meadow's logs and fringe, the grove's roots, the canyon's top slab), the deck's and the roof's front
+  edges over the beach's and city's fronts, and round the background's cottages and props.
+- **Gotchas:**
+  - Blender renames a material whose name another imported file also used (`top.001`), and the game paints by name. Names are put
+    back before export.
+  - Any UV set stops the exporter sharing vertices: the files grew two to three times, so the shade is not in a UV set.
+  - The game never sees the vertex colours' alpha, so the shade is not in the alpha alone either.
+- **Cost:** none at run time (no new materials, textures or draw calls); file sizes unchanged within 1 %.
+- **Test:** `tests/stage_front_test.gd` checks every modelled front, play area and ground carries the shade.
+**Tests:** all seven pass (runner_test's coin-timing flake passes on re-run).

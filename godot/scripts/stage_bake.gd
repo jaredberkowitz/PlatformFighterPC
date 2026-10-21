@@ -211,6 +211,48 @@ static func export_scene(root: Node3D, bake_key: String, rects: Array = [], fron
 	return list.size()
 
 
+## Writes everything that casts light on the modelled pieces to `<DIR>/light_in.glb` for art/blender/light_stage.py (`--light-export`
+## on the stage demo): every visible solid piece of the built stage in world space, without the modelled front, play area, ground and
+## mood light themselves (marked `lit_piece`: Blender reads those from their own files; not by name, as a second build beside a first still
+## being freed gets `@Node3D@2`). Returns how many it wrote.
+static func export_light(root: Node3D, bake_key: String) -> int:
+	var dir := DIR % bake_key
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(dir))
+	FileAccess.open(dir + ".gdignore", FileAccess.WRITE).store_string("")
+	var out := Node3D.new()
+	out.name = "Light"
+	var k := 0
+	for gi: GeometryInstance3D in root.find_children("*", "GeometryInstance3D", true, false):
+		if not _occludes(gi):
+			continue
+		var skip := false
+		var n: Node = gi
+		while n != null and n != root and not skip:
+			skip = n.has_meta("lit_piece")
+			n = n.get_parent()
+		if skip:
+			continue
+		var copy: GeometryInstance3D
+		if gi is MultiMeshInstance3D:
+			copy = MultiMeshInstance3D.new()
+			(copy as MultiMeshInstance3D).multimesh = (gi as MultiMeshInstance3D).multimesh
+		else:
+			copy = MeshInstance3D.new()
+			(copy as MeshInstance3D).mesh = (gi as MeshInstance3D).mesh
+		copy.name = "o%04d" % k
+		copy.transform = gi.global_transform
+		out.add_child(copy)
+		k += 1
+	var doc := GLTFDocument.new()
+	var state := GLTFState.new()
+	var err := doc.append_from_scene(out, state)
+	if err == OK:
+		err = doc.write_to_filesystem(state, ProjectSettings.globalize_path(dir + "light_in.glb"))
+	out.free()
+	print("stage light: exported %d occluders to %s (%s)" % [k, dir, error_string(err)])
+	return k
+
+
 ## Swaps the built meshes under `root` for their baked copies, if this stage has a bake. Returns how many it swapped.
 static func apply(root: Node3D, bake_key: String) -> int:
 	var dir := DIR % bake_key
@@ -365,6 +407,7 @@ static func place_front(root: Node3D, t: Dictionary, scene: Node3D) -> void:
 	# (Lit rooms, dark panes and bulbs keep their own colour whatever the light, as the code-built facade's glass does.)
 	var glow := {"glass_lit": Color(1.0, 0.72, 0.4), "glass_dark": Color(0.12, 0.13, 0.26), "bulb": Color(1.0, 0.94, 0.8)}
 	scene.name = "ModelledFront"
+	scene.set_meta("lit_piece", true)
 	root.add_child(scene)
 	var top := -INF
 	for mi: MeshInstance3D in scene.find_children("*", "MeshInstance3D", true, false):
@@ -424,6 +467,9 @@ static func place_play(root: Node3D, t: Dictionary, path: String) -> void:
 	var fringe: Color = grass.lightened(0.08)
 	match String(t.get("name", "")):
 		"sunset":
+			# (A step paler and cooler than the stage's sand, the readability pass: the orange fighter stood on sand of its own hue,
+			# apart by value alone.)
+			top = grass.lerp(Color(0.98, 0.93, 0.82), 0.35)
 			layer1 = soil
 			layer2 = soil_dark.darkened(0.12)
 			fringe = soil
@@ -441,6 +487,7 @@ static func place_play(root: Node3D, t: Dictionary, path: String) -> void:
 	colours.merge({"top": top, "top_card": top.lerp(cream, 0.45), "layer1": layer1, "layer2": layer2, "fringe": fringe,
 		"steel": plate, "steel_dark": (t.get("wood_dark", plate.darkened(0.3)) as Color).darkened(0.15), "steel_card": plate.lerp(cream, 0.35)}, true)
 	scene.name = "ModelledPlay"
+	scene.set_meta("lit_piece", true)
 	root.add_child(scene)
 	for mi: MeshInstance3D in scene.find_children("*", "MeshInstance3D", true, false):
 		for s in mi.mesh.get_surface_count():
@@ -477,6 +524,63 @@ static func play_path(bake_key: String) -> String:
 	if OS.get_cmdline_user_args().has("--no-play") or not PLAYS.has(bake_key) or not ResourceLoader.exists(PLAYS[bake_key]):
 		return ""
 	return PLAYS[bake_key]
+
+
+## Mood light in paper (art/blender/make_mood.py, review 2's idea 5, the owner's picks): the city's four searchlight beams in pairs
+## (B), the grove's lanterns under the platforms and along the strings with warm pools on the lawn (C), the beach's ripple rings with
+## a near-side crescent round the dock's and the boardwalk's posts (B). By the exact stage they were built on.
+const MOODS := {"city_2eadbb68": "res://models/stages/city_mood.glb", "grove_14d06e65": "res://models/stages/grove_mood.glb",
+	"ocean_d9c5edff": "res://models/stages/beach_mood.glb"}
+
+
+## The mood light to place: a glTF path to try (`--mood-mock=<glb>`), the shipped model for this exact stage (`MOODS`), or null (none,
+## or `--no-mood`).
+static func mood_source(bake_key: String) -> Variant:
+	if flag("--mood-mock=") != "":
+		return flag("--mood-mock=")
+	if OS.get_cmdline_user_args().has("--no-mood") or not MOODS.has(bake_key) or not ResourceLoader.exists(MOODS[bake_key]):
+		return null
+	return load(MOODS[bake_key])
+
+
+## Places the mood light (`source`: a PackedScene, or a glTF path for mocks): searchlight beams, paper lanterns, ripple rings, each
+## piece unshaded with its own brightness and fade in its vertex colours, so it reads as light whatever the scene's.
+static func place_mood(root: Node3D, source: Variant) -> void:
+	var scene := _scene_from(source)
+	if scene == null:
+		push_warning("mood light %s could not be read" % str(source))
+		return
+	# [colour, additive, double-sided, lit like the scenery]
+	var looks := {"beam": [Color(1.0, 0.94, 0.86), true, true, false], "beam_card": [Color(0.86, 0.82, 0.95), false, true, false],
+		"beam_edge": [Color(0.7, 0.62, 0.86), false, true, false],
+		"glow": [Color(1.0, 0.76, 0.44), false, true, false], "halo": [Color(1.0, 0.72, 0.38), true, true, false],
+		"pool": [Color(1.0, 0.78, 0.48), true, true, false], "ring": [Color(0.95, 0.98, 1.0), true, true, false],
+		"spark": [Color(1.0, 1.0, 0.96), true, true, false], "cap": [Color(0.32, 0.16, 0.14), false, true, true],
+		"cord": [Color(0.2, 0.17, 0.22), false, true, true]}
+	scene.name = "ModelledMood"
+	scene.set_meta("lit_piece", true)
+	root.add_child(scene)
+	for mi: MeshInstance3D in scene.find_children("*", "MeshInstance3D", true, false):
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		for s in mi.mesh.get_surface_count():
+			var src := mi.mesh.surface_get_material(s)
+			var look: Array = looks.get(src.resource_name if src != null else "glow", looks["glow"])
+			if look[3]:
+				mi.set_surface_override_material(s, FighterView.toon(look[0], false))
+				continue
+			var m := StandardMaterial3D.new()
+			m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+			m.vertex_color_use_as_albedo = true
+			m.albedo_color = look[0]
+			m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+			if look[1]:
+				m.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+			if look[2]:
+				m.cull_mode = BaseMaterial3D.CULL_DISABLED
+			m.disable_receive_shadows = true
+			mi.set_surface_override_material(s, m)
+		mi.set_meta("prebaked", true)
+	print("mood light: placed %s" % (source.get_file() if source is String else (source as PackedScene).resource_path.get_file()))
 
 
 ## The theme's modelled tree: a glTF path to try (`--tree-mock=<glb>`), the shipped model (`TREES`), or null (none, or `--no-trees`).
@@ -549,7 +653,8 @@ static func _ground_colours(t: Dictionary) -> Dictionary:
 	land = Color(0.44, 0.7, 0.3)
 	var fields: Array = bd.get("fields", [])
 	var pines: Array = bd.get("pine_greens", [Color(0.2, 0.36, 0.28)])
-	var out := {"grass": land, "grass_far": Color(0.38, 0.62, 0.36), "cliff": Color(0.16, 0.36, 0.32),
+	# (The cliffs a step deeper, the readability pass: the grove's paper terraces right behind the fighters measured their value.)
+	var out := {"grass": land, "grass_far": Color(0.38, 0.62, 0.36), "cliff": Color(0.1, 0.24, 0.23),
 		"earth": Color(0.24, 0.2, 0.18), "rock": Color(0.48, 0.55, 0.44), "root": Color(0.46, 0.37, 0.3), "bark": Color(0.46, 0.37, 0.3),
 		"leaf_lit": Color(0.46, 0.74, 0.36), "leaf_shade": Color(0.2, 0.46, 0.3), "moss": (t.get("grass", Color(0.5, 0.8, 0.3)) as Color).darkened(0.12),
 		"fern": Color(0.36, 0.66, 0.34), "fern_shade": Color(0.18, 0.42, 0.26),
@@ -573,17 +678,19 @@ static func _ground_colours(t: Dictionary) -> Dictionary:
 	out["range_near"] = Color(0.46, 0.4, 0.72)
 	# (The canyon's paper, art/blender/make_canyon_paper.py: its strata as the modelled front has them, and the dunes' sands.)
 	var soil: Color = t.get("soil", Color(0.86, 0.5, 0.32))
-	out["rock_a"] = soil
-	out["rock_b"] = (t.get("soil_dark", Color(0.68, 0.34, 0.24)) as Color).darkened(0.12)
+	# (A step deeper, the readability pass: the butte behind the fight measured the fighters' own value.)
+	out["rock_a"] = soil.darkened(0.12)
+	out["rock_b"] = (t.get("soil_dark", Color(0.68, 0.34, 0.24)) as Color).darkened(0.22)
 	# (A step paler, not the front's 0.6: in thin plates the pale bands striped the arch like candy.)
-	out["rock_c"] = soil.lerp(Color(1.0, 0.86, 0.66), 0.35)
+	out["rock_c"] = soil.lerp(Color(1.0, 0.86, 0.66), 0.35).darkened(0.08)
 	# (Deeper and rosier than the painted dunes' sands: as flats they take the full air of their depth and faded into the horizon.)
 	out["dune_far"] = Color(0.9, 0.6, 0.5)
 	out["dune_near"] = Color(0.92, 0.58, 0.42)
 	for fam in ["rock_a", "rock_b", "rock_c", "dune_far", "dune_near"]:
 		out["card_" + fam] = (out[fam] as Color).darkened(0.1)
 	for fam in ["range_far", "range_near", "cliff", "grass", "grass_far"]:
-		out["card_" + fam] = (out[fam] as Color).darkened(0.12) if fam.begins_with("range") else (out[fam] as Color).lerp(Color(0.92, 0.93, 0.86), 0.18)
+		var pale := 0.04 if fam == "cliff" else 0.18
+		out["card_" + fam] = (out[fam] as Color).darkened(0.12) if fam.begins_with("range") else (out[fam] as Color).lerp(Color(0.92, 0.93, 0.86), pale)
 	for fam in ["sand", "isle_green", "head_near", "head_far"]:
 		# (The sand's edge a pale step; the green land's a shade under its top: far off, the camera sees the cut edges more than the tops,
 		# and in a pale step the headland read as a mint wedding cake.)
@@ -668,6 +775,7 @@ static func place_ground(root: Node3D, t: Dictionary, source: Array) -> void:
 	var ground := _scene_from(source[0])
 	if ground != null:
 		ground.name = "ModelledGround"
+		ground.set_meta("lit_piece", true)
 		root.add_child(ground)
 		_paint_ground(ground, colours)
 		# (A modelled far land stands in for the painted ridges.)
