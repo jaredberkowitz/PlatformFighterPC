@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Paper Play Areas</title>
+<style>
+/* Layout: a scorecard heat grid first, then the ranked weak points as severity rows, then per-stage ours-vs-reference, then the approach ideas. */
+:root {
+  --bg: #eef0f5; --panel: #ffffff; --fg: #1d1b2a; --muted: #5d5a70; --line: #d6d8e3; --accent: #6a3fd1; --accent-ink: #ffffff;
+  --s1: #d64545; --s2: #e8874a; --s3: #e9c25a; --s4: #8cc56b; --s5: #3fa66a; --s-ink: #1d1b2a;
+  --display: "Barlow Condensed", "Arial Narrow", sans-serif;
+  --body: "Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #15141d; --panel: #1f1d2a; --fg: #ecebf4; --muted: #a8a5bd; --line: #34314a; --accent: #a98bff; --accent-ink: #15141d;
+    --s1: #c94848; --s2: #d07a42; --s3: #cfae52; --s4: #7cb25e; --s5: #3a9460; --s-ink: #15141d; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #15141d; --panel: #1f1d2a; --fg: #ecebf4; --muted: #a8a5bd; --line: #34314a; --accent: #a98bff; --accent-ink: #15141d;
+  --s1: #c94848; --s2: #d07a42; --s3: #cfae52; --s4: #7cb25e; --s5: #3a9460; --s-ink: #15141d; color-scheme: dark;
+}
+body {
+  background: var(--bg); color: var(--fg); font-family: var(--body); font-size: 16px; line-height: 1.5;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 24px 48px;
+}
+.wrap { max-width: 1100px; margin: 0 auto; display: grid; gap: 28px; }
+h1, h2, h3 { font-family: var(--display); font-weight: 800; margin: 0; line-height: 1.05; text-wrap: balance; }
+h1 { font-size: clamp(2rem, 5vw, 3rem); }
+h2 { font-size: clamp(1.5rem, 3.2vw, 2rem); }
+h3 { font-size: 1.35rem; }
+p { margin: 0; max-width: 70ch; }
+.lede, .muted { color: var(--muted); }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 18px; display: grid; gap: 14px; min-width: 0; }
+.eyebrow { font-family: var(--display); font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.95rem; color: var(--accent); }
+.tablewrap { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+th, td { padding: 8px 10px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+th { font-family: var(--display); font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); font-size: 0.95rem; }
+.score { text-align: center; font-weight: 700; color: var(--s-ink); border-radius: 6px; min-width: 2.2em; display: inline-block; padding: 2px 0; }
+.v1 { background: var(--s1); } .v2 { background: var(--s2); } .v3 { background: var(--s3); } .v4 { background: var(--s4); } .v5 { background: var(--s5); }
+td.c { text-align: center; }
+.legend { display: flex; flex-wrap: wrap; gap: 12px; font-size: 0.9rem; color: var(--muted); align-items: center; }
+.legend .score { font-size: 0.85rem; min-width: 1.8em; }
+.weak { display: grid; grid-template-columns: 3.2em 1fr; gap: 6px 14px; padding: 14px 0; border-bottom: 1px solid var(--line); }
+.weak:last-child { border-bottom: 0; }
+.sev { display: grid; gap: 4px; justify-items: center; }
+.sev .num { font-family: var(--display); font-weight: 800; font-size: 1.9rem; line-height: 1; }
+.bar { display: flex; gap: 2px; }
+.bar i { width: 6px; height: 14px; border-radius: 2px; background: var(--line); }
+.bar i.on { background: var(--s1); }
+.weak h3 { font-size: 1.25rem; }
+.tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.tag { font-size: 0.8rem; border: 1px solid var(--line); border-radius: 999px; padding: 0 8px; color: var(--muted); }
+.stage { display: grid; gap: 10px; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.pair figure { margin: 0; display: grid; gap: 4px; min-width: 0; }
+.pair img { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 6px; background: #000; display: block; }
+.pair figcaption { font-size: 0.85rem; color: var(--muted); }
+@media (max-width: 640px) { .pair { grid-template-columns: 1fr; } }
+.ideas { display: grid; gap: 12px; }
+.idea { display: grid; grid-template-columns: 1fr auto; gap: 4px 14px; border-top: 1px solid var(--line); padding-top: 12px; }
+.idea:first-child { border-top: 0; padding-top: 0; }
+.meter { display: grid; grid-template-columns: auto auto; gap: 2px 8px; font-size: 0.85rem; color: var(--muted); align-content: start; }
+.meter b { color: var(--fg); }
+.rec { border-left: 4px solid var(--accent); padding-left: 12px; }
+.viewer { position: relative; width: 100%; aspect-ratio: 16 / 9; max-width: 100%; border-radius: 8px; overflow: hidden; background: #000; }
+.viewer img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+.vtag { position: absolute; top: 10px; left: 10px; z-index: 3; font-family: var(--display); font-weight: 800; font-size: 1.1rem; padding: 2px 10px; border-radius: 6px; color: #fff; background: rgba(0,0,0,0.55); pointer-events: none; }
+.vline { position: absolute; top: 0; bottom: 0; width: 3px; background: #fff; z-index: 2; pointer-events: none; }
+.row { display: flex; flex-wrap: wrap; gap: 8px; }
+button { font: inherit; font-weight: 700; border: 1px solid var(--line); background: transparent; color: var(--fg); border-radius: 999px; padding: 6px 14px; cursor: pointer; }
+button:hover { border-color: var(--accent); }
+button:focus-visible, input:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.range { width: 100%; }
+kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4px; padding: 0 5px; font-size: 0.85em; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+.up { color: var(--s5); font-size: 0.8em; }
+.r2note { display: grid; gap: 6px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <section class="panel" aria-labelledby="pp-h" id="playall">
+    <div class="eyebrow">Your picks are needed &middot; the paper play area on every stage</div>
+    <h2 id="pp-h">The paper play area, rolled out</h2>
+    <p>The meadow pilot rolled out to the other four stages: each stage's top and its platforms as paper card on the collision (every walking surface stays exactly where it was), each option with its level of the paper finish. Choose a stage, a view and an option; press <kbd>1</kbd> to <kbd>4</kbd> to switch options in place. The city's scaffold towers stay; the fighters keep their contact shadows on every stage.</p>
+    <div class="row" role="group" aria-label="Stage"><button data-pps="grove">Grove</button><button data-pps="sunset">Canyon</button><button data-pps="ocean">Beach</button><button data-pps="city">City</button></div>
+    <div class="row" role="group" aria-label="View">
+      <button data-ppv="p">Fighters in play</button>
+      <button data-ppv="m">Match camera</button>
+    </div>
+    <div class="row" role="group" aria-label="Option">
+      <button data-ppo="T">1 &middot; Today</button>
+      <button data-ppo="A">2 &middot; A</button>
+      <button data-ppo="B">3 &middot; B</button>
+      <button data-ppo="C">4 &middot; C</button>
+    </div>
+    <div class="viewer"><img id="ppimg" alt="Paper play area option"><span class="vtag" id="pptag"></span></div>
+    <div class="ppnote" data-ppn="grove" hidden><div class="tablewrap"><table><thead><tr><th>Option</th><th>Top and platforms</th><th>Paper finish</th></tr></thead><tbody><tr><td>Today</td><td>Code-built top and platforms</td><td>None</td></tr><tr><td>A card slab</td><td>The lawn one thick card with a pale cut edge and the path inlaid; plank-board platforms on battens with rope bands</td><td>Grain, wobble</td></tr><tr class="pick"><td>B layered sheets (my pick)</td><td>The lawn a sheet over moss and earth sheets; green-topped platforms with a scalloped leaf fringe</td><td>Grain, wobble, cut edge</td></tr><tr><td>C pop-up</td><td>A thin lawn behind a standing scalloped ground row; notched plank cut-outs over a shadow</td><td>Strongest</td></tr></tbody></table></div><p class="muted">My pick for the grove is B, as on the meadow: the green platforms read as part of the island and the leaf fringe matches its paper ledges.</p></div><div class="ppnote" data-ppn="sunset" hidden><div class="tablewrap"><table><thead><tr><th>Option</th><th>Top and platforms</th><th>Paper finish</th></tr></thead><tbody><tr><td>Today</td><td>Code-built top and platforms</td><td>None</td></tr><tr><td>A card slab</td><td>The sand one thick card with a pale cut edge; plank-board platforms</td><td>Grain, wobble</td></tr><tr class="pick"><td>B layered sheets (my pick)</td><td>The sand a sheet over two strata sheets, each a step wider; sand-topped platforms over plank card</td><td>Grain, wobble, cut edge</td></tr><tr><td>C pop-up</td><td>A thin sand sheet behind a standing ground row cut in rock jags; notched plank cut-outs</td><td>Strongest</td></tr></tbody></table></div><p class="muted">My pick for the canyon is B: its strata layers continue the stacked-slab mesa under the sand.</p></div><div class="ppnote" data-ppn="ocean" hidden><div class="tablewrap"><table><thead><tr><th>Option</th><th>Top and platforms</th><th>Paper finish</th></tr></thead><tbody><tr><td>Today</td><td>Code-built top and platforms</td><td>None</td></tr><tr class="pick"><td>A card boards (my pick)</td><td>The deck as seven separate card boards with gaps, on two joists</td><td>Grain, wobble</td></tr><tr><td>B layered sheets</td><td>Thinner boards over a beam sheet</td><td>Grain, wobble, cut edge</td></tr><tr><td>C pop-up</td><td>Thin boards behind a standing fascia board with notched ends</td><td>Strongest</td></tr></tbody></table></div><p class="muted">My pick for the beach is A: the separate boards read most like a dock; B and C flatten the deck into one sheet.</p></div><div class="ppnote" data-ppn="city" hidden><div class="tablewrap"><table><thead><tr><th>Option</th><th>Top and platforms</th><th>Paper finish</th></tr></thead><tbody><tr><td>Today</td><td>Code-built top and platforms</td><td>None</td></tr><tr class="pick"><td>A card slab (my pick)</td><td>The roof one thick card with a pale coping strip along its edge; girders as a card plate over its web</td><td>Grain, wobble</td></tr><tr><td>B layered sheets</td><td>The roof a sheet over coping and trim sheets; girders as plate, web and flange sheets</td><td>Grain, wobble, cut edge</td></tr><tr><td>C pop-up</td><td>A thin roof behind a standing stepped cornice card; I-beam profile cut-outs over a shadow</td><td>Strongest</td></tr></tbody></table></div><p class="muted">My pick for the city is A: the calmest roof with a clear coping edge; C's cornice card is the most paper but sits heavy over the brownstone.</p></div>
+  </section>
+
+</div>
+<script>
+(function () {
+  // The paper play area on every stage.
+  var pps = "grove", ppv = "p", ppo = "T";
+  var PPN = { grove: "Grove", sunset: "Canyon", ocean: "Beach", city: "City" };
+  var PPO = { T: "Today", A: "A", B: "B", C: "C" };
+  function pprender() {
+    document.getElementById("ppimg").src = "pp_" + pps + "_" + ppv + "_" + ppo + ".jpg";
+    document.getElementById("pptag").textContent = PPN[pps] + " \u00b7 " + PPO[ppo];
+    document.querySelectorAll("[data-pps]").forEach(function (b) { b.setAttribute("aria-pressed", b.dataset.pps === pps ? "true" : "false"); });
+    document.querySelectorAll("[data-ppv]").forEach(function (b) { b.setAttribute("aria-pressed", b.dataset.ppv === ppv ? "true" : "false"); });
+    document.querySelectorAll("[data-ppo]").forEach(function (b) { b.setAttribute("aria-pressed", b.dataset.ppo === ppo ? "true" : "false"); });
+    document.querySelectorAll("[data-ppn]").forEach(function (n) { n.hidden = n.dataset.ppn !== pps; });
+  }
+  document.querySelectorAll("[data-pps]").forEach(function (b) { b.addEventListener("click", function () { pps = b.dataset.pps; pprender(); }); });
+  document.querySelectorAll("[data-ppv]").forEach(function (b) { b.addEventListener("click", function () { ppv = b.dataset.ppv; pprender(); }); });
+  document.querySelectorAll("[data-ppo]").forEach(function (b) { b.addEventListener("click", function () { ppo = b.dataset.ppo; pprender(); }); });
+  pprender();
+  document.addEventListener("keydown", function (e) {
+    var k = { "1": "T", "2": "A", "3": "B", "4": "C" }[e.key];
+    if (k) { ppo = k; pprender(); }
+  });
+})();
+</script>
+</body>
+</html>

@@ -414,6 +414,32 @@ static func place_play(root: Node3D, t: Dictionary, path: String) -> void:
 		"soil": t.get("soil", Color(0.76, 0.56, 0.36)), "stone": Color(0.66, 0.64, 0.6), "fringe": grass.lightened(0.08),
 		"plank": wood, "plank_b": wood.darkened(0.1), "plank_card": wood.lerp(Color(0.98, 0.94, 0.84), 0.45), "rope": Color(0.78, 0.64, 0.42),
 		"shadow": Color(0.1, 0.12, 0.08)}
+	# (The other stages' families, art/blender/make_play.py: each stage's top, the layers under it, its cut fringe and its platforms.)
+	var cream := Color(0.97, 0.96, 0.86)
+	var soil: Color = t.get("soil", Color(0.76, 0.56, 0.36))
+	var soil_dark: Color = t.get("soil_dark", Color(0.5, 0.35, 0.25))
+	var top: Color = grass
+	var layer1: Color = grass.darkened(0.25)
+	var layer2: Color = soil_dark
+	var fringe: Color = grass.lightened(0.08)
+	match String(t.get("name", "")):
+		"sunset":
+			layer1 = soil
+			layer2 = soil_dark.darkened(0.12)
+			fringe = soil
+		"ocean":
+			top = _pal_of(t, "deck_wood", Color(0.62, 0.42, 0.26))
+			layer1 = top.darkened(0.2)
+			layer2 = _pal_of(t, "pile_wood", Color(0.44, 0.29, 0.19)).lightened(0.18)
+			fringe = top.darkened(0.1)
+		"city":
+			top = grass.lerp(Color(0.84, 0.56, 0.42), 0.9).lightened(0.18)
+			layer1 = grass.darkened(0.18)
+			layer2 = soil_dark.darkened(0.35)
+			fringe = (t.get("grass_light", top) as Color).lerp(Color(1.0, 0.9, 0.78), 0.6)
+	var plate := wood.lerp(Color(0.3, 0.3, 0.42), 0.95)
+	colours.merge({"top": top, "top_card": top.lerp(cream, 0.45), "layer1": layer1, "layer2": layer2, "fringe": fringe,
+		"steel": plate, "steel_dark": (t.get("wood_dark", plate.darkened(0.3)) as Color).darkened(0.15), "steel_card": plate.lerp(cream, 0.35)}, true)
 	scene.name = "ModelledPlay"
 	root.add_child(scene)
 	for mi: MeshInstance3D in scene.find_children("*", "MeshInstance3D", true, false):

@@ -86,7 +86,8 @@ func build(sim) -> void:
 			StageArt.solid_block(self, theme, left, right, top, bottom, FRONT_Z, exposed, float(extent[2]))
 	if play_mock != "":
 		for i in range(built_from, get_child_count()):
-			(get_child(i) as Node3D).visible = false
+			if not get_child(i).has_meta("keep_play"):
+				(get_child(i) as Node3D).visible = false
 		StageBake.place_play(self, theme, play_mock)
 	# The paper finish on the scenery, as this stage's palette asks (`paper_finish`), or the command line's.
 	Lighting.stage_finish = String(StageArt.palette(String(theme.get("name", ""))).get("backdrop", {}).get("paper_finish", ""))

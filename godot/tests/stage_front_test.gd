@@ -99,6 +99,13 @@ func _initialize() -> void:
 					points.append(_xf(mi, model) * v)
 		model.free()
 		for r in stages[key]:
+			# (Only a top fighters can reach: a block with another block sitting right over it is covered, as StageView has it.)
+			var covered := false
+			for o in stages[key]:
+				if r[4] < 0.5 and o[4] < 0.5 and o != r and is_equal_approx(o[3], r[2]) and o[0] <= r[0] + 0.01 and o[1] >= r[1] - 0.01:
+					covered = true
+			if covered:
+				continue
 			var depth := 4.0 if r[4] > 0.5 else 8.0
 			var x0: float = r[0] + 0.3
 			var x1: float = r[1] - 0.3

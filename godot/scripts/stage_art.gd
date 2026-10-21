@@ -1577,7 +1577,11 @@ static func platform(parent: Node3D, t: Dictionary, left: float, right: float, t
 			rivet_st.append_from(rivet_mesh, 0, Transform3D(Basis.IDENTITY.scaled(Vector3(1.0, 1.0, 0.55)), Vector3(x, top - 0.4, front_z - 0.21)))
 			x += 0.7
 		_mesh(parent, rivet_st.commit(), rivet, Vector3.ZERO)
+		var scaffold_from := parent.get_child_count()
 		_scaffold(parent, left, right, top - 0.75, front_z, depth)
+		# (The scaffold stands under a modelled play area too: it is structure, not what fighters stand on.)
+		for i in range(scaffold_from, parent.get_child_count()):
+			parent.get_child(i).set_meta("keep_play", true)
 		return
 	if t.get("name", "") in ["meadow", "grove"]:
 		_plank_platform(parent, t, left, right, top, front_z, depth)

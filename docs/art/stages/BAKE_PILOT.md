@@ -443,3 +443,21 @@ The owner picked B. Shipped as `godot/models/stages/meadow_play.glb` (5,300 tria
 background. The fighters keep their contact shadows. The lawn region measures lighter and less saturated (value 0.67, was 0.63;
 saturation 0.38, was 0.64): the inlaid path is wider than the painted one. Cheaper: 669 draw calls against 770, 0.49 M primitives
 against 0.63 M, GPU 2.1 ms against 2.2 ms (two timings each). **Tests:** all seven pass.
+
+## The paper play area on every stage: mocks (2026-10-20)
+
+The meadow pilot rolled out to the grove, canyon, beach and city.
+- **Builder:** `art/blender/make_play.py --theme grove|sunset|ocean|city --variant A|B|C`. It builds each stage's exposed top and its
+  platforms on the collision, with the stage's own materials and edge (grass and leaf scallops, sand over strata with rock jags, the
+  dock's boards over joists and a beam, roofing with a coping and girders). The shipped meadow keeps `make_meadow_play.py`.
+  - A card slab: 1,700 to 3,100 triangles.
+  - B layered sheets: 2,800 to 5,900 triangles.
+  - C pop-up ground row: 1,700 to 2,900 triangles.
+- **Painter:** `StageBake.place_play` paints the generic families (`top`, `top_card`, `layer1`, `layer2`, `fringe`, `steel`...) per
+  theme.
+- **Kept:** the city's scaffold towers are marked `keep_play` and stay under a modelled play area; they are structure.
+- **Test:** `tests/stage_front_test.gd` now skips covered tops (the grove's lower tiers).
+- **Picks recommended:** grove B, canyon B, beach A, city A. Options in `mocks/play_all/` (with a local `review.html`) and on the
+  owner's page.
+- **Gotcha:** in a bash double-quoted path, `\$` escapes the dollar sign. `"$W\${1}_A.glb"` wrote every model to one literal
+  `playall${1}_A.glb`, so use `/`.

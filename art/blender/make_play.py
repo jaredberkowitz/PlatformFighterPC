@@ -1,0 +1,284 @@
+"""A stage's play area as paper card (the paper pilot rolled out after the meadow, `make_meadow_play.py`): the top the fighters stand on and
+the platforms, on the collision from the bake manifest. Every walkable top stays exactly at the sim's height (tests/stage_front_test.gd
+checks it); the modelled front under the top stays. Three looks per stage, as on the meadow (`--play-mock=` on the stage demo):
+  A  card slab: the top one thick card with a pale cut edge; the platforms as card boards (wood) or a card plate (girders);
+  B  layered sheets: the top a thin sheet over two more, each a step wider, so the edge shows the stage's own layers; the platforms a
+     top sheet over a body card, a cut fringe hanging from the front where the stage has one;
+  C  pop-up: the top a thin sheet behind a standing ground-row card cut in the stage's own edge (grass, rock, a board, a cornice); the
+     platforms as cut-out fronts over a soft shadow card.
+`--theme` picks the stage's materials and shapes: grove (lawn, moss, earth; a path), sunset (sand over strata), ocean (the dock's boards
+over joists and a beam), city (roofing with a coping, girders).
+Families `top`, `top_card`, `layer1`, `layer2`, `fringe`, `path`, `plank`, `plank_b`, `plank_card`, `rope`, `steel`, `steel_dark`,
+`steel_card`, `shadow` (painted per theme by `StageBake.place_play`).
+
+Run (Blender 5.2):
+  blender --background --python art/blender/make_play.py -- --dir godot/art/baked/<key> --theme grove --variant A --out <file.glb>
+"""
+
+import json
+import math
+import os
+import random
+import sys
+
+import bmesh
+import bpy
+from mathutils import Vector
+
+argv = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
+opts = {argv[i].lstrip("-"): argv[i + 1] for i in range(0, len(argv) - 1, 2)}
+VARIANT = opts.get("variant", "A").upper()
+THEME = opts.get("theme", "grove")
+manifest = json.load(open(os.path.join(opts["dir"], "manifest.json")))
+FZ = float(manifest["front_z"])
+SOLIDS = [r for r in manifest["rects"] if r[4] < 0.5]
+TOP_Y = max(r[2] for r in SOLIDS)
+TOPS = [r for r in SOLIDS if abs(r[2] - TOP_Y) < 0.01]
+PLATFORMS = [r for r in manifest["rects"] if r[4] > 0.5]
+DEPTH = 8.0
+PLAT_DEPTH = 4.0
+GIRDER = THEME == "city"
+# The cut edge each stage's ground row and fringes take: grass scallops, rock jags, a straight board, a stepped cornice.
+EDGE = {"grove": "scallop", "sunset": "jag", "ocean": "board", "city": "cornice"}[THEME]
+
+
+def P(x, y, z):
+    """Godot (x right, y up, z toward the camera) to Blender (z up, -y toward the camera)."""
+    return Vector((x, -z, y))
+
+
+PARTS = {}
+
+
+def part(mat):
+    if mat not in PARTS:
+        PARTS[mat] = bmesh.new()
+    return PARTS[mat]
+
+
+def face(mat, pts):
+    bm = part(mat)
+    return bm.faces.new([bm.verts.new(p) for p in pts])
+
+
+def box(x0, x1, y0, y1, z0, z1, top, side, bottom=None):
+    """A card box, wound outward: its top in `top`, its sides in `side` (the cut edge), its underside in `bottom` (or `side`)."""
+    c = [P(x, y, z) for x in (x0, x1) for y in (y0, y1) for z in (z0, z1)]
+
+    def v(xi, yi, zi):
+        return c[xi * 4 + yi * 2 + zi]
+    face(top, (v(0, 1, 1), v(1, 1, 1), v(1, 1, 0), v(0, 1, 0)))
+    face(bottom or side, (v(0, 0, 0), v(1, 0, 0), v(1, 0, 1), v(0, 0, 1)))
+    face(side, (v(0, 0, 1), v(1, 0, 1), v(1, 1, 1), v(0, 1, 1)))
+    face(side, (v(1, 0, 0), v(0, 0, 0), v(0, 1, 0), v(1, 1, 0)))
+    face(side, (v(0, 0, 0), v(0, 0, 1), v(0, 1, 1), v(0, 1, 0)))
+    face(side, (v(1, 0, 1), v(1, 0, 0), v(1, 1, 0), v(1, 1, 1)))
+
+
+def edge_row(x0, x1, y_top, y_low, z, mat, up=True, size=0.5, rng=None):
+    """A cut card edge along x at depth z, from y_low up to y_top (`up`), or hanging from y_top down to y_low: grass scallops, rock jags,
+    a straight board with notched ends, or a stepped cornice, as the stage's EDGE."""
+    if EDGE == "board":
+        prof = [(x0, y_top), (x1, y_top), (x1, y_low + 0.1), (x1 - 0.25, y_low + 0.1), (x1 - 0.25, y_low), (x0 + 0.25, y_low),
+                (x0 + 0.25, y_low + 0.1), (x0, y_low + 0.1)]
+        face(mat, [P(x, y, z) for (x, y) in prof])
+        return
+    if EDGE == "cornice":
+        steps = [(0.0, 0.0), (0.12, -0.18), (0.24, -0.36)]
+        for (inset, dy) in steps:
+            face(mat, (P(x0 + inset, y_low, z + 0.02 * steps.index((inset, dy))), P(x1 - inset, y_low, z + 0.02 * steps.index((inset, dy))),
+                       P(x1 - inset, y_top + dy, z + 0.02 * steps.index((inset, dy))), P(x0 + inset, y_top + dy, z + 0.02 * steps.index((inset, dy)))))
+        return
+    n = max(2, int((x1 - x0) / size))
+    w = (x1 - x0) / n
+    for i in range(n):
+        xa, xb = x0 + w * i, x0 + w * (i + 1)
+        if EDGE == "jag":
+            xm = xa + w * (rng.uniform(0.3, 0.7) if rng else 0.5)
+            peak = w * (rng.uniform(0.35, 0.8) if rng else 0.5)
+        else:
+            xm, peak = (xa + xb) * 0.5, w * 0.45
+        if up:
+            face(mat, (P(xa, y_low, z), P(xb, y_low, z), P(xb, y_top - peak, z), P(xm, y_top, z), P(xa, y_top - peak, z)))
+        else:
+            face(mat, (P(xa, y_top, z), P(xa, y_low + peak, z), P(xm, y_low, z), P(xb, y_low + peak, z), P(xb, y_top, z)))
+
+
+def path_strip(x0, x1, zc, half, rng):
+    xs = [x0 + (x1 - x0) * i / 60 for i in range(61)]
+    ph = rng.uniform(0, 6)
+    for i in range(60):
+        xa, xb = xs[i], xs[i + 1]
+
+        def edge(x, s):
+            return zc + s * (half + 0.12 * math.sin(x * 0.9 + ph) + 0.07 * math.sin(x * 2.3 + ph * 2.0))
+        face("path", (P(xa, TOP_Y + 0.006, edge(xa, -1)), P(xa, TOP_Y + 0.006, edge(xa, 1)), P(xb, TOP_Y + 0.006, edge(xb, 1)),
+                      P(xb, TOP_Y + 0.006, edge(xb, -1))))
+
+
+def deck_boards(x0, x1, top, zb, zf, thick):
+    """The dock's boards: card planks running along x, a narrow gap between, over two joists."""
+    n = 7
+    gap = 0.06
+    bw = (zf - zb - gap * (n - 1)) / n
+    for k in range(n):
+        za = zb + k * (bw + gap)
+        box(x0, x1, top - thick, top, za, za + bw, "top", "top_card", "layer1")
+    for jz in (zb + 0.8, zf - 0.8):
+        box(x0 + 0.2, x1 - 0.2, top - thick - 0.4, top - thick, jz - 0.25, jz + 0.25, "layer1", "layer1")
+
+
+def top_area(rng):
+    for r in TOPS:
+        x0, x1, top = r[0] - 0.12, r[1] + 0.12, r[2]
+        zb, zf = FZ - DEPTH - 0.05, FZ + 0.06
+        if VARIANT == "A":
+            if THEME == "ocean":
+                deck_boards(x0, x1, top, zb, zf, 0.3)
+            else:
+                box(x0, x1, top - 0.5, top, zb, zf, "top", "top_card", "layer1")
+            if THEME == "city":
+                # The coping: a pale card strip along the front edge, flush with the roof.
+                box(x0 - 0.1, x1 + 0.1, top - 0.32, top, zf - 0.45, zf + 0.12, "top_card", "top_card")
+        elif VARIANT == "B":
+            if THEME == "ocean":
+                deck_boards(x0, x1, top, zb, zf, 0.2)
+                box(x0 - 0.12, x1 + 0.12, top - 0.95, top - 0.6, zb, zf + 0.12, "layer2", "layer2")
+            else:
+                box(x0, x1, top - 0.2, top, zb, zf, "top", "top_card", "layer1")
+                box(x0 - 0.12, x1 + 0.12, top - 0.55, top - 0.2, zb, zf + 0.12, "layer1", "layer1")
+                box(x0 - 0.24, x1 + 0.24, top - 0.95, top - 0.55, zb, zf + 0.24, "layer2", "layer2")
+        else:
+            if THEME == "ocean":
+                deck_boards(x0, x1, top, zb, zf, 0.15)
+            else:
+                box(x0, x1, top - 0.15, top, zb, zf, "top", "top_card", "layer1")
+            # The ground row in front of the top's edge, never above the walking surface.
+            edge_row(x0 - 0.2, x1 + 0.2, top - 0.02, top - 1.4, zf + 0.35, "fringe", up=True, size=0.55, rng=rng)
+        if THEME == "grove":
+            path_strip(r[0] + 0.2, r[1] - 0.2, FZ - 1.9, 1.0, rng)
+
+
+def platform(r, rng):
+    x0, x1, top = r[0], r[1], r[2]
+    zb, zf = FZ - PLAT_DEPTH, FZ
+    if GIRDER:
+        if VARIANT == "A":
+            box(x0, x1, top - 0.18, top, zb, zf, "steel", "steel_card", "steel_dark")
+            box(x0 + 0.1, x1 - 0.1, top - 0.68, top - 0.18, zf - 0.38, zf - 0.22, "steel_dark", "steel_dark")
+        elif VARIANT == "B":
+            box(x0, x1, top - 0.14, top, zb, zf, "steel", "steel_card", "steel_dark")
+            box(x0 + 0.06, x1 - 0.06, top - 0.5, top - 0.14, zb + 0.4, zf - 0.1, "steel_dark", "steel_dark")
+            box(x0 + 0.12, x1 - 0.12, top - 0.7, top - 0.5, zb + 0.2, zf - 0.2, "steel", "steel_card")
+        else:
+            box(x0, x1, top - 0.1, top, zb, zf, "steel", "steel_card", "steel_dark")
+            # An I-beam's profile cut out at the front, over its shadow.
+            prof = [(x0, top - 0.05), (x1, top - 0.05), (x1, top - 0.22), (x1 - 0.2, top - 0.22), (x1 - 0.2, top - 0.55), (x1, top - 0.55),
+                    (x1, top - 0.72), (x0, top - 0.72), (x0, top - 0.55), (x0 + 0.2, top - 0.55), (x0 + 0.2, top - 0.22), (x0, top - 0.22)]
+            face("steel_card", [P(x, y, zf + 0.03) for (x, y) in prof])
+            face("shadow", [P(x + 0.25, y - 0.25, zf - 0.04) for (x, y) in prof])
+        return
+    if VARIANT == "A":
+        gap = 0.1
+        bw = (zf - zb - 2 * gap) / 3.0
+        for k in range(3):
+            za = zb + k * (bw + gap)
+            box(x0 - 0.1, x1 + 0.1, top - 0.28, top, za, za + bw, "plank", "plank_card", "plank_b")
+        for bx in (x0 + 0.4, x1 - 0.4):
+            box(bx - 0.25, bx + 0.25, top - 0.55, top - 0.28, zb + 0.1, zf - 0.1, "plank_b", "plank_b")
+            box(bx - 0.12, bx + 0.12, top - 0.3, top - 0.02, zf - 0.02, zf + 0.04, "rope", "rope")
+            box(bx - 0.12, bx + 0.12, top - 0.3, top - 0.02, zb - 0.04, zb + 0.02, "rope", "rope")
+    elif VARIANT == "B":
+        sheet = "top" if THEME in ("grove", "sunset") else "plank"
+        box(x0 - 0.1, x1 + 0.1, top - 0.12, top, zb, zf, sheet, "top_card" if sheet == "top" else "plank_card", "plank_b")
+        box(x0 - 0.04, x1 + 0.04, top - 0.45, top - 0.12, zb + 0.05, zf - 0.05, "plank", "plank_card", "plank_b")
+        if THEME == "grove":
+            edge_row(x0 - 0.1, x1 + 0.1, top - 0.08, top - 0.55, zf + 0.04, "fringe", up=False, size=0.4, rng=rng)
+    else:
+        box(x0 - 0.1, x1 + 0.1, top - 0.1, top, zb, zf, "plank", "plank_card", "plank_b")
+        prof = [(x0 - 0.1, top - 0.05), (x0 + 0.25, top - 0.05), (x0 + 0.25, top - 0.15), (x1 - 0.25, top - 0.15), (x1 - 0.25, top - 0.05),
+                (x1 + 0.1, top - 0.05), (x1 + 0.1, top - 0.6), (x1 - 0.25, top - 0.6), (x1 - 0.25, top - 0.5), (x0 + 0.25, top - 0.5),
+                (x0 + 0.25, top - 0.6), (x0 - 0.1, top - 0.6)]
+        face("plank_card", [P(x, y, zf + 0.03) for (x, y) in prof])
+        face("shadow", [P(x + 0.25, y - 0.25, zf - 0.04) for (x, y) in prof])
+
+
+def make_objects():
+    for mat, bm in PARTS.items():
+        bmesh.ops.remove_doubles(bm, verts=bm.verts[:], dist=0.0005)
+        bm.normal_update()
+        for f in bm.faces:
+            # (Boxes are wound outward already; the flat cards face the camera and the sky.)
+            if len(f.verts) != 4 or mat in ("path", "fringe", "shadow"):
+                if f.normal.dot(Vector((0.0, -0.6, 1.0))) < 0.0:
+                    f.normal_flip()
+        me = bpy.data.meshes.new("Play_" + mat)
+        bm.to_mesh(me)
+        bm.free()
+        m = bpy.data.materials.get(mat) or bpy.data.materials.new(mat)
+        me.materials.append(m)
+        ob = bpy.data.objects.new("Play_" + mat, me)
+        bpy.context.scene.collection.objects.link(ob)
+    PARTS.clear()
+
+
+def bake_occlusion(distance):
+    scene = bpy.context.scene
+    parts = [o for o in scene.objects if o.type == "MESH"]
+    scene.render.engine = "CYCLES"
+    try:
+        prefs = bpy.context.preferences.addons["cycles"].preferences
+        prefs.compute_device_type = "OPTIX"
+        prefs.get_devices()
+        for d in prefs.devices:
+            d.use = d.type == "OPTIX"
+        scene.cycles.device = "GPU"
+    except (KeyError, TypeError):
+        pass
+    scene.cycles.samples = 96
+    if scene.world is None:
+        scene.world = bpy.data.worlds.new("Bake")
+    scene.world.light_settings.distance = distance
+    bpy.ops.object.select_all(action="DESELECT")
+    for o in parts:
+        a = o.data.color_attributes.new("Col", "FLOAT_COLOR", "POINT")
+        o.data.color_attributes.active_color = a
+        o.data.color_attributes.render_color_index = o.data.color_attributes.active_color_index
+        o.select_set(True)
+    bpy.context.view_layer.objects.active = parts[0]
+    bpy.ops.object.bake(type="AO", target="VERTEX_COLORS")
+    for o in parts:
+        for c in o.data.color_attributes["Col"].data:
+            ao = 0.6 + 0.4 * c.color[0]
+            c.color = (ao, ao, ao, 1.0)
+
+
+def main():
+    bpy.ops.wm.read_factory_settings(use_empty=True)
+    rng = random.Random(17)
+    top_area(rng)
+    for r in PLATFORMS:
+        platform(r, rng)
+    make_objects()
+    # (Subdivided for the vertex bake: a big top's two triangles would take one shade.)
+    for o in [o for o in bpy.context.scene.objects if o.type == "MESH"]:
+        bm = bmesh.new()
+        bm.from_mesh(o.data)
+        for _ in range(4):
+            long_edges = [e for e in bm.edges if e.calc_length() > 0.9]
+            if not long_edges:
+                break
+            bmesh.ops.subdivide_edges(bm, edges=long_edges, cuts=1, use_grid_fill=True)
+        bmesh.ops.triangulate(bm, faces=bm.faces[:])
+        bm.to_mesh(o.data)
+        bm.free()
+    bake_occlusion(0.6)
+    tris = sum(sum(len(p.vertices) - 2 for p in o.data.polygons) for o in bpy.context.scene.objects if o.type == "MESH")
+    out = os.path.abspath(opts["out"])
+    os.makedirs(os.path.dirname(out), exist_ok=True)
+    bpy.ops.export_scene.gltf(filepath=out, export_format="GLB", export_yup=True, export_normals=True, export_materials="EXPORT",
+                              export_vertex_color="ACTIVE")
+    print("%s play %s: %d triangles -> %s" % (THEME, VARIANT, tris, out))
+
+
+main()
