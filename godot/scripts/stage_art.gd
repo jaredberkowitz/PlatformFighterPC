@@ -5838,10 +5838,7 @@ static func _skyline_layer(root: Node3D, rng: RandomNumberGenerator, layer: int,
 ## standing card, its printed windows and signs kept. A: thin cards, each staggered in depth by its own amount, as a pop-up book's;
 ## B: one flat card per layer, every building on the same plane; C: thicker board, staggered. `cards` [left, right, stagger (-1 to 1), top] per building; `z` the layer's middle. Unchanged without the flag.
 static func _paper_skyline(mesh: ArrayMesh, cards: Array, z: float, layer: int) -> ArrayMesh:
-	var look := ""
-	for a in OS.get_cmdline_user_args():
-		if a.begins_with("--paper-sky="):
-			look = a.substr(12)
+	var look := _paper_look()
 	if look == "":
 		return mesh
 	var thin: float = {"A": 0.1, "B": 0.08, "C": 0.22}.get(look, 0.1)
@@ -5863,14 +5860,21 @@ static func _paper_skyline(mesh: ArrayMesh, cards: Array, z: float, layer: int) 
 	return out
 
 
+## The skyline's paper look: `--paper-sky=` on the command line (`off` for the solid towers, for comparisons), else the palette's
+## [backdrop] `paper_sky`, else none.
+static func _paper_look() -> String:
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("--paper-sky="):
+			var v := a.substr(12)
+			return "" if v == "off" else v
+	return String((_palette.get("backdrop", {}) as Dictionary).get("paper_sky", ""))
+
+
 ## The paper looks' cut: behind each building's card, its own silhouette a little larger as the card's pale die-cut edge (A, C), and a
 ## soft shadow of it down and to the right (B, C), so the cards read as paper standing apart. Traced from the card's own vertices: the
 ## highest in each half-unit across it, the gaps between corners filled in.
 static func _paper_edges(root: Node3D, mesh: ArrayMesh, cards: Array, z: float, layer: int, shade: Color, street: float) -> void:
-	var look := ""
-	for a in OS.get_cmdline_user_args():
-		if a.begins_with("--paper-sky="):
-			look = a.substr(12)
+	var look := _paper_look()
 	if look == "":
 		return
 	var thin: float = {"A": 0.1, "B": 0.08, "C": 0.22}.get(look, 0.1)
@@ -5888,6 +5892,14 @@ static func _paper_edges(root: Node3D, mesh: ArrayMesh, cards: Array, z: float, 
 	dark.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	dark.albedo_color = Color(0.08, 0.03, 0.14, 0.45)
 	var pad := 0.35
+	# (One mesh of each kind for the whole layer: one per building cost sixty draw calls.)
+	var kinds: Array = ["edge"] if look == "A" else ["shadow"] if look == "B" else ["edge", "shadow"]
+	var tools := {}
+	for kind in kinds:
+		var st := SurfaceTool.new()
+		st.begin(Mesh.PRIMITIVE_TRIANGLES)
+		st.set_normal(Vector3(0, 0, 1))
+		tools[kind] = st
 	for c in cards:
 		var x0 := float(c[0]) + 0.4
 		var x1 := float(c[1]) - 0.4
@@ -5901,10 +5913,8 @@ static func _paper_edges(root: Node3D, mesh: ArrayMesh, cards: Array, z: float, 
 				last = float(tops[b])
 			cols.append([float(b) * 0.5, maxf(last, float(c[3]) - 0.4)])
 			b += 1
-		for kind in (["edge"] if look == "A" else ["shadow"] if look == "B" else ["edge", "shadow"]):
-			var st := SurfaceTool.new()
-			st.begin(Mesh.PRIMITIVE_TRIANGLES)
-			st.set_normal(Vector3(0, 0, 1))
+		for kind in kinds:
+			var st: SurfaceTool = tools[kind]
 			var off := Vector3(0, 0, -0.05) if kind == "edge" else Vector3(0.6, -0.6, -0.1)
 			var grow := pad if kind == "edge" else 0.0
 			for i in cols.size():
@@ -5914,12 +5924,13 @@ static func _paper_edges(root: Node3D, mesh: ArrayMesh, cards: Array, z: float, 
 				var q := [Vector3(xa, street - 1.0, back), Vector3(xb, street - 1.0, back), Vector3(xb, yt, back), Vector3(xa, yt, back)]
 				for idx in [0, 2, 1, 0, 3, 2]:
 					st.add_vertex(q[idx] + off)
-			var e := MeshInstance3D.new()
-			e.mesh = st.commit()
-			e.material_override = edge if kind == "edge" else dark
-			e.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-			e.name = "skyline_%s_%d" % [kind, layer]
-			root.add_child(e)
+	for kind in kinds:
+		var e := MeshInstance3D.new()
+		e.mesh = (tools[kind] as SurfaceTool).commit()
+		e.material_override = edge if kind == "edge" else dark
+		e.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		e.name = "skyline_%s_%d" % [kind, layer]
+		root.add_child(e)
 
 
 static func _facade_box(st: SurfaceTool, lo: Vector3, hi: Vector3, seed: float, plain: bool, h: float, glass := false) -> void:

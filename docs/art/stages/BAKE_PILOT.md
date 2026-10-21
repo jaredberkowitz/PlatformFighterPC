@@ -396,3 +396,17 @@ without it).
   what read as paper. The edge cards were wound the wrong way (culled), and C's lean pushed the crowns behind their own edge, so it was
   dropped.
 - **Next:** options in `mocks/city_paper/` (with a local `review.html`) and on the owner's page; recommended C.
+
+## The city's skyline built: C, die-cut edge and shadow (2026-10-20)
+
+The owner picked C. The city palette's [backdrop] now sets `paper_sky="C"` (`StageArt._paper_look`; `--paper-sky=off` shows the solid
+towers for comparisons), so every city stage takes it, the run mode's included. Each tower is a thicker staggered card with a pale
+die-cut edge and a soft shadow. Each layer's edges and shadows are one mesh of each kind: one per building cost sixty draw calls.
+
+**Result** (round 68, `city_paper_built.png`: match camera, wide, fighters in play): the skyline reads as cut card standing in layers,
+its windows, signs and billboards printed as before. The towers' value is about the same (0.31, was 0.30); the distance is a step
+lighter (0.39, was 0.36). Cost: about 899 draw calls against 893, GPU the same (2.8 to 3.1 ms both ways, two timings each).
+**Tests:** all seven pass.
+
+With this, every stage has its background in paper: the meadow (layers), the beach (pop-up), the grove (card terraces), the canyon (card
+stacks) and the city (die-cut cards).
