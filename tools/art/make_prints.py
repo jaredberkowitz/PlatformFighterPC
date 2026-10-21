@@ -105,10 +105,37 @@ def motif(fam):
         return img * (0.5 + 0.5 * (smooth_noise(24) > -0.3))
     if fam == "straw":
         return strokes(700, 30, 0.9, 0, 6, 0.2)
+    if fam == "sand":
+        # Fine stipple with a few long, gentle ripple marks.
+        img = (rng.random((N, N)) < 0.035).astype(np.float32)
+        return np.maximum(img, strokes(60, 70, 0.8, 0, 8, 0.6) * 0.8)
+    if fam == "strata":
+        # Layers: broken horizontal lines at uneven spacing, as a rock's bedding.
+        img = np.zeros((N, N), np.float32)
+        yy, xx = np.mgrid[0:N, 0:N]
+        y = 0.0
+        while y < N:
+            y += rng.uniform(10, 26)
+            wav = np.sin(xx * math.tau / N * rng.integers(1, 3) + rng.uniform(0, 6)) * 3
+            line = np.abs(((yy - y - wav) + N / 2) % N - N / 2) < 0.9
+            gaps = np.sin(xx * math.tau / N * rng.integers(3, 7) + rng.uniform(0, 6)) > -0.5
+            img = np.maximum(img, (line & gaps).astype(np.float32))
+        return img
+    if fam == "roof":
+        # Tar paper: a seam every course, overlapping, and a sparse grit.
+        yy, xx = np.mgrid[0:N, 0:N]
+        seams = ((yy % 64) < 1.4) | (((yy % 64) < 4) & ((xx % 128) < 1.4))
+        grit = rng.random((N, N)) < 0.02
+        return np.maximum(seams, grit).astype(np.float32)
+    if fam == "steel":
+        # Fine, even diagonal hatching, as engraved metal.
+        yy, xx = np.mgrid[0:N, 0:N]
+        return (((xx - yy * 0.5) % 8) < 0.9).astype(np.float32) * 0.8
     return np.zeros((N, N), np.float32)
 
 
-FAMS = {"grass": (1.0, 3.0), "soil": (1.0, 1.0), "path": (1.0, 1.0), "wood": (4.0, 1.0), "stone": (1.0, 1.0), "straw": (4.0, 1.0)}
+FAMS = {"grass": (1.0, 3.0), "soil": (1.0, 1.0), "path": (1.0, 1.0), "wood": (4.0, 1.0), "stone": (1.0, 1.0), "straw": (4.0, 1.0),
+        "sand": (2.0, 1.0), "strata": (4.0, 1.0), "roof": (3.0, 1.0), "steel": (1.0, 1.0)}
 
 
 def make(fam):

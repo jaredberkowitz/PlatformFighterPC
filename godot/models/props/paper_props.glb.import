@@ -3,13 +3,13 @@
 importer="scene"
 importer_version=1
 type="PackedScene"
-uid="uid://ct0ge4xeov1cy"
-path="res://.godot/imported/paper_meadow.glb-6dc6da827b69cd5374d207c0c21ca4b4.scn"
+uid="uid://cpljphid0ak4j"
+path="res://.godot/imported/paper_props.glb-3d592759ad7f5782ec3a9ef5d445484d.scn"
 
 [deps]
 
-source_file="res://models/props/paper_meadow.glb"
-dest_files=["res://.godot/imported/paper_meadow.glb-6dc6da827b69cd5374d207c0c21ca4b4.scn"]
+source_file="res://models/props/paper_props.glb"
+dest_files=["res://.godot/imported/paper_props.glb-3d592759ad7f5782ec3a9ef5d445484d.scn"]
 
 [params]
 

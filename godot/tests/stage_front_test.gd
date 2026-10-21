@@ -148,7 +148,8 @@ func _initialize() -> void:
 		if not ResourceLoader.exists(path):
 			continue
 		var kit := (load(path) as PackedScene).instantiate()
-		for prop_name in ["hay_bale", "barrel", "signpost", "rock", "fence_post", "fence_rail", "flower"]:
+		for prop_name in ["hay_bale", "barrel", "signpost", "rock", "fence_post", "fence_rail", "flower", "mushroom", "stump", "crate",
+				"lamp_post", "life_ring", "potted_plant", "cactus", "water_tower", "ac_unit", "roof_vent"]:
 			var prop := kit.find_child("prop_" + prop_name, true, false)
 			check(prop != null, "%s has prop_%s" % [path, prop_name])
 			if prop == null:

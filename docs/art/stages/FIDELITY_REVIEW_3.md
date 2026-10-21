@@ -141,3 +141,33 @@ The owner's picks.
 - Surfaces on the meadow: 3 → 4 by eye. Up close, the lawn, logs, stones, bales and posts now carry printed paper marks, where they
   were flat colour.
 **Tests:** all seven Godot tests pass.
+
+## The rollout: mocks (2026-10-21)
+
+The owner's go-ahead: the rolled-and-scored props and the hatched print on the grove, canyon, beach and city, with options where a stage's
+props need new designs.
+- **Props:** `make_paper_props.py --style C --variant A|B` adds the other stages' props to the kit. The barrel and rock are the
+  meadow's; new designs, two each, cover the mushroom, stump, crate, lamp post, life ring, potted plant, cactus, water tower, air
+  conditioner and roof vent.
+  - The builders hand their places to the kit, as on the meadow (`StageArt._paper`, `_paper_or_prop`; the water tower in `_city`).
+  - The lamp's lantern takes the stage's lamp colour, unshaded, and keeps its halo (`PAPER_LIT`).
+- **Prints:** four more families in `make_prints.py` "B": sand, strata, roofing and steel. `StageBake.print_for` reads each stage's own
+  meaning of a family (`PRINTS_BY_THEME`: `top` is grass on the grove, sand on the canyon, boards on the beach, roofing on the city),
+  then `PRINTS`, then the props' (`PRINTS_PROPS`). The beach's deck takes 0.22: at 0.4 the grain under the fighters was busy.
+- **Gotcha:** a command-line path with spaces splits into arguments; the mock prints were copied to a folder without spaces.
+- **Picks recommended:** A, with B's stump, crate and cactus. Options in `mocks/prop_rollout/` (match camera, fighters in play; a local
+  `review.html`) and on the owner's page.
+
+## The rollout built (2026-10-21)
+
+The owner's picks: A for the new props, with B's stump, crate and cactus.
+- **Kit:** one kit for every stage, `godot/models/props/paper_props.glb` (`make_paper_props.py --style C --variant A --b
+  stump,crate,cactus`, 32,500 triangles in all, each prop under 10,000). It replaces the meadow's own kit (`StageBake.PAPER_KITS`).
+- **Prints:** every stage's palette sets `paper_print="hatched"`.
+- **Light:** all five stages re-lit around their new props (`light_stage.py`).
+- **Tests:**
+  - `prop_check_test` checks each prop of a kit on its own: budget, not floating, not buried. It found the coiled stump and the
+    coil-stacked cactus standing a little off the ground; both are grounded now.
+  - `stage_front_test` checks the kit has every prop the builders ask for.
+- **Result:** `paper_props_built.jpg` (fighters in play, today left, built right: grove, canyon, beach, city).
+**Tests:** all seven Godot tests pass (runner_test's shop check flaked once and passed on the next full run).

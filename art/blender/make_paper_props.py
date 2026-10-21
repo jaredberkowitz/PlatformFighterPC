@@ -26,6 +26,10 @@ from mathutils import Matrix, Vector
 argv = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
 opts = {argv[i].lstrip("-"): argv[i + 1] for i in range(0, len(argv) - 1, 2)}
 STYLE = opts.get("style", "A").upper()
+# (The other stages' props, rolled and scored after the meadow pilot, in two designs each: `--variant` for all, `--b <names>` for the
+# props that take B's design instead, as the owner picked them on 2026-10-21: `--variant A --b stump,crate,cactus`.)
+VARIANT = opts.get("variant", "A").upper()
+B_PROPS = [n for n in opts.get("b", "").split(",") if n]
 
 # (Blender: x right, z up, -y toward the camera.)
 TOWARD = -1.0
@@ -430,8 +434,361 @@ def flower(p):
                 v.co.y *= big
 
 
+# ---- The other stages' props, rolled and scored (the rollout after the meadow pilot), two designs each (`--variant`) -------------------
+
+
+def torus(bm, centre, axis, R, r, segs=24, rsegs=8, arc=math.tau):
+    """A rolled paper tube bent round into a ring (or an `arc` of one) round `axis`."""
+    q = Vector(axis).to_track_quat("Z", "Y").to_matrix().to_4x4()
+    m = Matrix.Translation(centre) @ q
+    full = arc >= math.tau - 1e-6
+    n = segs if full else segs + 1
+    rings = []
+    for i in range(n):
+        a = arc * i / segs
+        c = Vector((R * math.cos(a), R * math.sin(a), 0.0))
+        out = Vector((math.cos(a), math.sin(a), 0.0))
+        rings.append([bm.verts.new(m @ (c + out * (r * math.cos(math.tau * j / rsegs)) + Vector((0, 0, r * math.sin(math.tau * j / rsegs)))))
+                      for j in range(rsegs)])
+    for i in range(segs):
+        i2 = (i + 1) % n
+        for j in range(rsegs):
+            j2 = (j + 1) % rsegs
+            bm.faces.new((rings[i][j], rings[i2][j], rings[i2][j2], rings[i][j2]))
+
+
+def scores(bm, prof, n, lift=0.004, half=0.012, a0=0.0):
+    """`n` pressed lines down a lathe's profile [(radius, height)], standing `lift` proud, each `half` (radians) either side."""
+    for i in range(n):
+        a = a0 + math.tau * (i + 0.5) / n
+        for k in range(len(prof) - 1):
+            (r0, h0), (r1, h1) = prof[k], prof[k + 1]
+            vs = [bm.verts.new(((r + lift) * math.cos(a + da), (r + lift) * math.sin(a + da), h)) for (r, h, da) in
+                  ((r0, h0, -half), (r0, h0, half), (r1, h1, half), (r1, h1, -half))]
+            bm.faces.new(vs)
+
+
+def coil_stack(bm, z0, z1, r0, r1, n, thick, segs=24):
+    """A column of rolled rings stacked from `z0` to `z1`, their radius going from `r0` to `r1` (a quilled dome, a coiled roof)."""
+    for k in range(n):
+        t = k / max(1, n - 1)
+        torus(bm, Vector((0, 0, z0 + (z1 - z0) * t)), (0, 0, 1), r0 + (r1 - r0) * t, thick, segs=segs, rsegs=6)
+
+
+def mushroom(p):
+    """About 1 tall; the cap in the game's colour for this one."""
+    bm = bmesh.new()
+    tube(bm, Vector((0, 0, 0)), Vector((0, 0, 0.66)), 0.12, segs=12)
+    to_object("stalk", bm, "stalk", p, smooth=True)
+    if VARIANT == "A":
+        prof = [(0.47, 0.6), (0.46, 0.7), (0.41, 0.82), (0.29, 0.93), (0.12, 0.98), (0.0, 0.99)]
+        bm = bmesh.new()
+        lathe(bm, prof, 24)
+        to_object("cap", bm, "cap", p, smooth=True, face=(0, 0, 1))
+        bm = bmesh.new()
+        scores(bm, prof[:-1], 12, half=0.02)
+        to_object("score", bm, "cap_back", p, face=(0, 0, 1))
+        bm = bmesh.new()
+        cap(bm, [bm.verts.new((0.47 * math.cos(math.tau * i / 24), 0.47 * math.sin(math.tau * i / 24), 0.6)) for i in range(24)],
+            (0, 0, 0.64), flip=True)
+        to_object("gill", bm, "gill", p, face=(0, 0, -1))
+        bm = bmesh.new()
+        for (a, rr, hh) in ((0.3, 0.3, 0.88), (2.0, 0.34, 0.84), (3.9, 0.24, 0.92), (5.1, 0.36, 0.83), (1.1, 0.1, 0.985)):
+            c = Vector((rr * math.cos(a), rr * math.sin(a), hh))
+            n = (c - Vector((0, 0, 0.45))).normalized()
+            bmesh.ops.create_circle(bm, cap_ends=True, segments=10, radius=0.055,
+                                    matrix=Matrix.Translation(c + n * 0.01) @ n.to_track_quat("Z", "Y").to_matrix().to_4x4())
+        to_object("spots", bm, "spot", p, face=(0, 0, 1))
+    else:
+        bm = bmesh.new()
+        coil_stack(bm, 0.62, 0.95, 0.44, 0.08, 6, 0.055)
+        to_object("cap", bm, "cap", p, smooth=True)
+        bm = bmesh.new()
+        for (a, hh) in ((0.4, 0.7), (2.4, 0.7), (4.4, 0.7), (1.4, 0.83), (3.4, 0.83), (5.4, 0.83)):
+            rr = 0.48 if hh < 0.75 else 0.33
+            torus(bm, Vector((rr * math.cos(a), rr * math.sin(a), hh)), (math.cos(a), math.sin(a), 0.3), 0.04, 0.012, segs=10, rsegs=5)
+        to_object("spots", bm, "spot", p, smooth=True)
+
+
+def stump(p):
+    """About 1.2 across its roots and 0.7 tall."""
+    if VARIANT == "A":
+        prof = [(0.6, 0.0), (0.52, 0.12), (0.5, 0.4), (0.49, 0.7)]
+        bm = bmesh.new()
+        rings = lathe(bm, prof, 24)
+        top = [v.co.copy() for v in rings[-1]]
+        to_object("bark", bm, "bark", p, smooth=True)
+        bm = bmesh.new()
+        scores(bm, prof, 16, half=0.025)
+        to_object("furrows", bm, "bark_back", p)
+        bm = bmesh.new()
+        cap(bm, [bm.verts.new(c) for c in top], (0, 0, 0.71))
+        to_object("top", bm, "ring_top", p, face=(0, 0, 1))
+        bm = bmesh.new()
+        for r in (0.12, 0.24, 0.36):
+            torus(bm, Vector((0, 0, 0.705)), (0, 0, 1), r, 0.008, segs=24, rsegs=4)
+        to_object("rings", bm, "bark_back", p)
+        bm = bmesh.new()
+        for a in (0.5, 2.1, 3.7, 5.2):
+            d = Vector((math.cos(a), math.sin(a), 0.0))
+            tube(bm, d * 0.4 + Vector((0, 0, 0.12)), d * 0.78 + Vector((0, 0, 0.02)), 0.07, segs=8)
+        to_object("roots", bm, "bark", p, smooth=True)
+    else:
+        bm = bmesh.new()
+        coil_stack(bm, 0.055, 0.62, 0.56, 0.48, 7, 0.06)
+        to_object("bark", bm, "bark", p, smooth=True)
+        bm = bmesh.new()
+        spiral(bm, Vector((0.0, 0.0, 0.0)), 1, 0.46, 5.0, 0.06, 0.02, 0.03)
+        for v in bm.verts:
+            v.co = Vector((v.co.y, v.co.z, 0.66 + v.co.x))
+        to_object("top", bm, "ring_top", p)
+        bm = bmesh.new()
+        for a in (0.5, 2.1, 3.7, 5.2):
+            torus(bm, Vector((0.6 * math.cos(a), 0.6 * math.sin(a), 0.07)), (-math.sin(a), math.cos(a), 0), 0.12, 0.05, segs=12, rsegs=6,
+                  arc=math.pi)
+        to_object("roots", bm, "bark", p, smooth=True)
+
+
+def crate(p):
+    """1 x 1 x 1, standing on the origin."""
+    if VARIANT == "A":
+        box(-0.5, 0.5, -0.5, 0.5, 0.0, 1.0, "crate", p, "box")
+        bm = bmesh.new()
+        for (x, y) in ((-0.5, -0.5), (0.5, -0.5), (-0.5, 0.5), (0.5, 0.5)):
+            tube(bm, Vector((x, y, 0.0)), Vector((x, y, 1.0)), 0.06, segs=8)
+        for z in (0.03, 0.97):
+            for (a, b) in (((-0.5, -0.5), (0.5, -0.5)), ((0.5, -0.5), (0.5, 0.5)), ((0.5, 0.5), (-0.5, 0.5)), ((-0.5, 0.5), (-0.5, -0.5))):
+                tube(bm, Vector((a[0], a[1], z)), Vector((b[0], b[1], z)), 0.045, segs=8)
+        to_object("battens", bm, "crate_dark", p, smooth=True)
+        bm = bmesh.new()
+        for side in range(4):
+            rot = Matrix.Rotation(side * math.pi / 2, 4, "Z")
+            for z in (0.36, 0.66):
+                vs = [bm.verts.new(rot @ Vector((x, -0.505, zz))) for (x, zz) in ((-0.44, z - 0.012), (0.44, z - 0.012), (0.44, z + 0.012), (-0.44, z + 0.012))]
+                f = bm.faces.new(vs)
+        to_object("scores", bm, "crate_dark", p)
+        bm = bmesh.new()
+        tube(bm, Vector((-0.42, -0.52, 0.08)), Vector((0.42, -0.52, 0.92)), 0.035, segs=8)
+        to_object("brace", bm, "crate_dark", p, smooth=True)
+    else:
+        bm = bmesh.new()
+        for side in range(4):
+            rot = Matrix.Rotation(side * math.pi / 2, 4, "Z")
+            for k in range(4):
+                z = 0.13 + k * 0.245
+                tube(bm, rot @ Vector((-0.44, -0.44, z)), rot @ Vector((0.44, -0.44, z)), 0.1, segs=10)
+        to_object("slats", bm, "crate", p, smooth=True)
+        bm = bmesh.new()
+        for (x, y) in ((-0.46, -0.46), (0.46, -0.46), (-0.46, 0.46), (0.46, 0.46)):
+            tube(bm, Vector((x, y, 0.0)), Vector((x, y, 1.0)), 0.075, segs=10)
+        to_object("posts", bm, "crate_dark", p, smooth=True)
+        box(-0.42, 0.42, -0.42, 0.42, 0.9, 0.98, "crate_dark", p, "lid")
+
+
+def lamp_post(p):
+    """2.4 tall, its lantern at (0.58, 1.86), where the game's halo sits; the lantern `glow` is painted the stage's lamp colour."""
+    bm = bmesh.new()
+    tube(bm, Vector((0, 0, 0)), Vector((0, 0, 2.25)), 0.07, segs=10)
+    to_object("post", bm, "wood", p, smooth=True)
+    bm = bmesh.new()
+    spiral(bm, Vector((0.0, 0.0, 0.0)), 1, 0.16, 2.5, 0.04, 0.01, 0.06)
+    for v in bm.verts:
+        v.co = Vector((v.co.y, v.co.z, v.co.x))
+    tube(bm, Vector((0, 0, 2.15)), Vector((0.64, 0, 2.15)), 0.03, segs=8)
+    tube(bm, Vector((0.58, 0, 2.15)), Vector((0.58, 0, 2.08)), 0.012, segs=6)
+    to_object("arm", bm, "iron", p, smooth=True)
+    if VARIANT == "A":
+        prof = [(0.15, 1.68), (0.17, 1.76), (0.17, 1.96), (0.15, 2.04)]
+        bm = bmesh.new()
+        lathe(bm, prof, 16)
+        for v in bm.verts:
+            v.co.x += 0.58
+        to_object("lantern", bm, "glow", p, smooth=True)
+        bm = bmesh.new()
+        scores(bm, prof, 8, half=0.05)
+        for v in bm.verts:
+            v.co.x += 0.58
+        torus(bm, Vector((0.58, 0, 1.68)), (0, 0, 1), 0.15, 0.025, segs=16, rsegs=6)
+        torus(bm, Vector((0.58, 0, 2.04)), (0, 0, 1), 0.15, 0.025, segs=16, rsegs=6)
+        to_object("frame", bm, "iron", p, smooth=True)
+    else:
+        prof = [(0.03, 1.62), (0.13, 1.66), (0.2, 1.76), (0.22, 1.86), (0.2, 1.96), (0.13, 2.04), (0.03, 2.08)]
+        bm = bmesh.new()
+        lathe(bm, prof, 16, wobble=lambda a, k: 1.0 if int(round(a / (math.tau / 16))) % 2 == 0 else 0.9)
+        for v in bm.verts:
+            v.co.x += 0.58
+        to_object("lantern", bm, "glow", p, smooth=True)
+        bm = bmesh.new()
+        torus(bm, Vector((0.58, 0, 1.64)), (0, 0, 1), 0.08, 0.02, segs=12, rsegs=6)
+        torus(bm, Vector((0.58, 0, 2.06)), (0, 0, 1), 0.08, 0.02, segs=12, rsegs=6)
+        to_object("frame", bm, "iron", p, smooth=True)
+
+
+def life_ring(p):
+    """A post at the back with a ring hanging on its front at 1.2 high, facing the camera (-y)."""
+    bm = bmesh.new()
+    tube(bm, Vector((0, 0.1, 0)), Vector((0, 0.1, 1.6)), 0.06, segs=10)
+    to_object("post", bm, "wood_light", p, smooth=True)
+    c = Vector((0, -0.05, 1.2))
+    if VARIANT == "A":
+        bm = bmesh.new()
+        torus(bm, c, (0, -1, 0), 0.39, 0.11, segs=28, rsegs=10)
+        to_object("ring", bm, "red", p, smooth=True)
+        bm = bmesh.new()
+        # (Four white bands wrapped round the tube, at the diagonals.)
+        for k in range(4):
+            a = math.tau * k / 4 + math.pi / 4
+            centre = c + Vector((0.39 * math.cos(a), 0.0, 0.39 * math.sin(a)))
+            torus(bm, centre, (-math.sin(a), 0.0, math.cos(a)), 0.118, 0.04, segs=14, rsegs=4)
+        to_object("bands", bm, "white", p, smooth=True)
+    else:
+        for k in range(8):
+            a0, a1 = math.tau * k / 8, math.tau * (k + 1) / 8
+            pts = [(0.5 * math.cos(a0 + (a1 - a0) * i / 3), 1.2 + 0.5 * math.sin(a0 + (a1 - a0) * i / 3)) for i in range(4)]
+            pts += [(0.28 * math.cos(a0 + (a1 - a0) * i / 3), 1.2 + 0.28 * math.sin(a0 + (a1 - a0) * i / 3)) for i in range(3, -1, -1)]
+            card(pts, -0.12, 0.06, "red" if k % 2 == 0 else "white", p, "seg%d" % k)
+        bm = bmesh.new()
+        torus(bm, Vector((0, -0.15, 1.2)), (0, -1, 0), 0.39, 0.018, segs=32, rsegs=5)
+        to_object("rope", bm, "band", p, smooth=True)
+
+
+def potted_plant(p):
+    prof = [(0.26, 0.0), (0.3, 0.2), (0.34, 0.45), (0.36, 0.6)]
+    bm = bmesh.new()
+    lathe(bm, prof, 20)
+    to_object("pot", bm, "pot", p, smooth=True)
+    bm = bmesh.new()
+    cap(bm, [bm.verts.new((0.33 * math.cos(math.tau * i / 20), 0.33 * math.sin(math.tau * i / 20), 0.56)) for i in range(20)], (0, 0, 0.56))
+    to_object("soil", bm, "pot_back", p, face=(0, 0, 1))
+    bm = bmesh.new()
+    torus(bm, Vector((0, 0, 0.6)), (0, 0, 1), 0.36, 0.035, segs=20, rsegs=6)
+    scores(bm, prof, 10, half=0.03)
+    to_object("rim", bm, "pot_back", p, smooth=True)
+    bm = bmesh.new()
+    for k in range(6):
+        a = math.tau * k / 6 + 0.3
+        d = Vector((math.cos(a), math.sin(a), 0.0))
+        if VARIANT == "A":
+            # (A rolled leaf: a strip curling up and out from the pot.)
+            pts = []
+            for i in range(9):
+                t = i / 8
+                pts.append(d * (0.05 + 0.42 * t) + Vector((0, 0, 0.58 + 0.55 * math.sin(t * 2.6) * (1.0 - 0.3 * t))))
+            side = Vector((-d.y, d.x, 0.0)) * 0.06
+            vs = [(bm.verts.new(q - side * (1 - i / 9)), bm.verts.new(q + side * (1 - i / 9))) for i, q in enumerate(pts)]
+            for i in range(len(vs) - 1):
+                bm.faces.new((vs[i][0], vs[i][1], vs[i + 1][1], vs[i + 1][0]))
+        else:
+            torus(bm, d * 0.22 + Vector((0, 0, 0.82 + 0.08 * (k % 2))), (d.x, d.y, 0.6), 0.09, 0.018, segs=12, rsegs=5)
+    to_object("leaves", bm, "leaf", p, face=(0, -0.3, 1) if VARIANT == "A" else None, smooth=VARIANT == "B")
+
+
+def cactus(p):
+    """About 4 tall at size 1 (the game sets the size)."""
+    if VARIANT == "A":
+        prof = [(0.36, 0.0), (0.38, 0.4), (0.38, 3.2), (0.32, 3.55), (0.18, 3.75), (0.0, 3.82)]
+        bm = bmesh.new()
+        lathe(bm, prof, 20)
+        to_object("trunk", bm, "cactus", p, smooth=True, face=(0, 0, 1))
+        bm = bmesh.new()
+        scores(bm, prof[:-1], 8, half=0.03)
+        to_object("ribs", bm, "cactus_back", p, face=(0, 0, 1))
+        bm = bmesh.new()
+        for side, h, up in ((1, 1.5, 1.1), (-1, 2.2, 0.8)):
+            tube(bm, Vector((0, 0, h)), Vector((side * 0.85, 0, h)), 0.2, segs=12)
+            tube(bm, Vector((side * 0.85, 0, h - 0.1)), Vector((side * 0.85, 0, h + up)), 0.2, segs=12)
+        to_object("arms", bm, "cactus", p, smooth=True)
+    else:
+        bm = bmesh.new()
+        coil_stack(bm, 0.13, 3.5, 0.34, 0.3, 14, 0.13, segs=16)
+        torus(bm, Vector((0, 0, 3.66)), (0, 0, 1), 0.14, 0.12, segs=12, rsegs=8)
+        for side, h, up in ((1, 1.5, 1.1), (-1, 2.2, 0.8)):
+            for k in range(4):
+                torus(bm, Vector((side * (0.4 + k * 0.15), 0, h)), (1, 0, 0), 0.16, 0.08, segs=10, rsegs=6)
+            for k in range(int(up / 0.2)):
+                torus(bm, Vector((side * 0.85, 0, h + 0.2 + k * 0.2)), (0, 0, 1), 0.15, 0.09, segs=10, rsegs=6)
+        to_object("trunk", bm, "cactus", p, smooth=True)
+
+
+def water_tower(p):
+    """The city's tank on legs: legs 2.4 tall at +-0.9, the tank 2.6 across from 2.4 to 4.6, a roof to 5.6, a ladder on its front right."""
+    bm = bmesh.new()
+    for (x, y) in ((-0.9, -0.9), (0.9, -0.9), (-0.9, 0.9), (0.9, 0.9)):
+        tube(bm, Vector((x, y, 0)), Vector((x * 0.85, y * 0.85, 2.45)), 0.1, segs=10)
+    tube(bm, Vector((-0.85, -0.85, 1.2)), Vector((0.85, -0.85, 1.2)), 0.05, segs=8)
+    tube(bm, Vector((-0.85, 0.85, 1.2)), Vector((0.85, 0.85, 1.2)), 0.05, segs=8)
+    to_object("legs", bm, "wood_dark", p, smooth=True)
+    prof = [(1.25, 2.4), (1.3, 2.5), (1.3, 4.5), (1.26, 4.6)]
+    if VARIANT == "A":
+        bm = bmesh.new()
+        lathe(bm, prof, 32)
+        to_object("tank", bm, "tank", p, smooth=True)
+        bm = bmesh.new()
+        scores(bm, prof, 18, half=0.012)
+        to_object("staves", bm, "tank_dark", p)
+        bm = bmesh.new()
+        coil_stack(bm, 4.62, 5.5, 1.42, 0.12, 9, 0.07, segs=32)
+        to_object("roof", bm, "tank_dark", p, smooth=True)
+    else:
+        bm = bmesh.new()
+        coil_stack(bm, 2.5, 4.5, 1.25, 1.25, 9, 0.13, segs=32)
+        to_object("tank", bm, "tank", p, smooth=True)
+        bm = bmesh.new()
+        rp = [(1.45, 4.6), (0.9, 5.0), (0.3, 5.45), (0.0, 5.55)]
+        lathe(bm, rp, 32)
+        to_object("roof", bm, "tank_dark", p, smooth=True, face=(0, 0, 1))
+        bm = bmesh.new()
+        scores(bm, rp[:-1], 16, half=0.02)
+        to_object("seams", bm, "tank", p, face=(0, 0, 1))
+    bm = bmesh.new()
+    for h in (2.6, 3.5, 4.4):
+        torus(bm, Vector((0, 0, h)), (0, 0, 1), 1.33, 0.035, segs=32, rsegs=5)
+    for lx in (-0.18, 0.18):
+        tube(bm, Vector((1.0 + lx, -0.95, 0.5)), Vector((1.0 + lx, -0.95, 3.9)), 0.03, segs=6)
+    for k in range(5):
+        tube(bm, Vector((0.8, -0.95, 0.8 + k * 0.7)), Vector((1.2, -0.95, 0.8 + k * 0.7)), 0.022, segs=6)
+    to_object("iron", bm, "iron", p, smooth=True)
+
+
+def ac_unit(p):
+    """1.6 wide, 1.1 tall, 1.2 deep, its front -y."""
+    box(-0.8, 0.8, -0.6, 0.6, 0.0, 1.05, "metal", p, "body")
+    bm = bmesh.new()
+    if VARIANT == "A":
+        for k in range(6):
+            z = 0.2 + k * 0.13
+            tube(bm, Vector((-0.66, -0.62, z)), Vector((0.66, -0.62, z)), 0.045, segs=8)
+    else:
+        for k in range(9):
+            x = -0.6 + k * 0.15
+            bm.faces.new([bm.verts.new((x + dx, -0.605, z)) for (dx, z) in ((-0.02, 0.15), (0.02, 0.15), (0.02, 0.9), (-0.02, 0.9))])
+    to_object("grille", bm, "metal_dark", p, smooth=VARIANT == "A", face=None if VARIANT == "A" else (0, -1, 0))
+    bm = bmesh.new()
+    spiral(bm, Vector((0.0, 0.0, 0.0)), 1, 0.4, 3.0, 0.04, 0.02, 0.03)
+    for v in bm.verts:
+        v.co = Vector((v.co.y + 0.2, v.co.z, 1.05 + v.co.x))
+    to_object("fan", bm, "metal_dark", p)
+
+
+def roof_vent(p):
+    """About 1.2 tall: a stack bending over into a hood facing down and to the side."""
+    bm = bmesh.new()
+    if VARIANT == "A":
+        tube(bm, Vector((0, 0, 0)), Vector((0, 0, 0.8)), 0.16, segs=14)
+    else:
+        coil_stack(bm, 0.05, 0.8, 0.14, 0.14, 7, 0.06, segs=14)
+    torus(bm, Vector((0.25, 0, 0.8)), (0, 1, 0), 0.25, 0.16, segs=8, rsegs=14, arc=math.pi)
+    to_object("stack", bm, "metal", p, smooth=True)
+    bm = bmesh.new()
+    torus(bm, Vector((0, 0, 0.05)), (0, 0, 1), 0.2, 0.05, segs=16, rsegs=6)
+    torus(bm, Vector((0, 0, 0.5)), (0, 0, 1), 0.17, 0.025, segs=16, rsegs=5)
+    to_object("bands", bm, "metal_dark", p, smooth=True)
+
+
 PROPS = [("hay_bale", hay_bale), ("barrel", barrel), ("signpost", signpost), ("rock", rock), ("fence_post", fence_post),
-         ("fence_rail", fence_rail), ("flower", flower)]
+         ("fence_rail", fence_rail), ("flower", flower), ("mushroom", mushroom), ("stump", stump), ("crate", crate),
+         ("lamp_post", lamp_post), ("life_ring", life_ring), ("potted_plant", potted_plant), ("cactus", cactus),
+         ("water_tower", water_tower), ("ac_unit", ac_unit), ("roof_vent", roof_vent)]
 
 
 def bake_occlusion(distance):
@@ -452,7 +809,7 @@ def bake_occlusion(distance):
         scene.world = bpy.data.worlds.new("Bake")
     scene.world.light_settings.distance = distance
     # (A floor under them all, so each prop takes the ground's shade at its foot.)
-    bpy.ops.mesh.primitive_plane_add(size=80.0, location=(20.0, 0.0, 0.0))
+    bpy.ops.mesh.primitive_plane_add(size=320.0, location=(80.0, 0.0, 0.0))
     floor = bpy.context.active_object
     bpy.ops.object.select_all(action="DESELECT")
     for o in parts:
@@ -472,11 +829,15 @@ def bake_occlusion(distance):
 def main():
     bpy.ops.wm.read_factory_settings(use_empty=True)
     roots = []
+    global VARIANT
+    chosen = VARIANT
     for k, (name, build) in enumerate(PROPS):
         # (Apart for the bake, so one prop does not shade the next; back on the origin for export.)
-        root = empty("prop_" + name, k * 6.0)
+        root = empty("prop_" + name, k * 9.0)
+        VARIANT = "B" if name in B_PROPS else chosen
         build(root)
         roots.append(root)
+    VARIANT = chosen
     # (Subdivided for the vertex bake where a face is long, so the shade has vertices to land on.)
     for o in [o for o in bpy.context.scene.objects if o.type == "MESH"]:
         bm = bmesh.new()
@@ -498,7 +859,7 @@ def main():
     os.makedirs(os.path.dirname(out), exist_ok=True)
     bpy.ops.export_scene.gltf(filepath=out, export_format="GLB", export_yup=True, export_normals=True, export_materials="EXPORT",
                               export_vertex_color="ACTIVE")
-    print("paper props %s: %d triangles -> %s" % (STYLE, tris, out))
+    print("paper props %s, new designs %s: %d triangles -> %s" % (STYLE, VARIANT, tris, out))
 
 
 main()

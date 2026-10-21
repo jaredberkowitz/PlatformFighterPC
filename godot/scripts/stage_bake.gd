@@ -583,9 +583,11 @@ static func place_mood(root: Node3D, source: Variant) -> void:
 	print("mood light: placed %s" % (source.get_file() if source is String else (source as PackedScene).resource_path.get_file()))
 
 
-## Paper props by theme (art/blender/make_paper_props.py; the meadow's "C" rolled and scored, the owner's pick 2026-10-21): the prop
-## builders hand their places to it (`StageArt.paper_kit`).
-const PAPER_KITS := {"meadow": "res://models/props/paper_meadow.glb"}
+## Paper props by theme (art/blender/make_paper_props.py, rolled and scored: the meadow pilot's "C", and for the other stages' props A
+## with B's stump, crate and cactus, the owner's picks 2026-10-21): the prop builders hand their places to it (`StageArt.paper_kit`).
+## One kit for every stage.
+const PAPER_KIT := "res://models/props/paper_props.glb"
+const PAPER_KITS := {"meadow": PAPER_KIT, "grove": PAPER_KIT, "sunset": PAPER_KIT, "ocean": PAPER_KIT, "city": PAPER_KIT}
 
 
 ## The theme's paper props: a glTF to try (`--prop-mock=<glb>`), the shipped kit (`PAPER_KITS`), or null (none, or `--no-paper-props`).
@@ -604,7 +606,36 @@ const PRINTS := {"grass": ["grass", 0.45, 5.0], "lawn": ["grass", 0.45, 5.0], "l
 	"plank_card": ["wood", 0.35, 3.0], "wood": ["wood", 0.4, 1.6], "wood_light": ["wood", 0.4, 1.6], "wood_dark": ["wood", 0.35, 1.6],
 	"band": ["wood", 0.3, 1.2], "stem": ["grass", 0.2, 1.0], "stone": ["stone", 0.35, 2.5], "stone2": ["stone", 0.35, 2.5],
 	"stone_light": ["stone", 0.35, 2.5], "straw": ["straw", 0.45, 1.4], "straw_end": ["straw", 0.4, 1.0]}
+## Each stage's own families where they mean something else there (`top` is grass on the grove, sand on the canyon, boards on the
+## beach, roofing on the city), and the other stages' props; over `PRINTS`.
+const PRINTS_BY_THEME := {
+	"grove": {"top": ["grass", 0.45, 5.0], "top_card": ["grass", 0.35, 5.0], "layer1": ["soil", 0.35, 4.0], "layer2": ["soil", 0.35, 4.0],
+		"earth": ["soil", 0.35, 4.0], "rock": ["stone", 0.35, 2.5], "root": ["wood", 0.4, 3.0], "moss_shade": ["grass", 0.3, 3.0]},
+	"sunset": {"top": ["sand", 0.45, 5.0], "top_card": ["sand", 0.35, 5.0], "layer1": ["strata", 0.4, 4.0], "layer2": ["strata", 0.4, 4.0],
+		"strata_a": ["strata", 0.4, 4.0], "strata_b": ["strata", 0.4, 4.0], "strata_c": ["strata", 0.4, 4.0]},
+	"ocean": {"top": ["wood", 0.22, 3.0], "top_card": ["wood", 0.22, 3.0], "layer1": ["wood", 0.3, 3.0], "beam": ["wood", 0.4, 3.0],
+		"post": ["wood", 0.4, 2.0], "iron": ["steel", 0.3, 1.5]},
+	"city": {"top": ["roof", 0.4, 5.0], "top_card": ["roof", 0.3, 5.0], "layer1": ["stone", 0.3, 2.5], "steel": ["steel", 0.3, 1.5],
+		"steel_card": ["steel", 0.3, 1.5], "steel_dark": ["steel", 0.3, 1.5], "brick": ["stone", 0.2, 2.0], "trim": ["stone", 0.25, 2.0],
+		"frame": ["wood", 0.25, 1.5], "pipe": ["steel", 0.3, 1.5], "iron": ["steel", 0.3, 1.5], "ac": ["steel", 0.3, 1.5],
+		"leaf": ["grass", 0.25, 1.0]},
+}
+## The other stages' paper props, on every stage.
+const PRINTS_PROPS := {"crate": ["wood", 0.4, 1.0], "crate_dark": ["wood", 0.35, 1.0], "bark": ["wood", 0.4, 1.0], "ring_top": ["wood", 0.3, 0.8],
+	"tank": ["wood", 0.35, 1.6], "tank_dark": ["wood", 0.3, 1.6], "metal": ["steel", 0.3, 1.0], "metal_dark": ["steel", 0.3, 1.0],
+	"iron": ["steel", 0.25, 1.0]}
 static var _print_tex := {}
+
+
+## The print for a surface of `family` on `theme_name`, or [] for none.
+static func print_for(theme_name: String, family: String) -> Array:
+	var fam := family.trim_suffix("_back")
+	var own: Dictionary = PRINTS_BY_THEME.get(theme_name, {})
+	if own.has(fam):
+		return own[fam]
+	if PRINTS.has(fam):
+		return PRINTS[fam]
+	return PRINTS_PROPS.get(fam, [])
 
 
 ## The printed surfaces (tools/art/make_prints.py, fidelity review 3's idea 2) on the modelled front and play area and the paper props, by
@@ -642,8 +673,8 @@ static func surfaces(root: Node3D, theme_name: String) -> void:
 			if m == null:
 				continue
 			m = m.duplicate() as ShaderMaterial
-			if dir != "" and PRINTS.has(fam.trim_suffix("_back")):
-				var spec: Array = PRINTS[fam.trim_suffix("_back")]
+			var spec := print_for(theme_name, fam)
+			if dir != "" and not spec.is_empty():
 				var path := dir.path_join(String(spec[0]) + ".png")
 				if not _print_tex.has(path):
 					# (The shipped prints are imported textures; mocks are read from their files. Either way with their own mipmaps.)
