@@ -11,6 +11,7 @@ baked. Each house is `prop_house_<type>`, its foot at the origin, its front towa
 
 Run (Blender 5.2):
   blender --background --python art/blender/make_paper_houses.py -- --style A --out <file.glb> [--render <sheet.png>]
+Shipped (the owner's pick, 2026-10-21): godot/models/props/paper_houses.glb, `--style B`.
 (`--render`: the four houses side by side in Blender's studio light, for the review page.)
 """
 
@@ -156,7 +157,7 @@ def roof_details(f, s, top, eave, la, th, t):
 
 
 def walls(W, D, H, gable_front, storeys=1):
-    box("stone", -W / 2.0 - 0.15, W / 2.0 + 0.15, -0.8, 0.35, -D / 2.0 - 0.15, D / 2.0 + 0.15, name="footing")
+    box("stone", -W / 2.0 - 0.15, W / 2.0 + 0.15, -0.5, 0.35, -D / 2.0 - 0.15, D / 2.0 + 0.15, name="footing")
     box("wall", -W / 2.0, W / 2.0, 0.35, H, -D / 2.0, D / 2.0, name="wall")
     fz = D / 2.0
     if STYLE == "A":
@@ -264,7 +265,7 @@ def longhouse():
 def barn():
     # (Low, as the barn it replaces: taller, with its gable to the front, it crowded the frame's corner beside the farmhouse.)
     W, D, H = 5.6, 6.0, 3.4
-    box("stone", -W / 2.0 - 0.15, W / 2.0 + 0.15, -0.8, 0.35, -D / 2.0 - 0.15, D / 2.0 + 0.15, name="footing")
+    box("stone", -W / 2.0 - 0.15, W / 2.0 + 0.15, -0.5, 0.35, -D / 2.0 - 0.15, D / 2.0 + 0.15, name="footing")
     box("barn", -W / 2.0, W / 2.0, 0.35, H, -D / 2.0, D / 2.0, name="wall_barn")
     roof(W, D, H, 40.0, True)
     fz = D / 2.0

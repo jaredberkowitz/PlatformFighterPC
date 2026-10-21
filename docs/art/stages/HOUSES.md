@@ -42,7 +42,7 @@ they run down it (`StageArt._fields`); the farm belongs to that layer's scale. A
 filled the frame's lower left corner. The rule for that face: whatever stands on it takes its scale; life-size things go on the real
 ground (the far fields, the hills).
 
-**Footing:** every house stands on a stone footing that runs 0.8 under its floor, so on a slope it sits into the land rather than on a
+**Footing:** every house stands on a stone footing that runs 0.5 under its floor, so on a slope it sits into the land rather than on a
 corner; the town seats each house on the hill under it, a little sunk in (`_harbour_town`), the hills' cottages on `hill_top`, the farm
 on the face's highest point under it (`seat`). Checked at the match camera and wide: none floats.
 
@@ -52,3 +52,13 @@ On the owner's page and `mocks/houses/review.html`: the studio sheets (the four 
 beach's town and the meadow's farm cropped at 2x from the match camera, and both stages at the match camera and wide, today against A, B
 and C. **Recommended: B, layered card.** At play distance its shutters and flower boxes read as lived-in, where A is crisp but plain and
 C's rolled edges are lost (its arched doors remain).
+
+## Built: style B, layered card (2026-10-21)
+
+The owner's pick, shipped as `godot/models/props/paper_houses.glb` (`make_paper_houses.py --style B`), loaded for the themes with towns
+(`StageBake.HOUSE_KIT`, `HOUSE_THEMES`: the meadow and the beach); `--no-houses` compares.
+- The footing runs 0.5 under the floor (0.8 failed `prop_check_test`'s burial limit of a tenth of the height on the cottage); about 5,000
+  triangles a house, under the 10,000 budget.
+- `tests/stage_front_test.gd` checks the kit has every house `_cottage` and `_barn` ask for, each part in a family the game paints.
+- Before/after: `houses_built.jpg` (before left; the beach above, the meadow below).
+- **Tests:** all seven Godot tests pass.

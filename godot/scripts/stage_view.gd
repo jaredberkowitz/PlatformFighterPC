@@ -120,7 +120,7 @@ func build(sim) -> void:
 	# The theme's paper props, if it has them (scripts/stage_bake.gd PAPER_KITS): the prop builders hand their places to it.
 	StageArt.paper_kit = StageBake.paper_kit(String(theme.get("name", "")))
 	# And its paper houses, which `_cottage` and `_barn` hand their places to.
-	StageArt.house_kit = StageBake.house_kit()
+	StageArt.house_kit = StageBake.house_kit(String(theme.get("name", "")))
 	StageArt.backdrop(scenery, theme, extent)
 	if StageArt.house_kit != null:
 		StageArt.house_kit.free()

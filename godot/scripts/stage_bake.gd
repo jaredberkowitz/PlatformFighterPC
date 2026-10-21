@@ -681,11 +681,20 @@ static func paper_kit(theme_name: String) -> Node3D:
 	return (load(PAPER_KITS[theme_name]) as PackedScene).instantiate() as Node3D
 
 
-## The paper houses (art/blender/make_paper_houses.py, docs/art/stages/HOUSES.md): a glTF to try (`--house-mock=<glb>`), or null.
-static func house_kit() -> Node3D:
+## The paper houses (art/blender/make_paper_houses.py `--style B`, the owner's pick 2026-10-21, docs/art/stages/HOUSES.md): the far towns'
+## cottages, townhouses, longhouses and the farm's barn, at true size. By the themes that have towns.
+const HOUSE_KIT := "res://models/props/paper_houses.glb"
+const HOUSE_THEMES := ["meadow", "ocean"]
+
+
+## The theme's paper houses: a glTF to try (`--house-mock=<glb>`), the shipped kit (`HOUSE_KIT`), or null (a theme without a town, or
+## `--no-houses` to compare).
+static func house_kit(theme_name: String) -> Node3D:
 	if flag("--house-mock=") != "":
 		return _scene_from(flag("--house-mock="))
-	return null
+	if OS.get_cmdline_user_args().has("--no-houses") or not HOUSE_THEMES.has(theme_name) or not ResourceLoader.exists(HOUSE_KIT):
+		return null
+	return (load(HOUSE_KIT) as PackedScene).instantiate() as Node3D
 
 
 ## Each material family's print (tools/art/make_prints.py) and how strongly and how large it is laid: [print, amount, units per tile].
