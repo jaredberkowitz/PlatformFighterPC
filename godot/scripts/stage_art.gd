@@ -1003,6 +1003,40 @@ static var front_modelled := false
 ## True while a stage is built with modelled trees (StageBake.TREES, or `--tree-mock=`; StageBake.place_trees): `_tree` builds nothing
 ## (its random numbers still drawn, so nothing else moves) and records where each tree stands in `tree_slots` ([base, size]).
 static var tree_mock := false
+## The meadow pilot's paper props to try (`--prop-mock=<glb>`, art/blender/make_paper_props.py; fidelity review 3's idea 1), set by
+## StageView while it builds the scenery: each prop builder hands its place to the matching `prop_<name>` in it. Null otherwise.
+static var paper_kit: Node3D = null
+## The paper props' colours by family (`<family>_back` a step darker); `tint` in `_paper` overrides one (a rock's stage colour, a petal).
+const PAPER_COLOURS := {"straw": Color(0.98, 0.84, 0.46), "straw_end": Color(0.9, 0.74, 0.4), "band": Color(0.66, 0.46, 0.28),
+	"wood": Color(0.74, 0.52, 0.32), "wood_light": Color(0.9, 0.72, 0.48), "wood_dark": Color(0.55, 0.36, 0.22),
+	"stone": Color(0.74, 0.72, 0.8), "stone_light": Color(0.86, 0.85, 0.92), "petal": Color(1, 0.6, 0.65), "heart": Color(1, 0.85, 0.3),
+	"stem": Color(0.4, 0.68, 0.34)}
+
+
+## Places the paper kit's `prop_<prop_name>` at `xf` (see `paper_kit`), each part in the toon material of its family's colour with its
+## own baked occlusion; false without a kit or that prop, so the caller builds its own.
+static func _paper(root: Node3D, prop_name: String, xf: Transform3D, tint := {}) -> bool:
+	if paper_kit == null:
+		return false
+	var src := paper_kit.find_child("prop_" + prop_name, true, false) as Node3D
+	if src == null:
+		return false
+	var copy := src.duplicate() as Node3D
+	copy.transform = xf
+	copy.set_meta("paper_prop", true)
+	root.add_child(copy)
+	for mi: MeshInstance3D in copy.find_children("*", "MeshInstance3D", true, false):
+		var m0 := mi.mesh.surface_get_material(0)
+		var fam := (m0.resource_name if m0 != null else "wood").get_slice(".", 0)
+		var base := fam.trim_suffix("_back")
+		var colour: Color = tint.get(base, PAPER_COLOURS.get(base, Color(0.7, 0.7, 0.7)))
+		if fam.ends_with("_back"):
+			colour = colour.darkened(0.25)
+		var m := FighterView.toon(colour, true).duplicate() as ShaderMaterial
+		m.set_shader_parameter("vertex_shade", true)
+		mi.material_override = m
+		mi.set_meta("family", fam)
+	return true
 static var tree_slots: Array = []
 ## True while the grove is built with a modelled ground (StageBake.GROUNDS, or `--ground-mock=`; StageBake.place_ground): its hill
 ## rows, rise, forest canopy and far tree line are built into a node that is thrown away (their random numbers still drawn, so nothing
@@ -2111,6 +2145,9 @@ const CONTACT_STRENGTH := 0.8
 
 
 static func _hay_bale(root: Node3D, at: Vector3, turn: float) -> void:
+	# (The paper kit's bale lies along x; the built one's ends face the camera.)
+	if _paper(root, "hay_bale", Transform3D(Basis(Vector3.UP, deg_to_rad(turn + 90.0)), at)):
+		return
 	# A round bale lying on its side: a drum whose rim rounds over into flat ends (a lathe, so its strands can run round it), the straw
 	# drawn as strands wrapping the body and as a rolled spiral on each end, tied with two bands of twine. Warm gold, lit and shaded by the
 	# stage's light like any surface, not a flat decal.
@@ -2242,6 +2279,8 @@ static var _straw_cache := {}
 
 
 static func _barrel(root: Node3D, at: Vector3, size: float) -> void:
+	if _paper(root, "barrel", Transform3D(Basis(Vector3.UP, deg_to_rad(float(hash(Vector2i(roundi(at.x * 10.0), roundi(at.z * 10.0))) % 360))).scaled(Vector3.ONE * size), at)):
+		return
 	# (The modelled barrel, art/blender/make_props.py `barrel`, the gauntlet's round 4; the built one below stands in without it.)
 	if _place_prop(root, "barrel", at, size, float(hash(Vector2i(roundi(at.x * 10.0), roundi(at.z * 10.0))) % 360)):
 		return
@@ -2350,6 +2389,8 @@ static func _crate(root: Node3D, at: Vector3, size: float, turn: float) -> void:
 
 
 static func _signpost(root: Node3D, at: Vector3, points: float) -> void:
+	if _paper(root, "signpost", Transform3D(Basis.from_scale(Vector3(signf(points), 1.0, 1.0)), at)):
+		return
 	_mesh(root, _box(Vector3(0.14, 1.7, 0.14)), Materials.wood(Color(0.74, 0.54, 0.34)), at + Vector3(0, 0.85, 0))
 	var board := Materials.wood(Color(0.9, 0.72, 0.48))
 	_mesh(root, _box(Vector3(1.1, 0.34, 0.08)), board, at + Vector3(points * 0.3, 1.4, 0.08), Vector3.ONE, Vector3(0, 0, -4))
@@ -2365,9 +2406,12 @@ const BEACH_ROCK := Color(0.82, 0.76, 0.68)
 ## beach's warm palettes).
 static func _rock(root: Node3D, at: Vector3, size: float, rng: RandomNumberGenerator, colour := Color(0.74, 0.72, 0.8)) -> void:
 	var s := Vector3(rng.randf_range(1.1, 1.4), rng.randf_range(0.6, 0.8), 1.0) * size
+	var turn := Vector3(0, rng.randf_range(0, 60), rng.randf_range(-8, 8))
+	if _paper(root, "rock", Transform3D(Basis.from_euler(turn * PI / 180.0).scaled(Vector3(s.x / 1.25, s.y * 1.4, size)), at), {"stone": colour}):
+		return
 	# (A folded boulder, a few deep pleats in flat planes, the owner's folded style step 4, 2026-10-20: a six-sided ball under the stone
 	# tile read as a smooth blob.)
-	_puff(root, _pleated_puff(4, 4, 0.34), _faceted(Materials.stone(colour)), at + Vector3(0, s.y * 0.7, 0), s, Vector3(0, rng.randf_range(0, 60), rng.randf_range(-8, 8)))
+	_puff(root, _pleated_puff(4, 4, 0.34), _faceted(Materials.stone(colour)), at + Vector3(0, s.y * 0.7, 0), s, turn)
 
 
 ## A mushroom: a pale stem under a round cap with white spots, with a tiny idle squash and stretch (see `Squish`).
@@ -4219,8 +4263,9 @@ static func _meadow(root: Node3D, t: Dictionary, stage: Array) -> void:
 	while x <= e[1] - 0.5:
 		var tall := 0.94 + rng.randf_range(-0.05, 0.05)
 		var lean := rng.randf_range(-2.5, 2.5)
-		_mesh(root, _box(Vector3(0.22, tall, 0.22)), post, Vector3(x, e[2] + tall / 2.0, -6.2), Vector3.ONE, Vector3(0, 0, lean))
-		_mesh(root, _sphere(0.145, 8), cap, Vector3(x - sin(deg_to_rad(lean)) * tall, e[2] + tall + 0.02, -6.2), Vector3(1.0, 0.55, 1.0))
+		if not _paper(root, "fence_post", Transform3D(Basis(Vector3.BACK, deg_to_rad(lean)).scaled(Vector3(1.0, tall, 1.0)), Vector3(x, e[2], -6.2))):
+			_mesh(root, _box(Vector3(0.22, tall, 0.22)), post, Vector3(x, e[2] + tall / 2.0, -6.2), Vector3.ONE, Vector3(0, 0, lean))
+			_mesh(root, _sphere(0.145, 8), cap, Vector3(x - sin(deg_to_rad(lean)) * tall, e[2] + tall + 0.02, -6.2), Vector3(1.0, 0.55, 1.0))
 		_contact(root, Vector3(x, e[2], -6.2), Vector2(0.22, 0.17))
 		posts.append(x)
 		x += 1.6
@@ -4229,8 +4274,9 @@ static func _meadow(root: Node3D, t: Dictionary, stage: Array) -> void:
 		var a1: float = posts[i + 1]
 		for h in [0.32, 0.7]:
 			var tilt := rng.randf_range(-1.6, 1.6)
-			_mesh(root, _box(Vector3(a1 - a0 + 0.12, 0.15, 0.09)), rail, Vector3((a0 + a1) / 2.0, e[2] + h + rng.randf_range(-0.02, 0.02), -6.06),
-				Vector3.ONE, Vector3(0, 0, tilt))
+			var at := Vector3((a0 + a1) / 2.0, e[2] + h + rng.randf_range(-0.02, 0.02), -6.06)
+			if not _paper(root, "fence_rail", Transform3D(Basis(Vector3.BACK, deg_to_rad(tilt)).scaled(Vector3(a1 - a0 + 0.12, 1.0, 1.0)), at)):
+				_mesh(root, _box(Vector3(a1 - a0 + 0.12, 0.15, 0.09)), rail, at, Vector3.ONE, Vector3(0, 0, tilt))
 	_flowers(root, e, rng, [Color(1, 0.55, 0.6), Color(1, 1, 1), Color(1, 0.85, 0.3)])
 	# A bright day: a few motes of pollen in the air, no shafts of light (golden, small and few: pale ones on the blue sky read as snow).
 	_motes(root, Color(1.0, 0.82, 0.4), e)
@@ -4670,8 +4716,9 @@ static func _flowers(root: Node3D, e: Array, rng: RandomNumberGenerator, colors:
 	var k := 0
 	while x < e[1] - 0.8:
 		var z := rng.randf_range(-4.5, -2.0)
-		_mesh(root, _sphere(0.13, 8), _unshaded(colors[k % colors.size()]), Vector3(x, e[2] + 0.08, z))
-		_mesh(root, _sphere(0.06, 6), heart, Vector3(x, e[2] + 0.12, z + 0.08))
+		if not _paper(root, "flower", Transform3D(Basis(Vector3.UP, float(k) * 1.3), Vector3(x, e[2], z)), {"petal": colors[k % colors.size()]}):
+			_mesh(root, _sphere(0.13, 8), _unshaded(colors[k % colors.size()]), Vector3(x, e[2] + 0.08, z))
+			_mesh(root, _sphere(0.06, 6), heart, Vector3(x, e[2] + 0.12, z + 0.08))
 		x += rng.randf_range(0.9, 1.8)
 		k += 1
 

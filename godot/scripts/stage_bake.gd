@@ -583,6 +583,73 @@ static func place_mood(root: Node3D, source: Variant) -> void:
 	print("mood light: placed %s" % (source.get_file() if source is String else (source as PackedScene).resource_path.get_file()))
 
 
+## The meadow pilot's paper props to try (`--prop-mock=<glb>`, art/blender/make_paper_props.py), or null.
+static func paper_kit() -> Node3D:
+	return _scene_from(flag("--prop-mock=")) if flag("--prop-mock=") != "" else null
+
+
+## Each material family's print (tools/art/make_prints.py) and how strongly and how large it is laid: [print, amount, units per tile].
+const PRINTS := {"grass": ["grass", 0.45, 5.0], "lawn": ["grass", 0.45, 5.0], "lawn_under": ["grass", 0.35, 5.0], "moss": ["grass", 0.35, 3.0],
+	"fringe": ["grass", 0.3, 3.0], "soil": ["soil", 0.35, 4.0], "soil2": ["soil", 0.35, 4.0], "path": ["path", 0.3, 4.0],
+	"log": ["wood", 0.4, 3.0], "log_end": ["wood", 0.3, 1.5], "plank": ["wood", 0.4, 3.0], "plank_b": ["wood", 0.4, 3.0],
+	"plank_card": ["wood", 0.35, 3.0], "wood": ["wood", 0.4, 1.6], "wood_light": ["wood", 0.4, 1.6], "wood_dark": ["wood", 0.35, 1.6],
+	"band": ["wood", 0.3, 1.2], "stem": ["grass", 0.2, 1.0], "stone": ["stone", 0.35, 2.5], "stone2": ["stone", 0.35, 2.5],
+	"stone_light": ["stone", 0.35, 2.5], "straw": ["straw", 0.45, 1.4], "straw_end": ["straw", 0.4, 1.0]}
+static var _print_tex := {}
+
+
+## The printed surfaces to try (`--print-mock=<folder>`, tools/art/make_prints.py, fidelity review 3's idea 2) on the modelled front and
+## play area and the paper props, by each surface's material family (`PRINTS`); and `--front-finish=<x>`, the front's share of the
+## paper finish (`paper_boost`; 1.6 takes the meadow's "B" to about "C", the full finish).
+static func mock_surfaces(root: Node3D) -> void:
+	var dir := flag("--print-mock=")
+	var boost := float(flag("--front-finish=")) if flag("--front-finish=") != "" else 0.0
+	if dir == "" and boost <= 0.0:
+		return
+	var printed := {}
+	var boosted := 0
+	for mi: MeshInstance3D in root.find_children("*", "MeshInstance3D", true, false):
+		var front := false
+		var piece := false
+		var n: Node = mi
+		while n != null and n != root:
+			piece = piece or n.has_meta("lit_piece") or n.has_meta("paper_prop")
+			front = front or String(n.name).contains("ModelledFront")
+			n = n.get_parent()
+		if not piece or String(mi.name).begins_with("Mood_"):
+			continue
+		for s in mi.mesh.get_surface_count():
+			var fam: String = mi.get_meta("family", "")
+			if fam == "":
+				var src := mi.mesh.surface_get_material(s)
+				fam = (src.resource_name if src != null else "").get_slice(".", 0)
+			var m := (mi.material_override if mi.material_override != null else mi.get_surface_override_material(s)) as ShaderMaterial
+			if m == null:
+				continue
+			m = m.duplicate() as ShaderMaterial
+			if dir != "" and PRINTS.has(fam.trim_suffix("_back")):
+				var spec: Array = PRINTS[fam.trim_suffix("_back")]
+				var path := dir.path_join(String(spec[0]) + ".png")
+				if not _print_tex.has(path):
+					var img := Image.load_from_file(path)
+					if img != null:
+						img.generate_mipmaps()
+					_print_tex[path] = ImageTexture.create_from_image(img) if img != null else null
+				if _print_tex[path] != null:
+					m.set_shader_parameter("print_tex", _print_tex[path])
+					m.set_shader_parameter("print_amount", spec[1])
+					m.set_shader_parameter("print_scale", spec[2])
+					printed[fam] = int(printed.get(fam, 0)) + 1
+			if front and boost > 0.0:
+				m.set_shader_parameter("paper_boost", boost)
+				boosted += 1
+			if mi.material_override != null:
+				mi.material_override = m
+			else:
+				mi.set_surface_override_material(s, m)
+	print("mock surfaces: printed %s; %d front surfaces at %.1f of the paper finish" % [printed, boosted, boost])
+
+
 ## The theme's modelled tree: a glTF path to try (`--tree-mock=<glb>`), the shipped model (`TREES`), or null (none, or `--no-trees`).
 static func tree_source(theme_name: String) -> Variant:
 	var mock := tree_mock_path()

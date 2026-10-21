@@ -97,3 +97,27 @@ Stage-specific, for later: the beach's light and mood (weak point 4); the canyon
 barrel, sign) and the most texture families (grass, logs, stone, path). The props would be modelled as paper with printed surfaces on
 them and on the lawn and front, options from the match camera, then measured as before. If Surfaces reaches 4 on the meadow, roll it
 out. Idea 3 can go alongside, as it is small.
+
+## The meadow pilot: mocks (2026-10-21, ideas 1 to 3)
+
+The owner's go-ahead: a modelled paper prop kit, printed paper surfaces and the full paper finish on the front, on the meadow, with
+options from the match camera.
+- **Props:** `art/blender/make_paper_props.py --style A|B|C`. One file per style holds the meadow's hay bale, barrel, signpost, rock,
+  fence post and rail, and flower, each named `prop_<name>`, standing on the origin at its in-game size, with its own occlusion baked.
+  - A folded card (1,400 triangles), B layered cut-outs (1,400), C rolled and scored (8,300).
+  - `StageArt._paper` places each where today's prop stands (`--prop-mock=<glb>`; the builders hand their places to it, the random
+    numbers drawn as before so nothing else moves). It paints by family and records the family for the prints.
+- **Prints:** `tools/art/make_prints.py --style A|B|C` (Blender's numpy) makes one seamless 512-pixel texture per family (grass, soil,
+  path, wood, stone, straw): A fibre and mottle, B hatched print, C halftone. The toon shader's new `print_tex`, `print_amount` and
+  `print_scale` lay it in world space on the plane each surface faces, scenery only.
+  - `StageBake.mock_surfaces` (`--print-mock=<folder>`) assigns them to the front, play area and paper props by family (`PRINTS`).
+- **Front finish:** the shader's `paper_boost` scales the stage's paper finish per surface; `--front-finish=1.6` takes the meadow's "B"
+  to about "C" on the front only.
+- **Gotchas:**
+  - On tops, the print is laid stretched five times along the depth. The match camera sees a top almost edge on, squeezed about that
+    much, and laid evenly every mark blurred into the texture's grey even with anisotropic filtering.
+  - Prints tiled every 1 to 2 units are invisible at match distance; 3 to 5 units per tile shows the marks.
+  - A cut-out bale must stand facing the side, since the game turns bales a quarter round to show their ends.
+- **Picks recommended:** C's props with B's print. Options in `mocks/meadow_kit/` (match camera, fighters in play, close-up; a local
+  `review.html`) and on the owner's page.
+**Tests:** all seven Godot tests pass (nothing changes without the mock flags).

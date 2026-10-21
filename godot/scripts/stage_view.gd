@@ -117,7 +117,12 @@ func build(sim) -> void:
 	var ground := StageBake.ground_source(bake_key)
 	StageArt.ground_mock = not ground.is_empty()
 	StageArt.bush_slots.clear()
+	# (The paper props to try, `--prop-mock=<glb>`: the prop builders hand their places to it.)
+	StageArt.paper_kit = StageBake.paper_kit()
 	StageArt.backdrop(scenery, theme, extent)
+	if StageArt.paper_kit != null:
+		StageArt.paper_kit.free()
+		StageArt.paper_kit = null
 	if StageArt.ground_mock:
 		StageBake.place_ground(scenery, theme, ground)
 		StageArt.ground_mock = false
@@ -138,6 +143,8 @@ func build(sim) -> void:
 		StageBake.apply(self, bake_key)
 	StageBake.mock_front(self, theme)
 	StageArt.front_modelled = false
+	# Printed surfaces and the front's full paper finish to try (`--print-mock=<folder>`, `--front-finish=<x>`).
+	StageBake.mock_surfaces(self)
 
 	for i in sim.ledge_count():
 		var l: Vector3 = sim.ledge_pos(i)
