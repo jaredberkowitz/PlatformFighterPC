@@ -6,6 +6,7 @@ extends SceneTree
 
 const StageBake := preload("res://scripts/stage_bake.gd")
 const StageArt := preload("res://scripts/stage_art.gd")
+const WorldMotion := preload("res://scripts/world_motion.gd")
 
 var failed := false
 
@@ -193,9 +194,15 @@ func _initialize() -> void:
 					verts += 1
 					if w.x > x0 and w.x < x1 and w.y > y0 and w.y < y1 and w.z > -0.4:
 						crossing += 1
+		# (What moves in it, art/blender/make_world.py's `move_<kind>_<n>` pivots, is a kind scripts/world_motion.gd knows.)
+		var unknown: Array = []
+		for m in model.find_children("move_*", "Node3D", true, false):
+			if not WorldMotion.KINDS.has(WorldMotion.kind_of(m)):
+				unknown.append(String(m.name))
 		model.free()
 		check(verts > 0, "%s has geometry" % path)
 		check(crossing == 0, "%s stays behind the fighters' plane over the play space: %d of %d points in front" % [path, crossing, verts])
+		check(unknown.is_empty(), "%s: every moving thing is a kind the world's motion knows: %s" % [path, unknown])
 	sim.free()
 	print("stage front test %s" % ("FAILED" if failed else "PASSED"))
 	quit(1 if failed else 0)

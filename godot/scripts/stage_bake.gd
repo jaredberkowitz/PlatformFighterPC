@@ -12,6 +12,7 @@ extends RefCounted
 const FighterView := preload("res://scripts/fighter_view.gd")
 const StageArt := preload("res://scripts/stage_art.gd")
 const Lighting := preload("res://scripts/lighting.gd")
+const WorldMotion := preload("res://scripts/world_motion.gd")
 const DIR := "res://art/baked/%s/"
 ## Modelled stage fronts, by the exact stage they were built on (`key`): art/blender/make_grove_front.py, the grove pilot's step 2.
 const FRONTS := {"grove_14d06e65": "res://models/stages/grove_front.glb", "meadow_62409190": "res://models/stages/meadow_front.glb",
@@ -558,7 +559,8 @@ const WORLD_COLOURS := {"hull": Color(0.32, 0.5, 0.62), "hull_stripe": Color(0.9
 	"adobe": Color(0.9, 0.66, 0.5), "adobe_dark": Color(0.74, 0.5, 0.38), "window": Color(1.0, 0.82, 0.5),
 	"wool": Color(0.97, 0.96, 0.92), "cow": Color(0.92, 0.88, 0.82), "straw": Color(0.98, 0.84, 0.46), "gate_red": Color(0.86, 0.3, 0.26),
 	"gate_dark": Color(0.3, 0.22, 0.24), "rock": Color(0.6, 0.56, 0.62), "turf": Color(0.48, 0.74, 0.36), "bark": Color(0.55, 0.38, 0.26),
-	"bus": Color(0.95, 0.72, 0.28), "board_frame": Color(0.3, 0.28, 0.4), "steel": Color(0.4, 0.4, 0.52), "train": Color(0.36, 0.5, 0.7)}
+	"bus": Color(0.95, 0.72, 0.28), "board_frame": Color(0.3, 0.28, 0.4), "steel": Color(0.4, 0.4, 0.52), "train": Color(0.36, 0.5, 0.7),
+	"hawk": Color(0.36, 0.24, 0.22), "hawk_tip": Color(0.22, 0.15, 0.15), "firefly": Color(0.95, 1.0, 0.62)}
 
 
 ## World-building (art/blender/make_world.py, docs/art/stages/WORLD.md, the owner's picks 2026-10-21): the beach's working pier and
@@ -594,15 +596,25 @@ static func place_world(root: Node3D, source: Variant) -> void:
 		var src := mi.mesh.surface_get_material(0)
 		var fam := (src.resource_name if src != null else "").get_slice(".", 0)
 		var colour: Color = WORLD_COLOURS.get(fam, Color(0.7, 0.7, 0.7))
-		if fam == "window":
+		if fam == "window" or fam == "firefly":
 			var lit := StandardMaterial3D.new()
 			lit.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 			lit.albedo_color = colour
 			mi.material_override = lit
+			# (A firefly glows, as the lamps do: a speck alone was lost among the lanterns.)
+			if fam == "firefly":
+				StageArt._halo(mi, Vector3.ZERO, colour, 1.4)
 			continue
 		var m := FighterView.toon(colour, true).duplicate() as ShaderMaterial
 		m.set_shader_parameter("vertex_shade", true)
 		mi.material_override = m
+	# Its life (scripts/world_motion.gd): `--world-motion=off|place|all`.
+	var mode := flag("--world-motion=")
+	if mode != "off":
+		var motion := WorldMotion.new()
+		motion.name = "WorldMotion"
+		motion.setup(scene, mode)
+		scene.add_child(motion)
 	print("world-building: placed %s" % (source.get_file() if source is String else (source as PackedScene).resource_path.get_file()))
 
 

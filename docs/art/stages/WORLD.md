@@ -109,4 +109,35 @@ Every stage now has its world-building.
 - `--no-world` compares.
 - Before/after: `world_built_2.jpg` (before left; meadow, grove, city from the top).
 - **Tests:** all seven Godot tests pass.
-- **Next on the sheet:** motion (gulls wheeling, boats bobbing, the windmill's sails, fireflies, windows lighting, traffic moving).
+
+## Round 2: life (2026-10-21)
+
+The owner's go-ahead: carry on with the sheet, adding what is believable, adds to the world and fits what is there. The places now have
+their reasons and their signs of life; next they should be alive. The scenery already moves on its own clock, smoothly (the windmill's
+sails, the clouds, swaying crowns, the city's cars), so the world pieces move the same way, gently, and nothing moves near the fight.
+
+**What moves, by stage:**
+- **Beach:** the fishing boat, its buoy and the rowboat bob and roll on the swell; the gliding gulls wheel in slow loops, turning to
+  face their way; the perched gulls hop now and then and turn their heads.
+- **Canyon:** the train's smoke curls; two hawks (new) wheel high over the buttes; the train runs along the trestle (a traveller).
+- **Meadow:** the sheep and cows lower their heads to graze; the chimney smoke curls; the washing flutters; the scarecrow rocks.
+- **Grove:** the streamers flutter; fireflies (new) wander and blink round the treehouse and under the lantern strings.
+- **City:** the party dances and its string lights twinkle; the bus drives along the street and the people stroll (travellers).
+
+**Options** (mocked as clips from the match camera, `--world-motion=off|place|all`):
+- **A, life in place:** everything above except the travellers.
+- **B, life and travellers:** A, and the train, the bus and the people move along. Recommended: the train crossing is the canyon's
+  biggest gain, and the bus joins the city's own car traffic.
+
+**Method:** `make_world.py` groups what moves under a pivot empty named `move_<kind>_<n>` (nested where a thing rides on another, the
+smoke on the train); `scripts/world_motion.gd` animates each kind; `--variant L` adds each stage's new living things (the hawks, the
+fireflies).
+
+**Built for review (2026-10-21):** every shipped world model rebuilt with its movers (`--variant AL` on the canyon, `ABL` on the grove for
+the hawks and fireflies); `scripts/world_motion.gd` moves them; `StageBake.place_world` adds it, the fireflies glow as the lamps do.
+- **Default:** B (`--world-motion=all`), the recommendation; `place` gives A, `off` today's stillness.
+- **Clips:** `mocks/world_life/` (8 s each from the match camera, `wm_<stage>_<T|A|B>.mp4`, with a local `review.html`), made with the
+  `stage_clip` demo and Godot's `--write-movie` (the camera settles over the first 2.5 s, which the clips skip).
+- `tests/stage_front_test.gd` checks every `move_` pivot is a kind the motion knows.
+- **Gotchas:** the match camera looks down 10°, so far things sit higher in frame than their height suggests (hawks at 22 units up were
+  out of frame); a lone speck is lost among the grove's lanterns without a glow.

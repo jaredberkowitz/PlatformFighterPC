@@ -235,6 +235,11 @@ static func make(demo_name: String, m: Dictionary, dir: String):
 			d.timeline = [[0, 0, 0, 0]]
 			d.shots = [[40, "a_stage"], [100, "b_stage_later"]]
 			d.end_frame = 105
+		"stage_clip":
+			# The same, held for footage of the scenery's life (with Godot's --write-movie; docs/art/stages/WORLD.md round 2).
+			d.timeline = [[0, 0, 0, 0]]
+			d.shots = []
+			d.end_frame = 660
 		"moves":
 			# A tour of ground moves for checking animation: forward tilt, up tilt, down tilt, then the smashes (sword fighter, player 1).
 			d.chars = [0, 1, 0, 1]

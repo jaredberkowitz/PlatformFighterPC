@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Stage World Life</title>
+<style>
+/* Layout: a scorecard heat grid first, then the ranked weak points as severity rows, then per-stage ours-vs-reference, then the approach ideas. */
+:root {
+  --bg: #eef0f5; --panel: #ffffff; --fg: #1d1b2a; --muted: #5d5a70; --line: #d6d8e3; --accent: #6a3fd1; --accent-ink: #ffffff;
+  --s1: #d64545; --s2: #e8874a; --s3: #e9c25a; --s4: #8cc56b; --s5: #3fa66a; --s-ink: #1d1b2a;
+  --display: "Barlow Condensed", "Arial Narrow", sans-serif;
+  --body: "Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #15141d; --panel: #1f1d2a; --fg: #ecebf4; --muted: #a8a5bd; --line: #34314a; --accent: #a98bff; --accent-ink: #15141d;
+    --s1: #c94848; --s2: #d07a42; --s3: #cfae52; --s4: #7cb25e; --s5: #3a9460; --s-ink: #15141d; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #15141d; --panel: #1f1d2a; --fg: #ecebf4; --muted: #a8a5bd; --line: #34314a; --accent: #a98bff; --accent-ink: #15141d;
+  --s1: #c94848; --s2: #d07a42; --s3: #cfae52; --s4: #7cb25e; --s5: #3a9460; --s-ink: #15141d; color-scheme: dark;
+}
+body {
+  background: var(--bg); color: var(--fg); font-family: var(--body); font-size: 16px; line-height: 1.5;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 24px 48px;
+}
+.wrap { max-width: 1100px; margin: 0 auto; display: grid; gap: 28px; }
+h1, h2, h3 { font-family: var(--display); font-weight: 800; margin: 0; line-height: 1.05; text-wrap: balance; }
+h1 { font-size: clamp(2rem, 5vw, 3rem); }
+h2 { font-size: clamp(1.5rem, 3.2vw, 2rem); }
+h3 { font-size: 1.35rem; }
+p { margin: 0; max-width: 70ch; }
+.lede, .muted { color: var(--muted); }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 18px; display: grid; gap: 14px; min-width: 0; }
+.eyebrow { font-family: var(--display); font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.95rem; color: var(--accent); }
+.tablewrap { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+th, td { padding: 8px 10px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+th { font-family: var(--display); font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); font-size: 0.95rem; }
+.score { text-align: center; font-weight: 700; color: var(--s-ink); border-radius: 6px; min-width: 2.2em; display: inline-block; padding: 2px 0; }
+.v1 { background: var(--s1); } .v2 { background: var(--s2); } .v3 { background: var(--s3); } .v4 { background: var(--s4); } .v5 { background: var(--s5); }
+td.c { text-align: center; }
+.legend { display: flex; flex-wrap: wrap; gap: 12px; font-size: 0.9rem; color: var(--muted); align-items: center; }
+.legend .score { font-size: 0.85rem; min-width: 1.8em; }
+.weak { display: grid; grid-template-columns: 3.2em 1fr; gap: 6px 14px; padding: 14px 0; border-bottom: 1px solid var(--line); }
+.weak:last-child { border-bottom: 0; }
+.sev { display: grid; gap: 4px; justify-items: center; }
+.sev .num { font-family: var(--display); font-weight: 800; font-size: 1.9rem; line-height: 1; }
+.bar { display: flex; gap: 2px; }
+.bar i { width: 6px; height: 14px; border-radius: 2px; background: var(--line); }
+.bar i.on { background: var(--s1); }
+.weak h3 { font-size: 1.25rem; }
+.tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.tag { font-size: 0.8rem; border: 1px solid var(--line); border-radius: 999px; padding: 0 8px; color: var(--muted); }
+.stage { display: grid; gap: 10px; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.pair figure { margin: 0; display: grid; gap: 4px; min-width: 0; }
+.pair img { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 6px; background: #000; display: block; }
+.pair figcaption { font-size: 0.85rem; color: var(--muted); }
+@media (max-width: 640px) { .pair { grid-template-columns: 1fr; } }
+.ideas { display: grid; gap: 12px; }
+.idea { display: grid; grid-template-columns: 1fr auto; gap: 4px 14px; border-top: 1px solid var(--line); padding-top: 12px; }
+.idea:first-child { border-top: 0; padding-top: 0; }
+.meter { display: grid; grid-template-columns: auto auto; gap: 2px 8px; font-size: 0.85rem; color: var(--muted); align-content: start; }
+.meter b { color: var(--fg); }
+.rec { border-left: 4px solid var(--accent); padding-left: 12px; }
+.viewer { position: relative; width: 100%; aspect-ratio: 16 / 9; max-width: 100%; border-radius: 8px; overflow: hidden; background: #000; }
+.viewer img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+.vtag { position: absolute; top: 10px; left: 10px; z-index: 3; font-family: var(--display); font-weight: 800; font-size: 1.1rem; padding: 2px 10px; border-radius: 6px; color: #fff; background: rgba(0,0,0,0.55); pointer-events: none; }
+.vline { position: absolute; top: 0; bottom: 0; width: 3px; background: #fff; z-index: 2; pointer-events: none; }
+.row { display: flex; flex-wrap: wrap; gap: 8px; }
+button { font: inherit; font-weight: 700; border: 1px solid var(--line); background: transparent; color: var(--fg); border-radius: 999px; padding: 6px 14px; cursor: pointer; }
+button:hover { border-color: var(--accent); }
+button:focus-visible, input:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.range { width: 100%; }
+kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4px; padding: 0 5px; font-size: 0.85em; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+.up { color: var(--s5); font-size: 0.8em; }
+.r2note, .r3note { display: grid; gap: 6px; }
+[hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <section class="panel" aria-labelledby="l-h" id="life">
+    <div class="eyebrow">Your pick is needed &middot; world-building round 2, life</div>
+    <h2 id="l-h">Life: the world-building moves</h2>
+    <p>The places have their reasons and their signs of life; now they move, gently and on their own clock, the way the windmill's sails, the clouds and the city's cars already do. Nothing moves near the fight. Two new things join: hawks over the canyon and fireflies in the grove. Each clip is 8 seconds from the match camera, looping. <b>A</b> keeps everything in its place (bobbing, wheeling, grazing, fluttering, curling smoke, twinkling); <b>B</b> adds the travellers (the canyon's train, the city's bus and people). My pick: <b>B</b>, because the train crossing is the canyon's biggest gain and the bus joins the city's own car traffic.</p>
+    <div class="row" role="group" aria-label="Stage"><button data-ls="canyon">Canyon</button><button data-ls="beach">Beach</button><button data-ls="meadow">Meadow</button><button data-ls="grove">Grove</button><button data-ls="city">City</button></div>
+    <div class="row" role="group" aria-label="Option">
+      <button data-lo="T">Today</button>
+      <button data-lo="A">A &middot; Life in place</button>
+      <button data-lo="B">B &middot; Life and travellers</button>
+    </div>
+    <div class="viewer"><video id="lvid" autoplay muted loop playsinline controls style="width:100%;display:block"></video><span class="vtag" id="ltag"></span></div>
+    <div class="r3note" data-ln="canyon" hidden><div class="tablewrap"><table><thead><tr><th>Option</th><th>What moves</th></tr></thead><tbody><tr><td>A &middot; Life in place</td><td>The train's smoke curls and two hawks (new) wheel over the buttes.</td></tr><tr><td>B &middot; Life and travellers</td><td>A, and: The train runs along the trestle, right across the frame behind the fight.</td></tr></tbody></table></div></div><div class="r3note" data-ln="beach" hidden><div class="tablewrap"><table><thead><tr><th>Option</th><th>What moves</th></tr></thead><tbody><tr><td>A &middot; Life in place</td><td>The fishing boat, its buoy and the rowboat bob on the swell; the gliding gulls wheel and turn to face their way; the perched gulls hop and look round.</td></tr><tr><td>B &middot; Life and travellers</td><td>A, and: Nothing more: the beach has no travellers.</td></tr></tbody></table></div></div><div class="r3note" data-ln="meadow" hidden><div class="tablewrap"><table><thead><tr><th>Option</th><th>What moves</th></tr></thead><tbody><tr><td>A &middot; Life in place</td><td>The sheep and cows put their heads down to graze; the chimney smoke curls; the washing flutters; the scarecrow rocks.</td></tr><tr><td>B &middot; Life and travellers</td><td>A, and: Nothing more: the meadow has no travellers.</td></tr></tbody></table></div></div><div class="r3note" data-ln="grove" hidden><div class="tablewrap"><table><thead><tr><th>Option</th><th>What moves</th></tr></thead><tbody><tr><td>A &middot; Life in place</td><td>The streamers flutter; fireflies (new) wander and blink round the treehouse and under the lantern strings.</td></tr><tr><td>B &middot; Life and travellers</td><td>A, and: Nothing more: the grove has no travellers.</td></tr></tbody></table></div></div><div class="r3note" data-ln="city" hidden><div class="tablewrap"><table><thead><tr><th>Option</th><th>What moves</th></tr></thead><tbody><tr><td>A &middot; Life in place</td><td>The rooftop party dances and its string lights twinkle.</td></tr><tr><td>B &middot; Life and travellers</td><td>A, and: The bus drives along the street, joining the cars, and the people stroll to and fro.</td></tr></tbody></table></div></div>
+  </section>
+
+</div>
+<script>
+(function () {
+  // Life (world-building round 2).
+  var ls = "canyon", lo = "B";
+  var LSN = { canyon: "Canyon", beach: "Beach", meadow: "Meadow", grove: "Grove", city: "City" };
+  var LO = { T: "Today", A: "A \u00b7 Life in place", B: "B \u00b7 Life and travellers" };
+  function lrender() {
+    var v = document.getElementById("lvid");
+    v.poster = "wm_" + ls + "_" + lo + ".jpg";
+    v.src = "wm_" + ls + "_" + lo + ".mp4";
+    var p = v.play(); if (p && p.catch) { p.catch(function () {}); }
+    document.getElementById("ltag").textContent = LSN[ls] + " \u00b7 " + LO[lo];
+    document.querySelectorAll("[data-ls]").forEach(function (b) { b.setAttribute("aria-pressed", b.dataset.ls === ls ? "true" : "false"); });
+    document.querySelectorAll("[data-lo]").forEach(function (b) { b.setAttribute("aria-pressed", b.dataset.lo === lo ? "true" : "false"); });
+    document.querySelectorAll("[data-ln]").forEach(function (n) { n.hidden = n.dataset.ln !== ls; });
+  }
+  document.querySelectorAll("[data-ls]").forEach(function (b) { b.addEventListener("click", function () { ls = b.dataset.ls; lrender(); }); });
+  document.querySelectorAll("[data-lo]").forEach(function (b) { b.addEventListener("click", function () { lo = b.dataset.lo; lrender(); }); });
+  lrender();
+  document.addEventListener("keydown", function (e) {
+    var k = { "1": "T", "2": "A", "3": "B" }[e.key];
+    if (k) { lo = k; lrender(); }
+  });
+})();
+</script>
+</body>
+</html>

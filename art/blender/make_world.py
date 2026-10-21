@@ -8,12 +8,18 @@
     A  a railroad: a timber trestle across the floor behind the buttes with a little train on it and a water tower by the track;
     B  a wagon trail: a pale trail winding across the floor to the horizon, telegraph poles along it, a covered wagon on it;
     C  a ranch: a windpump and its tank, a corral with cattle, an adobe house with chimney smoke.
-Every part names its family (painted by the game, `StageBake.place_world`), with its occlusion baked.
+  meadow  A a farm track and hay cart, B sheep and cows, C village life (smoke, washing, a scarecrow)
+  grove   A a treehouse, B festival gates and streamers, C floating islets
+  city    A street traffic (a bus, people), B a billboard and a rooftop party, C an elevated train
+  L  (every stage that has them) new living things: the canyon's hawks, the grove's fireflies.
+Every part names its family (painted by the game, `StageBake.place_world`), with its occlusion baked; what moves is grouped under a
+pivot empty `move_<kind>_<n>` (scripts/world_motion.gd).
 
 Run (Blender 5.2):
   blender --background --python art/blender/make_world.py -- --theme ocean --variant A --out <file.glb>   (`--variant AB` for both)
-Shipped (the owner's picks, 2026-10-21): godot/models/stages/beach_world.glb (`--theme ocean --variant AB`), canyon_world.glb
-(`--theme sunset --variant A`).
+Shipped (the owner's picks, 2026-10-21), in godot/models/stages/: beach_world.glb (`--theme ocean --variant AB`), canyon_world.glb
+(`--theme sunset --variant AL`), meadow_world.glb (`--theme meadow --variant BC`), grove_world.glb (`--theme grove --variant ABL`),
+city_world.glb (`--theme city --variant AB`).
 """
 
 import math
@@ -73,6 +79,53 @@ def card(pts, fam, name, thick=0.04, normal=(0.0, 0.0, 1.0)):
     return ob(name, bm, fam)
 
 
+# What moves (scripts/world_motion.gd, round 2 of the sheet): [kind, pivot (game coordinates), the parts it made], innermost first.
+MOVERS = []
+
+
+def moving(kind, pivot, build, *args):
+    """Runs `build` and marks what it made as one thing that moves (`kind`, about `pivot`); `group_movers` puts it under its pivot."""
+    before = set(bpy.data.objects)
+    build(*args)
+    MOVERS.append([kind, pivot, set(o for o in bpy.data.objects if o not in before and o.type == "MESH")])
+
+
+def group_movers():
+    """Each mover becomes an empty `move_<kind>_<n>` at its pivot, its parts under it with their points about it, so the game turns and
+    moves it there; one riding on another (the smoke on the train) goes under that one."""
+    empties = []
+    for n, (kind, pivot, parts) in enumerate(MOVERS):
+        e = bpy.data.objects.new("move_%s_%d" % (kind, n), None)
+        bpy.context.scene.collection.objects.link(e)
+        empties.append(e)
+    def owner(parts):
+        best = None
+        for m, (_k, _p, other) in enumerate(MOVERS):
+            if parts < other and (best is None or len(other) < len(MOVERS[best][2])):
+                best = m
+        return best
+    for n, (kind, pivot, parts) in enumerate(MOVERS):
+        up = owner(parts)
+        e = empties[n]
+        e.parent = ROOT if up is None else empties[up]
+        e.location = P(*pivot) - (Vector() if up is None else P(*MOVERS[up][1]))
+    for o in bpy.context.scene.objects:
+        if o.type != "MESH":
+            continue
+        home = None
+        for n, (_k, _p, parts) in enumerate(MOVERS):
+            if o in parts and (home is None or len(parts) < len(MOVERS[home][2])):
+                home = n
+        if home is None:
+            continue
+        c = P(*MOVERS[home][1])
+        for v in o.data.vertices:
+            v.co -= c
+        o.parent = empties[home]
+    # (Or the exporter reads the new pivots' world places as the origin.)
+    bpy.context.view_layer.update()
+
+
 def turned(pts, centre, angle):
     """`pts` [(x, y, z) about the origin] turned `angle` radians about the vertical and moved to `centre`."""
     c, s = math.cos(angle), math.sin(angle)
@@ -83,15 +136,21 @@ def turned(pts, centre, angle):
 
 
 def smoke(at, n=5, size=0.6, rng=None):
-    """Chimney smoke as rolled paper puffs rising and drifting, smaller and paler up the column."""
+    """Chimney smoke as rolled paper puffs rising and drifting, smaller and paler up the column (each puff its own part, so the column
+    can curl: `move_smoke`)."""
     rng = rng or random.Random(5)
-    bm = bmesh.new()
     for k in range(n):
         t = k / max(1, n - 1)
         c = Vector(at) + Vector((t * 1.6 + rng.uniform(-0.2, 0.2), k * size * 1.3, 0.0))
         r = size * (0.7 + 0.6 * t)
+        bm = bmesh.new()
         bmesh.ops.create_icosphere(bm, subdivisions=1, radius=r, matrix=Matrix.Translation(P(*c)))
-    ob("smoke", bm, "smoke")
+        ob("smoke", bm, "smoke")
+
+
+def smoke_column(at, n=5, size=0.6, rng=None):
+    """Smoke that curls (`move_smoke`, about the chimney's top)."""
+    moving("smoke", at, smoke, at, n, size, rng)
 
 
 def figure(at, height, fam, rng, turn=0.0):
@@ -104,24 +163,25 @@ def figure(at, height, fam, rng, turn=0.0):
     card(head, "skin", "head")
 
 
-def gull(at, span, glide=True, turn=0.0):
-    """A gull cut from card: a white body, wings in a shallow V (gliding) or folded (perched), grey tips, a yellow beak."""
+def gull(at, span, glide=True, turn=0.0, body_fam="gull", tip_fam="gull_tip"):
+    """A gull cut from card: a white body, wings in a shallow V (gliding) or folded (perched), grey tips, a yellow beak (a hawk in its
+    own colours)."""
     x, y, z = at
     s = span
     d = 1.0 if math.cos(turn) >= 0 else -1.0
     body = [(x - 0.3 * s * d, y, z), (x + 0.25 * s * d, y + 0.03 * s, z), (x + 0.32 * s * d, y + 0.08 * s, z),
             (x + 0.2 * s * d, y + 0.12 * s, z), (x - 0.25 * s * d, y + 0.08 * s, z)]
-    card(body, "gull", "gull_body", thick=0.02)
+    card(body, body_fam, "gull_body", thick=0.02)
     card([(x + 0.32 * s * d, y + 0.08 * s, z + 0.01), (x + 0.42 * s * d, y + 0.07 * s, z + 0.01), (x + 0.32 * s * d, y + 0.05 * s, z + 0.01)],
          "beak", "gull_beak", thick=0.01)
     if glide:
         for side in (-1.0, 1.0):
             w = [(x - 0.05 * s, y + 0.08 * s, z), (x + 0.12 * s, y + 0.1 * s, z), (x + 0.02 * s, y + 0.28 * s, z + side * 0.5 * s),
                  (x - 0.12 * s, y + 0.3 * s, z + side * 0.5 * s)]
-            card(w, "gull", "gull_wing", thick=0.015, normal=(0, 1, 0))
+            card(w, body_fam, "gull_wing", thick=0.015, normal=(0, 1, 0))
             tip = [(x + 0.02 * s, y + 0.28 * s, z + side * 0.5 * s), (x - 0.12 * s, y + 0.3 * s, z + side * 0.5 * s),
                    (x - 0.08 * s, y + 0.33 * s, z + side * 0.62 * s)]
-            card(tip, "gull_tip", "gull_tip", thick=0.015, normal=(0, 1, 0))
+            card(tip, tip_fam, "gull_tip", thick=0.015, normal=(0, 1, 0))
     else:
         card([(x - 0.22 * s * d, y + 0.05 * s, z + 0.02), (x + 0.15 * s * d, y + 0.1 * s, z + 0.02), (x - 0.28 * s * d, y + 0.12 * s, z + 0.02)],
              "gull_tip", "gull_wing", thick=0.01)
@@ -171,17 +231,26 @@ def scaled(pivot, s, build, *args):
     """Runs `build` and scales what it made by `s` about `pivot` (game coordinates): the match camera sees the water and the floor only
     far out, where a thing must be large to read."""
     before = set(bpy.data.objects)
+    movers = len(MOVERS)
     build(*args)
     c = P(*pivot)
     for o in [o for o in bpy.data.objects if o not in before and o.type == "MESH"]:
         for v in o.data.vertices:
             v.co = c + (v.co - c) * s
+    # (And the pivots of what moves among them: the smoke rides on the train's stack wherever it ends up.)
+    for m in MOVERS[movers:]:
+        m[1] = tuple(pivot[i] + (m[1][i] - pivot[i]) * s for i in range(3))
 
 
 def beach_a():
     # (Out where the match camera sees the water over the dock: anything nearer stands behind the deck.) A fishing boat moored to a
     # buoy off the fisherman's hut, nets over its side and crates on its deck.
     bx, bz, angle = 15.0, -66.0, 0.35
+    moving("bob", (bx, SEA, bz), boat_moored, bx, bz, angle)
+    beach_walk()
+
+
+def boat_moored(bx, bz, angle):
     scaled((bx, SEA, bz), 1.6, fishing_boat, (bx, SEA + 0.1, bz), angle)
     bm = bmesh.new()
     bmesh.ops.create_icosphere(bm, subdivisions=2, radius=0.5, matrix=Matrix.Translation(P(bx + 7.0, SEA + 0.2, bz + 2.5)))
@@ -193,6 +262,9 @@ def beach_a():
          "net", "boat_net", thick=0.03)
     for k, dx in enumerate((-3.0, -2.2)):
         boxg(bx + dx - 0.45, bx + dx + 0.45, SEA + 1.55, SEA + 2.25, bz - 0.4, bz + 0.4, "fish_crate", "boat_crate%d" % k)
+
+
+def beach_walk():
     d = (WALK_B - WALK_A).normalized()
     side = Vector((-d.z, 0.0, d.x))
     # Nets hung over the boardwalk's rail and fish crates stacked by them.
@@ -209,12 +281,14 @@ def beach_a():
 def beach_b():
     # Perched on what stands on the dock (StageArt._props on the beach): the lamp post's top, the stacked crates, the life ring's post.
     for (x, y, z) in ((-6.5, 2.27, -5.2), (-11.3, 1.92, -4.8), (9.6, 1.62, -4.7)):
-        gull((x, y + 0.12, z), 1.4, glide=False)
+        moving("perch", (x, y + 0.12, z), gull, (x, y + 0.12, z), 1.4, False)
     # Gliding over the water to either side of the fight, high enough to stay clear of it.
     rng = random.Random(3)
     for (x, y, z, s) in ((-14, 8, -26, 2.6), (15, 10, -32, 2.8), (-28, 12, -46, 3.0), (30, 13, -52, 3.0), (2, 17, -72, 3.4)):
-        gull((x, y, z), s, glide=True, turn=rng.uniform(-0.5, 3.6))
-    scaled((-20.0, SEA, -62.0), 1.6, rowboat, -20.0, -62.0)
+        turn = rng.uniform(-0.5, 3.6)
+        # (`r` or `l`: the way it faces, so it turns to face the way it flies.)
+        moving("wheel_%s" % ("r" if math.cos(turn) >= 0 else "l"), (x, y, z), gull, (x, y, z), s, True, turn)
+    moving("bob", (-20.0, SEA, -62.0), scaled, (-20.0, SEA, -62.0), 1.6, rowboat, -20.0, -62.0)
 
 
 def rowboat(x0, z0):
@@ -271,8 +345,8 @@ def market():
             b = (xa + 11.0 * t1, by + 3.3 - sag1, bz + 3.0)
             m = ((a[0] + b[0]) / 2, (a[1] + b[1]) / 2 - 0.55, bz + 3.0)
             card([a, b, m], ("flag_a", "flag_b", "flag_c")[(k + seg) % 3], "flag", thick=0.01)
-    smoke((bx + 3.0, SEA + 10.0, -108.0), 6, 0.9, rng)
-    smoke((bx - 9.0, SEA + 9.0, -105.0), 5, 0.8, rng)
+    smoke_column((bx + 3.0, SEA + 10.0, -108.0), 6, 0.9, rng)
+    smoke_column((bx - 9.0, SEA + 9.0, -105.0), 5, 0.8, rng)
 
 
 # ---- The canyon ----------------------------------------------------------------------------------------------------------------------
@@ -301,7 +375,7 @@ def canyon_a():
     # The train: an engine and two cars, half again as large, in the gap between the left platform and the butte behind the fight.
     tx = 4.0
     y0 = top + 0.5
-    scaled((tx, y0, z), 1.6, train, tx, y0, z, rng)
+    moving("train", (tx, y0, z), scaled, (tx, y0, z), 1.6, train, tx, y0, z, rng)
     scaled((-30.0, FLOOR, z + 7.0), 1.4, water_tower, -30.0, z + 7.0)
 
 
@@ -323,7 +397,7 @@ def train(tx, y0, z, rng):
     for wx in (tx + 2.4, tx + 0.8, tx - 2.6, tx - 5.0, tx - 6.6, tx - 9.0):
         kit.torus(bm, P(wx, y0 + 0.4, z + 0.95), P(0, 0, 1) - P(0, 0, 0), 0.35, 0.08, segs=12, rsegs=5)
     ob("wheels", bm, "iron", smooth=True)
-    smoke((tx + 2.6, y0 + 3.4, z), 6, 0.55, rng)
+    smoke_column((tx + 2.6, y0 + 3.4, z), 6, 0.55, rng)
 
 
 def water_tower(wx, wz):
@@ -483,7 +557,7 @@ def adobe(hx, hz, rng):
     boxg(hx - 0.5, hx + 0.5, FLOOR, FLOOR + 1.9, hz + 2.2, hz + 2.3, "timber_dark", "door")
     boxg(hx + 1.3, hx + 2.2, FLOOR + 1.3, FLOOR + 2.1, hz + 2.2, hz + 2.3, "window", "window")
     boxg(hx + 1.6, hx + 2.3, FLOOR + 3.3, FLOOR + 4.4, hz - 1.0, hz - 0.3, "adobe_dark", "chimney")
-    smoke((hx + 1.95, FLOOR + 4.9, hz - 0.65), 5, 0.5, rng)
+    smoke_column((hx + 1.95, FLOOR + 4.9, hz - 0.65), 5, 0.5, rng)
 
 
 # ---- The meadow, the grove and the city (positions read from the match camera's depth, so things sit on what is really there) ----------
@@ -553,17 +627,20 @@ def meadow_b():
     # Sheep grazing the near fields, two cows by the farm, and a flock dotted on the far hills.
     for p in ((-30.4, -13.2, -33.4), (-28.6, -14.6, -33.2), (-26.7, -13.2, -33.4), (-31.9, -10.5, -39.6), (-28.6, -9.1, -40.5),
               (-30.2, -15.9, -30.4)):
-        sheep(p, 1.4)
+        moving("graze", p, sheep, p, 1.4)
     for (x, y, z) in ((-25.9, -17.4, -29.5), (-23.5, -8.0, -42.6)):
-        d = 1.0
-        body = [(x - 1.0, y + 0.7, z), (x + 0.8, y + 0.7, z), (x + 1.3, y + 1.3, z), (x + 1.1, y + 1.6, z), (x - 1.0, y + 1.5, z)]
-        card(body, "cow", "cow", thick=0.7)
-        bm = bmesh.new()
-        for lx in (-0.7, -0.4, 0.4, 0.7):
-            tube(bm, (x + lx, y, z - 0.25), (x + lx, y + 0.75, z - 0.25), 0.07, segs=5)
-        ob("cow_legs", bm, "cattle_b", smooth=True)
+        moving("graze", (x, y, z), cow, x, y, z)
     for p in ((-28.3, -12.4, -73.7), (-25.0, -11.5, -69.4), (10.5, -8.0, -68.1), (13.0, -8.4, -70.0)):
-        sheep(p, 2.2)
+        moving("graze", p, sheep, p, 2.2)
+
+
+def cow(x, y, z):
+    body = [(x - 1.0, y + 0.7, z), (x + 0.8, y + 0.7, z), (x + 1.3, y + 1.3, z), (x + 1.1, y + 1.6, z), (x - 1.0, y + 1.5, z)]
+    card(body, "cow", "cow", thick=0.7)
+    bm = bmesh.new()
+    for lx in (-0.7, -0.4, 0.4, 0.7):
+        tube(bm, (x + lx, y, z - 0.25), (x + lx, y + 0.75, z - 0.25), 0.07, segs=5)
+    ob("cow_legs", bm, "cattle_b", smooth=True)
 
 
 def scarecrow(at):
@@ -586,8 +663,8 @@ def scarecrow(at):
 def meadow_c():
     rng = random.Random(12)
     # Chimney smoke over the farmhouse and the far cottage; washing on a line by the farm; a scarecrow in the near field.
-    scaled((-28.0, -8.0, -36.5), 1.6, smoke, (-28.0, -8.0, -36.5), 6, 0.5, rng)
-    scaled((42.5, -4.0, -72.5), 2.4, smoke, (42.5, -4.0, -72.5), 6, 0.5, rng)
+    moving("smoke", (-28.0, -8.0, -36.5), scaled, (-28.0, -8.0, -36.5), 1.6, smoke, (-28.0, -8.0, -36.5), 6, 0.5, rng)
+    moving("smoke", (42.5, -4.0, -72.5), scaled, (42.5, -4.0, -72.5), 2.4, smoke, (42.5, -4.0, -72.5), 6, 0.5, rng)
     a, b = (-33.0, -11.6, -35.0), (-30.6, -13.6, -32.6)
     bm = bmesh.new()
     for p in (a, b):
@@ -599,8 +676,9 @@ def meadow_c():
         x = a[0] + (b[0] - a[0]) * t
         y = a[1] + (b[1] - a[1]) * t + 2.3 - math.sin(t * math.pi) * 0.2
         zz = a[2] + (b[2] - a[2]) * t
-        card([(x - 0.3, y, zz), (x + 0.3, y, zz), (x + 0.28, y - 0.7, zz), (x - 0.28, y - 0.7, zz)], ("flag_a", "canvas", "flag_c", "coat_c")[k], "washing", thick=0.02)
-    scaled((-27.6, -15.5, -33.0), 1.5, scarecrow, (-27.6, -15.5, -33.0))
+        moving("flutter", (x, y, zz), card, [(x - 0.3, y, zz), (x + 0.3, y, zz), (x + 0.28, y - 0.7, zz), (x - 0.28, y - 0.7, zz)],
+               ("flag_a", "canvas", "flag_c", "coat_c")[k], "washing", 0.02)
+    moving("sway", (-27.6, -15.5, -33.0), scaled, (-27.6, -15.5, -33.0), 1.5, scarecrow, (-27.6, -15.5, -33.0))
 
 
 def grove_a():
@@ -648,8 +726,8 @@ def grove_b():
             f = k / 9.0
             p = a.lerp(b, f) + Vector((0.0, -1.2 * math.sin(f * math.pi), 0.0))
             ln = 1.2 + 0.5 * (k % 3)
-            card([(p.x - 0.12, p.y, p.z), (p.x + 0.12, p.y, p.z), (p.x + 0.1, p.y - ln, p.z), (p.x, p.y - ln - 0.2, p.z), (p.x - 0.1, p.y - ln, p.z)],
-                 ("flag_a", "flag_b", "flag_c")[k % 3], "streamer", thick=0.01)
+            moving("flutter", tuple(p), card, [(p.x - 0.12, p.y, p.z), (p.x + 0.12, p.y, p.z), (p.x + 0.1, p.y - ln, p.z), (p.x, p.y - ln - 0.2, p.z),
+                   (p.x - 0.1, p.y - ln, p.z)], ("flag_a", "flag_b", "flag_c")[k % 3], "streamer", 0.01)
 
 
 def islet(x, y, z, s):
@@ -693,10 +771,11 @@ def bus(x, y, z, d):
 
 def city_a():
     # The street busier: a bus on the right, people crossing on the left.
-    scaled((20.5, -13.5, -25.0), 1.2, bus, 20.5, -13.5, -25.0, 1)
+    moving("drive", (20.5, -13.5, -25.0), scaled, (20.5, -13.5, -25.0), 1.2, bus, 20.5, -13.5, -25.0, 1)
     rng = random.Random(14)
     for k in range(5):
-        figure((-24.0 + k * 1.2 + rng.uniform(-0.2, 0.2), -13.5, -22.0 - rng.uniform(0, 2.5)), 1.7, rng.choice(("coat_a", "coat_b", "coat_c")), rng)
+        at = (-24.0 + k * 1.2 + rng.uniform(-0.2, 0.2), -13.5, -22.0 - rng.uniform(0, 2.5))
+        moving("stroll", at, figure, at, 1.7, rng.choice(("coat_a", "coat_b", "coat_c")), rng)
 
 
 def city_b():
@@ -721,11 +800,16 @@ def city_b():
         t = k / 9.0
         x = x0 - 4.0 + 8.0 * t
         y = y0 + 2.9 - math.sin(t * math.pi) * 0.6
-        bm = bmesh.new()
-        bmesh.ops.create_icosphere(bm, subdivisions=1, radius=0.16, matrix=Matrix.Translation(P(x, y - 0.15, z0)))
-        ob("bulb", bm, "window")
+        moving("twinkle", (x, y - 0.15, z0), bulb, (x, y - 0.15, z0))
     for k in range(5):
-        figure((x0 - 3.0 + k * 1.5 + rng.uniform(-0.2, 0.2), y0, z0 + 0.3), 1.6, rng.choice(("coat_a", "coat_b", "coat_c")), rng)
+        at = (x0 - 3.0 + k * 1.5 + rng.uniform(-0.2, 0.2), y0, z0 + 0.3)
+        moving("dance", at, figure, at, 1.6, rng.choice(("coat_a", "coat_b", "coat_c")), rng)
+
+
+def bulb(at, r=0.16, fam="window"):
+    bm = bmesh.new()
+    bmesh.ops.create_icosphere(bm, subdivisions=1, radius=r, matrix=Matrix.Translation(P(*at)))
+    ob("bulb", bm, fam)
 
 
 def city_c():
@@ -747,11 +831,28 @@ def city_c():
         boxg(cx - 2.1, cx + 2.1, deck + 1.0, deck + 1.7, z + 1.0, z + 1.05, "window", "car_windows%d" % k)
 
 
+def canyon_l():
+    # Two hawks wheeling high over the buttes, dark against the dusk.
+    # (Not much higher: the match camera looks down, and at 22 units up they were above the frame.)
+    for (x, y, z, s, d) in ((-34.0, 8.0, -80.0, 4.6, "r"), (38.0, 10.0, -96.0, 4.2, "l")):
+        moving("soar_%s" % d, (x, y, z), gull, (x, y, z), s, True, 0.0 if d == "r" else math.pi, "hawk", "hawk_tip")
+
+
+def grove_l():
+    # Fireflies round the treehouse and under the lantern strings, high over the fight and behind it.
+    rng = random.Random(21)
+    for k in range(16):
+        side = -1.0 if k % 2 else 1.0
+        at = (side * rng.uniform(3.0, 20.0), rng.uniform(7.0, 13.0), rng.uniform(-28.0, -12.0))
+        moving("firefly", at, bulb, at, 0.16, "firefly")
+
+
 BUILDS = {("ocean", "A"): beach_a, ("ocean", "B"): beach_b, ("ocean", "C"): beach_c,
           ("sunset", "A"): canyon_a, ("sunset", "B"): canyon_b, ("sunset", "C"): canyon_c,
           ("meadow", "A"): meadow_a, ("meadow", "B"): meadow_b, ("meadow", "C"): meadow_c,
           ("grove", "A"): grove_a, ("grove", "B"): grove_b, ("grove", "C"): grove_c,
-          ("city", "A"): city_a, ("city", "B"): city_b, ("city", "C"): city_c}
+          ("city", "A"): city_a, ("city", "B"): city_b, ("city", "C"): city_c,
+          ("sunset", "L"): canyon_l, ("grove", "L"): grove_l}
 # The ground the occlusion bake lays under each stage's pieces.
 FLOORS = {"ocean": SEA, "sunset": FLOOR, "meadow": -20.0, "grove": -12.0, "city": -13.5}
 
@@ -763,9 +864,11 @@ def main():
     bpy.context.scene.collection.objects.link(ROOT)
     # (Options combine: `--variant AB` builds both.)
     for v in VARIANT:
-        BUILDS[(THEME, v)]()
+        if (THEME, v) in BUILDS:
+            BUILDS[(THEME, v)]()
     # (The water or the desert floor under them, for the ground's shade at their feet.)
     kit.bake_occlusion(0.6, floor_z=FLOORS[THEME], floor_at=(0.0, 100.0), floor_size=600.0)
+    group_movers()
     tris = sum(sum(len(p.vertices) - 2 for p in o.data.polygons) for o in bpy.context.scene.objects if o.type == "MESH")
     out = os.path.abspath(opts["out"])
     os.makedirs(os.path.dirname(out), exist_ok=True)
