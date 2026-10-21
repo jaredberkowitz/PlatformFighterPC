@@ -185,3 +185,5 @@ paper construction the props and houses have.
   (`pleated_cone`); the boats lofted hulls (`loft`) with rolled gunwales, the fishing boat's lit wheelhouse, life ring and fenders; the
   bus rounded with a stripe and hubs; the gates with swept-up beams, bases and a plaque; the crates slatted.
 - Before/after on the Stage Look Review and `mocks/look/` (`wq_*`).
+- **Shipped (the owner's call, 2026-10-21):** the five world models rebuilt from `make_world.py` with the same variants (beach AB, canyon A,
+  meadow BC, grove ABL, city AB) and placed as before.
