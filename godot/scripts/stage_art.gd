@@ -3188,8 +3188,13 @@ static func _soft_dot() -> GradientTexture2D:
 static func _clouds(root: Node3D, rng: RandomNumberGenerator, count: int, color: Color, y_range: Vector2, z_range := Vector2(-120, -85),
 		kinds := [0, 1, 2], scale := 1.0, x_range := Vector2(-90, 90), look := {}) -> void:
 	# The clouds' construction (the palette's [backdrop] `cloud_style`; docs/art/stages/FOLDED_STYLE.md): 0 smooth painted puffs, 1
-	# faceted puffs, 2 folded puffs (pleated from crown to rim like the fold kit's domes), 3 folded with fewer, larger puffs.
+	# faceted puffs, 2 folded puffs (pleated from crown to rim like the fold kit's domes), 3 folded with fewer, larger puffs, 4 cut card
+	# (docs/art/stages/BACKGROUNDS.md: flat cumulus cut from thick card, a deeper card behind each, as the papercraft references draw
+	# them; `--cloud-style=4` to try it).
 	var style := int((_palette.get("backdrop", {}) as Dictionary).get("cloud_style", 0))
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("--cloud-style="):
+			style = int(a.substr(14))
 	var puff: Mesh = _sphere(1.0, 32)
 	if style == 1:
 		puff = _sphere(1.0, 10)
@@ -3210,7 +3215,8 @@ static func _clouds(root: Node3D, rng: RandomNumberGenerator, count: int, color:
 		mat.set_shader_parameter("colour", color)
 		mat.set_shader_parameter("base_y", cloud.position.y)
 		if style >= 1:
-			mat.set_shader_parameter("flat_planes", true)
+			# (Not the card's: each triangle of its face shaded on its own read as crinkled shards.)
+			mat.set_shader_parameter("flat_planes", style != 4)
 			mat.set_shader_parameter("lump", 0.0)
 		# (A stage's own exposure and shade depth, `look`: under the beach's noon light the default washed every tone to white.)
 		for key in look:
@@ -3218,6 +3224,17 @@ static func _clouds(root: Node3D, rng: RandomNumberGenerator, count: int, color:
 		var kind: int = kinds[k % kinds.size()]
 		var size := rng.randf_range(0.7, 1.15) * scale
 		mat.set_shader_parameter("belly_height", 2.2 * size)
+		if style == 4:
+			# Two cards: a deeper one behind, up and to one side, and the cloud's face in front, each a flat cumulus with a scalloped crown.
+			# (The tower kind lower and with more bumps: at three tall lobes it read as a box.)
+			var lobes: int = [5, 7, 4][kind]
+			var cw: float = [11.0, 15.0, 9.0][kind] * size
+			var ch: float = [5.5, 3.8, 6.0][kind] * size
+			var back := _mesh(cloud, _card_cloud(lobes + 1, cw * 1.08, ch * 1.12, rng.randi(), 0.7 * size), mat, Vector3(0.9 * size, 0.7 * size, -1.4 * size))
+			back.set_instance_shader_parameter("heap", Vector3(0.3, -0.6, -0.6))
+			var face := _mesh(cloud, _card_cloud(lobes, cw, ch, rng.randi(), 0.8 * size), mat, Vector3.ZERO)
+			face.set_instance_shader_parameter("heap", Vector3(-0.2, 0.35, 0.5))
+			continue
 		# [puffs, how wide each, how tall the middle, how much the middle rises over the ends]
 		var shape: Array = [[rng.randi_range(5, 7), 2.7, 4.8, 2.4], [rng.randi_range(7, 9), 2.9, 3.2, 1.0], [rng.randi_range(4, 5), 2.3, 6.2, 3.4]][kind]
 		var puffs: int = shape[0]
@@ -3252,6 +3269,52 @@ static func _clouds(root: Node3D, rng: RandomNumberGenerator, count: int, color:
 		# The flat base: a wide squashed puff under them all.
 		var mb := _mesh(cloud, puff, mat, Vector3(0, 0.6 * size, 0.3), Vector3(span * 0.6, 1.3 * size, 3.4 * size))
 		mb.set_instance_shader_parameter("heap", Vector3(0, -0.8, 0))
+
+
+## A cumulus cut from card (cloud style 4): a flat base and a crown of `lobes` round bumps, tallest in the middle, `depth` thick, its face
+## toward the camera; built from `seed` so each cloud is its own shape.
+static func _card_cloud(lobes: int, width: float, height: float, seed: int, depth: float) -> ArrayMesh:
+	var r := RandomNumberGenerator.new()
+	r.seed = seed
+	var outline := PackedVector2Array()
+	outline.append(Vector2(-width * 0.5, 0.0))
+	for k in lobes:
+		var u0 := float(k) / lobes
+		var u1 := float(k + 1) / lobes
+		var mid := (u0 + u1) * 0.5
+		var lift := height * (0.55 + 0.45 * sin(mid * PI)) * r.randf_range(0.85, 1.1)
+		var rad := (u1 - u0) * width * 0.62
+		var cx := -width * 0.5 + mid * width
+		for j in 9:
+			var a := PI - PI * j / 8.0
+			outline.append(Vector2(cx + cos(a) * rad, maxf(lift - rad + sin(a) * rad, 0.0)))
+	outline.append(Vector2(width * 0.5, 0.0))
+	# (The base a gentle belly, not a ruler line.)
+	for j in range(1, 8):
+		var u := 1.0 - j / 8.0
+		outline.append(Vector2(-width * 0.5 + u * width, -0.35 * height * 0.1 * sin(u * PI)))
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var centre := Vector2(0.0, height * 0.32)
+	var n := outline.size()
+	for z_side: float in [depth * 0.5, -depth * 0.5]:
+		var normal := Vector3(0, 0, signf(z_side))
+		for i in n:
+			var a := outline[i]
+			var b := outline[(i + 1) % n]
+			var tri := [centre, a, b] if z_side < 0.0 else [centre, b, a]
+			for v: Vector2 in tri:
+				st.set_normal(normal)
+				st.add_vertex(Vector3(v.x, v.y, z_side))
+	for i in n:
+		var a := outline[i]
+		var b := outline[(i + 1) % n]
+		var side := Vector3(b.y - a.y, -(b.x - a.x), 0.0).normalized()
+		for v: Vector3 in [Vector3(a.x, a.y, depth * 0.5), Vector3(b.x, b.y, depth * 0.5), Vector3(b.x, b.y, -depth * 0.5),
+				Vector3(a.x, a.y, depth * 0.5), Vector3(b.x, b.y, -depth * 0.5), Vector3(a.x, a.y, -depth * 0.5)]:
+			st.set_normal(side)
+			st.add_vertex(v)
+	return st.commit()
 
 
 ## A cloud puff folded like the fold kit's domes (art/blender/fold_kit.py `folded_dome`): a unit ball whose surface is pleated in and out
@@ -3952,10 +4015,12 @@ static func underside(root: Node3D, t: Dictionary, e: Array) -> void:
 				if absf(sx) < r - l and sz > -20.0:
 					continue
 				var sc := rng.randf_range(0.5, 1.3) * lerpf(1.0, 1.8, -sz / 130.0)
+				# (Marked, so a floor modelled with its own scatter can hide them, StageBake.place_ground.)
 				if k % 3 == 0:
-					_mesh(root, _sphere(1.0, 7), pebble, Vector3(sx, floor_y + sc * 0.25, sz), Vector3(sc * 1.3, sc * 0.7, sc), Vector3(0, rng.randf_range(0, 90), 0))
+					_mesh(root, _sphere(1.0, 7), pebble, Vector3(sx, floor_y + sc * 0.25, sz), Vector3(sc * 1.3, sc * 0.7, sc),
+						Vector3(0, rng.randf_range(0, 90), 0)).set_meta("floor_scatter", true)
 				else:
-					_mesh(root, _sphere(1.0, 8), scrub, Vector3(sx, floor_y + sc * 0.35, sz), Vector3(sc * 1.2, sc * 0.7, sc))
+					_mesh(root, _sphere(1.0, 8), scrub, Vector3(sx, floor_y + sc * 0.35, sz), Vector3(sc * 1.2, sc * 0.7, sc)).set_meta("floor_scatter", true)
 			var rubble := Materials.stone((t.soil_dark as Color).lerp(Color(0.9, 0.62, 0.44), 0.45))
 			for k in 9:
 				var x := lerpf(l - 2.5, r + 2.5, (k + rng.randf_range(0.2, 0.8)) / 9.0)

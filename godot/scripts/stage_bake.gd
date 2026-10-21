@@ -23,7 +23,9 @@ const FRONTS := {"grove_14d06e65": "res://models/stages/grove_front.glb", "meado
 const TREES := {"grove": "res://models/stages/grove_tree.glb"}
 ## Modelled background ground and bushes, by the exact stage they were built round ([ground, bush]; make_grove_ground.py, option A, the
 ## owner's pick): the ground stands on the side trees' footing for this layout.
-const GROUNDS := {"grove_14d06e65": ["res://models/stages/grove_paper.glb", "res://models/stages/grove_bush.glb"],
+const GROUNDS := {
+	# (The grove's floating ledges, docs/art/stages/BACKGROUNDS.md round 2: no bushes, which stood on the old ledge and would float.)
+	"grove_14d06e65": ["res://models/stages/grove_paper.glb", ""],
 	"meadow_62409190": ["res://models/stages/meadow_ground.glb", "res://models/stages/meadow_pines.glb"],
 	# (The beach's land only: nothing stands on it in the bushes' place.)
 	"ocean_d9c5edff": ["res://models/stages/beach_ground.glb", ""],
@@ -941,6 +943,35 @@ static func _ground_colours(t: Dictionary) -> Dictionary:
 		out["card_" + band] = own.lerp(Color(0.92, 0.93, 0.86), 0.22)
 	for k in pines.size():
 		out["pine_%d" % k] = pines[k]
+	# (The meadow's patchwork land, docs/art/stages/BACKGROUNDS.md: its lanes a pale warm sheet, the soft shade things cast on the fields,
+	# stones and flowers dotted over them.)
+	out["lane"] = Color(0.95, 0.91, 0.74)
+	out["card_lane"] = Color(0.84, 0.78, 0.6)
+	out["shade"] = (out["rise"] as Color).darkened(0.32)
+	out["stone"] = Color(0.82, 0.81, 0.78)
+	out["flower_a"] = Color(0.98, 0.64, 0.72)
+	out["flower_b"] = Color(1.0, 0.86, 0.42)
+	# (The grove's floating ledges: the violet mist under them, tufts on the tops, the far forest's canopy.)
+	out["mist"] = Color(0.8, 0.76, 0.93)
+	out["card_mist"] = Color(0.68, 0.63, 0.85)
+	out["tuft"] = (out["grass"] as Color).lightened(0.12)
+	out["canopy"] = Color(0.4, 0.4, 0.66)
+	out["isle_rock"] = Color(0.34, 0.31, 0.4)
+	# (The canyon's floor in paper: its sand sheets in three tones round the desert floor's, their cut edges, wind ripples, the dry wash
+	# and its banks, pebbles, scrub and the shade under it.)
+	var sand: Color = bd.get("desert_floor", Color(0.94, 0.68, 0.4))
+	out["sand_a"] = sand.lerp(Color(1.0, 0.9, 0.7), 0.25)
+	out["sand_b"] = sand.darkened(0.08)
+	out["sand_c"] = sand.lerp(Color(0.92, 0.62, 0.56), 0.3)
+	for fam in ["sand_a", "sand_b", "sand_c"]:
+		out["card_" + fam] = (out[fam] as Color).darkened(0.16)
+	out["ripple"] = sand.lerp(Color(1.0, 0.95, 0.84), 0.28)
+	out["wash"] = sand.lerp(Color(0.96, 0.9, 0.82), 0.55)
+	out["card_wash"] = sand.darkened(0.2)
+	out["pebble"] = sand.lerp(Color(0.62, 0.4, 0.36), 0.5)
+	out["scrub"] = Color(0.56, 0.62, 0.38)
+	out["sand_shade"] = sand.darkened(0.22)
+	out["isle_moss"] = Color.from_hsv((out["grass"] as Color).h, (out["grass"] as Color).s * 0.6, (out["grass"] as Color).v * 0.72)
 	return out
 
 
@@ -1019,6 +1050,11 @@ static func place_ground(root: Node3D, t: Dictionary, source: Array) -> void:
 		ground.set_meta("lit_piece", true)
 		root.add_child(ground)
 		_paint_ground(ground, colours)
+		# (A floor scattered in paper stands in for the code-built scrub and stones on it.)
+		if ground.find_children("scatter*", "", true, false).size() > 0 and root.get_parent() != null:
+			for n in root.get_parent().find_children("*", "GeometryInstance3D", true, false):
+				if n.has_meta("floor_scatter"):
+					(n as Node3D).visible = false
 		# (A modelled far land stands in for the painted ridges.)
 		if ground.find_children("range*", "", true, false).size() > 0:
 			for r in root.find_children("*", "GeometryInstance3D", true, false):
