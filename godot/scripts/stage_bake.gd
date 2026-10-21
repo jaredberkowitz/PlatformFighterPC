@@ -941,6 +941,14 @@ static func _ground_colours(t: Dictionary) -> Dictionary:
 		out["card_" + band] = own.lerp(Color(0.92, 0.93, 0.86), 0.22)
 	for k in pines.size():
 		out["pine_%d" % k] = pines[k]
+	# (The meadow's patchwork land, docs/art/stages/BACKGROUNDS.md: its lanes a pale warm sheet, the soft shade things cast on the fields,
+	# stones and flowers dotted over them.)
+	out["lane"] = Color(0.95, 0.91, 0.74)
+	out["card_lane"] = Color(0.84, 0.78, 0.6)
+	out["shade"] = (out["rise"] as Color).darkened(0.32)
+	out["stone"] = Color(0.82, 0.81, 0.78)
+	out["flower_a"] = Color(0.98, 0.64, 0.72)
+	out["flower_b"] = Color(1.0, 0.86, 0.42)
 	return out
 
 

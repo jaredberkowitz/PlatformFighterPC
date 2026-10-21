@@ -8,6 +8,11 @@ The far mountain ranges, the windmill and the cottages stay code-placed. Three l
   B  paper layers: the land as stacked sheets of card, each a contour a step lower and nearer, its cut edge catching the light, the rise's
      sheets in the fields' colours; pines of stacked paper discs;
   C  faceted: the land in big irregular flat triangles, the fields as patches of facets; pines as faceted cones with jagged skirts.
+After the papercraft references (docs/art/stages/BACKGROUNDS.md, 2026-10-21), three more on the land, with B's pines and hill:
+  PA patchwork: the land a smooth sheet laid over with fields of card, each an organic cut shape in its own green or wheat, lifted
+     over the one under it with its cut edge showing (no more stripes edge to edge);
+  PB PA with lanes (pale sheets winding down the land) and hedgerows (rolled along some fields' edges);
+  PC PB with small things dotted over the fields (bushes, stones, flowers) and each casting a soft shade on the sheet under it.
 Each band is its own object so the game can lay the air of its depth over it, and bakes its occlusion into linear vertex colours.
 Families `hill_far`, `hill_near`, `rise`, `field_0`..`field_4`, `hedge`, `card` (the paper's cut edge), `pine_0`..`pine_3`,
 `pine_under`, `trunk`.
@@ -412,16 +417,166 @@ def pine_faceted(lit, under, trunk, base, sc, rng):
         v.co += base + Vector((0, 0, 0.3 * sc))
 
 
+# ---- PA, PB, PC: patchwork ---------------------------------------------------------------------------------------------------------
+
+
+def surface(bumps, floor_y, z, profile):
+    """The band's land as a function of (x, the drop under its crest), and its facing (toward the camera and the sky)."""
+    def at(x, d):
+        return Vector((x, land_top(bumps, floor_y, x) - d, z + depth_at(max(d, 0.0), profile)))
+
+    def normal(x, d):
+        t1 = at(x + 0.5, d) - at(x - 0.5, d)
+        t2 = at(x, d + 0.4) - at(x, max(d - 0.4, 0.0))
+        n = t1.cross(t2)
+        if n.z + n.y < 0.0:
+            n = -n
+        return n.normalized()
+    return at, normal
+
+
+def blob(cx, cd, rx, rd, rng, n=28):
+    """A field's cut outline in (x, drop): a rounded oblong laid along the land's contour, its edges a little hand-cut. (Round blobs of
+    every size overlapped into camouflage, not fields.)"""
+    p1 = rng.uniform(0, math.tau)
+    out = []
+    for i in range(n):
+        a = math.tau * i / n
+        c, s_ = math.cos(a), math.sin(a)
+        w = 1.0 + 0.04 * math.sin(3 * a + p1)
+        out.append((cx + rx * w * math.copysign(abs(c) ** 0.45, c), max(0.15, cd + rd * w * math.copysign(abs(s_) ** 0.6, s_))))
+    return out
+
+
+def tube_seg(bm, a, b, rad, segs=6):
+    """A rolled tube between two Blender points."""
+    d = b - a
+    if d.length < 1e-4:
+        return
+    res = bmesh.ops.create_cone(bm, cap_ends=True, segments=segs, radius1=rad, radius2=rad, depth=d.length)
+    q = Vector((0.0, 0.0, 1.0)).rotation_difference(d.normalized())
+    for v in res["verts"]:
+        v.co = q @ v.co + (a + b) * 0.5
+
+
+def sheet(bm_top, bm_edge, ring, centre, lifted):
+    """A cut sheet laid on the land: a fan from its centre over two rings, and its cut edge down under the land."""
+    mid = [centre.lerp(q, 0.5) for q in ring]
+    n = len(ring)
+    c = lifted(centre)
+    m = [lifted(q) for q in mid]
+    o = [lifted(q) for q in ring]
+    for i in range(n):
+        j = (i + 1) % n
+        face(bm_top, (P(*c), P(*m[i]), P(*m[j])))
+        face(bm_top, (P(*m[i]), P(*o[i]), P(*o[j]), P(*m[j])))
+    for i in range(n):
+        j = (i + 1) % n
+        face(bm_edge, (P(*o[i]), P(*o[j]), P(*(ring[j] - Vector((0.0, 0.05, 0.0)))), P(*(ring[i] - Vector((0.0, 0.05, 0.0))))))
+
+
+def patchwork_band(name, fam, bumps, floor_y, z, profile, rng, fields=False):
+    """The band's land as a smooth sheet, laid over with fields of card in organic cut shapes, each lifted over the one under it."""
+    level = {"PA": 1, "PB": 2, "PC": 3}[VARIANT]
+    at, normal = surface(bumps, floor_y, z, profile)
+    # The smooth land under the fields (back of the crest first, as the other looks).
+    # (Only as wide as any camera sees: the land past it cost triangles and nothing else.)
+    lo, hi = -150.0, 150.0
+    xs = [lo + 2.5 * i for i in range(int((hi - lo) / 2.5) + 1)]
+    back = [(r[0], r[1]) for r in profile if r[1] < 0.0]
+    drops = [0.0, 0.3, 0.7, 1.2, 1.8, 2.6, 3.6, 4.8, 6.4, 8.4, 11.0, 14.0, 18.0, 23.0, 29.0, 36.0, 44.0, 52.0, 60.0]
+    order = back + [(d, depth_at(d, profile)) for d in drops]
+    grid = [[P(x, land_top(bumps, floor_y, x) - d, z + dz) for (d, dz) in order] for x in xs]
+    base = part(name, fam)
+    for j in range(len(xs) - 1):
+        for i in range(len(order) - 1):
+            face(base, (grid[j][i], grid[j][i + 1], grid[j + 1][i + 1], grid[j + 1][i]))
+    # The fields: rows of organic shapes down the land, larger further down (nearer the camera), stacked in a random order.
+    rows = [2.2, 5.4, 9.6, 15.0, 22.0, 31.0, 42.0] if fields else [0.9, 2.6, 5.0, 8.4, 12.6]
+    gap = {r: (rows[k + 1] - rows[k]) if k + 1 < len(rows) else rows[k] * 0.3 for k, r in enumerate(rows)}
+    patches = []
+    for cd in rows:
+        x = lo + rng.uniform(0, 6)
+        while x < hi:
+            w = rng.uniform(8.0, 12.0) * (1.0 + 0.03 * cd)
+            if not (fields and farm_calm(x) < 0.6):
+                # (A gap of the land's own green between neighbours, as the edges between fields.)
+                patches.append((x + w * 0.5, cd, w * 0.44, gap[cd] * 0.4, rng.randrange(2)))
+            x += w
+    patches.sort(key=lambda q: q[4])
+    for (cx, cd, rx, rd, layer) in patches:
+        lift = 0.05 + 0.05 * layer
+        outline = blob(cx, cd, rx, rd, rng)
+        ring = [at(x, d) for (x, d) in outline]
+        centre = at(cx, cd)
+        mat = "field_%d" % rng.choice((0, 2, 4, 0, 2, 4, 1, 0, 2, 3))
+
+        def lifted(q, lift=lift):
+            x, d = q.x, land_top(bumps, floor_y, q.x) - q.y
+            return q + normal(x, d) * lift
+        sheet(part(name, mat), part(name, "card_" + name), ring, centre, lifted)
+        if level >= 2 and rng.random() < 0.45:
+            # A hedgerow rolled along the field's lower edge.
+            bm = part(name, "hedge")
+            rad = 0.18 + 0.006 * cd
+            pts = [lifted(q) + normal(q.x, land_top(bumps, floor_y, q.x) - q.y) * rad for q in ring]
+            n = len(pts)
+            for i in range(n // 2 - 1, n):
+                tube_seg(bm, P(*pts[i]), P(*pts[(i + 1) % n]), rad)
+        if level >= 3:
+            for _ in range(rng.randrange(1, 4)):
+                a = rng.uniform(0, math.tau)
+                u = rng.uniform(0.0, 0.7)
+                x, d = cx + rx * u * math.cos(a), max(0.3, cd + rd * u * math.sin(a))
+                q = lifted(at(x, d))
+                nn = normal(x, d)
+                kind = rng.random()
+                sc = 0.45 + 0.02 * d
+                # The soft shade it casts on the sheet, offset away from the light.
+                sh = [q + nn * 0.02 + Vector((0.35 * sc + sc * 0.9 * math.cos(t), 0.0, sc * 0.45 * math.sin(t))) for t in [math.tau * i / 10 for i in range(10)]]
+                face(part(name, "shade"), [P(*v) for v in sh])
+                bm = part(name, "hedge" if kind < 0.6 else ("stone" if kind < 0.8 else rng.choice(("flower_a", "flower_b"))))
+                if kind < 0.6:
+                    res = bmesh.ops.create_cone(bm, cap_ends=True, segments=7, radius1=sc, radius2=0.0, depth=sc * 1.6)
+                    off = P(*(q + nn * sc * 0.75))
+                elif kind < 0.8:
+                    res = bmesh.ops.create_icosphere(bm, subdivisions=1, radius=sc * 0.45)
+                    for v in res["verts"]:
+                        v.co.z *= 0.55
+                    off = P(*(q + nn * sc * 0.2))
+                else:
+                    res = bmesh.ops.create_cone(bm, cap_ends=True, segments=6, radius1=sc * 0.3, radius2=sc * 0.12, depth=sc * 0.25)
+                    off = P(*(q + nn * sc * 0.2))
+                for v in res["verts"]:
+                    v.co += off
+    if level >= 2 and fields:
+        # Lanes: pale sheets winding down the rise either side of the stage, widening as they come nearer.
+        for x0, ph in ((-36.0, 0.0), (34.0, 1.7)):
+            bm, edge = part(name, "lane"), part(name, "card_lane")
+            ds = [0.4 + 1.0 * k for k in range(30)]
+            left, right = [], []
+            for d in ds:
+                x = x0 + 3.0 * math.sin(d * 0.2 + ph)
+                w = 0.7 + d * 0.035
+                nn = normal(x, d)
+                left.append(at(x - w, d) + nn * 0.3)
+                right.append(at(x + w, d) + nn * 0.3)
+            for k in range(len(ds) - 1):
+                face(bm, (P(*left[k]), P(*left[k + 1]), P(*right[k + 1]), P(*right[k])))
+                for side in (left, right):
+                    face(edge, (P(*side[k]), P(*side[k + 1]), P(*(side[k + 1] - Vector((0, 0.35, 0)))), P(*(side[k] - Vector((0, 0.35, 0))))))
+
+
 # ---- Build --------------------------------------------------------------------------------------------------------------------------
 
 
 def build_ground():
     rng = random.Random(61)
-    band = {"A": folded_band, "B": layered_band, "C": faceted_band}[VARIANT]
+    band = {"A": folded_band, "B": layered_band, "C": faceted_band, "PA": patchwork_band, "PB": patchwork_band, "PC": patchwork_band}[VARIANT]
     band("far", "hill_far", LAYOUT["hills_far"], -17.0, -100.0, ROLL, rng)
     band("near", "hill_near", LAYOUT["hills_near"], -17.0, -72.0, ROLL, rng)
     band("rise", "rise", LAYOUT["fore"], -11.0, -46.0, VALLEY, rng, fields=True)
-    if VARIANT == "B":
+    if VARIANT in ("B", "PA", "PB", "PC"):
         hill_layers(rng)
     else:
         hill_field()
@@ -434,9 +589,9 @@ def build_pines():
     """One cluster at size 1 (the game scales it by each spot's size): the tallest pine 2.5 tall, three or four smaller round it, as
     `StageArt._pine_cluster` sets them, each in its own green."""
     rng = random.Random(83)
-    pine = {"A": pine_pleated, "B": pine_discs, "C": pine_faceted}[VARIANT]
+    pine = {"A": pine_pleated, "C": pine_faceted}.get(VARIANT, pine_discs)
     # (Each look's pine at the code-built pine's height, 2.5 at size 1.)
-    sc = {"A": 0.9, "B": 1.0, "C": 1.0}[VARIANT]
+    sc = {"A": 0.9}.get(VARIANT, 1.0)
     for k, (ox, oz, s) in enumerate(PINE_SPOTS):
         lit = part("pine", "pine_%d" % (k % 4))
         under = part("pine", "pine_under")
@@ -523,7 +678,8 @@ def main():
     bpy.ops.wm.read_factory_settings(use_empty=True)
     build_ground()
     make_objects()
-    bake_occlusion(3.0)
+    # (Wider on the patchwork's last look, its soft shade: the creases under the hedgerows and the dotted things.)
+    bake_occlusion(5.0 if VARIANT == "PC" else 3.0)
     export(opts["ground"], "ground")
     bpy.ops.wm.read_factory_settings(use_empty=True)
     build_pines()

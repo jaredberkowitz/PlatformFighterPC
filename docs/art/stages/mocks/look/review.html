@@ -88,6 +88,27 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
     <p>Two lessons from the reference screenshots, mocked from the match camera: the scenery without ink outlines, its edges lit as card bevels instead, and the paper houses rebuilt at the characters' proportions. The earlier rounds stay on the <a href="https://claude.ai/artifact/D1du6MREVumiJDrEdNypW4">Stage Fidelity Review</a>, which is full.</p>
   </header>
 
+  <section class="panel" aria-labelledby="mg-h" id="grounds">
+    <div class="eyebrow">Your pick is needed &middot; the backgrounds audit, round 1</div>
+    <h2 id="mg-h">The meadow's ground as patchwork, and clouds cut from card</h2>
+    <p>The audit's first two items (docs/art/stages/BACKGROUNDS.md). The meadow's land behind the stage was horizontal mint stripes edge to edge. These options lay it as the references do: fields of card in rounded, hand-cut shapes along the hills, each lifted over the land with its cut edge showing, in the palette's greens and a little wheat, with the land's own green between them as the field edges. The stage's own terraced hill stays as it is.</p>
+    <div class="tablewrap"><table><thead><tr><th>Option</th><th>What it adds</th></tr></thead><tbody>
+      <tr><td>A &middot; Patchwork</td><td>The fields of card, no stripes</td></tr>
+      <tr><td>B &middot; Lanes and hedgerows</td><td>A, with two pale lanes winding down the rise either side of the stage, and hedgerows rolled along some fields' lower edges</td></tr>
+      <tr><td>C &middot; Detail and shade</td><td>B, with bushes, stones and flowers dotted over the fields, each casting a soft shade on the field under it, and deeper shade in the creases</td></tr>
+    </tbody></table></div>
+    <p class="muted">The change is biggest at the wide camera; at the match camera the hills behind the fence go from stripes to small fields under the haze. My pick: <b>B</b>. The lanes give the land a reason and lead the eye, and C's dotted things barely read at play distance for their cost (B's land is heavy as it stands, about 130,000 triangles; built for the game it would be trimmed to what the camera sees).</p>
+    <div class="row" role="group" aria-label="View"><button data-gv="w">Wide</button><button data-gv="m">Match camera</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-go="T">Today</button><button data-go="A">A &middot; Patchwork</button><button data-go="B">B &middot; Lanes and hedgerows</button><button data-go="C">C &middot; Detail and shade</button></div>
+    <div class="viewer"><img id="gimg" alt="Meadow ground option"><span class="vtag" id="gtag"></span></div>
+    <h3>Card clouds, every stage</h3>
+    <p>Today's clouds are folded, faceted puffs that read as crystal beside the cut-card smoke and the references' flat clouds. The card clouds are flat cumulus cut from thick card, a scalloped crown on a flat base, with a deeper card behind each; still lit from the stage's sun and drifting as before. My pick: <b>the card clouds</b>.</p>
+    <div class="row" role="group" aria-label="Stage"><button data-cs="meadow">Meadow</button><button data-cs="canyon">Canyon</button><button data-cs="beach">Beach</button><button data-cs="city">City</button><button data-cs="grove">Grove</button></div>
+    <div class="row" role="group" aria-label="View"><button data-cv="w">Wide</button><button data-cv="m">Match camera</button></div>
+    <div class="row" role="group" aria-label="Clouds"><button data-co="T">Today</button><button data-co="K">Card clouds</button></div>
+    <div class="viewer"><img id="cimg" alt="Clouds option"><span class="vtag" id="ctag"></span></div>
+  </section>
+
   <section class="panel" aria-labelledby="wq-h" id="worldq">
     <div class="eyebrow">Built &middot; the world pieces' quality pass (shipped)</div>
     <h2 id="wq-h">The world pieces, rebuilt to match the scenery</h2>
@@ -204,5 +225,26 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
   group("data-qs", function (v) { qs = v; }, qrender);
   group("data-qo", function (v) { qo = v; }, qrender);
   qrender();
+  var gv = "w", go = "B";
+  var GO = { T: "Today", A: "A \u00b7 Patchwork", B: "B \u00b7 Lanes and hedgerows", C: "C \u00b7 Detail and shade" };
+  function grender() {
+    document.getElementById("gimg").src = "mg_" + gv + "_" + go + ".jpg";
+    document.getElementById("gtag").textContent = "Meadow \u00b7 " + GO[go] + (gv === "w" ? " \u00b7 wide" : " \u00b7 match camera");
+    pressed("data-gv", gv); pressed("data-go", go);
+  }
+  group("data-gv", function (v) { gv = v; }, grender);
+  group("data-go", function (v) { go = v; }, grender);
+  grender();
+  var cs = "beach", cv = "w", co = "K";
+  var CS = { meadow: "Meadow", canyon: "Canyon", beach: "Beach", city: "City", grove: "Grove" };
+  function crender() {
+    document.getElementById("cimg").src = "cl_" + cs + "_" + cv + "_" + co + ".jpg";
+    document.getElementById("ctag").textContent = CS[cs] + " \u00b7 " + (co === "K" ? "Card clouds" : "Today");
+    pressed("data-cs", cs); pressed("data-cv", cv); pressed("data-co", co);
+  }
+  group("data-cs", function (v) { cs = v; }, crender);
+  group("data-cv", function (v) { cv = v; }, crender);
+  group("data-co", function (v) { co = v; }, crender);
+  crender();
 })();
 </script>
