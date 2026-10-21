@@ -24,7 +24,8 @@ const TREES := {"grove": "res://models/stages/grove_tree.glb"}
 const GROUNDS := {"grove_14d06e65": ["res://models/stages/grove_paper.glb", "res://models/stages/grove_bush.glb"],
 	"meadow_62409190": ["res://models/stages/meadow_ground.glb", "res://models/stages/meadow_pines.glb"],
 	# (The beach's land only: nothing stands on it in the bushes' place.)
-	"ocean_d9c5edff": ["res://models/stages/beach_ground.glb", ""]}
+	"ocean_d9c5edff": ["res://models/stages/beach_ground.glb", ""],
+	"sunset_19cad55b": ["res://models/stages/canyon_paper.glb", ""]}
 ## The toon shaders whose materials take the baked occlusion (they share shaders/toon_common.gdshaderinc).
 const BAKEABLE := ["res://shaders/toon.gdshader"]
 ## Shaders that cast occlusion on the baked meshes without being baked themselves.
@@ -496,8 +497,9 @@ static func _ground_colours(t: Dictionary) -> Dictionary:
 	out["rock_b"] = (t.get("soil_dark", Color(0.68, 0.34, 0.24)) as Color).darkened(0.12)
 	# (A step paler, not the front's 0.6: in thin plates the pale bands striped the arch like candy.)
 	out["rock_c"] = soil.lerp(Color(1.0, 0.86, 0.66), 0.35)
-	out["dune_far"] = Color(1.0, 0.8, 0.52)
-	out["dune_near"] = Color(1.0, 0.74, 0.44)
+	# (Deeper and rosier than the painted dunes' sands: as flats they take the full air of their depth and faded into the horizon.)
+	out["dune_far"] = Color(0.9, 0.6, 0.5)
+	out["dune_near"] = Color(0.92, 0.58, 0.42)
 	for fam in ["rock_a", "rock_b", "rock_c", "dune_far", "dune_near"]:
 		out["card_" + fam] = (out[fam] as Color).darkened(0.1)
 	for fam in ["range_far", "range_near", "cliff", "grass", "grass_far"]:

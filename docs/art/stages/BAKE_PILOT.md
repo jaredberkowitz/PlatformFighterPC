@@ -367,3 +367,15 @@ The paper style on the canyon: the buttes, the rock arch and the dunes. The dese
   0.6). The skirts at the bounds' full width read as hat brims, and B's palest card stood in front and washed the buttes out (now at the
   back).
 - **Next:** options in `mocks/canyon_paper/` (with a local `review.html`) and on the owner's page; recommended A.
+
+## The canyon's background built: A, card stacks (2026-10-20)
+
+The owner picked A. Shipped as `godot/models/stages/canyon_paper.glb` (9,400 triangles) for the exact canyon layout
+(`StageBake.GROUNDS`, no second model). It replaces the modelled buttes, the arch and the painted dunes: the buttes and the arch are
+stacks of thick card plates in the strata, and the dunes are cut-out flats along their crests.
+- **Dunes deepened:** at the painted dunes' pale sands the flats took the full air of their depth and faded into the horizon. They are now
+  a rosier, deeper sand (`dune_far`, `dune_near`), set in Godot.
+
+**Result** (round 67, `canyon_paper_built.png`: match camera, wide, fighters in play): the buttes, the arch and the mesa's stacked-slab
+front read as one stacked-card place. The near butte behind the fight reads 0.55 (0.50 before); the sand is unchanged (0.65). Cost: 907
+draw calls against 884, GPU 2.2 ms both ways (two timings each). **Tests:** all seven pass.
