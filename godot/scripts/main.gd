@@ -508,6 +508,8 @@ func _refresh(i: int) -> void:
 		"move_tip": sim.fighter_move_tip(i), "reach": sim.fighter_weapon_reach(i), "dash_length": sim.fighter_dash_length(i), "wall_jumps": sim.fighter_wall_jumps(i),
 		"tripped": sim.has_method("fighter_tripped") and bool(sim.fighter_tripped(i)),
 		"egg": float(sim.fighter_egg_radius(i)) if sim.has_method("fighter_egg_radius") else 0.0,
+		# The live hitboxes as flat [x, y, radius, priority] groups in the world (the swing arcs follow their outer edge).
+		"hits": sim.fighter_hitboxes(i),
 	}
 
 

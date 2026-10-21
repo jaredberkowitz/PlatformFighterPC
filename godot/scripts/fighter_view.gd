@@ -3947,6 +3947,10 @@ func _aim_leg(s: Dictionary, kicking: bool, delta: float) -> void:
 
 
 # ---- Swing arcs --------------------------------------------------------------------------------------------------------------------
+# (Since the paper effects pass, 2026-10-21, the owner: until the animation overhaul each arc follows the move's hitboxes, not the
+# animated blade or hand. Its circle keeps the authored centre and sweep, but its radius is the live hitboxes' outer edge and its head
+# goes where the furthest hitbox is, never back, and on at least an even pace through the active frames, so the arc shows where the hit
+# reaches whatever the pose does. `_hit_edge`.)
 # A swing leaves the crescent the reference game draws: one smooth arc where the weapon's tip went, pointed at both ends and thickest a
 # little behind the leading edge, a bright core along the outside fading through the trail colour to nothing on the inside. Each arc is
 # authored per move (`ARCS`; the sword's are fitted to its hitboxes, the claws' to their animations): a circle about the shoulder, the
@@ -4067,18 +4071,41 @@ func _arc_now(s: Dictionary, tip: Vector2) -> Dictionary:
 		if f < first - 2.0:
 			continue
 		var k := clampf((f - first + 2.0) / (last - first + 2.0), 0.0, 1.0)
-		if bladed(_cls(s)):
+		var same: bool = not arc_shown.is_empty() and arc_shown.w == w
+		var prev := float(arc_shown.k) if same else 0.0
+		var r := float(arc_shown.get("r", 0.0)) if same else 0.0
+		var centre: Vector2 = _arc_circle(w)[0]
+		var edge := _hit_edge(s, centre)
+		if not edge.is_empty():
+			# The arc reaches the hitboxes' outer edge (the furthest yet in this swing), and its head is where that edge is.
+			r = maxf(r, float(edge[1]))
 			var from := deg_to_rad(float(w[3]))
 			var span := deg_to_rad(float(w[4])) - from
-			var ang := (tip - (_arc_circle(w)[0] as Vector2)).angle()
-			var d := wrapf((ang - from) * signf(span), -PI, PI)
-			var prev := float(arc_shown.k) if not arc_shown.is_empty() and arc_shown.w == w else 0.0
+			var d := wrapf((float(edge[0]) - from) * signf(span), -PI, PI)
 			# Of the two ways round, the one nearer where the head was (a long arc, like the neutral air's, goes past half a turn).
 			if absf(d + TAU - prev * absf(span)) < absf(d - prev * absf(span)):
 				d += TAU
-			k = maxf(prev, clampf(d / absf(span), 0.0, 1.0))
-		out = {"w": w, "k": k, "q": (f - last) / ARC_FADE, "facing": float(s.facing), "cls": _cls(s)}
+			k = maxf(k, clampf(d / absf(span), 0.0, 1.0))
+		k = maxf(prev, k)
+		out = {"w": w, "k": k, "q": (f - last) / ARC_FADE, "facing": float(s.facing), "cls": _cls(s), "r": r}
 	return out
+
+
+## The live hitboxes' outer edge as seen from `centre` (forward space): [angle, distance] of the point of the hitbox reaching furthest
+## from it, or empty when no hitbox is live.
+func _hit_edge(s: Dictionary, centre: Vector2) -> Array:
+	var hits: PackedFloat32Array = s.get("hits", PackedFloat32Array())
+	var pos: Vector2 = s.get("pos", Vector2.ZERO)
+	var facing := float(s.facing)
+	var best := -1.0
+	var ang := 0.0
+	for k in range(0, hits.size(), 4):
+		var rel := Vector2((hits[k] - pos.x) * facing, hits[k + 1] - pos.y) - centre
+		var reach := rel.length() + hits[k + 2]
+		if reach > best:
+			best = reach
+			ang = rel.angle()
+	return [] if best < 0.0 else [ang, best]
 
 
 ## Where an arc's head is (forward space).
@@ -4086,7 +4113,13 @@ func _arc_point(now: Dictionary) -> Vector2:
 	var w: Array = now.w
 	var ang := lerpf(deg_to_rad(float(w[3])), deg_to_rad(float(w[4])), float(now.k))
 	var g := _arc_circle(w)
-	return (g[0] as Vector2) + Vector2.from_angle(ang) * float(g[1])
+	return (g[0] as Vector2) + Vector2.from_angle(ang) * _arc_radius(now)
+
+
+## An arc's radius now: the hitboxes' outer edge once one has been live, the authored circle's before.
+func _arc_radius(now: Dictionary) -> float:
+	var r := float(now.get("r", 0.0))
+	return r if r > 0.0 else float(_arc_circle(now.w)[1])
 
 
 ## An arc's circle: [centre, radius].
@@ -4106,7 +4139,8 @@ func _draw_arc() -> void:
 		# (Painted: as it fades it breaks up in ragged chunks, like a drawn smear wiped off a frame at a time.)
 		# (See-through as a trail of light is, `ARC_OPACITY`, but painted: its own copy of the material.)
 		var m := (FxMaterial.get_material(false, 5, null, 1.0, 1.0) as ShaderMaterial).duplicate() as ShaderMaterial
-		m.set_shader_parameter("opacity", ARC_OPACITY)
+		# (A little more solid in paper, 0.75: at 0.62 the pale crescent faded into the light skies.)
+		m.set_shader_parameter("opacity", 0.75 if FxMaterial.paper else ARC_OPACITY)
 		arc.material_override = m
 		add_child(arc)
 	var im: ImmediateMesh = arc.mesh
@@ -4123,8 +4157,9 @@ func _draw_arc() -> void:
 		return
 	var circle := _arc_circle(w)
 	var centre: Vector2 = circle[0]
-	var r: float = circle[1]
-	var width := r * 0.34 * (1.0 - 0.35 * q)
+	var r: float = _arc_radius(arc_shown)
+	# (As thick as the authored circle's arc, however far the hitboxes reach: at the hitboxes' radius a smash's arc was a slab.)
+	var width := float(circle[1]) * 0.34 * (1.0 - 0.35 * q)
 	var alpha := 1.0 - q
 	var colours := trail_colours_of(int(arc_shown.cls))
 	# Painted as the knock-out blast is (effects.gd `Beam`): layers of solid paint back to front, an ink silhouette round the whole
@@ -4136,6 +4171,10 @@ func _draw_arc() -> void:
 	var lit := body.lerp(Color.WHITE, 0.35)
 	var core: Color = colours[1]
 	var ink := Color(INK.r, INK.g, INK.b)
+	if FxMaterial.paper:
+		# Paper: a pale cut edge where the ink line was, the core cream rather than white light.
+		ink = Color(Effects.CUT.r, Effects.CUT.g, Effects.CUT.b)
+		core = core.lerp(Color(1.0, 0.95, 0.82), 0.5)
 	var facing := float(arc_shown.facing)
 	var seed := float(w[3]) * 0.37 + float(w[5])
 	var span := head - tail
@@ -4164,7 +4203,8 @@ func _arc_band(im: ImmediateMesh, centre: Vector2, r: float, width: float, tail:
 		var dir := Vector2.from_angle(tail + span * u)
 		# Pointed at both ends, thickest a little behind the head; the inside edge scalloped like a brushstroke's.
 		var thick := width * pow(sin(PI * pow(u, 1.4)), 0.8)
-		var scallop := 1.0 + 0.16 * sin(u * 23.0 + seed) * sin(u * 7.0 + seed * 1.7)
+		# (Gentler in paper: a clean cut edge with a little hand-cut wobble, not a brushstroke's scallops.)
+		var scallop := 1.0 + (0.05 if FxMaterial.paper else 0.16) * sin(u * 23.0 + seed) * sin(u * 7.0 + seed * 1.7)
 		var ra := r + float(a[0]) - thick * float(a[1]) * (scallop if a[2] else 1.0)
 		var rb := r + float(b[0]) - thick * float(b[1]) * (scallop if b[2] else 1.0)
 		var pa := centre + dir * ra
@@ -4197,7 +4237,9 @@ const LAUNCH_LINES_FROM := 0.2
 static func _cartoon_star(r: float) -> ArrayMesh:
 	var verts := PackedVector3Array()
 	var cols := PackedColorArray()
-	for layer in [[1.28, Color(0.12, 0.07, 0.12), -0.01], [1.0, Color(1.0, 0.82, 0.22), 0.0], [0.45, Color(1.0, 0.97, 0.8), 0.01]]:
+	# (In the paper look the outline is the pale cut edge.)
+	var rim := Color(1.0, 0.97, 0.9) if FxMaterial.paper else Color(0.12, 0.07, 0.12)
+	for layer in [[1.28 if not FxMaterial.paper else 1.18, rim, -0.01], [1.0, Color(1.0, 0.82, 0.22), 0.0], [0.45, Color(1.0, 0.97, 0.8), 0.01]]:
 		var k: float = layer[0]
 		for i in 10:
 			var a0 := PI * 0.5 + TAU * float(i) / 10.0
@@ -4289,11 +4331,14 @@ func _launch_look(s: Dictionary) -> void:
 		mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 		mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 		mat.albedo_color = Color(1.0, 1.0, 0.97, 0.75)
+		if FxMaterial.paper:
+			# Paper strips in a pale wash of the player's colour, a little wider.
+			mat.albedo_color = Color(trail_tint.lerp(Color(1.0, 0.96, 0.88), 0.55), 0.9)
 		mat.disable_fog = true
 		for i in 5:
 			var mi := MeshInstance3D.new()
 			var q := QuadMesh.new()
-			q.size = Vector2(1.0, 0.06)
+			q.size = Vector2(1.0, 0.09 if FxMaterial.paper else 0.06)
 			mi.mesh = q
 			mi.material_override = mat
 			mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF

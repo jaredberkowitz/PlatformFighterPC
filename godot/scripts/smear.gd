@@ -1,4 +1,6 @@
 extends RefCounted
+
+const FxMaterial := preload("res://scripts/fx_material.gd")
 ## Smear ribbons for fists and feet (docs/MOTION_POLISH_PLAN.md phase 1 item 4): a strike with no authored swing arc (`FighterView.ARCS`)
 ## leaves a short drawn ribbon along where the striking hand or foot went over its last few frames, in the move's trail colour, blunt and
 ## widest at the limb and pointed at the tail. The fighter keeps the points (`FighterView._update_smear`); this draws them into the swing
@@ -31,6 +33,10 @@ static func draw(im: ImmediateMesh, points: Array, q: float, main: Color, core: 
 	var body := Color.from_hsv(main.h, minf(1.0, main.s * 1.35), main.v * 0.82)
 	var lit := body.lerp(Color.WHITE, 0.35)
 	var ink := Color(0.1, 0.07, 0.12)
+	if FxMaterial.paper:
+		# Paper: the pale cut edge where the ink was, the core cream.
+		ink = Color(1.0, 0.97, 0.9)
+		core = core.lerp(Color(1.0, 0.95, 0.82), 0.5)
 	var ink_w := 0.05
 	# Bands across the ribbon side by side (not stacked, so the see-through trail does not show its ink through the body), each [from, to]
 	# as shares of the half width (+-1 the edges) plus an ink edge beyond them: ink, body, the lit stripe, body, ink. The hot core is laid

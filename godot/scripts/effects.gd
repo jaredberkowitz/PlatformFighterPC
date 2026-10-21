@@ -16,6 +16,8 @@ const INK := Color(0.12, 0.07, 0.12, 1.0)
 const CUT := Color(1.0, 0.97, 0.9, 1.0)
 const SHADOW := Color(0.14, 0.08, 0.2, 1.0)
 const SHADOW_OFFSET := Vector3(0.1, -0.14, -0.02)
+## A white effect's edge in the paper look (a white ring, the sparkle's white rays): a soft lilac shade.
+const PALE_EDGE := Color(0.62, 0.64, 0.84, 1.0)
 
 
 ## The paper look's sheet shadow under an effect: a see-through dark copy of its outer shape, drawn a little down and right of it (the
@@ -86,7 +88,11 @@ class Ring extends MeshInstance3D:
 		# Painted as the other effects are: a thin ink line along the outer and inner edges with the colour between (`inked`), side by side
 		# so a see-through ring does not show ink through its colour.
 		var ink_w := minf(0.04 + w * 0.12, w * 0.3) if inked else 0.0
-		var ink := Color(CUT if FxMaterial.paper else INK, fade)
+		# (In paper a white ring's edge is a soft lilac shade, as a fold in white paper: a pale cut edge on white vanished.)
+		var edge_c := INK
+		if FxMaterial.paper:
+			edge_c = PALE_EDGE if colour.get_luminance() > 0.8 else CUT
+		var ink := Color(edge_c, fade)
 		var bands := [[r + ink_w, r, ink], [r, maxf(r - w, 0.0), c], [maxf(r - w, 0.0), maxf(r - w - ink_w, 0.0), ink]] if inked else [[r, maxf(r - w, 0.0), c]]
 		var n := 40
 		for band in bands:
@@ -132,7 +138,7 @@ class Streaks extends MeshInstance3D:
 		im.surface_begin(Mesh.PRIMITIVE_TRIANGLES)
 		var fade := colour.a * (1.0 - t)
 		# Painted in layers as the knock-out blast is (an ink sliver, the colour, a thin white core), unless `plain` (a flat white flash).
-		var layers := [[1.0, 1.0, Color(colour, fade)]] if plain else [[1.3 if FxMaterial.paper else 1.9, 1.05, Color(CUT if FxMaterial.paper else INK, fade)], [1.0, 1.0, Color(colour, fade)],
+		var layers := [[1.0, 1.0, Color(colour, fade)]] if plain else [[1.3 if FxMaterial.paper else 1.9, 1.05, Color((PALE_EDGE if colour.get_luminance() > 0.8 else CUT) if FxMaterial.paper else INK, fade)], [1.0, 1.0, Color(colour, fade)],
 			[0.4, 0.86, Color(1.0, 1.0, 0.95, fade)]]
 		for layer in layers:
 			for a in angles:
@@ -342,11 +348,11 @@ class LaunchTrail extends MeshInstance3D:
 		if FxMaterial.paper:
 			# A paper streamer: wider, in the player's colour under its cream, folded (alternate lengths a shade darker), on a sheet shadow.
 			# (The ink trail was a thin pale wedge that the light skies swallowed, the art audit of 2026-10-21.)
-			width = 1.25
-			life = 0.6
+			width = 1.45
+			life = 0.7
 			edge = Color(tint, 1.0)
 			# (Its middle a pale wash of the colour, not cream: a cream streamer vanished into the light skies.)
-			body = Color(tint, 1.0).lerp(Color(1.0, 0.96, 0.88), 0.5)
+			body = Color(tint, 1.0).lerp(Color(1.0, 0.96, 0.88), 0.3)
 			shade = Shade.make(self, false)
 
 	func feed(at: Vector3, on: bool) -> void:
@@ -372,7 +378,8 @@ class LaunchTrail extends MeshInstance3D:
 		im.surface_begin(Mesh.PRIMITIVE_TRIANGLES)
 		var layers := [[1.0, Color(INK, 0.9)], [0.82, edge], [0.62, body], [0.24, Color(1, 1, 1, 1)]]
 		if paper:
-			layers = [[1.0, Color(CUT, 1.0)], [0.84, edge], [0.5, body], [0.18, Color(1, 1, 1, 1)]]
+			# (A deeper edge than the player's colour and a wide body, so it reads on a pale sky; the white core only a thread.)
+			layers = [[1.0, Color(CUT, 1.0)], [0.88, Color(edge.r * 0.75, edge.g * 0.75, edge.b * 0.8, 1.0)], [0.66, body], [0.12, Color(1, 0.97, 0.9, 1)]]
 		# The distance along the streamer at each point, for its folds.
 		var run: Array = [0.0]
 		for i in range(1, n):
@@ -572,6 +579,10 @@ static func shield_hit(parent: Node, at: Vector3, strength: float) -> void:
 	ring.from = 0.6
 	ring.to = 1.5 + 0.6 * strength
 	ring.thickness = 0.22
+	if FxMaterial.paper:
+		# A thin ring of the shield's blue paper (a thick cream one read as a flat donut over the bubble).
+		ring.colour = Color(0.42, 0.68, 1.0, 1.0)
+		ring.thickness = 0.12
 	ring.life = 0.2
 	ring.position = at
 	parent.add_child(ring)
