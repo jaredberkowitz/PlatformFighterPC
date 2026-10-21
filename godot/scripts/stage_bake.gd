@@ -563,8 +563,12 @@ const WORLD_COLOURS := {"hull": Color(0.32, 0.5, 0.62), "hull_stripe": Color(0.9
 
 ## World-building (art/blender/make_world.py, docs/art/stages/WORLD.md, the owner's picks 2026-10-21): the beach's working pier and
 ## harbour life (a fishing boat at its buoy, nets and crates, gulls, a rowboat), the canyon's railroad (a trestle and train, a water
-## tower). By the exact stage they were built on.
-const WORLDS := {"ocean_d9c5edff": "res://models/stages/beach_world.glb", "sunset_19cad55b": "res://models/stages/canyon_world.glb"}
+## tower), the meadow's flock and village life (sheep and cows, chimney smoke, a washing line, a scarecrow), the grove's treehouse and
+## festival (a shrine platform in the great tree, gates, streamers), the city's billboard, rooftop party and street traffic. By the exact
+## stage they were built on.
+const WORLDS := {"ocean_d9c5edff": "res://models/stages/beach_world.glb", "sunset_19cad55b": "res://models/stages/canyon_world.glb",
+	"meadow_62409190": "res://models/stages/meadow_world.glb", "grove_14d06e65": "res://models/stages/grove_world.glb",
+	"city_2eadbb68": "res://models/stages/city_world.glb"}
 
 
 ## The world-building to place: a glTF path to try (`--world-mock=<glb>`), the shipped model for this exact stage (`WORLDS`), or null

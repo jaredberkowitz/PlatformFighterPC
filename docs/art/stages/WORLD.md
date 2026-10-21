@@ -100,3 +100,13 @@ The owner's picks, shipped as `godot/models/stages/beach_world.glb` (`make_world
 - `tests/stage_front_test.gd` keeps them behind the fighters' plane over the play space, as it does the mood light.
 - Before/after: `world_built_1.jpg` (before left; beach above, canyon below).
 - **Tests:** all seven Godot tests pass.
+
+## Built: the meadow's flock and village life, the grove's treehouse and festival, the city's billboard, party and traffic (2026-10-21)
+
+The owner's picks, shipped as `godot/models/stages/meadow_world.glb` (`make_world.py --theme meadow --variant BC`), `grove_world.glb`
+(`--theme grove --variant AB`) and `city_world.glb` (`--theme city --variant AB`), in `StageBake.WORLDS` for each exact layout.
+Every stage now has its world-building.
+- `--no-world` compares.
+- Before/after: `world_built_2.jpg` (before left; meadow, grove, city from the top).
+- **Tests:** all seven Godot tests pass.
+- **Next on the sheet:** motion (gulls wheeling, boats bobbing, the windmill's sails, fireflies, windows lighting, traffic moving).
