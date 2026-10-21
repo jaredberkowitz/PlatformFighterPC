@@ -133,9 +133,10 @@ sails, the clouds, swaying crowns, the city's cars), so the world pieces move th
 smoke on the train); `scripts/world_motion.gd` animates each kind; `--variant L` adds each stage's new living things (the hawks, the
 fireflies).
 
-**Built for review (2026-10-21):** every shipped world model rebuilt with its movers (`--variant AL` on the canyon, `ABL` on the grove for
+**Built (2026-10-21):** every shipped world model rebuilt with its movers (`--variant AL` on the canyon, `ABL` on the grove for
 the hawks and fireflies); `scripts/world_motion.gd` moves them; `StageBake.place_world` adds it, the fireflies glow as the lamps do.
-- **Default:** B (`--world-motion=all`), the recommendation; `place` gives A, `off` today's stillness.
+- **The owner's pick (2026-10-21): B**, life and travellers (`--world-motion=all`, the default); `place` gives A, `off` today's
+  stillness, to compare.
 - **Clips:** `mocks/world_life/` (8 s each from the match camera, `wm_<stage>_<T|A|B>.mp4`, with a local `review.html`), made with the
   `stage_clip` demo and Godot's `--write-movie` (the camera settles over the first 2.5 s, which the clips skip).
 - `tests/stage_front_test.gd` checks every `move_` pivot is a kind the motion knows.
