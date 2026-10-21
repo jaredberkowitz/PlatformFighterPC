@@ -386,3 +386,175 @@ Still open from the list: the hood and the scarf (dark, heavy slabs).
 `hood_scarf_pass.png`: front, three-quarter, side and back; the hood before and after, then the scarf before and after. Fighter view,
 loadout and art pipeline tests pass. That closes the accessory list from the comparison above.
 
+
+## Weak points before beta (2026-10-20, after the UI merge)
+A fresh look against the references (the lineup, roster, faces, close-ups, animation sheets and the moves demo, all re-captured). The
+owner: the model "still reads as a bit sloppy or amateurish compared to the references". Ranked by how much each costs the finish:
+1. **The eye whites cut off at three-quarters**, as the menus show the fighters: a bug from the three-quarter face pass (below, fixed).
+2. **A fuzzy, unfinished surface**: skin grain, cloth weave, a wobbly brown ink line and pale fringes along the hems together read as
+   felt or a soft render; the references are smooth and clean with crisp edges. (Which of these costs most is still to be measured.)
+3. **The sash**: wide, the same maroon band with the same four badges on every default look, standing off the body like a backpack
+   from the side with its badges floating; the reference's is a thin leather strap lying on the shirt.
+4. **Shapeless shirts**: no collars, puffed blobs, sleeves that just end; the reference's crisp collars, kerchief and sailor collar
+   give each its identity. The printed shirt has a flat white slab across the shoulders.
+5. **Everyone the same**: one sash on every default look, one belt with a gold buckle across the built-in roster, half-lidded smug
+   eyes on most faces.
+6. **The built-in roster's boots and socks**: blocky brown boots with a white sock band, crude beside the bare legs.
+7. **Cluttered accessories**: cap, goggles and glasses on one head; brows showing under the beanie's brim.
+8. **Smaller**: idle open hands read as claws; the armpit fold; dash and pivot grabs reuse the standing grab; no crouch before a jump
+   or squash on landing (the playtest notes).
+
+The owner's order: 1, then 2, 4 and 8, then the expressions.
+
+## Eye whites at three-quarters (2026-10-20, item 1 above)
+- **Cause**: the face shell was the head's front cap, cut 72 degrees round from the front, its rim sunk under the skin (the drawing
+  showed to about 65). The three-quarter pass slides the drawing toward the camera by up to 0.5 rad, which carried the near eye's outer
+  edge to about 78 degrees: past the shell, so its white was cut off square, with a notch. The side view had it too.
+- **Fix**: the shell wraps a little past the head's side (`make_rigged_blob.py` `FACE_WRAP`). Wider, it reached the head's upper sides
+  and jaw, which bulge past the ball the slide was worked out on, so the slide's angle clamped there and a stretched sliver of the
+  drawing showed on the side of the head. The slide is no longer done on a ball: each shell point keeps its own depth in its vertex
+  colour (`FACE_DEPTH_CODE`), and `face.gdshader` turns the point about the head's upright axis and projects it straight on again
+  (the same result as before on a round head, so the front view is unchanged).
+- **From behind**, the slide pulled the face round into view at the head's edge; it now fades out past the head's side
+  (`fighter_view.gd` `FACE_SLIDE_BACK`).
+
+`eye_wrap_pass.png`, before left of each pair: three-quarter close-up and side view, the six expressions at three-quarters, the back
+three-quarter views. Rig rebuilt (mesh only; `base_rig.json` unchanged). Fighter view, art pipeline, loadout, animation library, match
+flow, select grid and editor UI tests pass; `creator_flow_test` fails as before in this checkout (its built bridge is older than the
+content files).
+
+## Surface finish (2026-10-20, item 2 above)
+- **Measured by switching each piece off** in turn (a throwaway mock: current, no skin grain, no grain and no cloth weave, a plain ink
+  line, no outline). The skin grain (`SKIN_GRAIN` 0.3) and the cloth weave (`CLOTH_WEAVE` 0.12) made most of the felt look: blotches on
+  the skin, fine stripes on the shirts and shorts. Both are now 0, so surfaces are clean colour and light, as on the references.
+- **The outline is the owner's choice in the game:** they could not choose between the bold outline and none, so it is a new Display
+  setting, **Fighter outline: Bold** (the default, as before) **or Fine** (`visual_settings.gd` `outline`, `fighter_outline()`). Fine
+  sets the fighters' `outline_weight` to 0 and the outline shader draws nothing; in a match the ink pass (`post.gdshader`) still draws
+  its thin line round each fighter, while the menus show the figures with no line at all.
+- **Readability:** the look bench is unchanged on Bold (it fails only on the midnight body against the city's dark backdrop, as it
+  already did). On Fine it loses about a third of the silhouettes against the bright hazes, but it measures the menus' previews, which
+  have no ink pass; in a match (meadow and city, `--demo=moves`) Fine fighters keep a crisp thin edge and read clearly.
+
+`finish_pass.png`: close-up and group shot, then the meadow match: before, Bold, Fine; then the city match: Bold, Fine.
+`finish_pass_setting.png`: the Display page with the new row. Controls, camera, pause, fighter view, art pipeline, loadout, animation
+library, match flow, select grid and editor UI tests pass.
+
+## Shirt collar and buttons (2026-10-20, item 4 above)
+- **Mocked first** (scratch rig builds): bigger collar points, a more fitted shirt, and both. The owner could barely tell them apart
+  under the sash, preferred the puffy shoulders, and with the sash off chose the current collar's size, but "it just reads as
+  triangles on the shirt": two flat patches laid on the chest, starting 0.1 below the neckline, with nothing joining them round the neck.
+- **The collar** (`make_rigged_blob.py` `shirt_front`, `COLLAR_SHAPE` and the other `COLLAR_` constants) is now one band round the neck,
+  laid on the shirt by walking down its surface from the neckline at each angle round the neck (so it lies on the chest in front and
+  on the shoulders at the sides alike): narrow at the back, widening into the same two points at the front, its fold standing off and
+  rounding over along the top. Built as one sheet (the cloth is drawn from both sides): thickened, the tiny faces at its points threw
+  a few corners metres off. A column the walk cannot place is blended from its neighbours, and the band is smoothed along its length.
+- **The flower shirt's collar** is the same band in the shirt's own print (it was two squared cream lapels, a white slab).
+- **Buttons** are drawn without ink rings: three ringed buttons stacked read as the figure 8.
+- The shirt's shape is unchanged (the owner's choice).
+
+`collar_pass.png`, before above after: front and back with no neckwear, then the default looks. The collar follows the torso through
+the run, forward smash, jump, grab and hit animations without poking through. Rig rebuilt (mesh only; `base_rig.json` unchanged).
+Fighter view, art pipeline, loadout, animation library, match flow, select grid and editor UI tests pass.
+
+## Jump crouch and landing squash (2026-10-20, item 8 above, the playtest's "no crouch before a jump, no landing squash")
+- **Measured at real speed.** The demos save a picture every frame, which slows the game and stretches each frame's time to 0.02 to
+  0.15 seconds, so the squash springs ran ahead and the captures understated both. A new demo, `--demo=hop` (a short hop and its
+  landing, a picture every frame), run with Godot's `--fixed-fps 60` shows what a player sees.
+- **The crouch was there, but late.** The jump's crouch lasts three sim frames; the squash spring eased in from standing (0.02, then
+  0.07, 0.12...) and only reached its depth as the feet left the ground, and its clip blended in over 0.1 seconds, longer than the
+  crouch. Now the crouch starts partway down (`JUMP_SQUAT_START` 0.2) and its clip blends in over 0.03 seconds (`JUMP_SQUAT_BLEND`),
+  so it reads from its first frame. (A kick to the spring instead overshot into a flat pancake, 0.43; reverted.)
+- **The landing needed nothing.** At real speed it squashes to 0.32 over four frames with dust and eases back up with a small rebound.
+  A held landing squash was tried and made no difference; reverted.
+
+`jump_crouch_pass.png`: the take-off at real speed, before above after, then the landing (after). Fighter view, animation library,
+match flow and replay tests pass.
+
+## Dash and pivot grabs (2026-10-20, item 8 above, the playtest's "dash grabs and pivot grabs need their own animations")
+- Both played the standing grab (`anim_library.gd`), so neither read, and the pivot grab showed no turn: the simulation turns the
+  fighter round at once as it starts.
+- **Dash grab**: its own clip, `body_dash_grab` (`make_rigged_blob.py`): a lunge out of the run, hips dropped, the body pitched forward
+  over a long front step, the back leg stretched out behind, both arms thrown out low.
+- **Pivot grab**: its own clip, `body_pivot_grab`, winding the torso against the turn and whipping it round into the reach, and the
+  body spins round from the way it was running to its new facing by the grab's first active frame (`fighter_view.gd` `PIVOT_SPIN`).
+- Both are body clips (no weapon swing), with the standing grab as their stand-in on a rig without them. Every class maps its grabs
+  through the shared table, so all 14 fighters get them.
+
+`grab_pass.png`: each grab's sheet, before above after (dash grab, then pivot grab). Rig rebuilt (two new clips). Fighter view,
+animation library, art pipeline, match flow, replay and loadout tests pass.
+
+## Idle hands (2026-10-20, item 8 above)
+- Mocked three open hands from scratch rig builds (current, relaxed, a soft mitten); the owner chose the relaxed one.
+- `make_rigged_blob.py` `mitten` (bare hands and gloves alike): the fingers lie close together instead of fanned apart, a little fuller
+  and shorter, curled further in toward the palm; the thumb sits closer in, turned toward the palm. Spread, slim and curled at the
+  tips, the open hand read as a claw at rest.
+- In a match the change shows little: armed fighters grip their weapons and unarmed ones hold their guard in fists. It shows in the
+  menus, idle poses and open-handed moves.
+
+`idle_hand_pass.png`: close-ups (at rest, a raised hand, the arm forward), before above after, then a match frame before and after.
+Rig rebuilt (mesh only). Fighter view, art pipeline, loadout, animation library and match flow tests pass.
+
+## Armpit fold (2026-10-20, item 8 above)
+- **Found by elimination.** With the arm swung forward, a black arc ran across the side under the arm. Hiding the shirt removed it;
+  turning off the fighters' bold outline (the new Fine setting) removed it too, leaving only a soft fold in the cloth. So it was the
+  shirt's own ink outline, drawn along the cloth folding under the arm.
+- Two narrower fixes made no visible difference and were taken back out: stretching the armpit's ink-free patch down the side, and
+  leaving the ink off the sleeve's body-facing side.
+- **Fix**: the shirt's ink-free patch round each armpit is wider (`ARMPIT_NO_INK` 0.07 to 0.2, `make_rigged_blob.py`). The fold now
+  reads as a soft shade; the match's ink pass still draws the shirt's silhouette there and a light line for the fold.
+
+`armpit_pass.png`: the close-ups, before above after (the arm forward from the side is the fourth panel), then a match frame before
+and after. Rig rebuilt (mesh only). Fighter view, art pipeline, loadout, animation library and match flow tests pass.
+
+## Expressions against the references, and the face finish (2026-10-20)
+Compared every expression and the four default faces with the salute, the frown and the T-pose lineup. The owner: ours look "a bit
+more clumsy, maybe too large, and too drawn on rather than a part of the character".
+- **Too large, crowded**: each eye was about 0.3 of the head's width and the two nearly touched (`EYE_SIZE` 0.45, centres 0.34 of
+  the head apart); the salute's are about 0.22 with clear skin between, the features in the middle of a lot of face.
+- **Drawn on**: a dark plum ink with a hand-drawn wobble, and flat greyish-cream whites with soft edges, laid on the skin like a
+  sticker; the references draw in even near-black strokes on clean whites.
+- **Small pupils** in big whites read as a vacant side-eye.
+- **One mood**: all four defaults are half-lidded and unimpressed (deadpan, smug, grumpy, smug); the reference cast each have their
+  own eyes. (Mocked as option D, not chosen; still open.)
+
+Mocked six options (scratch script laying settings over the face material); the owner chose F:
+- `face_look.gd`: the eyes about a fifth smaller and a little further apart (`EYE_SIZE` 0.351, `EYE_GAP` 0.237), the brows down with
+  them and smaller (`BROW_Y` 0.288, `BROW_SIZE` 0.306), the mouth smaller (`MOUTH_SIZE` 0.306), cheeks following the eyes; bigger
+  pupils (`PUPIL` 0.266) with a bigger shine (`CATCHLIGHT` 0.55); the "ink" brow colour near-black.
+- `face_common.gdshaderinc`: near-black ink, no line wobble, clean whites, and each white set into the head with a soft warm shade
+  inside its edge (from a blurred copy of its own shape).
+- `tools/art/make_face_parts.py`: the mouths drawn in the same near-black ink (regenerated).
+- The face on the head and the creator's pictures share the shader, so both follow.
+
+`face_finish_pass.png`, before above after: the four default faces; every expression; a match frame; the creator's mood page. At
+match distance the change is small; it shows most in the menus and close-ups. Fighter view, art pipeline, loadout, editor UI, select
+grid and match flow tests pass; `creator_flow_test` fails as on `main` (the locally built bridge).
+
+## The faces after the reference, and a round head (2026-10-20)
+The owner, after the face finish: the faces "still read as a bit cheap, sometimes scary"; "adapt how they are in the reference ...
+they can all use the same eyes as a base, and we can adjust to differentiate from there ... match the materials, softness, shapes".
+Sampled off the salute reference: the pupils and lines one deep navy (0.03, 0.03, 0.24), the whites a warm ivory (0.85, 0.83, 0.68),
+the pupil about 70% of the eye's width and sitting low, a big soft shine at its top, no outline round the eye, every edge a little
+soft; the mouth a thin navy line with ivory teeth. Mocked over five rounds with the owner (scratch faces and a scratch body build);
+built as chosen:
+- **One base eye** for every face (`face_common.gdshaderinc`, `face_look.gd`): navy ink (`ink_color`) and pupils (the eye colour, now
+  navy first, a quarter toward the ink), ivory whites set into the head, a big soft shine (`CATCHLIGHT` 0.85), `PUPIL` 0.245 sitting
+  low (`LOOK`), no eye outline (`eye_line`; the lashes eye keeps its line for its lashes), and every part's edge a little soft.
+- **Lids arched** like a real lid, the middle higher than the corners, more so as the lid closes, their ink line thinning toward the
+  corners (a straight lid line read sharp). The resting moods vary the base eye only by their lids and look: deadpan open, sleepy
+  half-lidded, grumpy lidded at a slant, smug lidded above and below and looking aside; none borrows brows at rest.
+- **Eyes closer** (`EYE_GAP` 0.195: the salute's eye centres are 0.39 of the head apart, ours were 0.48).
+- **Mouths redrawn** (`tools/art/make_face_parts.py`): a thinner navy line (`MOUTH_LINE` 18), small rounded shapes, ivory teeth in one
+  band, the salute's toothy grin with rounded corners; the action mouths to match (a rounded D yell, a clenched grin, a small open
+  frown, a small o, in place of a dark trapezoid, a box of teeth, a lipstick bean and a big dark oval). Brows (arch, bar, slant) are
+  soft rounded strokes.
+- **Default looks** (`loadout.gd`): all the round eye; no brows (the sailor's forehead curl and the others' bars; brows stay in the
+  creator); the mouth centred (no `face_lean`); the sailor with the salute's grin, the aviator sleepy.
+- **A round head** (`make_cage_body.py`): the neck narrower and the sphere carried further down. The neck as wide as the head's lowest
+  ring ran its lower sides straight to the shoulders, 3 to 4 cm longer than a circle below its widest; it now follows a circle of its
+  width within about 1 cm. A taller top with a narrower neck read as an egg (mocked, not chosen). The joints moved at most 2 cm (the
+  neck up); glasses follow the eyes (`_glasses_fit` reads the eye spacing).
+
+`reference_face_pass.png`: the reference beside ours; the defaults close up before and after; front views before and after (the head);
+every expression before and after; the creator's eyes page and a match frame before and after. Fighter view, art pipeline, loadout,
+animation library, editor UI, select grid, match flow, replay and prop check tests pass.

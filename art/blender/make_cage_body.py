@@ -53,9 +53,13 @@ CROTCH = (0.0, 0.80)            # crotch vertex (y, z)
 # ---- Neck and head: rings of the same 16 angles. (z, half width, half depth) then the sphere ------------------------------------------
 # (Wider still and the head a little lower, its lowest ring as wide as the neck, the character pass, 2026-10-19: the head sits straight on
 # the shoulders, a squat oval with no neck showing, as the reference cast's.)
-NECK = [(1.57, 0.305, 0.245)]
+# (Narrower, and the sphere carried further down, since the head pass, 2026-10-20, the owner: "towards the bottom it straightens out". The
+# neck as wide as the head's lowest ring ran the head's lower sides straight down to the shoulders, 3 to 4 cm longer than a circle's
+# below its widest; measured against a circle of the head's width, its underside now follows the circle within about 1 cm. A taller
+# top and a narrower neck were tried too and read as an egg.)
+NECK = [(1.55, 0.24, 0.2)]
 HEAD_C, HEAD_R = Vector((0.0, 0.0, 1.89)), 0.41
-HEAD_PHI = (50, 66, 82, 98, 118, 138, 156)   # degrees from the bottom pole; the 4x4 grid closes the last ring
+HEAD_PHI = (38, 52, 66, 80, 96, 116, 136, 156)   # degrees from the bottom pole; the 4x4 grid closes the last ring
 HEAD_TOP = 0.03                              # how far the cap's middle rises above a flat lid
 
 # ---- Limbs, right side (the left is mirrored). Each ring: (centre, axis, radius across u, radius across w below, w above, squareness) -

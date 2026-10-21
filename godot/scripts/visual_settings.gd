@@ -17,8 +17,10 @@ const OPTIONS := {
 		"about": "Fast turns off shadows, anti-aliasing and glow for slower machines; Balanced uses lighter anti-aliasing."},
 	"camera": {"label": "Camera", "choices": ["Follow", "Steady"], "default": 1,
 		"about": "Steady holds the view still through ordinary jumps, as the reference game does (it moves for big launches and recoveries). Follow rises with every jump."},
+	"outline": {"label": "Fighter outline", "choices": ["Fine", "Bold"], "default": 1,
+		"about": "Bold draws a thick ink line round every fighter. Fine keeps only a thin edge, for a cleaner, softer look."},
 }
-const ORDER := ["shake", "flashes", "effects", "quality", "camera"]
+const ORDER := ["shake", "flashes", "effects", "quality", "camera", "outline"]
 
 const SHAKE_SCALE := [0.0, 0.5, 1.0]
 const FLASH_SCALE := [0.0, 0.45, 1.0]
@@ -63,6 +65,12 @@ static func two_tone() -> bool:
 ## to test whether the camera rising with every jump is what made movement feel floaty).
 static func steady_camera() -> bool:
 	return get_index("camera") == 1
+
+
+## Whether the fighters wear their bold ink outline (fighter_view.gd `_tag_object`; the owner's finish pass, 2026-10-20, could not choose
+## between the two). Without it the match's ink pass still draws a fine line round each fighter (shaders/post.gdshader).
+static func fighter_outline() -> bool:
+	return get_index("outline") == 1
 
 
 static func effects() -> float:

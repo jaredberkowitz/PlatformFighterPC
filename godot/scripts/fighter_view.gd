@@ -30,6 +30,7 @@ const TOON_SHADER := preload("res://shaders/toon.gdshader")
 const TOON_CLOTH_SHADER := preload("res://shaders/toon_cloth.gdshader")
 const FACE_SHADER := preload("res://shaders/face.gdshader")
 const OUTLINE_SHADER := preload("res://shaders/outline.gdshader")
+const VisualSettings := preload("res://scripts/visual_settings.gd")
 const SHIELD_SHADER := preload("res://shaders/shield.gdshader")
 const Effects := preload("res://scripts/effects.gd")
 const LIMB_SHADER := preload("res://shaders/limb.gdshader")
@@ -425,10 +426,12 @@ func _build_rig(skin: Material) -> bool:
 			if cuff_cloth != null:
 				mi.material_override = _cloth(cuff_cloth)
 		elif part.begins_with("ShirtCampCollar"):
-			# The holiday shirt's open camp collar, in its own print.
+			# The holiday shirt's collar, in its own print.
 			mi.visible = loadout.shirt == 4
-			# (A plain cream to stand out from the print, as the reference's collar's lining shows.)
-			mi.material_override = _cloth(toon(Color(0.98, 0.94, 0.86)))
+			# (A plain cream until the shirt pass, 2026-10-20, as the reference's collar's lining shows: it read as a white slab across the
+			# shoulders. Its fold and edge stand off the shirt, so it reads in the same print.)
+			var print_cloth := _garment_shirt_material()
+			mi.material_override = _cloth(print_cloth) if print_cloth != null else _cloth(toon(Color(0.98, 0.94, 0.86)))
 		elif part.begins_with("ShirtCollar") or part.begins_with("ShirtPlacket"):
 			# The collar and the placket, modelled on the shirt's front (make_rigged_blob.py's `shirt_front`): a shade darker than a plain
 			# shirt, white on a printed one; the collar hides under a ring of neckwear.
@@ -438,7 +441,8 @@ func _build_rig(skin: Material) -> bool:
 			# (Not under a sash, the badge pass, 2026-10-19: the band crosses the button line and the buttons poked through it as a row of
 			# pale dots in the middle of the chest.)
 			mi.visible = loadout.shirt > 0 and not (loadout.neck == 1 or loadout.neck == 5)
-			mi.material_override = toon(Color(0.95, 0.9, 0.78))
+			# (No ink ring round each since the shirt pass, 2026-10-20: three ringed buttons stacked read as the figure 8.)
+			mi.material_override = toon(Color(0.95, 0.9, 0.78), false)
 		elif part.begins_with("Shirt"):
 			var cloth := _garment_shirt_material()
 			mi.visible = cloth != null
@@ -789,7 +793,7 @@ func _animate(s: Dictionary, delta: float) -> void:
 		var follows: bool = float(pick[2]) >= 0.0
 		# Likewise a hit's pose: a fighter frozen by hitlag is already in it for the whole freeze (the animation does not move on then).
 		var frozen: bool = int(s.hitlag) > 0
-		anim.play(shown, 0.1 if current_clip != "" and not follows and not frozen and not clip.begins_with("attack") else 0.0)
+		anim.play(shown, (JUMP_SQUAT_BLEND if clip == "jumpsquat" else 0.1) if current_clip != "" and not follows and not frozen and not clip.begins_with("attack") else 0.0)
 		shown_clip = shown
 		if frozen and not follows:
 			anim.advance(0.0)
@@ -832,7 +836,9 @@ const HEAD_SIZE := Vector3(1.45, 1.1, 1.32)
 ## (1.4, the character judge's round 7: the reference's gloves are about half the head's width, a main shape.)
 const HAND_SIZE := 1.0   # (the character judge's round 19 wanted the hand about 0.3 of the head's height; with the slimmer wrist (the hand grows with it) 0.8 read tiny to the owner)
 ## How strong the skin's faint painted grain is (`skin_grain` in shaders/skin.gdshader), the character pass, 2026-10-19.
-const SKIN_GRAIN := 0.3   # (0.15 until the matte pass, 2026-10-19: the reference cast's skin carries a visible soft speckle)
+const SKIN_GRAIN := 0.0   # (0.15 until the matte pass, 2026-10-19: the reference cast's skin carries a visible soft speckle; 0.3 until the
+                           # finish pass, 2026-10-20: with the cloth's weave it read as felt, the owner's "sloppy", against the references'
+                           # clean surfaces)
 ## (0.9, the character judge's round 1: the reference's shoes are small; big rounded ones read as clown shoes.)
 const FOOT_SIZE := 0.9
 
@@ -914,6 +920,9 @@ const FACE_SLIDE := 0.45
 var glasses_node: Node3D
 var glasses_base := Transform3D()
 const FACE_SLIDE_MAX := 0.5
+## Seen from behind, the slide fades out between these angles round the head (radians from its front): it is for the far eye at
+## three-quarters, and from behind it only pulled the face round into view at the head's edge.
+const FACE_SLIDE_BACK := Vector2(1.75, 2.6)
 
 
 func _slide_face() -> void:
@@ -927,6 +936,7 @@ func _slide_face() -> void:
 	var local := head.affine_inverse() * cam.global_position
 	var around := atan2(local.x, local.z)
 	var slide := clampf(around * FACE_SLIDE, -FACE_SLIDE_MAX, FACE_SLIDE_MAX)
+	slide *= 1.0 - smoothstep(FACE_SLIDE_BACK.x, FACE_SLIDE_BACK.y, absf(around))
 	face_mat.set_shader_parameter("face_slide", slide)
 	# The glasses turn round the head with the drawing, so the eyes stay behind their lenses (in the head's design space, a ball about
 	# 1.42 up).
@@ -1462,7 +1472,10 @@ func _tag_object(node: Node) -> void:
 				(node as GeometryInstance3D).set_instance_shader_parameter("object_id", 0.06 + 0.07 * float(player % 8))
 				# The fighters are the clearest things on screen: the full ink outline (the scenery's is thinner and softer) and a
 				# stronger rim.
-				(node as GeometryInstance3D).set_instance_shader_parameter("outline_weight", FIGHTER_OUTLINE_WEIGHT)
+				# (None with the Display setting Fighter outline off: the match's ink pass, shaders/post.gdshader, then draws its own fine line
+				# round the fighter, and the menus show it with none, as the reference figures are drawn.)
+				var weight := FIGHTER_OUTLINE_WEIGHT if VisualSettings.fighter_outline() else 0.0
+				(node as GeometryInstance3D).set_instance_shader_parameter("outline_weight", weight)
 				# (Clothes keep the plain rim: a strong one picks out every fold as a bright streak.)
 				var cloth := str(node.name).begins_with("Shirt") or str(node.name).begins_with("Shorts")
 				(node as GeometryInstance3D).set_instance_shader_parameter("rim_boost", 1.0 if cloth else FIGHTER_RIM_BOOST)
@@ -1744,7 +1757,7 @@ const OUTLINE_TINT_DARKEN := 0.45
 const OUTLINE_TINT_DARKEN_PALE := 0.8
 const CLOTH_RAMP_SOFTNESS := 0.32
 ## (Finer and fainter, 2026-10-18: long strokes on a pale shirt read as wood grain; the reference's cloth is a fine fleck.)
-const CLOTH_WEAVE := 0.12   # (a fine faint cotton weave since the weave pass, 2026-10-19: 0.32 at scale 0.12 drew strokes 18 cm apart that read as ripples across the cloth)
+const CLOTH_WEAVE := 0.0   # (a fine faint cotton weave since the weave pass, 2026-10-19: 0.32 at scale 0.12 drew strokes 18 cm apart that read as ripples across the cloth; 0.12 until the finish pass, 2026-10-20, see SKIN_GRAIN)
 const CLOTH_WEAVE_SCALE := 1.2
 ## The shirt's bottom hem: how far below the waist it is cut (art/blender/make_rigged_blob.py) and how wide its ink line is (rest units).
 const SHIRT_HEM_BELOW_WAIST := 0.012
@@ -2722,6 +2735,12 @@ const SPRING_K := 420.0
 const SPRING_DAMP := 22.0  # a bit under critical (2*sqrt(K) = 41), so there is a small rebound
 ## How hard the take-off throws the squash spring into a stretch (its velocity, per second).
 const TAKE_OFF_KICK := 9.0
+## How far down the jump's crouch starts, on its first frame (the spring eases it on to `SQUASH.JumpSquat`): the crouch lasts three
+## frames, and eased in by the spring from standing it only reached its depth as the feet left the ground, so it hardly read (the
+## owner's playtest notes, 2026-10-19: "no crouch before a jump"). (A kick to the spring instead overshot into a flat pancake.)
+const JUMP_SQUAT_START := 0.2
+## How long the jump's crouch clip takes to blend in (seconds; other clips take 0.1, longer than the whole crouch).
+const JUMP_SQUAT_BLEND := 0.03
 
 var squash := 0.0
 var squash_vel := 0.0
@@ -2872,6 +2891,9 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 	# Touching down: kick the squash spring in proportion to how fast we were falling.
 	if grounded and not was_grounded:
 		squash_vel += clampf(absf(last_vy), 0.0, 0.35) * 55.0
+	if state == "JumpSquat" and last_state != "JumpSquat":
+		squash = maxf(squash, JUMP_SQUAT_START)
+		squash_vel = maxf(squash_vel, 0.0)
 	was_grounded = grounded
 	if not grounded:
 		last_vy = vy
@@ -3032,7 +3054,7 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 		flip += (-1.0 if way < 0 else 1.0) * TAU * smoothstep(ROLL_SPIN_FROM, ROLL_SPIN_TO, dodge)
 		# (About the curled ball's middle, high enough that the head clears the floor as it comes round.)
 		pivot = Vector3(0, 0.8, 0)
-	model.rotation = Vector3(deg_to_rad(lean) + flip, yaw, 0)
+	model.rotation = Vector3(deg_to_rad(lean) + flip, yaw + _pivot_spin(s), 0)
 	# A spinning neutral air turns the whole body over once backward, in the plane of the stage (see NAIR_SPIN).
 	var spin := _spin(s)
 	if spin != 0.0:
@@ -3745,6 +3767,20 @@ func _place_buckler(s: Dictionary) -> void:
 		return
 	var at: Vector3 = _skeleton_to_frame() * skeleton.get_bone_global_pose(hb).origin
 	shield_disc.position = stage_frame.transform * at + Vector3(0.12 * facing, -0.05, 0.25)
+
+
+## The pivot grab's turn (radians added to the body's yaw): the simulation turns the fighter round at once as the grab starts, so the
+## body spins back from the way it was running, round through the camera, and faces its new way by the grab's first active frame
+## (the playtest notes, 2026-10-19: the pivot grab showed no turn).
+const PIVOT_SPIN := PI
+
+
+func _pivot_spin(s: Dictionary) -> float:
+	if String(s.state) != "Attack" or String(s.move_name) != "pivot grab":
+		return 0.0
+	var first := maxf(1.0, float(s.move_timing[1]))
+	var k := clampf(float(s.state_frame) / first, 0.0, 1.0)
+	return PIVOT_SPIN * float(s.facing) * (1.0 - k * k * (3.0 - 2.0 * k))
 
 
 ## Whether a move of class `cls` is done with the body (a kick, a grab, a throw, a landing hit) rather than the weapon.
