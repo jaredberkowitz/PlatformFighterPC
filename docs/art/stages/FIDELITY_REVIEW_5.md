@@ -93,3 +93,12 @@ recommended B, then on to item 3.
 
 **Built (2026-10-22): sky B** (the owner's pick): `sky_look=2` in the meadow's, canyon's, beach's and grove's palettes (the city's sky
 goes with item 4).
+
+## Item 3, the canyon's middle distance (2026-10-22, mock)
+
+All options: the arch rebuilt as rock (`make_canyon_paper.py --arch solid`, `arch_rock`: each leg two massive blocks with one pale
+band, the span one solid piece with a true arch under it and a darker cap) and the front a fifth lighter (`--front-lift=0.2`, the
+theme's `front_lift`, `StageBake._front_lift` on the strata). The trestle (`make_world.py --trestle`): A as it is, B `back` (behind the
+far buttes, lower, hazier), C `short` (from behind one butte to behind another; the train's loop now takes the deck's length,
+`world_motion.gd`). Lowering it near the floor put the train right behind the fighters at the match camera. On the Stage Look Review
+("canyonmid", `can_*`); recommended B.

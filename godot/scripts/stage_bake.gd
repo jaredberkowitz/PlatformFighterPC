@@ -402,8 +402,9 @@ static func place_front(root: Node3D, t: Dictionary, scene: Node3D) -> void:
 		"harbour_stone": _pal_of(t, "quay", Color(0.7, 0.6, 0.48)), "foam": Color(0.9, 0.97, 1.0), "weed": Color(0.26, 0.46, 0.3),
 		# (The canyon's strata, art/blender/make_canyon_front.py: its sandstone, its deep brick and a pale band, as the code-built strata.)
 		# (Wider apart than the code-built strata's: under the dusk light three close reds read as one.)
-		"strata_a": t.get("soil", Color(0.86, 0.5, 0.32)), "strata_b": (t.get("soil_dark", Color(0.68, 0.34, 0.24)) as Color).darkened(0.12),
-		"strata_c": (t.get("soil", Color(0.86, 0.5, 0.32)) as Color).lerp(Color(1.0, 0.86, 0.66), 0.6),
+		"strata_a": _front_lift(t, t.get("soil", Color(0.86, 0.5, 0.32))),
+		"strata_b": _front_lift(t, (t.get("soil_dark", Color(0.68, 0.34, 0.24)) as Color).darkened(0.12)),
+		"strata_c": _front_lift(t, (t.get("soil", Color(0.86, 0.5, 0.32)) as Color).lerp(Color(1.0, 0.86, 0.66), 0.6)),
 		# (The city's, art/blender/make_city_front.py: the code-built facade's warm stone, gold frames, curtains, neon and fittings.)
 		"trim": Color(0.9, 0.8, 0.68), "frame": Color(0.86, 0.7, 0.46), "curtain_a": Color(0.92, 0.54, 0.58), "curtain_b": Color(0.56, 0.72, 0.92),
 		"curtain_c": Color(0.92, 0.76, 0.44), "neon": Color(0.88, 0.3, 0.38), "pipe": Color(0.48, 0.48, 0.58), "pot": Color(0.78, 0.4, 0.3),
@@ -1037,6 +1038,15 @@ static func _paint_ground(node: Node3D, colours: Dictionary) -> void:
 		mi.set_meta("prebaked", true)
 		var depth := -(mi.global_transform * mi.mesh.get_aabb().get_center()).z
 		StageArt._air(mi, depth)
+
+
+## A front's strata lifted toward a pale warm sand by the theme's `front_lift` (`--front-lift=` to try): fidelity review 5, the canyon's
+## front dark and saturated (value 0.30, saturation 0.61) weighing down the lower half of the frame.
+static func _front_lift(t: Dictionary, c: Color) -> Color:
+	var lift := float(t.get("front_lift", 0.0))
+	if flag("--front-lift=") != "":
+		lift = float(flag("--front-lift="))
+	return c.lerp(Color(0.96, 0.84, 0.72), lift)
 
 
 ## The modelled ground and bush for this exact stage: glTF paths to try (`--ground-mock=`, `--bush-mock=`), the shipped models

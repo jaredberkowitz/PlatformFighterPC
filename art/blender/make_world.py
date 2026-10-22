@@ -404,9 +404,13 @@ def market():
 def canyon_a():
     rng = random.Random(4)
     # (Nearer and higher than first tried, and bolder: at -110 the trestle read as a hairline behind the buttes.)
-    z = -92.0
-    top = -2.5
-    x0, x1 = -110.0, 110.0
+    # (`--trestle back|short`, fidelity review 5: as one line just over the platforms it ran the eye across the whole frame. `back` sets
+    # it behind the far row, thinner and in the air; `short` runs it only from behind one near butte to behind another, so it has ends.
+    # Set lower, it stood right behind the fighters at the match camera.)
+    trestle = opts.get("trestle", "high")
+    z = -124.0 if trestle == "back" else -92.0
+    top = -6.0 if trestle == "back" else -2.5
+    x0, x1 = (-52.0, 68.0) if trestle == "short" else (-110.0, 110.0)
     # The trestle: bents of rolled timber every 7 units, cross-braced, carrying the deck.
     bm = bmesh.new()
     x = x0

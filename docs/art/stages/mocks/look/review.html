@@ -88,8 +88,28 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
     <p>Two lessons from the reference screenshots, mocked from the match camera: the scenery without ink outlines, its edges lit as card bevels instead, and the paper houses rebuilt at the characters' proportions. The earlier rounds stay on the <a href="https://claude.ai/artifact/D1du6MREVumiJDrEdNypW4">Stage Fidelity Review</a>, which is full.</p>
   </header>
 
+  <section class="panel" aria-labelledby="can-h" id="canyonmid">
+    <div class="eyebrow">Your call is needed &middot; review 5, item 3: the canyon's middle distance</div>
+    <h2 id="can-h">The canyon's arch, trestle and front</h2>
+    <p>First, sky B is built on the meadow, canyon, beach and grove. Then the canyon's middle distance, which review 5 found held three first-pass shapes. All three options rebuild the arch and lighten the front. They differ in the trestle:</p>
+    <ul style="display:grid;gap:6px;margin:0;padding-left:1.2em;max-width:78ch">
+      <li><b>The arch, as rock:</b> each leg is two massive blocks, the upper one set in and turned, with one pale band between them; the span is one solid piece with a true arch underneath and an uneven top under a darker cap. Before, each leg was a stack of six-sided blocks in alternating strata, which read as discs.</li>
+      <li><b>The front, a step lighter:</b> its strata lifted a fifth of the way toward a pale sand, so the lower half of the frame is less heavy.</li>
+    </ul>
+    <div class="viewer"><img src="can_arch.jpg" alt="The canyon's arch, today and rebuilt as rock"></div>
+    <div class="tablewrap"><table><thead><tr><th>Option</th><th>The trestle</th></tr></thead><tbody>
+      <tr><td>A &middot; As it is</td><td>Where it stands today, crossing the frame just above the platforms.</td></tr>
+      <tr><td>B &middot; Set back</td><td>Moved behind the far row of buttes and a little lower: thinner, hazier, broken by the buttes in front of it. The train still runs its length.</td></tr>
+      <tr><td>C &middot; With ends</td><td>A shorter track that comes out from behind one butte and goes behind another, so it reads as a crossing between them rather than a line across the frame. The train runs end to end. At the match camera it looks the same as today, since that view only sees the middle.</td></tr>
+    </tbody></table></div>
+    <div class="row" role="group" aria-label="View"><button data-nv="w">Wide</button><button data-nv="m">Match camera</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-no="T">Today</button><button data-no="A">A &middot; Trestle as it is</button><button data-no="B">B &middot; Trestle set back</button><button data-no="C">C &middot; Trestle with ends</button></div>
+    <div class="viewer"><img id="nimg" alt="Canyon middle option"><span class="vtag" id="ntag"></span></div>
+    <p class="muted">Also tried: lowering the trestle near the floor to hide it behind the buttes. At the match camera that put the train right behind the fighters, so it's left out. My pick: <b>B</b>. The arch and the front are the clear gains, and setting the trestle back quiets the one line without losing the train.</p>
+  </section>
+
   <section class="panel" aria-labelledby="sky-h" id="sky">
-    <div class="eyebrow">Your call is needed &middot; review 5, item 2: the skies</div>
+    <div class="eyebrow">Built (B) &middot; review 5, item 2: the skies</div>
     <h2 id="sky-h">The sky pass</h2>
     <p>First, the paper sea is built: the beach's sea is now the reworked paper waves (before and after below). Then the skies, which review 5 found to be plain gradients. One thing I learned measuring them: at both cameras the sky is only the top sixth of the screen (up to about 5 degrees above the horizon). On the meadow the mountains cover most of it, on the grove the forest, and on the city its glow and mist. So the sky is shown here on the three stages where it reads: the meadow, the canyon and the beach. The city's sky goes with item 4.</p>
     <div class="viewer"><img src="beach_sea_built.jpg" alt="The beach before and after the paper sea"></div>
@@ -770,5 +790,15 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
   group("data-kv", function (v) { kv = v; }, krender);
   group("data-ko", function (v) { ko = v; }, krender);
   krender();
+  var nv = "w", no = "B";
+  var NO = { T: "Today", A: "A \u00b7 Trestle as it is", B: "B \u00b7 Trestle set back", C: "C \u00b7 Trestle with ends" };
+  function nrender() {
+    document.getElementById("nimg").src = "can_" + no + "_" + nv + ".jpg";
+    document.getElementById("ntag").textContent = "Canyon \u00b7 " + NO[no] + (nv === "w" ? " \u00b7 wide" : " \u00b7 match camera");
+    pressed("data-nv", nv); pressed("data-no", no);
+  }
+  group("data-nv", function (v) { nv = v; }, nrender);
+  group("data-no", function (v) { no = v; }, nrender);
+  nrender();
 })();
 </script>
