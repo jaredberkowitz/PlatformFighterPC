@@ -88,8 +88,30 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
     <p>Two lessons from the reference screenshots, mocked from the match camera: the scenery without ink outlines, its edges lit as card bevels instead, and the paper houses rebuilt at the characters' proportions. The earlier rounds stay on the <a href="https://claude.ai/artifact/D1du6MREVumiJDrEdNypW4">Stage Fidelity Review</a>, which is full.</p>
   </header>
 
+  <section class="panel" aria-labelledby="cty-h" id="citymid">
+    <div class="eyebrow">Your call is needed &middot; review 5, item 4: the city behind the fight</div>
+    <h2 id="cty-h">A quieter city behind the fighters</h2>
+    <p>First, canyon B is built: the arch is solid rock, the front a step lighter, and the trestle set back. Then the city. Review 5 found its towers right behind the fighters the busiest background in the game, with the scaffold towers reading as bright white lattices against the night. All three options make the same two changes; they differ in the sky:</p>
+    <ul style="display:grid;gap:6px;margin:0;padding-left:1.2em;max-width:78ch">
+      <li><b>A quiet band behind the fight:</b> on the two nearer rows of towers, within about 26 units of the middle, far fewer windows are lit, and the facades are drawn toward their own wall colour. The signs and the towers to the sides are unchanged.</li>
+      <li><b>Dark scaffolds:</b> the towers are painted a deep slate, and their struts take a dark ink line instead of the pale paper edge the scenery gets. On struts that thin, the pale edge was most of what showed.</li>
+    </ul>
+    <div class="viewer"><img src="canyon_middle_built.jpg" alt="The canyon before and after canyon B"></div>
+    <p>Up close behind the fighters, today on the left:</p>
+    <div class="viewer"><img src="cty_close.jpg" alt="The scaffold and the towers behind the fighters, today and quieter"></div>
+    <div class="tablewrap"><table><thead><tr><th>Option</th><th>The sky</th></tr></thead><tbody>
+      <tr><td>A &middot; As it is</td><td>The night glow as it is.</td></tr>
+      <tr><td>B &middot; Soft night clouds</td><td>The sky pass's soft streaks, lit from below by the city's glow. Little shows: the towers cover most of the sky.</td></tr>
+      <tr><td>C &middot; Card night clouds</td><td>Dark card cloud banks with puffed edges along the top of the frame, lit along their undersides by the glow. It adds a layer of night sky above the towers.</td></tr>
+    </tbody></table></div>
+    <div class="row" role="group" aria-label="View"><button data-cv2="w">Wide</button><button data-cv2="m">Match camera</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-co2="T">Today</button><button data-co2="A">A &middot; Sky as it is</button><button data-co2="B">B &middot; Soft night clouds</button><button data-co2="C">C &middot; Card night clouds</button></div>
+    <div class="viewer"><img id="cimg2" alt="City option"><span class="vtag" id="ctag2"></span></div>
+    <p class="muted">My pick: <b>A</b>. The quiet band and the dark scaffolds are the gains here. Take C if you want the night sky to have more going on.</p>
+  </section>
+
   <section class="panel" aria-labelledby="can-h" id="canyonmid">
-    <div class="eyebrow">Your call is needed &middot; review 5, item 3: the canyon's middle distance</div>
+    <div class="eyebrow">Built (B) &middot; review 5, item 3: the canyon's middle distance</div>
     <h2 id="can-h">The canyon's arch, trestle and front</h2>
     <p>First, sky B is built on the meadow, canyon, beach and grove. Then the canyon's middle distance, which review 5 found held three first-pass shapes. All three options rebuild the arch and lighten the front. They differ in the trestle:</p>
     <ul style="display:grid;gap:6px;margin:0;padding-left:1.2em;max-width:78ch">
@@ -800,5 +822,15 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
   group("data-nv", function (v) { nv = v; }, nrender);
   group("data-no", function (v) { no = v; }, nrender);
   nrender();
+  var cv2 = "w", co2 = "A";
+  var CO2 = { T: "Today", A: "A \u00b7 Sky as it is", B: "B \u00b7 Soft night clouds", C: "C \u00b7 Card night clouds" };
+  function c2render() {
+    document.getElementById("cimg2").src = "cty_" + co2 + "_" + cv2 + ".jpg";
+    document.getElementById("ctag2").textContent = "City \u00b7 " + CO2[co2] + (cv2 === "w" ? " \u00b7 wide" : " \u00b7 match camera");
+    pressed("data-cv2", cv2); pressed("data-co2", co2);
+  }
+  group("data-cv2", function (v) { cv2 = v; }, c2render);
+  group("data-co2", function (v) { co2 = v; }, c2render);
+  c2render();
 })();
 </script>

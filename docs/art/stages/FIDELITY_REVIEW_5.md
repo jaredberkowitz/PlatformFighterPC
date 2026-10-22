@@ -106,3 +106,11 @@ far buttes, lower, hazier), C `short` (from behind one butte to behind another; 
 **Built (2026-10-22): canyon B** (the owner's pick): `canyon_paper.glb` rebuilt `--variant KC --arch solid`, `canyon_world.glb`
 `--trestle back`, `sunset.cfg` `front_lift=0.2`; the canyon re-lit. Before and after: `review5/canyon_middle_built.jpg`. (The runner
 test's timing checks flaked twice while captures ran beside it; it passes on its own.)
+
+## Item 4, the city behind the fight (2026-10-22, mock)
+
+All options: a quiet band behind the fight (facade.gdshader `calm`, `calm_half`: within 26 units of the middle, on the two nearer
+layers, three-quarters fewer windows lit and the facade drawn 40% toward its wall colour; the palette's `skyline_calm`, `--city-calm=`)
+and dark scaffolds (`scaffold_steel`, `--scaffold-dark`: a deep slate, and an object id under the scenery's so the post pass inks the
+struts dark instead of edging them pale). The sky: A as it is, B the sky pass's soft streaks (little shows over the towers), C card
+night clouds. On the Stage Look Review ("citymid", `cty_*`); recommended A.
