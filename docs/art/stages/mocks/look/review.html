@@ -88,6 +88,32 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
     <p>Two lessons from the reference screenshots, mocked from the match camera: the scenery without ink outlines, its edges lit as card bevels instead, and the paper houses rebuilt at the characters' proportions. The earlier rounds stay on the <a href="https://claude.ai/artifact/D1du6MREVumiJDrEdNypW4">Stage Fidelity Review</a>, which is full.</p>
   </header>
 
+  <section class="panel" aria-labelledby="bt-h" id="buttes">
+    <div class="eyebrow">Your picks are needed &middot; review 4, items 3 and 4</div>
+    <h2 id="bt-h">The canyon's buttes in cardboard</h2>
+    <p>Today's buttes and arch are stacks of rounded discs that read as pancakes, unlike the stage's own slab front and the references' chunky cardboard rock (a few big flat planes, bevelled edges, stepped ledges). Each option is on the new sand floor.</p>
+    <div class="tablewrap"><table><thead><tr><th>Option</th><th>What it is</th></tr></thead><tbody>
+      <tr><td>A &middot; Cardboard blocks</td><td>Every butte two or three tiers of angular blocks with bevelled tops, stepping in as they rise, each tier banded in the strata; the arch's legs in blocks, its span three bevelled beams</td></tr>
+      <tr><td>B &middot; Slab courses</td><td>Built as the stage's front is: rows of squared slabs of the strata, stepping in near the top</td></tr>
+      <tr><td>C &middot; Blocks and fallen rock</td><td>A, with notched crowns (the top split into blocks of different heights) and fallen blocks round the feet</td></tr>
+    </tbody></table></div>
+    <p class="muted">B ties the buttes to the front, but in the distance its courses read as brick walls or crates rather than rock. A and C read as rock; C's broken crowns and fallen blocks make them look weathered. My pick: <b>C</b>.</p>
+    <div class="row" role="group" aria-label="View"><button data-bv="w">Wide</button><button data-bv="m">Match camera</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-bo="T">Today</button><button data-bo="A">A &middot; Cardboard blocks</button><button data-bo="B">B &middot; Slab courses</button><button data-bo="C">C &middot; Blocks and fallen rock</button></div>
+    <div class="viewer"><img id="bimg" alt="Canyon butte option"><span class="vtag" id="btag"></span></div>
+    <h2 id="li-h" style="margin-top:12px">The light pass</h2>
+    <p>Review 4's light items: the lawns read flat since the scenery's ink went, the meadow's and the beach's distance is milky, and the beach has no mood. Each option adds to the one before it.</p>
+    <div class="tablewrap"><table><thead><tr><th>Option</th><th>What it changes</th></tr></thead><tbody>
+      <tr><td>A &middot; Form on the ground</td><td>Every play top falls softly into a cool shade toward its front edge (the meadow's lawn from 0.78 at the back to 0.63 at the front, was 0.79 to 0.70), and the day stages' sun sits a little lower so props and banks model more</td></tr>
+      <tr><td>B &middot; Coloured distance</td><td>A, with the air lifting the far scenery toward a clearer haze without greying it (the meadow's distance from saturation 0.26 to 0.39)</td></tr>
+      <tr><td>C &middot; Late afternoon at the beach</td><td>B, with the beach under a low warm sun: a peach horizon, warm light on the town and the pier, cool blue shade (only the beach changes)</td></tr>
+    </tbody></table></div>
+    <p class="muted">A is clearest on the meadow and the grove, at the front of the lawn; B on the meadow's mountains. C is the biggest change on the beach, but its sea stays the midday cyan, so it reads as a warm sky over a bright sea; built, the sea would warm a little too. My pick: <b>B</b>, and C if you want the beach to have a time of day.</p>
+    <div class="row" role="group" aria-label="Stage"><button data-ls="meadow">Meadow</button><button data-ls="beach">Beach</button><button data-ls="beachw">Beach wide</button><button data-ls="grove">Grove</button><button data-ls="canyon">Canyon</button><button data-ls="city">City</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-lt="T">Today</button><button data-lt="A">A &middot; Form</button><button data-lt="B">B &middot; Coloured distance</button><button data-lt="C">C &middot; Late afternoon (beach)</button></div>
+    <div class="viewer"><img id="liimg" alt="Light pass option"><span class="vtag" id="litag"></span></div>
+  </section>
+
   <section class="panel" aria-labelledby="ld-h" id="lands">
     <div class="eyebrow">Built &middot; the backgrounds audit, round 2</div>
     <h2 id="ld-h">The grove's land and the canyon's floor</h2>
@@ -304,6 +330,29 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
   group("data-rs", function (v) { rs = v; }, rrender);
   group("data-rv", function (v) { rv = v; }, rrender);
   rrender();
+  var bv = "w", bo = "C";
+  var BO = { T: "Today", A: "A \u00b7 Cardboard blocks", B: "B \u00b7 Slab courses", C: "C \u00b7 Blocks and fallen rock" };
+  function brender() {
+    document.getElementById("bimg").src = "bt_" + bv + "_" + bo + ".jpg";
+    document.getElementById("btag").textContent = "Canyon \u00b7 " + BO[bo] + (bv === "w" ? " \u00b7 wide" : " \u00b7 match camera");
+    pressed("data-bv", bv); pressed("data-bo", bo);
+  }
+  group("data-bv", function (v) { bv = v; }, brender);
+  group("data-bo", function (v) { bo = v; }, brender);
+  brender();
+  var ls = "meadow", lt = "B";
+  var LS = { meadow: "Meadow", beach: "Beach", beachw: "Beach \u00b7 wide", grove: "Grove", canyon: "Canyon", city: "City" };
+  var LT = { T: "Today", A: "A \u00b7 Form", B: "B \u00b7 Coloured distance", C: "C \u00b7 Late afternoon" };
+  function lirender() {
+    var beach = ls === "beach" || ls === "beachw";
+    var t = (lt === "C" && !beach) ? "B" : lt;
+    document.getElementById("liimg").src = "li_" + ls + "_" + t + ".jpg";
+    document.getElementById("litag").textContent = LS[ls] + " \u00b7 " + LT[lt] + ((lt === "C" && !beach) ? " (same as B here)" : "");
+    pressed("data-ls", ls); pressed("data-lt", lt);
+  }
+  group("data-ls", function (v) { ls = v; }, lirender);
+  group("data-lt", function (v) { lt = v; }, lirender);
+  lirender();
   var lv = "w", lo = "B";
   var LO = { T: "Today", A: "A \u00b7 Floating ledges", B: "B \u00b7 Moss and tufts", C: "C \u00b7 The far forest" };
   function lrender() {

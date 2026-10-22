@@ -74,3 +74,19 @@ C with scattered detail and soft shade; then the grove and the canyon. The cloud
 - Both stages re-lit (`--light-export`, then `light_stage.py` on the front, the play area and the ground, curve and reach 2.5). The canyon
   at 290 fps, the GPU at 2.6 ms.
 - Before and after, wide: `lands_built.jpg`.
+
+## Round 3 mocks: the canyon's buttes and the light pass (2026-10-21)
+
+Review 4's items 3 and 4 (docs/art/stages/FIDELITY_REVIEW_4.md).
+- **Cardboard buttes** (`make_canyon_paper.py --variant KA|KB|KC`, on DC's floor): **KA** every butte two or three tiers of angular blocks
+  (five to seven straight sides at uneven angles) with bevelled tops, stepping in as they rise, each tier banded in the strata, on a low
+  skirt block; the arch's legs blocks, its span three bevelled beams. **KB** slab courses, as the stage's front is built (in the distance
+  they read as brick walls or crates). **KC** KA with notched crowns and fallen blocks round the feet. Each block's faces are turned out
+  from its own middle (`OWN`), not the butte's axis. About 20,000 triangles with the floor. Recommended: KC.
+- **The light pass** (`--light-mock=A|B|C`, `Lighting.light_mock`): **A** form on the ground, every play top falling into a cool shade
+  toward its front edge (`lawn_fall` in the toon shader, set by `StageBake.place_play`; the meadow's lawn 0.78 at the back to 0.63 at the
+  front, was 0.79 to 0.70) and the day stages' sun 8 degrees lower; **B** A with coloured distance (the palettes' air greys a fifth as
+  much, the post haze's `haze_desat` 1.3 to 0.35, its colour more saturated: the meadow's distance saturation 0.26 to 0.39); **C** B with
+  the beach at late afternoon (`Lighting.LATE_OCEAN` and `LATE_OCEAN_SKY`; the sea keeps its midday cyan in the mock). Recommended: B, and
+  C if the beach should have a time of day.
+- Options on the Stage Look Review and `mocks/look/` (`bt_*`, `li_*`).
