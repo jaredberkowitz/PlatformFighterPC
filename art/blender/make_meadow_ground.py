@@ -744,6 +744,37 @@ def shelved_band(name, bumps, floor_y, z, profile, rng, lanes=False):
 FOREST = []
 
 
+# Where the meadow's buildings stand (StageArt._meadow, make_world.py): the windmill, the hill cottages, the haystacks and the farm.
+KEEP_CLEAR = [(-34.0, -73.0, 9.0), (44.0, -74.0, 8.0), (-66.0, -74.0, 8.0), (-57.0, -98.4, 9.0), (-32.0, -40.0, 12.0)]
+BELTS = opts.get("belts", "1") == "1"
+
+
+def pine_belts(rng):
+    """The meadow's pine belts (the owner, 2026-10-22: the forest was a few sporadic trees; the reference's camp sits under dense belts
+    of pines): clumps of the detailed pine along the near and far hills, five to ten trees a clump with gaps between, the far ones a
+    little larger (the distance makes them smaller), clear of the buildings, the haystacks and the sky behind the fight."""
+    k = 0
+    for band_z, bumps, size, depth in ((-72.0, LAYOUT["hills_near"], (9.0, 13.0), (-1.0, 4.0)), (-100.0, LAYOUT["hills_far"], (10.0, 15.0), (-1.0, 5.0))):
+        gx = -160.0 + rng.uniform(0, 8)
+        while gx < 160.0:
+            width = rng.uniform(12.0, 26.0)
+            if abs(gx) > 20.0 + width * 0.5:
+                for _ in range(int(width / 2.6)):
+                    x = gx + rng.uniform(-width / 2, width / 2)
+                    d = rng.uniform(*depth)
+                    zz = band_z + depth_at(max(d, 0.0), ROLL) + rng.uniform(-2.5, 1.5)
+                    if abs(x) < 20.0 or any(math.hypot(x - cx, zz - cz) < rad for (cx, cz, rad) in KEEP_CLEAR):
+                        continue
+                    base = P(x, land_top(bumps, -17.0, x) - max(d, 0.0) - 0.3, zz)
+                    FOREST.append((base.x, base.y))
+                    nm = "forest%d" % (k % 6)
+                    pine_detailed(part(nm, "pine_%d" % rng.randrange(4)), part(nm, "pine_under"), part(nm, "trunk"), base,
+                                  rng.uniform(*size) / 2.9, rng)
+                    k += 1
+            gx += width + rng.uniform(6.0, 16.0)
+    print("meadow pine belts: %d pines" % k)
+
+
 def forest_belts(rng):
     """Belts of pines along the near hills' crest, as the reference's mid-ground forest: dense groups of one kind of pine at one large
     size (about 15 tall), clear of the space behind the fight."""
@@ -884,6 +915,8 @@ def build_ground():
     band("far", "hill_far", LAYOUT["hills_far"], -17.0, -100.0, ROLL, rng)
     band("near", "hill_near", LAYOUT["hills_near"], -17.0, -72.0, ROLL, rng)
     band("rise", "rise", LAYOUT["fore"], -11.0, -46.0, VALLEY, rng, fields=True)
+    if VARIANT in ("QA", "QB", "QC") and BELTS:
+        pine_belts(random.Random(97))
     if VARIANT in ("B", "PA", "PB", "PC", "QA", "QB", "QC"):
         hill_layers(rng)
     else:
