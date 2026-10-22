@@ -901,6 +901,7 @@ static func _ground_colours(t: Dictionary) -> Dictionary:
 	# the rise's own teal, top and cliff ran together and the ledges read as one mass.)
 	land = Color(0.44, 0.7, 0.3)
 	var fields: Array = bd.get("fields", [])
+	_calm_k = float(bd.get("calm", 0.72))
 	var pines: Array = bd.get("pine_greens", [Color(0.2, 0.36, 0.28)])
 	# (The cliffs a step deeper, the readability pass: the grove's paper terraces right behind the fighters measured their value.)
 	var out := {"grass": land, "grass_far": Color(0.38, 0.62, 0.36), "cliff": Color(0.1, 0.24, 0.23),
@@ -995,7 +996,11 @@ static func _ground_colours(t: Dictionary) -> Dictionary:
 
 ## A palette green a step calmer: less saturated and a touch darker.
 static func _calm(c: Color) -> Color:
-	return Color.from_hsv(c.h, c.s * 0.72, c.v * 0.95)
+	return Color.from_hsv(c.h, minf(c.s * _calm_k, 1.0), c.v * 0.95)
+
+
+## How much `_calm` keeps of a colour's saturation, the palette's backdrop `calm` (0.72 unless it says).
+static var _calm_k := 0.72
 
 
 ## Paints a modelled background piece: each family's toon material, its own baked occlusion (vertex colours), and the air at its depth.

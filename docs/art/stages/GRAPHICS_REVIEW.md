@@ -126,3 +126,17 @@ crisp, long sunset shadows across the floor; the grove's trees and gates shadow 
 the street; the beach's town is shaded; the meadow changes least (the sun is high and the land falls away from it). Cost: GPU about
 0.4 ms on the meadow (4.3 against 3.9 at the same moment; the machine was running slower than earlier in the day, so absolute frame
 rates aren't comparable with earlier numbers). Tests pass.
+
+## The air retune (2026-10-22)
+
+Middle distance (75 to 110 units from the match camera) measured with the camera's depth (`--depth`): saturation meadow 0.18, beach
+0.29, grove 0.29 (canyon 0.49 and city 0.53 were already coloured and are unchanged). Two hazes stacked there: each mesh's colour lifted
+toward the palette's pale haze at build time (`[air]`), and the finishing pass's haze from 14 behind the stage. On the meadow a third:
+its hills and fields kept only 72% of their own saturation (`StageBake._calm`).
+- Meadow, beach, grove `[air]`: start, end and far 40 further back, a third of the lift (the far ranges keep their far_lift).
+- Their finishing haze from 45 behind the stage, at most 0.1 (meadow, beach; were 0.24) and 0.04 (grove; was 0.08): `haze_start` in
+  `Lighting.STYLES` finish.
+- The meadow keeps all its fields' and hills' saturation (`calm=1.0` in meadow.cfg), as the reference's lime grass.
+
+Result: middle distance saturation meadow 0.18 to 0.29, beach 0.29 to 0.37, grove 0.29 to 0.35 (`review5/air_built.jpg`). The far
+ranges stay lighter and cooler, so depth still reads.
