@@ -101,7 +101,8 @@ const STYLES := {
 	# (The background grounded, the graphics review 5: the sun's shadows out over the terraces, the trees' and gates' a cool violet.)
 	"grove": {"paint": [Color(1.06, 0.99, 0.94), Color(0.94, 0.9, 1.06), 0.55], "clouds": [0.72, 4.5, 0.45, 0.25],
 		"sun_shadow": [260.0, 4, 1.0], "cast": Color(0.22, 0.24, 0.48, 1.0),
-		"finish": {"desat": 0.0, "lift": 0.02, "haze_max": 0.08, "s_curve": 0.3, "quiet": 0.08, "sheets": 0.56, "cut_edge": 0.5, "fight_lift": 0.18}},
+		"finish": {"desat": 0.0, "lift": 0.02, "haze_max": 0.04, "haze_start": 45.0, "s_curve": 0.3, "quiet": 0.08, "sheets": 0.56, "cut_edge": 0.5,
+			"fight_lift": 0.18}},
 	# Crisper light-to-shadow steps (a clear lit side and shaded side on every prop, in the manner of a cel-shaded adventure), warmer tops
 	# and cooler undersides, and less of the pastel wash, so the colours carry.
 	"meadow": {"ramp": [[0.0, 0.0], [0.38, 0.0], [0.43, 0.52], [0.55, 0.52], [0.6, 1.0], [1.0, 1.0]],
@@ -111,7 +112,9 @@ const STYLES := {
 		# (Less haze and no greying of the scenery, 2026-10-17: together they washed the mid-distance cottages, trees and mountains into
 		# flat pastel shapes, the owner's "flat" feel; depth still reads through the cooler, lighter far colours.)
 		# (Air again, the owner's paint-over pick 2026-10-21: the distance lighter and softer, `haze_max` 0.06 to 0.24.)
-		"finish": {"desat": 0.0, "lift": 0.01, "haze_max": 0.24, "s_curve": 0.3, "quiet": 0.0, "sheets": 0.49, "cut_edge": 0.5,
+		# (The air retune, 2026-10-22: the middle distance clear and coloured, hazed only from 45 behind the stage and half as much; it had
+		# fallen to saturation 0.18.)
+		"finish": {"desat": 0.0, "lift": 0.01, "haze_max": 0.1, "haze_start": 45.0, "s_curve": 0.3, "quiet": 0.0, "sheets": 0.49, "cut_edge": 0.5,
 			"fight_lift": 0.15}},
 	# (Long sunset shadows from the buttes, the arch and the trestle across the floor, a cool violet on the warm sand, the graphics
 	# review 5.)
@@ -126,8 +129,9 @@ const STYLES := {
 	"ocean": {"paint": [Color(1.05, 1.02, 0.94), Color(0.9, 0.97, 1.06), 0.5], "clouds": [0.55, 26.0, 0.36, 0.9],
 		"sun_shadow": [190.0, 4, 1.0], "cast": Color(0.3, 0.36, 0.58, 1.0),
 		"ramp": [[0.0, 0.0], [0.3, 0.1], [0.45, 0.45], [0.6, 0.82], [0.75, 1.0], [1.0, 1.0]],
-		# (Air, the owner's paint-over pick 2026-10-21: `haze_max` 0.07 to 0.24.)
-		"finish": {"desat": 0.0, "lift": 0.02, "haze_max": 0.24, "s_curve": 0.28, "quiet": 0.08, "scenery_lines": 0.18, "sheets": 0.42,
+		# (Air, the owner's paint-over pick 2026-10-21: `haze_max` 0.07 to 0.24. The air retune, 2026-10-22: from 45 behind and less, so
+		# the town across the bay keeps its colour.)
+		"finish": {"desat": 0.0, "lift": 0.02, "haze_max": 0.1, "haze_start": 45.0, "s_curve": 0.28, "quiet": 0.08, "scenery_lines": 0.18, "sheets": 0.42,
 			"cut_edge": 0.45, "fight_lift": 0.15}},
 	# (The towers and the street's pieces grounded, a deep violet, the graphics review 5.)
 	"city": {"sun_shadow": [260.0, 4, 1.0], "cast": Color(0.4, 0.3, 0.6, 1.0), "edge": Color(1.0, 0.82, 0.92, 0.55), "paint": [Color(1.06, 0.96, 0.96), Color(0.9, 0.88, 1.1), 0.6], "deep": 0.72, "glow": 1.1,
@@ -364,6 +368,7 @@ static func stage_mood(env: Environment, root: Node, theme: Dictionary, post: Sh
 		post.set_shader_parameter("vignette", finish.vignette)
 		post.set_shader_parameter("haze_max", finish.haze_max)
 		post.set_shader_parameter("haze_desat", float(finish.get("haze_desat", 1.3)))
+		post.set_shader_parameter("haze_start", float(finish.get("haze_start", 14.0)))
 		post.set_shader_parameter("stage_quiet", float(finish.get("quiet", 0.0)))
 		post.set_shader_parameter("s_curve", finish.s_curve)
 		post.set_shader_parameter("bloom", finish.bloom)

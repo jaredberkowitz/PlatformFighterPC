@@ -556,7 +556,8 @@ def patchwork_band(name, fam, bumps, floor_y, z, profile, rng, fields=False):
                     v.co += off
     if level >= 2 and fields:
         # Lanes: pale sheets winding down the rise either side of the stage, widening as they come nearer.
-        for x0, ph in ((-36.0, 0.0), (34.0, 1.7)):
+        # (The left lane beside the farm, not through it: at -36 it ran under the barn, the believability pass, 2026-10-22.)
+        for x0, ph in ((-47.0, 0.0), (34.0, 1.7)):
             bm, edge = part(name, "lane"), part(name, "card_lane")
             ds = [0.4 + 1.0 * k for k in range(30)]
             left, right = [], []

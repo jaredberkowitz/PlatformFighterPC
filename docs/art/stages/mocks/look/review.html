@@ -88,6 +88,22 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
     <p>Two lessons from the reference screenshots, mocked from the match camera: the scenery without ink outlines, its edges lit as card bevels instead, and the paper houses rebuilt at the characters' proportions. The earlier rounds stay on the <a href="https://claude.ai/artifact/D1du6MREVumiJDrEdNypW4">Stage Fidelity Review</a>, which is full.</p>
   </header>
 
+  <section class="panel" aria-labelledby="bl-h" id="believe">
+    <div class="eyebrow">Built &middot; the air retune and the believability pass</div>
+    <h2 id="bl-h">Coloured middle distance, and things where they belong</h2>
+    <p><b>The air retune.</b> The haze was greying the middle distance on the meadow, beach and grove. It now starts further back and is weaker there, and the meadow's fields keep their full colour. Middle-distance saturation: meadow 0.18 to 0.29, beach 0.29 to 0.37, grove 0.29 to 0.35. The far ranges still fade, so depth reads. The canyon and city were already coloured.</p>
+    <div class="viewer"><img src="../../review5/air_built.jpg" alt="Air retune before and after: meadow, beach, grove"></div>
+    <p style="margin-top:12px"><b>The believability pass.</b> I checked every stage by eye and with an automatic audit of every placed piece's footprint (overlaps, and anything standing on a lane or road). Fixed:</p>
+    <ul style="display:grid;gap:6px;margin:0;padding-left:1.2em;max-width:78ch">
+      <li><strong>Meadow:</strong> the left lane ran straight under the barn (the house in the road). It now runs beside the farm. The scarecrow stood at the farmhouse's door and the washing line across the barn's front; both are now in the field.</li>
+      <li><strong>Grove:</strong> the festival gates stood where the side trees grow, so each trunk went through its gate. They now stand beside the trees.</li>
+      <li><strong>Canyon:</strong> the dry wash ran under a butte. It now winds through the gaps.</li>
+      <li><strong>Beach:</strong> the boats moored at the town sat against the quay and read as beached. They're now out on the water.</li>
+    </ul>
+    <div class="viewer"><img src="../../review5/believability_built.jpg" alt="Believability fixes before and after: meadow farm, grove gate, beach boats"></div>
+    <p class="muted">Checked and left: the city's scaffold legs stand on the near curb in front of the road; the meadow's pines in front of the windmill and the beach's lighthouse beside the hut overlap only in the picture (20 to 34 units apart). Written up in docs/art/stages/BELIEVABILITY.md.</p>
+  </section>
+
   <section class="panel" aria-labelledby="rs-h" id="realshadows">
     <div class="eyebrow">Built &middot; realtime shadows in the background, every stage</div>
     <h2 id="rs-h">Why the shadows stopped at the play area, and the fix</h2>
