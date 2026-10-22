@@ -90,3 +90,6 @@ the review expected. `shaders/sky.gdshader` `look` (`--sky-look=T|A|B|C`, the pa
 (a haze band over the horizon, a low haze bank hiding the hard line, soft mottling); B A with soft stratus streaks at three heights;
 C A with card cloud banks, puffed tops, two tones, a lit edge and a shadow. Shown on the meadow, canyon and beach ("sky", `sky_*`);
 recommended B, then on to item 3.
+
+**Built (2026-10-22): sky B** (the owner's pick): `sky_look=2` in the meadow's, canyon's, beach's and grove's palettes (the city's sky
+goes with item 4).
