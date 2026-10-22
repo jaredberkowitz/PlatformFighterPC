@@ -40,6 +40,8 @@ Families `hill_far`, `hill_near`, `rise`, `field_0`..`field_4`, `hedge`, `card` 
 Shipped (the owner's pick, 2026-10-22): FC with `--pine D` as godot/models/stages/meadow_ground.glb and meadow_pines.glb, then lit
 (light_stage.py on the front, the play area and the ground).
 
+Shipped since fidelity review 6 (the owner's pick B, 2026-10-22): `--variant FC --pine D --hill banks`, then lit.
+
 Run (Blender 5.2):
   blender --background --python art/blender/make_meadow_ground.py -- --dir godot/art/baked/<key> --variant A --ground <g.glb> --bush <p.glb>
 """

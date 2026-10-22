@@ -162,3 +162,8 @@ it). Before and after: `review6/fronts_built.jpg` (meadow, canyon and grove wide
   `--hill banks` (those as terraces, each shelf falling to the next on a grass bank in the farmland terraces' `bank`).
 
 On the Stage Look Review ("noclones", `nc_*`); recommended B on all three.
+
+**Built (2026-10-22): B on all three** (the owner's pick): the grove's trees in three shapes (`StageBake.TREES` a list; `grove_tree_tall.glb`,
+`grove_tree_broad.glb`) and turned and sized (`grove.cfg` `tree_vary=1.0`); the beach's waves uneven and broken (`ocean.cfg`
+`sea_vary=2`); the meadow's hill terraced (`meadow_ground.glb` `--hill banks`); the meadow and grove re-lit. Before and after:
+`review6/no_clones_built.jpg` (grove, beach and meadow wide). The runner test's shop-hint check flaked once and passed twice on its own.

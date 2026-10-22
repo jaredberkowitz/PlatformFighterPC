@@ -12,6 +12,9 @@ After fidelity review 6 (one tree at one size all round read as a clone), C in m
 Every look has a mossy foot whose roots splay into the ground, and bakes its own occlusion into linear vertex colours. Material
 families `bark`, `leaf_lit`, `leaf_shade`, `moss`, painted from the stage's palette in the game.
 
+Shipped since fidelity review 6 (the owner's pick B, 2026-10-22): grove_tree.glb (C), grove_tree_tall.glb (`--variant C --shape
+tall`) and grove_tree_broad.glb (`--variant C --shape broad`), StageBake.TREES.
+
 Run (Blender 5.2):
   blender --background --python art/blender/make_grove_trees.py -- --variant A --out <file.glb>
 """

@@ -20,7 +20,9 @@ const FRONTS := {"grove_14d06e65": "res://models/stages/grove_front.glb", "meado
 	"city_2eadbb68": "res://models/stages/city_front.glb"}
 ## Modelled trees by theme (art/blender/make_grove_trees.py, option C, the owner's pick): placed where each code-built tree stood, so
 ## custom stages on the theme take them too.
-const TREES := {"grove": "res://models/stages/grove_tree.glb"}
+# (The grove's in three shapes of the one tree, fidelity review 6, the owner's pick B: one tree at one size all round read as a clone.)
+const TREES := {"grove": ["res://models/stages/grove_tree.glb", "res://models/stages/grove_tree_tall.glb",
+	"res://models/stages/grove_tree_broad.glb"]}
 ## Modelled background ground and bushes, by the exact stage they were built round ([ground, bush]; make_grove_ground.py, option A, the
 ## owner's pick): the ground stands on the side trees' footing for this layout.
 const GROUNDS := {
