@@ -99,3 +99,8 @@ it, so a mock is a few palette lines and shipping one is moving them into place.
 Options (city.cfg [try_night_a|b|c]): A night sky (the frame's top 0.07, deep indigo-blue, from 0.34 magenta; the glow low behind the
 skyline); B A with haze between the rows; C B with a colour plan (a navy sky and blue-violet towers, warm kept for the street haze, the
 windows, the glow and the play building). On the Stage Look Review ("citynight", `cn_*`); recommended C.
+
+**Built (2026-10-22): city C** (the owner's pick): the night sky, the haze between the rows and the colour plan moved into city.cfg's
+[theme], [backdrop] and [air]; the sky before it stays as [try_pre_night] (`--pal-try=pre_night` compares). No re-light: the sky's
+colours don't reach the baked or lit scenery (the play building's roof measured the same, 0.61, in every option). Before and after:
+`review6/city_night_built.jpg`. Next, item 2: the canyon behind the fight.
