@@ -207,3 +207,10 @@ runs into a slope. Two lessons: the door lanterns are plain warm paper (`lamp`),
 by material at export, since a town of separately meshed shutters and pickets overflowed the per-instance shader buffer and painted
 stray glows and blue edges on the beach's tower, warehouse and boats. 243 fps on the meadow (GPU 2.25 ms), 239 on the beach. Before and
 after: `review5/meadow_detail_built.jpg`.
+
+## The grove's detail pass (2026-10-22, mock)
+
+`make_world.py` (detail on by default, `--detail 0` without; mocked with `--world-mock=`): the tree village's huts get plank battens, a
+framed window with red shutters, a second thatch fringe, a post-and-rope rail round each deck with a lantern, and a ladder down each
+trunk; the far great trees roots and branch stubs; the gates a rope with paper zigzags and stone plinths. `make_world.py` now joins its
+still pieces by material and depth band before the bake (the per-instance shader buffer). Before and after: `mocks/look/gd_detail.jpg`.
