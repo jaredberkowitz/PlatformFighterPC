@@ -15,7 +15,7 @@ window and a weathervane on the ridge.
 
 Run (Blender 5.2):
   blender --background --python art/blender/make_paper_houses_v2.py -- --shape A --out <file.glb> [--render <sheet.png>]
-Shipped (the owner's pick, 2026-10-21): godot/models/props/paper_houses.glb, `--shape B`.
+Shipped (the owner's pick, 2026-10-21): godot/models/props/paper_houses.glb, `--shape B` (with the detail, the default since 2026-10-22).
 """
 
 import math
@@ -35,7 +35,8 @@ argv = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
 opts = {argv[i].lstrip("-"): argv[i + 1] for i in range(0, len(argv) - 1, 2)}
 SHAPE = opts.get("shape", "A").upper()
 hk.STYLE = "B"
-DETAIL = opts.get("detail", "0") == "1"
+# (On by default since the owner shipped it, 2026-10-22; `--detail 0` builds the kit without.)
+DETAIL = opts.get("detail", "1") == "1"
 
 
 def prism(fam, name, ring0, ring1):
@@ -242,25 +243,28 @@ def side_window(sx, W, y, z, w, h):
 def lantern(x, y, fz):
     """A lantern on a bracket beside a door: an iron arm, a glowing glass box under a little roof."""
     hk.box("iron", x - 0.05, x + 0.05, y - 0.05, y + 0.05, fz, fz + 0.45, name="iron_arm")
-    hk.box("glow", x - 0.17, x + 0.17, y - 0.5, y - 0.05, fz + 0.28, fz + 0.62, name="glow_lantern")
+    # (Warm paper, not the lit "glow" family: drawn in its own light, a lantern on every house bloomed the town and its edges.)
+    hk.box("lamp", x - 0.17, x + 0.17, y - 0.5, y - 0.05, fz + 0.28, fz + 0.62, name="lamp_lantern")
     hk.box("iron", x - 0.23, x + 0.23, y - 0.05, y + 0.06, fz + 0.22, fz + 0.68, name="iron_cap")
 
 
 def picket_fence(x0, x1, fz, gate=None):
     """A low picket fence a step before the front, two rails and pointed pickets, open where the path to the door runs."""
-    z = fz + 1.6
+    # (Close before the front, where the house's own footing levels the ground, and the pickets reaching well down: 1.6 out, on a slope
+    # the fence ran into the hill on one side.)
+    z = fz + 0.85
     hk.box("wood_light", x0, x1, 0.3, 0.42, z - 0.04, z + 0.04, name="fence_rail")
     hk.box("wood_light", x0, x1, 0.75, 0.87, z - 0.04, z + 0.04, name="fence_rail")
     x = x0
     while x <= x1 + 1e-3:
         if gate is None or not (gate[0] < x < gate[1]):
-            hk.box("white", x - 0.07, x + 0.07, -0.1, 1.05, z + 0.04, z + 0.1, name="fence_picket")
+            hk.box("white", x - 0.07, x + 0.07, -0.6, 1.05, z + 0.04, z + 0.1, name="fence_picket")
             front("white", "fence_tip", [(x - 0.07, 1.05), (x + 0.07, 1.05), (x, 1.22)], z + 0.04, z + 0.1)
         x += 0.42
     if gate is not None:
         # The path to the door: flat stones.
-        for k in range(3):
-            zz = fz + 0.75 + k * 0.55
+        for k in range(2):
+            zz = fz + 0.35 + k * 0.5
             hk.box("stone_light", (gate[0] + gate[1]) / 2.0 - 0.32, (gate[0] + gate[1]) / 2.0 + 0.32, -0.05, 0.02, zz - 0.2, zz + 0.2, name="path_stone")
 
 
@@ -422,6 +426,22 @@ def main():
         bmesh.ops.triangulate(bm, faces=bm.faces[:])
         bm.to_mesh(o.data)
         bm.free()
+    # (Each house's pieces joined by material: with the detail pass every shutter, picket and lantern was its own mesh, and a town of
+    # them overflowed the game's per-instance shader buffer, so other scenery took stray glows and edges.)
+    for root in roots:
+        groups = {}
+        for o in [o for o in bpy.data.objects if o.parent == root and o.type == "MESH"]:
+            mat = o.data.materials[0].name if o.data.materials else ""
+            groups.setdefault(mat, []).append(o)
+        for mat, objs in groups.items():
+            if len(objs) < 2:
+                continue
+            bpy.ops.object.select_all(action="DESELECT")
+            for o in objs:
+                o.select_set(True)
+            bpy.context.view_layer.objects.active = objs[0]
+            bpy.ops.object.join()
+            objs[0].name = mat
     bpy.context.view_layer.update()
     kit.bake_occlusion(0.7, floor_z=0.0, floor_at=(24.0, 0.0), floor_size=160.0)
     if "render" in opts:

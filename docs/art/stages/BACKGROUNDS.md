@@ -199,3 +199,11 @@ The owner: continue the meadow's detail pass (windmill, cottages, haystacks). Mo
   stone paths, flower pots; the barn's loft hay, side windows and weathervane.
 - **Haystacks** (`make_world.py --theme meadow --variant BC --detail 1`, `--world-mock=`): straw strands, a frayed hem, crown wisps.
 Before and after: `mocks/look/md_detail.jpg`. Known issues: the door surround squares off the arched door; a fence runs into the slope.
+
+**Built (2026-10-22): the meadow's detail pass.** The windmill's detail is on by default (`--no-detail` compares); its door surround is
+now jambs and seven voussoirs round the arch. The house kit (`paper_houses.glb`, meadow and beach) and the meadow's world are rebuilt
+with the detail (now each script's default). The fence moved close before the front (0.85, was 1.6) with deeper pickets, so it no longer
+runs into a slope. Two lessons: the door lanterns are plain warm paper (`lamp`), not the lit `glow`; and each house's pieces are joined
+by material at export, since a town of separately meshed shutters and pickets overflowed the per-instance shader buffer and painted
+stray glows and blue edges on the beach's tower, warehouse and boats. 243 fps on the meadow (GPU 2.25 ms), 239 on the beach. Before and
+after: `review5/meadow_detail_built.jpg`.

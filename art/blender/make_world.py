@@ -721,7 +721,8 @@ def haystack(at, r=1.6, h=3.2):
     bm = bmesh.new()
     bmesh.ops.create_cone(bm, cap_ends=True, segments=7, radius1=0.28, radius2=0.0, depth=0.6, matrix=Matrix.Translation(P(x, y + h + 0.15, z)))
     ob("haystack_top", bm, "straw")
-    if opts.get("detail", "0") == "1":
+    # (The detail, on by default since the owner shipped it, 2026-10-22; `--detail 0` without.)
+    if opts.get("detail", "1") == "1":
         # (The detail pass, 2026-10-22: straw strands combed down the stack as raised strips in a deeper straw, a frayed hem of wisps at
         # its foot and a few loose wisps on the crown.)
         rng = random.Random(int(abs(x) * 10 + abs(z)))

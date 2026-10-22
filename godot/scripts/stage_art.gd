@@ -1027,7 +1027,9 @@ const PAPER_COLOURS := {"straw": Color(0.98, 0.84, 0.46), "straw_end": Color(0.9
 	"trim": Color(0.56, 0.38, 0.26), "timber": Color(0.42, 0.28, 0.2), "door": Color(0.5, 0.32, 0.22), "shutter": Color(0.36, 0.52, 0.6),
 	"barn": Color(0.78, 0.26, 0.22), "barn_door": Color(0.62, 0.2, 0.18), "barn_trim": Color(0.98, 0.95, 0.9), "shadow": Color(0.24, 0.16, 0.14),
 	# (The houses at the characters' proportions, make_paper_houses_v2.py: daylight glass, the doors' plank seams and knobs.)
-	"glass": Color(0.36, 0.6, 0.86), "door_seam": Color(0.36, 0.24, 0.16), "knob": Color(0.92, 0.9, 0.86)}
+	"glass": Color(0.36, 0.6, 0.86), "door_seam": Color(0.36, 0.24, 0.16), "knob": Color(0.92, 0.9, 0.86),
+	# (The detail pass, 2026-10-22: the door lanterns.)
+	"lamp": Color(1.0, 0.86, 0.5)}
 ## Paper prop families drawn in their own light, not the stage's (a lamp's lantern).
 const PAPER_LIT := ["glow"]
 
@@ -4538,8 +4540,9 @@ static func _island_detail(island: Node3D, hw: float, size: float, t: Dictionary
 ## A windmill (`at` is the foot of its tower): a footing of rough stones, a tapered whitewashed tower with a plank door, two small
 ## shuttered windows and a wooden gallery round it, a shingled cap with a trim ring and a finial, and four lattice sails, each a stock
 ## carrying a frame of rails and slats with canvas over most of it, that turn.
-## The detail pass's mocks (`--detail-mock`, the owner, 2026-10-22): more detail on the meadow's windmill.
-static var detail_mock := OS.get_cmdline_user_args().has("--detail-mock")
+## The detail pass (the owner, 2026-10-22: more detail on the background pieces): on the meadow's windmill, a finer lattice and reefed
+## sails, a stone door surround, a lantern, sacks and a barrel, a block base. `--no-detail` shows it without, to compare.
+static var detail_mock := not OS.get_cmdline_user_args().has("--no-detail")
 
 
 static func _windmill(root: Node3D, at: Vector3) -> void:
@@ -4575,9 +4578,13 @@ static func _windmill(root: Node3D, at: Vector3) -> void:
 				var rad := 3.42 - 0.12 * row
 				_mesh(root, _box(Vector3(0.88, 0.86, 0.3)), block if (b + row) % 3 else block_dark,
 					at + Vector3(sin(ang) * rad, 0.5 + row * 0.92, cos(ang) * rad), Vector3.ONE, Vector3(0, rad_to_deg(ang), 0))
+		# (Jambs up to the springing, and voussoirs round the door's arch, so the doorway stays arched.)
 		for sx in [-1.0, 1.0]:
-			_mesh(root, _box(Vector3(0.4, 2.9, 0.4)), block, at + Vector3(sx * 1.0, 3.3, 2.95))
-		_mesh(root, _box(Vector3(2.4, 0.4, 0.5)), block, at + Vector3(0, 4.9, 2.95))
+			_mesh(root, _box(Vector3(0.4, 2.6, 0.4)), block, at + Vector3(sx * 1.0, 3.2, 2.95))
+		for v in 7:
+			var va := PI * (v + 0.5) / 7.0
+			_mesh(root, _box(Vector3(0.36, 0.42, 0.42)), block if v % 2 else block_dark, at + Vector3(cos(va) * 1.0, 4.5 + sin(va) * 1.0, 2.95),
+				Vector3.ONE, Vector3(0, 0, rad_to_deg(va) - 90.0))
 		_mesh(root, _box(Vector3(2.6, 0.3, 1.2)), block_dark, at + Vector3(0, 1.95, 3.3))
 		_mesh(root, _box(Vector3(0.3, 0.45, 0.3)), _unshaded(Color(1.0, 0.86, 0.56)), at + Vector3(1.55, 4.2, 3.05))
 		_mesh(root, _box(Vector3(0.42, 0.1, 0.42)), wood_dark, at + Vector3(1.55, 4.47, 3.05))
