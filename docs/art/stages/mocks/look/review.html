@@ -88,6 +88,24 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
     <p>Two lessons from the reference screenshots, mocked from the match camera: the scenery without ink outlines, its edges lit as card bevels instead, and the paper houses rebuilt at the characters' proportions. The earlier rounds stay on the <a href="https://claude.ai/artifact/D1du6MREVumiJDrEdNypW4">Stage Fidelity Review</a>, which is full.</p>
   </header>
 
+  <section class="panel" aria-labelledby="gf-h" id="forest">
+    <div class="eyebrow">Your call is needed &middot; quality: modelled art, and a believable forest</div>
+    <h2 id="gf-h">What's still code-built, and the grove as a real forest</h2>
+    <p>You're right on both counts. Much of the background is still assembled from boxes, cylinders and spheres in code rather than modelled in Blender, and the grove's "forest" was a handful of trees. I traced every stage's background for code-built pieces (written up in docs/art/stages/MODEL_AUDIT.md):</p>
+    <div class="tablewrap"><table><thead><tr><th>Stage</th><th>Still code-built</th></tr></thead><tbody>
+      <tr><td>Meadow</td><td>The windmill (only its tower is modelled; base, door, windows, gallery, cap and sails are 74 primitives), the sky islands, round trees, flowers, clouds</td></tr>
+      <tr><td>Grove</td><td>Lantern strings, flower clusters, parts of the great tree's canopy, clouds</td></tr>
+      <tr><td>Beach</td><td>Bell tower, warehouse, stilt hut and jetty, harbour pieces, market stalls, islet detail, clouds</td></tr>
+      <tr><td>Canyon</td><td>Clouds (the rest is modelled)</td></tr>
+      <tr><td>City</td><td>The skyline towers (code facades), rooftop units, street dressing</td></tr>
+    </tbody></table></div>
+    <p><b>Proposed order:</b> 1. forests (the grove's below, then the meadow's pine belts); 2. the meadow's windmill as one Blender model; 3. the beach's harbour buildings as Blender models in the house kit's style; 4. the city's skyline as modelled towers; 5. small things (lantern strings, flowers, islets, clouds).</p>
+    <h3>Pilot: the grove's forest</h3>
+    <p>The middle and back terraces filled with a dense wood, modelled in Blender in the grove tree's manner (fluted trunks, pleated tiers), the back row tallest so it rises over the middle, with clearings now and then and room left round the tree village, the gates and the space behind the fight. 282 trees; about 0.25 ms of GPU time. Today left, the forest right (wide, then match camera):</p>
+    <div class="viewer"><img src="gf_forest.jpg" alt="Grove forest pilot, today and with the forest"></div>
+    <p class="muted">The grove's detail pass (hut rails, ladders, gate ropes) is in this capture too, and still unshipped.</p>
+  </section>
+
   <section class="panel" aria-labelledby="gd-h" id="grovedetail">
     <div class="eyebrow">Your call is needed &middot; the grove's detail pass</div>
     <h2 id="gd-h">More detail on the grove's tree village and gates</h2>
