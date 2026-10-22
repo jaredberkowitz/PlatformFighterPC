@@ -40,7 +40,13 @@ func setup(world: Node3D, mode: String) -> void:
 					(mat as StandardMaterial3D).albedo_color if mat is StandardMaterial3D else Color.WHITE])
 		# (Each its own phase, from its place, so neighbours never move in step.)
 		var phase := fposmod(node.position.x * 1.37 + node.position.z * 0.71 + k * 2.3, TAU)
-		movers.append([node, kind, node.transform, phase, parts])
+		# (A train runs the length of its track's deck, from end to end and round again, hidden where the track goes behind rock.)
+		var span := Vector2(-110.0, 110.0)
+		var deck := world.find_child("deck*", true, false) as MeshInstance3D
+		if kind == "train" and deck != null:
+			var bb := deck.transform * deck.get_aabb()
+			span = Vector2(bb.position.x, bb.end.x)
+		movers.append([node, kind, node.transform, phase, parts, span])
 		k += 1
 
 
@@ -67,7 +73,8 @@ func _move(m: Array) -> void:
 		"train":
 			if travel:
 				# Along the trestle and round again far past the frame's ends.
-				off.x = fposmod(t * 3.2 + 110.0, 220.0) - 110.0
+				var span: Vector2 = m[5]
+				off.x = fposmod(t * 3.2 + span.y, span.y - span.x) + span.x - rest.origin.x + 4.0
 			off.y = 0.03 * sin(t * 9.0)
 		"drive":
 			if travel:

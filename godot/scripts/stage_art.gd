@@ -159,6 +159,24 @@ static func sky(t: Dictionary) -> Sky:
 		mat.set_shader_parameter("glow_dir", dir)
 		mat.set_shader_parameter("sun_side", float(t.get("sun_side", 0.0)))
 		mat.set_shader_parameter("halo", float(t.get("halo", 0.0)))
+	# The sky pass (fidelity review 5): the palette's `sky_look`, or `--sky-look=T|A|B|C` to compare (see sky.gdshader `look`). The clouds
+	# and the haze band from the sky's own colours: lit toward the horizon's light, shaded toward the sky above, the haze a pale step of
+	# the horizon; on a night sky the clouds take the city's glow underneath.
+	var look := int(t.get("sky_look", 0))
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--sky-look="):
+			look = {"T": 0, "A": 1, "B": 2, "C": 3}.get(arg.substr(11), look)
+	mat.set_shader_parameter("look", look)
+	var is_night := top.get_luminance() < 0.15
+	var glow: Color = t.sky_glow[0] if t.has("sky_glow") else horizon
+	mat.set_shader_parameter("night", is_night)
+	mat.set_shader_parameter("haze_band", horizon.lerp(Color(1, 1, 1), 0.25 if not is_night else 0.05))
+	if is_night:
+		mat.set_shader_parameter("cloud_lit", horizon.lerp(glow, 0.5).lightened(0.12))
+		mat.set_shader_parameter("cloud_shade", top.lerp(horizon, 0.35))
+	else:
+		mat.set_shader_parameter("cloud_lit", horizon.lerp(Color(1, 1, 1), 0.6))
+		mat.set_shader_parameter("cloud_shade", (t.get("sky_mid", top.lerp(horizon, 0.5)) as Color).lerp(horizon, 0.45).darkened(0.06))
 	var s := Sky.new()
 	s.sky_material = mat
 	return s
@@ -1647,7 +1665,9 @@ static func platform(parent: Node3D, t: Dictionary, left: float, right: float, t
 			x += 0.7
 		_mesh(parent, rivet_st.commit(), rivet, Vector3.ZERO)
 		var scaffold_from := parent.get_child_count()
-		_scaffold(parent, left, right, top - 0.75, front_z, depth)
+		# (Its steel from this theme's own palette: the platforms are built before the backdrop sets the current one.)
+		var steel_c: Color = (palette(String(t.get("name", ""))).get("backdrop", {}) as Dictionary).get("scaffold_steel", Color(0.62, 0.64, 0.72))
+		_scaffold(parent, left, right, top - 0.75, front_z, depth, steel_c)
 		# (The scaffold stands under a modelled play area too: it is structure, not what fighters stand on.)
 		for i in range(scaffold_from, parent.get_child_count()):
 			parent.get_child(i).set_meta("keep_play", true)
@@ -5218,6 +5238,12 @@ static func _ocean(root: Node3D, t: Dictionary, stage: Array) -> void:
 	wm.set_shader_parameter("sun_dir", t.get("sun_dir", Vector3(-0.42, 0.25, -0.88)))
 	wm.set_shader_parameter("horizon", t.sky_horizon)
 	wm.set_shader_parameter("glint_path", float(_pal("glint_path")))
+	# (The water pass, fidelity review 5: the palette's `sea_look`, the owner's pick the paper waves (3); `--sea-look=T|A|B|C` compares
+	# the sea as it was and the clear, reflecting and paper seas; see water.gdshader `look`.)
+	wm.set_shader_parameter("look", int(_pal("sea_look")))
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--sea-look="):
+			wm.set_shader_parameter("look", {"T": 0, "A": 1, "B": 2, "C": 3}.get(arg.substr(11), int(_pal("sea_look"))))
 	# (Higher in the sky, 2026-10-19: low over the horizon they sat on the sea.)
 	var cloud_look := {"exposure": float(_pal("cloud_exposure")), "shade_depth": 1.0}
 	_clouds(root, rng, 8, Color(1, 1, 1), Vector2(30, 48), Vector2(-120, -85), [0, 1, 2], 1.0, Vector2(-90, 90), cloud_look)
@@ -6110,6 +6136,12 @@ static func _skyline_layer(root: Node3D, rng: RandomNumberGenerator, layer: int,
 	# (Four tenths dimmer again, the judge's round 39: the signs were still the brightest, most saturated things on screen.)
 	m.set_shader_parameter("sign_energy", (1.9 - layer * 0.5) * float(_pal("sign_dim")))
 	m.set_shader_parameter("moon_edge", [0.9, 0.6, 0.35][layer])
+	# (The quiet behind the fight, fidelity review 5: the palette's `skyline_calm` on the two nearer layers, `--city-calm=` to try.)
+	var calm := float((_palette.get("backdrop", {}) as Dictionary).get("skyline_calm", 0.0))
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--city-calm="):
+			calm = float(arg.substr(12))
+	m.set_shader_parameter("calm", calm if layer < 2 else 0.0)
 	# (Finer windows, finer further back, the gauntlet's round 15 after the owner's city reference: its windows are fine regular grids
 	# that read as texture; ours, a bay of 2 by 2.6 on every layer, read as stickers.)
 	m.set_shader_parameter("cell", [Vector2(1.5, 1.95), Vector2(1.15, 1.5), Vector2(0.9, 1.2)][layer])
@@ -7716,8 +7748,12 @@ static func _truss_tower(drop: float) -> Mesh:
 ## Scaffolding holding a girder platform up (the city, 2026-10-18, the owner: platforms may look supported): at each end a tower of two
 ## galvanised poles front and back of the girder, set back behind the fighters' plane, with ledgers across every two units and a brace
 ## zigzagging up the back, running down from just under the girder until the roof (or the street) swallows them.
-static func _scaffold(parent: Node3D, left: float, right: float, under: float, front: float, depth: float) -> void:
-	var steel := FighterView.respond(FighterView.toon(Color(0.62, 0.64, 0.72)), "metal")
+static func _scaffold(parent: Node3D, left: float, right: float, under: float, front: float, depth: float, steel_c := Color(0.62, 0.64, 0.72)) -> void:
+	# (A deep painted slate where the palette says so, `scaffold_steel`, fidelity review 5: in pale galvanised steel the towers were the
+	# brightest lattices against the night; `--scaffold-dark` to try.)
+	if OS.get_cmdline_user_args().has("--scaffold-dark"):
+		steel_c = Color(0.34, 0.3, 0.44)
+	var steel := FighterView.respond(FighterView.toon(steel_c), "metal")
 	var drop := 26.0
 	# (All one mesh: as separate pieces a run's dozens of platforms made thousands of objects, and the renderer broke down.)
 	var st := SurfaceTool.new()
@@ -7737,6 +7773,10 @@ static func _scaffold(parent: Node3D, left: float, right: float, under: float, f
 		for ex in [left + 0.75, right - 0.75]:
 			var tm := _mesh(parent, tower, steel, Vector3(ex, under, zb))
 			tm.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			# (Dark, its thin struts take the ink's dark line, not the scenery's pale card edge, which on struts this thin was most of what
+			# showed: an object id under the scenery's, as things in play have.)
+			if steel_c.get_luminance() < 0.45:
+				tm.set_instance_shader_parameter("object_id", 0.58)
 		return
 	for ex in [left + 0.75, right - 0.75]:
 		var xa: float = ex - 0.5

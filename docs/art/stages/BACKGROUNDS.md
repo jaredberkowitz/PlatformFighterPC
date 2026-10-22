@@ -222,3 +222,19 @@ The owner: worried about quality, switch the art to Blender models wherever poss
 the beach's bell tower, warehouse, market stalls and stilt hut with its jetty in the house kit; the city's near towers modelled from
 the game's own layout with real window frames, sills, lintels, ledges and pilasters under the same facade shader. Each keeps its code
 build as the fallback. Before and after: `review5/windmill_model.png`, `harbour_models.png`, `city_towers_model.png`.
+
+## The meadow's farmland (2026-10-22, mock)
+
+The owner: the meadow's ground still feels cheap next to the grove; the plots sloppy, the road not connected. At the wide camera: the
+fields are rounded stickers on one flat green, the two lanes start at the crest and stop at the bottom, and there is no structure (the
+grove has connected masses, lit tops over dark sides, a dense fill). `make_meadow_ground.py --variant FA|FB|FC` (mocked with
+`--ground-mock=`, `--bush-mock=`): FA hedged fields tiling the slope edge to edge (contour rows, boundaries down the slope, bushy
+hedgerows, crops in rows mostly round the farm, one connected lane network with a spur into the farmyard and hedges along the lanes);
+FB FA as shallow terraces (flatter shelves, short grass banks; the farm on its own wide shelf); FC FB with pines along the hedgerows
+and a copse behind the farm. Earth-brown banks read muddy, so the banks are a deep grass green. On the Stage Look Review ("meadowfarm",
+`mf_*`). Mocks are unlit and about 240,000 triangles; the ship bakes the contact shade and trims.
+
+**Built (2026-10-22): the meadow's farmland C** (the owner's pick): terraced hedged fields with pines along the hedgerows and a copse
+behind the farm, the lanes connected. The hedgerows' bushes and the lanes' hedges were thinned to keep the band near 250,000 triangles
+(the old ground 118,000): 275 fps, GPU 2.37 ms against 2.31 before. Re-lit. Before and after (wide, then the match camera):
+`review5/meadow_farmland_built.jpg`.

@@ -22,6 +22,8 @@ Every look carries the dunes as standing cut-out flats along the crests of the d
 Each piece is its own object so the game can lay the air of its depth over it, and bakes its occlusion into linear vertex colours.
 Families `rock_a`, `rock_b`, `rock_c` (the strata), `dune_far`, `dune_near`, and their cut edges `card_<family>`.
 
+Shipped (the owner's pick, fidelity review 5, 2026-10-22): godot/models/stages/canyon_paper.glb, `--variant KC --arch solid`, then lit.
+
 Run (Blender 5.2):
   blender --background --python art/blender/make_canyon_paper.py -- --dir godot/art/baked/<key> --variant A --ground <g.glb>
 """
@@ -266,6 +268,64 @@ def butte_courses(name, b, rng):
             slab("%s_s%d" % (name, c), fam, xs[q] + 0.08, xs[q + 1] - 0.08, cz - dep + dz, cz + dep + dz, y, y + th * rng.uniform(0.9, 1.0))
         y += th
         k += 1
+
+
+def arch_rock(name, b, rng):
+    """The arch as rock, not a stack (fidelity review 5: its legs of strata blocks read as stacked discs): each leg two massive blocks,
+    the upper set a little in and turned, a thin pale band between them; the span one solid piece across their tops, its underside a
+    true arch, its top uneven, a darker cap course along it."""
+    x0, y0, z0, x1, y1, z1 = b
+    cx, cz = (x0 + x1) * 0.5, (z0 + z1) * 0.5
+    w, d, h = x1 - x0, z1 - z0, y1 - FLOOR
+    leg_h = h * 0.72
+    legs = []
+    for side in (-1, 1):
+        lx = cx + side * (w * 0.5 - 3.0)
+        legs.append(lx)
+        nm = "%s_l%d" % (name, side + 1)
+        rot = rng.uniform(0, math.tau)
+        lower = FLOOR + leg_h * 0.52
+        block(nm, "rock_a", facet_ring(lx, cz, 3.5, d * 0.5, 7, rng, rot), FLOOR - 0.4, lower, 0.7)
+        block(nm, "rock_c", facet_ring(lx + side * 0.2, cz, 3.25, d * 0.47, 7, rng, rot + 0.15), lower, lower + 0.7, 0.2)
+        block(nm, "rock_a", facet_ring(lx + side * 0.35, cz + rng.uniform(-0.3, 0.3), 3.0, d * 0.44, 6, rng, rot + 0.4), lower + 0.7, FLOOR + leg_h, 0.6)
+    # The span: a front outline (x, y) extruded through the arch's depth; its underside an arch between the legs' inner faces.
+    xi_l, xi_r = legs[0] + 2.6, legs[1] - 2.6
+    yb = FLOOR + leg_h - 0.6
+    apex = yb + 2.2
+    yt = FLOOR + leg_h + 3.6
+    under = [(xi_l + (xi_r - xi_l) * k / 10.0, yb + (apex - yb) * math.sin(math.pi * k / 10.0)) for k in range(11)]
+    top = []
+    for k in range(9):
+        x = x1 - 0.6 - (w - 1.2) * k / 8.0
+        top.append((x, yt + rng.uniform(-0.45, 0.25)))
+    outline = [(x0 + 0.6, yb)] + under + [(x1 - 0.6, yb)] + top
+    dd = d * 0.4
+    OWN.add(name + "_span")
+    bm = part(name + "_span", "rock_a")
+    zf, zb = cz + dd, cz - dd
+    front = face(bm, [P(x, y, zf) for (x, y) in outline])
+    front.normal_update()
+    if front.normal.y > 0.0:
+        front.normal_flip()
+    back = face(bm, [P(x, y, zb) for (x, y) in reversed(outline)])
+    back.normal_update()
+    if back.normal.y < 0.0:
+        back.normal_flip()
+    n = len(outline)
+    for i in range(n):
+        (xa, ya), (xb, yb_) = outline[i], outline[(i + 1) % n]
+        f = face(bm, (P(xa, ya, zf), P(xb, yb_, zf), P(xb, yb_, zb), P(xa, ya, zb)))
+        f.normal_update()
+        # (Outward: to the right of the outline's direction, the outline running counter-clockwise.)
+        mid = P((xa + xb) * 0.5, (ya + yb_) * 0.5, cz)
+        if f.normal.dot(P((xa + xb) * 0.5 + (yb_ - ya), (ya + yb_) * 0.5 - (xb - xa), cz) - mid) < 0.0:
+            f.normal_flip()
+    # The cap course along the top.
+    for k in range(4):
+        xa = x0 + 0.8 + (w - 1.6) * k / 4.0
+        xb = x0 + 0.8 + (w - 1.6) * (k + 1) / 4.0
+        ytop = yt + rng.uniform(-0.2, 0.3)
+        slab("%s_cap%d" % (name, k), "rock_b", xa + 0.1, xb - 0.1, cz - dd * 0.9, cz + dd * 0.9, ytop - 0.2, ytop + 0.9, 0.3)
 
 
 def arch_blocks(name, b, rng, courses=False):
@@ -597,7 +657,11 @@ def build_ground():
             else:
                 butte_blocks("butte%d" % k, m, rng, notched=VARIANT == "KC")
         if LAYOUT.get("arch"):
-            arch_blocks("arch", LAYOUT["arch"], rng, courses=VARIANT == "KB")
+            # (`--arch solid`: fidelity review 5's rock arch, `arch_rock`.)
+            if opts.get("arch", "") == "solid":
+                arch_rock("arch", LAYOUT["arch"], rng)
+            else:
+                arch_blocks("arch", LAYOUT["arch"], rng, courses=VARIANT == "KB")
         dune_flats()
         return
     for k, m in enumerate(LAYOUT.get("mesas", [])):

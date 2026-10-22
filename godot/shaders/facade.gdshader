@@ -23,10 +23,18 @@ uniform float detail = 1.0;            // frames, sills and floor bands (0 for t
 uniform float sign_energy = 3.0;       // a sign's neon, times white
 uniform float moon_edge = 1.0;         // how strong the moonlit edge up each front's left corner is
 
+// The quiet behind the fight (fidelity review 5's fourth item: the towers right behind the fighters were the busiest background in the
+// game): within `calm_half` of the middle, fewer windows lit and the facade pulled toward its own wall colour, by `calm` (0 off),
+// fading out over the outer two-fifths of the band.
+uniform float calm = 0.0;
+uniform float calm_half = 26.0;
+
 varying vec3 wn;
+varying float wx;
 
 void vertex() {
 	wn = (MODEL_MATRIX * vec4(NORMAL, 0.0)).xyz;
+	wx = (MODEL_MATRIX * vec4(VERTEX, 1.0)).x;
 }
 
 float hash(vec2 p) {
@@ -142,6 +150,8 @@ void fragment() {
 			// stack of identical bands.
 			float pier_every = floor(mix(3.0, 5.99, hash(vec2(seed, 9.9))));
 			float share = clamp(lit_share * mix(0.4, 1.55, hash(vec2(seed, 5.5))), 0.06, 0.85);
+			float ck = calm * (1.0 - smoothstep(calm_half * 0.6, calm_half, abs(wx)));
+			share *= 1.0 - 0.75 * ck;
 			// The parapet cap, and the cornice's shadow on the wall just under the roofline.
 			float cap = step(height - parapet, at.y);
 			col = mix(col, base * side * 1.28, cap);
@@ -250,6 +260,7 @@ void fragment() {
 				}
 				col = mix(col, pane_col, in_x * in_y);
 			}
+			col = mix(col, base * side, ck * 0.4);
 		}
 		ALBEDO = col;
 		// Scenery's object id (post.gdshader reads it from the roughness).
