@@ -37,6 +37,9 @@ Each band is its own object so the game can lay the air of its depth over it, an
 Families `hill_far`, `hill_near`, `rise`, `field_0`..`field_4`, `hedge`, `card` (the paper's cut edge), `pine_0`..`pine_3`,
 `pine_under`, `trunk`.
 
+Shipped (the owner's pick, 2026-10-22): FC with `--pine D` as godot/models/stages/meadow_ground.glb and meadow_pines.glb, then lit
+(light_stage.py on the front, the play area and the ground).
+
 Run (Blender 5.2):
   blender --background --python art/blender/make_meadow_ground.py -- --dir godot/art/baked/<key> --variant A --ground <g.glb> --bush <p.glb>
 """
@@ -993,9 +996,10 @@ def hedge_run(bm, pts, rng, rad):
     for i in range(len(pts) - 1):
         a, b = pts[i], pts[i + 1]
         rr = rad * rng.uniform(0.8, 1.15)
-        tube_seg(bm, P(*a), P(*b), rr, segs=6)
+        tube_seg(bm, P(*a), P(*b), rr, segs=5)
+        # (Low bushes: at this distance a twenty-faced one reads as round, and four times as many cost a third of the band.)
         if rng.random() < 0.3:
-            ret = bmesh.ops.create_icosphere(bm, subdivisions=1, radius=rad * rng.uniform(1.3, 1.8))
+            ret = bmesh.ops.create_icosphere(bm, subdivisions=0, radius=rad * rng.uniform(1.3, 1.8))
             for v in ret["verts"]:
                 v.co = Vector((v.co.x, v.co.y, v.co.z * 0.85)) + P(*a)
 
@@ -1122,7 +1126,7 @@ def farm_band(name, fam, bumps, floor_y, z, profile, rng, fields=True):
         # The row's lower boundary.
         if r + 1 < len(rows) - 1 or not fields:
             hd = top_d1
-            hedge_lines.append([(lo + 3.0 * t, hd) for t in range(int((hi - lo) / 3.0) + 1)])
+            hedge_lines.append([(lo + 4.0 * t, hd) for t in range(int((hi - lo) / 4.0) + 1)])
     # The hedgerows, open where a lane passes and round the farmyard.
     hedge_bm = part(name, "qhedge")
     rad = 0.32 if fields else 0.24
@@ -1160,6 +1164,9 @@ def farm_band(name, fam, bumps, floor_y, z, profile, rng, fields=True):
         for sgn in (-1.0, 1.0):
             run = []
             for k, (x, d) in enumerate(pts):
+                # (Every third of the lane's points: at its own spacing the lanes' hedges were half the band's triangles.)
+                if k % 3 and k != len(pts) - 1:
+                    continue
                 p = world[k]
                 t = world[min(k + 1, len(world) - 1)] - world[max(k - 1, 0)]
                 n = normal(x, d)

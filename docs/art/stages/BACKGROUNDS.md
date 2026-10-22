@@ -233,3 +233,8 @@ hedgerows, crops in rows mostly round the farm, one connected lane network with 
 FB FA as shallow terraces (flatter shelves, short grass banks; the farm on its own wide shelf); FC FB with pines along the hedgerows
 and a copse behind the farm. Earth-brown banks read muddy, so the banks are a deep grass green. On the Stage Look Review ("meadowfarm",
 `mf_*`). Mocks are unlit and about 240,000 triangles; the ship bakes the contact shade and trims.
+
+**Built (2026-10-22): the meadow's farmland C** (the owner's pick): terraced hedged fields with pines along the hedgerows and a copse
+behind the farm, the lanes connected. The hedgerows' bushes and the lanes' hedges were thinned to keep the band near 250,000 triangles
+(the old ground 118,000): 275 fps, GPU 2.37 ms against 2.31 before. Re-lit. Before and after (wide, then the match camera):
+`review5/meadow_farmland_built.jpg`.
