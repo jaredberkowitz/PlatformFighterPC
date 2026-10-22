@@ -12,7 +12,7 @@ After the backgrounds audit (docs/art/stages/BACKGROUNDS.md, 2026-10-21; the led
   FB FA with moss hanging down the cliffs and tufts, flowers and stones on the tops;
   FC FB with the reference's far forest: rows of giant trunks fading into the violet under a canopy band.
 After the owner's note that the floating islands made little progress (2026-10-21), one bolder look built from the grove reference:
-  H  hero terraces: connected land round the chasm the island floats in, two tiers either side and one across the back, each tier's
+  H  hero terraces: connected land round the chasm the island floats in, three tiers in a half-circle round the stage, each tier's
      front rising from the one before it; their edges wander out into promontories and turn back into the chasm, so the faces look
      every way; under a thick grass top that overhangs in a scalloped lip, dark faceted cardboard rock steps back into a violet abyss;
      ferns and vines hang where the edges face the camera; pines seated on the tops; deep shade baked under every lip.
@@ -460,36 +460,31 @@ def bumps(x, spots):
     return sum(out * math.exp(-((x - cx) / w) ** 2) for (cx, out, w) in spots)
 
 
-def side_tiers(sign, rng):
-    """One side's two terraces (sign -1 the left, 1 the right) as plan outlines running counter-clockwise seen from above."""
-    tiers = []
-    # T0: its front with two or three promontories, its inner end curving back toward the chasm.
-    inner0 = 19.0 if sign < 0 else 20.5
-    spots0 = [(sign * rng.uniform(150, 175), rng.uniform(6, 9), 9.0), (sign * rng.uniform(95, 115), rng.uniform(5, 8), 8.0),
-              (sign * rng.uniform(55, 70), rng.uniform(3, 5), 6.0)]
-    front0 = []
-    xs = [sign * (inner0 + 2.0 * i) for i in range(int((215 - inner0) / 2.0) + 1)]
-    for x in xs:
-        front0.append((x, -46.0 + bumps(x, spots0) + 0.8 * math.sin(x * 0.31)))
-    inner_edge0 = [(sign * inner0, front0[0][1]), (sign * (inner0 - 2.0), -52.0), (sign * (inner0 + 1.0), -61.0), (sign * (inner0 + 5.0), -70.0)]
-    outline0 = list(reversed(inner_edge0[1:])) + front0 + [(sign * 215.0, -70.0)]
-    tiers.append(("T0" + ("L" if sign < 0 else "R"), outline0, -9.3 if sign < 0 else -9.0, False))
-    # T1: higher, its front rising from T0's top, its inner end further out, so the chasm widens toward the back.
-    inner1 = rng.uniform(26.0, 30.0)
-    spots1 = [(sign * rng.uniform(120, 160), rng.uniform(4, 6), 10.0), (sign * rng.uniform(60, 85), rng.uniform(3, 5), 8.0)]
-    front1 = [(sign * (inner1 + 2.0 * i), -70.0 + bumps(sign * (inner1 + 2.0 * i), spots1) + 0.6 * math.sin(i * 0.9))
-              for i in range(int((215 - inner1) / 2.0) + 1)]
-    inner_edge1 = [(sign * inner1, front1[0][1]), (sign * (inner1 - 1.5), -80.0), (sign * (inner1 + 1.0), -90.0), (sign * (inner1 + 3.0), -98.0)]
-    outline1 = list(reversed(inner_edge1[1:])) + front1 + [(sign * 215.0, -98.0)]
-    tiers.append(("T1" + ("L" if sign < 0 else "R"), outline1, -5.0 if sign < 0 else -4.5, True))
-    return tiers
+def arc_band(name, r_in, r_out, a0, a1, top, grass_far, rng, promontories):
+    """A terrace as a band of a half-circle round the stage (angles in degrees, 270 straight behind it): its front the inner arc,
+    wandering in toward the stage in promontories, its back the outer arc, which runs under the face of the tier behind."""
+    span = math.radians(a1 - a0)
+    length = r_in * span
+    spots = [(rng.uniform(0.08, 0.92) * length, rng.uniform(4.0, 8.0), rng.uniform(6.0, 10.0)) for _ in range(promontories)]
+    n = int(length / 2.0)
+    inner = []
+    for i in range(n + 1):
+        sv = length * i / n
+        a = math.radians(a0) + span * i / n
+        r = r_in - bumps(sv, spots) + 0.8 * math.sin(sv * 0.31)
+        inner.append((r * math.cos(a), r * math.sin(a)))
+    m = max(8, int(r_out * span / 6.0))
+    outer = [(r_out * math.cos(math.radians(a1) - span * i / m), r_out * math.sin(math.radians(a1) - span * i / m)) for i in range(m + 1)]
+    return (name, inner + outer, top, grass_far)
 
 
-def back_tier(rng):
-    """T2: right across the back, its front rising from the side terraces and dropping into the chasm between them."""
-    spots = [(rng.uniform(-90, -60), 4.0, 9.0), (rng.uniform(-8, 8), 5.0, 7.0), (rng.uniform(60, 90), 4.0, 9.0)]
-    front = [(x, -98.0 + bumps(x, spots) + 0.6 * math.sin(x * 0.27)) for x in [-225.0 + 2.5 * i for i in range(181)]]
-    return ("T2", list(reversed(front)) + [(-225.0, -132.0), (225.0, -132.0)], -1.0, True)
+def arc_tiers(rng):
+    """The terraces in a half-circle round the stage, owner's ask 2026-10-21: T0 and T1 in halves (left and right at their own
+    heights, meeting straight behind the great tree), T2 whole, each a little longer than the last so its ends wrap past the one in
+    front. The side trees' gates stand on T0 at about 61 and 65 from the middle; the far tree village on T2 at 110 to 121."""
+    return [arc_band("T0L", 46.0, 72.0, 166.0, 270.0, -9.3, False, rng, 2), arc_band("T0R", 46.0, 72.0, 270.0, 374.0, -9.0, False, rng, 2),
+            arc_band("T1L", 72.0, 100.0, 162.0, 270.0, -5.0, True, rng, 2), arc_band("T1R", 72.0, 100.0, 270.0, 378.0, -4.5, True, rng, 2),
+            arc_band("T2", 100.0, 136.0, 156.0, 384.0, -1.0, True, rng, 4)]
 
 
 def inside(poly, x, z):
@@ -649,8 +644,8 @@ def rock_run(name, pts, turn, top, drop, rng, far):
 
 
 def hero_ledges(rng):
-    """The grove's terraces round the chasm the island floats in: two connected tiers either side and one right across the back."""
-    tiers = side_tiers(-1, rng) + side_tiers(1, rng) + [back_tier(rng)]
+    """The grove's terraces round the chasm the island floats in, in a half-circle round the stage."""
+    tiers = arc_tiers(rng)
     for name, poly, top, grass_far in tiers:
         far = name == "T2"
 
@@ -679,7 +674,8 @@ def plant_trees_hero(rng):
         while placed < n and tries < 600:
             tries += 1
             x, z = rng.uniform(min(xs), max(xs)), rng.uniform(min(zs), max(zs))
-            if not inside(poly, x, z) or abs(x) < (26 if name != "T2" else 16):
+            # (Clear of the space behind the fight, and of the near ends beside the stage, where tall pines would crowd the frame.)
+            if not inside(poly, x, z) or abs(x) < (26 if name != "T2" else 16) or z > -15.0:
                 continue
             if any(abs(x - tx) < 9 and abs(z - tz) < 9 for (tx, tz) in SIDE_TREES):
                 continue

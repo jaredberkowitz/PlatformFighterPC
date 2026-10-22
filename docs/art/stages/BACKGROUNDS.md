@@ -136,3 +136,11 @@ laid along whole runs of showing edge (`rock_run`; per two-unit outline segment 
 lip. Pines are seated on the tier they stand on, clear of every edge and of higher tiers, bigger (3 to 6.5) and fewer; the far tree
 village stands on T2 at -1, as before. Tufts over the tops. About 60,000 triangles. (A sign slip in the outline's winding first put the
 rock and the lips on the tiers' hidden back edges.)
+
+**Pilot 3, the owner's ask: the terraces in a half-circle round the stage** (`arc_tiers`, `arc_band`). Each tier is a band of a
+half-circle centred on the stage: its front the inner arc wandering in toward the stage in promontories, its back the outer arc under
+the face of the tier behind. T0 (radius 46 to 72) and T1 (72 to 100) come in halves meeting straight behind the great tree, at the old
+heights (-9.3 and -9.0, -5.0 and -4.5); T2 (100 to 136, -1) is whole. Each tier's arc runs a little further round than the one in front
+(166 to 374 degrees for T0, 156 to 384 for T2), so its ends wrap past it beside the stage. The gates (radius 61 and 65), the side trees
+and the far tree village (110 to 121) keep their footing. Pines are kept off the near ends (z above -15), where they would crowd the
+frame. About 61,000 triangles.
