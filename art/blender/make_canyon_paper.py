@@ -452,7 +452,8 @@ def ripples(name, ring, y, rng):
 
 
 # (Through the gap between the near buttes right of the stage, where the cameras see it: past x 60 is off the frame.)
-WASH = [(72.0, -150.0), (40.0, -118.0), (32.0, -88.0), (36.0, -58.0), (44.0, -32.0), (50.0, -10.0), (58.0, 14.0)]
+# (Through the gaps between the buttes, the believability pass, 2026-10-22: from (72, -150) it ran under the far butte at (44, -112).)
+WASH = [(14.0, -150.0), (18.0, -125.0), (22.0, -100.0), (30.0, -80.0), (38.0, -58.0), (44.0, -32.0), (50.0, -10.0), (58.0, 14.0)]
 
 
 def wash_line(step=2.0):

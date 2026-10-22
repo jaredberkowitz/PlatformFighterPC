@@ -7279,7 +7279,9 @@ static func _harbour_town(root: Node3D, water: float, land_root: Node3D = null) 
 	# Boats moored along the quay.
 	for k in 3:
 		var boat := Bob.new()
-		boat.position = base + Vector3(-18.0 + k * 15.0, 0.0, 7.0)
+		# (Out on the water, clear of the quay's foot, the believability pass, 2026-10-22: at 7 their hulls met the quay and the land and
+		# they read as sitting on the sand.)
+		boat.position = base + Vector3(-18.0 + k * 15.0, 0.0, 11.0)
 		root.add_child(boat)
 		var dinghy := Toonify.load_prop("sailboat")
 		if dinghy != null:

@@ -746,12 +746,40 @@ def scarecrow(at):
     ob("scarecrow_hat", bm, "straw")
 
 
+_GROUND = {}
+
+
+def ground_y(glb, x, z):
+    """The height of the shipped ground model `glb` (godot/models/stages/) at (x, z), the game's axes, by a ray cast down onto it."""
+    if glb not in _GROUND:
+        from mathutils.bvhtree import BVHTree
+        before = set(bpy.data.objects)
+        bpy.ops.import_scene.gltf(filepath=os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "godot", "models", "stages", glb))
+        new = [o for o in bpy.data.objects if o not in before]
+        verts, polys = [], []
+        for o in new:
+            if o.type == "MESH":
+                base = len(verts)
+                verts.extend(o.matrix_world @ v.co for v in o.data.vertices)
+                polys.extend([base + i for i in p.vertices] for p in o.data.polygons)
+        for o in new:
+            bpy.data.objects.remove(o, do_unlink=True)
+        _GROUND[glb] = BVHTree.FromPolygons(verts, polys)
+    hit = _GROUND[glb].ray_cast(P(x, 200.0, z), Vector((0.0, 0.0, -1.0)), 400.0)
+    return hit[0].z if hit[0] is not None else None
+
+
 def meadow_c():
     rng = random.Random(12)
     # Chimney smoke over the farmhouse and the far cottage; washing on a line by the farm; a scarecrow in the near field.
     moving("smoke", (-28.0, -8.0, -36.5), scaled, (-28.0, -8.0, -36.5), 1.6, smoke, (-28.0, -8.0, -36.5), 6, 0.5, rng)
     moving("smoke", (42.5, -4.0, -72.5), scaled, (42.5, -4.0, -72.5), 2.4, smoke, (42.5, -4.0, -72.5), 6, 0.5, rng)
-    a, b = (-33.0, -11.6, -35.0), (-30.6, -13.6, -32.6)
+    # (The line and the scarecrow in the field right of the farmhouse, each on the land under it, the
+    # believability pass, 2026-10-22: the line stood across the lane and the barn's front, the scarecrow before the farmhouse's door.)
+    def on_land(x, z, old):
+        y = ground_y("meadow_ground.glb", x, z)
+        return (x, y - 0.1 if y is not None else old, z)
+    a, b = on_land(-25.4, -36.0, -11.6), on_land(-23.0, -34.0, -13.6)
     bm = bmesh.new()
     for p in (a, b):
         tube(bm, p, (p[0], p[1] + 2.4, p[2]), 0.05, segs=6)
@@ -764,7 +792,8 @@ def meadow_c():
         zz = a[2] + (b[2] - a[2]) * t
         moving("flutter", (x, y, zz), card, [(x - 0.3, y, zz), (x + 0.3, y, zz), (x + 0.28, y - 0.7, zz), (x - 0.28, y - 0.7, zz)],
                ("flag_a", "canvas", "flag_c", "coat_c")[k], "washing", 0.02)
-    moving("sway", (-27.6, -15.5, -33.0), scaled, (-27.6, -15.5, -33.0), 1.5, scarecrow, (-27.6, -15.5, -33.0))
+    sc = on_land(-17.5, -32.5, -15.5)
+    moving("sway", sc, scaled, sc, 1.5, scarecrow, sc)
 
 
 # Where the far terraces are, read from the match camera's depth: about a unit under the stage's base level, 100 to 120 units back.
@@ -877,8 +906,10 @@ def grove_b():
         card([(p[0], p[1], p[2] + 0.25) for p in top], "gate_dark", "gate_top", thick=0.5)
         card([(x - 2.6, y + 3.95, z + 0.2), (x + 2.6, y + 3.95, z + 0.2), (x + 2.6, y + 4.12, z + 0.2), (x - 2.6, y + 4.12, z + 0.2)], "gate_red", "gate_lintel", thick=0.4)
         card([(x - 0.35, y + 3.45, z + 0.22), (x + 0.35, y + 3.45, z + 0.22), (x + 0.35, y + 3.98, z + 0.22), (x - 0.35, y + 3.98, z + 0.22)], "gate_dark", "gate_plaque", thick=0.1)
-    scaled((-31.0, -9.1, -53.0), 2.0, gate, -31.0, -9.1, -53.0)
-    scaled((33.0, -9.1, -56.0), 2.0, gate, 33.0, -9.1, -56.0)
+    # (Beside the side trees, toward the stage, the believability pass, 2026-10-22: set where the trees stand, each trunk grew through its
+    # gate.)
+    scaled((-19.0, -9.1, -53.0), 2.0, gate, -19.0, -9.1, -53.0)
+    scaled((21.0, -9.1, -56.0), 2.0, gate, 21.0, -9.1, -56.0)
     for sgn in (-1.0, 1.0):
         a = Vector((4.0 * sgn, 12.0, -17.0))
         b = Vector((22.0 * sgn, 8.0, -30.0))
