@@ -186,3 +186,6 @@ own green vanished; the farm and lane exclusions emptied the left side.) Recomme
 
 Detail, first piece: `--pine D` (`pine_detailed`): eight skirts with scalloped hems, a slight lean, a trunk with roots (a pleated-tier
 try read as shards). Mocks on the Stage Look Review (`mq_*`). The proposed order per stage is on the page.
+
+**Built (2026-10-22): meadow ground QA with the detailed pines** (`make_meadow_ground.py --variant QA --pine D` into `meadow_ground.glb`
+and `meadow_pines.glb`, the meadow re-lit). Before and after: `review5/meadow_quilt_built.jpg`.
