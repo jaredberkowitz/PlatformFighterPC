@@ -967,6 +967,14 @@ static func _ground_colours(t: Dictionary) -> Dictionary:
 	out["qcard"] = Color(0.27, 0.5, 0.22)
 	out["qhedge"] = Color(0.22, 0.43, 0.22)
 	out["qgap"] = Color(0.28, 0.54, 0.24)
+	# (The meadow's hedged farmland, 2026-10-22: rows in the wheat and ploughed fields, young crops in green rows on brown, the lanes'
+	# grass crown, the terraces' banks in a deep grass green: in earth brown they read muddy.)
+	out["wheat_row"] = Color(0.8, 0.66, 0.32)
+	out["plough"] = Color(0.6, 0.44, 0.32)
+	out["plough_row"] = Color(0.48, 0.34, 0.25)
+	out["crop_row"] = Color(0.5, 0.74, 0.3)
+	out["verge"] = Color(0.5, 0.74, 0.34)
+	out["bank"] = Color(0.27, 0.44, 0.27)
 	for fam in ["hill_near", "hill_far"]:
 		out[fam + "_l"] = (out[fam] as Color).lightened(0.1)
 		out[fam + "_d"] = (out[fam] as Color).darkened(0.08)

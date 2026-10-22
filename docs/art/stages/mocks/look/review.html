@@ -88,6 +88,29 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
     <p>Two lessons from the reference screenshots, mocked from the match camera: the scenery without ink outlines, its edges lit as card bevels instead, and the paper houses rebuilt at the characters' proportions. The earlier rounds stay on the <a href="https://claude.ai/artifact/D1du6MREVumiJDrEdNypW4">Stage Fidelity Review</a>, which is full.</p>
   </header>
 
+  <section class="panel" aria-labelledby="mf-h" id="meadowfarm">
+    <div class="eyebrow">Your call is needed &middot; the meadow's ground, made to hold together</div>
+    <h2 id="mf-h">Meadow farmland that reads as real</h2>
+    <p>You're right that the meadow's ground lags the grove. Seen at the wide camera, three things give it away:</p>
+    <ul style="display:grid;gap:6px;margin:0;padding-left:1.2em;max-width:78ch">
+      <li><b>The fields are stickers.</b> Rounded patches sit apart on one flat green, and nothing about them follows the land.</li>
+      <li><b>The roads go nowhere.</b> Two pale ribbons start at the crest and stop at the bottom, without passing the farm, the windmill or the cottage.</li>
+      <li><b>There's no structure.</b> The grove has big connected masses, with lit tops over dark sides and a dense fill. The meadow is one flat green with pale shapes on it.</li>
+    </ul>
+    <p>All three options keep the meadow's farm, windmill, cottages, pine belts and the stage's own hill. They change the land:</p>
+    <div class="tablewrap"><table><thead><tr><th>Option</th><th>What it is</th></tr></thead><tbody>
+      <tr><td>A &middot; Hedged fields</td><td>The slope is cut edge to edge into fields, with no loose green between them. Rows follow the contours, and boundaries run down the slope, some through several rows. Every boundary is a bushy hedgerow. There are three pasture greens plus wheat, ploughed earth and young crops, the cropped fields drawn in rows, mostly round the farm. One network of lanes connects everything: from over the crest past the farm (with a spur into its yard), and from the right-hand cottage, down to a lane across the slope, then on down toward the stage. Hedges line the lanes and open where lanes meet. The near hills' fields tile the same way.</td></tr>
+      <tr><td>B &middot; Terraced fields</td><td>A laid as shallow terraces: each row of fields is a flatter shelf ending in a short, steep grass bank, which is the grove's lesson (lit tops over darker sides). The lanes ramp down the banks, and the farm stands on its own wide shelf.</td></tr>
+      <tr><td>C &middot; Terraces and trees</td><td>B with pines along the hedgerows, one to three where boundaries start, and a copse behind the farm.</td></tr>
+    </tbody></table></div>
+    <div class="row" role="group" aria-label="View"><button data-fv="w">Wide</button><button data-fv="m">Match camera</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-fo="T">Today</button><button data-fo="FA">A &middot; Hedged fields</button><button data-fo="FB">B &middot; Terraced fields</button><button data-fo="FC">C &middot; Terraces and trees</button></div>
+    <div class="viewer"><img id="fimg" alt="Meadow ground option"><span class="vtag" id="ftag"></span></div>
+    <p>Close up at the wide camera (today on the left, B on the right; the farm side, then the right-hand lane):</p>
+    <div class="viewer"><img src="mf_close.jpg" alt="Meadow ground today and terraced, close crops"></div>
+    <p class="muted">My pick: <b>C</b>, or B if you'd rather keep the trees to the belts on the hills. The terraces give the meadow the grove's structure without changing what the meadow is. Unlit mocks: the ship will bake the contact shade, as on the other stages, and trim the triangle count.</p>
+  </section>
+
   <section class="panel" aria-labelledby="mb-h" id="models">
     <div class="eyebrow">Built &middot; the plan, worked through</div>
     <h2 id="mb-h">Blender models in place of code-built art</h2>
@@ -645,6 +668,16 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
   function frender() {
     document.getElementById("fimg").src = "cf_" + fv + "_" + fo + ".jpg";
     document.getElementById("ftag").textContent = "Canyon \u00b7 " + FO[fo] + (fv === "w" ? " \u00b7 wide" : " \u00b7 match camera");
+    pressed("data-fv", fv); pressed("data-fo", fo);
+  }
+  group("data-fv", function (v) { fv = v; }, frender);
+  group("data-fo", function (v) { fo = v; }, frender);
+  frender();
+  var fv = "w", fo = "FB";
+  var FO = { T: "Today", FA: "A · Hedged fields", FB: "B · Terraced fields", FC: "C · Terraces and trees" };
+  function frender() {
+    document.getElementById("fimg").src = "mf_" + fo + "_" + fv + ".jpg";
+    document.getElementById("ftag").textContent = "Meadow · " + FO[fo] + (fv === "w" ? " · wide" : " · match camera");
     pressed("data-fv", fv); pressed("data-fo", fo);
   }
   group("data-fv", function (v) { fv = v; }, frender);

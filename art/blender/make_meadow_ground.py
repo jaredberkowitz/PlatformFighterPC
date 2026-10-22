@@ -23,6 +23,16 @@ After the owner's note on PB as shipped (2026-10-22: "reads a bit muddy, unprofe
      of rolls round some fields; cut edges a deeper green instead of cream; a light occlusion bake;
   QB QA with fewer, larger fields (half as many rows, twice as wide);
   QC the land a clean lawn, with tidy fields only round the farm and along the lanes.
+After the owner's note on QA (2026-10-22: "the plots feel sloppy, the road does not feel connected, the grove reads way better"), three
+looks of farmland that holds together:
+  FA hedged fields: the rise cut edge to edge into fields (no land between them), rows along the contours and boundaries running down
+     the slope, every boundary a bushy hedgerow; pasture in three greens, wheat, ploughed earth and young crops, the cropped fields
+     drawn in rows; one network of lanes, each going somewhere: from over the crest past the farm (a spur into its yard) and from the
+     right-hand cottage, down to a lane across the slope, and on down toward the stage; hedges along the lanes, open where they cross;
+     the near hills' fields tiled the same way in pasture greens;
+  FB FA laid as shallow terraces: each row of fields a flatter shelf ending in a short steep bank of earth under a grass lip, as the
+     grove's terraces (lit top, dark side); the lanes ramp down the banks;
+  FC FB with pines along the hedgerows, in ones to threes where boundaries start, and a copse behind the farm.
 Each band is its own object so the game can lay the air of its depth over it, and bakes its occlusion into linear vertex colours.
 Families `hill_far`, `hill_near`, `rise`, `field_0`..`field_4`, `hedge`, `card` (the paper's cut edge), `pine_0`..`pine_3`,
 `pine_under`, `trunk`.
@@ -898,6 +908,317 @@ def quilt_band(name, fam, bumps, floor_y, z, profile, rng, fields=False):
                     face(edge, (P(*side[k]), P(*side[k + 1]), P(*(side[k + 1] - Vector((0, 0.35, 0)))), P(*(side[k] - Vector((0, 0.35, 0))))))
 
 
+# ---- FA, FB, FC: hedged farmland ---------------------------------------------------------------------------------------------------
+
+
+# (The farm's row wide, so the barn and the farmhouse stand on one shelf, not at a bank's edge.)
+FARM_ROWS = [0.0, 2.0, 9.0, 13.5, 18.0, 23.5, 30.0, 38.0, 47.0, 56.0]
+TERRACES = VARIANT in ("FB", "FC")
+# Field kinds: [top family, row family or None, how often].
+FIELD_KINDS = [("qf_a", None, 3), ("qf_b", None, 3), ("qf_c", None, 2), ("wheat", "wheat_row", 2), ("plough", "plough_row", 1),
+               ("plough", "crop_row", 2)]
+# The lanes as (x, drop) points, each from somewhere to somewhere: over the crest past the farm (and a spur into its yard), from the
+# right-hand cottage, the lane across the slope that joins them, and on down toward the stage.
+LANES = [
+    [(-49.0, 0.0), (-48.6, 3.0), (-47.5, 7.0), (-45.0, 11.5), (-40.0, 16.5), (-33.0, 21.0)],
+    [(-47.8, 5.0), (-43.0, 5.4), (-38.5, 5.8)],
+    [(34.0, 0.0), (33.6, 3.5), (32.5, 8.0), (30.0, 13.0), (27.0, 18.0), (25.0, 21.0)],
+    [(-170.0, 21.6), (-120.0, 20.8), (-75.0, 21.4), (-33.0, 21.0), (0.0, 21.2), (25.0, 21.0), (70.0, 20.6), (120.0, 21.4), (170.0, 21.0)],
+    [(-33.0, 21.0), (-36.0, 27.0), (-41.0, 34.0), (-47.0, 42.0), (-54.0, 52.0)],
+    [(25.0, 21.0), (28.5, 27.0), (33.0, 34.0), (38.0, 42.0), (44.0, 52.0)],
+]
+LANE_W = [1.1, 0.75, 1.1, 1.0, 1.0, 1.0]
+
+
+def terraced(d, terr=True):
+    """FB: a drop under the crest as the terraces lay it: across most of each row the land falls at a third of the slope, then drops to
+    the next row in a short steep bank (the last fifth of the row)."""
+    if not terr or not TERRACES or d <= 0.0 or d >= FARM_ROWS[-1]:
+        return d
+    for k in range(len(FARM_ROWS) - 1):
+        d0, d1 = FARM_ROWS[k], FARM_ROWS[k + 1]
+        if d0 <= d < d1:
+            t = (d - d0) / (d1 - d0)
+            if t < 0.8:
+                return d0 + 0.3 * (d - d0)
+            top = d0 + 0.3 * 0.8 * (d1 - d0)
+            return top + (d1 - top) * (t - 0.8) / 0.2
+    return d
+
+
+def bank_of(d):
+    """FB: whether a drop is on a row's bank (its last fifth)."""
+    if not TERRACES:
+        return False
+    for k in range(len(FARM_ROWS) - 1):
+        d0, d1 = FARM_ROWS[k], FARM_ROWS[k + 1]
+        if d0 <= d < d1:
+            return (d - d0) / (d1 - d0) >= 0.8
+    return False
+
+
+def farm_surface(bumps, floor_y, z, profile, terr=True):
+    """`surface` with FB's terraces (`terr`): the land's height takes the terraced drop, its depth the true one."""
+    def at(x, d):
+        return Vector((x, land_top(bumps, floor_y, x) - terraced(d, terr), z + depth_at(max(d, 0.0), profile)))
+
+    def normal(x, d):
+        t1 = at(x + 0.5, d) - at(x - 0.5, d)
+        t2 = at(x, d + 0.3) - at(x, max(d - 0.3, 0.0))
+        n = t1.cross(t2)
+        if n.z + n.y < 0.0:
+            n = -n
+        return n.normalized()
+    return at, normal
+
+
+def poly_len(pts):
+    return sum((pts[i + 1] - pts[i]).length for i in range(len(pts) - 1))
+
+
+def resample(pts2, step):
+    """A lane's (x, drop) points every `step` along it."""
+    out = [pts2[0]]
+    for i in range(len(pts2) - 1):
+        a, b = pts2[i], pts2[i + 1]
+        n = max(1, int(math.hypot(b[0] - a[0], b[1] - a[1]) / step))
+        for k in range(1, n + 1):
+            t = k / n
+            out.append((a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t))
+    return out
+
+
+def hedge_run(bm, pts, rng, rad):
+    """A bushy hedgerow along world points: a rolled tube whose girth swells and shrinks, with a round bush now and then."""
+    for i in range(len(pts) - 1):
+        a, b = pts[i], pts[i + 1]
+        rr = rad * rng.uniform(0.8, 1.15)
+        tube_seg(bm, P(*a), P(*b), rr, segs=6)
+        if rng.random() < 0.3:
+            ret = bmesh.ops.create_icosphere(bm, subdivisions=1, radius=rad * rng.uniform(1.3, 1.8))
+            for v in ret["verts"]:
+                v.co = Vector((v.co.x, v.co.y, v.co.z * 0.85)) + P(*a)
+
+
+def farm_band(name, fam, bumps, floor_y, z, profile, rng, fields=True):
+    """The band cut edge to edge into hedged fields (see FA above). `fields` False: the near hills, pasture only, no lanes."""
+    at, normal = farm_surface(bumps, floor_y, z, profile, terr=fields)
+    lo, hi = -160.0, 160.0
+    back = [(rr[0], rr[1]) for rr in profile if rr[1] < 0.0]
+    rows = FARM_ROWS if fields else [0.0, 1.6, 3.6, 6.0, 9.0, 12.6, 17.0]
+    # The land under it all (shows only under the hedges, the lanes and the farmyard), back of the crest first.
+    ds = sorted(set([0.0] + [rows[k] + (rows[k + 1] - rows[k]) * f for k in range(len(rows) - 1) for f in (0.0, 0.4, 0.8, 0.9)]
+                    + [rows[-1], rows[-1] + 8.0, 60.0, 90.0]))
+    order = [(d, None) for (d, _) in back] + [(d, 1) for d in ds]
+    xs = [lo + 2.5 * i for i in range(int((hi - lo) / 2.5) + 1)]
+
+    def ground(x, d, flag):
+        if flag is None:
+            return P(x, land_top(bumps, floor_y, x) - d, z + depth_at(0.0, profile) + [b for (dd, b) in back if dd == d][0])
+        return P(*at(x, d))
+
+    for j in range(len(xs) - 1):
+        for i in range(len(order) - 1):
+            (da, fa), (db, fb) = order[i], order[i + 1]
+            mid = (da + db) * 0.5
+            fam_c = "bank" if (fields and fa and fb and bank_of(mid)) else fam
+            face(part(name, fam_c), (ground(xs[j], da, fa), ground(xs[j], db, fb), ground(xs[j + 1], db, fb), ground(xs[j + 1], da, fa)))
+    # The lanes in world space, each with its sides, and how near a point of land is to one.
+    lanes = []
+    if fields:
+        for k, lane in enumerate(LANES):
+            pts = resample(lane, 0.8)
+            world = [at(x, d) for (x, d) in pts]
+            lanes.append((pts, world, LANE_W[k]))
+
+    def near_lane(q, pad):
+        for (_, world, w) in lanes:
+            for i in range(len(world) - 1):
+                a, b = world[i], world[i + 1]
+                ab = b - a
+                t = max(0.0, min(1.0, (q - a).dot(ab) / max(ab.length_squared, 1e-6)))
+                if (a + ab * t - q).length < w + pad:
+                    return True
+        return False
+
+    def in_yard(x, d):
+        return fields and FARM and FARM[0] - 2.0 < x < FARM[1] + 2.0 and d < 8.0
+
+    # The fields: each row along the contours, cut across by boundaries running down the slope (some run through several rows).
+    long_bounds = []
+    x = lo
+    while x < hi:
+        long_bounds.append(x)
+        x += rng.uniform(22.0, 34.0) if fields else rng.uniform(16.0, 26.0)
+    long_bounds.append(hi)
+    kinds = [k for k in FIELD_KINDS if fields or k[1] is None for _ in range(k[2])]
+    hedge_lines = []
+    for r in range(len(rows) - 1):
+        d0, d1 = rows[r], rows[r + 1]
+        top_d1 = d0 + (d1 - d0) * (0.8 if TERRACES and fields else 1.0)
+        bounds = []
+        for i in range(len(long_bounds) - 1):
+            a, b = long_bounds[i], long_bounds[i + 1]
+            bounds.append(a)
+            if rng.random() < 0.6:
+                bounds.append(a + (b - a) * rng.uniform(0.4, 0.6))
+        bounds.append(hi)
+        wave = [rng.uniform(0, math.tau) for _ in bounds]
+
+        def bx(i, d):
+            # (A boundary wanders a little as it comes down; the outer ones stay put.)
+            return bounds[i] + (1.6 * math.sin(d * 0.21 + wave[i]) if 0 < i < len(bounds) - 1 else 0.0)
+
+        for i in range(len(bounds) - 1):
+            kind = kinds[rng.randrange(len(kinds))]
+            # (Round the farm mostly crops: a farm works the fields nearest it.)
+            if fields and FARM and abs((bounds[i] + bounds[i + 1]) * 0.5 - (FARM[0] + FARM[1]) * 0.5) < 45.0 and d0 < 25.0 and rng.random() < 0.6:
+                kind = [k for k in FIELD_KINDS if k[1]][rng.randrange(3)]
+            top_f, row_f = kind[0] if fields else ("qf_b", "qf_a", "qf_c")[rng.randrange(3)], kind[1]
+            nu = max(2, int((bounds[i + 1] - bounds[i]) / 2.0))
+            nv = 4
+            grid = []
+            for v in range(nv + 1):
+                d = d0 + (top_d1 - d0) * v / nv
+                row_pts = []
+                for u in range(nu + 1):
+                    x = bx(i, d) + (bx(i + 1, d) - bx(i, d)) * u / nu
+                    row_pts.append((x, d))
+                grid.append(row_pts)
+            cx = (bounds[i] + bounds[i + 1]) * 0.5
+            if in_yard(cx, (d0 + d1) * 0.5):
+                continue
+            lift = 0.05
+            for v in range(nv):
+                for u in range(nu):
+                    quad = [grid[v][u], grid[v][u + 1], grid[v + 1][u + 1], grid[v + 1][u]]
+                    face(part(name, top_f), [P(*(at(x, d) + normal(x, d) * lift)) for (x, d) in quad])
+            if row_f:
+                # Rows across the field: along the contours, or down the slope, by turns.
+                along = rng.random() < 0.5
+                n_rows = max(3, int(((bx(i + 1, d0) - bx(i, d0)) if not along else (top_d1 - d0) * 2.2) / 0.9))
+                for k in range(n_rows):
+                    f0, f1 = (k + 0.25) / n_rows, (k + 0.65) / n_rows
+                    strip = []
+                    steps = 8
+                    for sidx in range(steps + 1):
+                        g = 0.04 + 0.92 * sidx / steps
+                        if along:
+                            dd0, dd1 = d0 + (top_d1 - d0) * f0, d0 + (top_d1 - d0) * f1
+                            xa = bx(i, dd0) + (bx(i + 1, dd0) - bx(i, dd0)) * g
+                            strip.append(((xa, dd0), (xa, dd1)))
+                        else:
+                            dd = d0 + (top_d1 - d0) * g
+                            xa = bx(i, dd) + (bx(i + 1, dd) - bx(i, dd)) * f0
+                            xb = bx(i, dd) + (bx(i + 1, dd) - bx(i, dd)) * f1
+                            strip.append(((xa, dd), (xb, dd)))
+                    for sidx in range(steps):
+                        (p0, p1), (p2, p3) = strip[sidx], strip[sidx + 1]
+                        q = [p0, p2, p3, p1]
+                        face(part(name, row_f), [P(*(at(x, d) + normal(x, d) * 0.1)) for (x, d) in q])
+            # This field's boundary down its right side (not at the band's ends).
+            if i + 1 < len(bounds) - 1:
+                hedge_lines.append([(bx(i + 1, d0 + (top_d1 - d0) * t / 6.0), d0 + (top_d1 - d0) * t / 6.0) for t in range(7)])
+        # The row's lower boundary.
+        if r + 1 < len(rows) - 1 or not fields:
+            hd = top_d1
+            hedge_lines.append([(lo + 3.0 * t, hd) for t in range(int((hi - lo) / 3.0) + 1)])
+    # The hedgerows, open where a lane passes and round the farmyard.
+    hedge_bm = part(name, "qhedge")
+    rad = 0.32 if fields else 0.24
+    for line in hedge_lines:
+        run = []
+        for (x, d) in line:
+            q = at(x, d)
+            if near_lane(q, 0.5) or in_yard(x, d):
+                if len(run) > 1:
+                    hedge_run(hedge_bm, [p + normal(*xd) * rad for p, xd in run], rng, rad)
+                run = []
+                continue
+            run.append((q, (x, d)))
+        if len(run) > 1:
+            hedge_run(hedge_bm, [p + normal(*xd) * rad for p, xd in run], rng, rad)
+        CORNERS.append(at(*line[0]))
+    # The lanes: a pale ribbon with a grass crown down its middle, its cut edges, and hedges along both sides.
+    for (pts, world, w) in lanes:
+        left, right, crown_l, crown_r = [], [], [], []
+        for k, (x, d) in enumerate(pts):
+            p = world[k]
+            t = world[min(k + 1, len(world) - 1)] - world[max(k - 1, 0)]
+            n = normal(x, d)
+            side = t.cross(n).normalized()
+            lift = n * 0.22
+            left.append(p - side * w + lift)
+            right.append(p + side * w + lift)
+            crown_l.append(p - side * w * 0.12 + n * 0.25)
+            crown_r.append(p + side * w * 0.12 + n * 0.25)
+        for k in range(len(pts) - 1):
+            face(part(name, "lane"), (P(*left[k]), P(*left[k + 1]), P(*right[k + 1]), P(*right[k])))
+            face(part(name, "verge"), (P(*crown_l[k]), P(*crown_l[k + 1]), P(*crown_r[k + 1]), P(*crown_r[k])))
+            for sd in (left, right):
+                face(part(name, "card_lane"), (P(*sd[k]), P(*sd[k + 1]), P(*(sd[k + 1] - Vector((0, 0.3, 0)))), P(*(sd[k] - Vector((0, 0.3, 0))))))
+        for sgn in (-1.0, 1.0):
+            run = []
+            for k, (x, d) in enumerate(pts):
+                p = world[k]
+                t = world[min(k + 1, len(world) - 1)] - world[max(k - 1, 0)]
+                n = normal(x, d)
+                q = p + t.cross(n).normalized() * sgn * (w + 0.75) + n * 0.28
+                # (Open where another lane joins, and round the farmyard.)
+                if in_yard(x, d) or any(near_lane_other(q, other) for other in lanes if other[1] is not world):
+                    if len(run) > 1:
+                        hedge_run(hedge_bm, run, rng, 0.28)
+                    run = []
+                    continue
+                run.append(q)
+            if len(run) > 1:
+                hedge_run(hedge_bm, run, rng, 0.28)
+    if fields and VARIANT == "FC":
+        copse(rng, at)
+
+
+def near_lane_other(q, lane):
+    (_, world, w) = lane
+    for i in range(len(world) - 1):
+        a, b = world[i], world[i + 1]
+        ab = b - a
+        t = max(0.0, min(1.0, (q - a).dot(ab) / max(ab.length_squared, 1e-6)))
+        if (a + ab * t - q).length < w + 1.6:
+            return True
+    return False
+
+
+CORNERS = []
+
+
+def copse(rng, at):
+    """FC: pines along the hedgerows, in twos and threes where boundaries start, and a copse behind the farm."""
+    k = 0
+    spots = list(CORNERS)
+    rng.shuffle(spots)
+    for c in spots:
+        if abs(c.x) < 22.0 or abs(c.x) > 140.0 or rng.random() < 0.75 or any(math.hypot(c.x - cx, c.z - cz) < rad for (cx, cz, rad) in KEEP_CLEAR):
+            continue
+        for _ in range(rng.randrange(1, 4)):
+            q = c + Vector((rng.uniform(-2.0, 2.0), 0.0, rng.uniform(-1.0, 1.0)))
+            base = P(q.x, q.y - 0.2, q.z)
+            FOREST.append((base.x, base.y))
+            nm = "forest%d" % (k % 4)
+            pine_detailed(part(nm, "pine_%d" % rng.randrange(4)), part(nm, "pine_under"), part(nm, "trunk"), base, rng.uniform(5.0, 7.5) / 2.9, rng)
+            k += 1
+    if FARM:
+        for _ in range(9):
+            x = rng.uniform(FARM[0] - 9.0, FARM[0] - 3.0)
+            d = rng.uniform(0.3, 2.5)
+            q = at(x, d)
+            base = P(q.x, q.y - 0.2, q.z)
+            FOREST.append((base.x, base.y))
+            nm = "forest%d" % (k % 4)
+            pine_detailed(part(nm, "pine_%d" % rng.randrange(4)), part(nm, "pine_under"), part(nm, "trunk"), base, rng.uniform(6.0, 8.5) / 2.9, rng)
+            k += 1
+    print("meadow hedgerow pines: %d" % k)
+
+
 # ---- Build --------------------------------------------------------------------------------------------------------------------------
 
 
@@ -908,6 +1229,14 @@ def build_ground():
         layered_band("near", "hill_near", LAYOUT["hills_near"], -17.0, -72.0, ROLL, rng)
         shelved_band("rise", LAYOUT["fore"], -11.0, -46.0, VALLEY, rng, lanes=True)
         forest_belts(rng)
+        hill_layers(rng)
+        return
+    if VARIANT in ("FA", "FB", "FC"):
+        quilt_band("far", "hill_far", LAYOUT["hills_far"], -17.0, -100.0, ROLL, rng)
+        farm_band("near", "hill_near", LAYOUT["hills_near"], -17.0, -72.0, ROLL, rng, fields=False)
+        farm_band("rise", "rise", LAYOUT["fore"], -11.0, -46.0, VALLEY, rng, fields=True)
+        if BELTS:
+            pine_belts(random.Random(97))
         hill_layers(rng)
         return
     band = {"A": folded_band, "B": layered_band, "C": faceted_band, "PA": patchwork_band, "PB": patchwork_band, "PC": patchwork_band,
@@ -1027,7 +1356,7 @@ def main():
     make_objects()
     # (Wider on the patchwork's last look, its soft shade: the creases under the hedgerows and the dotted things.)
     # (Lighter on the tidy quilt: the deep crease shade was much of PB's muddiness.)
-    bake_occlusion({"PC": 5.0, "QA": 1.5, "QB": 1.5, "QC": 1.5}.get(VARIANT, 3.0))
+    bake_occlusion({"PC": 5.0, "QA": 1.5, "QB": 1.5, "QC": 1.5, "FA": 1.5, "FB": 2.0, "FC": 1.5}.get(VARIANT, 3.0))
     export(opts["ground"], "ground")
     bpy.ops.wm.read_factory_settings(use_empty=True)
     build_pines()
