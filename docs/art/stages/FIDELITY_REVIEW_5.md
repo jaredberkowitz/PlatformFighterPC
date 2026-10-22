@@ -81,3 +81,12 @@ its underside, so reflections are kept darker than what they show. On the Stage 
 the sheet behind each edge and its tiers were one tone; now each sheet is lit at its own lip, shaded across and a step apart in tone,
 and lays a soft shadow on the sheet behind). `ocean.cfg` `sea_look=3`; `--sea-look=T|A|B|C` compares. The reflection trace is off on
 the Fast tier. Before and after: `review5/beach_sea_built.jpg`.
+
+## Item 2, the skies (2026-10-22, mock)
+
+At both cameras the sky is only the top sixth of the screen (pitch -10 degrees, a 30-degree view: up to about 5 degrees above the
+horizon), and the meadow's mountains, the grove's forest and the city's glow and mist cover most of it, so the gain is smaller than
+the review expected. `shaders/sky.gdshader` `look` (`--sky-look=T|A|B|C`, the palette's `sky_look`, off by default): A horizon light
+(a haze band over the horizon, a low haze bank hiding the hard line, soft mottling); B A with soft stratus streaks at three heights;
+C A with card cloud banks, puffed tops, two tones, a lit edge and a shadow. Shown on the meadow, canyon and beach ("sky", `sky_*`);
+recommended B, then on to item 3.

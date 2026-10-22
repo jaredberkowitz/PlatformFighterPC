@@ -107,8 +107,9 @@ void sky() {
 			// Three layers of stratus: centre height, thickness, how much of the band is cloud.
 			for (int k = 0; k < 3; k++) {
 				float fk = float(k);
-				float c = 0.03 + 0.03 * fk + 0.01 * noise(vec2(az * 0.8 + fk * 5.0, 2.0));
-				float th = 0.012 + 0.006 * fk;
+				// (Low: the cameras see the sky only up to about 5 degrees, 0.087.)
+				float c = 0.02 + 0.021 * fk + 0.006 * noise(vec2(az * 0.8 + fk * 5.0, 2.0));
+				float th = 0.007 + 0.003 * fk;
 				float n1 = noise(vec2(az * (5.0 + fk * 2.0) + fk * 13.0, 3.0));
 				float n2 = noise(vec2(az * (13.0 + fk * 3.0) + fk * 7.0, 5.0));
 				float top = c + th * (0.35 + 0.65 * n1);
@@ -120,18 +121,26 @@ void sky() {
 				vec3 cc = mix(cloud_shade.rgb, cloud_lit.rgb, smoothstep(0.15, 0.95, lit_k));
 				float fade = 1.0 - fk * 0.18;
 				if (look == 3) {
-					// Cut paper: crisp edges with small scallops, two tones, a lit cut edge, and the sheet's shadow on the sky under it.
-					float sc = 0.0025 * abs(sin(az * 90.0 + fk * 3.0));
-					float inside = step(bot, e) * step(e, top - sc) * step(0.5, run);
-					float shadow = step(bot - 0.006, e) * step(e, bot) * step(0.5, run);
-					col = mix(col, col * 0.88, shadow * 0.8 * fade);
-					vec3 two = mix(cloud_shade.rgb, cloud_lit.rgb, step(0.5, lit_k));
-					float edge = night ? step(e, bot + 0.0018) : step(top - sc - 0.0018, e);
-					col = mix(col, mix(two, vec3(1.0), edge * 0.5), inside * 0.92 * fade);
+					// Cut paper: a bank of card cloud, its top cut into rounded puffs, its foot flat; a shaded lower body under a lit
+					// upper one, a lit cut edge along the puffs, and the soft shadow the card lays on the sky under it.
+					float k_az = 16.0 + 5.0 * fk;
+					float puff = pow(abs(sin(az * k_az + fk * 2.1)), 0.6) * (0.65 + 0.35 * noise(vec2(az * k_az * 0.5, fk * 9.0)));
+					// (Twice the streaks' depth: as thin as them, a bank read as a line with arcs on it.)
+					float thb = th * 2.2;
+					float base = c - thb * 0.5;
+					float crest = c + thb * (0.25 + 0.9 * puff);
+					float bank = step(0.42, noise(vec2(az * (1.6 + fk * 0.7), fk * 11.0)));
+					float inside = step(base, e) * step(e, crest) * bank;
+					float shadow = step(base - 0.004, e) * step(e, base) * bank;
+					col = mix(col, col * 0.9, shadow * 0.7 * fade);
+					float body_u = (e - base) / max(crest - base, 0.001);
+					vec3 two = mix(cloud_shade.rgb, cloud_lit.rgb, night ? step(body_u, 0.4) : step(0.4, body_u));
+					float edge = night ? step(e, base + 0.0016) : step(crest - 0.0016, e);
+					col = mix(col, mix(two, vec3(1.0), edge * 0.45), inside * 0.95 * fade);
 				} else {
-					float soft = 0.004 + 0.003 * fk;
+					float soft = 0.006 + 0.004 * fk;
 					float a = smoothstep(bot - soft, bot + soft, e) * (1.0 - smoothstep(top - soft, top + soft, e)) * run;
-					col = mix(col, cc, a * 0.85 * fade);
+					col = mix(col, cc, a * 0.72 * fade);
 				}
 			}
 		}

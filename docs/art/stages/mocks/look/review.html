@@ -88,8 +88,25 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
     <p>Two lessons from the reference screenshots, mocked from the match camera: the scenery without ink outlines, its edges lit as card bevels instead, and the paper houses rebuilt at the characters' proportions. The earlier rounds stay on the <a href="https://claude.ai/artifact/D1du6MREVumiJDrEdNypW4">Stage Fidelity Review</a>, which is full.</p>
   </header>
 
+  <section class="panel" aria-labelledby="sky-h" id="sky">
+    <div class="eyebrow">Your call is needed &middot; review 5, item 2: the skies</div>
+    <h2 id="sky-h">The sky pass</h2>
+    <p>First, the paper sea is built: the beach's sea is now the reworked paper waves (before and after below). Then the skies, which review 5 found to be plain gradients. One thing I learned measuring them: at both cameras the sky is only the top sixth of the screen (up to about 5 degrees above the horizon). On the meadow the mountains cover most of it, on the grove the forest, and on the city its glow and mist. So the sky is shown here on the three stages where it reads: the meadow, the canyon and the beach. The city's sky goes with item 4.</p>
+    <div class="viewer"><img src="beach_sea_built.jpg" alt="The beach before and after the paper sea"></div>
+    <div class="tablewrap"><table><thead><tr><th>Option</th><th>What it is</th></tr></thead><tbody>
+      <tr><td>A &middot; Horizon light</td><td>A bright band of haze just above the horizon, a low bank of soft haze along it that hides the hard line, and broad, soft mottling so the sky isn't a perfect gradient. Subtle.</td></tr>
+      <tr><td>B &middot; Painted streaks</td><td>A, plus soft stratus streaks at three heights, broken along their length, lit on top and shaded underneath. Subtle; it reads best in the canyon's sunset.</td></tr>
+      <tr><td>C &middot; Paper cloud banks</td><td>A, plus banks of card cloud at three heights, their tops cut into rounded puffs, a shaded lower body under a lit upper one, a lit cut edge and the shadow each lays on the sky. The only option that clearly changes the frame. It sits alongside the card clouds already there.</td></tr>
+    </tbody></table></div>
+    <div class="row" role="group" aria-label="Stage"><button data-ks="meadow">Meadow</button><button data-ks="canyon">Canyon</button><button data-ks="beach">Beach</button></div>
+    <div class="row" role="group" aria-label="View"><button data-kv="w">Wide</button><button data-kv="m">Match camera</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-ko="T">Today</button><button data-ko="A">A &middot; Horizon light</button><button data-ko="B">B &middot; Painted streaks</button><button data-ko="C">C &middot; Paper cloud banks</button></div>
+    <div class="viewer"><img id="kimg" alt="Sky option"><span class="vtag" id="ktag"></span></div>
+    <p class="muted">My honest take: the sky is a smaller gain than review 5 expected, because so little of it shows. I'd take <b>B</b> (a quiet improvement, best on the canyon) and move on to item 3, the canyon's middle distance, which fills far more of the frame. Pick C if you want the skies to read as paper too.</p>
+  </section>
+
   <section class="panel" aria-labelledby="sea-h" id="sea">
-    <div class="eyebrow">Your call is needed &middot; review 5, item 1: the beach's sea</div>
+    <div class="eyebrow">Built (C) &middot; review 5, item 1: the beach's sea</div>
     <h2 id="sea-h">A sea that reads as water</h2>
     <p>Today the sea is one bright cyan sheet with rows of painted wave crests, which read as stripes across half the frame. The reference's water is clear turquoise over the shallows and deepens further out. Light ripples through it in a fine net, and everything standing in it or over it is reflected. Three looks, all on the sea's own shader, with the rest of the stage unchanged:</p>
     <div class="tablewrap"><table><thead><tr><th>Option</th><th>What it is</th></tr></thead><tbody>
@@ -741,5 +758,17 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
   group("data-sv", function (v) { sv = v; }, srender);
   group("data-so", function (v) { so = v; }, srender);
   srender();
+  var ks = "canyon", kv = "w", ko = "B";
+  var KS = { meadow: "Meadow", canyon: "Canyon", beach: "Beach" };
+  var KO = { T: "Today", A: "A \u00b7 Horizon light", B: "B \u00b7 Painted streaks", C: "C \u00b7 Paper cloud banks" };
+  function krender() {
+    document.getElementById("kimg").src = "sky_" + ks + "_" + ko + "_" + kv + ".jpg";
+    document.getElementById("ktag").textContent = KS[ks] + " \u00b7 " + KO[ko] + (kv === "w" ? " \u00b7 wide" : " \u00b7 match camera");
+    pressed("data-ks", ks); pressed("data-kv", kv); pressed("data-ko", ko);
+  }
+  group("data-ks", function (v) { ks = v; }, krender);
+  group("data-kv", function (v) { kv = v; }, krender);
+  group("data-ko", function (v) { ko = v; }, krender);
+  krender();
 })();
 </script>
