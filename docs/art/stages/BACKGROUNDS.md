@@ -156,3 +156,18 @@ moss on the ledges each block leaves as it steps back, and flowers among the tuf
 
 **Built (2026-10-21): grove pilot 4** (`make_grove_paper.py --variant H` into `grove_paper.glb`, the grove re-lit; the terrace trees reach
 the game through `treeslot` empties). Before and after: `grove_terraces_built.jpg`.
+
+## The meadow's ground from its own reference (2026-10-21)
+
+The owner: ship the grove, then the next stage's ground with its own reference. The meadow's is the papercraft camp
+(`docs/art/benchmarks/papercraft_mountains_reference.png`): a few broad shelves of bright lime grass, each ending in a crisp dark ledge
+under a grass lip; pale paths across them; belts of big dark pines behind, taller than the buildings. Ours: pale rounded fields on one
+smooth slope, small pine clusters.
+
+**Pilot** (`make_meadow_ground.py --variant MH`, `--ground-mock` and `--bush-mock`): the rise as five shelves (`shelved_band`, drops 0,
+4, 11, 22, 36, 52 under the crest, flat lime tops, `shelf`), each ending in a dark green-grey ledge (`ledge`, the reference's 0.2, 0.31,
+0.24) under a scalloped lip (`shelf_lip`); the ledges wander out in promontories (`ledge_offsets`), and how much of each step a ledge takes
+varies slowly along x (`share`), so in places two shelves run together and no ledge crosses the frame as a stripe (first try: seven
+shelves edge to edge read as stripes again; a faster variation pulled the shelves into steep folded ramps; alternating greens read as
+panels). The lanes cross the shelves and step down each ledge on stairs. Pine belts along the near hills (`forest_belts`, one size, about
+15 tall); the clusters at 1.2. Tufts and flowers over the shelves. The far and near hills plain card (B's layers). About 44,000 triangles.

@@ -88,8 +88,25 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
     <p>Two lessons from the reference screenshots, mocked from the match camera: the scenery without ink outlines, its edges lit as card bevels instead, and the paper houses rebuilt at the characters' proportions. The earlier rounds stay on the <a href="https://claude.ai/artifact/D1du6MREVumiJDrEdNypW4">Stage Fidelity Review</a>, which is full.</p>
   </header>
 
+  <section class="panel" aria-labelledby="mh-h" id="meadowh">
+    <div class="eyebrow">Your call is needed &middot; the meadow's ground, from its own reference</div>
+    <h2 id="mh-h">The meadow's ground after the papercraft camp</h2>
+    <p>The meadow's reference is the papercraft camp under the blue mountains. Its ground is a few broad shelves of bright lime grass, each ending in a crisp dark ledge under a grass lip; pale paths cross the shelves; dense belts of big dark pines stand behind, taller than the buildings. Ours was pale rounded field patches on one smooth slope, with small pine clusters.</p>
+    <p>The pilot, on the grove's rules:</p>
+    <ul style="display:grid;gap:6px;margin:0;padding-left:1.2em;max-width:75ch">
+      <li><strong>Shelves:</strong> the rise as five broad lime shelves, each ending in a dark green-grey ledge (the reference's ledge colour) under a scalloped lip. The ledges wander out into promontories, and along their length two shelves run together in places, so no ledge crosses the frame as a stripe.</li>
+      <li><strong>Lanes:</strong> the two lanes cross the shelves and step down each ledge on stairs cut into it.</li>
+      <li><strong>Trees:</strong> belts of pines along the near hills, all at one large size (about 15 tall), and the clusters by the windmill and the cottages a size up. The windmill and the cottages stay in view.</li>
+      <li><strong>Detail:</strong> tufts and flowers over the shelves. The farm is seated on its shelf.</li>
+    </ul>
+    <div class="row" role="group" aria-label="View"><button data-mv="w">Wide</button><button data-mv="m">Match camera</button><button data-mv="r">Reference</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-mo="T">Today</button><button data-mo="H">Pilot</button></div>
+    <div class="viewer"><img id="mimg" alt="Meadow ground pilot"><span class="vtag" id="mtag"></span></div>
+    <p class="muted">Still to refine if this is the direction: the stairs are a little pale and prominent, and the far hills behind the pines are still plain card.</p>
+  </section>
+
   <section class="panel" aria-labelledby="gh-h" id="hero">
-    <div class="eyebrow">Your call is needed &middot; the background ground, a new approach</div>
+    <div class="eyebrow">Built &middot; the background ground, a new approach (the grove shipped as pilot 4)</div>
     <h2 id="gh-h">Why the ground wasn't moving, and a pilot on the grove</h2>
     <p>You said the grove's floating islands didn't feel like progress. Looking at our grounds next to the references, the reason is the same on all four stages: for three rounds we changed the <i>pattern</i> on the land (stripes, then patchwork fields, floating islands, sand sheets) but not its <i>structure</i>.</p>
     <ul style="display:grid;gap:6px;margin:0;padding-left:1.2em;max-width:75ch">
@@ -356,6 +373,21 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
   group("data-rs", function (v) { rs = v; }, rrender);
   group("data-rv", function (v) { rv = v; }, rrender);
   rrender();
+  var mv = "w", mo = "H";
+  function mrender() {
+    var img = document.getElementById("mimg");
+    if (mv === "r") {
+      img.src = "../../../benchmarks/papercraft_mountains_reference.png";
+      document.getElementById("mtag").textContent = "The meadow's reference";
+    } else {
+      img.src = "mh_" + mv + "_" + mo + ".jpg";
+      document.getElementById("mtag").textContent = "Meadow \u00b7 " + (mo === "H" ? "pilot" : "today") + (mv === "w" ? " \u00b7 wide" : " \u00b7 match camera");
+    }
+    pressed("data-mv", mv); pressed("data-mo", mo);
+  }
+  group("data-mv", function (v) { mv = v; }, mrender);
+  group("data-mo", function (v) { mo = v; }, mrender);
+  mrender();
   var hv = "w", ho = "H4";
   function hrender() {
     var img = document.getElementById("himg");

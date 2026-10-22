@@ -957,6 +957,12 @@ static func _ground_colours(t: Dictionary) -> Dictionary:
 	out["stone"] = Color(0.82, 0.81, 0.78)
 	out["flower_a"] = Color(0.98, 0.64, 0.72)
 	out["flower_b"] = Color(1.0, 0.86, 0.42)
+	# (The meadow's shelves after its reference, the papercraft camp: bright lime grass, every other shelf a step deeper, a crisp dark
+	# green-grey ledge under each, its grass lip a little deeper than the top.)
+	out["shelf"] = Color(0.44, 0.76, 0.3)
+	out["shelf_b"] = Color(0.38, 0.69, 0.29)
+	out["shelf_lip"] = Color(0.32, 0.6, 0.26)
+	out["ledge"] = Color(0.2, 0.31, 0.24)
 	# (The grove's floating ledges: the violet mist under them, tufts on the tops, the far forest's canopy.)
 	out["mist"] = Color(0.8, 0.76, 0.93)
 	out["card_mist"] = Color(0.68, 0.63, 0.85)
