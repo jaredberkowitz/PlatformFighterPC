@@ -88,6 +88,27 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
     <p>Two lessons from the reference screenshots, mocked from the match camera: the scenery without ink outlines, its edges lit as card bevels instead, and the paper houses rebuilt at the characters' proportions. The earlier rounds stay on the <a href="https://claude.ai/artifact/D1du6MREVumiJDrEdNypW4">Stage Fidelity Review</a>, which is full.</p>
   </header>
 
+  <section class="panel" aria-labelledby="gh-h" id="hero">
+    <div class="eyebrow">Your call is needed &middot; the background ground, a new approach</div>
+    <h2 id="gh-h">Why the ground wasn't moving, and a pilot on the grove</h2>
+    <p>You said the grove's floating islands didn't feel like progress. Looking at our grounds next to the references, the reason is the same on all four stages: for three rounds we changed the <i>pattern</i> on the land (stripes, then patchwork fields, floating islands, sand sheets) but not its <i>structure</i>.</p>
+    <ul style="display:grid;gap:6px;margin:0;padding-left:1.2em;max-width:75ch">
+      <li><strong>Thin sheets, not masses.</strong> Our land is flat sheets lit the same all over and lifted by the haze, so it sits in one band of mid values. The references' ground is mass: a thick top with an overhanging lip, rock or earth under it turning away into shade, and dark gaps between the pieces. At background distance the light and dark of those masses is what reads; a pattern on a flat sheet blurs away.</li>
+      <li><strong>Many small, repeated things.</strong> Fields, islands and sand sheets dozens at a time turn into texture at that distance. The references use a few big, distinct pieces.</li>
+      <li><strong>Detail spread evenly.</strong> The references put their detail where the eye lands: the lips, with fringed grass, ferns and hanging vines. The faces stay simple and dark.</li>
+    </ul>
+    <p>The pilot rebuilds the grove's ledges on those rules: each ledge broken into a few big chunks at their own heights and depths, with dark gaps between them; a thick grass top whose lip overhangs in a scalloped fringe, with ferns and vines hanging from it; under it, dark cardboard rock blocks with faceted fronts that step back into a violet abyss; deep baked shade under every lip. The side trees and gates keep their footing.</p>
+    <div class="row" role="group" aria-label="View"><button data-hv="w">Wide</button><button data-hv="m">Match camera</button><button data-hv="r">Reference</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-ho="T">Today (floating islands)</button><button data-ho="H">Pilot (hero ledges)</button></div>
+    <div class="viewer"><img id="himg" alt="Grove ground pilot"><span class="vtag" id="htag"></span></div>
+    <p class="muted">It isn't finished: the blocks still read a little like stacked boxes in the wide view, and the far ledges' tops line up. But the frame now has the reference's light-over-dark structure. If this is the direction, I'd take the same rules to the other three stages:</p>
+    <ul style="display:grid;gap:6px;margin:0;padding-left:1.2em;max-width:75ch">
+      <li><strong>Meadow:</strong> the land behind as two or three big overlapping hill masses: grass draped over earth banks with the soil showing at the cut edges, hedgerows along the crests, shaded sides, in place of fields laid flat on one slope.</li>
+      <li><strong>Beach:</strong> the town's hill and the islands with grass tops draped over pale sandstone cliff blocks, and the beaches as their own sheets at the waterline.</li>
+      <li><strong>Canyon:</strong> the floor as a few big dune masses with shaded lee sides, and low rock steps at its edges, in place of flat sheets with ripple lines.</li>
+    </ul>
+  </section>
+
   <section class="panel" aria-labelledby="bt-h" id="buttes">
     <div class="eyebrow">Built &middot; review 4, items 3 and 4</div>
     <h2 id="bt-h">The canyon's buttes in cardboard</h2>
@@ -332,6 +353,21 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
   group("data-rs", function (v) { rs = v; }, rrender);
   group("data-rv", function (v) { rv = v; }, rrender);
   rrender();
+  var hv = "w", ho = "H";
+  function hrender() {
+    var img = document.getElementById("himg");
+    if (hv === "r") {
+      img.src = "../../../benchmarks/grove_reference.webp";
+      document.getElementById("htag").textContent = "The grove's reference";
+    } else {
+      img.src = "gh_" + hv + "_" + ho + ".jpg";
+      document.getElementById("htag").textContent = "Grove \u00b7 " + (ho === "H" ? "pilot" : "today") + (hv === "w" ? " \u00b7 wide" : " \u00b7 match camera");
+    }
+    pressed("data-hv", hv); pressed("data-ho", ho);
+  }
+  group("data-hv", function (v) { hv = v; }, hrender);
+  group("data-ho", function (v) { ho = v; }, hrender);
+  hrender();
   var bv = "w", bo = "C";
   var BO = { T: "Today", A: "A \u00b7 Cardboard blocks", B: "B \u00b7 Slab courses", C: "C \u00b7 Blocks and fallen rock" };
   function brender() {

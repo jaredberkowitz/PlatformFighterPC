@@ -963,6 +963,12 @@ static func _ground_colours(t: Dictionary) -> Dictionary:
 	out["tuft"] = (out["grass"] as Color).lightened(0.12)
 	out["canopy"] = Color(0.4, 0.4, 0.66)
 	out["isle_rock"] = Color(0.34, 0.31, 0.4)
+	# (The grove's hero ledges: the grass lip a deeper green than the top, the vines darker still, the abyss a deep violet.)
+	out["lip"] = (out["grass"] as Color).darkened(0.18)
+	out["vine"] = Color(0.16, 0.34, 0.24)
+	out["abyss"] = Color(0.36, 0.3, 0.56)
+	out["abyss_far"] = Color(0.5, 0.44, 0.72)
+	out["cliff_b"] = Color(0.16, 0.32, 0.32)
 	# (The canyon's floor in paper: its sand sheets in three tones round the desert floor's, their cut edges, wind ripples, the dry wash
 	# and its banks, pebbles, scrub and the shade under it.)
 	var sand: Color = bd.get("desert_floor", Color(0.94, 0.68, 0.4))
