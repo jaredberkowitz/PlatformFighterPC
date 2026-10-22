@@ -159,6 +159,24 @@ static func sky(t: Dictionary) -> Sky:
 		mat.set_shader_parameter("glow_dir", dir)
 		mat.set_shader_parameter("sun_side", float(t.get("sun_side", 0.0)))
 		mat.set_shader_parameter("halo", float(t.get("halo", 0.0)))
+	# The sky pass (fidelity review 5): the palette's `sky_look`, or `--sky-look=T|A|B|C` to compare (see sky.gdshader `look`). The clouds
+	# and the haze band from the sky's own colours: lit toward the horizon's light, shaded toward the sky above, the haze a pale step of
+	# the horizon; on a night sky the clouds take the city's glow underneath.
+	var look := int(t.get("sky_look", 0))
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--sky-look="):
+			look = {"T": 0, "A": 1, "B": 2, "C": 3}.get(arg.substr(11), look)
+	mat.set_shader_parameter("look", look)
+	var is_night := top.get_luminance() < 0.15
+	var glow: Color = t.sky_glow[0] if t.has("sky_glow") else horizon
+	mat.set_shader_parameter("night", is_night)
+	mat.set_shader_parameter("haze_band", horizon.lerp(Color(1, 1, 1), 0.25 if not is_night else 0.05))
+	if is_night:
+		mat.set_shader_parameter("cloud_lit", horizon.lerp(glow, 0.5).lightened(0.12))
+		mat.set_shader_parameter("cloud_shade", top.lerp(horizon, 0.35))
+	else:
+		mat.set_shader_parameter("cloud_lit", horizon.lerp(Color(1, 1, 1), 0.6))
+		mat.set_shader_parameter("cloud_shade", (t.get("sky_mid", top.lerp(horizon, 0.5)) as Color).lerp(horizon, 0.45).darkened(0.06))
 	var s := Sky.new()
 	s.sky_material = mat
 	return s
@@ -5218,10 +5236,12 @@ static func _ocean(root: Node3D, t: Dictionary, stage: Array) -> void:
 	wm.set_shader_parameter("sun_dir", t.get("sun_dir", Vector3(-0.42, 0.25, -0.88)))
 	wm.set_shader_parameter("horizon", t.sky_horizon)
 	wm.set_shader_parameter("glint_path", float(_pal("glint_path")))
-	# (The water pass, fidelity review 5: `--sea-look=A|B|C` mocks the clear, reflecting and paper seas; see water.gdshader `look`.)
+	# (The water pass, fidelity review 5: the palette's `sea_look`, the owner's pick the paper waves (3); `--sea-look=T|A|B|C` compares
+	# the sea as it was and the clear, reflecting and paper seas; see water.gdshader `look`.)
+	wm.set_shader_parameter("look", int(_pal("sea_look")))
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--sea-look="):
-			wm.set_shader_parameter("look", {"A": 1, "B": 2, "C": 3}.get(arg.substr(11), 0))
+			wm.set_shader_parameter("look", {"T": 0, "A": 1, "B": 2, "C": 3}.get(arg.substr(11), int(_pal("sea_look"))))
 	# (Higher in the sky, 2026-10-19: low over the horizon they sat on the sea.)
 	var cloud_look := {"exposure": float(_pal("cloud_exposure")), "shade_depth": 1.0}
 	_clouds(root, rng, 8, Color(1, 1, 1), Vector2(30, 48), Vector2(-120, -85), [0, 1, 2], 1.0, Vector2(-90, 90), cloud_look)

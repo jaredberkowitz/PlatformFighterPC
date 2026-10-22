@@ -76,3 +76,8 @@ on the screen (the pier, boats, town, islands and lighthouse, darker than what t
 +0.15 ms); C paper waves (wave-shaped card tiers with lit cut edges) with B's reflections. Lessons: colours written in the shader
 are linear (written as display colours they read milky); a screen-space reflection sees the pier's deck top where the water would show
 its underside, so reflections are kept darker than what they show. On the Stage Look Review ("sea", `sea_*`).
+
+**Built (2026-10-22): the paper sea** (the owner's pick, C, after a rework: the first paper sea read as lines because it lit a strip on
+the sheet behind each edge and its tiers were one tone; now each sheet is lit at its own lip, shaded across and a step apart in tone,
+and lays a soft shadow on the sheet behind). `ocean.cfg` `sea_look=3`; `--sea-look=T|A|B|C` compares. The reflection trace is off on
+the Fast tier. Before and after: `review5/beach_sea_built.jpg`.

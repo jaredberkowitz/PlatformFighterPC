@@ -27,6 +27,16 @@ uniform float wisp_amount = 0.0;
 uniform vec3 sun_dir = vec3(-0.26, -0.04, -0.96);
 uniform float sun_side = 0.0;
 uniform float halo = 0.0;
+// The sky pass (fidelity review 5's second item: the skies read as plain gradients). `look` 0 the sky as it was; 1 horizon light: a
+// bright band of haze just over the horizon, a low bank of soft haze along it that hides the hard line, and a broad, soft mottling so
+// the sky is never a perfect gradient; 2 adds painted cloud layers: long stratus bands at three heights, broken along their length,
+// lit on top and shaded underneath (on a night sky, `night`, lit from below by the city's glow instead); 3 those layers as cut paper:
+// crisp scalloped edges, two tones, a lit cut edge and the soft shadow each lays on the sky under it.
+uniform int look = 0;
+uniform vec4 cloud_lit : source_color = vec4(1.0, 0.96, 0.92, 1.0);
+uniform vec4 cloud_shade : source_color = vec4(0.7, 0.76, 0.9, 1.0);
+uniform vec4 haze_band : source_color = vec4(0.9, 0.94, 0.96, 1.0);
+uniform bool night = false;
 
 float hash(vec2 p) {
 	p = fract(p * vec2(123.34, 456.21));
@@ -80,6 +90,51 @@ void sky() {
 		float mu = max(dot(d, sd), 0.0);
 		// (Broad, not a hot core: a bright core round the drawn sun washed its disc into the sky.)
 		col += glow_color.rgb * (pow(mu, 60.0) * 0.18 + pow(mu, 12.0) * 0.1) * halo;
+	}
+	if (look > 0 && e > -0.05) {
+		float az = atan(d.x, -d.z);
+		// The bright band of haze just over the horizon.
+		float hb = exp(-pow((e - 0.01) / 0.022, 2.0));
+		col = mix(col, haze_band.rgb, hb * 0.5);
+		// A low bank of soft haze along the horizon, its top gently rolling, hiding the hard line.
+		float bank_top = 0.012 + 0.012 * noise(vec2(az * 2.2, 1.0)) + 0.006 * noise(vec2(az * 7.0, 4.0));
+		float bank = 1.0 - smoothstep(bank_top - 0.014, bank_top + 0.004, e);
+		col = mix(col, mix(haze_band.rgb, cloud_shade.rgb, 0.35), bank * 0.55);
+		// Broad soft mottling.
+		float m = noise(vec2(az * 1.3, e * 9.0)) * 0.6 + noise(vec2(az * 3.1 + 7.0, e * 19.0)) * 0.4;
+		col *= mix(0.95, 1.05, m);
+		if (look >= 2) {
+			// Three layers of stratus: centre height, thickness, how much of the band is cloud.
+			for (int k = 0; k < 3; k++) {
+				float fk = float(k);
+				float c = 0.03 + 0.03 * fk + 0.01 * noise(vec2(az * 0.8 + fk * 5.0, 2.0));
+				float th = 0.012 + 0.006 * fk;
+				float n1 = noise(vec2(az * (5.0 + fk * 2.0) + fk * 13.0, 3.0));
+				float n2 = noise(vec2(az * (13.0 + fk * 3.0) + fk * 7.0, 5.0));
+				float top = c + th * (0.35 + 0.65 * n1);
+				float bot = c - th * (0.25 + 0.3 * n2);
+				// Broken along its length.
+				float run = smoothstep(0.38, 0.55, noise(vec2(az * (2.2 + fk), fk * 11.0)));
+				float u = clamp((e - bot) / max(top - bot, 0.001), 0.0, 1.0);
+				float lit_k = night ? 1.0 - u : u;
+				vec3 cc = mix(cloud_shade.rgb, cloud_lit.rgb, smoothstep(0.15, 0.95, lit_k));
+				float fade = 1.0 - fk * 0.18;
+				if (look == 3) {
+					// Cut paper: crisp edges with small scallops, two tones, a lit cut edge, and the sheet's shadow on the sky under it.
+					float sc = 0.0025 * abs(sin(az * 90.0 + fk * 3.0));
+					float inside = step(bot, e) * step(e, top - sc) * step(0.5, run);
+					float shadow = step(bot - 0.006, e) * step(e, bot) * step(0.5, run);
+					col = mix(col, col * 0.88, shadow * 0.8 * fade);
+					vec3 two = mix(cloud_shade.rgb, cloud_lit.rgb, step(0.5, lit_k));
+					float edge = night ? step(e, bot + 0.0018) : step(top - sc - 0.0018, e);
+					col = mix(col, mix(two, vec3(1.0), edge * 0.5), inside * 0.92 * fade);
+				} else {
+					float soft = 0.004 + 0.003 * fk;
+					float a = smoothstep(bot - soft, bot + soft, e) * (1.0 - smoothstep(top - soft, top + soft, e)) * run;
+					col = mix(col, cc, a * 0.85 * fade);
+				}
+			}
+		}
 	}
 	COLOR = col;
 }

@@ -141,7 +141,8 @@ void fragment() {
 			col *= 1.0 - 0.06 * smoothstep(0.55, 0.8, rip) * (1.0 - far_k);
 			col = mix(col, mix(col, vec3(1.0), 0.3), smoothstep(0.8, 0.95, rip) * 0.35 * (1.0 - far_k) * (1.0 - near_k * 0.6));
 		}
-		if (look >= 2) {
+		// (Not on the Fast tier: the trace is the look's one real cost.)
+		if (look >= 2 && !cheap) {
 			// Reflections: march the reflected view ray across the screen until it passes behind something drawn, and take that
 			// colour, darkened and tinted by the water; rippled a little; fading with distance and where the ray finds nothing.
 			vec3 vdir = normalize(world_pos - CAMERA_POSITION_WORLD);
