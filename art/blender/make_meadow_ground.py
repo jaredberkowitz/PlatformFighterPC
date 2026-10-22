@@ -13,6 +13,10 @@ After the papercraft references (docs/art/stages/BACKGROUNDS.md, 2026-10-21), th
      over the one under it with its cut edge showing (no more stripes edge to edge);
   PB PA with lanes (pale sheets winding down the land) and hedgerows (rolled along some fields' edges);
   PC PB with small things dotted over the fields (bushes, stones, flowers) and each casting a soft shade on the sheet under it.
+After the grove's terraces (the owner, 2026-10-21: refine each stage on its own, from its own reference, the meadow's the papercraft camp):
+  MH shelves: the rise as a few broad shelves of bright lime grass, each ending in a crisp dark ledge under a scalloped grass lip, the
+     ledges wandering out into promontories; two lanes cross the shelves and step down each ledge on stairs cut into it; belts of big
+     pines along the near hills, all at one large size, as the reference's forest; the far hills plain card.
 Each band is its own object so the game can lay the air of its depth over it, and bakes its occlusion into linear vertex colours.
 Families `hill_far`, `hill_near`, `rise`, `field_0`..`field_4`, `hedge`, `card` (the paper's cut edge), `pine_0`..`pine_3`,
 `pine_under`, `trunk`.
@@ -568,11 +572,167 @@ def patchwork_band(name, fam, bumps, floor_y, z, profile, rng, fields=False):
                     face(edge, (P(*side[k]), P(*side[k + 1]), P(*(side[k + 1] - Vector((0, 0.35, 0)))), P(*(side[k] - Vector((0, 0.35, 0))))))
 
 
+# ---- MH: shelves ---------------------------------------------------------------------------------------------------------------------
+
+
+SHELVES = [0.0, 4.0, 11.0, 22.0, 36.0, 52.0]
+
+
+def ledge_offsets(rng, k):
+    """How far the ledge under shelf k wanders out from its line, along x: a slow wave and two or three promontories."""
+    spots = [(rng.uniform(-140, 140), rng.uniform(4.0, 8.0), rng.uniform(10.0, 18.0)) for _ in range(rng.randrange(2, 4))]
+    ph = rng.uniform(0, math.tau)
+
+    def off(x):
+        return 1.6 * math.sin(x * 0.045 + ph) + 0.8 * math.sin(x * 0.12 + 2 * ph) + sum(o * math.exp(-((x - c) / w) ** 2) for (c, o, w) in spots)
+    return off
+
+
+def shelved_band(name, bumps, floor_y, z, profile, rng, lanes=False):
+    """The rise as broad flat shelves stepping down toward the camera, each ending in a crisp dark ledge under a scalloped grass lip."""
+    lo, hi = -150.0, 150.0
+    xs = [lo + 2.5 * i for i in range(int((hi - lo) / 2.5) + 1)]
+
+    def crest(x):
+        return land_top(bumps, floor_y, x)
+
+    # The land behind the crest, as the other looks have it.
+    back = [(rr[0], rr[1]) for rr in profile if rr[1] < 0.0] + [(0.0, 0.0)]
+    for j in range(len(xs) - 1):
+        for i in range(len(back) - 1):
+            (da, za), (db, zb_) = back[i], back[i + 1]
+            face(part(name, "shelf"), (P(xs[j], crest(xs[j]) - da, z + za), P(xs[j], crest(xs[j]) - db, z + zb_),
+                                       P(xs[j + 1], crest(xs[j + 1]) - db, z + zb_), P(xs[j + 1], crest(xs[j + 1]) - da, z + za)))
+    offs = [ledge_offsets(rng, k) for k in range(len(SHELVES))]
+    # (How much of each step a ledge takes along x, 0 to 1: where it falls to nothing two shelves run together, so no ledge crosses the
+    # whole frame as a stripe; the last ledge takes up what the others leave.)
+    phases = [(rng.uniform(0, math.tau), rng.uniform(0, math.tau)) for _ in SHELVES]
+
+    def share(k, x):
+        if k >= len(SHELVES) - 2:
+            return 1.0
+        a, b = phases[k]
+        # (Slow: changing faster, the shelves between pulled into steep folded ramps.)
+        return min(1.0, max(0.0, 0.55 + 1.1 * math.sin(x * 0.017 + a) + 0.4 * math.sin(x * 0.041 + b)))
+
+    def drop(k, x):
+        # The drop under the crest of shelf k's top at x.
+        if k >= len(SHELVES) - 1:
+            return SHELVES[-1]
+        return sum((SHELVES[i + 1] - SHELVES[i]) * share(i, x) for i in range(k))
+
+    ledges = []
+    for k in range(len(SHELVES) - 1):
+        d0, d1 = SHELVES[k], SHELVES[k + 1]
+        # (One green: alternating, the shelves read as panels.)
+        fam = "shelf"
+        top = part("%s_s%d" % (name, k), fam)
+        face_bm = part("%s_s%d" % (name, k), "ledge")
+        lip = part("%s_s%d" % (name, k), "shelf_lip")
+        hang = 0.5 + 0.03 * d1
+        for j in range(len(xs) - 1):
+            pts = []
+            for x in (xs[j], xs[j + 1]):
+                y0, y1 = crest(x) - drop(k, x), crest(x) - drop(k + 1, x)
+                zb = z + depth_at(d0, profile) + (offs[k - 1](x) if k > 0 else 0.0)
+                zf = z + depth_at(d1, profile) + offs[k](x)
+                pts.append((x, y0, y1, zb, zf))
+            (xa, ya0, ya1, zba, zfa), (xb, yb0, yb1, zbb, zfb) = pts
+            face(top, (P(xa, ya0, zba), P(xa, ya0, zfa), P(xb, yb0, zfb), P(xb, yb0, zbb)))
+            if ya0 - ya1 < 0.25 and yb0 - yb1 < 0.25:
+                # (Two shelves run together here: no ledge, no lip.)
+                continue
+            face(face_bm, (P(xa, ya0, zfa), P(xa, ya1, zfa), P(xb, yb1, zfb), P(xb, yb0, zfb)))
+            # The lip: the grass's cut edge a little proud of the ledge, and a scalloped tab hanging over it.
+            la, lb = zfa + 0.3, zfb + 0.3
+            face(lip, (P(xa, ya0, la), P(xa, ya0 - 0.45, la), P(xb, yb0 - 0.45, lb), P(xb, yb0, lb)))
+            h = hang * rng.uniform(0.7, 1.3)
+            face(lip, (P(xa, ya0 - 0.4, la), P(xb, yb0 - 0.4, lb), P(xb - 0.3, yb0 - 0.4 - h * 0.7, lb + 0.04),
+                       P((xa + xb) * 0.5, (ya0 + yb0) * 0.5 - 0.4 - h, (la + lb) * 0.5 + 0.06), P(xa + 0.3, ya0 - 0.4 - h * 0.7, la + 0.04)))
+        ledges.append((k, offs[k - 1] if k > 0 else (lambda _x: 0.0), offs[k]))
+        # Tufts and flowers over the shelf, as the reference's lawns have them, bigger further down (nearer the camera).
+        sz = 0.5 + 0.02 * d1
+        for _ in range(int((hi - lo) * 0.6)):
+            x = rng.uniform(lo, hi)
+            zb = z + depth_at(d0, profile) + (offs[k - 1](x) if k > 0 else 0.0) + 0.6
+            zf = z + depth_at(d1, profile) + offs[k](x) - 0.6
+            if zf <= zb:
+                continue
+            zz = rng.uniform(zb, zf)
+            y = crest(x) - drop(k, x)
+            if rng.random() < 0.2:
+                res = bmesh.ops.create_cone(part("%s_s%d" % (name, k), rng.choice(("flower_a", "flower_b"))), cap_ends=True, segments=6,
+                                            radius1=0.35 * sz, radius2=0.12 * sz, depth=0.25 * sz)
+                for v in res["verts"]:
+                    v.co += P(x, y + 0.45 * sz, zz)
+                continue
+            for _t in range(3):
+                ang = rng.uniform(0, math.pi)
+                dx, dz = math.cos(ang) * 0.45 * sz, math.sin(ang) * 0.14 * sz
+                face(part("%s_s%d" % (name, k), "tuft"), (P(x - dx, y + 0.01, zz - dz), P(x + dx, y + 0.01, zz + dz), P(x + dx * 0.2, y + 1.1 * sz, zz + dz * 0.2)))
+    if lanes:
+        # Two lanes down the shelves either side of the stage, each crossing a shelf and stepping down its ledge on stairs cut into it.
+        for x0, ph in ((-36.0, 0.0), (34.0, 1.7)):
+            lane, card = part("%s_lanes" % name, "lane"), part("%s_lanes" % name, "card_lane")
+            for (k, off_b, off_f) in ledges:
+                d0, d1 = SHELVES[k], SHELVES[k + 1]
+                x = x0 + 3.0 * math.sin(k * 0.9 + ph)
+                w = 0.55 + 0.015 * d1
+                y0, y1 = crest(x) - drop(k, x), crest(x) - drop(k + 1, x)
+                zb = z + depth_at(d0, profile) + off_b(x) + (0.0 if k == 0 else 1.6)
+                zf = z + depth_at(d1, profile) + off_f(x)
+                face(lane, (P(x - w, y0 + 0.04, zb), P(x - w, y0 + 0.04, zf), P(x + w, y0 + 0.04, zf), P(x + w, y0 + 0.04, zb)))
+                # The stairs: treads stepping out from the ledge's foot back up to its top.
+                if y0 - y1 < 0.6:
+                    continue
+                n = max(2, int((y0 - y1) / 0.9))
+                for q in range(n):
+                    ty = y0 - (y0 - y1) * (q + 1) / n
+                    tz0 = zf + 0.0 + 0.8 * q
+                    tz1 = tz0 + 0.8
+                    face(lane, (P(x - w, ty, tz0), P(x - w, ty, tz1), P(x + w, ty, tz1), P(x + w, ty, tz0)))
+                    face(card, (P(x - w, ty, tz1), P(x - w, ty - (y0 - y1) / n, tz1), P(x + w, ty - (y0 - y1) / n, tz1), P(x + w, ty, tz1)))
+                    for sx in (x - w, x + w):
+                        face(card, (P(sx, ty, tz0), P(sx, y1, tz0), P(sx, y1, tz1), P(sx, ty, tz1)))
+
+
+FOREST = []
+
+
+def forest_belts(rng):
+    """Belts of pines along the near hills' crest, as the reference's mid-ground forest: dense groups of one kind of pine at one large
+    size (about 15 tall), clear of the space behind the fight."""
+    bumps = LAYOUT["hills_near"]
+    gx = -150.0 + rng.uniform(0, 10)
+    k = 0
+    while gx < 150.0:
+        if abs(gx) > 30.0:
+            for _ in range(rng.randrange(5, 9)):
+                x = gx + rng.uniform(-8.0, 8.0)
+                if abs(x) < 26.0:
+                    continue
+                d = rng.uniform(0.0, 3.5)
+                zz = -72.0 + depth_at(d, ROLL) + rng.uniform(-3.0, 1.0)
+                base = P(x, land_top(bumps, -17.0, x) - d - 0.3, zz)
+                FOREST.append((base.x, base.y))
+                pine_discs(part("forest%d" % (k % 4), "pine_%d" % rng.randrange(4)), part("forest%d" % (k % 4), "pine_under"),
+                           part("forest%d" % (k % 4), "trunk"), base, rng.uniform(5.2, 6.4), rng)
+            k += 1
+        gx += rng.uniform(28.0, 40.0)
+
+
 # ---- Build --------------------------------------------------------------------------------------------------------------------------
 
 
 def build_ground():
     rng = random.Random(61)
+    if VARIANT == "MH":
+        layered_band("far", "hill_far", LAYOUT["hills_far"], -17.0, -100.0, ROLL, rng)
+        layered_band("near", "hill_near", LAYOUT["hills_near"], -17.0, -72.0, ROLL, rng)
+        shelved_band("rise", LAYOUT["fore"], -11.0, -46.0, VALLEY, rng, lanes=True)
+        forest_belts(rng)
+        hill_layers(rng)
+        return
     band = {"A": folded_band, "B": layered_band, "C": faceted_band, "PA": patchwork_band, "PB": patchwork_band, "PC": patchwork_band}[VARIANT]
     band("far", "hill_far", LAYOUT["hills_far"], -17.0, -100.0, ROLL, rng)
     band("near", "hill_near", LAYOUT["hills_near"], -17.0, -72.0, ROLL, rng)
@@ -591,8 +751,8 @@ def build_pines():
     `StageArt._pine_cluster` sets them, each in its own green."""
     rng = random.Random(83)
     pine = {"A": pine_pleated, "C": pine_faceted}.get(VARIANT, pine_discs)
-    # (Each look's pine at the code-built pine's height, 2.5 at size 1.)
-    sc = {"A": 0.9}.get(VARIANT, 1.0)
+    # (Each look's pine at the code-built pine's height, 2.5 at size 1; MH's half as tall again, as the forest belts behind them.)
+    sc = {"A": 0.9, "MH": 1.2}.get(VARIANT, 1.0)
     for k, (ox, oz, s) in enumerate(PINE_SPOTS):
         lit = part("pine", "pine_%d" % (k % 4))
         under = part("pine", "pine_under")
@@ -611,6 +771,10 @@ def make_objects():
                 # (Away from its own pine's trunk, sideways: undersides face out and down, skirts out and up.)
                 sx, sz = min(PINE_SPOTS, key=lambda p: (c.x - p[0]) ** 2 + (c.y + p[1]) ** 2)[:2]
                 away = Vector((c.x - sx, c.y + sz, 0.0))
+            elif name.startswith("forest"):
+                # (Away from the nearest pine's trunk, as the clusters' pines.)
+                fx, fy = min(FOREST, key=lambda q: (c.x - q[0]) ** 2 + (c.y - q[1]) ** 2)
+                away = Vector((c.x - fx, c.y - fy, 0.0))
             elif name == "hill" and LAYOUT.get("hill"):
                 # (The hill's sheets face up, their cut edges out from the wall.)
                 hl, hr, _, hf = LAYOUT["hill"]

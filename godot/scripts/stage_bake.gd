@@ -957,12 +957,24 @@ static func _ground_colours(t: Dictionary) -> Dictionary:
 	out["stone"] = Color(0.82, 0.81, 0.78)
 	out["flower_a"] = Color(0.98, 0.64, 0.72)
 	out["flower_b"] = Color(1.0, 0.86, 0.42)
+	# (The meadow's shelves after its reference, the papercraft camp: bright lime grass, every other shelf a step deeper, a crisp dark
+	# green-grey ledge under each, its grass lip a little deeper than the top.)
+	out["shelf"] = Color(0.44, 0.76, 0.3)
+	out["shelf_b"] = Color(0.38, 0.69, 0.29)
+	out["shelf_lip"] = Color(0.32, 0.6, 0.26)
+	out["ledge"] = Color(0.2, 0.31, 0.24)
 	# (The grove's floating ledges: the violet mist under them, tufts on the tops, the far forest's canopy.)
 	out["mist"] = Color(0.8, 0.76, 0.93)
 	out["card_mist"] = Color(0.68, 0.63, 0.85)
 	out["tuft"] = (out["grass"] as Color).lightened(0.12)
 	out["canopy"] = Color(0.4, 0.4, 0.66)
 	out["isle_rock"] = Color(0.34, 0.31, 0.4)
+	# (The grove's hero ledges: the grass lip a deeper green than the top, the vines darker still, the abyss a deep violet.)
+	out["lip"] = (out["grass"] as Color).darkened(0.18)
+	out["vine"] = Color(0.16, 0.34, 0.24)
+	out["abyss"] = Color(0.26, 0.2, 0.42)
+	out["abyss_far"] = Color(0.4, 0.34, 0.62)
+	out["cliff_b"] = Color(0.16, 0.32, 0.32)
 	# (The canyon's floor in paper: its sand sheets in three tones round the desert floor's, their cut edges, wind ripples, the dry wash
 	# and its banks, pebbles, scrub and the shade under it.)
 	var sand: Color = bd.get("desert_floor", Color(0.94, 0.68, 0.4))
@@ -1056,6 +1068,11 @@ static func place_ground(root: Node3D, t: Dictionary, source: Array) -> void:
 		ground.set_meta("lit_piece", true)
 		root.add_child(ground)
 		_paint_ground(ground, colours)
+		# (Trees the ground asks for, `treeslot` empties: the theme's modelled tree stands at each, as at the code-built trees' places.)
+		for n in ground.find_children("treeslot*", "", true, false):
+			StageArt.tree_slots.append([(n as Node3D).position, (n as Node3D).scale.x])
+			n.get_parent().remove_child(n)
+			n.free()
 		# (A floor scattered in paper stands in for the code-built scrub and stones on it.)
 		if ground.find_children("scatter*", "", true, false).size() > 0 and root.get_parent() != null:
 			for n in root.get_parent().find_children("*", "GeometryInstance3D", true, false):

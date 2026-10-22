@@ -104,3 +104,70 @@ Review 4's items 3 and 4 (docs/art/stages/FIDELITY_REVIEW_4.md).
   - the beach at late afternoon: `MOODS.ocean` (a low warm key, cool blue shade, a peach haze and grade) and `ocean.cfg`'s sky (a peach
     horizon, a warm glow, the sun lower).
 - Before and after (meadow, beach wide, grove, canyon wide): `buttes_light_built.jpg`.
+
+## A new approach (2026-10-21): structure, not pattern
+
+The owner: the grove's floating islands made little progress; focus on the background ground of the four stages that aren't the city.
+Next to the references, the reason is the same on all four. For three rounds we changed the pattern on the land (stripes, patchwork
+fields, floating islands, sand sheets) but not its structure:
+- **Thin sheets, not masses.** Our land is flat sheets, lit alike and lifted by the haze, all in one band of mid values. The references'
+  ground is mass: a thick top with an overhanging lip, rock or earth under it turning away into shade, dark gaps between pieces. At
+  background distance their light-over-dark is what reads; a pattern on a flat sheet blurs away.
+- **Many small, repeated things** (fields, islands, sand sheets by the dozen) turn into texture. The references use a few big pieces.
+- **Detail spread evenly.** The references put it where the eye lands, on the lips (fringed grass, ferns, hanging vines), and keep the
+  faces simple and dark.
+
+**Pilot on the grove** (`make_grove_paper.py --variant H`): each ledge broken into chunks 22 to 40 wide at their own heights and depths
+with dark gaps between (the chunks under the side trees keep the trees' footing, nothing right behind the fight); a thick grass top
+overhanging in a scalloped lip, ferns and vines hanging from it, tufts on the top; under it dark teal cardboard blocks (`cliff`,
+`cliff_b`) with faceted fronts, each lower block stepping back into a deep violet abyss (`abyss`, `abyss_far`), which swallows the
+rock's feet; occlusion baked at 5 units, not 2, so every lip shades the rock under it. 37,400 triangles. (First try: blocks of three
+hues, beige among them, and a full-length wall each read as a quilt of boxes; one ledge per band still read as stripes.)
+
+If the owner takes the direction: the meadow's land as two or three big overlapping hill masses (grass draped over earth banks, soil at
+the cut edges, hedgerows on the crests, shaded sides); the beach's town hill and islands as grass draped over pale sandstone blocks; the
+canyon's floor as a few big dune masses with shaded lee sides and low rock steps at its edges.
+
+**Pilot 2, after the owner's notes** (the broken ledges didn't read as believable: trees floated, every chunk faced the same way, some
+trees were too short). The land is connected: terraces as plan outlines (`side_tiers`, `back_tier`) round the chasm the island floats
+in, T0 and T1 either side and T2 right across the back, each tier's front rising from the top of the one before it (`ground_under`).
+Their fronts wander out into promontories (`bumps`) and their inner ends turn back into the chasm, so the cliffs face every way. Rock is
+laid along whole runs of showing edge (`rock_run`; per two-unit outline segment it read as a wall of little cubes), set back under the
+lip. Pines are seated on the tier they stand on, clear of every edge and of higher tiers, bigger (3 to 6.5) and fewer; the far tree
+village stands on T2 at -1, as before. Tufts over the tops. About 60,000 triangles. (A sign slip in the outline's winding first put the
+rock and the lips on the tiers' hidden back edges.)
+
+**Pilot 3, the owner's ask: the terraces in a half-circle round the stage** (`arc_tiers`, `arc_band`). Each tier is a band of a
+half-circle centred on the stage: its front the inner arc wandering in toward the stage in promontories, its back the outer arc under
+the face of the tier behind. T0 (radius 46 to 72) and T1 (72 to 100) come in halves meeting straight behind the great tree, at the old
+heights (-9.3 and -9.0, -5.0 and -4.5); T2 (100 to 136, -1) is whole. Each tier's arc runs a little further round than the one in front
+(166 to 374 degrees for T0, 156 to 384 for T2), so its ends wrap past it beside the stage. The gates (radius 61 and 65), the side trees
+and the far tree village (110 to 121) keep their footing. Pines are kept off the near ends (z above -15), where they would crowd the
+frame. About 61,000 triangles.
+
+**Pilot 4, the owner's notes on the trees** ("all a somewhat consistent, believable and large size"; refine each stage on its own
+unless a game-wide system gives a real gain). The reference's forest is one kind of giant tree. The terraces now ask the game to stand
+the grove's own tree (`grove_tree.glb`, the side trees' model) at the side trees' size, 0.55 to 0.7 of the great tree: `treeslot` empties
+in the ground (`tree_slot`), turned into `StageArt.tree_slots` by `StageBake.place_ground` before `place_trees` runs. They replace the
+paper disc pines, which read as shrubs. Three a side on T0 and T1 and six on T2, each 15 from the side trees, the village's trees and
+one another, its canopy clear of every edge, sunk 0.6 as the side trees are. The cliffs have wider, taller blocks (4 to 7.5 by 3 to 5),
+moss on the ledges each block leaves as it steps back, and flowers among the tufts. About 44,000 triangles in the ground; the grove at
+183 fps with the GPU at 2.7 ms (2.35 ms today).
+
+**Built (2026-10-21): grove pilot 4** (`make_grove_paper.py --variant H` into `grove_paper.glb`, the grove re-lit; the terrace trees reach
+the game through `treeslot` empties). Before and after: `grove_terraces_built.jpg`.
+
+## The meadow's ground from its own reference (2026-10-21)
+
+The owner: ship the grove, then the next stage's ground with its own reference. The meadow's is the papercraft camp
+(`docs/art/benchmarks/papercraft_mountains_reference.png`): a few broad shelves of bright lime grass, each ending in a crisp dark ledge
+under a grass lip; pale paths across them; belts of big dark pines behind, taller than the buildings. Ours: pale rounded fields on one
+smooth slope, small pine clusters.
+
+**Pilot** (`make_meadow_ground.py --variant MH`, `--ground-mock` and `--bush-mock`): the rise as five shelves (`shelved_band`, drops 0,
+4, 11, 22, 36, 52 under the crest, flat lime tops, `shelf`), each ending in a dark green-grey ledge (`ledge`, the reference's 0.2, 0.31,
+0.24) under a scalloped lip (`shelf_lip`); the ledges wander out in promontories (`ledge_offsets`), and how much of each step a ledge takes
+varies slowly along x (`share`), so in places two shelves run together and no ledge crosses the frame as a stripe (first try: seven
+shelves edge to edge read as stripes again; a faster variation pulled the shelves into steep folded ramps; alternating greens read as
+panels). The lanes cross the shelves and step down each ledge on stairs. Pine belts along the near hills (`forest_belts`, one size, about
+15 tall); the clusters at 1.2. Tufts and flowers over the shelves. The far and near hills plain card (B's layers). About 44,000 triangles.

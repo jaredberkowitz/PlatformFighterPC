@@ -88,6 +88,106 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
     <p>Two lessons from the reference screenshots, mocked from the match camera: the scenery without ink outlines, its edges lit as card bevels instead, and the paper houses rebuilt at the characters' proportions. The earlier rounds stay on the <a href="https://claude.ai/artifact/D1du6MREVumiJDrEdNypW4">Stage Fidelity Review</a>, which is full.</p>
   </header>
 
+  <section class="panel" aria-labelledby="rs-h" id="realshadows">
+    <div class="eyebrow">Built &middot; realtime shadows in the background, every stage</div>
+    <h2 id="rs-h">Why the shadows stopped at the play area, and the fix</h2>
+    <p>Not the engine, and not only the range. Three causes, all fixed:</p>
+    <ol style="display:grid;gap:8px;margin:0;padding-left:1.2em;max-width:78ch">
+      <li><strong>The far scenery was ruining the shadow map.</strong> The mountain ranges, dune flats, mist and abyss sheets (hundreds of units across) were casting shadows, which stretched the shadow map so far that the background's shadows were lost. They no longer cast.</li>
+      <li><strong>The shading washed out what was left.</strong> The scenery's shade is a light pastel and the ambient light is the same in sun and shadow, so a shadow read only a sixth darker. Behind the play area a shadowed face now takes each stage's own cool shadow tone. The fighters and the play area are untouched.</li>
+      <li><strong>The sun was too big.</strong> Its 5-degree size blurred every far shadow to a smudge; 1 degree on these stages.</li>
+    </ol>
+    <div class="row" role="group" aria-label="View"><button data-rs2="close">Close up: canyon, grove, city</button><button data-rs2="all">Every stage</button></div>
+    <div class="viewer"><img id="rs2img" alt="Background shadows before and after"><span class="vtag" id="rs2tag"></span></div>
+    <p class="muted">The canyon's arch and buttes lay long sunset shadows across the floor, the grove's trees shadow the terraces, the city's scaffolds and people shadow the street, and the beach's town is shaded. The meadow changes least (its sun is high and the land falls away from it). The pilot's baked vertex shadows are retired, so the models are back to their normal sizes. Cost: about 0.4 ms of GPU time.</p>
+  </section>
+
+  <section class="panel" aria-labelledby="sp-h" id="sunpilot">
+    <div class="eyebrow">Superseded by the realtime shadows above &middot; the baked-shadow pilot</div>
+    <h2 id="sp-h">Baked sun shadows: what worked and what I found</h2>
+    <p><b>The engine's realtime shadows never reach the background.</b> It's not just the 70-unit range. Even out to 260 units, a plain white test box on a grove terrace casts nothing on a plain white plane beside it, while the same pair on the play area does. So I baked the sun's shadow into the background models instead, and found two bugs on the way:</p>
+    <ol style="display:grid;gap:8px;margin:0;padding-left:1.2em;max-width:78ch">
+      <li><strong>A shader bug that greyed every background top</strong> (fixed for all stages). Flat grass, sand and terrace tops were lit as if they faced away from the sun, in their shade colour. Now they light properly: the grove's terraces read lime, not grey-green, and the canyon's floor warmer. A big part of the "greyed middle distance" from the review.</li>
+      <li><strong>The grove's terrace trees had gone missing in the game</strong> (re-lighting dropped their places). Fixed; they're back.</li>
+      <li><strong>Baked sun shadows</strong> on the canyon's floor and the grove's terraces, cast from every butte, arch, tree and gate toward each stage's own sun, plus full-strength contact shade in the distance.</li>
+    </ol>
+    <div class="row" role="group" aria-label="View"><button data-sp="pilot">Today (left) and the pilot (right)</button><button data-sp="arch">The canyon's arch up close</button></div>
+    <div class="viewer"><img id="spimg" alt="Sun shadow pilot"><span class="vtag" id="sptag"></span></div>
+    <p class="muted">Honest result: the shadows read as soft darkening (the arch's legs across the floor, the trees on the terraces), not the reference's crisp drop shadows. Baked into the models' vertices they can't be sharper without far heavier models, and the haze lifts them further. Frame time is unchanged (canyon 297 fps, grove 249 fps); the grove's ground grew from about 2 to 6.8 MB and the canyon's from 1.3 to 4.2 MB. For crisp shadows the next step is either finding why the engine's shadows stop at the play area (engine-level digging, the best result if it works) or baking the shadows into a texture.</p>
+  </section>
+
+  <section class="panel" aria-labelledby="g5-h" id="graphics5">
+    <div class="eyebrow">Graphics review, every stage (the order: grounding first, piloted above)</div>
+    <h2 id="g5-h">What every stage is missing, graphically</h2>
+    <p>You were right that the ground work had turned into redesign. This review leaves layout alone and looks only at rendering: shadows, light, atmosphere, materials, sky and water. The meadow's shelf pilot is parked; the grove's terraces stay as shipped. Written up in docs/art/stages/GRAPHICS_REVIEW.md.</p>
+    <h3>Game-wide gaps (one system each, every stage gains)</h3>
+    <ol style="display:grid;gap:8px;margin:0;padding-left:1.2em;max-width:78ch">
+      <li><strong>Nothing in the background is grounded.</strong> The windmill, cottages, pines, torii, trestle, buttes, houses and boats cast no shadow you can see, so each sits on the land like a cut-out. The sun's shadows stop 70 units from the camera, where the background starts. I tested them out to 320 units: no frame-time cost, but they barely read, because cast shadows are kept light and the haze washes the far ground. <b>Fix:</b> bake the sun's shadow into the background the way contact shade is baked now, so every tree, house and butte lays a crisp, cool shadow on the land at no runtime cost. <b>The biggest gain.</b></li>
+      <li><strong>The air washes the middle distance grey.</strong> Saturation there: beach town 0.12, grove terraces 0.17, meadow hills 0.21, and the canyon's middle is one pink value. The references keep it clear and coloured (the camp's grass about 0.7). <b>Fix:</b> retune the air per stage: start later, lift less, keep the hue. Quick.</li>
+      <li><strong>Background surfaces are one flat tone per face.</strong> Hills, terrace tops, walls, butte faces. The print and lit bevels only read up close. <b>Fix:</b> a background layer in the shader: a soft gradient by height and facing, plus large-scale mottling that reads at distance.</li>
+      <li><strong>Plain skies.</strong> Smaller gain.</li>
+    </ol>
+    <div class="row" role="group" aria-label="Evidence"><button data-g5="crops">Background close-ups</button><button data-g5="shadow">Shadow test (left today, right 320 units)</button></div>
+    <div class="viewer"><img id="g5img" alt="Graphics review evidence"><span class="vtag" id="g5tag"></span></div>
+    <h3>Per stage</h3>
+    <div class="tablewrap"><table><thead><tr><th>Stage</th><th>Missing (graphics, not layout)</th></tr></thead><tbody>
+      <tr><td>Meadow</td><td>Shadows under the windmill, cottages, pines and haystacks; a pale middle distance at one value; the grass lacks the reference's lime and its light and dark patches.</td></tr>
+      <tr><td>Grove</td><td>Trees, gates and the tree village cast nothing on the terraces; flat green terrace tops; a flat violet abyss with no glow or depth (the reference's misty light, soft shafts); a greyed middle distance.</td></tr>
+      <tr><td>Beach</td><td>Water one bright cyan with stripe ripples (the reference: clear turquoise, see-through near the pier, soft highlights, darker with depth); a grey, washed town; no shadows from boats or houses; no long late-afternoon shadows.</td></tr>
+      <tr><td>Canyon</td><td>No long sunset shadows from the buttes and arch across the floor; the middle distance one pink value; flat floor sheets.</td></tr>
+      <tr><td>City</td><td>Flat slab towers (windows painted on, no facade depth, no shade where buildings meet); lit windows that don't glow; a flat magenta sky.</td></tr>
+    </tbody></table></div>
+    <h3>Recommended order</h3>
+    <ol style="display:grid;gap:6px;margin:0;padding-left:1.2em;max-width:78ch">
+      <li>Baked sun shadows and contact for the background, piloted on the canyon (long sunset shadows) and the grove (trees on the terraces).</li>
+      <li>The air retune, stage by stage.</li>
+      <li>The background material layer, piloted on the meadow's hills and the grove's terraces.</li>
+      <li>Per stage: the beach's water, then the city's facades and window glow.</li>
+      <li>Skies.</li>
+    </ol>
+  </section>
+
+  <section class="panel" aria-labelledby="mh-h" id="meadowh">
+    <div class="eyebrow">Parked &middot; the meadow's ground, from its own reference (redesign, set aside for the graphics review)</div>
+    <h2 id="mh-h">The meadow's ground after the papercraft camp</h2>
+    <p>The meadow's reference is the papercraft camp under the blue mountains. Its ground is a few broad shelves of bright lime grass, each ending in a crisp dark ledge under a grass lip; pale paths cross the shelves; dense belts of big dark pines stand behind, taller than the buildings. Ours was pale rounded field patches on one smooth slope, with small pine clusters.</p>
+    <p>The pilot, on the grove's rules:</p>
+    <ul style="display:grid;gap:6px;margin:0;padding-left:1.2em;max-width:75ch">
+      <li><strong>Shelves:</strong> the rise as five broad lime shelves, each ending in a dark green-grey ledge (the reference's ledge colour) under a scalloped lip. The ledges wander out into promontories, and along their length two shelves run together in places, so no ledge crosses the frame as a stripe.</li>
+      <li><strong>Lanes:</strong> the two lanes cross the shelves and step down each ledge on stairs cut into it.</li>
+      <li><strong>Trees:</strong> belts of pines along the near hills, all at one large size (about 15 tall), and the clusters by the windmill and the cottages a size up. The windmill and the cottages stay in view.</li>
+      <li><strong>Detail:</strong> tufts and flowers over the shelves. The farm is seated on its shelf.</li>
+    </ul>
+    <div class="row" role="group" aria-label="View"><button data-mv="w">Wide</button><button data-mv="m">Match camera</button><button data-mv="r">Reference</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-mo="T">Today</button><button data-mo="H">Pilot</button></div>
+    <div class="viewer"><img id="mimg" alt="Meadow ground pilot"><span class="vtag" id="mtag"></span></div>
+    <p class="muted">Still to refine if this is the direction: the stairs are a little pale and prominent, and the far hills behind the pines are still plain card.</p>
+  </section>
+
+  <section class="panel" aria-labelledby="gh-h" id="hero">
+    <div class="eyebrow">Built &middot; the background ground, a new approach (the grove shipped as pilot 4)</div>
+    <h2 id="gh-h">Why the ground wasn't moving, and a pilot on the grove</h2>
+    <p>You said the grove's floating islands didn't feel like progress. Looking at our grounds next to the references, the reason is the same on all four stages: for three rounds we changed the <i>pattern</i> on the land (stripes, then patchwork fields, floating islands, sand sheets) but not its <i>structure</i>.</p>
+    <ul style="display:grid;gap:6px;margin:0;padding-left:1.2em;max-width:75ch">
+      <li><strong>Thin sheets, not masses.</strong> Our land is flat sheets lit the same all over and lifted by the haze, so it sits in one band of mid values. The references' ground is mass: a thick top with an overhanging lip, rock or earth under it turning away into shade, and dark gaps between the pieces. At background distance the light and dark of those masses is what reads; a pattern on a flat sheet blurs away.</li>
+      <li><strong>Many small, repeated things.</strong> Fields, islands and sand sheets dozens at a time turn into texture at that distance. The references use a few big, distinct pieces.</li>
+      <li><strong>Detail spread evenly.</strong> The references put their detail where the eye lands: the lips, with fringed grass, ferns and hanging vines. The faces stay simple and dark.</li>
+    </ul>
+    <p>The pilot rebuilds the grove's ledges on those rules: each ledge broken into a few big chunks at their own heights and depths, with dark gaps between them; a thick grass top whose lip overhangs in a scalloped fringe, with ferns and vines hanging from it; under it, dark cardboard rock blocks with faceted fronts that step back into a violet abyss; deep baked shade under every lip. The side trees and gates keep their footing.</p>
+    <p><b>Pilot 2, after your notes (the islands didn't read as believable, trees floated, every island faced the same way, some trees were too short):</b> the land is now connected. Two terraces either side and one right across the back stand round the chasm the island floats in, and each terrace's front rises from the one before it. Their edges wander out into promontories and turn back into the chasm, so the cliffs face every way. Every pine is seated on the top it stands on, clear of the edges, and the pines are bigger and fewer. The far tree village stands on the back terrace. Tufts break up the tops.</p>
+    <p><b>Pilot 3, your ask:</b> the terraces in a half-circle round the stage. Three tiers, each a band of the arc, run from beside the stage round behind it, each rising from the one in front, so the island floats in a bowl of cliffs. The left and right halves of the two nearer tiers meet straight behind the great tree, each at its own height. The side trees, the gates and the far tree village keep their footing.</p>
+    <p><b>Pilot 4, after your notes on the trees:</b> the terraces now stand the grove's own tree (the side trees' model) at the side trees' size, as the reference's forest is all one kind of giant. They replace the small paper pines, which read as shrubs. Each tree is seated on the grass and kept clear of the edges, the gates, the village's trees and the others. The cliffs have wider, taller blocks with moss on the ledges each block leaves as it steps back, and the tops have flowers among the tufts. Frame time: the GPU at 2.7 ms (2.35 today), 183 fps.</p>
+    <div class="row" role="group" aria-label="View"><button data-hv="w">Wide</button><button data-hv="m">Match camera</button><button data-hv="r">Reference</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-ho="T">Today (floating islands)</button><button data-ho="H">Pilot 1 (broken ledges)</button><button data-ho="H2">Pilot 2 (connected terraces)</button><button data-ho="H3">Pilot 3 (half-circle)</button><button data-ho="H4">Pilot 4 (one kind of tree)</button></div>
+    <div class="viewer"><img id="himg" alt="Grove ground pilot"><span class="vtag" id="htag"></span></div>
+    <p class="muted">It isn't finished: the blocks still read a little like stacked boxes in the wide view, and the far ledges' tops line up. But the frame now has the reference's light-over-dark structure. If this is the direction, I'd take the same rules to the other three stages:</p>
+    <ul style="display:grid;gap:6px;margin:0;padding-left:1.2em;max-width:75ch">
+      <li><strong>Meadow:</strong> the land behind as two or three big overlapping hill masses: grass draped over earth banks with the soil showing at the cut edges, hedgerows along the crests, shaded sides, in place of fields laid flat on one slope.</li>
+      <li><strong>Beach:</strong> the town's hill and the islands with grass tops draped over pale sandstone cliff blocks, and the beaches as their own sheets at the waterline.</li>
+      <li><strong>Canyon:</strong> the floor as a few big dune masses with shaded lee sides, and low rock steps at its edges, in place of flat sheets with ripple lines.</li>
+    </ul>
+  </section>
+
   <section class="panel" aria-labelledby="bt-h" id="buttes">
     <div class="eyebrow">Built &middot; review 4, items 3 and 4</div>
     <h2 id="bt-h">The canyon's buttes in cardboard</h2>
@@ -332,6 +432,63 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
   group("data-rs", function (v) { rs = v; }, rrender);
   group("data-rv", function (v) { rv = v; }, rrender);
   rrender();
+  var rs2 = "close";
+  var RS2 = { close: "../../review5/shadows_close.jpg", all: "../../review5/shadows_built.jpg" };
+  function rs2render() {
+    document.getElementById("rs2img").src = RS2[rs2];
+    document.getElementById("rs2tag").textContent = "Before (left) and after (right)";
+    pressed("data-rs2", rs2);
+  }
+  group("data-rs2", function (v) { rs2 = v; }, rs2render);
+  rs2render();
+  var sp = "pilot";
+  var SP = { pilot: "../../review5/sun_pilot.jpg", arch: "../../review5/sun_arch.jpg" };
+  function sprender() {
+    document.getElementById("spimg").src = SP[sp];
+    document.getElementById("sptag").textContent = sp === "pilot" ? "Canyon and grove, wide and match camera: today left, pilot right" : "The canyon's arch: today left, pilot right";
+    pressed("data-sp", sp);
+  }
+  group("data-sp", function (v) { sp = v; }, sprender);
+  sprender();
+  var g5 = "crops";
+  var G5 = { crops: "../../review5/review5_crops.jpg", shadow: "../../review5/review5_shadow_test.jpg" };
+  function g5render() {
+    document.getElementById("g5img").src = G5[g5];
+    document.getElementById("g5tag").textContent = g5 === "crops" ? "Backgrounds up close: meadow, grove, canyon, beach, city, meadow" : "Grove and meadow, today (left) and shadows to 320 units (right)";
+    pressed("data-g5", g5);
+  }
+  group("data-g5", function (v) { g5 = v; }, g5render);
+  g5render();
+  var mv = "w", mo = "H";
+  function mrender() {
+    var img = document.getElementById("mimg");
+    if (mv === "r") {
+      img.src = "../../../benchmarks/papercraft_mountains_reference.png";
+      document.getElementById("mtag").textContent = "The meadow's reference";
+    } else {
+      img.src = "mh_" + mv + "_" + mo + ".jpg";
+      document.getElementById("mtag").textContent = "Meadow \u00b7 " + (mo === "H" ? "pilot" : "today") + (mv === "w" ? " \u00b7 wide" : " \u00b7 match camera");
+    }
+    pressed("data-mv", mv); pressed("data-mo", mo);
+  }
+  group("data-mv", function (v) { mv = v; }, mrender);
+  group("data-mo", function (v) { mo = v; }, mrender);
+  mrender();
+  var hv = "w", ho = "H4";
+  function hrender() {
+    var img = document.getElementById("himg");
+    if (hv === "r") {
+      img.src = "../../../benchmarks/grove_reference.webp";
+      document.getElementById("htag").textContent = "The grove's reference";
+    } else {
+      img.src = "gh_" + hv + "_" + ho + ".jpg";
+      document.getElementById("htag").textContent = "Grove \u00b7 " + ({ H: "pilot 1", H2: "pilot 2", H3: "pilot 3", H4: "pilot 4", T: "today" })[ho] + (hv === "w" ? " \u00b7 wide" : " \u00b7 match camera");
+    }
+    pressed("data-hv", hv); pressed("data-ho", ho);
+  }
+  group("data-hv", function (v) { hv = v; }, hrender);
+  group("data-ho", function (v) { ho = v; }, hrender);
+  hrender();
   var bv = "w", bo = "C";
   var BO = { T: "Today", A: "A \u00b7 Cardboard blocks", B: "B \u00b7 Slab courses", C: "C \u00b7 Blocks and fallen rock" };
   function brender() {

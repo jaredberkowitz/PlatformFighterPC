@@ -159,6 +159,8 @@ vec3 pf_calm_front(vec3 col, float depth) {
 
 
 void fragment() {
+	// (For light(), which reads only what the fragment hands it.)
+	pf_world_z = world_pos.z;
 	// (Scenery in front of a fighter goes see-through over it, shaders/xray.gdshaderinc.)
 	if (fighter < 0.5 && pf_xray_cut(world_pos, CAMERA_POSITION_WORLD, FRAGCOORD.xy)) {
 		discard;
@@ -353,7 +355,10 @@ void fragment() {
 		float rim = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 5.0);
 		c = mix(c, c * 0.4 + vec3(0.56, 0.54, 0.5), rim * paper_fin.z * 0.55);
 	}
-	if (facets) {
+	// (Not on flat tops, whose own normal is already the face's: rebuilt from the screen derivatives it came out turned over on them, so
+	// the background's grass, sand and terrace tops were lit as undersides, in their shade colour, and took no cast shadow; the graphics
+	// review 5, 2026-10-22.)
+	if (facets && world_normal.y < 0.97) {
 		NORMAL = normalize(cross(dFdx(VERTEX), dFdy(VERTEX)));
 	}
 	ALBEDO = c;
