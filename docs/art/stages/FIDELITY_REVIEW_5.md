@@ -102,3 +102,7 @@ theme's `front_lift`, `StageBake._front_lift` on the strata). The trestle (`make
 far buttes, lower, hazier), C `short` (from behind one butte to behind another; the train's loop now takes the deck's length,
 `world_motion.gd`). Lowering it near the floor put the train right behind the fighters at the match camera. On the Stage Look Review
 ("canyonmid", `can_*`); recommended B.
+
+**Built (2026-10-22): canyon B** (the owner's pick): `canyon_paper.glb` rebuilt `--variant KC --arch solid`, `canyon_world.glb`
+`--trestle back`, `sunset.cfg` `front_lift=0.2`; the canyon re-lit. Before and after: `review5/canyon_middle_built.jpg`. (The runner
+test's timing checks flaked twice while captures ran beside it; it passes on its own.)

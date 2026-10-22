@@ -22,6 +22,8 @@ Every look carries the dunes as standing cut-out flats along the crests of the d
 Each piece is its own object so the game can lay the air of its depth over it, and bakes its occlusion into linear vertex colours.
 Families `rock_a`, `rock_b`, `rock_c` (the strata), `dune_far`, `dune_near`, and their cut edges `card_<family>`.
 
+Shipped (the owner's pick, fidelity review 5, 2026-10-22): godot/models/stages/canyon_paper.glb, `--variant KC --arch solid`, then lit.
+
 Run (Blender 5.2):
   blender --background --python art/blender/make_canyon_paper.py -- --dir godot/art/baked/<key> --variant A --ground <g.glb>
 """
