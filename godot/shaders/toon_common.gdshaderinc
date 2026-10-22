@@ -159,6 +159,8 @@ vec3 pf_calm_front(vec3 col, float depth) {
 
 
 void fragment() {
+	// (For light(), which reads only what the fragment hands it.)
+	pf_world_z = world_pos.z;
 	// (Scenery in front of a fighter goes see-through over it, shaders/xray.gdshaderinc.)
 	if (fighter < 0.5 && pf_xray_cut(world_pos, CAMERA_POSITION_WORLD, FRAGCOORD.xy)) {
 		discard;

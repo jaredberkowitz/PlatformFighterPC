@@ -88,34 +88,49 @@ const STYLE_DEFAULT := {
 	# The paper target (the stage paint-overs, docs/art/stages/PAINTOVERS.md): each sheet's shadow on the one behind (`sheets`), the
 	# die-cut edge (`cut_edge`) and the lift round the fight (`fight_lift`); 0 off (shaders/post.gdshader).
 	# `haze_desat`: how much the haze greys what it lifts (0.35, the light pass, 2026-10-21: at 1.3 the distance read milky grey).
+	# The sun's shadows: how far from the camera they reach and in how many splits (`sun_shadow`), and the tone a face behind the play area
+	# takes where something shadows it (`cast`: a multiplier, its alpha how far; shaders/toon_light.gdshaderinc `pf_cast_shade`). The
+	# default keeps them to the play area, as before the graphics review 5 (2026-10-22).
+	"sun_shadow": [70.0, 2, 5.0],
+	"cast": Color(1.0, 1.0, 1.0, 0.0),
 	"finish": {"desat": 0.0, "lift": 0.03, "vignette": 0.16, "haze_max": 0.22, "s_curve": 0.22, "quiet": 0.25, "bloom": 0.4,
 		"bloom_from": 0.6, "sheets": 0.0, "cut_edge": 0.0, "fight_lift": 0.0, "haze_desat": 0.35},
 }
 const STYLES := {
 	# Dappled light under the great tree: small patches swaying slowly.
+	# (The background grounded, the graphics review 5: the sun's shadows out over the terraces, the trees' and gates' a cool violet.)
 	"grove": {"paint": [Color(1.06, 0.99, 0.94), Color(0.94, 0.9, 1.06), 0.55], "clouds": [0.72, 4.5, 0.45, 0.25],
+		"sun_shadow": [260.0, 4, 1.0], "cast": Color(0.22, 0.24, 0.48, 1.0),
 		"finish": {"desat": 0.0, "lift": 0.02, "haze_max": 0.08, "s_curve": 0.3, "quiet": 0.08, "sheets": 0.56, "cut_edge": 0.5, "fight_lift": 0.18}},
 	# Crisper light-to-shadow steps (a clear lit side and shaded side on every prop, in the manner of a cel-shaded adventure), warmer tops
 	# and cooler undersides, and less of the pastel wash, so the colours carry.
 	"meadow": {"ramp": [[0.0, 0.0], [0.38, 0.0], [0.43, 0.52], [0.55, 0.52], [0.6, 1.0], [1.0, 1.0]],
 		"paint": [Color(1.1, 1.02, 0.88), Color(0.88, 0.88, 1.1), 0.65], "deep": 0.74, "clouds": [0.65, 14.0, 0.42, 0.7],
+		# (The windmill, cottages, pines and haystacks grounded, a cool blue-green shadow, the graphics review 5.)
+		"sun_shadow": [260.0, 4, 1.0], "cast": Color(0.28, 0.4, 0.52, 1.0),
 		# (Less haze and no greying of the scenery, 2026-10-17: together they washed the mid-distance cottages, trees and mountains into
 		# flat pastel shapes, the owner's "flat" feel; depth still reads through the cooler, lighter far colours.)
 		# (Air again, the owner's paint-over pick 2026-10-21: the distance lighter and softer, `haze_max` 0.06 to 0.24.)
 		"finish": {"desat": 0.0, "lift": 0.01, "haze_max": 0.24, "s_curve": 0.3, "quiet": 0.0, "sheets": 0.49, "cut_edge": 0.5,
 			"fight_lift": 0.15}},
-	"sunset": {"clouds": [0.35, 30.0, 0.3, 0.4], "edge": Color(1.0, 0.86, 0.74, 0.44), "paint": [Color(1.1, 0.98, 0.86), Color(0.86, 0.86, 1.08), 0.7], "deep": 0.72,
+	# (Long sunset shadows from the buttes, the arch and the trestle across the floor, a cool violet on the warm sand, the graphics
+	# review 5.)
+	"sunset": {"clouds": [0.35, 30.0, 0.3, 0.4], "sun_shadow": [260.0, 4, 1.0], "cast": Color(0.3, 0.22, 0.48, 1.0), "edge": Color(1.0, 0.86, 0.74, 0.44), "paint": [Color(1.1, 0.98, 0.86), Color(0.86, 0.86, 1.08), 0.7], "deep": 0.72,
 		"finish": {"desat": 0.0, "lift": 0.02, "haze_max": 0.08, "s_curve": 0.3, "quiet": 0.08, "sheets": 0.56, "cut_edge": 0.5, "fight_lift": 0.15}},
 	"night": {"edge": Color(0.78, 0.86, 1.0, 0.62), "paint": [Color(0.98, 1.0, 1.08), Color(0.86, 0.9, 1.1), 0.5], "deep": 0.74, "glow": 0.95,
 		"ramp": [[0.0, 0.0], [0.36, 0.0], [0.44, 0.5], [0.56, 0.5], [0.64, 1.0], [1.0, 1.0]]},
 	# (The harbour dock, 2026-10-18, the soft-shading trial from docs/COMPETITOR_GAP.md: a smooth turn from light into shade over the
 	# scenery rather than cel bands, and fainter ink on it; the modelled planks, piles and crates carry the detail now.)
+	# (The town's houses, the boats and the palms grounded with long late-afternoon shadows, a cool blue, the graphics review 5. The reach
+	# stops short of the headland behind the town, about 205 from the camera, whose standing flats shadowed each other in stripes.)
 	"ocean": {"paint": [Color(1.05, 1.02, 0.94), Color(0.9, 0.97, 1.06), 0.5], "clouds": [0.55, 26.0, 0.36, 0.9],
+		"sun_shadow": [190.0, 4, 1.0], "cast": Color(0.3, 0.36, 0.58, 1.0),
 		"ramp": [[0.0, 0.0], [0.3, 0.1], [0.45, 0.45], [0.6, 0.82], [0.75, 1.0], [1.0, 1.0]],
 		# (Air, the owner's paint-over pick 2026-10-21: `haze_max` 0.07 to 0.24.)
 		"finish": {"desat": 0.0, "lift": 0.02, "haze_max": 0.24, "s_curve": 0.28, "quiet": 0.08, "scenery_lines": 0.18, "sheets": 0.42,
 			"cut_edge": 0.45, "fight_lift": 0.15}},
-	"city": {"edge": Color(1.0, 0.82, 0.92, 0.55), "paint": [Color(1.06, 0.96, 0.96), Color(0.9, 0.88, 1.1), 0.6], "deep": 0.72, "glow": 1.1,
+	# (The towers and the street's pieces grounded, a deep violet, the graphics review 5.)
+	"city": {"sun_shadow": [260.0, 4, 1.0], "cast": Color(0.4, 0.3, 0.6, 1.0), "edge": Color(1.0, 0.82, 0.92, 0.55), "paint": [Color(1.06, 0.96, 0.96), Color(0.9, 0.88, 1.1), 0.6], "deep": 0.72, "glow": 1.1,
 		"finish": {"lift": 0.02, "s_curve": 0.48, "quiet": 0.12, "sheets": 0.63, "cut_edge": 0.55, "fight_lift": 0.24}},
 }
 
@@ -321,6 +336,22 @@ static func stage_mood(env: Environment, root: Node, theme: Dictionary, post: Sh
 	env.ambient_light_color = mood.ambient[0]
 	env.ambient_light_energy = mood.ambient[1]
 	env.glow_intensity = float(style(theme.get("name", "meadow")).glow)
+	var look := style(theme.get("name", "meadow"))
+	if key != null:
+		var reach: Array = look.sun_shadow
+		key.directional_shadow_max_distance = float(reach[0])
+		# (How soft the shadows' edges are, the sun's size: 5 degrees blurred a tree's shadow on the terraces to a smudge.)
+		key.light_angular_distance = float(reach[2])
+		if int(reach[1]) == 4:
+			# (The first split as far as the old 70-unit reach, so the play area's shadows keep their detail; the rest for the background.)
+			key.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS
+			key.directional_shadow_split_1 = 70.0 / float(reach[0])
+			key.directional_shadow_split_2 = 0.45
+			key.directional_shadow_split_3 = 0.7
+		else:
+			key.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
+			key.directional_shadow_split_1 = 0.35
+	RenderingServer.global_shader_parameter_set("pf_cast_shade", look.cast)
 	if post != null:
 		post.set_shader_parameter("grade_shadows", mood.grade[0])
 		post.set_shader_parameter("grade_lights", mood.grade[1])

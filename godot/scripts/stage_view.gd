@@ -155,6 +155,8 @@ func build(sim) -> void:
 	StageArt.front_modelled = false
 	# The printed surfaces and the front's share of the paper finish, as the stage's palette asks (StageBake.surfaces).
 	StageBake.surfaces(self, String(theme.get("name", "")))
+	# Only what can shade the stage casts the sun's shadows (the graphics review 5, 2026-10-22).
+	trim_shadow_casters(self)
 
 	for i in sim.ledge_count():
 		var l: Vector3 = sim.ledge_pos(i)
@@ -237,3 +239,23 @@ static func prop_lineup(root: Node3D, names: PackedStringArray, extent: Array, h
 		# (The prop's own origin on the top: its model decides whether it stands, floats or sinks.)
 		prop.position = Vector3(x, float(extent[2]), FRONT_Z - 1.2)
 		root.add_child(prop)
+
+
+## Turns off the sun's shadows from the far scenery under `root`: the ranges, dune flats, mist and the abyss's sheets, hundreds of units
+## across (the graphics review 5, 2026-10-22). In the shadow map they stretched each split's depth range so far that every shadow they
+## shared it with came out washed to nothing, the play area's included; nothing near was ever shaded by them anyway. Anything wider or
+## deeper than `HUGE` units, or further back than `FAR_BACK`, stops casting (it still receives).
+const HUGE := 200.0
+const FAR_BACK := -180.0
+
+
+static func trim_shadow_casters(root: Node) -> int:
+	var n := 0
+	for g: GeometryInstance3D in root.find_children("*", "GeometryInstance3D", true, false):
+		if g.cast_shadow == GeometryInstance3D.SHADOW_CASTING_SETTING_OFF:
+			continue
+		var box: AABB = g.global_transform * g.get_aabb()
+		if box.size.x > HUGE or box.size.z > HUGE or box.size.y > HUGE * 0.6 or box.get_center().z < FAR_BACK:
+			g.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			n += 1
+	return n

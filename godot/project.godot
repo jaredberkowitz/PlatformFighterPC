@@ -39,6 +39,10 @@ rendering_device/fallback_to_d3d12=true
 
 [shader_globals]
 
+pf_cast_shade={
+"type": "color",
+"value": Color(1, 1, 1, 0)
+}
 pf_wind={
 "type": "float",
 "value": 1.0

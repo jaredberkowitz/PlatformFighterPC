@@ -88,8 +88,22 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
     <p>Two lessons from the reference screenshots, mocked from the match camera: the scenery without ink outlines, its edges lit as card bevels instead, and the paper houses rebuilt at the characters' proportions. The earlier rounds stay on the <a href="https://claude.ai/artifact/D1du6MREVumiJDrEdNypW4">Stage Fidelity Review</a>, which is full.</p>
   </header>
 
+  <section class="panel" aria-labelledby="rs-h" id="realshadows">
+    <div class="eyebrow">Built &middot; realtime shadows in the background, every stage</div>
+    <h2 id="rs-h">Why the shadows stopped at the play area, and the fix</h2>
+    <p>Not the engine, and not only the range. Three causes, all fixed:</p>
+    <ol style="display:grid;gap:8px;margin:0;padding-left:1.2em;max-width:78ch">
+      <li><strong>The far scenery was ruining the shadow map.</strong> The mountain ranges, dune flats, mist and abyss sheets (hundreds of units across) were casting shadows, which stretched the shadow map so far that the background's shadows were lost. They no longer cast.</li>
+      <li><strong>The shading washed out what was left.</strong> The scenery's shade is a light pastel and the ambient light is the same in sun and shadow, so a shadow read only a sixth darker. Behind the play area a shadowed face now takes each stage's own cool shadow tone. The fighters and the play area are untouched.</li>
+      <li><strong>The sun was too big.</strong> Its 5-degree size blurred every far shadow to a smudge; 1 degree on these stages.</li>
+    </ol>
+    <div class="row" role="group" aria-label="View"><button data-rs2="close">Close up: canyon, grove, city</button><button data-rs2="all">Every stage</button></div>
+    <div class="viewer"><img id="rs2img" alt="Background shadows before and after"><span class="vtag" id="rs2tag"></span></div>
+    <p class="muted">The canyon's arch and buttes lay long sunset shadows across the floor, the grove's trees shadow the terraces, the city's scaffolds and people shadow the street, and the beach's town is shaded. The meadow changes least (its sun is high and the land falls away from it). The pilot's baked vertex shadows are retired, so the models are back to their normal sizes. Cost: about 0.4 ms of GPU time.</p>
+  </section>
+
   <section class="panel" aria-labelledby="sp-h" id="sunpilot">
-    <div class="eyebrow">Your call is needed &middot; grounding the background, pilot on the canyon and the grove</div>
+    <div class="eyebrow">Superseded by the realtime shadows above &middot; the baked-shadow pilot</div>
     <h2 id="sp-h">Baked sun shadows: what worked and what I found</h2>
     <p><b>The engine's realtime shadows never reach the background.</b> It's not just the 70-unit range. Even out to 260 units, a plain white test box on a grove terrace casts nothing on a plain white plane beside it, while the same pair on the play area does. So I baked the sun's shadow into the background models instead, and found two bugs on the way:</p>
     <ol style="display:grid;gap:8px;margin:0;padding-left:1.2em;max-width:78ch">
@@ -418,6 +432,15 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
   group("data-rs", function (v) { rs = v; }, rrender);
   group("data-rv", function (v) { rv = v; }, rrender);
   rrender();
+  var rs2 = "close";
+  var RS2 = { close: "../../review5/shadows_close.jpg", all: "../../review5/shadows_built.jpg" };
+  function rs2render() {
+    document.getElementById("rs2img").src = RS2[rs2];
+    document.getElementById("rs2tag").textContent = "Before (left) and after (right)";
+    pressed("data-rs2", rs2);
+  }
+  group("data-rs2", function (v) { rs2 = v; }, rs2render);
+  rs2render();
   var sp = "pilot";
   var SP = { pilot: "../../review5/sun_pilot.jpg", arch: "../../review5/sun_arch.jpg" };
   function sprender() {

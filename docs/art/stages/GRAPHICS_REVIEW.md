@@ -100,3 +100,29 @@ ground is 6.8 MB (was about 2) and the canyon's 4.2 MB (was 1.3); frame time unc
 
 **Recommendation:** keep the pilot (the shader fix and the restored trees are clear gains; the baked shadows a modest one). For crisp
 shadows, either dig out why the engine's shadows stop at the play area, or bake the shadows into a texture rather than vertices.
+
+## Realtime background shadows (2026-10-22, the owner: "dig into why the engine's shadows stop at the play area")
+
+**Why they stopped.** Not the engine and not the range alone. Three causes:
+1. **Far casters stretched the shadow map.** The ranges, dune flats, mist and abyss sheets are hundreds of units across and cast
+   shadows. In the sun's shadow map they stretched each split's depth range so far that every shadow sharing a split was lost, the
+   play area's included. `StageView.trim_shadow_casters` now turns casting off for anything wider than 200 units or further back than
+   180 (it still receives). This was found by elimination: with those turned off, test boxes on the terraces cast at once.
+2. **The shading washed out what was left.** The scenery's shade is a light pastel (the paper look), and the ambient light is the same
+   in sun and shadow, so a full cast shadow read only about a sixth darker. The toon light now multiplies a lit face that something
+   shadows by the stage's `cast` tone (`pf_cast_shade`), only behind the play area (more than 6 to 14 units back, never on fighters),
+   fading out from 110 to 150 behind, where the map is coarse.
+3. **A 5-degree sun** blurred every far shadow to a smudge. Stages with background shadows use 1 degree.
+
+Per stage, in `Lighting.STYLES` (`sun_shadow`: [reach, splits, sun size]; `cast`: tone): canyon, grove, meadow and city reach 260
+units in 4 splits (the first split as far as the old 70, so the play area keeps its detail), the beach 190 (beyond it, the headland's
+flats shadowed each other in stripes). Tones are cool violets and blues against each stage's warm light.
+
+The vertex-baked sun from the pilot (`light_stage.py --sun`) is no longer used: the canyon and grove grounds were rebuilt and re-lit
+without it (1.3 and 3.1 MB again, from 4.2 and 6.8). The tool keeps the option.
+
+**Result** (`review5/shadows_built.jpg`, `review5/shadows_close.jpg`; before = the review's captures): the canyon's arch and buttes lay
+crisp, long sunset shadows across the floor; the grove's trees and gates shadow the terraces; the city's scaffolds and people shadow
+the street; the beach's town is shaded; the meadow changes least (the sun is high and the land falls away from it). Cost: GPU about
+0.4 ms on the meadow (4.3 against 3.9 at the same moment; the machine was running slower than earlier in the day, so absolute frame
+rates aren't comparable with earlier numbers). Tests pass.

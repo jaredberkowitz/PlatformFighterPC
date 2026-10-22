@@ -26,6 +26,13 @@ global uniform vec4 pf_edge_light;
 // deep (0 none), y world units across a cloud, z how much of the sky is cloud (0..1), w drift speed. A surface that writes `pf_sun` in
 // its fragment (PF_CLOUDS) takes them as a cast shadow, in its painted shadow colour.
 global uniform vec4 pf_clouds;
+// The sun's cast shadows on the scenery behind the play area (scripts/lighting.gd `cast`, the graphics review 5, 2026-10-22): the tone a
+// face takes where something shadows it, as a multiplier (rgb), and how far (a, 0 off). The shade tone alone is a light pastel (the
+// paper look's), so a cast shadow read barely darker than the sun, and the haze lifted what was left: nothing in the background was
+// grounded.
+global uniform vec4 pf_cast_shade;
+// How far behind the stage plane a surface is (world z; toon_common.gdshaderinc writes it, shaders that don't leave it 0, no cast tone).
+varying float pf_world_z;
 #ifdef PF_CLOUDS
 varying float pf_sun;
 #endif
@@ -165,6 +172,13 @@ void light() {
 	shade *= mix(pf_scenery_shade, PF_FIGHTER_SHADE, fighter);
 	shade = mix(shade, mix(shade, vec3(1.0), 0.2) * vec3(0.9, 0.94, 1.1), paper_k);
 	vec3 tone = mix(shade, vec3(1.0), lit);
+	// A cast shadow on the scenery behind the play area (not the fighters, not the play area: they keep the fight's light shade), from
+	// about 10 units behind the stage. Applied to the light's share and below, since the ambient is the same in sun and shadow.
+	// (Fading out again past about 110 behind, where the shadow map is coarse and the far land's standing flats shadowed each other in
+	// stripes.)
+	float behind = (1.0 - smoothstep(-14.0, -6.0, pf_world_z)) * smoothstep(-150.0, -110.0, pf_world_z) * (1.0 - fighter);
+	float cast_hit = LIGHT_IS_DIRECTIONAL ? (1.0 - ATTENUATION) * band * behind * pf_cast_shade.a : 0.0;
+	tone *= mix(vec3(1.0), pf_cast_shade.rgb, cast_hit);
 	// A point or spot light (a practical lamp in the scenery) fades with distance: ATTENUATION carries its falloff, and the cel ramp would
 	// otherwise light everything inside its range evenly and stop dead at the edge.
 	float falloff = LIGHT_IS_DIRECTIONAL ? 1.0 : ATTENUATION;
