@@ -153,3 +153,6 @@ paper disc pines, which read as shrubs. Three a side on T0 and T1 and six on T2,
 one another, its canopy clear of every edge, sunk 0.6 as the side trees are. The cliffs have wider, taller blocks (4 to 7.5 by 3 to 5),
 moss on the ledges each block leaves as it steps back, and flowers among the tufts. About 44,000 triangles in the ground; the grove at
 183 fps with the GPU at 2.7 ms (2.35 ms today).
+
+**Built (2026-10-21): grove pilot 4** (`make_grove_paper.py --variant H` into `grove_paper.glb`, the grove re-lit; the terrace trees reach
+the game through `treeslot` empties). Before and after: `grove_terraces_built.jpg`.
