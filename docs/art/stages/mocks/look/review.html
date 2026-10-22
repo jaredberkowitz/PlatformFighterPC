@@ -95,11 +95,13 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
     <div class="tablewrap"><table><thead><tr><th>Option</th><th>What it is</th></tr></thead><tbody>
       <tr><td>A &middot; Clear water</td><td>Colour by depth: clear turquoise near the pier, a deeper teal-blue through the middle, paler toward the horizon. A soft, wandering caustic net of light near the stage, fine ripples further out, and broad drifting patches. No crest rows. The ripple rings round the posts and the sun's glints stay.</td></tr>
       <tr><td>B &middot; Clear water with reflections</td><td>A, plus reflections of everything standing in or over the water: the pier and its posts, the boats, the town, the islands, the lighthouse. Each is a little darker than what it shows and rippled, fading with distance. About 0.15 ms of GPU time.</td></tr>
-      <tr><td>C &middot; Paper waves</td><td>The sea as tiers of card, each a wave-shaped sheet a step deeper than the one nearer, its cut edge catching the light and sliding slowly; with B's reflections. The most papercraft; it does bring back long lines across the water, though now as waves.</td></tr>
+      <tr><td>C &middot; Paper waves (reworked)</td><td>The sea as overlapping sheets of card, each a tier further out, its edge cut into rounded wave caps. Each sheet has its own tone and is shaded across toward its edge, its cut edge is a lit lip, and it lays a soft shadow on the sheet behind. The tiers are big near the pier and calm toward the horizon, sliding slowly, with B's reflections.</td></tr>
     </tbody></table></div>
     <div class="row" role="group" aria-label="View"><button data-sv="w">Wide</button><button data-sv="m">Match camera</button></div>
-    <div class="row" role="group" aria-label="Option"><button data-so="T">Today</button><button data-so="A">A &middot; Clear</button><button data-so="B">B &middot; Clear with reflections</button><button data-so="C">C &middot; Paper waves</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-so="T">Today</button><button data-so="A">A &middot; Clear</button><button data-so="B">B &middot; Clear with reflections</button><button data-so="C">C &middot; Paper waves (reworked)</button></div>
     <div class="viewer"><img id="simg" alt="Beach sea option"><span class="vtag" id="stag"></span></div>
+    <p><b>C, reworked after your note</b> (it read as lines). The first version lit a thin strip on the sheet behind each edge, and every tier was the same tone, so each crest drew a bright line. Now each sheet is lit at its own lip and shades the one behind it. The first version is on the left and the rework on the right (wide, then the match camera):</p>
+    <div class="viewer"><img src="sea_c12.jpg" alt="The paper sea, first version and reworked"></div>
     <p>Close up, today against B (the town side, then the hut and lighthouse side):</p>
     <div class="viewer"><img src="sea_close.jpg" alt="The sea today and with clear water and reflections, close crops"></div>
     <p class="muted">My pick: <b>B</b>. It's closest to the reference, and the reflections tie the town, boats and pier into the water instead of setting them on it.</p>
@@ -149,9 +151,9 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
       <tr><td>B &middot; Terraced fields</td><td>A laid as shallow terraces: each row of fields is a flatter shelf ending in a short, steep grass bank, which is the grove's lesson (lit tops over darker sides). The lanes ramp down the banks, and the farm stands on its own wide shelf.</td></tr>
       <tr><td>C &middot; Terraces and trees</td><td>B with pines along the hedgerows, one to three where boundaries start, and a copse behind the farm.</td></tr>
     </tbody></table></div>
-    <div class="row" role="group" aria-label="View"><button data-fv="w">Wide</button><button data-fv="m">Match camera</button></div>
-    <div class="row" role="group" aria-label="Option"><button data-fo="T">Today</button><button data-fo="FA">A &middot; Hedged fields</button><button data-fo="FB">B &middot; Terraced fields</button><button data-fo="FC">C &middot; Terraces and trees</button></div>
-    <div class="viewer"><img id="fimg" alt="Meadow ground option"><span class="vtag" id="ftag"></span></div>
+    <div class="row" role="group" aria-label="View"><button data-mfv="w">Wide</button><button data-mfv="m">Match camera</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-mfo="T">Today</button><button data-mfo="FA">A &middot; Hedged fields</button><button data-mfo="FB">B &middot; Terraced fields</button><button data-mfo="FC">C &middot; Terraces and trees</button></div>
+    <div class="viewer"><img id="mfimg" alt="Meadow ground option"><span class="vtag" id="mftag"></span></div>
     <p>Close up at the wide camera (today on the left, B on the right; the farm side, then the right-hand lane):</p>
     <div class="viewer"><img src="mf_close.jpg" alt="Meadow ground today and terraced, close crops"></div>
     <p class="muted">My pick: <b>C</b>, or B if you'd rather keep the trees to the belts on the hills. The terraces give the meadow the grove's structure without changing what the meadow is. Unlit mocks: the ship will bake the contact shade, as on the other stages, and trim the triangle count.</p>
@@ -233,8 +235,8 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
       <tr><td>C &middot; Lawn</td><td>A clean lawn, with fields only round the farm and along the lanes: the calmest, closest to the reference's plain lime grass.</td></tr>
     </tbody></table></div>
     <div class="row" role="group" aria-label="View"><button data-qv="w">Wide</button><button data-qv="m">Match camera</button></div>
-    <div class="row" role="group" aria-label="Option"><button data-qo="T">Today</button><button data-qo="QA">A &middot; Tidy quilt</button><button data-qo="QB">B &middot; Big fields</button><button data-qo="QC">C &middot; Lawn</button></div>
-    <div class="viewer"><img id="qimg" alt="Meadow ground option"><span class="vtag" id="qtag"></span></div>
+    <div class="row" role="group" aria-label="Option"><button data-mqo="T">Today</button><button data-mqo="QA">A &middot; Tidy quilt</button><button data-mqo="QB">B &middot; Big fields</button><button data-mqo="QC">C &middot; Lawn</button></div>
+    <div class="viewer"><img id="mqimg" alt="Meadow ground option"><span class="vtag" id="mqtag"></span></div>
     <p class="muted">My pick: <b>A</b>. It keeps the farmland story but reads crisp and even.</p>
     <h3>Detail, starting with the meadow's trees</h3>
     <p>The background pines were five or six plain stacked cones. The detailed pine has eight skirts with scalloped hems (each tier's edge steps in light and shade), a slight lean up the tree, and a visible trunk with roots. Same size and place, about 2,400 triangles for the whole cluster. Left today, right detailed:</p>
@@ -355,8 +357,8 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
     <p><b>Pilot 3, your ask:</b> the terraces in a half-circle round the stage. Three tiers, each a band of the arc, run from beside the stage round behind it, each rising from the one in front, so the island floats in a bowl of cliffs. The left and right halves of the two nearer tiers meet straight behind the great tree, each at its own height. The side trees, the gates and the far tree village keep their footing.</p>
     <p><b>Pilot 4, after your notes on the trees:</b> the terraces now stand the grove's own tree (the side trees' model) at the side trees' size, as the reference's forest is all one kind of giant. They replace the small paper pines, which read as shrubs. Each tree is seated on the grass and kept clear of the edges, the gates, the village's trees and the others. The cliffs have wider, taller blocks with moss on the ledges each block leaves as it steps back, and the tops have flowers among the tufts. Frame time: the GPU at 2.7 ms (2.35 today), 183 fps.</p>
     <div class="row" role="group" aria-label="View"><button data-hv="w">Wide</button><button data-hv="m">Match camera</button><button data-hv="r">Reference</button></div>
-    <div class="row" role="group" aria-label="Option"><button data-ho="T">Today (floating islands)</button><button data-ho="H">Pilot 1 (broken ledges)</button><button data-ho="H2">Pilot 2 (connected terraces)</button><button data-ho="H3">Pilot 3 (half-circle)</button><button data-ho="H4">Pilot 4 (one kind of tree)</button></div>
-    <div class="viewer"><img id="himg" alt="Grove ground pilot"><span class="vtag" id="htag"></span></div>
+    <div class="row" role="group" aria-label="Option"><button data-gho="T">Today (floating islands)</button><button data-gho="H">Pilot 1 (broken ledges)</button><button data-gho="H2">Pilot 2 (connected terraces)</button><button data-gho="H3">Pilot 3 (half-circle)</button><button data-gho="H4">Pilot 4 (one kind of tree)</button></div>
+    <div class="viewer"><img id="ghimg" alt="Grove ground pilot"><span class="vtag" id="ghtag"></span></div>
     <p class="muted">It isn't finished: the blocks still read a little like stacked boxes in the wide view, and the far ledges' tops line up. But the frame now has the reference's light-over-dark structure. If this is the direction, I'd take the same rules to the other three stages:</p>
     <ul style="display:grid;gap:6px;margin:0;padding-left:1.2em;max-width:75ch">
       <li><strong>Meadow:</strong> the land behind as two or three big overlapping hill masses: grass draped over earth banks with the soil showing at the cut edges, hedgerows along the crests, shaded sides, in place of fields laid flat on one slope.</li>
@@ -609,15 +611,15 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
   group("data-rs", function (v) { rs = v; }, rrender);
   group("data-rv", function (v) { rv = v; }, rrender);
   rrender();
-  var qv = "w", qo = "QA";
-  var QO = { T: "Today", QA: "A · Tidy quilt", QB: "B · Big fields", QC: "C · Lawn" };
+  var qv = "w", mqo = "QA";
+  var MQO = { T: "Today", QA: "A · Tidy quilt", QB: "B · Big fields", QC: "C · Lawn" };
   function qrender2() {
-    document.getElementById("qimg").src = "mq_" + qv + "_" + qo + ".jpg";
-    document.getElementById("qtag").textContent = "Meadow · " + QO[qo] + (qv === "w" ? " · wide" : " · match camera");
-    pressed("data-qv", qv); pressed("data-qo", qo);
+    document.getElementById("mqimg").src = "mq_" + qv + "_" + mqo + ".jpg";
+    document.getElementById("mqtag").textContent = "Meadow · " + MQO[mqo] + (qv === "w" ? " · wide" : " · match camera");
+    pressed("data-qv", qv); pressed("data-mqo", mqo);
   }
   group("data-qv", function (v) { qv = v; }, qrender2);
-  group("data-qo", function (v) { qo = v; }, qrender2);
+  group("data-mqo", function (v) { mqo = v; }, qrender2);
   qrender2();
   var rs2 = "close";
   var RS2 = { close: "../../review5/shadows_close.jpg", all: "../../review5/shadows_built.jpg" };
@@ -661,21 +663,21 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
   group("data-mv", function (v) { mv = v; }, mrender);
   group("data-mo", function (v) { mo = v; }, mrender);
   mrender();
-  var hv = "w", ho = "H4";
-  function hrender() {
-    var img = document.getElementById("himg");
+  var hv = "w", gho = "H4";
+  function ghrender() {
+    var img = document.getElementById("ghimg");
     if (hv === "r") {
       img.src = "../../../benchmarks/grove_reference.webp";
-      document.getElementById("htag").textContent = "The grove's reference";
+      document.getElementById("ghtag").textContent = "The grove's reference";
     } else {
-      img.src = "gh_" + hv + "_" + ho + ".jpg";
-      document.getElementById("htag").textContent = "Grove \u00b7 " + ({ H: "pilot 1", H2: "pilot 2", H3: "pilot 3", H4: "pilot 4", T: "today" })[ho] + (hv === "w" ? " \u00b7 wide" : " \u00b7 match camera");
+      img.src = "gh_" + hv + "_" + gho + ".jpg";
+      document.getElementById("ghtag").textContent = "Grove \u00b7 " + ({ H: "pilot 1", H2: "pilot 2", H3: "pilot 3", H4: "pilot 4", T: "today" })[gho] + (hv === "w" ? " \u00b7 wide" : " \u00b7 match camera");
     }
-    pressed("data-hv", hv); pressed("data-ho", ho);
+    pressed("data-hv", hv); pressed("data-gho", gho);
   }
-  group("data-hv", function (v) { hv = v; }, hrender);
-  group("data-ho", function (v) { ho = v; }, hrender);
-  hrender();
+  group("data-hv", function (v) { hv = v; }, ghrender);
+  group("data-gho", function (v) { gho = v; }, ghrender);
+  ghrender();
   var bv = "w", bo = "C";
   var BO = { T: "Today", A: "A \u00b7 Cardboard blocks", B: "B \u00b7 Slab courses", C: "C \u00b7 Blocks and fallen rock" };
   function brender() {
@@ -719,18 +721,18 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
   group("data-fv", function (v) { fv = v; }, frender);
   group("data-fo", function (v) { fo = v; }, frender);
   frender();
-  var fv = "w", fo = "FB";
-  var FO = { T: "Today", FA: "A · Hedged fields", FB: "B · Terraced fields", FC: "C · Terraces and trees" };
-  function frender() {
-    document.getElementById("fimg").src = "mf_" + fo + "_" + fv + ".jpg";
-    document.getElementById("ftag").textContent = "Meadow · " + FO[fo] + (fv === "w" ? " · wide" : " · match camera");
-    pressed("data-fv", fv); pressed("data-fo", fo);
+  var mfv = "w", mfo = "FB";
+  var MFO = { T: "Today", FA: "A · Hedged fields", FB: "B · Terraced fields", FC: "C · Terraces and trees" };
+  function mfrender() {
+    document.getElementById("mfimg").src = "mf_" + mfo + "_" + mfv + ".jpg";
+    document.getElementById("mftag").textContent = "Meadow · " + MFO[mfo] + (mfv === "w" ? " · wide" : " · match camera");
+    pressed("data-mfv", mfv); pressed("data-mfo", mfo);
   }
-  group("data-fv", function (v) { fv = v; }, frender);
-  group("data-fo", function (v) { fo = v; }, frender);
-  frender();
+  group("data-mfv", function (v) { mfv = v; }, mfrender);
+  group("data-mfo", function (v) { mfo = v; }, mfrender);
+  mfrender();
   var sv = "w", so = "B";
-  var SO = { T: "Today", A: "A \u00b7 Clear", B: "B \u00b7 Clear with reflections", C: "C \u00b7 Paper waves" };
+  var SO = { T: "Today", A: "A \u00b7 Clear", B: "B \u00b7 Clear with reflections", C: "C \u00b7 Paper waves (reworked)" };
   function srender() {
     document.getElementById("simg").src = "sea_" + so + "_" + sv + ".jpg";
     document.getElementById("stag").textContent = "Beach \u00b7 " + SO[so] + (sv === "w" ? " \u00b7 wide" : " \u00b7 match camera");

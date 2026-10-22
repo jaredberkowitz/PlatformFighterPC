@@ -101,21 +101,32 @@ void fragment() {
 		float sw = noise(q * vec2(0.02, 0.06) + vec2(TIME * 0.025, 0.0)) * 0.6 + noise(q * vec2(0.05, 0.14) + vec2(-TIME * 0.04, 2.0)) * 0.4;
 		col *= mix(0.9, 1.08, sw);
 		if (look == 3) {
-			// Cut paper: tiers of card from the stage out, each scalloped along its near edge, a step deeper than the one nearer it.
-			// (Big wave-shaped scallops and few tiers: with small ones the lit edges ran across the sea as straight stripes.)
-			float width = mix(11.0, 30.0, far_k);
-			// (From the true depth, not the one held at 0 in front of the stage: held, the edges ran down the near water as wedges.)
+			// Paper waves: the sea as overlapping sheets of card, each a tier a step further out, its far edge cut into rounded wave
+			// caps. Each sheet is shaded across (lighter toward its cut edge, as a card curling toward the light), its edge is a lit lip,
+			// and it lays a soft shadow on the sheet behind it. Big near, wider and calmer toward the horizon, sliding slowly.
+			// (The owner on the first paper sea: it read as lines. That one lit the sheet behind each edge, not the sheet's own lip, and
+			// its tiers were one tone.)
 			float bs = -world_pos.z;
-			float scal = width * (0.2 * sin(world_pos.x * 0.1 + floor(bs / width) * 2.3 + TIME * 0.2) + 0.08 * sin(world_pos.x * 0.27 + TIME * 0.35));
-			float b = bs + scal;
-			float tier = floor(b / width);
+			float width = mix(14.0, 36.0, smoothstep(0.0, 150.0, max(bs, 0.0)));
+			float tier = floor(bs / width);
+			float b = bs;
+			for (int it = 0; it < 2; it++) {
+				float ph = tier * 1.7 + TIME * 0.12 * (mod(tier, 2.0) * 2.0 - 1.0);
+				float cap = pow(abs(sin(world_pos.x * 0.12 + ph)), 0.55);
+				b = bs + width * 0.34 * (1.0 - cap);
+				tier = floor(b / width);
+			}
 			float u = fract(b / width);
-			col *= 1.0 - 0.05 * mod(tier, 2.0);
-			// The near tier's cut edge, lit, and the soft shade it lays on the tier behind it.
-			float lit_edge = 1.0 - smoothstep(0.0, 0.05 + 0.03 * far_k, u);
-			float shade = smoothstep(0.05, 0.08, u) * (1.0 - smoothstep(0.08, 0.2, u));
-			col = mix(col, col * 0.86, shade * (1.0 - far_k * 0.6));
-			col = mix(col, mix(col, vec3(1.0), 0.45), lit_edge * (1.0 - far_k * 0.5));
+			float calm = 1.0 - smoothstep(70.0, 190.0, bs);
+			// Each sheet its own tone, and shaded across toward its edge.
+			col *= 1.0 - 0.08 * mod(tier, 2.0) * calm;
+			col *= mix(1.0, mix(0.93, 1.07, smoothstep(0.15, 1.0, u)), calm);
+			// The nearer sheet's shadow on this one, just past its edge (u from 0), soft.
+			float shadow = (1.0 - smoothstep(0.0, 0.16, u));
+			col = mix(col, col * vec3(0.7, 0.8, 0.9), shadow * 0.55 * calm);
+			// This sheet's own cut edge, lit (u toward 1).
+			float lip = smoothstep(0.925, 0.965, u);
+			col = mix(col, mix(col, pow(vec3(0.92, 1.0, 0.98), vec3(2.2)), 0.6), lip * calm);
 		} else {
 			// A soft caustic net near the stage, the light through the ripples (the reference's turquoise lattice), and fine ripples
 			// further out: no crest rows.
