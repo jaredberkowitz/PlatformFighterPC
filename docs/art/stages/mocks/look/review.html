@@ -88,6 +88,32 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
     <p>Two lessons from the reference screenshots, mocked from the match camera: the scenery without ink outlines, its edges lit as card bevels instead, and the paper houses rebuilt at the characters' proportions. The earlier rounds stay on the <a href="https://claude.ai/artifact/D1du6MREVumiJDrEdNypW4">Stage Fidelity Review</a>, which is full.</p>
   </header>
 
+  <section class="panel" aria-labelledby="mq-h" id="meadowquilt">
+    <div class="eyebrow">Your picks are needed &middot; the meadow's ground, tidied, and the first detail pass</div>
+    <h2 id="mq-h">A cleaner meadow, and more detailed background trees</h2>
+    <p>You said the meadow's ground read muddy, unprofessional and not consistently shaped. Three causes: the field patches are free-form blobs of every size; their cut edges are cream, which reads as grubby outlines at a distance; and a deep baked shade in every crease muddies the greens. These options keep the layout, lanes and farm and fix the drawing:</p>
+    <div class="tablewrap"><table><thead><tr><th>Option</th><th>What it is</th></tr></thead><tbody>
+      <tr><td>A &middot; Tidy quilt</td><td>Every field the same rounded rectangle, in even rows that shrink with distance; even gaps of a deeper green between them, so the quilt's lines read; three clean greens and now and then wheat; hedgerows run along the rows; cut edges a deeper green, not cream; lighter crease shade. The hills behind are tidied the same way.</td></tr>
+      <tr><td>B &middot; Big fields</td><td>A, with half as many rows and fields twice as wide: calmer.</td></tr>
+      <tr><td>C &middot; Lawn</td><td>A clean lawn, with fields only round the farm and along the lanes: the calmest, closest to the reference's plain lime grass.</td></tr>
+    </tbody></table></div>
+    <div class="row" role="group" aria-label="View"><button data-qv="w">Wide</button><button data-qv="m">Match camera</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-qo="T">Today</button><button data-qo="QA">A &middot; Tidy quilt</button><button data-qo="QB">B &middot; Big fields</button><button data-qo="QC">C &middot; Lawn</button></div>
+    <div class="viewer"><img id="qimg" alt="Meadow ground option"><span class="vtag" id="qtag"></span></div>
+    <p class="muted">My pick: <b>A</b>. It keeps the farmland story but reads crisp and even.</p>
+    <h3>Detail, starting with the meadow's trees</h3>
+    <p>The background pines were five or six plain stacked cones. The detailed pine has eight skirts with scalloped hems (each tier's edge steps in light and shade), a slight lean up the tree, and a visible trunk with roots. Same size and place, about 2,400 triangles for the whole cluster. Left today, right detailed:</p>
+    <div class="viewer"><img src="mq_pines.jpg" alt="Meadow pines today and detailed"></div>
+    <p>If you like the direction, the detail pass goes stage by stage, starting on the meadow:</p>
+    <ul style="display:grid;gap:6px;margin:0;padding-left:1.2em;max-width:78ch">
+      <li><strong>Meadow:</strong> pines (above); the windmill (a stone base, shuttered windows, lattice sails, a door step); the cottages and barn (window boxes, fences, a path to each door); the haystacks.</li>
+      <li><strong>Grove:</strong> the terrace trees and the great tree's bark and branches; the lanterns (frames, tassels, a glow on what's below); the tree village (ladders, rails, rope bridges).</li>
+      <li><strong>Beach:</strong> the town (window frames, shutters, balconies, chimneys); the islands (rocks, palms, a jetty); the lighthouse (railing, door, windows).</li>
+      <li><strong>Canyon:</strong> the buttes (cracks, ledges, scrub on the steps); the trestle (cross-bracing, bolts); the water tower and train.</li>
+      <li><strong>City:</strong> the towers (window frames, ledges, rooftop tanks and signs); the street (lamps, awnings, benches).</li>
+    </ul>
+  </section>
+
   <section class="panel" aria-labelledby="bl-h" id="believe">
     <div class="eyebrow">Built &middot; the air retune and the believability pass</div>
     <h2 id="bl-h">Coloured middle distance, and things where they belong</h2>
@@ -448,6 +474,16 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
   group("data-rs", function (v) { rs = v; }, rrender);
   group("data-rv", function (v) { rv = v; }, rrender);
   rrender();
+  var qv = "w", qo = "QA";
+  var QO = { T: "Today", QA: "A · Tidy quilt", QB: "B · Big fields", QC: "C · Lawn" };
+  function qrender2() {
+    document.getElementById("qimg").src = "mq_" + qv + "_" + qo + ".jpg";
+    document.getElementById("qtag").textContent = "Meadow · " + QO[qo] + (qv === "w" ? " · wide" : " · match camera");
+    pressed("data-qv", qv); pressed("data-qo", qo);
+  }
+  group("data-qv", function (v) { qv = v; }, qrender2);
+  group("data-qo", function (v) { qo = v; }, qrender2);
+  qrender2();
   var rs2 = "close";
   var RS2 = { close: "../../review5/shadows_close.jpg", all: "../../review5/shadows_built.jpg" };
   function rs2render() {

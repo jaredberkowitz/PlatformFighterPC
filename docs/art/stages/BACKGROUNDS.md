@@ -171,3 +171,18 @@ varies slowly along x (`share`), so in places two shelves run together and no le
 shelves edge to edge read as stripes again; a faster variation pulled the shelves into steep folded ramps; alternating greens read as
 panels). The lanes cross the shelves and step down each ledge on stairs. Pine belts along the near hills (`forest_belts`, one size, about
 15 tall); the clusters at 1.2. Tufts and flowers over the shelves. The far and near hills plain card (B's layers). About 44,000 triangles.
+
+## The meadow's ground tidied, and the first detail pass (2026-10-22, mocks)
+
+The owner, on the shipped meadow (PB): "the ground ... reads a bit muddy, unprofessional, not consistently shaped"; and: begin adding
+more detail to the background trees, lights, islands and buildings, one stage at a time.
+
+Causes: free-form field blobs of every size; cream cut edges, which read as grubby outlines at a distance; a deep crease bake.
+`make_meadow_ground.py --variant QA|QB|QC` (`quilt_band`): **QA** tidy quilt (every field the same rounded rectangle in even rows,
+gaps a deeper green `qgap`, three greens and wheat `qf_a/b/c`, `wheat`, hedgerows along the rows `qhedge`, cut edges a deeper green
+`qcard`, occlusion at 1.5); **QB** half as many rows, fields twice as wide; **QC** a lawn with fields only round the farm and along
+the lanes. The hills behind take light and dark field tones (`hill_near_l/_d`, `hill_far_l/_d`). (First tries: fields on the land's
+own green vanished; the farm and lane exclusions emptied the left side.) Recommended: QA.
+
+Detail, first piece: `--pine D` (`pine_detailed`): eight skirts with scalloped hems, a slight lean, a trunk with roots (a pleated-tier
+try read as shards). Mocks on the Stage Look Review (`mq_*`). The proposed order per stage is on the page.
