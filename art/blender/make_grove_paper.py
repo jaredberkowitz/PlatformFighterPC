@@ -12,9 +12,10 @@ After the backgrounds audit (docs/art/stages/BACKGROUNDS.md, 2026-10-21; the led
   FB FA with moss hanging down the cliffs and tufts, flowers and stones on the tops;
   FC FB with the reference's far forest: rows of giant trunks fading into the violet under a canopy band.
 After the owner's note that the floating islands made little progress (2026-10-21), one bolder look built from the grove reference:
-  H  hero ledges: the ledges as big masses of cardboard rock blocks (a few big bevelled planes each, dark teal, violet and grey-green,
-     no two the same), stepping down into a dark violet abyss, under a thick grass top whose lip overhangs the rock in a scalloped
-     fringe; vines and ferns hang from the lip, moss caps the blocks' ledges; deep shade baked under every overhang.
+  H  hero terraces: connected land round the chasm the island floats in, two tiers either side and one across the back, each tier's
+     front rising from the one before it; their edges wander out into promontories and turn back into the chasm, so the faces look
+     every way; under a thick grass top that overhangs in a scalloped lip, dark faceted cardboard rock steps back into a violet abyss;
+     ferns and vines hang where the edges face the camera; pines seated on the tops; deep shade baked under every lip.
 Every look carries the far ranges as standing cut-out flats, three to a range, their crests from the painted ranges they stand in for.
 Each piece is its own object so the game can lay the air of its depth over it, and bakes its occlusion into linear vertex colours.
 Families `grass`, `grass_far`, `cliff`, `range_far`, `range_near`, their cut edges `card_<family>`, `leaf_lit`, `leaf_shade`, `bark`.
@@ -448,106 +449,256 @@ def rock_block(name, fam, corners, y0, y1, bevel):
     return inset
 
 
-def hero_ledge(name, x0, x1, zf, zb, top_at, bottom, rng, far):
-    """A ledge as the reference builds it: a mass of rock blocks under a thick grass top that overhangs it in a scalloped lip."""
-    ph = rng.uniform(0, math.tau)
+# (The terraces as plan outlines, Godot x and z, each with its top: connected land, every tier's back running under the face of the tier
+# behind it, so nothing floats. The side trees stand at -55 on T0, x -30 and 32 (the grove's tree slots); the far tree village's great
+# trees stand on T2 at -1, x 31 to 49 either side, z -106 to -116 (make_world.py GROVE_FAR).)
+ABYSS_FLOOR = -26.0
 
-    def front(x):
-        return zf + 2.6 * math.sin(x * 0.07 + ph) + 1.2 * math.sin(x * 0.19 + 2 * ph)
 
-    # (One dark family: teal, a lighter teal and now and then the violet stone. Beige and violet blocks side by side read as a quilt.)
+def bumps(x, spots):
+    """A front edge's promontories: each spot (x, how far out, how wide) pushes the edge toward the camera."""
+    return sum(out * math.exp(-((x - cx) / w) ** 2) for (cx, out, w) in spots)
+
+
+def side_tiers(sign, rng):
+    """One side's two terraces (sign -1 the left, 1 the right) as plan outlines running counter-clockwise seen from above."""
+    tiers = []
+    # T0: its front with two or three promontories, its inner end curving back toward the chasm.
+    inner0 = 19.0 if sign < 0 else 20.5
+    spots0 = [(sign * rng.uniform(150, 175), rng.uniform(6, 9), 9.0), (sign * rng.uniform(95, 115), rng.uniform(5, 8), 8.0),
+              (sign * rng.uniform(55, 70), rng.uniform(3, 5), 6.0)]
+    front0 = []
+    xs = [sign * (inner0 + 2.0 * i) for i in range(int((215 - inner0) / 2.0) + 1)]
+    for x in xs:
+        front0.append((x, -46.0 + bumps(x, spots0) + 0.8 * math.sin(x * 0.31)))
+    inner_edge0 = [(sign * inner0, front0[0][1]), (sign * (inner0 - 2.0), -52.0), (sign * (inner0 + 1.0), -61.0), (sign * (inner0 + 5.0), -70.0)]
+    outline0 = list(reversed(inner_edge0[1:])) + front0 + [(sign * 215.0, -70.0)]
+    tiers.append(("T0" + ("L" if sign < 0 else "R"), outline0, -9.3 if sign < 0 else -9.0, False))
+    # T1: higher, its front rising from T0's top, its inner end further out, so the chasm widens toward the back.
+    inner1 = rng.uniform(26.0, 30.0)
+    spots1 = [(sign * rng.uniform(120, 160), rng.uniform(4, 6), 10.0), (sign * rng.uniform(60, 85), rng.uniform(3, 5), 8.0)]
+    front1 = [(sign * (inner1 + 2.0 * i), -70.0 + bumps(sign * (inner1 + 2.0 * i), spots1) + 0.6 * math.sin(i * 0.9))
+              for i in range(int((215 - inner1) / 2.0) + 1)]
+    inner_edge1 = [(sign * inner1, front1[0][1]), (sign * (inner1 - 1.5), -80.0), (sign * (inner1 + 1.0), -90.0), (sign * (inner1 + 3.0), -98.0)]
+    outline1 = list(reversed(inner_edge1[1:])) + front1 + [(sign * 215.0, -98.0)]
+    tiers.append(("T1" + ("L" if sign < 0 else "R"), outline1, -5.0 if sign < 0 else -4.5, True))
+    return tiers
+
+
+def back_tier(rng):
+    """T2: right across the back, its front rising from the side terraces and dropping into the chasm between them."""
+    spots = [(rng.uniform(-90, -60), 4.0, 9.0), (rng.uniform(-8, 8), 5.0, 7.0), (rng.uniform(60, 90), 4.0, 9.0)]
+    front = [(x, -98.0 + bumps(x, spots) + 0.6 * math.sin(x * 0.27)) for x in [-225.0 + 2.5 * i for i in range(181)]]
+    return ("T2", list(reversed(front)) + [(-225.0, -132.0), (225.0, -132.0)], -1.0, True)
+
+
+def inside(poly, x, z):
+    hit = False
+    for i in range(len(poly)):
+        (xa, za), (xb, zb) = poly[i], poly[i - 1]
+        if (za > z) != (zb > z) and x < xa + (z - za) * (xb - xa) / (zb - za):
+            hit = not hit
+    return hit
+
+
+def ground_under(tiers, x, z, below):
+    """The highest terrace top under (x, z) lower than `below`, or the abyss floor."""
+    tops = [t for (_, poly, t, _) in tiers if t < below - 0.01 and inside(poly, x, z)]
+    return max(tops, default=ABYSS_FLOOR)
+
+
+def edge_rock(name, a, b, out, top, drop, rng, far):
+    """The rock under one stretch of a terrace's edge: blocks of uneven width along it, each column stepping back from the edge as it
+    goes down, its front faceted; `out` is the edge's outward direction in plan (x, z)."""
     rocks = ["cliff", "cliff_b", "cliff", "cliff_b", "cliff"]
-    # The rock face: columns of blocks of uneven width, each column two or three blocks stepping back as they go down.
-    x = x0
-    k = 0
-    while x < x1:
-        w = rng.uniform(3.0, 6.5)
-        xb = min(x + w, x1)
-        top = top_at(x)
-        y = top - 0.4
-        zfa, zfb = front(x) - 0.6, front(xb) - 0.6
-        step = 0.0
-        rows = 4 if not far else 2
-        for row in range(rows):
-            h = rng.uniform(2.4, 4.2) if row < rows - 1 else y - bottom
-            y_lo = max(bottom, y - h)
-            j1, j2 = rng.uniform(-0.6, 0.6), rng.uniform(-0.6, 0.6)
-            # (A faceted front, two planes meeting at a ridge somewhere along it, so each block catches the light on one side and turns
-            # away on the other: flat fronts read as stacked boxes.)
-            u = rng.uniform(0.3, 0.7)
-            xm_ = x + (xb - x) * u
-            ridge = max(zfa, zfb) - step + rng.uniform(0.5, 1.4)
-            corners = [(x + 0.06, zfa - step + j1 - 0.4), (xm_, ridge), (xb - 0.06, zfb - step + j2 - 0.4), (xb - 0.06, zb), (x + 0.06, zb)]
-            fam = rocks[(k + row + rng.randrange(3)) % len(rocks)]
-            inset = rock_block("%s_r%d" % (name, k % 6), fam, corners, y_lo, y, 0.45)
-            if row > 0 and rng.random() < 0.5 and not far:
-                # Moss on the ledge the block above leaves where it steps back.
-                ya = y + 0.03
-                face(part("%s_moss" % name, "moss"), (P(inset[0][0], ya, inset[0][1]), P(inset[1][0], ya, inset[1][1]),
-                                                       P(inset[1][0], ya, inset[1][1] - 1.2), P(inset[0][0], ya, inset[0][1] - 1.2)))
-            y = y_lo
-            # (Each block lower steps further back, so the face leans away under the lip into the dark.)
-            step += rng.uniform(1.0, 2.2)
-            if y <= bottom + 0.01:
-                break
-        x = xb
-        k += 1
-    # The grass top, a little past the rock, and its thick cut edge.
-    xs = xs_across(x0, x1, 1.6)
-    g = "grass_far" if far else "grass"
-    for i in range(len(xs) - 1):
-        xa, xb = xs[i], xs[i + 1]
-        ya, yb = top_at(xa), top_at(xb)
-        fa, fb = front(xa) + 0.5, front(xb) + 0.5
-        face(part("%s_top" % name, g), (P(xa, ya, zb), P(xa, ya, fa), P(xb, yb, fb), P(xb, yb, zb)))
-        face(part("%s_top" % name, "lip"), (P(xa, ya, fa), P(xa, ya - 0.55, fa), P(xb, yb - 0.55, fb), P(xb, yb, fb)))
-        # The lip: a scalloped tab hanging over the rock, every one a little different.
-        hang = rng.uniform(0.9, 2.2) * (0.7 if far else 1.0)
-        xm = (xa + xb) * 0.5
-        face(part("%s_top" % name, "lip"), (P(xa, ya - 0.5, fa), P(xb, yb - 0.5, fb), P(xb - 0.25, yb - 0.5 - hang * 0.7, fb + 0.05),
-                                             P(xm, (ya + yb) * 0.5 - 0.5 - hang, (fa + fb) * 0.5 + 0.08), P(xa + 0.25, ya - 0.5 - hang * 0.7, fa + 0.05)))
-    if far:
+    ln = math.hypot(b[0] - a[0], b[1] - a[1])
+    if ln < 0.05:
         return
-    # Vines and ferns hanging from the lip.
-    xv = x0 + rng.uniform(2, 8)
-    while xv < x1:
-        top = top_at(xv)
-        zf_ = front(xv) + 0.7
-        length = rng.uniform(3.0, 9.0)
-        pts = []
-        n = int(length / 0.8)
-        for q in range(n + 1):
-            t = q / n
-            pts.append((xv + 0.35 * math.sin(t * 6 + xv), top - 0.6 - length * t))
-        for q in range(n):
-            (ax, ay), (bx, by) = pts[q], pts[q + 1]
-            face(part("%s_vines" % name, "vine"), (P(ax - 0.18, ay, zf_), P(ax + 0.18, ay, zf_), P(bx + 0.14, by, zf_), P(bx - 0.14, by, zf_)))
-            if q % 2 == 1:
-                side = 1 if q % 4 == 1 else -1
-                face(part("%s_vines" % name, "fern"), (P(ax, ay, zf_ + 0.02), P(ax + side * 0.7, ay + 0.25, zf_ + 0.02),
-                                                       P(ax + side * 1.0, ay - 0.15, zf_ + 0.02), P(ax + side * 0.3, ay - 0.35, zf_ + 0.02)))
-        xv += rng.uniform(5.0, 12.0)
-    # Ferns at the lip and tufts along the top's front.
-    xf = x0 + rng.uniform(1, 5)
-    while xf < x1:
-        top = top_at(xf)
-        zf_ = front(xf) + 0.6
-        for q in range(5):
-            a = math.radians(-160 + q * 35 + rng.uniform(-8, 8))
-            ln = rng.uniform(1.4, 2.4)
-            dx, dy = math.cos(a) * ln, math.sin(a) * ln * 0.8
-            face(part("%s_ferns" % name, "fern"), (P(xf, top - 0.3, zf_), P(xf + dx * 0.5 - 0.25, top - 0.3 + dy * 0.5 + 0.2, zf_ + 0.1),
-                                                   P(xf + dx, top - 0.3 + dy, zf_ + 0.15), P(xf + dx * 0.5 + 0.25, top - 0.3 + dy * 0.5 - 0.2, zf_ + 0.1)))
-        xf += rng.uniform(4.0, 9.0)
-    xt = x0 + rng.uniform(0, 2)
-    while xt < x1:
-        top = top_at(xt)
-        z = front(xt) - rng.uniform(0.5, 4.0)
-        for t in range(3):
-            ang = rng.uniform(0, math.pi)
-            dx, dz = math.cos(ang) * 0.4, math.sin(ang) * 0.12
-            face(part("%s_tufts" % name, "tuft"), (P(xt - dx, top + 0.01, z - dz), P(xt + dx, top + 0.01, z + dz), P(xt + dx * 0.2, top + 1.0, z + dz * 0.2)))
-        xt += rng.uniform(1.5, 4.0)
+    tx, tz = (b[0] - a[0]) / ln, (b[1] - a[1]) / ln
+    ox, oz = out
+    s0 = 0.0
+    k = 0
+    while s0 < ln - 0.05:
+        w = min(rng.uniform(3.0, 6.0), ln - s0)
+        s1 = s0 + w
+        y = top - 0.4
+        step = 0.0
+        while y > drop + 0.05:
+            h = rng.uniform(2.4, 4.2) if not far else rng.uniform(3.5, 5.5)
+            y_lo = max(drop - 0.3, y - h)
+            if y_lo - (drop - 0.3) < 1.2:
+                y_lo = drop - 0.3
+            # (Set back under the lip: in front of it, the rock hid the grass's edge.)
+            back = 0.9 + step
+            pa = (a[0] + tx * s0 - ox * back, a[1] + tz * s0 - oz * back)
+            pb = (a[0] + tx * s1 - ox * back, a[1] + tz * s1 - oz * back)
+            u = rng.uniform(0.3, 0.7)
+            ridge = rng.uniform(0.2, 0.6)
+            pm = (pa[0] + (pb[0] - pa[0]) * u + ox * ridge, pa[1] + (pb[1] - pa[1]) * u + oz * ridge)
+            depth = 3.0
+            corners = [(pa[0] + tx * 0.05 - ox * 0.3, pa[1] + tz * 0.05 - oz * 0.3), pm,
+                       (pb[0] - tx * 0.05 - ox * 0.3, pb[1] - tz * 0.05 - oz * 0.3),
+                       (pb[0] - ox * depth, pb[1] - oz * depth), (pa[0] - ox * depth, pa[1] - oz * depth)]
+            # (Counter-clockwise seen from above, whichever way the edge runs.)
+            area = sum(corners[i][0] * corners[i - 1][1] - corners[i - 1][0] * corners[i][1] for i in range(len(corners)))
+            if area > 0:
+                corners.reverse()
+            fam = rocks[(k + rng.randrange(3)) % len(rocks)]
+            rock_block("%s_r%d" % (name, k % 6), fam, corners, y_lo, y, 0.45)
+            y = y_lo
+            step += rng.uniform(1.0, 2.0)
+            k += 1
+        s0 = s1
+
+
+def terrace(name, poly, top, exposed, tiers, rng, far, fam):
+    """One terrace: its grass top, and along every edge that shows, the rock under it, the lip over it, and ferns and vines."""
+    bm = part("%s_top" % name, fam)
+    f = bm.faces.new([bm.verts.new(P(x, top, z)) for (x, z) in poly])
+    f.normal_update()
+    if f.normal.z < 0.0:
+        f.normal_flip()
+    bmesh.ops.triangulate(bm, faces=[f])
+    n = len(poly)
+    # (Which way is out: seen from above in Godot's x and -z, out is the edge turned right on a counter-clockwise outline, left on a
+    # clockwise one; the shoelace sum says which.)
+    area = sum(poly[i - 1][0] * -poly[i][1] - poly[i][0] * -poly[i - 1][1] for i in range(n))
+    turn = 1.0 if area > 0 else -1.0
+    runs = []
+    cur = None
+    for i in range(n):
+        a, b = poly[i], poly[(i + 1) % n]
+        ln = math.hypot(b[0] - a[0], b[1] - a[1])
+        if ln < 0.05:
+            continue
+        tx, tz = (b[0] - a[0]) / ln, (b[1] - a[1]) / ln
+        # Turned right in (x, -z) and back: the outward direction in (x, z).
+        ox, oz = -turn * tz, turn * tx
+        mx, mz = (a[0] + b[0]) * 0.5 + ox * 0.6, (a[1] + b[1]) * 0.5 + oz * 0.6
+        if oz < -0.6 or not exposed(mx, mz):
+            # (Facing away from the camera, or lying against the tier behind: nothing shows there.)
+            cur = None
+            continue
+        drop = ground_under(tiers, mx, mz, top)
+        # (The rock is laid along whole runs of showing edge, not per outline segment: those are two units long, and blocks no wider
+        # than them read as a wall of little cubes.)
+        if cur is not None and cur[0] == drop and cur[1][-1] == a:
+            cur[1].append(b)
+        else:
+            cur = (drop, [a, b])
+            runs.append(cur)
+        # The lip over this stretch: the grass's thick cut edge and a hanging tab, a little past the rock.
+        ax, az = a[0] + ox * 0.5, a[1] + oz * 0.5
+        bx, bz = b[0] + ox * 0.5, b[1] + oz * 0.5
+        lip = part("%s_top" % name, "lip")
+        oriented(lip, (P(ax, top, az), P(ax, top - 0.55, az), P(bx, top - 0.55, bz), P(bx, top, bz)), P((a[0] + b[0]) * 0.5, top - 0.3, (a[1] + b[1]) * 0.5))
+        hang = rng.uniform(0.9, 2.2) * (0.7 if far else 1.0)
+        cx, cz = (ax + bx) * 0.5 + ox * 0.08, (az + bz) * 0.5 + oz * 0.08
+        oriented(lip, (P(ax, top - 0.5, az), P(bx, top - 0.5, bz), P(bx - tx * 0.25, top - 0.5 - hang * 0.7, bz + oz * 0.05),
+                       P(cx, top - 0.5 - hang, cz), P(ax + tx * 0.25, top - 0.5 - hang * 0.7, az + oz * 0.05)),
+                 P((a[0] + b[0]) * 0.5 - ox, top - 0.8, (a[1] + b[1]) * 0.5 - oz))
+        if far or oz < 0.2:
+            continue
+        # Vines and ferns where the edge faces the camera.
+        if rng.random() < 0.18:
+            length = min(rng.uniform(3.0, 9.0), top - drop - 1.0)
+            if length > 1.5:
+                vx, vz = cx + ox * 0.2, cz + oz * 0.2
+                q_n = int(length / 0.8)
+                for q in range(q_n):
+                    ya, yb = top - 0.6 - length * q / q_n, top - 0.6 - length * (q + 1) / q_n
+                    wob = 0.3 * math.sin(q * 1.3 + vx)
+                    face(part("%s_vines" % name, "vine"), (P(vx + wob - 0.18, ya, vz), P(vx + wob + 0.18, ya, vz), P(vx + wob + 0.14, yb, vz), P(vx + wob - 0.14, yb, vz)))
+                    if q % 2 == 1:
+                        sd = 1 if q % 4 == 1 else -1
+                        face(part("%s_vines" % name, "fern"), (P(vx + wob, ya, vz + 0.02), P(vx + wob + sd * 0.7, ya + 0.25, vz + 0.02),
+                                                               P(vx + wob + sd * 1.0, ya - 0.15, vz + 0.02), P(vx + wob + sd * 0.3, ya - 0.35, vz + 0.02)))
+        if rng.random() < 0.3:
+            for q in range(5):
+                ang = math.radians(-160 + q * 35 + rng.uniform(-8, 8))
+                lnf = rng.uniform(1.4, 2.4)
+                dx, dy = math.cos(ang) * lnf, math.sin(ang) * lnf * 0.8
+                face(part("%s_ferns" % name, "fern"), (P(cx, top - 0.3, cz), P(cx + dx * 0.5 - 0.25, top - 0.3 + dy * 0.5 + 0.2, cz + 0.1),
+                                                       P(cx + dx, top - 0.3 + dy, cz + 0.15), P(cx + dx * 0.5 + 0.25, top - 0.3 + dy * 0.5 - 0.2, cz + 0.1)))
+    for drop, pts in runs:
+        rock_run(name, pts, turn, top, drop, rng, far)
+
+
+def rock_run(name, pts, turn, top, drop, rng, far):
+    """The rock under a run of showing edge: the run cut into chords three to six units long, each with its blocks."""
+    lens = [math.hypot(pts[i + 1][0] - pts[i][0], pts[i + 1][1] - pts[i][1]) for i in range(len(pts) - 1)]
+    total = sum(lens)
+
+    def at(sv):
+        for i, ln in enumerate(lens):
+            if sv <= ln or i == len(lens) - 1:
+                t = min(1.0, sv / ln) if ln > 0 else 0.0
+                return (pts[i][0] + (pts[i + 1][0] - pts[i][0]) * t, pts[i][1] + (pts[i + 1][1] - pts[i][1]) * t)
+            sv -= ln
+        return pts[-1]
+
+    s0 = 0.0
+    while s0 < total - 0.3:
+        s1 = min(total, s0 + rng.uniform(3.0, 6.0))
+        a, b = at(s0), at(s1)
+        ln = math.hypot(b[0] - a[0], b[1] - a[1])
+        if ln > 0.2:
+            tx, tz = (b[0] - a[0]) / ln, (b[1] - a[1]) / ln
+            edge_rock(name, a, b, (-turn * tz, turn * tx), top, drop, rng, far)
+        s0 = s1
+
+
+def hero_ledges(rng):
+    """The grove's terraces round the chasm the island floats in: two connected tiers either side and one right across the back."""
+    tiers = side_tiers(-1, rng) + side_tiers(1, rng) + [back_tier(rng)]
+    for name, poly, top, grass_far in tiers:
+        far = name == "T2"
+
+        def exposed(x, z, t=top):
+            # (An edge shows unless a higher terrace stands right against it.)
+            return not any(inside(q, x, z) for (_, q, tt, _) in tiers if tt > t + 0.01)
+
+        terrace(name, poly, top, exposed, tiers, rng, far, "grass_far" if grass_far else "grass")
+    HERO_TIERS.extend(tiers)
+    abyss()
+
+
+HERO_TIERS = []
+
+
+def plant_trees_hero(rng):
+    """Paper pines on the terraces, seated on the top they stand on, clear of every edge, of the side trees and of the space behind the
+    fight; taller than the old ledges' (they read as shrubs beside the side trees)."""
+    for name, poly, top, _ in HERO_TIERS:
+        xs = [q[0] for q in poly]
+        zs = [q[1] for q in poly]
+        # (Fewer, in loose groups: sixteen a terrace read as a tree farm.)
+        n = {"T2": 14}.get(name, 8)
+        placed = 0
+        tries = 0
+        while placed < n and tries < 600:
+            tries += 1
+            x, z = rng.uniform(min(xs), max(xs)), rng.uniform(min(zs), max(zs))
+            if not inside(poly, x, z) or abs(x) < (26 if name != "T2" else 16):
+                continue
+            if any(abs(x - tx) < 9 and abs(z - tz) < 9 for (tx, tz) in SIDE_TREES):
+                continue
+            if any(not inside(poly, x + dx, z + dz) for (dx, dz) in ((3.5, 0), (-3.5, 0), (0, 3.5), (0, -3.5))):
+                continue
+            if any(inside(q, x, z) for (_, q, t, _) in HERO_TIERS if t > top + 0.01):
+                continue
+            sc = rng.uniform(3.0, 4.6) if rng.random() < 0.75 else rng.uniform(5.0, 6.5)
+            disc_pine(name + "_trees", x, top, z, sc, rng)
+            placed += 1
+        # Tufts over the top, thicker toward its front, so it isn't one plain sheet.
+        for _ in range(int((max(xs) - min(xs)) * (max(zs) - min(zs)) * (0.02 if name != "T2" else 0.008))):
+            x, z = rng.uniform(min(xs), max(xs)), rng.uniform(min(zs), max(zs))
+            if not inside(poly, x, z) or any(inside(q, x, z) for (_, q, t, _) in HERO_TIERS if t > top + 0.01):
+                continue
+            for _t in range(3):
+                ang = rng.uniform(0, math.pi)
+                dx, dz = math.cos(ang) * 0.45, math.sin(ang) * 0.14
+                face(part(name + "_tufts", "tuft"), (P(x - dx, top + 0.01, z - dz), P(x + dx, top + 0.01, z + dz), P(x + dx * 0.2, top + 1.1, z + dz * 0.2)))
 
 
 def abyss():
@@ -563,35 +714,6 @@ def abyss():
             # (The nearer sheet runs on past the camera, so no edge of it shows.)
             near = 60.0 if k == 0 else fa
             face(part(name, fam), (P(xa, y, -220.0), P(xa, y, near if k == 0 else fa), P(xb, y, near if k == 0 else fb), P(xb, y, -220.0)))
-
-
-def hero_ledges(rng):
-    """Every ledge broken into chunks with dark gaps between, each at its own height and depth, so no ledge runs across the frame as a
-    stripe; the chunks under the side trees keep the trees' footing."""
-    k = 0
-    for name, x0, x1, zf, zb, top, fam in LEDGES:
-        far = name == "T2"
-        x = x0
-        while x < x1:
-            w = rng.uniform(22.0, 40.0)
-            xa, xb = x, min(x + w, x1)
-            trees = [tx for (tx, tz) in SIDE_TREES if name == "T0" and xa - 6 < tx < xb + 6]
-            if trees:
-                # (Round a side tree: its own chunk, wide enough for its footing, at the tree's height.)
-                tx = trees[0]
-                xa, xb = min(xa, tx - 12.0), max(xb, tx + 12.0)
-                t = -9.3 if tx < 0 else -9.0
-                dz = 0.0
-            else:
-                t = top + rng.uniform(-1.4, 0.9)
-                dz = rng.uniform(-3.5, 2.0)
-            # (Nothing right behind the fight on the nearest ledge: the island and the great tree stand there.)
-            if not (name == "T0" and abs((xa + xb) * 0.5) < 16 and not trees):
-                hero_ledge("%s_%d" % (name, k), xa + 1.5, xb - 1.5, zf + dz, zb, lambda _x, tt=t: tt,
-                           t - (16.0 if not far else 10.0), rng, far)
-            k += 1
-            x = xb + rng.uniform(3.0, 7.0)
-    abyss()
 
 
 def range_flats():
@@ -624,7 +746,7 @@ def build_ground():
     rng = random.Random(29)
     if VARIANT == "H":
         hero_ledges(rng)
-        plant_trees(rng, disc_pine)
+        plant_trees_hero(rng)
     elif VARIANT in ("FA", "FB", "FC"):
         floating_ledges(rng)
         plant_trees_floating(rng)

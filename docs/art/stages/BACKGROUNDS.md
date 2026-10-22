@@ -127,3 +127,12 @@ hues, beige among them, and a full-length wall each read as a quilt of boxes; on
 If the owner takes the direction: the meadow's land as two or three big overlapping hill masses (grass draped over earth banks, soil at
 the cut edges, hedgerows on the crests, shaded sides); the beach's town hill and islands as grass draped over pale sandstone blocks; the
 canyon's floor as a few big dune masses with shaded lee sides and low rock steps at its edges.
+
+**Pilot 2, after the owner's notes** (the broken ledges didn't read as believable: trees floated, every chunk faced the same way, some
+trees were too short). The land is connected: terraces as plan outlines (`side_tiers`, `back_tier`) round the chasm the island floats
+in, T0 and T1 either side and T2 right across the back, each tier's front rising from the top of the one before it (`ground_under`).
+Their fronts wander out into promontories (`bumps`) and their inner ends turn back into the chasm, so the cliffs face every way. Rock is
+laid along whole runs of showing edge (`rock_run`; per two-unit outline segment it read as a wall of little cubes), set back under the
+lip. Pines are seated on the tier they stand on, clear of every edge and of higher tiers, bigger (3 to 6.5) and fewer; the far tree
+village stands on T2 at -1, as before. Tufts over the tops. About 60,000 triangles. (A sign slip in the outline's winding first put the
+rock and the lips on the tiers' hidden back edges.)

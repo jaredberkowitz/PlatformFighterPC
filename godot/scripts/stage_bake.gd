@@ -966,8 +966,8 @@ static func _ground_colours(t: Dictionary) -> Dictionary:
 	# (The grove's hero ledges: the grass lip a deeper green than the top, the vines darker still, the abyss a deep violet.)
 	out["lip"] = (out["grass"] as Color).darkened(0.18)
 	out["vine"] = Color(0.16, 0.34, 0.24)
-	out["abyss"] = Color(0.36, 0.3, 0.56)
-	out["abyss_far"] = Color(0.5, 0.44, 0.72)
+	out["abyss"] = Color(0.26, 0.2, 0.42)
+	out["abyss_far"] = Color(0.4, 0.34, 0.62)
 	out["cliff_b"] = Color(0.16, 0.32, 0.32)
 	# (The canyon's floor in paper: its sand sheets in three tones round the desert floor's, their cut edges, wind ripples, the dry wash
 	# and its banks, pebbles, scrub and the shade under it.)
