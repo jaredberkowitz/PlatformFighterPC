@@ -5928,6 +5928,12 @@ const FACADE_LIT := [1.5, 0.7, 0.45]
 ## (Fewer lit the further back, as distance would hide them: the far layer was the most lit, 36%.)
 ## (Fewer behind, art review 10: the middle and far layers' window grids were the busiest detail behind the fight.)
 const FACADE_LIT_SHARE := [0.18, 0.09, 0.05]
+## The near skyline layer's towers, modelled (art/blender/make_city_towers.py, the owner 2026-10-22: Blender models wherever possible):
+## the boxes `_skyline_layer` lays out, exported with `--city-export=<json>`, built with real window frames, sills, lintels, floor
+## ledges and pilasters where the facade shader paints them, and painted by the same shader. `--no-city-model` for the code boxes.
+const CITY_NEAR := "res://models/city/skyline_near.glb"
+## While a layer is laid out, the boxes it builds ([lo, hi, seed, plain, h, glass]), for the model and its export; null otherwise.
+static var _box_log = null
 
 
 ## One layer of the city's backdrop at depth `z`, its streets at `street`: a row of buildings (boxes with a parapet, some with rooftop
@@ -5936,6 +5942,15 @@ const FACADE_LIT_SHARE := [0.18, 0.09, 0.05]
 static func _skyline_layer(root: Node3D, rng: RandomNumberGenerator, layer: int, z: float, shade: Color, street: float) -> void:
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	# (The quads laid straight on the facade, the crowns' pyramids and the signs, on their own too: with the modelled towers they are
+	# all this layer still draws itself.)
+	var qst := SurfaceTool.new()
+	qst.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var near := layer == 0
+	_box_log = [] if near else null
+	var sign_out := 0.08
+	if near and ResourceLoader.exists(CITY_NEAR) and not OS.get_cmdline_user_args().has("--no-city-model"):
+		sign_out = 0.24 / float({"A": 0.1, "B": 0.08, "C": 0.22}.get(_paper_look(), 1.0))
 	var depth := 5.0
 	# Signs on some of the nearer buildings, from their own random numbers (so the skyline's layout is the same with or without them).
 	var signs := RandomNumberGenerator.new()
@@ -5997,9 +6012,10 @@ static func _skyline_layer(root: Node3D, rng: RandomNumberGenerator, layer: int,
 			var py := t1 + s2
 			var apex := Vector3((pl + pr) * 0.5, py + (pr - pl) * 0.7, z)
 			var pc := Color(seed, 1.0, 0.0)
-			_facade_quad(st, [Vector3(pl, py, pf), Vector3(pr, py, pf), apex, apex], Vector3(0, 0.6, 0.8).normalized(), Vector2(pr - pl, 1.0), 0.0, pc)
-			_facade_quad(st, [Vector3(pr, py, pf), Vector3(pr, py, pb), apex, apex], Vector3(0.8, 0.6, 0).normalized(), Vector2(pf - pb, 1.0), 0.0, pc)
-			_facade_quad(st, [Vector3(pl, py, pb), Vector3(pl, py, pf), apex, apex], Vector3(-0.8, 0.6, 0).normalized(), Vector2(pf - pb, 1.0), 0.0, pc)
+			for qs: SurfaceTool in [st, qst]:
+				_facade_quad(qs, [Vector3(pl, py, pf), Vector3(pr, py, pf), apex, apex], Vector3(0, 0.6, 0.8).normalized(), Vector2(pr - pl, 1.0), 0.0, pc)
+				_facade_quad(qs, [Vector3(pr, py, pf), Vector3(pr, py, pb), apex, apex], Vector3(0.8, 0.6, 0).normalized(), Vector2(pf - pb, 1.0), 0.0, pc)
+				_facade_quad(qs, [Vector3(pl, py, pb), Vector3(pl, py, pf), apex, apex], Vector3(-0.8, 0.6, 0).normalized(), Vector2(pf - pb, 1.0), 0.0, pc)
 		elif btype == 2 and h > 12.0:
 			# A glass tower: a slimmer glass crown set back over a cornice, and on the taller ones a mast (the judge's round 40: the slim
 			# glass slabs were the last flat-topped boxes in the near skyline).
@@ -6034,14 +6050,17 @@ static func _skyline_layer(root: Node3D, rng: RandomNumberGenerator, layer: int,
 		# (None in the strip right behind the fighters, step 4: a lit sign there pulled the eye from the fight.)
 		if layer < 2 and signs.randf() < 0.55 and absf(x + w * 0.5) > 13.0:
 			# A lit sign on the front: a tall blade sign near one side, or a wide one across the middle.
-			var front := hi.z + 0.08
+			# (Out past the modelled towers' window frames and sills, when they are there, so a sign hangs over them.)
+			var front := hi.z + sign_out
 			var tall := signs.randf() < 0.5
 			var sw := 1.7 if tall else minf(w * 0.6, 6.0)
 			var sh := minf(h * 0.4, 6.0) if tall else 1.8
 			var sx := lo.x + (0.8 if signs.randf() < 0.5 else w - 0.8 - sw) if tall else lo.x + (w - sw) * 0.5
 			var sy := street + h * signs.randf_range(0.35, 0.7)
-			_facade_quad(st, [Vector3(sx, sy, front), Vector3(sx + sw, sy, front), Vector3(sx + sw, sy + sh, front), Vector3(sx, sy + sh, front)],
-				Vector3(0, 0, 1), Vector2(sw, sh), 0.0, Color(signs.randf(), 0.0, 1.0))
+			var sign_c := Color(signs.randf(), 0.0, 1.0)
+			for qs: SurfaceTool in [st, qst]:
+				_facade_quad(qs, [Vector3(sx, sy, front), Vector3(sx + sw, sy, front), Vector3(sx + sw, sy + sh, front), Vector3(sx, sy + sh, front)],
+					Vector3(0, 0, 1), Vector2(sw, sh), 0.0, sign_c)
 		for b in billboard_at:
 			var d := absf(x + w / 2.0 - float(b))
 			if h < 20.0 and (not billboard_best.has(b) or d < float(billboard_best[b][0])):
@@ -6074,8 +6093,10 @@ static func _skyline_layer(root: Node3D, rng: RandomNumberGenerator, layer: int,
 		var bz := z + depth / 2.0 + 0.15
 		for lx in [left + bw * 0.2, left + bw * 0.8]:
 			_facade_box(st, Vector3(lx - 0.1, top, bz - 0.1), Vector3(lx + 0.1, top + 1.2, bz + 0.1), float(b[4]), true, 1.2)
-		_facade_quad(st, [Vector3(left, top + 1.2, bz + 0.12), Vector3(left + bw, top + 1.2, bz + 0.12), Vector3(left + bw, top + 3.4, bz + 0.12),
-			Vector3(left, top + 3.4, bz + 0.12)], Vector3(0, 0, 1), Vector2(bw, 2.2), 0.0, Color(signs.randf(), 0.0, 1.0))
+		var board_c := Color(signs.randf(), 0.0, 1.0)
+		for qs: SurfaceTool in [st, qst]:
+			_facade_quad(qs, [Vector3(left, top + 1.2, bz + 0.12), Vector3(left + bw, top + 1.2, bz + 0.12), Vector3(left + bw, top + 3.4, bz + 0.12),
+				Vector3(left, top + 3.4, bz + 0.12)], Vector3(0, 0, 1), Vector2(bw, 2.2), 0.0, board_c)
 	var m := ShaderMaterial.new()
 	m.shader = FACADE_SHADER
 	m.set_shader_parameter("base_shade", shade)
@@ -6093,13 +6114,72 @@ static func _skyline_layer(root: Node3D, rng: RandomNumberGenerator, layer: int,
 	# that read as texture; ours, a bay of 2 by 2.6 on every layer, read as stickers.)
 	m.set_shader_parameter("cell", [Vector2(1.5, 1.95), Vector2(1.15, 1.5), Vector2(0.9, 1.2)][layer])
 	m.set_shader_parameter("pane", [Vector2(0.56, 0.78), Vector2(0.44, 0.62), Vector2(0.36, 0.5)][layer])
+	var boxes: Array = _box_log if near else []
+	_box_log = null
+	for arg in OS.get_cmdline_user_args():
+		if near and arg.begins_with("--city-export="):
+			_city_export(arg.substr(14), boxes)
+	var whole := _paper_skyline(st.commit(), cards, z, layer)
 	var mi := MeshInstance3D.new()
-	mi.mesh = _paper_skyline(st.commit(), cards, z, layer)
+	mi.mesh = whole
+	var model := _city_model(_city_sig(boxes)) if near else null
+	if model != null:
+		# The modelled towers in the layer's place, squashed into the paper look's cards as the code boxes are; the layer itself draws
+		# only its crowns' pyramids and its signs.
+		mi.mesh = _paper_skyline(qst.commit(), cards, z, layer)
+		root.add_child(model)
+		for part: MeshInstance3D in model.find_children("*", "MeshInstance3D", true, false):
+			part.mesh = _paper_skyline(part.mesh as ArrayMesh, cards, z, layer)
+			part.material_override = m
+			part.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	mi.material_override = m
 	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	mi.name = "skyline_%d" % layer
 	root.add_child(mi)
-	_paper_edges(root, mi.mesh, cards, z, layer, shade, street)
+	_paper_edges(root, whole, cards, z, layer, shade, street)
+
+
+## The modelled near towers (`CITY_NEAR`), or null without them, with `--no-city-model`, or when they were built from another layout
+## than this one (their mesh's name carries the layout they were built from: `skyline_near_<n>`, `_city_sig`).
+static func _city_model(n: int) -> Node3D:
+	if OS.get_cmdline_user_args().has("--no-city-model") or not ResourceLoader.exists(CITY_NEAR):
+		return null
+	var model := (load(CITY_NEAR) as PackedScene).instantiate() as Node3D
+	var parts := model.find_children("skyline_near_*", "MeshInstance3D", true, false)
+	if parts.is_empty() or not String(parts[0].name).ends_with("_%d" % n):
+		push_warning("the modelled skyline was built from another layout (%s, now %d boxes): re-export it" % [parts[0].name if parts else "none", n])
+		model.free()
+		return null
+	return model
+
+
+## A layout's signature: its boxes' places across and their seeds, folded into one number (make_city_towers.py folds the same).
+static func _city_sig(boxes: Array) -> int:
+	var sig := boxes.size()
+	for b in boxes:
+		sig = posmod(sig * 31 + roundi((b[0] as Vector3).x * 100.0) + _seed8(float(b[2])) * 7, 1000003)
+	return sig
+
+
+## A seed as the mesh keeps it, in eight bits cut down, not rounded: the shader reads that.
+static func _seed8(seed: float) -> int:
+	return int(clampf(seed, 0.0, 1.0) * 255.0)
+
+
+## The near layer's boxes as JSON for art/blender/make_city_towers.py, with what the shader needs to find the windows on them.
+static func _city_export(path: String, boxes: Array) -> void:
+	var out: Array = []
+	for b in boxes:
+		var lo: Vector3 = b[0]
+		var hi: Vector3 = b[1]
+		out.append([lo.x, lo.y, lo.z, hi.x, hi.y, hi.z, _seed8(float(b[2])), bool(b[3]), float(b[4]), bool(b[5])])
+	var look := _paper_look()
+	var doc := {"boxes": out, "cell": [1.5, 1.95], "pane": [0.56, 0.78], "first_row": 1.0, "parapet": 0.55,
+		"thin": {"A": 0.1, "B": 0.08, "C": 0.22}.get(look, 1.0)}
+	var f := FileAccess.open(path, FileAccess.WRITE)
+	f.store_string(JSON.stringify(doc))
+	f.close()
+	print("city export: %d boxes -> %s" % [out.size(), path])
 
 
 ## A box from `lo` to `hi` into `st` for the facade shader: its front and sides as walls (windows unless `plain`), its top plain. Each
@@ -6204,6 +6284,8 @@ static func _paper_edges(root: Node3D, mesh: ArrayMesh, cards: Array, z: float, 
 
 
 static func _facade_box(st: SurfaceTool, lo: Vector3, hi: Vector3, seed: float, plain: bool, h: float, glass := false) -> void:
+	if _box_log != null:
+		_box_log.append([lo, hi, seed, plain, h, glass])
 	# (Blue 0.3 marks a glass tower's walls for the facade shader; 1 is a neon sign.)
 	var col := Color(seed, 1.0 if plain else 0.0, 0.3 if glass and not plain else 0.0)
 	var w := hi.x - lo.x

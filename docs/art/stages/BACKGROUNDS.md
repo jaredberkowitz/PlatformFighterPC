@@ -214,3 +214,11 @@ after: `review5/meadow_detail_built.jpg`.
 framed window with red shutters, a second thatch fringe, a post-and-rope rail round each deck with a lantern, and a ladder down each
 trunk; the far great trees roots and branch stubs; the gates a rope with paper zigzags and stone plinths. `make_world.py` now joins its
 still pieces by material and depth band before the bake (the per-instance shader buffer). Before and after: `mocks/look/gd_detail.jpg`.
+
+## Blender models over code (2026-10-22, built)
+
+The owner: worried about quality, switch the art to Blender models wherever possible; the forest was a few sporadic trees. Worked from
+`MODEL_AUDIT.md`: the grove's forest and the meadow's pine belts; the windmill as one model with its sails turning as a separate node;
+the beach's bell tower, warehouse, market stalls and stilt hut with its jetty in the house kit; the city's near towers modelled from
+the game's own layout with real window frames, sills, lintels, ledges and pilasters under the same facade shader. Each keeps its code
+build as the fallback. Before and after: `review5/windmill_model.png`, `harbour_models.png`, `city_towers_model.png`.

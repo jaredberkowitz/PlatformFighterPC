@@ -45,3 +45,11 @@ meshes; GPU 2.79 ms against 2.53. Mocked with `--ground-mock`; before and after 
   awning with scallops, each stall its own colours; fruit crates on the counter) and `stilthut` (posts and brace, plank deck, battened
   hut, three ragged thatch skirts, net and corks on the rail, the jetty on its posts). The code builds stay as fallbacks. Before and
   after: `review5/harbour_models.png`.
+- **The city's skyline**: the near layer's towers are a model, `make_city_towers.py`, built from the exact boxes the game lays out
+  (`--city-export=<json>` on the stage demo writes them) and painted by the same facade shader (each face carries the shader's
+  coordinates, so windows, lights, signs and hues are unchanged), with what the shader could only paint now real: a frame round every
+  window, a sill and a lintel (stone arches on the arched ones), a ledge every fourth floor, pilasters between the bays, ledges under a
+  strip building's bands; signs stand out past them. The shader's window maths is repeated in 32-bit floats to place them. The mesh is
+  named for the layout (`StageArt._city_sig`); a stale model falls back to the code boxes and fails `art_pipeline_test`. Import with
+  compression off (the shader reads UVs in world units). About 54,000 triangles in one draw. The middle and far layers stay painted.
+  Before and after: `review5/city_towers_model.png`.

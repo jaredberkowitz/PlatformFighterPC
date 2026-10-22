@@ -88,8 +88,29 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
     <p>Two lessons from the reference screenshots, mocked from the match camera: the scenery without ink outlines, its edges lit as card bevels instead, and the paper houses rebuilt at the characters' proportions. The earlier rounds stay on the <a href="https://claude.ai/artifact/D1du6MREVumiJDrEdNypW4">Stage Fidelity Review</a>, which is full.</p>
   </header>
 
+  <section class="panel" aria-labelledby="mb-h" id="models">
+    <div class="eyebrow">Built &middot; the plan, worked through</div>
+    <h2 id="mb-h">Blender models in place of code-built art</h2>
+    <p>The grove's forest and the meadow's pine belts shipped first. Then the rest of the plan, each piece now a Blender model, with the old code build kept only as a fallback. In each image the game today is on the left and the model on the right.</p>
+    <h3>The meadow's windmill, one model</h3>
+    <p>The tower, cap, grassy mound, stone base in two courses, arched door with its stones, windows with shutters, gallery, shaft housing, sacks and barrel are one model now. The sails are a separate part that the game still turns. That replaces 74 boxes and cylinders, and it looks the same as before, only cleaner.</p>
+    <div class="viewer"><img src="mb_windmill.jpg" alt="The windmill, code-built left and one model right"></div>
+    <h3>The beach's harbour, in the house kit</h3>
+    <ul style="display:grid;gap:6px;margin:0;padding-left:1.2em;max-width:78ch">
+      <li><b>The bell tower:</b> stone corners up the whole tower and an open belfry with the bell hanging inside, under a clock and a spire laid in rows with a vane on top.</li>
+      <li><b>The warehouse:</b> big braced double doors and a loft door with its hoist beam, rope and hook, plus crates and a barrel by the doors.</li>
+      <li><b>The market stalls:</b> striped awnings with scalloped edges, each stall in its own colours, and fruit crates on the counters.</li>
+      <li><b>The stilt hut:</b> a three-layer ragged thatch roof, a net and floats on the rail, and the jetty on its posts.</li>
+    </ul>
+    <div class="viewer"><img src="mb_harbour.jpg" alt="The harbour town and stilt hut, code-built left and modelled right"></div>
+    <h3>The city's near towers, modelled from the game's own layout</h3>
+    <p>The game exports the boxes it lays out for the nearest row of towers, and Blender rebuilds them as one model. The facade painting is the same one the game used, so the windows, lights, signs and colours don't change. What it could only paint is now real: a frame round every window, a sill and a lintel (arches of stones on the arched windows), a ledge every fourth floor, and pilasters between the bays. The signs hang out past the new frames. The two rows further back stay painted, since detail that far back would only add noise.</p>
+    <div class="viewer"><img src="mb_city.jpg" alt="The near skyline, painted left and modelled right, with close crops"></div>
+    <p class="muted">Every test passes. Cost: the windmill is about 4,000 triangles; the near skyline is about 54,000 triangles in a single draw. Not yet in a published build.</p>
+  </section>
+
   <section class="panel" aria-labelledby="gf-h" id="forest">
-    <div class="eyebrow">Your call is needed &middot; quality: modelled art, and a believable forest</div>
+    <div class="eyebrow">Built &middot; quality: modelled art, and a believable forest</div>
     <h2 id="gf-h">What's still code-built, and the grove as a real forest</h2>
     <p>You're right on both counts. Much of the background is still assembled from boxes, cylinders and spheres in code rather than modelled in Blender, and the grove's "forest" was a handful of trees. I traced every stage's background for code-built pieces (written up in docs/art/stages/MODEL_AUDIT.md):</p>
     <div class="tablewrap"><table><thead><tr><th>Stage</th><th>Still code-built</th></tr></thead><tbody>
