@@ -721,6 +721,35 @@ def haystack(at, r=1.6, h=3.2):
     bm = bmesh.new()
     bmesh.ops.create_cone(bm, cap_ends=True, segments=7, radius1=0.28, radius2=0.0, depth=0.6, matrix=Matrix.Translation(P(x, y + h + 0.15, z)))
     ob("haystack_top", bm, "straw")
+    if opts.get("detail", "0") == "1":
+        # (The detail pass, 2026-10-22: straw strands combed down the stack as raised strips in a deeper straw, a frayed hem of wisps at
+        # its foot and a few loose wisps on the crown.)
+        rng = random.Random(int(abs(x) * 10 + abs(z)))
+        bm = bmesh.new()
+        for k in range(18):
+            a = math.tau * k / 18 + rng.uniform(-0.08, 0.08)
+            pts = []
+            for t in (0.05, 0.3, 0.55, 0.78, 0.9):
+                rr = {0.05: r * 1.0, 0.3: r * 1.03, 0.55: r * 0.95, 0.78: r * 0.7, 0.9: r * 0.42}[t] + 0.03
+                pts.append((x + math.cos(a) * rr, y + t * h, z + math.sin(a) * rr))
+            for i in range(len(pts) - 1):
+                tube(bm, pts[i], pts[i + 1], 0.045, segs=4)
+        ob("haystack_strands", bm, "straw_end", smooth=True)
+        bm = bmesh.new()
+        for k in range(26):
+            a = math.tau * k / 26 + rng.uniform(-0.1, 0.1)
+            ca, sa = math.cos(a), math.sin(a)
+            w = 0.18
+            base0 = (x + ca * r * 0.98 - sa * w, y + 0.18, z + sa * r * 0.98 + ca * w)
+            base1 = (x + ca * r * 0.98 + sa * w, y + 0.18, z + sa * r * 0.98 - ca * w)
+            tipp = (x + ca * (r + 0.35), y - 0.25 - rng.uniform(0, 0.2), z + sa * (r + 0.35))
+            bm.faces.new([bm.verts.new(P(*q)) for q in (base0, base1, tipp)])
+        for k in range(5):
+            a = rng.uniform(0, math.tau)
+            p0 = (x + math.cos(a) * 0.2, y + h * 0.97, z + math.sin(a) * 0.2)
+            p1 = (x + math.cos(a) * 0.75, y + h * 1.05 + rng.uniform(0, 0.25), z + math.sin(a) * 0.75)
+            bm.faces.new([bm.verts.new(P(*q)) for q in (p0, (p0[0] + 0.1, p0[1], p0[2]), p1)])
+        ob("haystack_wisps", bm, "straw")
 
 
 def meadow_b():

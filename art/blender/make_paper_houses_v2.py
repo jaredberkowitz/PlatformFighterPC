@@ -9,6 +9,10 @@ course, roof rows with their edges showing).
     C  hand-made: B with sagging ridges, walls leaning a touch and uneven roof rows, nothing quite straight.
 The same four houses as version 1 (`prop_house_<type>`: cottage, townhouse, longhouse, barn), so the game places them the same way.
 
+`--detail 1` (the owner's detail pass, 2026-10-22: more detail on the background buildings): shutters beside the front windows, a
+window in each side wall, a lantern by every door, a picket fence and flower pots before the houses; on the barn hay in the loft, a side
+window and a weathervane on the ridge.
+
 Run (Blender 5.2):
   blender --background --python art/blender/make_paper_houses_v2.py -- --shape A --out <file.glb> [--render <sheet.png>]
 Shipped (the owner's pick, 2026-10-21): godot/models/props/paper_houses.glb, `--shape B`.
@@ -31,6 +35,7 @@ argv = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
 opts = {argv[i].lstrip("-"): argv[i + 1] for i in range(0, len(argv) - 1, 2)}
 SHAPE = opts.get("shape", "A").upper()
 hk.STYLE = "B"
+DETAIL = opts.get("detail", "0") == "1"
 
 
 def prism(fam, name, ring0, ring1):
@@ -208,6 +213,63 @@ def window(x, y, w, h, fz, box_under=True):
             hk.box("petal", px - 0.15, px + 0.15, y - h / 2.0 - t - 0.2, y - h / 2.0 - t + 0.06, fz + 0.1, fz + 0.38, name="petal")
 
 
+def shutters(x, y, w, h, fz):
+    """A plank shutter folded back each side of a window, a little proud of the wall, with a cross board."""
+    for sx in (-1.0, 1.0):
+        x0 = x + sx * (w / 2.0 + 0.22)
+        x1 = x0 + sx * w * 0.48
+        hk.box("shutter", min(x0, x1), max(x0, x1), y - h / 2.0 - 0.1, y + h / 2.0 + 0.1, fz + 0.02, fz + 0.12, name="shutter")
+        hk.box("timber", min(x0, x1) + 0.06, max(x0, x1) - 0.06, y - 0.06, y + 0.06, fz + 0.12, fz + 0.16, name="timber_shutter")
+
+
+def side_window(sx, W, y, z, w, h):
+    """A window in a side wall (`sx` the side), framed and glazed, with a sill."""
+    fx = sx * W / 2.0
+    o = sx * 0.03
+    hk.box("glass", fx - 0.02 if sx > 0 else fx - 0.03, fx + 0.03 if sx > 0 else fx + 0.02, y - h / 2.0, y + h / 2.0, z - w / 2.0, z + w / 2.0, name="glass")
+    t = 0.18
+    for (y0, y1, z0, z1) in ((y - h / 2.0 - t, y - h / 2.0, z - w / 2.0 - t, z + w / 2.0 + t), (y + h / 2.0, y + h / 2.0 + t, z - w / 2.0 - t, z + w / 2.0 + t),
+                             (y - h / 2.0, y + h / 2.0, z - w / 2.0 - t, z - w / 2.0), (y - h / 2.0, y + h / 2.0, z + w / 2.0, z + w / 2.0 + t)):
+        a, b = sorted((fx, fx + sx * 0.12))
+        hk.box("trim", a, b, y0, y1, z0, z1, name="trim_frame")
+    a, b = sorted((fx, fx + sx * 0.08))
+    hk.box("trim", a, b, y - h / 2.0, y + h / 2.0, z - 0.05, z + 0.05, name="trim_bar")
+    a, b = sorted((fx, fx + sx * 0.28))
+    hk.box("timber", a, b, y - h / 2.0 - t - 0.14, y - h / 2.0 - t + 0.02, z - w / 2.0 - 0.25, z + w / 2.0 + 0.25, name="timber_sill")
+    _ = o
+
+
+def lantern(x, y, fz):
+    """A lantern on a bracket beside a door: an iron arm, a glowing glass box under a little roof."""
+    hk.box("iron", x - 0.05, x + 0.05, y - 0.05, y + 0.05, fz, fz + 0.45, name="iron_arm")
+    hk.box("glow", x - 0.17, x + 0.17, y - 0.5, y - 0.05, fz + 0.28, fz + 0.62, name="glow_lantern")
+    hk.box("iron", x - 0.23, x + 0.23, y - 0.05, y + 0.06, fz + 0.22, fz + 0.68, name="iron_cap")
+
+
+def picket_fence(x0, x1, fz, gate=None):
+    """A low picket fence a step before the front, two rails and pointed pickets, open where the path to the door runs."""
+    z = fz + 1.6
+    hk.box("wood_light", x0, x1, 0.3, 0.42, z - 0.04, z + 0.04, name="fence_rail")
+    hk.box("wood_light", x0, x1, 0.75, 0.87, z - 0.04, z + 0.04, name="fence_rail")
+    x = x0
+    while x <= x1 + 1e-3:
+        if gate is None or not (gate[0] < x < gate[1]):
+            hk.box("white", x - 0.07, x + 0.07, -0.1, 1.05, z + 0.04, z + 0.1, name="fence_picket")
+            front("white", "fence_tip", [(x - 0.07, 1.05), (x + 0.07, 1.05), (x, 1.22)], z + 0.04, z + 0.1)
+        x += 0.42
+    if gate is not None:
+        # The path to the door: flat stones.
+        for k in range(3):
+            zz = fz + 0.75 + k * 0.55
+            hk.box("stone_light", (gate[0] + gate[1]) / 2.0 - 0.32, (gate[0] + gate[1]) / 2.0 + 0.32, -0.05, 0.02, zz - 0.2, zz + 0.2, name="path_stone")
+
+
+def flower_pot(x, fz):
+    hk.box("pot", x - 0.22, x + 0.22, 0.0, 0.42, fz + 0.3, fz + 0.72, name="pot")
+    hk.box("leaf", x - 0.28, x + 0.28, 0.42, 0.72, fz + 0.26, fz + 0.76, name="leaf")
+    hk.box("petal", x - 0.12, x + 0.12, 0.66, 0.86, fz + 0.4, fz + 0.62, name="petal")
+
+
 def chimney(x, z, y0, top):
     hk.box("stone", x - 0.42, x + 0.42, y0, top, z - 0.42, z + 0.42, name="chimney")
     hk.box("stone", x - 0.56, x + 0.56, top, top + 0.24, z - 0.56, z + 0.56, name="chimney_cap")
@@ -245,6 +307,13 @@ def cottage(rng):
     arched_door(-1.25, 1.3, 2.6, fz)
     window(1.35, 1.95, 1.3, 1.3, fz)
     chimney(1.7, -0.9, H, H + rise + 1.2)
+    if DETAIL:
+        shutters(1.35, 1.95, 1.3, 1.3, fz)
+        for sx in (-1.0, 1.0):
+            side_window(sx, W, 1.95, -0.2, 1.0, 1.1)
+        lantern(-0.25, 2.65, fz)
+        picket_fence(-W / 2.0 - 0.3, W / 2.0 + 0.3, fz, gate=(-2.0, -0.5))
+        flower_pot(0.4, fz)
     return Spec(False, W / 2.0 + 0.8, H, rise)
 
 
@@ -261,6 +330,13 @@ def townhouse(rng):
         window(x, 4.55, 1.0, 1.25, fz)
     brace(-0.35, 0.4, 3.35, 5.8, fz)
     chimney(-1.2, -1.5, H, H + rise + 1.4)
+    if DETAIL:
+        shutters(1.2, 1.95, 1.0, 1.2, fz)
+        for sx in (-1.0, 1.0):
+            side_window(sx, W, 4.55, 0.0, 0.9, 1.1)
+            side_window(sx, W, 1.95, 0.6, 0.9, 1.1)
+        lantern(0.05, 2.65, fz)
+        flower_pot(1.75, fz)
     return Spec(True, D / 2.0 + 0.8, H, rise)
 
 
@@ -276,6 +352,13 @@ def longhouse(rng):
     for sx in (-1.0, 1.0):
         brace(sx * 1.05, sx * 1.75, 0.95, 2.85, fz)
     chimney(-3.1, -0.8, H, H + rise + 1.0)
+    if DETAIL:
+        for x in (-2.75, 2.75):
+            shutters(x, 1.95, 1.4, 1.3, fz)
+        for sx in (-1.0, 1.0):
+            side_window(sx, W, 1.95, 0.0, 1.0, 1.1)
+        lantern(1.05, 2.65, fz)
+        picket_fence(-W / 2.0 - 0.3, W / 2.0 + 0.3, fz, gate=(-0.8, 0.8))
     return Spec(False, W / 2.0 + 0.8, H, rise)
 
 
@@ -299,6 +382,17 @@ def barn(rng):
         front("barn_trim", "trim_brace", [(ax - nx, ay - ny), (bx - nx, by - ny), (bx + nx, by + ny), (ax + nx, ay + ny)], fz + 0.1, fz + 0.17)
     hk.box("barn_trim", -0.75, 0.75, H + 0.3, H + 1.7, fz + 0.05, fz + 0.12, name="trim_loft")
     hk.box("shadow", -0.58, 0.58, H + 0.45, H + 1.55, fz + 0.1, fz + 0.15, name="shadow_loft")
+    if DETAIL:
+        # Hay spilling from the loft, a window in each side, a weathervane on the ridge.
+        hk.box("straw", -0.55, 0.55, H + 0.45, H + 0.85, fz + 0.12, fz + 0.4, name="straw_loft")
+        front("straw", "straw_wisp", [(-0.5, H + 0.85), (0.5, H + 0.85), (0.15, H + 1.15), (-0.2, H + 1.05)], fz + 0.15, fz + 0.3)
+        for sx in (-1.0, 1.0):
+            side_window(sx, W, 2.0, 0.0, 1.0, 1.0)
+        top = H + rise
+        hk.box("iron", -0.04, 0.04, top, top + 1.2, -0.04, 0.04, name="iron_vane")
+        hk.box("iron", -0.5, 0.5, top + 0.95, top + 1.02, -0.03, 0.03, name="iron_vane")
+        front("iron", "iron_vane_tail", [(0.3, top + 0.9), (0.6, top + 0.9), (0.6, top + 1.2), (0.3, top + 1.08)], -0.02, 0.02)
+        front("iron", "iron_vane_tip", [(-0.6, top + 0.98), (-0.4, top + 0.9), (-0.4, top + 1.06)], -0.02, 0.02)
     return Spec(True, D / 2.0 + 0.8, H, rise)
 
 

@@ -189,3 +189,13 @@ try read as shards). Mocks on the Stage Look Review (`mq_*`). The proposed order
 
 **Built (2026-10-22): meadow ground QA with the detailed pines** (`make_meadow_ground.py --variant QA --pine D` into `meadow_ground.glb`
 and `meadow_pines.glb`, the meadow re-lit). Before and after: `review5/meadow_quilt_built.jpg`.
+
+## The meadow's detail pass (2026-10-22, mocks)
+
+The owner: continue the meadow's detail pass (windmill, cottages, haystacks). Mocked behind flags:
+- **Windmill** (`--detail-mock`, `StageArt._windmill`): finer lattice sails, every other one reefed; a stone door surround and step, a
+  lantern, a barrel and sacks; the base in two courses of stone blocks.
+- **Houses** (`make_paper_houses_v2.py --shape B --detail 1`, `--house-mock=`): shutters, side windows, door lanterns, picket fences with
+  stone paths, flower pots; the barn's loft hay, side windows and weathervane.
+- **Haystacks** (`make_world.py --theme meadow --variant BC --detail 1`, `--world-mock=`): straw strands, a frayed hem, crown wisps.
+Before and after: `mocks/look/md_detail.jpg`. Known issues: the door surround squares off the arched door; a fence runs into the slope.

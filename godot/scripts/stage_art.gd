@@ -4538,6 +4538,10 @@ static func _island_detail(island: Node3D, hw: float, size: float, t: Dictionary
 ## A windmill (`at` is the foot of its tower): a footing of rough stones, a tapered whitewashed tower with a plank door, two small
 ## shuttered windows and a wooden gallery round it, a shingled cap with a trim ring and a finial, and four lattice sails, each a stock
 ## carrying a frame of rails and slats with canvas over most of it, that turn.
+## The detail pass's mocks (`--detail-mock`, the owner, 2026-10-22): more detail on the meadow's windmill.
+static var detail_mock := OS.get_cmdline_user_args().has("--detail-mock")
+
+
 static func _windmill(root: Node3D, at: Vector3) -> void:
 	var plaster := Materials.plaster(Color(0.96, 0.94, 0.88), Vector2(3, 3))
 	var wood := Materials.wood(Color(0.55, 0.38, 0.26))
@@ -4559,6 +4563,30 @@ static func _windmill(root: Node3D, at: Vector3) -> void:
 		_mesh(root, _cylinder(1.8, 3.0, 12.0, 14), plaster, at + Vector3(0, 7.0, 0))
 	# The door at the foot, and two windows up the front, each a dark opening in a wooden frame with a shutter.
 	_mesh(root, _box(Vector3(1.6, 2.6, 0.3)), wood_dark, at + Vector3(0, 3.2, 2.85))
+	if detail_mock:
+		# (The detail pass: the stone base laid in two courses of blocks, a stone surround and step at the door, a lantern beside it,
+		# and sacks of grain and a barrel at the foot.)
+		var block := Materials.stone(Color(0.7, 0.66, 0.62), Vector2(1, 1))
+		var block_dark := Materials.stone(Color(0.6, 0.56, 0.54), Vector2(1, 1))
+		for row in 2:
+			var nb := 22
+			for b in nb:
+				var ang := TAU * (b + 0.5 * row) / nb
+				var rad := 3.42 - 0.12 * row
+				_mesh(root, _box(Vector3(0.88, 0.86, 0.3)), block if (b + row) % 3 else block_dark,
+					at + Vector3(sin(ang) * rad, 0.5 + row * 0.92, cos(ang) * rad), Vector3.ONE, Vector3(0, rad_to_deg(ang), 0))
+		for sx in [-1.0, 1.0]:
+			_mesh(root, _box(Vector3(0.4, 2.9, 0.4)), block, at + Vector3(sx * 1.0, 3.3, 2.95))
+		_mesh(root, _box(Vector3(2.4, 0.4, 0.5)), block, at + Vector3(0, 4.9, 2.95))
+		_mesh(root, _box(Vector3(2.6, 0.3, 1.2)), block_dark, at + Vector3(0, 1.95, 3.3))
+		_mesh(root, _box(Vector3(0.3, 0.45, 0.3)), _unshaded(Color(1.0, 0.86, 0.56)), at + Vector3(1.55, 4.2, 3.05))
+		_mesh(root, _box(Vector3(0.42, 0.1, 0.42)), wood_dark, at + Vector3(1.55, 4.47, 3.05))
+		var sack := FighterView.toon(Color(0.86, 0.78, 0.6))
+		for sk in [[-2.2, 0.0, 3.6, 0.0], [-2.9, 0.0, 3.2, 30.0], [-2.5, 0.75, 3.4, 10.0]]:
+			_mesh(root, _sphere(1.0, 10), sack, at + Vector3(sk[0], 2.4 + sk[1], sk[2]), Vector3(0.55, 0.62, 0.45), Vector3(0, sk[3], 0))
+		_mesh(root, _cylinder(0.5, 0.5, 1.1, 12), wood, at + Vector3(2.6, 2.6, 3.4))
+		_mesh(root, _cylinder(0.53, 0.53, 0.1, 12), wood_dark, at + Vector3(2.6, 2.85, 3.4))
+		_mesh(root, _cylinder(0.53, 0.53, 0.1, 12), wood_dark, at + Vector3(2.6, 2.35, 3.4))
 	_mesh(root, _cylinder(0.8, 0.8, 0.3, 12), wood_dark, at + Vector3(0, 4.5, 2.85), Vector3.ONE, Vector3(90, 0, 0))
 	for wy in [7.2, 10.2]:
 		var r := lerpf(3.0, 1.8, (wy - 1.0) / 12.0)
@@ -4597,6 +4625,18 @@ static func _windmill(root: Node3D, at: Vector3) -> void:
 		# over the cloth; on the other a narrow leading board.
 		_mesh(arm, _box(Vector3(0.32, 7.6, 0.26)), wood, Vector3(0, 3.8, 0))
 		_mesh(arm, _box(Vector3(0.14, 5.8, 0.16)), wood, Vector3(1.85, 4.6, 0.06))
+		if detail_mock:
+			# (The detail pass: a finer lattice, nine slats and a middle rail, and on every other sail the canvas reefed, rolled up to
+			# two-thirds with the bare lattice showing above it.)
+			for j in 9:
+				_mesh(arm, _box(Vector3(1.9, 0.08, 0.12)), slat, Vector3(0.95, 1.95 + j * 0.68, 0.08))
+			_mesh(arm, _box(Vector3(0.08, 5.6, 0.12)), slat, Vector3(0.95, 4.7, 0.08))
+			var reef := k % 2 == 1
+			var h := 3.4 if reef else 5.2
+			_mesh(arm, _box(Vector3(1.66, h, 0.08)), sail, Vector3(0.95, 2.15 + h * 0.5, -0.04))
+			if reef:
+				_mesh(arm, _cylinder(0.16, 0.16, 1.7, 8), sail, Vector3(0.95, 2.15 + h, -0.02), Vector3.ONE, Vector3(0, 0, 90))
+			continue
 		for j in 4:
 			_mesh(arm, _box(Vector3(1.9, 0.1, 0.12)), slat, Vector3(0.95, 2.2 + j * 1.6, 0.08))
 		_mesh(arm, _box(Vector3(1.66, 5.2, 0.08)), sail, Vector3(0.95, 4.75, -0.04))
