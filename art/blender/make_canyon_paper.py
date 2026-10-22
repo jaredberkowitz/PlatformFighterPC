@@ -28,7 +28,8 @@ the plain empty at the wide camera; the arch boxy), on KC's floor with `--arch s
   `--fight wide`    with it, the butte behind the fight a broad flat-topped mesa, a calm table behind the fighters, not a pillar;
   `--plain outcrops` low rock ledges and boulders across the plain, off the wash, the buttes' feet and the strip behind the fight.
 
-Shipped (the owner's pick, fidelity review 5, 2026-10-22): godot/models/stages/canyon_paper.glb, `--variant KC --arch solid`, then lit.
+Shipped (the owner's pick C, fidelity review 6, 2026-10-22): godot/models/stages/canyon_paper.glb, `--variant KC --arch chipped
+--buttes solid --fight wide --plain outcrops`, then lit (review 5's was `--variant KC --arch solid`).
 
 Run (Blender 5.2):
   blender --background --python art/blender/make_canyon_paper.py -- --dir godot/art/baked/<key> --variant A --ground <g.glb>

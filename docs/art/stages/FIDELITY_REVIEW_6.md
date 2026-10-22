@@ -116,3 +116,7 @@ than tall, a flat face to the camera; lower, so the train shows above it at the 
 low ledges and boulders across the plain within the wide camera's view). Options, all `--arch chipped`: A `--buttes solid`; B with
 `--fight wide`; C with `--plain outcrops`. Mocked unlit on `--ground-mock=` against today's ground built the same way. On the Stage Look
 Review ("canyonbehind", `cb_*`); recommended C.
+
+**Built (2026-10-22): canyon C** (the owner's pick): `canyon_paper.glb` rebuilt `--variant KC --arch chipped --buttes solid --fight wide
+--plain outcrops` (21,100 triangles), the canyon re-lit (`--light-export`, `light_stage.py` on the front, play area and ground, curve and
+reach 2.5). Before and after: `review6/canyon_behind_built.jpg`. Next, item 3: the fronts' surfaces.
