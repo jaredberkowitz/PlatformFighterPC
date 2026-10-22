@@ -67,3 +67,12 @@ the beach's harbour buildings, the city's near towers).
    or brought lower; the front a step lighter and calmer.
 4. **The city behind the fight** (4): the scaffold platforms modelled; the towers right behind the fighters a step quieter.
 5. **Smaller:** the lawns' form (5), the meadow's stage hill in fewer, bigger, uneven sheets (6), and the small things (7).
+
+## Item 1, the beach's sea (2026-10-22, mock)
+
+`shaders/water.gdshader` gains `look` (`--sea-look=A|B|C` on the stage demo; 0, the sea as it was, is the default): A clear water
+(colour by depth from the pier out, a wandering caustic net near the stage, fine ripples, no crest rows); B A with reflections traced
+on the screen (the pier, boats, town, islands and lighthouse, darker than what they show, rippled, fading with distance; GPU about
++0.15 ms); C paper waves (wave-shaped card tiers with lit cut edges) with B's reflections. Lessons: colours written in the shader
+are linear (written as display colours they read milky); a screen-space reflection sees the pier's deck top where the water would show
+its underside, so reflections are kept darker than what they show. On the Stage Look Review ("sea", `sea_*`).

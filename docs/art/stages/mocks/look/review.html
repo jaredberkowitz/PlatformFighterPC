@@ -88,6 +88,23 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
     <p>Two lessons from the reference screenshots, mocked from the match camera: the scenery without ink outlines, its edges lit as card bevels instead, and the paper houses rebuilt at the characters' proportions. The earlier rounds stay on the <a href="https://claude.ai/artifact/D1du6MREVumiJDrEdNypW4">Stage Fidelity Review</a>, which is full.</p>
   </header>
 
+  <section class="panel" aria-labelledby="sea-h" id="sea">
+    <div class="eyebrow">Your call is needed &middot; review 5, item 1: the beach's sea</div>
+    <h2 id="sea-h">A sea that reads as water</h2>
+    <p>Today the sea is one bright cyan sheet with rows of painted wave crests, which read as stripes across half the frame. The reference's water is clear turquoise over the shallows and deepens further out. Light ripples through it in a fine net, and everything standing in it or over it is reflected. Three looks, all on the sea's own shader, with the rest of the stage unchanged:</p>
+    <div class="tablewrap"><table><thead><tr><th>Option</th><th>What it is</th></tr></thead><tbody>
+      <tr><td>A &middot; Clear water</td><td>Colour by depth: clear turquoise near the pier, a deeper teal-blue through the middle, paler toward the horizon. A soft, wandering caustic net of light near the stage, fine ripples further out, and broad drifting patches. No crest rows. The ripple rings round the posts and the sun's glints stay.</td></tr>
+      <tr><td>B &middot; Clear water with reflections</td><td>A, plus reflections of everything standing in or over the water: the pier and its posts, the boats, the town, the islands, the lighthouse. Each is a little darker than what it shows and rippled, fading with distance. About 0.15 ms of GPU time.</td></tr>
+      <tr><td>C &middot; Paper waves</td><td>The sea as tiers of card, each a wave-shaped sheet a step deeper than the one nearer, its cut edge catching the light and sliding slowly; with B's reflections. The most papercraft; it does bring back long lines across the water, though now as waves.</td></tr>
+    </tbody></table></div>
+    <div class="row" role="group" aria-label="View"><button data-sv="w">Wide</button><button data-sv="m">Match camera</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-so="T">Today</button><button data-so="A">A &middot; Clear</button><button data-so="B">B &middot; Clear with reflections</button><button data-so="C">C &middot; Paper waves</button></div>
+    <div class="viewer"><img id="simg" alt="Beach sea option"><span class="vtag" id="stag"></span></div>
+    <p>Close up, today against B (the town side, then the hut and lighthouse side):</p>
+    <div class="viewer"><img src="sea_close.jpg" alt="The sea today and with clear water and reflections, close crops"></div>
+    <p class="muted">My pick: <b>B</b>. It's closest to the reference, and the reflections tie the town, boats and pier into the water instead of setting them on it.</p>
+  </section>
+
   <section class="panel" aria-labelledby="f5-h" id="review5">
     <div class="eyebrow">Your call is needed &middot; fidelity review 5</div>
     <h2 id="f5-h">Where every stage stands now</h2>
@@ -712,5 +729,15 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
   group("data-fv", function (v) { fv = v; }, frender);
   group("data-fo", function (v) { fo = v; }, frender);
   frender();
+  var sv = "w", so = "B";
+  var SO = { T: "Today", A: "A \u00b7 Clear", B: "B \u00b7 Clear with reflections", C: "C \u00b7 Paper waves" };
+  function srender() {
+    document.getElementById("simg").src = "sea_" + so + "_" + sv + ".jpg";
+    document.getElementById("stag").textContent = "Beach \u00b7 " + SO[so] + (sv === "w" ? " \u00b7 wide" : " \u00b7 match camera");
+    pressed("data-sv", sv); pressed("data-so", so);
+  }
+  group("data-sv", function (v) { sv = v; }, srender);
+  group("data-so", function (v) { so = v; }, srender);
+  srender();
 })();
 </script>

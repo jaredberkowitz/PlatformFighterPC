@@ -21,6 +21,13 @@ uniform bool cheap = false;
 uniform vec3 sun_dir = vec3(-0.42, 0.25, -0.88);
 uniform vec4 horizon : source_color = vec4(0.6, 0.86, 1.0, 1.0);
 uniform float glint_path = 0.0;
+// The water pass (2026-10-22, fidelity review 5's first item: the sea read as one bright cyan sheet with stripes). `look` 0 is the sea
+// as it was; 1 clear water: colour by depth from the shore out, a soft caustic net near the stage, fine ripples, no crest rows; 2 clear
+// water with the reflections of what stands in and over it (the pier, the boats, the islands, the lighthouse), traced on the screen;
+// 3 cut paper: the sea in tiers of card, each a scalloped sheet a step deeper than the one nearer, its cut edge catching the light,
+// sliding slowly, with the reflections.
+uniform int look = 0;
+uniform sampler2D screen_tex : hint_screen_texture, filter_linear_mipmap;
 varying vec3 world_pos;
 
 float hash(vec2 p) {
@@ -36,6 +43,33 @@ float noise(vec2 p) {
 	return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), f.x), mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), f.x), f.y);
 }
 
+vec2 hash2(vec2 p) {
+	return vec2(hash(p), hash(p + vec2(17.3, 5.1)));
+}
+
+// A slowly moving cell net: how far a point is from the edge between its two nearest cells (0 on the edge).
+float cell_edge(vec2 p, float t) {
+	vec2 i = floor(p);
+	vec2 f = fract(p);
+	float d1 = 8.0;
+	float d2 = 8.0;
+	for (int y = -1; y <= 1; y++) {
+		for (int x = -1; x <= 1; x++) {
+			vec2 o = vec2(float(x), float(y));
+			vec2 h = hash2(i + o);
+			vec2 c = o + 0.5 + 0.38 * sin(t * 0.7 + 6.2831 * h) - f;
+			float d = dot(c, c);
+			if (d < d1) {
+				d2 = d1;
+				d1 = d;
+			} else if (d < d2) {
+				d2 = d;
+			}
+		}
+	}
+	return sqrt(d2) - sqrt(d1);
+}
+
 void vertex() {
 	vec3 w = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 	if (!cheap) {
@@ -44,7 +78,112 @@ void vertex() {
 	world_pos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 }
 
+vec3 linear_depth_pos(vec2 uv, mat4 inv_proj) {
+	float d = texture(depth_tex, uv).r;
+	vec4 v = inv_proj * vec4(uv * 2.0 - 1.0, d, 1.0);
+	return v.xyz / v.w;
+}
+
 void fragment() {
+	if (look > 0) {
+		float back = max(-world_pos.z, 0.0);
+		float far_k = smoothstep(0.0, 170.0, back);
+		vec2 q = world_pos.xz;
+		// Colour by depth: a clear turquoise over the sand near the stage, a deeper teal-blue through the middle, paler toward the
+		// horizon where it takes the sky.
+		// (Written as display colours and taken to linear light, as the uniforms are: written straight, they read milky.)
+		vec3 near_c = pow(vec3(0.16, 0.7, 0.74), vec3(2.2));
+		vec3 mid_c = pow(vec3(0.06, 0.46, 0.66), vec3(2.2));
+		vec3 far_c = mix(pow(vec3(0.16, 0.46, 0.7), vec3(2.2)), horizon.rgb, 0.25);
+		vec3 col = mix(near_c, mid_c, smoothstep(4.0, 45.0, back));
+		col = mix(col, far_c, smoothstep(45.0, 170.0, back));
+		// Broad soft patches, deeper and lighter, drifting: the water's large forms.
+		float sw = noise(q * vec2(0.02, 0.06) + vec2(TIME * 0.025, 0.0)) * 0.6 + noise(q * vec2(0.05, 0.14) + vec2(-TIME * 0.04, 2.0)) * 0.4;
+		col *= mix(0.9, 1.08, sw);
+		if (look == 3) {
+			// Cut paper: tiers of card from the stage out, each scalloped along its near edge, a step deeper than the one nearer it.
+			// (Big wave-shaped scallops and few tiers: with small ones the lit edges ran across the sea as straight stripes.)
+			float width = mix(11.0, 30.0, far_k);
+			// (From the true depth, not the one held at 0 in front of the stage: held, the edges ran down the near water as wedges.)
+			float bs = -world_pos.z;
+			float scal = width * (0.2 * sin(world_pos.x * 0.1 + floor(bs / width) * 2.3 + TIME * 0.2) + 0.08 * sin(world_pos.x * 0.27 + TIME * 0.35));
+			float b = bs + scal;
+			float tier = floor(b / width);
+			float u = fract(b / width);
+			col *= 1.0 - 0.05 * mod(tier, 2.0);
+			// The near tier's cut edge, lit, and the soft shade it lays on the tier behind it.
+			float lit_edge = 1.0 - smoothstep(0.0, 0.05 + 0.03 * far_k, u);
+			float shade = smoothstep(0.05, 0.08, u) * (1.0 - smoothstep(0.08, 0.2, u));
+			col = mix(col, col * 0.86, shade * (1.0 - far_k * 0.6));
+			col = mix(col, mix(col, vec3(1.0), 0.45), lit_edge * (1.0 - far_k * 0.5));
+		} else {
+			// A soft caustic net near the stage, the light through the ripples (the reference's turquoise lattice), and fine ripples
+			// further out: no crest rows.
+			float near_k = 1.0 - smoothstep(8.0, 70.0, back);
+			// (The cells' edges wander, warped by a slow noise, and are thin: straight, they read as cracked tiles.)
+			vec2 warp = vec2(noise(q * 0.21 + TIME * 0.05), noise(q * 0.21 + 7.0 - TIME * 0.04)) * 1.6;
+			float e1 = cell_edge(q * vec2(0.3, 0.3) + warp + vec2(TIME * 0.06, 0.0), TIME);
+			float e2 = cell_edge(q * vec2(0.62, 0.62) + warp * 1.7 + vec2(-TIME * 0.05, 3.0), TIME * 1.3);
+			float net = (1.0 - smoothstep(0.0, 0.035, e1)) * 0.6 + (1.0 - smoothstep(0.0, 0.03, e2)) * 0.35;
+			col = mix(col, mix(col, pow(vec3(0.7, 0.98, 0.95), vec3(2.2)), 0.6), net * near_k * 0.5);
+			float rip = noise(q * vec2(0.5, 1.6) + vec2(TIME * 0.3, 0.0));
+			col *= 1.0 - 0.06 * smoothstep(0.55, 0.8, rip) * (1.0 - far_k);
+			col = mix(col, mix(col, vec3(1.0), 0.3), smoothstep(0.8, 0.95, rip) * 0.35 * (1.0 - far_k) * (1.0 - near_k * 0.6));
+		}
+		if (look >= 2) {
+			// Reflections: march the reflected view ray across the screen until it passes behind something drawn, and take that
+			// colour, darkened and tinted by the water; rippled a little; fading with distance and where the ray finds nothing.
+			vec3 vdir = normalize(world_pos - CAMERA_POSITION_WORLD);
+			float wob = (noise(q * vec2(0.6, 2.4) + vec2(TIME * 0.5, 0.0)) - 0.5) * 0.05;
+			vec3 rdir = normalize(reflect(vdir, normalize(vec3(wob, 1.0, wob * 0.5))));
+			vec3 hit_col = vec3(0.0);
+			float hit = 0.0;
+			float t = 0.6;
+			for (int k = 0; k < 24; k++) {
+				vec3 pw = world_pos + rdir * t;
+				vec4 pv = VIEW_MATRIX * vec4(pw, 1.0);
+				vec4 pc = PROJECTION_MATRIX * pv;
+				vec2 uv = pc.xy / pc.w * 0.5 + 0.5;
+				if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) {
+					break;
+				}
+				vec3 sp = linear_depth_pos(uv, INV_PROJECTION_MATRIX);
+				float behind = -pv.z - (-sp.z);
+				if (behind > 0.05 && behind < 2.0 + t * 0.25) {
+					hit_col = textureLod(screen_tex, uv, 0.0).rgb;
+					hit = 1.0;
+					break;
+				}
+				t *= 1.22;
+			}
+			// (Darker than what they show, as water's reflections are; that also turns the pier's deck top, which the screen holds where
+			// the real reflection would show its underside, into a shade.)
+			float rk = hit * (1.0 - smoothstep(30.0, 150.0, back)) * 0.55;
+			col = mix(col, hit_col * vec3(0.42, 0.58, 0.64) + col * 0.22, rk);
+		}
+		// Foam and the wet band where things stand in the water, as before.
+		float dd = texture(depth_tex, SCREEN_UV).r;
+		vec4 vv = INV_PROJECTION_MATRIX * vec4(SCREEN_UV * 2.0 - 1.0, dd, 1.0);
+		float gap = (-vv.z / vv.w) - (-VERTEX.z);
+		float ruffle = noise(q * 1.3 + vec2(TIME * 0.3, 0.0)) * 0.6;
+		float shore = 1.0 - smoothstep(0.0, foam_width, gap + ruffle);
+		col = mix(col, col * vec3(0.7, 0.8, 0.88), smoothstep(0.75, 0.95, shore) * 0.5);
+		float ring1 = smoothstep(0.35, 0.5, shore) * (1.0 - smoothstep(0.55, 0.72, shore));
+		col = mix(col, foam.rgb, ring1 * 0.5);
+		if (glint_path > 0.0) {
+			vec3 to_p = normalize(world_pos - CAMERA_POSITION_WORLD);
+			vec2 sd = normalize(sun_dir.xz);
+			float across = abs(to_p.x * sd.y - to_p.z * sd.x);
+			float path = (1.0 - smoothstep(0.02, 0.12 + 0.1 * far_k, across)) * smoothstep(20.0, 90.0, back);
+			vec2 gp = q * vec2(0.5, 1.6) + vec2(TIME * 0.2, TIME * 0.05);
+			float sparkle = smoothstep(0.62, 0.8, noise(gp) * 0.6 + noise(gp * 2.7 + 5.0) * 0.4);
+			col = mix(col, vec3(1.0, 0.98, 0.9), path * sparkle * glint_path * 0.8);
+		}
+		col = mix(col, horizon.rgb, smoothstep(110.0, 220.0, back) * 0.4);
+		col = mix(col, mix(haze.rgb, vec3(1.0), 0.3), smoothstep(4.0, 110.0, back) * haze_max);
+		ALBEDO = col;
+		ALPHA = 1.0;
+	} else {
 	// How far back (behind the stage plane at z = 0) this water is: bands of colour, lighter and paler toward the horizon.
 	float back = max(-world_pos.z, 0.0);
 	// (One smooth gradient, deepening toward the horizon, 2026-10-19: four hard steps read as bright bands across the sea, and a far
@@ -139,4 +278,5 @@ void fragment() {
 	col = mix(col, mix(haze.rgb, vec3(1.0), 0.3), smoothstep(4.0, 110.0, back) * haze_max);
 	ALBEDO = col;
 	ALPHA = 1.0;
+	}
 }

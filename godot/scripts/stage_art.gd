@@ -5218,6 +5218,10 @@ static func _ocean(root: Node3D, t: Dictionary, stage: Array) -> void:
 	wm.set_shader_parameter("sun_dir", t.get("sun_dir", Vector3(-0.42, 0.25, -0.88)))
 	wm.set_shader_parameter("horizon", t.sky_horizon)
 	wm.set_shader_parameter("glint_path", float(_pal("glint_path")))
+	# (The water pass, fidelity review 5: `--sea-look=A|B|C` mocks the clear, reflecting and paper seas; see water.gdshader `look`.)
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--sea-look="):
+			wm.set_shader_parameter("look", {"A": 1, "B": 2, "C": 3}.get(arg.substr(11), 0))
 	# (Higher in the sky, 2026-10-19: low over the horizon they sat on the sea.)
 	var cloud_look := {"exposure": float(_pal("cloud_exposure")), "shade_depth": 1.0}
 	_clouds(root, rng, 8, Color(1, 1, 1), Vector2(30, 48), Vector2(-120, -85), [0, 1, 2], 1.0, Vector2(-90, 90), cloud_look)
