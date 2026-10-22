@@ -70,3 +70,33 @@ Lower gain than 1 to 3.
 3. **The background material layer** (gap 3): a shader change; pilot on the meadow's hills and the grove's terraces.
 4. **Per stage:** the beach's water shader, then the city's facades and window glow.
 5. Skies.
+
+## Pilot: grounding the background (canyon and grove, 2026-10-22)
+
+**What I found first.** The game's realtime sun shadows never reach the background. That's not only the 70-unit range. Out to 260 units,
+with four splits, even a plain white test box standing on a grove terrace casts nothing on a plain white test plane beside it, while the
+same pair on the play area does. The shadow map does reach that far (with the bias lowered, acne appears on the terraces), but the
+casters don't land in it. Finding out why is engine-level digging; it may be worth doing later, because realtime shadows would be the
+crispest answer. Meanwhile:
+
+1. **A bug that greyed every background top** (a game-wide fix, shipped in this pilot). The faceted shading rebuilds each face's normal
+   from screen derivatives, and on flat, up-facing faces that normal came out turned over, so every grass, sand and terrace top in the
+   background was lit as an underside, in its shade colour. That's a large part of the greyed middle distance. Flat tops now keep their
+   own normal (`toon_common.gdshaderinc`, `facets` skips faces whose normal points straight up); nothing else changes. The grove's
+   terraces read lime instead of grey-green, and the canyon's floor warmer.
+2. **The grove's terrace trees were missing in the game.** Re-lighting re-exported the model without its `treeslot` empties.
+   `light_stage.py` now writes them back.
+3. **Baked sun shadows** (`light_stage.py --sun x,y,z --sun-pieces ... --sun-strength --sun-grid`): the chosen background pieces get
+   their up-facing faces cut to a grid (3 to 3.5 units), each vertex casts five rays toward the stage's sun past everything on the
+   stage (not the far ranges or the sky), and what is hidden is darkened (strength 0.6, deeper than the contact shade's floor). Those
+   pieces also keep their contact shade at full strength into the distance. Canyon: sun travel (0.797, -0.342, 0.498), the low sunset
+   sun; grove: (0.806, -0.53, 0.262).
+
+**Result** (`review5/sun_pilot.jpg`, today left, the pilot right; `review5/sun_arch.jpg` close): the arch's legs and the buttes lay soft
+shadows across the canyon floor toward the camera, and the trees darken the terraces under and beside them. But at vertex resolution
+the shadows are soft smudges, not the reference's crisp drop shadows, and the distance's air lifts them further. Cost: the grove's
+ground is 6.8 MB (was about 2) and the canyon's 4.2 MB (was 1.3); frame time unchanged (canyon 297 fps, grove 249 fps, GPU 2.6 to
+2.7 ms).
+
+**Recommendation:** keep the pilot (the shader fix and the restored trees are clear gains; the baked shadows a modest one). For crisp
+shadows, either dig out why the engine's shadows stop at the play area, or bake the shadows into a texture rather than vertices.

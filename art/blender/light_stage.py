@@ -13,13 +13,24 @@ Run (Blender 5.2), after the pieces are built and placed, with the game's export
 Options: --reach 2.0 (how far shade reaches, units), --samples 96, --curve 1.0 (above 1 deepens it), --floor 0.45 (the darkest it
 gets), --out <dir> (write the pieces
 there instead of over their files, for comparisons).
+
+The sun (the graphics review 5, 2026-10-22: nothing in the background cast a shadow you could see; the game's own shadows reach only
+the play area): `--sun x,y,z` (the way the stage's key light travels, in the game's axes, `-basis.z` of its KeyLight under the stage's
+mood) with `--sun-pieces a.glb,b.glb` (which pieces take it, by file name) bakes the sun's shadow into those pieces too: each of their
+up-facing faces is first cut down to `--sun-grid` (2.0) so a shadow has vertices to land on, then every vertex looks toward the sun
+past everything on the stage, five rays a little apart for a soft edge, and what is hidden is darkened by `--sun-strength` (0.5).
+Those pieces also keep their contact shade at full strength into the distance (it fades to 30% elsewhere). Run it on freshly built
+pieces: the sun's share is multiplied in with the contact shade and comes off with it on the next run.
 """
 
 import math
 import os
 import sys
 
+import bmesh
 import bpy
+from mathutils import Vector
+from mathutils.bvhtree import BVHTree
 
 argv = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
 opts = {argv[i].lstrip("-"): argv[i + 1] for i in range(0, len(argv) - 1, 2)}
@@ -30,6 +41,10 @@ CURVE = float(opts.get("curve", "1.0"))
 PIECES = [p for p in opts["pieces"].split(",") if p]
 EPS = 0.03
 MARK = 254.0 / 255.0
+SUN = [float(v) for v in opts["sun"].split(",")] if "sun" in opts else None
+SUN_PIECES = [q for q in opts.get("sun-pieces", "").split(",") if q]
+SUN_STRENGTH = float(opts.get("sun-strength", "0.5"))
+SUN_GRID = float(opts.get("sun-grid", "2.0"))
 
 
 def setup():
@@ -56,10 +71,14 @@ def setup():
     sc.world.light_settings.distance = REACH
 
 
+EMPTIES = {}
+
+
 def load(path):
-    """Imports a glTF file; returns its mesh objects."""
+    """Imports a glTF file; returns its mesh objects, and keeps its empties (the grove's `treeslot`s, places the game reads) to write back."""
     before = set(bpy.data.objects)
     bpy.ops.import_scene.gltf(filepath=path)
+    EMPTIES[path] = [o for o in bpy.data.objects if o not in before and o.type == "EMPTY"]
     return [o for o in bpy.data.objects if o not in before and o.type == "MESH"]
 
 
@@ -85,6 +104,62 @@ def grey(o, name):
     return [buf[i * 4] for i in range(n)]
 
 
+def densify(o, grid):
+    """Cuts the up-facing faces of `o` until no edge of them is longer than `grid`, so a cast shadow has vertices to land on."""
+    bm = bmesh.new()
+    bm.from_mesh(o.data)
+    for _ in range(12):
+        long = list({e for f in bm.faces if f.normal.z > 0.5 for e in f.edges if e.calc_length() > grid})
+        if not long:
+            break
+        bmesh.ops.subdivide_edges(bm, edges=long, cuts=1, use_grid_fill=True)
+        bmesh.ops.triangulate(bm, faces=[f for f in bm.faces if len(f.verts) > 4])
+        bm.normal_update()
+    bm.to_mesh(o.data)
+    bm.free()
+
+
+def scene_bvh(objs):
+    """One ray tree of everything on the stage that can shade the land, in world space: not the far ranges, the sky's pieces or anything
+    the size of the horizon (the painted backdrop stands behind the scene where the low sun's rays would meet it)."""
+    verts, polys = [], []
+    for o in objs:
+        mw = o.matrix_world
+        corners = [mw @ Vector(c) for c in o.bound_box]
+        size = max(max(c[k] for c in corners) - min(c[k] for c in corners) for k in range(3))
+        depth = sum(c.y for c in corners) / 8.0
+        if size > 300.0 or depth > 145.0:
+            continue
+        base = len(verts)
+        verts.extend(mw @ v.co for v in o.data.vertices)
+        polys.extend([base + i for i in p.vertices] for p in o.data.polygons)
+    return BVHTree.FromPolygons(verts, polys)
+
+
+def sun_shadow(o, tree):
+    """How much of the sun each vertex of `o` sees hidden, 0 to 1, from five rays a little apart (a soft edge)."""
+    # (The game's axes to Blender's: x, -z, y; the rays go back toward the sun.)
+    to_sun = -Vector((SUN[0], -SUN[2], SUN[1])).normalized()
+    side = to_sun.cross(Vector((0.0, 0.0, 1.0))).normalized()
+    up = side.cross(to_sun).normalized()
+    rays = [to_sun] + [(to_sun + d * 0.035).normalized() for d in (side, -side, up, -up)]
+    mw = o.matrix_world
+    nm = mw.to_3x3()
+    out = []
+    for v in o.data.vertices:
+        p = mw @ v.co
+        n = (nm @ v.normal).normalized()
+        if n.dot(to_sun) <= 0.0:
+            # (Turned from the sun: the game's own light shades it already.)
+            out.append(0.0)
+            continue
+        start = p + n * 0.08
+        # (No further than a tall butte's shadow at sunset: past that the ray only meets the far land, which stands in for distance.)
+        hit = sum(1 for d in rays if tree.ray_cast(start + d * 0.05, d, 90.0)[0] is not None)
+        out.append(hit / len(rays))
+    return out
+
+
 def smoothstep(a, b, x):
     t = min(1.0, max(0.0, (x - a) / (b - a)))
     return t * t * (3.0 - 2.0 * t)
@@ -94,7 +169,13 @@ def main():
     setup()
     occ = load(os.path.join(opts["dir"], "light_in.glb"))
     pieces = [(p, load(p)) for p in PIECES]
+    sunlit = {p for p in PIECES if os.path.basename(p) in SUN_PIECES} if SUN else set()
+    for path, objs in pieces:
+        if path in sunlit:
+            for o in objs:
+                densify(o, SUN_GRID)
     everything = occ + [o for _, objs in pieces for o in objs]
+    tree = scene_bvh(everything) if sunlit else None
     report = []
     for path, objs in pieces:
         own = {}
@@ -115,13 +196,20 @@ def main():
             s = grey(o, "ao_self")
             mw = o.matrix_world
             shade = []
+            sun = sun_shadow(o, tree) if path in sunlit else None
             for i, v in enumerate(me.vertices):
                 c = min(1.0, (a[i] + EPS) / (s[i] + EPS)) ** CURVE
-                # (Full near the fight, fading back: the distance keeps its clear air, as the grove pilot's bake found.)
+                # (Full near the fight, fading back: the distance keeps its clear air, as the grove pilot's bake found. Not on a piece that
+                # takes the sun: there the contact grounds the background, the graphics review 5.)
                 depth = (mw @ v.co).y
-                c = 1.0 - (1.0 - c) * (1.0 - 0.7 * smoothstep(15.0, 60.0, depth))
+                if sun is None:
+                    c = 1.0 - (1.0 - c) * (1.0 - 0.7 * smoothstep(15.0, 60.0, depth))
+                    c = max(FLOOR, c)
+                else:
+                    # (The sun's shadow may go deeper than the contact's floor: the distance's air lifts it again.)
+                    c = max(FLOOR, c) * (1.0 - SUN_STRENGTH * sun[i])
                 # (Never quite 1: the alpha also marks the piece as lit, for the test, where nothing shades it.)
-                shade.append(min(MARK, max(FLOOR, c)))
+                shade.append(min(MARK, max(0.2, c)))
                 shaded += c < 0.9
             total += len(shade)
             # Into the piece's own colours (made white if it had none), per vertex or per corner as they are stored: the colour
@@ -163,7 +251,8 @@ def main():
         for m, nm in names.items():
             m.name = nm
         bpy.ops.object.select_all(action="DESELECT")
-        for o in objs:
+        # (With its empties: written back without them, the grove lost its terrace trees' places.)
+        for o in objs + EMPTIES.get(path, []):
             o.select_set(True)
         out = os.path.join(opts["out"], os.path.basename(path)) if "out" in opts else path
         os.makedirs(os.path.dirname(os.path.abspath(out)), exist_ok=True)

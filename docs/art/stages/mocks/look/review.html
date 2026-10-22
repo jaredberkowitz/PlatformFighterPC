@@ -88,8 +88,22 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
     <p>Two lessons from the reference screenshots, mocked from the match camera: the scenery without ink outlines, its edges lit as card bevels instead, and the paper houses rebuilt at the characters' proportions. The earlier rounds stay on the <a href="https://claude.ai/artifact/D1du6MREVumiJDrEdNypW4">Stage Fidelity Review</a>, which is full.</p>
   </header>
 
+  <section class="panel" aria-labelledby="sp-h" id="sunpilot">
+    <div class="eyebrow">Your call is needed &middot; grounding the background, pilot on the canyon and the grove</div>
+    <h2 id="sp-h">Baked sun shadows: what worked and what I found</h2>
+    <p><b>The engine's realtime shadows never reach the background.</b> It's not just the 70-unit range. Even out to 260 units, a plain white test box on a grove terrace casts nothing on a plain white plane beside it, while the same pair on the play area does. So I baked the sun's shadow into the background models instead, and found two bugs on the way:</p>
+    <ol style="display:grid;gap:8px;margin:0;padding-left:1.2em;max-width:78ch">
+      <li><strong>A shader bug that greyed every background top</strong> (fixed for all stages). Flat grass, sand and terrace tops were lit as if they faced away from the sun, in their shade colour. Now they light properly: the grove's terraces read lime, not grey-green, and the canyon's floor warmer. A big part of the "greyed middle distance" from the review.</li>
+      <li><strong>The grove's terrace trees had gone missing in the game</strong> (re-lighting dropped their places). Fixed; they're back.</li>
+      <li><strong>Baked sun shadows</strong> on the canyon's floor and the grove's terraces, cast from every butte, arch, tree and gate toward each stage's own sun, plus full-strength contact shade in the distance.</li>
+    </ol>
+    <div class="row" role="group" aria-label="View"><button data-sp="pilot">Today (left) and the pilot (right)</button><button data-sp="arch">The canyon's arch up close</button></div>
+    <div class="viewer"><img id="spimg" alt="Sun shadow pilot"><span class="vtag" id="sptag"></span></div>
+    <p class="muted">Honest result: the shadows read as soft darkening (the arch's legs across the floor, the trees on the terraces), not the reference's crisp drop shadows. Baked into the models' vertices they can't be sharper without far heavier models, and the haze lifts them further. Frame time is unchanged (canyon 297 fps, grove 249 fps); the grove's ground grew from about 2 to 6.8 MB and the canyon's from 1.3 to 4.2 MB. For crisp shadows the next step is either finding why the engine's shadows stop at the play area (engine-level digging, the best result if it works) or baking the shadows into a texture.</p>
+  </section>
+
   <section class="panel" aria-labelledby="g5-h" id="graphics5">
-    <div class="eyebrow">Your call is needed &middot; graphics review, every stage</div>
+    <div class="eyebrow">Graphics review, every stage (the order: grounding first, piloted above)</div>
     <h2 id="g5-h">What every stage is missing, graphically</h2>
     <p>You were right that the ground work had turned into redesign. This review leaves layout alone and looks only at rendering: shadows, light, atmosphere, materials, sky and water. The meadow's shelf pilot is parked; the grove's terraces stay as shipped. Written up in docs/art/stages/GRAPHICS_REVIEW.md.</p>
     <h3>Game-wide gaps (one system each, every stage gains)</h3>
@@ -404,6 +418,15 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
   group("data-rs", function (v) { rs = v; }, rrender);
   group("data-rv", function (v) { rv = v; }, rrender);
   rrender();
+  var sp = "pilot";
+  var SP = { pilot: "../../review5/sun_pilot.jpg", arch: "../../review5/sun_arch.jpg" };
+  function sprender() {
+    document.getElementById("spimg").src = SP[sp];
+    document.getElementById("sptag").textContent = sp === "pilot" ? "Canyon and grove, wide and match camera: today left, pilot right" : "The canyon's arch: today left, pilot right";
+    pressed("data-sp", sp);
+  }
+  group("data-sp", function (v) { sp = v; }, sprender);
+  sprender();
   var g5 = "crops";
   var G5 = { crops: "../../review5/review5_crops.jpg", shadow: "../../review5/review5_shadow_test.jpg" };
   function g5render() {
