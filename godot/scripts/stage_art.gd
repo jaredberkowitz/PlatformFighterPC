@@ -3391,13 +3391,17 @@ static func _puff(parent: Node3D, mesh: Mesh, mat: Material, pos: Vector3, scl :
 	return mi
 
 
-static func _birds(root: Node3D, rng: RandomNumberGenerator, colour: Color) -> void:
+## No longer placed (the owner's rule, 2026-10-21: no animals in the stage backgrounds; these flocks were missed when the world-building's
+## were taken out, the believability pass, 2026-10-22). Their random numbers are still drawn, so nothing after them on the stage moves.
+static func _birds(_root: Node3D, rng: RandomNumberGenerator, _colour: Color) -> void:
 	for k in 2:
-		var flock := Flock.new()
-		flock.position = Vector3(rng.randf_range(-100, 60), rng.randf_range(16, 30), rng.randf_range(-75, -60))
-		flock.speed = rng.randf_range(3.0, 5.5)
-		root.add_child(flock)
-		flock.build(rng.randi_range(3, 5), colour, rng)
+		# (The draws a flock made: its place, its speed, its count, and three for each bird, `Flock.build`.)
+		for d in 4:
+			rng.randf()
+		for bird in rng.randi_range(3, 5):
+			rng.randf_range(-0.5, 0.5)
+			rng.randf_range(-0.4, 0.4)
+			rng.randf()
 
 
 ## Rolling hills in two rows (a nearer one at z -72 and a farther one at -100), each one continuous piece of land: round hilltops (each

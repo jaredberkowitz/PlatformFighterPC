@@ -20,6 +20,8 @@ placed piece's footprint, reported pairs that overlap and anything standing on a
 - Meadow: the pine cluster in front of the windmill and the farmhouse's smoke rising past it are 20 units apart in depth; they overlap
   only in the picture.
 - Beach: the lighthouse and the stilt hut overlap only in the wide view (34 units apart in depth).
+- Meadow, grove and beach: two code-built bird flocks each, missed when the world-building's animals were taken out (the owner's
+  no-animals rule), no longer placed; their random numbers are still drawn so nothing else on those stages moves.
 - The audit's other reports were parts of one object (a water tower's legs and tank, a gate's posts and lintel) or scattered flowers
   and ferns.
 
