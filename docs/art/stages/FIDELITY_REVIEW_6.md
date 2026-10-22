@@ -141,3 +141,9 @@ light bake.
   out lime). 133,000 and 155,000 triangles, from 128,000.
 
 On the Stage Look Review ("fronts", `fr_*`); recommended B on all three, each stage shipped on its own.
+
+**Built (2026-10-22): B on all three fronts** (the owner's pick): `meadow_front.glb` `--variant B --stones field --moss 1` (13,700
+triangles), `canyon_front.glb` `--variant A --cut 1 --courses 1` (38,600), `grove_paper.glb` `--variant H --rock shaped --abyss mist`
+(155,000); the meadow, canyon and grove re-lit. Lit, the canyon's courses measured 0.30 (their extra cut edges and crevices), undoing
+review 5's lift; `sunset.cfg` `front_lift` 0.2 to 0.35 puts it back at 0.33 (and the courses alternate round the slab's tone, not below
+it). Before and after: `review6/fronts_built.jpg` (meadow, canyon and grove wide, then the meadow at the match camera). Next, item 4.

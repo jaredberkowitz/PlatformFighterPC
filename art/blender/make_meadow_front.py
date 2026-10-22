@@ -15,6 +15,9 @@ After fidelity review 6 (B's stones, in even courses of one size and one grey, r
   `--moss 1`        with it, moss on the stones' tops and dripping down a few faces, thickest under the logs, and grass at the foot. Families `ledge`, `stone`, `log`, `log_end`, `soil`, `grass`, `moss`, painted from the
 stage's palette in the game; each piece bakes its occlusion into linear vertex colours with the built meadow round it.
 
+Shipped (the owner's pick, fidelity review 6, 2026-10-22): godot/models/stages/meadow_front.glb, `--variant B --stones field
+--moss 1`, then lit.
+
 Run (Blender 5.2):
   blender --background --python art/blender/make_meadow_front.py -- --dir godot/art/baked/<key> --variant A --out <file.glb>
 """

@@ -14,6 +14,9 @@ smeared into blotches), on A:
   `--courses 1`  with it, each slab laid in thin courses of sediment, each a little in or out and a step lighter or darker.
 Families `strata_a`, `strata_b`, `strata_c`; each piece bakes its occlusion into linear vertex colours with the built canyon round it.
 
+Shipped (the owner's pick, fidelity review 6, 2026-10-22): godot/models/stages/canyon_front.glb, `--variant A --cut 1 --courses 1`,
+then lit (the palette's `front_lift` raised to 0.35 to keep the face at 0.33).
+
 Run (Blender 5.2):
   blender --background --python art/blender/make_canyon_front.py -- --dir godot/art/baked/<key> --variant A --out <file.glb>
 """
@@ -125,7 +128,8 @@ def slab(bm, x0, x1, y0, y1, out, rng, cols=10, taper=0.08, back=DEPTH, pts=None
 
 def courses(bm, x0, x1, y0, y1, out, rng, cols=6):
     """A slab laid in thin courses of sediment (fidelity review 6): one front edge for the slab, each course a little in or out of it,
-    alternately a step lighter and darker, each with its own cut edge."""
+    alternately a step lighter and darker round the slab's own tone (darker only, the face fell from 0.33 to 0.30, undoing review 5's
+    lift), each with its own cut edge."""
     pts = front_profile(x0, x1, out, rng, cols)
     n = max(2, int(round((y1 - y0) / 0.5)))
     base = rng.uniform(0.84, 1.02)
@@ -135,7 +139,7 @@ def courses(bm, x0, x1, y0, y1, out, rng, cols=6):
         dz = rng.uniform(-0.18, 0.1)
         own = [(x, z + dz * (1.0 if 0 < i < len(pts) - 1 else 0.3)) for i, (x, z) in enumerate(pts)]
         slab(bm, x0, x1, ya + 0.015, yb, out, rng, pts=own, taper=0.02, chamfer=0.07,
-             shade=base * (1.0 if k % 2 == 0 else 0.88) * rng.uniform(0.97, 1.03))
+             shade=base * (1.06 if k % 2 == 0 else 0.94) * rng.uniform(0.97, 1.03))
 
 
 def core():
