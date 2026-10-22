@@ -85,3 +85,17 @@ Each stage refined on its own, as before; two items are game-wide because they'r
 5. **The light finish** (light to 4.5, game-wide system): a grade per stage, bloom on lights, warm and cool bounce into the shade.
 6. **The platforms** in each stage's own materials.
 7. **The small code-built things:** the lantern strings, the flowers, the islets' detail, the street people.
+
+## Item 1, the city's sky and depth (2026-10-22, mock)
+
+Why the sky read flat: the cameras see the sky from the horizon to about 0.09 up, and the city's glow (centred at 0.03, reaching 0.3)
+filled all of it; its `sun_side` mix toward the bright glow, small as it was, swamped a dark sky (in linear colour a tenth of a bright
+colour outweighs a dark one). New: `sky.gdshader` `glow_at`, `glow_height` and `glow_below` (a glow rising from behind a skyline), the
+theme's `sky_bands` [middle, top] and `glow_height` [centre, reach, full below]; `facade.gdshader` haze between the rows (`foot_haze`,
+`foot_height`, `foot_color` from the street, `street_y`), the palette's `skyline_haze` [strength, height] a layer and
+`skyline_haze_color`. And a general trial switch: `--pal-try=<name>` lays a palette's own [try_<name>] section ("section/key" keys) over
+it, so a mock is a few palette lines and shipping one is moving them into place.
+
+Options (city.cfg [try_night_a|b|c]): A night sky (the frame's top 0.07, deep indigo-blue, from 0.34 magenta; the glow low behind the
+skyline); B A with haze between the rows; C B with a colour plan (a navy sky and blue-violet towers, warm kept for the street haze, the
+windows, the glow and the play building). On the Stage Look Review ("citynight", `cn_*`); recommended C.

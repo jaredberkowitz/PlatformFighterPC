@@ -88,8 +88,25 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
     <p>Two lessons from the reference screenshots, mocked from the match camera: the scenery without ink outlines, its edges lit as card bevels instead, and the paper houses rebuilt at the characters' proportions. The earlier rounds stay on the <a href="https://claude.ai/artifact/D1du6MREVumiJDrEdNypW4">Stage Fidelity Review</a>, which is full.</p>
   </header>
 
+  <section class="panel" aria-labelledby="cn-h" id="citynight">
+    <div class="eyebrow">Your call is needed &middot; review 6, item 1: the city's sky and depth</div>
+    <h2 id="cn-h">A night sky over the city, and air between its rows</h2>
+    <p>Review 6 scored the city's sky 2, the lowest left in the game. The cameras see only the lowest few degrees of sky, and the city's glow filled all of it, so the sky read as one flat magenta (value 0.37, saturation 0.58). Behind that, the three rows of towers sit in one purple family, so they separate only a little.</p>
+    <div class="tablewrap"><table><thead><tr><th>Option</th><th>What changes</th></tr></thead><tbody>
+      <tr><td>A &middot; Night sky</td><td>The sky graded across the little the cameras see: deep indigo-blue at the top of the frame (0.07, from 0.34), with the city's glow rising from behind the skyline and held low. The towers are unchanged.</td></tr>
+      <tr><td>B &middot; Night sky and haze</td><td>A, plus haze between the rows: each row's foot fades into the street's lit pink haze, the further rows more, so each row reads further back than the one in front.</td></tr>
+      <tr><td>C &middot; Night sky, haze and a colour plan</td><td>B with the colours split by temperature: a cooler navy sky and blue-violet towers, with the warm light kept for the street haze, the lit windows, the glow and the play building.</td></tr>
+    </tbody></table></div>
+    <p>Close up, today on the left and C on the right (wide, then the match camera):</p>
+    <div class="viewer"><img src="cn_close.jpg" alt="The city's sky and towers, today and with option C"></div>
+    <div class="row" role="group" aria-label="View"><button data-cnv="w">Wide</button><button data-cnv="m">Match camera</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-cno="T">Today</button><button data-cno="A">A &middot; Night sky</button><button data-cno="B">B &middot; Sky and haze</button><button data-cno="C">C &middot; Sky, haze, colour plan</button></div>
+    <div class="viewer"><img id="cnimg" alt="City sky option"><span class="vtag" id="cntag"></span></div>
+    <p class="muted">My pick: <b>C</b>. The sky is the gain in all three. C's cooler towers and sky are the first thing in the city that isn't purple, and the warm street, windows and play building stand out against them. Take A if you want the towers left exactly as they are.</p>
+  </section>
+
   <section class="panel" aria-labelledby="f6-h" id="review6">
-    <div class="eyebrow">Your call is needed &middot; fidelity review 6: the path to 5</div>
+    <div class="eyebrow">Under way (item 1) &middot; fidelity review 6: the path to 5</div>
     <h2 id="f6-h">What every stage needs to reach 5</h2>
     <p>The same analysis as review 5, run on the build you have: every stage at the match camera and wide, the same eight categories scored 1 to 5 (5 means a still could sit beside the references), and the same measured regions. This time each category also says what a 5 needs. The full write-up is in docs/art/stages/FIDELITY_REVIEW_6.md.</p>
     <div class="tablewrap"><table><thead><tr><th>Stage</th><th>Light</th><th>Surfaces</th><th>Play area</th><th>Background land</th><th>Sky</th><th>World</th><th>Cohesion</th><th>Readability</th><th>Mean</th><th>Review 5</th></tr></thead><tbody>
@@ -866,5 +883,15 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
   group("data-cv2", function (v) { cv2 = v; }, c2render);
   group("data-co2", function (v) { co2 = v; }, c2render);
   c2render();
+  var cnv = "w", cno = "C";
+  var CNO = { T: "Today", A: "A \u00b7 Night sky", B: "B \u00b7 Night sky and haze", C: "C \u00b7 Night sky, haze, colour plan" };
+  function cnrender() {
+    document.getElementById("cnimg").src = "cn_" + cno + "_" + cnv + ".jpg";
+    document.getElementById("cntag").textContent = "City \u00b7 " + CNO[cno] + (cnv === "w" ? " \u00b7 wide" : " \u00b7 match camera");
+    pressed("data-cnv", cnv); pressed("data-cno", cno);
+  }
+  group("data-cnv", function (v) { cnv = v; }, cnrender);
+  group("data-cno", function (v) { cno = v; }, cnrender);
+  cnrender();
 })();
 </script>

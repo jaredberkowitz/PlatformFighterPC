@@ -18,6 +18,11 @@ uniform float glow_strength = 0.0;
 // The glow's direction (toward it), and how wide it spreads (bigger is wider).
 uniform vec3 glow_dir = vec3(-0.45, 0.08, -1.0);
 uniform float glow_size = 0.2;
+// Where the glow is centred (elevation) and how far either side of it it reaches.
+uniform float glow_at = 0.03;
+uniform float glow_height = 0.3;
+// Full strength everywhere below its centre (a glow rising from behind a skyline), not fading on both sides of it.
+uniform bool glow_below = false;
 uniform vec4 wisp_color : source_color = vec4(1.0, 0.86, 0.86, 1.0);
 uniform float wisp_amount = 0.0;
 // The sun's place in the sky (toward it), and how strongly the sky answers it (the judge's round 41, the owner: the skies read as flat
@@ -64,7 +69,7 @@ void sky() {
 	}
 	// The glow: strongest at the horizon toward `glow_dir`, fading up the sky and round it.
 	float toward = max(dot(d, normalize(glow_dir)), 0.0);
-	float glow = pow(toward, 1.0 / max(glow_size, 0.01) * 2.0) * (1.0 - smoothstep(0.0, 0.3, abs(e - 0.03)));
+	float glow = pow(toward, 1.0 / max(glow_size, 0.01) * 2.0) * (1.0 - smoothstep(0.0, glow_height, glow_below ? max(e - glow_at, 0.0) : abs(e - glow_at)));
 	col = mix(col, glow_color.rgb, clamp(glow * glow_strength, 0.0, 1.0));
 	// Wisps: long thin streaks of painted cloud low in the sky, brightest near the glow.
 	if (wisp_amount > 0.0 && e > 0.0) {

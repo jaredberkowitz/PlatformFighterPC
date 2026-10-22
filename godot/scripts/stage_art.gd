@@ -53,6 +53,16 @@ static func palette(name: String) -> Dictionary:
 			out[section] = d
 	else:
 		push_error("stage palette %s is missing" % name)
+	# (A trial of palette values, `--pal-try=<name>`: the palette's own [try_<name>] section, its keys written "section/key", laid over
+	# the rest, so a mock is a few lines in the palette and shipping one is moving them into place. Fidelity review 6.)
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--pal-try=") and out.has("try_" + arg.substr(10)):
+			var trial: Dictionary = out["try_" + arg.substr(10)]
+			for k: String in trial:
+				var at := k.split("/")
+				if not out.has(at[0]):
+					out[at[0]] = {}
+				(out[at[0]] as Dictionary)[at[1]] = trial[k]
 	_palette_cache[name] = out
 	return out
 
@@ -152,6 +162,15 @@ static func sky(t: Dictionary) -> Sky:
 	if t.has("sky_wisps"):
 		mat.set_shader_parameter("wisp_color", t.sky_wisps[0])
 		mat.set_shader_parameter("wisp_amount", t.sky_wisps[1])
+	# (Where the middle tint and the top are reached, `sky_bands`, and where the glow sits and how far it reaches, `glow_height` [centre, reach, full below the centre]: the city's sky, fidelity
+	# review 6, where the cameras see only the sky from about 0.03 to 0.09 up, so its whole gradient has to happen there.)
+	if t.has("sky_bands"):
+		mat.set_shader_parameter("mid_at", float(t.sky_bands[0]))
+		mat.set_shader_parameter("top_at", float(t.sky_bands[1]))
+	if t.has("glow_height"):
+		mat.set_shader_parameter("glow_at", float(t.glow_height[0]))
+		mat.set_shader_parameter("glow_height", float(t.glow_height[1]))
+		mat.set_shader_parameter("glow_below", (t.glow_height as Array).size() > 2 and bool(t.glow_height[2]))
 	# The sky answering the sun (the theme's `sun_at`, where its sun is drawn, or `sun_dir`; `sun_side`, `halo`): the judge's round 41.
 	if t.has("sun_at") or t.has("sun_dir"):
 		var dir: Vector3 = (t.sun_at - SKY_EYE).normalized() if t.has("sun_at") else (t.sun_dir as Vector3).normalized()
@@ -6142,6 +6161,16 @@ static func _skyline_layer(root: Node3D, rng: RandomNumberGenerator, layer: int,
 		if arg.begins_with("--city-calm="):
 			calm = float(arg.substr(12))
 	m.set_shader_parameter("calm", calm if layer < 2 else 0.0)
+	# (Haze between the rows, the palette's `skyline_haze`, [strength, height] a layer near to far, in `skyline_haze_color`: each row's
+	# foot fades into the street's lit haze, the further rows more, so every row reads further back than the one in front. Fidelity
+	# review 6, the city's depth.)
+	var bd: Dictionary = _palette.get("backdrop", {})
+	if bd.has("skyline_haze"):
+		var hz: Array = (bd.skyline_haze as Array)[layer]
+		m.set_shader_parameter("foot_haze", float(hz[0]))
+		m.set_shader_parameter("foot_height", float(hz[1]))
+		m.set_shader_parameter("foot_color", bd.get("skyline_haze_color", Color(0.6, 0.4, 0.6)))
+		m.set_shader_parameter("street_y", street)
 	# (Finer windows, finer further back, the gauntlet's round 15 after the owner's city reference: its windows are fine regular grids
 	# that read as texture; ours, a bay of 2 by 2.6 on every layer, read as stickers.)
 	m.set_shader_parameter("cell", [Vector2(1.5, 1.95), Vector2(1.15, 1.5), Vector2(0.9, 1.2)][layer])
