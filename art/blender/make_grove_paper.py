@@ -16,6 +16,10 @@ After the owner's note that the floating islands made little progress (2026-10-2
      front rising from the one before it; their edges wander out into promontories and turn back into the chasm, so the faces look
      every way; under a thick grass top that overhangs in a scalloped lip, dark faceted cardboard rock steps back into a violet abyss;
      ferns and vines hang where the edges face the camera; pines seated on the tops; deep shade baked under every lip.
+After fidelity review 6 (H's rock read as flat dark-teal blocks over a flat violet floor), on H:
+  `--rock shaped`  each block its own tone, its bevel a lighter lit rim (`cliff_lit`), roots hanging from the lips facing the camera;
+  `--abyss mist`   with it, a misty valley in the abyss: two layers of violet mist with cut edges at different depths, the tops of a
+                   forest of the grove's trees rising through them.
 Every look carries the far ranges as standing cut-out flats, three to a range, their crests from the painted ranges they stand in for.
 Each piece is its own object so the game can lay the air of its depth over it, and bakes its occlusion into linear vertex colours.
 Families `grass`, `grass_far`, `cliff`, `range_far`, `range_near`, their cut edges `card_<family>`, `leaf_lit`, `leaf_shade`, `bark`.
@@ -40,6 +44,8 @@ from fold_kit import pleated_tier  # noqa: E402
 argv = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
 opts = {argv[i].lstrip("-"): argv[i + 1] for i in range(0, len(argv) - 1, 2)}
 VARIANT = opts.get("variant", "A").upper()
+SHAPED = opts.get("rock", "") == "shaped"
+MISTY = opts.get("abyss", "") == "mist"
 LAYOUT = json.load(open(os.path.join(opts["dir"], "ground.json")))
 SIDE_TREES = [(-30.0, -55.0), (32.0, -55.0)]
 # The ledges of the shipped ground (make_grove_ground.py A): name, x0, x1, front z, back z, top, top family.
@@ -61,6 +67,7 @@ def part(name, mat):
     key = (name, mat)
     if key not in PARTS:
         PARTS[key] = bmesh.new()
+        PARTS[key].verts.layers.float.new("tone")
     return PARTS[key]
 
 
@@ -431,9 +438,16 @@ def rock_block(name, fam, corners, y0, y1, bevel):
     """A cardboard rock block: straight sides (`corners` in (x, z), its own outline), a bevel all round its top, a flat top."""
     KEEP.add(name)
     bm = part(name, fam)
+    # (Shaped rock, review 6: the bevel in a lighter lit rim, and each block a tone of its own.)
+    rim = part(name, "cliff_lit") if SHAPED and fam.startswith("cliff") else bm
+    first = len(bm.verts)
+    first_rim = len(rim.verts)
     cx = sum(q[0] for q in corners) / len(corners)
     cz = sum(q[1] for q in corners) / len(corners)
     centre = P(cx, (y0 + y1) * 0.5, cz)
+    if SHAPED and fam.startswith("cliff"):
+        # (A deeper bevel: at 0.45 on blocks three to five tall the lit rim was a hairline.)
+        bevel = bevel * 2.0
     bevel = min(bevel, (y1 - y0) * 0.4)
     inset = []
     for (x, z) in corners:
@@ -447,8 +461,15 @@ def rock_block(name, fam, corners, y0, y1, bevel):
         (xa, za), (xb, zb) = corners[i], corners[j]
         oriented(bm, (P(xa, y0, za), P(xb, y0, zb), P(xb, yb, zb), P(xa, yb, za)), centre)
         (ia, ka), (ib, kb) = inset[i], inset[j]
-        oriented(bm, (P(xa, yb, za), P(xb, yb, zb), P(ib, y1, kb), P(ia, y1, ka)), centre)
-    oriented(bm, [P(x, y1, z) for (x, z) in inset], centre)
+        oriented(rim, (P(xa, yb, za), P(xb, yb, zb), P(ib, y1, kb), P(ia, y1, ka)), centre)
+    oriented(rim, [P(x, y1, z) for (x, z) in inset], centre)
+    if SHAPED:
+        t = random.Random(round(cx * 7.0) * 7919 + round(cz * 7.0) + round(y0 * 3.0)).uniform(0.7, 1.4)
+        for b, k0 in ((bm, first), (rim, first_rim)):
+            layer = b.verts.layers.float.get("tone")
+            b.verts.ensure_lookup_table()
+            for v in b.verts[k0:]:
+                v[layer] = t
     return inset
 
 
@@ -619,6 +640,20 @@ def terrace(name, poly, top, exposed, tiers, rng, far, fam):
                         sd = 1 if q % 4 == 1 else -1
                         face(part("%s_vines" % name, "fern"), (P(vx + wob, ya, vz + 0.02), P(vx + wob + sd * 0.7, ya + 0.25, vz + 0.02),
                                                                P(vx + wob + sd * 1.0, ya - 0.15, vz + 0.02), P(vx + wob + sd * 0.3, ya - 0.35, vz + 0.02)))
+        if SHAPED and rng.random() < 0.3:
+            # Roots hanging from the lip, tapering, one forking (review 6: the reference's rock is hung with roots).
+            length = min(rng.uniform(2.0, 5.5), top - drop - 1.0)
+            if length > 1.2:
+                rx_, rz_ = cx + ox * 0.15 + tx * rng.uniform(-0.8, 0.8), cz + oz * 0.15
+                for strand in range(rng.randrange(1, 3)):
+                    sx = rx_ + tx * strand * 0.5
+                    q_n = max(2, int(length / 0.7))
+                    for q in range(q_n):
+                        ya, yb = top - 0.5 - length * q / q_n, top - 0.5 - length * (q + 1) / q_n
+                        wa, wb = 0.16 * (1.0 - q / q_n) + 0.03, 0.16 * (1.0 - (q + 1) / q_n) + 0.03
+                        xa = sx + 0.25 * math.sin(q * 1.1 + sx)
+                        xb = sx + 0.25 * math.sin((q + 1) * 1.1 + sx)
+                        face(part("%s_roots" % name, "root"), (P(xa - wa, ya, rz_), P(xa + wa, ya, rz_), P(xb + wb, yb, rz_), P(xb - wb, yb, rz_)))
         if rng.random() < 0.3:
             for q in range(5):
                 ang = math.radians(-160 + q * 35 + rng.uniform(-8, 8))
@@ -667,6 +702,8 @@ def hero_ledges(rng):
         terrace(name, poly, top, exposed, tiers, rng, far, "grass_far" if grass_far else "grass")
     HERO_TIERS.extend(tiers)
     abyss()
+    if MISTY:
+        misty_valley(random.Random(83))
 
 
 HERO_TIERS = []
@@ -731,10 +768,10 @@ def plant_trees_hero(rng):
 FOREST = opts.get("forest", "1") == "1"
 
 
-def forest_tree(name, x, y, z, h, rng):
+def forest_tree(name, x, y, z, h, rng, fams=("bark", "leaf_lit", "leaf_shade")):
     """A tree of the grove's forest, in the grove tree's manner at a fraction of its cost: a fluted, tapering trunk flared at its foot and
-    four pleated tiers of crown, the lowest widest, each a little turned. `h` its height."""
-    bark = part(name, "bark")
+    four pleated tiers of crown, the lowest widest, each a little turned. `h` its height; `fams` its bark and leaves' families."""
+    bark = part(name, fams[0])
     n = 7
     rings = [(0.0, 0.11 * h), (0.06 * h, 0.075 * h), (0.5 * h, 0.05 * h), (0.85 * h, 0.03 * h)]
     turn = rng.uniform(0, math.tau)
@@ -746,7 +783,7 @@ def forest_tree(name, x, y, z, h, rng):
         for i in range(n):
             j = (i + 1) % n
             face(bark, (pts[k][i], pts[k][j], pts[k + 1][j], pts[k + 1][i]))
-    lit, under = part(name, "leaf_lit"), part(name, "leaf_shade")
+    lit, under = part(name, fams[1]), part(name, fams[2])
     base = P(x, y, z)
     for k in range(4):
         t = k / 3.0
@@ -807,6 +844,36 @@ def abyss():
             # (The nearer sheet runs on past the camera, so no edge of it shows.)
             near = 60.0 if k == 0 else fa
             face(part(name, fam), (P(xa, y, -220.0), P(xa, y, near if k == 0 else fa), P(xb, y, near if k == 0 else fb), P(xb, y, -220.0)))
+
+
+def misty_valley(rng):
+    """The abyss as a misty valley (review 6): two layers of violet mist at different depths, each a sheet with a wavy cut front edge,
+    and the tops of a forest of the grove's trees rising through them, smaller and fainter further back."""
+    for k, (y, zf, zb) in enumerate(((-21.5, -24.0, -70.0), (-17.5, -62.0, -130.0))):
+        name = "mist%d" % k
+        xs = xs_across(-220, 220, 4.0)
+        for i in range(len(xs) - 1):
+            xa, xb = xs[i], xs[i + 1]
+            fa = zf + 2.5 * math.sin(xa * 0.11 + k * 2.0) + 1.2 * math.sin(xa * 0.37 + k)
+            fb = zf + 2.5 * math.sin(xb * 0.11 + k * 2.0) + 1.2 * math.sin(xb * 0.37 + k)
+            face(part(name, "abyss_mist"), (P(xa, y, zb), P(xa, y, fa), P(xb, y, fb), P(xb, y, zb)))
+            face(part(name, "card_abyss_mist"), (P(xa, y, fa), P(xa, y - 0.5, fa), P(xb, y - 0.5, fb), P(xb, y, fb)))
+    placed = []
+    tries = 0
+    while len(placed) < 70 and tries < 4000:
+        tries += 1
+        x, z = rng.uniform(-140.0, 140.0), rng.uniform(-110.0, -26.0)
+        if any(math.hypot(x - px, z - pz) < 5.5 for (px, pz) in placed):
+            continue
+        # (Under the terraces' tops nothing shows; keep to the open chasm and the far valley.)
+        if any(inside(poly, x, z) for (_, poly, _, _) in HERO_TIERS):
+            continue
+        placed.append((x, z))
+        # (Only their tops through the mist: taller, the nearest stood as whole pines in the chasm.)
+        h = rng.uniform(6.5, 9.5)
+        # (In the valley's own hazed violet-greens: in the forest's, spread across the chasm in pieces of no one depth, they took no air
+        # and stood out lime against the violet.)
+        forest_tree("valley%d" % (len(placed) // 10), x, ABYSS_FLOOR - 1.0, z, h, rng, ("valley_bark", "valley_lit", "valley_shade"))
 
 
 def range_flats():
@@ -917,9 +984,12 @@ def bake_occlusion(distance):
     bpy.context.view_layer.objects.active = parts[0]
     bpy.ops.object.bake(type="AO", target="VERTEX_COLORS")
     for o in parts:
-        for c in o.data.color_attributes["Col"].data:
-            ao = 0.45 + 0.55 * c.color[0]
-            c.color = (ao, ao, ao, 1.0)
+        tone = o.data.attributes.get("tone")
+        col = o.data.color_attributes["Col"].data
+        for v in o.data.vertices:
+            k = (tone.data[v.index].value or 1.0) if tone is not None else 1.0
+            ao = (0.45 + 0.55 * col[v.index].color[0]) * k
+            col[v.index].color = (min(ao, 1.0), min(ao, 1.0), min(ao, 1.0), 1.0)
 
 
 def main():

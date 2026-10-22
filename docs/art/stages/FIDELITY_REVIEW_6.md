@@ -120,3 +120,24 @@ Review ("canyonbehind", `cb_*`); recommended C.
 **Built (2026-10-22): canyon C** (the owner's pick): `canyon_paper.glb` rebuilt `--variant KC --arch chipped --buttes solid --fight wide
 --plain outcrops` (21,100 triangles), the canyon re-lit (`--light-export`, `light_stage.py` on the front, play area and ground, curve and
 reach 2.5). Before and after: `review6/canyon_behind_built.jpg`. Next, item 3: the fronts' surfaces.
+
+## Item 3, the fronts' surfaces (2026-10-22, mock)
+
+First a pipeline fix: `StageBake.export_scene` (`--bake-export`, the scene the front builders bake their shade against) exported the
+shipped modelled front among its occluders, so any new front baked inside the old one and its faces came out black (the meadow's first
+fieldstone, the canyon's first cut edges). The modelled front is marked (`modelled_front`) and left out; by its mark, not its name, as
+beside a first build still being freed it is `@Node3D@2`. Today's fronts were rebuilt the same way for the comparison, all before the
+light bake.
+
+- **Meadow** (`make_meadow_front.py --variant B`): `--stones field` (fieldstone: courses of uneven height, big stones with small ones
+  packed round them, each a lump of its own tone and tint, set in or out; its baked shade floored at a quarter, packed close the corners
+  in its joints baked to nothing) and `--moss 1` (moss on the tops, thickest under the logs, tongues down a few faces, grass at the foot).
+  Lessons: a stone's corners pulled in, never out (out, it ran into its neighbours); one depth for the whole stone; a clamped bevel.
+- **Canyon** (`make_canyon_front.py --variant A`): `--cut 1` (each slab's top front edge chamfered, a finer mesh, 15,600 triangles) and
+  `--courses 1` (each slab in thin sediment courses, each a little in or out and a step lighter or darker, 38,500 triangles).
+- **Grove** (`make_grove_paper.py --variant H`): `--rock shaped` (each block a tone of its own, a deeper bevel in a lit rim `cliff_lit`,
+  roots from the lips facing the camera) and `--abyss mist` (two layers of violet mist with cut edges in the abyss, `abyss_mist`, the tops
+  of a forest rising through them in the valley's own hazed violet-greens, `valley_*`: in the forest's greens they took no air and stood
+  out lime). 133,000 and 155,000 triangles, from 128,000.
+
+On the Stage Look Review ("fronts", `fr_*`); recommended B on all three, each stage shipped on its own.

@@ -88,6 +88,26 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
     <p>Two lessons from the reference screenshots, mocked from the match camera: the scenery without ink outlines, its edges lit as card bevels instead, and the paper houses rebuilt at the characters' proportions. The earlier rounds stay on the <a href="https://claude.ai/artifact/D1du6MREVumiJDrEdNypW4">Stage Fidelity Review</a>, which is full.</p>
   </header>
 
+  <section class="panel" aria-labelledby="fr-h" id="fronts">
+    <div class="eyebrow">Your call is needed &middot; review 6, item 3: the fronts' surfaces</div>
+    <h2 id="fr-h">The closest surfaces, made at the size you see them</h2>
+    <p>First, canyon C is built and lit (before and after are in the canyon section above). Then item 3, which covers three stages, each with two options. One finding came first: the front builders bake their shade against an export of the stage, and that export now held the shipped front itself, so a new front baked inside the old one went black. The export leaves the modelled front out now. Today's fronts are rebuilt the same way here, so they compare fairly. All are shown before the stage's light bake, which runs when one ships.</p>
+    <div class="tablewrap"><table><thead><tr><th>Stage</th><th>A</th><th>B</th></tr></thead><tbody>
+      <tr><td>Meadow: the stone wall under the logs, a grid of grey bricks of one size</td><td><b>Fieldstone</b>: courses of uneven height, big stones with small ones packed round them, each a lump of its own tone and tint (ochre, blue-grey, rosy, lichen), set a little in or out.</td><td><b>Fieldstone and moss</b>: A, with moss on the stones' tops, thickest under the logs, a few tongues of it down their faces, and grass at the wall's foot.</td></tr>
+      <tr><td>Canyon: the strata face, soft and smudged at the wide camera</td><td><b>Cut edges</b>: each slab's top front edge chamfered so it catches the light as a line, and a finer mesh so the baked shade follows the shapes (15,600 triangles, from 10,900).</td><td><b>Sediment courses</b>: A, with each slab laid in thin courses of sediment, each a little in or out and a step lighter or darker (38,500 triangles).</td></tr>
+      <tr><td>Grove: the cliffs, flat dark-teal blocks over a flat violet floor</td><td><b>Shaped rock</b>: each block a tone of its own, a deeper bevel as a lighter lit rim, and roots hanging from the lips that face the camera.</td><td><b>Rock and a misty valley</b>: A, with two layers of violet mist in the abyss, their cut edges showing, and the tops of a forest rising through them in hazed violet-greens.</td></tr>
+    </tbody></table></div>
+    <p>Close up, today on the left: the meadow (match camera A then B, wide A then B), the canyon (the same order), then the grove (A on the left side, B on the right):</p>
+    <div class="viewer"><img src="frm_close.jpg" alt="The meadow's wall, today and with fieldstone"></div>
+    <div class="viewer"><img src="frc_close.jpg" alt="The canyon's strata face, today and with cut edges and sediment courses"></div>
+    <div class="viewer"><img src="frg_close.jpg" alt="The grove's cliffs and abyss, today and with shaped rock and a misty valley"></div>
+    <div class="row" role="group" aria-label="Stage"><button data-frs="m">Meadow</button><button data-frs="c">Canyon</button><button data-frs="g">Grove</button></div>
+    <div class="row" role="group" aria-label="View"><button data-frv="w">Wide</button><button data-frv="m">Match camera</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-fro="T">Today</button><button data-fro="A">A</button><button data-fro="B">B</button></div>
+    <div class="viewer"><img id="frimg" alt="Front option"><span class="vtag" id="frtag"></span></div>
+    <p class="muted">My picks: <b>B on all three</b>. The meadow's moss ties the wall to the lawn. The canyon's courses give the face the most authored detail, though at 38,500 triangles it's the costliest. The grove's mist gives the chasm depth instead of a floor. Each stage ships on its own, so you can pick per stage, for example "meadow B, canyon A, grove B".</p>
+  </section>
+
   <section class="panel" aria-labelledby="cb-h" id="canyonbehind">
     <div class="eyebrow">Built (C) &middot; review 6, item 2: the canyon behind the fight</div>
     <h2 id="cb-h">Buttes of rock, not stacked discs</h2>
@@ -925,5 +945,19 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
   group("data-cbv", function (v) { cbv = v; }, cbrender);
   group("data-cbo", function (v) { cbo = v; }, cbrender);
   cbrender();
+  var frs = "m", frv = "w", fro = "B";
+  var FRS = { m: "Meadow", c: "Canyon", g: "Grove" };
+  var FRO = { m: { T: "Today", A: "A \u00b7 Fieldstone", B: "B \u00b7 Fieldstone and moss" },
+              c: { T: "Today", A: "A \u00b7 Cut edges", B: "B \u00b7 Sediment courses" },
+              g: { T: "Today", A: "A \u00b7 Shaped rock", B: "B \u00b7 Rock and a misty valley" } };
+  function frrender() {
+    document.getElementById("frimg").src = "fr_" + frs + "_" + fro + "_" + frv + ".jpg";
+    document.getElementById("frtag").textContent = FRS[frs] + " \u00b7 " + FRO[frs][fro] + (frv === "w" ? " \u00b7 wide" : " \u00b7 match camera");
+    pressed("data-frs", frs); pressed("data-frv", frv); pressed("data-fro", fro);
+  }
+  group("data-frs", function (v) { frs = v; }, frrender);
+  group("data-frv", function (v) { frv = v; }, frrender);
+  group("data-fro", function (v) { fro = v; }, frrender);
+  frrender();
 })();
 </script>

@@ -8,7 +8,11 @@ meadow's hill takes over. Three looks for the owner to pick from (`--front-mock=
   B  a terrace wall of logs and stones: courses of round logs with their cut ends showing, on courses of bevelled stones, moss in the
      joints, the farm's own build (fence, bales, barrel);
   C  an earth bank: folded soil with bevelled stones set in it, the hillside cut back.
-All three: a grass overhang along the top. Families `ledge`, `stone`, `log`, `log_end`, `soil`, `grass`, `moss`, painted from the
+All three: a grass overhang along the top.
+After fidelity review 6 (B's stones, in even courses of one size and one grey, read as a grid of bricks), on B:
+  `--stones field`  fieldstone: courses of uneven height, big stones with small ones packed round them, each a rough lump of its own
+                    tone and tint (ochre, blue-grey, rosy, lichen), set in or out a little;
+  `--moss 1`        with it, moss on the stones' tops and dripping down a few faces, thickest under the logs, and grass at the foot. Families `ledge`, `stone`, `log`, `log_end`, `soil`, `grass`, `moss`, painted from the
 stage's palette in the game; each piece bakes its occlusion into linear vertex colours with the built meadow round it.
 
 Run (Blender 5.2):
@@ -31,6 +35,10 @@ from fold_kit import folded_dome  # noqa: E402
 argv = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
 opts = {argv[i].lstrip("-"): argv[i + 1] for i in range(0, len(argv) - 1, 2)}
 VARIANT = opts.get("variant", "A").upper()
+FIELD = opts.get("stones", "") == "field"
+MOSS = opts.get("moss", "0") == "1"
+# Fieldstone tints (multiplied into the baked occlusion with the stone's own value): warm ochre, blue-grey, plain, rosy, lichen.
+TINTS = [(1.0, 0.86, 0.68), (0.8, 0.86, 1.0), (0.96, 0.96, 0.96), (1.0, 0.82, 0.76), (0.86, 0.95, 0.74)]
 manifest = json.load(open(os.path.join(opts["dir"], "manifest.json")))
 BLOCK = [r for r in manifest["rects"] if r[4] < 0.5][0]
 LEFT, RIGHT, TOP, BOTTOM = BLOCK[0], BLOCK[1], BLOCK[2], BLOCK[3]
@@ -61,6 +69,8 @@ def part(name, mat):
     if key not in PARTS:
         PARTS[key] = bmesh.new()
         PARTS[key].verts.layers.float.new("tone")
+        for c in ("tr", "tg", "tb"):
+            PARTS[key].verts.layers.float.new(c)
     return PARTS[key]
 
 
@@ -78,6 +88,98 @@ def stone(bm, c, size, rng, bevel=0.18):
     for v in out["verts"]:
         if layer is not None and v.is_valid:
             v[layer] = tone
+
+
+def rough_stone(bm, c, size, rng, tint, value):
+    """A fieldstone: a box pushed out of square at every corner, bevelled, in its own value and tint."""
+    res = bmesh.ops.create_cube(bm, size=2.0)
+    verts = res["verts"]
+    rot = Matrix.Rotation(rng.uniform(-0.08, 0.08), 3, "Y")
+    deep = size.y * rng.uniform(0.85, 1.0)
+    for v in verts:
+        # (Each corner pulled in, never out: pushed out, a stone ran into its neighbours and the corners buried in them baked black. Its
+        # depth one for the whole stone: a front twisted out of plane folded under the bevel and baked black too.)
+        kx, kz = 1.0 - rng.uniform(0.0, 0.14), 1.0 - rng.uniform(0.0, 0.14)
+        v.co = rot @ Vector((v.co.x * kx * size.x, v.co.y * deep, v.co.z * kz * size.z)) + c
+    edges_ = list({e for v in verts for e in v.link_edges})
+    # (Clamped: on a lump with corners pulled in unevenly, a wider bevel overlapped itself, folded faces inward and baked them black.)
+    out = bmesh.ops.bevel(bm, geom=edges_, offset=min(size.x, size.z) * 0.16, segments=1, affect="EDGES", clamp_overlap=True)
+    layers = [bm.verts.layers.float.get(k) for k in ("tone", "tr", "tg", "tb")]
+    for v in out["verts"]:
+        if v.is_valid:
+            v[layers[0]] = value
+            for k in range(3):
+                v[layers[k + 1]] = tint[k]
+
+
+def moss_on(bm, c, size, rng, drip):
+    """Moss over a stone's top, a little proud of it, and now and then a tongue of it hanging down its face."""
+    top = c.z + size.z * 1.02 + 0.03
+    front = c.y - size.y * 0.95
+    sx = size.x * rng.uniform(0.55, 0.9)
+    ox = rng.uniform(-0.2, 0.2) * size.x
+    cap = bm.faces.new([bm.verts.new(Vector(q)) for q in ((c.x + ox - sx, front - 0.04, top), (c.x + ox + sx, front - 0.04, top),
+                                                           (c.x + ox + sx * 0.8, c.y + size.y * 0.3, top), (c.x + ox - sx * 0.8, c.y + size.y * 0.3, top))])
+    cap.normal_update()
+    if cap.normal.z < 0:
+        cap.normal_flip()
+    if drip:
+        w = sx * rng.uniform(0.3, 0.6)
+        dx = c.x + ox + rng.uniform(-0.4, 0.4) * sx
+        hang = size.z * rng.uniform(0.4, 0.9)
+        # (Five-sided with an uneven foot: as a triangle it read as a sticker.)
+        tongue = bm.faces.new([bm.verts.new(Vector(q)) for q in ((dx - w, front - 0.05, top), (dx + w, front - 0.05, top),
+                                                                  (dx + w * 0.7, front - 0.05, top - hang * 0.45),
+                                                                  (dx + w * 0.15, front - 0.05, top - hang),
+                                                                  (dx - w * 0.6, front - 0.05, top - hang * 0.6))])
+        tongue.normal_update()
+        if tongue.normal.y > 0:
+            tongue.normal_flip()
+
+
+def field_wall(y, rng):
+    """The wall under the logs in fieldstone (fidelity review 6): courses of uneven height, a big stone now and then with smaller ones
+    packed above and below it, every stone a rough lump of its own value and tint, set in or out a little."""
+    bm = part("Stones", "stone")
+    moss = part("Moss", "moss") if MOSS else None
+    first = True
+    while y > Y_BOT + 0.25:
+        lo, hi = edges(y)
+        row_h = rng.uniform(0.5, 0.85)
+        x = lo - rng.uniform(0.0, 0.5)
+        while x < hi - 0.15:
+            big = rng.random() < 0.3
+            w = rng.uniform(1.0, 1.8) if big else rng.uniform(0.45, 1.0)
+            stack = [row_h] if big or rng.random() < 0.55 else [row_h * 0.45, row_h * 0.55]
+            yy = y
+            for h in stack:
+                hh = h - 0.05
+                ww = w * (rng.uniform(0.8, 1.0) if len(stack) > 1 else 1.0)
+                cx = min(x + ww * 0.5, hi - ww * 0.4)
+                c = P(cx, yy - hh * 0.5, FZ + 0.32 + rng.uniform(-0.08, 0.1))
+                size = Vector((ww * 0.47, 0.32, hh * 0.47))
+                rough_stone(bm, c, size, rng, rng.choice(TINTS), rng.uniform(0.72, 1.0))
+                if moss is not None and rng.random() < (0.75 if first else 0.22):
+                    moss_on(moss, c, size, rng, drip=rng.random() < (0.5 if first else 0.25))
+                yy -= h
+            x += w + 0.06
+        y -= row_h + 0.05
+        first = False
+    if moss is not None:
+        # Grass at the wall's foot, where it meets the hill.
+        g = part("Foot", "grass")
+        lo, hi = edges(Y_BOT + 0.3)
+        x = lo
+        while x < hi:
+            for _ in range(3):
+                bx = x + rng.uniform(-0.2, 0.2)
+                ht = rng.uniform(0.3, 0.6)
+                f = g.faces.new([g.verts.new(q) for q in (P(bx - 0.18, Y_BOT, FZ + 0.7), P(bx + 0.18, Y_BOT, FZ + 0.7),
+                                                          P(bx + rng.uniform(-0.15, 0.15), Y_BOT + ht, FZ + 0.75))])
+                f.normal_update()
+                if f.normal.y > 0:
+                    f.normal_flip()
+            x += rng.uniform(0.5, 1.1)
 
 
 def folded_face(bm, rng, depth, width, step=0.5):
@@ -205,6 +307,9 @@ def build():
                 x = x1 + 0.06
             y -= r * 1.9
             course += 1
+        if FIELD:
+            field_wall(y, rng)
+            y = Y_BOT
         bm = part("Stones", "stone")
         while y > Y_BOT + 0.3:
             lo, hi = edges(y)
@@ -288,11 +393,17 @@ def bake_occlusion():
         tone = o.data.attributes.get("tone")
         if tone is None:
             continue
+        tint = [o.data.attributes.get(k) for k in ("tr", "tg", "tb")]
         col = o.data.color_attributes["Col"].data
         for v in o.data.vertices:
             k = tone.data[v.index].value or 1.0
-            c = col[v.index].color
-            col[v.index].color = (c[0] * k, c[1] * k, c[2] * k, 1.0)
+            # (A fieldstone's tint, 0 where none was set.)
+            t = [(a.data[v.index].value or 1.0) if a is not None else 1.0 for a in tint]
+            c = list(col[v.index].color)
+            if tint[0] is not None and tint[0].data[v.index].value > 0.0:
+                # (A fieldstone's shade floored: packed close, the corners in its joints baked to nothing and whole faces drew black.)
+                c = [0.25 + 0.75 * q for q in c[:3]]
+            col[v.index].color = (c[0] * k * t[0], c[1] * k * t[1], c[2] * k * t[2], 1.0)
     for o in context:
         bpy.data.objects.remove(o, do_unlink=True)
 

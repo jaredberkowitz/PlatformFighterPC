@@ -193,6 +193,15 @@ static func export_scene(root: Node3D, bake_key: String, rects: Array = [], fron
 	for gi: GeometryInstance3D in root.find_children("*", "GeometryInstance3D", true, false):
 		if list.has(gi) or not _occludes(gi):
 			continue
+		# (Not the modelled front: the front builders bake a new one in its place, and inside the old one every face baked black,
+		# fidelity review 6. By its mark, not its name: beside a first build still being freed it is `@Node3D@2`.)
+		var in_front := false
+		var n: Node = gi
+		while n != null and n != root and not in_front:
+			in_front = n.has_meta("modelled_front")
+			n = n.get_parent()
+		if in_front:
+			continue
 		var copy: GeometryInstance3D
 		if gi is MultiMeshInstance3D:
 			copy = MultiMeshInstance3D.new()
@@ -413,6 +422,7 @@ static func place_front(root: Node3D, t: Dictionary, scene: Node3D) -> void:
 	var glow := {"glass_lit": Color(1.0, 0.72, 0.4), "glass_dark": Color(0.12, 0.13, 0.26), "bulb": Color(1.0, 0.94, 0.8)}
 	scene.name = "ModelledFront"
 	scene.set_meta("lit_piece", true)
+	scene.set_meta("modelled_front", true)
 	root.add_child(scene)
 	var top := -INF
 	for mi: MeshInstance3D in scene.find_children("*", "MeshInstance3D", true, false):
@@ -997,6 +1007,14 @@ static func _ground_colours(t: Dictionary) -> Dictionary:
 	out["abyss"] = Color(0.26, 0.2, 0.42)
 	out["abyss_far"] = Color(0.4, 0.34, 0.62)
 	out["cliff_b"] = Color(0.16, 0.32, 0.32)
+	# (Fidelity review 6, the grove's rock shaped: each block's bevel a lit rim in a lighter moss-grey; and the abyss a misty valley, its
+	# mist a step lighter than the abyss with a paler cut edge.)
+	out["cliff_lit"] = Color(0.42, 0.56, 0.48)
+	out["abyss_mist"] = Color(0.42, 0.36, 0.62)
+	out["card_abyss_mist"] = Color(0.56, 0.5, 0.78)
+	out["valley_lit"] = Color(0.4, 0.5, 0.62)
+	out["valley_shade"] = Color(0.28, 0.3, 0.5)
+	out["valley_bark"] = Color(0.32, 0.28, 0.44)
 	# (The canyon's floor in paper: its sand sheets in three tones round the desert floor's, their cut edges, wind ripples, the dry wash
 	# and its banks, pebbles, scrub and the shade under it.)
 	var sand: Color = bd.get("desert_floor", Color(0.94, 0.68, 0.4))
