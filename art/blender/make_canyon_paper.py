@@ -12,6 +12,12 @@ buttes and the desert floor laid in paper over the code-built sand:
      ripples drawn on some as pale strips;
   DB DA with a dry wash winding in from the far right to the front, a pale sheet with darker banks and pebbles along them;
   DC DB with paper scrub, stones and the soft shade under them in place of the code-built scrub (which is hidden under it).
+After fidelity review 4 (the buttes and the arch read as stacks of pancakes, rounded discs unlike the slab front and the references'
+chunky cardboard rock, docs/art/stages/LOOK.md lesson 4), three more, each on DC's floor:
+  KA cardboard blocks: every butte two or three tiers of angular blocks, a few big flat planes each with a bevelled top edge, stepping
+     in as they rise, each tier banded in the strata; the arch's legs blocks and its span one bevelled beam in three pieces;
+  KB slab courses: built as the stage's own front is, courses of squared slabs of the strata laid in rows, stepping in near the top;
+  KC KA with notched crowns (the top tier split into two or three blocks of different heights) and fallen blocks round the feet.
 Every look carries the dunes as standing cut-out flats along the crests of the dune ranges they stand in for.
 Each piece is its own object so the game can lay the air of its depth over it, and bakes its occlusion into linear vertex colours.
 Families `rock_a`, `rock_b`, `rock_c` (the strata), `dune_far`, `dune_near`, and their cut edges `card_<family>`.
@@ -133,6 +139,164 @@ def arch_stack(name, b, rng):
             yb = FLOOR + leg_h - 1.0 + lift + 1.8 * math.sin(t1 * math.pi)
             ym = (ya + yb) * 0.5
             plate(name, fam, (xa + xb) * 0.5, cz, (xb - xa) * 0.66, d * (0.42 - band * 0.04), ym, ym + th, lobes, s + band * 3, n=16)
+
+
+# ---- KA, KB, KC: cardboard rock ---------------------------------------------------------------------------------------------------
+
+
+OWN = set()        # pieces whose faces are turned outward as they are built (each block's own middle), not from one axis
+
+
+def facet_ring(cx, cz, rx, rz, corners, rng, rot=None):
+    """A block's outline: a few straight sides at uneven angles, so it reads as cut card, not a disc."""
+    rot = rng.uniform(0, math.tau) if rot is None else rot
+    angs = sorted(rot + math.tau * (i + rng.uniform(-0.28, 0.28)) / corners for i in range(corners))
+    return [(cx + rx * math.cos(a) * rng.uniform(0.9, 1.05), cz + rz * math.sin(a) * rng.uniform(0.9, 1.05)) for a in angs]
+
+
+def oriented(bm, pts, centre):
+    f = face(bm, pts)
+    f.normal_update()
+    if f.normal.dot(f.calc_center_median() - centre) < 0.0:
+        f.normal_flip()
+
+
+def block(name, fam, ring, y0, y1, bevel):
+    """A bevelled block: straight sides from y0 up to the bevel, a chamfer, and a flat top inset by the bevel."""
+    OWN.add(name)
+    bm = part(name, fam)
+    cx = sum(q[0] for q in ring) / len(ring)
+    cz = sum(q[1] for q in ring) / len(ring)
+    centre = P(cx, (y0 + y1) * 0.5, cz)
+    bevel = min(bevel, (y1 - y0) * 0.45)
+    inset = []
+    for (x, z) in ring:
+        d = math.hypot(x - cx, z - cz) or 1.0
+        f = max(0.2, 1.0 - bevel / d)
+        inset.append((cx + (x - cx) * f, cz + (z - cz) * f))
+    n = len(ring)
+    yb = y1 - bevel
+    for i in range(n):
+        j = (i + 1) % n
+        (xa, za), (xb, zb) = ring[i], ring[j]
+        oriented(bm, (P(xa, y0, za), P(xb, y0, zb), P(xb, yb, zb), P(xa, yb, za)), centre)
+        (ia, ka), (ib, kb) = inset[i], inset[j]
+        oriented(bm, (P(xa, yb, za), P(xb, yb, zb), P(ib, y1, kb), P(ia, y1, ka)), centre)
+    oriented(bm, [P(x, y1, z) for (x, z) in inset], centre)
+
+
+def butte_blocks(name, b, rng, notched=False):
+    """A butte as two or three tiers of bevelled blocks stepping in, each tier banded in the strata, on a low skirt block."""
+    x0, y0, z0, x1, y1, z1 = b[:6]
+    cx, cz = (x0 + x1) * 0.5, (z0 + z1) * 0.5
+    rx, rz = (x1 - x0) * 0.5, (z1 - z0) * 0.5
+    h = y1 - FLOOR
+    corners = rng.randrange(5, 8)
+    rot = rng.uniform(0, math.tau)
+    block(name, "rock_b", facet_ring(cx, cz, rx * 0.66, rz * 0.62, corners + 1, rng, rot), FLOOR - 0.5, FLOOR + h * 0.12, 1.4)
+    tiers = 3 if h > 14 else 2
+    y = FLOOR + h * 0.12
+    k = 0
+    for t in range(tiers):
+        sc = 0.54 - 0.09 * t
+        top = FLOOR + h * (0.12 + 0.88 * (t + 1) / tiers)
+        ox, oz = rng.uniform(-1.2, 1.2), rng.uniform(-0.6, 0.6)
+        ring = facet_ring(cx + ox, cz + oz, rx * sc, rz * sc, corners, rng, rot + rng.uniform(-0.2, 0.2))
+        last = t == tiers - 1
+        if last and notched:
+            # The crown split into blocks of different heights, as weathered rock breaks.
+            parts = rng.randrange(2, 4)
+            for q in range(parts):
+                u0, u1 = q / parts, (q + 1) / parts
+                bx = cx + ox + rx * sc * (u0 + u1 - 1.0) * 0.9
+                ring_q = facet_ring(bx, cz + oz, rx * sc / parts * 1.05, rz * sc * 0.9, 5, rng)
+                yq = top - (y1 - FLOOR) * rng.uniform(0.0, 0.12)
+                block("%s_c%d" % (name, q), STRATA[(k + q) % len(STRATA)], ring_q, y - 0.2, yq, 0.9)
+            break
+        # (Banded: the tier's height in two or three strata, each a block on the last with its own small bevel.)
+        bands = rng.randrange(2, 4)
+        for q in range(bands):
+            ya = y + (top - y) * q / bands
+            yb_ = y + (top - y) * (q + 1) / bands
+            shrink = 1.0 - 0.03 * q
+            ring_q = [(cx + ox + (x - cx - ox) * shrink, cz + oz + (z - cz - oz) * shrink) for (x, z) in ring]
+            block(name, STRATA[k % len(STRATA)], ring_q, ya, yb_, 0.8 if q == bands - 1 else 0.35)
+            k += 1
+        y = top
+    if notched:
+        fallen(name, cx, cz, rx * 0.62, rz * 0.6, h, rng)
+
+
+def fallen(name, cx, cz, rx, rz, h, rng):
+    """Blocks fallen from the butte, lying round its foot, the biggest nearest it."""
+    for q in range(rng.randrange(3, 6)):
+        a = rng.uniform(0, math.tau)
+        d = rng.uniform(1.0, 1.35)
+        bx, bz = cx + rx * d * math.cos(a), cz + rz * d * math.sin(a)
+        sz = h * rng.uniform(0.06, 0.12)
+        block("%s_f%d" % (name, q), rng.choice(STRATA), facet_ring(bx, bz, sz, sz * 0.8, rng.randrange(4, 6), rng), FLOOR - 0.3, FLOOR + sz * rng.uniform(0.9, 1.3), sz * 0.25)
+
+
+def slab(name, fam, x0, x1, z0, z1, y0, y1, bevel=0.35):
+    block(name, fam, [(x0, z0), (x1, z0), (x1, z1), (x0, z1)], y0, y1, bevel)
+
+
+def butte_courses(name, b, rng):
+    """A butte built as the stage's front is: courses of squared slabs of the strata, a course each band, stepping in near the top."""
+    x0, y0, z0, x1, y1, z1 = b[:6]
+    cx, cz = (x0 + x1) * 0.5, (z0 + z1) * 0.5
+    rx, rz = (x1 - x0) * 0.5, (z1 - z0) * 0.5
+    h = y1 - FLOOR
+    y = FLOOR - 0.4
+    k = 0
+    courses = max(4, int(h / 2.6))
+    for c in range(courses):
+        t = c / (courses - 1)
+        th = (y1 - y) / (courses - c)
+        half = rx * (0.6 if c == 0 else (0.52 - 0.12 * max(0.0, t - 0.55) / 0.45)) * rng.uniform(0.96, 1.04)
+        dep = rz * (0.58 if c == 0 else 0.48 - 0.08 * t)
+        xa = cx - half + rng.uniform(-0.6, 0.6)
+        xe = cx + half + rng.uniform(-0.6, 0.6)
+        # (The course in two to four slabs of uneven length, a hairline gap between them, each a little in or out.)
+        cuts = sorted(rng.uniform(0.2, 0.8) for _ in range(rng.randrange(1, 4)))
+        xs = [xa] + [xa + (xe - xa) * u for u in cuts] + [xe]
+        fam = STRATA[k % len(STRATA)] if c else "rock_b"
+        for q in range(len(xs) - 1):
+            dz = rng.uniform(-0.5, 0.5)
+            slab("%s_s%d" % (name, c), fam, xs[q] + 0.08, xs[q + 1] - 0.08, cz - dep + dz, cz + dep + dz, y, y + th * rng.uniform(0.9, 1.0))
+        y += th
+        k += 1
+
+
+def arch_blocks(name, b, rng, courses=False):
+    """The arch: two legs of blocks (or slab courses) and a span of three bevelled beams bowing across their tops."""
+    x0, y0, z0, x1, y1, z1 = b
+    cx, cz = (x0 + x1) * 0.5, (z0 + z1) * 0.5
+    w, d, h = x1 - x0, z1 - z0, y1 - FLOOR
+    leg_h = h * 0.72
+    for side in (-1, 1):
+        lx = cx + side * (w * 0.5 - 3.0)
+        y = FLOOR - 0.3
+        k = 0
+        while y < FLOOR + leg_h - 0.5:
+            th = rng.uniform(2.0, 2.8)
+            r_ = 3.1 - 0.5 * (y - FLOOR) / leg_h
+            nm = "%s_l%d" % (name, side + 1)
+            if courses:
+                slab(nm, STRATA[k % len(STRATA)], lx - r_, lx + r_, cz - d * 0.42, cz + d * 0.42, y, y + th)
+            else:
+                block(nm, STRATA[k % len(STRATA)], facet_ring(lx + rng.uniform(-0.3, 0.3), cz, r_, d * 0.45, 6, rng), y, y + th, 0.6)
+            y += th
+            k += 1
+    for band, (lift, th, fam) in enumerate(((0.0, 2.2, "rock_b"), (2.2, 1.0, "rock_c"), (3.2, 1.6, "rock_a"))):
+        segs = 3
+        for sgm in range(segs):
+            t0, t1 = sgm / segs, (sgm + 1) / segs
+            xa = x0 + 0.6 + (w - 1.2) * t0
+            xb = x0 + 0.6 + (w - 1.2) * t1
+            ym = FLOOR + leg_h - 1.0 + lift + 1.6 * math.sin((t0 + t1) * 0.5 * math.pi)
+            dd = d * (0.42 - band * 0.04)
+            slab("%s_span%d" % (name, band), fam, xa + 0.05, xb - 0.05, cz - dd, cz + dd, ym, ym + th, 0.5)
 
 
 # ---- Pop-up cut-outs ----------------------------------------------------------------------------------------------------------------
@@ -366,8 +530,8 @@ def shade(name, x, y, z, rad):
                                         P(x + rad * 0.15 + rad * 1.3 * math.cos(b), y + 0.03, z - rad * 0.1 + rad * 0.8 * math.sin(b))))
 
 
-def desert_floor(rng):
-    level = {"DA": 1, "DB": 2, "DC": 3}[VARIANT]
+def desert_floor(rng, level=None):
+    level = level or {"DA": 1, "DB": 2, "DC": 3}[VARIANT]
     tones = ["sand_a", "sand_b", "sand_c"]
     k = 0
     z = 10.0
@@ -423,6 +587,18 @@ def build_ground():
     rng = random.Random(53)
     if VARIANT in ("DA", "DB", "DC"):
         desert_floor(random.Random(61))
+    if VARIANT in ("KA", "KB", "KC"):
+        # (On the floor as shipped, DC's.)
+        desert_floor(random.Random(61), level=3)
+        for k, m in enumerate(LAYOUT.get("mesas", [])):
+            if VARIANT == "KB":
+                butte_courses("butte%d" % k, m, rng)
+            else:
+                butte_blocks("butte%d" % k, m, rng, notched=VARIANT == "KC")
+        if LAYOUT.get("arch"):
+            arch_blocks("arch", LAYOUT["arch"], rng, courses=VARIANT == "KB")
+        dune_flats()
+        return
     for k, m in enumerate(LAYOUT.get("mesas", [])):
         far = m[6] == 1
         name = "butte%d" % k
@@ -443,7 +619,7 @@ def make_objects():
         bmesh.ops.remove_doubles(bm, verts=bm.verts[:], dist=0.0005)
         bm.normal_update()
         ax = AXES.get(name)
-        for f in bm.faces:
+        for f in ([] if name in OWN else bm.faces):
             c = f.calc_center_median()
             if ax is not None:
                 # (A stack's plates: tops up, cut edges out from its middle.)

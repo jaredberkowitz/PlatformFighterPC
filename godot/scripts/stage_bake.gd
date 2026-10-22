@@ -510,6 +510,12 @@ static func place_play(root: Node3D, t: Dictionary, path: String) -> void:
 			m.set_shader_parameter("facets", false)
 			m.set_shader_parameter("vertex_shade", true)
 			m.set_shader_parameter("ramp_softness", 0.12)
+			# (Form on the ground, the light pass, the owner's pick 2026-10-21: the top falls softly into shade toward its front edge; the
+			# lawns read flat once the scenery's ink went.)
+			if fam in ["lawn", "top", "path", "fringe"]:
+				m.set_shader_parameter("lawn_fall", 0.9)
+				m.set_shader_parameter("lawn_front", StageArt.STAGE_FRONT)
+				m.set_shader_parameter("lawn_span", 6.0)
 			mi.set_surface_override_material(s, m)
 		mi.set_meta("prebaked", true)
 	print("play mock: placed %s" % path.get_file())

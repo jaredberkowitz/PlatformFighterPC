@@ -24,6 +24,11 @@ uniform float patch_amount = 0.0;
 uniform float back_deepen = 0.0;
 uniform float back_from = 1.0;
 uniform float back_span = 7.0;
+// A play top's soft fall into shade toward its front edge (0 off; the light pass, docs/art/stages/BACKGROUNDS.md): from `lawn_front`
+// (world z, the front edge) back over `lawn_span` units, deeper and a little cooler by `lawn_fall`, so the ground has form.
+uniform float lawn_fall = 0.0;
+uniform float lawn_front = 2.0;
+uniform float lawn_span = 4.0;
 // World-laid tops only: painted grass-blade clumps (0 off), a few short tapered strokes leaning together in scattered clumps, lit in the
 // sunlit patches and deeper in the shaded ones (the owner's material notes, 2026-10-17: grass wants selective highlights and
 // directional variation, not one smooth sheet). How strong.
@@ -161,6 +166,10 @@ void fragment() {
 	vec3 c = albedo.rgb * vshade;
 	// (How lit the grass blades are, -1 until the painted patches say; see `blades`.)
 	float blade_light = -1.0;
+	if (lawn_fall > 0.0 && world_normal.y > 0.5) {
+		float edge = smoothstep(lawn_front - lawn_span, lawn_front, world_pos.z);
+		c *= mix(vec3(1.0), vec3(0.62, 0.68, 0.84), edge * edge * lawn_fall);
+	}
 	if (use_tex) {
 		vec2 uv = UV * tex_scale;
 		if (world_tile > 0.0) {
