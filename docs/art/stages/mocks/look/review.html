@@ -100,8 +100,9 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
     <p>The pilot rebuilds the grove's ledges on those rules: each ledge broken into a few big chunks at their own heights and depths, with dark gaps between them; a thick grass top whose lip overhangs in a scalloped fringe, with ferns and vines hanging from it; under it, dark cardboard rock blocks with faceted fronts that step back into a violet abyss; deep baked shade under every lip. The side trees and gates keep their footing.</p>
     <p><b>Pilot 2, after your notes (the islands didn't read as believable, trees floated, every island faced the same way, some trees were too short):</b> the land is now connected. Two terraces either side and one right across the back stand round the chasm the island floats in, and each terrace's front rises from the one before it. Their edges wander out into promontories and turn back into the chasm, so the cliffs face every way. Every pine is seated on the top it stands on, clear of the edges, and the pines are bigger and fewer. The far tree village stands on the back terrace. Tufts break up the tops.</p>
     <p><b>Pilot 3, your ask:</b> the terraces in a half-circle round the stage. Three tiers, each a band of the arc, run from beside the stage round behind it, each rising from the one in front, so the island floats in a bowl of cliffs. The left and right halves of the two nearer tiers meet straight behind the great tree, each at its own height. The side trees, the gates and the far tree village keep their footing.</p>
+    <p><b>Pilot 4, after your notes on the trees:</b> the terraces now stand the grove's own tree (the side trees' model) at the side trees' size, as the reference's forest is all one kind of giant. They replace the small paper pines, which read as shrubs. Each tree is seated on the grass and kept clear of the edges, the gates, the village's trees and the others. The cliffs have wider, taller blocks with moss on the ledges each block leaves as it steps back, and the tops have flowers among the tufts. Frame time: the GPU at 2.7 ms (2.35 today), 183 fps.</p>
     <div class="row" role="group" aria-label="View"><button data-hv="w">Wide</button><button data-hv="m">Match camera</button><button data-hv="r">Reference</button></div>
-    <div class="row" role="group" aria-label="Option"><button data-ho="T">Today (floating islands)</button><button data-ho="H">Pilot 1 (broken ledges)</button><button data-ho="H2">Pilot 2 (connected terraces)</button><button data-ho="H3">Pilot 3 (half-circle)</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-ho="T">Today (floating islands)</button><button data-ho="H">Pilot 1 (broken ledges)</button><button data-ho="H2">Pilot 2 (connected terraces)</button><button data-ho="H3">Pilot 3 (half-circle)</button><button data-ho="H4">Pilot 4 (one kind of tree)</button></div>
     <div class="viewer"><img id="himg" alt="Grove ground pilot"><span class="vtag" id="htag"></span></div>
     <p class="muted">It isn't finished: the blocks still read a little like stacked boxes in the wide view, and the far ledges' tops line up. But the frame now has the reference's light-over-dark structure. If this is the direction, I'd take the same rules to the other three stages:</p>
     <ul style="display:grid;gap:6px;margin:0;padding-left:1.2em;max-width:75ch">
@@ -355,7 +356,7 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
   group("data-rs", function (v) { rs = v; }, rrender);
   group("data-rv", function (v) { rv = v; }, rrender);
   rrender();
-  var hv = "w", ho = "H3";
+  var hv = "w", ho = "H4";
   function hrender() {
     var img = document.getElementById("himg");
     if (hv === "r") {
@@ -363,7 +364,7 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
       document.getElementById("htag").textContent = "The grove's reference";
     } else {
       img.src = "gh_" + hv + "_" + ho + ".jpg";
-      document.getElementById("htag").textContent = "Grove \u00b7 " + ({ H: "pilot 1", H2: "pilot 2", H3: "pilot 3", T: "today" })[ho] + (hv === "w" ? " \u00b7 wide" : " \u00b7 match camera");
+      document.getElementById("htag").textContent = "Grove \u00b7 " + ({ H: "pilot 1", H2: "pilot 2", H3: "pilot 3", H4: "pilot 4", T: "today" })[ho] + (hv === "w" ? " \u00b7 wide" : " \u00b7 match camera");
     }
     pressed("data-hv", hv); pressed("data-ho", ho);
   }

@@ -514,12 +514,12 @@ def edge_rock(name, a, b, out, top, drop, rng, far):
     s0 = 0.0
     k = 0
     while s0 < ln - 0.05:
-        w = min(rng.uniform(3.0, 6.0), ln - s0)
+        w = min(rng.uniform(4.0, 7.5), ln - s0)
         s1 = s0 + w
         y = top - 0.4
         step = 0.0
         while y > drop + 0.05:
-            h = rng.uniform(2.4, 4.2) if not far else rng.uniform(3.5, 5.5)
+            h = rng.uniform(3.0, 5.0) if not far else rng.uniform(3.5, 5.5)
             y_lo = max(drop - 0.3, y - h)
             if y_lo - (drop - 0.3) < 1.2:
                 y_lo = drop - 0.3
@@ -539,7 +539,15 @@ def edge_rock(name, a, b, out, top, drop, rng, far):
             if area > 0:
                 corners.reverse()
             fam = rocks[(k + rng.randrange(3)) % len(rocks)]
-            rock_block("%s_r%d" % (name, k % 6), fam, corners, y_lo, y, 0.45)
+            inset = rock_block("%s_r%d" % (name, k % 6), fam, corners, y_lo, y, 0.45)
+            if step > 0.0 and not far and rng.random() < 0.55:
+                # Moss on the ledge the block above leaves where it steps back (the reference's mossy rock).
+                ym = y + 0.03
+                # (The block's three front corners, whichever way its outline was wound, in order along the edge.)
+                front3 = sorted(sorted(inset, key=lambda q: -(q[0] * ox + q[1] * oz))[:3], key=lambda q: q[0] * tx + q[1] * tz)
+                fa_, fm_, fb_ = front3
+                face(part("%s_moss" % name, "moss"), (P(fa_[0], ym, fa_[1]), P(fm_[0], ym, fm_[1]), P(fb_[0], ym, fb_[1]),
+                                                       P(fb_[0] - ox * 1.1, ym, fb_[1] - oz * 1.1), P(fa_[0] - ox * 1.1, ym, fa_[1] - oz * 1.1)))
             y = y_lo
             step += rng.uniform(1.0, 2.0)
             k += 1
@@ -661,35 +669,55 @@ def hero_ledges(rng):
 HERO_TIERS = []
 
 
+# Where the far tree village's great trees stand (make_world.py GROVE_FAR), kept clear like the side trees.
+VILLAGE = [(-49.0, -106.0), (-31.0, -116.0), (47.0, -106.0), (30.0, -112.0)]
+SLOTS = []
+
+
+def tree_slot(x, y, z, size):
+    """An empty where the game stands the grove's own modelled tree (`treeslot`, StageBake.place_ground), as it stands the side trees:
+    one kind of tree at one size all round, as in the reference's forest of giants; the paper pines read as shrubs beside them."""
+    ob = bpy.data.objects.new("treeslot_%d" % len(SLOTS), None)
+    ob.location = P(x, y, z)
+    ob.scale = (size, size, size)
+    bpy.context.scene.collection.objects.link(ob)
+    SLOTS.append((x, z))
+
+
 def plant_trees_hero(rng):
-    """Paper pines on the terraces, seated on the top they stand on, clear of every edge, of the side trees and of the space behind the
-    fight; taller than the old ledges' (they read as shrubs beside the side trees)."""
+    """The grove's tree on the terraces, at the side trees' size (0.55 to 0.7 of the great tree), seated on the top it stands on, its
+    canopy clear of every edge, of the side trees, the village's trees and one another, and of the space behind the fight."""
     for name, poly, top, _ in HERO_TIERS:
         xs = [q[0] for q in poly]
         zs = [q[1] for q in poly]
-        # (Fewer, in loose groups: sixteen a terrace read as a tree farm.)
-        n = {"T2": 14}.get(name, 8)
+        n = {"T2": 6}.get(name, 3)
         placed = 0
         tries = 0
-        while placed < n and tries < 600:
+        while placed < n and tries < 2000:
             tries += 1
             x, z = rng.uniform(min(xs), max(xs)), rng.uniform(min(zs), max(zs))
             # (Clear of the space behind the fight, and of the near ends beside the stage, where tall pines would crowd the frame.)
             if not inside(poly, x, z) or abs(x) < (26 if name != "T2" else 16) or z > -15.0:
                 continue
-            if any(abs(x - tx) < 9 and abs(z - tz) < 9 for (tx, tz) in SIDE_TREES):
+            if any(math.hypot(x - tx, z - tz) < 15.0 for (tx, tz) in SIDE_TREES + VILLAGE + SLOTS):
                 continue
-            if any(not inside(poly, x + dx, z + dz) for (dx, dz) in ((3.5, 0), (-3.5, 0), (0, 3.5), (0, -3.5))):
+            if any(not inside(poly, x + dx, z + dz) for (dx, dz) in ((6, 0), (-6, 0), (0, 6), (0, -6), (4, 4), (-4, 4))):
                 continue
-            if any(inside(q, x, z) for (_, q, t, _) in HERO_TIERS if t > top + 0.01):
+            if any(inside(q, x + dx, z + dz) for (_, q, t, _) in HERO_TIERS if t > top + 0.01 for (dx, dz) in ((0, 0), (0, -6))):
                 continue
-            sc = rng.uniform(3.0, 4.6) if rng.random() < 0.75 else rng.uniform(5.0, 6.5)
-            disc_pine(name + "_trees", x, top, z, sc, rng)
+            # (Sunk 0.6, as the side trees are, so the roots sit in the grass.)
+            tree_slot(x, top - 0.6, z, rng.uniform(0.55, 0.7))
             placed += 1
         # Tufts over the top, thicker toward its front, so it isn't one plain sheet.
         for _ in range(int((max(xs) - min(xs)) * (max(zs) - min(zs)) * (0.02 if name != "T2" else 0.008))):
             x, z = rng.uniform(min(xs), max(xs)), rng.uniform(min(zs), max(zs))
             if not inside(poly, x, z) or any(inside(q, x, z) for (_, q, t, _) in HERO_TIERS if t > top + 0.01):
+                continue
+            if rng.random() < 0.15:
+                res = bmesh.ops.create_cone(part(name + "_flowers", rng.choice(("flower_a", "flower_b"))), cap_ends=True, segments=6,
+                                            radius1=0.35, radius2=0.12, depth=0.25)
+                for v in res["verts"]:
+                    v.co += P(x, top + 0.45, z)
                 continue
             for _t in range(3):
                 ang = rng.uniform(0, math.pi)

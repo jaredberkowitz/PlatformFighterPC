@@ -144,3 +144,12 @@ heights (-9.3 and -9.0, -5.0 and -4.5); T2 (100 to 136, -1) is whole. Each tier'
 (166 to 374 degrees for T0, 156 to 384 for T2), so its ends wrap past it beside the stage. The gates (radius 61 and 65), the side trees
 and the far tree village (110 to 121) keep their footing. Pines are kept off the near ends (z above -15), where they would crowd the
 frame. About 61,000 triangles.
+
+**Pilot 4, the owner's notes on the trees** ("all a somewhat consistent, believable and large size"; refine each stage on its own
+unless a game-wide system gives a real gain). The reference's forest is one kind of giant tree. The terraces now ask the game to stand
+the grove's own tree (`grove_tree.glb`, the side trees' model) at the side trees' size, 0.55 to 0.7 of the great tree: `treeslot` empties
+in the ground (`tree_slot`), turned into `StageArt.tree_slots` by `StageBake.place_ground` before `place_trees` runs. They replace the
+paper disc pines, which read as shrubs. Three a side on T0 and T1 and six on T2, each 15 from the side trees, the village's trees and
+one another, its canopy clear of every edge, sunk 0.6 as the side trees are. The cliffs have wider, taller blocks (4 to 7.5 by 3 to 5),
+moss on the ledges each block leaves as it steps back, and flowers among the tufts. About 44,000 triangles in the ground; the grove at
+183 fps with the GPU at 2.7 ms (2.35 ms today).

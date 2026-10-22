@@ -1062,6 +1062,11 @@ static func place_ground(root: Node3D, t: Dictionary, source: Array) -> void:
 		ground.set_meta("lit_piece", true)
 		root.add_child(ground)
 		_paint_ground(ground, colours)
+		# (Trees the ground asks for, `treeslot` empties: the theme's modelled tree stands at each, as at the code-built trees' places.)
+		for n in ground.find_children("treeslot*", "", true, false):
+			StageArt.tree_slots.append([(n as Node3D).position, (n as Node3D).scale.x])
+			n.get_parent().remove_child(n)
+			n.free()
 		# (A floor scattered in paper stands in for the code-built scrub and stones on it.)
 		if ground.find_children("scatter*", "", true, false).size() > 0 and root.get_parent() != null:
 			for n in root.get_parent().find_children("*", "GeometryInstance3D", true, false):
