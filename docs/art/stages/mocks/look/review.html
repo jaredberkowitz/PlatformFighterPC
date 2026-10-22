@@ -88,6 +88,24 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
     <p>Two lessons from the reference screenshots, mocked from the match camera: the scenery without ink outlines, its edges lit as card bevels instead, and the paper houses rebuilt at the characters' proportions. The earlier rounds stay on the <a href="https://claude.ai/artifact/D1du6MREVumiJDrEdNypW4">Stage Fidelity Review</a>, which is full.</p>
   </header>
 
+  <section class="panel" aria-labelledby="cb-h" id="canyonbehind">
+    <div class="eyebrow">Your call is needed &middot; review 6, item 2: the canyon behind the fight</div>
+    <h2 id="cb-h">Buttes of rock, not stacked discs</h2>
+    <p>First, city C is built: the night sky, the haze between the rows and the cooler colour plan are in the game (before and after are in the city section above). Then the canyon. Review 6 found three things here. The butte right behind the fighters was still a stack of round discs: every tier was cut into bands, each a small block with its own bevel. The plain at the wide camera was empty. The arch read boxy.</p>
+    <p>All three options break the arch's silhouette: one end of the span is broken off at a slant, with the piece lying at the left leg's foot, and a notch is stepped into its top.</p>
+    <div class="tablewrap"><table><thead><tr><th>Option</th><th>What changes</th></tr></thead><tbody>
+      <tr><td>A &middot; Solid buttes</td><td>Every butte is built as rock, as the arch is: two or three massive tiers with four or five sides, each set off the one under it and stepping well in. A pale band runs between the tiers, a dark cap sits on top, and on the tall ones a lump of cap is left standing.</td></tr>
+      <tr><td>B &middot; And a mesa behind the fight</td><td>A, with the butte behind the fighters turned into a broad, flat-topped mesa: wider than it is tall, a flat face toward the camera, and a pale band through it. A calm table behind the fight, not a pillar. Being lower, it shows the train above it, at the height of the top platform.</td></tr>
+      <tr><td>C &middot; And outcrops on the plain</td><td>B, with low rock ledges and boulders across the plain (one or two flat tiers, a pale band, a boulder or two beside each), kept off the dry wash, the buttes' feet and the strip behind the fight.</td></tr>
+    </tbody></table></div>
+    <p>Close up, today on the left (top to bottom: behind the fight with A, then with B; the arch and the butte beside it with A; the plain with C):</p>
+    <div class="viewer"><img src="cb_close.jpg" alt="The canyon behind the fight, today and with the options"></div>
+    <div class="row" role="group" aria-label="View"><button data-cbv="w">Wide</button><button data-cbv="m">Match camera</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-cbo="T">Today</button><button data-cbo="A">A &middot; Solid buttes</button><button data-cbo="B">B &middot; Mesa behind the fight</button><button data-cbo="C">C &middot; Outcrops on the plain</button></div>
+    <div class="viewer"><img id="cbimg" alt="Canyon option"><span class="vtag" id="cbtag"></span></div>
+    <p class="muted">These are shown without the canyon's light bake, today included, so they compare fairly; the chosen one gets lit when it ships. My pick: <b>C</b>. The solid buttes fix the discs, the mesa gives the fight a calm backdrop, and the outcrops fill the plain at the wide camera. Take A if you'd rather keep the tall butte behind the fight and the train hidden behind it.</p>
+  </section>
+
   <section class="panel" aria-labelledby="cn-h" id="citynight">
     <div class="eyebrow">Built (C) &middot; review 6, item 1: the city's sky and depth</div>
     <h2 id="cn-h">A night sky over the city, and air between its rows</h2>
@@ -895,5 +913,15 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
   group("data-cnv", function (v) { cnv = v; }, cnrender);
   group("data-cno", function (v) { cno = v; }, cnrender);
   cnrender();
+  var cbv = "w", cbo = "C";
+  var CBO = { T: "Today", A: "A \u00b7 Solid buttes", B: "B \u00b7 Mesa behind the fight", C: "C \u00b7 Outcrops on the plain" };
+  function cbrender() {
+    document.getElementById("cbimg").src = "cb_" + cbo + "_" + cbv + ".jpg";
+    document.getElementById("cbtag").textContent = "Canyon \u00b7 " + CBO[cbo] + (cbv === "w" ? " \u00b7 wide" : " \u00b7 match camera");
+    pressed("data-cbv", cbv); pressed("data-cbo", cbo);
+  }
+  group("data-cbv", function (v) { cbv = v; }, cbrender);
+  group("data-cbo", function (v) { cbo = v; }, cbrender);
+  cbrender();
 })();
 </script>

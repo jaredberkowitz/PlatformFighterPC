@@ -104,3 +104,15 @@ windows, the glow and the play building). On the Stage Look Review ("citynight",
 [theme], [backdrop] and [air]; the sky before it stays as [try_pre_night] (`--pal-try=pre_night` compares). No re-light: the sky's
 colours don't reach the baked or lit scenery (the play building's roof measured the same, 0.61, in every option). Before and after:
 `review6/city_night_built.jpg`. Next, item 2: the canyon behind the fight.
+
+## Item 2, the canyon behind the fight (2026-10-22, mock)
+
+The round stack behind the fighters was `butte_blocks`: every tier cut into bands, each band a small bevelled block shrunk a little, on a
+six- or seven-sided ring, so each butte read as stacked discs. New in `make_canyon_paper.py` (on `--variant KC`, off unless asked):
+`--arch chipped` (the arch's span broken off at one end at a slant, the piece at the left leg's foot, a notch stepped into its top);
+`--buttes solid` (`butte_rock`: two or three massive tiers of four or five sides, set off each other and stepping in, a pale band between,
+a dark cap, a lump of cap on the tall ones, fallen blocks); `--fight wide` (the butte behind the fight a broad flat-topped mesa, wider
+than tall, a flat face to the camera; lower, so the train shows above it at the top platform's height); `--plain outcrops` (`outcrops`:
+low ledges and boulders across the plain within the wide camera's view). Options, all `--arch chipped`: A `--buttes solid`; B with
+`--fight wide`; C with `--plain outcrops`. Mocked unlit on `--ground-mock=` against today's ground built the same way. On the Stage Look
+Review ("canyonbehind", `cb_*`); recommended C.
