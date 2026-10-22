@@ -147,3 +147,18 @@ triangles), `canyon_front.glb` `--variant A --cut 1 --courses 1` (38,600), `grov
 (155,000); the meadow, canyon and grove re-lit. Lit, the canyon's courses measured 0.30 (their extra cut edges and crevices), undoing
 review 5's lift; `sunset.cfg` `front_lift` 0.2 to 0.35 puts it back at 0.33 (and the courses alternate round the slab's tone, not below
 it). Before and after: `review6/fronts_built.jpg` (meadow, canyon and grove wide, then the meadow at the match camera). Next, item 4.
+
+## Item 4, no clones (2026-10-22, mock)
+
+- **Grove, the forest** (the owner's rule stands: one large consistent kind of tree): `StageBake.place_trees` takes a list of models,
+  each slot picking one by its place, and with the palette's `tree_vary` (`--tree-vary=1`) turns each tree and sizes it within a sixth,
+  by its place; the great tree (size 1) stays as it is, the front's roots run into it. `make_grove_trees.py --variant C --shape tall|broad`
+  builds two more shapes of the same pleated tree (2,900 and 2,800 triangles). `--tree-mock=` takes several, comma-separated. A turned
+  and sized; B three shapes as well.
+- **Beach, the paper waves**: `water.gdshader` `wave_vary` (the palette's `sea_vary`, `--sea-vary=`): 1 each tier's arcs their own
+  width and depth, wandering along the row; 2 with calm stretches where a tier's edge lies flat (no lip, and no shadow on the sheet
+  behind, which is the nearer tier's).
+- **Meadow, the stage hill**: `make_meadow_ground.py --hill big` (a third as many sheets, each of its own height, a broader wobble) and
+  `--hill banks` (those as terraces, each shelf falling to the next on a grass bank in the farmland terraces' `bank`).
+
+On the Stage Look Review ("noclones", `nc_*`); recommended B on all three.

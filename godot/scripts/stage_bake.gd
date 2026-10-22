@@ -843,14 +843,21 @@ static func surfaces(root: Node3D, theme_name: String) -> void:
 		printed.values().reduce(func(a, b): return a + b, 0), printed.size(), boosted, front_look])
 
 
-## The theme's modelled tree: a glTF path to try (`--tree-mock=<glb>`), the shipped model (`TREES`), or null (none, or `--no-trees`).
+## The theme's modelled tree: a glTF path to try (`--tree-mock=<glb>`, or several, comma-separated, one picked a slot), the shipped
+## model or models (`TREES`, a path or a list), or null (none, or `--no-trees`).
 static func tree_source(theme_name: String) -> Variant:
 	var mock := tree_mock_path()
 	if mock != "":
-		return mock
-	if OS.get_cmdline_user_args().has("--no-trees") or not TREES.has(theme_name) or not ResourceLoader.exists(TREES[theme_name]):
+		return Array(mock.split(",")) if mock.contains(",") else mock
+	if OS.get_cmdline_user_args().has("--no-trees") or not TREES.has(theme_name):
 		return null
-	return load(TREES[theme_name])
+	var paths: Array = TREES[theme_name] if TREES[theme_name] is Array else [TREES[theme_name]]
+	var scenes: Array = []
+	for p in paths:
+		if not ResourceLoader.exists(p):
+			return null
+		scenes.append(load(p))
+	return scenes[0] if scenes.size() == 1 else scenes
 
 
 static func tree_mock_path() -> String:
@@ -862,12 +869,21 @@ static func tree_mock_path() -> String:
 
 ## Places the modelled tree (`source`: a PackedScene, or a glTF path for mocks) where each code-built tree stood (`StageArt.tree_slots`),
 ## at its size, painted from the stage's palette with the scenery's toon material and the model's own baked occlusion (vertex colours).
+## `source` may be a list of them: each slot takes one, by its place (fidelity review 6: one tree at one size all round read as a clone).
+## With the palette's [backdrop] `tree_vary` (or `--tree-vary=1`) each tree is also turned and sized a little by its place.
 static func place_trees(root: Node3D, t: Dictionary, slots: Array, source: Variant) -> void:
-	var doc := GLTFDocument.new()
-	var state := GLTFState.new()
-	if source is String and doc.append_from_file(source, state) != OK:
-		push_warning("tree mock %s could not be read" % source)
-		return
+	var sources: Array = source if source is Array else [source]
+	var docs: Array = []
+	for src in sources:
+		var doc := GLTFDocument.new()
+		var state := GLTFState.new()
+		if src is String and doc.append_from_file(src, state) != OK:
+			push_warning("tree mock %s could not be read" % src)
+			return
+		docs.append([doc, state])
+	var vary := float(StageArt.palette(String(t.get("name", ""))).get("backdrop", {}).get("tree_vary", 0.0))
+	if flag("--tree-vary=") != "":
+		vary = float(flag("--tree-vary="))
 	var grass: Color = t.get("grass", Color(0.5, 0.8, 0.3))
 	# (The bark the front's roots wear, so the great tree and its roots are one tree.)
 	var bark := Color(0.46, 0.37, 0.3)
@@ -877,10 +893,20 @@ static func place_trees(root: Node3D, t: Dictionary, slots: Array, source: Varia
 	var colours := {"bark": bark, "leaf_lit": Color(0.46, 0.74, 0.36), "leaf_shade": Color(0.2, 0.46, 0.3),
 		"moss": grass.darkened(0.12)}
 	for slot in slots:
-		var tree: Node3D = (source as PackedScene).instantiate() if source is PackedScene else doc.generate_scene(state)
+		var at: Vector3 = slot[0]
+		var key := hash(Vector2i(roundi(at.x * 10.0), roundi(at.z * 10.0)))
+		# (The great tree, size 1, as it is: the front's roots run into it.)
+		var great := float(slot[1]) >= 0.95
+		var k := 0 if great else absi(key) % sources.size()
+		var pick: Variant = sources[k]
+		var tree: Node3D = (pick as PackedScene).instantiate() if pick is PackedScene else (docs[k][0] as GLTFDocument).generate_scene(docs[k][1])
 		tree.name = "ModelledTree"
-		tree.position = slot[0]
+		tree.position = at
 		tree.scale = Vector3.ONE * float(slot[1])
+		if vary > 0.0 and not great:
+			# (Its own turn and a size within a sixth of its slot's, from its place, so the same tree never stands twice alike.)
+			tree.rotation.y = float(absi(key) % 3600) / 3600.0 * TAU * vary
+			tree.scale *= 1.0 + (float(absi(key / 7) % 1000) / 1000.0 - 0.5) * 0.34 * vary
 		root.add_child(tree)
 		for mi: MeshInstance3D in tree.find_children("*", "MeshInstance3D", true, false):
 			for s in mi.mesh.get_surface_count():
@@ -892,8 +918,8 @@ static func place_trees(root: Node3D, t: Dictionary, slots: Array, source: Varia
 				m.set_shader_parameter("ramp_softness", 0.25 if fam == "bark" else 0.1)
 				mi.set_surface_override_material(s, m)
 			mi.set_meta("prebaked", true)
-	if source is String:
-		print("tree mock: placed %d trees from %s" % [slots.size(), (source as String).get_file()])
+	if sources[0] is String:
+		print("tree mock: placed %d trees from %d models" % [slots.size(), sources.size()])
 
 
 ## A command-line value (`<prefix><value>`), or "".

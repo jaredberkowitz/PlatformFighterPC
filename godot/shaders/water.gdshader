@@ -27,6 +27,9 @@ uniform float glint_path = 0.0;
 // 3 cut paper: the sea in tiers of card, each a scalloped sheet a step deeper than the one nearer, its cut edge catching the light,
 // sliding slowly, with the reflections.
 uniform int look = 0;
+// The paper waves' variety (fidelity review 6: every tier one scallop at one spacing read as a pattern): 0 as they were; 1 each tier's
+// arcs their own width and depth, wandering along the row; 2 with that, calm stretches where a tier's edge lies flat and unlit.
+uniform int wave_vary = 0;
 uniform sampler2D screen_tex : hint_screen_texture, filter_linear_mipmap;
 varying vec3 world_pos;
 
@@ -112,8 +115,16 @@ void fragment() {
 			float b = bs;
 			for (int it = 0; it < 2; it++) {
 				float ph = tier * 1.7 + TIME * 0.12 * (mod(tier, 2.0) * 2.0 - 1.0);
-				float cap = pow(abs(sin(world_pos.x * 0.12 + ph)), 0.55);
-				b = bs + width * 0.34 * (1.0 - cap);
+				float freq = 0.12;
+				float depth = 0.34;
+				float xw = world_pos.x;
+				if (wave_vary > 0) {
+					freq *= mix(0.62, 1.5, hash(vec2(tier, 3.1)));
+					depth = mix(0.2, 0.48, hash(vec2(tier, 7.7)));
+					xw += 10.0 * noise(vec2(world_pos.x * 0.022, tier * 1.3));
+				}
+				float cap = pow(abs(sin(xw * freq + ph)), 0.55);
+				b = bs + width * depth * (1.0 - cap);
 				tier = floor(b / width);
 			}
 			float u = fract(b / width);
@@ -122,10 +133,15 @@ void fragment() {
 			col *= 1.0 - 0.08 * mod(tier, 2.0) * calm;
 			col *= mix(1.0, mix(0.93, 1.07, smoothstep(0.15, 1.0, u)), calm);
 			// The nearer sheet's shadow on this one, just past its edge (u from 0), soft.
-			float shadow = (1.0 - smoothstep(0.0, 0.16, u));
+			// Calm stretches (wave_vary 2): the tier's edge lying flat, no lit lip and no shadow on the sheet behind.
+			// (The shadow just past this sheet's near edge is the nearer sheet's, one tier in: it follows that sheet's calm.)
+			float run = wave_vary > 1 ? smoothstep(0.32, 0.46, noise(vec2(world_pos.x * 0.035, tier * 2.1 + 5.0))) : 1.0;
+			float run_in = wave_vary > 1 ? smoothstep(0.32, 0.46, noise(vec2(world_pos.x * 0.035, (tier - 1.0) * 2.1 + 5.0))) : 1.0;
+			float shadow = (1.0 - smoothstep(0.0, 0.16, u)) * run_in;
 			col = mix(col, col * vec3(0.7, 0.8, 0.9), shadow * 0.55 * calm);
 			// This sheet's own cut edge, lit (u toward 1).
 			float lip = smoothstep(0.925, 0.965, u);
+			lip *= run;
 			col = mix(col, mix(col, pow(vec3(0.92, 1.0, 0.98), vec3(2.2)), 0.6), lip * calm);
 		} else {
 			// A soft caustic net near the stage, the light through the ripples (the reference's turquoise lattice), and fine ripples

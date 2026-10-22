@@ -88,6 +88,24 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
     <p>Two lessons from the reference screenshots, mocked from the match camera: the scenery without ink outlines, its edges lit as card bevels instead, and the paper houses rebuilt at the characters' proportions. The earlier rounds stay on the <a href="https://claude.ai/artifact/D1du6MREVumiJDrEdNypW4">Stage Fidelity Review</a>, which is full.</p>
   </header>
 
+  <section class="panel" aria-labelledby="nc-h" id="noclones">
+    <div class="eyebrow">Your call is needed &middot; review 6, item 4: no clones</div>
+    <h2 id="nc-h">Nothing you can spot twice in a still</h2>
+    <p>First, the three fronts are built (B on all three) and lit; before and after are in the fronts section above. Then item 4. Review 6 found three repeats you can spot in a single still: the grove's forest is one tree at one size and one turn, the beach's paper waves are one scallop at one spacing, and the meadow's stage hill is a regular stepped cake of thin sheets. Each stage has two options:</p>
+    <div class="tablewrap"><table><thead><tr><th>Stage</th><th>A</th><th>B</th></tr></thead><tbody>
+      <tr><td>Grove: the forest</td><td><b>Turned and sized</b>: the same tree, each one turned and sized (within a sixth) by its place. No new model.</td><td><b>Three shapes</b>: A, with the tree in three shapes of the same kind: today's, a taller slimmer one with six tiers, and a broad low one with its crown a little off its axis. Each tree's place picks its shape. Still one kind of tree, as your rule asks; the great tree stays as it is.</td></tr>
+      <tr><td>Beach: the paper waves</td><td><b>Uneven waves</b>: each tier's arcs have their own width and depth, wandering along the row.</td><td><b>Uneven and broken</b>: A, with calm stretches where a tier's edge lies flat, with no lit lip and no shadow, so the rows break up.</td></tr>
+      <tr><td>Meadow: the stage hill</td><td><b>Fewer, bigger sheets</b>: about a third as many sheets, each of its own height, with a broader wobble in their edges.</td><td><b>Terraced banks</b>: A's levels as terraces, each shelf falling to the next on a grass bank, as the farmland's terraces beside it do.</td></tr>
+    </tbody></table></div>
+    <p>Close up, today on the left: the grove's forest (A, then B), the beach's sea (A, then B), and the meadow's hill (A, then B):</p>
+    <div class="viewer"><img src="nc_close.jpg" alt="The grove forest, beach sea and meadow hill, today and with the options"></div>
+    <div class="row" role="group" aria-label="Stage"><button data-ncs="g">Grove</button><button data-ncs="b">Beach</button><button data-ncs="m">Meadow</button></div>
+    <div class="row" role="group" aria-label="View"><button data-ncv="w">Wide</button><button data-ncv="m">Match camera</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-nco="T">Today</button><button data-nco="A">A</button><button data-nco="B">B</button></div>
+    <div class="viewer"><img id="ncimg" alt="No-clones option"><span class="vtag" id="nctag"></span></div>
+    <p class="muted">My picks: <b>B on all three</b>. The grove's three shapes break the forest's repeat at the cost of two small tree models (2,900 triangles each); the broken waves give the sea calm stretches as well as uneven ones; the terraced hill ties the stage's hill to the farmland's terraces. The meadow's hills, today's included, are shown before their light bake. As before, you can pick per stage.</p>
+  </section>
+
   <section class="panel" aria-labelledby="fr-h" id="fronts">
     <div class="eyebrow">Built (B on all three) &middot; review 6, item 3: the fronts' surfaces</div>
     <h2 id="fr-h">The closest surfaces, made at the size you see them</h2>
@@ -961,5 +979,19 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
   group("data-frv", function (v) { frv = v; }, frrender);
   group("data-fro", function (v) { fro = v; }, frrender);
   frrender();
+  var ncs = "g", ncv = "w", nco = "B";
+  var NCS = { g: "Grove", b: "Beach", m: "Meadow" };
+  var NCO = { g: { T: "Today", A: "A \u00b7 Turned and sized", B: "B \u00b7 Three shapes" },
+              b: { T: "Today", A: "A \u00b7 Uneven waves", B: "B \u00b7 Uneven and broken" },
+              m: { T: "Today", A: "A \u00b7 Fewer, bigger sheets", B: "B \u00b7 Terraced banks" } };
+  function ncrender() {
+    document.getElementById("ncimg").src = "nc_" + ncs + "_" + nco + "_" + ncv + ".jpg";
+    document.getElementById("nctag").textContent = NCS[ncs] + " \u00b7 " + NCO[ncs][nco] + (ncv === "w" ? " \u00b7 wide" : " \u00b7 match camera");
+    pressed("data-ncs", ncs); pressed("data-ncv", ncv); pressed("data-nco", nco);
+  }
+  group("data-ncs", function (v) { ncs = v; }, ncrender);
+  group("data-ncv", function (v) { ncv = v; }, ncrender);
+  group("data-nco", function (v) { nco = v; }, ncrender);
+  ncrender();
 })();
 </script>

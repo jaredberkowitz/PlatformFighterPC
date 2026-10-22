@@ -6,6 +6,9 @@ Three looks for the owner to pick from:
   A  a twisted trunk of ropey ridges spiralling up from buttress roots, under a crown of big deep-pleated folded domes;
   B  the same trunk with thick limbs, each carrying a heap of smaller leaf clumps, the grove reference's leafy canopy;
   C  a trunk of broad folded planes under stacked pleated tiers, a papercraft canopy matching the folded pines and hills.
+After fidelity review 6 (one tree at one size all round read as a clone), C in more shapes of the same tree (`--shape`):
+  `tall`   six narrower tiers climbing higher up a slimmer trunk;
+  `broad`  four wide, low tiers on a shorter trunk, the crown set a little off its axis.
 Every look has a mossy foot whose roots splay into the ground, and bakes its own occlusion into linear vertex colours. Material
 families `bark`, `leaf_lit`, `leaf_shade`, `moss`, painted from the stage's palette in the game.
 
@@ -28,6 +31,7 @@ from fold_kit import folded_dome, pleated_tier  # noqa: E402
 argv = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
 opts = {argv[i].lstrip("-"): argv[i + 1] for i in range(0, len(argv) - 1, 2)}
 VARIANT = opts.get("variant", "A").upper()
+SHAPE = opts.get("shape", "")
 TRUNK_H = 18.0
 R_BOT, R_TOP = 2.9, 2.0
 
@@ -151,9 +155,16 @@ def build():
     else:
         trunk(bark, ridges=6, twist=0.18, depth=0.4, sharp=1.0, sides=36, rings=24)
         # (Five tiers from two thirds up the trunk: starting at its top, the side trees read as pines on stilts.)
-        for z, r, h, pleats in [(12.6, 11.5, 3.8, 13), (15.6, 10.4, 3.6, 13), (18.6, 8.6, 3.4, 12), (21.4, 6.2, 3.2, 10),
-                                (23.8, 3.6, 2.8, 8)]:
-            pleated_tier(lit, shade, (0.6, 0.0), z, r, h, pleats, rng.uniform(0, math.tau), rng, flare=0.55, droop=0.35)
+        tiers = [(12.6, 11.5, 3.8, 13), (15.6, 10.4, 3.6, 13), (18.6, 8.6, 3.4, 12), (21.4, 6.2, 3.2, 10), (23.8, 3.6, 2.8, 8)]
+        axis = (0.6, 0.0)
+        if SHAPE == "tall":
+            tiers = [(12.0, 9.2, 3.4, 12), (14.8, 8.4, 3.3, 12), (17.6, 7.4, 3.2, 11), (20.4, 6.0, 3.0, 10), (23.0, 4.4, 2.8, 9),
+                     (25.4, 2.6, 2.6, 7)]
+        elif SHAPE == "broad":
+            tiers = [(11.4, 13.2, 3.6, 14), (14.2, 11.6, 3.4, 13), (17.0, 8.8, 3.2, 12), (19.6, 5.0, 2.8, 9)]
+            axis = (1.6, 0.4)
+        for z, r, h, pleats in tiers:
+            pleated_tier(lit, shade, axis, z, r, h, pleats, rng.uniform(0, math.tau), rng, flare=0.55, droop=0.35)
     moss_foot(lit, shade, rng)
     obj("Bark", bark, "bark", smooth=VARIANT != "C")
     obj("LeafLit", lit, "leaf_lit", smooth=False)

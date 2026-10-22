@@ -5260,6 +5260,12 @@ static func _ocean(root: Node3D, t: Dictionary, stage: Array) -> void:
 	# (The water pass, fidelity review 5: the palette's `sea_look`, the owner's pick the paper waves (3); `--sea-look=T|A|B|C` compares
 	# the sea as it was and the clear, reflecting and paper seas; see water.gdshader `look`.)
 	wm.set_shader_parameter("look", int(_pal("sea_look")))
+	# (The paper waves' variety, fidelity review 6: the palette's `sea_vary`, `--sea-vary=` to try; see water.gdshader `wave_vary`.)
+	var sea_vary := int((_palette.get("backdrop", {}) as Dictionary).get("sea_vary", 0))
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--sea-vary="):
+			sea_vary = int(arg.substr(11))
+	wm.set_shader_parameter("wave_vary", sea_vary)
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--sea-look="):
 			wm.set_shader_parameter("look", {"T": 0, "A": 1, "B": 2, "C": 3}.get(arg.substr(11), int(_pal("sea_look"))))
