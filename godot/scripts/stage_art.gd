@@ -1029,7 +1029,9 @@ const PAPER_COLOURS := {"straw": Color(0.98, 0.84, 0.46), "straw_end": Color(0.9
 	# (The houses at the characters' proportions, make_paper_houses_v2.py: daylight glass, the doors' plank seams and knobs.)
 	"glass": Color(0.36, 0.6, 0.86), "door_seam": Color(0.36, 0.24, 0.16), "knob": Color(0.92, 0.9, 0.86),
 	# (The detail pass, 2026-10-22: the door lanterns.)
-	"lamp": Color(1.0, 0.86, 0.5)}
+	"lamp": Color(1.0, 0.86, 0.5),
+	# (The beach's harbour buildings in the house kit, 2026-10-22: the bell, the stalls' awnings, the fisherman's net.)
+	"bell": Color(0.86, 0.66, 0.3), "awning": Color(0.92, 0.3, 0.28), "awning_b": Color(0.98, 0.95, 0.9), "net": Color(0.36, 0.52, 0.5)}
 ## Paper prop families drawn in their own light, not the stage's (a lamp's lantern).
 const PAPER_LIT := ["glow"]
 
@@ -4546,6 +4548,35 @@ static var detail_mock := not OS.get_cmdline_user_args().has("--no-detail")
 
 
 static func _windmill(root: Node3D, at: Vector3) -> void:
+	# The whole windmill as one model (make_props.py `windmill`, the owner 2026-10-22: Blender models wherever possible): the tower and
+	# cap, mound, stone drum, arched door, windows, gallery, shaft housing, sacks and barrel; its `sails` turn on a Spinner at the hub.
+	# The code-built mill below stands in without it.
+	var whole := Toonify.load_prop("windmill", true)
+	if whole != null:
+		whole.position = at
+		root.add_child(whole)
+		_contact(root, at + Vector3(0, 0.4, 0), Vector2(4.2, 3.4))
+		for mi in whole.find_children("*", "MeshInstance3D", true, false):
+			var nm := String(mi.name)
+			if nm.begins_with("wall"):
+				(mi as MeshInstance3D).material_override = FighterView.toon(Color(0.9, 0.82, 0.7))
+			elif nm.begins_with("glow"):
+				(mi as MeshInstance3D).material_override = _unshaded(Color(1.0, 0.86, 0.56))
+			elif nm.begins_with("opening"):
+				(mi as MeshInstance3D).material_override = _unshaded(Color(0.2, 0.16, 0.22))
+			elif nm.begins_with("sail_hub_cap"):
+				(mi as MeshInstance3D).material_override = FighterView.respond(FighterView.toon(Color(0.36, 0.34, 0.42)), "metal")
+		var sails := whole.find_child("sails", true, false) as Node3D
+		if sails != null:
+			var spin := Spinner.new()
+			spin.speed = 0.6
+			spin.transform = sails.transform
+			sails.get_parent().add_child(spin)
+			for c in sails.get_children():
+				c.owner = null
+				c.reparent(spin, false)
+			sails.free()
+		return
 	var plaster := Materials.plaster(Color(0.96, 0.94, 0.88), Vector2(3, 3))
 	var wood := Materials.wood(Color(0.55, 0.38, 0.26))
 	var wood_dark := Materials.wood(Color(0.42, 0.28, 0.2), Vector2(2, 1))
@@ -5272,6 +5303,12 @@ static func _isle_detail(root: Node3D, isle: Vector3, k: int) -> void:
 ## with a lit window, a shaggy thatched roof, a jetty running off to the right (toward the lighthouse) on its own posts, a net hung over the rail and two red and
 ## white floats bobbing beside it.
 static func _stilt_hut(root: Node3D, at: Vector3) -> void:
+	# The house kit's stilt hut and jetty (make_paper_houses_v2.py `stilt_hut`, the owner 2026-10-22: Blender models wherever possible);
+	# the floats still bob on their own. The code-built hut below stands in without the kit.
+	if house_kit != null and _paper(root, "house_stilthut", Transform3D(Basis.IDENTITY, at), {"wall": Color(0.62, 0.5, 0.4),
+			"straw": Color(0.86, 0.7, 0.42), "straw_end": Color(0.76, 0.6, 0.34)}, house_kit):
+		_hut_floats(root, at)
+		return
 	var post := Materials.wood(Color(0.46, 0.34, 0.26))
 	var plank := Materials.wood(Color(0.74, 0.58, 0.4), Vector2(6, 1))
 	var boards := Materials.wood(Color(0.62, 0.5, 0.4), Vector2(3, 2))
@@ -5296,6 +5333,11 @@ static func _stilt_hut(root: Node3D, at: Vector3) -> void:
 	# A rail along the deck's front with a net slung over it.
 	_mesh(root, _box(Vector3(6.4, 0.12, 0.12)), post, at + Vector3(0, 5.0, 2.25))
 	_mesh(root, _box(Vector3(2.4, 0.9, 0.06)), FighterView.toon(Color(0.36, 0.52, 0.5)), at + Vector3(-1.6, 4.6, 2.3))
+	_hut_floats(root, at)
+
+
+## Two red and white floats bobbing off the stilt hut at `at`.
+static func _hut_floats(root: Node3D, at: Vector3) -> void:
 	for k in 2:
 		var buoy := Bob.new()
 		buoy.position = at + Vector3(-4.2 - k * 2.2, 0.1, 2.6 - k * 1.4)
@@ -7155,6 +7197,9 @@ const TOWN_TOWER_X := 9.0
 ## with a bell in it, under a steep four-sided red roof with a lit trim and a vane; the tallest thing in the town, so the skyline has one
 ## landmark.
 static func _bell_tower(root: Node3D, at: Vector3) -> void:
+	# The house kit's bell tower (make_paper_houses_v2.py `bell_tower`): quoins, an open belfry with its bell, a clock, a spire in rows.
+	if house_kit != null and _paper(root, "house_belltower", Transform3D(Basis.IDENTITY, at), {"roof": Color(0.84, 0.34, 0.28)}, house_kit):
+		return
 	var wall := FighterView.toon(Color(0.98, 0.94, 0.86))
 	var stone := Materials.stone(Color(0.7, 0.66, 0.62), Vector2(2, 1))
 	var trim := FighterView.toon(Color(0.62, 0.42, 0.3))
@@ -7180,6 +7225,11 @@ static func _bell_tower(root: Node3D, at: Vector3) -> void:
 ## The harbour's warehouse (`at` its foot, on the quay): long and low, walls of weathered blue-grey boards on a stone footing, a broad
 ## gabled roof in dark slate with its gable end to the sea, big double doors with a lit lintel and a hoist beam over a loft door.
 static func _warehouse(root: Node3D, at: Vector3) -> void:
+	# The house kit's warehouse (make_paper_houses_v2.py `warehouse`): braced double doors, a loft with its hoist, goods by the door.
+	var roof_c := Color(0.3, 0.56, 0.6)
+	if house_kit != null and _paper(root, "house_warehouse", Transform3D(Basis.IDENTITY, at), {"wall": Color(0.86, 0.66, 0.5), "roof": roof_c,
+			"roof_edge": roof_c.lightened(0.3), "roof_score": roof_c.darkened(0.25)}, house_kit):
+		return
 	# (Warmer, 2026-10-19: blue-grey boards under a slate roof were the coldest, greyest thing on the beach.)
 	var boards := Materials.wood(Color(0.86, 0.66, 0.5), Vector2(8, 2))
 	var trim := FighterView.toon(Color(0.96, 0.92, 0.84))
@@ -7315,6 +7365,13 @@ static func _harbour_town(root: Node3D, water: float, land_root: Node3D = null) 
 		var sx := -5.0 + k * 7.6
 		var y0 := base.y + 2.35
 		var z0 := base.z + 1.6
+		# The house kit's market stall (make_paper_houses_v2.py `stall`), its awning in this stall's stripes; the random numbers the
+		# built crates would draw are still drawn, so the shore and the boats after them stay put.
+		if house_kit != null and _paper(root, "house_stall", Transform3D(Basis.IDENTITY, Vector3(base.x + sx, y0, z0 + 1.1)),
+				{"awning": stripes[k][0], "awning_b": stripes[k][1]}, house_kit):
+			rng.randf_range(-10, 10)
+			rng.randf_range(-10, 10)
+			continue
 		for px: float in [sx - 1.6, sx + 1.6]:
 			_mesh(root, _box(Vector3(0.18, 2.3, 0.18)), post, Vector3(base.x + px, y0 + 1.15, z0 + 2.2))
 			_mesh(root, _box(Vector3(0.18, 2.6, 0.18)), post, Vector3(base.x + px, y0 + 1.3, z0))

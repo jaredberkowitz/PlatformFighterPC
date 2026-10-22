@@ -33,3 +33,15 @@ jittered grid (7.5 and 6.5 apart), each a fluted, flared trunk and four pleated 
 tallest (13 to 19) so it rises over the middle (10 to 14); clear of the edges, the village's great trees (12), the side and terrace trees
 (9) and the space behind the fight; one spot in eight left as a clearing. 282 trees, about 100,000 triangles joined into a few dozen
 meshes; GPU 2.79 ms against 2.53. Mocked with `--ground-mock`; before and after on the Stage Look Review.
+
+## Done (2026-10-22)
+
+- **Forests**: the grove's forest (above) shipped; the meadow's pine belts (`make_meadow_ground.py`, belts behind the fields).
+- **The windmill**: one model, `make_props.py windmill` (tower, cap, mound, stone drum, arched door with voussoirs, windows, gallery,
+  shaft housing, sacks, barrel; the sails a separate `sails` node the game turns on a Spinner). About 4,000 triangles in place of 74
+  primitives; the code-built mill stays as the fallback. Before and after: `review5/windmill_model.png`.
+- **The beach's harbour**: the house kit (`make_paper_houses_v2.py`) gained `belltower` (quoins, an open belfry with its bell, a clock,
+  a spire in rows with hips and a vane), `warehouse` (braced double doors, loft door with hoist, rope and hook, goods), `stall` (striped
+  awning with scallops, each stall its own colours; fruit crates on the counter) and `stilthut` (posts and brace, plank deck, battened
+  hut, three ragged thatch skirts, net and corks on the rail, the jetty on its posts). The code builds stay as fallbacks. Before and
+  after: `review5/harbour_models.png`.

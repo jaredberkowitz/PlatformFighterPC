@@ -297,8 +297,9 @@ PREVIEW = {"wall": (0.98, 0.93, 0.82), "roof": (0.8, 0.36, 0.3), "roof_edge": (0
            "stone": (0.74, 0.72, 0.8), "glow": (1.0, 0.8, 0.5), "petal": (1.0, 0.6, 0.65)}
 
 
-def render(path):
-    """The four houses in a row from the front, in the studio light, with a figure of a fighter's height (2.3) for scale."""
+def render(path, cx=21.0, scale=62.0, width=1600):
+    """The four houses in a row from the front, in the studio light, with a figure of a fighter's height (2.3) for scale (`cx`, `scale`
+    and `width` the camera's middle, its width in units and in pixels, for a longer row)."""
     scene = bpy.context.scene
     for m in bpy.data.materials:
         m.diffuse_color = (*PREVIEW.get(m.name.split(".")[0], (0.7, 0.7, 0.7)), 1.0)
@@ -314,10 +315,10 @@ def render(path):
     me.materials.append(mat)
     cam = bpy.data.cameras.new("cam")
     cam.type = "ORTHO"
-    cam.ortho_scale = 62.0
+    cam.ortho_scale = scale
     co = bpy.data.objects.new("cam", cam)
     scene.collection.objects.link(co)
-    co.location = (21.0, -60.0, 14.0)
+    co.location = (cx, -60.0, 14.0)
     co.rotation_euler = (math.radians(80.0), 0.0, 0.0)
     scene.camera = co
     try:
@@ -328,7 +329,7 @@ def render(path):
     scene.display.shading.color_type = "MATERIAL"
     scene.display.shading.show_cavity = True
     scene.display.shading.show_object_outline = True
-    scene.render.resolution_x = 1600
+    scene.render.resolution_x = width
     scene.render.resolution_y = 560
     scene.render.filepath = os.path.abspath(path)
     bpy.ops.render.render(write_still=True)
