@@ -88,8 +88,37 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
     <p>Two lessons from the reference screenshots, mocked from the match camera: the scenery without ink outlines, its edges lit as card bevels instead, and the paper houses rebuilt at the characters' proportions. The earlier rounds stay on the <a href="https://claude.ai/artifact/D1du6MREVumiJDrEdNypW4">Stage Fidelity Review</a>, which is full.</p>
   </header>
 
+  <section class="panel" aria-labelledby="f5-h" id="review5">
+    <div class="eyebrow">Your call is needed &middot; fidelity review 5</div>
+    <h2 id="f5-h">Where every stage stands now</h2>
+    <p>First, the meadow's farmland C is built: the slope is terraced into hedged fields with pines along the hedgerows, the lanes connect, and the farm stands on its own shelf. It costs about 0.06 ms of GPU time. Today's on the left, the new one on the right (wide, then the match camera):</p>
+    <div class="viewer"><img src="mf_built.jpg" alt="The meadow before and after the farmland"></div>
+    <p>Then the same analysis as review 4: every stage at the match camera and wide, the same eight categories scored 1 to 5 (5 means hard to tell apart in quality from the references), and the same measured regions. The full write-up is in docs/art/stages/FIDELITY_REVIEW_5.md.</p>
+    <div class="tablewrap"><table><thead><tr><th>Stage</th><th>Light</th><th>Surfaces</th><th>Play area</th><th>Background land</th><th>Sky</th><th>World</th><th>Cohesion</th><th>Readability</th><th>Mean</th><th>Review 4</th></tr></thead><tbody>
+      <tr><td>Meadow</td><td>4</td><td>4</td><td>4</td><td>4</td><td>3</td><td>4</td><td>4</td><td>4</td><td><b>3.9</b></td><td>3.8</td></tr>
+      <tr><td>Grove</td><td>4</td><td>4</td><td>4</td><td>4</td><td>3</td><td>4</td><td>4</td><td>4</td><td><b>3.9</b></td><td>3.4</td></tr>
+      <tr><td>Beach</td><td>4</td><td>4</td><td>4</td><td>3</td><td>3</td><td>4</td><td>4</td><td>4</td><td><b>3.8</b></td><td>3.8</td></tr>
+      <tr><td>Canyon</td><td>4</td><td>3</td><td>4</td><td>3</td><td>4</td><td>4</td><td>3</td><td>3</td><td><b>3.5</b></td><td>3.3</td></tr>
+      <tr><td>City</td><td>4</td><td>4</td><td>3</td><td>4</td><td>2</td><td>4</td><td>3</td><td>3</td><td><b>3.4</b></td><td>3.4</td></tr>
+      <tr><td><b>Mean</b></td><td>4.0</td><td>3.8</td><td>3.8</td><td>3.6</td><td>3.0</td><td>4.0</td><td>3.6</td><td>3.6</td><td><b>3.7</b></td><td>3.5</td></tr>
+    </tbody></table></div>
+    <p><b>What moved:</b> the background land rose the most (3.0 to 3.6): the grove from 2 to 4 and the meadow from 3 to 4. The beach's land drops to 3, because with the town and harbour modelled, its sea is now the weakest thing on the stage. The sky is the lowest column.</p>
+    <h3>Pain points, ranked</h3>
+    <ol style="display:grid;gap:6px;margin:0;padding-left:1.4em;max-width:78ch">
+      <li><b>The beach's sea</b> (severity 4): half the frame is one bright cyan sheet with stripe-like ripple lines. The references are lighter near the pier and shore and deeper further out, with soft painted highlights and reflections.</li>
+      <li><b>Plain skies</b> (3, the city worst): smooth gradients behind the card clouds, with no horizon glow and no haze or low cloud band. The city's sky is one flat magenta.</li>
+      <li><b>The canyon's middle distance</b> (3): the arch's legs still read as stacked discs, the trestle runs one line across the frame, and the front is dark and heavy.</li>
+      <li><b>The city behind the fight</b> (3): the busiest background in the game sits right behind the fighters, and the scaffold platforms are code-built white lattices.</li>
+      <li><b>Smaller:</b> the play tops lack form (2), the meadow's stage hill is a regular stepped cake at the wide camera (2), and a few small things are still code-built (2).</li>
+    </ol>
+    <h3>Every stage today</h3>
+    <p>Meadow, grove, beach, canyon, city; the match camera on the left and wide on the right:</p>
+    <div class="viewer"><img src="f5_sheet.jpg" alt="Every stage at the match camera and wide"></div>
+    <p class="muted">Recommended order: 1. the beach's sea (a water pass), 2. a sky pass on every stage, 3. the canyon's middle (arch, trestle, front), 4. the city behind the fight, 5. the smaller items.</p>
+  </section>
+
   <section class="panel" aria-labelledby="mf-h" id="meadowfarm">
-    <div class="eyebrow">Your call is needed &middot; the meadow's ground, made to hold together</div>
+    <div class="eyebrow">Built (C) &middot; the meadow's ground, made to hold together</div>
     <h2 id="mf-h">Meadow farmland that reads as real</h2>
     <p>You're right that the meadow's ground lags the grove. Seen at the wide camera, three things give it away:</p>
     <ul style="display:grid;gap:6px;margin:0;padding-left:1.2em;max-width:78ch">
