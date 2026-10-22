@@ -171,3 +171,54 @@ varies slowly along x (`share`), so in places two shelves run together and no le
 shelves edge to edge read as stripes again; a faster variation pulled the shelves into steep folded ramps; alternating greens read as
 panels). The lanes cross the shelves and step down each ledge on stairs. Pine belts along the near hills (`forest_belts`, one size, about
 15 tall); the clusters at 1.2. Tufts and flowers over the shelves. The far and near hills plain card (B's layers). About 44,000 triangles.
+
+## The meadow's ground tidied, and the first detail pass (2026-10-22, mocks)
+
+The owner, on the shipped meadow (PB): "the ground ... reads a bit muddy, unprofessional, not consistently shaped"; and: begin adding
+more detail to the background trees, lights, islands and buildings, one stage at a time.
+
+Causes: free-form field blobs of every size; cream cut edges, which read as grubby outlines at a distance; a deep crease bake.
+`make_meadow_ground.py --variant QA|QB|QC` (`quilt_band`): **QA** tidy quilt (every field the same rounded rectangle in even rows,
+gaps a deeper green `qgap`, three greens and wheat `qf_a/b/c`, `wheat`, hedgerows along the rows `qhedge`, cut edges a deeper green
+`qcard`, occlusion at 1.5); **QB** half as many rows, fields twice as wide; **QC** a lawn with fields only round the farm and along
+the lanes. The hills behind take light and dark field tones (`hill_near_l/_d`, `hill_far_l/_d`). (First tries: fields on the land's
+own green vanished; the farm and lane exclusions emptied the left side.) Recommended: QA.
+
+Detail, first piece: `--pine D` (`pine_detailed`): eight skirts with scalloped hems, a slight lean, a trunk with roots (a pleated-tier
+try read as shards). Mocks on the Stage Look Review (`mq_*`). The proposed order per stage is on the page.
+
+**Built (2026-10-22): meadow ground QA with the detailed pines** (`make_meadow_ground.py --variant QA --pine D` into `meadow_ground.glb`
+and `meadow_pines.glb`, the meadow re-lit). Before and after: `review5/meadow_quilt_built.jpg`.
+
+## The meadow's detail pass (2026-10-22, mocks)
+
+The owner: continue the meadow's detail pass (windmill, cottages, haystacks). Mocked behind flags:
+- **Windmill** (`--detail-mock`, `StageArt._windmill`): finer lattice sails, every other one reefed; a stone door surround and step, a
+  lantern, a barrel and sacks; the base in two courses of stone blocks.
+- **Houses** (`make_paper_houses_v2.py --shape B --detail 1`, `--house-mock=`): shutters, side windows, door lanterns, picket fences with
+  stone paths, flower pots; the barn's loft hay, side windows and weathervane.
+- **Haystacks** (`make_world.py --theme meadow --variant BC --detail 1`, `--world-mock=`): straw strands, a frayed hem, crown wisps.
+Before and after: `mocks/look/md_detail.jpg`. Known issues: the door surround squares off the arched door; a fence runs into the slope.
+
+**Built (2026-10-22): the meadow's detail pass.** The windmill's detail is on by default (`--no-detail` compares); its door surround is
+now jambs and seven voussoirs round the arch. The house kit (`paper_houses.glb`, meadow and beach) and the meadow's world are rebuilt
+with the detail (now each script's default). The fence moved close before the front (0.85, was 1.6) with deeper pickets, so it no longer
+runs into a slope. Two lessons: the door lanterns are plain warm paper (`lamp`), not the lit `glow`; and each house's pieces are joined
+by material at export, since a town of separately meshed shutters and pickets overflowed the per-instance shader buffer and painted
+stray glows and blue edges on the beach's tower, warehouse and boats. 243 fps on the meadow (GPU 2.25 ms), 239 on the beach. Before and
+after: `review5/meadow_detail_built.jpg`.
+
+## The grove's detail pass (2026-10-22, mock)
+
+`make_world.py` (detail on by default, `--detail 0` without; mocked with `--world-mock=`): the tree village's huts get plank battens, a
+framed window with red shutters, a second thatch fringe, a post-and-rope rail round each deck with a lantern, and a ladder down each
+trunk; the far great trees roots and branch stubs; the gates a rope with paper zigzags and stone plinths. `make_world.py` now joins its
+still pieces by material and depth band before the bake (the per-instance shader buffer). Before and after: `mocks/look/gd_detail.jpg`.
+
+## Blender models over code (2026-10-22, built)
+
+The owner: worried about quality, switch the art to Blender models wherever possible; the forest was a few sporadic trees. Worked from
+`MODEL_AUDIT.md`: the grove's forest and the meadow's pine belts; the windmill as one model with its sails turning as a separate node;
+the beach's bell tower, warehouse, market stalls and stilt hut with its jetty in the house kit; the city's near towers modelled from
+the game's own layout with real window frames, sills, lintels, ledges and pilasters under the same facade shader. Each keeps its code
+build as the fallback. Before and after: `review5/windmill_model.png`, `harbour_models.png`, `city_towers_model.png`.

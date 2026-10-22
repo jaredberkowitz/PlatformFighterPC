@@ -17,6 +17,12 @@ After the grove's terraces (the owner, 2026-10-21: refine each stage on its own,
   MH shelves: the rise as a few broad shelves of bright lime grass, each ending in a crisp dark ledge under a scalloped grass lip, the
      ledges wandering out into promontories; two lanes cross the shelves and step down each ledge on stairs cut into it; belts of big
      pines along the near hills, all at one large size, as the reference's forest; the far hills plain card.
+After the owner's note on PB as shipped (2026-10-22: "reads a bit muddy, unprofessional, not consistently shaped"), three tidier looks:
+  QA tidy quilt: every field the same rounded-rectangle shape and size along its row (shrinking with distance), even gaps of the land's
+     own green between them, three clean greens and now and then wheat, in a steady pattern; continuous hedgerows along the rows instead
+     of rolls round some fields; cut edges a deeper green instead of cream; a light occlusion bake;
+  QB QA with fewer, larger fields (half as many rows, twice as wide);
+  QC the land a clean lawn, with tidy fields only round the farm and along the lanes.
 Each band is its own object so the game can lay the air of its depth over it, and bakes its occlusion into linear vertex colours.
 Families `hill_far`, `hill_near`, `rise`, `field_0`..`field_4`, `hedge`, `card` (the paper's cut edge), `pine_0`..`pine_3`,
 `pine_under`, `trunk`.
@@ -189,6 +195,44 @@ def pine_pleated(lit, under, trunk, base, sc, rng):
     res = bmesh.ops.create_cone(trunk, cap_ends=True, segments=6, radius1=0.1 * sc, radius2=0.06 * sc, depth=0.6 * sc)
     for v in res["verts"]:
         v.co += base + Vector((0, 0, 0.3 * sc))
+
+
+def pine_detailed(lit, under, trunk, base, sc, rng):
+    """A pine with more detail at background size (the owner, 2026-10-22: more detail on the background trees), in the shipped pines'
+    clean stacked-skirt shape: eight skirts, each with a scalloped hem (every other point hanging lower, a little uneven) and a slight
+    turn, so each tier's edge catches light in steps; the skirts a little off the axis up the tree; a visible trunk with three roots."""
+    layers = 8
+    lean = Vector((rng.uniform(-0.03, 0.03), rng.uniform(-0.03, 0.03), 0.0)) * sc
+    for k in range(layers):
+        t = k / (layers - 1)
+        r = 0.66 * (1.0 - 0.78 * t) * sc
+        c = base + lean * k
+        z0 = base.z + (0.42 + 0.27 * k) * sc
+        n = 16 if k < 4 else 12
+        turn = rng.uniform(0, math.tau)
+        rim = []
+        for i in range(n):
+            a = turn + math.tau * i / n
+            drop = (0.13 if i % 2 == 0 else 0.0) * (1.0 - 0.5 * t) * sc * rng.uniform(0.8, 1.2)
+            rr = r * (1.0 if i % 2 == 0 else 0.86)
+            rim.append(Vector((c.x + math.cos(a) * rr, c.y + math.sin(a) * rr, z0 - drop)))
+        tip = Vector((c.x, c.y, z0 + 0.36 * sc))
+        lip = [v - Vector((0, 0, 0.07 * sc)) for v in rim]
+        cen = Vector((c.x, c.y, z0 - 0.04 * sc))
+        for i in range(n):
+            j = (i + 1) % n
+            face(lit, (rim[i], rim[j], tip))
+            face(under, (lip[i], lip[j], rim[j], rim[i]))
+            face(under, (lip[j], lip[i], cen))
+    res = bmesh.ops.create_cone(trunk, cap_ends=True, segments=7, radius1=0.13 * sc, radius2=0.07 * sc, depth=0.7 * sc)
+    for v in res["verts"]:
+        v.co += base + Vector((0, 0, 0.3 * sc))
+    for k in range(3):
+        a = rng.uniform(0, 1.0) + k * math.tau / 3
+        d = Vector((math.cos(a), math.sin(a), 0.0))
+        side = d.cross(Vector((0, 0, 1)))
+        p0 = base + Vector((0, 0, 0.16 * sc))
+        face(trunk, (p0 + side * 0.05 * sc, p0 - side * 0.05 * sc, base + d * 0.26 * sc))
 
 
 # ---- B: paper layers ----------------------------------------------------------------------------------------------------------------
@@ -700,6 +744,37 @@ def shelved_band(name, bumps, floor_y, z, profile, rng, lanes=False):
 FOREST = []
 
 
+# Where the meadow's buildings stand (StageArt._meadow, make_world.py): the windmill, the hill cottages, the haystacks and the farm.
+KEEP_CLEAR = [(-34.0, -73.0, 9.0), (44.0, -74.0, 8.0), (-66.0, -74.0, 8.0), (-57.0, -98.4, 9.0), (-32.0, -40.0, 12.0)]
+BELTS = opts.get("belts", "1") == "1"
+
+
+def pine_belts(rng):
+    """The meadow's pine belts (the owner, 2026-10-22: the forest was a few sporadic trees; the reference's camp sits under dense belts
+    of pines): clumps of the detailed pine along the near and far hills, five to ten trees a clump with gaps between, the far ones a
+    little larger (the distance makes them smaller), clear of the buildings, the haystacks and the sky behind the fight."""
+    k = 0
+    for band_z, bumps, size, depth in ((-72.0, LAYOUT["hills_near"], (9.0, 13.0), (-1.0, 4.0)), (-100.0, LAYOUT["hills_far"], (10.0, 15.0), (-1.0, 5.0))):
+        gx = -160.0 + rng.uniform(0, 8)
+        while gx < 160.0:
+            width = rng.uniform(12.0, 26.0)
+            if abs(gx) > 20.0 + width * 0.5:
+                for _ in range(int(width / 2.6)):
+                    x = gx + rng.uniform(-width / 2, width / 2)
+                    d = rng.uniform(*depth)
+                    zz = band_z + depth_at(max(d, 0.0), ROLL) + rng.uniform(-2.5, 1.5)
+                    if abs(x) < 20.0 or any(math.hypot(x - cx, zz - cz) < rad for (cx, cz, rad) in KEEP_CLEAR):
+                        continue
+                    base = P(x, land_top(bumps, -17.0, x) - max(d, 0.0) - 0.3, zz)
+                    FOREST.append((base.x, base.y))
+                    nm = "forest%d" % (k % 6)
+                    pine_detailed(part(nm, "pine_%d" % rng.randrange(4)), part(nm, "pine_under"), part(nm, "trunk"), base,
+                                  rng.uniform(*size) / 2.9, rng)
+                    k += 1
+            gx += width + rng.uniform(6.0, 16.0)
+    print("meadow pine belts: %d pines" % k)
+
+
 def forest_belts(rng):
     """Belts of pines along the near hills' crest, as the reference's mid-ground forest: dense groups of one kind of pine at one large
     size (about 15 tall), clear of the space behind the fight."""
@@ -722,6 +797,107 @@ def forest_belts(rng):
         gx += rng.uniform(28.0, 40.0)
 
 
+# ---- QA, QB, QC: tidy quilt ------------------------------------------------------------------------------------------------------------
+
+
+QUILT = ["qf_a", "qf_b", "qf_c", "qf_b", "qf_a", "wheat", "qf_c", "qf_b"]
+LANES_X = (-47.0, 34.0)
+
+
+def quilt_outline(cx, cd, rx, rd, n=24):
+    """A field's outline in (x, drop): a rounded rectangle, every field the same shape."""
+    out = []
+    for i in range(n):
+        a = math.tau * i / n
+        c, s_ = math.cos(a), math.sin(a)
+        out.append((cx + rx * math.copysign(abs(c) ** 0.3, c), max(0.15, cd + rd * math.copysign(abs(s_) ** 0.3, s_))))
+    return out
+
+
+def quilt_band(name, fam, bumps, floor_y, z, profile, rng, fields=False):
+    at, normal = surface(bumps, floor_y, z, profile)
+    lo, hi = -150.0, 150.0
+    xs = [lo + 2.5 * i for i in range(int((hi - lo) / 2.5) + 1)]
+    back = [(rr[0], rr[1]) for rr in profile if rr[1] < 0.0]
+    drops = [0.0, 0.3, 0.7, 1.2, 1.8, 2.6, 3.6, 4.8, 6.4, 8.4, 11.0, 14.0, 18.0, 23.0, 29.0, 36.0, 44.0, 52.0, 60.0]
+    order = back + [(d, depth_at(d, profile)) for d in drops]
+    grid = [[P(x, land_top(bumps, floor_y, x) - d, z + dz) for (d, dz) in order] for x in xs]
+    # (The land between the fields a deeper green than any field, so the gaps draw the quilt's lines; the same green as the fields, the
+    # fields vanished. QC's lawn keeps the land's own green.)
+    base = part(name, "qgap" if fields and VARIANT != "QC" else fam)
+    for j in range(len(xs) - 1):
+        for i in range(len(order) - 1):
+            face(base, (grid[j][i], grid[j][i + 1], grid[j + 1][i + 1], grid[j + 1][i]))
+    if VARIANT == "QB":
+        rows = [3.0, 9.0, 18.0, 30.0, 44.0] if fields else [1.4, 4.6, 9.6]
+        width = 20.0
+    else:
+        rows = [2.2, 5.4, 9.6, 15.0, 22.0, 31.0, 42.0] if fields else [0.9, 2.6, 5.0, 8.4, 12.6]
+        width = 10.5
+    gaps = [(rows[k + 1] - rows[k]) if k + 1 < len(rows) else rows[k] * 0.3 for k in range(len(rows))]
+
+    def lifted(q, lift):
+        x, d = q.x, land_top(bumps, floor_y, q.x) - q.y
+        return q + normal(x, d) * lift
+
+    def on_lane(x, pad):
+        return fields and any(abs(x - lx) < pad + 3.0 for lx in LANES_X)
+
+    for k, cd in enumerate(rows):
+        w = width * (1.0 + 0.03 * cd)
+        n_cols = int((hi - lo) / w)
+        for c in range(n_cols):
+            cx = lo + (c + 0.5) * w + (w * 0.5 if k % 2 else 0.0)
+            if cx > hi:
+                continue
+            # (Clear of the farm's own ground, and not with a lane down its middle; a lane over a field's edge is drawn over it, as on PB.)
+            # (Only on the rows the farm stands on, about 5 under the crest.)
+            if fields and cd < 10.0 and FARM and cx + w * 0.45 > FARM[0] - 1.5 and cx - w * 0.45 < FARM[1] + 1.5:
+                continue
+            if fields and any(abs(cx - lx) < w * 0.22 for lx in LANES_X):
+                continue
+            if VARIANT == "QC":
+                # (Only round the farm and along the lanes, on the near rows.)
+                near_farm = FARM and FARM[0] - 30.0 < cx < FARM[1] + 12.0
+                near_lane = any(abs(cx - lx) < 18.0 for lx in LANES_X)
+                if not fields or k > 3 or not (near_farm or near_lane):
+                    continue
+            fam_k = QUILT[(k * 3 + c) % len(QUILT)] if fields else fam + ("_l" if (k + c) % 2 else "_d")
+            outline = quilt_outline(cx, cd, w * 0.42, gaps[k] * 0.34)
+            ring = [at(x, d) for (x, d) in outline]
+            sheet(part(name, fam_k), part(name, "qcard"), ring, at(cx, cd), lambda q: lifted(q, 0.08))
+    if fields and VARIANT != "QC":
+        # Hedgerows along the rows, between one row of fields and the next, broken at the lanes and the farm.
+        bm = part(name, "qhedge")
+        for k in range(len(rows) - 1):
+            d = rows[k] + gaps[k] * 0.5
+            rad = 0.2 + 0.006 * d
+            hx = [lo + 3.0 * i for i in range(int((hi - lo) / 3.0) + 1)]
+            for i in range(len(hx) - 1):
+                xa, xb = hx[i], hx[i + 1]
+                if on_lane(xa, 0.0) or on_lane(xb, 0.0) or farm_calm(xa) < 0.9 or farm_calm(xb) < 0.9:
+                    continue
+                pa = lifted(at(xa, d), rad)
+                pb = lifted(at(xb, d), rad)
+                tube_seg(bm, P(*pa), P(*pb), rad, segs=5)
+    if fields:
+        # The lanes, as PB has them.
+        for x0, ph in zip(LANES_X, (0.0, 1.7)):
+            bm, edge = part(name, "lane"), part(name, "card_lane")
+            ds = [0.4 + 1.0 * k for k in range(30)]
+            left, right = [], []
+            for d in ds:
+                x = x0 + 3.0 * math.sin(d * 0.2 + ph)
+                w = 0.7 + d * 0.035
+                nn = normal(x, d)
+                left.append(at(x - w, d) + nn * 0.3)
+                right.append(at(x + w, d) + nn * 0.3)
+            for k in range(len(ds) - 1):
+                face(bm, (P(*left[k]), P(*left[k + 1]), P(*right[k + 1]), P(*right[k])))
+                for side in (left, right):
+                    face(edge, (P(*side[k]), P(*side[k + 1]), P(*(side[k + 1] - Vector((0, 0.35, 0)))), P(*(side[k] - Vector((0, 0.35, 0))))))
+
+
 # ---- Build --------------------------------------------------------------------------------------------------------------------------
 
 
@@ -734,11 +910,14 @@ def build_ground():
         forest_belts(rng)
         hill_layers(rng)
         return
-    band = {"A": folded_band, "B": layered_band, "C": faceted_band, "PA": patchwork_band, "PB": patchwork_band, "PC": patchwork_band}[VARIANT]
+    band = {"A": folded_band, "B": layered_band, "C": faceted_band, "PA": patchwork_band, "PB": patchwork_band, "PC": patchwork_band,
+            "QA": quilt_band, "QB": quilt_band, "QC": quilt_band}[VARIANT]
     band("far", "hill_far", LAYOUT["hills_far"], -17.0, -100.0, ROLL, rng)
     band("near", "hill_near", LAYOUT["hills_near"], -17.0, -72.0, ROLL, rng)
     band("rise", "rise", LAYOUT["fore"], -11.0, -46.0, VALLEY, rng, fields=True)
-    if VARIANT in ("B", "PA", "PB", "PC"):
+    if VARIANT in ("QA", "QB", "QC") and BELTS:
+        pine_belts(random.Random(97))
+    if VARIANT in ("B", "PA", "PB", "PC", "QA", "QB", "QC"):
         hill_layers(rng)
     else:
         hill_field()
@@ -752,6 +931,8 @@ def build_pines():
     `StageArt._pine_cluster` sets them, each in its own green."""
     rng = random.Random(83)
     pine = {"A": pine_pleated, "C": pine_faceted}.get(VARIANT, pine_discs)
+    if opts.get("pine", "") == "D":
+        pine = pine_detailed
     # (Each look's pine at the code-built pine's height, 2.5 at size 1; MH's half as tall again, as the forest belts behind them.)
     sc = {"A": 0.9, "MH": 1.2}.get(VARIANT, 1.0)
     for k, (ox, oz, s) in enumerate(PINE_SPOTS):
@@ -845,7 +1026,8 @@ def main():
     build_ground()
     make_objects()
     # (Wider on the patchwork's last look, its soft shade: the creases under the hedgerows and the dotted things.)
-    bake_occlusion(5.0 if VARIANT == "PC" else 3.0)
+    # (Lighter on the tidy quilt: the deep crease shade was much of PB's muddiness.)
+    bake_occlusion({"PC": 5.0, "QA": 1.5, "QB": 1.5, "QC": 1.5}.get(VARIANT, 3.0))
     export(opts["ground"], "ground")
     bpy.ops.wm.read_factory_settings(use_empty=True)
     build_pines()

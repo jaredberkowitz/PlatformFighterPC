@@ -721,6 +721,36 @@ def haystack(at, r=1.6, h=3.2):
     bm = bmesh.new()
     bmesh.ops.create_cone(bm, cap_ends=True, segments=7, radius1=0.28, radius2=0.0, depth=0.6, matrix=Matrix.Translation(P(x, y + h + 0.15, z)))
     ob("haystack_top", bm, "straw")
+    # (The detail, on by default since the owner shipped it, 2026-10-22; `--detail 0` without.)
+    if opts.get("detail", "1") == "1":
+        # (The detail pass, 2026-10-22: straw strands combed down the stack as raised strips in a deeper straw, a frayed hem of wisps at
+        # its foot and a few loose wisps on the crown.)
+        rng = random.Random(int(abs(x) * 10 + abs(z)))
+        bm = bmesh.new()
+        for k in range(18):
+            a = math.tau * k / 18 + rng.uniform(-0.08, 0.08)
+            pts = []
+            for t in (0.05, 0.3, 0.55, 0.78, 0.9):
+                rr = {0.05: r * 1.0, 0.3: r * 1.03, 0.55: r * 0.95, 0.78: r * 0.7, 0.9: r * 0.42}[t] + 0.03
+                pts.append((x + math.cos(a) * rr, y + t * h, z + math.sin(a) * rr))
+            for i in range(len(pts) - 1):
+                tube(bm, pts[i], pts[i + 1], 0.045, segs=4)
+        ob("haystack_strands", bm, "straw_end", smooth=True)
+        bm = bmesh.new()
+        for k in range(26):
+            a = math.tau * k / 26 + rng.uniform(-0.1, 0.1)
+            ca, sa = math.cos(a), math.sin(a)
+            w = 0.18
+            base0 = (x + ca * r * 0.98 - sa * w, y + 0.18, z + sa * r * 0.98 + ca * w)
+            base1 = (x + ca * r * 0.98 + sa * w, y + 0.18, z + sa * r * 0.98 - ca * w)
+            tipp = (x + ca * (r + 0.35), y - 0.25 - rng.uniform(0, 0.2), z + sa * (r + 0.35))
+            bm.faces.new([bm.verts.new(P(*q)) for q in (base0, base1, tipp)])
+        for k in range(5):
+            a = rng.uniform(0, math.tau)
+            p0 = (x + math.cos(a) * 0.2, y + h * 0.97, z + math.sin(a) * 0.2)
+            p1 = (x + math.cos(a) * 0.75, y + h * 1.05 + rng.uniform(0, 0.25), z + math.sin(a) * 0.75)
+            bm.faces.new([bm.verts.new(P(*q)) for q in (p0, (p0[0] + 0.1, p0[1], p0[2]), p1)])
+        ob("haystack_wisps", bm, "straw")
 
 
 def meadow_b():
@@ -818,6 +848,10 @@ def pleated_cone(cx, y_base, cz, R, h, n=11, turn=0.0, fam="crown"):
     return ob("far_crown", bm, fam)
 
 
+# The detail pass (the owner, 2026-10-22: more detail on the background pieces, stage by stage), on by default; `--detail 0` without.
+DETAIL = opts.get("detail", "1") == "1"
+
+
 def far_tree(x, y0, z, height, r=2.0):
     """A great tree far off, as the grove's own: a trunk of folded paper (seven faces, flared at its foot) and a crown of pleated tiers."""
     bm = bmesh.new()
@@ -825,12 +859,28 @@ def far_tree(x, y0, z, height, r=2.0):
     for v in bm.verts:
         v.co = P(x + v.co.x, y0 + v.co.z, z - v.co.y)
     ob("far_trunk", bm, "bark")
+    if DETAIL:
+        # Roots flaring into the terrace and a few broken branch stubs up the trunk.
+        bm = bmesh.new()
+        for k in range(6):
+            a = math.tau * k / 6 + 0.3
+            ca, sa = math.cos(a), math.sin(a)
+            side = (-sa * 0.7, ca * 0.7)
+            top = (x + ca * r * 1.2, y0 + 2.6, z + sa * r * 1.2)
+            foot = (x + ca * r * 2.6, y0 - 0.6, z + sa * r * 2.6)
+            for q in ((top, foot, (foot[0] + side[0], foot[1], foot[2] + side[1])), (top, (foot[0] + side[0], foot[1], foot[2] + side[1]), (top[0] + side[0] * 0.5, top[1], top[2] + side[1] * 0.5))):
+                bm.faces.new([bm.verts.new(P(*v)) for v in q])
+        for k, (hy, a) in enumerate(((0.38, 0.6), (0.5, 2.9), (0.62, 4.6))):
+            p0 = (x + math.cos(a) * r * 0.8, y0 + height * hy, z + math.sin(a) * r * 0.8)
+            p1 = (x + math.cos(a) * r * 2.0, y0 + height * hy + 1.4, z + math.sin(a) * r * 2.0)
+            tube(bm, p0, p1, 0.35, segs=6)
+        ob("far_roots", bm, "bark", smooth=False)
     for k, (base, rad, tall) in enumerate(((height * 0.5, r * 4.4, 5.0), (height * 0.5 + 3.8, r * 3.6, 4.6), (height * 0.5 + 7.2, r * 2.6, 4.4),
                                            (height * 0.5 + 10.2, r * 1.6, 4.0))):
         pleated_cone(x, y0 + base, z, rad, tall, turn=k * 0.3, fam="crown" if k % 2 == 0 else "crown_lit")
 
 
-def far_hut(x, y, z, r, side):
+def far_hut(x, y, z, r, side, ground=None):
     """A hut of dark wood on a ring of planks round a far trunk: a lit window, a cone of thatch."""
     bm = bmesh.new()
     kit.lathe(bm, [(r + 1.8, 0.0), (r + 1.8, 0.3)], 18)
@@ -847,6 +897,46 @@ def far_hut(x, y, z, r, side):
         v.co = P(hx + v.co.x, y + 2.1 + v.co.z, hz - v.co.y)
     ob("far_thatch", bm, "straw")
     boxg(hx - 0.5, hx + 0.5, y + 0.8, y + 1.7, hz + 0.9, hz + 0.96, "window", "far_window")
+    if DETAIL:
+        f = hz + 0.9
+        # Plank battens up the front, a framed window with shutters, a door, a second fringe of thatch.
+        for bx in (hx - 1.0, hx - 0.65, hx + 0.65, hx + 1.0):
+            boxg(bx - 0.05, bx + 0.05, y + 0.3, y + 2.1, f, f + 0.06, "timber", "far_batten")
+        for (x0, x1, y0_, y1_) in ((hx - 0.6, hx + 0.6, y + 0.72, y + 0.8), (hx - 0.6, hx + 0.6, y + 1.7, y + 1.78)):
+            boxg(x0, x1, y0_, y1_, f, f + 0.1, "timber", "far_frame")
+        for sx in (-1.0, 1.0):
+            boxg(hx + sx * 0.55, hx + sx * 0.85, y + 0.78, y + 1.72, f + 0.02, f + 0.08, "gate_red", "far_shutter")
+        bm = bmesh.new()
+        kit.lathe(bm, [(1.85, -0.15), (1.55, 0.25)], 14)
+        for v in bm.verts:
+            v.co = P(hx + v.co.x, y + 2.1 + v.co.z, hz - v.co.y)
+        ob("far_fringe", bm, "straw_end")
+        # A rail of posts and rope round the deck, a lantern on it, a ladder down the trunk to the terrace.
+        bm = bmesh.new()
+        n = 14
+        rail = []
+        for k in range(n):
+            a = math.tau * k / n
+            px, pz = x + math.cos(a) * (r + 1.7), z + math.sin(a) * (r + 1.7)
+            tube(bm, (px, y + 0.3, pz), (px, y + 1.2, pz), 0.06, segs=4)
+            rail.append((px, y + 1.15, pz))
+        for k in range(n):
+            tube(bm, rail[k], rail[(k + 1) % n], 0.035, segs=4)
+        ob("far_rail", bm, "rope", smooth=True)
+        lx, lz = x - side * (r + 1.7), z + 0.8
+        boxg(lx - 0.2, lx + 0.2, y + 1.2, y + 1.6, lz - 0.2, lz + 0.2, "window", "far_lamp")
+        if ground is not None:
+            ax = x + side * 0.2
+            az = z + r + 0.35
+            bm = bmesh.new()
+            for dx in (-0.35, 0.35):
+                tube(bm, (ax + dx, ground, az + 0.3), (ax + dx, y + 0.3, az), 0.06, segs=4)
+            k = 0.0
+            while k < (y - ground):
+                t = k / max(y - ground, 0.01)
+                tube(bm, (ax - 0.35, ground + k, az + 0.3 * (1 - t)), (ax + 0.35, ground + k, az + 0.3 * (1 - t)), 0.045, segs=4)
+                k += 0.55
+            ob("far_ladder", bm, "timber", smooth=True)
 
 
 def rope_bridge(a, b, sag=1.2):
@@ -881,7 +971,7 @@ def grove_a():
         side = -1.0 if x < 0 else 1.0
         # (Low on the trunks, against the violet hills where the lit windows show: higher, they were lost among the lantern strings.)
         y = y0 + (4.0 if k % 2 == 0 else 5.5)
-        far_hut(x, y, z, 2.0, side if k < 2 else -side)
+        far_hut(x, y, z, 2.0, side if k < 2 else -side, ground=y0)
         huts.append(Vector((x, y + 0.3, z)))
     for i, j in ((0, 1), (2, 3)):
         a, b = huts[i], huts[j]
@@ -906,6 +996,25 @@ def grove_b():
         card([(p[0], p[1], p[2] + 0.25) for p in top], "gate_dark", "gate_top", thick=0.5)
         card([(x - 2.6, y + 3.95, z + 0.2), (x + 2.6, y + 3.95, z + 0.2), (x + 2.6, y + 4.12, z + 0.2), (x - 2.6, y + 4.12, z + 0.2)], "gate_red", "gate_lintel", thick=0.4)
         card([(x - 0.35, y + 3.45, z + 0.22), (x + 0.35, y + 3.45, z + 0.22), (x + 0.35, y + 3.98, z + 0.22), (x - 0.35, y + 3.98, z + 0.22)], "gate_dark", "gate_plaque", thick=0.1)
+        if DETAIL:
+            # A twisted rope sagging under the crossbar with paper zigzags hanging from it, and stone plinths under the posts.
+            bm = bmesh.new()
+            last = None
+            for k in range(13):
+                t = k / 12.0
+                cur = (x - 1.45 + 2.9 * t, y + 3.05 - 0.35 * math.sin(t * math.pi), z + 0.25)
+                if last:
+                    tube(bm, last, cur, 0.09, segs=6)
+                last = cur
+            ob("gate_rope", bm, "rope", smooth=True)
+            for t in (0.25, 0.5, 0.75):
+                cx = x - 1.45 + 2.9 * t
+                cy = y + 3.05 - 0.35 * math.sin(t * math.pi)
+                zig = [(cx - 0.12, cy), (cx + 0.12, cy), (cx + 0.12, cy - 0.25), (cx - 0.04, cy - 0.25), (cx + 0.1, cy - 0.5), (cx - 0.08, cy - 0.5),
+                       (cx + 0.06, cy - 0.78), (cx - 0.14, cy - 0.78), (cx - 0.02, cy - 0.5), (cx - 0.16, cy - 0.5), (cx - 0.02, cy - 0.25), (cx - 0.12, cy - 0.25)]
+                card([(px, py, z + 0.32) for (px, py) in zig], "canvas", "gate_shide", thick=0.02)
+            for dx in (-1.6, 1.6):
+                boxg(x + dx - 0.45, x + dx + 0.45, y - 0.35, y + 0.15, z - 0.45, z + 0.45, "rock", "gate_plinth")
     # (Beside the side trees, toward the stage, the believability pass, 2026-10-22: set where the trees stand, each trunk grew through its
     # gate.)
     scaled((-19.0, -9.1, -53.0), 2.0, gate, -19.0, -9.1, -53.0)
@@ -1089,9 +1198,23 @@ def main():
     for v in VARIANT:
         if (THEME, v) in BUILDS:
             BUILDS[(THEME, v)]()
+    group_movers()
+    # (The still pieces joined by material: the detail pass's battens, rails and frames, each its own mesh, could overflow the game's
+    # per-instance shader buffer, as the house kit's did.)
+    groups = {}
+    for o in [o for o in bpy.data.objects if o.parent == ROOT and o.type == "MESH"]:
+        # (And by depth, in bands 25 deep: the game lays the air of its depth over each mesh.)
+        depth = sum((o.matrix_world @ Vector(c)).y for c in o.bound_box) / 8.0
+        groups.setdefault((o.data.materials[0].name if o.data.materials else "", round(depth / 25.0)), []).append(o)
+    for mat, objs in groups.items():
+        if len(objs) > 1:
+            bpy.ops.object.select_all(action="DESELECT")
+            for o in objs:
+                o.select_set(True)
+            bpy.context.view_layer.objects.active = objs[0]
+            bpy.ops.object.join()
     # (The water or the desert floor under them, for the ground's shade at their feet.)
     kit.bake_occlusion(0.6, floor_z=FLOORS[THEME], floor_at=(0.0, 100.0), floor_size=600.0)
-    group_movers()
     tris = sum(sum(len(p.vertices) - 2 for p in o.data.polygons) for o in bpy.context.scene.objects if o.type == "MESH")
     out = os.path.abspath(opts["out"])
     os.makedirs(os.path.dirname(out), exist_ok=True)

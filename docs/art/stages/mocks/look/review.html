@@ -88,6 +88,98 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
     <p>Two lessons from the reference screenshots, mocked from the match camera: the scenery without ink outlines, its edges lit as card bevels instead, and the paper houses rebuilt at the characters' proportions. The earlier rounds stay on the <a href="https://claude.ai/artifact/D1du6MREVumiJDrEdNypW4">Stage Fidelity Review</a>, which is full.</p>
   </header>
 
+  <section class="panel" aria-labelledby="mb-h" id="models">
+    <div class="eyebrow">Built &middot; the plan, worked through</div>
+    <h2 id="mb-h">Blender models in place of code-built art</h2>
+    <p>The grove's forest and the meadow's pine belts shipped first. Then the rest of the plan, each piece now a Blender model, with the old code build kept only as a fallback. In each image the game today is on the left and the model on the right.</p>
+    <h3>The meadow's windmill, one model</h3>
+    <p>The tower, cap, grassy mound, stone base in two courses, arched door with its stones, windows with shutters, gallery, shaft housing, sacks and barrel are one model now. The sails are a separate part that the game still turns. That replaces 74 boxes and cylinders, and it looks the same as before, only cleaner.</p>
+    <div class="viewer"><img src="mb_windmill.jpg" alt="The windmill, code-built left and one model right"></div>
+    <h3>The beach's harbour, in the house kit</h3>
+    <ul style="display:grid;gap:6px;margin:0;padding-left:1.2em;max-width:78ch">
+      <li><b>The bell tower:</b> stone corners up the whole tower and an open belfry with the bell hanging inside, under a clock and a spire laid in rows with a vane on top.</li>
+      <li><b>The warehouse:</b> big braced double doors and a loft door with its hoist beam, rope and hook, plus crates and a barrel by the doors.</li>
+      <li><b>The market stalls:</b> striped awnings with scalloped edges, each stall in its own colours, and fruit crates on the counters.</li>
+      <li><b>The stilt hut:</b> a three-layer ragged thatch roof, a net and floats on the rail, and the jetty on its posts.</li>
+    </ul>
+    <div class="viewer"><img src="mb_harbour.jpg" alt="The harbour town and stilt hut, code-built left and modelled right"></div>
+    <h3>The city's near towers, modelled from the game's own layout</h3>
+    <p>The game exports the boxes it lays out for the nearest row of towers, and Blender rebuilds them as one model. The facade painting is the same one the game used, so the windows, lights, signs and colours don't change. What it could only paint is now real: a frame round every window, a sill and a lintel (arches of stones on the arched windows), a ledge every fourth floor, and pilasters between the bays. The signs hang out past the new frames. The two rows further back stay painted, since detail that far back would only add noise.</p>
+    <div class="viewer"><img src="mb_city.jpg" alt="The near skyline, painted left and modelled right, with close crops"></div>
+    <p class="muted">Every test passes. Cost: the windmill is about 4,000 triangles; the near skyline is about 54,000 triangles in a single draw. Not yet in a published build.</p>
+  </section>
+
+  <section class="panel" aria-labelledby="gf-h" id="forest">
+    <div class="eyebrow">Built &middot; quality: modelled art, and a believable forest</div>
+    <h2 id="gf-h">What's still code-built, and the grove as a real forest</h2>
+    <p>You're right on both counts. Much of the background is still assembled from boxes, cylinders and spheres in code rather than modelled in Blender, and the grove's "forest" was a handful of trees. I traced every stage's background for code-built pieces (written up in docs/art/stages/MODEL_AUDIT.md):</p>
+    <div class="tablewrap"><table><thead><tr><th>Stage</th><th>Still code-built</th></tr></thead><tbody>
+      <tr><td>Meadow</td><td>The windmill (only its tower is modelled; base, door, windows, gallery, cap and sails are 74 primitives), the sky islands, round trees, flowers, clouds</td></tr>
+      <tr><td>Grove</td><td>Lantern strings, flower clusters, parts of the great tree's canopy, clouds</td></tr>
+      <tr><td>Beach</td><td>Bell tower, warehouse, stilt hut and jetty, harbour pieces, market stalls, islet detail, clouds</td></tr>
+      <tr><td>Canyon</td><td>Clouds (the rest is modelled)</td></tr>
+      <tr><td>City</td><td>The skyline towers (code facades), rooftop units, street dressing</td></tr>
+    </tbody></table></div>
+    <p><b>Proposed order:</b> 1. forests (the grove's below, then the meadow's pine belts); 2. the meadow's windmill as one Blender model; 3. the beach's harbour buildings as Blender models in the house kit's style; 4. the city's skyline as modelled towers; 5. small things (lantern strings, flowers, islets, clouds).</p>
+    <h3>Pilot: the grove's forest</h3>
+    <p>The middle and back terraces filled with a dense wood, modelled in Blender in the grove tree's manner (fluted trunks, pleated tiers), the back row tallest so it rises over the middle, with clearings now and then and room left round the tree village, the gates and the space behind the fight. 282 trees; about 0.25 ms of GPU time. Today left, the forest right (wide, then match camera):</p>
+    <div class="viewer"><img src="gf_forest.jpg" alt="Grove forest pilot, today and with the forest"></div>
+    <p class="muted">The grove's detail pass (hut rails, ladders, gate ropes) is in this capture too, and still unshipped.</p>
+  </section>
+
+  <section class="panel" aria-labelledby="gd-h" id="grovedetail">
+    <div class="eyebrow">Your call is needed &middot; the grove's detail pass</div>
+    <h2 id="gd-h">More detail on the grove's tree village and gates</h2>
+    <p>Shipped first: the meadow's detail pass (the windmill's sails and arched door, the houses' shutters, side windows, lanterns, fences and pots, the barn, the haystacks). The detailed houses also reach the beach's town. Then the grove, mocked (each pair: today left, detailed right):</p>
+    <ul style="display:grid;gap:6px;margin:0;padding-left:1.2em;max-width:78ch">
+      <li><strong>Tree village huts:</strong> plank battens and a framed window with red shutters, a second fringe of thatch, a rail of posts and rope round each deck with a lantern, and a ladder down each trunk to the terrace.</li>
+      <li><strong>The great trees behind:</strong> roots flaring into the terrace and broken branch stubs up the trunks.</li>
+      <li><strong>The gates:</strong> a twisted rope under the crossbar with paper zigzags hanging from it, stone plinths under the posts.</li>
+    </ul>
+    <div class="viewer"><img src="gd_detail.jpg" alt="Grove detail pass: tree village, gate, far trees, today and detailed"></div>
+    <p class="muted">Next on the grove if you want more: the terrace trees' bark and needle tips, the great tree's bark and branches, and tassels and frames on the paper lanterns.</p>
+  </section>
+
+  <section class="panel" aria-labelledby="md-h" id="meadowdetail">
+    <div class="eyebrow">Built &middot; the meadow's detail pass</div>
+    <h2 id="md-h">More detail on the windmill, the houses and the haystacks</h2>
+    <p>Shipped first: meadow ground A (tidy quilt) and the detailed pines. Then the meadow's detail pass, mocked (each pair: today left, detailed right):</p>
+    <ul style="display:grid;gap:6px;margin:0;padding-left:1.2em;max-width:78ch">
+      <li><strong>Windmill:</strong> finer lattice sails (nine slats and a middle rail) with every other sail reefed, its canvas rolled up to show the bare lattice; a stone surround and step at the door, a lantern beside it, a barrel and grain sacks at the foot, the base laid in stone blocks.</li>
+      <li><strong>Houses</strong> (the kit every meadow and beach house uses): plank shutters beside the windows, a window in each side wall, a lantern by every door, a picket fence with a stone path to the door, flower pots.</li>
+      <li><strong>Barn:</strong> hay in the loft, a side window, a weathervane on the ridge.</li>
+      <li><strong>Haystacks:</strong> straw combed down the stack in deeper strands, a frayed hem of wisps at the foot, loose wisps on the crown.</li>
+    </ul>
+    <div class="viewer"><img src="md_detail.jpg" alt="Meadow detail pass: farm, windmill, haystack, far cottage, today and detailed"></div>
+    <p class="muted">To fix if you take it: the windmill's stone door surround squares off its arched door, and on the far cottage the fence runs into the slope on one side. The houses cost about 8,000 more triangles across the kit.</p>
+  </section>
+
+  <section class="panel" aria-labelledby="mq-h" id="meadowquilt">
+    <div class="eyebrow">Built &middot; the meadow's ground, tidied (A), and the detailed pines</div>
+    <h2 id="mq-h">A cleaner meadow, and more detailed background trees</h2>
+    <p>You said the meadow's ground read muddy, unprofessional and not consistently shaped. Three causes: the field patches are free-form blobs of every size; their cut edges are cream, which reads as grubby outlines at a distance; and a deep baked shade in every crease muddies the greens. These options keep the layout, lanes and farm and fix the drawing:</p>
+    <div class="tablewrap"><table><thead><tr><th>Option</th><th>What it is</th></tr></thead><tbody>
+      <tr><td>A &middot; Tidy quilt</td><td>Every field the same rounded rectangle, in even rows that shrink with distance; even gaps of a deeper green between them, so the quilt's lines read; three clean greens and now and then wheat; hedgerows run along the rows; cut edges a deeper green, not cream; lighter crease shade. The hills behind are tidied the same way.</td></tr>
+      <tr><td>B &middot; Big fields</td><td>A, with half as many rows and fields twice as wide: calmer.</td></tr>
+      <tr><td>C &middot; Lawn</td><td>A clean lawn, with fields only round the farm and along the lanes: the calmest, closest to the reference's plain lime grass.</td></tr>
+    </tbody></table></div>
+    <div class="row" role="group" aria-label="View"><button data-qv="w">Wide</button><button data-qv="m">Match camera</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-qo="T">Today</button><button data-qo="QA">A &middot; Tidy quilt</button><button data-qo="QB">B &middot; Big fields</button><button data-qo="QC">C &middot; Lawn</button></div>
+    <div class="viewer"><img id="qimg" alt="Meadow ground option"><span class="vtag" id="qtag"></span></div>
+    <p class="muted">My pick: <b>A</b>. It keeps the farmland story but reads crisp and even.</p>
+    <h3>Detail, starting with the meadow's trees</h3>
+    <p>The background pines were five or six plain stacked cones. The detailed pine has eight skirts with scalloped hems (each tier's edge steps in light and shade), a slight lean up the tree, and a visible trunk with roots. Same size and place, about 2,400 triangles for the whole cluster. Left today, right detailed:</p>
+    <div class="viewer"><img src="mq_pines.jpg" alt="Meadow pines today and detailed"></div>
+    <p>If you like the direction, the detail pass goes stage by stage, starting on the meadow:</p>
+    <ul style="display:grid;gap:6px;margin:0;padding-left:1.2em;max-width:78ch">
+      <li><strong>Meadow:</strong> pines (above); the windmill (a stone base, shuttered windows, lattice sails, a door step); the cottages and barn (window boxes, fences, a path to each door); the haystacks.</li>
+      <li><strong>Grove:</strong> the terrace trees and the great tree's bark and branches; the lanterns (frames, tassels, a glow on what's below); the tree village (ladders, rails, rope bridges).</li>
+      <li><strong>Beach:</strong> the town (window frames, shutters, balconies, chimneys); the islands (rocks, palms, a jetty); the lighthouse (railing, door, windows).</li>
+      <li><strong>Canyon:</strong> the buttes (cracks, ledges, scrub on the steps); the trestle (cross-bracing, bolts); the water tower and train.</li>
+      <li><strong>City:</strong> the towers (window frames, ledges, rooftop tanks and signs); the street (lamps, awnings, benches).</li>
+    </ul>
+  </section>
+
   <section class="panel" aria-labelledby="bl-h" id="believe">
     <div class="eyebrow">Built &middot; the air retune and the believability pass</div>
     <h2 id="bl-h">Coloured middle distance, and things where they belong</h2>
@@ -448,6 +540,16 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
   group("data-rs", function (v) { rs = v; }, rrender);
   group("data-rv", function (v) { rv = v; }, rrender);
   rrender();
+  var qv = "w", qo = "QA";
+  var QO = { T: "Today", QA: "A · Tidy quilt", QB: "B · Big fields", QC: "C · Lawn" };
+  function qrender2() {
+    document.getElementById("qimg").src = "mq_" + qv + "_" + qo + ".jpg";
+    document.getElementById("qtag").textContent = "Meadow · " + QO[qo] + (qv === "w" ? " · wide" : " · match camera");
+    pressed("data-qv", qv); pressed("data-qo", qo);
+  }
+  group("data-qv", function (v) { qv = v; }, qrender2);
+  group("data-qo", function (v) { qo = v; }, qrender2);
+  qrender2();
   var rs2 = "close";
   var RS2 = { close: "../../review5/shadows_close.jpg", all: "../../review5/shadows_built.jpg" };
   function rs2render() {

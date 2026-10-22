@@ -34,6 +34,9 @@ import bmesh
 import bpy
 from mathutils import Vector
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from fold_kit import pleated_tier  # noqa: E402
+
 argv = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
 opts = {argv[i].lstrip("-"): argv[i + 1] for i in range(0, len(argv) - 1, 2)}
 VARIANT = opts.get("variant", "A").upper()
@@ -725,6 +728,72 @@ def plant_trees_hero(rng):
                 face(part(name + "_tufts", "tuft"), (P(x - dx, top + 0.01, z - dz), P(x + dx, top + 0.01, z + dz), P(x + dx * 0.2, top + 1.1, z + dz * 0.2)))
 
 
+FOREST = opts.get("forest", "1") == "1"
+
+
+def forest_tree(name, x, y, z, h, rng):
+    """A tree of the grove's forest, in the grove tree's manner at a fraction of its cost: a fluted, tapering trunk flared at its foot and
+    four pleated tiers of crown, the lowest widest, each a little turned. `h` its height."""
+    bark = part(name, "bark")
+    n = 7
+    rings = [(0.0, 0.11 * h), (0.06 * h, 0.075 * h), (0.5 * h, 0.05 * h), (0.85 * h, 0.03 * h)]
+    turn = rng.uniform(0, math.tau)
+    pts = []
+    for (yy, rr) in rings:
+        pts.append([P(x + math.cos(turn + math.tau * i / n) * rr * (1.0 if i % 2 else 0.86), y + yy,
+                      z + math.sin(turn + math.tau * i / n) * rr * (1.0 if i % 2 else 0.86)) for i in range(n)])
+    for k in range(len(pts) - 1):
+        for i in range(n):
+            j = (i + 1) % n
+            face(bark, (pts[k][i], pts[k][j], pts[k + 1][j], pts[k + 1][i]))
+    lit, under = part(name, "leaf_lit"), part(name, "leaf_shade")
+    base = P(x, y, z)
+    for k in range(4):
+        t = k / 3.0
+        rad = (0.34 - 0.2 * t) * h * rng.uniform(0.92, 1.08)
+        z0 = base.z + (0.36 + 0.17 * k) * h
+        tall = (0.24 - 0.02 * k) * h
+        pleated_tier(lit, under, (base.x, base.y), z0, rad, tall, 9 if k < 2 else 7, rng.uniform(0, math.tau), rng, flare=0.46,
+                     droop=0.05 * h * (1.0 - 0.4 * t))
+
+
+def forest(rng):
+    """The grove's forest (the owner, 2026-10-22: "our forest is a few sporadically placed trees"; the reference's violet forest is dense):
+    the middle and back terraces filled with trees on a jittered grid, the back ones the tallest so they rise over the middle row, clear
+    of every edge, the village's great trees and their huts, the space right behind the fight, and the near terrace's own big trees."""
+    placed = []
+    for name, poly, top, _ in HERO_TIERS:
+        if name.startswith("T0"):
+            continue
+        back = name == "T2"
+        step = 6.5 if back else 7.5
+        xs = [q[0] for q in poly]
+        zs = [q[1] for q in poly]
+        gx = min(xs)
+        while gx < max(xs):
+            gz = min(zs)
+            while gz < max(zs):
+                x = gx + rng.uniform(-2.2, 2.2)
+                z = gz + rng.uniform(-2.2, 2.2)
+                gz += step * rng.uniform(0.85, 1.15)
+                if not inside(poly, x, z) or abs(x) < (22 if not back else 14):
+                    continue
+                if any(not inside(poly, x + dx, z + dz) for (dx, dz) in ((3.5, 0), (-3.5, 0), (0, 3.5), (0, -3.5))):
+                    continue
+                if any(inside(q, x, z) for (_, q, t, _) in HERO_TIERS if t > top + 0.01):
+                    continue
+                if any(math.hypot(x - tx, z - tz) < 12.0 for (tx, tz) in VILLAGE) or any(math.hypot(x - tx, z - tz) < 9.0 for (tx, tz) in SIDE_TREES + SLOTS):
+                    continue
+                if rng.random() < 0.12:
+                    # (A clearing now and then, so it reads as a wood, not a plantation.)
+                    continue
+                h = rng.uniform(13.0, 19.0) if back else rng.uniform(10.0, 14.0)
+                forest_tree("forest_%s_%d" % (name, len(placed) // 40), x, top - 0.3, z, h, rng)
+                placed.append((x, z))
+            gx += step * rng.uniform(0.85, 1.15)
+    print("grove forest: %d trees" % len(placed))
+
+
 def abyss():
     """The abyss under the ledges: a deep violet sheet low down, and a paler veil of mist over its far half."""
     # (High enough to swallow the ledges' rock feet: the rock reads as going down into the dark, not as a wall standing on a floor.)
@@ -771,6 +840,8 @@ def build_ground():
     if VARIANT == "H":
         hero_ledges(rng)
         plant_trees_hero(rng)
+        if FOREST:
+            forest(rng)
     elif VARIANT in ("FA", "FB", "FC"):
         floating_ledges(rng)
         plant_trees_floating(rng)

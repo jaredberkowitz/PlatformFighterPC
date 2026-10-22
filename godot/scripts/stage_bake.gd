@@ -565,7 +565,7 @@ const WORLD_COLOURS := {"hull": Color(0.32, 0.5, 0.62), "hull_stripe": Color(0.9
 	"tank": Color(0.62, 0.4, 0.3), "tank_dark": Color(0.42, 0.28, 0.24), "trail": Color(0.96, 0.84, 0.68), "canvas": Color(0.96, 0.93, 0.84),
 	"blade": Color(0.86, 0.84, 0.8),
 	"adobe": Color(0.9, 0.66, 0.5), "adobe_dark": Color(0.74, 0.5, 0.38), "window": Color(1.0, 0.82, 0.5),
-	"straw": Color(0.98, 0.84, 0.46), "gate_red": Color(0.86, 0.3, 0.26),
+	"straw": Color(0.98, 0.84, 0.46), "straw_end": Color(0.84, 0.66, 0.32), "gate_red": Color(0.86, 0.3, 0.26),
 	"gate_dark": Color(0.3, 0.22, 0.24), "rock": Color(0.6, 0.56, 0.62), "turf": Color(0.48, 0.74, 0.36), "bark": Color(0.55, 0.38, 0.26),
 	"bus": Color(0.95, 0.72, 0.28), "board_frame": Color(0.3, 0.28, 0.4), "steel": Color(0.4, 0.4, 0.52), "train": Color(0.36, 0.5, 0.7),
 	"crown": Color(0.22, 0.42, 0.32), "firefly": Color(0.95, 1.0, 0.62),
@@ -958,6 +958,18 @@ static func _ground_colours(t: Dictionary) -> Dictionary:
 	out["stone"] = Color(0.82, 0.81, 0.78)
 	out["flower_a"] = Color(0.98, 0.64, 0.72)
 	out["flower_b"] = Color(1.0, 0.86, 0.42)
+	# (The meadow's tidy quilt, after the owner's note that PB read muddy: clean greens after the reference's lime, a warm wheat, the cut
+	# edges a deeper green instead of cream, hedgerows a dark leaf green.)
+	out["qf_a"] = Color(0.46, 0.78, 0.3)
+	out["qf_b"] = Color(0.37, 0.68, 0.27)
+	out["qf_c"] = Color(0.55, 0.83, 0.36)
+	out["wheat"] = Color(0.92, 0.82, 0.44)
+	out["qcard"] = Color(0.27, 0.5, 0.22)
+	out["qhedge"] = Color(0.22, 0.43, 0.22)
+	out["qgap"] = Color(0.28, 0.54, 0.24)
+	for fam in ["hill_near", "hill_far"]:
+		out[fam + "_l"] = (out[fam] as Color).lightened(0.1)
+		out[fam + "_d"] = (out[fam] as Color).darkened(0.08)
 	# (The meadow's shelves after its reference, the papercraft camp: bright lime grass, every other shelf a step deeper, a crisp dark
 	# green-grey ledge under each, its grass lip a little deeper than the top.)
 	out["shelf"] = Color(0.44, 0.76, 0.3)

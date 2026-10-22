@@ -1027,7 +1027,11 @@ const PAPER_COLOURS := {"straw": Color(0.98, 0.84, 0.46), "straw_end": Color(0.9
 	"trim": Color(0.56, 0.38, 0.26), "timber": Color(0.42, 0.28, 0.2), "door": Color(0.5, 0.32, 0.22), "shutter": Color(0.36, 0.52, 0.6),
 	"barn": Color(0.78, 0.26, 0.22), "barn_door": Color(0.62, 0.2, 0.18), "barn_trim": Color(0.98, 0.95, 0.9), "shadow": Color(0.24, 0.16, 0.14),
 	# (The houses at the characters' proportions, make_paper_houses_v2.py: daylight glass, the doors' plank seams and knobs.)
-	"glass": Color(0.36, 0.6, 0.86), "door_seam": Color(0.36, 0.24, 0.16), "knob": Color(0.92, 0.9, 0.86)}
+	"glass": Color(0.36, 0.6, 0.86), "door_seam": Color(0.36, 0.24, 0.16), "knob": Color(0.92, 0.9, 0.86),
+	# (The detail pass, 2026-10-22: the door lanterns.)
+	"lamp": Color(1.0, 0.86, 0.5),
+	# (The beach's harbour buildings in the house kit, 2026-10-22: the bell, the stalls' awnings, the fisherman's net.)
+	"bell": Color(0.86, 0.66, 0.3), "awning": Color(0.92, 0.3, 0.28), "awning_b": Color(0.98, 0.95, 0.9), "net": Color(0.36, 0.52, 0.5)}
 ## Paper prop families drawn in their own light, not the stage's (a lamp's lantern).
 const PAPER_LIT := ["glow"]
 
@@ -4538,7 +4542,41 @@ static func _island_detail(island: Node3D, hw: float, size: float, t: Dictionary
 ## A windmill (`at` is the foot of its tower): a footing of rough stones, a tapered whitewashed tower with a plank door, two small
 ## shuttered windows and a wooden gallery round it, a shingled cap with a trim ring and a finial, and four lattice sails, each a stock
 ## carrying a frame of rails and slats with canvas over most of it, that turn.
+## The detail pass (the owner, 2026-10-22: more detail on the background pieces): on the meadow's windmill, a finer lattice and reefed
+## sails, a stone door surround, a lantern, sacks and a barrel, a block base. `--no-detail` shows it without, to compare.
+static var detail_mock := not OS.get_cmdline_user_args().has("--no-detail")
+
+
 static func _windmill(root: Node3D, at: Vector3) -> void:
+	# The whole windmill as one model (make_props.py `windmill`, the owner 2026-10-22: Blender models wherever possible): the tower and
+	# cap, mound, stone drum, arched door, windows, gallery, shaft housing, sacks and barrel; its `sails` turn on a Spinner at the hub.
+	# The code-built mill below stands in without it.
+	var whole := Toonify.load_prop("windmill", true)
+	if whole != null:
+		whole.position = at
+		root.add_child(whole)
+		_contact(root, at + Vector3(0, 0.4, 0), Vector2(4.2, 3.4))
+		for mi in whole.find_children("*", "MeshInstance3D", true, false):
+			var nm := String(mi.name)
+			if nm.begins_with("wall"):
+				(mi as MeshInstance3D).material_override = FighterView.toon(Color(0.9, 0.82, 0.7))
+			elif nm.begins_with("glow"):
+				(mi as MeshInstance3D).material_override = _unshaded(Color(1.0, 0.86, 0.56))
+			elif nm.begins_with("opening"):
+				(mi as MeshInstance3D).material_override = _unshaded(Color(0.2, 0.16, 0.22))
+			elif nm.begins_with("sail_hub_cap"):
+				(mi as MeshInstance3D).material_override = FighterView.respond(FighterView.toon(Color(0.36, 0.34, 0.42)), "metal")
+		var sails := whole.find_child("sails", true, false) as Node3D
+		if sails != null:
+			var spin := Spinner.new()
+			spin.speed = 0.6
+			spin.transform = sails.transform
+			sails.get_parent().add_child(spin)
+			for c in sails.get_children():
+				c.owner = null
+				c.reparent(spin, false)
+			sails.free()
+		return
 	var plaster := Materials.plaster(Color(0.96, 0.94, 0.88), Vector2(3, 3))
 	var wood := Materials.wood(Color(0.55, 0.38, 0.26))
 	var wood_dark := Materials.wood(Color(0.42, 0.28, 0.2), Vector2(2, 1))
@@ -4559,6 +4597,34 @@ static func _windmill(root: Node3D, at: Vector3) -> void:
 		_mesh(root, _cylinder(1.8, 3.0, 12.0, 14), plaster, at + Vector3(0, 7.0, 0))
 	# The door at the foot, and two windows up the front, each a dark opening in a wooden frame with a shutter.
 	_mesh(root, _box(Vector3(1.6, 2.6, 0.3)), wood_dark, at + Vector3(0, 3.2, 2.85))
+	if detail_mock:
+		# (The detail pass: the stone base laid in two courses of blocks, a stone surround and step at the door, a lantern beside it,
+		# and sacks of grain and a barrel at the foot.)
+		var block := Materials.stone(Color(0.7, 0.66, 0.62), Vector2(1, 1))
+		var block_dark := Materials.stone(Color(0.6, 0.56, 0.54), Vector2(1, 1))
+		for row in 2:
+			var nb := 22
+			for b in nb:
+				var ang := TAU * (b + 0.5 * row) / nb
+				var rad := 3.42 - 0.12 * row
+				_mesh(root, _box(Vector3(0.88, 0.86, 0.3)), block if (b + row) % 3 else block_dark,
+					at + Vector3(sin(ang) * rad, 0.5 + row * 0.92, cos(ang) * rad), Vector3.ONE, Vector3(0, rad_to_deg(ang), 0))
+		# (Jambs up to the springing, and voussoirs round the door's arch, so the doorway stays arched.)
+		for sx in [-1.0, 1.0]:
+			_mesh(root, _box(Vector3(0.4, 2.6, 0.4)), block, at + Vector3(sx * 1.0, 3.2, 2.95))
+		for v in 7:
+			var va := PI * (v + 0.5) / 7.0
+			_mesh(root, _box(Vector3(0.36, 0.42, 0.42)), block if v % 2 else block_dark, at + Vector3(cos(va) * 1.0, 4.5 + sin(va) * 1.0, 2.95),
+				Vector3.ONE, Vector3(0, 0, rad_to_deg(va) - 90.0))
+		_mesh(root, _box(Vector3(2.6, 0.3, 1.2)), block_dark, at + Vector3(0, 1.95, 3.3))
+		_mesh(root, _box(Vector3(0.3, 0.45, 0.3)), _unshaded(Color(1.0, 0.86, 0.56)), at + Vector3(1.55, 4.2, 3.05))
+		_mesh(root, _box(Vector3(0.42, 0.1, 0.42)), wood_dark, at + Vector3(1.55, 4.47, 3.05))
+		var sack := FighterView.toon(Color(0.86, 0.78, 0.6))
+		for sk in [[-2.2, 0.0, 3.6, 0.0], [-2.9, 0.0, 3.2, 30.0], [-2.5, 0.75, 3.4, 10.0]]:
+			_mesh(root, _sphere(1.0, 10), sack, at + Vector3(sk[0], 2.4 + sk[1], sk[2]), Vector3(0.55, 0.62, 0.45), Vector3(0, sk[3], 0))
+		_mesh(root, _cylinder(0.5, 0.5, 1.1, 12), wood, at + Vector3(2.6, 2.6, 3.4))
+		_mesh(root, _cylinder(0.53, 0.53, 0.1, 12), wood_dark, at + Vector3(2.6, 2.85, 3.4))
+		_mesh(root, _cylinder(0.53, 0.53, 0.1, 12), wood_dark, at + Vector3(2.6, 2.35, 3.4))
 	_mesh(root, _cylinder(0.8, 0.8, 0.3, 12), wood_dark, at + Vector3(0, 4.5, 2.85), Vector3.ONE, Vector3(90, 0, 0))
 	for wy in [7.2, 10.2]:
 		var r := lerpf(3.0, 1.8, (wy - 1.0) / 12.0)
@@ -4597,6 +4663,18 @@ static func _windmill(root: Node3D, at: Vector3) -> void:
 		# over the cloth; on the other a narrow leading board.
 		_mesh(arm, _box(Vector3(0.32, 7.6, 0.26)), wood, Vector3(0, 3.8, 0))
 		_mesh(arm, _box(Vector3(0.14, 5.8, 0.16)), wood, Vector3(1.85, 4.6, 0.06))
+		if detail_mock:
+			# (The detail pass: a finer lattice, nine slats and a middle rail, and on every other sail the canvas reefed, rolled up to
+			# two-thirds with the bare lattice showing above it.)
+			for j in 9:
+				_mesh(arm, _box(Vector3(1.9, 0.08, 0.12)), slat, Vector3(0.95, 1.95 + j * 0.68, 0.08))
+			_mesh(arm, _box(Vector3(0.08, 5.6, 0.12)), slat, Vector3(0.95, 4.7, 0.08))
+			var reef := k % 2 == 1
+			var h := 3.4 if reef else 5.2
+			_mesh(arm, _box(Vector3(1.66, h, 0.08)), sail, Vector3(0.95, 2.15 + h * 0.5, -0.04))
+			if reef:
+				_mesh(arm, _cylinder(0.16, 0.16, 1.7, 8), sail, Vector3(0.95, 2.15 + h, -0.02), Vector3.ONE, Vector3(0, 0, 90))
+			continue
 		for j in 4:
 			_mesh(arm, _box(Vector3(1.9, 0.1, 0.12)), slat, Vector3(0.95, 2.2 + j * 1.6, 0.08))
 		_mesh(arm, _box(Vector3(1.66, 5.2, 0.08)), sail, Vector3(0.95, 4.75, -0.04))
@@ -5225,6 +5303,12 @@ static func _isle_detail(root: Node3D, isle: Vector3, k: int) -> void:
 ## with a lit window, a shaggy thatched roof, a jetty running off to the right (toward the lighthouse) on its own posts, a net hung over the rail and two red and
 ## white floats bobbing beside it.
 static func _stilt_hut(root: Node3D, at: Vector3) -> void:
+	# The house kit's stilt hut and jetty (make_paper_houses_v2.py `stilt_hut`, the owner 2026-10-22: Blender models wherever possible);
+	# the floats still bob on their own. The code-built hut below stands in without the kit.
+	if house_kit != null and _paper(root, "house_stilthut", Transform3D(Basis.IDENTITY, at), {"wall": Color(0.62, 0.5, 0.4),
+			"straw": Color(0.86, 0.7, 0.42), "straw_end": Color(0.76, 0.6, 0.34)}, house_kit):
+		_hut_floats(root, at)
+		return
 	var post := Materials.wood(Color(0.46, 0.34, 0.26))
 	var plank := Materials.wood(Color(0.74, 0.58, 0.4), Vector2(6, 1))
 	var boards := Materials.wood(Color(0.62, 0.5, 0.4), Vector2(3, 2))
@@ -5249,6 +5333,11 @@ static func _stilt_hut(root: Node3D, at: Vector3) -> void:
 	# A rail along the deck's front with a net slung over it.
 	_mesh(root, _box(Vector3(6.4, 0.12, 0.12)), post, at + Vector3(0, 5.0, 2.25))
 	_mesh(root, _box(Vector3(2.4, 0.9, 0.06)), FighterView.toon(Color(0.36, 0.52, 0.5)), at + Vector3(-1.6, 4.6, 2.3))
+	_hut_floats(root, at)
+
+
+## Two red and white floats bobbing off the stilt hut at `at`.
+static func _hut_floats(root: Node3D, at: Vector3) -> void:
 	for k in 2:
 		var buoy := Bob.new()
 		buoy.position = at + Vector3(-4.2 - k * 2.2, 0.1, 2.6 - k * 1.4)
@@ -5839,6 +5928,12 @@ const FACADE_LIT := [1.5, 0.7, 0.45]
 ## (Fewer lit the further back, as distance would hide them: the far layer was the most lit, 36%.)
 ## (Fewer behind, art review 10: the middle and far layers' window grids were the busiest detail behind the fight.)
 const FACADE_LIT_SHARE := [0.18, 0.09, 0.05]
+## The near skyline layer's towers, modelled (art/blender/make_city_towers.py, the owner 2026-10-22: Blender models wherever possible):
+## the boxes `_skyline_layer` lays out, exported with `--city-export=<json>`, built with real window frames, sills, lintels, floor
+## ledges and pilasters where the facade shader paints them, and painted by the same shader. `--no-city-model` for the code boxes.
+const CITY_NEAR := "res://models/city/skyline_near.glb"
+## While a layer is laid out, the boxes it builds ([lo, hi, seed, plain, h, glass]), for the model and its export; null otherwise.
+static var _box_log = null
 
 
 ## One layer of the city's backdrop at depth `z`, its streets at `street`: a row of buildings (boxes with a parapet, some with rooftop
@@ -5847,6 +5942,15 @@ const FACADE_LIT_SHARE := [0.18, 0.09, 0.05]
 static func _skyline_layer(root: Node3D, rng: RandomNumberGenerator, layer: int, z: float, shade: Color, street: float) -> void:
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	# (The quads laid straight on the facade, the crowns' pyramids and the signs, on their own too: with the modelled towers they are
+	# all this layer still draws itself.)
+	var qst := SurfaceTool.new()
+	qst.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var near := layer == 0
+	_box_log = [] if near else null
+	var sign_out := 0.08
+	if near and ResourceLoader.exists(CITY_NEAR) and not OS.get_cmdline_user_args().has("--no-city-model"):
+		sign_out = 0.24 / float({"A": 0.1, "B": 0.08, "C": 0.22}.get(_paper_look(), 1.0))
 	var depth := 5.0
 	# Signs on some of the nearer buildings, from their own random numbers (so the skyline's layout is the same with or without them).
 	var signs := RandomNumberGenerator.new()
@@ -5908,9 +6012,10 @@ static func _skyline_layer(root: Node3D, rng: RandomNumberGenerator, layer: int,
 			var py := t1 + s2
 			var apex := Vector3((pl + pr) * 0.5, py + (pr - pl) * 0.7, z)
 			var pc := Color(seed, 1.0, 0.0)
-			_facade_quad(st, [Vector3(pl, py, pf), Vector3(pr, py, pf), apex, apex], Vector3(0, 0.6, 0.8).normalized(), Vector2(pr - pl, 1.0), 0.0, pc)
-			_facade_quad(st, [Vector3(pr, py, pf), Vector3(pr, py, pb), apex, apex], Vector3(0.8, 0.6, 0).normalized(), Vector2(pf - pb, 1.0), 0.0, pc)
-			_facade_quad(st, [Vector3(pl, py, pb), Vector3(pl, py, pf), apex, apex], Vector3(-0.8, 0.6, 0).normalized(), Vector2(pf - pb, 1.0), 0.0, pc)
+			for qs: SurfaceTool in [st, qst]:
+				_facade_quad(qs, [Vector3(pl, py, pf), Vector3(pr, py, pf), apex, apex], Vector3(0, 0.6, 0.8).normalized(), Vector2(pr - pl, 1.0), 0.0, pc)
+				_facade_quad(qs, [Vector3(pr, py, pf), Vector3(pr, py, pb), apex, apex], Vector3(0.8, 0.6, 0).normalized(), Vector2(pf - pb, 1.0), 0.0, pc)
+				_facade_quad(qs, [Vector3(pl, py, pb), Vector3(pl, py, pf), apex, apex], Vector3(-0.8, 0.6, 0).normalized(), Vector2(pf - pb, 1.0), 0.0, pc)
 		elif btype == 2 and h > 12.0:
 			# A glass tower: a slimmer glass crown set back over a cornice, and on the taller ones a mast (the judge's round 40: the slim
 			# glass slabs were the last flat-topped boxes in the near skyline).
@@ -5945,14 +6050,17 @@ static func _skyline_layer(root: Node3D, rng: RandomNumberGenerator, layer: int,
 		# (None in the strip right behind the fighters, step 4: a lit sign there pulled the eye from the fight.)
 		if layer < 2 and signs.randf() < 0.55 and absf(x + w * 0.5) > 13.0:
 			# A lit sign on the front: a tall blade sign near one side, or a wide one across the middle.
-			var front := hi.z + 0.08
+			# (Out past the modelled towers' window frames and sills, when they are there, so a sign hangs over them.)
+			var front := hi.z + sign_out
 			var tall := signs.randf() < 0.5
 			var sw := 1.7 if tall else minf(w * 0.6, 6.0)
 			var sh := minf(h * 0.4, 6.0) if tall else 1.8
 			var sx := lo.x + (0.8 if signs.randf() < 0.5 else w - 0.8 - sw) if tall else lo.x + (w - sw) * 0.5
 			var sy := street + h * signs.randf_range(0.35, 0.7)
-			_facade_quad(st, [Vector3(sx, sy, front), Vector3(sx + sw, sy, front), Vector3(sx + sw, sy + sh, front), Vector3(sx, sy + sh, front)],
-				Vector3(0, 0, 1), Vector2(sw, sh), 0.0, Color(signs.randf(), 0.0, 1.0))
+			var sign_c := Color(signs.randf(), 0.0, 1.0)
+			for qs: SurfaceTool in [st, qst]:
+				_facade_quad(qs, [Vector3(sx, sy, front), Vector3(sx + sw, sy, front), Vector3(sx + sw, sy + sh, front), Vector3(sx, sy + sh, front)],
+					Vector3(0, 0, 1), Vector2(sw, sh), 0.0, sign_c)
 		for b in billboard_at:
 			var d := absf(x + w / 2.0 - float(b))
 			if h < 20.0 and (not billboard_best.has(b) or d < float(billboard_best[b][0])):
@@ -5985,8 +6093,10 @@ static func _skyline_layer(root: Node3D, rng: RandomNumberGenerator, layer: int,
 		var bz := z + depth / 2.0 + 0.15
 		for lx in [left + bw * 0.2, left + bw * 0.8]:
 			_facade_box(st, Vector3(lx - 0.1, top, bz - 0.1), Vector3(lx + 0.1, top + 1.2, bz + 0.1), float(b[4]), true, 1.2)
-		_facade_quad(st, [Vector3(left, top + 1.2, bz + 0.12), Vector3(left + bw, top + 1.2, bz + 0.12), Vector3(left + bw, top + 3.4, bz + 0.12),
-			Vector3(left, top + 3.4, bz + 0.12)], Vector3(0, 0, 1), Vector2(bw, 2.2), 0.0, Color(signs.randf(), 0.0, 1.0))
+		var board_c := Color(signs.randf(), 0.0, 1.0)
+		for qs: SurfaceTool in [st, qst]:
+			_facade_quad(qs, [Vector3(left, top + 1.2, bz + 0.12), Vector3(left + bw, top + 1.2, bz + 0.12), Vector3(left + bw, top + 3.4, bz + 0.12),
+				Vector3(left, top + 3.4, bz + 0.12)], Vector3(0, 0, 1), Vector2(bw, 2.2), 0.0, board_c)
 	var m := ShaderMaterial.new()
 	m.shader = FACADE_SHADER
 	m.set_shader_parameter("base_shade", shade)
@@ -6004,13 +6114,72 @@ static func _skyline_layer(root: Node3D, rng: RandomNumberGenerator, layer: int,
 	# that read as texture; ours, a bay of 2 by 2.6 on every layer, read as stickers.)
 	m.set_shader_parameter("cell", [Vector2(1.5, 1.95), Vector2(1.15, 1.5), Vector2(0.9, 1.2)][layer])
 	m.set_shader_parameter("pane", [Vector2(0.56, 0.78), Vector2(0.44, 0.62), Vector2(0.36, 0.5)][layer])
+	var boxes: Array = _box_log if near else []
+	_box_log = null
+	for arg in OS.get_cmdline_user_args():
+		if near and arg.begins_with("--city-export="):
+			_city_export(arg.substr(14), boxes)
+	var whole := _paper_skyline(st.commit(), cards, z, layer)
 	var mi := MeshInstance3D.new()
-	mi.mesh = _paper_skyline(st.commit(), cards, z, layer)
+	mi.mesh = whole
+	var model := _city_model(_city_sig(boxes)) if near else null
+	if model != null:
+		# The modelled towers in the layer's place, squashed into the paper look's cards as the code boxes are; the layer itself draws
+		# only its crowns' pyramids and its signs.
+		mi.mesh = _paper_skyline(qst.commit(), cards, z, layer)
+		root.add_child(model)
+		for part: MeshInstance3D in model.find_children("*", "MeshInstance3D", true, false):
+			part.mesh = _paper_skyline(part.mesh as ArrayMesh, cards, z, layer)
+			part.material_override = m
+			part.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	mi.material_override = m
 	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	mi.name = "skyline_%d" % layer
 	root.add_child(mi)
-	_paper_edges(root, mi.mesh, cards, z, layer, shade, street)
+	_paper_edges(root, whole, cards, z, layer, shade, street)
+
+
+## The modelled near towers (`CITY_NEAR`), or null without them, with `--no-city-model`, or when they were built from another layout
+## than this one (their mesh's name carries the layout they were built from: `skyline_near_<n>`, `_city_sig`).
+static func _city_model(n: int) -> Node3D:
+	if OS.get_cmdline_user_args().has("--no-city-model") or not ResourceLoader.exists(CITY_NEAR):
+		return null
+	var model := (load(CITY_NEAR) as PackedScene).instantiate() as Node3D
+	var parts := model.find_children("skyline_near_*", "MeshInstance3D", true, false)
+	if parts.is_empty() or not String(parts[0].name).ends_with("_%d" % n):
+		push_warning("the modelled skyline was built from another layout (%s, now %d boxes): re-export it" % [parts[0].name if parts else "none", n])
+		model.free()
+		return null
+	return model
+
+
+## A layout's signature: its boxes' places across and their seeds, folded into one number (make_city_towers.py folds the same).
+static func _city_sig(boxes: Array) -> int:
+	var sig := boxes.size()
+	for b in boxes:
+		sig = posmod(sig * 31 + roundi((b[0] as Vector3).x * 100.0) + _seed8(float(b[2])) * 7, 1000003)
+	return sig
+
+
+## A seed as the mesh keeps it, in eight bits cut down, not rounded: the shader reads that.
+static func _seed8(seed: float) -> int:
+	return int(clampf(seed, 0.0, 1.0) * 255.0)
+
+
+## The near layer's boxes as JSON for art/blender/make_city_towers.py, with what the shader needs to find the windows on them.
+static func _city_export(path: String, boxes: Array) -> void:
+	var out: Array = []
+	for b in boxes:
+		var lo: Vector3 = b[0]
+		var hi: Vector3 = b[1]
+		out.append([lo.x, lo.y, lo.z, hi.x, hi.y, hi.z, _seed8(float(b[2])), bool(b[3]), float(b[4]), bool(b[5])])
+	var look := _paper_look()
+	var doc := {"boxes": out, "cell": [1.5, 1.95], "pane": [0.56, 0.78], "first_row": 1.0, "parapet": 0.55,
+		"thin": {"A": 0.1, "B": 0.08, "C": 0.22}.get(look, 1.0)}
+	var f := FileAccess.open(path, FileAccess.WRITE)
+	f.store_string(JSON.stringify(doc))
+	f.close()
+	print("city export: %d boxes -> %s" % [out.size(), path])
 
 
 ## A box from `lo` to `hi` into `st` for the facade shader: its front and sides as walls (windows unless `plain`), its top plain. Each
@@ -6115,6 +6284,8 @@ static func _paper_edges(root: Node3D, mesh: ArrayMesh, cards: Array, z: float, 
 
 
 static func _facade_box(st: SurfaceTool, lo: Vector3, hi: Vector3, seed: float, plain: bool, h: float, glass := false) -> void:
+	if _box_log != null:
+		_box_log.append([lo, hi, seed, plain, h, glass])
 	# (Blue 0.3 marks a glass tower's walls for the facade shader; 1 is a neon sign.)
 	var col := Color(seed, 1.0 if plain else 0.0, 0.3 if glass and not plain else 0.0)
 	var w := hi.x - lo.x
@@ -7108,6 +7279,9 @@ const TOWN_TOWER_X := 9.0
 ## with a bell in it, under a steep four-sided red roof with a lit trim and a vane; the tallest thing in the town, so the skyline has one
 ## landmark.
 static func _bell_tower(root: Node3D, at: Vector3) -> void:
+	# The house kit's bell tower (make_paper_houses_v2.py `bell_tower`): quoins, an open belfry with its bell, a clock, a spire in rows.
+	if house_kit != null and _paper(root, "house_belltower", Transform3D(Basis.IDENTITY, at), {"roof": Color(0.84, 0.34, 0.28)}, house_kit):
+		return
 	var wall := FighterView.toon(Color(0.98, 0.94, 0.86))
 	var stone := Materials.stone(Color(0.7, 0.66, 0.62), Vector2(2, 1))
 	var trim := FighterView.toon(Color(0.62, 0.42, 0.3))
@@ -7133,6 +7307,11 @@ static func _bell_tower(root: Node3D, at: Vector3) -> void:
 ## The harbour's warehouse (`at` its foot, on the quay): long and low, walls of weathered blue-grey boards on a stone footing, a broad
 ## gabled roof in dark slate with its gable end to the sea, big double doors with a lit lintel and a hoist beam over a loft door.
 static func _warehouse(root: Node3D, at: Vector3) -> void:
+	# The house kit's warehouse (make_paper_houses_v2.py `warehouse`): braced double doors, a loft with its hoist, goods by the door.
+	var roof_c := Color(0.3, 0.56, 0.6)
+	if house_kit != null and _paper(root, "house_warehouse", Transform3D(Basis.IDENTITY, at), {"wall": Color(0.86, 0.66, 0.5), "roof": roof_c,
+			"roof_edge": roof_c.lightened(0.3), "roof_score": roof_c.darkened(0.25)}, house_kit):
+		return
 	# (Warmer, 2026-10-19: blue-grey boards under a slate roof were the coldest, greyest thing on the beach.)
 	var boards := Materials.wood(Color(0.86, 0.66, 0.5), Vector2(8, 2))
 	var trim := FighterView.toon(Color(0.96, 0.92, 0.84))
@@ -7268,6 +7447,13 @@ static func _harbour_town(root: Node3D, water: float, land_root: Node3D = null) 
 		var sx := -5.0 + k * 7.6
 		var y0 := base.y + 2.35
 		var z0 := base.z + 1.6
+		# The house kit's market stall (make_paper_houses_v2.py `stall`), its awning in this stall's stripes; the random numbers the
+		# built crates would draw are still drawn, so the shore and the boats after them stay put.
+		if house_kit != null and _paper(root, "house_stall", Transform3D(Basis.IDENTITY, Vector3(base.x + sx, y0, z0 + 1.1)),
+				{"awning": stripes[k][0], "awning_b": stripes[k][1]}, house_kit):
+			rng.randf_range(-10, 10)
+			rng.randf_range(-10, 10)
+			continue
 		for px: float in [sx - 1.6, sx + 1.6]:
 			_mesh(root, _box(Vector3(0.18, 2.3, 0.18)), post, Vector3(base.x + px, y0 + 1.15, z0 + 2.2))
 			_mesh(root, _box(Vector3(0.18, 2.6, 0.18)), post, Vector3(base.x + px, y0 + 1.3, z0))
