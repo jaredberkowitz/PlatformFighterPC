@@ -114,3 +114,8 @@ layers, three-quarters fewer windows lit and the facade drawn 40% toward its wal
 and dark scaffolds (`scaffold_steel`, `--scaffold-dark`: a deep slate, and an object id under the scenery's so the post pass inks the
 struts dark instead of edging them pale). The sky: A as it is, B the sky pass's soft streaks (little shows over the towers), C card
 night clouds. On the Stage Look Review ("citymid", `cty_*`); recommended A.
+
+**Built (2026-10-22): city A** (the owner's pick): `city.cfg` `skyline_calm=1.0` and `scaffold_steel`; the scaffold's steel now comes
+from the theme's own palette (the platforms are built before the backdrop sets the current one). Before and after:
+`review5/city_quiet_built.jpg`. Review 5's four big items are done; left are the smaller ones (the lawns' form, the meadow's stage
+hill, the small code-built things). The runner test's shop-hint check ("the way out") flakes about one run in three, unrelated.

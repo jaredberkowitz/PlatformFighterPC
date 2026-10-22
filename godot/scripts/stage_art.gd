@@ -1665,7 +1665,9 @@ static func platform(parent: Node3D, t: Dictionary, left: float, right: float, t
 			x += 0.7
 		_mesh(parent, rivet_st.commit(), rivet, Vector3.ZERO)
 		var scaffold_from := parent.get_child_count()
-		_scaffold(parent, left, right, top - 0.75, front_z, depth)
+		# (Its steel from this theme's own palette: the platforms are built before the backdrop sets the current one.)
+		var steel_c: Color = (palette(String(t.get("name", ""))).get("backdrop", {}) as Dictionary).get("scaffold_steel", Color(0.62, 0.64, 0.72))
+		_scaffold(parent, left, right, top - 0.75, front_z, depth, steel_c)
 		# (The scaffold stands under a modelled play area too: it is structure, not what fighters stand on.)
 		for i in range(scaffold_from, parent.get_child_count()):
 			parent.get_child(i).set_meta("keep_play", true)
@@ -7746,10 +7748,9 @@ static func _truss_tower(drop: float) -> Mesh:
 ## Scaffolding holding a girder platform up (the city, 2026-10-18, the owner: platforms may look supported): at each end a tower of two
 ## galvanised poles front and back of the girder, set back behind the fighters' plane, with ledgers across every two units and a brace
 ## zigzagging up the back, running down from just under the girder until the roof (or the street) swallows them.
-static func _scaffold(parent: Node3D, left: float, right: float, under: float, front: float, depth: float) -> void:
+static func _scaffold(parent: Node3D, left: float, right: float, under: float, front: float, depth: float, steel_c := Color(0.62, 0.64, 0.72)) -> void:
 	# (A deep painted slate where the palette says so, `scaffold_steel`, fidelity review 5: in pale galvanised steel the towers were the
 	# brightest lattices against the night; `--scaffold-dark` to try.)
-	var steel_c: Color = (_palette.get("backdrop", {}) as Dictionary).get("scaffold_steel", Color(0.62, 0.64, 0.72))
 	if OS.get_cmdline_user_args().has("--scaffold-dark"):
 		steel_c = Color(0.34, 0.3, 0.44)
 	var steel := FighterView.respond(FighterView.toon(steel_c), "metal")
