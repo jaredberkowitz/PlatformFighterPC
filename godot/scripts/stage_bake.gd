@@ -510,8 +510,9 @@ static func place_play(root: Node3D, t: Dictionary, path: String) -> void:
 			m.set_shader_parameter("facets", false)
 			m.set_shader_parameter("vertex_shade", true)
 			m.set_shader_parameter("ramp_softness", 0.12)
-			# (The light mock's form on the ground: the top falls softly into shade toward its front edge.)
-			if Lighting.light_mock != "" and fam in ["lawn", "top", "path", "fringe"]:
+			# (Form on the ground, the light pass, the owner's pick 2026-10-21: the top falls softly into shade toward its front edge; the
+			# lawns read flat once the scenery's ink went.)
+			if fam in ["lawn", "top", "path", "fringe"]:
 				m.set_shader_parameter("lawn_fall", 0.9)
 				m.set_shader_parameter("lawn_front", StageArt.STAGE_FRONT)
 				m.set_shader_parameter("lawn_span", 6.0)

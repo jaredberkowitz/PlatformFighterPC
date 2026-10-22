@@ -18,7 +18,6 @@ const RIDGE_SHADER := preload("res://shaders/painted_ridge.gdshader")
 const RIDGE_SHADOW_SHADER := preload("res://shaders/painted_ridge_shadow.gdshader")
 const FOLIAGE_SHADER := preload("res://shaders/toon_foliage.gdshader")
 const VisualSettings := preload("res://scripts/visual_settings.gd")
-const Lighting := preload("res://scripts/lighting.gd")
 const Toonify := preload("res://scripts/toonify.gd")
 const Particles := preload("res://scripts/particles.gd")
 
@@ -96,9 +95,7 @@ static func _air_amount(z: float) -> Vector2:
 	if air.has("far") and d > float(air.end):
 		var f := clampf((d - float(air.end)) / maxf(float(air.far) - float(air.end), 0.01), 0.0, 1.0)
 		lift = lerpf(float(air.lift), float(air.get("far_lift", air.lift)), f)
-	# (The light mock's coloured distance: lifted toward the haze, barely greyed.)
-	var desat := float(air.desat) * (0.2 if Lighting.light_mock in ["B", "C"] else 1.0)
-	return Vector2(desat * k, lift)
+	return Vector2(float(air.desat) * k, lift)
 
 
 ## Colour `c` seen through the air at depth `z` (`_air_amount`), for scenery coloured directly rather than through `_air` (land bands,
@@ -127,9 +124,6 @@ static func theme(look: Dictionary) -> Dictionary:
 		name = "meadow"
 	var t: Dictionary = (palette(name).get("theme", {}) as Dictionary).duplicate()
 	t.name = name
-	# (The light mock's late-afternoon beach, Lighting.LATE_OCEAN_SKY.)
-	if Lighting.light_mock == "C" and name == "ocean":
-		t.merge(Lighting.LATE_OCEAN_SKY, true)
 	# The stage editor can override the sky colours.
 	var top: String = look.get("sky_top", "")
 	var bottom: String = look.get("sky_bottom", "")

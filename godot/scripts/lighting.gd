@@ -19,37 +19,41 @@ const MOODS := {
 	# (A warmer key and a cool blue-green shade, the gauntlet's round 11: the green stages' shade read neutral beside the benchmark's
 	# coloured light.)
 	# (Round 12: that overshot into a yellow-green cast over every material. A cream-peach key; the cool kept to the shade.)
-	"meadow": {"key": [Color(1.0, 0.94, 0.88), 1.38, -44.0, -34.0], "fill": [Color(0.58, 0.76, 1.0), 0.4],
+	# (The sun 8 degrees lower on the day stages and every haze a clearer colour, the light pass, docs/art/stages/BACKGROUNDS.md
+	# round 3, the owner's pick 2026-10-21: the props and banks model more, and the distance stays coloured instead of milky.)
+	"meadow": {"key": [Color(1.0, 0.94, 0.88), 1.38, -36.0, -34.0], "fill": [Color(0.58, 0.76, 1.0), 0.4],
 		# (Shade a deeper version of each colour, barely turned toward blue-green, the meadow rebuild's step 3: the reference's grass shade
 		# is a crisp deep green, ours read as a soft olive.)
 		"ambient": [Color(0.88, 0.92, 1.0), 0.48], "shadow_hue": 0.4, "shadow_shift": 0.1, "shadow_value": 0.38,
 		"shadow_tint": Color(0.6, 0.78, 0.74), "rim": Color(1.0, 0.98, 0.9),
-		"grade": [Color(0.92, 0.97, 1.06), Color(1.04, 1.02, 0.96), 0.5], "haze": Color(0.72, 0.87, 1.0)},
+		"grade": [Color(0.92, 0.97, 1.06), Color(1.04, 1.02, 0.96), 0.5], "haze": Color(0.58, 0.8, 1.0)},
 	# (Art review 6 round 9: a weaker key, more pink ambient and a stronger grade than the meadow left the grove under a pale veil, the
 	# softest stage. Its colours kept; its contrast brought near the meadow's.)
 	# (Its pink grade and ambient eased, round 24: pink over the lawn's green cancelled toward grey, the palest stage left.)
-	"grove": {"key": [Color(1.0, 0.92, 0.84), 1.32, -40.0, -28.0], "fill": [Color(0.86, 0.66, 1.0), 0.38],
+	"grove": {"key": [Color(1.0, 0.92, 0.84), 1.32, -32.0, -28.0], "fill": [Color(0.86, 0.66, 1.0), 0.38],
 		"ambient": [Color(1.0, 0.93, 0.95), 0.47], "shadow_hue": 0.78, "shadow_shift": 0.06, "shadow_value": 0.42,
 		"shadow_tint": Color(0.72, 0.62, 0.92), "rim": Color(1.0, 0.86, 0.92),
-		"grade": [Color(0.98, 0.9, 1.04), Color(1.04, 0.98, 0.96), 0.3], "haze": Color(0.84, 0.82, 1.0)},
+		"grade": [Color(0.98, 0.9, 1.04), Color(1.04, 0.98, 0.96), 0.3], "haze": Color(0.76, 0.73, 1.0)},
 	"sunset": {"key": [Color(1.0, 0.72, 0.5), 1.25, -20.0, -42.0], "fill": [Color(0.6, 0.5, 1.0), 0.42],
 		"ambient": [Color(0.94, 0.84, 0.88), 0.5], "shadow_hue": 0.79, "shadow_shift": 0.1, "shadow_value": 0.58,
 		"shadow_tint": Color(0.72, 0.58, 0.84),
 		# (A cool rim from the dusk sky overhead, art review 6 round 4: an orange rim on warm fighters against warm rock added no separation.)
 		"rim": Color(0.84, 0.8, 1.0),
-		"grade": [Color(0.88, 0.8, 1.05), Color(1.08, 0.96, 0.86), 0.45], "haze": Color(1.0, 0.86, 0.88)},
+		"grade": [Color(0.88, 0.8, 1.05), Color(1.08, 0.96, 0.86), 0.45], "haze": Color(1.0, 0.79, 0.82)},
 	"night": {"key": [Color(0.72, 0.8, 1.0), 0.95, -48.0, -24.0], "fill": [Color(0.5, 0.56, 0.95), 0.4],
 		"ambient": [Color(0.58, 0.64, 0.95), 0.55], "shadow_hue": 0.66, "shadow_shift": 0.1, "shadow_value": 0.56,
 		"shadow_tint": Color(0.62, 0.66, 0.92), "rim": Color(0.62, 0.78, 1.0),
-		"grade": [Color(0.8, 0.88, 1.1), Color(0.95, 0.98, 1.06), 0.8], "haze": Color(0.72, 0.74, 0.96)},
-	"ocean": {"key": [Color(1.0, 0.96, 0.88), 1.3, -44.0, -30.0], "fill": [Color(0.56, 0.78, 1.0), 0.38],
-		"ambient": [Color(0.9, 0.95, 1.0), 0.46], "shadow_hue": 0.6, "shadow_shift": 0.07, "shadow_value": 0.54,
-		"shadow_tint": Color(0.72, 0.8, 0.92), "rim": Color(0.86, 0.96, 1.0),
-		"grade": [Color(0.9, 0.98, 1.06), Color(1.02, 1.02, 0.98), 0.5], "haze": Color(0.62, 0.84, 1.0)},
+		"grade": [Color(0.8, 0.88, 1.1), Color(0.95, 0.98, 1.06), 0.8], "haze": Color(0.6, 0.63, 0.96)},
+	# (Late afternoon, the light pass, the owner's pick 2026-10-21: the beach had no mood, plain midday. A low warm sun, the shade a cool
+	# blue, a peach horizon (ocean.cfg's sky).)
+	"ocean": {"key": [Color(1.0, 0.84, 0.66), 1.34, -24.0, -40.0], "fill": [Color(0.58, 0.68, 1.0), 0.42],
+		"ambient": [Color(0.96, 0.9, 0.92), 0.46], "shadow_hue": 0.64, "shadow_shift": 0.09, "shadow_value": 0.5,
+		"shadow_tint": Color(0.66, 0.72, 0.94), "rim": Color(1.0, 0.86, 0.72),
+		"grade": [Color(0.88, 0.9, 1.08), Color(1.1, 1.0, 0.88), 0.55], "haze": Color(1.0, 0.79, 0.67)},
 	"city": {"key": [Color(1.0, 0.82, 0.7), 1.0, -34.0, -36.0], "fill": [Color(0.82, 0.5, 0.95), 0.48],
 		"ambient": [Color(0.84, 0.8, 0.94), 0.55], "shadow_hue": 0.75, "shadow_shift": 0.1, "shadow_value": 0.55,
 		"shadow_tint": Color(0.66, 0.6, 0.88), "rim": Color(1.0, 0.62, 0.78),
-		"grade": [Color(0.92, 0.82, 1.08), Color(1.06, 0.97, 0.98), 0.4], "haze": Color(0.68, 0.58, 0.9)},
+		"grade": [Color(0.92, 0.82, 1.08), Color(1.06, 0.97, 0.98), 0.4], "haze": Color(0.57, 0.42, 0.9)},
 }
 
 
@@ -83,8 +87,9 @@ const STYLE_DEFAULT := {
 	# scenery read milky beside the reference's clean, saturated colour; the fighters keep their lift over it.)
 	# The paper target (the stage paint-overs, docs/art/stages/PAINTOVERS.md): each sheet's shadow on the one behind (`sheets`), the
 	# die-cut edge (`cut_edge`) and the lift round the fight (`fight_lift`); 0 off (shaders/post.gdshader).
+	# `haze_desat`: how much the haze greys what it lifts (0.35, the light pass, 2026-10-21: at 1.3 the distance read milky grey).
 	"finish": {"desat": 0.0, "lift": 0.03, "vignette": 0.16, "haze_max": 0.22, "s_curve": 0.22, "quiet": 0.25, "bloom": 0.4,
-		"bloom_from": 0.6, "sheets": 0.0, "cut_edge": 0.0, "fight_lift": 0.0},
+		"bloom_from": 0.6, "sheets": 0.0, "cut_edge": 0.0, "fight_lift": 0.0, "haze_desat": 0.35},
 }
 const STYLES := {
 	# Dappled light under the great tree: small patches swaying slowly.
@@ -156,41 +161,6 @@ static func _flag_value(prefix: String) -> String:
 ## (`stage_finish`, set by StageView from [backdrop] `paper_finish`), else off.
 static var stage_finish := ""
 
-
-## The light pass mocks (fidelity review 4's item 4, docs/art/stages/BACKGROUNDS.md): `--light-mock=A` form on the ground (each play
-## top falling softly into shade toward its front edge, `lawn_fall`; the day stages' sun a little lower so props and banks model), `B`
-## A with coloured distance (the air lifts the far scenery toward a clearer haze without greying it), `C` B with the beach at late
-## afternoon. "" is the game as it ships.
-static var light_mock := _flag_value("--light-mock=")
-
-
-## The beach at late afternoon (`--light-mock=C`): a low warm sun, a peach horizon, the shade a cool blue.
-const LATE_OCEAN := {"key": [Color(1.0, 0.84, 0.66), 1.34, -24.0, -40.0], "fill": [Color(0.58, 0.68, 1.0), 0.42],
-	"ambient": [Color(0.96, 0.9, 0.92), 0.46], "shadow_hue": 0.64, "shadow_shift": 0.09, "shadow_value": 0.5,
-	"shadow_tint": Color(0.66, 0.72, 0.94), "rim": Color(1.0, 0.86, 0.72),
-	"grade": [Color(0.88, 0.9, 1.08), Color(1.1, 1.0, 0.88), 0.55], "haze": Color(1.0, 0.86, 0.78)}
-const LATE_OCEAN_SKY := {"sky_top": Color(0.2, 0.4, 0.84), "sky_mid": Color(0.52, 0.64, 0.94), "sky_horizon": Color(1.0, 0.82, 0.66),
-	"sky_glow": [Color(1.0, 0.8, 0.58), 0.4], "sun_dir": Vector3(-0.5, 0.1, -0.86)}
-
-
-## Theme `name`'s mood, with the light mock's changes (`light_mock`).
-static func mood_for(name: String) -> Dictionary:
-	var mood: Dictionary = (MOODS.get(name, MOODS.meadow) as Dictionary).duplicate(true)
-	if light_mock == "":
-		return mood
-	if light_mock == "C" and name == "ocean":
-		mood = LATE_OCEAN.duplicate(true)
-	elif name in ["meadow", "grove", "ocean"]:
-		mood.key[2] = float(mood.key[2]) + 8.0
-	if light_mock in ["B", "C"]:
-		var h: Color = mood.haze
-		mood.haze = Color.from_hsv(h.h, minf(h.s * 1.5, 1.0), h.v)
-	return mood
-
-
-## How much the post pass's haze greys what it lifts (`haze_desat` in shaders/post.gdshader): less with coloured distance.
-static func haze_desat() -> float:
-	return 0.35 if light_mock in ["B", "C"] else 1.3
 
 
 static func paper_finish() -> Vector4:
@@ -335,7 +305,7 @@ const FRONT_CALM := 0.75
 
 
 static func stage_mood(env: Environment, root: Node, theme: Dictionary, post: ShaderMaterial = null) -> void:
-	var mood := mood_for(String(theme.get("name", "meadow")))
+	var mood: Dictionary = MOODS.get(theme.get("name", "meadow"), MOODS.meadow)
 	var key := root.get_node_or_null("KeyLight") as DirectionalLight3D
 	if key != null:
 		key.light_color = mood.key[0]
@@ -362,7 +332,7 @@ static func stage_mood(env: Environment, root: Node, theme: Dictionary, post: Sh
 		post.set_shader_parameter("pastel_lift", finish.lift)
 		post.set_shader_parameter("vignette", finish.vignette)
 		post.set_shader_parameter("haze_max", finish.haze_max)
-		post.set_shader_parameter("haze_desat", haze_desat())
+		post.set_shader_parameter("haze_desat", float(finish.get("haze_desat", 1.3)))
 		post.set_shader_parameter("stage_quiet", float(finish.get("quiet", 0.0)))
 		post.set_shader_parameter("s_curve", finish.s_curve)
 		post.set_shader_parameter("bloom", finish.bloom)

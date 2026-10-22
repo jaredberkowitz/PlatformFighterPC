@@ -90,3 +90,17 @@ Review 4's items 3 and 4 (docs/art/stages/FIDELITY_REVIEW_4.md).
   the beach at late afternoon (`Lighting.LATE_OCEAN` and `LATE_OCEAN_SKY`; the sea keeps its midday cyan in the mock). Recommended: B, and
   C if the beach should have a time of day.
 - Options on the Stage Look Review and `mocks/look/` (`bt_*`, `li_*`).
+
+## Round 3 built (2026-10-21): buttes C and the light pass B with C's beach
+
+- **The canyon's buttes and arch in cardboard blocks with notched crowns and fallen rock** (`make_canyon_paper.py --variant KC` into
+  `canyon_paper.glb`, 20,600 triangles with the floor); the canyon re-lit.
+- **The light pass**, the mock's values written into the data (the `--light-mock` flag is gone):
+  - form on the ground: every play top falls into a cool shade toward its front edge (`lawn_fall` 0.9 over 6 units, set by
+    `StageBake.place_play` on the lawn, top, path and fringe families); the meadow's and the grove's sun 8 degrees lower
+    (`Lighting.MOODS`);
+  - coloured distance: every mood's haze a clearer colour (its saturation half again), the post haze greying less (`haze_desat` 0.35 in
+    `STYLE_DEFAULT.finish`, was the shader's 1.3), each palette's `[air] desat` a fifth of what it was;
+  - the beach at late afternoon: `MOODS.ocean` (a low warm key, cool blue shade, a peach haze and grade) and `ocean.cfg`'s sky (a peach
+    horizon, a warm glow, the sun lower).
+- Before and after (meadow, beach wide, grove, canyon wide): `buttes_light_built.jpg`.
