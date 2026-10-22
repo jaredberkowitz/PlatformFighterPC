@@ -1,0 +1,72 @@
+# Graphics review (2026-10-22): what every stage is missing
+
+The owner, after the ground pilots: "we are redesigning [the background ground] rather than making graphical improvements. We should take
+a step back, do an analysis, and figure out what every stage is missing." So this review leaves layout alone. It looks only at
+rendering quality: shadows, light, atmosphere, materials, sky and water. Evidence: every stage as it ships (the grove with its new
+terraces) at the match camera and wide, close crops of each background (`review5_crops.jpg`), measured regions, and one test (below).
+
+The meadow's shelf pilot is parked unshipped; the grove's terraces stay shipped.
+
+## Game-wide gaps (one system each, every stage gains)
+
+### 1. Nothing in the background is grounded (the biggest gap)
+
+The windmill, the cottages, the pines, the torii and the side trees, the trestle and water tower, the buttes, the beach's houses and
+boats: none casts a shadow you can see, so each sits on the land like a cut-out laid on top. The references anchor everything: a crisp
+drop shadow under every tree and house, and shade where things meet the ground.
+
+- The sun's shadows stop 70 units from the camera (`Lighting.apply`, `directional_shadow_max_distance`), and the background starts at
+  about 75.
+- **Test:** with the range at 320 and four splits (a temporary `--shadow-far` flag, now removed), the frame time did not change (225 fps
+  against 230 on the meadow), but the shadows **barely read**. The buttes shade their own faces; trees and houses drop almost nothing
+  visible on the ground. Cast shadows are kept light on purpose (`shadow_amount` 0.8 of a light ramp), and the air lifts the far
+  ground toward the haze, which washes out what is left.
+- **The fix is a system, not a setting:** bake the sun's shadow into the background, the way `light_stage.py` already bakes contact
+  shade into the modelled pieces. Extend it from occlusion to the key light's own direction per stage. Every tree, house, gate and butte
+  then lays a crisp, cool shadow on the land (the canyon's buttes long sunset shadows, the grove's trees on the terraces), at no
+  runtime cost. Add a contact darkening under each placed prop.
+
+### 2. The air washes the middle distance grey
+
+The haze lifts and greys everything past the play area, so the middle distance loses its colour and contrast together.
+- Saturation of the middle distance at the match camera: beach town **0.12**, grove terraces **0.17**, meadow hills **0.21**, canyon
+  middle 0.38 (one pink value across the whole band).
+- The references keep the middle distance clear and coloured (the papercraft camp's grass reads at about 0.7 saturation), and haze only
+  the far ranges.
+- **Fix:** retune the air per stage. Start it later, lift less, keep the hue (`[air]` in the palettes and the post pass's
+  `haze_*`). It's a settings pass on one system, cheap, and every stage gains.
+
+### 3. Background surfaces are one flat tone per face
+
+Big faces in a single colour: the hills, terrace tops, house walls, butte faces, the far land.
+- The near pieces have printed paper, lit bevels and contact shade; at background scale the print is too fine to read, and the lit
+  bevel only catches edges.
+- The references' backgrounds are simple but never flat. Each face carries a soft gradient (lit toward its top or the sun, cooler
+  toward its foot), and the grass has light and dark patches.
+- **Fix:** a background material layer in the toon shader. Give each face a gentle gradient by height and facing (the shader's
+  `pf_paint` warm-top / cool-foot exists but is too weak to see), and add large-scale grass and stone mottling at a scale that reads
+  from the camera.
+
+### 4. Plain skies (smaller)
+
+Smooth gradients (the city's a flat magenta). The references have a soft horizon glow and sometimes a band of far haze or cloud layers.
+Lower gain than 1 to 3.
+
+## Per stage
+
+| Stage | What it is missing (graphics, not layout) |
+|---|---|
+| **Meadow** | Shadows under the windmill, cottages, pines and haystacks; the middle distance is a pale band of field patches at one value (saturation 0.21); the grass lacks the reference's lime and its soft light-and-dark patches. |
+| **Grove** | The side trees, terrace trees, gates and the tree village cast nothing on the terraces; the terrace tops are one flat green; the abyss is one flat violet with no glow or depth (the reference's misty violet light, soft shafts through the canopy); the middle distance greyed (0.17). |
+| **Beach** | The water is one bright cyan with stripe-like ripple lines (the reference: clear turquoise, lighter and see-through near the pier, soft painted highlights, darker with depth); the town across the bay is washed grey (0.12); boats and houses cast no shadow; the late-afternoon light has no long shadows. |
+| **Canyon** | The buttes and the arch cast no long sunset shadows across the floor (a sunset's strongest cue); the middle distance is one pink value under the haze; the floor's sheets are flat. |
+| **City** | The towers are flat slabs (windows painted on, no depth to the facades, no shade where buildings meet); the lit windows don't glow; the sky is a flat magenta. |
+
+## Recommended order
+
+1. **Baked sun shadows and contact for the background** (gap 1): one system, every stage, the largest gain, no runtime cost. Pilot it on
+   the canyon (long sunset shadows) and the grove (trees on the terraces), then roll it out.
+2. **The air retune** (gap 2): a settings pass per stage, quick.
+3. **The background material layer** (gap 3): a shader change; pilot on the meadow's hills and the grove's terraces.
+4. **Per stage:** the beach's water shader, then the city's facades and window glow.
+5. Skies.
