@@ -88,6 +88,22 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
     <p>Two lessons from the reference screenshots, mocked from the match camera: the scenery without ink outlines, its edges lit as card bevels instead, and the paper houses rebuilt at the characters' proportions. The earlier rounds stay on the <a href="https://claude.ai/artifact/D1du6MREVumiJDrEdNypW4">Stage Fidelity Review</a>, which is full.</p>
   </header>
 
+  <section class="panel" aria-labelledby="c7-h" id="canyon7">
+    <div class="eyebrow">Your call is needed &middot; review 7: the canyon behind the fight</div>
+    <h2 id="c7-h">Clearing the space behind the fighters</h2>
+    <p>First, play tops B are built on every stage and lit (before and after in the play tops section above). Then the canyon. Review 7 found two things right behind the fighters: the mesa there read as a round pink drum, and the train crossed as a bold line at the head height of anyone on the side platforms.</p>
+    <div class="tablewrap"><table><thead><tr><th>Option</th><th>What changes</th></tr></thead><tbody>
+      <tr><td>A &middot; A broken table of rock</td><td>The drum becomes a broken table of rock, wide and low: three blocks of uneven height with crevices between, the middle one a step lower so the skyline is notched, each banded in the strata with a dark cap, and fallen blocks at the foot. The space behind the fighters opens onto the far plain.</td></tr>
+      <tr><td>B &middot; And the railway far back</td><td>A, with the trestle moved much further back (175 units, from 124). The train is small and hazy near the horizon instead of a bold line between the platforms. (Lowering it instead was tried, and it ran right behind the fighters' name tags.)</td></tr>
+    </tbody></table></div>
+    <p>Behind the fight, close, today on the left: A, then B.</p>
+    <div class="viewer"><img src="c7_close.jpg" alt="The canyon behind the fight, today and with the options"></div>
+    <div class="row" role="group" aria-label="View"><button data-c7v="m">Match camera</button><button data-c7v="w">Wide</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-c7o="T">Today</button><button data-c7o="A">A &middot; Broken table</button><button data-c7o="B">B &middot; And railway far back</button></div>
+    <div class="viewer"><img id="c7img" alt="Canyon option"><span class="vtag" id="c7tag"></span></div>
+    <p class="muted">My pick: <b>B</b>. Both fixes are needed for the space behind the fighters to read calm: the rock is no longer a drum, and the train stays in the world without drawing a line through the fight. Shown before the light bake.</p>
+  </section>
+
   <section class="panel" aria-labelledby="pt-h" id="playtops">
     <div class="eyebrow">Built (B) &middot; review 7: the play tops (toward 5s in surfaces)</div>
     <h2 id="pt-h">The surfaces the fighters stand on</h2>
@@ -1185,5 +1201,15 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
   group("data-pts", function (v) { pts = v; }, ptrender);
   group("data-pto", function (v) { pto = v; }, ptrender);
   ptrender();
+  var c7v = "m", c7o = "B";
+  var C7O = { T: "Today", A: "A · Broken table", B: "B · And railway far back" };
+  function c7render() {
+    document.getElementById("c7img").src = "c7_" + c7o + "_" + c7v + ".jpg";
+    document.getElementById("c7tag").textContent = "Canyon · " + C7O[c7o] + (c7v === "w" ? " · wide" : " · match camera");
+    pressed("data-c7v", c7v); pressed("data-c7o", c7o);
+  }
+  group("data-c7v", function (v) { c7v = v; }, c7render);
+  group("data-c7o", function (v) { c7o = v; }, c7render);
+  c7render();
 })();
 </script>

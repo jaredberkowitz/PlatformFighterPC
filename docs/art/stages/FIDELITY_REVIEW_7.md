@@ -96,3 +96,12 @@ measured contrast moves little (meadow 0.071 to 0.073, grove 0.067 to 0.077): a 
 **Built (2026-10-22): play tops B on every stage** (the owner's pick): all five play pieces rebuilt with `--wear 2`; every stage re-lit.
 Before and after: `review7/play_tops_built.jpg` (meadow, grove, canyon, beach, city). All seven tests pass (the runner's "coin picked
 up" check flaked once and passed twice on its own). Next: the canyon behind the fight.
+
+## The canyon behind the fight (2026-10-22, mock)
+
+`make_canyon_paper.py --fight broken` (`butte_broken`): the butte behind the fight as a broken table of rock, wide and low (2.5 times
+the bounds' half-width, 0.42 of the height: at 1.7 and 0.62 each block stood taller than wide, three chimneys), three blocks of uneven
+height with crevices, the middle a step lower, each banded with a dark cap, fallen blocks; drawn from its own random numbers, the
+wide mesa still drawn and thrown away so every butte after it keeps its layout. `make_world.py --trestle far` (175 back, deck at -9):
+the train small and hazy near the horizon. Lowered instead (`-11` at 124 back) it ran right behind the fighters' name tags, so that was
+dropped. Options: A the broken table; B with the railway far back. On the Stage Look Review ("canyon7", `c7_*`); recommended B.
