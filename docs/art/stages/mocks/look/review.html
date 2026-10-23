@@ -88,6 +88,23 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
     <p>Two lessons from the reference screenshots, mocked from the match camera: the scenery without ink outlines, its edges lit as card bevels instead, and the paper houses rebuilt at the characters' proportions. The earlier rounds stay on the <a href="https://claude.ai/artifact/D1du6MREVumiJDrEdNypW4">Stage Fidelity Review</a>, which is full.</p>
   </header>
 
+  <section class="panel" aria-labelledby="fp-h" id="platforms">
+    <div class="eyebrow">Your call is needed &middot; review 6, item 6: the platforms</div>
+    <h2 id="fp-h">Platforms made of the stage they float over</h2>
+    <p>First, light finish C is built on every stage; before and after are in the light section above. Then item 6. Review 6 found the floating platforms plain: a green slab with a scalloped trim on the meadow and grove, and a bare board on the canyon. (The beach's are already dock boards with rope, and the city's a steel deck.) The tops stay exactly where the fighters stand; only what's under them changes.</p>
+    <div class="tablewrap"><table><thead><tr><th>Stage</th><th>A</th><th>B</th></tr></thead><tbody>
+      <tr><td>Meadow</td><td><b>Turf on logs</b>: a turf mat on two round logs, their cut ends showing and lashed with rope near each end (the farm's own build), with an uneven tufted lip in place of the even scallops.</td><td><b>And moss</b>: A, with moss and grass hanging over the logs.</td></tr>
+      <tr><td>Grove</td><td><b>Little islands</b>: turf over a band of earth, with a rocky underside of the island's dark earth hanging under it, and a few roots.</td><td><b>Deeper, mossier</b>: A with a deeper underside, moss hanging and more roots.</td></tr>
+      <tr><td>Canyon</td><td><b>Sandstone slab</b>: a sand top over two strata courses of the stage's own rock, the lower one set in and broken short at the ends.</td><td><b>A piece of mesa</b>: A with a tapered rock hanging under it.</td></tr>
+    </tbody></table></div>
+    <p>One platform per stage, close up, today on the left: the meadow (A, then B), the grove (A, then B) and the canyon (A, then B):</p>
+    <div class="viewer"><img src="fp_close.jpg" alt="A platform on each stage, today and with the options"></div>
+    <div class="row" role="group" aria-label="Stage"><button data-fps="m">Meadow</button><button data-fps="g">Grove</button><button data-fps="c">Canyon</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-fpo="T">Today</button><button data-fpo="A">A</button><button data-fpo="B">B</button></div>
+    <div class="viewer"><img id="fpimg" alt="Platform option"><span class="vtag" id="fptag"></span></div>
+    <p class="muted">My pick: <b>A on all three</b>. Each reads as made of its stage, and A keeps the space under the platforms clear: B's deeper undersides and hanging moss come down toward a fighter standing beneath. Shown at the match camera, before the light bake (today's rebuilt the same way).</p>
+  </section>
+
   <section class="panel" aria-labelledby="lf-h" id="lightfinish">
     <div class="eyebrow">Built (C) &middot; review 6, item 5: the light finish</div>
     <h2 id="lf-h">Light that bounces, a firmer grade, lamps that glow</h2>
@@ -1030,5 +1047,18 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
   group("data-lfv", function (v) { lfv = v; }, lfrender);
   group("data-lfo", function (v) { lfo = v; }, lfrender);
   lfrender();
+  var fps = "m", fpo = "A";
+  var FPS = { m: "Meadow", g: "Grove", c: "Canyon" };
+  var FPO = { m: { T: "Today", A: "A · Turf on logs", B: "B · And moss" },
+              g: { T: "Today", A: "A · Little islands", B: "B · Deeper, mossier" },
+              c: { T: "Today", A: "A · Sandstone slab", B: "B · A piece of mesa" } };
+  function fprender() {
+    document.getElementById("fpimg").src = "fp_" + fps + "_" + fpo + ".jpg";
+    document.getElementById("fptag").textContent = FPS[fps] + " · " + FPO[fps][fpo] + " · match camera";
+    pressed("data-fps", fps); pressed("data-fpo", fpo);
+  }
+  group("data-fps", function (v) { fps = v; }, fprender);
+  group("data-fpo", function (v) { fpo = v; }, fprender);
+  fprender();
 })();
 </script>

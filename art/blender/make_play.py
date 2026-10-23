@@ -28,6 +28,8 @@ from mathutils import Vector
 argv = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
 opts = {argv[i].lstrip("-"): argv[i + 1] for i in range(0, len(argv) - 1, 2)}
 VARIANT = opts.get("variant", "A").upper()
+# The platforms after fidelity review 6 (`--plat islet|islet_moss` on the grove, `rock|rock_under` on the canyon).
+PLAT = opts.get("plat", "")
 THEME = opts.get("theme", "grove")
 manifest = json.load(open(os.path.join(opts["dir"], "manifest.json")))
 FZ = float(manifest["front_z"])
@@ -104,6 +106,70 @@ def edge_row(x0, x1, y_top, y_low, z, mat, up=True, size=0.5, rng=None):
             face(mat, (P(xa, y_top, z), P(xa, y_low + peak, z), P(xm, y_low, z), P(xb, y_low + peak, z), P(xb, y_top, z)))
 
 
+def solid(side, bottom, top4, bot4, top=None):
+    """A closed frustum from a top quad to a bottom quad (corners in the same order round), its faces turned outward from its middle."""
+    pts = top4 + bot4
+    c = sum(pts, Vector()) / len(pts)
+    faces = [(top or side, list(reversed(top4))), (bottom, bot4)]
+    for i in range(4):
+        j = (i + 1) % 4
+        faces.append((side, [top4[i], top4[j], bot4[j], bot4[i]]))
+    for mat, q in faces:
+        f = face(mat, q)
+        f.normal_update()
+        if f.normal.dot(f.calc_center_median() - c) < 0.0:
+            f.normal_flip()
+
+
+def log_x(x0, x1, yc, zc, r, side, end, n=9):
+    """A round log lying along x, its cut ends showing."""
+    import math as _m
+    ring = [(_m.cos(_m.tau * k / n) * r, _m.sin(_m.tau * k / n) * r) for k in range(n)]
+    a = [P(x0, yc + dy, zc + dz) for (dy, dz) in ring]
+    b = [P(x1, yc + dy, zc + dz) for (dy, dz) in ring]
+    for k in range(n):
+        j = (k + 1) % n
+        f = face(side, [a[k], a[j], b[j], b[k]])
+        f.normal_update()
+        mid = P((x0 + x1) * 0.5, yc, zc)
+        if f.normal.dot(f.calc_center_median() - mid) < 0.0:
+            f.normal_flip()
+    for pts, sgn in ((a, -1.0), (b, 1.0)):
+        f = face(end, list(pts))
+        f.normal_update()
+        if f.normal.x * sgn < 0.0:
+            f.normal_flip()
+
+
+def underside(x0, x1, y_top, zb, zf, depth, rng, side, bottom):
+    """A rocky underside hanging under a platform: cells along it, deepest toward the middle, each set in a little and faceted."""
+    import math as _m
+    n = max(3, int((x1 - x0) / 0.9))
+    w = (x1 - x0) / n
+    for i in range(n):
+        xa, xb = x0 + w * i, x0 + w * (i + 1)
+        t = (i + 0.5) / n
+        d = depth * (0.3 + 0.7 * _m.sin(_m.pi * t)) * rng.uniform(0.75, 1.15)
+        ix = w * rng.uniform(0.08, 0.2)
+        izf, izb = rng.uniform(0.35, 0.7), rng.uniform(0.4, 0.8)
+        top4 = [P(xa, y_top, zb), P(xb, y_top, zb), P(xb, y_top, zf), P(xa, y_top, zf)]
+        yb = y_top - d
+        bot4 = [P(xa + ix, yb, zb + izb), P(xb - ix, yb, zb + izb), P(xb - ix, yb + rng.uniform(0.0, 0.12), zf - izf),
+                P(xa + ix, yb + rng.uniform(0.0, 0.12), zf - izf)]
+        solid(side, bottom, top4, bot4)
+
+
+def hanging(x0, x1, y_top, z, mat, rng, count, lo, hi, wide=(0.15, 0.35)):
+    """Strands hanging from y_top in front of the face at z (moss, grass, roots): tapering, a little crooked."""
+    for _ in range(count):
+        x = rng.uniform(x0, x1)
+        ln = rng.uniform(lo, hi)
+        wd = rng.uniform(*wide)
+        lean = rng.uniform(-0.15, 0.15)
+        face(mat, (P(x - wd, y_top, z), P(x + wd, y_top, z), P(x + wd * 0.35 + lean, y_top - ln * 0.7, z), P(x + lean * 1.4, y_top - ln, z),
+                   P(x - wd * 0.4 + lean, y_top - ln * 0.6, z)))
+
+
 def path_strip(x0, x1, zc, half, rng):
     xs = [x0 + (x1 - x0) * i / 60 for i in range(61)]
     ph = rng.uniform(0, 6)
@@ -162,6 +228,29 @@ def top_area(rng):
 def platform(r, rng):
     x0, x1, top = r[0], r[1], r[2]
     zb, zf = FZ - PLAT_DEPTH, FZ
+    if PLAT in ("islet", "islet_moss") and THEME == "grove":
+        # (Fidelity review 6: the grove's platforms as small islands of the stage's own island: turf over a band of earth, a rocky
+        # underside hanging under it, roots; `islet_moss` deeper, with moss hanging and more roots.)
+        box(x0 - 0.1, x1 + 0.1, top - 0.14, top, zb, zf, "top", "top_card", "layer1")
+        box(x0 - 0.02, x1 + 0.02, top - 0.42, top - 0.14, zb + 0.05, zf - 0.03, "layer2", "layer2")
+        deep = PLAT == "islet_moss"
+        # (In the island's dark earth: in the pale stone it read as a paper skirt, not rock.)
+        underside(x0 + 0.05, x1 - 0.05, top - 0.42, zb + 0.15, zf - 0.08, 1.1 if deep else 0.75, rng, "layer2", "layer2")
+        edge_row(x0 - 0.1, x1 + 0.1, top - 0.08, top - 0.5, zf + 0.04, "fringe", up=False, size=0.4, rng=rng)
+        hanging(x0 + 0.3, x1 - 0.3, top - 0.45, zf - 0.2, "plank_b", rng, 5 if deep else 3, 0.5, 1.2, (0.05, 0.1))
+        if deep:
+            hanging(x0, x1, top - 0.4, zf + 0.05, "fringe", rng, int((x1 - x0) * 1.4), 0.3, 0.75)
+        return
+    if PLAT in ("rock", "rock_under") and THEME == "sunset":
+        # (Fidelity review 6: the canyon's platforms a bare board. A slab of the stage's own sandstone: a sand top over two strata courses,
+        # the lower set in and broken short at one end; `rock_under` with a tapered rock hanging under it, a piece of mesa.)
+        box(x0 - 0.1, x1 + 0.1, top - 0.1, top, zb, zf, "top", "top_card", "layer1")
+        box(x0 - 0.06, x1 + 0.06, top - 0.38, top - 0.1, zb + 0.02, zf + 0.02, "layer1", "layer1")
+        cut_l, cut_r = rng.uniform(0.05, 0.45), rng.uniform(0.05, 0.45)
+        box(x0 + cut_l, x1 - cut_r, top - 0.66, top - 0.4, zb + 0.1, zf - 0.06, "layer2", "layer2")
+        if PLAT == "rock_under":
+            underside(x0 + 0.2, x1 - 0.2, top - 0.66, zb + 0.2, zf - 0.12, 1.0, rng, "layer1", "layer2")
+        return
     if GIRDER:
         if VARIANT == "A":
             box(x0, x1, top - 0.18, top, zb, zf, "steel", "steel_card", "steel_dark")

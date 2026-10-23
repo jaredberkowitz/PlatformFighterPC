@@ -184,3 +184,14 @@ the canyon's paper finish carries its shade, so it moves least). On the Stage Lo
 0.15, `curve_more` 0.06 and `glow_from` 1.9; `--light-finish=off` shows a stage without it. No re-light (the finish is all at run time).
 Before and after: `review6/light_finish_built.jpg` (every stage at the match camera). The runner test's shop-hint check flaked once and
 passed twice on its own. Next, item 6: the platforms.
+
+## Item 6, the platforms (2026-10-22, mock)
+
+The beach's platforms are already dock boards with rope and the city's a steel deck, so this is the meadow, the grove and the canyon.
+New flags on the shipped play variants (every walkable top stays at the sim's height): `make_meadow_play.py --variant B --plat
+timber|timber_moss` (a turf mat on two round logs, cut ends showing, rope lashings, an uneven tufted lip; with moss and grass hanging
+over the logs); `make_play.py --theme grove --variant B --plat islet|islet_moss` (turf over a band of earth, a rocky underside of the
+island's dark earth, roots; deeper, with moss); `make_play.py --theme sunset --variant B --plat rock|rock_under` (a sand top over two
+strata courses, the lower set in and broken short; with a tapered rock under it). Shared helpers in both builders: `solid`, `log_x`,
+`underside`, `hanging`. Lesson: the grove's underside in the pale `stone` read as a paper skirt; in its dark earth, as rock. On the Stage
+Look Review ("platforms", `fp_*`); recommended A on all three (B's undersides and moss come down toward a fighter standing beneath).
