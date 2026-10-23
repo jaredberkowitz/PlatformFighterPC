@@ -88,6 +88,23 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
     <p>Two lessons from the reference screenshots, mocked from the match camera: the scenery without ink outlines, its edges lit as card bevels instead, and the paper houses rebuilt at the characters' proportions. The earlier rounds stay on the <a href="https://claude.ai/artifact/D1du6MREVumiJDrEdNypW4">Stage Fidelity Review</a>, which is full.</p>
   </header>
 
+  <section class="panel" aria-labelledby="sl-h" id="shapedlight">
+    <div class="eyebrow">Your call is needed &middot; review 7: shaped light</div>
+    <h2 id="sl-h">Light and shade across the play areas, lamp pools, the city's glow</h2>
+    <p>First, canyon B is built (before and after in the canyon section above). The city's middle towers were tried as a model and dropped: at that distance the paper cards and the air hide all relief, so nothing changed. Then shaped light. A finding first: the play tops can't take a "sun pool" as a brightening. The tone curve squeezes any lift on an already bright lawn to almost nothing, and even with the sun switched off the meadow's lawn only fell from 0.71 to 0.65, because ambient and the paper finish carry most of its light. The cloud shadows existed but never read for the same reason. So the light is shaped from the shade side: drifting cloud shade laid on the surfaces' own colour, smaller clouds so several fall across a stage, and the sun falling in the gaps.</p>
+    <div class="tablewrap"><table><thead><tr><th>Option</th><th>Day stages</th><th>City at night</th></tr></thead><tbody>
+      <tr><td>A &middot; Soft</td><td>Cloud shade over about half the ground near the stage, a soft cool tone, a few units across, drifting slowly; sun in the gaps between.</td><td>The roof's lamp pools brighter and a quarter wider; a warm edge of the street's glow up each tower's corner and along its parapet, strongest low down.</td></tr>
+      <tr><td>B &middot; Firm</td><td>The same with a deeper, cooler shade, so the shade and sun read clearly.</td><td>The pools brighter and wider again; the glow edges stronger.</td></tr>
+    </tbody></table></div>
+    <p>Close, today on the left and B on the right: meadow, grove, canyon, beach, city.</p>
+    <div class="viewer"><img src="sl_close.jpg" alt="Each stage today and with shaped light B"></div>
+    <div class="row" role="group" aria-label="Stage"><button data-sls="0">Meadow</button><button data-sls="4">Grove</button><button data-sls="1">Canyon</button><button data-sls="2">Beach</button><button data-sls="3">City</button></div>
+    <div class="row" role="group" aria-label="View"><button data-slv="m">Match camera</button><button data-slv="w">Wide (today and B)</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-slo="T">Today</button><button data-slo="A">A &middot; Soft</button><button data-slo="B">B &middot; Firm</button></div>
+    <div class="viewer"><img id="slimg" alt="Shaped light option"><span class="vtag" id="sltag"></span></div>
+    <p class="muted">My pick: <b>A</b>. B's shade is clearer in a still, but it darkens the play areas overall, and the cool tone greys the canyon's warm sand. A shapes the light without moving the stages' values much. Honest note: this reads more as a partly cloudy day than as crisp pools of sun. The paper look's flat, bright shading limits how far light can be shaped on the play tops.</p>
+  </section>
+
   <section class="panel" aria-labelledby="c7-h" id="canyon7">
     <div class="eyebrow">Built (B) &middot; review 7: the canyon behind the fight</div>
     <h2 id="c7-h">Clearing the space behind the fighters</h2>
@@ -1213,5 +1230,18 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
   group("data-c7v", function (v) { c7v = v; }, c7render);
   group("data-c7o", function (v) { c7o = v; }, c7render);
   c7render();
+  var sls = "0", slv = "m", slo = "A";
+  var SLS = { "0": "Meadow", "4": "Grove", "1": "Canyon", "2": "Beach", "3": "City" };
+  var SLO = { T: "Today", A: "A · Soft", B: "B · Firm" };
+  function slrender() {
+    var o = (slv === "w" && slo === "A") ? "B" : slo;
+    document.getElementById("slimg").src = "sl_" + sls + "_" + o + "_" + slv + ".jpg";
+    document.getElementById("sltag").textContent = SLS[sls] + " · " + SLO[o] + (slv === "w" ? " · wide" : " · match camera");
+    pressed("data-sls", sls); pressed("data-slv", slv); pressed("data-slo", o);
+  }
+  group("data-sls", function (v) { sls = v; }, slrender);
+  group("data-slv", function (v) { slv = v; }, slrender);
+  group("data-slo", function (v) { slo = v; }, slrender);
+  slrender();
 })();
 </script>

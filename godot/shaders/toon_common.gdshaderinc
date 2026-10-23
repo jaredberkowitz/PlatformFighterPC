@@ -331,6 +331,10 @@ void fragment() {
 	// (Only near the stage, the gauntlet's round 15: on the far ranges the dapples read as low-resolution mottling, not light.)
 	pf_sun = mix(1.0, pf_cloud_sun(world_pos, TIME), smoothstep(0.1, 0.6, world_normal.y) * (1.0 - fighter)
 		* (1.0 - smoothstep(25.0, 55.0, -world_pos.z)));
+	if (pf_cloud_tone.a > 0.0) {
+		// (On the colour, shading ambient and sun alike: see `pf_cloud_tone`. Clouds only, not the platforms' cast shadow below.)
+		c *= mix(vec3(1.0), pf_cloud_tone.rgb, clamp(1.0 - pf_sun, 0.0, 1.0) * pf_cloud_tone.a);
+	}
 	// (And the platforms' cast shadow on the ground under them, `pf_stage_sun`; not on fighters either.)
 	pf_sun *= mix(1.0, pf_stage_sun(world_pos, world_normal), 1.0 - fighter);
 	if (fighter < 0.5 && print_amount > 0.0) {

@@ -29,6 +29,10 @@ global uniform vec4 pf_bounce;
 // deep (0 none), y world units across a cloud, z how much of the sky is cloud (0..1), w drift speed. A surface that writes `pf_sun` in
 // its fragment (PF_CLOUDS) takes them as a cast shadow, in its painted shadow colour.
 global uniform vec4 pf_clouds;
+// The cloud shade laid on the surface's own colour (fidelity review 7, shaped light; toon_common's fragment): through the light term
+// the ambient and the paper finish's pale shade carried nearly all of a lawn's light (the meadow's lawn with no sun at all fell only
+// 0.71 to 0.65), so the clouds' shadows never read. rgb the tone a clouded spot takes (a multiplier), a how far (0 off).
+global uniform vec4 pf_cloud_tone;
 // The sun's cast shadows on the scenery behind the play area (scripts/lighting.gd `cast`, the graphics review 5, 2026-10-22): the tone a
 // face takes where something shadows it, as a multiplier (rgb), and how far (a, 0 off). The shade tone alone is a light pastel (the
 // paper look's), so a cast shadow read barely darker than the sun, and the haze lifted what was left: nothing in the background was

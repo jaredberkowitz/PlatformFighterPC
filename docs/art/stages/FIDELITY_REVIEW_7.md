@@ -118,3 +118,17 @@ paper look squashes the layer into cards and the air hazes it, so relief and pai
 code taken back out (kept as a patch in the session's scratch). What does make the middle layer read as more than flat cards is its
 silhouette and light, not its surface: varied rooftops and crowns, and lit edges where the glow catches them. That folds into the
 light item ("shaped light", lamp and glow pools) rather than a modelling pass.
+
+## Shaped light (2026-10-23, mock)
+
+Findings first. A "sun pool" lift on the play tops can't read: the filmic tone curve squeezes a lift on an already bright lawn to
+almost nothing, and even with the sun switched off the meadow's lawn only fell 0.71 to 0.65 (ambient and the paper finish carry most of
+its light), which is also why the existing cloud shadows never showed. And at 14 to 30 units across, a whole stage sat in one gap of
+the cloud field. So the light is shaped from the shade side: `pf_cloud_tone` (a new global: the tone a clouded spot takes, laid on the
+surface's own colour in toon_common's fragment, so it shades ambient and sun alike), smaller clouds (8 to 12 across) over about 60% of
+the ground near the stage, and the sun falling in the gaps; `lighting.gd` `SHAPED_TRY`, `--shaped=A|B`, a style's own `cloud_tone`.
+The city at night: the roof's lamp pools brighter and wider (the palette's `lamp_pools` [alpha, size]) and the street's glow catching the
+towers (`facade.gdshader` `glow_edge`: a warm edge up each front's corner away from the moon, strongest low, and along the parapet;
+the palette's `skyline_glow_edge` a layer); first drawn a third of a unit wide it was a pixel or two, so it is a unit wide. A soft,
+B firm. On the Stage Look Review ("shapedlight", `sl_*`); recommended A (B darkens the play areas overall and greys the canyon's sand).
+It reads more as a partly cloudy day than crisp pools of sun: the paper look's flat, bright shading limits it.

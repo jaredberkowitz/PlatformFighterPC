@@ -2100,9 +2100,14 @@ static func _props(root: Node3D, theme_name: String, e: Array) -> void:
 			pool.disable_fog = true
 			var pg := Gradient.new()
 			# (Two clear pools with a firmer edge, round 40: four soft ones ran together into a sheen across the roof.)
-			pg.set_color(0, Color(1.0, 0.86, 0.56, 0.55))
+			# (Brighter and wider with the shaped light, fidelity review 7: the palette's `lamp_pools` [alpha, size], or `--shaped=`.)
+			var lp: Array = (_palette.get("backdrop", {}) as Dictionary).get("lamp_pools", [0.55, 1.0])
+			for arg in OS.get_cmdline_user_args():
+				if arg.begins_with("--shaped="):
+					lp = {"A": [0.68, 1.25], "B": [0.8, 1.45]}.get(arg.substr(9), lp)
+			pg.set_color(0, Color(1.0, 0.86, 0.56, float(lp[0])))
 			pg.set_color(1, Color(1.0, 0.62, 0.32, 0.0))
-			pg.add_point(0.62, Color(1.0, 0.8, 0.5, 0.45))
+			pg.add_point(0.62, Color(1.0, 0.8, 0.5, float(lp[0]) * 0.82))
 			var pt := GradientTexture2D.new()
 			pt.gradient = pg
 			pt.fill = GradientTexture2D.FILL_RADIAL
@@ -2113,7 +2118,7 @@ static func _props(root: Node3D, theme_name: String, e: Array) -> void:
 				var f := 0.3 + 0.4 * k
 				var px := lerpf(l + 3.0, r - 2.5, f)
 				var q := QuadMesh.new()
-				q.size = Vector2(5.0, 3.6)
+				q.size = Vector2(5.0, 3.6) * float(lp[1])
 				q.orientation = PlaneMesh.FACE_Y
 				var pm := _mesh(root, q, pool, Vector3(px, y + 0.07, -3.8))
 				pm.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
@@ -6195,6 +6200,14 @@ static func _skyline_layer(root: Node3D, rng: RandomNumberGenerator, layer: int,
 	# (Four tenths dimmer again, the judge's round 39: the signs were still the brightest, most saturated things on screen.)
 	m.set_shader_parameter("sign_energy", (1.9 - layer * 0.5) * float(_pal("sign_dim")))
 	m.set_shader_parameter("moon_edge", [0.9, 0.6, 0.35][layer])
+	# (The glow catching the towers' edges, fidelity review 7's shaped light: the palette's `skyline_glow_edge` [a layer], or `--shaped=`.)
+	var ge: Array = (_palette.get("backdrop", {}) as Dictionary).get("skyline_glow_edge", [0.0, 0.0, 0.0])
+	var shaped_flag := ""
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--shaped="):
+			shaped_flag = arg.substr(9)
+	ge = {"A": [0.45, 0.35, 0.2], "B": [0.7, 0.55, 0.32]}.get(shaped_flag, ge)
+	m.set_shader_parameter("glow_edge", float(ge[layer]))
 	# (The quiet behind the fight, fidelity review 5: the palette's `skyline_calm` on the two nearer layers, `--city-calm=` to try.)
 	var calm := float((_palette.get("backdrop", {}) as Dictionary).get("skyline_calm", 0.0))
 	for arg in OS.get_cmdline_user_args():

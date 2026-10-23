@@ -100,6 +100,31 @@ const STYLE_DEFAULT := {
 ## back from, its alpha how much; a third of these lifted the shade by a hundredth, the light's own scale takes most of it), `grade_more`
 ## (on the mood's grade), `curve_more` (on the S-curve) and `glow_from` (the HDR level the bloom starts at, 2.3 without: the lanterns,
 ## string lights and windows glow). `--light-finish=off` shows a stage without it.
+## Shaped light to try (`--shaped=A|B`, fidelity review 7): per stage, the cloud shadows ([how deep, units across, ground covered,
+## drift]) and the tone a clouded spot takes (`cloud_tone`, toon_light's `pf_cloud_tone`), so the ground has shade and sunlit pools
+## between (a lift on the sunlit ground can't read: the filmic curve squeezes it on a bright lawn), the clouds smaller so several fall
+## across the play area (at 14 to 30 across, a whole stage sat in one gap). A soft, B deeper and cooler. The city's night light is its
+## lamps' pools and the towers' glow edge (StageArt, `--shaped=` too).
+const SHAPED_TRY := {
+	"A": {"meadow": {"clouds": [0.9, 8.0, 0.6, 0.7], "cloud_tone": Color(0.66, 0.72, 0.9, 1.0)},
+		"grove": {"clouds": [0.9, 5.5, 0.6, 0.25], "cloud_tone": Color(0.66, 0.72, 0.9, 1.0)},
+		"sunset": {"clouds": [0.9, 11.0, 0.6, 0.4], "cloud_tone": Color(0.66, 0.72, 0.9, 1.0)},
+		"ocean": {"clouds": [0.9, 9.0, 0.6, 0.9], "cloud_tone": Color(0.66, 0.72, 0.9, 1.0)}},
+	"B": {"meadow": {"clouds": [0.9, 9.0, 0.6, 0.7], "cloud_tone": Color(0.52, 0.6, 0.84, 1.0)},
+		"grove": {"clouds": [0.9, 6.0, 0.6, 0.25], "cloud_tone": Color(0.52, 0.6, 0.84, 1.0)},
+		"sunset": {"clouds": [0.9, 12.0, 0.6, 0.4], "cloud_tone": Color(0.52, 0.6, 0.84, 1.0)},
+		"ocean": {"clouds": [0.9, 10.0, 0.6, 0.9], "cloud_tone": Color(0.52, 0.6, 0.84, 1.0)}},
+}
+
+
+## `--shaped=A|B`, or "".
+static func _shaped_flag() -> String:
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("--shaped="):
+			return a.substr(9)
+	return ""
+
+
 const STYLES := {
 	# Dappled light under the great tree: small patches swaying slowly.
 	# (The background grounded, the graphics review 5: the sun's shadows out over the terraces, the trees' and gates' a cool violet.)
@@ -404,10 +429,10 @@ static func stage_mood(env: Environment, root: Node, theme: Dictionary, post: Sh
 	var m := mood.duplicate()
 	if theme.has("sky_horizon"):
 		m.rim = (mood.rim as Color).lerp(theme.sky_horizon, 0.3)
-	_set_globals(m, style(theme.get("name", "meadow")))
+	_set_globals(m, style(theme.get("name", "meadow")), String(theme.get("name", "meadow")))
 
 
-static func _set_globals(mood: Dictionary, look: Dictionary) -> void:
+static func _set_globals(mood: Dictionary, look: Dictionary, stage_name := "") -> void:
 	RenderingServer.global_shader_parameter_set("pf_ramp", ramp_texture(look.ramp))
 	RenderingServer.global_shader_parameter_set("pf_deep_shade", look.deep)
 	RenderingServer.global_shader_parameter_set("pf_edge_light", look.edge)
@@ -421,4 +446,8 @@ static func _set_globals(mood: Dictionary, look: Dictionary) -> void:
 	RenderingServer.global_shader_parameter_set("pf_rim_color", mood.rim)
 	RenderingServer.global_shader_parameter_set("pf_scenery_shade", float(look.get("scenery_shade", 1.0)))
 	var cl: Array = look.clouds
+	# (Shaped light, fidelity review 7: `--shaped=A|B` tries SHAPED_TRY's cloud shadows.)
+	var shaped: Dictionary = SHAPED_TRY.get(_shaped_flag(), {}).get(stage_name, {})
+	cl = shaped.get("clouds", cl)
 	RenderingServer.global_shader_parameter_set("pf_clouds", Vector4(cl[0], cl[1], cl[2], cl[3]))
+	RenderingServer.global_shader_parameter_set("pf_cloud_tone", shaped.get("cloud_tone", look.get("cloud_tone", Color(1, 1, 1, 0))))
