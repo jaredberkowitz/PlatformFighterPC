@@ -584,7 +584,8 @@ const WORLD_COLOURS := {"hull": Color(0.32, 0.5, 0.62), "hull_stripe": Color(0.9
 	"crown": Color(0.22, 0.42, 0.32), "firefly": Color(0.95, 1.0, 0.62),
 	# (The quality pass's pieces, 2026-10-21: the paper dolls' trousers and hair, the train's brass bands and dark iron, the boxcars'
 	# seams and roofs, the billboard's poster in a muted night palette, the crowns' lit tiers, the bus's stripe.)
-	"trousers": Color(0.28, 0.3, 0.42), "hair": Color(0.3, 0.2, 0.16), "engine_band": Color(0.86, 0.66, 0.34),
+	"trousers": Color(0.28, 0.3, 0.42), "hair": Color(0.3, 0.2, 0.16),
+	"shoe": Color(0.22, 0.2, 0.26), "eye": Color(0.12, 0.1, 0.16), "white": Color(0.98, 0.96, 0.92), "engine_band": Color(0.86, 0.66, 0.34),
 	"engine_dark": Color(0.16, 0.17, 0.22), "car_seam": Color(0.42, 0.28, 0.22), "car_roof": Color(0.3, 0.27, 0.3),
 	"poster": Color(0.96, 0.9, 0.78), "poster_a": Color(0.95, 0.55, 0.45), "poster_b": Color(0.38, 0.66, 0.7), "poster_c": Color(0.3, 0.3, 0.48),
 	"board_back": Color(0.22, 0.2, 0.3), "crown_lit": Color(0.3, 0.52, 0.4), "bus_stripe": Color(0.98, 0.94, 0.86)}

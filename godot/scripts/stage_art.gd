@@ -2626,9 +2626,17 @@ static func _potted_plant(root: Node3D, at: Vector3) -> void:
 
 
 ## A string of little lit bulbs sagging between two points.
-static func _string_lights(root: Node3D, a: Vector3, b: Vector3) -> void:
+## `lamp` the modelled light hung along it (art/blender/make_props.py: "paper_lantern" on the grove, "string_bulb" in the city) with the
+## palette's [backdrop] `string_lights="model"` or `--strings=model` (fidelity review 6: the strings were code-built spheres); without,
+## or without the prop, the code-built bulbs.
+static func _string_lights(root: Node3D, a: Vector3, b: Vector3, lamp := "string_bulb") -> void:
 	var cord := FighterView.toon(Color(0.25, 0.22, 0.3), false)
 	var bulbs := [_unshaded(Color(1.0, 0.86, 0.5)), _unshaded(Color(1.0, 0.6, 0.75)), _unshaded(Color(0.6, 0.9, 1.0))]
+	var modelled := String((_palette.get("backdrop", {}) as Dictionary).get("string_lights", "")) == "model"
+	if OS.get_cmdline_user_args().has("--strings=model"):
+		modelled = true
+	if modelled and Toonify.load_prop(lamp) == null:
+		modelled = false
 	var n := 18
 	var prev := a
 	for k in range(1, n + 1):
@@ -2636,7 +2644,21 @@ static func _string_lights(root: Node3D, a: Vector3, b: Vector3) -> void:
 		var p := a.lerp(b, f) + Vector3(0, -1.2 * sin(f * PI), 0)
 		var seg := _mesh(root, _box(Vector3(0.04, 0.04, prev.distance_to(p))), cord, (prev + p) / 2.0)
 		seg.basis = Basis.looking_at(p - prev, Vector3.UP)
-		if k < n:
+		if k < n and modelled:
+			var glow: Color = (bulbs[k % 3] as StandardMaterial3D).albedo_color
+			# (The grove's lanterns all a warm paper glow, the city's bulbs their three colours.)
+			if lamp == "paper_lantern":
+				glow = [Color(1.0, 0.74, 0.44), Color(1.0, 0.62, 0.5), Color(1.0, 0.82, 0.52)][k % 3]
+			var model := Toonify.load_prop(lamp, true)
+			model.position = p
+			model.rotation.y = float(k) * 0.7
+			root.add_child(model)
+			for mi in model.find_children("*", "MeshInstance3D", true, false):
+				if String(mi.name).begins_with("glow"):
+					(mi as MeshInstance3D).material_override = _unshaded(glow)
+			var drop := 0.42 if lamp == "paper_lantern" else 0.2
+			_halo(root, p + Vector3(0, -drop, 0.2), glow, 0.9 if lamp == "paper_lantern" else 0.5)
+		elif k < n:
 			_mesh(root, _sphere(0.11, 6), bulbs[k % 3], p + Vector3(0, -0.12, 0))
 			_halo(root, p + Vector3(0, -0.12, 0.15), (bulbs[k % 3] as StandardMaterial3D).albedo_color, 0.55)
 		prev = p
@@ -5229,8 +5251,8 @@ static func _grove(root: Node3D, t: Dictionary, stage: Array) -> void:
 	# Little flowers and tufts on the grass behind the fighters, gathered toward the ends so the middle of the stage stays clean.
 	_flower_clusters(root, [left, right, top], rng, [Color(1, 1, 1), Color(1, 0.8, 0.9)], Color(0.46, 0.84, 0.42))
 	# Strings of lanterns hung from the great tree out to the smaller ones, under the canopy: the grove is looked after.
-	_string_lights(root, Vector3(-4.0, top + 12.0, -17.0), Vector3(-22.0, top + 8.0, -30.0))
-	_string_lights(root, Vector3(4.0, top + 12.0, -17.0), Vector3(22.0, top + 8.0, -30.0))
+	_string_lights(root, Vector3(-4.0, top + 12.0, -17.0), Vector3(-22.0, top + 8.0, -30.0), "paper_lantern")
+	_string_lights(root, Vector3(4.0, top + 12.0, -17.0), Vector3(22.0, top + 8.0, -30.0), "paper_lantern")
 	# Pale pink motes drifting under the great tree, and light falling through its canopy.
 	# (No light shafts, the style sheet's clear air, 2026-10-19: their see-through card veiled the faceted ranges and hills into soft bands.)
 	_motes(root, Color(1.0, 0.86, 0.94), [left, right, top, top - 10.0])

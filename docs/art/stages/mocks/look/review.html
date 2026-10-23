@@ -88,6 +88,23 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
     <p>Two lessons from the reference screenshots, mocked from the match camera: the scenery without ink outlines, its edges lit as card bevels instead, and the paper houses rebuilt at the characters' proportions. The earlier rounds stay on the <a href="https://claude.ai/artifact/D1du6MREVumiJDrEdNypW4">Stage Fidelity Review</a>, which is full.</p>
   </header>
 
+  <section class="panel" aria-labelledby="sm-h" id="smallthings">
+    <div class="eyebrow">Your call is needed &middot; review 6, item 7: the small code-built things</div>
+    <h2 id="sm-h">Lanterns, bulbs and townsfolk, made like the rest</h2>
+    <p>First, platforms A are built on all three stages; before and after are in the platforms section above. Then item 7, the last one. The most visible small code-built things left are the string lights (the grove's lantern strings and the city's party lights were bare spheres), the grove's streamers (yellow, pink and blue diamonds that read as dangling crystals), and the city's townsfolk (trapezoid paper dolls). The lawn flowers barely show at play distance, so they stay.</p>
+    <div class="tablewrap"><table><thead><tr><th>Option</th><th>What changes</th></tr></thead><tbody>
+      <tr><td>A &middot; Modelled lights</td><td>Two new models. A paper lantern on the grove's strings: a ribbed paper body that glows warm, dark lacquered caps, a red tassel. A glass bulb on a dark socket on the city's strings, each in its own colour.</td></tr>
+      <tr><td>B &middot; And paper streamers and townsfolk</td><td>A, with the grove's streamers recut as white paper zigzags like those on its gates, and the city's townsfolk drawn in the fighters' own build: a round body, mitten hands, shoes, a round head with hair and two dot eyes, and a bobble hat or a scarf on some.</td></tr>
+    </tbody></table></div>
+    <p>Close up, today on the left: the grove's strings (A, then B), the city's lights (A), its street (B) and its rooftop party (B):</p>
+    <div class="viewer"><img src="sm_close.jpg" alt="The string lights, streamers and townsfolk, today and with the options"></div>
+    <div class="row" role="group" aria-label="Stage"><button data-sms="g">Grove</button><button data-sms="c">City</button></div>
+    <div class="row" role="group" aria-label="View"><button data-smv="m">Match camera</button><button data-smv="w">Wide</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-smo="T">Today</button><button data-smo="A">A &middot; Modelled lights</button><button data-smo="B">B &middot; And streamers, townsfolk</button></div>
+    <div class="viewer"><img id="smimg" alt="Small things option"><span class="vtag" id="smtag"></span></div>
+    <p class="muted">My pick: <b>B</b>. The grove's strings read as a festival (lanterns and shrine paper) instead of crystals, and the townsfolk belong to the same world as the fighters.</p>
+  </section>
+
   <section class="panel" aria-labelledby="fp-h" id="platforms">
     <div class="eyebrow">Built (A on all three) &middot; review 6, item 6: the platforms</div>
     <h2 id="fp-h">Platforms made of the stage they float over</h2>
@@ -1062,5 +1079,17 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
   group("data-fps", function (v) { fps = v; }, fprender);
   group("data-fpo", function (v) { fpo = v; }, fprender);
   fprender();
+  var sms = "g", smv = "m", smo = "B";
+  var SMS = { g: "Grove", c: "City" };
+  var SMO = { T: "Today", A: "A · Modelled lights", B: "B · And streamers, townsfolk" };
+  function smrender() {
+    document.getElementById("smimg").src = "sm_" + sms + "_" + smo + "_" + smv + ".jpg";
+    document.getElementById("smtag").textContent = SMS[sms] + " · " + SMO[smo] + (smv === "w" ? " · wide" : " · match camera");
+    pressed("data-sms", sms); pressed("data-smv", smv); pressed("data-smo", smo);
+  }
+  group("data-sms", function (v) { sms = v; }, smrender);
+  group("data-smv", function (v) { smv = v; }, smrender);
+  group("data-smo", function (v) { smo = v; }, smrender);
+  smrender();
 })();
 </script>

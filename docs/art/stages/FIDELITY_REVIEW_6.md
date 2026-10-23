@@ -200,3 +200,15 @@ Look Review ("platforms", `fp_*`); recommended A on all three (B's undersides an
 `--theme grove --variant B --plat islet`, `canyon_play.glb` `--theme sunset --variant B --plat rock`; the meadow, canyon and grove re-lit.
 The walkable tops are unchanged (stage_front_test passes). Before and after: `review6/platforms_built.jpg` (meadow, grove, canyon at the
 match camera). Next, item 7: the small code-built things.
+
+## Item 7, the small code-built things (2026-10-22, mock)
+
+The most visible left: the string lights (bare spheres on the grove's lantern strings and the city's party lights), the grove's
+streamers (yellow, pink and blue diamonds reading as dangling crystals) and the city's townsfolk (trapezoid paper dolls). The lawn
+flowers barely show at play distance and stay. New: `make_props.py` `paper_lantern` (a ribbed glowing paper body, lacquered caps, a
+tassel; 772 triangles) and `string_bulb` (a glass bulb on a socket; 244), both hanging from their origin (listed as such in
+`prop_check_test`); `StageArt._string_lights(..., lamp)` hangs them with the palette's [backdrop] `string_lights="model"` or
+`--strings=model`, the grove's warm, the city's in their three colours; `make_world.py --streamers shide` (white paper zigzags, as on
+the gates) and `--people round` (`figure_round`: the fighters' build, a round body, mitten hands, shoes, two dot eyes, a bobble hat or a
+scarf on some; families `shoe`, `eye`, `white`). Options: A the modelled lights; B with the shide and the round townsfolk. On the Stage
+Look Review ("smallthings", `sm_*`); recommended B.
