@@ -179,3 +179,8 @@ bloom from 1.9, so the lanterns, string lights and windows glow. Lessons: a boun
 hundredth (the light's own scale takes most of it); a few thin pieces have no real normal, and an unguarded bounce turned their NaN into
 white blots across every stage (`isnan` guard). The changes are small by design (the meadow's platform undersides 0.59 to 0.65, greener;
 the canyon's paper finish carries its shade, so it moves least). On the Stage Look Review ("lightfinish", `lf_*`); recommended C.
+
+**Built (2026-10-22): light finish C** (the owner's pick): each stage's style in `lighting.gd` `STYLES` carries `bounce`, `grade_more`
+0.15, `curve_more` 0.06 and `glow_from` 1.9; `--light-finish=off` shows a stage without it. No re-light (the finish is all at run time).
+Before and after: `review6/light_finish_built.jpg` (every stage at the match camera). The runner test's shop-hint check flaked once and
+passed twice on its own. Next, item 6: the platforms.
