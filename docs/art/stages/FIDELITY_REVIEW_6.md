@@ -195,3 +195,8 @@ island's dark earth, roots; deeper, with moss); `make_play.py --theme sunset --v
 strata courses, the lower set in and broken short; with a tapered rock under it). Shared helpers in both builders: `solid`, `log_x`,
 `underside`, `hanging`. Lesson: the grove's underside in the pale `stone` read as a paper skirt; in its dark earth, as rock. On the Stage
 Look Review ("platforms", `fp_*`); recommended A on all three (B's undersides and moss come down toward a fighter standing beneath).
+
+**Built (2026-10-22): A on all three platforms** (the owner's pick): `meadow_play.glb` `--variant B --plat timber`, `grove_play.glb`
+`--theme grove --variant B --plat islet`, `canyon_play.glb` `--theme sunset --variant B --plat rock`; the meadow, canyon and grove re-lit.
+The walkable tops are unchanged (stage_front_test passes). Before and after: `review6/platforms_built.jpg` (meadow, grove, canyon at the
+match camera). Next, item 7: the small code-built things.

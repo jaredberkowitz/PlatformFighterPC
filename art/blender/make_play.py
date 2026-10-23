@@ -11,6 +11,9 @@ over joists and a beam), city (roofing with a coping, girders).
 Families `top`, `top_card`, `layer1`, `layer2`, `fringe`, `path`, `plank`, `plank_b`, `plank_card`, `rope`, `steel`, `steel_dark`,
 `steel_card`, `shadow` (painted per theme by `StageBake.place_play`).
 
+Shipped platforms since fidelity review 6 (the owner's pick A, 2026-10-22): grove_play.glb `--theme grove --variant B --plat islet`,
+canyon_play.glb `--theme sunset --variant B --plat rock`, then lit.
+
 Run (Blender 5.2):
   blender --background --python art/blender/make_play.py -- --dir godot/art/baked/<key> --theme grove --variant A --out <file.glb>
 """
