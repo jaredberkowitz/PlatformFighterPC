@@ -105,3 +105,6 @@ height with crevices, the middle a step lower, each banded with a dark cap, fall
 wide mesa still drawn and thrown away so every butte after it keeps its layout. `make_world.py --trestle far` (175 back, deck at -9):
 the train small and hazy near the horizon. Lowered instead (`-11` at 124 back) it ran right behind the fighters' name tags, so that was
 dropped. Options: A the broken table; B with the railway far back. On the Stage Look Review ("canyon7", `c7_*`); recommended B.
+
+**Built (2026-10-22): canyon B** (the owner's pick): `canyon_paper.glb` `--fight broken`, `canyon_world.glb` `--trestle far`; the canyon
+re-lit. Before and after: `review7/canyon_behind7_built.jpg`. All seven tests pass. Next: the city's middle towers.
