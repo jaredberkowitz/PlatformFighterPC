@@ -88,8 +88,25 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
     <p>Two lessons from the reference screenshots, mocked from the match camera: the scenery without ink outlines, its edges lit as card bevels instead, and the paper houses rebuilt at the characters' proportions. The earlier rounds stay on the <a href="https://claude.ai/artifact/D1du6MREVumiJDrEdNypW4">Stage Fidelity Review</a>, which is full.</p>
   </header>
 
+  <section class="panel" aria-labelledby="sk-h" id="skies7">
+    <div class="eyebrow">Your call is needed &middot; review 7: the meadow's and grove's skies (to all 4s)</div>
+    <h2 id="sk-h">The last two skies</h2>
+    <p>Review 7 left two 3s, both skies. On the meadow, the card clouds were drawn up to 34 units high, so at the match camera half of them were cut by the top of the frame, over one pale teal. On the grove, the blue top and pink horizon met halfway and the sky read lilac-grey between the trees.</p>
+    <div class="tablewrap"><table><thead><tr><th>Stage</th><th>A</th><th>B</th></tr></thead><tbody>
+      <tr><td>Meadow</td><td>The clouds lowered into the frame and a little smaller; the gradient fitted to the sky the cameras see, a deeper blue at the top of the frame and the pale haze held at the horizon.</td><td>A, with a warm glow behind the mountains and a softer horizon, so it reads as late-morning light rather than flat teal.</td></tr>
+      <tr><td>Grove</td><td>An evening gradient: a deep violet-blue at the top of the frame and a warm peach glow low behind the forest.</td><td>A, with the clouds lowered into the gaps between the trees.</td></tr>
+    </tbody></table></div>
+    <p>Close, today on the left: the meadow at the match camera (A), the meadow wide (B), the grove wide (A):</p>
+    <div class="viewer"><img src="sk_close.jpg" alt="The meadow's and grove's skies, today and with the options"></div>
+    <div class="row" role="group" aria-label="Stage"><button data-sks="m">Meadow</button><button data-sks="g">Grove</button></div>
+    <div class="row" role="group" aria-label="View"><button data-skv="m">Match camera</button><button data-skv="w">Wide</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-sko="T">Today</button><button data-sko="A">A</button><button data-sko="B">B</button></div>
+    <div class="viewer"><img id="skimg" alt="Sky option"><span class="vtag" id="sktag"></span></div>
+    <p class="muted">My pick: <b>B on both</b>. The meadow's top of frame goes from teal to a clear blue (hue 197 to 215, saturation 0.31 to 0.35) with every cloud whole; the grove gains a warm evening band and clouds in the gaps. The grove's change is the smaller of the two: its sky only shows between the trees.</p>
+  </section>
+
   <section class="panel" aria-labelledby="f7-h" id="review7">
-    <div class="eyebrow">Your call is needed &middot; fidelity review 7</div>
+    <div class="eyebrow">Under way &middot; fidelity review 7</div>
     <h2 id="f7-h">Where every stage stands after review 6</h2>
     <p>The same analysis on the build you have (playtest-2026-10-22-sim146-review6): the same eight categories scored 1 to 5, the same measured regions. The full write-up is in docs/art/stages/FIDELITY_REVIEW_7.md. A caution: the judge is the same hand that built the work.</p>
     <div class="tablewrap"><table><thead><tr><th>Stage</th><th>Light</th><th>Surfaces</th><th>Play area</th><th>Background land</th><th>Sky</th><th>World</th><th>Cohesion</th><th>Readability</th><th>Mean</th><th>Review 6</th></tr></thead><tbody>
@@ -1125,5 +1142,17 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
   group("data-smv", function (v) { smv = v; }, smrender);
   group("data-smo", function (v) { smo = v; }, smrender);
   smrender();
+  var sks = "m", skv = "m", sko = "B";
+  var SKS = { m: "Meadow", g: "Grove" };
+  var SKO = { T: "Today", A: "A", B: "B" };
+  function skrender() {
+    document.getElementById("skimg").src = "sk_" + sks + "_" + sko + "_" + skv + ".jpg";
+    document.getElementById("sktag").textContent = SKS[sks] + " · " + SKO[sko] + (skv === "w" ? " · wide" : " · match camera");
+    pressed("data-sks", sks); pressed("data-skv", skv); pressed("data-sko", sko);
+  }
+  group("data-sks", function (v) { sks = v; }, skrender);
+  group("data-skv", function (v) { skv = v; }, skrender);
+  group("data-sko", function (v) { sko = v; }, skrender);
+  skrender();
 })();
 </script>

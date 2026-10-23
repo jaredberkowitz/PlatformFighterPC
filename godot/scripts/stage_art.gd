@@ -3250,6 +3250,18 @@ static func _soft_dot() -> GradientTexture2D:
 ## Painted cumulus (shaders/cloud.gdshader, lit from the stage's sun): each cloud a heap of lumpy puffs on a flat base, of three kinds
 ## so the sky is not one stamp repeated: a domed heap with smaller puffs piled on its crown, a long low bank, and a tall tower. No ink
 ## outline: they are far, and the haze softens them.
+## The heights the stage's clouds are drawn between, the palette's [backdrop] `cloud_band` [low, high] where it sets one (fidelity review
+## 7: drawn up to 34 on the meadow, half of them were cut by the top of the match camera's frame), else `default`.
+static func _cloud_band(default: Vector2) -> Vector2:
+	var b: Array = (_palette.get("backdrop", {}) as Dictionary).get("cloud_band", [])
+	return Vector2(float(b[0]), float(b[1])) if b.size() == 2 else default
+
+
+## The size of the stage's clouds, the palette's [backdrop] `cloud_scale` (1 as built).
+static func _cloud_scale() -> float:
+	return float((_palette.get("backdrop", {}) as Dictionary).get("cloud_scale", 1.0))
+
+
 static func _clouds(root: Node3D, rng: RandomNumberGenerator, count: int, color: Color, y_range: Vector2, z_range := Vector2(-120, -85),
 		kinds := [0, 1, 2], scale := 1.0, x_range := Vector2(-90, 90), look := {}) -> void:
 	# The clouds' construction (the palette's [backdrop] `cloud_style`; docs/art/stages/FOLDED_STYLE.md): 0 smooth painted puffs, 1
@@ -4358,7 +4370,7 @@ static func _meadow(root: Node3D, t: Dictionary, stage: Array) -> void:
 	var ground: Node3D = Node3D.new() if ground_mock else root
 	pine_slots.clear()
 	_hills(ground, rng, _pal("hills_near"), _pal("hills_far"))
-	_clouds(root, rng, 11, Color(1.0, 1.0, 1.0), Vector2(14, 34))
+	_clouds(root, rng, 11, Color(1.0, 1.0, 1.0), _cloud_band(Vector2(14, 34)), Vector2(-120, -85), [0, 1, 2], _cloud_scale())
 	# (No islands floating in the sky since the stage became a terrace on a hillside, art review 9: they were pale, flat, pulled the eye, and
 	# said the land floats when it no longer does. Still drawn and thrown away, so the random layout of everything after them stays put.)
 	var gone := Node3D.new()
@@ -5196,7 +5208,7 @@ static func _grove(root: Node3D, t: Dictionary, stage: Array) -> void:
 	# green hills read as a milky fog band and the island did not pop.)
 	var ground: Node3D = Node3D.new() if ground_mock else root
 	_hills(ground, rng, _pal("hills_near"), _pal("hills_far"))
-	_clouds(root, rng, 8, Color(1, 0.97, 1), Vector2(10, 36))
+	_clouds(root, rng, 8, Color(1, 0.97, 1), _cloud_band(Vector2(10, 36)), Vector2(-120, -85), [0, 1, 2], _cloud_scale())
 	_birds(root, rng, Color(0.25, 0.22, 0.3))
 	var top: float = stage[2] if stage.size() == 4 else 0.0
 	var left: float = stage[0] if stage.size() == 4 else -11.0

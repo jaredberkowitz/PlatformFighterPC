@@ -66,3 +66,13 @@ every big surface and a lighting finish per stage, the kind of work a texture ar
 4. Shaped light on the play areas (sun pools, cloud shadows, lamp pools).
 5. A lived-in world pass (people at scale, worked farms, chimney smoke).
 6. The last code-built small things.
+
+## The meadow's and grove's skies (2026-10-22, mock)
+
+`StageArt._cloud_band` and `_cloud_scale` read the palette's [backdrop] `cloud_band` [low, high] and `cloud_scale` for the meadow's and
+grove's clouds (the same random draws, so nothing else moves). Mocked as palette trials (`--pal-try=sky_a|sky_b`, meadow.cfg and
+grove.cfg [try_sky_a|b]): the meadow A the clouds at 7 to 17 (from 14 to 34) and 0.85 the size, the gradient fitted to the visible sky
+(`sky_bands` [0.012, 0.07], a deeper top); B with a warm glow behind the mountains and a softer horizon. The grove A an evening
+gradient fitted to the visible sky (violet-blue top, peach horizon, a warm glow held low); B with the clouds at 8 to 18. Measured at the
+match camera, the meadow's top of frame goes from hue 197, saturation 0.31 to hue 215, 0.35 (B). The grove's sky shows only between
+the trees, so its change is the smaller. On the Stage Look Review ("skies7", `sk_*`); recommended B on both.
