@@ -212,3 +212,14 @@ tassel; 772 triangles) and `string_bulb` (a glass bulb on a socket; 244), both h
 the gates) and `--people round` (`figure_round`: the fighters' build, a round body, mitten hands, shoes, two dot eyes, a bobble hat or a
 scarf on some; families `shoe`, `eye`, `white`). Options: A the modelled lights; B with the shide and the round townsfolk. On the Stage
 Look Review ("smallthings", `sm_*`); recommended B.
+
+**Built (2026-10-22): small things B** (the owner's pick): `grove.cfg` and `city.cfg` `string_lights="model"`; `grove_world.glb`
+`--variant ABL --streamers shide`, `city_world.glb` `--variant AB --people round`. Before and after: `review6/small_things_built.jpg`
+(the grove and city at the match camera). All seven tests pass.
+
+## Review 6 done (2026-10-22)
+
+All seven items shipped: the city's night sky, haze and colour plan (C); the canyon's solid buttes, mesa, outcrops and chipped arch (C);
+the fronts' fieldstone and moss, sediment courses, and shaped rock with a misty valley (B on all three); no clones (the grove's three
+tree shapes, the uneven broken waves, the terraced meadow hill); the light finish (C: bounce, a firmer grade, lamps that glow); the
+platforms (A: turf on logs, little islands, sandstone slabs); the small things (B). Released together as the next playtest build.
