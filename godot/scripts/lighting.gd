@@ -19,37 +19,41 @@ const MOODS := {
 	# (A warmer key and a cool blue-green shade, the gauntlet's round 11: the green stages' shade read neutral beside the benchmark's
 	# coloured light.)
 	# (Round 12: that overshot into a yellow-green cast over every material. A cream-peach key; the cool kept to the shade.)
-	"meadow": {"key": [Color(1.0, 0.94, 0.88), 1.38, -44.0, -34.0], "fill": [Color(0.58, 0.76, 1.0), 0.4],
+	# (The sun 8 degrees lower on the day stages and every haze a clearer colour, the light pass, docs/art/stages/BACKGROUNDS.md
+	# round 3, the owner's pick 2026-10-21: the props and banks model more, and the distance stays coloured instead of milky.)
+	"meadow": {"key": [Color(1.0, 0.94, 0.88), 1.38, -36.0, -34.0], "fill": [Color(0.58, 0.76, 1.0), 0.4],
 		# (Shade a deeper version of each colour, barely turned toward blue-green, the meadow rebuild's step 3: the reference's grass shade
 		# is a crisp deep green, ours read as a soft olive.)
 		"ambient": [Color(0.88, 0.92, 1.0), 0.48], "shadow_hue": 0.4, "shadow_shift": 0.1, "shadow_value": 0.38,
 		"shadow_tint": Color(0.6, 0.78, 0.74), "rim": Color(1.0, 0.98, 0.9),
-		"grade": [Color(0.92, 0.97, 1.06), Color(1.04, 1.02, 0.96), 0.5], "haze": Color(0.72, 0.87, 1.0)},
+		"grade": [Color(0.92, 0.97, 1.06), Color(1.04, 1.02, 0.96), 0.5], "haze": Color(0.58, 0.8, 1.0)},
 	# (Art review 6 round 9: a weaker key, more pink ambient and a stronger grade than the meadow left the grove under a pale veil, the
 	# softest stage. Its colours kept; its contrast brought near the meadow's.)
 	# (Its pink grade and ambient eased, round 24: pink over the lawn's green cancelled toward grey, the palest stage left.)
-	"grove": {"key": [Color(1.0, 0.92, 0.84), 1.32, -40.0, -28.0], "fill": [Color(0.86, 0.66, 1.0), 0.38],
+	"grove": {"key": [Color(1.0, 0.92, 0.84), 1.32, -32.0, -28.0], "fill": [Color(0.86, 0.66, 1.0), 0.38],
 		"ambient": [Color(1.0, 0.93, 0.95), 0.47], "shadow_hue": 0.78, "shadow_shift": 0.06, "shadow_value": 0.42,
 		"shadow_tint": Color(0.72, 0.62, 0.92), "rim": Color(1.0, 0.86, 0.92),
-		"grade": [Color(0.98, 0.9, 1.04), Color(1.04, 0.98, 0.96), 0.3], "haze": Color(0.84, 0.82, 1.0)},
+		"grade": [Color(0.98, 0.9, 1.04), Color(1.04, 0.98, 0.96), 0.3], "haze": Color(0.76, 0.73, 1.0)},
 	"sunset": {"key": [Color(1.0, 0.72, 0.5), 1.25, -20.0, -42.0], "fill": [Color(0.6, 0.5, 1.0), 0.42],
 		"ambient": [Color(0.94, 0.84, 0.88), 0.5], "shadow_hue": 0.79, "shadow_shift": 0.1, "shadow_value": 0.58,
 		"shadow_tint": Color(0.72, 0.58, 0.84),
 		# (A cool rim from the dusk sky overhead, art review 6 round 4: an orange rim on warm fighters against warm rock added no separation.)
 		"rim": Color(0.84, 0.8, 1.0),
-		"grade": [Color(0.88, 0.8, 1.05), Color(1.08, 0.96, 0.86), 0.45], "haze": Color(1.0, 0.86, 0.88)},
+		"grade": [Color(0.88, 0.8, 1.05), Color(1.08, 0.96, 0.86), 0.45], "haze": Color(1.0, 0.79, 0.82)},
 	"night": {"key": [Color(0.72, 0.8, 1.0), 0.95, -48.0, -24.0], "fill": [Color(0.5, 0.56, 0.95), 0.4],
 		"ambient": [Color(0.58, 0.64, 0.95), 0.55], "shadow_hue": 0.66, "shadow_shift": 0.1, "shadow_value": 0.56,
 		"shadow_tint": Color(0.62, 0.66, 0.92), "rim": Color(0.62, 0.78, 1.0),
-		"grade": [Color(0.8, 0.88, 1.1), Color(0.95, 0.98, 1.06), 0.8], "haze": Color(0.72, 0.74, 0.96)},
-	"ocean": {"key": [Color(1.0, 0.96, 0.88), 1.3, -44.0, -30.0], "fill": [Color(0.56, 0.78, 1.0), 0.38],
-		"ambient": [Color(0.9, 0.95, 1.0), 0.46], "shadow_hue": 0.6, "shadow_shift": 0.07, "shadow_value": 0.54,
-		"shadow_tint": Color(0.72, 0.8, 0.92), "rim": Color(0.86, 0.96, 1.0),
-		"grade": [Color(0.9, 0.98, 1.06), Color(1.02, 1.02, 0.98), 0.5], "haze": Color(0.62, 0.84, 1.0)},
+		"grade": [Color(0.8, 0.88, 1.1), Color(0.95, 0.98, 1.06), 0.8], "haze": Color(0.6, 0.63, 0.96)},
+	# (Late afternoon, the light pass, the owner's pick 2026-10-21: the beach had no mood, plain midday. A low warm sun, the shade a cool
+	# blue, a peach horizon (ocean.cfg's sky).)
+	"ocean": {"key": [Color(1.0, 0.84, 0.66), 1.34, -24.0, -40.0], "fill": [Color(0.58, 0.68, 1.0), 0.42],
+		"ambient": [Color(0.96, 0.9, 0.92), 0.46], "shadow_hue": 0.64, "shadow_shift": 0.09, "shadow_value": 0.5,
+		"shadow_tint": Color(0.66, 0.72, 0.94), "rim": Color(1.0, 0.86, 0.72),
+		"grade": [Color(0.88, 0.9, 1.08), Color(1.1, 1.0, 0.88), 0.55], "haze": Color(1.0, 0.79, 0.67)},
 	"city": {"key": [Color(1.0, 0.82, 0.7), 1.0, -34.0, -36.0], "fill": [Color(0.82, 0.5, 0.95), 0.48],
 		"ambient": [Color(0.84, 0.8, 0.94), 0.55], "shadow_hue": 0.75, "shadow_shift": 0.1, "shadow_value": 0.55,
 		"shadow_tint": Color(0.66, 0.6, 0.88), "rim": Color(1.0, 0.62, 0.78),
-		"grade": [Color(0.92, 0.82, 1.08), Color(1.06, 0.97, 0.98), 0.4], "haze": Color(0.68, 0.58, 0.9)},
+		"grade": [Color(0.92, 0.82, 1.08), Color(1.06, 0.97, 0.98), 0.4], "haze": Color(0.57, 0.42, 0.9)},
 }
 
 
@@ -81,31 +85,96 @@ const STYLE_DEFAULT := {
 	"clouds": [0.0, 24.0, 0.4, 0.5],
 	# (`quiet` 0.25, art review 6 round 19, after the owner's Wind Waker HD reference: at 0.5 every stage was greyed by a fifth, so the
 	# scenery read milky beside the reference's clean, saturated colour; the fighters keep their lift over it.)
+	# The paper target (the stage paint-overs, docs/art/stages/PAINTOVERS.md): each sheet's shadow on the one behind (`sheets`), the
+	# die-cut edge (`cut_edge`) and the lift round the fight (`fight_lift`); 0 off (shaders/post.gdshader).
+	# `haze_desat`: how much the haze greys what it lifts (0.35, the light pass, 2026-10-21: at 1.3 the distance read milky grey).
+	# The sun's shadows: how far from the camera they reach and in how many splits (`sun_shadow`), and the tone a face behind the play area
+	# takes where something shadows it (`cast`: a multiplier, its alpha how far; shaders/toon_light.gdshaderinc `pf_cast_shade`). The
+	# default keeps them to the play area, as before the graphics review 5 (2026-10-22).
+	"sun_shadow": [70.0, 2, 5.0],
+	"cast": Color(1.0, 1.0, 1.0, 0.0),
 	"finish": {"desat": 0.0, "lift": 0.03, "vignette": 0.16, "haze_max": 0.22, "s_curve": 0.22, "quiet": 0.25, "bloom": 0.4,
-		"bloom_from": 0.6},
+		"bloom_from": 0.6, "sheets": 0.0, "cut_edge": 0.0, "fight_lift": 0.0, "haze_desat": 0.35},
 }
+## Shaped light (fidelity review 7, the owner's pick A, 2026-10-23): the day stages' `clouds` smaller and over more ground with a
+## `cloud_tone` laid on the colour (see SHAPED_TRY); `--shaped=T` shows a stage as before.
+## The light finish (fidelity review 6, the owner's pick C, 2026-10-22), each style's: `bounce` (the colour of the ground the light comes
+## back from, its alpha how much; a third of these lifted the shade by a hundredth, the light's own scale takes most of it), `grade_more`
+## (on the mood's grade), `curve_more` (on the S-curve) and `glow_from` (the HDR level the bloom starts at, 2.3 without: the lanterns,
+## string lights and windows glow). `--light-finish=off` shows a stage without it.
+## Shaped light to try (`--shaped=A|B`, fidelity review 7): per stage, the cloud shadows ([how deep, units across, ground covered,
+## drift]) and the tone a clouded spot takes (`cloud_tone`, toon_light's `pf_cloud_tone`), so the ground has shade and sunlit pools
+## between (a lift on the sunlit ground can't read: the filmic curve squeezes it on a bright lawn), the clouds smaller so several fall
+## across the play area (at 14 to 30 across, a whole stage sat in one gap). A soft, B deeper and cooler. The city's night light is its
+## lamps' pools and the towers' glow edge (StageArt, `--shaped=` too).
+const SHAPED_TRY := {
+	# (The light before review 7's shaped light, `--shaped=T`.)
+	"T": {"meadow": {"clouds": [0.65, 14.0, 0.42, 0.7], "cloud_tone": Color(1, 1, 1, 0)}, "grove": {"clouds": [0.72, 4.5, 0.45, 0.25], "cloud_tone": Color(1, 1, 1, 0)},
+		"sunset": {"clouds": [0.35, 30.0, 0.3, 0.4], "cloud_tone": Color(1, 1, 1, 0)}, "ocean": {"clouds": [0.55, 26.0, 0.36, 0.9], "cloud_tone": Color(1, 1, 1, 0)}},
+	"A": {"meadow": {"clouds": [0.9, 8.0, 0.6, 0.7], "cloud_tone": Color(0.66, 0.72, 0.9, 1.0)},
+		"grove": {"clouds": [0.9, 5.5, 0.6, 0.25], "cloud_tone": Color(0.66, 0.72, 0.9, 1.0)},
+		"sunset": {"clouds": [0.9, 11.0, 0.6, 0.4], "cloud_tone": Color(0.66, 0.72, 0.9, 1.0)},
+		"ocean": {"clouds": [0.9, 9.0, 0.6, 0.9], "cloud_tone": Color(0.66, 0.72, 0.9, 1.0)}},
+	"B": {"meadow": {"clouds": [0.9, 9.0, 0.6, 0.7], "cloud_tone": Color(0.52, 0.6, 0.84, 1.0)},
+		"grove": {"clouds": [0.9, 6.0, 0.6, 0.25], "cloud_tone": Color(0.52, 0.6, 0.84, 1.0)},
+		"sunset": {"clouds": [0.9, 12.0, 0.6, 0.4], "cloud_tone": Color(0.52, 0.6, 0.84, 1.0)},
+		"ocean": {"clouds": [0.9, 10.0, 0.6, 0.9], "cloud_tone": Color(0.52, 0.6, 0.84, 1.0)}},
+}
+
+
+## `--shaped=A|B`, or "".
+static func _shaped_flag() -> String:
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("--shaped="):
+			return a.substr(9)
+	return ""
+
+
 const STYLES := {
 	# Dappled light under the great tree: small patches swaying slowly.
-	"grove": {"paint": [Color(1.06, 0.99, 0.94), Color(0.94, 0.9, 1.06), 0.55], "clouds": [0.72, 4.5, 0.45, 0.25],
-		"finish": {"desat": 0.0, "lift": 0.02, "haze_max": 0.08, "s_curve": 0.3, "quiet": 0.08}},
+	# (The background grounded, the graphics review 5: the sun's shadows out over the terraces, the trees' and gates' a cool violet.)
+	"grove": {"bounce": Color(0.6, 0.86, 0.46, 0.6), "grade_more": 0.15, "curve_more": 0.06, "glow_from": 1.9,
+		"paint": [Color(1.06, 0.99, 0.94), Color(0.94, 0.9, 1.06), 0.55], "clouds": [0.9, 5.5, 0.6, 0.25], "cloud_tone": Color(0.66, 0.72, 0.9, 1.0),
+		"sun_shadow": [260.0, 4, 1.0], "cast": Color(0.22, 0.24, 0.48, 1.0),
+		"finish": {"desat": 0.0, "lift": 0.02, "haze_max": 0.04, "haze_start": 45.0, "s_curve": 0.3, "quiet": 0.08, "sheets": 0.56, "cut_edge": 0.5,
+			"fight_lift": 0.18}},
 	# Crisper light-to-shadow steps (a clear lit side and shaded side on every prop, in the manner of a cel-shaded adventure), warmer tops
 	# and cooler undersides, and less of the pastel wash, so the colours carry.
-	"meadow": {"ramp": [[0.0, 0.0], [0.38, 0.0], [0.43, 0.52], [0.55, 0.52], [0.6, 1.0], [1.0, 1.0]],
-		"paint": [Color(1.1, 1.02, 0.88), Color(0.88, 0.88, 1.1), 0.65], "deep": 0.74, "clouds": [0.65, 14.0, 0.42, 0.7],
+	"meadow": {"bounce": Color(0.78, 0.92, 0.46, 0.66), "grade_more": 0.15, "curve_more": 0.06, "glow_from": 1.9,
+		"ramp": [[0.0, 0.0], [0.38, 0.0], [0.43, 0.52], [0.55, 0.52], [0.6, 1.0], [1.0, 1.0]],
+		"paint": [Color(1.1, 1.02, 0.88), Color(0.88, 0.88, 1.1), 0.65], "deep": 0.74, "clouds": [0.9, 8.0, 0.6, 0.7], "cloud_tone": Color(0.66, 0.72, 0.9, 1.0),
+		# (The windmill, cottages, pines and haystacks grounded, a cool blue-green shadow, the graphics review 5.)
+		"sun_shadow": [260.0, 4, 1.0], "cast": Color(0.28, 0.4, 0.52, 1.0),
 		# (Less haze and no greying of the scenery, 2026-10-17: together they washed the mid-distance cottages, trees and mountains into
 		# flat pastel shapes, the owner's "flat" feel; depth still reads through the cooler, lighter far colours.)
-		"finish": {"desat": 0.0, "lift": 0.01, "haze_max": 0.06, "s_curve": 0.3, "quiet": 0.0}},
-	"sunset": {"clouds": [0.35, 30.0, 0.3, 0.4], "edge": Color(1.0, 0.86, 0.74, 0.44), "paint": [Color(1.1, 0.98, 0.86), Color(0.86, 0.86, 1.08), 0.7], "deep": 0.72,
-		"finish": {"desat": 0.0, "lift": 0.02, "haze_max": 0.08, "s_curve": 0.3, "quiet": 0.08}},
+		# (Air again, the owner's paint-over pick 2026-10-21: the distance lighter and softer, `haze_max` 0.06 to 0.24.)
+		# (The air retune, 2026-10-22: the middle distance clear and coloured, hazed only from 45 behind the stage and half as much; it had
+		# fallen to saturation 0.18.)
+		"finish": {"desat": 0.0, "lift": 0.01, "haze_max": 0.1, "haze_start": 45.0, "s_curve": 0.3, "quiet": 0.0, "sheets": 0.49, "cut_edge": 0.5,
+			"fight_lift": 0.15}},
+	# (Long sunset shadows from the buttes, the arch and the trestle across the floor, a cool violet on the warm sand, the graphics
+	# review 5.)
+	"sunset": {"bounce": Color(1.0, 0.68, 0.44, 0.84), "grade_more": 0.15, "curve_more": 0.06, "glow_from": 1.9,
+		"clouds": [0.9, 11.0, 0.6, 0.4], "cloud_tone": Color(0.66, 0.72, 0.9, 1.0), "sun_shadow": [260.0, 4, 1.0], "cast": Color(0.3, 0.22, 0.48, 1.0), "edge": Color(1.0, 0.86, 0.74, 0.44), "paint": [Color(1.1, 0.98, 0.86), Color(0.86, 0.86, 1.08), 0.7], "deep": 0.72,
+		"finish": {"desat": 0.0, "lift": 0.02, "haze_max": 0.08, "s_curve": 0.3, "quiet": 0.08, "sheets": 0.56, "cut_edge": 0.5, "fight_lift": 0.15}},
 	"night": {"edge": Color(0.78, 0.86, 1.0, 0.62), "paint": [Color(0.98, 1.0, 1.08), Color(0.86, 0.9, 1.1), 0.5], "deep": 0.74, "glow": 0.95,
 		"ramp": [[0.0, 0.0], [0.36, 0.0], [0.44, 0.5], [0.56, 0.5], [0.64, 1.0], [1.0, 1.0]]},
 	# (The harbour dock, 2026-10-18, the soft-shading trial from docs/COMPETITOR_GAP.md: a smooth turn from light into shade over the
 	# scenery rather than cel bands, and fainter ink on it; the modelled planks, piles and crates carry the detail now.)
-	"ocean": {"paint": [Color(1.05, 1.02, 0.94), Color(0.9, 0.97, 1.06), 0.5], "clouds": [0.55, 26.0, 0.36, 0.9],
+	# (The town's houses, the boats and the palms grounded with long late-afternoon shadows, a cool blue, the graphics review 5. The reach
+	# stops short of the headland behind the town, about 205 from the camera, whose standing flats shadowed each other in stripes.)
+	"ocean": {"bounce": Color(0.42, 0.86, 0.92, 0.66), "grade_more": 0.15, "curve_more": 0.06, "glow_from": 1.9,
+		"paint": [Color(1.05, 1.02, 0.94), Color(0.9, 0.97, 1.06), 0.5], "clouds": [0.9, 9.0, 0.6, 0.9], "cloud_tone": Color(0.66, 0.72, 0.9, 1.0),
+		"sun_shadow": [190.0, 4, 1.0], "cast": Color(0.3, 0.36, 0.58, 1.0),
 		"ramp": [[0.0, 0.0], [0.3, 0.1], [0.45, 0.45], [0.6, 0.82], [0.75, 1.0], [1.0, 1.0]],
-		"finish": {"desat": 0.0, "lift": 0.02, "haze_max": 0.07, "s_curve": 0.28, "quiet": 0.08, "scenery_lines": 0.18}},
-	"city": {"edge": Color(1.0, 0.82, 0.92, 0.55), "paint": [Color(1.06, 0.96, 0.96), Color(0.9, 0.88, 1.1), 0.6], "deep": 0.72, "glow": 1.1,
-		"finish": {"lift": 0.02, "s_curve": 0.48, "quiet": 0.12}},
+		# (Air, the owner's paint-over pick 2026-10-21: `haze_max` 0.07 to 0.24. The air retune, 2026-10-22: from 45 behind and less, so
+		# the town across the bay keeps its colour.)
+		"finish": {"desat": 0.0, "lift": 0.02, "haze_max": 0.1, "haze_start": 45.0, "s_curve": 0.28, "quiet": 0.08, "scenery_lines": 0.18, "sheets": 0.42,
+			"cut_edge": 0.45, "fight_lift": 0.15}},
+	# (The towers and the street's pieces grounded, a deep violet, the graphics review 5.)
+	"city": {"bounce": Color(1.0, 0.58, 0.52, 0.66), "grade_more": 0.15, "curve_more": 0.06, "glow_from": 1.9,
+		"sun_shadow": [260.0, 4, 1.0], "cast": Color(0.4, 0.3, 0.6, 1.0), "edge": Color(1.0, 0.82, 0.92, 0.55), "paint": [Color(1.06, 0.96, 0.96), Color(0.9, 0.88, 1.1), 0.6], "deep": 0.72, "glow": 1.1,
+		"finish": {"lift": 0.02, "s_curve": 0.48, "quiet": 0.12, "sheets": 0.63, "cut_edge": 0.55, "fight_lift": 0.24}},
 }
 
 
@@ -129,27 +198,65 @@ static var _ramps := {}
 ## things meet. Fighters unchanged. Retired as the game's look (the owner, 2026-10-19: the current look is better; docs/art/STYLE_SHEET.md);
 ## `--look=paper` still starts with it on, for comparison captures only.
 static var paper := OS.get_cmdline_user_args().has("--look=paper")
+## Scenery without ink (the owner, 2026-10-21, after the papercraft adventure's screenshots: its world has no outlines, its edges lit as
+## card bevels; docs/art/stages/LOOK.md); unlike the retired `paper` look, the light and the shade stay as they are.
+##   A  no ink on the scenery (its hull outlines and its screen lines off), the lit edge as before;
+##   B  A, its lit bevel edges twice as strong (the owner's pick, the game's look);
+##   C  B, and the soft occlusion in every crease the references have.
+## The fighters keep all their ink. `--scenery-ink=A|B|C` tries another, `--scenery-ink=today` brings back the inked scenery to compare.
+static var scenery_ink := _flag_value("--scenery-ink=") if _flag_value("--scenery-ink=") != "" else "B"
+
+
+static func _flag_value(prefix: String) -> String:
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with(prefix):
+			return a.substr(prefix.length()).to_upper()
+	return ""
+
+
+## The paper finish on the scenery (the stage refinement's paper pilot, 2026-10-20; not the retired `paper` look above: the ink and the
+## light stay), [fibre grain, sheet wobble, cut-edge rim]: `--paper-finish=A|B|C|off` on the command line, else the stage's palette
+## (`stage_finish`, set by StageView from [backdrop] `paper_finish`), else off.
+static var stage_finish := ""
+
+
+
+static func paper_finish() -> Vector4:
+	var look := stage_finish
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("--paper-finish="):
+			look = a.substr(15)
+	return finish_vector(look)
+
+
+## A paper finish level ("A", "B", "C") as the shader takes it; anything else is off.
+static func finish_vector(look: String) -> Vector4:
+	return {"A": Vector4(0.6, 0.5, 0.0, 0.0), "B": Vector4(0.6, 0.5, 0.6, 0.0), "C": Vector4(1.0, 0.8, 0.9, 0.0)}.get(look, Vector4.ZERO)
 
 
 ## Applies `paper` to the globals, the environment and the finishing pass `post` (if any).
 static func apply_paper(env: Environment, post: ShaderMaterial, base_lines: float) -> void:
-	RenderingServer.global_shader_parameter_set("pf_paper", 1.0 if paper else 0.0)
+	var no_ink := paper or scenery_ink in ["A", "B", "C"]
+	# (The scenery's hull outlines go with `pf_paper`, shaders/outline.gdshader; the fighters' stay.)
+	RenderingServer.global_shader_parameter_set("pf_paper", 1.0 if no_ink else 0.0)
+	RenderingServer.global_shader_parameter_set("pf_paper_finish", paper_finish())
 	if env != null:
 		# (Soft occlusion where things meet in the current look too, gentler than the paper look's, the gauntlet's round 20: the wall's
 		# joints, the boards' gaps, under the lawn's lip and round the props' feet read lit flat. Off on Fast.)
 		env.ssao_enabled = VisualSettings.get_index("quality") > 0
 		# (A tighter radius and stronger, the owner, 2026-10-19: the soft shade where a fighter's pieces meet (under the hats, at the
 		# neck, the sash, between the arms and the body) comes from here; at 1.2 it was too broad for a fighter's small joins.)
-		env.ssao_radius = 1.6 if paper else 0.7
-		env.ssao_intensity = 3.0 if paper else 2.4
-		env.ssao_power = 1.4 if paper else 1.25
-		env.ssao_light_affect = 0.6 if paper else 0.35
+		var deep := paper or scenery_ink == "C"
+		env.ssao_radius = 1.6 if deep else 0.7
+		env.ssao_intensity = 3.0 if deep else 2.4
+		env.ssao_power = 1.4 if deep else 1.25
+		env.ssao_light_affect = 0.6 if deep else 0.35
 		env.ssao_ao_channel_affect = 1.0
 	if post != null:
-		post.set_shader_parameter("scenery_lines", 0.0 if paper else base_lines)
+		post.set_shader_parameter("scenery_lines", 0.0 if no_ink else base_lines)
 		# (A lighter dose of the cut card's lit edge in the current look too, the gauntlet's round 23: the benchmark's crisp lit edges.)
 		# (0.8, round 24: at 0.4 it did not read at match distance.)
-		post.set_shader_parameter("paper_edge", 0.9 if paper else 0.8)
+		post.set_shader_parameter("paper_edge", 1.6 if scenery_ink in ["B", "C"] else (0.9 if paper else 0.8))
 
 
 ## The ramp's lookup texture: 256 steps across, each the ramp's lightness there, eased between the stops so each band's edge is soft.
@@ -272,10 +379,31 @@ static func stage_mood(env: Environment, root: Node, theme: Dictionary, post: Sh
 	env.ambient_light_color = mood.ambient[0]
 	env.ambient_light_energy = mood.ambient[1]
 	env.glow_intensity = float(style(theme.get("name", "meadow")).glow)
+	var look := style(theme.get("name", "meadow"))
+	if key != null:
+		var reach: Array = look.sun_shadow
+		key.directional_shadow_max_distance = float(reach[0])
+		# (How soft the shadows' edges are, the sun's size: 5 degrees blurred a tree's shadow on the terraces to a smudge.)
+		key.light_angular_distance = float(reach[2])
+		if int(reach[1]) == 4:
+			# (The first split as far as the old 70-unit reach, so the play area's shadows keep their detail; the rest for the background.)
+			key.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS
+			key.directional_shadow_split_1 = 70.0 / float(reach[0])
+			key.directional_shadow_split_2 = 0.45
+			key.directional_shadow_split_3 = 0.7
+		else:
+			key.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
+			key.directional_shadow_split_1 = 0.35
+	RenderingServer.global_shader_parameter_set("pf_cast_shade", look.cast)
+	# The light finish (fidelity review 6, see STYLES): bounce light (pf_bounce), a firmer grade and S-curve, the lamps glowing.
+	var finish_off := OS.get_cmdline_user_args().has("--light-finish=off")
+	RenderingServer.global_shader_parameter_set("pf_bounce", Color(0, 0, 0, 0) if finish_off else look.get("bounce", Color(0, 0, 0, 0)))
+	env.glow_hdr_threshold = 2.3 if finish_off else float(look.get("glow_from", 2.3))
 	if post != null:
 		post.set_shader_parameter("grade_shadows", mood.grade[0])
 		post.set_shader_parameter("grade_lights", mood.grade[1])
-		post.set_shader_parameter("grade_amount", mood.grade[2])
+		var grade_more := 0.0 if finish_off else float(look.get("grade_more", 0.0))
+		post.set_shader_parameter("grade_amount", float(mood.grade[2]) + grade_more)
 		post.set_shader_parameter("pastel_haze", mood.get("haze", Color(0.88, 0.9, 1.0)))
 		var finish: Dictionary = STYLE_DEFAULT.finish.duplicate()
 		finish.merge(style(theme.get("name", "meadow")).get("finish", {}), true)
@@ -283,11 +411,22 @@ static func stage_mood(env: Environment, root: Node, theme: Dictionary, post: Sh
 		post.set_shader_parameter("pastel_lift", finish.lift)
 		post.set_shader_parameter("vignette", finish.vignette)
 		post.set_shader_parameter("haze_max", finish.haze_max)
+		post.set_shader_parameter("haze_desat", float(finish.get("haze_desat", 1.3)))
+		post.set_shader_parameter("haze_start", float(finish.get("haze_start", 14.0)))
 		post.set_shader_parameter("stage_quiet", float(finish.get("quiet", 0.0)))
-		post.set_shader_parameter("s_curve", finish.s_curve)
+		var curve_more := 0.0 if finish_off else float(look.get("curve_more", 0.0))
+		post.set_shader_parameter("s_curve", float(finish.s_curve) + curve_more)
 		post.set_shader_parameter("bloom", finish.bloom)
 		post.set_shader_parameter("bloom_threshold", finish.bloom_from)
 		post.set_shader_parameter("scenery_lines", float(finish.get("scenery_lines", 0.4)))
+		post.set_shader_parameter("sheets", finish.sheets)
+		post.set_shader_parameter("cut_edge", finish.cut_edge)
+		post.set_shader_parameter("fight_lift", finish.fight_lift)
+		# The key light's way across the screen (the camera looks straight down the stage, so its x and y), for the sheets' shadows.
+		if key != null:
+			var way := -key.basis.z
+			var on_screen := Vector2(way.x, -way.y)
+			post.set_shader_parameter("sheet_dir", on_screen.normalized() if on_screen.length() > 0.05 else Vector2(0.0, 1.0))
 	apply_paper(env, post, float(style(theme.get("name", "meadow")).finish.get("scenery_lines", 0.4)))
 	# The stage fronts calmed into the stage's own haze (`pf_front_calm`, shaders/toon_common.gdshaderinc; the gauntlet's round 1).
 	var haze: Color = (theme.get("sky_horizon", Color(0.8, 0.85, 0.95)) as Color).lerp(mood.ambient[0], 0.4)
@@ -295,10 +434,10 @@ static func stage_mood(env: Environment, root: Node, theme: Dictionary, post: Sh
 	var m := mood.duplicate()
 	if theme.has("sky_horizon"):
 		m.rim = (mood.rim as Color).lerp(theme.sky_horizon, 0.3)
-	_set_globals(m, style(theme.get("name", "meadow")))
+	_set_globals(m, style(theme.get("name", "meadow")), String(theme.get("name", "meadow")))
 
 
-static func _set_globals(mood: Dictionary, look: Dictionary) -> void:
+static func _set_globals(mood: Dictionary, look: Dictionary, stage_name := "") -> void:
 	RenderingServer.global_shader_parameter_set("pf_ramp", ramp_texture(look.ramp))
 	RenderingServer.global_shader_parameter_set("pf_deep_shade", look.deep)
 	RenderingServer.global_shader_parameter_set("pf_edge_light", look.edge)
@@ -312,4 +451,8 @@ static func _set_globals(mood: Dictionary, look: Dictionary) -> void:
 	RenderingServer.global_shader_parameter_set("pf_rim_color", mood.rim)
 	RenderingServer.global_shader_parameter_set("pf_scenery_shade", float(look.get("scenery_shade", 1.0)))
 	var cl: Array = look.clouds
+	# (Shaped light, fidelity review 7: `--shaped=A|B` tries SHAPED_TRY's cloud shadows.)
+	var shaped: Dictionary = SHAPED_TRY.get(_shaped_flag(), {}).get(stage_name, {})
+	cl = shaped.get("clouds", cl)
 	RenderingServer.global_shader_parameter_set("pf_clouds", Vector4(cl[0], cl[1], cl[2], cl[3]))
+	RenderingServer.global_shader_parameter_set("pf_cloud_tone", shaped.get("cloud_tone", look.get("cloud_tone", Color(1, 1, 1, 0))))

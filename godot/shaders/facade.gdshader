@@ -23,10 +23,32 @@ uniform float detail = 1.0;            // frames, sills and floor bands (0 for t
 uniform float sign_energy = 3.0;       // a sign's neon, times white
 uniform float moon_edge = 1.0;         // how strong the moonlit edge up each front's left corner is
 
+// The quiet behind the fight (fidelity review 5's fourth item: the towers right behind the fighters were the busiest background in the
+// game): within `calm_half` of the middle, fewer windows lit and the facade pulled toward its own wall colour, by `calm` (0 off),
+// fading out over the outer two-fifths of the band.
+uniform float calm = 0.0;
+uniform float calm_half = 26.0;
+
+// Haze between the rows (fidelity review 6, the city's depth): the foot of the layer, from `street_y` up `foot_height`, fades into the
+// street's lit haze, `foot_color`, by `foot_haze` (0 off).
+uniform float foot_haze = 0.0;
+// The city's glow catching the towers (fidelity review 7, shaped light): a warm edge up each front's corner away from the moon, strongest
+// low where the street's light reaches, and along the parapet's lip; `glow_edge` how much (0 off), in `glow_edge_color`.
+uniform float glow_edge = 0.0;
+uniform vec4 glow_edge_color : source_color = vec4(1.0, 0.62, 0.5, 1.0);
+uniform float foot_height = 10.0;
+uniform vec4 foot_color : source_color = vec4(0.6, 0.4, 0.6, 1.0);
+uniform float street_y = 0.0;
+
 varying vec3 wn;
+varying float wx;
+varying float wy;
 
 void vertex() {
 	wn = (MODEL_MATRIX * vec4(NORMAL, 0.0)).xyz;
+	vec3 wp = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+	wx = wp.x;
+	wy = wp.y;
 }
 
 float hash(vec2 p) {
@@ -142,6 +164,8 @@ void fragment() {
 			// stack of identical bands.
 			float pier_every = floor(mix(3.0, 5.99, hash(vec2(seed, 9.9))));
 			float share = clamp(lit_share * mix(0.4, 1.55, hash(vec2(seed, 5.5))), 0.06, 0.85);
+			float ck = calm * (1.0 - smoothstep(calm_half * 0.6, calm_half, abs(wx)));
+			share *= 1.0 - 0.75 * ck;
 			// The parapet cap, and the cornice's shadow on the wall just under the roofline.
 			float cap = step(height - parapet, at.y);
 			col = mix(col, base * side * 1.28, cap);
@@ -250,9 +274,21 @@ void fragment() {
 				}
 				col = mix(col, pane_col, in_x * in_y);
 			}
+			col = mix(col, base * side, ck * 0.4);
+		}
+		if (glow_edge > 0.0 && !plain && abs(wn.z) > 0.5) {
+			// (Wide enough to read at play distance: a strip a third of a unit across was a pixel or two.)
+			float corner = 1.0 - smoothstep(0.35, 1.0, width - at.x);
+			float low = mix(1.0, 0.35, smoothstep(0.0, height, at.y));
+			float lip = step(height - parapet - 0.35, at.y) * (1.0 - step(height - parapet + 0.15, at.y));
+			col = mix(col, glow_edge_color.rgb * 1.15, clamp((corner * low + lip * 0.7) * glow_edge, 0.0, 0.85));
 		}
 		ALBEDO = col;
 		// Scenery's object id (post.gdshader reads it from the roughness).
 		ROUGHNESS = 0.95;
+	}
+	if (foot_haze > 0.0) {
+		float f = 1.0 - smoothstep(0.0, foot_height, wy - street_y);
+		ALBEDO = mix(ALBEDO, foot_color.rgb, foot_haze * f);
 	}
 }

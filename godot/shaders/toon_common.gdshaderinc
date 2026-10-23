@@ -1,6 +1,9 @@
 // The soft cel material's body, shared by toon.gdshader (one-sided) and toon_cloth.gdshader (two-sided).
 
 global uniform vec4 pf_paint_warm;
+// The paper finish on the scenery (scripts/lighting.gd `paper_finish`; the stage refinement's paper pilot): x a fine fibre grain, y a
+// slight wobble of colour from sheet to sheet, z a pale cut edge where a surface turns away from the eye. Never on fighters; off is 0.
+global uniform vec4 pf_paper_finish;
 global uniform vec4 pf_paint_cool;
 global uniform float pf_paint_amount;
 uniform vec4 albedo : source_color = vec4(1.0);
@@ -21,6 +24,11 @@ uniform float patch_amount = 0.0;
 uniform float back_deepen = 0.0;
 uniform float back_from = 1.0;
 uniform float back_span = 7.0;
+// A play top's soft fall into shade toward its front edge (0 off; the light pass, docs/art/stages/BACKGROUNDS.md): from `lawn_front`
+// (world z, the front edge) back over `lawn_span` units, deeper and a little cooler by `lawn_fall`, so the ground has form.
+uniform float lawn_fall = 0.0;
+uniform float lawn_front = 2.0;
+uniform float lawn_span = 4.0;
 // World-laid tops only: painted grass-blade clumps (0 off), a few short tapered strokes leaning together in scattered clumps, lit in the
 // sunlit patches and deeper in the shaded ones (the owner's material notes, 2026-10-17: grass wants selective highlights and
 // directional variation, not one smooth sheet). How strong.
@@ -70,9 +78,26 @@ uniform vec3 moss_color : source_color = vec3(0.4, 0.66, 0.14);
 uniform sampler2D detail_tex : filter_linear_mipmap, repeat_enable, hint_default_white;
 uniform float detail_amount = 0.0;
 uniform float detail_scale = 3.0;
+// A printed paper surface (scenery only, off by default; tools/art/make_prints.py, fidelity review 3's idea 2): a tiling print, grey
+// around the middle, laid in world space on whichever plane the surface faces, every `print_scale` units, darkening and lightening the
+// surface's own colour by `print_amount`.
+uniform sampler2D print_tex : filter_linear_mipmap_anisotropic, repeat_enable, hint_default_white;
+uniform float print_amount = 0.0;
+uniform float print_scale = 2.0;
+// This surface's own paper finish instead of the stage's (a stage front at the full finish, "C"); x below 0 takes the stage's.
+uniform vec4 paper_own = vec4(-1.0);
 // Multiply by the mesh's vertex colour (off by default: imported props may carry colours meant for nothing). The crowns' lobed clump balls
 // bake each leaf clump's own light into it (scripts/stage_art.gd `_clump_ball`): a lit top and a dark crevice between clumps.
 uniform bool vertex_shade = false;
+// Baked occlusion (scenery only, off by default, so the fighters never take it; scripts/stage_bake.gd, the grove pilot): a texture baked
+// in Blender over the mesh's second UV set, the crevices and contact shade the cel light cannot find, multiplied into AO.
+uniform bool use_baked_ao = false;
+uniform sampler2D baked_ao : hint_default_white, filter_linear_mipmap, repeat_disable;
+uniform float baked_ao_strength = 1.0;
+// How far the baked occlusion also dims the direct light (the engine's AO_LIGHT_AFFECT; 0.45 otherwise), and a curve on it (above 1
+// deepens the crevices and keeps the open faces clean).
+uniform float baked_ao_light = 0.45;
+uniform float baked_ao_curve = 1.0;
 // Multiply by each MultiMesh instance's custom data (rgb): one material, every instance its own shade (the sea wall's stones).
 uniform bool instance_tint = false;
 // Painted ground shadows under background props (scripts/stage_art.gd `_ground_shadow`): soft ellipses on the ground in world x/z, each
@@ -134,6 +159,8 @@ vec3 pf_calm_front(vec3 col, float depth) {
 
 
 void fragment() {
+	// (For light(), which reads only what the fragment hands it.)
+	pf_world_z = world_pos.z;
 	// (Scenery in front of a fighter goes see-through over it, shaders/xray.gdshaderinc.)
 	if (fighter < 0.5 && pf_xray_cut(world_pos, CAMERA_POSITION_WORLD, FRAGCOORD.xy)) {
 		discard;
@@ -141,6 +168,10 @@ void fragment() {
 	vec3 c = albedo.rgb * vshade;
 	// (How lit the grass blades are, -1 until the painted patches say; see `blades`.)
 	float blade_light = -1.0;
+	if (lawn_fall > 0.0 && world_normal.y > 0.5) {
+		float edge = smoothstep(lawn_front - lawn_span, lawn_front, world_pos.z);
+		c *= mix(vec3(1.0), vec3(0.62, 0.68, 0.84), edge * edge * lawn_fall);
+	}
 	if (use_tex) {
 		vec2 uv = UV * tex_scale;
 		if (world_tile > 0.0) {
@@ -300,15 +331,48 @@ void fragment() {
 	// (Only near the stage, the gauntlet's round 15: on the far ranges the dapples read as low-resolution mottling, not light.)
 	pf_sun = mix(1.0, pf_cloud_sun(world_pos, TIME), smoothstep(0.1, 0.6, world_normal.y) * (1.0 - fighter)
 		* (1.0 - smoothstep(25.0, 55.0, -world_pos.z)));
+	if (pf_cloud_tone.a > 0.0) {
+		// (On the colour, shading ambient and sun alike: see `pf_cloud_tone`. Clouds only, not the platforms' cast shadow below.)
+		c *= mix(vec3(1.0), pf_cloud_tone.rgb, clamp(1.0 - pf_sun, 0.0, 1.0) * pf_cloud_tone.a);
+	}
 	// (And the platforms' cast shadow on the ground under them, `pf_stage_sun`; not on fighters either.)
 	pf_sun *= mix(1.0, pf_stage_sun(world_pos, world_normal), 1.0 - fighter);
-	if (facets) {
+	if (fighter < 0.5 && print_amount > 0.0) {
+		// (On what faces up, stretched five times along the depth: the match camera sees a top almost edge on, squeezed about that much,
+		// and laid evenly every mark blurred into the grey of the texture's smallest copies.)
+		vec2 pp = abs(world_normal.y) > 0.5 ? vec2(world_pos.x, world_pos.z * 0.2) : (abs(world_normal.x) > 0.6 ? vec2(world_pos.z, -world_pos.y) : vec2(world_pos.x, -world_pos.y));
+		c *= 1.0 + print_amount * (texture(print_tex, pp / print_scale).r - 0.5) * 2.0;
+	}
+	vec4 paper_fin = paper_own.x >= 0.0 ? paper_own : pf_paper_finish;
+	if (fighter < 0.5 && paper_fin.x + paper_fin.y + paper_fin.z > 0.0) {
+		// Fibre: fine grain stretched along the sheet, on whichever plane the surface lies.
+		vec2 fp = abs(world_normal.y) > 0.5 ? world_pos.xz : (abs(world_normal.x) > 0.6 ? world_pos.zy : world_pos.xy);
+		float fib = brush_noise(fp * vec2(7.0, 26.0)) * 0.6 + brush_noise(fp * vec2(19.0, 57.0)) * 0.4;
+		c *= 1.0 + paper_fin.x * 0.22 * (fib - 0.5);
+		// Sheet to sheet: each piece a touch lighter or darker and warmer or cooler, broad across the merged meshes.
+		float sheet = fract(sin(dot(NODE_POSITION_WORLD, vec3(12.9898, 78.233, 37.719))) * 43758.5453);
+		float broad = brush_noise(world_pos.xy * 0.11 + world_pos.zz * 0.07);
+		float w = (sheet - 0.5) * 0.6 + (broad - 0.5);
+		c *= 1.0 + paper_fin.y * 0.14 * w;
+		c *= mix(vec3(1.0), vec3(1.02, 1.0, 0.97), paper_fin.y * clamp(w + 0.5, 0.0, 1.0));
+		// The cut edge: where the surface turns away from the eye, a pale card edge.
+		float rim = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 5.0);
+		c = mix(c, c * 0.4 + vec3(0.56, 0.54, 0.5), rim * paper_fin.z * 0.55);
+	}
+	// (Not on flat tops, whose own normal is already the face's: rebuilt from the screen derivatives it came out turned over on them, so
+	// the background's grass, sand and terrace tops were lit as undersides, in their shade colour, and took no cast shadow; the graphics
+	// review 5, 2026-10-22.)
+	if (facets && world_normal.y < 0.97) {
 		NORMAL = normalize(cross(dFdx(VERTEX), dFdy(VERTEX)));
 	}
 	ALBEDO = c;
 	EMISSION = flash.rgb * flash.a + c * fighter_bounce.rgb * fighter_bounce_amount * fighter * clamp(-world_normal.y, 0.0, 1.0);
 	ROUGHNESS = object_id;
 	AO = pf_stage_ao_ground(world_pos, world_normal);
+	if (use_baked_ao) {
+		AO *= mix(1.0, pow(texture(baked_ao, UV2).r, baked_ao_curve), baked_ao_strength);
+		AO_LIGHT_AFFECT = baked_ao_light;
+	}
 	AO_LIGHT_AFFECT = 0.45;
 	SPECULAR = 0.0;
 }

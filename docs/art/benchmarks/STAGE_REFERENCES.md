@@ -1,7 +1,9 @@
-# Per-stage references (the owner, 2026-10-18)
+# Per-stage references (the owner, 2026-10-18; images added 2026-10-20)
 
-Image files: `harbour_reference.*` and `city_reference.*` in this folder once added (the owner's screenshots). Described here so the
-judge can use them either way.
+Image files in this folder (the owner's screenshots, renamed so no game is named): `meadow_camp_reference.jpg` (with
+`papercraft_mountains_reference.png`), `grove_reference.webp`, `harbour_reference.webp`, `canyon_reference.webp`, `city_reference.webp`.
+Measured per layer in `docs/art/stages/REFERENCE.md`. Some are targets to match in our style (meadow, grove, harbour); others are a
+different art style and serve as reference for a lesson only (the canyon, the owner, 2026-10-20).
 
 ## Harbour (our beach / dock stage)
 
@@ -18,7 +20,17 @@ A stylised harbour seen from a low camera over a wooden pier (a painterly 3D gam
 
 ## City (our city rooftop stage)
 
-The crossover fighter's skyscraper-rooftop stage:
+**The supplied image (2026-10-20), `city_reference.webp`:** the big crossover fighter's night city, a dense floating island of buildings:
+- **One night family:** sky, far skyline, city mass and island rock all a muted violet (value 0.25 to 0.30, saturation 0.24 to 0.37, hue
+  286 to 306). Nothing is a hot colour over a large area; colour comes in small accents (warm windows, neon, red balloons).
+- **Play pieces brightest:** the platforms are pale pink-lilac slabs with crisp lit top edges, the palest things in view, so the play
+  line reads at once against the busy mass behind it.
+- **Light:** yellow searchlight beams and hundreds of small warm windows give the mass its detail at texture scale.
+- **Lesson for ours:** one violet family for sky and towers (ours: a magenta sky at saturation 0.68 over blue-violet towers), the play
+  surface lighter than the backdrop, and signs and glows as small accents under the fighters.
+
+**Earlier description (2026-10-18, a daytime screenshot that was never added to the folder):** the crossover fighter's skyscraper-rooftop
+stage:
 - **The play building:** a pale stone art-deco tower in stepped tiers with gold-framed windows, crisp lit top edges on every ledge, and
   red beacon lights at the corners. The fighting surface is a warm terracotta roof. Two small red-railed platforms stick out from the
   sides.
@@ -53,7 +65,12 @@ The papercraft adventure's blue-mountain camp, the meadow's target for colour, l
 
 ## Canyon (the owner, 2026-10-19)
 
-A stylised desert arena from a modern 3D brawler (the owner's screenshot; image file `canyon_reference.*` in this folder once added).
+**The supplied image (2026-10-20), `canyon_reference.webp`:** a different art style, for reference only (the owner). A wide hazy desert
+at low sun: big soft dunes in warm sand (near sand value 0.59, hue 22, saturation 0.59), mauve buttes (hue 323), and a cool lilac sky
+and far ranges (hue 251, saturation 0.22 to 0.30). The lesson: warm ground under a cool sky and distance, a temperature split our canyon
+lacks (every layer of ours is hue 349 to 24).
+
+**Earlier description (2026-10-19, a screenshot that was never added to the folder):** a stylised desert arena from a modern 3D brawler (the owner's screenshot; image file `canyon_reference.*` in this folder once added).
 - **Rock:** chunky sculpted cliffs in saturated red-orange and rust, cut into big blocky planes and ledges, each plane one clean tone; lit
   faces warm orange, shaded faces deep brick red going toward maroon. No haze on them: the far cliffs read through value and size alone.
 - **Ground:** warm golden sand with soft dunes, bright, the lightest warm area of the frame; small dark-green desert shrubs at its edges.

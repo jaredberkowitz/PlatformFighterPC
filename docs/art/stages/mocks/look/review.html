@@ -1,0 +1,1249 @@
+<title>Stage Look Review</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;800&family=Atkinson+Hyperlegible:wght@400;700&display=swap">
+<style>
+/* Layout: a scorecard heat grid first, then the ranked weak points as severity rows, then per-stage ours-vs-reference, then the approach ideas. */
+:root {
+  --bg: #eef0f5; --panel: #ffffff; --fg: #1d1b2a; --muted: #5d5a70; --line: #d6d8e3; --accent: #6a3fd1; --accent-ink: #ffffff;
+  --s1: #d64545; --s2: #e8874a; --s3: #e9c25a; --s4: #8cc56b; --s5: #3fa66a; --s-ink: #1d1b2a;
+  --display: "Barlow Condensed", "Arial Narrow", sans-serif;
+  --body: "Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #15141d; --panel: #1f1d2a; --fg: #ecebf4; --muted: #a8a5bd; --line: #34314a; --accent: #a98bff; --accent-ink: #15141d;
+    --s1: #c94848; --s2: #d07a42; --s3: #cfae52; --s4: #7cb25e; --s5: #3a9460; --s-ink: #15141d; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #15141d; --panel: #1f1d2a; --fg: #ecebf4; --muted: #a8a5bd; --line: #34314a; --accent: #a98bff; --accent-ink: #15141d;
+  --s1: #c94848; --s2: #d07a42; --s3: #cfae52; --s4: #7cb25e; --s5: #3a9460; --s-ink: #15141d; color-scheme: dark;
+}
+body {
+  background: var(--bg); color: var(--fg); font-family: var(--body); font-size: 16px; line-height: 1.5;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 24px 48px;
+}
+.wrap { max-width: 1100px; margin: 0 auto; display: grid; gap: 28px; }
+h1, h2, h3 { font-family: var(--display); font-weight: 800; margin: 0; line-height: 1.05; text-wrap: balance; }
+h1 { font-size: clamp(2rem, 5vw, 3rem); }
+h2 { font-size: clamp(1.5rem, 3.2vw, 2rem); }
+h3 { font-size: 1.35rem; }
+p { margin: 0; max-width: 70ch; }
+.lede, .muted { color: var(--muted); }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 18px; display: grid; gap: 14px; min-width: 0; }
+.eyebrow { font-family: var(--display); font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.95rem; color: var(--accent); }
+.tablewrap { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+th, td { padding: 8px 10px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+th { font-family: var(--display); font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); font-size: 0.95rem; }
+.score { text-align: center; font-weight: 700; color: var(--s-ink); border-radius: 6px; min-width: 2.2em; display: inline-block; padding: 2px 0; }
+.v1 { background: var(--s1); } .v2 { background: var(--s2); } .v3 { background: var(--s3); } .v4 { background: var(--s4); } .v5 { background: var(--s5); }
+td.c { text-align: center; }
+.legend { display: flex; flex-wrap: wrap; gap: 12px; font-size: 0.9rem; color: var(--muted); align-items: center; }
+.legend .score { font-size: 0.85rem; min-width: 1.8em; }
+.weak { display: grid; grid-template-columns: 3.2em 1fr; gap: 6px 14px; padding: 14px 0; border-bottom: 1px solid var(--line); }
+.weak:last-child { border-bottom: 0; }
+.sev { display: grid; gap: 4px; justify-items: center; }
+.sev .num { font-family: var(--display); font-weight: 800; font-size: 1.9rem; line-height: 1; }
+.bar { display: flex; gap: 2px; }
+.bar i { width: 6px; height: 14px; border-radius: 2px; background: var(--line); }
+.bar i.on { background: var(--s1); }
+.weak h3 { font-size: 1.25rem; }
+.tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.tag { font-size: 0.8rem; border: 1px solid var(--line); border-radius: 999px; padding: 0 8px; color: var(--muted); }
+.stage { display: grid; gap: 10px; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.pair figure { margin: 0; display: grid; gap: 4px; min-width: 0; }
+.pair img { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 6px; background: #000; display: block; }
+.pair figcaption { font-size: 0.85rem; color: var(--muted); }
+@media (max-width: 640px) { .pair { grid-template-columns: 1fr; } }
+.ideas { display: grid; gap: 12px; }
+.idea { display: grid; grid-template-columns: 1fr auto; gap: 4px 14px; border-top: 1px solid var(--line); padding-top: 12px; }
+.idea:first-child { border-top: 0; padding-top: 0; }
+.meter { display: grid; grid-template-columns: auto auto; gap: 2px 8px; font-size: 0.85rem; color: var(--muted); align-content: start; }
+.meter b { color: var(--fg); }
+.rec { border-left: 4px solid var(--accent); padding-left: 12px; }
+.viewer { position: relative; width: 100%; aspect-ratio: 16 / 9; max-width: 100%; border-radius: 8px; overflow: hidden; background: #000; }
+.viewer img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+.vtag { position: absolute; top: 10px; left: 10px; z-index: 3; font-family: var(--display); font-weight: 800; font-size: 1.1rem; padding: 2px 10px; border-radius: 6px; color: #fff; background: rgba(0,0,0,0.55); pointer-events: none; }
+.vline { position: absolute; top: 0; bottom: 0; width: 3px; background: #fff; z-index: 2; pointer-events: none; }
+.row { display: flex; flex-wrap: wrap; gap: 8px; }
+button { font: inherit; font-weight: 700; border: 1px solid var(--line); background: transparent; color: var(--fg); border-radius: 999px; padding: 6px 14px; cursor: pointer; }
+button:hover { border-color: var(--accent); }
+button:focus-visible, input:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.range { width: 100%; }
+kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4px; padding: 0 5px; font-size: 0.85em; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+.up { color: var(--s5); font-size: 0.8em; }
+.r2note, .r3note { display: grid; gap: 6px; }
+[hidden] { display: none !important; }
+</style>
+
+<div class="wrap">
+  <header style="display:grid;gap:8px">
+    <div class="eyebrow">Stage refinement &middot; after the papercraft adventure's screenshots</div>
+    <h1>Stage Look Review</h1>
+    <p>Two lessons from the reference screenshots, mocked from the match camera: the scenery without ink outlines, its edges lit as card bevels instead, and the paper houses rebuilt at the characters' proportions. The earlier rounds stay on the <a href="https://claude.ai/artifact/D1du6MREVumiJDrEdNypW4">Stage Fidelity Review</a>, which is full.</p>
+  </header>
+
+  <section class="panel" aria-labelledby="sl-h" id="shapedlight">
+    <div class="eyebrow">Built (A) &middot; review 7: shaped light</div>
+    <h2 id="sl-h">Light and shade across the play areas, lamp pools, the city's glow</h2>
+    <p><b>Built:</b> A on every stage. Before on the left, the build on the right: meadow, grove, canyon, beach, city. In the new playtest build together with the skies, play tops and canyon.</p>
+    <div class="viewer"><img src="sl_built.jpg" alt="Every stage before and after shaped light A"></div>
+    <p>First, canyon B is built (before and after in the canyon section above). The city's middle towers were tried as a model and dropped: at that distance the paper cards and the air hide all relief, so nothing changed. Then shaped light. A finding first: the play tops can't take a "sun pool" as a brightening. The tone curve squeezes any lift on an already bright lawn to almost nothing, and even with the sun switched off the meadow's lawn only fell from 0.71 to 0.65, because ambient and the paper finish carry most of its light. The cloud shadows existed but never read for the same reason. So the light is shaped from the shade side: drifting cloud shade laid on the surfaces' own colour, smaller clouds so several fall across a stage, and the sun falling in the gaps.</p>
+    <div class="tablewrap"><table><thead><tr><th>Option</th><th>Day stages</th><th>City at night</th></tr></thead><tbody>
+      <tr><td>A &middot; Soft</td><td>Cloud shade over about half the ground near the stage, a soft cool tone, a few units across, drifting slowly; sun in the gaps between.</td><td>The roof's lamp pools brighter and a quarter wider; a warm edge of the street's glow up each tower's corner and along its parapet, strongest low down.</td></tr>
+      <tr><td>B &middot; Firm</td><td>The same with a deeper, cooler shade, so the shade and sun read clearly.</td><td>The pools brighter and wider again; the glow edges stronger.</td></tr>
+    </tbody></table></div>
+    <p>Close, today on the left and B on the right: meadow, grove, canyon, beach, city.</p>
+    <div class="viewer"><img src="sl_close.jpg" alt="Each stage today and with shaped light B"></div>
+    <div class="row" role="group" aria-label="Stage"><button data-sls="0">Meadow</button><button data-sls="4">Grove</button><button data-sls="1">Canyon</button><button data-sls="2">Beach</button><button data-sls="3">City</button></div>
+    <div class="row" role="group" aria-label="View"><button data-slv="m">Match camera</button><button data-slv="w">Wide (today and B)</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-slo="T">Today</button><button data-slo="A">A &middot; Soft</button><button data-slo="B">B &middot; Firm</button></div>
+    <div class="viewer"><img id="slimg" alt="Shaped light option"><span class="vtag" id="sltag"></span></div>
+    <p class="muted">My pick: <b>A</b>. B's shade is clearer in a still, but it darkens the play areas overall, and the cool tone greys the canyon's warm sand. A shapes the light without moving the stages' values much. Honest note: this reads more as a partly cloudy day than as crisp pools of sun. The paper look's flat, bright shading limits how far light can be shaped on the play tops.</p>
+  </section>
+
+  <section class="panel" aria-labelledby="c7-h" id="canyon7">
+    <div class="eyebrow">Built (B) &middot; review 7: the canyon behind the fight</div>
+    <h2 id="c7-h">Clearing the space behind the fighters</h2>
+    <p><b>Built:</b> B, lit. Before on the left, the build on the right (the match camera, then wide). Next: the city's middle towers.</p>
+    <div class="viewer"><img src="c7_built.jpg" alt="The canyon behind the fight before and after"></div>
+    <p>First, play tops B are built on every stage and lit (before and after in the play tops section above). Then the canyon. Review 7 found two things right behind the fighters: the mesa there read as a round pink drum, and the train crossed as a bold line at the head height of anyone on the side platforms.</p>
+    <div class="tablewrap"><table><thead><tr><th>Option</th><th>What changes</th></tr></thead><tbody>
+      <tr><td>A &middot; A broken table of rock</td><td>The drum becomes a broken table of rock, wide and low: three blocks of uneven height with crevices between, the middle one a step lower so the skyline is notched, each banded in the strata with a dark cap, and fallen blocks at the foot. The space behind the fighters opens onto the far plain.</td></tr>
+      <tr><td>B &middot; And the railway far back</td><td>A, with the trestle moved much further back (175 units, from 124). The train is small and hazy near the horizon instead of a bold line between the platforms. (Lowering it instead was tried, and it ran right behind the fighters' name tags.)</td></tr>
+    </tbody></table></div>
+    <p>Behind the fight, close, today on the left: A, then B.</p>
+    <div class="viewer"><img src="c7_close.jpg" alt="The canyon behind the fight, today and with the options"></div>
+    <div class="row" role="group" aria-label="View"><button data-c7v="m">Match camera</button><button data-c7v="w">Wide</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-c7o="T">Today</button><button data-c7o="A">A &middot; Broken table</button><button data-c7o="B">B &middot; And railway far back</button></div>
+    <div class="viewer"><img id="c7img" alt="Canyon option"><span class="vtag" id="c7tag"></span></div>
+    <p class="muted">My pick: <b>B</b>. Both fixes are needed for the space behind the fighters to read calm: the rock is no longer a drum, and the train stays in the world without drawing a line through the fight. Shown before the light bake.</p>
+  </section>
+
+  <section class="panel" aria-labelledby="pt-h" id="playtops">
+    <div class="eyebrow">Built (B) &middot; review 7: the play tops (toward 5s in surfaces)</div>
+    <h2 id="pt-h">The surfaces the fighters stand on</h2>
+    <p><b>Built:</b> B on every stage, lit. Before on the left, the build on the right: meadow, grove, canyon, beach, city. Next: the canyon behind the fight.</p>
+    <div class="viewer"><img src="pt_built.jpg" alt="Every stage's play top before and after"></div>
+    <p>First, skies B are built on the meadow and grove (before and after in the skies section above); by review 7's measure every column is now a 4. Then the first step toward 5s: the play tops, the most-seen surfaces in the game, still one plain colour each. One rule shapes this: the stage test lets nothing poke up where fighters stand, so the detail lies flat on the top (a hair above it). Tufts and pebbles only go along the very front edge, which is outside the walk area.</p>
+    <div class="tablewrap"><table><thead><tr><th>Option</th><th>What changes</th></tr></thead><tbody>
+      <tr><td>A &middot; Worn and varied</td><td>Flat patches over each top, each a step from the top's own colour. Lawns: deeper clover patches, sunlit patches and trodden earth fraying along the path's sides, kept off the path itself. Canyon: darker drifts and pale wind patches of sand. Beach: sun-bleached and wet patches on the boards and a couple of replaced, paler boards. City: tar patches and sun-faded sheets on the roof.</td></tr>
+      <tr><td>B &middot; And the edges</td><td>A, with grass tufts along the lawns' front edges, pebbles along the canyon's, and nail heads in pairs on the dock's boards where they cross the joists. (The city has nothing more, so its B is A.)</td></tr>
+    </tbody></table></div>
+    <p>One top per stage, today on the left and B on the right: meadow, grove, canyon, beach, city.</p>
+    <div class="viewer"><img src="pt_close.jpg" alt="Each stage's play top, today and with B"></div>
+    <div class="row" role="group" aria-label="Stage"><button data-pts="m">Meadow</button><button data-pts="g">Grove</button><button data-pts="c">Canyon</button><button data-pts="b">Beach</button><button data-pts="y">City</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-pto="T">Today</button><button data-pto="A">A &middot; Worn and varied</button><button data-pto="B">B &middot; And the edges</button></div>
+    <div class="viewer"><img id="ptimg" alt="Play top option"><span class="vtag" id="pttag"></span></div>
+    <p class="muted">My pick: <b>B</b>. It's a quiet change by design, so nothing competes with the fighters, but the tops no longer read as one flat colour. Honest note: the lawns' measured contrast moves only a little (meadow 0.071 to 0.073, grove 0.067 to 0.077). Most of the gain is in the edges and the dock. A true 5 here would need hand-painted detail, and this is the step that fits the walk rule. Shown at the match camera, before the light bake.</p>
+  </section>
+
+  <section class="panel" aria-labelledby="sk-h" id="skies7">
+    <div class="eyebrow">Built (B on both) &middot; review 7: the meadow's and grove's skies (to all 4s)</div>
+    <h2 id="sk-h">The last two skies</h2>
+    <p><b>Built:</b> B on both. Before on the left, the build on the right (the meadow at the match camera and wide, the grove wide). That closes review 7's two 3s. Next: the play tops.</p>
+    <div class="viewer"><img src="sk_built.jpg" alt="The meadow's and grove's skies before and after"></div>
+    <p>Review 7 left two 3s, both skies. On the meadow, the card clouds were drawn up to 34 units high, so at the match camera half of them were cut by the top of the frame, over one pale teal. On the grove, the blue top and pink horizon met halfway and the sky read lilac-grey between the trees.</p>
+    <div class="tablewrap"><table><thead><tr><th>Stage</th><th>A</th><th>B</th></tr></thead><tbody>
+      <tr><td>Meadow</td><td>The clouds lowered into the frame and a little smaller; the gradient fitted to the sky the cameras see, a deeper blue at the top of the frame and the pale haze held at the horizon.</td><td>A, with a warm glow behind the mountains and a softer horizon, so it reads as late-morning light rather than flat teal.</td></tr>
+      <tr><td>Grove</td><td>An evening gradient: a deep violet-blue at the top of the frame and a warm peach glow low behind the forest.</td><td>A, with the clouds lowered into the gaps between the trees.</td></tr>
+    </tbody></table></div>
+    <p>Close, today on the left: the meadow at the match camera (A), the meadow wide (B), the grove wide (A):</p>
+    <div class="viewer"><img src="sk_close.jpg" alt="The meadow's and grove's skies, today and with the options"></div>
+    <div class="row" role="group" aria-label="Stage"><button data-sks="m">Meadow</button><button data-sks="g">Grove</button></div>
+    <div class="row" role="group" aria-label="View"><button data-skv="m">Match camera</button><button data-skv="w">Wide</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-sko="T">Today</button><button data-sko="A">A</button><button data-sko="B">B</button></div>
+    <div class="viewer"><img id="skimg" alt="Sky option"><span class="vtag" id="sktag"></span></div>
+    <p class="muted">My pick: <b>B on both</b>. The meadow's top of frame goes from teal to a clear blue (hue 197 to 215, saturation 0.31 to 0.35) with every cloud whole; the grove gains a warm evening band and clouds in the gaps. The grove's change is the smaller of the two: its sky only shows between the trees.</p>
+  </section>
+
+  <section class="panel" aria-labelledby="f7-h" id="review7">
+    <div class="eyebrow">Under way &middot; fidelity review 7</div>
+    <h2 id="f7-h">Where every stage stands after review 6</h2>
+    <p>The same analysis on the build you have (playtest-2026-10-22-sim146-review6): the same eight categories scored 1 to 5, the same measured regions. The full write-up is in docs/art/stages/FIDELITY_REVIEW_7.md. A caution: the judge is the same hand that built the work.</p>
+    <div class="tablewrap"><table><thead><tr><th>Stage</th><th>Light</th><th>Surfaces</th><th>Play area</th><th>Background land</th><th>Sky</th><th>World</th><th>Cohesion</th><th>Readability</th><th>Mean</th><th>Review 6</th></tr></thead><tbody>
+      <tr><td>Beach</td><td>4</td><td>4</td><td>4</td><td>4</td><td>4</td><td>4</td><td>4</td><td>4</td><td><b>4.0</b></td><td>4.0</td></tr>
+      <tr><td>Canyon</td><td>4</td><td>4</td><td>4</td><td>4</td><td>4</td><td>4</td><td>4</td><td>4</td><td><b>4.0</b></td><td>3.6</td></tr>
+      <tr><td>City</td><td>4</td><td>4</td><td>4</td><td>4</td><td>4</td><td>4</td><td>4</td><td>4</td><td><b>4.0</b></td><td>3.6</td></tr>
+      <tr><td>Meadow</td><td>4</td><td>4</td><td>4</td><td>4</td><td>3</td><td>4</td><td>4</td><td>4</td><td><b>3.9</b></td><td>3.9</td></tr>
+      <tr><td>Grove</td><td>4</td><td>4</td><td>4</td><td>4</td><td>3</td><td>4</td><td>4</td><td>4</td><td><b>3.9</b></td><td>3.9</td></tr>
+      <tr><td><b>Mean</b></td><td>4.0</td><td>4.0</td><td>4.0</td><td>4.0</td><td>3.6</td><td>4.0</td><td>4.0</td><td>4.0</td><td><b>3.95</b></td><td>3.8</td></tr>
+    </tbody></table></div>
+    <p><b>38 of 40 scores are 4.</b> The two 3s are skies: the meadow's card clouds are cut by the top of the frame over one pale teal, and the grove's sky between the trees is a washed lilac-grey (saturation 0.07). Nothing is a 5 yet.</p>
+    <h3>To all 4s</h3>
+    <p>One round: the meadow's clouds lowered into the frame in two depths with a horizon haze and glow, and the grove's sky given a real evening gradient with a warm glow behind the forest.</p>
+    <h3>To 5s</h3>
+    <ul style="display:grid;gap:6px;margin:0;padding-left:1.2em;max-width:78ch">
+      <li><b>Surfaces:</b> the play tops are the most-seen surfaces and still plain (meadow lawn contrast 0.069). Worn grass, tufts, a walked path, weathered deck boards.</li>
+      <li><b>Background land:</b> the canyon's mesa behind the fight reads as a plain pink box and the train crosses at head height; the city's middle towers are still flat cards.</li>
+      <li><b>Sky:</b> lit and shaded clouds on the day stages, stars or a cloud layer at night.</li>
+      <li><b>World:</b> a lived-in world at true scale: people in the beach town, a worked farm, more chimney smoke. No animals.</li>
+      <li><b>Light:</b> shaped light on the play areas: sun pools and cloud shadows, dappled light under the grove's tree, lamp pools at night.</li>
+      <li><b>Cohesion, readability, play area:</b> the last code-built bits, the canyon's train off the fighters' heads, the fighters themselves.</li>
+    </ul>
+    <p>Close, the weak spots (the meadow's, grove's and city's skies, the canyon behind the fight, the meadow's lawn, the beach's deck):</p>
+    <div class="viewer"><img src="f7_crops.jpg" alt="The weak spots close"></div>
+    <h3>Every stage today</h3>
+    <p>Meadow, grove, beach, canyon, city; the match camera on the left and wide on the right:</p>
+    <div class="viewer"><img src="f7_sheet.jpg" alt="Every stage at the match camera and wide"></div>
+    <p class="muted">Realistically: all 4s is one round; a mean of about 4.4 to 4.5 is three or four more. A 5 in surfaces and light is the largest investment, hand-authored detail on every big surface and a lighting finish per stage.</p>
+  </section>
+
+  <section class="panel" aria-labelledby="sm-h" id="smallthings">
+    <div class="eyebrow">Built (B) &middot; review 6, item 7: the small code-built things</div>
+    <h2 id="sm-h">Lanterns, bulbs and townsfolk, made like the rest</h2>
+    <p><b>Built:</b> B. Before on the left, the build on the right (the grove and city at the match camera). That completes review 6; all seven items are in the new playtest build.</p>
+    <div class="viewer"><img src="sm_built.jpg" alt="The grove and city before and after the small things"></div>
+    <p>First, platforms A are built on all three stages; before and after are in the platforms section above. Then item 7, the last one. The most visible small code-built things left are the string lights (the grove's lantern strings and the city's party lights were bare spheres), the grove's streamers (yellow, pink and blue diamonds that read as dangling crystals), and the city's townsfolk (trapezoid paper dolls). The lawn flowers barely show at play distance, so they stay.</p>
+    <div class="tablewrap"><table><thead><tr><th>Option</th><th>What changes</th></tr></thead><tbody>
+      <tr><td>A &middot; Modelled lights</td><td>Two new models. A paper lantern on the grove's strings: a ribbed paper body that glows warm, dark lacquered caps, a red tassel. A glass bulb on a dark socket on the city's strings, each in its own colour.</td></tr>
+      <tr><td>B &middot; And paper streamers and townsfolk</td><td>A, with the grove's streamers recut as white paper zigzags like those on its gates, and the city's townsfolk drawn in the fighters' own build: a round body, mitten hands, shoes, a round head with hair and two dot eyes, and a bobble hat or a scarf on some.</td></tr>
+    </tbody></table></div>
+    <p>Close up, today on the left: the grove's strings (A, then B), the city's lights (A), its street (B) and its rooftop party (B):</p>
+    <div class="viewer"><img src="sm_close.jpg" alt="The string lights, streamers and townsfolk, today and with the options"></div>
+    <div class="row" role="group" aria-label="Stage"><button data-sms="g">Grove</button><button data-sms="c">City</button></div>
+    <div class="row" role="group" aria-label="View"><button data-smv="m">Match camera</button><button data-smv="w">Wide</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-smo="T">Today</button><button data-smo="A">A &middot; Modelled lights</button><button data-smo="B">B &middot; And streamers, townsfolk</button></div>
+    <div class="viewer"><img id="smimg" alt="Small things option"><span class="vtag" id="smtag"></span></div>
+    <p class="muted">My pick: <b>B</b>. The grove's strings read as a festival (lanterns and shrine paper) instead of crystals, and the townsfolk belong to the same world as the fighters.</p>
+  </section>
+
+  <section class="panel" aria-labelledby="fp-h" id="platforms">
+    <div class="eyebrow">Built (A on all three) &middot; review 6, item 6: the platforms</div>
+    <h2 id="fp-h">Platforms made of the stage they float over</h2>
+    <p><b>Built:</b> A on all three, lit. Before on the left, the build on the right: the meadow, the grove and the canyon at the match camera. Next: item 7, the small code-built things.</p>
+    <div class="viewer"><img src="fp_built.jpg" alt="The meadow, grove and canyon platforms before and after"></div>
+    <p>First, light finish C is built on every stage; before and after are in the light section above. Then item 6. Review 6 found the floating platforms plain: a green slab with a scalloped trim on the meadow and grove, and a bare board on the canyon. (The beach's are already dock boards with rope, and the city's a steel deck.) The tops stay exactly where the fighters stand; only what's under them changes.</p>
+    <div class="tablewrap"><table><thead><tr><th>Stage</th><th>A</th><th>B</th></tr></thead><tbody>
+      <tr><td>Meadow</td><td><b>Turf on logs</b>: a turf mat on two round logs, their cut ends showing and lashed with rope near each end (the farm's own build), with an uneven tufted lip in place of the even scallops.</td><td><b>And moss</b>: A, with moss and grass hanging over the logs.</td></tr>
+      <tr><td>Grove</td><td><b>Little islands</b>: turf over a band of earth, with a rocky underside of the island's dark earth hanging under it, and a few roots.</td><td><b>Deeper, mossier</b>: A with a deeper underside, moss hanging and more roots.</td></tr>
+      <tr><td>Canyon</td><td><b>Sandstone slab</b>: a sand top over two strata courses of the stage's own rock, the lower one set in and broken short at the ends.</td><td><b>A piece of mesa</b>: A with a tapered rock hanging under it.</td></tr>
+    </tbody></table></div>
+    <p>One platform per stage, close up, today on the left: the meadow (A, then B), the grove (A, then B) and the canyon (A, then B):</p>
+    <div class="viewer"><img src="fp_close.jpg" alt="A platform on each stage, today and with the options"></div>
+    <div class="row" role="group" aria-label="Stage"><button data-fps="m">Meadow</button><button data-fps="g">Grove</button><button data-fps="c">Canyon</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-fpo="T">Today</button><button data-fpo="A">A</button><button data-fpo="B">B</button></div>
+    <div class="viewer"><img id="fpimg" alt="Platform option"><span class="vtag" id="fptag"></span></div>
+    <p class="muted">My pick: <b>A on all three</b>. Each reads as made of its stage, and A keeps the space under the platforms clear: B's deeper undersides and hanging moss come down toward a fighter standing beneath. Shown at the match camera, before the light bake (today's rebuilt the same way).</p>
+  </section>
+
+  <section class="panel" aria-labelledby="lf-h" id="lightfinish">
+    <div class="eyebrow">Built (C) &middot; review 6, item 5: the light finish</div>
+    <h2 id="lf-h">Light that bounces, a firmer grade, lamps that glow</h2>
+    <p><b>Built:</b> option C on every stage. Before on the left, the build on the right, each stage at the match camera. Next: item 6, the platforms.</p>
+    <div class="viewer"><img src="lf_built.jpg" alt="Every stage before and after the light finish"></div>
+    <p>First, no clones B is built on all three stages (before and after are in the no-clones section above). Then item 5, which works the same way on every stage. Each stage already has a key light, painted shadows, a grade (warm lights, cool shade) and a soft bloom. Review 6 found three things missing: the shade picks up no colour from the ground around it, the grade is gentle, and only the city's windows and the effects glow.</p>
+    <div class="tablewrap"><table><thead><tr><th>Option</th><th>What changes</th></tr></thead><tbody>
+      <tr><td>A &middot; Bounce light</td><td>The side of everything turned from the sun picks up the colour of the ground the light comes back from: a fresh green on the meadow and grove, warm sand in the canyon, the sea's cyan on the beach, the street's pink glow in the city. It's strongest on faces turned down (the platforms' undersides, the eaves), and half as strong on the fighters.</td></tr>
+      <tr><td>B &middot; And a firmer grade</td><td>A, with each stage's existing grade (warm lights, cool shade) a step stronger and a little more contrast.</td></tr>
+      <tr><td>C &middot; And lamps that glow</td><td>B, with the bloom starting lower, so the lanterns, string lights, lit windows and lamps glow softly, not just the effects.</td></tr>
+    </tbody></table></div>
+    <p>This round's changes are small by design: the light is the last layer, and its job is to tie the pieces together, not to be noticed. The meadow's platform undersides show the bounce best (0.59 to 0.65, greener). In the canyon the paper finish carries most of the shade, so the bounce shows less. One fix on the way: a few thin pieces with no proper normal turned the first bounce into white blots; they're guarded now.</p>
+    <p>Close up, today on the left and C on the right: meadow, canyon, beach, city, grove.</p>
+    <div class="viewer"><img src="lf_close.jpg" alt="Every stage today and with option C, close"></div>
+    <div class="row" role="group" aria-label="Stage"><button data-lfs="0">Meadow</button><button data-lfs="1">Canyon</button><button data-lfs="2">Beach</button><button data-lfs="3">City</button><button data-lfs="4">Grove</button></div>
+    <div class="row" role="group" aria-label="View"><button data-lfv="m">Match camera</button><button data-lfv="w">Wide (today and C)</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-lfo="T">Today</button><button data-lfo="A">A &middot; Bounce</button><button data-lfo="B">B &middot; Firmer grade</button><button data-lfo="C">C &middot; Lamps glow</button></div>
+    <div class="viewer"><img id="lfimg" alt="Light finish option"><span class="vtag" id="lftag"></span></div>
+    <p class="muted">My pick: <b>C</b>. Each step is small, but together they make the shade read as lit by the world around it, and the lamps read as lamps. B is the safe middle if C's glow feels like too much on the city.</p>
+  </section>
+
+  <section class="panel" aria-labelledby="nc-h" id="noclones">
+    <div class="eyebrow">Built (B on all three) &middot; review 6, item 4: no clones</div>
+    <h2 id="nc-h">Nothing you can spot twice in a still</h2>
+    <p><b>Built:</b> B on all three; the meadow and grove re-lit. The build before on the left, the new one on the right: the grove, the beach and the meadow, wide. Next: item 5, the light finish.</p>
+    <div class="viewer"><img src="nc_built.jpg" alt="The grove, beach and meadow before and after"></div>
+    <p>First, the three fronts are built (B on all three) and lit; before and after are in the fronts section above. Then item 4. Review 6 found three repeats you can spot in a single still: the grove's forest is one tree at one size and one turn, the beach's paper waves are one scallop at one spacing, and the meadow's stage hill is a regular stepped cake of thin sheets. Each stage has two options:</p>
+    <div class="tablewrap"><table><thead><tr><th>Stage</th><th>A</th><th>B</th></tr></thead><tbody>
+      <tr><td>Grove: the forest</td><td><b>Turned and sized</b>: the same tree, each one turned and sized (within a sixth) by its place. No new model.</td><td><b>Three shapes</b>: A, with the tree in three shapes of the same kind: today's, a taller slimmer one with six tiers, and a broad low one with its crown a little off its axis. Each tree's place picks its shape. Still one kind of tree, as your rule asks; the great tree stays as it is.</td></tr>
+      <tr><td>Beach: the paper waves</td><td><b>Uneven waves</b>: each tier's arcs have their own width and depth, wandering along the row.</td><td><b>Uneven and broken</b>: A, with calm stretches where a tier's edge lies flat, with no lit lip and no shadow, so the rows break up.</td></tr>
+      <tr><td>Meadow: the stage hill</td><td><b>Fewer, bigger sheets</b>: about a third as many sheets, each of its own height, with a broader wobble in their edges.</td><td><b>Terraced banks</b>: A's levels as terraces, each shelf falling to the next on a grass bank, as the farmland's terraces beside it do.</td></tr>
+    </tbody></table></div>
+    <p>Close up, today on the left: the grove's forest (A, then B), the beach's sea (A, then B), and the meadow's hill (A, then B):</p>
+    <div class="viewer"><img src="nc_close.jpg" alt="The grove forest, beach sea and meadow hill, today and with the options"></div>
+    <div class="row" role="group" aria-label="Stage"><button data-ncs="g">Grove</button><button data-ncs="b">Beach</button><button data-ncs="m">Meadow</button></div>
+    <div class="row" role="group" aria-label="View"><button data-ncv="w">Wide</button><button data-ncv="m">Match camera</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-nco="T">Today</button><button data-nco="A">A</button><button data-nco="B">B</button></div>
+    <div class="viewer"><img id="ncimg" alt="No-clones option"><span class="vtag" id="nctag"></span></div>
+    <p class="muted">My picks: <b>B on all three</b>. The grove's three shapes break the forest's repeat at the cost of two small tree models (2,900 triangles each); the broken waves give the sea calm stretches as well as uneven ones; the terraced hill ties the stage's hill to the farmland's terraces. The meadow's hills, today's included, are shown before their light bake. As before, you can pick per stage.</p>
+  </section>
+
+  <section class="panel" aria-labelledby="fr-h" id="fronts">
+    <div class="eyebrow">Built (B on all three) &middot; review 6, item 3: the fronts' surfaces</div>
+    <h2 id="fr-h">The closest surfaces, made at the size you see them</h2>
+    <p><b>Built:</b> B on all three, lit. The build before on the left, the new one on the right: the meadow, the canyon and the grove wide, then the meadow at the match camera. Lit, the canyon's courses darkened its face back to 0.30, so the canyon's front lift went from 0.2 to 0.35 to hold it at 0.33. Next: item 4, no clones.</p>
+    <div class="viewer"><img src="fr_built.jpg" alt="The three fronts before and after"></div>
+    <p>First, canyon C is built and lit (before and after are in the canyon section above). Then item 3, which covers three stages, each with two options. One finding came first: the front builders bake their shade against an export of the stage, and that export now held the shipped front itself, so a new front baked inside the old one went black. The export leaves the modelled front out now. Today's fronts are rebuilt the same way here, so they compare fairly. All are shown before the stage's light bake, which runs when one ships.</p>
+    <div class="tablewrap"><table><thead><tr><th>Stage</th><th>A</th><th>B</th></tr></thead><tbody>
+      <tr><td>Meadow: the stone wall under the logs, a grid of grey bricks of one size</td><td><b>Fieldstone</b>: courses of uneven height, big stones with small ones packed round them, each a lump of its own tone and tint (ochre, blue-grey, rosy, lichen), set a little in or out.</td><td><b>Fieldstone and moss</b>: A, with moss on the stones' tops, thickest under the logs, a few tongues of it down their faces, and grass at the wall's foot.</td></tr>
+      <tr><td>Canyon: the strata face, soft and smudged at the wide camera</td><td><b>Cut edges</b>: each slab's top front edge chamfered so it catches the light as a line, and a finer mesh so the baked shade follows the shapes (15,600 triangles, from 10,900).</td><td><b>Sediment courses</b>: A, with each slab laid in thin courses of sediment, each a little in or out and a step lighter or darker (38,500 triangles).</td></tr>
+      <tr><td>Grove: the cliffs, flat dark-teal blocks over a flat violet floor</td><td><b>Shaped rock</b>: each block a tone of its own, a deeper bevel as a lighter lit rim, and roots hanging from the lips that face the camera.</td><td><b>Rock and a misty valley</b>: A, with two layers of violet mist in the abyss, their cut edges showing, and the tops of a forest rising through them in hazed violet-greens.</td></tr>
+    </tbody></table></div>
+    <p>Close up, today on the left: the meadow (match camera A then B, wide A then B), the canyon (the same order), then the grove (A on the left side, B on the right):</p>
+    <div class="viewer"><img src="frm_close.jpg" alt="The meadow's wall, today and with fieldstone"></div>
+    <div class="viewer"><img src="frc_close.jpg" alt="The canyon's strata face, today and with cut edges and sediment courses"></div>
+    <div class="viewer"><img src="frg_close.jpg" alt="The grove's cliffs and abyss, today and with shaped rock and a misty valley"></div>
+    <div class="row" role="group" aria-label="Stage"><button data-frs="m">Meadow</button><button data-frs="c">Canyon</button><button data-frs="g">Grove</button></div>
+    <div class="row" role="group" aria-label="View"><button data-frv="w">Wide</button><button data-frv="m">Match camera</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-fro="T">Today</button><button data-fro="A">A</button><button data-fro="B">B</button></div>
+    <div class="viewer"><img id="frimg" alt="Front option"><span class="vtag" id="frtag"></span></div>
+    <p class="muted">My picks: <b>B on all three</b>. The meadow's moss ties the wall to the lawn. The canyon's courses give the face the most authored detail, though at 38,500 triangles it's the costliest. The grove's mist gives the chasm depth instead of a floor. Each stage ships on its own, so you can pick per stage, for example "meadow B, canyon A, grove B".</p>
+  </section>
+
+  <section class="panel" aria-labelledby="cb-h" id="canyonbehind">
+    <div class="eyebrow">Built (C) &middot; review 6, item 2: the canyon behind the fight</div>
+    <h2 id="cb-h">Buttes of rock, not stacked discs</h2>
+    <p><b>Built:</b> option C, lit. The build before on the left, the new one on the right (wide, then the match camera). Next: item 3, the fronts' surfaces.</p>
+    <div class="viewer"><img src="cb_built.jpg" alt="The canyon before and after the solid buttes, mesa, outcrops and chipped arch"></div>
+    <p>First, city C is built: the night sky, the haze between the rows and the cooler colour plan are in the game (before and after are in the city section above). Then the canyon. Review 6 found three things here. The butte right behind the fighters was still a stack of round discs: every tier was cut into bands, each a small block with its own bevel. The plain at the wide camera was empty. The arch read boxy.</p>
+    <p>All three options break the arch's silhouette: one end of the span is broken off at a slant, with the piece lying at the left leg's foot, and a notch is stepped into its top.</p>
+    <div class="tablewrap"><table><thead><tr><th>Option</th><th>What changes</th></tr></thead><tbody>
+      <tr><td>A &middot; Solid buttes</td><td>Every butte is built as rock, as the arch is: two or three massive tiers with four or five sides, each set off the one under it and stepping well in. A pale band runs between the tiers, a dark cap sits on top, and on the tall ones a lump of cap is left standing.</td></tr>
+      <tr><td>B &middot; And a mesa behind the fight</td><td>A, with the butte behind the fighters turned into a broad, flat-topped mesa: wider than it is tall, a flat face toward the camera, and a pale band through it. A calm table behind the fight, not a pillar. Being lower, it shows the train above it, at the height of the top platform.</td></tr>
+      <tr><td>C &middot; And outcrops on the plain</td><td>B, with low rock ledges and boulders across the plain (one or two flat tiers, a pale band, a boulder or two beside each), kept off the dry wash, the buttes' feet and the strip behind the fight.</td></tr>
+    </tbody></table></div>
+    <p>Close up, today on the left (top to bottom: behind the fight with A, then with B; the arch and the butte beside it with A; the plain with C):</p>
+    <div class="viewer"><img src="cb_close.jpg" alt="The canyon behind the fight, today and with the options"></div>
+    <div class="row" role="group" aria-label="View"><button data-cbv="w">Wide</button><button data-cbv="m">Match camera</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-cbo="T">Today</button><button data-cbo="A">A &middot; Solid buttes</button><button data-cbo="B">B &middot; Mesa behind the fight</button><button data-cbo="C">C &middot; Outcrops on the plain</button></div>
+    <div class="viewer"><img id="cbimg" alt="Canyon option"><span class="vtag" id="cbtag"></span></div>
+    <p class="muted">These are shown without the canyon's light bake, today included, so they compare fairly; the chosen one gets lit when it ships. My pick: <b>C</b>. The solid buttes fix the discs, the mesa gives the fight a calm backdrop, and the outcrops fill the plain at the wide camera. Take A if you'd rather keep the tall butte behind the fight and the train hidden behind it.</p>
+  </section>
+
+  <section class="panel" aria-labelledby="cn-h" id="citynight">
+    <div class="eyebrow">Built (C) &middot; review 6, item 1: the city's sky and depth</div>
+    <h2 id="cn-h">A night sky over the city, and air between its rows</h2>
+    <p><b>Built:</b> option C. Today on the left, the build on the right (wide, then the match camera). Next: item 2, the canyon behind the fight.</p>
+    <div class="viewer"><img src="cn_built.jpg" alt="The city before and after the night sky, haze and colour plan"></div>
+    <p>Review 6 scored the city's sky 2, the lowest left in the game. The cameras see only the lowest few degrees of sky, and the city's glow filled all of it, so the sky read as one flat magenta (value 0.37, saturation 0.58). Behind that, the three rows of towers sit in one purple family, so they separate only a little.</p>
+    <div class="tablewrap"><table><thead><tr><th>Option</th><th>What changes</th></tr></thead><tbody>
+      <tr><td>A &middot; Night sky</td><td>The sky graded across the little the cameras see: deep indigo-blue at the top of the frame (0.07, from 0.34), with the city's glow rising from behind the skyline and held low. The towers are unchanged.</td></tr>
+      <tr><td>B &middot; Night sky and haze</td><td>A, plus haze between the rows: each row's foot fades into the street's lit pink haze, the further rows more, so each row reads further back than the one in front.</td></tr>
+      <tr><td>C &middot; Night sky, haze and a colour plan</td><td>B with the colours split by temperature: a cooler navy sky and blue-violet towers, with the warm light kept for the street haze, the lit windows, the glow and the play building.</td></tr>
+    </tbody></table></div>
+    <p>Close up, today on the left and C on the right (wide, then the match camera):</p>
+    <div class="viewer"><img src="cn_close.jpg" alt="The city's sky and towers, today and with option C"></div>
+    <div class="row" role="group" aria-label="View"><button data-cnv="w">Wide</button><button data-cnv="m">Match camera</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-cno="T">Today</button><button data-cno="A">A &middot; Night sky</button><button data-cno="B">B &middot; Sky and haze</button><button data-cno="C">C &middot; Sky, haze, colour plan</button></div>
+    <div class="viewer"><img id="cnimg" alt="City sky option"><span class="vtag" id="cntag"></span></div>
+    <p class="muted">My pick: <b>C</b>. The sky is the gain in all three. C's cooler towers and sky are the first thing in the city that isn't purple, and the warm street, windows and play building stand out against them. Take A if you want the towers left exactly as they are.</p>
+  </section>
+
+  <section class="panel" aria-labelledby="f6-h" id="review6">
+    <div class="eyebrow">Built (all seven items) &middot; fidelity review 6: the path to 5</div>
+    <h2 id="f6-h">What every stage needs to reach 5</h2>
+    <p>The same analysis as review 5, run on the build you have: every stage at the match camera and wide, the same eight categories scored 1 to 5 (5 means a still could sit beside the references), and the same measured regions. This time each category also says what a 5 needs. The full write-up is in docs/art/stages/FIDELITY_REVIEW_6.md.</p>
+    <div class="tablewrap"><table><thead><tr><th>Stage</th><th>Light</th><th>Surfaces</th><th>Play area</th><th>Background land</th><th>Sky</th><th>World</th><th>Cohesion</th><th>Readability</th><th>Mean</th><th>Review 5</th></tr></thead><tbody>
+      <tr><td>Beach</td><td>4</td><td>4</td><td>4</td><td>4</td><td>4</td><td>4</td><td>4</td><td>4</td><td><b>4.0</b></td><td>3.8</td></tr>
+      <tr><td>Meadow</td><td>4</td><td>4</td><td>4</td><td>4</td><td>3</td><td>4</td><td>4</td><td>4</td><td><b>3.9</b></td><td>3.9</td></tr>
+      <tr><td>Grove</td><td>4</td><td>4</td><td>4</td><td>4</td><td>3</td><td>4</td><td>4</td><td>4</td><td><b>3.9</b></td><td>3.9</td></tr>
+      <tr><td>Canyon</td><td>4</td><td>3</td><td>4</td><td>3</td><td>4</td><td>4</td><td>3</td><td>4</td><td><b>3.6</b></td><td>3.5</td></tr>
+      <tr><td>City</td><td>4</td><td>4</td><td>4</td><td>4</td><td>2</td><td>4</td><td>3</td><td>4</td><td><b>3.6</b></td><td>3.4</td></tr>
+      <tr><td><b>Mean</b></td><td>4.0</td><td>3.8</td><td>4.0</td><td>3.8</td><td>3.2</td><td>4.0</td><td>3.6</td><td>4.0</td><td><b>3.8</b></td><td>3.7</td></tr>
+    </tbody></table></div>
+    <p><b>What moved:</b> the beach is the first stage at 4 in every column (the paper sea and the sky). The city's scaffolds and quiet band took its play area and readability to 4, but its sky is still 2. The canyon reads better, but the butte right behind the fighters is still a stack of round discs.</p>
+    <h3>What a 5 needs</h3>
+    <ul style="display:grid;gap:6px;margin:0;padding-left:1.2em;max-width:78ch">
+      <li><b>Sky (3.2):</b> a painted sky, with a gradient, a glow behind the land or skyline, a haze band, and clouds whole in the frame. The city's flat magenta is the worst.</li>
+      <li><b>Surfaces (3.8):</b> the closest, biggest surfaces are the weakest made: the meadow's grid of grey bricks, the canyon's smudged strata (the bake is too coarse), the grove's flat teal cliffs, flat lawn tops.</li>
+      <li><b>Cohesion (3.6):</b> one thing per stage still looks made another way: the city's flat purple tower cards, the canyon's smudged strata beside crisp props.</li>
+      <li><b>Background land (3.8):</b> the canyon's disc butte and empty plain, the meadow's stepped stage hill, the grove's flat purple void.</li>
+      <li><b>World and life (4.0):</b> clones you can spot in a still: the grove's one pine, the beach's even wave arcs, the city's code-built street people.</li>
+      <li><b>Light (4.0):</b> the background is lit as evenly as the front. A 5 needs shaped shadows, warm and cool bounce into the shade, bloom on lights, and a grade per stage.</li>
+      <li><b>Play area (4.0):</b> the floating platforms are plain slabs everywhere; a 5 makes them from the stage's own materials.</li>
+      <li><b>Readability (4.0):</b> good everywhere. A still is half fighters, so the character work counts here too.</li>
+    </ul>
+    <p>The weakest things, close up (the meadow's front and stage hill, the grove's forest and underside, the beach's wave arcs, the canyon's strata, the city's sky, the canyon behind the fight):</p>
+    <div class="viewer"><img src="f6_crops.jpg" alt="Close crops of the weakest thing on each stage"></div>
+    <h3>Every stage today</h3>
+    <p>Meadow, grove, beach, canyon, city; the match camera on the left and wide on the right:</p>
+    <div class="viewer"><img src="f6_sheet.jpg" alt="Every stage at the match camera and wide"></div>
+    <p class="muted">Recommended order: 1. the city's sky and depth, 2. the canyon behind the fight, 3. the fronts' surfaces, 4. no clones, 5. a light finish per stage, 6. the platforms, 7. the small code-built things. A realistic target is a mean of about 4.5 over the next rounds. Surfaces and light at a true 5 need hand-made detail on every big surface; that's the largest investment.</p>
+  </section>
+
+  <section class="panel" aria-labelledby="cty-h" id="citymid">
+    <div class="eyebrow">Built (A) &middot; review 5, item 4: the city behind the fight</div>
+    <h2 id="cty-h">A quieter city behind the fighters</h2>
+    <p><b>Built:</b> option A. Today on the left, the build on the right (wide, then the match camera). That finishes review 5's four big items; left are the smaller ones: the lawns' form, the meadow's stage hill, and the last code-built small things.</p>
+    <div class="viewer"><img src="city_quiet_built.jpg" alt="The city before and after option A"></div>
+    <p>First, canyon B is built: the arch is solid rock, the front a step lighter, and the trestle set back. Then the city. Review 5 found its towers right behind the fighters the busiest background in the game, with the scaffold towers reading as bright white lattices against the night. All three options make the same two changes; they differ in the sky:</p>
+    <ul style="display:grid;gap:6px;margin:0;padding-left:1.2em;max-width:78ch">
+      <li><b>A quiet band behind the fight:</b> on the two nearer rows of towers, within about 26 units of the middle, far fewer windows are lit, and the facades are drawn toward their own wall colour. The signs and the towers to the sides are unchanged.</li>
+      <li><b>Dark scaffolds:</b> the towers are painted a deep slate, and their struts take a dark ink line instead of the pale paper edge the scenery gets. On struts that thin, the pale edge was most of what showed.</li>
+    </ul>
+    <div class="viewer"><img src="canyon_middle_built.jpg" alt="The canyon before and after canyon B"></div>
+    <p>Up close behind the fighters, today on the left:</p>
+    <div class="viewer"><img src="cty_close.jpg" alt="The scaffold and the towers behind the fighters, today and quieter"></div>
+    <div class="tablewrap"><table><thead><tr><th>Option</th><th>The sky</th></tr></thead><tbody>
+      <tr><td>A &middot; As it is</td><td>The night glow as it is.</td></tr>
+      <tr><td>B &middot; Soft night clouds</td><td>The sky pass's soft streaks, lit from below by the city's glow. Little shows: the towers cover most of the sky.</td></tr>
+      <tr><td>C &middot; Card night clouds</td><td>Dark card cloud banks with puffed edges along the top of the frame, lit along their undersides by the glow. It adds a layer of night sky above the towers.</td></tr>
+    </tbody></table></div>
+    <div class="row" role="group" aria-label="View"><button data-cv2="w">Wide</button><button data-cv2="m">Match camera</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-co2="T">Today</button><button data-co2="A">A &middot; Sky as it is</button><button data-co2="B">B &middot; Soft night clouds</button><button data-co2="C">C &middot; Card night clouds</button></div>
+    <div class="viewer"><img id="cimg2" alt="City option"><span class="vtag" id="ctag2"></span></div>
+    <p class="muted">My pick: <b>A</b>. The quiet band and the dark scaffolds are the gains here. Take C if you want the night sky to have more going on.</p>
+  </section>
+
+  <section class="panel" aria-labelledby="can-h" id="canyonmid">
+    <div class="eyebrow">Built (B) &middot; review 5, item 3: the canyon's middle distance</div>
+    <h2 id="can-h">The canyon's arch, trestle and front</h2>
+    <p>First, sky B is built on the meadow, canyon, beach and grove. Then the canyon's middle distance, which review 5 found held three first-pass shapes. All three options rebuild the arch and lighten the front. They differ in the trestle:</p>
+    <ul style="display:grid;gap:6px;margin:0;padding-left:1.2em;max-width:78ch">
+      <li><b>The arch, as rock:</b> each leg is two massive blocks, the upper one set in and turned, with one pale band between them; the span is one solid piece with a true arch underneath and an uneven top under a darker cap. Before, each leg was a stack of six-sided blocks in alternating strata, which read as discs.</li>
+      <li><b>The front, a step lighter:</b> its strata lifted a fifth of the way toward a pale sand, so the lower half of the frame is less heavy.</li>
+    </ul>
+    <div class="viewer"><img src="can_arch.jpg" alt="The canyon's arch, today and rebuilt as rock"></div>
+    <div class="tablewrap"><table><thead><tr><th>Option</th><th>The trestle</th></tr></thead><tbody>
+      <tr><td>A &middot; As it is</td><td>Where it stands today, crossing the frame just above the platforms.</td></tr>
+      <tr><td>B &middot; Set back</td><td>Moved behind the far row of buttes and a little lower: thinner, hazier, broken by the buttes in front of it. The train still runs its length.</td></tr>
+      <tr><td>C &middot; With ends</td><td>A shorter track that comes out from behind one butte and goes behind another, so it reads as a crossing between them rather than a line across the frame. The train runs end to end. At the match camera it looks the same as today, since that view only sees the middle.</td></tr>
+    </tbody></table></div>
+    <div class="row" role="group" aria-label="View"><button data-nv="w">Wide</button><button data-nv="m">Match camera</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-no="T">Today</button><button data-no="A">A &middot; Trestle as it is</button><button data-no="B">B &middot; Trestle set back</button><button data-no="C">C &middot; Trestle with ends</button></div>
+    <div class="viewer"><img id="nimg" alt="Canyon middle option"><span class="vtag" id="ntag"></span></div>
+    <p class="muted">Also tried: lowering the trestle near the floor to hide it behind the buttes. At the match camera that put the train right behind the fighters, so it's left out. My pick: <b>B</b>. The arch and the front are the clear gains, and setting the trestle back quiets the one line without losing the train.</p>
+  </section>
+
+  <section class="panel" aria-labelledby="sky-h" id="sky">
+    <div class="eyebrow">Built (B) &middot; review 5, item 2: the skies</div>
+    <h2 id="sky-h">The sky pass</h2>
+    <p>First, the paper sea is built: the beach's sea is now the reworked paper waves (before and after below). Then the skies, which review 5 found to be plain gradients. One thing I learned measuring them: at both cameras the sky is only the top sixth of the screen (up to about 5 degrees above the horizon). On the meadow the mountains cover most of it, on the grove the forest, and on the city its glow and mist. So the sky is shown here on the three stages where it reads: the meadow, the canyon and the beach. The city's sky goes with item 4.</p>
+    <div class="viewer"><img src="beach_sea_built.jpg" alt="The beach before and after the paper sea"></div>
+    <div class="tablewrap"><table><thead><tr><th>Option</th><th>What it is</th></tr></thead><tbody>
+      <tr><td>A &middot; Horizon light</td><td>A bright band of haze just above the horizon, a low bank of soft haze along it that hides the hard line, and broad, soft mottling so the sky isn't a perfect gradient. Subtle.</td></tr>
+      <tr><td>B &middot; Painted streaks</td><td>A, plus soft stratus streaks at three heights, broken along their length, lit on top and shaded underneath. Subtle; it reads best in the canyon's sunset.</td></tr>
+      <tr><td>C &middot; Paper cloud banks</td><td>A, plus banks of card cloud at three heights, their tops cut into rounded puffs, a shaded lower body under a lit upper one, a lit cut edge and the shadow each lays on the sky. The only option that clearly changes the frame. It sits alongside the card clouds already there.</td></tr>
+    </tbody></table></div>
+    <div class="row" role="group" aria-label="Stage"><button data-ks="meadow">Meadow</button><button data-ks="canyon">Canyon</button><button data-ks="beach">Beach</button></div>
+    <div class="row" role="group" aria-label="View"><button data-kv="w">Wide</button><button data-kv="m">Match camera</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-ko="T">Today</button><button data-ko="A">A &middot; Horizon light</button><button data-ko="B">B &middot; Painted streaks</button><button data-ko="C">C &middot; Paper cloud banks</button></div>
+    <div class="viewer"><img id="kimg" alt="Sky option"><span class="vtag" id="ktag"></span></div>
+    <p class="muted">My honest take: the sky is a smaller gain than review 5 expected, because so little of it shows. I'd take <b>B</b> (a quiet improvement, best on the canyon) and move on to item 3, the canyon's middle distance, which fills far more of the frame. Pick C if you want the skies to read as paper too.</p>
+  </section>
+
+  <section class="panel" aria-labelledby="sea-h" id="sea">
+    <div class="eyebrow">Built (C) &middot; review 5, item 1: the beach's sea</div>
+    <h2 id="sea-h">A sea that reads as water</h2>
+    <p>Today the sea is one bright cyan sheet with rows of painted wave crests, which read as stripes across half the frame. The reference's water is clear turquoise over the shallows and deepens further out. Light ripples through it in a fine net, and everything standing in it or over it is reflected. Three looks, all on the sea's own shader, with the rest of the stage unchanged:</p>
+    <div class="tablewrap"><table><thead><tr><th>Option</th><th>What it is</th></tr></thead><tbody>
+      <tr><td>A &middot; Clear water</td><td>Colour by depth: clear turquoise near the pier, a deeper teal-blue through the middle, paler toward the horizon. A soft, wandering caustic net of light near the stage, fine ripples further out, and broad drifting patches. No crest rows. The ripple rings round the posts and the sun's glints stay.</td></tr>
+      <tr><td>B &middot; Clear water with reflections</td><td>A, plus reflections of everything standing in or over the water: the pier and its posts, the boats, the town, the islands, the lighthouse. Each is a little darker than what it shows and rippled, fading with distance. About 0.15 ms of GPU time.</td></tr>
+      <tr><td>C &middot; Paper waves (reworked)</td><td>The sea as overlapping sheets of card, each a tier further out, its edge cut into rounded wave caps. Each sheet has its own tone and is shaded across toward its edge, its cut edge is a lit lip, and it lays a soft shadow on the sheet behind. The tiers are big near the pier and calm toward the horizon, sliding slowly, with B's reflections.</td></tr>
+    </tbody></table></div>
+    <div class="row" role="group" aria-label="View"><button data-sv="w">Wide</button><button data-sv="m">Match camera</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-so="T">Today</button><button data-so="A">A &middot; Clear</button><button data-so="B">B &middot; Clear with reflections</button><button data-so="C">C &middot; Paper waves (reworked)</button></div>
+    <div class="viewer"><img id="simg" alt="Beach sea option"><span class="vtag" id="stag"></span></div>
+    <p><b>C, reworked after your note</b> (it read as lines). The first version lit a thin strip on the sheet behind each edge, and every tier was the same tone, so each crest drew a bright line. Now each sheet is lit at its own lip and shades the one behind it. The first version is on the left and the rework on the right (wide, then the match camera):</p>
+    <div class="viewer"><img src="sea_c12.jpg" alt="The paper sea, first version and reworked"></div>
+    <p>Close up, today against B (the town side, then the hut and lighthouse side):</p>
+    <div class="viewer"><img src="sea_close.jpg" alt="The sea today and with clear water and reflections, close crops"></div>
+    <p class="muted">My pick: <b>B</b>. It's closest to the reference, and the reflections tie the town, boats and pier into the water instead of setting them on it.</p>
+  </section>
+
+  <section class="panel" aria-labelledby="f5-h" id="review5">
+    <div class="eyebrow">Built (its four items) &middot; fidelity review 5</div>
+    <h2 id="f5-h">Where every stage stands now</h2>
+    <p>First, the meadow's farmland C is built: the slope is terraced into hedged fields with pines along the hedgerows, the lanes connect, and the farm stands on its own shelf. It costs about 0.06 ms of GPU time. Today's on the left, the new one on the right (wide, then the match camera):</p>
+    <div class="viewer"><img src="mf_built.jpg" alt="The meadow before and after the farmland"></div>
+    <p>Then the same analysis as review 4: every stage at the match camera and wide, the same eight categories scored 1 to 5 (5 means hard to tell apart in quality from the references), and the same measured regions. The full write-up is in docs/art/stages/FIDELITY_REVIEW_5.md.</p>
+    <div class="tablewrap"><table><thead><tr><th>Stage</th><th>Light</th><th>Surfaces</th><th>Play area</th><th>Background land</th><th>Sky</th><th>World</th><th>Cohesion</th><th>Readability</th><th>Mean</th><th>Review 4</th></tr></thead><tbody>
+      <tr><td>Meadow</td><td>4</td><td>4</td><td>4</td><td>4</td><td>3</td><td>4</td><td>4</td><td>4</td><td><b>3.9</b></td><td>3.8</td></tr>
+      <tr><td>Grove</td><td>4</td><td>4</td><td>4</td><td>4</td><td>3</td><td>4</td><td>4</td><td>4</td><td><b>3.9</b></td><td>3.4</td></tr>
+      <tr><td>Beach</td><td>4</td><td>4</td><td>4</td><td>3</td><td>3</td><td>4</td><td>4</td><td>4</td><td><b>3.8</b></td><td>3.8</td></tr>
+      <tr><td>Canyon</td><td>4</td><td>3</td><td>4</td><td>3</td><td>4</td><td>4</td><td>3</td><td>3</td><td><b>3.5</b></td><td>3.3</td></tr>
+      <tr><td>City</td><td>4</td><td>4</td><td>3</td><td>4</td><td>2</td><td>4</td><td>3</td><td>3</td><td><b>3.4</b></td><td>3.4</td></tr>
+      <tr><td><b>Mean</b></td><td>4.0</td><td>3.8</td><td>3.8</td><td>3.6</td><td>3.0</td><td>4.0</td><td>3.6</td><td>3.6</td><td><b>3.7</b></td><td>3.5</td></tr>
+    </tbody></table></div>
+    <p><b>What moved:</b> the background land rose the most (3.0 to 3.6): the grove from 2 to 4 and the meadow from 3 to 4. The beach's land drops to 3, because with the town and harbour modelled, its sea is now the weakest thing on the stage. The sky is the lowest column.</p>
+    <h3>Pain points, ranked</h3>
+    <ol style="display:grid;gap:6px;margin:0;padding-left:1.4em;max-width:78ch">
+      <li><b>The beach's sea</b> (severity 4): half the frame is one bright cyan sheet with stripe-like ripple lines. The references are lighter near the pier and shore and deeper further out, with soft painted highlights and reflections.</li>
+      <li><b>Plain skies</b> (3, the city worst): smooth gradients behind the card clouds, with no horizon glow and no haze or low cloud band. The city's sky is one flat magenta.</li>
+      <li><b>The canyon's middle distance</b> (3): the arch's legs still read as stacked discs, the trestle runs one line across the frame, and the front is dark and heavy.</li>
+      <li><b>The city behind the fight</b> (3): the busiest background in the game sits right behind the fighters, and the scaffold platforms are code-built white lattices.</li>
+      <li><b>Smaller:</b> the play tops lack form (2), the meadow's stage hill is a regular stepped cake at the wide camera (2), and a few small things are still code-built (2).</li>
+    </ol>
+    <h3>Every stage today</h3>
+    <p>Meadow, grove, beach, canyon, city; the match camera on the left and wide on the right:</p>
+    <div class="viewer"><img src="f5_sheet.jpg" alt="Every stage at the match camera and wide"></div>
+    <p class="muted">Recommended order: 1. the beach's sea (a water pass), 2. a sky pass on every stage, 3. the canyon's middle (arch, trestle, front), 4. the city behind the fight, 5. the smaller items.</p>
+  </section>
+
+  <section class="panel" aria-labelledby="mf-h" id="meadowfarm">
+    <div class="eyebrow">Built (C) &middot; the meadow's ground, made to hold together</div>
+    <h2 id="mf-h">Meadow farmland that reads as real</h2>
+    <p>You're right that the meadow's ground lags the grove. Seen at the wide camera, three things give it away:</p>
+    <ul style="display:grid;gap:6px;margin:0;padding-left:1.2em;max-width:78ch">
+      <li><b>The fields are stickers.</b> Rounded patches sit apart on one flat green, and nothing about them follows the land.</li>
+      <li><b>The roads go nowhere.</b> Two pale ribbons start at the crest and stop at the bottom, without passing the farm, the windmill or the cottage.</li>
+      <li><b>There's no structure.</b> The grove has big connected masses, with lit tops over dark sides and a dense fill. The meadow is one flat green with pale shapes on it.</li>
+    </ul>
+    <p>All three options keep the meadow's farm, windmill, cottages, pine belts and the stage's own hill. They change the land:</p>
+    <div class="tablewrap"><table><thead><tr><th>Option</th><th>What it is</th></tr></thead><tbody>
+      <tr><td>A &middot; Hedged fields</td><td>The slope is cut edge to edge into fields, with no loose green between them. Rows follow the contours, and boundaries run down the slope, some through several rows. Every boundary is a bushy hedgerow. There are three pasture greens plus wheat, ploughed earth and young crops, the cropped fields drawn in rows, mostly round the farm. One network of lanes connects everything: from over the crest past the farm (with a spur into its yard), and from the right-hand cottage, down to a lane across the slope, then on down toward the stage. Hedges line the lanes and open where lanes meet. The near hills' fields tile the same way.</td></tr>
+      <tr><td>B &middot; Terraced fields</td><td>A laid as shallow terraces: each row of fields is a flatter shelf ending in a short, steep grass bank, which is the grove's lesson (lit tops over darker sides). The lanes ramp down the banks, and the farm stands on its own wide shelf.</td></tr>
+      <tr><td>C &middot; Terraces and trees</td><td>B with pines along the hedgerows, one to three where boundaries start, and a copse behind the farm.</td></tr>
+    </tbody></table></div>
+    <div class="row" role="group" aria-label="View"><button data-mfv="w">Wide</button><button data-mfv="m">Match camera</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-mfo="T">Today</button><button data-mfo="FA">A &middot; Hedged fields</button><button data-mfo="FB">B &middot; Terraced fields</button><button data-mfo="FC">C &middot; Terraces and trees</button></div>
+    <div class="viewer"><img id="mfimg" alt="Meadow ground option"><span class="vtag" id="mftag"></span></div>
+    <p>Close up at the wide camera (today on the left, B on the right; the farm side, then the right-hand lane):</p>
+    <div class="viewer"><img src="mf_close.jpg" alt="Meadow ground today and terraced, close crops"></div>
+    <p class="muted">My pick: <b>C</b>, or B if you'd rather keep the trees to the belts on the hills. The terraces give the meadow the grove's structure without changing what the meadow is. Unlit mocks: the ship will bake the contact shade, as on the other stages, and trim the triangle count.</p>
+  </section>
+
+  <section class="panel" aria-labelledby="mb-h" id="models">
+    <div class="eyebrow">Built &middot; the plan, worked through</div>
+    <h2 id="mb-h">Blender models in place of code-built art</h2>
+    <p>The grove's forest and the meadow's pine belts shipped first. Then the rest of the plan, each piece now a Blender model, with the old code build kept only as a fallback. In each image the game today is on the left and the model on the right.</p>
+    <h3>The meadow's windmill, one model</h3>
+    <p>The tower, cap, grassy mound, stone base in two courses, arched door with its stones, windows with shutters, gallery, shaft housing, sacks and barrel are one model now. The sails are a separate part that the game still turns. That replaces 74 boxes and cylinders, and it looks the same as before, only cleaner.</p>
+    <div class="viewer"><img src="mb_windmill.jpg" alt="The windmill, code-built left and one model right"></div>
+    <h3>The beach's harbour, in the house kit</h3>
+    <ul style="display:grid;gap:6px;margin:0;padding-left:1.2em;max-width:78ch">
+      <li><b>The bell tower:</b> stone corners up the whole tower and an open belfry with the bell hanging inside, under a clock and a spire laid in rows with a vane on top.</li>
+      <li><b>The warehouse:</b> big braced double doors and a loft door with its hoist beam, rope and hook, plus crates and a barrel by the doors.</li>
+      <li><b>The market stalls:</b> striped awnings with scalloped edges, each stall in its own colours, and fruit crates on the counters.</li>
+      <li><b>The stilt hut:</b> a three-layer ragged thatch roof, a net and floats on the rail, and the jetty on its posts.</li>
+    </ul>
+    <div class="viewer"><img src="mb_harbour.jpg" alt="The harbour town and stilt hut, code-built left and modelled right"></div>
+    <h3>The city's near towers, modelled from the game's own layout</h3>
+    <p>The game exports the boxes it lays out for the nearest row of towers, and Blender rebuilds them as one model. The facade painting is the same one the game used, so the windows, lights, signs and colours don't change. What it could only paint is now real: a frame round every window, a sill and a lintel (arches of stones on the arched windows), a ledge every fourth floor, and pilasters between the bays. The signs hang out past the new frames. The two rows further back stay painted, since detail that far back would only add noise.</p>
+    <div class="viewer"><img src="mb_city.jpg" alt="The near skyline, painted left and modelled right, with close crops"></div>
+    <p class="muted">Every test passes. Cost: the windmill is about 4,000 triangles; the near skyline is about 54,000 triangles in a single draw. Not yet in a published build.</p>
+  </section>
+
+  <section class="panel" aria-labelledby="gf-h" id="forest">
+    <div class="eyebrow">Built &middot; quality: modelled art, and a believable forest</div>
+    <h2 id="gf-h">What's still code-built, and the grove as a real forest</h2>
+    <p>You're right on both counts. Much of the background is still assembled from boxes, cylinders and spheres in code rather than modelled in Blender, and the grove's "forest" was a handful of trees. I traced every stage's background for code-built pieces (written up in docs/art/stages/MODEL_AUDIT.md):</p>
+    <div class="tablewrap"><table><thead><tr><th>Stage</th><th>Still code-built</th></tr></thead><tbody>
+      <tr><td>Meadow</td><td>The windmill (only its tower is modelled; base, door, windows, gallery, cap and sails are 74 primitives), the sky islands, round trees, flowers, clouds</td></tr>
+      <tr><td>Grove</td><td>Lantern strings, flower clusters, parts of the great tree's canopy, clouds</td></tr>
+      <tr><td>Beach</td><td>Bell tower, warehouse, stilt hut and jetty, harbour pieces, market stalls, islet detail, clouds</td></tr>
+      <tr><td>Canyon</td><td>Clouds (the rest is modelled)</td></tr>
+      <tr><td>City</td><td>The skyline towers (code facades), rooftop units, street dressing</td></tr>
+    </tbody></table></div>
+    <p><b>Proposed order:</b> 1. forests (the grove's below, then the meadow's pine belts); 2. the meadow's windmill as one Blender model; 3. the beach's harbour buildings as Blender models in the house kit's style; 4. the city's skyline as modelled towers; 5. small things (lantern strings, flowers, islets, clouds).</p>
+    <h3>Pilot: the grove's forest</h3>
+    <p>The middle and back terraces filled with a dense wood, modelled in Blender in the grove tree's manner (fluted trunks, pleated tiers), the back row tallest so it rises over the middle, with clearings now and then and room left round the tree village, the gates and the space behind the fight. 282 trees; about 0.25 ms of GPU time. Today left, the forest right (wide, then match camera):</p>
+    <div class="viewer"><img src="gf_forest.jpg" alt="Grove forest pilot, today and with the forest"></div>
+    <p class="muted">The grove's detail pass (hut rails, ladders, gate ropes) is in this capture too, and still unshipped.</p>
+  </section>
+
+  <section class="panel" aria-labelledby="gd-h" id="grovedetail">
+    <div class="eyebrow">Your call is needed &middot; the grove's detail pass</div>
+    <h2 id="gd-h">More detail on the grove's tree village and gates</h2>
+    <p>Shipped first: the meadow's detail pass (the windmill's sails and arched door, the houses' shutters, side windows, lanterns, fences and pots, the barn, the haystacks). The detailed houses also reach the beach's town. Then the grove, mocked (each pair: today left, detailed right):</p>
+    <ul style="display:grid;gap:6px;margin:0;padding-left:1.2em;max-width:78ch">
+      <li><strong>Tree village huts:</strong> plank battens and a framed window with red shutters, a second fringe of thatch, a rail of posts and rope round each deck with a lantern, and a ladder down each trunk to the terrace.</li>
+      <li><strong>The great trees behind:</strong> roots flaring into the terrace and broken branch stubs up the trunks.</li>
+      <li><strong>The gates:</strong> a twisted rope under the crossbar with paper zigzags hanging from it, stone plinths under the posts.</li>
+    </ul>
+    <div class="viewer"><img src="gd_detail.jpg" alt="Grove detail pass: tree village, gate, far trees, today and detailed"></div>
+    <p class="muted">Next on the grove if you want more: the terrace trees' bark and needle tips, the great tree's bark and branches, and tassels and frames on the paper lanterns.</p>
+  </section>
+
+  <section class="panel" aria-labelledby="md-h" id="meadowdetail">
+    <div class="eyebrow">Built &middot; the meadow's detail pass</div>
+    <h2 id="md-h">More detail on the windmill, the houses and the haystacks</h2>
+    <p>Shipped first: meadow ground A (tidy quilt) and the detailed pines. Then the meadow's detail pass, mocked (each pair: today left, detailed right):</p>
+    <ul style="display:grid;gap:6px;margin:0;padding-left:1.2em;max-width:78ch">
+      <li><strong>Windmill:</strong> finer lattice sails (nine slats and a middle rail) with every other sail reefed, its canvas rolled up to show the bare lattice; a stone surround and step at the door, a lantern beside it, a barrel and grain sacks at the foot, the base laid in stone blocks.</li>
+      <li><strong>Houses</strong> (the kit every meadow and beach house uses): plank shutters beside the windows, a window in each side wall, a lantern by every door, a picket fence with a stone path to the door, flower pots.</li>
+      <li><strong>Barn:</strong> hay in the loft, a side window, a weathervane on the ridge.</li>
+      <li><strong>Haystacks:</strong> straw combed down the stack in deeper strands, a frayed hem of wisps at the foot, loose wisps on the crown.</li>
+    </ul>
+    <div class="viewer"><img src="md_detail.jpg" alt="Meadow detail pass: farm, windmill, haystack, far cottage, today and detailed"></div>
+    <p class="muted">To fix if you take it: the windmill's stone door surround squares off its arched door, and on the far cottage the fence runs into the slope on one side. The houses cost about 8,000 more triangles across the kit.</p>
+  </section>
+
+  <section class="panel" aria-labelledby="mq-h" id="meadowquilt">
+    <div class="eyebrow">Built &middot; the meadow's ground, tidied (A), and the detailed pines</div>
+    <h2 id="mq-h">A cleaner meadow, and more detailed background trees</h2>
+    <p>You said the meadow's ground read muddy, unprofessional and not consistently shaped. Three causes: the field patches are free-form blobs of every size; their cut edges are cream, which reads as grubby outlines at a distance; and a deep baked shade in every crease muddies the greens. These options keep the layout, lanes and farm and fix the drawing:</p>
+    <div class="tablewrap"><table><thead><tr><th>Option</th><th>What it is</th></tr></thead><tbody>
+      <tr><td>A &middot; Tidy quilt</td><td>Every field the same rounded rectangle, in even rows that shrink with distance; even gaps of a deeper green between them, so the quilt's lines read; three clean greens and now and then wheat; hedgerows run along the rows; cut edges a deeper green, not cream; lighter crease shade. The hills behind are tidied the same way.</td></tr>
+      <tr><td>B &middot; Big fields</td><td>A, with half as many rows and fields twice as wide: calmer.</td></tr>
+      <tr><td>C &middot; Lawn</td><td>A clean lawn, with fields only round the farm and along the lanes: the calmest, closest to the reference's plain lime grass.</td></tr>
+    </tbody></table></div>
+    <div class="row" role="group" aria-label="View"><button data-qv="w">Wide</button><button data-qv="m">Match camera</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-mqo="T">Today</button><button data-mqo="QA">A &middot; Tidy quilt</button><button data-mqo="QB">B &middot; Big fields</button><button data-mqo="QC">C &middot; Lawn</button></div>
+    <div class="viewer"><img id="mqimg" alt="Meadow ground option"><span class="vtag" id="mqtag"></span></div>
+    <p class="muted">My pick: <b>A</b>. It keeps the farmland story but reads crisp and even.</p>
+    <h3>Detail, starting with the meadow's trees</h3>
+    <p>The background pines were five or six plain stacked cones. The detailed pine has eight skirts with scalloped hems (each tier's edge steps in light and shade), a slight lean up the tree, and a visible trunk with roots. Same size and place, about 2,400 triangles for the whole cluster. Left today, right detailed:</p>
+    <div class="viewer"><img src="mq_pines.jpg" alt="Meadow pines today and detailed"></div>
+    <p>If you like the direction, the detail pass goes stage by stage, starting on the meadow:</p>
+    <ul style="display:grid;gap:6px;margin:0;padding-left:1.2em;max-width:78ch">
+      <li><strong>Meadow:</strong> pines (above); the windmill (a stone base, shuttered windows, lattice sails, a door step); the cottages and barn (window boxes, fences, a path to each door); the haystacks.</li>
+      <li><strong>Grove:</strong> the terrace trees and the great tree's bark and branches; the lanterns (frames, tassels, a glow on what's below); the tree village (ladders, rails, rope bridges).</li>
+      <li><strong>Beach:</strong> the town (window frames, shutters, balconies, chimneys); the islands (rocks, palms, a jetty); the lighthouse (railing, door, windows).</li>
+      <li><strong>Canyon:</strong> the buttes (cracks, ledges, scrub on the steps); the trestle (cross-bracing, bolts); the water tower and train.</li>
+      <li><strong>City:</strong> the towers (window frames, ledges, rooftop tanks and signs); the street (lamps, awnings, benches).</li>
+    </ul>
+  </section>
+
+  <section class="panel" aria-labelledby="bl-h" id="believe">
+    <div class="eyebrow">Built &middot; the air retune and the believability pass</div>
+    <h2 id="bl-h">Coloured middle distance, and things where they belong</h2>
+    <p><b>The air retune.</b> The haze was greying the middle distance on the meadow, beach and grove. It now starts further back and is weaker there, and the meadow's fields keep their full colour. Middle-distance saturation: meadow 0.18 to 0.29, beach 0.29 to 0.37, grove 0.29 to 0.35. The far ranges still fade, so depth reads. The canyon and city were already coloured.</p>
+    <div class="viewer"><img src="../../review5/air_built.jpg" alt="Air retune before and after: meadow, beach, grove"></div>
+    <p style="margin-top:12px"><b>The believability pass.</b> I checked every stage by eye and with an automatic audit of every placed piece's footprint (overlaps, and anything standing on a lane or road). Fixed:</p>
+    <ul style="display:grid;gap:6px;margin:0;padding-left:1.2em;max-width:78ch">
+      <li><strong>Meadow:</strong> the left lane ran straight under the barn (the house in the road). It now runs beside the farm. The scarecrow stood at the farmhouse's door and the washing line across the barn's front; both are now in the field.</li>
+      <li><strong>Grove:</strong> the festival gates stood where the side trees grow, so each trunk went through its gate. They now stand beside the trees.</li>
+      <li><strong>Canyon:</strong> the dry wash ran under a butte. It now winds through the gaps.</li>
+      <li><strong>Beach:</strong> the boats moored at the town sat against the quay and read as beached. They're now out on the water.</li>
+    </ul>
+    <div class="viewer"><img src="../../review5/believability_built.jpg" alt="Believability fixes before and after: meadow farm, grove gate, beach boats"></div>
+    <p class="muted">Checked and left: the city's scaffold legs stand on the near curb in front of the road; the meadow's pines in front of the windmill and the beach's lighthouse beside the hut overlap only in the picture (20 to 34 units apart). Written up in docs/art/stages/BELIEVABILITY.md.</p>
+  </section>
+
+  <section class="panel" aria-labelledby="rs-h" id="realshadows">
+    <div class="eyebrow">Built &middot; realtime shadows in the background, every stage</div>
+    <h2 id="rs-h">Why the shadows stopped at the play area, and the fix</h2>
+    <p>Not the engine, and not only the range. Three causes, all fixed:</p>
+    <ol style="display:grid;gap:8px;margin:0;padding-left:1.2em;max-width:78ch">
+      <li><strong>The far scenery was ruining the shadow map.</strong> The mountain ranges, dune flats, mist and abyss sheets (hundreds of units across) were casting shadows, which stretched the shadow map so far that the background's shadows were lost. They no longer cast.</li>
+      <li><strong>The shading washed out what was left.</strong> The scenery's shade is a light pastel and the ambient light is the same in sun and shadow, so a shadow read only a sixth darker. Behind the play area a shadowed face now takes each stage's own cool shadow tone. The fighters and the play area are untouched.</li>
+      <li><strong>The sun was too big.</strong> Its 5-degree size blurred every far shadow to a smudge; 1 degree on these stages.</li>
+    </ol>
+    <div class="row" role="group" aria-label="View"><button data-rs2="close">Close up: canyon, grove, city</button><button data-rs2="all">Every stage</button></div>
+    <div class="viewer"><img id="rs2img" alt="Background shadows before and after"><span class="vtag" id="rs2tag"></span></div>
+    <p class="muted">The canyon's arch and buttes lay long sunset shadows across the floor, the grove's trees shadow the terraces, the city's scaffolds and people shadow the street, and the beach's town is shaded. The meadow changes least (its sun is high and the land falls away from it). The pilot's baked vertex shadows are retired, so the models are back to their normal sizes. Cost: about 0.4 ms of GPU time.</p>
+  </section>
+
+  <section class="panel" aria-labelledby="sp-h" id="sunpilot">
+    <div class="eyebrow">Superseded by the realtime shadows above &middot; the baked-shadow pilot</div>
+    <h2 id="sp-h">Baked sun shadows: what worked and what I found</h2>
+    <p><b>The engine's realtime shadows never reach the background.</b> It's not just the 70-unit range. Even out to 260 units, a plain white test box on a grove terrace casts nothing on a plain white plane beside it, while the same pair on the play area does. So I baked the sun's shadow into the background models instead, and found two bugs on the way:</p>
+    <ol style="display:grid;gap:8px;margin:0;padding-left:1.2em;max-width:78ch">
+      <li><strong>A shader bug that greyed every background top</strong> (fixed for all stages). Flat grass, sand and terrace tops were lit as if they faced away from the sun, in their shade colour. Now they light properly: the grove's terraces read lime, not grey-green, and the canyon's floor warmer. A big part of the "greyed middle distance" from the review.</li>
+      <li><strong>The grove's terrace trees had gone missing in the game</strong> (re-lighting dropped their places). Fixed; they're back.</li>
+      <li><strong>Baked sun shadows</strong> on the canyon's floor and the grove's terraces, cast from every butte, arch, tree and gate toward each stage's own sun, plus full-strength contact shade in the distance.</li>
+    </ol>
+    <div class="row" role="group" aria-label="View"><button data-sp="pilot">Today (left) and the pilot (right)</button><button data-sp="arch">The canyon's arch up close</button></div>
+    <div class="viewer"><img id="spimg" alt="Sun shadow pilot"><span class="vtag" id="sptag"></span></div>
+    <p class="muted">Honest result: the shadows read as soft darkening (the arch's legs across the floor, the trees on the terraces), not the reference's crisp drop shadows. Baked into the models' vertices they can't be sharper without far heavier models, and the haze lifts them further. Frame time is unchanged (canyon 297 fps, grove 249 fps); the grove's ground grew from about 2 to 6.8 MB and the canyon's from 1.3 to 4.2 MB. For crisp shadows the next step is either finding why the engine's shadows stop at the play area (engine-level digging, the best result if it works) or baking the shadows into a texture.</p>
+  </section>
+
+  <section class="panel" aria-labelledby="g5-h" id="graphics5">
+    <div class="eyebrow">Graphics review, every stage (the order: grounding first, piloted above)</div>
+    <h2 id="g5-h">What every stage is missing, graphically</h2>
+    <p>You were right that the ground work had turned into redesign. This review leaves layout alone and looks only at rendering: shadows, light, atmosphere, materials, sky and water. The meadow's shelf pilot is parked; the grove's terraces stay as shipped. Written up in docs/art/stages/GRAPHICS_REVIEW.md.</p>
+    <h3>Game-wide gaps (one system each, every stage gains)</h3>
+    <ol style="display:grid;gap:8px;margin:0;padding-left:1.2em;max-width:78ch">
+      <li><strong>Nothing in the background is grounded.</strong> The windmill, cottages, pines, torii, trestle, buttes, houses and boats cast no shadow you can see, so each sits on the land like a cut-out. The sun's shadows stop 70 units from the camera, where the background starts. I tested them out to 320 units: no frame-time cost, but they barely read, because cast shadows are kept light and the haze washes the far ground. <b>Fix:</b> bake the sun's shadow into the background the way contact shade is baked now, so every tree, house and butte lays a crisp, cool shadow on the land at no runtime cost. <b>The biggest gain.</b></li>
+      <li><strong>The air washes the middle distance grey.</strong> Saturation there: beach town 0.12, grove terraces 0.17, meadow hills 0.21, and the canyon's middle is one pink value. The references keep it clear and coloured (the camp's grass about 0.7). <b>Fix:</b> retune the air per stage: start later, lift less, keep the hue. Quick.</li>
+      <li><strong>Background surfaces are one flat tone per face.</strong> Hills, terrace tops, walls, butte faces. The print and lit bevels only read up close. <b>Fix:</b> a background layer in the shader: a soft gradient by height and facing, plus large-scale mottling that reads at distance.</li>
+      <li><strong>Plain skies.</strong> Smaller gain.</li>
+    </ol>
+    <div class="row" role="group" aria-label="Evidence"><button data-g5="crops">Background close-ups</button><button data-g5="shadow">Shadow test (left today, right 320 units)</button></div>
+    <div class="viewer"><img id="g5img" alt="Graphics review evidence"><span class="vtag" id="g5tag"></span></div>
+    <h3>Per stage</h3>
+    <div class="tablewrap"><table><thead><tr><th>Stage</th><th>Missing (graphics, not layout)</th></tr></thead><tbody>
+      <tr><td>Meadow</td><td>Shadows under the windmill, cottages, pines and haystacks; a pale middle distance at one value; the grass lacks the reference's lime and its light and dark patches.</td></tr>
+      <tr><td>Grove</td><td>Trees, gates and the tree village cast nothing on the terraces; flat green terrace tops; a flat violet abyss with no glow or depth (the reference's misty light, soft shafts); a greyed middle distance.</td></tr>
+      <tr><td>Beach</td><td>Water one bright cyan with stripe ripples (the reference: clear turquoise, see-through near the pier, soft highlights, darker with depth); a grey, washed town; no shadows from boats or houses; no long late-afternoon shadows.</td></tr>
+      <tr><td>Canyon</td><td>No long sunset shadows from the buttes and arch across the floor; the middle distance one pink value; flat floor sheets.</td></tr>
+      <tr><td>City</td><td>Flat slab towers (windows painted on, no facade depth, no shade where buildings meet); lit windows that don't glow; a flat magenta sky.</td></tr>
+    </tbody></table></div>
+    <h3>Recommended order</h3>
+    <ol style="display:grid;gap:6px;margin:0;padding-left:1.2em;max-width:78ch">
+      <li>Baked sun shadows and contact for the background, piloted on the canyon (long sunset shadows) and the grove (trees on the terraces).</li>
+      <li>The air retune, stage by stage.</li>
+      <li>The background material layer, piloted on the meadow's hills and the grove's terraces.</li>
+      <li>Per stage: the beach's water, then the city's facades and window glow.</li>
+      <li>Skies.</li>
+    </ol>
+  </section>
+
+  <section class="panel" aria-labelledby="mh-h" id="meadowh">
+    <div class="eyebrow">Parked &middot; the meadow's ground, from its own reference (redesign, set aside for the graphics review)</div>
+    <h2 id="mh-h">The meadow's ground after the papercraft camp</h2>
+    <p>The meadow's reference is the papercraft camp under the blue mountains. Its ground is a few broad shelves of bright lime grass, each ending in a crisp dark ledge under a grass lip; pale paths cross the shelves; dense belts of big dark pines stand behind, taller than the buildings. Ours was pale rounded field patches on one smooth slope, with small pine clusters.</p>
+    <p>The pilot, on the grove's rules:</p>
+    <ul style="display:grid;gap:6px;margin:0;padding-left:1.2em;max-width:75ch">
+      <li><strong>Shelves:</strong> the rise as five broad lime shelves, each ending in a dark green-grey ledge (the reference's ledge colour) under a scalloped lip. The ledges wander out into promontories, and along their length two shelves run together in places, so no ledge crosses the frame as a stripe.</li>
+      <li><strong>Lanes:</strong> the two lanes cross the shelves and step down each ledge on stairs cut into it.</li>
+      <li><strong>Trees:</strong> belts of pines along the near hills, all at one large size (about 15 tall), and the clusters by the windmill and the cottages a size up. The windmill and the cottages stay in view.</li>
+      <li><strong>Detail:</strong> tufts and flowers over the shelves. The farm is seated on its shelf.</li>
+    </ul>
+    <div class="row" role="group" aria-label="View"><button data-mv="w">Wide</button><button data-mv="m">Match camera</button><button data-mv="r">Reference</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-mo="T">Today</button><button data-mo="H">Pilot</button></div>
+    <div class="viewer"><img id="mimg" alt="Meadow ground pilot"><span class="vtag" id="mtag"></span></div>
+    <p class="muted">Still to refine if this is the direction: the stairs are a little pale and prominent, and the far hills behind the pines are still plain card.</p>
+  </section>
+
+  <section class="panel" aria-labelledby="gh-h" id="hero">
+    <div class="eyebrow">Built &middot; the background ground, a new approach (the grove shipped as pilot 4)</div>
+    <h2 id="gh-h">Why the ground wasn't moving, and a pilot on the grove</h2>
+    <p>You said the grove's floating islands didn't feel like progress. Looking at our grounds next to the references, the reason is the same on all four stages: for three rounds we changed the <i>pattern</i> on the land (stripes, then patchwork fields, floating islands, sand sheets) but not its <i>structure</i>.</p>
+    <ul style="display:grid;gap:6px;margin:0;padding-left:1.2em;max-width:75ch">
+      <li><strong>Thin sheets, not masses.</strong> Our land is flat sheets lit the same all over and lifted by the haze, so it sits in one band of mid values. The references' ground is mass: a thick top with an overhanging lip, rock or earth under it turning away into shade, and dark gaps between the pieces. At background distance the light and dark of those masses is what reads; a pattern on a flat sheet blurs away.</li>
+      <li><strong>Many small, repeated things.</strong> Fields, islands and sand sheets dozens at a time turn into texture at that distance. The references use a few big, distinct pieces.</li>
+      <li><strong>Detail spread evenly.</strong> The references put their detail where the eye lands: the lips, with fringed grass, ferns and hanging vines. The faces stay simple and dark.</li>
+    </ul>
+    <p>The pilot rebuilds the grove's ledges on those rules: each ledge broken into a few big chunks at their own heights and depths, with dark gaps between them; a thick grass top whose lip overhangs in a scalloped fringe, with ferns and vines hanging from it; under it, dark cardboard rock blocks with faceted fronts that step back into a violet abyss; deep baked shade under every lip. The side trees and gates keep their footing.</p>
+    <p><b>Pilot 2, after your notes (the islands didn't read as believable, trees floated, every island faced the same way, some trees were too short):</b> the land is now connected. Two terraces either side and one right across the back stand round the chasm the island floats in, and each terrace's front rises from the one before it. Their edges wander out into promontories and turn back into the chasm, so the cliffs face every way. Every pine is seated on the top it stands on, clear of the edges, and the pines are bigger and fewer. The far tree village stands on the back terrace. Tufts break up the tops.</p>
+    <p><b>Pilot 3, your ask:</b> the terraces in a half-circle round the stage. Three tiers, each a band of the arc, run from beside the stage round behind it, each rising from the one in front, so the island floats in a bowl of cliffs. The left and right halves of the two nearer tiers meet straight behind the great tree, each at its own height. The side trees, the gates and the far tree village keep their footing.</p>
+    <p><b>Pilot 4, after your notes on the trees:</b> the terraces now stand the grove's own tree (the side trees' model) at the side trees' size, as the reference's forest is all one kind of giant. They replace the small paper pines, which read as shrubs. Each tree is seated on the grass and kept clear of the edges, the gates, the village's trees and the others. The cliffs have wider, taller blocks with moss on the ledges each block leaves as it steps back, and the tops have flowers among the tufts. Frame time: the GPU at 2.7 ms (2.35 today), 183 fps.</p>
+    <div class="row" role="group" aria-label="View"><button data-hv="w">Wide</button><button data-hv="m">Match camera</button><button data-hv="r">Reference</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-gho="T">Today (floating islands)</button><button data-gho="H">Pilot 1 (broken ledges)</button><button data-gho="H2">Pilot 2 (connected terraces)</button><button data-gho="H3">Pilot 3 (half-circle)</button><button data-gho="H4">Pilot 4 (one kind of tree)</button></div>
+    <div class="viewer"><img id="ghimg" alt="Grove ground pilot"><span class="vtag" id="ghtag"></span></div>
+    <p class="muted">It isn't finished: the blocks still read a little like stacked boxes in the wide view, and the far ledges' tops line up. But the frame now has the reference's light-over-dark structure. If this is the direction, I'd take the same rules to the other three stages:</p>
+    <ul style="display:grid;gap:6px;margin:0;padding-left:1.2em;max-width:75ch">
+      <li><strong>Meadow:</strong> the land behind as two or three big overlapping hill masses: grass draped over earth banks with the soil showing at the cut edges, hedgerows along the crests, shaded sides, in place of fields laid flat on one slope.</li>
+      <li><strong>Beach:</strong> the town's hill and the islands with grass tops draped over pale sandstone cliff blocks, and the beaches as their own sheets at the waterline.</li>
+      <li><strong>Canyon:</strong> the floor as a few big dune masses with shaded lee sides, and low rock steps at its edges, in place of flat sheets with ripple lines.</li>
+    </ul>
+  </section>
+
+  <section class="panel" aria-labelledby="bt-h" id="buttes">
+    <div class="eyebrow">Built &middot; review 4, items 3 and 4</div>
+    <h2 id="bt-h">The canyon's buttes in cardboard</h2>
+    <p><b>Built (2026-10-21):</b> buttes C, and the light pass B with C's late-afternoon beach. Before and after: the meadow, the beach wide, the grove, the canyon wide.</p>
+    <div class="viewer"><img src="../../buttes_light_built.jpg" alt="Before and after the cardboard buttes and the light pass"></div>
+    <p>Today's buttes and arch are stacks of rounded discs that read as pancakes, unlike the stage's own slab front and the references' chunky cardboard rock (a few big flat planes, bevelled edges, stepped ledges). Each option is on the new sand floor.</p>
+    <div class="tablewrap"><table><thead><tr><th>Option</th><th>What it is</th></tr></thead><tbody>
+      <tr><td>A &middot; Cardboard blocks</td><td>Every butte two or three tiers of angular blocks with bevelled tops, stepping in as they rise, each tier banded in the strata; the arch's legs in blocks, its span three bevelled beams</td></tr>
+      <tr><td>B &middot; Slab courses</td><td>Built as the stage's front is: rows of squared slabs of the strata, stepping in near the top</td></tr>
+      <tr><td>C &middot; Blocks and fallen rock</td><td>A, with notched crowns (the top split into blocks of different heights) and fallen blocks round the feet</td></tr>
+    </tbody></table></div>
+    <p class="muted">B ties the buttes to the front, but in the distance its courses read as brick walls or crates rather than rock. A and C read as rock; C's broken crowns and fallen blocks make them look weathered. My pick: <b>C</b>.</p>
+    <div class="row" role="group" aria-label="View"><button data-bv="w">Wide</button><button data-bv="m">Match camera</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-bo="T">Today</button><button data-bo="A">A &middot; Cardboard blocks</button><button data-bo="B">B &middot; Slab courses</button><button data-bo="C">C &middot; Blocks and fallen rock</button></div>
+    <div class="viewer"><img id="bimg" alt="Canyon butte option"><span class="vtag" id="btag"></span></div>
+    <h2 id="li-h" style="margin-top:12px">The light pass</h2>
+    <p>Review 4's light items: the lawns read flat since the scenery's ink went, the meadow's and the beach's distance is milky, and the beach has no mood. Each option adds to the one before it.</p>
+    <div class="tablewrap"><table><thead><tr><th>Option</th><th>What it changes</th></tr></thead><tbody>
+      <tr><td>A &middot; Form on the ground</td><td>Every play top falls softly into a cool shade toward its front edge (the meadow's lawn from 0.78 at the back to 0.63 at the front, was 0.79 to 0.70), and the day stages' sun sits a little lower so props and banks model more</td></tr>
+      <tr><td>B &middot; Coloured distance</td><td>A, with the air lifting the far scenery toward a clearer haze without greying it (the meadow's distance from saturation 0.26 to 0.39)</td></tr>
+      <tr><td>C &middot; Late afternoon at the beach</td><td>B, with the beach under a low warm sun: a peach horizon, warm light on the town and the pier, cool blue shade (only the beach changes)</td></tr>
+    </tbody></table></div>
+    <p class="muted">A is clearest on the meadow and the grove, at the front of the lawn; B on the meadow's mountains. C is the biggest change on the beach, but its sea stays the midday cyan, so it reads as a warm sky over a bright sea; built, the sea would warm a little too. My pick: <b>B</b>, and C if you want the beach to have a time of day.</p>
+    <div class="row" role="group" aria-label="Stage"><button data-ls="meadow">Meadow</button><button data-ls="beach">Beach</button><button data-ls="beachw">Beach wide</button><button data-ls="grove">Grove</button><button data-ls="canyon">Canyon</button><button data-ls="city">City</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-lt="T">Today</button><button data-lt="A">A &middot; Form</button><button data-lt="B">B &middot; Coloured distance</button><button data-lt="C">C &middot; Late afternoon (beach)</button></div>
+    <div class="viewer"><img id="liimg" alt="Light pass option"><span class="vtag" id="litag"></span></div>
+  </section>
+
+  <section class="panel" aria-labelledby="ld-h" id="lands">
+    <div class="eyebrow">Built &middot; the backgrounds audit, round 2</div>
+    <h2 id="ld-h">The grove's land and the canyon's floor</h2>
+    <p><b>Built (2026-10-21):</b> grove B (floating islands with moss and tufts) and canyon C (sand sheets, the dry wash, paper scrub and stones). Before and after, wide:</p>
+    <div class="viewer"><img src="../../lands_built.jpg" alt="Grove and canyon before and after the new land"></div>
+    <p>The same method as the meadow, on the two stages review 4 scored lowest for background land (2 of 5 each). The grove's land was flat teal stripes either side of the island over one dark band; the canyon's floor one plain sand sheet.</p>
+    <h3>The grove</h3>
+    <p>The grove's island already floats over the abyss, as the reference grove floats its land. These options break the striped ledges into floating islands in the same family: each a grass sheet whose lip drapes over its edge, above a stone underside stepping down to a point, at varied heights and sizes, over a sea of pale violet mist in place of the dark band. The two side trees keep their own islands.</p>
+    <div class="tablewrap"><table><thead><tr><th>Option</th><th>What it adds</th></tr></thead><tbody>
+      <tr><td>A &middot; Floating ledges</td><td>The islands and the mist</td></tr>
+      <tr><td>B &middot; Moss and tufts</td><td>A, with moss hanging down the stone, and tufts, flowers and stones on the tops</td></tr>
+      <tr><td>C &middot; The far forest</td><td>B, with rows of giant trunks behind, rising from the mist and fading into the violet, as in the reference forest</td></tr>
+    </tbody></table></div>
+    <p class="muted">The biggest change on any stage this round: the grove reads as a place in the sky rather than a lawn with stripes. The bushes that stood on the old ledge behind the play area are gone with it (they would float), and the trunks of C are faint at the match camera. My pick: <b>B</b>. The moss ties the islands to the main island's leafy underside; C's trunks crowd the tree village behind.</p>
+    <div class="row" role="group" aria-label="View"><button data-lv="w">Wide</button><button data-lv="m">Match camera</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-lo="T">Today</button><button data-lo="A">A &middot; Floating ledges</button><button data-lo="B">B &middot; Moss and tufts</button><button data-lo="C">C &middot; The far forest</button></div>
+    <div class="viewer"><img id="limg" alt="Grove land option"><span class="vtag" id="ltag"></span></div>
+    <h3>The canyon</h3>
+    <p>The floor laid over with long cut sheets of sand in three tones round the floor's own, each a little lifted with its cut edge showing, wind ripples drawn on some. The buttes stay as they ship (they are the next item in the order).</p>
+    <div class="tablewrap"><table><thead><tr><th>Option</th><th>What it adds</th></tr></thead><tbody>
+      <tr><td>A &middot; Dune sheets</td><td>The sheets and their ripples</td></tr>
+      <tr><td>B &middot; A dry wash</td><td>A, with a pale wash winding in from the far right through the gap in the buttes to the front, pebbles along its banks</td></tr>
+      <tr><td>C &middot; Scrub and stones</td><td>B, with scrub and stones in paper, each with a soft shade under it, in place of today's round scrub</td></tr>
+    </tbody></table></div>
+    <p class="muted">The floor reads most at the wide camera; at the match camera only its left side shows below the arch. The wash runs where the telegraph poles do, so it also reads as the road they follow. My pick: <b>C</b>. The paper scrub matches the rest of the stage, where today's round puffs were the last code-built things on the floor.</p>
+    <div class="row" role="group" aria-label="View"><button data-fv="w">Wide</button><button data-fv="m">Match camera</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-fo="T">Today</button><button data-fo="A">A &middot; Dune sheets</button><button data-fo="B">B &middot; A dry wash</button><button data-fo="C">C &middot; Scrub and stones</button></div>
+    <div class="viewer"><img id="fimg" alt="Canyon floor option"><span class="vtag" id="ftag"></span></div>
+  </section>
+
+  <section class="panel" aria-labelledby="r4-h" id="review4">
+    <div class="eyebrow">Fidelity review 4 &middot; every stage scored, the pain points ranked</div>
+    <h2 id="r4-h">Where the stages stand</h2>
+    <p>A step back from the details: every stage as it ships, scored 1 to 5 (5 = hard to tell apart in quality from the references), measured in review 3's regions. The categories are finer than review 3's, so the backgrounds and the world are scored apart from the play area. There are five stages, so all five are here. Written up in docs/art/stages/FIDELITY_REVIEW_4.md.</p>
+    <div class="tablewrap"><table><thead><tr><th>Stage</th><th>Light</th><th>Surfaces</th><th>Play area and front</th><th>Background land</th><th>Sky</th><th>World and life</th><th>Cohesion</th><th>Readability</th><th>Mean</th></tr></thead><tbody><tr><th scope="row">Meadow</th><td class="c"><span class="score v4">4</span></td><td class="c"><span class="score v4">4</span></td><td class="c"><span class="score v4">4</span></td><td class="c"><span class="score v3">3</span></td><td class="c"><span class="score v3">3</span></td><td class="c"><span class="score v4">4</span></td><td class="c"><span class="score v4">4</span></td><td class="c"><span class="score v4">4</span></td><td class="c"><b>3.8</b></td></tr><tr><th scope="row">Beach</th><td class="c"><span class="score v3">3</span></td><td class="c"><span class="score v4">4</span></td><td class="c"><span class="score v4">4</span></td><td class="c"><span class="score v4">4</span></td><td class="c"><span class="score v3">3</span></td><td class="c"><span class="score v4">4</span></td><td class="c"><span class="score v4">4</span></td><td class="c"><span class="score v4">4</span></td><td class="c"><b>3.8</b></td></tr><tr><th scope="row">Grove</th><td class="c"><span class="score v4">4</span></td><td class="c"><span class="score v3">3</span></td><td class="c"><span class="score v4">4</span></td><td class="c"><span class="score v2">2</span></td><td class="c"><span class="score v3">3</span></td><td class="c"><span class="score v4">4</span></td><td class="c"><span class="score v3">3</span></td><td class="c"><span class="score v4">4</span></td><td class="c"><b>3.4</b></td></tr><tr><th scope="row">City</th><td class="c"><span class="score v4">4</span></td><td class="c"><span class="score v3">3</span></td><td class="c"><span class="score v3">3</span></td><td class="c"><span class="score v4">4</span></td><td class="c"><span class="score v3">3</span></td><td class="c"><span class="score v4">4</span></td><td class="c"><span class="score v3">3</span></td><td class="c"><span class="score v3">3</span></td><td class="c"><b>3.4</b></td></tr><tr><th scope="row">Canyon</th><td class="c"><span class="score v4">4</span></td><td class="c"><span class="score v3">3</span></td><td class="c"><span class="score v4">4</span></td><td class="c"><span class="score v2">2</span></td><td class="c"><span class="score v3">3</span></td><td class="c"><span class="score v4">4</span></td><td class="c"><span class="score v3">3</span></td><td class="c"><span class="score v3">3</span></td><td class="c"><b>3.2</b></td></tr><tr><th scope="row">Mean</th><td class="c"><b>3.8</b></td><td class="c"><b>3.4</b></td><td class="c"><b>3.8</b></td><td class="c"><b>3.0</b></td><td class="c"><b>3.0</b></td><td class="c"><b>4.0</b></td><td class="c"><b>3.4</b></td><td class="c"><b>3.6</b></td><td class="c"><b>3.5</b></td></tr></tbody></table></div>
+    <p><b>Strongest:</b> world and life (4 everywhere), the play areas and fronts, the light. <b>Weakest:</b> the background land and the skies (3.0 each). The near is modelled, printed and lit; the far is still the first-pass shapes, stripes and crystal clouds.</p>
+    <h3>Pain points, ranked (the number on the left is the rank, the chip the severity)</h3>
+    <div class="weak"><div class="sev"><span class="num">1</span><span class="score v2">4</span></div><div style="display:grid;gap:4px;min-width:0"><h3 style="margin:0">1. Background land in stripes and plain sheets</h3><p class="muted" style="margin:0">Meadow, grove, canyon</p><p style="margin:0">The meadow's hills are mint stripes edge to edge, the grove's terraces teal stripes over a flat dark band, the canyon's floor one plain sand sheet. The references lay land as overlapping cut sheets with organic edges, paths and small things on them. The meadow's patchwork is mocked below.</p></div></div><div class="weak"><div class="sev"><span class="num">2</span><span class="score v2">4</span></div><div style="display:grid;gap:4px;min-width:0"><h3 style="margin:0">2. The canyon's buttes and arch</h3><p class="muted" style="margin:0">Canyon</p><p style="margin:0">Stacks of rounded discs that read as pancakes, unlike the slab front and the references' chunky cardboard rock; they fill the middle distance.</p></div></div><div class="weak"><div class="sev"><span class="num">3</span><span class="score v3">3</span></div><div style="display:grid;gap:4px;min-width:0"><h3 style="margin:0">3. Crystal clouds and plain skies</h3><p class="muted" style="margin:0">All</p><p style="margin:0">Faceted puffs that read as crystal beside the card smoke and the references' flat card clouds; the skies plain gradients. Card clouds are mocked below.</p></div></div><div class="weak"><div class="sev"><span class="num">4</span><span class="score v3">3</span></div><div style="display:grid;gap:4px;min-width:0"><h3 style="margin:0">4. The beach's flat light</h3><p class="muted" style="margin:0">Beach</p><p style="margin:0">Unchanged since review 3: plain midday, no mood but the ripple rings.</p></div></div><div class="weak"><div class="sev"><span class="num">5</span><span class="score v3">3</span></div><div style="display:grid;gap:4px;min-width:0"><h3 style="margin:0">5. Lawns without form</h3><p class="muted" style="margin:0">Meadow, grove</p><p style="margin:0">Since the scenery's ink went, the lawns read flat (the meadow's contrast fell from 0.122 to 0.076); the grove's is also pale and washed (0.79). The light should model them instead.</p></div></div><div class="weak"><div class="sev"><span class="num">6</span><span class="score v3">3</span></div><div style="display:grid;gap:4px;min-width:0"><h3 style="margin:0">6. The city behind the fight</h3><p class="muted" style="margin:0">City</p><p style="margin:0">The most contrasty background on any stage (0.155) right behind the fighters, under a dark, saturated sky; the scaffold platforms still code-built lattice beside the modelled brownstone.</p></div></div><div class="weak"><div class="sev"><span class="num">7</span><span class="score v4">2</span></div><div style="display:grid;gap:4px;min-width:0"><h3 style="margin:0">7. The canyon's heavy front</h3><p class="muted" style="margin:0">Canyon</p><p style="margin:0">Dark and saturated (value 0.30, saturation 0.60), it weighs down the lower half of the frame.</p></div></div><div class="weak"><div class="sev"><span class="num">8</span><span class="score v4">2</span></div><div style="display:grid;gap:4px;min-width:0"><h3 style="margin:0">8. Milky distance</h3><p class="muted" style="margin:0">Meadow, beach</p><p style="margin:0">The meadow's far left is nearly grey (saturation 0.09); the references' distance stays coloured, cooler and lighter.</p></div></div><div class="weak"><div class="sev"><span class="num">9</span><span class="score v4">2</span></div><div style="display:grid;gap:4px;min-width:0"><h3 style="margin:0">9. One long line across the canyon</h3><p class="muted" style="margin:0">Canyon</p><p style="margin:0">The trestle and its train cross the whole frame just above the platforms' height; the eye runs along it.</p></div></div>
+    <h3>The order, by gain against effort</h3>
+    <ol style="display:grid;gap:6px;margin:0;padding-left:1.2em;max-width:75ch"><li><strong>The background land:</strong> The meadow's patchwork first (mocked), then the grove's terraces and abyss, then the canyon's floor. The highest gain left, one method across three stages.</li><li><strong>Card clouds:</strong> Mocked, cheap, every stage.</li><li><strong>Cardboard buttes:</strong> The canyon's biggest gain; with its new floor it rebuilds the canyon's middle distance.</li><li><strong>A light pass:</strong> Form on the lawns, a mood for the beach (late afternoon), coloured rather than grey distance. Settings and shader work on every stage.</li><li><strong>The city's backdrop:</strong> Quieter towers behind the play area; the scaffolds remodelled.</li><li><strong>Smaller fixes:</strong> The canyon's front a step lighter and calmer; the trestle lower, or broken by the buttes.</li></ol>
+    <h3>Every stage as it ships</h3>
+    <div class="row" role="group" aria-label="Stage"><button data-rs="meadow">Meadow</button><button data-rs="beach">Beach</button><button data-rs="grove">Grove</button><button data-rs="city">City</button><button data-rs="canyon">Canyon</button></div>
+    <div class="row" role="group" aria-label="View"><button data-rv="m">Match camera</button><button data-rv="w">Wide</button></div>
+    <div class="viewer"><img id="rimg" alt="Stage as it ships"><span class="vtag" id="rtag"></span></div>
+  </section>
+
+  <section class="panel" aria-labelledby="mg-h" id="grounds">
+    <div class="eyebrow">Built &middot; the backgrounds audit, round 1</div>
+    <h2 id="mg-h">The meadow's ground as patchwork, and clouds cut from card</h2>
+    <p><b>Built (2026-10-21):</b> ground B on the meadow, and the card clouds on every stage with clouds. Before and after, the meadow and the beach wide:</p>
+    <div class="viewer"><img src="../../ground_clouds_built.jpg" alt="Meadow and beach before and after the new ground and card clouds"></div>
+    <p>The audit's first two items (docs/art/stages/BACKGROUNDS.md). The meadow's land behind the stage was horizontal mint stripes edge to edge. These options lay it as the references do: fields of card in rounded, hand-cut shapes along the hills, each lifted over the land with its cut edge showing, in the palette's greens and a little wheat, with the land's own green between them as the field edges. The stage's own terraced hill stays as it is.</p>
+    <div class="tablewrap"><table><thead><tr><th>Option</th><th>What it adds</th></tr></thead><tbody>
+      <tr><td>A &middot; Patchwork</td><td>The fields of card, no stripes</td></tr>
+      <tr><td>B &middot; Lanes and hedgerows</td><td>A, with two pale lanes winding down the rise either side of the stage, and hedgerows rolled along some fields' lower edges</td></tr>
+      <tr><td>C &middot; Detail and shade</td><td>B, with bushes, stones and flowers dotted over the fields, each casting a soft shade on the field under it, and deeper shade in the creases</td></tr>
+    </tbody></table></div>
+    <p class="muted">The change is biggest at the wide camera; at the match camera the hills behind the fence go from stripes to small fields under the haze. My pick: <b>B</b>. The lanes give the land a reason and lead the eye, and C's dotted things barely read at play distance for their cost (B's land is heavy as it stands, about 130,000 triangles; built for the game it would be trimmed to what the camera sees).</p>
+    <div class="row" role="group" aria-label="View"><button data-gv="w">Wide</button><button data-gv="m">Match camera</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-go="T">Today</button><button data-go="A">A &middot; Patchwork</button><button data-go="B">B &middot; Lanes and hedgerows</button><button data-go="C">C &middot; Detail and shade</button></div>
+    <div class="viewer"><img id="gimg" alt="Meadow ground option"><span class="vtag" id="gtag"></span></div>
+    <h3>Card clouds, every stage</h3>
+    <p>Today's clouds are folded, faceted puffs that read as crystal beside the cut-card smoke and the references' flat clouds. The card clouds are flat cumulus cut from thick card, a scalloped crown on a flat base, with a deeper card behind each; still lit from the stage's sun and drifting as before. My pick: <b>the card clouds</b>.</p>
+    <div class="row" role="group" aria-label="Stage"><button data-cs="meadow">Meadow</button><button data-cs="canyon">Canyon</button><button data-cs="beach">Beach</button><button data-cs="city">City</button><button data-cs="grove">Grove</button></div>
+    <div class="row" role="group" aria-label="View"><button data-cv="w">Wide</button><button data-cv="m">Match camera</button></div>
+    <div class="row" role="group" aria-label="Clouds"><button data-co="T">Today</button><button data-co="K">Card clouds</button></div>
+    <div class="viewer"><img id="cimg" alt="Clouds option"><span class="vtag" id="ctag"></span></div>
+  </section>
+
+  <section class="panel" aria-labelledby="wq-h" id="worldq">
+    <div class="eyebrow">Built &middot; the world pieces' quality pass (shipped)</div>
+    <h2 id="wq-h">The world pieces, rebuilt to match the scenery</h2>
+    <p>Your note: the newer background pieces did not match the rest of the scenery's style or quality. They were quick mock builds shipped as they were: flat colour with no print, primitive shapes (boxes, cards, low-poly balls), none of the paper construction the props and houses have. Now they take the scenery's hatched print and are rebuilt in the props' language:</p>
+    <div class="tablewrap"><table><thead><tr><th>Piece</th><th>Before</th><th>After</th></tr></thead><tbody>
+      <tr><td>Billboard (city)</td><td>Two hot rectangles on a board</td><td>A framed, lit poster of cut-paper shapes (a sun over waves, lettering) in the night palette, on a braced scaffold with a catwalk and hood lamps</td></tr>
+      <tr><td>People (city)</td><td>A disc on a rectangle</td><td>Layered paper dolls: legs, a coat with arms, a big round head with a cap of hair</td></tr>
+      <tr><td>Train (canyon)</td><td>Boxes on rings</td><td>A banded boiler with its smokebox door, domes and a flared stack, a cab with windows, a cowcatcher, spoked wheels with a rod; boxcars plank-scored, roofed, with doors and bogies</td></tr>
+      <tr><td>Water tower (canyon)</td><td>A plain tank on legs</td><td>Iron hoops, braced legs, a ladder</td></tr>
+      <tr><td>Smoke (meadow, train)</td><td>Low-poly balls</td><td>Cut-card puffs, scalloped and thick</td></tr>
+      <tr><td>Haystacks (meadow)</td><td>A plain dome (read as a mushroom)</td><td>Rolled and a little uneven, two straw ropes, a twist on top</td></tr>
+      <tr><td>Far trees (grove)</td><td>Cone umbrellas</td><td>Pleated tiers, as the grove's own pines</td></tr>
+      <tr><td>Boats (beach)</td><td>Flat card sides</td><td>Lofted hulls with rolled gunwales; the fishing boat's lit wheelhouse, life ring and fenders; the rowboat's thwarts</td></tr>
+      <tr><td>Bus, gates, crates</td><td>Plain boxes and bars</td><td>A rounded bus with a stripe and hubs; gates with swept-up beams, bases and a plaque; slatted crates</td></tr>
+    </tbody></table></div>
+    <p class="muted">The paper houses take the hatched print now too (their timber, trim, doors and roofs). In the game now: the rebuilt set replaced the old pieces on every stage.</p>
+    <h3>At play distance, 2x crops (before left, after right): the city, the canyon and the meadow, the grove, the beach</h3>
+    <div class="viewer"><img src="wq_crops.jpg" alt="Before and after crops of the rebuilt world pieces on every stage"></div>
+    <h3>The whole frame</h3>
+    <div class="row" role="group" aria-label="Stage"><button data-qs="city">City</button><button data-qs="canyon">Canyon</button><button data-qs="meadow">Meadow</button><button data-qs="grove">Grove</button><button data-qs="beach">Beach</button></div>
+    <div class="row" role="group" aria-label="Version"><button data-qo="T">Before</button><button data-qo="N">After</button></div>
+    <div class="viewer"><img id="qimg" alt="World pieces before or after"><span class="vtag" id="qtag"></span></div>
+  </section>
+
+  <section class="panel" aria-labelledby="built-h" id="built">
+    <div class="eyebrow">In the game</div>
+    <h2 id="built-h">Both picks built</h2>
+    <p>The scenery has no ink now, its edges lit as card bevels, and the far towns stand in the houses at the characters' proportions with bell and gambrel roofs. The fighters keep all their ink. Before (left) and after: the meadow, the beach, the city.</p>
+    <div class="viewer"><img src="../../look_built.jpg" alt="The meadow, the beach and the city before and after"></div>
+  </section>
+
+  <section class="panel" aria-labelledby="ink-h" id="ink">
+    <div class="eyebrow">Built &middot; lesson 1 (your pick: B, lit bevels)</div>
+    <h2 id="ink-h">Scenery without ink</h2>
+    <p>The reference's world has no outlines: only the characters are drawn round, and every other edge is told by a lit bevel and soft shade where things meet. Today our scenery carries a soft violet hull outline and a screen line at half strength. The fighters keep all their ink in every option.</p>
+    <div class="tablewrap"><table><thead><tr><th>Option</th><th>What changes</th></tr></thead><tbody>
+      <tr><td>Today</td><td>Violet outlines round props, fronts and platforms; screen lines at 0.4</td></tr>
+      <tr><td>A &middot; No ink</td><td>The scenery's outlines and screen lines off; the lit edge as today</td></tr>
+      <tr><td>B &middot; Lit bevels</td><td>A, with the lit card edges twice as strong</td></tr>
+      <tr><td>C &middot; Lit bevels and soft shade</td><td>B, with deeper soft occlusion in every crease (this also deepens the shade where a fighter's pieces meet)</td></tr>
+    </tbody></table></div>
+    <p class="muted">History: on 19 October you retired the whole "paper look" trial, which also changed the light (a softer, cooler shade). These options change only the lines and the edges; the light stays as it is. My pick: <b>B</b>. It is the reference's edge, and C's deeper shade also darkens the fighters' joins.</p>
+    <h3>Up close, 2x crops of the match camera (today, A on top; B, C below)</h3>
+    <div class="viewer"><img src="ink_meadow_crops.jpg" alt="The meadow's bales and fence: today, A, B, C"><span class="vtag">Meadow</span></div>
+    <div class="viewer"><img src="ink_city_crops.jpg" alt="The city's water tower and crates: today, A, B, C"><span class="vtag">City</span></div>
+    <h3>Every stage</h3>
+    <div class="row" role="group" aria-label="Stage"><button data-is="meadow">Meadow</button><button data-is="canyon">Canyon</button><button data-is="beach">Beach</button><button data-is="city">City</button><button data-is="grove">Grove</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-io="T">1 &middot; Today</button><button data-io="A">2 &middot; A</button><button data-io="B">3 &middot; B</button><button data-io="C">4 &middot; C</button></div>
+    <div class="viewer"><img id="iimg" alt="Scenery ink option"><span class="vtag" id="itag"></span></div>
+  </section>
+
+  <section class="panel" aria-labelledby="hv-h" id="houses2">
+    <div class="eyebrow">Built &middot; lesson 2 (your pick: B, bell roofs)</div>
+    <h2 id="hv-h">Paper houses at the characters' proportions</h2>
+    <p>The reference's houses are as chibi as its people: a big arched door under walls only a little taller, a roof as tall as the walls with a deep, thick overhang, few and big windows in thick frames, and every detail a separate thick piece. Version 2 keeps your layered card and the same four houses, with those proportions and details: stones round each arched door, timber X braces, a stone base course, blue daylight glass, tall chimneys, and roof rows with their edges showing. Today is version 1, style B, as in the game now.</p>
+    <div class="tablewrap"><table><thead><tr><th>Option</th><th>Roofs and finish</th></tr></thead><tbody>
+      <tr><td>A &middot; Chunky</td><td>The proportions and details, straight roofs</td></tr>
+      <tr><td>B &middot; Bell</td><td>A, with flared bell roofs on the cottages and townhouses and gambrel roofs on the long houses and the barn</td></tr>
+      <tr><td>C &middot; Hand-made</td><td>B, with sagging ridges, walls leaning a touch and rippling roof rows</td></tr>
+    </tbody></table></div>
+    <p class="muted">My pick: <b>B</b>. The flared roofs are the reference's strongest shape; C's sag barely reads at play distance and can look broken up close.</p>
+    <h3>The four houses (studio light; A, B, C from the top; the yellow marker is a fighter's height)</h3>
+    <div class="viewer"><img src="hv2_sheets.jpg" alt="Version 2 houses in options A, B and C"></div>
+    <h3>At play distance, 2x crops of the match camera</h3>
+    <div class="viewer"><img src="hv2_crops.jpg" alt="The harbour town and the meadow's farm: today, A, B, C"><span class="vtag">Town: today, A (top) &middot; B, C &middot; then the farm: today, A, B, C</span></div>
+    <h3>The whole frame</h3>
+    <div class="row" role="group" aria-label="Stage"><button data-hs="beach">Beach</button><button data-hs="meadow">Meadow</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-ho="T">Today (v1)</button><button data-ho="A">A &middot; Chunky</button><button data-ho="B">B &middot; Bell</button><button data-ho="C">C &middot; Hand-made</button></div>
+    <div class="viewer"><img id="himg" alt="House version 2 option"><span class="vtag" id="htag"></span></div>
+  </section>
+</div>
+<script>
+(function () {
+  function group(attr, set, render) {
+    document.querySelectorAll("[" + attr + "]").forEach(function (b) {
+      b.addEventListener("click", function () { set(b.getAttribute(attr)); render(); });
+    });
+  }
+  function pressed(attr, value) {
+    document.querySelectorAll("[" + attr + "]").forEach(function (b) { b.setAttribute("aria-pressed", b.getAttribute(attr) === value ? "true" : "false"); });
+  }
+  var ist = "meadow", io = "B";
+  var IN = { meadow: "Meadow", canyon: "Canyon", beach: "Beach", city: "City", grove: "Grove" };
+  var IO = { T: "Today", A: "A \u00b7 No ink", B: "B \u00b7 Lit bevels", C: "C \u00b7 Lit bevels and soft shade" };
+  function irender() {
+    document.getElementById("iimg").src = "ink_" + ist + "_" + io + ".jpg";
+    document.getElementById("itag").textContent = IN[ist] + " \u00b7 " + IO[io];
+    pressed("data-is", ist); pressed("data-io", io);
+  }
+  group("data-is", function (v) { ist = v; }, irender);
+  group("data-io", function (v) { io = v; }, irender);
+  var hs = "beach", ho = "B";
+  var HS = { beach: "Beach", meadow: "Meadow" };
+  var HO = { T: "Today (v1)", A: "A \u00b7 Chunky", B: "B \u00b7 Bell", C: "C \u00b7 Hand-made" };
+  function hrender() {
+    document.getElementById("himg").src = "hv2_" + hs + "_" + ho + ".jpg";
+    document.getElementById("htag").textContent = HS[hs] + " \u00b7 " + HO[ho];
+    pressed("data-hs", hs); pressed("data-ho", ho);
+  }
+  group("data-hs", function (v) { hs = v; }, hrender);
+  group("data-ho", function (v) { ho = v; }, hrender);
+  document.addEventListener("keydown", function (e) {
+    var k = { "1": "T", "2": "A", "3": "B", "4": "C" }[e.key];
+    if (k && !e.target.matches("input")) { io = k; irender(); }
+  });
+  irender(); hrender();
+  var qs = "city", qo = "N";
+  var QS = { city: "City", canyon: "Canyon", meadow: "Meadow", grove: "Grove", beach: "Beach" };
+  function qrender() {
+    document.getElementById("qimg").src = "wq_" + qs + "_" + qo + ".jpg";
+    document.getElementById("qtag").textContent = QS[qs] + " \u00b7 " + (qo === "N" ? "After" : "Before");
+    pressed("data-qs", qs); pressed("data-qo", qo);
+  }
+  group("data-qs", function (v) { qs = v; }, qrender);
+  group("data-qo", function (v) { qo = v; }, qrender);
+  qrender();
+  var gv = "w", go = "B";
+  var GO = { T: "Today", A: "A \u00b7 Patchwork", B: "B \u00b7 Lanes and hedgerows", C: "C \u00b7 Detail and shade" };
+  function grender() {
+    document.getElementById("gimg").src = "mg_" + gv + "_" + go + ".jpg";
+    document.getElementById("gtag").textContent = "Meadow \u00b7 " + GO[go] + (gv === "w" ? " \u00b7 wide" : " \u00b7 match camera");
+    pressed("data-gv", gv); pressed("data-go", go);
+  }
+  group("data-gv", function (v) { gv = v; }, grender);
+  group("data-go", function (v) { go = v; }, grender);
+  grender();
+  var cs = "beach", cv = "w", co = "K";
+  var CS = { meadow: "Meadow", canyon: "Canyon", beach: "Beach", city: "City", grove: "Grove" };
+  function crender() {
+    document.getElementById("cimg").src = "cl_" + cs + "_" + cv + "_" + co + ".jpg";
+    document.getElementById("ctag").textContent = CS[cs] + " \u00b7 " + (co === "K" ? "Card clouds" : "Today");
+    pressed("data-cs", cs); pressed("data-cv", cv); pressed("data-co", co);
+  }
+  group("data-cs", function (v) { cs = v; }, crender);
+  group("data-cv", function (v) { cv = v; }, crender);
+  group("data-co", function (v) { co = v; }, crender);
+  crender();
+  var rs = "meadow", rv = "m";
+  var RS = { meadow: "Meadow", beach: "Beach", grove: "Grove", city: "City", canyon: "Canyon" };
+  function rrender() {
+    document.getElementById("rimg").src = "../../review4/rv4_" + rs + "_" + rv + ".jpg";
+    document.getElementById("rtag").textContent = RS[rs] + (rv === "m" ? " \u00b7 match camera" : " \u00b7 wide");
+    pressed("data-rs", rs); pressed("data-rv", rv);
+  }
+  group("data-rs", function (v) { rs = v; }, rrender);
+  group("data-rv", function (v) { rv = v; }, rrender);
+  rrender();
+  var qv = "w", mqo = "QA";
+  var MQO = { T: "Today", QA: "A · Tidy quilt", QB: "B · Big fields", QC: "C · Lawn" };
+  function qrender2() {
+    document.getElementById("mqimg").src = "mq_" + qv + "_" + mqo + ".jpg";
+    document.getElementById("mqtag").textContent = "Meadow · " + MQO[mqo] + (qv === "w" ? " · wide" : " · match camera");
+    pressed("data-qv", qv); pressed("data-mqo", mqo);
+  }
+  group("data-qv", function (v) { qv = v; }, qrender2);
+  group("data-mqo", function (v) { mqo = v; }, qrender2);
+  qrender2();
+  var rs2 = "close";
+  var RS2 = { close: "../../review5/shadows_close.jpg", all: "../../review5/shadows_built.jpg" };
+  function rs2render() {
+    document.getElementById("rs2img").src = RS2[rs2];
+    document.getElementById("rs2tag").textContent = "Before (left) and after (right)";
+    pressed("data-rs2", rs2);
+  }
+  group("data-rs2", function (v) { rs2 = v; }, rs2render);
+  rs2render();
+  var sp = "pilot";
+  var SP = { pilot: "../../review5/sun_pilot.jpg", arch: "../../review5/sun_arch.jpg" };
+  function sprender() {
+    document.getElementById("spimg").src = SP[sp];
+    document.getElementById("sptag").textContent = sp === "pilot" ? "Canyon and grove, wide and match camera: today left, pilot right" : "The canyon's arch: today left, pilot right";
+    pressed("data-sp", sp);
+  }
+  group("data-sp", function (v) { sp = v; }, sprender);
+  sprender();
+  var g5 = "crops";
+  var G5 = { crops: "../../review5/review5_crops.jpg", shadow: "../../review5/review5_shadow_test.jpg" };
+  function g5render() {
+    document.getElementById("g5img").src = G5[g5];
+    document.getElementById("g5tag").textContent = g5 === "crops" ? "Backgrounds up close: meadow, grove, canyon, beach, city, meadow" : "Grove and meadow, today (left) and shadows to 320 units (right)";
+    pressed("data-g5", g5);
+  }
+  group("data-g5", function (v) { g5 = v; }, g5render);
+  g5render();
+  var mv = "w", mo = "H";
+  function mrender() {
+    var img = document.getElementById("mimg");
+    if (mv === "r") {
+      img.src = "../../../benchmarks/papercraft_mountains_reference.png";
+      document.getElementById("mtag").textContent = "The meadow's reference";
+    } else {
+      img.src = "mh_" + mv + "_" + mo + ".jpg";
+      document.getElementById("mtag").textContent = "Meadow \u00b7 " + (mo === "H" ? "pilot" : "today") + (mv === "w" ? " \u00b7 wide" : " \u00b7 match camera");
+    }
+    pressed("data-mv", mv); pressed("data-mo", mo);
+  }
+  group("data-mv", function (v) { mv = v; }, mrender);
+  group("data-mo", function (v) { mo = v; }, mrender);
+  mrender();
+  var hv = "w", gho = "H4";
+  function ghrender() {
+    var img = document.getElementById("ghimg");
+    if (hv === "r") {
+      img.src = "../../../benchmarks/grove_reference.webp";
+      document.getElementById("ghtag").textContent = "The grove's reference";
+    } else {
+      img.src = "gh_" + hv + "_" + gho + ".jpg";
+      document.getElementById("ghtag").textContent = "Grove \u00b7 " + ({ H: "pilot 1", H2: "pilot 2", H3: "pilot 3", H4: "pilot 4", T: "today" })[gho] + (hv === "w" ? " \u00b7 wide" : " \u00b7 match camera");
+    }
+    pressed("data-hv", hv); pressed("data-gho", gho);
+  }
+  group("data-hv", function (v) { hv = v; }, ghrender);
+  group("data-gho", function (v) { gho = v; }, ghrender);
+  ghrender();
+  var bv = "w", bo = "C";
+  var BO = { T: "Today", A: "A \u00b7 Cardboard blocks", B: "B \u00b7 Slab courses", C: "C \u00b7 Blocks and fallen rock" };
+  function brender() {
+    document.getElementById("bimg").src = "bt_" + bv + "_" + bo + ".jpg";
+    document.getElementById("btag").textContent = "Canyon \u00b7 " + BO[bo] + (bv === "w" ? " \u00b7 wide" : " \u00b7 match camera");
+    pressed("data-bv", bv); pressed("data-bo", bo);
+  }
+  group("data-bv", function (v) { bv = v; }, brender);
+  group("data-bo", function (v) { bo = v; }, brender);
+  brender();
+  var ls = "meadow", lt = "B";
+  var LS = { meadow: "Meadow", beach: "Beach", beachw: "Beach \u00b7 wide", grove: "Grove", canyon: "Canyon", city: "City" };
+  var LT = { T: "Today", A: "A \u00b7 Form", B: "B \u00b7 Coloured distance", C: "C \u00b7 Late afternoon" };
+  function lirender() {
+    var beach = ls === "beach" || ls === "beachw";
+    var t = (lt === "C" && !beach) ? "B" : lt;
+    document.getElementById("liimg").src = "li_" + ls + "_" + t + ".jpg";
+    document.getElementById("litag").textContent = LS[ls] + " \u00b7 " + LT[lt] + ((lt === "C" && !beach) ? " (same as B here)" : "");
+    pressed("data-ls", ls); pressed("data-lt", lt);
+  }
+  group("data-ls", function (v) { ls = v; }, lirender);
+  group("data-lt", function (v) { lt = v; }, lirender);
+  lirender();
+  var lv = "w", lo = "B";
+  var LO = { T: "Today", A: "A \u00b7 Floating ledges", B: "B \u00b7 Moss and tufts", C: "C \u00b7 The far forest" };
+  function lrender() {
+    document.getElementById("limg").src = "gl_" + lv + "_" + lo + ".jpg";
+    document.getElementById("ltag").textContent = "Grove \u00b7 " + LO[lo] + (lv === "w" ? " \u00b7 wide" : " \u00b7 match camera");
+    pressed("data-lv", lv); pressed("data-lo", lo);
+  }
+  group("data-lv", function (v) { lv = v; }, lrender);
+  group("data-lo", function (v) { lo = v; }, lrender);
+  lrender();
+  var fv = "w", fo = "C";
+  var FO = { T: "Today", A: "A \u00b7 Dune sheets", B: "B \u00b7 A dry wash", C: "C \u00b7 Scrub and stones" };
+  function frender() {
+    document.getElementById("fimg").src = "cf_" + fv + "_" + fo + ".jpg";
+    document.getElementById("ftag").textContent = "Canyon \u00b7 " + FO[fo] + (fv === "w" ? " \u00b7 wide" : " \u00b7 match camera");
+    pressed("data-fv", fv); pressed("data-fo", fo);
+  }
+  group("data-fv", function (v) { fv = v; }, frender);
+  group("data-fo", function (v) { fo = v; }, frender);
+  frender();
+  var mfv = "w", mfo = "FB";
+  var MFO = { T: "Today", FA: "A · Hedged fields", FB: "B · Terraced fields", FC: "C · Terraces and trees" };
+  function mfrender() {
+    document.getElementById("mfimg").src = "mf_" + mfo + "_" + mfv + ".jpg";
+    document.getElementById("mftag").textContent = "Meadow · " + MFO[mfo] + (mfv === "w" ? " · wide" : " · match camera");
+    pressed("data-mfv", mfv); pressed("data-mfo", mfo);
+  }
+  group("data-mfv", function (v) { mfv = v; }, mfrender);
+  group("data-mfo", function (v) { mfo = v; }, mfrender);
+  mfrender();
+  var sv = "w", so = "B";
+  var SO = { T: "Today", A: "A \u00b7 Clear", B: "B \u00b7 Clear with reflections", C: "C \u00b7 Paper waves (reworked)" };
+  function srender() {
+    document.getElementById("simg").src = "sea_" + so + "_" + sv + ".jpg";
+    document.getElementById("stag").textContent = "Beach \u00b7 " + SO[so] + (sv === "w" ? " \u00b7 wide" : " \u00b7 match camera");
+    pressed("data-sv", sv); pressed("data-so", so);
+  }
+  group("data-sv", function (v) { sv = v; }, srender);
+  group("data-so", function (v) { so = v; }, srender);
+  srender();
+  var ks = "canyon", kv = "w", ko = "B";
+  var KS = { meadow: "Meadow", canyon: "Canyon", beach: "Beach" };
+  var KO = { T: "Today", A: "A \u00b7 Horizon light", B: "B \u00b7 Painted streaks", C: "C \u00b7 Paper cloud banks" };
+  function krender() {
+    document.getElementById("kimg").src = "sky_" + ks + "_" + ko + "_" + kv + ".jpg";
+    document.getElementById("ktag").textContent = KS[ks] + " \u00b7 " + KO[ko] + (kv === "w" ? " \u00b7 wide" : " \u00b7 match camera");
+    pressed("data-ks", ks); pressed("data-kv", kv); pressed("data-ko", ko);
+  }
+  group("data-ks", function (v) { ks = v; }, krender);
+  group("data-kv", function (v) { kv = v; }, krender);
+  group("data-ko", function (v) { ko = v; }, krender);
+  krender();
+  var nv = "w", no = "B";
+  var NO = { T: "Today", A: "A \u00b7 Trestle as it is", B: "B \u00b7 Trestle set back", C: "C \u00b7 Trestle with ends" };
+  function nrender() {
+    document.getElementById("nimg").src = "can_" + no + "_" + nv + ".jpg";
+    document.getElementById("ntag").textContent = "Canyon \u00b7 " + NO[no] + (nv === "w" ? " \u00b7 wide" : " \u00b7 match camera");
+    pressed("data-nv", nv); pressed("data-no", no);
+  }
+  group("data-nv", function (v) { nv = v; }, nrender);
+  group("data-no", function (v) { no = v; }, nrender);
+  nrender();
+  var cv2 = "w", co2 = "A";
+  var CO2 = { T: "Today", A: "A \u00b7 Sky as it is", B: "B \u00b7 Soft night clouds", C: "C \u00b7 Card night clouds" };
+  function c2render() {
+    document.getElementById("cimg2").src = "cty_" + co2 + "_" + cv2 + ".jpg";
+    document.getElementById("ctag2").textContent = "City \u00b7 " + CO2[co2] + (cv2 === "w" ? " \u00b7 wide" : " \u00b7 match camera");
+    pressed("data-cv2", cv2); pressed("data-co2", co2);
+  }
+  group("data-cv2", function (v) { cv2 = v; }, c2render);
+  group("data-co2", function (v) { co2 = v; }, c2render);
+  c2render();
+  var cnv = "w", cno = "C";
+  var CNO = { T: "Today", A: "A \u00b7 Night sky", B: "B \u00b7 Night sky and haze", C: "C \u00b7 Night sky, haze, colour plan" };
+  function cnrender() {
+    document.getElementById("cnimg").src = "cn_" + cno + "_" + cnv + ".jpg";
+    document.getElementById("cntag").textContent = "City \u00b7 " + CNO[cno] + (cnv === "w" ? " \u00b7 wide" : " \u00b7 match camera");
+    pressed("data-cnv", cnv); pressed("data-cno", cno);
+  }
+  group("data-cnv", function (v) { cnv = v; }, cnrender);
+  group("data-cno", function (v) { cno = v; }, cnrender);
+  cnrender();
+  var cbv = "w", cbo = "C";
+  var CBO = { T: "Today", A: "A \u00b7 Solid buttes", B: "B \u00b7 Mesa behind the fight", C: "C \u00b7 Outcrops on the plain" };
+  function cbrender() {
+    document.getElementById("cbimg").src = "cb_" + cbo + "_" + cbv + ".jpg";
+    document.getElementById("cbtag").textContent = "Canyon \u00b7 " + CBO[cbo] + (cbv === "w" ? " \u00b7 wide" : " \u00b7 match camera");
+    pressed("data-cbv", cbv); pressed("data-cbo", cbo);
+  }
+  group("data-cbv", function (v) { cbv = v; }, cbrender);
+  group("data-cbo", function (v) { cbo = v; }, cbrender);
+  cbrender();
+  var frs = "m", frv = "w", fro = "B";
+  var FRS = { m: "Meadow", c: "Canyon", g: "Grove" };
+  var FRO = { m: { T: "Today", A: "A \u00b7 Fieldstone", B: "B \u00b7 Fieldstone and moss" },
+              c: { T: "Today", A: "A \u00b7 Cut edges", B: "B \u00b7 Sediment courses" },
+              g: { T: "Today", A: "A \u00b7 Shaped rock", B: "B \u00b7 Rock and a misty valley" } };
+  function frrender() {
+    document.getElementById("frimg").src = "fr_" + frs + "_" + fro + "_" + frv + ".jpg";
+    document.getElementById("frtag").textContent = FRS[frs] + " \u00b7 " + FRO[frs][fro] + (frv === "w" ? " \u00b7 wide" : " \u00b7 match camera");
+    pressed("data-frs", frs); pressed("data-frv", frv); pressed("data-fro", fro);
+  }
+  group("data-frs", function (v) { frs = v; }, frrender);
+  group("data-frv", function (v) { frv = v; }, frrender);
+  group("data-fro", function (v) { fro = v; }, frrender);
+  frrender();
+  var ncs = "g", ncv = "w", nco = "B";
+  var NCS = { g: "Grove", b: "Beach", m: "Meadow" };
+  var NCO = { g: { T: "Today", A: "A \u00b7 Turned and sized", B: "B \u00b7 Three shapes" },
+              b: { T: "Today", A: "A \u00b7 Uneven waves", B: "B \u00b7 Uneven and broken" },
+              m: { T: "Today", A: "A \u00b7 Fewer, bigger sheets", B: "B \u00b7 Terraced banks" } };
+  function ncrender() {
+    document.getElementById("ncimg").src = "nc_" + ncs + "_" + nco + "_" + ncv + ".jpg";
+    document.getElementById("nctag").textContent = NCS[ncs] + " \u00b7 " + NCO[ncs][nco] + (ncv === "w" ? " \u00b7 wide" : " \u00b7 match camera");
+    pressed("data-ncs", ncs); pressed("data-ncv", ncv); pressed("data-nco", nco);
+  }
+  group("data-ncs", function (v) { ncs = v; }, ncrender);
+  group("data-ncv", function (v) { ncv = v; }, ncrender);
+  group("data-nco", function (v) { nco = v; }, ncrender);
+  ncrender();
+  var lfs = "0", lfv = "m", lfo = "C";
+  var LFS = { "0": "Meadow", "1": "Canyon", "2": "Beach", "3": "City", "4": "Grove" };
+  var LFO = { T: "Today", A: "A \u00b7 Bounce", B: "B \u00b7 Firmer grade", C: "C \u00b7 Lamps glow" };
+  function lfrender() {
+    // (Wide only for today and C.)
+    var o = (lfv === "w" && (lfo === "A" || lfo === "B")) ? "C" : lfo;
+    document.getElementById("lfimg").src = "lf_" + lfs + "_" + o + "_" + lfv + ".jpg";
+    document.getElementById("lftag").textContent = LFS[lfs] + " \u00b7 " + LFO[o] + (lfv === "w" ? " \u00b7 wide" : " \u00b7 match camera");
+    pressed("data-lfs", lfs); pressed("data-lfv", lfv); pressed("data-lfo", o);
+  }
+  group("data-lfs", function (v) { lfs = v; }, lfrender);
+  group("data-lfv", function (v) { lfv = v; }, lfrender);
+  group("data-lfo", function (v) { lfo = v; }, lfrender);
+  lfrender();
+  var fps = "m", fpo = "A";
+  var FPS = { m: "Meadow", g: "Grove", c: "Canyon" };
+  var FPO = { m: { T: "Today", A: "A · Turf on logs", B: "B · And moss" },
+              g: { T: "Today", A: "A · Little islands", B: "B · Deeper, mossier" },
+              c: { T: "Today", A: "A · Sandstone slab", B: "B · A piece of mesa" } };
+  function fprender() {
+    document.getElementById("fpimg").src = "fp_" + fps + "_" + fpo + ".jpg";
+    document.getElementById("fptag").textContent = FPS[fps] + " · " + FPO[fps][fpo] + " · match camera";
+    pressed("data-fps", fps); pressed("data-fpo", fpo);
+  }
+  group("data-fps", function (v) { fps = v; }, fprender);
+  group("data-fpo", function (v) { fpo = v; }, fprender);
+  fprender();
+  var sms = "g", smv = "m", smo = "B";
+  var SMS = { g: "Grove", c: "City" };
+  var SMO = { T: "Today", A: "A · Modelled lights", B: "B · And streamers, townsfolk" };
+  function smrender() {
+    document.getElementById("smimg").src = "sm_" + sms + "_" + smo + "_" + smv + ".jpg";
+    document.getElementById("smtag").textContent = SMS[sms] + " · " + SMO[smo] + (smv === "w" ? " · wide" : " · match camera");
+    pressed("data-sms", sms); pressed("data-smv", smv); pressed("data-smo", smo);
+  }
+  group("data-sms", function (v) { sms = v; }, smrender);
+  group("data-smv", function (v) { smv = v; }, smrender);
+  group("data-smo", function (v) { smo = v; }, smrender);
+  smrender();
+  var sks = "m", skv = "m", sko = "B";
+  var SKS = { m: "Meadow", g: "Grove" };
+  var SKO = { T: "Today", A: "A", B: "B" };
+  function skrender() {
+    document.getElementById("skimg").src = "sk_" + sks + "_" + sko + "_" + skv + ".jpg";
+    document.getElementById("sktag").textContent = SKS[sks] + " · " + SKO[sko] + (skv === "w" ? " · wide" : " · match camera");
+    pressed("data-sks", sks); pressed("data-skv", skv); pressed("data-sko", sko);
+  }
+  group("data-sks", function (v) { sks = v; }, skrender);
+  group("data-skv", function (v) { skv = v; }, skrender);
+  group("data-sko", function (v) { sko = v; }, skrender);
+  skrender();
+  var pts = "m", pto = "B";
+  var PTS = { m: "Meadow", g: "Grove", c: "Canyon", b: "Beach", y: "City" };
+  var PTO = { T: "Today", A: "A · Worn and varied", B: "B · And the edges" };
+  function ptrender() {
+    document.getElementById("ptimg").src = "pt_" + pts + "_" + pto + ".jpg";
+    document.getElementById("pttag").textContent = PTS[pts] + " · " + PTO[pto] + " · match camera";
+    pressed("data-pts", pts); pressed("data-pto", pto);
+  }
+  group("data-pts", function (v) { pts = v; }, ptrender);
+  group("data-pto", function (v) { pto = v; }, ptrender);
+  ptrender();
+  var c7v = "m", c7o = "B";
+  var C7O = { T: "Today", A: "A · Broken table", B: "B · And railway far back" };
+  function c7render() {
+    document.getElementById("c7img").src = "c7_" + c7o + "_" + c7v + ".jpg";
+    document.getElementById("c7tag").textContent = "Canyon · " + C7O[c7o] + (c7v === "w" ? " · wide" : " · match camera");
+    pressed("data-c7v", c7v); pressed("data-c7o", c7o);
+  }
+  group("data-c7v", function (v) { c7v = v; }, c7render);
+  group("data-c7o", function (v) { c7o = v; }, c7render);
+  c7render();
+  var sls = "0", slv = "m", slo = "A";
+  var SLS = { "0": "Meadow", "4": "Grove", "1": "Canyon", "2": "Beach", "3": "City" };
+  var SLO = { T: "Today", A: "A · Soft", B: "B · Firm" };
+  function slrender() {
+    var o = (slv === "w" && slo === "A") ? "B" : slo;
+    document.getElementById("slimg").src = "sl_" + sls + "_" + o + "_" + slv + ".jpg";
+    document.getElementById("sltag").textContent = SLS[sls] + " · " + SLO[o] + (slv === "w" ? " · wide" : " · match camera");
+    pressed("data-sls", sls); pressed("data-slv", slv); pressed("data-slo", o);
+  }
+  group("data-sls", function (v) { sls = v; }, slrender);
+  group("data-slv", function (v) { slv = v; }, slrender);
+  group("data-slo", function (v) { slo = v; }, slrender);
+  slrender();
+})();
+</script>
