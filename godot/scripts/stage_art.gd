@@ -2104,7 +2104,7 @@ static func _props(root: Node3D, theme_name: String, e: Array) -> void:
 			var lp: Array = (_palette.get("backdrop", {}) as Dictionary).get("lamp_pools", [0.55, 1.0])
 			for arg in OS.get_cmdline_user_args():
 				if arg.begins_with("--shaped="):
-					lp = {"A": [0.68, 1.25], "B": [0.8, 1.45]}.get(arg.substr(9), lp)
+					lp = {"T": [0.55, 1.0], "A": [0.68, 1.25], "B": [0.8, 1.45]}.get(arg.substr(9), lp)
 			pg.set_color(0, Color(1.0, 0.86, 0.56, float(lp[0])))
 			pg.set_color(1, Color(1.0, 0.62, 0.32, 0.0))
 			pg.add_point(0.62, Color(1.0, 0.8, 0.5, float(lp[0]) * 0.82))
@@ -6206,7 +6206,7 @@ static func _skyline_layer(root: Node3D, rng: RandomNumberGenerator, layer: int,
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--shaped="):
 			shaped_flag = arg.substr(9)
-	ge = {"A": [0.45, 0.35, 0.2], "B": [0.7, 0.55, 0.32]}.get(shaped_flag, ge)
+	ge = {"T": [0.0, 0.0, 0.0], "A": [0.45, 0.35, 0.2], "B": [0.7, 0.55, 0.32]}.get(shaped_flag, ge)
 	m.set_shader_parameter("glow_edge", float(ge[layer]))
 	# (The quiet behind the fight, fidelity review 5: the palette's `skyline_calm` on the two nearer layers, `--city-calm=` to try.)
 	var calm := float((_palette.get("backdrop", {}) as Dictionary).get("skyline_calm", 0.0))

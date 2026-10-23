@@ -132,3 +132,7 @@ towers (`facade.gdshader` `glow_edge`: a warm edge up each front's corner away f
 the palette's `skyline_glow_edge` a layer); first drawn a third of a unit wide it was a pixel or two, so it is a unit wide. A soft,
 B firm. On the Stage Look Review ("shapedlight", `sl_*`); recommended A (B darkens the play areas overall and greys the canyon's sand).
 It reads more as a partly cloudy day than crisp pools of sun: the paper look's flat, bright shading limits it.
+
+**Built (2026-10-23): shaped light A** (the owner's pick): A's `clouds` and `cloud_tone` in the meadow's, grove's, canyon's and beach's
+styles; city.cfg `skyline_glow_edge=[0.45, 0.35, 0.2]` and `lamp_pools=[0.68, 1.25]`; `--shaped=T` shows the light before. No re-light.
+Before and after: `review7/shaped_light_built.jpg` (meadow, grove, canyon, beach, city at the match camera). All seven tests pass.
