@@ -30,6 +30,7 @@ opts = {argv[i].lstrip("-"): argv[i + 1] for i in range(0, len(argv) - 1, 2)}
 VARIANT = opts.get("variant", "A").upper()
 # The platforms after fidelity review 6 (`--plat timber|timber_moss`; on the shipped B's lawn).
 PLAT = opts.get("plat", "")
+WEAR = int(opts.get("wear", "0"))
 manifest = json.load(open(os.path.join(opts["dir"], "manifest.json")))
 FZ = float(manifest["front_z"])
 BLOCK = [r for r in manifest["rects"] if r[4] < 0.5][0]
@@ -135,6 +136,87 @@ def hanging(x0, x1, y_top, z, mat, rng, count, lo, hi, wide=(0.15, 0.35)):
                    P(x - wd * 0.4 + lean, y_top - ln * 0.6, z)))
 
 
+# ---- The play tops' wear (fidelity review 7: the most-seen surfaces were plain; `--wear 1|2`) -----------------------------------------
+# Flat pieces a hair over the walkable top (never more than 0.02: stage_front_test lets nothing poke up where fighters stand), and with
+# `--wear 2` tufts or pebbles along the front edge, which the test leaves out (the front 0.3).
+
+def patch_flat(fam, cx, cz, rx, rz, y, rng, n=14):
+    """A flat, hand-cut blob lying on the top at height y, facing up."""
+    import math as _m
+    ph = rng.uniform(0, _m.tau)
+    pts = []
+    for i in range(n):
+        a = _m.tau * i / n
+        k = 1.0 + 0.22 * _m.sin(a * 3.0 + ph) + rng.uniform(-0.1, 0.1)
+        pts.append(P(cx + _m.cos(a) * rx * k, y, cz + _m.sin(a) * rz * k))
+    f = face(fam, list(reversed(pts)))
+    f.normal_update()
+    if f.normal.z < 0.0:
+        f.normal_flip()
+
+
+def wear_top(x0, x1, top, zb, zf, rng, kinds, path_z=None, path_half=0.7):
+    """Patches over one top: `kinds` [(family, count, size range)], kept clear of the very edges; with a path, worn earth along its sides."""
+    for fam, count, (lo, hi) in kinds:
+        for _ in range(count):
+            rx = rng.uniform(lo, hi)
+            rz = rx * rng.uniform(0.35, 0.6)
+            cx = rng.uniform(x0 + rx, x1 - rx)
+            cz = rng.uniform(zb + 0.6 + rz, zf - 0.6 - rz)
+            # (Off the path: laid over it, they broke it into pieces.)
+            if path_z is not None and abs(cz - path_z) < path_half + rz * 1.3 + 0.1:
+                continue
+            patch_flat(fam, cx, cz, rx, rz, top + 0.008 + 0.002 * rng.random(), rng)
+    if path_z is not None:
+        # Trodden earth where the path frays: short worn tongues along both its sides.
+        x = x0 + rng.uniform(0.3, 1.2)
+        while x < x1 - 0.6:
+            side = rng.choice((-1.0, 1.0))
+            rx = rng.uniform(0.35, 0.9)
+            patch_flat("top_worn", x, path_z + side * (path_half + 0.12), rx, rng.uniform(0.12, 0.22), top + 0.012, rng, n=10)
+            x += rng.uniform(1.2, 2.6)
+
+
+def edge_tufts(x0, x1, top, zf, rng, fam="fringe", every=(0.35, 0.8), tall=(0.18, 0.34)):
+    """Grass tufts along the front edge (in the strip the stage test leaves out), a few blades each, leaning out over the edge."""
+    x = x0 + rng.uniform(0.1, 0.4)
+    while x < x1 - 0.1:
+        z = zf - rng.uniform(0.04, 0.22)
+        for b in range(rng.randrange(2, 5)):
+            bx = x + rng.uniform(-0.12, 0.12)
+            h = rng.uniform(*tall)
+            lean = rng.uniform(-0.1, 0.1)
+            face(fam, (P(bx - 0.05, top, z), P(bx + 0.05, top, z), P(bx + lean, top + h, z + 0.08)))
+        x += rng.uniform(*every)
+
+
+def edge_pebbles(x0, x1, top, zf, rng, fam="top_deep"):
+    """Pebbles along the front edge (in the strip the stage test leaves out), low and flattened."""
+    import bmesh as _b
+    x = x0 + rng.uniform(0.2, 0.6)
+    while x < x1 - 0.2:
+        r = rng.uniform(0.07, 0.16)
+        res = _b.ops.create_icosphere(part(fam), subdivisions=1, radius=r)
+        for v in res["verts"]:
+            v.co.z *= 0.55
+            v.co += P(x, top + r * 0.3, zf - rng.uniform(0.05, 0.2))
+        x += rng.uniform(0.4, 1.3)
+
+
+def board_marks(x0, x1, top, zb, zf, n, rng):
+    """Nail heads in pairs where the boards cross the joists, flush with the deck."""
+    gap = 0.06
+    bw = (zf - zb - gap * (n - 1)) / n
+    for k in range(n):
+        za = zb + k * (bw + gap)
+        x = x0 + 0.35
+        while x < x1 - 0.2:
+            for dz in (0.28, bw - 0.28):
+                face("nail", (P(x - 0.035, top + 0.006, za + dz - 0.035), P(x - 0.035, top + 0.006, za + dz + 0.035),
+                              P(x + 0.035, top + 0.006, za + dz + 0.035), P(x + 0.035, top + 0.006, za + dz - 0.035)))
+            x += 2.4
+
+
 def path_strip(x0, x1, zc, half, rng):
     """The cream path, an inlaid strip along the play line, its edges wavering."""
     xs = [x0 + (x1 - x0) * i / 60 for i in range(61)]
@@ -176,6 +258,13 @@ def lawn(rng):
         scallops(x0 - 0.2, x1 + 0.2, top - 0.02, top - 1.4, zf + 0.35, "fringe", 0.55, up=True)
     # (Nearer the painted path's width: at 1.1 either side, in the pilot's build, it took a third of the lawn and paled it.)
     path_strip(BLOCK[0] + 0.2, BLOCK[1] - 0.2, FZ - 1.9, 0.7, rng)
+    if WEAR:
+        # (Its own random numbers, so the platforms and everything after keep their layout.)
+        wr = random.Random(91)
+        wear_top(x0 + 0.3, x1 - 0.3, top, zb, zf, wr, [("top_deep", 22, (0.6, 1.8)), ("top_lit", 16, (0.7, 1.9)), ("top_worn", 4, (0.4, 0.9))],
+                 path_z=FZ - 1.9, path_half=0.7)
+        if WEAR >= 2:
+            edge_tufts(x0, x1, top, zf, wr)
 
 
 def platform(r, rng):

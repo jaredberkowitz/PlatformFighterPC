@@ -88,6 +88,22 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
     <p>Two lessons from the reference screenshots, mocked from the match camera: the scenery without ink outlines, its edges lit as card bevels instead, and the paper houses rebuilt at the characters' proportions. The earlier rounds stay on the <a href="https://claude.ai/artifact/D1du6MREVumiJDrEdNypW4">Stage Fidelity Review</a>, which is full.</p>
   </header>
 
+  <section class="panel" aria-labelledby="pt-h" id="playtops">
+    <div class="eyebrow">Your call is needed &middot; review 7: the play tops (toward 5s in surfaces)</div>
+    <h2 id="pt-h">The surfaces the fighters stand on</h2>
+    <p>First, skies B are built on the meadow and grove (before and after in the skies section above); by review 7's measure every column is now a 4. Then the first step toward 5s: the play tops, the most-seen surfaces in the game, still one plain colour each. One rule shapes this: the stage test lets nothing poke up where fighters stand, so the detail lies flat on the top (a hair above it). Tufts and pebbles only go along the very front edge, which is outside the walk area.</p>
+    <div class="tablewrap"><table><thead><tr><th>Option</th><th>What changes</th></tr></thead><tbody>
+      <tr><td>A &middot; Worn and varied</td><td>Flat patches over each top, each a step from the top's own colour. Lawns: deeper clover patches, sunlit patches and trodden earth fraying along the path's sides, kept off the path itself. Canyon: darker drifts and pale wind patches of sand. Beach: sun-bleached and wet patches on the boards and a couple of replaced, paler boards. City: tar patches and sun-faded sheets on the roof.</td></tr>
+      <tr><td>B &middot; And the edges</td><td>A, with grass tufts along the lawns' front edges, pebbles along the canyon's, and nail heads in pairs on the dock's boards where they cross the joists. (The city has nothing more, so its B is A.)</td></tr>
+    </tbody></table></div>
+    <p>One top per stage, today on the left and B on the right: meadow, grove, canyon, beach, city.</p>
+    <div class="viewer"><img src="pt_close.jpg" alt="Each stage's play top, today and with B"></div>
+    <div class="row" role="group" aria-label="Stage"><button data-pts="m">Meadow</button><button data-pts="g">Grove</button><button data-pts="c">Canyon</button><button data-pts="b">Beach</button><button data-pts="y">City</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-pto="T">Today</button><button data-pto="A">A &middot; Worn and varied</button><button data-pto="B">B &middot; And the edges</button></div>
+    <div class="viewer"><img id="ptimg" alt="Play top option"><span class="vtag" id="pttag"></span></div>
+    <p class="muted">My pick: <b>B</b>. It's a quiet change by design, so nothing competes with the fighters, but the tops no longer read as one flat colour. Honest note: the lawns' measured contrast moves only a little (meadow 0.071 to 0.073, grove 0.067 to 0.077). Most of the gain is in the edges and the dock. A true 5 here would need hand-painted detail, and this is the step that fits the walk rule. Shown at the match camera, before the light bake.</p>
+  </section>
+
   <section class="panel" aria-labelledby="sk-h" id="skies7">
     <div class="eyebrow">Built (B on both) &middot; review 7: the meadow's and grove's skies (to all 4s)</div>
     <h2 id="sk-h">The last two skies</h2>
@@ -1156,5 +1172,16 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
   group("data-skv", function (v) { skv = v; }, skrender);
   group("data-sko", function (v) { sko = v; }, skrender);
   skrender();
+  var pts = "m", pto = "B";
+  var PTS = { m: "Meadow", g: "Grove", c: "Canyon", b: "Beach", y: "City" };
+  var PTO = { T: "Today", A: "A · Worn and varied", B: "B · And the edges" };
+  function ptrender() {
+    document.getElementById("ptimg").src = "pt_" + pts + "_" + pto + ".jpg";
+    document.getElementById("pttag").textContent = PTS[pts] + " · " + PTO[pto] + " · match camera";
+    pressed("data-pts", pts); pressed("data-pto", pto);
+  }
+  group("data-pts", function (v) { pts = v; }, ptrender);
+  group("data-pto", function (v) { pto = v; }, ptrender);
+  ptrender();
 })();
 </script>

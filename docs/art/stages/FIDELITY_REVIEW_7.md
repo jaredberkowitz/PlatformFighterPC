@@ -80,3 +80,15 @@ the trees, so its change is the smaller. On the Stage Look Review ("skies7", `sk
 **Built (2026-10-22): skies B** (the owner's pick): meadow.cfg and grove.cfg [theme] and [backdrop] (the skies before as
 [try_pre_sky7]); no re-light. That closes review 7's two 3s: by this review's own measure every column is now a 4. Before and after:
 `review7/skies_built.jpg` (the meadow at the match camera and wide, the grove wide). All seven tests pass. Next: the play tops.
+
+## The play tops (2026-10-22, mock)
+
+The first step toward 5s in surfaces. The stage test lets nothing poke up where fighters stand, so the detail lies flat a hair over the
+top (`wear_top`: hand-cut patches; `patch_flat`), with tufts or pebbles only in the front strip the test leaves out (`edge_tufts`,
+`edge_pebbles`) and nail heads flush on the dock (`board_marks`). `--wear 1|2` on `make_meadow_play.py` and `make_play.py`; families
+`top_deep`, `top_lit`, `top_worn` (a fifth of a step either side of the top's own colour, printed as the top), `nail`. A: worn and
+varied (lawns: clover, sunlit patches and trodden earth fraying along the path, kept off it; canyon: drifts and pale wind patches; dock:
+bleached and wet patches and two replaced boards; roof: tar patches and faded sheets); B: with the edges (the city's B is its A).
+Lessons: at a tenth of a step the patches vanished under the print and the lawn's fall; laid over the path they broke it up. The lawns'
+measured contrast moves little (meadow 0.071 to 0.073, grove 0.067 to 0.077): a quiet change by design. On the Stage Look Review
+("playtops", `pt_*`); recommended B.
