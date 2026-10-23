@@ -20,7 +20,7 @@ pivot empty `move_<kind>_<n>` (scripts/world_motion.gd).
 Run (Blender 5.2):
   blender --background --python art/blender/make_world.py -- --theme ocean --variant A --out <file.glb>   (`--variant AB` for both)
 Shipped (the owner's picks, 2026-10-21), in godot/models/stages/: beach_world.glb (`--theme ocean --variant AB`), canyon_world.glb
-(`--theme sunset --variant A --trestle back`, the trestle set back since fidelity review 5), meadow_world.glb (`--theme meadow --variant BC`), grove_world.glb (`--theme grove --variant ABL`),
+(`--theme sunset --variant A --trestle far`, the trestle far back since fidelity review 7), meadow_world.glb (`--theme meadow --variant BC`), grove_world.glb (`--theme grove --variant ABL`),
 city_world.glb (`--theme city --variant AB`). Since fidelity review 6: grove `--variant ABL --streamers shide`, city `--variant AB
 --people round`.
 """
@@ -443,8 +443,10 @@ def canyon_a():
     # it behind the far row, thinner and in the air; `short` runs it only from behind one near butte to behind another, so it has ends.
     # Set lower, it stood right behind the fighters at the match camera.)
     trestle = opts.get("trestle", "high")
-    z = -124.0 if trestle == "back" else -92.0
-    top = -6.0 if trestle == "back" else -2.5
+    # (`far`, fidelity review 7: much further back, so the train is small and hazy near the horizon rather than a bold line at the side
+    # platforms' head height. Lowered instead, at -11, it ran right behind the fighters' name tags.)
+    z = {"back": -124.0, "far": -175.0}.get(trestle, -92.0)
+    top = {"back": -6.0, "far": -9.0}.get(trestle, -2.5)
     x0, x1 = (-52.0, 68.0) if trestle == "short" else (-110.0, 110.0)
     # The trestle: bents of rolled timber every 7 units, cross-braced, carrying the deck.
     bm = bmesh.new()

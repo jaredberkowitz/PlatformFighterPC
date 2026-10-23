@@ -96,15 +96,45 @@ const STYLE_DEFAULT := {
 	"finish": {"desat": 0.0, "lift": 0.03, "vignette": 0.16, "haze_max": 0.22, "s_curve": 0.22, "quiet": 0.25, "bloom": 0.4,
 		"bloom_from": 0.6, "sheets": 0.0, "cut_edge": 0.0, "fight_lift": 0.0, "haze_desat": 0.35},
 }
+## Shaped light (fidelity review 7, the owner's pick A, 2026-10-23): the day stages' `clouds` smaller and over more ground with a
+## `cloud_tone` laid on the colour (see SHAPED_TRY); `--shaped=T` shows a stage as before.
 ## The light finish (fidelity review 6, the owner's pick C, 2026-10-22), each style's: `bounce` (the colour of the ground the light comes
 ## back from, its alpha how much; a third of these lifted the shade by a hundredth, the light's own scale takes most of it), `grade_more`
 ## (on the mood's grade), `curve_more` (on the S-curve) and `glow_from` (the HDR level the bloom starts at, 2.3 without: the lanterns,
 ## string lights and windows glow). `--light-finish=off` shows a stage without it.
+## Shaped light to try (`--shaped=A|B`, fidelity review 7): per stage, the cloud shadows ([how deep, units across, ground covered,
+## drift]) and the tone a clouded spot takes (`cloud_tone`, toon_light's `pf_cloud_tone`), so the ground has shade and sunlit pools
+## between (a lift on the sunlit ground can't read: the filmic curve squeezes it on a bright lawn), the clouds smaller so several fall
+## across the play area (at 14 to 30 across, a whole stage sat in one gap). A soft, B deeper and cooler. The city's night light is its
+## lamps' pools and the towers' glow edge (StageArt, `--shaped=` too).
+const SHAPED_TRY := {
+	# (The light before review 7's shaped light, `--shaped=T`.)
+	"T": {"meadow": {"clouds": [0.65, 14.0, 0.42, 0.7], "cloud_tone": Color(1, 1, 1, 0)}, "grove": {"clouds": [0.72, 4.5, 0.45, 0.25], "cloud_tone": Color(1, 1, 1, 0)},
+		"sunset": {"clouds": [0.35, 30.0, 0.3, 0.4], "cloud_tone": Color(1, 1, 1, 0)}, "ocean": {"clouds": [0.55, 26.0, 0.36, 0.9], "cloud_tone": Color(1, 1, 1, 0)}},
+	"A": {"meadow": {"clouds": [0.9, 8.0, 0.6, 0.7], "cloud_tone": Color(0.66, 0.72, 0.9, 1.0)},
+		"grove": {"clouds": [0.9, 5.5, 0.6, 0.25], "cloud_tone": Color(0.66, 0.72, 0.9, 1.0)},
+		"sunset": {"clouds": [0.9, 11.0, 0.6, 0.4], "cloud_tone": Color(0.66, 0.72, 0.9, 1.0)},
+		"ocean": {"clouds": [0.9, 9.0, 0.6, 0.9], "cloud_tone": Color(0.66, 0.72, 0.9, 1.0)}},
+	"B": {"meadow": {"clouds": [0.9, 9.0, 0.6, 0.7], "cloud_tone": Color(0.52, 0.6, 0.84, 1.0)},
+		"grove": {"clouds": [0.9, 6.0, 0.6, 0.25], "cloud_tone": Color(0.52, 0.6, 0.84, 1.0)},
+		"sunset": {"clouds": [0.9, 12.0, 0.6, 0.4], "cloud_tone": Color(0.52, 0.6, 0.84, 1.0)},
+		"ocean": {"clouds": [0.9, 10.0, 0.6, 0.9], "cloud_tone": Color(0.52, 0.6, 0.84, 1.0)}},
+}
+
+
+## `--shaped=A|B`, or "".
+static func _shaped_flag() -> String:
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("--shaped="):
+			return a.substr(9)
+	return ""
+
+
 const STYLES := {
 	# Dappled light under the great tree: small patches swaying slowly.
 	# (The background grounded, the graphics review 5: the sun's shadows out over the terraces, the trees' and gates' a cool violet.)
 	"grove": {"bounce": Color(0.6, 0.86, 0.46, 0.6), "grade_more": 0.15, "curve_more": 0.06, "glow_from": 1.9,
-		"paint": [Color(1.06, 0.99, 0.94), Color(0.94, 0.9, 1.06), 0.55], "clouds": [0.72, 4.5, 0.45, 0.25],
+		"paint": [Color(1.06, 0.99, 0.94), Color(0.94, 0.9, 1.06), 0.55], "clouds": [0.9, 5.5, 0.6, 0.25], "cloud_tone": Color(0.66, 0.72, 0.9, 1.0),
 		"sun_shadow": [260.0, 4, 1.0], "cast": Color(0.22, 0.24, 0.48, 1.0),
 		"finish": {"desat": 0.0, "lift": 0.02, "haze_max": 0.04, "haze_start": 45.0, "s_curve": 0.3, "quiet": 0.08, "sheets": 0.56, "cut_edge": 0.5,
 			"fight_lift": 0.18}},
@@ -112,7 +142,7 @@ const STYLES := {
 	# and cooler undersides, and less of the pastel wash, so the colours carry.
 	"meadow": {"bounce": Color(0.78, 0.92, 0.46, 0.66), "grade_more": 0.15, "curve_more": 0.06, "glow_from": 1.9,
 		"ramp": [[0.0, 0.0], [0.38, 0.0], [0.43, 0.52], [0.55, 0.52], [0.6, 1.0], [1.0, 1.0]],
-		"paint": [Color(1.1, 1.02, 0.88), Color(0.88, 0.88, 1.1), 0.65], "deep": 0.74, "clouds": [0.65, 14.0, 0.42, 0.7],
+		"paint": [Color(1.1, 1.02, 0.88), Color(0.88, 0.88, 1.1), 0.65], "deep": 0.74, "clouds": [0.9, 8.0, 0.6, 0.7], "cloud_tone": Color(0.66, 0.72, 0.9, 1.0),
 		# (The windmill, cottages, pines and haystacks grounded, a cool blue-green shadow, the graphics review 5.)
 		"sun_shadow": [260.0, 4, 1.0], "cast": Color(0.28, 0.4, 0.52, 1.0),
 		# (Less haze and no greying of the scenery, 2026-10-17: together they washed the mid-distance cottages, trees and mountains into
@@ -125,7 +155,7 @@ const STYLES := {
 	# (Long sunset shadows from the buttes, the arch and the trestle across the floor, a cool violet on the warm sand, the graphics
 	# review 5.)
 	"sunset": {"bounce": Color(1.0, 0.68, 0.44, 0.84), "grade_more": 0.15, "curve_more": 0.06, "glow_from": 1.9,
-		"clouds": [0.35, 30.0, 0.3, 0.4], "sun_shadow": [260.0, 4, 1.0], "cast": Color(0.3, 0.22, 0.48, 1.0), "edge": Color(1.0, 0.86, 0.74, 0.44), "paint": [Color(1.1, 0.98, 0.86), Color(0.86, 0.86, 1.08), 0.7], "deep": 0.72,
+		"clouds": [0.9, 11.0, 0.6, 0.4], "cloud_tone": Color(0.66, 0.72, 0.9, 1.0), "sun_shadow": [260.0, 4, 1.0], "cast": Color(0.3, 0.22, 0.48, 1.0), "edge": Color(1.0, 0.86, 0.74, 0.44), "paint": [Color(1.1, 0.98, 0.86), Color(0.86, 0.86, 1.08), 0.7], "deep": 0.72,
 		"finish": {"desat": 0.0, "lift": 0.02, "haze_max": 0.08, "s_curve": 0.3, "quiet": 0.08, "sheets": 0.56, "cut_edge": 0.5, "fight_lift": 0.15}},
 	"night": {"edge": Color(0.78, 0.86, 1.0, 0.62), "paint": [Color(0.98, 1.0, 1.08), Color(0.86, 0.9, 1.1), 0.5], "deep": 0.74, "glow": 0.95,
 		"ramp": [[0.0, 0.0], [0.36, 0.0], [0.44, 0.5], [0.56, 0.5], [0.64, 1.0], [1.0, 1.0]]},
@@ -134,7 +164,7 @@ const STYLES := {
 	# (The town's houses, the boats and the palms grounded with long late-afternoon shadows, a cool blue, the graphics review 5. The reach
 	# stops short of the headland behind the town, about 205 from the camera, whose standing flats shadowed each other in stripes.)
 	"ocean": {"bounce": Color(0.42, 0.86, 0.92, 0.66), "grade_more": 0.15, "curve_more": 0.06, "glow_from": 1.9,
-		"paint": [Color(1.05, 1.02, 0.94), Color(0.9, 0.97, 1.06), 0.5], "clouds": [0.55, 26.0, 0.36, 0.9],
+		"paint": [Color(1.05, 1.02, 0.94), Color(0.9, 0.97, 1.06), 0.5], "clouds": [0.9, 9.0, 0.6, 0.9], "cloud_tone": Color(0.66, 0.72, 0.9, 1.0),
 		"sun_shadow": [190.0, 4, 1.0], "cast": Color(0.3, 0.36, 0.58, 1.0),
 		"ramp": [[0.0, 0.0], [0.3, 0.1], [0.45, 0.45], [0.6, 0.82], [0.75, 1.0], [1.0, 1.0]],
 		# (Air, the owner's paint-over pick 2026-10-21: `haze_max` 0.07 to 0.24. The air retune, 2026-10-22: from 45 behind and less, so
@@ -404,10 +434,10 @@ static func stage_mood(env: Environment, root: Node, theme: Dictionary, post: Sh
 	var m := mood.duplicate()
 	if theme.has("sky_horizon"):
 		m.rim = (mood.rim as Color).lerp(theme.sky_horizon, 0.3)
-	_set_globals(m, style(theme.get("name", "meadow")))
+	_set_globals(m, style(theme.get("name", "meadow")), String(theme.get("name", "meadow")))
 
 
-static func _set_globals(mood: Dictionary, look: Dictionary) -> void:
+static func _set_globals(mood: Dictionary, look: Dictionary, stage_name := "") -> void:
 	RenderingServer.global_shader_parameter_set("pf_ramp", ramp_texture(look.ramp))
 	RenderingServer.global_shader_parameter_set("pf_deep_shade", look.deep)
 	RenderingServer.global_shader_parameter_set("pf_edge_light", look.edge)
@@ -421,4 +451,8 @@ static func _set_globals(mood: Dictionary, look: Dictionary) -> void:
 	RenderingServer.global_shader_parameter_set("pf_rim_color", mood.rim)
 	RenderingServer.global_shader_parameter_set("pf_scenery_shade", float(look.get("scenery_shade", 1.0)))
 	var cl: Array = look.clouds
+	# (Shaped light, fidelity review 7: `--shaped=A|B` tries SHAPED_TRY's cloud shadows.)
+	var shaped: Dictionary = SHAPED_TRY.get(_shaped_flag(), {}).get(stage_name, {})
+	cl = shaped.get("clouds", cl)
 	RenderingServer.global_shader_parameter_set("pf_clouds", Vector4(cl[0], cl[1], cl[2], cl[3]))
+	RenderingServer.global_shader_parameter_set("pf_cloud_tone", shaped.get("cloud_tone", look.get("cloud_tone", Color(1, 1, 1, 0))))

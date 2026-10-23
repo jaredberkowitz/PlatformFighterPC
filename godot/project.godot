@@ -139,6 +139,10 @@ pf_bounce={
 "type": "color",
 "value": Color(0, 0, 0, 0)
 }
+pf_cloud_tone={
+"type": "color",
+"value": Color(1, 1, 1, 0)
+}
 pf_paper_finish={
 "type": "vec4",
 "value": Vector4(0, 0, 0, 0)

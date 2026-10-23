@@ -2100,9 +2100,14 @@ static func _props(root: Node3D, theme_name: String, e: Array) -> void:
 			pool.disable_fog = true
 			var pg := Gradient.new()
 			# (Two clear pools with a firmer edge, round 40: four soft ones ran together into a sheen across the roof.)
-			pg.set_color(0, Color(1.0, 0.86, 0.56, 0.55))
+			# (Brighter and wider with the shaped light, fidelity review 7: the palette's `lamp_pools` [alpha, size], or `--shaped=`.)
+			var lp: Array = (_palette.get("backdrop", {}) as Dictionary).get("lamp_pools", [0.55, 1.0])
+			for arg in OS.get_cmdline_user_args():
+				if arg.begins_with("--shaped="):
+					lp = {"T": [0.55, 1.0], "A": [0.68, 1.25], "B": [0.8, 1.45]}.get(arg.substr(9), lp)
+			pg.set_color(0, Color(1.0, 0.86, 0.56, float(lp[0])))
 			pg.set_color(1, Color(1.0, 0.62, 0.32, 0.0))
-			pg.add_point(0.62, Color(1.0, 0.8, 0.5, 0.45))
+			pg.add_point(0.62, Color(1.0, 0.8, 0.5, float(lp[0]) * 0.82))
 			var pt := GradientTexture2D.new()
 			pt.gradient = pg
 			pt.fill = GradientTexture2D.FILL_RADIAL
@@ -2113,7 +2118,7 @@ static func _props(root: Node3D, theme_name: String, e: Array) -> void:
 				var f := 0.3 + 0.4 * k
 				var px := lerpf(l + 3.0, r - 2.5, f)
 				var q := QuadMesh.new()
-				q.size = Vector2(5.0, 3.6)
+				q.size = Vector2(5.0, 3.6) * float(lp[1])
 				q.orientation = PlaneMesh.FACE_Y
 				var pm := _mesh(root, q, pool, Vector3(px, y + 0.07, -3.8))
 				pm.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
@@ -3250,6 +3255,18 @@ static func _soft_dot() -> GradientTexture2D:
 ## Painted cumulus (shaders/cloud.gdshader, lit from the stage's sun): each cloud a heap of lumpy puffs on a flat base, of three kinds
 ## so the sky is not one stamp repeated: a domed heap with smaller puffs piled on its crown, a long low bank, and a tall tower. No ink
 ## outline: they are far, and the haze softens them.
+## The heights the stage's clouds are drawn between, the palette's [backdrop] `cloud_band` [low, high] where it sets one (fidelity review
+## 7: drawn up to 34 on the meadow, half of them were cut by the top of the match camera's frame), else `default`.
+static func _cloud_band(default: Vector2) -> Vector2:
+	var b: Array = (_palette.get("backdrop", {}) as Dictionary).get("cloud_band", [])
+	return Vector2(float(b[0]), float(b[1])) if b.size() == 2 else default
+
+
+## The size of the stage's clouds, the palette's [backdrop] `cloud_scale` (1 as built).
+static func _cloud_scale() -> float:
+	return float((_palette.get("backdrop", {}) as Dictionary).get("cloud_scale", 1.0))
+
+
 static func _clouds(root: Node3D, rng: RandomNumberGenerator, count: int, color: Color, y_range: Vector2, z_range := Vector2(-120, -85),
 		kinds := [0, 1, 2], scale := 1.0, x_range := Vector2(-90, 90), look := {}) -> void:
 	# The clouds' construction (the palette's [backdrop] `cloud_style`; docs/art/stages/FOLDED_STYLE.md): 0 smooth painted puffs, 1
@@ -4358,7 +4375,7 @@ static func _meadow(root: Node3D, t: Dictionary, stage: Array) -> void:
 	var ground: Node3D = Node3D.new() if ground_mock else root
 	pine_slots.clear()
 	_hills(ground, rng, _pal("hills_near"), _pal("hills_far"))
-	_clouds(root, rng, 11, Color(1.0, 1.0, 1.0), Vector2(14, 34))
+	_clouds(root, rng, 11, Color(1.0, 1.0, 1.0), _cloud_band(Vector2(14, 34)), Vector2(-120, -85), [0, 1, 2], _cloud_scale())
 	# (No islands floating in the sky since the stage became a terrace on a hillside, art review 9: they were pale, flat, pulled the eye, and
 	# said the land floats when it no longer does. Still drawn and thrown away, so the random layout of everything after them stays put.)
 	var gone := Node3D.new()
@@ -5196,7 +5213,7 @@ static func _grove(root: Node3D, t: Dictionary, stage: Array) -> void:
 	# green hills read as a milky fog band and the island did not pop.)
 	var ground: Node3D = Node3D.new() if ground_mock else root
 	_hills(ground, rng, _pal("hills_near"), _pal("hills_far"))
-	_clouds(root, rng, 8, Color(1, 0.97, 1), Vector2(10, 36))
+	_clouds(root, rng, 8, Color(1, 0.97, 1), _cloud_band(Vector2(10, 36)), Vector2(-120, -85), [0, 1, 2], _cloud_scale())
 	_birds(root, rng, Color(0.25, 0.22, 0.3))
 	var top: float = stage[2] if stage.size() == 4 else 0.0
 	var left: float = stage[0] if stage.size() == 4 else -11.0
@@ -6183,6 +6200,14 @@ static func _skyline_layer(root: Node3D, rng: RandomNumberGenerator, layer: int,
 	# (Four tenths dimmer again, the judge's round 39: the signs were still the brightest, most saturated things on screen.)
 	m.set_shader_parameter("sign_energy", (1.9 - layer * 0.5) * float(_pal("sign_dim")))
 	m.set_shader_parameter("moon_edge", [0.9, 0.6, 0.35][layer])
+	# (The glow catching the towers' edges, fidelity review 7's shaped light: the palette's `skyline_glow_edge` [a layer], or `--shaped=`.)
+	var ge: Array = (_palette.get("backdrop", {}) as Dictionary).get("skyline_glow_edge", [0.0, 0.0, 0.0])
+	var shaped_flag := ""
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--shaped="):
+			shaped_flag = arg.substr(9)
+	ge = {"T": [0.0, 0.0, 0.0], "A": [0.45, 0.35, 0.2], "B": [0.7, 0.55, 0.32]}.get(shaped_flag, ge)
+	m.set_shader_parameter("glow_edge", float(ge[layer]))
 	# (The quiet behind the fight, fidelity review 5: the palette's `skyline_calm` on the two nearer layers, `--city-calm=` to try.)
 	var calm := float((_palette.get("backdrop", {}) as Dictionary).get("skyline_calm", 0.0))
 	for arg in OS.get_cmdline_user_args():

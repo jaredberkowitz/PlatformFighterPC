@@ -500,6 +500,15 @@ static func place_play(root: Node3D, t: Dictionary, path: String) -> void:
 			layer1 = grass.darkened(0.18)
 			layer2 = soil_dark.darkened(0.35)
 			fringe = (t.get("grass_light", top) as Color).lerp(Color(1.0, 0.9, 0.78), 0.6)
+	# (The tops' wear, fidelity review 7: a deeper patch, a sunlit one and trodden earth, each from the top's own colour; on the dock
+	# a weathered grey, wet wood and a replaced board; nail heads.)
+	var base_top: Color = grass if String(t.get("name", "")) == "meadow" else top
+	# (Steps of a fifth: at a tenth, under the print and the lawn's fall the lawn's contrast moved 0.071 to 0.073.)
+	colours.merge({"top_deep": base_top.darkened(0.22), "top_lit": base_top.lightened(0.18).lerp(Color(1.0, 0.97, 0.82), 0.12),
+		"top_worn": base_top.lerp(soil, 0.5), "nail": Color(0.24, 0.2, 0.2)}, true)
+	if String(t.get("name", "")) == "ocean":
+		colours.merge({"top_worn": base_top.lerp(Color(0.66, 0.62, 0.58), 0.4), "top_deep": base_top.darkened(0.18),
+			"top_lit": base_top.lightened(0.14)}, true)
 	var plate := wood.lerp(Color(0.3, 0.3, 0.42), 0.95)
 	colours.merge({"top": top, "top_card": top.lerp(cream, 0.45), "layer1": layer1, "layer2": layer2, "fringe": fringe,
 		"steel": plate, "steel_dark": (t.get("wood_dark", plate.darkened(0.3)) as Color).darkened(0.15), "steel_card": plate.lerp(cream, 0.35)}, true)
@@ -525,7 +534,7 @@ static func place_play(root: Node3D, t: Dictionary, path: String) -> void:
 			m.set_shader_parameter("ramp_softness", 0.12)
 			# (Form on the ground, the light pass, the owner's pick 2026-10-21: the top falls softly into shade toward its front edge; the
 			# lawns read flat once the scenery's ink went.)
-			if fam in ["lawn", "top", "path", "fringe"]:
+			if fam in ["lawn", "top", "path", "fringe", "top_deep", "top_lit", "top_worn", "nail"]:
 				m.set_shader_parameter("lawn_fall", 0.9)
 				m.set_shader_parameter("lawn_front", StageArt.STAGE_FRONT)
 				m.set_shader_parameter("lawn_span", 6.0)
@@ -773,6 +782,9 @@ static func print_for(theme_name: String, family: String) -> Array:
 	var own: Dictionary = PRINTS_BY_THEME.get(theme_name, {})
 	if own.has(fam):
 		return own[fam]
+	# (The tops' wear prints as the top under it, fidelity review 7.)
+	if fam in ["top_deep", "top_lit", "top_worn"]:
+		return print_for(theme_name, "lawn" if theme_name == "meadow" else "top")
 	if PRINTS.has(fam):
 		return PRINTS[fam]
 	return PRINTS_PROPS.get(fam, [])

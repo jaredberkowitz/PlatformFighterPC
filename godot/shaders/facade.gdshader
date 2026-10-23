@@ -32,6 +32,10 @@ uniform float calm_half = 26.0;
 // Haze between the rows (fidelity review 6, the city's depth): the foot of the layer, from `street_y` up `foot_height`, fades into the
 // street's lit haze, `foot_color`, by `foot_haze` (0 off).
 uniform float foot_haze = 0.0;
+// The city's glow catching the towers (fidelity review 7, shaped light): a warm edge up each front's corner away from the moon, strongest
+// low where the street's light reaches, and along the parapet's lip; `glow_edge` how much (0 off), in `glow_edge_color`.
+uniform float glow_edge = 0.0;
+uniform vec4 glow_edge_color : source_color = vec4(1.0, 0.62, 0.5, 1.0);
 uniform float foot_height = 10.0;
 uniform vec4 foot_color : source_color = vec4(0.6, 0.4, 0.6, 1.0);
 uniform float street_y = 0.0;
@@ -271,6 +275,13 @@ void fragment() {
 				col = mix(col, pane_col, in_x * in_y);
 			}
 			col = mix(col, base * side, ck * 0.4);
+		}
+		if (glow_edge > 0.0 && !plain && abs(wn.z) > 0.5) {
+			// (Wide enough to read at play distance: a strip a third of a unit across was a pixel or two.)
+			float corner = 1.0 - smoothstep(0.35, 1.0, width - at.x);
+			float low = mix(1.0, 0.35, smoothstep(0.0, height, at.y));
+			float lip = step(height - parapet - 0.35, at.y) * (1.0 - step(height - parapet + 0.15, at.y));
+			col = mix(col, glow_edge_color.rgb * 1.15, clamp((corner * low + lip * 0.7) * glow_edge, 0.0, 0.85));
 		}
 		ALBEDO = col;
 		// Scenery's object id (post.gdshader reads it from the roughness).

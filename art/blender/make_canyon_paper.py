@@ -28,8 +28,8 @@ the plain empty at the wide camera; the arch boxy), on KC's floor with `--arch s
   `--fight wide`    with it, the butte behind the fight a broad flat-topped mesa, a calm table behind the fighters, not a pillar;
   `--plain outcrops` low rock ledges and boulders across the plain, off the wash, the buttes' feet and the strip behind the fight.
 
-Shipped (the owner's pick C, fidelity review 6, 2026-10-22): godot/models/stages/canyon_paper.glb, `--variant KC --arch chipped
---buttes solid --fight wide --plain outcrops`, then lit (review 5's was `--variant KC --arch solid`).
+Shipped (fidelity review 7, the owner's pick B, 2026-10-22): godot/models/stages/canyon_paper.glb, `--variant KC --arch chipped
+--buttes solid --fight broken --plain outcrops`, then lit (review 6's had `--fight wide`, review 5's `--variant KC --arch solid`).
 
 Run (Blender 5.2):
   blender --background --python art/blender/make_canyon_paper.py -- --dir godot/art/baked/<key> --variant A --ground <g.glb>
@@ -394,6 +394,36 @@ def butte_rock(name, b, rng, wide=False):
         lump = facet_ring(ccx + side * rx * scales[-1] * 0.45, ccz, rx * scales[-1] * 0.4, rz * scales[-1] * 0.5, 5, rng)
         block(name + "_c", "rock_b", lump, y + cap_h - 0.2, y + cap_h + h * 0.06, 0.4)
     fallen(name, cx, cz, rx * 0.66, rz * 0.62, h, rng)
+
+
+def butte_broken(name, b, rng):
+    """The butte behind the fight as a broken table of rock (fidelity review 7: the wide mesa read as a round pink drum behind the
+    fighters): three blocks of uneven height side by side with a crevice between each, the middle one a step lower so the skyline is
+    notched, each in the strata (a pale band through it, a dark cap), on a low skirt, fallen blocks at its foot; wider than tall."""
+    x0, y0, z0, x1, y1, z1 = b[:6]
+    cx, cz = (x0 + x1) * 0.5, (z0 + z1) * 0.5
+    # (Wide and low: at 1.7 the width and 0.62 the height each block stood taller than wide, three chimneys.)
+    rx, rz = (x1 - x0) * 0.5 * 2.5, (z1 - z0) * 0.5 * 0.7
+    h = (y1 - FLOOR) * 0.42
+    block(name, "rock_b", facet_ring(cx, cz, rx * 0.75, rz * 0.75, 6, rng, 0.0), FLOOR - 0.5, FLOOR + h * 0.08, 1.2)
+    shares = [0.36, 0.3, 0.34]
+    heights = [1.0, 0.8, 0.92]
+    left = cx - rx * 0.62
+    span = rx * 1.24
+    x = left
+    for k, (sh, hk) in enumerate(zip(shares, heights)):
+        w = span * sh
+        bx = x + w * 0.5
+        top = FLOOR + h * hk * rng.uniform(0.95, 1.05)
+        ring = facet_ring(bx, cz + rng.uniform(-0.6, 0.6), w * 0.5 - 0.35, rz * rng.uniform(0.6, 0.75), rng.randrange(4, 6), rng, rng.uniform(-0.25, 0.25))
+        y = FLOOR + h * 0.08
+        mid = y + (top - y) * rng.uniform(0.45, 0.6)
+        block(name, "rock_a", ring, y, mid, 0.4)
+        block(name, "rock_c", scaled(ring, 0.97), mid, mid + 0.7, 0.15)
+        block(name, "rock_a", scaled(ring, 0.94), mid + 0.7, top - 0.9, 0.5)
+        block(name, "rock_b", scaled(ring, 0.9), top - 0.9, top, 0.3)
+        x += w
+    fallen(name, cx, cz, rx * 0.7, rz * 0.9, h, rng)
 
 
 def scaled(ring, f):
@@ -773,7 +803,15 @@ def build_ground():
             elif opts.get("buttes", "") == "solid":
                 # (The one behind the fight: in the front row, across the middle.)
                 behind = m[6] == 0 and m[0] < 9.0 < m[3]
-                butte_rock("butte%d" % k, m, rng, wide=behind and opts.get("fight", "") == "wide")
+                if behind and opts.get("fight", "") == "broken":
+                    # (Drawn and thrown away, so the random numbers of every butte after it stay as they were.)
+                    butte_rock("discard%d" % k, m, rng, wide=True)
+                    for key in [key for key in PARTS if key[0].startswith("discard")]:
+                        PARTS.pop(key).free()
+                    OWN.difference_update({n for n in OWN if n.startswith("discard")})
+                    butte_broken("butte%d" % k, m, random.Random(97))
+                else:
+                    butte_rock("butte%d" % k, m, rng, wide=behind and opts.get("fight", "") == "wide")
             else:
                 butte_blocks("butte%d" % k, m, rng, notched=VARIANT == "KC")
         if opts.get("plain", "") == "outcrops":
