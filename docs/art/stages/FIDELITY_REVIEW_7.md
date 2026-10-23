@@ -76,3 +76,7 @@ grove.cfg [try_sky_a|b]): the meadow A the clouds at 7 to 17 (from 14 to 34) and
 gradient fitted to the visible sky (violet-blue top, peach horizon, a warm glow held low); B with the clouds at 8 to 18. Measured at the
 match camera, the meadow's top of frame goes from hue 197, saturation 0.31 to hue 215, 0.35 (B). The grove's sky shows only between
 the trees, so its change is the smaller. On the Stage Look Review ("skies7", `sk_*`); recommended B on both.
+
+**Built (2026-10-22): skies B** (the owner's pick): meadow.cfg and grove.cfg [theme] and [backdrop] (the skies before as
+[try_pre_sky7]); no re-light. That closes review 7's two 3s: by this review's own measure every column is now a 4. Before and after:
+`review7/skies_built.jpg` (the meadow at the match camera and wide, the grove wide). All seven tests pass. Next: the play tops.
