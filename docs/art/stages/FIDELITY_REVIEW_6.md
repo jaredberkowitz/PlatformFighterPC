@@ -167,3 +167,15 @@ On the Stage Look Review ("noclones", `nc_*`); recommended B on all three.
 `grove_tree_broad.glb`) and turned and sized (`grove.cfg` `tree_vary=1.0`); the beach's waves uneven and broken (`ocean.cfg`
 `sea_vary=2`); the meadow's hill terraced (`meadow_ground.glb` `--hill banks`); the meadow and grove re-lit. Before and after:
 `review6/no_clones_built.jpg` (grove, beach and meadow wide). The runner test's shop-hint check flaked once and passed twice on its own.
+
+## Item 5, the light finish (2026-10-22, mock)
+
+Game-wide, the one system item. `toon_light.gdshaderinc` gains bounce light (`pf_bounce`, a global: the colour of the ground the light
+comes back from, its alpha how much): the side turned from the sun picks it up, most on faces turned down, half as much on a fighter.
+`Lighting.stage_mood` reads the style's `bounce`, `grade_more` (on the mood's grade), `curve_more` (on the S-curve) and `glow_from` (the
+HDR level the bloom starts at, 2.3), or `--light-finish=A|B|C` for `LIGHT_TRY`'s: A the bounce (meadow and grove a fresh green, the
+canyon warm sand, the beach the sea's cyan, the city the street's pink); B with the grade 0.15 and the S-curve 0.06 stronger; C with the
+bloom from 1.9, so the lanterns, string lights and windows glow. Lessons: a bounce at a third of these strengths lifted the shade by a
+hundredth (the light's own scale takes most of it); a few thin pieces have no real normal, and an unguarded bounce turned their NaN into
+white blots across every stage (`isnan` guard). The changes are small by design (the meadow's platform undersides 0.59 to 0.65, greener;
+the canyon's paper finish carries its shade, so it moves least). On the Stage Look Review ("lightfinish", `lf_*`); recommended C.

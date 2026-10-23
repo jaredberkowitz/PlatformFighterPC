@@ -88,6 +88,25 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
     <p>Two lessons from the reference screenshots, mocked from the match camera: the scenery without ink outlines, its edges lit as card bevels instead, and the paper houses rebuilt at the characters' proportions. The earlier rounds stay on the <a href="https://claude.ai/artifact/D1du6MREVumiJDrEdNypW4">Stage Fidelity Review</a>, which is full.</p>
   </header>
 
+  <section class="panel" aria-labelledby="lf-h" id="lightfinish">
+    <div class="eyebrow">Your call is needed &middot; review 6, item 5: the light finish</div>
+    <h2 id="lf-h">Light that bounces, a firmer grade, lamps that glow</h2>
+    <p>First, no clones B is built on all three stages (before and after are in the no-clones section above). Then item 5, which works the same way on every stage. Each stage already has a key light, painted shadows, a grade (warm lights, cool shade) and a soft bloom. Review 6 found three things missing: the shade picks up no colour from the ground around it, the grade is gentle, and only the city's windows and the effects glow.</p>
+    <div class="tablewrap"><table><thead><tr><th>Option</th><th>What changes</th></tr></thead><tbody>
+      <tr><td>A &middot; Bounce light</td><td>The side of everything turned from the sun picks up the colour of the ground the light comes back from: a fresh green on the meadow and grove, warm sand in the canyon, the sea's cyan on the beach, the street's pink glow in the city. It's strongest on faces turned down (the platforms' undersides, the eaves), and half as strong on the fighters.</td></tr>
+      <tr><td>B &middot; And a firmer grade</td><td>A, with each stage's existing grade (warm lights, cool shade) a step stronger and a little more contrast.</td></tr>
+      <tr><td>C &middot; And lamps that glow</td><td>B, with the bloom starting lower, so the lanterns, string lights, lit windows and lamps glow softly, not just the effects.</td></tr>
+    </tbody></table></div>
+    <p>This round's changes are small by design: the light is the last layer, and its job is to tie the pieces together, not to be noticed. The meadow's platform undersides show the bounce best (0.59 to 0.65, greener). In the canyon the paper finish carries most of the shade, so the bounce shows less. One fix on the way: a few thin pieces with no proper normal turned the first bounce into white blots; they're guarded now.</p>
+    <p>Close up, today on the left and C on the right: meadow, canyon, beach, city, grove.</p>
+    <div class="viewer"><img src="lf_close.jpg" alt="Every stage today and with option C, close"></div>
+    <div class="row" role="group" aria-label="Stage"><button data-lfs="0">Meadow</button><button data-lfs="1">Canyon</button><button data-lfs="2">Beach</button><button data-lfs="3">City</button><button data-lfs="4">Grove</button></div>
+    <div class="row" role="group" aria-label="View"><button data-lfv="m">Match camera</button><button data-lfv="w">Wide (today and C)</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-lfo="T">Today</button><button data-lfo="A">A &middot; Bounce</button><button data-lfo="B">B &middot; Firmer grade</button><button data-lfo="C">C &middot; Lamps glow</button></div>
+    <div class="viewer"><img id="lfimg" alt="Light finish option"><span class="vtag" id="lftag"></span></div>
+    <p class="muted">My pick: <b>C</b>. Each step is small, but together they make the shade read as lit by the world around it, and the lamps read as lamps. B is the safe middle if C's glow feels like too much on the city.</p>
+  </section>
+
   <section class="panel" aria-labelledby="nc-h" id="noclones">
     <div class="eyebrow">Built (B on all three) &middot; review 6, item 4: no clones</div>
     <h2 id="nc-h">Nothing you can spot twice in a still</h2>
@@ -995,5 +1014,19 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
   group("data-ncv", function (v) { ncv = v; }, ncrender);
   group("data-nco", function (v) { nco = v; }, ncrender);
   ncrender();
+  var lfs = "0", lfv = "m", lfo = "C";
+  var LFS = { "0": "Meadow", "1": "Canyon", "2": "Beach", "3": "City", "4": "Grove" };
+  var LFO = { T: "Today", A: "A \u00b7 Bounce", B: "B \u00b7 Firmer grade", C: "C \u00b7 Lamps glow" };
+  function lfrender() {
+    // (Wide only for today and C.)
+    var o = (lfv === "w" && (lfo === "A" || lfo === "B")) ? "C" : lfo;
+    document.getElementById("lfimg").src = "lf_" + lfs + "_" + o + "_" + lfv + ".jpg";
+    document.getElementById("lftag").textContent = LFS[lfs] + " \u00b7 " + LFO[o] + (lfv === "w" ? " \u00b7 wide" : " \u00b7 match camera");
+    pressed("data-lfs", lfs); pressed("data-lfv", lfv); pressed("data-lfo", o);
+  }
+  group("data-lfs", function (v) { lfs = v; }, lfrender);
+  group("data-lfv", function (v) { lfv = v; }, lfrender);
+  group("data-lfo", function (v) { lfo = v; }, lfrender);
+  lfrender();
 })();
 </script>

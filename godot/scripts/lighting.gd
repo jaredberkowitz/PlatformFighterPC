@@ -96,6 +96,17 @@ const STYLE_DEFAULT := {
 	"finish": {"desat": 0.0, "lift": 0.03, "vignette": 0.16, "haze_max": 0.22, "s_curve": 0.22, "quiet": 0.25, "bloom": 0.4,
 		"bloom_from": 0.6, "sheets": 0.0, "cut_edge": 0.0, "fight_lift": 0.0, "haze_desat": 0.35},
 }
+## The light finish to try (`--light-finish=A|B|C`, fidelity review 6): A the bounce (each stage's ground colour, its alpha how much;
+## a third of these lifted the shade by a hundredth, the light's own scale takes most of it); B
+## with a stronger grade (`grade_more` on the mood's) and S-curve (`curve_more`); C with the practical lights glowing (`glow_from`, the
+## HDR level bloom starts at, from 2.3).
+const LIGHT_TRY := {
+	"meadow": {"bounce": Color(0.78, 0.92, 0.46, 0.66), "grade_more": 0.15, "curve_more": 0.06, "glow_from": 1.9},
+	"grove": {"bounce": Color(0.6, 0.86, 0.46, 0.6), "grade_more": 0.15, "curve_more": 0.06, "glow_from": 1.9},
+	"sunset": {"bounce": Color(1.0, 0.68, 0.44, 0.84), "grade_more": 0.15, "curve_more": 0.06, "glow_from": 1.9},
+	"ocean": {"bounce": Color(0.42, 0.86, 0.92, 0.66), "grade_more": 0.15, "curve_more": 0.06, "glow_from": 1.9},
+	"city": {"bounce": Color(1.0, 0.58, 0.52, 0.66), "grade_more": 0.15, "curve_more": 0.06, "glow_from": 1.9},
+}
 const STYLES := {
 	# Dappled light under the great tree: small patches swaying slowly.
 	# (The background grounded, the graphics review 5: the sun's shadows out over the terraces, the trees' and gates' a cool violet.)
@@ -356,10 +367,21 @@ static func stage_mood(env: Environment, root: Node, theme: Dictionary, post: Sh
 			key.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
 			key.directional_shadow_split_1 = 0.35
 	RenderingServer.global_shader_parameter_set("pf_cast_shade", look.cast)
+	# The light finish (fidelity review 6): bounce light (`bounce`, pf_bounce), then a stronger grade and S-curve, then the practical
+	# lights glowing (`glow_from`); the style's own keys, or `--light-finish=A|B|C` to try LIGHT_TRY's.
+	var stage_name := String(theme.get("name", "meadow"))
+	var finish_try := ""
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("--light-finish="):
+			finish_try = a.substr(15)
+	var trial: Dictionary = LIGHT_TRY.get(stage_name, {}) if finish_try != "" else {}
+	RenderingServer.global_shader_parameter_set("pf_bounce", trial.get("bounce", look.get("bounce", Color(0, 0, 0, 0))))
+	env.glow_hdr_threshold = float(trial.get("glow_from", 2.3)) if finish_try == "C" else float(look.get("glow_from", 2.3))
 	if post != null:
 		post.set_shader_parameter("grade_shadows", mood.grade[0])
 		post.set_shader_parameter("grade_lights", mood.grade[1])
-		post.set_shader_parameter("grade_amount", mood.grade[2])
+		var grade_more := float(trial.get("grade_more", 0.0)) if finish_try in ["B", "C"] else float(look.get("grade_more", 0.0))
+		post.set_shader_parameter("grade_amount", float(mood.grade[2]) + grade_more)
 		post.set_shader_parameter("pastel_haze", mood.get("haze", Color(0.88, 0.9, 1.0)))
 		var finish: Dictionary = STYLE_DEFAULT.finish.duplicate()
 		finish.merge(style(theme.get("name", "meadow")).get("finish", {}), true)
@@ -370,7 +392,8 @@ static func stage_mood(env: Environment, root: Node, theme: Dictionary, post: Sh
 		post.set_shader_parameter("haze_desat", float(finish.get("haze_desat", 1.3)))
 		post.set_shader_parameter("haze_start", float(finish.get("haze_start", 14.0)))
 		post.set_shader_parameter("stage_quiet", float(finish.get("quiet", 0.0)))
-		post.set_shader_parameter("s_curve", finish.s_curve)
+		var curve_more := float(trial.get("curve_more", 0.0)) if finish_try in ["B", "C"] else float(look.get("curve_more", 0.0))
+		post.set_shader_parameter("s_curve", float(finish.s_curve) + curve_more)
 		post.set_shader_parameter("bloom", finish.bloom)
 		post.set_shader_parameter("bloom_threshold", finish.bloom_from)
 		post.set_shader_parameter("scenery_lines", float(finish.get("scenery_lines", 0.4)))
