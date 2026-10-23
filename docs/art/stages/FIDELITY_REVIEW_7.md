@@ -108,3 +108,13 @@ dropped. Options: A the broken table; B with the railway far back. On the Stage 
 
 **Built (2026-10-22): canyon B** (the owner's pick): `canyon_paper.glb` `--fight broken`, `canyon_world.glb` `--trestle far`; the canyon
 re-lit. Before and after: `review7/canyon_behind7_built.jpg`. All seven tests pass. Next: the city's middle towers.
+
+## The city's middle towers (2026-10-22, tried and dropped)
+
+Built the middle layer as a model the way the near one is (its boxes exported, frames, sills, lintels and ledges as real relief, 116
+towers, 89,000 triangles), and with the shader's full detail painted on it. At both cameras it made no visible difference
+(`review7/city_mid_towers_test.jpg`: today, the model, today, the model with the full paint, at the wide camera): at that distance the
+paper look squashes the layer into cards and the air hazes it, so relief and painted brick fall under a pixel. Not shipped, and the
+code taken back out (kept as a patch in the session's scratch). What does make the middle layer read as more than flat cards is its
+silhouette and light, not its surface: varied rooftops and crowns, and lit edges where the glow catches them. That folds into the
+light item ("shaped light", lamp and glow pools) rather than a modelling pass.
