@@ -21,6 +21,9 @@ global uniform float pf_scenery_shade;
 // depth instead). Fighters keep their own shading.
 global uniform float pf_paper;
 global uniform vec4 pf_edge_light;
+// Bounce light (fidelity review 6, the light finish): the colour of the ground the light comes back up from (warm sand, sunlit grass, the
+// sea, the street's glow) and, in its alpha, how much; it fills the side turned from the light, most on faces turned down. 0 off.
+global uniform vec4 pf_bounce;
 // Cloud shadows (scripts/lighting.gd, per mood): broad soft patches of shade drifting slowly across the stage and the scenery near it,
 // so a sunny day has light and shade moving over it rather than one even wash (the grove's are small, a canopy's dappled light). x how
 // deep (0 none), y world units across a cloud, z how much of the sky is cloud (0..1), w drift speed. A surface that writes `pf_sun` in
@@ -172,6 +175,13 @@ void light() {
 	shade *= mix(pf_scenery_shade, PF_FIGHTER_SHADE, fighter);
 	shade = mix(shade, mix(shade, vec3(1.0), 0.2) * vec3(0.9, 0.94, 1.1), paper_k);
 	vec3 tone = mix(shade, vec3(1.0), lit);
+	if (pf_bounce.a > 0.0 && LIGHT_IS_DIRECTIONAL) {
+		// (Up in view space: the camera's pitch is small, so this is near the world's up.)
+		float up = dot(NORMAL, normalize((VIEW_MATRIX * vec4(0.0, 1.0, 0.0, 0.0)).xyz));
+		// (A few thin pieces have no normal to speak of: unguarded, their NaN bloomed into white blots across the stage.)
+		float from_below = isnan(up) ? 0.0 : clamp(clamp(-up, 0.0, 1.0) + 0.35 * (1.0 - abs(up)), 0.0, 1.0);
+		tone += pf_bounce.rgb * pf_bounce.a * from_below * (1.0 - lit) * mix(1.0, 0.5, fighter);
+	}
 	// A cast shadow on the scenery behind the play area (not the fighters, not the play area: they keep the fight's light shade), from
 	// about 10 units behind the stage. Applied to the light's share and below, since the ambient is the same in sun and shadow.
 	// (Fading out again past about 110 behind, where the shadow map is coarse and the far land's standing flats shadowed each other in

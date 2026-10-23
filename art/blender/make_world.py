@@ -21,7 +21,8 @@ Run (Blender 5.2):
   blender --background --python art/blender/make_world.py -- --theme ocean --variant A --out <file.glb>   (`--variant AB` for both)
 Shipped (the owner's picks, 2026-10-21), in godot/models/stages/: beach_world.glb (`--theme ocean --variant AB`), canyon_world.glb
 (`--theme sunset --variant A --trestle back`, the trestle set back since fidelity review 5), meadow_world.glb (`--theme meadow --variant BC`), grove_world.glb (`--theme grove --variant ABL`),
-city_world.glb (`--theme city --variant AB`).
+city_world.glb (`--theme city --variant AB`). Since fidelity review 6: grove `--variant ABL --streamers shide`, city `--variant AB
+--people round`.
 """
 
 import math
@@ -40,6 +41,11 @@ argv = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
 opts = {argv[i].lstrip("-"): argv[i + 1] for i in range(0, len(argv) - 1, 2)}
 THEME = opts.get("theme", "ocean")
 VARIANT = opts.get("variant", "A").upper()
+# Fidelity review 6's small things: `--streamers shide` (the grove's lantern-string streamers as white paper zigzags, as on its gates:
+# yellow, pink and blue diamonds read as dangling crystals) and `--people round` (the townsfolk drawn as the fighters are: a round
+# body, mitten hands, shoes, two dot eyes, a hat or a scarf on some).
+STREAMERS = opts.get("streamers", "")
+PEOPLE = opts.get("people", "")
 SEA = -9.0
 FLOOR = -16.0
 ROOT = None
@@ -178,9 +184,38 @@ def smoke_column(at, n=5, size=0.6, rng=None):
     moving("smoke", at, smoke, at, n, size, rng)
 
 
+def figure_round(at, height, fam, rng):
+    """A townsperson in the fighters' own build, as layered paper cards: stubby legs and dark shoes, a round body in the coat's colour,
+    mitten hands at its sides, a big round head with a cap of hair and two dot eyes, and on some a bobble hat or a scarf."""
+    x, y, z = at
+    h = height
+    for lx in (-0.07, 0.07):
+        card([(x + lx - 0.045 * h, y + 0.04 * h, z), (x + lx + 0.045 * h, y + 0.04 * h, z), (x + lx + 0.04 * h, y + 0.2 * h, z),
+              (x + lx - 0.04 * h, y + 0.2 * h, z)], "trousers", "figure_legs", thick=0.04)
+        card(scallop(x + lx * 1.15, y + 0.035 * h, z + 0.005, 0.06 * h, 0.035 * h, 0, 0.0, depth=0.0, n=12), "shoe", "figure_shoes", thick=0.04)
+    card(scallop(x, y + 0.36 * h, z + 0.01, 0.17 * h, 0.2 * h, 0, 0.0, depth=0.0, n=20), fam, "figure", thick=0.05)
+    for sx in (-1.0, 1.0):
+        card(scallop(x + sx * 0.19 * h, y + 0.3 * h, z + 0.02, 0.05 * h, 0.05 * h, 0, 0.0, depth=0.0, n=10), fam, "figure_hands", thick=0.04)
+    card(scallop(x, y + 0.72 * h, z + 0.025, 0.19 * h, 0.18 * h, 0, 0.0, depth=0.0, n=18), "skin", "head", thick=0.05)
+    hair = [(x + 0.195 * h * math.cos(a), y + 0.75 * h + 0.18 * h * math.sin(a), z + 0.035) for a in [math.pi * k / 12 for k in range(13)]]
+    card(hair, "hair", "hair", thick=0.03)
+    for ex in (-0.06, 0.06):
+        card(scallop(x + ex * h, y + 0.69 * h, z + 0.04, 0.022 * h, 0.03 * h, 0, 0.0, depth=0.0, n=8), "eye", "figure_eyes", thick=0.01)
+    extra = rng.random()
+    if extra < 0.35:
+        hat = [(x + 0.2 * h * math.cos(a), y + 0.8 * h + 0.16 * h * math.sin(a), z + 0.045) for a in [math.pi * k / 10 for k in range(11)]]
+        card(hat, rng.choice(("flag_a", "flag_b", "flag_c")), "figure_hat", thick=0.03)
+        card(scallop(x, y + 0.97 * h, z + 0.05, 0.045 * h, 0.045 * h, 0, 0.0, depth=0.0, n=8), "white", "figure_hat", thick=0.03)
+    elif extra < 0.6:
+        card([(x - 0.15 * h, y + 0.5 * h, z + 0.03), (x + 0.15 * h, y + 0.5 * h, z + 0.03), (x + 0.15 * h, y + 0.56 * h, z + 0.03),
+              (x - 0.15 * h, y + 0.56 * h, z + 0.03)], rng.choice(("flag_a", "flag_b", "flag_c")), "figure_scarf", thick=0.03)
+
+
 def figure(at, height, fam, rng, turn=0.0):
     """A townsperson as a layered paper doll, as chibi as the fighters: legs, a coat with its arms, a big round head with a cap of hair,
     each its own thin card one layer in front of the last."""
+    if PEOPLE == "round":
+        return figure_round(at, height, fam, rng)
     x, y, z = at
     h = height
     for lx in (-0.08, 0.08):
@@ -1030,6 +1065,14 @@ def grove_b():
             f = k / 9.0
             p = a.lerp(b, f) + Vector((0.0, -1.2 * math.sin(f * math.pi), 0.0))
             ln = 1.2 + 0.5 * (k % 3)
+            if STREAMERS == "shide":
+                # A white paper zigzag, as on the gates (shrine paper).
+                s = 0.22 + 0.06 * (k % 2)
+                zig = [(p.x - s, p.y), (p.x + s, p.y), (p.x + s, p.y - ln * 0.3), (p.x - s * 0.3, p.y - ln * 0.3), (p.x + s * 0.8, p.y - ln * 0.62),
+                       (p.x - s * 0.6, p.y - ln * 0.62), (p.x + s * 0.5, p.y - ln), (p.x - s * 1.1, p.y - ln), (p.x - s * 0.1, p.y - ln * 0.62),
+                       (p.x - s * 1.2, p.y - ln * 0.62), (p.x - s * 0.1, p.y - ln * 0.3), (p.x - s, p.y - ln * 0.3)]
+                moving("flutter", tuple(p), card, [(px, py, p.z) for (px, py) in zig], "canvas", "streamer", 0.01)
+                continue
             moving("flutter", tuple(p), card, [(p.x - 0.12, p.y, p.z), (p.x + 0.12, p.y, p.z), (p.x + 0.1, p.y - ln, p.z), (p.x, p.y - ln - 0.2, p.z),
                    (p.x - 0.1, p.y - ln, p.z)], ("flag_a", "flag_b", "flag_c")[k % 3], "streamer", 0.01)
 

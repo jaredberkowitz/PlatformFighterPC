@@ -20,7 +20,9 @@ const FRONTS := {"grove_14d06e65": "res://models/stages/grove_front.glb", "meado
 	"city_2eadbb68": "res://models/stages/city_front.glb"}
 ## Modelled trees by theme (art/blender/make_grove_trees.py, option C, the owner's pick): placed where each code-built tree stood, so
 ## custom stages on the theme take them too.
-const TREES := {"grove": "res://models/stages/grove_tree.glb"}
+# (The grove's in three shapes of the one tree, fidelity review 6, the owner's pick B: one tree at one size all round read as a clone.)
+const TREES := {"grove": ["res://models/stages/grove_tree.glb", "res://models/stages/grove_tree_tall.glb",
+	"res://models/stages/grove_tree_broad.glb"]}
 ## Modelled background ground and bushes, by the exact stage they were built round ([ground, bush]; make_grove_ground.py, option A, the
 ## owner's pick): the ground stands on the side trees' footing for this layout.
 const GROUNDS := {
@@ -192,6 +194,15 @@ static func export_scene(root: Node3D, bake_key: String, rects: Array = [], fron
 	var k := 0
 	for gi: GeometryInstance3D in root.find_children("*", "GeometryInstance3D", true, false):
 		if list.has(gi) or not _occludes(gi):
+			continue
+		# (Not the modelled front: the front builders bake a new one in its place, and inside the old one every face baked black,
+		# fidelity review 6. By its mark, not its name: beside a first build still being freed it is `@Node3D@2`.)
+		var in_front := false
+		var n: Node = gi
+		while n != null and n != root and not in_front:
+			in_front = n.has_meta("modelled_front")
+			n = n.get_parent()
+		if in_front:
 			continue
 		var copy: GeometryInstance3D
 		if gi is MultiMeshInstance3D:
@@ -413,6 +424,7 @@ static func place_front(root: Node3D, t: Dictionary, scene: Node3D) -> void:
 	var glow := {"glass_lit": Color(1.0, 0.72, 0.4), "glass_dark": Color(0.12, 0.13, 0.26), "bulb": Color(1.0, 0.94, 0.8)}
 	scene.name = "ModelledFront"
 	scene.set_meta("lit_piece", true)
+	scene.set_meta("modelled_front", true)
 	root.add_child(scene)
 	var top := -INF
 	for mi: MeshInstance3D in scene.find_children("*", "MeshInstance3D", true, false):
@@ -572,7 +584,8 @@ const WORLD_COLOURS := {"hull": Color(0.32, 0.5, 0.62), "hull_stripe": Color(0.9
 	"crown": Color(0.22, 0.42, 0.32), "firefly": Color(0.95, 1.0, 0.62),
 	# (The quality pass's pieces, 2026-10-21: the paper dolls' trousers and hair, the train's brass bands and dark iron, the boxcars'
 	# seams and roofs, the billboard's poster in a muted night palette, the crowns' lit tiers, the bus's stripe.)
-	"trousers": Color(0.28, 0.3, 0.42), "hair": Color(0.3, 0.2, 0.16), "engine_band": Color(0.86, 0.66, 0.34),
+	"trousers": Color(0.28, 0.3, 0.42), "hair": Color(0.3, 0.2, 0.16),
+	"shoe": Color(0.22, 0.2, 0.26), "eye": Color(0.12, 0.1, 0.16), "white": Color(0.98, 0.96, 0.92), "engine_band": Color(0.86, 0.66, 0.34),
 	"engine_dark": Color(0.16, 0.17, 0.22), "car_seam": Color(0.42, 0.28, 0.22), "car_roof": Color(0.3, 0.27, 0.3),
 	"poster": Color(0.96, 0.9, 0.78), "poster_a": Color(0.95, 0.55, 0.45), "poster_b": Color(0.38, 0.66, 0.7), "poster_c": Color(0.3, 0.3, 0.48),
 	"board_back": Color(0.22, 0.2, 0.3), "crown_lit": Color(0.3, 0.52, 0.4), "bus_stripe": Color(0.98, 0.94, 0.86)}
@@ -833,14 +846,21 @@ static func surfaces(root: Node3D, theme_name: String) -> void:
 		printed.values().reduce(func(a, b): return a + b, 0), printed.size(), boosted, front_look])
 
 
-## The theme's modelled tree: a glTF path to try (`--tree-mock=<glb>`), the shipped model (`TREES`), or null (none, or `--no-trees`).
+## The theme's modelled tree: a glTF path to try (`--tree-mock=<glb>`, or several, comma-separated, one picked a slot), the shipped
+## model or models (`TREES`, a path or a list), or null (none, or `--no-trees`).
 static func tree_source(theme_name: String) -> Variant:
 	var mock := tree_mock_path()
 	if mock != "":
-		return mock
-	if OS.get_cmdline_user_args().has("--no-trees") or not TREES.has(theme_name) or not ResourceLoader.exists(TREES[theme_name]):
+		return Array(mock.split(",")) if mock.contains(",") else mock
+	if OS.get_cmdline_user_args().has("--no-trees") or not TREES.has(theme_name):
 		return null
-	return load(TREES[theme_name])
+	var paths: Array = TREES[theme_name] if TREES[theme_name] is Array else [TREES[theme_name]]
+	var scenes: Array = []
+	for p in paths:
+		if not ResourceLoader.exists(p):
+			return null
+		scenes.append(load(p))
+	return scenes[0] if scenes.size() == 1 else scenes
 
 
 static func tree_mock_path() -> String:
@@ -852,12 +872,21 @@ static func tree_mock_path() -> String:
 
 ## Places the modelled tree (`source`: a PackedScene, or a glTF path for mocks) where each code-built tree stood (`StageArt.tree_slots`),
 ## at its size, painted from the stage's palette with the scenery's toon material and the model's own baked occlusion (vertex colours).
+## `source` may be a list of them: each slot takes one, by its place (fidelity review 6: one tree at one size all round read as a clone).
+## With the palette's [backdrop] `tree_vary` (or `--tree-vary=1`) each tree is also turned and sized a little by its place.
 static func place_trees(root: Node3D, t: Dictionary, slots: Array, source: Variant) -> void:
-	var doc := GLTFDocument.new()
-	var state := GLTFState.new()
-	if source is String and doc.append_from_file(source, state) != OK:
-		push_warning("tree mock %s could not be read" % source)
-		return
+	var sources: Array = source if source is Array else [source]
+	var docs: Array = []
+	for src in sources:
+		var doc := GLTFDocument.new()
+		var state := GLTFState.new()
+		if src is String and doc.append_from_file(src, state) != OK:
+			push_warning("tree mock %s could not be read" % src)
+			return
+		docs.append([doc, state])
+	var vary := float(StageArt.palette(String(t.get("name", ""))).get("backdrop", {}).get("tree_vary", 0.0))
+	if flag("--tree-vary=") != "":
+		vary = float(flag("--tree-vary="))
 	var grass: Color = t.get("grass", Color(0.5, 0.8, 0.3))
 	# (The bark the front's roots wear, so the great tree and its roots are one tree.)
 	var bark := Color(0.46, 0.37, 0.3)
@@ -867,10 +896,20 @@ static func place_trees(root: Node3D, t: Dictionary, slots: Array, source: Varia
 	var colours := {"bark": bark, "leaf_lit": Color(0.46, 0.74, 0.36), "leaf_shade": Color(0.2, 0.46, 0.3),
 		"moss": grass.darkened(0.12)}
 	for slot in slots:
-		var tree: Node3D = (source as PackedScene).instantiate() if source is PackedScene else doc.generate_scene(state)
+		var at: Vector3 = slot[0]
+		var key := hash(Vector2i(roundi(at.x * 10.0), roundi(at.z * 10.0)))
+		# (The great tree, size 1, as it is: the front's roots run into it.)
+		var great := float(slot[1]) >= 0.95
+		var k := 0 if great else absi(key) % sources.size()
+		var pick: Variant = sources[k]
+		var tree: Node3D = (pick as PackedScene).instantiate() if pick is PackedScene else (docs[k][0] as GLTFDocument).generate_scene(docs[k][1])
 		tree.name = "ModelledTree"
-		tree.position = slot[0]
+		tree.position = at
 		tree.scale = Vector3.ONE * float(slot[1])
+		if vary > 0.0 and not great:
+			# (Its own turn and a size within a sixth of its slot's, from its place, so the same tree never stands twice alike.)
+			tree.rotation.y = float(absi(key) % 3600) / 3600.0 * TAU * vary
+			tree.scale *= 1.0 + (float(absi(key / 7) % 1000) / 1000.0 - 0.5) * 0.34 * vary
 		root.add_child(tree)
 		for mi: MeshInstance3D in tree.find_children("*", "MeshInstance3D", true, false):
 			for s in mi.mesh.get_surface_count():
@@ -882,8 +921,8 @@ static func place_trees(root: Node3D, t: Dictionary, slots: Array, source: Varia
 				m.set_shader_parameter("ramp_softness", 0.25 if fam == "bark" else 0.1)
 				mi.set_surface_override_material(s, m)
 			mi.set_meta("prebaked", true)
-	if source is String:
-		print("tree mock: placed %d trees from %s" % [slots.size(), (source as String).get_file()])
+	if sources[0] is String:
+		print("tree mock: placed %d trees from %d models" % [slots.size(), sources.size()])
 
 
 ## A command-line value (`<prefix><value>`), or "".
@@ -997,6 +1036,14 @@ static func _ground_colours(t: Dictionary) -> Dictionary:
 	out["abyss"] = Color(0.26, 0.2, 0.42)
 	out["abyss_far"] = Color(0.4, 0.34, 0.62)
 	out["cliff_b"] = Color(0.16, 0.32, 0.32)
+	# (Fidelity review 6, the grove's rock shaped: each block's bevel a lit rim in a lighter moss-grey; and the abyss a misty valley, its
+	# mist a step lighter than the abyss with a paler cut edge.)
+	out["cliff_lit"] = Color(0.42, 0.56, 0.48)
+	out["abyss_mist"] = Color(0.42, 0.36, 0.62)
+	out["card_abyss_mist"] = Color(0.56, 0.5, 0.78)
+	out["valley_lit"] = Color(0.4, 0.5, 0.62)
+	out["valley_shade"] = Color(0.28, 0.3, 0.5)
+	out["valley_bark"] = Color(0.32, 0.28, 0.44)
 	# (The canyon's floor in paper: its sand sheets in three tones round the desert floor's, their cut edges, wind ripples, the dry wash
 	# and its banks, pebbles, scrub and the shade under it.)
 	var sand: Color = bd.get("desert_floor", Color(0.94, 0.68, 0.4))

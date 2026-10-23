@@ -40,6 +40,8 @@ Families `hill_far`, `hill_near`, `rise`, `field_0`..`field_4`, `hedge`, `card` 
 Shipped (the owner's pick, 2026-10-22): FC with `--pine D` as godot/models/stages/meadow_ground.glb and meadow_pines.glb, then lit
 (light_stage.py on the front, the play area and the ground).
 
+Shipped since fidelity review 6 (the owner's pick B, 2026-10-22): `--variant FC --pine D --hill banks`, then lit.
+
 Run (Blender 5.2):
   blender --background --python art/blender/make_meadow_ground.py -- --dir godot/art/baked/<key> --variant A --ground <g.glb> --bush <p.glb>
 """
@@ -60,6 +62,7 @@ from fold_kit import pleated_tier  # noqa: E402
 argv = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
 opts = {argv[i].lstrip("-"): argv[i + 1] for i in range(0, len(argv) - 1, 2)}
 VARIANT = opts.get("variant", "A").upper()
+HILL = opts.get("hill", "")
 LAYOUT = json.load(open(os.path.join(opts["dir"], "ground.json")))
 X0, X1 = -200.0, 200.0
 
@@ -362,8 +365,15 @@ def hill_layers(rng):
     back = front - 14.0
     levels = [0.0]
     k = 0
+    # (Fidelity review 6: at a sheet every half unit the hill read as a regular stepped cake, the one machine-made shape beside the
+    # terraced farmland. `--hill big` fewer, bigger sheets of uneven height and a broader wobble; `--hill banks` those as terraces,
+    # each shelf falling to the next on a grass bank, as the farmland's do.)
+    big = HILL in ("big", "banks")
+    hrng = random.Random(29)
     while levels[-1] < 22.0:
         drop = 0.5 * (1.0 + k * 0.1)
+        if big:
+            drop = 1.3 * (1.0 + k * 0.12) * hrng.uniform(0.7, 1.35)
         y = hill_slope(bottom, levels[-1]) - drop
         # The distance where the slope reaches `y`.
         a, b, c = 0.006, 0.55, y - bottom - 0.05
@@ -376,6 +386,8 @@ def hill_layers(rng):
         out = []
         for i, (x, z) in enumerate(pts):
             w = 0.0 if d == 0.0 else 0.18 * math.sin(i * 0.9 + kk * 1.3 + phase) + 0.1 * math.sin(i * 2.3 + kk)
+            if big and d > 0.0:
+                w = 0.7 * math.sin(i * 0.45 + kk * 1.7 + phase) + 0.3 * math.sin(i * 1.3 + kk * 0.6)
             out.append((x, z, w))
         return out
 
@@ -396,6 +408,22 @@ def hill_layers(rng):
         y = hill_slope(bottom, levels[kk])
         y_next = hill_slope(bottom, levels[kk + 1])
         inner, outer = rings[kk], rings[kk + 1]
+        if HILL == "banks":
+            # A shelf out to a little past halfway, then a grass bank down to the next shelf.
+            dm = levels[kk] + (levels[kk + 1] - levels[kk]) * 0.55
+            mid = ring(dm, kk + 0.5)
+            for i in range(len(inner) - 1):
+                ax, az = at(inner[i], levels[kk])
+                bx, bz = at(inner[i + 1], levels[kk])
+                mx2, mz2 = at(mid[i + 1], dm)
+                mx1, mz1 = at(mid[i], dm)
+                face(part("hill", "hill"), (P(ax, y, az), P(bx, y, bz), P(mx2, y, mz2), P(mx1, y, mz1)))
+                cx2, cz = at(outer[i + 1], levels[kk + 1])
+                dx, dz = at(outer[i], levels[kk + 1])
+                face(part("hill", "bank"), (P(mx1, y, mz1), P(mx2, y, mz2), P(cx2, y_next, cz), P(dx, y_next, dz)))
+                if kk == len(levels) - 2:
+                    face(part("hill", "card_hill"), (P(dx, y_next, dz), P(cx2, y_next, cz), P(cx2, y_next - 30.0, cz), P(dx, y_next - 30.0, dz)))
+            continue
         for i in range(len(inner) - 1):
             ax, az = at(inner[i], levels[kk])
             bx, bz = at(inner[i + 1], levels[kk])

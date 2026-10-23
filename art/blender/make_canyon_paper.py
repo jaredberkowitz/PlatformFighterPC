@@ -22,7 +22,14 @@ Every look carries the dunes as standing cut-out flats along the crests of the d
 Each piece is its own object so the game can lay the air of its depth over it, and bakes its occlusion into linear vertex colours.
 Families `rock_a`, `rock_b`, `rock_c` (the strata), `dune_far`, `dune_near`, and their cut edges `card_<family>`.
 
-Shipped (the owner's pick, fidelity review 5, 2026-10-22): godot/models/stages/canyon_paper.glb, `--variant KC --arch solid`, then lit.
+After fidelity review 6 (the butte right behind the fight still read as a stack of round discs, every tier cut into bands a block each;
+the plain empty at the wide camera; the arch boxy), on KC's floor with `--arch solid` (`--arch chipped` breaks its silhouette):
+  `--buttes solid`  every butte as rock, as the arch: two or three massive tiers of few sides, a pale band between them, a dark cap;
+  `--fight wide`    with it, the butte behind the fight a broad flat-topped mesa, a calm table behind the fighters, not a pillar;
+  `--plain outcrops` low rock ledges and boulders across the plain, off the wash, the buttes' feet and the strip behind the fight.
+
+Shipped (the owner's pick C, fidelity review 6, 2026-10-22): godot/models/stages/canyon_paper.glb, `--variant KC --arch chipped
+--buttes solid --fight wide --plain outcrops`, then lit (review 5's was `--variant KC --arch solid`).
 
 Run (Blender 5.2):
   blender --background --python art/blender/make_canyon_paper.py -- --dir godot/art/baked/<key> --variant A --ground <g.glb>
@@ -41,6 +48,7 @@ from mathutils import Vector
 argv = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
 opts = {argv[i].lstrip("-"): argv[i + 1] for i in range(0, len(argv) - 1, 2)}
 VARIANT = opts.get("variant", "A").upper()
+CHIP = opts.get("arch", "") == "chipped"
 LAYOUT = json.load(open(os.path.join(opts["dir"], "ground.json")))
 FLOOR = -16.0
 STRATA = ["rock_a", "rock_b", "rock_a", "rock_c"]
@@ -298,6 +306,13 @@ def arch_rock(name, b, rng):
     for k in range(9):
         x = x1 - 0.6 - (w - 1.2) * k / 8.0
         top.append((x, yt + rng.uniform(-0.45, 0.25)))
+    if CHIP:
+        # (Fidelity review 6, the arch read boxy: one end of the span broken off at a slant, and a notch stepped into its top.)
+        top[-1] = (top[-1][0], yt - 1.6)
+        top.insert(len(top) - 1, (top[-2][0] - (w - 1.2) / 16.0, yt - 0.3))
+        n_at = 3
+        xa_, xb_ = top[n_at][0], top[n_at + 1][0]
+        top[n_at + 1:n_at + 1] = [(xa_ - (xa_ - xb_) * 0.3, yt - 0.9), (xa_ - (xa_ - xb_) * 0.7, yt - 0.9)]
     outline = [(x0 + 0.6, yb)] + under + [(x1 - 0.6, yb)] + top
     dd = d * 0.4
     OWN.add(name + "_span")
@@ -320,12 +335,113 @@ def arch_rock(name, b, rng):
         mid = P((xa + xb) * 0.5, (ya + yb_) * 0.5, cz)
         if f.normal.dot(P((xa + xb) * 0.5 + (yb_ - ya), (ya + yb_) * 0.5 - (xb - xa), cz) - mid) < 0.0:
             f.normal_flip()
+    if CHIP:
+        # The broken-off end, fallen at the left leg's foot.
+        block(name + "_f", "rock_a", facet_ring(x0 - 1.5, cz + d * 0.6, 2.2, 1.6, 5, rng), FLOOR - 0.3, FLOOR + 2.4, 0.5)
     # The cap course along the top.
-    for k in range(4):
+    for k in range(4 if not CHIP else 3):
         xa = x0 + 0.8 + (w - 1.6) * k / 4.0
         xb = x0 + 0.8 + (w - 1.6) * (k + 1) / 4.0
         ytop = yt + rng.uniform(-0.2, 0.3)
         slab("%s_cap%d" % (name, k), "rock_b", xa + 0.1, xb - 0.1, cz - dd * 0.9, cz + dd * 0.9, ytop - 0.2, ytop + 0.9, 0.3)
+
+
+def butte_rock(name, b, rng, wide=False):
+    """A butte as rock, as the arch is (fidelity review 6: banded a block each, every butte read as a stack of discs): two or three
+    massive faceted tiers of few sides, each set off the one under it and stepping well in, a thin pale band between them and a dark cap
+    course on top, on a low skirt; `wide` a broad flat-topped mesa, one tier with a pale band through it (the butte behind the fight)."""
+    x0, y0, z0, x1, y1, z1 = b[:6]
+    cx, cz = (x0 + x1) * 0.5, (z0 + z1) * 0.5
+    rx, rz = (x1 - x0) * 0.5, (z1 - z0) * 0.5
+    if wide:
+        # (Wider than deep, a flat face toward the camera: a five-sided ring at a random turn read as a round drum.)
+        # (And lower, seven tenths: at the butte's full height it stood taller than wide, a tower, not a table.)
+        rx *= 1.6
+        rz *= 0.75
+    h = (y1 - FLOOR) * (0.7 if wide else 1.0)
+    rot = math.pi * 0.25 if wide else rng.uniform(0, math.tau)
+    block(name, "rock_b", facet_ring(cx, cz, rx * 0.7, rz * 0.64, 6, rng, rot), FLOOR - 0.5, FLOOR + h * 0.1, 1.4)
+    scales = [0.6] if wide else ([0.56, 0.42, 0.3] if h > 14 else [0.56, 0.38])
+    tiers = len(scales)
+    y = FLOOR + h * 0.1
+    cap_h = 1.0
+    ring = None
+    for t, sc in enumerate(scales):
+        top = FLOOR + h * (0.1 + 0.9 * (t + 1) / tiers) - (cap_h if t == tiers - 1 else 0.0)
+        ox = rng.uniform(-0.14, 0.14) * rx if t else 0.0
+        ring = facet_ring(cx + ox, cz + rng.uniform(-0.4, 0.4), rx * sc, rz * sc, 4 if wide else rng.randrange(4, 6), rng,
+                          rot + (0.0 if wide else rng.uniform(-0.35, 0.35)))
+        if wide:
+            # (One tier, a pale band through it a little over halfway, as the arch's legs.)
+            mid = y + (top - y) * 0.56
+            block(name, "rock_a", ring, y, mid, 0.5)
+            block(name, "rock_c", scaled(ring, 0.97), mid, mid + 0.8, 0.2)
+            block(name, "rock_a", scaled(ring, 0.95), mid + 0.8, top, 0.6)
+        else:
+            block(name, "rock_a", ring, y, top, 0.8)
+            if t < tiers - 1:
+                # The pale band the next tier stands on.
+                block(name, "rock_c", scaled(ring, 0.86), top, top + 0.6, 0.15)
+                top += 0.6
+        y = top
+    # The dark cap course, and on a tall one a lump of the cap left standing to one side.
+    cap = scaled(ring, 0.96)
+    block(name, "rock_b", cap, y, y + cap_h, 0.3)
+    if not wide and h > 12 and rng.random() < 0.6:
+        ccx = sum(q[0] for q in cap) / len(cap)
+        ccz = sum(q[1] for q in cap) / len(cap)
+        side = rng.choice((-1, 1))
+        lump = facet_ring(ccx + side * rx * scales[-1] * 0.45, ccz, rx * scales[-1] * 0.4, rz * scales[-1] * 0.5, 5, rng)
+        block(name + "_c", "rock_b", lump, y + cap_h - 0.2, y + cap_h + h * 0.06, 0.4)
+    fallen(name, cx, cz, rx * 0.66, rz * 0.62, h, rng)
+
+
+def scaled(ring, f):
+    cx = sum(q[0] for q in ring) / len(ring)
+    cz = sum(q[1] for q in ring) / len(ring)
+    return [(cx + (x - cx) * f, cz + (z - cz) * f) for (x, z) in ring]
+
+
+def outcrops(rng):
+    """Low rock ledges and boulders across the plain (fidelity review 6: at the wide camera the plain was empty): a ledge of one or two
+    flat tiers with a pale band, a boulder or two by it; off the buttes' feet, the dry wash and the strip behind the fight."""
+    feet = [((m[0] + m[3]) * 0.5, (m[2] + m[5]) * 0.5, (m[3] - m[0]) * 0.55, (m[5] - m[2]) * 0.55) for m in LAYOUT.get("mesas", [])]
+    a = LAYOUT.get("arch")
+    if a:
+        feet.append(((a[0] + a[3]) * 0.5, (a[2] + a[5]) * 0.5, (a[3] - a[0]) * 0.7, (a[5] - a[2]) * 1.2))
+    line = wash_line()
+    placed = []
+    tries = 0
+    # (Within the wide camera's view: spread across the whole plain, most fell out of frame.)
+    while len(placed) < 14 and tries < 3000:
+        tries += 1
+        x, z = rng.uniform(-95.0, 95.0), rng.uniform(-95.0, -14.0)
+        if abs(x) < 32.0:
+            continue
+        if any(((x - fx) / fr) ** 2 + ((z - fz) / fd) ** 2 < 1.0 for (fx, fz, fr, fd) in feet):
+            continue
+        if near_wash(line, x, z, 9.0) or any(math.hypot(x - px, z - pz) < 16.0 for (px, pz) in placed):
+            continue
+        placed.append((x, z))
+        k = len(placed) - 1
+        far = (-z - 14.0) / 80.0
+        rx, rz = rng.uniform(4.0, 8.0) * (1.0 + 0.6 * far), rng.uniform(2.0, 3.6) * (1.0 + 0.4 * far)
+        hh = rng.uniform(1.4, 2.6) * (1.0 + 0.5 * far)
+        y = seat(x, z) - 0.3
+        nm = "outcrop%d" % k
+        rot = rng.uniform(-0.4, 0.4)
+        ring = facet_ring(x, z, rx, rz, rng.randrange(5, 7), rng, rot)
+        block(nm, "rock_a", ring, y, y + hh, 0.4)
+        if rng.random() < 0.6:
+            block(nm, "rock_c", scaled(ring, 0.8), y + hh, y + hh + 0.35, 0.1)
+            block(nm, "rock_a", facet_ring(x + rng.uniform(-0.3, 0.3) * rx, z, rx * 0.5, rz * 0.6, 5, rng), y + hh + 0.35, y + hh * 1.7, 0.3)
+        for q in range(rng.randrange(1, 3)):
+            ang = rng.uniform(0, math.tau)
+            bx, bz = x + rx * 1.15 * math.cos(ang), z + rz * 1.3 * math.sin(ang)
+            sz = hh * rng.uniform(0.35, 0.6)
+            block(nm, rng.choice(("rock_a", "rock_b")), facet_ring(bx, bz, sz, sz * 0.8, rng.randrange(4, 6), rng), seat(bx, bz) - 0.2,
+                  seat(bx, bz) + sz * 1.1, sz * 0.25)
+        shade(nm + "_shade", x, seat(x, z), z, max(rx, rz) * 1.1)
 
 
 def arch_blocks(name, b, rng, courses=False):
@@ -654,11 +770,17 @@ def build_ground():
         for k, m in enumerate(LAYOUT.get("mesas", [])):
             if VARIANT == "KB":
                 butte_courses("butte%d" % k, m, rng)
+            elif opts.get("buttes", "") == "solid":
+                # (The one behind the fight: in the front row, across the middle.)
+                behind = m[6] == 0 and m[0] < 9.0 < m[3]
+                butte_rock("butte%d" % k, m, rng, wide=behind and opts.get("fight", "") == "wide")
             else:
                 butte_blocks("butte%d" % k, m, rng, notched=VARIANT == "KC")
+        if opts.get("plain", "") == "outcrops":
+            outcrops(random.Random(71))
         if LAYOUT.get("arch"):
-            # (`--arch solid`: fidelity review 5's rock arch, `arch_rock`.)
-            if opts.get("arch", "") == "solid":
+            # (`--arch solid`: fidelity review 5's rock arch, `arch_rock`; `--arch chipped` it broken, review 6.)
+            if opts.get("arch", "") in ("solid", "chipped"):
                 arch_rock("arch", LAYOUT["arch"], rng)
             else:
                 arch_blocks("arch", LAYOUT["arch"], rng, courses=VARIANT == "KB")

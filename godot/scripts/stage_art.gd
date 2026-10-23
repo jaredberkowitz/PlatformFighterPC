@@ -53,6 +53,16 @@ static func palette(name: String) -> Dictionary:
 			out[section] = d
 	else:
 		push_error("stage palette %s is missing" % name)
+	# (A trial of palette values, `--pal-try=<name>`: the palette's own [try_<name>] section, its keys written "section/key", laid over
+	# the rest, so a mock is a few lines in the palette and shipping one is moving them into place. Fidelity review 6.)
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--pal-try=") and out.has("try_" + arg.substr(10)):
+			var trial: Dictionary = out["try_" + arg.substr(10)]
+			for k: String in trial:
+				var at := k.split("/")
+				if not out.has(at[0]):
+					out[at[0]] = {}
+				(out[at[0]] as Dictionary)[at[1]] = trial[k]
 	_palette_cache[name] = out
 	return out
 
@@ -152,6 +162,15 @@ static func sky(t: Dictionary) -> Sky:
 	if t.has("sky_wisps"):
 		mat.set_shader_parameter("wisp_color", t.sky_wisps[0])
 		mat.set_shader_parameter("wisp_amount", t.sky_wisps[1])
+	# (Where the middle tint and the top are reached, `sky_bands`, and where the glow sits and how far it reaches, `glow_height` [centre, reach, full below the centre]: the city's sky, fidelity
+	# review 6, where the cameras see only the sky from about 0.03 to 0.09 up, so its whole gradient has to happen there.)
+	if t.has("sky_bands"):
+		mat.set_shader_parameter("mid_at", float(t.sky_bands[0]))
+		mat.set_shader_parameter("top_at", float(t.sky_bands[1]))
+	if t.has("glow_height"):
+		mat.set_shader_parameter("glow_at", float(t.glow_height[0]))
+		mat.set_shader_parameter("glow_height", float(t.glow_height[1]))
+		mat.set_shader_parameter("glow_below", (t.glow_height as Array).size() > 2 and bool(t.glow_height[2]))
 	# The sky answering the sun (the theme's `sun_at`, where its sun is drawn, or `sun_dir`; `sun_side`, `halo`): the judge's round 41.
 	if t.has("sun_at") or t.has("sun_dir"):
 		var dir: Vector3 = (t.sun_at - SKY_EYE).normalized() if t.has("sun_at") else (t.sun_dir as Vector3).normalized()
@@ -2607,9 +2626,17 @@ static func _potted_plant(root: Node3D, at: Vector3) -> void:
 
 
 ## A string of little lit bulbs sagging between two points.
-static func _string_lights(root: Node3D, a: Vector3, b: Vector3) -> void:
+## `lamp` the modelled light hung along it (art/blender/make_props.py: "paper_lantern" on the grove, "string_bulb" in the city) with the
+## palette's [backdrop] `string_lights="model"` or `--strings=model` (fidelity review 6: the strings were code-built spheres); without,
+## or without the prop, the code-built bulbs.
+static func _string_lights(root: Node3D, a: Vector3, b: Vector3, lamp := "string_bulb") -> void:
 	var cord := FighterView.toon(Color(0.25, 0.22, 0.3), false)
 	var bulbs := [_unshaded(Color(1.0, 0.86, 0.5)), _unshaded(Color(1.0, 0.6, 0.75)), _unshaded(Color(0.6, 0.9, 1.0))]
+	var modelled := String((_palette.get("backdrop", {}) as Dictionary).get("string_lights", "")) == "model"
+	if OS.get_cmdline_user_args().has("--strings=model"):
+		modelled = true
+	if modelled and Toonify.load_prop(lamp) == null:
+		modelled = false
 	var n := 18
 	var prev := a
 	for k in range(1, n + 1):
@@ -2617,7 +2644,21 @@ static func _string_lights(root: Node3D, a: Vector3, b: Vector3) -> void:
 		var p := a.lerp(b, f) + Vector3(0, -1.2 * sin(f * PI), 0)
 		var seg := _mesh(root, _box(Vector3(0.04, 0.04, prev.distance_to(p))), cord, (prev + p) / 2.0)
 		seg.basis = Basis.looking_at(p - prev, Vector3.UP)
-		if k < n:
+		if k < n and modelled:
+			var glow: Color = (bulbs[k % 3] as StandardMaterial3D).albedo_color
+			# (The grove's lanterns all a warm paper glow, the city's bulbs their three colours.)
+			if lamp == "paper_lantern":
+				glow = [Color(1.0, 0.74, 0.44), Color(1.0, 0.62, 0.5), Color(1.0, 0.82, 0.52)][k % 3]
+			var model := Toonify.load_prop(lamp, true)
+			model.position = p
+			model.rotation.y = float(k) * 0.7
+			root.add_child(model)
+			for mi in model.find_children("*", "MeshInstance3D", true, false):
+				if String(mi.name).begins_with("glow"):
+					(mi as MeshInstance3D).material_override = _unshaded(glow)
+			var drop := 0.42 if lamp == "paper_lantern" else 0.2
+			_halo(root, p + Vector3(0, -drop, 0.2), glow, 0.9 if lamp == "paper_lantern" else 0.5)
+		elif k < n:
 			_mesh(root, _sphere(0.11, 6), bulbs[k % 3], p + Vector3(0, -0.12, 0))
 			_halo(root, p + Vector3(0, -0.12, 0.15), (bulbs[k % 3] as StandardMaterial3D).albedo_color, 0.55)
 		prev = p
@@ -5210,8 +5251,8 @@ static func _grove(root: Node3D, t: Dictionary, stage: Array) -> void:
 	# Little flowers and tufts on the grass behind the fighters, gathered toward the ends so the middle of the stage stays clean.
 	_flower_clusters(root, [left, right, top], rng, [Color(1, 1, 1), Color(1, 0.8, 0.9)], Color(0.46, 0.84, 0.42))
 	# Strings of lanterns hung from the great tree out to the smaller ones, under the canopy: the grove is looked after.
-	_string_lights(root, Vector3(-4.0, top + 12.0, -17.0), Vector3(-22.0, top + 8.0, -30.0))
-	_string_lights(root, Vector3(4.0, top + 12.0, -17.0), Vector3(22.0, top + 8.0, -30.0))
+	_string_lights(root, Vector3(-4.0, top + 12.0, -17.0), Vector3(-22.0, top + 8.0, -30.0), "paper_lantern")
+	_string_lights(root, Vector3(4.0, top + 12.0, -17.0), Vector3(22.0, top + 8.0, -30.0), "paper_lantern")
 	# Pale pink motes drifting under the great tree, and light falling through its canopy.
 	# (No light shafts, the style sheet's clear air, 2026-10-19: their see-through card veiled the faceted ranges and hills into soft bands.)
 	_motes(root, Color(1.0, 0.86, 0.94), [left, right, top, top - 10.0])
@@ -5241,6 +5282,12 @@ static func _ocean(root: Node3D, t: Dictionary, stage: Array) -> void:
 	# (The water pass, fidelity review 5: the palette's `sea_look`, the owner's pick the paper waves (3); `--sea-look=T|A|B|C` compares
 	# the sea as it was and the clear, reflecting and paper seas; see water.gdshader `look`.)
 	wm.set_shader_parameter("look", int(_pal("sea_look")))
+	# (The paper waves' variety, fidelity review 6: the palette's `sea_vary`, `--sea-vary=` to try; see water.gdshader `wave_vary`.)
+	var sea_vary := int((_palette.get("backdrop", {}) as Dictionary).get("sea_vary", 0))
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--sea-vary="):
+			sea_vary = int(arg.substr(11))
+	wm.set_shader_parameter("wave_vary", sea_vary)
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--sea-look="):
 			wm.set_shader_parameter("look", {"T": 0, "A": 1, "B": 2, "C": 3}.get(arg.substr(11), int(_pal("sea_look"))))
@@ -6142,6 +6189,16 @@ static func _skyline_layer(root: Node3D, rng: RandomNumberGenerator, layer: int,
 		if arg.begins_with("--city-calm="):
 			calm = float(arg.substr(12))
 	m.set_shader_parameter("calm", calm if layer < 2 else 0.0)
+	# (Haze between the rows, the palette's `skyline_haze`, [strength, height] a layer near to far, in `skyline_haze_color`: each row's
+	# foot fades into the street's lit haze, the further rows more, so every row reads further back than the one in front. Fidelity
+	# review 6, the city's depth.)
+	var bd: Dictionary = _palette.get("backdrop", {})
+	if bd.has("skyline_haze"):
+		var hz: Array = (bd.skyline_haze as Array)[layer]
+		m.set_shader_parameter("foot_haze", float(hz[0]))
+		m.set_shader_parameter("foot_height", float(hz[1]))
+		m.set_shader_parameter("foot_color", bd.get("skyline_haze_color", Color(0.6, 0.4, 0.6)))
+		m.set_shader_parameter("street_y", street)
 	# (Finer windows, finer further back, the gauntlet's round 15 after the owner's city reference: its windows are fine regular grids
 	# that read as texture; ours, a bay of 2 by 2.6 on every layer, read as stickers.)
 	m.set_shader_parameter("cell", [Vector2(1.5, 1.95), Vector2(1.15, 1.5), Vector2(0.9, 1.2)][layer])

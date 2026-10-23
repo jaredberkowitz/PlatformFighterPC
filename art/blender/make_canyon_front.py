@@ -7,7 +7,15 @@ owner to pick from (`--front-mock=` on the stage demo), each in the canyon's own
   A  stacked slabs: the mesa as tiers of chunky rock, each its own irregular footprint jutting in and out, as the far mesas are built;
   B  fluted cliff: deep vertical erosion columns down the face, cut across by the strata bands;
   C  stepped ledges: thin shelves stepping out and back, each with a lit top edge, boulders fallen at the foot.
+After fidelity review 6 (at the wide camera the face read soft and smudged: big flat slabs whose occlusion, sampled at few vertices,
+smeared into blotches), on A:
+  `--cut 1`      crisp cut edges: each slab's top front edge chamfered back so it catches the light as a line, and a finer mesh so the
+                 baked shade follows the shapes;
+  `--courses 1`  with it, each slab laid in thin courses of sediment, each a little in or out and a step lighter or darker.
 Families `strata_a`, `strata_b`, `strata_c`; each piece bakes its occlusion into linear vertex colours with the built canyon round it.
+
+Shipped (the owner's pick, fidelity review 6, 2026-10-22): godot/models/stages/canyon_front.glb, `--variant A --cut 1 --courses 1`,
+then lit (the palette's `front_lift` raised to 0.35 to keep the face at 0.33).
 
 Run (Blender 5.2):
   blender --background --python art/blender/make_canyon_front.py -- --dir godot/art/baked/<key> --variant A --out <file.glb>
@@ -26,6 +34,8 @@ from mathutils import Vector
 argv = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
 opts = {argv[i].lstrip("-"): argv[i + 1] for i in range(0, len(argv) - 1, 2)}
 VARIANT = opts.get("variant", "A").upper()
+CUT = opts.get("cut", "0") == "1"
+COURSES = opts.get("courses", "0") == "1"
 manifest = json.load(open(os.path.join(opts["dir"], "manifest.json")))
 BLOCK = [r for r in manifest["rects"] if r[4] < 0.5][0]
 LEFT, RIGHT, TOP, BOTTOM = BLOCK[0], BLOCK[1], BLOCK[2], BLOCK[3]
@@ -70,27 +80,42 @@ def tone(bm, verts, t):
         v[layer] = t
 
 
-def slab(bm, x0, x1, y0, y1, out, rng, cols=10, taper=0.08, back=DEPTH):
-    """A tier of rock from `y0` up to `y1`: an irregular footprint whose front edge juts in and out (`out` at most) across x0..x1, its top
-    a touch smaller; flat faces."""
+def front_profile(x0, x1, out, rng, cols):
     pts = []
     for i in range(cols + 1):
         x = x0 + (x1 - x0) * i / cols
         z = FZ + (rng.uniform(-0.25, 1.0) * out if 0 < i < cols else rng.uniform(-0.4, 0.1))
         pts.append((x, z))
+    return pts
+
+
+def slab(bm, x0, x1, y0, y1, out, rng, cols=10, taper=0.08, back=DEPTH, pts=None, chamfer=0.0, shade=None):
+    """A tier of rock from `y0` up to `y1`: an irregular footprint whose front edge juts in and out (`out` at most) across x0..x1, its top
+    a touch smaller; flat faces. `pts` its front edge, given; `chamfer` its top front edge cut back that far, a face catching the light."""
+    if pts is None:
+        pts = front_profile(x0, x1, out, rng, cols)
     lo, hi, tops = [], [], []
     ring = pts + [(x1, FZ - back), (x0, FZ - back)]
     cx = (x0 + x1) * 0.5
+    ch = min(chamfer, (y1 - y0) * 0.4)
     for x, z in ring:
         lo.append(bm.verts.new(P(x, y0, z)))
         tx = cx + (x - cx) * (1.0 - taper * 0.3)
-        tz = z - taper * (1.0 if z > FZ - back + 0.01 else 0.0)
-        hi.append(bm.verts.new(P(tx, y1, tz)))
+        front = z > FZ - back + 0.01
+        tz = z - taper * (1.0 if front else 0.0)
+        if ch > 0.0:
+            tops.append(bm.verts.new(P(tx, y1 - ch, tz)))
+            hi.append(bm.verts.new(P(tx, y1, tz - (ch * 1.3 if front else 0.0))))
+        else:
+            hi.append(bm.verts.new(P(tx, y1, tz)))
     n = len(ring)
     faces = []
+    mid = tops if ch > 0.0 else hi
     for i in range(n):
         j = (i + 1) % n
-        faces.append(bm.faces.new((lo[i], lo[j], hi[j], hi[i])))
+        faces.append(bm.faces.new((lo[i], lo[j], mid[j], mid[i])))
+        if ch > 0.0:
+            faces.append(bm.faces.new((tops[i], tops[j], hi[j], hi[i])))
     faces.append(bm.faces.new(list(reversed(lo))))
     faces.append(bm.faces.new(hi))
     bm.normal_update()
@@ -98,7 +123,23 @@ def slab(bm, x0, x1, y0, y1, out, rng, cols=10, taper=0.08, back=DEPTH):
     for f in faces:
         if f.normal.dot(f.calc_center_median() - centre) < 0:
             f.normal_flip()
-    tone(bm, lo + hi, rng.uniform(0.82, 1.05))
+    tone(bm, lo + hi + tops, shade if shade is not None else rng.uniform(0.82, 1.05))
+
+
+def courses(bm, x0, x1, y0, y1, out, rng, cols=6):
+    """A slab laid in thin courses of sediment (fidelity review 6): one front edge for the slab, each course a little in or out of it,
+    alternately a step lighter and darker round the slab's own tone (darker only, the face fell from 0.33 to 0.30, undoing review 5's
+    lift), each with its own cut edge."""
+    pts = front_profile(x0, x1, out, rng, cols)
+    n = max(2, int(round((y1 - y0) / 0.5)))
+    base = rng.uniform(0.84, 1.02)
+    for k in range(n):
+        ya = y1 - (y1 - y0) * (k + 1) / n
+        yb = y1 - (y1 - y0) * k / n
+        dz = rng.uniform(-0.18, 0.1)
+        own = [(x, z + dz * (1.0 if 0 < i < len(pts) - 1 else 0.3)) for i, (x, z) in enumerate(pts)]
+        slab(bm, x0, x1, ya + 0.015, yb, out, rng, pts=own, taper=0.02, chamfer=0.07,
+             shade=base * (1.06 if k % 2 == 0 else 0.94) * rng.uniform(0.97, 1.03))
 
 
 def core():
@@ -131,7 +172,11 @@ def build():
             cuts = sorted(rng.uniform(-w * 0.6, w * 0.6) for _ in range(rng.choice((1, 2))))
             xs = [-w] + cuts + [w]
             for k in range(len(xs) - 1):
-                slab(part(band_of(y - h * 0.5)), xs[k] + 0.04, xs[k + 1] - 0.04, y - h, y, rng.uniform(0.35, 0.9), rng, cols=6)
+                if COURSES:
+                    courses(part(band_of(y - h * 0.5)), xs[k] + 0.04, xs[k + 1] - 0.04, y - h, y, rng.uniform(0.35, 0.9), rng)
+                else:
+                    slab(part(band_of(y - h * 0.5)), xs[k] + 0.04, xs[k + 1] - 0.04, y - h, y, rng.uniform(0.35, 0.9), rng, cols=6,
+                         chamfer=0.22 if CUT else 0.0)
             y -= h + 0.02
     elif VARIANT == "B":
         # Columns: a face of vertical flutes, cut across into band-coloured rows.
@@ -181,7 +226,8 @@ def make_objects():
         # (Finer, so the occlusion baked into the vertices follows the shapes: on big faces it sampled only their corners and smeared.)
         bmesh.ops.triangulate(bm, faces=bm.faces[:])
         for _ in range(2):
-            long_edges = [e for e in bm.edges if e.calc_length() > 0.8]
+            # (Finer with the cut edges, review 6: at 0.8 the shade still smeared across the slabs into blotches.)
+            long_edges = [e for e in bm.edges if e.calc_length() > (0.6 if CUT else 0.8)]
             if long_edges:
                 bmesh.ops.subdivide_edges(bm, edges=long_edges, cuts=1, use_grid_fill=True)
             bmesh.ops.triangulate(bm, faces=bm.faces[:])

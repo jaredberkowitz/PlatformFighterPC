@@ -18,6 +18,7 @@ const CENTRED := {
 	"windmill_tower": "stands on the game's stone drum, base at 1", "palm_crown": "sits on the trunk's top",
 	"lighthouse": "its rock footing runs under the sea",
 	"paper_props/prop_fence_rail": "centred on its height between the posts",
+	"paper_lantern": "hangs from its origin on a lantern string", "string_bulb": "as paper_lantern",
 }
 ## The most triangles one prop may have (the cottage, the busiest, is about 8800).
 const BUDGET := 10000

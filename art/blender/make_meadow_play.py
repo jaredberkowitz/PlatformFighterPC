@@ -9,6 +9,8 @@ the sim's height; the modelled front under the lawn stays. Three looks for the o
      plank-shaped cut-outs with notched ends over a soft cast-shadow card.
 Families `lawn`, `lawn_under`, `path`, `card`, `soil`, `stone`, `fringe`, `plank`, `plank_b`, `plank_card`, `rope`, `shadow`.
 
+Shipped since fidelity review 6 (the owner's pick A, 2026-10-22): `--variant B --plat timber` into meadow_play.glb, then lit.
+
 Run (Blender 5.2):
   blender --background --python art/blender/make_meadow_play.py -- --dir godot/art/baked/<key> --variant A --out <file.glb>
 """
@@ -26,6 +28,8 @@ from mathutils import Vector
 argv = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
 opts = {argv[i].lstrip("-"): argv[i + 1] for i in range(0, len(argv) - 1, 2)}
 VARIANT = opts.get("variant", "A").upper()
+# The platforms after fidelity review 6 (`--plat timber|timber_moss`; on the shipped B's lawn).
+PLAT = opts.get("plat", "")
 manifest = json.load(open(os.path.join(opts["dir"], "manifest.json")))
 FZ = float(manifest["front_z"])
 BLOCK = [r for r in manifest["rects"] if r[4] < 0.5][0]
@@ -65,6 +69,70 @@ def box(x0, x1, y0, y1, z0, z1, top, side, bottom=None):
     face(side, (v(1, 0, 0), v(0, 0, 0), v(0, 1, 0), v(1, 1, 0)))
     face(side, (v(0, 0, 0), v(0, 0, 1), v(0, 1, 1), v(0, 1, 0)))
     face(side, (v(1, 0, 1), v(1, 0, 0), v(1, 1, 0), v(1, 1, 1)))
+
+
+def solid(side, bottom, top4, bot4, top=None):
+    """A closed frustum from a top quad to a bottom quad (corners in the same order round), its faces turned outward from its middle."""
+    pts = top4 + bot4
+    c = sum(pts, Vector()) / len(pts)
+    faces = [(top or side, list(reversed(top4))), (bottom, bot4)]
+    for i in range(4):
+        j = (i + 1) % 4
+        faces.append((side, [top4[i], top4[j], bot4[j], bot4[i]]))
+    for mat, q in faces:
+        f = face(mat, q)
+        f.normal_update()
+        if f.normal.dot(f.calc_center_median() - c) < 0.0:
+            f.normal_flip()
+
+
+def log_x(x0, x1, yc, zc, r, side, end, n=9):
+    """A round log lying along x, its cut ends showing."""
+    import math as _m
+    ring = [(_m.cos(_m.tau * k / n) * r, _m.sin(_m.tau * k / n) * r) for k in range(n)]
+    a = [P(x0, yc + dy, zc + dz) for (dy, dz) in ring]
+    b = [P(x1, yc + dy, zc + dz) for (dy, dz) in ring]
+    for k in range(n):
+        j = (k + 1) % n
+        f = face(side, [a[k], a[j], b[j], b[k]])
+        f.normal_update()
+        mid = P((x0 + x1) * 0.5, yc, zc)
+        if f.normal.dot(f.calc_center_median() - mid) < 0.0:
+            f.normal_flip()
+    for pts, sgn in ((a, -1.0), (b, 1.0)):
+        f = face(end, list(pts))
+        f.normal_update()
+        if f.normal.x * sgn < 0.0:
+            f.normal_flip()
+
+
+def underside(x0, x1, y_top, zb, zf, depth, rng, side, bottom):
+    """A rocky underside hanging under a platform: cells along it, deepest toward the middle, each set in a little and faceted."""
+    import math as _m
+    n = max(3, int((x1 - x0) / 0.9))
+    w = (x1 - x0) / n
+    for i in range(n):
+        xa, xb = x0 + w * i, x0 + w * (i + 1)
+        t = (i + 0.5) / n
+        d = depth * (0.3 + 0.7 * _m.sin(_m.pi * t)) * rng.uniform(0.75, 1.15)
+        ix = w * rng.uniform(0.08, 0.2)
+        izf, izb = rng.uniform(0.35, 0.7), rng.uniform(0.4, 0.8)
+        top4 = [P(xa, y_top, zb), P(xb, y_top, zb), P(xb, y_top, zf), P(xa, y_top, zf)]
+        yb = y_top - d
+        bot4 = [P(xa + ix, yb, zb + izb), P(xb - ix, yb, zb + izb), P(xb - ix, yb + rng.uniform(0.0, 0.12), zf - izf),
+                P(xa + ix, yb + rng.uniform(0.0, 0.12), zf - izf)]
+        solid(side, bottom, top4, bot4)
+
+
+def hanging(x0, x1, y_top, z, mat, rng, count, lo, hi, wide=(0.15, 0.35)):
+    """Strands hanging from y_top in front of the face at z (moss, grass, roots): tapering, a little crooked."""
+    for _ in range(count):
+        x = rng.uniform(x0, x1)
+        ln = rng.uniform(lo, hi)
+        wd = rng.uniform(*wide)
+        lean = rng.uniform(-0.15, 0.15)
+        face(mat, (P(x - wd, y_top, z), P(x + wd, y_top, z), P(x + wd * 0.35 + lean, y_top - ln * 0.7, z), P(x + lean * 1.4, y_top - ln, z),
+                   P(x - wd * 0.4 + lean, y_top - ln * 0.6, z)))
 
 
 def path_strip(x0, x1, zc, half, rng):
@@ -113,6 +181,27 @@ def lawn(rng):
 def platform(r, rng):
     x0, x1, top = r[0], r[1], r[2]
     zb, zf = FZ - PLAT_DEPTH, FZ
+    if PLAT in ("timber", "timber_moss"):
+        # (Fidelity review 6: a green slab with a scalloped trim read as a plain slab. A turf mat on two round logs, their cut ends
+        # showing and lashed with rope near each end, the farm's own build; `timber_moss` with moss and grass hanging over the logs.)
+        box(x0 - 0.05, x1 + 0.05, top - 0.16, top, zb, zf, "lawn", "card", "lawn_under")
+        r_log = 0.24
+        yc = top - 0.16 - r_log
+        for zc in (zf - 0.32, zb + 0.32):
+            log_x(x0 - 0.3, x1 + 0.3, yc, zc, r_log, "plank", "plank_card")
+            for bx in (x0 + 0.35, x1 - 0.35):
+                box(bx - 0.07, bx + 0.07, yc - r_log - 0.03, yc + r_log + 0.03, zc - r_log - 0.03, zc + r_log + 0.03, "rope", "rope")
+        # A tufted lip of grass along the front, uneven, in place of the even scallops.
+        x = x0 - 0.05
+        while x < x1 + 0.05:
+            wd = rng.uniform(0.14, 0.32)
+            dn = rng.uniform(0.1, 0.32)
+            face("fringe", (P(x, top - 0.02, zf + 0.04), P(x + wd, top - 0.02, zf + 0.04), P(x + wd * 0.55, top - 0.16 - dn, zf + 0.04)))
+            x += wd * rng.uniform(0.6, 0.9)
+        if PLAT == "timber_moss":
+            hanging(x0, x1, top - 0.14, zf + 0.06, "fringe", rng, int((x1 - x0) * 1.6), 0.25, 0.6)
+            hanging(x0, x1, yc + r_log * 0.6, zf - 0.32 + r_log + 0.02, "lawn_under", rng, int((x1 - x0) * 0.8), 0.15, 0.35, (0.1, 0.22))
+        return
     if VARIANT == "A":
         gap = 0.1
         bw = (zf - zb - 2 * gap) / 3.0

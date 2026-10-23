@@ -1226,6 +1226,42 @@ def lamp_post():
     return root
 
 
+def paper_lantern():
+    """A paper lantern for the grove's lantern strings (fidelity review 6: the strings were code-built bulbs), hanging from its origin,
+    0.7 tall: a ribbed paper body that glows (`glow`), dark lacquered caps top and bottom, a bail and a loop to hang it by, a short tassel."""
+    root = empty("paper_lantern")
+    bm = bmesh.new()
+    prof = [(0.12, -0.58), (0.2, -0.54), (0.25, -0.44), (0.27, -0.34), (0.25, -0.24), (0.2, -0.14), (0.12, -0.1)]
+    _lathe_bm(bm, prof, sides=14)
+    to_object("glow", bm, (1.0, 0.72, 0.42), smooth=True).parent = root
+    bm = bmesh.new()
+    for z, r in ((-0.49, 0.235), (-0.39, 0.268), (-0.29, 0.262), (-0.19, 0.225)):
+        ring(bm, r, 0.008, z, sides=14, minor_sides=3)
+    to_object("ribs", bm, (0.3, 0.12, 0.1), smooth=False).parent = root
+    bm = bmesh.new()
+    _lathe_bm(bm, [(0.0, -0.1), (0.13, -0.1), (0.13, -0.06), (0.06, -0.04), (0.0, -0.04)], sides=12)
+    _lathe_bm(bm, [(0.0, -0.58), (0.13, -0.58), (0.13, -0.63), (0.0, -0.63)], sides=12)
+    ring(bm, 0.035, 0.01, -0.01, sides=10, minor_sides=4)
+    to_object("caps", bm, (0.16, 0.1, 0.12), smooth=False).parent = root
+    bm = bmesh.new()
+    cone(bm, 0.04, 0.012, 0.16, z0=-0.79, sides=6)
+    to_object("tassel", bm, (0.82, 0.26, 0.22), smooth=False).parent = root
+    return root
+
+
+def string_bulb():
+    """A party bulb for the city's string lights (fidelity review 6), hanging from its origin, 0.3 tall: a dark socket and a round glass
+    bulb that glows (`glow`, painted each bulb's colour in the game)."""
+    root = empty("string_bulb")
+    bm = bmesh.new()
+    _lathe_bm(bm, [(0.0, 0.0), (0.045, 0.0), (0.05, -0.04), (0.05, -0.1), (0.04, -0.11), (0.0, -0.11)], sides=10)
+    to_object("socket", bm, (0.16, 0.16, 0.2), smooth=False).parent = root
+    bm = bmesh.new()
+    _lathe_bm(bm, [(0.0, -0.3), (0.05, -0.29), (0.085, -0.25), (0.09, -0.2), (0.07, -0.14), (0.04, -0.11), (0.0, -0.11)], sides=12)
+    to_object("glow", bm, (1.0, 0.86, 0.5), smooth=True).parent = root
+    return root
+
+
 def _on_side(bm, lift):
     """Lay a part built round the z axis on its side (its axis along y, toward the game's camera: a quarter turn about x) and lift it by
     `lift`."""
@@ -1775,6 +1811,8 @@ PROPS = {
     "mushroom": mushroom,
     "stump": stump,
     "lamp_post": lamp_post,
+    "paper_lantern": paper_lantern,
+    "string_bulb": string_bulb,
     "moss_a": lambda: moss_clump("moss_a", 3),
     "moss_b": lambda: moss_clump("moss_b", 8),
     "moss_c": lambda: moss_clump("moss_c", 13),

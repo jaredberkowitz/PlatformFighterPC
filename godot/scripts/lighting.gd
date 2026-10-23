@@ -96,16 +96,22 @@ const STYLE_DEFAULT := {
 	"finish": {"desat": 0.0, "lift": 0.03, "vignette": 0.16, "haze_max": 0.22, "s_curve": 0.22, "quiet": 0.25, "bloom": 0.4,
 		"bloom_from": 0.6, "sheets": 0.0, "cut_edge": 0.0, "fight_lift": 0.0, "haze_desat": 0.35},
 }
+## The light finish (fidelity review 6, the owner's pick C, 2026-10-22), each style's: `bounce` (the colour of the ground the light comes
+## back from, its alpha how much; a third of these lifted the shade by a hundredth, the light's own scale takes most of it), `grade_more`
+## (on the mood's grade), `curve_more` (on the S-curve) and `glow_from` (the HDR level the bloom starts at, 2.3 without: the lanterns,
+## string lights and windows glow). `--light-finish=off` shows a stage without it.
 const STYLES := {
 	# Dappled light under the great tree: small patches swaying slowly.
 	# (The background grounded, the graphics review 5: the sun's shadows out over the terraces, the trees' and gates' a cool violet.)
-	"grove": {"paint": [Color(1.06, 0.99, 0.94), Color(0.94, 0.9, 1.06), 0.55], "clouds": [0.72, 4.5, 0.45, 0.25],
+	"grove": {"bounce": Color(0.6, 0.86, 0.46, 0.6), "grade_more": 0.15, "curve_more": 0.06, "glow_from": 1.9,
+		"paint": [Color(1.06, 0.99, 0.94), Color(0.94, 0.9, 1.06), 0.55], "clouds": [0.72, 4.5, 0.45, 0.25],
 		"sun_shadow": [260.0, 4, 1.0], "cast": Color(0.22, 0.24, 0.48, 1.0),
 		"finish": {"desat": 0.0, "lift": 0.02, "haze_max": 0.04, "haze_start": 45.0, "s_curve": 0.3, "quiet": 0.08, "sheets": 0.56, "cut_edge": 0.5,
 			"fight_lift": 0.18}},
 	# Crisper light-to-shadow steps (a clear lit side and shaded side on every prop, in the manner of a cel-shaded adventure), warmer tops
 	# and cooler undersides, and less of the pastel wash, so the colours carry.
-	"meadow": {"ramp": [[0.0, 0.0], [0.38, 0.0], [0.43, 0.52], [0.55, 0.52], [0.6, 1.0], [1.0, 1.0]],
+	"meadow": {"bounce": Color(0.78, 0.92, 0.46, 0.66), "grade_more": 0.15, "curve_more": 0.06, "glow_from": 1.9,
+		"ramp": [[0.0, 0.0], [0.38, 0.0], [0.43, 0.52], [0.55, 0.52], [0.6, 1.0], [1.0, 1.0]],
 		"paint": [Color(1.1, 1.02, 0.88), Color(0.88, 0.88, 1.1), 0.65], "deep": 0.74, "clouds": [0.65, 14.0, 0.42, 0.7],
 		# (The windmill, cottages, pines and haystacks grounded, a cool blue-green shadow, the graphics review 5.)
 		"sun_shadow": [260.0, 4, 1.0], "cast": Color(0.28, 0.4, 0.52, 1.0),
@@ -118,7 +124,8 @@ const STYLES := {
 			"fight_lift": 0.15}},
 	# (Long sunset shadows from the buttes, the arch and the trestle across the floor, a cool violet on the warm sand, the graphics
 	# review 5.)
-	"sunset": {"clouds": [0.35, 30.0, 0.3, 0.4], "sun_shadow": [260.0, 4, 1.0], "cast": Color(0.3, 0.22, 0.48, 1.0), "edge": Color(1.0, 0.86, 0.74, 0.44), "paint": [Color(1.1, 0.98, 0.86), Color(0.86, 0.86, 1.08), 0.7], "deep": 0.72,
+	"sunset": {"bounce": Color(1.0, 0.68, 0.44, 0.84), "grade_more": 0.15, "curve_more": 0.06, "glow_from": 1.9,
+		"clouds": [0.35, 30.0, 0.3, 0.4], "sun_shadow": [260.0, 4, 1.0], "cast": Color(0.3, 0.22, 0.48, 1.0), "edge": Color(1.0, 0.86, 0.74, 0.44), "paint": [Color(1.1, 0.98, 0.86), Color(0.86, 0.86, 1.08), 0.7], "deep": 0.72,
 		"finish": {"desat": 0.0, "lift": 0.02, "haze_max": 0.08, "s_curve": 0.3, "quiet": 0.08, "sheets": 0.56, "cut_edge": 0.5, "fight_lift": 0.15}},
 	"night": {"edge": Color(0.78, 0.86, 1.0, 0.62), "paint": [Color(0.98, 1.0, 1.08), Color(0.86, 0.9, 1.1), 0.5], "deep": 0.74, "glow": 0.95,
 		"ramp": [[0.0, 0.0], [0.36, 0.0], [0.44, 0.5], [0.56, 0.5], [0.64, 1.0], [1.0, 1.0]]},
@@ -126,7 +133,8 @@ const STYLES := {
 	# scenery rather than cel bands, and fainter ink on it; the modelled planks, piles and crates carry the detail now.)
 	# (The town's houses, the boats and the palms grounded with long late-afternoon shadows, a cool blue, the graphics review 5. The reach
 	# stops short of the headland behind the town, about 205 from the camera, whose standing flats shadowed each other in stripes.)
-	"ocean": {"paint": [Color(1.05, 1.02, 0.94), Color(0.9, 0.97, 1.06), 0.5], "clouds": [0.55, 26.0, 0.36, 0.9],
+	"ocean": {"bounce": Color(0.42, 0.86, 0.92, 0.66), "grade_more": 0.15, "curve_more": 0.06, "glow_from": 1.9,
+		"paint": [Color(1.05, 1.02, 0.94), Color(0.9, 0.97, 1.06), 0.5], "clouds": [0.55, 26.0, 0.36, 0.9],
 		"sun_shadow": [190.0, 4, 1.0], "cast": Color(0.3, 0.36, 0.58, 1.0),
 		"ramp": [[0.0, 0.0], [0.3, 0.1], [0.45, 0.45], [0.6, 0.82], [0.75, 1.0], [1.0, 1.0]],
 		# (Air, the owner's paint-over pick 2026-10-21: `haze_max` 0.07 to 0.24. The air retune, 2026-10-22: from 45 behind and less, so
@@ -134,7 +142,8 @@ const STYLES := {
 		"finish": {"desat": 0.0, "lift": 0.02, "haze_max": 0.1, "haze_start": 45.0, "s_curve": 0.28, "quiet": 0.08, "scenery_lines": 0.18, "sheets": 0.42,
 			"cut_edge": 0.45, "fight_lift": 0.15}},
 	# (The towers and the street's pieces grounded, a deep violet, the graphics review 5.)
-	"city": {"sun_shadow": [260.0, 4, 1.0], "cast": Color(0.4, 0.3, 0.6, 1.0), "edge": Color(1.0, 0.82, 0.92, 0.55), "paint": [Color(1.06, 0.96, 0.96), Color(0.9, 0.88, 1.1), 0.6], "deep": 0.72, "glow": 1.1,
+	"city": {"bounce": Color(1.0, 0.58, 0.52, 0.66), "grade_more": 0.15, "curve_more": 0.06, "glow_from": 1.9,
+		"sun_shadow": [260.0, 4, 1.0], "cast": Color(0.4, 0.3, 0.6, 1.0), "edge": Color(1.0, 0.82, 0.92, 0.55), "paint": [Color(1.06, 0.96, 0.96), Color(0.9, 0.88, 1.1), 0.6], "deep": 0.72, "glow": 1.1,
 		"finish": {"lift": 0.02, "s_curve": 0.48, "quiet": 0.12, "sheets": 0.63, "cut_edge": 0.55, "fight_lift": 0.24}},
 }
 
@@ -356,10 +365,15 @@ static func stage_mood(env: Environment, root: Node, theme: Dictionary, post: Sh
 			key.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
 			key.directional_shadow_split_1 = 0.35
 	RenderingServer.global_shader_parameter_set("pf_cast_shade", look.cast)
+	# The light finish (fidelity review 6, see STYLES): bounce light (pf_bounce), a firmer grade and S-curve, the lamps glowing.
+	var finish_off := OS.get_cmdline_user_args().has("--light-finish=off")
+	RenderingServer.global_shader_parameter_set("pf_bounce", Color(0, 0, 0, 0) if finish_off else look.get("bounce", Color(0, 0, 0, 0)))
+	env.glow_hdr_threshold = 2.3 if finish_off else float(look.get("glow_from", 2.3))
 	if post != null:
 		post.set_shader_parameter("grade_shadows", mood.grade[0])
 		post.set_shader_parameter("grade_lights", mood.grade[1])
-		post.set_shader_parameter("grade_amount", mood.grade[2])
+		var grade_more := 0.0 if finish_off else float(look.get("grade_more", 0.0))
+		post.set_shader_parameter("grade_amount", float(mood.grade[2]) + grade_more)
 		post.set_shader_parameter("pastel_haze", mood.get("haze", Color(0.88, 0.9, 1.0)))
 		var finish: Dictionary = STYLE_DEFAULT.finish.duplicate()
 		finish.merge(style(theme.get("name", "meadow")).get("finish", {}), true)
@@ -370,7 +384,8 @@ static func stage_mood(env: Environment, root: Node, theme: Dictionary, post: Sh
 		post.set_shader_parameter("haze_desat", float(finish.get("haze_desat", 1.3)))
 		post.set_shader_parameter("haze_start", float(finish.get("haze_start", 14.0)))
 		post.set_shader_parameter("stage_quiet", float(finish.get("quiet", 0.0)))
-		post.set_shader_parameter("s_curve", finish.s_curve)
+		var curve_more := 0.0 if finish_off else float(look.get("curve_more", 0.0))
+		post.set_shader_parameter("s_curve", float(finish.s_curve) + curve_more)
 		post.set_shader_parameter("bloom", finish.bloom)
 		post.set_shader_parameter("bloom_threshold", finish.bloom_from)
 		post.set_shader_parameter("scenery_lines", float(finish.get("scenery_lines", 0.4)))

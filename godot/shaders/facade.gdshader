@@ -29,12 +29,22 @@ uniform float moon_edge = 1.0;         // how strong the moonlit edge up each fr
 uniform float calm = 0.0;
 uniform float calm_half = 26.0;
 
+// Haze between the rows (fidelity review 6, the city's depth): the foot of the layer, from `street_y` up `foot_height`, fades into the
+// street's lit haze, `foot_color`, by `foot_haze` (0 off).
+uniform float foot_haze = 0.0;
+uniform float foot_height = 10.0;
+uniform vec4 foot_color : source_color = vec4(0.6, 0.4, 0.6, 1.0);
+uniform float street_y = 0.0;
+
 varying vec3 wn;
 varying float wx;
+varying float wy;
 
 void vertex() {
 	wn = (MODEL_MATRIX * vec4(NORMAL, 0.0)).xyz;
-	wx = (MODEL_MATRIX * vec4(VERTEX, 1.0)).x;
+	vec3 wp = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+	wx = wp.x;
+	wy = wp.y;
 }
 
 float hash(vec2 p) {
@@ -265,5 +275,9 @@ void fragment() {
 		ALBEDO = col;
 		// Scenery's object id (post.gdshader reads it from the roughness).
 		ROUGHNESS = 0.95;
+	}
+	if (foot_haze > 0.0) {
+		float f = 1.0 - smoothstep(0.0, foot_height, wy - street_y);
+		ALBEDO = mix(ALBEDO, foot_color.rgb, foot_haze * f);
 	}
 }
