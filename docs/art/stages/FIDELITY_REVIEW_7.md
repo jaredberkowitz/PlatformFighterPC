@@ -92,3 +92,7 @@ bleached and wet patches and two replaced boards; roof: tar patches and faded sh
 Lessons: at a tenth of a step the patches vanished under the print and the lawn's fall; laid over the path they broke it up. The lawns'
 measured contrast moves little (meadow 0.071 to 0.073, grove 0.067 to 0.077): a quiet change by design. On the Stage Look Review
 ("playtops", `pt_*`); recommended B.
+
+**Built (2026-10-22): play tops B on every stage** (the owner's pick): all five play pieces rebuilt with `--wear 2`; every stage re-lit.
+Before and after: `review7/play_tops_built.jpg` (meadow, grove, canyon, beach, city). All seven tests pass (the runner's "coin picked
+up" check flaked once and passed twice on its own). Next: the canyon behind the fight.
