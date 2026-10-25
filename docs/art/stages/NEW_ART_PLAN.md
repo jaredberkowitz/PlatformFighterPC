@@ -147,3 +147,11 @@ gap 0.176 today, 0.168 (A), 0.172 (B). On the Stage Look Review ("shallows14", `
 Built A (the owner's pick): ocean.cfg [backdrop] `sea_shallows=[1.0, 40.0, 0.0]` (the sea's shader; nothing to re-light). The sea at the
 wide camera: contrast 0.099. Before and after (wide, then the match camera): `review10/beach_shallows_built.jpg`. Tests pass (the
 runner's known coin flake passed on a rerun).
+
+### Step 4, the city's storefronts (mock)
+
+`StageArt._street_furniture` with the palette's [backdrop] `storefront` (`--storefront=A|B`): each shop's wall, window, riser, mullions
+and door set back 0.55 in a recess with reveals and a soffit, a fascia over it, the sign's frame standing 0.3 proud; goods on each
+window's sill (its own random numbers, several heights and colours); the awnings at three heights and reaches, one shop in four without;
+B a lit blade sign at every other shop's edge. The shops at the wide camera: value 0.53 to 0.46, contrast 0.206 to 0.220; P1's gap 0.127
+to 0.132. On the Stage Look Review ("storefronts15", `sf15_*`); recommended A.

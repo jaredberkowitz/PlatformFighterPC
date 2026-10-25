@@ -88,6 +88,22 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
     <p>Two lessons from the reference screenshots, mocked from the match camera: the scenery without ink outlines, its edges lit as card bevels instead, and the paper houses rebuilt at the characters' proportions. The earlier rounds stay on the <a href="https://claude.ai/artifact/D1du6MREVumiJDrEdNypW4">Stage Fidelity Review</a>, which is full.</p>
   </header>
 
+  <section class="panel" aria-labelledby="sf15-h" id="storefronts15">
+    <div class="eyebrow">Your call is needed &middot; new art, step 4: the city's storefronts (Ci1)</div>
+    <h2 id="sf15-h">Storefronts with depth</h2>
+    <p>First, step 3 is built: the beach has its sand bars (see its section below). Then the city's shops along the street. Each window and door is now set back in a recess, with its reveals and a soffit, under a fascia carrying the sign in relief. Goods of different heights stand in the lit windows, and the awnings hang at their own heights and reaches, with one shop in four left bare.</p>
+    <div class="tablewrap"><table><thead><tr><th>Option</th><th>What changes</th></tr></thead><tbody>
+      <tr><td>A &middot; Recessed shopfronts</td><td>The recesses, the goods, the varied awnings and the signs in relief</td></tr>
+      <tr><td>B &middot; And blade signs</td><td>A, with a lit blade sign standing out from every other shop</td></tr>
+    </tbody></table></div>
+    <p>The street's left stretch at the wide camera (today, A, B), then B at the match camera. The shops' contrast rises from 0.206 to 0.220, and P1's gap holds (0.127 to 0.132).</p>
+    <div class="viewer"><img src="sf15_close.jpg" alt="The city's shops today and with storefronts"></div>
+    <div class="row" role="group" aria-label="View"><button data-sf15v="m">Match camera</button><button data-sf15v="w">Wide</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-sf15o="T">Today</button><button data-sf15o="A">A &middot; Recessed shopfronts</button><button data-sf15o="B">B &middot; And blade signs</button></div>
+    <div class="viewer"><img id="sf15img" alt="City storefront option"><span class="vtag" id="sf15tag"></span></div>
+    <p class="muted">My pick: <b>A</b>. The goods in the windows and the varied awnings make each shop its own, and the street reads as a lived-in row. B's blade signs barely show at this distance, so they would only add clutter. Code-built, no light bake.</p>
+  </section>
+
   <section class="panel" aria-labelledby="sw14-h" id="shallows14">
     <div class="eyebrow">Built (A) &middot; new art, step 3: the beach's shallows (B1)</div>
     <h2 id="sw14-h">Sand bars under the dock</h2>
@@ -1974,5 +1990,15 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
   group("data-sw14v", function (v) { sw14v = v; }, sw14render);
   group("data-sw14o", function (v) { sw14o = v; }, sw14render);
   sw14render();
+  var sf15v = "w", sf15o = "A";
+  var SF15O = { T: "Today", A: "A \u00b7 Recessed shopfronts", B: "B \u00b7 And blade signs" };
+  function sf15render() {
+    document.getElementById("sf15img").src = "sf15_" + sf15o + "_" + sf15v + ".jpg";
+    document.getElementById("sf15tag").textContent = "City \u00b7 " + SF15O[sf15o] + (sf15v === "w" ? " \u00b7 wide" : " \u00b7 match camera");
+    pressed("data-sf15v", sf15v); pressed("data-sf15o", sf15o);
+  }
+  group("data-sf15v", function (v) { sf15v = v; }, sf15render);
+  group("data-sf15o", function (v) { sf15o = v; }, sf15render);
+  sf15render();
 })();
 </script>
