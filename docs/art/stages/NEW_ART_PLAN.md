@@ -131,3 +131,7 @@ lane along each shelf from the front's middle out to alternate sides, with a ram
 course and set blocks in and out, so every block drew the post's cut edge; both fixed. The hill at the wide camera: value 0.39 to 0.62,
 saturation 0.47 to 0.30 (grass to fields). P1's gap 0.052 today, 0.051 with either. On the Stage Look Review ("terraces13", `tf13_*`);
 recommended B.
+
+Built B (the owner's pick): meadow_ground.glb and meadow_pines.glb `--variant FC --pine D --hill fields_lane` (249,665 triangles), the
+meadow re-lit (front, play, ground). P1's gap 0.052. Before and after (wide, then the match camera): `review10/meadow_terraces_built.jpg`.
+All seven tests pass.
