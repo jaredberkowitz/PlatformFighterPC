@@ -88,6 +88,25 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
     <p>Two lessons from the reference screenshots, mocked from the match camera: the scenery without ink outlines, its edges lit as card bevels instead, and the paper houses rebuilt at the characters' proportions. The earlier rounds stay on the <a href="https://claude.ai/artifact/D1du6MREVumiJDrEdNypW4">Stage Fidelity Review</a>, which is full.</p>
   </header>
 
+  <section class="panel" aria-labelledby="pd12-h" id="paintdrift12">
+    <div class="eyebrow">Your call is needed &middot; review 10, item 1: painted variation on the other play areas</div>
+    <h2 id="pd12-h">The meadow's painted variation, stage by stage</h2>
+    <p>First, the meadow's play area has its painted variation now (see its section below). Then the same setting, play area only, tried on each of the other four stages, with the play top and P1's value gap to the ground measured at the match camera.</p>
+    <div class="tablewrap"><table><thead><tr><th>Stage</th><th>Play top today &rarr; with it</th><th>P1's gap to the ground</th><th>Verdict</th></tr></thead><tbody>
+      <tr><td>Grove</td><td>contrast 0.094 &rarr; 0.105</td><td>0.047 &rarr; 0.064</td><td><b>Gains</b>: soft lighter and deeper patches across the lawn, and the fighters stand out more on the stage where they stood out least</td></tr>
+      <tr><td>Canyon</td><td>value 0.62 &rarr; 0.57, contrast 0.101 &rarr; 0.087</td><td>0.040 &rarr; 0.053</td><td><b>Worse</b>: the sand already has drifts and cloud shade; it only goes darker and flatter</td></tr>
+      <tr><td>Beach</td><td>contrast 0.131 &rarr; 0.128</td><td>0.173 &rarr; 0.187</td><td><b>No gain</b>: the dock's boards already vary board by board</td></tr>
+      <tr><td>City</td><td>value 0.54 &rarr; 0.52, contrast 0.133 &rarr; 0.129</td><td>0.133 &rarr; 0.149</td><td><b>No gain</b>: the roof's tar patches already do this</td></tr>
+    </tbody></table></div>
+    <p>Close at the match camera, today left and with it right: the canyon, the beach, the city, the grove.</p>
+    <div class="viewer"><img src="pd12_close.jpg" alt="Four play areas today and with painted variation"></div>
+    <div class="row" role="group" aria-label="Stage"><button data-pd12s="1">Canyon</button><button data-pd12s="2">Beach</button><button data-pd12s="3">City</button><button data-pd12s="4">Grove</button></div>
+    <div class="row" role="group" aria-label="View"><button data-pd12v="m">Match camera</button><button data-pd12v="w">Wide</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-pd12o="T">Today</button><button data-pd12o="C">With painted variation</button></div>
+    <div class="viewer"><img id="pd12img" alt="Painted variation option"><span class="vtag" id="pd12tag"></span></div>
+    <p class="muted">My pick: <b>the grove only</b>. It works where a top was one flat colour (the meadow's and the grove's lawns) and not where the surface already varies (sand drifts, boards, tar patches).</p>
+  </section>
+
   <section class="panel" aria-labelledby="pd11-h" id="paintdrift11">
     <div class="eyebrow">Built (C, the meadow) &middot; review 10, item 1: painted variation (meadow pilot)</div>
     <h2 id="pd11-h">Painted variation on the meadow: works on the lawn, not on the wall</h2>
@@ -1775,5 +1794,16 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
   group("data-pd11v", function (v) { pd11v = v; }, pd11render);
   group("data-pd11o", function (v) { pd11o = v; }, pd11render);
   pd11render();
+  var pd12s = "4", pd12v = "m", pd12o = "C";
+  var PD12S = { "1": "Canyon", "2": "Beach", "3": "City", "4": "Grove" };
+  function pd12render() {
+    document.getElementById("pd12img").src = "pd12_" + pd12o + "_s" + pd12s + "_" + pd12v + ".jpg";
+    document.getElementById("pd12tag").textContent = PD12S[pd12s] + " \u00b7 " + (pd12o === "C" ? "With painted variation" : "Today") + (pd12v === "w" ? " \u00b7 wide" : " \u00b7 match camera");
+    pressed("data-pd12s", pd12s); pressed("data-pd12v", pd12v); pressed("data-pd12o", pd12o);
+  }
+  group("data-pd12s", function (v) { pd12s = v; }, pd12render);
+  group("data-pd12v", function (v) { pd12v = v; }, pd12render);
+  group("data-pd12o", function (v) { pd12o = v; }, pd12render);
+  pd12render();
 })();
 </script>

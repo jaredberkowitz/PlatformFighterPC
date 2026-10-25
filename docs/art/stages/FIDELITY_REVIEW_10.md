@@ -69,3 +69,17 @@ Built C on the meadow (the owner's pick): meadow.cfg [backdrop] `paint_drift=[1.
 unchanged (value 0.45, saturation 0.29, contrast 0.101). The lawn measured 0.085 in this capture (0.096 in the mock; the drifting cloud
 shade moves it). Before and after at the match camera: `review10/meadow_paint_built.jpg`. All seven tests pass. Next: the other four
 play areas, stage by stage.
+
+## Item 1 on the other play areas (2026-10-25, mock)
+
+The meadow's setting, play area only (`--paint-drift=C`), on each of the other stages at the match camera:
+
+| Stage | Play top | P1's gap | Verdict |
+|---|---|---|---|
+| Grove | contrast 0.094 to 0.105 | 0.047 to 0.064 | gains (and widens the narrowest gap of the five) |
+| Canyon | value 0.62 to 0.57, contrast 0.101 to 0.087 | 0.040 to 0.053 | worse: the sand already has drifts and cloud shade |
+| Beach | contrast 0.131 to 0.128 | 0.173 to 0.187 | no gain: the boards already vary |
+| City | value 0.54 to 0.52, contrast 0.133 to 0.129 | 0.133 to 0.149 | no gain: the roof's tar patches already do this |
+
+It works where a top was one flat colour (the meadow's and the grove's lawns), not where the surface already varies. On the Stage Look
+Review ("paintdrift12", `pd12_*`); recommended the grove only.
