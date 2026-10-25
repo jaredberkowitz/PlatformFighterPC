@@ -5333,6 +5333,12 @@ static func _ocean(root: Node3D, t: Dictionary, stage: Array) -> void:
 		if arg.begins_with("--sea-vary="):
 			sea_vary = int(arg.substr(11))
 	wm.set_shader_parameter("wave_vary", sea_vary)
+	# (The paper waves as soft bands, fidelity review 8: the palette's `sea_band`, `--sea-band=` to try; see water.gdshader `wave_band`.)
+	var sea_band := int((_palette.get("backdrop", {}) as Dictionary).get("sea_band", 0))
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--sea-band="):
+			sea_band = int(arg.substr(11))
+	wm.set_shader_parameter("wave_band", sea_band)
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--sea-look="):
 			wm.set_shader_parameter("look", {"T": 0, "A": 1, "B": 2, "C": 3}.get(arg.substr(11), int(_pal("sea_look"))))

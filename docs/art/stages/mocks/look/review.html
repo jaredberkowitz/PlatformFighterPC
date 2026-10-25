@@ -88,6 +88,22 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
     <p>Two lessons from the reference screenshots, mocked from the match camera: the scenery without ink outlines, its edges lit as card bevels instead, and the paper houses rebuilt at the characters' proportions. The earlier rounds stay on the <a href="https://claude.ai/artifact/D1du6MREVumiJDrEdNypW4">Stage Fidelity Review</a>, which is full.</p>
   </header>
 
+  <section class="panel" aria-labelledby="v8-h" id="waves8">
+    <div class="eyebrow">Built (A) &middot; review 8, item 6: the beach's waves</div>
+    <h2 id="v8-h">The beach's waves as soft paper bands</h2>
+    <p>First, item 5 is built: the grove's underside has fewer, larger stones and two root groups (see its section below). Then the beach's sea. Its paper waves had a thin near-white lip on every sheet's edge, and with the cusps between the caps those lips read as white loops drawn across the water. Both options keep the same tiers of paper sea and drop the white lines.</p>
+    <div class="tablewrap"><table><thead><tr><th>Option</th><th>What changes</th></tr></thead><tbody>
+      <tr><td>A &middot; Soft bands</td><td>Each sheet's edge a rounded swell rather than a cusp, its lip a wide soft lift in the water's own paler tint; narrower sheets near the stage.</td></tr>
+      <tr><td>B &middot; Tone tiers</td><td>No lip at all: each sheet a deeper step of tone, shaded toward its edge, read by the step and the shadow.</td></tr>
+    </tbody></table></div>
+    <p>Wide crops: today, A, B, then A at the match camera:</p>
+    <div class="viewer"><img src="v8_close.jpg" alt="The beach's sea today and in the two options"></div>
+    <div class="row" role="group" aria-label="View"><button data-v8v="m">Match camera</button><button data-v8v="w">Wide</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-v8o="T">Today</button><button data-v8o="A">A &middot; Soft bands</button><button data-v8o="B">B &middot; Tone tiers</button></div>
+    <div class="viewer"><img id="v8img" alt="Beach wave option"><span class="vtag" id="v8tag"></span></div>
+    <p class="muted">My pick: <b>A</b>. The pale swells still read as waves and as paper, and the sea stays bright. B is cleaner but darker, and reads more as water depth than as waves. The waves move in the game; these are stills.</p>
+  </section>
+
   <section class="panel" aria-labelledby="u8-h" id="underside8">
     <div class="eyebrow">Built (A) &middot; review 8, item 5: the grove's underside</div>
     <h2 id="u8-h">A calmer underside for the grove's island</h2>
@@ -1389,5 +1405,15 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
   group("data-u8v", function (v) { u8v = v; }, u8render);
   group("data-u8o", function (v) { u8o = v; }, u8render);
   u8render();
+  var v8v = "w", v8o = "A";
+  var V8O = { T: "Today", A: "A \u00b7 Soft bands", B: "B \u00b7 Tone tiers" };
+  function v8render() {
+    document.getElementById("v8img").src = "v8_" + v8o + "_" + v8v + ".jpg";
+    document.getElementById("v8tag").textContent = "Beach \u00b7 " + V8O[v8o] + (v8v === "w" ? " \u00b7 wide" : " \u00b7 match camera");
+    pressed("data-v8v", v8v); pressed("data-v8o", v8o);
+  }
+  group("data-v8v", function (v) { v8v = v; }, v8render);
+  group("data-v8o", function (v) { v8o = v; }, v8render);
+  v8render();
 })();
 </script>
