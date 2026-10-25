@@ -927,7 +927,7 @@ def grounded(name):
 
 
 STANDING = {"idle", "idle_brawler", "idle_quick", "idle_heavy", "idle_caster", "idle_tool", "crouch", "jumpsquat", "land", "spot_dodge", "shield", "skid", "grab", "throw", "blaster", "sword_usmash", "sword_dsmash",
-            "tech", "run_stop", "idle_look"}
+            "tech", "run_stop", "idle_look", "idle_look_brawler", "idle_look_quick", "idle_look_heavy", "idle_look_caster", "idle_look_tool"}
 
 
 def _ankle(rig, side):
@@ -4227,16 +4227,27 @@ def main() -> None:
 
         # A rare fidget after a long stillness (the game plays it now and then in a long idle): from the stance, a glance off toward the
         # camera side and back, the weight shuffled from foot to foot, a roll of the shoulders, back into the stance.
-        def glance(turn, shift):
-            def f(rig):
-                idle(0.0)(rig)
-                pose(rig, "hips", lift=-0.06, twist=-6.0 + 4.0 * shift)
-                pose(rig, "spine", fwd=8.0, twist=8.0 + 10.0 * turn)
-                pose(rig, "head", fwd=-4.0, twist=-4.0 + 26.0 * turn)
-            return f
+        # (Animation overhaul step 9: on each family's own stance, `idle_look_<family>`; the one fidget was on the sword stance, so a
+        # brawler's or a quick fighter's fidget popped from its own crouch into the sword guard and back. The sword stance's lean and side
+        # bend are kept through the glance too: it straightened the chest to 8 degrees and dropped the side bend.)
+        def glance_on(base, spine_fwd, side, head_fwd, hips):
+            def make(turn, shift):
+                def f(rig):
+                    base(rig)
+                    pose(rig, "hips", lift=hips, twist=-6.0 + 4.0 * shift)
+                    pose(rig, "spine", fwd=spine_fwd, twist=8.0 + 10.0 * turn, out=side)
+                    pose(rig, "head", fwd=head_fwd, twist=-4.0 + 26.0 * turn)
+                return f
+            return make
 
-        clip(rig, "idle_look", 72, {0: idle(0.0), 12: glance(1.0, 0.5), 30: glance(1.0, 1.0), 42: glance(-0.6, 0.0),
-                                    60: glance(-0.6, -0.5), 72: idle(0.0)})
+        def look_clip(name, base, glance):
+            clip(rig, name, 72, {0: base, 12: glance(1.0, 0.5), 30: glance(1.0, 1.0), 42: glance(-0.6, 0.0), 60: glance(-0.6, -0.5),
+                                 72: base})
+
+        look_clip("idle_look", idle(0.0), glance_on(idle(0.0), STANCE_LEAN, STANCE_SIDE, -4.0, -0.06))
+        for fam, st in IDLE_STYLES.items():
+            look_clip("idle_look_" + fam, styled_idle(0.0, st),
+                      glance_on(styled_idle(0.0, st), st["spine"], st.get("side", 0.0), st["head"], st["hips"]))
     else:
         clip(rig, "knockdown", 8, {0: down_pose, 8: down_pose})
 

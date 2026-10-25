@@ -459,8 +459,9 @@ static func or_stand_in(clip: String, anim: AnimationPlayer) -> String:
 ## (Pockets, Popgun) stand relaxed and jog loose. The pose review, 2026-10-17.
 const CLASS_FAMILY := {1: "brawler", 4: "brawler", 7: "brawler", 2: "quick", 12: "quick", 8: "heavy", 3: "caster", 10: "tool",
 	11: "tool"}
-## The shared clips a family has its own take on (`<clip>_<family>` in the rig).
-const FAMILY_CLIPS := ["idle", "run"]
+## The shared clips a family has its own take on (`<clip>_<family>` in the rig). (The long idle's fidget too, since step 9 of the
+## animation overhaul: on the sword stance it popped the other families out of their own.)
+const FAMILY_CLIPS := ["idle", "run", "idle_look"]
 ## Families that keep a shared clip of FAMILY_CLIPS rather than having their own (the brawlers run the shared run).
 const FAMILY_SHARES := {"brawler": ["run"]}
 

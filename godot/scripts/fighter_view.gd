@@ -578,7 +578,7 @@ func _choose_clip(s: Dictionary) -> Array:
 			# Standing still for a long time, a fidget now and then.
 			var still := int(s.state_frame) - FIDGET_AFTER
 			if grounded and still >= 0 and still % FIDGET_EVERY < FIDGET_FRAMES:
-				return [AnimLibrary.or_stand_in("idle_look", anim), 1.0, float(still % FIDGET_EVERY) / FIDGET_FRAMES]
+				return [AnimLibrary.family_clip(_cls(s), AnimLibrary.or_stand_in("idle_look", anim), anim), 1.0, float(still % FIDGET_EVERY) / FIDGET_FRAMES]
 		"Airborne":
 			# Just dropped through a platform (the sim ignores platforms for a few frames after it): a hop down out of a crouch.
 			if int(s.get("ignore", 0)) > 0 and int(s.state_frame) < DROP_FRAMES and flip_left <= 0.0:
@@ -2801,6 +2801,13 @@ const SPRING_K := 420.0
 const SPRING_DAMP := 22.0  # a bit under critical (2*sqrt(K) = 41), so there is a small rebound
 ## How hard the take-off throws the squash spring into a stretch (its velocity, per second).
 const TAKE_OFF_KICK := 9.0
+## On the take-off the body is stretched at once to this (negative stretches up), then the spring eases it to the rise's own stretch.
+const TAKE_OFF_STRETCH := -0.15
+## On touching down the body is squashed at once to LAND_IMPACT plus LAND_IMPACT_PER_SPEED times the fall speed (units per frame, up to
+## 0.35), still pushing down at LAND_IMPACT_PUSH times it, and the spring rebounds it to the landing's own squash.
+const LAND_IMPACT := 0.1
+const LAND_IMPACT_PER_SPEED := 0.55
+const LAND_IMPACT_PUSH := 6.0
 ## How far down the jump's crouch starts, on its first frame (the spring eases it on to `SQUASH.JumpSquat`): the crouch lasts three
 ## frames, and eased in by the spring from standing it only reached its depth as the feet left the ground, so it hardly read (the
 ## owner's playtest notes, 2026-10-19: "no crouch before a jump"). (A kick to the spring instead overshot into a flat pancake.)
@@ -2954,9 +2961,13 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 			contact_shadow.size.y = depth
 			contact_shadow.position.y = 0.8 - depth / 2.0
 
-	# Touching down: kick the squash spring in proportion to how fast we were falling.
+	# Touching down: the body squashes at once, deeper the faster it fell, and the spring rebounds it from there. (Animation overhaul
+	# step 9: kicked from the fall's shape, the spring took four frames to reach its depth, so the squash peaked as the landing lag ended,
+	# not on the impact, and overshot to 0.4 after an aerial.)
 	if grounded and not was_grounded:
-		squash_vel += clampf(absf(last_vy), 0.0, 0.35) * 55.0
+		var impact := clampf(absf(last_vy), 0.0, 0.35)
+		squash = maxf(squash, LAND_IMPACT + impact * LAND_IMPACT_PER_SPEED)
+		squash_vel = impact * LAND_IMPACT_PUSH
 	if state == "JumpSquat" and last_state != "JumpSquat":
 		squash = maxf(squash, JUMP_SQUAT_START)
 		squash_vel = maxf(squash_vel, 0.0)
@@ -2965,7 +2976,10 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 		last_vy = vy
 	# Leaving the jump squat: a kick into a tall stretch, so the take-off springs up out of the crouch rather than only rebounding.
 	if last_state == "JumpSquat" and state != "JumpSquat" and not grounded:
-		squash_vel -= TAKE_OFF_KICK
+		# (Stretched at once on the first frame in the air, step 9: kicked from the crouch, the stretch peaked four frames after the
+		# feet left the ground, so the first airborne frames still read as the crouch.)
+		squash = minf(squash, TAKE_OFF_STRETCH)
+		squash_vel = -TAKE_OFF_KICK * 0.3
 
 	var target_squash: float = SQUASH.get(state, 0.0)
 	# Landing out of an aerial or a fast fall stumbles: deeper, and pitched forward, for its whole landing lag.
@@ -3930,6 +3944,10 @@ func _carry_weapon(facing: int) -> void:
 	blade_pivot.rotation = Vector3(0, 0, deg_to_rad(angle))
 
 
+## How hard a change of vertical speed throws the hat down onto the head (or up off it).
+const HAT_DROP_KICK := 13.0
+
+
 ## The hat's secondary motion: it lags behind a sudden change of speed sideways and dips and springs back on a landing or a jump.
 ## Kicks the secondary-motion springs from what the fighter did this sim frame, moves them on, and places the hat and the neckwear (the
 ## head and spine are bent in `_animate`, after the clip; the hand in `_pose_blade`).
@@ -3941,7 +3959,8 @@ func _secondary(s: Dictionary, delta: float) -> void:
 	# (A change bigger than any move makes is a teleport, a respawn or a correction: not something to swing from.)
 	if springs.new_frames > 0 and dv.length() < 0.7:
 		springs.kick("hat_roll", clampf(dv.x, -0.5, 0.5) * 60.0)
-		springs.kick("hat_drop", clampf(dv.y, -1.0, 1.0) * 6.0)
+		# (Step 9: at 6 the hat dipped about 0.04 on a landing, a twentieth of the head; now about twice that.)
+		springs.kick("hat_drop", clampf(dv.y, -1.0, 1.0) * HAT_DROP_KICK)
 		# Speeding up the way it faces leaves the chest and head behind (bent back); stopping throws them forward; landing nods them.
 		var ahead := dv.x * float(facing)
 		var landing := maxf(dv.y, 0.0) if int(s.platform) >= 0 else 0.0

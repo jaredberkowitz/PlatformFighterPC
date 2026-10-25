@@ -601,3 +601,30 @@ a corkscrew about the upright body (no head-over-heels spin); wall jumps back-fl
 - **Checked:** facing left (contact sheet; the blade foreshortening toward the camera in that sheet's recovery frames is the same on the
   base branch); the six tests pass.
 - **Left:** the short arm cannot lift the hand clear above the head: it ends beside the top of it.
+
+### Pass 17: secondary motion checked in live matches (step 9: take-off stretch, landing squash, hat spring, idle fidgets)
+
+- **How it was checked:** the springs and the squash run on real time (`delta`), so frame-by-frame demo captures (slow frames) settle them
+  at once and misread them. They were traced in a real-time computer match (`--demo=cpu`, the values printed every frame for one fighter)
+  and captured with `--fixed-fps 60` for the images.
+- **Take-off stretch, defect:** kicked from the crouch, the stretch peaked four frames after the feet left the ground; the first airborne
+  frame was still squashed (0.13 against the crouch's 0.25). **Fix:** stretched at once on the first frame in the air (`TAKE_OFF_STRETCH`
+  -0.15, measured -0.18 with the spring), easing to the rise's own stretch.
+- **Landing squash, defect:** kicked from the fall speed, the squash took four frames to reach its depth (0.12 on the contact frame), so it
+  peaked as the landing lag ended, and after an aerial it overshot to 0.40 (the body at 60% of its height). **Fix:** squashed at once on
+  touching down, deeper for a faster fall (`LAND_IMPACT` 0.1 plus `LAND_IMPACT_PER_SPEED` 0.55 times the fall speed: measured 0.22 on the
+  contact frame), then rebounded by the spring; after an aerial it now peaks at 0.28.
+- **Hat spring, defect:** on a landing or a take-off the hat dipped about 0.04, a twentieth of the head: not visible at match distance.
+  **Fix:** `HAT_DROP_KICK` 13 (was 6): about 0.09, within the spring's limits. The sideways roll (up to 0.33 radians on a dash) already read;
+  unchanged.
+- **Idle fidgets, defect:** the long idle's fidget (`idle_look`) was posed on the sword stance, so a brawler's, quick, heavy, caster or
+  tool fighter's fidget popped out of its own stance into the sword guard and back. The sword one also straightened the chest and dropped
+  the stance's side bend. **Fix:** a fidget per family on its own stance (`idle_look_<family>`, `make_rigged_blob.py` `glance_on`,
+  `look_clip`; `AnimLibrary.FAMILY_CLIPS` now includes `idle_look`), keeping each stance's lean and side bend.
+- **Files:** `godot/scripts/fighter_view.gd` (`TAKE_OFF_STRETCH`, `LAND_IMPACT*`, `HAT_DROP_KICK`, the fidget's clip), `godot/scripts/anim_library.gd`,
+  `art/blender/make_rigged_blob.py`, `godot/models/base_rig.glb`.
+- **Image:** `docs/screenshots/anim/pass17_secondary_motion.jpg`: a short hop at a fixed 60 frames a second (the crouch, the take-off and the
+  landing), before above and after below; then the fidget of the brawler and the quick fighter, before and after.
+- **Checked:** the six tests pass (`motion_test` covers the springs' freeze and rest after a seek).
+- **Left:** the squash and lean springs step on real time, not the sim frame (older than the motion polish springs), so hitlag does not
+  freeze them; unchanged here. Not tried with a controller.
