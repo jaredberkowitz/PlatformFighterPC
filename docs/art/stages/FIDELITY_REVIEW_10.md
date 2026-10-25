@@ -70,7 +70,7 @@ unchanged (value 0.45, saturation 0.29, contrast 0.101). The lawn measured 0.085
 shade moves it). Before and after at the match camera: `review10/meadow_paint_built.jpg`. All seven tests pass. Next: the other four
 play areas, stage by stage.
 
-## Item 1 on the other play areas (2026-10-25, mock)
+## Item 1 on the other play areas (2026-10-25, built on the grove)
 
 The meadow's setting, play area only (`--paint-drift=C`), on each of the other stages at the match camera:
 
@@ -83,3 +83,7 @@ The meadow's setting, play area only (`--paint-drift=C`), on each of the other s
 
 It works where a top was one flat colour (the meadow's and the grove's lawns), not where the surface already varies. On the Stage Look
 Review ("paintdrift12", `pd12_*`); recommended the grove only.
+
+Built on the grove (the owner's pick; the canyon, beach and city left as they are): grove.cfg [backdrop]
+`paint_drift=[1.3, 0.8, 14.0, 0.5, 1]`. The lawn measures contrast 0.102, P1's gap 0.064. Before and after at the match camera:
+`review10/grove_paint_built.jpg`. All seven tests pass.
