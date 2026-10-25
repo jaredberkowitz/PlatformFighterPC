@@ -771,14 +771,17 @@ func _skeleton_to_frame() -> Transform3D:
 ## well toward the way it faces (70 degrees off straight-on), so strides, kicks and swings happen across the screen where they read; the
 ## chest twisted back so it mostly faces the camera (35 degrees off); and the head turned again a little toward the way it faces (45
 ## degrees off: a three-quarter face), so the two fighters look at each other while the drawn face keeps both eyes in view.
-const BODY_TURN := 60.0
+## (Round 2, the owner's pick D after the stance turn mocks: the body side-on as the reference fighters stand, hips 75-82 and chest 72-88
+## off the camera, the head held back toward the camera by `FACE_AWAY_MAX` so both eyes stay on the face. Was 60, 24, 10 and 32: the chest
+## and face nearly square to the camera.)
+const BODY_TURN := 80.0
 ## How far off straight-on the body turns in the big moments (see `face_cam`), and how far into that turn it is.
 const FRONTAL_TURN := 28.0
 var face_cam := 0.0
-const CHEST_TO_CAMERA := 24.0
+const CHEST_TO_CAMERA := 6.0
 ## How far the head turns back from the chest toward the way the fighter faces (toward its opponent). The eyes in the face look that way
 ## too (see `set_gaze`).
-const HEAD_TOWARD_FOE := 10.0
+const HEAD_TOWARD_FOE := 0.0
 ## In a move: how far the chest still opens to the camera, how much further the hips turn toward the foe, and how far the head may turn
 ## from the camera (a three-quarter face instead of the near front view of the rest of the time).
 ## (18 and 40, art review 5: at 6 and 58 a swing whose clip twists the shoulders into it turned the back to the camera, the face gone,
@@ -787,7 +790,8 @@ const HEAD_TOWARD_FOE := 10.0
 ## of the chest; the reference fighters turn the shoulders into a strike, so the striking shoulder leads and the arm extends straight
 ## from it. The head alone turns back to keep the face to the camera.)
 const CHEST_IN_ATTACK := -14.0
-const BODY_TURN_IN_ATTACK := 14.0
+## (0 since round 2: the body is side-on already, so a move only opens the chest toward its hit, `CHEST_IN_ATTACK`, never passing side-on.)
+const BODY_TURN_IN_ATTACK := 0.0
 const FACE_AWAY_IN_ATTACK := 40.0
 ## How far into a move the body is turned toward the foe (0 none, 1 fully), eased in and out.
 var attack_turn := 0.0
@@ -1129,7 +1133,7 @@ func _lag_bones(s: Dictionary) -> void:
 
 ## The base body's big head carries the drawn face, half of every read: however a clip and the layers on it twist the chest (a strike
 ## turns it into the swing), the head never turns more than this far from the camera; past it, it is turned back.
-const FACE_AWAY_MAX := 32.0
+const FACE_AWAY_MAX := 40.0
 ## Nor does it look down further than this (a pitched-down head shows its crown, and the hat).
 const FACE_DOWN_MAX := 18.0
 

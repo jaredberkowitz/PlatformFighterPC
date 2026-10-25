@@ -196,6 +196,18 @@ static func make(demo_name: String, m: Dictionary, dir: String):
 				[100, "key", KEY_D, true], [104, "key", KEY_D, false]]
 			d.shots = [[16, "a_walking"], [30, "b_walk_full_tilt"], [60, "c_dash"], [78, "d_run"], [100, "e_hop_nudge"], [118, "f_drifted"]]
 			d.end_frame = 130
+		"loco":
+			# Locomotion at real speed for the frame-by-frame motion audit (round 2): stand, walk, stop, dash into a run, stop, a short hop
+			# and its landing, shield and drop it, a roll; a picture on every frame, the camera steady on the fighter.
+			d.cam_dist = 9.0
+			d.cam_focus = 0
+			d.events = [[1, "stand", 0, -6.0, 1], [1, "stand", 1, 12.0, -1]]
+			d.timeline = [[0, 0, 0, 0], [20, 50, 0, 0], [60, 0, 0, 0], [80, 127, 0, 0], [81, 0, 0, 0], [83, 127, 0, 0], [125, 0, 0, 0],
+				[150, 0, 0, jump], [151, 0, 0, 0], [200, 0, 0, shield], [230, 0, 0, 0], [250, 0, 0, shield], [252, 127, 0, shield],
+				[254, 0, 0, 0]]
+			for f in range(15, 300):
+				d.shots.append([f, "f%03d" % f])
+			d.end_frame = 301
 		"dashleft":
 			# Standing facing right, a double tap left into a run (the owner's sliding-run bug, the left clips' loop lost; art review 6).
 			d.cam_dist = 16.0

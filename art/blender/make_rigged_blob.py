@@ -1408,7 +1408,8 @@ def walk_style(phase, st):
         for side, arm in (("L", st["arm_l"]), ("R", st["arm_r"])):
             # Each arm swings with the other leg: back as its own leg lands in front.
             swing = -math.cos((phase + (0.0 if side == "L" else 0.5)) * 2.0 * math.pi)
-            pose(rig, "armU." + side, fwd=arm[0] + st["swing"] * swing, out=arm[1])
+            far = FAR_ARM_FWD if side == "R" else 0.0
+            pose(rig, "armU." + side, fwd=arm[0] + far + st["swing"] * swing, out=arm[1] - (FAR_ARM_IN if side == "R" else 0.0))
             pose(rig, "armL." + side, fwd=arm[2] + 0.3 * st["swing"] * max(0.0, swing))
         down, sweep = st["down"], st["sweep"]
         for side, offset in (("L", 0.0), ("R", 0.5)):
@@ -1503,7 +1504,9 @@ def run_pose(phase, lean=24.0, stride=1.0, arms=1.0, bounce=0.085):
             swing = math.cos(other * 2.0 * math.pi)  # +1 when the other leg lands in front
             forward = max(0.0, swing)
             # (Held further out from the body, after the owner's PEAK reference: the chunky arms pump clear of the trunk and read.)
-            pose(rig, "armU." + side, fwd=arms * (-62.0 * swing + 8.0), out=28.0 + 10.0 * forward)
+            # (Round 2, with the side-on turn: the far arm's swing centred further forward, so it shows past the chest.)
+            bias = FAR_ARM_FWD * 0.8 if side == "R" else 0.0
+            pose(rig, "armU." + side, fwd=arms * (-62.0 * swing + 8.0) + bias, out=28.0 + 10.0 * forward - (FAR_ARM_IN if side == "R" else 0.0))
             pose(rig, "armL." + side, fwd=arms * (62.0 + 46.0 * forward))
             pose(rig, "hand." + side, fwd=10.0 * swing)
         # Two steps a cycle: lowest just after each landing (0.06, 0.56), highest in the flight between them.
@@ -3087,6 +3090,9 @@ STANCE_SIDE = 20.0
 HEAD_BACK_IDLE = -24.0
 # The sword stance's head against its chest (the idle's, at the bottom of its bob), for the attacks' stance keys.
 STANCE_HEAD = -19.0
+# The far arm (the right one in a clip; the game mirrors facing left) carried this much further forward and in (degrees) in the idle, walk
+# and run, so its hand shows past the chest once the body stands side-on (round 2, the owner's pick D).
+FAR_ARM_FWD, FAR_ARM_IN = 18.0, 8.0
 # Idle loops are this long (frames): two bobs, one breath and one weight shift a loop.
 IDLE_FRAMES = 96
 
@@ -3160,7 +3166,8 @@ def main() -> None:
                 pose(rig, "armU.L", fwd=28.0 + 4.0 * lag * swing, out=30.0)
                 pose(rig, "armL.L", fwd=104.0 - 6.0 * lag * swing)
                 pose(rig, "hand.L", fwd=-16.0)
-                pose(rig, "armU.R", fwd=24.0 + 4.0 * lag * swing, out=28.0)
+                # (Round 2, with the side-on turn: the far arm carried further forward and in, so its fist shows past the chest.)
+                pose(rig, "armU.R", fwd=24.0 + FAR_ARM_FWD + 4.0 * lag * swing, out=28.0 - FAR_ARM_IN)
                 pose(rig, "armL.R", fwd=110.0 - 6.0 * lag * swing)
                 pose(rig, "hand.R", fwd=-18.0)
             else:
@@ -3181,20 +3188,21 @@ def main() -> None:
     IDLE_STYLES = {
         # (Stance pass: every family's knees bent, the back knee too, so each stands low and grounded; the styles differ in depth, width,
         # lean and the hands.)
+        # (Round 2, with the side-on turn: each far arm (`arm_r`) carried further forward so its hand shows past the chest.)
         # (Round 2, judged at the match camera: the heavy, caster and tool fighters lean a step further toward the foe, and each head tips
         # back against its chest's lean (`HEAD_BACK_IDLE`) so the face stays level rather than looking at the floor.)
         # The brawlers (Claws, Gauntlets, Bracers): hunched forward over bent knees, both fists up in front of the chest, the lead one
         # further out (the reference claws fighter's crouch).
         "brawler": dict(hips=0.0, bob=0.55, lead=50.0, back=-24.0, shin_l=-84.0, shin_r=-54.0, spine=30.0, side=18.0, head=-16.0, wide=21.0,
-                        arm_l=(52.0, 20.0, 96.0), arm_r=(40.0, 26.0, 108.0)),
+                        arm_l=(52.0, 20.0, 96.0), arm_r=(58.0, 18.0, 100.0)),
         "quick": dict(hips=-0.2, bob=0.6, lead=62.0, back=-30.0, shin_l=-90.0, shin_r=-60.0, spine=28.0, side=14.0, head=-16.0, wide=18.0,
-                      arm_l=(64.0, 10.0, 36.0), arm_r=(-14.0, 24.0, 100.0)),
+                      arm_l=(64.0, 10.0, 36.0), arm_r=(10.0, 18.0, 96.0)),
         "heavy": dict(hips=-0.14, bob=0.35, lead=34.0, back=-20.0, shin_l=-60.0, shin_r=-50.0, spine=18.0, side=12.0, head=-8.0, wide=30.0,
-                      arm_l=(10.0, 50.0, 46.0), arm_r=(6.0, 50.0, 50.0)),
+                      arm_l=(10.0, 50.0, 46.0), arm_r=(24.0, 40.0, 50.0)),
         "caster": dict(hips=0.0, bob=0.45, lead=28.0, back=-14.0, shin_l=-48.0, shin_r=-34.0, spine=8.0, side=6.0, head=-8.0, wide=17.0,
-                       arm_l=(72.0, 10.0, 28.0), arm_r=(-20.0, 40.0, 110.0)),
+                       arm_l=(72.0, 10.0, 28.0), arm_r=(18.0, 24.0, 100.0)),
         "tool": dict(hips=0.0, bob=0.35, lead=22.0, back=-12.0, shin_l=-40.0, shin_r=-30.0, spine=6.0, side=5.0, head=-4.0, wide=16.0,
-                     arm_l=(2.0, 12.0, 22.0), arm_r=(0.0, 14.0, 18.0)),
+                     arm_l=(2.0, 12.0, 22.0), arm_r=(32.0, 10.0, 28.0)),
     }
 
     def styled_idle(k, st):

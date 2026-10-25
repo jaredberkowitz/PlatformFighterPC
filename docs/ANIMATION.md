@@ -812,3 +812,39 @@ Ranked by how visible it is at match speed:
 - **Image:** `docs/screenshots/anim/r2_pass27_springs_freeze.png`: the squash through a landing frozen for 12 frames, before (grey, it keeps
   moving) and after (red, held).
 - **Checked:** the six tests pass.
+
+### Pass 28: the fighters stand side-on (the owner's pick D from the stance turn mocks)
+
+- **Defect** (the owner, with a screenshot): in the idle and the run the chest and face were nearly square to the camera, where the
+  reference fighters stand side-on or three-quarter, turned along the stage toward the opponent, the face only partly toward the camera.
+- **Cause (`fighter_view.gd`):** one global turn. The hips were turned `BODY_TURN` 60 off the camera, the chest twisted back
+  `CHEST_TO_CAMERA` 24, the head turned `HEAD_TOWARD_FOE` 10 and clamped at `FACE_AWAY_MAX` 32, and moves added `BODY_TURN_IN_ATTACK` 14.
+- **The mocks** (`docs/screenshots/anim/turn_mock/stance_turn_options.jpg`): A today, B three-quarter, C near side-on (loses the far eye), D a
+  split turn. The owner picked D, with its two extras.
+- **Fix:**
+  - **Split turn:** `BODY_TURN` 80, `CHEST_TO_CAMERA` 6, `HEAD_TOWARD_FOE` 0, `FACE_AWAY_MAX` 40. The body stands side-on, and the face
+    clamp holds the head back toward the camera, so the face shell's slide keeps both eyes on the face.
+  - **Attacks:** `BODY_TURN_IN_ATTACK` 0. A move opens only the chest toward its hit (`CHEST_IN_ATTACK`) and never passes side-on.
+  - **Far arm** (`make_rigged_blob.py`): carried further forward and in, in every family's idle (`FAR_ARM_FWD` 18, `FAR_ARM_IN` 8 for the
+    sword idle, and each style's `arm_r`), the run (its swing centred forward) and the walks, so its hand shows past the chest.
+  - The weapon stays in the near hand.
+  - The menu and select previews (`hold_pose`) keep their own front view; only the far arm's small change shows there (checked with
+    `tests/roster_shot.gd`).
+- **Measured** (`tests/turn_probe.gd`, degrees off the camera, Longsword and Claws):
+
+  | | Hips | Chest | Face | Both eyes |
+  |---|---|---|---|---|
+  | Idle, before | 55 | 50 | 32 | 100% |
+  | Idle, after | 75 | 88 | 40 | 100% |
+  | Run, before | 62 | 32 | 29 | 100% |
+  | Run, after | 82 | 72 | 37 | 100% |
+
+  - The far hand ahead of the chest, before the re-key and after it: 0.41-0.45 to 0.43-0.47 for the sword and brawler idles, 0.27 to 0.36
+    for the caster, 0.18 to 0.39 for the tool users, 0.31 to 0.39 for the quick fighters. Today's front turn had 0.57.
+  - The silhouette is a little narrower: the run 1.26 to 1.14.
+  - Every family reads 100% for both eyes, both facings.
+- **Image:** `docs/screenshots/anim/r2_pass28_side_on_stance.jpg`: before and after (the idle, the runs both ways, the Longsword's forward
+  tilt and the Claws' forward smash), then every family at the match camera.
+- **Checked:** both facings and all six families; the weapon classes (Longsword, Staff, Greatsword, Buckler, Nodachi); the brawler
+  fists-up idle; the six tests pass (fighter_view_test pins no turn values).
+- **Also:** `demo.gd` `loco` (locomotion every frame for the motion audit), and shots for `dashleft`.

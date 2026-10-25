@@ -25,7 +25,7 @@ func yaw(view, bone: String, facing: int) -> float:
 
 
 func _initialize() -> void:
-	for cls in [0, 1]:
+	for cls in [0, 1, 2, 3, 8, 10]:
 		for facing in [1, -1]:
 			for st in [["Idle", 0.0], ["Run", 0.24]]:
 				var view := FighterView.new()
