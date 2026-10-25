@@ -57,3 +57,14 @@ in the water, the grove's abyss, the city's street).
 
 Items 1 to 6 are refinements of what exists, within the standing rule. Items 1 and 2 lift the surfaces column; 3 and 4 the beach's and
 grove's worlds and skies. Item 7 is still the one change that moves every stage's light toward 5.
+
+## Item 1, the canyon's rock (2026-10-25, mock)
+
+`tools/art/make_prints.py` family `sandstone` (`--sandstone A|B`, appended after `steel` so every other family's random numbers, and so
+its print, stay byte-identical, checked against `prints/hatched`): sand grains, soft patches a little deeper (a first try at full
+strength read as camouflage), and short sets of cross-bedding arcs, no long lines; B adds faint weathering streaks and pits. Mocked with
+`--print-mock=<folder>` as `strata.png`, so it lands on everything `strata` printed: the front's beds and the platform slabs (`layer1`,
+`layer2`, `strata_*`; the buttes' `rock_*` families carry no print). The print takes the grain away at the match camera; at the wide
+camera the even 0.75 beds, a step lighter and darker by turns, still stacked like planks, so C adds `make_canyon_front.py --straight C`:
+beds of uneven thickness (thin partings of 0.3 to 0.5 between beds of 0.9 to 2.2), 6 to 14 long, the tone stepping less (15,848
+triangles). On the Stage Look Review ("sand9", `s9_*`, C shown before the light bake); recommended C.

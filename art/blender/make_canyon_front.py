@@ -39,7 +39,9 @@ CUT = opts.get("cut", "0") == "1"
 COURSES = opts.get("courses", "0") == "1"
 # Straight courses (fidelity review 8: at the wide camera every course bulged with its slab's jutting front, wobbly plywood): `--straight
 # A|B`. A: each course a run of flat-fronted blocks of uneven length, clean vertical joints, each block a little in or out. B: A with
-# every third course set further back, so the face reads in thick and thin beds with shadow lines between.
+# every third course set further back, so the face reads in thick and thin beds with shadow lines between. C (fidelity review 9: even
+# beds, lighter and darker by turns, stacked like planks at the wide camera): beds of uneven thickness, thin partings between thick
+# beds, longer, the tone stepping less.
 STRAIGHT = opts.get("straight", "")
 manifest = json.load(open(os.path.join(opts["dir"], "manifest.json")))
 BLOCK = [r for r in manifest["rects"] if r[4] < 0.5][0]
@@ -137,19 +139,32 @@ def courses_straight(bm, x0, x1, y0, y1, out, rng):
     n = max(1, int(round((y1 - y0) / 0.75)))
     base = rng.uniform(0.84, 1.02)
     face = FZ + rng.uniform(0.15, 0.45) * out
+    # (C, fidelity review 9: even beds 0.75 thick, a step lighter and darker by turns, read as stacked planks at the wide camera. Beds of
+    # uneven thickness, thin partings between thick ones, longer, the tone stepping less.)
+    cuts = [y1 - (y1 - y0) * k / n for k in range(n + 1)]
+    if STRAIGHT == "C":
+        hs = []
+        while sum(hs) < y1 - y0:
+            hs.append(rng.choice([rng.uniform(0.3, 0.5), rng.uniform(0.9, 1.7), rng.uniform(1.0, 2.2)]))
+        scale = (y1 - y0) / sum(hs)
+        cuts = [y1]
+        for h in hs:
+            cuts.append(cuts[-1] - h * scale)
+        cuts[-1] = y0
+        n = len(hs)
     for k in range(n):
-        ya = y1 - (y1 - y0) * (k + 1) / n
-        yb = y1 - (y1 - y0) * k / n
+        ya, yb = cuts[k + 1], cuts[k]
         recess = -0.32 if (STRAIGHT == "B" and k % 3 == 2) else 0.0
+        step = (1.06 if k % 2 == 0 else 0.94) if STRAIGHT != "C" else rng.uniform(0.95, 1.05)
         x = x0
         while x < x1 - 0.05:
-            xe = min(x1, x + rng.uniform(4.0, 9.0))
+            xe = min(x1, x + (rng.uniform(6.0, 14.0) if STRAIGHT == "C" else rng.uniform(4.0, 9.0)))
             if x1 - xe < 2.0:
                 xe = x1
             dz = rng.uniform(-0.12, 0.08) + recess
             pts = [(x, face + dz), (xe, face + dz)]
             slab(bm, x + 0.02, xe - 0.02, ya + 0.015, yb, out, rng, pts=[(x + 0.02, face + dz), (xe - 0.02, face + dz)], taper=0.02,
-                 chamfer=0.07, shade=base * (1.06 if k % 2 == 0 else 0.94) * rng.uniform(0.95, 1.05) * (0.86 if recess else 1.0))
+                 chamfer=0.07, shade=base * step * rng.uniform(0.95, 1.05) * (0.86 if recess else 1.0))
             x = xe
 
 

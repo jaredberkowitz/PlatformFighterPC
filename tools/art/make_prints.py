@@ -5,6 +5,9 @@
      stone in patches of crossed hatching, soil and path in stipple, straw in fine parallel strokes;
   C  halftone: a screen of dots at 45 degrees, their size following each family's own pattern (as B, softened), as a printed card.
 Families: grass, soil, path, wood, stone, straw. Each 512 pixels square and seamless.
+`sandstone` (fidelity review 9: the canyon's long straight beds took `strata`, its thin lines running the bed's length, and read as wood
+grain): sand speckle, soft mottled patches and short sets of cross-bedding arcs, no long lines; `--sandstone B` adds faint weathering
+streaks down the face and a few pits. Appended last, so the other families' random numbers, and so their prints, stay as they were.
 
 Run with Blender's Python (it carries numpy):
   blender --background --python tools/art/make_prints.py -- --style A --out <folder>
@@ -20,6 +23,7 @@ import numpy as np
 argv = sys.argv[sys.argv.index("--") + 1:]
 opts = {argv[i].lstrip("-"): argv[i + 1] for i in range(0, len(argv) - 1, 2)}
 STYLE = opts.get("style", "A").upper()
+SANDSTONE = opts.get("sandstone", "A").upper()
 N = 512
 rng = np.random.default_rng(23)
 
@@ -121,6 +125,17 @@ def motif(fam):
             gaps = np.sin(xx * math.tau / N * rng.integers(3, 7) + rng.uniform(0, 6)) > -0.5
             img = np.maximum(img, (line & gaps).astype(np.float32))
         return img
+    if fam == "sandstone":
+        # Sand grains, broad soft patches a little deeper, and cross-bedding: short low arcs, a few to a set, no line longer than a
+        # stone's height.
+        img = (rng.random((N, N)) < 0.03).astype(np.float32) * 0.8
+        img = np.maximum(img, np.clip((smooth_noise(40) - 0.3) * 0.12, 0.0, 0.14))
+        img = np.maximum(img, strokes(70, 46, 0.9, 12, 12, 0.6) * 0.9)
+        if SANDSTONE == "B":
+            # Weathering: faint streaks down the face, and pits.
+            img = np.maximum(img, blur(strokes(14, 150, 1.3, 90, 4, 0.1), 2) * 0.5)
+            img = np.maximum(img, np.clip(blur((rng.random((N, N)) < 0.004).astype(np.float32), 1) * 4.0, 0.0, 0.9))
+        return img
     if fam == "roof":
         # Tar paper: a seam every course, overlapping, and a sparse grit.
         yy, xx = np.mgrid[0:N, 0:N]
@@ -135,7 +150,7 @@ def motif(fam):
 
 
 FAMS = {"grass": (1.0, 3.0), "soil": (1.0, 1.0), "path": (1.0, 1.0), "wood": (4.0, 1.0), "stone": (1.0, 1.0), "straw": (4.0, 1.0),
-        "sand": (2.0, 1.0), "strata": (4.0, 1.0), "roof": (3.0, 1.0), "steel": (1.0, 1.0)}
+        "sand": (2.0, 1.0), "strata": (4.0, 1.0), "roof": (3.0, 1.0), "steel": (1.0, 1.0), "sandstone": (2.0, 1.0)}
 
 
 def make(fam):

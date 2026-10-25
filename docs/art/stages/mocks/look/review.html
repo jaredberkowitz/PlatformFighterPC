@@ -88,6 +88,24 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
     <p>Two lessons from the reference screenshots, mocked from the match camera: the scenery without ink outlines, its edges lit as card bevels instead, and the paper houses rebuilt at the characters' proportions. The earlier rounds stay on the <a href="https://claude.ai/artifact/D1du6MREVumiJDrEdNypW4">Stage Fidelity Review</a>, which is full.</p>
   </header>
 
+  <section class="panel" aria-labelledby="s9-h" id="sand9">
+    <div class="eyebrow">Your call is needed &middot; review 9, item 1: the canyon's rock</div>
+    <h2 id="s9-h">Sandstone, not planks</h2>
+    <p>The canyon's rock print was thin broken lines every few pixels (left in the tiles below). Laid along the long straight beds, it ran their full length and read as wood grain. The new sandstone print is sand grains, soft patches a little deeper, and short sets of cross-bedding arcs, with no long lines. It goes on everything that took the old print: the front's beds and the platform slabs (the buttes behind carry no print). Each stage's other prints come out byte-identical.</p>
+    <div class="viewer"><img src="s9_prints.jpg" alt="The print tiles: today's strata, sandstone A and sandstone B"></div>
+    <div class="tablewrap"><table><thead><tr><th>Option</th><th>What changes</th></tr></thead><tbody>
+      <tr><td>A &middot; Sandstone</td><td>The new print: grains, soft patches, cross-bedding.</td></tr>
+      <tr><td>B &middot; Weathered</td><td>A with faint weathering streaks down the face and a few pits.</td></tr>
+      <tr><td>C &middot; Sandstone and uneven beds</td><td>A&rsquo;s print, and the front&rsquo;s beds rebuilt at uneven thicknesses (thin partings between thick beds, longer, the tone stepping less). Even beds lighter and darker by turns were the other half of the plank look at the wide camera.</td></tr>
+    </tbody></table></div>
+    <p>At the match camera: today, A, B, C:</p>
+    <div class="viewer"><img src="s9_close.jpg" alt="The canyon's front today and in the three options"></div>
+    <div class="row" role="group" aria-label="View"><button data-s9v="m">Match camera</button><button data-s9v="w">Wide</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-s9o="T">Today</button><button data-s9o="A">A &middot; Sandstone</button><button data-s9o="B">B &middot; Weathered</button><button data-s9o="C">C &middot; And uneven beds</button></div>
+    <div class="viewer"><img id="s9img" alt="Canyon rock option"><span class="vtag" id="s9tag"></span></div>
+    <p class="muted">My pick: <b>C</b>. The print alone removes the grain up close, but at the wide camera the even beds still stack like planks. C's thick beds read as rock slabs. Honest note: C leans a little toward laid stone at the wide camera. It is shown before the light bake, so its front is paler than it will be once re-lit. B's streaks barely show at either camera.</p>
+  </section>
+
   <section class="panel" aria-labelledby="f9-h" id="review9">
     <div class="eyebrow">Your call is needed &middot; fidelity review 9: the path to 5</div>
     <h2 id="f9-h">Where every stage stands after review 8</h2>
@@ -1473,5 +1491,15 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
   group("data-k8s", function (v) { k8s = v; }, k8render);
   group("data-k8o", function (v) { k8o = v; }, k8render);
   k8render();
+  var s9v = "m", s9o = "C";
+  var S9O = { T: "Today", A: "A \u00b7 Sandstone", B: "B \u00b7 Weathered", C: "C \u00b7 Sandstone and uneven beds" };
+  function s9render() {
+    document.getElementById("s9img").src = "s9_" + s9o + "_" + s9v + ".jpg";
+    document.getElementById("s9tag").textContent = "Canyon \u00b7 " + S9O[s9o] + (s9v === "w" ? " \u00b7 wide" : " \u00b7 match camera");
+    pressed("data-s9v", s9v); pressed("data-s9o", s9o);
+  }
+  group("data-s9v", function (v) { s9v = v; }, s9render);
+  group("data-s9o", function (v) { s9o = v; }, s9render);
+  s9render();
 })();
 </script>
