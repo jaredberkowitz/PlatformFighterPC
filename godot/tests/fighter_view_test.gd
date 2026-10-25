@@ -76,6 +76,10 @@ func _initialize() -> void:
 	running = snap(0, "Run", "", 10)
 	running.vel = Vector2(0.24, 0.0)
 	check(sword._choose_clip(running)[0] == "run", "the sword family keeps the shared run")
+	# And walks its own way (round 2).
+	var walking := snap(1, "Walk", "", 10)
+	walking.vel = Vector2(0.12, 0.0)
+	check(fists._choose_clip(walking)[0] == "walk_brawler", "the brawler family plays its own walk (got %s)" % fists._choose_clip(walking)[0])
 	for state in ["Idle", "Walk", "Run", "Shield", "Hitstun", "Airborne", "Roll", "LedgeHang"]:
 		sword.apply(Vector3.ZERO, snap(0, state, "", frame), 1.0 / 60.0)
 		check(sword.blade_pivot.visible, "the blade is there while %s" % state)

@@ -212,7 +212,7 @@ const LONG_FIT := Transform3D(Basis(Vector3(0.92, 0, 0), Vector3(0, 0.92, 0), Ve
 ## Where the head and torso sit in the rig compared with the sphere-built look the face, hats and glasses were designed for.
 const HEAD_FIT := Transform3D(Basis(Vector3(0.825, 0, 0), Vector3(0, 0.825, 0), Vector3(0, 0, 0.825)), Vector3(0, 1.56 - 1.42 * 0.825, 0))
 const TORSO_FIT := Transform3D()
-const LOOPING := ["tumble", "idle", "idle_brawler", "idle_quick", "idle_heavy", "idle_caster", "idle_tool", "run_quick", "run_heavy", "run_caster", "run_tool", "walk", "run", "dash", "fall", "victory_a", "victory_b", "victory_c"]
+const LOOPING := ["tumble", "idle", "idle_brawler", "idle_quick", "idle_heavy", "idle_caster", "idle_tool", "run_quick", "run_heavy", "run_caster", "run_tool", "walk", "walk_brawler", "walk_quick", "walk_heavy", "walk_caster", "walk_tool", "run", "dash", "fall", "victory_a", "victory_b", "victory_c"]
 ## The rig is read once and copied for every fighter (reading it again renames its bones).
 static var _rig_templates: Dictionary = {}
 
@@ -542,7 +542,8 @@ func _choose_clip(s: Dictionary) -> Array:
 	var speed := absf(float(s.vel.x))
 	match state:
 		"Walk":
-			return ["walk", clampf(speed / WALK_TEMPO, 0.5, 3.6), -1.0]
+			# (Each family's own walk, `walk_<family>`, round 2; the clip's length sets its stride, see make_rigged_blob.py WALK_STYLES.)
+			return [AnimLibrary.family_clip(_cls(s), "walk", anim), clampf(speed / WALK_TEMPO, 0.5, 3.6), -1.0]
 		"Run", "Dash":
 			# Cycles a second (two dash lengths each) times the clip's length in seconds.
 			var stride := 2.0 * maxf(0.5, float(s.get("dash_length", 2.4)))

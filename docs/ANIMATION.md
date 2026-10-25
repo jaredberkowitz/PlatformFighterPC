@@ -126,7 +126,8 @@ every layer) and `tests/motion_probe.gd` (foot slide). Next:
 1. The body is now the cuter one (`ART_PIPELINE.md` thirty-first pass). Every clip was rebuilt on it and the worst reads fixed (the
    head never tips back past 8 degrees, overhead kicks keep the face to the camera, kicking legs stretch to reach); a pose-by-pose pass
    for its proportions is still open.
-2. The walk still slides about 0.45 of its ground speed: short legs cannot plant at these walk speeds without scurrying.
+2. ~~The walk still slides about 0.45 of its ground speed~~ (round 2, pass 20: each family walks its own way with planted feet, sliding
+   0.06-0.16 of its speed).
 
 Animation pass for the cute body (owner's direction, 2026-10-13): weighty and exaggerated for readability like the reference, but with
 limbs that make physical sense (a support leg planted or tucked, arms counterbalancing), moves thrown at the opponent rather than at the
@@ -676,3 +677,41 @@ along one side and one thin cut edge, 70% as wide, with no core and no ring roun
   their speed, the heavy run 0.2); the probe's run cases are noisy (some speeds find no planted frame).
 - **Left:** the runs' foot slide is unchanged (out of this round's list; noted for a later locomotion pass). The brawlers keep the shared
   run (`FAMILY_SHARES`) and the sword family has no run of its own.
+
+### Pass 20: a walk per family, with planted feet (round 2 item 2)
+
+- **Defect:** one shared walk for every class, a big swaggering stride that stood up out of each family's stance (the sword fighter
+  strolled upright between two crouched idles), and its planted foot slid 0.23-0.31 of the ground speed (`tests/motion_probe.gd`).
+- **Cause (`make_rigged_blob.py`):** the walk was keyed as leg angles (`WALK_THIGH` and friends), so where the planted foot went came out
+  of the angles, eased between keys (so it sped up and slowed down while down), and `plant` then moved the hips to put the lower foot on
+  the floor. Its stride did not match the 2.2 units a cycle the game plays it at (`fighter_view.gd` `WALK_TEMPO`).
+- **Fix:**
+  - **Feet authored, not angles:** `walk_style` gives each foot a path. While down it moves straight back under the body at an even pace;
+    then it swings through on a Hermite curve whose ends move at that same pace (it leaves the floor still going back and lands already
+    going back, so it neither drags nor skids). `foot_to` bends the thigh (forward and out) and the knee to put the ankle exactly there: a
+    Newton solve on the rig, so the hips' bob, twist and roll are allowed for. A miss over 0.01 is printed by the build.
+  - **The stride matches the ground:** a clip's length sets how far one cycle covers (`frames` x 0.055), and the foot's sweep while down
+    is that distance seen through the body's three-quarter turn (`WALK_TURN_SHARE` 0.80, set from the probe). The quicker walks take
+    short floor contacts with a little bounce between steps rather than sliding.
+  - **A walk per family** (`WALK_STYLES`), each in its own stance: the sword family a guarded advance (the free hand up, small swings),
+    the brawlers a hunched prowl with both fists up, the quick fighters low and springy with the lead hand out, the heavy one wide with
+    the hips rolling and the arms swinging big, the caster upright and neat, the tool users a loose stroll. The heads counter the chest's
+    lean as in the idles. Mapped with `AnimLibrary.FAMILY_CLIPS` (the sword family's is the shared `walk`); `fighter_view.gd` plays
+    `family_clip(class, "walk")`.
+- **Foot slide** (`motion_probe`, ratio of the ground speed, at 0.08 / 0.14 / 0.19 units a frame):
+
+  | Family (class) | Before | After |
+  |---|---|---|
+  | Sword (0) | 0.31 / 0.28 / 0.23 | 0.11 / 0.09 / 0.08 |
+  | Brawler (1) | same shared walk | 0.15 / 0.10 / 0.09 |
+  | Quick (2) | | 0.15 / 0.09 / 0.06 |
+  | Heavy (8) | | 0.16 / 0.11 / 0.10 |
+  | Caster (3) | | 0.08 / 0.08 / 0.08 |
+  | Tool (10) | | 0.11 / 0.10 / 0.08 |
+
+- **Image:** `docs/screenshots/anim/r2_pass20_family_walks.jpg`: walk contact sheets of six classes (one per family), before (the shared
+  walk) and after; then the sword fighter walking in a match (`--demo=walk`), before and after.
+- **Checked:** facing left (contact sheets); the six tests pass; `fighter_view_test` pins the brawler's walk.
+- **Left:** a very slow walk (the stick barely tilted, the clip at its slowest, `clampf` 0.5) still slides; the runs' slide is unchanged
+  (pass 19). The quick walk's swinging foot falls up to 0.09 short of its path at the top of the knee lift (the thigh's limit); it does not
+  show as a slide.

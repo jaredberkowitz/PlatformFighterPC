@@ -596,7 +596,7 @@ def pose(rig, bone, fwd=0.0, out=0.0, twist=0.0, lift=0.0):
         fwd, out, twist = fwd * WRIST_KEEP, out * WRIST_KEEP, twist * WRIST_KEEP
     # The base body's head is big: tipped back more than a little it shows its chin and hides the drawn face, the half of every read.
     if BODY and bone == "head" and CLIP_NOW not in HEAD_FREE_CLIPS:
-        fwd = max(fwd, HEAD_BACK_IDLE if CLIP_NOW.startswith("idle") else HEAD_BACK_LIMIT)
+        fwd = max(fwd, HEAD_BACK_IDLE if CLIP_NOW.startswith(("idle", "walk")) else HEAD_BACK_LIMIT)
     pb = rig.pose.bones[bone]
     pb.rotation_mode = "XYZ"
     limb = bone.split(".")[0] in LIMBS
@@ -1054,7 +1054,8 @@ def _bend_up(rig, side, ground):
 
 
 ## Clips with a moment in the air between steps: their feet are only kept from going through the ground.
-STRIDING = {"run", "dash", "run_quick", "run_heavy", "run_caster", "run_tool"}
+STRIDING = {"run", "dash", "run_quick", "run_heavy", "run_caster", "run_tool", "walk", "walk_brawler", "walk_quick", "walk_heavy",
+             "walk_caster", "walk_tool"}
 
 
 def plant(rig, both, lift_only=False):
@@ -1243,6 +1244,131 @@ def clip(rig, name, frames, poses):
             plant(rig, name in BODY_MOVES or name in STANDING, name in STRIDING)
         key_all(rig, frame)
     action.frame_range = (0, max(poses))
+
+
+def _ankle_at(rig, side, thigh, shin, out):
+    pose(rig, "thigh." + side, fwd=thigh, out=out)
+    pose(rig, "shin." + side, fwd=shin)
+    return _ankle(rig, side).copy()   # (a live view of the bone otherwise: the next pose would change it)
+
+
+def foot_to(rig, side, ahead, height, width):
+    """Bends a leg (the thigh forward and out, and the knee, about the hips as they are posed now) so its ankle is `ahead` units ahead of
+    the hip joint's rest position (the body's forward axis, -y), `height` units above the ground and `width` units further out to the side
+    than the hip: a solve by Newton's method on the rig itself, so the hips' lift, twist and roll are allowed for and a planted foot stays
+    put while they move. The knee only bends forward. Returns the largest miss (units)."""
+    hip = rig.pose.bones["thigh." + side].bone.head_local
+    ground = rig.pose.bones["foot.L"].bone.head_local.z
+    outward = -1.0 if hip.x < 0.0 else 1.0
+    goal = Vector((hip.x + outward * width, hip.y - ahead, ground + height))
+
+    def err(v):
+        return goal - _ankle_at(rig, side, v[0], v[1], v[2])
+
+    v = Vector((20.0, -40.0, 6.0))
+    e = err(v)
+    for _ in range(12):
+        if e.length < 0.001:
+            break
+        h = 0.5
+        cols = []
+        for n in range(3):
+            d = v.copy()
+            d[n] += h
+            cols.append((err(d) - e) / h)
+        jac = Matrix((cols[0], cols[1], cols[2])).transposed()
+        try:
+            step = jac.inverted() @ e
+        except ValueError:
+            break
+        # (err(v + d) ~ e + J d, so d = -J^-1 e.)
+        big = max(abs(x) for x in step)
+        if big > 15.0:
+            step *= 15.0 / big
+        v -= step
+        v[1] = min(-1.0, v[1])
+        v[2] = clampf(v[2], -10.0, 40.0)
+        e = err(v)
+    return e.length
+
+
+# Each family's walk on the base body (animation overhaul round 2; the one shared swaggering walk slid about a third of its speed and
+# stood up out of every stance). Each foot's path is authored, not its angles (`foot_to`): while it is down it moves back under the body
+# in a straight line at an even pace, so it can stay planted, then it swings through, lifted, to land ahead again. The pace is set by the
+# clip's length: the game plays a walk once a cycle every `WALK_TEMPO` (0.055) units of ground at any walking speed (fighter_view.gd), so
+# a cycle covers `frames` x 0.055 units, and the foot's sweep while down (`sweep`, over the share `down` of the cycle) matches that ground
+# seen through the body's three-quarter turn (`WALK_TURN_SHARE`: the share of a step along the body that shows as ground covered, about
+# sin 60 for the game's turn, set from tests/motion_probe.gd). The short legs cannot sweep far, so the quicker walks have a moment
+# with both feet off the floor (a bounce) rather than sliding.
+#   hips: the hips' height (the rest stand is 0.94); lift: the swinging foot's highest; bob: the hips' rise and fall each step;
+#   ahead: where the sweep is centred, ahead of the hip; lean, side, head: the chest's lean and side bend and the head's counter-tilt (as
+#   the family's idle); twist: the hips and shoulders counter-turning; sway: the hips rolling side to side; wide: each foot set out from its hip (units);
+#   arms: (upper arm forward, out, elbow) for the near and far arm, and how far they swing.
+WALK_TEMPO = 0.055
+WALK_TURN_SHARE = 0.80
+WALK_STYLES = {
+    # The sword family: a guarded advance in the battle stance, the free hand up, small arm swings.
+    "": dict(frames=34, hips=0.74, down=0.42, lift=0.15, bob=0.025, ahead=0.02, lean=26.0, side=20.0, head=-19.0, twist=6.0,
+             sway=0.0, wide=0.02, arm_l=(28.0, 30.0, 100.0), arm_r=(24.0, 28.0, 108.0), swing=10.0),
+    # The brawlers: a hunched prowl, both fists up in the guard, the shoulders rolling.
+    "brawler": dict(frames=35, hips=0.71, down=0.40, lift=0.14, bob=0.03, ahead=0.02, lean=30.0, side=18.0, head=-16.0,
+                    twist=9.0, sway=0.0, wide=0.04, arm_l=(52.0, 20.0, 96.0), arm_r=(40.0, 26.0, 108.0), swing=8.0),
+    # The quick fighters: low and springy, long light steps with a bounce between them, the lead hand out.
+    "quick": dict(frames=38, hips=0.72, down=0.32, lift=0.16, bob=0.05, ahead=0.0, lean=28.0, side=14.0, head=-16.0,
+                  twist=8.0, sway=0.0, wide=0.02, arm_l=(64.0, 10.0, 40.0), arm_r=(-14.0, 24.0, 100.0), swing=14.0),
+    # The heavy one: wide, planted steps, the hips rolling side to side and the arms swinging big and slow.
+    "heavy": dict(frames=33, hips=0.70, down=0.46, lift=0.12, bob=0.035, ahead=0.0, lean=18.0, side=12.0, head=-8.0,
+                  twist=8.0, sway=5.0, wide=0.1, arm_l=(10.0, 46.0, 46.0), arm_r=(6.0, 46.0, 50.0), swing=24.0),
+    # The caster: upright and neat, small even steps, the lead palm open and the other hand held in.
+    "caster": dict(frames=35, hips=0.80, down=0.36, lift=0.13, bob=0.02, ahead=0.02, lean=8.0, side=6.0, head=-8.0,
+                   twist=5.0, sway=0.0, wide=0.0, arm_l=(66.0, 10.0, 30.0), arm_r=(-16.0, 36.0, 104.0), swing=6.0),
+    # The tool users: a loose, bouncy stroll, the arms swinging free.
+    "tool": dict(frames=37, hips=0.79, down=0.34, lift=0.16, bob=0.04, ahead=0.02, lean=6.0, side=5.0, head=-4.0, twist=10.0,
+                 sway=0.0, wide=0.01, arm_l=(4.0, 14.0, 34.0), arm_r=(2.0, 16.0, 30.0), swing=34.0),
+}
+for _st in WALK_STYLES.values():
+    _st["sweep"] = _st["down"] * _st["frames"] * WALK_TEMPO / WALK_TURN_SHARE
+
+
+def walk_style(phase, st):
+    """One frame of a family's walk (`WALK_STYLES`) at `phase` (0..1). The left foot lands at phase 0, the right at 0.5."""
+    def f(rig):
+        rest_hips = rig.pose.bones["hips"].bone.head_local.z
+        lowest = math.cos((phase - 0.06) * 4.0 * math.pi)      # 1 just after each landing
+        roll = math.sin(phase * 2.0 * math.pi)
+        pose(rig, "hips", lift=st["hips"] - rest_hips - st["bob"] * lowest, twist=-st["twist"] * roll, out=st["sway"] * roll)
+        breath = math.cos((phase - 0.12) * 4.0 * math.pi)
+        pose(rig, "spine", fwd=st["lean"] + 2.0 * breath, twist=8.0 + st["twist"] * 1.3 * roll, out=st["side"])
+        pose(rig, "head", fwd=st["head"] - 2.0 * breath, twist=-4.0 - st["twist"] * 0.8 * roll)
+        for side, arm in (("L", st["arm_l"]), ("R", st["arm_r"])):
+            # Each arm swings with the other leg: back as its own leg lands in front.
+            swing = -math.cos((phase + (0.0 if side == "L" else 0.5)) * 2.0 * math.pi)
+            pose(rig, "armU." + side, fwd=arm[0] + st["swing"] * swing, out=arm[1])
+            pose(rig, "armL." + side, fwd=arm[2] + 0.3 * st["swing"] * max(0.0, swing))
+        down, sweep = st["down"], st["sweep"]
+        for side, offset in (("L", 0.0), ("R", 0.5)):
+            p = (phase + offset) % 1.0
+            if p < down:
+                u = p / down
+                ahead = st["ahead"] + sweep * (0.5 - u)
+                height = 0.0
+                toe = 0.0
+            else:
+                u = (p - down) / (1.0 - down)
+                # (A Hermite curve whose ends move at the stance's pace: the foot leaves the floor still going back and lands already
+                # going back with the ground, so it neither drags at the lift nor skids on landing.)
+                m = -sweep * (1.0 - down) / down
+                h00, h10, h01, h11 = 2 * u ** 3 - 3 * u * u + 1, u ** 3 - 2 * u * u + u, -2 * u ** 3 + 3 * u * u, u ** 3 - u * u
+                ahead = st["ahead"] + h00 * (-0.5 * sweep) + h10 * m + h01 * (0.5 * sweep) + h11 * m
+                height = st["lift"] * math.sin(math.pi * min(1.0, u ** 0.8))
+                # (The toe leaves last and the heel reaches for the floor.)
+                toe = -24.0 * math.sin(math.pi * u * 2.0) if u < 0.5 else 14.0 * math.sin(math.pi * (u - 0.5) * 2.0)
+            miss = foot_to(rig, side, ahead, height, st["wide"])
+            if miss > 0.01:
+                print("walk %s: the %s foot misses by %.3f at %.2f" % (CLIP_NOW, side, miss, phase))
+            _level_sole(rig, side)
+            rig.pose.bones["foot." + side].rotation_euler.x += math.radians(-toe)
+    return f
 
 
 def walk_pose(phase, stride, bend, arm, lean, bob, elbow, twist):
@@ -3062,7 +3188,13 @@ def main() -> None:
             pose(rig, "head", fwd=-4.0 + 8.0 * step, twist=-9.0 * math.sin(phase * 2.0 * math.pi))
         return f
 
-    clip(rig, "walk", 40, {i: walk(i / 40.0) for i in range(0, 41, 2)})
+    if BODY:
+        # (Round 2: each family's own walk, its feet planted; `walk_style`.)
+        for fam, st in WALK_STYLES.items():
+            n = st["frames"]
+            clip(rig, "walk_" + fam if fam else "walk", n, {i: walk_style(i / n, st) for i in range(0, n + 1)})
+    else:
+        clip(rig, "walk", 40, {i: walk(i / 40.0) for i in range(0, 41, 2)})
     # The run: a key every other frame so the snappy gait survives interpolation.
     clip(rig, "run", 20, {i: run_pose(i / 20.0) for i in range(0, 21)})
     # Each unarmed family's own run on the base body (with its idle, `IDLE_STYLES`): the quick fighters low and long with small arm
