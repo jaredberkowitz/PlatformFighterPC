@@ -143,3 +143,7 @@ palette's [backdrop] `sea_shallows` (`--shallows=A|B`, A [1, 40, 0], B [1, 40, 1
 world-space noise, a slightly deeper rim round each, fading out from half the reach; B a few rocks on the bottom (a first, denser and
 darker set read as blotches). Shader only, no cost to draw. The sea at the wide camera: contrast 0.084 to 0.099 (A) and 0.100 (B); P1's
 gap 0.176 today, 0.168 (A), 0.172 (B). On the Stage Look Review ("shallows14", `sw14_*`); recommended A.
+
+Built A (the owner's pick): ocean.cfg [backdrop] `sea_shallows=[1.0, 40.0, 0.0]` (the sea's shader; nothing to re-light). The sea at the
+wide camera: contrast 0.099. Before and after (wide, then the match camera): `review10/beach_shallows_built.jpg`. Tests pass (the
+runner's known coin flake passed on a rerun).
