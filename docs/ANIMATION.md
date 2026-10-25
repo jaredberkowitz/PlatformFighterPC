@@ -923,3 +923,17 @@ Ranked by how visible it is at match speed:
   - A forearm can still cross the face while the hand is clear (the Gauntlets' up air).
 - **Image:** `docs/screenshots/anim/r2_pass32_face_guard.jpg`.
 - **Checked:** the six tests pass.
+
+### Pass 33: heavy fighters land heavy (real-speed audit: weight)
+
+- **Defect** (the owner's note: "things that should be heavy moving as fast and light as the quick family"): every class shared one
+  body spring. The Clutch and Greatsword landed, squashed and bounced back exactly as the Needles did.
+- **Fix (`fighter_view.gd` `CLASS_WEIGHT`):**
+  - The heavy classes (Greatsword, Bracers, Clutch) get springs 0.62 as stiff and damped toward critical, with a landing squash 1.25
+    times as deep: they sink further and settle slowly, without a bounce.
+  - The quick classes (Needles, Dagger) get 1.3 times as stiff with 0.8 the squash, so they snap back light.
+  - Presentation only; the sim's timing is untouched.
+- **Image:** `docs/screenshots/anim/r2_pass33_heavy_weight.png`: the squash through a landing, Longsword against Clutch.
+  `tests/freeze_probe.gd -- --class=N --nofreeze` prints it.
+- **Checked:** the six tests pass.
+- **Left:** the heavy attacks' own timing (the coil and hold shares) is shared with every class.

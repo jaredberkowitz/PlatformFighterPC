@@ -2867,6 +2867,14 @@ const TAKE_OFF_STRETCH := -0.15
 const LAND_IMPACT := 0.1
 const LAND_IMPACT_PER_SPEED := 0.55
 const LAND_IMPACT_PUSH := 6.0
+## Weight by class (round 2, the owner: the heavy fighters moved as light as the quick ones): [the body springs' stiffness, the landing
+## squash] as shares of the usual. The heavy fighters (Greatsword, Bracers, Clutch) sink deeper on landing and settle slower, with less
+## bounce; the quick ones (Needles, Dagger) snap back faster and lighter. Presentation only: the sim's timing is untouched.
+const CLASS_WEIGHT := {6: [0.62, 1.25], 7: [0.62, 1.25], 8: [0.62, 1.25], 2: [1.3, 0.8], 12: [1.3, 0.8]}
+
+
+func _weight(s: Dictionary) -> Array:
+	return CLASS_WEIGHT.get(_cls(s), [1.0, 1.0])
 ## How far down the jump's crouch starts, on its first frame (the spring eases it on to `SQUASH.JumpSquat`): the crouch lasts three
 ## frames, and eased in by the spring from standing it only reached its depth as the feet left the ground, so it hardly read (the
 ## owner's playtest notes, 2026-10-19: "no crouch before a jump"). (A kick to the spring instead overshot into a flat pancake.)
@@ -3074,8 +3082,9 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 	# not on the impact, and overshot to 0.4 after an aerial.)
 	if grounded and not was_grounded:
 		var impact := clampf(absf(last_vy), 0.0, 0.35)
-		squash = maxf(squash, LAND_IMPACT + impact * LAND_IMPACT_PER_SPEED)
-		squash_vel = impact * LAND_IMPACT_PUSH
+		var heft: float = float(_weight(s)[1])
+		squash = maxf(squash, (LAND_IMPACT + impact * LAND_IMPACT_PER_SPEED) * heft)
+		squash_vel = impact * LAND_IMPACT_PUSH * heft
 	if state == "JumpSquat" and last_state != "JumpSquat":
 		squash = maxf(squash, JUMP_SQUAT_START)
 		squash_vel = maxf(squash_vel, 0.0)
@@ -3173,10 +3182,14 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 		body_dt = 0.0
 	var steps := ceili(body_dt / 0.008)
 	var h := body_dt / maxi(steps, 1)
+	# (A heavier body's springs are softer and damped toward critical, so it sinks and settles slowly without bouncing; a light one snaps.)
+	var wk: float = float(_weight(s)[0])
+	var sk := SPRING_K * wk
+	var sd := SPRING_DAMP * sqrt(wk) * (1.25 if wk < 1.0 else 1.0)
 	for _i in steps:
-		squash_vel += (SPRING_K * (target_squash - squash) - SPRING_DAMP * squash_vel) * h
+		squash_vel += (sk * (target_squash - squash) - sd * squash_vel) * h
 		squash += squash_vel * h
-		lean_vel += (SPRING_K * (target_lean - lean) - SPRING_DAMP * lean_vel) * h
+		lean_vel += (sk * (target_lean - lean) - sd * lean_vel) * h
 		lean += lean_vel * h
 		lunge_vel += (SPRING_K * 1.6 * (target_lunge - lunge) - SPRING_DAMP * 1.2 * lunge_vel) * h
 		lunge += lunge_vel * h
