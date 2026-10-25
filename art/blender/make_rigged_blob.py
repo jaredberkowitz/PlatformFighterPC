@@ -647,6 +647,8 @@ BODY_AMP = 0.85
 # How far an attack's chamber (wind-up) key is pushed past its pose. (Animation overhaul pass 3: the game now holds the coil for a third of
 # the startup, so it is pushed deeper, 1.22 to 1.34, and reads as a wound-up shape; the `move` clips' wind-up took 1.12.)
 CHAMBER_AMP = 1.34
+# The knee bend (degrees) a grounded move's legs keep under its pose (the back leg 0.7 of it): pass 4, after the stance pass.
+KNEE_SOFT = 22.0
 WRIST_KEEP = 0.3   # how much of a clip's wrist bend the base body keeps
 
 BODY_MOVES = {
@@ -689,11 +691,13 @@ BODY_MOVES = {
     # Fencer's forward tilt: a fast rising cut, stepping in and leaning forward into it as the blade climbs, the free arm opening back for
     # balance.
     "sword_ftilt": (
-        {"hips": -0.08, "spine": (12.0, -28.0), "head": (6.0, 14.0), "stance": (18.0, -14.0), "shin.L": (-30.0,), "armU.L": (-10.0, 40.0),
-         "armL.L": (30.0,)},
-        {"hips": -0.04, "spine": (10.0, 28.0), "head": (-2.0, -12.0), "stance": (36.0, -28.0), "shin.L": (-26.0,), "shin.R": (-4.0,),
+        # (Animation overhaul pass 4, against the reference's frames: it crouches into the coil, then cuts from a lunge about twice as
+        # deep as ours was, the back leg long behind and the front knee well bent, and holds it. Was stance (18, -14) and (36, -28).)
+        {"hips": -0.08, "spine": (6.0, -28.0), "head": (-2.0, 14.0), "stance": (24.0, -18.0), "shin.L": (-48.0,), "shin.R": (-34.0,),
+         "armU.L": (-10.0, 40.0), "armL.L": (30.0,)},
+        {"hips": -0.04, "spine": (18.0, 28.0), "head": (-6.0, -12.0), "stance": (50.0, -40.0), "shin.L": (-56.0,), "shin.R": (-4.0,),
          "armU.L": (-30.0, 50.0), "armL.L": (20.0,)},
-        {"spine": (2.0, 10.0), "stance": (14.0, -10.0)}),
+        {"spine": (6.0, 10.0), "stance": (30.0, -24.0), "shin.L": (-36.0,)}),
     # Fencer's forward smash: the blade raised high with the weight back, then one committed cut down in front into a deep lunge, the
     # front knee well bent, the back leg straight, the free arm thrown back.
     "sword_fsmash": (
@@ -1075,17 +1079,41 @@ def _spec_pose(spec):
             pose(rig, "spine", fwd=spec["spine"][0], twist=spec["spine"][1])
         if "head" in spec:
             pose(rig, "head", fwd=spec["head"][0], twist=spec["head"][1])
-        if "stance" in spec:
-            lead, back = spec["stance"]
+        # (Animation overhaul pass 4: on the ground the knees are never locked. A grounded move's legs keep a soft bend under whatever
+        # the pose says (`KNEE_SOFT`), so `plant` sinks the hips and the moves stand as low as the battle stance does; the legs a pose
+        # names itself keep their own bend.)
+        soft = KNEE_SOFT if BODY and CLIP_NOW and grounded(CLIP_NOW) else 0.0
+        lead, back = spec.get("stance", (0.0, 0.0)) if ("stance" in spec or soft) else (None, None)
+        if lead is not None:
             # The further the legs step apart front to back, the more the feet come in toward one line (as a fencer's): seen turned three
             # quarters to the camera, feet set wide apart sideways would hide the step.
             pose(rig, "thigh.L", fwd=lead, out=5.0 - 0.4 * abs(lead))
-            pose(rig, "shin.L", fwd=-8.0 - max(0.0, -lead) * 0.5)
+            pose(rig, "shin.L", fwd=-8.0 - max(0.0, -lead) * 0.5 - soft)
             pose(rig, "thigh.R", fwd=back, out=5.0 - 0.4 * abs(back))
-            pose(rig, "shin.R", fwd=-8.0 - max(0.0, -back) * 0.5)
+            pose(rig, "shin.R", fwd=-8.0 - max(0.0, -back) * 0.5 - soft * 0.7)
         for bone, v in spec.items():
             if "." in bone:
                 pose(rig, bone, fwd=v[0], out=v[1] if len(v) > 1 else 0.0)
+    return f
+
+
+def _stance_rest(rest, k):
+    """An attack's rest key (its first and last frames) on the ground: the move's rest pose on top of the battle stance's legs and lean
+    (`STANCE_*`, the sword family's idle without its bob), so a move starts from and settles back into the stance instead of rising to an
+    upright stand and sinking again when the idle takes over. (Animation overhaul pass 4.)"""
+    base = _spec_held(rest, k)
+
+    def f(rig):
+        base(rig)
+        if BODY and CLIP_NOW and grounded(CLIP_NOW):
+            pose(rig, "thigh.L", fwd=STANCE_LEAD, out=STANCE_WIDE)
+            pose(rig, "shin.L", fwd=STANCE_LEAD_SHIN)
+            pose(rig, "foot.L", fwd=6.0, out=-10.0)
+            pose(rig, "thigh.R", fwd=STANCE_BACK, out=STANCE_WIDE + 4.0)
+            pose(rig, "shin.R", fwd=STANCE_BACK_SHIN)
+            pose(rig, "foot.R", fwd=18.0, out=-10.0)
+            sp = rest.get("spine", (0.0, 0.0))
+            pose(rig, "spine", fwd=STANCE_LEAN + sp[0] * k, twist=8.0 + sp[1] * k, out=STANCE_SIDE)
     return f
 
 
@@ -1169,9 +1197,9 @@ def clip(rig, name, frames, poses):
         # extreme (aerials tuck their knees to the chest), the strike snaps in and is held through the active frames, the follow-through
         # carries on, then the body eases home.)
         chamber = _chamber_spec(wind, not grounded(name))
-        poses = {0: _spec_held(rest, 0.0), 19: _amped_pose(_spec_pose(chamber), CHAMBER_AMP), 29: _spec_pose(_launch_spec(chamber, strike)),
+        poses = {0: _stance_rest(rest, 0.0), 19: _amped_pose(_spec_pose(chamber), CHAMBER_AMP), 29: _spec_pose(_launch_spec(chamber, strike)),
                  32: _spec_pose(strike), 36: _spec_pose(strike), 40: _amped_pose(_spec_pose(_follow_spec(strike)), 1.1),
-                 47: _spec_held(rest, 1.0), 60: _spec_held(rest, 0.0)}
+                 47: _spec_held(rest, 1.0), 60: _stance_rest(rest, 0.0)}
     action = bpy.data.actions.new(name)
     action.use_fake_user = True
     if rig.animation_data is None:

@@ -286,3 +286,38 @@ a corkscrew about the upright body (no head-over-heels spin); wall jumps back-fl
   - The attack clips settle to an upright rest, then the idle sinks into the new stance, so a move ends with a small rise and drop.
     The attack clips' rest should become the stance (next, with the sword's moves).
   - Multihit re-strikes keep their own draw-back (unchanged).
+
+### Pass 4: the Longsword against its reference (first round), and every grounded move kept low
+
+- **Defects** (audit items 4 and 5 and the jab row):
+  - The jab wound up with the blade upright over the face.
+  - The forward tilt cut from an upright step where the reference lunges about twice as deep.
+  - The sword arm stayed locked out straight through the end lag.
+  - Every grounded move stood on nearly straight legs and ended rising to an upright stand before the idle sank into the new stance.
+- **Cause:**
+  - `make_rigged_blob.py`:
+    - `_spec_pose` gave every leg a shin of -8 degrees unless a pose named it;
+    - the six-pose clips' rest keys (0 and 60) were an upright stand;
+    - `sword_ftilt` was posed shallow.
+  - `fighter_view.gd`:
+    - `SWING_FROM` (jab 70) raised the jab's blade straight up in front of the head;
+    - the blade arm's `arm_k` stayed at 1 through the end lag.
+- **Fix:**
+  - Grounded moves keep a soft knee bend under their pose (`KNEE_SOFT`; poses that name a leg keep theirs), so `plant` sets them as low
+    as the stance.
+  - The six-pose clips start and end on the battle stance (`_stance_rest`).
+  - `sword_ftilt` crouches into its coil (with the face kept in view) and cuts from a deep lunge: stance (50, -40), was (36, -28).
+  - The jab winds up behind the head (`SWING_FROM` 120) and the forward smash further back (95).
+  - After the last hit the sword arm draws back in as the blade eases home (`_reach_weight`).
+- **Files:** `art/blender/make_rigged_blob.py` (`KNEE_SOFT`, `_spec_pose`, `_stance_rest`, `sword_ftilt`), `godot/models/base_rig.glb`,
+  `godot/scripts/fighter_view.gd` (`SWING_FROM`, the blade's `arm_k`).
+- **Image:** `docs/screenshots/anim/pass4_longsword.jpg`: whiff demos of the jab, forward tilt and forward smash, before above and after
+  below, then the forward tilt facing left.
+- **Checked:** facing left; `anim_library_test`, `fighter_view_test`, `motion_test`, `match_flow_test`, `replay_test` and `look_bench`
+  pass.
+- **Left:**
+  - The forward smash's coil holds the blade back at the hips; the reference raises the hand overhead with the blade hanging behind.
+    The arm here always points along the blade (`_pose_blade`), so this needs a hand path of its own.
+  - The neutral air: its windmill round an upright body is the owner's earlier choice; the reference's body rolls with the circle
+    (asked).
+  - The forward air and the remaining moves are next.

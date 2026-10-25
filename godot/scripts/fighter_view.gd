@@ -3346,7 +3346,9 @@ var leg_k := 0.0
 ## is counter-clockwise when facing right), so the blade comes from the right side. Cuts that come down (jab, forward smash, forward air,
 ## down air, the back air's rise behind) wind up from above; rising cuts (the backhand, forward tilt, dash attack, neutral air, up air)
 ## from below.
-const SWING_FROM := {"jab": 70.0, "jab 2": -60.0, "ftilt": -70.0, "dash attack": -70.0, "fsmash": 80.0, "fair": 75.0, "dair": 75.0,
+## (Animation overhaul pass 4, after the reference's frames: the jab and the forward smash wind up further back, the blade behind the
+## shoulder and head rather than upright in front of the face: 70 and 80 were.)
+const SWING_FROM := {"jab": 120.0, "jab 2": -60.0, "ftilt": -70.0, "dash attack": -70.0, "fsmash": 95.0, "fair": 75.0, "dair": 75.0,
 	"nair": -60.0, "uair": -60.0, "bair": 60.0}
 ## Kicks that send both legs out (front and back), each aimed by the game.
 ## (None now: the neutral air is a held kick with the other leg tucked, as the reference's are, which the clip poses.)
@@ -3552,6 +3554,10 @@ func _pose_blade(s: Dictionary, delta: float) -> void:
 	arm_k = move_toward(arm_k, 1.0 if attacking else 0.0, delta * 9.0)
 	# A punch reaches out with the wind-up and comes home in the recovery, like a kick (a blade stays in the hand throughout).
 	if attacking and (not bladed(_cls(s)) or _thrust(_cls(s), String(s.move_name))):
+		arm_k = _reach_weight(s)
+	elif attacking and bladed(_cls(s)) and float(s.state_frame) > float((s.move_timing as PackedInt32Array)[2]):
+		# (Pass 4: after the last hit the sword arm draws back in as the blade eases home, the elbow bending, instead of staying locked
+		# out straight through the end lag; the pose review's "reaching for a hug".)
 		arm_k = _reach_weight(s)
 	# While the body spins (see NAIR_SPIN) the frame the blade is posed in turns with it, so the tip is turned back by as much: the arm
 	# holds the blade out and the spin carries it round the circle the hits make.
