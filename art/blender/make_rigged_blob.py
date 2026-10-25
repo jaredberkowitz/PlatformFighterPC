@@ -3274,7 +3274,8 @@ def main() -> None:
     # users a loose, bouncy jog.
     if BODY:
         for fam, kw in (("quick", dict(lean=36.0, stride=1.12, arms=0.7, bounce=0.07)),
-                        ("heavy", dict(lean=12.0, stride=0.82, arms=1.25, bounce=0.12)),
+                        # (Arms 1.05, was 1.25: side-on, the big swing brought the near fist up over the face, round 2.)
+                        ("heavy", dict(lean=12.0, stride=0.82, arms=1.05, bounce=0.12)),
                         ("caster", dict(lean=18.0, stride=0.95, arms=0.6, bounce=0.07)),
                         ("tool", dict(lean=16.0, stride=0.9, arms=1.1, bounce=0.11))):
             clip(rig, "run_" + fam, 20, {i: run_pose(i / 20.0, **kw) for i in range(0, 21)})
@@ -3328,8 +3329,9 @@ def main() -> None:
         pose(rig, "foot.L", fwd=10.0)
         pose(rig, "armU.R", fwd=56.0, out=26.0)
         pose(rig, "armL.R", fwd=96.0)
-        pose(rig, "armU.L", fwd=44.0, out=30.0)
-        pose(rig, "armL.L", fwd=100.0)
+        # (Round 2, side-on: the near fist drawn in at the chest, not up at the chin, where it covered the mouth.)
+        pose(rig, "armU.L", fwd=22.0, out=20.0)
+        pose(rig, "armL.L", fwd=80.0)
         pose(rig, "spine", fwd=18.0, twist=6.0)
         pose(rig, "head", fwd=-4.0)
 
@@ -3342,9 +3344,12 @@ def main() -> None:
         pose(rig, "thigh.L", fwd=-16.0, out=16.0)
         pose(rig, "shin.L", fwd=-30.0)
         pose(rig, "foot.L", fwd=-18.0)
-        for side in "LR":
-            pose(rig, "armU." + side, fwd=18.0, out=64.0)
-            pose(rig, "armL." + side, fwd=40.0)
+        # (Round 2, with the side-on turn: "out to the sides" now points the near arm at the camera, its fist over the face (every
+        # unarmed class, every fall). The near arm (L) opens forward and low along the stage, the far one back and up behind the body.)
+        pose(rig, "armU.L", fwd=30.0, out=22.0)
+        pose(rig, "armL.L", fwd=30.0)
+        pose(rig, "armU.R", fwd=-30.0, out=50.0)
+        pose(rig, "armL.R", fwd=30.0)
         pose(rig, "spine", fwd=6.0, twist=4.0)
         pose(rig, "head", fwd=-2.0)
 
@@ -3358,9 +3363,12 @@ def main() -> None:
             pose(rig, "thigh.L", fwd=-18.0 - 5.0 * w, out=16.0)
             pose(rig, "shin.L", fwd=-16.0 + 5.0 * w)
             pose(rig, "foot.L", fwd=-24.0)
-            for side, sign in (("L", 1.0), ("R", -1.0)):
-                pose(rig, "armU." + side, fwd=10.0 + 8.0 * w * sign, out=96.0 + 8.0 * w * sign)
-                pose(rig, "armL." + side, fwd=34.0)
+            # (Round 2, side-on: the near arm reaches forward and a little up along the stage, the far one raised high behind the head,
+            # both paddling; raised out to the sides, the near fist sat over the face.)
+            pose(rig, "armU.L", fwd=34.0 + 8.0 * w, out=24.0)
+            pose(rig, "armL.L", fwd=30.0)
+            pose(rig, "armU.R", fwd=130.0 - 8.0 * w, out=30.0)
+            pose(rig, "armL.R", fwd=34.0)
             pose(rig, "spine", fwd=-2.0, twist=4.0 * w)
             pose(rig, "head", fwd=-4.0)
         return f
@@ -3507,9 +3515,10 @@ def main() -> None:
         for side in "LR":
             pose(rig, "thigh." + side, fwd=26.0, out=8.0)
             pose(rig, "shin." + side, fwd=-40.0)
-            pose(rig, "armU." + side, fwd=62.0, out=24.0)
-            pose(rig, "armL." + side, fwd=96.0)
-        pose(rig, "spine", fwd=8.0)
+            # (Round 2, side-on: braced with the fists in at the chest; held at 62 the forearms stood in front of the face.)
+            pose(rig, "armU." + side, fwd=(16.0 if side == "L" else 30.0), out=16.0)
+            pose(rig, "armL." + side, fwd=92.0)
+        pose(rig, "spine", fwd=12.0)
 
     # (Round 2: on the battle stance's legs; it stood up 0.23 out of the idle to shield and sank back on dropping it.)
     clip(rig, "shield", 8, {0: _stance_over(shield, {}, 0.0, True), 8: _stance_over(shield, {}, 0.0, True)})

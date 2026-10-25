@@ -201,8 +201,8 @@ static func make(demo_name: String, m: Dictionary, dir: String):
 			# and its landing, shield and drop it, a roll; a picture on every frame, the camera steady on the fighter.
 			d.cam_dist = 9.0
 			d.cam_focus = 0
-			d.events = [[1, "stand", 0, -6.0, 1], [1, "stand", 1, 12.0, -1]]
-			d.timeline = [[0, 0, 0, 0], [20, 50, 0, 0], [60, 0, 0, 0], [80, 127, 0, 0], [81, 0, 0, 0], [83, 127, 0, 0], [125, 0, 0, 0],
+			d.events = [[1, "stand", 0, -9.0, 1], [1, "stand", 1, 9.0, -1]]
+			d.timeline = [[0, 0, 0, 0], [20, 50, 0, 0], [60, 0, 0, 0], [80, 127, 0, 0], [81, 0, 0, 0], [83, 127, 0, 0], [108, 0, 0, 0],
 				[150, 0, 0, jump], [151, 0, 0, 0], [200, 0, 0, shield], [230, 0, 0, 0], [250, 0, 0, shield], [252, 127, 0, shield],
 				[254, 0, 0, 0]]
 			for f in range(15, 300):

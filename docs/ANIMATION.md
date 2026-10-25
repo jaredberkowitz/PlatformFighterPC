@@ -848,3 +848,20 @@ Ranked by how visible it is at match speed:
 - **Checked:** both facings and all six families; the weapon classes (Longsword, Staff, Greatsword, Buckler, Nodachi); the brawler
   fists-up idle; the six tests pass (fighter_view_test pins no turn values).
 - **Also:** `demo.gd` `loco` (locomotion every frame for the motion audit), and shots for `dashleft`.
+
+### Pass 29: no hand over the face in the air or behind the shield (found by the side-on turn)
+
+- **Defect:** once the body stood side-on (pass 28), the near arm of every unarmed class came up over the face whenever it was falling
+  and through the shield, and over the mouth at the top of a jump. Measured by the new `tests/face_cover_probe.gd`: 100% of the frames
+  of the open fall and the fast fall for the brawler, quick, caster, heavy and tool families, and 100% of the shield. The heavy run had 28%.
+- **Cause (`make_rigged_blob.py`):** poses written for the old three-quarter view held the arms "out to the sides" (`out` 64-96). Side-on,
+  out points the near arm at the camera.
+- **Fix:**
+  - `air_open` and `air_fast`: the near arm reaches forward and low along the stage, the far arm back or raised behind the head.
+  - `air_tuck`: the near fist is drawn in at the chest.
+  - The shield guard holds the fists in at the chest.
+  - The heavy run's arm swing is 1.05 (was 1.25).
+- **Measured:** the face is covered in 0% of the frames in every state clip and family, apart from 8% of the sword's jump crouch (the hilt
+  passes) and 8% of the tool run.
+- **Image:** `docs/screenshots/anim/r2_pass29_air_shield_face.jpg`.
+- **Checked:** the six tests pass.
