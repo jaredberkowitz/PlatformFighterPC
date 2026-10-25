@@ -382,10 +382,10 @@ static func or_stand_in(clip: String, anim: AnimationPlayer) -> String:
 
 ## Each unarmed family's own stance and run by class (the base body's rig only; the others play the shared clips): the brawlers (Claws,
 ## Gauntlets, Bracers) hunch over bent knees with both fists up (their own idle, the shared run), the armed classes keep the sword stance
-## and the shared run, the quick fighters (Needles, Dagger, Nodachi) crouch low
+## and the shared run, the quick fighters (Needles, Dagger) crouch low (the Nodachi, a sword class since pass 9, keeps the sword stance)
 ## and sprint long, the heavy (Clutch) stands wide and lumbers, the caster (Embers) holds a palm out and runs neat, the tool users
 ## (Pockets, Popgun) stand relaxed and jog loose. The pose review, 2026-10-17.
-const CLASS_FAMILY := {1: "brawler", 4: "brawler", 7: "brawler", 2: "quick", 12: "quick", 13: "quick", 8: "heavy", 3: "caster", 10: "tool",
+const CLASS_FAMILY := {1: "brawler", 4: "brawler", 7: "brawler", 2: "quick", 12: "quick", 8: "heavy", 3: "caster", 10: "tool",
 	11: "tool"}
 ## The shared clips a family has its own take on (`<clip>_<family>` in the rig).
 const FAMILY_CLIPS := ["idle", "run"]

@@ -442,3 +442,5 @@ a corkscrew about the upright body (no head-over-heels spin); wall jumps back-fl
   - The Dagger's moves keep the shared punches. Its own pose set comes with the remaining classes' signature moves (step 8, part 2).
   - Classes 2-11 have so far had only the game-wide passes (stance, air arc, coil, soft knees, arcs, reactions); their own signature
     keys are next.
+- **Follow-up (9b):** the Nodachi, now a sword class, takes the sword stance (its long blade raised in guard) instead of the quick family's
+  low crouch. It was removed from `AnimLibrary.CLASS_FAMILY`. Image: `docs/screenshots/anim/pass9b_nodachi_stance.png`. The tests pass.
