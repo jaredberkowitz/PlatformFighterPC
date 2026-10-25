@@ -45,7 +45,9 @@ const DAZED_FACE := {"name": "dazed"}
 const SHOCK_FACE := {"name": "shock"}
 const HAPPY_FACE := {"name": "happy"}
 
-const HATS := ["none", "sailor cap", "aviator cap", "straw hat", "beanie", "crown", "hood", "plumed helm", "swept spikes", "topknot", "dixie cap"]
+## (The swoop, a short cut with a big forelock, since the hair pass, 2026-10-24; appended so saved looks keep their hats.)
+const HATS := ["none", "sailor cap", "aviator cap", "straw hat", "beanie", "crown", "hood", "plumed helm", "swept spikes", "topknot", "dixie cap",
+	"swoop"]
 const GLASSES := ["none", "shades", "goggles", "round specs"]
 const NECKS := ["none", "sash", "neckerchief", "scarf", "cape", "kerchief and sash"]
 ## Shirts: a plain white one, one in the outfit (accent) colour, stripes and a flower print (godot/art/cloth/).

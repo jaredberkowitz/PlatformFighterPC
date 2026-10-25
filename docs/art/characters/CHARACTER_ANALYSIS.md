@@ -558,3 +558,22 @@ built as chosen:
 `reference_face_pass.png`: the reference beside ours; the defaults close up before and after; front views before and after (the head);
 every expression before and after; the creator's eyes page and a match frame before and after. Fighter view, art pipeline, loadout,
 animation library, editor UI, select grid, match flow, replay and prop check tests pass.
+
+## Hair (2026-10-24, the owner: "the hair currently reads as a spiky hat")
+- **Cause**: each hairstyle (`make_gear.py` `swept_spikes`, `topknot`) was a rigid cap standing well off the head with a hard rim at the
+  brow, separate cones stuck on top, scaled up 1.22 like the hats (`HAT_SIZE`), and in the brow colour, which since the face pass is
+  the faces' navy ink: a dark helmet.
+- **Now** each style is one soft mass hugging the head down to the nape (metaballs laid just under the head's surface, measured off
+  the rig in the gear design space, `HEAD_PROFILE`), its locks growing out of it, fused into one surface by a voxel remesh, its inside
+  cut away, about 3,000 triangles (`hair_mass`, `spike`, `hair_finish`).
+- **Spiky hair**, after the owner's direction (big spiky anime hair): four long spikes swept up and back from the crown, a row fanning
+  back and a lower row out over the back of the head, a big spike flaring out over each ear, a long lock down each side of the face,
+  and five long fringe spikes falling over the brow, stopping above the eyes.
+- **Topknot**: hair drawn back smooth into a round knot, a band of the outfit's colour, a loose lock at each temple.
+- **Swoop** (new, hat 11, appended so saved looks keep theirs): a short soft cut with a big forelock swept up and over to the side.
+- Hair is no longer scaled up as a hat, and takes its own colour: `FaceLook.hair_color`, the brow colour but a dark brown where the
+  brows are the faces' navy ink.
+
+`hair_pass.png`: the old spikes and topknot beside the new spiky, swoop and topknot (front, three-quarter, back), then the roster's
+second sheet before and after (the hero and the bruiser wear hair). Loadout (the mesh budget per item), fighter view, art pipeline,
+animation library, editor UI, select grid and match flow tests pass.

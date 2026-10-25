@@ -2330,7 +2330,7 @@ func _shirt_collar() -> void:
 ## The hats modelled in Blender (art/blender/make_gear.py, godot/models/gear), by hat slot (the owner, 2026-10-18: moving the
 ## accessories from built primitives to models over time).
 const GEAR_HATS := {1: "sailor_cap", 2: "aviator_cap", 3: "straw_hat", 4: "beanie", 5: "crown", 7: "plumed_helm", 8: "swept_spikes",
-	9: "topknot", 10: "dixie_cap"}
+	9: "topknot", 10: "dixie_cap", 11: "swoop"}
 
 
 ## Puts the modelled accessory `name` on the hat pivot, each part coloured by what it is made of (its name's first word): fabric in
@@ -2360,7 +2360,7 @@ func _gear_model(name: String, accent: Color) -> bool:
 	# (A model's "metal" is the helm's steel, or the caps' brass; "brass" and "gold" name themselves.)
 	var mats := {"fabric": _fabric(accent), "canvas": _cloth(toon(Color(0.95, 0.94, 0.9))), "leather": _cloth(toon(Color(0.4, 0.25, 0.17))),
 		"metal": steel if name == "plumed_helm" else brass, "brass": brass, "gold": gold, "glass": toon(Color(0.66, 0.84, 0.95), false),
-		"straw": straw, "hair": toon(FaceLook.BROW_COLORS[clampi(loadout.brow_color, 0, FaceLook.BROW_COLORS.size() - 1)]),
+		"straw": straw, "hair": toon(FaceLook.hair_color(loadout.brow_color)),
 		# (Cream fleece, the aviator scout pilot, 2026-10-19.)
 		# (A soft curly painted tile, the character judge's round 1: the fleece read as a smooth ring.)
 		"navy": _cloth(toon(Color(0.2, 0.28, 0.58))),
@@ -2448,7 +2448,8 @@ func _hat() -> void:
 	# (Oversized, as the reference's hats are, art review 10: at play size the hats read as small caps and every fighter as the same
 	# round head; a bigger hat is most of a fighter's silhouette. Scaled about the top of the head, so each still sits on it.)
 	# (Only the hats that sit on top of the head: scaled, the caps that wrap it (aviator cap, beanie, hood, topknot) came down over the eyes.)
-	if loadout.hat in [1, 3, 5, 7, 8]:
+	# (Not the hair since the hair pass, 2026-10-24: scaled up as a hat it stood off the head and read as one.)
+	if loadout.hat in [1, 3, 5, 7]:
 		# (Only part of the head shape's stretch reaches the hat, the character judge's round 14: on the wide bun head the aviator's hat
 		# spread into a flat platter. The hat fits the head without taking its proportions.)
 		var hs: Vector3 = Loadout.HEAD_SCALES.get(Loadout.HEADS[clampi(int(loadout.get("head")), 0, Loadout.HEADS.size() - 1)], HEAD_SIZE)
@@ -2536,7 +2537,7 @@ func _hat() -> void:
 		8:
 			# Swept spikes: a cap of hair over the crown with thick, blunt spikes swept up and back, in the brow colour (a hairstyle, worn in
 			# the hat slot).
-			var hair := toon(FaceLook.BROW_COLORS[clampi(loadout.brow_color, 0, FaceLook.BROW_COLORS.size() - 1)])
+			var hair := toon(FaceLook.hair_color(loadout.brow_color))
 			_part(hat_pivot, _sphere(0.86), hair, Vector3(0, 1.74, -0.08) - HAT_PIVOT, Vector3(1.02, 0.62, 1.0))
 			# [x, y, z, sideways lean, length]: a fan across the crown and a few swept back, each a thick cone leaning up and back.
 			var spikes := [[-0.55, 2.1, 0.15, 48.0, 1.0], [-0.22, 2.3, 0.1, 20.0, 1.2], [0.18, 2.32, 0.08, -14.0, 1.2], [0.52, 2.12, 0.12, -44.0, 1.0],
@@ -2546,7 +2547,7 @@ func _hat() -> void:
 					Vector3(-34, 0, float(sp[3])))
 		9:
 			# Topknot: close-cropped hair over the crown and a round knot of hair on top, tied with a band in the accent colour.
-			var hair := toon(FaceLook.BROW_COLORS[clampi(loadout.brow_color, 0, FaceLook.BROW_COLORS.size() - 1)])
+			var hair := toon(FaceLook.hair_color(loadout.brow_color))
 			_part(hat_pivot, _sphere(0.86), hair, Vector3(0, 1.72, -0.1) - HAT_PIVOT, Vector3(1.02, 0.6, 1.0))
 			_part(hat_pivot, _sphere(0.32), hair, Vector3(0, 2.36, -0.15) - HAT_PIVOT, Vector3(1.0, 0.9, 1.0))
 			_part(hat_pivot, _cyl(0.2, 0.2, 0.1), _fabric(accent), Vector3(0, 2.12, -0.13) - HAT_PIVOT)

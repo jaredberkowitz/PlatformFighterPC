@@ -26,6 +26,13 @@ const EYE_COLOR_NAMES := ["navy", "brown", "blue", "green", "amber", "grey", "be
 ## (The first, "ink", the faces' own near-black since the face finish pass, 2026-10-20: a dark plum read soft and printed on.)
 const BROW_COLORS := [Color("0b0b38"), Color("3b2416"), Color("7a4a24"), Color("d9a441"), Color("c0562c"), Color("9a9aa4"), Color("f2efe6"),
 	Color("2f5fd0"), Color("e070a8"), Color("3fa860")]
+## The hair's colour for each brow colour (the hair takes the brows' colour): the same, but the first, the faces' navy ink, a dark brown
+## on hair (the hair pass, 2026-10-24: navy hair read as a dark hat).
+static func hair_color(i: int) -> Color:
+	var c: Color = BROW_COLORS[clampi(i, 0, BROW_COLORS.size() - 1)]
+	return Color("3d2516") if i == 0 else c
+
+
 const BROW_COLOR_NAMES := ["ink", "dark brown", "chestnut", "blond", "ginger", "grey", "white", "blue", "pink", "green"]
 const CHEEK_COLORS := [Color("f59393"), Color("ff8a5c"), Color("f7b38a"), Color("e0607a"), Color("b48ae6"), Color("e04848")]
 const CHEEK_COLOR_NAMES := ["pink", "coral", "peach", "rose", "lavender", "red"]
