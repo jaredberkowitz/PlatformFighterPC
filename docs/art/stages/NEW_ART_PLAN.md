@@ -115,3 +115,56 @@ canyon's mesa foot.
   triangles.
 
 On the Stage Look Review ("falls12", `fl12_*`; "mesafoot12", `mf12_*`); recommended B on both.
+
+Built B on both (the owner's picks): grove_paper.glb `--variant H --rock shaped --abyss mist --valley none --falls 3 --mist 3 --roots
+long` (136,166 triangles; falls at x 24.5, 22.3 and -21.7), canyon_paper.glb `... --plain outcrops --foot talus --hoodoos 5` (24,760);
+both stages re-lit (curve 4, reach 4.5, floor 0.28). P1's gap: grove 0.062, canyon 0.038. Before and after (wide):
+`review10/falls_mesafoot_built.jpg`. Tests pass except the runner's known coin flake (it passed on a rerun; the runner doesn't load these
+stages).
+
+### Step 2, the meadow's terraced fields (mock)
+
+`make_meadow_ground.py --hill fields|fields_lane` (with the shipped `--variant FC --pine D`; `terrace_fields`): the hill's terraces,
+fewer and bigger as `--hill banks`, each shelf laid in runs of the valley's field kinds (`FIELD_KINDS`, rows on the crops) and held by a
+two-course fieldstone wall (`terrace_wall`, `terrace_wall_b`, the second course offset half a block) down to the next; `fields_lane` a
+lane along each shelf from the front's middle out to alternate sides, with a ramp down to the next. A first build left gaps in the second
+course and set blocks in and out, so every block drew the post's cut edge; both fixed. The hill at the wide camera: value 0.39 to 0.62,
+saturation 0.47 to 0.30 (grass to fields). P1's gap 0.052 today, 0.051 with either. On the Stage Look Review ("terraces13", `tf13_*`);
+recommended B.
+
+Built B (the owner's pick): meadow_ground.glb and meadow_pines.glb `--variant FC --pine D --hill fields_lane` (249,665 triangles), the
+meadow re-lit (front, play, ground). P1's gap 0.052. Before and after (wide, then the match camera): `review10/meadow_terraces_built.jpg`.
+All seven tests pass.
+
+### Step 3, the beach's shallows (mock)
+
+`water.gdshader` `shallows` [how strong, reach, rocks] in the clear and paper seas (`look` above 0), set by `StageArt._ocean` from the
+palette's [backdrop] `sea_shallows` (`--shallows=A|B`, A [1, 40, 0], B [1, 40, 1]): long soft sand bars of pale sandy turquoise in
+world-space noise, a slightly deeper rim round each, fading out from half the reach; B a few rocks on the bottom (a first, denser and
+darker set read as blotches). Shader only, no cost to draw. The sea at the wide camera: contrast 0.084 to 0.099 (A) and 0.100 (B); P1's
+gap 0.176 today, 0.168 (A), 0.172 (B). On the Stage Look Review ("shallows14", `sw14_*`); recommended A.
+
+Built A (the owner's pick): ocean.cfg [backdrop] `sea_shallows=[1.0, 40.0, 0.0]` (the sea's shader; nothing to re-light). The sea at the
+wide camera: contrast 0.099. Before and after (wide, then the match camera): `review10/beach_shallows_built.jpg`. Tests pass (the
+runner's known coin flake passed on a rerun).
+
+### Step 4, the city's storefronts (mock)
+
+`StageArt._street_furniture` with the palette's [backdrop] `storefront` (`--storefront=A|B`): each shop's wall, window, riser, mullions
+and door set back 0.55 in a recess with reveals and a soffit, a fascia over it, the sign's frame standing 0.3 proud; goods on each
+window's sill (its own random numbers, several heights and colours); the awnings at three heights and reaches, one shop in four without;
+B a lit blade sign at every other shop's edge. The shops at the wide camera: value 0.53 to 0.46, contrast 0.206 to 0.220; P1's gap 0.127
+to 0.132. On the Stage Look Review ("storefronts15", `sf15_*`); recommended A.
+
+Built A (the owner's pick): city.cfg [backdrop] `storefront="A"` (code-built, nothing to re-light). The shops at the wide camera: value
+0.46, contrast 0.219. Before and after (the street, wide): `review10/city_storefronts_built.jpg`. All seven tests pass.
+
+### Step 5, world detail on the meadow (mock)
+
+Most of the plan's world detail already exists from the 2026-10-21 world round (the meadow's chimney smoke, washing and scarecrow;
+the grove's far tree village; the canyon's railway and water tower; the city's traffic and rooftop party), so each stage gets only
+what is missing. `make_world.py --theme meadow --variant BCW` (`meadow_w`): a hay cart in the farmyard below the barn (-34.5, -35.6;
+behind the barn at -38.5 it was hidden, at -32 it stood on the slope) and a bonfire with its smoke in a far field left of the windmill
+(-58, -105; right of the stage its smoke ran into the far cottage's). Rebuilding the world also re-seats the scarecrow and washing on
+the terraced ground, where today's model has them buried. P1's gap 0.052, as before. On the Stage Look Review ("worldmeadow16",
+`wm16_*`); recommended shipping it. To ship: rebuild `godot/models/stages/meadow_world.glb` with `--variant BCW` (no re-light).

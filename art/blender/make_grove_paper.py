@@ -31,8 +31,8 @@ Every look carries the far ranges as standing cut-out flats, three to a range, t
 Each piece is its own object so the game can lay the air of its depth over it, and bakes its occlusion into linear vertex colours.
 Families `grass`, `grass_far`, `cliff`, `range_far`, `range_near`, their cut edges `card_<family>`, `leaf_lit`, `leaf_shade`, `bark`.
 
-Shipped (the owner's pick, fidelity review 9, 2026-10-25): godot/models/stages/grove_paper.glb, `--variant H --rock shaped
---abyss mist --valley none`, then lit (review 6's without `--valley`).
+Shipped (new art toward 5, the owner's pick B, 2026-10-25): godot/models/stages/grove_paper.glb, `--variant H --rock shaped
+--abyss mist --valley none --falls 3 --mist 3 --roots long`, then lit (review 9's without the falls, mist and roots).
 
 Run (Blender 5.2):
   blender --background --python art/blender/make_grove_paper.py -- --dir godot/art/baked/<key> --variant A --ground <g.glb>

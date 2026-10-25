@@ -41,6 +41,7 @@ Shipped (the owner's pick, 2026-10-22): FC with `--pine D` as godot/models/stage
 (light_stage.py on the front, the play area and the ground).
 
 Shipped since fidelity review 6 (the owner's pick B, 2026-10-22): `--variant FC --pine D --hill banks`, then lit.
+Shipped since the new art toward 5 (the owner's pick B, 2026-10-25): `--variant FC --pine D --hill fields_lane`, then lit.
 
 Run (Blender 5.2):
   blender --background --python art/blender/make_meadow_ground.py -- --dir godot/art/baked/<key> --variant A --ground <g.glb> --bush <p.glb>
@@ -368,7 +369,7 @@ def hill_layers(rng):
     # (Fidelity review 6: at a sheet every half unit the hill read as a regular stepped cake, the one machine-made shape beside the
     # terraced farmland. `--hill big` fewer, bigger sheets of uneven height and a broader wobble; `--hill banks` those as terraces,
     # each shelf falling to the next on a grass bank, as the farmland's do.)
-    big = HILL in ("big", "banks")
+    big = HILL in ("big", "banks", "fields", "fields_lane")
     hrng = random.Random(29)
     while levels[-1] < 22.0:
         drop = 0.5 * (1.0 + k * 0.1)
@@ -408,6 +409,9 @@ def hill_layers(rng):
         y = hill_slope(bottom, levels[kk])
         y_next = hill_slope(bottom, levels[kk + 1])
         inner, outer = rings[kk], rings[kk + 1]
+        if HILL in ("fields", "fields_lane"):
+            terrace_fields(kk, inner, outer, levels, y, y_next, at, len(levels) - 2)
+            continue
         if HILL == "banks":
             # A shelf out to a little past halfway, then a grass bank down to the next shelf.
             dm = levels[kk] + (levels[kk + 1] - levels[kk]) * 0.55
@@ -432,6 +436,79 @@ def hill_layers(rng):
             face(part("hill", "hill"), (P(ax, y, az), P(bx, y, bz), P(cx2, y, cz), P(dx, y, dz)))
             bottom_y = y_next if kk < len(levels) - 2 else y_next - 30.0
             face(part("hill", "card_hill"), (P(dx, y, dz), P(cx2, y, cz), P(cx2, bottom_y, cz), P(dx, bottom_y, dz)))
+
+
+def terrace_fields(kk, inner, outer, levels, y, y_next, at, last):
+    """One terrace of the hill as farm fields (new art toward 5, M1, the owner's approval 2026-10-25; `--hill fields`): the shelf laid in
+    fields of the valley's own kinds, rows on the crops, held by a low fieldstone wall at its outer edge down to the next shelf; with
+    `--hill fields_lane` a lane along each shelf, switching back from side to side and stepping down a ramp to the next."""
+    frng = random.Random(41 + kk)
+    kinds = [k for k in FIELD_KINDS for _ in range(k[2])]
+    n = len(inner)
+    i = 0
+    while i < n - 1:
+        run = frng.randrange(3, 7)
+        fam, row, _ = frng.choice(kinds)
+        for j in range(i, min(i + run, n - 1)):
+            ax, az = at(inner[j], levels[kk])
+            bx, bz = at(inner[j + 1], levels[kk])
+            cx2, cz = at(outer[j + 1], levels[kk + 1])
+            dx, dz = at(outer[j], levels[kk + 1])
+            face(part("hill", fam), (P(ax, y, az), P(bx, y, bz), P(cx2, y, cz), P(dx, y, dz)))
+            if row:
+                for f in (0.3, 0.55, 0.8):
+                    def lp(p, q, t):
+                        return p[0] + (q[0] - p[0]) * t, p[1] + (q[1] - p[1]) * t
+                    a0, a1 = lp((ax, az), (dx, dz), f - 0.05), lp((ax, az), (dx, dz), f + 0.05)
+                    b0, b1 = lp((bx, bz), (cx2, cz), f - 0.05), lp((bx, bz), (cx2, cz), f + 0.05)
+                    face(part("hill", row), (P(a0[0], y + 0.02, a0[1]), P(b0[0], y + 0.02, b0[1]), P(b1[0], y + 0.02, b1[1]),
+                                             P(a1[0], y + 0.02, a1[1])))
+        i += run
+    # The fieldstone wall at the shelf's outer edge, in two courses of blocks a little in and out, two tones.
+    bottom = y_next if kk < last else y_next - 30.0
+    wall_h = y - y_next
+    for j in range(n - 1):
+        cx2, cz = at(outer[j + 1], levels[kk + 1])
+        dx, dz = at(outer[j], levels[kk + 1])
+        if kk == last:
+            face(part("hill", "card_hill"), (P(dx, y_next, dz), P(cx2, y_next, cz), P(cx2, bottom, cz), P(dx, bottom, dz)))
+        ln = math.hypot(cx2 - dx, cz - dz)
+        if ln < 0.05:
+            continue
+        nx, nz = (cz - dz) / ln, -(cx2 - dx) / ln
+        blocks = max(1, int(ln / 1.3))
+        for c in range(2):
+            ya, yb = y - wall_h * c / 2.0, y - wall_h * (c + 1) / 2.0
+            # (The second course offset half a block, its first and last blocks halves, so the courses close; flush, as a block set in
+            # or out drew a cut edge round itself and the wall read as a grid.)
+            cuts = [q / blocks for q in range(blocks + 1)] if c == 0 else [0.0] + [(q + 0.5) / blocks for q in range(blocks)] + [1.0]
+            for q in range(len(cuts) - 1):
+                t0, t1 = cuts[q], cuts[q + 1]
+                pa = (dx + (cx2 - dx) * t0, dz + (cz - dz) * t0)
+                pb = (dx + (cx2 - dx) * t1, dz + (cz - dz) * t1)
+                fam = "terrace_wall" if (q + c + frng.randrange(2)) % 2 == 0 else "terrace_wall_b"
+                face(part("hill", fam), (P(pa[0], ya, pa[1]), P(pb[0], ya, pb[1]), P(pb[0], yb, pb[1]), P(pa[0], yb, pa[1])))
+    if HILL == "fields_lane" and kk < last:
+        # The lane along the shelf near its inner edge, from the front's middle out to one side, then a ramp down to the next shelf.
+        mid = n // 2
+        end = min(n - 2, mid + 12) if kk % 2 == 0 else max(1, mid - 12)
+        step = 1 if end > mid else -1
+        for j in range(mid, end, step):
+            j2 = j + step
+            a = at(inner[j], levels[kk]); b = at(inner[j2], levels[kk])
+            c2 = at(outer[j2], levels[kk + 1]); d = at(outer[j], levels[kk + 1])
+            def lp2(p, q, t):
+                return p[0] + (q[0] - p[0]) * t, p[1] + (q[1] - p[1]) * t
+            a0, a1 = lp2(a, d, 0.12), lp2(a, d, 0.36)
+            b0, b1 = lp2(b, c2, 0.12), lp2(b, c2, 0.36)
+            face(part("hill", "lane"), (P(a0[0], y + 0.04, a0[1]), P(b0[0], y + 0.04, b0[1]), P(b1[0], y + 0.04, b1[1]), P(a1[0], y + 0.04, a1[1])))
+        # The ramp: from the lane's end over the wall, down onto the next shelf.
+        a = at(inner[end], levels[kk]); d = at(outer[end], levels[kk + 1])
+        e = at(outer[end - step], levels[kk + 1])
+        top0, top1 = (a[0] + (d[0] - a[0]) * 0.12, a[1] + (d[1] - a[1]) * 0.12), (a[0] + (d[0] - a[0]) * 0.36, a[1] + (d[1] - a[1]) * 0.36)
+        out = (d[0] + (d[0] - a[0]) * 0.25, d[1] + (d[1] - a[1]) * 0.25)
+        face(part("hill", "lane"), (P(top0[0], y + 0.04, top0[1]), P(top1[0], y + 0.04, top1[1]), P(out[0], y_next + 0.04, out[1]),
+                                    P(e[0], y_next + 0.04, e[1])))
 
 
 def hill_field():

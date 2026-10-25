@@ -5368,6 +5368,13 @@ static func _ocean(root: Node3D, t: Dictionary, stage: Array) -> void:
 		if arg.begins_with("--sea-band="):
 			sea_band = int(arg.substr(11))
 	wm.set_shader_parameter("wave_band", sea_band)
+	# (The shallows round the dock, new art toward 5: the palette's `sea_shallows` [how strong, reach, rocks], `--shallows=A|B` to try.)
+	var sh: Array = (_palette.get("backdrop", {}) as Dictionary).get("sea_shallows", [])
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--shallows="):
+			sh = {"A": [1.0, 40.0, 0.0], "B": [1.0, 40.0, 1.0]}.get(arg.substr(11), sh)
+	if sh.size() == 3:
+		wm.set_shader_parameter("shallows", Vector3(sh[0], sh[1], sh[2]))
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--sea-look="):
 			wm.set_shader_parameter("look", {"T": 0, "A": 1, "B": 2, "C": 3}.get(arg.substr(11), int(_pal("sea_look"))))
@@ -5915,6 +5922,14 @@ static func _street_furniture(root: Node3D, y: float, front: float) -> void:
 	# (A step below full white, and the glows round them half the size: art review 6 round 7, the lit shops bloomed into the brightest
 	# blobs on screen, down in the corners where the eye lands.)
 	var glows := [Color(0.9, 0.76, 0.5), Color(0.6, 0.78, 0.9), Color(0.9, 0.62, 0.74), Color(0.74, 0.88, 0.64)]
+	# (Storefronts with depth, new art toward 5, Ci1, the owner's approval 2026-10-25: the palette's [backdrop] `storefront` or
+	# `--storefront=A|B`. A each shop's window and door set back in a recess with its reveals and a soffit, goods in the window, the
+	# awnings at their own heights and reaches, one shop in four without; B with a lit blade sign standing out from every other shop.)
+	var store := String((_palette.get("backdrop", {}) as Dictionary).get("storefront", ""))
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--storefront="):
+			store = arg.substr(13)
+	var deep := store in ["A", "B"]
 	x = -126.0
 	k = 0
 	while x < 126.0:
@@ -5923,11 +5938,21 @@ static func _street_furniture(root: Node3D, y: float, front: float) -> void:
 		# (Each shop its own, 2026-10-17, the owner: the shops were basic shapes in one repeated pattern. Pilasters either side, a stall riser
 		# under the window, a panelled door, a sign and a built awning; glass and door with depth, not flat fills, 2026-10-18.)
 		var wall_c: Color = Color(0.26, 0.2, 0.34).lerp([Color(0.36, 0.22, 0.26), Color(0.22, 0.24, 0.36), Color(0.3, 0.26, 0.24)][k % 3], 0.5)
+		var r := 0.55 if deep else 0.0
+		var front_z := shop_z
+		shop_z -= r
 		_mesh(root, _box(Vector3(w - 0.4, 3.2, 0.2)), FighterView.toon(wall_c), Vector3(cx, y + 1.85, shop_z))
+		if deep:
+			# The recess: its two reveals and a soffit in the wall's shade, a fascia over it carrying the sign.
+			var reveal := FighterView.toon(wall_c.darkened(0.3))
+			for px in [x + 0.53, x + w - 0.53]:
+				_mesh(root, _box(Vector3(0.1, 3.2, r)), reveal, Vector3(px, y + 1.85, front_z - r * 0.5 + 0.1))
+			_mesh(root, _box(Vector3(w - 1.0, 0.2, r)), reveal, Vector3(cx, y + 3.35, front_z - r * 0.5 + 0.1))
+			_mesh(root, _box(Vector3(w - 0.4, 1.3, 0.2)), FighterView.toon(wall_c), Vector3(cx, y + 4.1, front_z))
 		var pil := FighterView.toon(wall_c.lightened(0.18))
 		for px in [x + 0.35, x + w - 0.35]:
-			_mesh(root, _box(Vector3(0.36, 3.3, 0.34)), pil, Vector3(px, y + 1.85, shop_z + 0.1))
-			_mesh(root, _box(Vector3(0.5, 0.18, 0.44)), pil, Vector3(px, y + 3.45, shop_z + 0.12))
+			_mesh(root, _box(Vector3(0.36, 3.3, 0.34)), pil, Vector3(px, y + 1.85, front_z + 0.1))
+			_mesh(root, _box(Vector3(0.5, 0.18, 0.44)), pil, Vector3(px, y + 3.45, front_z + 0.12))
 		var pane: Color = glows[k % glows.size()]
 		var win_w := w * 0.6
 		var win_x := cx - w * 0.13
@@ -5943,6 +5968,17 @@ static func _street_furniture(root: Node3D, y: float, front: float) -> void:
 			_mesh(root, _box(Vector3(0.04, 0.5, 0.1)), mullion, Vector3(mx - win_w / panes * 0.5, y + 0.45, shop_z + 0.24))
 		_mesh(root, _box(Vector3(win_w, 0.1, 0.1)), mullion, Vector3(win_x, y + 2.35, shop_z + 0.17))
 		_mesh(root, _box(Vector3(win_w + 0.2, 0.12, 0.3)), riser, Vector3(win_x, y + 0.78, shop_z + 0.2))
+		if deep:
+			# Goods in the window, against its light: a few shapes of their own heights on the sill.
+			var g := RandomNumberGenerator.new()
+			g.seed = 4100 + k
+			var gx := win_x - win_w * 0.42
+			while gx < win_x + win_w * 0.4:
+				var gw := g.randf_range(0.25, 0.6)
+				var gh := g.randf_range(0.25, 0.95)
+				var goods: Color = [wall_c.darkened(0.45), Color(0.86, 0.5, 0.46), Color(0.5, 0.7, 0.62), Color(0.92, 0.8, 0.5)][g.randi_range(0, 3)]
+				_mesh(root, _box(Vector3(gw, gh, 0.22)), FighterView.toon(goods), Vector3(gx + gw * 0.5, y + 0.84 + gh * 0.5, shop_z + 0.32))
+				gx += gw + g.randf_range(0.12, 0.35)
 		# The door: a frame, a glazed upper panel lit from inside, a solid lower one and a handle.
 		var dx := cx + w * 0.32
 		var door_c: Color = [Color(0.5, 0.3, 0.26), Color(0.24, 0.4, 0.42), Color(0.46, 0.38, 0.22), Color(0.36, 0.28, 0.46)][k % 4]
@@ -5951,12 +5987,27 @@ static func _street_furniture(root: Node3D, y: float, front: float) -> void:
 		_mesh(root, _box(Vector3(0.08, 0.08, 0.12)), FighterView.respond(FighterView.toon(Color(0.9, 0.78, 0.4)), "gold"), Vector3(dx + 0.36, y + 1.2, shop_z + 0.25))
 		# The awning (`_awning`): a canopy of stripes, each sagging a little, over a valance with a scalloped or straight hem.
 		var pair: Array = awnings[k % awnings.size()]
-		_awning(root, x + 0.15, x + w - 0.15, y + 3.75, shop_z + 0.22, pair[0], pair[1], 1.35, k % 2 == 0)
+		if not deep:
+			_awning(root, x + 0.15, x + w - 0.15, y + 3.75, shop_z + 0.22, pair[0], pair[1], 1.35, k % 2 == 0)
+		elif k % 4 != 3:
+			# (Each at its own height and reach, from the fascia; one shop in four without.)
+			_awning(root, x + 0.15, x + w - 0.15, y + 3.5 + [0.0, 0.3, 0.12][k % 3], front_z + 0.22, pair[0], pair[1], [1.35, 1.6, 1.15][k % 3],
+				k % 2 == 0)
 		# The sign over it: a lit panel in a dark frame.
 		var sign_c: Color = (glows[(k + 2) % glows.size()] as Color).lerp(Color.WHITE, 0.2)
 		var sw := w * 0.5
-		_mesh(root, _box(Vector3(sw + 0.16, 0.76, 0.1)), FighterView.toon(wall_c.darkened(0.25)), Vector3(cx, y + 4.3, shop_z + 0.1))
-		_glass(root, Vector2(sw, 0.6), sign_c, Vector3(cx, y + 4.3, shop_z + 0.2))
+		# (In relief with the storefronts: a deeper frame standing proud of the fascia.)
+		var sign_z := front_z + 0.2 if deep else shop_z + 0.1
+		_mesh(root, _box(Vector3(sw + 0.16, 0.76, 0.3 if deep else 0.1)), FighterView.toon(wall_c.darkened(0.25)), Vector3(cx, y + 4.3, sign_z))
+		_glass(root, Vector2(sw, 0.6), sign_c, Vector3(cx, y + 4.3, sign_z + (0.2 if deep else 0.1)))
+		if store == "B" and k % 2 == 1:
+			# A blade sign standing out from the wall at the shop's edge, lit on both faces.
+			var bx := x + w - 0.6
+			_mesh(root, _box(Vector3(0.12, 1.5, 1.0)), FighterView.toon(wall_c.darkened(0.3)), Vector3(bx, y + 3.3, front_z + 0.65))
+			for side in [-1.0, 1.0]:
+				var bs := _glass(root, Vector2(0.8, 1.3), glows[(k + 1) % glows.size()], Vector3(bx + side * 0.07, y + 3.3, front_z + 0.65))
+				bs.rotation_degrees = Vector3(0, 90.0 * side, 0)
+		shop_z = front_z
 		x += w
 		k += 1
 
