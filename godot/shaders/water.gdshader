@@ -30,6 +30,10 @@ uniform int look = 0;
 // The paper waves' variety (fidelity review 6: every tier one scallop at one spacing read as a pattern): 0 as they were; 1 each tier's
 // arcs their own width and depth, wandering along the row; 2 with that, calm stretches where a tier's edge lies flat and unlit.
 uniform int wave_vary = 0;
+// The paper waves as soft bands (fidelity review 8: the lit lips read as white loops drawn across the sea): 0 as they are; 1 soft
+// bands, each sheet's edge a rounded swell, not a cusp, its lip a wide soft lift in the water's own paler tint; 2 tone tiers, no lip at
+// all, each sheet a deeper step of tone shaded toward its edge, read by the step and the shadow.
+uniform int wave_band = 0;
 uniform sampler2D screen_tex : hint_screen_texture, filter_linear_mipmap;
 varying vec3 world_pos;
 
@@ -111,6 +115,10 @@ void fragment() {
 			// its tiers were one tone.)
 			float bs = -world_pos.z;
 			float width = mix(14.0, 36.0, smoothstep(0.0, 150.0, max(bs, 0.0)));
+			// (Soft bands: narrower sheets near the stage, so the bands read without a white lip to mark them.)
+			if (wave_band > 0) {
+				width = mix(9.0, 30.0, smoothstep(0.0, 150.0, max(bs, 0.0)));
+			}
 			float tier = floor(bs / width);
 			float b = bs;
 			for (int it = 0; it < 2; it++) {
@@ -124,14 +132,21 @@ void fragment() {
 					xw += 10.0 * noise(vec2(world_pos.x * 0.022, tier * 1.3));
 				}
 				float cap = pow(abs(sin(xw * freq + ph)), 0.55);
+				// (Soft bands: a rounder swell, shallower, so no cusps draw loops between the caps.)
+				if (wave_band > 0) {
+					cap = 0.5 + 0.5 * sin(xw * freq + ph);
+					depth *= 0.75;
+				}
 				b = bs + width * depth * (1.0 - cap);
 				tier = floor(b / width);
 			}
 			float u = fract(b / width);
 			float calm = 1.0 - smoothstep(70.0, 190.0, bs);
 			// Each sheet its own tone, and shaded across toward its edge.
-			col *= 1.0 - 0.08 * mod(tier, 2.0) * calm;
-			col *= mix(1.0, mix(0.93, 1.07, smoothstep(0.15, 1.0, u)), calm);
+			float tone_step = wave_band > 1 ? 0.18 : (wave_band > 0 ? 0.1 : 0.08);
+			col *= 1.0 - tone_step * mod(tier, 2.0) * calm;
+			vec2 across = wave_band > 1 ? vec2(0.82, 1.16) : (wave_band > 0 ? vec2(0.88, 1.1) : vec2(0.93, 1.07));
+			col *= mix(1.0, mix(across.x, across.y, smoothstep(0.15, 1.0, u)), calm);
 			// The nearer sheet's shadow on this one, just past its edge (u from 0), soft.
 			// Calm stretches (wave_vary 2): the tier's edge lying flat, no lit lip and no shadow on the sheet behind.
 			// (The shadow just past this sheet's near edge is the nearer sheet's, one tier in: it follows that sheet's calm.)
@@ -142,7 +157,17 @@ void fragment() {
 			// This sheet's own cut edge, lit (u toward 1).
 			float lip = smoothstep(0.925, 0.965, u);
 			lip *= run;
-			col = mix(col, mix(col, pow(vec3(0.92, 1.0, 0.98), vec3(2.2)), 0.6), lip * calm);
+			vec3 lip_c = pow(vec3(0.92, 1.0, 0.98), vec3(2.2));
+			float lip_k = 0.6;
+			if (wave_band == 1) {
+				// A wide soft lift toward the edge in the water's own paler tint, not a white line.
+				lip = smoothstep(0.72, 0.99, u) * run;
+				lip_c = col * vec3(1.5, 1.5, 1.35);
+				lip_k = 0.75;
+			} else if (wave_band > 1) {
+				lip = 0.0;
+			}
+			col = mix(col, mix(col, lip_c, lip_k), lip * calm);
 		} else {
 			// A soft caustic net near the stage, the light through the ripples (the reference's turquoise lattice), and fine ripples
 			// further out: no crest rows.
