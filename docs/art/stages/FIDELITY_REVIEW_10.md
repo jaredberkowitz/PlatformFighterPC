@@ -49,7 +49,7 @@ the grove's abyss, the city's middle towers, the canyon's sky, the city's facade
 Items 2 to 4 are refinements of what exists. Item 1 is the one with a chance of moving surfaces and light toward 5. Without it the
 honest ceiling for this look is a strong 4.
 
-## Item 1, painted variation, the meadow pilot (2026-10-25, mock)
+## Item 1, painted variation, the meadow pilot (2026-10-25, built on the meadow)
 
 `toon_common.gdshaderinc` `paint_drift` [value patches, warm-cool wander, size, tops warm and walls cool] in the fragment, on the
 scenery only (not fighters): broad world-space `brush_noise` patches of value, a slow hue wander between a cool and a warm tint, tops
@@ -64,3 +64,8 @@ nothing visible; retuned to A [1.3, 0.8, 14, 0.5] and B [2.0, 1.2, 18, 0.7]. Mea
 
 Note: the shader change recompiles every scenery material on first load (a first capture took about three minutes). On the Stage Look
 Review ("paintdrift11", `pd11_*`); recommended C, then stage by stage on the other play areas.
+
+Built C on the meadow (the owner's pick): meadow.cfg [backdrop] `paint_drift=[1.3, 0.8, 14.0, 0.5, 1]`, the play area only; the front
+unchanged (value 0.45, saturation 0.29, contrast 0.101). The lawn measured 0.085 in this capture (0.096 in the mock; the drifting cloud
+shade moves it). Before and after at the match camera: `review10/meadow_paint_built.jpg`. All seven tests pass. Next: the other four
+play areas, stage by stage.
