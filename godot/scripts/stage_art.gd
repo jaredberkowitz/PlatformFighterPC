@@ -3285,6 +3285,32 @@ static func _cloud_scale() -> float:
 	return float((_palette.get("backdrop", {}) as Dictionary).get("cloud_scale", 1.0))
 
 
+## A second, farther layer of clouds behind the stage's own (fidelity review 9: at 5 a day sky wants depth in its clouds, one band read
+## flat): smaller, paler toward the sky's colour, behind the furthest range so they show over and between its peaks. The palette's
+## [backdrop] `cloud_far` [count, size, how pale] or `--cloud-far=A|B` (A a thin layer, B a fuller one); none without.
+static func _far_clouds(root: Node3D, t: Dictionary) -> void:
+	var spec: Array = (_palette.get("backdrop", {}) as Dictionary).get("cloud_far", [])
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--cloud-far="):
+			spec = {"A": [6, 0.75, 0.42], "B": [10, 0.95, 0.3]}.get(arg.substr(12), spec)
+	if spec.size() < 3:
+		return
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 77
+	var deepest := -200.0
+	for band: Vector2 in _cloud_keep_out:
+		deepest = minf(deepest, band.y)
+	# (Behind the ranges on purpose, so the keep-out that sets a cloud in front of a range is off for this layer.)
+	var keep := _cloud_keep_out.duplicate()
+	_cloud_keep_out.clear()
+	# (Toward the horizon's pale colour, as the air does: toward the sky's middle blue they read as darker blue blots.)
+	var sky: Color = t.get("sky_horizon", Color(0.86, 0.9, 0.96))
+	var colour := Color(1, 1, 1).lerp(sky, float(spec[2]))
+	_clouds(root, rng, int(spec[0]), colour, _cloud_band(Vector2(14, 30)), Vector2(deepest - 60.0, deepest - 20.0), [1, 0, 2],
+		float(spec[1]) * _cloud_scale(), Vector2(-170, 170), {"exposure": 0.92})
+	_cloud_keep_out.assign(keep)
+
+
 static func _clouds(root: Node3D, rng: RandomNumberGenerator, count: int, color: Color, y_range: Vector2, z_range := Vector2(-120, -85),
 		kinds := [0, 1, 2], scale := 1.0, x_range := Vector2(-90, 90), look := {}) -> void:
 	# The clouds' construction (the palette's [backdrop] `cloud_style`; docs/art/stages/FOLDED_STYLE.md): 0 smooth painted puffs, 1
@@ -4402,6 +4428,7 @@ static func _meadow(root: Node3D, t: Dictionary, stage: Array) -> void:
 	pine_slots.clear()
 	_hills(ground, rng, _pal("hills_near"), _pal("hills_far"))
 	_clouds(root, rng, 11, Color(1.0, 1.0, 1.0), _cloud_band(Vector2(14, 34)), Vector2(-120, -85), [0, 1, 2], _cloud_scale())
+	_far_clouds(root, t)
 	# (No islands floating in the sky since the stage became a terrace on a hillside, art review 9: they were pale, flat, pulled the eye, and
 	# said the land floats when it no longer does. Still drawn and thrown away, so the random layout of everything after them stays put.)
 	var gone := Node3D.new()
@@ -5089,6 +5116,7 @@ static func _sunset(root: Node3D, t: Dictionary, stage: Array) -> void:
 		_cactus(root, Vector3(x, e[2], -6.5), rng.randf_range(0.65, 0.85))
 		_contact(root, Vector3(x, e[2], -6.5), Vector2(0.45, 0.38))
 	_clouds(root, rng, 6, Color(1.0, 0.78, 0.7), Vector2(18, 30))
+	_far_clouds(root, t)
 	# A line of telegraph poles running off across the desert floor, wires sagging between them: a road out there somewhere.
 	var pole := Materials.wood(Color(0.5, 0.34, 0.26))
 	var wire := FighterView.toon(Color(0.3, 0.2, 0.22), false)
@@ -5242,6 +5270,7 @@ static func _grove(root: Node3D, t: Dictionary, stage: Array) -> void:
 	var ground: Node3D = Node3D.new() if ground_mock else root
 	_hills(ground, rng, _pal("hills_near"), _pal("hills_far"))
 	_clouds(root, rng, 8, Color(1, 0.97, 1), _cloud_band(Vector2(10, 36)), Vector2(-120, -85), [0, 1, 2], _cloud_scale())
+	_far_clouds(root, t)
 	_birds(root, rng, Color(0.25, 0.22, 0.3))
 	var top: float = stage[2] if stage.size() == 4 else 0.0
 	var left: float = stage[0] if stage.size() == 4 else -11.0
