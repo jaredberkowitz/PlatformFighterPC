@@ -88,6 +88,24 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
     <p>Two lessons from the reference screenshots, mocked from the match camera: the scenery without ink outlines, its edges lit as card bevels instead, and the paper houses rebuilt at the characters' proportions. The earlier rounds stay on the <a href="https://claude.ai/artifact/D1du6MREVumiJDrEdNypW4">Stage Fidelity Review</a>, which is full.</p>
   </header>
 
+  <section class="panel" aria-labelledby="sh9-h" id="shade9">
+    <div class="eyebrow">Your call is needed &middot; review 9, item 7: the painted shadow colours</div>
+    <h2 id="sh9-h">Deeper shade: tried three ways, and a finding</h2>
+    <p>First, item 6 is built: the city's street is a worn road with the lamps' light on it (see its section below). Then the last item, the light at 5. The strong key gave the fighters a shadow side, but the scenery's contrast barely moved. So this round tried deepening the painted shade itself, everywhere, with the fighters' readability measured.</p>
+    <div class="tablewrap"><table><thead><tr><th>Option</th><th>What changes</th><th>The grove fighter's value gap (today 0.042)</th></tr></thead><tbody>
+      <tr><td>A &middot; Deeper</td><td>Shade colours 15% darker, turned 40% further toward each stage's shadow hue, the scenery's shade side 15% deeper.</td><td>0.030</td></tr>
+      <tr><td>B &middot; Much deeper</td><td>The same at 28%, 80% and 28%.</td><td>0.016</td></tr>
+      <tr><td>C &middot; Deeper, sun further round</td><td>A, with the sun swung 22&deg; further round behind the stage, to turn the fronts into shade under lit tops.</td><td>0.030</td></tr>
+    </tbody></table></div>
+    <p><b>The finding:</b> none of them moves the scenery measurably. The stage fronts, tops and middle distance hold their value and contrast within 0.01 on every stage, even with the sun moved. What changes is the few faces already in shade (tree trunks, posts, undersides) and the fighters. Their shade deepens with the scene's, and on the grove that brings P1 to within 0.016 of the ground in B. The scenery's value lives in its baked shading, its prints and the paper finish, not in the light's shade colour.</p>
+    <p>Close (the beach above, the grove below; today, A, B, C):</p>
+    <div class="viewer"><img src="sh9_close.jpg" alt="Two stages under today's shade and the three options"></div>
+    <div class="row" role="group" aria-label="Stage"><button data-sh9s="0">Meadow</button><button data-sh9s="1">Canyon</button><button data-sh9s="2">Beach</button><button data-sh9s="3">City</button><button data-sh9s="4">Grove</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-sh9o="T">Today</button><button data-sh9o="A">A &middot; Deeper</button><button data-sh9o="B">B &middot; Much deeper</button><button data-sh9o="C">C &middot; Sun further round</button></div>
+    <div class="viewer"><img id="sh9img" alt="Shade option"><span class="vtag" id="sh9tag"></span></div>
+    <p class="muted">My pick: <b>keep today</b>. None of the three buys visible depth in the scenery, and all of them narrow the grove's fighter-to-ground gap. Light at 5 would have to come through the scenery's own baked shading (deeper occlusion in the light bake, darker undersides in the models), which is a different, per-stage pass.</p>
+  </section>
+
   <section class="panel" aria-labelledby="st9-h" id="street9">
     <div class="eyebrow">Built (B) &middot; review 9, item 6: the city's street</div>
     <h2 id="st9-h">A road you can read from the wide camera</h2>
@@ -1633,5 +1651,16 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
   group("data-st9v", function (v) { st9v = v; }, st9render);
   group("data-st9o", function (v) { st9o = v; }, st9render);
   st9render();
+  var sh9s = "4", sh9o = "T";
+  var SH9S = { "0": "Meadow", "1": "Canyon", "2": "Beach", "3": "City", "4": "Grove" };
+  var SH9O = { T: "Today", A: "A \u00b7 Deeper", B: "B \u00b7 Much deeper", C: "C \u00b7 Sun further round" };
+  function sh9render() {
+    document.getElementById("sh9img").src = "sh9_" + sh9o + "_s" + sh9s + ".jpg";
+    document.getElementById("sh9tag").textContent = SH9S[sh9s] + " \u00b7 " + SH9O[sh9o] + " \u00b7 match camera";
+    pressed("data-sh9s", sh9s); pressed("data-sh9o", sh9o);
+  }
+  group("data-sh9s", function (v) { sh9s = v; }, sh9render);
+  group("data-sh9o", function (v) { sh9o = v; }, sh9render);
+  sh9render();
 })();
 </script>

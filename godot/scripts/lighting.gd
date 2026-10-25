@@ -133,6 +133,24 @@ const SHAPED_TRY := {
 const KEY_TRY := {"T": [1.0, 1.0, 0.0], "A": [1.12, 0.68, 0.3], "B": [1.25, 0.48, 0.45]}
 
 
+## Deeper painted shade (fidelity review 9, the light at 5, after the strong key: the fighters gained form but the scenery's contrast moved
+## within 0.01, as its shade side is the painted shadow colour, not the light). Each level scales the mood's `shadow_value` (how dark a
+## colour's shade is) and `shadow_shift` (how far its hue turns toward the stage's shadow hue), and the style's `scenery_shade` (how much
+## deeper the scenery's shade side is than that colour), [value times, shift times, scenery shade times]. The fighters keep their own
+## shade (`PF_FIGHTER_SHADE`, and they never take `scenery_shade`). An optional fourth, degrees more yaw on the key: C swings the sun
+## further round behind the stage, so the fronts facing the camera turn into shade under lit tops (the value split a painted stage has).
+## `--shade=T|A|B|C` to compare; a style's `shade_try` ships one.
+const SHADE_TRY := {"T": [1.0, 1.0, 1.0], "A": [0.85, 1.4, 0.85], "B": [0.72, 1.8, 0.72], "C": [0.85, 1.4, 0.85, -22.0]}
+
+
+## The painted shade level for theme `name`: `--shade=` over the style's `shade_try`.
+static func shade_level(name: String) -> Array:
+	var flag := _flag_value("--shade=")
+	if SHADE_TRY.has(flag):
+		return SHADE_TRY[flag]
+	return style(name).get("shade_try", SHADE_TRY.T)
+
+
 ## The key light level for theme `name`: `--key=` over the style's `key_light`.
 static func key_light(name: String) -> Array:
 	var flag := _flag_value("--key=")
@@ -461,7 +479,16 @@ static func stage_mood(env: Environment, root: Node, theme: Dictionary, post: Sh
 	var m := mood.duplicate()
 	if theme.has("sky_horizon"):
 		m.rim = (mood.rim as Color).lerp(theme.sky_horizon, 0.3)
-	_set_globals(m, style(theme.get("name", "meadow")), String(theme.get("name", "meadow")))
+	# (Deeper painted shade, fidelity review 9; see SHADE_TRY.)
+	var sl := shade_level(String(theme.get("name", "meadow")))
+	if sl.size() > 3 and key != null:
+		key.rotation_degrees.y += float(sl[3])
+		RenderingServer.global_shader_parameter_set("pf_sun_dir", key.basis.z.normalized())
+	m.shadow_value = float(mood.shadow_value) * float(sl[0])
+	m.shadow_shift = minf(float(mood.shadow_shift) * float(sl[1]), 0.25)
+	var st := style(theme.get("name", "meadow"))
+	st.scenery_shade = float(st.get("scenery_shade", 1.0)) * float(sl[2])
+	_set_globals(m, st, String(theme.get("name", "meadow")))
 
 
 static func _set_globals(mood: Dictionary, look: Dictionary, stage_name := "") -> void:
