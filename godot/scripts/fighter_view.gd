@@ -3022,13 +3022,17 @@ func _log_face_cover(s: Dictionary) -> void:
 	var hp: Transform3D = skeleton.global_transform * skeleton.get_bone_global_pose(head_bone)
 	var centre: Vector3 = hp.origin + hp.basis.y.normalized() * 0.3
 	var points := []
+	var names := []
 	for side in ["L", "R"]:
 		points.append(skeleton.global_transform * skeleton.get_bone_global_pose(skeleton.find_bone("hand." + side)).origin)
+		names.append(side + ("w" if side == _weapon_side(int(s.facing)) else ""))
 	if blade_pivot != null and blade_pivot.visible:
 		points.append(blade_pivot.global_position)
-	for p in points:
+		names.append("hilt")
+	for i in points.size():
+		var p: Vector3 = points[i]
 		if p.z > centre.z and Vector2(p.x - centre.x, p.y - centre.y).length() < COVER_R:
-			print("COVER %d %s %s %d" % [_cls(s), s.state, s.move_name, int(s.state_frame)])
+			print("COVER %d %s %s %d %s" % [_cls(s), s.state, String(s.move_name).replace(" ", "_"), int(s.state_frame), names[i]])
 			return
 
 
@@ -4327,6 +4331,7 @@ var ik_last_two := false
 func _aim_arm(facing: int, holding: bool, two_hands := false, amount := 1.0) -> void:
 	if skeleton == null:
 		return
+	arms_held.clear()
 	for side in ["L", "R"]:
 		var mine: bool = side == _weapon_side(facing)
 		var iu := skeleton.find_bone("armU." + side)
@@ -4337,6 +4342,53 @@ func _aim_arm(facing: int, holding: bool, two_hands := false, amount := 1.0) -> 
 			skeleton.set_bone_global_pose_override(il, Transform3D(), 0.0, false)
 			skeleton.set_bone_global_pose_override(ih, Transform3D(), 0.0, false)
 			continue
+		arms_held.append(side)
+		_ik_arm(side, mine, hand_target if mine else off_hand_target, amount)
+
+
+## The sides whose arm the IK placed this frame (`_aim_arm`).
+var arms_held: Array = []
+
+
+## A hand covering the drawn face, whatever put it there (a clip's free arm, an overhead reach, a two-handed grip), is moved out to the
+## face's edge on screen and back toward the head, by the arm's IK (round 2, the real-speed audit: hands crossed the face in 2-50 frames of
+## every class's up moves, raised specials and two-handed swings, `PF_FACE_COVER`). Eased in by how near the face it is, so it never pops.
+const FACE_GUARD_R := 0.45
+
+
+func _guard_face(facing: int) -> void:
+	if not use_base_body or skeleton == null or head_bone < 0:
+		return
+	var to_frame := _skeleton_to_frame()
+	var hp := skeleton.get_bone_global_pose(head_bone)
+	var centre := to_frame * (hp.origin + hp.basis.y.normalized() * 0.3)
+	for side in ["L", "R"]:
+		var ih := skeleton.find_bone("hand." + side)
+		var p := to_frame * skeleton.get_bone_global_pose(ih).origin
+		if p.z <= centre.z:
+			continue
+		var near := Vector2(p.x - centre.x, p.y - centre.y).length() / FACE_GUARD_R
+		var k := 1.0 - smoothstep(0.8, 1.2, near)
+		if k <= 0.0:
+			continue
+		# (Out past the face's edge on screen and half way back toward the head: the short arms cannot reach behind the big head at
+		# face height, so pushed straight back the hand stopped in front of it.)
+		var out := Vector2(p.x - centre.x, p.y - centre.y)
+		out = out.normalized() if out.length() > 0.01 else Vector2(float(facing), 1.0).normalized()
+		var edge := Vector2(centre.x, centre.y) + out * FACE_GUARD_R * 1.05
+		var guard := Vector3(edge.x, edge.y, lerpf(p.z, centre.z + HEAD_BEHIND_Z, 0.5))
+		var mine: bool = side == _weapon_side(facing)
+		if arms_held.has(side):
+			_ik_arm(side, mine, p.lerp(guard, k), 1.0)
+		else:
+			_ik_arm(side, mine, guard, k)
+
+
+## Two-bone IK for one arm: the hand to `target` (stage frame), blended in by `amount` over the clip's pose.
+func _ik_arm(side: String, mine: bool, target: Vector3, amount: float) -> void:
+		var iu := skeleton.find_bone("armU." + side)
+		var il := skeleton.find_bone("armL." + side)
+		var ih := skeleton.find_bone("hand." + side)
 		var rest_u := skeleton.get_bone_global_rest(iu)
 		var rest_l := skeleton.get_bone_global_rest(il)
 		var rest_h := skeleton.get_bone_global_rest(ih)
@@ -4355,7 +4407,7 @@ func _aim_arm(facing: int, holding: bool, two_hands := false, amount := 1.0) -> 
 		var fore_len := (wrist0 - elbow0).length() * (1.0 + e)
 		var lower := fore_len + 0.07
 		var to_skel := _skeleton_to_frame().affine_inverse()
-		var goal: Vector3 = to_skel * (hand_target if mine else off_hand_target)
+		var goal: Vector3 = to_skel * target
 		var d := goal - shoulder
 		var dist := clampf(d.length(), 0.05, upper + lower - 0.002)
 		var dir := d.normalized()
@@ -5376,6 +5428,7 @@ func _apply_combat(s: Dictionary, delta: float) -> void:
 			two = ik_last_two
 			amount = ik_fade * ik_fade * (3.0 - 2.0 * ik_fade)
 		_aim_arm(int(s.facing), hold_now or ik_fade > 0.0, two, amount)
+		_guard_face(int(s.facing))
 		# The hilt goes where the hand actually got to (an arm shorter than the swing wants stops short of its target): the weapon is
 		# always in the hand, never floating in front of it.
 		if holding and not carrying and skeleton != null:

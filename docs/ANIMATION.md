@@ -903,3 +903,23 @@ Ranked by how visible it is at match speed:
 - **Image:** `docs/screenshots/anim/r2_pass31_standin_specials.jpg`: each move before and after, frames 4-60.
 - **Checked:** the six tests pass; facing right only (the clips are mirrored facing left like every other).
 - **Left:** the flip's body roll is about its middle; the reference flips about the hands.
+
+### Pass 32: a face guard for every class (real-speed audit, all 14 classes)
+
+- **How it was found:** every class's 16 moves at 60 frames a second (`--demo=gallery`), with `PF_FACE_COVER=1` logging each frame in
+  which a hand or hilt is in front of the head and within 0.4 of the face's middle. Total before: 1,376 frames. The worst were the
+  Settler (218), the Clutch (207), the Greatsword (168), the Claws (154) and the Gauntlets (137): up moves, raised specials, two-handed
+  grips, and the clips' free arms.
+- **Fix (`fighter_view.gd` `_guard_face`):** after the arm IK, a hand that ends in front of the face is moved out past the face's edge
+  on screen (`FACE_GUARD_R`) and half way back toward the head, by the arm's IK (`_ik_arm`, split out of `_aim_arm`). It is eased in by
+  how near the face it is, so it never pops. Arms the clip poses are blended toward the guarded pose, and arms the IK already holds have
+  their goal moved.
+- **Measured** (frames with the face covered, before then after): Longsword 45 to 10, Claws 154 to 0, Needles 44 to 0, Embers 21 to 5,
+  Gauntlets 137 to 1, Staff 95 to 10, Greatsword 168 to 81, Bracers 54 to 7, Clutch 207 to 5, Buckler 43 to 16, Settler 218 to 59,
+  Popgun 84 to 0, Dagger 67 to 2, Nodachi 39 to 6. The total is 1,376 to 202.
+- **Left:**
+  - The Settler's balloon float (both hands up on the strings, 52 frames): the short arms cannot lift the hands clear of the big head.
+  - The Greatsword's two-handed grip (its own hand depth code).
+  - A forearm can still cross the face while the hand is clear (the Gauntlets' up air).
+- **Image:** `docs/screenshots/anim/r2_pass32_face_guard.jpg`.
+- **Checked:** the six tests pass.
