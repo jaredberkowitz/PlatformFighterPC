@@ -87,3 +87,25 @@ Review ("paintdrift12", `pd12_*`); recommended the grove only.
 Built on the grove (the owner's pick; the canyon, beach and city left as they are): grove.cfg [backdrop]
 `paint_drift=[1.3, 0.8, 14.0, 0.5, 1]`. The lawn measures contrast 0.102, P1's gap 0.064. Before and after at the match camera:
 `review10/grove_paint_built.jpg`. All seven tests pass.
+
+## Items 2 to 4, the lower thirds at the wide camera (2026-10-25, mock and a finding)
+
+`StageBake._paint_ground` with the palette's [backdrop] `ground_finish` (`--ground-finish=A|B`): the painted variation on the background
+land's families (`GROUND_DRIFT`: the meadow's `hill`, `bank`, `hill_near`, `rise`; the grove's `abyss`, `abyss_far`, `abyss_mist`; the
+canyon's `sand_a` to `sand_c`), A broad, B 1.5 times the value, 1.3 times the wander, 0.4 times the size. Wide camera contrast:
+
+| Where | Today | A | B |
+|---|---|---|---|
+| The meadow's hill under the wall | 0.104 | 0.110 | 0.113 |
+| The grove's abyss | 0.134 | 0.136 | 0.135 |
+| The canyon's floor | 0.124 | 0.119 | 0.126 |
+
+A small gain on the meadow's plain hill; nothing on the abyss and floor, which already carry mottled prints and shading. The hill's white
+specks are not scenery: they move between captures with the world model, paper props and pollen motes all off, so they're most likely
+the demo fight's flying sword-effect fragments caught by the post's cut edge. A first flower-hiding option was taken out (the meadow's
+ground has no flowers).
+
+**Where this leaves the look.** After review 10's items every column is a clear 4, and the remaining levers within the refine-not-add
+rule (key light, painted shade, contact shade, painted variation) now move the measurements by a hundredth or two. A 5 would need new art:
+redesigned lower thirds (new land forms, a new abyss), more world detail, or the fighters' own finish. On the Stage Look Review
+("groundfinish11", `gf11_*`); recommended B on the meadow's hill only.

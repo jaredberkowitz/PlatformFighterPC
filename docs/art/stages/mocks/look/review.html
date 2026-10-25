@@ -88,6 +88,26 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
     <p>Two lessons from the reference screenshots, mocked from the match camera: the scenery without ink outlines, its edges lit as card bevels instead, and the paper houses rebuilt at the characters' proportions. The earlier rounds stay on the <a href="https://claude.ai/artifact/D1du6MREVumiJDrEdNypW4">Stage Fidelity Review</a>, which is full.</p>
   </header>
 
+  <section class="panel" aria-labelledby="gf11-h" id="groundfinish11">
+    <div class="eyebrow">Your call is needed &middot; review 10, items 2 to 4: the lower thirds at the wide camera</div>
+    <h2 id="gf11-h">The meadow's hill, the grove's abyss, the canyon's floor: a finding</h2>
+    <p>First, the grove's play area has its painted variation now (see its section below). Then review 10's items 2 to 4, the plainest third of each wide frame. All three were tried with the same painted variation, laid on the background land's own surfaces: A broad, B finer and stronger.</p>
+    <div class="tablewrap"><table><thead><tr><th>Where</th><th>Contrast today &rarr; A &rarr; B</th><th>Verdict</th></tr></thead><tbody>
+      <tr><td>The meadow's hill under the wall</td><td>0.104 &rarr; 0.110 &rarr; 0.113</td><td>A small gain: faint mottling across the plain green</td></tr>
+      <tr><td>The grove's abyss and its mist</td><td>0.134 &rarr; 0.136 &rarr; 0.135</td><td>No change: the mist already has a mottled print</td></tr>
+      <tr><td>The canyon's floor</td><td>0.124 &rarr; 0.119 &rarr; 0.126</td><td>No change: the sand sheets already carry ripples and shading</td></tr>
+    </tbody></table></div>
+    <p><b>Also:</b> the small white specks on the meadow's hill aren't scenery. They move on every capture, even with the world model, props and pollen turned off. They're most likely flying fragments of the demo fight's sword effects caught by the paper outline, so they never show in a still of the stage itself.</p>
+    <p>The meadow's hill (today, A, B), then the grove's abyss and the canyon's floor (today left, B right):</p>
+    <div class="viewer"><img src="gf11_hill.jpg" alt="The meadow's hill today and with painted variation"></div>
+    <div class="viewer"><img src="gf11_gc.jpg" alt="The grove's abyss and the canyon's floor, today and with painted variation"></div>
+    <div class="row" role="group" aria-label="Stage"><button data-gf11s="0">Meadow</button><button data-gf11s="1">Canyon</button><button data-gf11s="4">Grove</button></div>
+    <div class="row" role="group" aria-label="View"><button data-gf11v="m">Match camera</button><button data-gf11v="w">Wide</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-gf11o="T">Today</button><button data-gf11o="A">A &middot; Broad</button><button data-gf11o="B">B &middot; Finer</button></div>
+    <div class="viewer"><img id="gf11img" alt="Ground finish option"><span class="vtag" id="gf11tag"></span></div>
+    <p class="muted">My pick: <b>B on the meadow's hill only</b>, a small honest gain; leave the grove and the canyon. The bigger point: after review 10's items, this look is at its ceiling within your refine-not-add rule. Every column is a clear 4, and the last levers (light, shade, paint) now move the measurements by a hundredth or two. A 5 would need new art: a redesigned lower third (new land forms, a new abyss), more world detail, or the fighters' own finish.</p>
+  </section>
+
   <section class="panel" aria-labelledby="pd12-h" id="paintdrift12">
     <div class="eyebrow">Built (the grove; the canyon, beach and city kept) &middot; review 10, item 1: painted variation on the other play areas</div>
     <h2 id="pd12-h">The meadow's painted variation, stage by stage</h2>
@@ -1805,5 +1825,17 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
   group("data-pd12v", function (v) { pd12v = v; }, pd12render);
   group("data-pd12o", function (v) { pd12o = v; }, pd12render);
   pd12render();
+  var gf11s = "0", gf11v = "w", gf11o = "B";
+  var GF11S = { "0": "Meadow", "1": "Canyon", "4": "Grove" };
+  var GF11O = { T: "Today", A: "A \u00b7 Broad", B: "B \u00b7 Finer" };
+  function gf11render() {
+    document.getElementById("gf11img").src = "gf11_" + gf11o + "_s" + gf11s + "_" + gf11v + ".jpg";
+    document.getElementById("gf11tag").textContent = GF11S[gf11s] + " \u00b7 " + GF11O[gf11o] + (gf11v === "w" ? " \u00b7 wide" : " \u00b7 match camera");
+    pressed("data-gf11s", gf11s); pressed("data-gf11v", gf11v); pressed("data-gf11o", gf11o);
+  }
+  group("data-gf11s", function (v) { gf11s = v; }, gf11render);
+  group("data-gf11v", function (v) { gf11v = v; }, gf11render);
+  group("data-gf11o", function (v) { gf11o = v; }, gf11render);
+  gf11render();
 })();
 </script>
