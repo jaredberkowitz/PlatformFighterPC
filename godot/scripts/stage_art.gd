@@ -5677,9 +5677,17 @@ const CITY_STREET_DROP := 6.0
 static func _street(root: Node3D, y: float, front: float) -> void:
 	# (Painted asphalt (godot/art/stage/asphalt.svg: grit, a sealed crack, a patch) laid in world space, and inked stone kerbs: flat fills read as a
 	# different, unfinished style beside the painted rooftop.)
-	var asphalt := Materials.world("asphalt", Color(0.3, 0.27, 0.4), 6.0, false).duplicate() as ShaderMaterial
+	# (A road you can read from the wide camera, fidelity review 9: the street was flat bands of purple, the one plain stretch on the stage.
+	# The palette's [backdrop] `street_look` or `--street=A|B`: A a road a step lighter and greyer than the purple around it, its patches
+	# stronger, and the lanes worn darker where the tyres run; B A with the street lamps' warm light pooled on the road and pavement.)
+	var street_look := String((_palette.get("backdrop", {}) as Dictionary).get("street_look", ""))
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--street="):
+			street_look = arg.substr(9)
+	var worn := street_look in ["A", "B"]
+	var asphalt := Materials.world("asphalt", Color(0.36, 0.34, 0.44) if worn else Color(0.3, 0.27, 0.4), 6.0, false).duplicate() as ShaderMaterial
 	# (Broad painted patches on the road, darker where the tyres run: one flat sheet read as a Flash backdrop, 2026-10-18.)
-	asphalt.set_shader_parameter("patch_amount", 0.3)
+	asphalt.set_shader_parameter("patch_amount", 0.55 if worn else 0.3)
 	# Paving slabs with bevelled, lit joints (art/stage/png/paving.png), laid in world space, two slabs a metre or so.
 	var pave := Materials.world("paving", Color(0.56, 0.52, 0.66), 4.5, false)
 	var kerb := Materials.stone(Color(0.66, 0.62, 0.76), Vector2(60, 1))
@@ -5693,6 +5701,12 @@ static func _street(root: Node3D, y: float, front: float) -> void:
 		_mesh(root, _box(Vector3(300.0, 0.34, 0.5)), kerb, Vector3(0, y + 0.12, kz))
 		var road_side := -1.0 if kz > front - 18.0 else 1.0
 		_mesh(root, _box(Vector3(300.0, 0.02, 0.22)), gutter, Vector3(0, y + 0.005, kz + road_side * 0.36))
+	if worn:
+		# The lanes worn darker where the tyres run, two tracks to each.
+		var tracks := Materials.world("asphalt", Color(0.26, 0.24, 0.33), 6.0, false)
+		for lane in [front - 13.5, front - 22.5]:
+			for side in [-0.75, 0.75]:
+				_mesh(root, _box(Vector3(300.0, 0.02, 0.62)), tracks, Vector3(0, y + 0.004, lane + side))
 	# The line down the middle of the road.
 	# (Road paint lit like the road, a little worn, not unshaded strips glowing over it, 2026-10-18.)
 	var paint := Materials.world("asphalt", Color(0.95, 0.8, 0.42), 6.0, false)
@@ -5716,6 +5730,13 @@ static func _street(root: Node3D, y: float, front: float) -> void:
 		_mesh(root, _box(Vector3(0.12, 0.12, 1.6)), iron, at + Vector3(0, 5.9, 0.7))
 		_mesh(root, _sphere(0.32, 10), lamp, at + Vector3(0, 5.7, 1.4), Vector3(1.0, 0.7, 1.0))
 		_halo(root, at + Vector3(0, 5.6, 1.6), Color(1.0, 0.8, 0.5), 4.2)
+		if street_look == "B":
+			# The lamp's warm light pooled on the road and the pavement under it (as the rooftop's string lights pool on the roof).
+			var q := QuadMesh.new()
+			q.size = Vector2(9.0, 6.5)
+			q.orientation = PlaneMesh.FACE_Y
+			var pm := _mesh(root, q, _street_pool(), Vector3(x, y + 0.03, front - 28.0))
+			pm.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		x += 16.5
 	# Cars: two lanes, one each way, a cab among them.
 	var colours := [Color(0.92, 0.36, 0.4), Color(0.36, 0.7, 0.86), Color(0.98, 0.8, 0.3), Color(0.62, 0.48, 0.9), Color(0.9, 0.9, 0.94),
@@ -5730,6 +5751,31 @@ static func _street(root: Node3D, y: float, front: float) -> void:
 		_car(car, colours[k % colours.size()], dir, k == 2)
 	_street_furniture(root, y, front)
 	_street_life(root, y, front)
+
+
+## A street lamp's pool of warm light on the ground: unshaded, a radial fade from a soft warm centre (`street_look` B).
+static var _street_pool_mat: StandardMaterial3D = null
+
+
+static func _street_pool() -> StandardMaterial3D:
+	if _street_pool_mat != null:
+		return _street_pool_mat
+	var m := StandardMaterial3D.new()
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	m.disable_fog = true
+	var g := Gradient.new()
+	g.set_color(0, Color(1.0, 0.84, 0.56, 0.6))
+	g.set_color(1, Color(1.0, 0.62, 0.36, 0.0))
+	g.add_point(0.55, Color(1.0, 0.76, 0.48, 0.38))
+	var tex := GradientTexture2D.new()
+	tex.gradient = g
+	tex.fill = GradientTexture2D.FILL_RADIAL
+	tex.fill_from = Vector2(0.5, 0.5)
+	tex.fill_to = Vector2(1.0, 0.5)
+	m.albedo_texture = tex
+	_street_pool_mat = m
+	return m
 
 
 ## A little car pointing along `dir` (+1 right, -1 left), `taxi` for a cab: a body with a bonnet and a boot stepping down from the cabin,

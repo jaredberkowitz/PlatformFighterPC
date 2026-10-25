@@ -115,10 +115,38 @@ Built A (the owner's pick): grove_paper.glb `--variant H --rock shaped --abyss m
 `cliff_stone=1.0`, the grove re-lit (front, paper, play). Before and after (wide, then the match camera): `review9/grove_abyss_built.jpg`.
 All seven tests pass.
 
-## Item 5, the canyon's cacti (2026-10-25, mock)
+## Item 5, the canyon's cacti (2026-10-25, built)
 
 The owner's call. The paper kit (`make_paper_props.py --style C --variant A --b stump,crate,cactus`, the owner's picks of 2026-10-21;
 rebuilt, the same size as the shipped kit, its bytes differing only by the occlusion bake's noise) built with `--b stump,crate`, so the
 cactus takes A's ribbed design (a lathed trunk with pressed ribs and two arms) in place of B's stacked coils, everywhere in the canyon
 (`--prop-mock=`). The dark band at the ribbed cactus's foot is the stage top's violet cast shadow (`cast` in the canyon's style), not
 the model: a ring added over its foot changed nothing, and was taken out. On the Stage Look Review ("cactus9", `ct9_*`); recommended A.
+
+Built A (the owner's pick): godot/models/props/paper_props.glb rebuilt with `--style C --variant A --b stump,crate`. Before and after (the
+cacti under the left and right platforms at the match camera): `review9/canyon_cactus_built.jpg`. All seven tests pass.
+
+## Item 6, the city's street (2026-10-25, built)
+
+`StageArt._street` with the palette's [backdrop] `street_look` (`--street=A|B`): A the asphalt a step lighter and greyer, (0.36, 0.34,
+0.44) from (0.3, 0.27, 0.4), its painted patches 0.55 from 0.3, and two darker tyre tracks along each lane; B A with a warm pool of the
+street lamps' light (`_street_pool`, unshaded radial fade) on the road and pavement under each lamp (a first pass at 0.42 barely
+showed; 0.6). The road's left stretch at the wide camera: value 0.34 to 0.38 (A) and 0.39 (B), saturation 0.40 to 0.34 and 0.33. On the
+Stage Look Review ("street9", `st9_*`); recommended B, both modest.
+
+Built B (the owner's pick): city.cfg [backdrop] `street_look="B"` (code-built, nothing to re-light). Before and after (the road's left
+stretch, wide): `review9/city_street_built.jpg`. All seven tests pass (the runner after its known "the way out" flake, on a rerun).
+
+## Item 7, the painted shadow colours (2026-10-25, mock and a finding)
+
+`Lighting.SHADE_TRY` (`--shade=T|A|B|C`; a style's `shade_try` ships one), applied in `stage_mood`: [shadow_value times, shadow_shift
+times (at most 0.25), scenery_shade times, optional key yaw]. A [0.85, 1.4, 0.85], B [0.72, 1.8, 0.72], C A with the key 22 degrees
+further round behind the stage. Measured at the match camera on every stage (the review regions and scratch `readab.gd`):
+
+- **The scenery does not move.** Fronts, tops and middle distance hold value and contrast within 0.01 under A, B and C (C included: the
+  fronts' value is not set by the key's direction). Only the faces already in shade (trunks, posts, undersides) deepen.
+- **The fighters do.** Their shade deepens with the scene's: P1's value gap to the ground on the grove 0.042 today, 0.030 (A), 0.016 (B),
+  0.030 (C); on the beach 0.177 to 0.160, 0.144, 0.143. Their form rises a little on the beach and grove and falls on the meadow.
+
+Recommended: keep today. The scenery's value lives in its baked shading, prints and paper finish; light at 5 would come through the
+light bake (deeper occlusion, darker undersides in the models), a per-stage pass. On the Stage Look Review ("shade9", `sh9_*`).
