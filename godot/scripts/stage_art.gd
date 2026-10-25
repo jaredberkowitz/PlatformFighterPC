@@ -5351,7 +5351,26 @@ static func _ocean(root: Node3D, t: Dictionary, stage: Array) -> void:
 	# (Lifted clear of the horizon, the owner, 2026-10-19: sitting on it, the clouds read too low and blurred the sea into the sky.)
 	# (Seven, not sixteen, the judge's round 39: sixteen piled into one heavy lumpy band across the top third, the busiest area of the
 	# frame; a few apart leave open sky over the fight.)
-	_clouds(root, bank_rng, int(_pal("cloud_bank")), Color(1, 1, 1), Vector2(10.0, 18.0), Vector2(-215, -195), [1, 0, 1], 1.9, Vector2(-90, 90), cloud_look)
+	# (Banks apart, fidelity review 9: seven wide cards along one line at one height joined into an unbroken strip, a border across the
+	# sky. The palette's [backdrop] `bank_look` or `--bank=A|B`: A five banks spread across the sky, each at its own height and depth;
+	# B two groups, three behind the town and two to the right, the sky over the fight left open.)
+	var bank_look := String((_palette.get("backdrop", {}) as Dictionary).get("bank_look", ""))
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--bank="):
+			bank_look = arg.substr(7)
+	if bank_look == "A":
+		var slots := [-80.0, -42.0, -5.0, 36.0, 76.0]
+		for i in slots.size():
+			_clouds(root, bank_rng, 1, Color(1, 1, 1), Vector2(8.0 + 3.5 * (i % 3), 13.0 + 5.0 * (i % 3)), Vector2(-235, -175), [[1, 2, 0][i % 3]],
+				[2.5, 1.9, 2.2, 1.8, 2.6][i], Vector2(slots[i] - 6.0, slots[i] + 6.0), cloud_look)
+	elif bank_look == "B":
+		var group := [[-88.0, 9.0, -215.0, 2.5, 1], [-68.0, 17.0, -235.0, 2.0, 2], [-50.0, 11.0, -195.0, 1.7, 0], [58.0, 13.0, -220.0, 2.1, 1],
+			[80.0, 8.0, -200.0, 1.6, 2]]
+		for g: Array in group:
+			_clouds(root, bank_rng, 1, Color(1, 1, 1), Vector2(g[1], g[1] + 2.0), Vector2(g[2] - 4.0, g[2] + 4.0), [g[4]], g[3],
+				Vector2(g[0] - 3.0, g[0] + 3.0), cloud_look)
+	else:
+		_clouds(root, bank_rng, int(_pal("cloud_bank")), Color(1, 1, 1), Vector2(10.0, 18.0), Vector2(-215, -195), [1, 0, 1], 1.9, Vector2(-90, 90), cloud_look)
 	_birds(root, rng, Color(0.97, 0.97, 1.0))
 	# (Under a modelled ground the islands' mounds and the headland's hills are built into a node that is thrown away, their numbers
 	# still drawn; what stands on them stays: art/blender/make_beach_ground.py.)
@@ -7697,14 +7716,21 @@ static func _meadow_hill(root: Node3D, t: Dictionary, l: float, r: float, bottom
 	var props := Node3D.new()
 	props.name = "HillProps"
 	root.add_child(props)
+	# (Tidied, fidelity review 9: three bales at odd angles, one half on another, read as strewn down the slope at the wide camera. Two
+	# side by side, square to the wall; the palette's [backdrop] `foot_tidy`, `--foot-tidy` to try.)
+	var tidy := bool((_palette.get("backdrop", {}) as Dictionary).get("foot_tidy", false)) or OS.get_cmdline_user_args().has("--foot-tidy")
 	for side in [-1.0, 1.0]:
 		var ex: float = (l + 2.8) if side < 0.0 else (r - 2.8)
 		var d := 1.6
 		var y: float = slope.call(d)
 		var z := front + d
-		_hay_bale(props, Vector3(ex, y, z), rng.randf_range(-30, 30))
-		_hay_bale(props, Vector3(ex + side * 1.4, slope.call(d + 0.8) - 0.1, z + 0.8), rng.randf_range(-30, 30))
-		_hay_bale(props, Vector3(ex + side * 0.5, y + 0.8, z + 0.3), rng.randf_range(-30, 30))
+		if tidy:
+			_hay_bale(props, Vector3(ex, y, z), 0.0)
+			_hay_bale(props, Vector3(ex + side * 1.35, y, z + 0.1), side * 6.0)
+		else:
+			_hay_bale(props, Vector3(ex, y, z), rng.randf_range(-30, 30))
+			_hay_bale(props, Vector3(ex + side * 1.4, slope.call(d + 0.8) - 0.1, z + 0.8), rng.randf_range(-30, 30))
+			_hay_bale(props, Vector3(ex + side * 0.5, y + 0.8, z + 0.3), rng.randf_range(-30, 30))
 		_barrel(props, Vector3(ex - side * 1.6, y, z - 0.2), 0.8)
 		_rock(props, Vector3(ex - side * 2.6, y - 0.2, z + 0.6), 0.5, rng)
 	for c in props.get_children():

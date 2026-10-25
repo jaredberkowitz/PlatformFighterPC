@@ -58,7 +58,7 @@ in the water, the grove's abyss, the city's street).
 Items 1 to 6 are refinements of what exists, within the standing rule. Items 1 and 2 lift the surfaces column; 3 and 4 the beach's and
 grove's worlds and skies. Item 7 is still the one change that moves every stage's light toward 5.
 
-## Item 1, the canyon's rock (2026-10-25, mock)
+## Item 1, the canyon's rock (2026-10-25, built)
 
 `tools/art/make_prints.py` family `sandstone` (`--sandstone A|B`, appended after `steel` so every other family's random numbers, and so
 its print, stay byte-identical, checked against `prints/hatched`): sand grains, soft patches a little deeper (a first try at full
@@ -68,3 +68,36 @@ strength read as camouflage), and short sets of cross-bedding arcs, no long line
 camera the even 0.75 beds, a step lighter and darker by turns, still stacked like planks, so C adds `make_canyon_front.py --straight C`:
 beds of uneven thickness (thin partings of 0.3 to 0.5 between beds of 0.9 to 2.2), 6 to 14 long, the tone stepping less (15,848
 triangles). On the Stage Look Review ("sand9", `s9_*`, C shown before the light bake); recommended C.
+
+Built C (the owner's pick): `prints/hatched/sandstone.png` (`--style B --sandstone A`; only that file copied in, every other print
+unchanged), mapped for the canyon's `layer1`, `layer2` and `strata_*` in `StageBake.PRINTS_BY_THEME`; canyon_front.glb rebuilt with
+`--straight C`; the canyon re-lit (front, paper, play). The front measures value 0.39 (0.37 before: fewer, larger flat faces), with
+sunset.cfg `front_lift` 0.35 to 0.28 (it moves the face only 0.01). Before and after (match camera, then wide):
+`review9/canyon_rock_built.jpg`. All seven tests pass.
+
+## Item 2, the meadow's wall at a distance (2026-10-25, built)
+
+`make_meadow_front.py --calm A|B` (with the shipped `--variant B --stones field --moss 1 --warm B`): A lays stones 1.2 to 3 wide
+(big ones 2 to 3) in courses 0.85 to 1.25 tall, split only one time in five, their values half as spread round 0.8; B is A a step
+lower (0.12) in value. 7,864 triangles, from 13,627. At the wide camera the wall's contrast falls from 0.151 to 0.133 (A) and 0.125 (B),
+its value 0.51 to 0.53 and 0.50 (shown before the light bake). Both mocks also tidy the foot: `StageArt` HillProps with the palette's
+[backdrop] `foot_tidy` (`--foot-tidy`): two bales side by side square to the wall at each end, in place of three at odd angles with one
+half on another; the barrel and rock kept. On the Stage Look Review ("wallcalm9", `wl9_*`); recommended B.
+
+Built B (the owner's pick): meadow_front.glb rebuilt with `--calm B` (7,864 triangles), meadow.cfg [backdrop] `foot_tidy=true`, the
+meadow re-lit (front, play, ground). Before and after (wide, then the match camera): `review9/meadow_wall_built.jpg`. All seven tests
+pass.
+
+## Item 3, the beach's rings and clouds (2026-10-25, built)
+
+Two picks. Rings: `make_mood.py --theme ocean --variant B --rings A|B` (`post_rings`, own random numbers): A, a quarter of the posts bare,
+the rest each its own size (0.75 to 1.25) and strength, the near-side crescent kept and the outer ring a broken arc; B only the
+crescent, a broken arc at some posts. 3,520 (A) and 2,228 (B) triangles, from 9,280; without `--rings` the build is byte-identical to the
+shipped beach_mood.glb. Clouds: `StageArt._ocean` with the palette's [backdrop] `bank_look` (`--bank=A|B`): A five banks in slots across
+the sky at three heights and depths (scales 1.8 to 2.6; a first try at 1.2 to 1.8 read as specks), B two groups, three behind the town
+and two to the right, the sky over the fight left open. On the Stage Look Review ("beach9", `bc9_*`, shown in pairs: A with A, B with B);
+recommended rings A, clouds B.
+
+Built rings A and clouds B (the owner's picks): beach_mood.glb `--theme ocean --variant B --rings A` (the mood light is unshaded glow,
+nothing to re-light), ocean.cfg [backdrop] `bank_look="B"`. Before and after (wide, then the match camera):
+`review9/beach_rings_clouds_built.jpg`. All seven tests pass (the runner after its known coin flake, on a rerun).
