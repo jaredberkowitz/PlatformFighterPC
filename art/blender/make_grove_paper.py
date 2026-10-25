@@ -22,6 +22,11 @@ After fidelity review 6 (H's rock read as flat dark-teal blocks over a flat viol
                    forest of the grove's trees rising through them.
 After fidelity review 9 (the pale pine tops near the chasm read as trees standing in water): `--valley none|far` with `--abyss mist`,
   none  the mist without the trees; far  only the trees well back in the valley (behind 80), fewer.
+New art toward 5 (docs/art/stages/NEW_ART_PLAN.md, G1 and G3, the owner's approval 2026-10-25), with `--abyss mist`:
+  `--falls N`     N waterfalls pouring off the terraces' lips into the abyss, away from the fight: cut paper strips in two blues
+                  arcing off the edge and falling to the mist, spray heaped where they meet it;
+  `--mist 3`      the mist in three layers that pale and thicken with depth, in place of two;
+  `--roots long`  the roots hanging from the lips grown long into the abyss.
 Every look carries the far ranges as standing cut-out flats, three to a range, their crests from the painted ranges they stand in for.
 Each piece is its own object so the game can lay the air of its depth over it, and bakes its occlusion into linear vertex colours.
 Families `grass`, `grass_far`, `cliff`, `range_far`, `range_near`, their cut edges `card_<family>`, `leaf_lit`, `leaf_shade`, `bark`.
@@ -52,6 +57,11 @@ VARIANT = opts.get("variant", "A").upper()
 SHAPED = opts.get("rock", "") == "shaped"
 MISTY = opts.get("abyss", "") == "mist"
 VALLEY = opts.get("valley", "")
+FALLS = int(opts.get("falls", "0"))
+MIST3 = opts.get("mist", "") == "3"
+LONG_ROOTS = opts.get("roots", "") == "long"
+# Edges facing the camera, for the falls: (x, z, top, drop, tx, tz, ox, oz).
+FALL_SPOTS = []
 LAYOUT = json.load(open(os.path.join(opts["dir"], "ground.json")))
 SIDE_TREES = [(-30.0, -55.0), (32.0, -55.0)]
 # The ledges of the shipped ground (make_grove_ground.py A): name, x0, x1, front z, back z, top, top family.
@@ -627,6 +637,8 @@ def terrace(name, poly, top, exposed, tiers, rng, far, fam):
         oriented(lip, (P(ax, top, az), P(ax, top - 0.55, az), P(bx, top - 0.55, bz), P(bx, top, bz)), P((a[0] + b[0]) * 0.5, top - 0.3, (a[1] + b[1]) * 0.5))
         hang = rng.uniform(0.9, 2.2) * (0.7 if far else 1.0)
         cx, cz = (ax + bx) * 0.5 + ox * 0.08, (az + bz) * 0.5 + oz * 0.08
+        if not far and oz >= 0.6:
+            FALL_SPOTS.append((cx, cz, top, drop, tx, tz, ox, oz))
         oriented(lip, (P(ax, top - 0.5, az), P(bx, top - 0.5, bz), P(bx - tx * 0.25, top - 0.5 - hang * 0.7, bz + oz * 0.05),
                        P(cx, top - 0.5 - hang, cz), P(ax + tx * 0.25, top - 0.5 - hang * 0.7, az + oz * 0.05)),
                  P((a[0] + b[0]) * 0.5 - ox, top - 0.8, (a[1] + b[1]) * 0.5 - oz))
@@ -648,7 +660,8 @@ def terrace(name, poly, top, exposed, tiers, rng, far, fam):
                                                                P(vx + wob + sd * 1.0, ya - 0.15, vz + 0.02), P(vx + wob + sd * 0.3, ya - 0.35, vz + 0.02)))
         if SHAPED and rng.random() < 0.3:
             # Roots hanging from the lip, tapering, one forking (review 6: the reference's rock is hung with roots).
-            length = min(rng.uniform(2.0, 5.5), top - drop - 1.0)
+            # (Long, `--roots long`: the same draws, so the layout after them stays as it was.)
+            length = min(rng.uniform(2.0, 5.5) * (2.4 if LONG_ROOTS else 1.0), top - drop - 1.0)
             if length > 1.2:
                 rx_, rz_ = cx + ox * 0.15 + tx * rng.uniform(-0.8, 0.8), cz + oz * 0.15
                 for strand in range(rng.randrange(1, 3)):
@@ -710,6 +723,8 @@ def hero_ledges(rng):
     abyss()
     if MISTY:
         misty_valley(random.Random(83))
+    if FALLS:
+        falls(random.Random(131))
 
 
 HERO_TIERS = []
@@ -855,14 +870,19 @@ def abyss():
 def misty_valley(rng):
     """The abyss as a misty valley (review 6): two layers of violet mist at different depths, each a sheet with a wavy cut front edge,
     and the tops of a forest of the grove's trees rising through them, smaller and fainter further back."""
-    for k, (y, zf, zb) in enumerate(((-21.5, -24.0, -70.0), (-17.5, -62.0, -130.0))):
+    layers = ((-21.5, -24.0, -70.0), (-17.5, -62.0, -130.0))
+    if MIST3:
+        # (Three, each paler and higher than the one before it, so the mist thickens with depth.)
+        layers = ((-22.0, -22.0, -58.0), (-19.6, -50.0, -96.0), (-17.0, -88.0, -140.0))
+    for k, (y, zf, zb) in enumerate(layers):
         name = "mist%d" % k
+        fam = ("abyss_mist", "abyss_mist2", "abyss_mist3")[k] if MIST3 else "abyss_mist"
         xs = xs_across(-220, 220, 4.0)
         for i in range(len(xs) - 1):
             xa, xb = xs[i], xs[i + 1]
             fa = zf + 2.5 * math.sin(xa * 0.11 + k * 2.0) + 1.2 * math.sin(xa * 0.37 + k)
             fb = zf + 2.5 * math.sin(xb * 0.11 + k * 2.0) + 1.2 * math.sin(xb * 0.37 + k)
-            face(part(name, "abyss_mist"), (P(xa, y, zb), P(xa, y, fa), P(xb, y, fb), P(xb, y, zb)))
+            face(part(name, fam), (P(xa, y, zb), P(xa, y, fa), P(xb, y, fb), P(xb, y, zb)))
             face(part(name, "card_abyss_mist"), (P(xa, y, fa), P(xa, y - 0.5, fa), P(xb, y - 0.5, fb), P(xb, y, fb)))
     placed = []
     tries = 0
@@ -882,6 +902,57 @@ def misty_valley(rng):
         # (In the valley's own hazed violet-greens: in the forest's, spread across the chasm in pieces of no one depth, they took no air
         # and stood out lime against the violet.)
         forest_tree("valley%d" % (len(placed) // 10), x, ABYSS_FLOOR - 1.0, z, h, rng, ("valley_bark", "valley_lit", "valley_shade"))
+
+
+def falls(rng):
+    """Waterfalls off the terraces' lips into the abyss (G1): chosen where an edge faces the camera over the chasm, away from the fight
+    and from one another; each a sheet of cut strips in two blues arcing out from the lip and falling to the mist, ragged at its foot,
+    with spray heaped where it meets the mist."""
+    mist_y = -22.0 if MIST3 else -21.5
+    # (Beside the island, inside the wide camera's frame: further out than 32 they fell off its edges.)
+    spots = [s for s in FALL_SPOTS if s[3] <= ABYSS_FLOOR + 1.0 and 15.0 < abs(s[0]) < 32.0 and s[1] > -70.0]
+    spots.sort(key=lambda s: (abs(abs(s[0]) - 24.0), -s[1]))
+    chosen = []
+    for s in spots:
+        if all(math.hypot(s[0] - c[0], s[1] - c[1]) > 12.0 for c in chosen):
+            chosen.append(s)
+        if len(chosen) == FALLS:
+            break
+    print("grove falls at %s" % [(round(c[0], 1), round(c[1], 1)) for c in chosen])
+    for k, (x, z, top, drop, tx, tz, ox, oz) in enumerate(chosen):
+        name = "fall%d" % k
+        KEEP.add(name)
+        w = rng.uniform(3.0, 4.4)
+        y0 = top - 0.35
+        height = y0 - mist_y
+        strips = rng.randrange(5, 8)
+        steps = 12
+        for q in range(strips):
+            u0 = -w * 0.5 + w * q / strips + 0.04
+            u1 = -w * 0.5 + w * (q + 1) / strips - 0.04
+            fam = "fall" if q % 2 == 0 else "fall_shade"
+            end = 1.0 - rng.uniform(0.0, 0.06)
+            lift = 0.03 * (q % 2)
+            bm = part(name, fam)
+            for i in range(steps):
+                ta, tb = end * i / steps, end * (i + 1) / steps
+                # (Out from the lip, then falling: the arc of water leaving an edge.)
+                oa, ob = 0.5 + 1.8 * math.sqrt(ta) + lift, 0.5 + 1.8 * math.sqrt(tb) + lift
+                ya, yb = y0 - height * ta, y0 - height * tb
+                pts = (P(x + tx * u0 + ox * oa, ya, z + tz * u0 + oz * oa), P(x + tx * u1 + ox * oa, ya, z + tz * u1 + oz * oa),
+                       P(x + tx * u1 + ox * ob, yb, z + tz * u1 + oz * ob), P(x + tx * u0 + ox * ob, yb, z + tz * u0 + oz * ob))
+                oriented(bm, pts, P(x - ox * 2.0, (ya + yb) * 0.5, z - oz * 2.0))
+        # Spray where it meets the mist: low heaped puffs.
+        bx, bz = x + ox * 2.3, z + oz * 2.3
+        bm = part(name + "_spray", "spray")
+        KEEP.add(name + "_spray")
+        for q in range(rng.randrange(4, 7)):
+            r = rng.uniform(0.6, 1.2)
+            u = rng.uniform(-w * 0.7, w * 0.7)
+            res = bmesh.ops.create_icosphere(bm, subdivisions=1, radius=r)
+            c = P(bx + tx * u, mist_y + r * 0.2, bz + tz * u + rng.uniform(-0.3, 0.3))
+            for v in res["verts"]:
+                v.co = Vector((v.co.x * 1.3, v.co.y, v.co.z * 0.7)) + c
 
 
 def range_flats():

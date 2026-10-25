@@ -457,9 +457,25 @@ static func place_front(root: Node3D, t: Dictionary, scene: Node3D) -> void:
 			# (Gentler on posts standing in the sea: at the cliffs' 0.4 the beach's piles fell nearly black.)
 			m.set_shader_parameter("front_fall", 0.15 if fam in ["post", "waterline", "weed", "rope"] else 0.4)
 			m.set_shader_parameter("front_span", 7.0)
+			_paint_drift(m, t, false)
 			mi.set_surface_override_material(s, m)
 		mi.set_instance_shader_parameter("front_top", top)
 		mi.set_meta("prebaked", true)
+
+
+## Painted variation on a modelled piece's material (fidelity review 10; toon_common `paint_drift`): the palette's [backdrop]
+## `paint_drift` [value patches, warm-cool wander, size, tops warm and walls cool], or `--paint-drift=A|B|C` to try (C as A on the play
+## area only: on the front, a wall of small stones and logs that already vary, it only darkened and greyed); off without. `play` for the
+## play area's pieces; the palette's optional fifth value 1 keeps it to them.
+static func _paint_drift(m: ShaderMaterial, t: Dictionary, play: bool) -> void:
+	var d: Array = (StageArt.palette(String(t.get("name", ""))).get("backdrop", {}) as Dictionary).get("paint_drift", [])
+	var f := flag("--paint-drift=")
+	if f != "":
+		d = {"A": [1.3, 0.8, 14.0, 0.5], "B": [2.0, 1.2, 18.0, 0.7], "C": [1.3, 0.8, 14.0, 0.5, 1]}.get(f.to_upper(), d)
+	if d.size() == 5 and int(d[4]) == 1 and not play:
+		return
+	if d.size() >= 4:
+		m.set_shader_parameter("paint_drift", Vector4(d[0], d[1], d[2], d[3]))
 
 
 ## A modelled play area to try (`--play-mock=<glb>`, art/blender/make_meadow_play.py, the paper pilot): the stage's top and its
@@ -546,6 +562,7 @@ static func place_play(root: Node3D, t: Dictionary, path: String) -> void:
 				m.set_shader_parameter("lawn_fall", 0.9)
 				m.set_shader_parameter("lawn_front", StageArt.STAGE_FRONT)
 				m.set_shader_parameter("lawn_span", 6.0)
+			_paint_drift(m, t, true)
 			mi.set_surface_override_material(s, m)
 		mi.set_meta("prebaked", true)
 	print("play mock: placed %s" % path.get_file())
@@ -998,6 +1015,9 @@ static func _ground_colours(t: Dictionary) -> Dictionary:
 	out["rock_c"] = soil.lerp(Color(1.0, 0.86, 0.66), 0.35).darkened(0.08)
 	# (Deeper and rosier than the painted dunes' sands: as flats they take the full air of their depth and faded into the horizon.)
 	out["dune_far"] = Color(0.9, 0.6, 0.5)
+	# (New art toward 5, C3: the scree at the mesa's foot, a step deeper and redder than the sand.)
+	out["scree"] = (t.get("soil", Color(0.86, 0.5, 0.32)) as Color).lerp(Color(0.94, 0.68, 0.4), 0.45).darkened(0.08)
+	out["card_scree"] = (out["scree"] as Color).darkened(0.1)
 	out["dune_near"] = Color(0.92, 0.58, 0.42)
 	for fam in ["rock_a", "rock_b", "rock_c", "dune_far", "dune_near"]:
 		out["card_" + fam] = (out[fam] as Color).darkened(0.1)
@@ -1067,6 +1087,12 @@ static func _ground_colours(t: Dictionary) -> Dictionary:
 	out["valley_lit"] = Color(0.4, 0.5, 0.62)
 	out["valley_shade"] = Color(0.28, 0.3, 0.5)
 	out["valley_bark"] = Color(0.32, 0.28, 0.44)
+	# (New art toward 5, G1: the grove's falls in two pale blues, their spray, and the mist's farther layers paler with depth.)
+	out["fall"] = Color(0.84, 0.93, 0.98)
+	out["fall_shade"] = Color(0.6, 0.76, 0.9)
+	out["spray"] = Color(0.92, 0.94, 1.0)
+	out["abyss_mist2"] = Color(0.5, 0.44, 0.7)
+	out["abyss_mist3"] = Color(0.58, 0.52, 0.78)
 	# (One rock for the grove, fidelity review 9: the island's underside is grey-green stone, the terraces' blocks a deep teal, two
 	# languages side by side. The palette's [backdrop] `cliff_stone` (or `--cliff-stone=`), how far the terraces' rock turns to the
 	# island's stone, its value kept deep for the fighters in front of it.)
@@ -1108,7 +1134,13 @@ static var _calm_k := 0.72
 
 
 ## Paints a modelled background piece: each family's toon material, its own baked occlusion (vertex colours), and the air at its depth.
-static func _paint_ground(node: Node3D, colours: Dictionary) -> void:
+static func _paint_ground(node: Node3D, colours: Dictionary, t := {}) -> void:
+	# (The ground's own finish, fidelity review 10: the meadow's hill under the wall a plain faceted green at the wide camera. The
+	# palette's [backdrop] `ground_finish` or `--ground-finish=A|B`: painted variation on the land's families, A broad (`GROUND_DRIFT`),
+	# B finer and stronger, patches a few units across.)
+	var finish := String((StageArt.palette(String(t.get("name", ""))).get("backdrop", {}) as Dictionary).get("ground_finish", ""))
+	if flag("--ground-finish=") != "":
+		finish = flag("--ground-finish=").to_upper()
 	for mi: MeshInstance3D in node.find_children("*", "MeshInstance3D", true, false):
 		for s in mi.mesh.get_surface_count():
 			var src := mi.mesh.surface_get_material(s)
@@ -1117,6 +1149,9 @@ static func _paint_ground(node: Node3D, colours: Dictionary) -> void:
 			m.set_shader_parameter("facets", fam != "bark")
 			m.set_shader_parameter("vertex_shade", true)
 			m.set_shader_parameter("ramp_softness", 0.12)
+			if finish in ["A", "B"] and fam in GROUND_DRIFT:
+				var d: Vector4 = GROUND_DRIFT[fam]
+				m.set_shader_parameter("paint_drift", d if finish == "A" else Vector4(d.x * 1.5, d.y * 1.3, d.z * 0.4, d.w))
 			mi.set_surface_override_material(s, m)
 		mi.set_meta("prebaked", true)
 		var depth := -(mi.global_transform * mi.mesh.get_aabb().get_center()).z
@@ -1125,6 +1160,14 @@ static func _paint_ground(node: Node3D, colours: Dictionary) -> void:
 
 ## A front's strata lifted toward a pale warm sand by the theme's `front_lift` (`--front-lift=` to try): fidelity review 5, the canyon's
 ## front dark and saturated (value 0.30, saturation 0.61) weighing down the lower half of the frame.
+## The painted variation on a ground's land families (`ground_finish`): broader than a play area's, the size a hillside's.
+## The meadow's hill, the grove's abyss and its mist, the canyon's floor.
+const GROUND_DRIFT := {"hill": Vector4(1.6, 0.9, 22.0, 0.0), "bank": Vector4(1.3, 0.7, 18.0, 0.0), "hill_near": Vector4(1.3, 0.8, 30.0, 0.0),
+	"rise": Vector4(1.3, 0.8, 26.0, 0.0), "abyss": Vector4(1.8, 1.0, 16.0, 0.0), "abyss_far": Vector4(1.4, 0.8, 24.0, 0.0),
+	"abyss_mist": Vector4(1.6, 1.0, 14.0, 0.0), "sand_a": Vector4(1.3, 0.8, 20.0, 0.0), "sand_b": Vector4(1.3, 0.8, 20.0, 0.0),
+	"sand_c": Vector4(1.3, 0.8, 20.0, 0.0)}
+
+
 static func _front_lift(t: Dictionary, c: Color) -> Color:
 	var lift := float(t.get("front_lift", 0.0))
 	if flag("--front-lift=") != "":
@@ -1185,7 +1228,7 @@ static func place_ground(root: Node3D, t: Dictionary, source: Array) -> void:
 		ground.name = "ModelledGround"
 		ground.set_meta("lit_piece", true)
 		root.add_child(ground)
-		_paint_ground(ground, colours)
+		_paint_ground(ground, colours, t)
 		# (Trees the ground asks for, `treeslot` empties: the theme's modelled tree stands at each, as at the code-built trees' places.)
 		for n in ground.find_children("treeslot*", "", true, false):
 			StageArt.tree_slots.append([(n as Node3D).position, (n as Node3D).scale.x])

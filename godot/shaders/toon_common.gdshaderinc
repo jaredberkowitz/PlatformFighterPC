@@ -94,6 +94,10 @@ uniform float print_amount = 0.0;
 uniform float print_scale = 2.0;
 // This surface's own paper finish instead of the stage's (a stage front at the full finish, "C"); x below 0 takes the stage's.
 uniform vec4 paper_own = vec4(-1.0);
+// Painted variation (fidelity review 10: a surface read as one flat colour times a grey print; the references paint broad value and hue
+// drift across it, and the light cannot add it): x broad value patches, y a slow warm-to-cool wander, z their size in world units,
+// w the tops a touch warmer and the walls cooler. Set by StageBake on a stage's modelled pieces (the palette's `paint_drift`); 0 off.
+uniform vec4 paint_drift = vec4(0.0);
 // Multiply by the mesh's vertex colour (off by default: imported props may carry colours meant for nothing). The crowns' lobed clump balls
 // bake each leaf clump's own light into it (scripts/stage_art.gd `_clump_ball`): a lit top and a dark crevice between clumps.
 uniform bool vertex_shade = false;
@@ -367,6 +371,15 @@ void fragment() {
 		// and laid evenly every mark blurred into the grey of the texture's smallest copies.)
 		vec2 pp = abs(world_normal.y) > 0.5 ? vec2(world_pos.x, world_pos.z * 0.2) : (abs(world_normal.x) > 0.6 ? vec2(world_pos.z, -world_pos.y) : vec2(world_pos.x, -world_pos.y));
 		c *= 1.0 + print_amount * (texture(print_tex, pp / print_scale).r - 0.5) * 2.0;
+	}
+	if (fighter < 0.5 && paint_drift.x + paint_drift.y + paint_drift.w > 0.0) {
+		// (Tops stretched along the depth, as the print is: the match camera sees them almost edge on.)
+		vec2 dp = abs(world_normal.y) > 0.5 ? world_pos.xz * vec2(1.0, 2.5) : vec2(world_pos.x + world_pos.z * 0.5, world_pos.y * 1.6);
+		float n1 = brush_noise(dp / max(paint_drift.z, 0.5));
+		float n2 = brush_noise(dp / max(paint_drift.z * 2.3, 0.5) + vec2(13.1, 7.7));
+		c *= 1.0 + paint_drift.x * 0.24 * (smoothstep(0.15, 0.85, n1) - 0.5);
+		c *= mix(vec3(1.0), mix(vec3(0.91, 0.96, 1.07), vec3(1.07, 1.0, 0.88), smoothstep(0.2, 0.8, n2)), paint_drift.y);
+		c *= mix(vec3(1.0), world_normal.y > 0.5 ? vec3(1.05, 1.02, 0.93) : vec3(0.95, 0.95, 0.99), paint_drift.w);
 	}
 	vec4 paper_fin = paper_own.x >= 0.0 ? paper_own : pf_paper_finish;
 	if (fighter < 0.5 && paper_fin.x + paper_fin.y + paper_fin.z > 0.0) {

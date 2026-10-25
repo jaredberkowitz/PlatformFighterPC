@@ -48,3 +48,64 @@ the grove's abyss, the city's middle towers, the canyon's sky, the city's facade
 
 Items 2 to 4 are refinements of what exists. Item 1 is the one with a chance of moving surfaces and light toward 5. Without it the
 honest ceiling for this look is a strong 4.
+
+## Item 1, painted variation, the meadow pilot (2026-10-25, built on the meadow)
+
+`toon_common.gdshaderinc` `paint_drift` [value patches, warm-cool wander, size, tops warm and walls cool] in the fragment, on the
+scenery only (not fighters): broad world-space `brush_noise` patches of value, a slow hue wander between a cool and a warm tint, tops
+warmer and walls cooler. `StageBake._paint_drift` sets it on the modelled front and play area from the palette's [backdrop] `paint_drift`
+(`--paint-drift=A|B|C`; a fifth value 1 keeps it to the play area). A first pass at [0.7, 0.5, 8, 0.6] / [1.0, 0.85, 6, 1.0] moved
+nothing visible; retuned to A [1.3, 0.8, 14, 0.5] and B [2.0, 1.2, 18, 0.7]. Measured at the match camera:
+
+- **The lawn:** contrast 0.073 to 0.096 (A and C), the first measurable surface gain since review 8.
+- **The front:** under A value 0.45 to 0.42 and saturation 0.29 to 0.26 (B 0.39, 0.24): its small stones and logs already vary, so the
+  drift only darkens and greys it. C leaves the front out.
+- **Readability:** P1's gap 0.038 today, 0.039 (A), 0.036 (C).
+
+Note: the shader change recompiles every scenery material on first load (a first capture took about three minutes). On the Stage Look
+Review ("paintdrift11", `pd11_*`); recommended C, then stage by stage on the other play areas.
+
+Built C on the meadow (the owner's pick): meadow.cfg [backdrop] `paint_drift=[1.3, 0.8, 14.0, 0.5, 1]`, the play area only; the front
+unchanged (value 0.45, saturation 0.29, contrast 0.101). The lawn measured 0.085 in this capture (0.096 in the mock; the drifting cloud
+shade moves it). Before and after at the match camera: `review10/meadow_paint_built.jpg`. All seven tests pass. Next: the other four
+play areas, stage by stage.
+
+## Item 1 on the other play areas (2026-10-25, built on the grove)
+
+The meadow's setting, play area only (`--paint-drift=C`), on each of the other stages at the match camera:
+
+| Stage | Play top | P1's gap | Verdict |
+|---|---|---|---|
+| Grove | contrast 0.094 to 0.105 | 0.047 to 0.064 | gains (and widens the narrowest gap of the five) |
+| Canyon | value 0.62 to 0.57, contrast 0.101 to 0.087 | 0.040 to 0.053 | worse: the sand already has drifts and cloud shade |
+| Beach | contrast 0.131 to 0.128 | 0.173 to 0.187 | no gain: the boards already vary |
+| City | value 0.54 to 0.52, contrast 0.133 to 0.129 | 0.133 to 0.149 | no gain: the roof's tar patches already do this |
+
+It works where a top was one flat colour (the meadow's and the grove's lawns), not where the surface already varies. On the Stage Look
+Review ("paintdrift12", `pd12_*`); recommended the grove only.
+
+Built on the grove (the owner's pick; the canyon, beach and city left as they are): grove.cfg [backdrop]
+`paint_drift=[1.3, 0.8, 14.0, 0.5, 1]`. The lawn measures contrast 0.102, P1's gap 0.064. Before and after at the match camera:
+`review10/grove_paint_built.jpg`. All seven tests pass.
+
+## Items 2 to 4, the lower thirds at the wide camera (2026-10-25, mock and a finding)
+
+`StageBake._paint_ground` with the palette's [backdrop] `ground_finish` (`--ground-finish=A|B`): the painted variation on the background
+land's families (`GROUND_DRIFT`: the meadow's `hill`, `bank`, `hill_near`, `rise`; the grove's `abyss`, `abyss_far`, `abyss_mist`; the
+canyon's `sand_a` to `sand_c`), A broad, B 1.5 times the value, 1.3 times the wander, 0.4 times the size. Wide camera contrast:
+
+| Where | Today | A | B |
+|---|---|---|---|
+| The meadow's hill under the wall | 0.104 | 0.110 | 0.113 |
+| The grove's abyss | 0.134 | 0.136 | 0.135 |
+| The canyon's floor | 0.124 | 0.119 | 0.126 |
+
+A small gain on the meadow's plain hill; nothing on the abyss and floor, which already carry mottled prints and shading. The hill's white
+specks are not scenery: they move between captures with the world model, paper props and pollen motes all off, so they're most likely
+the demo fight's flying sword-effect fragments caught by the post's cut edge. A first flower-hiding option was taken out (the meadow's
+ground has no flowers).
+
+**Where this leaves the look.** After review 10's items every column is a clear 4, and the remaining levers within the refine-not-add
+rule (key light, painted shade, contact shade, painted variation) now move the measurements by a hundredth or two. A 5 would need new art:
+redesigned lower thirds (new land forms, a new abyss), more world detail, or the fighters' own finish. On the Stage Look Review
+("groundfinish11", `gf11_*`); recommended B on the meadow's hill only.
