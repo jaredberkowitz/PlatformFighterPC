@@ -715,3 +715,15 @@ along one side and one thin cut edge, 70% as wide, with no core and no ring roun
 - **Left:** a very slow walk (the stick barely tilted, the clip at its slowest, `clampf` 0.5) still slides; the runs' slide is unchanged
   (pass 19). The quick walk's swinging foot falls up to 0.09 short of its path at the top of the knee lift (the thigh's limit); it does not
   show as a slide.
+
+### Pass 21: the Dagger's cocked knife kept behind the head (round 2 item 3)
+
+- **Defect:** through the forward smash's coil (frames 6-12) the knife's point stuck out over the top of the head, a grey spike through
+  the hat's brim (pass 11's open item).
+- **Cause:** `fighter_view.gd` `OVERHEAD_CHAMBER` cocked the knife hand at 165 degrees about the shoulder, only 0.3 behind the body in
+  depth, so the knife, along the forearm, pointed up past the head.
+- **Fix:** the hand cocks at 150 degrees and 0.5 behind: the knife is held hidden behind the head through the coil and comes over the top
+  onto the cut as before (the strike and follow-through are unchanged).
+- **Image:** `docs/screenshots/anim/r2_pass21_dagger_knife.jpg`: frames 4-14, before above and after below.
+- **Checked:** facing left (contact sheet); the six tests pass.
+- **Left:** the knife does not show at all through the coil now; the raised hand reads by the arm.

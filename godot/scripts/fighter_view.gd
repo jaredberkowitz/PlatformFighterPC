@@ -3654,7 +3654,8 @@ const BLADE_OVERHEAD_Z := -0.25
 ## the shoulder (0 forward, 90 up): further back than the forward air's, so the raised knife sits behind the head, not across the face.
 ## Each is [degrees, depth]: the depth (model space, toward the camera positive) the cocked hand is drawn back to, behind the head for the
 ## knife, beside it for the fists (hidden behind it, they did not read).
-const OVERHEAD_CHAMBER := {12: {"fsmash": [165.0, -0.3]}, 7: {"fair": [110.0, 0.05]}}
+## (The knife's 150 and -0.5, round 2: at 165 and -0.3 its point showed over the top of the head through the coil.)
+const OVERHEAD_CHAMBER := {12: {"fsmash": [150.0, -0.5]}, 7: {"fair": [110.0, 0.05]}}
 
 
 ## Moves (by class) that spin the whole body about its upright axis, arms out, as their references do: [first state frame, last, turns],
