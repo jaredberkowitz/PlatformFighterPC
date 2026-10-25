@@ -39,6 +39,9 @@ class Burst extends MeshInstance3D:
 	var star := false
 	## Each particle a shard: a long diamond pointing along its flight, stretched by its speed (sparks, debris).
 	var shard := false
+	## Each particle a paper chip (the paper look's sparks): a small flat rectangle that spins and flips as it flies, showing its darker
+	## back on the turn, like confetti.
+	var chip := false
 	var gravity := Vector3.ZERO
 	var damping := 0.0
 	var colours: Array = [Color.WHITE, Color.WHITE, Color(1, 1, 1, 0)]   # start, middle, end
@@ -68,7 +71,7 @@ class Burst extends MeshInstance3D:
 		if _kept < 1.0:
 			return
 		_kept -= 1.0
-		parts.append([pos, vel, 0.0, life, size, randf() * TAU, randf_range(-8.0, 8.0) if star else 0.0, Vector2(randf(), randf())])
+		parts.append([pos, vel, 0.0, life, size, randf() * TAU, randf_range(-8.0, 8.0) if star or chip else 0.0, Vector2(randf(), randf())])
 
 	func _process(real_delta: float) -> void:
 		var delta := FxMaterial.delta(real_delta)
@@ -119,7 +122,19 @@ class Burst extends MeshInstance3D:
 			var c := _colour(t)
 			var at: Vector3 = p[0]
 			var seed: Vector2 = p[7]
-			if shard:
+			if chip:
+				# Turned by its spin in the screen's plane, and flipping about its long side: narrow as it turns edge on, its back darker.
+				var a: float = p[5]
+				var flip := cos(a * 1.7 + seed.x * 6.0)
+				var c2 := c if flip > 0.0 else Color(c.r * 0.72, c.g * 0.72, c.b * 0.78, c.a)
+				var ax := (right * cos(a) + up * sin(a)) * size * 0.5
+				var ay := (right * -sin(a) + up * cos(a)) * size * 0.32 * maxf(absf(flip), 0.12)
+				var quad := [at - ax - ay, at + ax - ay, at + ax + ay, at - ax + ay]
+				for idx in [0, 1, 2, 0, 2, 3]:
+					im.surface_set_color(c2)
+					im.surface_set_uv2(seed)
+					im.surface_add_vertex(quad[idx])
+			elif shard:
 				var v: Vector3 = p[1]
 				var flat := Vector2(v.dot(right), v.dot(up))
 				var along2 := flat.normalized() if flat.length() > 0.2 else Vector2.from_angle(p[5])
@@ -194,6 +209,9 @@ static func dust(parent: Node, at: Vector3, side: float, amount := 4, force := 1
 ## Drawn over the fighters.
 static func sparks(parent: Node, at: Vector3, colour: Color, strength: float, dir := Vector2.ZERO) -> void:
 	var s := clampf(strength, 0.0, 1.0)
+	if FxMaterial.paper:
+		_confetti(parent, at, colour, s, dir)
+		return
 	var b := _burst(parent, false, true, 1.0, 1.0, false, true)
 	b.damping = 7.0
 	b.gravity = Vector3(0, -7, 0)
@@ -203,6 +221,22 @@ static func sparks(parent: Node, at: Vector3, colour: Color, strength: float, di
 		var aimed := dir != Vector2.ZERO and k % 3 != 0
 		var vel := _aim(Vector3(dir.x, dir.y, 0) if aimed else Vector3.RIGHT, 50.0 if aimed else 180.0) * randf_range(7.0, 14.0 + 12.0 * s)
 		b.add(at, vel, randf_range(0.2, 0.34 + 0.18 * s), randf_range(0.34, 0.6 + 0.3 * s))
+
+
+## The paper look's sparks: paper chips in the hitter's colour and in cream, flung out (two in three along `dir`), slowed by the air and
+## fluttering down, torn away as they go. More and faster for a stronger hit.
+static func _confetti(parent: Node, at: Vector3, colour: Color, s: float, dir: Vector2) -> void:
+	for tone in [colour, Color(1.0, 0.96, 0.88)]:
+		var b := _burst(parent, false, true, 0.0, 1.0)
+		b.chip = true
+		b.material_override = _material(false, true, 0.0, 1.0)
+		b.damping = 6.0
+		b.gravity = Vector3(0, -9, 0)
+		b.colours = [Color(tone, 1), Color(tone, 1), Color(tone, 0)]
+		for k in 2 + int(8 * s):
+			var aimed := dir != Vector2.ZERO and k % 3 != 0
+			var vel := _aim(Vector3(dir.x, dir.y, 0) if aimed else Vector3.RIGHT, 55.0 if aimed else 180.0) * randf_range(6.0, 11.0 + 9.0 * s)
+			b.add(at, vel, randf_range(0.35, 0.55 + 0.25 * s), randf_range(0.26, 0.4 + 0.12 * s))
 
 
 ## Something breaking open round `at` (its middle, radius `r`): pieces of it in `body` and a few in `seam` (an egg's shell and its spots,
@@ -255,10 +289,21 @@ static func embers(parent: Node, at: Vector3, strength: float) -> void:
 ## A knock-out: sparks and confetti stars in the player's colour thrown along `direction` (back toward the stage), and a cloud of smoke.
 static func knock_out(parent: Node, at: Vector3, colour: Color, direction: Vector2) -> void:
 	var dir := Vector3(direction.x, direction.y, 0)
+	if FxMaterial.paper:
+		# Paper: a big throw of confetti in the player's colour and cream in place of the sparks.
+		for tone in [colour, colour.lightened(0.35), Color(1.0, 0.96, 0.88)]:
+			var cf := _burst(parent, false, true, 0.0, 1.0)
+			cf.chip = true
+			cf.material_override = _material(false, true, 0.0, 1.0)
+			cf.damping = 3.0
+			cf.gravity = Vector3(0, -7, 0)
+			cf.colours = [Color(tone, 1), Color(tone, 1), Color(tone, 0)]
+			for k in 14:
+				cf.add(at, _aim(dir, 45.0) * randf_range(9.0, 22.0), randf_range(0.8, 1.3), randf_range(0.6, 1.0))
 	var sp := _burst(parent, false, true, 1.0, 1.0, false, true)
 	sp.damping = 4.0
 	sp.colours = [Color(1, 1, 1, 1), Color(colour.r, colour.g, colour.b, 1), Color(colour.r, colour.g, colour.b, 0)]
-	for k in 40:
+	for k in (0 if FxMaterial.paper else 40):
 		sp.add(at, _aim(dir, 40.0) * randf_range(10.0, 26.0), randf_range(0.5, 0.9), randf_range(1.0, 1.9))
 	var palette := [colour, colour.lightened(0.35), Color(1.0, 0.85, 0.3), Color(1, 1, 1)]
 	for k in 4:
