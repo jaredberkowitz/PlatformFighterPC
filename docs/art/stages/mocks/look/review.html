@@ -88,6 +88,23 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
     <p>Two lessons from the reference screenshots, mocked from the match camera: the scenery without ink outlines, its edges lit as card bevels instead, and the paper houses rebuilt at the characters' proportions. The earlier rounds stay on the <a href="https://claude.ai/artifact/D1du6MREVumiJDrEdNypW4">Stage Fidelity Review</a>, which is full.</p>
   </header>
 
+  <section class="panel" aria-labelledby="k8-h" id="keylight8">
+    <div class="eyebrow">Your call is needed &middot; review 8, item 7: a real key light, game-wide</div>
+    <h2 id="k8-h">More light from the sun, less from the air</h2>
+    <p>First, item 6 is built: the beach's waves are soft bands now (see its section below). Then the last item, the light on every stage. Today the even ambient light gives more of each surface's brightness than the sun does (on the meadow, 0.48 against about 0.44), so shade sits at about six tenths of the lit value everywhere and form stays faint. Both options move light out of the ambient and into the sun, sized so the lit faces keep their value. What's left of the ambient turns toward the sky's colour, so shade goes deeper and cooler, as daylight's does.</p>
+    <div class="tablewrap"><table><thead><tr><th>Option</th><th>What changes</th></tr></thead><tbody>
+      <tr><td>A &middot; Firmer key</td><td>Sun &times;1.12, ambient &times;0.68, the ambient 30% toward the sky.</td></tr>
+      <tr><td>B &middot; Strong key</td><td>Sun &times;1.25, ambient &times;0.48, the ambient 45% toward the sky.</td></tr>
+    </tbody></table></div>
+    <p>Readability, measured on P1's body (a spread of 0.1 is easy to see): the lit-to-shade spread on the fighter rises on every stage with B (meadow 0.296 to 0.304, canyon 0.106 to 0.118, beach 0.190 to 0.207, city 0.115 to 0.139, grove 0.177 to 0.205). The fighter-to-ground value gap holds (the beach 0.20 to 0.18; the grove 0.05 to 0.04, its narrowest; the fighters' edge light and hue keep it apart).</p>
+    <p>Close crops, today on the left and B on the right: the meadow, the grove, the city.</p>
+    <div class="viewer"><img src="k8_close.jpg" alt="Today and the strong key on three stages"></div>
+    <div class="row" role="group" aria-label="Stage"><button data-k8s="0">Meadow</button><button data-k8s="1">Canyon</button><button data-k8s="2">Beach</button><button data-k8s="3">City</button><button data-k8s="4">Grove</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-k8o="T">Today</button><button data-k8o="A">A &middot; Firmer key</button><button data-k8o="B">B &middot; Strong key</button></div>
+    <div class="viewer"><img id="k8img" alt="Key light option"><span class="vtag" id="k8tag"></span></div>
+    <p class="muted">My pick: <b>B</b>. It's the one change here that reaches the fighters: every body shows a clear shadow side, and the shade on the props turns cool. Honest note: it's a modest step, not the jump to 5 by itself. A first try that only turned the sun up brightened the lit fronts instead of deepening the shade. Going further means changing the painted shadow colours themselves, which is a larger, riskier pass that I'd mock separately.</p>
+  </section>
+
   <section class="panel" aria-labelledby="v8-h" id="waves8">
     <div class="eyebrow">Built (A) &middot; review 8, item 6: the beach's waves</div>
     <h2 id="v8-h">The beach's waves as soft paper bands</h2>
@@ -1415,5 +1432,16 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
   group("data-v8v", function (v) { v8v = v; }, v8render);
   group("data-v8o", function (v) { v8o = v; }, v8render);
   v8render();
+  var k8s = "0", k8o = "B";
+  var K8S = { "0": "Meadow", "1": "Canyon", "2": "Beach", "3": "City", "4": "Grove" };
+  var K8O = { T: "Today", A: "A \u00b7 Firmer key", B: "B \u00b7 Strong key" };
+  function k8render() {
+    document.getElementById("k8img").src = "k8_" + k8o + "_s" + k8s + ".jpg";
+    document.getElementById("k8tag").textContent = K8S[k8s] + " \u00b7 " + K8O[k8o] + " \u00b7 match camera";
+    pressed("data-k8s", k8s); pressed("data-k8o", k8o);
+  }
+  group("data-k8s", function (v) { k8s = v; }, k8render);
+  group("data-k8o", function (v) { k8o = v; }, k8render);
+  k8render();
 })();
 </script>

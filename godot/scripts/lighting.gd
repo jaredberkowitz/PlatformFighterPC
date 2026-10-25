@@ -122,6 +122,22 @@ const SHAPED_TRY := {
 }
 
 
+## A real key on the stage (fidelity review 8, the light at 5): the ambient carried more of every surface's light than the key did (the
+## meadow: ambient 0.48 against the key's lit share of about 0.44), so shade sat at about six tenths of the lit value everywhere and form,
+## cloud shade and cast shadows stayed faint. Each level moves light from the ambient into the key, [key times, ambient times, how far the
+## ambient turns toward the sky's colour], so the lit side keeps its value, the shade deepens and takes the sky's colour, as daylight's
+## shade does. `--key=A|B` to try; a style's `key_light` ships one.
+const KEY_TRY := {"T": [1.0, 1.0, 0.0], "A": [1.12, 0.68, 0.3], "B": [1.25, 0.48, 0.45]}
+
+
+## The key light level for theme `name`: `--key=` over the style's `key_light`.
+static func key_light(name: String) -> Array:
+	var flag := _flag_value("--key=")
+	if KEY_TRY.has(flag):
+		return KEY_TRY[flag]
+	return style(name).get("key_light", KEY_TRY.T)
+
+
 ## `--shaped=A|B`, or "".
 static func _shaped_flag() -> String:
 	for a in OS.get_cmdline_user_args():
@@ -378,6 +394,14 @@ static func stage_mood(env: Environment, root: Node, theme: Dictionary, post: Sh
 		fill.light_energy = mood.fill[1]
 	env.ambient_light_color = mood.ambient[0]
 	env.ambient_light_energy = mood.ambient[1]
+	# (A real key, fidelity review 8: light moved from the ambient into the key, the ambient turned toward the sky; see KEY_TRY.)
+	var kl := key_light(String(theme.get("name", "meadow")))
+	if key != null:
+		key.light_energy = float(mood.key[1]) * float(kl[0])
+	env.ambient_light_energy = float(mood.ambient[1]) * float(kl[1])
+	var sky: Color = theme.get("sky_mid", theme.get("sky_horizon", mood.ambient[0]))
+	var sky_n := sky / maxf(maxf(sky.r, sky.g), maxf(sky.b, 0.01))
+	env.ambient_light_color = (mood.ambient[0] as Color).lerp(Color(sky_n.r, sky_n.g, sky_n.b), float(kl[2]))
 	env.glow_intensity = float(style(theme.get("name", "meadow")).glow)
 	var look := style(theme.get("name", "meadow"))
 	if key != null:
