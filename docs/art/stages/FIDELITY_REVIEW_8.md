@@ -115,7 +115,7 @@ Built A (the owner's pick): grove_front.glb rebuilt with `--variant B --calm A` 
 on the front and the play area, curve and reach 2.5; the background's paper, with its baked sun, left as it was). Before and after
 (wide, then the match camera): `review8/grove_underside_built.jpg`. All seven tests pass.
 
-## Item 6, the beach's waves (2026-10-25, mock)
+## Item 6, the beach's waves (2026-10-25, built)
 
 `water.gdshader` `wave_band` (the palette's [backdrop] `sea_band`, `--sea-band=0|1|2`) on the paper sea (`look` 3): the white loops were
 each sheet's thin near-white lip following the cusps between its caps. 1, soft bands: each edge a rounded swell (a plain sine, three
@@ -123,3 +123,6 @@ quarters as deep), no cusps; its lip a wide soft lift in the water's own paler t
 the bands still read. 2, tone tiers: no lip; each sheet a deeper step of tone (0.18) shaded toward its edge. A first pass at the soft
 settings left the sea almost plain; the contrast was raised. On the Stage Look Review ("waves8", `v8_*`); recommended A (it keeps the
 waves and the bright sea; B reads more as depth than as waves).
+
+Built A (the owner's pick): ocean.cfg [backdrop] `sea_band=1`; nothing to re-light. Before and after (wide, then the match camera):
+`review8/beach_waves_built.jpg`. All seven tests pass (the runner after its known coin flake, on a rerun).
