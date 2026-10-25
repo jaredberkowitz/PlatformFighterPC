@@ -14,8 +14,8 @@ smeared into blotches), on A:
   `--courses 1`  with it, each slab laid in thin courses of sediment, each a little in or out and a step lighter or darker.
 Families `strata_a`, `strata_b`, `strata_c`; each piece bakes its occlusion into linear vertex colours with the built canyon round it.
 
-Shipped (fidelity review 8, the owner's pick A, 2026-10-25): godot/models/stages/canyon_front.glb, `--variant A --cut 1 --courses 1
---straight A` (review 6's without `--straight`),
+Shipped (fidelity review 9, the owner's pick C, 2026-10-25): godot/models/stages/canyon_front.glb, `--variant A --cut 1 --courses 1
+--straight C` (review 8's `--straight A`, review 6's without `--straight`),
 then lit (the palette's `front_lift` raised to 0.35 to keep the face at 0.33).
 
 Run (Blender 5.2):

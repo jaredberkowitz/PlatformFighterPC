@@ -58,7 +58,7 @@ in the water, the grove's abyss, the city's street).
 Items 1 to 6 are refinements of what exists, within the standing rule. Items 1 and 2 lift the surfaces column; 3 and 4 the beach's and
 grove's worlds and skies. Item 7 is still the one change that moves every stage's light toward 5.
 
-## Item 1, the canyon's rock (2026-10-25, mock)
+## Item 1, the canyon's rock (2026-10-25, built)
 
 `tools/art/make_prints.py` family `sandstone` (`--sandstone A|B`, appended after `steel` so every other family's random numbers, and so
 its print, stay byte-identical, checked against `prints/hatched`): sand grains, soft patches a little deeper (a first try at full
@@ -68,3 +68,9 @@ strength read as camouflage), and short sets of cross-bedding arcs, no long line
 camera the even 0.75 beds, a step lighter and darker by turns, still stacked like planks, so C adds `make_canyon_front.py --straight C`:
 beds of uneven thickness (thin partings of 0.3 to 0.5 between beds of 0.9 to 2.2), 6 to 14 long, the tone stepping less (15,848
 triangles). On the Stage Look Review ("sand9", `s9_*`, C shown before the light bake); recommended C.
+
+Built C (the owner's pick): `prints/hatched/sandstone.png` (`--style B --sandstone A`; only that file copied in, every other print
+unchanged), mapped for the canyon's `layer1`, `layer2` and `strata_*` in `StageBake.PRINTS_BY_THEME`; canyon_front.glb rebuilt with
+`--straight C`; the canyon re-lit (front, paper, play). The front measures value 0.39 (0.37 before: fewer, larger flat faces), with
+sunset.cfg `front_lift` 0.35 to 0.28 (it moves the face only 0.01). Before and after (match camera, then wide):
+`review9/canyon_rock_built.jpg`. All seven tests pass.
