@@ -158,3 +158,13 @@ to 0.132. On the Stage Look Review ("storefronts15", `sf15_*`); recommended A.
 
 Built A (the owner's pick): city.cfg [backdrop] `storefront="A"` (code-built, nothing to re-light). The shops at the wide camera: value
 0.46, contrast 0.219. Before and after (the street, wide): `review10/city_storefronts_built.jpg`. All seven tests pass.
+
+### Step 5, world detail on the meadow (mock)
+
+Most of the plan's world detail already exists from the 2026-10-21 world round (the meadow's chimney smoke, washing and scarecrow;
+the grove's far tree village; the canyon's railway and water tower; the city's traffic and rooftop party), so each stage gets only
+what is missing. `make_world.py --theme meadow --variant BCW` (`meadow_w`): a hay cart in the farmyard below the barn (-34.5, -35.6;
+behind the barn at -38.5 it was hidden, at -32 it stood on the slope) and a bonfire with its smoke in a far field left of the windmill
+(-58, -105; right of the stage its smoke ran into the far cottage's). Rebuilding the world also re-seats the scarecrow and washing on
+the terraced ground, where today's model has them buried. P1's gap 0.052, as before. On the Stage Look Review ("worldmeadow16",
+`wm16_*`); recommended shipping it. To ship: rebuild `godot/models/stages/meadow_world.glb` with `--variant BCW` (no re-light).

@@ -88,6 +88,19 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
     <p>Two lessons from the reference screenshots, mocked from the match camera: the scenery without ink outlines, its edges lit as card bevels instead, and the paper houses rebuilt at the characters' proportions. The earlier rounds stay on the <a href="https://claude.ai/artifact/D1du6MREVumiJDrEdNypW4">Stage Fidelity Review</a>, which is full.</p>
   </header>
 
+  <section class="panel" aria-labelledby="wm16-h" id="worldmeadow16">
+    <div class="eyebrow">Your call is needed &middot; new art, step 5: world detail, the meadow (W-M)</div>
+    <h2 id="wm16-h">Far farm life on the meadow</h2>
+    <p>First, step 4 is built: the city's storefronts (see its section below). Then world detail, stage by stage, starting with the meadow. A lot of the plan's world detail already exists from the 21 October world-building round (the meadow's chimney smoke, washing and scarecrow; the grove's far tree village; the canyon's railway and water tower; the city's traffic and rooftop party). So each stage gets only what's missing, at true size and far back.</p>
+    <p>For the meadow: a hay cart stands in the farmyard below the barn, and a bonfire's smoke rises from a far field past the windmill. Rebuilding the world model also re-seats the scarecrow on the new terraced ground (since the terraces, it was buried).</p>
+    <p>The farmyard (today, then with the cart), and the far field past the windmill (today, then with the bonfire's smoke):</p>
+    <div class="viewer"><img src="wm16_close.jpg" alt="The meadow's farmyard and far field today and with the far farm life"></div>
+    <div class="row" role="group" aria-label="View"><button data-wm16v="m">Match camera</button><button data-wm16v="w">Wide</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-wm16o="T">Today</button><button data-wm16o="W">With far farm life</button></div>
+    <div class="viewer"><img id="wm16img" alt="Meadow world option"><span class="vtag" id="wm16tag"></span></div>
+    <p class="muted">My pick: <b>ship it</b>. It's small and quiet, as far life should be, and the scarecrow is back. Honest note: the bonfire is barely visible at play size, and a first spot right of the stage merged into the cottage's chimney smoke. The cart first stood hidden behind the barn, then on the slope below it.</p>
+  </section>
+
   <section class="panel" aria-labelledby="sf15-h" id="storefronts15">
     <div class="eyebrow">Built (A) &middot; new art, step 4: the city's storefronts (Ci1)</div>
     <h2 id="sf15-h">Storefronts with depth</h2>
@@ -2000,5 +2013,14 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
   group("data-sf15v", function (v) { sf15v = v; }, sf15render);
   group("data-sf15o", function (v) { sf15o = v; }, sf15render);
   sf15render();
+  var wm16v = "w", wm16o = "W";
+  function wm16render() {
+    document.getElementById("wm16img").src = "wm16_" + wm16o + "_" + wm16v + ".jpg";
+    document.getElementById("wm16tag").textContent = "Meadow \u00b7 " + (wm16o === "W" ? "With far farm life" : "Today") + (wm16v === "w" ? " \u00b7 wide" : " \u00b7 match camera");
+    pressed("data-wm16v", wm16v); pressed("data-wm16o", wm16o);
+  }
+  group("data-wm16v", function (v) { wm16v = v; }, wm16render);
+  group("data-wm16o", function (v) { wm16o = v; }, wm16render);
+  wm16render();
 })();
 </script>

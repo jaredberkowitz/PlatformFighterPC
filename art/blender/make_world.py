@@ -8,7 +8,9 @@
     A  a railroad: a timber trestle across the floor behind the buttes with a little train on it and a water tower by the track;
     B  a wagon trail: a pale trail winding across the floor to the horizon, telegraph poles along it, a covered wagon on it;
     C  a ranch: a windpump and its tank, a corral, an adobe house with chimney smoke.
-  meadow  A a farm track and hay cart, B the fields at work (haystacks), C village life (smoke, washing, a scarecrow)
+  meadow  A a farm track and hay cart, B the fields at work (haystacks), C village life (smoke, washing, a scarecrow),
+          W far farm life (new art toward 5, the owner's approval 2026-10-25): a hay cart standing in the farmyard at its true size, and a
+          bonfire's smoke rising from a far field, both seated on the shipped ground
   grove   A a far tree village (great trees with lit huts and rope bridges), B festival gates and streamers, C floating islets
   city    A street traffic (a bus, people), B a billboard and a rooftop party, C an elevated train
   L  (every stage that has them) new living things: the grove's fireflies.
@@ -867,6 +869,32 @@ def meadow_c():
     moving("sway", sc, scaled, sc, 1.5, scarecrow, sc)
 
 
+def bonfire(at, rng):
+    """A heap of brush in a field and its smoke: a few cut cones of twigs, a low glow card, smoke curling up (`move_smoke`)."""
+    x, y, z = at
+    bm = bmesh.new()
+    for k in range(5):
+        a = math.tau * k / 5 + rng.uniform(-0.3, 0.3)
+        tube(bm, (x + math.cos(a) * 0.9, y, z + math.sin(a) * 0.6), (x + math.cos(a) * 0.1, y + 1.0, z + math.sin(a) * 0.1), 0.08, segs=5)
+    ob("brush", bm, "timber_dark", smooth=True)
+    card(scallop(x, y + 0.25, z + 0.05, 0.6, 0.35, 4, 0.3), "window", "embers", thick=0.05)
+    moving("smoke", (x, y + 1.0, z), smoke, (x, y + 1.0, z), 7, 0.75, rng)
+
+
+def meadow_w():
+    # Far farm life at true size (W-M): a hay cart standing by the barn, its shafts down; a bonfire in a far field right of the stage.
+    rng = random.Random(23)
+    def on_land(x, z, old):
+        y = ground_y("meadow_ground.glb", x, z)
+        return (x, y - 0.05 if y is not None else old, z)
+    # (On the yard before the barn: behind it, at -38.5, the barn hid it; at -32 it stood on the slope below the farm.)
+    cart = on_land(-34.5, -35.6, -12.0)
+    hay_cart(cart, 0.25)
+    # (Left of the windmill: right of the stage, its smoke ran into the far cottage's chimney smoke.)
+    fire = on_land(-58.0, -105.0, -6.0)
+    bonfire(fire, rng)
+
+
 # Where the far terraces are, read from the match camera's depth: about a unit under the stage's base level, 100 to 120 units back.
 GROVE_FAR = [(-49.0, -1.0, -106.0, 30.0), (-31.0, -1.1, -116.0, 26.0), (47.0, -1.0, -106.0, 31.0), (30.0, -1.0, -112.0, 25.0)]
 
@@ -1230,7 +1258,7 @@ def grove_l():
 
 BUILDS = {("ocean", "A"): beach_a, ("ocean", "B"): beach_b, ("ocean", "C"): beach_c,
           ("sunset", "A"): canyon_a, ("sunset", "B"): canyon_b, ("sunset", "C"): canyon_c,
-          ("meadow", "A"): meadow_a, ("meadow", "B"): meadow_b, ("meadow", "C"): meadow_c,
+          ("meadow", "A"): meadow_a, ("meadow", "B"): meadow_b, ("meadow", "C"): meadow_c, ("meadow", "W"): meadow_w,
           ("grove", "A"): grove_a, ("grove", "B"): grove_b, ("grove", "C"): grove_c,
           ("city", "A"): city_a, ("city", "B"): city_b, ("city", "C"): city_c,
           ("grove", "L"): grove_l}
