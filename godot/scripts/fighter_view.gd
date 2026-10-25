@@ -2996,7 +2996,9 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 		var tip: Vector3 = s.move_tip
 		var phi := rad_to_deg(atan2(tip.x, -(tip.y - 1.1)))   # 0 straight down, 90 ahead, 180 overhead, negative behind
 		var swing := clampf((130.0 - phi) * 0.32, -22.0, 30.0) if phi >= 0.0 else clampf(-phi * 0.18, 0.0, 22.0)
-		if not grounded and use_base_body:
+		if not grounded and use_base_body and bladed(_cls(s)) and String(s.move_name) == "nair":
+			target_lean += _nair_roll(s)
+		elif not grounded and use_base_body:
 			target_lean += _air_counter(s, phi) * _reach_weight(s)
 		else:
 			# (A body with legs leans with its spine and hips, from its clips and the body-follow; tipping the whole model would pivot it
@@ -3394,7 +3396,10 @@ var leg_k := 0.0
 ## (Animation overhaul pass 4, after the reference's frames: the jab and the forward smash wind up further back, the blade behind the
 ## shoulder and head rather than upright in front of the face: 70 and 80 were.)
 const SWING_FROM := {"jab": 120.0, "jab 2": -60.0, "ftilt": -70.0, "dash attack": -70.0, "fsmash": 95.0, "fair": 75.0, "dair": 75.0,
-	"nair": -60.0, "uair": -60.0, "bair": 60.0}
+	"nair": 225.0, "uair": -60.0, "bair": 60.0}
+## Swings whose wind-up goes the short way round from rest and into the strike (angles taken round the circle, not as numbers): the
+## sword's neutral air raises the blade up and back behind the body, then brings it round underneath into the rising cut in front.
+const SWING_ROUND := ["nair"]
 ## Kicks that send both legs out (front and back), each aimed by the game.
 ## (None now: the neutral air is a held kick with the other leg tucked, as the reference's are, which the clip poses.)
 const SPLIT_KICKS: Array[String] = []
@@ -3487,11 +3492,15 @@ func _blade_target(s: Dictionary) -> Array:
 		var k := clampf(f / maxf(1.0, start * COIL_AT), 0.0, 1.0)
 		k = 1.0 - (1.0 - k) * (1.0 - k)
 		angle = lerpf(_rest_angle(s), wind, k)
+		if SWING_ROUND.has(name):
+			angle = rad_to_deg(lerp_angle(deg_to_rad(_rest_angle(s)), deg_to_rad(wind), k))
 		len = lerpf(rest_len, length, k)
 	elif f < start:
 		# ...and the strike accelerates into the hit, so the blade whips through rather than gliding at one speed.
 		var k := snap_k(f, start)
 		angle = lerpf(wind, swing, k)
+		if SWING_ROUND.has(name):
+			angle = rad_to_deg(lerp_angle(deg_to_rad(wind), deg_to_rad(swing), k))
 	elif f > t[2]:
 		# The follow-through: the blade carries on past its last hit the way it was travelling (FOLLOW_THROUGH degrees over the first part
 		# of the end lag, slowing), then eases home through the rest of it, as the reference's swordsmen finish a cut, rather than holding
@@ -3724,6 +3733,22 @@ const AIR_FORWARD := 50.0
 const AIR_KICK_BACK := 18.0
 const AIR_KICK_BACK_BASE := 6.0
 const AIR_PIVOT := Vector3(0, 1.0, 0)
+
+
+## The sword's neutral air (animation overhaul pass 7, the owner's option B): the body stays upright and tucked while the arm windmills
+## the blade round, and rolls back with the blade as it goes over the top and round behind, at most NAIR_ROLL degrees (never upside
+## down), easing back upright as the blade comes round underneath to the front. (The general air counter-pitch pitched it forward,
+## head down, as the blade passed behind.)
+const NAIR_ROLL := 32.0
+
+
+func _nair_roll(s: Dictionary) -> float:
+	var w: PackedInt32Array = s.get("move_windows", PackedInt32Array())
+	var t: PackedInt32Array = s.move_timing
+	var first := float(w[w.size() - 2]) if w.size() >= 4 else float(t[1])
+	var last := float(w[w.size() - 1]) if w.size() >= 4 else float(t[2])
+	var k := clampf((float(s.state_frame) - first + 2.0) / maxf(1.0, last - first + 4.0), 0.0, 1.0)
+	return -NAIR_ROLL * sin(PI * k)
 
 
 func _air_counter(s: Dictionary, phi: float) -> float:

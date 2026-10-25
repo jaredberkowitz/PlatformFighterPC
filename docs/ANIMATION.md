@@ -379,3 +379,21 @@ a corkscrew about the upright body (no head-over-heels spin); wall jumps back-fl
   `match_flow_test`, `replay_test` and `look_bench` pass.
 - **Left:** the arc's thickness still follows the authored radius, so a short-armed swing's crescent is a little thick near the
   shoulder.
+
+### Pass 7: the Longsword's neutral air (the owner's option B)
+
+- **Defect** (audit item 8): the move read as a downward poke followed by an arm waving.
+  - The wind-up held the blade straight down under the body.
+  - On frame 17 the general air counter-pitch threw the body forward, head down, as the blade passed behind.
+- **The owner's pick (B):** keep the upright windmill, tuck the knees, start the wind-up with the blade behind, and add a partial body
+  roll that follows the blade round (about 30-40 degrees, never upside down).
+- **Fix (`fighter_view.gd`):**
+  - **The roll:** `_nair_roll` replaces the air counter-pitch for a sword's neutral air. Over the second hit's window the body tips back
+    with the blade as it goes over the top and round behind (at most `NAIR_ROLL` 32 degrees), then eases upright as the blade comes
+    round underneath.
+  - **The wind-up:** it raises the blade up and back behind the body. Then the strike brings it round underneath into the rising first
+    cut (`SWING_FROM` nair 225, taken the short way round: `SWING_ROUND`).
+  - **The tuck:** the knees were already in the clip's strike pose.
+- **Image:** `docs/screenshots/anim/pass7_longsword_nair.jpg`.
+- **Checked:** facing left; the six tests pass.
+- **Left:** the Greatsword's and Buckler's neutral airs are not this move (their own clips), so they are unchanged.
