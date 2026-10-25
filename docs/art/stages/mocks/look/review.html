@@ -88,6 +88,22 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
     <p>Two lessons from the reference screenshots, mocked from the match camera: the scenery without ink outlines, its edges lit as card bevels instead, and the paper houses rebuilt at the characters' proportions. The earlier rounds stay on the <a href="https://claude.ai/artifact/D1du6MREVumiJDrEdNypW4">Stage Fidelity Review</a>, which is full.</p>
   </header>
 
+  <section class="panel" aria-labelledby="st9-h" id="street9">
+    <div class="eyebrow">Your call is needed &middot; review 9, item 6: the city's street</div>
+    <h2 id="st9-h">A road you can read from the wide camera</h2>
+    <p>First, item 5 is built: the canyon's cacti are ribbed now (see its section below). Then the city. At the wide camera its street was flat bands of purple, the one plain stretch on the stage. It already has a painted asphalt, paving, kerbs, a centre line and crossings, but the road was the same purple as everything round it.</p>
+    <div class="tablewrap"><table><thead><tr><th>Option</th><th>What changes</th></tr></thead><tbody>
+      <tr><td>A &middot; Worn road</td><td>The road a step lighter and greyer than the purple round it (value 0.34 to 0.38, saturation 0.40 to 0.34), its patches stronger, and the lanes worn darker in two tyre tracks each.</td></tr>
+      <tr><td>B &middot; And lamp light</td><td>A with each street lamp's warm light pooled on the road and pavement under it, as the string lights pool on the roof.</td></tr>
+    </tbody></table></div>
+    <p>The road's left stretch, wide: today, A, B, then B at the match camera:</p>
+    <div class="viewer"><img src="st9_close.jpg" alt="The city's street today and in the two options"></div>
+    <div class="row" role="group" aria-label="View"><button data-st9v="m">Match camera</button><button data-st9v="w">Wide</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-st9o="T">Today</button><button data-st9o="A">A &middot; Worn road</button><button data-st9o="B">B &middot; And lamp light</button></div>
+    <div class="viewer"><img id="st9img" alt="City street option"><span class="vtag" id="st9tag"></span></div>
+    <p class="muted">My pick: <b>B</b>. The road separates from the pavements, and the lamps finally light something below them. Honest note: both are modest steps; at the wide camera the street is a small strip of the frame.</p>
+  </section>
+
   <section class="panel" aria-labelledby="ct9-h" id="cactus9">
     <div class="eyebrow">Built (A) &middot; review 9, item 5: the canyon's cacti</div>
     <h2 id="ct9-h">Rolled coils, or a ribbed cactus</h2>
@@ -1607,5 +1623,15 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
   group("data-ct9v", function (v) { ct9v = v; }, ct9render);
   group("data-ct9o", function (v) { ct9o = v; }, ct9render);
   ct9render();
+  var st9v = "w", st9o = "B";
+  var ST9O = { T: "Today", A: "A \u00b7 Worn road", B: "B \u00b7 And lamp light" };
+  function st9render() {
+    document.getElementById("st9img").src = "st9_" + st9o + "_" + st9v + ".jpg";
+    document.getElementById("st9tag").textContent = "City \u00b7 " + ST9O[st9o] + (st9v === "w" ? " \u00b7 wide" : " \u00b7 match camera");
+    pressed("data-st9v", st9v); pressed("data-st9o", st9o);
+  }
+  group("data-st9v", function (v) { st9v = v; }, st9render);
+  group("data-st9o", function (v) { st9o = v; }, st9render);
+  st9render();
 })();
 </script>

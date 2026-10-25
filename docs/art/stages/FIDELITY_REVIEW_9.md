@@ -125,3 +125,11 @@ the model: a ring added over its foot changed nothing, and was taken out. On the
 
 Built A (the owner's pick): godot/models/props/paper_props.glb rebuilt with `--style C --variant A --b stump,crate`. Before and after (the
 cacti under the left and right platforms at the match camera): `review9/canyon_cactus_built.jpg`. All seven tests pass.
+
+## Item 6, the city's street (2026-10-25, mock)
+
+`StageArt._street` with the palette's [backdrop] `street_look` (`--street=A|B`): A the asphalt a step lighter and greyer, (0.36, 0.34,
+0.44) from (0.3, 0.27, 0.4), its painted patches 0.55 from 0.3, and two darker tyre tracks along each lane; B A with a warm pool of the
+street lamps' light (`_street_pool`, unshaded radial fade) on the road and pavement under each lamp (a first pass at 0.42 barely
+showed; 0.6). The road's left stretch at the wide camera: value 0.34 to 0.38 (A) and 0.39 (B), saturation 0.40 to 0.34 and 0.33. On the
+Stage Look Review ("street9", `st9_*`); recommended B, both modest.
