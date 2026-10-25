@@ -596,7 +596,7 @@ def pose(rig, bone, fwd=0.0, out=0.0, twist=0.0, lift=0.0):
         fwd, out, twist = fwd * WRIST_KEEP, out * WRIST_KEEP, twist * WRIST_KEEP
     # The base body's head is big: tipped back more than a little it shows its chin and hides the drawn face, the half of every read.
     if BODY and bone == "head" and CLIP_NOW not in HEAD_FREE_CLIPS:
-        fwd = max(fwd, HEAD_BACK_LIMIT)
+        fwd = max(fwd, HEAD_BACK_IDLE if CLIP_NOW.startswith("idle") else HEAD_BACK_LIMIT)
     pb = rig.pose.bones[bone]
     pb.rotation_mode = "XYZ"
     limb = bone.split(".")[0] in LIMBS
@@ -1136,14 +1136,15 @@ def _stance_rest(rest, k):
     def f(rig):
         base(rig)
         if BODY and CLIP_NOW and grounded(CLIP_NOW):
-            pose(rig, "thigh.L", fwd=STANCE_LEAD, out=STANCE_WIDE)
-            pose(rig, "shin.L", fwd=STANCE_LEAD_SHIN)
+            r = ATTACK_REST
+            pose(rig, "thigh.L", fwd=r["lead"], out=STANCE_WIDE)
+            pose(rig, "shin.L", fwd=r["lead_shin"])
             pose(rig, "foot.L", fwd=6.0, out=-10.0)
-            pose(rig, "thigh.R", fwd=STANCE_BACK, out=STANCE_WIDE + 4.0)
-            pose(rig, "shin.R", fwd=STANCE_BACK_SHIN)
+            pose(rig, "thigh.R", fwd=r["back"], out=STANCE_WIDE + 4.0)
+            pose(rig, "shin.R", fwd=r["back_shin"])
             pose(rig, "foot.R", fwd=18.0, out=-10.0)
             sp = rest.get("spine", (0.0, 0.0))
-            pose(rig, "spine", fwd=STANCE_LEAN + sp[0] * k, twist=8.0 + sp[1] * k, out=STANCE_SIDE)
+            pose(rig, "spine", fwd=r["lean"] + sp[0] * k, twist=8.0 + sp[1] * k, out=r["side"])
     return f
 
 
@@ -2881,13 +2882,21 @@ def lengthen_limbs(rig, parts):
 # The base body's battle stance (the sword family's idle, `idle`): the front and back thigh and shin angles before `plant`, how far the
 # legs open, and the chest's lean into the stance. (Animation overhaul, stance pass: was 32/-40 front and -14/-10 back, a near-straight
 # stand with the hips 0.09 down.)
-STANCE_LEAD, STANCE_LEAD_SHIN = 44.0, -72.0
-STANCE_BACK, STANCE_BACK_SHIN = -20.0, -46.0
+# (Round 2, 2026-10-25: at the match camera the head still sat straight over the hips. The chest goes further down and forward (lean 14
+# to 26, side bend 12 to 20) over deeper knees (lead 44/-72 to 50/-82, back -20/-46 to -24/-54), so the head is out over the front knee.)
+STANCE_LEAD, STANCE_LEAD_SHIN = 50.0, -82.0
+STANCE_BACK, STANCE_BACK_SHIN = -24.0, -54.0
 STANCE_WIDE = 19.0
-STANCE_LEAN = 14.0
+STANCE_LEAN = 26.0
 # The chest's bend toward the way the fighter faces (degrees): the game turns the body most of the way to the camera, so a forward bend
 # alone leans mostly toward the camera and hardly reads; this bend shows the lean on screen.
-STANCE_SIDE = 12.0
+STANCE_SIDE = 20.0
+# An attack's rest keys (`_stance_rest`) stand on the stance as it was before round 2: the attacks' exaggeration (`AMP`) multiplies them,
+# which already puts them about as low and leaned as the deeper idle above, so the moves themselves are unchanged.
+ATTACK_REST = dict(lead=44.0, lead_shin=-72.0, back=-20.0, back_shin=-46.0, lean=14.0, side=12.0)
+# In an idle the head may tip back this far against the chest (the general limit is `HEAD_BACK_LIMIT`), so the leaned stance keeps the face
+# level toward the camera instead of looking at the floor and showing the hat's crown.
+HEAD_BACK_IDLE = -24.0
 # Idle loops are this long (frames): two bobs, one breath and one weight shift a loop.
 IDLE_FRAMES = 96
 
@@ -2941,7 +2950,7 @@ def main() -> None:
             settle = math.cos(k * 4.0 * math.pi - 0.6)
             pose(rig, "spine", fwd=(STANCE_LEAN if BODY else 9.0) + 4.0 * down * flex - 3.0 * breath, twist=8.0 + 2.0 * b + 2.0 * breath,
                  out=STANCE_SIDE if BODY else 0.0)
-            pose(rig, "head", fwd=-7.0 + 4.0 * down - (2.5 * (0.5 - 0.5 * settle) if BODY else 0.0), twist=-4.0 - 1.5 * breath)
+            pose(rig, "head", fwd=(-19.0 if BODY else -7.0) + 4.0 * down - (2.5 * (0.5 - 0.5 * settle) if BODY else 0.0), twist=-4.0 - 1.5 * breath)
             # Lead fist (far arm) out in front, rear fist guarding the chin; both ride the bounce a beat behind.
             lag = math.cos(k * 4.0 * math.pi - 0.8)
             swing = 1.8 if BODY else 1.0
@@ -2982,17 +2991,19 @@ def main() -> None:
     IDLE_STYLES = {
         # (Stance pass: every family's knees bent, the back knee too, so each stands low and grounded; the styles differ in depth, width,
         # lean and the hands.)
+        # (Round 2, judged at the match camera: the heavy, caster and tool fighters lean a step further toward the foe, and each head tips
+        # back against its chest's lean (`HEAD_BACK_IDLE`) so the face stays level rather than looking at the floor.)
         # The brawlers (Claws, Gauntlets, Bracers): hunched forward over bent knees, both fists up in front of the chest, the lead one
         # further out (the reference claws fighter's crouch).
-        "brawler": dict(hips=0.0, bob=0.55, lead=50.0, back=-24.0, shin_l=-84.0, shin_r=-54.0, spine=30.0, side=18.0, head=-8.0, wide=21.0,
+        "brawler": dict(hips=0.0, bob=0.55, lead=50.0, back=-24.0, shin_l=-84.0, shin_r=-54.0, spine=30.0, side=18.0, head=-16.0, wide=21.0,
                         arm_l=(52.0, 20.0, 96.0), arm_r=(40.0, 26.0, 108.0)),
-        "quick": dict(hips=-0.2, bob=0.6, lead=62.0, back=-30.0, shin_l=-90.0, shin_r=-60.0, spine=28.0, side=12.0, head=-10.0, wide=18.0,
+        "quick": dict(hips=-0.2, bob=0.6, lead=62.0, back=-30.0, shin_l=-90.0, shin_r=-60.0, spine=28.0, side=14.0, head=-16.0, wide=18.0,
                       arm_l=(64.0, 10.0, 36.0), arm_r=(-14.0, 24.0, 100.0)),
-        "heavy": dict(hips=-0.14, bob=0.35, lead=34.0, back=-20.0, shin_l=-60.0, shin_r=-50.0, spine=12.0, side=8.0, head=-2.0, wide=30.0,
+        "heavy": dict(hips=-0.14, bob=0.35, lead=34.0, back=-20.0, shin_l=-60.0, shin_r=-50.0, spine=18.0, side=12.0, head=-8.0, wide=30.0,
                       arm_l=(10.0, 50.0, 46.0), arm_r=(6.0, 50.0, 50.0)),
-        "caster": dict(hips=0.0, bob=0.45, lead=28.0, back=-14.0, shin_l=-48.0, shin_r=-34.0, spine=4.0, head=-6.0, wide=17.0,
+        "caster": dict(hips=0.0, bob=0.45, lead=28.0, back=-14.0, shin_l=-48.0, shin_r=-34.0, spine=8.0, side=6.0, head=-8.0, wide=17.0,
                        arm_l=(72.0, 10.0, 28.0), arm_r=(-20.0, 40.0, 110.0)),
-        "tool": dict(hips=0.0, bob=0.35, lead=22.0, back=-12.0, shin_l=-40.0, shin_r=-30.0, spine=2.0, head=-2.0, wide=16.0,
+        "tool": dict(hips=0.0, bob=0.35, lead=22.0, back=-12.0, shin_l=-40.0, shin_r=-30.0, spine=6.0, side=5.0, head=-4.0, wide=16.0,
                      arm_l=(2.0, 12.0, 22.0), arm_r=(0.0, 14.0, 18.0)),
     }
 
@@ -4244,7 +4255,7 @@ def main() -> None:
             clip(rig, name, 72, {0: base, 12: glance(1.0, 0.5), 30: glance(1.0, 1.0), 42: glance(-0.6, 0.0), 60: glance(-0.6, -0.5),
                                  72: base})
 
-        look_clip("idle_look", idle(0.0), glance_on(idle(0.0), STANCE_LEAN, STANCE_SIDE, -4.0, -0.06))
+        look_clip("idle_look", idle(0.0), glance_on(idle(0.0), STANCE_LEAN, STANCE_SIDE, -16.0, -0.06))
         for fam, st in IDLE_STYLES.items():
             look_clip("idle_look_" + fam, styled_idle(0.0, st),
                       glance_on(styled_idle(0.0, st), st["spine"], st.get("side", 0.0), st["head"], st["hips"]))

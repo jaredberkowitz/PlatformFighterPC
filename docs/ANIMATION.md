@@ -636,3 +636,27 @@ is now drawn only when the limb's path bends (no point further than `STRAIGHT`, 
 means no ribbon), as the reference draws none on straight thrusts. In paper it is a flat strip in a deeper class colour with a tint
 along one side and one thin cut edge, 70% as wide, with no core and no ring round its head. Before/after:
 `docs/screenshots/anim/smear_fix.png`. Checked: anim_library, fighter_view, motion, match_flow and replay tests.
+
+### Round 2 (2026-10-25, from the art audit of that day, `docs/art/ART_AUDIT_2026-10-25.md`)
+
+### Pass 18: the idle judged at the match camera (round 2 item 1)
+
+- **Defect:** at the match camera (`--demo=stage`, both fighters standing) the sword family's head sat straight above its hips: the knees
+  bent, but the chest and head stayed high. Contact sheets, close up, had hidden it.
+- **Cause (`make_rigged_blob.py`):**
+  - the sword stance leaned the chest 14 degrees and bent it 12 toward the foe, too little once the game turns the body to the camera;
+  - the head may tip back at most 8 degrees against the chest (`HEAD_BACK_LIMIT`), so a deeper lean would have pointed the face at the
+    floor and shown the hat's crown (tried first: it did).
+- **Fix:**
+  - The sword stance: chest lean 26 (was 14) and side bend 20 (was 12) over deeper knees (front 50/-82, was 44/-72; back -24/-54, was
+    -20/-46). The head is now out over the front knee.
+  - In idle clips the head may tip back 24 degrees against the chest (`HEAD_BACK_IDLE`), and each idle's head counters its lean, so the
+    face stays level toward the camera (sword -19, brawler and quick -16).
+  - The heavy, caster and tool fighters lean a step further (heavy 18 and side 12, caster 8 and 6, tool 6 and 5); the caster and tool stay
+    the most upright, by design.
+  - The attacks' rest keys keep the old stance values (`ATTACK_REST`): the attacks' exaggeration already sets them about as low and
+    leaned as the new idle, so no move changes.
+- **Image:** `docs/screenshots/anim/r2_pass18_idle_match_camera.jpg`: the stage demo at the match camera, before left and after right, the
+  first fighter facing right and the second facing left (eight classes, all six families).
+- **Checked:** both facings; the six tests pass.
+- **Left:** the caster and tool families are still upright by design (a design question if the owner wants them lower).
