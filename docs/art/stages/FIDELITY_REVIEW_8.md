@@ -1,0 +1,55 @@
+# Stage fidelity review 8 (2026-10-24, after review 7's work): the path to 5
+
+The owner: "continue working on what we found from our previous analysis. If we finished everything from that, we can do another
+analysis of all stages, to figure out how we can get to 5/5 in all categories." Review 7's list is done (its "lived-in world" item
+needs new elements, which the standing rule rules out unless the owner asks). The same method: eight categories scored 1 to 5 (5 = a still
+could sit beside the references), review 3's regions, the same references. The judge is the hand that built the work: read the scores
+as "the gaps this review can see".
+
+**Evidence:** the build released as playtest-2026-10-24-sim146-review7 plus the modelled small things (art/stage-refine 0fc03027), at the
+match camera and wide (`review8/fidelity8_sheet.jpg`: meadow, grove, beach, canyon, city), and close crops (`review8/review8_crops.jpg`:
+the meadow's wall, the meadow's mountain, the canyon's front wide, the grove's underside, the city's scaffold platform, the beach's sea).
+
+## Scorecard
+
+| Stage | Light | Surfaces | Play area and front | Background land | Sky | World and life | Cohesion | Readability | Mean | Review 7 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| Beach | 4 | 4 | 4 | 4 | 4 | 4 | 4 | 4 | **4.0** | 4.0 |
+| Canyon | 4 | 4 | 4 | 4 | 4 | 4 | 4 | 4 | **4.0** | 4.0 |
+| City | 4 | 4 | 4 | 4 | 4 | 4 | 4 | 4 | **4.0** | 4.0 |
+| Grove | 4 | 4 | 4 | 4 | 4 | 4 | 4 | 4 | **4.0** | 3.9 |
+| Meadow | 4 | 3 | 4 | 4 | 4 | 4 | 4 | 4 | **3.9** | 3.9 |
+| **Mean** | 4.0 | 3.8 | 4.0 | 4.0 | 4.0 | 4.0 | 4.0 | 4.0 | **3.98** | 3.95 |
+
+- **The skies closed** (the meadow and grove 3 to 4). **No score is 5.**
+- **One 3, a defect:** the meadow's fieldstone wall, the most-seen surface under the fight, renders grey (saturation 0.02 at value 0.43:
+  its stone tints don't survive the front's paint) with neon-green moss drips down the stones. It reads as a grid of grey cubes, colder
+  and busier than the old wall. That's a step back, and the first thing to fix.
+
+## What stands between each column and 5
+
+Every column is at 4 now, so a 5 needs finish, not fixed shapes. Here is what keeps each from a 5, most visible first:
+
+| Column | The gap | Where |
+|---|---|---|
+| **Surfaces** | The meadow's wall (above). The canyon's sediment courses read as wobbly stacked plywood at the wide camera: every course bulges by the same amount. A 5 has surfaces you'd believe up close: varied fieldstone in warm greys, courses of rock that run straight and break cleanly. | meadow, canyon |
+| **Background land** | The meadow's big mountain fills the top third of the frame as a few flat teal planes with streaks; the references' ranges carry painted form (snowcaps, rock bands, a tree line, the far range paler). The grove's underside is busy, rock, roots and moss leaves all at one weight. | meadow, grove |
+| **Play area** | The city's scaffold platforms are plain flat slabs (a dark purple card on a lattice); the other stages' platforms were rebuilt in their own materials, the city's weren't. | city |
+| **World and life** | The beach's paper waves still read as white loops drawn across the sea. | beach |
+| **Light** | The ceiling of the paper look: ambient and the paper finish carry most of every surface's light (the meadow's lawn with no sun at all falls only 0.71 to 0.65), so shaped light, cloud shade and form stay faint. A 5 needs the play area lit with a real key: more form on everything, deeper but coloured shade. It's a game-wide change that has to keep the fighters readable, and the largest risk on the list. | all |
+| **Sky, cohesion** | Good. At 5 the day skies want a second, farther cloud layer, and every stage wants one finish level from the front to the horizon (the meadow's mountain is the odd one out). | meadow, grove |
+| **Readability** | Good. At 5 it rests on the fighters, half of every still (the character work). | all |
+
+## The order
+
+1. **The meadow's wall fixed:** warm, varied fieldstone, with moss in the joints at a believable green, not neon drips. A defect, so first.
+2. **The meadow's mountain:** painted form on the range (snowcaps, rock bands, a tree line at its foot), its far range paler.
+3. **The canyon's front:** courses that run straight with clean breaks, not uniform wobble.
+4. **The city's scaffold platforms** in the city's own materials (a steel deck with plates and rivets, a painted edge).
+5. **The grove's underside** calmed: fewer, larger rock masses, roots in one or two groups, moss at the lips only.
+6. **The beach's waves** as soft paper bands rather than white loops.
+7. **The light at 5** (game-wide): a real key on the play area. Mock it with the fighters' readability measured.
+
+All four 4.0s and a 3.9 is about where a paper look made with code and Blender scripts lands. Items 1 to 6 are refinements of what
+exists, within the standing rule, and should lift surfaces, background land and the meadow to clear 4s with 5s in reach. Item 7 is the
+one that can move every stage's light and surfaces toward 5.
