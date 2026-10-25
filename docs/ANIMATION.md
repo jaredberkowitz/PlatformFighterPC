@@ -628,3 +628,11 @@ a corkscrew about the upright body (no head-over-heels spin); wall jumps back-fl
 - **Checked:** the six tests pass (`motion_test` covers the springs' freeze and rest after a seek).
 - **Left:** the squash and lean springs step on real time, not the sim frame (older than the motion polish springs), so hitlag does not
   freeze them; unchanged here. Not tried with a controller.
+
+**Smear fix (art director, 2026-10-25, after the art audit of that day).** In the paper look the fist and foot smear (`smear.gd`) read
+as a glassy blue tube across the body on straight strikes (the Gauntlets' charged punch, the Dagger's forward smash): along a straight
+path the ribbon lies over the arm, and its pale edges on both sides, white stripe and cream core shaded it as a lit glass rod. A smear
+is now drawn only when the limb's path bends (no point further than `STRAIGHT`, 12% of its length, from the line between its ends
+means no ribbon), as the reference draws none on straight thrusts. In paper it is a flat strip in a deeper class colour with a tint
+along one side and one thin cut edge, 70% as wide, with no core and no ring round its head. Before/after:
+`docs/screenshots/anim/smear_fix.png`. Checked: anim_library, fighter_view, motion, match_flow and replay tests.

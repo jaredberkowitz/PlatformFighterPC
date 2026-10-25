@@ -21,6 +21,10 @@ static func draw(im: ImmediateMesh, points: Array, q: float, main: Color, core: 
 	if points.size() < 2 or q >= 1.0:
 		return
 	var path := _smooth(points)
+	# (No ribbon on a straight thrust, as the reference draws none: along a straight path it can only lie over the arm as a bar, which
+	# read as a glass rod across the body, the art audit of 2026-10-25. Arced punches and kicks keep it.)
+	if _straight(path):
+		return
 	var from := int(floor(q * 0.7 * float(path.size() - 1)))
 	path = path.slice(from)
 	if path.size() < 2:
@@ -44,6 +48,15 @@ static func draw(im: ImmediateMesh, points: Array, q: float, main: Color, core: 
 	var bands := [[-1.0, -1.0, -ink_w, 0.0, Color(ink, alpha), 0.0], [-1.0, 0.05, 0.0, 0.0, Color(body, alpha), 0.0],
 		[0.05, 0.6, 0.0, 0.0, Color(lit, alpha), 0.0], [0.6, 1.0, 0.0, 0.0, Color(body, alpha), 0.0],
 		[1.0, 1.0, 0.0, ink_w, Color(ink, alpha), 0.0], [0.2, 0.45, 0.0, 0.0, Color(core, alpha), 0.5]]
+	if FxMaterial.paper:
+		# Paper: one flat cut strip in the class colour, a lighter tint along one side and a thin cut edge on that side only, no core and
+		# narrower. (The ink look's stripes, read as pale edges both sides round a white stripe and a cream core, shaded a straight punch
+		# into a glass rod across the body: the art audit of 2026-10-25.)
+		body = Color.from_hsv(main.h, minf(1.0, main.s * 1.5 + 0.15), main.v * 0.7)
+		var tint := body.lerp(Color.WHITE, 0.18)
+		width *= 0.7
+		bands = [[-1.0, 0.2, 0.0, 0.0, Color(body, alpha), 0.0], [0.2, 1.0, 0.0, 0.0, Color(tint, alpha), 0.0],
+			[1.0, 1.0, 0.0, ink_w * 0.6, Color(ink, alpha), 0.0]]
 	im.surface_begin(Mesh.PRIMITIVE_TRIANGLES)
 	var last := Vector3.ZERO
 	var last_side := Vector3.ZERO
@@ -89,10 +102,31 @@ static func draw(im: ImmediateMesh, points: Array, q: float, main: Color, core: 
 			var o1 := last + d1 * (last_half + ink_w)
 			var i0 := last + d0 * last_half
 			var i1 := last + d1 * last_half
+			if FxMaterial.paper:
+				continue   # (no pale ring round the head in paper: with it the strip read as a glass rod's end)
 			for v in [i0, o0, o1, i0, o1, i1]:
 				im.surface_set_color(Color(ink, alpha))
 				im.surface_add_vertex(to_world.call(v))
 	im.surface_end()
+
+
+## True when the path barely bends: no point strays from the line between its ends by more than STRAIGHT of its length.
+const STRAIGHT := 0.12
+
+
+static func _straight(path: Array) -> bool:
+	var a: Vector3 = path[0]
+	var b: Vector3 = path[path.size() - 1]
+	var chord := b - a
+	var length := chord.length()
+	if length < 0.001:
+		return true
+	var dir := chord / length
+	var most := 0.0
+	for p in path:
+		var rel: Vector3 = p - a
+		most = maxf(most, (rel - dir * rel.dot(dir)).length())
+	return most < STRAIGHT * length
 
 
 ## The points joined by a Catmull-Rom curve, `SUBDIVIDE` pieces between each two.
