@@ -125,3 +125,28 @@ card's long shadow dimmed the key bar, fixed by drawing the keys above the cards
 Checked: `tests/stage_select_test.gd` (new) drives Start, both views, Random, Back with the locks kept, the remembered view and the
 match starting on the chosen stage, and puts the player's own settings back. Not checked: the mouse, a real controller's Y, the online
 lobby (it keeps its arrow row: a follow-up).
+
+## Pass 3b: the online lobby's stage step in the stage select look (2026-10-20)
+
+The lobby chose its stage with an arrow row under the fighter cards. Now, once the fighter is locked in, the lobby turns to stage
+select's look: the daylight ground, the stage cards with their stills, in the view the player chose on stage select (the same
+`user://stage_view.txt`; V, Tab or a controller's Y switches here too). Before/after: `pass3_lobby.png` (top: before, after in the
+preview view; bottom: the fighter step after, the full view). Captures: `pass3/lobby_preview.png`, `pass3/lobby_full.png`,
+`pass3/lobby_fighters.png`.
+
+| What | Where |
+| --- | --- |
+| `StageCard` and the two views moved out of stage select into the kit as `StagePicker` (cards, preview, words, remembered view); stage select keeps its keys and the match start | `ui/ui_kit.gd`, `ui/stage_select.gd` |
+| The lobby in two steps: the fighters as before (no stage row), then the stage picker under a top bar with the match (both fighters in their players' colours), each player's line beside a chip in their colour, the friend's stage badged with their name on its card | `ui/net_lobby.gd` |
+| The lobby knows the player's slot (colours); a controller's Y switches the view in the lobby | `scripts/main.gd` |
+| The capture photographs both steps and both views and puts the player's view back | `tests/lobby_shot.gd` |
+
+The rules are unchanged: lock a fighter, then a stage, Esc takes the last lock back; the same `changed` signal and `net_lobby_set`, no wire
+or sim change. No Random card in the lobby: the friend sees the very stage this player would fight on, and a random pick would need a
+draw the friend cannot see. With five cards the preview row keeps stage select's card width, centred (wider cards ran into the key bar).
+The lines were shortened to fit beside the stages ("Ready on Flat Island!"; "Ready! Esc to change.").
+
+Checked: `tests/online_flow_test.gd` (two players through the bridge: the stage step shows a card per stage, the friend's stage badged,
+the focused card is the stage sent, both locks) and the other UI tests (select grid, controls, pause, creator flow, editor UI, match
+flow, input e2e, stage select). `tests/runner_test.gd` failed once on "a coin picked up is gone" and passed on a re-run (timing; the run
+mode does not use the lobby or the stage cards). Not checked: the mouse on the lobby's cards, a real controller's Y, two real machines.

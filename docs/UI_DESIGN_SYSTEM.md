@@ -80,7 +80,8 @@ Destinations show one description line for the focused one (bottom centre, `TYPE
 
 `Backdrop` (the daylight ground behind every screen; `dim` cools it a step for dense screens, `warm` leans it toward peach), `ScreenTitle`, `TopBar` (an ink bar with the screen's name and, at the right, what it is for), `Btn` (lists and main actions), `Tile`
 (the main menu's destinations, with a scene or spotlight), `Tag` (labels, values), `Arrow` (left/right choosers), `KeyBar` (the
-controls for this screen), `notice` (a passing message), `Stage` (a framed fighter preview). A new screen is built from these; a new
+controls for this screen), `notice` (a passing message), `Stage` (a framed fighter preview), `StageCard` and `StagePicker` (stage
+cards with stills in the player's chosen view: stage select and the online lobby). A new screen is built from these; a new
 widget goes into `ui_kit.gd` first, with these rules, not into the screen.
 
 ## Motion
