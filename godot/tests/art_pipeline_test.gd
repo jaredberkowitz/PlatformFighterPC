@@ -93,4 +93,8 @@ func _check_palettes() -> void:
 		StageArt.palette_misses.clear()
 		StageArt.backdrop(root, t, [-11.0, 11.0, 0.0, -6.0])
 		check(StageArt.palette_misses.is_empty(), "%s scenery finds all its colours: missing %s" % [name, StageArt.palette_misses])
+		if name == "city":
+			# The modelled near skyline (art/blender/make_city_towers.py) was built from the layout the city lays out now.
+			check(not root.find_children("skyline_near_*", "MeshInstance3D", true, false).is_empty(),
+				"the modelled city skyline matches the city's layout: re-export and rebuild it (make_city_towers.py)")
 		root.free()

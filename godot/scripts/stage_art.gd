@@ -53,6 +53,16 @@ static func palette(name: String) -> Dictionary:
 			out[section] = d
 	else:
 		push_error("stage palette %s is missing" % name)
+	# (A trial of palette values, `--pal-try=<name>`: the palette's own [try_<name>] section, its keys written "section/key", laid over
+	# the rest, so a mock is a few lines in the palette and shipping one is moving them into place. Fidelity review 6.)
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--pal-try=") and out.has("try_" + arg.substr(10)):
+			var trial: Dictionary = out["try_" + arg.substr(10)]
+			for k: String in trial:
+				var at := k.split("/")
+				if not out.has(at[0]):
+					out[at[0]] = {}
+				(out[at[0]] as Dictionary)[at[1]] = trial[k]
 	_palette_cache[name] = out
 	return out
 
@@ -77,8 +87,44 @@ static func _air(node: Node, z: float) -> void:
 		push_error("stage palette %s has no [air]" % _palette.get("_name", "?"))
 		palette_misses.append("%s/[air]" % _palette.get("_name", "?"))
 		return
-	var k := clampf((absf(z) - float(air.start)) / maxf(float(air.end) - float(air.start), 0.01), 0.0, 1.0)
-	_mute(node, float(air.desat) * k, air.haze, float(air.lift) * k, false)
+	var amount := _air_amount(z)
+	_mute(node, amount.x, air.haze, amount.y, false)
+
+
+## How much air lies over scenery `z` units behind the stage plane, (desat, lift), by the current palette's [air] curve: nothing nearer
+## than `start`, `desat` and `lift` at `end`, and past `end` the lift keeps growing to `far_lift` at `far` (where the palette sets them),
+## so each row of far land and ranges is a step lighter toward the horizon than the row in front (docs/art/STAGE_BACKLOG.md item 1; the
+## stage refinement audit measured the meadow's, grove's and beach's ranges darker than the mid-ground in front of them).
+static func _air_amount(z: float) -> Vector2:
+	var air: Dictionary = _palette.get("air", {})
+	if air.is_empty():
+		return Vector2.ZERO
+	var d := absf(z)
+	var k := clampf((d - float(air.start)) / maxf(float(air.end) - float(air.start), 0.01), 0.0, 1.0)
+	var lift := float(air.lift) * k
+	if air.has("far") and d > float(air.end):
+		var f := clampf((d - float(air.end)) / maxf(float(air.far) - float(air.end), 0.01), 0.0, 1.0)
+		lift = lerpf(float(air.lift), float(air.get("far_lift", air.lift)), f)
+	return Vector2(float(air.desat) * k, lift)
+
+
+## Colour `c` seen through the air at depth `z` (`_air_amount`), for scenery coloured directly rather than through `_air` (land bands,
+## modelled ranges). `desat` false keeps the colour's own saturation and only lifts it toward the haze (the ranges, whose colours were
+## set from the references: greyed, the meadow's teal fell from the camp's 0.48 saturation to 0.34 and read as milky haze).
+static func _air_colour(c: Color, z: float, desat := true) -> Color:
+	var air: Dictionary = _palette.get("air", {})
+	if air.is_empty():
+		return c
+	var amount := _air_amount(z)
+	var grey := c.r * 0.299 + c.g * 0.587 + c.b * 0.114
+	if not desat:
+		# (Toward a light tint of its own hue at the haze's brightness: lifted toward the pale haze itself, it still greyed.)
+		# (A palette's [air] `range_tint` takes that tint toward the haze's own hue instead, 0 to 1: the canyon's cooler dusk mocks, where
+		# the far dunes should recede into lilac air, 2026-10-20.)
+		var haze: Color = air.haze
+		var own := Color.from_hsv(c.h, c.s * 0.85, maxf(c.v, haze.v), c.a)
+		return c.lerp(own.lerp(Color(haze, c.a), float(air.get("range_tint", 0.0))), amount.y)
+	return c.lerp(Color(grey, grey, grey, c.a), amount.x).lerp(Color(air.haze as Color, c.a), amount.y)
 
 
 
@@ -116,6 +162,15 @@ static func sky(t: Dictionary) -> Sky:
 	if t.has("sky_wisps"):
 		mat.set_shader_parameter("wisp_color", t.sky_wisps[0])
 		mat.set_shader_parameter("wisp_amount", t.sky_wisps[1])
+	# (Where the middle tint and the top are reached, `sky_bands`, and where the glow sits and how far it reaches, `glow_height` [centre, reach, full below the centre]: the city's sky, fidelity
+	# review 6, where the cameras see only the sky from about 0.03 to 0.09 up, so its whole gradient has to happen there.)
+	if t.has("sky_bands"):
+		mat.set_shader_parameter("mid_at", float(t.sky_bands[0]))
+		mat.set_shader_parameter("top_at", float(t.sky_bands[1]))
+	if t.has("glow_height"):
+		mat.set_shader_parameter("glow_at", float(t.glow_height[0]))
+		mat.set_shader_parameter("glow_height", float(t.glow_height[1]))
+		mat.set_shader_parameter("glow_below", (t.glow_height as Array).size() > 2 and bool(t.glow_height[2]))
 	# The sky answering the sun (the theme's `sun_at`, where its sun is drawn, or `sun_dir`; `sun_side`, `halo`): the judge's round 41.
 	if t.has("sun_at") or t.has("sun_dir"):
 		var dir: Vector3 = (t.sun_at - SKY_EYE).normalized() if t.has("sun_at") else (t.sun_dir as Vector3).normalized()
@@ -123,6 +178,24 @@ static func sky(t: Dictionary) -> Sky:
 		mat.set_shader_parameter("glow_dir", dir)
 		mat.set_shader_parameter("sun_side", float(t.get("sun_side", 0.0)))
 		mat.set_shader_parameter("halo", float(t.get("halo", 0.0)))
+	# The sky pass (fidelity review 5): the palette's `sky_look`, or `--sky-look=T|A|B|C` to compare (see sky.gdshader `look`). The clouds
+	# and the haze band from the sky's own colours: lit toward the horizon's light, shaded toward the sky above, the haze a pale step of
+	# the horizon; on a night sky the clouds take the city's glow underneath.
+	var look := int(t.get("sky_look", 0))
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--sky-look="):
+			look = {"T": 0, "A": 1, "B": 2, "C": 3}.get(arg.substr(11), look)
+	mat.set_shader_parameter("look", look)
+	var is_night := top.get_luminance() < 0.15
+	var glow: Color = t.sky_glow[0] if t.has("sky_glow") else horizon
+	mat.set_shader_parameter("night", is_night)
+	mat.set_shader_parameter("haze_band", horizon.lerp(Color(1, 1, 1), 0.25 if not is_night else 0.05))
+	if is_night:
+		mat.set_shader_parameter("cloud_lit", horizon.lerp(glow, 0.5).lightened(0.12))
+		mat.set_shader_parameter("cloud_shade", top.lerp(horizon, 0.35))
+	else:
+		mat.set_shader_parameter("cloud_lit", horizon.lerp(Color(1, 1, 1), 0.6))
+		mat.set_shader_parameter("cloud_shade", (t.get("sky_mid", top.lerp(horizon, 0.5)) as Color).lerp(horizon, 0.45).darkened(0.06))
 	var s := Sky.new()
 	s.sky_material = mat
 	return s
@@ -279,6 +352,8 @@ static func _facade_windows(parent: Node3D, left: float, right: float, top: floa
 		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON if kind in ["stone", "ledge", "frame", "tube", "ac", "pipe"] \
 			else GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		mi.name = "facade_" + kind
+		# (A modelled city front, art/blender/make_city_front.py, replaces it.)
+		mi.set_meta("code_front", true)
 		parent.add_child(mi)
 
 
@@ -959,6 +1034,103 @@ static func _faceted_ledge(parent: Node3D, left: float, right: float, top: float
 ## falling into shade below the top as the fronts do (`fall`, the stage's top).
 ## True while the stage view lays a whole stage's blocks: a quilted theme then leaves its blocks' fronts to `quilted_island`.
 static var island_mode := false
+## True while a stage is built with a modelled front (`StageBake.FRONTS`): the island's keel, skirt and roots are the model's, so
+## `underside` leaves them out.
+static var front_modelled := false
+## True while a stage is built with modelled trees (StageBake.TREES, or `--tree-mock=`; StageBake.place_trees): `_tree` builds nothing
+## (its random numbers still drawn, so nothing else moves) and records where each tree stands in `tree_slots` ([base, size]).
+static var tree_mock := false
+## The meadow pilot's paper props to try (`--prop-mock=<glb>`, art/blender/make_paper_props.py; fidelity review 3's idea 1), set by
+## StageView while it builds the scenery: each prop builder hands its place to the matching `prop_<name>` in it. Null otherwise.
+static var paper_kit: Node3D = null
+## The paper houses (art/blender/make_paper_houses.py, `StageBake.house_kit`): `_cottage` and `_barn` hand their places to them, at true
+## size; the towns' houses take their types in turn (`_house_n`, so no random numbers are drawn).
+static var house_kit: Node3D = null
+static var _house_n := 0
+const TOWN_TYPES := ["cottage", "townhouse", "cottage", "longhouse", "townhouse", "cottage"]
+## The paper props' colours by family (`<family>_back` a step darker); `tint` in `_paper` overrides one (a rock's stage colour, a petal).
+const PAPER_COLOURS := {"straw": Color(0.98, 0.84, 0.46), "straw_end": Color(0.9, 0.74, 0.4), "band": Color(0.66, 0.46, 0.28),
+	"wood": Color(0.74, 0.52, 0.32), "wood_light": Color(0.9, 0.72, 0.48), "wood_dark": Color(0.55, 0.36, 0.22),
+	"stone": Color(0.74, 0.72, 0.8), "stone_light": Color(0.86, 0.85, 0.92), "petal": Color(1, 0.6, 0.65), "heart": Color(1, 0.85, 0.3),
+	"stem": Color(0.4, 0.68, 0.34),
+	# (The other stages' props, as their built ones were coloured.)
+	"stalk": Color(0.98, 0.94, 0.86), "cap": Color(0.95, 0.5, 0.6), "gill": Color(0.9, 0.84, 0.76), "spot": Color(1.0, 0.97, 0.95),
+	"bark": Color(0.6, 0.42, 0.28), "ring_top": Color(0.94, 0.8, 0.58), "crate": Color(0.86, 0.66, 0.42), "crate_dark": Color(0.68, 0.48, 0.3),
+	"iron": Color(0.36, 0.34, 0.42), "glow": Color(1.0, 0.8, 0.5), "red": Color(1.0, 0.45, 0.42), "white": Color(0.98, 0.96, 0.92),
+	"pot": Color(0.86, 0.5, 0.42), "leaf": Color(0.4, 0.72, 0.5), "cactus": Color(0.3, 0.6, 0.36), "tank": Color(0.62, 0.32, 0.26),
+	"tank_dark": Color(0.4, 0.28, 0.22), "metal": Color(0.66, 0.68, 0.76), "metal_dark": Color(0.45, 0.47, 0.55),
+	# (The paper houses; `roof`, its edges and `wall` take each house's own colours.)
+	"wall": Color(0.98, 0.93, 0.82), "roof": Color(0.8, 0.36, 0.3), "roof_edge": Color(0.92, 0.58, 0.5), "roof_score": Color(0.6, 0.26, 0.22),
+	"trim": Color(0.56, 0.38, 0.26), "timber": Color(0.42, 0.28, 0.2), "door": Color(0.5, 0.32, 0.22), "shutter": Color(0.36, 0.52, 0.6),
+	"barn": Color(0.78, 0.26, 0.22), "barn_door": Color(0.62, 0.2, 0.18), "barn_trim": Color(0.98, 0.95, 0.9), "shadow": Color(0.24, 0.16, 0.14),
+	# (The houses at the characters' proportions, make_paper_houses_v2.py: daylight glass, the doors' plank seams and knobs.)
+	"glass": Color(0.36, 0.6, 0.86), "door_seam": Color(0.36, 0.24, 0.16), "knob": Color(0.92, 0.9, 0.86),
+	# (The detail pass, 2026-10-22: the door lanterns.)
+	"lamp": Color(1.0, 0.86, 0.5),
+	# (The beach's harbour buildings in the house kit, 2026-10-22: the bell, the stalls' awnings, the fisherman's net.)
+	"bell": Color(0.86, 0.66, 0.3), "awning": Color(0.92, 0.3, 0.28), "awning_b": Color(0.98, 0.95, 0.9), "net": Color(0.36, 0.52, 0.5)}
+## Paper prop families drawn in their own light, not the stage's (a lamp's lantern).
+const PAPER_LIT := ["glow"]
+
+
+## The paper kit's prop where it has one, else the modelled prop (`_place_prop`), `size` and `turn` as that takes them.
+static func _paper_or_prop(root: Node3D, prop_name: String, at: Vector3, size: float, turn: float) -> void:
+	if not _paper(root, prop_name, Transform3D(Basis(Vector3.UP, deg_to_rad(turn)).scaled(Vector3.ONE * size), at)):
+		_place_prop(root, prop_name, at, size, turn)
+
+
+## Places the paper kit's `prop_<prop_name>` at `xf` (see `paper_kit`), each part in the toon material of its family's colour with its
+## own baked occlusion; false without a kit or that prop, so the caller builds its own.
+static func _paper(root: Node3D, prop_name: String, xf: Transform3D, tint := {}, kit: Node3D = null) -> bool:
+	if kit == null:
+		kit = paper_kit
+	if kit == null:
+		return false
+	var src := kit.find_child("prop_" + prop_name, true, false) as Node3D
+	if src == null:
+		return false
+	var copy := src.duplicate() as Node3D
+	copy.transform = xf
+	copy.set_meta("paper_prop", true)
+	root.add_child(copy)
+	for mi: MeshInstance3D in copy.find_children("*", "MeshInstance3D", true, false):
+		var m0 := mi.mesh.surface_get_material(0)
+		var fam := (m0.resource_name if m0 != null else "wood").get_slice(".", 0)
+		var base := fam.trim_suffix("_back")
+		var colour: Color = tint.get(base, PAPER_COLOURS.get(base, Color(0.7, 0.7, 0.7)))
+		if fam.ends_with("_back"):
+			colour = colour.darkened(0.25)
+		mi.set_meta("family", fam)
+		if PAPER_LIT.has(base):
+			mi.material_override = _unshaded(colour)
+			continue
+		var m := FighterView.toon(colour, true).duplicate() as ShaderMaterial
+		m.set_shader_parameter("vertex_shade", true)
+		mi.material_override = m
+		mi.set_meta("family", fam)
+	return true
+static var tree_slots: Array = []
+## True while the grove is built with a modelled ground (StageBake.GROUNDS, or `--ground-mock=`; StageBake.place_ground): its hill
+## rows, rise, forest canopy and far tree line are built into a node that is thrown away (their random numbers still drawn, so nothing
+## else moves), and its bushes likewise, each recorded in `bush_slots` ([position, size, turn]) for the modelled bush.
+static var ground_mock := false
+static var bush_slots: Array = []
+## Where the meadow's pine clusters stand ([base, size, turn]), set by `_meadow` (for the ground export, art/blender/make_meadow_ground.py).
+## With a modelled ground (`ground_mock`) the clusters are not built and these go to `bush_slots`, for the modelled pines.
+static var pine_slots: Array = []
+## The beach's islands [centre, sand mound's size, green mound's size] and the harbour headland's hills [row, centre, size] (half-axes
+## of their domes), set by `_ocean` (for the ground export, art/blender/make_beach_ground.py).
+static var island_specs: Array = []
+## The canyon's buttes [bounds, far row] and its arch [bounds], set by `_sunset` (for the ground export).
+static var mesa_specs: Array = []
+static var arch_spec: Array = []
+## The painted ridges built by `backdrop` ([mesh, its RIDGES entry]), for the ground export.
+static var ridge_nodes: Array = []
+static var headland_specs: Array = []
+## The meadow hill's wall [left, right, foot, front], set by `_meadow_hill` (for the ground export).
+static var hill_spec: Array = []
+## The meadow farm's span across the valley [left, right], set by `_fields`.
+static var farm_span: Array = []
 
 
 ## The grove's island as one rounded quilted hull over all its solid blocks (`rects` from the sim, as the stage view has them), its
@@ -1145,7 +1317,8 @@ static func solid_block(parent: Node3D, t: Dictionary, left: float, right: float
 		# (The mortar a dark grey-brown, art review 9: the red earth tile between the stones read as brick.)
 		# (Not too dark, gauntlet round 4's greyscale test: near-black joints round pale stones made the wall the most contrasty, busiest
 		# thing on screen, right under the fight.)
-		body.material_override = FighterView.toon(Color(0.2, 0.27, 0.23) if t.name == "meadow" else Color(0.4, 0.36, 0.34))
+		# (The meadow's body behind its ledge a step under the ledge's own colour, as the other ledged fronts are, stage refinement pass 2.)
+		body.material_override = FighterView.toon((t.ledge as Color).darkened(0.35) if t.name == "meadow" else Color(0.4, 0.36, 0.34))
 		var field := t.duplicate()
 		# (Warm fieldstone, a step darker than the lawn is light, so the wall sits under the field instead of outshining it.)
 		# (A step deeper, round 33: the upper courses matched the lawn's value, so the front did not sit under the top.)
@@ -1182,7 +1355,9 @@ static func solid_block(parent: Node3D, t: Dictionary, left: float, right: float
 	# A soft shadow on the front just under the cap, where its overhang keeps the light off: it makes the edge of the fighting surface
 	# read at a glance.
 	var cap_depth := {"roof": 0.42, "sand": 0.5}.get(t.get("cap", "grass"), 0.62) as float
-	_mesh(parent, _shade_band(w + 0.2, 0.9), _band_material(), Vector3(cx, top - cap_depth - 0.45, front_z + 0.012))
+	var band := _mesh(parent, _shade_band(w + 0.2, 0.9), _band_material(), Vector3(cx, top - cap_depth - 0.45, front_z + 0.012))
+	if t.get("pattern", "") == "facade":
+		band.set_meta("code_front", true)
 	_ledges_and_buttresses(parent, t, left, right, top, bottom, front_z, cap_depth)
 	match t.get("cap", "grass"):
 		"roof":
@@ -1317,10 +1492,13 @@ static func solid_block(parent: Node3D, t: Dictionary, left: float, right: float
 			# (On the quilted island a thick rolling mat overhanging the rim, the judge's round 40 and the owner's grove reference: a lush
 			# grass top whose edge curls over in a deep, soft lip.)
 			var lip_r := cap_h * (1.5 if t.has("quilt") else 0.62)
-			var lip := _edge_lip(parent, left - 0.125, right + 0.125, top - cap_h * 0.55 - (0.6 if t.has("quilt") else 0.0),
-				front_z + (0.3 if t.has("quilt") else 0.02), lip_r, grass)
-			lip.name = "lip"
-			if t.has("quilt"):
+			# (No lip over a modelled front, the owner, 2026-10-20: the thick rolled turf drew the eye from the fighters and read as a
+			# separate piece on the modelled roots and stones; the front's own moss fringe meets the lawn's edge instead.)
+			if not front_modelled:
+				var lip := _edge_lip(parent, left - 0.125, right + 0.125, top - cap_h * 0.55 - (0.6 if t.has("quilt") else 0.0),
+					front_z + (0.3 if t.has("quilt") else 0.02), lip_r, grass)
+				lip.name = "lip"
+			if t.has("quilt") and not front_modelled:
 				# (The underside of the curl in a deep green, the judge's round 41: lime all round, the thick lip read as a cushion, not turf
 				# rolling over and falling into its own shade.)
 				var under := (FighterView.toon((t.grass as Color).darkened(0.42), false) as ShaderMaterial).duplicate() as ShaderMaterial
@@ -1348,10 +1526,11 @@ static func solid_block(parent: Node3D, t: Dictionary, left: float, right: float
 				# tongues read as blobs and left the lip a ruled line; a tuft breaks it with blades.)
 				# (The turf tongues stay, the drooping overhang: replaced by tufts the grove's lip went ruler-straight, the gauntlet's round 7.)
 				# (Not on the quilted island, the owner, 2026-10-19: smooth dangling blobs from an older pass; its rim is one fuller rounded lip.)
-				if not t.has("quilt"):
+				# (Nor over a modelled front, which hangs its own grass over its top: with the lip gone the tongues showed as a dark strip.)
+				if not t.has("quilt") and not front_modelled:
 					_mesh(parent, tuft_mesh, grass, Vector3(x, top - cap_h + 0.1 - 0.17 * k * hang, front_z + 0.2 + own.randf_range(-0.04, 0.04)),
 						Vector3(1.2 * wide, 0.8 * hang, 0.6) * k)
-				if rng.randf() < 0.22:
+				if rng.randf() < 0.22 and not front_modelled:
 					_mesh(parent, _sphere(0.16, 6), stone, Vector3(x + 0.5, top - cap_h - 0.3, front_z + 0.12), Vector3(1.3, 0.8, 0.7))
 				x += rng.randf_range(0.8, 1.6) * 0.62
 			# Grass tufts growing from the lip (art/blender/make_props.py `grass_tuft`, the gauntlet's round 6) in clusters of three to five with
@@ -1396,7 +1575,7 @@ static func _ledges_and_buttresses(parent: Node3D, t: Dictionary, left: float, r
 		if city:
 			# A metal corner cap over the ledge: a bracket down the corner and a bright cap on top.
 			var steel := FighterView.respond(FighterView.toon(Color(0.62, 0.64, 0.74)), "metal")
-			_mesh(parent, _box(Vector3(0.34, 0.9, 0.34)), steel, Vector3(edge_x - side * 0.08, top - 0.55, front_z + 0.1))
+			_mesh(parent, _box(Vector3(0.34, 0.9, 0.34)), steel, Vector3(edge_x - side * 0.08, top - 0.55, front_z + 0.1)).set_meta("code_front", true)
 			_mesh(parent, _box(Vector3(0.44, 0.14, 0.44)), steel, Vector3(edge_x - side * 0.08, top - 0.1, front_z + 0.12))
 			continue
 		# The corner stone: a squat, slightly turned block, a hair proud of the front and the side.
@@ -1504,7 +1683,13 @@ static func platform(parent: Node3D, t: Dictionary, left: float, right: float, t
 			rivet_st.append_from(rivet_mesh, 0, Transform3D(Basis.IDENTITY.scaled(Vector3(1.0, 1.0, 0.55)), Vector3(x, top - 0.4, front_z - 0.21)))
 			x += 0.7
 		_mesh(parent, rivet_st.commit(), rivet, Vector3.ZERO)
-		_scaffold(parent, left, right, top - 0.75, front_z, depth)
+		var scaffold_from := parent.get_child_count()
+		# (Its steel from this theme's own palette: the platforms are built before the backdrop sets the current one.)
+		var steel_c: Color = (palette(String(t.get("name", ""))).get("backdrop", {}) as Dictionary).get("scaffold_steel", Color(0.62, 0.64, 0.72))
+		_scaffold(parent, left, right, top - 0.75, front_z, depth, steel_c)
+		# (The scaffold stands under a modelled play area too: it is structure, not what fighters stand on.)
+		for i in range(scaffold_from, parent.get_child_count()):
+			parent.get_child(i).set_meta("keep_play", true)
 		return
 	if t.get("name", "") in ["meadow", "grove"]:
 		_plank_platform(parent, t, left, right, top, front_z, depth)
@@ -1766,6 +1951,7 @@ static func backdrop(root: Node3D, t: Dictionary, stage: Array) -> void:
 			_cloud_keep_out.append(Vector2(front, front - float(spec.height) * 1.1))
 	_palette = palette(t.name).duplicate()
 	_palette["_name"] = t.name
+	_house_n = 0
 	_chunky_hills = false
 	# (Fresh per build: the painted ground shadows live in these materials, `_ground_shadow`.)
 	_band_mats.clear()
@@ -1785,8 +1971,13 @@ static func backdrop(root: Node3D, t: Dictionary, stage: Array) -> void:
 			_meadow(root, t, stage)
 	# Painted ridges far behind everything (shaders/painted_ridge.gdshader), coloured from the theme's own sky so the backdrop, the
 	# stage and the fighters' light share one scheme.
+	ridge_nodes.clear()
 	for spec in RIDGES.get(t.name, []):
-		ridge(root, t, spec)
+		var rm := ridge(root, t, spec)
+		if rm != null:
+			# (Marked, so a modelled far land can stand in for them, StageBake.place_ground; kept for the ground export.)
+			rm.set_meta("ridge", true)
+			ridge_nodes.append([rm, spec])
 	# Fog layers: soft bands of haze in the horizon's colour between the layers of scenery, thickest at the bottom, so each layer sits
 	# further back than the one before (a painted depth, at the cost of a few see-through cards).
 	var haze: Color = (t.sky_horizon as Color).lerp(Color.WHITE, 0.1)
@@ -1909,9 +2100,14 @@ static func _props(root: Node3D, theme_name: String, e: Array) -> void:
 			pool.disable_fog = true
 			var pg := Gradient.new()
 			# (Two clear pools with a firmer edge, round 40: four soft ones ran together into a sheen across the roof.)
-			pg.set_color(0, Color(1.0, 0.86, 0.56, 0.55))
+			# (Brighter and wider with the shaped light, fidelity review 7: the palette's `lamp_pools` [alpha, size], or `--shaped=`.)
+			var lp: Array = (_palette.get("backdrop", {}) as Dictionary).get("lamp_pools", [0.55, 1.0])
+			for arg in OS.get_cmdline_user_args():
+				if arg.begins_with("--shaped="):
+					lp = {"T": [0.55, 1.0], "A": [0.68, 1.25], "B": [0.8, 1.45]}.get(arg.substr(9), lp)
+			pg.set_color(0, Color(1.0, 0.86, 0.56, float(lp[0])))
 			pg.set_color(1, Color(1.0, 0.62, 0.32, 0.0))
-			pg.add_point(0.62, Color(1.0, 0.8, 0.5, 0.45))
+			pg.add_point(0.62, Color(1.0, 0.8, 0.5, float(lp[0]) * 0.82))
 			var pt := GradientTexture2D.new()
 			pt.gradient = pg
 			pt.fill = GradientTexture2D.FILL_RADIAL
@@ -1922,7 +2118,7 @@ static func _props(root: Node3D, theme_name: String, e: Array) -> void:
 				var f := 0.3 + 0.4 * k
 				var px := lerpf(l + 3.0, r - 2.5, f)
 				var q := QuadMesh.new()
-				q.size = Vector2(5.0, 3.6)
+				q.size = Vector2(5.0, 3.6) * float(lp[1])
 				q.orientation = PlaneMesh.FACE_Y
 				var pm := _mesh(root, q, pool, Vector3(px, y + 0.07, -3.8))
 				pm.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
@@ -2029,6 +2225,9 @@ const CONTACT_STRENGTH := 0.8
 
 
 static func _hay_bale(root: Node3D, at: Vector3, turn: float) -> void:
+	# (The paper kit's bale lies along x; the built one's ends face the camera.)
+	if _paper(root, "hay_bale", Transform3D(Basis(Vector3.UP, deg_to_rad(turn + 90.0)), at)):
+		return
 	# A round bale lying on its side: a drum whose rim rounds over into flat ends (a lathe, so its strands can run round it), the straw
 	# drawn as strands wrapping the body and as a rolled spiral on each end, tied with two bands of twine. Warm gold, lit and shaded by the
 	# stage's light like any surface, not a flat decal.
@@ -2160,6 +2359,8 @@ static var _straw_cache := {}
 
 
 static func _barrel(root: Node3D, at: Vector3, size: float) -> void:
+	if _paper(root, "barrel", Transform3D(Basis(Vector3.UP, deg_to_rad(float(hash(Vector2i(roundi(at.x * 10.0), roundi(at.z * 10.0))) % 360))).scaled(Vector3.ONE * size), at)):
+		return
 	# (The modelled barrel, art/blender/make_props.py `barrel`, the gauntlet's round 4; the built one below stands in without it.)
 	if _place_prop(root, "barrel", at, size, float(hash(Vector2i(roundi(at.x * 10.0), roundi(at.z * 10.0))) % 360)):
 		return
@@ -2240,6 +2441,8 @@ static var _stave_cache := {}
 
 
 static func _crate(root: Node3D, at: Vector3, size: float, turn: float) -> void:
+	if _paper(root, "crate", Transform3D(Basis(Vector3.UP, deg_to_rad(turn)).scaled(Vector3.ONE * size), at)):
+		return
 	# (The modelled crate, art/blender/make_props.py `crate`, the gauntlet's round 4; the built one below stands in without it.)
 	if _place_prop(root, "crate", at, size, turn):
 		return
@@ -2268,6 +2471,8 @@ static func _crate(root: Node3D, at: Vector3, size: float, turn: float) -> void:
 
 
 static func _signpost(root: Node3D, at: Vector3, points: float) -> void:
+	if _paper(root, "signpost", Transform3D(Basis.from_scale(Vector3(signf(points), 1.0, 1.0)), at)):
+		return
 	_mesh(root, _box(Vector3(0.14, 1.7, 0.14)), Materials.wood(Color(0.74, 0.54, 0.34)), at + Vector3(0, 0.85, 0))
 	var board := Materials.wood(Color(0.9, 0.72, 0.48))
 	_mesh(root, _box(Vector3(1.1, 0.34, 0.08)), board, at + Vector3(points * 0.3, 1.4, 0.08), Vector3.ONE, Vector3(0, 0, -4))
@@ -2283,7 +2488,12 @@ const BEACH_ROCK := Color(0.82, 0.76, 0.68)
 ## beach's warm palettes).
 static func _rock(root: Node3D, at: Vector3, size: float, rng: RandomNumberGenerator, colour := Color(0.74, 0.72, 0.8)) -> void:
 	var s := Vector3(rng.randf_range(1.1, 1.4), rng.randf_range(0.6, 0.8), 1.0) * size
-	_mesh(root, _sphere(1.0, 6), Materials.stone(colour), at + Vector3(0, s.y * 0.7, 0), s, Vector3(0, rng.randf_range(0, 60), rng.randf_range(-8, 8)))
+	var turn := Vector3(0, rng.randf_range(0, 60), rng.randf_range(-8, 8))
+	if _paper(root, "rock", Transform3D(Basis.from_euler(turn * PI / 180.0).scaled(Vector3(s.x / 1.25, s.y * 1.4, size)), at), {"stone": colour}):
+		return
+	# (A folded boulder, a few deep pleats in flat planes, the owner's folded style step 4, 2026-10-20: a six-sided ball under the stone
+	# tile read as a smooth blob.)
+	_puff(root, _pleated_puff(4, 4, 0.34), _faceted(Materials.stone(colour)), at + Vector3(0, s.y * 0.7, 0), s, turn)
 
 
 ## A mushroom: a pale stem under a round cap with white spots, with a tiny idle squash and stretch (see `Squish`).
@@ -2293,6 +2503,8 @@ static func _mushroom(parent: Node3D, at: Vector3, size: float, cap: Color) -> v
 	root.phase = at.x * 1.7
 	parent.add_child(root)
 	at = Vector3.ZERO
+	if _paper(root, "mushroom", Transform3D(Basis(Vector3.UP, deg_to_rad(fmod(root.phase * 57.0, 360.0))).scaled(Vector3.ONE * size), at), {"cap": cap}):
+		return
 	# (The modelled toadstool, art/blender/make_props.py `mushroom`, its cap in this one's colour; the gauntlet's round 10.)
 	var model := Toonify.load_prop("mushroom", true)
 	if model != null:
@@ -2315,6 +2527,8 @@ static func _mushroom(parent: Node3D, at: Vector3, size: float, cap: Color) -> v
 
 
 static func _stump(root: Node3D, at: Vector3) -> void:
+	if _paper(root, "stump", Transform3D(Basis(Vector3.UP, deg_to_rad(20.0)), at)):
+		return
 	# (The modelled stump, art/blender/make_props.py `stump`; the gauntlet's round 10. The built one stands in without it.)
 	if _place_prop(root, "stump", at, 1.0, 20.0):
 		return
@@ -2323,6 +2537,9 @@ static func _stump(root: Node3D, at: Vector3) -> void:
 
 
 static func _lantern_post(root: Node3D, at: Vector3, glow: Color) -> void:
+	if _paper(root, "lamp_post", Transform3D(Basis.IDENTITY, at), {"glow": glow}):
+		_halo(root, at + Vector3(0.58, 1.86, 0.25), glow, 1.3)
+		return
 	# (The modelled lamp post, art/blender/make_props.py `lamp_post`, the gauntlet's round 10: its lantern glows in `glow`.)
 	var model := Toonify.load_prop("lamp_post", true)
 	if model != null:
@@ -2387,6 +2604,8 @@ static func _canopy_mesh(radius: float, height: float, panels: int, parity: int)
 
 
 static func _life_ring(root: Node3D, at: Vector3) -> void:
+	if _paper(root, "life_ring", Transform3D(Basis.IDENTITY, at)):
+		return
 	_mesh(root, _box(Vector3(0.12, 1.6, 0.12)), Materials.wood(Color(0.86, 0.7, 0.5)), at + Vector3(0, 0.8, -0.1))
 	var ring := TorusMesh.new()
 	ring.inner_radius = 0.28
@@ -2402,6 +2621,8 @@ static func _bucket(root: Node3D, at: Vector3, colour: Color) -> void:
 
 
 static func _potted_plant(root: Node3D, at: Vector3) -> void:
+	if _paper(root, "potted_plant", Transform3D(Basis.IDENTITY, at)):
+		return
 	_mesh(root, _cylinder(0.36, 0.26, 0.6, 8), FighterView.toon(Color(0.86, 0.5, 0.42)), at + Vector3(0, 0.3, 0))
 	var leaf := Materials.foliage(Color(0.4, 0.72, 0.5), Vector2(1, 1))
 	for k in 5:
@@ -2410,9 +2631,17 @@ static func _potted_plant(root: Node3D, at: Vector3) -> void:
 
 
 ## A string of little lit bulbs sagging between two points.
-static func _string_lights(root: Node3D, a: Vector3, b: Vector3) -> void:
+## `lamp` the modelled light hung along it (art/blender/make_props.py: "paper_lantern" on the grove, "string_bulb" in the city) with the
+## palette's [backdrop] `string_lights="model"` or `--strings=model` (fidelity review 6: the strings were code-built spheres); without,
+## or without the prop, the code-built bulbs.
+static func _string_lights(root: Node3D, a: Vector3, b: Vector3, lamp := "string_bulb") -> void:
 	var cord := FighterView.toon(Color(0.25, 0.22, 0.3), false)
 	var bulbs := [_unshaded(Color(1.0, 0.86, 0.5)), _unshaded(Color(1.0, 0.6, 0.75)), _unshaded(Color(0.6, 0.9, 1.0))]
+	var modelled := String((_palette.get("backdrop", {}) as Dictionary).get("string_lights", "")) == "model"
+	if OS.get_cmdline_user_args().has("--strings=model"):
+		modelled = true
+	if modelled and Toonify.load_prop(lamp) == null:
+		modelled = false
 	var n := 18
 	var prev := a
 	for k in range(1, n + 1):
@@ -2420,7 +2649,21 @@ static func _string_lights(root: Node3D, a: Vector3, b: Vector3) -> void:
 		var p := a.lerp(b, f) + Vector3(0, -1.2 * sin(f * PI), 0)
 		var seg := _mesh(root, _box(Vector3(0.04, 0.04, prev.distance_to(p))), cord, (prev + p) / 2.0)
 		seg.basis = Basis.looking_at(p - prev, Vector3.UP)
-		if k < n:
+		if k < n and modelled:
+			var glow: Color = (bulbs[k % 3] as StandardMaterial3D).albedo_color
+			# (The grove's lanterns all a warm paper glow, the city's bulbs their three colours.)
+			if lamp == "paper_lantern":
+				glow = [Color(1.0, 0.74, 0.44), Color(1.0, 0.62, 0.5), Color(1.0, 0.82, 0.52)][k % 3]
+			var model := Toonify.load_prop(lamp, true)
+			model.position = p
+			model.rotation.y = float(k) * 0.7
+			root.add_child(model)
+			for mi in model.find_children("*", "MeshInstance3D", true, false):
+				if String(mi.name).begins_with("glow"):
+					(mi as MeshInstance3D).material_override = _unshaded(glow)
+			var drop := 0.42 if lamp == "paper_lantern" else 0.2
+			_halo(root, p + Vector3(0, -drop, 0.2), glow, 0.9 if lamp == "paper_lantern" else 0.5)
+		elif k < n:
 			_mesh(root, _sphere(0.11, 6), bulbs[k % 3], p + Vector3(0, -0.12, 0))
 			_halo(root, p + Vector3(0, -0.12, 0.15), (bulbs[k % 3] as StandardMaterial3D).albedo_color, 0.55)
 		prev = p
@@ -2769,7 +3012,7 @@ const RIDGES := {
 		# (More of its own blue and less haze, art review 6 round 31: at mix 0.55 the ridge was mostly horizon colour, a formless pale band
 		# behind the crisp painted hills; found with `--pick`.)
 		"tone": Color(0.3, 0.62, 0.72), "mix": 0.55, "edge": 0.1, "haze": 0.5,
-		# (Teal, not blue: the owner's Origami King reference sets bright lime ground against cool teal mountains.)
+		# (Teal, not blue: the owner's papercraft reference sets bright lime ground against cool teal mountains.)
 		# (A lit flank and a shaded flank on every peak, as the canyon's mesas have: a flat blue cut-out read as the least finished
 		# thing on the menu; the owner, 2026-10-17, raise the quality of what is there.)
 		"flank": 0.75, "foot_dark": 0.35, "layers": 4, "flank_from": 0.0, "gullies": 0.45, "paper": 0.05, "edge_width": 0.012},
@@ -2820,8 +3063,9 @@ static func ridge(root: Node3D, t: Dictionary, spec: Dictionary) -> MeshInstance
 		# toward the peaks, as the papercraft camp's mountains, the owner's meadow target, 2026-10-19.)
 		var faceted := bool(spec.get("facets", false))
 		# (A spec's own "land_colour", the reference's teal, in place of the horizon mix that read blue-grey.)
-		if spec.has("land_colour"):
-			land.set_shader_parameter("albedo", spec.land_colour)
+		# (Through the air at its depth, `_air_colour`, the stage refinement's pass 1: the ranges took no air, so the near range read
+		# darker than the valley in front of it.)
+		land.set_shader_parameter("albedo", _air_colour(spec.land_colour if spec.has("land_colour") else land_c, float(spec.z), false))
 		if faceted:
 			land.set_shader_parameter("facets", true)
 			land.set_shader_parameter("ramp_softness", 0.1)
@@ -2832,12 +3076,15 @@ static func ridge(root: Node3D, t: Dictionary, spec: Dictionary) -> MeshInstance
 		_place_prop(root, String(spec.model), Vector3(0, float(spec.y) - float(spec.get("land_drop", 0.0)),
 			float(spec.z) + float(spec.height) * 0.55), 1.0, 0.0, land)
 		# (No shadows from it, round 15: at that distance the shadow map is coarse, and its self-shadowing streaked the flanks.)
+		var placed: MeshInstance3D = null
 		for c in root.get_children():
 			if c is GeometryInstance3D and String(c.name) == String(spec.model):
 				(c as GeometryInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 				if faceted:
 					(c as GeometryInstance3D).set_instance_shader_parameter("front_top", float(spec.y) - float(spec.get("land_drop", 0.0)) + float(spec.height) * 0.9)
-		return null
+				if c is MeshInstance3D:
+					placed = c
+		return placed
 	m.set_shader_parameter("top_colour", top)
 	# (A spec's "foot_dark" takes the foot deeper and cooler than the top instead of toward the horizon: a pale foot read as a flat cloud
 	# bank across the mountains.)
@@ -3008,9 +3255,33 @@ static func _soft_dot() -> GradientTexture2D:
 ## Painted cumulus (shaders/cloud.gdshader, lit from the stage's sun): each cloud a heap of lumpy puffs on a flat base, of three kinds
 ## so the sky is not one stamp repeated: a domed heap with smaller puffs piled on its crown, a long low bank, and a tall tower. No ink
 ## outline: they are far, and the haze softens them.
+## The heights the stage's clouds are drawn between, the palette's [backdrop] `cloud_band` [low, high] where it sets one (fidelity review
+## 7: drawn up to 34 on the meadow, half of them were cut by the top of the match camera's frame), else `default`.
+static func _cloud_band(default: Vector2) -> Vector2:
+	var b: Array = (_palette.get("backdrop", {}) as Dictionary).get("cloud_band", [])
+	return Vector2(float(b[0]), float(b[1])) if b.size() == 2 else default
+
+
+## The size of the stage's clouds, the palette's [backdrop] `cloud_scale` (1 as built).
+static func _cloud_scale() -> float:
+	return float((_palette.get("backdrop", {}) as Dictionary).get("cloud_scale", 1.0))
+
+
 static func _clouds(root: Node3D, rng: RandomNumberGenerator, count: int, color: Color, y_range: Vector2, z_range := Vector2(-120, -85),
 		kinds := [0, 1, 2], scale := 1.0, x_range := Vector2(-90, 90), look := {}) -> void:
-	var puff := _sphere(1.0, 32)
+	# The clouds' construction (the palette's [backdrop] `cloud_style`; docs/art/stages/FOLDED_STYLE.md): 0 smooth painted puffs, 1
+	# faceted puffs, 2 folded puffs (pleated from crown to rim like the fold kit's domes), 3 folded with fewer, larger puffs, 4 cut card
+	# (docs/art/stages/BACKGROUNDS.md: flat cumulus cut from thick card, a deeper card behind each, as the papercraft references draw
+	# them; `--cloud-style=4` to try it).
+	var style := int((_palette.get("backdrop", {}) as Dictionary).get("cloud_style", 0))
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("--cloud-style="):
+			style = int(a.substr(14))
+	var puff: Mesh = _sphere(1.0, 32)
+	if style == 1:
+		puff = _sphere(1.0, 10)
+	elif style >= 2:
+		puff = _pleated_puff(9, 7)
 	for k in count:
 		var cloud := Drift.new()
 		cloud.speed = rng.randf_range(0.6, 1.6)
@@ -3025,12 +3296,27 @@ static func _clouds(root: Node3D, rng: RandomNumberGenerator, count: int, color:
 		mat.shader = CLOUD_SHADER
 		mat.set_shader_parameter("colour", color)
 		mat.set_shader_parameter("base_y", cloud.position.y)
+		if style >= 1:
+			# (Not the card's: each triangle of its face shaded on its own read as crinkled shards.)
+			mat.set_shader_parameter("flat_planes", style != 4)
+			mat.set_shader_parameter("lump", 0.0)
 		# (A stage's own exposure and shade depth, `look`: under the beach's noon light the default washed every tone to white.)
 		for key in look:
 			mat.set_shader_parameter(key, look[key])
 		var kind: int = kinds[k % kinds.size()]
 		var size := rng.randf_range(0.7, 1.15) * scale
 		mat.set_shader_parameter("belly_height", 2.2 * size)
+		if style == 4:
+			# Two cards: a deeper one behind, up and to one side, and the cloud's face in front, each a flat cumulus with a scalloped crown.
+			# (The tower kind lower and with more bumps: at three tall lobes it read as a box.)
+			var lobes: int = [5, 7, 4][kind]
+			var cw: float = [11.0, 15.0, 9.0][kind] * size
+			var ch: float = [5.5, 3.8, 6.0][kind] * size
+			var back := _mesh(cloud, _card_cloud(lobes + 1, cw * 1.08, ch * 1.12, rng.randi(), 0.7 * size), mat, Vector3(0.9 * size, 0.7 * size, -1.4 * size))
+			back.set_instance_shader_parameter("heap", Vector3(0.3, -0.6, -0.6))
+			var face := _mesh(cloud, _card_cloud(lobes, cw, ch, rng.randi(), 0.8 * size), mat, Vector3.ZERO)
+			face.set_instance_shader_parameter("heap", Vector3(-0.2, 0.35, 0.5))
+			continue
 		# [puffs, how wide each, how tall the middle, how much the middle rises over the ends]
 		var shape: Array = [[rng.randi_range(5, 7), 2.7, 4.8, 2.4], [rng.randi_range(7, 9), 2.9, 3.2, 1.0], [rng.randi_range(4, 5), 2.3, 6.2, 3.4]][kind]
 		var puffs: int = shape[0]
@@ -3045,7 +3331,12 @@ static func _clouds(root: Node3D, rng: RandomNumberGenerator, count: int, color:
 			# Taller toward the middle, so the heap domes; every puff sits on the same base line.
 			var r := (float(shape[2]) - absf(u) * float(shape[3])) * size * rng.randf_range(0.85, 1.15)
 			var at := Vector3(u * span * 0.5 + rng.randf_range(-0.4, 0.4), r * 0.55, rng.randf_range(-1.5, 1.5))
-			var mi := _mesh(cloud, puff, mat, at, Vector3(r, r * 0.85, r * 0.8))
+			# (Style 3: every other puff left out and the rest larger, from the same random numbers, so the layout stays put.)
+			if style == 3 and b % 2 == 1 and b != puffs - 1:
+				crowns.append([at, r, true])
+				continue
+			var rs := r * (1.3 if style == 3 else 1.0)
+			var mi := _mesh(cloud, puff, mat, at, Vector3(rs, rs * 0.85, rs * 0.8))
 			mi.set_instance_shader_parameter("heap", (at - Vector3(0, mid_y, 0)) / half)
 			crowns.append([at, r])
 		# Smaller puffs piled on the crown of a heap or a tower (the cauliflower top of a summer cumulus).
@@ -3053,6 +3344,8 @@ static func _clouds(root: Node3D, rng: RandomNumberGenerator, count: int, color:
 			for c in crowns.slice(1, crowns.size() - 1):
 				var r2: float = float(c[1]) * rng.randf_range(0.45, 0.6)
 				var at2: Vector3 = c[0] + Vector3(rng.randf_range(-0.6, 0.6), float(c[1]) * 0.62, rng.randf_range(0.2, 1.0))
+				if c.size() > 2:
+					continue
 				var mc := _mesh(cloud, puff, mat, at2, Vector3(r2, r2 * 0.9, r2 * 0.85))
 				mc.set_instance_shader_parameter("heap", (at2 - Vector3(0, mid_y, 0)) / half + Vector3(0, 0.4, 0))
 		# The flat base: a wide squashed puff under them all.
@@ -3060,13 +3353,137 @@ static func _clouds(root: Node3D, rng: RandomNumberGenerator, count: int, color:
 		mb.set_instance_shader_parameter("heap", Vector3(0, -0.8, 0))
 
 
-static func _birds(root: Node3D, rng: RandomNumberGenerator, colour: Color) -> void:
+## A cumulus cut from card (cloud style 4): a flat base and a crown of `lobes` round bumps, tallest in the middle, `depth` thick, its face
+## toward the camera; built from `seed` so each cloud is its own shape.
+static func _card_cloud(lobes: int, width: float, height: float, seed: int, depth: float) -> ArrayMesh:
+	var r := RandomNumberGenerator.new()
+	r.seed = seed
+	var outline := PackedVector2Array()
+	outline.append(Vector2(-width * 0.5, 0.0))
+	for k in lobes:
+		var u0 := float(k) / lobes
+		var u1 := float(k + 1) / lobes
+		var mid := (u0 + u1) * 0.5
+		var lift := height * (0.55 + 0.45 * sin(mid * PI)) * r.randf_range(0.85, 1.1)
+		var rad := (u1 - u0) * width * 0.62
+		var cx := -width * 0.5 + mid * width
+		for j in 9:
+			var a := PI - PI * j / 8.0
+			outline.append(Vector2(cx + cos(a) * rad, maxf(lift - rad + sin(a) * rad, 0.0)))
+	outline.append(Vector2(width * 0.5, 0.0))
+	# (The base a gentle belly, not a ruler line.)
+	for j in range(1, 8):
+		var u := 1.0 - j / 8.0
+		outline.append(Vector2(-width * 0.5 + u * width, -0.35 * height * 0.1 * sin(u * PI)))
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var centre := Vector2(0.0, height * 0.32)
+	var n := outline.size()
+	for z_side: float in [depth * 0.5, -depth * 0.5]:
+		var normal := Vector3(0, 0, signf(z_side))
+		for i in n:
+			var a := outline[i]
+			var b := outline[(i + 1) % n]
+			var tri := [centre, a, b] if z_side < 0.0 else [centre, b, a]
+			for v: Vector2 in tri:
+				st.set_normal(normal)
+				st.add_vertex(Vector3(v.x, v.y, z_side))
+	for i in n:
+		var a := outline[i]
+		var b := outline[(i + 1) % n]
+		var side := Vector3(b.y - a.y, -(b.x - a.x), 0.0).normalized()
+		for v: Vector3 in [Vector3(a.x, a.y, depth * 0.5), Vector3(b.x, b.y, depth * 0.5), Vector3(b.x, b.y, -depth * 0.5),
+				Vector3(a.x, a.y, depth * 0.5), Vector3(b.x, b.y, -depth * 0.5), Vector3(a.x, a.y, -depth * 0.5)]:
+			st.set_normal(side)
+			st.add_vertex(v)
+	return st.commit()
+
+
+## A cloud puff folded like the fold kit's domes (art/blender/fold_kit.py `folded_dome`): a unit ball whose surface is pleated in and out
+## from its crown down, `pleats` folds round it and `rings` bands from top to bottom, the folds deepest round its widest and lower half
+## and fading toward the top, each panel its own plane (the cloud shader shades it flat).
+static func _pleated_puff(pleats: int, rings: int, depth := 0.42) -> ArrayMesh:
+	var key := Vector3i(pleats, rings, roundi(depth * 100.0))
+	if _puff_cache.has(key):
+		return _puff_cache[key]
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var n := pleats * 2
+	var pts: Array = []
+	for i in rings + 1:
+		var th := PI * float(i) / rings
+		var row: Array = []
+		for j in n:
+			var ph := TAU * float(j) / n
+			var deep := depth * smoothstep(0.12, 0.55, th / PI) * float(j % 2)
+			var rad := sin(th) * (1.0 - deep)
+			row.append(Vector3(cos(ph) * rad, cos(th), sin(ph) * rad))
+		pts.append(row)
+	# (No zero-area triangles at the poles, where a ring shrinks to a point, and normals set from the ball, not generated: a degenerate
+	# triangle's generated normal is NaN, and hundreds of hedge clumps spread NaN through the glow pass over the whole meadow.)
+	for i in rings:
+		for j in n:
+			var a: Vector3 = pts[i][j]
+			var b: Vector3 = pts[i][(j + 1) % n]
+			var c: Vector3 = pts[i + 1][(j + 1) % n]
+			var d: Vector3 = pts[i + 1][j]
+			# (With UVs round and down the ball, as a sphere has: without them a tiled material, the hedges' leaves, sampled one pale texel.)
+			var ua := Vector2(float(j) / n, float(i) / rings)
+			var ub := Vector2(float(j + 1) / n, float(i) / rings)
+			var uc := Vector2(float(j + 1) / n, float(i + 1) / rings)
+			var ud := Vector2(float(j) / n, float(i + 1) / rings)
+			for tri in [[a, c, b, ua, uc, ub], [a, d, c, ua, ud, uc]]:
+				if ((tri[1] as Vector3) - (tri[0] as Vector3)).cross((tri[2] as Vector3) - (tri[0] as Vector3)).length_squared() < 1e-10:
+					continue
+				for q in 3:
+					var v: Vector3 = tri[q]
+					st.set_normal(v.normalized() if v.length_squared() > 1e-8 else Vector3.UP)
+					st.set_uv(tri[q + 3])
+					st.add_vertex(v)
+	# (Tangents as a sphere has: the leaf material reads them, and without them half the hedge clumps rendered see-through.)
+	st.generate_tangents()
+	var mesh := st.commit()
+	_puff_cache[key] = mesh
+	return mesh
+
+
+static var _puff_cache := {}
+
+
+## A copy of material `m` shaded in flat planes (the toon shader's `facets`), for the folded small things (FOLDED_STYLE.md step 4).
+static func _faceted(m: Material) -> Material:
+	# (One copy per source material, so the things that share it still merge into one mesh, `merge_static`.)
+	var key := m.get_instance_id()
+	if _faceted_cache.has(key):
+		return _faceted_cache[key]
+	var f := (m as ShaderMaterial).duplicate() as ShaderMaterial
+	f.set_shader_parameter("facets", true)
+	_faceted_cache[key] = f
+	return f
+
+
+static var _faceted_cache := {}
+
+
+## Places a folded small thing (`_pleated_puff`) as `_mesh` does, marked so `merge_static` merges it with the rest of its material:
+## hundreds of separate hedge clumps overflowed the renderer's per-instance shader buffer and painted the meadow in garbage.
+static func _puff(parent: Node3D, mesh: Mesh, mat: Material, pos: Vector3, scl := Vector3.ONE, rot := Vector3.ZERO) -> MeshInstance3D:
+	var mi := _mesh(parent, mesh, mat, pos, scl, rot)
+	mi.set_meta("prop", true)
+	return mi
+
+
+## No longer placed (the owner's rule, 2026-10-21: no animals in the stage backgrounds; these flocks were missed when the world-building's
+## were taken out, the believability pass, 2026-10-22). Their random numbers are still drawn, so nothing after them on the stage moves.
+static func _birds(_root: Node3D, rng: RandomNumberGenerator, _colour: Color) -> void:
 	for k in 2:
-		var flock := Flock.new()
-		flock.position = Vector3(rng.randf_range(-100, 60), rng.randf_range(16, 30), rng.randf_range(-75, -60))
-		flock.speed = rng.randf_range(3.0, 5.5)
-		root.add_child(flock)
-		flock.build(rng.randi_range(3, 5), colour, rng)
+		# (The draws a flock made: its place, its speed, its count, and three for each bird, `Flock.build`.)
+		for d in 4:
+			rng.randf()
+		for bird in rng.randi_range(3, 5):
+			rng.randf_range(-0.5, 0.5)
+			rng.randf_range(-0.4, 0.4)
+			rng.randf()
 
 
 ## Rolling hills in two rows (a nearer one at z -72 and a farther one at -100), each one continuous piece of land: round hilltops (each
@@ -3117,6 +3534,8 @@ static func _land_top(bumps: Array, floor_y: float, x: float) -> float:
 ## camp's faceted hills, the owner's meadow target, 2026-10-19); no painted blades then, the planes carry the form.
 static func _land_band(root: Node3D, bumps: Array, floor_y: float, z: float, colour: Color, step := 2.0, roll := 1.0, profile: Array = ROLL_PROFILE,
 		chunky := 0.0) -> void:
+	# (Through the air at its depth, as the trees and houses on it are: unaired, the far hill row read darker than the valley before it.)
+	colour = _air_colour(colour, z)
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
 	# The cross-section, back to front: [drop below the crest, depth from z]. With `roll` the land is a rounded ridge: it rolls away
@@ -3130,6 +3549,11 @@ static func _land_band(root: Node3D, bumps: Array, floor_y: float, z: float, col
 		for d in [0.0, 0.4, 1.2, 2.6, 5.0, 9.0, 18.0, 40.0, 90.0, 180.0]:
 			rows.append([d, 0.0])
 	var cols: Array = []
+	# Folds (the palette's [backdrop] `hill_fold`, a share of `step`; docs/art/stages/FOLDED_STYLE.md): every other column of the face
+	# stands proud and the ones between sink, growing from the crest down, so the land runs in ridges and creases like the ranges behind
+	# it. Steep enough that a fold's far side turns out of the stage's lit cel band; shallow folds light both sides alike and vanish.
+	var fold := float((_palette.get("backdrop", {}) as Dictionary).get("hill_fold", 0.0)) if roll > 0.0 else 0.0
+	_last_fold = [rows, step, fold]
 	var x := -240.0
 	while x <= 240.0:
 		var top := _land_top(bumps, floor_y, x)
@@ -3137,7 +3561,8 @@ static func _land_band(root: Node3D, bumps: Array, floor_y: float, z: float, col
 		for ri in rows.size():
 			var r: Array = rows[ri]
 			var v := Vector3(x, top - float(r[0]), z + float(r[1]))
-			if chunky > 0.0 and ri > 0:
+			v += _fold_offset(x, ri, rows, step, fold)
+			if chunky > 0.0 and ri > 0 and not bool((_palette.get("backdrop", {}) as Dictionary).get("hill_fold_clean", false)):
 				var own := RandomNumberGenerator.new()
 				own.seed = hash(Vector3i(roundi(x * 10.0), ri, roundi(z)))
 				v += Vector3(own.randf_range(-0.3, 0.3) * step, own.randf_range(-0.5, 0.5) * (0.4 + 0.12 * float(ri)), own.randf_range(-0.6, 0.6)) * chunky
@@ -3161,6 +3586,53 @@ static func _land_band(root: Node3D, bumps: Array, floor_y: float, z: float, col
 		land.set_shader_parameter("blades", 0.7)
 		land.set_shader_parameter("blade_scale", clampf(-z / 22.0, 1.5, 5.0))
 	_mesh(root, st.commit(), land, Vector3.ZERO)
+
+
+## The fold `_land_band` gives a vertex at column `x` and cross-section row `ri` of `rows` (columns `step` apart, `fold` a share of it):
+## every other column stands proud along the surface's own normal and the ones between sink, growing in a few units under the crest. Things laid
+## on the land use `_fold_at`, so they follow the same folds (docs/art/stages/FOLDED_STYLE.md).
+static func _fold_offset(x: float, ri: int, rows: Array, step: float, fold: float) -> Vector3:
+	var r: Array = rows[ri]
+	if fold <= 0.0 or float(r[1]) <= 0.0:
+		return Vector3.ZERO
+	var c := (x + 240.0) / step
+	var c0 := floori(c + 0.0001)
+	var t := clampf(c - float(c0), 0.0, 1.0)
+	var ridge := lerpf(1.0 if posmod(c0, 2) == 1 else -0.4, 1.0 if posmod(c0 + 1, 2) == 1 else -0.4, t)
+	# (Along the surface's own normal, from the cross-section: toward the camera on a steep face, up on a valley floor, where a push toward
+	# the camera only slid the columns along the ground and tilted nothing.)
+	var r0: Array = rows[maxi(ri - 1, 0)]
+	var r1: Array = rows[mini(ri + 1, rows.size() - 1)]
+	var n := Vector3(0.0, float(r1[1]) - float(r0[1]), float(r1[0]) - float(r0[0])).normalized()
+	# (From a few units under the crest: folds right at the crest stood up in front of the houses and trees on it and hid their feet.)
+	# (And out again where the face stops coming toward the camera and falls as a wall, the grove's rise under the island: folded all the
+	# way down, it hung in long vertical stripes like a curtain.)
+	var deepest: float = rows[rows.size() - 1][1]
+	var wall := float(rows[rows.size() - 1][0])
+	for row: Array in rows:
+		if float(row[1]) >= 0.95 * deepest:
+			wall = float(row[0])
+			break
+	var fade := 1.0 - smoothstep(wall, wall * 2.5, float(r[0]))
+	return n * ridge * fold * step * smoothstep(1.2, 5.0, float(r[0])) * fade
+
+
+## The fold's offset at `x`, `drop` below the crest of a band laid with `rows`, `step` and `fold` (`_fold_offset` between the rows).
+static func _fold_at(x: float, drop: float, rows: Array, step: float, fold: float) -> Vector3:
+	if fold <= 0.0 or rows.is_empty():
+		return Vector3.ZERO
+	for ri in range(1, rows.size()):
+		var a: float = rows[ri - 1][0]
+		var b: float = rows[ri][0]
+		if drop <= b and b > a:
+			return _fold_offset(x, ri - 1, rows, step, fold).lerp(_fold_offset(x, ri, rows, step, fold), clampf((drop - a) / (b - a), 0.0, 1.0))
+	return _fold_offset(x, rows.size() - 1, rows, step, fold)
+
+
+## The last band's cross-section rows, column step and fold, for what is laid on it (`_fore_band` keeps its own in `_fore_fold`).
+static var _last_fold: Array = [[], 1.0, 0.0]
+## The fore band's, for the fields laid on it.
+static var _fore_fold: Array = [[], 1.0, 0.0]
 
 
 ## A rolled band's cross-section (see `_land_band`): [drop below the crest, depth from the band's z], from behind the crest to the foot.
@@ -3196,6 +3668,7 @@ static func _fore_band(root: Node3D, z: float, y: float, colour: Color, profile:
 		k += 1
 	_fore_bumps = bumps
 	_land_band(root, bumps, y - 1.0, z, colour, 6.0 if _chunky_hills else 2.0, 1.0, profile, 0.8 if _chunky_hills else 0.0)
+	_fore_fold = _last_fold.duplicate()
 
 
 static var _fore_bumps: Array = []
@@ -3273,7 +3746,9 @@ static func _fields(root: Node3D, z: float, y: float, colours: Array, hedge_colo
 	var at := func(u: float, d: float) -> Vector3:
 		var x := u * (1.0 + d * 0.03)
 		var ly: float = line.call(x, d)
-		return Vector3(x, ly, z + roll_z(fore_top(x, y_ref) - ly, VALLEY_PROFILE) + 0.12)
+		# (On the folded land, `_fold_at`: laid on the unfolded face, the fields and hedges floated off the ridges or sank into them.)
+		var drop := fore_top(x, y_ref) - ly
+		return Vector3(x, ly, z + roll_z(drop, VALLEY_PROFILE) + 0.12) + _fold_at(x, drop, _fore_fold[0], _fore_fold[1], _fore_fold[2])
 	var tools: Array = []
 	for c in colours.size() + 2:
 		var st := SurfaceTool.new()
@@ -3422,11 +3897,26 @@ static func _fields(root: Node3D, z: float, y: float, colours: Array, hedge_colo
 	# A farm beside the lane: a red barn and a white farmhouse, a little in front of the face.
 	# (Smaller than the cottages on the hills: they are nearer, but the farm should read as far below the stage.)
 	var farm := Node3D.new()
+	# (Each building on the highest point of the land across its footprint, `seat`: on a folded valley the ground just below a building can
+	# rise over its foot.)
+	var seat := func(u: float) -> float:
+		var top := -INF
+		for su in [-2.0, 0.0, 2.0]:
+			for sd in [4.0, 5.0, 6.0, 7.0]:
+				top = maxf(top, (at.call(u + su, sd) as Vector3).y)
+		return top
 	farm.position = at.call(-30.0, 5.0) + Vector3(0, 0, 0.6)
+	farm.position.y = seat.call(-30.0)
+	# (Kept at 0.6 by the scale pass, 2026-10-21: the farm stands on the valley's painted face, whose fields and hedges shrink down it in
+	# forced perspective, and belongs to its scale; life size there, it filled the frame's corner. Whatever stands on the face takes it.)
 	farm.scale = Vector3.ONE * 0.6
+	farm.name = "Farm"
+	# (Its span across the valley, for a modelled ground to keep level under it: art/blender/make_meadow_ground.py.)
+	farm_span = [farm.position.x - 3.0, farm.position.x + 8.0]
 	root.add_child(farm)
 	_barn(farm, Vector3.ZERO)
-	_cottage(farm, Vector3(8.0, 0.4, -0.3), Color(0.4, 0.46, 0.6), 1.0)
+	# (The farmhouse on the land under it, `at`: seated with the barn, it sank into a fold of the valley.)
+	_cottage(farm, Vector3(8.0, (seat.call((-30.0 + 8.0 * 0.6) / 1.15) - farm.position.y) / 0.6 + 0.4, -0.3), Color(0.4, 0.46, 0.6), 1.0)
 	# (Into the valley's air, the gauntlet's round 21: the full red barn and blue roof read as toys at foreground strength.)
 	# (No ink and its whites a step under the play area, the meadow pilot of docs/art/STYLE_SHEET.md: its walls peaked at 0.74, inked.)
 	_air(farm, farm.position.z)
@@ -3434,6 +3924,8 @@ static func _fields(root: Node3D, z: float, y: float, colours: Array, hedge_colo
 	# The hedgerows across: a row of round, leafy bushes along each line (smaller and closer set further down), on the dark band as their
 	# shade, so a hedge has volume like the trees by the stage rather than being a drawn line.
 	# (Plain balls, not `_clump_ball`: squashed this flat and this small, the clump balls rendered as black and blue blots, 2026-10-17.)
+	# (Kept as leafy balls, the folded style step 4, 2026-10-20: as folded puffs half the clumps went missing at the wide camera, cause
+	# not found; at this size the leaf tile already reads as bushes. docs/art/stages/FOLDED_STYLE.md.)
 	var leaf := Materials.foliage(hedge_colour, Vector2(2, 2), true)
 	var leaf_lit := Materials.foliage(hedge_colour.lightened(0.1), Vector2(2, 2), true)
 	for hi in hedges.size():
@@ -3500,7 +3992,9 @@ static func trunk_mesh(height: float, r_bottom: float, r_top: float, bend: float
 			var n := Vector3(sin(a), 0, cos(a))
 			var rr := r
 			if folds > 0:
-				rr *= 1.0 if i % 2 == 0 else 0.76
+				# (Creases at 0.6 of the ridges' reach, the owner's folded style, 2026-10-20: at 0.76 the folds' planes turned too little to leave
+				# the lit cel band and the trunk read as a smooth column at the match camera.)
+				rr *= 1.0 if i % 2 == 0 else 0.6
 			elif ridges > 0.0:
 				var ridge := 0.5 + 0.5 * cos(a * 9.0 + 0.7 * sin(v * 6.0 + a * 2.0) + 0.4 * sin(v * 17.0 + a * 5.0))
 				rr *= 1.0 + ridges * (smoothstep(0.12, 0.45, ridge) - 0.55)
@@ -3528,16 +4022,18 @@ static var _trunk_cache := {}
 ## A row of soft tree shapes far back on the hills: a short trunk under a ball or two, all in one hazy colour, so they read as a
 ## distant wood rather than as things to look at.
 static func _tree_line(root: Node3D, rng: RandomNumberGenerator, y: float, z: float, colour: Color) -> void:
-	var leaf := _lobed(_soft(colour))
+	# (Folded crowns in flat planes, the owner's folded style step 4, 2026-10-20: the lobed balls read as smooth blobs on the horizon.)
+	var leaf := _faceted(_soft(colour))
 	var trunk := _soft(colour.darkened(0.25))
+	var crown := _pleated_puff(6, 5, 0.4)
 	var x := -110.0
 	while x < 110.0:
 		var s := rng.randf_range(3.0, 5.0)
 		var at := Vector3(x, y + rng.randf_range(-1.5, 1.5), z + rng.randf_range(-6, 6))
 		_mesh(root, _cylinder(0.35 * s * 0.3, 0.45 * s * 0.3, s * 0.9, 6), trunk, at + Vector3(0, s * 0.45, 0))
-		_mesh(root, _clump_ball(int(absf(x)) % CLUMP_VARIANTS), leaf, at + Vector3(0, s * 1.3, 0), Vector3(s, s * 1.1, s))
+		_puff(root, crown, leaf, at + Vector3(0, s * 1.3, 0), Vector3(s, s * 1.1, s))
 		if rng.randf() < 0.5:
-			_mesh(root, _clump_ball(int(absf(x) + 1.0) % CLUMP_VARIANTS), leaf, at + Vector3(s * 0.7, s * 0.95, -0.5), Vector3.ONE * s * 0.7)
+			_puff(root, crown, leaf, at + Vector3(s * 0.7, s * 0.95, -0.5), Vector3.ONE * s * 0.7)
 		x += rng.randf_range(7.0, 12.0)
 
 
@@ -3556,11 +4052,19 @@ static func _flower_clusters(root: Node3D, e: Array, rng: RandomNumberGenerator,
 			var cz := rng.randf_range(-4.6, -2.4)
 			for k in rng.randi_range(3, 5):
 				var p := Vector3(cx + rng.randf_range(-0.7, 0.7), top + 0.08, cz + rng.randf_range(-0.6, 0.6))
+				# (The paper kit's flower and leaf tuft where it has them, fidelity review 7: the clusters were spheres. The same random
+				# draws either way, so nothing else moves.)
+				if paper_kit != null and paper_kit.find_child("prop_leaf_tuft", true, false) != null:
+					_paper(root, "flower", Transform3D(Basis(Vector3.UP, float(k) * 1.7), Vector3(p.x, top, p.z)), {"petal": petals[k % petals.size()]})
+					continue
 				_mesh(root, _sphere(0.13, 8), _unshaded(petals[k % petals.size()]), p)
 				_mesh(root, _sphere(0.06, 6), heart, p + Vector3(0, 0.04, 0.08))
 			for k in 3:
 				var p := Vector3(cx + rng.randf_range(-0.9, 0.9), top + 0.1, cz + rng.randf_range(-0.7, 0.4))
-				_mesh(root, _sphere(1.0, 6), tuft, p, Vector3(0.22, 0.3, 0.18) * rng.randf_range(0.8, 1.3))
+				var sc := rng.randf_range(0.8, 1.3)
+				if _paper(root, "leaf_tuft", Transform3D(Basis(Vector3.UP, p.x * 3.1).scaled(Vector3.ONE * sc * 1.2), Vector3(p.x, top, p.z)), {"leaf": tuft_colour}):
+					continue
+				_mesh(root, _sphere(1.0, 6), tuft, p, Vector3(0.22, 0.3, 0.18) * sc)
 
 
 ## What hangs under the stage, below its lowest block `e` = [left, right, top, bottom], so the stage reads as a place (an island, a mesa,
@@ -3583,11 +4087,13 @@ static func underside(root: Node3D, t: Dictionary, e: Array) -> void:
 		"sunset":
 			# The stage is the top of a mesa: the column carries on down in the same strata, a little wider at its foot, into the haze.
 			# (Narrower than the block at first, so the block reads as the mesa's cap; in shade, below the light.)
-			var mesa := _hanging_mass(bottom, 34.0, l, r, front, 3.6, 0.06, 7, func(s: float) -> float: return 0.9 + 0.14 * s,
-				func(_s: float) -> float: return 0.0)
-			var col := _mesh(root, mesa, _under_material(_soil_material(t), 0.62), Vector3.ZERO)
-			col.name = "Underside"
-			col.set_instance_shader_parameter("front_top", e[2])
+			# (Not under a modelled front, which carries the mesa down to the floor itself.)
+			if not front_modelled:
+				var mesa := _hanging_mass(bottom, 34.0, l, r, front, 3.6, 0.06, 7, func(s: float) -> float: return 0.9 + 0.14 * s,
+					func(_s: float) -> float: return 0.0)
+				var col := _mesh(root, mesa, _under_material(_soil_material(t), 0.62), Vector3.ZERO)
+				col.name = "Underside"
+				col.set_instance_shader_parameter("front_top", e[2])
 			_under_haze(root, t, bottom - 1.0, 6.0, 0.5)
 			# The desert floor the mesa stands in (level with the far buttes' feet) and fallen rock heaped round its foot.
 			var floor_y := DESERT_FLOOR
@@ -3603,10 +4109,12 @@ static func underside(root: Node3D, t: Dictionary, e: Array) -> void:
 				if absf(sx) < r - l and sz > -20.0:
 					continue
 				var sc := rng.randf_range(0.5, 1.3) * lerpf(1.0, 1.8, -sz / 130.0)
+				# (Marked, so a floor modelled with its own scatter can hide them, StageBake.place_ground.)
 				if k % 3 == 0:
-					_mesh(root, _sphere(1.0, 7), pebble, Vector3(sx, floor_y + sc * 0.25, sz), Vector3(sc * 1.3, sc * 0.7, sc), Vector3(0, rng.randf_range(0, 90), 0))
+					_mesh(root, _sphere(1.0, 7), pebble, Vector3(sx, floor_y + sc * 0.25, sz), Vector3(sc * 1.3, sc * 0.7, sc),
+						Vector3(0, rng.randf_range(0, 90), 0)).set_meta("floor_scatter", true)
 				else:
-					_mesh(root, _sphere(1.0, 8), scrub, Vector3(sx, floor_y + sc * 0.35, sz), Vector3(sc * 1.2, sc * 0.7, sc))
+					_mesh(root, _sphere(1.0, 8), scrub, Vector3(sx, floor_y + sc * 0.35, sz), Vector3(sc * 1.2, sc * 0.7, sc)).set_meta("floor_scatter", true)
 			var rubble := Materials.stone((t.soil_dark as Color).lerp(Color(0.9, 0.62, 0.44), 0.45))
 			for k in 9:
 				var x := lerpf(l - 2.5, r + 2.5, (k + rng.randf_range(0.2, 0.8)) / 9.0)
@@ -3642,17 +4150,21 @@ static func underside(root: Node3D, t: Dictionary, e: Array) -> void:
 			var cx := (l + r) / 2.0
 			var street := bottom - CITY_STREET_DROP
 			var tall := bottom + 0.3 - street
-			var tower := _mesh(root, _box(Vector3(r - l - 0.4, tall, 7.0)), _under_material(_soil_material(t), 0.55), Vector3(cx, street + tall / 2.0, front - 3.5))
-			tower.name = "Underside"
-			tower.set_instance_shader_parameter("front_top", e[2])
-			_facade_windows(root, cx - (r - l - 0.4) / 2.0, cx + (r - l - 0.4) / 2.0, bottom - 0.3, street + 4.4, front, e[2], 0.55, tower.material_override)
-			_mesh(root, _box(Vector3(r - l + 0.1, 0.32, 0.5)), _soft((t.soil as Color).lightened(0.1)), Vector3(cx, bottom - 0.12, front + 0.2))
-			_mesh(root, _shade_band(r - l - 0.4, 1.2), _band_material(), Vector3(cx, bottom - 0.9, front + 0.01))
+			# (Not under a modelled front, which builds the floors down to the street itself, art/blender/make_city_front.py.)
+			if not front_modelled:
+				var tower := _mesh(root, _box(Vector3(r - l - 0.4, tall, 7.0)), _under_material(_soil_material(t), 0.55), Vector3(cx, street + tall / 2.0, front - 3.5))
+				tower.name = "Underside"
+				tower.set_instance_shader_parameter("front_top", e[2])
+				_facade_windows(root, cx - (r - l - 0.4) / 2.0, cx + (r - l - 0.4) / 2.0, bottom - 0.3, street + 4.4, front, e[2], 0.55, tower.material_override)
+				_mesh(root, _box(Vector3(r - l + 0.1, 0.32, 0.5)), _soft((t.soil as Color).lightened(0.1)), Vector3(cx, bottom - 0.12, front + 0.2)).set_meta("code_front", true)
+				_mesh(root, _shade_band(r - l - 0.4, 1.2), _band_material(), Vector3(cx, bottom - 0.9, front + 0.01)).set_meta("code_front", true)
 			_shopfront(root, cx, r - l - 0.4, street, front + 0.02)
 			_street(root, street, front)
 		_:
 			if t.get("terrace", false):
 				_meadow_hill(root, t, l, r, bottom, front, float(e[2]))
+				return
+			if front_modelled:
 				return
 			# A floating island: a keel of earth tapering to a point a little off-centre, rocks set in it, roots hanging from the rim.
 			var length := clampf((r - l) * 0.42, 4.0, 8.0)
@@ -3866,8 +4378,12 @@ static func _meadow(root: Node3D, t: Dictionary, stage: Array) -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 42
 	var e := _ext(stage)
-	_hills(root, rng, _pal("hills_near"), _pal("hills_far"))
-	_clouds(root, rng, 11, Color(1.0, 1.0, 1.0), Vector2(14, 34))
+	# (With a modelled ground, the hills, the rise, its fields and the pines are built into a node that is thrown away, their numbers
+	# still drawn so nothing else moves; the windmill and cottages still stand on `hill_top`.)
+	var ground: Node3D = Node3D.new() if ground_mock else root
+	pine_slots.clear()
+	_hills(ground, rng, _pal("hills_near"), _pal("hills_far"))
+	_clouds(root, rng, 11, Color(1.0, 1.0, 1.0), _cloud_band(Vector2(14, 34)), Vector2(-120, -85), [0, 1, 2], _cloud_scale())
 	# (No islands floating in the sky since the stage became a terrace on a hillside, art review 9: they were pale, flat, pulled the eye, and
 	# said the land floats when it no longer does. Still drawn and thrown away, so the random layout of everything after them stays put.)
 	var gone := Node3D.new()
@@ -3896,12 +4412,12 @@ static func _meadow(root: Node3D, t: Dictionary, stage: Array) -> void:
 		_air(house, -74.0)
 		_ground_shadow(Vector3(cx, 0, -74.0), Vector2(3.4, 2.6), -72.0)
 	# A low rise of meadow in front of the hills, and round trees standing along it (their feet just behind its edge).
-	_fore_band(root, -46.0, -10.0, _pal("fore_band"))
+	_fore_band(ground, -46.0, -10.0, _pal("fore_band"))
 	# (Muted toward the valley's air, the gauntlet's round 23: the vivid lime and yellow stripes read as a flat painted card under the farm.)
 	# (A patchwork of crops, fallow earth and pale stubble, round 28: in near-equal greens the fields read as one even texture.)
 	# (Brighter with the lawn, 2026-10-19: the papercraft camp's patchwork of lime crops and warm earth.)
 	# (Sage and one warm sand in place of the yellow stubble, round 35's diff: the reference's mid-ground is clean greens.)
-	_fields(root, -46.0, -10.0, _pal("fields"),
+	_fields(ground, -46.0, -10.0, _pal("fields"),
 		# (The hedgerows a step nearer the fields' greens, art review 10: dark lines netting the whole valley were its busiest detail.)
 		_pal("hedgerow"))
 	for k in 6:
@@ -3911,7 +4427,8 @@ static func _meadow(root: Node3D, t: Dictionary, stage: Array) -> void:
 		var ts := rng.randf_range(0.7, 1.2)
 		# (The rise's trees in the mid-ground's air without ink, the meadow pilot.)
 		var tree := Node3D.new()
-		root.add_child(tree)
+		ground.add_child(tree)
+		_pine_slot(Vector3(tx, fore_top(tx, -10.0) - 0.5, -47.0), ts * 4.6)
 		# (A cluster of faceted pines, art/blender/make_props.py `pine`, the papercraft camp's trees (the owner's meadow target,
 		# 2026-10-19), in place of a round tree; the round tree without the model. Its own numbers, so the layout is unchanged.)
 		if not _pine_cluster(tree, Vector3(tx, fore_top(tx, -10.0) - 0.5, -47.0), ts * 4.6):
@@ -3929,9 +4446,17 @@ static func _meadow(root: Node3D, t: Dictionary, stage: Array) -> void:
 		if absf(tx) < 14.0 or (tx > -54.0 and tx < -34.0):
 			continue
 		var tree := Node3D.new()
-		root.add_child(tree)
-		if _pine_cluster(tree, Vector3(tx, fore_top(tx, -10.0) - 0.5, tz), belt.randf_range(3.6, 5.4)):
+		ground.add_child(tree)
+		var size := belt.randf_range(3.6, 5.4)
+		_pine_slot(Vector3(tx, fore_top(tx, -10.0) - 0.5, tz), size)
+		if _pine_cluster(tree, Vector3(tx, fore_top(tx, -10.0) - 0.5, tz), size):
 			_air(tree, tz)
+	if ground_mock:
+		# (The farm stays, on the modelled ground, which is kept level under it.)
+		var farm := ground.get_node_or_null("Farm")
+		if farm != null:
+			farm.reparent(root, false)
+		ground.free()
 	# A wooden fence along the back of the stage, and flowers: pale posts with rounded caps, each in its own contact shade, and darker
 	# rails, so the fence reads as built (posts and rails) under the key light rather than one flat colour.
 	var post := Materials.wood(Color(0.9, 0.7, 0.46))
@@ -3944,8 +4469,9 @@ static func _meadow(root: Node3D, t: Dictionary, stage: Array) -> void:
 	while x <= e[1] - 0.5:
 		var tall := 0.94 + rng.randf_range(-0.05, 0.05)
 		var lean := rng.randf_range(-2.5, 2.5)
-		_mesh(root, _box(Vector3(0.22, tall, 0.22)), post, Vector3(x, e[2] + tall / 2.0, -6.2), Vector3.ONE, Vector3(0, 0, lean))
-		_mesh(root, _sphere(0.145, 8), cap, Vector3(x - sin(deg_to_rad(lean)) * tall, e[2] + tall + 0.02, -6.2), Vector3(1.0, 0.55, 1.0))
+		if not _paper(root, "fence_post", Transform3D(Basis(Vector3.BACK, deg_to_rad(lean)).scaled(Vector3(1.0, tall, 1.0)), Vector3(x, e[2], -6.2))):
+			_mesh(root, _box(Vector3(0.22, tall, 0.22)), post, Vector3(x, e[2] + tall / 2.0, -6.2), Vector3.ONE, Vector3(0, 0, lean))
+			_mesh(root, _sphere(0.145, 8), cap, Vector3(x - sin(deg_to_rad(lean)) * tall, e[2] + tall + 0.02, -6.2), Vector3(1.0, 0.55, 1.0))
 		_contact(root, Vector3(x, e[2], -6.2), Vector2(0.22, 0.17))
 		posts.append(x)
 		x += 1.6
@@ -3954,11 +4480,22 @@ static func _meadow(root: Node3D, t: Dictionary, stage: Array) -> void:
 		var a1: float = posts[i + 1]
 		for h in [0.32, 0.7]:
 			var tilt := rng.randf_range(-1.6, 1.6)
-			_mesh(root, _box(Vector3(a1 - a0 + 0.12, 0.15, 0.09)), rail, Vector3((a0 + a1) / 2.0, e[2] + h + rng.randf_range(-0.02, 0.02), -6.06),
-				Vector3.ONE, Vector3(0, 0, tilt))
+			var at := Vector3((a0 + a1) / 2.0, e[2] + h + rng.randf_range(-0.02, 0.02), -6.06)
+			if not _paper(root, "fence_rail", Transform3D(Basis(Vector3.BACK, deg_to_rad(tilt)).scaled(Vector3(a1 - a0 + 0.12, 1.0, 1.0)), at)):
+				_mesh(root, _box(Vector3(a1 - a0 + 0.12, 0.15, 0.09)), rail, at, Vector3.ONE, Vector3(0, 0, tilt))
 	_flowers(root, e, rng, [Color(1, 0.55, 0.6), Color(1, 1, 1), Color(1, 0.85, 0.3)])
 	# A bright day: a few motes of pollen in the air, no shafts of light (golden, small and few: pale ones on the blue sky read as snow).
 	_motes(root, Color(1.0, 0.82, 0.4), e)
+
+
+## Records a pine cluster's place (`pine_slots`, and `bush_slots` under a modelled ground), turned by its own hash.
+static func _pine_slot(at: Vector3, size: float) -> void:
+	var slot := [at, size, float(absi(hash(Vector2i(roundi(at.x * 10.0), roundi(at.z * 10.0)))) % 360)]
+	pine_slots.append(slot)
+	# (Under the modelled ground, none right behind the fight, nor in front of a cottage, the owner, 2026-10-20: the clusters stood over
+	# the platforms and hid both cottages.)
+	if ground_mock and absf(at.x) >= 22.0 and absf(at.x - 44.0) >= 5.0 and absf(at.x + 66.0) >= 5.0:
+		bush_slots.append(slot)
 
 
 ## Islands floating in the sky behind the stage (the way the stage itself floats): an earth keel tapering to a point, a thick grassy cap
@@ -4091,7 +4628,41 @@ static func _island_detail(island: Node3D, hw: float, size: float, t: Dictionary
 ## A windmill (`at` is the foot of its tower): a footing of rough stones, a tapered whitewashed tower with a plank door, two small
 ## shuttered windows and a wooden gallery round it, a shingled cap with a trim ring and a finial, and four lattice sails, each a stock
 ## carrying a frame of rails and slats with canvas over most of it, that turn.
+## The detail pass (the owner, 2026-10-22: more detail on the background pieces): on the meadow's windmill, a finer lattice and reefed
+## sails, a stone door surround, a lantern, sacks and a barrel, a block base. `--no-detail` shows it without, to compare.
+static var detail_mock := not OS.get_cmdline_user_args().has("--no-detail")
+
+
 static func _windmill(root: Node3D, at: Vector3) -> void:
+	# The whole windmill as one model (make_props.py `windmill`, the owner 2026-10-22: Blender models wherever possible): the tower and
+	# cap, mound, stone drum, arched door, windows, gallery, shaft housing, sacks and barrel; its `sails` turn on a Spinner at the hub.
+	# The code-built mill below stands in without it.
+	var whole := Toonify.load_prop("windmill", true)
+	if whole != null:
+		whole.position = at
+		root.add_child(whole)
+		_contact(root, at + Vector3(0, 0.4, 0), Vector2(4.2, 3.4))
+		for mi in whole.find_children("*", "MeshInstance3D", true, false):
+			var nm := String(mi.name)
+			if nm.begins_with("wall"):
+				(mi as MeshInstance3D).material_override = FighterView.toon(Color(0.9, 0.82, 0.7))
+			elif nm.begins_with("glow"):
+				(mi as MeshInstance3D).material_override = _unshaded(Color(1.0, 0.86, 0.56))
+			elif nm.begins_with("opening"):
+				(mi as MeshInstance3D).material_override = _unshaded(Color(0.2, 0.16, 0.22))
+			elif nm.begins_with("sail_hub_cap"):
+				(mi as MeshInstance3D).material_override = FighterView.respond(FighterView.toon(Color(0.36, 0.34, 0.42)), "metal")
+		var sails := whole.find_child("sails", true, false) as Node3D
+		if sails != null:
+			var spin := Spinner.new()
+			spin.speed = 0.6
+			spin.transform = sails.transform
+			sails.get_parent().add_child(spin)
+			for c in sails.get_children():
+				c.owner = null
+				c.reparent(spin, false)
+			sails.free()
+		return
 	var plaster := Materials.plaster(Color(0.96, 0.94, 0.88), Vector2(3, 3))
 	var wood := Materials.wood(Color(0.55, 0.38, 0.26))
 	var wood_dark := Materials.wood(Color(0.42, 0.28, 0.2), Vector2(2, 1))
@@ -4112,6 +4683,34 @@ static func _windmill(root: Node3D, at: Vector3) -> void:
 		_mesh(root, _cylinder(1.8, 3.0, 12.0, 14), plaster, at + Vector3(0, 7.0, 0))
 	# The door at the foot, and two windows up the front, each a dark opening in a wooden frame with a shutter.
 	_mesh(root, _box(Vector3(1.6, 2.6, 0.3)), wood_dark, at + Vector3(0, 3.2, 2.85))
+	if detail_mock:
+		# (The detail pass: the stone base laid in two courses of blocks, a stone surround and step at the door, a lantern beside it,
+		# and sacks of grain and a barrel at the foot.)
+		var block := Materials.stone(Color(0.7, 0.66, 0.62), Vector2(1, 1))
+		var block_dark := Materials.stone(Color(0.6, 0.56, 0.54), Vector2(1, 1))
+		for row in 2:
+			var nb := 22
+			for b in nb:
+				var ang := TAU * (b + 0.5 * row) / nb
+				var rad := 3.42 - 0.12 * row
+				_mesh(root, _box(Vector3(0.88, 0.86, 0.3)), block if (b + row) % 3 else block_dark,
+					at + Vector3(sin(ang) * rad, 0.5 + row * 0.92, cos(ang) * rad), Vector3.ONE, Vector3(0, rad_to_deg(ang), 0))
+		# (Jambs up to the springing, and voussoirs round the door's arch, so the doorway stays arched.)
+		for sx in [-1.0, 1.0]:
+			_mesh(root, _box(Vector3(0.4, 2.6, 0.4)), block, at + Vector3(sx * 1.0, 3.2, 2.95))
+		for v in 7:
+			var va := PI * (v + 0.5) / 7.0
+			_mesh(root, _box(Vector3(0.36, 0.42, 0.42)), block if v % 2 else block_dark, at + Vector3(cos(va) * 1.0, 4.5 + sin(va) * 1.0, 2.95),
+				Vector3.ONE, Vector3(0, 0, rad_to_deg(va) - 90.0))
+		_mesh(root, _box(Vector3(2.6, 0.3, 1.2)), block_dark, at + Vector3(0, 1.95, 3.3))
+		_mesh(root, _box(Vector3(0.3, 0.45, 0.3)), _unshaded(Color(1.0, 0.86, 0.56)), at + Vector3(1.55, 4.2, 3.05))
+		_mesh(root, _box(Vector3(0.42, 0.1, 0.42)), wood_dark, at + Vector3(1.55, 4.47, 3.05))
+		var sack := FighterView.toon(Color(0.86, 0.78, 0.6))
+		for sk in [[-2.2, 0.0, 3.6, 0.0], [-2.9, 0.0, 3.2, 30.0], [-2.5, 0.75, 3.4, 10.0]]:
+			_mesh(root, _sphere(1.0, 10), sack, at + Vector3(sk[0], 2.4 + sk[1], sk[2]), Vector3(0.55, 0.62, 0.45), Vector3(0, sk[3], 0))
+		_mesh(root, _cylinder(0.5, 0.5, 1.1, 12), wood, at + Vector3(2.6, 2.6, 3.4))
+		_mesh(root, _cylinder(0.53, 0.53, 0.1, 12), wood_dark, at + Vector3(2.6, 2.85, 3.4))
+		_mesh(root, _cylinder(0.53, 0.53, 0.1, 12), wood_dark, at + Vector3(2.6, 2.35, 3.4))
 	_mesh(root, _cylinder(0.8, 0.8, 0.3, 12), wood_dark, at + Vector3(0, 4.5, 2.85), Vector3.ONE, Vector3(90, 0, 0))
 	for wy in [7.2, 10.2]:
 		var r := lerpf(3.0, 1.8, (wy - 1.0) / 12.0)
@@ -4150,6 +4749,18 @@ static func _windmill(root: Node3D, at: Vector3) -> void:
 		# over the cloth; on the other a narrow leading board.
 		_mesh(arm, _box(Vector3(0.32, 7.6, 0.26)), wood, Vector3(0, 3.8, 0))
 		_mesh(arm, _box(Vector3(0.14, 5.8, 0.16)), wood, Vector3(1.85, 4.6, 0.06))
+		if detail_mock:
+			# (The detail pass: a finer lattice, nine slats and a middle rail, and on every other sail the canvas reefed, rolled up to
+			# two-thirds with the bare lattice showing above it.)
+			for j in 9:
+				_mesh(arm, _box(Vector3(1.9, 0.08, 0.12)), slat, Vector3(0.95, 1.95 + j * 0.68, 0.08))
+			_mesh(arm, _box(Vector3(0.08, 5.6, 0.12)), slat, Vector3(0.95, 4.7, 0.08))
+			var reef := k % 2 == 1
+			var h := 3.4 if reef else 5.2
+			_mesh(arm, _box(Vector3(1.66, h, 0.08)), sail, Vector3(0.95, 2.15 + h * 0.5, -0.04))
+			if reef:
+				_mesh(arm, _cylinder(0.16, 0.16, 1.7, 8), sail, Vector3(0.95, 2.15 + h, -0.02), Vector3.ONE, Vector3(0, 0, 90))
+			continue
 		for j in 4:
 			_mesh(arm, _box(Vector3(1.9, 0.1, 0.12)), slat, Vector3(0.95, 2.2 + j * 1.6, 0.08))
 		_mesh(arm, _box(Vector3(1.66, 5.2, 0.08)), sail, Vector3(0.95, 4.75, -0.04))
@@ -4158,6 +4769,8 @@ static func _windmill(root: Node3D, at: Vector3) -> void:
 
 ## A red barn (`at` its foot): plank walls under a steep roof, white trim round the big doors with a cross brace, and a hay loft door.
 static func _barn(root: Node3D, at: Vector3) -> void:
+	if house_kit != null and _paper(root, "house_barn", Transform3D(Basis.IDENTITY, at), {}, house_kit):
+		return
 	var red := Materials.wood(Color(0.78, 0.26, 0.22), Vector2(4, 2))
 	var trim := FighterView.toon(Color(0.98, 0.95, 0.9))
 	var roof := Materials.shingles(Color(0.4, 0.34, 0.36), Vector2(4, 2))
@@ -4180,7 +4793,14 @@ static func _barn(root: Node3D, at: Vector3) -> void:
 ## posts, a beam at the floor line, braces in the end bays), a deep shingled roof in `roof` overhanging the gables and the eaves with a
 ## ridge beam along its top, gable ends filled to the roof with a round attic window, a plank door on a stone step with a lantern, a lit
 ## window with shutters and a flower box, shrubs at its foot, and a stone chimney at one end (`side`) with smoke curling up from it.
-static func _cottage(root: Node3D, at: Vector3, roof: Color, side: float, wall_tint := Color(0, 0, 0, 0)) -> void:
+static func _cottage(root: Node3D, at: Vector3, roof: Color, side: float, wall_tint := Color(0, 0, 0, 0), kind := "cottage") -> void:
+	# A paper house, when the stage has them (`house_kit`), its roof and walls in this cottage's colours.
+	if house_kit != null:
+		var tint := {"roof": roof, "roof_edge": roof.lightened(0.3), "roof_score": roof.darkened(0.25), "shutter": roof.lightened(0.15)}
+		if wall_tint.a > 0.0:
+			tint["wall"] = Color(wall_tint.r, wall_tint.g, wall_tint.b)
+		if _paper(root, "house_" + kind, Transform3D(Basis.from_scale(Vector3(side, 1.0, 1.0)), at), tint, house_kit):
+			return
 	# The modelled cottage (art/blender/make_props.py `cottage`, after the owner's papercraft village reference): proud timbers, lapped
 	# shingle rows, an arched plank door, shutters, a stone footing and chimney. Its roof takes this cottage's colour; the window glows.
 	# The code-built cottage below stands in without it.
@@ -4385,8 +5005,9 @@ static func _flowers(root: Node3D, e: Array, rng: RandomNumberGenerator, colors:
 	var k := 0
 	while x < e[1] - 0.8:
 		var z := rng.randf_range(-4.5, -2.0)
-		_mesh(root, _sphere(0.13, 8), _unshaded(colors[k % colors.size()]), Vector3(x, e[2] + 0.08, z))
-		_mesh(root, _sphere(0.06, 6), heart, Vector3(x, e[2] + 0.12, z + 0.08))
+		if not _paper(root, "flower", Transform3D(Basis(Vector3.UP, float(k) * 1.3), Vector3(x, e[2], z)), {"petal": colors[k % colors.size()]}):
+			_mesh(root, _sphere(0.13, 8), _unshaded(colors[k % colors.size()]), Vector3(x, e[2] + 0.08, z))
+			_mesh(root, _sphere(0.06, 6), heart, Vector3(x, e[2] + 0.12, z + 0.08))
 		x += rng.randf_range(0.9, 1.8)
 		k += 1
 
@@ -4415,6 +5036,12 @@ static func _sunset(root: Node3D, t: Dictionary, stage: Array) -> void:
 		air.soil = (t.soil as Color).lerp(haze, fade)
 		air.soil_dark = (t.soil_dark as Color).lerp(haze, fade)
 		rows.append(_under_material(_soil_material(air), 0.35 * (1.0 - fade)))
+	# (Under a modelled ground the buttes and the arch are built into a node that is thrown away, their numbers still drawn, their bounds
+	# kept for the ground export: art/blender/make_canyon_paper.py.)
+	var gone := Node3D.new()
+	var land: Node3D = gone if ground_mock else root
+	mesa_specs.clear()
+	arch_spec = []
 	# Buttes and mesas in strata on rubble slopes (art/blender/make_props.py), a nearer row and a farther one.
 	for k in 8:
 		var far := k % 2 == 1
@@ -4423,15 +5050,21 @@ static func _sunset(root: Node3D, t: Dictionary, stage: Array) -> void:
 		# (In the stage's own painted strata, laid in world space and falling into shade below the light, so the buttes are the same rock
 		# as the mesa the fighters stand on.)
 		var ms := rng.randf_range(0.7, 1.05)
-		_place_prop(root, "mesa_a" if k % 3 != 1 else "mesa_b", at, ms, rng.randf_range(0.0, 360.0), mesa_rock)
+		var before := land.get_child_count()
+		_place_prop(land, "mesa_a" if k % 3 != 1 else "mesa_b", at, ms, rng.randf_range(0.0, 360.0), mesa_rock)
+		if land.get_child_count() > before:
+			mesa_specs.append([_bounds_from(land, before), far])
 		_ground_shadow(at, Vector2(9.0, 6.0) * ms, DESERT_KEY)
 	# A rock arch on the left, standing on the desert floor.
 	# (Modelled in the buttes' chunky cut ledges, art/blender/make_props.py `rock_arch`, the judge's round 40, and in the same painted
 	# strata as the buttes and the stage's front, unfaded, as the nearest rock; the built one stands in without the model.)
+	var arch_before := land.get_child_count()
 	if Toonify.load_prop("rock_arch") != null:
-		_place_prop(root, "rock_arch", Vector3(-34, DESERT_FLOOR, -48), 1.0, 0.0, _under_material(_soil_material(t), 0.35))
+		_place_prop(land, "rock_arch", Vector3(-34, DESERT_FLOOR, -48), 1.0, 0.0, _under_material(_soil_material(t), 0.35))
 	else:
-		_rock_arch(root, Vector3(-34, DESERT_FLOOR, -48), 12.0, 18.5)
+		_rock_arch(land, Vector3(-34, DESERT_FLOOR, -48), 12.0, 18.5)
+	if land.get_child_count() > arch_before:
+		arch_spec = [_bounds_from(land, arch_before)]
 	_ground_shadow(Vector3(-34, DESERT_FLOOR, -48), Vector2(9.0, 3.0), DESERT_KEY)
 	# Cacti behind the stage.
 	for x in [e[0] + 1.5, e[1] - 2.0]:
@@ -4449,8 +5082,10 @@ static func _sunset(root: Node3D, t: Dictionary, stage: Array) -> void:
 		if absf(at.x) < 36.0:
 			prev = Vector3.INF
 			continue
-		_mesh(root, _cylinder(0.22, 0.28, 9.0, 6), pole, at + Vector3(0, 4.5, 0))
-		_mesh(root, _box(Vector3(2.6, 0.22, 0.22)), pole, at + Vector3(0, 8.4, 0))
+		# (The paper kit's pole where it has one, fidelity review 7: the last code-built poles; the built one stands in without.)
+		if not _paper(root, "telegraph_pole", Transform3D(Basis(Vector3.UP, 0.15 * sin(k * 2.1)), at)):
+			_mesh(root, _cylinder(0.22, 0.28, 9.0, 6), pole, at + Vector3(0, 4.5, 0))
+			_mesh(root, _box(Vector3(2.6, 0.22, 0.22)), pole, at + Vector3(0, 8.4, 0))
 		var hook := at + Vector3(0, 8.6, 0)
 		if prev != Vector3.INF:
 			var last := prev
@@ -4461,6 +5096,34 @@ static func _sunset(root: Node3D, t: Dictionary, stage: Array) -> void:
 				seg.basis = Basis.looking_at(q - last, Vector3.UP)
 				last = q
 		prev = hook
+	gone.free()
+
+
+## The bounds of `parent`'s children from `first` on (a prop is placed as one child per part).
+static func _bounds_from(parent: Node3D, first: int) -> AABB:
+	var box := _bounds(parent.get_child(first))
+	for i in range(first + 1, parent.get_child_count()):
+		box = box.merge(_bounds(parent.get_child(i)))
+	return box
+
+
+## The bounds of `node`'s meshes within its parent's space (which stands at the world's origin here): for the ground export.
+static func _bounds(node: Node3D) -> AABB:
+	var box := AABB()
+	var first := true
+	var all: Array = node.find_children("*", "MeshInstance3D", true, false)
+	if node is MeshInstance3D:
+		all.append(node)
+	for mi: MeshInstance3D in all:
+		var xf := Transform3D.IDENTITY
+		var n: Node = mi
+		while n != node.get_parent() and n is Node3D:
+			xf = (n as Node3D).transform * xf
+			n = n.get_parent()
+		var b := xf * mi.mesh.get_aabb()
+		box = b if first else box.merge(b)
+		first = false
+	return box
 
 
 ## A natural arch of layered sandstone (`at` the middle of its foot on the ground, legs `span` apart, `height` to the top of the span):
@@ -4530,6 +5193,8 @@ static func _painted_sun(root: Node3D, at: Vector3, r: float) -> void:
 
 ## A ribbed saguaro with curving arms and a flower on top (art/blender/make_props.py), `size` about 4 units tall at 1.
 static func _cactus(root: Node3D, at: Vector3, size: float) -> void:
+	if _paper(root, "cactus", Transform3D(Basis.IDENTITY.scaled(Vector3.ONE * size * 0.88), at)):
+		return
 	# (Without ink, the judge's round 40: its deep flat ribs carry its form, as the folded scenery's do.)
 	var holder := Node3D.new()
 	root.add_child(holder)
@@ -4556,20 +5221,21 @@ static func _grove(root: Node3D, t: Dictionary, stage: Array) -> void:
 	rng.seed = 3
 	# (Deeper and cooler, the judge's round 39 and the owner's grove reference, a lush island over a darker violet distance: the pale
 	# green hills read as a milky fog band and the island did not pop.)
-	_hills(root, rng, _pal("hills_near"), _pal("hills_far"))
-	_clouds(root, rng, 8, Color(1, 0.97, 1), Vector2(10, 36))
+	var ground: Node3D = Node3D.new() if ground_mock else root
+	_hills(ground, rng, _pal("hills_near"), _pal("hills_far"))
+	_clouds(root, rng, 8, Color(1, 0.97, 1), _cloud_band(Vector2(10, 36)), Vector2(-120, -85), [0, 1, 2], _cloud_scale())
 	_birds(root, rng, Color(0.25, 0.22, 0.3))
 	var top: float = stage[2] if stage.size() == 4 else 0.0
 	var left: float = stage[0] if stage.size() == 4 else -11.0
 	var right: float = stage[1] if stage.size() == 4 else 11.0
 	# A far line of soft tree shapes on the hills, between them and the trees, for one more layer of depth (the haze fades it).
-	_tree_line(root, rng, top - 16.0, -78.0, Color(0.5, 0.72, 0.56))
+	_tree_line(ground, rng, top - 16.0, -78.0, Color(0.5, 0.72, 0.56))
 	# The great tree, set back behind the island's middle.
 	_tree(root, Vector3(0, top - 2.0, -19.0), 1.0, rng)
 	# (No roots under the quilted island, the owner, 2026-10-19: they conflicted with its front. `_grove_roots` kept for other uses.)
 	# A low rise of land in front of the hills, and two smaller trees standing on it either side (feet just behind its edge).
 	# (A rounded ridge, not the meadow's valley floor: the forest canopy fills the valley below it.)
-	_fore_band(root, -52.0, top - 11.0, _pal("fore_band"), ROLL_PROFILE)
+	_fore_band(ground, -52.0, top - 11.0, _pal("fore_band"), ROLL_PROFILE)
 	_tree(root, Vector3(-30, fore_top(-30.0, top - 11.0) - 0.6, -55.0), 0.6, rng)
 	_tree(root, Vector3(32, fore_top(32.0, top - 11.0) - 0.6, -55.0), 0.55, rng)
 	_ground_shadow(Vector3(-30, 0, -55.0), Vector2(4.4, 3.0), -52.0)
@@ -4579,7 +5245,7 @@ static func _grove(root: Node3D, t: Dictionary, stage: Array) -> void:
 	# read as shapeless fog blobs, the weakest thing on the stage. Art review 6, refinement round 1.)
 	# (Deeper and more saturated than they show: the depth haze lifts them toward mint, gauntlet round 2.)
 	# (Far below and further back, the owner, 2026-10-19: level with the island, its crowns read as trees standing in the air beside it.)
-	_canopy(root, -58.0, top - 21.0, [Color(0.08, 0.36, 0.2), Color(0.16, 0.48, 0.2), Color(0.06, 0.32, 0.22), Color(0.2, 0.52, 0.2)])
+	_canopy(ground, -58.0, top - 21.0, [Color(0.08, 0.36, 0.2), Color(0.16, 0.48, 0.2), Color(0.06, 0.32, 0.22), Color(0.2, 0.52, 0.2)])
 	# Round bushes along the back of the island.
 	var bush_greens := Materials.greens(Color(0.3, 0.66, 0.34))
 	var bush := _lobed(Materials.foliage(bush_greens[1]))
@@ -4594,7 +5260,10 @@ static func _grove(root: Node3D, t: Dictionary, stage: Array) -> void:
 	for x in [left + 1.4, left + 3.2, right - 3.2, right - 1.4]:
 		var s := rng.randf_range(1.1, 1.5)
 		if faceted_bush:
-			_place_prop(root, "bush", Vector3(x, top, -6.5), s * 0.95, rng.randf_range(-20.0, 20.0), bush_shade, bush_lit)
+			var turn := rng.randf_range(-20.0, 20.0)
+			_place_prop(ground, "bush", Vector3(x, top, -6.5), s * 0.95, turn, bush_shade, bush_lit)
+			if ground_mock:
+				bush_slots.append([Vector3(x, top, -6.5), s * 0.95, turn])
 			_contact(root, Vector3(x, top, -6.5), Vector2(s * 1.15, s * 0.8))
 			continue
 		_mesh(root, _clump_ball(0), bush, Vector3(x, top + 0.6, -6.5), Vector3(s * 1.3, s, s))
@@ -4604,11 +5273,13 @@ static func _grove(root: Node3D, t: Dictionary, stage: Array) -> void:
 			_mesh(root, _clump_ball(j + 1), bush_light if j != 1 else bush, Vector3(x + side * s * 0.75, top + 0.4 + lr * 0.6 + (0.35 * s if j == 1 else 0.0),
 				-6.2 + absf(side) * 0.2), Vector3(lr * 1.15, lr, lr))
 		_contact(root, Vector3(x, top, -6.5), Vector2(s * 1.15, s * 0.8))
+	if ground_mock:
+		ground.free()
 	# Little flowers and tufts on the grass behind the fighters, gathered toward the ends so the middle of the stage stays clean.
 	_flower_clusters(root, [left, right, top], rng, [Color(1, 1, 1), Color(1, 0.8, 0.9)], Color(0.46, 0.84, 0.42))
 	# Strings of lanterns hung from the great tree out to the smaller ones, under the canopy: the grove is looked after.
-	_string_lights(root, Vector3(-4.0, top + 12.0, -17.0), Vector3(-22.0, top + 8.0, -30.0))
-	_string_lights(root, Vector3(4.0, top + 12.0, -17.0), Vector3(22.0, top + 8.0, -30.0))
+	_string_lights(root, Vector3(-4.0, top + 12.0, -17.0), Vector3(-22.0, top + 8.0, -30.0), "paper_lantern")
+	_string_lights(root, Vector3(4.0, top + 12.0, -17.0), Vector3(22.0, top + 8.0, -30.0), "paper_lantern")
 	# Pale pink motes drifting under the great tree, and light falling through its canopy.
 	# (No light shafts, the style sheet's clear air, 2026-10-19: their see-through card veiled the faceted ranges and hills into soft bands.)
 	_motes(root, Color(1.0, 0.86, 0.94), [left, right, top, top - 10.0])
@@ -4635,6 +5306,18 @@ static func _ocean(root: Node3D, t: Dictionary, stage: Array) -> void:
 	wm.set_shader_parameter("sun_dir", t.get("sun_dir", Vector3(-0.42, 0.25, -0.88)))
 	wm.set_shader_parameter("horizon", t.sky_horizon)
 	wm.set_shader_parameter("glint_path", float(_pal("glint_path")))
+	# (The water pass, fidelity review 5: the palette's `sea_look`, the owner's pick the paper waves (3); `--sea-look=T|A|B|C` compares
+	# the sea as it was and the clear, reflecting and paper seas; see water.gdshader `look`.)
+	wm.set_shader_parameter("look", int(_pal("sea_look")))
+	# (The paper waves' variety, fidelity review 6: the palette's `sea_vary`, `--sea-vary=` to try; see water.gdshader `wave_vary`.)
+	var sea_vary := int((_palette.get("backdrop", {}) as Dictionary).get("sea_vary", 0))
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--sea-vary="):
+			sea_vary = int(arg.substr(11))
+	wm.set_shader_parameter("wave_vary", sea_vary)
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--sea-look="):
+			wm.set_shader_parameter("look", {"T": 0, "A": 1, "B": 2, "C": 3}.get(arg.substr(11), int(_pal("sea_look"))))
 	# (Higher in the sky, 2026-10-19: low over the horizon they sat on the sea.)
 	var cloud_look := {"exposure": float(_pal("cloud_exposure")), "shade_depth": 1.0}
 	_clouds(root, rng, 8, Color(1, 1, 1), Vector2(30, 48), Vector2(-120, -85), [0, 1, 2], 1.0, Vector2(-90, 90), cloud_look)
@@ -4646,6 +5329,12 @@ static func _ocean(root: Node3D, t: Dictionary, stage: Array) -> void:
 	# frame; a few apart leave open sky over the fight.)
 	_clouds(root, bank_rng, int(_pal("cloud_bank")), Color(1, 1, 1), Vector2(10.0, 18.0), Vector2(-215, -195), [1, 0, 1], 1.9, Vector2(-90, 90), cloud_look)
 	_birds(root, rng, Color(0.97, 0.97, 1.0))
+	# (Under a modelled ground the islands' mounds and the headland's hills are built into a node that is thrown away, their numbers
+	# still drawn; what stands on them stays: art/blender/make_beach_ground.py.)
+	var gone := Node3D.new()
+	var land: Node3D = gone if ground_mock else root
+	island_specs.clear()
+	headland_specs.clear()
 	# Distant islands.
 	for k in 3:
 		var isle := Vector3(-70.0 + k * 65.0 + rng.randf_range(-10, 10), float(e[3]) - 3.0, -110.0 + rng.randf_range(-10, 10))
@@ -4655,8 +5344,12 @@ static func _ocean(root: Node3D, t: Dictionary, stage: Array) -> void:
 		isle_sand.set_shader_parameter("facets", true)
 		var isle_green := (FighterView.toon(Color(0.3, 0.62, 0.42), false) as ShaderMaterial).duplicate() as ShaderMaterial
 		isle_green.set_shader_parameter("facets", true)
-		_mesh(root, _sphere(1.0, 9), isle_sand, isle, Vector3(rng.randf_range(10, 16), 3.5, 6.0))
-		_mesh(root, _sphere(1.0, 9), isle_green, isle + Vector3(0, 2.0, 0), Vector3(rng.randf_range(6, 9), 3.5, 4.0))
+		# (Folded mounds, the owner's folded style step 4, 2026-10-20: scaled nine-sided spheres read as primitives beside the folded headland.)
+		var sand_size := Vector3(rng.randf_range(10, 16), 3.5, 6.0)
+		_puff(land, _pleated_puff(8, 4, 0.18), isle_sand, isle, sand_size)
+		var green_size := Vector3(rng.randf_range(6, 9), 3.5, 4.0)
+		_puff(land, _pleated_puff(6, 5, 0.36), isle_green, isle + Vector3(0, 2.0, 0), green_size)
+		island_specs.append([isle, sand_size, green_size])
 		_palm(root, isle + Vector3(rng.randf_range(-4, 4), 4.0, 2.0), 1.4, rng)
 		_isle_detail(root, isle, k)
 	# A lighthouse on its rocks on the right (art/blender/make_props.py), its lantern glowing.
@@ -4678,7 +5371,8 @@ static func _ocean(root: Node3D, t: Dictionary, stage: Array) -> void:
 	_stilt_hut(root, Vector3(30.0, float(e[3]) - 1.0, -46.0))
 	if t.get("pattern", "") == "dock":
 		_dock_harbour(root, e, float(e[3]) - 1.0)
-		_harbour_town(root, float(e[3]) - 1.0)
+		_harbour_town(root, float(e[3]) - 1.0, land)
+	gone.free()
 	# (No palms on the dock, 2026-10-18: a harbour, not a beach.)
 
 
@@ -4690,13 +5384,14 @@ static func _isle_detail(root: Node3D, isle: Vector3, k: int) -> void:
 	rng.seed = 500 + k
 	var foam := _unshaded(Color(0.96, 0.99, 1.0))
 	_mesh(root, _cylinder(1.0, 1.0, 0.08, 28), foam, isle + Vector3(0, 0.15, 0), Vector3(17.5, 1.0, 7.0))
+	# (A leafy ball still: under the leaf tile a folded puff rendered pale and see-through, as the hedge clumps did; FOLDED_STYLE.md.)
 	_mesh(root, _sphere(1.0, 12), Materials.foliage(Color(0.36, 0.68, 0.46), Vector2(3, 2)), isle + Vector3(rng.randf_range(-6.0, -3.0), 1.8, 1.0), Vector3(4.0, 2.6, 3.0))
 	_palm(root, isle + Vector3(rng.randf_range(3.0, 6.0), 2.8, 2.6), 1.0, rng)
-	var rock := Materials.stone(Color(0.62, 0.6, 0.66))
+	var rock := _faceted(Materials.stone(Color(0.62, 0.6, 0.66)))
 	var end := -1.0 if k % 2 == 0 else 1.0
 	for j in 3:
 		var r := rng.randf_range(1.0, 1.8)
-		_mesh(root, _sphere(1.0, 8), rock, isle + Vector3(end * (12.0 + j * 1.8), 0.4, 2.0 - j), Vector3(r * 1.2, r, r), Vector3(0, rng.randf_range(0, 90), 0))
+		_puff(root, _pleated_puff(4, 4, 0.34), rock, isle + Vector3(end * (12.0 + j * 1.8), 0.4, 2.0 - j), Vector3(r * 1.2, r, r), Vector3(0, rng.randf_range(0, 90), 0))
 		_mesh(root, _cylinder(1.0, 1.0, 0.06, 14), foam, isle + Vector3(end * (12.0 + j * 1.8), 0.12, 2.0 - j), Vector3(r * 1.6, 1.0, r * 1.3))
 	if k == 1:
 		var hut := isle + Vector3(-1.5, 3.2, 2.2)
@@ -4708,6 +5403,12 @@ static func _isle_detail(root: Node3D, isle: Vector3, k: int) -> void:
 ## with a lit window, a shaggy thatched roof, a jetty running off to the right (toward the lighthouse) on its own posts, a net hung over the rail and two red and
 ## white floats bobbing beside it.
 static func _stilt_hut(root: Node3D, at: Vector3) -> void:
+	# The house kit's stilt hut and jetty (make_paper_houses_v2.py `stilt_hut`, the owner 2026-10-22: Blender models wherever possible);
+	# the floats still bob on their own. The code-built hut below stands in without the kit.
+	if house_kit != null and _paper(root, "house_stilthut", Transform3D(Basis.IDENTITY, at), {"wall": Color(0.62, 0.5, 0.4),
+			"straw": Color(0.86, 0.7, 0.42), "straw_end": Color(0.76, 0.6, 0.34)}, house_kit):
+		_hut_floats(root, at)
+		return
 	var post := Materials.wood(Color(0.46, 0.34, 0.26))
 	var plank := Materials.wood(Color(0.74, 0.58, 0.4), Vector2(6, 1))
 	var boards := Materials.wood(Color(0.62, 0.5, 0.4), Vector2(3, 2))
@@ -4732,10 +5433,18 @@ static func _stilt_hut(root: Node3D, at: Vector3) -> void:
 	# A rail along the deck's front with a net slung over it.
 	_mesh(root, _box(Vector3(6.4, 0.12, 0.12)), post, at + Vector3(0, 5.0, 2.25))
 	_mesh(root, _box(Vector3(2.4, 0.9, 0.06)), FighterView.toon(Color(0.36, 0.52, 0.5)), at + Vector3(-1.6, 4.6, 2.3))
+	_hut_floats(root, at)
+
+
+## Two red and white floats bobbing off the stilt hut at `at`.
+static func _hut_floats(root: Node3D, at: Vector3) -> void:
 	for k in 2:
 		var buoy := Bob.new()
 		buoy.position = at + Vector3(-4.2 - k * 2.2, 0.1, 2.6 - k * 1.4)
 		root.add_child(buoy)
+		# (The paper kit's float where it has one, fidelity review 7; the built one stands in without.)
+		if _paper(buoy, "net_float", Transform3D(Basis(Vector3.UP, float(k) * 0.9), Vector3.ZERO)):
+			continue
 		_mesh(buoy, _sphere(0.5, 10), FighterView.toon(Color(0.95, 0.3, 0.3)), Vector3.ZERO, Vector3(1.0, 0.8, 1.0))
 		_mesh(buoy, _cylinder(0.52, 0.52, 0.22, 10), FighterView.toon(Color(0.98, 0.96, 0.92)), Vector3(0, 0.05, 0))
 
@@ -4811,22 +5520,25 @@ static func _city(root: Node3D, t: Dictionary, stage: Array) -> void:
 	var tower := Vector3(float(e[0]) + 3.0, roof, -6.0)
 	# (A red-brown tank, art review 9: one of the few warm things on the roof, pushed warmer.)
 	var wood := Materials.wood(Color(0.62, 0.32, 0.26))
+	var paper_tower := _paper(root, "water_tower", Transform3D(Basis.IDENTITY, tower))
 	for leg in [Vector3(-0.9, 0, -0.9), Vector3(0.9, 0, -0.9), Vector3(-0.9, 0, 0.9), Vector3(0.9, 0, 0.9)]:
-		_mesh(root, _box(Vector3(0.18, 2.4, 0.18)), wood, tower + leg + Vector3(0, 1.2, 0))
+		if not paper_tower:
+			_mesh(root, _box(Vector3(0.18, 2.4, 0.18)), wood, tower + leg + Vector3(0, 1.2, 0))
 		# (A crisp shade at each foot, the judge's round 39: the roof's props stood on the light pools ungrounded.)
 		_contact(root, tower + leg, Vector2(0.22, 0.2))
 	_contact(root, tower, Vector2(1.5, 1.2))
-	_mesh(root, _cylinder(1.3, 1.3, 2.2, 14), wood, tower + Vector3(0, 3.5, 0))
-	_mesh(root, _cylinder(0.0, 1.5, 1.0, 14), FighterView.toon(Color(0.4, 0.28, 0.22)), tower + Vector3(0, 5.1, 0))
-	# Iron hoops round the staves, a hatch on the roof and a ladder up the side: they say what it is made of and how big it is.
-	var iron := FighterView.respond(FighterView.toon(Color(0.3, 0.26, 0.32)), "metal")
-	for hy in [2.6, 3.5, 4.4]:
-		_mesh(root, _cylinder(1.34, 1.34, 0.08, 14), iron, tower + Vector3(0, hy, 0))
-	_mesh(root, _box(Vector3(0.5, 0.12, 0.5)), iron, tower + Vector3(0.3, 5.45, 0.55), Vector3.ONE, Vector3(-30, 0, 0))
-	for lx in [-0.18, 0.18]:
-		_mesh(root, _box(Vector3(0.05, 3.4, 0.05)), iron, tower + Vector3(1.0 + lx, 2.2, 0.95))
-	for ly in range(5):
-		_mesh(root, _box(Vector3(0.4, 0.04, 0.04)), iron, tower + Vector3(1.0, 0.8 + ly * 0.7, 0.95))
+	if not paper_tower:
+		_mesh(root, _cylinder(1.3, 1.3, 2.2, 14), wood, tower + Vector3(0, 3.5, 0))
+		_mesh(root, _cylinder(0.0, 1.5, 1.0, 14), FighterView.toon(Color(0.4, 0.28, 0.22)), tower + Vector3(0, 5.1, 0))
+		# Iron hoops round the staves, a hatch on the roof and a ladder up the side: they say what it is made of and how big it is.
+		var iron := FighterView.respond(FighterView.toon(Color(0.3, 0.26, 0.32)), "metal")
+		for hy in [2.6, 3.5, 4.4]:
+			_mesh(root, _cylinder(1.34, 1.34, 0.08, 14), iron, tower + Vector3(0, hy, 0))
+		_mesh(root, _box(Vector3(0.5, 0.12, 0.5)), iron, tower + Vector3(0.3, 5.45, 0.55), Vector3.ONE, Vector3(-30, 0, 0))
+		for lx in [-0.18, 0.18]:
+			_mesh(root, _box(Vector3(0.05, 3.4, 0.05)), iron, tower + Vector3(1.0 + lx, 2.2, 0.95))
+		for ly in range(5):
+			_mesh(root, _box(Vector3(0.4, 0.04, 0.04)), iron, tower + Vector3(1.0, 0.8 + ly * 0.7, 0.95))
 	var mast := Vector3(float(e[1]) - 2.5, roof, -6.5)
 	_mesh(root, _cylinder(0.08, 0.15, 6.0, 6), FighterView.respond(FighterView.toon(Color(0.6, 0.62, 0.7)), "metal"), mast + Vector3(0, 3, 0))
 	var blink := Blinker.new()
@@ -4841,13 +5553,13 @@ static func _city(root: Node3D, t: Dictionary, stage: Array) -> void:
 	# (Modelled, art/blender/make_props.py `ac_unit` and `roof_vent`, and a second of each along the back of the roof, the owner's city
 	# plan, step 3 (rooftop clutter), 2026-10-19. The built ones stand in without the models.)
 	if Toonify.load_prop("ac_unit") != null and Toonify.load_prop("roof_vent") != null:
-		_place_prop(root, "ac_unit", unit, 1.0, 0.0)
+		_paper_or_prop(root, "ac_unit", unit, 1.0, 0.0)
 		_contact(root, unit, Vector2(0.95, 0.7))
 		_contact(root, vent, Vector2(0.45, 0.38))
 		# (On the roof, which reaches back to z -6: at -7 these two hung past its back edge, the owner, 2026-10-19.)
-		_place_prop(root, "ac_unit", Vector3(float(e[1]) - 9.5, roof, -5.2), 0.85, 8.0)
-		_place_prop(root, "roof_vent", vent, 1.0, 200.0)
-		_place_prop(root, "roof_vent", Vector3(float(e[0]) + 11.0, roof, -5.3), 0.9, -30.0)
+		_paper_or_prop(root, "ac_unit", Vector3(float(e[1]) - 9.5, roof, -5.2), 0.85, 8.0)
+		_paper_or_prop(root, "roof_vent", vent, 1.0, 200.0)
+		_paper_or_prop(root, "roof_vent", Vector3(float(e[0]) + 11.0, roof, -5.3), 0.9, -30.0)
 		_contact(root, Vector3(float(e[1]) - 9.5, roof, -5.2), Vector2(0.85, 0.6))
 		_contact(root, Vector3(float(e[0]) + 11.0, roof, -5.3), Vector2(0.4, 0.34))
 	else:
@@ -5319,6 +6031,12 @@ const FACADE_LIT := [1.5, 0.7, 0.45]
 ## (Fewer lit the further back, as distance would hide them: the far layer was the most lit, 36%.)
 ## (Fewer behind, art review 10: the middle and far layers' window grids were the busiest detail behind the fight.)
 const FACADE_LIT_SHARE := [0.18, 0.09, 0.05]
+## The near skyline layer's towers, modelled (art/blender/make_city_towers.py, the owner 2026-10-22: Blender models wherever possible):
+## the boxes `_skyline_layer` lays out, exported with `--city-export=<json>`, built with real window frames, sills, lintels, floor
+## ledges and pilasters where the facade shader paints them, and painted by the same shader. `--no-city-model` for the code boxes.
+const CITY_NEAR := "res://models/city/skyline_near.glb"
+## While a layer is laid out, the boxes it builds ([lo, hi, seed, plain, h, glass]), for the model and its export; null otherwise.
+static var _box_log = null
 
 
 ## One layer of the city's backdrop at depth `z`, its streets at `street`: a row of buildings (boxes with a parapet, some with rooftop
@@ -5327,6 +6045,15 @@ const FACADE_LIT_SHARE := [0.18, 0.09, 0.05]
 static func _skyline_layer(root: Node3D, rng: RandomNumberGenerator, layer: int, z: float, shade: Color, street: float) -> void:
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	# (The quads laid straight on the facade, the crowns' pyramids and the signs, on their own too: with the modelled towers they are
+	# all this layer still draws itself.)
+	var qst := SurfaceTool.new()
+	qst.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var near := layer == 0
+	_box_log = [] if near else null
+	var sign_out := 0.08
+	if near and ResourceLoader.exists(CITY_NEAR) and not OS.get_cmdline_user_args().has("--no-city-model"):
+		sign_out = 0.24 / float({"A": 0.1, "B": 0.08, "C": 0.22}.get(_paper_look(), 1.0))
 	var depth := 5.0
 	# Signs on some of the nearer buildings, from their own random numbers (so the skyline's layout is the same with or without them).
 	var signs := RandomNumberGenerator.new()
@@ -5336,6 +6063,7 @@ static func _skyline_layer(root: Node3D, rng: RandomNumberGenerator, layer: int,
 	# (On the nearest layer, on a low building, the owner's city plan step 4, 2026-10-19: on the middle layer nearer towers hid them.)
 	var billboard_at := [-26.0, 24.0] if layer == 0 else []
 	var billboard_best := {}
+	var cards: Array = []
 	var x := -120.0
 	while x < 120.0:
 		var w := rng.randf_range(6.0, 13.0)
@@ -5355,6 +6083,10 @@ static func _skyline_layer(root: Node3D, rng: RandomNumberGenerator, layer: int,
 			w *= 1.2
 		var lo := Vector3(x, street, z - depth / 2.0)
 		var hi := Vector3(x + w, street + h, z + depth / 2.0)
+		# (Its span and its own stagger in depth, for the paper looks, `_paper_skyline`; its own numbers.)
+		var stagger := RandomNumberGenerator.new()
+		stagger.seed = hash(Vector2i(roundi(x * 10.0), layer)) + 11
+		cards.append([x - 0.4, x + w + 0.4, stagger.randf_range(-1.0, 1.0), street + h])
 		_facade_box(st, lo, hi, seed, false, h, btype == 2)
 		# The roofline: a cornice lip a little proud all round, and on some taller buildings a narrower setback storey or two above it,
 		# so the skyline's silhouette steps instead of being a row of plain boxes. (Its own random numbers, so the layout is unchanged.)
@@ -5383,9 +6115,10 @@ static func _skyline_layer(root: Node3D, rng: RandomNumberGenerator, layer: int,
 			var py := t1 + s2
 			var apex := Vector3((pl + pr) * 0.5, py + (pr - pl) * 0.7, z)
 			var pc := Color(seed, 1.0, 0.0)
-			_facade_quad(st, [Vector3(pl, py, pf), Vector3(pr, py, pf), apex, apex], Vector3(0, 0.6, 0.8).normalized(), Vector2(pr - pl, 1.0), 0.0, pc)
-			_facade_quad(st, [Vector3(pr, py, pf), Vector3(pr, py, pb), apex, apex], Vector3(0.8, 0.6, 0).normalized(), Vector2(pf - pb, 1.0), 0.0, pc)
-			_facade_quad(st, [Vector3(pl, py, pb), Vector3(pl, py, pf), apex, apex], Vector3(-0.8, 0.6, 0).normalized(), Vector2(pf - pb, 1.0), 0.0, pc)
+			for qs: SurfaceTool in [st, qst]:
+				_facade_quad(qs, [Vector3(pl, py, pf), Vector3(pr, py, pf), apex, apex], Vector3(0, 0.6, 0.8).normalized(), Vector2(pr - pl, 1.0), 0.0, pc)
+				_facade_quad(qs, [Vector3(pr, py, pf), Vector3(pr, py, pb), apex, apex], Vector3(0.8, 0.6, 0).normalized(), Vector2(pf - pb, 1.0), 0.0, pc)
+				_facade_quad(qs, [Vector3(pl, py, pb), Vector3(pl, py, pf), apex, apex], Vector3(-0.8, 0.6, 0).normalized(), Vector2(pf - pb, 1.0), 0.0, pc)
 		elif btype == 2 and h > 12.0:
 			# A glass tower: a slimmer glass crown set back over a cornice, and on the taller ones a mast (the judge's round 40: the slim
 			# glass slabs were the last flat-topped boxes in the near skyline).
@@ -5420,14 +6153,17 @@ static func _skyline_layer(root: Node3D, rng: RandomNumberGenerator, layer: int,
 		# (None in the strip right behind the fighters, step 4: a lit sign there pulled the eye from the fight.)
 		if layer < 2 and signs.randf() < 0.55 and absf(x + w * 0.5) > 13.0:
 			# A lit sign on the front: a tall blade sign near one side, or a wide one across the middle.
-			var front := hi.z + 0.08
+			# (Out past the modelled towers' window frames and sills, when they are there, so a sign hangs over them.)
+			var front := hi.z + sign_out
 			var tall := signs.randf() < 0.5
 			var sw := 1.7 if tall else minf(w * 0.6, 6.0)
 			var sh := minf(h * 0.4, 6.0) if tall else 1.8
 			var sx := lo.x + (0.8 if signs.randf() < 0.5 else w - 0.8 - sw) if tall else lo.x + (w - sw) * 0.5
 			var sy := street + h * signs.randf_range(0.35, 0.7)
-			_facade_quad(st, [Vector3(sx, sy, front), Vector3(sx + sw, sy, front), Vector3(sx + sw, sy + sh, front), Vector3(sx, sy + sh, front)],
-				Vector3(0, 0, 1), Vector2(sw, sh), 0.0, Color(signs.randf(), 0.0, 1.0))
+			var sign_c := Color(signs.randf(), 0.0, 1.0)
+			for qs: SurfaceTool in [st, qst]:
+				_facade_quad(qs, [Vector3(sx, sy, front), Vector3(sx + sw, sy, front), Vector3(sx + sw, sy + sh, front), Vector3(sx, sy + sh, front)],
+					Vector3(0, 0, 1), Vector2(sw, sh), 0.0, sign_c)
 		for b in billboard_at:
 			var d := absf(x + w / 2.0 - float(b))
 			if h < 20.0 and (not billboard_best.has(b) or d < float(billboard_best[b][0])):
@@ -5460,8 +6196,10 @@ static func _skyline_layer(root: Node3D, rng: RandomNumberGenerator, layer: int,
 		var bz := z + depth / 2.0 + 0.15
 		for lx in [left + bw * 0.2, left + bw * 0.8]:
 			_facade_box(st, Vector3(lx - 0.1, top, bz - 0.1), Vector3(lx + 0.1, top + 1.2, bz + 0.1), float(b[4]), true, 1.2)
-		_facade_quad(st, [Vector3(left, top + 1.2, bz + 0.12), Vector3(left + bw, top + 1.2, bz + 0.12), Vector3(left + bw, top + 3.4, bz + 0.12),
-			Vector3(left, top + 3.4, bz + 0.12)], Vector3(0, 0, 1), Vector2(bw, 2.2), 0.0, Color(signs.randf(), 0.0, 1.0))
+		var board_c := Color(signs.randf(), 0.0, 1.0)
+		for qs: SurfaceTool in [st, qst]:
+			_facade_quad(qs, [Vector3(left, top + 1.2, bz + 0.12), Vector3(left + bw, top + 1.2, bz + 0.12), Vector3(left + bw, top + 3.4, bz + 0.12),
+				Vector3(left, top + 3.4, bz + 0.12)], Vector3(0, 0, 1), Vector2(bw, 2.2), 0.0, board_c)
 	var m := ShaderMaterial.new()
 	m.shader = FACADE_SHADER
 	m.set_shader_parameter("base_shade", shade)
@@ -5475,21 +6213,206 @@ static func _skyline_layer(root: Node3D, rng: RandomNumberGenerator, layer: int,
 	# (Four tenths dimmer again, the judge's round 39: the signs were still the brightest, most saturated things on screen.)
 	m.set_shader_parameter("sign_energy", (1.9 - layer * 0.5) * float(_pal("sign_dim")))
 	m.set_shader_parameter("moon_edge", [0.9, 0.6, 0.35][layer])
+	# (The glow catching the towers' edges, fidelity review 7's shaped light: the palette's `skyline_glow_edge` [a layer], or `--shaped=`.)
+	var ge: Array = (_palette.get("backdrop", {}) as Dictionary).get("skyline_glow_edge", [0.0, 0.0, 0.0])
+	var shaped_flag := ""
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--shaped="):
+			shaped_flag = arg.substr(9)
+	ge = {"T": [0.0, 0.0, 0.0], "A": [0.45, 0.35, 0.2], "B": [0.7, 0.55, 0.32]}.get(shaped_flag, ge)
+	m.set_shader_parameter("glow_edge", float(ge[layer]))
+	# (The quiet behind the fight, fidelity review 5: the palette's `skyline_calm` on the two nearer layers, `--city-calm=` to try.)
+	var calm := float((_palette.get("backdrop", {}) as Dictionary).get("skyline_calm", 0.0))
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--city-calm="):
+			calm = float(arg.substr(12))
+	m.set_shader_parameter("calm", calm if layer < 2 else 0.0)
+	# (Haze between the rows, the palette's `skyline_haze`, [strength, height] a layer near to far, in `skyline_haze_color`: each row's
+	# foot fades into the street's lit haze, the further rows more, so every row reads further back than the one in front. Fidelity
+	# review 6, the city's depth.)
+	var bd: Dictionary = _palette.get("backdrop", {})
+	if bd.has("skyline_haze"):
+		var hz: Array = (bd.skyline_haze as Array)[layer]
+		m.set_shader_parameter("foot_haze", float(hz[0]))
+		m.set_shader_parameter("foot_height", float(hz[1]))
+		m.set_shader_parameter("foot_color", bd.get("skyline_haze_color", Color(0.6, 0.4, 0.6)))
+		m.set_shader_parameter("street_y", street)
 	# (Finer windows, finer further back, the gauntlet's round 15 after the owner's city reference: its windows are fine regular grids
 	# that read as texture; ours, a bay of 2 by 2.6 on every layer, read as stickers.)
 	m.set_shader_parameter("cell", [Vector2(1.5, 1.95), Vector2(1.15, 1.5), Vector2(0.9, 1.2)][layer])
 	m.set_shader_parameter("pane", [Vector2(0.56, 0.78), Vector2(0.44, 0.62), Vector2(0.36, 0.5)][layer])
+	var boxes: Array = _box_log if near else []
+	_box_log = null
+	for arg in OS.get_cmdline_user_args():
+		if near and arg.begins_with("--city-export="):
+			_city_export(arg.substr(14), boxes)
+	var whole := _paper_skyline(st.commit(), cards, z, layer)
 	var mi := MeshInstance3D.new()
-	mi.mesh = st.commit()
+	mi.mesh = whole
+	var model := _city_model(_city_sig(boxes)) if near else null
+	if model != null:
+		# The modelled towers in the layer's place, squashed into the paper look's cards as the code boxes are; the layer itself draws
+		# only its crowns' pyramids and its signs.
+		mi.mesh = _paper_skyline(qst.commit(), cards, z, layer)
+		root.add_child(model)
+		for part: MeshInstance3D in model.find_children("*", "MeshInstance3D", true, false):
+			part.mesh = _paper_skyline(part.mesh as ArrayMesh, cards, z, layer)
+			part.material_override = m
+			part.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	mi.material_override = m
 	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	mi.name = "skyline_%d" % layer
 	root.add_child(mi)
+	_paper_edges(root, whole, cards, z, layer, shade, street)
+
+
+## The modelled near towers (`CITY_NEAR`), or null without them, with `--no-city-model`, or when they were built from another layout
+## than this one (their mesh's name carries the layout they were built from: `skyline_near_<n>`, `_city_sig`).
+static func _city_model(n: int) -> Node3D:
+	if OS.get_cmdline_user_args().has("--no-city-model") or not ResourceLoader.exists(CITY_NEAR):
+		return null
+	var model := (load(CITY_NEAR) as PackedScene).instantiate() as Node3D
+	var parts := model.find_children("skyline_near_*", "MeshInstance3D", true, false)
+	if parts.is_empty() or not String(parts[0].name).ends_with("_%d" % n):
+		push_warning("the modelled skyline was built from another layout (%s, now %d boxes): re-export it" % [parts[0].name if parts else "none", n])
+		model.free()
+		return null
+	return model
+
+
+## A layout's signature: its boxes' places across and their seeds, folded into one number (make_city_towers.py folds the same).
+static func _city_sig(boxes: Array) -> int:
+	var sig := boxes.size()
+	for b in boxes:
+		sig = posmod(sig * 31 + roundi((b[0] as Vector3).x * 100.0) + _seed8(float(b[2])) * 7, 1000003)
+	return sig
+
+
+## A seed as the mesh keeps it, in eight bits cut down, not rounded: the shader reads that.
+static func _seed8(seed: float) -> int:
+	return int(clampf(seed, 0.0, 1.0) * 255.0)
+
+
+## The near layer's boxes as JSON for art/blender/make_city_towers.py, with what the shader needs to find the windows on them.
+static func _city_export(path: String, boxes: Array) -> void:
+	var out: Array = []
+	for b in boxes:
+		var lo: Vector3 = b[0]
+		var hi: Vector3 = b[1]
+		out.append([lo.x, lo.y, lo.z, hi.x, hi.y, hi.z, _seed8(float(b[2])), bool(b[3]), float(b[4]), bool(b[5])])
+	var look := _paper_look()
+	var doc := {"boxes": out, "cell": [1.5, 1.95], "pane": [0.56, 0.78], "first_row": 1.0, "parapet": 0.55,
+		"thin": {"A": 0.1, "B": 0.08, "C": 0.22}.get(look, 1.0)}
+	var f := FileAccess.open(path, FileAccess.WRITE)
+	f.store_string(JSON.stringify(doc))
+	f.close()
+	print("city export: %d boxes -> %s" % [out.size(), path])
 
 
 ## A box from `lo` to `hi` into `st` for the facade shader: its front and sides as walls (windows unless `plain`), its top plain. Each
 ## face's UV runs in world units across it and up from the street; UV2 holds the face's width and the building's height `h`.
+## The skyline as paper (`--paper-sky=A|B|C` on the stage demo, the stage refinement's paper pass): each building squashed into a
+## standing card, its printed windows and signs kept. A: thin cards, each staggered in depth by its own amount, as a pop-up book's;
+## B: one flat card per layer, every building on the same plane; C: thicker board, staggered. `cards` [left, right, stagger (-1 to 1), top] per building; `z` the layer's middle. Unchanged without the flag.
+static func _paper_skyline(mesh: ArrayMesh, cards: Array, z: float, layer: int) -> ArrayMesh:
+	var look := _paper_look()
+	if look == "":
+		return mesh
+	var thin: float = {"A": 0.1, "B": 0.08, "C": 0.22}.get(look, 0.1)
+	var spread: float = {"A": 3.0, "B": 0.0, "C": 2.4}.get(look, 3.0) * (1.0 - 0.25 * float(layer))
+	var out := ArrayMesh.new()
+	for si in mesh.get_surface_count():
+		var arr := mesh.surface_get_arrays(si)
+		var verts: PackedVector3Array = arr[Mesh.ARRAY_VERTEX]
+		for i in verts.size():
+			var v := verts[i]
+			var dz := 0.0
+			for c in cards:
+				if v.x >= float(c[0]) and v.x <= float(c[1]):
+					dz = float(c[2]) * spread
+					break
+			verts[i] = Vector3(v.x, v.y, z + dz + (v.z - z) * thin)
+		arr[Mesh.ARRAY_VERTEX] = verts
+		out.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr)
+	return out
+
+
+## The skyline's paper look: `--paper-sky=` on the command line (`off` for the solid towers, for comparisons), else the palette's
+## [backdrop] `paper_sky`, else none.
+static func _paper_look() -> String:
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("--paper-sky="):
+			var v := a.substr(12)
+			return "" if v == "off" else v
+	return String((_palette.get("backdrop", {}) as Dictionary).get("paper_sky", ""))
+
+
+## The paper looks' cut: behind each building's card, its own silhouette a little larger as the card's pale die-cut edge (A, C), and a
+## soft shadow of it down and to the right (B, C), so the cards read as paper standing apart. Traced from the card's own vertices: the
+## highest in each half-unit across it, the gaps between corners filled in.
+static func _paper_edges(root: Node3D, mesh: ArrayMesh, cards: Array, z: float, layer: int, shade: Color, street: float) -> void:
+	var look := _paper_look()
+	if look == "":
+		return
+	var thin: float = {"A": 0.1, "B": 0.08, "C": 0.22}.get(look, 0.1)
+	var spread: float = {"A": 3.0, "B": 0.0, "C": 2.4}.get(look, 3.0) * (1.0 - 0.25 * float(layer))
+	var tops := {}
+	for si in mesh.get_surface_count():
+		for v: Vector3 in (mesh.surface_get_arrays(si)[Mesh.ARRAY_VERTEX] as PackedVector3Array):
+			var b := floori(v.x * 2.0)
+			tops[b] = maxf(float(tops.get(b, -INF)), v.y)
+	var edge := StandardMaterial3D.new()
+	edge.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	edge.albedo_color = shade.lerp(Color(0.92, 0.86, 0.96), 0.55)
+	var dark := StandardMaterial3D.new()
+	dark.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	dark.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	dark.albedo_color = Color(0.08, 0.03, 0.14, 0.45)
+	var pad := 0.35
+	# (One mesh of each kind for the whole layer: one per building cost sixty draw calls.)
+	var kinds: Array = ["edge"] if look == "A" else ["shadow"] if look == "B" else ["edge", "shadow"]
+	var tools := {}
+	for kind in kinds:
+		var st := SurfaceTool.new()
+		st.begin(Mesh.PRIMITIVE_TRIANGLES)
+		st.set_normal(Vector3(0, 0, 1))
+		tools[kind] = st
+	for c in cards:
+		var x0 := float(c[0]) + 0.4
+		var x1 := float(c[1]) - 0.4
+		var back := z + float(c[2]) * spread - 2.5 * thin
+		# The card's top across it, the gaps between corners filled from the nearest found on each side.
+		var cols: Array = []
+		var last := float(c[3])
+		var b := floori(x0 * 2.0)
+		while float(b) * 0.5 <= x1:
+			if tops.has(b):
+				last = float(tops[b])
+			cols.append([float(b) * 0.5, maxf(last, float(c[3]) - 0.4)])
+			b += 1
+		for kind in kinds:
+			var st: SurfaceTool = tools[kind]
+			var off := Vector3(0, 0, -0.05) if kind == "edge" else Vector3(0.6, -0.6, -0.1)
+			var grow := pad if kind == "edge" else 0.0
+			for i in cols.size():
+				var xa: float = cols[i][0] - (grow if i == 0 else 0.0)
+				var xb: float = (cols[i][0] + 0.5) + (grow if i == cols.size() - 1 else 0.0)
+				var yt: float = cols[i][1] + grow
+				var q := [Vector3(xa, street - 1.0, back), Vector3(xb, street - 1.0, back), Vector3(xb, yt, back), Vector3(xa, yt, back)]
+				for idx in [0, 2, 1, 0, 3, 2]:
+					st.add_vertex(q[idx] + off)
+	for kind in kinds:
+		var e := MeshInstance3D.new()
+		e.mesh = (tools[kind] as SurfaceTool).commit()
+		e.material_override = edge if kind == "edge" else dark
+		e.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		e.name = "skyline_%s_%d" % [kind, layer]
+		root.add_child(e)
+
+
 static func _facade_box(st: SurfaceTool, lo: Vector3, hi: Vector3, seed: float, plain: bool, h: float, glass := false) -> void:
+	if _box_log != null:
+		_box_log.append([lo, hi, seed, plain, h, glass])
 	# (Blue 0.3 marks a glass tower's walls for the facade shader; 1 is a neon sign.)
 	var col := Color(seed, 1.0 if plain else 0.0, 0.3 if glass and not plain else 0.0)
 	var w := hi.x - lo.x
@@ -5518,6 +6441,13 @@ static func _facade_quad(st: SurfaceTool, c: Array, normal: Vector3, size: Vecto
 
 ## A big round cartoon tree: a tapered trunk with bark grooves and roots, under a canopy of soft green balls.
 static func _tree(root: Node3D, base: Vector3, size: float, rng: RandomNumberGenerator) -> void:
+	if tree_mock and not root.has_meta("tree_sink"):
+		var sink := Node3D.new()
+		sink.set_meta("tree_sink", true)
+		_tree(sink, base, size, rng)
+		sink.free()
+		tree_slots.append([base, size])
+		return
 	var trunk_h := 18.0 * size
 	# Bark drawn on (grooves and knots, `Materials.bark`) rather than built of boxes, on one trunk that bows gently as it rises, tapers,
 	# and flares into broad roots at its foot.
@@ -5536,7 +6466,8 @@ static func _tree(root: Node3D, base: Vector3, size: float, rng: RandomNumberGen
 		bark.set_shader_parameter("ramp_softness", 0.08)
 	# (Broad bark ridges in the trunk's shape, faceted, 2026-10-19: at 0.09 the great trunk read as one flat column mid-frame.)
 	# (Nine long twisting folds, round 39 and the owner's grove reference: fine ridges read as a smooth grooved column.)
-	_mesh(root, trunk_mesh(trunk_h, 2.9 * size, 2.0 * size, 0.7 * size, 1.4 * size, 0.0, 9), bark, base)
+	# (Seven, deeper, 2026-10-20: wider planes, each wholly toward the key or away from it.)
+	_mesh(root, trunk_mesh(trunk_h, 2.9 * size, 2.0 * size, 0.7 * size, 1.4 * size, 0.0, 7), bark, base)
 	for k in 6:
 		var a := -1.25 + k * 0.5
 		var reach := rng.randf_range(0.85, 1.15)
@@ -6147,6 +7078,9 @@ static func _strata_ledges(parent: Node3D, t: Dictionary, left: float, right: fl
 	lip.set_shader_parameter("front_span", 4.5)
 	var tm := _mesh(parent, tops.commit(), lip, Vector3.ZERO)
 	tm.set_instance_shader_parameter("front_top", fall_top)
+	# (Part of the front a modelled one replaces, StageBake.hide_code_front.)
+	tm.name = "strata_tops"
+	tm.set_meta("code_front", true)
 
 
 ## A quad a-b-c-d (counter-clockwise seen from outside) into `st`, with normal `n`.
@@ -6228,7 +7162,11 @@ static func _dock_block(parent: Node3D, t: Dictionary, left: float, right: float
 	# (Honey-toned after the owner's harbour reference, kept at a readable value, about half of white.)
 	# (A step deeper again with the rendered planks, whose grain lifts the boards' tops: the orange fighter came within 0.04 of them.)
 	# (A warmer, brighter honey, the style sheet's section 9 (clean, bright play surface), 2026-10-19: murky mid-brown.)
-	var wood_c: Color = Color(0.86, 0.7, 0.5)
+	# (From the palette, [backdrop] `deck_wood`, `deck_worn` and `pile_wood`, so the owner's pick of the mocks is a palette change, the
+	# stage refinement's pass 4, 2026-10-20; these defaults are the look before it.)
+	# (The theme's own palette by name: the blocks are built before `backdrop` sets `_palette`.)
+	var bd: Dictionary = palette(String(t.get("name", "ocean"))).get("backdrop", {})
+	var wood_c: Color = bd.get("deck_wood", Color(0.86, 0.7, 0.5))
 	var dark_c: Color = t.wood_dark
 	# The deck: rows of boards from the front back, staggered joints.
 	# (Longer boards in wider rows and a narrower range of shade, art review 9: hundreds of short boards in many shades read busy.)
@@ -6297,7 +7235,7 @@ static func _dock_block(parent: Node3D, t: Dictionary, left: float, right: float
 	deck_mat.set_shader_parameter("ramp_softness", 0.1)
 	# (Scuffed paler along the play line where feet wear the boards, the gauntlet's round 1: a uniform deck read as a flat fill.)
 	deck_mat.set_shader_parameter("worn_path", 0.6)
-	deck_mat.set_shader_parameter("worn_tint", Color(1.6, 1.45, 1.25))
+	deck_mat.set_shader_parameter("worn_tint", bd.get("deck_worn", Color(1.6, 1.45, 1.25)))
 	deck.material_override = deck_mat
 	deck.name = "dock_deck"
 	parent.add_child(deck)
@@ -6309,9 +7247,13 @@ static func _dock_block(parent: Node3D, t: Dictionary, left: float, right: float
 	_mesh(parent, _box(Vector3(deck_r - deck_l, 0.3, depth - 0.4)), FighterView.toon(dark_c.darkened(0.36), false), Vector3((left + right) * 0.5, top - thick - 0.15, front - depth * 0.5))
 	# The fascia: a heavy beam along the front edge, lit on its top, and one along each end.
 	var fascia := Materials.wood(dark_c, Vector2(10, 1))
+	# (The fascia, piles, bracing and their waterline pieces are the dock's front: marked `code_front`, so a modelled front replaces them,
+	# StageBake.hide_code_front. The deck, its joists and the shade under it stay.)
+	var f0 := parent.get_child_count()
 	_mesh(parent, _round_box(Vector3(deck_r - deck_l + 0.3, 0.42, 0.32), 0.07, 3), fascia, Vector3((left + right) * 0.5, top - thick - 0.2, front + 0.02))
 	for ex in [deck_l - 0.1, deck_r + 0.1]:
 		_mesh(parent, _box(Vector3(0.3, 0.42, depth)), fascia, Vector3(ex, top - thick - 0.2, front - depth * 0.5))
+	var f1 := parent.get_child_count()
 	# The shade under the pier: the deck's underside, and a soft band of shadow falling from it down between the piles (the sea shows
 	# through below it; a solid dark wall there read as a black void).
 	var under := FighterView.toon(Color(0.12, 0.13, 0.2), false)
@@ -6321,7 +7263,8 @@ static func _dock_block(parent: Node3D, t: Dictionary, left: float, right: float
 		band.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	# Piles: a front row and a back row, round, a little off plumb, each with a dark wet band and green weed at the waterline.
 	# (Plain faceted wood in a deep brown, the stage's dark simple front, 2026-10-19: striped bark piles were the busiest thing on screen.)
-	var pile := (FighterView.toon(Color(0.36, 0.26, 0.2)) as ShaderMaterial).duplicate() as ShaderMaterial
+	var f2 := parent.get_child_count()
+	var pile := (FighterView.toon(bd.get("pile_wood", Color(0.36, 0.26, 0.2))) as ShaderMaterial).duplicate() as ShaderMaterial
 	pile.set_shader_parameter("facets", true)
 	var wet := FighterView.toon(Color(0.66, 0.64, 0.48))
 	var weed := Materials.foliage(Color(0.26, 0.46, 0.3), Vector2(1, 1), false)
@@ -6369,6 +7312,9 @@ static func _dock_block(parent: Node3D, t: Dictionary, left: float, right: float
 		var sgn := 1.0 if (k / 2) % 2 == 0 else -1.0
 		_mesh(parent, _box(Vector3(len, 0.34, 0.16)), brace, Vector3((a + b) * 0.5, (y_hi + y_lo) * 0.5, front + 0.04), Vector3.ONE, Vector3(0, 0, ang * sgn))
 	_mesh(parent, _box(Vector3(float(fronts.back()) - float(fronts.front()), 0.3, 0.16)), brace, Vector3((float(fronts.front()) + float(fronts.back())) * 0.5, y_hi + 0.05, front + 0.08))
+	for i in range(f0, parent.get_child_count()):
+		if i < f1 or i >= f2:
+			parent.get_child(i).set_meta("code_front", true)
 
 
 ## The harbour round the dock (`e` the stage's extent; the sea at `water`): in front of the stage, low on the water at both corners, a
@@ -6460,6 +7406,9 @@ const TOWN_TOWER_X := 9.0
 ## with a bell in it, under a steep four-sided red roof with a lit trim and a vane; the tallest thing in the town, so the skyline has one
 ## landmark.
 static func _bell_tower(root: Node3D, at: Vector3) -> void:
+	# The house kit's bell tower (make_paper_houses_v2.py `bell_tower`): quoins, an open belfry with its bell, a clock, a spire in rows.
+	if house_kit != null and _paper(root, "house_belltower", Transform3D(Basis.IDENTITY, at), {"roof": Color(0.84, 0.34, 0.28)}, house_kit):
+		return
 	var wall := FighterView.toon(Color(0.98, 0.94, 0.86))
 	var stone := Materials.stone(Color(0.7, 0.66, 0.62), Vector2(2, 1))
 	var trim := FighterView.toon(Color(0.62, 0.42, 0.3))
@@ -6485,6 +7434,11 @@ static func _bell_tower(root: Node3D, at: Vector3) -> void:
 ## The harbour's warehouse (`at` its foot, on the quay): long and low, walls of weathered blue-grey boards on a stone footing, a broad
 ## gabled roof in dark slate with its gable end to the sea, big double doors with a lit lintel and a hoist beam over a loft door.
 static func _warehouse(root: Node3D, at: Vector3) -> void:
+	# The house kit's warehouse (make_paper_houses_v2.py `warehouse`): braced double doors, a loft with its hoist, goods by the door.
+	var roof_c := Color(0.3, 0.56, 0.6)
+	if house_kit != null and _paper(root, "house_warehouse", Transform3D(Basis.IDENTITY, at), {"wall": Color(0.86, 0.66, 0.5), "roof": roof_c,
+			"roof_edge": roof_c.lightened(0.3), "roof_score": roof_c.darkened(0.25)}, house_kit):
+		return
 	# (Warmer, 2026-10-19: blue-grey boards under a slate roof were the coldest, greyest thing on the beach.)
 	var boards := Materials.wood(Color(0.86, 0.66, 0.5), Vector2(8, 2))
 	var trim := FighterView.toon(Color(0.96, 0.92, 0.84))
@@ -6517,7 +7471,9 @@ static func _warehouse(root: Node3D, at: Vector3) -> void:
 ## A harbour town across the water on the left (the sea at `water`): a green headland rising from a stone quay, its houses climbing the
 ## slope in rows (the cottage model, each roof its own colour, walls tinted a few seaside pastels, turned a little), boats moored along
 ## the quay, and hills behind; the middle distance of a harbour, as the owner's references have (2026-10-18). Its own random numbers.
-static func _harbour_town(root: Node3D, water: float) -> void:
+static func _harbour_town(root: Node3D, water: float, land_root: Node3D = null) -> void:
+	if land_root == null:
+		land_root = root
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 2718
 	# (Further back and out, the gauntlet's round 2: nearer, the town was the biggest, most saturated thing in the corner of the frame.)
@@ -6533,34 +7489,37 @@ static func _harbour_town(root: Node3D, water: float) -> void:
 	# (Modelled hills, art/blender/make_props.py `hill_dome`, in a calm soft-lit land colour, the gauntlet's round 19: scaled spheres under
 	# the scaly foliage tile read as painted cards beside the modelled ranges. The spheres stand in without them.)
 	# (Plain and calm: laid in the rendered turf, the gauntlet's round 26, it read as dark lichen noise in front of the hazed town.)
-	var near_hill := (FighterView.toon(Color(0.28, 0.52, 0.42), false) as ShaderMaterial).duplicate() as ShaderMaterial
+	# (Through the air at their depths, `_air_colour`, the stage refinement's pass 1: unaired, the headland read darker than the town on it.)
+	var near_hill := (FighterView.toon(_air_colour(Color(0.28, 0.52, 0.42), base.z - 14.0), false) as ShaderMaterial).duplicate() as ShaderMaterial
 	# (Faceted planes, as the meadow's hills, 2026-10-19.)
 	near_hill.set_shader_parameter("facets", true)
 	near_hill.set_shader_parameter("ramp_softness", 0.12)
 	near_hill.set_shader_parameter("rim_strength", 0.0)
 	var far_hill := near_hill.duplicate() as ShaderMaterial
 	# (Deeper and with a crisper turn, 2026-10-19: the folded headland's planes went one pale tone and it read as a glassy blob.)
-	far_hill.set_shader_parameter("albedo", Color(0.26, 0.52, 0.52))
+	far_hill.set_shader_parameter("albedo", _air_colour(Color(0.26, 0.52, 0.52), base.z - 42.0))
 	far_hill.set_shader_parameter("ramp_softness", 0.06)
 	var dome := [_prop_mesh("hill_dome_a", "land"), _prop_mesh("hill_dome_b", "land")]
 	for hi in hills.size():
 		var h: Array = hills[hi]
+		headland_specs.append(["near", base + (h[0] as Vector3), h[1]])
 		if dome[hi % 2] != null:
-			var hm := _mesh(root, dome[hi % 2], near_hill, base + (h[0] as Vector3), h[1])
+			var hm := _mesh(land_root, dome[hi % 2], near_hill, base + (h[0] as Vector3), h[1])
 			hm.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		else:
-			_mesh(root, _sphere(1.0, 9), land, base + (h[0] as Vector3), h[1])
+			_mesh(land_root, _sphere(1.0, 9), land, base + (h[0] as Vector3), h[1])
 	# Higher hills behind the town, bluer with distance.
 	var far_land := Materials.foliage(Color(0.42, 0.56, 0.56), Vector2(6, 3), false)
 	# (Finer facets and a deeper green, gauntlet round 3: nine-sided spheres this size were a few huge flat panes, pale through the haze,
 	# and read as glass.)
 	# (Deeper, 2026-10-19: ten deep, their flanks all faced the camera and took one tone; at twenty they turn to the light and away.)
 	for fh: Array in [[Vector3(-18, 0.0, -40), Vector3(36, 26, 20), 1], [Vector3(14, 0.0, -44), Vector3(30, 20, 20), 0]]:
+		headland_specs.append(["far", base + (fh[0] as Vector3), fh[1]])
 		if dome[fh[2]] != null:
-			var fm := _mesh(root, dome[fh[2]], far_hill, base + (fh[0] as Vector3), fh[1])
+			var fm := _mesh(land_root, dome[fh[2]], far_hill, base + (fh[0] as Vector3), fh[1])
 			fm.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		else:
-			_mesh(root, _sphere(1.0, 18), far_land, base + (fh[0] as Vector3), fh[1])
+			_mesh(land_root, _sphere(1.0, 18), far_land, base + (fh[0] as Vector3), fh[1])
 	# The land's height at (x, z) (relative to `base`): the highest of the hills' ellipsoid surfaces there.
 	var ground := func(x: float, z: float) -> float:
 		var best := 0.0
@@ -6597,7 +7556,9 @@ static func _harbour_town(root: Node3D, water: float) -> void:
 			house.scale = Vector3.ONE * rng.randf_range(0.85, 1.15)
 			root.add_child(house)
 			var walls: Array = _pal("town_walls")
-			_cottage(house, Vector3.ZERO, roofs[rng.randi() % roofs.size()], 1.0 if rng.randf() < 0.5 else -1.0, walls[rng.randi() % walls.size()])
+			_cottage(house, Vector3.ZERO, roofs[rng.randi() % roofs.size()], 1.0 if rng.randf() < 0.5 else -1.0, walls[rng.randi() % walls.size()],
+				TOWN_TYPES[_house_n % TOWN_TYPES.size()])
+			_house_n += 1
 			# (Each row back a step further into the air, the gauntlet's round 21: at foreground strength the town read as toys.)
 			# (Clean pastels, 2026-10-19, the owner: at 0.4 grey and a fifth haze the whole town read as one blue-grey wash.)
 			_air(house, house.position.z)
@@ -6613,6 +7574,13 @@ static func _harbour_town(root: Node3D, water: float) -> void:
 		var sx := -5.0 + k * 7.6
 		var y0 := base.y + 2.35
 		var z0 := base.z + 1.6
+		# The house kit's market stall (make_paper_houses_v2.py `stall`), its awning in this stall's stripes; the random numbers the
+		# built crates would draw are still drawn, so the shore and the boats after them stay put.
+		if house_kit != null and _paper(root, "house_stall", Transform3D(Basis.IDENTITY, Vector3(base.x + sx, y0, z0 + 1.1)),
+				{"awning": stripes[k][0], "awning_b": stripes[k][1]}, house_kit):
+			rng.randf_range(-10, 10)
+			rng.randf_range(-10, 10)
+			continue
 		for px: float in [sx - 1.6, sx + 1.6]:
 			_mesh(root, _box(Vector3(0.18, 2.3, 0.18)), post, Vector3(base.x + px, y0 + 1.15, z0 + 2.2))
 			_mesh(root, _box(Vector3(0.18, 2.6, 0.18)), post, Vector3(base.x + px, y0 + 1.3, z0))
@@ -6628,7 +7596,9 @@ static func _harbour_town(root: Node3D, water: float) -> void:
 	# Boats moored along the quay.
 	for k in 3:
 		var boat := Bob.new()
-		boat.position = base + Vector3(-18.0 + k * 15.0, 0.0, 7.0)
+		# (Out on the water, clear of the quay's foot, the believability pass, 2026-10-22: at 7 their hulls met the quay and the land and
+		# they read as sitting on the sand.)
+		boat.position = base + Vector3(-18.0 + k * 15.0, 0.0, 11.0)
 		root.add_child(boat)
 		var dinghy := Toonify.load_prop("sailboat")
 		if dinghy != null:
@@ -6642,6 +7612,7 @@ static func _harbour_town(root: Node3D, water: float) -> void:
 ## foot of the wall down into the valley, wide at the sides and toward the camera, in the lawn's own painted grass with blades, a darker
 ## band of shade at the foot of the wall where it overhangs; so the stage is a terrace on a hillside rather than an island in the air.
 static func _meadow_hill(root: Node3D, t: Dictionary, l: float, r: float, bottom: float, front: float, top: float) -> void:
+	hill_spec = [l, r, bottom, front]
 	# (The valley fields' own green (`_fields`), so the hill runs into them as one land: the owner, 2026-10-18.)
 	# (A step less vivid, with the fields, round 23.)
 	var grass := (_surface(Color(0.46, 0.76, 0.3), "grass", 9.0) as ShaderMaterial).duplicate() as ShaderMaterial
@@ -6686,26 +7657,37 @@ static func _meadow_hill(root: Node3D, t: Dictionary, l: float, r: float, bottom
 	var hill_mat := grass.duplicate() as ShaderMaterial
 	hill_mat.set_shader_parameter("facets", true)
 	hill_mat.set_shader_parameter("blades", 0.0)
-	var hill := _mesh(root, st.commit(), hill_mat, Vector3.ZERO)
-	hill.name = "Underside"
-	# Shade at the wall's foot.
-	var band := _mesh(root, _shade_band(w + 0.4, 1.2), _band_material(), Vector3(cx, bottom + 0.3, front + 0.45))
-	band.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	# (Not under a modelled ground, which builds the hill itself: art/blender/make_meadow_ground.py.)
+	if not ground_mock:
+		var hill := _mesh(root, st.commit(), hill_mat, Vector3.ZERO)
+		hill.name = "Underside"
+		# Shade at the wall's foot.
+		var band := _mesh(root, _shade_band(w + 0.4, 1.2), _band_material(), Vector3(cx, bottom + 0.3, front + 0.45))
+		band.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	# The farm's things on the slope in front of each end of the wall (the owner, 2026-10-18: no terrace steps, keep the stage's outline
 	# simple): hay bales, a barrel and rocks, inside the stage's width; they show as the camera pulls back.
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 808
 	var slope := func(d: float) -> float: return bottom + 0.05 - 0.55 * d - 0.006 * d * d
+	# (Gathered, each piece with the slope's height under it, so a modelled hill can seat them on its own surface: StageBake.place_ground.)
+	var props := Node3D.new()
+	props.name = "HillProps"
+	root.add_child(props)
 	for side in [-1.0, 1.0]:
 		var ex: float = (l + 2.8) if side < 0.0 else (r - 2.8)
 		var d := 1.6
 		var y: float = slope.call(d)
 		var z := front + d
-		_hay_bale(root, Vector3(ex, y, z), rng.randf_range(-30, 30))
-		_hay_bale(root, Vector3(ex + side * 1.4, slope.call(d + 0.8) - 0.1, z + 0.8), rng.randf_range(-30, 30))
-		_hay_bale(root, Vector3(ex + side * 0.5, y + 0.8, z + 0.3), rng.randf_range(-30, 30))
-		_barrel(root, Vector3(ex - side * 1.6, y, z - 0.2), 0.8)
-		_rock(root, Vector3(ex - side * 2.6, y - 0.2, z + 0.6), 0.5, rng)
+		_hay_bale(props, Vector3(ex, y, z), rng.randf_range(-30, 30))
+		_hay_bale(props, Vector3(ex + side * 1.4, slope.call(d + 0.8) - 0.1, z + 0.8), rng.randf_range(-30, 30))
+		_hay_bale(props, Vector3(ex + side * 0.5, y + 0.8, z + 0.3), rng.randf_range(-30, 30))
+		_barrel(props, Vector3(ex - side * 1.6, y, z - 0.2), 0.8)
+		_rock(props, Vector3(ex - side * 2.6, y - 0.2, z + 0.6), 0.5, rng)
+	for c in props.get_children():
+		var p := (c as Node3D).position
+		var dz := maxf(0.0, p.z - front)
+		var dx := maxf(0.0, absf(p.x - cx) - w * 0.5)
+		c.set_meta("seat", slope.call(sqrt(dx * dx + dz * dz)))
 
 
 ## The grove's stage as the great tree's root crown (the owner, 2026-10-18: a place, not a box): great bark roots come out from under the
@@ -6861,8 +7843,12 @@ static func _truss_tower(drop: float) -> Mesh:
 ## Scaffolding holding a girder platform up (the city, 2026-10-18, the owner: platforms may look supported): at each end a tower of two
 ## galvanised poles front and back of the girder, set back behind the fighters' plane, with ledgers across every two units and a brace
 ## zigzagging up the back, running down from just under the girder until the roof (or the street) swallows them.
-static func _scaffold(parent: Node3D, left: float, right: float, under: float, front: float, depth: float) -> void:
-	var steel := FighterView.respond(FighterView.toon(Color(0.62, 0.64, 0.72)), "metal")
+static func _scaffold(parent: Node3D, left: float, right: float, under: float, front: float, depth: float, steel_c := Color(0.62, 0.64, 0.72)) -> void:
+	# (A deep painted slate where the palette says so, `scaffold_steel`, fidelity review 5: in pale galvanised steel the towers were the
+	# brightest lattices against the night; `--scaffold-dark` to try.)
+	if OS.get_cmdline_user_args().has("--scaffold-dark"):
+		steel_c = Color(0.34, 0.3, 0.44)
+	var steel := FighterView.respond(FighterView.toon(steel_c), "metal")
 	var drop := 26.0
 	# (All one mesh: as separate pieces a run's dozens of platforms made thousands of objects, and the renderer broke down.)
 	var st := SurfaceTool.new()
@@ -6882,6 +7868,10 @@ static func _scaffold(parent: Node3D, left: float, right: float, under: float, f
 		for ex in [left + 0.75, right - 0.75]:
 			var tm := _mesh(parent, tower, steel, Vector3(ex, under, zb))
 			tm.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			# (Dark, its thin struts take the ink's dark line, not the scenery's pale card edge, which on struts this thin was most of what
+			# showed: an object id under the scenery's, as things in play have.)
+			if steel_c.get_luminance() < 0.45:
+				tm.set_instance_shader_parameter("object_id", 0.58)
 		return
 	for ex in [left + 0.75, right - 0.75]:
 		var xa: float = ex - 0.5

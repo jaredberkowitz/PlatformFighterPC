@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>City Skyline Options</title>
+<style>
+:root { --bg: #eef0f5; --panel: #fff; --fg: #1d1b2a; --muted: #5d5a70; --line: #d6d8e3; --accent: #6a3fd1; --accent-ink: #fff; }
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #15141d; --panel: #1f1d2a; --fg: #ecebf4; --muted: #a8a5bd; --line: #34314a; --accent: #a98bff; --accent-ink: #15141d; }
+}
+body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.5 "Segoe UI", system-ui, sans-serif; padding: 20px 16px 48px; }
+.wrap { max-width: 1280px; margin: 0 auto; display: grid; gap: 16px; }
+h1 { margin: 0; font-size: 1.9rem; }
+p { margin: 0; max-width: 80ch; }
+.muted { color: var(--muted); }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px; display: grid; gap: 12px; }
+.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.row b { min-width: 4.5em; color: var(--muted); font-weight: 600; }
+button { font: inherit; font-weight: 700; border: 1px solid var(--line); background: transparent; color: var(--fg); border-radius: 999px; padding: 6px 14px; cursor: pointer; }
+button:hover { border-color: var(--accent); }
+button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.viewer { position: relative; border-radius: 8px; overflow: hidden; background: #000; }
+.viewer img { width: 100%; display: block; }
+.tag { position: absolute; top: 10px; left: 10px; font-weight: 800; padding: 2px 10px; border-radius: 6px; color: #fff; background: rgba(0,0,0,0.6); }
+.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.grid figure { margin: 0; position: relative; }
+.grid img { width: 100%; display: block; border-radius: 6px; }
+@media (max-width: 700px) { .grid { grid-template-columns: 1fr; } }
+table { border-collapse: collapse; width: 100%; }
+th, td { padding: 8px 10px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+tr.pick td:first-child { font-weight: 700; }
+kbd { border: 1px solid var(--line); border-radius: 4px; padding: 0 5px; font-size: 0.85em; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>City skyline in paper: today, A, B or C</h1>
+  <p><strong>Picked: C (both), now in the game.</strong> Before and after: docs/art/stages/city_paper_built.png.</p>
+  <p class="muted">The skyline's towers as standing paper cards, staggered like a pop-up book, their printed windows, signs and billboards kept. The street stays as it is.
+    Pick a <strong>view</strong>, then click an <strong>option</strong> (or press <kbd>1</kbd> to <kbd>4</kbd>) to swap it in place. <strong>All four</strong> shows them side by side.</p>
+
+  <div class="panel">
+    <div class="row" role="group" aria-label="View"><b>View</b>
+      <button data-v="m">Match camera</button>
+      <button data-v="w">Wide</button>
+      <button data-v="c">Towers close-up</button>
+    </div>
+    <div class="row" role="group" aria-label="Option"><b>Option</b>
+      <button data-o="T">1 · Today</button>
+      <button data-o="A">2 · A die-cut</button>
+      <button data-o="B">3 · B shadowed</button>
+      <button data-o="C">4 · C both</button>
+      <button data-o="all">All four</button>
+    </div>
+    <div class="viewer" id="one"><img id="img" alt="City skyline option"><span class="tag" id="tag">Today</span></div>
+    <div class="grid" id="all" hidden></div>
+  </div>
+
+  <div class="panel">
+    <table>
+      <thead><tr><th>Option</th><th>What it is</th></tr></thead>
+      <tbody>
+        <tr><td>Today</td><td>Solid tower blocks with painted windows</td></tr>
+        <tr><td>A · die-cut</td><td>Thin staggered cards, each with a pale die-cut edge round its silhouette</td></tr>
+        <tr><td>B · shadowed</td><td>Each layer one flat card, every tower casting a soft shadow down and to the right</td></tr>
+        <tr class="pick"><td>C · both (my pick)</td><td>Thicker staggered board with the pale cut edge and the soft shadow</td></tr>
+      </tbody>
+    </table>
+    <p class="muted">The cut edge says "paper" and the shadow keeps it from brightening the skyline, so the towers read as cards standing apart. A alone lifts the skyline a little; B is the calmest.</p>
+  </div>
+</div>
+<script>
+(function () {
+  var v = "m", o = "T";
+  var NAME = { T: "Today", A: "A · die-cut", B: "B · shadowed", C: "C · both" };
+  function render() {
+    var all = o === "all";
+    document.getElementById("one").hidden = all;
+    document.getElementById("all").hidden = !all;
+    if (all) {
+      document.getElementById("all").innerHTML = ["T", "A", "B", "C"].map(function (k) {
+        return '<figure><img src="ypaper_' + v + "_" + k + '.jpg" alt="' + NAME[k] + '"><span class="tag">' + NAME[k] + "</span></figure>";
+      }).join("");
+    } else {
+      document.getElementById("img").src = "ypaper_" + v + "_" + o + ".jpg";
+      document.getElementById("tag").textContent = NAME[o];
+    }
+    document.querySelectorAll("[data-v]").forEach(function (b) { b.setAttribute("aria-pressed", b.dataset.v === v ? "true" : "false"); });
+    document.querySelectorAll("[data-o]").forEach(function (b) { b.setAttribute("aria-pressed", b.dataset.o === o ? "true" : "false"); });
+  }
+  document.querySelectorAll("[data-v]").forEach(function (b) { b.addEventListener("click", function () { v = b.dataset.v; render(); }); });
+  document.querySelectorAll("[data-o]").forEach(function (b) { b.addEventListener("click", function () { o = b.dataset.o; render(); }); });
+  document.addEventListener("keydown", function (e) {
+    var k = { "1": "T", "2": "A", "3": "B", "4": "C", "5": "all" }[e.key];
+    if (k) { o = k; render(); }
+  });
+  render();
+})();
+</script>
+</body>
+</html>

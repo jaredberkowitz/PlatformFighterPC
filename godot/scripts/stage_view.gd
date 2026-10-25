@@ -5,6 +5,8 @@ extends Node3D
 const FighterView := preload("res://scripts/fighter_view.gd")
 const StageArt := preload("res://scripts/stage_art.gd")
 const StageLight := preload("res://scripts/stage_light.gd")
+const StageBake := preload("res://scripts/stage_bake.gd")
+const Lighting := preload("res://scripts/lighting.gd")
 
 ## Fighters live in the z = 0 plane. Stage geometry is pushed BACK so its front face sits just in front of
 ## that plane. If a block were centred on z = 0, perspective would make its front face look wider than the
@@ -58,7 +60,15 @@ func build(sim) -> void:
 			else:
 				extent[4] = r[0]
 				extent[5] = r[1]
+	# Baked light and a modelled front belong to this exact stage (scripts/stage_bake.gd).
+	var bake_key := StageBake.key(String(theme.get("name", "")), rects)
+	var front := StageBake.front_path(bake_key)
+	StageArt.front_modelled = front != "" or StageBake.front_mock_path() != ""
 	StageArt.island_mode = theme.has("quilt")
+	# (A modelled play area to try, `--play-mock=<glb>`, the paper pilot: everything the blocks and platforms build is marked, and hidden
+	# when the model stands in for it.)
+	var play_mock := StageBake.play_path(bake_key)
+	var built_from := get_child_count()
 	for i in rects.size():
 		var r: PackedFloat32Array = rects[i]
 		var left := r[0]
@@ -74,7 +84,22 @@ func build(sim) -> void:
 				if o[4] < 0.5 and o != r and is_equal_approx(o[3], top) and o[0] <= left + 0.01 and o[1] >= right - 0.01:
 					exposed = false
 			StageArt.solid_block(self, theme, left, right, top, bottom, FRONT_Z, exposed, float(extent[2]))
-	if StageArt.island_mode:
+	if play_mock != "":
+		for i in range(built_from, get_child_count()):
+			if not get_child(i).has_meta("keep_play"):
+				(get_child(i) as Node3D).visible = false
+		StageBake.place_play(self, theme, play_mock)
+	# Mood light in paper for this exact stage (`--mood-mock=<glb>` to try one, `--no-mood` to compare).
+	var mood = StageBake.mood_source(bake_key)
+	if mood != null:
+		StageBake.place_mood(self, mood)
+	# The paper finish on the scenery, as this stage's palette asks (`paper_finish`), or the command line's.
+	Lighting.stage_finish = String(StageArt.palette(String(theme.get("name", ""))).get("backdrop", {}).get("paper_finish", ""))
+	RenderingServer.global_shader_parameter_set("pf_paper_finish", Lighting.paper_finish())
+	if front != "":
+		StageBake.hide_code_front(self, theme)
+		StageBake.place_front(self, theme, (load(front) as PackedScene).instantiate())
+	elif StageArt.island_mode:
 		StageArt.quilted_island(self, theme, rects, FRONT_Z)
 	StageArt.island_mode = false
 
@@ -84,11 +109,54 @@ func build(sim) -> void:
 	var scenery := Node3D.new()
 	scenery.name = "Backdrop"
 	add_child(scenery)
+	# Modelled trees for the theme, if it has them (scripts/stage_bake.gd TREES).
+	var trees = StageBake.tree_source(String(theme.get("name", "")))
+	StageArt.tree_mock = trees != null
+	StageArt.tree_slots.clear()
+	# A modelled ground and bushes for this exact stage, if it has them.
+	var ground := StageBake.ground_source(bake_key)
+	StageArt.ground_mock = not ground.is_empty()
+	StageArt.bush_slots.clear()
+	# The theme's paper props, if it has them (scripts/stage_bake.gd PAPER_KITS): the prop builders hand their places to it.
+	StageArt.paper_kit = StageBake.paper_kit(String(theme.get("name", "")))
+	# And its paper houses, which `_cottage` and `_barn` hand their places to.
+	StageArt.house_kit = StageBake.house_kit(String(theme.get("name", "")))
 	StageArt.backdrop(scenery, theme, extent)
+	if StageArt.house_kit != null:
+		StageArt.house_kit.free()
+		StageArt.house_kit = null
+	# World-building for this exact stage (docs/art/stages/WORLD.md; `--world-mock=<glb>` to try one, `--no-world` to compare), after the
+	# backdrop, whose palette gives it the stage's air.
+	var world = StageBake.world_source(bake_key)
+	if world != null:
+		StageBake.place_world(self, world)
+	if StageArt.paper_kit != null:
+		StageArt.paper_kit.free()
+		StageArt.paper_kit = null
+	if StageArt.ground_mock:
+		StageBake.place_ground(scenery, theme, ground)
+		StageArt.ground_mock = false
+	if StageArt.tree_mock:
+		StageBake.place_trees(scenery, theme, StageArt.tree_slots, trees)
+		StageArt.tree_mock = false
 	# `--props=a,b,c` (art preview, docs/ART_WORKFLOW.md): the named props lined up along the stage's top under its own light.
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--props="):
 			prop_lineup(self, arg.substr(8).split(","), extent)
+	# Baked light for this exact stage, if it has one; `--bake-export` writes the scenery out for Blender instead.
+	if OS.get_cmdline_user_args().has("--bake-export"):
+		StageBake.export_scene(self, bake_key, rects, FRONT_Z)
+		StageBake.export_ground(bake_key)
+	elif OS.get_cmdline_user_args().has("--light-export"):
+		StageBake.export_light(self, bake_key)
+	else:
+		StageBake.apply(self, bake_key)
+	StageBake.mock_front(self, theme)
+	StageArt.front_modelled = false
+	# The printed surfaces and the front's share of the paper finish, as the stage's palette asks (StageBake.surfaces).
+	StageBake.surfaces(self, String(theme.get("name", "")))
+	# Only what can shade the stage casts the sun's shadows (the graphics review 5, 2026-10-22).
+	trim_shadow_casters(self)
 
 	for i in sim.ledge_count():
 		var l: Vector3 = sim.ledge_pos(i)
@@ -171,3 +239,23 @@ static func prop_lineup(root: Node3D, names: PackedStringArray, extent: Array, h
 		# (The prop's own origin on the top: its model decides whether it stands, floats or sinks.)
 		prop.position = Vector3(x, float(extent[2]), FRONT_Z - 1.2)
 		root.add_child(prop)
+
+
+## Turns off the sun's shadows from the far scenery under `root`: the ranges, dune flats, mist and the abyss's sheets, hundreds of units
+## across (the graphics review 5, 2026-10-22). In the shadow map they stretched each split's depth range so far that every shadow they
+## shared it with came out washed to nothing, the play area's included; nothing near was ever shaded by them anyway. Anything wider or
+## deeper than `HUGE` units, or further back than `FAR_BACK`, stops casting (it still receives).
+const HUGE := 200.0
+const FAR_BACK := -180.0
+
+
+static func trim_shadow_casters(root: Node) -> int:
+	var n := 0
+	for g: GeometryInstance3D in root.find_children("*", "GeometryInstance3D", true, false):
+		if g.cast_shadow == GeometryInstance3D.SHADOW_CASTING_SETTING_OFF:
+			continue
+		var box: AABB = g.global_transform * g.get_aabb()
+		if box.size.x > HUGE or box.size.z > HUGE or box.size.y > HUGE * 0.6 or box.get_center().z < FAR_BACK:
+			g.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			n += 1
+	return n
