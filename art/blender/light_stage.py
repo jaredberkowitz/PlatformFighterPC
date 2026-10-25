@@ -13,6 +13,8 @@ Run (Blender 5.2), after the pieces are built and placed, with the game's export
 Options: --reach 2.0 (how far shade reaches, units), --samples 96, --curve 1.0 (above 1 deepens it), --floor 0.45 (the darkest it
 gets), --out <dir> (write the pieces
 there instead of over their files, for comparisons).
+Every stage is lit with `--curve 4.0 --reach 4.5 --floor 0.28` since 2026-10-25 (the owner's pick B after fidelity review 9: deeper,
+further-reaching contact shade; it was `--curve 2.5 --reach 2.5` with the default floor). A re-light of any stage takes the same.
 
 The sun (the graphics review 5, 2026-10-22: nothing in the background cast a shadow you could see; the game's own shadows reach only
 the play area): `--sun x,y,z` (the way the stage's key light travels, in the game's axes, `-basis.z` of its KeyLight under the stage's

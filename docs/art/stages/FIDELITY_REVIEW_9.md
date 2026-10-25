@@ -151,7 +151,7 @@ further round behind the stage. Measured at the match camera on every stage (the
 Recommended: keep today. The scenery's value lives in its baked shading, prints and paper finish; light at 5 would come through the
 light bake (deeper occlusion, darker undersides in the models), a per-stage pass. On the Stage Look Review ("shade9", `sh9_*`).
 
-## After review 9: contact shade and far clouds (2026-10-25, mock)
+## After review 9: contact shade and far clouds (2026-10-25, built)
 
 The owner: "continue working on any other items that would help us reach a 5/5 in the art categories". Two levers, both on the Stage
 Look Review:
@@ -166,3 +166,10 @@ Look Review:
   size, how pale] (`--cloud-far=A|B`, A [6, 0.75, 0.42], B [10, 0.95, 0.3]) on the meadow, canyon and grove: behind the furthest range
   (the range keep-out off for this layer), at the main band's heights, tinted toward the horizon (toward the sky's middle blue they read
   as blue blots). It adds clouds, so the owner's call under the standing rule. Recommended B on the canyon only (its sky had two clouds).
+
+Built the owner's picks: every stage re-lit in place with `--curve 4.0 --reach 4.5 --floor 0.28` after a fresh `--light-export` (the
+meadow's front, play area and ground; the canyon's front, paper and play area; the beach's ground and play area; the city's front and
+play area; the grove's front, paper and play area), the settings recorded in `light_stage.py` for every later re-light; sunset.cfg
+[backdrop] `cloud_far=[10, 0.95, 0.3]` (the canyon only). Before and after (the meadow's turf lip, the canyon's top, the grove's lip at
+the match camera, then the canyon's sky wide): `review9/shade_clouds_built.jpg`. All seven tests pass (the runner's coin flake failed
+twice, then passed three times in a row).
