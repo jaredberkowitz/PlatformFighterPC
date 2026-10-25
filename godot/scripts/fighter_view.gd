@@ -652,6 +652,13 @@ func _attack_clip(s: Dictionary) -> Array:
 	var start := clampf(float(t[1]), 1.0, total)
 	var last := clampf(float(t[2]), start, total)
 	var progress := strike_progress(float(s.state_frame), total, start, last, s.get("move_windows", PackedInt32Array()))
+	var name := String(s.move_name)
+	if (HELD_COIL.get(_cls(s), []) as Array).has(name):
+		# (A charge held in the coil, its arm swinging round on top: `WINDMILL`. Round 2.)
+		progress = COIL_PROGRESS + COIL_CREEP * (1.0 + sin(float(s.state_frame) * TAU / 40.0))
+	elif float(s.state_frame) < start and (COILED_START.get(_cls(s), []) as Array).has(name):
+		# (Thrown straight out of a charge's coil: it starts coiled rather than rising to the rest pose and coiling again.)
+		progress = maxf(progress, COIL_PROGRESS)
 	# Which clip: the moveset's own for this move, or the shared archetype (scripts/anim_library.gd).
 	return [AnimLibrary.attack_clip(_cls(s), s.move_name, anim), 1.0, clampf(progress, 0.0, 1.0)]
 
@@ -3637,7 +3644,10 @@ const OVERHEAD_TO := -55.0
 ## Punches (by class) whose fist is drawn much further back than `FIST_CHAMBER` through the wind-up (forward space from the shoulder): the
 ## rusher's charged punch, the fist pulled right back behind the hip over its long wind-up, as its reference's. (Animation overhaul pass 12.)
 const DEEP_CHAMBER := {4: {"neutral special": Vector2(-0.62, -0.3), "extra move 0": Vector2(-0.62, -0.3),
-	"extra move 1": Vector2(-0.62, -0.3), "extra move 2": Vector2(-0.62, -0.3)}}
+	"extra move 1": Vector2(-0.62, -0.3), "extra move 2": Vector2(-0.62, -0.3)},
+	# (The Hauler's giant punch too, thrown from its charge's coil: round 2.)
+	7: {"extra move 0": Vector2(-0.62, -0.3), "extra move 1": Vector2(-0.62, -0.3), "extra move 2": Vector2(-0.62, -0.3),
+	"extra move 3": Vector2(-0.62, -0.3)}}
 
 
 ## Sword moves (by class) whose coil raises the sword hand overhead with the blade hanging down behind the head: [the hand's angle about the
@@ -3646,6 +3656,38 @@ const DEEP_CHAMBER := {4: {"neutral special": Vector2(-0.62, -0.3), "extra move 
 const BLADE_OVERHEAD := {0: {"fsmash": [100.0, 225.0]}}
 ## The depth (model space, toward the camera positive) the raised sword hand is drawn back to.
 const BLADE_OVERHEAD_Z := -0.25
+
+
+## Charges (by class) held in the clip's coil for as long as they last (the move has no hit of its own): the Hauler's giant punch wind-up,
+## planted wide and low (`gaunt_charge`), while its arm swings round (`WINDMILL`). (Round 2: it stood in a plain
+## guard, fists at the chest, for the whole charge.)
+const HELD_COIL := {7: ["neutral special"]}
+## Moves thrown straight out of such a charge: they start in the coil, the fist drawn back (`DEEP_CHAMBER`), instead of from the rest pose.
+const COILED_START := {7: ["extra move 0", "extra move 1", "extra move 2", "extra move 3"]}
+## Arms swung round and round through a charge, after the reference's giant punch: [frames a turn at the start, frames a turn at full
+## charge, frames to full charge]. The fist goes over the top and down in front (an overarm windmill), faster as the charge builds, behind
+## the head at the top so it never crosses the face. By the move's frame only, so a freeze holds it and a seek redraws it.
+const WINDMILL := {7: {"neutral special": [30.0, 11.0, 110.0]}}
+## How far out along the arm the windmilling fist goes (of the arm's reach), and its depth at the bottom and the top of the circle.
+const WINDMILL_REACH := 0.95
+const WINDMILL_Z := Vector2(0.5, -0.3)
+
+
+## [the windmilling fist's angle about the shoulder (radians, 0 forward, pi/2 up), its depth], or [] when no arm is swinging round.
+func _windmill(s: Dictionary) -> Array:
+	if String(s.state) != "Attack" or s.move_name == "":
+		return []
+	var w: Array = (WINDMILL.get(_cls(s), {}) as Dictionary).get(String(s.move_name), [])
+	if w.is_empty():
+		return []
+	var f := minf(float(s.state_frame), float(w[2]))
+	# Turns so far: the rate goes evenly from 1 / w0 to 1 / w1 over w2 frames (and stays there after).
+	var turns := f / float(w[0]) + f * f / (2.0 * float(w[2])) * (1.0 / float(w[1]) - 1.0 / float(w[0]))
+	turns += maxf(0.0, float(s.state_frame) - float(w[2])) / float(w[1])
+	# (Starting low behind the hip, swung back and up, over the top and down in front: the angle falls.)
+	var angle := deg_to_rad(240.0) - TAU * turns
+	var up := maxf(0.0, sin(angle))
+	return [angle, lerpf(WINDMILL_Z.x, WINDMILL_Z.y, up)]
 
 
 ## Grounded hand-weapon moves (by class) whose wind-up cocks the hand up behind the head, as the overhead forward air does, so the strike
@@ -3783,7 +3825,10 @@ func _pose_blade(s: Dictionary, delta: float) -> void:
 				chamber = shoulder + Vector2.from_angle(deg_to_rad(float(oc[0]))) * arm_reach * 0.85
 				behind = coil_k(float(s.state_frame), float(mt[1]))
 				behind_z = float(oc[1])
-			from_hand = old_hand.lerp(chamber, coil_k(float(s.state_frame), float(mt[1])))
+			var ck := coil_k(float(s.state_frame), float(mt[1]))
+			if (COILED_START.get(_cls(s), []) as Array).has(String(s.move_name)) and float(s.state_frame) <= SNAP_AT * float(mt[1]):
+				ck = 1.0
+			from_hand = old_hand.lerp(chamber, ck)
 			hand = from_hand
 	if rig != null and arm_k > 0.0:
 		var to_tip := tip - shoulder
@@ -3813,6 +3858,19 @@ func _pose_blade(s: Dictionary, delta: float) -> void:
 			hand = shoulder + Vector2.from_angle(angle) * lerpf(from_v.length(), to_v.length(), arm_k)
 		else:
 			hand = from_hand.lerp(goal, arm_k)
+	# (A charge's arm swinging round and round, WINDMILL: the fist on a circle about the shoulder, over the top behind the head.)
+	var mill := _windmill(s)
+	var mill_z := 0.0
+	if use_base_body and mill.size() == 2:
+		# (About the arm's live shoulder, which the camera turn puts behind the chest's middle: about the rest one, the circle sat out in
+		# front of the face and the arm went round behind the head.)
+		var centre := shoulder
+		var mu := skeleton.find_bone("armU." + _weapon_side(facing)) if skeleton != null else -1
+		if mu >= 0:
+			var live_u := _skeleton_to_frame() * skeleton.get_bone_global_pose(mu).origin
+			centre = Vector2(live_u.x * facing, live_u.y)
+		hand = centre + Vector2.from_angle(float(mill[0])) * arm_reach * WINDMILL_REACH
+		mill_z = float(mill[1])
 	# (A sword raised overhead in the coil, BLADE_OVERHEAD: the hand goes up above the head and the blade hangs down behind it, as the
 	# reference swordsman's forward smash; through the snap the hand comes down and the blade comes over the top onto the cut.)
 	var blade_up := 0.0
@@ -3844,6 +3902,8 @@ func _pose_blade(s: Dictionary, delta: float) -> void:
 	var angle := swing if facing > 0 else 180.0 - swing
 	# (The greatsword at rest lies behind the body, its blade across the back; swinging, it comes round in front.)
 	var hand_z := lerpf(0.35, behind_z, behind * (1.0 - arm_k))
+	if mill.size() == 2:
+		hand_z = mill_z
 	# (The raised sword is drawn back behind the head in depth, so the hanging blade does not cross the face.)
 	if blade_up > 0.0:
 		hand_z = lerpf(hand_z, BLADE_OVERHEAD_Z, blade_up)

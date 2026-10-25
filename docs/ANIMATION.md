@@ -727,3 +727,23 @@ along one side and one thin cut edge, 70% as wide, with no core and no ring roun
 - **Image:** `docs/screenshots/anim/r2_pass21_dagger_knife.jpg`: frames 4-14, before above and after below.
 - **Checked:** facing left (contact sheet); the six tests pass.
 - **Left:** the knife does not show at all through the coil now; the raised hand reads by the arm.
+
+### Pass 22: the Hauler's giant punch (Bracers; round 2 item 3)
+
+- **Defect:** the charge (neutral special, up to 130 frames, no hit of its own) stood in a still guard with both fists at the chest, and
+  the punch it throws (extra moves 0-3) played the fallback swing. The reference swings its arm round and round, faster as it charges, then
+  throws a huge lunging punch.
+- **Cause:** `AnimLibrary.CLASS_MOVES[7]` had no entry for these moves; with no hitbox the charge's progress ran straight to the settle.
+- **Fix:**
+  - `gaunt_charge` (`make_rigged_blob.py` BODY_MOVES): planted wide, leaning back a touch, the chest open to the camera, the other fist low
+    in front. `fighter_view.gd` `HELD_COIL` holds a charge in its wind-up pose for as long as it lasts, breathing a little.
+  - `WINDMILL`: the punching fist goes round a circle about the arm's live shoulder, over the top behind the head (so it never crosses the
+    face) and down in front, from one turn in 30 frames to one in 11 at full charge. By the move's frame only, so a freeze holds it and a
+    seek redraws it.
+  - The punch (extra moves 0-3) plays the rusher's charged punch, `gaunt_punch`, with its fist drawn back behind the hip (`DEEP_CHAMBER`)
+    and starting coiled (`COILED_START`) rather than rising to the rest pose first.
+  - `demo.gd`: `_again` in an `fx_` demo's name presses the special a second time 30 frames in (`fx_bracers_nspecial_again_whiff`).
+- **Image:** `docs/screenshots/anim/r2_pass22_bracers_giant_punch.jpg`: the charge's frames 8-22 before and after, then the punch thrown
+  (before, the demo never threw it: it had no second press).
+- **Checked:** facing left (contact sheet); the six tests pass.
+- **Left:** the charge's white flash (effects) covers the body for the first frames of the punch.

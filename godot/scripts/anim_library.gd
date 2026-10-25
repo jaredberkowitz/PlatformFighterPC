@@ -391,6 +391,14 @@ const CLASS_MOVES := {
 		"bair": "kick_bair",
 		"uair": "body_headbutt",
 		"dair": "gaunt_stomp",
+		# (The giant punch: its charge held wide and low (`gaunt_charge`), the arm swinging round on top (fighter_view.gd WINDMILL), then
+		# the punch thrown from the rusher's charged punch coil, ground and air, charged and full. Round 2: the charge stood in a guard
+		# and the punch was the fallback swing.)
+		"neutral special": "gaunt_charge",
+		"extra move 0": "gaunt_punch",
+		"extra move 1": "gaunt_punch",
+		"extra move 2": "gaunt_punch",
+		"extra move 3": "gaunt_punch",
 	},
 }
 

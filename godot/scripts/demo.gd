@@ -62,10 +62,13 @@ static func make(demo_name: String, m: Dictionary, dir: String):
 		# (Neutral special is held: a charge of three needles.)
 		var hold := 46 if move == "nspecial" else 1
 		d.timeline = [[0, 0, 0, 0], [10, input[0], input[1], input[2]], [10 + hold, 0, 0, 0]]
+		# (`_again` in the name: the special pressed a second time 30 frames in, which throws a charged special such as a giant punch.)
+		if demo_name.contains("_again"):
+			d.timeline = [[0, 0, 0, 0], [10, input[0], input[1], input[2]], [11, 0, 0, 0], [40, 0, 0, special], [41, 0, 0, 0]]
 		if demo_name.ends_with("_ko"):
 			d.events.append([1, "percent", 1, 170.0])
 		# (`_whiff` on the end: the other fighter out of reach, so the swing's arc and hitboxes show without a hit over them.)
-		if demo_name.ends_with("_whiff"):
+		if demo_name.contains("_whiff"):
 			for e in d.events:
 				if int(e[2]) == 1:
 					e[3] = 9.0

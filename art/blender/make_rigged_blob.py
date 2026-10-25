@@ -746,6 +746,16 @@ BODY_MOVES = {
         {"hips": -0.16, "spine": (26.0, 48.0), "head": (-8.0, -26.0), "stance": (72.0, -54.0), "shin.L": (-66.0,), "shin.R": (-2.0,),
          "armU.L": (-10.0, 24.0), "armL.L": (100.0,)},
         {"hips": -0.08, "spine": (12.0, 18.0), "stance": (40.0, -30.0), "shin.L": (-36.0,)}),
+    # The Hauler's giant punch charge (round 2; the game holds it in its wind-up pose for the whole charge, fighter_view.gd HELD_COIL, and
+    # swings the punching arm round and round on top, WINDMILL): planted wide and low, leaning back a touch, the chest left open to the
+    # camera so the swinging arm reads beside it, the other fist low in front. (The values are small: the chamber key is exaggerated
+    # about 2.3 times, `CHAMBER_AMP` and the attacks' `AMP`.)
+    "gaunt_charge": (
+        {"hips": -0.06, "spine": (-3.0, -6.0), "head": (-2.0, 4.0), "stance": (18.0, -16.0), "shin.L": (-22.0,), "shin.R": (-18.0,),
+         "armU.L": (14.0, 22.0), "armL.L": (95.0,)},
+        {"hips": -0.06, "spine": (-3.0, -6.0), "head": (-2.0, 4.0), "stance": (18.0, -16.0), "shin.L": (-22.0,), "shin.R": (-18.0,),
+         "armU.L": (14.0, 22.0), "armL.L": (95.0,)},
+        {"hips": -0.12, "spine": (4.0, 0.0), "stance": (30.0, -26.0), "shin.L": (-40.0,)}),
     # The bounder's drop (its down special, after its reference's; pass 13): crouched for the hop, then sat down in the air bottom first,
     # the legs held out level in front and the body leaning back a little over them, the arms out to the sides (raised, the near one
     # crossed the face), so it falls seat first onto the
@@ -3624,6 +3634,8 @@ def main() -> None:
     clip(rig, "attack_knife_smash", 60, {})
     # The rusher's charged punch (posed in BODY_MOVES).
     clip(rig, "gaunt_punch", 60, {})
+    # The Hauler's giant punch charge (posed in BODY_MOVES; round 2).
+    clip(rig, "gaunt_charge", 60, {})
     # The bounder's drop (posed in BODY_MOVES).
     clip(rig, "body_drop", 60, {})
 
