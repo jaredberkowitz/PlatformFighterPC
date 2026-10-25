@@ -890,7 +890,7 @@ BODY_MOVES = {
 # legs never needed any of it.
 def grounded(name):
     """Whether a clip is played on the ground (the feet planted), not in the air, hit, rolling, lying down or on a ledge."""
-    if name in ("jump", "fall", "fall_start", "air_jump", "air_dodge", "hurt", "roll", "knockdown", "getup", "ledge", "ledge_climb", "kick_dash",
+    if name in ("jump", "fall", "fall_start", "tumble", "air_jump", "air_dodge", "hurt", "roll", "knockdown", "getup", "ledge", "ledge_climb", "kick_dash",
                 "hurt_heavy", "hurt_up", "platform_drop", "gaunt_knee", "gaunt_stomp", "tool_ride", "tool_float"):
         return False
     return not name.endswith("air")
@@ -1182,7 +1182,7 @@ def clip(rig, name, frames, poses):
         AMP = 1.75
     elif name in ("walk", "run", "dash", "skid"):
         AMP = 1.0
-    elif name in ("jump", "fall", "fall_start", "hurt", "crouch", "jumpsquat", "land", "shield", "roll", "spot_dodge", "air_dodge", "knockdown"):
+    elif name in ("jump", "fall", "fall_start", "tumble", "hurt", "crouch", "jumpsquat", "land", "shield", "roll", "spot_dodge", "air_dodge", "knockdown"):
         AMP = 1.25
     else:
         AMP = 1.0
@@ -3307,8 +3307,43 @@ def main() -> None:
         pose(rig, "spine", fwd=-8.0, twist=-2.0)
         pose(rig, "head", fwd=0.0, twist=2.0)
 
+    # (Animation overhaul pass 8, reactions: a long hitstun no longer freezes on the reel. After it the body keeps reeling: the arms swing
+    # loosely in turn and the knees give and recover, slowing, so a stun of any length stays alive.)
+    def hurt_flail(k):
+        def f(rig):
+            hurt_reel(rig)
+            w = math.sin(k * 2.0 * math.pi)
+            pose(rig, "armU.L", fwd=-8.0 + 22.0 * w, out=26.0 + 8.0 * w)
+            pose(rig, "armL.L", fwd=40.0 + 14.0 * w)
+            pose(rig, "armU.R", fwd=-4.0 - 22.0 * w, out=24.0 - 8.0 * w)
+            pose(rig, "armL.R", fwd=46.0 - 14.0 * w)
+            pose(rig, "thigh.R", fwd=16.0 + 10.0 * w, out=10.0)
+            pose(rig, "shin.R", fwd=-40.0 - 14.0 * w)
+            pose(rig, "spine", fwd=-8.0 - 5.0 * w, twist=-2.0 + 4.0 * w)
+        return f
+
+    # The tumble (a launch slowing down, spinning head over heels): curled round into a ball rather than spun stiff, the arms and legs
+    # flailing in turn, so the spin reads as a tumble, not a statue rotating.
+    def tumble_pose(k):
+        def f(rig):
+            w = math.sin(k * 2.0 * math.pi)
+            v = math.cos(k * 2.0 * math.pi)
+            pose(rig, "spine", fwd=22.0 + 6.0 * w)
+            pose(rig, "head", fwd=-4.0)
+            pose(rig, "thigh.R", fwd=62.0 + 22.0 * w, out=14.0)
+            pose(rig, "shin.R", fwd=-84.0 - 18.0 * v)
+            pose(rig, "thigh.L", fwd=44.0 - 22.0 * w, out=18.0)
+            pose(rig, "shin.L", fwd=-70.0 + 18.0 * v)
+            pose(rig, "armU.L", fwd=40.0 + 40.0 * v, out=46.0)
+            pose(rig, "armL.L", fwd=50.0)
+            pose(rig, "armU.R", fwd=30.0 - 40.0 * v, out=50.0)
+            pose(rig, "armL.R", fwd=56.0)
+        return f
+
     if BODY:
-        clip(rig, "hurt", 18, {0: hurt_snap, 4: amped(hurt_snap, 1.05), 18: hurt_reel})
+        clip(rig, "hurt", 66, {0: hurt_snap, 4: amped(hurt_snap, 1.05), 18: hurt_reel, 30: hurt_flail(0.25), 42: hurt_flail(0.75),
+                               54: hurt_flail(0.25), 66: hurt_reel})
+        clip(rig, "tumble", 32, {i: tumble_pose(i / 32.0) for i in range(0, 33, 4)})
     else:
         clip(rig, "hurt", 8, {0: hurt, 8: hurt})
 
@@ -4072,7 +4107,19 @@ def main() -> None:
             pose(rig, "thigh.R", fwd=14.0, out=16.0)
             pose(rig, "shin.R", fwd=-60.0)
 
-        clip(rig, "hurt_heavy", 24, {0: heavy_fold, 4: amped(heavy_fold, 1.06), 24: heavy_drift})
+        # (Pass 8: past the drift the limbs keep trailing and swinging a little, rather than holding still through a long flight.)
+        def heavy_sway(k):
+            def f(rig):
+                heavy_drift(rig)
+                w = math.sin(k * 2.0 * math.pi)
+                pose(rig, "armU.L", fwd=50.0 + 16.0 * w, out=24.0)
+                pose(rig, "armU.R", fwd=30.0 - 16.0 * w, out=30.0)
+                pose(rig, "thigh.L", fwd=36.0 - 10.0 * w, out=14.0)
+                pose(rig, "thigh.R", fwd=14.0 + 10.0 * w, out=16.0)
+            return f
+
+        clip(rig, "hurt_heavy", 60, {0: heavy_fold, 4: amped(heavy_fold, 1.06), 24: heavy_drift, 36: heavy_sway(0.25), 48: heavy_sway(0.75),
+                                     60: heavy_drift})
 
         # The same, sent upward: the chest arched up off the blow, the arms and legs flung down and out below the body, the face up.
         def up_arch(rig):
@@ -4094,7 +4141,16 @@ def main() -> None:
                 pose(rig, "thigh." + side, fwd=6.0, out=16.0)
                 pose(rig, "shin." + side, fwd=-46.0)
 
-        clip(rig, "hurt_up", 24, {0: up_arch, 4: amped(up_arch, 1.06), 24: up_drift})
+        def up_sway(k):
+            def f(rig):
+                up_drift(rig)
+                w = math.sin(k * 2.0 * math.pi)
+                for side, sign in (("L", 1.0), ("R", -1.0)):
+                    pose(rig, "armU." + side, fwd=4.0 + 18.0 * w * sign, out=28.0)
+                    pose(rig, "thigh." + side, fwd=6.0 - 12.0 * w * sign, out=16.0)
+            return f
+
+        clip(rig, "hurt_up", 60, {0: up_arch, 4: amped(up_arch, 1.06), 24: up_drift, 36: up_sway(0.25), 48: up_sway(0.75), 60: up_drift})
 
         # A rare fidget after a long stillness (the game plays it now and then in a long idle): from the stance, a glance off toward the
         # camera side and back, the weight shuffled from foot to foot, a roll of the shoulders, back into the stance.

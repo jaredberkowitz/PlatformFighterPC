@@ -212,7 +212,7 @@ const LONG_FIT := Transform3D(Basis(Vector3(0.92, 0, 0), Vector3(0, 0.92, 0), Ve
 ## Where the head and torso sit in the rig compared with the sphere-built look the face, hats and glasses were designed for.
 const HEAD_FIT := Transform3D(Basis(Vector3(0.825, 0, 0), Vector3(0, 0.825, 0), Vector3(0, 0, 0.825)), Vector3(0, 1.56 - 1.42 * 0.825, 0))
 const TORSO_FIT := Transform3D()
-const LOOPING := ["idle", "idle_brawler", "idle_quick", "idle_heavy", "idle_caster", "idle_tool", "run_quick", "run_heavy", "run_caster", "run_tool", "walk", "run", "dash", "fall", "victory_a", "victory_b", "victory_c"]
+const LOOPING := ["tumble", "idle", "idle_brawler", "idle_quick", "idle_heavy", "idle_caster", "idle_tool", "run_quick", "run_heavy", "run_caster", "run_tool", "walk", "run", "dash", "fall", "victory_a", "victory_b", "victory_c"]
 ## The rig is read once and copied for every fighter (reading it again renames its bones).
 static var _rig_templates: Dictionary = {}
 
@@ -586,6 +586,11 @@ func _choose_clip(s: Dictionary) -> Array:
 		"Hitstun":
 			# Sent flying by a hit that does not tumble: folded round the blow, or arched up off it when sent upward.
 			var kb: Vector2 = s.get("kb_vel", Vector2.ZERO)
+			# Tumbling head over heels once the launch slows (the spin is code, below): curled and flailing (animation overhaul pass 8).
+			if s.tumble and int(s.hitlag) == 0 and (s.vel + kb).length() <= LAUNCH_POSE_SPEED:
+				var tumble := AnimLibrary.or_stand_in("tumble", anim)
+				if tumble != "tumble" or anim == null or anim.has_animation("tumble"):
+					return [tumble, 1.0, -1.0]
 			if not s.tumble and kb.length() > HEAVY_HITSTUN_SPEED:
 				return [AnimLibrary.or_stand_in("hurt_up" if kb.y > absf(kb.x) else "hurt_heavy", anim), 1.0, -1.0]
 		"LedgeAttack":

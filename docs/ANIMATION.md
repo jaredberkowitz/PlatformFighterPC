@@ -397,3 +397,23 @@ a corkscrew about the upright body (no head-over-heels spin); wall jumps back-fl
 - **Image:** `docs/screenshots/anim/pass7_longsword_nair.jpg`.
 - **Checked:** facing left; the six tests pass.
 - **Left:** the Greatsword's and Buckler's neutral airs are not this move (their own clips), so they are unchanged.
+
+### Pass 8: reactions that stay alive
+
+- **Defect** (audit item 9):
+  - The hurt reel froze after 18 frames, and the heavy hitstun and upward launch held one pose after 24.
+  - The tumble was the whole body spun stiff, its limbs fixed in the hurt pose.
+- **Fix:**
+  - **Long stuns** (`make_rigged_blob.py`): `hurt` runs 66 frames, with the arms swinging loosely in turn and the knees giving and
+    recovering after the reel (`hurt_flail`). `hurt_heavy` and `hurt_up` run 60, their limbs trailing and swaying (`heavy_sway`,
+    `up_sway`). A short stun still shows the snap and the reel on the same frames as before.
+  - **The tumble:** a new looping `tumble` clip curls the body round with the arms and legs flailing in turn. `fighter_view.gd`
+    `_choose_clip` plays it while the fighter tumbles slower than `LAUNCH_POSE_SPEED` (the head-over-heels spin is unchanged code).
+    Older rigs stand in `hurt` for it.
+- **Image:** `docs/screenshots/anim/pass8_reactions.jpg`: the tumble before and after, then the Claws facing left. The long-stun sway
+  starts after frame 24, past the contact sheet's 30-frame window, so it is not in the image; it shows in long hitstun in a match.
+- **Checked:** both facings; the six tests pass.
+- **Left:**
+  - The launch pose itself (a strong launch flying fast) is unchanged.
+  - Ledge hang, get-up and shield break were reviewed in the audit sheets and read acceptably.
+  - KO has no pose of its own (the effects carry it).
