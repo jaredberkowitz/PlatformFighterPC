@@ -13,3 +13,6 @@ tools/godot/
 
 # Raw Material Maker exports (2048px, ~45 MB): local sources for tools/art/mm_tile.gd; the converted tiles live in godot/art/stage/png/.
 godot/art/materials/mm_exports/*/
+
+# Stage bakes (docs/art/stages/BAKE_PILOT.md): local, rebuilt from art/blender/bake_stage.py
+godot/art/baked/

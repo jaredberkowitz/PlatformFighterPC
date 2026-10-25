@@ -17,6 +17,9 @@ const CENTRED := {
 	"dunes_canyon_far": "foot carried below the horizon", "dunes_canyon_near": "as dunes_canyon_far",
 	"windmill_tower": "stands on the game's stone drum, base at 1", "palm_crown": "sits on the trunk's top",
 	"lighthouse": "its rock footing runs under the sea",
+	"paper_props/prop_fence_rail": "centred on its height between the posts",
+	"paper_lantern": "hangs from its origin on a lantern string", "string_bulb": "as paper_lantern",
+	"paper_props/prop_net_float": "floats with its foot under the water",
 }
 ## The most triangles one prop may have (the cottage, the busiest, is about 8800).
 const BUDGET := 10000
@@ -45,34 +48,40 @@ func _initialize() -> void:
 		check(prop != null, "%s loads" % prop_name)
 		if prop == null:
 			continue
-		count += 1
-		var box := AABB()
-		var first := true
-		var tris := 0
-		for mi: MeshInstance3D in prop.find_children("*", "MeshInstance3D", true, false):
-			if mi.mesh == null:
-				continue
-			var xf := Transform3D.IDENTITY
-			var up: Node = mi
-			while up != null and up != prop:
-				xf = (up as Node3D).transform * xf
-				up = up.get_parent()
-			var b := xf * mi.get_aabb()
-			box = b if first else box.merge(b)
-			first = false
-			for s in mi.mesh.get_surface_count():
-				var arrays := mi.mesh.surface_get_arrays(s)
-				var idx = arrays[Mesh.ARRAY_INDEX]
-				tris += (idx.size() if idx != null else (arrays[Mesh.ARRAY_VERTEX] as PackedVector3Array).size()) / 3
-		check(not first, "%s has meshes" % prop_name)
-		check(tris <= BUDGET, "%s within %d triangles (%d)" % [prop_name, BUDGET, tris])
-		var h := maxf(box.size.y, 0.001)
-		var low := box.position.y
-		if report:
-			print("%-18s tris %5d  height %7.2f  lowest %7.3f (%.1f%% of height)" % [prop_name, tris, h, low, 100.0 * low / h])
-		if not CENTRED.has(prop_name):
-			check(low <= FLOAT * h, "%s does not float (lowest point %.3f above its origin, height %.2f)" % [prop_name, low, h])
-			check(low >= -SINK * h, "%s is not buried (lowest point %.3f, height %.2f)" % [prop_name, low, h])
+		# (A kit, art/blender/make_paper_props.py, holds many props, each a `prop_<name>` child: each is checked as a prop of its own.)
+		var units: Array = prop.find_children("prop_*", "", false, false)
+		if units.is_empty():
+			units = [prop]
+		for unit: Node in units:
+			var unit_name := prop_name if unit == prop else "%s/%s" % [prop_name, unit.name]
+			count += 1
+			var box := AABB()
+			var first := true
+			var tris := 0
+			for mi: MeshInstance3D in unit.find_children("*", "MeshInstance3D", true, false):
+				if mi.mesh == null:
+					continue
+				var xf := Transform3D.IDENTITY
+				var up: Node = mi
+				while up != null and up != unit:
+					xf = (up as Node3D).transform * xf
+					up = up.get_parent()
+				var b := xf * mi.get_aabb()
+				box = b if first else box.merge(b)
+				first = false
+				for s in mi.mesh.get_surface_count():
+					var arrays := mi.mesh.surface_get_arrays(s)
+					var idx = arrays[Mesh.ARRAY_INDEX]
+					tris += (idx.size() if idx != null else (arrays[Mesh.ARRAY_VERTEX] as PackedVector3Array).size()) / 3
+			check(not first, "%s has meshes" % unit_name)
+			check(tris <= BUDGET, "%s within %d triangles (%d)" % [unit_name, BUDGET, tris])
+			var h := maxf(box.size.y, 0.001)
+			var low := box.position.y
+			if report:
+				print("%-18s tris %5d  height %7.2f  lowest %7.3f (%.1f%% of height)" % [unit_name, tris, h, low, 100.0 * low / h])
+			if not CENTRED.has(prop_name) and not CENTRED.has(unit_name):
+				check(low <= FLOAT * h, "%s does not float (lowest point %.3f above its origin, height %.2f)" % [unit_name, low, h])
+				check(low >= -SINK * h, "%s is not buried (lowest point %.3f, height %.2f)" % [unit_name, low, h])
 		prop.free()
 	check(count > 0, "props found")
 	print("prop check test %s (%d props)" % ["FAILED" if failed else "PASSED", count])

@@ -63,6 +63,11 @@ static func make(demo_name: String, m: Dictionary, dir: String):
 		d.timeline = [[0, 0, 0, 0], [10, input[0], input[1], input[2]], [10 + hold, 0, 0, 0]]
 		if demo_name.ends_with("_ko"):
 			d.events.append([1, "percent", 1, 170.0])
+		# (`_whiff` on the end: the other fighter out of reach, so the swing's arc and hitboxes show without a hit over them.)
+		if demo_name.ends_with("_whiff"):
+			for e in d.events:
+				if int(e[2]) == 1:
+					e[3] = 9.0
 		# (Long enough for a smash, or a multi-hit move whose hits freeze it.)
 		var last := 120 if move.ends_with("special") else 75
 		for f in range(11, last):
@@ -116,6 +121,19 @@ static func make(demo_name: String, m: Dictionary, dir: String):
 			for f in range(28, 90):
 				d.shots.append([f, "f%03d" % f])
 			d.end_frame = 92
+		"small_fx":
+			# The small effects in a row (the paper effects pass): a jab into a shield, a jump and a midair jump with their rings, a fast
+			# fall's sparkle and the landing's dust.
+			d.cam_dist = 14.0
+			d.cam_focus = 0
+			d.events = [[1, "stand", 0, -1.2, 1], [1, "stand", 1, 0.9, -1]]
+			d.timeline2 = [[0, 0, 0, shield]]
+			d.timeline = [[0, 0, 0, 0], [20, 0, 0, attack], [22, 0, 0, 0], [60, 0, 0, jump], [64, 0, 0, 0], [96, 0, 0, jump], [100, 0, 0, 0],
+				[130, 0, -127, 0], [133, 0, 0, 0]]
+			d.shots = [[25, "a_shield_hit"], [28, "b_shield_hit_late"]]
+			for k in 40:
+				d.shots.append([58 + k * 4, "f_%03d" % (58 + k * 4)])
+			d.end_frame = 222
 		"landing":
 			d.cam_dist = 17.0
 			d.events = [[1, "place", 0, -4.0, 4.0]]
@@ -244,6 +262,11 @@ static func make(demo_name: String, m: Dictionary, dir: String):
 			d.timeline = [[0, 0, 0, 0]]
 			d.shots = [[40, "a_stage"], [100, "b_stage_later"]]
 			d.end_frame = 105
+		"stage_clip":
+			# The same, held for footage of the scenery's life (with Godot's --write-movie; docs/art/stages/WORLD.md round 2).
+			d.timeline = [[0, 0, 0, 0]]
+			d.shots = []
+			d.end_frame = 660
 		"moves":
 			# A tour of ground moves for checking animation: forward tilt, up tilt, down tilt, then the smashes (sword fighter, player 1).
 			d.chars = [0, 1, 0, 1]

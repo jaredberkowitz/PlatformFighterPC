@@ -239,6 +239,7 @@ func _build_world() -> void:
 		var v := FighterView.new()
 		add_child(v)
 		v.build(i, Loadout.load_saved(i))
+		v.trail_tint = PLAYER_COLORS[i % PLAYER_COLORS.size()]
 		views.append(v)
 		snaps.append({})
 		inputs.append({"x": 0, "y": 0, "buttons": 0})
@@ -289,6 +290,9 @@ func _parse_demo_args() -> void:
 			cam_override = float(a.substr(6))
 	var user_args := OS.get_cmdline_user_args()
 	flag_noui = user_args.has("--noui")
+	# (`--fx=ink` draws the effects in the older brush-and-ink look, for before/after captures; the paper look is the default.)
+	if user_args.has("--fx=ink"):
+		FxMaterial.paper = false
 	flag_noecb = user_args.has("--noecb")
 	if user_args.has("--nomsaa"):
 		get_viewport().msaa_3d = Viewport.MSAA_DISABLED
@@ -504,6 +508,8 @@ func _refresh(i: int) -> void:
 		"move_tip": sim.fighter_move_tip(i), "reach": sim.fighter_weapon_reach(i), "dash_length": sim.fighter_dash_length(i), "wall_jumps": sim.fighter_wall_jumps(i),
 		"tripped": sim.has_method("fighter_tripped") and bool(sim.fighter_tripped(i)),
 		"egg": float(sim.fighter_egg_radius(i)) if sim.has_method("fighter_egg_radius") else 0.0,
+		# The live hitboxes as flat [x, y, radius, priority] groups in the world (the swing arcs follow their outer edge).
+		"hits": sim.fighter_hitboxes(i),
 	}
 
 
@@ -815,7 +821,12 @@ func pad_scheme(_pad: int) -> Dictionary:
 		return {"up": KEY_UP, "down": KEY_DOWN, "confirm": KEY_ENTER, "back": KEY_ESCAPE, "start": KEY_ESCAPE}
 	if replay_mode:
 		return {"up": KEY_UP, "down": KEY_DOWN, "left": KEY_LEFT, "right": KEY_RIGHT, "confirm": KEY_SPACE, "back": KEY_ESCAPE, "start": KEY_SPACE, "menu": KEY_ESCAPE}
-	if results != null or net_lobby != null:
+	if net_lobby != null:
+		# Y switches the stage step's view, as on stage select.
+		var scheme: Dictionary = PadNav.DEFAULT.duplicate()
+		scheme["alt"] = KEY_V
+		return scheme
+	if results != null:
 		return PadNav.DEFAULT
 	if _can_pause():
 		return {"start": KEY_ESCAPE}
@@ -1044,6 +1055,7 @@ func _open_lobby() -> void:
 			if entries[i].slug == me.slug:
 				lobby_fighter = i
 	net_lobby = NetLobby.new()
+	net_lobby.slot = local_slot
 	add_child(net_lobby)
 	# The match's display (timer, percents) hides while the lobby is up: it showed through the lobby's veil, the timer's plate peeking
 	# out above the LOBBY banner (the UI pass, docs/art/ui/UI_ANALYSIS.md).
@@ -1328,6 +1340,71 @@ func _capture(label: String) -> void:
 	var img := get_viewport().get_texture().get_image()
 	var path := "%s/%s.png" % [demo.out_dir if demo.out_dir != "" else "user://", label]
 	img.save_png(path)
+	# The camera beside it (for authoring stage art in Blender from the same view, docs/art/stages/BAKE_PILOT.md).
+	var c := get_viewport().get_camera_3d()
+	if c != null:
+		var o := c.global_transform.origin
+		var f := -c.global_transform.basis.z
+		var u := c.global_transform.basis.y
+		FileAccess.open(path.get_basename() + ".cam.json", FileAccess.WRITE).store_string(JSON.stringify({"fov": c.fov,
+			"origin": [o.x, o.y, o.z], "forward": [f.x, f.y, f.z], "up": [u.x, u.y, u.z],
+			"size": [img.get_width(), img.get_height()]}))
+		# `--depth`: the same view's distance from the camera beside it (`<label>_depth.png`, white at the camera to black at 160 units)
+		# and the frame without the fighters, for the stage paint-overs (tools/art/paintover.py, docs/art/stages/PAINTOVERS.md).
+		if OS.get_cmdline_user_args().has("--depth"):
+			var sh := Shader.new()
+			sh.code = """shader_type spatial;
+render_mode unshaded, fog_disabled, depth_test_disabled, skip_vertex_transform, cull_disabled;
+uniform sampler2D depth_tex : hint_depth_texture, filter_nearest;
+void vertex() { POSITION = vec4(VERTEX.xy, 1.0, 1.0); }
+void fragment() {
+	float d = texture(depth_tex, SCREEN_UV).r;
+	vec4 v = INV_PROJECTION_MATRIX * vec4(SCREEN_UV * 2.0 - 1.0, d, 1.0);
+	// (Written so the 8-bit sRGB image holds the value itself.)
+	ALBEDO = vec3(pow(1.0 - clamp(-v.z / v.w / 160.0, 0.0, 1.0), 2.2));
+}"""
+			var mat := ShaderMaterial.new()
+			mat.shader = sh
+			var quad := MeshInstance3D.new()
+			var qm := QuadMesh.new()
+			qm.size = Vector2(2, 2)
+			quad.mesh = qm
+			quad.material_override = mat
+			quad.extra_cull_margin = 16384.0
+			c.add_child(quad)
+			# (The value as written: no tone mapping, glow or grading on it.)
+			var env: Environment = c.environment if c.environment != null else get_viewport().find_world_3d().environment
+			var kept := []
+			if env != null:
+				kept = [env.tonemap_mode, env.tonemap_exposure, env.glow_enabled, env.adjustment_enabled]
+				env.tonemap_mode = Environment.TONE_MAPPER_LINEAR
+				env.tonemap_exposure = 1.0
+				env.glow_enabled = false
+				env.adjustment_enabled = false
+			await RenderingServer.frame_post_draw
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(path.get_basename() + "_depth.png")
+			quad.queue_free()
+			if env != null:
+				env.tonemap_mode = kept[0]
+				env.tonemap_exposure = kept[1]
+				env.glow_enabled = kept[2]
+				env.adjustment_enabled = kept[3]
+			# And the frame without the fighters (`<label>_stage.png`, their meshes moved to a layer the camera skips for two frames):
+			# where it differs from the frame is theirs (bodies, shadows, markers), and a paint-over leaves it be.
+			var moved := {}
+			for fv in views:
+				for vi: VisualInstance3D in (fv as Node).find_children("*", "VisualInstance3D", true, false):
+					moved[vi] = vi.layers
+					vi.layers = 1 << 19
+			var mask := c.cull_mask
+			c.cull_mask = mask & ~(1 << 19)
+			await RenderingServer.frame_post_draw
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(path.get_basename() + "_stage.png")
+			c.cull_mask = mask
+			for vi in moved:
+				(vi as VisualInstance3D).layers = moved[vi]
 	print("saved ", path)
 	shot_wait = ""
 

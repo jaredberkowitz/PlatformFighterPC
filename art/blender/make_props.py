@@ -531,7 +531,10 @@ def tree_crown(name, shape):
     else:
         masses = [((0, 0.3, 0.6), 2.2), ((-1.9, 0.2, 0.2), 1.3), ((1.85, 0.1, 0.3), 1.35), ((-0.4, -0.3, 1.95), 1.3), ((1.0, -0.4, 1.6), 1.05)]
     for k, (c, r) in enumerate(masses):
-        folded_dome(lit, shade, c, r, 7 if r > 1.6 else 6, random.Random(shape * 100 + k))
+        # (Each fold unbroken from rim to cap and deeper, the owner's folded style, 2026-10-20: staggered band by band, the folds met in
+        # a diamond pattern of small facets and the crowns read as crumpled low-poly, not as folds like the pines.)
+        folded_dome(lit, shade, c, r, 7 if r > 1.6 else 6, random.Random(shape * 100 + k),
+                    rows=[(-0.12, 0.44), (0.32, 0.3), (0.68, 0.14)], stagger=False)
     for bm in (lit, shade):
         bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=0.0001)
     # (Flat-shaded planes, as a papercraft forest's trees are (the owner's third reference): each facet one tone, so the light reads
@@ -842,6 +845,134 @@ def windmill_tower():
     return root
 
 
+def windmill():
+    """The meadow's whole windmill as one model (the owner, 2026-10-22: Blender models wherever possible; the game built everything but
+    the tower from 74 boxes and cylinders). The tower and cap of `windmill_tower`, and round them: the grassy mound and a stone drum in
+    two courses of blocks; an arched plank door in a stone surround on a step, with a lantern; two windows with frames and shutters; a
+    gallery deck with posts and a rail; the windshaft's housing; grain sacks and a barrel at the foot. The sails are their own object,
+    `sails`, its origin on the hub, so the game turns it: four stocks, each with a lattice of nine slats and a middle rail, canvas behind
+    it (every other sail reefed, its canvas rolled up to two-thirds), and a leading board. The front faces -y (the game's camera)."""
+    root = windmill_tower()
+    root.name = "windmill"
+    parts = {}
+
+    def part(name):
+        if name not in parts:
+            parts[name] = bmesh.new()
+        return parts[name]
+
+    def G(x, y, z):
+        """The game's axes (x right, y up, z toward the camera) to Blender's."""
+        return (x, -z, y)
+
+    # The mound and the stone drum.
+    blob(part("mound"), 1.0, (0.0, 0.0, 0.1), scale=(5.6, 4.6, 1.3), subdiv=2)
+    for row in range(2):
+        nb = 22
+        for b in range(nb):
+            a = math.tau * (b + 0.5 * row) / nb
+            rad = 3.42 - 0.12 * row
+            add_box(part("stone" if (b + row) % 3 else "stone_dark"), (math.sin(a) * rad, -math.cos(a) * rad, 0.5 + row * 0.92),
+                    (0.88, 0.32, 0.86), (0, 0, -math.degrees(a)))
+    cone(part("stone_dark"), 3.3, 3.2, 1.9, z0=0.05, sides=22)
+    # The door: planks, an arched head, a stone surround of jambs and voussoirs, a step, a lantern.
+    add_box(part("door"), G(0.0, 3.2, 2.85), (1.6, 0.3, 2.6))
+    ret = bmesh.ops.create_cone(part("door"), cap_ends=True, segments=12, radius1=0.8, radius2=0.8, depth=0.3)
+    for v in ret["verts"]:
+        v.co = Matrix.Rotation(math.radians(90), 3, "X") @ v.co + Vector(G(0.0, 4.5, 2.85))
+    for k in range(4):
+        add_box(part("door_seam"), G(-0.6 + 0.4 * k, 3.4, 3.02), (0.05, 0.04, 2.7))
+    for sx in (-1.0, 1.0):
+        add_box(part("stone"), G(sx * 1.0, 3.2, 2.95), (0.4, 0.42, 2.6))
+    for v in range(7):
+        va = math.pi * (v + 0.5) / 7.0
+        add_box(part("stone" if v % 2 else "stone_dark"), G(math.cos(va) * 1.0, 4.5 + math.sin(va) * 1.0, 2.95), (0.36, 0.42, 0.42),
+                (0, -(math.degrees(va) - 90.0), 0))
+    add_box(part("stone_dark"), G(0.0, 1.95, 3.3), (2.6, 1.2, 0.3))
+    add_box(part("glow"), G(1.55, 4.2, 3.05), (0.3, 0.3, 0.45))
+    add_box(part("timber"), G(1.55, 4.47, 3.05), (0.42, 0.42, 0.1))
+    # Windows up the front: a dark opening in a frame, a shutter folded back.
+    for wy in (7.2, 10.2):
+        rr = 3.0 + (1.8 - 3.0) * (wy - 1.0) / 12.0
+        add_box(part("timber"), G(0.0, wy, rr + 0.05), (1.0, 0.2, 1.1))
+        add_box(part("opening"), G(0.0, wy, rr + 0.1), (0.7, 0.22, 0.8))
+        add_box(part("shutter"), G(0.8, wy, rr + 0.12), (0.5, 0.12, 1.1), (0, 0, 25))
+    # The gallery: a deck, posts, a rail.
+    cone(part("timber"), 3.0, 3.0, 0.25, z0=8.48, sides=20)
+    ring(part("timber_dark"), 2.95, 0.07, 9.5, sides=24, minor_sides=6)
+    for k in range(12):
+        a = math.tau * k / 12
+        add_box(part("timber_dark"), (math.sin(a) * 2.9, -math.cos(a) * 2.9, 9.05), (0.12, 0.12, 0.9))
+    # The windshaft's housing on the tower's face, and the shaft into the hub.
+    add_box(part("timber_dark"), G(0.0, 12.5, 1.75), (1.3, 1.0, 1.1))
+    ret = bmesh.ops.create_cone(part("timber"), cap_ends=True, segments=10, radius1=0.26, radius2=0.26, depth=1.2)
+    for v in ret["verts"]:
+        v.co = Matrix.Rotation(math.radians(84), 3, "X") @ v.co + Vector(G(0.0, 12.55, 2.6))
+    # Sacks and a barrel at the foot.
+    for (sx, sy, sz) in ((-2.2, 0.0, 3.6), (-2.9, 0.0, 3.2), (-2.5, 0.75, 3.4)):
+        blob(part("sack"), 1.0, G(sx, 2.4 + sy, sz), scale=(0.55, 0.45, 0.62), subdiv=1)
+    cone(part("barrel"), 0.5, 0.5, 1.1, z0=2.05, sides=12, at=(2.6, -3.4))
+    for zz in (2.3, 2.9):
+        bm = part("timber_dark")
+        bm.verts.ensure_lookup_table()
+        n = len(bm.verts)
+        ring(bm, 0.52, 0.05, zz, sides=14, minor_sides=4)
+        bm.verts.ensure_lookup_table()
+        for v in bm.verts[n:]:
+            v.co.x += 2.6
+            v.co.y -= 3.4
+    cols = {"mound": (0.44, 0.76, 0.3), "stone": (0.7, 0.66, 0.62), "stone_dark": (0.6, 0.56, 0.54), "door": (0.42, 0.28, 0.2),
+            "door_seam": (0.3, 0.2, 0.15), "glow": (1.0, 0.86, 0.56), "timber": (0.55, 0.38, 0.26), "timber_dark": (0.42, 0.28, 0.2),
+            "opening": (0.2, 0.16, 0.22), "shutter": (0.36, 0.56, 0.62), "sack": (0.86, 0.78, 0.6), "barrel": (0.62, 0.44, 0.3)}
+    for name, bm in parts.items():
+        bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+        # (No bevels: on the stone blocks they tripled the model past the props' 10,000-triangle check; at this distance an edge is a pixel.)
+        to_object(name, bm, cols[name], smooth=name in ("mound", "sack"), parent=root)
+    # The sails, about the hub.
+    sails = empty("sails")
+    sails.parent = root
+    sails.location = G(0.0, 12.6, 3.2)
+    sp = {}
+
+    def spart(name):
+        if name not in sp:
+            sp[name] = bmesh.new()
+        return sp[name]
+
+    def arm_box(bm, a, centre, size):
+        # A box in an arm's frame (game x along the sail, y out along the stock), turned by `a` about the hub's axis.
+        cx, cy, cz = centre
+        x = cx * math.cos(a) - cy * math.sin(a)
+        y = cx * math.sin(a) + cy * math.cos(a)
+        add_box(bm, (x, -cz, y), (size[0], size[2], size[1]), (0, -math.degrees(a), 0))
+
+    ret = bmesh.ops.create_cone(spart("hub"), cap_ends=True, segments=14, radius1=0.62, radius2=0.62, depth=0.7)
+    for v in ret["verts"]:
+        v.co = Matrix.Rotation(math.radians(90), 3, "X") @ v.co
+    ret = bmesh.ops.create_cone(spart("hub_cap"), cap_ends=True, segments=12, radius1=0.32, radius2=0.4, depth=0.3)
+    for v in ret["verts"]:
+        v.co = Matrix.Rotation(math.radians(90), 3, "X") @ v.co + Vector((0.0, -0.45, 0.0))
+    for k in range(4):
+        a = math.tau * k / 4
+        arm_box(spart("stock"), a, (0.0, 3.8, 0.0), (0.32, 7.6, 0.26))
+        arm_box(spart("stock"), a, (1.85, 4.6, 0.06), (0.14, 5.8, 0.16))
+        arm_box(spart("board"), a, (-0.32, 4.7, -0.02), (0.32, 5.6, 0.08))
+        for j in range(9):
+            arm_box(spart("slat"), a, (0.95, 1.95 + j * 0.68, 0.08), (1.9, 0.08, 0.12))
+        arm_box(spart("slat"), a, (0.95, 4.7, 0.08), (0.08, 5.6, 0.12))
+        reef = k % 2 == 1
+        h = 3.4 if reef else 5.2
+        arm_box(spart("canvas"), a, (0.95, 2.15 + h * 0.5, -0.04), (1.66, h, 0.08))
+        if reef:
+            arm_box(spart("canvas"), a, (0.95, 2.15 + h, -0.02), (1.7, 0.32, 0.32))
+    scol = {"hub": (0.42, 0.28, 0.2), "hub_cap": (0.36, 0.34, 0.42), "stock": (0.55, 0.38, 0.26), "board": (0.64, 0.48, 0.34),
+            "slat": (0.8, 0.66, 0.5), "canvas": (0.96, 0.86, 0.68)}
+    for name, bm in sp.items():
+        bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+        to_object("sail_" + name, bm, scol[name], smooth=False, parent=sails)
+    return root
+
+
 def crate():
     """A slatted shipping crate (1 x 1 x 1, standing on the origin; the gauntlet's round 4 after the owner's harbour reference, in place of
     the built box): corner posts, three slats a side with dark gaps between them showing the inside, top and bottom rails, and one
@@ -1092,6 +1223,42 @@ def lamp_post():
     bm = bmesh.new()
     add_box(bm, (cx, 0.0, cz), (0.14, 0.14, 0.36))
     to_object("glow", bm, (1.0, 0.86, 0.56), smooth=False).parent = root
+    return root
+
+
+def paper_lantern():
+    """A paper lantern for the grove's lantern strings (fidelity review 6: the strings were code-built bulbs), hanging from its origin,
+    0.7 tall: a ribbed paper body that glows (`glow`), dark lacquered caps top and bottom, a bail and a loop to hang it by, a short tassel."""
+    root = empty("paper_lantern")
+    bm = bmesh.new()
+    prof = [(0.12, -0.58), (0.2, -0.54), (0.25, -0.44), (0.27, -0.34), (0.25, -0.24), (0.2, -0.14), (0.12, -0.1)]
+    _lathe_bm(bm, prof, sides=14)
+    to_object("glow", bm, (1.0, 0.72, 0.42), smooth=True).parent = root
+    bm = bmesh.new()
+    for z, r in ((-0.49, 0.235), (-0.39, 0.268), (-0.29, 0.262), (-0.19, 0.225)):
+        ring(bm, r, 0.008, z, sides=14, minor_sides=3)
+    to_object("ribs", bm, (0.3, 0.12, 0.1), smooth=False).parent = root
+    bm = bmesh.new()
+    _lathe_bm(bm, [(0.0, -0.1), (0.13, -0.1), (0.13, -0.06), (0.06, -0.04), (0.0, -0.04)], sides=12)
+    _lathe_bm(bm, [(0.0, -0.58), (0.13, -0.58), (0.13, -0.63), (0.0, -0.63)], sides=12)
+    ring(bm, 0.035, 0.01, -0.01, sides=10, minor_sides=4)
+    to_object("caps", bm, (0.16, 0.1, 0.12), smooth=False).parent = root
+    bm = bmesh.new()
+    cone(bm, 0.04, 0.012, 0.16, z0=-0.79, sides=6)
+    to_object("tassel", bm, (0.82, 0.26, 0.22), smooth=False).parent = root
+    return root
+
+
+def string_bulb():
+    """A party bulb for the city's string lights (fidelity review 6), hanging from its origin, 0.3 tall: a dark socket and a round glass
+    bulb that glows (`glow`, painted each bulb's colour in the game)."""
+    root = empty("string_bulb")
+    bm = bmesh.new()
+    _lathe_bm(bm, [(0.0, 0.0), (0.045, 0.0), (0.05, -0.04), (0.05, -0.1), (0.04, -0.11), (0.0, -0.11)], sides=10)
+    to_object("socket", bm, (0.16, 0.16, 0.2), smooth=False).parent = root
+    bm = bmesh.new()
+    _lathe_bm(bm, [(0.0, -0.3), (0.05, -0.29), (0.085, -0.25), (0.09, -0.2), (0.07, -0.14), (0.04, -0.11), (0.0, -0.11)], sides=12)
+    to_object("glow", bm, (1.0, 0.86, 0.5), smooth=True).parent = root
     return root
 
 
@@ -1644,6 +1811,8 @@ PROPS = {
     "mushroom": mushroom,
     "stump": stump,
     "lamp_post": lamp_post,
+    "paper_lantern": paper_lantern,
+    "string_bulb": string_bulb,
     "moss_a": lambda: moss_clump("moss_a", 3),
     "moss_b": lambda: moss_clump("moss_b", 8),
     "moss_c": lambda: moss_clump("moss_c", 13),
@@ -1660,6 +1829,7 @@ PROPS = {
     "tree_trunk": tree_trunk,
     "cottage": cottage,
     "windmill_tower": windmill_tower,
+    "windmill": windmill,
     "tree_crown_a": lambda: tree_crown("tree_crown_a", 0),
     "tree_crown_b": lambda: tree_crown("tree_crown_b", 1),
     "tree_crown_c": lambda: tree_crown("tree_crown_c", 2),

@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Meadow Paper Pilot</title>
+<style>
+:root { --bg: #eef0f5; --panel: #fff; --fg: #1d1b2a; --muted: #5d5a70; --line: #d6d8e3; --accent: #6a3fd1; --accent-ink: #fff; }
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #15141d; --panel: #1f1d2a; --fg: #ecebf4; --muted: #a8a5bd; --line: #34314a; --accent: #a98bff; --accent-ink: #15141d; }
+}
+body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.5 "Segoe UI", system-ui, sans-serif; padding: 20px 16px 48px; }
+.wrap { max-width: 1280px; margin: 0 auto; display: grid; gap: 16px; }
+h1 { margin: 0; font-size: 1.9rem; }
+p { margin: 0; max-width: 80ch; }
+.muted { color: var(--muted); }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px; display: grid; gap: 12px; }
+.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.row b { min-width: 4.5em; color: var(--muted); font-weight: 600; }
+button { font: inherit; font-weight: 700; border: 1px solid var(--line); background: transparent; color: var(--fg); border-radius: 999px; padding: 6px 14px; cursor: pointer; }
+button:hover { border-color: var(--accent); }
+button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.viewer { position: relative; border-radius: 8px; overflow: hidden; background: #000; }
+.viewer img { width: 100%; display: block; }
+.tag { position: absolute; top: 10px; left: 10px; font-weight: 800; padding: 2px 10px; border-radius: 6px; color: #fff; background: rgba(0,0,0,0.6); }
+.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.grid figure { margin: 0; position: relative; }
+.grid img { width: 100%; display: block; border-radius: 6px; }
+@media (max-width: 700px) { .grid { grid-template-columns: 1fr; } }
+table { border-collapse: collapse; width: 100%; }
+th, td { padding: 8px 10px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+tr.pick td:first-child { font-weight: 700; }
+kbd { border: 1px solid var(--line); border-radius: 4px; padding: 0 5px; font-size: 0.85em; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Meadow pilot: the play area in paper, and the paper finish</h1>
+  <p><strong>Picked: B (layered sheets with the finish), now in the game.</strong> Before and after: docs/art/stages/meadow_play_built.png.</p>
+  <p class="muted">The lawn you fight on and the two platforms as paper card, modelled in Blender on the collision (every walking surface stays exactly where it was), each with a level of the new paper finish on all the scenery: a faint fibre grain, a slight colour wobble from sheet to sheet and, on B and C, a pale cut edge. Fighters are never touched. The front and the paper background are unchanged.
+    Pick a <strong>view</strong>, then click an <strong>option</strong> (or press <kbd>1</kbd> to <kbd>4</kbd>). <strong>All four</strong> shows them side by side.</p>
+
+  <div class="panel">
+    <div class="row" role="group" aria-label="View"><b>View</b>
+      <button data-v="p">Fighters in play</button>
+      <button data-v="m">Match camera</button>
+      <button data-v="w">Wide</button>
+      <button data-v="c">Lawn close-up</button>
+    </div>
+    <div class="row" role="group" aria-label="Option"><b>Option</b>
+      <button data-o="T">1 · Today</button>
+      <button data-o="A">2 · A card slab</button>
+      <button data-o="B">3 · B layered sheets</button>
+      <button data-o="C">4 · C pop-up</button>
+      <button data-o="all">All four</button>
+    </div>
+    <div class="viewer" id="one"><img id="img" alt="Meadow pilot option"><span class="tag" id="tag">Today</span></div>
+    <div class="grid" id="all" hidden></div>
+  </div>
+
+  <div class="panel">
+    <table>
+      <thead><tr><th>Option</th><th>Lawn and platforms</th><th>Paper finish</th></tr></thead>
+      <tbody>
+        <tr><td>Today</td><td>The code-built lawn slab with painted path, plank platforms with ropes</td><td>None</td></tr>
+        <tr><td>A · card slab</td><td>The lawn one thick card with a pale cut edge and an inlaid cream path; platforms as three card boards on battens with rope bands</td><td>Fibre grain and sheet wobble</td></tr>
+        <tr class="pick"><td>B · layered sheets (my pick)</td><td>The lawn a green sheet over soil and stone sheets, each a step wider; platforms a green sheet over plank card with a scalloped grass fringe</td><td>Grain, wobble and a pale cut edge</td></tr>
+        <tr><td>C · pop-up</td><td>The lawn a thin sheet behind a standing scalloped ground-row card; platforms as notched plank cut-outs over a shadow card</td><td>Strongest: grain, wobble and cut edge</td></tr>
+      </tbody>
+    </table>
+    <p class="muted">B ties the lawn to the meadow's layered paper background and its green platforms read as part of the hill; the cut edge makes the paper visible without changing the fighters. A is the calmest; C's ground row hides the lawn's edge and its pale platforms read a little blank. The fighters' contact shadows and the lawn's colour are kept in all three.</p>
+  </div>
+</div>
+<script>
+(function () {
+  var v = "p", o = "T";
+  var NAME = { T: "Today", A: "A · card slab", B: "B · layered sheets", C: "C · pop-up" };
+  function render() {
+    var all = o === "all";
+    document.getElementById("one").hidden = all;
+    document.getElementById("all").hidden = !all;
+    if (all) {
+      document.getElementById("all").innerHTML = ["T", "A", "B", "C"].map(function (k) {
+        return '<figure><img src="mplay_' + v + "_" + k + '.jpg" alt="' + NAME[k] + '"><span class="tag">' + NAME[k] + "</span></figure>";
+      }).join("");
+    } else {
+      document.getElementById("img").src = "mplay_" + v + "_" + o + ".jpg";
+      document.getElementById("tag").textContent = NAME[o];
+    }
+    document.querySelectorAll("[data-v]").forEach(function (b) { b.setAttribute("aria-pressed", b.dataset.v === v ? "true" : "false"); });
+    document.querySelectorAll("[data-o]").forEach(function (b) { b.setAttribute("aria-pressed", b.dataset.o === o ? "true" : "false"); });
+  }
+  document.querySelectorAll("[data-v]").forEach(function (b) { b.addEventListener("click", function () { v = b.dataset.v; render(); }); });
+  document.querySelectorAll("[data-o]").forEach(function (b) { b.addEventListener("click", function () { o = b.dataset.o; render(); }); });
+  document.addEventListener("keydown", function (e) {
+    var k = { "1": "T", "2": "A", "3": "B", "4": "C", "5": "all" }[e.key];
+    if (k) { o = k; render(); }
+  });
+  render();
+})();
+</script>
+</body>
+</html>

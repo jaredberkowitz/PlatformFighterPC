@@ -1,8 +1,10 @@
-//! Bodies push each other apart, so a fighter cannot walk, run, dash, jump or drift through another. Runs once a frame after every
-//! fighter has moved and before hits are resolved.
+//! Bodies push each other apart, so a fighter cannot walk, run or dash through another. Runs once a frame after every fighter has
+//! moved and before hits are resolved. Only bodies both on the ground push, unless the ruleset's `air_push` is set (sims 67 to 145):
+//! a short hop crosses over a standing opponent and fighters pass each other in the air, as the reference's jostle holds bodies apart
+//! on the ground only, and a fighter landing inside another eases apart from it along the ground.
 //!
 //! Each fighter's body is `push_ratio` of its ECB's half-width either side of it, from its feet up to the top of its ECB. Two
-//! fighters whose bodies overlap (both on the same platform, or at least one in the air and overlapping in height as well) are pushed
+//! fighters whose bodies overlap (both on the same platform, or with `air_push` at least one in the air and overlapping in height as well) are pushed
 //! apart sideways in two parts:
 //!
 //! * a **hard core** (`push_hard` of the bodies' combined width) they cannot move into: whoever moved toward the other this frame
@@ -106,6 +108,9 @@ pub fn separate(state: &mut GameState, content: &Content, before: &[Fx; MAX_BODI
                 if a.platform != b.platform {
                     continue;
                 }
+            } else if rules.air_push == 0 {
+                // Either in the air: they pass (sim 146, the ruleset's `air_push`).
+                continue;
             } else {
                 // In the air (either of them): only bodies that overlap in height as well, feet to the top of the ECB.
                 let (ha, hb) = (
