@@ -86,6 +86,24 @@ func _initialize() -> void:
 	run.frame = 500
 	view.apply(Vector3.ZERO, run, 1.0 / 60.0)
 	check(view.springs.value("head") == 0.0 and view.springs.value("spine") == 0.0, "a rollback puts the springs at rest")
+	# The body's squash and lean springs (round 2): a landing squash holds still through hitlag and is on its target after a seek.
+	var land := snap(1, "Airborne", "", 700, 10)
+	land.platform = -1
+	land.vel = Vector2(0.0, -0.3)
+	view.apply(Vector3.ZERO, land, 1.0 / 60.0)
+	land = snap(1, "Landing", "", 701, 0)
+	view.apply(Vector3.ZERO, land, 1.0 / 60.0)
+	land.frame = 702
+	view.apply(Vector3.ZERO, land, 1.0 / 60.0)
+	var squashed: float = view.squash
+	var lagged := land.duplicate()
+	lagged.hitlag = 8
+	for i in 6:
+		view.apply(Vector3.ZERO, lagged, 1.0 / 60.0)
+	check(view.squash == squashed, "hitlag holds the body's squash (%.3f then %.3f)" % [squashed, view.squash])
+	land.frame = 400
+	view.apply(Vector3.ZERO, land, 1.0 / 60.0)
+	check(view.squash_vel == 0.0 and view.lean_vel == 0.0, "a seek puts the body's springs on their targets")
 	var idle := snap(1, "Idle", "", 600, 0)
 	for f in 90:
 		idle.frame = 600 + f

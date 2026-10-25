@@ -799,3 +799,16 @@ Ranked by how visible it is at match speed:
   keep theirs.
 - **Image:** `docs/screenshots/anim/r2_pass26_no_punch_ribbon.jpg`.
 - **Checked (passes 23-26):** both facings (gallery captures facing left); the six tests pass.
+
+### Pass 27: the body's squash, lean and lunge springs freeze in hitlag (round 2 item 4)
+
+- **Defect:** a strong hit's freeze still wobbled: the body's squash, lean and lunge springs (`fighter_view.gd`, older than the motion
+  springs) were integrated on real time, so they kept moving while the sim was frozen by hitlag or paused, and a rollback or seek left
+  them mid-swing.
+- **Fix:** `_body_spring_time` gives them the motion springs' clock: they move only while the sim frame advances (frozen in hitlag and a
+  pause, `MotionSprings.PAUSED_AFTER`), and a jump in the sim frame (a rollback, a seek) puts them straight on their targets.
+  `motion_test` checks both (a landing squash held through hitlag; the springs at rest on their targets after a seek).
+  `tests/freeze_probe.gd` prints the squash through a frozen landing.
+- **Image:** `docs/screenshots/anim/r2_pass27_springs_freeze.png`: the squash through a landing frozen for 12 frames, before (grey, it keeps
+  moving) and after (red, held).
+- **Checked:** the six tests pass.

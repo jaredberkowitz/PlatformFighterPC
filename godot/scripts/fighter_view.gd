@@ -2939,10 +2939,32 @@ func reset_motion() -> void:
 	smear_frame = -1
 	flinch_left = 0.0
 	ik_fade = 0.0
+	body_spring_frame = -1
+	body_still = 0.0
 	for t in tails:
 		t.reset()
 ## Where the run cycle was last frame, for the footfalls.
 var last_step_phase := 0.0
+
+
+## The squash, lean and lunge springs' clock: the sim frame they last saw and how long the sim has not moved on.
+var body_spring_frame := -1
+var body_still := 0.0
+
+
+## How many seconds the squash, lean and lunge springs move on this update: `delta` while the sim is moving, 0 while the fighter is frozen
+## by hitlag or the game is paused, and -1 after a jump in the sim frame (a rollback or a seek: the springs go straight to their targets).
+func _body_spring_time(s: Dictionary, delta: float) -> float:
+	var f := int(s.frame)
+	var jumped := body_spring_frame >= 0 and (f < body_spring_frame or f - body_spring_frame > 2)
+	var moved := body_spring_frame >= 0 and f > body_spring_frame and not jumped
+	body_spring_frame = f
+	if jumped:
+		return -1.0
+	body_still = 0.0 if moved else body_still + delta
+	if int(s.hitlag) > 0 or body_still >= MotionSprings.PAUSED_AFTER:
+		return 0.0
+	return delta
 
 
 ## `s` is a dictionary of sim state (see main.gd `_refresh`).
@@ -3066,8 +3088,19 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 		target_squash = -0.28
 
 	# Fixed sub-steps keep the spring stable at any frame rate.
-	var steps := ceili(delta / 0.008)
-	var h := delta / maxi(steps, 1)
+	# (Round 2: stepped only while the sim moves on, as the motion springs are (`MotionSprings`): frozen through hitlag and a pause, so a
+	# strong hit's freeze no longer wobbles, and put straight on their targets after a rollback or a replay seek.)
+	var body_dt := _body_spring_time(s, delta)
+	if body_dt < 0.0:
+		squash = target_squash
+		lean = target_lean
+		lunge = target_lunge
+		squash_vel = 0.0
+		lean_vel = 0.0
+		lunge_vel = 0.0
+		body_dt = 0.0
+	var steps := ceili(body_dt / 0.008)
+	var h := body_dt / maxi(steps, 1)
 	for _i in steps:
 		squash_vel += (SPRING_K * (target_squash - squash) - SPRING_DAMP * squash_vel) * h
 		squash += squash_vel * h
