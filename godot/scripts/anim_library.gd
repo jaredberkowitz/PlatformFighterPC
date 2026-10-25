@@ -126,8 +126,9 @@ const CLASS_MOVES := {
 		"extra move 0": "land",
 		"extra move 1": "attack_jab",
 		"extra move 2": "attack_smash",
-		# (Its forward smash is two kicks and its down smash a low spinning kick, as its reference's: the leg aimed at each hit.)
-		"fsmash": "kick_up",
+		# (Its forward smash is two kicks, the second a side kick with the body leaned right back, and its down smash a low spinning kick,
+		# as its reference's: the leg aimed at each hit.)
+		"fsmash": "kick_side",
 		"usmash": "attack_uair",
 		"dsmash": "kick_low",
 		"neutral special": "blaster",
@@ -144,7 +145,7 @@ const CLASS_MOVES := {
 		# After the reference all-rounder: two punches and a kick for the jab, a side kick, a sweep kick, a slide, the headbutt up smash,
 		# a breakdance sweep in front and behind, the held flying kick, a drop kick behind and a flip kick overhead (the leg aimed at each).
 		"jab 3": "kick_up",
-		"ftilt": "kick_up",
+		"ftilt": "kick_side",
 		"dtilt": "kick_low",
 		"dash attack": "kick_dash",
 		"usmash": "body_headbutt",
@@ -172,7 +173,7 @@ const CLASS_MOVES := {
 		"nair": "kick_nair",
 		# (Its reference's back air is a backhand, the shared back air; its forward tilt a side kick, its down smash a kick in front then
 		# behind and its up air a flip kick overhead.)
-		"ftilt": "kick_up",
+		"ftilt": "kick_side",
 		"dsmash": "kick_low",
 		"uair": "kick_uair",
 		"dtilt": "kick_low",
@@ -303,6 +304,39 @@ const CLASS_MOVES := {
 		"usmash": "sword_usmash",
 		"dsmash": "sword_dsmash",
 		"dair": "sword_plunge",
+	},
+	# Dagger (the Phantom, after its reference's knife moves; the knife rides the weapon hand, which the game reaches to each hit, and the
+	# kicks' leg is aimed): an inward slash, a backhanded stab and an outward slash for the jabs, the double thrust as a lunge, the
+	# baseball slide low, the roundhouse dash attack as a flying kick, the forward smash leaned back and cut down into a deep lunge, the
+	# spinning uppercut rising onto the feet, the sweep in front then behind, kicks for the forward and up airs, the gun drawn and aimed,
+	# the curse bolt flicked from an outstretched hand, the guard's backhand a swing. (Animation overhaul pass 11; were the shared punches.)
+	12: {
+		"jab": "attack_swing",
+		"jab 3": "attack_swing",
+		"ftilt": "attack_lunge",
+		"dtilt": "kick_low",
+		"dash attack": "kick_dash",
+		"fsmash": "attack_knife_smash",
+		"usmash": "sword_usmash",
+		"dsmash": "sword_dsmash",
+		"fair": "kick_nair",
+		"uair": "kick_uair",
+		"neutral special": "blaster",
+		"side special": "blaster",
+		"extra move 3": "blaster",
+		"extra move 4": "blaster",
+		"extra move 5": "blaster",
+		"extra move 6": "blaster",
+		"extra move 7": "blaster",
+		"extra move 8": "blaster",
+		"extra move 9": "attack_low",
+		"extra move 11": "attack_low",
+		"extra move 12": "attack_low",
+		"extra move 13": "attack_low",
+		"extra move 14": "attack_low",
+		"extra move 0": "attack_uair",
+		"extra move 2": "attack_uair",
+		"extra move 1": "throw",
 	},
 	# Bracers (the Hauler, unarmed and heavy): a hook and an uppercut for the jabs, swings for the swipe and the arms-out spin, the
 	# uppercut for the overhead sweep and the headbutt, a low slap, a rolling lunge, heavy two-handed claps for the forward and up

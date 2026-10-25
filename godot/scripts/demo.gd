@@ -30,11 +30,12 @@ static func make(demo_name: String, m: Dictionary, dir: String):
 	var grab: int = m.grab
 	if demo_name.begins_with("fx_"):
 		# One move landing on a fighter up close, a picture on every frame, the camera steady on the attacker (for checking trails, hit
-		# effects and the animation): fx_<sword|claws|needles|embers>_<jab|ftilt|utilt|dtilt|fsmash|usmash|dsmash|nair|fair|bair|uair|dair|
+		# effects and the animation): fx_<sword|claws|needles|embers|gauntlets|staff|greatsword|bracers|clutch|buckler|pockets|popgun|dagger|nodachi>_<jab|ftilt|utilt|dtilt|fsmash|usmash|dsmash|nair|fair|bair|uair|dair|
 		# nspecial|sspecial|uspecial|dspecial>, with
 		# _ko on the end for a finishing hit (the other fighter at 170%).
 		var parts := demo_name.split("_")
-		var cls: int = {"sword": 0, "claws": 1, "needles": 2, "embers": 3, "gauntlets": 4, "staff": 5}.get(parts[1], 0)
+		var cls: int = {"sword": 0, "claws": 1, "needles": 2, "embers": 3, "gauntlets": 4, "staff": 5, "greatsword": 6, "bracers": 7,
+			"clutch": 8, "buckler": 9, "pockets": 10, "popgun": 11, "dagger": 12, "nodachi": 13}.get(parts[1], 0)
 		var move: String = parts[2] if parts.size() > 2 else "ftilt"
 		d.chars = [cls, cls, cls, cls]
 		d.cam_dist = 11.0

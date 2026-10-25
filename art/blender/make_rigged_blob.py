@@ -726,6 +726,16 @@ BODY_MOVES = {
         {"hips": -0.12, "spine": (26.0, 12.0), "head": (-8.0, -4.0), "stance": (62.0, -50.0), "shin.L": (-72.0,), "shin.R": (-2.0,),
          "armU.L": (-40.0, 34.0), "armL.L": (20.0,)},
         {"hips": -0.08, "spine": (14.0, 4.0), "stance": (30.0, -24.0), "shin.L": (-30.0,)}),
+    # The Dagger's forward smash, after its reference's (animation overhaul pass 11): leaned right back on the back leg with the knife
+    # cocked up behind the head (the game raises the knife hand, `OVERHEAD_CHAMBER`), then cut down in front as the body dives into a
+    # lunge so low and long that the torso is pitched well forward over the bent front knee, the back leg stretched flat behind; the head
+    # is kept up toward the camera and the hit.
+    "attack_knife_smash": (
+        {"hips": -0.04, "spine": (-22.0, -34.0), "head": (10.0, 18.0), "stance": (20.0, 24.0), "shin.L": (-14.0,), "shin.R": (-60.0,),
+         "armU.L": (60.0, 20.0), "armL.L": (100.0,)},
+        {"hips": -0.2, "spine": (24.0, 26.0), "head": (-8.0, -12.0), "stance": (74.0, -58.0), "shin.L": (-74.0,), "shin.R": (-2.0,),
+         "armU.L": (-30.0, 30.0), "armL.L": (30.0,)},
+        {"hips": -0.1, "spine": (18.0, 12.0), "head": (-10.0, 0.0), "stance": (46.0, -36.0), "shin.L": (-44.0,)}),
     # Forward air (a crescent cut, or a claw raked, down through the space in front): the weapon raised with the shoulders turned back and
     # the knees drawn up, then the torso leans over the swing and turns into it, the front knee up and the back leg trailing.
     # Upright enough that the face stays toward the hit.
@@ -3447,6 +3457,8 @@ def main() -> None:
     move("attack_fair", fair_wind, fair_strike, fair_hold)
     # The claws' forward tilt, a two-handed lunging slash (posed in BODY_MOVES).
     clip(rig, "attack_claws", 60, {})
+    # The Dagger's diving forward smash (posed in BODY_MOVES).
+    clip(rig, "attack_knife_smash", 60, {})
     # The Settler's tool clips (posed in BODY_MOVES).
     for tool in ("tool_reach", "tool_toss", "tool_dig", "tool_pour", "tool_chop", "tool_heave", "tool_raise", "tool_trip", "tool_shrug", "tool_ride", "tool_float"):
         clip(rig, tool, 60, {})
@@ -3767,6 +3779,17 @@ def main() -> None:
             {"hips": -0.04, "spine": (-14.0, 0.0), "head": (-16.0, 0.0), "stance": (0.0, 14.0), "shin.R": (-22.0,),
              "arms": (-34.0, 58.0)},
             {"spine": (-4.0, 0.0), "stance": (4.0, 8.0)})
+    # A side kick (animation overhaul pass 11, after the references' side kicks: the quick fighter's second forward smash kick, the
+    # all-rounder's and the rusher's forward tilts): the kicking knee chambered high and tucked with the body turned away, then the
+    # leg driven straight out level (the game aims the foot at the hit) as the body leans right back away from it over the bent standing
+    # leg, the arms flung back and out for balance, so the whole silhouette is one long line from the head to the foot. (Was the stretch
+    # kick straight up, `kick_up`, upright, which read as a toe poke at waist height.)
+    move_of("kick_side",
+            {"hips": -0.08, "spine": (14.0, -22.0), "head": (2.0, 14.0), "stance": (74.0, -12.0), "shin.L": (-118.0,), "shin.R": (-34.0,),
+             "arms": (30.0, 24.0)},
+            {"hips": -0.06, "spine": (-30.0, 22.0), "head": (20.0, -10.0), "stance": (84.0, -8.0), "shin.L": (-4.0,), "shin.R": (-22.0,),
+             "arms": (-22.0, 56.0)},
+            {"spine": (-8.0, 6.0), "stance": (20.0, -8.0), "shin.R": (-20.0,)})
     # Down tilt: a low sweep from a crouch.
     move_of("kick_low",
             {"hips": -0.2, "spine": (26.0, -14.0), "stance": (60.0, 40.0), "shin.L": (-100.0,), "shin.R": (-100.0,), "arms": (30.0, 30.0)},

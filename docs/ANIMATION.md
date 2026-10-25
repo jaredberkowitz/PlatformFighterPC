@@ -466,3 +466,40 @@ a corkscrew about the upright body (no head-over-heels spin); wall jumps back-fl
 - **Image:** `docs/screenshots/anim/pass10_staff_greatsword_nodachi.jpg`.
 - **Checked:** the six tests pass; the Greatsword, Buckler and Nodachi were checked in the pose atlas.
 - **Left:** the rest of classes 2-11's signature keys, and the Longsword forward smash's overhead hand path.
+
+### Pass 11: the Dagger's own knife moves, and side kicks (step 8, part 2: the quick family)
+
+- **Dagger, defect:** every knife move played a shared punch (`AnimLibrary.CLASS_MOVES` had no entry for class 12). The forward, up and
+  down smashes and the gun were one straight-armed punch four times; the forward and up airs, which are kicks in its reference, were a
+  chop and an arm sweep.
+- **Fix (mapping, `CLASS_MOVES[12]`), after the moveset report's list for the art agent and the reference's hitbox animations:**
+  - an inward slash and an outward slash for jabs 1 and 3 (`attack_swing`), the backhanded stab for jab 2 (the shared jab);
+  - the double thrust as a lunge (`attack_lunge`), the baseball slide low (`kick_low`), the roundhouse dash attack as a flying kick;
+  - the spinning uppercut rising onto the feet (`sword_usmash`), the sweep in front then behind (`sword_dsmash`);
+  - kicks for the forward and up airs (`kick_nair`, `kick_uair`, the leg aimed at the hit);
+  - the gun drawn and aimed (`blaster`) for every gun slot and the curse bolt; the guard's stances low (`attack_low`); the hook and its
+    pull as the up special and a throw.
+- **Dagger forward smash (a new clip and a code layer):** the reference leans right back with the knife raised overhead behind, then
+  cuts down in front as it dives into a lunge so low the body is nearly level.
+  - `attack_knife_smash` (`make_rigged_blob.py` `BODY_MOVES`): leaned back on the back leg, then a lunge deeper than any other grounded
+    move (stance 74 / -58, hips -0.2), the torso pitched in 24 degrees so the head (clamped at 8 degrees back) keeps the face to the camera.
+  - `fighter_view.gd` `OVERHEAD_CHAMBER`: the knife hand cocks up behind the head through the coil (165 degrees about the shoulder) and is
+    drawn back behind the head in depth (`OVERHEAD_BEHIND_Z`), so the knife does not cross the face; the strike comes over the top and down
+    onto the hit.
+- **Side kicks, defect:** three references' side kicks (the quick fighter's second forward smash kick, the all-rounder's and the rusher's
+  forward tilts) played `kick_up`, the stretch kick straight up, upright: at their waist-high hitboxes it read as a toe poke.
+- **Fix:** a new `kick_side` (`move_of`): the knee chambered high and tucked with the body turned away, then the leg driven out level as the
+  body leans right back from it over the bent standing leg, the arms flung back, one long line from head to foot. Mapped for Needles'
+  forward smash, Embers' and Gauntlets' forward tilts.
+- **Files:** `godot/scripts/anim_library.gd`, `godot/scripts/fighter_view.gd` (`OVERHEAD_CHAMBER`, `OVERHEAD_BEHIND_Z`), `art/blender/make_rigged_blob.py`,
+  `godot/models/base_rig.glb`, `godot/tests/anim_library_test.gd`, `godot/tests/fighter_view_test.gd` (the new pins), `godot/scripts/demo.gd`
+  (the `fx_` demos take every class name).
+- **Image:** `docs/screenshots/anim/pass11_dagger_side_kicks.jpg`: the Dagger's forward smash before and after (wind-up, strike, follow);
+  the strike frames of its jab, forward tilt, down tilt, up smash, down smash, forward air, up air and gun, before above and after below;
+  Embers' and Gauntlets' forward tilts before and after; Needles' forward smash before and after.
+- **Checked:** both facings (contact sheets facing left); the six tests pass.
+- **Left:**
+  - The cocked knife's tip shows above the hat behind the head through the coil (the short arm cannot raise it clear of the head).
+  - Needles' up tilt: its hitboxes stand straight above the head, and the kick, capped at 65 degrees on this body (`HIGH_KICK`), points at
+    the camera and reads as an arm behind the arc. A body-proportion limit; not changed.
+  - The Dagger's knife draws the fist's ribbon smear on its cuts, not an arc.

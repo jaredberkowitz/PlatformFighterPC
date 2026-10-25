@@ -62,7 +62,7 @@ func _initialize() -> void:
 		check(clip == kicks[m] and fists.anim.has_animation(clip), "claws %s plays %s (got %s)" % [m, kicks[m], clip])
 	# The needles fighter: kicks for its tilts and aerials, the shared chop for its forward air, a landing for its down air's landing hit.
 	var needle_kicks := {"ftilt": "kick_up", "utilt": "kick_up", "dtilt": "kick_low", "nair": "kick_nair", "bair": "kick_bair",
-		"uair": "kick_uair", "dair": "kick_dair", "fair": "attack_fair", "extra move 0": "land"}
+		"uair": "kick_uair", "dair": "kick_dair", "fair": "attack_fair", "extra move 0": "land", "fsmash": "kick_side"}
 	for m in needle_kicks:
 		var clip: String = needles._choose_clip(snap(2, "Attack", m, 10))[0]
 		check(clip == needle_kicks[m] and needles.anim.has_animation(clip), "needles %s plays %s (got %s)" % [m, needle_kicks[m], clip])
