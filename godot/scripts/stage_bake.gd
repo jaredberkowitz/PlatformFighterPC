@@ -1053,6 +1053,9 @@ static func _ground_colours(t: Dictionary) -> Dictionary:
 	# (The meadow's hedged farmland, 2026-10-22: rows in the wheat and ploughed fields, young crops in green rows on brown, the lanes'
 	# grass crown, the terraces' banks in a deep grass green: in earth brown they read muddy.)
 	out["wheat_row"] = Color(0.8, 0.66, 0.32)
+	# (New art toward 5, M1: the hill's terraced fields held by walls of the stage wall's own warm fieldstone.)
+	out["terrace_wall"] = Color(0.66, 0.58, 0.46)
+	out["terrace_wall_b"] = Color(0.56, 0.5, 0.42)
 	out["plough"] = Color(0.6, 0.44, 0.32)
 	out["plough_row"] = Color(0.48, 0.34, 0.25)
 	out["crop_row"] = Color(0.5, 0.74, 0.3)

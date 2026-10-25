@@ -121,3 +121,13 @@ long` (136,166 triangles; falls at x 24.5, 22.3 and -21.7), canyon_paper.glb `..
 both stages re-lit (curve 4, reach 4.5, floor 0.28). P1's gap: grove 0.062, canyon 0.038. Before and after (wide):
 `review10/falls_mesafoot_built.jpg`. Tests pass except the runner's known coin flake (it passed on a rerun; the runner doesn't load these
 stages).
+
+### Step 2, the meadow's terraced fields (mock)
+
+`make_meadow_ground.py --hill fields|fields_lane` (with the shipped `--variant FC --pine D`; `terrace_fields`): the hill's terraces,
+fewer and bigger as `--hill banks`, each shelf laid in runs of the valley's field kinds (`FIELD_KINDS`, rows on the crops) and held by a
+two-course fieldstone wall (`terrace_wall`, `terrace_wall_b`, the second course offset half a block) down to the next; `fields_lane` a
+lane along each shelf from the front's middle out to alternate sides, with a ramp down to the next. A first build left gaps in the second
+course and set blocks in and out, so every block drew the post's cut edge; both fixed. The hill at the wide camera: value 0.39 to 0.62,
+saturation 0.47 to 0.30 (grass to fields). P1's gap 0.052 today, 0.051 with either. On the Stage Look Review ("terraces13", `tf13_*`);
+recommended B.

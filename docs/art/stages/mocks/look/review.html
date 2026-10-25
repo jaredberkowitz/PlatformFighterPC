@@ -88,6 +88,22 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
     <p>Two lessons from the reference screenshots, mocked from the match camera: the scenery without ink outlines, its edges lit as card bevels instead, and the paper houses rebuilt at the characters' proportions. The earlier rounds stay on the <a href="https://claude.ai/artifact/D1du6MREVumiJDrEdNypW4">Stage Fidelity Review</a>, which is full.</p>
   </header>
 
+  <section class="panel" aria-labelledby="tf13-h" id="terraces13">
+    <div class="eyebrow">Your call is needed &middot; new art, step 2: the meadow's terraced fields (M1)</div>
+    <h2 id="tf13-h">The hill under the wall as terraced farmland</h2>
+    <p>First, step 1 is built: the grove's three falls and the canyon's mesa foot with five hoodoo clusters (see their sections below). Then the meadow. The plain green hill under the stage's wall is now stepped into farm terraces. Each shelf is laid in the valley's own fields (pasture greens, wheat and ploughed rows), held by a low wall of the stage wall's own warm fieldstone, so the hill joins the farmland around it.</p>
+    <div class="tablewrap"><table><thead><tr><th>Option</th><th>What changes</th></tr></thead><tbody>
+      <tr><td>A &middot; Terraced fields</td><td>The fields and the fieldstone walls</td></tr>
+      <tr><td>B &middot; And a lane</td><td>A, with a pale lane along each shelf switching back from side to side and ramping down to the next</td></tr>
+    </tbody></table></div>
+    <p>The hill at the wide camera: today, A, B. P1's gap to the ground holds at 0.051 to 0.052 (only the hill below changes).</p>
+    <div class="viewer"><img src="tf13_close.jpg" alt="The meadow's hill today and as terraced fields"></div>
+    <div class="row" role="group" aria-label="View"><button data-tf13v="m">Match camera</button><button data-tf13v="w">Wide</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-tf13o="T">Today</button><button data-tf13o="A">A &middot; Terraced fields</button><button data-tf13o="B">B &middot; And a lane</button></div>
+    <div class="viewer"><img id="tf13img" alt="Meadow terraces option"><span class="vtag" id="tf13tag"></span></div>
+    <p class="muted">My pick: <b>B</b>. The lane walks the eye down the terraces and ties them to the valley's lanes. The bottom of the frame goes from a plain green mound (value 0.39) to sunlit fields (0.62). A first build left gaps in the walls' second course and outlined every block, and both are fixed. Shown before the light bake.</p>
+  </section>
+
   <section class="panel" aria-labelledby="fl12-h" id="falls12">
     <div class="eyebrow">Built (B) &middot; new art, step 1: the grove's falls (G1 + G3)</div>
     <h2 id="fl12-h">Waterfalls into the mist, and longer roots</h2>
@@ -1922,5 +1938,15 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
   group("data-mf12v", function (v) { mf12v = v; }, mf12render);
   group("data-mf12o", function (v) { mf12o = v; }, mf12render);
   mf12render();
+  var tf13v = "w", tf13o = "B";
+  var TF13O = { T: "Today", A: "A \u00b7 Terraced fields", B: "B \u00b7 And a lane" };
+  function tf13render() {
+    document.getElementById("tf13img").src = "tf13_" + tf13o + "_" + tf13v + ".jpg";
+    document.getElementById("tf13tag").textContent = "Meadow \u00b7 " + TF13O[tf13o] + (tf13v === "w" ? " \u00b7 wide" : " \u00b7 match camera");
+    pressed("data-tf13v", tf13v); pressed("data-tf13o", tf13o);
+  }
+  group("data-tf13v", function (v) { tf13v = v; }, tf13render);
+  group("data-tf13o", function (v) { tf13o = v; }, tf13render);
+  tf13render();
 })();
 </script>
