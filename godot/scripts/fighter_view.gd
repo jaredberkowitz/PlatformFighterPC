@@ -45,6 +45,7 @@ const MotionDeform := preload("res://scripts/motion_deform.gd")
 const Smear := preload("res://scripts/smear.gd")
 const MotionSprings := preload("res://scripts/motion_springs.gd")
 const TailRig := preload("res://scripts/tail_rig.gd")
+const CapeRig := preload("res://scripts/cape_rig.gd")
 
 
 ## The soft cel material (`shaders/toon.gdshader`) in colour `c`, with the ink outline unless `outline` is false. Cached per colour.
@@ -97,6 +98,7 @@ func rebuild(l: RefCounted) -> void:
 	unkeyed = {}
 	neck_pivot = null
 	tails = []
+	cape_rig = null
 	# (The dust puffs were children too: freed above, so the references go with them, or the next puff used a freed mesh.)
 	dusts.clear()
 	dust_age.clear()
@@ -2259,16 +2261,30 @@ func _neck_piece(accent: Color, kind: int) -> void:
 			# (A chain of pieces on springs, so it swings and whips with the body: `TailRig`.)
 			_tail(Vector3(0.24, at - 0.06, 0.62), _fabric(accent), 0.52, 0.22, 0.07, 4)
 		4:
-			# Cape: a collar ring and a broad cloth hanging down the back to the knees, on springs, so it streams behind the fighter's runs
-			# and jumps: the biggest change to the outline the wardrobe has.
-			var at := _collar(accent)
-			_tail(Vector3(0, at - 0.02, -0.42), _fabric(accent.darkened(0.08)), 1.15, 0.92, 0.05, 5)
+			# Cape: a broad cloth hanging down the back, on springs, so it streams behind the fighter's runs and jumps: the biggest change to
+			# the outline the wardrobe has.
+			# (Modelled since the cape pass, 2026-10-25, the owner's pick of mocked capes: laid over the shoulders and falling from the
+			# shoulder blades to the calves with soft folds, hung on a chain of bones, `CapeRig`, art/blender/make_gear.py `cape`. It was a
+			# collar ring and a flat panel of boxes hanging close behind the back that barely showed.)
+			var modelled := _gear_mesh("cape", "fabric_cape")
+			if modelled != null:
+				cape_rig = CapeRig.new()
+				torso_rig.add_child(cape_rig)
+				cape_rig.transform = torso_fit.affine_inverse()
+				# (A step deeper than the outfit's colour, so it parts from shorts of the same colour behind it.)
+				cape_rig.build(modelled, _fabric(accent.darkened(0.3)))
+				meshes.append_array(cape_rig.meshes())
+			else:
+				var at := _collar(accent)
+				_tail(Vector3(0, at - 0.02, -0.42), _fabric(accent.darkened(0.08)), 1.15, 0.92, 0.05, 5)
 
 
 ## The pivot the neckerchief's point hangs from (none for the other neckwear), and the cloth tails on spring chains (the scarf's end, the
 ## sash's end).
 var neck_pivot: Node3D
 var tails: Array = []
+## The modelled cape on its own bones (neckwear 4), or none.
+var cape_rig: Node3D
 
 
 func _tail(at: Vector3, mat: Material, length: float, width: float, thickness: float, segments: int) -> void:
@@ -2329,8 +2345,8 @@ func _shirt_collar() -> void:
 ## Returns its height in the torso's design space, for what hangs from it.
 ## The hats modelled in Blender (art/blender/make_gear.py, godot/models/gear), by hat slot (the owner, 2026-10-18: moving the
 ## accessories from built primitives to models over time).
-const GEAR_HATS := {1: "sailor_cap", 2: "aviator_cap", 3: "straw_hat", 4: "beanie", 5: "crown", 7: "plumed_helm", 8: "swept_spikes",
-	9: "topknot", 10: "dixie_cap", 11: "swoop"}
+const GEAR_HATS := {1: "sailor_cap", 2: "aviator_cap", 3: "straw_hat", 4: "beanie", 5: "crown", 6: "hood", 7: "plumed_helm",
+	8: "swept_spikes", 9: "topknot", 10: "dixie_cap", 11: "swoop"}
 
 
 ## Puts the modelled accessory `name` on the hat pivot, each part coloured by what it is made of (its name's first word): fabric in
@@ -2364,6 +2380,8 @@ func _gear_model(name: String, accent: Color) -> bool:
 		# (Cream fleece, the aviator scout pilot, 2026-10-19.)
 		# (A soft curly painted tile, the character judge's round 1: the fleece read as a smooth ring.)
 		"navy": _cloth(toon(Color(0.2, 0.28, 0.58))),
+		# (The hood in the outfit's colour a shade deeper, its rolled rim a lighter lining, the hood pass, 2026-10-25.)
+		"hood": _cloth(toon(accent.darkened(0.18))), "lining": _cloth(toon(accent.lightened(0.35))),
 		"fleece": toon(Color(1, 1, 1), true, SvgArt.texture("res://art/cloth/fleece.svg", {"#ff00ff": Color(0.93, 0.86, 0.72)}), Vector2(1, 2))}
 	# One mesh per material, its parts merged (the loadout budget, docs plan 7.3: the crown's set stones and the helm's plume feathers, a
 	# mesh each, came to 16 and 24 meshes on one hat).
@@ -2852,6 +2870,8 @@ func reset_motion() -> void:
 	flinch_left = 0.0
 	for t in tails:
 		t.reset()
+	if cape_rig != null:
+		cape_rig.reset()
 ## Where the run cycle was last frame, for the footfalls.
 var last_step_phase := 0.0
 
@@ -3684,6 +3704,8 @@ func _secondary(s: Dictionary, delta: float) -> void:
 		neck_pivot.rotation = Vector3(0, 0, springs.value("neck"))
 	for t in tails:
 		t.update(int(s.frame), int(s.hitlag), dv, 1.0, delta)
+	if cape_rig != null:
+		cape_rig.update(int(s.frame), int(s.hitlag), vel, dv, facing, delta)
 
 
 ## The Bounder's egg round a fighter shut in it (state `Encased`, the bridge's `fighter_egg_radius`): a cream egg standing on the

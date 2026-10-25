@@ -577,3 +577,25 @@ animation library, editor UI, select grid, match flow, replay and prop check tes
 `hair_pass.png`: the old spikes and topknot beside the new spiky, swoop and topknot (front, three-quarter, back), then the roster's
 second sheet before and after (the hero and the bruiser wear hair). Loadout (the mesh budget per item), fighter view, art pipeline,
 animation library, editor UI, select grid and match flow tests pass.
+
+## Cape and hood (2026-10-25, the owner: the cape "a flat panel from the back", the hood "a flat rim at the face")
+Mocked two of each as Blender models; the owner chose the long cape and the lined hood.
+- **Cape** (neckwear 4, `make_gear.py` `cape`): modelled round the base body (the rig's own space): laid round the back of the neck and
+  over the shoulders, kept off the body there by pushing it out of the fighter's mesh, then falling straight from the shoulder blades and
+  flaring back to the calves, with soft folds and a rounded hem; about 3,100 triangles. It was a collar ring and a chain of flat boxes
+  hanging close behind the back that barely showed. Pushing the whole cloth off the body clung to the back and seat in crumples, so only
+  the shoulders and upper back are pushed.
+- **It swings** (`cape_rig.gd`): the game skins it to a chain of five bones down its back, the first holding the shoulders still, each
+  on a spring like the scarf's tail (stepped with the sim, frozen in hitlag and pause, at rest after a rollback). It lifts out behind a
+  fighter moving ahead or falling and kicks with every change of speed: about half a radian at the hem through a run, fully lifted
+  through a dash-dance, and back at rest standing (traced at a fixed 60 frames a second). In a shade deeper than the outfit's colour, so
+  it parts from shorts of the same colour.
+- **Hood** (hat 6, `make_gear.py` `hood`): a soft loose cloth shell over the head round an open face, a soft peak over the brow, a
+  drooping point behind, a cowl close round the neck, and a thick rolled rim of a lighter lining framing the face (metaballs fused by a
+  voxel remesh, as the hair). It was a stiff open shell with a flat rim, a cone for a point and a wide flat cowl. The cloth the outfit's
+  colour a shade deeper, the rim lighter (`fighter_view.gd` `_gear_model` "hood", "lining").
+
+`cape_hood_pass.png`: menus before above after (cape from the back and side; hood front, side, back), then match frames before (left)
+and after (right) with the cape on player 1 and the hood on player 2 (dash-dance, dash, jump, a tilt), then the cape streaming behind a
+dash and a run at real speed. The match captures used saved looks written for the purpose and removed afterwards. Loadout, fighter
+view, art pipeline, animation library, match flow, replay, select grid and editor UI tests pass.
