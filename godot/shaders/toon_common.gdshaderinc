@@ -27,6 +27,14 @@ uniform float back_span = 7.0;
 // A play top's soft fall into shade toward its front edge (0 off; the light pass, docs/art/stages/BACKGROUNDS.md): from `lawn_front`
 // (world z, the front edge) back over `lawn_span` units, deeper and a little cooler by `lawn_fall`, so the ground has form.
 uniform float lawn_fall = 0.0;
+// A mountain range's painted form (fidelity review 8: the meadow's range read as a few flat teal planes): `alt_bands` [snow line, rock
+// band top, tree line, how much] in world heights. Above a ragged snow line the faces turned up take `alt_snow`; between the tree line
+// and the snow, broken strata of `alt_rock`; below the tree line a deep `alt_foot` green. `alt_rock_bands` 0 leaves the rock bands out.
+uniform vec4 alt_bands = vec4(0.0);
+uniform vec4 alt_snow : source_color = vec4(0.95, 0.97, 1.0, 1.0);
+uniform vec4 alt_rock : source_color = vec4(0.5, 0.56, 0.6, 1.0);
+uniform vec4 alt_foot : source_color = vec4(0.16, 0.36, 0.3, 1.0);
+uniform float alt_rock_bands = 0.0;
 uniform float lawn_front = 2.0;
 uniform float lawn_span = 4.0;
 // World-laid tops only: painted grass-blade clumps (0 off), a few short tapered strokes leaning together in scattered clumps, lit in the
@@ -168,6 +176,23 @@ void fragment() {
 	vec3 c = albedo.rgb * vshade;
 	// (How lit the grass blades are, -1 until the painted patches say; see `blades`.)
 	float blade_light = -1.0;
+	if (alt_bands.w > 0.0) {
+		float y = world_pos.y;
+		float rag = 2.6 * sin(world_pos.x * 0.083 + 1.3) + 1.5 * sin(world_pos.x * 0.21 + 0.4) + 0.8 * sin(world_pos.x * 0.53);
+		// The tree line: a deep green round the foot, its top ragged.
+		float foot = 1.0 - smoothstep(alt_bands.z - 1.5, alt_bands.z + 1.5, y - rag * 0.8);
+		c = mix(c, alt_foot.rgb, foot * 0.85 * alt_bands.w);
+		// Rock: broken strata between the tree line and the snow, a stripe every few units, darker on the faces turned from up.
+		if (alt_rock_bands > 0.0) {
+			float span = smoothstep(alt_bands.z + 1.0, alt_bands.z + 4.0, y) * (1.0 - smoothstep(alt_bands.y - 2.0, alt_bands.y + 2.0, y));
+			float stripe = smoothstep(0.55, 0.8, sin(y * 0.9 + rag * 0.6 + world_pos.x * 0.04)) * smoothstep(0.3, 0.6, sin(world_pos.x * 0.11 + y * 0.2) * 0.5 + 0.5);
+			c = mix(c, alt_rock.rgb, span * stripe * 0.55 * alt_rock_bands * alt_bands.w);
+		}
+		// Snow on what faces up above the snow line, its edge ragged; a little on the steep faces near the top too.
+		float above = smoothstep(alt_bands.x - 1.0, alt_bands.x + 1.0, y + rag);
+		float up = smoothstep(0.2, 0.55, world_normal.y) + 0.35 * smoothstep(alt_bands.x + 6.0, alt_bands.x + 12.0, y);
+		c = mix(c, alt_snow.rgb, clamp(above * up, 0.0, 1.0) * alt_bands.w);
+	}
 	if (lawn_fall > 0.0 && world_normal.y > 0.5) {
 		float edge = smoothstep(lawn_front - lawn_span, lawn_front, world_pos.z);
 		c *= mix(vec3(1.0), vec3(0.62, 0.68, 0.84), edge * edge * lawn_fall);

@@ -88,6 +88,22 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
     <p>Two lessons from the reference screenshots, mocked from the match camera: the scenery without ink outlines, its edges lit as card bevels instead, and the paper houses rebuilt at the characters' proportions. The earlier rounds stay on the <a href="https://claude.ai/artifact/D1du6MREVumiJDrEdNypW4">Stage Fidelity Review</a>, which is full.</p>
   </header>
 
+  <section class="panel" aria-labelledby="m8-h" id="mountain8">
+    <div class="eyebrow">Your call is needed &middot; review 8, item 2: the meadow's mountains</div>
+    <h2 id="m8-h">Snowcaps on the meadow's range</h2>
+    <p>First, item 1 is built: the meadow's wall is warm fieldstone now (see the wall section above). Then the mountains, which filled the top third of the frame as a few flat teal planes. The range model is painted by height now. Above a ragged snow line, the faces turned upward take snow, more of it near the summits. Low down a deep green tree line runs round the foot (mostly hidden behind the hills at these cameras). Both are seen through the air at the range's depth, so the far range stays paler.</p>
+    <div class="tablewrap"><table><thead><tr><th>Option</th><th>What changes</th></tr></thead><tbody>
+      <tr><td>A &middot; Snow and tree line</td><td>The snowcaps and the tree line.</td></tr>
+      <tr><td>B &middot; And rock bands</td><td>A with broken bands of darker rock across the middle of the slopes. At these cameras they barely show.</td></tr>
+    </tbody></table></div>
+    <p>Today on the left: A, then B (match camera), and B wide:</p>
+    <div class="viewer"><img src="m8_close.jpg" alt="The meadow's mountains today and with snowcaps"></div>
+    <div class="row" role="group" aria-label="View"><button data-m8v="m">Match camera</button><button data-m8v="w">Wide</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-m8o="0">Today</button><button data-m8o="1">A &middot; Snow and tree line</button><button data-m8o="2">B &middot; And rock bands</button></div>
+    <div class="viewer"><img id="m8img" alt="Mountain option"><span class="vtag" id="m8tag"></span></div>
+    <p class="muted">My pick: <b>A</b>. The snowcaps do the work; the rock bands add nothing you can see.</p>
+  </section>
+
   <section class="panel" aria-labelledby="w8-h" id="wall8">
     <div class="eyebrow">Built (B) &middot; review 8, item 1: the meadow's wall</div>
     <h2 id="w8-h">Warm fieldstone, believable moss</h2>
@@ -1285,5 +1301,15 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
   group("data-slv", function (v) { slv = v; }, slrender);
   group("data-slo", function (v) { slo = v; }, slrender);
   slrender();
+  var m8v = "m", m8o = "1";
+  var M8O = { "0": "Today", "1": "A \u00b7 Snow and tree line", "2": "B \u00b7 And rock bands" };
+  function m8render() {
+    document.getElementById("m8img").src = "m8_" + m8o + "_" + m8v + ".jpg";
+    document.getElementById("m8tag").textContent = "Meadow \u00b7 " + M8O[m8o] + (m8v === "w" ? " \u00b7 wide" : " \u00b7 match camera");
+    pressed("data-m8v", m8v); pressed("data-m8o", m8o);
+  }
+  group("data-m8v", function (v) { m8v = v; }, m8render);
+  group("data-m8o", function (v) { m8o = v; }, m8render);
+  m8render();
 })();
 </script>

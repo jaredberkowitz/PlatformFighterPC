@@ -62,3 +62,12 @@ their own family `fieldstone` (0.80, 0.70, 0.56) and the moss in `wall_moss` (a 
 stones' warm-to-cool spread and keeps the moss under the logs. Built B (the owner asked for a fix rather than a pick), the meadow
 re-lit: the wall measures hue 32, saturation 0.19 (from saturation 0.02). Before and after: `review8/meadow_wall_built.jpg`. Tests pass
 except the runner's two known flaky checks, which failed in 3 of 5 runs this time (the runner doesn't load the meadow's front).
+
+## Item 2, the meadow's mountains (2026-10-25, mock)
+
+`toon_common.gdshaderinc` `alt_bands` [snow line, rock top, tree line, amount] with `alt_snow`, `alt_rock`, `alt_foot`, `alt_rock_bands`:
+a modelled range painted by height, snow on the faces turned up above a ragged snow line (more near the summits), broken rock strata
+between, a deep green tree line round the foot. `StageArt.ridge` sets it from a spec's `alt` (heights above the range's foot) with the
+palette's [backdrop] `range_form` (`--range-form=1|2`), the colours through the air at the range's depth. The meadow's specs: far
+[54, 48, 22], near [38, 32, 16] (first tried higher, the main peak took almost none). A snow and tree line; B with rock bands (they barely
+show). On the Stage Look Review ("mountain8", `m8_*`); recommended A.
