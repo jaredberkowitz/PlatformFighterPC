@@ -115,10 +115,13 @@ Built A (the owner's pick): grove_paper.glb `--variant H --rock shaped --abyss m
 `cliff_stone=1.0`, the grove re-lit (front, paper, play). Before and after (wide, then the match camera): `review9/grove_abyss_built.jpg`.
 All seven tests pass.
 
-## Item 5, the canyon's cacti (2026-10-25, mock)
+## Item 5, the canyon's cacti (2026-10-25, built)
 
 The owner's call. The paper kit (`make_paper_props.py --style C --variant A --b stump,crate,cactus`, the owner's picks of 2026-10-21;
 rebuilt, the same size as the shipped kit, its bytes differing only by the occlusion bake's noise) built with `--b stump,crate`, so the
 cactus takes A's ribbed design (a lathed trunk with pressed ribs and two arms) in place of B's stacked coils, everywhere in the canyon
 (`--prop-mock=`). The dark band at the ribbed cactus's foot is the stage top's violet cast shadow (`cast` in the canyon's style), not
 the model: a ring added over its foot changed nothing, and was taken out. On the Stage Look Review ("cactus9", `ct9_*`); recommended A.
+
+Built A (the owner's pick): godot/models/props/paper_props.glb rebuilt with `--style C --variant A --b stump,crate`. Before and after (the
+cacti under the left and right platforms at the match camera): `review9/canyon_cactus_built.jpg`. All seven tests pass.
