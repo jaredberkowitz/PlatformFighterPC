@@ -92,9 +92,8 @@ Exaggerated but physically sensible: a support leg is planted or tucked, and the
 
 1. **Branch:**
    - Work in your own worktree and branch (for example `art/animation`), never in another session's.
-   - The base must contain the latest body and effects. Until the art branches are merged to main, branch from the newest build branch
-     (`build/art-2026-10-21b` at the time of writing: main plus `art/character-beta`, `art/stage-refine` and `art/paper-fx`). Ask the
-     owner whether to merge those to main first.
+   - Branch from `origin/main`: since 2026-10-25 it holds the latest body, faces, effects, stages and UI (the art branches were merged
+     there before this pass).
    - In a fresh worktree, run `--import` twice; the first run can segfault and half-write fonts.
 2. **Read**, in this order:
    - `docs/ANIMATION.md`;
