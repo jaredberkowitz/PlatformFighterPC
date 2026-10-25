@@ -865,3 +865,41 @@ Ranked by how visible it is at match speed:
   passes) and 8% of the tool run.
 - **Image:** `docs/screenshots/anim/r2_pass29_air_shield_face.jpg`.
 - **Checked:** the six tests pass.
+
+### Pass 30: the face kept up in pitched aerials (real-speed audit, every class)
+
+- **Defect:** in aerials that pitch the whole body forward (the Longsword's forward, up and down airs; the same on every class's curled
+  airs), the head looked at the floor, and only the hat's crown showed for 10-15 frames.
+- **Cause (`fighter_view.gd` `_face_camera`):**
+  - the face-down limit was measured in the stage frame, which leans with the body, so the whole body's pitch (`lean`, the air
+    counter-pitch) was never counted;
+  - the limit was lifted about the camera's axis, which on a side-on head rolls it sideways;
+  - the head was turned before it was lifted, which spun a head looking straight down.
+- **Fix:**
+  - the head's pitch is measured against the world too (except while the body turns over on purpose: a flip, a roll, a tumble,
+    `turning_over`);
+  - it is lifted about the head's own side-to-side axis (`_rotate_bone_about`, at most `FACE_UP_MOST` 45);
+  - it is lifted before it is turned, and the pair runs three times so both limits hold.
+- **Image:** `docs/screenshots/anim/r2_pass30_face_in_aerials.jpg`.
+- **Also:** `PF_FACE_COVER=1` in the environment makes a match print every frame where a hand or hilt covers the face; the headless
+  `tests/face_cover_probe.gd` does the same for the state clips.
+
+### Pass 31: the last stand-in specials (round 2 item 3: Bracers' hand slap, Popgun's monkey flip, latch and rocket)
+
+- **Defect:** these moves played fallbacks:
+  - the hand slap was a one-armed swing;
+  - the monkey flip and the latch were the generic swing;
+  - the rocket was the shared uppercut, then a punch.
+- **Fix (`make_rigged_blob.py` BODY_MOVES, `AnimLibrary.CLASS_MOVES[7]` and `[11]`, `OWN_ARMS`):
+  - `slap_ground`: both arms raised behind the head, then both palms slammed on the floor in front over deep knees, striking again on
+    each hit of the loop.
+  - `leap_grab`: crouched, then a dive with both hands reaching. `fighter_view.gd` `FLIP_MOVES` turns the body over forward between
+    frames 12 and 24, by the move's frame.
+  - The flip's kick is a leg straight out (`kick_nair`).
+  - `latch_sit`: astride the head, the hands raised, then raking down to scratch. The latch attack does the same; the jump off is a stomp.
+  - `rocket_fly`: the charge crouched and gripping the straps, held for as long as it lasts (`HELD_COIL`); the flight stretched long,
+    the arms swept back, with the body pitched along its path (`FLIGHT_MOVES`). The crash plays the upward launch reaction.
+  - The aerial clap plays the two-fisted down sweep.
+- **Image:** `docs/screenshots/anim/r2_pass31_standin_specials.jpg`: each move before and after, frames 4-60.
+- **Checked:** the six tests pass; facing right only (the clips are mirrored facing left like every other).
+- **Left:** the flip's body roll is about its middle; the reference flips about the hands.

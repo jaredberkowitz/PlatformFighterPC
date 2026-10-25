@@ -328,6 +328,19 @@ const CLASS_MOVES := {
 		"dair": "gaunt_stomp",
 		"neutral special": "blaster",
 		"down special": "tool_toss",
+		# (Round 2: the monkey flip, ground and air, a dive with the hands out, turned over by the game (fighter_view.gd FLIP_MOVES); its
+		# kick a leg straight out; the latch sitting on the head and scratching, its attack the same, its jump off a stomp; the rocket's
+		# charge crouched and held, its flight stretched along its path, its crash a tumble.)
+		"side special": "leap_grab",
+		"extra move 9": "leap_grab",
+		"extra move 10": "kick_nair",
+		"extra move 11": "latch_sit",
+		"extra move 12": "latch_sit",
+		"extra move 13": "gaunt_stomp",
+		"up special": "rocket_fly",
+		"extra move 5": "rocket_fly",
+		"extra move 6": "rocket_fly",
+		"extra move 7": "hurt_up",
 	},
 	# Nodachi: the longsword's cuts for its sword moves (its long blade follows its hits on the weapon pivot, as the other swords'), the
 	# down air a plunge straight down. (Animation overhaul pass 9.)
@@ -399,6 +412,12 @@ const CLASS_MOVES := {
 		"extra move 1": "gaunt_punch",
 		"extra move 2": "gaunt_punch",
 		"extra move 3": "gaunt_punch",
+		# (The hand slap, its further loops and its ending: both palms slammed on the floor in front, round 2; the aerial clap both
+		# fists swung down, as its forward air.)
+		"down special": "slap_ground",
+		"extra move 7": "slap_ground",
+		"extra move 8": "slap_ground",
+		"extra move 9": "attack_dair",
 	},
 }
 
@@ -414,7 +433,8 @@ static func is_kick(clip: String) -> bool:
 
 
 ## Clips that pose both arms themselves: the tool hand is not reached to a hit (fighter_view.gd).
-const OWN_ARMS := ["tool_float", "tool_raise", "tool_shrug", "tool_ride", "tool_reach", "tool_toss", "spin_arms", "spin_arms_air"]
+const OWN_ARMS := ["tool_float", "tool_raise", "tool_shrug", "tool_ride", "tool_reach", "tool_toss", "spin_arms", "spin_arms_air",
+	"slap_ground", "leap_grab", "latch_sit", "rocket_fly"]
 
 
 ## Clips where the whole body is the weapon (a headbutt): no arm or leg reaches for the hitbox, the pose carries the hit.

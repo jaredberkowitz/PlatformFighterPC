@@ -755,6 +755,38 @@ BODY_MOVES = {
         {"hips": -0.16, "spine": (26.0, 48.0), "head": (-8.0, -26.0), "stance": (72.0, -54.0), "shin.L": (-66.0,), "shin.R": (-2.0,),
          "armU.L": (-10.0, 24.0), "armL.L": (100.0,)},
         {"hips": -0.08, "spine": (12.0, 18.0), "stance": (40.0, -30.0), "shin.L": (-36.0,)}),
+    # Round 2's own clips for the last stand-in moves (names without an attack prefix, so the arms take no attack clamps or exaggeration
+    # and both are the clip's: AnimLibrary.OWN_ARMS). The Hauler's hand slap: both arms raised up behind the head, then both palms slammed
+    # down onto the floor in front, bent over deep knees (each hit of the loop strikes again, `strike_progress`).
+    "slap_ground": (
+        {"hips": -0.06, "spine": (-10.0, 0.0), "head": (8.0, 0.0), "stance": (30.0, -26.0), "shin.L": (-50.0,), "shin.R": (-40.0,),
+         "arms": (165.0, 10.0), "armL.L": (40.0,), "armL.R": (40.0,)},
+        {"hips": -0.24, "spine": (44.0, 0.0), "head": (-26.0, 0.0), "stance": (44.0, -34.0), "shin.L": (-80.0,), "shin.R": (-60.0,),
+         "arms": (36.0, 14.0), "armL.L": (15.0,), "armL.R": (15.0,)},
+        {"spine": (10.0, 0.0), "arms": (20.0, 14.0)}),
+    # The Scamp's monkey flip: crouched for the leap, then diving forward with both hands reaching out ahead to grab (the game turns the
+    # body over in a forward flip, fighter_view.gd FLIP_MOVES).
+    "leap_grab": (
+        {"spine": (30.0, 0.0), "head": (-10.0, 0.0), "stance": (70.0, 60.0), "shin.L": (-110.0,), "shin.R": (-110.0,),
+         "arms": (-40.0, 20.0), "armL.L": (20.0,), "armL.R": (20.0,)},
+        {"spine": (40.0, 0.0), "head": (-30.0, 0.0), "stance": (-10.0, -30.0), "shin.L": (-20.0,), "shin.R": (-30.0,),
+         "arms": (95.0, 12.0), "armL.L": (15.0,), "armL.R": (15.0,)},
+        {"spine": (10.0, 0.0), "stance": (30.0, 20.0), "shin.L": (-60.0,), "shin.R": (-60.0,), "arms": (40.0, 14.0)}),
+    # The Scamp's latch: sitting astride the caught fighter's head, knees out round it, both hands raised, then raking down to scratch.
+    "latch_sit": (
+        {"spine": (-6.0, 0.0), "head": (4.0, 0.0), "stance": (84.0, 80.0), "shin.L": (-100.0,), "shin.R": (-100.0,),
+         "arms": (120.0, 18.0), "armL.L": (50.0,), "armL.R": (50.0,)},
+        {"spine": (30.0, 0.0), "head": (-16.0, 0.0), "stance": (84.0, 80.0), "shin.L": (-100.0,), "shin.R": (-100.0,),
+         "arms": (30.0, 16.0), "armL.L": (40.0,), "armL.R": (40.0,)},
+        {"spine": (6.0, 0.0), "stance": (84.0, 80.0), "shin.L": (-100.0,), "shin.R": (-100.0,), "arms": (50.0, 16.0)}),
+    # The Scamp's rocket barrels: the charge crouched low and leaning in, gripping the straps at the chest (the game holds it, HELD_COIL);
+    # the flight stretched long, the arms swept back and the legs trailing together (the game pitches it along its path, FLIGHT_MOVES).
+    "rocket_fly": (
+        {"hips": -0.1, "spine": (26.0, 0.0), "head": (-10.0, 0.0), "stance": (50.0, 40.0), "shin.L": (-90.0,), "shin.R": (-90.0,),
+         "arms": (30.0, 20.0), "armL.L": (110.0,), "armL.R": (110.0,)},
+        {"spine": (6.0, 0.0), "head": (-8.0, 0.0), "stance": (-6.0, -12.0), "shin.L": (-10.0,), "shin.R": (-14.0,),
+         "arms": (-50.0, 24.0), "armL.L": (10.0,), "armL.R": (10.0,)},
+        {"spine": (8.0, 0.0), "stance": (-4.0, -10.0), "shin.L": (-12.0,), "shin.R": (-14.0,), "arms": (-40.0, 24.0)}),
     # The Hauler's giant punch charge (round 2; the game holds it in its wind-up pose for the whole charge, fighter_view.gd HELD_COIL, and
     # swings the punching arm round and round on top, WINDMILL): planted wide and low, leaning back a touch, the chest left open to the
     # camera so the swinging arm reads beside it, the other fist low in front. (The values are small: the chamber key is exaggerated
@@ -942,7 +974,7 @@ def grounded(name):
     if name in ("jump", "fall", "fall_start", "tumble", "air_jump", "air_dodge", "hurt", "roll", "knockdown", "getup", "ledge", "ledge_climb", "kick_dash", "body_drop",
                 "hurt_heavy", "hurt_up", "platform_drop", "gaunt_knee", "gaunt_stomp", "tool_ride", "tool_float",
                 # (Aerials whose names do not end in "air": round 2, so their rest keys do not take the battle stance.)
-                "sword_rise", "sword_plunge", "kick_double"):
+                "sword_rise", "sword_plunge", "kick_double", "leap_grab", "latch_sit", "rocket_fly"):
         return False
     return not name.endswith("air")
 
@@ -3714,6 +3746,9 @@ def main() -> None:
     clip(rig, "gaunt_punch", 60, {})
     # The Hauler's giant punch charge (posed in BODY_MOVES; round 2).
     clip(rig, "gaunt_charge", 60, {})
+    # The last stand-in moves' own clips (posed in BODY_MOVES; round 2).
+    for nm in ("slap_ground", "leap_grab", "latch_sit", "rocket_fly"):
+        clip(rig, nm, 60, {})
     # The bounder's drop (posed in BODY_MOVES).
     clip(rig, "body_drop", 60, {})
 

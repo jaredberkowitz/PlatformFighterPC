@@ -1136,20 +1136,59 @@ func _lag_bones(s: Dictionary) -> void:
 const FACE_AWAY_MAX := 40.0
 ## Nor does it look down further than this (a pitched-down head shows its crown, and the hat).
 const FACE_DOWN_MAX := 18.0
+## The most the head is tipped back to keep that (degrees), so the neck never bends further than a neck can.
+const FACE_UP_MOST := 45.0
+## Whether the whole body is turning over on purpose this frame (a flip, a roll, a tumble), when the face's limit against the world is off.
+var turning_over := false
 
 
 func _face_camera(facing: int) -> void:
 	if not use_base_body or skeleton == null or head_bone < 0 or not skeleton.is_inside_tree():
 		return
+	# (Three times, round 2: a head pitched far down has no clear turn, and lifting it changes how far it is turned, so one pass left a curled
+	# aerial's face 30 down and 75 away; measured again after the first pass, both limits hold.)
+	for _pass in 3:
+		_face_camera_once(facing)
+
+
+func _face_camera_once(facing: int) -> void:
+	# The pitch first, then the turn: a head looking nearly straight down has no clear turn, so turning it first spun it round.
 	var head_delta: Transform3D = skeleton.get_bone_global_pose(head_bone) * head_rest_inv
 	var ahead: Vector3 = (_skeleton_to_frame().basis * head_delta.basis * Vector3(0, 0, 1)).normalized()
-	var away := rad_to_deg(atan2(ahead.x, ahead.z))
-	var limit := lerpf(FACE_AWAY_MAX, FACE_AWAY_IN_ATTACK, attack_turn)
-	if absf(away) > limit:
-		_turn_bone(head_bone, -signf(away) * (absf(away) - limit))
 	var down := -rad_to_deg(asin(clampf(ahead.y, -1.0, 1.0)))
+	# (Round 2: also against the world, not only the leaning body. The whole body's pitch (`lean`: an aerial's counter-pitch, a curl over
+	# a forward air) is outside the stage frame, so a body pitched 50 forward looked at the floor with only the hat showing, judged frame
+	# by frame in the Longsword's forward, up and down airs. Not while the body turns over on purpose: a flip, a roll, a tumble.)
+	if not turning_over:
+		var world_ahead: Vector3 = (skeleton.global_transform.basis * head_delta.basis * Vector3(0, 0, 1)).normalized()
+		down = maxf(down, -rad_to_deg(asin(clampf(world_ahead.y, -1.0, 1.0))))
 	if down > FACE_DOWN_MAX:
-		_bend_bone(head_bone, -(down - FACE_DOWN_MAX), facing)
+		# (Lifted about the head's own side-to-side axis, round 2: bent about the camera's axis, a head turned well away from the camera
+		# rolled over sideways instead of looking up.)
+		var head_ahead: Vector3 = head_delta.basis * Vector3(0, 0, 1)
+		var up_skel: Vector3 = (skeleton.global_transform.basis.inverse() * Vector3.UP).normalized()
+		var axis := head_ahead.cross(up_skel)
+		if axis.length() > 0.01:
+			_rotate_bone_about(head_bone, axis.normalized(), minf(down - FACE_DOWN_MAX, FACE_UP_MOST))
+		head_delta = skeleton.get_bone_global_pose(head_bone) * head_rest_inv
+		ahead = (_skeleton_to_frame().basis * head_delta.basis * Vector3(0, 0, 1)).normalized()
+	# The turn, only for a head that is not still looking well down (its turn is not clear then).
+	if absf(ahead.y) < 0.8:
+		var away := rad_to_deg(atan2(ahead.x, ahead.z))
+		var limit := lerpf(FACE_AWAY_MAX, FACE_AWAY_IN_ATTACK, attack_turn)
+		if absf(away) > limit:
+			_turn_bone(head_bone, -signf(away) * (absf(away) - limit))
+
+
+## Turns a bone by `degrees` about `axis` (skeleton space), on top of its pose.
+func _rotate_bone_about(bone: int, axis: Vector3, degrees: float) -> void:
+	var parent := skeleton.get_bone_parent(bone)
+	if parent < 0:
+		return
+	var turn := Basis(axis, deg_to_rad(degrees))
+	var g := skeleton.get_bone_global_pose(bone)
+	var pg := skeleton.get_bone_global_pose(parent)
+	skeleton.set_bone_pose_rotation(bone, (pg.basis.inverse() * (turn * g.basis)).get_rotation_quaternion())
 
 
 ## Turns a bone about the vertical by `degrees` (positive is counter-clockwise seen from above), on top
@@ -2971,6 +3010,28 @@ func _body_spring_time(s: Dictionary, delta: float) -> float:
 	return delta
 
 
+## With the environment variable PF_FACE_COVER set (a debugging aid for the motion audit), every frame in which a hand or the weapon's
+## hilt is in front of the head and within `COVER_R` of the face's middle on screen is printed: "COVER <class> <state> <move> <frame>".
+static var log_cover := OS.has_environment("PF_FACE_COVER")
+const COVER_R := 0.4
+
+
+func _log_face_cover(s: Dictionary) -> void:
+	if skeleton == null or head_bone < 0:
+		return
+	var hp: Transform3D = skeleton.global_transform * skeleton.get_bone_global_pose(head_bone)
+	var centre: Vector3 = hp.origin + hp.basis.y.normalized() * 0.3
+	var points := []
+	for side in ["L", "R"]:
+		points.append(skeleton.global_transform * skeleton.get_bone_global_pose(skeleton.find_bone("hand." + side)).origin)
+	if blade_pivot != null and blade_pivot.visible:
+		points.append(blade_pivot.global_position)
+	for p in points:
+		if p.z > centre.z and Vector2(p.x - centre.x, p.y - centre.y).length() < COVER_R:
+			print("COVER %d %s %s %d" % [_cls(s), s.state, s.move_name, int(s.state_frame)])
+			return
+
+
 ## `s` is a dictionary of sim state (see main.gd `_refresh`).
 func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 	# The old built body's brawler has longer limbs: swap to its rig the first time we see its class. (The base body is one rig for every
@@ -3052,6 +3113,9 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 		target_lean = LEAN.Knockdown * (1.0 - smoothstep(0.0, 0.55, dodge_progress(s)))
 	if heavy_landing:
 		target_lean = 8.0
+	# (A rocket's flight: the body laid along its path, round 2.)
+	if state == "Attack" and (FLIGHT_MOVES.get(_cls(s), []) as Array).has(String(s.move_name)) and Vector2(s.vel).length() > 0.05:
+		target_lean = clampf(rad_to_deg(atan2(float(s.vel.x) * float(s.facing), float(s.vel.y))), -80.0, 95.0)
 	# The whole body swings with the hit (in the manner of the reference game's big aerials): it pitches into a hit in front or below,
 	# arches back under one overhead and curls forward away from one behind, as far as the limb is into its reach.
 	if state == "Attack" and s.move_tip != Vector3.ZERO:
@@ -3195,7 +3259,12 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 		flip += (-1.0 if way < 0 else 1.0) * TAU * smoothstep(ROLL_SPIN_FROM, ROLL_SPIN_TO, dodge)
 		# (About the curled ball's middle, high enough that the head clears the floor as it comes round.)
 		pivot = Vector3(0, 0.8, 0)
+	var move_flip := _move_flip(s)
+	if move_flip != 0.0:
+		flip += move_flip
+		pivot = Vector3(0, 0.9, 0)
 	model.rotation = Vector3(deg_to_rad(lean) + flip, yaw + _pivot_spin(s), 0)
+	turning_over = flip != 0.0 or _spin(s) != 0.0 or state == "Hitstun" or state == "Knockdown" or state == "GetUp"
 	# A spinning neutral air turns the whole body over once backward, in the plane of the stage (see NAIR_SPIN).
 	var spin := _spin(s)
 	if spin != 0.0:
@@ -3699,7 +3768,7 @@ const BLADE_OVERHEAD_Z := -0.25
 ## Charges (by class) held in the clip's coil for as long as they last (the move has no hit of its own): the Hauler's giant punch wind-up,
 ## planted wide and low (`gaunt_charge`), while its arm swings round (`WINDMILL`). (Round 2: it stood in a plain
 ## guard, fists at the chest, for the whole charge.)
-const HELD_COIL := {7: ["neutral special"]}
+const HELD_COIL := {7: ["neutral special"], 11: ["up special", "extra move 5"]}
 ## Moves thrown straight out of such a charge: they start in the coil, the fist drawn back (`DEEP_CHAMBER`), instead of from the rest pose.
 const COILED_START := {7: ["extra move 0", "extra move 1", "extra move 2", "extra move 3"]}
 ## Arms swung round and round through a charge, after the reference's giant punch: [frames a turn at the start, frames a turn at full
@@ -3748,6 +3817,25 @@ const SPIN_MOVES := {3: {"dair": [3, 24, 3.0]}, 7: {"nair": [6, 27, 1.5], "up sp
 ## Where a sword is held while its body spins (forward space: out level at the hip, so the turning body sweeps it round, as the
 ## Wanderer's spin attack does; the blade does not also follow the hitboxes, which go round with the body).
 const SPIN_BLADE_TIP := Vector2(2.2, 0.95)
+
+
+## Moves (by class) that turn the whole body over forward, head over heels, in the plane of the stage: [first state frame, last, turns],
+## eased in and out. The Scamp's monkey flip (round 2). By the move's frame, so a freeze holds it and a seek redraws it.
+const FLIP_MOVES := {11: {"side special": [12, 24, 1.0], "extra move 9": [12, 24, 1.0]}}
+## Moves (by class) whose body pitches along its flight path (upright going straight up, laid forward going sideways): the Scamp's rocket.
+const FLIGHT_MOVES := {11: ["extra move 6"]}
+
+
+func _move_flip(s: Dictionary) -> float:
+	if String(s.state) != "Attack" or s.move_name == "":
+		return 0.0
+	var w: Array = (FLIP_MOVES.get(_cls(s), {}) as Dictionary).get(String(s.move_name), [])
+	if w.is_empty():
+		return 0.0
+	var k := clampf((float(s.state_frame) - float(w[0])) / maxf(1.0, float(w[1]) - float(w[0])), 0.0, 1.0)
+	if k <= 0.0 or k >= 1.0:
+		return 0.0
+	return TAU * float(w[2]) * (k * k * (3.0 - 2.0 * k))
 
 
 ## How far round a spinning move has turned the body (radians, 0 when not spinning).
@@ -5301,6 +5389,8 @@ func _apply_combat(s: Dictionary, delta: float) -> void:
 			_carry_weapon(int(s.facing))
 		_aim_leg(s, state == "Attack" and AnimLibrary.is_kick(AnimLibrary.attack_clip(_cls(s), s.move_name, anim)), delta)
 		_update_smear(s)
+		if log_cover:
+			_log_face_cover(s)
 	# (The claws' flame rushes only: the Needles' specials are their own.)
 	var rushing: bool = _cls(s) == 1 and state == "Attack" and BRAWLER_FLAME.has(s.move_name) and s.state_frame >= 12
 	flame.emitting = rushing
