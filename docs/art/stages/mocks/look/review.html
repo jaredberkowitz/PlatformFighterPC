@@ -88,6 +88,22 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
     <p>Two lessons from the reference screenshots, mocked from the match camera: the scenery without ink outlines, its edges lit as card bevels instead, and the paper houses rebuilt at the characters' proportions. The earlier rounds stay on the <a href="https://claude.ai/artifact/D1du6MREVumiJDrEdNypW4">Stage Fidelity Review</a>, which is full.</p>
   </header>
 
+  <section class="panel" aria-labelledby="p8-h" id="scaffold8">
+    <div class="eyebrow">Your call is needed &middot; review 8, item 4: the city's platforms</div>
+    <h2 id="p8-h">The city's platforms in steel, not a plain card</h2>
+    <p>First, items 2 and 3 are built: the meadow's range has its snowcaps and tree line, the canyon's front its straight beds (see their sections below). Then the city's platforms on the scaffold towers, which were the one set of platforms still a plain dark card. Both options are built in the city's own materials, and nothing rises above where the fighters stand.</p>
+    <div class="tablewrap"><table><thead><tr><th>Option</th><th>What changes</th></tr></thead><tbody>
+      <tr><td>A &middot; Steel deck</td><td>A deck of steel plates with their seams, a painted safety line along the front edge, on a riveted girder in red-oxide primer (the colour of the water tower), with a joist under every seam.</td></tr>
+      <tr><td>B &middot; Scaffold boards</td><td>Four scaffold boards with steel hoops at their ends, laid on steel tubes with clamps, over a toe board painted in hazard stripes.</td></tr>
+    </tbody></table></div>
+    <p>Close crops: today, A, B, then A wide:</p>
+    <div class="viewer"><img src="p8_close.jpg" alt="The city's platforms today and in the two options"></div>
+    <div class="row" role="group" aria-label="View"><button data-p8v="m">Match camera</button><button data-p8v="w">Wide</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-p8o="T">Today</button><button data-p8o="A">A &middot; Steel deck</button><button data-p8o="B">B &middot; Scaffold boards</button></div>
+    <div class="viewer"><img id="p8img" alt="City platform option"><span class="vtag" id="p8tag"></span></div>
+    <p class="muted">My pick: <b>A</b>. The red girder ties the platforms to the scaffold towers and the water tower, and it stays calm next to the fighters. B reads most clearly as a building site, but its hazard stripes are the loudest thing at platform height. Shown before the light bake, today's platforms included.</p>
+  </section>
+
   <section class="panel" aria-labelledby="c8-h" id="canyonfront8">
     <div class="eyebrow">Built (A) &middot; review 8, item 3: the canyon's front</div>
     <h2 id="c8-h">Straight beds of rock instead of wobbly plywood</h2>
@@ -1337,5 +1353,15 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
   group("data-c8v", function (v) { c8v = v; }, c8render);
   group("data-c8o", function (v) { c8o = v; }, c8render);
   c8render();
+  var p8v = "m", p8o = "A";
+  var P8O = { T: "Today", A: "A \u00b7 Steel deck", B: "B \u00b7 Scaffold boards" };
+  function p8render() {
+    document.getElementById("p8img").src = "p8_" + p8o + "_" + p8v + ".jpg";
+    document.getElementById("p8tag").textContent = "City \u00b7 " + P8O[p8o] + (p8v === "w" ? " \u00b7 wide" : " \u00b7 match camera");
+    pressed("data-p8v", p8v); pressed("data-p8o", p8o);
+  }
+  group("data-p8v", function (v) { p8v = v; }, p8render);
+  group("data-p8o", function (v) { p8o = v; }, p8render);
+  p8render();
 })();
 </script>

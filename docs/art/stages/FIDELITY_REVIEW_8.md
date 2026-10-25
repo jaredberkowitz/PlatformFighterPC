@@ -86,3 +86,14 @@ The owner picked A on both. The meadow's palette sets [backdrop] `range_form=1` 
 front is rebuilt with `make_canyon_front.py --variant A --cut 1 --courses 1 --straight A` (21,632 triangles), and the canyon is re-lit
 (the light bake rewrote its paper and play pieces too). The canyon front measures value 0.35, saturation 0.57. Before and after
 (the meadow at the match camera, the canyon wide): `review8/mountains_canyon_built.jpg`. All seven tests pass.
+
+## Item 4, the city's platforms (2026-10-25, mock)
+
+`make_play.py --theme city --plat deck|boards` (with `--variant A --wear 2`): the one set of platforms still a plain dark card, in the
+city's own materials, nothing above the walking surface. A, `deck`: steel plates with their seams (`steel_seam`), a painted safety line
+along the front edge (`steel_paint`), on a riveted girder in red-oxide primer (`steel_primer`, `rivet`) with a joist under every seam. A
+first try with a deep steel channel went black in its own shade, so its rivets read as a dotted strip of lights. B, `boards`: four
+scaffold boards (`deck_board`) with steel hoops at their ends, on steel tubes with clamps, over a toe board in hazard stripes (`hazard`).
+The new families are painted in `StageBake.place_play` and printed as steel or wood. On the Stage Look Review ("scaffold8", `p8_*`);
+recommended A (it ties to the towers and the water tower, and stays calm by the fighters; B's stripes are the loudest thing at platform
+height).

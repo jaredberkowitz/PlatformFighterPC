@@ -32,7 +32,8 @@ from mathutils import Vector
 argv = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
 opts = {argv[i].lstrip("-"): argv[i + 1] for i in range(0, len(argv) - 1, 2)}
 VARIANT = opts.get("variant", "A").upper()
-# The platforms after fidelity review 6 (`--plat islet|islet_moss` on the grove, `rock|rock_under` on the canyon).
+# The platforms after fidelity review 6 (`--plat islet|islet_moss` on the grove, `rock|rock_under` on the canyon) and review 8
+# (`deck|boards` on the city).
 PLAT = opts.get("plat", "")
 WEAR = int(opts.get("wear", "0"))
 THEME = opts.get("theme", "grove")
@@ -365,6 +366,58 @@ def platform(r, rng):
         box(x0 + cut_l, x1 - cut_r, top - 0.66, top - 0.4, zb + 0.1, zf - 0.06, "layer2", "layer2")
         if PLAT == "rock_under":
             underside(x0 + 0.2, x1 - 0.2, top - 0.66, zb + 0.2, zf - 0.12, 1.0, rng, "layer1", "layer2")
+        return
+    if PLAT in ("deck", "boards") and GIRDER:
+        # (Fidelity review 8: the city's platforms a plain dark card on the scaffold. In the city's own materials: `deck` a steel deck of
+        # plates with their seams, a painted safety line along the front, a riveted girder in red-oxide primer; `boards` scaffold boards laid on
+        # steel tubes, clamped, over a toe board painted with hazard stripes. Nothing rises above the walking surface.)
+        if PLAT == "deck":
+            box(x0, x1, top - 0.1, top, zb, zf, "steel", "steel_card", "steel_dark")
+            n = max(2, round((x1 - x0) / 1.8))
+            w = (x1 - x0) / n
+            for i in range(1, n):
+                sx = x0 + w * i
+                face("steel_seam", (P(sx - 0.03, top + 0.004, zf - 0.02), P(sx + 0.03, top + 0.004, zf - 0.02),
+                                    P(sx + 0.03, top + 0.004, zb + 0.02), P(sx - 0.03, top + 0.004, zb + 0.02)))
+            face("steel_paint", (P(x0 + 0.05, top + 0.005, zf - 0.05), P(x1 - 0.05, top + 0.005, zf - 0.05),
+                                 P(x1 - 0.05, top + 0.005, zf - 0.3), P(x0 + 0.05, top + 0.005, zf - 0.3)))
+            # The girder under the deck's front edge in red-oxide primer (a deep channel went black in its own shade), its flanges standing
+            # a little proud, and a joist under every seam.
+            box(x0 + 0.04, x1 - 0.04, top - 0.62, top - 0.1, zf - 0.16, zf, "steel_dark", "steel_primer", "steel_dark")
+            box(x0 + 0.04, x1 - 0.04, top - 0.18, top - 0.1, zf - 0.16, zf + 0.04, "steel_primer", "steel_primer", "steel_dark")
+            box(x0 + 0.04, x1 - 0.04, top - 0.62, top - 0.54, zf - 0.16, zf + 0.04, "steel_primer", "steel_primer", "steel_dark")
+            for i in range(n + 1):
+                jx = min(max(x0 + w * i, x0 + 0.2), x1 - 0.2)
+                box(jx - 0.08, jx + 0.08, top - 0.5, top - 0.1, zb + 0.2, zf - 0.16, "steel_dark", "steel_dark")
+            k = 0.45
+            rx = x0 + 0.25
+            while rx < x1 - 0.2:
+                for ry in (top - 0.27, top - 0.45):
+                    box(rx - 0.04, rx + 0.04, ry - 0.04, ry + 0.04, zf - 0.02, zf + 0.025, "rivet", "rivet")
+                rx += k
+        else:
+            gap = 0.07
+            nb = 4
+            bw = (zf - zb - gap * (nb - 1)) / nb
+            for k in range(nb):
+                za = zb + k * (bw + gap)
+                ea, eb = rng.uniform(-0.25, 0.05), rng.uniform(-0.05, 0.25)
+                box(x0 + ea, x1 + eb, top - 0.12, top, za, za + bw, "deck_board", "plank_card", "plank_b")
+                # The steel hoops round each board's ends.
+                for hx in (x0 + ea + 0.18, x1 + eb - 0.18):
+                    box(hx - 0.05, hx + 0.05, top - 0.13, top + 0.006, za - 0.005, za + bw + 0.005, "rivet", "rivet")
+            # The transoms under the boards, and the ledger along the front with a clamp where each crosses it.
+            for tx in (x0 + 0.45, (x0 + x1) * 0.5, x1 - 0.45):
+                box(tx - 0.09, tx + 0.09, top - 0.3, top - 0.12, zb + 0.05, zf + 0.05, "steel", "steel_card", "steel_dark")
+                box(tx - 0.14, tx + 0.14, top - 0.36, top - 0.1, zf + 0.06, zf + 0.12, "rivet", "rivet")
+            box(x0 - 0.15, x1 + 0.15, top - 0.36, top - 0.18, zf - 0.08, zf + 0.06, "steel", "steel_card", "steel_dark")
+            # The toe board, hung below the boards' front, painted in hazard stripes.
+            box(x0 + 0.1, x1 - 0.1, top - 0.68, top - 0.36, zf - 0.04, zf + 0.04, "steel_paint", "steel_paint", "plank_b")
+            sx = x0 + 0.25
+            while sx < x1 - 0.5:
+                face("hazard", (P(sx, top - 0.66, zf + 0.045), P(sx + 0.22, top - 0.66, zf + 0.045),
+                                P(sx + 0.42, top - 0.38, zf + 0.045), P(sx + 0.2, top - 0.38, zf + 0.045)))
+                sx += 0.6
         return
     if GIRDER:
         if VARIANT == "A":
