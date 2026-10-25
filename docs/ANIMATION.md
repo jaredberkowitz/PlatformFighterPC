@@ -250,3 +250,39 @@ a corkscrew about the upright body (no head-over-heels spin); wall jumps back-fl
     show it fully.
   - The moves that borrow `jump` as an attack clip (the Needles' bounce, the Settler's rocket hop) now play the rise to the tuck by the
     move's progress; not checked closely.
+
+### Pass 3: wind-ups that coil, hold and snap (every attack, every class)
+
+- **Defect** (audit item 3): the wind-up drifted from rest to the strike at one pace. The chamber was reached at 58% of the startup and
+  left at once, so no frame showed a wound-up shape (the wind-up cells of smashes looked like the idle). Punches never drew back: the
+  fist's IK started reaching for the hit at 35% of the startup, from the guard. The reference holds its coil for 4-5 frames, then snaps.
+- **Cause:** `fighter_view.gd`:
+  - `strike_progress` mapped the startup linearly onto the clip;
+  - `_blade_target` reached the wind-up at half the startup and swung on from there;
+  - `_reach_weight` eased the limbs out from 35% of the startup;
+  - the fist's IK swept from the guard hand straight to the hit.
+- **Fix:** one shared shape for the startup:
+  - the body's clip reaches its chamber key (19 of 60) by `COIL_AT` (45%) of the startup;
+  - it creeps through a hold to `SNAP_AT` (80%), then accelerates through the launch into the strike on the first active frame;
+  - the blade does the same;
+  - the limbs (fists and kicking legs) stay in their coil and reach out only with the snap (`snap_k`);
+  - a punch draws its fist back beside the chest (`FIST_CHAMBER`) as the coil comes in (`coil_k`), holds it there, and throws it from
+    there;
+  - `make_rigged_blob.py`: the chamber keys are pushed deeper (`CHAMBER_AMP` 1.34, was 1.22 for the six-pose clips and 1.12 for the
+    `move` clips).
+  - Frame data and hitboxes are untouched; the strike still lands on the first active frame.
+  - Very short startups (3-5 frames) coil in a frame or two and snap in one, as the reference's jabs do.
+- **Files:** `godot/scripts/fighter_view.gd` (`strike_progress`, `coil_k`, `snap_k`, `COIL_AT`, `SNAP_AT`, `FIST_CHAMBER`, `_blade_target`,
+  `_reach_weight`), `art/blender/make_rigged_blob.py` (`CHAMBER_AMP`), `godot/models/base_rig.glb`.
+- **Image:** `docs/screenshots/anim/pass3_coil.jpg`:
+  - whiff demos, before above and after below: the Longsword's forward smash (coiled by frame 5, held, snapping on 9-10), the Claws'
+    forward smash (coiled by frame 9, held to 16, snapping on 17-20) and the Claws' jab;
+  - the Claws' forward smash facing left.
+- **Checked:** facing left; `anim_library_test`, `fighter_view_test`, `motion_test`, `match_flow_test`, `replay_test` and `look_bench`
+  pass.
+- **Left:**
+  - The Longsword's forward smash coils with the blade level behind the hips; the reference raises it overhead behind (step 4, the
+    sword's own moves, `SWING_FROM`).
+  - The attack clips settle to an upright rest, then the idle sinks into the new stance, so a move ends with a small rise and drop.
+    The attack clips' rest should become the stance (next, with the sword's moves).
+  - Multihit re-strikes keep their own draw-back (unchanged).

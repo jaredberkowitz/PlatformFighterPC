@@ -644,6 +644,9 @@ BODY = "--body" in sys.argv
 # the front foot, the back leg straightening behind and the free arm pulled back for balance. Each entry is (wind-up, strike, rest) in the
 # `pose_spec` short form, on the shared move timeline.
 BODY_AMP = 0.85
+# How far an attack's chamber (wind-up) key is pushed past its pose. (Animation overhaul pass 3: the game now holds the coil for a third of
+# the startup, so it is pushed deeper, 1.22 to 1.34, and reads as a wound-up shape; the `move` clips' wind-up took 1.12.)
+CHAMBER_AMP = 1.34
 WRIST_KEEP = 0.3   # how much of a clip's wrist bend the base body keeps
 
 BODY_MOVES = {
@@ -1166,7 +1169,7 @@ def clip(rig, name, frames, poses):
         # extreme (aerials tuck their knees to the chest), the strike snaps in and is held through the active frames, the follow-through
         # carries on, then the body eases home.)
         chamber = _chamber_spec(wind, not grounded(name))
-        poses = {0: _spec_held(rest, 0.0), 19: _amped_pose(_spec_pose(chamber), 1.22), 29: _spec_pose(_launch_spec(chamber, strike)),
+        poses = {0: _spec_held(rest, 0.0), 19: _amped_pose(_spec_pose(chamber), CHAMBER_AMP), 29: _spec_pose(_launch_spec(chamber, strike)),
                  32: _spec_pose(strike), 36: _spec_pose(strike), 40: _amped_pose(_spec_pose(_follow_spec(strike)), 1.1),
                  47: _spec_held(rest, 1.0), 60: _spec_held(rest, 0.0)}
     action = bpy.data.actions.new(name)
@@ -3347,7 +3350,7 @@ def main() -> None:
 
     def move(name, wind, strike, hold):
         # Wind-up pushed a little past its pose (anticipation), the strike, an overshoot past it (follow-through), then the settle.
-        clip(rig, name, 60, {0: hold(0), 21: amped(wind, 1.12), 33: strike, 38: amped(strike, 1.12), 45: hold(1), 60: hold(0)})
+        clip(rig, name, 60, {0: hold(0), 21: amped(wind, CHAMBER_AMP), 33: strike, 38: amped(strike, 1.12), 45: hold(1), 60: hold(0)})
 
     # Forward air: the reference pose is a mid-air crouch, knees pulled up high, the attacking arm reaching up and forward and then brought
     # down through the sweep in front while the torso curls over it. Lean back with the arm cocked, then curl forward with the knees tucked.

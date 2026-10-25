@@ -657,7 +657,17 @@ func _attack_clip(s: Dictionary) -> Array:
 ## move's frames drive it, so the animation never sets the timing.
 static func strike_progress(f: float, total: float, start: float, last: float, windows: PackedInt32Array) -> float:
 	if f < start:
-		return f / start * 0.55
+		# (Animation overhaul pass 3: the wind-up coils, holds, then snaps, as the reference's moves do, instead of drifting from rest to
+		# the strike at one pace. The clip reaches its chamber key (19 of 60) by COIL_AT of the startup, creeps on through the hold, and
+		# from SNAP_AT accelerates through the launch into the strike on the first active frame.)
+		var u := f / start
+		if u <= COIL_AT:
+			var k := u / COIL_AT
+			return COIL_PROGRESS * (1.0 - (1.0 - k) * (1.0 - k))
+		if u <= SNAP_AT:
+			return COIL_PROGRESS + COIL_CREEP * (u - COIL_AT) / (SNAP_AT - COIL_AT)
+		var k := (u - SNAP_AT) / (1.0 - SNAP_AT)
+		return lerpf(COIL_PROGRESS + COIL_CREEP, 0.55, k * k)
 	if windows.size() >= 4:
 		for k in range(0, windows.size() - 2, 2):
 			var a := float(windows[k])
@@ -687,6 +697,39 @@ static func strike_progress(f: float, total: float, start: float, last: float, w
 	# (The body carries through the follow-through and settles over the end lag, easing in and out, rather than holding the strike.)
 	var k := clampf((f - last) / maxf(1.0, total - last), 0.0, 1.0)
 	return 0.63 + 0.37 * k * k * (3.0 - 2.0 * k)
+
+
+## The wind-up's shape (shares of the startup, the frames before the first active one): coiled by COIL_AT, held (creeping COIL_CREEP of
+## the clip on) until SNAP_AT, then the snap into the strike. The clip's chamber key is COIL_PROGRESS of its length (frame 19 of 60).
+const COIL_AT := 0.45
+const SNAP_AT := 0.8
+const COIL_PROGRESS := 0.317
+const COIL_CREEP := 0.02
+## Where a fist is drawn back to in a wind-up, from the shoulder (forward space): beside the chest, a little behind and below the shoulder.
+const FIST_CHAMBER := Vector2(-0.12, -0.32)
+
+
+## How far into its coil a wind-up is at move frame `f` (0 at rest, 1 coiled), held, then let go through the snap.
+static func coil_k(f: float, first: float) -> float:
+	var u := f / maxf(1.0, first)
+	if u >= 1.0:
+		return 0.0
+	if u <= COIL_AT:
+		var k := u / COIL_AT
+		return 1.0 - (1.0 - k) * (1.0 - k)
+	if u <= SNAP_AT:
+		return 1.0
+	return 1.0 - (u - SNAP_AT) / (1.0 - SNAP_AT)
+
+
+## How far a strike has travelled from its coil toward the hit at move frame `f`: nothing through the coil and the hold, then
+## accelerating from SNAP_AT to the first active frame.
+static func snap_k(f: float, first: float) -> float:
+	var u := f / maxf(1.0, first)
+	if u <= SNAP_AT:
+		return 0.0
+	var k := clampf((u - SNAP_AT) / (1.0 - SNAP_AT), 0.0, 1.0)
+	return k * k
 
 
 ## Between two hits of a multihit move the clip draws back to here (0.35 is the full wind-up, 0.55 the strike): enough to read as a new
@@ -3388,19 +3431,20 @@ func _blade_target(s: Dictionary) -> Array:
 	var t: PackedInt32Array = s.move_timing  # total, first active, last active
 	var f: float = s.state_frame
 	var start := maxf(1.0, float(t[1]))
-	var swing_from := start * 0.5
+	var swing_from := start * SNAP_AT
 	var angle := swing
 	var len := length
 	if f < swing_from:
-		# The wind-up eases into its anticipation (fast away from rest, slowing as it coils)...
-		var k := clampf(f / maxf(1.0, swing_from), 0.0, 1.0)
+		# The wind-up eases into its anticipation (fast away from rest, slowing as it coils) and holds there (pass 3: the coil holds
+		# until SNAP_AT of the startup, as the body's does)...
+		var k := clampf(f / maxf(1.0, start * COIL_AT), 0.0, 1.0)
 		k = 1.0 - (1.0 - k) * (1.0 - k)
 		angle = lerpf(_rest_angle(s), wind, k)
 		len = lerpf(rest_len, length, k)
 	elif f < start:
 		# ...and the strike accelerates into the hit, so the blade whips through rather than gliding at one speed.
-		var k := clampf((f - swing_from) / maxf(1.0, start - swing_from), 0.0, 1.0)
-		angle = lerpf(wind, swing, k * k)
+		var k := snap_k(f, start)
+		angle = lerpf(wind, swing, k)
 	elif f > t[2]:
 		# The follow-through: the blade carries on past its last hit the way it was travelling (FOLLOW_THROUGH degrees over the first part
 		# of the end lag, slowing), then eases home through the rest of it, as the reference's swordsmen finish a cut, rather than holding
@@ -3528,6 +3572,14 @@ func _pose_blade(s: Dictionary, delta: float) -> void:
 		if iu >= 0:
 			var live := _skeleton_to_frame() * skeleton.get_bone_global_pose(iu).origin
 			shoulder = Vector2(live.x * facing, live.y)
+	# (Pass 3: a punch chambers first. Through the wind-up the fist is drawn back beside the chest and held there, then thrown from
+	# there with the snap.)
+	var from_hand := old_hand
+	if attacking and not bladed(_cls(s)) and not _thrust(_cls(s), String(s.move_name)):
+		var mt: PackedInt32Array = s.move_timing
+		if mt.size() >= 2 and float(s.state_frame) < float(mt[1]):
+			from_hand = old_hand.lerp(shoulder + FIST_CHAMBER, coil_k(float(s.state_frame), float(mt[1])))
+			hand = from_hand
 	if rig != null and arm_k > 0.0:
 		var to_tip := tip - shoulder
 		var dist := maxf(to_tip.length(), 0.001)
@@ -3550,12 +3602,12 @@ func _pose_blade(s: Dictionary, delta: float) -> void:
 			goal = shoulder + Vector2.from_angle(_overhead_angle(s, dir.angle())) * reach
 		if use_base_body:
 			# With a real arm the hand travels round the shoulder, in an arc (a hook, a swing), not along a straight line.
-			var from_v := old_hand - shoulder
+			var from_v := from_hand - shoulder
 			var to_v := goal - shoulder
 			var angle := lerp_angle(from_v.angle(), to_v.angle(), arm_k)
 			hand = shoulder + Vector2.from_angle(angle) * lerpf(from_v.length(), to_v.length(), arm_k)
 		else:
-			hand = old_hand.lerp(goal, arm_k)
+			hand = from_hand.lerp(goal, arm_k)
 	# A fist carries on a little past its strike and settles (the `hand` spring, kicked as the hit ends).
 	if not bladed(_cls(s)) and absf(springs.value("hand")) > 0.001:
 		hand += (hand - shoulder).normalized() * springs.value("hand")
@@ -3597,7 +3649,8 @@ func _reach_weight(s: Dictionary) -> float:
 	var total := maxf(last + 1.0, float(t[0]))
 	var k := 1.0
 	if f < first:
-		k = clampf((f - first * 0.35) / maxf(1.0, first * 0.65), 0.0, 1.0)
+		# (Pass 3: the limb stays in its coil through the hold and reaches out with the snap.)
+		return snap_k(f, first)
 	elif f > last:
 		# (It stays out a moment past the hit, then eases home over the rest of the end lag, never frozen out.)
 		k = 1.0 - smoothstep(0.15, 1.0, clampf((f - last) / maxf(1.0, total - last), 0.0, 1.0))
