@@ -75,6 +75,9 @@ const STYLE_DEFAULT := {
 	"paint": [Color(1.06, 1.01, 0.92), Color(0.9, 0.94, 1.06), 0.55],
 	# How strongly the effects and lit things (the city's windows, lamps) bloom.
 	"glow": 0.75,
+	# The key against the ambient on every stage (`key_light`, see KEY_TRY): the strong key, fidelity review 8, the owner's pick B,
+	# 2026-10-25. `--key=T` shows a stage as before.
+	"key_light": [1.25, 0.48, 0.45],
 	# How much deeper the scenery's shade side is than its painted shadow colour (`pf_scenery_shade` in shaders/toon_light.gdshaderinc).
 	"scenery_shade": 0.32,
 	# The finishing pass's value range (shaders/post.gdshader): how far colours are eased toward grey (`desat`), how far the darks are
@@ -126,7 +129,7 @@ const SHAPED_TRY := {
 ## meadow: ambient 0.48 against the key's lit share of about 0.44), so shade sat at about six tenths of the lit value everywhere and form,
 ## cloud shade and cast shadows stayed faint. Each level moves light from the ambient into the key, [key times, ambient times, how far the
 ## ambient turns toward the sky's colour], so the lit side keeps its value, the shade deepens and takes the sky's colour, as daylight's
-## shade does. `--key=A|B` to try; a style's `key_light` ships one.
+## shade does. `--key=T|A|B` to compare; the styles' `key_light` (B on every stage since the owner's pick, 2026-10-25).
 const KEY_TRY := {"T": [1.0, 1.0, 0.0], "A": [1.12, 0.68, 0.3], "B": [1.25, 0.48, 0.45]}
 
 
