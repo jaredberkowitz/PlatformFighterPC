@@ -4214,6 +4214,11 @@ var arc_shown := {}
 
 func _update_arc(now: Dictionary, delta: float) -> void:
 	if not now.is_empty() and float(now.q) < 1.0:
+		# (A sword arc keeps where the blade's tip last put it, `_blade_arc_on_tip`, through its fade.)
+		if not arc_shown.is_empty() and arc_shown.w == now.w:
+			for key in ["c", "r", "head", "z"]:
+				if arc_shown.has(key):
+					now[key] = arc_shown[key]
 		arc_shown = now
 	elif not arc_shown.is_empty():
 		# The move ended, was cut short (a landing) or its arc is done: what is left fades on its own.
@@ -4298,6 +4303,49 @@ func _arc_circle(w: Array) -> Array:
 	return [Vector2(float(w[0]), float(w[1])), float(w[2])]
 
 
+## The blade's tip as the mesh has it (the blade mesh ends 2.9 along its pivot's x).
+const BLADE_TIP_X := 2.9
+## The depth the arc being drawn is at (the blade's own while a sword swing is live, else ARC_Z).
+var arc_z := ARC_Z
+
+
+## (Animation overhaul pass 6: a sword's swing arc follows the blade's tip.) While the swing is live the arc is redrawn on a circle about
+## the weapon arm's shoulder through the tip where the blade really is this frame (after the arm's reach and the hilt's correction), its
+## head on the tip, at the blade's depth: the authored circles (`ARCS`) were fixed round a standing shoulder and drawn in front of the
+## body, so on a lunge or a lean the crescent floated off the blade. The authored arc still sets which way the swing runs and how far it
+## has come. It depends only on this frame's pose, so hitlag freezes it and a seek redraws it.
+func _blade_arc_on_tip(s: Dictionary) -> void:
+	if arc_shown.is_empty() or not bladed(_cls(s)) or not blade_pivot.visible or skeleton == null:
+		return
+	if String(s.state) != "Attack" or float(arc_shown.q) > 0.0:
+		return
+	var iu := skeleton.find_bone("armU." + _weapon_side(int(s.facing)))
+	if iu < 0:
+		return
+	var facing := float(s.facing)
+	var tip3 := to_local(blade_pivot.to_global(Vector3(BLADE_TIP_X, 0.0, 0.0)))
+	var sh3 := to_local(skeleton.to_global(skeleton.get_bone_global_pose(iu).origin))
+	var tip := Vector2(tip3.x * facing, tip3.y)
+	var centre := Vector2(sh3.x * facing, sh3.y)
+	var rel := tip - centre
+	if rel.length() < 0.3:
+		return
+	var w: Array = arc_shown.w
+	var from := deg_to_rad(float(w[3]))
+	var span := deg_to_rad(float(w[4])) - from
+	# The head's angle measured from the arc's start the way the swing runs (a long arc, like the neutral air's, goes past half a turn).
+	var d := fposmod((rel.angle() - from) * signf(span), TAU)
+	if d > absf(span) + PI * 0.5:
+		d -= TAU
+	# (Not yet round to where the swing starts, still in the wind-up: nothing drawn, rather than a tail swept backward.)
+	d = maxf(d, 0.0)
+	arc_shown["c"] = centre
+	arc_shown["r"] = rel.length()
+	arc_shown["head"] = from + signf(span) * d
+	arc_shown["z"] = tip3.z
+	_draw_arc()
+
+
 func _draw_arc() -> void:
 	if arc == null:
 		arc = MeshInstance3D.new()
@@ -4321,6 +4369,8 @@ func _draw_arc() -> void:
 	var q := clampf(float(arc_shown.q), 0.0, 1.0)
 	# The fading arc is eaten from the tail toward the head.
 	var head := lerpf(deg_to_rad(float(w[3])), deg_to_rad(float(w[4])), float(arc_shown.k))
+	if arc_shown.has("head"):
+		head = float(arc_shown.head)
 	# Only the last stretch of the swing shows, a comet's tail behind the head (the reference game's trail never shows the whole sweep
 	# at once), eaten from the tail toward the head as it fades.
 	var start := deg_to_rad(float(w[3]))
@@ -4330,8 +4380,9 @@ func _draw_arc() -> void:
 	if absf(head - tail) < 0.03:
 		return
 	var circle := _arc_circle(w)
-	var centre: Vector2 = circle[0]
+	var centre: Vector2 = arc_shown.get("c", circle[0])
 	var r: float = _arc_radius(arc_shown)
+	arc_z = float(arc_shown.get("z", ARC_Z))
 	# (As thick as the authored circle's arc, however far the hitboxes reach: at the hitboxes' radius a smash's arc was a slab.)
 	# (0.22 of the radius: the reference's trail is a thin bright sliver; at 0.34 ours read as a heavy blade of its own.)
 	var width := float(circle[1]) * ARC_WIDTH * (1.0 - 0.35 * q)
@@ -4384,8 +4435,8 @@ func _arc_band(im: ImmediateMesh, centre: Vector2, r: float, width: float, tail:
 		var rb := r + float(b[0]) - thick * float(b[1]) * (scallop if b[2] else 1.0)
 		var pa := centre + dir * ra
 		var pb := centre + dir * rb
-		var va := to_global(Vector3(pa.x * facing, pa.y, ARC_Z))
-		var vb := to_global(Vector3(pb.x * facing, pb.y, ARC_Z))
+		var va := to_global(Vector3(pa.x * facing, pa.y, arc_z))
+		var vb := to_global(Vector3(pb.x * facing, pb.y, arc_z))
 		if i > 0:
 			for v in [prev_a, prev_b, vb, prev_a, vb, va]:
 				im.surface_set_color(col)
@@ -4852,6 +4903,7 @@ func _apply_combat(s: Dictionary, delta: float) -> void:
 				var held: Vector3 = _skeleton_to_frame() * skeleton.get_bone_global_pose(hb).origin
 				var along := Vector3(cos(blade_pivot.rotation.z), sin(blade_pivot.rotation.z), 0.0)
 				blade_pivot.position = Vector3(held.x, held.y, blade_pivot.position.z) + along * 0.08
+		_blade_arc_on_tip(s)
 		if carrying:
 			_carry_weapon(int(s.facing))
 		_aim_leg(s, state == "Attack" and AnimLibrary.is_kick(AnimLibrary.attack_clip(_cls(s), s.move_name, anim)), delta)

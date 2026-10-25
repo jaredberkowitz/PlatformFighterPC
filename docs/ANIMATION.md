@@ -355,3 +355,27 @@ a corkscrew about the upright body (no head-over-heels spin); wall jumps back-fl
     reads as covering the face.
   - Gauntlets and Bracers keep their fists (their stance and coil are shared).
   - The claws are not on the old blob rigs.
+
+### Pass 6: sword arcs on the blade's tip
+
+- **Defect** (audit item 7): the swords' swing arcs floated beside or past the blade.
+  - The audit measured that the blade does reach its hitboxes, so the arcs were the problem.
+  - The jab also drew a tail swept backward behind the head during its wind-up.
+- **Cause:** `fighter_view.gd` `ARCS` are fixed circles about a fixed standing shoulder (for example (0.5, 1.15), radius 2.3), drawn at
+  `ARC_Z` in front of the body. The blade pivots at the moving hand of a lunging, leaning body.
+- **Fix:** `_blade_arc_on_tip`:
+  - While a sword's swing is live, after the arm's reach and the hilt's correction, the arc is redrawn on a circle about the weapon
+    arm's real shoulder, through the blade's real tip (`BLADE_TIP_X` along the pivot), at the blade's own depth.
+  - The authored arc still sets which way the swing runs and its tail.
+  - Before the tip comes round to the swing's start, nothing is drawn.
+  - Through the fade the arc keeps the last tip circle.
+  - It depends only on the frame's pose, so hitlag freezes it and a seek redraws it.
+  - It applies to every bladed class: Longsword, Greatsword and Buckler.
+  - The claws' arcs were moved onto the claws in pass 5.
+- **Files:** `godot/scripts/fighter_view.gd` (`_blade_arc_on_tip`, `BLADE_TIP_X`, `arc_z`, `_draw_arc`, `_update_arc`).
+- **Image:** `docs/screenshots/anim/pass6_blade_arcs.jpg`: Longsword jab, forward smash, neutral air and forward air, before above and
+  after below.
+- **Checked:** the Greatsword's and Buckler's strikes in the pose atlas; `anim_library_test`, `fighter_view_test`, `motion_test`,
+  `match_flow_test`, `replay_test` and `look_bench` pass.
+- **Left:** the arc's thickness still follows the authored radius, so a short-armed swing's crescent is a little thick near the
+  shoulder.
