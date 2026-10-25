@@ -127,7 +127,7 @@ waves and the bright sea; B reads more as depth than as waves).
 Built A (the owner's pick): ocean.cfg [backdrop] `sea_band=1`; nothing to re-light. Before and after (wide, then the match camera):
 `review8/beach_waves_built.jpg`. All seven tests pass (the runner after its known coin flake, on a rerun).
 
-## Item 7, the key light (2026-10-25, mock)
+## Item 7, the key light (2026-10-25, built)
 
 `Lighting.KEY_TRY` (`--key=A|B`; a style's `key_light` ships one), applied in `stage_mood`: [key times, ambient times, how far the
 ambient turns toward the sky's `sky_mid`, normalised]. Why: the ambient gave more of each surface's light than the key (the meadow: 0.48
@@ -140,3 +140,14 @@ Measured at the match camera, P1's yellow body (scratch `readab.gd`), today to B
 carry it). The scenery's region contrast moves little (within 0.01). On the Stage Look Review ("keylight8", `k8_*`, all five stages);
 recommended B, honestly a modest step: further needs the painted shadow colours themselves (`pf_shadow_value`, `scenery_shade`), a
 larger and riskier pass to mock on its own.
+
+Built B (the owner's pick) on every stage: `STYLE_DEFAULT.key_light` [1.25, 0.48, 0.45]; `--key=T` shows a stage as before. The shipped
+readings match the mock's within capture noise (P1's spread and gap within 0.01, the meadow's within 0.025 with the pose and clouds).
+Before and after, every stage at the match camera (meadow, grove, canyon, beach, city; today left): `review8/key_light_built.jpg`.
+
+## Review 8's list, done
+
+All seven items are built: the meadow's wall (B) and mountains (A), the canyon's front (A), the city's platforms (A), the grove's
+underside (A), the beach's waves (A), and the strong key (B). None of it is in a release yet; the last published build is
+playtest-2026-10-24-sim146-review7. A review 9 would re-score; the next large lever on light is the painted shadow colours themselves
+(item 7's note).
