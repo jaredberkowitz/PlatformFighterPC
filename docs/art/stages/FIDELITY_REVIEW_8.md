@@ -87,7 +87,7 @@ front is rebuilt with `make_canyon_front.py --variant A --cut 1 --courses 1 --st
 (the light bake rewrote its paper and play pieces too). The canyon front measures value 0.35, saturation 0.57. Before and after
 (the meadow at the match camera, the canyon wide): `review8/mountains_canyon_built.jpg`. All seven tests pass.
 
-## Item 4, the city's platforms (2026-10-25, mock)
+## Item 4, the city's platforms (2026-10-25, built)
 
 `make_play.py --theme city --plat deck|boards` (with `--variant A --wear 2`): the one set of platforms still a plain dark card, in the
 city's own materials, nothing above the walking surface. A, `deck`: steel plates with their seams (`steel_seam`), a painted safety line
@@ -97,3 +97,7 @@ scaffold boards (`deck_board`) with steel hoops at their ends, on steel tubes wi
 The new families are painted in `StageBake.place_play` and printed as steel or wood. On the Stage Look Review ("scaffold8", `p8_*`);
 recommended A (it ties to the towers and the water tower, and stays calm by the fighters; B's stripes are the loudest thing at platform
 height).
+
+Built A (the owner's pick): city_play.glb rebuilt with `--theme city --variant A --plat deck --wear 2`, the city re-lit (`light_stage.py`
+on the front and the play area, curve and reach 2.5). Before and after (match camera, then wide): `review8/city_platforms_built.jpg`.
+All seven tests pass.
