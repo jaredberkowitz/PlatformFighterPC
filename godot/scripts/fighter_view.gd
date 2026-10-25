@@ -1418,6 +1418,8 @@ func build(p: int, l: RefCounted = null) -> void:
 		band.radial_segments = 10
 		blade_parts.append(_part(blade_pivot, band, toon(SASH.darkened(0.35)), Vector3(wx, 0, 0), Vector3.ONE, Vector3(0, 0, 90)))
 	blade_parts.append(_part(blade_pivot, _sphere(0.085), gold, Vector3(-0.28, 0, 0)))
+	# The modelled weapons worn on the hands (art/blender/make_weapons.py): the Claws class's claws, one on each fist.
+	_mount_weapon_models()
 	# The Seer's staff (class STAFF_CLASS), on the same pivot so it is posed as the blade is: a pale wooden shaft held a little from its
 	# foot, a gold collar and a glowing round head.
 	staff_parts.clear()
@@ -3282,6 +3284,49 @@ static var _tag_arrow_cache: ImageTexture
 var blade_pivot: Node3D
 var blade_parts: Array[MeshInstance3D] = []
 var staff_parts: Array[MeshInstance3D] = []
+## The Claws class's modelled claws, one on each hand (shown only for that class).
+var claw_parts: Array[Node3D] = []
+## How far past the knuckles the claws reach (forward space): the claw arcs and the fist's reach count it.
+const CLAW_LENGTH := 0.3
+## Where a modelled hand weapon's origin sits on the hand: this far from the wrist along the forearm's line.
+const HAND_WEAPON_FROM_WRIST := 0.17
+
+
+## Hangs the modelled hand weapons on the hand bones (base body only): each points along the forearm's line from the wrist, the back of
+## the hand up (outward from the body at rest), so the fist's clench and every swing carry it. The model is built in that frame (+X out
+## from the wrist, +Y the back of the hand).
+func _mount_weapon_models() -> void:
+	claw_parts.clear()
+	if not use_base_body or skeleton == null:
+		return
+	var scene := _model_scene("res://models/weapons/claw.glb")
+	if scene == null:
+		return
+	# (A darker, bluer steel than the blades: against the white gloves a pale steel vanished.)
+	var steel := respond(toon(Color(0.5, 0.56, 0.68)), "metal")
+	var band := toon(trail_colours_of(1)[0].darkened(0.25))
+	for side in ["L", "R"]:
+		var ih := skeleton.find_bone("hand." + side)
+		var il := skeleton.find_bone("armL." + side)
+		if ih < 0 or il < 0:
+			continue
+		var hand_rest := skeleton.get_bone_global_rest(ih)
+		var fore := (hand_rest.origin - skeleton.get_bone_global_rest(il).origin).normalized()
+		var out := Vector3(-1.0 if side == "L" else 1.0, 0.0, 0.0)
+		var inv := hand_rest.basis.orthonormalized().inverse()
+		var x := (inv * fore).normalized()
+		var y := (inv * out)
+		y = (y - x * y.dot(x)).normalized()
+		var holder := BoneAttachment3D.new()
+		holder.bone_name = "hand." + side
+		skeleton.add_child(holder)
+		var claw: Node3D = scene.duplicate()
+		claw.transform = Transform3D(Basis(x, y, x.cross(y)), x * HAND_WEAPON_FROM_WRIST)
+		holder.add_child(claw)
+		for m in claw.find_children("*", "MeshInstance3D", true, false):
+			(m as MeshInstance3D).material_override = band if String(m.name).begins_with("band") else steel
+		claw.visible = false
+		claw_parts.append(claw)
 ## The class that fights with a staff (the Seer): posed like the sword, drawn as a staff.
 const STAFF_CLASS := 5
 ## The class that fights with a greatsword (the Champion): posed like the sword (its blade follows the hits), drawn as a broad two-handed
@@ -3584,7 +3629,11 @@ func _pose_blade(s: Dictionary, delta: float) -> void:
 	if attacking and not bladed(_cls(s)) and not _thrust(_cls(s), String(s.move_name)):
 		var mt: PackedInt32Array = s.move_timing
 		if mt.size() >= 2 and float(s.state_frame) < float(mt[1]):
-			from_hand = old_hand.lerp(shoulder + FIST_CHAMBER, coil_k(float(s.state_frame), float(mt[1])))
+			# (An overhead forward air cocks the fist up behind the head instead, as the reference's does, both arms raised.)
+			var chamber := shoulder + FIST_CHAMBER
+			if use_base_body and _overhead_punch(s):
+				chamber = shoulder + Vector2.from_angle(deg_to_rad(OVERHEAD_FROM)) * arm_reach * 0.85
+			from_hand = old_hand.lerp(chamber, coil_k(float(s.state_frame), float(mt[1])))
 			hand = from_hand
 	if rig != null and arm_k > 0.0:
 		var to_tip := tip - shoulder
@@ -4083,7 +4132,9 @@ const HIGH_BLADE_ARM := 80.0
 const ARC_OPACITY := 0.62
 const ARC_STEPS := 36
 const ARC_Z := 0.6
-const ARC_PAST_HAND := 0.8
+## (Animation overhaul pass 5: the Claws class now wears modelled claws, so its arcs run at the claw tips, about this far past the wrist's
+## reach; at 0.8 they floated well clear of the bare fist.)
+const ARC_PAST_HAND := 0.6
 ## By class, then move (as the sim names it): its arcs, each [centre x, centre y, radius, from degrees, to degrees, first active frame,
 ## last active frame] in forward space (x forward and y up from the feet; 0 degrees is forward, 90 up), frames numbered as in the
 ## reference's frame data. An arc marked "arm" is the claw's own path: about the fighter's shoulder, just past the hand's reach.
@@ -4760,6 +4811,8 @@ func _apply_combat(s: Dictionary, delta: float) -> void:
 		p.visible = staff
 	for p in great_parts:
 		p.visible = great
+	for p in claw_parts:
+		p.visible = _cls(s) == 1
 	# Only the body moves leave the arms alone (the claws' listed ones; the needles' kicks, grabs and throws); the sword fighter always
 	# has its blade.
 	var body_move := false

@@ -321,3 +321,37 @@ a corkscrew about the upright body (no head-over-heels spin); wall jumps back-fl
   - The neutral air: its windmill round an upright body is the owner's earlier choice; the reference's body rolls with the circle
     (asked).
   - The forward air and the remaining moves are next.
+
+### Pass 5: the brawler family, Claws first: modelled claws that meet the hit
+
+- **Defect** (audit items 6 and 7, the Claws rows):
+  - The Claws class showed bare fists: no claw was modelled, and the weapon pivot is hidden for unarmed classes.
+  - At the strike the fist stopped 0.65-0.8 units short of the hitbox centre, and the claw arcs were drawn 0.8 past the hand, floating
+    ahead of it.
+- **Fix:**
+  - **The model:** a modelled claw, `art/blender/make_weapons.py` `claw()` (new; the hand weapons by script, like `make_gear.py`),
+    written to `godot/models/weapons/claw.glb`. It is 940 triangles, within the prop budget:
+    - a rounded steel plate over the knuckles;
+    - three thick curved claws ending in blunt hooks;
+    - a wrap round the wrist in the class's violet.
+  - **The mount:** `fighter_view.gd` `_mount_weapon_models` hangs one on each hand bone (`BoneAttachment3D`), turned along the forearm
+    with the back of the hand outward, so the clench, the IK and every swing carry it. It is shown only for class 1, and its steel is
+    darker than the blades so it reads against the white gloves.
+  - **The reach:** the claw tips now land inside the hitboxes (`reach_claws` before and after, the sim's hitboxes drawn in red), and the
+    claw arcs run at the tips (`ARC_PAST_HAND` 0.6, was 0.8).
+  - **The forward air:** a fist's overhead forward air now chambers up toward the head (`OVERHEAD_FROM`) rather than at the chest. The
+    short arms against the big head keep it at the face, not over it.
+  - The family's own stance (`idle_brawler`) and the coil come from passes 1 and 3.
+- **Files:** `art/blender/make_weapons.py`, `godot/models/weapons/claw.glb`, `godot/scripts/fighter_view.gd` (`_mount_weapon_models`,
+  `claw_parts`, `CLAW_LENGTH`, `HAND_WEAPON_FROM_WRIST`, `ARC_PAST_HAND`, the overhead chamber).
+- **Images:**
+  - `docs/screenshots/anim/pass5_claws.jpg`: the reach with the hitboxes, before and after; the forward smash and forward air, before
+    above and after below; the forward smash facing left.
+  - `docs/screenshots/anim/claw_model.png`: the model.
+- **Checked:** facing left; `anim_library_test`, `fighter_view_test`, `motion_test`, `match_flow_test`, `replay_test` and `look_bench`
+  pass. The "not inside tree" errors in `anim_sheet` runs predate this pass (the same count without the claws).
+- **Left:**
+  - In the brawler idle the raised claws stand beside the face, touching the goggles' edge on some looks: tilt them forward if it
+    reads as covering the face.
+  - Gauntlets and Bracers keep their fists (their stance and coil are shared).
+  - The claws are not on the old blob rigs.
