@@ -63,7 +63,7 @@ stones' warm-to-cool spread and keeps the moss under the logs. Built B (the owne
 re-lit: the wall measures hue 32, saturation 0.19 (from saturation 0.02). Before and after: `review8/meadow_wall_built.jpg`. Tests pass
 except the runner's two known flaky checks, which failed in 3 of 5 runs this time (the runner doesn't load the meadow's front).
 
-## Item 2, the meadow's mountains (2026-10-25, mock)
+## Item 2, the meadow's mountains (2026-10-25, built)
 
 `toon_common.gdshaderinc` `alt_bands` [snow line, rock top, tree line, amount] with `alt_snow`, `alt_rock`, `alt_foot`, `alt_rock_bands`:
 a modelled range painted by height, snow on the faces turned up above a ragged snow line (more near the summits), broken rock strata
@@ -72,10 +72,17 @@ palette's [backdrop] `range_form` (`--range-form=1|2`), the colours through the 
 [54, 48, 22], near [38, 32, 16] (first tried higher, the main peak took almost none). A snow and tree line; B with rock bands (they barely
 show). On the Stage Look Review ("mountain8", `m8_*`); recommended A.
 
-## Item 3, the canyon's front (2026-10-25, mock)
+## Item 3, the canyon's front (2026-10-25, built)
 
 `make_canyon_front.py --straight A|B` (with `--cut 1 --courses 1`, `courses_straight`): each course laid in long flat-fronted beds of
 rock (4 to 9 units, few clean vertical joints, each a little in or out; beds 0.75 thick) in place of one jutting front shared by every
 course, which bulged them all alike into wobbly plywood at the wide camera. Blocks of 1.4 to 3.6 were tried first and read as a brick
 wall. B sets every third bed back as a shadow line (barely visible). 21,600 triangles, from 38,500. On the Stage Look Review
 ("canyonfront8", `c8_*`); recommended A.
+
+## Items 2 and 3 built (2026-10-25)
+
+The owner picked A on both. The meadow's palette sets [backdrop] `range_form=1` (the snow and tree line, no rock bands). The canyon's
+front is rebuilt with `make_canyon_front.py --variant A --cut 1 --courses 1 --straight A` (21,632 triangles), and the canyon is re-lit
+(the light bake rewrote its paper and play pieces too). The canyon front measures value 0.35, saturation 0.57. Before and after
+(the meadow at the match camera, the canyon wide): `review8/mountains_canyon_built.jpg`. All seven tests pass.
