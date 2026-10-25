@@ -14,6 +14,7 @@ Calmer (fidelity review 8: B's underside was busy, rock, roots and moss all at o
      groups (a pair on the left, one on the right);
   B  massed: the stones gathered into a few large masses with dark earth between them, each mass one tone; moss only under the lip; the
      roots in one group sweeping from the left.
+Shipped since fidelity review 8 (the owner's pick): grove_front.glb `--variant B --calm A`.
 
 Run (Blender 5.2):
   blender --background --python art/blender/make_grove_front.py -- --dir godot/art/baked/<key> --variant A --out <file.glb>
