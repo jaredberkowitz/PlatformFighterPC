@@ -201,6 +201,7 @@ static func make(demo_name: String, m: Dictionary, dir: String):
 			d.cam_dist = 16.0
 			d.events = [[1, "stand", 0, 0.0, 1], [1, "stand", 1, 8.0, -1]]
 			d.timeline = [[0, 0, 0, 0], [20, -127, 0, 0], [23, 0, 0, 0], [26, -127, 0, 0], [70, 0, 0, 0]]
+			d.shots = [[34, "a_run_left"], [38, "b_run_left"], [42, "c_run_left"]]
 			d.end_frame = 72
 		"combat":
 			d.cam_dist = 20.0
