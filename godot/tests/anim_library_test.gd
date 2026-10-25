@@ -75,6 +75,10 @@ func _every_move_mapped() -> void:
 	check(AnimLibrary.attack_clip(3, "ftilt") == "kick_side" and AnimLibrary.attack_clip(4, "ftilt") == "kick_side", "side kicks")
 	# (Pass 12: the rusher's charged punch has its own wind-up.)
 	check(AnimLibrary.attack_clip(4, "neutral special") == "gaunt_punch", "the gauntlets' charged punch is its own")
+	# (Passes 13-15: the spins, the bounder's drop, the scamp's own moves.)
+	check(AnimLibrary.attack_clip(3, "dair") == "spin_arms_air" and AnimLibrary.OWN_ARMS.has("spin_arms_air"), "spins pose both arms")
+	check(AnimLibrary.attack_clip(8, "down special") == "body_drop", "the bounder's drop is seat first")
+	check(AnimLibrary.attack_clip(11, "neutral special") == "blaster" and AnimLibrary.attack_clip(11, "fsmash") != AnimLibrary.attack_clip(11, "usmash"), "the scamp's own moves")
 
 
 func _shared_states() -> void:

@@ -3627,10 +3627,15 @@ const OVERHEAD_CHAMBER := {12: {"fsmash": [165.0, -0.3]}, 7: {"fair": [110.0, 0.
 
 
 ## Moves (by class) that spin the whole body about its upright axis, arms out, as their references do: [first state frame, last, turns],
-## eased in and out. The all-rounder's down air (a spinning top), the Hauler's neutral air and its grounded and aerial spins. The pose is
+## eased in and out. The all-rounder's down air (a spinning top), the Hauler's neutral air and its grounded and aerial spins, the
+## Wanderer's spin attack (pass 14: its sword held out, SPIN_BLADE_TIP), the Settler's and the Scamp's neutral airs (pass 15). The pose is
 ## the arms-out clip (`spin_arms`, `spin_arms_air`); the turn depends only on the move's frame, so hitlag freezes it and a seek redraws
 ## it. (Animation overhaul pass 13.)
-const SPIN_MOVES := {3: {"dair": [3, 24, 3.0]}, 7: {"nair": [6, 27, 1.5], "up special": [16, 64, 6.0], "extra move 6": [2, 66, 7.0]}}
+const SPIN_MOVES := {3: {"dair": [3, 24, 3.0]}, 7: {"nair": [6, 27, 1.5], "up special": [16, 64, 6.0], "extra move 6": [2, 66, 7.0]},
+	9: {"up special": [5, 14, 2.0], "extra move 0": [6, 48, 6.0]}, 10: {"nair": [1, 23, 2.5]}, 11: {"nair": [6, 20, 2.0]}}
+## Where a sword is held while its body spins (forward space: out level at the hip, so the turning body sweeps it round, as the
+## Wanderer's spin attack does; the blade does not also follow the hitboxes, which go round with the body).
+const SPIN_BLADE_TIP := Vector2(2.2, 0.95)
 
 
 ## How far round a spinning move has turned the body (radians, 0 when not spinning).
@@ -3651,7 +3656,7 @@ func _whirl(s: Dictionary) -> float:
 ## the Hauler's clap far in front, both fists hammered down in front (its forward air) and the aerial clap (its overhead clap is left one-handed:
 ## two fists straight up covered the face). (Animation
 ## overhaul pass 12, after its reference's; the clip alone could not, as an attack clip's free arm is held in close to the body.)
-const BOTH_FISTS := {7: ["fsmash", "fair", "extra move 9"]}
+const BOTH_FISTS := {7: ["fsmash", "fair", "extra move 9"], 11: ["ftilt"]}
 ## Where the other fist sits against the striking one (model space: a little lower and further from the camera).
 const BOTH_FISTS_APART := Vector3(0.0, -0.08, -0.32)
 
@@ -3694,6 +3699,8 @@ func _pose_blade(s: Dictionary, delta: float) -> void:
 	var great_rest: bool = _cls(s) == GREATSWORD_CLASS and float(target[2]) == GREAT_REST_HAND.x
 	var old_hand := Vector2(float(target[2]), GREAT_REST_HAND.y if great_rest else HAND.y)
 	var tip := old_hand + Vector2.from_angle(deg_to_rad(blade_angle)) * blade_length
+	if bladed(_cls(s)) and _whirl(s) != 0.0:
+		tip = SPIN_BLADE_TIP
 	# In a swing the hand leaves its resting spot and sweeps round the shoulder, so the arm throws the blade through its arc; the blade
 	# then runs from the hand to the same tip.
 	var attacking: bool = s.move_name != "" and s.state_frame > 0
@@ -4313,6 +4320,21 @@ const ARCS := {
 		"bair": [[0.0, 1.1, 2.3, 215, 140, 11, 12]],
 		"uair": [[0.1, 1.3, 2.3, 175, 60, 7, 10]],
 		"ledge attack": [[0.3, 0.8, 2.3, 120, -20, 20, 22]],
+	},
+	# Wanderer (Buckler, pass 14): its sword's swings, which drew no trail at all (the class had no entry), fitted to its hitboxes'
+	# angles about the shoulder, a little smaller than its hitboxes reach (its sword is shorter than they are), on its active frames
+	# (content/base.pfc) put two later, so the trail starts as the blade arrives instead of ahead of it. Its thrusts (jab 3, up and down
+	# airs), kicks (neutral and back airs) and the spin (the body turns, SPIN_MOVES) draw none.
+	9: {
+		"jab": [[0.3, 1.1, 2.0, 60, -15, 8, 9]],
+		"jab 2": [[0.3, 1.1, 2.0, -35, 25, 6, 7]],
+		"ftilt": [[0.3, 1.1, 2.1, 110, -15, 17, 21]],
+		"utilt": [[0.2, 1.15, 2.1, 165, 55, 9, 13]],
+		"dtilt": [[0.3, 1.1, 2.0, 10, -55, 11, 12]],
+		"dash attack": [[0.3, 1.1, 2.1, 95, -15, 22, 25]],
+		"fsmash": [[0.5, 1.15, 2.2, 120, -12, 19, 20]],
+		"dsmash": [[0.0, 2.6, 2.4, -100, -35, 13, 14], [0.0, 2.6, 2.5, -80, -150, 25, 26]],
+		"fair": [[0.4, 1.05, 2.1, 130, -20, 17, 18]],
 	},
 	# Nodachi (pass 10): its long blade's swings, circles about the shoulder wider than the longsword's for the longer blade, on its own
 	# active frames (content/base.pfc). The level cuts (forward tilt, forward smash) sweep across in front; the plunging down air draws

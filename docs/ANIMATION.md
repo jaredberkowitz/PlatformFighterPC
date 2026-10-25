@@ -554,3 +554,34 @@ a corkscrew about the upright body (no head-over-heels spin); wall jumps back-fl
 - **Checked:** facing left (contact sheets); the six tests pass.
 - **Left:** the Dagger's corkscrew neutral air and the Popgun's spinning neutral air could use `SPIN_MOVES` too (their weapon or kicking leg
   would need holding still through the turn).
+
+### Pass 14: the Wanderer's sword trails and its spin attack (Buckler)
+
+- **Defect:** the Buckler's sword swings drew no trail at all (`ARCS` had no entry for class 9, though it is listed for tip-following
+  arcs), and its spin attack (up special), its reference's signature, played the shared uppercut with the body still.
+- **Fix (`fighter_view.gd`):**
+  - `ARCS[9]`: the jab, jab 2, forward, up and down tilts, dash attack, forward smash, down smash (front then behind) and forward air,
+    fitted to the hitboxes' angles about the shoulder (`content/base.pfc`), a little smaller than the hitboxes reach (its sword is shorter
+    than they are), and started two or three frames after the hitboxes' first frame, so the trail grows from the blade instead of ahead of
+    it (checked frame by frame against the blade). The thrusts, kicks and the spin draw none.
+  - The spin attack: the body turns round twice over frames 5-14 (`SPIN_MOVES`), crouched low and wide (`sword_dsmash`), the sword held
+    out level at the hip (`SPIN_BLADE_TIP`) so the turning body sweeps it round; the aerial spin turns six times, tucked.
+- **Image:** `docs/screenshots/anim/pass14_buckler.jpg`: the forward tilt and forward smash before and after, frame by frame; the up tilt's
+  trail; the spin attack before and after.
+- **Checked:** facing left (contact sheet); the six tests pass.
+- **Left:** facing left, the Buckler's blade points at the camera in some recoveries and reads as a bare hilt (as on the base branch).
+
+### Pass 15: the Scamp's own moves (Popgun) and the Settler's spinning neutral air (Pockets)
+
+- **Defect:** the Popgun had no clips of its own (`CLASS_MOVES` had no entry for class 11): every move was the shared punch, the forward,
+  up and down smashes one pose three times, the kicks and the flip kicks punches.
+- **Fix (mapping, `CLASS_MOVES[11]`, after the moveset report's list for the art agent):** a side kick ending the jab, slaps swung across
+  for the forward tilt (both hands: `BOTH_FISTS`) and forward smash, flip kicks overhead for the up smash and up air, the slaps low in front
+  then behind for the down smash, kicks for the forward and back airs, both feet stomped down for the down air, the popgun drawn and aimed,
+  the peel tossed over the shoulder, the cartwheel as a flying kick, and a spin with both arms out for the neutral air (`SPIN_MOVES`).
+- **Pockets:** its reference's neutral air spins with the arms out; it played the sword's windmill pose. Now `spin_arms_air` with the body
+  turning 2.5 times.
+- **Image:** `docs/screenshots/anim/pass15_popgun_pockets.jpg`: the Popgun's jab, forward tilt, forward smash, up smash, down smash, neutral,
+  forward, up and down airs at the strike, before above and after below; then the Pockets' and the Popgun's neutral airs frame by frame.
+- **Checked:** facing left (contact sheets); the six tests pass.
+- **Left:** the monkey flip, the rocket and its latch keep their fallbacks (they need their own poses: a flip, a ride, a seat on a head).

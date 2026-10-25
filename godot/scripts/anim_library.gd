@@ -271,6 +271,10 @@ const CLASS_MOVES := {
 		"fsmash": "sword_fsmash",
 		"usmash": "sword_usmash",
 		"dsmash": "sword_dsmash",
+		# (The spin attack: crouched low and wide, the game turning the body round twice with the blade held out; the aerial spin
+		# tucked. Pass 14.)
+		"up special": "sword_dsmash",
+		"extra move 0": "attack_nair",
 	},
 	# Pockets (the Settler, after the reference villager): the shovel dug in front and behind, the slingshot drawn and loosed forward
 	# (aimed like the blaster); its back air keeps the shared turn to face behind.
@@ -283,6 +287,8 @@ const CLASS_MOVES := {
 		"dash attack": "tool_trip",
 		"dsmash": "sword_dsmash",
 		"fair": "blaster",
+		# (The neutral air spins with both arms out, the game turning the body: pass 15.)
+		"nair": "spin_arms_air",
 		"extra move 0": "attack_uair",
 		"extra move 1": "attack_uair",
 		"extra move 2": "attack_dair",
@@ -303,6 +309,25 @@ const CLASS_MOVES := {
 		"extra move 11": "tool_pour",
 		"extra move 12": "tool_chop",
 		"extra move 13": "tool_shrug",
+	},
+	# Popgun (the Scamp, after its reference's moves; it had no clips of its own: every move was a shared punch). Pass 15: a side kick to
+	# end the jab, slaps swung across for the tilts and the forward smash (the forward tilt with both hands), flip kicks overhead for the
+	# up smash and up air, the slaps in front then behind low, kicks for the forward and back airs, a spin with the arms out for the
+	# neutral air (the game turns the body), both feet stomped down, the popgun drawn and aimed, the peel tossed over the shoulder, the
+	# cartwheeling dash attack as a flying kick.
+	11: {
+		"jab 3": "kick_side",
+		"dash attack": "kick_dash",
+		"fsmash": "attack_swing",
+		"usmash": "kick_uair",
+		"dsmash": "sword_dsmash",
+		"nair": "spin_arms_air",
+		"fair": "kick_nair",
+		"bair": "kick_bair",
+		"uair": "kick_uair",
+		"dair": "gaunt_stomp",
+		"neutral special": "blaster",
+		"down special": "tool_toss",
 	},
 	# Nodachi: the longsword's cuts for its sword moves (its long blade follows its hits on the weapon pivot, as the other swords'), the
 	# down air a plunge straight down. (Animation overhaul pass 9.)
