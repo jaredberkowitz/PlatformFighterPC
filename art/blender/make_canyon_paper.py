@@ -28,6 +28,12 @@ the plain empty at the wide camera; the arch boxy), on KC's floor with `--arch s
   `--fight wide`    with it, the butte behind the fight a broad flat-topped mesa, a calm table behind the fighters, not a pillar;
   `--plain outcrops` low rock ledges and boulders across the plain, off the wash, the buttes' feet and the strip behind the fight.
 
+New art toward 5 (docs/art/stages/NEW_ART_PLAN.md, C3 and C2, the owner's approval 2026-10-25), on KC:
+  `--foot talus`  the stage mesa's foot: a fan of fallen sandstone blocks and scree spreading from its sides onto the floor, the biggest
+                  nearest the wall, so the mesa stands on the ground;
+  `--hoodoos N`   N clusters of wind-carved hoodoos on the floor either side of the mesa, at true size (columns of stacked strata under a
+                  wider cap stone), with boulders round them and their shade.
+
 Shipped (fidelity review 7, the owner's pick B, 2026-10-22): godot/models/stages/canyon_paper.glb, `--variant KC --arch chipped
 --buttes solid --fight broken --plain outcrops`, then lit (review 6's had `--fight wide`, review 5's `--variant KC --arch solid`).
 
@@ -52,6 +58,12 @@ CHIP = opts.get("arch", "") == "chipped"
 LAYOUT = json.load(open(os.path.join(opts["dir"], "ground.json")))
 FLOOR = -16.0
 STRATA = ["rock_a", "rock_b", "rock_a", "rock_c"]
+FOOT = opts.get("foot", "")
+HOODOOS = int(opts.get("hoodoos", "0"))
+# The stage mesa (the play block from the bake manifest): its sides and its front, for the talus at its foot.
+MANIFEST = json.load(open(os.path.join(opts["dir"], "manifest.json")))
+STAGE = [r for r in MANIFEST["rects"] if r[4] < 0.5][0]
+STAGE_FZ = float(MANIFEST["front_z"])
 
 
 def P(x, y, z):
@@ -474,6 +486,70 @@ def outcrops(rng):
         shade(nm + "_shade", x, seat(x, z), z, max(rx, rz) * 1.1)
 
 
+def mesa_foot(rng):
+    """The stage mesa's foot (C3): either side, a fan of scree a step darker than the sand, and on it fallen blocks of the mesa's strata,
+    the biggest against the wall and smaller out across the fan."""
+    cx = (STAGE[0] + STAGE[1]) * 0.5
+    half = (STAGE[1] - STAGE[0]) * 0.5 * 1.04
+    for side in (-1.0, 1.0):
+        fx = cx + side * (half + 3.5)
+        floor_sheet("scree%d" % (side > 0), "scree", oblong(fx, STAGE_FZ - 2.5, 7.5, 5.5, rng), FLOOR + 0.42)
+        for q in range(12):
+            d = rng.uniform(0.0, 1.0) ** 1.4
+            x = cx + side * (half + 0.4 + d * 8.5)
+            z = STAGE_FZ - rng.uniform(-1.5, 6.5) + d * 1.5
+            sz = (2.4 - 1.9 * d) * rng.uniform(0.7, 1.15)
+            y = seat(x, z) - 0.2
+            block("talus%d_%d" % (side > 0, q), rng.choice(STRATA), facet_ring(x, z, sz, sz * 0.75, rng.randrange(4, 7), rng,
+                  rng.uniform(0, math.tau)), y, y + sz * rng.uniform(0.7, 1.2), sz * 0.22)
+        shade("talus%d_shade" % (side > 0), cx + side * (half + 2.0), FLOOR + 0.45, STAGE_FZ - 1.5, 4.5)
+
+
+def hoodoos(rng):
+    """Clusters of hoodoos either side of the mesa (C2), at true size: each column a stack of strata blocks narrowing upward under a
+    wider pale-banded cap stone, two to four to a cluster, boulders round them and their shade; off the wash, the arch and the buttes'
+    feet, and clear of the strip under the fight."""
+    feet = [((m[0] + m[3]) * 0.5, (m[2] + m[5]) * 0.5, (m[3] - m[0]) * 0.6, (m[5] - m[2]) * 0.6) for m in LAYOUT.get("mesas", [])]
+    a = LAYOUT.get("arch")
+    if a:
+        feet.append(((a[0] + a[3]) * 0.5, (a[2] + a[5]) * 0.5, (a[3] - a[0]) * 0.8, (a[5] - a[2]) * 1.4))
+    line = wash_line()
+    placed = []
+    tries = 0
+    while len(placed) < HOODOOS and tries < 4000:
+        tries += 1
+        side = -1.0 if len(placed) % 2 == 0 else 1.0
+        x, z = side * rng.uniform(22.0, 58.0), rng.uniform(-34.0, -4.0)
+        if any(((x - fx) / fr) ** 2 + ((z - fz) / fd) ** 2 < 1.0 for (fx, fz, fr, fd) in feet):
+            continue
+        if near_wash(line, x, z, 7.0) or any(math.hypot(x - px, z - pz) < 18.0 for (px, pz) in placed):
+            continue
+        placed.append((x, z))
+        k = len(placed) - 1
+        for c in range(rng.randrange(2, 5)):
+            hx, hz = x + rng.uniform(-3.5, 3.5), z + rng.uniform(-2.0, 2.0)
+            h = rng.uniform(4.0, 9.0) * (1.0 - 0.25 * c / 4.0)
+            r = rng.uniform(0.9, 1.4)
+            y = seat(hx, hz) - 0.2
+            nm = "hoodoo%d_%d" % (k, c)
+            rot = rng.uniform(0, math.tau)
+            bands = rng.randrange(3, 5)
+            for q in range(bands):
+                ya, yb = y + h * q / bands, y + h * (q + 1) / bands
+                # (Narrowing up the column, a waist below the cap where the soft rock wore away.)
+                rr = r * (1.0 - 0.18 * q / bands) * (0.85 if q == bands - 1 else 1.0)
+                block(nm, STRATA[(q + k) % len(STRATA)], facet_ring(hx, hz, rr, rr * 0.85, 6, rng, rot), ya, yb, 0.15)
+            block(nm, "rock_c", facet_ring(hx, hz, r * 1.35, r * 1.15, 5, rng, rot), y + h, y + h + 0.35, 0.08)
+            block(nm, "rock_b", facet_ring(hx + rng.uniform(-0.2, 0.2), hz, r * 1.25, r * 1.05, 5, rng, rot), y + h + 0.35, y + h + 1.1, 0.3)
+        for q in range(rng.randrange(3, 6)):
+            ang = rng.uniform(0, math.tau)
+            bx, bz = x + 5.0 * math.cos(ang), z + 3.0 * math.sin(ang)
+            sz = rng.uniform(0.6, 1.5)
+            block("hoodoo%d_b" % k, rng.choice(STRATA), facet_ring(bx, bz, sz, sz * 0.8, rng.randrange(4, 6), rng), seat(bx, bz) - 0.2,
+                  seat(bx, bz) + sz * 1.1, sz * 0.25)
+        shade("hoodoo%d_shade" % k, x, seat(x, z), z, 6.0)
+
+
 def arch_blocks(name, b, rng, courses=False):
     """The arch: two legs of blocks (or slab courses) and a span of three bevelled beams bowing across their tops."""
     x0, y0, z0, x1, y1, z1 = b
@@ -816,6 +892,11 @@ def build_ground():
                 butte_blocks("butte%d" % k, m, rng, notched=VARIANT == "KC")
         if opts.get("plain", "") == "outcrops":
             outcrops(random.Random(71))
+        # (New art toward 5: their own random numbers, so the rest keeps its layout.)
+        if FOOT == "talus":
+            mesa_foot(random.Random(301))
+        if HOODOOS:
+            hoodoos(random.Random(307))
         if LAYOUT.get("arch"):
             # (`--arch solid`: fidelity review 5's rock arch, `arch_rock`; `--arch chipped` it broken, review 6.)
             if opts.get("arch", "") in ("solid", "chipped"):

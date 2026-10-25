@@ -1015,6 +1015,9 @@ static func _ground_colours(t: Dictionary) -> Dictionary:
 	out["rock_c"] = soil.lerp(Color(1.0, 0.86, 0.66), 0.35).darkened(0.08)
 	# (Deeper and rosier than the painted dunes' sands: as flats they take the full air of their depth and faded into the horizon.)
 	out["dune_far"] = Color(0.9, 0.6, 0.5)
+	# (New art toward 5, C3: the scree at the mesa's foot, a step deeper and redder than the sand.)
+	out["scree"] = (t.get("soil", Color(0.86, 0.5, 0.32)) as Color).lerp(Color(0.94, 0.68, 0.4), 0.45).darkened(0.08)
+	out["card_scree"] = (out["scree"] as Color).darkened(0.1)
 	out["dune_near"] = Color(0.92, 0.58, 0.42)
 	for fam in ["rock_a", "rock_b", "rock_c", "dune_far", "dune_near"]:
 		out["card_" + fam] = (out[fam] as Color).darkened(0.1)
@@ -1084,6 +1087,12 @@ static func _ground_colours(t: Dictionary) -> Dictionary:
 	out["valley_lit"] = Color(0.4, 0.5, 0.62)
 	out["valley_shade"] = Color(0.28, 0.3, 0.5)
 	out["valley_bark"] = Color(0.32, 0.28, 0.44)
+	# (New art toward 5, G1: the grove's falls in two pale blues, their spray, and the mist's farther layers paler with depth.)
+	out["fall"] = Color(0.84, 0.93, 0.98)
+	out["fall_shade"] = Color(0.6, 0.76, 0.9)
+	out["spray"] = Color(0.92, 0.94, 1.0)
+	out["abyss_mist2"] = Color(0.5, 0.44, 0.7)
+	out["abyss_mist3"] = Color(0.58, 0.52, 0.78)
 	# (One rock for the grove, fidelity review 9: the island's underside is grey-green stone, the terraces' blocks a deep teal, two
 	# languages side by side. The palette's [backdrop] `cliff_stone` (or `--cliff-stone=`), how far the terraces' rock turns to the
 	# island's stone, its value kept deep for the fighters in front of it.)

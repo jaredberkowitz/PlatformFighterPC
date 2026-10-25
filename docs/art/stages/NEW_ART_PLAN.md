@@ -94,3 +94,24 @@ These are small, far and slow. They lift "world and life", and the owner rejecte
 4. **World detail** stage by stage, after the lower thirds.
 
 About 8 to 10 sessions for the recommended set. The fighters, half of every still, stay with the character and animation sessions.
+
+## Approved (2026-10-25)
+
+The owner approved the recommended set: M1, G1 + G3, C3 + C2, B1, Ci1, then world detail, starting with the grove's falls and the
+canyon's mesa foot.
+
+### Step 1, the grove's falls and the canyon's mesa foot (mock)
+
+- **Grove** (`make_grove_paper.py`, on the shipped `--variant H --rock shaped --abyss mist --valley none`): `--falls N` (`falls`: edges
+  over the open chasm facing the camera, 15 to 32 units from the middle, 12 apart; each fall cut strips in `fall` and `fall_shade`
+  arcing out from the lip to the mist, `spray` puffs at its foot), `--mist 3` (three layers, `abyss_mist`, `abyss_mist2`, `abyss_mist3`,
+  paler with depth), `--roots long` (the lips' roots 2.4 times as long, the same random draws). A `--falls 2`, B `--falls 3`. A first
+  placement at about 40 from the middle fell off the wide frame. P1's gap 0.059 today, 0.064 (A), 0.062 (B). About 136,000 triangles
+  (135,000 today).
+- **Canyon** (`make_canyon_paper.py`, on the shipped KC): `--foot talus` (`mesa_foot`: either side of the stage mesa, a `scree` sheet
+  and twelve fallen strata blocks, the biggest against the wall) and `--hoodoos N` (`hoodoos`: clusters of two to four columns of
+  stacked strata narrowing to a pale band and a cap stone, 4 to 9 units, boulders and shade round them, 22 to 58 either side, off the
+  wash, the arch and the buttes' feet). A three clusters, B five. P1's gap 0.036 today, 0.039 (A), 0.038 (B). 23,700 and 24,800
+  triangles.
+
+On the Stage Look Review ("falls12", `fl12_*`; "mesafoot12", `mf12_*`); recommended B on both.

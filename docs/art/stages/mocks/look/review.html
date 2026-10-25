@@ -88,8 +88,40 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
     <p>Two lessons from the reference screenshots, mocked from the match camera: the scenery without ink outlines, its edges lit as card bevels instead, and the paper houses rebuilt at the characters' proportions. The earlier rounds stay on the <a href="https://claude.ai/artifact/D1du6MREVumiJDrEdNypW4">Stage Fidelity Review</a>, which is full.</p>
   </header>
 
+  <section class="panel" aria-labelledby="fl12-h" id="falls12">
+    <div class="eyebrow">Your call is needed &middot; new art, step 1: the grove's falls (G1 + G3)</div>
+    <h2 id="fl12-h">Waterfalls into the mist, and longer roots</h2>
+    <p>The first approved new art. Waterfalls pour off the terraces' lips into the abyss beside the island, each a sheet of cut paper strips in two pale blues arcing off the edge, with spray heaped where they meet the mist. The mist is rebuilt in three layers that pale with depth, and the roots hanging from the terraces' lips grow long into the abyss.</p>
+    <div class="tablewrap"><table><thead><tr><th>Option</th><th>What changes</th><th>P1's gap (today 0.059)</th></tr></thead><tbody>
+      <tr><td>A &middot; Two falls</td><td>Two falls, both to the right of the island</td><td>0.064</td></tr>
+      <tr><td>B &middot; Three falls</td><td>Three: two to the right, one to the left, framing the island</td><td>0.062</td></tr>
+    </tbody></table></div>
+    <p>The abyss at the wide camera: today, A, B.</p>
+    <div class="viewer"><img src="fl12_close.jpg" alt="The grove's abyss today and with falls"></div>
+    <div class="row" role="group" aria-label="View"><button data-fl12v="m">Match camera</button><button data-fl12v="w">Wide</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-fl12o="T">Today</button><button data-fl12o="A">A &middot; Two falls</button><button data-fl12o="B">B &middot; Three falls</button></div>
+    <div class="viewer"><img id="fl12img" alt="Grove falls option"><span class="vtag" id="fl12tag"></span></div>
+    <p class="muted">My pick: <b>B</b>. Falls on both sides frame the island and give the abyss its depth. They're static paper for now; a slow movement down the strips can follow once the look is picked. A first placement put them too far out, off the wide frame. Shown before the light bake.</p>
+  </section>
+
+  <section class="panel" aria-labelledby="mf12-h" id="mesafoot12">
+    <div class="eyebrow">Your call is needed &middot; new art, step 1: the canyon's mesa foot (C3 + C2)</div>
+    <h2 id="mf12-h">The mesa standing on the ground, and hoodoos on the floor</h2>
+    <p>Either side of the stage's mesa, a fan of scree a step deeper than the sand, with fallen sandstone blocks on it, the biggest against the wall. Across the floor either side, clusters of hoodoos at true size: columns of the mesa's own strata narrowing up to a wider cap stone, with boulders round them and their sunset shade.</p>
+    <div class="tablewrap"><table><thead><tr><th>Option</th><th>What changes</th><th>P1's gap (today 0.036)</th></tr></thead><tbody>
+      <tr><td>A &middot; Three clusters</td><td>The talus fans, and three hoodoo clusters</td><td>0.039</td></tr>
+      <tr><td>B &middot; Five clusters</td><td>The talus fans, and five clusters, more of the floor filled</td><td>0.038</td></tr>
+    </tbody></table></div>
+    <p>Close at the wide camera: the right of the mesa (today, A), then the left (today, B).</p>
+    <div class="viewer"><img src="mf12_close.jpg" alt="The canyon's floor today and with the mesa foot and hoodoos"></div>
+    <div class="row" role="group" aria-label="View"><button data-mf12v="m">Match camera</button><button data-mf12v="w">Wide</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-mf12o="T">Today</button><button data-mf12o="A">A &middot; Three clusters</button><button data-mf12o="B">B &middot; Five clusters</button></div>
+    <div class="viewer"><img id="mf12img" alt="Canyon mesa foot option"><span class="vtag" id="mf12tag"></span></div>
+    <p class="muted">My pick: <b>B</b>. The floor either side of the mesa finally has forms and shadows, and the mesa sits on its own rubble. About 1,000 triangles more than A, and the whole canyon background stays under 25,000. Shown before the light bake.</p>
+  </section>
+
   <section class="panel" aria-labelledby="na-h" id="newart">
-    <div class="eyebrow">Your call is needed &middot; new art toward 5: options to approve</div>
+    <div class="eyebrow">Approved (the recommended set) &middot; new art toward 5</div>
     <h2 id="na-h">What new art would take the stages to 5</h2>
     <p>Review 10 put every stage at a clear 4, and the refinements are now moving the measurements by a hundredth or two. This is the new art that could lift each stage, as options. Nothing is built until you approve it. Each approved option then gets the usual round: mocks at both cameras, your pick, then build. The full plan is in docs/art/stages/NEW_ART_PLAN.md.</p>
     <p><b>Every option keeps your rules:</b> no animals; world details far back at true size; land connected and every tree seated; nothing new near the fight (the fighters' contrast measured on every mock); one stage at a time; paper-style Blender pieces; about 60,000 triangles per stage at most.</p>
@@ -1870,5 +1902,25 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
   group("data-gf11v", function (v) { gf11v = v; }, gf11render);
   group("data-gf11o", function (v) { gf11o = v; }, gf11render);
   gf11render();
+  var fl12v = "w", fl12o = "B";
+  var FL12O = { T: "Today", A: "A \u00b7 Two falls", B: "B \u00b7 Three falls" };
+  function fl12render() {
+    document.getElementById("fl12img").src = "fl12_" + fl12o + "_" + fl12v + ".jpg";
+    document.getElementById("fl12tag").textContent = "Grove \u00b7 " + FL12O[fl12o] + (fl12v === "w" ? " \u00b7 wide" : " \u00b7 match camera");
+    pressed("data-fl12v", fl12v); pressed("data-fl12o", fl12o);
+  }
+  group("data-fl12v", function (v) { fl12v = v; }, fl12render);
+  group("data-fl12o", function (v) { fl12o = v; }, fl12render);
+  fl12render();
+  var mf12v = "w", mf12o = "B";
+  var MF12O = { T: "Today", A: "A \u00b7 Three clusters", B: "B \u00b7 Five clusters" };
+  function mf12render() {
+    document.getElementById("mf12img").src = "mf12_" + mf12o + "_" + mf12v + ".jpg";
+    document.getElementById("mf12tag").textContent = "Canyon \u00b7 " + MF12O[mf12o] + (mf12v === "w" ? " \u00b7 wide" : " \u00b7 match camera");
+    pressed("data-mf12v", mf12v); pressed("data-mf12o", mf12o);
+  }
+  group("data-mf12v", function (v) { mf12v = v; }, mf12render);
+  group("data-mf12o", function (v) { mf12o = v; }, mf12render);
+  mf12render();
 })();
 </script>
