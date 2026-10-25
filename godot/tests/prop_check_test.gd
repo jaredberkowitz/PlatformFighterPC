@@ -19,6 +19,7 @@ const CENTRED := {
 	"lighthouse": "its rock footing runs under the sea",
 	"paper_props/prop_fence_rail": "centred on its height between the posts",
 	"paper_lantern": "hangs from its origin on a lantern string", "string_bulb": "as paper_lantern",
+	"paper_props/prop_net_float": "floats with its foot under the water",
 }
 ## The most triangles one prop may have (the cottage, the busiest, is about 8800).
 const BUDGET := 10000

@@ -4052,11 +4052,19 @@ static func _flower_clusters(root: Node3D, e: Array, rng: RandomNumberGenerator,
 			var cz := rng.randf_range(-4.6, -2.4)
 			for k in rng.randi_range(3, 5):
 				var p := Vector3(cx + rng.randf_range(-0.7, 0.7), top + 0.08, cz + rng.randf_range(-0.6, 0.6))
+				# (The paper kit's flower and leaf tuft where it has them, fidelity review 7: the clusters were spheres. The same random
+				# draws either way, so nothing else moves.)
+				if paper_kit != null and paper_kit.find_child("prop_leaf_tuft", true, false) != null:
+					_paper(root, "flower", Transform3D(Basis(Vector3.UP, float(k) * 1.7), Vector3(p.x, top, p.z)), {"petal": petals[k % petals.size()]})
+					continue
 				_mesh(root, _sphere(0.13, 8), _unshaded(petals[k % petals.size()]), p)
 				_mesh(root, _sphere(0.06, 6), heart, p + Vector3(0, 0.04, 0.08))
 			for k in 3:
 				var p := Vector3(cx + rng.randf_range(-0.9, 0.9), top + 0.1, cz + rng.randf_range(-0.7, 0.4))
-				_mesh(root, _sphere(1.0, 6), tuft, p, Vector3(0.22, 0.3, 0.18) * rng.randf_range(0.8, 1.3))
+				var sc := rng.randf_range(0.8, 1.3)
+				if _paper(root, "leaf_tuft", Transform3D(Basis(Vector3.UP, p.x * 3.1).scaled(Vector3.ONE * sc * 1.2), Vector3(p.x, top, p.z)), {"leaf": tuft_colour}):
+					continue
+				_mesh(root, _sphere(1.0, 6), tuft, p, Vector3(0.22, 0.3, 0.18) * sc)
 
 
 ## What hangs under the stage, below its lowest block `e` = [left, right, top, bottom], so the stage reads as a place (an island, a mesa,
@@ -5074,8 +5082,10 @@ static func _sunset(root: Node3D, t: Dictionary, stage: Array) -> void:
 		if absf(at.x) < 36.0:
 			prev = Vector3.INF
 			continue
-		_mesh(root, _cylinder(0.22, 0.28, 9.0, 6), pole, at + Vector3(0, 4.5, 0))
-		_mesh(root, _box(Vector3(2.6, 0.22, 0.22)), pole, at + Vector3(0, 8.4, 0))
+		# (The paper kit's pole where it has one, fidelity review 7: the last code-built poles; the built one stands in without.)
+		if not _paper(root, "telegraph_pole", Transform3D(Basis(Vector3.UP, 0.15 * sin(k * 2.1)), at)):
+			_mesh(root, _cylinder(0.22, 0.28, 9.0, 6), pole, at + Vector3(0, 4.5, 0))
+			_mesh(root, _box(Vector3(2.6, 0.22, 0.22)), pole, at + Vector3(0, 8.4, 0))
 		var hook := at + Vector3(0, 8.6, 0)
 		if prev != Vector3.INF:
 			var last := prev
@@ -5432,6 +5442,9 @@ static func _hut_floats(root: Node3D, at: Vector3) -> void:
 		var buoy := Bob.new()
 		buoy.position = at + Vector3(-4.2 - k * 2.2, 0.1, 2.6 - k * 1.4)
 		root.add_child(buoy)
+		# (The paper kit's float where it has one, fidelity review 7; the built one stands in without.)
+		if _paper(buoy, "net_float", Transform3D(Basis(Vector3.UP, float(k) * 0.9), Vector3.ZERO)):
+			continue
 		_mesh(buoy, _sphere(0.5, 10), FighterView.toon(Color(0.95, 0.3, 0.3)), Vector3.ZERO, Vector3(1.0, 0.8, 1.0))
 		_mesh(buoy, _cylinder(0.52, 0.52, 0.22, 10), FighterView.toon(Color(0.98, 0.96, 0.92)), Vector3(0, 0.05, 0))
 

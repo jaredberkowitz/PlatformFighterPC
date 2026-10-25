@@ -785,10 +785,72 @@ def roof_vent(p):
     to_object("bands", bm, "metal_dark", p, smooth=True)
 
 
+def telegraph_pole(p):
+    """The canyon's telegraph pole at its true size (fidelity review 7: the last code-built pieces): a rolled pole 9 tall tapering up, its
+    rolls scored, a crossarm 2.6 wide at 8.4 with a brace each side, four glass insulators on top of it (the wire hooks at 8.6)."""
+    bm = bmesh.new()
+    prof = [(0.3, 0.0), (0.27, 1.0), (0.22, 9.0)]
+    lathe(bm, prof, 12)
+    to_object("pole", bm, "wood", p, smooth=True)
+    bm = bmesh.new()
+    scores(bm, prof, 6, half=0.03)
+    to_object("pole_scores", bm, "wood_dark", p, smooth=True)
+    bm = bmesh.new()
+    tube(bm, Vector((-1.3, 0, 8.4)), Vector((1.3, 0, 8.4)), 0.11, segs=8)
+    for sx in (-1.0, 1.0):
+        tube(bm, Vector((0, 0, 7.6)), Vector((sx * 0.7, 0, 8.36)), 0.045, segs=6)
+    to_object("arm", bm, "wood_dark", p, smooth=True)
+    bm = bmesh.new()
+    for x in (-1.1, -0.45, 0.45, 1.1):
+        prof_i = [(0.0, 8.5), (0.07, 8.5), (0.08, 8.58), (0.06, 8.66), (0.03, 8.72), (0.0, 8.72)]
+        lathe(bm, [(r, z) for (r, z) in prof_i], 8)
+        for v in bm.verts[-8 * len(prof_i):]:
+            v.co.x += x
+    to_object("insulators", bm, "glass", p, smooth=True)
+
+
+def net_float(p):
+    """A fisherman's float bobbing on the water (fidelity review 7: the stilt hut's floats were two spheres): a rolled body, red, with a
+    white band round its middle and a rope loop on top, its foot in the water."""
+    prof = [(0.0, -0.32), (0.3, -0.28), (0.46, -0.12), (0.5, 0.05), (0.42, 0.24), (0.22, 0.36), (0.0, 0.38)]
+    bm = bmesh.new()
+    lathe(bm, prof, 16)
+    to_object("body", bm, "red", p, smooth=True)
+    bm = bmesh.new()
+    torus(bm, Vector((0, 0, 0.05)), (0, 0, 1), 0.5, 0.06, segs=20, rsegs=6)
+    to_object("band", bm, "white", p, smooth=True)
+    bm = bmesh.new()
+    torus(bm, Vector((0, 0, 0.5)), (0, 1, 0), 0.12, 0.025, segs=12, rsegs=5)
+    to_object("loop", bm, "band", p, smooth=True)
+
+
+def leaf_tuft(p):
+    """A low tuft of rolled leaves for the grove's flower clusters (fidelity review 7: the clusters' leaves were green spheres): seven
+    curled leaf strips fanning from the middle, longer at the back."""
+    bm = bmesh.new()
+    for k in range(7):
+        a = math.tau * k / 7 + 0.3
+        ln = 0.32 + 0.12 * (0.5 + 0.5 * math.sin(a + 1.2))
+        d = Vector((math.cos(a), math.sin(a), 0.0))
+        s = Vector((-d.y, d.x, 0.0)) * 0.05
+        pts = []
+        for i in range(5):
+            t = i / 4
+            c = d * ln * t + Vector((0, 0, 0.24 * math.sin(t * math.pi * 0.8)))
+            w = (1.0 - t) * 0.9 + 0.1
+            pts.append((c + s * w, c - s * w))
+        for i in range(4):
+            a0, b0 = pts[i]
+            a1, b1 = pts[i + 1]
+            bm.faces.new([bm.verts.new(a0), bm.verts.new(a1), bm.verts.new(b1), bm.verts.new(b0)])
+    to_object("leaves", bm, "leaf", p, smooth=True)
+
+
 PROPS = [("hay_bale", hay_bale), ("barrel", barrel), ("signpost", signpost), ("rock", rock), ("fence_post", fence_post),
          ("fence_rail", fence_rail), ("flower", flower), ("mushroom", mushroom), ("stump", stump), ("crate", crate),
          ("lamp_post", lamp_post), ("life_ring", life_ring), ("potted_plant", potted_plant), ("cactus", cactus),
-         ("water_tower", water_tower), ("ac_unit", ac_unit), ("roof_vent", roof_vent)]
+         ("water_tower", water_tower), ("ac_unit", ac_unit), ("roof_vent", roof_vent),
+         ("telegraph_pole", telegraph_pole), ("net_float", net_float), ("leaf_tuft", leaf_tuft)]
 
 
 def bake_occlusion(distance, floor_z=0.0, floor_at=(80.0, 0.0), floor_size=320.0):

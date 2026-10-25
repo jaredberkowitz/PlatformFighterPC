@@ -136,3 +136,15 @@ It reads more as a partly cloudy day than crisp pools of sun: the paper look's f
 **Built (2026-10-23): shaped light A** (the owner's pick): A's `clouds` and `cloud_tone` in the meadow's, grove's, canyon's and beach's
 styles; city.cfg `skyline_glow_edge=[0.45, 0.35, 0.2]` and `lamp_pools=[0.68, 1.25]`; `--shaped=T` shows the light before. No re-light.
 Before and after: `review7/shaped_light_built.jpg` (meadow, grove, canyon, beach, city at the match camera). All seven tests pass.
+
+## The last code-built small things (2026-10-24, shipped without a pick)
+
+`make_paper_props.py` gains `telegraph_pole` (a scored rolled pole 9 tall, a braced crossarm, glass insulators), `net_float` (a rolled
+float with a white band and a rope loop) and `leaf_tuft` (seven curled leaf strips); the kit `paper_props.glb` rebuilt with them
+(`--style C --variant A --b stump,crate,cactus`), and the canyon's poles, the stilt hut's floats and the grove's flower clusters (the
+kit's flower and leaf tuft) use them, the built ones kept as fallbacks. At both cameras they change nothing visible (the poles stand
+behind the arch at the wide camera, the floats far back past the dock, the flowers are a few pixels), so it went in under the standing
+rule (modelled over code-built) without a pick. All seven tests pass (`prop_check` lists the float as sitting in the water).
+
+**Review 7's path-to-5 list is done except the "lived-in world" item** (people in the town, a worked farm, more chimney smoke): those
+are new elements, which the standing rule (refine, don't add) rules out unless the owner asks for them.
