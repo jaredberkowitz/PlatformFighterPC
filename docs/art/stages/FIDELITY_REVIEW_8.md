@@ -126,3 +126,17 @@ waves and the bright sea; B reads more as depth than as waves).
 
 Built A (the owner's pick): ocean.cfg [backdrop] `sea_band=1`; nothing to re-light. Before and after (wide, then the match camera):
 `review8/beach_waves_built.jpg`. All seven tests pass (the runner after its known coin flake, on a rerun).
+
+## Item 7, the key light (2026-10-25, mock)
+
+`Lighting.KEY_TRY` (`--key=A|B`; a style's `key_light` ships one), applied in `stage_mood`: [key times, ambient times, how far the
+ambient turns toward the sky's `sky_mid`, normalised]. Why: the ambient gave more of each surface's light than the key (the meadow: 0.48
+against a lit share of about 0.44), so shade sat at about 0.6 of lit everywhere. A [1.12, 0.68, 0.3]; B [1.25, 0.48, 0.45]. A first set
+([1.3, 0.72] and [1.55, 0.55]) raised exposure instead (the meadow's front 0.45 to 0.52); these keep the lit values within about 0.03.
+
+Measured at the match camera, P1's yellow body (scratch `readab.gd`), today to B: its lit-to-shade spread meadow 0.296 to 0.304, canyon
+0.106 to 0.118, beach 0.190 to 0.207, city 0.115 to 0.139, grove 0.177 to 0.205; its value gap to the ground around it meadow 0.045 to
+0.051, canyon 0.015 to 0.040, beach 0.197 to 0.175, city 0.108 to 0.119, grove 0.051 to 0.041 (the narrowest; the edge light and hue
+carry it). The scenery's region contrast moves little (within 0.01). On the Stage Look Review ("keylight8", `k8_*`, all five stages);
+recommended B, honestly a modest step: further needs the painted shadow colours themselves (`pf_shadow_value`, `scenery_shade`), a
+larger and riskier pass to mock on its own.
