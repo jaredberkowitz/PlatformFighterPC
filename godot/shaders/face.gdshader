@@ -11,9 +11,11 @@ uniform bool mirror = false;
 uniform float face_zoom = 1.15;
 // How far round the head (radians) the drawing slides toward the camera (set each frame by fighter_view.gd from the head's turn), so on
 // a head turned three-quarters the far eye stays on the visible face instead of squashing into the head's edge (the face pass,
-// 2026-10-19). The shell's texture map is a straight-on projection (make_rigged_blob.py: u is x over 1.75 head radii), so the slide is
-// done on the ball: u back to an angle round the head at its height, turned, and projected again.
+// 2026-10-19). The shell's texture map is a straight-on projection (make_rigged_blob.py: u is x over 1.75 head radii), so the slide
+// turns each point round the head with its own depth and projects it straight on again.
 uniform float face_slide = 0.0;
+// How the shell's depth is kept in its colour's green: the lowest depth and the span (make_rigged_blob.py FACE_DEPTH_CODE).
+const vec2 FACE_DEPTH_CODE = vec2(-0.25, 1.5);
 
 // A flash over the whole fighter, per mesh (set by the game with `set_instance_shader_parameter`): white when hit, yellow while charging.
 instance uniform vec4 flash : source_color, instance_index(0) = vec4(1.0, 1.0, 1.0, 0.0);
@@ -34,10 +36,11 @@ void vertex() {
 void fragment() {
 	vec2 uv = UV;
 	if (abs(face_slide) > 0.0001) {
+		// The point turned about the head's upright axis and seen straight on again. Its depth (head radii, forward) comes from the
+		// shell's colour (green, coded by make_rigged_blob.py FACE_DEPTH_CODE; blue 0 marks it there), else from a ball.
 		vec2 n = (uv - 0.5) * 1.75;
-		float ring = sqrt(max(0.0001, 1.0 - n.y * n.y));
-		float phi = asin(clamp(n.x / ring, -1.0, 1.0)) - face_slide;
-		uv.x = 0.5 + ring * sin(phi) / 1.75;
+		float depth = COLOR.b < 0.5 ? COLOR.g * FACE_DEPTH_CODE.y + FACE_DEPTH_CODE.x : sqrt(max(0.0, 1.0 - n.y * n.y - n.x * n.x));
+		uv.x = 0.5 + (n.x * cos(face_slide) - depth * sin(face_slide)) / 1.75;
 	}
 	uv = mirror ? vec2(1.0 - uv.x, uv.y) : uv;
 	uv = (uv - 0.5) / face_zoom + 0.5;

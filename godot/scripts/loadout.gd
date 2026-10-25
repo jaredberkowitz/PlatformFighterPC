@@ -259,7 +259,9 @@ static func default_for(player: int) -> RefCounted:
 	# (The ranger smug with droopy sideways eyes and a smirk, the sailor with a curl on its forehead in place of brows, the character judge's
 	# round 5 after the reference's ranger and sailor.)
 	# (The sailor deadpan with a flat mouth at rest, the owner, 2026-10-19: sleepy with an open mouth read as dazed; that look is its hurt face.)
-	var faces := [[0, 2, 0], [3, 4, 0], [2, 7, 0], [3, 5, 4]]
+	# (Since the reference pass, 2026-10-20, the owner's pick of mocked faces: every default the reference's round eye, varied by its mood;
+	# the sailor with the salute's toothy grin, the aviator sleepy.)
+	var faces := [[0, 6, 0], [1, 4, 0], [2, 7, 0], [3, 5, 0]]
 	var f: Array = faces[player % 4]
 	l.face = f[0]
 	l.mouth = f[1]
@@ -267,18 +269,12 @@ static func default_for(player: int) -> RefCounted:
 	l.cheeks = 0
 	# (The aviator scout's hair ginger, as the reference's: the hair takes the brows' colour.)
 	l.brow_color = 4 if player % 4 == 1 else 0
-	l.brows = 7 if player % 4 == 0 else 3
-	if player % 4 == 0:
-		# (The curl high on the forehead, its two halves meeting in the middle.)
-		# (Each half drawn at its inner edge, so the two meet as one curl in the middle of the forehead, clear of the eyelids, the
-		# character judge's round 6.)
-		l.brow_y = FaceLook.neutral("brow_y") - 5
-		l.brow_gap = FaceLook.neutral("brow_gap") - 6
-		l.brow_size = FaceLook.neutral("brow_size") - 3
-	else:
-		l.brow_y = FaceLook.neutral("brow_y")
-		l.brow_gap = FaceLook.neutral("brow_gap")
-		l.brow_size = FaceLook.neutral("brow_size")
+	# (No brows on the defaults since the reference pass, 2026-10-20, the owner; they stay in the creator. The sailor's forehead curl and
+	# the others' bars before.)
+	l.brows = 0
+	l.brow_y = FaceLook.neutral("brow_y")
+	l.brow_gap = FaceLook.neutral("brow_gap")
+	l.brow_size = FaceLook.neutral("brow_size")
 	# Dressed, as the reference cast always is (the character pass, 2026-10-19; bare, the defaults read as naked blobs in a match):
 	# [shirt, neck, accent, glasses]: a sailor (white shirt, neckerchief, cobalt), an aviator scout (white shirt, sash, meadow green), a
 	# holiday shirt (flowers, sash, biscuit), a ranger (outfit shirt, sash, sunny); every one in the full kit (shorts, gloves, socks, shoes).
@@ -301,7 +297,8 @@ static func default_for(player: int) -> RefCounted:
 	l.head = [1, 2, 3, 4][player % 4]
 	# (Bare hands in the body's colour but for the aviator's gloves, as the reference's cast.)
 	l.hands = 0 if player % 4 == 1 else 1
-	l.face_lean = FaceLook.neutral("face_lean") + [-3, 2, 3, 4][player % 4]
+	# (Even since the reference pass, 2026-10-20, the owner: the mouth off to one side looked odd. The slot stays in the creator.)
+	l.face_lean = FaceLook.neutral("face_lean")
 	# (Each fighter's signature pushed, the character judge's round 13: the aviator's freckles, the blue's heavy brows and deep frown, the
 	# ranger's thick block brows.)
 	# (The aviator's freckles their own part since the face pass, 2026-10-19: bold dark dots over a soft round blush, as the reference's.)

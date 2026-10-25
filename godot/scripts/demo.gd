@@ -107,6 +107,15 @@ static func make(demo_name: String, m: Dictionary, dir: String):
 			d.timeline = [[0, 0, 0, 0]]
 			d.shots = [[20, "a_idle"]]
 			d.end_frame = 25
+		"hop":
+			# A short hop and its landing, a picture on every frame, the camera steady on the fighter (for judging the jump's crouch, the
+			# take-off and the landing's squash: the owner's playtest notes, 2026-10-19).
+			d.cam_dist = 9.0
+			d.cam_focus = 0
+			d.timeline = [[0, 0, 0, 0], [30, 0, 0, jump], [31, 0, 0, 0]]
+			for f in range(28, 90):
+				d.shots.append([f, "f%03d" % f])
+			d.end_frame = 92
 		"landing":
 			d.cam_dist = 17.0
 			d.events = [[1, "place", 0, -4.0, 4.0]]
