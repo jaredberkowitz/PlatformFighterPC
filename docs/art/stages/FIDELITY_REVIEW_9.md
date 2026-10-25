@@ -102,7 +102,7 @@ Built rings A and clouds B (the owner's picks): beach_mood.glb `--theme ocean --
 nothing to re-light), ocean.cfg [backdrop] `bank_look="B"`. Before and after (wide, then the match camera):
 `review9/beach_rings_clouds_built.jpg`. All seven tests pass (the runner after its known coin flake, on a rerun).
 
-## Item 4, the grove's abyss (2026-10-25, mock)
+## Item 4, the grove's abyss (2026-10-25, built)
 
 `make_grove_paper.py --valley none|far` (with the shipped `--variant H --rock shaped --abyss mist`): none drops the misty valley's pine
 tops and keeps the mist; far keeps 30 of them, only behind 80. 134,262 (none) and 143,202 (far) triangles, from 155,122. The terraces'
@@ -110,3 +110,7 @@ rock: `StageBake._ground_colours` with the palette's [backdrop] `cliff_stone` (`
 `cliff_lit` turn to the island's `rock` (darkened 0.55, 0.42 and 0.08, so the terraces stay deep behind the fighters). A: no trees,
 stone 1.0; B: far trees, stone 0.6. P1's value gap to the ground is 0.042 today, 0.042 (A) and 0.039 (B). On the Stage Look Review
 ("grove9", `gv9_*`, shown before the light bake); recommended A.
+
+Built A (the owner's pick): grove_paper.glb `--variant H --rock shaped --abyss mist --valley none`, grove.cfg [backdrop]
+`cliff_stone=1.0`, the grove re-lit (front, paper, play). Before and after (wide, then the match camera): `review9/grove_abyss_built.jpg`.
+All seven tests pass.
