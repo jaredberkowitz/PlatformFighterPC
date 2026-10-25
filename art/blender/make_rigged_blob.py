@@ -883,7 +883,7 @@ BODY_MOVES = {
 # legs never needed any of it.
 def grounded(name):
     """Whether a clip is played on the ground (the feet planted), not in the air, hit, rolling, lying down or on a ledge."""
-    if name in ("jump", "fall", "air_jump", "air_dodge", "hurt", "roll", "knockdown", "getup", "ledge", "ledge_climb", "kick_dash",
+    if name in ("jump", "fall", "fall_start", "air_jump", "air_dodge", "hurt", "roll", "knockdown", "getup", "ledge", "ledge_climb", "kick_dash",
                 "hurt_heavy", "hurt_up", "platform_drop", "gaunt_knee", "gaunt_stomp", "tool_ride", "tool_float"):
         return False
     return not name.endswith("air")
@@ -1151,7 +1151,7 @@ def clip(rig, name, frames, poses):
         AMP = 1.75
     elif name in ("walk", "run", "dash", "skid"):
         AMP = 1.0
-    elif name in ("jump", "fall", "hurt", "crouch", "jumpsquat", "land", "shield", "roll", "spot_dodge", "air_dodge", "knockdown"):
+    elif name in ("jump", "fall", "fall_start", "hurt", "crouch", "jumpsquat", "land", "shield", "roll", "spot_dodge", "air_dodge", "knockdown"):
         AMP = 1.25
     else:
         AMP = 1.0
@@ -3027,6 +3027,80 @@ def main() -> None:
 
     # The jump (rising): pushing off with both legs straight, then the front knee driven up high and the back leg trailing down and
     # behind, the lead fist thrown up and the other arm swung back (the reference game's jumping pose), held as it rises.
+    # The base body's air arc (animation overhaul pass 2). The near leg is the right one and the near arm the left one once the game turns
+    # the body and chest to the camera (see `jump`).
+    def air_stretch(rig):
+        # Off the floor: long and straight, toes pointed down, the far fist thrown up overhead and the near arm swept back.
+        for side, fwd in (("L", -8.0), ("R", 10.0)):
+            pose(rig, "thigh." + side, fwd=fwd, out=10.0)
+            pose(rig, "shin." + side, fwd=-10.0)
+            pose(rig, "foot." + side, fwd=-34.0)
+        pose(rig, "armU.R", fwd=150.0, out=22.0)
+        pose(rig, "armL.R", fwd=24.0)
+        pose(rig, "armU.L", fwd=-40.0, out=34.0)
+        pose(rig, "armL.L", fwd=30.0)
+        pose(rig, "spine", fwd=-4.0, twist=4.0)
+        pose(rig, "head", fwd=-4.0)
+
+    def air_tuck(rig):
+        # The top of the jump: both knees pulled up to the chest, the fists drawn in front of it, the back rounded.
+        pose(rig, "thigh.R", fwd=82.0, out=12.0)
+        pose(rig, "shin.R", fwd=-112.0)
+        pose(rig, "foot.R", fwd=18.0)
+        pose(rig, "thigh.L", fwd=64.0, out=16.0)
+        pose(rig, "shin.L", fwd=-104.0)
+        pose(rig, "foot.L", fwd=10.0)
+        pose(rig, "armU.R", fwd=56.0, out=26.0)
+        pose(rig, "armL.R", fwd=96.0)
+        pose(rig, "armU.L", fwd=44.0, out=30.0)
+        pose(rig, "armL.L", fwd=100.0)
+        pose(rig, "spine", fwd=18.0, twist=6.0)
+        pose(rig, "head", fwd=-4.0)
+
+    def air_open(rig):
+        # Opening out on the way down: the legs come apart and reach toward the floor (the near knee still soft in front, the far leg
+        # behind), the arms open out to the sides for balance.
+        pose(rig, "thigh.R", fwd=40.0, out=10.0)
+        pose(rig, "shin.R", fwd=-58.0)
+        pose(rig, "foot.R", fwd=8.0)
+        pose(rig, "thigh.L", fwd=-16.0, out=16.0)
+        pose(rig, "shin.L", fwd=-30.0)
+        pose(rig, "foot.L", fwd=-18.0)
+        for side in "LR":
+            pose(rig, "armU." + side, fwd=18.0, out=64.0)
+            pose(rig, "armL." + side, fwd=40.0)
+        pose(rig, "spine", fwd=6.0, twist=4.0)
+        pose(rig, "head", fwd=-2.0)
+
+    def air_fast(k):
+        # Falling at full speed: legs long and apart, reaching down, the arms raised high out to the sides and paddling a little.
+        def f(rig):
+            w = math.sin(k * 2 * math.pi)
+            pose(rig, "thigh.R", fwd=22.0 + 5.0 * w, out=10.0)
+            pose(rig, "shin.R", fwd=-28.0 - 6.0 * w)
+            pose(rig, "foot.R", fwd=-6.0)
+            pose(rig, "thigh.L", fwd=-18.0 - 5.0 * w, out=16.0)
+            pose(rig, "shin.L", fwd=-16.0 + 5.0 * w)
+            pose(rig, "foot.L", fwd=-24.0)
+            for side, sign in (("L", 1.0), ("R", -1.0)):
+                pose(rig, "armU." + side, fwd=10.0 + 8.0 * w * sign, out=96.0 + 8.0 * w * sign)
+                pose(rig, "armL." + side, fwd=34.0)
+            pose(rig, "spine", fwd=-2.0, twist=4.0 * w)
+            pose(rig, "head", fwd=-4.0)
+        return f
+
+    def air_between(a, b):
+        # Half way from pose `a` to pose `b` (a key between two, so the knee-up eases into the tuck rather than sweeping straight across).
+        def f(rig):
+            a(rig)
+            first = {pb.name: tuple(pb.rotation_euler) for pb in rig.pose.bones}
+            reset(rig)
+            b(rig)
+            for pb in rig.pose.bones:
+                r = first[pb.name]
+                pb.rotation_euler = tuple(0.5 * (x + y) for x, y in zip(r, pb.rotation_euler))
+        return f
+
     def jump(k):
         def f(rig):
             tuck = k
@@ -3058,7 +3132,11 @@ def main() -> None:
     if BODY:
         # Up out of the crouch: stretched long on the push-off, the knee driven up, then easing open toward the top of the arc (where the
         # fall takes over), so the rise keeps moving instead of freezing in one pose.
-        clip(rig, "jump", 30, {0: amped(jump(0.0), 1.1), 5: amped(jump(1.0), 1.08), 14: jump(0.85), 30: jump(0.62)})
+        # (Animation overhaul, the air arc: the game plays the rise by how fast the fighter still climbs, not by time, so this clip runs
+        # from the take-off (0) to the top of the jump (30): stretched long off the floor, the near knee driven up, then both knees pulled
+        # in to a tuck at the top. `fall_start` opens out of the tuck on the way down. It was one pose, the knee up, eased a little.)
+        clip(rig, "jump", 30, {0: amped(air_stretch, 1.05), 9: amped(jump(1.0), 1.08), 19: air_between(jump(1.0), air_tuck),
+                               30: air_tuck})
     else:
         clip(rig, "jump", 14, {0: jump(0.0), 5: jump(1.0), 14: jump(0.85)})
 
@@ -3078,7 +3156,13 @@ def main() -> None:
             pose(rig, "head", fwd=-4.0)
         return f
 
-    clip(rig, "fall", 30, {0: fall(0.0), 8: fall(0.25), 15: fall(0.5), 23: fall(0.75), 30: fall(1.0)})
+    if BODY:
+        # The way down (the air arc): played by how fast the fighter falls, from the tuck at the top (0), the legs opening and reaching
+        # for the floor as it speeds up (12), to the long open pose at full speed (30), where `fall` takes over and paddles.
+        clip(rig, "fall_start", 30, {0: air_tuck, 12: air_open, 30: air_fast(0.0)})
+        clip(rig, "fall", 30, {0: air_fast(0.0), 8: air_fast(0.25), 15: air_fast(0.5), 23: air_fast(0.75), 30: air_fast(1.0)})
+    else:
+        clip(rig, "fall", 30, {0: fall(0.0), 8: fall(0.25), 15: fall(0.5), 23: fall(0.75), 30: fall(1.0)})
 
     # The midair jump: curled into a ball (knees to the chest, fists in) for the front flip the game spins it through, then opening out
     # into the rising pose.

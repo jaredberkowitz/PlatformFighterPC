@@ -608,7 +608,23 @@ func _choose_clip(s: Dictionary) -> Array:
 		return [AnimLibrary.family_clip(_cls(s), "idle", anim), 1.0, -1.0]
 	if flip_left > 0.0:
 		return ["air_jump", 1.0, -1.0]
-	return ["jump", 1.0, -1.0] if float(s.vel.y) > 0.02 else ["fall", 1.0, -1.0]
+	# The air arc (animation overhaul pass 2): the rise and the way down are posed by how fast the fighter climbs or falls, so a full hop,
+	# a short hop and a jump off a ledge each go through the same take-off, tuck at the top and opening out on their own timing, and a
+	# rollback or a replay seek redraws the same pose (it depends only on the velocity). Falling at full speed, the fall paddles.
+	var vy := float(s.vel.y)
+	if vy > 0.0:
+		return ["jump", 1.0, clampf(1.0 - vy / AIR_RISE_SPEED, 0.0, 1.0)]
+	var opening := -vy / AIR_OPEN_SPEED
+	var start := AnimLibrary.or_stand_in("fall_start", anim)
+	if opening < 1.0 and start != "fall":
+		return [start, 1.0, clampf(opening, 0.0, 1.0)]
+	return ["fall", 1.0, -1.0]
+
+
+## The air arc's speeds (units a frame): rising this fast or faster shows the take-off stretch (the rise is posed between it and the top);
+## falling this fast shows the legs fully open (the slowest fastest fall in the roster is 0.16), and the paddling fall takes over.
+const AIR_RISE_SPEED := 0.3
+const AIR_OPEN_SPEED := 0.15
 
 
 ## How far through its dodge (roll, spot dodge, air dodge) the fighter is, 0..1, or -1 when not dodging (`dodge` from the bridge's

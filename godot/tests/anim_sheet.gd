@@ -5,6 +5,7 @@ extends SceneTree
 ##   <move name> (an attack such as fsmash, nair, jab)
 ##   dashstop (stand, dash, stop: the head, hat and neckwear lagging), --neck=N / --glasses=N / --gear=N / --shirt=N to wear that neckwear, those glasses or that gear (loadout.gd),
 ##   tech | runstop | drop | heavy | heavyup | fidget (the motion plan's phase 3 clips)
+##   arc (a whole full hop in the air: rising from the take-off speed through the top to the fall at full speed, every 3 frames)
 ##   --zoom=k       closer in (2 = twice as close), --facing=-1 to face left
 ##   --tip=x,y      where the move's hitbox is (forward space, from the feet), --timing=total,first,last its frames
 
@@ -106,6 +107,9 @@ func _initialize() -> void:
 		"jump", "fall", "airjump", "hurt", "shield", "launch", "tumble":
 			for f in range(0, 30, 2):
 				frames.append(f)
+		"arc":
+			for f in range(0, 60, 3):
+				frames.append(f)
 		"dashstop", "runstop", "drop", "heavy", "heavyup":
 			for f in range(0, 30, 2):
 				frames.append(f)
@@ -131,7 +135,7 @@ func _initialize() -> void:
 		var state := "Attack"
 		var vel := Vector2.ZERO
 		var move := what
-		var grounded := not ["nair", "fair", "bair", "uair", "dair", "jump", "fall", "airjump", "airdodge", "launch", "tumble", "drop", "heavy",
+		var grounded := not ["nair", "fair", "bair", "uair", "dair", "jump", "fall", "airjump", "arc", "airdodge", "launch", "tumble", "drop", "heavy",
 			"heavyup"].has(what)
 		var jumps := 1
 		var tumble := false
@@ -219,6 +223,11 @@ func _initialize() -> void:
 				move = ""
 			"getup":
 				state = "GetUp"
+				move = ""
+			"arc":
+				# (A full hop: the take-off speed falling by the gravity each frame, down to the fastest fall.)
+				state = "Airborne"
+				vel = Vector2(0.05, maxf(-0.2, 0.3 - 0.00937 * f))
 				move = ""
 			"jump", "fall", "airjump":
 				state = "Airborne"

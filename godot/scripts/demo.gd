@@ -121,6 +121,15 @@ static func make(demo_name: String, m: Dictionary, dir: String):
 			for f in range(28, 90):
 				d.shots.append([f, "f%03d" % f])
 			d.end_frame = 92
+		"fullhop":
+			# A full hop and its landing (the jump held), a picture every other frame, the camera steady on the fighter (the animation
+			# overhaul's jump and fall arc: the rise, the tuck at the top, the legs opening on the way down).
+			d.cam_dist = 9.0
+			d.cam_focus = 0
+			d.timeline = [[0, 0, 0, 0], [30, 0, 0, jump], [42, 0, 0, 0]]
+			for f in range(30, 110, 2):
+				d.shots.append([f, "f%03d" % f])
+			d.end_frame = 112
 		"small_fx":
 			# The small effects in a row (the paper effects pass): a jab into a shield, a jump and a midair jump with their rings, a fast
 			# fall's sparkle and the landing's dust.

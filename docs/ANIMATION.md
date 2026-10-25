@@ -218,3 +218,35 @@ a corkscrew about the upright body (no head-over-heels spin); wall jumps back-fl
   - the caster and tool families stay the most upright, by design;
   - the idle fidget (`idle_look`) starts from the new stance but was not re-posed;
   - not tried with a controller or in a live match.
+
+### Pass 2: the jump and fall arc
+
+- **Defect** (audit item 2): one held pose for the whole rise (the near knee up) and another for the whole fall (arms out, paddling a few
+  degrees). The reference fighters go through a take-off stretch, a tuck at the top and the legs opening on the way down.
+- **Cause:**
+  - `make_rigged_blob.py` `jump()` keyed one pose family, and `fall()` only paddled.
+  - `fighter_view.gd` `_choose_clip` played `jump` by time from the take-off and switched to `fall` on the sign of the vertical speed,
+    so nothing knew where in the arc the fighter was.
+- **Fix:**
+  - The air is posed by vertical speed, not time:
+    - `jump` runs from the take-off (rising at `AIR_RISE_SPEED` 0.3 or faster) to the top: stretched long, then the near knee driven
+      up, then a tuck at the top;
+    - the new `fall_start` runs from the tuck at the top to the legs open, reaching for the floor (falling at `AIR_OPEN_SPEED` 0.15);
+    - beyond that the paddling `fall` (re-keyed on the long open pose) loops.
+  - A full hop, a short hop, a ledge jump and a double jump (after its flip) each run the same arc on their own timing.
+  - Since the pose depends only on the snapshot's velocity, a rollback or a replay seek redraws it exactly.
+  - Older rigs stand in `fall` for `fall_start`.
+- **Files:** `art/blender/make_rigged_blob.py` (`air_stretch`, `air_tuck`, `air_open`, `air_fast`, `air_between`), `godot/models/base_rig.glb`,
+  `godot/scripts/fighter_view.gd` (`_choose_clip`, `AIR_RISE_SPEED`, `AIR_OPEN_SPEED`), `godot/scripts/anim_library.gd` (`STAND_INS`).
+- **Tools:** `tests/anim_sheet.gd --what=arc` (a whole full hop at the sim's gravity), and `--demo=fullhop` (a held jump in a match,
+  every other frame).
+- **Image:** `docs/screenshots/anim/pass2_air_arc.jpg`: the arc sheets before and after, both facings, then a real full hop in a match,
+  before above and after below.
+- **Checked:** both facings; `anim_library_test`, `fighter_view_test`, `motion_test`, `match_flow_test`, `replay_test` and `look_bench`
+  pass.
+- **Left:**
+  - On the sword fighter the blade covers part of the tuck at the top.
+  - A full hop is short (about 38 frames to the landing), so the open pose shows for only a few frames before the landing; long falls
+    show it fully.
+  - The moves that borrow `jump` as an attack clip (the Needles' bounce, the Settler's rocket hop) now play the rise to the tuck by the
+    move's progress; not checked closely.
