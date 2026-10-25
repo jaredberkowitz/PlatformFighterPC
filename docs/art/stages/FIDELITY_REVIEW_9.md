@@ -150,3 +150,19 @@ further round behind the stage. Measured at the match camera on every stage (the
 
 Recommended: keep today. The scenery's value lives in its baked shading, prints and paper finish; light at 5 would come through the
 light bake (deeper occlusion, darker undersides in the models), a per-stage pass. On the Stage Look Review ("shade9", `sh9_*`).
+
+## After review 9: contact shade and far clouds (2026-10-25, mock)
+
+The owner: "continue working on any other items that would help us reach a 5/5 in the art categories". Two levers, both on the Stage
+Look Review:
+
+- **Deeper contact shade** ("lightbake10", `lb10_*`): item 7's finding put the scenery's light in its baked shading, so `light_stage.py`
+  on every stage's pieces (the same pieces each re-light takes) at A `--curve 3.2 --reach 3.5 --floor 0.36` and B `--curve 4.0 --reach 4.5
+  --floor 0.28`, against today's 2.5, 2.5 and 0.45, written to scratch folders (`--out`) and shown with `--front-mock`, `--play-mock`,
+  `--ground-mock`. The review regions move within 0.01 (the shade is local: under the lips, at the walls' feet, round props); it shows
+  as a darker band under the meadow's turf lip, shade in the canyon top's corners and the grove's lip. The fighters are not baked: P1's
+  gap holds or grows (the grove 0.041 to 0.048, the city 0.121 to 0.131 at B). Recommended B.
+- **A second, farther cloud layer** ("farclouds10", `fc10_*`): `StageArt._far_clouds` with the palette's [backdrop] `cloud_far` [count,
+  size, how pale] (`--cloud-far=A|B`, A [6, 0.75, 0.42], B [10, 0.95, 0.3]) on the meadow, canyon and grove: behind the furthest range
+  (the range keep-out off for this layer), at the main band's heights, tinted toward the horizon (toward the sky's middle blue they read
+  as blue blots). It adds clouds, so the owner's call under the standing rule. Recommended B on the canyon only (its sky had two clouds).

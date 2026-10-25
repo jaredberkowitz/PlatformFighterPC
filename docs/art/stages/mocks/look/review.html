@@ -88,6 +88,41 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
     <p>Two lessons from the reference screenshots, mocked from the match camera: the scenery without ink outlines, its edges lit as card bevels instead, and the paper houses rebuilt at the characters' proportions. The earlier rounds stay on the <a href="https://claude.ai/artifact/D1du6MREVumiJDrEdNypW4">Stage Fidelity Review</a>, which is full.</p>
   </header>
 
+  <section class="panel" aria-labelledby="lb10-h" id="lightbake10">
+    <div class="eyebrow">Your call is needed &middot; toward 5: deeper contact shade</div>
+    <h2 id="lb10-h">Deeper contact shade on every stage</h2>
+    <p>Review 9 found that the scenery's light lives in its baked shading, not in the light's shadow colour. This round refines that bake: the shade each stage's pieces take where they meet (under the turf lips, at the foot of the walls, round the props and posts) is deeper and reaches further. Nothing new is added; only the existing shade changes.</p>
+    <div class="tablewrap"><table><thead><tr><th>Option</th><th>The bake</th></tr></thead><tbody>
+      <tr><td>Today</td><td>Shade reaching 2.5 units, curve 2.5, never darker than 0.45.</td></tr>
+      <tr><td>A &middot; Deeper</td><td>Reach 3.5, curve 3.2, floor 0.36.</td></tr>
+      <tr><td>B &middot; Deepest</td><td>Reach 4.5, curve 4.0, floor 0.28.</td></tr>
+    </tbody></table></div>
+    <p>Close at the match camera, today left and B right: the meadow's turf lip over the logs, the canyon top's edge, the grove's lip.</p>
+    <div class="viewer"><img src="lb10_close.jpg" alt="Contact shade today and deepest"></div>
+    <div class="row" role="group" aria-label="Stage"><button data-lb10s="0">Meadow</button><button data-lb10s="1">Canyon</button><button data-lb10s="2">Beach</button><button data-lb10s="3">City</button><button data-lb10s="4">Grove</button></div>
+    <div class="row" role="group" aria-label="View"><button data-lb10v="m">Match camera</button><button data-lb10v="w">Wide</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-lb10o="T">Today</button><button data-lb10o="A">A &middot; Deeper</button><button data-lb10o="B">B &middot; Deepest</button></div>
+    <div class="viewer"><img id="lb10img" alt="Contact shade option"><span class="vtag" id="lb10tag"></span></div>
+    <p class="muted">My pick: <b>B</b>. It's subtle but real: things sit into each other instead of resting on top. The fighters aren't baked, so they're untouched; P1's gap to the ground holds or grows a little (the grove 0.041 to 0.048, the city 0.121 to 0.131). Honest note: the measured regions move within 0.01, because this shade is local.</p>
+  </section>
+
+  <section class="panel" aria-labelledby="fc10-h" id="farclouds10">
+    <div class="eyebrow">Your call is needed &middot; toward 5: a second, farther cloud layer</div>
+    <h2 id="fc10-h">Depth in the day skies</h2>
+    <p>Open since review 8: the day skies have one band of clouds, which reads flat. This adds a farther layer behind the furthest land: smaller clouds, paler toward the horizon's colour, just above it where distance puts them. The meadow, the canyon and the grove get it; the beach already has its horizon bank. It does add clouds, so it's your call under your refine-not-add rule.</p>
+    <div class="tablewrap"><table><thead><tr><th>Option</th><th>What changes</th></tr></thead><tbody>
+      <tr><td>A &middot; Thin layer</td><td>Six far clouds, small, 42% toward the horizon's colour.</td></tr>
+      <tr><td>B &middot; Fuller layer</td><td>Ten, a little larger, 30% toward the horizon.</td></tr>
+    </tbody></table></div>
+    <p>Wide skies, today left and B right: the meadow, the grove, the canyon:</p>
+    <div class="viewer"><img src="fc10_close.jpg" alt="The day skies today and with the far layer"></div>
+    <div class="row" role="group" aria-label="Stage"><button data-fc10s="0">Meadow</button><button data-fc10s="1">Canyon</button><button data-fc10s="4">Grove</button></div>
+    <div class="row" role="group" aria-label="View"><button data-fc10v="m">Match camera</button><button data-fc10v="w">Wide</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-fc10o="T">Today</button><button data-fc10o="A">A &middot; Thin layer</button><button data-fc10o="B">B &middot; Fuller layer</button></div>
+    <div class="viewer"><img id="fc10img" alt="Far cloud option"><span class="vtag" id="fc10tag"></span></div>
+    <p class="muted">My pick: <b>B on the canyon only</b>. Its sky had two clouds, and the far layer gives it real depth. On the meadow it adds little over its own eleven, and on the grove the trees hide it. A first try tinted them toward the sky's middle blue, and they read as blue blots.</p>
+  </section>
+
   <section class="panel" aria-labelledby="sh9-h" id="shade9">
     <div class="eyebrow">Your call is needed &middot; review 9, item 7: the painted shadow colours</div>
     <h2 id="sh9-h">Deeper shade: tried three ways, and a finding</h2>
@@ -1662,5 +1697,29 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
   group("data-sh9s", function (v) { sh9s = v; }, sh9render);
   group("data-sh9o", function (v) { sh9o = v; }, sh9render);
   sh9render();
+  var lb10s = "0", lb10v = "m", lb10o = "B";
+  var LB10S = { "0": "Meadow", "1": "Canyon", "2": "Beach", "3": "City", "4": "Grove" };
+  var LB10O = { T: "Today", A: "A \u00b7 Deeper", B: "B \u00b7 Deepest" };
+  function lb10render() {
+    document.getElementById("lb10img").src = "lb10_" + lb10o + "_s" + lb10s + "_" + lb10v + ".jpg";
+    document.getElementById("lb10tag").textContent = LB10S[lb10s] + " \u00b7 " + LB10O[lb10o] + (lb10v === "w" ? " \u00b7 wide" : " \u00b7 match camera");
+    pressed("data-lb10s", lb10s); pressed("data-lb10v", lb10v); pressed("data-lb10o", lb10o);
+  }
+  group("data-lb10s", function (v) { lb10s = v; }, lb10render);
+  group("data-lb10v", function (v) { lb10v = v; }, lb10render);
+  group("data-lb10o", function (v) { lb10o = v; }, lb10render);
+  lb10render();
+  var fc10s = "1", fc10v = "w", fc10o = "B";
+  var FC10S = { "0": "Meadow", "1": "Canyon", "4": "Grove" };
+  var FC10O = { T: "Today", A: "A \u00b7 Thin layer", B: "B \u00b7 Fuller layer" };
+  function fc10render() {
+    document.getElementById("fc10img").src = "fc10_" + fc10o + "_s" + fc10s + "_" + fc10v + ".jpg";
+    document.getElementById("fc10tag").textContent = FC10S[fc10s] + " \u00b7 " + FC10O[fc10o] + (fc10v === "w" ? " \u00b7 wide" : " \u00b7 match camera");
+    pressed("data-fc10s", fc10s); pressed("data-fc10v", fc10v); pressed("data-fc10o", fc10o);
+  }
+  group("data-fc10s", function (v) { fc10s = v; }, fc10render);
+  group("data-fc10v", function (v) { fc10v = v; }, fc10render);
+  group("data-fc10o", function (v) { fc10o = v; }, fc10render);
+  fc10render();
 })();
 </script>
