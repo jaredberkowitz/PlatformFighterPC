@@ -155,3 +155,6 @@ and door set back 0.55 in a recess with reveals and a soffit, a fascia over it, 
 window's sill (its own random numbers, several heights and colours); the awnings at three heights and reaches, one shop in four without;
 B a lit blade sign at every other shop's edge. The shops at the wide camera: value 0.53 to 0.46, contrast 0.206 to 0.220; P1's gap 0.127
 to 0.132. On the Stage Look Review ("storefronts15", `sf15_*`); recommended A.
+
+Built A (the owner's pick): city.cfg [backdrop] `storefront="A"` (code-built, nothing to re-light). The shops at the wide camera: value
+0.46, contrast 0.219. Before and after (the street, wide): `review10/city_storefronts_built.jpg`. All seven tests pass.
