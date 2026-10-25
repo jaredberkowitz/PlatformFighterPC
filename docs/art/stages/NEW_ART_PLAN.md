@@ -1,0 +1,96 @@
+# New art toward 5 (2026-10-25): options for the owner to approve
+
+The owner, after review 10: "Plan what new art (redesigned lower thirds, more world detail) would take the stages to 5, as options for
+me to approve." Review 10 found every stage a clear 4 in every column, and the levers within the standing refine-not-add rule now move
+the measurements by a hundredth or two. This plan lists the new art that could lift each stage, as options. **Nothing here is built
+until the owner approves it**; each approved option then follows the usual round (two or three mocks at both cameras, the owner picks,
+build, re-light, test, commit).
+
+## The rules every option keeps
+
+- **No animals** in the backgrounds, and world details **far back, at true size, through the air** (never upscaled to read).
+- **Land connected and believable**: nothing floating that shouldn't, every tree seated, the stage's background trees one large kind.
+- **The fight stays clear**: nothing new in the screen area round the play area and platforms; P1's value gap to the ground is measured
+  on every mock and must not narrow.
+- **One stage at a time**, piloted, then the next with its own reference.
+- **The same make**: Blender scripts in `art/blender/` in the paper style (cut card, folded and rolled paper, the hatched print), each
+  piece lit by the light bake. No generated models unless the owner asks per piece.
+- **Budget**: each stage's new pieces within about 60,000 triangles, frame time checked on the Fast tier.
+
+## Where each stage loses its 5
+
+At the wide camera the lower third of every frame is the plainest part: the meadow's bare green hill, the grove's flat purple abyss, the
+canyon's open sand, the beach's empty water under the dock, the city's flat street front. The middle distance has its big shapes (the
+windmill, the town, the buttes, the forest) but little life between them. Those two gaps are what the options target.
+
+## The options, by stage
+
+### Meadow: the hill under the wall
+
+| Option | What it is | Effort | Risk |
+|---|---|---|---|
+| **M1 Terraced fields** | The hill under the wall stepped into two or three farm terraces held by low fieldstone walls (the wall's own stone), with crop rows and a lane switchbacking down, joining the valley's farmland. | 1 session | Low: it continues what the valley already has |
+| M2 Stream and footbridge | A small stream from a spring under the wall, down the hill in a cut paper channel, a plank footbridge, wet stones. | 1 session | Medium: water at the bottom of the frame draws the eye |
+| M3 Wooded foot | The hill's lower slope breaking into a belt of the meadow's own pines and boulders, so the frame's bottom has depth layers. | 0.5 session | Low, but it adds more of what is already behind |
+
+**Recommended: M1.** It turns the plainest third into the meadow's most characteristic thing, the farmland, at the right scale.
+
+### Grove: the abyss
+
+| Option | What it is | Effort | Risk |
+|---|---|---|---|
+| **G1 Falls into the mist** | Two or three waterfalls pouring off the terraces' lips into the abyss, their spray lifting into the mist, and the mist rebuilt as three layered cut sheets that thicken with depth. | 1.5 sessions | Medium: falls move, kept slow and calm |
+| G2 The valley below | The abyss opened to a deep valley floor far below (a river, the forest's giant trees seen from above at true size) through two mist layers. | 2 sessions | High: a lot of new land; must read as far below, not as trees in water (review 9's lesson) |
+| G3 Hanging roots and stones | The neighbour terraces' undersides grown long: roots and hanging stone draping into the mist, as the island's own. | 1 session | Low: it extends what is there |
+
+**Recommended: G1, with G3's longer roots.** Falling water gives the abyss depth and life without new land.
+
+### Canyon: the floor
+
+| Option | What it is | Effort | Risk |
+|---|---|---|---|
+| **C1 The dry river gorge** | A dry riverbed cut across the floor in front of the mesa: stepped banks in the sandstone beds, a pebble bed winding through, the wash's existing line made into a real channel. | 1.5 sessions | Medium: a big new land form |
+| C2 Hoodoos and boulder fields | Clusters of wind-carved hoodoos and fallen boulders on the floor at true size, their long sunset shadows. | 1 session | Low |
+| C3 The mesa's foot | The stage mesa's base given a talus fan of fallen blocks and scree spreading onto the floor, so the mesa stands on the ground instead of on a flat. | 0.5 session | Low |
+
+**Recommended: C3 with C2.** They ground the mesa and give the floor forms and shadows; C1 if the owner wants the boldest change.
+
+### Beach: the water under the dock
+
+| Option | What it is | Effort | Risk |
+|---|---|---|---|
+| **B1 The shallows** | The water under and around the dock turned to shallows: sand bars and rocks seen through clear water, the sea's colour deepening past them, the dock's posts standing in it. | 1 session | Low: a colour and form change on the existing sea |
+| B2 Moored boats | Two rowboats tied to the dock's posts, rising gently on the swell. | 0.5 session | Medium: new things near the fight; kept low and to the sides |
+
+**Recommended: B1.**
+
+### City: the street front
+
+| Option | What it is | Effort | Risk |
+|---|---|---|---|
+| **Ci1 Storefronts with depth** | The ground floor along the street rebuilt as recessed shopfronts: lit window displays, doorways, awnings at different heights, signs in relief. | 1.5 sessions | Low |
+| Ci2 Street-level life | A newsstand, a hot-food cart and a bus stop on the pavements, at true size. | 1 session | Medium: clutter at the frame's bottom |
+
+**Recommended: Ci1.**
+
+## World detail, the middle distance (per stage, far back and at true size)
+
+| Stage | Option | What it is |
+|---|---|---|
+| Meadow | W-M | A farmyard's working life far off: a cart on the lane, washing on a line, smoke from a bonfire in a field. |
+| Grove | W-G | Far treehouses and rope bridges in the giant trees, lanterns lit, deep in the haze. |
+| Canyon | W-C | A water tower and a small depot by the far railway, a dust trail on a road. |
+| Beach | W-B | The harbour town's quay life: stalls, nets drying, a crane. |
+| City | W-Ci | Rooftop life in the middle towers: water tanks, lit penthouse windows, a rooftop garden. |
+
+These are small, far and slow. They lift "world and life", and the owner rejected the first versions of some of this
+(near and upscaled), so each is at true size.
+
+## Suggested order
+
+1. **The grove's falls (G1 + G3)** and **the canyon's mesa foot (C3 + C2)**: the two plainest lower thirds.
+2. **The meadow's terraced fields (M1)**.
+3. **The beach's shallows (B1)** and **the city's storefronts (Ci1)**.
+4. **World detail** stage by stage, after the lower thirds.
+
+About 8 to 10 sessions for the recommended set. The fighters, half of every still, stay with the character and animation sessions.
