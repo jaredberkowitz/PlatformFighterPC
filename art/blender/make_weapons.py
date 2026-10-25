@@ -118,7 +118,77 @@ def claw():
     return root
 
 
-WEAPONS = {"claw": claw}
+def _blade(bm, x0, x1, width, thick, curve=0.0, tip=0.25, steps=14):
+    """A chunky blade along X from x0 to x1: a lens cross-section (thick spine, rounded edge) `width` tall in Z and `thick` across Y,
+    bowed up by `curve` at the middle, narrowing to a rounded point over its last `tip` share."""
+    rings = []
+    sides = 10
+    for i in range(steps + 1):
+        k = i / steps
+        x = x0 + (x1 - x0) * k
+        z = curve * 4.0 * k * (1.0 - k) + curve * 0.6 * k
+        w = width * (1.0 if k < 1.0 - tip else max(0.06, ((1.0 - k) / tip) ** 0.7))
+        ring = []
+        for j in range(sides):
+            t = math.tau * j / sides
+            ring.append(bm.verts.new((x, math.sin(t) * thick * 0.5 * (0.35 + 0.65 * abs(math.cos(t))), z + math.cos(t) * w * 0.5)))
+        rings.append(ring)
+    for r0, r1 in zip(rings, rings[1:]):
+        for j in range(sides):
+            bm.faces.new((r0[j], r0[(j + 1) % sides], r1[(j + 1) % sides], r1[j]))
+    bm.faces.new(list(reversed(rings[0])))
+    bm.faces.new(rings[-1])
+
+
+def _grip(bm, x0, x1, r, wraps=0):
+    pts = [Vector((x0 + (x1 - x0) * k / 6.0, 0.0, 0.0)) for k in range(7)]
+    radii = [r * (1.0 + (0.12 * math.sin(k * math.pi) if wraps else 0.0)) for k in range(7)]
+    tube(bm, pts, radii, sides=12)
+
+
+def dagger():
+    """The Dagger class's knife, held in the weapon hand (hung on the hand bone like the claw, along the forearm's line): a short broad
+    leaf blade with a thick spine and a rounded point, a round guard, a wrapped grip in the fist and a ball pommel. About 0.5 of blade
+    past the fist, so the knife's point meets the jab's far hitboxes."""
+    root = empty("dagger")
+    bm = bmesh.new()
+    _blade(bm, 0.1, 0.62, 0.16, 0.05, curve=0.0, tip=0.38)
+    to_object("metal_blade", bm).parent = root
+    bm = bmesh.new()
+    rounded_box(bm, Vector((0.08, 0.0, 0.0)), (0.05, 0.12, 0.26), bevel=0.45)
+    to_object("metal_guard", bm, sharp=60.0).parent = root
+    bm = bmesh.new()
+    _grip(bm, -0.16, 0.06, 0.045, wraps=1)
+    to_object("band_grip", bm).parent = root
+    bm = bmesh.new()
+    bmesh.ops.create_uvsphere(bm, u_segments=14, v_segments=10, radius=0.06)
+    bmesh.ops.translate(bm, vec=Vector((-0.19, 0.0, 0.0)), verts=bm.verts)
+    to_object("metal_pommel", bm).parent = root
+    return root
+
+
+def nodachi():
+    """The Nodachi class's very long sword, laid out like the game's longsword so it is posed and stretched on the same weapon pivot
+    (fighter_view.gd `blade_pivot`: the blade from 0.2 to 2.9 along X, the hand at 0): a long slim blade with a gentle upward curve and a
+    chunky rounded spine, a round guard, and a long two-handed grip wrapped in the class colour with a cap."""
+    root = empty("nodachi")
+    bm = bmesh.new()
+    _blade(bm, 0.18, 2.9, 0.15, 0.06, curve=0.08, tip=0.12, steps=24)
+    to_object("metal_blade", bm).parent = root
+    bm = bmesh.new()
+    pts = [Vector((0.1, 0.0, 0.0)), Vector((0.16, 0.0, 0.0))]
+    tube(bm, pts, [0.16, 0.16], sides=20)
+    to_object("metal_guard", bm).parent = root
+    bm = bmesh.new()
+    _grip(bm, -0.62, 0.1, 0.06, wraps=1)
+    to_object("band_grip", bm).parent = root
+    bm = bmesh.new()
+    tube(bm, [Vector((-0.7, 0.0, 0.0)), Vector((-0.6, 0.0, 0.0))], [0.07, 0.075], sides=14)
+    to_object("metal_cap", bm).parent = root
+    return root
+
+
+WEAPONS = {"claw": claw, "dagger": dagger, "nodachi": nodachi}
 
 
 def export(root, path):

@@ -3293,6 +3293,9 @@ var blade_parts: Array[MeshInstance3D] = []
 var staff_parts: Array[MeshInstance3D] = []
 ## The Claws class's modelled claws, one on each hand (shown only for that class).
 var claw_parts: Array[Node3D] = []
+## The Dagger's knife, one on each hand (only the weapon hand's shows), and the Nodachi's long sword (on the blade's pivot).
+var dagger_parts: Array[Node3D] = []
+var nodachi_parts: Array[Node3D] = []
 ## How far past the knuckles the claws reach (forward space): the claw arcs and the fist's reach count it.
 const CLAW_LENGTH := 0.3
 ## Where a modelled hand weapon's origin sits on the hand: this far from the wrist along the forearm's line.
@@ -3304,14 +3307,21 @@ const HAND_WEAPON_FROM_WRIST := 0.17
 ## from the wrist, +Y the back of the hand).
 func _mount_weapon_models() -> void:
 	claw_parts.clear()
+	dagger_parts.clear()
+	nodachi_parts.clear()
+	var steel := respond(toon(Color(0.5, 0.56, 0.68)), "metal")
+	# The Nodachi: on the blade's pivot, laid out as the longsword is (blade 0.2 to 2.9 along x), so it is posed and stretched the same.
+	var long_sword := _model_scene("res://models/weapons/nodachi.glb")
+	if long_sword != null:
+		var nd: Node3D = long_sword.duplicate()
+		blade_pivot.add_child(nd)
+		_paint_weapon(nd, respond(toon(Color(0.86, 0.9, 0.97)), "metal"), toon(Color(0.2, 0.2, 0.32)))
+		nd.visible = false
+		nodachi_parts.append(nd)
 	if not use_base_body or skeleton == null:
 		return
-	var scene := _model_scene("res://models/weapons/claw.glb")
-	if scene == null:
-		return
-	# (A darker, bluer steel than the blades: against the white gloves a pale steel vanished.)
-	var steel := respond(toon(Color(0.5, 0.56, 0.68)), "metal")
-	var band := toon(trail_colours_of(1)[0].darkened(0.25))
+	var claw_scene := _model_scene("res://models/weapons/claw.glb")
+	var dagger_scene := _model_scene("res://models/weapons/dagger.glb")
 	for side in ["L", "R"]:
 		var ih := skeleton.find_bone("hand." + side)
 		var il := skeleton.find_bone("armL." + side)
@@ -3324,16 +3334,31 @@ func _mount_weapon_models() -> void:
 		var x := (inv * fore).normalized()
 		var y := (inv * out)
 		y = (y - x * y.dot(x)).normalized()
+		var frame := Transform3D(Basis(x, y, x.cross(y)), x * HAND_WEAPON_FROM_WRIST)
 		var holder := BoneAttachment3D.new()
 		holder.bone_name = "hand." + side
 		skeleton.add_child(holder)
-		var claw: Node3D = scene.duplicate()
-		claw.transform = Transform3D(Basis(x, y, x.cross(y)), x * HAND_WEAPON_FROM_WRIST)
-		holder.add_child(claw)
-		for m in claw.find_children("*", "MeshInstance3D", true, false):
-			(m as MeshInstance3D).material_override = band if String(m.name).begins_with("band") else steel
-		claw.visible = false
-		claw_parts.append(claw)
+		if claw_scene != null:
+			var claw: Node3D = claw_scene.duplicate()
+			claw.transform = frame
+			holder.add_child(claw)
+			_paint_weapon(claw, steel, toon(trail_colours_of(1)[0].darkened(0.25)))
+			claw.visible = false
+			claw_parts.append(claw)
+		if dagger_scene != null:
+			var knife: Node3D = dagger_scene.duplicate()
+			knife.transform = frame
+			knife.set_meta("side", side)
+			holder.add_child(knife)
+			_paint_weapon(knife, respond(toon(Color(0.78, 0.83, 0.92)), "metal"), toon(Color(0.42, 0.26, 0.5)))
+			knife.visible = false
+			dagger_parts.append(knife)
+
+
+## Colours a modelled weapon by its parts' names (make_weapons.py): `band*` the class's wrap, everything else the steel.
+func _paint_weapon(root: Node3D, steel: Material, band: Material) -> void:
+	for m in root.find_children("*", "MeshInstance3D", true, false):
+		(m as MeshInstance3D).material_override = band if String(m.name).begins_with("band") else steel
 ## The class that fights with a staff (the Seer): posed like the sword, drawn as a staff.
 const STAFF_CLASS := 5
 ## The class that fights with a greatsword (the Champion): posed like the sword (its blade follows the hits), drawn as a broad two-handed
@@ -3346,11 +3371,14 @@ const GREAT_THRUSTS := ["dair"]
 
 ## Whether a class swings a sword whose blade follows its hits (the Duelist's longsword, the Champion's greatsword).
 static func bladed(cls: int) -> bool:
-	return cls == 0 or cls == GREATSWORD_CLASS or cls == BUCKLER_CLASS
+	return cls == 0 or cls == GREATSWORD_CLASS or cls == BUCKLER_CLASS or cls == NODACHI_CLASS
 
 
 ## The class that fights with a sword and a round shield (the Wanderer): the longsword's blade, and the shield on the other arm.
 const BUCKLER_CLASS := 9
+## The Dagger's class (a knife in the weapon hand, hung on the hand bone) and the Nodachi's (a very long sword on the blade's pivot).
+const DAGGER_CLASS := 12
+const NODACHI_CLASS := 13
 var shield_disc: Node3D
 ## How many times the Seer's neutral air whirls the staff round.
 const STAFF_NAIR_TURNS := 2.0
@@ -4887,13 +4915,18 @@ func _apply_combat(s: Dictionary, delta: float) -> void:
 	var great: bool = _cls(s) == GREATSWORD_CLASS
 	var brawler: bool = not bladed(_cls(s)) and not staff
 	for p in blade_parts:
-		p.visible = not staff and not great
+		p.visible = not staff and not great and _cls(s) != NODACHI_CLASS
 	for p in staff_parts:
 		p.visible = staff
 	for p in great_parts:
 		p.visible = great
 	for p in claw_parts:
 		p.visible = _cls(s) == 1
+	for p in dagger_parts:
+		p.visible = _cls(s) == DAGGER_CLASS and String(p.get_meta("side")) == _weapon_side(int(s.facing))
+	var nodachi: bool = _cls(s) == NODACHI_CLASS
+	for p in nodachi_parts:
+		p.visible = nodachi
 	# Only the body moves leave the arms alone (the claws' listed ones; the needles' kicks, grabs and throws); the sword fighter always
 	# has its blade.
 	var body_move := false

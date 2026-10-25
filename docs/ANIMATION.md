@@ -417,3 +417,28 @@ a corkscrew about the upright body (no head-over-heels spin); wall jumps back-fl
   - The launch pose itself (a strong launch flying fast) is unchanged.
   - Ledge hang, get-up and shield break were reviewed in the audit sheets and read acceptably.
   - KO has no pose of its own (the effects carry it).
+
+### Pass 9: the Dagger's and Nodachi's weapons (step 8, the remaining classes, part 1)
+
+- **Defect** (audit item 6): the Dagger and Nodachi held no weapon. Both played the unarmed placeholder set with bare fists.
+- **Fix:**
+  - **The models** (`art/blender/make_weapons.py`, in the chunky rounded style of the claw and the gear):
+    - `dagger()` (900 triangles): a short broad leaf blade with a thick spine, a round-cornered guard, a wrapped grip and a ball pommel;
+    - `nodachi()` (788 triangles): a long slim gently curved blade with a chunky spine, a round guard, and a long two-handed wrapped grip
+      with a cap, laid out like the game's longsword (blade 0.2 to 2.9 along the pivot).
+  - **Wired like the existing weapons** (`fighter_view.gd` `_mount_weapon_models`, now one routine for every modelled hand weapon,
+    with `_paint_weapon`):
+    - The knife hangs on the weapon hand's bone, the near side for the facing, so it rides every punch the Dagger's moves throw, and its
+      point reaches the jab's far hitboxes.
+    - The Nodachi is a bladed class (`bladed`): its sword hangs on the weapon pivot, posed from the move data and stretched to its reach
+      as the longsword is, and the longsword's mesh is hidden for it.
+  - **Mapping** (`AnimLibrary.CLASS_MOVES[13]`): the Nodachi's sword moves play the sword cuts (tilts and smashes), and its down air
+    the plunge.
+- **Images:** `docs/screenshots/anim/pass9_dagger_nodachi.jpg` (before and after strike frames of both classes, then facing left), and
+  `docs/screenshots/anim/dagger_nodachi_models.png` (the models).
+- **Checked:** both facings; the six tests pass.
+- **Left:**
+  - The Nodachi has no swing arcs yet (`ARCS` has no entry for class 13). It keeps the quick family's idle, which holds the sword low.
+  - The Dagger's moves keep the shared punches. Its own pose set comes with the remaining classes' signature moves (step 8, part 2).
+  - Classes 2-11 have so far had only the game-wide passes (stance, air arc, coil, soft knees, arcs, reactions); their own signature
+    keys are next.

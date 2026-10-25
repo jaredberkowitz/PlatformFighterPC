@@ -293,6 +293,17 @@ const CLASS_MOVES := {
 		"extra move 12": "tool_chop",
 		"extra move 13": "tool_shrug",
 	},
+	# Nodachi: the longsword's cuts for its sword moves (its long blade follows its hits on the weapon pivot, as the other swords'), the
+	# down air a plunge straight down. (Animation overhaul pass 9.)
+	13: {
+		"ftilt": "sword_ftilt",
+		"utilt": "sword_utilt",
+		"dtilt": "sword_dtilt",
+		"fsmash": "sword_fsmash",
+		"usmash": "sword_usmash",
+		"dsmash": "sword_dsmash",
+		"dair": "sword_plunge",
+	},
 	# Bracers (the Hauler, unarmed and heavy): a hook and an uppercut for the jabs, swings for the swipe and the arms-out spin, the
 	# uppercut for the overhead sweep and the headbutt, a low slap, a rolling lunge, heavy two-handed claps for the forward and up
 	# smashes, both fists slammed down either side, a heavy overhead hammer for the forward air, a back kick, a stomp. (Placeholders
