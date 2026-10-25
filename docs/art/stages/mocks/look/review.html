@@ -88,6 +88,24 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
     <p>Two lessons from the reference screenshots, mocked from the match camera: the scenery without ink outlines, its edges lit as card bevels instead, and the paper houses rebuilt at the characters' proportions. The earlier rounds stay on the <a href="https://claude.ai/artifact/D1du6MREVumiJDrEdNypW4">Stage Fidelity Review</a>, which is full.</p>
   </header>
 
+  <section class="panel" aria-labelledby="bc9-h" id="beach9">
+    <div class="eyebrow">Your call is needed &middot; review 9, item 3: the beach's rings and clouds</div>
+    <h2 id="bc9-h">Softer rings in the water, clouds in banks</h2>
+    <p>First, item 2 is built: the meadow's wall has larger, deeper stones and its foot is tidied (see its section below). Then the beach, with two separate picks. Under the dock every post had the same set of bright white rings, a row of targets. Across the sky, seven wide cloud cards at one height joined into an unbroken strip, a border over the town.</p>
+    <div class="tablewrap"><table><thead><tr><th>Pick</th><th>A</th><th>B</th></tr></thead><tbody>
+      <tr><td>Rings</td><td>Each post its own: a quarter left bare, the rest a different size and strength, the outer ring broken into arcs</td><td>Only the soft near-side crescent, with a broken outer arc at some posts</td></tr>
+      <tr><td>Clouds</td><td>Five banks spread across the sky, each at its own height and depth</td><td>Two groups, three behind the town and two to the right, the sky over the fight left open</td></tr>
+    </tbody></table></div>
+    <p>The posts' rings, wide and close (today, A, B, then today, A, B at the match camera):</p>
+    <div class="viewer"><img src="bc9_rings.jpg" alt="The rings round the dock's posts today and in the two options"></div>
+    <p>The sky, wide (today, A, B):</p>
+    <div class="viewer"><img src="bc9_sky.jpg" alt="The beach's sky today and in the two options"></div>
+    <div class="row" role="group" aria-label="View"><button data-bc9v="m">Match camera</button><button data-bc9v="w">Wide</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-bc9o="T">Today</button><button data-bc9o="A">A rings and A clouds</button><button data-bc9o="B">B rings and B clouds</button></div>
+    <div class="viewer"><img id="bc9img" alt="Beach option"><span class="vtag" id="bc9tag"></span></div>
+    <p class="muted">My picks: <b>rings A, clouds B</b>. A's rings still say "posts standing in water" without the row of targets, while B's crescents almost vanish. B's clouds leave clear sky over the fight and keep the banks over the town and the lighthouse. The picks mix freely; the viewer shows them in pairs. The rings are also lighter: 3,500 triangles (A) from 9,300.</p>
+  </section>
+
   <section class="panel" aria-labelledby="wl9-h" id="wallcalm9">
     <div class="eyebrow">Built (B) &middot; review 9, item 2: the meadow's wall at a distance</div>
     <h2 id="wl9-h">One calm wall of larger stones</h2>
@@ -1527,5 +1545,15 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
   group("data-wl9v", function (v) { wl9v = v; }, wl9render);
   group("data-wl9o", function (v) { wl9o = v; }, wl9render);
   wl9render();
+  var bc9v = "w", bc9o = "A";
+  var BC9O = { T: "Today", A: "A rings, A clouds", B: "B rings, B clouds" };
+  function bc9render() {
+    document.getElementById("bc9img").src = "bc9_" + bc9o + "_" + bc9v + ".jpg";
+    document.getElementById("bc9tag").textContent = "Beach \u00b7 " + BC9O[bc9o] + (bc9v === "w" ? " \u00b7 wide" : " \u00b7 match camera");
+    pressed("data-bc9v", bc9v); pressed("data-bc9o", bc9o);
+  }
+  group("data-bc9v", function (v) { bc9v = v; }, bc9render);
+  group("data-bc9o", function (v) { bc9o = v; }, bc9render);
+  bc9render();
 })();
 </script>

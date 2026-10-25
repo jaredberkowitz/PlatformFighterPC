@@ -10,6 +10,10 @@ beach_front.glb). Every piece carries its own brightness and fade in its vertex 
 unshaded glow materials use (`StageBake.place_mood`). Families `beam`, `beam_edge`, `glow`, `halo`, `pool`, `cap`, `cord`, `ring`,
 `spark`.
 
+Calmer rings (fidelity review 9: every post the same set of white rings, a row of targets), `--rings A|B` on the ocean's B: A each post
+its own, some left bare, the rings a different size and strength at each and the outer one broken into arcs; B only the soft near-side
+crescent, with a broken outer arc at some posts.
+
 Run (Blender 5.2):
   blender --background --python art/blender/make_mood.py -- --dir godot/art/baked/<key> --theme grove --variant A --out <file.glb>
 """
@@ -27,6 +31,7 @@ from mathutils import Vector
 argv = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
 opts = {argv[i].lstrip("-"): argv[i + 1] for i in range(0, len(argv) - 1, 2)}
 VARIANT = opts.get("variant", "A").upper()
+RINGS = opts.get("rings", "").upper()
 THEME = opts.get("theme", "grove")
 manifest = json.load(open(os.path.join(opts["dir"], "manifest.json")))
 FZ = float(manifest["front_z"])
@@ -237,8 +242,32 @@ def far_posts():
     return out
 
 
+def post_rings(x, z, r_in, r_mid, r_out, rng):
+    """One post's rings, calmer (`--rings`): A its own size and strength, the outer ring broken into arcs, a post in four bare; B only the
+    near-side crescent, and at some posts a broken outer arc."""
+    if RINGS == "A" and rng.random() < 0.25:
+        return
+    k = rng.uniform(0.75, 1.25)
+    a = rng.uniform(0.45, 0.8)
+    if RINGS == "A":
+        annulus("ring", x, z, r_in * k, (r_in + 0.24) * k, 0.9 * a, n=20, rz=0.8)
+    a0 = rng.uniform(0.1, 0.25) * math.pi
+    annulus("ring", x, z, r_in * 0.7 * k, r_mid * k, 0.7 * a, a0=a0, a1=math.pi - a0 + rng.uniform(-0.1, 0.1), n=14, y=SEA + 0.01, rz=0.8)
+    if rng.random() < (0.7 if RINGS == "A" else 0.4):
+        start = rng.uniform(0.0, math.tau)
+        annulus("ring", x, z, r_out * k, (r_out + 0.12) * k, 0.4 * a, a0=start, a1=start + rng.uniform(0.6, 1.4) * math.pi, n=18, rz=0.8)
+
+
 def ocean():
     rng = random.Random(9)
+    if RINGS:
+        # (Their own random numbers, so the sparkles keep their places.)
+        rr = random.Random(29)
+        for (x, z) in far_posts():
+            post_rings(x, z, 0.3, 0.7, 0.9, rr)
+        for (x, z) in posts():
+            post_rings(x, z, 0.5, 1.1, 1.3, rr)
+        return
     for (x, z) in far_posts():
         annulus("ring", x, z, 0.3, 0.5, 0.9, n=20, rz=0.8)
         annulus("ring", x, z, 0.75, 0.88, 0.5, n=24, rz=0.8)

@@ -87,3 +87,13 @@ half on another; the barrel and rock kept. On the Stage Look Review ("wallcalm9"
 Built B (the owner's pick): meadow_front.glb rebuilt with `--calm B` (7,864 triangles), meadow.cfg [backdrop] `foot_tidy=true`, the
 meadow re-lit (front, play, ground). Before and after (wide, then the match camera): `review9/meadow_wall_built.jpg`. All seven tests
 pass.
+
+## Item 3, the beach's rings and clouds (2026-10-25, mock)
+
+Two picks. Rings: `make_mood.py --theme ocean --variant B --rings A|B` (`post_rings`, own random numbers): A, a quarter of the posts bare,
+the rest each its own size (0.75 to 1.25) and strength, the near-side crescent kept and the outer ring a broken arc; B only the
+crescent, a broken arc at some posts. 3,520 (A) and 2,228 (B) triangles, from 9,280; without `--rings` the build is byte-identical to the
+shipped beach_mood.glb. Clouds: `StageArt._ocean` with the palette's [backdrop] `bank_look` (`--bank=A|B`): A five banks in slots across
+the sky at three heights and depths (scales 1.8 to 2.6; a first try at 1.2 to 1.8 read as specks), B two groups, three behind the town
+and two to the right, the sky over the fight left open. On the Stage Look Review ("beach9", `bc9_*`, shown in pairs: A with A, B with B);
+recommended rings A, clouds B.
