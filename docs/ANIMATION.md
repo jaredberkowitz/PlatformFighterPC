@@ -444,3 +444,25 @@ a corkscrew about the upright body (no head-over-heels spin); wall jumps back-fl
     keys are next.
 - **Follow-up (9b):** the Nodachi, now a sword class, takes the sword stance (its long blade raised in guard) instead of the quick family's
   low crouch. It was removed from `AnimLibrary.CLASS_FAMILY`. Image: `docs/screenshots/anim/pass9b_nodachi_stance.png`. The tests pass.
+
+### Pass 10: the pose review's open items (Staff, Greatsword, the Claws' forward air) and the Nodachi's arcs (step 8, part 2)
+
+- **Staff:**
+  - **Defect:** strikes were held one-handed at the end of a straight arm, reading as poking.
+  - **Fix:** the other hand takes the shaft further up (`STAFF_GRIP_APART` 0.55, toward the head; the weapon hand is near the foot), so
+    the staff swings in both hands. `_aim_arm` with two hands now applies to the staff as to the greatsword.
+  - **Also:** held weapons (a staff, a sword with no authored arc) no longer draw the fist smear, which laid a punch's ribbon across the
+    chest.
+- **Greatsword:**
+  - **Defect:** the body stayed upright while the huge blade moved.
+  - **Fix:** grounded swings rock the whole body back through the coil (`GREAT_LOAD_BACK` 12) and throw it forward into the cut
+    (`GREAT_LOAD_IN` 14), on the lean spring.
+  - **Found and fixed:** pass 6's tip arcs had hidden the greatsword's arcs. Tip arcs are now limited to the longsword
+    (`TIP_ARC_CLASSES`), and a tip that disagrees with the authored swing keeps the authored arc.
+- **Claws' forward air:** re-checked; the free arm no longer flings wide (the free-arm clamps plus the pass 5 overhead chamber). No
+  change needed.
+- **Nodachi:** swing arcs for its jab, forward tilt, forward smash, dash attack and forward and back airs, fitted to its own active
+  frames, in a violet-blue trail. The plunging down air draws none.
+- **Image:** `docs/screenshots/anim/pass10_staff_greatsword_nodachi.jpg`.
+- **Checked:** the six tests pass; the Greatsword, Buckler and Nodachi were checked in the pose atlas.
+- **Left:** the rest of classes 2-11's signature keys, and the Longsword forward smash's overhead hand path.

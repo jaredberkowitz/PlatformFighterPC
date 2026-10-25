@@ -3013,6 +3013,11 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 			if use_base_body:
 				swing = maxf(swing, 0.0)
 			target_lean += swing * _reach_weight(s) * (0.35 if use_base_body else 1.0)
+			# (The greatsword's weight, pass 10, the pose review's item: the whole body rocks back to load the huge blade through the coil
+			# and is thrown forward into the cut, rather than standing upright while the blade moves.)
+			if _cls(s) == GREATSWORD_CLASS and grounded and not _body_clip(_cls(s), String(s.move_name)):
+				var mt: PackedInt32Array = s.move_timing
+				target_lean += -GREAT_LOAD_BACK * coil_k(float(s.state_frame), float(mt[1])) + GREAT_LOAD_IN * _reach_weight(s)
 	# The attack lunge: drawn back while winding up, thrown forward through the strike.
 	var target_lunge := 0.0
 	if state == "Attack" and s.move_timing[1] > 0:
@@ -3361,12 +3366,17 @@ func _paint_weapon(root: Node3D, steel: Material, band: Material) -> void:
 		(m as MeshInstance3D).material_override = band if String(m.name).begins_with("band") else steel
 ## The class that fights with a staff (the Seer): posed like the sword, drawn as a staff.
 const STAFF_CLASS := 5
+## How far up the staff's shaft (toward its head) the other hand holds it in a swing (world units): the weapon hand is near its foot.
+const STAFF_GRIP_APART := 0.55
 ## The class that fights with a greatsword (the Champion): posed like the sword (its blade follows the hits), drawn as a broad two-handed
 ## blade with the other hand on the grip; its kicks (the first two jabs, the sliding down tilt) and its throws keep the blade at rest.
 const GREATSWORD_CLASS := 6
 var great_parts: Array[MeshInstance3D] = []
 ## The greatsword's thrusts (the blade points at the hit throughout): the down air, driven straight down.
 const GREAT_THRUSTS := ["dair"]
+## How far (degrees) the greatsword's body rocks back to load a grounded swing, and leans into the cut (see `apply`, pass 10).
+const GREAT_LOAD_BACK := 12.0
+const GREAT_LOAD_IN := 14.0
 
 
 ## Whether a class swings a sword whose blade follows its hits (the Duelist's longsword, the Champion's greatsword).
@@ -3728,6 +3738,10 @@ func _pose_blade(s: Dictionary, delta: float) -> void:
 	hand_target = Vector3(hand.x * facing, hand.y, hand_z)
 	# The greatsword is held in both hands: the other one a little further down the grip (toward the pommel), just behind the blade.
 	var back_along := Vector2.from_angle(deg_to_rad(angle)) * -0.3
+	# (The staff is held in both hands too, the other hand further down the shaft, so it swings as a staff, not poked one-handed:
+	# animation overhaul pass 10, the pose review's staff item.)
+	if _cls(s) == STAFF_CLASS:
+		back_along = Vector2.from_angle(deg_to_rad(angle)) * STAFF_GRIP_APART
 	off_hand_target = hand_target + Vector3(back_along.x, back_along.y, -0.15)
 	_update_arc(now, delta)
 	blade_pivot.position = hand_target
@@ -4238,6 +4252,17 @@ const ARCS := {
 		"uair": [[0.1, 1.3, 2.3, 175, 60, 7, 10]],
 		"ledge attack": [[0.3, 0.8, 2.3, 120, -20, 20, 22]],
 	},
+	# Nodachi (pass 10): its long blade's swings, circles about the shoulder wider than the longsword's for the longer blade, on its own
+	# active frames (content/base.pfc). The level cuts (forward tilt, forward smash) sweep across in front; the plunging down air draws
+	# none.
+	13: {
+		"jab": [[0.5, 1.15, 2.1, 70, -15, 4, 6]],
+		"ftilt": [[0.45, 1.15, 2.2, 35, -20, 13, 15]],
+		"fsmash": [[0.7, 1.15, 2.6, 110, -15, 23, 24]],
+		"dash attack": [[0.55, 1.1, 2.2, -60, 40, 13, 18]],
+		"fair": [[0.5, 1.05, 2.2, 140, -60, 12, 17]],
+		"bair": [[0.0, 1.1, 2.1, 260, 100, 14, 15]],
+	},
 	# Needles: fitted to its hitboxes (moves.rs `needles`), circles about the hip for the kicks and the shoulder for the hand strikes.
 	# The up air draws one arc a kick: its three looping kicks and the final one.
 	2: {
@@ -4363,6 +4388,8 @@ func _arc_circle(w: Array) -> Array:
 
 ## The blade's tip as the mesh has it (the blade mesh ends 2.9 along its pivot's x).
 const BLADE_TIP_X := 2.9
+## The classes whose swing arcs follow the blade's live tip (`_blade_arc_on_tip`).
+const TIP_ARC_CLASSES := [0, BUCKLER_CLASS]
 ## The depth the arc being drawn is at (the blade's own while a sword swing is live, else ARC_Z).
 var arc_z := ARC_Z
 
@@ -4373,7 +4400,8 @@ var arc_z := ARC_Z
 ## body, so on a lunge or a lean the crescent floated off the blade. The authored arc still sets which way the swing runs and how far it
 ## has come. It depends only on this frame's pose, so hitlag freezes it and a seek redraws it.
 func _blade_arc_on_tip(s: Dictionary) -> void:
-	if arc_shown.is_empty() or not bladed(_cls(s)) or not blade_pivot.visible or skeleton == null:
+	# (The longsword's and the buckler's blades only: on the greatsword the redrawn arc vanished, pass 10, so its authored arcs stay.)
+	if arc_shown.is_empty() or not TIP_ARC_CLASSES.has(_cls(s)) or not blade_pivot.visible or skeleton == null:
 		return
 	if String(s.state) != "Attack" or float(arc_shown.q) > 0.0:
 		return
@@ -4395,8 +4423,10 @@ func _blade_arc_on_tip(s: Dictionary) -> void:
 	var d := fposmod((rel.angle() - from) * signf(span), TAU)
 	if d > absf(span) + PI * 0.5:
 		d -= TAU
-	# (Not yet round to where the swing starts, still in the wind-up: nothing drawn, rather than a tail swept backward.)
-	d = maxf(d, 0.0)
+	# (Not yet round to where the swing starts, or the blade is swinging the other way from the authored arc, as some of the
+	# greatsword's do: the authored arc stays, rather than a tail swept backward or none at all. Pass 10.)
+	if d <= 0.0:
+		return
 	arc_shown["c"] = centre
 	arc_shown["r"] = rel.length()
 	arc_shown["head"] = from + signf(span) * d
@@ -4835,6 +4865,8 @@ static func trail_colours_of(cls: int) -> Array:
 		return [Color(0.25, 0.85, 0.75), Color(0.9, 1.0, 0.97)]
 	if cls == GREATSWORD_CLASS:
 		return [Color(1.0, 0.62, 0.22), Color(1.0, 0.96, 0.82)]
+	if cls == NODACHI_CLASS:
+		return [Color(0.42, 0.42, 0.95), Color(0.92, 0.94, 1.0)]
 	return [Color(0.3, 0.66, 1.0), Color(0.92, 0.98, 1.0)]
 
 
@@ -4870,7 +4902,8 @@ func _update_smear(s: Dictionary) -> void:
 	# Drawn out over the throw (from the wind-up to the hit's first frame), held while the hit is live, then faded.
 	var throwing := false
 	var holding := false
-	if String(s.state) == "Attack" and _cls(s) != 0 and strike_tip_ok and not (ARCS.get(_cls(s), {}) as Dictionary).has(String(s.move_name)):
+	# (No fist smear for a held weapon, a staff or a sword with no authored arc: it drew a punch's ribbon across the chest. Pass 10.)
+	if String(s.state) == "Attack" and not bladed(_cls(s)) and _cls(s) != STAFF_CLASS and strike_tip_ok and not (ARCS.get(_cls(s), {}) as Dictionary).has(String(s.move_name)):
 		var f := float(s.state_frame)
 		var first := float(s.move_timing[1])
 		var last := float(s.move_timing[2])
@@ -4957,7 +4990,7 @@ func _apply_combat(s: Dictionary, delta: float) -> void:
 		# The Wanderer's round shield, on the other forearm, faced outward toward the camera, a little in front of the body.
 		_place_buckler(s)
 		# (The Champion swings two-handed; a kick or a throw lets go with the other hand.)
-		_aim_arm(int(s.facing), holding and not carrying, great and swinging_arm and state == "Attack")
+		_aim_arm(int(s.facing), holding and not carrying, (great or staff) and swinging_arm and state == "Attack")
 		# The hilt goes where the hand actually got to (an arm shorter than the swing wants stops short of its target): the weapon is
 		# always in the hand, never floating in front of it.
 		if holding and not carrying and skeleton != null:
