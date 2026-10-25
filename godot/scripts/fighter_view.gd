@@ -546,7 +546,9 @@ func _choose_clip(s: Dictionary) -> Array:
 		"Run", "Dash":
 			# Cycles a second (two dash lengths each) times the clip's length in seconds.
 			var stride := 2.0 * maxf(0.5, float(s.get("dash_length", 2.4)))
-			var clip := "dash" if state == "Dash" else "run"
+			# (Each family's own run, `run_<family>`: round 2 found the family runs built in pass 1 never played, because this returned the
+			# shared run before the family lookup below.)
+			var clip := "dash" if state == "Dash" else AnimLibrary.family_clip(_cls(s), "run", anim)
 			var length := anim.get_animation(clip).length if anim != null and anim.has_animation(clip) else 0.3
 			return [clip, minf(3.2, speed * 60.0 / stride * length * STEP_CADENCE), -1.0]
 		"Attack":
@@ -832,6 +834,12 @@ func _sided(clip: String, facing: int) -> String:
 var shown_clip := ""
 
 
+## The dash and the runs (the shared one and each family's, not the stop out of a run): the clips whose stride carries on from one to the
+## next and whose footfalls squash the body.
+static func _gait_clip(c: String) -> bool:
+	return c == "dash" or c == "run" or (c.begins_with("run_") and c != "run_stop")
+
+
 ## Plays the right clip for this frame and moves the head and torso followers with their bones.
 func _animate(s: Dictionary, delta: float) -> void:
 	if anim == null:
@@ -840,7 +848,7 @@ func _animate(s: Dictionary, delta: float) -> void:
 	var clip: String = pick[0]
 	# Where the stride is: a dash to a run goes on in step, and a new dash (also one the other way) starts on its push-off.
 	var gait := -1.0
-	if current_clip == "dash" or current_clip == "run":
+	if _gait_clip(current_clip):
 		gait = fmod(anim.current_animation_position / maxf(anim.current_animation_length, 0.001), 1.0)
 	var new_dash: bool = s.state == "Dash" and (current_clip != "dash" or int(s.state_frame) < gait_frame)
 	gait_frame = int(s.state_frame) if s.state == "Dash" else -1
@@ -862,7 +870,7 @@ func _animate(s: Dictionary, delta: float) -> void:
 		if frozen and not follows:
 			anim.advance(0.0)
 		current_clip = clip
-		if clip == "run" and gait >= 0.0:
+		if clip != "dash" and _gait_clip(clip) and gait >= 0.0:
 			anim.seek(gait * anim.current_animation_length, true)
 	if new_dash:
 		# Off the foot that is down: the push-off of whichever step comes next.
@@ -3062,7 +3070,7 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 
 	# Running, every footfall squashes the body a little and every stride between them stretches it, in step with the clip.
 	var step_squash := 0.0
-	if (state == "Run" or state == "Dash") and anim != null and (current_clip == "run" or current_clip == "dash"):
+	if (state == "Run" or state == "Dash") and anim != null and _gait_clip(current_clip):
 		var length := anim.get_animation(current_clip).length
 		var phase := fmod(anim.current_animation_position / maxf(length, 0.001), 1.0)
 		step_squash = 0.07 * cos((phase - 0.06) * 4.0 * PI)

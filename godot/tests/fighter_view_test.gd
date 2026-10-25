@@ -69,6 +69,13 @@ func _initialize() -> void:
 	for m in expect:
 		var clip: String = sword._choose_clip(snap(0, "Attack", m, 10))[0]
 		check(clip == expect[m], "%s plays %s (got %s)" % [m, expect[m], clip])
+	# Each family runs its own way (round 2: the family runs never played, the run returned the shared clip before the family lookup).
+	var running := snap(2, "Run", "", 10)
+	running.vel = Vector2(0.24, 0.0)
+	check(needles._choose_clip(running)[0] == "run_quick", "the quick family plays its own run (got %s)" % needles._choose_clip(running)[0])
+	running = snap(0, "Run", "", 10)
+	running.vel = Vector2(0.24, 0.0)
+	check(sword._choose_clip(running)[0] == "run", "the sword family keeps the shared run")
 	for state in ["Idle", "Walk", "Run", "Shield", "Hitstun", "Airborne", "Roll", "LedgeHang"]:
 		sword.apply(Vector3.ZERO, snap(0, state, "", frame), 1.0 / 60.0)
 		check(sword.blade_pivot.visible, "the blade is there while %s" % state)

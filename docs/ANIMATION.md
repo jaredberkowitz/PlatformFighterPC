@@ -660,3 +660,19 @@ along one side and one thin cut edge, 70% as wide, with no core and no ring roun
   first fighter facing right and the second facing left (eight classes, all six families).
 - **Checked:** both facings; the six tests pass.
 - **Left:** the caster and tool families are still upright by design (a design question if the owner wants them lower).
+
+### Pass 19: the family runs actually play (round 2 item 5, found on the way to the walk)
+
+- **Defect:** every class ran the shared run. The quick, heavy, caster and tool runs built in pass 1 (`run_<family>`) never showed in a
+  match or a contact sheet.
+- **Cause:** `fighter_view.gd` `_choose_clip` returned the shared `run` for the Run state before it reached the family lookup
+  (`AnimLibrary.family_clip`), and the gait code (a dash running on in step, the footfall squash and dust) tested for the clip names
+  `run` and `dash` only.
+- **Fix:** the Run state plays `AnimLibrary.family_clip(class, "run")`; the gait checks use `_gait_clip` (the dash, the shared run and
+  every family run, not `run_stop`). `fighter_view_test` now pins the quick family's run and the sword family's shared run.
+- **Image:** `docs/screenshots/anim/r2_pass19_family_runs.jpg`: run contact sheets of the quick, heavy, caster and tool classes, before
+  (the shared run) and after (their own).
+- **Checked:** the six tests pass. Foot slide (`motion_probe`, per family): the runs slide about as much as the shared run (0.4-0.75 of
+  their speed, the heavy run 0.2); the probe's run cases are noisy (some speeds find no planted frame).
+- **Left:** the runs' foot slide is unchanged (out of this round's list; noted for a later locomotion pass). The brawlers keep the shared
+  run (`FAMILY_SHARES`) and the sword family has no run of its own.
