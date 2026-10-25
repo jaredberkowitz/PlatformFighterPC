@@ -23,7 +23,7 @@ static func draw(im: ImmediateMesh, points: Array, q: float, main: Color, core: 
 	var path := _smooth(points)
 	# (No ribbon on a straight thrust, as the reference draws none: along a straight path it can only lie over the arm as a bar, which
 	# read as a glass rod across the body, the art audit of 2026-10-25. Arced punches and kicks keep it.)
-	if _straight(path):
+	if _straight(path) or _turning(path) < MIN_TURN:
 		return
 	var from := int(floor(q * 0.7 * float(path.size() - 1)))
 	path = path.slice(from)
@@ -112,6 +112,22 @@ static func draw(im: ImmediateMesh, points: Array, q: float, main: Color, core: 
 
 ## True when the path barely bends: no point strays from the line between its ends by more than STRAIGHT of its length.
 const STRAIGHT := 0.12
+
+
+## Nor when the path turns through less than this (degrees, the sum of the turns between its pieces): a punch thrown from a chamber behind
+## the hip travels a long, nearly straight path, and its ribbon lay apart from the arm, a tube under it (round 2, the Claws' jab). Swings and
+## kicks that arc keep theirs.
+const MIN_TURN := 50.0
+
+
+static func _turning(path: Array) -> float:
+	var total := 0.0
+	for i in range(1, path.size() - 1):
+		var a: Vector3 = path[i] - path[i - 1]
+		var b: Vector3 = path[i + 1] - path[i]
+		if a.length() > 0.001 and b.length() > 0.001:
+			total += rad_to_deg(a.angle_to(b))
+	return total
 
 
 static func _straight(path: Array) -> bool:

@@ -37,6 +37,8 @@ var frame := -1
 ## How many new sim frames this update brings (0 when frozen, paused or after a jump), and whether time flows now.
 var new_frames := 0
 var flowing := false
+## Whether this update's frame jumped (a rollback correction, a replay seek, a respawn): every channel was put back to rest.
+var jumped := false
 var _still_for := 0.0
 
 
@@ -53,7 +55,8 @@ func value(name: String) -> float:
 ## two frames rests every channel.
 func begin(sim_frame: int, hitlag: int, delta: float) -> void:
 	new_frames = 0
-	if frame >= 0 and (sim_frame < frame or sim_frame - frame > 2):
+	jumped = frame >= 0 and (sim_frame < frame or sim_frame - frame > 2)
+	if jumped:
 		for c in channels.values():
 			(c as Channel).rest()
 	elif frame >= 0:

@@ -747,3 +747,55 @@ along one side and one thin cut edge, 70% as wide, with no core and no ring roun
   (before, the demo never threw it: it had no second press).
 - **Checked:** facing left (contact sheet); the six tests pass.
 - **Left:** the charge's white flash (effects) covers the body for the first frames of the punch.
+
+### Real-speed motion audit (round 2, after the owner's note: unnatural bends and weightless motion)
+
+Captured every frame of every Longsword and Claws move at a fixed 60 frames a second (`--demo=gallery --gallery-step=1`, both facings,
+`--gallery-facing=-1`; new flags in `demo.gd`), and measured each grounded clip's hip height per key in the rig build (`HIPS_DEBUG=1`).
+Ranked by how visible it is at match speed:
+
+1. **Every grounded move bobbed:** its first frame dropped the hips from the idle's 0.645 to 0.32-0.36 (a squat), and its last frame stood
+   back up; the moves keyed with `move` rose 0.3 instead. Seen on every attack, every class. (Pass 23.)
+2. **Wind-ups that float up:** the Longsword's forward smash coiled at hip height 0.80 on straight legs, the Settler's chop at 0.87. (Pass 23.)
+3. **Hands over the face:** the sword hilt over the eyes for eight frames of the up tilt; the claws over the face through the forward air's
+   wind-up; every fist's chamber placed in front of the face. (Pass 24.)
+4. **Arm snaps:** the punching arm's reach switched off in one frame when a move ended (the Claws' jab snapped to the guard on frame 23),
+   and switched on at full weight on frame 1. (Pass 25.)
+5. **Punch ribbons:** a straight punch thrown from a chamber behind the hip still drew a ribbon, along the hips, apart from the arm. (Pass 26.)
+6. Smaller: the shield, grab, jump crouch, landing and spot dodge started or ended standing 0.17-0.24 taller than the idle (pass 23).
+   Not yet fixed: see the round's report.
+
+### Pass 23: no bob into or out of a move
+
+- **Cause (`make_rigged_blob.py`):** the attack rest keys (`_stance_rest`) put the stance's leg angles through `pose`, which multiplies them by
+  the clip's exaggeration (`AMP` 1.7), so the rest key was a squat; `move` clips' rest keys stood tall; the state clips kept their own
+  upright legs; coils were not limited.
+- **Fix:** the rest and recovery keys are the idle's stance exactly (divided by `AMP` before `pose`), with the idle's head counter-tilt
+  (`STANCE_HEAD`, `HEAD_LIMIT_NOW`); `move` clips' rest keys too (`_stance_over`); the shield, grab, throw, kick, jump crouch, landing and
+  spot dodge start and end on the stance's legs; a grounded attack's coil never stands the hips above the stance (`COIL_HIPS_MAX` 0.64,
+  `_sink_to`); the Longsword's forward smash coil sits back on its bent back leg with the front foot reaching ahead. Three aerial clips
+  whose names do not end in "air" are no longer treated as grounded.
+- **Image:** `docs/screenshots/anim/r2_pass23_no_bob_into_moves.jpg`.
+
+### Pass 24: hands kept off the face
+
+- **Cause (`fighter_view.gd`):** the high sword arm (`HIGH_BLADE_ARM` 80) put the hilt in front of the eyes; a fist's chamber and overhead
+  cock were placed from the rest-pose shoulder, 0.4 ahead of the real one once the body turns to the camera.
+- **Fix:** every class's arm is placed from its live shoulder; the high sword arm points at most 62 degrees up; any hand nearer the head's
+  middle than `HEAD_CLEAR_R` goes behind the head in depth (`HEAD_BEHIND_Z`), so the blade or claw still shows round it.
+- **Image:** `docs/screenshots/anim/r2_pass24_face_clear.jpg`.
+
+### Pass 25: the arm's reach eases in and out
+
+- **Fix (`fighter_view.gd`):** the arm IK weight eases in over a punch's first frames (`IK_EASE_IN` 3, finished before the first active
+  frame) and lets go over `IK_FADE_FRAMES` (6) sim frames from where it was when the reach ends (a move over, a sword fighter breaking
+  into a run). By sim frames, so hitlag holds it; a rollback or seek (`MotionSprings.jumped`) drops it at once.
+- **Image:** `docs/screenshots/anim/r2_pass25_reach_eases.jpg`.
+
+### Pass 26: no ribbon on a punch that barely turns
+
+- **Fix:** `smear.gd` draws no ribbon on a path turning through less than `MIN_TURN` (50 degrees); `fighter_view.gd` traces it only from the
+  snap (not the draw-back into the coil) and at the fist's own depth (`SMEAR_FORWARD`), not the arcs' fixed depth. Arced kicks and swings
+  keep theirs.
+- **Image:** `docs/screenshots/anim/r2_pass26_no_punch_ribbon.jpg`.
+- **Checked (passes 23-26):** both facings (gallery captures facing left); the six tests pass.

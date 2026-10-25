@@ -596,7 +596,10 @@ def pose(rig, bone, fwd=0.0, out=0.0, twist=0.0, lift=0.0):
         fwd, out, twist = fwd * WRIST_KEEP, out * WRIST_KEEP, twist * WRIST_KEEP
     # The base body's head is big: tipped back more than a little it shows its chin and hides the drawn face, the half of every read.
     if BODY and bone == "head" and CLIP_NOW not in HEAD_FREE_CLIPS:
-        fwd = max(fwd, HEAD_BACK_IDLE if CLIP_NOW.startswith(("idle", "walk")) else HEAD_BACK_LIMIT)
+        if HEAD_LIMIT_NOW is not None:
+            fwd = max(fwd, HEAD_LIMIT_NOW)
+        else:
+            fwd = max(fwd, HEAD_BACK_IDLE if CLIP_NOW.startswith(("idle", "walk")) else HEAD_BACK_LIMIT)
     pb = rig.pose.bones[bone]
     pb.rotation_mode = "XYZ"
     limb = bone.split(".")[0] in LIMBS
@@ -617,6 +620,8 @@ FREE_ARM_OUT = 24.0
 FREE_ELBOW = 90.0
 HEAD_FREE_CLIPS = ("knockdown", "getup", "ledge", "ledge_climb")
 CLIP_NOW = ""
+# A head limit for the key being posed (the attacks' stance keys take the idle's, `_stance_rest`), or None for the clip's own.
+HEAD_LIMIT_NOW = None
 
 
 def key_all(rig, frame):
@@ -701,7 +706,11 @@ BODY_MOVES = {
     # Fencer's forward smash: the blade raised high with the weight back, then one committed cut down in front into a deep lunge, the
     # front knee well bent, the back leg straight, the free arm thrown back.
     "sword_fsmash": (
-        {"hips": -0.02, "spine": (-16.0, -40.0), "head": (10.0, 20.0), "stance": (24.0, 18.0), "shin.R": (-40.0,), "armU.L": (20.0, 40.0)},
+        # (Round 2, judged frame by frame at real speed: the coil stood up on both legs drawn in under the body, (24, 18) with the back shin
+        # at -40, so the wind-up floated up out of the stance; the reference sits back onto its bent back leg with the front foot reaching
+        # ahead. Now the front leg reaches forward and the back knee loads.)
+        {"hips": -0.02, "spine": (-16.0, -40.0), "head": (10.0, 20.0), "stance": (14.0, -14.0), "shin.L": (-8.0,), "shin.R": (-26.0,),
+         "armU.L": (20.0, 40.0)},
         # (As the reference's: a lunge so deep the back leg lies nearly flat behind and the body drops low over the bent front knee, the
         # head kept up to the camera.)
         # (The torso leans in about 25 degrees, not folded over: at 30 before the exaggeration it bent nearly double and took the head
@@ -931,7 +940,9 @@ BODY_MOVES = {
 def grounded(name):
     """Whether a clip is played on the ground (the feet planted), not in the air, hit, rolling, lying down or on a ledge."""
     if name in ("jump", "fall", "fall_start", "tumble", "air_jump", "air_dodge", "hurt", "roll", "knockdown", "getup", "ledge", "ledge_climb", "kick_dash", "body_drop",
-                "hurt_heavy", "hurt_up", "platform_drop", "gaunt_knee", "gaunt_stomp", "tool_ride", "tool_float"):
+                "hurt_heavy", "hurt_up", "platform_drop", "gaunt_knee", "gaunt_stomp", "tool_ride", "tool_float",
+                # (Aerials whose names do not end in "air": round 2, so their rest keys do not take the battle stance.)
+                "sword_rise", "sword_plunge", "kick_double"):
         return False
     return not name.endswith("air")
 
@@ -1068,6 +1079,27 @@ STRIDING = {"run", "dash", "run_quick", "run_heavy", "run_caster", "run_tool", "
              "walk_caster", "walk_tool"}
 
 
+# A grounded attack's coil (its key 19, or 21 for the older `move` clips) never stands the hips higher than this (the battle stance's are at
+# 0.63-0.65): a wind-up that rose onto straight legs read as floating up before the strike, where the reference loads its knees.
+# (Round 2: the Longsword's forward smash coiled at 0.80, the Settler's chop at 0.87.)
+COIL_KEYS = (19, 21)
+COIL_CAPPED = ("attack", "sword_", "kick_", "gaunt_", "tool_", "body_")
+COIL_HIPS_MAX = 0.64
+
+
+def _sink_to(rig, top):
+    """Lowers the hips to `top` if they are higher, bending the legs to keep both feet on the ground (`_lift_onto`)."""
+    bpy.context.view_layer.update()
+    over = rig.pose.bones["hips"].head.z - top
+    if over <= 0.0:
+        return
+    ground = rig.pose.bones["foot.L"].bone.head_local.z
+    rig.pose.bones["hips"].location.y -= over
+    for side in "LR":
+        _lift_onto(rig, side, ground)
+        _level_sole(rig, side)
+
+
 def plant(rig, both, lift_only=False):
     """Puts the lower foot on the ground by raising or lowering the hips (with `lift_only`, only raising them, if it is below); with
     `both`, sinks to the higher foot and raises the other leg to put that foot down too."""
@@ -1141,21 +1173,39 @@ def _spec_pose(spec):
 def _stance_rest(rest, k):
     """An attack's rest key (its first and last frames) on the ground: the move's rest pose on top of the battle stance's legs and lean
     (`STANCE_*`, the sword family's idle without its bob), so a move starts from and settles back into the stance instead of rising to an
-    upright stand and sinking again when the idle takes over. (Animation overhaul pass 4.)"""
-    base = _spec_held(rest, k)
+    upright stand and sinking again when the idle takes over. (Animation overhaul pass 4.)
+    (Round 2: the stance is divided by the clip's exaggeration (`AMP`), which `pose` multiplies back, so the key is the idle's stance
+    exactly. Exaggerated, the rest keys squatted the hips to 0.32-0.36 against the idle's 0.65: every move dropped into a squat on its
+    first frame and stood back up out of one at its end. The head counters the lean as the idle's does, `STANCE_HEAD`.)"""
+    return _stance_over(_spec_held(rest, k), rest, k)
 
+
+def _stance_over(base, rest, k, legs_only=False):
+    """`base` (a pose function) with the battle stance's legs, lean and head put back on top on the ground (see `_stance_rest`); `rest`'s
+    spine and head (scaled by `k`) ride on the stance's. With `legs_only`, only the legs (the pose keeps its own chest and head)."""
     def f(rig):
+        global HEAD_LIMIT_NOW
         base(rig)
-        if BODY and CLIP_NOW and grounded(CLIP_NOW):
-            r = ATTACK_REST
-            pose(rig, "thigh.L", fwd=r["lead"], out=STANCE_WIDE)
-            pose(rig, "shin.L", fwd=r["lead_shin"])
-            pose(rig, "foot.L", fwd=6.0, out=-10.0)
-            pose(rig, "thigh.R", fwd=r["back"], out=STANCE_WIDE + 4.0)
-            pose(rig, "shin.R", fwd=r["back_shin"])
-            pose(rig, "foot.R", fwd=18.0, out=-10.0)
+        if BODY and CLIP_NOW and grounded(CLIP_NOW) and legs_only:
+            a = AMP
+            pose(rig, "thigh.L", fwd=STANCE_LEAD / a, out=STANCE_WIDE / a)
+            pose(rig, "shin.L", fwd=STANCE_LEAD_SHIN / a)
+            pose(rig, "thigh.R", fwd=STANCE_BACK / a, out=(STANCE_WIDE + 4.0) / a)
+            pose(rig, "shin.R", fwd=STANCE_BACK_SHIN / a)
+        elif BODY and CLIP_NOW and grounded(CLIP_NOW):
+            a = AMP
+            pose(rig, "thigh.L", fwd=STANCE_LEAD / a, out=STANCE_WIDE / a)
+            pose(rig, "shin.L", fwd=STANCE_LEAD_SHIN / a)
+            pose(rig, "foot.L", fwd=6.0 / a, out=-10.0 / a)
+            pose(rig, "thigh.R", fwd=STANCE_BACK / a, out=(STANCE_WIDE + 4.0) / a)
+            pose(rig, "shin.R", fwd=STANCE_BACK_SHIN / a)
+            pose(rig, "foot.R", fwd=18.0 / a, out=-10.0 / a)
             sp = rest.get("spine", (0.0, 0.0))
-            pose(rig, "spine", fwd=r["lean"] + sp[0] * k, twist=8.0 + sp[1] * k, out=r["side"])
+            hd = rest.get("head", (0.0, 0.0))
+            pose(rig, "spine", fwd=(STANCE_LEAN + sp[0] * k * a) / a, twist=(8.0 + sp[1] * k * a) / a, out=STANCE_SIDE / a)
+            HEAD_LIMIT_NOW = HEAD_BACK_IDLE
+            pose(rig, "head", fwd=(STANCE_HEAD + hd[0] * k * a) / a, twist=hd[1] * k)
+            HEAD_LIMIT_NOW = None
     return f
 
 
@@ -1241,7 +1291,7 @@ def clip(rig, name, frames, poses):
         chamber = _chamber_spec(wind, not grounded(name))
         poses = {0: _stance_rest(rest, 0.0), 19: _amped_pose(_spec_pose(chamber), CHAMBER_AMP), 29: _spec_pose(_launch_spec(chamber, strike)),
                  32: _spec_pose(strike), 36: _spec_pose(strike), 40: _amped_pose(_spec_pose(_follow_spec(strike)), 1.1),
-                 47: _spec_held(rest, 1.0), 60: _stance_rest(rest, 0.0)}
+                 47: _stance_rest(rest, 1.0), 60: _stance_rest(rest, 0.0)}
     action = bpy.data.actions.new(name)
     action.use_fake_user = True
     if rig.animation_data is None:
@@ -1252,6 +1302,11 @@ def clip(rig, name, frames, poses):
         poses[frame](rig)
         if BODY and grounded(name):
             plant(rig, name in BODY_MOVES or name in STANDING, name in STRIDING)
+            if frame in COIL_KEYS and name.startswith(COIL_CAPPED):
+                _sink_to(rig, COIL_HIPS_MAX)
+            if os.environ.get("HIPS_DEBUG"):
+                bpy.context.view_layer.update()
+                print("HIPS %s %d %.3f" % (name, frame, rig.pose.bones["hips"].head.z))
         key_all(rig, frame)
     action.frame_range = (0, max(poses))
 
@@ -3027,12 +3082,11 @@ STANCE_LEAN = 26.0
 # The chest's bend toward the way the fighter faces (degrees): the game turns the body most of the way to the camera, so a forward bend
 # alone leans mostly toward the camera and hardly reads; this bend shows the lean on screen.
 STANCE_SIDE = 20.0
-# An attack's rest keys (`_stance_rest`) stand on the stance as it was before round 2: the attacks' exaggeration (`AMP`) multiplies them,
-# which already puts them about as low and leaned as the deeper idle above, so the moves themselves are unchanged.
-ATTACK_REST = dict(lead=44.0, lead_shin=-72.0, back=-20.0, back_shin=-46.0, lean=14.0, side=12.0)
 # In an idle the head may tip back this far against the chest (the general limit is `HEAD_BACK_LIMIT`), so the leaned stance keeps the face
 # level toward the camera instead of looking at the floor and showing the hat's crown.
 HEAD_BACK_IDLE = -24.0
+# The sword stance's head against its chest (the idle's, at the bottom of its bob), for the attacks' stance keys.
+STANCE_HEAD = -19.0
 # Idle loops are this long (frames): two bobs, one breath and one weight shift a loop.
 IDLE_FRAMES = 96
 
@@ -3419,7 +3473,8 @@ def main() -> None:
             pose(rig, "head", fwd=-4.0 - 12.0 * k)
         return f
 
-    clip(rig, "jumpsquat", 4, {0: jumpsquat(0.3), 4: jumpsquat(1.0)})
+    # (Round 2: the crouch starts from the battle stance's legs; it started standing 0.17 taller than the idle, so a jump rose before it sank.)
+    clip(rig, "jumpsquat", 4, {0: _stance_over(jumpsquat(0.3), {}, 0.0, True), 4: jumpsquat(1.0)})
 
     # Landing: the weight drops onto bent knees, the chest pitched forward and the arms flung out and down for balance, then a small
     # rebound and a settle back up toward standing (the game adds its squash on top, deeper after an aerial).
@@ -3436,7 +3491,8 @@ def main() -> None:
             pose(rig, "head", fwd=-4.0 - 10.0 * k + 6.0 * rebound)
         return f
 
-    clip(rig, "land", 14, {0: land(1.0), 3: amped(land(1.0), 1.06), 8: land(0.45, rebound=1.0), 14: land(0.3)})
+    # (Round 2: it settles into the battle stance's legs; it stood 0.17 taller than the idle at its end, then sank into the idle.)
+    clip(rig, "land", 14, {0: land(1.0), 3: amped(land(1.0), 1.06), 8: land(0.45, rebound=1.0), 14: _stance_over(land(0.3), {}, 0.0, True)})
 
     def shield(rig):
         pose(rig, "hips", lift=-0.08)
@@ -3447,7 +3503,8 @@ def main() -> None:
             pose(rig, "armL." + side, fwd=96.0)
         pose(rig, "spine", fwd=8.0)
 
-    clip(rig, "shield", 8, {0: shield, 8: shield})
+    # (Round 2: on the battle stance's legs; it stood up 0.23 out of the idle to shield and sank back on dropping it.)
+    clip(rig, "shield", 8, {0: _stance_over(shield, {}, 0.0, True), 8: _stance_over(shield, {}, 0.0, True)})
 
     def hurt(rig):
         for side in "LR":
@@ -3579,7 +3636,8 @@ def main() -> None:
                 pose(rig, "armL." + side, fwd=30.0)
         return f
 
-    clip(rig, "attack_kick", 60, {0: kick(2), 21: amped(kick(0), 1.12), 33: kick(1), 38: amped(kick(1), 1.1), 45: kick(1), 60: kick(2)})
+    clip(rig, "attack_kick", 60, {0: _stance_over(kick(2), {}, 0.0, True), 21: amped(kick(0), 1.12), 33: kick(1), 38: amped(kick(1), 1.1), 45: kick(1),
+                                  60: _stance_over(kick(2), {}, 0.0, True)})
 
     # ---- Aerials, smashes and the rest. The weapon arm is aimed by the game (it follows the blade), so these set the body: torso, head,
     # legs and the other arm. Move clips share one timeline: wind-up to frame 21, strike at 33, hold to 45, recover by 60.
@@ -3596,7 +3654,10 @@ def main() -> None:
 
     def move(name, wind, strike, hold):
         # Wind-up pushed a little past its pose (anticipation), the strike, an overshoot past it (follow-through), then the settle.
-        clip(rig, name, 60, {0: hold(0), 21: amped(wind, CHAMBER_AMP), 33: strike, 38: amped(strike, 1.12), 45: hold(1), 60: hold(0)})
+        # (Round 2: the rest and recovery keys stand on the battle stance, `_stance_over`, as the six-pose clips' do; standing tall, these
+        # moves rose about 0.3 out of the idle on their first frame and sank back at their end.)
+        clip(rig, name, 60, {0: _stance_over(hold(0), {}, 0.0), 21: amped(wind, CHAMBER_AMP), 33: strike, 38: amped(strike, 1.12),
+                             45: _stance_over(hold(1), {}, 1.0), 60: _stance_over(hold(0), {}, 0.0)})
 
     # Forward air: the reference pose is a mid-air crouch, knees pulled up high, the attacking arm reaching up and forward and then brought
     # down through the sweep in front while the torso curls over it. Lean back with the arm cocked, then curl forward with the knees tucked.
@@ -4093,7 +4154,8 @@ def main() -> None:
             pose(rig, "thigh." + side, fwd=22.0)
             pose(rig, "shin." + side, fwd=-30.0)
 
-    clip(rig, "grab", 8, {0: grab_pose, 8: grab_pose})
+    # (Round 2: the stance's legs, as the moves' rest keys.)
+    clip(rig, "grab", 8, {0: _stance_over(grab_pose, {}, 0.0, True), 8: _stance_over(grab_pose, {}, 0.0, True)})
 
     def throw_wind(rig):
         grab_pose(rig)
@@ -4104,8 +4166,8 @@ def main() -> None:
         pose(rig, "spine", fwd=22.0, twist=30.0)
         pose(rig, "head", fwd=-12.0)
 
-    clip(rig, "throw", 60, {0: grab_pose, 21: amped(throw_wind, 1.12), 33: throw_strike, 38: amped(throw_strike, 1.1), 45: throw_strike,
-                             60: grab_pose})
+    clip(rig, "throw", 60, {0: _stance_over(grab_pose, {}, 0.0, True), 21: amped(throw_wind, 1.12), 33: throw_strike, 38: amped(throw_strike, 1.1), 45: throw_strike,
+                             60: _stance_over(grab_pose, {}, 0.0, True)})
 
     # Rolls and dodges: curled up. A knockdown: flat and limp. A ledge hang: arms up, legs dangling.
     def roll_pose(rig):
@@ -4157,7 +4219,7 @@ def main() -> None:
                     pose(rig, "armL." + side, fwd=60.0 + 60.0 * k)
             return f
 
-        clip(rig, "spot_dodge", 30, {0: duck(0.2), 5: amped(duck(1.0), 1.05), 22: duck(1.0), 30: duck(0.2)})
+        clip(rig, "spot_dodge", 30, {0: _stance_over(duck(0.2), {}, 0.0, True), 5: amped(duck(1.0), 1.05), 22: duck(1.0), 30: _stance_over(duck(0.2), {}, 0.0, True)})
 
         # An air dodge: a flinch into a tight curl, knees up and arms crossed before the face (not over it: the hands stay under the
         # chin), held through the dodge, then opening into the fall.

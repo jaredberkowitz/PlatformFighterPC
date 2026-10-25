@@ -2938,6 +2938,7 @@ func reset_motion() -> void:
 	smear_pts.clear()
 	smear_frame = -1
 	flinch_left = 0.0
+	ik_fade = 0.0
 	for t in tails:
 		t.reset()
 ## Where the run cycle was last frame, for the footfalls.
@@ -3800,7 +3801,9 @@ func _pose_blade(s: Dictionary, delta: float) -> void:
 	# Where the weapon arm's shoulder really is now (forward space): the body turns and leans in a move, and the rest-pose shoulder was
 	# often well away from it, so the planned reach ended short of the real arm's length and the sword hand stayed bent at the chin.
 	var shoulder := shoulder
-	if use_base_body and skeleton != null and bladed(_cls(s)):
+	# (Round 2: for every class, not only the swords. A fist's chamber and overhead cock were placed from the rest-pose shoulder, 0.4 ahead
+	# of the real one, so a fist "drawn back beside the chest" sat out in front of the face and the claws covered it through every wind-up.)
+	if use_base_body and skeleton != null:
 		var iu := skeleton.find_bone("armU." + _weapon_side(facing))
 		if iu >= 0:
 			var live := _skeleton_to_frame() * skeleton.get_bone_global_pose(iu).origin
@@ -3904,6 +3907,17 @@ func _pose_blade(s: Dictionary, delta: float) -> void:
 	var hand_z := lerpf(0.35, behind_z, behind * (1.0 - arm_k))
 	if mill.size() == 2:
 		hand_z = mill_z
+	# (Round 2: a hand that comes up in front of the face, a sword hilt raised overhead in an up tilt or a claw cocked for a forward air,
+	# goes behind the head instead, so the drawn face is never covered; the blade or claw still shows round the head. Judged frame by
+	# frame at real speed, the hilt sat over the eyes for 8 frames of the Longsword's up tilt and the claws covered the face through the
+	# forward air's wind-up.)
+	elif use_base_body and blade_up == 0.0 and skeleton != null and head_bone >= 0 and _cls(s) != GREATSWORD_CLASS:
+		var hp := skeleton.get_bone_global_pose(head_bone)
+		var hc3 := _skeleton_to_frame() * (hp.origin + hp.basis.y.normalized() * HEAD_CENTRE_UP)
+		var near := (hand - Vector2(hc3.x * facing, hc3.y)).length() / HEAD_CLEAR_R
+		var k := 1.0 - smoothstep(0.75, 1.15, near)
+		if k > 0.0:
+			hand_z = lerpf(hand_z, HEAD_BEHIND_Z, k)
 	# (The raised sword is drawn back behind the head in depth, so the hanging blade does not cross the face.)
 	if blade_up > 0.0:
 		hand_z = lerpf(hand_z, BLADE_OVERHEAD_Z, blade_up)
@@ -4170,7 +4184,22 @@ func _body_clip(cls: int, move: String) -> bool:
 
 ## Two-bone arm IK: the weapon arm reaches `hand_target` (model space), and with `two_hands` the other arm reaches `off_hand_target` (the
 ## greatsword's grip). Returns nothing; with `holding` false the arms go back to the clip.
-func _aim_arm(facing: int, holding: bool, two_hands := false) -> void:
+## A hand nearer the head's middle than HEAD_CLEAR_R (units, about the drawn head's half width) is drawn back to HEAD_BEHIND_Z in depth;
+## the head's middle is HEAD_CENTRE_UP above the head bone (the neck).
+const HEAD_CLEAR_R := 0.55
+const HEAD_BEHIND_Z := -0.35
+const HEAD_CENTRE_UP := 0.36
+## How many sim frames an arm's reach takes to let go when it ends, and at most how many a move's reach takes to come in (fewer when the
+## move strikes sooner); the reach's weight while letting go, and the targets it lets go from.
+const IK_FADE_FRAMES := 6.0
+const IK_EASE_IN := 3.0
+var ik_fade := 0.0
+var ik_last_hand := Vector3.ZERO
+var ik_last_off := Vector3.ZERO
+var ik_last_two := false
+
+
+func _aim_arm(facing: int, holding: bool, two_hands := false, amount := 1.0) -> void:
 	if skeleton == null:
 		return
 	for side in ["L", "R"]:
@@ -4226,11 +4255,11 @@ func _aim_arm(facing: int, holding: bool, two_hands := false) -> void:
 			q_upper = hinged[0]
 			q_lower = hinged[1]
 		var stretch := Basis.from_scale(MotionDeform.limb_scale(e))
-		skeleton.set_bone_global_pose_override(iu, Transform3D(Basis(q_upper) * rest_u.basis * stretch, shoulder), 1.0, true)
+		skeleton.set_bone_global_pose_override(iu, Transform3D(Basis(q_upper) * rest_u.basis * stretch, shoulder), amount, true)
 		# (The class's arm bulk carried into the override, which replaces the pose's own scale.)
 		var bulk: Array = _arm_bulk(_cls_now)
-		skeleton.set_bone_global_pose_override(il, Transform3D(Basis(q_lower) * rest_l.basis * stretch * Basis.from_scale(bulk[0]), elbow), 1.0, true)
-		skeleton.set_bone_global_pose_override(ih, Transform3D(Basis(q_lower) * rest_h.basis * Basis.from_scale(bulk[1]), elbow + fore * fore_len * float((bulk[0] as Vector3).y)), 1.0, true)
+		skeleton.set_bone_global_pose_override(il, Transform3D(Basis(q_lower) * rest_l.basis * stretch * Basis.from_scale(bulk[0]), elbow), amount, true)
+		skeleton.set_bone_global_pose_override(ih, Transform3D(Basis(q_lower) * rest_h.basis * Basis.from_scale(bulk[1]), elbow + fore * fore_len * float((bulk[0] as Vector3).y)), amount, true)
 		if not bladed(_cls_now) and mine:
 			strike_tip = to_local(skeleton.global_transform * (elbow + fore * fore_len))
 			strike_tip_ok = true
@@ -4381,7 +4410,7 @@ const ARC_TAIL_DEGREES := 110.0
 const ARC_WIDTH := 0.22
 const ARC_MAX_GROW := 1.15
 ## The highest a sword arm points (degrees above forward) when the blade goes up overhead.
-const HIGH_BLADE_ARM := 80.0
+const HIGH_BLADE_ARM := 62.0
 ## How see-through the swing arcs and smears are: painted, but a trail of light, not a solid shape (the fighter shows through it).
 ## (0.62, art review 6: at 0.82 the pale crescent was the biggest, most solid shape on screen at the moment of a hit, over both fighters.)
 const ARC_OPACITY := 0.62
@@ -5091,6 +5120,9 @@ func _arm_e() -> float:
 ## A strike with no authored arc (a punch or a kick of the classes without a blade) leaves a smear behind the striking fist or foot: drawn
 ## out a point a sim frame from `Smear.LEAD` frames before its hit (so it runs from the wind-up) to the hit, held while the hit is live,
 ## then faded over `ARC_FADE` frames. Nothing moves in hitlag, so a freeze holds it; a rollback or seek drops it.
+const SMEAR_FORWARD := 0.08
+
+
 func _update_smear(s: Dictionary) -> void:
 	var frame := int(s.frame)
 	if smear_frame >= 0 and (frame < smear_frame or frame - smear_frame > 2):
@@ -5105,11 +5137,15 @@ func _update_smear(s: Dictionary) -> void:
 		var f := float(s.state_frame)
 		var first := float(s.move_timing[1])
 		var last := float(s.move_timing[2])
-		throwing = first > 0.0 and f >= first - Smear.LEAD and f <= first
+		# (From the snap only, round 2: from LEAD frames before the hit a short move's ribbon also traced the fist drawing back into its
+		# coil, a ribbon behind the hips going the wrong way.)
+		throwing = first > 0.0 and f >= maxf(first - Smear.LEAD, floorf(SNAP_AT * first)) and f <= first
 		holding = first > 0.0 and f > first and f <= last + 1.0
 	if advanced and int(s.hitlag) == 0 and not holding:
 		if throwing:
-			smear_pts.append(Vector3(strike_tip.x, strike_tip.y, ARC_Z))
+			# (At the fist's or foot's own depth, a little toward the camera: drawn at the arcs' fixed depth, ARC_Z, the ribbon floated
+			# apart from the limb, a tube across the hips under a claw's swipe. Round 2.)
+			smear_pts.append(Vector3(strike_tip.x, strike_tip.y, strike_tip.z + SMEAR_FORWARD))
 			if smear_pts.size() > Smear.POINTS:
 				smear_pts.pop_front()
 			smear_q = 0.0
@@ -5188,7 +5224,33 @@ func _apply_combat(s: Dictionary, delta: float) -> void:
 		# The Wanderer's round shield, on the other forearm, faced outward toward the camera, a little in front of the body.
 		_place_buckler(s)
 		# (The Champion swings two-handed; a kick or a throw lets go with the other hand.)
-		_aim_arm(int(s.facing), holding and not carrying, ((great or staff) and swinging_arm and state == "Attack") or (state == "Attack" and both_fists(s)))
+		var two := ((great or staff) and swinging_arm and state == "Attack") or (state == "Attack" and both_fists(s))
+		# (Round 2: the arm reaching for a hit no longer snaps. It eases in over a move's first frames, from the clip's pose, finished
+		# before the first active frame; and when the reach ends (a punch's move over, a sword fighter breaking into a run) it lets go
+		# over IK_FADE_FRAMES sim frames from where it was, instead of jumping to the clip's pose in one frame.)
+		var hold_now: bool = holding and not carrying
+		var amount := 1.0
+		if hold_now:
+			ik_fade = 1.0
+			ik_last_hand = hand_target
+			ik_last_off = off_hand_target
+			ik_last_two = two
+			if state == "Attack" and brawler:
+				var first := float((s.move_timing as PackedInt32Array)[1])
+				var ease_in := minf(IK_EASE_IN, first - 1.0) if first > 1.0 else 0.0
+				if ease_in > 0.0:
+					var k := clampf(float(s.state_frame) / ease_in, 0.0, 1.0)
+					amount = k * k * (3.0 - 2.0 * k)
+		elif springs.jumped:
+			ik_fade = 0.0
+		elif ik_fade > 0.0:
+			ik_fade = maxf(0.0, ik_fade - float(springs.new_frames) / IK_FADE_FRAMES)
+		if not hold_now and ik_fade > 0.0:
+			hand_target = ik_last_hand
+			off_hand_target = ik_last_off
+			two = ik_last_two
+			amount = ik_fade * ik_fade * (3.0 - 2.0 * ik_fade)
+		_aim_arm(int(s.facing), hold_now or ik_fade > 0.0, two, amount)
 		# The hilt goes where the hand actually got to (an arm shorter than the swing wants stops short of its target): the weapon is
 		# always in the hand, never floating in front of it.
 		if holding and not carrying and skeleton != null:
