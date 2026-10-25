@@ -88,7 +88,7 @@ Built B (the owner's pick): meadow_front.glb rebuilt with `--calm B` (7,864 tria
 meadow re-lit (front, play, ground). Before and after (wide, then the match camera): `review9/meadow_wall_built.jpg`. All seven tests
 pass.
 
-## Item 3, the beach's rings and clouds (2026-10-25, mock)
+## Item 3, the beach's rings and clouds (2026-10-25, built)
 
 Two picks. Rings: `make_mood.py --theme ocean --variant B --rings A|B` (`post_rings`, own random numbers): A, a quarter of the posts bare,
 the rest each its own size (0.75 to 1.25) and strength, the near-side crescent kept and the outer ring a broken arc; B only the
@@ -97,3 +97,7 @@ shipped beach_mood.glb. Clouds: `StageArt._ocean` with the palette's [backdrop] 
 the sky at three heights and depths (scales 1.8 to 2.6; a first try at 1.2 to 1.8 read as specks), B two groups, three behind the town
 and two to the right, the sky over the fight left open. On the Stage Look Review ("beach9", `bc9_*`, shown in pairs: A with A, B with B);
 recommended rings A, clouds B.
+
+Built rings A and clouds B (the owner's picks): beach_mood.glb `--theme ocean --variant B --rings A` (the mood light is unshaded glow,
+nothing to re-light), ocean.cfg [backdrop] `bank_look="B"`. Before and after (wide, then the match camera):
+`review9/beach_rings_clouds_built.jpg`. All seven tests pass (the runner after its known coin flake, on a rerun).

@@ -13,6 +13,7 @@ unshaded glow materials use (`StageBake.place_mood`). Families `beam`, `beam_edg
 Calmer rings (fidelity review 9: every post the same set of white rings, a row of targets), `--rings A|B` on the ocean's B: A each post
 its own, some left bare, the rings a different size and strength at each and the outer one broken into arcs; B only the soft near-side
 crescent, with a broken outer arc at some posts.
+Shipped since fidelity review 9 (the owner's pick A): beach_mood.glb `--theme ocean --variant B --rings A`.
 
 Run (Blender 5.2):
   blender --background --python art/blender/make_mood.py -- --dir godot/art/baked/<key> --theme grove --variant A --out <file.glb>
