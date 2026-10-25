@@ -27,7 +27,8 @@ argv = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
 opts = {argv[i].lstrip("-"): argv[i + 1] for i in range(0, len(argv) - 1, 2)}
 STYLE = opts.get("style", "A").upper()
 # (The other stages' props, rolled and scored after the meadow pilot, in two designs each: `--variant` for all, `--b <names>` for the
-# props that take B's design instead, as the owner picked them on 2026-10-21: `--variant A --b stump,crate,cactus`.)
+# props that take B's design instead, as the owner picked them on 2026-10-21: `--variant A --b stump,crate,cactus`; since fidelity
+# review 9 (2026-10-25, the coiled cactus read as a spring under the canyon's platforms) the ribbed cactus: `--variant A --b stump,crate`.)
 VARIANT = opts.get("variant", "A").upper()
 B_PROPS = [n for n in opts.get("b", "").split(",") if n]
 
