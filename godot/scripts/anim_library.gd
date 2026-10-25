@@ -180,11 +180,13 @@ const CLASS_MOVES := {
 		"extra move 10": "attack_jab",
 		"extra move 11": "attack_jab",
 		"extra move 12": "attack_uair",
-		# The specials: the charged punch keeps the shared heavy strike (its reversed and aerial versions too); the dash's uppercut and
+		# The specials: the charged punch its own (turned away and wound right back, then a huge lunge: pass 12; its reversed and aerial
+		# versions too); the dash's uppercut and
 		# the aerial overhand; the leaping grab's catch; the slide kick, its dive-kick and off-edge versions, and their landings.
-		"extra move 0": "attack_smash",
-		"extra move 1": "attack_smash",
-		"extra move 2": "attack_smash",
+		"neutral special": "gaunt_punch",
+		"extra move 0": "gaunt_punch",
+		"extra move 1": "gaunt_punch",
+		"extra move 2": "gaunt_punch",
 		"extra move 3": "attack_uair",
 		"extra move 4": "attack_smash",
 		"extra move 5": "attack_smash",

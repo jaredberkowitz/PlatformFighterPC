@@ -73,6 +73,8 @@ func _every_move_mapped() -> void:
 	check(AnimLibrary.attack_clip(12, "neutral special") == "blaster", "the dagger's gun is drawn and aimed")
 	check(AnimLibrary.attack_clip(12, "fsmash") != AnimLibrary.attack_clip(12, "dsmash"), "the dagger's smashes differ")
 	check(AnimLibrary.attack_clip(3, "ftilt") == "kick_side" and AnimLibrary.attack_clip(4, "ftilt") == "kick_side", "side kicks")
+	# (Pass 12: the rusher's charged punch has its own wind-up.)
+	check(AnimLibrary.attack_clip(4, "neutral special") == "gaunt_punch", "the gauntlets' charged punch is its own")
 
 
 func _shared_states() -> void:

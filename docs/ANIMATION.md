@@ -503,3 +503,28 @@ a corkscrew about the upright body (no head-over-heels spin); wall jumps back-fl
   - Needles' up tilt: its hitboxes stand straight above the head, and the kick, capped at 65 degrees on this body (`HIGH_KICK`), points at
     the camera and reads as an arm behind the arc. A body-proportion limit; not changed.
   - The Dagger's knife draws the fist's ribbon smear on its cuts, not an arc.
+
+### Pass 12: the brawlers' own blows (Bracers' two-fisted moves, Gauntlets' charged punch)
+
+- **Bracers, defect:** every move was one fist thrown, the other held at the chest, including the reference's two-handed blows (the clap
+  far in front, both fists hammered down in front in the forward air, the aerial clap). An attack clip cannot raise the free arm: it is
+  held in close to the body (`make_rigged_blob.py` `pose`, `FREE_ARM_*`), so the clip's two-handed down air sweep showed one arm.
+- **Fix (`fighter_view.gd`):**
+  - `BOTH_FISTS` (forward smash, forward air, aerial clap): the other arm reaches with the striking one, its fist just beside and behind it
+    (`BOTH_FISTS_APART`), through the coil, the strike and the recovery (`_aim_arm` with two hands, as the greatsword and staff).
+  - The forward air cocks both fists up beside the head (`OVERHEAD_CHAMBER`, now [degrees, depth] per move: 110 degrees, beside the head;
+    hidden behind it, as the knife is, they did not read), then hammers them over the top and down in front.
+  - The up smash stays one-handed: two fists straight up covered the face.
+- **Gauntlets, defect:** the charged punch, its reference's signature move, played the shared heavy strike: at 4 frames before the hit it
+  was an ordinary stance, the fist at the chest, after a 52-frame wind-up.
+- **Fix:** a new `gaunt_punch` clip (`BODY_MOVES`): turned right away from the foe (spine twist -58), sunk onto the bent back leg, the free
+  arm thrown out ahead to aim; then a huge lunge with the shoulders turned through. The fist is pulled far back behind the hip through the
+  wind-up (`DEEP_CHAMBER`) and thrown from there. Mapped for the punch and its reversed and aerial versions.
+- **Files:** `godot/scripts/fighter_view.gd` (`BOTH_FISTS`, `both_fists`, `DEEP_CHAMBER`, `OVERHEAD_CHAMBER`), `art/blender/make_rigged_blob.py`,
+  `godot/models/base_rig.glb`, `godot/scripts/anim_library.gd`, `godot/tests/anim_library_test.gd`.
+- **Image:** `docs/screenshots/anim/pass12_brawlers.jpg`: the Bracers' forward smash, up smash and forward air (wind-up, strike, follow),
+  before above and after below; its forward air in a match, frame by frame; the Gauntlets' charged punch before and after, then frame by
+  frame.
+- **Checked:** facing left (contact sheets); the six tests pass.
+- **Left:** the Bracers' arms-out spins (neutral air, up special) and the hand slap still play one-armed clips; its giant punch's wind-up
+  (the arm swung round as it charges) is the shared heavy strike.

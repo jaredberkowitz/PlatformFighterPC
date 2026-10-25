@@ -3611,12 +3611,32 @@ const OVERHEAD_FROM := 125.0
 const OVERHEAD_TO := -55.0
 
 
+## Punches (by class) whose fist is drawn much further back than `FIST_CHAMBER` through the wind-up (forward space from the shoulder): the
+## rusher's charged punch, the fist pulled right back behind the hip over its long wind-up, as its reference's. (Animation overhaul pass 12.)
+const DEEP_CHAMBER := {4: {"neutral special": Vector2(-0.62, -0.3), "extra move 0": Vector2(-0.62, -0.3),
+	"extra move 1": Vector2(-0.62, -0.3), "extra move 2": Vector2(-0.62, -0.3)}}
+
+
 ## Grounded hand-weapon moves (by class) whose wind-up cocks the hand up behind the head, as the overhead forward air does, so the strike
-## comes over the top and down onto the hit: the Dagger's forward smash, a downward knife cut (animation overhaul pass 11). Degrees about
+## comes over the top and down onto the hit: the Dagger's forward smash, a downward knife cut (animation overhaul pass 11), and the
+## Hauler's forward air, both fists raised and hammered down in front (pass 12). Degrees about
 ## the shoulder (0 forward, 90 up): further back than the forward air's, so the raised knife sits behind the head, not across the face.
-const OVERHEAD_CHAMBER := {12: {"fsmash": 165.0}}
-## The depth (model space, toward the camera positive) a hand cocked up behind the head is drawn back to.
-const OVERHEAD_BEHIND_Z := -0.3
+## Each is [degrees, depth]: the depth (model space, toward the camera positive) the cocked hand is drawn back to, behind the head for the
+## knife, beside it for the fists (hidden behind it, they did not read).
+const OVERHEAD_CHAMBER := {12: {"fsmash": [165.0, -0.3]}, 7: {"fair": [110.0, 0.05]}}
+
+
+## Unarmed moves (by class) thrown with both fists together, the other arm reaching beside the striking one (`_aim_arm` with two hands):
+## the Hauler's clap far in front, both fists hammered down in front (its forward air) and the aerial clap (its overhead clap is left one-handed:
+## two fists straight up covered the face). (Animation
+## overhaul pass 12, after its reference's; the clip alone could not, as an attack clip's free arm is held in close to the body.)
+const BOTH_FISTS := {7: ["fsmash", "fair", "extra move 9"]}
+## Where the other fist sits against the striking one (model space: a little lower and further from the camera).
+const BOTH_FISTS_APART := Vector3(0.0, -0.08, -0.32)
+
+
+func both_fists(s: Dictionary) -> bool:
+	return s.move_name != "" and int(s.state_frame) > 0 and (BOTH_FISTS.get(_cls(s), []) as Array).has(String(s.move_name))
 
 
 ## Whether this move is a fist's overhead forward air (see OVERHEAD_FROM).
@@ -3689,17 +3709,20 @@ func _pose_blade(s: Dictionary, delta: float) -> void:
 	# (How far a hand cocked up behind the head, OVERHEAD_CHAMBER, is drawn back behind it in depth, so the raised knife does not cross
 	# the face.)
 	var behind := 0.0
+	var behind_z := 0.35
 	if attacking and not bladed(_cls(s)) and not _thrust(_cls(s), String(s.move_name)):
 		var mt: PackedInt32Array = s.move_timing
 		if mt.size() >= 2 and float(s.state_frame) < float(mt[1]):
 			# (An overhead forward air cocks the fist up behind the head instead, as the reference's does, both arms raised.)
-			var chamber := shoulder + FIST_CHAMBER
+			var chamber: Vector2 = shoulder + (DEEP_CHAMBER.get(_cls(s), {}) as Dictionary).get(String(s.move_name), FIST_CHAMBER)
 			var overhead: Dictionary = OVERHEAD_CHAMBER.get(_cls(s), {})
 			if use_base_body and _overhead_punch(s):
 				chamber = shoulder + Vector2.from_angle(deg_to_rad(OVERHEAD_FROM)) * arm_reach * 0.85
 			elif use_base_body and overhead.has(String(s.move_name)):
-				chamber = shoulder + Vector2.from_angle(deg_to_rad(float(overhead[String(s.move_name)]))) * arm_reach * 0.85
+				var oc: Array = overhead[String(s.move_name)]
+				chamber = shoulder + Vector2.from_angle(deg_to_rad(float(oc[0]))) * arm_reach * 0.85
 				behind = coil_k(float(s.state_frame), float(mt[1]))
+				behind_z = float(oc[1])
 			from_hand = old_hand.lerp(chamber, coil_k(float(s.state_frame), float(mt[1])))
 			hand = from_hand
 	if rig != null and arm_k > 0.0:
@@ -3746,7 +3769,7 @@ func _pose_blade(s: Dictionary, delta: float) -> void:
 	# Forward space to model space: facing left mirrors the pose about the vertical axis.
 	var angle := swing if facing > 0 else 180.0 - swing
 	# (The greatsword at rest lies behind the body, its blade across the back; swinging, it comes round in front.)
-	var hand_z := lerpf(0.35, OVERHEAD_BEHIND_Z, behind * (1.0 - arm_k))
+	var hand_z := lerpf(0.35, behind_z, behind * (1.0 - arm_k))
 	if _cls(s) == GREATSWORD_CLASS:
 		great_z = move_toward(great_z, -0.45 if great_rest else 0.35, delta * 8.0)
 		hand_z = great_z
@@ -3758,6 +3781,9 @@ func _pose_blade(s: Dictionary, delta: float) -> void:
 	if _cls(s) == STAFF_CLASS:
 		back_along = Vector2.from_angle(deg_to_rad(angle)) * STAFF_GRIP_APART
 	off_hand_target = hand_target + Vector3(back_along.x, back_along.y, -0.15)
+	# (A two-fisted blow, BOTH_FISTS: the other fist goes with the striking one, just beside and behind it, so both arms swing together.)
+	if both_fists(s):
+		off_hand_target = hand_target + BOTH_FISTS_APART
 	_update_arc(now, delta)
 	blade_pivot.position = hand_target
 	blade_pivot.rotation = Vector3(0, 0, deg_to_rad(angle))
@@ -5005,7 +5031,7 @@ func _apply_combat(s: Dictionary, delta: float) -> void:
 		# The Wanderer's round shield, on the other forearm, faced outward toward the camera, a little in front of the body.
 		_place_buckler(s)
 		# (The Champion swings two-handed; a kick or a throw lets go with the other hand.)
-		_aim_arm(int(s.facing), holding and not carrying, (great or staff) and swinging_arm and state == "Attack")
+		_aim_arm(int(s.facing), holding and not carrying, ((great or staff) and swinging_arm and state == "Attack") or (state == "Attack" and both_fists(s)))
 		# The hilt goes where the hand actually got to (an arm shorter than the swing wants stops short of its target): the weapon is
 		# always in the hand, never floating in front of it.
 		if holding and not carrying and skeleton != null:

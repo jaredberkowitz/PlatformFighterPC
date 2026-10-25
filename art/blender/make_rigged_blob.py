@@ -736,6 +736,16 @@ BODY_MOVES = {
         {"hips": -0.2, "spine": (24.0, 26.0), "head": (-8.0, -12.0), "stance": (74.0, -58.0), "shin.L": (-74.0,), "shin.R": (-2.0,),
          "armU.L": (-30.0, 30.0), "armL.L": (30.0,)},
         {"hips": -0.1, "spine": (18.0, 12.0), "head": (-10.0, 0.0), "stance": (46.0, -36.0), "shin.L": (-44.0,)}),
+    # The rusher's charged punch (the Gauntlets' neutral special, after its reference's; animation overhaul pass 12): over the long wind-up
+    # the body turns right away from the foe and sinks onto the bent back leg, the free arm thrown out ahead to aim while the game pulls
+    # the punching fist far back behind the hip (`DEEP_CHAMBER`), then everything unwinds at once into a huge lunge, the shoulders turned
+    # through past square and the back leg flung long behind.
+    "gaunt_punch": (
+        {"hips": -0.14, "spine": (-4.0, -58.0), "head": (6.0, 30.0), "stance": (26.0, 30.0), "shin.L": (-30.0,), "shin.R": (-74.0,),
+         "armU.L": (80.0, 10.0), "armL.L": (90.0,)},
+        {"hips": -0.16, "spine": (26.0, 48.0), "head": (-8.0, -26.0), "stance": (72.0, -54.0), "shin.L": (-66.0,), "shin.R": (-2.0,),
+         "armU.L": (-10.0, 24.0), "armL.L": (100.0,)},
+        {"hips": -0.08, "spine": (12.0, 18.0), "stance": (40.0, -30.0), "shin.L": (-36.0,)}),
     # Forward air (a crescent cut, or a claw raked, down through the space in front): the weapon raised with the shoulders turned back and
     # the knees drawn up, then the torso leans over the swing and turns into it, the front knee up and the back leg trailing.
     # Upright enough that the face stays toward the hit.
@@ -3459,6 +3469,8 @@ def main() -> None:
     clip(rig, "attack_claws", 60, {})
     # The Dagger's diving forward smash (posed in BODY_MOVES).
     clip(rig, "attack_knife_smash", 60, {})
+    # The rusher's charged punch (posed in BODY_MOVES).
+    clip(rig, "gaunt_punch", 60, {})
     # The Settler's tool clips (posed in BODY_MOVES).
     for tool in ("tool_reach", "tool_toss", "tool_dig", "tool_pour", "tool_chop", "tool_heave", "tool_raise", "tool_trip", "tool_shrug", "tool_ride", "tool_float"):
         clip(rig, tool, 60, {})
