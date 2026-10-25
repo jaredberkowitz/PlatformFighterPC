@@ -101,3 +101,12 @@ height).
 Built A (the owner's pick): city_play.glb rebuilt with `--theme city --variant A --plat deck --wear 2`, the city re-lit (`light_stage.py`
 on the front and the play area, curve and reach 2.5). Before and after (match camera, then wide): `review8/city_platforms_built.jpg`.
 All seven tests pass.
+
+## Item 5, the grove's underside (2026-10-25, mock)
+
+`make_grove_front.py --variant B --calm A|B` (`stones_calm`): the same stones, roots and moss, fewer and larger. A: stones of 1.2 to
+1.9 in rows about two units apart, their tones closer; moss caps only on the top row, under the lip; the roots in two groups (a pair on
+the left, one on the right), each with its branch. B: the stones gathered into masses of two to four, each mass one tone, with dark earth
+between; the roots in one group from the left. The calm stones lie flatter against the island (a first try at full depth hid the roots
+behind them and read as pale grey blocks), and the roots stand a little further out. 11,100 (A) and 9,600 (B) triangles, from 16,300.
+On the Stage Look Review ("underside8", `u8_*`); recommended A (two root groups frame the keel; B leaves its right side bare).

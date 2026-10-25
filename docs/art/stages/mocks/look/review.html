@@ -88,6 +88,22 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
     <p>Two lessons from the reference screenshots, mocked from the match camera: the scenery without ink outlines, its edges lit as card bevels instead, and the paper houses rebuilt at the characters' proportions. The earlier rounds stay on the <a href="https://claude.ai/artifact/D1du6MREVumiJDrEdNypW4">Stage Fidelity Review</a>, which is full.</p>
   </header>
 
+  <section class="panel" aria-labelledby="u8-h" id="underside8">
+    <div class="eyebrow">Your call is needed &middot; review 8, item 5: the grove's underside</div>
+    <h2 id="u8-h">A calmer underside for the grove's island</h2>
+    <p>First, item 4 is built: the city's platforms are a steel deck on the red riveted girder (see its section below). Then the grove's island underside, which was busy: many small stones, five crossing roots and moss caps on half the stones, all at one weight. Both options keep the same pieces (stones, roots, moss) and use fewer, larger ones. The stones lie flatter so the roots still cross in front of them, and moss stays only under the lip.</p>
+    <div class="tablewrap"><table><thead><tr><th>Option</th><th>What changes</th></tr></thead><tbody>
+      <tr><td>A &middot; Big stones</td><td>Fewer, larger stones in fewer rows, their tones closer together; the roots in two groups (a pair on the left, one on the right).</td></tr>
+      <tr><td>B &middot; Massed</td><td>The stones gathered into a few large masses, each one tone, with dark earth between them; the roots in one group from the left.</td></tr>
+    </tbody></table></div>
+    <p>Wide crops: today, A, B, then B at the match camera:</p>
+    <div class="viewer"><img src="u8_close.jpg" alt="The grove's underside today and in the two options"></div>
+    <div class="row" role="group" aria-label="View"><button data-u8v="m">Match camera</button><button data-u8v="w">Wide</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-u8o="T">Today</button><button data-u8o="A">A &middot; Big stones</button><button data-u8o="B">B &middot; Massed</button></div>
+    <div class="viewer"><img id="u8img" alt="Grove underside option"><span class="vtag" id="u8tag"></span></div>
+    <p class="muted">My pick: <b>A</b>. The two root groups frame the keel and the stones read as one rock face. B is the calmest, but its single root group leaves the right side bare. Shown before the light bake, today's front included. Also lighter: about 11,100 and 9,600 triangles, from 16,300.</p>
+  </section>
+
   <section class="panel" aria-labelledby="p8-h" id="scaffold8">
     <div class="eyebrow">Built (A) &middot; review 8, item 4: the city's platforms</div>
     <h2 id="p8-h">The city's platforms in steel, not a plain card</h2>
@@ -1363,5 +1379,15 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
   group("data-p8v", function (v) { p8v = v; }, p8render);
   group("data-p8o", function (v) { p8o = v; }, p8render);
   p8render();
+  var u8v = "w", u8o = "A";
+  var U8O = { T: "Today", A: "A \u00b7 Big stones", B: "B \u00b7 Massed" };
+  function u8render() {
+    document.getElementById("u8img").src = "u8_" + u8o + "_" + u8v + ".jpg";
+    document.getElementById("u8tag").textContent = "Grove \u00b7 " + U8O[u8o] + (u8v === "w" ? " \u00b7 wide" : " \u00b7 match camera");
+    pressed("data-u8v", u8v); pressed("data-u8o", u8o);
+  }
+  group("data-u8v", function (v) { u8v = v; }, u8render);
+  group("data-u8o", function (v) { u8o = v; }, u8render);
+  u8render();
 })();
 </script>
