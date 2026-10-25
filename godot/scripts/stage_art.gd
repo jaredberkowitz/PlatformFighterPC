@@ -5368,6 +5368,13 @@ static func _ocean(root: Node3D, t: Dictionary, stage: Array) -> void:
 		if arg.begins_with("--sea-band="):
 			sea_band = int(arg.substr(11))
 	wm.set_shader_parameter("wave_band", sea_band)
+	# (The shallows round the dock, new art toward 5: the palette's `sea_shallows` [how strong, reach, rocks], `--shallows=A|B` to try.)
+	var sh: Array = (_palette.get("backdrop", {}) as Dictionary).get("sea_shallows", [])
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--shallows="):
+			sh = {"A": [1.0, 40.0, 0.0], "B": [1.0, 40.0, 1.0]}.get(arg.substr(11), sh)
+	if sh.size() == 3:
+		wm.set_shader_parameter("shallows", Vector3(sh[0], sh[1], sh[2]))
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--sea-look="):
 			wm.set_shader_parameter("look", {"T": 0, "A": 1, "B": 2, "C": 3}.get(arg.substr(11), int(_pal("sea_look"))))

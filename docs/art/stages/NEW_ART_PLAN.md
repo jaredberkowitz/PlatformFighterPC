@@ -135,3 +135,11 @@ recommended B.
 Built B (the owner's pick): meadow_ground.glb and meadow_pines.glb `--variant FC --pine D --hill fields_lane` (249,665 triangles), the
 meadow re-lit (front, play, ground). P1's gap 0.052. Before and after (wide, then the match camera): `review10/meadow_terraces_built.jpg`.
 All seven tests pass.
+
+### Step 3, the beach's shallows (mock)
+
+`water.gdshader` `shallows` [how strong, reach, rocks] in the clear and paper seas (`look` above 0), set by `StageArt._ocean` from the
+palette's [backdrop] `sea_shallows` (`--shallows=A|B`, A [1, 40, 0], B [1, 40, 1]): long soft sand bars of pale sandy turquoise in
+world-space noise, a slightly deeper rim round each, fading out from half the reach; B a few rocks on the bottom (a first, denser and
+darker set read as blotches). Shader only, no cost to draw. The sea at the wide camera: contrast 0.084 to 0.099 (A) and 0.100 (B); P1's
+gap 0.176 today, 0.168 (A), 0.172 (B). On the Stage Look Review ("shallows14", `sw14_*`); recommended A.

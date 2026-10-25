@@ -88,6 +88,22 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
     <p>Two lessons from the reference screenshots, mocked from the match camera: the scenery without ink outlines, its edges lit as card bevels instead, and the paper houses rebuilt at the characters' proportions. The earlier rounds stay on the <a href="https://claude.ai/artifact/D1du6MREVumiJDrEdNypW4">Stage Fidelity Review</a>, which is full.</p>
   </header>
 
+  <section class="panel" aria-labelledby="sw14-h" id="shallows14">
+    <div class="eyebrow">Your call is needed &middot; new art, step 3: the beach's shallows (B1)</div>
+    <h2 id="sw14-h">Sand bars under the dock</h2>
+    <p>First, step 2 is built: the meadow's hill is terraced farmland with a lane (see its section below). Then the beach. The water under and around the dock was one even turquoise. Now it has shallows: long soft sand bars seen through clear water, a slightly deeper rim round each where the bottom drops away, fading out as the sea deepens behind the dock.</p>
+    <div class="tablewrap"><table><thead><tr><th>Option</th><th>What changes</th></tr></thead><tbody>
+      <tr><td>A &middot; Sand bars</td><td>The sand bars and their rims</td></tr>
+      <tr><td>B &middot; And rocks</td><td>A, with a few rocks on the bottom seen through the water</td></tr>
+    </tbody></table></div>
+    <p>The water at the wide camera: today, A, B. The sea's contrast rises from 0.084 to 0.099 (A) and 0.100 (B), and P1's gap to the ground stays near 0.17 (the dock is what stands behind the fighters).</p>
+    <div class="viewer"><img src="sw14_close.jpg" alt="The beach's water today and with shallows"></div>
+    <div class="row" role="group" aria-label="View"><button data-sw14v="m">Match camera</button><button data-sw14v="w">Wide</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-sw14o="T">Today</button><button data-sw14o="A">A &middot; Sand bars</button><button data-sw14o="B">B &middot; And rocks</button></div>
+    <div class="viewer"><img id="sw14img" alt="Beach shallows option"><span class="vtag" id="sw14tag"></span></div>
+    <p class="muted">My pick: <b>A</b>. The sand bars read as shallow water at once and keep the sea calm. The rocks add a little texture but read as dark spots at play size (a first, denser set looked like blotches). Both are in the sea's shader, so they cost nothing to draw.</p>
+  </section>
+
   <section class="panel" aria-labelledby="tf13-h" id="terraces13">
     <div class="eyebrow">Built (B) &middot; new art, step 2: the meadow's terraced fields (M1)</div>
     <h2 id="tf13-h">The hill under the wall as terraced farmland</h2>
@@ -1948,5 +1964,15 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
   group("data-tf13v", function (v) { tf13v = v; }, tf13render);
   group("data-tf13o", function (v) { tf13o = v; }, tf13render);
   tf13render();
+  var sw14v = "w", sw14o = "A";
+  var SW14O = { T: "Today", A: "A \u00b7 Sand bars", B: "B \u00b7 And rocks" };
+  function sw14render() {
+    document.getElementById("sw14img").src = "sw14_" + sw14o + "_" + sw14v + ".jpg";
+    document.getElementById("sw14tag").textContent = "Beach \u00b7 " + SW14O[sw14o] + (sw14v === "w" ? " \u00b7 wide" : " \u00b7 match camera");
+    pressed("data-sw14v", sw14v); pressed("data-sw14o", sw14o);
+  }
+  group("data-sw14v", function (v) { sw14v = v; }, sw14render);
+  group("data-sw14o", function (v) { sw14o = v; }, sw14render);
+  sw14render();
 })();
 </script>

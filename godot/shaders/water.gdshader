@@ -34,6 +34,9 @@ uniform int wave_vary = 0;
 // bands, each sheet's edge a rounded swell, not a cusp, its lip a wide soft lift in the water's own paler tint; 2 tone tiers, no lip at
 // all, each sheet a deeper step of tone shaded toward its edge, read by the step and the shadow.
 uniform int wave_band = 0;
+// The shallows (new art toward 5, B1, the owner's approval 2026-10-25): near the dock, sand bars and rocks seen through clear water, the
+// sea deepening past them. x how strong (0 off), y how far back they reach in units, z the rocks' share (0 sand bars only).
+uniform vec3 shallows = vec3(0.0);
 uniform sampler2D screen_tex : hint_screen_texture, filter_linear_mipmap;
 varying vec3 world_pos;
 
@@ -104,6 +107,22 @@ void fragment() {
 		vec3 far_c = mix(pow(vec3(0.16, 0.46, 0.7), vec3(2.2)), horizon.rgb, 0.25);
 		vec3 col = mix(near_c, mid_c, smoothstep(4.0, 45.0, back));
 		col = mix(col, far_c, smoothstep(45.0, 170.0, back));
+		if (shallows.x > 0.0) {
+			// Sand bars: long soft patches of pale sandy turquoise, fading out with depth; rocks: smaller darker patches among them.
+			float near_k = 1.0 - smoothstep(shallows.y * 0.5, shallows.y, back);
+			vec2 sq = q * vec2(0.045, 0.11);
+			float bar = smoothstep(0.48, 0.66, noise(sq + vec2(3.7, 1.1)) * 0.7 + noise(sq * 2.3 + vec2(-1.3, 4.2)) * 0.3);
+			vec3 sand_c = pow(vec3(0.56, 0.84, 0.76), vec3(2.2));
+			col = mix(col, sand_c, bar * near_k * 0.75 * shallows.x);
+			// (A soft deeper rim round each bar, where the bottom drops away.)
+			float rim = smoothstep(0.38, 0.5, noise(sq + vec2(3.7, 1.1)) * 0.7 + noise(sq * 2.3 + vec2(-1.3, 4.2)) * 0.3) * (1.0 - bar);
+			col *= 1.0 - rim * near_k * 0.12 * shallows.x;
+			if (shallows.z > 0.0) {
+				// (Few and through the water's colour: darker and more of them read as blotches.)
+				float rock = smoothstep(0.8, 0.86, noise(q * vec2(0.22, 0.5) + vec2(9.1, 2.3)));
+				col = mix(col, pow(vec3(0.24, 0.48, 0.46), vec3(2.2)), rock * near_k * shallows.z * shallows.x * 0.6);
+			}
+		}
 		// Broad soft patches, deeper and lighter, drifting: the water's large forms.
 		float sw = noise(q * vec2(0.02, 0.06) + vec2(TIME * 0.025, 0.0)) * 0.6 + noise(q * vec2(0.05, 0.14) + vec2(-TIME * 0.04, 2.0)) * 0.4;
 		col *= mix(0.9, 1.08, sw);
