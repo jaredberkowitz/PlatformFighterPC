@@ -20,6 +20,8 @@ After fidelity review 6 (H's rock read as flat dark-teal blocks over a flat viol
   `--rock shaped`  each block its own tone, its bevel a lighter lit rim (`cliff_lit`), roots hanging from the lips facing the camera;
   `--abyss mist`   with it, a misty valley in the abyss: two layers of violet mist with cut edges at different depths, the tops of a
                    forest of the grove's trees rising through them.
+After fidelity review 9 (the pale pine tops near the chasm read as trees standing in water): `--valley none|far` with `--abyss mist`,
+  none  the mist without the trees; far  only the trees well back in the valley (behind 80), fewer.
 Every look carries the far ranges as standing cut-out flats, three to a range, their crests from the painted ranges they stand in for.
 Each piece is its own object so the game can lay the air of its depth over it, and bakes its occlusion into linear vertex colours.
 Families `grass`, `grass_far`, `cliff`, `range_far`, `range_near`, their cut edges `card_<family>`, `leaf_lit`, `leaf_shade`, `bark`.
@@ -49,6 +51,7 @@ opts = {argv[i].lstrip("-"): argv[i + 1] for i in range(0, len(argv) - 1, 2)}
 VARIANT = opts.get("variant", "A").upper()
 SHAPED = opts.get("rock", "") == "shaped"
 MISTY = opts.get("abyss", "") == "mist"
+VALLEY = opts.get("valley", "")
 LAYOUT = json.load(open(os.path.join(opts["dir"], "ground.json")))
 SIDE_TREES = [(-30.0, -55.0), (32.0, -55.0)]
 # The ledges of the shipped ground (make_grove_ground.py A): name, x0, x1, front z, back z, top, top family.
@@ -863,9 +866,11 @@ def misty_valley(rng):
             face(part(name, "card_abyss_mist"), (P(xa, y, fa), P(xa, y - 0.5, fa), P(xb, y - 0.5, fb), P(xb, y, fb)))
     placed = []
     tries = 0
-    while len(placed) < 70 and tries < 4000:
+    if VALLEY == "none":
+        return
+    while len(placed) < (30 if VALLEY == "far" else 70) and tries < 4000:
         tries += 1
-        x, z = rng.uniform(-140.0, 140.0), rng.uniform(-110.0, -26.0)
+        x, z = rng.uniform(-140.0, 140.0), rng.uniform(-110.0, -80.0 if VALLEY == "far" else -26.0)
         if any(math.hypot(x - px, z - pz) < 5.5 for (px, pz) in placed):
             continue
         # (Under the terraces' tops nothing shows; keep to the open chasm and the far valley.)

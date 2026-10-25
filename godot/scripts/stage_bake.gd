@@ -1067,6 +1067,19 @@ static func _ground_colours(t: Dictionary) -> Dictionary:
 	out["valley_lit"] = Color(0.4, 0.5, 0.62)
 	out["valley_shade"] = Color(0.28, 0.3, 0.5)
 	out["valley_bark"] = Color(0.32, 0.28, 0.44)
+	# (One rock for the grove, fidelity review 9: the island's underside is grey-green stone, the terraces' blocks a deep teal, two
+	# languages side by side. The palette's [backdrop] `cliff_stone` (or `--cliff-stone=`), how far the terraces' rock turns to the
+	# island's stone, its value kept deep for the fighters in front of it.)
+	var stone_k := float(bd.get("cliff_stone", 0.0))
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--cliff-stone="):
+			stone_k = float(arg.substr(14))
+	if stone_k > 0.0:
+		var stone: Color = out["rock"]
+		out["cliff"] = (out["cliff"] as Color).lerp(stone.darkened(0.55), stone_k)
+		out["cliff_b"] = (out["cliff_b"] as Color).lerp(stone.darkened(0.42), stone_k)
+		out["cliff_lit"] = (out["cliff_lit"] as Color).lerp(stone.darkened(0.08), stone_k)
+		out["card_cliff"] = (out["cliff"] as Color).lerp(Color(0.92, 0.93, 0.86), 0.04)
 	# (The canyon's floor in paper: its sand sheets in three tones round the desert floor's, their cut edges, wind ripples, the dry wash
 	# and its banks, pebbles, scrub and the shade under it.)
 	var sand: Color = bd.get("desert_floor", Color(0.94, 0.68, 0.4))
