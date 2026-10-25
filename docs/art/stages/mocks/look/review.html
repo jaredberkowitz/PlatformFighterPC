@@ -88,6 +88,38 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
     <p>Two lessons from the reference screenshots, mocked from the match camera: the scenery without ink outlines, its edges lit as card bevels instead, and the paper houses rebuilt at the characters' proportions. The earlier rounds stay on the <a href="https://claude.ai/artifact/D1du6MREVumiJDrEdNypW4">Stage Fidelity Review</a>, which is full.</p>
   </header>
 
+  <section class="panel" aria-labelledby="ct9-h" id="cactus9">
+    <div class="eyebrow">Your call is needed &middot; review 9, item 5: the canyon's cacti</div>
+    <h2 id="ct9-h">Rolled coils, or a ribbed cactus</h2>
+    <p>First, item 4 is built: the grove's abyss is just mist now, and its terraces are in the island's stone (see its section below). Then the canyon's cacti, which are your pick from 21 October: rolled paper coils stacked into a cactus. Under the platforms at play size, the coils read as green springs. The other design from that round is a ribbed cactus: a smooth trunk with pressed rib lines and two arms. It's the same paper kit, with only the cactus swapped, so every cactus in the canyon changes together.</p>
+    <div class="tablewrap"><table><thead><tr><th>Option</th><th>What changes</th></tr></thead><tbody>
+      <tr><td>Today &middot; Rolled coils</td><td>Your pick from 21 October, kept as is.</td></tr>
+      <tr><td>A &middot; Ribbed cactus</td><td>The ribbed design in its place: a saguaro's outline at a glance.</td></tr>
+    </tbody></table></div>
+    <p>Close at the match camera (today left, A right: under the left platform, under the right one), then the wide camera:</p>
+    <div class="viewer"><img src="ct9_close.jpg" alt="The canyon's cacti today and ribbed"></div>
+    <div class="row" role="group" aria-label="View"><button data-ct9v="m">Match camera</button><button data-ct9v="w">Wide</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-ct9o="T">Today &middot; Rolled coils</button><button data-ct9o="A">A &middot; Ribbed cactus</button></div>
+    <div class="viewer"><img id="ct9img" alt="Canyon cactus option"><span class="vtag" id="ct9tag"></span></div>
+    <p class="muted">My pick: <b>A</b>. It reads as a cactus at once, and still as paper from its pressed ribs. The dark band at its foot is the stage top's violet shadow falling across it; on the coils the same shadow hides among the rolls.</p>
+  </section>
+
+  <section class="panel" aria-labelledby="gv9-h" id="grove9">
+    <div class="eyebrow">Built (A) &middot; review 9, item 4: the grove's abyss</div>
+    <h2 id="gv9-h">One rock for the grove, and no trees in the water</h2>
+    <p>First, item 3 is built: the beach's rings vary from post to post and its clouds sit in two groups (see its section below). Then the grove. In the abyss, the tops of a misty valley's pines stood up through the purple near the chasm and read as pale blue trees growing in water. Around them, the terraces' rock was a deep teal in hex-like blocks, while the island the fight stands on is grey-green stone: two kinds of rock side by side.</p>
+    <div class="tablewrap"><table><thead><tr><th>Option</th><th>What changes</th></tr></thead><tbody>
+      <tr><td>A &middot; One rock, no trees</td><td>The valley's pines taken out (the mist kept), and the terraces' rock in the island's own stone, kept deep so the fighters still stand out in front of it.</td></tr>
+      <tr><td>B &middot; Halfway</td><td>Only a few pines left far back in the valley (behind 80 units), and the terraces' rock turned partway, to a blue-grey.</td></tr>
+    </tbody></table></div>
+    <p>The abyss up close, wide: today, A, B:</p>
+    <div class="viewer"><img src="gv9_close.jpg" alt="The grove's abyss today and in the two options"></div>
+    <div class="row" role="group" aria-label="View"><button data-gv9v="m">Match camera</button><button data-gv9v="w">Wide</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-gv9o="T">Today</button><button data-gv9o="A">A &middot; One rock, no trees</button><button data-gv9o="B">B &middot; Halfway</button></div>
+    <div class="viewer"><img id="gv9img" alt="Grove abyss option"><span class="vtag" id="gv9tag"></span></div>
+    <p class="muted">My pick: <b>A</b>. The whole grove reads as one place of stone and moss, and the abyss is just mist. P1's value gap to the ground holds at 0.04 in all three. It's also lighter: 134,000 triangles, down from 155,000. Shown before the light bake, today's included.</p>
+  </section>
+
   <section class="panel" aria-labelledby="bc9-h" id="beach9">
     <div class="eyebrow">Built (rings A, clouds B) &middot; review 9, item 3: the beach's rings and clouds</div>
     <h2 id="bc9-h">Softer rings in the water, clouds in banks</h2>
@@ -1555,5 +1587,25 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
   group("data-bc9v", function (v) { bc9v = v; }, bc9render);
   group("data-bc9o", function (v) { bc9o = v; }, bc9render);
   bc9render();
+  var gv9v = "w", gv9o = "A";
+  var GV9O = { T: "Today", A: "A \u00b7 One rock, no trees", B: "B \u00b7 Halfway" };
+  function gv9render() {
+    document.getElementById("gv9img").src = "gv9_" + gv9o + "_" + gv9v + ".jpg";
+    document.getElementById("gv9tag").textContent = "Grove \u00b7 " + GV9O[gv9o] + (gv9v === "w" ? " \u00b7 wide" : " \u00b7 match camera");
+    pressed("data-gv9v", gv9v); pressed("data-gv9o", gv9o);
+  }
+  group("data-gv9v", function (v) { gv9v = v; }, gv9render);
+  group("data-gv9o", function (v) { gv9o = v; }, gv9render);
+  gv9render();
+  var ct9v = "m", ct9o = "A";
+  var CT9O = { T: "Today \u00b7 Rolled coils", A: "A \u00b7 Ribbed cactus" };
+  function ct9render() {
+    document.getElementById("ct9img").src = "ct9_" + ct9o + "_" + ct9v + ".jpg";
+    document.getElementById("ct9tag").textContent = "Canyon \u00b7 " + CT9O[ct9o] + (ct9v === "w" ? " \u00b7 wide" : " \u00b7 match camera");
+    pressed("data-ct9v", ct9v); pressed("data-ct9o", ct9o);
+  }
+  group("data-ct9v", function (v) { ct9v = v; }, ct9render);
+  group("data-ct9o", function (v) { ct9o = v; }, ct9render);
+  ct9render();
 })();
 </script>
