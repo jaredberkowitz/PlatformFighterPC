@@ -436,6 +436,6 @@ func _menu() -> void:
 	await process_frame
 	await process_frame
 	check(select.run_mode and select.count == 1, "the fighter choice is for one player in a run")
-	check(not select.players_button.visible and not select.stage_button.visible, "with no match rules")
+	check(not select.players_button.visible and not select.stocks_button.visible, "with no match rules")
 	select.queue_free()
 	await process_frame

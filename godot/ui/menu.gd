@@ -20,6 +20,8 @@ var index := 0
 var t := 0.0
 var preview: Control
 var logo: Control
+## The focused tile's description, one line at the bottom left (in place of a subtitle on every tile: daylight, docs/UI_DESIGN_SYSTEM.md).
+var description: Control
 ## The title screen is shown once a session, on a normal launch (`Title`).
 static var title_shown := false
 
@@ -32,7 +34,7 @@ const ITEMS := [
 	["Character Creator", "Make your own fighter", "res://creator.tscn", Color(0.3, 0.64, 0.36), "creator", Rect2(590, 410, 330, 240)],
 	["Controls", "Keys, pads", "res://controls.tscn", Color(0.25, 0.27, 0.46), "controls", Rect2(940, 410, 135, 135)],
 	["Editors", "Content", "res://editor.tscn", Color(0.25, 0.27, 0.46), "editors", Rect2(1095, 410, 135, 135)],
-	["Quit", "", "", Color(0.21, 0.22, 0.38), "quit", Rect2(940, 565, 290, 85)],
+	["Quit", "Close the game", "", Color(0.21, 0.22, 0.38), "quit", Rect2(940, 565, 290, 85)],
 ]
 
 ## The destination tiles' painted scenes, in place of a line icon (a template's look): fighters from the roster standing in them, each
@@ -161,10 +163,13 @@ func _ready() -> void:
 	logo.position = Vector2(50, 16)
 	logo.size = Vector2(600, 120)
 	logo.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# (Over the tiles: the focused Play tile tilts up into the logo's corner.)
+	logo.z_index = 2
 	add_child(logo)
 
 	for item in ITEMS:
 		var tile := UI.Tile.new(item[0], item[1], item[3], item[4])
+		tile.show_subtitle = false
 		# (The utility tiles are quieter: a thinner line, a shallower body and smaller type.)
 		tile.tier = 1 if item[4] in ["controls", "editors", "quit"] or item[2] == "run" else 0
 		var r: Rect2 = item[5]
@@ -188,11 +193,19 @@ func _ready() -> void:
 			tile.add_layer(preview)
 		elif VIGNETTES.has(item[4]):
 			_vignette(tile, r, VIGNETTES[item[4]])
+	description = Control.new()
+	description.position = Vector2(50, 664)
+	description.size = Vector2(800, 40)
+	description.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	description.draw.connect(func():
+		var text: String = ITEMS[index][1]
+		description.draw_string(D.font(), Vector2(6, 30), text, HORIZONTAL_ALIGNMENT_LEFT, -1, UI.TYPE_LABEL, D.INK))
+	add_child(description)
 	_select(0)
 
 	var keys := UI.KeyBar.new([["W A S D", "Navigate"], ["Enter", "Select"], ["Esc", "Quit"]])
-	keys.position = Vector2(50, 668)
-	keys.size = Vector2(520, 32)
+	keys.position = Vector2(880, 668)
+	keys.size = Vector2(350, 32)
 	add_child(keys)
 	PadNav.attach(self)
 	Music.of(self).play("menu")
@@ -251,6 +264,8 @@ func _select(i: int) -> void:
 	index = i
 	for k in buttons.size():
 		buttons[k].selected = k == index
+	if description != null:
+		description.queue_redraw()
 
 
 func _choose(target: String, tile: Control = null) -> void:

@@ -28,6 +28,10 @@ const MOTION_FAST := 0.12
 const MOTION_BASE := 0.2
 const MOTION_SCREEN := 0.38
 const MOTION_SHINE := 0.5
+## The focused card's tilt (degrees) and how much it grows (docs/UI_DESIGN_SYSTEM.md, focus): it stands out of its row, drawn over its
+## neighbours. Tiles in a tight mosaic use less (`Tile.focus_scale`).
+const FOCUS_TILT := -2.5
+const FOCUS_SCALE := 1.06
 
 
 static func font() -> Font:
@@ -37,10 +41,10 @@ static func font() -> Font:
 # ---- Backdrop -------------------------------------------------------------------------------------------------
 
 class Backdrop extends Control:
-	## The menus' ground behind everything: a stylised backdrop (shaders/menu_backdrop.gdshader), a deep gradient lit from the upper
-	## left with faint drifting stripes at the UI's slant, as the genre's leaders' menus are. (The owner, 2026-10-18: the live meadow
-	## that stood here read cheap and childish behind the cards.) `warm` leans it a little toward violet (the fighter select); `dim`
-	## darkens it for screens dense with text. Never takes the mouse.
+	## The menus' ground behind everything: a stylised backdrop (shaders/menu_backdrop.gdshader). Daylight since the owner's pick of
+	## 2026-10-19 (docs/UI_DESIGN_SYSTEM.md): a cool white falling to a light steel with faint slanted stripes, so the saturated cards
+	## carry the colour. `warm` leans it a little toward peach (the fighter select); `dim` cools it a step toward the steel for screens
+	## dense with text (it darkened the old navy ground). Never takes the mouse.
 	const SHADER := preload("res://shaders/menu_backdrop.gdshader")
 
 	func _init(warm := false, dim := 0.0) -> void:
@@ -52,7 +56,11 @@ class Backdrop extends Control:
 		var m := ShaderMaterial.new()
 		m.shader = SHADER
 		m.set_shader_parameter("skew", D.SKEW)
-		m.set_shader_parameter("tint", Color(0.32, 0.14, 0.42, 0.18) if warm else Color(0.0, 0.0, 0.0, dim * 0.8))
+		m.set_shader_parameter("top", D.GROUND_TOP)
+		m.set_shader_parameter("bottom", D.GROUND_BOTTOM)
+		m.set_shader_parameter("mark", Color(D.GROUND_MARK, 0.06))
+		var tint := Color(1.0, 0.78, 0.7, 0.14) if warm else Color(D.GROUND_BOTTOM.darkened(0.06), dim * 0.5)
+		m.set_shader_parameter("tint", tint)
 		rect.material = m
 		add_child(rect)
 
@@ -140,7 +148,8 @@ class Spotlight extends Control:
 		var h := size.y
 		if w < 4.0 or h < 4.0:
 			return
-		var top := colour.lightened(0.28)
+		# (Less washed toward white since the daylight ground, 2026-10-19: the colour lives in the cards, so they keep it.)
+		var top := colour.lightened(0.14)
 		var bottom := colour.darkened(0.45)
 		draw_polygon(PackedVector2Array([Vector2.ZERO, Vector2(w, 0), Vector2(w, h), Vector2(0, h)]),
 			PackedColorArray([top, top, bottom, bottom]))
@@ -159,7 +168,7 @@ class Spotlight extends Control:
 				centre + Vector2(cos(a + spread), sin(a + spread)) * reach]), Color(1, 1, 1, 0.05))
 		# The pool of light.
 		for k in 8:
-			draw_circle(centre, minf(w, h) * (0.62 - k * 0.07), Color(colour.lightened(0.6), 0.06))
+			draw_circle(centre, minf(w, h) * (0.62 - k * 0.07), Color(colour.lightened(0.5), 0.035))
 		# A fine hatch over it all.
 		var step := 10.0
 		var x := w if plain else -h
@@ -173,7 +182,7 @@ class Spotlight extends Control:
 			for k in 33:
 				var a := TAU * k / 32.0
 				floor_poly.append(Vector2(w * 0.5, fy + h * 0.02) + Vector2(cos(a) * w * 0.62, sin(a) * h * 0.11))
-			draw_colored_polygon(floor_poly, Color(colour.lightened(0.45), 0.35))
+			draw_colored_polygon(floor_poly, Color(colour.lightened(0.4), 0.26))
 			for f in feet:
 				var at := Vector2(float(f[0]) * w + 4.0, float(f[1]) * h + 2.0)
 				var sh := PackedVector2Array()
@@ -249,6 +258,335 @@ class ScreenTitle extends Control:
 		var band := Rect2(Vector2.ZERO, Vector2(size.x, 62))
 		Art.brush_band(self, band, Art.INK, 41 + text.length(), 20.0, true, 0.9)
 		Art.title_centered(self, text.to_upper(), band.grow_individual(-10, 0, -22, 0), 44, Color.WHITE, 0.0)
+
+
+## The bar along the top of a screen (fighter select's, stage select's): an ink band across the width with a gold line under it, the
+## screen's name at the left and, at the right, `items` ([text, colour] pairs, right to left as read left to right), such as the
+## match a screen is setting up.
+class TopBar extends Control:
+	const HEIGHT := 58.0
+	var title := ""
+	var items: Array = []
+
+	func _init(label: String, list := []) -> void:
+		title = label
+		items = list
+		# (Edges pinned to the screen's, not sized from it: a screen not yet laid out has no size to measure.)
+		set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
+		offset_bottom = HEIGHT + 4.0
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	func _draw() -> void:
+		draw_rect(Rect2(0, 0, size.x, HEIGHT), Color(Art.INK, 0.94))
+		draw_line(Vector2(0, HEIGHT), Vector2(size.x, HEIGHT), D.GOLD, 3.0)
+		Art.title(self, title, Vector2(40, 43), TYPE_HEADING, Color.WHITE, 0.0)
+		var f := D.display_font()
+		var x := size.x - 40.0
+		for k in range(items.size() - 1, -1, -1):
+			var text: String = items[k][0]
+			x -= f.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 26).x
+			draw_string(f, Vector2(x, 39), text, HORIZONTAL_ALIGNMENT_LEFT, -1, 26, items[k][1])
+			x -= 14.0
+
+
+# ---- Stage cards ---------------------------------------------------------------------------------------------------
+
+## A stage card: the stage's picture in the card's cut shape, its name on an ink band; focused, the kit's frame, lifted and tilted
+## (docs/UI_DESIGN_SYSTEM.md, focus). With `show_name` off and never focused it is a large preview. `badge` names another player
+## whose choice this is (the friend in the online lobby) on a chip over the card's top edge.
+class StageCard extends Control:
+	signal activated
+	signal hovered
+	var tex: Texture2D
+	var name_text := ""
+	var name_size := 18
+	var show_name := true
+	var selected := false
+	var badge := ""
+	var badge_colour := D.BLUE
+	var pop := 0.0
+
+	func _init() -> void:
+		mouse_filter = Control.MOUSE_FILTER_STOP
+		mouse_entered.connect(func(): hovered.emit())
+
+	func _gui_input(event: InputEvent) -> void:
+		if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+			activated.emit()
+
+	func _process(delta: float) -> void:
+		var was := pop
+		pop = move_toward(pop, 1.0 if selected else 0.0, delta / MOTION_FAST)
+		if pop == was:
+			return
+		pivot_offset = size * 0.5
+		rotation = deg_to_rad(FOCUS_TILT) * pop
+		scale = Vector2.ONE * lerpf(1.0, FOCUS_SCALE, pop)
+		z_index = 1 if pop > 0.01 else 0
+		queue_redraw()
+
+	func set_badge(text: String, colour: Color) -> void:
+		if text != badge or colour != badge_colour:
+			badge = text
+			badge_colour = colour
+			queue_redraw()
+
+	func _draw() -> void:
+		var r := Rect2(Vector2.ZERO, size)
+		var cut := clampf(minf(size.x, size.y) * 0.13, 8.0, 20.0)
+		var shape := Art.card_shape(r, cut, 0)
+		Art.focus_frame(self, r, pop, cut)
+		if pop < 0.5:
+			var sh := PackedVector2Array()
+			for q in shape:
+				sh.append(q + Art.SHADOW)
+			draw_colored_polygon(sh, Color(D.INK, 0.35))
+		if tex != null:
+			# Cover: the 16:9 picture cropped to the card's shape around its centre.
+			var ta := float(tex.get_width()) / maxf(1.0, tex.get_height())
+			var ca := size.x / size.y
+			var uw := 1.0 if ca >= ta else ca / ta
+			var vh := 1.0 if ca <= ta else ta / ca
+			var uvs := PackedVector2Array()
+			var cols := PackedColorArray()
+			for q in shape:
+				uvs.append(Vector2(0.5 - uw * 0.5 + uw * q.x / size.x, 0.5 - vh * 0.5 + vh * q.y / size.y))
+				cols.append(Color.WHITE)
+			draw_polygon(shape, cols, uvs, tex)
+		else:
+			# No picture (Random, or a stage without its still): the menus' deep indigo, and a "?" for Random.
+			var cols := PackedColorArray()
+			for q in shape:
+				cols.append(Art.INDIGO.lightened(0.12).lerp(Art.INDIGO.darkened(0.2), q.y / size.y))
+			draw_polygon(shape, cols)
+			if name_text == "Random":
+				Art.title_centered(self, "?", Rect2(Vector2.ZERO, size - Vector2(0, name_size + 10)), int(size.y * 0.42), Art.SUN, 0.12)
+		if show_name:
+			var bh := name_size + 14.0
+			var band := PackedVector2Array([Vector2(0, size.y - bh), Vector2(size.x, size.y - bh), Vector2(size.x, size.y - cut),
+				Vector2(size.x - cut, size.y), Vector2(0, size.y)])
+			draw_colored_polygon(band, Color(D.INK, 0.8))
+			var fs := name_size
+			while fs > 12 and D.display_font().get_string_size(name_text.to_upper(), HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x > size.x - 24.0:
+				fs -= 1
+			draw_string(D.display_font(), Vector2(12, size.y - 10), name_text.to_upper(), HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color.WHITE)
+		if pop < 0.5:
+			var closed := shape.duplicate()
+			closed.append(shape[0])
+			draw_polyline(closed, D.INK, 3.0, true)
+		if badge != "":
+			# A slanted chip in the player's colour with an ink edge, over the card's top edge so it reads on any picture.
+			var bf := D.display_font()
+			var tw := bf.get_string_size(badge, HORIZONTAL_ALIGNMENT_LEFT, -1, 18).x
+			var chip := Rect2(Vector2(cut, -14.0), Vector2(tw + 28.0, 30.0))
+			D.draw_slant(self, chip, badge_colour, D.INK, 3.0, true)
+			draw_string(bf, Vector2(chip.position.x + 14.0, chip.position.y + 22.0), badge, HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Color.WHITE)
+
+
+## Choosing a stage with stage cards (stage select, the online lobby's stage step), in either of two views of the same choice (the
+## owner, 2026-10-20: docs/art/ui/mocks/stage_options.png), the player's pick remembered in VIEW_PATH:
+## - "preview": the focused stage large, its name and what it plays like beside it, every stage as a card in a row under it;
+## - "full": the focused stage fills the screen, its name large over it, the stages as a strip of cards on an ink band at the foot.
+## The pictures are stills of each stage as a match shows it (art/ui/stages, made by tests/stage_stills.gd); a stage without one gets a
+## plain card. With `random` the last card is Random. It fills a 1280x720 screen under a `TopBar`; the screen owns the keys and calls
+## `focus`, `step` and `toggle_view`; `hovered` and `activated` come from the mouse. `mark` badges another player's card, and `FREE`
+## is where each view leaves room for a screen's own lines.
+class StagePicker extends Control:
+	signal hovered(i: int)
+	signal activated(i: int)
+	const VIEWS := ["preview", "full"]
+	const VIEW_PATH := "user://stage_view.txt"
+	const STILLS := "res://art/ui/stages/stage_%d.webp"
+	## Under the words beside the preview; over the top right of the full picture.
+	const FREE := {"preview": Rect2(840, 420, 400, 96), "full": Rect2(800, 78, 440, 96)}
+	var view := "preview"
+	var names: Array = []
+	var blurbs: Array = []
+	var stills: Array = []
+	var random := true
+	var index := 0
+	var cards: Array = []
+	var marked := -1
+	var mark_text := ""
+	var mark_colour := D.BLUE
+	## The view's own pieces (rebuilt when the view changes).
+	var layer: Control
+	var big: Control
+	var words: Control
+	var full: TextureRect
+
+	func _init(stage_names: Array, stage_blurbs: Array, with_random := true, start := 0) -> void:
+		set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+		names = stage_names
+		blurbs = stage_blurbs
+		random = with_random
+		for i in names.size():
+			var path := STILLS % i
+			stills.append(load(path) if ResourceLoader.exists(path) else null)
+		index = clampi(start, 0, count() - 1)
+		view = load_view()
+		_build()
+
+	## The number of cards: the stages, and Random.
+	func count() -> int:
+		return names.size() + (1 if random else 0)
+
+	static func load_view() -> String:
+		if FileAccess.file_exists(VIEW_PATH):
+			var f := FileAccess.open(VIEW_PATH, FileAccess.READ)
+			if f != null:
+				var v := f.get_as_text().strip_edges()
+				if v in VIEWS:
+					return v
+		return VIEWS[0]
+
+	## The other view, remembered for next time (in every screen that uses the picker).
+	func toggle_view() -> void:
+		view = VIEWS[(VIEWS.find(view) + 1) % VIEWS.size()]
+		var f := FileAccess.open(VIEW_PATH, FileAccess.WRITE)
+		if f != null:
+			f.store_string(view)
+		_build()
+
+	## Focuses card `i` (no sound: the screen plays its own).
+	func focus(i: int) -> void:
+		index = clampi(i, 0, count() - 1)
+		_refresh()
+
+	## The next card left (-1) or right (1), round the ends.
+	func step(delta: int) -> void:
+		focus((index + delta + count()) % count())
+
+	## Another player's choice: a chip reading `text` on card `i` (-1 for none) in their `colour`.
+	func mark(i: int, text: String, colour := D.BLUE) -> void:
+		marked = i
+		mark_text = text
+		mark_colour = colour
+		for k in cards.size():
+			cards[k].set_badge(text if k == i else "", colour)
+
+	func _build() -> void:
+		if layer != null:
+			layer.queue_free()
+		cards.clear()
+		big = null
+		full = null
+		layer = Control.new()
+		layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		add_child(layer)
+		var n := count()
+		if view == "full":
+			full = TextureRect.new()
+			full.size = Vector2(1280, 720)
+			full.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+			full.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+			full.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			layer.add_child(full)
+			words = _painter(_paint_full_words)
+			var cw := (1200.0 - 14.0 * (n - 1)) / n
+			for i in n:
+				_add_card(i, Rect2(Vector2(40 + i * (cw + 14), 574), Vector2(cw, 96)), 16)
+		else:
+			big = StageCard.new()
+			big.show_name = false
+			big.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			big.position = Vector2(40, 82)
+			big.size = Vector2(768, 432)
+			layer.add_child(big)
+			words = _painter(_paint_preview_words)
+			# (No wider than six to the row, centred when there are fewer: wider cards grew taller, into the key bar.)
+			var cw := minf((1200.0 - 16.0 * (n - 1)) / n, 1120.0 / 6.0)
+			var x0 := 640.0 - (cw * n + 16.0 * (n - 1)) * 0.5
+			for i in n:
+				_add_card(i, Rect2(Vector2(x0 + i * (cw + 16), 548), Vector2(cw, cw * 9.0 / 16.0 + 4.0)), 17)
+		mark(marked, mark_text, mark_colour)
+		_refresh()
+
+	func _painter(paint: Callable) -> Control:
+		var c := Control.new()
+		c.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		c.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		c.draw.connect(func(): paint.call(c))
+		layer.add_child(c)
+		return c
+
+	func _add_card(i: int, rect: Rect2, name_size: int) -> void:
+		var card := StageCard.new()
+		card.position = rect.position
+		card.size = rect.size
+		card.name_size = name_size
+		if i < names.size():
+			card.tex = stills[i]
+			card.name_text = names[i]
+		else:
+			card.name_text = "Random"
+		card.hovered.connect(func(): hovered.emit(i))
+		card.activated.connect(func(): activated.emit(i))
+		layer.add_child(card)
+		cards.append(card)
+
+	func _refresh() -> void:
+		for k in cards.size():
+			cards[k].selected = k == index
+		var tex: Texture2D = stills[index] if index < stills.size() else null
+		if big != null:
+			big.tex = tex
+			big.name_text = stage_name()
+			big.queue_redraw()
+		if full != null:
+			full.texture = tex
+		if words != null:
+			words.queue_redraw()
+
+	func stage_name() -> String:
+		return names[index] if index < names.size() else "Random"
+
+	func _blurb() -> String:
+		return blurbs[index] if index < blurbs.size() else "Any of the %d stages, chosen when the match starts." % names.size()
+
+	func _paint_preview_words(c: Control) -> void:
+		Art.title(c, stage_name().to_upper(), Vector2(840, 150), TYPE_TITLE, D.INK, 0.0)
+		c.draw_line(Vector2(842, 168), Vector2(1100, 168), D.GOLD, 4.0)
+		var y := 210.0
+		for line in _wrap(_blurb(), 390.0, TYPE_LABEL):
+			c.draw_string(D.font(), Vector2(842, y), line, HORIZONTAL_ALIGNMENT_LEFT, -1, TYPE_LABEL, D.INK)
+			y += 36.0
+
+	func _paint_full_words(c: Control) -> void:
+		if full.texture == null:
+			# Random (or a stage without its still): the deep indigo of the Random card, and its sign large.
+			var top := Art.INDIGO.lightened(0.12)
+			var bottom := Art.INDIGO.darkened(0.2)
+			c.draw_polygon(PackedVector2Array([Vector2(0, 0), Vector2(1280, 0), Vector2(1280, 720), Vector2(0, 720)]),
+				PackedColorArray([top, top, bottom, bottom]))
+			if index >= names.size():
+				Art.title_centered(c, "?", Rect2(Vector2(0, 40), Vector2(1280, 400)), 300, Color(Art.SUN, 0.85), 0.06)
+		# A veil deepening toward the foot, where the words and the strip sit, so the picture stays a place above them.
+		var clear := Color(D.INK, 0.0)
+		var deep := Color(D.INK, 0.82)
+		c.draw_polygon(PackedVector2Array([Vector2(0, 330), Vector2(1280, 330), Vector2(1280, 720), Vector2(0, 720)]),
+			PackedColorArray([clear, clear, deep, deep]))
+		c.draw_colored_polygon(PackedVector2Array([Vector2(0, 556), Vector2(1280, 556), Vector2(1280, 720), Vector2(0, 720)]), Color(D.INK, 0.6))
+		c.draw_line(Vector2(0, 556), Vector2(1280, 556), D.GOLD, 3.0)
+		Art.title(c, stage_name().to_upper(), Vector2(44, 478), TYPE_DISPLAY, Color.WHITE, 0.1)
+		c.draw_string(D.font(), Vector2(48, 526), _blurb(), HORIZONTAL_ALIGNMENT_LEFT, 1180, TYPE_LABEL, Color(1, 1, 1, 0.92))
+
+	static func _wrap(text: String, width: float, fs: int) -> Array:
+		var f := D.font()
+		var lines := []
+		var line := ""
+		for word in text.split(" "):
+			var trial := word if line == "" else line + " " + word
+			if f.get_string_size(trial, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x > width and line != "":
+				lines.append(line)
+				line = word
+			else:
+				line = trial
+		if line != "":
+			lines.append(line)
+		return lines
 
 
 ## A line of news for the player (a status, a warning) on a dark band in gold, so it reads over the sky; nothing while it is empty.
@@ -499,8 +837,9 @@ class Btn extends Control:
 		var shown := base.lerp(accent, pop * 0.9)
 		var lift := pop * 4.0
 		var r := Rect2(rect.position - Vector2(0, lift), rect.size)
-		Art.card_glow(self, r, accent, pop)
-		var shape := Art.card(self, rect, shown, seed, -1.0, -1.0, Color(0, 0, 0, 0), lift)
+		# Focused: the frame and the long shadow (daylight, docs/UI_DESIGN_SYSTEM.md), never tilted, so rows stay aligned.
+		Art.focus_frame(self, r, pop)
+		var shape := Art.card(self, rect, shown, seed, -1.0, -1.0, Color(0, 0, 0, 0), lift, Color(0, 0, 0, 0), 0.0, pop < 0.5)
 		if selected and shine < 1.0:
 			# The shine, crossing once.
 			var sx := lerpf(r.position.x - 40.0, r.end.x + 40.0, shine)
@@ -547,6 +886,10 @@ class Tile extends Control:
 	## 0 primary (a destination: bigger type, a deeper body under the card), 1 utility (quieter: a thinner line, a shallower body, smaller
 	## type).
 	var tier := 0
+	## How much the tile grows when focused (the main menu's mosaic has 20 px gaps, so less than a free-standing card).
+	var focus_scale := 1.03
+	## The subtitle under the title (off where the screen shows one description line for the focused tile instead).
+	var show_subtitle := true
 	## A press: the card sinks into its body for a moment (1 at the press, easing to 0).
 	var press := 0.0
 	const TILE_SKEW := 0.08
@@ -577,6 +920,11 @@ class Tile extends Control:
 		if pop == was and press == was_press and _laid == size:
 			return
 		_laid = size
+		# Focused, the tile stands out of the mosaic: tilted, a little bigger, over its neighbours (daylight, docs/UI_DESIGN_SYSTEM.md).
+		pivot_offset = size * 0.5
+		rotation = deg_to_rad(FOCUS_TILT) * pop
+		scale = Vector2.ONE * lerpf(1.0, focus_scale, pop)
+		z_index = 1 if pop > 0.01 else 0
 		if mask != null:
 			var r := _card_rect()
 			mask.position = r.position + Vector2(10, 10 - _lift())
@@ -656,18 +1004,13 @@ class Tile extends Control:
 
 	func _draw() -> void:
 		var r := _card_rect()
-		Art.card_glow(self, Rect2(r.position - Vector2(0, _lift()), r.size), Color(1, 0.92, 0.6), pop, CUT)
+		Art.focus_frame(self, Rect2(r.position - Vector2(0, _lift()), r.size), pop, CUT, _slab() + _lift() * 0.5)
 		var fill := color.lerp(color.lightened(0.1), pop)
 		# The line in a deep shade of the card's own colour (the hero keeps the ink, with its gold rim), thinner for a utility card.
 		var line := Art.INK if hero else color.darkened(0.62)
 		var weight := 4.0 if tier == 0 else 3.0
-		Art.card(self, r, fill, absi(title.hash()) % 997, CUT, weight, Color(Art.SUN, 0.85) if hero else Color(0, 0, 0, 0), _lift(), line, _slab())
-		# Focused: a bright accent along the top and left edges (it reads without the colour, as a lit edge with the lift).
-		if pop > 0.01:
-			var lr := Rect2(r.position - Vector2(0, _lift()), r.size)
-			var a := Color(1, 0.97, 0.85, 0.95 * pop)
-			draw_polyline(PackedVector2Array([Vector2(lr.position.x + 3.0, lr.end.y - 6.0), Vector2(lr.position.x + 3.0, lr.position.y + CUT + 1.0),
-				Vector2(lr.position.x + CUT + 1.0, lr.position.y + 3.0), Vector2(lr.end.x - 6.0, lr.position.y + 3.0)]), a, 4.0, true)
+		Art.card(self, r, fill, absi(title.hash()) % 997, CUT, weight, Color(Art.SUN, 0.85) if hero else Color(0, 0, 0, 0), _lift(), line, _slab(),
+			pop < 0.5)
 		if top == null:
 			paint_text(self)
 
@@ -704,7 +1047,7 @@ class Tile extends Control:
 			big -= 2
 		var body := D.font()
 		var sub_size := 18 if rect.size.y > 200.0 else (16 if tier == 0 else 14)
-		var has_sub := subtitle != "" and body.get_string_size(subtitle, HORIZONTAL_ALIGNMENT_LEFT, -1, sub_size).x <= room
+		var has_sub := show_subtitle and subtitle != "" and body.get_string_size(subtitle, HORIZONTAL_ALIGNMENT_LEFT, -1, sub_size).x <= room
 		var pad := 22.0 if rect.size.y > 200.0 else 16.0
 		var base := rect.end.y - (pad + sub_size + 8.0 if has_sub else pad)
 		Art.title(c, title, Vector2(rect.position.x + pad, base), big, Color.WHITE, 0.09)
@@ -1028,7 +1371,16 @@ class Bubble extends Control:
 		var rect := Rect2(Vector2.ZERO, size).grow(-4)
 		var pad := rect.size.y * D.SKEW
 		label.position = Vector2(rect.position.x + pad + 14.0, rect.position.y + 8.0)
-		label.size = Vector2(maxf(rect.size.x - pad * 1.4 - 28.0, 10.0), maxf(rect.size.y - 16.0, 10.0))
+		var room := maxf(rect.size.y - 16.0, 10.0)
+		label.size = Vector2(maxf(rect.size.x - pad * 1.4 - 28.0, 10.0), room)
+		# The text steps down the type scale until it fits the card (a long help text spilled out under it in the online screen). Measured
+		# against `room`: a wrapping label grows itself to fit its text, so its own height says nothing.
+		var fs := TYPE_BODY
+		while true:
+			label.add_theme_font_size_override("font_size", fs)
+			if fs <= TYPE_CAPTION or label.get_line_count() * label.get_line_height() <= room:
+				break
+			fs -= 2
 
 	func _notification(what: int) -> void:
 		if what == NOTIFICATION_RESIZED:

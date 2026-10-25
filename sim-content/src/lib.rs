@@ -170,6 +170,9 @@ fn validate_previous_rules(r: &sim_core::content::Ruleset, errors: &mut Vec<Stri
                 .to_string(),
         );
     }
+    if r.air_push > 1 {
+        errors.push("ruleset: air_push must be 0 or 1".to_string());
+    }
     if r.jump_stick_share > 2 {
         errors.push("ruleset: jump_stick_share must be 0, 1 or 2".to_string());
     }
@@ -1706,6 +1709,46 @@ mod combat_tests {
             .unwrap_err()
             .iter()
             .any(|e| e.contains("placed")));
+    }
+
+    #[test]
+    fn the_air_push_switch_round_trips_and_is_checked() {
+        // Sim 146: the ruleset's `air_push` is written, read back, plays as 0 (bodies push only on the ground) in a file
+        // without it, and is refused above 1.
+        let base = Content::placeholder();
+        assert_eq!(base.rules.air_push, 0);
+        let mut on = base.clone();
+        on.rules.air_push = 1;
+        let text_on = crate::bundle::to_text(&on, "test", "", "", false);
+        assert!(text_on.contains("air_push 1"));
+        let back = crate::bundle::load(&text_on).expect("reads back").content;
+        assert_eq!(back, on);
+        let stripped = text_on
+            .lines()
+            .filter(|l| !l.contains("air_push"))
+            .collect::<Vec<_>>()
+            .join(
+                "
+",
+            );
+        let older = crate::bundle::load(&stripped)
+            .unwrap_or_else(|e| {
+                panic!(
+                    "{}",
+                    e.join(
+                        "
+"
+                    )
+                )
+            })
+            .content;
+        assert_eq!(older.rules.air_push, 0);
+        let mut bad = base.clone();
+        bad.rules.air_push = 2;
+        assert!(validate(&bad)
+            .unwrap_err()
+            .iter()
+            .any(|e| e.contains("air_push")));
     }
 
     #[test]

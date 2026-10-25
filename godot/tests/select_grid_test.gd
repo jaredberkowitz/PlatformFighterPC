@@ -26,7 +26,7 @@ func _initialize() -> void:
 		check(cols >= 1 and t >= Select.TOKEN_MIN and t <= Select.TOKEN_MAX, "%d cards: a sane layout %s" % [n, fit])
 		check(cols * (t + Select.GRID_GAP.x) <= Select.GRID_AREA.x, "%d cards: the row fits the width %s" % [n, fit])
 		if t > Select.TOKEN_MIN:
-			check(rows * (t + 12 + Select.GRID_GAP.y) <= Select.GRID_AREA.y + 0.5, "%d cards: every row fits the band %s" % [n, fit])
+			check(rows * (Select.card_height(t) + 12 + Select.GRID_GAP.y) <= Select.GRID_AREA.y + 0.5, "%d cards: every row fits the band %s" % [n, fit])
 		check(t <= prev_t, "%d cards: cards never grow as the roster grows" % n)
 		prev_t = t
 	check(int(Select.grid_layout(9)[0]) >= 9, "nine cards sit in one row")

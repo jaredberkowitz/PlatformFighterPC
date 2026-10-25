@@ -66,8 +66,8 @@ const SHARED_MOVES := {
 	"dair": "attack_dair",
 	# Grabs and throws.
 	"grab": "grab",
-	"dash grab": "grab",
-	"pivot grab": "grab",
+	"dash grab": "body_dash_grab",
+	"pivot grab": "body_pivot_grab",
 	"pummel": "grab",
 	"forward throw": "throw",
 	"back throw": "throw",
@@ -350,7 +350,8 @@ static func attack_clip(cls: int, move: String, anim: AnimationPlayer = null) ->
 
 ## Clips added to the library later, and what a rig built before them plays instead (the older blob rigs have none of them).
 const STAND_INS := {"jumpsquat": "crouch", "land": "crouch", "spot_dodge": "roll", "air_dodge": "roll", "getup": "knockdown",
-	"tech": "crouch", "run_stop": "skid", "idle_look": "idle", "platform_drop": "fall", "hurt_heavy": "hurt", "hurt_up": "hurt"}
+	"tech": "crouch", "run_stop": "skid", "idle_look": "idle", "platform_drop": "fall", "hurt_heavy": "hurt", "hurt_up": "hurt",
+	"body_dash_grab": "grab", "body_pivot_grab": "grab"}
 
 ## Clips chosen in fighter_view.gd `_choose_clip` from more than the state (a tech is an intangible landing, a run stop a sliding idle, a
 ## platform drop the first frames of a fall through a platform, heavy hitstun a fast launch that does not tumble, a fidget a long idle).

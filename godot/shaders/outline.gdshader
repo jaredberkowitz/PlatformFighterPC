@@ -56,6 +56,10 @@ void vertex() {
 const float HULL_ID = 0.7;
 
 void fragment() {
+	// (No line at all at weight 0: a fighter with the Display setting Fighter outline on Fine, scripts/visual_settings.gd.)
+	if (outline_weight <= 0.0) {
+		discard;
+	}
 	// (The scenery's line goes see-through with its surface where it covers a fighter, shaders/xray.gdshaderinc.)
 	if (ink_left < 0.15) {
 		discard;

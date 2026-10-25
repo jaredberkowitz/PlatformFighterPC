@@ -268,6 +268,13 @@ FACE_CLEARANCE = 0.006
 # How far under the skin the face shell's rim is sunk (so its edge never shows).
 FACE_RIM_SINK = 0.01
 FACE_CENTRE = 1.585
+# How far round the head the face shell reaches, as the head's depth (0 is its side, -1 its front, positive past the side). The drawing
+# slides toward the camera on a turned head (face.gdshader `face_slide`, up to 0.5 rad), which carries the near eye's outer edge to
+# about 78 degrees round; a shell cut at 72 (its rim sunk under the skin to about 65) cut that eye's white off square. Past the side,
+# the straight-on texture map folds back, but within 0.1 of the depth the fold stays outside the drawing.
+FACE_WRAP = 0.1
+# How the face shell's depth is kept in its colour (8 bits a channel in the game): the lowest depth and the span, in head radii.
+FACE_DEPTH_CODE = (-0.25, 1.5)
 
 
 # Clothing skinned across the joints it covers, so it bends with the body instead of slicing through the next piece: the shirt and the
@@ -396,18 +403,21 @@ def mitten(bm, x):
     _mitt_block(bm, x, 0.085, (0.088, 0.112, 0.074), squareness=0.82, curl=0.02, segments=28, rings=18)
     # (front offset across the hand, length, spread) per finger: index to little.
     # (All four out, evenly curled, round 19: unevenly curled, from the front the hand read as pointing.)
-    for k_f, (f0, ln, spread) in enumerate(((0.078, 0.96, 0.045), (0.027, 1.04, 0.016), (-0.025, 1.0, -0.016), (-0.074, 0.86, -0.045))):
+    # (Relaxed since the idle-hand pass, 2026-10-20, the owner's pick of three mocks: fanned apart, slim and curled at the tips, the open
+    # hand read as a claw at rest. The fingers lie close together, a little fuller and shorter, curled further in toward the palm.)
+    for k_f, (f0, ln, spread) in enumerate(((0.07, 0.92, 0.014), (0.024, 1.0, 0.004), (-0.022, 0.97, -0.004), (-0.066, 0.84, -0.014))):
         pts, radii = [], []
         for k, t in enumerate((0.0, 0.45, 0.8, 1.0)):
-            d = 0.115 + 0.105 * ln * t
+            d = 0.115 + 0.1 * ln * t
             f = f0 + spread * t
-            o = -0.004 - 0.03 * t * t      # curling toward the palm, evenly
+            o = -0.004 - 0.045 * t * t      # curling toward the palm, evenly
             pts.append(_at(x, d, f, o))
-            radii.append((0.036, 0.034, 0.031, 0.026)[k])
+            radii.append((0.038, 0.037, 0.034, 0.03)[k])
         tube(bm, pts, radii, segments=10, per_span=3)
     # The thumb: thicker than a finger, set low on the heel of the palm and turned well out to the front, so it reads as its own digit.
-    tube(bm, [_at(x, 0.035, 0.08, -0.02), _at(x, 0.075, 0.135, -0.04), _at(x, 0.105, 0.165, -0.05), _at(x, 0.128, 0.178, -0.055)],
-         [0.042, 0.039, 0.034, 0.027], segments=12, per_span=3)
+    # (Closer in to the hand since the idle-hand pass, turned a little toward the palm.)
+    tube(bm, [_at(x, 0.035, 0.08, -0.02), _at(x, 0.075, 0.12, -0.045), _at(x, 0.105, 0.14, -0.06), _at(x, 0.125, 0.145, -0.07)],
+         [0.042, 0.04, 0.036, 0.03], segments=12, per_span=3)
 
 
 ## The blob's wrist, which `fist` and `cuff` are built round.
@@ -1623,7 +1633,7 @@ def build_body_meshes(rig):
     ball(bm, 1.0, (0, 0, 0), segments=48, rings=32)
     for v in bm.verts:
         v.co = Vector((centre.x + v.co.x * radii.x * 1.03, centre.y + v.co.y * radii.y * 1.03, centre.z + v.co.z * radii.z * 1.03))
-    bmesh.ops.delete(bm, geom=[v for v in bm.verts if v.co.y > centre.y - 0.3 * radii.y], context="VERTS")
+    bmesh.ops.delete(bm, geom=[v for v in bm.verts if v.co.y > centre.y + FACE_WRAP * radii.y], context="VERTS")
     # The head is not quite a ball: toward the jaw the skin bulges past it and would hide the lower face (a mouth moved down, big eyes).
     # Each point of the shell is pushed out, along the line from the head's middle, until it is just outside the skin.
     skin_bm = bmesh.new()
@@ -1656,6 +1666,17 @@ def build_body_meshes(rig):
             co = loop.vert.co
             loop[uv].uv = (0.5 + co.x / face_size, 0.5 + (co.z - face_centre) / face_size)
     parts["Face"] = to_object("Face", bm, "head", rig)
+    # How far forward each point of the shell lies (in head radii, as the texture map's x), in its colour's green (FACE_DEPTH_CODE; blue 0
+    # marks it there): face.gdshader slides the drawing round the head by turning each point about the head's upright axis and
+    # projecting it straight on again. Worked out from a ball instead, the head's sides, wider than the ball, all took one angle and
+    # showed a stretched sliver of the drawing once the shell wrapped round them (FACE_WRAP).
+    f = parts["Face"]
+    depth = f.data.color_attributes.new("depth", "FLOAT_COLOR", "POINT")
+    lo_d, span_d = FACE_DEPTH_CODE
+    for v in f.data.vertices:
+        d = (centre.y - v.co.y) / radii.x
+        depth.data[v.index].color = (1.0, min(1.0, max(0.0, (d - lo_d) / span_d)), 0.0, 1.0)
+    f.data.color_attributes.active_color = depth
 
     # The skin, weighted to the skeleton by Blender's automatic weights.
     bpy.ops.object.select_all(action="DESELECT")
@@ -1899,24 +1920,91 @@ def shirt_front(shirt, skin, neck_line, waist, trunk_weights):
         bpy.data.meshes.remove(tmp)
 
     out = {}
-    bm = bmesh.new()
-    for sx in (-1.0, 1.0):
-        # Inner corner at the throat, outer corner out along the shoulder line, the point down and out over the chest; the free edges
-        # stand a little further off, as a folded collar does.
-        tri = [Vector((sx * 0.03, neck_line - 0.1)), Vector((sx * 0.24, neck_line - 0.05)), Vector((sx * 0.15, neck_line - 0.3))]
-        merge(bm, patch(tri, 8, 0.014, 0.016))
-    out["ShirtCollar"] = finish("ShirtCollar", bm, 0.014)
-    # The holiday shirt's open camp collar (the character judge's round 6, after the reference's): two broad flat lapels lying open from
-    # the throat out over the collarbones, their points squared. The game shows one collar or the other by the shirt.
-    bm = bmesh.new()
-    for sx in (-1.0, 1.0):
-        # (Spread out over the shoulders past the sash's top edge, the character judge's round 7: narrower, the sash hid one.)
-        # (Half the size, open in a V from the neck, the character judge's round 9: big, it read as a paper bib over the print.)
-        quad = [Vector((sx * 0.02, neck_line - 0.03)), Vector((sx * 0.24, neck_line - 0.02)), Vector((sx * 0.2, neck_line - 0.12)),
-                Vector((sx * 0.05, neck_line - 0.22))]
-        # (Standing off the shirt at its free edges, so the lapels' fold and edge read even in the same print.)
-        merge(bm, patch(quad, 8, 0.02))
-    out["ShirtCampCollar"] = finish("ShirtCampCollar", bm, 0.03)
+    # The collar: one band round the neck, folded over along its top edge, narrow at the back and widening into two points at the
+    # front, laid on the shirt by walking down its surface from the neckline (so it lies on the chest in front and on the shoulders at
+    # the sides alike). (Two flat triangles on the chest until the shirt pass, 2026-10-20: the owner, "it just reads as triangles on the
+    # shirt"; nothing joined them round the neck.)
+    ring = [v.co for v in sbm.verts if abs(v.co.z - neck_line) < 0.04]
+    yc = sum(c.y for c in ring) / len(ring) if ring else 0.0
+
+    def outward(p, n):
+        axis = Vector((0.0, yc, p.z))
+        return n if n.dot(p - axis) >= 0.0 else -n
+
+    def walk(theta, length, steps):
+        # From the neckline at this angle round the neck (0 the front), down the cloth's slope in equal steps.
+        d = Vector((math.sin(theta), -math.cos(theta), 0.0))
+        hit, _, _, _ = tree.ray_cast(Vector((0.0, yc, neck_line - 0.012)), d, 2.0)
+        # (Only a hit close round the neck: wide of it, the ray can miss the cloth there and find a far part of the shirt.)
+        if hit is None or (hit - Vector((0.0, yc, hit.z))).length > COLLAR_REACH:
+            return None
+        pts = [hit]
+        step = length / max(steps, 1)
+        for _ in range(steps):
+            loc, nrm, _, _ = tree.find_nearest(pts[-1])
+            nrm = outward(loc, nrm)
+            t = Vector((0.0, 0.0, -1.0)) + nrm * nrm.z
+            if t.length < 1e-4:
+                t = d.copy()
+            t.normalize()
+            loc2, _, _, _ = tree.find_nearest(pts[-1] + t * step)
+            # (A step that jumps has snapped to another part of the cloth: the column is left out.)
+            if (loc2 - pts[-1]).length > 2.5 * step + 0.004:
+                return None
+            pts.append(loc2)
+        return pts
+
+    def width(theta):
+        for (t0, w0), (t1, w1) in zip(COLLAR_SHAPE, COLLAR_SHAPE[1:]):
+            if t0 <= theta <= t1:
+                return w0 + (w1 - w0) * (theta - t0) / (t1 - t0)
+        return COLLAR_SHAPE[-1][1]
+
+    def collar(out_by, n_t=72, n_d=8):
+        bm = bmesh.new()
+        t_open = COLLAR_SHAPE[0][0]
+        for sx in (-1.0, 1.0):
+            cols = []
+            for i in range(n_t + 1):
+                th = t_open + (math.pi - 0.01 - t_open) * (i / n_t) ** 1.4
+                cols.append(walk(th * sx, width(th), n_d))
+            # A column left out is blended from its neighbours either side (and laid on the cloth below with the rest), so the band
+            # runs on unbroken; joined straight across, a gap at the shoulder made one long face cutting through the shirt.
+            good = [i for i, c in enumerate(cols) if c is not None]
+            if not good:
+                continue
+            for i, c in enumerate(cols):
+                if c is None:
+                    lo = max([g for g in good if g < i], default=good[0])
+                    hi = min([g for g in good if g > i], default=good[-1])
+                    f = 0.0 if hi == lo else (i - lo) / (hi - lo)
+                    cols[i] = [p.lerp(q, f) for p, q in zip(cols[lo], cols[hi])]
+            # Smoothed along the band (each row averaged with its neighbours, then laid back on the cloth), so the free edge runs in one
+            # clean curve instead of a row of small steps.
+            for _ in range(COLLAR_SMOOTH):
+                cols = [cols[0]] + [[(a + 2.0 * b + c) / 4.0 for a, b, c in zip(cols[k - 1], cols[k], cols[k + 1])]
+                                    for k in range(1, len(cols) - 1)] + [cols[-1]]
+            grid = {}
+            for i, pts in enumerate(cols):
+                for j, p in enumerate(pts):
+                    loc, nrm, _, _ = tree.find_nearest(p)
+                    nrm = outward(loc, nrm)
+                    k = j / n_d
+                    # The fold along the top stands off the shirt and rounds over; the free edge lifts a little, as a pressed collar does.
+                    lift = out_by + COLLAR_FOLD * (1.0 - k) ** 2 + COLLAR_EDGE_LIFT * k ** 3
+                    grid[i, j] = bm.verts.new(loc + nrm * lift)
+            for (i, j), v in list(grid.items()):
+                a, b, c = grid.get((i + 1, j)), grid.get((i, j + 1)), grid.get((i + 1, j + 1))
+                if a and b and c:
+                    bm.faces.new((v, a, c, b) if sx > 0 else (v, b, c, a))
+        bmesh.ops.dissolve_degenerate(bm, dist=1e-5, edges=list(bm.edges))
+        return bm
+
+    # (One sheet, drawn from both sides as all the cloth is: thickened, the tiny faces at its points threw a few corners metres off.)
+    out["ShirtCollar"] = finish("ShirtCollar", collar(0.012), 0.0)
+    # The holiday shirt's camp collar: the same band, in the shirt's print (fighter_view.gd), standing a hair further off.
+    # (Two squared cream lapels until the shirt pass, 2026-10-20: they read as a white slab across the shoulders.)
+    out["ShirtCampCollar"] = finish("ShirtCampCollar", collar(0.016), 0.0)
     top, bottom = neck_line - 0.2, waist + BELT_HALF + 0.005
     plk = patch([Vector((-0.032, top)), Vector((0.032, top)), Vector((0.032, bottom)), Vector((-0.032, bottom))], 12, 0.006)
     out["ShirtPlacket"] = finish("ShirtPlacket", plk, 0.01)
@@ -1939,6 +2027,14 @@ def shirt_front(shirt, skin, neck_line, waist, trunk_weights):
 
 # ---- Clothes: garments cut from the skin ------------------------------------------------------------------------------------------------
 # (Puffier, art review 6: PEAK's shirts and shorts are thick soft garments standing off the body; ours hugged it like paint.)
+# The shirt's collar (shirt_front): its width down the cloth (head-relative units) at each angle round the neck from the front (radians),
+# so narrow at the back and widening into a point either side of the throat; how far from the neck's middle the neckline is looked for;
+# how many smoothing passes along the band; how far the fold along its top and its free edge stand off the shirt.
+COLLAR_SHAPE = [(0.1, 0.03), (0.42, 0.26), (0.9, 0.11), (1.6, 0.075), (math.pi, 0.065)]
+COLLAR_REACH = 0.36
+COLLAR_SMOOTH = 3
+COLLAR_FOLD = 0.014
+COLLAR_EDGE_LIFT = 0.01
 SHIRT_LIFT = 0.085      # how far off the skin the shirt sits (0.065 until the body rebuild: it read painted on; the reference's shirts hang loose)
 # Where the waist is, as a share of the way from the hips up to the neck. (The owner, 2026-10-14: PEAK's figures have a waistline; ours
 # had the shorts' top almost at the crotch, 0.12, so the shirt ran in one straight box to the hips. Now the shorts come up to a belt at the
@@ -1996,7 +2092,9 @@ TORSO_SLICE_SPREAD = 4   # how many slices either side are averaged in       # h
 WEIGHT_BLUR = 0.06     # how far round each cloth point the skin's bone weights are averaged
 GARMENT_SMOOTH = 14     # how many smoothing steps the cloth gets (it drapes over the body's small bumps)
 GARMENT_WEIGHT_SMOOTH = 24
-ARMPIT_NO_INK = 0.07          # how far round each armpit the shirt has no ink outline   # how many smoothing steps the cloth's bone weights get        # how much further out a hem stands than the rest of the garment (a soft, cartoony flare)
+# (0.07 until the armpit pass, 2026-10-20: with the arm swung forward, the shirt's cloth folds under the arm further out than that, and
+# its outline drew the fold as a black arc across the side. The match's ink pass still draws the silhouette, and a light line for the fold.)
+ARMPIT_NO_INK = 0.2          # how far round each armpit the shirt has no ink outline   # how many smoothing steps the cloth's bone weights get        # how much further out a hem stands than the rest of the garment (a soft, cartoony flare)
 
 
 # The hem pass (2026-10-19, the owner's references: their hems are thick and clean, ours read as torn paper): the bands that end a garment
@@ -3527,6 +3625,20 @@ def main() -> None:
             {"hips": -0.14, "spine": (26.0, 46.0), "head": (-14.0, -30.0), "stance": (64.0, -46.0), "shin.L": (-60.0,), "shin.R": (-4.0,),
              "armL.R": (130.0,), "arms": (-40.0, 40.0)},
             {"hips": -0.08, "spine": (12.0, 20.0), "stance": (40.0, -24.0), "arms": (10.0, 26.0)})
+    # The dash grab (the playtest notes, 2026-10-19: it played the standing grab, so it did not read): a lunge out of the run, the hips
+    # dropped and the body pitched forward over a long front step, the back leg stretched out behind, both arms thrown out low to catch.
+    move_of("body_dash_grab",
+            {"hips": -0.1, "spine": (24.0, 0.0), "head": (-10.0, 0.0), "stance": (40.0, -30.0), "shin.L": (-30.0,), "arms": (48.0, 14.0)},
+            {"hips": -0.16, "spine": (34.0, 0.0), "head": (-16.0, 0.0), "stance": (62.0, -44.0), "shin.L": (-46.0,), "shin.R": (-6.0,),
+             "arms": (84.0, 8.0), "armL.L": (8.0,), "armL.R": (8.0,)},
+            {"hips": -0.1, "spine": (22.0, 0.0), "stance": (42.0, -30.0), "shin.L": (-30.0,), "arms": (70.0, 12.0)})
+    # The pivot grab (the same notes: it showed no turn): the game spins the body round from the way it was running (fighter_view.gd
+    # `PIVOT_SPIN`); the clip winds the torso against the spin and whips it round into the reach, the arms swinging out wide and in.
+    move_of("body_pivot_grab",
+            {"hips": -0.06, "spine": (8.0, 36.0), "head": (0.0, 24.0), "stance": (22.0, -20.0), "arms": (30.0, 44.0)},
+            {"hips": -0.12, "spine": (24.0, -12.0), "head": (-10.0, -6.0), "stance": (40.0, -30.0), "shin.L": (-30.0,),
+             "arms": (84.0, 10.0), "armL.L": (12.0,), "armL.R": (12.0,)},
+            {"hips": -0.08, "spine": (16.0, -4.0), "stance": (30.0, -22.0), "arms": (68.0, 12.0)})
     # Blaster: draw and fire, arm out level, braced.
     move_of("blaster",
             {"spine": (6.0, -20.0), "head": (0.0, 14.0), "stance": (20.0, -20.0)},

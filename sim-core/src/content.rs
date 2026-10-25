@@ -2428,6 +2428,12 @@ pub struct Ruleset {
     pub push_ratio: Fx,
     pub push_hard: Fx,
     pub push_speed: Fx,
+    /// Whether bodies push each other when either of them is in the air (1: sims 67 to 145, a fighter could not drift, jump or fall
+    /// through another) or only when both stand on the ground (0, the standard since sim 146 after a playtest: the reference's jostle
+    /// holds fighters apart on the ground only, so a short hop crosses over a standing opponent and fighters pass in the air; landing
+    /// inside someone eases apart along the ground). With 1 even the soft edge alone (both moved `push_speed` a frame) cancelled a
+    /// short hop's drift, so no short hop out of a stand crossed a standing opponent.
+    pub air_push: u8,
     /// A jump leaves the ground with `jump_momentum` of the ground speed, at most `jump_momentum_max` times the fighter's air speed
     /// (the reference game's jump speed multiplier and cap; the values are estimates).
     pub jump_momentum: Fx,
@@ -2437,7 +2443,9 @@ pub struct Ruleset {
     /// `jump_speed_x` share only from standing still; 1 takes the faster of the two the same way (decision 99's first reading); 2
     /// (the standard since sim 144, the owner after a playtest: jumping back or forward out of a run should differ) adds them, the
     /// run's kept share plus the stick's, within `jump_speed_x_max` (the earlier game in the series' published rule: initial
-    /// horizontal jump speed times the stick plus the ground speed times its multiplier, capped; the reference's own is unpublished).
+    /// horizontal jump speed times the stick plus the ground speed times its multiplier, capped; the reference's own is unpublished);
+    /// with 2, the stick held back out of a dash or a run (faster than a walk: a reverse aerial rush) keeps the run's share whole
+    /// (sim 145).
     pub jump_stick_share: u8,
     /// The fastest a fighter keeps moving along the ground as it lands (sim 143, owner decision 102), as a percent of its body's
     /// `dash_speed` (the fastest it runs on its own): a landing out of a move, a special fall or a jump with more speed than that
@@ -2755,6 +2763,7 @@ impl Ruleset {
             push_ratio: Fx::from_ratio(3, 5),
             push_hard: Fx::from_ratio(7, 10),
             push_speed: Fx::from_ratio(3, 40),
+            air_push: 0,
             jump_momentum: Fx::from_ratio(17, 20),
             jump_momentum_max: Fx::from_ratio(5, 4),
             jump_stick_share: 2,
@@ -2937,6 +2946,7 @@ impl StateHash for Ruleset {
         self.push_ratio.hash_into(h);
         self.push_hard.hash_into(h);
         self.push_speed.hash_into(h);
+        h.write_u8(self.air_push);
         self.jump_momentum.hash_into(h);
         self.jump_momentum_max.hash_into(h);
         h.write_u8(self.jump_stick_share);
@@ -3333,6 +3343,7 @@ mod tests {
             |r: &mut Ruleset| r.push_ratio += Fx::from_raw(1),
             |r: &mut Ruleset| r.push_hard += Fx::from_raw(1),
             |r: &mut Ruleset| r.push_speed += Fx::from_raw(1),
+            |r: &mut Ruleset| r.air_push ^= 1,
             |r: &mut Ruleset| r.jump_momentum += Fx::from_raw(1),
             |r: &mut Ruleset| r.jump_momentum_max += Fx::from_raw(1),
             |r: &mut Ruleset| r.jump_stick_share ^= 3,

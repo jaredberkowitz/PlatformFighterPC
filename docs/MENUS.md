@@ -45,11 +45,28 @@ Names are 1 to 24 letters, digits, spaces, `-` and `_`, cannot be a built-in fig
 
 ## Character select
 
-A grid of round portraits (**Players: 2/3/4**, see `docs/MATCHES.md`): the two built-in fighters, every fighter you saved, a **?** (random) and a **+** (make a new one). Each
-player has a big panel with the fighter at its real size. **Player 1:** W A S D move, J locks in, K takes it back. **Player 2:** arrow
+A strip of roster cards along the bottom (**Players: 2/3/4**, see `docs/MATCHES.md`): the built-in fighters, every fighter you saved, a **?** (random) and a **+** (make a new one). Each
+player has a tall panel above it with the fighter large (two face each other across a VS), and the match rules sit on the bar along the top. **Player 1:** W A S D move, J locks in, K takes it back. **Player 2:** arrow
 keys, Enter locks in, Backspace takes it back. **Mouse:** left click picks for player 1, right click for player 2. **E** edits the
-saved fighter player 1 is on. When both are locked in, Space (or Enter, or the Start Battle button) starts the match; Esc in a match
+saved fighter player 1 is on. When both are locked in, Space (or Enter, or the READY band) goes on to **stage select**; Esc in a match
 returns to select, Esc in select returns to the menu.
+
+## Stage select
+
+Between character select and the match (`godot/stage.tscn`, `ui/stage_select.gd`; 2026-10-20). Every stage as a card with a still of
+it as a match shows it, plus **Random**; the top bar names the match it is for. Left and right (A D, the arrows) choose, Enter (J,
+Space) fights there, R picks at random, Esc (K, Backspace) goes back to character select with everyone still locked in. A chosen stage
+is remembered as the next default (a random pick is not).
+
+Two views of the same choice, kept while testers' opinions come in: **preview** (the focused stage large, its name and what it plays like
+beside it, the cards in a row under it; the default) and **full** (the focused stage fills the screen, its name large over it, the cards
+in a strip at the foot). **V**, Tab or a controller's **Y** switches; the choice is remembered (`user://stage_view.txt`).
+
+The pictures are `godot/art/ui/stages/stage_<n>.webp`, made by `tests/stage_stills.gd` (one stage per run, in a window; see its header).
+Render them again when a stage's art changes, then import. A stage without a picture gets a plain card. Test: `tests/stage_select_test.gd`.
+The cards and both views are the kit's `StagePicker` (`ui/ui_kit.gd`), shared with the online lobby: there, once a player's fighter is
+locked in, the stage step is this screen's look in the same remembered view, the friend's stage badged with their name, without
+Random (the friend sees the very stage the player would fight on). Test: `tests/online_flow_test.gd`; capture: `tests/lobby_shot.gd`.
 
 **Run mode** (sim 120, `docs/modes/RUNNER_PLAN.md`): the main menu's **Run** tile (under Play) opens this screen for one player, headed
 RUN, with no match rules; locking in (J or Enter) and Enter again starts the single-player run (`runner.tscn`). Built-in and made fighters
@@ -125,7 +142,7 @@ To play online with a made fighter, make it in the creator, then either play one
 * The point budget is a plain sum of the four stats; it does not weigh them differently, and nothing yet checks whether a legal
   build is balanced (a tiny, fast, high-jumping, featherweight fighter is legal and strong in some ways). Real balance tooling is Phase 8.
 * The character art is the placeholder blob. Real models come later; the menus show whatever the fighter view draws.
-* One stage and one mode (versus). Stage select is still to do (stocks, results and rematch are done: `docs/MATCHES.md`).
+* One mode (versus) besides the run. Stage select is its own screen now, and the online lobby chooses the stage with the same cards.
 * Not tried by a person yet: whether the screens feel good to use is unproven until someone plays with them.
 
 ## Tests
@@ -175,11 +192,13 @@ The screens:
   each a card in its own colour with a line-drawn icon; Play is the biggest, a painted scene with the last fighter played standing on a
   ledge in it. Up and down step through the tiles in order, left and right move across. Every screen opens with a slanted wipe
   (`UI.reveal`).
-- **Character select**: "VERSUS" and "CHOOSE YOUR FIGHTER" on brush strokes; roster cards in a fixed run of colours with each fighter's
-  own 3D portrait (rendered once, then kept as a still), the name on an ink stroke, outlines and P tabs in the colours of the players on
-  them (the card lifts); the players' panels along the bottom, each a painted scene (warm for player 1, cool for player 2) with the
-  fighter standing on a ledge, the name on a stroke in the player's colour and a gold READY! badge once locked in; a coral "READY TO
-  FIGHT!" ribbon across the screen once everyone is in; the keys along the bottom.
+- **Character select** ("fighters forward", the owner's pick of 2026-10-19, `docs/art/ui/pass2_select.png`): an ink bar along the top
+  with the mode (VERSUS or RUN) and the match rules (players, rules, stocks, time, stage); the players' panels under it, tall, each a
+  spotlit card in the player's colour with the fighter standing large, the name on a band in the player's colour and a gold READY! badge
+  once locked in (two players face each other across a gold VS; three or four stand side by side; the run's one in the middle); the
+  roster as a strip of wide cards along the bottom in a fixed run of colours, each with the fighter's own head-and-shoulders 3D portrait
+  (rendered once, then kept as a still), the name on an ink band, outlines and P tabs in the colours of the players on them; a coral
+  "READY TO FIGHT!" band over the strip once everyone is in; the keys along the bottom.
 - **Results**: the winner standing large on their colour, a card for each fighter in finishing order with knock-outs, falls, damage dealt
   and taken and stocks left (tracked by the match scene from hits and knock-outs; with more than two fighters the attacker is the one frozen
   in an attack on the same frame), and the choices.
@@ -187,8 +206,8 @@ The screens:
   winner's player colour; a replay this version cannot play is dimmed and tagged OLD VERSION.
 - **Painted skies** (`MenuArt.palette`): the warm mood (player 1's panel, the Play tile, results) is the concept art's evening, a violet
   top over pink and a peach horizon; it does not mix blue straight toward coral, which goes grey on the way.
-- **Fighter select grows with the roster** (`select.gd` `grid_layout`): the cards fit the band under the header, one row while they can,
-  then new rows with smaller cards (132 down to 52 across), names and glyphs scaled with them; past what fits at the smallest size the
+- **Fighter select grows with the roster** (`select.gd` `grid_layout`): the cards fit the strip along the bottom, one row while they can,
+  then new rows with smaller cards (132 down to 52 across, each 0.78 of its width tall), names and glyphs scaled with them; past what fits at the smallest size the
   grid scrolls. Players can save up to `Roster.MAX_FIGHTERS` (100): at that many the "New fighter" card is not offered and the creator
   refuses a new fighter (a rename of a saved one still saves). Checked by
   `tests/select_grid_test.gd` for every roster size up to the cap. Screenshots: `docs/screenshots/menu_select_30.png`, `menu_select_100.png`.

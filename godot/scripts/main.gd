@@ -239,6 +239,7 @@ func _build_world() -> void:
 		var v := FighterView.new()
 		add_child(v)
 		v.build(i, Loadout.load_saved(i))
+		v.trail_tint = PLAYER_COLORS[i % PLAYER_COLORS.size()]
 		views.append(v)
 		snaps.append({})
 		inputs.append({"x": 0, "y": 0, "buttons": 0})
@@ -289,6 +290,9 @@ func _parse_demo_args() -> void:
 			cam_override = float(a.substr(6))
 	var user_args := OS.get_cmdline_user_args()
 	flag_noui = user_args.has("--noui")
+	# (`--fx=ink` draws the effects in the older brush-and-ink look, for before/after captures; the paper look is the default.)
+	if user_args.has("--fx=ink"):
+		FxMaterial.paper = false
 	flag_noecb = user_args.has("--noecb")
 	if user_args.has("--nomsaa"):
 		get_viewport().msaa_3d = Viewport.MSAA_DISABLED
@@ -504,6 +508,8 @@ func _refresh(i: int) -> void:
 		"move_tip": sim.fighter_move_tip(i), "reach": sim.fighter_weapon_reach(i), "dash_length": sim.fighter_dash_length(i), "wall_jumps": sim.fighter_wall_jumps(i),
 		"tripped": sim.has_method("fighter_tripped") and bool(sim.fighter_tripped(i)),
 		"egg": float(sim.fighter_egg_radius(i)) if sim.has_method("fighter_egg_radius") else 0.0,
+		# The live hitboxes as flat [x, y, radius, priority] groups in the world (the swing arcs follow their outer edge).
+		"hits": sim.fighter_hitboxes(i),
 	}
 
 
@@ -815,7 +821,12 @@ func pad_scheme(_pad: int) -> Dictionary:
 		return {"up": KEY_UP, "down": KEY_DOWN, "confirm": KEY_ENTER, "back": KEY_ESCAPE, "start": KEY_ESCAPE}
 	if replay_mode:
 		return {"up": KEY_UP, "down": KEY_DOWN, "left": KEY_LEFT, "right": KEY_RIGHT, "confirm": KEY_SPACE, "back": KEY_ESCAPE, "start": KEY_SPACE, "menu": KEY_ESCAPE}
-	if results != null or net_lobby != null:
+	if net_lobby != null:
+		# Y switches the stage step's view, as on stage select.
+		var scheme: Dictionary = PadNav.DEFAULT.duplicate()
+		scheme["alt"] = KEY_V
+		return scheme
+	if results != null:
 		return PadNav.DEFAULT
 	if _can_pause():
 		return {"start": KEY_ESCAPE}
@@ -1044,7 +1055,12 @@ func _open_lobby() -> void:
 			if entries[i].slug == me.slug:
 				lobby_fighter = i
 	net_lobby = NetLobby.new()
+	net_lobby.slot = local_slot
 	add_child(net_lobby)
+	# The match's display (timer, percents) hides while the lobby is up: it showed through the lobby's veil, the timer's plate peeking
+	# out above the LOBBY banner (the UI pass, docs/art/ui/UI_ANALYSIS.md).
+	if hud != null:
+		hud.visible = false
 	net_lobby.build(entries, lobby_fighter, lobby_stage)
 	net_lobby.set_friend_name(names[1 - local_slot] if names[1 - local_slot] != "Player %d" % (2 - local_slot) else "")
 	net_lobby.changed.connect(_on_lobby_changed)
@@ -1072,6 +1088,7 @@ func _close_lobby() -> void:
 	names[local_slot] = e.name
 	net_lobby.queue_free()
 	net_lobby = null
+	_show_display(not hud_hidden)
 
 
 ## The other player left while the lobby was open.

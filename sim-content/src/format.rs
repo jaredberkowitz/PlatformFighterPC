@@ -433,6 +433,7 @@ rules_io! {
     push_ratio: Fx,
     push_hard: Fx,
     push_speed: Fx,
+    air_push: u8,
     jump_momentum: Fx,
     jump_momentum_max: Fx,
     jump_stick_share: u8,

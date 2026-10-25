@@ -466,6 +466,8 @@ Line numbers inside a script count from its first non-blank line.
   cap; owner decision 102): a fighter landing (out of a jump, a move or a special fall) keeps at most that share of its dash speed
   along the ground, so a fast recovery ending on the stage does not slide across it on the gentle `landing_friction`. A file without it
   plays as 100 (the sim 143 rule; write 0 for the older free slide).
+  Still schema 8 (sim v146): the ruleset's `air_push` (default 0, a file without it plays as 0: bodies push only when both stand on
+  the ground, so hops cross over and fighters pass in the air; 1 is the rule of sims 67 to 145, bodies in the air pushed too).
   Still schema 8 (sim v144, the 2026-10-19 playtest): `jump_stick_share` may be 2 (the standard now: the ground speed's kept share
   plus the stick's, within `jump_speed_x_max`; a file without it plays as 2); the ruleset `ledge_exposed_frames` (default 2: a fighter
   that has just grabbed a ledge can be hit for that many frames before its ledge intangibility starts, the reference's "two-frame");
