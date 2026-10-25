@@ -74,3 +74,12 @@ unchanged), mapped for the canyon's `layer1`, `layer2` and `strata_*` in `StageB
 `--straight C`; the canyon re-lit (front, paper, play). The front measures value 0.39 (0.37 before: fewer, larger flat faces), with
 sunset.cfg `front_lift` 0.35 to 0.28 (it moves the face only 0.01). Before and after (match camera, then wide):
 `review9/canyon_rock_built.jpg`. All seven tests pass.
+
+## Item 2, the meadow's wall at a distance (2026-10-25, mock)
+
+`make_meadow_front.py --calm A|B` (with the shipped `--variant B --stones field --moss 1 --warm B`): A lays stones 1.2 to 3 wide
+(big ones 2 to 3) in courses 0.85 to 1.25 tall, split only one time in five, their values half as spread round 0.8; B is A a step
+lower (0.12) in value. 7,864 triangles, from 13,627. At the wide camera the wall's contrast falls from 0.151 to 0.133 (A) and 0.125 (B),
+its value 0.51 to 0.53 and 0.50 (shown before the light bake). Both mocks also tidy the foot: `StageArt` HillProps with the palette's
+[backdrop] `foot_tidy` (`--foot-tidy`): two bales side by side square to the wall at each end, in place of three at odd angles with one
+half on another; the barrel and rock kept. On the Stage Look Review ("wallcalm9", `wl9_*`); recommended B.

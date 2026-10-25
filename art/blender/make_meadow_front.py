@@ -47,6 +47,10 @@ TINTS = [(1.0, 0.86, 0.68), (0.8, 0.86, 1.0), (0.96, 0.96, 0.96), (1.0, 0.82, 0.
 # (`wall_moss`, not the lawn's lime), as low caps with no drips. B also gives every stone a wider warm-to-cool spread and keeps the moss to
 # the courses under the logs and the wall's foot.
 WARM = opts.get("warm", "")
+# Fidelity review 9 (at the wide camera the wall was a grid of small pale stones, each outlined, the busiest and brightest mass under the
+# fight): `--calm A|B`. A: fewer, larger stones in taller courses, rarely split, their values closer; B: A, a step lower in value, so the
+# wall sits back under the lawn.
+CALM = opts.get("calm", "").upper()
 if WARM:
     TINTS = [(1.0, 0.84, 0.66), (0.84, 0.86, 0.94), (1.0, 0.92, 0.8), (0.98, 0.78, 0.68), (0.9, 0.9, 0.78)]
     if WARM == "B":
@@ -158,12 +162,16 @@ def field_wall(y, rng):
     course = 0
     while y > Y_BOT + 0.25:
         lo, hi = edges(y)
-        row_h = rng.uniform(0.5, 0.85)
+        row_h = rng.uniform(0.85, 1.25) if CALM else rng.uniform(0.5, 0.85)
         x = lo - rng.uniform(0.0, 0.5)
         while x < hi - 0.15:
             big = rng.random() < 0.3
-            w = rng.uniform(1.0, 1.8) if big else rng.uniform(0.45, 1.0)
-            stack = [row_h] if big or rng.random() < 0.55 else [row_h * 0.45, row_h * 0.55]
+            if CALM:
+                w = rng.uniform(2.0, 3.0) if big else rng.uniform(1.2, 2.0)
+                stack = [row_h] if big or rng.random() < 0.8 else [row_h * 0.45, row_h * 0.55]
+            else:
+                w = rng.uniform(1.0, 1.8) if big else rng.uniform(0.45, 1.0)
+                stack = [row_h] if big or rng.random() < 0.55 else [row_h * 0.45, row_h * 0.55]
             yy = y
             for h in stack:
                 hh = h - 0.05
@@ -171,7 +179,10 @@ def field_wall(y, rng):
                 cx = min(x + ww * 0.5, hi - ww * 0.4)
                 c = P(cx, yy - hh * 0.5, FZ + 0.32 + rng.uniform(-0.08, 0.1))
                 size = Vector((ww * 0.47, 0.32, hh * 0.47))
-                rough_stone(bm, c, size, rng, rng.choice(TINTS), rng.uniform(0.62, 1.0) if WARM == "B" else rng.uniform(0.72, 1.0))
+                value = rng.uniform(0.62, 1.0) if WARM == "B" else rng.uniform(0.72, 1.0)
+                if CALM:
+                    value = 0.8 + (value - 0.8) * 0.5 - (0.12 if CALM == "B" else 0.0)
+                rough_stone(bm, c, size, rng, rng.choice(TINTS), value)
                 if WARM:
                     # (Caps only, no drips; with B only under the logs.)
                     share = (0.7 if first else (0.0 if WARM == "B" else 0.15))

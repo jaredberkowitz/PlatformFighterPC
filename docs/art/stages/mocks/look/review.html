@@ -88,6 +88,22 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
     <p>Two lessons from the reference screenshots, mocked from the match camera: the scenery without ink outlines, its edges lit as card bevels instead, and the paper houses rebuilt at the characters' proportions. The earlier rounds stay on the <a href="https://claude.ai/artifact/D1du6MREVumiJDrEdNypW4">Stage Fidelity Review</a>, which is full.</p>
   </header>
 
+  <section class="panel" aria-labelledby="wl9-h" id="wallcalm9">
+    <div class="eyebrow">Your call is needed &middot; review 9, item 2: the meadow's wall at a distance</div>
+    <h2 id="wl9-h">One calm wall of larger stones</h2>
+    <p>First, item 1 is built: the canyon's rock is sandstone in uneven beds (see its section below). Then the meadow. At the wide camera its wall was a grid of small pale stones, each outlined, the busiest mass under the fight. Both options keep the same warm fieldstone and moss but lay fewer, larger stones in taller courses, rarely split, their values closer together. Both also tidy the farm things at the wall's foot: at each end, three bales at odd angles (one half on another) become two side by side, with the barrel and rock kept.</p>
+    <div class="tablewrap"><table><thead><tr><th>Option</th><th>What changes</th></tr></thead><tbody>
+      <tr><td>A &middot; Larger stones</td><td>Stones 1.2 to 3 wide in courses 0.85 to 1.25 tall (from 0.45 to 1.8 and 0.5 to 0.85), values half as spread. The wall's contrast at the wide camera falls 0.151 to 0.133.</td></tr>
+      <tr><td>B &middot; Larger and deeper</td><td>A, a step lower in value, so the wall sits back under the lawn. Contrast 0.125.</td></tr>
+    </tbody></table></div>
+    <p>Wide, close: today, A, B, and today as shipped (lit):</p>
+    <div class="viewer"><img src="wl9_close.jpg" alt="The meadow's wall today and in the two options"></div>
+    <div class="row" role="group" aria-label="View"><button data-wl9v="m">Match camera</button><button data-wl9v="w">Wide</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-wl9o="T">Today</button><button data-wl9o="A">A &middot; Larger stones</button><button data-wl9o="B">B &middot; Larger and deeper</button></div>
+    <div class="viewer"><img id="wl9img" alt="Meadow wall option"><span class="vtag" id="wl9tag"></span></div>
+    <p class="muted">My pick: <b>B</b>. The larger stones do most of the work, and the step down in value lets the lawn and the fighters lead. It's also half the triangles (7,900 from 13,600). Shown before the light bake, today's wall included.</p>
+  </section>
+
   <section class="panel" aria-labelledby="s9-h" id="sand9">
     <div class="eyebrow">Built (C) &middot; review 9, item 1: the canyon's rock</div>
     <h2 id="s9-h">Sandstone, not planks</h2>
@@ -1501,5 +1517,15 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
   group("data-s9v", function (v) { s9v = v; }, s9render);
   group("data-s9o", function (v) { s9o = v; }, s9render);
   s9render();
+  var wl9v = "w", wl9o = "B";
+  var WL9O = { T: "Today", A: "A \u00b7 Larger stones", B: "B \u00b7 Larger and deeper" };
+  function wl9render() {
+    document.getElementById("wl9img").src = "wl9_" + wl9o + "_" + wl9v + ".jpg";
+    document.getElementById("wl9tag").textContent = "Meadow \u00b7 " + WL9O[wl9o] + (wl9v === "w" ? " \u00b7 wide" : " \u00b7 match camera");
+    pressed("data-wl9v", wl9v); pressed("data-wl9o", wl9o);
+  }
+  group("data-wl9v", function (v) { wl9v = v; }, wl9render);
+  group("data-wl9o", function (v) { wl9o = v; }, wl9render);
+  wl9render();
 })();
 </script>

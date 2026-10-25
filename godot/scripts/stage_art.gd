@@ -7697,14 +7697,21 @@ static func _meadow_hill(root: Node3D, t: Dictionary, l: float, r: float, bottom
 	var props := Node3D.new()
 	props.name = "HillProps"
 	root.add_child(props)
+	# (Tidied, fidelity review 9: three bales at odd angles, one half on another, read as strewn down the slope at the wide camera. Two
+	# side by side, square to the wall; the palette's [backdrop] `foot_tidy`, `--foot-tidy` to try.)
+	var tidy := bool((_palette.get("backdrop", {}) as Dictionary).get("foot_tidy", false)) or OS.get_cmdline_user_args().has("--foot-tidy")
 	for side in [-1.0, 1.0]:
 		var ex: float = (l + 2.8) if side < 0.0 else (r - 2.8)
 		var d := 1.6
 		var y: float = slope.call(d)
 		var z := front + d
-		_hay_bale(props, Vector3(ex, y, z), rng.randf_range(-30, 30))
-		_hay_bale(props, Vector3(ex + side * 1.4, slope.call(d + 0.8) - 0.1, z + 0.8), rng.randf_range(-30, 30))
-		_hay_bale(props, Vector3(ex + side * 0.5, y + 0.8, z + 0.3), rng.randf_range(-30, 30))
+		if tidy:
+			_hay_bale(props, Vector3(ex, y, z), 0.0)
+			_hay_bale(props, Vector3(ex + side * 1.35, y, z + 0.1), side * 6.0)
+		else:
+			_hay_bale(props, Vector3(ex, y, z), rng.randf_range(-30, 30))
+			_hay_bale(props, Vector3(ex + side * 1.4, slope.call(d + 0.8) - 0.1, z + 0.8), rng.randf_range(-30, 30))
+			_hay_bale(props, Vector3(ex + side * 0.5, y + 0.8, z + 0.3), rng.randf_range(-30, 30))
 		_barrel(props, Vector3(ex - side * 1.6, y, z - 0.2), 0.8)
 		_rock(props, Vector3(ex - side * 2.6, y - 0.2, z + 0.6), 0.5, rng)
 	for c in props.get_children():
