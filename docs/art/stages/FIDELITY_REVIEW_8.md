@@ -71,3 +71,11 @@ between, a deep green tree line round the foot. `StageArt.ridge` sets it from a 
 palette's [backdrop] `range_form` (`--range-form=1|2`), the colours through the air at the range's depth. The meadow's specs: far
 [54, 48, 22], near [38, 32, 16] (first tried higher, the main peak took almost none). A snow and tree line; B with rock bands (they barely
 show). On the Stage Look Review ("mountain8", `m8_*`); recommended A.
+
+## Item 3, the canyon's front (2026-10-25, mock)
+
+`make_canyon_front.py --straight A|B` (with `--cut 1 --courses 1`, `courses_straight`): each course laid in long flat-fronted beds of
+rock (4 to 9 units, few clean vertical joints, each a little in or out; beds 0.75 thick) in place of one jutting front shared by every
+course, which bulged them all alike into wobbly plywood at the wide camera. Blocks of 1.4 to 3.6 were tried first and read as a brick
+wall. B sets every third bed back as a shadow line (barely visible). 21,600 triangles, from 38,500. On the Stage Look Review
+("canyonfront8", `c8_*`); recommended A.

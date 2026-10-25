@@ -88,6 +88,22 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
     <p>Two lessons from the reference screenshots, mocked from the match camera: the scenery without ink outlines, its edges lit as card bevels instead, and the paper houses rebuilt at the characters' proportions. The earlier rounds stay on the <a href="https://claude.ai/artifact/D1du6MREVumiJDrEdNypW4">Stage Fidelity Review</a>, which is full.</p>
   </header>
 
+  <section class="panel" aria-labelledby="c8-h" id="canyonfront8">
+    <div class="eyebrow">Your call is needed &middot; review 8, item 3: the canyon's front</div>
+    <h2 id="c8-h">Straight beds of rock instead of wobbly plywood</h2>
+    <p>At the wide camera, the canyon's sediment courses read as stacked plywood: every course bulged with the same jutting front as its slab. Now each course is laid in long, flat-fronted beds of rock, four to nine units long, with few clean vertical joints, each bed a little in or out. (A first try with short blocks read as a brick wall.) The piece also gets lighter: 21,600 triangles, from 38,500.</p>
+    <div class="tablewrap"><table><thead><tr><th>Option</th><th>What changes</th></tr></thead><tbody>
+      <tr><td>A &middot; Straight beds</td><td>Long flat-fronted beds of rock, with few joints.</td></tr>
+      <tr><td>B &middot; And recessed beds</td><td>A, with every third bed set further back as a shadow line. Barely different from A at these cameras.</td></tr>
+    </tbody></table></div>
+    <p>Today on the left: wide A, wide B, then B at the match camera:</p>
+    <div class="viewer"><img src="c8_close.jpg" alt="The canyon front today and with straight beds"></div>
+    <div class="row" role="group" aria-label="View"><button data-c8v="m">Match camera</button><button data-c8v="w">Wide</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-c8o="T">Today</button><button data-c8o="A">A &middot; Straight beds</button><button data-c8o="B">B &middot; And recessed beds</button></div>
+    <div class="viewer"><img id="c8img" alt="Canyon front option"><span class="vtag" id="c8tag"></span></div>
+    <p class="muted">My pick: <b>A</b>. Honest note: they now lean a little toward stacked planks, but they're far cleaner than the wobble. Shown before the light bake, today's front included.</p>
+  </section>
+
   <section class="panel" aria-labelledby="m8-h" id="mountain8">
     <div class="eyebrow">Your call is needed &middot; review 8, item 2: the meadow's mountains</div>
     <h2 id="m8-h">Snowcaps on the meadow's range</h2>
@@ -1311,5 +1327,15 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
   group("data-m8v", function (v) { m8v = v; }, m8render);
   group("data-m8o", function (v) { m8o = v; }, m8render);
   m8render();
+  var c8v = "w", c8o = "A";
+  var C8O = { T: "Today", A: "A \u00b7 Straight beds", B: "B \u00b7 And recessed beds" };
+  function c8render() {
+    document.getElementById("c8img").src = "c8_" + c8o + "_" + c8v + ".jpg";
+    document.getElementById("c8tag").textContent = "Canyon \u00b7 " + C8O[c8o] + (c8v === "w" ? " \u00b7 wide" : " \u00b7 match camera");
+    pressed("data-c8v", c8v); pressed("data-c8o", c8o);
+  }
+  group("data-c8v", function (v) { c8v = v; }, c8render);
+  group("data-c8o", function (v) { c8o = v; }, c8render);
+  c8render();
 })();
 </script>
