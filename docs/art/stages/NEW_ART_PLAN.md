@@ -115,3 +115,9 @@ canyon's mesa foot.
   triangles.
 
 On the Stage Look Review ("falls12", `fl12_*`; "mesafoot12", `mf12_*`); recommended B on both.
+
+Built B on both (the owner's picks): grove_paper.glb `--variant H --rock shaped --abyss mist --valley none --falls 3 --mist 3 --roots
+long` (136,166 triangles; falls at x 24.5, 22.3 and -21.7), canyon_paper.glb `... --plain outcrops --foot talus --hoodoos 5` (24,760);
+both stages re-lit (curve 4, reach 4.5, floor 0.28). P1's gap: grove 0.062, canyon 0.038. Before and after (wide):
+`review10/falls_mesafoot_built.jpg`. Tests pass except the runner's known coin flake (it passed on a rerun; the runner doesn't load these
+stages).

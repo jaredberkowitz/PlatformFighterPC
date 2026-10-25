@@ -34,8 +34,8 @@ New art toward 5 (docs/art/stages/NEW_ART_PLAN.md, C3 and C2, the owner's approv
   `--hoodoos N`   N clusters of wind-carved hoodoos on the floor either side of the mesa, at true size (columns of stacked strata under a
                   wider cap stone), with boulders round them and their shade.
 
-Shipped (fidelity review 7, the owner's pick B, 2026-10-22): godot/models/stages/canyon_paper.glb, `--variant KC --arch chipped
---buttes solid --fight broken --plain outcrops`, then lit (review 6's had `--fight wide`, review 5's `--variant KC --arch solid`).
+Shipped (new art toward 5, the owner's pick B, 2026-10-25): godot/models/stages/canyon_paper.glb, `--variant KC --arch chipped
+--buttes solid --fight broken --plain outcrops --foot talus --hoodoos 5`, then lit (review 7's without `--foot` and `--hoodoos`) (review 6's had `--fight wide`, review 5's `--variant KC --arch solid`).
 
 Run (Blender 5.2):
   blender --background --python art/blender/make_canyon_paper.py -- --dir godot/art/baked/<key> --variant A --ground <g.glb>
