@@ -3626,6 +3626,27 @@ const DEEP_CHAMBER := {4: {"neutral special": Vector2(-0.62, -0.3), "extra move 
 const OVERHEAD_CHAMBER := {12: {"fsmash": [165.0, -0.3]}, 7: {"fair": [110.0, 0.05]}}
 
 
+## Moves (by class) that spin the whole body about its upright axis, arms out, as their references do: [first state frame, last, turns],
+## eased in and out. The all-rounder's down air (a spinning top), the Hauler's neutral air and its grounded and aerial spins. The pose is
+## the arms-out clip (`spin_arms`, `spin_arms_air`); the turn depends only on the move's frame, so hitlag freezes it and a seek redraws
+## it. (Animation overhaul pass 13.)
+const SPIN_MOVES := {3: {"dair": [3, 24, 3.0]}, 7: {"nair": [6, 27, 1.5], "up special": [16, 64, 6.0], "extra move 6": [2, 66, 7.0]}}
+
+
+## How far round a spinning move has turned the body (radians, 0 when not spinning).
+func _whirl(s: Dictionary) -> float:
+	if String(s.state) != "Attack" or s.move_name == "":
+		return 0.0
+	var w: Array = (SPIN_MOVES.get(_cls(s), {}) as Dictionary).get(String(s.move_name), [])
+	if w.is_empty():
+		return 0.0
+	var k := clampf((float(s.state_frame) - float(w[0])) / maxf(1.0, float(w[1]) - float(w[0])), 0.0, 1.0)
+	if k <= 0.0 or k >= 1.0:
+		return 0.0
+	# (Eased in and out: a smoothstep on the turn, so it winds up and settles rather than starting and stopping dead.)
+	return TAU * float(w[2]) * (k * k * (3.0 - 2.0 * k))
+
+
 ## Unarmed moves (by class) thrown with both fists together, the other arm reaching beside the striking one (`_aim_arm` with two hands):
 ## the Hauler's clap far in front, both fists hammered down in front (its forward air) and the aerial clap (its overhead clap is left one-handed:
 ## two fists straight up covered the face). (Animation
@@ -5051,6 +5072,10 @@ func _apply_combat(s: Dictionary, delta: float) -> void:
 	# The flame rush up: a corkscrew about the body's own upright axis (our take; the head stays up, the face comes round every turn).
 	if _cls(s) == 1 and state == "Attack" and s.move_name == "up special" and s.state_frame >= 17:
 		model.rotation.y = yaw + float(s.state_frame - 17) * 0.75
+	# Spinning moves (SPIN_MOVES): the whole body turns about its upright axis with the arms out, by the move's own frame.
+	var whirl := _whirl(s)
+	if whirl != 0.0:
+		model.rotation.y = yaw + whirl * float(s.facing)
 
 	var hitlag: int = s.hitlag
 	# The face follows what the fighter is doing (cosmetic): hurt when hit, a yell in an attack, and so on, then its own face again.

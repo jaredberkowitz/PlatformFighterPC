@@ -156,6 +156,8 @@ const CLASS_MOVES := {
 		"neutral special": "attack_jab",
 		"side special": "attack_swing",
 		"down special": "blaster",
+		# (Its down air spins like a top with both arms out, the game turning the body: pass 13.)
+		"dair": "spin_arms_air",
 		"extra move 0": "land",
 		"extra move 1": "blaster",
 		"extra move 2": "blaster",
@@ -249,6 +251,12 @@ const CLASS_MOVES := {
 		"bair": "kick_bair",
 		"uair": "kick_uair",
 		"dair": "kick_dair",
+		# (The tongue shot out: the head lunged forward, mouth first; the drop: a hop, then seated bottom first, its landing a landing.
+		# Pass 13.)
+		"neutral special": "body_headbutt_fwd",
+		"down special": "body_drop",
+		"extra move 4": "body_drop",
+		"extra move 5": "land",
 	},
 	# Buckler (the Wanderer): the longsword's cuts (its blade follows its hits).
 	9: {
@@ -349,7 +357,10 @@ const CLASS_MOVES := {
 		"jab 2": "attack_uair",
 		"usmash": "attack_uair",
 		"dsmash": "sword_dsmash",
-		"nair": "attack_swing",
+		# (The spins with both arms out, the game turning the body: pass 13.)
+		"nair": "spin_arms_air",
+		"up special": "spin_arms",
+		"extra move 6": "spin_arms_air",
 		# (Both fists raised overhead and hammered down in front: the shared down air's two-handed sweep.)
 		"fair": "attack_dair",
 		"bair": "kick_bair",
@@ -370,7 +381,7 @@ static func is_kick(clip: String) -> bool:
 
 
 ## Clips that pose both arms themselves: the tool hand is not reached to a hit (fighter_view.gd).
-const OWN_ARMS := ["tool_float", "tool_raise", "tool_shrug", "tool_ride", "tool_reach", "tool_toss"]
+const OWN_ARMS := ["tool_float", "tool_raise", "tool_shrug", "tool_ride", "tool_reach", "tool_toss", "spin_arms", "spin_arms_air"]
 
 
 ## Clips where the whole body is the weapon (a headbutt): no arm or leg reaches for the hitbox, the pose carries the hit.

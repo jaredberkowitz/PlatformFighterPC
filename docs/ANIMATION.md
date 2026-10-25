@@ -528,3 +528,29 @@ a corkscrew about the upright body (no head-over-heels spin); wall jumps back-fl
 - **Checked:** facing left (contact sheets); the six tests pass.
 - **Left:** the Bracers' arms-out spins (neutral air, up special) and the hand slap still play one-armed clips; its giant punch's wind-up
   (the arm swung round as it charges) is the shared heavy strike.
+
+### Pass 13: spins that spin (Embers, Bracers) and the bounder's own specials (Clutch)
+
+- **Spins, defect:** the references' spinning moves played still poses with one fist thrown: the all-rounder's down air (a spinning top,
+  arms out) played the two-handed down air sweep; the Hauler's neutral air played a swing; its grounded and aerial spins (up special and
+  its aerial version) played the shared uppercut.
+- **Fix:**
+  - `fighter_view.gd` `SPIN_MOVES` and `_whirl`: the whole body turns about its upright axis over the move's spinning frames ([first,
+    last, turns], eased in and out by a smoothstep), mirrored by the facing. It depends only on the move's frame, so hitlag freezes it and a
+    seek redraws it. Embers' down air (3 turns), Bracers' neutral air (1.5), up special (6) and aerial spin (7).
+  - New clips `spin_arms` and `spin_arms_air` (`make_rigged_blob.py`): both arms held out level, one ahead and one behind along the line of
+    the fight (held out to the sides of the turned body, the near fist sat in front of the face), lifting as the spin builds; feet apart on
+    the ground, knees drawn up in the air. Both arms are the clip's (`AnimLibrary.OWN_ARMS`).
+- **Clutch, defect:** its specials were placeholders: the tongue played the shared heavy punch, the drop (hop, rise, seat-first fall)
+  played the crouched low strike throughout.
+- **Fix:** the tongue plays the forward headbutt (the head lunged forward, mouth first); the drop a new `body_drop` (`BODY_MOVES`, the body
+  is the weapon): crouched for the hop, then sat down in the air, legs out level in front, leaning back a little, arms out to the sides
+  (raised, the near arm crossed the face). Its aerial version too; its landing plays the landing.
+- **Files:** `godot/scripts/fighter_view.gd`, `godot/scripts/anim_library.gd`, `art/blender/make_rigged_blob.py` (`spin_pose`, `body_drop`,
+  `grounded`), `godot/models/base_rig.glb`.
+- **Image:** `docs/screenshots/anim/pass13_spins_bounder.jpg`: Embers' down air, Bracers' neutral air and up special, Clutch's drop and tongue
+  (wind-up, strike, follow), before above and after below; then Embers' down air, Bracers' up special, Clutch's drop and tongue frame by
+  frame.
+- **Checked:** facing left (contact sheets); the six tests pass.
+- **Left:** the Dagger's corkscrew neutral air and the Popgun's spinning neutral air could use `SPIN_MOVES` too (their weapon or kicking leg
+  would need holding still through the turn).

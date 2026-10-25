@@ -746,6 +746,16 @@ BODY_MOVES = {
         {"hips": -0.16, "spine": (26.0, 48.0), "head": (-8.0, -26.0), "stance": (72.0, -54.0), "shin.L": (-66.0,), "shin.R": (-2.0,),
          "armU.L": (-10.0, 24.0), "armL.L": (100.0,)},
         {"hips": -0.08, "spine": (12.0, 18.0), "stance": (40.0, -30.0), "shin.L": (-36.0,)}),
+    # The bounder's drop (its down special, after its reference's; pass 13): crouched for the hop, then sat down in the air bottom first,
+    # the legs held out level in front and the body leaning back a little over them, the arms out to the sides (raised, the near one
+    # crossed the face), so it falls seat first onto the
+    # target; the body is the weapon (`body_`: no limb reaches for the hit).
+    "body_drop": (
+        {"hips": -0.1, "spine": (24.0, 0.0), "head": (6.0, 0.0), "stance": (40.0, 36.0), "shin.L": (-90.0,), "shin.R": (-86.0,),
+         "arms": (-20.0, 24.0)},
+        {"spine": (-14.0, 0.0), "head": (10.0, 0.0), "stance": (88.0, 82.0), "shin.L": (-16.0,), "shin.R": (-22.0,),
+         "foot.L": (-20.0,), "foot.R": (-20.0,), "arms": (16.0, 40.0)},
+        {"spine": (-8.0, 0.0), "stance": (80.0, 76.0), "shin.L": (-30.0,), "shin.R": (-34.0,), "arms": (14.0, 34.0)}),
     # Forward air (a crescent cut, or a claw raked, down through the space in front): the weapon raised with the shoulders turned back and
     # the knees drawn up, then the torso leans over the swing and turns into it, the front knee up and the back leg trailing.
     # Upright enough that the face stays toward the hit.
@@ -910,7 +920,7 @@ BODY_MOVES = {
 # legs never needed any of it.
 def grounded(name):
     """Whether a clip is played on the ground (the feet planted), not in the air, hit, rolling, lying down or on a ledge."""
-    if name in ("jump", "fall", "fall_start", "tumble", "air_jump", "air_dodge", "hurt", "roll", "knockdown", "getup", "ledge", "ledge_climb", "kick_dash",
+    if name in ("jump", "fall", "fall_start", "tumble", "air_jump", "air_dodge", "hurt", "roll", "knockdown", "getup", "ledge", "ledge_climb", "kick_dash", "body_drop",
                 "hurt_heavy", "hurt_up", "platform_drop", "gaunt_knee", "gaunt_stomp", "tool_ride", "tool_float"):
         return False
     return not name.endswith("air")
@@ -3471,6 +3481,34 @@ def main() -> None:
     clip(rig, "attack_knife_smash", 60, {})
     # The rusher's charged punch (posed in BODY_MOVES).
     clip(rig, "gaunt_punch", 60, {})
+    # The bounder's drop (posed in BODY_MOVES).
+    clip(rig, "body_drop", 60, {})
+
+    # Spinning with both arms out (pass 13: the all-rounder's down air, the Hauler's spins; the game turns the whole body, fighter_view.gd
+    # `SPIN_MOVES`, and leaves both arms to the clip, AnimLibrary.OWN_ARMS): the arms held out level, elbows soft, the body
+    # upright; on the ground the feet set apart, in the air the knees drawn up a little. The arms lift as the spin builds and settle.
+    def spin_pose(air, k):
+        def f(rig):
+            # (Spread along the line of the fight, one arm ahead and one behind: held out to the sides of the turned body, the near arm
+            # pointed at the camera and its fist sat in front of the face.)
+            for side, sign in (("L", 1.0), ("R", -1.0)):
+                pose(rig, "armU." + side, fwd=sign * (50.0 + 34.0 * k), out=22.0)
+                pose(rig, "armL." + side, fwd=24.0 - 10.0 * k)
+                pose(rig, "hand." + side, fwd=0.0)
+            pose(rig, "spine", fwd=4.0 - 4.0 * k)
+            pose(rig, "head", fwd=2.0)
+            if air:
+                stance(rig, 30.0 + 14.0 * k, 22.0 + 10.0 * k)
+                pose(rig, "shin.L", fwd=-60.0 - 10.0 * k)
+                pose(rig, "shin.R", fwd=-56.0 - 10.0 * k)
+            else:
+                pose(rig, "hips", lift=-0.06 * k)
+                stance(rig, 14.0, -12.0)
+                pose(rig, "thigh.L", fwd=14.0, out=14.0)
+                pose(rig, "thigh.R", fwd=-12.0, out=14.0)
+        return f
+    for air, nm in ((False, "spin_arms"), (True, "spin_arms_air")):
+        clip(rig, nm, 60, {0: spin_pose(air, 0.0), 21: spin_pose(air, 0.8), 33: spin_pose(air, 1.0), 45: spin_pose(air, 1.0), 60: spin_pose(air, 0.0)})
     # The Settler's tool clips (posed in BODY_MOVES).
     for tool in ("tool_reach", "tool_toss", "tool_dig", "tool_pour", "tool_chop", "tool_heave", "tool_raise", "tool_trip", "tool_shrug", "tool_ride", "tool_float"):
         clip(rig, tool, 60, {})
