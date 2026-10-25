@@ -212,7 +212,7 @@ const LONG_FIT := Transform3D(Basis(Vector3(0.92, 0, 0), Vector3(0, 0.92, 0), Ve
 ## Where the head and torso sit in the rig compared with the sphere-built look the face, hats and glasses were designed for.
 const HEAD_FIT := Transform3D(Basis(Vector3(0.825, 0, 0), Vector3(0, 0.825, 0), Vector3(0, 0, 0.825)), Vector3(0, 1.56 - 1.42 * 0.825, 0))
 const TORSO_FIT := Transform3D()
-const LOOPING := ["idle", "idle_quick", "idle_heavy", "idle_caster", "idle_tool", "run_quick", "run_heavy", "run_caster", "run_tool", "walk", "run", "dash", "fall", "victory_a", "victory_b", "victory_c"]
+const LOOPING := ["idle", "idle_brawler", "idle_quick", "idle_heavy", "idle_caster", "idle_tool", "run_quick", "run_heavy", "run_caster", "run_tool", "walk", "run", "dash", "fall", "victory_a", "victory_b", "victory_c"]
 ## The rig is read once and copied for every fighter (reading it again renames its bones).
 static var _rig_templates: Dictionary = {}
 

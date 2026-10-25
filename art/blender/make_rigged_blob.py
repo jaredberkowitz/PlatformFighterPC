@@ -889,7 +889,7 @@ def grounded(name):
     return not name.endswith("air")
 
 
-STANDING = {"idle", "idle_quick", "idle_heavy", "idle_caster", "idle_tool", "crouch", "jumpsquat", "land", "spot_dodge", "shield", "skid", "grab", "throw", "blaster", "sword_usmash", "sword_dsmash",
+STANDING = {"idle", "idle_brawler", "idle_quick", "idle_heavy", "idle_caster", "idle_tool", "crouch", "jumpsquat", "land", "spot_dodge", "shield", "skid", "grab", "throw", "blaster", "sword_usmash", "sword_dsmash",
             "tech", "run_stop", "idle_look"}
 
 
@@ -2817,6 +2817,20 @@ def lengthen_limbs(rig, parts):
     # the armature keeps its rest pose; meshes were edited directly
 
 
+# The base body's battle stance (the sword family's idle, `idle`): the front and back thigh and shin angles before `plant`, how far the
+# legs open, and the chest's lean into the stance. (Animation overhaul, stance pass: was 32/-40 front and -14/-10 back, a near-straight
+# stand with the hips 0.09 down.)
+STANCE_LEAD, STANCE_LEAD_SHIN = 44.0, -72.0
+STANCE_BACK, STANCE_BACK_SHIN = -20.0, -46.0
+STANCE_WIDE = 19.0
+STANCE_LEAN = 14.0
+# The chest's bend toward the way the fighter faces (degrees): the game turns the body most of the way to the camera, so a forward bend
+# alone leans mostly toward the camera and hardly reads; this bend shows the lean on screen.
+STANCE_SIDE = 12.0
+# Idle loops are this long (frames): two bobs, one breath and one weight shift a loop.
+IDLE_FRAMES = 96
+
+
 def main() -> None:
     clear()
     rig = make_armature()
@@ -2840,17 +2854,32 @@ def main() -> None:
             # On the base body the feet are planted (`plant`), which takes over the hips' own drop, so the bob has to come from the knees:
             # they flex twice as far.
             flex = 2.0 if BODY else 1.0
-            pose(rig, "hips", lift=-0.06 - 0.04 * down, twist=-6.0 + 1.5 * breath)
-            pose(rig, "thigh.L", fwd=32.0 + 6.0 * down * flex, out=15.0)
-            pose(rig, "shin.L", fwd=-40.0 - 14.0 * down * flex)
-            pose(rig, "foot.L", fwd=6.0 + 6.0 * down, out=-10.0)
-            # The back leg stays nearly straight (a bent back knee would cross the front leg on screen).
-            pose(rig, "thigh.R", fwd=-14.0 + 3.0 * down * flex, out=15.0)
-            pose(rig, "shin.R", fwd=-10.0 - 6.0 * down * flex)
-            pose(rig, "foot.R", fwd=18.0, out=-10.0)
+            if BODY:
+                # (Animation overhaul, stance pass: a low battle stance, not a stand. Both knees bent, the back one too, turned out so it
+                # stays behind the front leg rather than crossing it; the hips sink about a tenth of the body's height. `plant` sets the
+                # hips from the feet, so the bob and the weight shift are knee bends: both knees flex together on each bob, and over the
+                # loop the weight rocks onto the front foot and back.)
+                shift = math.sin(k * 2.0 * math.pi + 0.9)
+                pose(rig, "hips", twist=-6.0 + 1.5 * breath)
+                pose(rig, "thigh.L", fwd=STANCE_LEAD + 4.0 * down + 4.0 * shift, out=STANCE_WIDE)
+                pose(rig, "shin.L", fwd=STANCE_LEAD_SHIN - 12.0 * down - 8.0 * shift)
+                pose(rig, "foot.L", fwd=6.0, out=-10.0)
+                pose(rig, "thigh.R", fwd=STANCE_BACK + 3.0 * down - 3.0 * shift, out=STANCE_WIDE + 4.0)
+                pose(rig, "shin.R", fwd=STANCE_BACK_SHIN - 12.0 * down + 8.0 * shift)
+                pose(rig, "foot.R", fwd=18.0, out=-10.0)
+            else:
+                pose(rig, "hips", lift=-0.06 - 0.04 * down, twist=-6.0 + 1.5 * breath)
+                pose(rig, "thigh.L", fwd=32.0 + 6.0 * down * flex, out=15.0)
+                pose(rig, "shin.L", fwd=-40.0 - 14.0 * down * flex)
+                pose(rig, "foot.L", fwd=6.0 + 6.0 * down, out=-10.0)
+                # The back leg stays nearly straight (a bent back knee would cross the front leg on screen).
+                pose(rig, "thigh.R", fwd=-14.0 + 3.0 * down * flex, out=15.0)
+                pose(rig, "shin.R", fwd=-10.0 - 6.0 * down * flex)
+                pose(rig, "foot.R", fwd=18.0, out=-10.0)
             # The chest sinks into each bob; the head keeps nearly level over it, settling a beat late.
             settle = math.cos(k * 4.0 * math.pi - 0.6)
-            pose(rig, "spine", fwd=9.0 + 4.0 * down * flex - 2.0 * breath, twist=8.0 + 2.0 * b + 2.0 * breath)
+            pose(rig, "spine", fwd=(STANCE_LEAN if BODY else 9.0) + 4.0 * down * flex - 3.0 * breath, twist=8.0 + 2.0 * b + 2.0 * breath,
+                 out=STANCE_SIDE if BODY else 0.0)
             pose(rig, "head", fwd=-7.0 + 4.0 * down - (2.5 * (0.5 - 0.5 * settle) if BODY else 0.0), twist=-4.0 - 1.5 * breath)
             # Lead fist (far arm) out in front, rear fist guarding the chin; both ride the bounce a beat behind.
             lag = math.cos(k * 4.0 * math.pi - 0.8)
@@ -2883,20 +2912,26 @@ def main() -> None:
                 pose(rig, "hand.R", fwd=-14.0)
         return f
 
-    clip(rig, "idle", 48, {i: idle(i / 48.0) for i in range(0, 49, 4)})
+    clip(rig, "idle", IDLE_FRAMES, {i: idle(i / IDLE_FRAMES) for i in range(0, IDLE_FRAMES + 1, 4)})
 
     # Each unarmed family's own stance on the base body (the pose review: nine unarmed classes stood alike), the brawlers keeping the bouncy
     # guard above: the quick fighters low and coiled with the lead hand out, the heavy one wide and planted with its arms low and slow, the
     # caster upright with an open lead palm and the other hand at the hip, the tool users relaxed with their hands low. Arms are
     # (forward, out, elbow); the bob is a share of the guard's. Mapped by class in anim_library.gd (CLASS_FAMILY).
     IDLE_STYLES = {
-        "quick": dict(hips=-0.2, bob=0.6, lead=62.0, back=-36.0, shin_l=-84.0, shin_r=-30.0, spine=28.0, head=-10.0,
+        # (Stance pass: every family's knees bent, the back knee too, so each stands low and grounded; the styles differ in depth, width,
+        # lean and the hands.)
+        # The brawlers (Claws, Gauntlets, Bracers): hunched forward over bent knees, both fists up in front of the chest, the lead one
+        # further out (the reference claws fighter's crouch).
+        "brawler": dict(hips=0.0, bob=0.55, lead=50.0, back=-24.0, shin_l=-84.0, shin_r=-54.0, spine=30.0, side=18.0, head=-8.0, wide=21.0,
+                        arm_l=(52.0, 20.0, 96.0), arm_r=(40.0, 26.0, 108.0)),
+        "quick": dict(hips=-0.2, bob=0.6, lead=62.0, back=-30.0, shin_l=-90.0, shin_r=-60.0, spine=28.0, side=12.0, head=-10.0, wide=18.0,
                       arm_l=(64.0, 10.0, 36.0), arm_r=(-14.0, 24.0, 100.0)),
-        "heavy": dict(hips=-0.14, bob=0.35, lead=26.0, back=-22.0, shin_l=-40.0, shin_r=-30.0, spine=10.0, head=-2.0, wide=30.0,
+        "heavy": dict(hips=-0.14, bob=0.35, lead=34.0, back=-20.0, shin_l=-60.0, shin_r=-50.0, spine=12.0, side=8.0, head=-2.0, wide=30.0,
                       arm_l=(10.0, 50.0, 46.0), arm_r=(6.0, 50.0, 50.0)),
-        "caster": dict(hips=0.0, bob=0.45, lead=14.0, back=-8.0, shin_l=-18.0, shin_r=-10.0, spine=-4.0, head=-6.0,
+        "caster": dict(hips=0.0, bob=0.45, lead=28.0, back=-14.0, shin_l=-48.0, shin_r=-34.0, spine=4.0, head=-6.0, wide=17.0,
                        arm_l=(72.0, 10.0, 28.0), arm_r=(-20.0, 40.0, 110.0)),
-        "tool": dict(hips=0.0, bob=0.25, lead=8.0, back=-6.0, shin_l=-12.0, shin_r=-8.0, spine=-6.0, head=-2.0,
+        "tool": dict(hips=0.0, bob=0.35, lead=22.0, back=-12.0, shin_l=-40.0, shin_r=-30.0, spine=2.0, head=-2.0, wide=16.0,
                      arm_l=(2.0, 12.0, 22.0), arm_r=(0.0, 14.0, 18.0)),
     }
 
@@ -2905,26 +2940,29 @@ def main() -> None:
             b = math.cos(k * 4.0 * math.pi)
             down = 0.5 - 0.5 * b
             breath = math.sin(k * 2.0 * math.pi)
+            # (Stance pass: the weight rocks onto the front foot and back once a loop, and both knees flex on the bob, since `plant` sets
+            # the hips from the feet.)
+            shift = math.sin(k * 2.0 * math.pi + 0.9)
             bob = st["bob"] * 2.0
             wide = st.get("wide", 15.0)
             pose(rig, "hips", lift=st["hips"] - 0.03 * down * st["bob"], twist=-6.0 + 1.5 * breath)
-            pose(rig, "thigh.L", fwd=st["lead"] + 6.0 * down * bob, out=wide)
-            pose(rig, "shin.L", fwd=st["shin_l"] - 14.0 * down * bob)
+            pose(rig, "thigh.L", fwd=st["lead"] + 4.0 * down * bob + 4.0 * shift, out=wide)
+            pose(rig, "shin.L", fwd=st["shin_l"] - 10.0 * down * bob - 8.0 * shift)
             pose(rig, "foot.L", fwd=6.0, out=-10.0)
-            pose(rig, "thigh.R", fwd=st["back"] + 3.0 * down * bob, out=wide)
-            pose(rig, "shin.R", fwd=st["shin_r"] - 6.0 * down * bob)
+            pose(rig, "thigh.R", fwd=st["back"] + 3.0 * down * bob - 3.0 * shift, out=wide + 4.0)
+            pose(rig, "shin.R", fwd=st["shin_r"] - 10.0 * down * bob + 8.0 * shift)
             pose(rig, "foot.R", fwd=14.0, out=-10.0)
-            pose(rig, "spine", fwd=st["spine"] + 3.0 * down * bob - 2.0 * breath, twist=8.0 + 2.0 * breath)
+            pose(rig, "spine", fwd=st["spine"] + 3.0 * down * bob - 3.0 * breath, twist=8.0 + 2.0 * breath, out=st.get("side", 0.0))
             pose(rig, "head", fwd=st["head"] + 3.0 * down, twist=-4.0 - 1.5 * breath)
             lag = math.cos(k * 4.0 * math.pi - 0.8)
             for side, arm in (("L", st["arm_l"]), ("R", st["arm_r"])):
-                pose(rig, "armU." + side, fwd=arm[0] + 3.0 * lag, out=arm[1])
+                pose(rig, "armU." + side, fwd=arm[0] + 3.0 * lag - 2.0 * breath, out=arm[1])
                 pose(rig, "armL." + side, fwd=arm[2] - 4.0 * lag)
         return f
 
     if BODY:
         for fam, st in IDLE_STYLES.items():
-            clip(rig, "idle_" + fam, 48, {i: styled_idle(i / 48.0, st) for i in range(0, 49, 4)})
+            clip(rig, "idle_" + fam, IDLE_FRAMES, {i: styled_idle(i / IDLE_FRAMES, st) for i in range(0, IDLE_FRAMES + 1, 4)})
 
     # A bouncy, swaggering walk: knees lifting, a springy bob on every step, arms swinging wide with loose bent elbows, a little lean.
     # A big, bouncy, swaggering walk (in the manner of a plumber's cheerful stride): long steps with the knee lifted high as the leg

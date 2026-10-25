@@ -46,7 +46,9 @@ func _rig_has_every_clip() -> void:
 	for cls in AnimLibrary.CLASS_FAMILY:
 		for c in AnimLibrary.FAMILY_CLIPS:
 			var own := AnimLibrary.family_clip(cls, c, ap)
-			check(own == "%s_%s" % [c, AnimLibrary.CLASS_FAMILY[cls]], "class %d plays its family's %s (got %s)" % [cls, c, own])
+			var fam: String = AnimLibrary.CLASS_FAMILY[cls]
+			var want: String = c if (AnimLibrary.FAMILY_SHARES.get(fam, []) as Array).has(c) else "%s_%s" % [c, fam]
+			check(own == want, "class %d plays its family's %s (got %s)" % [cls, c, own])
 	check(AnimLibrary.family_clip(0, "idle", ap) == "idle", "the longsword keeps the shared idle")
 	scene.free()
 

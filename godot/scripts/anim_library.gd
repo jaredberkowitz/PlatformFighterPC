@@ -370,17 +370,23 @@ static func or_stand_in(clip: String, anim: AnimationPlayer) -> String:
 
 
 ## Each unarmed family's own stance and run by class (the base body's rig only; the others play the shared clips): the brawlers (Claws,
-## Gauntlets, Bracers) and the armed classes keep the guard and the shared run, the quick fighters (Needles, Dagger, Nodachi) crouch low
+## Gauntlets, Bracers) hunch over bent knees with both fists up (their own idle, the shared run), the armed classes keep the sword stance
+## and the shared run, the quick fighters (Needles, Dagger, Nodachi) crouch low
 ## and sprint long, the heavy (Clutch) stands wide and lumbers, the caster (Embers) holds a palm out and runs neat, the tool users
 ## (Pockets, Popgun) stand relaxed and jog loose. The pose review, 2026-10-17.
-const CLASS_FAMILY := {2: "quick", 12: "quick", 13: "quick", 8: "heavy", 3: "caster", 10: "tool", 11: "tool"}
+const CLASS_FAMILY := {1: "brawler", 4: "brawler", 7: "brawler", 2: "quick", 12: "quick", 13: "quick", 8: "heavy", 3: "caster", 10: "tool",
+	11: "tool"}
 ## The shared clips a family has its own take on (`<clip>_<family>` in the rig).
 const FAMILY_CLIPS := ["idle", "run"]
+## Families that keep a shared clip of FAMILY_CLIPS rather than having their own (the brawlers run the shared run).
+const FAMILY_SHARES := {"brawler": ["run"]}
 
 
 ## Class `cls`'s own take on the shared clip `clip` (its family's, `<clip>_<family>`) when it has one and the rig has it, else `clip`.
 static func family_clip(cls: int, clip: String, anim: AnimationPlayer = null) -> String:
 	if not FAMILY_CLIPS.has(clip) or not CLASS_FAMILY.has(cls):
+		return clip
+	if (FAMILY_SHARES.get(CLASS_FAMILY[cls], []) as Array).has(clip):
 		return clip
 	var own := "%s_%s" % [clip, CLASS_FAMILY[cls]]
 	if anim != null and not anim.has_animation(own):

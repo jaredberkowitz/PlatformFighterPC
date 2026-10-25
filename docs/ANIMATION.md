@@ -182,3 +182,39 @@ a corkscrew about the upright body (no head-over-heels spin); wall jumps back-fl
   On the lean spring, so it overshoots a little and settles; on the ground the old lean over the feet is unchanged.
   `docs/screenshots/anim_air_counter.png` (the all-rounder's up, back and neutral airs, the sword's up air).
 - Next: the Settler's props (pocket, shovel planting, watering can, axe) and its props; a pose-by-pose pass per moveset.
+
+## 8. Animation overhaul (2026-10-25: `docs/ANIMATION_OVERHAUL_AGENT.md`, audit in `docs/animation/AUDIT.md`)
+
+### Pass 1: a low battle stance per family
+
+- **Defect** (audit item 1): every idle stood upright, the knees nearly straight. Measured in the built rig, the sword idle's hips were
+  0.85 against 0.94 standing, with a 5-degree bend in the near (back) knee. The caster and tool idles had straight legs. The bob
+  moved the hips by 0.001: you could not see it. The brawlers (Claws, Gauntlets, Bracers) held the sword family's guard, fists out wide,
+  where their reference crouches.
+- **Cause:**
+  - `make_rigged_blob.py` `idle()` and `IDLE_STYLES` authored shallow knees and kept the back leg straight on purpose.
+  - `plant()` resets the hips from the feet on every key, so the hip drop and bob written into the clip were thrown away.
+  - The game turns the body most of the way to the camera (`BODY_TURN` 60, `CHEST_TO_CAMERA`), so a forward lean of the chest pointed
+    mostly at the camera and did not read.
+- **Fix:**
+  - Both knees bent, the back knee turned out so it stays behind the front leg instead of crossing it. Hips: sword 0.69-0.72,
+    brawler 0.60-0.64, quick 0.53-0.56, heavy 0.60-0.63, caster 0.79-0.81, tool 0.82-0.84.
+  - The bob and a once-a-loop weight shift onto the front foot are now knee bends, so `plant` turns them into hip motion (about 0.03).
+  - The idle loop runs 96 frames (`IDLE_FRAMES`) instead of 48: two bobs, one breath and one weight shift a loop. The breath lifts the
+    arms too.
+  - The chest bends sideways toward the foe as well (`STANCE_SIDE`, `side` in `IDLE_STYLES`), so the lean shows on screen.
+  - A new brawler family idle (`idle_brawler`: hunched over bent knees, both fists up), mapped for classes 1, 4 and 7 in
+    `AnimLibrary.CLASS_FAMILY`. The brawlers keep the shared run (`FAMILY_SHARES`).
+- **Files:** `art/blender/make_rigged_blob.py`, `godot/models/base_rig.glb`, `godot/scripts/anim_library.gd`, `godot/scripts/fighter_view.gd`
+  (`LOOPING`), `godot/tests/anim_library_test.gd` (a family may share a clip).
+- **Image:** `docs/screenshots/anim/pass1_stance.jpg`. Contact-sheet frames per family, before above and after below, both facings,
+  then the sword and claws fighters close up at the match camera (the pose demo's idle shot).
+- **Checked:**
+  - both facings (the mirrored clips lean the right way);
+  - `anim_library_test`, `fighter_view_test`, `motion_test`, `match_flow_test`, `replay_test` and `look_bench` pass;
+  - the rig rebuilt from the unchanged script renders pixel-identical to the committed one, so the only change is this pass's.
+- **Left:**
+  - the walk, run and dash per family (the next locomotion pass);
+  - the caster and tool families stay the most upright, by design;
+  - the idle fidget (`idle_look`) starts from the new stance but was not re-posed;
+  - not tried with a controller or in a live match.
