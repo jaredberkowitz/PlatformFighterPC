@@ -53,3 +53,12 @@ Every column is at 4 now, so a 5 needs finish, not fixed shapes. Here is what ke
 All four 4.0s and a 3.9 is about where a paper look made with code and Blender scripts lands. Items 1 to 6 are refinements of what
 exists, within the standing rule, and should lift surfaces, background land and the meadow to clear 4s with 5s in reach. Item 7 is the
 one that can move every stage's light and surfaces toward 5.
+
+## Item 1, the meadow's wall (2026-10-24, built)
+
+Why it was grey: the fieldstone took the old wall's near-grey `stone` (0.66, 0.64, 0.60), and the front's calm (a desaturation) and its
+cool shade with depth took what warmth was left; the moss took the lawn's lime. `make_meadow_front.py --warm A|B` paints the stones in
+their own family `fieldstone` (0.80, 0.70, 0.56) and the moss in `wall_moss` (a deep olive), as low caps with no drips; B widens the
+stones' warm-to-cool spread and keeps the moss under the logs. Built B (the owner asked for a fix rather than a pick), the meadow
+re-lit: the wall measures hue 32, saturation 0.19 (from saturation 0.02). Before and after: `review8/meadow_wall_built.jpg`. Tests pass
+except the runner's two known flaky checks, which failed in 3 of 5 runs this time (the runner doesn't load the meadow's front).

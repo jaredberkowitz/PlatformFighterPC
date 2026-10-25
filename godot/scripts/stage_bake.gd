@@ -403,6 +403,9 @@ static func place_front(root: Node3D, t: Dictionary, scene: Node3D) -> void:
 		# (The meadow's families, art/blender/make_meadow_front.py: its light-moss ledge, the farm's wood, warm stone, soil, the lawn.)
 		"ledge": t.get("ledge", Color(0.4, 0.62, 0.32)), "log": (t.get("wood", Color(0.86, 0.62, 0.36)) as Color).darkened(0.12),
 		"log_end": (t.get("wood", Color(0.86, 0.62, 0.36)) as Color).lightened(0.25), "stone": Color(0.66, 0.64, 0.6),
+		# (The meadow's fieldstone, fidelity review 8: a warm sandstone grey and a deep olive moss, so the front's calm and cool shade leave
+		# a stone colour and the moss no longer reads neon.)
+		"fieldstone": Color(0.8, 0.7, 0.56), "wall_moss": Color(0.36, 0.5, 0.26),
 		"soil": t.get("soil", Color(0.76, 0.56, 0.36)), "grass": grass,
 		# (The beach's families, art/blender/make_beach_front.py: the deck's honey for beams, the posts' brown, a pale waterline, iron,
 		# rope, harbour stone, foam.)
