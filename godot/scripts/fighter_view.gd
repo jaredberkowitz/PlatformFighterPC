@@ -3617,6 +3617,14 @@ const DEEP_CHAMBER := {4: {"neutral special": Vector2(-0.62, -0.3), "extra move 
 	"extra move 1": Vector2(-0.62, -0.3), "extra move 2": Vector2(-0.62, -0.3)}}
 
 
+## Sword moves (by class) whose coil raises the sword hand overhead with the blade hanging down behind the head: [the hand's angle about the
+## shoulder, the blade's angle] in degrees (0 forward, 90 up). The Longsword's forward smash, after its reference's frames 6-9 (the owner's
+## open item from passes 3 and 4: the coil held the blade level behind the hips). Animation overhaul pass 16.
+const BLADE_OVERHEAD := {0: {"fsmash": [100.0, 225.0]}}
+## The depth (model space, toward the camera positive) the raised sword hand is drawn back to.
+const BLADE_OVERHEAD_Z := -0.25
+
+
 ## Grounded hand-weapon moves (by class) whose wind-up cocks the hand up behind the head, as the overhead forward air does, so the strike
 ## comes over the top and down onto the hit: the Dagger's forward smash, a downward knife cut (animation overhaul pass 11), and the
 ## Hauler's forward air, both fists raised and hammered down in front (pass 12). Degrees about
@@ -3781,6 +3789,20 @@ func _pose_blade(s: Dictionary, delta: float) -> void:
 			hand = shoulder + Vector2.from_angle(angle) * lerpf(from_v.length(), to_v.length(), arm_k)
 		else:
 			hand = from_hand.lerp(goal, arm_k)
+	# (A sword raised overhead in the coil, BLADE_OVERHEAD: the hand goes up above the head and the blade hangs down behind it, as the
+	# reference swordsman's forward smash; through the snap the hand comes down and the blade comes over the top onto the cut.)
+	var blade_up := 0.0
+	var overhead_blade: Array = (BLADE_OVERHEAD.get(_cls(s), {}) as Dictionary).get(String(s.move_name), [])
+	if attacking and use_base_body and not overhead_blade.is_empty():
+		var mt2: PackedInt32Array = s.move_timing
+		if mt2.size() >= 2 and float(s.state_frame) < float(mt2[1]):
+			blade_up = coil_k(float(s.state_frame), float(mt2[1]))
+			var reach_up := arm_reach * BLADE_ARM_REACH
+			var up_hand := shoulder + Vector2.from_angle(deg_to_rad(float(overhead_blade[0]))) * reach_up
+			var blade_len := blade_length
+			var base_deg := wrapf(rad_to_deg((tip - hand).angle()), -90.0, 270.0)
+			hand = hand.lerp(up_hand, blade_up)
+			tip = hand + Vector2.from_angle(deg_to_rad(lerpf(base_deg, float(overhead_blade[1]), blade_up))) * blade_len
 	# A fist carries on a little past its strike and settles (the `hand` spring, kicked as the hit ends).
 	if not bladed(_cls(s)) and absf(springs.value("hand")) > 0.001:
 		hand += (hand - shoulder).normalized() * springs.value("hand")
@@ -3798,6 +3820,9 @@ func _pose_blade(s: Dictionary, delta: float) -> void:
 	var angle := swing if facing > 0 else 180.0 - swing
 	# (The greatsword at rest lies behind the body, its blade across the back; swinging, it comes round in front.)
 	var hand_z := lerpf(0.35, behind_z, behind * (1.0 - arm_k))
+	# (The raised sword is drawn back behind the head in depth, so the hanging blade does not cross the face.)
+	if blade_up > 0.0:
+		hand_z = lerpf(hand_z, BLADE_OVERHEAD_Z, blade_up)
 	if _cls(s) == GREATSWORD_CLASS:
 		great_z = move_toward(great_z, -0.45 if great_rest else 0.35, delta * 8.0)
 		hand_z = great_z

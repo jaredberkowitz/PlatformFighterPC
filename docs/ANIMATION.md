@@ -585,3 +585,19 @@ a corkscrew about the upright body (no head-over-heels spin); wall jumps back-fl
   forward, up and down airs at the strike, before above and after below; then the Pockets' and the Popgun's neutral airs frame by frame.
 - **Checked:** facing left (contact sheets); the six tests pass.
 - **Left:** the monkey flip, the rocket and its latch keep their fallbacks (they need their own poses: a flip, a ride, a seat on a head).
+
+### Pass 16: the Longsword forward smash raised overhead (the open item from passes 3, 4 and 10)
+
+- **Defect:** the coil held the blade level behind the hips, the hand at the chest. The reference raises the hand overhead from frame 6,
+  the blade hanging down behind, and is fully coiled by frame 8.
+- **Cause:** the arm always points along the blade at the hit's planned path (`_pose_blade`); the wind-up only turned the blade's angle
+  (`SWING_FROM` 95), never the hand.
+- **Fix (`fighter_view.gd` `BLADE_OVERHEAD`):** through the coil the sword hand goes up to 100 degrees about the live shoulder (as high as the
+  arm reaches: beside the top of the head, behind it in depth, `BLADE_OVERHEAD_Z`, so the blade does not cross the face) and the blade hangs
+  down behind at 225 degrees; through the snap the hand comes down and the blade comes over the top (the angle is eased in degrees, not the
+  short way round, which would have swung it underneath) onto the cut. The strike and the follow-through are unchanged.
+- **Image:** `docs/screenshots/anim/pass16_longsword_fsmash_overhead.jpg`: the whiff, frame by frame, before above and after below; frame 6
+  close up, before and after.
+- **Checked:** facing left (contact sheet; the blade foreshortening toward the camera in that sheet's recovery frames is the same on the
+  base branch); the six tests pass.
+- **Left:** the short arm cannot lift the hand clear above the head: it ends beside the top of it.
