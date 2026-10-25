@@ -403,6 +403,9 @@ static func place_front(root: Node3D, t: Dictionary, scene: Node3D) -> void:
 		# (The meadow's families, art/blender/make_meadow_front.py: its light-moss ledge, the farm's wood, warm stone, soil, the lawn.)
 		"ledge": t.get("ledge", Color(0.4, 0.62, 0.32)), "log": (t.get("wood", Color(0.86, 0.62, 0.36)) as Color).darkened(0.12),
 		"log_end": (t.get("wood", Color(0.86, 0.62, 0.36)) as Color).lightened(0.25), "stone": Color(0.66, 0.64, 0.6),
+		# (The meadow's fieldstone, fidelity review 8: a warm sandstone grey and a deep olive moss, so the front's calm and cool shade leave
+		# a stone colour and the moss no longer reads neon.)
+		"fieldstone": Color(0.8, 0.7, 0.56), "wall_moss": Color(0.36, 0.5, 0.26),
 		"soil": t.get("soil", Color(0.76, 0.56, 0.36)), "grass": grass,
 		# (The beach's families, art/blender/make_beach_front.py: the deck's honey for beams, the posts' brown, a pale waterline, iron,
 		# rope, harbour stone, foam.)
@@ -511,7 +514,12 @@ static func place_play(root: Node3D, t: Dictionary, path: String) -> void:
 			"top_lit": base_top.lightened(0.14)}, true)
 	var plate := wood.lerp(Color(0.3, 0.3, 0.42), 0.95)
 	colours.merge({"top": top, "top_card": top.lerp(cream, 0.45), "layer1": layer1, "layer2": layer2, "fringe": fringe,
-		"steel": plate, "steel_dark": (t.get("wood_dark", plate.darkened(0.3)) as Color).darkened(0.15), "steel_card": plate.lerp(cream, 0.35)}, true)
+		"steel": plate, "steel_dark": (t.get("wood_dark", plate.darkened(0.3)) as Color).darkened(0.15), "steel_card": plate.lerp(cream, 0.35),
+		# (The city's platforms in its own materials, fidelity review 8: plate seams, rivets and clamps, a safety paint, red-oxide primer, hazard stripes and
+		# scaffold boards.)
+		"steel_seam": plate.darkened(0.4), "rivet": plate.lerp(cream, 0.5), "steel_paint": Color(0.94, 0.7, 0.26),
+		"steel_primer": Color(0.76, 0.36, 0.3),
+		"hazard": Color(0.16, 0.14, 0.2), "deck_board": Color(0.74, 0.58, 0.44)}, true)
 	scene.name = "ModelledPlay"
 	scene.set_meta("lit_piece", true)
 	root.add_child(scene)
@@ -756,7 +764,9 @@ const PRINTS_BY_THEME := {
 	"ocean": {"top": ["wood", 0.22, 3.0], "top_card": ["wood", 0.22, 3.0], "layer1": ["wood", 0.3, 3.0], "beam": ["wood", 0.4, 3.0],
 		"post": ["wood", 0.4, 2.0], "iron": ["steel", 0.3, 1.5]},
 	"city": {"top": ["roof", 0.4, 5.0], "top_card": ["roof", 0.3, 5.0], "layer1": ["stone", 0.3, 2.5], "steel": ["steel", 0.3, 1.5],
-		"steel_card": ["steel", 0.3, 1.5], "steel_dark": ["steel", 0.3, 1.5], "brick": ["stone", 0.2, 2.0], "trim": ["stone", 0.25, 2.0],
+		"steel_card": ["steel", 0.3, 1.5], "steel_dark": ["steel", 0.3, 1.5], "steel_seam": ["steel", 0.3, 1.5], "rivet": ["steel", 0.2, 1.0],
+		"steel_paint": ["steel", 0.25, 1.5], "steel_primer": ["steel", 0.3, 1.5],
+		"deck_board": ["wood", 0.4, 3.0], "brick": ["stone", 0.2, 2.0], "trim": ["stone", 0.25, 2.0],
 		"frame": ["wood", 0.25, 1.5], "pipe": ["steel", 0.3, 1.5], "iron": ["steel", 0.3, 1.5], "ac": ["steel", 0.3, 1.5],
 		"leaf": ["grass", 0.25, 1.0]},
 }

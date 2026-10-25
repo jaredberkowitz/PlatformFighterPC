@@ -14,7 +14,8 @@ smeared into blotches), on A:
   `--courses 1`  with it, each slab laid in thin courses of sediment, each a little in or out and a step lighter or darker.
 Families `strata_a`, `strata_b`, `strata_c`; each piece bakes its occlusion into linear vertex colours with the built canyon round it.
 
-Shipped (the owner's pick, fidelity review 6, 2026-10-22): godot/models/stages/canyon_front.glb, `--variant A --cut 1 --courses 1`,
+Shipped (fidelity review 8, the owner's pick A, 2026-10-25): godot/models/stages/canyon_front.glb, `--variant A --cut 1 --courses 1
+--straight A` (review 6's without `--straight`),
 then lit (the palette's `front_lift` raised to 0.35 to keep the face at 0.33).
 
 Run (Blender 5.2):
@@ -36,6 +37,10 @@ opts = {argv[i].lstrip("-"): argv[i + 1] for i in range(0, len(argv) - 1, 2)}
 VARIANT = opts.get("variant", "A").upper()
 CUT = opts.get("cut", "0") == "1"
 COURSES = opts.get("courses", "0") == "1"
+# Straight courses (fidelity review 8: at the wide camera every course bulged with its slab's jutting front, wobbly plywood): `--straight
+# A|B`. A: each course a run of flat-fronted blocks of uneven length, clean vertical joints, each block a little in or out. B: A with
+# every third course set further back, so the face reads in thick and thin beds with shadow lines between.
+STRAIGHT = opts.get("straight", "")
 manifest = json.load(open(os.path.join(opts["dir"], "manifest.json")))
 BLOCK = [r for r in manifest["rects"] if r[4] < 0.5][0]
 LEFT, RIGHT, TOP, BOTTOM = BLOCK[0], BLOCK[1], BLOCK[2], BLOCK[3]
@@ -126,6 +131,28 @@ def slab(bm, x0, x1, y0, y1, out, rng, cols=10, taper=0.08, back=DEPTH, pts=None
     tone(bm, lo + hi + tops, shade if shade is not None else rng.uniform(0.82, 1.05))
 
 
+def courses_straight(bm, x0, x1, y0, y1, out, rng):
+    """`courses` with straight, flat-fronted blocks (fidelity review 8): long beds with few joints, as sandstone lies (blocks of 1.4 to 3.6
+    read as a brick wall)."""
+    n = max(1, int(round((y1 - y0) / 0.75)))
+    base = rng.uniform(0.84, 1.02)
+    face = FZ + rng.uniform(0.15, 0.45) * out
+    for k in range(n):
+        ya = y1 - (y1 - y0) * (k + 1) / n
+        yb = y1 - (y1 - y0) * k / n
+        recess = -0.32 if (STRAIGHT == "B" and k % 3 == 2) else 0.0
+        x = x0
+        while x < x1 - 0.05:
+            xe = min(x1, x + rng.uniform(4.0, 9.0))
+            if x1 - xe < 2.0:
+                xe = x1
+            dz = rng.uniform(-0.12, 0.08) + recess
+            pts = [(x, face + dz), (xe, face + dz)]
+            slab(bm, x + 0.02, xe - 0.02, ya + 0.015, yb, out, rng, pts=[(x + 0.02, face + dz), (xe - 0.02, face + dz)], taper=0.02,
+                 chamfer=0.07, shade=base * (1.06 if k % 2 == 0 else 0.94) * rng.uniform(0.95, 1.05) * (0.86 if recess else 1.0))
+            x = xe
+
+
 def courses(bm, x0, x1, y0, y1, out, rng, cols=6):
     """A slab laid in thin courses of sediment (fidelity review 6): one front edge for the slab, each course a little in or out of it,
     alternately a step lighter and darker round the slab's own tone (darker only, the face fell from 0.33 to 0.30, undoing review 5's
@@ -172,7 +199,9 @@ def build():
             cuts = sorted(rng.uniform(-w * 0.6, w * 0.6) for _ in range(rng.choice((1, 2))))
             xs = [-w] + cuts + [w]
             for k in range(len(xs) - 1):
-                if COURSES:
+                if COURSES and STRAIGHT:
+                    courses_straight(part(band_of(y - h * 0.5)), xs[k] + 0.04, xs[k + 1] - 0.04, y - h, y, rng.uniform(0.35, 0.9), rng)
+                elif COURSES:
                     courses(part(band_of(y - h * 0.5)), xs[k] + 0.04, xs[k + 1] - 0.04, y - h, y, rng.uniform(0.35, 0.9), rng)
                 else:
                     slab(part(band_of(y - h * 0.5)), xs[k] + 0.04, xs[k + 1] - 0.04, y - h, y, rng.uniform(0.35, 0.9), rng, cols=6,

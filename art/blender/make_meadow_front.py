@@ -15,8 +15,8 @@ After fidelity review 6 (B's stones, in even courses of one size and one grey, r
   `--moss 1`        with it, moss on the stones' tops and dripping down a few faces, thickest under the logs, and grass at the foot. Families `ledge`, `stone`, `log`, `log_end`, `soil`, `grass`, `moss`, painted from the
 stage's palette in the game; each piece bakes its occlusion into linear vertex colours with the built meadow round it.
 
-Shipped (the owner's pick, fidelity review 6, 2026-10-22): godot/models/stages/meadow_front.glb, `--variant B --stones field
---moss 1`, then lit.
+Shipped (fidelity review 8, 2026-10-24): godot/models/stages/meadow_front.glb, `--variant B --stones field --moss 1 --warm B`,
+then lit (review 6's had no `--warm`).
 
 Run (Blender 5.2):
   blender --background --python art/blender/make_meadow_front.py -- --dir godot/art/baked/<key> --variant A --out <file.glb>
@@ -42,6 +42,15 @@ FIELD = opts.get("stones", "") == "field"
 MOSS = opts.get("moss", "0") == "1"
 # Fieldstone tints (multiplied into the baked occlusion with the stone's own value): warm ochre, blue-grey, plain, rosy, lichen.
 TINTS = [(1.0, 0.86, 0.68), (0.8, 0.86, 1.0), (0.96, 0.96, 0.96), (1.0, 0.82, 0.76), (0.86, 0.95, 0.74)]
+# Fidelity review 8 (the wall read as grey cubes with neon moss drips): `--warm A|B`. Both paint the stones in their own warm family
+# (`fieldstone`, not the old wall's near-grey `stone`, which the front's calm and shade then took to grey) and the moss in a deep olive
+# (`wall_moss`, not the lawn's lime), as low caps with no drips. B also gives every stone a wider warm-to-cool spread and keeps the moss to
+# the courses under the logs and the wall's foot.
+WARM = opts.get("warm", "")
+if WARM:
+    TINTS = [(1.0, 0.84, 0.66), (0.84, 0.86, 0.94), (1.0, 0.92, 0.8), (0.98, 0.78, 0.68), (0.9, 0.9, 0.78)]
+    if WARM == "B":
+        TINTS = [(1.0, 0.8, 0.6), (0.78, 0.82, 0.94), (1.0, 0.94, 0.82), (0.96, 0.72, 0.62), (0.86, 0.88, 0.72), (0.7, 0.66, 0.62)]
 manifest = json.load(open(os.path.join(opts["dir"], "manifest.json")))
 BLOCK = [r for r in manifest["rects"] if r[4] < 0.5][0]
 LEFT, RIGHT, TOP, BOTTOM = BLOCK[0], BLOCK[1], BLOCK[2], BLOCK[3]
@@ -143,9 +152,10 @@ def moss_on(bm, c, size, rng, drip):
 def field_wall(y, rng):
     """The wall under the logs in fieldstone (fidelity review 6): courses of uneven height, a big stone now and then with smaller ones
     packed above and below it, every stone a rough lump of its own value and tint, set in or out a little."""
-    bm = part("Stones", "stone")
-    moss = part("Moss", "moss") if MOSS else None
+    bm = part("Stones", "fieldstone" if WARM else "stone")
+    moss = part("Moss", "wall_moss" if WARM else "moss") if MOSS else None
     first = True
+    course = 0
     while y > Y_BOT + 0.25:
         lo, hi = edges(y)
         row_h = rng.uniform(0.5, 0.85)
@@ -161,8 +171,13 @@ def field_wall(y, rng):
                 cx = min(x + ww * 0.5, hi - ww * 0.4)
                 c = P(cx, yy - hh * 0.5, FZ + 0.32 + rng.uniform(-0.08, 0.1))
                 size = Vector((ww * 0.47, 0.32, hh * 0.47))
-                rough_stone(bm, c, size, rng, rng.choice(TINTS), rng.uniform(0.72, 1.0))
-                if moss is not None and rng.random() < (0.75 if first else 0.22):
+                rough_stone(bm, c, size, rng, rng.choice(TINTS), rng.uniform(0.62, 1.0) if WARM == "B" else rng.uniform(0.72, 1.0))
+                if WARM:
+                    # (Caps only, no drips; with B only under the logs.)
+                    share = (0.7 if first else (0.0 if WARM == "B" else 0.15))
+                    if moss is not None and rng.random() < share:
+                        moss_on(moss, c, size, rng, drip=False)
+                elif moss is not None and rng.random() < (0.75 if first else 0.22):
                     moss_on(moss, c, size, rng, drip=rng.random() < (0.5 if first else 0.25))
                 yy -= h
             x += w + 0.06
@@ -346,6 +361,10 @@ def clamp(bm, margin=0.9):
 
 def make_objects():
     for (name, mat), bm in PARTS.items():
+        # (A part made and left empty, the old wall's stones with the fieldstone laid: nothing to bake.)
+        if len(bm.faces) == 0:
+            bm.free()
+            continue
         clamp(bm)
         me = bpy.data.meshes.new(name + "_" + mat)
         bm.normal_update()

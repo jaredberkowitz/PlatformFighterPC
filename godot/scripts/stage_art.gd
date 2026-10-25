@@ -3015,12 +3015,15 @@ const RIDGES := {
 		# (Teal, not blue: the owner's papercraft reference sets bright lime ground against cool teal mountains.)
 		# (A lit flank and a shaded flank on every peak, as the canyon's mesas have: a flat blue cut-out read as the least finished
 		# thing on the menu; the owner, 2026-10-17, raise the quality of what is there.)
-		"flank": 0.75, "foot_dark": 0.35, "layers": 4, "flank_from": 0.0, "gullies": 0.45, "paper": 0.05, "edge_width": 0.012},
+		"flank": 0.75, "foot_dark": 0.35, "layers": 4, "flank_from": 0.0, "gullies": 0.45, "paper": 0.05, "edge_width": 0.012,
+		# (Painted form, fidelity review 8: snow above about two thirds of its height, a tree line low, `range_form`.)
+		"alt": [54.0, 48.0, 22.0], "alt_foot": Color(0.14, 0.44, 0.36)},
 		# A nearer, lower range in front, deeper teal and less hazed, casting its shadow on the far one: the backdrop as cut cards in layers
 		# with air between them, not one soft band (art review 9).
 		{"model": "range_meadow_near", "facets": true, "land_colour": Color(0.18, 0.62, 0.6), "land_haze": 0.12, "land_drop": 8.0, "z": -140.0, "y": -36.0, "height": 62.0, "shape": 1, "seed": 9.0, "base": 0.4, "amplitude": 0.5, "frequency": 7.0,
 		"tone": Color(0.14, 0.46, 0.54), "mix": 0.85, "edge": 0.5, "haze": 0.28, "flank": 0.75, "foot_dark": 0.4, "layers": 3,
-		"flank_from": 0.0, "gullies": 0.6, "paper": 0.05, "edge_width": 0.016, "shadow": 0.5}],
+		"flank_from": 0.0, "gullies": 0.6, "paper": 0.05, "edge_width": 0.016, "shadow": 0.5,
+		"alt": [38.0, 32.0, 16.0], "alt_foot": Color(0.12, 0.4, 0.32)}],
 	"grove": [{"model": "range_grove_far", "facets": true, "land_colour": Color(0.74, 0.68, 0.9), "z": -165.0, "y": -34.0, "height": 52.0, "shape": 0, "seed": 8.0, "base": 0.5, "amplitude": 0.32, "frequency": 3.5,
 		"tone": Color(0.54, 0.54, 0.78), "mix": 0.7, "edge": 0.3, "flank": 0.6, "foot_dark": 0.3, "layers": 4, "flank_from": 0.0, "gullies": 0.6,
 		"haze": 0.34, "paper": 0.05, "edge_width": 0.014},
@@ -3073,6 +3076,21 @@ static func ridge(root: Node3D, t: Dictionary, spec: Dictionary) -> MeshInstance
 			land.set_shader_parameter("fall_by_height", not spec.get("no_fall", false))
 			land.set_shader_parameter("front_fall", 0.38)
 			land.set_shader_parameter("front_span", float(spec.height) * 0.75)
+		# (Painted form, fidelity review 8: a spec's "alt" [snow line, rock top, tree line] in heights above the range's foot, with the
+		# palette's [backdrop] `range_form` (0 off, 1 the snow and tree line, 2 with rock bands), or `--range-form=`.)
+		var form := int((_palette.get("backdrop", {}) as Dictionary).get("range_form", 0))
+		for arg in OS.get_cmdline_user_args():
+			if arg.begins_with("--range-form="):
+				form = int(arg.substr(13))
+		if form > 0 and spec.has("alt"):
+			var foot_y := float(spec.y) - float(spec.get("land_drop", 0.0))
+			var alt: Array = spec.alt
+			land.set_shader_parameter("alt_bands", Vector4(foot_y + float(alt[0]), foot_y + float(alt[1]), foot_y + float(alt[2]), 1.0))
+			land.set_shader_parameter("alt_rock_bands", 1.0 if form >= 2 else 0.0)
+			# (Through the air at the range's depth, as its land is.)
+			land.set_shader_parameter("alt_snow", _air_colour(Color(0.96, 0.98, 1.0), float(spec.z), false))
+			land.set_shader_parameter("alt_rock", _air_colour((spec.land_colour as Color).darkened(0.28).lerp(Color(0.5, 0.52, 0.6), 0.4), float(spec.z), false))
+			land.set_shader_parameter("alt_foot", _air_colour(spec.get("alt_foot", Color(0.16, 0.42, 0.34)), float(spec.z), false))
 		_place_prop(root, String(spec.model), Vector3(0, float(spec.y) - float(spec.get("land_drop", 0.0)),
 			float(spec.z) + float(spec.height) * 0.55), 1.0, 0.0, land)
 		# (No shadows from it, round 15: at that distance the shadow map is coarse, and its self-shadowing streaked the flanks.)
