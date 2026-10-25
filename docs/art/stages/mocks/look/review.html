@@ -88,6 +88,23 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
     <p>Two lessons from the reference screenshots, mocked from the match camera: the scenery without ink outlines, its edges lit as card bevels instead, and the paper houses rebuilt at the characters' proportions. The earlier rounds stay on the <a href="https://claude.ai/artifact/D1du6MREVumiJDrEdNypW4">Stage Fidelity Review</a>, which is full.</p>
   </header>
 
+  <section class="panel" aria-labelledby="pd11-h" id="paintdrift11">
+    <div class="eyebrow">Your call is needed &middot; review 10, item 1: painted variation (meadow pilot)</div>
+    <h2 id="pd11-h">Painted variation on the meadow: works on the lawn, not on the wall</h2>
+    <p>Review 10's main lever: broad painted drift across a surface, as the references have, in the surfaces' own paint rather than the light. This means large soft patches a little lighter and darker, a slow warm-to-cool colour wander, and tops a touch warmer than walls. It's tried on the meadow only, as a pilot.</p>
+    <div class="tablewrap"><table><thead><tr><th>Option</th><th>Where</th><th>Lawn contrast (today 0.073)</th><th>Front (today value 0.45, saturation 0.29)</th></tr></thead><tbody>
+      <tr><td>A &middot; Everywhere</td><td>The lawn, the platforms and the whole front</td><td>0.096</td><td>0.42, 0.26 (darker and greyer)</td></tr>
+      <tr><td>C &middot; Play area only</td><td>The lawn and platforms; the front left as it is</td><td>0.096</td><td>unchanged</td></tr>
+    </tbody></table></div>
+    <p><b>The finding:</b> on the lawn it's the first change in three rounds that measurably adds finish: its contrast rises by a third, as soft sunlit and deeper patches drift across it. On the front it only made the wall darker and greyer, because its many small stones and logs already vary. P1's gap to the ground holds (0.038 today, 0.036 with C).</p>
+    <p>Close at the match camera: today, A, C.</p>
+    <div class="viewer"><img src="pd11_close.jpg" alt="The meadow today, with drift everywhere, and with drift on the play area only"></div>
+    <div class="row" role="group" aria-label="View"><button data-pd11v="m">Match camera</button><button data-pd11v="w">Wide</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-pd11o="T">Today</button><button data-pd11o="A">A &middot; Everywhere</button><button data-pd11o="C">C &middot; Play area only</button></div>
+    <div class="viewer"><img id="pd11img" alt="Painted variation option"><span class="vtag" id="pd11tag"></span></div>
+    <p class="muted">My pick: <b>C</b>, and if you like it, take it stage by stage to the other play areas, the big flat tops (the canyon's sand, the grove's lawn, the city's roof, the beach's deck). Honest note: it's subtle at play size, a third more contrast on the lawn rather than a new look.</p>
+  </section>
+
   <section class="panel" aria-labelledby="f10-h" id="review10">
     <div class="eyebrow">Your call is needed &middot; fidelity review 10: where we stand</div>
     <h2 id="f10-h">A clear 4 everywhere, and what 5 needs</h2>
@@ -1748,5 +1765,15 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
   group("data-fc10v", function (v) { fc10v = v; }, fc10render);
   group("data-fc10o", function (v) { fc10o = v; }, fc10render);
   fc10render();
+  var pd11v = "m", pd11o = "C";
+  var PD11O = { T: "Today", A: "A \u00b7 Everywhere", C: "C \u00b7 Play area only" };
+  function pd11render() {
+    document.getElementById("pd11img").src = "pd11_" + pd11o + "_" + pd11v + ".jpg";
+    document.getElementById("pd11tag").textContent = "Meadow \u00b7 " + PD11O[pd11o] + (pd11v === "w" ? " \u00b7 wide" : " \u00b7 match camera");
+    pressed("data-pd11v", pd11v); pressed("data-pd11o", pd11o);
+  }
+  group("data-pd11v", function (v) { pd11v = v; }, pd11render);
+  group("data-pd11o", function (v) { pd11o = v; }, pd11render);
+  pd11render();
 })();
 </script>

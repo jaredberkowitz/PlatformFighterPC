@@ -457,9 +457,25 @@ static func place_front(root: Node3D, t: Dictionary, scene: Node3D) -> void:
 			# (Gentler on posts standing in the sea: at the cliffs' 0.4 the beach's piles fell nearly black.)
 			m.set_shader_parameter("front_fall", 0.15 if fam in ["post", "waterline", "weed", "rope"] else 0.4)
 			m.set_shader_parameter("front_span", 7.0)
+			_paint_drift(m, t, false)
 			mi.set_surface_override_material(s, m)
 		mi.set_instance_shader_parameter("front_top", top)
 		mi.set_meta("prebaked", true)
+
+
+## Painted variation on a modelled piece's material (fidelity review 10; toon_common `paint_drift`): the palette's [backdrop]
+## `paint_drift` [value patches, warm-cool wander, size, tops warm and walls cool], or `--paint-drift=A|B|C` to try (C as A on the play
+## area only: on the front, a wall of small stones and logs that already vary, it only darkened and greyed); off without. `play` for the
+## play area's pieces; the palette's optional fifth value 1 keeps it to them.
+static func _paint_drift(m: ShaderMaterial, t: Dictionary, play: bool) -> void:
+	var d: Array = (StageArt.palette(String(t.get("name", ""))).get("backdrop", {}) as Dictionary).get("paint_drift", [])
+	var f := flag("--paint-drift=")
+	if f != "":
+		d = {"A": [1.3, 0.8, 14.0, 0.5], "B": [2.0, 1.2, 18.0, 0.7], "C": [1.3, 0.8, 14.0, 0.5, 1]}.get(f.to_upper(), d)
+	if d.size() == 5 and int(d[4]) == 1 and not play:
+		return
+	if d.size() >= 4:
+		m.set_shader_parameter("paint_drift", Vector4(d[0], d[1], d[2], d[3]))
 
 
 ## A modelled play area to try (`--play-mock=<glb>`, art/blender/make_meadow_play.py, the paper pilot): the stage's top and its
@@ -546,6 +562,7 @@ static func place_play(root: Node3D, t: Dictionary, path: String) -> void:
 				m.set_shader_parameter("lawn_fall", 0.9)
 				m.set_shader_parameter("lawn_front", StageArt.STAGE_FRONT)
 				m.set_shader_parameter("lawn_span", 6.0)
+			_paint_drift(m, t, true)
 			mi.set_surface_override_material(s, m)
 		mi.set_meta("prebaked", true)
 	print("play mock: placed %s" % path.get_file())

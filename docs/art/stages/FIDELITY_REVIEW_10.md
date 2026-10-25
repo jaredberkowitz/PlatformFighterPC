@@ -48,3 +48,19 @@ the grove's abyss, the city's middle towers, the canyon's sky, the city's facade
 
 Items 2 to 4 are refinements of what exists. Item 1 is the one with a chance of moving surfaces and light toward 5. Without it the
 honest ceiling for this look is a strong 4.
+
+## Item 1, painted variation, the meadow pilot (2026-10-25, mock)
+
+`toon_common.gdshaderinc` `paint_drift` [value patches, warm-cool wander, size, tops warm and walls cool] in the fragment, on the
+scenery only (not fighters): broad world-space `brush_noise` patches of value, a slow hue wander between a cool and a warm tint, tops
+warmer and walls cooler. `StageBake._paint_drift` sets it on the modelled front and play area from the palette's [backdrop] `paint_drift`
+(`--paint-drift=A|B|C`; a fifth value 1 keeps it to the play area). A first pass at [0.7, 0.5, 8, 0.6] / [1.0, 0.85, 6, 1.0] moved
+nothing visible; retuned to A [1.3, 0.8, 14, 0.5] and B [2.0, 1.2, 18, 0.7]. Measured at the match camera:
+
+- **The lawn:** contrast 0.073 to 0.096 (A and C), the first measurable surface gain since review 8.
+- **The front:** under A value 0.45 to 0.42 and saturation 0.29 to 0.26 (B 0.39, 0.24): its small stones and logs already vary, so the
+  drift only darkens and greys it. C leaves the front out.
+- **Readability:** P1's gap 0.038 today, 0.039 (A), 0.036 (C).
+
+Note: the shader change recompiles every scenery material on first load (a first capture took about three minutes). On the Stage Look
+Review ("paintdrift11", `pd11_*`); recommended C, then stage by stage on the other play areas.
