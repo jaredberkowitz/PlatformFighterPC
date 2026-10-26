@@ -60,6 +60,10 @@ VALLEY = opts.get("valley", "")
 FALLS = int(opts.get("falls", "0"))
 MIST3 = opts.get("mist", "") == "3"
 LONG_ROOTS = opts.get("roots", "") == "long"
+# Depth in the abyss (fidelity review 11: flat purple with soft blotches, the mist's front one long wavy line): `--deep A|B`. A: the
+# near abyss sheet shaded deeper under the island and toward the frame's foot, and the nearest mist's front broken into sheets at their
+# own depths, each with its own cut edge. B: A with each mist sheet lighter at its cut edge and deeper behind it.
+DEEP = opts.get("deep", "").upper()
 # Edges facing the camera, for the falls: (x, z, top, drop, tx, tz, ox, oz).
 FALL_SPOTS = []
 LAYOUT = json.load(open(os.path.join(opts["dir"], "ground.json")))
@@ -858,6 +862,22 @@ def abyss():
     for k, (y, zf, fam) in enumerate(((-24.0, -20.0, "abyss"), (-20.0, -84.0, "abyss_far"))):
         name = "abyss%d" % k
         xs = xs_across(-220, 220, 5.0)
+        if DEEP and k == 0:
+            # (In rows, so its tone can change toward the camera and round the island: one sheet per column had no vertices to carry it.)
+            bm = part(name, fam)
+            layer = bm.verts.layers.float.get("tone")
+            zs = [-220.0, -60.0] + [-20.0 + 4.0 * j for j in range(21)]
+            for i in range(len(xs) - 1):
+                xa, xb = xs[i], xs[i + 1]
+                for j in range(len(zs) - 1):
+                    za, zb = zs[j], zs[j + 1]
+                    f = face(bm, (P(xa, y, za), P(xa, y, zb), P(xb, y, zb), P(xb, y, za)))
+                    for v in f.verts:
+                        gx, gz = v.co.x, -v.co.y
+                        under = math.exp(-(gx / 20.0) ** 2 - ((gz + 2.0) / 16.0) ** 2)
+                        foot = min(1.0, max(0.0, (gz - 10.0) / 40.0))
+                        v[layer] = (1.0 - 0.4 * under) * (1.0 - 0.28 * foot)
+            continue
         for i in range(len(xs) - 1):
             xa, xb = xs[i], xs[i + 1]
             fa = zf + 1.8 * math.sin(xa * 0.09 + k)
@@ -878,12 +898,35 @@ def misty_valley(rng):
         name = "mist%d" % k
         fam = ("abyss_mist", "abyss_mist2", "abyss_mist3")[k] if MIST3 else "abyss_mist"
         xs = xs_across(-220, 220, 4.0)
+        # (`--deep`: the nearest layer's front in sheets of their own, 30 to 70 across, each further in or out and a little higher or lower.)
+        sheets = [(-220.0, 0.0, 0.0)]
+        if DEEP and k == 0:
+            sr = random.Random(91)
+            x = -220.0
+            sheets = []
+            while x < 220.0:
+                sheets.append((x, sr.uniform(-5.0, 4.0), sr.uniform(-0.5, 0.4)))
+                x += sr.uniform(30.0, 70.0)
         for i in range(len(xs) - 1):
             xa, xb = xs[i], xs[i + 1]
-            fa = zf + 2.5 * math.sin(xa * 0.11 + k * 2.0) + 1.2 * math.sin(xa * 0.37 + k)
-            fb = zf + 2.5 * math.sin(xb * 0.11 + k * 2.0) + 1.2 * math.sin(xb * 0.37 + k)
-            face(part(name, fam), (P(xa, y, zb), P(xa, y, fa), P(xb, y, fb), P(xb, y, zb)))
-            face(part(name, "card_abyss_mist"), (P(xa, y, fa), P(xa, y - 0.5, fa), P(xb, y - 0.5, fb), P(xb, y, fb)))
+            _, dz, dy = [sh for sh in sheets if sh[0] <= xa + 0.01][-1]
+            yy = y + dy
+            fa = zf + dz + 2.5 * math.sin(xa * 0.11 + k * 2.0) + 1.2 * math.sin(xa * 0.37 + k)
+            fb = zf + dz + 2.5 * math.sin(xb * 0.11 + k * 2.0) + 1.2 * math.sin(xb * 0.37 + k)
+            top = face(part(name, fam), (P(xa, yy, zb), P(xa, yy, fa), P(xb, yy, fb), P(xb, yy, zb)))
+            face(part(name, "card_abyss_mist"), (P(xa, yy, fa), P(xa, yy - 0.5, fa), P(xb, yy - 0.5, fb), P(xb, yy, fb)))
+            if DEEP == "B":
+                # Lighter toward its cut edge, deeper behind it, as a sheet of mist with a lit lip.
+                layer = part(name, fam).verts.layers.float.get("tone")
+                for v in top.verts:
+                    v[layer] = 1.1 if abs(-v.co.y - zb) > 1.0 else 0.82
+        if DEEP and k == 0:
+            # The ends of each sheet where the next steps in or out: a side cut so no gap shows the abyss through.
+            for (sx, dz, dy) in sheets[1:]:
+                prev = [sh for sh in sheets if sh[0] < sx][-1]
+                for (pdz, pdy) in ((prev[1], prev[2]), (dz, dy)):
+                    f0 = zf + pdz + 2.5 * math.sin(sx * 0.11) + 1.2 * math.sin(sx * 0.37)
+                    face(part(name, "card_abyss_mist"), (P(sx, y + pdy, zb), P(sx, y + pdy, f0), P(sx, y + pdy - 0.5, f0), P(sx, y + pdy - 0.5, zb)))
     placed = []
     tries = 0
     if VALLEY == "none":

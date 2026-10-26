@@ -15,7 +15,7 @@ smeared into blotches), on A:
 Families `strata_a`, `strata_b`, `strata_c`; each piece bakes its occlusion into linear vertex colours with the built canyon round it.
 
 Shipped (fidelity review 9, the owner's pick C, 2026-10-25): godot/models/stages/canyon_front.glb, `--variant A --cut 1 --courses 1
---straight C` (review 8's `--straight A`, review 6's without `--straight`),
+--straight C` (review 8's `--straight A`, review 6's without `--straight`); with `--mass A` since fidelity review 11 (2026-10-26),
 then lit (the palette's `front_lift` raised to 0.35 to keep the face at 0.33).
 
 Run (Blender 5.2):
@@ -43,6 +43,10 @@ COURSES = opts.get("courses", "0") == "1"
 # beds, lighter and darker by turns, stacked like planks at the wide camera): beds of uneven thickness, thin partings between thick
 # beds, longer, the tone stepping less.
 STRAIGHT = opts.get("straight", "")
+# Jointed rock (fidelity review 11: even with uneven beds the face read as stacked boards, each block its own length): `--mass A|B`. A: on
+# the straight courses, vertical joints shared by every bed of a tier (a few beds let one through), each column a little in or out as a
+# whole, and the face darkening toward its foot. B: A with some columns stained darker down their length, as weathered cliffs streak.
+MASS = opts.get("mass", "").upper()
 manifest = json.load(open(os.path.join(opts["dir"], "manifest.json")))
 BLOCK = [r for r in manifest["rects"] if r[4] < 0.5][0]
 LEFT, RIGHT, TOP, BOTTOM = BLOCK[0], BLOCK[1], BLOCK[2], BLOCK[3]
@@ -152,6 +156,29 @@ def courses_straight(bm, x0, x1, y0, y1, out, rng):
             cuts.append(cuts[-1] - h * scale)
         cuts[-1] = y0
         n = len(hs)
+    if MASS:
+        # The tier's joints, the same through every bed, and each column's own set and stain.
+        # (The face's own joints, top to bottom, `JOINTS`: drawn per tier and 2.4 to 5 apart they read as a brick wall.)
+        inner = [(jx, js, jt) for (jx, js, jt) in JOINTS if x0 + 1.2 < jx < x1 - 1.2]
+        joints = [x0] + [jx for (jx, _, _) in inner] + [x1]
+        left = max([j for j in JOINTS if j[0] <= x0 + 1.2], default=JOINTS[0])
+        sets = [left[1]] + [js for (_, js, _) in inner] + [0.0]
+        stains = [left[2]] + [jt for (_, _, jt) in inner] + [1.0]
+        for k in range(n):
+            ya, yb = cuts[k + 1], cuts[k]
+            step = rng.uniform(0.95, 1.05)
+            # (One bed in four lets a joint through, so the columns read as rock, not a grid.)
+            skip = rng.randrange(1, len(joints) - 1) if (len(joints) > 2 and rng.random() < 0.15) else -1
+            j = 0
+            while j < len(joints) - 1:
+                xa = joints[j]
+                jn = j + 2 if j + 1 == skip else j + 1
+                xb = joints[jn]
+                dz = sets[j] + rng.uniform(-0.03, 0.03)
+                slab(bm, xa + 0.06, xb - 0.06, ya + 0.015, yb, out, rng, pts=[(xa + 0.06, face + dz), (xb - 0.06, face + dz)], taper=0.02,
+                     chamfer=0.07, shade=base * step * stains[j] * rng.uniform(0.97, 1.03))
+                j = jn
+        return
     for k in range(n):
         ya, yb = cuts[k + 1], cuts[k]
         recess = -0.32 if (STRAIGHT == "B" and k % 3 == 2) else 0.0
@@ -202,9 +229,19 @@ def core():
     tone(bm, vs, 0.7)
 
 
+JOINTS = []
+
+
 def build():
     rng = random.Random(41)
     core()
+    if MASS:
+        # The vertical joints of the whole face, 5 to 11 apart, each column's set (in or out) and its stain.
+        jr = random.Random(57)
+        x = LEFT - 4.0
+        while x < RIGHT + 4.0:
+            JOINTS.append((x, jr.uniform(-0.32, 0.1), jr.uniform(0.8, 0.9) if (MASS == "B" and jr.random() < 0.4) else 1.0))
+            x += jr.uniform(5.0, 11.0)
     if VARIANT == "A":
         y = Y_TOP
         while y > FLOOR - 0.5:
@@ -213,6 +250,9 @@ def build():
             # Two or three slabs side by side in each tier, so the face breaks into blocks, not one ribbon.
             cuts = sorted(rng.uniform(-w * 0.6, w * 0.6) for _ in range(rng.choice((1, 2))))
             xs = [-w] + cuts + [w]
+            if MASS:
+                # (One run per tier: the joints break it, not the tier's own cuts.)
+                xs = [-w, w]
             for k in range(len(xs) - 1):
                 if COURSES and STRAIGHT:
                     courses_straight(part(band_of(y - h * 0.5)), xs[k] + 0.04, xs[k + 1] - 0.04, y - h, y, rng.uniform(0.35, 0.9), rng)
@@ -254,6 +294,15 @@ def build():
             for v in res["verts"]:
                 v.co = Vector((v.co.x * 1.3, v.co.y, v.co.z * 0.75)) + P(x, FLOOR + s * 0.35, FZ + rng.uniform(0.3, 2.0))
             tone(bm, res["verts"], rng.uniform(0.85, 1.05))
+
+
+def darken_down():
+    """`--mass`: the face a step deeper toward its foot, as a cliff darkens down into its own shade (each vertex's tone)."""
+    for bm in PARTS.values():
+        layer = bm.verts.layers.float.get("tone")
+        for v in bm.verts:
+            t = min(1.0, max(0.0, (Y_TOP - v.co.z) / (Y_TOP - FLOOR)))
+            v[layer] = v[layer] * (1.04 - 0.26 * t ** 1.2)
 
 
 def clamp(bm, margin=0.9):
@@ -332,6 +381,8 @@ def bake_occlusion():
 def main():
     bpy.ops.wm.read_factory_settings(use_empty=True)
     build()
+    if MASS:
+        darken_down()
     make_objects()
     bake_occlusion()
     tris = sum(sum(len(p.vertices) - 2 for p in o.data.polygons) for o in bpy.context.scene.objects if o.type == "MESH")

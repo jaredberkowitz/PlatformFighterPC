@@ -1037,6 +1037,21 @@ static func _ground_colours(t: Dictionary) -> Dictionary:
 	# stones and flowers dotted over them.)
 	out["lane"] = Color(0.95, 0.91, 0.74)
 	out["card_lane"] = Color(0.84, 0.78, 0.6)
+	# (Fidelity review 11: the cream lanes were the brightest thing in the meadow's lower third, white ribbons down the terraces. The
+	# palette's [backdrop] `lane_look` or `--lane=A|B|C`: A the farm track's dust, B a deeper trodden earth, C the farmyard's own earth.)
+	var lane_look := String(bd.get("lane_look", ""))
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--lane="):
+			lane_look = arg.substr(7)
+	if lane_look == "A":
+		out["lane"] = Color(0.84, 0.74, 0.54)
+		out["card_lane"] = Color(0.7, 0.6, 0.44)
+	elif lane_look == "B":
+		out["lane"] = Color(0.74, 0.62, 0.44)
+		out["card_lane"] = Color(0.6, 0.5, 0.36)
+	elif lane_look == "C":
+		out["lane"] = Color(0.62, 0.5, 0.34)
+		out["card_lane"] = Color(0.5, 0.4, 0.28)
 	out["shade"] = (out["rise"] as Color).darkened(0.32)
 	out["stone"] = Color(0.82, 0.81, 0.78)
 	out["flower_a"] = Color(0.98, 0.64, 0.72)

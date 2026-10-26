@@ -5375,6 +5375,13 @@ static func _ocean(root: Node3D, t: Dictionary, stage: Array) -> void:
 			sh = {"A": [1.0, 40.0, 0.0], "B": [1.0, 40.0, 1.0]}.get(arg.substr(11), sh)
 	if sh.size() == 3:
 		wm.set_shader_parameter("shallows", Vector3(sh[0], sh[1], sh[2]))
+	# (The near sea, fidelity review 11: the palette's `sea_near` [how much it deepens toward the frame's foot, its patches], `--sea-near=A|B|C`.)
+	var near: Array = (_palette.get("backdrop", {}) as Dictionary).get("sea_near", [])
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--sea-near="):
+			near = {"A": [0.8, 0.0], "B": [0.8, 1.0], "C": [1.25, 1.0]}.get(arg.substr(11), near)
+	if near.size() == 2:
+		wm.set_shader_parameter("near_depth", Vector2(near[0], near[1]))
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--sea-look="):
 			wm.set_shader_parameter("look", {"T": 0, "A": 1, "B": 2, "C": 3}.get(arg.substr(11), int(_pal("sea_look"))))
