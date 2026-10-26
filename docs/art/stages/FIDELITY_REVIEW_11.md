@@ -86,3 +86,6 @@ the stage plane, so a fade by world depth reached only the frame's last rows. Th
 change (at 0.6 the foot moved 0.03), hence the strong settings. The foot's value at the wide camera: 0.56 today, 0.50 A, 0.49 B, 0.44
 C; P1's gap 0.181 today, 0.182 A, 0.179 B, 0.176 C. On the Stage Look Review ("nearsea23", `ns23_*`); recommended C. To ship: ocean.cfg
 [backdrop] `sea_near=[1.25, 1.0]` (shader, no re-light).
+
+Built C (the owner's pick): ocean.cfg [backdrop] `sea_near=[1.25, 1.0]`. In the game the foot measures value 0.44 at the wide camera.
+Before and after (the lower half, wide): `review11/beach_near_sea_built.jpg`. All seven tests pass.
