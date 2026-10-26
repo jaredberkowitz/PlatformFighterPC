@@ -996,6 +996,11 @@ func _animate(s: Dictionary, delta: float) -> void:
 		# (Hitlag freezes the pose along with everything else.)
 		anim.speed_scale = float(pick[1])
 		anim.advance(delta)
+	elif anim.current_animation != "":
+		# (Round 4: frozen, the clip is still put back on its frame every frame, so the layers on top (the flinch, the body follow, the
+		# face limiter) start again from the clip's pose. Not advanced, the bones kept last frame's layered pose and every layer was
+		# added again on top: through a pummel's freeze the grabbed fighter's head bent round in a circle and its hand crossed the face.)
+		anim.seek(anim.current_animation_position, true)
 	_rest_unkeyed(clip)
 	_bulk_arms(_cls(s))
 	_body_follow(s, delta)
@@ -1198,7 +1203,10 @@ func _body_follow(s: Dictionary, delta: float) -> void:
 		_bend_bone(head_bone, head_bend, int(s.facing))
 	# A flinch: the chest and head snap back from the hit and come forward again.
 	if flinch_left > 0.0:
-		flinch_left = maxf(0.0, flinch_left - delta)
+		# (Round 4: by sim frames, as the springs are, so a hit's freeze holds the flinch where the hit put it and a seek ends it. On real
+		# time it ran on through the freeze: a grabbed fighter's head bent back and forward again within each pummel's hitlag, and its
+		# weapon hand crossed the face, 5-8 frames a pummel.)
+		flinch_left = 0.0 if springs.jumped else maxf(0.0, flinch_left - float(springs.new_frames) / 60.0)
 		var k := flinch_left / FLINCH_TIME
 		_bend_bone(spine_bone, -16.0 * k, int(s.facing))
 		_bend_bone(head_bone, -12.0 * k, int(s.facing))

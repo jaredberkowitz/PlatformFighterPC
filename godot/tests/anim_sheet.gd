@@ -6,6 +6,7 @@ extends SceneTree
 ##   dashstop (stand, dash, stop: the head, hat and neckwear lagging), --neck=N / --glasses=N / --gear=N / --shirt=N to wear that neckwear, those glasses or that gear (loadout.gd),
 ##   tech | runstop | drop | heavy | heavyup | fidget (the motion plan's phase 3 clips)
 ##   arc (a whole full hop in the air: rising from the take-off speed through the top to the fall at full speed, every 3 frames)
+##   (--what=pummel: held in a grab and hit by a pummel, to check that the freeze holds the pose.)
 ##   --zoom=k       closer in (2 = twice as close), --facing=-1 to face left, --hitstun=N the hurt reaction's hitstun (28)
 ##   --tip=x,y      where the move's hitbox is (forward space, from the feet), --timing=total,first,last its frames
 
@@ -126,6 +127,9 @@ func _initialize() -> void:
 		"fidget":
 			for f in range(300, 376, 5):
 				frames.append(f)
+		"pummel":
+			for f in range(0, 22, 1):
+				frames.append(f)
 		"jumpsquat", "land", "flinch":
 			for f in range(0, 16, 1 if what == "jumpsquat" else 2):
 				frames.append(f)
@@ -180,6 +184,13 @@ func _initialize() -> void:
 				move = ""
 				# (A middling hit from in front: 28 frames of hitstun, pushed back. `--hitstun=N` for another strength.)
 				extra = {"hitstun": maxi(0, hurt_stun - f), "kb_vel": Vector2(-0.12 * facing, 0.05)}
+			"pummel":
+				# (Round 4: held in a grab, hit by a pummel at cell 4 with 12 cells of freeze (two sim frames a cell): the pose must
+				# hold still through the freeze.)
+				state = "Grabbed"
+				move = ""
+				percent = 10.0 if f < 4 else 13.0
+				extra = {"hitlag": maxi(0, 12 - (f - 4)) if f >= 4 else 0}
 			"shield":
 				state = "Shield"
 				move = ""

@@ -1378,3 +1378,30 @@ Ranked by how visible it is at match speed:
   air, where the body tips back). The Gauntlets' overhead kick is unchanged.
 - **Image:** `docs/screenshots/anim/r4_pass47_overhead_kick.jpg`: the up tilt (both facings) and the up air, before above after.
 - **Checked:** both facings; the six tests pass.
+
+### Pass 48: a hit's freeze holds the pose (round 4 item 4: the grabbed fighter's hand over the face on each pummel)
+
+- **Defect:** on each pummel hit the grabbed fighter's hand crossed its face (`PF_FACE_COVER`, the grab demo: the weapon hand and both
+  shins over the face, 4-12 rendered frames a pummel). Printing the head's position through one pummel's freeze showed the head bone
+  swinging round in a circle (from 1.2 above the feet down to 0.47 and back) while the fighter was meant to be frozen.
+- **Cause (`fighter_view.gd` `_animate`):**
+  - A clip played by time (the grabbed fighter's `hurt`, any hurt or idle) is not advanced through a freeze, as it should not be. But
+    then nothing put the bones back on the clip's frame, so each frame's layers (the flinch, the body follow, the face limiter) were added
+    again on top of the last frame's already-layered pose, and the pose ran away.
+  - The flinch also ran on real time, not sim frames, so it moved through the freeze too.
+- **Fix:**
+  - **Frozen, the clip is put back on its frame** every frame (`anim.seek` to where it is), so the layers start again from the clip's
+    pose. The moves were not affected: a move's clip is posed by progress, and was already put on its frame every frame.
+  - **The flinch counts sim frames** (`springs.new_frames`, 0 in a freeze), so a freeze holds the flinch where the hit put it and a seek
+    ends it.
+  - **`anim_sheet.gd --what=pummel`:** held in a grab, a pummel lands at the fourth cell and freezes for twelve, to check that the freeze
+    holds still.
+- **Measured** (`PF_FACE_COVER`):
+  - in the grab demo, the grabbed fighter's frames over the face went from 20 rendered frames over the two pummels to 0;
+  - over every class's moves, unchanged except the Claws (3 frames to 0) and the Needles (3 to 0), whose few covered frames were in
+    freezes too.
+- **Image:** `docs/screenshots/anim/r4_pass48_freeze_holds.jpg`: the pummel sheet, two sim frames a cell. Before, the head circles through
+  the freeze; after, it holds. Facing left below.
+- **Checked:** both facings; the six tests pass (`motion_test` checks that a freeze holds every layer; this one was not covered, because
+  its check poses a move).
+- **Left:** a frozen hurt and a held shield were affected the same way; both now hold.
