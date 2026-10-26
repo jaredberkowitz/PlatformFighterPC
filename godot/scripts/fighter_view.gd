@@ -726,32 +726,53 @@ static func strike_progress(f: float, total: float, start: float, last: float, w
 
 
 ## The end lag's shape, shared by the body, the weapon and the reaching limbs (animation round 3, from the reference's hitbox animations:
-## `tools/art/review/timing_report.py`). After the last active frame the swing reaches its follow-through within FOLLOW_FRAMES and stops
-## there; the pose holds, creeping HOLD_CREEP of the way home, until HOLD_TO of the end lag; it recovers by RECOVER_TO and settles by the end.
-const FOLLOW_FRAMES := 3.0
+## `tools/art/review/timing_report.py`). After the last active frame the swing carries on (round 4: `follow_k`, the carry) and slows into
+## its follow-through; the pose holds, creeping HOLD_CREEP of the way home, until HOLD_TO of the end lag; it recovers by RECOVER_TO and
+## settles by the end.
 const HOLD_TO := 0.48
 const HOLD_CREEP := 0.15
 ## The body clip's creep through the hold, smaller: its keys after the follow-through already lead on toward the recovery pose.
 const BODY_CREEP := 0.05
 const RECOVER_TO := 0.92
-## The shape as one value (hold to, recover by, follow-through frames), and the moves whose reference shapes differ: the up tilt and back
-## air hold briefly and recover slowly (both references, both classes); the sword's jab and down tilt carry their cut on for six frames.
-const END_SHAPE := Vector3(HOLD_TO, RECOVER_TO, FOLLOW_FRAMES)
-const MOVE_END_SHAPES := {"utilt": Vector3(0.3, 0.95, FOLLOW_FRAMES), "bair": Vector3(0.3, 0.95, FOLLOW_FRAMES)}
-const LONG_FOLLOW := {0: ["jab", "dtilt"]}
+## The carry (round 4): how many frames past its last hit a swing keeps going at its pace before it slows (CARRY_EASE more frames) into
+## its follow-through. Round 3 stopped every swing dead within 1-2 frames of the hit; the reference's swings carry on 1-7 frames
+## (`timing_report.py`'s FT). Measured per move against the reference: a sword's (`SWORD_CARRY`, the reference swordsman's: the jab's
+## long cut, the aerials' rolls) and everyone else's (`CARRY_FRAMES`, the reference claws fighter's: one frame).
+const CARRY_FRAMES := 1.0
+## The sword's neutral air carries nothing on: its windmill already turns past the last hit, and carried further the sword hand came
+## over the face (4 frames).
+const SWORD_CARRY := {"jab": 4.0, "dtilt": 3.0, "uair": 3.0, "dair": 3.0, "fair": 2.0, "nair": 0.0}
+const CARRY_EASE := 2.0
+## How much further the body's lunge goes on through the carry (a share of the lunge).
+const LUNGE_CARRY := 0.3
+## The shape as one value (hold to, recover by, carry frames), and the moves whose reference shapes differ: the up tilt and back air hold
+## briefly and recover slowly (both references, both classes).
+const END_SHAPE := Vector3(HOLD_TO, RECOVER_TO, CARRY_FRAMES)
+const MOVE_END_SHAPES := {"utilt": Vector3(0.3, 0.95, CARRY_FRAMES), "bair": Vector3(0.3, 0.95, CARRY_FRAMES)}
 ## Clips whose strike pose is not one to hold: the forward headbutt ends head down with the face behind the hands, so it recovers early.
-const CLIP_END_SHAPES := {"body_headbutt_fwd": Vector3(0.12, 0.8, FOLLOW_FRAMES)}
-const LONG_FOLLOW_FRAMES := 6.0
+const CLIP_END_SHAPES := {"body_headbutt_fwd": Vector3(0.12, 0.8, CARRY_FRAMES)}
 ## The clip's follow-through key (frame 40 of 60).
 const FOLLOW_PROGRESS := 0.667
 ## The weapon arm and the reaching limbs come home this much of the end lag after the body, so the hips lead the recovery.
 const ARM_LAG := 0.08
 
 
-## How far into the follow-through the swing is, `f` frames into the move whose last active frame is `last` (0 at the last hit, 1 stopped).
+## How far into the follow-through the swing is, `f` frames into the move whose last active frame is `last` (0 at the last hit, 1 stopped):
+## the carry. For `shape.z` frames it keeps going at one pace, then it slows to a stop over CARRY_EASE frames (round 4; round 3's ease out
+## over 3 frames put most of the travel in the first frame and stopped dead after it).
 static func follow_k(f: float, last: float, shape := END_SHAPE) -> float:
-	var u := clampf((f - last) / shape.z, 0.0, 1.0)
-	return 1.0 - (1.0 - u) * (1.0 - u) * (1.0 - u)
+	var t := maxf(0.0, f - last)
+	var n := shape.z
+	var area := n + CARRY_EASE * 0.5
+	if t <= n:
+		return t / area
+	var e := minf(t - n, CARRY_EASE)
+	return (n + e - e * e / (2.0 * CARRY_EASE)) / area
+
+
+## The frames a swing takes to come to rest after its last hit (the carry, then its ease).
+static func carry_frames(shape := END_SHAPE) -> float:
+	return shape.z + CARRY_EASE
 
 
 ## How far home from the follow-through the body is (0 held, 1 home) through the end lag; `lag` delays it (a share of the end lag) for the
@@ -767,14 +788,14 @@ static func home_k(f: float, last: float, total: float, shape := END_SHAPE, lag 
 	return lerpf(0.95, 1.0, 1.0 - (1.0 - u) * (1.0 - u))
 
 
-## This move's end-lag shape (`END_SHAPE`, `MOVE_END_SHAPES`, `LONG_FOLLOW`).
+## This move's end-lag shape (`END_SHAPE`, `MOVE_END_SHAPES`, `CLIP_END_SHAPES`) with its carry (`SWORD_CARRY`).
 func _end_shape(s: Dictionary) -> Vector3:
 	var name := String(s.move_name)
 	var shape: Vector3 = MOVE_END_SHAPES.get(name, END_SHAPE)
 	if anim != null:
 		shape = CLIP_END_SHAPES.get(AnimLibrary.attack_clip(_cls(s), name, anim), shape)
-	if (LONG_FOLLOW.get(_cls(s), []) as Array).has(name):
-		shape.z = LONG_FOLLOW_FRAMES
+	if bladed(_cls(s)):
+		shape.z = float(SWORD_CARRY.get(name, CARRY_FRAMES))
 	return shape
 
 
@@ -3285,7 +3306,10 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 		elif f > last:
 			# (Round 3: the lunge is held through the hold and drawn back with the recovery, as the reference's lunges are; it sprang back
 			# two frames after the hit.)
-			target_lunge = 0.32 * lunge_k * (1.0 - home_k(f, last, float(s.move_timing[0]), _end_shape(s)))
+			# (Round 4: through the carry the body goes on forward a little behind the swing, then settles into the hold.)
+			var shape := _end_shape(s)
+			var carry := LUNGE_CARRY * follow_k(f, last, shape)
+			target_lunge = 0.32 * lunge_k * (1.0 + carry) * (1.0 - home_k(f, last, float(s.move_timing[0]), shape))
 	var fast_falling: bool = s.fast_fall and not grounded and (state == "Airborne" or state == "Helpless" or state == "ShieldDrop")
 	if fast_falling:
 		target_squash = -0.28
@@ -3855,23 +3879,51 @@ func _blade_target(s: Dictionary) -> Array:
 		angle = lerpf(wind, swing, k)
 		if SWING_ROUND.has(name):
 			angle = rad_to_deg(lerp_angle(deg_to_rad(wind), deg_to_rad(swing), k))
+	elif f == float(t[2]) and _carry_lead(t) > 0.0 and not _thrust(_cls(s), name) and _end_shape(s).z > 0.0:
+		# (Round 4: on the last frame of a hit that lasts more than one, the cut is already carrying on, still inside the hitbox: the
+		# blade had stopped on the hit for a frame, then started again.)
+		angle = swing + signf(angle_difference(deg_to_rad(wind), deg_to_rad(swing))) * CARRY_DEG * _carry_lead(t)
 	elif f > t[2]:
-		# The follow-through: the blade carries on past its last hit the way it was travelling (FOLLOW_THROUGH degrees over the first part
-		# of the end lag, slowing), then eases home through the rest of it, as the reference's swordsmen finish a cut, rather than holding
-		# still at the hit and snapping back late.
-		# (Round 3: it stops within FOLLOW_FRAMES, is held through the hold and comes home just after the body: `follow_k`, `home_k`.)
+		# The follow-through: the blade carries on past its last hit the way it was travelling, then eases home through the rest of the
+		# end lag, as the reference's swordsmen finish a cut, rather than holding still at the hit and snapping back late.
+		# (Round 3: it is held through the hold and comes home just after the body: `home_k`. Round 4: it carries on at CARRY_DEG a
+		# frame for the move's carry, then slows to a stop: `follow_k`.)
 		var travel := signf(angle_difference(deg_to_rad(wind), deg_to_rad(swing)))
 		var shape := _end_shape(s)
-		var past := swing + travel * FOLLOW_THROUGH * follow_k(f, float(t[2]), shape)
+		var carry_deg := CARRY_DEG * (shape.z + CARRY_EASE * 0.5) if shape.z > 0.0 else 0.0
+		var past := swing + travel * carry_deg * follow_k(f, float(t[2]) - _carry_lead(t), shape)
 		var home := home_k(f, float(t[2]), float(t[0]), shape, ARM_LAG)
 		angle = lerpf(past, _rest_angle(s), home)
 		len = lerpf(length, rest_len, home)
 	return [angle, len, hand_x]
 
 
-## How far (degrees) a swing carries on past its last hit before it stops (the reference's sword cuts carry about 25-30 degrees on, in 1-2
-## frames).
-const FOLLOW_THROUGH := 30.0
+## The carry starts this much before the last active frame when the hit lasts more than one frame (round 4), so the swing never stops on
+## the hit and starts again.
+static func _carry_lead(t: PackedInt32Array) -> float:
+	return 0.5 if t[2] > t[1] else 0.0
+
+
+## How far (radians) a raking hand carries on round its arc past the last hit (round 4: the carry, at about half a sword's pace).
+func _limb_carry(s: Dictionary) -> float:
+	var t: PackedInt32Array = s.move_timing
+	if t.size() < 3 or float(s.state_frame) <= float(t[2]):
+		return 0.0
+	# (Not over the head: a hit overhead carried on round its arc comes down across the face.)
+	var tip: Vector3 = s.move_tip
+	if tip.y > 1.3 and absf(tip.x) < 1.1:
+		return 0.0
+	var shape := _end_shape(s)
+	var k := follow_k(float(s.state_frame), float(t[2]), shape) * (1.0 - home_k(float(s.state_frame), float(t[2]), float(t[0]), shape, ARM_LAG))
+	return deg_to_rad(LIMB_CARRY_DEG * (shape.z + CARRY_EASE * 0.5)) * k
+
+
+const LIMB_CARRY_DEG := 20.0
+
+
+## How fast (degrees a frame) a blade carries on past its last hit (the reference's sword cuts carry about 25-30 degrees on in their first
+## 1-2 frames, the jab's long cut further). Round 3 carried every cut 30 degrees, most of it in one frame.
+const CARRY_DEG := 22.0
 
 
 ## The weapon arm's shoulder in forward space (x forward, y up), and how far the hand reaches from it in a swing.
@@ -4105,7 +4157,7 @@ func _pose_blade(s: Dictionary, delta: float) -> void:
 	# hand rakes through it, as the reference's do).
 	var now := _arc_now(s, tip)
 	if not bladed(_cls(s)) and not now.is_empty():
-		tip = _arc_point(now)
+		tip = _arc_point(now, _limb_carry(s))
 	var hand := old_hand
 	# Where the weapon arm's shoulder really is now (forward space): the body turns and leans in a move, and the rest-pose shoulder was
 	# often well away from it, so the planned reach ended short of the real arm's length and the sword hand stayed bent at the chin.
@@ -4739,6 +4791,8 @@ func _aim_leg(s: Dictionary, kicking: bool, delta: float) -> void:
 		var to_skel := _skeleton_to_frame().affine_inverse()
 		# The hitbox centre in model space; the foot reaches it (or as near as the leg allows).
 		var aim: Vector3 = goals[side]
+		# (Round 4: a kick does not carry on past its hit round the hip as a raking hand does: carried up, the short leg folded across the
+		# chest and chin for 8-17 frames of the low kicks and the up kicks. The body's lunge carries it on instead.)
 		# On the base body a kick never rises steeper than HIGH_KICK above level: its short legs kicked straight up ended at the chest, in
 		# front of the round belly, and the foot read as a second fist. Angled up and forward the foot ends up at head height clear of the
 		# body, a high kick that reads (after the reference's high forward kicks: the owner, 2026-10-17).
@@ -4993,9 +5047,11 @@ func _hit_edge(s: Dictionary, centre: Vector2) -> Array:
 
 
 ## Where an arc's head is (forward space).
-func _arc_point(now: Dictionary) -> Vector2:
+func _arc_point(now: Dictionary, carry := 0.0) -> Vector2:
 	var w: Array = now.w
 	var ang := lerpf(deg_to_rad(float(w[3])), deg_to_rad(float(w[4])), float(now.k))
+	# (Round 4: past the last hit the hand carries on round the arc, `carry` radians, rather than stopping dead at its end.)
+	ang += carry * signf(float(w[4]) - float(w[3]))
 	var g := _arc_circle(w)
 	return (g[0] as Vector2) + Vector2.from_angle(ang) * _arc_radius(now)
 

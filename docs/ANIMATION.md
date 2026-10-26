@@ -1179,3 +1179,60 @@ Ranked by how visible it is at match speed:
 - **Measured:** the jump crouch went from 100% to 0% in every family.
 - **Image:** `docs/screenshots/anim/r3_pass41_jump_crouch_guard.jpg`.
 - **Checked:** facing left (contact sheet); the landing; the six tests pass.
+
+### Round 4 (2026-10-26, round 3's leftovers, approved by the owner)
+
+### Pass 42: the swing carries on past its last hit instead of stopping dead (round 4 item 1)
+
+- **Defect:** every swing stopped hard. After the last active frame a sword cut put 70% of its 30-degree follow-through into one frame and
+  was still by the next; a raking claw stopped on the end of its arc; the lunge was held where the hit left it. Round 3 measured 0 frames of
+  follow-through (FT) on every move against the reference's 1-7.
+- **The tool, first:** `timing_report.py` read the trace's state frames (counted from 0) as the reference's move frames (counted from 1),
+  so it measured each follow-through from one frame too late. It now adds one. It also skips the trace's non-point tokens (the pitch and
+  the head's look, added in pass 40, had broken it), and prints a second, gentler measure, `carry`: the frames after the last hit still
+  moving at 10% of the peak.
+- **Fix (`fighter_view.gd`, shared):**
+  - **The carry (`follow_k`):** past the last hit the swing keeps going at one pace for the move's carry frames, then slows to a stop over
+    `CARRY_EASE` (2) more. It was a cubic ease out over 3 frames. The carry is per move: a sword's from the reference swordsman
+    (`SWORD_CARRY`: the jab 4, the down tilt, up air and down air 3, the forward air 2, the rest 1) and everyone else's 1, the reference
+    claws fighter's.
+  - **The blade** carries on at `CARRY_DEG` (22) degrees a frame: about 33 degrees for a one-frame carry, the reference's 25-30, and up to
+    110 for the jab's long cut (the floor stops it sooner). On the last frame of a hit that lasts more than one, it has already started
+    (`_carry_lead`), so it no longer stops on the hit for a frame and starts again. Not for thrusts, and not for the neutral air, whose
+    windmill already turns past the hit (carried further, the sword hand came over the face for 4 frames).
+  - **A raking hand** (the claws' arcs) carries on round its arc at `LIMB_CARRY_DEG` (20) a frame (`_arc_point`'s `carry`), except an
+    overhead hit, which would come down across the face.
+  - **The lunge** goes on forward by `LUNGE_CARRY` (30%) through the carry, then settles into the hold.
+  - The holds are round 3's (`HOLD_TO`, `RECOVER_TO`, `ARM_LAG`).
+- **Tried and dropped:** carrying a kick on round the hip. The short leg folded across the chest and chin: 8-17 more frames of legs over
+  the face in the Greatsword's down tilt, the Needles' down smash and the Clutch's jabs. Kicks carry with the lunge only.
+- **Measured** (frames, `timing_report.py` with the fixed frame count; FT / hold / rec, then the 10% carry before and after):
+
+  | Move | Longsword: reference | before | after (carry) | Claws: reference | before | after (carry) |
+  |---|---|---|---|---|---|---|
+  | Jab | 7 / 5 / 6 | 0 / 13 / 3 | 0 / 14 / 3 (0 to 0) | 1 / 9 / 5 | 0 / 10 / 4 | 0 / 10 / 4 (2 to 2) |
+  | Forward tilt | 1 / 16 / 4 | 1 / 12 / 5 | 0 / 14 / 4 (2 to 2) | 1 / 11 / 9 | 0 / 13 / 7 | 2 / 11 / 7 (4 to 5) |
+  | Up tilt | 1 / 8 / 10 | 1 / 11 / 5 | 0 / 12 / 5 (3 to 2) | 1 / 7 / 13 | 0 / 9 / 9 | 0 / 9 / 9 (0 to 0) |
+  | Down tilt | 6 / 3 / 5 | 0 / 8 / 4 | 0 / 8 / 4 (1 to 2) | 1 / 12 / 6 | 0 / 12 / 5 | 0 / 12 / 6 (2 to 4) |
+  | Forward smash | 1 / 16 / 17 | 0 / 26 / 7 | 0 / 27 / 6 (0 to 0) | 0 / 9 / 6 | 0 / 9 / 6 | 0 / 10 / 5 (2 to 3) |
+  | Up smash | 1 / 22 / 13 | 0 / 22 / 12 | 0 / 22 / 12 (1 to 1) | 1 / 11 / 5 | 0 / 13 / 7 | 0 / 15 / 5 (0 to 0) |
+  | Down smash | 1 / 26 / 4 | 0 / 16 / 12 | 0 / 17 / 11 (1 to 2) | 0 / 9 / 8 | 0 / 12 / 6 | 1 / 11 / 6 (6 to 6) |
+  | Neutral air | 1 / 20 / 6 | 0 / 16 / 7 | 0 / 17 / 6 (1 to 0) | 1 / 4 / 9 | 0 / 9 / 4 | 0 / 10 / 3 (0 to 0) |
+  | Forward air | 2 / 20 / 6 | 0 / 18 / 6 | 0 / 19 / 5 (2 to 3) | 1 / 24 / 5 | 0 / 18 / 6 | 0 / 18 / 6 (0 to 1) |
+  | Back air | 1 / 12 / 14 | 1 / 10 / 12 | 1 / 10 / 12 (2 to 2) | 1 / 13 / 14 | 0 / 17 / 9 | 0 / 17 / 9 (6 to 6) |
+  | Up air | 5 / 11 / 19 | 0 / 25 / 6 | 0 / 26 / 5 (7 to 7) | 1 / 18 / 9 | 0 / 17 / 8 | 0 / 18 / 7 (0 to 0) |
+  | Down air | 4 / 33 / 9 | 1 / 32 / 8 | 3 / 32 / 7 (7 to 8) | 1 / 19 / 15 | 3 / 21 / 6 | 3 / 21 / 6 (5 to 6) |
+
+  - The carry shows plainly frame by frame (the image) but moves FT little. FT counts frames at 30% of the move's peak speed, and our peak
+    is one frame: the snap puts the whole wind-up-to-hit turn (about 100 degrees of blade) into the frame before the hit, so even a
+    33-degree carry reads as slow beside it. The reference spreads its strike over the active frames. Closing that gap means letting the
+    blade sweep through a still hitbox across its active frames rather than standing on it; that is a design question for the owner.
+  - The holds and recoveries are unchanged within a frame.
+- **Image:** `docs/screenshots/anim/r4_pass42_carry.jpg`, every frame at 60 fps: the Longsword's forward tilt (both facings) and forward
+  air, the Claws' forward tilt, before above after.
+- **Checked:**
+  - both facings;
+  - face cover over all 14 classes' moves, before then after: unchanged except one frame each in the Claws' down smash, the Dagger's up
+    smash and back air and the Nodachi's neutral air (the carried hand or hilt passing the face's edge);
+  - the six tests pass.
+- **Left:** the Longsword's forward tilt now carries its blade past upright, so its hilt sits over the eyes through the hold: pass 43.

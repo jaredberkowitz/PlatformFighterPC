@@ -33,12 +33,17 @@ def parse(path, cls):
         if int(parts[1]) != cls or parts[2] != "Attack":
             last_key = None
             continue
-        move, sf = parts[3], int(parts[4])
+        # (The trace prints the sim's state frame, which counts from 0; the reference's frames count from 1. Round 4: the move frame is
+        # the state frame plus one, so the active frames line up with the reference's numbers. Round 3 read them one frame early, which
+        # measured each follow-through from a frame too late.)
+        move, sf = parts[3], int(parts[4]) + 1
         pts = {}
         for tok in parts[6:]:
             name, xy = tok.split(":")
-            x, y = xy.split(",")
-            pts[name] = (float(x), float(y))
+            xy = xy.split(",")
+            if len(xy) != 2:  # (the pitch and the head's look are printed too; only the 2D points are measured)
+                continue
+            pts[name] = (float(xy[0]), float(xy[1]))
         if move not in moves:
             if last_key is not None and last_key != move:
                 pass
@@ -53,9 +58,9 @@ def parse(path, cls):
 def curves(frames):
     keys = sorted(frames)
     lurch = None
-    if keys[0] == 0:
-        keys = keys[1:]  # (frame 0 is the frame before the move: the reference's gif starts on frame 1)
-        a, b = frames[0], frames[keys[0]]
+    if keys[0] == 1 and len(keys) > 1:
+        # (the lurch: frame 1 to 2, as the reference's gif, whose first frame is about the idle, is compared)
+        a, b = frames[1], frames[keys[1]]
         lurch = sum(math.dist(a[n], b[n]) for n in a if n in b) / len(a)
     names = [n for n in frames[keys[0]] if all(n in frames[k] for k in keys)]
     end = frames[keys[-1]]
@@ -83,6 +88,13 @@ def measure(D, V, S, L):
             stop = t + 1
             break
     ft = stop - L - 1
+    # carry (round 4): frames after the last active frame still moving at 10% of the peak or more, a gentler reading of the same
+    # follow-through for swings whose speed is all in one strike frame (our snaps), where FT reads 0 though the swing carries on.
+    carry = 0
+    for t in range(L, T):
+        if V[t] < 0.1 * vpk:
+            break
+        carry += 1
     d0 = D[stop - 1] if stop <= T else 0.0
     hold_end = T
     for t in range(stop, T):
@@ -98,7 +110,7 @@ def measure(D, V, S, L):
         return sum(a) / len(a) if a else 0.0
     creep = mean(V[stop: hold_end - 1]) / vpk
     rspd = mean(V[hold_end - 1: rec_end - 1]) / vpk
-    return dict(T=T, FT=ft, hold=hold_end - stop, rec=rec_end - hold_end, settle=T - rec_end, creep=round(creep, 2),
+    return dict(T=T, FT=ft, carry=carry, hold=hold_end - stop, rec=rec_end - hold_end, settle=T - rec_end, creep=round(creep, 2),
                 rec_speed=round(rspd, 2), stop=stop, hold_end=hold_end, rec_end=rec_end)
 
 
@@ -120,8 +132,8 @@ def main():
         if a.startswith("--frames="):
             fr = json.load(open(a[9:]))
     moves, order = parse(path, cls)
-    print("%-10s %4s %4s %4s %5s %5s %6s %6s %6s %4s %6s" % ("move", "S-L", "T", "FT", "hold", "rec", "settle", "creep", "recspd", "w50",
-                                                         "lurch"))
+    print("%-10s %4s %4s %4s %5s %5s %6s %6s %6s %4s %6s %5s" % ("move", "S-L", "T", "FT", "hold", "rec", "settle", "creep", "recspd",
+                                                             "w50", "lurch", "carry"))
     for m in order:
         keys, D, V, D1 = curves(moves[m])
         S, L = fr.get(m, [0, 0])
@@ -129,8 +141,9 @@ def main():
             continue
         r = measure(D, V, S, L)
         w50, first = windup(D1, V, S)
-        print("%-10s %2d-%-2d %3d %4d %5d %5d %6d %6.2f %6.2f %4d %6.2f" % (m, S, L, r["T"], r["FT"], r["hold"], r["rec"], r["settle"],
-                                                                           r["creep"], r["rec_speed"], w50, first))
+        print("%-10s %2d-%-2d %3d %4d %5d %5d %6d %6.2f %6.2f %4d %6.2f %5d" % (m, S, L, r["T"], r["FT"], r["hold"], r["rec"],
+                                                                                r["settle"], r["creep"], r["rec_speed"], w50, first,
+                                                                                r["carry"]))
         if show:
             dp = max(D[S - 1:]) or 1
             vp = max(V[:L]) or 1
