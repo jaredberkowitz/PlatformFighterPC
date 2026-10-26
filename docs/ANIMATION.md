@@ -1142,3 +1142,28 @@ Ranked by how visible it is at match speed:
 - **Checked (passes 37-39):**
   - facing left;
   - the six tests pass.
+
+### Pass 40: a grounded blade's tip stays out of the floor (round 3 item 5, the real-speed audit)
+
+- **Defect:** in the Greatsword's forward smash, from frame 28 to the recovery, the blade's last third was sunk in the stage through the
+  held follow-through. The tip measured 0.9 below the floor.
+- **Cause:**
+  - The floor check (`_pose_blade`, `GROUND_CLEARANCE`) works in the blade's own frame, which leans and squashes with the body. The body's
+    lean into the cut tipped that frame forward, so the tip went under the real floor while it measured clear.
+  - The hilt is also moved afterwards to where the hand really got to, which is lower when the arm cannot reach.
+  - Pass 34's longer hold, with its 30-degree follow-through, made it show for longer.
+- **Fix (`fighter_view.gd` `_lift_tip_off_floor`):** after the hilt is placed in the hand, on the ground, the tip is measured in the world.
+  If it is below the floor, the blade turns up about the hilt by the least angle that clears it, found by bisection, keeping its length.
+  This applies to every blade and the staff.
+- **Measured:** the Greatsword's forward smash tip went from -0.94 at its lowest to +0.06. No grounded Longsword move puts its tip below
+  the floor.
+- **Image:** `docs/screenshots/anim/r3_pass40_blade_off_floor.jpg`.
+- **Checked:** the six tests pass.
+- **Also found in this audit, not fixed** (pre-existing, the same before round 3):
+  - **The Embers' forward air** shows the top of the head instead of the face for about 15 frames of its follow-through. Turning the head
+    back toward the foe was tried and did not change what shows; it needs a look at the clip's curl for the unarmed classes.
+  - **When grabbed,** a fighter's far hand crosses its face on the pummel hits (in a CPU match, about 4 frames a pummel).
+  - **Legs over the face** (now counted, pass 39): the Needles' up air and up tilt (8 frames) and the Clutch's forward air and forward
+    smash (11).
+  - **The Longsword's held forward tilt** keeps the hilt at the chin for about 10 frames.
+  - **The sword family's jump crouch** puts the hilt over the face (`face_cover_probe`: 100% of its 3 frames).

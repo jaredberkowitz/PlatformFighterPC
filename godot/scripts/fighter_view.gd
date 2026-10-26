@@ -3480,6 +3480,10 @@ func _log_motion(s: Dictionary) -> void:
 		var t: Vector3 = blade_pivot.to_global(Vector3(BLADE_TIP_X, 0.0, 0.0)) - global_position
 		line += " tip:%.3f,%.3f" % [t.x * f, t.y]
 	line += " pitch:%.1f" % rad_to_deg(model.rotation.x)
+	if head_bone >= 0:
+		var hd: Transform3D = skeleton.get_bone_global_pose(head_bone) * head_rest_inv
+		var look: Vector3 = (skeleton.global_transform.basis * hd.basis * Vector3(0, 0, 1)).normalized()
+		line += " look:%.2f,%.2f,%.2f" % [look.x * f, look.y, look.z]
 	print(line)
 
 
@@ -4516,6 +4520,26 @@ func _aim_arm(facing: int, holding: bool, two_hands := false, amount := 1.0) -> 
 
 ## The sides whose arm the IK placed this frame (`_aim_arm`).
 var arms_held: Array = []
+
+
+## Turns the blade up about its hilt, keeping its length, just enough that its tip clears the floor (`GROUND_CLEARANCE`), measured in the
+## world: the body's lean and squash carry the blade's frame with them.
+func _lift_tip_off_floor() -> void:
+	var tip_y := func() -> float: return (blade_pivot.to_global(Vector3(BLADE_TIP_X, 0.0, 0.0)) - global_position).y
+	var hilt_y := (blade_pivot.global_position - global_position).y
+	if hilt_y <= GROUND_CLEARANCE or tip_y.call() >= GROUND_CLEARANCE:
+		return
+	# (A bisection between where it points and well up ahead, the way it already points: the least turn that clears. The frame leans
+	# with the body, so its level is not the world's.)
+	var low := blade_pivot.rotation.z
+	var high := 1.2 if cos(low) >= 0.0 else PI - 1.2
+	for _i in 12:
+		blade_pivot.rotation.z = (low + high) * 0.5
+		if tip_y.call() < GROUND_CLEARANCE:
+			low = blade_pivot.rotation.z
+		else:
+			high = blade_pivot.rotation.z
+	blade_pivot.rotation.z = high
 
 
 ## How far a hand at `hand` (forward space) should go behind the head in depth: 1 over the face's middle, easing to 0 past its edge.
@@ -5623,6 +5647,11 @@ func _apply_combat(s: Dictionary, delta: float) -> void:
 				var held: Vector3 = _skeleton_to_frame() * skeleton.get_bone_global_pose(hb).origin
 				var along := Vector3(cos(blade_pivot.rotation.z), sin(blade_pivot.rotation.z), 0.0)
 				blade_pivot.position = Vector3(held.x, held.y, blade_pivot.position.z) + along * 0.08
+				# (Round 3: and the tip stays out of the floor where the hand really is. An arm that could not reach let the hilt sit lower
+				# than the blade was aimed from, and a held follow-through then sank the Greatsword's blade into the stage for 20 frames of
+				# its forward smash: only the guard showed.)
+				if int(s.platform) >= 0:
+					_lift_tip_off_floor()
 		_blade_arc_on_tip(s)
 		if carrying:
 			_carry_weapon(int(s.facing))
