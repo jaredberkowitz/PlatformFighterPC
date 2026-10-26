@@ -374,6 +374,11 @@ static func make(demo_name: String, m: Dictionary, dir: String):
 			# (`--gallery-step=N` photographs every N frames, 3 by default; `--gallery-facing=-1` turns the fighter to face left.)
 			var step := 3
 			var facing := 1
+			# (`--gallery-air=Y` starts the aerials that high, so a long one ends before it lands: the timing audit, round 3.)
+			var air_y := 6.0
+			# (`--gallery-frames=N` photographs the first N frames of each move, 40 by default; `--gallery-moves=jab,fair` only those.)
+			var shoot_to := 40
+			var only := PackedStringArray()
 			for arg in OS.get_cmdline_user_args():
 				if arg.begins_with("--gallery-class="):
 					cls = int(arg.substr(16))
@@ -381,6 +386,12 @@ static func make(demo_name: String, m: Dictionary, dir: String):
 					step = maxi(1, int(arg.substr(15)))
 				elif arg.begins_with("--gallery-facing="):
 					facing = -1 if int(arg.substr(17)) < 0 else 1
+				elif arg.begins_with("--gallery-air="):
+					air_y = float(arg.substr(14))
+				elif arg.begins_with("--gallery-frames="):
+					shoot_to = clampi(int(arg.substr(17)), 1, 66)
+				elif arg.begins_with("--gallery-moves="):
+					only = arg.substr(16).split(",")
 			d.chars = [cls, 0, 0, 0]
 			d.cam_dist = 9.0
 			d.cam_focus = 0
@@ -397,10 +408,13 @@ static func make(demo_name: String, m: Dictionary, dir: String):
 			var t := 90
 			var n := 0
 			for g in moves:
-				d.events.append([t - 4, "place", 0, 0.0, 6.0] if g[4] else [t - 4, "stand", 0, 0.0, facing])
+				if not only.is_empty() and not only.has(g[0]):
+					n += 1
+					continue
+				d.events.append([t - 4, "place", 0, 0.0, air_y] if g[4] else [t - 4, "stand", 0, 0.0, facing])
 				d.timeline.append([t, g[1] * facing, g[2], g[3]])
 				d.timeline.append([t + 1, 0, 0, 0])
-				for f in range(1, 41, step):
+				for f in range(1, shoot_to + 1, step):
 					d.shots.append([t + f, "m%02d_%s_f%02d" % [n, g[0], f]])
 				t += 70
 				n += 1

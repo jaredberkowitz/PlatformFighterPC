@@ -651,7 +651,7 @@ func _attack_clip(s: Dictionary) -> Array:
 	var total := maxf(1.0, float(t[0]))
 	var start := clampf(float(t[1]), 1.0, total)
 	var last := clampf(float(t[2]), start, total)
-	var progress := strike_progress(float(s.state_frame), total, start, last, s.get("move_windows", PackedInt32Array()))
+	var progress := strike_progress(float(s.state_frame), total, start, last, s.get("move_windows", PackedInt32Array()), _end_shape(s))
 	var name := String(s.move_name)
 	if (HELD_COIL.get(_cls(s), []) as Array).has(name):
 		# (A charge held in the coil, its arm swinging round on top: `WINDMILL`. Round 2.)
@@ -670,15 +670,14 @@ func _attack_clip(s: Dictionary) -> Array:
 ## for each: between two hits the body draws partly back toward the wind-up, then snaps forward onto the next hit's first frame, so a
 ## sequence of hits reads as a rhythm of strikes rather than one long held pose; the last hit gets the full follow-through. Only the
 ## move's frames drive it, so the animation never sets the timing.
-static func strike_progress(f: float, total: float, start: float, last: float, windows: PackedInt32Array) -> float:
+static func strike_progress(f: float, total: float, start: float, last: float, windows: PackedInt32Array, shape := END_SHAPE) -> float:
 	if f < start:
 		# (Animation overhaul pass 3: the wind-up coils, holds, then snaps, as the reference's moves do, instead of drifting from rest to
 		# the strike at one pace. The clip reaches its chamber key (19 of 60) by COIL_AT of the startup, creeps on through the hold, and
 		# from SNAP_AT accelerates through the launch into the strike on the first active frame.)
 		var u := f / start
 		if u <= COIL_AT:
-			var k := u / COIL_AT
-			return COIL_PROGRESS * (1.0 - (1.0 - k) * (1.0 - k))
+			return COIL_PROGRESS * coil_ease(u / COIL_AT)
 		if u <= SNAP_AT:
 			return COIL_PROGRESS + COIL_CREEP * (u - COIL_AT) / (SNAP_AT - COIL_AT)
 		var k := (u - SNAP_AT) / (1.0 - SNAP_AT)
@@ -709,9 +708,70 @@ static func strike_progress(f: float, total: float, start: float, last: float, w
 		start = float(windows[windows.size() - 2])
 	if f <= last:
 		return 0.55 + (f - start) / maxf(1.0, last - start) * 0.08
-	# (The body carries through the follow-through and settles over the end lag, easing in and out, rather than holding the strike.)
-	var k := clampf((f - last) / maxf(1.0, total - last), 0.0, 1.0)
-	return 0.63 + 0.37 * k * k * (3.0 - 2.0 * k)
+	# (Round 3, measured against the reference's hitbox animations: the swing carries on into its follow-through and stops within a few
+	# frames of the last hit, the pose is held, creeping, for about half the end lag, then the body recovers quickly and settles. It used
+	# to drift home at one slow ease across the whole end lag, which read as floaty.)
+	return lerpf(0.63, FOLLOW_PROGRESS, follow_k(f, last, shape)) + (1.0 - FOLLOW_PROGRESS) * home_k(f, last, total, shape, 0.0, BODY_CREEP)
+
+
+## The end lag's shape, shared by the body, the weapon and the reaching limbs (animation round 3, from the reference's hitbox animations:
+## `tools/art/review/timing_report.py`). After the last active frame the swing reaches its follow-through within FOLLOW_FRAMES and stops
+## there; the pose holds, creeping HOLD_CREEP of the way home, until HOLD_TO of the end lag; it recovers by RECOVER_TO and settles by the end.
+const FOLLOW_FRAMES := 3.0
+const HOLD_TO := 0.48
+const HOLD_CREEP := 0.15
+## The body clip's creep through the hold, smaller: its keys after the follow-through already lead on toward the recovery pose.
+const BODY_CREEP := 0.05
+const RECOVER_TO := 0.92
+## The shape as one value (hold to, recover by, follow-through frames), and the moves whose reference shapes differ: the up tilt and back
+## air hold briefly and recover slowly (both references, both classes); the sword's jab and down tilt carry their cut on for six frames.
+const END_SHAPE := Vector3(HOLD_TO, RECOVER_TO, FOLLOW_FRAMES)
+const MOVE_END_SHAPES := {"utilt": Vector3(0.3, 0.95, FOLLOW_FRAMES), "bair": Vector3(0.3, 0.95, FOLLOW_FRAMES)}
+const LONG_FOLLOW := {0: ["jab", "dtilt"]}
+## Clips whose strike pose is not one to hold: the forward headbutt ends head down with the face behind the hands, so it recovers early.
+const CLIP_END_SHAPES := {"body_headbutt_fwd": Vector3(0.12, 0.8, FOLLOW_FRAMES)}
+const LONG_FOLLOW_FRAMES := 6.0
+## The clip's follow-through key (frame 40 of 60).
+const FOLLOW_PROGRESS := 0.667
+## The weapon arm and the reaching limbs come home this much of the end lag after the body, so the hips lead the recovery.
+const ARM_LAG := 0.08
+
+
+## How far into the follow-through the swing is, `f` frames into the move whose last active frame is `last` (0 at the last hit, 1 stopped).
+static func follow_k(f: float, last: float, shape := END_SHAPE) -> float:
+	var u := clampf((f - last) / shape.z, 0.0, 1.0)
+	return 1.0 - (1.0 - u) * (1.0 - u) * (1.0 - u)
+
+
+## How far home from the follow-through the body is (0 held, 1 home) through the end lag; `lag` delays it (a share of the end lag) for the
+## parts that follow the body home.
+static func home_k(f: float, last: float, total: float, shape := END_SHAPE, lag := 0.0, creep := HOLD_CREEP) -> float:
+	var k := clampf(((f - last) / maxf(1.0, total - last) - lag) / (1.0 - lag), 0.0, 1.0)
+	if k <= shape.x:
+		return creep * k / shape.x
+	if k <= shape.y:
+		var u := (k - shape.x) / (shape.y - shape.x)
+		return lerpf(creep, 0.95, u * u * (3.0 - 2.0 * u))
+	var u := (k - shape.y) / (1.0 - shape.y)
+	return lerpf(0.95, 1.0, 1.0 - (1.0 - u) * (1.0 - u))
+
+
+## This move's end-lag shape (`END_SHAPE`, `MOVE_END_SHAPES`, `LONG_FOLLOW`).
+func _end_shape(s: Dictionary) -> Vector3:
+	var name := String(s.move_name)
+	var shape: Vector3 = MOVE_END_SHAPES.get(name, END_SHAPE)
+	if anim != null:
+		shape = CLIP_END_SHAPES.get(AnimLibrary.attack_clip(_cls(s), name, anim), shape)
+	if (LONG_FOLLOW.get(_cls(s), []) as Array).has(name):
+		shape.z = LONG_FOLLOW_FRAMES
+	return shape
+
+
+## The wind-up's way into the coil: it leaves the rest pose gently and settles into the coil (an ease in and out). It was an ease out,
+## so a move's first frame was its wind-up's fastest: the body lurched out of the idle (round 3).
+static func coil_ease(k: float) -> float:
+	k = clampf(k, 0.0, 1.0)
+	return k * k * (3.0 - 2.0 * k)
 
 
 ## The wind-up's shape (shares of the startup, the frames before the first active one): coiled by COIL_AT, held (creeping COIL_CREEP of
@@ -730,8 +790,7 @@ static func coil_k(f: float, first: float) -> float:
 	if u >= 1.0:
 		return 0.0
 	if u <= COIL_AT:
-		var k := u / COIL_AT
-		return 1.0 - (1.0 - k) * (1.0 - k)
+		return coil_ease(u / COIL_AT)
 	if u <= SNAP_AT:
 		return 1.0
 	return 1.0 - (u - SNAP_AT) / (1.0 - SNAP_AT)
@@ -3162,8 +3221,12 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 		var lunge_k := 0.45 if use_base_body else 1.0
 		if f < first and f >= first * 0.5:
 			target_lunge = -0.12 * lunge_k
-		elif f >= first and f <= last + 2.0:
+		elif f >= first and f <= last:
 			target_lunge = 0.32 * lunge_k
+		elif f > last:
+			# (Round 3: the lunge is held through the hold and drawn back with the recovery, as the reference's lunges are; it sprang back
+			# two frames after the hit.)
+			target_lunge = 0.32 * lunge_k * (1.0 - home_k(f, last, float(s.move_timing[0]), _end_shape(s)))
 	var fast_falling: bool = s.fast_fall and not grounded and (state == "Airborne" or state == "Helpless" or state == "ShieldDrop")
 	if fast_falling:
 		target_squash = -0.28
@@ -3333,6 +3396,31 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 	if state == "SpotDodge" and dodge >= 0.0:
 		model.position.z -= SPOT_DODGE_STEP * sin(PI * dodge)
 	_blink(delta)
+	if log_motion and state in ["Attack", "Hitstun", "Run", "Dash", "Landing"]:
+		_log_motion(s)
+
+
+## With the environment variable PF_MOTION_TRACE set (a debugging aid for the timing audit, round 3), every frame of an attack, a hit
+## reaction or a run prints where the body's joints and the weapon's tip are, relative to the fighter's feet with forward as +x:
+## "TRACE <class> <state> <move> <state frame> <hitlag> <name>:x,y ...". `tools/art/review/timing_report.py` turns it into speed and pose curves.
+static var log_motion := OS.has_environment("PF_MOTION_TRACE")
+
+
+func _log_motion(s: Dictionary) -> void:
+	if skeleton == null:
+		return
+	var f := float(s.facing)
+	var line := "TRACE %d %s %s %d %d" % [_cls(s), s.state, String(s.move_name).replace(" ", "_"), int(s.state_frame), int(s.hitlag)]
+	for b in ["hips", "spine", "head", "hand.L", "hand.R", "foot.L", "foot.R"]:
+		var bi := skeleton.find_bone(b)
+		if bi < 0:
+			continue
+		var p: Vector3 = skeleton.global_transform * skeleton.get_bone_global_pose(bi).origin - global_position
+		line += " %s:%.3f,%.3f" % [b, p.x * f, p.y]
+	if blade_pivot != null and blade_pivot.visible:
+		var t: Vector3 = blade_pivot.to_global(Vector3(BLADE_TIP_X, 0.0, 0.0)) - global_position
+		line += " tip:%.3f,%.3f" % [t.x * f, t.y]
+	print(line)
 
 
 var last_ghost := 0.0
@@ -3686,8 +3774,7 @@ func _blade_target(s: Dictionary) -> Array:
 	if f < swing_from:
 		# The wind-up eases into its anticipation (fast away from rest, slowing as it coils) and holds there (pass 3: the coil holds
 		# until SNAP_AT of the startup, as the body's does)...
-		var k := clampf(f / maxf(1.0, start * COIL_AT), 0.0, 1.0)
-		k = 1.0 - (1.0 - k) * (1.0 - k)
+		var k := coil_ease(f / maxf(1.0, start * COIL_AT))
 		angle = lerpf(_rest_angle(s), wind, k)
 		if SWING_ROUND.has(name):
 			angle = rad_to_deg(lerp_angle(deg_to_rad(_rest_angle(s)), deg_to_rad(wind), k))
@@ -3702,22 +3789,19 @@ func _blade_target(s: Dictionary) -> Array:
 		# The follow-through: the blade carries on past its last hit the way it was travelling (FOLLOW_THROUGH degrees over the first part
 		# of the end lag, slowing), then eases home through the rest of it, as the reference's swordsmen finish a cut, rather than holding
 		# still at the hit and snapping back late.
-		var k := clampf((f - t[2]) / maxf(1.0, t[0] - t[2]), 0.0, 1.0)
+		# (Round 3: it stops within FOLLOW_FRAMES, is held through the hold and comes home just after the body: `follow_k`, `home_k`.)
 		var travel := signf(angle_difference(deg_to_rad(wind), deg_to_rad(swing)))
-		var past := swing + travel * FOLLOW_THROUGH
-		if k < FOLLOW_SHARE:
-			var u := k / FOLLOW_SHARE
-			angle = lerpf(swing, past, 1.0 - (1.0 - u) * (1.0 - u))
-		else:
-			var u := (k - FOLLOW_SHARE) / (1.0 - FOLLOW_SHARE)
-			angle = lerpf(past, _rest_angle(s), u * u * (3.0 - 2.0 * u))
-			len = lerpf(length, rest_len, u * u * (3.0 - 2.0 * u))
+		var shape := _end_shape(s)
+		var past := swing + travel * FOLLOW_THROUGH * follow_k(f, float(t[2]), shape)
+		var home := home_k(f, float(t[2]), float(t[0]), shape, ARM_LAG)
+		angle = lerpf(past, _rest_angle(s), home)
+		len = lerpf(length, rest_len, home)
 	return [angle, len, hand_x]
 
 
-## How far (degrees) a swing carries on past its last hit, and over what share of the end lag, before the blade eases home.
-const FOLLOW_THROUGH := 38.0
-const FOLLOW_SHARE := 0.28
+## How far (degrees) a swing carries on past its last hit before it stops (the reference's sword cuts carry about 25-30 degrees on, in 1-2
+## frames).
+const FOLLOW_THROUGH := 30.0
 
 
 ## The weapon arm's shoulder in forward space (x forward, y up), and how far the hand reaches from it in a swing.
@@ -4097,8 +4181,8 @@ func _reach_weight(s: Dictionary) -> float:
 		# (Pass 3: the limb stays in its coil through the hold and reaches out with the snap.)
 		return snap_k(f, first)
 	elif f > last:
-		# (It stays out a moment past the hit, then eases home over the rest of the end lag, never frozen out.)
-		k = 1.0 - smoothstep(0.15, 1.0, clampf((f - last) / maxf(1.0, total - last), 0.0, 1.0))
+		# (It stays out through the hold, then comes home just after the body: round 3, `home_k`.)
+		return 1.0 - home_k(f, last, total, _end_shape(s), ARM_LAG)
 	return k * k * (3.0 - 2.0 * k)
 
 

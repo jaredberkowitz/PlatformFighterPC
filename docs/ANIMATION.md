@@ -937,3 +937,82 @@ Ranked by how visible it is at match speed:
   `tests/freeze_probe.gd -- --class=N --nofreeze` prints it.
 - **Checked:** the six tests pass.
 - **Left:** the heavy attacks' own timing (the coil and hold shares) is shared with every class.
+
+### Round 3 (2026-10-26, from the art audit of that day, `docs/art/ART_AUDIT_2026-10-26.md`)
+
+### Pass 34: timing against the reference: the hit held, a quick recovery, no lurch (round 3 item 1)
+
+- **How it was measured:**
+  - **Reference:** the hitbox animations of the reference swordsman and the reference claws fighter on the frame-data site, decoded frame
+    by frame in the browser (`ImageDecoder`). Each frame's silhouette is cut from the plain background (hitbox colours left out), then:
+    - its change from the frame before gives a speed curve;
+    - its difference from the last frame gives a "distance from home" curve.
+  - **Ours:** the same two curves from the joints and the blade's tip, printed every frame by a new debugging aid, `PF_MOTION_TRACE=1`
+    (`fighter_view.gd` `_log_motion`), over the gallery demo. The demo has new `--gallery-air=Y`, `--gallery-frames=N` and
+    `--gallery-moves=...` flags so that aerials end in the air.
+  - **The report:** `tools/art/review/timing_report.py` reads both the same way. For each move it gives:
+    - FT: the frames the swing keeps moving after the last active frame;
+    - hold: the frames until the pose has gone a quarter of the way home;
+    - rec: the frames from there until it is within 15% of home;
+    - lurch: the speed of the move's first frame against its peak.
+  - Our frame data matches the references' 1:1, so frame numbers compare directly.
+- **Defects found:**
+  - **The end lag drifted home at one slow ease across its whole length.** The strike was held for only about a third as long as the
+    reference holds it, and the recovery dragged on into a long settle (4-11 frames of slow creep at the end). This is the "weightless"
+    read. Examples: the Longsword's forward tilt stood back up by frame 20, where the reference is still deep in its lunge at frame 27;
+    the Claws' forward smash stood up by frame 28.
+  - **Moves lurched out of the idle.** The wind-up eased out, so a move's first frame was the fastest frame of its wind-up: on average
+    0.57 of the strike's own peak speed. The reference starts gently (0.16-0.5).
+  - **The lunge sprang back two frames after the hit.** The body's lunge spring let go at the last active frame plus two. So did the
+    blade's 38-degree follow-through, which drifted over 28% of the end lag.
+- **Fix (`fighter_view.gd`, shared by every class):**
+  - **One end-lag shape** for the body clip (`strike_progress`), the blade (`_blade_target`), the reaching arm or leg (`_reach_weight`)
+    and the lunge:
+    - the swing reaches its follow-through within `FOLLOW_FRAMES` (3) and stops there (`follow_k`, an ease out);
+    - the pose is held, creeping (`HOLD_CREEP` 0.15, the body clip 0.05), to `HOLD_TO` (48%) of the end lag;
+    - it recovers by `RECOVER_TO` (92%) and settles by the end (`home_k`).
+  - **The hips lead the recovery:** the weapon arm and the reaching limbs come home `ARM_LAG` (8% of the end lag) after the body.
+  - **The blade** carries 30 degrees past its last hit, the reference's 25-30, in 3 frames. It was 38 degrees over 28% of the end lag.
+  - **The lunge** is held through the hold and drawn back with the recovery.
+  - **The wind-up** eases in and out into its coil (`coil_ease`, for the body, the blade and the fist's chamber), so the first frame is
+    gentle.
+  - **Per-move shapes** where both references agree:
+    - the up tilt and back air hold briefly and recover slowly (`MOVE_END_SHAPES`);
+    - the sword's jab and down tilt carry their cut on for 6 frames (`LONG_FOLLOW`);
+    - the forward headbutt clip (Clutch) recovers early (`CLIP_END_SHAPES`). Its strike pose is head down with the face behind the hands,
+      and holding it longer covered the face for 13 frames.
+- **Measured** (frames; reference, before, after; FT, hold, rec):
+
+  | Move | Longsword: reference | before | after | Claws: reference | before | after |
+  |---|---|---|---|---|---|---|
+  | Jab | 7 / 5 / 6 | 0 / 8 / 6 | 0 / 11 / 4 | 1 / 9 / 5 | 0 / 5 / 5 | 0 / 9 / 4 |
+  | Forward tilt | 1 / 16 / 4 | 0 / 9 / 7 | 0 / 12 / 5 | 1 / 11 / 9 | 0 / 5 / 11 | 0 / 12 / 7 |
+  | Up tilt | 1 / 8 / 10 | 0 / 11 / 5 | 0 / 11 / 5 | 1 / 7 / 13 | 0 / 5 / 10 | 0 / 8 / 9 |
+  | Down tilt | 6 / 3 / 5 | 0 / 5 / 5 | 0 / 7 / 4 | 1 / 12 / 6 | 0 / 5 / 9 | 0 / 10 / 6 |
+  | Forward smash | 1 / 16 / 17 | 0 / 18 / 12 | 0 / 25 / 7 | 0 / 9 / 6 | 0 / 4 / 6 | 0 / 8 / 6 |
+  | Up smash | 1 / 22 / 13 | 0 / 7 / 22 | 0 / 21 / 11 | 1 / 11 / 5 | 0 / 5 / 12 | 0 / 13 / 6 |
+  | Down smash | 1 / 26 / 4 | 0 / 16 / 10 | 0 / 18 / 9 | 0 / 9 / 8 | 0 / 11 / 5 | 0 / 11 / 6 |
+  | Neutral air | 1 / 20 / 6 | 0 / 3 / 11 | 0 / 14 / 7 | 1 / 4 / 9 | 0 / 5 / 6 | 0 / 8 / 4 |
+  | Forward air | 2 / 20 / 6 | 0 / 14 / 8 | 0 / 17 / 6 | 1 / 24 / 5 | 0 / 9 / 10 | 0 / 17 / 6 |
+  | Back air | 1 / 12 / 14 | 0 / 6 / 15 | 0 / 10 / 12 | 1 / 13 / 14 | 0 / 11 / 12 | 0 / 16 / 9 |
+  | Up air | 5 / 11 / 19 | 0 / 21 / 8 | 0 / 24 / 6 | 1 / 18 / 9 | 0 / 10 / 11 | 0 / 16 / 8 |
+  | Down air | 4 / 33 / 9 | 0 / 27 / 11 | 0 / 32 / 8 | 1 / 19 / 15 | 0 / 4 / 20 | 2 / 21 / 6 |
+
+  - The mean error against the reference fell from 6.7 to 3.6 frames for the hold and from 3.5 to 3.1 for the recovery.
+  - The lurch fell from 0.57 to 0.29 of the peak speed.
+  - Facing left measures the same (3.7 and 3.0).
+  - What is left differs move by move, and the two references disagree on it (the neutral and up airs).
+- **Image:** `docs/screenshots/anim/r3_pass34_timing.jpg`, every 2-3 frames at 60 fps, before above and after below:
+  - the Longsword's forward tilt and forward air;
+  - the Claws' forward smash;
+  - the pose-distance curves of three Longsword moves, ours before and after against the reference.
+- **Checked:**
+  - both facings;
+  - one class per family at real speed (Greatsword, Needles, Settler, Clutch: forward smash held, then recovering);
+  - face cover (`PF_FACE_COVER`) per class, before then after: Longsword 10 to 13, Claws 0 to 0, Needles 15 to 15, Embers 5 to 3,
+    Greatsword 88 to 92, Clutch 6 to 1, Settler 59 to 59;
+  - the six tests pass.
+- **Left:**
+  - The reference's jab keeps its blade moving for 7 frames after the hit, and ours stops at once (FT 0). Our swing stops harder than the
+    reference everywhere (FT 0 against 1).
+  - In the held forward tilt the Longsword's hilt sits at the chin for about 10 frames.
