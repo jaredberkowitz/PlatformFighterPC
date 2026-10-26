@@ -198,3 +198,13 @@ with `--theme sunset --variant AW --trestle far` (no re-light).
 
 Built A (the owner's pick, 2026-10-26): `godot/models/stages/canyon_world.glb` rebuilt with `--theme sunset --variant AW --trestle
 far`. Before and after (the tower and the halt, wide): `review10/canyon_world_built.jpg`. All seven tests pass.
+
+### Step 5, world detail on the beach (mock)
+
+The quay (`StageArt._harbour_town`) already has its stalls and warehouse, so the beach gets the crane and the drying nets.
+`make_world.py --variant ABW` (`beach_w`): a timber derrick crane on the quay's free east end (x -35), its jib swung out sideways over
+the water with a pallet of crates slung from it; A, nets drying on racks between the stalls and the warehouse; B (`--nets wall`), hung
+down the quay's face with red floats along their tops. First tries: a 8.5-tall crane with thin spars and its jib toward the camera read
+as a grey mast with a stub; a net bag round the load read as a yellow ball; nets in the net teal went grey in the air (now rope tan).
+P1's gap 0.178 today, 0.177 A, 0.180 B. On the Stage Look Review ("worldbeach19", `bw19_*`); recommended B. To ship: rebuild
+`godot/models/stages/beach_world.glb` with `--theme ocean --variant ABW --nets wall` (no re-light).

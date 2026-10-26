@@ -4,6 +4,8 @@
     A  a working pier: a fishing boat moored along the far boardwalk with lines to its posts, nets hung on its rail, fish crates;
     B  harbour life: a rowboat tied off the dock's left end (its gulls taken out: no animals in the backgrounds, the owner);
     C  the town at work: market awnings and townsfolk on the quay, bunting, chimney smoke.
+    W  quay life (new art toward 5, W-B): a timber derrick crane on the quay's east end with a cargo net over the water, nets
+       drying on racks (`--nets wall`: hung down the quay's face with their floats)
   sunset (the canyon, a desert crossing at dusk)
     A  a railroad: a timber trestle across the floor behind the buttes with a little train on it and a water tower by the track;
     B  a wagon trail: a pale trail winding across the floor to the horizon, telegraph poles along it, a covered wagon on it;
@@ -435,6 +437,61 @@ def market():
             card([a, b, m], ("flag_a", "flag_b", "flag_c")[(k + seg) % 3], "flag", thick=0.01)
     smoke_column((bx + 3.0, SEA + 10.0, -108.0), 6, 0.9, rng)
     smoke_column((bx - 9.0, SEA + 9.0, -105.0), 5, 0.8, rng)
+
+
+def beach_w():
+    # Quay life (new art toward 5, W-B): the quay (StageArt._harbour_town: its wall x -96..-32, its front at z -95, its top at the
+    # water + 2.35) already has its stalls and warehouse, so this adds a timber derrick crane on its free east end, a cargo net hanging
+    # from its jib over the water, and nets drying: on racks between the stalls and the warehouse, or with `--nets wall` hung down the
+    # quay's face with their floats.
+    rng = random.Random(41)
+    top = SEA + 2.35
+    cx, cz = -35.0, -96.2
+    jx, jy, jz = cx + 4.5, top + 10.0, cz + 4.0
+    bm = bmesh.new()
+    # (Tall and bold, its jib swung out to the side over the water: pointed at the camera it foreshortened to a stub, and at 8.5 with
+    # thin spars it read as a grey mast.)
+    tube(bm, (cx, top, cz), (cx, top + 11.0, cz), 0.36, segs=8)
+    for dx in (-2.2, 2.2):
+        tube(bm, (cx + dx, top, cz - 4.2), (cx, top + 10.6, cz), 0.16, segs=6)
+    tube(bm, (cx, top + 1.0, cz), (jx, jy, jz), 0.26, segs=8)
+    ob("crane", bm, "timber", smooth=True)
+    bm = bmesh.new()
+    tube(bm, (cx, top + 10.8, cz), (jx, jy, jz), 0.07, segs=4)
+    tube(bm, (jx, jy, jz), (jx, top + 4.6, jz), 0.07, segs=4)
+    ob("crane_ropes", bm, "rope", smooth=True)
+    boxg(cx - 0.7, cx + 0.7, top, top + 1.0, cz + 0.4, cz + 1.4, "timber_dark", "winch")
+    # The load: the catch's crates on a pallet, slung from the hook. (A net bag round them read as a yellow ball.)
+    boxg(jx - 1.0, jx + 1.0, top + 2.7, top + 2.9, jz - 0.8, jz + 0.8, "timber_dark", "pallet")
+    for (dx, dy, dz, w) in ((-0.5, 2.9, 0.0, 0.9), (0.5, 2.9, 0.0, 0.9), (0.0, 3.62, 0.0, 0.85)):
+        crate(jx + dx, top + dy, jz + dz, w, w * 0.8, w * 1.4)
+    bm = bmesh.new()
+    for (dx, dz) in ((-1.0, -0.8), (1.0, -0.8), (-1.0, 0.8), (1.0, 0.8)):
+        tube(bm, (jx, top + 4.6, jz), (jx + dx, top + 2.8, jz + dz), 0.05, segs=4)
+    ob("sling", bm, "rope", smooth=True)
+    if opts.get("nets", "") == "wall":
+        # Nets hung down the quay's face to dry, a line of red floats along each top.
+        fz = -94.9
+        for k, x in enumerate((-60.5, -52.0, -47.5)):
+            w = rng.uniform(2.6, 3.6)
+            card([(x - w / 2, top - 0.1, fz), (x + w / 2, top - 0.1, fz), (x + w / 2 - 0.3, top - 1.7, fz), (x, top - 2.1, fz),
+                  (x - w / 2 + 0.2, top - 1.6, fz)], "rope", "wall_net", thick=0.03)
+            bm = bmesh.new()
+            for j in range(5):
+                fx = x - w / 2 + 0.3 + j * (w - 0.6) / 4
+                bmesh.ops.create_icosphere(bm, subdivisions=1, radius=0.17, matrix=Matrix.Translation(P(fx, top - 0.15, fz + 0.1)))
+            ob("floats", bm, "flag_a", smooth=True)
+    else:
+        # (Nets in the tan of their rope: in the net's teal they went grey in the air and read as dark sheets.)
+    # Racks of poles at the quay's front edge, a net sagging over the line between each pair.
+        bm = bmesh.new()
+        for (x0, x1) in ((-52.0, -49.2), (-48.8, -46.4)):
+            for x in (x0, x1):
+                tube(bm, (x, top, -95.6), (x, top + 2.4, -95.6), 0.07, segs=6)
+            tube(bm, (x0, top + 2.3, -95.6), (x1, top + 2.3, -95.6), 0.04, segs=4)
+            card([(x0 + 0.1, top + 2.3, -95.5), (x1 - 0.1, top + 2.3, -95.5), (x1 - 0.3, top + 0.9, -95.45), ((x0 + x1) / 2, top + 0.6, -95.45),
+                  (x0 + 0.3, top + 1.0, -95.45)], "rope", "rack_net", thick=0.03)
+        ob("net_racks", bm, "wood_dark", smooth=True)
 
 
 # ---- The canyon ----------------------------------------------------------------------------------------------------------------------
@@ -1369,7 +1426,7 @@ def grove_l():
         moving("firefly", at, bulb, at, 0.16, "firefly")
 
 
-BUILDS = {("ocean", "A"): beach_a, ("ocean", "B"): beach_b, ("ocean", "C"): beach_c,
+BUILDS = {("ocean", "A"): beach_a, ("ocean", "B"): beach_b, ("ocean", "C"): beach_c, ("ocean", "W"): beach_w,
           ("sunset", "A"): canyon_a, ("sunset", "B"): canyon_b, ("sunset", "C"): canyon_c, ("sunset", "W"): canyon_w,
           ("meadow", "A"): meadow_a, ("meadow", "B"): meadow_b, ("meadow", "C"): meadow_c, ("meadow", "W"): meadow_w,
           ("grove", "A"): grove_a, ("grove", "B"): grove_b, ("grove", "C"): grove_c,

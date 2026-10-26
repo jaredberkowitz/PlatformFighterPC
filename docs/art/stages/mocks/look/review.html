@@ -88,6 +88,22 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
     <p>Two lessons from the reference screenshots, mocked from the match camera: the scenery without ink outlines, its edges lit as card bevels instead, and the paper houses rebuilt at the characters' proportions. The earlier rounds stay on the <a href="https://claude.ai/artifact/D1du6MREVumiJDrEdNypW4">Stage Fidelity Review</a>, which is full.</p>
   </header>
 
+  <section class="panel" aria-labelledby="bw19-h" id="worldbeach19">
+    <div class="eyebrow">Your call is needed &middot; new art, step 5: world detail, the beach (W-B)</div>
+    <h2 id="bw19-h">A working quay</h2>
+    <p>First, the canyon's halt is built (see its section below). Next, the beach. The town's quay already has its market stalls and the warehouse, so it gets the rest of what the plan named: a crane and nets drying.</p>
+    <div class="tablewrap"><table><thead><tr><th>Option</th><th>What changes</th></tr></thead><tbody>
+      <tr><td>A &middot; Crane and net racks</td><td>A timber derrick crane on the quay's free east end, its jib swung out over the water with a pallet of crates slung from it; nets drying on racks between the stalls and the warehouse</td></tr>
+      <tr><td>B &middot; Crane and nets on the wall</td><td>The same crane; the nets hung down the quay's face instead, a line of red floats along each top</td></tr>
+    </tbody></table></div>
+    <p>The quay at the wide camera (today, then A) on top, and at the match camera (today, then B) below. P1's gap holds (0.178 today, 0.177 A, 0.180 B).</p>
+    <div class="viewer"><img src="bw19_close.jpg" alt="The beach's quay today and with the crane and the drying nets"></div>
+    <div class="row" role="group" aria-label="View"><button data-bw19v="m">Match camera</button><button data-bw19v="w">Wide</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-bw19o="T">Today</button><button data-bw19o="A">A &middot; Crane and net racks</button><button data-bw19o="B">B &middot; Crane and nets on the wall</button></div>
+    <div class="viewer"><img id="bw19img" alt="Beach world option"><span class="vtag" id="bw19tag"></span></div>
+    <p class="muted">My pick: <b>B</b>. The crane gives the quay work to do, and the nets on the wall read as nets, with their floats, where A's racks sit behind the stalls as a pale patch. Honest note: the crane is the tallest thing on the quay and shows clearly at the match camera's top left. It first read as a thin grey mast with its jib foreshortened, and its load as a yellow ball. The nets were first in the net teal, which went grey in the air.</p>
+  </section>
+
   <section class="panel" aria-labelledby="cw18-h" id="worldcanyon18">
     <div class="eyebrow">Built A (the owner's pick) &middot; new art, step 5: world detail, the canyon (W-C)</div>
     <h2 id="cw18-h">A halt on the far railway</h2>
@@ -2074,5 +2090,15 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
   group("data-cw18v", function (v) { cw18v = v; }, cw18render);
   group("data-cw18o", function (v) { cw18o = v; }, cw18render);
   cw18render();
+  var bw19v = "w", bw19o = "B";
+  var BW19O = { T: "Today", A: "A \u00b7 Crane and net racks", B: "B \u00b7 Crane and nets on the wall" };
+  function bw19render() {
+    document.getElementById("bw19img").src = "bw19_" + bw19o + "_" + bw19v + ".jpg";
+    document.getElementById("bw19tag").textContent = "Beach \u00b7 " + BW19O[bw19o] + (bw19v === "w" ? " \u00b7 wide" : " \u00b7 match camera");
+    pressed("data-bw19v", bw19v); pressed("data-bw19o", bw19o);
+  }
+  group("data-bw19v", function (v) { bw19v = v; }, bw19render);
+  group("data-bw19o", function (v) { bw19o = v; }, bw19render);
+  bw19render();
 })();
 </script>
