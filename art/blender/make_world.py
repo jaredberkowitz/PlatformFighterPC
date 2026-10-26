@@ -4,6 +4,7 @@
     A  a working pier: a fishing boat moored along the far boardwalk with lines to its posts, nets hung on its rail, fish crates;
     B  harbour life: a rowboat tied off the dock's left end (its gulls taken out: no animals in the backgrounds, the owner);
     C  the town at work: market awnings and townsfolk on the quay, bunting, chimney smoke.
+    M  moored rowboats (new art toward 5, B2): one each side tied to the foreground's mooring posts (`--moored B` a second, nets)
     W  quay life (new art toward 5, W-B): a timber derrick crane on the quay's east end with a cargo net over the water, nets
        drying on racks (`--nets wall`: hung down the quay's face with their floats)
   sunset (the canyon, a desert crossing at dusk)
@@ -439,6 +440,51 @@ def market():
             card([a, b, m], ("flag_a", "flag_b", "flag_c")[(k + seg) % 3], "flag", thick=0.01)
     smoke_column((bx + 3.0, SEA + 10.0, -108.0), 6, 0.9, rng)
     smoke_column((bx - 9.0, SEA + 9.0, -105.0), 5, 0.8, rng)
+
+
+def rotated(pivot, angle, build, *args):
+    """Runs `build` and turns what it made `angle` radians about the vertical through `pivot` (game coordinates)."""
+    before = set(bpy.data.objects)
+    build(*args)
+    c = P(*pivot)
+    m = Matrix.Rotation(angle, 3, "Z")
+    for o in [o for o in bpy.data.objects if o not in before and o.type == "MESH"]:
+        for v in o.data.vertices:
+            v.co = c + m @ (v.co - c)
+
+
+def moored_boat(x, z, angle, nets, rng):
+    """A rowboat at (x, z) turned `angle`, with nets heaped in it (`nets`)."""
+    def build():
+        rowboat(x, z)
+        if nets:
+            bm = bmesh.new()
+            bmesh.ops.create_icosphere(bm, subdivisions=2, radius=1.0, matrix=Matrix.Translation(P(x - 0.9, SEA + 0.5, z)) @ Matrix.Diagonal((0.55, 0.35, 0.25, 1.0)))
+            ob("boat_net", bm, "net", smooth=True)
+    rotated((x, SEA, z), angle, build)
+
+
+def beach_moored():
+    """B2 (the owner's approval 2026-10-26): rowboats moored to the mooring posts beside the dock's foreground landings
+    (StageArt._dock_harbour: the posts at x 16.8 and 18.2 either side, z about 11), outside them, clear of the fight, each bow tied to the
+    outer post with a rope, rising on the swell; with `--moored B` a second boat rafted to the right one and nets heaped in them."""
+    rng = random.Random(53)
+    two = opts.get("moored", "A").upper() == "B"
+    for side in (-1.0, 1.0):
+        # (Behind the posts, the bow angled in to the outer one: in front of them, at z 12.8, the frame's bottom corners cut the boats.)
+        # (The rowboat's bow is at its +x end.)
+        bx, bz = side * 21.0, 7.5
+        ang = (math.pi + 0.5) if side > 0 else -0.5
+        moving("bob", (bx, SEA, bz), scaled, (bx, SEA, bz), 1.3, moored_boat, bx, bz, ang, two, rng)
+        bm = bmesh.new()
+        tube(bm, (side * 19.5, SEA + 0.75, 8.8), (side * 18.3, SEA + 2.4, 10.6), 0.04, segs=5)
+        ob("boat_rope", bm, "rope", smooth=True)
+    if two:
+        bx, bz = 23.5, 4.5
+        moving("bob", (bx, SEA, bz), scaled, (bx, SEA, bz), 1.3, moored_boat, bx, bz, math.pi + 0.2, True, rng)
+        bm = bmesh.new()
+        tube(bm, (22.3, SEA + 0.7, 5.6), (21.8, SEA + 0.7, 6.6), 0.04, segs=5)
+        ob("boat_rope", bm, "rope", smooth=True)
 
 
 def beach_w():
@@ -1487,7 +1533,7 @@ def grove_l():
         moving("firefly", at, bulb, at, 0.16, "firefly")
 
 
-BUILDS = {("ocean", "A"): beach_a, ("ocean", "B"): beach_b, ("ocean", "C"): beach_c, ("ocean", "W"): beach_w,
+BUILDS = {("ocean", "A"): beach_a, ("ocean", "B"): beach_b, ("ocean", "C"): beach_c, ("ocean", "W"): beach_w, ("ocean", "M"): beach_moored,
           ("sunset", "A"): canyon_a, ("sunset", "B"): canyon_b, ("sunset", "C"): canyon_c, ("sunset", "W"): canyon_w,
           ("meadow", "A"): meadow_a, ("meadow", "B"): meadow_b, ("meadow", "C"): meadow_c, ("meadow", "W"): meadow_w,
           ("grove", "A"): grove_a, ("grove", "B"): grove_b, ("grove", "C"): grove_c,

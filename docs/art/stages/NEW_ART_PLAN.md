@@ -268,3 +268,13 @@ the meadow.
 Built B (the owner's pick, 2026-10-26): `godot/models/stages/meadow_ground.glb` and `meadow_pines.glb` rebuilt with `--stream B`, the
 meadow re-lit (front, play, ground). Before and after (the hill's right flank, wide): `review11/meadow_stream_built.jpg`. All seven
 tests pass.
+
+### B2, the beach's moored boats (mock, 2026-10-26)
+
+`make_world.py --variant ABWM` (`beach_moored`, `moored_boat`, `rotated`): the post positions read from the wide camera's depth (the
+foreground landings' mooring posts at x 16.8 and 18.2 either side, z about 11; `StageArt._dock_harbour`); a rowboat (1.3, rowboat size)
+behind each pair at x 21, z 7.5, its bow angled in to the outer post with a rope, bobbing (`move_bob`). B (`--moored B`) adds a second
+boat rafted to the right one and nets heaped in them. A first placement at z 12.8, in front of the posts, was cut by the frame's bottom
+corners. The match camera doesn't see them; P1's gap 0.181 today, 0.182 A, 0.180 B. On the Stage Look Review ("boats27", `mb27_*`);
+recommended A. To ship: rebuild `godot/models/stages/beach_world.glb` with `--theme ocean --variant ABWM --nets wall --moored A` (no
+re-light).

@@ -88,6 +88,22 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
     <p>Two lessons from the reference screenshots, mocked from the match camera: the scenery without ink outlines, its edges lit as card bevels instead, and the paper houses rebuilt at the characters' proportions. The earlier rounds stay on the <a href="https://claude.ai/artifact/D1du6MREVumiJDrEdNypW4">Stage Fidelity Review</a>, which is full.</p>
   </header>
 
+  <section class="panel" aria-labelledby="mb27-h" id="boats27">
+    <div class="eyebrow">Your call is needed &middot; new art (approved 26 October), B2: the beach's moored boats</div>
+    <h2 id="mb27-h">Rowboats at the mooring posts</h2>
+    <p>First, the meadow's stream is built and the meadow re-lit (see its section below). Next, the beach. A rowboat lies behind each pair of the foreground's mooring posts, outside them and clear of the fight, its bow angled in to the outer post with a rope, rising and rolling on the swell. They're rowboat size, oars shipped.</p>
+    <div class="tablewrap"><table><thead><tr><th>Option</th><th>What changes</th></tr></thead><tbody>
+      <tr><td>A &middot; Two boats</td><td>One rowboat at each pair of posts</td></tr>
+      <tr><td>B &middot; Three, with nets</td><td>A, with a second boat rafted to the right one and nets heaped in them</td></tr>
+    </tbody></table></div>
+    <p>The left posts (today, then A) on top and the right posts (today, then B) below, at the wide camera. The match camera doesn't see them. P1's gap holds (0.181 today, 0.182 A, 0.180 B).</p>
+    <div class="viewer"><img src="mb27_close.jpg" alt="The beach's mooring posts today and with rowboats"></div>
+    <div class="row" role="group" aria-label="View"><button data-mb27v="m">Match camera</button><button data-mb27v="w">Wide</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-mb27o="T">Today</button><button data-mb27o="A">A &middot; Two boats</button><button data-mb27o="B">B &middot; Three, with nets</button></div>
+    <div class="viewer"><img id="mb27img" alt="Beach boats option"><span class="vtag" id="mb27tag"></span></div>
+    <p class="muted">My pick: <b>A</b>. The posts finally hold something, and one boat each side frames the dock evenly. B's nets read as grey lumps, and its pair of boats makes the right corner busier than the left. Honest note: the mooring ropes are thin and hardly show. A first placement in front of the posts was cut by the frame's bottom corners.</p>
+  </section>
+
   <section class="panel" aria-labelledby="st26-h" id="stream26">
     <div class="eyebrow">Built B (the owner's pick) &middot; new art (approved 26 October), M2: the meadow's stream and footbridge</div>
     <h2 id="st26-h">A stream down the terraces</h2>
@@ -2314,5 +2330,15 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
   group("data-st26v", function (v) { st26v = v; }, st26render);
   group("data-st26o", function (v) { st26o = v; }, st26render);
   st26render();
+  var mb27v = "w", mb27o = "A";
+  var MB27O = { T: "Today", A: "A \u00b7 Two boats", B: "B \u00b7 Three, with nets" };
+  function mb27render() {
+    document.getElementById("mb27img").src = "mb27_" + mb27o + "_" + mb27v + ".jpg";
+    document.getElementById("mb27tag").textContent = "Beach \u00b7 " + MB27O[mb27o] + (mb27v === "w" ? " \u00b7 wide" : " \u00b7 match camera");
+    pressed("data-mb27v", mb27v); pressed("data-mb27o", mb27o);
+  }
+  group("data-mb27v", function (v) { mb27v = v; }, mb27render);
+  group("data-mb27o", function (v) { mb27o = v; }, mb27render);
+  mb27render();
 })();
 </script>
