@@ -88,6 +88,24 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
     <p>Two lessons from the reference screenshots, mocked from the match camera: the scenery without ink outlines, its edges lit as card bevels instead, and the paper houses rebuilt at the characters' proportions. The earlier rounds stay on the <a href="https://claude.ai/artifact/D1du6MREVumiJDrEdNypW4">Stage Fidelity Review</a>, which is full.</p>
   </header>
 
+  <section class="panel" aria-labelledby="ln22-h" id="lanes22">
+    <div class="eyebrow">Your call is needed &middot; review 11, item 2: the meadow's lanes</div>
+    <h2 id="ln22-h">The meadow's lanes in earth, not cream</h2>
+    <p>First, the canyon's jointed front is built and the canyon re-lit (see its section below). Next, the meadow. The lanes down its terraces are cream ribbons, the brightest thing in its lower third (value 0.84 against the fields' 0.53). This changes only their colour; nothing is added.</p>
+    <div class="tablewrap"><table><thead><tr><th>Option</th><th>The lane</th><th>Its value (right lane, wide)</th></tr></thead><tbody>
+      <tr><td>Today</td><td>Cream</td><td>0.84</td></tr>
+      <tr><td>A &middot; Track dust</td><td>A pale warm dust</td><td>0.79</td></tr>
+      <tr><td>B &middot; Trodden earth</td><td>A deeper tan</td><td>0.74</td></tr>
+      <tr><td>C &middot; Farmyard earth</td><td>The farmyard's own brown earth</td><td>0.67</td></tr>
+    </tbody></table></div>
+    <p>The left lane past the farm and the right lane at the wide camera, today then C. P1's gap holds (0.012 today, 0.014 A and B, 0.018 C).</p>
+    <div class="viewer"><img src="ln22_close.jpg" alt="The meadow's lanes today and in the farmyard's earth"></div>
+    <div class="row" role="group" aria-label="View"><button data-ln22v="m">Match camera</button><button data-ln22v="w">Wide</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-ln22o="T">Today</button><button data-ln22o="A">A &middot; Track dust</button><button data-ln22o="B">B &middot; Trodden earth</button><button data-ln22o="C">C &middot; Farmyard earth</button></div>
+    <div class="viewer"><img id="ln22img" alt="Meadow lane option"><span class="vtag" id="ln22tag"></span></div>
+    <p class="muted">My pick: <b>C</b>. The lanes read as dirt farm tracks that belong to the land, in the same earth as the farmyard, and they stop pulling the eye. A and B are still pale stripes. Honest note: the lanes are still broken where they cross each terrace wall. Joining them is a change to the land model, left for later. The grass strip down their middle shows more against the earth.</p>
+  </section>
+
   <section class="panel" aria-labelledby="cm21-h" id="canyonmass21">
     <div class="eyebrow">Built A (the owner's pick) &middot; review 11, item 1: the canyon's front</div>
     <h2 id="cm21-h">The canyon's front as jointed rock</h2>
@@ -2180,5 +2198,15 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
   group("data-cm21v", function (v) { cm21v = v; }, cm21render);
   group("data-cm21o", function (v) { cm21o = v; }, cm21render);
   cm21render();
+  var ln22v = "w", ln22o = "C";
+  var LN22O = { T: "Today", A: "A \u00b7 Track dust", B: "B \u00b7 Trodden earth", C: "C \u00b7 Farmyard earth" };
+  function ln22render() {
+    document.getElementById("ln22img").src = "ln22_" + ln22o + "_" + ln22v + ".jpg";
+    document.getElementById("ln22tag").textContent = "Meadow \u00b7 " + LN22O[ln22o] + (ln22v === "w" ? " \u00b7 wide" : " \u00b7 match camera");
+    pressed("data-ln22v", ln22v); pressed("data-ln22o", ln22o);
+  }
+  group("data-ln22v", function (v) { ln22v = v; }, ln22render);
+  group("data-ln22o", function (v) { ln22o = v; }, ln22render);
+  ln22render();
 })();
 </script>

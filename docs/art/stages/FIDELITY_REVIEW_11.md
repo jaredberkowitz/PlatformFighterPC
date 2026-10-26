@@ -65,3 +65,11 @@ Built A (the owner's pick): `godot/models/stages/canyon_front.glb` rebuilt with 
 `--curve 4.0 --reach 4.5 --floor 0.28` after a fresh `--light-export`). Measured in the game: the front's value 0.37 at the match camera
 (contrast 0.066 there, where the top two beds fill the region) and 0.41 wide (contrast 0.091 to 0.120); P1's gap 0.046. Before and
 after (wide): `review11/canyon_front_built.jpg`. All seven tests pass (the runner's known flake once, then a pass).
+
+## Item 2, the meadow's lanes (mock, 2026-10-26)
+
+`StageBake._ground_colours`: the palette's [backdrop] `lane_look` or `--lane=A|B|C` sets the lane family (`lane`, `card_lane`), today
+cream (0.95, 0.91, 0.74). A track dust (0.84, 0.74, 0.54), B trodden earth (0.74, 0.62, 0.44), C the farmyard's earth (0.62, 0.5,
+0.34). The right lane's value at the wide camera: 0.84 today, 0.79 A, 0.74 B, 0.67 C (the fields round it 0.53). P1's gap 0.012 today,
+0.014 A and B, 0.018 C. The lanes stay broken at each terrace wall (joining them is a land-model change). On the Stage Look Review
+("lanes22", `ln22_*`); recommended C. To ship: meadow.cfg [backdrop] `lane_look="C"` (code colour, no re-light).
