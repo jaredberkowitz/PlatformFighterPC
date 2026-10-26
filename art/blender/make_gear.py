@@ -173,7 +173,8 @@ def aviator_cap():
             a = math.tau * i / seg_u
             front = max(0.0, -math.sin(a))             # 1 at the face (-y)
             # Lower at the back and sides, up over the brow in front.
-            low = math.radians(100.0) - math.radians(28.0) * front ** 1.5
+            # (Lifted further at the front, 2026-10-26: when the head tipped forward in the air the fleece roll came down over the eyes.)
+            low = math.radians(100.0) - math.radians(40.0) * front ** 1.5
             ph = min(phi, low) if j == seg_v else phi * (low / math.radians(88.0))
             # (Well clear of the head: the fighter's head is an oval the design sphere only approximates, and 0.045 off it sank in.)
             # (On the built cap's own ellipsoid, centred high on the head, so it clears the face shell and the oval head everywhere.)
@@ -275,11 +276,13 @@ def aviator_cap():
     # back of the hat.)
     def shell_r(z):
         return 0.9 * math.sqrt(max(0.0, 1.0 - ((z - 1.52) / 1.1) ** 2))
-    lathe(bm, [(shell_r(1.98) + 0.045, 1.98), (shell_r(2.08) + 0.045, 2.08)])   # (clear of the shell's dents, _lumpy)
+    # (Up a step with the raised front, 2026-10-26.)
+    lathe(bm, [(shell_r(2.08) + 0.045, 2.08), (shell_r(2.18) + 0.045, 2.18)])   # (clear of the shell's dents, _lumpy)
     to_object("leather_band", bm, sharp=60.0).parent = root
     for sx in (-1.0, 1.0):
-        centre = Vector((sx * 0.3, -0.86, 2.06))
-        tilt = Matrix.Rotation(math.radians(-28.0), 3, "X")
+        # (Higher and laid back on the dome, 2026-10-26: their lower rims sat at the brow and covered the eyes with the head tipped.)
+        centre = Vector((sx * 0.3, -0.81, 2.16))
+        tilt = Matrix.Rotation(math.radians(-36.0), 3, "X")
         bm = bmesh.new()
         sides, minor = 28, 10
         rows = []
