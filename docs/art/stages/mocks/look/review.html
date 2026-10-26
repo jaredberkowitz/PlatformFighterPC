@@ -88,6 +88,22 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
     <p>Two lessons from the reference screenshots, mocked from the match camera: the scenery without ink outlines, its edges lit as card bevels instead, and the paper houses rebuilt at the characters' proportions. The earlier rounds stay on the <a href="https://claude.ai/artifact/D1du6MREVumiJDrEdNypW4">Stage Fidelity Review</a>, which is full.</p>
   </header>
 
+  <section class="panel" aria-labelledby="yw20-h" id="worldcity20">
+    <div class="eyebrow">Your call is needed &middot; new art, step 5: world detail, the city (W-Ci)</div>
+    <h2 id="yw20-h">Life on the city's roofs</h2>
+    <p>First, the beach's working quay is built (see its section below). Last, the city. Its street has its traffic and crossing, and one roof has its party and the billboard. The plan's rooftop life on the towers is what it lacks. The towers are built by code, so I read their real roofs from the wide camera's depth and put each thing on a roof that is there, at true size.</p>
+    <div class="tablewrap"><table><thead><tr><th>Option</th><th>What changes</th></tr></thead><tbody>
+      <tr><td>A &middot; Water tanks</td><td>Wooden water tanks (stave barrels bound in hoops, cone caps, on legs) on three roofs: the near flat roof left of the stage, the top of the stepped tower on the right, and a middle-row tower on the left</td></tr>
+      <tr><td>B &middot; And lit roofs</td><td>A, but the near flat roof gets a small penthouse with two lit windows and a rail, its tank beside it; and a rooftop garden (planters, a pergola, string lights) on a middle-row roof</td></tr>
+    </tbody></table></div>
+    <p>The left and right skyline at the wide camera: today, then B. P1's gap holds (0.134 today, 0.133 A, 0.135 B).</p>
+    <div class="viewer"><img src="yw20_close.jpg" alt="The city's rooftops today and with water tanks and a lit penthouse"></div>
+    <div class="row" role="group" aria-label="View"><button data-yw20v="m">Match camera</button><button data-yw20v="w">Wide</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-yw20o="T">Today</button><button data-yw20o="A">A &middot; Water tanks</button><button data-yw20o="B">B &middot; And lit roofs</button></div>
+    <div class="viewer"><img id="yw20img" alt="City world option"><span class="vtag" id="yw20tag"></span></div>
+    <p class="muted">My pick: <b>B</b>. The tanks give the skyline the city's classic rooftop silhouette, and the penthouse's two lit windows add a home up there, visible at the match camera above the play roof's tank. Honest note: B's rooftop garden is too small and far to read at either camera. It costs nothing, but it adds nothing either.</p>
+  </section>
+
   <section class="panel" aria-labelledby="bw19-h" id="worldbeach19">
     <div class="eyebrow">Built B (the owner's pick) &middot; new art, step 5: world detail, the beach (W-B)</div>
     <h2 id="bw19-h">A working quay</h2>
@@ -2100,5 +2116,15 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
   group("data-bw19v", function (v) { bw19v = v; }, bw19render);
   group("data-bw19o", function (v) { bw19o = v; }, bw19render);
   bw19render();
+  var yw20v = "w", yw20o = "B";
+  var YW20O = { T: "Today", A: "A \u00b7 Water tanks", B: "B \u00b7 And lit roofs" };
+  function yw20render() {
+    document.getElementById("yw20img").src = "yw20_" + yw20o + "_" + yw20v + ".jpg";
+    document.getElementById("yw20tag").textContent = "City \u00b7 " + YW20O[yw20o] + (yw20v === "w" ? " \u00b7 wide" : " \u00b7 match camera");
+    pressed("data-yw20v", yw20v); pressed("data-yw20o", yw20o);
+  }
+  group("data-yw20v", function (v) { yw20v = v; }, yw20render);
+  group("data-yw20o", function (v) { yw20o = v; }, yw20render);
+  yw20render();
 })();
 </script>

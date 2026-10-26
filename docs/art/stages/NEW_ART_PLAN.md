@@ -212,3 +212,14 @@ P1's gap 0.178 today, 0.177 A, 0.180 B. On the Stage Look Review ("worldbeach19"
 Built B (the owner's pick, 2026-10-26): `godot/models/stages/beach_world.glb` rebuilt with `--theme ocean --variant ABW --nets wall`.
 Before and after (the quay, match camera): `review10/beach_world_built.jpg`. All seven tests pass (the runner's known flake once, then
 a pass).
+
+### Step 5, world detail on the city (mock)
+
+The street has its traffic and crossing, one roof its party and the billboard; the towers' rooftop life is what the city lacks. The
+towers are code-built (`StageArt._skyline_layer`), so their roofs were read from the wide camera's depth (`--depth`, traced column by
+column): the near layer's roofs at z -50 to -54, the middle layer's at -82 to -85, all narrow. `make_world.py --variant ABW`
+(`city_w`, `roof_tank`): A, wooden water tanks on the near flat roof (x -15.4, y 6.8), the stepped tower's top (43.3, 15.2) and a
+middle-row tower (-58, 16); B (`--roofs life`), the near flat roof with a small penthouse, two lit windows and a rail, its tank beside
+it, and a rooftop garden under string lights on a middle-row roof (-68.9, 0.3), which is too small and far to read. P1's gap 0.134
+today, 0.133 A, 0.135 B. On the Stage Look Review ("worldcity20", `yw20_*`); recommended B. To ship: rebuild
+`godot/models/stages/city_world.glb` with `--theme city --variant ABW --people round --roofs life` (no re-light).

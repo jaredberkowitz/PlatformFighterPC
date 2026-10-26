@@ -17,6 +17,8 @@
           bonfire's smoke rising from a far field, both seated on the shipped ground
   grove   A a far tree village (great trees with lit huts and rope bridges), B festival gates and streamers, C floating islets
   city    A street traffic (a bus, people), B a billboard and a rooftop party, C an elevated train
+          W rooftop life (new art toward 5, W-Ci): wooden water tanks on the near and middle roofs; `--roofs life` a lit penthouse
+          and a rooftop garden under string lights
   L  (every stage that has them) new living things: the grove's fireflies.
 No animals in the backgrounds (the owner, 2026-10-21: at the sizes that read they never looked believable beside the rest); what is far is
 built at its true size, as the cottages are, and takes the stage's air in the game.
@@ -1392,6 +1394,65 @@ def city_b():
         moving("dance", at, figure, at, 1.6, rng.choice(("coat_a", "coat_b", "coat_c")), rng)
 
 
+def roof_tank(x, y, z, r=0.9):
+    """A rooftop water tank: a stave barrel bound in hoops on a low frame of legs, under a cone cap."""
+    legs = r * 1.4
+    bm = bmesh.new()
+    for (dx, dz) in ((-0.7, -0.7), (0.7, -0.7), (-0.7, 0.7), (0.7, 0.7)):
+        tube(bm, (x + dx * r, y, z + dz * r), (x + dx * r, y + legs, z + dz * r), 0.07 * r + 0.03, segs=5)
+    ob("roof_tank_legs", bm, "iron", smooth=True)
+    bm = bmesh.new()
+    kit.lathe(bm, [(r, 0.0), (r * 1.04, r * 1.2), (r, r * 2.4)], 16)
+    for v in bm.verts:
+        v.co = P(x + v.co.x, y + legs + v.co.z, z - v.co.y)
+    ob("roof_tank", bm, "tank", smooth=True)
+    bm = bmesh.new()
+    kit.lathe(bm, [(r * 1.08, 0.0), (0.0, r * 0.8)], 16)
+    for v in bm.verts:
+        v.co = P(x + v.co.x, y + legs + r * 2.4 + v.co.z, z - v.co.y)
+    ob("roof_tank_cap", bm, "tank_dark", smooth=True)
+    bm = bmesh.new()
+    for hy in (0.5, 1.2, 1.9):
+        kit.torus(bm, P(x, y + legs + r * hy, z), Vector((0.0, 0.0, 1.0)), r * 1.05, 0.03, segs=16, rsegs=4)
+    ob("roof_tank_hoops", bm, "iron", smooth=True)
+
+
+def city_w():
+    # Rooftop life (new art toward 5, W-Ci) on roofs read from the wide camera's depth (the near layer's roofs at z -50 to -54, the middle
+    # layer's at -82 to -85): wooden water tanks; with `--roofs life` a lit penthouse on the near flat roof and a rooftop garden under
+    # string lights on the middle layer.
+    life = opts.get("roofs", "") == "life"
+    if life:
+        x0, x1, y, z0, z1 = -17.0, -14.7, 6.8, -53.4, -50.8
+        boxg(x0, x1, y, y + 2.0, z0, z1, "board_back", "penthouse")
+        boxg(x0 - 0.2, x1 + 0.2, y + 2.0, y + 2.2, z0 - 0.2, z1 + 0.3, "board_frame", "penthouse_roof")
+        for wx in (x0 + 0.5, x1 - 0.5):
+            boxg(wx - 0.35, wx + 0.35, y + 0.7, y + 1.6, z1, z1 + 0.05, "window", "penthouse_window")
+        boxg(x0 - 0.1, x1 + 0.1, y, y + 0.9, z1 + 0.5, z1 + 0.6, "iron", "penthouse_rail")
+        roof_tank(-14.0, 6.8, -52.6, 0.6)
+    else:
+        roof_tank(-15.4, 6.8, -52.0, 0.85)
+    roof_tank(43.3, 15.2, -52.2, 0.85)
+    roof_tank(-58.0, 16.0, -81.6, 0.8)
+    if life:
+        # The garden: planter boxes of round bushes, a pergola, a string of lights over it.
+        gx, gy, gz = -68.9, 0.3, -83.9
+        for (px, pw) in ((-0.9, 0.9), (0.6, 1.1)):
+            boxg(gx + px - pw / 2, gx + px + pw / 2, gy, gy + 0.45, gz - 0.4, gz + 0.4, "timber_dark", "planter")
+            bm = bmesh.new()
+            for k in range(2):
+                bmesh.ops.create_icosphere(bm, subdivisions=1, radius=0.35, matrix=Matrix.Translation(P(gx + px + (k - 0.5) * pw * 0.5, gy + 0.75, gz)))
+            ob("garden_bush", bm, "turf", smooth=True)
+        bm = bmesh.new()
+        for dx in (-1.3, 1.3):
+            tube(bm, (gx + dx, gy, gz + 0.9), (gx + dx, gy + 2.0, gz + 0.9), 0.06, segs=5)
+        ob("pergola", bm, "timber", smooth=True)
+        for k in range(6):
+            t = k / 5.0
+            moving("twinkle", (gx - 1.3 + 2.6 * t, gy + 1.9 - math.sin(t * math.pi) * 0.35, gz + 0.9), bulb,
+                   (gx - 1.3 + 2.6 * t, gy + 1.9 - math.sin(t * math.pi) * 0.35, gz + 0.9), 0.12)
+
+
 def bulb(at, r=0.16, fam="window"):
     bm = bmesh.new()
     bmesh.ops.create_icosphere(bm, subdivisions=1, radius=r, matrix=Matrix.Translation(P(*at)))
@@ -1430,7 +1491,7 @@ BUILDS = {("ocean", "A"): beach_a, ("ocean", "B"): beach_b, ("ocean", "C"): beac
           ("sunset", "A"): canyon_a, ("sunset", "B"): canyon_b, ("sunset", "C"): canyon_c, ("sunset", "W"): canyon_w,
           ("meadow", "A"): meadow_a, ("meadow", "B"): meadow_b, ("meadow", "C"): meadow_c, ("meadow", "W"): meadow_w,
           ("grove", "A"): grove_a, ("grove", "B"): grove_b, ("grove", "C"): grove_c,
-          ("city", "A"): city_a, ("city", "B"): city_b, ("city", "C"): city_c,
+          ("city", "A"): city_a, ("city", "W"): city_w, ("city", "B"): city_b, ("city", "C"): city_c,
           ("grove", "L"): grove_l}
 # The ground the occlusion bake lays under each stage's pieces.
 FLOORS = {"ocean": SEA, "sunset": FLOOR, "meadow": -20.0, "grove": -12.0, "city": -13.5}
