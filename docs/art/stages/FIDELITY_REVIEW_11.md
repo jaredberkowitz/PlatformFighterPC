@@ -89,3 +89,12 @@ C; P1's gap 0.181 today, 0.182 A, 0.179 B, 0.176 C. On the Stage Look Review ("n
 
 Built C (the owner's pick): ocean.cfg [backdrop] `sea_near=[1.25, 1.0]`. In the game the foot measures value 0.44 at the wide camera.
 Before and after (the lower half, wide): `review11/beach_near_sea_built.jpg`. All seven tests pass.
+
+## Item 4, the grove's abyss (mock, 2026-10-26)
+
+`make_grove_paper.py --deep A|B` on the shipped land (`--variant H --rock shaped --abyss mist --valley none --falls 3 --mist 3 --roots
+long`): A the nearest mist's front in sheets 30 to 70 across, each 5 in to 4 out and 0.5 down to 0.4 up, closed with side cuts; the near
+abyss sheet laid in 4-unit rows so its tone can deepen under the island (to 0.6) and toward the frame's foot (to 0.72). B also tones
+each mist sheet, 1.1 at its cut edge and 0.82 behind. Measured (all three built fresh and unlit, as mocks are): under the island value
+0.28 to 0.26, the abyss either side within 0.02; P1's gap 0.056 today, 0.061 A, 0.059 B. On the Stage Look Review ("abyss24",
+`ab24_*`); recommended A. To ship: rebuild `godot/models/stages/grove_paper.glb` with `--deep A`, then re-light the grove.

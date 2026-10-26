@@ -88,6 +88,22 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
     <p>Two lessons from the reference screenshots, mocked from the match camera: the scenery without ink outlines, its edges lit as card bevels instead, and the paper houses rebuilt at the characters' proportions. The earlier rounds stay on the <a href="https://claude.ai/artifact/D1du6MREVumiJDrEdNypW4">Stage Fidelity Review</a>, which is full.</p>
   </header>
 
+  <section class="panel" aria-labelledby="ab24-h" id="abyss24">
+    <div class="eyebrow">Your call is needed &middot; review 11, item 4: the grove's abyss</div>
+    <h2 id="ab24-h">Depth in the grove's abyss</h2>
+    <p>First, the beach's near sea is built (see its section below). Last of review 11's list, the grove. Its abyss was flat purple with soft blotches, and the nearest mist's front was one long wavy line across the whole frame. This refines the abyss and mist sheets that are there; nothing is added.</p>
+    <div class="tablewrap"><table><thead><tr><th>Option</th><th>What changes</th></tr></thead><tbody>
+      <tr><td>A &middot; Stepped mist</td><td>The nearest mist's front broken into sheets 30 to 70 across, each further in or out and a little higher or lower, with its own cut edge; the abyss shaded deeper under the island and toward the frame's foot</td></tr>
+      <tr><td>B &middot; And lit lips</td><td>A, with each sheet lighter at its cut edge and deeper behind it</td></tr>
+    </tbody></table></div>
+    <p>The abyss at the wide camera, left then right of the island (today, then A). The region under the island goes from value 0.28 to 0.26; the rest moves by 0.01 or 0.02. P1's gap holds (0.056 today, 0.061 A, 0.059 B).</p>
+    <div class="viewer"><img src="ab24_close.jpg" alt="The grove's abyss today and with the mist in stepped sheets"></div>
+    <div class="row" role="group" aria-label="View"><button data-ab24v="m">Match camera</button><button data-ab24v="w">Wide</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-ab24o="T">Today</button><button data-ab24o="A">A &middot; Stepped mist</button><button data-ab24o="B">B &middot; And lit lips</button></div>
+    <div class="viewer"><img id="ab24img" alt="Grove abyss option"><span class="vtag" id="ab24tag"></span></div>
+    <p class="muted">My pick: <b>A</b>. The mist reads as layered sheets at different depths, as the plan asked, instead of one line ruled across the frame. B can't be told from A at either camera. Honest note: it's a modest gain. The blotchy purple under the mist (its painted variation) stays, and shipping means rebuilding the grove's paper land and re-lighting the grove.</p>
+  </section>
+
   <section class="panel" aria-labelledby="ns23-h" id="nearsea23">
     <div class="eyebrow">Built C (the owner's pick) &middot; review 11, item 3: the beach's near sea</div>
     <h2 id="ns23-h">Deeper water at the frame's foot</h2>
@@ -2236,5 +2252,15 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
   group("data-ns23v", function (v) { ns23v = v; }, ns23render);
   group("data-ns23o", function (v) { ns23o = v; }, ns23render);
   ns23render();
+  var ab24v = "w", ab24o = "A";
+  var AB24O = { T: "Today", A: "A \u00b7 Stepped mist", B: "B \u00b7 And lit lips" };
+  function ab24render() {
+    document.getElementById("ab24img").src = "ab24_" + ab24o + "_" + ab24v + ".jpg";
+    document.getElementById("ab24tag").textContent = "Grove \u00b7 " + AB24O[ab24o] + (ab24v === "w" ? " \u00b7 wide" : " \u00b7 match camera");
+    pressed("data-ab24v", ab24v); pressed("data-ab24o", ab24o);
+  }
+  group("data-ab24v", function (v) { ab24v = v; }, ab24render);
+  group("data-ab24o", function (v) { ab24o = v; }, ab24render);
+  ab24render();
 })();
 </script>
