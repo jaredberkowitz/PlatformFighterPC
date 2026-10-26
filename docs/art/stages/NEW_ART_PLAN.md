@@ -168,3 +168,66 @@ behind the barn at -38.5 it was hidden, at -32 it stood on the slope) and a bonf
 (-58, -105; right of the stage its smoke ran into the far cottage's). Rebuilding the world also re-seats the scarecrow and washing on
 the terraced ground, where today's model has them buried. P1's gap 0.052, as before. On the Stage Look Review ("worldmeadow16",
 `wm16_*`); recommended shipping it. To ship: rebuild `godot/models/stages/meadow_world.glb` with `--variant BCW` (no re-light).
+
+Built (the owner's pick, 2026-10-26): `godot/models/stages/meadow_world.glb` rebuilt with `--theme meadow --variant BCW` (world
+models take no light bake). Before and after (the farmyard and the far field): `review10/meadow_world_built.jpg`. All seven tests pass.
+
+### Step 5, world detail on the grove (mock)
+
+The grove's far tree village (`grove_a`: huts on four great trunks, rope bridges) has stood since the 21 October world round, low on
+the trunks; since the modelled forest the nearer pines hide it (only a scrap of one bridge shows at the wide camera). So nothing new:
+`make_world.py --village high|lanterns` lifts each hut to its trunk's open stretch, just under its own crown (`height * 0.5 - 4`; a
+fixed lift put the short trees' huts inside their crowns), every hut on its trunk's outer side (on the inner side the right ones stayed
+behind a pine); `lanterns` also hangs three lit lanterns along each bridge. Far off the match camera: P1's gap 0.055 today, 0.063 to
+0.064 with the options (pose noise). On the Stage Look Review ("worldgrove17", `gw17_*`); recommended B. To ship: rebuild
+`godot/models/stages/grove_world.glb` with `--theme grove --variant ABL --streamers shide --village lanterns` (no re-light).
+
+Built B (the owner's pick, 2026-10-26): `godot/models/stages/grove_world.glb` rebuilt with `--theme grove --variant ABL --streamers
+shide --village lanterns`. Before and after (the far left and right, wide): `review10/grove_world_built.jpg`. All seven tests pass (the
+runner's known "the way out" flake once, then a pass).
+
+### Step 5, world detail on the canyon (mock)
+
+The far trestle, its train and the water tower already stand (`canyon_a`, `--trestle far`), so the canyon gets what the plan named that
+it lacks. `make_world.py --variant AW` (`canyon_w`): A, a halt at the water tower at the trestle's deck height (a plank platform on
+stilts, a station house with a red gable roof, a lit window and a signboard, a stair down, crates and a bench); B (`--road dust`), with
+a dirt road from it out to the horizon and a truck coming in, raising its dust (sandy card puffs, curling as smoke). B's road and truck
+stay behind the near butte, and its dust shows only as a wisp over the left platform, close to P1's tag. P1's gap 0.043 today, 0.045 A,
+0.044 B. On the Stage Look Review ("worldcanyon18", `cw18_*`); recommended A. To ship: rebuild `godot/models/stages/canyon_world.glb`
+with `--theme sunset --variant AW --trestle far` (no re-light).
+
+Built A (the owner's pick, 2026-10-26): `godot/models/stages/canyon_world.glb` rebuilt with `--theme sunset --variant AW --trestle
+far`. Before and after (the tower and the halt, wide): `review10/canyon_world_built.jpg`. All seven tests pass.
+
+### Step 5, world detail on the beach (mock)
+
+The quay (`StageArt._harbour_town`) already has its stalls and warehouse, so the beach gets the crane and the drying nets.
+`make_world.py --variant ABW` (`beach_w`): a timber derrick crane on the quay's free east end (x -35), its jib swung out sideways over
+the water with a pallet of crates slung from it; A, nets drying on racks between the stalls and the warehouse; B (`--nets wall`), hung
+down the quay's face with red floats along their tops. First tries: a 8.5-tall crane with thin spars and its jib toward the camera read
+as a grey mast with a stub; a net bag round the load read as a yellow ball; nets in the net teal went grey in the air (now rope tan).
+P1's gap 0.178 today, 0.177 A, 0.180 B. On the Stage Look Review ("worldbeach19", `bw19_*`); recommended B. To ship: rebuild
+`godot/models/stages/beach_world.glb` with `--theme ocean --variant ABW --nets wall` (no re-light).
+
+Built B (the owner's pick, 2026-10-26): `godot/models/stages/beach_world.glb` rebuilt with `--theme ocean --variant ABW --nets wall`.
+Before and after (the quay, match camera): `review10/beach_world_built.jpg`. All seven tests pass (the runner's known flake once, then
+a pass).
+
+### Step 5, world detail on the city (mock)
+
+The street has its traffic and crossing, one roof its party and the billboard; the towers' rooftop life is what the city lacks. The
+towers are code-built (`StageArt._skyline_layer`), so their roofs were read from the wide camera's depth (`--depth`, traced column by
+column): the near layer's roofs at z -50 to -54, the middle layer's at -82 to -85, all narrow. `make_world.py --variant ABW`
+(`city_w`, `roof_tank`): A, wooden water tanks on the near flat roof (x -15.4, y 6.8), the stepped tower's top (43.3, 15.2) and a
+middle-row tower (-58, 16); B (`--roofs life`), the near flat roof with a small penthouse, two lit windows and a rail, its tank beside
+it, and a rooftop garden under string lights on a middle-row roof (-68.9, 0.3), which is too small and far to read. P1's gap 0.134
+today, 0.133 A, 0.135 B. On the Stage Look Review ("worldcity20", `yw20_*`); recommended B. To ship: rebuild
+`godot/models/stages/city_world.glb` with `--theme city --variant ABW --people round --roofs life` (no re-light).
+
+Built B (the owner's pick, 2026-10-26): `godot/models/stages/city_world.glb` rebuilt with `--theme city --variant ABW --people round
+--roofs life`. Before and after (the skyline's left and right, wide): `review10/city_world_built.jpg`. All seven tests pass (the runner's
+known flake once, then a pass). With this, step 5 (world detail) is built on all five stages.
+
+Released (2026-10-26): everything since review 9's build (the deeper contact shade, the canyon's far clouds, the painted variation,
+steps 1 to 5) as `playtest-2026-10-26-sim146-newart`, built on `build/art-2026-10-26` (the animation branch at pass 34 plus this
+branch, stage select stills regenerated), pack only, content hash ef93425e6c64eee3.

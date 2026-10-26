@@ -4,15 +4,21 @@
     A  a working pier: a fishing boat moored along the far boardwalk with lines to its posts, nets hung on its rail, fish crates;
     B  harbour life: a rowboat tied off the dock's left end (its gulls taken out: no animals in the backgrounds, the owner);
     C  the town at work: market awnings and townsfolk on the quay, bunting, chimney smoke.
+    W  quay life (new art toward 5, W-B): a timber derrick crane on the quay's east end with a cargo net over the water, nets
+       drying on racks (`--nets wall`: hung down the quay's face with their floats)
   sunset (the canyon, a desert crossing at dusk)
     A  a railroad: a timber trestle across the floor behind the buttes with a little train on it and a water tower by the track;
     B  a wagon trail: a pale trail winding across the floor to the horizon, telegraph poles along it, a covered wagon on it;
     C  a ranch: a windpump and its tank, a corral, an adobe house with chimney smoke.
+    W  far life by the railway (new art toward 5, W-C): a halt at the water tower on the far trestle; `--road dust` adds a dirt road
+       out to the horizon with a truck coming in, raising its dust
   meadow  A a farm track and hay cart, B the fields at work (haystacks), C village life (smoke, washing, a scarecrow),
           W far farm life (new art toward 5, the owner's approval 2026-10-25): a hay cart standing in the farmyard at its true size, and a
           bonfire's smoke rising from a far field, both seated on the shipped ground
   grove   A a far tree village (great trees with lit huts and rope bridges), B festival gates and streamers, C floating islets
   city    A street traffic (a bus, people), B a billboard and a rooftop party, C an elevated train
+          W rooftop life (new art toward 5, W-Ci): wooden water tanks on the near and middle roofs; `--roofs life` a lit penthouse
+          and a rooftop garden under string lights
   L  (every stage that has them) new living things: the grove's fireflies.
 No animals in the backgrounds (the owner, 2026-10-21: at the sizes that read they never looked believable beside the rest); what is far is
 built at its true size, as the cottages are, and takes the stage's air in the game.
@@ -21,10 +27,10 @@ pivot empty `move_<kind>_<n>` (scripts/world_motion.gd).
 
 Run (Blender 5.2):
   blender --background --python art/blender/make_world.py -- --theme ocean --variant A --out <file.glb>   (`--variant AB` for both)
-Shipped (the owner's picks, 2026-10-21), in godot/models/stages/: beach_world.glb (`--theme ocean --variant AB`), canyon_world.glb
-(`--theme sunset --variant A --trestle far`, the trestle far back since fidelity review 7), meadow_world.glb (`--theme meadow --variant BC`), grove_world.glb (`--theme grove --variant ABL`),
-city_world.glb (`--theme city --variant AB`). Since fidelity review 6: grove `--variant ABL --streamers shide`, city `--variant AB
---people round`.
+Shipped (the owner's picks, 2026-10-21), in godot/models/stages/: beach_world.glb (`--theme ocean --variant AB`; `--variant ABW --nets wall` since 2026-10-26), canyon_world.glb
+(`--theme sunset --variant A --trestle far`, the trestle far back since fidelity review 7; `--variant AW` since 2026-10-26), meadow_world.glb (`--theme meadow --variant BC`; `--variant BCW` since 2026-10-26), grove_world.glb (`--theme grove --variant ABL`),
+city_world.glb (`--theme city --variant AB`). Since fidelity review 6: grove `--variant ABL --streamers shide` (with `--village lanterns` since 2026-10-26), city `--variant AB
+--people round` (with `--variant ABW --roofs life` since 2026-10-26).
 """
 
 import math
@@ -435,6 +441,61 @@ def market():
     smoke_column((bx - 9.0, SEA + 9.0, -105.0), 5, 0.8, rng)
 
 
+def beach_w():
+    # Quay life (new art toward 5, W-B): the quay (StageArt._harbour_town: its wall x -96..-32, its front at z -95, its top at the
+    # water + 2.35) already has its stalls and warehouse, so this adds a timber derrick crane on its free east end, a cargo net hanging
+    # from its jib over the water, and nets drying: on racks between the stalls and the warehouse, or with `--nets wall` hung down the
+    # quay's face with their floats.
+    rng = random.Random(41)
+    top = SEA + 2.35
+    cx, cz = -35.0, -96.2
+    jx, jy, jz = cx + 4.5, top + 10.0, cz + 4.0
+    bm = bmesh.new()
+    # (Tall and bold, its jib swung out to the side over the water: pointed at the camera it foreshortened to a stub, and at 8.5 with
+    # thin spars it read as a grey mast.)
+    tube(bm, (cx, top, cz), (cx, top + 11.0, cz), 0.36, segs=8)
+    for dx in (-2.2, 2.2):
+        tube(bm, (cx + dx, top, cz - 4.2), (cx, top + 10.6, cz), 0.16, segs=6)
+    tube(bm, (cx, top + 1.0, cz), (jx, jy, jz), 0.26, segs=8)
+    ob("crane", bm, "timber", smooth=True)
+    bm = bmesh.new()
+    tube(bm, (cx, top + 10.8, cz), (jx, jy, jz), 0.07, segs=4)
+    tube(bm, (jx, jy, jz), (jx, top + 4.6, jz), 0.07, segs=4)
+    ob("crane_ropes", bm, "rope", smooth=True)
+    boxg(cx - 0.7, cx + 0.7, top, top + 1.0, cz + 0.4, cz + 1.4, "timber_dark", "winch")
+    # The load: the catch's crates on a pallet, slung from the hook. (A net bag round them read as a yellow ball.)
+    boxg(jx - 1.0, jx + 1.0, top + 2.7, top + 2.9, jz - 0.8, jz + 0.8, "timber_dark", "pallet")
+    for (dx, dy, dz, w) in ((-0.5, 2.9, 0.0, 0.9), (0.5, 2.9, 0.0, 0.9), (0.0, 3.62, 0.0, 0.85)):
+        crate(jx + dx, top + dy, jz + dz, w, w * 0.8, w * 1.4)
+    bm = bmesh.new()
+    for (dx, dz) in ((-1.0, -0.8), (1.0, -0.8), (-1.0, 0.8), (1.0, 0.8)):
+        tube(bm, (jx, top + 4.6, jz), (jx + dx, top + 2.8, jz + dz), 0.05, segs=4)
+    ob("sling", bm, "rope", smooth=True)
+    if opts.get("nets", "") == "wall":
+        # Nets hung down the quay's face to dry, a line of red floats along each top.
+        fz = -94.9
+        for k, x in enumerate((-60.5, -52.0, -47.5)):
+            w = rng.uniform(2.6, 3.6)
+            card([(x - w / 2, top - 0.1, fz), (x + w / 2, top - 0.1, fz), (x + w / 2 - 0.3, top - 1.7, fz), (x, top - 2.1, fz),
+                  (x - w / 2 + 0.2, top - 1.6, fz)], "rope", "wall_net", thick=0.03)
+            bm = bmesh.new()
+            for j in range(5):
+                fx = x - w / 2 + 0.3 + j * (w - 0.6) / 4
+                bmesh.ops.create_icosphere(bm, subdivisions=1, radius=0.17, matrix=Matrix.Translation(P(fx, top - 0.15, fz + 0.1)))
+            ob("floats", bm, "flag_a", smooth=True)
+    else:
+        # (Nets in the tan of their rope: in the net's teal they went grey in the air and read as dark sheets.)
+    # Racks of poles at the quay's front edge, a net sagging over the line between each pair.
+        bm = bmesh.new()
+        for (x0, x1) in ((-52.0, -49.2), (-48.8, -46.4)):
+            for x in (x0, x1):
+                tube(bm, (x, top, -95.6), (x, top + 2.4, -95.6), 0.07, segs=6)
+            tube(bm, (x0, top + 2.3, -95.6), (x1, top + 2.3, -95.6), 0.04, segs=4)
+            card([(x0 + 0.1, top + 2.3, -95.5), (x1 - 0.1, top + 2.3, -95.5), (x1 - 0.3, top + 0.9, -95.45), ((x0 + x1) / 2, top + 0.6, -95.45),
+                  (x0 + 0.3, top + 1.0, -95.45)], "rope", "rack_net", thick=0.03)
+        ob("net_racks", bm, "wood_dark", smooth=True)
+
+
 # ---- The canyon ----------------------------------------------------------------------------------------------------------------------
 
 
@@ -641,6 +702,105 @@ def canyon_c():
     scaled((24.0, FLOOR, -92.0), 1.6, windpump, 24.0, -92.0)
     scaled((42.0, FLOOR, -98.0), 1.5, corral, 42.0, -98.0, rng)
     scaled((8.0, FLOOR, -100.0), 1.4, adobe, 8.0, -100.0, rng)
+
+
+def prism(x0, x1, y0, ridge, z0, z1, fam, name):
+    """A gable roof in game coordinates: eaves along x at y0 on both z sides, the ridge `ridge` over them, closed at both ends."""
+    bm = bmesh.new()
+    zm = (z0 + z1) * 0.5
+    ends = []
+    for x in (x0, x1):
+        ends.append([bm.verts.new(P(x, y0, z0)), bm.verts.new(P(x, y0, z1)), bm.verts.new(P(x, y0 + ridge, zm))])
+    a, b = ends
+    bm.faces.new(a)
+    bm.faces.new(b[::-1])
+    for i in range(3):
+        j = (i + 1) % 3
+        bm.faces.new((a[i], b[i], b[j], a[j]))
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces[:])
+    return ob(name, bm, fam)
+
+
+def depot(rng):
+    """A halt by the water tower at the far trestle's deck height: a plank platform on stilts, a little station house with a red gable
+    roof, a lit window and a signboard, a stair down to the floor, freight crates and a bench."""
+    zt, top = -175.0, -9.0
+    deck = top + 0.35
+    x0, x1, z0, z1 = -26.0, -12.0, -173.4, -168.8
+    bm = bmesh.new()
+    x = x0 + 0.3
+    while x <= x1:
+        for z in (z0 + 0.3, z1 - 0.3):
+            tube(bm, (x, FLOOR, z), (x, deck - 0.3, z), 0.2, segs=6)
+        tube(bm, (x, FLOOR + 1.0, z0 + 0.3), (x, deck - 1.0, z1 - 0.3), 0.1, segs=5)
+        x += 3.4
+    ob("depot_stilts", bm, "timber", smooth=True)
+    boxg(x0, x1, deck - 0.35, deck, z0, z1, "timber_dark", "depot_platform")
+    # The station house, its back to the track's far side, its front to the camera.
+    hx0, hx1, hz0, hz1 = -22.5, -15.5, -172.8, -170.2
+    boxg(hx0, hx1, deck, deck + 3.0, hz0, hz1, "tank", "depot_house")
+    prism(hx0 - 0.4, hx1 + 0.4, deck + 3.0, 1.5, hz0 - 0.5, hz1 + 0.6, "cabin_roof", "depot_roof")
+    boxg(hx0 + 1.0, hx0 + 2.0, deck, deck + 2.1, hz1, hz1 + 0.08, "timber_dark", "depot_door")
+    boxg(hx1 - 2.6, hx1 - 0.9, deck + 1.0, deck + 2.2, hz1, hz1 + 0.08, "window", "depot_window")
+    boxg(-20.6, -17.0, deck + 3.1, deck + 3.8, hz1 + 0.55, hz1 + 0.65, "white", "depot_sign")
+    # A stair down the platform's right end, freight crates and a bench by the house.
+    bm = bmesh.new()
+    k = 0
+    while deck - k * 0.6 > FLOOR:
+        y = deck - k * 0.6
+        boxg(x1 + k * 0.6, x1 + k * 0.6 + 0.6, y - 0.12, y, z1 - 1.4, z1 - 0.2, "timber", "depot_step")
+        k += 1
+    for (cx, s) in ((-25.0, 1.0), (-24.0, 0.8), (-13.5, 0.9)):
+        boxg(cx - s * 0.5, cx + s * 0.5, deck, deck + s, z1 - 1.6, z1 - 1.6 + s, "fish_crate", "depot_crate")
+    boxg(-14.8, -13.2, deck + 0.45, deck + 0.6, hz1 + 0.4, hz1 + 0.9, "timber", "depot_bench")
+
+
+def truck(x, z, rng):
+    """A little far truck heading in to the halt along the road, its dust behind it."""
+    boxg(x - 0.9, x + 0.9, FLOOR + 0.5, FLOOR + 1.4, z - 2.0, z + 0.4, "car_b", "truck_bed")
+    boxg(x - 0.85, x + 0.85, FLOOR + 0.5, FLOOR + 2.2, z + 0.4, z + 1.8, "car_a", "truck_cab")
+    boxg(x - 0.7, x + 0.7, FLOOR + 1.5, FLOOR + 2.0, z + 1.8, z + 1.85, "window", "truck_glass")
+    bm = bmesh.new()
+    for wz in (z - 1.3, z + 1.1):
+        for wx in (x - 0.95, x + 0.95):
+            kit.torus(bm, P(wx, FLOOR + 0.42, wz), Vector((0.0, 0.0, 1.0)), 0.36, 0.12, segs=12, rsegs=5)
+    ob("truck_wheels", bm, "engine_dark", smooth=True)
+
+
+def dust(at, rng):
+    """The dust a vehicle raises on a dry road: sandy card puffs, low, widening and lifting behind it."""
+    x, y, z = at
+    for k in range(7):
+        t = k / 6
+        c = (x + rng.uniform(-0.4, 0.4), y + 0.6 + t * 2.4, z - 1.0 - t * 9.0)
+        r = 0.9 + 1.6 * t
+        card(scallop(c[0], c[1], c[2], r, r * 0.7, rng.choice((3, 4)), rng.uniform(0.0, math.tau)), "trail", "dust", thick=0.3 * r)
+
+
+def canyon_w():
+    # Far life by the railway (new art toward 5, W-C): a halt at the water tower, and with `--road dust` a dirt road from it out to the
+    # horizon with a truck coming in on it, raising its dust.
+    rng = random.Random(31)
+    depot(rng)
+    if opts.get("road", "") == "dust":
+        pts = []
+        n = 24
+        for k in range(n + 1):
+            t = k / n
+            pts.append(Vector((-19.0 - 14.0 * t + 4.0 * math.sin(t * 4.0), FLOOR + 0.06, -168.0 - 120.0 * t)))
+        bm = bmesh.new()
+        prev = None
+        for k, p in enumerate(pts):
+            d = (pts[min(k + 1, n)] - pts[max(k - 1, 0)]).normalized()
+            side = Vector((-d.z, 0.0, d.x)) * 1.6
+            a, b = bm.verts.new(P(*(p - side))), bm.verts.new(P(*(p + side)))
+            if prev:
+                bm.faces.new((prev[0], prev[1], b, a))
+            prev = (a, b)
+        ob("road", bm, "trail", face=(0, 0, 1))
+        q = pts[6]
+        truck(q.x, q.z, rng)
+        moving("smoke", (q.x, FLOOR + 0.6, q.z - 2.0), dust, (q.x, FLOOR, q.z - 2.0), rng)
 
 
 def windpump(wx, wz):
@@ -919,6 +1079,9 @@ def pleated_cone(cx, y_base, cz, R, h, n=11, turn=0.0, fam="crown"):
 
 # The detail pass (the owner, 2026-10-22: more detail on the background pieces, stage by stage), on by default; `--detail 0` without.
 DETAIL = opts.get("detail", "1") == "1"
+# World detail, W-G (new art toward 5): `--village high` lifts the tree village over the pines, `--village lanterns` also hangs lit
+# lanterns along its bridges.
+VILLAGE = opts.get("village", "")
 
 
 def far_tree(x, y0, z, height, r=2.0):
@@ -1038,9 +1201,12 @@ def grove_a():
     for k, (x, y0, z, height) in enumerate(GROVE_FAR):
         far_tree(x, y0, z, height)
         side = -1.0 if x < 0 else 1.0
-        # (Low on the trunks, against the violet hills where the lit windows show: higher, they were lost among the lantern strings.)
-        y = y0 + (4.0 if k % 2 == 0 else 5.5)
-        far_hut(x, y, z, 2.0, side if k < 2 else -side, ground=y0)
+        # (Low on the trunks, against the violet hills where the lit windows show: higher, they were lost among the lantern strings.
+        # Since the modelled forest, its pines hide the low huts; `--village high` (world detail, W-G) lifts them to the open trunk
+        # between the pine tops and the crowns, each just under its crown.)
+        y = y0 + (height * 0.5 - 4.0 if VILLAGE else (4.0 if k % 2 == 0 else 5.5))
+        # (Lifted, every hut on its trunk's outer side, where the sky is open: on the inner side the right ones stayed behind a pine.)
+        far_hut(x, y, z, 2.0, side if k < 2 or VILLAGE else -side, ground=y0)
         huts.append(Vector((x, y + 0.3, z)))
     for i, j in ((0, 1), (2, 3)):
         a, b = huts[i], huts[j]
@@ -1048,6 +1214,12 @@ def grove_a():
         d.y = 0.0
         d.normalize()
         rope_bridge(a + d * 3.8, b - d * 3.8)
+        if VILLAGE == "lanterns":
+            # Lanterns hung along the bridge's hand rope, lit.
+            p0, p1 = a + d * 3.8, b - d * 3.8
+            for t in (0.25, 0.5, 0.75):
+                p = p0.lerp(p1, t) + Vector((0.0, 1.0 - 1.2 * 0.8 * math.sin(t * math.pi) - 0.45, 0.65))
+                bulb((p.x, p.y, p.z), 0.5)
 
 
 def grove_b():
@@ -1222,6 +1394,65 @@ def city_b():
         moving("dance", at, figure, at, 1.6, rng.choice(("coat_a", "coat_b", "coat_c")), rng)
 
 
+def roof_tank(x, y, z, r=0.9):
+    """A rooftop water tank: a stave barrel bound in hoops on a low frame of legs, under a cone cap."""
+    legs = r * 1.4
+    bm = bmesh.new()
+    for (dx, dz) in ((-0.7, -0.7), (0.7, -0.7), (-0.7, 0.7), (0.7, 0.7)):
+        tube(bm, (x + dx * r, y, z + dz * r), (x + dx * r, y + legs, z + dz * r), 0.07 * r + 0.03, segs=5)
+    ob("roof_tank_legs", bm, "iron", smooth=True)
+    bm = bmesh.new()
+    kit.lathe(bm, [(r, 0.0), (r * 1.04, r * 1.2), (r, r * 2.4)], 16)
+    for v in bm.verts:
+        v.co = P(x + v.co.x, y + legs + v.co.z, z - v.co.y)
+    ob("roof_tank", bm, "tank", smooth=True)
+    bm = bmesh.new()
+    kit.lathe(bm, [(r * 1.08, 0.0), (0.0, r * 0.8)], 16)
+    for v in bm.verts:
+        v.co = P(x + v.co.x, y + legs + r * 2.4 + v.co.z, z - v.co.y)
+    ob("roof_tank_cap", bm, "tank_dark", smooth=True)
+    bm = bmesh.new()
+    for hy in (0.5, 1.2, 1.9):
+        kit.torus(bm, P(x, y + legs + r * hy, z), Vector((0.0, 0.0, 1.0)), r * 1.05, 0.03, segs=16, rsegs=4)
+    ob("roof_tank_hoops", bm, "iron", smooth=True)
+
+
+def city_w():
+    # Rooftop life (new art toward 5, W-Ci) on roofs read from the wide camera's depth (the near layer's roofs at z -50 to -54, the middle
+    # layer's at -82 to -85): wooden water tanks; with `--roofs life` a lit penthouse on the near flat roof and a rooftop garden under
+    # string lights on the middle layer.
+    life = opts.get("roofs", "") == "life"
+    if life:
+        x0, x1, y, z0, z1 = -17.0, -14.7, 6.8, -53.4, -50.8
+        boxg(x0, x1, y, y + 2.0, z0, z1, "board_back", "penthouse")
+        boxg(x0 - 0.2, x1 + 0.2, y + 2.0, y + 2.2, z0 - 0.2, z1 + 0.3, "board_frame", "penthouse_roof")
+        for wx in (x0 + 0.5, x1 - 0.5):
+            boxg(wx - 0.35, wx + 0.35, y + 0.7, y + 1.6, z1, z1 + 0.05, "window", "penthouse_window")
+        boxg(x0 - 0.1, x1 + 0.1, y, y + 0.9, z1 + 0.5, z1 + 0.6, "iron", "penthouse_rail")
+        roof_tank(-14.0, 6.8, -52.6, 0.6)
+    else:
+        roof_tank(-15.4, 6.8, -52.0, 0.85)
+    roof_tank(43.3, 15.2, -52.2, 0.85)
+    roof_tank(-58.0, 16.0, -81.6, 0.8)
+    if life:
+        # The garden: planter boxes of round bushes, a pergola, a string of lights over it.
+        gx, gy, gz = -68.9, 0.3, -83.9
+        for (px, pw) in ((-0.9, 0.9), (0.6, 1.1)):
+            boxg(gx + px - pw / 2, gx + px + pw / 2, gy, gy + 0.45, gz - 0.4, gz + 0.4, "timber_dark", "planter")
+            bm = bmesh.new()
+            for k in range(2):
+                bmesh.ops.create_icosphere(bm, subdivisions=1, radius=0.35, matrix=Matrix.Translation(P(gx + px + (k - 0.5) * pw * 0.5, gy + 0.75, gz)))
+            ob("garden_bush", bm, "turf", smooth=True)
+        bm = bmesh.new()
+        for dx in (-1.3, 1.3):
+            tube(bm, (gx + dx, gy, gz + 0.9), (gx + dx, gy + 2.0, gz + 0.9), 0.06, segs=5)
+        ob("pergola", bm, "timber", smooth=True)
+        for k in range(6):
+            t = k / 5.0
+            moving("twinkle", (gx - 1.3 + 2.6 * t, gy + 1.9 - math.sin(t * math.pi) * 0.35, gz + 0.9), bulb,
+                   (gx - 1.3 + 2.6 * t, gy + 1.9 - math.sin(t * math.pi) * 0.35, gz + 0.9), 0.12)
+
+
 def bulb(at, r=0.16, fam="window"):
     bm = bmesh.new()
     bmesh.ops.create_icosphere(bm, subdivisions=1, radius=r, matrix=Matrix.Translation(P(*at)))
@@ -1256,11 +1487,11 @@ def grove_l():
         moving("firefly", at, bulb, at, 0.16, "firefly")
 
 
-BUILDS = {("ocean", "A"): beach_a, ("ocean", "B"): beach_b, ("ocean", "C"): beach_c,
-          ("sunset", "A"): canyon_a, ("sunset", "B"): canyon_b, ("sunset", "C"): canyon_c,
+BUILDS = {("ocean", "A"): beach_a, ("ocean", "B"): beach_b, ("ocean", "C"): beach_c, ("ocean", "W"): beach_w,
+          ("sunset", "A"): canyon_a, ("sunset", "B"): canyon_b, ("sunset", "C"): canyon_c, ("sunset", "W"): canyon_w,
           ("meadow", "A"): meadow_a, ("meadow", "B"): meadow_b, ("meadow", "C"): meadow_c, ("meadow", "W"): meadow_w,
           ("grove", "A"): grove_a, ("grove", "B"): grove_b, ("grove", "C"): grove_c,
-          ("city", "A"): city_a, ("city", "B"): city_b, ("city", "C"): city_c,
+          ("city", "A"): city_a, ("city", "W"): city_w, ("city", "B"): city_b, ("city", "C"): city_c,
           ("grove", "L"): grove_l}
 # The ground the occlusion bake lays under each stage's pieces.
 FLOORS = {"ocean": SEA, "sunset": FLOOR, "meadow": -20.0, "grove": -12.0, "city": -13.5}
