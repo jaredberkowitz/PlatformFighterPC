@@ -278,3 +278,7 @@ boat rafted to the right one and nets heaped in them. A first placement at z 12.
 corners. The match camera doesn't see them; P1's gap 0.181 today, 0.182 A, 0.180 B. On the Stage Look Review ("boats27", `mb27_*`);
 recommended A. To ship: rebuild `godot/models/stages/beach_world.glb` with `--theme ocean --variant ABWM --nets wall --moored A` (no
 re-light).
+
+Built A (the owner's pick, 2026-10-26): `godot/models/stages/beach_world.glb` rebuilt with `--theme ocean --variant ABWM --nets wall
+--moored A`. Before and after (the posts, wide): `review11/beach_boats_built.jpg`. All seven tests pass (the runner's known "the way
+out" flake twice, then passes).
