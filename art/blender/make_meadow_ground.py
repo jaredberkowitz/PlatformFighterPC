@@ -41,7 +41,8 @@ Shipped (the owner's pick, 2026-10-22): FC with `--pine D` as godot/models/stage
 (light_stage.py on the front, the play area and the ground).
 
 Shipped since fidelity review 6 (the owner's pick B, 2026-10-22): `--variant FC --pine D --hill banks`, then lit.
-Shipped since the new art toward 5 (the owner's pick B, 2026-10-25): `--variant FC --pine D --hill fields_lane`, then lit.
+Shipped since the new art toward 5 (the owner's pick B, 2026-10-25): `--variant FC --pine D --hill fields_lane`, then lit; with
+`--stream B` since 2026-10-26.
 
 Run (Blender 5.2):
   blender --background --python art/blender/make_meadow_ground.py -- --dir godot/art/baked/<key> --variant A --ground <g.glb> --bush <p.glb>

@@ -264,3 +264,7 @@ footbridge where the lane crosses. B a little wider, with a spring pool at its h
 wide frame; the match camera doesn't see it. P1's gap 0.018 today, 0.015 A, 0.014 B. On the Stage Look Review ("stream26",
 `st26_*`); recommended B. To ship: rebuild `godot/models/stages/meadow_ground.glb` (and its bush) with `--stream B`, then re-light
 the meadow.
+
+Built B (the owner's pick, 2026-10-26): `godot/models/stages/meadow_ground.glb` and `meadow_pines.glb` rebuilt with `--stream B`, the
+meadow re-lit (front, play, ground). Before and after (the hill's right flank, wide): `review11/meadow_stream_built.jpg`. All seven
+tests pass.
