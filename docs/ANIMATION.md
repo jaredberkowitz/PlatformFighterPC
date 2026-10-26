@@ -1166,4 +1166,16 @@ Ranked by how visible it is at match speed:
   - **Legs over the face** (now counted, pass 39): the Needles' up air and up tilt (8 frames) and the Clutch's forward air and forward
     smash (11).
   - **The Longsword's held forward tilt** keeps the hilt at the chin for about 10 frames.
-  - **The sword family's jump crouch** puts the hilt over the face (`face_cover_probe`: 100% of its 3 frames).
+  - **The sword family's jump crouch** put the blade across the mouth (`face_cover_probe`: 100% of its 3 frames). It is fixed in pass 41.
+
+### Pass 41: the sword guard sinks and dips with the jump crouch (round 3 item 5)
+
+- **Defect:** on every jump the Longsword's resting blade crossed the mouth for the 3 frames of the crouch. `face_cover_probe` measured
+  100% of the jump crouch. The rest guard is aimed at a fixed height and angle, so as the body sank the face came down onto it.
+- **Fix (`fighter_view.gd` `_pose_blade`):**
+  - out of a move, on the ground, the guard goes down by as much as the hips sink below the stance (`GUARD_HIPS` 0.64);
+  - the blade dips `GUARD_DIP` (260) degrees a unit of that, about 40 degrees in a full crouch, so it lies level in front of the chest
+    instead of rising across the face. It comes back up as the body rises.
+- **Measured:** the jump crouch went from 100% to 0% in every family.
+- **Image:** `docs/screenshots/anim/r3_pass41_jump_crouch_guard.jpg`.
+- **Checked:** facing left (contact sheet); the landing; the six tests pass.

@@ -3776,6 +3776,10 @@ const GREAT_REST_ANGLE := 152.0
 const GREAT_REST_HAND := Vector2(0.3, 1.25)
 ## How far in front of (positive) or behind the body the greatsword's hand is, eased between the two.
 var great_z := -0.45
+## The hips' height in the sword family's battle stance: the guard is held for it, and lowered as far as the body sinks below it.
+const GUARD_HIPS := 0.64
+## How far the resting blade dips (degrees) for each unit the body sinks below the stance.
+const GUARD_DIP := 260.0
 ## How far the greatsword's grip moves in depth a sim frame, between its rest behind the back and its swing in front.
 const GREAT_Z_STEP := 0.135
 ## The greatsword's length (hand to point), whatever the hit: the blade reaches about 2 units past the grip.
@@ -4058,6 +4062,14 @@ func _overhead_angle(s: Dictionary, hit: float) -> float:
 
 func _pose_blade(s: Dictionary, delta: float) -> void:
 	var target: Array = _blade_target(s)
+	# (Round 3: out of a move, the guard goes down with the body when it sinks below the battle stance, in a jump's crouch or a landing,
+	# and the blade dips with it. Held at the stance's height and angle, the blade crossed the sword fighters' mouths on every jump.)
+	var sink := 0.0
+	if s.move_name == "" and use_base_body and skeleton != null and int(s.platform) >= 0:
+		var hb := skeleton.find_bone("hips")
+		if hb >= 0:
+			sink = maxf(0.0, GUARD_HIPS - (_skeleton_to_frame() * skeleton.get_bone_global_pose(hb).origin).y)
+			target[0] = float(target[0]) - sink * GUARD_DIP * (1.0 if cos(deg_to_rad(float(target[0]))) >= 0.0 else -1.0)
 	# A little smoothing so the rest pose and quick direction changes do not pop.
 	var follow := clampf(delta * 30.0, 0.0, 1.0)
 	if s.move_name != "" and s.state_frame > 0:
@@ -4069,6 +4081,7 @@ func _pose_blade(s: Dictionary, delta: float) -> void:
 	# Where the blade's tip is (forward space). It is fixed by the move's hitboxes and never moves because of the arm.
 	var great_rest: bool = _cls(s) == GREATSWORD_CLASS and float(target[2]) == GREAT_REST_HAND.x
 	var old_hand := Vector2(float(target[2]), GREAT_REST_HAND.y if great_rest else HAND.y)
+	old_hand.y -= sink
 	var tip := old_hand + Vector2.from_angle(deg_to_rad(blade_angle)) * blade_length
 	if bladed(_cls(s)) and _whirl(s) != 0.0:
 		tip = SPIN_BLADE_TIP
