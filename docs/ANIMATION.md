@@ -1236,3 +1236,27 @@ Ranked by how visible it is at match speed:
     smash and back air and the Nodachi's neutral air (the carried hand or hilt passing the face's edge);
   - the six tests pass.
 - **Left:** the Longsword's forward tilt now carries its blade past upright, so its hilt sits over the eyes through the hold: pass 43.
+
+### Pass 43: the Longsword's held forward tilt keeps its hilt off the eyes (round 4 item 4)
+
+- **Defect:** through the forward tilt's hold the hilt and its guard sat across the eyes (round 3 saw it at the chin for about 10 frames;
+  pass 42's carry took the blade on past upright and the hand up with it). `PF_FACE_COVER` did not count it.
+- **Cause:**
+  - The cut ends overhead, and the short arm cannot hold the hand clear of the big head: with the blade upright the hand is at eye height,
+    just ahead of the head's middle.
+  - The rule that sends a raised hand behind the head (`_behind_head_k`, pass 24) measured from the head's middle. Side-on the face is
+    drawn on the front of the head, so a hand over the eyes measured clear. The face-cover log measured the same way, so it missed it too.
+- **Fix (`fighter_view.gd`):**
+  - **Held leaning forward:** a grounded cut whose end lag would hold it steeper than `HELD_UP_MAX` (68 degrees above forward) eases to that
+    angle through its carry, so the blade stands out ahead of the head rather than over it.
+  - **Measured from the face:** through a sword's end lag the behind-the-head rule measures from the drawn face, `FACE_FWD` (0.3) ahead of
+    the head's middle. The hand goes behind the head and the leaning blade shows beside it.
+  - Neither applies to the Nodachi: its long blade, held forward, came home across the face (3 frames).
+  - **The log:** `PF_FACE_COVER=front` measures from the face as well.
+- **Measured** (`PF_FACE_COVER=front`, the Longsword's 16 moves): the forward tilt went from 17 frames to 1 and the up smash from 4 to 0.
+  The class total went from 68 to 48. With the old measure, every bladed class is unchanged.
+- **Image:** `docs/screenshots/anim/r4_pass43_ftilt_hilt.jpg`: the forward tilt every frame from its hit, before (pass 42) and after,
+  both facings.
+- **Checked:** both facings; the six tests pass.
+- **Left (found by the new measure):** the Longsword's up special (18 frames), forward smash (7) and neutral air (5) still bring a hand or
+  the hilt across the drawn face. They are not on the round 4 list; ranked in the round's audit.

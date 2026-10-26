@@ -3161,6 +3161,9 @@ func _log_face_cover(s: Dictionary) -> void:
 		return
 	var hp: Transform3D = skeleton.global_transform * skeleton.get_bone_global_pose(head_bone)
 	var centre: Vector3 = hp.origin + hp.basis.y.normalized() * 0.3
+	# (Round 4: PF_FACE_COVER=front measures from the drawn face, FACE_FWD ahead of the head's middle, where side-on it really is.)
+	if OS.get_environment("PF_FACE_COVER") == "front":
+		centre.x += FACE_FWD * float(s.facing)
 	var points := []
 	var names := []
 	for side in ["L", "R"]:
@@ -3892,6 +3895,11 @@ func _blade_target(s: Dictionary) -> Array:
 		var shape := _end_shape(s)
 		var carry_deg := CARRY_DEG * (shape.z + CARRY_EASE * 0.5) if shape.z > 0.0 else 0.0
 		var past := swing + travel * carry_deg * follow_k(f, float(t[2]) - _carry_lead(t), shape)
+		# (Round 4: a cut that ends raised is held leaning forward, no steeper than HELD_UP_MAX: held upright, or carried on over the top,
+		# the short arm left the hilt over the eyes, and drawn back behind the head the blade vanished behind it.)
+		# (Not the Nodachi's: its long blade held forward came home across the face, 3 frames.)
+		if s.platform >= 0 and _cls(s) != NODACHI_CLASS and past > HELD_UP_MAX and past < 160.0 and swing < 160.0:
+			past = lerpf(past, HELD_UP_MAX, follow_k(f, float(t[2]) - _carry_lead(t), shape))
 		var home := home_k(f, float(t[2]), float(t[0]), shape, ARM_LAG)
 		angle = lerpf(past, _rest_angle(s), home)
 		len = lerpf(length, rest_len, home)
@@ -3919,6 +3927,10 @@ func _limb_carry(s: Dictionary) -> float:
 
 
 const LIMB_CARRY_DEG := 20.0
+
+
+## The steepest (degrees above forward) a grounded cut is held at through its end lag.
+const HELD_UP_MAX := 68.0
 
 
 ## How fast (degrees a frame) a blade carries on past its last hit (the reference's sword cuts carry about 25-30 degrees on in their first
@@ -4273,7 +4285,11 @@ func _pose_blade(s: Dictionary, delta: float) -> void:
 	# frame at real speed, the hilt sat over the eyes for 8 frames of the Longsword's up tilt and the claws covered the face through the
 	# forward air's wind-up.)
 	elif use_base_body and blade_up == 0.0 and skeleton != null and head_bone >= 0 and _cls(s) != GREATSWORD_CLASS:
-		var k := _behind_head_k(hand, facing)
+		# (Round 4: a sword held up through its end lag is measured from the drawn face, FACE_FWD ahead of the head's middle: the
+		# Longsword's forward tilt held its hilt over the eyes for about 10 frames.)
+		var end_lag: bool = attacking and float(s.state_frame) > float((s.move_timing as PackedInt32Array)[2])
+		var held_up: bool = end_lag and bladed(_cls(s)) and _cls(s) != NODACHI_CLASS
+		var k := _behind_head_k(hand, facing, FACE_FWD if held_up else 0.0)
 		if k > 0.0:
 			hand_z = lerpf(hand_z, HEAD_BEHIND_Z, k)
 	# (The raised sword is drawn back behind the head in depth, so the hanging blade does not cross the face.)
@@ -4555,6 +4571,8 @@ func _body_clip(cls: int, move: String) -> bool:
 const HEAD_CLEAR_R := 0.55
 const HEAD_BEHIND_Z := -0.35
 const HEAD_CENTRE_UP := 0.36
+## How far ahead of the head's middle the drawn face is, side-on (forward space).
+const FACE_FWD := 0.3
 ## How many sim frames an arm's reach takes to let go when it ends, and at most how many a move's reach takes to come in (fewer when the
 ## move strikes sooner); the reach's weight while letting go, and the targets it lets go from.
 const IK_FADE_FRAMES := 6.0
@@ -4608,10 +4626,12 @@ func _lift_tip_off_floor() -> void:
 
 
 ## How far a hand at `hand` (forward space) should go behind the head in depth: 1 over the face's middle, easing to 0 past its edge.
-func _behind_head_k(hand: Vector2, facing: int) -> float:
+## `fwd` moves the middle measured from forward toward the drawn face (round 4: side-on the face is drawn on the front of the head, so a
+## hilt held up just ahead of the head's middle was over the eyes while it measured clear).
+func _behind_head_k(hand: Vector2, facing: int, fwd := 0.0) -> float:
 	var hp := skeleton.get_bone_global_pose(head_bone)
 	var hc3 := _skeleton_to_frame() * (hp.origin + hp.basis.y.normalized() * HEAD_CENTRE_UP)
-	var near := (hand - Vector2(hc3.x * facing, hc3.y)).length() / HEAD_CLEAR_R
+	var near := (hand - Vector2(hc3.x * facing + fwd, hc3.y)).length() / HEAD_CLEAR_R
 	return 1.0 - smoothstep(0.75, 1.15, near)
 
 
