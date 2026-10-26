@@ -88,6 +88,23 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
     <p>Two lessons from the reference screenshots, mocked from the match camera: the scenery without ink outlines, its edges lit as card bevels instead, and the paper houses rebuilt at the characters' proportions. The earlier rounds stay on the <a href="https://claude.ai/artifact/D1du6MREVumiJDrEdNypW4">Stage Fidelity Review</a>, which is full.</p>
   </header>
 
+  <section class="panel" aria-labelledby="mt31-h" id="mountains31">
+    <div class="eyebrow">Your call is needed &middot; review 12, item 2: the meadow's mountains</div>
+    <h2 id="mt31-h">Painted peaks</h2>
+    <p>First, the city's felt roof is built and the city re-lit (see its section below). Next, the meadow. Its two great peaks behind the fight were big flat facets, each one tone. This gives their faces the painted variation that worked on the play areas, at a mountain's scale: broad value patches and a warm-cool wander across each face, the faces turned up a touch warmer. Nothing is added.</p>
+    <div class="tablewrap"><table><thead><tr><th>Option</th><th>What changes</th><th>The peaks' contrast</th></tr></thead><tbody>
+      <tr><td>Today</td><td>&nbsp;</td><td>0.105</td></tr>
+      <tr><td>A &middot; Broad patches</td><td>Large painted patches across the faces</td><td>0.129</td></tr>
+      <tr><td>B &middot; Finer, stronger</td><td>Smaller, stronger patches</td><td>0.119</td></tr>
+    </tbody></table></div>
+    <p>The peaks at the match camera, today then A. P1's gap holds (0.013 today, 0.017 A, 0.015 B).</p>
+    <div class="viewer"><img src="mt31_close.jpg" alt="The meadow's peaks today and painted"></div>
+    <div class="row" role="group" aria-label="View"><button data-mt31v="m">Match camera</button><button data-mt31v="w">Wide</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-mt31o="T">Today</button><button data-mt31o="A">A &middot; Broad patches</button><button data-mt31o="B">B &middot; Finer, stronger</button></div>
+    <div class="viewer"><img id="mt31img" alt="Meadow mountains option"><span class="vtag" id="mt31tag"></span></div>
+    <p class="muted">My pick: <b>A</b>. The peaks get mass: deeper teal flanks and lighter snow faces, painted rather than flat. B's smaller patches read as mottling. Honest notes: the depth haze takes back most of any change at that distance, so it needed a strong setting (the first, gentler try moved the contrast by 0.007). The rock bands I tried with it don't show at all.</p>
+  </section>
+
   <section class="panel" aria-labelledby="rf30-h" id="roofing30">
     <div class="eyebrow">Built A (the owner's pick) &middot; review 12, item 1: the city's play roof</div>
     <h2 id="rf30-h">The city's roof laid in felt</h2>
@@ -2449,5 +2466,15 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
   group("data-rf30v", function (v) { rf30v = v; }, rf30render);
   group("data-rf30o", function (v) { rf30o = v; }, rf30render);
   rf30render();
+  var mt31v = "m", mt31o = "A";
+  var MT31O = { T: "Today", A: "A \u00b7 Broad patches", B: "B \u00b7 Finer, stronger" };
+  function mt31render() {
+    document.getElementById("mt31img").src = "mt31_" + mt31o + "_" + mt31v + ".jpg";
+    document.getElementById("mt31tag").textContent = "Meadow \u00b7 " + MT31O[mt31o] + (mt31v === "w" ? " \u00b7 wide" : " \u00b7 match camera");
+    pressed("data-mt31v", mt31v); pressed("data-mt31o", mt31o);
+  }
+  group("data-mt31v", function (v) { mt31v = v; }, mt31render);
+  group("data-mt31o", function (v) { mt31o = v; }, mt31render);
+  mt31render();
 })();
 </script>

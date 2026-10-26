@@ -58,3 +58,12 @@ re-light the city.
 Built A (the owner's pick): `godot/models/stages/city_play.glb` rebuilt with `--roofing A`, the city re-lit (front, play; `--curve 4.0
 --reach 4.5 --floor 0.28` after a fresh `--light-export`). In the game the roof measures value 0.51, contrast 0.143; P1's gap 0.134
 (0.131 before). Before and after (the roof, match camera): `review12/city_roof_built.jpg`. All seven tests pass.
+
+## Item 2, the meadow's mountains (mock, 2026-10-26)
+
+`StageArt.ridge`: the palette's [backdrop] `range_drift` or `--range-drift=A|B` sets the modelled ranges' `paint_drift` (the play
+areas' painted variation): A [3.0, 1.2, 24, 0.8], B [4.5, 1.6, 16, 1.0]. The depth haze takes back most of it: a first try at [1.6, 0.9,
+30, 0.6] moved the peaks' contrast 0.105 to 0.112, and the rock bands (`range_form` 2) tried with it don't show. The peaks at the match
+camera: contrast 0.105 today, 0.129 A, 0.119 B (B's smaller patches read as mottling); P1's gap 0.013 today, 0.017 A, 0.015 B. On the
+Stage Look Review ("mountains31", `mt31_*`); recommended A. To ship: meadow.cfg [backdrop] `range_drift=[3.0, 1.2, 24.0, 0.8]` (shader,
+no re-light).
