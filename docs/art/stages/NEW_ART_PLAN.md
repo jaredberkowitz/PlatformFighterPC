@@ -208,3 +208,7 @@ down the quay's face with red floats along their tops. First tries: a 8.5-tall c
 as a grey mast with a stub; a net bag round the load read as a yellow ball; nets in the net teal went grey in the air (now rope tan).
 P1's gap 0.178 today, 0.177 A, 0.180 B. On the Stage Look Review ("worldbeach19", `bw19_*`); recommended B. To ship: rebuild
 `godot/models/stages/beach_world.glb` with `--theme ocean --variant ABW --nets wall` (no re-light).
+
+Built B (the owner's pick, 2026-10-26): `godot/models/stages/beach_world.glb` rebuilt with `--theme ocean --variant ABW --nets wall`.
+Before and after (the quay, match camera): `review10/beach_world_built.jpg`. All seven tests pass (the runner's known flake once, then
+a pass).
