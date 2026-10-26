@@ -3180,6 +3180,7 @@ func _body_spring_time(s: Dictionary, delta: float) -> float:
 ## hilt is in front of the head and within `COVER_R` of the face's middle on screen is printed: "COVER <class> <state> <move> <frame>".
 static var log_cover := OS.has_environment("PF_FACE_COVER")
 const COVER_R := 0.4
+const FRONT_COVER_Z := 0.15
 
 
 func _log_face_cover(s: Dictionary) -> void:
@@ -3190,6 +3191,9 @@ func _log_face_cover(s: Dictionary) -> void:
 	# (Round 4: PF_FACE_COVER=front measures from the drawn face, FACE_FWD ahead of the head's middle, where side-on it really is.)
 	if OS.get_environment("PF_FACE_COVER") == "front":
 		centre.x += FACE_FWD * float(s.facing)
+		# (Round 5: and a point must be nearer the camera than the drawn face's own depth, a little in front of the head's middle: a hand
+		# sent behind the head counted, though the head hid it.)
+		centre.z += FRONT_COVER_Z
 	var points := []
 	var names := []
 	for side in ["L", "R"]:
@@ -4744,15 +4748,23 @@ func _guard_face(facing: int) -> void:
 		var p := to_frame * skeleton.get_bone_global_pose(ih).origin
 		if p.z <= centre.z:
 			continue
-		var near := Vector2(p.x - centre.x, p.y - centre.y).length() / FACE_GUARD_R
+		# (Round 5: a sword hand is measured from the drawn face too, FACE_FWD ahead of the head's middle, whichever is nearer: the
+		# Longsword's guard came up under the mouth after its neutral air's windmill while it measured clear of the head's middle. Not the
+		# staff's two-handed grip, which this pushed onto the face.)
+		var from := Vector2(centre.x, centre.y)
+		if bladed(_cls_now) and side == _weapon_side(facing):
+			var face := from + Vector2(FACE_FWD * float(facing), 0.0)
+			if (Vector2(p.x, p.y) - face).length() < (Vector2(p.x, p.y) - from).length():
+				from = face
+		var near := (Vector2(p.x, p.y) - from).length() / FACE_GUARD_R
 		var k := 1.0 - smoothstep(0.8, 1.2, near)
 		if k <= 0.0:
 			continue
 		# (Out past the face's edge on screen and half way back toward the head: the short arms cannot reach behind the big head at
 		# face height, so pushed straight back the hand stopped in front of it.)
-		var out := Vector2(p.x - centre.x, p.y - centre.y)
+		var out := Vector2(p.x, p.y) - from
 		out = out.normalized() if out.length() > 0.01 else Vector2(float(facing), 1.0).normalized()
-		var edge := Vector2(centre.x, centre.y) + out * FACE_GUARD_R * 1.05
+		var edge := from + out * FACE_GUARD_R * 1.05
 		var guard := Vector3(edge.x, edge.y, lerpf(p.z, centre.z + HEAD_BEHIND_Z, 0.5))
 		var mine: bool = side == _weapon_side(facing)
 		if arms_held.has(side):
@@ -4762,8 +4774,8 @@ func _guard_face(facing: int) -> void:
 		# (Round 5: an arm too short to reach the face's edge stopped just inside it, a fist at the chin: the Settler's forward tilt, held
 		# 8 frames. Then it is sent further out the same way, and further back in depth, once more.)
 		var got := to_frame * skeleton.get_bone_global_pose(ih).origin
-		if k > 0.5 and Vector2(got.x - centre.x, got.y - centre.y).length() < FACE_GUARD_R * 0.95:
-			var further := Vector2(centre.x, centre.y) + out * FACE_GUARD_R * GUARD_FURTHER
+		if k > 0.5 and (Vector2(got.x, got.y) - from).length() < FACE_GUARD_R * 0.95:
+			var further := from + out * FACE_GUARD_R * GUARD_FURTHER
 			var again := Vector3(further.x, further.y, lerpf(got.z, centre.z + HEAD_BEHIND_Z, 0.75))
 			if arms_held.has(side):
 				_ik_arm(side, mine, p.lerp(again, k), 1.0)

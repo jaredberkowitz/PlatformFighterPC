@@ -1525,3 +1525,28 @@ that small are noise.
   The reference's long, even recovery would need a recovery curve of its own; that is left.
 - **Image:** `docs/screenshots/anim/r5_pass52_uair_hold.jpg`, every 3 frames from the last hit, before above after.
 - **Checked:** the six tests pass.
+
+### Pass 53: a sword hand is kept off the drawn face, not only the head's middle (round 5: the Longsword's front cover)
+
+- **Defect:** by the front measure (`PF_FACE_COVER=front`, pass 43), the Longsword's up special (18 frames), forward smash (7) and neutral
+  air (5) put a hand or hilt over the face.
+- **Checked first, frame by frame:** most were not real.
+  - The up special's hand and the forward smash's free fist are behind the head (sent there by the round-2 rule) and do not show. The
+    front measure counted them because it tested depth against the head's middle.
+  - It now tests against a point `FRONT_COVER_Z` (0.15) nearer the camera, where the drawn face is. The Longsword's front count fell from
+    50 to 21 with no pose changed: up special 18 to 2, forward smash 7 to 0.
+- **The real ones:** the Longsword's guard under the mouth after the neutral air's windmill (frames 20-23), and other blades' crossguards
+  at the cheek (the Greatsword's forward tilt, 15 frames).
+- **Fix (`_guard_face`):** a sword hand (`bladed`, the weapon side) is measured from the drawn face as well as the head's middle,
+  whichever is nearer, and sent out from that.
+  - Not the staff, whose two-handed grip this pushed onto the face in round 4. Not the free hand.
+- **Measured** (`PF_FACE_COVER=front`, before and after):
+  - Longsword 21 to 12 frames (neutral air 5 to 4);
+  - Greatsword 24 to 1 (forward tilt 15 to 0);
+  - Wanderer 10 to 2;
+  - Nodachi 92 to 3;
+  - Dagger 42, unchanged: its knife hand is not a `bladed` class.
+  - The old measure is unchanged for every class within its noise.
+- **Image:** `docs/screenshots/anim/r5_pass53_sword_hand_face.jpg`: the Longsword's neutral air and the Greatsword's forward tilt,
+  before above after.
+- **Checked:** the six tests pass.
