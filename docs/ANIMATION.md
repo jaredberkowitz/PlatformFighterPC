@@ -1511,3 +1511,17 @@ that small are noise.
 - **Image:** `docs/screenshots/anim/r5_pass51_kick_behind.jpg`: the up air every frame from its first hit, before above after.
 - **Checked:** the six tests pass. Facing left was checked through the computer matches (see the build's check); the gallery does not
   turn an aerial left.
+
+### Pass 52: the Longsword's up air starts home sooner (round 5)
+
+- **Defect:** the up air held 20 frames against the reference's 11 (hold / recovery 20 / 9 against 11 / 19).
+- **Cause:**
+  - Printed point by point, after the last hit the legs and the blade's carry go on moving away from the pose's home for about 6
+    frames. The report counts its "stop" from the first slow frame, so that drift counts as hold.
+  - The recovery's eased start then took until frame 28 to get a quarter of the way home; the reference is there by frame 25.
+- **Fix (`CLASS_END_SHAPES`):** the up air recovers from 5% of its end lag and is home by 75% (it was 6% and 99%), so it sets off home as
+  the drift ends.
+- **Measured** (FT / hold / rec): 0 / 20 / 9 to 0 / 16 / 9 with the snap, and 2 / 13 / 10 with the sweep (pass 49), against 5 / 11 / 19.
+  The reference's long, even recovery would need a recovery curve of its own; that is left.
+- **Image:** `docs/screenshots/anim/r5_pass52_uair_hold.jpg`, every 3 frames from the last hit, before above after.
+- **Checked:** the six tests pass.

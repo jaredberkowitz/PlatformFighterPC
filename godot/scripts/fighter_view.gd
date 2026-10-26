@@ -754,7 +754,7 @@ const CLIP_END_SHAPES := {"body_headbutt_fwd": Vector3(0.12, 0.8, CARRY_FRAMES)}
 ## Per class, the moves whose reference timing differs from the shared shape (hold to, recover by): round 4, measured against the
 ## reference swordsman. Its forward smash holds about a third of its end lag and then recovers slowly over the rest (ours recovered in 7
 ## frames against 17); its up air holds briefly and floats back down (24 frames of hold against 11).
-const CLASS_END_SHAPES := {0: {"fsmash": Vector2(0.2, 0.99), "uair": Vector2(0.06, 0.99)}}
+const CLASS_END_SHAPES := {0: {"fsmash": Vector2(0.2, 0.99), "uair": Vector2(0.05, 0.75)}}
 ## The clip's follow-through key (frame 40 of 60).
 const FOLLOW_PROGRESS := 0.667
 ## The weapon arm and the reaching limbs come home this much of the end lag after the body, so the hips lead the recovery.
