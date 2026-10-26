@@ -1564,3 +1564,34 @@ that small are noise.
   matches): 304 covered frames before round 5, 129 after.
   - Clutch up air 25 to 0, Needles grab 13 to 0, Settler forward tilt 16 to 6, Embers up air 120 to 36.
   - The Embers' forward air is 16, all on the frame its hit freezes; in the gallery its face shows on that frame.
+
+### Round 6 (2026-10-26, round 5's leftovers; the owner: continue)
+
+### Investigation: the Embers' up air in live play (round 6 item 1). No change.
+
+- **The question:** 36 covered frames in the computer matches, none in the gallery.
+- **Reproduced from the live log:** a debug run of the same match (Clutch, char 16, against the Embers, char 3) logged each covered
+  frame's sim frame, facing, velocity, jumps left and lean. Every one was in the up air's end lag (frames 11-22), rising (vertical speed
+  0.04-0.19) after a double jump, both facings, the far foot.
+- **The gallery can now throw an aerial that way:** `--gallery-jump` throws it rising out of a double jump, and `--gallery-drift=X`
+  drifts with the stick. With these, the gallery shows no cover facing right and 1 frame drifting backward.
+- **Frame by frame:** a 60 fps movie of the match (`--write-movie`), cropped on the Embers, shows no foot over the face. The far foot is
+  behind the head (pass 51) and below it. The face-cover log counted it because it tests depth against the head's middle. Image:
+  `docs/screenshots/anim/r6_embers_uair_live.jpg`.
+- **Seen there instead (for the art director):** the built-in Embers fighter's hair and goggles come down over its eyes as its head tips
+  forward in the end lag. That is the look's hair, not the animation.
+
+### Pass 54: the Dagger's knife hand on the ground is kept off the face (round 6 item 2)
+
+- **Checked frame by frame:** the Dagger's 42 frames by the front measure were partly real.
+  - The forward tilt held the knife hand up past the cheek (frames 19-24), and the up special held it there too.
+  - The forward air holds the knife beside the jaw with the face clear.
+- **Fix (`_guard_face`):** the Dagger's knife hand comes under pass 53's sword-hand guard (measured from the drawn face too), on the
+  ground only. In the air the forward air's hand was sent behind the head and the knife vanished, so the air is left as it was.
+- **Other weapons:** the swords, Greatsword and Nodachi already have it (pass 53). The staff's two-handed grip is excluded (round 4).
+  The Settler's tool is covered by pass 50's further reach.
+- **Measured** (`PF_FACE_COVER=front`, the Dagger's moves): 42 to 26 frames (forward tilt 6 to 0, up special 8 to 0; the forward air's 19
+  stay, the knife beside the jaw). The old measure: 2, unchanged.
+- **Image:** `docs/screenshots/anim/r6_pass54_dagger_knife.jpg`: the forward tilt before and after (both facings), and the forward air,
+  unchanged.
+- **Checked:** both facings; the six tests pass.

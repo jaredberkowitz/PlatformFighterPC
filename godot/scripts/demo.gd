@@ -379,6 +379,11 @@ static func make(demo_name: String, m: Dictionary, dir: String):
 			# (`--gallery-frames=N` photographs the first N frames of each move, 40 by default; `--gallery-moves=jab,fair` only those.)
 			var shoot_to := 40
 			var only := PackedStringArray()
+			# (`--gallery-jump`: an aerial is thrown rising out of a double jump, as the computer players throw them, instead of from a
+			# standstill in the air: round 5, the Embers' up air covered its face only then.)
+			var jump_in := false
+			# (`--gallery-drift=X`: and drifting with the stick at X (forward positive) through the jumps.)
+			var drift := 0
 			for arg in OS.get_cmdline_user_args():
 				if arg.begins_with("--gallery-class="):
 					cls = int(arg.substr(16))
@@ -392,6 +397,10 @@ static func make(demo_name: String, m: Dictionary, dir: String):
 					shoot_to = clampi(int(arg.substr(17)), 1, 66)
 				elif arg.begins_with("--gallery-moves="):
 					only = arg.substr(16).split(",")
+				elif arg == "--gallery-jump":
+					jump_in = true
+				elif arg.begins_with("--gallery-drift="):
+					drift = clampi(int(arg.substr(16)), -127, 127)
 			d.chars = [cls, 0, 0, 0]
 			d.cam_dist = 9.0
 			d.cam_focus = 0
@@ -412,9 +421,16 @@ static func make(demo_name: String, m: Dictionary, dir: String):
 					n += 1
 					continue
 				# (Round 5: an aerial facing left stands facing that way first; placed in the air straight away it kept facing right.)
-				if g[4] and facing < 0:
+				if g[4] and jump_in:
+					d.events.append([t - 34, "stand", 0, 0.0, facing])
+					d.timeline.append([t - 30, drift * facing, 0, jump])
+					d.timeline.append([t - 29, drift * facing, 0, 0])
+					d.timeline.append([t - 12, drift * facing, 0, jump])
+					d.timeline.append([t - 11, drift * facing, 0, 0])
+				elif g[4] and facing < 0:
 					d.events.append([t - 5, "stand", 0, 0.0, facing])
-				d.events.append([t - 4, "place", 0, 0.0, air_y] if g[4] else [t - 4, "stand", 0, 0.0, facing])
+				if not (g[4] and jump_in):
+					d.events.append([t - 4, "place", 0, 0.0, air_y] if g[4] else [t - 4, "stand", 0, 0.0, facing])
 				d.timeline.append([t, g[1] * facing, g[2], g[3]])
 				d.timeline.append([t + 1, 0, 0, 0])
 				for f in range(1, shoot_to + 1, step):

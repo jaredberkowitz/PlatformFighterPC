@@ -4737,7 +4737,7 @@ const FACE_GUARD_R := 0.45
 const GUARD_FURTHER := 1.5
 
 
-func _guard_face(facing: int) -> void:
+func _guard_face(facing: int, on_ground := true) -> void:
 	if not use_base_body or skeleton == null or head_bone < 0:
 		return
 	var to_frame := _skeleton_to_frame()
@@ -4752,7 +4752,9 @@ func _guard_face(facing: int) -> void:
 		# Longsword's guard came up under the mouth after its neutral air's windmill while it measured clear of the head's middle. Not the
 		# staff's two-handed grip, which this pushed onto the face.)
 		var from := Vector2(centre.x, centre.y)
-		if bladed(_cls_now) and side == _weapon_side(facing):
+		# (And the Dagger's knife hand on the ground, round 5: held up past the cheek in its forward tilt, 6 frames. Not in the air: its
+		# forward air holds the knife beside the jaw, and sent out it went behind the head and the knife vanished.)
+		if (bladed(_cls_now) or (_cls_now == DAGGER_CLASS and on_ground)) and side == _weapon_side(facing):
 			var face := from + Vector2(FACE_FWD * float(facing), 0.0)
 			if (Vector2(p.x, p.y) - face).length() < (Vector2(p.x, p.y) - from).length():
 				from = face
@@ -5857,7 +5859,7 @@ func _apply_combat(s: Dictionary, delta: float) -> void:
 			two = ik_last_two
 			amount = ik_fade * ik_fade * (3.0 - 2.0 * ik_fade)
 		_aim_arm(int(s.facing), hold_now or ik_fade > 0.0, two, amount)
-		_guard_face(int(s.facing))
+		_guard_face(int(s.facing), int(s.platform) >= 0)
 		# The hilt goes where the hand actually got to (an arm shorter than the swing wants stops short of its target): the weapon is
 		# always in the hand, never floating in front of it.
 		if holding and not carrying and skeleton != null:
