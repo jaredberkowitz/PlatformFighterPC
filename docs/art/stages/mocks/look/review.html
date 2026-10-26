@@ -88,6 +88,29 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
     <p>Two lessons from the reference screenshots, mocked from the match camera: the scenery without ink outlines, its edges lit as card bevels instead, and the paper houses rebuilt at the characters' proportions. The earlier rounds stay on the <a href="https://claude.ai/artifact/D1du6MREVumiJDrEdNypW4">Stage Fidelity Review</a>, which is full.</p>
   </header>
 
+  <section class="panel" aria-labelledby="gv29-h" id="grovevalley29">
+    <div class="eyebrow">Built B (the owner's pick) &middot; new art (approved 26 October), G2: the grove's valley below</div>
+    <h2 id="gv29-h">The islands over a valley</h2>
+    <p>First, the city's street life is built (see its section below). Last of the approved new art, the riskiest: the grove's abyss opened to a valley below. The near abyss becomes pale banks of mist with gaps between them, one under each waterfall's foot and a broad one under the island, so the water and the rock still end in mist. Through the gaps there's a forest floor in the grove's own greens, with its pines at true size and a pale river winding across it.</p>
+    <div class="tablewrap"><table><thead><tr><th>Option</th><th>What changes</th></tr></thead><tbody>
+      <tr><td>A &middot; Deep, under the mist</td><td>The valley far down (80 below) with today's layered mist sheets kept over it</td></tr>
+      <tr><td>B &middot; Open valley</td><td>The valley nearer (50 below) and open: no layered mist sheets behind the banks</td></tr>
+    </tbody></table></div>
+    <p>The lower half at the wide camera (today, A on top; today, B below). P1's gap holds (0.061 today, 0.059 A, 0.055 B).</p>
+    <div class="viewer"><img src="gv29_close.jpg" alt="The grove's abyss today and opened to a valley below"></div>
+    <div class="row" role="group" aria-label="View"><button data-gv29v="m">Match camera</button><button data-gv29v="w">Wide</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-gv29o="T">Today</button><button data-gv29o="A">A &middot; Deep, under the mist</button><button data-gv29o="B">B &middot; Open valley</button></div>
+    <div class="viewer"><img id="gv29img" alt="Grove valley option"><span class="vtag" id="gv29tag"></span></div>
+    <p class="muted">My pick: <b>B</b>. The islands now float over a forested valley with its river, the clearest change to the grove's lower third so far. Honest notes:
+      <ul>
+        <li>A doesn't work. The cameras look down only a little, so a valley 80 below shows just in the frame's bottom band, as pine tips in the haze. That's the "trees standing in water" look from review 9.</li>
+        <li>B's valley is 50 below, so it reads as below rather than far below.</li>
+        <li>The side islands' rock columns now hang over the valley (as floating islands do), and the mist banks are flat pale pads.</li>
+        <li>Shipping means rebuilding the grove's land and re-lighting. It adds about 62,000 triangles (140,000 to 202,000), right at the plan's budget of about 60,000 per stage, so I'd check frame time on the Fast tier before shipping.</li>
+      </ul>
+    </p>
+  </section>
+
   <section class="panel" aria-labelledby="cs28-h" id="citystreet28">
     <div class="eyebrow">Built B (the owner's pick) &middot; new art (approved 26 October), Ci2: the city's street-level life</div>
     <h2 id="cs28-h">A newsstand, a food cart and a bus stop</h2>
@@ -2366,5 +2389,15 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
   group("data-cs28v", function (v) { cs28v = v; }, cs28render);
   group("data-cs28o", function (v) { cs28o = v; }, cs28render);
   cs28render();
+  var gv29v = "w", gv29o = "B";
+  var GV29O = { T: "Today", A: "A \u00b7 Deep, under the mist", B: "B \u00b7 Open valley" };
+  function gv29render() {
+    document.getElementById("gv29img").src = "gv29_" + gv29o + "_" + gv29v + ".jpg";
+    document.getElementById("gv29tag").textContent = "Grove \u00b7 " + GV29O[gv29o] + (gv29v === "w" ? " \u00b7 wide" : " \u00b7 match camera");
+    pressed("data-gv29v", gv29v); pressed("data-gv29o", gv29o);
+  }
+  group("data-gv29v", function (v) { gv29v = v; }, gv29render);
+  group("data-gv29o", function (v) { gv29o = v; }, gv29render);
+  gv29render();
 })();
 </script>
