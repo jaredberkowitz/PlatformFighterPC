@@ -231,8 +231,9 @@ static func builtins() -> Array:
 	# (Its own look, not player one's: a cherry racer in an aviator cap and goggles, a scarf to trail behind it, gloves for the fists.)
 	var racer: RefCounted = Loadout.default_for(4)
 	racer.color = 6
-	racer.hat = 2
-	racer.glasses = 2
+	# (A racing helmet of its own, the fighter identity pass, 2026-10-26: it shared the aviator cap with the Brawler and the Scamp.)
+	racer.hat = 11
+	racer.glasses = 0
 	racer.neck = 3
 	racer.gear = 2
 	racer.shirt = 2
@@ -245,7 +246,8 @@ static func builtins() -> Array:
 	oracle.color = 5
 	oracle.hat = 5
 	oracle.glasses = 0
-	oracle.neck = 4
+	# (A neckerchief: the capes stay with the Duelist, the Champion and the Phantom, the fighter identity pass.)
+	oracle.neck = 2
 	oracle.gear = 1
 	oracle.shirt = 2
 	oracle.accent = 8
@@ -258,7 +260,7 @@ static func builtins() -> Array:
 	hero.hat = 8
 	hero.brow_color = 4
 	hero.glasses = 0
-	hero.neck = 3
+	hero.neck = 4
 	hero.gear = 3
 	hero.shirt = 2
 	hero.face = 2
@@ -290,9 +292,12 @@ static func builtins() -> Array:
 	# (Its own look: a lagoon-blue traveller in a straw hat and a streaming scarf, sword in hand and a round shield on its arm.)
 	var traveller: RefCounted = Loadout.default_for(9)
 	traveller.color = 7
-	traveller.hat = 3
+	# (A headband with long tails of its own, the fighter identity pass: it shared the straw hat with the Settler.)
+	traveller.hat = 13
+	# (Dark brown hair under the headband, so the band reads apart from it.)
+	traveller.brow_color = 1
 	traveller.glasses = 0
-	traveller.neck = 3
+	traveller.neck = 1
 	traveller.gear = 3
 	traveller.shirt = 2
 	traveller.accent = 10
@@ -310,7 +315,9 @@ static func builtins() -> Array:
 	settler.base_index = 10
 	# (The shared default look until the art agent gives it its own.)
 	var monkey: RefCounted = Loadout.default_for(11)
-	monkey.hat = 2
+	# (A cap with round ears of its own, the fighter identity pass: it shared the aviator cap.)
+	monkey.hat = 12
+	monkey.neck = 0
 	monkey.shirt = 3
 	monkey.gear = 1
 	monkey.accent = 7
@@ -321,7 +328,8 @@ static func builtins() -> Array:
 	var thief: RefCounted = Loadout.default_for(12)
 	thief.color = 11
 	thief.accent = 6
-	thief.hat = 0
+	# (A top hat, the fighter identity pass: bareheaded, its silhouette was a plain ball.)
+	thief.hat = 14
 	thief.glasses = 1
 	thief.neck = 4
 	thief.shirt = 2
@@ -333,7 +341,9 @@ static func builtins() -> Array:
 	var wanderer_look: RefCounted = Loadout.default_for(13)
 	wanderer_look.color = 8
 	wanderer_look.accent = 9
-	wanderer_look.hat = 0
+	# (A wide conical hat, the fighter identity pass: bareheaded, its silhouette was a plain ball.)
+	wanderer_look.hat = 15
+	wanderer_look.glasses = 0
 	wanderer_look.neck = 3
 	wanderer_look.shirt = 2
 	wanderer_look.gear = 3

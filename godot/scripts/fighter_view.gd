@@ -2577,7 +2577,7 @@ func _shirt_collar() -> void:
 ## The hats modelled in Blender (art/blender/make_gear.py, godot/models/gear), by hat slot (the owner, 2026-10-18: moving the
 ## accessories from built primitives to models over time).
 const GEAR_HATS := {1: "sailor_cap", 2: "aviator_cap", 3: "straw_hat", 4: "beanie", 5: "crown", 7: "plumed_helm", 8: "swept_spikes",
-	9: "topknot", 10: "dixie_cap"}
+	9: "topknot", 10: "dixie_cap", 11: "racing_helmet", 12: "eared_cap", 13: "headband", 14: "top_hat", 15: "conical_hat"}
 
 
 ## Puts the modelled accessory `name` on the hat pivot, each part coloured by what it is made of (its name's first word): fabric in
@@ -2607,6 +2607,8 @@ func _gear_model(name: String, accent: Color) -> bool:
 	# (A model's "metal" is the helm's steel, or the caps' brass; "brass" and "gold" name themselves.)
 	var mats := {"fabric": _fabric(accent), "canvas": _cloth(toon(Color(0.95, 0.94, 0.9))), "leather": _cloth(toon(Color(0.4, 0.25, 0.17))),
 		"metal": steel if name == "plumed_helm" else brass, "brass": brass, "gold": gold, "glass": toon(Color(0.66, 0.84, 0.95), false),
+		# (Dark felt for the top hat, the fighter identity pass.)
+		"felt": _cloth(toon(Color(0.17, 0.15, 0.21))),
 		"straw": straw, "hair": toon(FaceLook.BROW_COLORS[clampi(loadout.brow_color, 0, FaceLook.BROW_COLORS.size() - 1)]),
 		# (Cream fleece, the aviator scout pilot, 2026-10-19.)
 		# (A soft curly painted tile, the character judge's round 1: the fleece read as a smooth ring.)
@@ -2695,7 +2697,8 @@ func _hat() -> void:
 	# (Oversized, as the reference's hats are, art review 10: at play size the hats read as small caps and every fighter as the same
 	# round head; a bigger hat is most of a fighter's silhouette. Scaled about the top of the head, so each still sits on it.)
 	# (Only the hats that sit on top of the head: scaled, the caps that wrap it (aviator cap, beanie, hood, topknot) came down over the eyes.)
-	if loadout.hat in [1, 3, 5, 7, 8]:
+	# (The top hat and the conical hat sit on top too, the fighter identity pass.)
+	if loadout.hat in [1, 3, 5, 7, 8, 14, 15]:
 		# (Only part of the head shape's stretch reaches the hat, the character judge's round 14: on the wide bun head the aviator's hat
 		# spread into a flat platter. The hat fits the head without taking its proportions.)
 		var hs: Vector3 = Loadout.HEAD_SCALES.get(Loadout.HEADS[clampi(int(loadout.get("head")), 0, Loadout.HEADS.size() - 1)], HEAD_SIZE)
