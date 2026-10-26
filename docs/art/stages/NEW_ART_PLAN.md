@@ -292,3 +292,6 @@ sign at the kerb) at (36, -32.5). B (`--street people`) adds two people waiting 
 newsstand first came out cream (the bus stripe's family) and read as a white box. P1's gap 0.130 today, 0.131 A, 0.132 B. On the Stage
 Look Review ("citystreet28", `cs28_*`); recommended B. To ship: rebuild `godot/models/stages/city_world.glb` with `--theme city
 --variant ABWS --people round --roofs life --street people` (no re-light).
+
+Built B (the owner's pick, 2026-10-26): `godot/models/stages/city_world.glb` rebuilt with `--theme city --variant ABWS --people round
+--roofs life --street people`. Before and after (the street's right, wide): `review11/city_street_built.jpg`. All seven tests pass.

@@ -32,7 +32,7 @@ Run (Blender 5.2):
 Shipped (the owner's picks, 2026-10-21), in godot/models/stages/: beach_world.glb (`--theme ocean --variant AB`; `--variant ABWM --nets wall --moored A` since 2026-10-26), canyon_world.glb
 (`--theme sunset --variant A --trestle far`, the trestle far back since fidelity review 7; `--variant AW` since 2026-10-26), meadow_world.glb (`--theme meadow --variant BC`; `--variant BCW` since 2026-10-26), grove_world.glb (`--theme grove --variant ABL`),
 city_world.glb (`--theme city --variant AB`). Since fidelity review 6: grove `--variant ABL --streamers shide` (with `--village lanterns` since 2026-10-26), city `--variant AB
---people round` (with `--variant ABW --roofs life` since 2026-10-26).
+--people round` (with `--variant ABWS --roofs life --street people` since 2026-10-26).
 """
 
 import math
