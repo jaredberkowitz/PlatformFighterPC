@@ -314,3 +314,7 @@ each with the saved quality set to Fast and restored after): GPU 1.94 and 2.43 m
 primitives and 65 more draw calls; the frame rate within run-to-run noise (114 and 61 fps today, 122 and 65 with B).
 `godot/models/stages/grove_paper.glb` rebuilt with `--valley open --valley_y -50`, the grove re-lit (front, paper, play). P1's gap 0.062.
 Before and after (the lower half, wide): `review11/grove_valley_built.jpg`. All seven tests pass. With this, every new-art option is built.
+
+Released (2026-10-26): C1, M2, B2, Ci2 and G2, with the animation session's round 4, as `playtest-2026-10-26-sim146-valley`, built on
+`build/art-2026-10-26c` (the animation branch at 5dc0f5f6 plus this branch, the grove's stage-select still regenerated), pack only,
+content hash ef93425e6c64eee3.
