@@ -4864,6 +4864,8 @@ const KICK_HIP_Y := 0.6
 const HIGH_KICK := 65.0
 ## How far ahead of the hips an overhead kick's foot is kept, so the leg rises past the face rather than across it (round 3).
 const KICK_CLEAR_X := 0.8
+## Where (depth, toward the camera positive) a kick behind and overhead puts its foot: behind the head.
+const KICK_BEHIND_Z := -0.35
 ## The steepest (degrees above level, from the hip) an overhead kick is aimed, so the foot ends ahead of the chin, not on the face.
 const OVERHEAD_KICK := 40.0
 
@@ -4949,6 +4951,10 @@ func _aim_leg(s: Dictionary, kicking: bool, delta: float) -> void:
 				if fh.angle() > top:
 					fh = Vector2.from_angle(top) * fh.length()
 					aim = Vector3(fh.x, fh.y + KICK_HIP_Y, aim.z)
+		# (Round 5: a kick behind and up past the chest, the far leg's, goes behind the head in depth, as a raised hand does: drawn toward
+		# the camera like a kick in front, its shin crossed the face through the Embers' up air, 9 frames, the most in live play.)
+		if use_base_body and side == back and aim.x < 0.0:
+			toward = lerpf(toward, KICK_BEHIND_Z, smoothstep(1.0, 1.4, aim.y))
 		var goal: Vector3 = to_skel * Vector3(aim.x * float(facing), aim.y, toward)
 		var d := goal - hip
 		var dist := clampf(d.length(), 0.05, upper + lower - 0.002)

@@ -1496,3 +1496,18 @@ that small are noise.
   - the rest the same within the measure's noise (up to 3 frames).
 - **Image:** `docs/screenshots/anim/r5_pass50_guard_further.jpg`: the Settler's forward tilt, before, after and facing left.
 - **Checked:** both facings; the six tests pass.
+
+### Pass 51: a kick behind and overhead goes behind the head (round 5: the Embers' up air)
+
+- **Defect:** the Embers' up air (a flip kick from in front over to behind) put the far leg's shin and foot across the face for 9 frames
+  of its end lag. It was the most frequent face cover in live play (120 rendered frames over a 20-second computer match, its hits'
+  freezes included).
+- **Cause (`_aim_leg`):** the kick's second half goes behind the body (the hit at x -0.4, overhead), so the far leg kicks. Every kicking
+  leg was drawn toward the camera (`toward` 0.4-0.75) so a kick in front shows; for the far leg kicking up behind, that put its shin in
+  front of the face.
+- **Fix:** a far leg kicking behind and above the chest goes behind the head in depth (`KICK_BEHIND_Z`, -0.35), eased in by its height,
+  as raised hands do. The front half of the kick, where it hits first, is unchanged.
+- **Measured** (`PF_FACE_COVER`, every class): the Embers' up air went from 9 frames to 0. No other class changed.
+- **Image:** `docs/screenshots/anim/r5_pass51_kick_behind.jpg`: the up air every frame from its first hit, before above after.
+- **Checked:** the six tests pass. Facing left was checked through the computer matches (see the build's check); the gallery does not
+  turn an aerial left.
