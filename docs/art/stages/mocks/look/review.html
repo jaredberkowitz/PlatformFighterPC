@@ -88,6 +88,22 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
     <p>Two lessons from the reference screenshots, mocked from the match camera: the scenery without ink outlines, its edges lit as card bevels instead, and the paper houses rebuilt at the characters' proportions. The earlier rounds stay on the <a href="https://claude.ai/artifact/D1du6MREVumiJDrEdNypW4">Stage Fidelity Review</a>, which is full.</p>
   </header>
 
+  <section class="panel" aria-labelledby="gz25-h" id="gorge25">
+    <div class="eyebrow">Your call is needed &middot; new art (approved 26 October), C1: the canyon's dry river gorge</div>
+    <h2 id="gz25-h">The dry wash as a gorge</h2>
+    <p>With your OK on the remaining new art, I'm taking the stages in this order: the canyon first (the one stage still at 4.0), then the meadow's stream, the beach's moored boats, the city's street life, and the grove's valley last (the riskiest). For the canyon, the dry wash that winds in from the far right becomes a real channel. Its bed is wider and strewn with pebbles, and each bank steps up in sandstone ledges in the strata's colours to a rim that slopes away into the floor's sand.</p>
+    <div class="tablewrap"><table><thead><tr><th>Option</th><th>What changes</th></tr></thead><tbody>
+      <tr><td>A &middot; Shallow gorge</td><td>Three ledges 0.9 high each side</td></tr>
+      <tr><td>B &middot; Deep gorge</td><td>Four ledges 1.3 high each side, fallen blocks in the bed</td></tr>
+    </tbody></table></div>
+    <p>The right of the stage at the wide camera (today, A on top; B, then B at the match camera below). The gorge starts at the nearer reach only, right of the fight. The region there gains contrast (0.126 to 0.147 A, 0.144 B), and P1's gap holds (0.043 today, 0.045 A, 0.046 B).</p>
+    <div class="viewer"><img src="gz25_close.jpg" alt="The canyon's floor right of the stage today and with the gorge"></div>
+    <div class="row" role="group" aria-label="View"><button data-gz25v="m">Match camera</button><button data-gz25v="w">Wide</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-gz25o="T">Today</button><button data-gz25o="A">A &middot; Shallow gorge</button><button data-gz25o="B">B &middot; Deep gorge</button></div>
+    <div class="viewer"><img id="gz25img" alt="Canyon gorge option"><span class="vtag" id="gz25tag"></span></div>
+    <p class="muted">My pick: <b>B</b>. Its banks show their sandstone strata and read as a gorge cut through the floor. A's thin steps read as a trench. Honest notes: from this camera height you mostly see the far bank's stepped face, not into the bed, so the fallen blocks hardly show. The first try ran the gorge's whole length and stood its rim up as an embankment, with a pale rise right behind the fighters. Keeping the scatter clear of the banks moves the right-hand rock pillars a little. Shipping means rebuilding the canyon's land and re-lighting.</p>
+  </section>
+
   <section class="panel" aria-labelledby="ab24-h" id="abyss24">
     <div class="eyebrow">Built A (the owner's pick) &middot; review 11, item 4: the grove's abyss</div>
     <h2 id="ab24-h">Depth in the grove's abyss</h2>
@@ -2262,5 +2278,15 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
   group("data-ab24v", function (v) { ab24v = v; }, ab24render);
   group("data-ab24o", function (v) { ab24o = v; }, ab24render);
   ab24render();
+  var gz25v = "w", gz25o = "B";
+  var GZ25O = { T: "Today", A: "A \u00b7 Shallow gorge", B: "B \u00b7 Deep gorge" };
+  function gz25render() {
+    document.getElementById("gz25img").src = "gz25_" + gz25o + "_" + gz25v + ".jpg";
+    document.getElementById("gz25tag").textContent = "Canyon \u00b7 " + GZ25O[gz25o] + (gz25v === "w" ? " \u00b7 wide" : " \u00b7 match camera");
+    pressed("data-gz25v", gz25v); pressed("data-gz25o", gz25o);
+  }
+  group("data-gz25v", function (v) { gz25v = v; }, gz25render);
+  group("data-gz25o", function (v) { gz25o = v; }, gz25render);
+  gz25render();
 })();
 </script>

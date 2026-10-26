@@ -231,3 +231,22 @@ known flake once, then a pass). With this, step 5 (world detail) is built on all
 Released (2026-10-26): everything since review 9's build (the deeper contact shade, the canyon's far clouds, the painted variation,
 steps 1 to 5) as `playtest-2026-10-26-sim146-newart`, built on `build/art-2026-10-26` (the animation branch at pass 34 plus this
 branch, stage select stills regenerated), pack only, content hash ef93425e6c64eee3.
+
+## Approved, the rest (2026-10-26)
+
+After fidelity review 11, the owner: "Please continue. You have my OK on those new art options." So M2 (the meadow's stream and
+footbridge), G2 (the grove's valley below), C1 (the canyon's dry river gorge), B2 (the beach's moored boats) and Ci2 (the city's
+street-level life) are approved, under the same rules (true size, the fight clear, P1's gap measured, one stage at a time, the owner
+picks each). Order, the lowest-scoring stage and the safest first, the riskiest last: **C1** (the canyon is the one stage still at 4.0),
+then **M2**, **B2**, **Ci2**, and **G2** last (high risk: a lot of new land that must read as far below).
+
+### C1, the canyon's dry river gorge (mock, 2026-10-26)
+
+`make_canyon_paper.py --gorge A|B` on the shipped land (`--variant KC --arch chipped --buttes solid --fight broken --plain outcrops
+--foot talus --hoodoos 5`): the dry wash's bed a third wider, and from z -95 nearer (`GORGE_FROM`) each bank stepping up in sandstone
+ledges in the strata's colours (A three of 0.9, B four of 1.3, with fallen blocks in the bed) to a rim of sand that slopes away 8 units
+to the floor; the scatter, outcrops and hoodoos kept 13 further off it. First tries: run the whole length with the rim's outer edge a
+cut card, the gorge stood up as an embankment and its far reach raised a pale rise right behind the fighters; a keep-off of 20 pushed
+the right-hand hoodoos out. The region right of the stage: contrast 0.126 today, 0.147 A, 0.144 B; P1's gap 0.043, 0.045, 0.046. On the
+Stage Look Review ("gorge25", `gz25_*`; six of the oldest sections archived from the published copy only, for the artifact's file
+limit); recommended B. To ship: rebuild `godot/models/stages/canyon_paper.glb` with `--gorge B`, then re-light the canyon.
