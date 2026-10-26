@@ -1364,3 +1364,17 @@ Ranked by how visible it is at match speed:
 - **Image:** `docs/screenshots/anim/r4_pass46_face_lift.jpg`: the Clutch's forward smash (both facings) and forward air, then the Embers'
   forward air (both facings), before above after.
 - **Checked:** both facings; the six tests pass.
+
+### Pass 47: an overhead kick ends ahead of the chin, not on the face (round 4 item 4: the Needles' up tilt and up air)
+
+- **Defect:** the Needles' up tilt and up air kick straight up at a hit over the head. The near leg's shin crossed the face for 3 frames of
+  the up tilt and 5 of the up air.
+- **Cause (`_aim_leg`):** the short leg cannot reach a hit 1.6 units above the hips. Aimed at it steeply (`HIGH_KICK` 65 degrees), it
+  stopped at full stretch with the foot at face height, just ahead of the head's middle. Pass 39's `KICK_CLEAR_X` moves such a foot forward,
+  but at that angle the leg still ends on the face.
+- **Fix:** an overhead kick is also aimed no steeper than `OVERHEAD_KICK` (40 degrees) above level from the hip, eased in by how overhead
+  it is. The foot ends out ahead of the chin: a high kick under the hit.
+- **Measured** (`PF_FACE_COVER`): the Needles' up tilt went from 3 frames to 0 and its up air from 5 to 3 (the up air's re-hits, in the
+  air, where the body tips back). The Gauntlets' overhead kick is unchanged.
+- **Image:** `docs/screenshots/anim/r4_pass47_overhead_kick.jpg`: the up tilt (both facings) and the up air, before above after.
+- **Checked:** both facings; the six tests pass.

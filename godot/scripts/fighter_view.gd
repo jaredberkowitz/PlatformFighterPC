@@ -4792,6 +4792,8 @@ const KICK_HIP_Y := 0.6
 const HIGH_KICK := 65.0
 ## How far ahead of the hips an overhead kick's foot is kept, so the leg rises past the face rather than across it (round 3).
 const KICK_CLEAR_X := 0.8
+## The steepest (degrees above level, from the hip) an overhead kick is aimed, so the foot ends ahead of the chin, not on the face.
+const OVERHEAD_KICK := 40.0
 
 
 ## A kick: the leg on the side of the hitbox reaches the live hitbox with two-bone IK (hip, knee, ankle), so the foot is where the hit
@@ -4867,6 +4869,14 @@ func _aim_leg(s: Dictionary, kicking: bool, delta: float) -> void:
 			if overhead > 0.0:
 				aim.x = lerpf(aim.x, maxf(aim.x, KICK_CLEAR_X), overhead)
 				toward = lerpf(toward, 0.25, overhead)
+				# (Round 4: and no steeper than OVERHEAD_KICK above level from the hip. The short leg cannot reach a hit overhead, so aimed
+				# at it steeply it stopped at full stretch with the foot on the face: the Needles' up tilt and up air, 8 frames. Laid
+				# lower, the foot ends out ahead of the chin, a high kick under the hit.)
+				var fh := Vector2(aim.x, aim.y - KICK_HIP_Y)
+				var top := deg_to_rad(lerpf(HIGH_KICK, OVERHEAD_KICK, overhead))
+				if fh.angle() > top:
+					fh = Vector2.from_angle(top) * fh.length()
+					aim = Vector3(fh.x, fh.y + KICK_HIP_Y, aim.z)
 		var goal: Vector3 = to_skel * Vector3(aim.x * float(facing), aim.y, toward)
 		var d := goal - hip
 		var dist := clampf(d.length(), 0.05, upper + lower - 0.002)
