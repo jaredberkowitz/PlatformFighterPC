@@ -308,3 +308,9 @@ the valley in violets bleached to lilac in the haze; the banks in the abyss's vi
 today, 0.48 B; P1's gap 0.061 today, 0.059 A, 0.055 B. B adds about 62,000 triangles (140,000 to 202,000), at the plan's budget:
 check frame time on the Fast tier before shipping. On the Stage Look Review ("grovevalley29", `gv29_*`); recommended B. To ship: rebuild
 `godot/models/stages/grove_paper.glb` with `--valley open --valley_y -50` (and `--deep A`), then re-light the grove.
+
+Built B (the owner's pick, 2026-10-26), after a frame-time check on the Fast tier (`--perf`, the grove at the match camera, two runs
+each with the saved quality set to Fast and restored after): GPU 1.94 and 2.43 ms today, 1.98 and 1.53 ms with B; 61,000 more
+primitives and 65 more draw calls; the frame rate within run-to-run noise (114 and 61 fps today, 122 and 65 with B).
+`godot/models/stages/grove_paper.glb` rebuilt with `--valley open --valley_y -50`, the grove re-lit (front, paper, play). P1's gap 0.062.
+Before and after (the lower half, wide): `review11/grove_valley_built.jpg`. All seven tests pass. With this, every new-art option is built.
