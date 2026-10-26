@@ -168,3 +168,6 @@ behind the barn at -38.5 it was hidden, at -32 it stood on the slope) and a bonf
 (-58, -105; right of the stage its smoke ran into the far cottage's). Rebuilding the world also re-seats the scarecrow and washing on
 the terraced ground, where today's model has them buried. P1's gap 0.052, as before. On the Stage Look Review ("worldmeadow16",
 `wm16_*`); recommended shipping it. To ship: rebuild `godot/models/stages/meadow_world.glb` with `--variant BCW` (no re-light).
+
+Built (the owner's pick, 2026-10-26): `godot/models/stages/meadow_world.glb` rebuilt with `--theme meadow --variant BCW` (world
+models take no light bake). Before and after (the farmyard and the far field): `review10/meadow_world_built.jpg`. All seven tests pass.
