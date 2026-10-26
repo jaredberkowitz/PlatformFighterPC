@@ -54,3 +54,7 @@ roof region at the match camera: value 0.53 today (lit) and 0.55 with A or B (un
 0.112 with A and B, the same as today's roof unlit (0.112): the narrowing from 0.131 is the missing light bake, not the felt. On the
 Stage Look Review ("roofing30", `rf30_*`); recommended A. To ship: rebuild `godot/models/stages/city_play.glb` with `--roofing A`, then
 re-light the city.
+
+Built A (the owner's pick): `godot/models/stages/city_play.glb` rebuilt with `--roofing A`, the city re-lit (front, play; `--curve 4.0
+--reach 4.5 --floor 0.28` after a fresh `--light-export`). In the game the roof measures value 0.51, contrast 0.143; P1's gap 0.134
+(0.131 before). Before and after (the roof, match camera): `review12/city_roof_built.jpg`. All seven tests pass.

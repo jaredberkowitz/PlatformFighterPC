@@ -13,7 +13,8 @@ Families `top`, `top_card`, `layer1`, `layer2`, `fringe`, `path`, `plank`, `plan
 
 Shipped since fidelity review 7 (the owner's picks, 2026-10-22), each with `--wear 2`, then lit: grove_play.glb `--theme grove --variant B
 --plat islet`, canyon_play.glb `--theme sunset --variant B --plat rock`, beach_play.glb `--theme ocean --variant A`, city_play.glb
-`--theme city --variant A`; since fidelity review 8, city_play.glb `--theme city --variant A --plat deck --wear 2`.
+`--theme city --variant A`; since fidelity review 8, city_play.glb `--theme city --variant A --plat deck --wear 2`
+(with `--roofing A` since fidelity review 12).
 
 Run (Blender 5.2):
   blender --background --python art/blender/make_play.py -- --dir godot/art/baked/<key> --theme grove --variant A --out <file.glb>
