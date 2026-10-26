@@ -103,3 +103,7 @@ Built A (the owner's pick): `godot/models/stages/grove_paper.glb` rebuilt with `
 `--curve 4.0 --reach 4.5 --floor 0.28` after a fresh `--light-export`). The terrace trees, falls and village stand as before; P1's gap
 0.061. Before and after (the abyss, wide, left then right): `review11/grove_abyss_built.jpg`. All seven tests pass. With this, review
 11's four items are built.
+
+Released (2026-10-26): all four items, with the animation session's round 3, as `playtest-2026-10-26-sim146-review11`, built on
+`build/art-2026-10-26b` (the animation branch at d035da24 plus this branch, the grove's stage-select still regenerated), pack only,
+content hash ef93425e6c64eee3.
