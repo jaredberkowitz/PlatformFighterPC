@@ -36,6 +36,9 @@ VARIANT = opts.get("variant", "A").upper()
 # (`deck|boards` on the city).
 PLAT = opts.get("plat", "")
 WEAR = int(opts.get("wear", "0"))
+# The city roof's felt (fidelity review 12: the most-seen surface on the city, one flat pink plane under the lamp pools): `--roofing A|B`.
+# A: laid in sheets running front to back, each seam a thin dark line with a pale lap beside it; B: A with gravel specks over it.
+ROOFING = opts.get("roofing", "").upper()
 THEME = opts.get("theme", "grove")
 manifest = json.load(open(os.path.join(opts["dir"], "manifest.json")))
 FZ = float(manifest["front_z"])
@@ -281,6 +284,32 @@ def deck_boards(x0, x1, top, zb, zf, thick):
         box(x0 + 0.2, x1 - 0.2, top - thick - 0.4, top - thick, jz - 0.25, jz + 0.25, "layer1", "layer1")
 
 
+def up(fam, pts):
+    """A flat face facing up (the camera sees only the up side)."""
+    f = face(fam, pts)
+    f.normal_update()
+    if f.normal.z < 0.0:
+        f.normal_flip()
+
+
+def roof_felt(x0, x1, top, zb, zf, rng):
+    """The city roof laid in felt sheets running front to back: at each sheet's edge a thin dark seam and, beside it, the pale lap of the
+    sheet over it; with `--roofing B` gravel specks scattered over the felt. Flush with the walkable top, as the stage test asks."""
+    x = x0 + rng.uniform(0.4, 0.9)
+    y = top + 0.007
+    while x < x1 - 0.4:
+        w = rng.uniform(1.25, 1.55)
+        up("top_deep", (P(x - 0.03, y, zb + 0.3), P(x - 0.03, y, zf - 0.5), P(x + 0.03, y, zf - 0.5), P(x + 0.03, y, zb + 0.3)))
+        up("top_lit", (P(x + 0.03, y, zb + 0.3), P(x + 0.03, y, zf - 0.5), P(x + 0.15, y, zf - 0.5), P(x + 0.15, y, zb + 0.3)))
+        x += w
+    if ROOFING == "B":
+        for _ in range(int((x1 - x0) * 9)):
+            gx, gz = rng.uniform(x0 + 0.2, x1 - 0.2), rng.uniform(zb + 0.3, zf - 0.55)
+            r = rng.uniform(0.03, 0.06)
+            fam = "top_lit" if rng.random() < 0.6 else "top_deep"
+            up(fam, (P(gx - r, y + 0.002, gz - r), P(gx - r, y + 0.002, gz + r), P(gx + r, y + 0.002, gz + r), P(gx + r, y + 0.002, gz - r)))
+
+
 def top_area(rng):
     for r in TOPS:
         x0, x1, top = r[0] - 0.12, r[1] + 0.12, r[2]
@@ -334,6 +363,8 @@ def top_area(rng):
             elif THEME == "city":
                 # The roof's patched felt: darker tar patches and paler sun-faded sheets.
                 wear_top(x0 + 0.3, x1 - 0.3, top, zb, zf, wr, [("top_deep", 7, (0.6, 1.4)), ("top_lit", 5, (0.8, 1.6))])
+                if ROOFING:
+                    roof_felt(x0, x1, top, zb, zf, wr)
             else:
                 wear_top(x0 + 0.3, x1 - 0.3, top, zb, zf, wr, [("top_deep", 22, (0.6, 1.8)), ("top_lit", 16, (0.7, 1.9)), ("top_worn", 4, (0.4, 0.9))],
                          path_z=FZ - 1.9, path_half=1.0)
