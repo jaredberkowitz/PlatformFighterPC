@@ -1404,4 +1404,5 @@ Ranked by how visible it is at match speed:
   the freeze; after, it holds. Facing left below.
 - **Checked:** both facings; the six tests pass (`motion_test` checks that a freeze holds every layer; this one was not covered, because
   its check poses a move).
-- **Left:** a frozen hurt and a held shield were affected the same way; both now hold.
+- **Also reached:** every clip played by time and frozen by a hit (a hurt in its hit's freeze, a shield's freeze) is put back on its frame
+  the same way. Only the pummel was captured.
