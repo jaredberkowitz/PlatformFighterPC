@@ -195,3 +195,6 @@ a dirt road from it out to the horizon and a truck coming in, raising its dust (
 stay behind the near butte, and its dust shows only as a wisp over the left platform, close to P1's tag. P1's gap 0.043 today, 0.045 A,
 0.044 B. On the Stage Look Review ("worldcanyon18", `cw18_*`); recommended A. To ship: rebuild `godot/models/stages/canyon_world.glb`
 with `--theme sunset --variant AW --trestle far` (no re-light).
+
+Built A (the owner's pick, 2026-10-26): `godot/models/stages/canyon_world.glb` rebuilt with `--theme sunset --variant AW --trestle
+far`. Before and after (the tower and the halt, wide): `review10/canyon_world_built.jpg`. All seven tests pass.

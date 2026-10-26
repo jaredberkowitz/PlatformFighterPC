@@ -24,7 +24,7 @@ pivot empty `move_<kind>_<n>` (scripts/world_motion.gd).
 Run (Blender 5.2):
   blender --background --python art/blender/make_world.py -- --theme ocean --variant A --out <file.glb>   (`--variant AB` for both)
 Shipped (the owner's picks, 2026-10-21), in godot/models/stages/: beach_world.glb (`--theme ocean --variant AB`), canyon_world.glb
-(`--theme sunset --variant A --trestle far`, the trestle far back since fidelity review 7), meadow_world.glb (`--theme meadow --variant BC`; `--variant BCW` since 2026-10-26), grove_world.glb (`--theme grove --variant ABL`),
+(`--theme sunset --variant A --trestle far`, the trestle far back since fidelity review 7; `--variant AW` since 2026-10-26), meadow_world.glb (`--theme meadow --variant BC`; `--variant BCW` since 2026-10-26), grove_world.glb (`--theme grove --variant ABL`),
 city_world.glb (`--theme city --variant AB`). Since fidelity review 6: grove `--variant ABL --streamers shide` (with `--village lanterns` since 2026-10-26), city `--variant AB
 --people round`.
 """
