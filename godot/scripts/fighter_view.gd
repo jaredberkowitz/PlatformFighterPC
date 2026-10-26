@@ -3897,7 +3897,21 @@ func _blade_target(s: Dictionary) -> Array:
 	var swing_from := start * SNAP_AT
 	var angle := swing
 	var len := length
-	if f < swing_from:
+	# (Round 5, the owner's A/B: `sword_sweep`. The Longsword's blade sweeps through its hit instead of snapping onto it and stopping:
+	# it sets off sooner and arrives SWEEP_IN short of the hitbox's middle, crosses the hitbox through the active frames (still inside it),
+	# and carries on from the far side. The sim's hitboxes and timing are the same either way.)
+	var sweep := 0.0
+	var travel := signf(angle_difference(deg_to_rad(wind), deg_to_rad(swing)))
+	if sweeping(s):
+		sweep = minf(SWEEP_IN, rad_to_deg(asin(clampf(float(tip.z) * 0.8 / maxf(length, 0.5), 0.0, 1.0))))
+		swing_from = start * SWEEP_FROM
+	if sweep > 0.0 and f >= swing_from and f < start:
+		var u := (f - swing_from) / maxf(1.0, start - swing_from)
+		angle = lerpf(wind, swing - travel * sweep, 0.5 * u + 0.5 * u * u)
+	elif sweep > 0.0 and f >= start and f <= float(t[2]):
+		var p := (f - start + 0.5) / (float(t[2]) - start + 1.0)
+		angle = swing + travel * sweep * (2.0 * p - 1.0)
+	elif f < swing_from:
 		# The wind-up eases into its anticipation (fast away from rest, slowing as it coils) and holds there (pass 3: the coil holds
 		# until SNAP_AT of the startup, as the body's does)...
 		var k := coil_ease(f / maxf(1.0, start * COIL_AT))
@@ -3920,10 +3934,9 @@ func _blade_target(s: Dictionary) -> Array:
 		# end lag, as the reference's swordsmen finish a cut, rather than holding still at the hit and snapping back late.
 		# (Round 3: it is held through the hold and comes home just after the body: `home_k`. Round 4: it carries on at CARRY_DEG a
 		# frame for the move's carry, then slows to a stop: `follow_k`.)
-		var travel := signf(angle_difference(deg_to_rad(wind), deg_to_rad(swing)))
 		var shape := _end_shape(s)
 		var carry_deg := CARRY_DEG * (shape.z + CARRY_EASE * 0.5) if shape.z > 0.0 else 0.0
-		var past := swing + travel * carry_deg * follow_k(f, float(t[2]) - _carry_lead(t), shape)
+		var past := swing + travel * sweep + travel * carry_deg * follow_k(f, float(t[2]) - _carry_lead(t), shape)
 		# (Round 4: on the ground the held cut stops where the floor stops it, the hand as low as a lunge takes it (`HELD_HAND_Y`).
 		# Held below it, the floor check pinned the tip still while the angle came home underneath, so the recovery showed only in its
 		# last few frames: the forward smash measured 7 frames of recovery against the reference's 17.)
@@ -3967,6 +3980,45 @@ const LIMB_CARRY_DEG := 20.0
 
 ## How low the hand is in a held lunge (forward space), for where the floor stops a held cut.
 const HELD_HAND_Y := 0.6
+## The swing A/B (round 5, the owner's call to make by playtest): false is the snap (the blade arrives on the hit at full speed and stands
+## on it while it is live), true the sweep (`sweeping`). F10 in a match flips it; kept in user://animation.cfg. Presentation only.
+static var sword_sweep := false
+static var _sweep_loaded := false
+const SWEEP_PATH := "user://animation.cfg"
+## The sweep's arrival short of the hitbox's middle (degrees, at most; less for a small hitbox, so the blade is always inside it while it
+## is live), and when (a share of the startup) the swing sets off.
+const SWEEP_IN := 14.0
+const SWEEP_FROM := 0.5
+
+
+static func load_sweep() -> void:
+	if _sweep_loaded:
+		return
+	_sweep_loaded = true
+	var cfg := ConfigFile.new()
+	if cfg.load(SWEEP_PATH) == OK:
+		sword_sweep = bool(cfg.get_value("swing", "sweep", false))
+	# (`--swing=sweep` or `--swing=snap` for this run only, for captures; not saved.)
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("--swing="):
+			sword_sweep = a.substr(8) == "sweep"
+
+
+static func set_sweep(on: bool) -> void:
+	_sweep_loaded = true
+	sword_sweep = on
+	var cfg := ConfigFile.new()
+	cfg.load(SWEEP_PATH)
+	cfg.set_value("swing", "sweep", on)
+	cfg.save(SWEEP_PATH)
+
+
+## Whether this move's blade sweeps through its hit (the A/B on, the Longsword, a cut: not a thrust and not the neutral air's windmill).
+func sweeping(s: Dictionary) -> bool:
+	load_sweep()
+	return sword_sweep and _cls(s) == 0 and not _thrust(_cls(s), String(s.move_name)) and String(s.move_name) != "nair"
+
+
 ## The steepest (degrees above forward) a grounded cut is held at through its end lag.
 const HELD_UP_MAX := 68.0
 

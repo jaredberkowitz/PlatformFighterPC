@@ -22,6 +22,9 @@ import math
 import sys
 
 
+POINTS = None  # (`--points=tip,hand.R`: measure only these points; round 5, to time the blade on its own)
+
+
 def parse(path, cls):
     moves = {}
     order = []
@@ -42,6 +45,8 @@ def parse(path, cls):
             name, xy = tok.split(":")
             xy = xy.split(",")
             if len(xy) != 2:  # (the pitch and the head's look are printed too; only the 2D points are measured)
+                continue
+            if POINTS is not None and name not in POINTS:
                 continue
             pts[name] = (float(xy[0]), float(xy[1]))
         if move not in moves:
@@ -131,6 +136,9 @@ def main():
     for a in sys.argv[3:]:
         if a.startswith("--frames="):
             fr = json.load(open(a[9:]))
+        elif a.startswith("--points="):
+            global POINTS
+            POINTS = set(a[9:].split(","))
     moves, order = parse(path, cls)
     print("%-10s %4s %4s %4s %5s %5s %6s %6s %6s %4s %6s %5s" % ("move", "S-L", "T", "FT", "hold", "rec", "settle", "creep", "recspd",
                                                              "w50", "lurch", "carry"))

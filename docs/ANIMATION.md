@@ -1432,3 +1432,50 @@ would still meet the hitbox, but the hit pose would no longer be one frozen fram
 
 The gallery's face-cover counts vary by up to 3 frames between identical runs (the Claws' up tilt, the Needles' up air), so differences
 that small are noise.
+
+### Round 5 (2026-10-26, the owner's answer to round 4)
+
+### Pass 49: the Longsword's swing as an A/B: snap or sweep (F10 in a match)
+
+- **The question (round 4):** our strike puts the whole wind-up-to-hit turn into one frame, so the follow-through never reads as fast as
+  the reference's. The owner has not chosen between that snap and a sweep, so both ship, switchable for playtests.
+- **The sweep (`fighter_view.gd` `_blade_target`, `sweeping`; the Longsword only, its cuts; not its thrusts or the neutral air's
+  windmill):**
+  - the swing sets off sooner (`SWEEP_FROM`, half the startup, against the snap's 80%) and at a more even pace;
+  - it arrives on the first active frame up to `SWEEP_IN` (14 degrees) short of the hitbox's middle, less for a small hitbox, so the blade
+    is inside the hitbox while it is live;
+  - it crosses the hitbox through the active frames and carries on from the far side (pass 42's carry).
+  - The sim's hitboxes and timing are untouched; only the blade's angle moves.
+- **The switch:**
+  - **F10 in a match** flips snap and sweep live. F10 was the retired paper look's key and is free. It is now reserved in
+    `bindings.gd`, so it cannot be bound to a control.
+  - `main.gd` `_note` shows "Sword swing: sweep" or "Sword swing: snap" at the top of the screen for about two seconds.
+  - The choice is kept in `user://animation.cfg`. The default is the snap, so nothing changes for anyone who does not press it.
+  - `--swing=sweep` or `--swing=snap` sets it for one run without saving, for captures.
+- **Measured** (the Longsword, FT / hold / rec in frames; the whole body as before, then the blade's tip alone,
+  `timing_report.py --points=tip`, new):
+
+  | Move | reference | snap | sweep | snap, tip | sweep, tip |
+  |---|---|---|---|---|---|
+  | Jab | 7 / 5 / 6 | 0 / 13 / 3 | 0 / 13 / 3 | 0 / 13 / 3 | 0 / 14 / 2 |
+  | Forward tilt | 1 / 16 / 4 | 0 / 13 / 5 | 0 / 12 / 6 | 0 / 14 / 4 | 1 / 13 / 4 |
+  | Up tilt | 1 / 8 / 10 | 1 / 11 / 6 | 2 / 11 / 5 | 0 / 1 / 14 | 2 / 9 / 5 |
+  | Down tilt (thrust) | 6 / 3 / 5 | 0 / 8 / 4 | 0 / 8 / 4 | 0 / 9 / 3 | 0 / 9 / 3 |
+  | Forward smash | 1 / 16 / 17 | 0 / 18 / 13 | 0 / 18 / 13 | 0 / 19 / 12 | 0 / 19 / 12 |
+  | Up smash (thrust) | 1 / 22 / 13 | 1 / 21 / 12 | 1 / 21 / 12 | 2 / 24 / 8 | 2 / 24 / 8 |
+  | Down smash | 1 / 26 / 4 | 0 / 17 / 11 | 0 / 17 / 11 | 0 / 4 / 23 | 0 / 5 / 22 |
+  | Neutral air (windmill) | 1 / 20 / 6 | 0 / 17 / 6 | 0 / 17 / 6 | 0 / 21 / 3 | 0 / 21 / 3 |
+  | Forward air | 2 / 20 / 6 | 0 / 19 / 5 | 1 / 18 / 5 | 0 / 21 / 4 | 1 / 19 / 5 |
+  | Back air | 1 / 12 / 14 | 1 / 10 / 12 | 1 / 11 / 11 | 0 / 1 / 22 | 1 / 2 / 22 |
+  | Up air | 5 / 11 / 19 | 0 / 20 / 9 | 2 / 17 / 10 | 0 / 18 / 9 | 2 / 16 / 9 |
+  | Down air | 4 / 33 / 9 | 3 / 32 / 7 | 3 / 33 / 6 | 3 / 34 / 6 | 3 / 35 / 5 |
+
+  - The sweep gives the blade 1-2 frames of fast follow-through on the cuts (forward and up tilts, forward, back and up airs), where the
+    snap gives 0. The whole-body numbers move less, because the body's lunge still snaps onto the hit.
+  - The jab and forward smash cut down into the floor, which stops the blade the same way in both.
+  - The sweep's first frames are livelier: the lurch measure (the first frame's speed against the peak) rises from 0.35-0.59 to
+    0.45-0.73, because the peak is spread out.
+- **Face cover:** unchanged in sweep mode (both measures, the Longsword's 16 moves).
+- **Image:** `docs/screenshots/anim/r5_pass49_snap_sweep.jpg`, every frame: the forward tilt (both facings), jab, forward air and up air,
+  snap above sweep.
+- **Checked:** the six tests pass (in snap, the default). The F10 toggle and its note were exercised in the built game (see the build).

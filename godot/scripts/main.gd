@@ -10,6 +10,7 @@ const FxMaterial := preload("res://scripts/fx_material.gd")
 const Particles := preload("res://scripts/particles.gd")
 const POST_SHADER := preload("res://shaders/post.gdshader")
 const FighterView := preload("res://scripts/fighter_view.gd")
+const UiDraw := preload("res://ui/ui_draw.gd")
 const Loadout := preload("res://scripts/loadout.gd")
 const Roster := preload("res://scripts/roster.gd")
 const StageView := preload("res://scripts/stage_view.gd")
@@ -1848,6 +1849,34 @@ func _on_block(i: int) -> void:
 	sfx.play("shield", 1.4, -8.0)
 
 
+## A short note at the top of the screen that fades out (an A/B toggled with a key, round 5).
+var note_label: Label
+var note_left := 0.0
+const NOTE_TIME := 1.8
+
+
+func _note(text: String) -> void:
+	if note_label == null:
+		var layer := CanvasLayer.new()
+		layer.layer = 6
+		add_child(layer)
+		note_label = Label.new()
+		note_label.set_anchors_preset(Control.PRESET_CENTER_TOP)
+		note_label.position.y = 24.0
+		note_label.grow_horizontal = Control.GROW_DIRECTION_BOTH
+		note_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		note_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		note_label.add_theme_font_override("font", UiDraw.font())
+		note_label.add_theme_font_size_override("font_size", 34)
+		note_label.add_theme_color_override("font_color", Color.WHITE)
+		note_label.add_theme_color_override("font_outline_color", UiDraw.INK)
+		note_label.add_theme_constant_override("outline_size", 10)
+		layer.add_child(note_label)
+	note_label.text = text
+	note_left = NOTE_TIME
+	note_label.modulate.a = 1.0
+
+
 ## A white flash over the screen that fades at once (a heavy hit), at most `alpha`.
 var flash_rect: ColorRect
 var flash_alpha := 0.0
@@ -2132,6 +2161,9 @@ func _update_camera(a: float, delta: float) -> void:
 	if flash_rect != null:
 		flash_alpha = move_toward(flash_alpha, 0.0, delta * 3.5)
 		flash_rect.color = Color(1, 1, 1, flash_alpha)
+	if note_label != null and note_left > 0.0:
+		note_left = maxf(0.0, note_left - delta)
+		note_label.modulate.a = clampf(note_left / 0.5, 0.0, 1.0)
 	var offset := Vector3.ZERO
 	var roll := 0.0
 	if cam_shake > 0.001:
@@ -2306,6 +2338,11 @@ func _unhandled_key_input(event: InputEvent) -> void:
 	match event.keycode:
 		KEY_F4:
 			Music.of(self).set_muted(sfx.toggle_mute())
+		KEY_F10:
+			# The sword swing's A/B (fighter_view.gd `sword_sweep`, presentation only, kept in the user's settings): snap or sweep.
+			FighterView.load_sweep()
+			FighterView.set_sweep(not FighterView.sword_sweep)
+			_note("Sword swing: " + ("sweep" if FighterView.sword_sweep else "snap"))
 		KEY_F5:
 			# Player 2 played by the computer, or by a person again.
 			cpu_levels[1] = 0 if cpu_levels[1] > 0 else CPU_LEVEL
