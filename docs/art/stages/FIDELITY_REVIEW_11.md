@@ -98,3 +98,8 @@ abyss sheet laid in 4-unit rows so its tone can deepen under the island (to 0.6)
 each mist sheet, 1.1 at its cut edge and 0.82 behind. Measured (all three built fresh and unlit, as mocks are): under the island value
 0.28 to 0.26, the abyss either side within 0.02; P1's gap 0.056 today, 0.061 A, 0.059 B. On the Stage Look Review ("abyss24",
 `ab24_*`); recommended A. To ship: rebuild `godot/models/stages/grove_paper.glb` with `--deep A`, then re-light the grove.
+
+Built A (the owner's pick): `godot/models/stages/grove_paper.glb` rebuilt with `--deep A`, the grove re-lit (front, paper, play;
+`--curve 4.0 --reach 4.5 --floor 0.28` after a fresh `--light-export`). The terrace trees, falls and village stand as before; P1's gap
+0.061. Before and after (the abyss, wide, left then right): `review11/grove_abyss_built.jpg`. All seven tests pass. With this, review
+11's four items are built.

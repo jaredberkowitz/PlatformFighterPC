@@ -32,7 +32,8 @@ Each piece is its own object so the game can lay the air of its depth over it, a
 Families `grass`, `grass_far`, `cliff`, `range_far`, `range_near`, their cut edges `card_<family>`, `leaf_lit`, `leaf_shade`, `bark`.
 
 Shipped (new art toward 5, the owner's pick B, 2026-10-25): godot/models/stages/grove_paper.glb, `--variant H --rock shaped
---abyss mist --valley none --falls 3 --mist 3 --roots long`, then lit (review 9's without the falls, mist and roots).
+--abyss mist --valley none --falls 3 --mist 3 --roots long`, then lit (review 9's without the falls, mist and roots); with `--deep A`
+since fidelity review 11 (2026-10-26).
 
 Run (Blender 5.2):
   blender --background --python art/blender/make_grove_paper.py -- --dir godot/art/baked/<key> --variant A --ground <g.glb>
