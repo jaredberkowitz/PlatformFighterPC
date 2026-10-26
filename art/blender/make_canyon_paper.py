@@ -35,7 +35,7 @@ New art toward 5 (docs/art/stages/NEW_ART_PLAN.md, C3 and C2, the owner's approv
                   wider cap stone), with boulders round them and their shade.
 
 Shipped (new art toward 5, the owner's pick B, 2026-10-25): godot/models/stages/canyon_paper.glb, `--variant KC --arch chipped
---buttes solid --fight broken --plain outcrops --foot talus --hoodoos 5`, then lit (review 7's without `--foot` and `--hoodoos`) (review 6's had `--fight wide`, review 5's `--variant KC --arch solid`).
+--buttes solid --fight broken --plain outcrops --foot talus --hoodoos 5` (with `--gorge B` since 2026-10-26), then lit (review 7's without `--foot` and `--hoodoos`) (review 6's had `--fight wide`, review 5's `--variant KC --arch solid`).
 
 Run (Blender 5.2):
   blender --background --python art/blender/make_canyon_paper.py -- --dir godot/art/baked/<key> --variant A --ground <g.glb>
@@ -49,7 +49,7 @@ import sys
 
 import bmesh
 import bpy
-from mathutils import Vector
+from mathutils import Matrix, Vector
 
 argv = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
 opts = {argv[i].lstrip("-"): argv[i + 1] for i in range(0, len(argv) - 1, 2)}
@@ -60,6 +60,10 @@ FLOOR = -16.0
 STRATA = ["rock_a", "rock_b", "rock_a", "rock_c"]
 FOOT = opts.get("foot", "")
 HOODOOS = int(opts.get("hoodoos", "0"))
+# The dry river gorge (new art toward 5, C1, the owner's approval 2026-10-26): the wash's line made a real channel, `--gorge A|B`. A: its
+# bed wider and strewn with pebbles, each bank stepping up in three sandstone ledges in the strata's colours to a rim, the rim falling
+# away outside in a long slope of sand. B: four taller ledges, and fallen blocks in the bed.
+GORGE = opts.get("gorge", "").upper()
 # The stage mesa (the play block from the bake manifest): its sides and its front, for the talus at its foot.
 MANIFEST = json.load(open(os.path.join(opts["dir"], "manifest.json")))
 STAGE = [r for r in MANIFEST["rects"] if r[4] < 0.5][0]
@@ -764,7 +768,8 @@ def dry_wash(rng):
         ln = math.hypot(tx, tz) or 1.0
         nx, nz = -tz / ln, tx / ln
         t = (z + 150.0) / 166.0
-        half = 2.0 + 2.6 * t + 0.4 * math.sin(i * 0.7)
+        half = (2.0 + 2.6 * t + 0.4 * math.sin(i * 0.7)) * (1.3 if GORGE else 1.0)
+        HALVES.append(half)
         left.append((x + nx * half, z + nz * half))
         right.append((x - nx * half, z - nz * half))
         bl.append((x + nx * (half + 0.9), z + nz * (half + 0.9)))
@@ -779,16 +784,80 @@ def dry_wash(rng):
     for i in range(len(line) - 1):
         face(part("wash", "wash"), (P(left[i][0], y, left[i][1]), P(left[i + 1][0], y, left[i + 1][1]),
                                     P(right[i + 1][0], y, right[i + 1][1]), P(right[i][0], y, right[i][1])))
+        if GORGE:
+            continue
         for (o, n_) in ((bl, left), (br, right)):
             face(part("wash", "card_wash"), (P(o[i][0], y - 0.15, o[i][1]), P(o[i + 1][0], y - 0.15, o[i + 1][1]),
                                              P(n_[i + 1][0], y, n_[i + 1][1]), P(n_[i][0], y, n_[i][1])))
             face(part("wash", "card_wash"), (P(o[i][0], y - 0.15, o[i][1]), P(o[i + 1][0], y - 0.15, o[i + 1][1]),
                                              P(o[i + 1][0], FLOOR - 0.05, o[i + 1][1]), P(o[i][0], FLOOR - 0.05, o[i][1])))
+    if GORGE:
+        gorge_banks(line, y, rng)
     return line
 
 
+HALVES = []
+# (How far out the rim's slope runs down to the floor, and where along the wash the gorge begins.)
+SLOPE = 8.0
+GORGE_FROM = -95.0
+
+
+def gorge_banks(line, bed, rng):
+    """The gorge's banks (C1): each side steps up from the bed in ledges, a vertical face in a stratum's colour and a pale top, to a
+    rim of sand whose outer edge is a cut card down to the floor; in B, fallen blocks lie in the bed."""
+    levels, h, w, rim = (3, 0.9, 1.1, 3.0) if GORGE == "A" else (4, 1.3, 1.2, 3.0)
+    normals = []
+    for i, (x, z) in enumerate(line):
+        a, b = line[max(0, i - 1)], line[min(len(line) - 1, i + 1)]
+        tx, tz = b[0] - a[0], b[1] - a[1]
+        ln = math.hypot(tx, tz) or 1.0
+        normals.append((-tz / ln, tx / ln))
+
+    def at(i, side, off):
+        (x, z), (nx, nz) = line[i], normals[i]
+        return (x + side * nx * off, z + side * nz * off)
+
+    for side in (1.0, -1.0):
+        for i in range(len(line) - 1):
+            # (Only the nearer reach: further back, behind the fight at the wide camera, the rim's rise stood right behind the fighters;
+            # there the wash stays a flat bed.)
+            if line[i][1] < GORGE_FROM:
+                continue
+            for k in range(levels):
+                o0 = HALVES[i] + k * w
+                o1 = HALVES[i + 1] + k * w
+                ya, yb = bed + k * h, bed + (k + 1) * h
+                p0, p1 = at(i, side, o0), at(i + 1, side, o1)
+                face(part("gorge", STRATA[k % len(STRATA)]), (P(p0[0], ya - 0.05, p0[1]), P(p1[0], ya - 0.05, p1[1]), P(p1[0], yb, p1[1]),
+                                                             P(p0[0], yb, p0[1])))
+                q0, q1 = at(i, side, o0 + w), at(i + 1, side, o1 + w)
+                top = "rock_c" if k < levels - 1 else "sand_a"
+                out = rim if k == levels - 1 else 0.0
+                if out:
+                    q0, q1 = at(i, side, o0 + w + out), at(i + 1, side, o1 + w + out)
+                face(part("gorge", top), (P(p0[0], yb, p0[1]), P(p1[0], yb, p1[1]), P(q1[0], yb, q1[1]), P(q0[0], yb, q0[1])))
+                if out:
+                    # (The rim falls away outside in a long slope of the floor's own sand, so the gorge is cut into a broad rise: a cut
+                    # wall there stood the banks up out of the plain as an embankment.)
+                    s0, s1 = at(i, side, o0 + w + out + SLOPE), at(i + 1, side, o1 + w + out + SLOPE)
+                    face(part("gorge", "sand_a"), (P(q0[0], yb, q0[1]), P(q1[0], yb, q1[1]), P(s1[0], FLOOR + 0.1, s1[1]),
+                                                  P(s0[0], FLOOR + 0.1, s0[1])))
+    if GORGE == "B":
+        first = next(i for i, (x, z) in enumerate(line) if z >= GORGE_FROM)
+        for k in range(14):
+            i = rng.randrange(first, len(line) - 2)
+            x, z = at(i, rng.choice((1.0, -1.0)), HALVES[i] * rng.uniform(0.3, 0.85))
+            sc = rng.uniform(0.6, 1.3) * (1.0 + (z + 150.0) / 166.0)
+            res = bmesh.ops.create_cube(part("gorge_blocks", rng.choice(("rock_a", "rock_b"))), size=1.0)
+            for v in res["verts"]:
+                v.co = Vector((v.co.x * sc * 1.4, v.co.y * sc, v.co.z * sc * 0.8))
+                v.co.rotate(Matrix.Rotation(rng.uniform(0.0, math.tau), 3, "Z"))
+                v.co += P(x, bed + sc * 0.35, z)
+
+
 def near_wash(line, x, z, pad):
-    return any(math.hypot(x - a, z - b) < pad for (a, b) in line[::2])
+    # (A gorge's banks reach well past the old wash's: keep the scatter, outcrops and hoodoos off them too.)
+    return any(math.hypot(x - a, z - b) < pad + (13.0 if GORGE and b >= GORGE_FROM else 0.0) for (a, b) in line[::2])
 
 
 def scrub(name, x, y, z, sc, rng):

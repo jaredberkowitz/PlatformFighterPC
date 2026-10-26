@@ -231,3 +231,67 @@ known flake once, then a pass). With this, step 5 (world detail) is built on all
 Released (2026-10-26): everything since review 9's build (the deeper contact shade, the canyon's far clouds, the painted variation,
 steps 1 to 5) as `playtest-2026-10-26-sim146-newart`, built on `build/art-2026-10-26` (the animation branch at pass 34 plus this
 branch, stage select stills regenerated), pack only, content hash ef93425e6c64eee3.
+
+## Approved, the rest (2026-10-26)
+
+After fidelity review 11, the owner: "Please continue. You have my OK on those new art options." So M2 (the meadow's stream and
+footbridge), G2 (the grove's valley below), C1 (the canyon's dry river gorge), B2 (the beach's moored boats) and Ci2 (the city's
+street-level life) are approved, under the same rules (true size, the fight clear, P1's gap measured, one stage at a time, the owner
+picks each). Order, the lowest-scoring stage and the safest first, the riskiest last: **C1** (the canyon is the one stage still at 4.0),
+then **M2**, **B2**, **Ci2**, and **G2** last (high risk: a lot of new land that must read as far below).
+
+### C1, the canyon's dry river gorge (mock, 2026-10-26)
+
+`make_canyon_paper.py --gorge A|B` on the shipped land (`--variant KC --arch chipped --buttes solid --fight broken --plain outcrops
+--foot talus --hoodoos 5`): the dry wash's bed a third wider, and from z -95 nearer (`GORGE_FROM`) each bank stepping up in sandstone
+ledges in the strata's colours (A three of 0.9, B four of 1.3, with fallen blocks in the bed) to a rim of sand that slopes away 8 units
+to the floor; the scatter, outcrops and hoodoos kept 13 further off it. First tries: run the whole length with the rim's outer edge a
+cut card, the gorge stood up as an embankment and its far reach raised a pale rise right behind the fighters; a keep-off of 20 pushed
+the right-hand hoodoos out. The region right of the stage: contrast 0.126 today, 0.147 A, 0.144 B; P1's gap 0.043, 0.045, 0.046. On the
+Stage Look Review ("gorge25", `gz25_*`; six of the oldest sections archived from the published copy only, for the artifact's file
+limit); recommended B. To ship: rebuild `godot/models/stages/canyon_paper.glb` with `--gorge B`, then re-light the canyon.
+
+Built B (the owner's pick, 2026-10-26): `godot/models/stages/canyon_paper.glb` rebuilt with `--gorge B`, the canyon re-lit (front,
+paper, play). Before and after (right of the stage, wide): `review11/canyon_gorge_built.jpg`. All seven tests pass.
+
+### M2, the meadow's stream and footbridge (mock, 2026-10-26)
+
+`make_meadow_ground.py --stream A|B` (`stream_shelf`) on the shipped ground (`--variant FC --pine D --hill fields_lane`): from the
+wall's foot right of the middle (each shelf's ring index middle + 7), a channel across each shelf winding a little, its banks a darker
+cut edge, a fall down each fieldstone wall with a splash at its foot, and on the shelves whose lane runs out to that side a plank
+footbridge where the lane crosses. B a little wider, with a spring pool at its head and wet stones along the banks. New ground colours
+`stream`, `card_stream`, `plank`, `card_plank`, `wet_stone` (`StageBake._ground_colours`). It sits on the hill's right flank, low in the
+wide frame; the match camera doesn't see it. P1's gap 0.018 today, 0.015 A, 0.014 B. On the Stage Look Review ("stream26",
+`st26_*`); recommended B. To ship: rebuild `godot/models/stages/meadow_ground.glb` (and its bush) with `--stream B`, then re-light
+the meadow.
+
+Built B (the owner's pick, 2026-10-26): `godot/models/stages/meadow_ground.glb` and `meadow_pines.glb` rebuilt with `--stream B`, the
+meadow re-lit (front, play, ground). Before and after (the hill's right flank, wide): `review11/meadow_stream_built.jpg`. All seven
+tests pass.
+
+### B2, the beach's moored boats (mock, 2026-10-26)
+
+`make_world.py --variant ABWM` (`beach_moored`, `moored_boat`, `rotated`): the post positions read from the wide camera's depth (the
+foreground landings' mooring posts at x 16.8 and 18.2 either side, z about 11; `StageArt._dock_harbour`); a rowboat (1.3, rowboat size)
+behind each pair at x 21, z 7.5, its bow angled in to the outer post with a rope, bobbing (`move_bob`). B (`--moored B`) adds a second
+boat rafted to the right one and nets heaped in them. A first placement at z 12.8, in front of the posts, was cut by the frame's bottom
+corners. The match camera doesn't see them; P1's gap 0.181 today, 0.182 A, 0.180 B. On the Stage Look Review ("boats27", `mb27_*`);
+recommended A. To ship: rebuild `godot/models/stages/beach_world.glb` with `--theme ocean --variant ABWM --nets wall --moored A` (no
+re-light).
+
+Built A (the owner's pick, 2026-10-26): `godot/models/stages/beach_world.glb` rebuilt with `--theme ocean --variant ABWM --nets wall
+--moored A`. Before and after (the posts, wide): `review11/beach_boats_built.jpg`. All seven tests pass (the runner's known "the way
+out" flake twice, then passes).
+
+### Ci2, the city's street-level life (mock, 2026-10-26)
+
+`make_world.py --variant ABWS` (`city_street`): the pavement read from the wide camera's depth (y -13.7, the shopfronts at z -38, the
+kerb at -30); at true size a green newsstand (magazines racked under a flap awning, a lit sign) at (-36, -34.5), a hot-food cart (two
+wheels, a lit hatch, a striped umbrella, a curl of steam) at (25.5, -32) and a bus stop (roof on two posts, a lit panel, a bench, its
+sign at the kerb) at (36, -32.5). B (`--street people`) adds two people waiting at the stop and two at the cart (`move_sway`). The
+newsstand first came out cream (the bus stripe's family) and read as a white box. P1's gap 0.130 today, 0.131 A, 0.132 B. On the Stage
+Look Review ("citystreet28", `cs28_*`); recommended B. To ship: rebuild `godot/models/stages/city_world.glb` with `--theme city
+--variant ABWS --people round --roofs life --street people` (no re-light).
+
+Built B (the owner's pick, 2026-10-26): `godot/models/stages/city_world.glb` rebuilt with `--theme city --variant ABWS --people round
+--roofs life --street people`. Before and after (the street's right, wide): `review11/city_street_built.jpg`. All seven tests pass.

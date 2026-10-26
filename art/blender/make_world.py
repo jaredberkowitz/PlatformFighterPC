@@ -4,6 +4,7 @@
     A  a working pier: a fishing boat moored along the far boardwalk with lines to its posts, nets hung on its rail, fish crates;
     B  harbour life: a rowboat tied off the dock's left end (its gulls taken out: no animals in the backgrounds, the owner);
     C  the town at work: market awnings and townsfolk on the quay, bunting, chimney smoke.
+    M  moored rowboats (new art toward 5, B2): one each side tied to the foreground's mooring posts (`--moored B` a second, nets)
     W  quay life (new art toward 5, W-B): a timber derrick crane on the quay's east end with a cargo net over the water, nets
        drying on racks (`--nets wall`: hung down the quay's face with their floats)
   sunset (the canyon, a desert crossing at dusk)
@@ -17,6 +18,7 @@
           bonfire's smoke rising from a far field, both seated on the shipped ground
   grove   A a far tree village (great trees with lit huts and rope bridges), B festival gates and streamers, C floating islets
   city    A street traffic (a bus, people), B a billboard and a rooftop party, C an elevated train
+          S street-level life (new art toward 5, Ci2): a newsstand, a hot-food cart, a bus stop (`--street people` with people)
           W rooftop life (new art toward 5, W-Ci): wooden water tanks on the near and middle roofs; `--roofs life` a lit penthouse
           and a rooftop garden under string lights
   L  (every stage that has them) new living things: the grove's fireflies.
@@ -27,10 +29,10 @@ pivot empty `move_<kind>_<n>` (scripts/world_motion.gd).
 
 Run (Blender 5.2):
   blender --background --python art/blender/make_world.py -- --theme ocean --variant A --out <file.glb>   (`--variant AB` for both)
-Shipped (the owner's picks, 2026-10-21), in godot/models/stages/: beach_world.glb (`--theme ocean --variant AB`; `--variant ABW --nets wall` since 2026-10-26), canyon_world.glb
+Shipped (the owner's picks, 2026-10-21), in godot/models/stages/: beach_world.glb (`--theme ocean --variant AB`; `--variant ABWM --nets wall --moored A` since 2026-10-26), canyon_world.glb
 (`--theme sunset --variant A --trestle far`, the trestle far back since fidelity review 7; `--variant AW` since 2026-10-26), meadow_world.glb (`--theme meadow --variant BC`; `--variant BCW` since 2026-10-26), grove_world.glb (`--theme grove --variant ABL`),
 city_world.glb (`--theme city --variant AB`). Since fidelity review 6: grove `--variant ABL --streamers shide` (with `--village lanterns` since 2026-10-26), city `--variant AB
---people round` (with `--variant ABW --roofs life` since 2026-10-26).
+--people round` (with `--variant ABWS --roofs life --street people` since 2026-10-26).
 """
 
 import math
@@ -439,6 +441,51 @@ def market():
             card([a, b, m], ("flag_a", "flag_b", "flag_c")[(k + seg) % 3], "flag", thick=0.01)
     smoke_column((bx + 3.0, SEA + 10.0, -108.0), 6, 0.9, rng)
     smoke_column((bx - 9.0, SEA + 9.0, -105.0), 5, 0.8, rng)
+
+
+def rotated(pivot, angle, build, *args):
+    """Runs `build` and turns what it made `angle` radians about the vertical through `pivot` (game coordinates)."""
+    before = set(bpy.data.objects)
+    build(*args)
+    c = P(*pivot)
+    m = Matrix.Rotation(angle, 3, "Z")
+    for o in [o for o in bpy.data.objects if o not in before and o.type == "MESH"]:
+        for v in o.data.vertices:
+            v.co = c + m @ (v.co - c)
+
+
+def moored_boat(x, z, angle, nets, rng):
+    """A rowboat at (x, z) turned `angle`, with nets heaped in it (`nets`)."""
+    def build():
+        rowboat(x, z)
+        if nets:
+            bm = bmesh.new()
+            bmesh.ops.create_icosphere(bm, subdivisions=2, radius=1.0, matrix=Matrix.Translation(P(x - 0.9, SEA + 0.5, z)) @ Matrix.Diagonal((0.55, 0.35, 0.25, 1.0)))
+            ob("boat_net", bm, "net", smooth=True)
+    rotated((x, SEA, z), angle, build)
+
+
+def beach_moored():
+    """B2 (the owner's approval 2026-10-26): rowboats moored to the mooring posts beside the dock's foreground landings
+    (StageArt._dock_harbour: the posts at x 16.8 and 18.2 either side, z about 11), outside them, clear of the fight, each bow tied to the
+    outer post with a rope, rising on the swell; with `--moored B` a second boat rafted to the right one and nets heaped in them."""
+    rng = random.Random(53)
+    two = opts.get("moored", "A").upper() == "B"
+    for side in (-1.0, 1.0):
+        # (Behind the posts, the bow angled in to the outer one: in front of them, at z 12.8, the frame's bottom corners cut the boats.)
+        # (The rowboat's bow is at its +x end.)
+        bx, bz = side * 21.0, 7.5
+        ang = (math.pi + 0.5) if side > 0 else -0.5
+        moving("bob", (bx, SEA, bz), scaled, (bx, SEA, bz), 1.3, moored_boat, bx, bz, ang, two, rng)
+        bm = bmesh.new()
+        tube(bm, (side * 19.5, SEA + 0.75, 8.8), (side * 18.3, SEA + 2.4, 10.6), 0.04, segs=5)
+        ob("boat_rope", bm, "rope", smooth=True)
+    if two:
+        bx, bz = 23.5, 4.5
+        moving("bob", (bx, SEA, bz), scaled, (bx, SEA, bz), 1.3, moored_boat, bx, bz, math.pi + 0.2, True, rng)
+        bm = bmesh.new()
+        tube(bm, (22.3, SEA + 0.7, 5.6), (21.8, SEA + 0.7, 6.6), 0.04, segs=5)
+        ob("boat_rope", bm, "rope", smooth=True)
 
 
 def beach_w():
@@ -1453,6 +1500,55 @@ def city_w():
                    (gx - 1.3 + 2.6 * t, gy + 1.9 - math.sin(t * math.pi) * 0.35, gz + 0.9), 0.12)
 
 
+def city_street():
+    """Ci2 (the owner's approval 2026-10-26): street-level life on the pavements, at true size, between the shopfronts (z -38) and the kerb
+    (z -30), read from the wide camera's depth: a newsstand on the left, a hot-food cart and a bus stop on the right; with
+    `--street people` a few people waiting at the stop and buying at the cart."""
+    rng = random.Random(61)
+    y = -13.65
+    # The newsstand: a green booth with a flap awning, magazines racked on its front, a lit sign.
+    nx, nz = -36.0, -34.5
+    boxg(nx - 1.2, nx + 1.2, y, y + 2.2, nz - 0.9, nz + 0.9, "coat_c", "kiosk")
+    boxg(nx - 1.25, nx + 1.25, y + 2.2, y + 2.4, nz - 1.0, nz + 1.2, "board_frame", "kiosk_roof")
+    card([(nx - 1.3, y + 2.2, nz + 0.95), (nx + 1.3, y + 2.2, nz + 0.95), (nx + 1.3, y + 1.85, nz + 1.7), (nx - 1.3, y + 1.85, nz + 1.7)],
+         "awning_b", "kiosk_awning", thick=0.03, normal=(0, 1, 0.5))
+    for k in range(5):
+        boxg(nx - 1.0 + k * 0.42, nx - 0.68 + k * 0.42, y + 0.5, y + 1.6, nz + 0.9, nz + 0.95,
+             ("poster_a", "poster_b", "poster_c", "poster", "flag_b")[k], "magazines")
+    boxg(nx - 0.9, nx + 0.9, y + 2.45, y + 2.85, nz + 0.3, nz + 0.4, "window", "kiosk_sign")
+    # The hot-food cart: a box on two wheels, its hatch lit, a striped umbrella over it, a curl of steam.
+    cx, cz = 25.5, -32.0
+    boxg(cx - 0.9, cx + 0.9, y + 0.45, y + 1.4, cz - 0.5, cz + 0.5, "bus", "cart")
+    boxg(cx - 0.6, cx + 0.6, y + 0.8, y + 1.25, cz + 0.5, cz + 0.55, "window", "cart_hatch")
+    bm = bmesh.new()
+    for wx in (cx - 0.55, cx + 0.55):
+        kit.torus(bm, P(wx, y + 0.35, cz + 0.55), Vector((0.0, 1.0, 0.0)), 0.3, 0.07, segs=12, rsegs=4)
+    tube(bm, (cx, y + 1.4, cz), (cx, y + 2.7, cz), 0.04, segs=5)
+    ob("cart_frame", bm, "iron", smooth=True)
+    for k in range(8):
+        a0, a1 = math.tau * k / 8, math.tau * (k + 1) / 8
+        card([(cx, y + 2.95, cz), (cx + math.cos(a0) * 1.3, y + 2.5, cz + math.sin(a0) * 1.3),
+              (cx + math.cos(a1) * 1.3, y + 2.5, cz + math.sin(a1) * 1.3)], "awning_a" if k % 2 == 0 else "awning_b", "umbrella",
+             thick=0.02, normal=(0, 1, 0))
+    smoke_column((cx + 0.3, y + 1.5, cz), 4, 0.25, rng)
+    # The bus stop: a shelter of a roof on two posts, a lit back panel, a bench, and its sign on a pole at the kerb.
+    sx, sz = 36.0, -32.5
+    boxg(sx - 1.7, sx + 1.7, y + 2.3, y + 2.45, sz - 0.6, sz + 0.7, "steel", "shelter_roof")
+    bm = bmesh.new()
+    for px in (sx - 1.6, sx + 1.6):
+        tube(bm, (px, y, sz - 0.5), (px, y + 2.3, sz - 0.5), 0.05, segs=5)
+    tube(bm, (sx + 2.6, y, sz + 1.6), (sx + 2.6, y + 2.6, sz + 1.6), 0.05, segs=5)
+    ob("shelter_posts", bm, "iron", smooth=True)
+    boxg(sx - 1.5, sx + 1.5, y + 0.3, y + 2.2, sz - 0.6, sz - 0.52, "window", "shelter_panel")
+    boxg(sx - 1.2, sx + 1.2, y + 0.45, y + 0.55, sz - 0.45, sz - 0.05, "stall", "shelter_bench")
+    card(scallop(sx + 2.6, y + 2.8, sz + 1.62, 0.32, 0.32, 0, 0.0, depth=0.0, n=16), "flag_a", "stop_sign", thick=0.04)
+    if opts.get("street", "") == "people":
+        for (px, pz, fam) in ((sx - 0.8, sz - 0.1, "coat_a"), (sx + 0.7, sz + 0.2, "coat_c"), (cx - 0.6, cz + 1.1, "coat_b"),
+                              (cx + 0.5, cz + 1.2, "coat_a")):
+            at = (px, y, pz)
+            moving("sway", at, figure, at, 1.6, fam, rng)
+
+
 def bulb(at, r=0.16, fam="window"):
     bm = bmesh.new()
     bmesh.ops.create_icosphere(bm, subdivisions=1, radius=r, matrix=Matrix.Translation(P(*at)))
@@ -1487,11 +1583,11 @@ def grove_l():
         moving("firefly", at, bulb, at, 0.16, "firefly")
 
 
-BUILDS = {("ocean", "A"): beach_a, ("ocean", "B"): beach_b, ("ocean", "C"): beach_c, ("ocean", "W"): beach_w,
+BUILDS = {("ocean", "A"): beach_a, ("ocean", "B"): beach_b, ("ocean", "C"): beach_c, ("ocean", "W"): beach_w, ("ocean", "M"): beach_moored,
           ("sunset", "A"): canyon_a, ("sunset", "B"): canyon_b, ("sunset", "C"): canyon_c, ("sunset", "W"): canyon_w,
           ("meadow", "A"): meadow_a, ("meadow", "B"): meadow_b, ("meadow", "C"): meadow_c, ("meadow", "W"): meadow_w,
           ("grove", "A"): grove_a, ("grove", "B"): grove_b, ("grove", "C"): grove_c,
-          ("city", "A"): city_a, ("city", "W"): city_w, ("city", "B"): city_b, ("city", "C"): city_c,
+          ("city", "A"): city_a, ("city", "W"): city_w, ("city", "S"): city_street, ("city", "B"): city_b, ("city", "C"): city_c,
           ("grove", "L"): grove_l}
 # The ground the occlusion bake lays under each stage's pieces.
 FLOORS = {"ocean": SEA, "sunset": FLOOR, "meadow": -20.0, "grove": -12.0, "city": -13.5}
