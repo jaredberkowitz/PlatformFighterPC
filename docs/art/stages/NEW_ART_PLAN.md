@@ -295,3 +295,16 @@ Look Review ("citystreet28", `cs28_*`); recommended B. To ship: rebuild `godot/m
 
 Built B (the owner's pick, 2026-10-26): `godot/models/stages/city_world.glb` rebuilt with `--theme city --variant ABWS --people round
 --roofs life --street people`. Before and after (the street's right, wide): `review11/city_street_built.jpg`. All seven tests pass.
+
+### G2, the grove's valley below (mock, 2026-10-26)
+
+`make_grove_paper.py --valley deep|open` (`cloud_banks`, `deep_valley`, `blob`) on the shipped land: the near abyss sheet replaced by
+banks of pale mist (`bank_mist`) with gaps, one under each fall's foot (`FEET`, recorded by `falls`) and a broad one under the island;
+under them a forest floor in rows (`grass_far`, so each takes its own depth's air), a pale river (`valley_river`) and the grove's pines
+at true size in the reach the frame sees (`DEEP_Y` from `--valley_y`). A (`deep`, 80 below, the layered mist kept): the cameras look down
+only 10 degrees, so the valley shows just in the frame's bottom band, pine tips in the haze, review 9's "trees in water". B (`open
+--valley_y -50`, no layered mist sheets or far sheet): the islands read as floating over a forested valley with its river. First tries:
+the valley in violets bleached to lilac in the haze; the banks in the abyss's violet read as dark blobs. The lower band's value 0.28
+today, 0.48 B; P1's gap 0.061 today, 0.059 A, 0.055 B. B adds about 62,000 triangles (140,000 to 202,000), at the plan's budget:
+check frame time on the Fast tier before shipping. On the Stage Look Review ("grovevalley29", `gv29_*`); recommended B. To ship: rebuild
+`godot/models/stages/grove_paper.glb` with `--valley open --valley_y -50` (and `--deep A`), then re-light the grove.
