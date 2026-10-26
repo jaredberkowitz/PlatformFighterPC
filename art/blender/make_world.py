@@ -8,6 +8,8 @@
     A  a railroad: a timber trestle across the floor behind the buttes with a little train on it and a water tower by the track;
     B  a wagon trail: a pale trail winding across the floor to the horizon, telegraph poles along it, a covered wagon on it;
     C  a ranch: a windpump and its tank, a corral, an adobe house with chimney smoke.
+    W  far life by the railway (new art toward 5, W-C): a halt at the water tower on the far trestle; `--road dust` adds a dirt road
+       out to the horizon with a truck coming in, raising its dust
   meadow  A a farm track and hay cart, B the fields at work (haystacks), C village life (smoke, washing, a scarecrow),
           W far farm life (new art toward 5, the owner's approval 2026-10-25): a hay cart standing in the farmyard at its true size, and a
           bonfire's smoke rising from a far field, both seated on the shipped ground
@@ -643,6 +645,105 @@ def canyon_c():
     scaled((8.0, FLOOR, -100.0), 1.4, adobe, 8.0, -100.0, rng)
 
 
+def prism(x0, x1, y0, ridge, z0, z1, fam, name):
+    """A gable roof in game coordinates: eaves along x at y0 on both z sides, the ridge `ridge` over them, closed at both ends."""
+    bm = bmesh.new()
+    zm = (z0 + z1) * 0.5
+    ends = []
+    for x in (x0, x1):
+        ends.append([bm.verts.new(P(x, y0, z0)), bm.verts.new(P(x, y0, z1)), bm.verts.new(P(x, y0 + ridge, zm))])
+    a, b = ends
+    bm.faces.new(a)
+    bm.faces.new(b[::-1])
+    for i in range(3):
+        j = (i + 1) % 3
+        bm.faces.new((a[i], b[i], b[j], a[j]))
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces[:])
+    return ob(name, bm, fam)
+
+
+def depot(rng):
+    """A halt by the water tower at the far trestle's deck height: a plank platform on stilts, a little station house with a red gable
+    roof, a lit window and a signboard, a stair down to the floor, freight crates and a bench."""
+    zt, top = -175.0, -9.0
+    deck = top + 0.35
+    x0, x1, z0, z1 = -26.0, -12.0, -173.4, -168.8
+    bm = bmesh.new()
+    x = x0 + 0.3
+    while x <= x1:
+        for z in (z0 + 0.3, z1 - 0.3):
+            tube(bm, (x, FLOOR, z), (x, deck - 0.3, z), 0.2, segs=6)
+        tube(bm, (x, FLOOR + 1.0, z0 + 0.3), (x, deck - 1.0, z1 - 0.3), 0.1, segs=5)
+        x += 3.4
+    ob("depot_stilts", bm, "timber", smooth=True)
+    boxg(x0, x1, deck - 0.35, deck, z0, z1, "timber_dark", "depot_platform")
+    # The station house, its back to the track's far side, its front to the camera.
+    hx0, hx1, hz0, hz1 = -22.5, -15.5, -172.8, -170.2
+    boxg(hx0, hx1, deck, deck + 3.0, hz0, hz1, "tank", "depot_house")
+    prism(hx0 - 0.4, hx1 + 0.4, deck + 3.0, 1.5, hz0 - 0.5, hz1 + 0.6, "cabin_roof", "depot_roof")
+    boxg(hx0 + 1.0, hx0 + 2.0, deck, deck + 2.1, hz1, hz1 + 0.08, "timber_dark", "depot_door")
+    boxg(hx1 - 2.6, hx1 - 0.9, deck + 1.0, deck + 2.2, hz1, hz1 + 0.08, "window", "depot_window")
+    boxg(-20.6, -17.0, deck + 3.1, deck + 3.8, hz1 + 0.55, hz1 + 0.65, "white", "depot_sign")
+    # A stair down the platform's right end, freight crates and a bench by the house.
+    bm = bmesh.new()
+    k = 0
+    while deck - k * 0.6 > FLOOR:
+        y = deck - k * 0.6
+        boxg(x1 + k * 0.6, x1 + k * 0.6 + 0.6, y - 0.12, y, z1 - 1.4, z1 - 0.2, "timber", "depot_step")
+        k += 1
+    for (cx, s) in ((-25.0, 1.0), (-24.0, 0.8), (-13.5, 0.9)):
+        boxg(cx - s * 0.5, cx + s * 0.5, deck, deck + s, z1 - 1.6, z1 - 1.6 + s, "fish_crate", "depot_crate")
+    boxg(-14.8, -13.2, deck + 0.45, deck + 0.6, hz1 + 0.4, hz1 + 0.9, "timber", "depot_bench")
+
+
+def truck(x, z, rng):
+    """A little far truck heading in to the halt along the road, its dust behind it."""
+    boxg(x - 0.9, x + 0.9, FLOOR + 0.5, FLOOR + 1.4, z - 2.0, z + 0.4, "car_b", "truck_bed")
+    boxg(x - 0.85, x + 0.85, FLOOR + 0.5, FLOOR + 2.2, z + 0.4, z + 1.8, "car_a", "truck_cab")
+    boxg(x - 0.7, x + 0.7, FLOOR + 1.5, FLOOR + 2.0, z + 1.8, z + 1.85, "window", "truck_glass")
+    bm = bmesh.new()
+    for wz in (z - 1.3, z + 1.1):
+        for wx in (x - 0.95, x + 0.95):
+            kit.torus(bm, P(wx, FLOOR + 0.42, wz), Vector((0.0, 0.0, 1.0)), 0.36, 0.12, segs=12, rsegs=5)
+    ob("truck_wheels", bm, "engine_dark", smooth=True)
+
+
+def dust(at, rng):
+    """The dust a vehicle raises on a dry road: sandy card puffs, low, widening and lifting behind it."""
+    x, y, z = at
+    for k in range(7):
+        t = k / 6
+        c = (x + rng.uniform(-0.4, 0.4), y + 0.6 + t * 2.4, z - 1.0 - t * 9.0)
+        r = 0.9 + 1.6 * t
+        card(scallop(c[0], c[1], c[2], r, r * 0.7, rng.choice((3, 4)), rng.uniform(0.0, math.tau)), "trail", "dust", thick=0.3 * r)
+
+
+def canyon_w():
+    # Far life by the railway (new art toward 5, W-C): a halt at the water tower, and with `--road dust` a dirt road from it out to the
+    # horizon with a truck coming in on it, raising its dust.
+    rng = random.Random(31)
+    depot(rng)
+    if opts.get("road", "") == "dust":
+        pts = []
+        n = 24
+        for k in range(n + 1):
+            t = k / n
+            pts.append(Vector((-19.0 - 14.0 * t + 4.0 * math.sin(t * 4.0), FLOOR + 0.06, -168.0 - 120.0 * t)))
+        bm = bmesh.new()
+        prev = None
+        for k, p in enumerate(pts):
+            d = (pts[min(k + 1, n)] - pts[max(k - 1, 0)]).normalized()
+            side = Vector((-d.z, 0.0, d.x)) * 1.6
+            a, b = bm.verts.new(P(*(p - side))), bm.verts.new(P(*(p + side)))
+            if prev:
+                bm.faces.new((prev[0], prev[1], b, a))
+            prev = (a, b)
+        ob("road", bm, "trail", face=(0, 0, 1))
+        q = pts[6]
+        truck(q.x, q.z, rng)
+        moving("smoke", (q.x, FLOOR + 0.6, q.z - 2.0), dust, (q.x, FLOOR, q.z - 2.0), rng)
+
+
 def windpump(wx, wz):
     bm = bmesh.new()
     for (dx, dz) in ((-1.0, -1.0), (1.0, -1.0), (-1.0, 1.0), (1.0, 1.0)):
@@ -1269,7 +1370,7 @@ def grove_l():
 
 
 BUILDS = {("ocean", "A"): beach_a, ("ocean", "B"): beach_b, ("ocean", "C"): beach_c,
-          ("sunset", "A"): canyon_a, ("sunset", "B"): canyon_b, ("sunset", "C"): canyon_c,
+          ("sunset", "A"): canyon_a, ("sunset", "B"): canyon_b, ("sunset", "C"): canyon_c, ("sunset", "W"): canyon_w,
           ("meadow", "A"): meadow_a, ("meadow", "B"): meadow_b, ("meadow", "C"): meadow_c, ("meadow", "W"): meadow_w,
           ("grove", "A"): grove_a, ("grove", "B"): grove_b, ("grove", "C"): grove_c,
           ("city", "A"): city_a, ("city", "B"): city_b, ("city", "C"): city_c,

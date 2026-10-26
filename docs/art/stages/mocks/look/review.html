@@ -88,6 +88,22 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
     <p>Two lessons from the reference screenshots, mocked from the match camera: the scenery without ink outlines, its edges lit as card bevels instead, and the paper houses rebuilt at the characters' proportions. The earlier rounds stay on the <a href="https://claude.ai/artifact/D1du6MREVumiJDrEdNypW4">Stage Fidelity Review</a>, which is full.</p>
   </header>
 
+  <section class="panel" aria-labelledby="cw18-h" id="worldcanyon18">
+    <div class="eyebrow">Your call is needed &middot; new art, step 5: world detail, the canyon (W-C)</div>
+    <h2 id="cw18-h">A halt on the far railway</h2>
+    <p>First, the grove's lifted village is built (see its section below). Next, the canyon. Its far trestle, train and water tower are already there, so it gets what the plan named that it lacks: a depot, and a dust trail on a road.</p>
+    <div class="tablewrap"><table><thead><tr><th>Option</th><th>What changes</th></tr></thead><tbody>
+      <tr><td>A &middot; The halt</td><td>A little station at the water tower, at the trestle's deck height: a plank platform on stilts, a station house with a red gable roof, a lit window and a signboard, a stair down to the floor, crates and a bench</td></tr>
+      <tr><td>B &middot; And a dusty road</td><td>A, with a dirt road from the halt out to the horizon, and a truck coming in on it, raising its dust</td></tr>
+    </tbody></table></div>
+    <p>The tower and the halt at the wide camera: today and A on top, today and B below. P1's gap holds (0.043 today, 0.045 A, 0.044 B).</p>
+    <div class="viewer"><img src="cw18_close.jpg" alt="The canyon's far railway today, with the halt, and with the halt and the dusty road"></div>
+    <div class="row" role="group" aria-label="View"><button data-cw18v="m">Match camera</button><button data-cw18v="w">Wide</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-cw18o="T">Today</button><button data-cw18o="A">A &middot; The halt</button><button data-cw18o="B">B &middot; And a dusty road</button></div>
+    <div class="viewer"><img id="cw18img" alt="Canyon world option"><span class="vtag" id="cw18tag"></span></div>
+    <p class="muted">My pick: <b>A</b>. The halt gives the train somewhere to stop: the tower, the station and the train read together as one small far place. In B, the road and the truck stay hidden behind the near butte, and the dust shows only as a pale wisp just over the left platform, close to P1's tag at the match camera.</p>
+  </section>
+
   <section class="panel" aria-labelledby="gw17-h" id="worldgrove17">
     <div class="eyebrow">Built B (the owner's pick) &middot; new art, step 5: world detail, the grove (W-G)</div>
     <h2 id="gw17-h">The grove's tree village, out of hiding</h2>
@@ -2048,5 +2064,15 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
   group("data-gw17v", function (v) { gw17v = v; }, gw17render);
   group("data-gw17o", function (v) { gw17o = v; }, gw17render);
   gw17render();
+  var cw18v = "w", cw18o = "A";
+  var CW18O = { T: "Today", A: "A \u00b7 The halt", B: "B \u00b7 And a dusty road" };
+  function cw18render() {
+    document.getElementById("cw18img").src = "cw18_" + cw18o + "_" + cw18v + ".jpg";
+    document.getElementById("cw18tag").textContent = "Canyon \u00b7 " + CW18O[cw18o] + (cw18v === "w" ? " \u00b7 wide" : " \u00b7 match camera");
+    pressed("data-cw18v", cw18v); pressed("data-cw18o", cw18o);
+  }
+  group("data-cw18v", function (v) { cw18v = v; }, cw18render);
+  group("data-cw18o", function (v) { cw18o = v; }, cw18render);
+  cw18render();
 })();
 </script>

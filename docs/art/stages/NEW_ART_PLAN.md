@@ -185,3 +185,13 @@ behind a pine); `lanterns` also hangs three lit lanterns along each bridge. Far 
 Built B (the owner's pick, 2026-10-26): `godot/models/stages/grove_world.glb` rebuilt with `--theme grove --variant ABL --streamers
 shide --village lanterns`. Before and after (the far left and right, wide): `review10/grove_world_built.jpg`. All seven tests pass (the
 runner's known "the way out" flake once, then a pass).
+
+### Step 5, world detail on the canyon (mock)
+
+The far trestle, its train and the water tower already stand (`canyon_a`, `--trestle far`), so the canyon gets what the plan named that
+it lacks. `make_world.py --variant AW` (`canyon_w`): A, a halt at the water tower at the trestle's deck height (a plank platform on
+stilts, a station house with a red gable roof, a lit window and a signboard, a stair down, crates and a bench); B (`--road dust`), with
+a dirt road from it out to the horizon and a truck coming in, raising its dust (sandy card puffs, curling as smoke). B's road and truck
+stay behind the near butte, and its dust shows only as a wisp over the left platform, close to P1's tag. P1's gap 0.043 today, 0.045 A,
+0.044 B. On the Stage Look Review ("worldcanyon18", `cw18_*`); recommended A. To ship: rebuild `godot/models/stages/canyon_world.glb`
+with `--theme sunset --variant AW --trestle far` (no re-light).
