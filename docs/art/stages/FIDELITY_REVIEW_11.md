@@ -60,3 +60,8 @@ one run that the joints break, and every vertex's tone a step deeper toward the 
 stains some columns darker. A first try drew the joints per tier, 2.4 to 5 apart, and read as a brick wall. Measured: the front's
 contrast 0.067 to 0.090 at the match camera (0.091 to 0.110 wide), value 0.39 to 0.37; P1's gap 0.046 today, 0.042 A, 0.043 B (noise).
 On the Stage Look Review ("canyonmass21", `cm21_*`); recommended A. Shipping means a canyon re-light.
+
+Built A (the owner's pick): `godot/models/stages/canyon_front.glb` rebuilt with `--mass A`, and the canyon re-lit (front, paper, play;
+`--curve 4.0 --reach 4.5 --floor 0.28` after a fresh `--light-export`). Measured in the game: the front's value 0.37 at the match camera
+(contrast 0.066 there, where the top two beds fill the region) and 0.41 wide (contrast 0.091 to 0.120); P1's gap 0.046. Before and
+after (wide): `review11/canyon_front_built.jpg`. All seven tests pass (the runner's known flake once, then a pass).

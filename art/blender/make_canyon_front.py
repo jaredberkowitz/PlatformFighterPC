@@ -15,7 +15,7 @@ smeared into blotches), on A:
 Families `strata_a`, `strata_b`, `strata_c`; each piece bakes its occlusion into linear vertex colours with the built canyon round it.
 
 Shipped (fidelity review 9, the owner's pick C, 2026-10-25): godot/models/stages/canyon_front.glb, `--variant A --cut 1 --courses 1
---straight C` (review 8's `--straight A`, review 6's without `--straight`),
+--straight C` (review 8's `--straight A`, review 6's without `--straight`); with `--mass A` since fidelity review 11 (2026-10-26),
 then lit (the palette's `front_lift` raised to 0.35 to keep the face at 0.33).
 
 Run (Blender 5.2):
