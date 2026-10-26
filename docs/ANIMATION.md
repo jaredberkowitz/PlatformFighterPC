@@ -1595,3 +1595,20 @@ that small are noise.
 - **Image:** `docs/screenshots/anim/r6_pass54_dagger_knife.jpg`: the forward tilt before and after (both facings), and the forward air,
   unchanged.
 - **Checked:** both facings; the six tests pass.
+
+### Pass 55: the Longsword's up air floats home at one even pace (round 6 item 3)
+
+- **Defect:** after pass 52 the up air measured hold / recovery 16 / 9 against the reference's 11 / 19. The reference floats home slowly
+  and evenly; ours eased in late and then hurried.
+- **Fix (`home_k`):** an end-lag shape can now ask for an even recovery (its recover-by written as `EVEN` plus the share). The pace is one
+  straight line from the end of the hold to home, rather than an ease in and out. The Longsword's up air holds to 2% of its end lag and
+  then recovers evenly to 99%.
+- **Measured** (FT / hold / rec, reference 5 / 11 / 19):
+  - snap: 0 / 16 / 9 to 0 / 17 / 14;
+  - sweep: 2 / 13 / 10 to 2 / 14 / 15.
+  - The hold is still long because of the drift after the hit (pass 52). Moving the recovery's start any earlier made the measure treat
+    the whole end lag as follow-through.
+- **Face cover:** unchanged for the Longsword (both facings, both swing modes).
+- **Image:** `docs/screenshots/anim/r6_pass55_uair_even.jpg`: every 3 frames from the last hit, before (pass 52), after, and facing left.
+  Facing left now really faces left, thanks to the gallery fix in round 5.
+- **Checked:** the six tests pass.
