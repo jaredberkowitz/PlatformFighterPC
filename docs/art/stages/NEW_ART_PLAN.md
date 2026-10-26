@@ -227,3 +227,7 @@ today, 0.133 A, 0.135 B. On the Stage Look Review ("worldcity20", `yw20_*`); rec
 Built B (the owner's pick, 2026-10-26): `godot/models/stages/city_world.glb` rebuilt with `--theme city --variant ABW --people round
 --roofs life`. Before and after (the skyline's left and right, wide): `review10/city_world_built.jpg`. All seven tests pass (the runner's
 known flake once, then a pass). With this, step 5 (world detail) is built on all five stages.
+
+Released (2026-10-26): everything since review 9's build (the deeper contact shade, the canyon's far clouds, the painted variation,
+steps 1 to 5) as `playtest-2026-10-26-sim146-newart`, built on `build/art-2026-10-26` (the animation branch at pass 34 plus this
+branch, stage select stills regenerated), pack only, content hash ef93425e6c64eee3.
