@@ -36,6 +36,10 @@ VARIANT = opts.get("variant", "A").upper()
 # The platforms after fidelity review 6 (`--plat islet|islet_moss` on the grove, `rock|rock_under` on the canyon) and review 8
 # (`deck|boards` on the city).
 PLAT = opts.get("plat", "")
+# The canyon platforms jointed (fidelity review 12: plain flat red slabs at the match camera): `--plat_joints A|B`. A: each strata course
+# cut by vertical joints into blocks, each set a little in or out, the lower course broken unevenly at both ends, as the front's
+# jointed rock; B: A with the tapered rock hung under it (`rock_under`).
+PLAT_JOINTS = opts.get("plat_joints", "").upper()
 WEAR = int(opts.get("wear", "0"))
 # The city roof's felt (fidelity review 12: the most-seen surface on the city, one flat pink plane under the lamp pools): `--roofing A|B`.
 # A: laid in sheets running front to back, each seam a thin dark line with a pale lap beside it; B: A with gravel specks over it.
@@ -393,6 +397,22 @@ def platform(r, rng):
         # (Fidelity review 6: the canyon's platforms a bare board. A slab of the stage's own sandstone: a sand top over two strata courses,
         # the lower set in and broken short at one end; `rock_under` with a tapered rock hanging under it, a piece of mesa.)
         box(x0 - 0.1, x1 + 0.1, top - 0.1, top, zb, zf, "top", "top_card", "layer1")
+        if PLAT_JOINTS:
+            # Each course in blocks between vertical joints, each block a little in or out, so the slab reads as jointed sandstone.
+            jr = random.Random(int(x0 * 10) + 7)
+            for (ya, yb, inset, fam, lo, hi) in ((top - 0.38, top - 0.1, 0.02, "layer1", x0 - 0.06, x1 + 0.06),
+                                                 (top - 0.66, top - 0.4, 0.1, "layer2", x0 + jr.uniform(0.1, 0.6), x1 - jr.uniform(0.1, 0.6))):
+                x = lo
+                while x < hi - 0.05:
+                    xe = min(hi, x + jr.uniform(0.9, 1.8))
+                    if hi - xe < 0.5:
+                        xe = hi
+                    dz = jr.uniform(-0.08, 0.06)
+                    box(x + 0.03, xe - 0.03, ya, yb, zb + inset, zf - (0.06 if fam == "layer2" else -0.02) + dz, fam, fam)
+                    x = xe
+            if PLAT_JOINTS == "B":
+                underside(x0 + 0.2, x1 - 0.2, top - 0.66, zb + 0.2, zf - 0.12, 1.0, rng, "layer1", "layer2")
+            return
         box(x0 - 0.06, x1 + 0.06, top - 0.38, top - 0.1, zb + 0.02, zf + 0.02, "layer1", "layer1")
         cut_l, cut_r = rng.uniform(0.05, 0.45), rng.uniform(0.05, 0.45)
         box(x0 + cut_l, x1 - cut_r, top - 0.66, top - 0.4, zb + 0.1, zf - 0.06, "layer2", "layer2")

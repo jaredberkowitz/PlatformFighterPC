@@ -88,6 +88,22 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
     <p>Two lessons from the reference screenshots, mocked from the match camera: the scenery without ink outlines, its edges lit as card bevels instead, and the paper houses rebuilt at the characters' proportions. The earlier rounds stay on the <a href="https://claude.ai/artifact/D1du6MREVumiJDrEdNypW4">Stage Fidelity Review</a>, which is full.</p>
   </header>
 
+  <section class="panel" aria-labelledby="cp32-h" id="canyonplats32">
+    <div class="eyebrow">Your call is needed &middot; review 12, item 3: the canyon's platforms</div>
+    <h2 id="cp32-h">Jointed sandstone platforms</h2>
+    <p>First, the meadow's painted peaks are built (see its section below). Last of review 12's list, the canyon. Its floating platforms were plain flat red slabs with a thin pale top. This gives their faces the front's jointed rock: each course cut by vertical joints into blocks, each block a little in or out, and the lower course broken unevenly at both ends. The tops where fighters stand don't change.</p>
+    <div class="tablewrap"><table><thead><tr><th>Option</th><th>What changes</th></tr></thead><tbody>
+      <tr><td>A &middot; Jointed blocks</td><td>The courses in blocks between joints</td></tr>
+      <tr><td>B &middot; And a rock beneath</td><td>A, with a tapered piece of mesa hanging under each platform</td></tr>
+    </tbody></table></div>
+    <p>The platforms at the match camera, all unlit as mocks are: today then A on top, today then B below. P1's gap holds (0.039 today and A, 0.040 B).</p>
+    <div class="viewer"><img src="cp32_close.jpg" alt="The canyon's platforms today and jointed"></div>
+    <div class="row" role="group" aria-label="View"><button data-cp32v="m">Match camera</button><button data-cp32v="w">Wide</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-cp32o="T">Today</button><button data-cp32o="A">A &middot; Jointed blocks</button><button data-cp32o="B">B &middot; And a rock beneath</button></div>
+    <div class="viewer"><img id="cp32img" alt="Canyon platform option"><span class="vtag" id="cp32tag"></span></div>
+    <p class="muted">My pick: <b>A</b>. The platforms read as slabs of the same jointed sandstone as the front. B's hanging rock makes them read as pieces of mesa, but under the side platforms it hangs toward the fighters' heads (you passed on that rock in review 6 too). Honest note: it's a small change at play size, the joints showing as fine lines.</p>
+  </section>
+
   <section class="panel" aria-labelledby="mt31-h" id="mountains31">
     <div class="eyebrow">Built A (the owner's pick) &middot; review 12, item 2: the meadow's mountains</div>
     <h2 id="mt31-h">Painted peaks</h2>
@@ -2476,5 +2492,15 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
   group("data-mt31v", function (v) { mt31v = v; }, mt31render);
   group("data-mt31o", function (v) { mt31o = v; }, mt31render);
   mt31render();
+  var cp32v = "m", cp32o = "A";
+  var CP32O = { T: "Today", A: "A \u00b7 Jointed blocks", B: "B \u00b7 And a rock beneath" };
+  function cp32render() {
+    document.getElementById("cp32img").src = "cp32_" + cp32o + "_" + cp32v + ".jpg";
+    document.getElementById("cp32tag").textContent = "Canyon \u00b7 " + CP32O[cp32o] + (cp32v === "w" ? " \u00b7 wide" : " \u00b7 match camera");
+    pressed("data-cp32v", cp32v); pressed("data-cp32o", cp32o);
+  }
+  group("data-cp32v", function (v) { cp32v = v; }, cp32render);
+  group("data-cp32o", function (v) { cp32o = v; }, cp32render);
+  cp32render();
 })();
 </script>

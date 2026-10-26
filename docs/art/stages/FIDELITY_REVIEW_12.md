@@ -71,3 +71,12 @@ no re-light).
 Built A (the owner's pick): meadow.cfg [backdrop] `range_drift=[3.0, 1.2, 24.0, 0.8]`. In the game the left peak measures contrast
 0.130. Before and after (the peaks, match camera): `review12/meadow_peaks_built.jpg`. All seven tests pass (the runner's known flake
 once, then a pass).
+
+## Item 3, the canyon's platforms (mock, 2026-10-26)
+
+`make_play.py --plat_joints A|B` on the shipped canyon play (`--theme sunset --variant B --plat rock --wear 2`): each strata course of
+a platform cut by vertical joints into blocks 0.9 to 1.8 long, each set 0.08 in to 0.06 out, the lower course broken 0.1 to 0.6 short at
+each end; B also hangs the tapered rock under each (`underside`, as `rock_under`), which under the side platforms reaches toward the
+fighters' heads (the owner passed on it in review 6). The tops don't change. P1's gap 0.039 today (unlit) and A, 0.040 B. On the Stage
+Look Review ("canyonplats32", `cp32_*`); recommended A. To ship: rebuild `godot/models/stages/canyon_play.glb` with `--plat_joints A`,
+then re-light the canyon.
