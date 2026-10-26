@@ -1497,9 +1497,11 @@ RUN_STYLES = {
     # The quick fighters: very low and long, the arms swept back.
     "quick": dict(frames=23, hips=0.62, down=0.24, lift=0.32, kick=0.2, bob=0.05, lean=40.0, side=6.0, head=-20.0, twist=8.0, sway=0.0,
                   wide=0.02, arm_l=(-44.0, 18.0, 24.0), arm_r=(-40.0, 20.0, 28.0), swing_l=12.0, swing_r=12.0),
-    # The heavy one: upright, short strides with a long contact, a big drop on every step and the arms swinging wide.
-    "heavy": dict(frames=19, hips=0.68, down=0.3, lift=0.2, kick=0.06, bob=0.11, lean=14.0, side=6.0, head=-8.0, twist=12.0, sway=6.0,
-                  wide=0.09, arm_l=(4.0, 40.0, 60.0), arm_r=(6.0, 40.0, 64.0), swing_l=40.0, swing_r=40.0),
+    # The heavy one (round 4: it read like the others): lower, longer strides at a slower cadence (as long as the short legs reach), a
+    # long, heavy contact with the weight dropping onto each step after the foot is down (`sink`), the feet kept low, the body rocking
+    # side to side and the arms swinging wide. (fighter_view.gd squashes it harder on each footfall, `STEP_SQUASH`.)
+    "heavy": dict(frames=22, hips=0.61, down=0.32, lift=0.16, kick=0.04, bob=0.12, lean=14.0, side=8.0, head=-7.0, twist=16.0, sway=9.0,
+                  wide=0.1, arm_l=(4.0, 44.0, 60.0), arm_r=(6.0, 44.0, 64.0), swing_l=44.0, swing_r=44.0, sink=0.03),
     # The caster: neat and upright, the arms held in.
     "caster": dict(frames=21, hips=0.72, down=0.25, lift=0.24, kick=0.12, bob=0.05, lean=18.0, side=6.0, head=-10.0, twist=8.0, sway=0.0,
                    wide=0.0, arm_l=(22.0, 16.0, 84.0), arm_r=(18.0, 18.0, 88.0), swing_l=22.0, swing_r=22.0),
@@ -1515,7 +1517,9 @@ def run_style(phase, st):
     """One frame of a family's run (`RUN_STYLES`) at `phase` (0..1). The left foot lands at phase 0, the right at 0.5."""
     def f(rig):
         rest_hips = rig.pose.bones["hips"].bone.head_local.z
-        lowest = math.cos((phase - 0.05) * 4.0 * math.pi)      # 1 just after each landing, -1 in the flight between
+        # 1 just after each landing, -1 in the flight between; a heavy run (`sink`) lands later in its drop, so the weight comes down
+        # onto the step after the foot is planted.
+        lowest = math.cos((phase - 0.05 - st.get("sink", 0.0)) * 4.0 * math.pi)
         roll = math.sin(phase * 2.0 * math.pi)
         pose(rig, "hips", lift=st["hips"] - rest_hips - st["bob"] * lowest, twist=-st["twist"] * roll, out=st["sway"] * roll)
         pose(rig, "spine", fwd=st["lean"] + 4.0 * lowest, twist=8.0 + st["twist"] * 1.4 * roll, out=st["side"])

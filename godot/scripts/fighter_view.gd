@@ -3134,6 +3134,8 @@ func reset_motion() -> void:
 	body_still = 0.0
 	for t in tails:
 		t.reset()
+## How much a run's footfall squashes the body (and its stride stretches it), before the body's weight.
+const STEP_SQUASH := 0.07
 ## Where the run cycle was last frame, for the footfalls.
 var last_step_phase := 0.0
 
@@ -3357,7 +3359,10 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 	if (state == "Run" or state == "Dash") and anim != null and _gait_clip(current_clip):
 		var length := anim.get_animation(current_clip).length
 		var phase := fmod(anim.current_animation_position / maxf(length, 0.001), 1.0)
-		step_squash = 0.07 * cos((phase - 0.06) * 4.0 * PI)
+		# (Round 4: by the body's weight, `CLASS_WEIGHT`: a heavy body squashes about half as much again on each footfall, a light one
+		# less, so the heavy run lands its weight.)
+		var heft: float = float(_weight(s)[1])
+		step_squash = STEP_SQUASH * heft * heft * cos((phase - 0.06) * 4.0 * PI)
 		# A puff of dust behind each foot as it lands (at 0.06 and 0.56 of the cycle).
 		for land_at in [0.06, 0.56]:
 			var crossed: bool = (last_step_phase < land_at and phase >= land_at) or (last_step_phase > phase and (phase >= land_at or last_step_phase < land_at))
