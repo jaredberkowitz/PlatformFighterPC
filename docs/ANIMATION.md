@@ -1270,3 +1270,50 @@ Ranked by how visible it is at match speed:
   view that is in the tree.
 - **Fix (`tests/anim_sheet.gd` only):** it waits one frame after building the view. The sheet now logs no script errors (only the
   engine's usual leak notes at exit). No gameplay code changed.
+
+### Pass 44: the Longsword's forward smash recovers slowly and its up air floats back sooner (round 4 item 2)
+
+- **Defect** (measured against the reference swordsman, frames of hold / recovery): the forward smash held 27 and recovered in 6 against
+  16 and 17, so after a long freeze it snapped home; the up air held 26 against 11 and recovered in 5 against 19.
+- **Cause:**
+  - Both used the shared end-lag shape (hold to 48% of the end lag, recover by 92%).
+  - The forward smash's held cut also lay below the floor. The floor check (pass 40) pinned the tip still while the angle came home
+    underneath, so its recovery showed only in its last few frames.
+  - The up air carried its cut on for 3 frames (pass 42), taking the pose further from home after the hit, which lengthens the hold.
+- **Fix (`fighter_view.gd`):**
+  - **`CLASS_END_SHAPES`:** the Longsword's own shapes. The forward smash holds to 20% of its end lag and recovers slowly to 99%; the up
+    air holds to 6% and floats back to 99%.
+  - **The held cut stops at the floor:** on the ground a held cut is kept at the angle where the floor stops it, with the hand as low as a
+    lunge takes it (`HELD_HAND_Y` 0.6). The recovery then rises from where the blade really is.
+  - The up air carries 2 frames, not 3.
+- **Measured** (the reference, then before and after, FT / hold / rec):
+  - forward smash: 1 / 16 / 17; 0 / 27 / 6; 0 / 18 / 13;
+  - up air: 5 / 11 / 19; 0 / 26 / 5; 0 / 20 / 9.
+  - The up air's hold is still long: after its hit the whole pose keeps moving away from home for about 10 frames as the air arc
+    blends, and the report counts that as hold.
+- **The table re-measured for both classes** (FT / hold / rec; the reference first):
+
+  | Move | Longsword: reference | now | Claws: reference | now |
+  |---|---|---|---|---|
+  | Jab | 7 / 5 / 6 | 0 / 13 / 3 | 1 / 9 / 5 | 0 / 10 / 4 |
+  | Forward tilt | 1 / 16 / 4 | 0 / 13 / 5 | 1 / 11 / 9 | 2 / 11 / 7 |
+  | Up tilt | 1 / 8 / 10 | 1 / 11 / 6 | 1 / 7 / 13 | 0 / 9 / 9 |
+  | Down tilt | 6 / 3 / 5 | 0 / 8 / 4 | 1 / 12 / 6 | 0 / 12 / 6 |
+  | Forward smash | 1 / 16 / 17 | 0 / 18 / 13 | 0 / 9 / 6 | 0 / 10 / 5 |
+  | Up smash | 1 / 22 / 13 | 1 / 21 / 12 | 1 / 11 / 5 | 0 / 15 / 5 |
+  | Down smash | 1 / 26 / 4 | 0 / 17 / 11 | 0 / 9 / 8 | 1 / 11 / 6 |
+  | Neutral air | 1 / 20 / 6 | 0 / 17 / 6 | 1 / 4 / 9 | 0 / 10 / 3 |
+  | Forward air | 2 / 20 / 6 | 0 / 19 / 5 | 1 / 24 / 5 | 0 / 18 / 6 |
+  | Back air | 1 / 12 / 14 | 1 / 10 / 12 | 1 / 13 / 14 | 0 / 17 / 9 |
+  | Up air | 5 / 11 / 19 | 0 / 20 / 9 | 1 / 18 / 9 | 0 / 18 / 7 |
+  | Down air | 4 / 33 / 9 | 3 / 32 / 7 | 1 / 19 / 15 | 3 / 21 / 6 |
+
+  - Mean error against the reference over both classes (frames): FT 1.6 to 1.5, hold 3.8 to 3.1, recovery 3.3 to 2.9. (Round 3's 3.6 and
+    3.1 were counted one frame early; the same capture counted the new way gave 3.8 and 3.3.)
+- **Image:** `docs/screenshots/anim/r4_pass44_longsword_timing.jpg`: the forward smash every 4 frames from its last hit (both facings) and
+  the up air every 3, before above after.
+- **Checked:**
+  - both facings;
+  - the Greatsword's forward smash keeps its tip on the floor as in pass 40;
+  - face cover unchanged (both measures);
+  - the six tests pass.

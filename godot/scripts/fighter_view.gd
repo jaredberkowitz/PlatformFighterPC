@@ -741,7 +741,7 @@ const RECOVER_TO := 0.92
 const CARRY_FRAMES := 1.0
 ## The sword's neutral air carries nothing on: its windmill already turns past the last hit, and carried further the sword hand came
 ## over the face (4 frames).
-const SWORD_CARRY := {"jab": 4.0, "dtilt": 3.0, "uair": 3.0, "dair": 3.0, "fair": 2.0, "nair": 0.0}
+const SWORD_CARRY := {"jab": 4.0, "dtilt": 3.0, "uair": 2.0, "dair": 3.0, "fair": 2.0, "nair": 0.0}
 const CARRY_EASE := 2.0
 ## How much further the body's lunge goes on through the carry (a share of the lunge).
 const LUNGE_CARRY := 0.3
@@ -751,6 +751,10 @@ const END_SHAPE := Vector3(HOLD_TO, RECOVER_TO, CARRY_FRAMES)
 const MOVE_END_SHAPES := {"utilt": Vector3(0.3, 0.95, CARRY_FRAMES), "bair": Vector3(0.3, 0.95, CARRY_FRAMES)}
 ## Clips whose strike pose is not one to hold: the forward headbutt ends head down with the face behind the hands, so it recovers early.
 const CLIP_END_SHAPES := {"body_headbutt_fwd": Vector3(0.12, 0.8, CARRY_FRAMES)}
+## Per class, the moves whose reference timing differs from the shared shape (hold to, recover by): round 4, measured against the
+## reference swordsman. Its forward smash holds about a third of its end lag and then recovers slowly over the rest (ours recovered in 7
+## frames against 17); its up air holds briefly and floats back down (24 frames of hold against 11).
+const CLASS_END_SHAPES := {0: {"fsmash": Vector2(0.2, 0.99), "uair": Vector2(0.06, 0.99)}}
 ## The clip's follow-through key (frame 40 of 60).
 const FOLLOW_PROGRESS := 0.667
 ## The weapon arm and the reaching limbs come home this much of the end lag after the body, so the hips lead the recovery.
@@ -796,6 +800,10 @@ func _end_shape(s: Dictionary) -> Vector3:
 		shape = CLIP_END_SHAPES.get(AnimLibrary.attack_clip(_cls(s), name, anim), shape)
 	if bladed(_cls(s)):
 		shape.z = float(SWORD_CARRY.get(name, CARRY_FRAMES))
+	var own: Dictionary = CLASS_END_SHAPES.get(_cls(s), {})
+	if own.has(name):
+		shape.x = (own[name] as Vector2).x
+		shape.y = (own[name] as Vector2).y
 	return shape
 
 
@@ -3895,6 +3903,13 @@ func _blade_target(s: Dictionary) -> Array:
 		var shape := _end_shape(s)
 		var carry_deg := CARRY_DEG * (shape.z + CARRY_EASE * 0.5) if shape.z > 0.0 else 0.0
 		var past := swing + travel * carry_deg * follow_k(f, float(t[2]) - _carry_lead(t), shape)
+		# (Round 4: on the ground the held cut stops where the floor stops it, the hand as low as a lunge takes it (`HELD_HAND_Y`).
+		# Held below it, the floor check pinned the tip still while the angle came home underneath, so the recovery showed only in its
+		# last few frames: the forward smash measured 7 frames of recovery against the reference's 17.)
+		if s.platform >= 0 and to_tip.x >= 0.0:
+			var floor_deg := rad_to_deg(asin(clampf((GROUND_CLEARANCE - HELD_HAND_Y) / length, -1.0, 1.0)))
+			if past < floor_deg and past > -120.0:
+				past = floor_deg
 		# (Round 4: a cut that ends raised is held leaning forward, no steeper than HELD_UP_MAX: held upright, or carried on over the top,
 		# the short arm left the hilt over the eyes, and drawn back behind the head the blade vanished behind it.)
 		# (Not the Nodachi's: its long blade held forward came home across the face, 3 frames.)
@@ -3929,6 +3944,8 @@ func _limb_carry(s: Dictionary) -> float:
 const LIMB_CARRY_DEG := 20.0
 
 
+## How low the hand is in a held lunge (forward space), for where the floor stops a held cut.
+const HELD_HAND_Y := 0.6
 ## The steepest (degrees above forward) a grounded cut is held at through its end lag.
 const HELD_UP_MAX := 68.0
 
