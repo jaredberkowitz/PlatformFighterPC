@@ -1479,3 +1479,20 @@ that small are noise.
 - **Image:** `docs/screenshots/anim/r5_pass49_snap_sweep.jpg`, every frame: the forward tilt (both facings), jab, forward air and up air,
   snap above sweep.
 - **Checked:** the six tests pass (in snap, the default). The F10 toggle and its note were exercised in the built game (see the build).
+
+### Pass 50: a hand the arm cannot take to the face's edge is sent further (round 5: the Settler's forward tilt, without the Staff)
+
+- **Defect:** in the Settler's forward tilt the tool fist sat at the chin for 8 frames.
+- **Cause (`_guard_face`, printed through the move):** the guard aimed the hand at the face's edge (0.47 from its middle), but the arm,
+  crouched in the lunge, was too short to get there. It stopped 0.33-0.40 from the face's middle, inside the 0.4 the face covers.
+  - Round 4's idea, measuring the guard from the drawn face as well, pushed the Staff's two-handed up smash grip onto the face, so it is
+    not used.
+- **Fix:** after the guard's reach, a hand still inside the face's edge is sent out again, `GUARD_FURTHER` (1.5) times as far the same
+  way and further back in depth. The arm then gets clear.
+- **Measured** (`PF_FACE_COVER`, every class's moves):
+  - Settler 11 frames to 3 (its forward tilt 8 to 3);
+  - Staff 11 to 5 (up tilt 4 to 0, up air 3 to 1); the up smash grip stays at 1;
+  - Clutch 1 to 0, Longsword 11 to 9, Greatsword 13 to 11, Wanderer 11 to 9;
+  - the rest the same within the measure's noise (up to 3 frames).
+- **Image:** `docs/screenshots/anim/r5_pass50_guard_further.jpg`: the Settler's forward tilt, before, after and facing left.
+- **Checked:** both facings; the six tests pass.

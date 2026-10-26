@@ -4729,6 +4729,8 @@ func _behind_head_k(hand: Vector2, facing: int, fwd := 0.0) -> float:
 ## face's edge on screen and back toward the head, by the arm's IK (round 2, the real-speed audit: hands crossed the face in 2-50 frames of
 ## every class's up moves, raised specials and two-handed swings, `PF_FACE_COVER`). Eased in by how near the face it is, so it never pops.
 const FACE_GUARD_R := 0.45
+## How far out (a share of FACE_GUARD_R) a hand that fell short of the face's edge is sent the second time.
+const GUARD_FURTHER := 1.5
 
 
 func _guard_face(facing: int) -> void:
@@ -4757,6 +4759,16 @@ func _guard_face(facing: int) -> void:
 			_ik_arm(side, mine, p.lerp(guard, k), 1.0)
 		else:
 			_ik_arm(side, mine, guard, k)
+		# (Round 5: an arm too short to reach the face's edge stopped just inside it, a fist at the chin: the Settler's forward tilt, held
+		# 8 frames. Then it is sent further out the same way, and further back in depth, once more.)
+		var got := to_frame * skeleton.get_bone_global_pose(ih).origin
+		if k > 0.5 and Vector2(got.x - centre.x, got.y - centre.y).length() < FACE_GUARD_R * 0.95:
+			var further := Vector2(centre.x, centre.y) + out * FACE_GUARD_R * GUARD_FURTHER
+			var again := Vector3(further.x, further.y, lerpf(got.z, centre.z + HEAD_BEHIND_Z, 0.75))
+			if arms_held.has(side):
+				_ik_arm(side, mine, p.lerp(again, k), 1.0)
+			else:
+				_ik_arm(side, mine, again, k)
 
 
 ## Two-bone IK for one arm: the hand to `target` (stage frame), blended in by `amount` over the clip's pose.
