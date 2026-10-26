@@ -659,7 +659,12 @@ func _attack_clip(s: Dictionary) -> Array:
 	var last := clampf(float(t[2]), start, total)
 	var progress := strike_progress(float(s.state_frame), total, start, last, s.get("move_windows", PackedInt32Array()), _end_shape(s))
 	var name := String(s.move_name)
-	if (HELD_COIL.get(_cls(s), []) as Array).has(name):
+	if (HELD_STRIKE.get(_cls(s), []) as Array).has(name):
+		# (A hold with no hit to time it, round 3: the Settler's balloon float. Rises into its pose over HELD_STRIKE_IN frames and stays
+		# there, the legs paddling, rather than running on to the stance's rest pose (where the guard's near fist sat over the face).)
+		var k := smoothstep(0.0, HELD_STRIKE_IN, float(s.state_frame))
+		progress = lerpf(0.0, 0.58, k) + 0.025 * k * sin(float(s.state_frame) * TAU / 36.0)
+	elif (HELD_COIL.get(_cls(s), []) as Array).has(name):
 		# (A charge held in the coil, its arm swinging round on top: `WINDMILL`. Round 2.)
 		progress = COIL_PROGRESS + COIL_CREEP * (1.0 + sin(float(s.state_frame) * TAU / 40.0))
 	elif float(s.state_frame) < start and (COILED_START.get(_cls(s), []) as Array).has(name):
@@ -3143,6 +3148,13 @@ func _log_face_cover(s: Dictionary) -> void:
 	if blade_pivot != null and blade_pivot.visible:
 		points.append(blade_pivot.global_position)
 		names.append("hilt")
+	# (And the feet, round 3: an overhead kick's leg crossed the face with both hands clear.)
+	for side in ["L", "R"]:
+		points.append(skeleton.global_transform * skeleton.get_bone_global_pose(skeleton.find_bone("foot." + side)).origin)
+		names.append("foot" + side)
+		var knee := skeleton.global_transform * skeleton.get_bone_global_pose(skeleton.find_bone("shin." + side)).origin
+		points.append((knee + points[points.size() - 1]) * 0.5)
+		names.append("shin" + side)
 	for i in points.size():
 		var p: Vector3 = points[i]
 		if p.z > centre.z and Vector2(p.x - centre.x, p.y - centre.y).length() < COVER_R:
@@ -3467,6 +3479,7 @@ func _log_motion(s: Dictionary) -> void:
 	if blade_pivot != null and blade_pivot.visible:
 		var t: Vector3 = blade_pivot.to_global(Vector3(BLADE_TIP_X, 0.0, 0.0)) - global_position
 		line += " tip:%.3f,%.3f" % [t.x * f, t.y]
+	line += " pitch:%.1f" % rad_to_deg(model.rotation.x)
 	print(line)
 
 
@@ -3759,6 +3772,8 @@ const GREAT_REST_ANGLE := 152.0
 const GREAT_REST_HAND := Vector2(0.3, 1.25)
 ## How far in front of (positive) or behind the body the greatsword's hand is, eased between the two.
 var great_z := -0.45
+## How far the greatsword's grip moves in depth a sim frame, between its rest behind the back and its swing in front.
+const GREAT_Z_STEP := 0.135
 ## The greatsword's length (hand to point), whatever the hit: the blade reaches about 2 units past the grip.
 const GREAT_LENGTH := 2.45
 
@@ -3917,6 +3932,10 @@ const BLADE_OVERHEAD_Z := -0.25
 ## planted wide and low (`gaunt_charge`), while its arm swings round (`WINDMILL`). (Round 2: it stood in a plain
 ## guard, fists at the chest, for the whole charge.)
 const HELD_COIL := {7: ["neutral special"], 11: ["up special", "extra move 5"]}
+## Moves held in their strike pose for as long as they last (no hit times them): the Settler hangs from its balloons, both hands up on
+## the strings over its head.
+const HELD_STRIKE := {10: ["up special", "extra move 8"]}
+const HELD_STRIKE_IN := 8.0
 ## Moves thrown straight out of such a charge: they start in the coil, the fist drawn back (`DEEP_CHAMBER`), instead of from the rest pose.
 const COILED_START := {7: ["extra move 0", "extra move 1", "extra move 2", "extra move 3"]}
 ## Arms swung round and round through a charge, after the reference's giant punch: [frames a turn at the start, frames a turn at full
@@ -4185,18 +4204,23 @@ func _pose_blade(s: Dictionary, delta: float) -> void:
 	# frame at real speed, the hilt sat over the eyes for 8 frames of the Longsword's up tilt and the claws covered the face through the
 	# forward air's wind-up.)
 	elif use_base_body and blade_up == 0.0 and skeleton != null and head_bone >= 0 and _cls(s) != GREATSWORD_CLASS:
-		var hp := skeleton.get_bone_global_pose(head_bone)
-		var hc3 := _skeleton_to_frame() * (hp.origin + hp.basis.y.normalized() * HEAD_CENTRE_UP)
-		var near := (hand - Vector2(hc3.x * facing, hc3.y)).length() / HEAD_CLEAR_R
-		var k := 1.0 - smoothstep(0.75, 1.15, near)
+		var k := _behind_head_k(hand, facing)
 		if k > 0.0:
 			hand_z = lerpf(hand_z, HEAD_BEHIND_Z, k)
 	# (The raised sword is drawn back behind the head in depth, so the hanging blade does not cross the face.)
 	if blade_up > 0.0:
 		hand_z = lerpf(hand_z, BLADE_OVERHEAD_Z, blade_up)
 	if _cls(s) == GREATSWORD_CLASS:
-		great_z = move_toward(great_z, -0.45 if great_rest else 0.35, delta * 8.0)
+		# (By sim frames since round 3, so a freeze holds it and a seek puts it straight there; it moved on real time.)
+		if springs.jumped:
+			great_z = -0.45 if great_rest else 0.35
+		else:
+			great_z = move_toward(great_z, -0.45 if great_rest else 0.35, float(springs.new_frames) * GREAT_Z_STEP)
 		hand_z = great_z
+		# (Round 3: its two-handed grip goes behind the head too when the swing brings it up past the face, the broad blade still
+		# showing round the head; it covered the face for 81 frames of its up moves and forward air.)
+		if use_base_body and skeleton != null and head_bone >= 0:
+			hand_z = minf(hand_z, lerpf(hand_z, HEAD_BEHIND_Z, _behind_head_k(hand, facing)))
 	hand_target = Vector3(hand.x * facing, hand.y, hand_z)
 	# The greatsword is held in both hands: the other one a little further down the grip (toward the pommel), just behind the blade.
 	var back_along := Vector2.from_angle(deg_to_rad(angle)) * -0.3
@@ -4494,6 +4518,14 @@ func _aim_arm(facing: int, holding: bool, two_hands := false, amount := 1.0) -> 
 var arms_held: Array = []
 
 
+## How far a hand at `hand` (forward space) should go behind the head in depth: 1 over the face's middle, easing to 0 past its edge.
+func _behind_head_k(hand: Vector2, facing: int) -> float:
+	var hp := skeleton.get_bone_global_pose(head_bone)
+	var hc3 := _skeleton_to_frame() * (hp.origin + hp.basis.y.normalized() * HEAD_CENTRE_UP)
+	var near := (hand - Vector2(hc3.x * facing, hc3.y)).length() / HEAD_CLEAR_R
+	return 1.0 - smoothstep(0.75, 1.15, near)
+
+
 ## A hand covering the drawn face, whatever put it there (a clip's free arm, an overhead reach, a two-handed grip), is moved out to the
 ## face's edge on screen and back toward the head, by the arm's IK (round 2, the real-speed audit: hands crossed the face in 2-50 frames of
 ## every class's up moves, raised specials and two-handed swings, `PF_FACE_COVER`). Eased in by how near the face it is, so it never pops.
@@ -4619,6 +4651,8 @@ static func _arm_hinge(up0: Vector3, fore0: Vector3, up1: Vector3, fore1: Vector
 const KICK_HIP_Y := 0.6
 ## The steepest a kick rises on the base body (degrees above level, see `_aim_leg`).
 const HIGH_KICK := 65.0
+## How far ahead of the hips an overhead kick's foot is kept, so the leg rises past the face rather than across it (round 3).
+const KICK_CLEAR_X := 0.8
 
 
 ## A kick: the leg on the side of the hitbox reaches the live hitbox with two-bone IK (hip, knee, ankle), so the foot is where the hit
@@ -4684,6 +4718,14 @@ func _aim_leg(s: Dictionary, kicking: bool, delta: float) -> void:
 		# high kick, where it outweighed the height and pointed the leg at the camera.)
 		var rise := rad_to_deg(atan2(aim.y - KICK_HIP_Y, maxf(absf(aim.x), 0.001)))
 		var toward := lerpf(0.75, 0.4, smoothstep(20.0, 50.0, rise))
+		# (Round 3: a kick overhead, its foot above the chest and not far out in front, rises ahead of the face instead of across it; aimed
+		# at the hit straight above, toward the camera, the leg crossed the face for 12 frames of the Gauntlets' up air, and sent behind
+		# the head the short leg vanished. It reads as a high kick past the face, KICK_CLEAR_X ahead of the hips.)
+		if use_base_body and aim.x >= -0.2:
+			var overhead := smoothstep(1.0, 1.45, aim.y) * (1.0 - smoothstep(0.5, 0.9, absf(aim.x)))
+			if overhead > 0.0:
+				aim.x = lerpf(aim.x, maxf(aim.x, KICK_CLEAR_X), overhead)
+				toward = lerpf(toward, 0.25, overhead)
 		var goal: Vector3 = to_skel * Vector3(aim.x * float(facing), aim.y, toward)
 		var d := goal - hip
 		var dist := clampf(d.length(), 0.05, upper + lower - 0.002)

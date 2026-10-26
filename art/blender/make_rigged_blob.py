@@ -948,13 +948,16 @@ BODY_MOVES = {
         {"spine": (44.0, 0.0), "head": (-26.0, 0.0), "stance": (80.0, 64.0), "shin.L": (-110.0,), "shin.R": (-104.0,), "arms": (48.0, 8.0),
          "armL.L": (20.0,)},
         {"spine": (36.0, 0.0), "head": (-20.0, 0.0), "stance": (74.0, 60.0), "shin.L": (-104.0,), "shin.R": (-100.0,), "arms": (44.0, 8.0)}),
-    # Floating under the balloons: both hands up holding the strings, the legs hanging and paddling a little apart.
+    # Floating under the balloons, the legs hanging and paddling a little apart. (Round 3, the owner's pick: a re-posed hold. Both hands
+    # up beside the head put the near one in front of the face, side-on, for the whole float; now the far hand holds the strings high
+    # over the head, a little behind it, and the near hand grips them lower, in front of the chest.)
     "tool_float": (
-        {"spine": (-4.0, 0.0), "head": (-6.0, 0.0), "stance": (20.0, -10.0), "shin.L": (-40.0,), "shin.R": (-20.0,), "arms": (104.0, 12.0),
-         "armL.L": (30.0,)},
-        {"spine": (-8.0, 0.0), "head": (-10.0, 0.0), "stance": (-6.0, 24.0), "shin.L": (-20.0,), "shin.R": (-50.0,), "arms": (110.0, 12.0),
-         "armL.L": (24.0,)},
-        {"spine": (-6.0, 0.0), "head": (-8.0, 0.0), "stance": (10.0, 10.0), "shin.L": (-30.0,), "shin.R": (-30.0,), "arms": (106.0, 12.0)}),
+        {"spine": (-4.0, 0.0), "head": (-6.0, 0.0), "stance": (20.0, -10.0), "shin.L": (-40.0,), "shin.R": (-20.0,), "arms": (40.0, 4.0),
+         "armU.R": (92.0, -4.0), "armL.R": (20.0,), "armL.L": (60.0,)},
+        {"spine": (-8.0, 0.0), "head": (-10.0, 0.0), "stance": (-6.0, 24.0), "shin.L": (-20.0,), "shin.R": (-50.0,), "arms": (36.0, 2.0),
+         "armU.R": (104.0, -6.0), "armL.R": (14.0,), "armL.L": (64.0,)},
+        {"spine": (-6.0, 0.0), "head": (-8.0, 0.0), "stance": (10.0, 10.0), "shin.L": (-30.0,), "shin.R": (-30.0,), "arms": (36.0, 2.0),
+         "armU.R": (102.0, -6.0), "armL.R": (16.0,), "armL.L": (62.0,)}),
     # Fencer's up tilt: the blade sweeps overhead from front to back while the body stands tall under it.
     # (Pose review 2026-10-17: up moves reach from the shoulders with the chest lifted and the hips over the feet; the round body arched
     # back with its belly forward read as inhaling, not striking.)

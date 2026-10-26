@@ -1093,3 +1093,52 @@ Ranked by how visible it is at match speed:
 - **Left:**
   - The `hurt_heavy` and `hurt_up` reactions (faster hits that do not tumble) keep their own clips.
   - For the first few frames of a strong recoil the face still looks up.
+
+### Pass 37: the Greatsword's grip kept off the face (round 3 item 4)
+
+- **Defect:** the Greatsword's two-handed grip passed in front of the face through its up tilt, up air, up special and forward air.
+  `PF_FACE_COVER` counted 92 frames over its 16 moves, against 81 after pass 32 (pass 34's longer holds added some).
+- **Cause (`fighter_view.gd` `_pose_blade`):**
+  - its grip had its own depth (`great_z`, in front at 0.35 whenever it swings), so the head-clear rule that sends every other class's
+    raised hand behind the head (pass 24) skipped it;
+  - `great_z` also moved on real time, not the sim frame.
+- **Fix:**
+  - The same rule now applies to the greatsword (`_behind_head_k`, shared). A grip that comes up past the face goes behind the head in
+    depth, and the broad blade still shows round and above the head. Its rest pose is covered too.
+  - `great_z` moves by sim frames (`GREAT_Z_STEP`), so a freeze holds it and a seek puts it straight there.
+- **Measured:** 92 to 13 frames (14 facing left). What is left is the hilt at the chin in the forward air, with the face showing
+  (checked in the capture).
+- **Image:** `docs/screenshots/anim/r3_pass37_greatsword_grip.jpg`: the up tilt and up air, before above and after below.
+
+### Pass 38: the Settler's balloon float, re-posed (round 3 item 4; the owner's pick: a re-posed hold)
+
+- **Defect:** for the whole float (up special, 52 frames) the near fist sat in front of the face.
+- **Cause:**
+  - The move has no hit, so its progress (`strike_progress`) ran straight on to the clip's rest key: the tool stance, whose guard holds
+    the near fist at the chin.
+  - The clip's own pose put both hands up beside the head, and side-on the near one is in front of the face in depth.
+- **Fix:**
+  - **`make_rigged_blob.py` `tool_float`:** the far hand holds the strings high over the head, a little behind it, and the near hand
+    grips them lower, in front of the chest.
+  - **`fighter_view.gd` `HELD_STRIKE`:** a move held in its strike pose for as long as it lasts. It rises into the pose over 8 frames,
+    and the legs paddle.
+- **Measured:** 52 frames to 0. The Settler's total is 59 to 6 (5 facing left).
+- **Image:** `docs/screenshots/anim/r3_pass38_settler_float.jpg`.
+- **Left:** there is still no balloon prop, so the strings are implied.
+
+### Pass 39: the Gauntlets' overhead kick rises past the face (round 3 item 4)
+
+- **Defect:** in the up air, the kicking leg went straight up across the face for 12 frames. The face-cover log counted only hands and
+  the hilt, so pass 32 had seen it as a forearm and could not count it.
+- **Cause:** `fighter_view.gd` `_aim_leg` aimed the near leg at the hitbox straight overhead, slightly toward the camera.
+- **Tried first:** sending it behind the head in depth, as raised hands go. The short leg cannot reach above the head, so the kick
+  vanished.
+- **Fix:** a kick whose foot is above the chest and not far out in front keeps its foot `KICK_CLEAR_X` (0.8) ahead of the hips. It reads
+  as a high kick rising past the face.
+- **The log:** `PF_FACE_COVER` now counts the feet and shins too.
+- **Measured** (Gauntlets): legs over the face 24 frames to 3 (the up smash's last frames). The other classes' legs over the face now
+  show up in the log; see pass 40.
+- **Image:** `docs/screenshots/anim/r3_pass39_overhead_kick.jpg`.
+- **Checked (passes 37-39):**
+  - facing left;
+  - the six tests pass.
