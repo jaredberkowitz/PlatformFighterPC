@@ -67,3 +67,7 @@ areas' painted variation): A [3.0, 1.2, 24, 0.8], B [4.5, 1.6, 16, 1.0]. The dep
 camera: contrast 0.105 today, 0.129 A, 0.119 B (B's smaller patches read as mottling); P1's gap 0.013 today, 0.017 A, 0.015 B. On the
 Stage Look Review ("mountains31", `mt31_*`); recommended A. To ship: meadow.cfg [backdrop] `range_drift=[3.0, 1.2, 24.0, 0.8]` (shader,
 no re-light).
+
+Built A (the owner's pick): meadow.cfg [backdrop] `range_drift=[3.0, 1.2, 24.0, 0.8]`. In the game the left peak measures contrast
+0.130. Before and after (the peaks, match camera): `review12/meadow_peaks_built.jpg`. All seven tests pass (the runner's known flake
+once, then a pass).
