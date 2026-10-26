@@ -37,6 +37,9 @@ uniform int wave_band = 0;
 // The shallows (new art toward 5, B1, the owner's approval 2026-10-25): near the dock, sand bars and rocks seen through clear water, the
 // sea deepening past them. x how strong (0 off), y how far back they reach in units, z the rocks' share (0 sand bars only).
 uniform vec3 shallows = vec3(0.0);
+// The near sea (fidelity review 11: in front of the stage the water was one flat colour, a third of the wide frame): x how much it deepens
+// and cools toward the camera (0 off), y how strong its broad slow patches there are.
+uniform vec2 near_depth = vec2(0.0);
 uniform sampler2D screen_tex : hint_screen_texture, filter_linear_mipmap;
 varying vec3 world_pos;
 
@@ -126,6 +129,13 @@ void fragment() {
 		// Broad soft patches, deeper and lighter, drifting: the water's large forms.
 		float sw = noise(q * vec2(0.02, 0.06) + vec2(TIME * 0.025, 0.0)) * 0.6 + noise(q * vec2(0.05, 0.14) + vec2(-TIME * 0.04, 2.0)) * 0.4;
 		col *= mix(0.9, 1.08, sw);
+		// (By the frame's height, not the world's depth: in front of the stage the water lies within a few units of the stage plane.)
+		float front_k = smoothstep(0.5, 1.0, SCREEN_UV.y);
+		if (near_depth.y > 0.0) {
+			// Broad slow patches across the near water, deeper and lighter, so the frame's foot has forms of its own.
+			float pn = noise(q * vec2(0.035, 0.09) + vec2(TIME * 0.02, 5.0)) * 0.65 + noise(q * vec2(0.08, 0.2) - vec2(TIME * 0.03, 1.0)) * 0.35;
+			col *= mix(1.0, mix(0.66, 1.15, smoothstep(0.25, 0.75, pn)), front_k * near_depth.y);
+		}
 		if (look == 3) {
 			// Paper waves: the sea as overlapping sheets of card, each a tier a step further out, its far edge cut into rounded wave
 			// caps. Each sheet is shaded across (lighter toward its cut edge, as a card curling toward the light), its edge is a lit lip,
@@ -186,6 +196,8 @@ void fragment() {
 			} else if (wave_band > 1) {
 				lip = 0.0;
 			}
+			// (The near sea's lips softened toward the frame's foot with its deepening: their pale sheets read as streaks there.)
+			lip *= 1.0 - clamp(front_k * near_depth.x * 0.6, 0.0, 0.9);
 			col = mix(col, mix(col, lip_c, lip_k), lip * calm);
 		} else {
 			// A soft caustic net near the stage, the light through the ripples (the reference's turquoise lattice), and fine ripples
@@ -201,6 +213,9 @@ void fragment() {
 			col *= 1.0 - 0.06 * smoothstep(0.55, 0.8, rip) * (1.0 - far_k);
 			col = mix(col, mix(col, vec3(1.0), 0.3), smoothstep(0.8, 0.95, rip) * 0.35 * (1.0 - far_k) * (1.0 - near_k * 0.6));
 		}
+		// The near sea deeper and cooler toward the camera, so the frame's foot frames the stage instead of glaring.
+		// (Strong in linear light: the finishing pass's tone curve takes most of it back; at 0.6 the foot moved 0.03.)
+		col = mix(col, col * vec3(0.42, 0.58, 0.8), front_k * near_depth.x);
 		// (Not on the Fast tier: the trace is the look's one real cost.)
 		if (look >= 2 && !cheap) {
 			// Reflections: march the reflected view ray across the screen until it passes behind something drawn, and take that

@@ -76,3 +76,13 @@ cream (0.95, 0.91, 0.74). A track dust (0.84, 0.74, 0.54), B trodden earth (0.74
 
 Built C (the owner's pick): meadow.cfg [backdrop] `lane_look="C"`. In the game the right lane measures value 0.67 at the wide camera.
 Before and after (wide): `review11/meadow_lanes_built.jpg`. All seven tests pass.
+
+## Item 3, the beach's near sea (mock, 2026-10-26)
+
+`water.gdshader` `near_depth` [how much the water deepens and cools toward the frame's foot, its broad slow patches there], from the
+palette's [backdrop] `sea_near` or `--sea-near=A|B|C` (A [0.8, 0], B [0.8, 1], C [1.25, 1]); with it the paper bands' pale lips soften
+toward the foot. By the frame's height (`SCREEN_UV.y`, from half way down): in front of the stage the water lies within a few units of
+the stage plane, so a fade by world depth reached only the frame's last rows. The finishing pass's tone curve takes back most of the
+change (at 0.6 the foot moved 0.03), hence the strong settings. The foot's value at the wide camera: 0.56 today, 0.50 A, 0.49 B, 0.44
+C; P1's gap 0.181 today, 0.182 A, 0.179 B, 0.176 C. On the Stage Look Review ("nearsea23", `ns23_*`); recommended C. To ship: ocean.cfg
+[backdrop] `sea_near=[1.25, 1.0]` (shader, no re-light).

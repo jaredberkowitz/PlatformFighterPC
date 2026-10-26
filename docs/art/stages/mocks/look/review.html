@@ -88,6 +88,24 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
     <p>Two lessons from the reference screenshots, mocked from the match camera: the scenery without ink outlines, its edges lit as card bevels instead, and the paper houses rebuilt at the characters' proportions. The earlier rounds stay on the <a href="https://claude.ai/artifact/D1du6MREVumiJDrEdNypW4">Stage Fidelity Review</a>, which is full.</p>
   </header>
 
+  <section class="panel" aria-labelledby="ns23-h" id="nearsea23">
+    <div class="eyebrow">Your call is needed &middot; review 11, item 3: the beach's near sea</div>
+    <h2 id="ns23-h">Deeper water at the frame's foot</h2>
+    <p>First, the meadow's lanes are built in the farmyard's earth (see its section below). Next, the beach. Its near sea, the lower third of the wide frame, was one flat turquoise with pale streaks (the paper bands' lit lips). This changes the water's own paint only: deeper and cooler toward the frame's foot, so it frames the dock instead of glaring.</p>
+    <div class="tablewrap"><table><thead><tr><th>Option</th><th>What changes</th><th>The foot's value (wide)</th></tr></thead><tbody>
+      <tr><td>Today</td><td>&nbsp;</td><td>0.56</td></tr>
+      <tr><td>A &middot; Deeper foot</td><td>The water deepening and cooling toward the frame's foot</td><td>0.50</td></tr>
+      <tr><td>B &middot; And slow patches</td><td>A, with broad slow patches of deeper and lighter water there</td><td>0.49</td></tr>
+      <tr><td>C &middot; Deep foot, calm lips</td><td>B, deeper, with the bands' pale lips softened toward the foot</td><td>0.44</td></tr>
+    </tbody></table></div>
+    <p>The lower half at the wide camera (today, C on top; B, then C at the match camera below). P1's gap holds (0.181 today, 0.182 A, 0.179 B, 0.176 C).</p>
+    <div class="viewer"><img src="ns23_close.jpg" alt="The beach's near sea today and deeper at the frame's foot"></div>
+    <div class="row" role="group" aria-label="View"><button data-ns23v="m">Match camera</button><button data-ns23v="w">Wide</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-ns23o="T">Today</button><button data-ns23o="A">A &middot; Deeper foot</button><button data-ns23o="B">B &middot; And slow patches</button><button data-ns23o="C">C &middot; Deep foot, calm lips</button></div>
+    <div class="viewer"><img id="ns23img" alt="Beach near-sea option"><span class="vtag" id="ns23tag"></span></div>
+    <p class="muted">My pick: <b>C</b>. The water reads deeper and calmer toward you, and the dock stands out of it. A and B are hard to tell from today. Honest note: the game's tone curve takes back most of the water's change, so it needed a strong setting to show. It goes by the frame's height, because the water in front of the stage lies within a few units of the stage, so a depth-based fade never reached it. The pale bands further back are unchanged.</p>
+  </section>
+
   <section class="panel" aria-labelledby="ln22-h" id="lanes22">
     <div class="eyebrow">Built C (the owner's pick) &middot; review 11, item 2: the meadow's lanes</div>
     <h2 id="ln22-h">The meadow's lanes in earth, not cream</h2>
@@ -2208,5 +2226,15 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
   group("data-ln22v", function (v) { ln22v = v; }, ln22render);
   group("data-ln22o", function (v) { ln22o = v; }, ln22render);
   ln22render();
+  var ns23v = "w", ns23o = "C";
+  var NS23O = { T: "Today", A: "A \u00b7 Deeper foot", B: "B \u00b7 And slow patches", C: "C \u00b7 Deep foot, calm lips" };
+  function ns23render() {
+    document.getElementById("ns23img").src = "ns23_" + ns23o + "_" + ns23v + ".jpg";
+    document.getElementById("ns23tag").textContent = "Beach \u00b7 " + NS23O[ns23o] + (ns23v === "w" ? " \u00b7 wide" : " \u00b7 match camera");
+    pressed("data-ns23v", ns23v); pressed("data-ns23o", ns23o);
+  }
+  group("data-ns23v", function (v) { ns23v = v; }, ns23render);
+  group("data-ns23o", function (v) { ns23o = v; }, ns23render);
+  ns23render();
 })();
 </script>
