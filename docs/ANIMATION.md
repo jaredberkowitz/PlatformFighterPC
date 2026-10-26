@@ -1612,3 +1612,17 @@ that small are noise.
 - **Image:** `docs/screenshots/anim/r6_pass55_uair_even.jpg`: every 3 frames from the last hit, before (pass 52), after, and facing left.
   Facing left now really faces left, thanks to the gallery fix in round 5.
 - **Checked:** the six tests pass.
+
+### Round 6: the Embers' forward air, and the real-speed sweep (items 4 and 5)
+
+- **The Embers' forward air at its hit (item 4):** in the 60 fps match movie the hit's freeze (14 frames) is drawn under the hit spark
+  and the impact burst, which cover both fighters' heads at match distance. The near hand's frame cannot be seen there, so it is noted and
+  left, as the owner asked.
+- **The front measure in live play (item 5):** run over the nine computer matches, the front measure (`PF_FACE_COVER=front`) counts 685
+  rendered frames, led by the Claws' up air (128). Frame by frame in the gallery, the Claws' up air and up tilt show the face clear. The
+  front measure moves the face's middle forward for the hands' sake, so it counts a leg kicking up beside the face too. It is a measure
+  for hands and hilts only. The old measure, which counts legs correctly, stays the one for legs.
+- **Ranked, still open:**
+  1. the built-in Embers fighter's hair and goggles come down over its eyes in its up air's end lag (the look, for the art director);
+  2. the Dagger's forward air holds the knife beside the jaw (19 frames by the front measure; the face shows);
+  3. the Longsword's up air still holds 17 frames against 11 (the drift after the hit).
