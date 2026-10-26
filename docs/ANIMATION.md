@@ -1406,3 +1406,29 @@ Ranked by how visible it is at match speed:
   its check poses a move).
 - **Also reached:** every clip played by time and frozen by a hit (a hurt in its hit's freeze, a shield's freeze) is put back on its frame
   the same way. Only the pummel was captured.
+
+### Round 4: the real-speed audit (item 6), ranked, not yet fixed
+
+Measured with `PF_FACE_COVER` over nine computer-against-computer matches covering all 17 fighters (`--demo=cpu`, 20 seconds each at 60
+frames a second; rendered frames, so a hit's freeze counts each frame it is held), and with a 60 fps movie of one match
+(`--write-movie`), after passes 42-48:
+
+1. **The Embers' up air** (120 frames over the match, the most): in its end lag the raised knee's shin and foot sit at the chin. In the
+   gallery capture the face still shows; the count is swollen by its hits' freezes. A small foot offset would clear it.
+2. **The Clutch's up air** (25): the near hand rises over the face.
+3. **The Settler's forward tilt** (16; 8 in the gallery, 3 before pass 46): since the head looks ahead at the foe, the tool fist sits at
+   the chin. A face guard measured from the drawn face as well as the head's middle was tried: the Settler went from 8 to 3, but the
+   Staff's two-handed up smash grip was pushed onto the face (1 to 12), so it was reverted. It needs a guard that clears both.
+4. **The Embers' forward air** (16): the striking hand passes the face on its way down.
+5. **The Needles' grab** (13): the reaching hand crosses the face.
+6. **The Longsword**, by the front measure (`PF_FACE_COVER=front`): its up special (18 frames), forward smash (7) and neutral air (5).
+7. **Timing:** the up air still holds 20 frames against the reference's 11. After its hit the whole pose keeps moving away from home as
+   the air arc blends, and that counts as hold.
+
+**Design question for the owner (pass 42):** our strike puts the whole wind-up-to-hit turn into one frame, so the follow-through can
+never read as fast as the reference's by the 30%-of-peak measure (FT stays 0-3 against 1-7). The reference sweeps its blade through the
+active frames. We could let a blade sweep on through a hitbox that stays still while it is live, rather than standing on it. The blade
+would still meet the hitbox, but the hit pose would no longer be one frozen frame.
+
+The gallery's face-cover counts vary by up to 3 frames between identical runs (the Claws' up tilt, the Needles' up air), so differences
+that small are noise.
