@@ -250,3 +250,6 @@ cut card, the gorge stood up as an embankment and its far reach raised a pale ri
 the right-hand hoodoos out. The region right of the stage: contrast 0.126 today, 0.147 A, 0.144 B; P1's gap 0.043, 0.045, 0.046. On the
 Stage Look Review ("gorge25", `gz25_*`; six of the oldest sections archived from the published copy only, for the artifact's file
 limit); recommended B. To ship: rebuild `godot/models/stages/canyon_paper.glb` with `--gorge B`, then re-light the canyon.
+
+Built B (the owner's pick, 2026-10-26): `godot/models/stages/canyon_paper.glb` rebuilt with `--gorge B`, the canyon re-lit (front,
+paper, play). Before and after (right of the stage, wide): `review11/canyon_gorge_built.jpg`. All seven tests pass.
