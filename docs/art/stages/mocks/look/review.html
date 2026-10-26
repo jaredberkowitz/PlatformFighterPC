@@ -88,6 +88,22 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
     <p>Two lessons from the reference screenshots, mocked from the match camera: the scenery without ink outlines, its edges lit as card bevels instead, and the paper houses rebuilt at the characters' proportions. The earlier rounds stay on the <a href="https://claude.ai/artifact/D1du6MREVumiJDrEdNypW4">Stage Fidelity Review</a>, which is full.</p>
   </header>
 
+  <section class="panel" aria-labelledby="st26-h" id="stream26">
+    <div class="eyebrow">Your call is needed &middot; new art (approved 26 October), M2: the meadow's stream and footbridge</div>
+    <h2 id="st26-h">A stream down the terraces</h2>
+    <p>First, the canyon's deep gorge is built and the canyon re-lit (see its section below). Next, the meadow. A stream rises at the wall's foot right of the middle, crosses each terrace in a narrow winding channel with darker banks, and spills down each fieldstone wall in a little fall with a splash at its foot. Where a lane crosses it, a plank footbridge carries the lane over.</p>
+    <div class="tablewrap"><table><thead><tr><th>Option</th><th>What changes</th></tr></thead><tbody>
+      <tr><td>A &middot; The stream</td><td>The channel, its falls and the footbridge</td></tr>
+      <tr><td>B &middot; With its spring</td><td>A a little wider, with a spring pool at its head and wet stones along its banks</td></tr>
+    </tbody></table></div>
+    <p>The right of the terraced hill at the wide camera (today, A on top; today, B below). It sits on the hill's right flank, low in the wide frame; the match camera doesn't see it. P1's gap holds (0.018 today, 0.015 A, 0.014 B, measured on the meadow's standard box).</p>
+    <div class="viewer"><img src="st26_close.jpg" alt="The meadow's terraced hill today and with the stream"></div>
+    <div class="row" role="group" aria-label="View"><button data-st26v="m">Match camera</button><button data-st26v="w">Wide</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-st26o="T">Today</button><button data-st26o="A">A &middot; The stream</button><button data-st26o="B">B &middot; With its spring</button></div>
+    <div class="viewer"><img id="st26img" alt="Meadow stream option"><span class="vtag" id="st26tag"></span></div>
+    <p class="muted">My pick: <b>B</b>. The pool says where the water comes from, and the stones seat the channel in the land. Honest notes: it's small at the wide camera, and its blue is the strongest colour at the foot of the frame. If it pulls the eye in play, I can soften it toward the sky's blue. Its falls are bright white strips.</p>
+  </section>
+
   <section class="panel" aria-labelledby="gz25-h" id="gorge25">
     <div class="eyebrow">Built B (the owner's pick) &middot; new art (approved 26 October), C1: the canyon's dry river gorge</div>
     <h2 id="gz25-h">The dry wash as a gorge</h2>
@@ -2288,5 +2304,15 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
   group("data-gz25v", function (v) { gz25v = v; }, gz25render);
   group("data-gz25o", function (v) { gz25o = v; }, gz25render);
   gz25render();
+  var st26v = "w", st26o = "B";
+  var ST26O = { T: "Today", A: "A \u00b7 The stream", B: "B \u00b7 With its spring" };
+  function st26render() {
+    document.getElementById("st26img").src = "st26_" + st26o + "_" + st26v + ".jpg";
+    document.getElementById("st26tag").textContent = "Meadow \u00b7 " + ST26O[st26o] + (st26v === "w" ? " \u00b7 wide" : " \u00b7 match camera");
+    pressed("data-st26v", st26v); pressed("data-st26o", st26o);
+  }
+  group("data-st26v", function (v) { st26v = v; }, st26render);
+  group("data-st26o", function (v) { st26o = v; }, st26render);
+  st26render();
 })();
 </script>

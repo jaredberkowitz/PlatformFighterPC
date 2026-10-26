@@ -253,3 +253,14 @@ limit); recommended B. To ship: rebuild `godot/models/stages/canyon_paper.glb` w
 
 Built B (the owner's pick, 2026-10-26): `godot/models/stages/canyon_paper.glb` rebuilt with `--gorge B`, the canyon re-lit (front,
 paper, play). Before and after (right of the stage, wide): `review11/canyon_gorge_built.jpg`. All seven tests pass.
+
+### M2, the meadow's stream and footbridge (mock, 2026-10-26)
+
+`make_meadow_ground.py --stream A|B` (`stream_shelf`) on the shipped ground (`--variant FC --pine D --hill fields_lane`): from the
+wall's foot right of the middle (each shelf's ring index middle + 7), a channel across each shelf winding a little, its banks a darker
+cut edge, a fall down each fieldstone wall with a splash at its foot, and on the shelves whose lane runs out to that side a plank
+footbridge where the lane crosses. B a little wider, with a spring pool at its head and wet stones along the banks. New ground colours
+`stream`, `card_stream`, `plank`, `card_plank`, `wet_stone` (`StageBake._ground_colours`). It sits on the hill's right flank, low in the
+wide frame; the match camera doesn't see it. P1's gap 0.018 today, 0.015 A, 0.014 B. On the Stage Look Review ("stream26",
+`st26_*`); recommended B. To ship: rebuild `godot/models/stages/meadow_ground.glb` (and its bush) with `--stream B`, then re-light
+the meadow.
