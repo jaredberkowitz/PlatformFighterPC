@@ -212,7 +212,7 @@ const LONG_FIT := Transform3D(Basis(Vector3(0.92, 0, 0), Vector3(0, 0.92, 0), Ve
 ## Where the head and torso sit in the rig compared with the sphere-built look the face, hats and glasses were designed for.
 const HEAD_FIT := Transform3D(Basis(Vector3(0.825, 0, 0), Vector3(0, 0.825, 0), Vector3(0, 0, 0.825)), Vector3(0, 1.56 - 1.42 * 0.825, 0))
 const TORSO_FIT := Transform3D()
-const LOOPING := ["tumble", "idle", "idle_brawler", "idle_quick", "idle_heavy", "idle_caster", "idle_tool", "run_quick", "run_heavy", "run_caster", "run_tool", "walk", "walk_brawler", "walk_quick", "walk_heavy", "walk_caster", "walk_tool", "run", "dash", "fall", "victory_a", "victory_b", "victory_c"]
+const LOOPING := ["tumble", "idle", "idle_brawler", "idle_quick", "idle_heavy", "idle_caster", "idle_tool", "run_brawler", "run_quick", "run_heavy", "run_caster", "run_tool", "walk", "walk_brawler", "walk_quick", "walk_heavy", "walk_caster", "walk_tool", "run", "dash", "fall", "victory_a", "victory_b", "victory_c"]
 ## The rig is read once and copied for every fighter (reading it again renames its bones).
 static var _rig_templates: Dictionary = {}
 
@@ -525,6 +525,8 @@ const WALK_TEMPO := 0.055
 ## The run and dash take this many more steps than one stride a dash length: the cute body's short legs cover less ground a step, so
 ## they scurry (motion plan phase 4, measured by tests/motion_probe.gd).
 const STEP_CADENCE := 1.4
+## The base body's runs play once a cycle every clip-frames x RUN_TEMPO units of ground (make_rigged_blob.py RUN_TEMPO).
+const RUN_TEMPO := 0.17
 const RUN_STOP_FRAMES := 20.0
 const FIDGET_AFTER := 300
 const FIDGET_EVERY := 420
@@ -551,6 +553,10 @@ func _choose_clip(s: Dictionary) -> Array:
 			# shared run before the family lookup below.)
 			var clip := "dash" if state == "Dash" else AnimLibrary.family_clip(_cls(s), "run", anim)
 			var length := anim.get_animation(clip).length if anim != null and anim.has_animation(clip) else 0.3
+			if state == "Run" and use_base_body:
+				# (Round 3: the runs' feet are authored to cover RUN_TEMPO units of ground a clip frame, make_rigged_blob.py RUN_STYLES, so
+				# the clip plays at the ground's pace and a planted foot stays put.)
+				return [clip, clampf(speed / RUN_TEMPO, 0.5, 3.2), -1.0]
 			return [clip, minf(3.2, speed * 60.0 / stride * length * STEP_CADENCE), -1.0]
 		"Attack":
 			return _attack_clip(s)

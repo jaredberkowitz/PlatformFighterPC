@@ -1016,3 +1016,54 @@ Ranked by how visible it is at match speed:
   - The reference's jab keeps its blade moving for 7 frames after the hit, and ours stops at once (FT 0). Our swing stops harder than the
     reference everywhere (FT 0 against 1).
   - In the held forward tilt the Longsword's hilt sits at the chin for about 10 frames.
+
+### Pass 35: a run per family with planted feet, and the walks re-fitted to the side-on turn (round 3 item 2)
+
+- **Defects:**
+  - Every run's planted foot slid 0.4-0.8 of the ground speed (`tests/motion_probe.gd`; the heavy run 0.35).
+  - The sword and brawler families shared one run.
+  - **Found on the way:** the walks slid again, 0.19-0.27 of their speed (0.06-0.16 in pass 20). Their sweep was fitted to the old
+    three-quarter turn, and since pass 28's side-on turn more of each step shows as ground.
+- **Cause:**
+  - The runs were keyed as leg angles (`RUN_THIGH` and friends), so where a foot went came out of the angles.
+  - The game played them at a pace set by each fighter's dash length, not by the ground covered.
+  - `WALK_TURN_SHARE` was 0.80, fitted to the 60-degree turn.
+- **Fix:**
+  - **`make_rigged_blob.py` `RUN_STYLES` and `run_style`:** each foot's path is authored, as the walks' are (`foot_to`).
+    - While a foot is down (`down`, 24-30% of the cycle) it moves straight back at the ground's pace.
+    - Then the heel kicks up behind, the knee drives through, and the foot reaches a little past its landing and paws back onto it, so it
+      lands already moving with the ground.
+    - A flight separates the steps.
+  - **The pace:** a cycle covers `frames` x `RUN_TEMPO` (0.17) units of ground, and `fighter_view.gd` plays the base body's runs at
+    `speed / RUN_TEMPO`. The dash keeps its own pace.
+  - **The leg's range:** the runs are freed from the lunge clamp on the thigh, which had stopped the knee drive.
+  - **Six runs:**
+    - the sword family: the shared `run`, leaning in, the blade carried low behind, the far fist pumping;
+    - the brawlers (new, `run_brawler`): hunched, both fists up and pumping;
+    - quick: very low, the arms swept back;
+    - heavy: upright, with a longer contact, a big drop on each step and wide arm swings;
+    - caster: neat, the arms held in;
+    - tool: a loose, bouncy jog.
+  - `AnimLibrary.FAMILY_SHARES` is now empty.
+  - `WALK_TURN_SHARE` is 0.96.
+- **Measured** (`motion_probe`, slide as a share of the ground speed at 0.19 / 0.24 / 0.30):
+
+  | Family (class) | Run before | Run after | Walk before (0.08 / 0.14 / 0.19) | Walk after |
+  |---|---|---|---|---|
+  | Sword (0) | 0.83 / 0.77 / n/a | 0.08 / 0.10 / 0.11 | 0.22 / 0.20 / 0.20 | 0.07 / 0.05 / 0.04 |
+  | Brawler (1) | 0.83 / 0.77 / n/a (the shared run) | 0.09 / 0.11 / 0.11 | 0.24 / 0.20 / 0.20 | 0.06 / 0.05 / 0.03 |
+  | Quick (2) | 0.99 / n/a / n/a | 0.06 / 0.06 / 0.09 | 0.22 / 0.19 / 0.17 | 0.08 / 0.06 / 0.05 |
+  | Heavy (8) | 0.34 / 0.37 / n/a | 0.15 / 0.11 / 0.16 | 0.27 / 0.21 / 0.20 | 0.10 / 0.06 / 0.05 |
+  | Caster (3) | 0.77 / 0.73 / n/a | 0.10 / 0.11 / 0.12 | 0.21 / 0.20 / 0.20 | 0.09 / 0.09 / 0.07 |
+  | Tool (10) | n/a / 0.61 / n/a | 0.09 / 0.11 / 0.11 | 0.22 / 0.20 / 0.19 | 0.08 / 0.06 / 0.05 |
+
+  "n/a" means the old run's foot was never down two frames running at that speed, so the probe found no planted frame.
+- **Image:** `docs/screenshots/anim/r3_pass35_family_runs.jpg`: half a cycle of each family's run, before left and after right.
+- **Checked:**
+  - facing left (contact sheet);
+  - `face_cover_probe`: every run and walk 0%;
+  - the six tests pass. `fighter_view_test` now pins the brawler's run and its pace.
+- **Left:**
+  - The foot cannot fold quite as high as the quick run's heel kick asks: it misses by up to 0.05 at the top of the swing. This does not
+    show as slide.
+  - The old angle-keyed `run` is kept for the blob rigs only.

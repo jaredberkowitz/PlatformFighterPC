@@ -76,6 +76,12 @@ func _initialize() -> void:
 	running = snap(0, "Run", "", 10)
 	running.vel = Vector2(0.24, 0.0)
 	check(sword._choose_clip(running)[0] == "run", "the sword family keeps the shared run")
+	# (Round 3: the brawlers have their own run too, played at the ground's pace.)
+	running = snap(1, "Run", "", 10)
+	running.vel = Vector2(0.24, 0.0)
+	var brawler_run: Array = fists._choose_clip(running)
+	check(brawler_run[0] == "run_brawler", "the brawler family plays its own run (got %s)" % brawler_run[0])
+	check(is_equal_approx(float(brawler_run[1]), 0.24 / FighterView.RUN_TEMPO), "a run plays at the ground's pace (%.2f)" % float(brawler_run[1]))
 	# And walks its own way (round 2).
 	var walking := snap(1, "Walk", "", 10)
 	walking.vel = Vector2(0.12, 0.0)
