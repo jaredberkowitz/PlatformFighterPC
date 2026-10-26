@@ -95,6 +95,10 @@ func _initialize() -> void:
 	if shirt >= 0:
 		look.shirt = shirt
 	view.build(cls, look)
+	# (Round 4: in `_initialize` the root viewport is not in the tree yet, so the view's first `apply` had no viewport: the launch smoke
+	# called `get_camera_3d` on null and every global transform logged "!is_inside_tree()". One frame puts the scene in the tree first.
+	# A tool-only fault; the game always applies a view that is in the tree.)
+	await process_frame
 
 	var frames: Array = []
 	match what:

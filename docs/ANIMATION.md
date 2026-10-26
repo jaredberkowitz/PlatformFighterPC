@@ -1260,3 +1260,13 @@ Ranked by how visible it is at match speed:
 - **Checked:** both facings; the six tests pass.
 - **Left (found by the new measure):** the Longsword's up special (18 frames), forward smash (7) and neutral air (5) still bring a hand or
   the hilt across the drawn face. They are not on the round 4 list; ranked in the round's audit.
+
+### Tool fix (round 4 item 5): `anim_sheet.gd`'s launch-smoke errors
+
+- **What:** every contact sheet logged `Cannot call method 'get_camera_3d' on a null value` from `fighter_view.gd` `_launch_smoke`, and 28
+  `!is_inside_tree()` errors from `_skeleton_to_frame`, on its first frames.
+- **Cause:** tool-only, and older than round 3 (the smoke's camera-facing puffs came with the painted effects, `19f8ec38`). The sheet
+  applies the view inside `_initialize`, before the root viewport is in the tree, so the view had no viewport yet. The game only applies a
+  view that is in the tree.
+- **Fix (`tests/anim_sheet.gd` only):** it waits one frame after building the view. The sheet now logs no script errors (only the
+  engine's usual leak notes at exit). No gameplay code changed.
