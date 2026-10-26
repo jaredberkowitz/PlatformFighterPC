@@ -1338,3 +1338,29 @@ Ranked by how visible it is at match speed:
 - **Image:** `docs/screenshots/anim/r4_pass45_heavy_run.jpg`: the heavy run's contact sheet, before and after, both facings, and the sword
   run below for contrast.
 - **Checked:** both facings; the six tests pass.
+
+### Pass 46: a head curled down is lifted toward the foe, not round backwards (round 4 item 4: the Embers' forward air, the Clutch's headbutts)
+
+- **Defect:**
+  - the Embers' forward air showed the top of its head for about 15 frames from its last hit;
+  - the Clutch's forward smash and forward air (the forward headbutt) rolled over head down with the legs over the face (12 frames by
+    `PF_FACE_COVER`).
+- **Cause (found by printing the head's direction before and after the face limiter, `_face_camera_once`):** both curls leave the head
+  looking almost straight down. The limiter lifts a head that looks down more than `FACE_DOWN_MAX` about the axis across its own
+  direction and the vertical. Looking straight down, that axis is set by a hair's sideways lean, and it flipped: from the Embers' frame 20
+  the head was lifted toward the back, so it looked behind the fighter (look x +0.42 to -0.59 in one frame), and the turn limit then held
+  it there.
+- **Fix (`fighter_view.gd` `_face_camera_once`):** a head looking nearly straight down (less than half its direction level), or down and
+  back, is lifted about the fighter's own side axis, toward the way it faces.
+- **Tried and dropped:**
+  - curling the shared forward air less (spine 34 to 22): no visible change; the clip was not the cause;
+  - curling the headbutt less (44 to 28): it cleared the face too, but stood the lunge nearly upright. With the lift fixed the original
+    lunge reads head first with the face looking ahead.
+- **Also:** pass 44's held-cut floor angle (`HELD_HAND_Y`) now applies only to blades and the staff.
+- **Measured** (`PF_FACE_COVER`, frames over the class's moves): the Embers' forward air went from 18 to 1, and the Clutch's forward smash
+  and forward air from 6 and 6 to 0 (the Clutch's total went from 13 to 1). The Settler's forward tilt went from 3 to 8: its lifted head
+  now looks ahead at the foe, where it looked down and back, and the tool fist at the chin now counts. The face reads better; the fist is
+  listed under what is left.
+- **Image:** `docs/screenshots/anim/r4_pass46_face_lift.jpg`: the Clutch's forward smash (both facings) and forward air, then the Embers'
+  forward air (both facings), before above after.
+- **Checked:** both facings; the six tests pass.

@@ -1267,6 +1267,14 @@ func _face_camera_once(facing: int) -> void:
 		var head_ahead: Vector3 = head_delta.basis * Vector3(0, 0, 1)
 		var up_skel: Vector3 = (skeleton.global_transform.basis.inverse() * Vector3.UP).normalized()
 		var axis := head_ahead.cross(up_skel)
+		# (Round 4: a head looking nearly straight down, or down and back, is lifted toward the way the fighter faces. Lifted toward its
+		# own little sideways lean, which flips with a hair's change of pose, it came up looking backwards: the Embers' forward air
+		# turned its face away for 15 frames from its last hit, showing the top of its head.)
+		var fwd_skel: Vector3 = skeleton.global_transform.basis.inverse() * Vector3(float(facing), 0.0, 0.0)
+		fwd_skel = (fwd_skel - up_skel * fwd_skel.dot(up_skel)).normalized()
+		var level := head_ahead - up_skel * head_ahead.dot(up_skel)
+		if level.length() < 0.5 * head_ahead.length() or level.dot(fwd_skel) < 0.0:
+			axis = fwd_skel.cross(up_skel)
 		if axis.length() > 0.01:
 			_rotate_bone_about(head_bone, axis.normalized(), minf(down - FACE_DOWN_MAX, FACE_UP_MOST))
 		head_delta = skeleton.get_bone_global_pose(head_bone) * head_rest_inv
@@ -3911,7 +3919,7 @@ func _blade_target(s: Dictionary) -> Array:
 		# (Round 4: on the ground the held cut stops where the floor stops it, the hand as low as a lunge takes it (`HELD_HAND_Y`).
 		# Held below it, the floor check pinned the tip still while the angle came home underneath, so the recovery showed only in its
 		# last few frames: the forward smash measured 7 frames of recovery against the reference's 17.)
-		if s.platform >= 0 and to_tip.x >= 0.0:
+		if s.platform >= 0 and to_tip.x >= 0.0 and (bladed(_cls(s)) or _cls(s) == STAFF_CLASS):
 			var floor_deg := rad_to_deg(asin(clampf((GROUND_CLEARANCE - HELD_HAND_Y) / length, -1.0, 1.0)))
 			if past < floor_deg and past > -120.0:
 				past = floor_deg
