@@ -282,3 +282,13 @@ re-light).
 Built A (the owner's pick, 2026-10-26): `godot/models/stages/beach_world.glb` rebuilt with `--theme ocean --variant ABWM --nets wall
 --moored A`. Before and after (the posts, wide): `review11/beach_boats_built.jpg`. All seven tests pass (the runner's known "the way
 out" flake twice, then passes).
+
+### Ci2, the city's street-level life (mock, 2026-10-26)
+
+`make_world.py --variant ABWS` (`city_street`): the pavement read from the wide camera's depth (y -13.7, the shopfronts at z -38, the
+kerb at -30); at true size a green newsstand (magazines racked under a flap awning, a lit sign) at (-36, -34.5), a hot-food cart (two
+wheels, a lit hatch, a striped umbrella, a curl of steam) at (25.5, -32) and a bus stop (roof on two posts, a lit panel, a bench, its
+sign at the kerb) at (36, -32.5). B (`--street people`) adds two people waiting at the stop and two at the cart (`move_sway`). The
+newsstand first came out cream (the bus stripe's family) and read as a white box. P1's gap 0.130 today, 0.131 A, 0.132 B. On the Stage
+Look Review ("citystreet28", `cs28_*`); recommended B. To ship: rebuild `godot/models/stages/city_world.glb` with `--theme city
+--variant ABWS --people round --roofs life --street people` (no re-light).
