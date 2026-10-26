@@ -223,3 +223,7 @@ middle-row tower (-58, 16); B (`--roofs life`), the near flat roof with a small 
 it, and a rooftop garden under string lights on a middle-row roof (-68.9, 0.3), which is too small and far to read. P1's gap 0.134
 today, 0.133 A, 0.135 B. On the Stage Look Review ("worldcity20", `yw20_*`); recommended B. To ship: rebuild
 `godot/models/stages/city_world.glb` with `--theme city --variant ABW --people round --roofs life` (no re-light).
+
+Built B (the owner's pick, 2026-10-26): `godot/models/stages/city_world.glb` rebuilt with `--theme city --variant ABW --people round
+--roofs life`. Before and after (the skyline's left and right, wide): `review10/city_world_built.jpg`. All seven tests pass (the runner's
+known flake once, then a pass). With this, step 5 (world detail) is built on all five stages.
