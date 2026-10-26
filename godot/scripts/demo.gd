@@ -411,6 +411,9 @@ static func make(demo_name: String, m: Dictionary, dir: String):
 				if not only.is_empty() and not only.has(g[0]):
 					n += 1
 					continue
+				# (Round 5: an aerial facing left stands facing that way first; placed in the air straight away it kept facing right.)
+				if g[4] and facing < 0:
+					d.events.append([t - 5, "stand", 0, 0.0, facing])
 				d.events.append([t - 4, "place", 0, 0.0, air_y] if g[4] else [t - 4, "stand", 0, 0.0, facing])
 				d.timeline.append([t, g[1] * facing, g[2], g[3]])
 				d.timeline.append([t + 1, 0, 0, 0])

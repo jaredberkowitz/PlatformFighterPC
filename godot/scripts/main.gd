@@ -1862,7 +1862,8 @@ func _note(text: String) -> void:
 		add_child(layer)
 		note_label = Label.new()
 		note_label.set_anchors_preset(Control.PRESET_CENTER_TOP)
-		note_label.position.y = 24.0
+		# (Below the match clock at the top centre.)
+		note_label.position.y = 112.0
 		note_label.grow_horizontal = Control.GROW_DIRECTION_BOTH
 		note_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		note_label.mouse_filter = Control.MOUSE_FILTER_IGNORE

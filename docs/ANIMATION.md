@@ -1550,3 +1550,17 @@ that small are noise.
 - **Image:** `docs/screenshots/anim/r5_pass53_sword_hand_face.jpg`: the Longsword's neutral air and the Greatsword's forward tilt,
   before above after.
 - **Checked:** the six tests pass.
+
+### Pass 49, continued: the F10 toggle checked in a match; tools
+
+- **`tests/swing_toggle_test.gd` (new, windowed):** in the real match scene, F10 flips the swing, the note says which ("Sword swing:
+  sweep"), the choice is written to `user://animation.cfg`, and F10 again flips it back. The test restores the user's own setting. It
+  passes.
+- The note sits under the match clock at the top centre; at the top edge it overlapped the clock. Screenshot:
+  `docs/screenshots/anim/r5_pass49_toggle_note.jpg`.
+- **The gallery demo** (`demo.gd`) now turns an aerial to face left with `--gallery-facing=-1`. Placed straight into the air, it had kept
+  facing right, so round 4's "facing left" aerial captures were facing right.
+- **Live play** (nine computer matches covering all 17 fighters, `PF_FACE_COVER`, rendered frames, after passes 50-53; the sim plays the same
+  matches): 304 covered frames before round 5, 129 after.
+  - Clutch up air 25 to 0, Needles grab 13 to 0, Settler forward tilt 16 to 6, Embers up air 120 to 36.
+  - The Embers' forward air is 16, all on the frame its hit freezes; in the gallery its face shows on that frame.
