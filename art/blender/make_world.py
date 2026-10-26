@@ -919,6 +919,9 @@ def pleated_cone(cx, y_base, cz, R, h, n=11, turn=0.0, fam="crown"):
 
 # The detail pass (the owner, 2026-10-22: more detail on the background pieces, stage by stage), on by default; `--detail 0` without.
 DETAIL = opts.get("detail", "1") == "1"
+# World detail, W-G (new art toward 5): `--village high` lifts the tree village over the pines, `--village lanterns` also hangs lit
+# lanterns along its bridges.
+VILLAGE = opts.get("village", "")
 
 
 def far_tree(x, y0, z, height, r=2.0):
@@ -1038,9 +1041,12 @@ def grove_a():
     for k, (x, y0, z, height) in enumerate(GROVE_FAR):
         far_tree(x, y0, z, height)
         side = -1.0 if x < 0 else 1.0
-        # (Low on the trunks, against the violet hills where the lit windows show: higher, they were lost among the lantern strings.)
-        y = y0 + (4.0 if k % 2 == 0 else 5.5)
-        far_hut(x, y, z, 2.0, side if k < 2 else -side, ground=y0)
+        # (Low on the trunks, against the violet hills where the lit windows show: higher, they were lost among the lantern strings.
+        # Since the modelled forest, its pines hide the low huts; `--village high` (world detail, W-G) lifts them to the open trunk
+        # between the pine tops and the crowns, each just under its crown.)
+        y = y0 + (height * 0.5 - 4.0 if VILLAGE else (4.0 if k % 2 == 0 else 5.5))
+        # (Lifted, every hut on its trunk's outer side, where the sky is open: on the inner side the right ones stayed behind a pine.)
+        far_hut(x, y, z, 2.0, side if k < 2 or VILLAGE else -side, ground=y0)
         huts.append(Vector((x, y + 0.3, z)))
     for i, j in ((0, 1), (2, 3)):
         a, b = huts[i], huts[j]
@@ -1048,6 +1054,12 @@ def grove_a():
         d.y = 0.0
         d.normalize()
         rope_bridge(a + d * 3.8, b - d * 3.8)
+        if VILLAGE == "lanterns":
+            # Lanterns hung along the bridge's hand rope, lit.
+            p0, p1 = a + d * 3.8, b - d * 3.8
+            for t in (0.25, 0.5, 0.75):
+                p = p0.lerp(p1, t) + Vector((0.0, 1.0 - 1.2 * 0.8 * math.sin(t * math.pi) - 0.45, 0.65))
+                bulb((p.x, p.y, p.z), 0.5)
 
 
 def grove_b():

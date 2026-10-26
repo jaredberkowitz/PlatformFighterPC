@@ -88,8 +88,24 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
     <p>Two lessons from the reference screenshots, mocked from the match camera: the scenery without ink outlines, its edges lit as card bevels instead, and the paper houses rebuilt at the characters' proportions. The earlier rounds stay on the <a href="https://claude.ai/artifact/D1du6MREVumiJDrEdNypW4">Stage Fidelity Review</a>, which is full.</p>
   </header>
 
+  <section class="panel" aria-labelledby="gw17-h" id="worldgrove17">
+    <div class="eyebrow">Your call is needed &middot; new art, step 5: world detail, the grove (W-G)</div>
+    <h2 id="gw17-h">The grove's tree village, out of hiding</h2>
+    <p>First, the meadow's far farm life is built (see its section below). Next, the grove. Its far tree village (huts with lit windows on rings of planks round four great trunks, rope bridges between them) has been there since the 21 October world round. But it sits low on the trunks, and since the modelled forest went in, the nearer pines hide it: today only a scrap of one bridge shows. So the grove needs no new things, only its village where it can be seen.</p>
+    <div class="tablewrap"><table><thead><tr><th>Option</th><th>What changes</th></tr></thead><tbody>
+      <tr><td>A &middot; Lifted village</td><td>Each hut lifted to the open trunk between the pine tops and its tree's crown, on the trunk's outer side where the sky is open; the bridges and ladders follow</td></tr>
+      <tr><td>B &middot; And lit bridges</td><td>A, with three lit lanterns hung along each rope bridge</td></tr>
+    </tbody></table></div>
+    <p>The far left and far right at the wide camera (today, then B). The village is far off the match camera's edges, so the fight doesn't change: P1's gap holds (0.055 today, 0.063 to 0.064 with the options, within the demo's pose noise).</p>
+    <div class="viewer"><img src="gw17_close.jpg" alt="The grove's far tree village today and lifted with lit bridges"></div>
+    <div class="row" role="group" aria-label="View"><button data-gw17v="m">Match camera</button><button data-gw17v="w">Wide</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-gw17o="T">Today</button><button data-gw17o="A">A &middot; Lifted village</button><button data-gw17o="B">B &middot; And lit bridges</button></div>
+    <div class="viewer"><img id="gw17img" alt="Grove world option"><span class="vtag" id="gw17tag"></span></div>
+    <p class="muted">My pick: <b>B</b>. The lit huts and the lanterns strung across the gap make a village that's lived in, small and far, as the plan asked. Honest note: the right hut was first hidden inside its tree's crown, then behind a near pine, so the huts now face outward. The left bridge reads best; the right one is mostly behind the pines.</p>
+  </section>
+
   <section class="panel" aria-labelledby="wm16-h" id="worldmeadow16">
-    <div class="eyebrow">Your call is needed &middot; new art, step 5: world detail, the meadow (W-M)</div>
+    <div class="eyebrow">Built (the owner's pick) &middot; new art, step 5: world detail, the meadow (W-M)</div>
     <h2 id="wm16-h">Far farm life on the meadow</h2>
     <p>First, step 4 is built: the city's storefronts (see its section below). Then world detail, stage by stage, starting with the meadow. A lot of the plan's world detail already exists from the 21 October world-building round (the meadow's chimney smoke, washing and scarecrow; the grove's far tree village; the canyon's railway and water tower; the city's traffic and rooftop party). So each stage gets only what's missing, at true size and far back.</p>
     <p>For the meadow: a hay cart stands in the farmyard below the barn, and a bonfire's smoke rises from a far field past the windmill. Rebuilding the world model also re-seats the scarecrow on the new terraced ground (since the terraces, it was buried).</p>
@@ -2022,5 +2038,15 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
   group("data-wm16v", function (v) { wm16v = v; }, wm16render);
   group("data-wm16o", function (v) { wm16o = v; }, wm16render);
   wm16render();
+  var gw17v = "w", gw17o = "B";
+  var GW17O = { T: "Today", A: "A \u00b7 Lifted village", B: "B \u00b7 And lit bridges" };
+  function gw17render() {
+    document.getElementById("gw17img").src = "gw17_" + gw17o + "_" + gw17v + ".jpg";
+    document.getElementById("gw17tag").textContent = "Grove \u00b7 " + GW17O[gw17o] + (gw17v === "w" ? " \u00b7 wide" : " \u00b7 match camera");
+    pressed("data-gw17v", gw17v); pressed("data-gw17o", gw17o);
+  }
+  group("data-gw17v", function (v) { gw17v = v; }, gw17render);
+  group("data-gw17o", function (v) { gw17o = v; }, gw17render);
+  gw17render();
 })();
 </script>

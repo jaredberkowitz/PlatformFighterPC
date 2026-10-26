@@ -171,3 +171,13 @@ the terraced ground, where today's model has them buried. P1's gap 0.052, as bef
 
 Built (the owner's pick, 2026-10-26): `godot/models/stages/meadow_world.glb` rebuilt with `--theme meadow --variant BCW` (world
 models take no light bake). Before and after (the farmyard and the far field): `review10/meadow_world_built.jpg`. All seven tests pass.
+
+### Step 5, world detail on the grove (mock)
+
+The grove's far tree village (`grove_a`: huts on four great trunks, rope bridges) has stood since the 21 October world round, low on
+the trunks; since the modelled forest the nearer pines hide it (only a scrap of one bridge shows at the wide camera). So nothing new:
+`make_world.py --village high|lanterns` lifts each hut to its trunk's open stretch, just under its own crown (`height * 0.5 - 4`; a
+fixed lift put the short trees' huts inside their crowns), every hut on its trunk's outer side (on the inner side the right ones stayed
+behind a pine); `lanterns` also hangs three lit lanterns along each bridge. Far off the match camera: P1's gap 0.055 today, 0.063 to
+0.064 with the options (pose noise). On the Stage Look Review ("worldgrove17", `gw17_*`); recommended B. To ship: rebuild
+`godot/models/stages/grove_world.glb` with `--theme grove --variant ABL --streamers shide --village lanterns` (no re-light).
