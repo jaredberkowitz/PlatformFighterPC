@@ -73,3 +73,6 @@ cream (0.95, 0.91, 0.74). A track dust (0.84, 0.74, 0.54), B trodden earth (0.74
 0.34). The right lane's value at the wide camera: 0.84 today, 0.79 A, 0.74 B, 0.67 C (the fields round it 0.53). P1's gap 0.012 today,
 0.014 A and B, 0.018 C. The lanes stay broken at each terrace wall (joining them is a land-model change). On the Stage Look Review
 ("lanes22", `ln22_*`); recommended C. To ship: meadow.cfg [backdrop] `lane_look="C"` (code colour, no re-light).
+
+Built C (the owner's pick): meadow.cfg [backdrop] `lane_look="C"`. In the game the right lane measures value 0.67 at the wide camera.
+Before and after (wide): `review11/meadow_lanes_built.jpg`. All seven tests pass.
