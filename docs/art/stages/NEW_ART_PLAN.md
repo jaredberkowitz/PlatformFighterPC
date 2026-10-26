@@ -181,3 +181,7 @@ fixed lift put the short trees' huts inside their crowns), every hut on its trun
 behind a pine); `lanterns` also hangs three lit lanterns along each bridge. Far off the match camera: P1's gap 0.055 today, 0.063 to
 0.064 with the options (pose noise). On the Stage Look Review ("worldgrove17", `gw17_*`); recommended B. To ship: rebuild
 `godot/models/stages/grove_world.glb` with `--theme grove --variant ABL --streamers shide --village lanterns` (no re-light).
+
+Built B (the owner's pick, 2026-10-26): `godot/models/stages/grove_world.glb` rebuilt with `--theme grove --variant ABL --streamers
+shide --village lanterns`. Before and after (the far left and right, wide): `review10/grove_world_built.jpg`. All seven tests pass (the
+runner's known "the way out" flake once, then a pass).
