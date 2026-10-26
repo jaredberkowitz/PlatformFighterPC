@@ -1067,3 +1067,29 @@ Ranked by how visible it is at match speed:
   - The foot cannot fold quite as high as the quick run's heel kick asks: it misses by up to 0.05 at the top of the swing. This does not
     show as slide.
   - The old angle-keyed `run` is kept for the blob rigs only.
+
+### Pass 36: the hurt reaction recoils off the hit, then recovers, by the hit's strength (round 3 item 3)
+
+- **Defect:** a hit too weak to tumble leaned the whole body back 26 degrees for the entire hitstun, on top of the `hurt` clip's
+  thrown-back chest. At match distance it read as one pose with the face to the sky for up to 30 frames. Light or strong, and from either
+  side, it was the same.
+- **Cause:** `fighter_view.gd` `_apply_combat` set `model.rotation.x` to -26 degrees whenever the `hurt` clip played. Through the hit's
+  freeze it was upright, so the lean also popped in on the first frame after the hitlag.
+- **Fix (`fighter_view.gd`, `hurt_recoil`, from the snapshot only):**
+  - **The snap:** the body snaps away from the hit over 3 frames, back off a blow from the front and forward off one from behind (by the
+    knockback's side against the facing). Through the freeze it is already 55% of the way.
+  - **The hold:** it holds for 2-7 frames.
+  - **The recovery:** it comes upright by 70% of the hitstun, leaving the clip's loose reel.
+  - **By strength:** the hit's total hitstun (8 to 32 frames) sets the recoil, from 12 to 26 degrees, and the hold.
+  - A freeze holds the recoil and a seek redraws it.
+- **Tools:** `anim_sheet.gd --what=hurt` now gives the hitstun and knockback (`--hitstun=N`, 28 by default).
+- **Tried and dropped:** tipping the head against the recoil. Side-on, the bend turned the face away rather than down.
+- **Image:** `docs/screenshots/anim/r3_pass36_hurt_recoil.jpg`: hurt contact sheets for a 28-frame and a 12-frame stun, before left and
+  after right, then facing left.
+- **Checked:**
+  - both facings;
+  - the six tests pass;
+  - `fighter_view_test` checks the recoil's direction, its strength and that it is upright before the stun ends.
+- **Left:**
+  - The `hurt_heavy` and `hurt_up` reactions (faster hits that do not tumble) keep their own clips.
+  - For the first few frames of a strong recoil the face still looks up.

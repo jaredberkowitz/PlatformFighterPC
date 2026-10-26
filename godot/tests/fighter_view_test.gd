@@ -90,5 +90,13 @@ func _initialize() -> void:
 		sword.apply(Vector3.ZERO, snap(0, state, "", frame), 1.0 / 60.0)
 		check(sword.blade_pivot.visible, "the blade is there while %s" % state)
 	check(not sword.long_limbs and not fists.long_limbs and not needles.long_limbs, "all classes share the base body (no long-limbed rig swap)")
+	# The hurt recoil (round 3): away from the hit, bigger for a longer stun, back upright before the stun ends.
+	var hurt := func(f: int, total: int, kb_x: float) -> float:
+		return FighterView.hurt_recoil({"state_frame": f, "hitstun": total - f, "kb_vel": Vector2(kb_x, 0.05), "facing": 1, "hitlag": 0})
+	var light: float = hurt.call(4, 12, -0.1)
+	var hard: float = hurt.call(4, 30, -0.1)
+	check(light < 0.0 and hard < light, "a hit from in front throws the body back, further for a longer stun (%.1f, %.1f)" % [light, hard])
+	check(hurt.call(4, 30, 0.1) > 0.0, "a hit from behind throws it forward")
+	check(is_zero_approx(hurt.call(25, 30, -0.1)), "and it is upright again before the stun ends")
 	print("fighter view test ", "FAILED" if failed else "PASSED")
 	quit(1 if failed else 0)

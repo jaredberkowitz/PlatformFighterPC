@@ -6,7 +6,7 @@ extends SceneTree
 ##   dashstop (stand, dash, stop: the head, hat and neckwear lagging), --neck=N / --glasses=N / --gear=N / --shirt=N to wear that neckwear, those glasses or that gear (loadout.gd),
 ##   tech | runstop | drop | heavy | heavyup | fidget (the motion plan's phase 3 clips)
 ##   arc (a whole full hop in the air: rising from the take-off speed through the top to the fall at full speed, every 3 frames)
-##   --zoom=k       closer in (2 = twice as close), --facing=-1 to face left
+##   --zoom=k       closer in (2 = twice as close), --facing=-1 to face left, --hitstun=N the hurt reaction's hitstun (28)
 ##   --tip=x,y      where the move's hitbox is (forward space, from the feet), --timing=total,first,last its frames
 
 const FighterView := preload("res://scripts/fighter_view.gd")
@@ -29,6 +29,7 @@ func _initialize() -> void:
 	var glasses := -1
 	var gear := -1
 	var shirt := -1
+	var hurt_stun := 28
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--what="):
 			what = a.substr(7)
@@ -40,6 +41,8 @@ func _initialize() -> void:
 			facing = int(a.substr(9))
 		elif a.begins_with("--gear="):
 			gear = int(a.substr(7))
+		elif a.begins_with("--hitstun="):
+			hurt_stun = int(a.substr(10))
 		elif a.begins_with("--shirt="):
 			shirt = int(a.substr(8))
 		elif a.begins_with("--glasses="):
@@ -171,6 +174,8 @@ func _initialize() -> void:
 			"hurt":
 				state = "Hitstun"
 				move = ""
+				# (A middling hit from in front: 28 frames of hitstun, pushed back. `--hitstun=N` for another strength.)
+				extra = {"hitstun": maxi(0, hurt_stun - f), "kb_vel": Vector2(-0.12 * facing, 0.05)}
 			"shield":
 				state = "Shield"
 				move = ""

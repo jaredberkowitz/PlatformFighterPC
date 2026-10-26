@@ -2905,6 +2905,47 @@ func _face_for(s: Dictionary) -> Dictionary:
 var tumble_angle := 0.0
 ## Flying faster than this (world units a frame), a launched fighter is thrown head first along its path rather than tumbling.
 const LAUNCH_POSE_SPEED := 0.32
+## The hurt recoil (round 3 item 3): the whole body snaps away from the hit over HURT_SNAP_FRAMES, holds a moment, then recovers to
+## upright by HURT_RECOVERED of the hitstun, by as much as HURT_RECOIL_MIN to HURT_RECOIL_MAX degrees by the hit's strength (its hitstun,
+## HURT_WEAK to HURT_STRONG frames). It used to lean back 26 degrees for the whole stun, which read as one pose with the head thrown back.
+const HURT_SNAP_FRAMES := 3.0
+const HURT_RECOIL_MIN := 12.0
+const HURT_RECOIL_MAX := 26.0
+const HURT_WEAK := 8.0
+const HURT_STRONG := 32.0
+const HURT_RECOVERED := 0.7
+
+
+func _recoil(s: Dictionary) -> void:
+	model.rotation.x = deg_to_rad(hurt_recoil(s))
+
+
+## The body's pitch (degrees, the model's x rotation) in a hit reaction that does not tumble: away from the hit (back off a blow from the
+## front, forward off one from behind), by the snapshot only, so a freeze holds it and a rollback redraws it.
+static func hurt_recoil(s: Dictionary) -> float:
+	var left := float(s.get("hitstun", 0))
+	var f := float(s.state_frame)
+	var total := maxf(1.0, f + left)
+	var strength := clampf((total - HURT_WEAK) / (HURT_STRONG - HURT_WEAK), 0.0, 1.0)
+	var amount := lerpf(HURT_RECOIL_MIN, HURT_RECOIL_MAX, strength)
+	var kb: Vector2 = s.get("kb_vel", Vector2.ZERO)
+	# (Rotation about x leans the body back when negative, facing either way.)
+	var away := 1.0 if kb.x * float(s.facing) > 0.02 else -1.0
+	var k := 0.55
+	if int(s.get("hitlag", 0)) <= 0:
+		var hold := HURT_SNAP_FRAMES + 2.0 + 5.0 * strength
+		var back := maxf(hold + 2.0, total * HURT_RECOVERED)
+		if f < HURT_SNAP_FRAMES:
+			var u := f / HURT_SNAP_FRAMES
+			k = 0.55 + 0.45 * (1.0 - (1.0 - u) * (1.0 - u))
+		elif f < hold:
+			k = 1.0
+		elif f < back:
+			var u := (f - hold) / (back - hold)
+			k = 1.0 - u * u * (3.0 - 2.0 * u)
+		else:
+			k = 0.0
+	return away * amount * k
 ## A hit too weak to launch: the body snaps back from it and recovers over this long (seconds left of FLINCH_TIME).
 var flinch_left := 0.0
 const FLINCH_TIME := 0.22
@@ -5616,6 +5657,10 @@ func _apply_combat(s: Dictionary, delta: float) -> void:
 			# About the middle of the body, not the feet (which would swing the body down through the floor).
 			model.position += SPIN_PIVOT_3D - Basis.from_euler(model.rotation) * SPIN_PIVOT_3D
 		elif current_clip == "hurt":
-			model.rotation.x = -deg_to_rad(26.0)
+			_recoil(s)
+	elif state == "Hitstun" and not s.tumble and (s.get("kb_vel", Vector2.ZERO) as Vector2).length() <= HEAVY_HITSTUN_SPEED:
+		# (Frozen by the hit: already snapped part of the way off it.)
+		_recoil(s)
+		tumble_angle = 0.0
 	else:
 		tumble_angle = 0.0
