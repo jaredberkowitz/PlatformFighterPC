@@ -1320,8 +1320,8 @@ Ranked by how visible it is at match speed:
 
 ### Pass 45: the heavy family's run carries its weight (round 4 item 3)
 
-- **Defect:** the heavy fighters' run (Greatsword, Bracers, Clutch) read like the others: the same height, a quick cadence (19 frames a
-  cycle, the shortest of the six) and a small bob.
+- **Defect:** the heavy family's run (the Clutch, `AnimLibrary.CLASS_FAMILY`) read like the others: the same height, a quick cadence
+  (19 frames a cycle, the shortest of the six) and a small bob.
 - **Fix:**
   - **`make_rigged_blob.py` `RUN_STYLES["heavy"]`:**
     - the hips lower (0.68 to 0.61) and the strides longer at a slower cadence (22 frames a cycle; each covers 3.7 units of ground, not 3.2);
@@ -1331,7 +1331,8 @@ Ranked by how visible it is at match speed:
     - Longer strides were tried (23-25 frames, hips 0.55): the short legs could not reach the landing (the foot missed by up to 0.25), so
       the stride stops where the leg still reaches (0.06 at most, mid-swing).
   - **`fighter_view.gd` `STEP_SQUASH`:** each footfall's squash scales with the body's weight (`CLASS_WEIGHT`, squared): a heavy body
-    squashes 1.56 times as much (0.11), a light one (Needles, Dagger) 0.64 times.
+    squashes 1.56 times as much (0.11), a light one (Needles, Dagger) 0.64 times. The heavy weight is the Greatsword's, the Bracers' and
+    the Clutch's, so the first two (which run the sword and brawler runs) land heavier too.
 - **Measured** (`motion_probe`, slide as a share of the ground speed at 0.19 / 0.24 / 0.30): heavy 0.15 / 0.11 / 0.16 before, 0.14 / 0.14 /
   0.14 after. The sword's and the quick runs are unchanged (0.08 / 0.10 / 0.11 and 0.07 / 0.06 / 0.08). `face_cover_probe`: every run 0%.
 - **Image:** `docs/screenshots/anim/r4_pass45_heavy_run.jpg`: the heavy run's contact sheet, before and after, both facings, and the sword
