@@ -8,7 +8,8 @@ const Loadout := preload("res://scripts/loadout.gd")
 const STATES := [["Idle", 0.0, 0.0, 0], ["Walk", 0.12, 0.0, 0], ["Run", 0.24, 0.0, 0], ["Dash", 0.27, 0.0, 0], ["JumpSquat", 0.0, 0.0, 0],
 	["Airborne", 0.0, 0.32, -1], ["Airborne", 0.0, 0.12, -1], ["Airborne", 0.0, -0.05, -1], ["Airborne", 0.0, -0.12, -1],
 	["Airborne", 0.0, -0.25, -1], ["Landing", 0.0, 0.0, 0], ["Shield", 0.0, 0.0, 0], ["Crouch", 0.0, 0.0, 0], ["Hitstun", 0.0, 0.0, 0],
-	["LedgeHang", 0.0, 0.0, 0], ["Turn", 0.0, 0.0, 0]]
+	["LedgeHang", 0.0, 0.0, 0], ["Turn", 0.0, 0.0, 0], ["Helpless", 0.0, -0.1, -1], ["ItemPickup", 0.0, 0.0, 0], ["ItemThrow", 0.0, 0.0, 0],
+	["ShieldBreak", 0.0, 0.0, 0], ["Tether", 0.0, 0.0, -1]]
 const FACE_R := 0.4
 
 

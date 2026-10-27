@@ -978,12 +978,14 @@ def grounded(name):
     if name in ("jump", "fall", "fall_start", "tumble", "air_jump", "air_dodge", "hurt", "roll", "knockdown", "getup", "ledge", "ledge_climb", "kick_dash", "body_drop",
                 "hurt_heavy", "hurt_up", "platform_drop", "gaunt_knee", "gaunt_stomp", "tool_ride", "tool_float",
                 # (Aerials whose names do not end in "air": round 2, so their rest keys do not take the battle stance.)
-                "sword_rise", "sword_plunge", "kick_double", "leap_grab", "latch_sit", "rocket_fly"):
+                "sword_rise", "sword_plunge", "kick_double", "leap_grab", "latch_sit", "rocket_fly",
+                # (Round 8: the special fall, and buried, whose legs are under the ground.)
+                "helpless", "buried"):
         return False
     return not name.endswith("air")
 
 
-STANDING = {"idle", "idle_brawler", "idle_quick", "idle_heavy", "idle_caster", "idle_tool", "crouch", "jumpsquat", "land", "spot_dodge", "shield", "skid", "grab", "throw", "blaster", "sword_usmash", "sword_dsmash",
+STANDING = {"item_pick", "item_throw", "dizzy", "idle", "idle_brawler", "idle_quick", "idle_heavy", "idle_caster", "idle_tool", "crouch", "jumpsquat", "land", "spot_dodge", "shield", "skid", "grab", "throw", "blaster", "sword_usmash", "sword_dsmash",
             "tech", "run_stop", "idle_look", "idle_look_brawler", "idle_look_quick", "idle_look_heavy", "idle_look_caster", "idle_look_tool"}
 
 
@@ -4621,6 +4623,132 @@ def main() -> None:
         return f
 
     clip(rig, "ledge", 60, {0: ledge_pose(0.0), 30: ledge_pose(1.0), 60: ledge_pose(0.0)})
+
+    if BODY:
+        # ---- Round 8: the states that played another state's clip (docs/art/anim/ANIMATION_REVIEW_1.md, the missing sets) ----
+        # Special fall (`Helpless`, after an up special): spent and limp, as the reference fighters fall after a recovery move: the body
+        # a little hunched, both arms raised loosely (the near one forward along the stage, the far one up behind the head) and slowly
+        # flailing, the legs hanging apart with soft knees and the toes down. A loop; it played the jump's arc before, which reads as a
+        # fighter still in control.
+        def helpless(k):
+            def f(rig):
+                w = math.sin(k * 2.0 * math.pi)
+                v = math.sin(k * 2.0 * math.pi + 1.3)
+                pose(rig, "spine", fwd=14.0 + 3.0 * v, twist=5.0 * w)
+                pose(rig, "head", fwd=-10.0 + 3.0 * v)
+                # (Raised well up so they read at the match camera: at 78 the near fist sat at the chest.)
+                pose(rig, "armU.L", fwd=118.0 + 16.0 * w, out=14.0)
+                pose(rig, "armL.L", fwd=30.0 + 12.0 * v)
+                pose(rig, "hand.L", fwd=10.0)
+                pose(rig, "armU.R", fwd=164.0 - 16.0 * w, out=24.0)
+                pose(rig, "armL.R", fwd=24.0 - 10.0 * v)
+                pose(rig, "hand.R", fwd=10.0)
+                pose(rig, "thigh.L", fwd=24.0 + 6.0 * v, out=8.0)
+                pose(rig, "shin.L", fwd=-36.0 - 6.0 * v)
+                pose(rig, "foot.L", fwd=-30.0)
+                pose(rig, "thigh.R", fwd=-10.0 - 6.0 * v, out=12.0)
+                pose(rig, "shin.R", fwd=-28.0 + 6.0 * v)
+                pose(rig, "foot.R", fwd=-34.0)
+            return f
+
+        clip(rig, "helpless", 48, {i: helpless(i / 48.0) for i in range(0, 49, 6)})
+
+        # Picking an item up (`ItemPickup`, 8 frames, played by progress): a dip onto bent knees, the near hand reaching down in front to
+        # the floor and coming back up with it. It stood in the idle.
+        def item_reach(rig):
+            pose(rig, "hips", lift=-0.16)
+            pose(rig, "thigh.L", fwd=66.0, out=10.0)
+            pose(rig, "shin.L", fwd=-104.0)
+            pose(rig, "foot.L", fwd=30.0)
+            pose(rig, "thigh.R", fwd=-6.0, out=14.0)
+            pose(rig, "shin.R", fwd=-70.0)
+            pose(rig, "foot.R", fwd=26.0)
+            pose(rig, "spine", fwd=38.0, out=STANCE_SIDE * 0.5)
+            pose(rig, "head", fwd=-22.0)
+            pose(rig, "armU.L", fwd=58.0, out=12.0)
+            pose(rig, "armL.L", fwd=12.0)
+            pose(rig, "armU.R", fwd=20.0, out=26.0)
+            pose(rig, "armL.R", fwd=70.0)
+
+        clip(rig, "item_pick", 12, {0: idle(0.0), 5: item_reach, 7: item_reach, 12: idle(0.0)})
+
+        # Throwing an item (`ItemThrow`, 19-29 frames, played by progress): the far hand (the near one holds an armed class's weapon, as the
+        # reference's swordsman throws with his free hand) drawn back and up behind the shoulder over a step back, then whipped through
+        # forward over the front foot as the chest turns into it, and back to the stance. It stood in the idle (on the ground) or fell (in
+        # the air), the item leaving an empty hand.
+        def item_wind(rig):
+            pose(rig, "hips", twist=-14.0)
+            pose(rig, "thigh.L", fwd=STANCE_LEAD * 0.8, out=STANCE_WIDE)
+            pose(rig, "shin.L", fwd=STANCE_LEAD_SHIN * 0.8)
+            pose(rig, "thigh.R", fwd=STANCE_BACK * 1.2, out=STANCE_WIDE + 4.0)
+            pose(rig, "shin.R", fwd=STANCE_BACK_SHIN * 1.1)
+            pose(rig, "spine", fwd=4.0, twist=-26.0, out=-6.0)
+            pose(rig, "head", fwd=-8.0, twist=18.0)
+            pose(rig, "armU.R", fwd=168.0, out=14.0)
+            pose(rig, "armL.R", fwd=70.0)
+            pose(rig, "hand.R", fwd=-20.0)
+            pose(rig, "armU.L", fwd=40.0, out=30.0)
+            pose(rig, "armL.L", fwd=80.0)
+
+        def item_release(rig):
+            pose(rig, "hips", twist=10.0)
+            pose(rig, "thigh.L", fwd=STANCE_LEAD * 1.1, out=STANCE_WIDE)
+            pose(rig, "shin.L", fwd=STANCE_LEAD_SHIN * 1.05)
+            pose(rig, "thigh.R", fwd=STANCE_BACK * 1.4, out=STANCE_WIDE + 4.0)
+            pose(rig, "shin.R", fwd=STANCE_BACK_SHIN * 0.8)
+            pose(rig, "spine", fwd=30.0, twist=20.0, out=STANCE_SIDE)
+            pose(rig, "head", fwd=-18.0, twist=-10.0)
+            pose(rig, "armU.R", fwd=78.0, out=6.0)
+            pose(rig, "armL.R", fwd=8.0)
+            pose(rig, "hand.R", fwd=14.0)
+            pose(rig, "armU.L", fwd=10.0, out=34.0)
+            pose(rig, "armL.L", fwd=60.0)
+
+        clip(rig, "item_throw", 24, {0: idle(0.0), 7: item_wind, 9: amped(item_wind, 1.06), 12: item_release, 15: item_release,
+                                     24: idle(0.0)})
+
+        # Shield break, once down on the ground (`ShieldBreak`): dazed, swaying in a slow circle over soft knees, the arms hanging loose
+        # and swinging a beat behind, the head lolling with the sway. A loop; it played the hit reaction's flail, held.
+        def dizzy(k):
+            def f(rig):
+                a = k * 2.0 * math.pi
+                sx, sy = math.sin(a), math.cos(a)
+                pose(rig, "hips", lift=-0.06, twist=6.0 * sx)
+                pose(rig, "thigh.L", fwd=26.0 + 6.0 * sy, out=12.0)
+                pose(rig, "shin.L", fwd=-44.0 - 8.0 * sy)
+                pose(rig, "foot.L", fwd=12.0)
+                pose(rig, "thigh.R", fwd=-6.0 - 6.0 * sy, out=16.0)
+                pose(rig, "shin.R", fwd=-30.0 + 8.0 * sy)
+                pose(rig, "foot.R", fwd=10.0)
+                pose(rig, "spine", fwd=16.0 + 6.0 * sy, out=9.0 * sx, twist=6.0 * sx)
+                pose(rig, "head", fwd=-6.0 + 5.0 * math.cos(a - 0.8), out=7.0 * math.sin(a - 0.8))
+                lag = math.sin(a - 1.0)
+                pose(rig, "armU.L", fwd=10.0 + 10.0 * lag, out=12.0)
+                pose(rig, "armL.L", fwd=24.0)
+                pose(rig, "armU.R", fwd=6.0 - 10.0 * lag, out=16.0)
+                pose(rig, "armL.R", fwd=20.0)
+            return f
+
+        clip(rig, "dizzy", 80, {i: dizzy(i / 80.0) for i in range(0, 81, 10)})
+
+        # Buried (`Buried`, the body sunk to the waist by the game): both arms raised and pushing at the ground round it in turn, the
+        # chest straining side to side. A loop; it stood in the idle under the ground.
+        def buried(k):
+            def f(rig):
+                a = k * 2.0 * math.pi
+                pose(rig, "spine", fwd=6.0, out=8.0 * math.sin(a), twist=10.0 * math.sin(a))
+                pose(rig, "head", fwd=-10.0)
+                # (Raised high: sunk to the waist, arms held lower stayed under the ground.)
+                pose(rig, "armU.L", fwd=150.0 + 18.0 * math.sin(a), out=34.0)
+                pose(rig, "armL.L", fwd=40.0 - 24.0 * math.sin(a))
+                pose(rig, "armU.R", fwd=150.0 - 18.0 * math.sin(a), out=34.0)
+                pose(rig, "armL.R", fwd=40.0 + 24.0 * math.sin(a))
+                for side in "LR":
+                    pose(rig, "thigh." + side, fwd=10.0, out=8.0)
+                    pose(rig, "shin." + side, fwd=-14.0)
+            return f
+
+        clip(rig, "buried", 36, {i: buried(i / 36.0) for i in range(0, 37, 6)})
 
     # Climbing up from a ledge (played by progress over the get-up): hanging, then the arms push down on the edge as one knee comes up onto
     # it, a crouch on the edge, and standing.

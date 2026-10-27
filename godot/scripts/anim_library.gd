@@ -462,11 +462,14 @@ static func attack_clip(cls: int, move: String, anim: AnimationPlayer = null) ->
 ## Clips added to the library later, and what a rig built before them plays instead (the older blob rigs have none of them).
 const STAND_INS := {"jumpsquat": "crouch", "land": "crouch", "spot_dodge": "roll", "air_dodge": "roll", "getup": "knockdown",
 	"tech": "crouch", "run_stop": "skid", "idle_look": "idle", "platform_drop": "fall", "hurt_heavy": "hurt", "hurt_up": "hurt",
-	"body_dash_grab": "grab", "body_pivot_grab": "grab", "fall_start": "fall", "tumble": "hurt"}
+	"body_dash_grab": "grab", "body_pivot_grab": "grab", "fall_start": "fall", "tumble": "hurt",
+	# (Round 8, the missing sets.)
+	"helpless": "fall", "item_pick": "crouch", "item_throw": "throw", "dizzy": "hurt", "buried": "idle"}
 
 ## Clips chosen in fighter_view.gd `_choose_clip` from more than the state (a tech is an intangible landing, a run stop a sliding idle, a
 ## platform drop the first frames of a fall through a platform, heavy hitstun a fast launch that does not tumble, a fidget a long idle).
-const POLISH_CLIPS := ["tech", "run_stop", "idle_look", "platform_drop", "hurt_heavy", "hurt_up"]
+const POLISH_CLIPS := ["tech", "run_stop", "idle_look", "platform_drop", "hurt_heavy", "hurt_up", "helpless", "item_pick", "item_throw",
+	"dizzy", "buried"]
 
 ## States whose clip is played by progress through the state's own length (the bridge's `fighter_dodge`), so the pose matches the
 ## simulation's frames whatever a fighter's dodge lengths are.

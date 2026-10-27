@@ -212,7 +212,8 @@ const LONG_FIT := Transform3D(Basis(Vector3(0.92, 0, 0), Vector3(0, 0.92, 0), Ve
 ## Where the head and torso sit in the rig compared with the sphere-built look the face, hats and glasses were designed for.
 const HEAD_FIT := Transform3D(Basis(Vector3(0.825, 0, 0), Vector3(0, 0.825, 0), Vector3(0, 0, 0.825)), Vector3(0, 1.56 - 1.42 * 0.825, 0))
 const TORSO_FIT := Transform3D()
-const LOOPING := ["tumble", "idle", "idle_brawler", "idle_quick", "idle_heavy", "idle_caster", "idle_tool", "run_brawler", "run_quick", "run_heavy", "run_caster", "run_tool", "walk", "walk_brawler", "walk_quick", "walk_heavy", "walk_caster", "walk_tool", "run", "dash", "fall", "victory_a", "victory_b", "victory_c"]
+const LOOPING := ["tumble", "idle", "idle_brawler", "idle_quick", "idle_heavy", "idle_caster", "idle_tool", "run_brawler", "run_quick", "run_heavy", "run_caster", "run_tool", "walk", "walk_brawler", "walk_quick", "walk_heavy", "walk_caster", "walk_tool", "run", "dash", "fall", "victory_a", "victory_b", "victory_c",
+	"helpless", "dizzy", "buried"]
 ## The rig is read once and copied for every fighter (reading it again renames its bones).
 static var _rig_templates: Dictionary = {}
 
@@ -602,6 +603,30 @@ func _choose_clip(s: Dictionary) -> Array:
 					return [tumble, 1.0, -1.0]
 			if not s.tumble and kb.length() > HEAVY_HITSTUN_SPEED:
 				return [AnimLibrary.or_stand_in("hurt_up" if kb.y > absf(kb.x) else "hurt_heavy", anim), 1.0, -1.0]
+		# (Round 8, the missing sets: states that played another state's clip. `ANIMATION_REVIEW_1.md`.)
+		"Helpless":
+			# The special fall: limp, arms loosely up (it played the jump's arc, a fighter still in control).
+			if not grounded:
+				return [AnimLibrary.or_stand_in("helpless", anim), 1.0, -1.0]
+		"ItemPickup":
+			# A dip and the near hand down to the floor, over the pick-up's frames (it stood in the idle).
+			return [AnimLibrary.or_stand_in("item_pick", anim), 1.0, clampf(float(s.state_frame) / ITEM_PICK_FRAMES, 0.0, 1.0)]
+		"ItemThrow":
+			# Drawn back and whipped through over the throw's frames (it stood in the idle, or fell).
+			return [AnimLibrary.or_stand_in("item_throw", anim), 1.0, clampf(float(s.state_frame) / ITEM_THROW_FRAMES, 0.0, 1.0)]
+		"Tether":
+			# Hanging from the tether's line: the ledge hang's arms-up hold (it fell).
+			return ["ledge", 1.0, -1.0]
+		"WallTech":
+			# A slap against the wall and a push off it: the floor tech's pose over its first frames (it held up a shield).
+			return [AnimLibrary.or_stand_in("tech", anim), 1.0, clampf(float(s.state_frame) / WALL_TECH_FRAMES, 0.0, 1.0)]
+		"ShieldBreak":
+			# Down on the ground after the break's launch: dazed and swaying (it held the hit reaction's flail).
+			if grounded:
+				return [AnimLibrary.or_stand_in("dizzy", anim), 1.0, -1.0]
+		"Buried":
+			# Sunk to the waist: both arms pushing at the ground in turn (it stood in the idle).
+			return [AnimLibrary.or_stand_in("buried", anim), 1.0, -1.0]
 		"LedgeAttack":
 			# Up onto the edge, then the sweep (its hit on frames 24-26 of 55 lands on the clip's strike).
 			var f: float = s.state_frame
@@ -633,6 +658,28 @@ func _choose_clip(s: Dictionary) -> Array:
 	if opening < 1.0 and start != "fall":
 		return [start, 1.0, clampf(opening, 0.0, 1.0)]
 	return ["fall", 1.0, -1.0]
+
+
+## With the environment variable PF_R8_OFF (a debugging aid for round 8's before and after images), "sets" plays these states as before
+## the round's missing sets: the shared clip by state, or the jump's arc in the air.
+static var r8_off := OS.get_environment("PF_R8_OFF").split(",")
+const R8_SET_STATES := ["Helpless", "ItemPickup", "ItemThrow", "Tether", "WallTech", "ShieldBreak", "Buried"]
+
+
+func _choose_clip_before_r8(s: Dictionary) -> Array:
+	var shared := AnimLibrary.family_clip(_cls(s), AnimLibrary.state_clip(String(s.state), anim), anim)
+	if shared != "":
+		return [shared, 1.0, -1.0]
+	if int(s.platform) >= 0:
+		return [AnimLibrary.family_clip(_cls(s), "idle", anim), 1.0, -1.0]
+	return ["fall", 1.0, -1.0]
+
+
+## The item pick-up and throws' lengths (the ruleset's `item_pick_frames` and `item_side_frames`; the up, down and dash throws run 19-29,
+## near enough for the pose) and the wall tech's slap, in sim frames (round 8).
+const ITEM_PICK_FRAMES := 8.0
+const ITEM_THROW_FRAMES := 24.0
+const WALL_TECH_FRAMES := 12.0
 
 
 ## The air arc's speeds (units a frame): rising this fast or faster shows the take-off stretch (the rise is posed between it and the top);
@@ -754,7 +801,18 @@ const CLIP_END_SHAPES := {"body_headbutt_fwd": Vector3(0.12, 0.8, CARRY_FRAMES)}
 ## Per class, the moves whose reference timing differs from the shared shape (hold to, recover by): round 4, measured against the
 ## reference swordsman. Its forward smash holds about a third of its end lag and then recovers slowly over the rest (ours recovered in 7
 ## frames against 17); its up air holds briefly and floats back down (24 frames of hold against 11).
-const CLASS_END_SHAPES := {0: {"fsmash": Vector2(0.2, 0.99), "uair": Vector2(0.02, EVEN + 0.99)}}
+## (Round 8, the weight review (`docs/art/anim/ANIMATION_REVIEW_1.md`): every family's hold and recovery measured against its own reference
+## fighter's (`timing_report.py`, the reference's measured in the browser the same way), and the moves furthest off reshaped: the quick
+## family's aerials and down smash held 12-33 frames where its reference holds 2-6 and floats home over 14-26; the Longsword's forward
+## air and jab held too long and recovered in 3-5; the heavy's forward air and smash, the caster's up air and forward smash.)
+const CLASS_END_SHAPES := {
+	0: {"fsmash": Vector2(0.2, 0.99), "uair": Vector2(0.02, EVEN + 0.99), "fair": Vector2(0.1, EVEN + 0.97), "jab": Vector2(0.08, 0.85),
+		"dsmash": Vector2(0.6, 0.9), "bair": Vector2(0.55, 0.85)},
+	2: {"nair": Vector2(0.04, EVEN + 0.96), "uair": Vector2(0.03, EVEN + 0.97), "bair": Vector2(0.08, EVEN + 0.97),
+		"dsmash": Vector2(0.1, EVEN + 0.97), "fsmash": Vector2(0.5, 0.85)},
+	8: {"fair": Vector2(0.55, 0.9), "fsmash": Vector2(0.35, 0.99), "usmash": Vector2(0.04, 0.6)},
+	3: {"fair": Vector2(0.75, 0.97), "uair": Vector2(0.2, EVEN + 0.97), "fsmash": Vector2(0.22, EVEN + 0.99)},
+}
 ## The clip's follow-through key (frame 40 of 60).
 const FOLLOW_PROGRESS := 0.667
 ## The weapon arm and the reaching limbs come home this much of the end lag after the body, so the hips lead the recovery.
@@ -965,7 +1023,7 @@ static func _gait_clip(c: String) -> bool:
 func _animate(s: Dictionary, delta: float) -> void:
 	if anim == null:
 		return
-	var pick: Array = _choose_clip(s)
+	var pick: Array = _choose_clip(s) if not r8_off.has("sets") or not R8_SET_STATES.has(String(s.state)) else _choose_clip_before_r8(s)
 	var clip: String = pick[0]
 	# Where the stride is: a dash to a run goes on in step, and a new dash (also one the other way) starts on its push-off.
 	var gait := -1.0
@@ -3407,6 +3465,9 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 	if state == "Airborne" or state == "Helpless":
 		target_squash = -0.1 if vy > 0.06 else (-0.05 if vy < -0.12 else 0.0)
 	var target_lean: float = LEAN.get(state, 0.0)
+	# (Round 8: dazed on the ground after a shield break the body stands and sways (`dizzy`); the lean was for the hurt pose it held.)
+	if state == "ShieldBreak" and grounded and use_base_body:
+		target_lean = 4.0
 	# Standing up from the floor: the body rises from lying (the knockdown's lean) as the `getup` clip sits it up and gets the feet
 	# under it.
 	if state == "GetUp" and dodge_progress(s) >= 0.0:
