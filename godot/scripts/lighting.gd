@@ -483,6 +483,13 @@ static func stage_mood(env: Environment, root: Node, theme: Dictionary, post: Sh
 		post.set_shader_parameter("scenery_lines", float(finish.get("scenery_lines", 0.4)))
 		post.set_shader_parameter("sheets", finish.sheets)
 		post.set_shader_parameter("cut_edge", finish.cut_edge)
+		# (Chosen cut edges, fidelity review 13: a style's finish "cut_choose" [lit side only, own colour] or `--cut=A|B|C`; C also keeps
+		# only 0.4 of the pale lift on the scenery's ink lines.)
+		var choose: Array = finish.get("cut_choose", [0.0, 0.0, 1.0])
+		for arg in OS.get_cmdline_user_args():
+			if arg.begins_with("--cut="):
+				choose = {"A": [1.0, 0.0, 1.0], "B": [1.0, 1.0, 1.0], "C": [1.0, 1.0, 0.4]}.get(arg.substr(6).to_upper(), choose)
+		post.set_shader_parameter("cut_choose", Vector3(choose[0], choose[1], choose[2]))
 		post.set_shader_parameter("fight_lift", finish.fight_lift)
 		# (A dark anchor, fidelity review 13: a style's finish "value_deep" [darks, foot, foot from, reach] or `--value=A|B|C`.)
 		var deep: Array = finish.get("value_deep", [])

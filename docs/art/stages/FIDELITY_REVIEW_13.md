@@ -139,3 +139,13 @@ size. On the Stage Look Review ("readablesun35", `sn35_*`); recommended B. To sh
 
 Built B (the owner's pick): MOODS "sunset" `"sun": [-28.0, 10.0]`. P1's gap 0.074 in the game. Before and after (wide, left and right):
 `review13/canyon_sun_built.jpg`. All seven tests pass.
+
+## Item 3, chosen cut edges (mock, 2026-10-27)
+
+`post.gdshader` `cut_choose` [lit side only, own colour, ink lift kept]: the cut-edge rim now sums the directions the depth drops away in,
+and is kept (x) only where that edge faces the light (`-sheet_dir` across the screen); (y) takes its own surface's colour, lightened
+(col * 1.25 + 0.05), in place of `cut_colour`; (z) scales the pale lift on the scenery's ink lines (`paper_edge`). A style's finish
+"cut_choose" or `--cut=A|B|C`: A [1, 0, 1], B [1, 1, 1], C [1, 1, 0.4]. P1's gap, today then C: meadow 0.035 to 0.041, canyon 0.074 to
+0.082, beach 0.230 to 0.238, city 0.132 to 0.151, grove 0.060 to 0.072. On the Stage Look Review ("cutedges36", `ce36_*`; the ten
+oldest sections archived from the published copy only, for the artifact's file limit); recommended C. To ship: lighting.gd
+STYLE_DEFAULT finish `"cut_choose": [1.0, 1.0, 0.4]` (every stage).

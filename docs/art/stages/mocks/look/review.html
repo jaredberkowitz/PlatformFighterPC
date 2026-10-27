@@ -88,6 +88,24 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
     <p>Two lessons from the reference screenshots, mocked from the match camera: the scenery without ink outlines, its edges lit as card bevels instead, and the paper houses rebuilt at the characters' proportions. The earlier rounds stay on the <a href="https://claude.ai/artifact/D1du6MREVumiJDrEdNypW4">Stage Fidelity Review</a>, which is full.</p>
   </header>
 
+  <section class="panel" aria-labelledby="ce36-h" id="cutedges36">
+    <div class="eyebrow">Your call is needed &middot; review 13, item 3: chosen cut edges, every stage</div>
+    <h2 id="ce36-h">Cut edges only where light catches them</h2>
+    <p>First, the canyon's sun from the front left is built (see its section below). Next, the pale outline the finishing pass drew round nearly every shape (the hoodoos, rocks, roots, posts, scaffolds), which read as sticker outlines. A real paper edge catches light only on the side facing it. This one control covers all five stages, and nothing is added.</p>
+    <div class="tablewrap"><table><thead><tr><th>Option</th><th>What changes</th></tr></thead><tbody>
+      <tr><td>A &middot; Lit side only</td><td>The rim kept only where the edge faces the light</td></tr>
+      <tr><td>B &middot; And its own colour</td><td>A, the rim in its own surface's colour, lightened, in place of one pale cream</td></tr>
+      <tr><td>C &middot; And quieter lines</td><td>B, with the pale lift on the scenery's ink lines cut to 40%</td></tr>
+    </tbody></table></div>
+    <p>P1's gap to the ground, today and with C: meadow 0.035 to 0.041, canyon 0.074 to 0.082, beach 0.230 to 0.238, city 0.132 to 0.151, grove 0.060 to 0.072. Close, today then C: the canyon's hoodoos (top) and the grove's island underside (bottom).</p>
+    <div class="viewer"><img src="ce36_close.jpg" alt="Hoodoos and the island underside today and with chosen cut edges"></div>
+    <div class="row" role="group" aria-label="Stage"><button data-ce36s="0">Meadow</button><button data-ce36s="4">Grove</button><button data-ce36s="2">Beach</button><button data-ce36s="1">Canyon</button><button data-ce36s="3">City</button></div>
+    <div class="row" role="group" aria-label="View"><button data-ce36v="m">Match camera</button><button data-ce36v="w">Wide</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-ce36o="T">Today</button><button data-ce36o="A">A &middot; Lit side only</button><button data-ce36o="B">B &middot; Own colour</button><button data-ce36o="C">C &middot; Quieter lines</button></div>
+    <div class="viewer"><img id="ce36img" alt="Cut edge option"><span class="vtag" id="ce36tag"></span></div>
+    <p class="muted">My pick: <b>C</b>. The outlines go, the rocks, roots, dock and scaffolds read as solid paper forms, and every stage's fighters stand out a little more (the city most). The rims that remain fall on the tops and the sun's side, where a paper edge would catch light. Honest note: on the meadow, whose shapes are mostly soft lawn, the change is slight.</p>
+  </section>
+
   <section class="panel" aria-labelledby="sn35-h" id="readablesun35">
     <div class="eyebrow">Built B (the owner's pick) &middot; review 13, item 2: a readable sun on the canyon</div>
     <h2 id="sn35-h">The sun from where it's drawn</h2>
@@ -2644,5 +2662,17 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
   group("data-sn35v", function (v) { sn35v = v; }, sn35render);
   group("data-sn35o", function (v) { sn35o = v; }, sn35render);
   sn35render();
+  var ce36s = "1", ce36v = "w", ce36o = "C";
+  var CE36O = { T: "Today", A: "A \u00b7 Lit side only", B: "B \u00b7 Own colour", C: "C \u00b7 Quieter lines" };
+  var CE36S = { "0": "Meadow", "1": "Canyon", "2": "Beach", "3": "City", "4": "Grove" };
+  function ce36render() {
+    document.getElementById("ce36img").src = "ce36_s" + ce36s + "_" + ce36o + "_" + ce36v + ".jpg";
+    document.getElementById("ce36tag").textContent = CE36S[ce36s] + " \u00b7 " + CE36O[ce36o] + (ce36v === "w" ? " \u00b7 wide" : " \u00b7 match camera");
+    pressed("data-ce36s", ce36s); pressed("data-ce36v", ce36v); pressed("data-ce36o", ce36o);
+  }
+  group("data-ce36s", function (v) { ce36s = v; }, ce36render);
+  group("data-ce36v", function (v) { ce36v = v; }, ce36render);
+  group("data-ce36o", function (v) { ce36o = v; }, ce36render);
+  ce36render();
 })();
 </script>
