@@ -76,3 +76,13 @@ fighters stay outside this plan and are the largest single gap left in any still
 
 **Recommended start:** item 1 on the canyon (the narrowest-range, lowest-darks, lowest-readability frame that should be the most
 dramatic), then the beach and meadow.
+
+## Item 1 on the canyon, a dark anchor (mock, 2026-10-27)
+
+`post.gdshader` `value_deep` [darks, foot, foot from, reach], on the stage and scenery only (ids from 0.8, nearer than the sky), faded out
+by `reach` units behind the stage: the scenery's darks pushed down by `darks` x (1 - smoothstep(0.12, 0.72, luma)), its lights kept,
+and the frame's foot deepened by `foot` from `foot from` of the way down. Set from a style's finish "value_deep" in `lighting.gd`, or
+`--value=A|B|C`: A [0.35, 0, 0.6, 60], B [0.35, 0.3, 0.6, 60], C [0.5, 0.42, 0.55, 80]. Measured (darks under 0.25, wide / match;
+range wide; P1's gap): today 4% / 4%, 0.49, 0.041; A 9% / 12%, 0.54, 0.061; B 11% / 19%, 0.56, 0.062; C 17% / 27%, 0.60, 0.076. On the
+Stage Look Review ("valuedeep33", `vd33_*`); recommended B (inside the references' 8 to 15% wide). To ship: lighting.gd STYLES
+"sunset" finish `"value_deep": [0.35, 0.3, 0.6, 60.0]`.

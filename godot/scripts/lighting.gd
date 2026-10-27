@@ -467,6 +467,12 @@ static func stage_mood(env: Environment, root: Node, theme: Dictionary, post: Sh
 		post.set_shader_parameter("sheets", finish.sheets)
 		post.set_shader_parameter("cut_edge", finish.cut_edge)
 		post.set_shader_parameter("fight_lift", finish.fight_lift)
+		# (A dark anchor, fidelity review 13: a style's finish "value_deep" [darks, foot, foot from, reach] or `--value=A|B|C`.)
+		var deep: Array = finish.get("value_deep", [])
+		for arg in OS.get_cmdline_user_args():
+			if arg.begins_with("--value="):
+				deep = {"A": [0.35, 0.0, 0.6, 60.0], "B": [0.35, 0.3, 0.6, 60.0], "C": [0.5, 0.42, 0.55, 80.0]}.get(arg.substr(8).to_upper(), deep)
+		post.set_shader_parameter("value_deep", Vector4(deep[0], deep[1], deep[2], deep[3]) if deep.size() == 4 else Vector4(0.0, 0.0, 0.6, 60.0))
 		# The key light's way across the screen (the camera looks straight down the stage, so its x and y), for the sheets' shadows.
 		if key != null:
 			var way := -key.basis.z

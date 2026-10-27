@@ -93,6 +93,10 @@ uniform vec2 sheet_dir = vec2(0.0, 1.0);
 uniform float cut_edge = 0.0;
 uniform vec4 cut_colour : source_color = vec4(1.0, 0.97, 0.9, 1.0);
 uniform float fight_lift = 0.0;
+// A dark anchor on the stage and scenery (fidelity review 13: three stills held almost no darks, 2 to 4% of the frame under 0.25, and read
+// milky): x how far the scenery's darks are pushed down (its lights kept), y how much the frame's foot is deepened, from z of the way down;
+// not on the fighters, the sky or the far distance (w, units behind the stage where it fades out).
+uniform vec4 value_deep = vec4(0.0, 0.0, 0.6, 60.0);
 uniform float impact = 0.0;
 uniform vec4 impact_dark : source_color = vec4(0.1, 0.05, 0.13, 1.0);
 uniform vec4 impact_light : source_color = vec4(1.0, 0.97, 0.9, 1.0);
@@ -228,6 +232,12 @@ void fragment() {
 	col += (c01 * c01 * (3.0 - 2.0 * c01) - c01) * s_curve * soften;
 	col = mix(col, ink.rgb, edge * line_strength);
 	col = mix(col, col * 1.12 + vec3(0.07, 0.07, 0.06), clamp(card_edge, 0.0, 1.0));
+	if (id0 > 0.8 && d0 < 400.0 && value_deep.x + value_deep.y > 0.0) {
+		float near_v = 1.0 - smoothstep(stage_dist + value_deep.w * 0.5, stage_dist + value_deep.w, d0);
+		float yv = dot(clamp(col, 0.0, 1.0), vec3(0.3, 0.59, 0.11));
+		col *= 1.0 - value_deep.x * (1.0 - smoothstep(0.12, 0.72, yv)) * near_v;
+		col *= 1.0 - value_deep.y * smoothstep(value_deep.z, 1.0, SCREEN_UV.y) * near_v;
+	}
 
 	// The paper target on the stage and scenery (see `sheets`), full to 12 units behind the play area and gone by 50, as in the
 	// paint-overs: the sheets that take the shadows are the hills, terraces and towers behind it.

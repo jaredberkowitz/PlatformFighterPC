@@ -88,6 +88,24 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
     <p>Two lessons from the reference screenshots, mocked from the match camera: the scenery without ink outlines, its edges lit as card bevels instead, and the paper houses rebuilt at the characters' proportions. The earlier rounds stay on the <a href="https://claude.ai/artifact/D1du6MREVumiJDrEdNypW4">Stage Fidelity Review</a>, which is full.</p>
   </header>
 
+  <section class="panel" aria-labelledby="vd33-h" id="valuedeep33">
+    <div class="eyebrow">Your call is needed &middot; review 13, item 1: a dark anchor on the canyon</div>
+    <h2 id="vd33-h">The canyon with real darks</h2>
+    <p>Review 13 found the canyon still holds almost no darks (4% of the frame under 0.25), so it reads milky, the opposite of a sunset. This adds a dark anchor to the stage and scenery only: their darks pushed down (their lights kept), and the frame's foot deepened. The fighters, the sky and the far distance are left alone, and nothing is added.</p>
+    <div class="tablewrap"><table><thead><tr><th>Option</th><th>What changes</th><th>Darks (wide / match)</th><th>Range (wide)</th><th>P1's gap</th></tr></thead><tbody>
+      <tr><td>Today</td><td>&nbsp;</td><td>4% / 4%</td><td>0.49</td><td>0.041</td></tr>
+      <tr><td>A &middot; Deeper darks</td><td>The scenery's darks pushed down</td><td>9% / 12%</td><td>0.54</td><td>0.061</td></tr>
+      <tr><td>B &middot; And a deep foot</td><td>A, with the frame's foot deepened</td><td>11% / 19%</td><td>0.56</td><td>0.062</td></tr>
+      <tr><td>C &middot; Strongest</td><td>Both stronger, reaching a little further back</td><td>17% / 27%</td><td>0.60</td><td>0.076</td></tr>
+    </tbody></table></div>
+    <p>Today, then B, at the wide camera (top); today, then C, at the match camera (bottom). The references hold about 8 to 15% darks.</p>
+    <div class="viewer"><img src="vd33_close.jpg" alt="The canyon today and with a dark anchor"></div>
+    <div class="row" role="group" aria-label="View"><button data-vd33v="m">Match camera</button><button data-vd33v="w">Wide</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-vd33o="T">Today</button><button data-vd33o="A">A &middot; Deeper darks</button><button data-vd33o="B">B &middot; And a deep foot</button><button data-vd33o="C">C &middot; Strongest</button></div>
+    <div class="viewer"><img id="vd33img" alt="Canyon value option"><span class="vtag" id="vd33tag"></span></div>
+    <p class="muted">My pick: <b>B</b>. It lands the wide still inside the references' range (11% darks) and lifts P1's gap by half (0.041 to 0.062). The front and the frame's foot gain weight, so the lit rock and the fighters read against them. C is the most dramatic and the fighters pop most (0.076), but at the match camera a quarter of the frame goes dark. Honest note: this is a finishing-pass control, so the same one can go on the beach and the meadow next with their own settings. It doesn't yet give the sun cast shadows; that's item 2.</p>
+  </section>
+
   <section class="panel" aria-labelledby="rv13-h" id="review13">
     <div class="eyebrow">Your call is needed &middot; fidelity review 13: a path to 5 in every category, in a still</div>
     <h2 id="rv13-h">From strong parts to a strong picture</h2>
@@ -2550,5 +2568,15 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
   group("data-cp32v", function (v) { cp32v = v; }, cp32render);
   group("data-cp32o", function (v) { cp32o = v; }, cp32render);
   cp32render();
+  var vd33v = "w", vd33o = "B";
+  var VD33O = { T: "Today", A: "A \u00b7 Deeper darks", B: "B \u00b7 And a deep foot", C: "C \u00b7 Strongest" };
+  function vd33render() {
+    document.getElementById("vd33img").src = "vd33_" + vd33o + "_" + vd33v + ".jpg";
+    document.getElementById("vd33tag").textContent = "Canyon \u00b7 " + VD33O[vd33o] + (vd33v === "w" ? " \u00b7 wide" : " \u00b7 match camera");
+    pressed("data-vd33v", vd33v); pressed("data-vd33o", vd33o);
+  }
+  group("data-vd33v", function (v) { vd33v = v; }, vd33render);
+  group("data-vd33o", function (v) { vd33o = v; }, vd33render);
+  vd33render();
 })();
 </script>
