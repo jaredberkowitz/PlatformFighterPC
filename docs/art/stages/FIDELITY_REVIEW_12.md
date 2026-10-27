@@ -80,3 +80,7 @@ each end; B also hangs the tapered rock under each (`underside`, as `rock_under`
 fighters' heads (the owner passed on it in review 6). The tops don't change. P1's gap 0.039 today (unlit) and A, 0.040 B. On the Stage
 Look Review ("canyonplats32", `cp32_*`); recommended A. To ship: rebuild `godot/models/stages/canyon_play.glb` with `--plat_joints A`,
 then re-light the canyon.
+
+Built A (the owner's pick): `godot/models/stages/canyon_play.glb` rebuilt with `--plat_joints A`, the canyon re-lit (front, paper, play).
+P1's gap 0.043. Before and after (the platforms, match camera): `review12/canyon_platforms_built.jpg`. All seven tests pass. With this,
+review 12's three items are built.
