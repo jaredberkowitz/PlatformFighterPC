@@ -238,3 +238,17 @@ Built B (the owner's pick): `godot/models/stages/canyon_front.glb` rebuilt with 
 --strata B`. The canyon is re-lit (front, paper, play; `--curve 4.0 --reach 4.5 --floor 0.28` after a fresh `--light-export`). In the
 game, wide: the front's contrast goes from 0.087 to 0.105 and its value from 0.27 to 0.25. P1's gap is 0.208. Before and after:
 `review14/canyon_front_built.jpg`. All seven tests pass.
+
+## Item 6, the beach's islands and headland (mock, 2026-10-27)
+
+`make_beach_ground.py --isles A|B` on the shipped `--variant C`:
+- **A:** the islands' contours every 0.32 (not 0.7) and the near hills' every 0.7 (not 1.5); each sand mound 1.15 times as wide, so
+  sand rims the green at the waterline.
+- **B:** the islands' green mounds and the near hills as folded paper domes (`fold_kit.folded_dome`, 7 pleats, scaled to each hill's own
+  ellipsoid; `folded_hill`), on A's sand. The folds go to the family, the skirt and underside to its `card_` family. The builder leaves
+  their faces as the kit set them.
+
+Triangles: 10,960 today, 23,952 A, 7,974 B. The far hills (the pop-up flats behind the town, the big pale headland) aren't touched;
+painting patches onto them would be its own change. The mocks are unlit (today too). Values hold (wide darks 8%, range 0.58); P1's gap
+holds (0.255 to 0.250). A still reads as tiers, only finer. On the Stage Look Review ("beachisles48", `bi48_*`); recommended B. To
+ship: rebuild `godot/models/stages/beach_ground.glb` with `--variant C --isles B`, and re-light the beach.

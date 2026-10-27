@@ -88,8 +88,29 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
     <p>Two lessons from the reference screenshots, mocked from the match camera: the scenery without ink outlines, its edges lit as card bevels instead, and the paper houses rebuilt at the characters' proportions. The earlier rounds stay on the <a href="https://claude.ai/artifact/D1du6MREVumiJDrEdNypW4">Stage Fidelity Review</a>, which is full.</p>
   </header>
 
+  <section class="panel" aria-labelledby="bi48-h" id="beachisles48">
+    <div class="eyebrow">Your call is needed &middot; review 14, item 6: the beach's islands</div>
+    <h2 id="bi48-h">Islands folded, not stacked</h2>
+    <p>First, the canyon's front is built (B, strata with clefts, the canyon re-lit; see its section below). Next, the beach's background land. The islands' green mounds were cut as stacked contour sheets 0.7 apart, which read as tiered green slabs, a wedding cake. The low hills by the crane were the same.</p>
+    <div class="tablewrap"><table><thead><tr><th>Option</th><th>What changes</th></tr></thead><tbody>
+      <tr><td>A &middot; Finer contours</td><td>The sheets twice as fine on the islands and the low hills, and each sand mound wider, so sand rims the green at the waterline</td></tr>
+      <tr><td>B &middot; Folded hills</td><td>The islands' green and the low hills as folded paper domes (the grove's and meadow's fold), each fold lit on one side, on A's sand</td></tr>
+    </tbody></table></div>
+    <p>Today then B at the match camera: the islands, then the town's hills. All three are unlit, as mocks are; the shipped one is re-lit. Values hold (wide: darks 8%, range 0.58), and P1's gap holds (0.255 to 0.250).</p>
+    <div class="viewer"><img src="bi48_close.jpg" alt="The beach's islands and hills today and with option B"></div>
+    <div class="row" role="group" aria-label="View"><button data-bi48v="m">Match camera</button><button data-bi48v="w">Wide</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-bi48o="T">Today</button><button data-bi48o="A">A &middot; Finer contours</button><button data-bi48o="B">B &middot; Folded hills</button></div>
+    <div class="viewer"><img id="bi48img" alt="Beach islands option"><span class="vtag" id="bi48tag"></span></div>
+    <p class="muted">My pick: <b>B</b>. Each island reads as one rounded hill on a beach, folded like the grove's and meadow's hills, so the stages share a hand. B is also lighter than today (8,000 triangles against 11,000); A is 24,000. Honest notes:
+      <ul>
+        <li>A still reads as tiers, only finer.</li>
+        <li>The big pale headland behind the town is the far hills, standing cut-out flats (the pop-up you picked in October). This doesn't touch it. Painting patches onto those flats would be its own small change.</li>
+      </ul>
+    </p>
+  </section>
+
   <section class="panel" aria-labelledby="cf47-h" id="canyonfront47">
-    <div class="eyebrow">Your call is needed &middot; review 14, item 5: the canyon's front</div>
+    <div class="eyebrow">Built B (the owner's pick) &middot; review 14, item 5: the canyon's front</div>
     <h2 id="cf47-h">Rock in beds of its own depth</h2>
     <p>First, warm against cool is built (B on the canyon and the city; see its section below). Next, the canyon's front, a third of its wide frame. It read as one banded block: every bed of rock lay within a few tenths of the same plane. This alternates hard beds, thicker and standing out, with soft ones, thinner and set back. The face then steps in ledges with shade under them, and the top bed overhangs. Same colours, same joints.</p>
     <div class="tablewrap"><table><thead><tr><th>Option</th><th>What changes</th></tr></thead><tbody>
@@ -3079,5 +3100,15 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
   group("data-cf47v", function (v) { cf47v = v; }, cf47render);
   group("data-cf47o", function (v) { cf47o = v; }, cf47render);
   cf47render();
+  var bi48v = "m", bi48o = "B";
+  var BI48O = { T: "Today", A: "A · Finer contours", B: "B · Folded hills" };
+  function bi48render() {
+    document.getElementById("bi48img").src = "bi48_" + bi48o + "_" + bi48v + ".jpg";
+    document.getElementById("bi48tag").textContent = "Beach · " + BI48O[bi48o] + (bi48v === "w" ? " · wide" : " · match camera");
+    pressed("data-bi48v", bi48v); pressed("data-bi48o", bi48o);
+  }
+  group("data-bi48v", function (v) { bi48v = v; }, bi48render);
+  group("data-bi48o", function (v) { bi48o = v; }, bi48render);
+  bi48render();
 })();
 </script>
