@@ -86,3 +86,6 @@ and the frame's foot deepened by `foot` from `foot from` of the way down. Set fr
 range wide; P1's gap): today 4% / 4%, 0.49, 0.041; A 9% / 12%, 0.54, 0.061; B 11% / 19%, 0.56, 0.062; C 17% / 27%, 0.60, 0.076. On the
 Stage Look Review ("valuedeep33", `vd33_*`); recommended B (inside the references' 8 to 15% wide). To ship: lighting.gd STYLES
 "sunset" finish `"value_deep": [0.35, 0.3, 0.6, 60.0]`.
+
+Built B (the owner's pick): lighting.gd STYLES "sunset" finish `"value_deep": [0.35, 0.3, 0.6, 60.0]`. In the game the wide still holds
+11% darks, range 0.56. Before and after (wide): `review13/canyon_value_built.jpg`. All seven tests pass.
