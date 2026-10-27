@@ -102,3 +102,23 @@ To ship: lighting.gd STYLES "meadow" and "ocean" finish `"value_deep": [0.5, 0.4
 Built C on both (the owner's pick): lighting.gd STYLES "meadow" and "ocean" finish `"value_deep": [0.5, 0.42, 0.55, 80.0]`. In the game
 at the match camera: the meadow 17% darks, P1's gap 0.035 (0.016 before); the beach 20% darks, P1's gap 0.234. Before and after
 (match camera, meadow then beach): `review13/meadow_beach_value_built.jpg`. All seven tests pass.
+
+## Item 2, a readable sun: what blocks it (investigation, 2026-10-27)
+
+The canyon's floor shows no shadows from its buttes, arch or hoodoos, though the stage has realtime background shadows (shipped
+7fc9efb, 2026-10-22: 260 units, four splits, `pf_cast_shade`). Findings, with debug renders (the cast tone set to black; then every
+pixel with the shadow attenuation under 0.5 painted magenta):
+
+- The key's settings are as shipped: shadows on, range 260, four splits, pitch -20 (tried -30), effective yaw -122 (the light travels
+  toward the camera and right, from the drawn sun's side, so shadows should stretch toward the camera across the floor).
+- At pitch -20 much of the floor is in the cel shade band, and the cast tone only darkens lit faces; at -30 the floor takes the light.
+- The shadow maps work near the camera: faces turned from the sun are shadowed, and a near hoodoo's shadow lands on the floor beside
+  it. **Further back (the arch and buttes, about 110 to 180 from the wide camera, the third and fourth splits) no shadow reaches the
+  floor at all**, and the black cast tone shows nowhere on the grove's terraces either.
+- None of the arch, butte or hoodoo pieces are trimmed from casting (`StageView.trim_shadow_casters`, logged); the floor sheets are
+  trimmed (they are 400 wide) but still receive; a lower shadow bias (normal 0.3, bias 0.03) changes nothing.
+
+So the far splits' shadows have stopped landing since the 22 October fix (something added since likely stretches those splits again,
+as the far ranges once did), or the cast tone path no longer fires. Next step: bisect from 7fc9efb with the black-cast debug, then fix;
+only after that can the readable sun be mocked. A fallback that needs no fix: bake the sun's shadow into the ground's vertices
+(`light_stage.py --sun`, the retired pilot), softer but certain.
