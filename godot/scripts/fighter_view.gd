@@ -1012,7 +1012,7 @@ func _animate(s: Dictionary, delta: float) -> void:
 	_bulk_arms(_cls(s))
 	_body_follow(s, delta)
 	_lag_bones(s)
-	_face_camera(int(s.facing))
+	_face_camera(int(s.facing), delta)
 	_follow_bones()
 
 
@@ -1221,6 +1221,34 @@ func _body_follow(s: Dictionary, delta: float) -> void:
 	# toward the opponent (`attack_turn`), so a strike is thrown at the foe and not at the camera.
 	_turn_bone(spine_bone, -lerpf(CHEST_TO_CAMERA, CHEST_IN_ATTACK, attack_turn) * float(s.facing))
 	_turn_bone(head_bone, HEAD_TOWARD_FOE * float(s.facing))
+	if use_base_body and not turning_over and not r7_off.has("chest"):
+		_keep_chest_side_on()
+
+
+## The chest never turns its back to the camera (round 7): past CHEST_SOFT degrees from the camera its turn is eased toward CHEST_MOST and
+## never past it. A clip's shoulder turn into a strike, amplified, swung the side-on chest round to 150-180 (the Longsword's jab, tilts,
+## smashes and specials, 15% of its frames), while the face limit held the head toward the camera: the neck twisted up to 131 degrees, an
+## owl's head. Side-on is the stance's own rule (pass 28: a move "never passes side-on"); the reference fighters' heads ride the chest.
+const CHEST_SOFT := 90.0
+const CHEST_MOST := 108.0
+## With the environment variable PF_R7_OFF (a debugging aid for round 7's before and after images), the round's layers named in it are
+## left out: "chest" (`_keep_chest_side_on`), "level" (`_level_head` and FACE_UP_MAX), "ease" (`_ease_neck`), "legs" (`_leg_hinge` and
+## the kick's knee pole), "tumble" (the settle out of a tumble), e.g. PF_R7_OFF=ease,legs.
+static var r7_off := OS.get_environment("PF_R7_OFF").split(",")
+
+
+func _keep_chest_side_on() -> void:
+	var g: Basis = skeleton.get_bone_global_pose(spine_bone).basis * skeleton.get_bone_global_rest(spine_bone).basis.inverse()
+	var ahead: Vector3 = (_skeleton_to_frame().basis * g * Vector3(0, 0, 1))
+	if Vector2(ahead.x, ahead.z).length() < 0.3:
+		return
+	var away := rad_to_deg(atan2(ahead.x, ahead.z))
+	var a := absf(away)
+	if a <= CHEST_SOFT:
+		return
+	var span := CHEST_MOST - CHEST_SOFT
+	var kept := CHEST_SOFT + span * (1.0 - exp(-(a - CHEST_SOFT) / span))
+	_turn_bone(spine_bone, -signf(away) * (a - kept))
 
 
 ## The chest and head lagging the hips (the `spine`, `head` and `head_turn` springs), on top of the clip and the body follow; and behind a
@@ -1252,17 +1280,76 @@ const FACE_AWAY_MAX := 40.0
 const FACE_DOWN_MAX := 18.0
 ## The most the head is tipped back to keep that (degrees), so the neck never bends further than a neck can.
 const FACE_UP_MOST := 45.0
+## Nor does it look up further than this (round 7: a body arched back under an up air, or rocked back in a forward air's wind-up, tipped
+## the face 40 up, showing the chin; the reference fighters' heads stay near level and look along the move).
+const FACE_UP_MAX := 24.0
+## The head is kept near upright (round 7, after the reference fighters, whose heads stay level while the body leans and twists): its tilt
+## to the side about the way it looks is cut to this share, and to no more than HEAD_ROLL_MAX degrees. The side-on stance's sideways
+## chest bend had left every idle, walk, run and shield with the head cocked about 18 degrees, gone again in the air: a tilt that came
+## and went on every jump.
+const HEAD_ROLL_KEEP := 0.3
+const HEAD_ROLL_MAX := 7.0
+## The head eases toward the way all of that asks it to look (round 7), a share of the way each sim frame and never faster than
+## NECK_MAX_STEP degrees a frame: a clip changing (an attack's first frame is posed at once), or a limit above taking hold or letting go,
+## turned the head 20 to 77 degrees in one frame, the jolts at the start and end of moves, jumps and landings. Slow motion passes through
+## (the idle's nod lags it by about a frame). Eased in the stage frame, so the body's own turns and leans carry the head at once; while
+## the body turns over on purpose (a flip, a roll, a tumble) it rides the body exactly.
+const NECK_EASE := 0.4
+const NECK_MAX_STEP := 20.0
+var neck_q := Quaternion.IDENTITY
+var neck_ok := false
 ## Whether the whole body is turning over on purpose this frame (a flip, a roll, a tumble), when the face's limit against the world is off.
 var turning_over := false
 
 
-func _face_camera(facing: int) -> void:
+func _face_camera(facing: int, delta := 1.0 / 60.0) -> void:
 	if not use_base_body or skeleton == null or head_bone < 0 or not skeleton.is_inside_tree():
 		return
 	# (Three times, round 2: a head pitched far down has no clear turn, and lifting it changes how far it is turned, so one pass left a curled
 	# aerial's face 30 down and 75 away; measured again after the first pass, both limits hold.)
+	face_fix_turn = 0.0
+	face_fix_lift = 0.0
 	for _pass in 3:
 		_face_camera_once(facing)
+	if not turning_over and not r7_off.has("level"):
+		_level_head()
+	if not r7_off.has("ease"):
+		_ease_neck(delta)
+
+
+## Cuts the head's tilt to the side (about the way it looks, against the world's vertical) to HEAD_ROLL_KEEP of itself.
+func _level_head() -> void:
+	var head_delta: Transform3D = skeleton.get_bone_global_pose(head_bone) * head_rest_inv
+	var to_world := skeleton.global_transform.basis
+	var fwd: Vector3 = (to_world * head_delta.basis * Vector3(0, 0, 1)).normalized()
+	if absf(fwd.y) > 0.85:
+		return
+	var up: Vector3 = (to_world * head_delta.basis * Vector3(0, 1, 0)).normalized()
+	var roll := _roll_about(fwd, up)
+	var want := clampf(roll * HEAD_ROLL_KEEP, -HEAD_ROLL_MAX, HEAD_ROLL_MAX)
+	if absf(roll - want) > 0.05:
+		_rotate_bone_about(head_bone, (to_world.inverse() * fwd).normalized(), want - roll)
+
+
+## The neck's own turn (the head bone's pose on the chest) eased toward the one asked for (see NECK_EASE). On the springs' clock: held
+## through a hit's freeze and a pause, and straight on its target after a rollback or a replay seek, so either redraws a frame exactly.
+func _ease_neck(delta: float) -> void:
+	var to_frame := _skeleton_to_frame().basis.orthonormalized()
+	var parent := skeleton.get_bone_parent(head_bone)
+	var want := (to_frame * skeleton.get_bone_global_pose(head_bone).basis.orthonormalized()).get_rotation_quaternion()
+	if not neck_ok or springs.jumped or turning_over:
+		neck_q = want
+		neck_ok = true
+		return
+	if springs.flowing:
+		var frames := delta * 60.0
+		var angle := rad_to_deg(neck_q.angle_to(want))
+		if angle > 0.01:
+			var step := minf(angle * (1.0 - pow(1.0 - NECK_EASE, frames)), NECK_MAX_STEP * frames)
+			neck_q = neck_q.slerp(want, clampf(step / angle, 0.0, 1.0))
+	var global_basis := to_frame.inverse() * Basis(neck_q)
+	var pg := skeleton.get_bone_global_pose(parent).basis.orthonormalized()
+	skeleton.set_bone_pose_rotation(head_bone, (pg.inverse() * global_basis).get_rotation_quaternion())
 
 
 func _face_camera_once(facing: int) -> void:
@@ -1292,14 +1379,27 @@ func _face_camera_once(facing: int) -> void:
 			axis = fwd_skel.cross(up_skel)
 		if axis.length() > 0.01:
 			_rotate_bone_about(head_bone, axis.normalized(), minf(down - FACE_DOWN_MAX, FACE_UP_MOST))
+			face_fix_lift += minf(down - FACE_DOWN_MAX, FACE_UP_MOST)
 		head_delta = skeleton.get_bone_global_pose(head_bone) * head_rest_inv
 		ahead = (_skeleton_to_frame().basis * head_delta.basis * Vector3(0, 0, 1)).normalized()
+	elif down < -FACE_UP_MAX and not turning_over and absf(ahead.y) < 0.95 and not r7_off.has("level"):
+		# (Round 7: and no further up than FACE_UP_MAX, tipped down about its own side-to-side axis.)
+		var up_ahead: Vector3 = head_delta.basis * Vector3(0, 0, 1)
+		var up_axis := up_ahead.cross((skeleton.global_transform.basis.inverse() * Vector3.UP).normalized())
+		var world_up := rad_to_deg(asin(clampf((skeleton.global_transform.basis * up_ahead).normalized().y, -1.0, 1.0)))
+		var over := minf(-down, world_up) - FACE_UP_MAX
+		if over > 0.0 and up_axis.length() > 0.01:
+			_rotate_bone_about(head_bone, up_axis.normalized(), -over)
+			face_fix_lift -= over
+			head_delta = skeleton.get_bone_global_pose(head_bone) * head_rest_inv
+			ahead = (_skeleton_to_frame().basis * head_delta.basis * Vector3(0, 0, 1)).normalized()
 	# The turn, only for a head that is not still looking well down (its turn is not clear then).
 	if absf(ahead.y) < 0.8:
 		var away := rad_to_deg(atan2(ahead.x, ahead.z))
 		var limit := lerpf(FACE_AWAY_MAX, FACE_AWAY_IN_ATTACK, attack_turn)
 		if absf(away) > limit:
 			_turn_bone(head_bone, -signf(away) * (absf(away) - limit))
+			face_fix_turn += absf(away) - limit
 
 
 ## Turns a bone by `degrees` about `axis` (skeleton space), on top of its pose.
@@ -2960,6 +3060,8 @@ func _face_for(s: Dictionary) -> Dictionary:
 
 ## How far round a tumbling launch has turned the body (radians).
 var tumble_angle := 0.0
+## Out of a tumble in the air, the share of the tumble's turn left after each sim frame (round 7): upright in about six frames.
+const TUMBLE_SETTLE := 0.55
 ## Flying faster than this (world units a frame), a launched fighter is thrown head first along its path rather than tumbling.
 const LAUNCH_POSE_SPEED := 0.32
 ## The hurt recoil (round 3 item 3): the whole body snaps away from the hit over HURT_SNAP_FRAMES, holds a moment, then recovers to
@@ -3153,6 +3255,7 @@ func reset_motion() -> void:
 	smear_frame = -1
 	flinch_left = 0.0
 	ik_fade = 0.0
+	neck_ok = false
 	body_spring_frame = -1
 	body_still = 0.0
 	for t in tails:
@@ -3440,6 +3543,11 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 	prev_wall_jumps = wall_jumps
 	prev_jumps = jumps
 	if grounded or not (state == "Airborne" or state == "LedgeJump"):
+		# (Round 7: a flip cut short in the air (an aerial or an air dodge out of a midair jump) settles upright over a few frames, as a
+		# tumble does (`TUMBLE_SETTLE`), instead of turning up to 180 degrees in one.)
+		if flip_left > 0.0 and not grounded and not r7_off.has("tumble"):
+			var cut := 1.0 - flip_left / FLIP_TIME
+			tumble_angle = wrapf(TAU * cut * cut * (3.0 - 2.0 * cut) * (-1.0 if flip_back else 1.0), -PI, PI)
 		flip_left = 0.0
 	if flip_left <= 0.0:
 		flip_back = false
@@ -3470,7 +3578,7 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 		flip += move_flip
 		pivot = Vector3(0, 0.9, 0)
 	model.rotation = Vector3(deg_to_rad(lean) + flip, yaw + _pivot_spin(s), 0)
-	turning_over = flip != 0.0 or _spin(s) != 0.0 or state == "Hitstun" or state == "Knockdown" or state == "GetUp"
+	turning_over = flip != 0.0 or _spin(s) != 0.0 or state == "Hitstun" or state == "Knockdown" or state == "GetUp" or absf(tumble_angle) > 0.02
 	# A spinning neutral air turns the whole body over once backward, in the plane of the stage (see NAIR_SPIN).
 	var spin := _spin(s)
 	if spin != 0.0:
@@ -3524,6 +3632,8 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 	_blink(delta)
 	if log_motion and state in ["Attack", "Hitstun", "Run", "Dash", "Landing"]:
 		_log_motion(s)
+	if log_head:
+		_log_head_legs(s)
 
 
 ## With the environment variable PF_MOTION_TRACE set (a debugging aid for the timing audit, round 3), every frame of an attack, a hit
@@ -3551,6 +3661,103 @@ func _log_motion(s: Dictionary) -> void:
 		var hd: Transform3D = skeleton.get_bone_global_pose(head_bone) * head_rest_inv
 		var look: Vector3 = (skeleton.global_transform.basis * hd.basis * Vector3(0, 0, 1)).normalized()
 		line += " look:%.2f,%.2f,%.2f" % [look.x * f, look.y, look.z]
+	print(line)
+
+
+## With the environment variable PF_HEAD_TRACE set (a debugging aid for round 7's head and leg audit), every frame of every state prints
+## the head's and the legs' angles in the world, forward along the facing as +x and toward the camera as +z:
+## "HL <player> <class> <state> <move> <state frame> <hitlag> <facing> <grounded> yaw:<model> head:<yaw>,<pitch>,<roll>
+## chest:<yaw>,<pitch> hips:<yaw> rel:<head yaw on the chest>,<pitch> fix:<face limiter turn>,<lift> N:<near leg> F:<far leg>". Each
+## leg is "<knee flex>,<knee yaw>,<knee up>,<shin twist>,<off hinge>,<toe yaw>,<toe pitch>,<sole roll>,<ankle x>,<ankle y>,<ankle z>,
+## <knee z>": yaws in degrees from forward (0) toward the camera (+90); `tools/art/review/head_leg_report.py` reads it.
+static var log_head := OS.has_environment("PF_HEAD_TRACE")
+var face_fix_turn := 0.0
+var face_fix_lift := 0.0
+
+
+func _bone_world(bone: String) -> Transform3D:
+	var i := skeleton.find_bone(bone)
+	var g: Transform3D = skeleton.global_transform * skeleton.get_bone_global_pose(i)
+	var d: Basis = (skeleton.global_transform.basis * skeleton.get_bone_global_pose(i).basis * skeleton.get_bone_global_rest(i).basis.inverse()).orthonormalized()
+	return Transform3D(d, g.origin - global_position)
+
+
+## A bone's own axis (0 x, 1 y along the bone) in the world, as posed or at rest.
+func _bone_axis(bone: String, rest: bool, which := 0) -> Vector3:
+	var i := skeleton.find_bone(bone)
+	var b: Basis = skeleton.get_bone_global_rest(i).basis if rest else skeleton.get_bone_global_pose(i).basis
+	return (skeleton.global_transform.basis * b[which]).normalized()
+
+
+static func _hinge_twist(a: Vector3, b: Vector3, about: Vector3) -> float:
+	a = (a - about * a.dot(about)).normalized()
+	b = (b - about * b.dot(about)).normalized()
+	return rad_to_deg(atan2(about.dot(a.cross(b)), a.dot(b)))
+
+
+static func _roll_about(fwd: Vector3, up: Vector3) -> float:
+	var ref := Vector3.UP - fwd * fwd.dot(Vector3.UP)
+	if ref.length() < 0.05:
+		return 0.0
+	ref = ref.normalized()
+	var u := (up - fwd * fwd.dot(up)).normalized()
+	return rad_to_deg(atan2(fwd.dot(ref.cross(u)), ref.dot(u)))
+
+
+func _log_head_legs(s: Dictionary) -> void:
+	if skeleton == null or head_bone < 0 or not skeleton.is_inside_tree():
+		return
+	var f := float(s.facing)
+	var fl := func(v: Vector3) -> Vector3: return Vector3(v.x * f, v.y, v.z)
+	var head := _bone_world("head")
+	var hf: Vector3 = fl.call(head.basis * Vector3(0, 0, 1))
+	var hu: Vector3 = fl.call(head.basis * Vector3(0, 1, 0))
+	var chest := _bone_world("spine")
+	var cf: Vector3 = fl.call(chest.basis * Vector3(0, 0, 1))
+	var hips := _bone_world("hips")
+	var pf: Vector3 = fl.call(hips.basis * Vector3(0, 0, 1))
+	var rel: Vector3 = (chest.basis.inverse() * head.basis) * Vector3(0, 0, 1)
+	var mv := String(s.move_name).replace(" ", "_")
+	var line := "HL %d %d %s %s %d %d %d %d yaw:%.1f" % [player, _cls(s), s.state, mv if mv != "" else "-", int(s.state_frame),
+		int(s.hitlag), int(f), 1 if int(s.platform) >= 0 else 0, rad_to_deg(model.rotation.y) * f]
+	line += " head:%.1f,%.1f,%.1f" % [rad_to_deg(atan2(hf.x, hf.z)), rad_to_deg(asin(clampf(hf.y, -1.0, 1.0))), _roll_about(hf, hu)]
+	line += " chest:%.1f,%.1f hips:%.1f" % [rad_to_deg(atan2(cf.x, cf.z)), rad_to_deg(asin(clampf(cf.y, -1.0, 1.0))), rad_to_deg(atan2(pf.x, pf.z))]
+	line += " rel:%.1f,%.1f" % [rad_to_deg(atan2(rel.x, rel.z)) * f, rad_to_deg(asin(clampf(rel.y, -1.0, 1.0)))]
+	line += " fix:%.1f,%.1f t:%d ov:%d" % [face_fix_turn, face_fix_lift, int(s.frame), 1 if turning_over else 0]
+	var near := "L" if f > 0.0 else "R"
+	var far := "R" if f > 0.0 else "L"
+	for side in [near, far]:
+		var th := _bone_world("thigh." + side)
+		var sh := _bone_world("shin." + side)
+		var ft := _bone_world("foot." + side)
+		var hip: Vector3 = th.origin
+		var knee: Vector3 = sh.origin
+		var ankle: Vector3 = ft.origin
+		var up_leg := knee - hip
+		var low_leg := ankle - knee
+		var flex := rad_to_deg(up_leg.angle_to(low_leg))
+		var axis := (ankle - hip).normalized()
+		var kd: Vector3 = fl.call(up_leg - axis * up_leg.dot(axis))
+		var kyaw := rad_to_deg(atan2(kd.z, kd.x)) if kd.length() > 0.01 else 0.0
+		var kup := rad_to_deg(asin(clampf(kd.normalized().y, -1.0, 1.0))) if kd.length() > 0.01 else 0.0
+		# The shin's twist on the thigh: the angle between their hinge axes (each bone's x, a knee's hinge) about the shin.
+		# (Each bone's own x axis, its hinge, as posed; less the angle between them at rest, so a pure hinge reads 0.)
+		var sd := low_leg.normalized()
+		var tx := _bone_axis("thigh." + side, false)
+		var sx := _bone_axis("shin." + side, false)
+		var rest_twist := _hinge_twist(_bone_axis("thigh." + side, true), _bone_axis("shin." + side, true),
+			(_bone_axis("shin." + side, true, 1)).normalized())
+		var twist := _hinge_twist(tx, sx, sd) - rest_twist
+		# How far the knee's bend plane is off the thigh's hinge (0: it bends about its own hinge).
+		var off := 0.0
+		if flex > 8.0:
+			var n := up_leg.cross(low_leg).normalized()
+			off = rad_to_deg(acos(clampf(absf(n.dot(tx)), 0.0, 1.0)))
+		var toe: Vector3 = fl.call(ft.basis * Vector3(0, 0, 1))
+		var sole: Vector3 = fl.call(ft.basis * Vector3(0, 1, 0))
+		var a: Vector3 = fl.call(ankle)
+		line += " %s:%.0f,%.0f,%.0f,%.0f,%.0f,%.0f,%.0f,%.0f,%.3f,%.3f,%.3f,%.3f" % ["N" if side == near else "F", flex, kyaw, kup, twist * f, off,
+			rad_to_deg(atan2(toe.z, toe.x)), rad_to_deg(asin(clampf(toe.y, -1.0, 1.0))), _roll_about(toe, sole), a.x, a.y, a.z, knee.z]
 	print(line)
 
 
@@ -4879,6 +5086,32 @@ static func _arm_hinge(up0: Vector3, fore0: Vector3, up1: Vector3, fore1: Vector
 	return [(want_u * rest_u.inverse()).get_rotation_quaternion(), (want_f * rest_f.inverse()).get_rotation_quaternion()]
 
 
+## A leg's rotations from rest to a bend as a hinge, as `_arm_hinge` does for the arm: [thigh, shin] (skeleton space). The knee's axis is the
+## model's x at rest; at the wanted pose it lies across the bend (`hint`, the bend's own axis, when the leg is nearly straight), on the side
+## nearer where the rest axis is carried, so neither bone twists about its length.
+static func _leg_hinge(up0: Vector3, low0: Vector3, up1: Vector3, low1: Vector3, hint: Vector3) -> Array:
+	var u0 := up0.normalized()
+	var l0 := low0.normalized()
+	var u1 := up1.normalized()
+	var l1 := low1.normalized()
+	var h1 := u1.cross(l1)
+	if h1.length() < 0.08:
+		h1 = hint - u1 * hint.dot(u1)
+		if h1.length() < 0.01:
+			return []
+	h1 = h1.normalized()
+	var h0 := (Vector3.RIGHT - u0 * Vector3.RIGHT.dot(u0)).normalized()
+	if h1.dot(Quaternion(u0, u1) * h0) < 0.0:
+		h1 = -h1
+	var rest_u := Basis(h0, u0, h0.cross(u0))
+	var want_u := Basis(h1, u1, h1.cross(u1))
+	var h0l := (h0 - l0 * h0.dot(l0)).normalized()
+	var h1l := (h1 - l1 * h1.dot(l1)).normalized()
+	var rest_l := Basis(h0l, l0, h0l.cross(l0))
+	var want_l := Basis(h1l, l1, h1l.cross(l1))
+	return [(want_u * rest_u.inverse()).get_rotation_quaternion(), (want_l * rest_l.inverse()).get_rotation_quaternion()]
+
+
 ## About where the hips are (forward space, height), for how steeply a kick rises.
 const KICK_HIP_Y := 0.6
 ## The steepest a kick rises on the base body (degrees above level, see `_aim_leg`).
@@ -4987,13 +5220,29 @@ func _aim_leg(s: Dictionary, kicking: bool, delta: float) -> void:
 		var dir_m: Vector3 = (_skeleton_to_frame().basis * dir).normalized()
 		var sin_phi := dir_m.x * float(facing)
 		var cos_phi := -dir_m.y
-		var pole_m := Vector3(float(facing) * cos_phi, sin_phi, 0.3)
+		# (Round 7: a leg kicked out behind and up (a split kick's back leg, a back kick) keeps its knee pointing down, as a knee can; the
+		# turn of the pole with the leg pointed it backward, and the knee folded the wrong way: the Needles' neutral air, 66% of its
+		# frames, the Claws' 37%. And each knee turns a little out from the body, the near one toward the camera and the far one away: both
+		# toward the camera crossed the far knee in front of the near leg.)
+		var r7_legs := not r7_off.has("legs")
+		if sin_phi < 0.0 and cos_phi < 0.0 and r7_legs:
+			sin_phi = -1.0
+			cos_phi = 0.0
+		var out := 0.3 if side == front or not r7_legs else -0.15
+		var pole_m := Vector3(float(facing) * cos_phi, sin_phi, out)
 		var pole: Vector3 = (to_skel.basis * pole_m).normalized()
 		var bend := (pole - dir * pole.dot(dir)).normalized()
 		var knee := hip + dir * (cos(ang) * upper) + bend * (sin(ang) * upper)
 		var shin_dir := (goal - knee).normalized()
-		var q_upper := Quaternion((knee0 - hip).normalized(), (knee - hip).normalized())
+		# (Round 7: as a hinge, the thigh and shin turned about one knee axis across the bend, as the arm's elbow is (`_arm_hinge`). Each
+		# turned by its own shortest rotation, the shin was twisted on the thigh by up to 176 degrees (the Clutch's neutral air; the Needles'
+		# forward smash 94, the Claws' up air 66) and the knee bent off its hinge, and the foot rolled with it.)
+		var q_upper := Quaternion((knee0 - rest_t.origin).normalized(), (knee - hip).normalized())
 		var q_lower := Quaternion((ankle0 - knee0).normalized(), shin_dir)
+		var hinged := _leg_hinge(knee0 - rest_t.origin, ankle0 - knee0, knee - hip, shin_dir, dir.cross(bend))
+		if not hinged.is_empty() and r7_legs:
+			q_upper = hinged[0]
+			q_lower = hinged[1]
 		var stretch := Basis.from_scale(MotionDeform.limb_scale(e))
 		skeleton.set_bone_global_pose_override(it, Transform3D(Basis(q_upper) * rest_t.basis * stretch, hip), leg_k, true)
 		skeleton.set_bone_global_pose_override(ish, Transform3D(Basis(q_lower) * rest_s.basis * stretch, knee), leg_k, true)
@@ -5961,5 +6210,11 @@ func _apply_combat(s: Dictionary, delta: float) -> void:
 		# (Frozen by the hit: already snapped part of the way off it.)
 		_recoil(s)
 		tumble_angle = 0.0
+	elif int(s.platform) < 0 and absf(tumble_angle) > 0.02 and not springs.jumped and not r7_off.has("tumble"):
+		# (Round 7: out of a tumble in the air (a jump, an air dodge or an aerial out of it) the body comes upright over a few sim frames,
+		# the short way round, instead of in one: it turned up to 171 degrees in a frame, the head with it, in every computer match.)
+		tumble_angle = wrapf(tumble_angle, -PI, PI) * pow(TUMBLE_SETTLE, float(springs.new_frames))
+		model.rotation.x += tumble_angle
+		model.position += SPIN_PIVOT_3D - Basis.from_euler(model.rotation) * SPIN_PIVOT_3D - (SPIN_PIVOT_3D - Basis.from_euler(Vector3(model.rotation.x - tumble_angle, model.rotation.y, model.rotation.z)) * SPIN_PIVOT_3D)
 	else:
 		tumble_angle = 0.0

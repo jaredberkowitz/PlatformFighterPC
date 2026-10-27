@@ -90,6 +90,11 @@ static func make(demo_name: String, m: Dictionary, dir: String):
 	if demo_name == "cpu":
 		# Computer against computer (sword against claws), a picture every half second for twenty seconds.
 		d.chars = [0, 1, 0, 1]
+		# (`--chars=A,B` picks the two fighters, round 7: the head and leg audit's matches.)
+		for a in OS.get_cmdline_user_args():
+			if a.begins_with("--chars="):
+				var picked := a.substr(8).split(",")
+				d.chars = [int(picked[0]), int(picked[1]) if picked.size() > 1 else 1, 0, 1]
 		d.cpu_levels = [5, 5, 0, 0]
 		for f in range(30, 1230, 30):
 			d.shots.append([f, "t%04d" % f])
