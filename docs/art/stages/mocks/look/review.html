@@ -88,6 +88,54 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
     <p>Two lessons from the reference screenshots, mocked from the match camera: the scenery without ink outlines, its edges lit as card bevels instead, and the paper houses rebuilt at the characters' proportions. The earlier rounds stay on the <a href="https://claude.ai/artifact/D1du6MREVumiJDrEdNypW4">Stage Fidelity Review</a>, which is full.</p>
   </header>
 
+  <section class="panel" aria-labelledby="rv13-h" id="review13">
+    <div class="eyebrow">Your call is needed &middot; fidelity review 13: a path to 5 in every category, in a still</div>
+    <h2 id="rv13-h">From strong parts to a strong picture</h2>
+    <p>All five stages analysed again on today's release, category by category. This time I also measured each still as one picture: how wide its range of values is and how much of the frame is dark. The full write-up is in docs/art/stages/FIDELITY_REVIEW_13.md.</p>
+    <div class="tablewrap"><table><thead><tr><th>Stage</th><th>Light</th><th>Surfaces</th><th>Play area</th><th>Background land</th><th>Sky</th><th>World</th><th>Cohesion</th><th>Readability</th><th>Mean</th></tr></thead><tbody>
+      <tr><td>Beach</td><td>4</td><td>4</td><td>4</td><td>4</td><td>4</td><td>5</td><td>4</td><td>4</td><td><b>4.1</b></td></tr>
+      <tr><td>Canyon</td><td>4</td><td>4</td><td>4</td><td>5</td><td>4</td><td>4</td><td>4</td><td>4</td><td><b>4.1</b></td></tr>
+      <tr><td>City</td><td>4</td><td>4</td><td>4</td><td>4</td><td>4</td><td>5</td><td>4</td><td>4</td><td><b>4.1</b></td></tr>
+      <tr><td>Grove</td><td>4</td><td>4</td><td>4</td><td>5</td><td>4</td><td>5</td><td>4</td><td>4</td><td><b>4.25</b></td></tr>
+      <tr><td>Meadow</td><td>4</td><td>4</td><td>4</td><td>5</td><td>4</td><td>5</td><td>4</td><td>4</td><td><b>4.25</b></td></tr>
+    </tbody></table></div>
+    <h3>The finding: three stills have no darks</h3>
+    <div class="tablewrap"><table><thead><tr><th>Stage (wide)</th><th>Value range</th><th>Frame under 0.25</th><th>Sky's range</th><th>P1's gap</th></tr></thead><tbody>
+      <tr><td>Meadow</td><td>0.34 to 0.84</td><td>2%</td><td>0.38</td><td>0.016</td></tr>
+      <tr><td>Beach</td><td>0.36 to 0.78</td><td>2%</td><td>0.28</td><td>0.183</td></tr>
+      <tr><td>Canyon</td><td>0.26 to 0.75</td><td>4%</td><td>0.28</td><td>0.041</td></tr>
+      <tr><td>Grove</td><td>0.16 to 0.79</td><td>16%</td><td>0.49</td><td>0.060</td></tr>
+      <tr><td>City</td><td>0.05 to 0.70</td><td>27%</td><td>0.54</td><td>0.131</td></tr>
+    </tbody></table></div>
+    <p>The references hold a deliberate dark anchor (about 8 to 15% of the frame) and a range near 0.7. The meadow, beach and canyon have almost none, so however much detail they carry, they read milky as a picture. The canyon, a low sunset, has no shadows on its floor. Twenty-nine of the forty cells are 4, and what they now share is the picture as a whole: its values, its light and its edges.</p>
+    <h3>What blocks 5</h3>
+    <ul style="display:grid;gap:6px;margin:0;padding-left:1.4em;max-width:78ch">
+      <li><b>Light:</b> soft ambient shading everywhere. No cast shadows say where the sun is (the canyon's floor, the dock on the water).</li>
+      <li><b>Surfaces:</b> a pale cut-edge outline round nearly every shape (hoodoos, rocks, roots, posts) reads as sticker outlines. The meadow's wall is a grid of near-identical grey boxes.</li>
+      <li><b>Sky:</b> rows of small, identical cloud cards (the canyon and meadow most), and narrow gradients. The city's moon is cut by the frame's top.</li>
+      <li><b>Cohesion:</b> the grove's mist pads are flat purple discs and its roots pink ribbons. The city is all one purple.</li>
+      <li><b>Readability:</b> the meadow's and canyon's yellow fighters sit on pale tops (gaps of 0.016 and 0.041).</li>
+      <li><b>The fighters</b> are half of every still. That's the character and animation sessions' work, and the largest gap left.</li>
+    </ul>
+    <h3>The plan to 5 (all refinements; nothing new is added)</h3>
+    <ol style="display:grid;gap:6px;margin:0;padding-left:1.4em;max-width:78ch">
+      <li><b>A dark anchor and full value range</b> on the meadow, beach and canyon: a deeper shade side and frame foot, lighter far planes, and the play top a step deeper under the fighters. Lifts light, cohesion, readability and land.</li>
+      <li><b>A readable sun:</b> long cast shadows across the canyon's floor with a warm rim on lit sides, and the dock's shadow on the water.</li>
+      <li><b>Chosen cut edges:</b> the pale outline only where a paper edge would catch light, tinted to its surface and fading with depth. One change for all five stages.</li>
+      <li><b>Composed skies:</b> two or three large layered cloud groups in place of rows of small cards, and a wider gradient. The city's moon whole in frame.</li>
+      <li><b>The grove:</b> mist pads as soft layered sheets, roots in bark brown, side pines varied.</li>
+      <li><b>The meadow's wall</b> as a hand-laid fieldstone wall.</li>
+      <li><b>The city's value steps:</b> near skyline darker, far lighter and bluer, warm light spread through the layers.</li>
+      <li><b>The beach's near water</b> as paper wave sheets with dark troughs.</li>
+    </ol>
+    <p>Items 1 to 4 decide most of it. With them, light, sky, cohesion and readability should reach 5 on the meadow, beach and canyon; items 5 to 8 close the remaining stage-by-stage cells.</p>
+    <p>The weak spots, close (the canyon's hoodoos, the canyon's sky, the grove's mist pads, the grove's island underside, the meadow's wall, the beach's near water, the city's skyline, the meadow's sky):</p>
+    <div class="viewer"><img src="r13_crops.jpg" alt="The weak spots close"></div>
+    <h3>Every stage today</h3>
+    <div class="viewer"><img src="r13_sheet.jpg" alt="Every stage at the match camera and wide"></div>
+    <p class="muted">My recommended start: item 1 on the canyon. Its frame has the narrowest range, the fewest darks and a narrow fighter gap, and as a sunset it should be the most dramatic stage. Then the beach and the meadow.</p>
+  </section>
+
   <section class="panel" aria-labelledby="cp32-h" id="canyonplats32">
     <div class="eyebrow">Built A (the owner's pick) &middot; review 12, item 3: the canyon's platforms</div>
     <h2 id="cp32-h">Jointed sandstone platforms</h2>
