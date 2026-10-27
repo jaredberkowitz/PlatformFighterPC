@@ -3072,6 +3072,15 @@ static func ridge(root: Node3D, t: Dictionary, spec: Dictionary) -> MeshInstance
 		if faceted:
 			land.set_shader_parameter("facets", true)
 			land.set_shader_parameter("ramp_softness", 0.1)
+		# (Painted variation on the ranges, fidelity review 12: the meadow's great peaks were big flat facets, each one tone. The
+		# palette's [backdrop] `range_drift` [value patches, warm-cool wander, size, tops warm] or `--range-drift=A|B`: the play areas'
+		# paint at a mountain's size.)
+		var drift: Array = (_palette.get("backdrop", {}) as Dictionary).get("range_drift", [])
+		for arg in OS.get_cmdline_user_args():
+			if arg.begins_with("--range-drift="):
+				drift = {"A": [3.0, 1.2, 24.0, 0.8], "B": [4.5, 1.6, 16.0, 1.0]}.get(arg.substr(14).to_upper(), drift)
+		if drift.size() == 4:
+			land.set_shader_parameter("paint_drift", Vector4(drift[0], drift[1], drift[2], drift[3]))
 			# (Not on dunes, a spec's "no_fall": falling into shade toward their foot, the sand read mauve against the golden floor.)
 			land.set_shader_parameter("fall_by_height", not spec.get("no_fall", false))
 			land.set_shader_parameter("front_fall", 0.38)
@@ -5379,7 +5388,7 @@ static func _ocean(root: Node3D, t: Dictionary, stage: Array) -> void:
 	var near: Array = (_palette.get("backdrop", {}) as Dictionary).get("sea_near", [])
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--sea-near="):
-			near = {"A": [0.8, 0.0], "B": [0.8, 1.0], "C": [1.25, 1.0]}.get(arg.substr(11), near)
+			near = {"A": [0.8, 0.0], "B": [0.8, 1.0], "C": [1.25, 1.0], "D": [1.8, 1.0]}.get(arg.substr(11), near)
 	if near.size() == 2:
 		wm.set_shader_parameter("near_depth", Vector2(near[0], near[1]))
 	for arg in OS.get_cmdline_user_args():
