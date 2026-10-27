@@ -185,3 +185,27 @@ On the Stage Look Review ("keyfill45", `kf45_*`); recommended C. To ship: STYLE_
 Built C on every stage (the owner's pick): STYLE_DEFAULT `key_fill=[0.2, 0.2]`. The shipped frames measure as mock C (canyon wide: darks
 16%, p95 0.74; city: darks 36%). Before and after (wide: the canyon's rocks, the grove's pines, the meadow's pines and barn, the beach's
 town): `review14/key_fill_built.jpg`. All seven tests pass.
+
+## Item 4, warm against cool (mock, 2026-10-27)
+
+`--warm-cool=A|B`, on the canyon and the city.
+
+**Canyon.** Every face was one pink-orange: the painted shade turned only 0.1 toward the dusk's violet (shadow_hue 0.79), and with the
+fill now low the painted shade is most of a shaded face. In `Lighting.stage_mood`:
+- A: `shadow_shift` 0.2.
+- B: 0.25 (the most the shade allows) toward hue 0.72, and `shadow_value` x0.9.
+
+**City.** The brick (city.cfg `soil` 0.6, 0.46, 0.42) was calmed three quarters of the way into the stage's purple haze (`FRONT_CALM`
+0.75), so the play building went mauve.
+- A: the brick a warm red (`StageArt.theme`: `soil` 0.66, 0.36, 0.26 and `soil_dark` 0.48, 0.24, 0.2), and the lit roof 35% toward
+  a warm peach (`StageBake.place_play`, palette [backdrop] `roof_warm`).
+- B: A with the city's front calmed to 0.35 (a style's `front_calm`).
+
+Values hold: wide darks and the 95th percentile unchanged on both stages. P1's gap holds: canyon 0.200 to 0.208, city 0.185 to 0.181.
+The shade hue is shared with the fighters, so on the canyon their shaded side turns slightly cooler too (P1's body 0.626 to 0.635).
+The canyon's step is gentle even at B.
+
+On the Stage Look Review ("warmcool46", `wc46_*`); recommended B on both. To ship:
+- `MOODS.sunset` `shadow_shift` 0.25, `shadow_hue` 0.72 and `shadow_value` 0.522;
+- city.cfg `soil` and `soil_dark` as above, and [backdrop] `roof_warm=0.35`;
+- the city style's `front_calm` 0.35.

@@ -516,6 +516,11 @@ static func place_play(root: Node3D, t: Dictionary, path: String) -> void:
 			fringe = top.darkened(0.1)
 		"city":
 			top = grass.lerp(Color(0.84, 0.56, 0.42), 0.9).lightened(0.18)
+			# (A warm lit roof against the cool night, fidelity review 14 item 4: the palette's [backdrop] `roof_warm`, or `--warm-cool=`.)
+			var warm := float((StageArt.palette("city").get("backdrop", {}) as Dictionary).get("roof_warm", 0.0))
+			if flag("--warm-cool=") != "":
+				warm = 0.35
+			top = top.lerp(Color(0.95, 0.62, 0.4), warm)
 			layer1 = grass.darkened(0.18)
 			layer2 = soil_dark.darkened(0.35)
 			fringe = (t.get("grass_light", top) as Color).lerp(Color(1.0, 0.9, 0.78), 0.6)

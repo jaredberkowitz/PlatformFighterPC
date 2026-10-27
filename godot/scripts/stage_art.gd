@@ -141,7 +141,20 @@ static func theme(look: Dictionary) -> Dictionary:
 		t.sky_top = Color.html(top)
 	if bottom.length() == 6:
 		t.sky_horizon = Color.html(bottom)
+	# (Warm against cool, fidelity review 14 item 4: the city's brick a warm red, where it read pink-mauve under its purple night.
+	# `--warm-cool=A|B`; shipping writes it into city.cfg's `soil` and `soil_dark`.)
+	if name == "city" and _flag_set("--warm-cool="):
+		t.soil = Color(0.66, 0.36, 0.26)
+		t.soil_dark = Color(0.48, 0.24, 0.2)
 	return t
+
+
+## Whether a command-line flag beginning `prefix` was given.
+static func _flag_set(prefix: String) -> bool:
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with(prefix):
+			return true
+	return false
 
 
 ## The sky for a theme: a gradient from the top colour to the horizon (the camera never sees below the horizon much).

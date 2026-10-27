@@ -536,7 +536,11 @@ static func stage_mood(env: Environment, root: Node, theme: Dictionary, post: Sh
 	apply_paper(env, post, float(style(theme.get("name", "meadow")).finish.get("scenery_lines", 0.4)))
 	# The stage fronts calmed into the stage's own haze (`pf_front_calm`, shaders/toon_common.gdshaderinc; the gauntlet's round 1).
 	var haze: Color = (theme.get("sky_horizon", Color(0.8, 0.85, 0.95)) as Color).lerp(mood.ambient[0], 0.4)
-	RenderingServer.global_shader_parameter_set("pf_front_calm", Color(haze.r, haze.g, haze.b, FRONT_CALM))
+	# (A style's own `front_calm`, fidelity review 14 item 4: calmed three quarters into the city's purple haze, its warm brick went mauve.)
+	var calm := float(style(theme.get("name", "meadow")).get("front_calm", FRONT_CALM))
+	if String(theme.get("name", "")) == "city" and _flag_value("--warm-cool=").to_upper() == "B":
+		calm = 0.35
+	RenderingServer.global_shader_parameter_set("pf_front_calm", Color(haze.r, haze.g, haze.b, calm))
 	var m := mood.duplicate()
 	if theme.has("sky_horizon"):
 		m.rim = (mood.rim as Color).lerp(theme.sky_horizon, 0.3)
@@ -547,6 +551,16 @@ static func stage_mood(env: Environment, root: Node, theme: Dictionary, post: Sh
 		RenderingServer.global_shader_parameter_set("pf_sun_dir", key.basis.z.normalized())
 	m.shadow_value = float(mood.shadow_value) * float(sl[0])
 	m.shadow_shift = minf(float(mood.shadow_shift) * float(sl[1]), 0.25)
+	# (Warm against cool, fidelity review 14 item 4: the canyon's shade turned further toward the dusk's violet, so its light is warm and
+	# its shade is not; every face of it was one pink-orange. `--warm-cool=A|B`; shipping writes it into MOODS.sunset.)
+	if String(theme.get("name", "")) == "sunset":
+		var wc := _flag_value("--warm-cool=").to_upper()
+		if wc == "A":
+			m.shadow_shift = 0.2
+		elif wc == "B":
+			m.shadow_shift = 0.25
+			m.shadow_hue = 0.72
+			m.shadow_value = float(m.shadow_value) * 0.9
 	var st := style(theme.get("name", "meadow"))
 	st.scenery_shade = float(st.get("scenery_shade", 1.0)) * float(sl[2])
 	_set_globals(m, st, String(theme.get("name", "meadow")))

@@ -88,8 +88,34 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
     <p>Two lessons from the reference screenshots, mocked from the match camera: the scenery without ink outlines, its edges lit as card bevels instead, and the paper houses rebuilt at the characters' proportions. The earlier rounds stay on the <a href="https://claude.ai/artifact/D1du6MREVumiJDrEdNypW4">Stage Fidelity Review</a>, which is full.</p>
   </header>
 
+  <section class="panel" aria-labelledby="wc46-h" id="warmcool46">
+    <div class="eyebrow">Your call is needed &middot; review 14, item 4: warm against cool</div>
+    <h2 id="wc46-h">Warm light, cool shade</h2>
+    <p>First, the key against the fill is built (C on every stage; see its section below). Next, the two stages that were each one hue.</p>
+    <ul style="display:grid;gap:6px;margin:0 0 10px;padding-left:1.4em;max-width:78ch">
+      <li><b>The canyon:</b> its shade only turned a little toward the dusk's violet, so lit and shaded faces were the same pink-orange. Now that the fill is low, the painted shade is most of what a shaded face shows, so it is turned further toward violet.</li>
+      <li><b>The city:</b> its brick was a pinkish brown, and every front is calmed three quarters of the way into the stage's haze, which on the city is purple, so the play building went mauve. Now the brick is a warm red and the lit roof a warm peach. B also calms the front less.</li>
+    </ul>
+    <div class="tablewrap"><table><thead><tr><th>Option</th><th>Canyon</th><th>City</th></tr></thead><tbody>
+      <tr><td>A &middot; A step</td><td>The shade turned twice as far toward violet</td><td>Warm red brick, warmer roof</td></tr>
+      <tr><td>B &middot; Clear</td><td>Turned as far as the shade goes, toward a blue-violet, a tenth deeper</td><td>A, with the front calmed a third of the way, not three quarters</td></tr>
+    </tbody></table></div>
+    <p>Today, A and B (left to right, top to bottom): the canyon wide, then the city's play building at the match camera. Values hold: darks and the 95th percentile are the same on both stages, and P1's gap holds (canyon 0.200 to 0.208, city 0.185 to 0.181).</p>
+    <div class="viewer"><img src="wc46_close.jpg" alt="The canyon and the city today, with A and with B"></div>
+    <div class="row" role="group" aria-label="Stage"><button data-wc46s="1">Canyon</button><button data-wc46s="3">City</button></div>
+    <div class="row" role="group" aria-label="View"><button data-wc46v="m">Match camera</button><button data-wc46v="w">Wide</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-wc46o="T">Today</button><button data-wc46o="A">A &middot; A step</button><button data-wc46o="B">B &middot; Clear</button></div>
+    <div class="viewer"><img id="wc46img" alt="Warm and cool option"><span class="vtag" id="wc46tag"></span></div>
+    <p class="muted">My pick: <b>B</b> on both. The canyon's shaded faces now read cool mauve under the warm sun, and the city's play building is warm brick against the cool night. Honest notes:
+      <ul>
+        <li>The canyon's change is gentle even at B. B already turns the shade as far as the game's shade setting allows; more would need the cast-shadow tone too.</li>
+        <li>The shade hue is shared with the fighters, so on the canyon their shaded side turns slightly cooler as well (P1's body 0.626 to 0.635 in value). The city's change doesn't touch them.</li>
+      </ul>
+    </p>
+  </section>
+
   <section class="panel" aria-labelledby="kf45-h" id="keyfill45">
-    <div class="eyebrow">Your call is needed &middot; review 14, item 3: the key against the fill</div>
+    <div class="eyebrow">Built C on every stage (the owner's pick) &middot; review 14, item 3: the key against the fill</div>
     <h2 id="kf45-h">A lit side and a shade side</h2>
     <p>First, the fighters' ground is built (B on the meadow, canyon and grove; see its section below). Next, the light, at 4 on every stage. A face turned from the sun was lit mostly by the soft ambient and the fill light from the other side, not by the painted shade. That is why review 9's deeper painted shade barely moved anything. This turns the ambient and the fill down on the scenery only, the fighters keeping all of theirs, and raises the sun a touch so lit faces keep their value. Shade sides drop; lit sides stay.</p>
     <div class="tablewrap"><table><thead><tr><th>Option</th><th>Ambient and fill kept on the scenery</th></tr></thead><tbody>
@@ -3010,5 +3036,17 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
   group("data-kf45v", function (v) { kf45v = v; }, kf45render);
   group("data-kf45o", function (v) { kf45o = v; }, kf45render);
   kf45render();
+  var wc46s = "3", wc46v = "m", wc46o = "B";
+  var WC46O = { T: "Today", A: "A \u00b7 A step", B: "B \u00b7 Clear" };
+  var WC46S = { "1": "Canyon", "3": "City" };
+  function wc46render() {
+    document.getElementById("wc46img").src = "wc46_s" + wc46s + "_" + wc46o + "_" + wc46v + ".jpg";
+    document.getElementById("wc46tag").textContent = WC46S[wc46s] + " \u00b7 " + WC46O[wc46o] + (wc46v === "w" ? " \u00b7 wide" : " \u00b7 match camera");
+    pressed("data-wc46s", wc46s); pressed("data-wc46v", wc46v); pressed("data-wc46o", wc46o);
+  }
+  group("data-wc46s", function (v) { wc46s = v; }, wc46render);
+  group("data-wc46v", function (v) { wc46v = v; }, wc46render);
+  group("data-wc46o", function (v) { wc46o = v; }, wc46render);
+  wc46render();
 })();
 </script>
