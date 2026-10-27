@@ -34,7 +34,9 @@ const MOODS := {
 		"ambient": [Color(1.0, 0.93, 0.95), 0.47], "shadow_hue": 0.78, "shadow_shift": 0.06, "shadow_value": 0.42,
 		"shadow_tint": Color(0.72, 0.62, 0.92), "rim": Color(1.0, 0.86, 0.92),
 		"grade": [Color(0.98, 0.9, 1.04), Color(1.04, 0.98, 0.96), 0.3], "haze": Color(0.76, 0.73, 1.0)},
-	"sunset": {"key": [Color(1.0, 0.72, 0.5), 1.25, -20.0, -42.0], "fill": [Color(0.6, 0.5, 1.0), 0.42],
+	# (Its "sun", fidelity review 13, the owner's pick B: the key turned to come low from the drawn sun's side, the front left; from behind
+	# the scene, every face toward the camera sat in shade and the rocks' shadows fell out of sight.)
+	"sunset": {"key": [Color(1.0, 0.72, 0.5), 1.25, -20.0, -42.0], "sun": [-28.0, 10.0], "fill": [Color(0.6, 0.5, 1.0), 0.42],
 		"ambient": [Color(0.94, 0.84, 0.88), 0.5], "shadow_hue": 0.79, "shadow_shift": 0.1, "shadow_value": 0.58,
 		"shadow_tint": Color(0.72, 0.58, 0.84),
 		# (A cool rim from the dusk sky overhead, art review 6 round 4: an orange rim on warm fighters against warm rock added no separation.)

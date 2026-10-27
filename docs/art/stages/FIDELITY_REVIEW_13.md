@@ -136,3 +136,6 @@ The fix is the sun's direction. `lighting.gd`: a mood's "sun" [pitch, yaw] repla
 tone (0.2, 0.14, 0.42). Measured against today (with the shipped dark anchor; wide darks; P1's gap): today 11%, 0.065; A 11%, 0.070;
 B 12%, 0.075; C as B. The rocks gain a lit side toward the sun and their shadows run right across the floor; a modest change at this
 size. On the Stage Look Review ("readablesun35", `sn35_*`); recommended B. To ship: MOODS "sunset" `"sun": [-28.0, 10.0]`.
+
+Built B (the owner's pick): MOODS "sunset" `"sun": [-28.0, 10.0]`. P1's gap 0.074 in the game. Before and after (wide, left and right):
+`review13/canyon_sun_built.jpg`. All seven tests pass.
