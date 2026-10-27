@@ -145,3 +145,39 @@ is the bright hills behind P1. The platforms' tops change too (fighters stand th
 Built B (the owner's pick): [backdrop] `fight_ground=[0.32, 0.08]` in meadow.cfg, sunset.cfg and grove.cfg. P1's gap in the game:
 meadow 0.113, canyon 0.165, grove 0.134. Before and after (the fight, match camera): `review14/fight_ground_built.jpg`. All seven
 tests pass.
+
+## Item 3, the key against the fill (mock, 2026-10-27)
+
+**Why review 9's deeper painted shade barely moved the scenery's contrast:** on a face turned from the sun, most of the light is the
+ambient and the fill. On the meadow that's about 0.23 ambient and 0.4 fill, against 0.21 of key through the painted shade. Lit faces
+take about 2.0.
+
+`--key-fill=A|B|C` (a style's `key_fill` [ambient kept, fill kept]; `Lighting.KEY_FILL_TRY` A [0.7, 0.7], B [0.45, 0.45], C [0.2, 0.2]).
+It acts on the scenery only:
+- The ambient's removed share is subtracted as emission in toon_common (`pf_amb_cut`, times the surface's AO), so the fighters keep the
+  whole ambient.
+- Every directional light that isn't the key (told apart from the key by its direction against `pf_sun_dir`) is scaled in toon_light
+  (`pf_key_fill`).
+- The key rises by what lit faces lost of the ambient (1 plus that share over the key's), so lit faces keep their value.
+- Both globals are set on every stage (identity unless chosen), as globals outlive a stage.
+
+Wide, the share of the frame under 0.25, today then A, B and C:
+
+| Stage | Today | A | B | C |
+|---|---|---|---|---|
+| Meadow | 10% | 11% | 13% | 14% |
+| Canyon | 13% | 14% | 15% | 16% |
+| Beach | 6% | 7% | 8% | 8% |
+| City | 32% | 33% | 34% | 36% |
+| Grove | 18% | 20% | 22% | 24% |
+
+- **Lit faces hold:** the frame's 95th percentile doesn't move on any stage. The median drops 0.02 to 0.05.
+- **P1's gap widens** from today to C: meadow 0.115 to 0.151, canyon 0.168 to 0.199, beach 0.243 to 0.255, city 0.157 to 0.183,
+  grove 0.134 to 0.159.
+- **P1's own values are unchanged** (canyon and city to the thousandth).
+
+What it reaches is the toon material: the play areas, fronts, rocks, pines, houses and props. The canyon's arch and buttes show it most.
+It doesn't reach the meadow's mountain range (painted_ridge.gdshader), the city's skyline (facade.gdshader) or the beach's headland.
+The far forms' shade is also lifted back by the haze.
+
+On the Stage Look Review ("keyfill45", `kf45_*`); recommended C. To ship: STYLE_DEFAULT `key_fill` [0.2, 0.2], or a level per style.

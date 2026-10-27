@@ -88,8 +88,40 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
     <p>Two lessons from the reference screenshots, mocked from the match camera: the scenery without ink outlines, its edges lit as card bevels instead, and the paper houses rebuilt at the characters' proportions. The earlier rounds stay on the <a href="https://claude.ai/artifact/D1du6MREVumiJDrEdNypW4">Stage Fidelity Review</a>, which is full.</p>
   </header>
 
+  <section class="panel" aria-labelledby="kf45-h" id="keyfill45">
+    <div class="eyebrow">Your call is needed &middot; review 14, item 3: the key against the fill</div>
+    <h2 id="kf45-h">A lit side and a shade side</h2>
+    <p>First, the fighters' ground is built (B on the meadow, canyon and grove; see its section below). Next, the light, at 4 on every stage. A face turned from the sun was lit mostly by the soft ambient and the fill light from the other side, not by the painted shade. That is why review 9's deeper painted shade barely moved anything. This turns the ambient and the fill down on the scenery only, the fighters keeping all of theirs, and raises the sun a touch so lit faces keep their value. Shade sides drop; lit sides stay.</p>
+    <div class="tablewrap"><table><thead><tr><th>Option</th><th>Ambient and fill kept on the scenery</th></tr></thead><tbody>
+      <tr><td>A &middot; Gentle</td><td>70%</td></tr>
+      <tr><td>B &middot; Clear</td><td>45%</td></tr>
+      <tr><td>C &middot; Strong</td><td>20%</td></tr>
+    </tbody></table></div>
+    <div class="tablewrap"><table><thead><tr><th>Wide: frame under 0.25</th><th>Today</th><th>A</th><th>B</th><th>C</th></tr></thead><tbody>
+      <tr><td>Meadow</td><td>10%</td><td>11%</td><td>13%</td><td>14%</td></tr>
+      <tr><td>Canyon</td><td>13%</td><td>14%</td><td>15%</td><td>16%</td></tr>
+      <tr><td>Beach</td><td>6%</td><td>7%</td><td>8%</td><td>8%</td></tr>
+      <tr><td>City</td><td>32%</td><td>33%</td><td>34%</td><td>36%</td></tr>
+      <tr><td>Grove</td><td>18%</td><td>20%</td><td>22%</td><td>24%</td></tr>
+    </tbody></table></div>
+    <p>The brightest values (the frame's 95th percentile) don't move on any stage, so lit faces hold. P1's gap widens everywhere, from today to C: meadow 0.115 to 0.151, canyon 0.168 to 0.199, beach 0.243 to 0.255, city 0.157 to 0.183, grove 0.134 to 0.159. P1's own light is unchanged.</p>
+    <p>Today then C, wide: the canyon's arch and buttes, the grove's pines, the meadow's pines and barn, the beach's town.</p>
+    <div class="viewer"><img src="kf45_close.jpg" alt="Four stages today and with option C"></div>
+    <div class="row" role="group" aria-label="Stage"><button data-kf45s="0">Meadow</button><button data-kf45s="1">Canyon</button><button data-kf45s="2">Beach</button><button data-kf45s="3">City</button><button data-kf45s="4">Grove</button></div>
+    <div class="row" role="group" aria-label="View"><button data-kf45v="m">Match camera</button><button data-kf45v="w">Wide</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-kf45o="T">Today</button><button data-kf45o="A">A &middot; Gentle</button><button data-kf45o="B">B &middot; Clear</button><button data-kf45o="C">C &middot; Strong</button></div>
+    <div class="viewer"><img id="kf45img" alt="Key against fill option"><span class="vtag" id="kf45tag"></span></div>
+    <p class="muted">My pick: <b>C</b>. Even at its strongest the frame reads richer and more solid rather than darker, and every modelled form gains a shade side: the canyon's rocks most, then the grove's and meadow's pines. Honest notes:
+      <ul>
+        <li>The step is real but moderate. The far forms also sit in the haze, which lifts their shade back toward the sky.</li>
+        <li>It reaches what the toon material draws: the play areas, fronts, rocks, pines, houses and props. It doesn't reach the meadow's mountain range (its own painted shader), the city's skyline (the facade shader) or the beach's headland. Those would each need their own small change to match.</li>
+        <li>It is one setting per stage, so any stage can take a different level.</li>
+      </ul>
+    </p>
+  </section>
+
   <section class="panel" aria-labelledby="fg44-h" id="fightground44">
-    <div class="eyebrow">Your call is needed &middot; review 14, item 2: the fighters' ground a step deeper</div>
+    <div class="eyebrow">Built B (the owner's pick) &middot; review 14, item 2: the fighters' ground a step deeper</div>
     <h2 id="fg44-h">Fighters lighter than their ground</h2>
     <p>First, the clouds clear of the frame are built (B on the meadow, canyon, beach and grove; see their section below). Next, readability on the three bright stages. There the yellow and orange fighters stood on a top almost as light as they are: P1 measured only 0.04 to 0.08 lighter than everything around it, where the city and beach (both 5) hold 0.15 and 0.24. This deepens only the surfaces the fighters walk on (the lawn, the sand, the path and their wear patches) and keeps the pale cut lips and card edges as they are.</p>
     <div class="tablewrap"><table><thead><tr><th>Option</th><th>What changes</th></tr></thead><tbody>
@@ -2966,5 +2998,17 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
   group("data-fg44v", function (v) { fg44v = v; }, fg44render);
   group("data-fg44o", function (v) { fg44o = v; }, fg44render);
   fg44render();
+  var kf45s = "1", kf45v = "w", kf45o = "C";
+  var KF45O = { T: "Today", A: "A \u00b7 Gentle", B: "B \u00b7 Clear", C: "C \u00b7 Strong" };
+  var KF45S = { "0": "Meadow", "1": "Canyon", "2": "Beach", "3": "City", "4": "Grove" };
+  function kf45render() {
+    document.getElementById("kf45img").src = "kf45_s" + kf45s + "_" + kf45o + "_" + kf45v + ".jpg";
+    document.getElementById("kf45tag").textContent = KF45S[kf45s] + " \u00b7 " + KF45O[kf45o] + (kf45v === "w" ? " \u00b7 wide" : " \u00b7 match camera");
+    pressed("data-kf45s", kf45s); pressed("data-kf45v", kf45v); pressed("data-kf45o", kf45o);
+  }
+  group("data-kf45s", function (v) { kf45s = v; }, kf45render);
+  group("data-kf45v", function (v) { kf45v = v; }, kf45render);
+  group("data-kf45o", function (v) { kf45o = v; }, kf45render);
+  kf45render();
 })();
 </script>

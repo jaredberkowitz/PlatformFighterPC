@@ -148,6 +148,23 @@ const KEY_TRY := {"T": [1.0, 1.0, 0.0], "A": [1.12, 0.68, 0.3], "B": [1.25, 0.48
 const SHADE_TRY := {"T": [1.0, 1.0, 1.0], "A": [0.85, 1.4, 0.85], "B": [0.72, 1.8, 0.72], "C": [0.85, 1.4, 0.85, -22.0]}
 
 
+## The key against the fill on the scenery (fidelity review 14 item 3, light at 4 on every stage: the shade sides of the big forms sat
+## barely below their lit sides). On a face turned from the sun the ambient and the fill carry most of its light (the meadow: about 0.23
+## ambient and 0.4 fill against 0.21 of key through the painted shade), which is why the deeper painted shade of review 9 moved the
+## scenery's contrast by a hundredth. Each level keeps [this much of the ambient, this much of the fill] on the scenery only (the
+## fighters keep theirs: toon_common's `pf_amb_cut`, toon_light's `pf_key_fill`), and the key rises by what the lit side lost of the
+## ambient, so lit faces keep their value. `--key-fill=A|B|C`; a style's `key_fill` ships one.
+const KEY_FILL_TRY := {"T": [1.0, 1.0], "A": [0.7, 0.7], "B": [0.45, 0.45], "C": [0.2, 0.2]}
+
+
+## The key-to-fill level for theme `name`: `--key-fill=` over the style's `key_fill`.
+static func key_fill(name: String) -> Array:
+	var flag := _flag_value("--key-fill=")
+	if KEY_FILL_TRY.has(flag):
+		return KEY_FILL_TRY[flag]
+	return style(name).get("key_fill", KEY_FILL_TRY.T)
+
+
 ## The painted shade level for theme `name`: `--shade=` over the style's `shade_try`.
 static func shade_level(name: String) -> Array:
 	var flag := _flag_value("--shade=")
@@ -439,6 +456,14 @@ static func stage_mood(env: Environment, root: Node, theme: Dictionary, post: Sh
 	var sky: Color = theme.get("sky_mid", theme.get("sky_horizon", mood.ambient[0]))
 	var sky_n := sky / maxf(maxf(sky.r, sky.g), maxf(sky.b, 0.01))
 	env.ambient_light_color = (mood.ambient[0] as Color).lerp(Color(sky_n.r, sky_n.g, sky_n.b), float(kl[2]))
+	# (The key against the fill on the scenery, fidelity review 14 item 3; see KEY_FILL_TRY. Set on every stage, as globals outlive it.)
+	var kf := key_fill(String(theme.get("name", "meadow")))
+	var cut := env.ambient_light_color * env.ambient_light_energy * (1.0 - float(kf[0]))
+	var boost := 1.0
+	if key != null:
+		boost += cut.get_luminance() / maxf(key.light_energy * key.light_color.get_luminance(), 0.01)
+	RenderingServer.global_shader_parameter_set("pf_key_fill", Vector3(boost, float(kf[1]), 1.0))
+	RenderingServer.global_shader_parameter_set("pf_amb_cut", Color(cut.r, cut.g, cut.b, 1.0))
 	env.glow_intensity = float(style(theme.get("name", "meadow")).glow)
 	var look := style(theme.get("name", "meadow"))
 	if key != null:
