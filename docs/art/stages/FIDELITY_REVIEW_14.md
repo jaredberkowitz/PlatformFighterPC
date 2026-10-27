@@ -1,0 +1,93 @@
+# Stage fidelity review 14 (2026-10-27): what is left to reach 5 in a still
+
+The owner: "Score every stage again in all categories as review 14 and plan what's left to reach 5/5 in a still." Same eight
+categories as reviews 10 to 13 (5 = the still could sit beside the references) and the same value measurements as review 13, scored on
+the release playtest-2026-10-27-sim146-review13 (all of review 13: the dark anchor, the canyon's sun, chosen cut edges, composed skies,
+the grove's mist and roots, the meadow's wall, the city's skyline steps, the beach's near waves, the sky range).
+
+**Evidence:** art/stage-refine b1611d63 at the match camera and wide (`review14/fidelity14_sheet.jpg`, each row a stage, match left, wide
+right: meadow, grove, beach, canyon, city). Close crops (`review14/review14_crops.jpg`), left to right, top to bottom:
+- the meadow's and canyon's match-camera sky, with clouds cut by the frame's top;
+- the fighters on the meadow's and canyon's tops;
+- the canyon's front, wide; the beach's islands;
+- the grove's falls and mist; the meadow's lower terraces;
+- the city's facade; the beach's sky, wide.
+
+## Scorecard
+
+| Stage | Light | Surfaces | Play area and front | Background land | Sky | World and life | Cohesion | Readability | Mean |
+|---|---|---|---|---|---|---|---|---|---|
+| Beach | 4 | 4 | **5** | 4 | 4 | 5 | 5 | 5 | **4.5** |
+| Canyon | 4 | 4 | 4 | 5 | 4 | 4 | 4 | 4 | **4.13** |
+| City | 4 | 4 | 4 | **5** | 5 | 5 | 4 | 5 | **4.5** |
+| Grove | 4 | 4 | 4 | 5 | 4 | 5 | 5 | 4 | **4.38** |
+| Meadow | 4 | 4 | **5** | 5 | 4 | 5 | 4 | 4 | **4.38** |
+
+Mean **4.38** (review 13's scorecard after its items 1 to 5: 4.30; review 12: 4.18). Bold: up since then.
+- The meadow's hand-laid wall makes its front the frame's dark anchor.
+- The beach's near waves give the pier's water forms of its own.
+- The city's three-step skyline separates near from far.
+
+Fifteen cells are 5, twenty-five are 4. Every light and surfaces cell is still 4.
+
+**The canyon is now the weakest stage (4.13).** Its sky and value range improved, but it's still one pink-orange hue, its front is a
+plain banded block, and its sun shadows don't read on the floor at a glance.
+
+## What the measurements say
+
+| Stage (wide) | p5 | p95 | Range | Darks | Top third's range | P1's gap | Since review 13 |
+|---|---|---|---|---|---|---|---|
+| Meadow | 0.21 | 0.85 | 0.64 | 10% | 0.39 | 0.043 | range 0.50 to 0.64, darks 2 to 10% |
+| Beach | 0.22 | 0.78 | 0.56 | 6% | 0.36 | 0.239 | range 0.42 to 0.56, darks 2 to 6% |
+| Canyon | 0.18 | 0.76 | 0.58 | 12% | 0.38 | 0.080 | range 0.49 to 0.58, darks 4 to 12% |
+| Grove | 0.16 | 0.78 | 0.62 | 18% | 0.49 | 0.073 | about the same |
+| City | 0.05 | 0.70 | 0.65 | 32% | 0.63 | 0.154 | darks 27 to 32% |
+
+**The value problem review 13 found is mostly solved.** All five frames now have a dark anchor (6 to 32%) and a range of 0.56 to 0.65.
+The beach is still the lightest (6%); its darks are the pier's legs and their reflections, and that's right for a sunny harbour.
+
+**What's left is in three places:**
+- **Readability on the bright stages.** P1's value gap is still 0.043 on the meadow, 0.073 on the grove and 0.080 on the canyon. The two
+  stages scored 5 for readability measure 0.154 (city) and 0.239 (beach). The fighters' yellow and orange separate by hue on the
+  meadow's green, but not by value, and barely by hue on the canyon's sand.
+- **Light.** It still reads as soft ambient on every stage: big forms have no clear lit side and shade side.
+- **Specific surfaces still made of primitives or flat cards.**
+
+## What blocks 5, by category
+
+| Category | What a 5 needs | What blocks it now |
+|---|---|---|
+| **Light** (all 4) | One readable light: a lit side, a shade side, shadows that say where the sun is. | The shade sides of big forms sit barely darker than their lit sides: the meadow's mountains, the canyon's hoodoos and buttes, the beach's headland, the grove's pine masses, the city's towers. The canyon's sun shadows on its floor are there but faint. |
+| **Surfaces** (all 4) | Hand-made material that holds up close. | The meadow's lower terraces have stair-stepped, pixel-like edges. The beach's islands are stacked green slabs. The grove's falls are flat striped cards. The canyon's hoodoos are stacked toy shapes. The city's facade is one flat pink brick. |
+| **Play area and front** | The fighters' ground and the face under it as the finest work in the frame. | Canyon: the front fills a third of the wide frame as one banded pink block. City: the facade is a single pink, and the roof's top is plain. Grove: the top's lavender path is a flat stripe. |
+| **Background land** | Clear depth planes, each a step of value. | Beach: the islands are flat stacked slabs, and the headland is one pale green. |
+| **Sky** | A composed sky with real range, nothing cut by the frame. | The match camera cuts the composed clouds at the frame's top on the meadow and canyon (hard pale slabs in the corners), and on the grove behind its trees. The beach's painted streaks read as stripes across its upper sky. |
+| **World and life** | Already 5 on four stages. | The canyon's life (its train, halt and water tower) is small and far. The rule is "far back, true size", so this may stay a 4. |
+| **Cohesion** | Every piece in one hand. | Canyon: everything is one pink-orange, the shade no cooler than the light. City: everything is one purple-pink, the play building no warmer than the night. Meadow: the glassy pale-blue mountains sit apart from the saturated greens. |
+| **Readability** | The fighters the first read, in value as well as hue. | Meadow (0.043), grove (0.073) and canyon (0.080): yellow and orange fighters on a pale top. |
+
+## The plan to 5 (all refine what exists; none adds new things)
+
+Ordered by how many cells each lifts for its cost. Each is mocked, measured (value range, darks, P1's gap) and picked by the owner, as
+before.
+
+| # | Item | Stages | Lifts | Effort |
+|---|---|---|---|---|
+| 1 | **Clouds clear of the frame:** at the match camera, no cloud group cut by the frame's top: lower each group into the frame, or lift it out. Soften the beach's painted streaks into fewer, broader bands. | meadow, canyon, grove, beach | sky (4 cells) | 0.5 session |
+| 2 | **The fighters' ground a step deeper:** the play tops of the meadow, grove and canyon a step darker and a little less saturated in the band the fighters stand on; the lips and edges stay pale. Target P1's gap at least 0.12. | meadow, grove, canyon | readability (3 cells) | 0.5 to 1 session |
+| 3 | **A key-to-fill ratio:** the shade sides of the big forms a clear step darker than their lit sides (the mountains, hoodoos, buttes, headland, pine masses, towers). The fill light is lowered and the key raised per mood, with the post pass's dark anchor holding. A lighting change, so one system gain for every stage. | all | light (5 cells) | 1 to 2 sessions |
+| 4 | **Warm and cool:** the shade a cool violet-blue on the canyon, so its light is warm and its shade is not; on the city, the play building's brick a warmer red and its roof a lit warm top against the cool night. | canyon, city | cohesion (2 cells), canyon light | 1 session |
+| 5 | **The canyon's front:** the banded block broken into rock strata of different depths, the top beds overhanging, a shade gradient down the face, a few deep joints. Rebuilt with make_canyon_front.py. | canyon | play area and front, surfaces | 1 session |
+| 6 | **The beach's islands and headland:** the stacked green slabs as rounded paper islands with a sand rim and a shade side; the headland with painted patches, like the meadow's peaks. | beach | background land, surfaces | 1 session |
+| 7 | **The meadow's terraces:** the stair-stepped edges of the lower terraces cut as smooth curved card; the mountains' glassy pale facets warmed toward the land's greens. | meadow | surfaces, cohesion | 1 session |
+| 8 | **The grove's falls and path:** the falls as layered paper sheets with a foam foot, not striped cards; the path a worn earth, not a lavender stripe. | grove | surfaces, play area and front | 0.5 to 1 session |
+
+**Honest ceiling:**
+- Items 1 to 3 lift twelve cells. With them the mean reaches 4.68; the canyon is the lowest at 4.5.
+- Items 4 to 8 close most of the remaining stage-by-stage cells.
+- Cells that may stay at 4: the canyon's world and life (the "far back, true size" rule), and the city's and grove's play area and
+  front.
+- The fighters stay outside this plan, and they are still the largest gap in any still. A marketing still would also hide the P1/P2 tags.
+
+**Recommended start:** item 1, the cheapest and four cells, then item 2, then item 3 (the biggest gain but the most risk to the look
+everyone has approved, so it is mocked at three strengths).

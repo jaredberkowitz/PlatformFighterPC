@@ -88,8 +88,57 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
     <p>Two lessons from the reference screenshots, mocked from the match camera: the scenery without ink outlines, its edges lit as card bevels instead, and the paper houses rebuilt at the characters' proportions. The earlier rounds stay on the <a href="https://claude.ai/artifact/D1du6MREVumiJDrEdNypW4">Stage Fidelity Review</a>, which is full.</p>
   </header>
 
+  <section class="panel" aria-labelledby="rv14-h" id="review14">
+    <div class="eyebrow">Your call is needed &middot; fidelity review 14: what is left to reach 5 in a still</div>
+    <h2 id="rv14-h">The values are fixed; the light and a few surfaces are left</h2>
+    <p>First, the sky range is built on the canyon and the beach (B; the meadow as it is; see its section below), and all of review 13 is in the release playtest-2026-10-27-sim146-review13. Then all five stages are scored again on that release, with the same eight categories and measurements. The full write-up is in docs/art/stages/FIDELITY_REVIEW_14.md.</p>
+    <div class="tablewrap"><table><thead><tr><th>Stage</th><th>Light</th><th>Surfaces</th><th>Play area</th><th>Background land</th><th>Sky</th><th>World</th><th>Cohesion</th><th>Readability</th><th>Mean</th></tr></thead><tbody>
+      <tr><td>Beach</td><td>4</td><td>4</td><td><b>5 &uarr;</b></td><td>4</td><td>4</td><td>5</td><td>5</td><td>5</td><td><b>4.5</b></td></tr>
+      <tr><td>Canyon</td><td>4</td><td>4</td><td>4</td><td>5</td><td>4</td><td>4</td><td>4</td><td>4</td><td><b>4.13</b></td></tr>
+      <tr><td>City</td><td>4</td><td>4</td><td>4</td><td><b>5 &uarr;</b></td><td>5</td><td>5</td><td>4</td><td>5</td><td><b>4.5</b></td></tr>
+      <tr><td>Grove</td><td>4</td><td>4</td><td>4</td><td>5</td><td>4</td><td>5</td><td>5</td><td>4</td><td><b>4.38</b></td></tr>
+      <tr><td>Meadow</td><td>4</td><td>4</td><td><b>5 &uarr;</b></td><td>5</td><td>4</td><td>5</td><td>4</td><td>4</td><td><b>4.38</b></td></tr>
+    </tbody></table></div>
+    <p>The mean is <b>4.38</b> (4.30 after review 13's first five items, 4.18 at review 12); the arrows mark the cells up since then. Fifteen of forty cells are 5. Every light and surfaces cell is still 4. The canyon is now the weakest stage: still one pink-orange hue, a plain banded front, and sun shadows that don't read at a glance.</p>
+    <h3>The values are fixed</h3>
+    <div class="tablewrap"><table><thead><tr><th>Stage (wide)</th><th>Value range</th><th>Frame under 0.25</th><th>Sky's range</th><th>P1's gap</th></tr></thead><tbody>
+      <tr><td>Meadow</td><td>0.21 to 0.85 (was 0.34 to 0.84)</td><td>10% (was 2%)</td><td>0.39</td><td>0.043</td></tr>
+      <tr><td>Beach</td><td>0.22 to 0.78 (was 0.36 to 0.78)</td><td>6% (was 2%)</td><td>0.36</td><td>0.239</td></tr>
+      <tr><td>Canyon</td><td>0.18 to 0.76 (was 0.26 to 0.75)</td><td>12% (was 4%)</td><td>0.38</td><td>0.080</td></tr>
+      <tr><td>Grove</td><td>0.16 to 0.78</td><td>18%</td><td>0.49</td><td>0.073</td></tr>
+      <tr><td>City</td><td>0.05 to 0.70</td><td>32%</td><td>0.63</td><td>0.154</td></tr>
+    </tbody></table></div>
+    <p>Every frame now has a dark anchor and a range near 0.6. What's left is readability on the three bright stages (the two stages at 5 measure 0.154 and 0.239), the light, and specific surfaces.</p>
+    <h3>What blocks 5</h3>
+    <ul style="display:grid;gap:6px;margin:0;padding-left:1.4em;max-width:78ch">
+      <li><b>Light (all 4):</b> the shade sides of big forms are barely darker than their lit sides (the mountains, hoodoos, headland, pine masses, towers). The canyon's sun shadows are there but faint.</li>
+      <li><b>Surfaces (all 4):</b> the meadow's lower terraces have stair-stepped, pixel-like edges. The beach's islands are stacked green slabs. The grove's falls are flat striped cards. The city's facade is one flat pink.</li>
+      <li><b>Sky:</b> the match camera cuts the composed clouds at the frame's top (meadow, canyon, grove), and the beach's painted streaks read as stripes.</li>
+      <li><b>Cohesion:</b> the canyon and city are each one hue, the shade no cooler than the light. The meadow's glassy blue mountains sit apart from its greens.</li>
+      <li><b>Readability:</b> yellow and orange fighters on pale tops: meadow 0.043, grove 0.073, canyon 0.080.</li>
+      <li><b>The canyon's front</b> is still one banded pink block, a third of the wide frame.</li>
+    </ul>
+    <h3>The plan to 5 (all refinements; nothing new is added)</h3>
+    <ol style="display:grid;gap:6px;margin:0;padding-left:1.4em;max-width:78ch">
+      <li><b>Clouds clear of the frame:</b> no cloud group cut by the match camera's top; the beach's streaks fewer and broader. Sky on four stages.</li>
+      <li><b>The fighters' ground a step deeper</b> on the meadow, grove and canyon, in the band they stand on, the lips staying pale. Target gap at least 0.12. Readability on three stages.</li>
+      <li><b>A key-to-fill ratio:</b> the shade sides of big forms a clear step darker, per mood. One lighting change for every stage. Light on all five.</li>
+      <li><b>Warm and cool:</b> a cool violet shade on the canyon; on the city, warmer brick and a lit warm roof against the cool night.</li>
+      <li><b>The canyon's front</b> as strata of different depths, overhanging top beds, a shade gradient down the face.</li>
+      <li><b>The beach's islands and headland</b> as rounded paper islands with sand rims and a shade side; the headland painted.</li>
+      <li><b>The meadow's terraces</b> cut as smooth curved card; its mountains warmed toward the land.</li>
+      <li><b>The grove's falls</b> as layered paper sheets with a foam foot; its path a worn earth.</li>
+    </ol>
+    <p>Items 1 to 3 lift twelve cells: the mean reaches 4.68, with the canyon lowest at 4.5. Items 4 to 8 close most of the rest. Cells that may stay 4: the canyon's world and life (its life is far back at true size, by your rule), and the city's and grove's play areas. The fighters remain the largest gap in any still.</p>
+    <p>The weak spots, close (the meadow's and canyon's cut clouds; the fighters on the meadow's and canyon's tops; the canyon's front; the beach's islands; the grove's falls; the meadow's terraces; the city's facade; the beach's sky):</p>
+    <div class="viewer"><img src="r14_crops.jpg" alt="The weak spots close"></div>
+    <h3>Every stage today</h3>
+    <div class="viewer"><img src="r14_sheet.jpg" alt="Every stage at the match camera and wide"></div>
+    <p class="muted">My recommended start: item 1, the cheapest and four cells; then item 2; then item 3, the biggest gain but the most change to a look you've approved, so I'd mock it at three strengths.</p>
+  </section>
+
   <section class="panel" aria-labelledby="sr42-h" id="skyrange42">
-    <div class="eyebrow">Your call is needed &middot; review 13, item 4's second half: the sky's range</div>
+    <div class="eyebrow">Built B on the canyon and the beach (the owner's pick; the meadow as it is) &middot; review 13, item 4's second half: the sky's range</div>
     <h2 id="sr42-h">Skies from pale to deep</h2>
     <p>First, the meadow's hand-laid wall, the city's skyline steps and the beach's near waves are built (all three B; see their sections below). Next, the half of item 4 still open: each sky's gradient. The cameras only see the sky from about 3 to 9 hundredths up. The canyon's and the beach's skies didn't reach their top colour until 13, so every frame showed only their pale lower half. The meadow's were already fitted.</p>
     <div class="tablewrap"><table><thead><tr><th>Option</th><th>What changes</th></tr></thead><tbody>
@@ -274,7 +323,7 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
   </section>
 
   <section class="panel" aria-labelledby="rv13-h" id="review13">
-    <div class="eyebrow">Your call is needed &middot; fidelity review 13: a path to 5 in every category, in a still</div>
+    <div class="eyebrow">All built and released &middot; fidelity review 13: a path to 5 in every category, in a still</div>
     <h2 id="rv13-h">From strong parts to a strong picture</h2>
     <p>All five stages analysed again on today's release, category by category. This time I also measured each still as one picture: how wide its range of values is and how much of the frame is dark. The full write-up is in docs/art/stages/FIDELITY_REVIEW_13.md.</p>
     <div class="tablewrap"><table><thead><tr><th>Stage</th><th>Light</th><th>Surfaces</th><th>Play area</th><th>Background land</th><th>Sky</th><th>World</th><th>Cohesion</th><th>Readability</th><th>Mean</th></tr></thead><tbody>
