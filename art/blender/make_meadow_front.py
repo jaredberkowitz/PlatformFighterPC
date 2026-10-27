@@ -51,6 +51,10 @@ WARM = opts.get("warm", "")
 # fight): `--calm A|B`. A: fewer, larger stones in taller courses, rarely split, their values closer; B: A, a step lower in value, so the
 # wall sits back under the lawn.
 CALM = opts.get("calm", "").upper()
+# Fidelity review 13 (the wall still read as near-identical grey boxes in a grid): `--laid A|B`, on the calm fieldstone. A: hand-laid,
+# each stone its own height within its course and set at its own height in it, rounder (corners pulled in further, a wider bevel),
+# widths ranging further, and small chinking stones packed into the gaps, set back; B: A with the stones' values and set spread wider.
+LAID = opts.get("laid", "").upper()
 if WARM:
     TINTS = [(1.0, 0.84, 0.66), (0.84, 0.86, 0.94), (1.0, 0.92, 0.8), (0.98, 0.78, 0.68), (0.9, 0.9, 0.78)]
     if WARM == "B":
@@ -106,7 +110,7 @@ def stone(bm, c, size, rng, bevel=0.18):
             v[layer] = tone
 
 
-def rough_stone(bm, c, size, rng, tint, value):
+def rough_stone(bm, c, size, rng, tint, value, pull=0.14, bevel=0.16):
     """A fieldstone: a box pushed out of square at every corner, bevelled, in its own value and tint."""
     res = bmesh.ops.create_cube(bm, size=2.0)
     verts = res["verts"]
@@ -115,11 +119,11 @@ def rough_stone(bm, c, size, rng, tint, value):
     for v in verts:
         # (Each corner pulled in, never out: pushed out, a stone ran into its neighbours and the corners buried in them baked black. Its
         # depth one for the whole stone: a front twisted out of plane folded under the bevel and baked black too.)
-        kx, kz = 1.0 - rng.uniform(0.0, 0.14), 1.0 - rng.uniform(0.0, 0.14)
+        kx, kz = 1.0 - rng.uniform(0.0, pull), 1.0 - rng.uniform(0.0, pull)
         v.co = rot @ Vector((v.co.x * kx * size.x, v.co.y * deep, v.co.z * kz * size.z)) + c
     edges_ = list({e for v in verts for e in v.link_edges})
     # (Clamped: on a lump with corners pulled in unevenly, a wider bevel overlapped itself, folded faces inward and baked them black.)
-    out = bmesh.ops.bevel(bm, geom=edges_, offset=min(size.x, size.z) * 0.16, segments=1, affect="EDGES", clamp_overlap=True)
+    out = bmesh.ops.bevel(bm, geom=edges_, offset=min(size.x, size.z) * bevel, segments=1, affect="EDGES", clamp_overlap=True)
     layers = [bm.verts.layers.float.get(k) for k in ("tone", "tr", "tg", "tb")]
     for v in out["verts"]:
         if v.is_valid:
@@ -166,7 +170,10 @@ def field_wall(y, rng):
         x = lo - rng.uniform(0.0, 0.5)
         while x < hi - 0.15:
             big = rng.random() < 0.3
-            if CALM:
+            if LAID:
+                w = rng.uniform(1.9, 3.1) if big else rng.uniform(0.8, 1.9)
+                stack = [row_h] if big or rng.random() < 0.65 else [row_h * 0.45, row_h * 0.55]
+            elif CALM:
                 w = rng.uniform(2.0, 3.0) if big else rng.uniform(1.2, 2.0)
                 stack = [row_h] if big or rng.random() < 0.8 else [row_h * 0.45, row_h * 0.55]
             else:
@@ -177,12 +184,27 @@ def field_wall(y, rng):
                 hh = h - 0.05
                 ww = w * (rng.uniform(0.8, 1.0) if len(stack) > 1 else 1.0)
                 cx = min(x + ww * 0.5, hi - ww * 0.4)
-                c = P(cx, yy - hh * 0.5, FZ + 0.32 + rng.uniform(-0.08, 0.1))
+                drop = 0.0
+                if LAID:
+                    # (Its own height in the course, and sat at its own height in it.)
+                    short = hh * rng.uniform(0.0, 0.28)
+                    drop = rng.uniform(0.0, short)
+                    hh -= short
+                set_in = rng.uniform(-0.08, 0.1) * (1.8 if LAID == "B" else 1.0)
+                c = P(cx, yy - drop - hh * 0.5, FZ + 0.32 + set_in)
                 size = Vector((ww * 0.47, 0.32, hh * 0.47))
                 value = rng.uniform(0.62, 1.0) if WARM == "B" else rng.uniform(0.72, 1.0)
                 if CALM:
-                    value = 0.8 + (value - 0.8) * 0.5 - (0.12 if CALM == "B" else 0.0)
-                rough_stone(bm, c, size, rng, rng.choice(TINTS), value)
+                    value = 0.8 + (value - 0.8) * (0.85 if LAID == "B" else 0.5) - (0.12 if CALM == "B" else 0.0)
+                if LAID:
+                    rough_stone(bm, c, size, rng, rng.choice(TINTS), value, pull=0.26, bevel=0.24)
+                    if rng.random() < 0.45:
+                        # A chinking stone packed into the gap at the stone's side, set back and a step darker.
+                        cw, ch = rng.uniform(0.18, 0.32), rng.uniform(0.14, 0.26)
+                        cc = P(min(x + ww + 0.03, hi - 0.1), yy - rng.uniform(0.15, max(0.2, h - 0.2)), FZ + 0.42)
+                        rough_stone(bm, cc, Vector((cw, 0.2, ch)), rng, rng.choice(TINTS), value * 0.75, pull=0.3, bevel=0.3)
+                else:
+                    rough_stone(bm, c, size, rng, rng.choice(TINTS), value)
                 if WARM:
                     # (Caps only, no drips; with B only under the logs.)
                     share = (0.7 if first else (0.0 if WARM == "B" else 0.15))

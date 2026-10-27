@@ -40,6 +40,9 @@ uniform vec3 shallows = vec3(0.0);
 // The near sea (fidelity review 11: in front of the stage the water was one flat colour, a third of the wide frame): x how much it deepens
 // and cools toward the camera (0 off), y how strong its broad slow patches there are.
 uniform vec2 near_depth = vec2(0.0);
+// The near sea's paper waves (fidelity review 13 item 8: in front of the stage the water was broad flat facets): how much stronger the
+// bands' tone steps and the dark trough under each lip are toward the frame's foot (0 as before).
+uniform float near_waves = 0.0;
 uniform sampler2D screen_tex : hint_screen_texture, filter_linear_mipmap;
 varying vec3 world_pos;
 
@@ -173,8 +176,11 @@ void fragment() {
 			float calm = 1.0 - smoothstep(70.0, 190.0, bs);
 			// Each sheet its own tone, and shaded across toward its edge.
 			float tone_step = wave_band > 1 ? 0.18 : (wave_band > 0 ? 0.1 : 0.08);
+			float nw = near_waves * front_k;
+			tone_step *= 1.0 + 3.5 * nw;
 			col *= 1.0 - tone_step * mod(tier, 2.0) * calm;
 			vec2 across = wave_band > 1 ? vec2(0.82, 1.16) : (wave_band > 0 ? vec2(0.88, 1.1) : vec2(0.93, 1.07));
+			across = mix(across, vec2(0.7, 1.25), clamp(nw, 0.0, 1.0));
 			col *= mix(1.0, mix(across.x, across.y, smoothstep(0.15, 1.0, u)), calm);
 			// The nearer sheet's shadow on this one, just past its edge (u from 0), soft.
 			// Calm stretches (wave_vary 2): the tier's edge lying flat, no lit lip and no shadow on the sheet behind.
@@ -182,7 +188,7 @@ void fragment() {
 			float run = wave_vary > 1 ? smoothstep(0.32, 0.46, noise(vec2(world_pos.x * 0.035, tier * 2.1 + 5.0))) : 1.0;
 			float run_in = wave_vary > 1 ? smoothstep(0.32, 0.46, noise(vec2(world_pos.x * 0.035, (tier - 1.0) * 2.1 + 5.0))) : 1.0;
 			float shadow = (1.0 - smoothstep(0.0, 0.16, u)) * run_in;
-			col = mix(col, col * vec3(0.7, 0.8, 0.9), shadow * 0.55 * calm);
+			col = mix(col, col * vec3(0.7, 0.8, 0.9), shadow * (0.55 + 0.4 * nw) * calm);
 			// This sheet's own cut edge, lit (u toward 1).
 			float lip = smoothstep(0.925, 0.965, u);
 			lip *= run;
@@ -197,7 +203,8 @@ void fragment() {
 				lip = 0.0;
 			}
 			// (The near sea's lips softened toward the frame's foot with its deepening: their pale sheets read as streaks there.)
-			lip *= 1.0 - clamp(front_k * near_depth.x * 0.6, 0.0, 0.9);
+			// (Less so with the near sea's paper waves, item 8: there the sheets' edges are what give the foot its forms.)
+			lip *= 1.0 - clamp(front_k * near_depth.x * 0.6 * (1.0 - 0.7 * clamp(nw, 0.0, 1.0)), 0.0, 0.9);
 			col = mix(col, mix(col, lip_c, lip_k), lip * calm);
 		} else {
 			// A soft caustic net near the stage, the light through the ripples (the reference's turquoise lattice), and fine ripples

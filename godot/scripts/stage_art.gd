@@ -5429,6 +5429,12 @@ static func _ocean(root: Node3D, t: Dictionary, stage: Array) -> void:
 			near = {"A": [0.8, 0.0], "B": [0.8, 1.0], "C": [1.25, 1.0], "D": [1.8, 1.0]}.get(arg.substr(11), near)
 	if near.size() == 2:
 		wm.set_shader_parameter("near_depth", Vector2(near[0], near[1]))
+	# (The near sea's paper waves, fidelity review 13 item 8: the palette's `sea_near_waves` or `--near-waves=A|B`.)
+	var nwaves := float((_palette.get("backdrop", {}) as Dictionary).get("sea_near_waves", 0.0))
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--near-waves="):
+			nwaves = {"A": 0.6, "B": 1.2}.get(arg.substr(13).to_upper(), nwaves)
+	wm.set_shader_parameter("near_waves", nwaves)
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--sea-look="):
 			wm.set_shader_parameter("look", {"T": 0, "A": 1, "B": 2, "C": 3}.get(arg.substr(11), int(_pal("sea_look"))))
@@ -5652,6 +5658,14 @@ static func _city(root: Node3D, t: Dictionary, stage: Array) -> void:
 		# (Lighter, cooler and hazier with distance, the gauntlet's round 3 after the owner's city reference, kept at night: the towers sat
 		# as dark and saturated as the play building and nothing separated. A night haze of pale blue-lilac, more of it further back.)
 		shade = (_pal("skyline_shades") as Array)[layer]
+		# (Value steps, fidelity review 13 item 7: the three layers sat close in one purple. `--skyline=A|B`, or the palette's
+		# [backdrop] `skyline_steps`: the near layer a deeper indigo, the far one lighter and bluer, the middle between.)
+		var steps: Array = (_palette.get("backdrop", {}) as Dictionary).get("skyline_steps", [])
+		for arg in OS.get_cmdline_user_args():
+			if arg.begins_with("--skyline=") and arg.substr(10).to_upper() in ["A", "B"]:
+				steps = [Color(0.19, 0.17, 0.38), Color(0.36, 0.37, 0.64), Color(0.6, 0.68, 0.9)]
+		if steps.size() == 3:
+			shade = steps[layer]
 		_skyline_layer(root, rng, layer, z, shade, float(e[3]) - CITY_STREET_DROP)
 	# A water tower and an antenna on the roof behind the stage.
 	var roof: float = e[2]
@@ -6433,7 +6447,13 @@ static func _skyline_layer(root: Node3D, rng: RandomNumberGenerator, layer: int,
 	m.set_shader_parameter("base_shade", shade)
 	m.set_shader_parameter("roof_shade", shade.lightened(0.12))
 	m.set_shader_parameter("lit_energy", FACADE_LIT[layer])
-	m.set_shader_parameter("lit_share", FACADE_LIT_SHARE[layer])
+	var share: float = FACADE_LIT_SHARE[layer]
+	# (`--skyline=B` or the palette's `skyline_warm`: more of the nearer layers' windows lit, warm light spread through the purple.)
+	var warm := float((_palette.get("backdrop", {}) as Dictionary).get("skyline_warm", 1.0))
+	for arg in OS.get_cmdline_user_args():
+		if arg == "--skyline=B":
+			warm = 1.8
+	m.set_shader_parameter("lit_share", share * (warm if layer < 2 else 1.0))
 	# The far layer: windows only (frames, sills and floor bands would be noise at that distance).
 	# (And the middle layer too since art review 10, so only the nearest buildings carry frames and sills.)
 	m.set_shader_parameter("detail", 0.0 if layer >= 1 else 1.0)

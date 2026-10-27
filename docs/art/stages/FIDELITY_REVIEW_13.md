@@ -181,3 +181,27 @@ To ship: rebuild `godot/models/stages/grove_paper.glb` with `--banks soft`, re-l
 Built B (the owner's pick): `godot/models/stages/grove_paper.glb` rebuilt with `--banks soft`, the grove re-lit (front, paper, play),
 grove.cfg [backdrop] `root_colour=Color(0.3, 0.2, 0.13, 1)`. P1's gap 0.074. Before and after (the abyss, wide):
 `review13/grove_mist_roots_built.jpg`. All seven tests pass.
+
+## Item 6, the meadow's wall (mock, 2026-10-27)
+
+`make_meadow_front.py --laid A|B` (`LAID` in `field_wall`): the same courses laid by hand. Stones 0.8 to 1.9 wide (some 1.9 to 3.1), a
+second stone stacked in a course 65% of the time, each shortened by up to 28% and dropped within its course, rounder (`rough_stone` pull
+0.26, bevel 0.24), with a chinking stone in 45% of the gaps. B sets them back 1.8 times as far and spreads their value wider (0.85).
+Same colours, moss and cap. The mocks are unlit (today too). P1's gap 0.043 today, 0.046 A, 0.044 B. On the Stage Look Review
+("wall39", `wl39_*`); recommended B (A if B's busier wall pulls the eye). To ship: rebuild `meadow_front.glb` with the shipped flags
+plus `--laid B` and re-light the meadow.
+
+## Item 7, the city's value steps (mock, 2026-10-27)
+
+`--skyline=A|B` (palette [backdrop] `skyline_steps`, `StageArt` city backdrop): the three skyline layers stepped, near (0.19, 0.17, 0.38),
+middle (0.36, 0.37, 0.64), far (0.6, 0.68, 0.9), where they sat close in one purple. B also lights more of the two nearer layers'
+windows (`skyline_warm`, 1.8 times the share). Wide darks 28% today, 32% with A and B; P1's gap 0.151, 0.155, 0.157. On the Stage Look
+Review ("skyline40", `sy40_*`); recommended B. To ship: city.cfg [backdrop] `skyline_steps` and `skyline_warm=1.8`.
+
+## Item 8, the beach's near water (mock, 2026-10-27)
+
+`--near-waves=A|B` (palette [backdrop] `sea_near_waves`, water.gdshader `near_waves`, 0.6 and 1.2): the paper sea's sheets kept to the
+frame's foot instead of fading into the deepening. Each sheet's tone step up to 1 + 3.5 times, shaded across further (to 0.7 to 1.25),
+the shadow it lays on the next stronger, its lit lip softened less there. The first B (tone step 1 + 2 times, lips still softened)
+changed 13% of the lower frame wide but could not be seen, so it was strengthened. P1's gap 0.238 today, 0.240 A, 0.243 B. On the Stage
+Look Review ("nearwaves41", `nw41_*`); recommended B. To ship: ocean.cfg [backdrop] `sea_near_waves=1.2`.
