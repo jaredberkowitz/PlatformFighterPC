@@ -88,8 +88,29 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
     <p>Two lessons from the reference screenshots, mocked from the match camera: the scenery without ink outlines, its edges lit as card bevels instead, and the paper houses rebuilt at the characters' proportions. The earlier rounds stay on the <a href="https://claude.ai/artifact/D1du6MREVumiJDrEdNypW4">Stage Fidelity Review</a>, which is full.</p>
   </header>
 
+  <section class="panel" aria-labelledby="cf47-h" id="canyonfront47">
+    <div class="eyebrow">Your call is needed &middot; review 14, item 5: the canyon's front</div>
+    <h2 id="cf47-h">Rock in beds of its own depth</h2>
+    <p>First, warm against cool is built (B on the canyon and the city; see its section below). Next, the canyon's front, a third of its wide frame. It read as one banded block: every bed of rock lay within a few tenths of the same plane. This alternates hard beds, thicker and standing out, with soft ones, thinner and set back. The face then steps in ledges with shade under them, and the top bed overhangs. Same colours, same joints.</p>
+    <div class="tablewrap"><table><thead><tr><th>Option</th><th>What changes</th></tr></thead><tbody>
+      <tr><td>A &middot; Stepped strata</td><td>Hard and soft beds by turns, each column standing out by its own amount, the top bed overhanging</td></tr>
+      <tr><td>B &middot; And clefts</td><td>A, with every third joint opened into a deep cleft and the face darkening further toward its foot</td></tr>
+    </tbody></table></div>
+    <p>The front at the wide camera, today then B. All three are unlit, as mocks are; the shipped one is re-lit. The front's contrast rises from 0.084 to 0.097 (A) and 0.102 (B), its value 0.27 to 0.26; P1's gap holds (0.207).</p>
+    <div class="viewer"><img src="cf47_close.jpg" alt="The canyon's front today and with option B"></div>
+    <div class="row" role="group" aria-label="View"><button data-cf47v="m">Match camera</button><button data-cf47v="w">Wide</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-cf47o="T">Today</button><button data-cf47o="A">A &middot; Stepped strata</button><button data-cf47o="B">B &middot; And clefts</button></div>
+    <div class="viewer"><img id="cf47img" alt="Canyon front option"><span class="vtag" id="cf47tag"></span></div>
+    <p class="muted">My pick: <b>B</b>. The face reads as layered sandstone: hard beds as ledges, soft ones in their shade, and a cleft splitting the mass so it isn't one block. Honest notes:
+      <ul>
+        <li>My first version set the soft beds so deep and even that it read like a chest of drawers. They fell behind the dark core, which showed through as black slots. The core is now set back, and the soft beds sit less deep and less evenly.</li>
+        <li>The beds are still straight-fronted blocks. That's the jointed rock you picked in review 11, now in depth.</li>
+      </ul>
+    </p>
+  </section>
+
   <section class="panel" aria-labelledby="wc46-h" id="warmcool46">
-    <div class="eyebrow">Your call is needed &middot; review 14, item 4: warm against cool</div>
+    <div class="eyebrow">Built B on both (the owner's pick) &middot; review 14, item 4: warm against cool</div>
     <h2 id="wc46-h">Warm light, cool shade</h2>
     <p>First, the key against the fill is built (C on every stage; see its section below). Next, the two stages that were each one hue.</p>
     <ul style="display:grid;gap:6px;margin:0 0 10px;padding-left:1.4em;max-width:78ch">
@@ -3048,5 +3069,15 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
   group("data-wc46v", function (v) { wc46v = v; }, wc46render);
   group("data-wc46o", function (v) { wc46o = v; }, wc46render);
   wc46render();
+  var cf47v = "w", cf47o = "B";
+  var CF47O = { T: "Today", A: "A · Stepped strata", B: "B · And clefts" };
+  function cf47render() {
+    document.getElementById("cf47img").src = "cf47_" + cf47o + "_" + cf47v + ".jpg";
+    document.getElementById("cf47tag").textContent = "Canyon · " + CF47O[cf47o] + (cf47v === "w" ? " · wide" : " · match camera");
+    pressed("data-cf47v", cf47v); pressed("data-cf47o", cf47o);
+  }
+  group("data-cf47v", function (v) { cf47v = v; }, cf47render);
+  group("data-cf47o", function (v) { cf47o = v; }, cf47render);
+  cf47render();
 })();
 </script>

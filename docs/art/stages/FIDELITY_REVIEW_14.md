@@ -217,3 +217,19 @@ Built B on both (the owner's pick):
 
 The shipped frames match the mock. Before and after (the canyon wide, the city's play building): `review14/warm_cool_built.jpg`. All
 seven tests pass.
+
+## Item 5, the canyon's front (mock, 2026-10-27)
+
+`make_canyon_front.py --strata A|B` on the shipped flags (`--variant A --cut 1 --courses 1 --straight C --mass A`):
+- **The tiers alternate hard and soft beds** (each tier's own random numbers, seed 900 + tier). The soft ones are 0.7 as thick and set
+  back 0.2 to 0.42; the hard ones are 1.1 as thick and stand out 0.1 to 0.5. The top bed overhangs 0.8.
+- **Each column's own set** is widened 1.8 times.
+- **The core behind the face** sits at FZ - 1.6 instead of FZ - 0.5.
+- **B** opens every third joint into a cleft (0.38 each side) and darkens the face toward its foot by 0.42 instead of 0.26.
+
+A first version set the soft beds back 0.55 to 0.75. They fell behind the core, which showed between the ledges as black slots: a chest
+of drawers.
+
+The mocks are unlit (today too). The front at the wide camera: contrast 0.084 today, 0.097 A, 0.102 B; value 0.27, 0.27, 0.26. P1's gap
+holds (0.207). On the Stage Look Review ("canyonfront47", `cf47_*`); recommended B. To ship: rebuild
+`godot/models/stages/canyon_front.glb` with the shipped flags plus `--strata B`, and re-light the canyon (front, paper, play).

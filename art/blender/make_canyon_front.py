@@ -47,6 +47,11 @@ STRAIGHT = opts.get("straight", "")
 # the straight courses, vertical joints shared by every bed of a tier (a few beds let one through), each column a little in or out as a
 # whole, and the face darkening toward its foot. B: A with some columns stained darker down their length, as weathered cliffs streak.
 MASS = opts.get("mass", "").upper()
+# Strata of different depths (fidelity review 14 item 5: the front read as one banded block, every bed within a few tenths of one plane):
+# `--strata A|B`. A: the tiers alternate hard beds, thicker and standing out, with soft ones, thinner and set deep back, so the face
+# steps in ledges with shadow lines under them, and the top bed overhangs. B: A with every third joint opened into a deep cleft and the
+# face darkening further toward its foot.
+STRATA = opts.get("strata", "").upper()
 manifest = json.load(open(os.path.join(opts["dir"], "manifest.json")))
 BLOCK = [r for r in manifest["rects"] if r[4] < 0.5][0]
 LEFT, RIGHT, TOP, BOTTOM = BLOCK[0], BLOCK[1], BLOCK[2], BLOCK[3]
@@ -137,12 +142,12 @@ def slab(bm, x0, x1, y0, y1, out, rng, cols=10, taper=0.08, back=DEPTH, pts=None
     tone(bm, lo + hi + tops, shade if shade is not None else rng.uniform(0.82, 1.05))
 
 
-def courses_straight(bm, x0, x1, y0, y1, out, rng):
+def courses_straight(bm, x0, x1, y0, y1, out, rng, shift=0.0):
     """`courses` with straight, flat-fronted blocks (fidelity review 8): long beds with few joints, as sandstone lies (blocks of 1.4 to 3.6
     read as a brick wall)."""
     n = max(1, int(round((y1 - y0) / 0.75)))
     base = rng.uniform(0.84, 1.02)
-    face = FZ + rng.uniform(0.15, 0.45) * out
+    face = FZ + rng.uniform(0.15, 0.45) * out + shift
     # (C, fidelity review 9: even beds 0.75 thick, a step lighter and darker by turns, read as stacked planks at the wide camera. Beds of
     # uneven thickness, thin partings between thick ones, longer, the tone stepping less.)
     cuts = [y1 - (y1 - y0) * k / n for k in range(n + 1)]
@@ -175,7 +180,10 @@ def courses_straight(bm, x0, x1, y0, y1, out, rng):
                 jn = j + 2 if j + 1 == skip else j + 1
                 xb = joints[jn]
                 dz = sets[j] + rng.uniform(-0.03, 0.03)
-                slab(bm, xa + 0.06, xb - 0.06, ya + 0.015, yb, out, rng, pts=[(xa + 0.06, face + dz), (xb - 0.06, face + dz)], taper=0.02,
+                # (`--strata B`: a cleft at every third joint, the column edges drawn back from it so the dark core shows between.)
+                ga = 0.38 if (STRATA == "B" and j > 0 and CLEFTS.get(round(xa, 3))) else 0.06
+                gb = 0.38 if (STRATA == "B" and jn < len(joints) - 1 and CLEFTS.get(round(xb, 3))) else 0.06
+                slab(bm, xa + ga, xb - gb, ya + 0.015, yb, out, rng, pts=[(xa + ga, face + dz), (xb - gb, face + dz)], taper=0.02,
                      chamfer=0.07, shade=base * step * stains[j] * rng.uniform(0.97, 1.03))
                 j = jn
         return
@@ -216,7 +224,8 @@ def core():
     bm = part("strata_b")
     y0, y1 = FLOOR - 0.5, Y_TOP - 0.05
     w0, w1 = half_width(y0) - 0.2, half_width(y1) - 0.2
-    zf, zb = FZ - 0.5, FZ - DEPTH + 0.2
+    # (Further back under `--strata`: the soft beds set back fell behind it, and the core showed between the ledges as black slots.)
+    zf, zb = FZ - (1.6 if STRATA else 0.5), FZ - DEPTH + 0.2
     vs = [bm.verts.new(P(x, y, z)) for (x, y, z) in ((-w0, y0, zf), (w0, y0, zf), (w1, y1, zf), (-w1, y1, zf),
                                                      (-w0, y0, zb), (w0, y0, zb), (w1, y1, zb), (-w1, y1, zb))]
     centre = P(0.0, (y0 + y1) * 0.5, (zf + zb) * 0.5)
@@ -230,6 +239,7 @@ def core():
 
 
 JOINTS = []
+CLEFTS = {}
 
 
 def build():
@@ -240,12 +250,25 @@ def build():
         jr = random.Random(57)
         x = LEFT - 4.0
         while x < RIGHT + 4.0:
-            JOINTS.append((x, jr.uniform(-0.32, 0.1), jr.uniform(0.8, 0.9) if (MASS == "B" and jr.random() < 0.4) else 1.0))
+            JOINTS.append((x, jr.uniform(-0.32, 0.1) * (1.8 if STRATA else 1.0), jr.uniform(0.8, 0.9) if (MASS == "B" and jr.random() < 0.4) else 1.0))
+            if len(JOINTS) % 3 == 0:
+                CLEFTS[round(x, 3)] = True
             x += jr.uniform(5.0, 11.0)
     if VARIANT == "A":
         y = Y_TOP
+        tier = 0
         while y > FLOOR - 0.5:
             h = rng.uniform(1.1, 2.0)
+            # (`--strata`: hard and soft beds by turns, the soft thinner and set back, the top one standing out over the rest. Its own
+            # random numbers, so the beds and joints keep their layout.)
+            shift = 0.0
+            if STRATA:
+                sr = random.Random(900 + tier)
+                soft = tier % 2 == 1 and sr.random() < 0.85
+                h *= 0.7 if soft else 1.1
+                # (Set back 0.55 to 0.75 the soft beds read as a chest of drawers, dark slots between even shelves: less, and uneven.)
+                shift = 0.8 if tier == 0 else (-0.42 + 0.22 * sr.random() if soft else 0.1 + 0.4 * sr.random())
+            tier += 1
             w = half_width(y - h * 0.5)
             # Two or three slabs side by side in each tier, so the face breaks into blocks, not one ribbon.
             cuts = sorted(rng.uniform(-w * 0.6, w * 0.6) for _ in range(rng.choice((1, 2))))
@@ -255,7 +278,8 @@ def build():
                 xs = [-w, w]
             for k in range(len(xs) - 1):
                 if COURSES and STRAIGHT:
-                    courses_straight(part(band_of(y - h * 0.5)), xs[k] + 0.04, xs[k + 1] - 0.04, y - h, y, rng.uniform(0.35, 0.9), rng)
+                    courses_straight(part(band_of(y - h * 0.5)), xs[k] + 0.04, xs[k + 1] - 0.04, y - h, y, rng.uniform(0.35, 0.9), rng,
+                                     shift)
                 elif COURSES:
                     courses(part(band_of(y - h * 0.5)), xs[k] + 0.04, xs[k + 1] - 0.04, y - h, y, rng.uniform(0.35, 0.9), rng)
                 else:
@@ -302,7 +326,7 @@ def darken_down():
         layer = bm.verts.layers.float.get("tone")
         for v in bm.verts:
             t = min(1.0, max(0.0, (Y_TOP - v.co.z) / (Y_TOP - FLOOR)))
-            v[layer] = v[layer] * (1.04 - 0.26 * t ** 1.2)
+            v[layer] = v[layer] * (1.04 - (0.42 if STRATA == "B" else 0.26) * t ** 1.2)
 
 
 def clamp(bm, margin=0.9):
