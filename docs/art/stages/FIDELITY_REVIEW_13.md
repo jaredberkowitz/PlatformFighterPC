@@ -177,3 +177,7 @@ brown (0.46, 0.37, 0.3) read pink under the grove's light. The side pines are le
 owner's rule). P1's gap (all unlit) 0.072 today, 0.073 A, 0.072 B. On the Stage Look Review ("groveroots38", `gr38_*`); recommended B.
 To ship: rebuild `godot/models/stages/grove_paper.glb` with `--banks soft`, re-light the grove, and grove.cfg [backdrop]
 `root_colour=Color(0.3, 0.2, 0.13, 1)`.
+
+Built B (the owner's pick): `godot/models/stages/grove_paper.glb` rebuilt with `--banks soft`, the grove re-lit (front, paper, play),
+grove.cfg [backdrop] `root_colour=Color(0.3, 0.2, 0.13, 1)`. P1's gap 0.074. Before and after (the abyss, wide):
+`review13/grove_mist_roots_built.jpg`. All seven tests pass.
