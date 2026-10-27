@@ -122,3 +122,112 @@ So the far splits' shadows have stopped landing since the 22 October fix (someth
 as the far ranges once did), or the cast tone path no longer fires. Next step: bisect from 7fc9efb with the black-cast debug, then fix;
 only after that can the readable sun be mocked. A fallback that needs no fix: bake the sun's shadow into the ground's vertices
 (`light_stage.py --sun`, the retired pilot), softer but certain.
+
+### Correction, and the mock (2026-10-27)
+
+The far shadows were not broken. The black-cast test was wrong (a shadowed pixel keeps its ambient light, so it never goes black). In a
+bisect checkout on F: (`F:/PlatformFighterBuild/bisect`, removed after), the canyon captured with the sun's shadows on and off (a
+`--noshadow` patch) at 7fc9efb and at dafcfb57: the shadows darken 29.5% and 30.5% of the frame (34.0% and 30.8% of the band behind
+the stage). Mapped, nearly all of it is the faces turned from the sun: the key came from behind the scene (effective yaw -122, pitch
+-20), so every face toward the camera sat in shade and the rocks' shadows fell behind them. Nothing to bisect.
+
+The fix is the sun's direction. `lighting.gd`: a mood's "sun" [pitch, yaw] replaces its key's angles, or `--sun=A|B|C`: A [-28, -10]
+(effective yaw -90, low from the left, square across), B [-28, 10] (from the left and a little toward the camera), C B with the cast
+tone (0.2, 0.14, 0.42). Measured against today (with the shipped dark anchor; wide darks; P1's gap): today 11%, 0.065; A 11%, 0.070;
+B 12%, 0.075; C as B. The rocks gain a lit side toward the sun and their shadows run right across the floor; a modest change at this
+size. On the Stage Look Review ("readablesun35", `sn35_*`); recommended B. To ship: MOODS "sunset" `"sun": [-28.0, 10.0]`.
+
+Built B (the owner's pick): MOODS "sunset" `"sun": [-28.0, 10.0]`. P1's gap 0.074 in the game. Before and after (wide, left and right):
+`review13/canyon_sun_built.jpg`. All seven tests pass.
+
+## Item 3, chosen cut edges (mock, 2026-10-27)
+
+`post.gdshader` `cut_choose` [lit side only, own colour, ink lift kept]: the cut-edge rim now sums the directions the depth drops away in,
+and is kept (x) only where that edge faces the light (`-sheet_dir` across the screen); (y) takes its own surface's colour, lightened
+(col * 1.25 + 0.05), in place of `cut_colour`; (z) scales the pale lift on the scenery's ink lines (`paper_edge`). A style's finish
+"cut_choose" or `--cut=A|B|C`: A [1, 0, 1], B [1, 1, 1], C [1, 1, 0.4]. P1's gap, today then C: meadow 0.035 to 0.041, canyon 0.074 to
+0.082, beach 0.230 to 0.238, city 0.132 to 0.151, grove 0.060 to 0.072. On the Stage Look Review ("cutedges36", `ce36_*`; the ten
+oldest sections archived from the published copy only, for the artifact's file limit); recommended C. To ship: lighting.gd
+STYLE_DEFAULT finish `"cut_choose": [1.0, 1.0, 0.4]` (every stage).
+
+Built C (the owner's pick): lighting.gd STYLE_DEFAULT finish `"cut_choose": [1.0, 1.0, 0.4]`, every stage. The city's P1 gap 0.150 in the
+game. Before and after (the hoodoos, the island underside): `review13/cut_edges_built.jpg`. All seven tests pass.
+
+## Item 4, composed skies (mock, 2026-10-27)
+
+`StageArt._composed_sky`: the palette's [backdrop] `sky_groups` [[x, y, z, size, kind], ...] or `--sky=A|B` (`SKY_GROUPS`, meadow and
+sunset), a few larger clouds placed by hand in two groups apart, the sky over the fight open, the canyon's to the right clear of the
+sun. The stage's own cloud call still draws its random numbers into a node thrown away, so the rest of the layout keeps its place. B also
+makes the far layer (`_far_clouds`) a third as many, half again as large. The city's moon down from 34 to 19 (`moon_y`), whole in the
+wide frame. The first placement (18 to 36 up) sat above the wide camera's frame, which ends near 27 at those depths; the meadow's now
+11 to 18, the canyon's 18 to 25. The sky's value range barely moves (its gradient is the sky shader's). P1's gap: meadow 0.043 to
+0.048 (B), canyon 0.078 to 0.081, city 0.152. On the Stage Look Review ("composedsky37", `sk37_*`); recommended B. To ship: meadow.cfg
+and sunset.cfg [backdrop] `sky_groups` from `SKY_GROUPS`, `cloud_far` a third as many and 1.5 times the size, city.cfg `moon_y=19.0`.
+
+Built B (the owner's pick): meadow.cfg and sunset.cfg [backdrop] `sky_groups`, sunset.cfg `cloud_far=[3, 1.425, 0.3]` (the meadow has no
+far layer, so its A and B are the same), city.cfg `moon_y=19.0`. Before and after (the skies, wide): `review13/skies_built.jpg`. All seven
+tests pass.
+
+## Item 5, the grove's mist banks and roots (mock, 2026-10-27)
+
+`make_grove_paper.py --banks soft` (`bank`): each mist bank three stacked sheets (1.0, 0.74, 0.46 of its size, 0.45 apart), in
+`bank_mist_low` (0.64, 0.6, 0.84), `bank_mist` and `bank_mist_top` (0.93, 0.91, 0.99), their scallops deeper (0.3); and the front's roots
+from the palette's [backdrop] `root_colour` or `--roots=A|B` (`StageBake._root_colour`): A (0.38, 0.26, 0.17), B (0.3, 0.2, 0.13); the bark
+brown (0.46, 0.37, 0.3) read pink under the grove's light. The side pines are left: they are the stage's one modelled tree kind (the
+owner's rule). P1's gap (all unlit) 0.072 today, 0.073 A, 0.072 B. On the Stage Look Review ("groveroots38", `gr38_*`); recommended B.
+To ship: rebuild `godot/models/stages/grove_paper.glb` with `--banks soft`, re-light the grove, and grove.cfg [backdrop]
+`root_colour=Color(0.3, 0.2, 0.13, 1)`.
+
+Built B (the owner's pick): `godot/models/stages/grove_paper.glb` rebuilt with `--banks soft`, the grove re-lit (front, paper, play),
+grove.cfg [backdrop] `root_colour=Color(0.3, 0.2, 0.13, 1)`. P1's gap 0.074. Before and after (the abyss, wide):
+`review13/grove_mist_roots_built.jpg`. All seven tests pass.
+
+## Item 6, the meadow's wall (mock, 2026-10-27)
+
+`make_meadow_front.py --laid A|B` (`LAID` in `field_wall`): the same courses laid by hand. Stones 0.8 to 1.9 wide (some 1.9 to 3.1), a
+second stone stacked in a course 65% of the time, each shortened by up to 28% and dropped within its course, rounder (`rough_stone` pull
+0.26, bevel 0.24), with a chinking stone in 45% of the gaps. B sets them back 1.8 times as far and spreads their value wider (0.85).
+Same colours, moss and cap. The mocks are unlit (today too). P1's gap 0.043 today, 0.046 A, 0.044 B. On the Stage Look Review
+("wall39", `wl39_*`); recommended B (A if B's busier wall pulls the eye). To ship: rebuild `meadow_front.glb` with the shipped flags
+plus `--laid B` and re-light the meadow.
+
+Built B (the owner's pick): `godot/models/stages/meadow_front.glb` rebuilt with `--variant B --stones field --moss 1 --warm B --calm B
+--laid B`, the meadow re-lit (front, play, ground; `--curve 4.0 --reach 4.5 --floor 0.28` after a fresh `--light-export`). P1's gap
+0.046. Before and after (the wall, match camera then wide): `review13/meadow_wall_built.jpg`.
+
+## Item 7, the city's value steps (mock, 2026-10-27)
+
+`--skyline=A|B` (palette [backdrop] `skyline_steps`, `StageArt` city backdrop): the three skyline layers stepped, near (0.19, 0.17, 0.38),
+middle (0.36, 0.37, 0.64), far (0.6, 0.68, 0.9), where they sat close in one purple. B also lights more of the two nearer layers'
+windows (`skyline_warm`, 1.8 times the share). Wide darks 28% today, 32% with A and B; P1's gap 0.151, 0.155, 0.157. On the Stage Look
+Review ("skyline40", `sy40_*`); recommended B. To ship: city.cfg [backdrop] `skyline_steps` and `skyline_warm=1.8`.
+
+Built B (the owner's pick): city.cfg [backdrop] `skyline_steps` and `skyline_warm=1.8`. (They replace `skyline_shades`, so the
+`[try_pre_night]` trial's own shades no longer show; it is not shipped.) P1's gap 0.154. Before and after (the city's top, wide, then the
+beach's near water, match camera): `review13/city_beach_built.jpg`.
+
+## Item 8, the beach's near water (mock, 2026-10-27)
+
+`--near-waves=A|B` (palette [backdrop] `sea_near_waves`, water.gdshader `near_waves`, 0.6 and 1.2): the paper sea's sheets kept to the
+frame's foot instead of fading into the deepening. Each sheet's tone step up to 1 + 3.5 times, shaded across further (to 0.7 to 1.25),
+the shadow it lays on the next stronger, its lit lip softened less there. The first B (tone step 1 + 2 times, lips still softened)
+changed 13% of the lower frame wide but could not be seen, so it was strengthened. P1's gap 0.238 today, 0.240 A, 0.243 B. On the Stage
+Look Review ("nearwaves41", `nw41_*`); recommended B. To ship: ocean.cfg [backdrop] `sea_near_waves=1.2`.
+
+Built B (the owner's pick): ocean.cfg [backdrop] `sea_near_waves=1.2`. P1's gap 0.244. Before and after: the lower half of
+`review13/city_beach_built.jpg`.
+
+## Item 4's second half, a wider sky gradient (mock, 2026-10-27)
+
+The cameras see the sky from about 0.03 to 0.09 up. The canyon's and beach's skies used the shader's own bands (the middle tint at
+0.035, the top colour at 0.13), so the frame only ever showed their pale lower half; the meadow's were already fitted (0.012, 0.07).
+`--sky-range=A|B` (`StageArt.sky`, meadow, canyon and beach only): A fits the bands to the frame (0.012, 0.07); B also takes the top
+colour 22% deeper and the middle tint 8%. The sky's value range (the frame's top third, wide, p5 to p95): meadow 0.39 today, 0.39 A
+(its bands were already fitted), 0.43 B; canyon 0.27, 0.33, 0.38; beach 0.28, 0.33, 0.36. P1's gap holds (meadow noise 0.033 to 0.044,
+canyon 0.078 to 0.081, beach 0.241 to 0.243). On the Stage Look Review ("skyrange42", `sr42_*`); recommended B on the canyon and the
+beach, A (as today) on the meadow, whose deeper top goes grey. To ship: sunset.cfg and ocean.cfg [theme] `sky_bands=[0.012, 0.07]`,
+their `sky_top` and `sky_mid` deepened.
+
+Built B on the canyon and the beach (the owner's pick; the meadow as it is): sunset.cfg and ocean.cfg [theme] `sky_bands=[0.012, 0.07]`
+and `sky_deepen=[0.22, 0.08]` (`StageArt.sky`: the top and middle deepened in the sky only, so the light's ambient, which reads
+`sky_mid`, is unchanged). The sky's range as mocked: canyon 0.38, beach 0.36. Before and after (wide): `review13/sky_range_built.jpg`.

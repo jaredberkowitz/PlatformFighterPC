@@ -152,6 +152,20 @@ static func sky(t: Dictionary) -> Sky:
 	mat.shader = SKY_SHADER
 	var top: Color = t.sky_top
 	var horizon: Color = t.sky_horizon
+	# (A wider sky gradient, fidelity review 13 item 4's second half: the cameras see the sky from about 0.03 to 0.09 up, and the canyon's
+	# and beach's reached their top colour at 0.13, so the frame showed only the pale half. `--sky-range=A` fits the bands to the frame;
+	# B also takes the top a step deeper: the palette's `sky_bands` and `sky_deepen` [top, middle], the canyon's and beach's, the owner's
+	# pick B, 2026-10-27. In the sky only: the light's ambient still takes the palette's own `sky_mid`.)
+	var deepen: Array = t.get("sky_deepen", [0.0, 0.0])
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--sky-range=") and t.get("name", "") in ["meadow", "sunset", "ocean"]:
+			t = t.duplicate()
+			t.sky_bands = [0.012, 0.07]
+			deepen = [0.22, 0.08] if arg.substr(12).to_upper() == "B" else [0.0, 0.0]
+	if float(deepen[0]) > 0.0 or float(deepen[1]) > 0.0:
+		t = t.duplicate()
+		t.sky_mid = (t.get("sky_mid", top.lerp(horizon, 0.5)) as Color).darkened(float(deepen[1]))
+		top = top.darkened(float(deepen[0]))
 	mat.set_shader_parameter("top_color", top)
 	mat.set_shader_parameter("mid_color", t.get("sky_mid", top.lerp(horizon, 0.5)))
 	mat.set_shader_parameter("horizon_color", horizon)
@@ -3302,6 +3316,9 @@ static func _far_clouds(root: Node3D, t: Dictionary) -> void:
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--cloud-far="):
 			spec = {"A": [6, 0.75, 0.42], "B": [10, 0.95, 0.3]}.get(arg.substr(12), spec)
+		# (`--sky=B`: the far layer as a few larger clouds, not a scatter of small ones.)
+		if arg == "--sky=B" and spec.size() >= 3:
+			spec = [maxi(3, int(spec[0]) / 3), float(spec[1]) * 1.5, spec[2]]
 	if spec.size() < 3:
 		return
 	var rng := RandomNumberGenerator.new()
@@ -3318,6 +3335,39 @@ static func _far_clouds(root: Node3D, t: Dictionary) -> void:
 	_clouds(root, rng, int(spec[0]), colour, _cloud_band(Vector2(14, 30)), Vector2(deepest - 60.0, deepest - 20.0), [1, 0, 2],
 		float(spec[1]) * _cloud_scale(), Vector2(-170, 170), {"exposure": 0.92})
 	_cloud_keep_out.assign(keep)
+
+
+## A composed sky (fidelity review 13 item 4: rows of small, like cloud cards read as a pattern, not a sky): the palette's [backdrop]
+## `sky_groups` or `--sky=A|B`, a few large clouds placed by hand, each [x, y, z, size, kind]. The stage's own cloud call still draws its
+## random numbers (into a node thrown away), so everything placed after it keeps its layout. Returns false where there are none.
+static func _composed_sky(root: Node3D, rng: RandomNumberGenerator, count: int, color: Color, y_range: Vector2, z_range: Vector2,
+		kinds: Array, scale: float) -> bool:
+	var groups: Array = (_palette.get("backdrop", {}) as Dictionary).get("sky_groups", [])
+	var name := String(_palette.get("_name", ""))
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--sky=") and arg.substr(6).to_upper() in ["A", "B"]:
+			groups = SKY_GROUPS.get(name, [])
+	if groups.is_empty():
+		return false
+	var thrown := Node3D.new()
+	_clouds(thrown, rng, count, color, y_range, z_range, kinds, scale)
+	thrown.free()
+	var own := RandomNumberGenerator.new()
+	own.seed = 211
+	for g: Array in groups:
+		_clouds(root, own, 1, color, Vector2(g[1], g[1] + 1.0), Vector2(g[2] - 2.0, g[2] + 2.0), [int(g[4])], float(g[3]),
+			Vector2(g[0] - 1.5, g[0] + 1.5))
+	return true
+
+
+## The composed skies tried by `--sky=`: two groups apart and the sky over the fight open; the canyon's clear of the sun on the left.
+const SKY_GROUPS := {
+	# (Below about 25 up at these depths: the wide camera's frame ends near 27 there, and higher groups left the sky empty.)
+	# (The meadow's lower still: its clouds stand taller for their size, and at 18 to 25 their crowns met the frame's top.)
+	"meadow": [[-58.0, 12.0, -112.0, 2.1, 1], [-40.0, 16.0, -120.0, 1.4, 2], [-72.0, 17.0, -125.0, 1.1, 0],
+		[48.0, 11.0, -106.0, 1.9, 2], [66.0, 15.0, -116.0, 1.4, 1], [14.0, 18.0, -128.0, 0.9, 0]],
+	"sunset": [[38.0, 18.0, -110.0, 2.2, 1], [58.0, 22.0, -118.0, 1.6, 2], [24.0, 24.0, -124.0, 1.2, 0], [-30.0, 25.0, -126.0, 1.1, 2]],
+}
 
 
 static func _clouds(root: Node3D, rng: RandomNumberGenerator, count: int, color: Color, y_range: Vector2, z_range := Vector2(-120, -85),
@@ -4436,7 +4486,8 @@ static func _meadow(root: Node3D, t: Dictionary, stage: Array) -> void:
 	var ground: Node3D = Node3D.new() if ground_mock else root
 	pine_slots.clear()
 	_hills(ground, rng, _pal("hills_near"), _pal("hills_far"))
-	_clouds(root, rng, 11, Color(1.0, 1.0, 1.0), _cloud_band(Vector2(14, 34)), Vector2(-120, -85), [0, 1, 2], _cloud_scale())
+	if not _composed_sky(root, rng, 11, Color(1.0, 1.0, 1.0), _cloud_band(Vector2(14, 34)), Vector2(-120, -85), [0, 1, 2], _cloud_scale()):
+		_clouds(root, rng, 11, Color(1.0, 1.0, 1.0), _cloud_band(Vector2(14, 34)), Vector2(-120, -85), [0, 1, 2], _cloud_scale())
 	_far_clouds(root, t)
 	# (No islands floating in the sky since the stage became a terrace on a hillside, art review 9: they were pale, flat, pulled the eye, and
 	# said the land floats when it no longer does. Still drawn and thrown away, so the random layout of everything after them stays put.)
@@ -5124,7 +5175,8 @@ static func _sunset(root: Node3D, t: Dictionary, stage: Array) -> void:
 	for x in [e[0] + 1.5, e[1] - 2.0]:
 		_cactus(root, Vector3(x, e[2], -6.5), rng.randf_range(0.65, 0.85))
 		_contact(root, Vector3(x, e[2], -6.5), Vector2(0.45, 0.38))
-	_clouds(root, rng, 6, Color(1.0, 0.78, 0.7), Vector2(18, 30))
+	if not _composed_sky(root, rng, 6, Color(1.0, 0.78, 0.7), Vector2(18, 30), Vector2(-120, -85), [0, 1, 2], 1.0):
+		_clouds(root, rng, 6, Color(1.0, 0.78, 0.7), Vector2(18, 30))
 	_far_clouds(root, t)
 	# A line of telegraph poles running off across the desert floor, wires sagging between them: a road out there somewhere.
 	var pole := Materials.wood(Color(0.5, 0.34, 0.26))
@@ -5391,6 +5443,12 @@ static func _ocean(root: Node3D, t: Dictionary, stage: Array) -> void:
 			near = {"A": [0.8, 0.0], "B": [0.8, 1.0], "C": [1.25, 1.0], "D": [1.8, 1.0]}.get(arg.substr(11), near)
 	if near.size() == 2:
 		wm.set_shader_parameter("near_depth", Vector2(near[0], near[1]))
+	# (The near sea's paper waves, fidelity review 13 item 8: the palette's `sea_near_waves` or `--near-waves=A|B`.)
+	var nwaves := float((_palette.get("backdrop", {}) as Dictionary).get("sea_near_waves", 0.0))
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--near-waves="):
+			nwaves = {"A": 0.6, "B": 1.2}.get(arg.substr(13).to_upper(), nwaves)
+	wm.set_shader_parameter("near_waves", nwaves)
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--sea-look="):
 			wm.set_shader_parameter("look", {"T": 0, "A": 1, "B": 2, "C": 3}.get(arg.substr(11), int(_pal("sea_look"))))
@@ -5588,7 +5646,12 @@ static func _city(root: Node3D, t: Dictionary, stage: Array) -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 33
 	var e := _ext(stage)
-	_mesh(root, _sphere(8.0, 32), _unshaded(Color(0.98, 0.94, 0.82)), Vector3(30, 34, -140))
+	# (Whole in the wide frame, fidelity review 13: at 34 up the frame's top cut it, which ends near 29 at its depth; the palette's [backdrop] `moon_y` or `--sky=`.)
+	var moon_y := float((_palette.get("backdrop", {}) as Dictionary).get("moon_y", 34.0))
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--sky="):
+			moon_y = 19.0
+	_mesh(root, _sphere(8.0, 32), _unshaded(Color(0.98, 0.94, 0.82)), Vector3(30, moon_y, -140))
 	var star := _unshaded(Color(1, 1, 0.9))
 	var dot := _sphere(0.3, 6)
 	for k in 70:
@@ -5609,6 +5672,14 @@ static func _city(root: Node3D, t: Dictionary, stage: Array) -> void:
 		# (Lighter, cooler and hazier with distance, the gauntlet's round 3 after the owner's city reference, kept at night: the towers sat
 		# as dark and saturated as the play building and nothing separated. A night haze of pale blue-lilac, more of it further back.)
 		shade = (_pal("skyline_shades") as Array)[layer]
+		# (Value steps, fidelity review 13 item 7: the three layers sat close in one purple. `--skyline=A|B`, or the palette's
+		# [backdrop] `skyline_steps`: the near layer a deeper indigo, the far one lighter and bluer, the middle between.)
+		var steps: Array = (_palette.get("backdrop", {}) as Dictionary).get("skyline_steps", [])
+		for arg in OS.get_cmdline_user_args():
+			if arg.begins_with("--skyline=") and arg.substr(10).to_upper() in ["A", "B"]:
+				steps = [Color(0.19, 0.17, 0.38), Color(0.36, 0.37, 0.64), Color(0.6, 0.68, 0.9)]
+		if steps.size() == 3:
+			shade = steps[layer]
 		_skyline_layer(root, rng, layer, z, shade, float(e[3]) - CITY_STREET_DROP)
 	# A water tower and an antenna on the roof behind the stage.
 	var roof: float = e[2]
@@ -6390,7 +6461,13 @@ static func _skyline_layer(root: Node3D, rng: RandomNumberGenerator, layer: int,
 	m.set_shader_parameter("base_shade", shade)
 	m.set_shader_parameter("roof_shade", shade.lightened(0.12))
 	m.set_shader_parameter("lit_energy", FACADE_LIT[layer])
-	m.set_shader_parameter("lit_share", FACADE_LIT_SHARE[layer])
+	var share: float = FACADE_LIT_SHARE[layer]
+	# (`--skyline=B` or the palette's `skyline_warm`: more of the nearer layers' windows lit, warm light spread through the purple.)
+	var warm := float((_palette.get("backdrop", {}) as Dictionary).get("skyline_warm", 1.0))
+	for arg in OS.get_cmdline_user_args():
+		if arg == "--skyline=B":
+			warm = 1.8
+	m.set_shader_parameter("lit_share", share * (warm if layer < 2 else 1.0))
 	# The far layer: windows only (frames, sills and floor bands would be noise at that distance).
 	# (And the middle layer too since art review 10, so only the nearest buildings carry frames and sills.)
 	m.set_shader_parameter("detail", 0.0 if layer >= 1 else 1.0)

@@ -34,7 +34,9 @@ const MOODS := {
 		"ambient": [Color(1.0, 0.93, 0.95), 0.47], "shadow_hue": 0.78, "shadow_shift": 0.06, "shadow_value": 0.42,
 		"shadow_tint": Color(0.72, 0.62, 0.92), "rim": Color(1.0, 0.86, 0.92),
 		"grade": [Color(0.98, 0.9, 1.04), Color(1.04, 0.98, 0.96), 0.3], "haze": Color(0.76, 0.73, 1.0)},
-	"sunset": {"key": [Color(1.0, 0.72, 0.5), 1.25, -20.0, -42.0], "fill": [Color(0.6, 0.5, 1.0), 0.42],
+	# (Its "sun", fidelity review 13, the owner's pick B: the key turned to come low from the drawn sun's side, the front left; from behind
+	# the scene, every face toward the camera sat in shade and the rocks' shadows fell out of sight.)
+	"sunset": {"key": [Color(1.0, 0.72, 0.5), 1.25, -20.0, -42.0], "sun": [-28.0, 10.0], "fill": [Color(0.6, 0.5, 1.0), 0.42],
 		"ambient": [Color(0.94, 0.84, 0.88), 0.5], "shadow_hue": 0.79, "shadow_shift": 0.1, "shadow_value": 0.58,
 		"shadow_tint": Color(0.72, 0.58, 0.84),
 		# (A cool rim from the dusk sky overhead, art review 6 round 4: an orange rim on warm fighters against warm rock added no separation.)
@@ -97,7 +99,10 @@ const STYLE_DEFAULT := {
 	"sun_shadow": [70.0, 2, 5.0],
 	"cast": Color(1.0, 1.0, 1.0, 0.0),
 	"finish": {"desat": 0.0, "lift": 0.03, "vignette": 0.16, "haze_max": 0.22, "s_curve": 0.22, "quiet": 0.25, "bloom": 0.4,
-		"bloom_from": 0.6, "sheets": 0.0, "cut_edge": 0.0, "fight_lift": 0.0, "haze_desat": 0.35},
+		"bloom_from": 0.6, "sheets": 0.0, "cut_edge": 0.0, "fight_lift": 0.0, "haze_desat": 0.35,
+		# (Chosen cut edges, fidelity review 13, the owner's pick C: the pale rim only where an edge faces the light, in its own colour,
+		# the ink lines' pale lift at 0.4; round every shape it read as sticker outlines. post.gdshader `cut_choose`.)
+		"cut_choose": [1.0, 1.0, 0.4]},
 }
 ## Shaped light (fidelity review 7, the owner's pick A, 2026-10-23): the day stages' `clouds` smaller and over more ground with a
 ## `cloud_tone` laid on the colour (see SHAPED_TRY); `--shaped=T` shows a stage as before.
@@ -408,7 +413,15 @@ static func stage_mood(env: Environment, root: Node, theme: Dictionary, post: Sh
 	if key != null:
 		key.light_color = mood.key[0]
 		key.light_energy = mood.key[1]
-		key.rotation_degrees = Vector3(mood.key[2], float(mood.key[3]) + KEY_SIDE, 0)
+		# (A readable sun, fidelity review 13 item 2: a mood's "sun" [pitch, yaw] in place of its key's, or `--sun=A|B|C`. The canyon's key
+		# came from behind the scene, so nearly every face toward the camera sat in shade and its shadows fell behind the rocks.)
+		var aim: Array = [mood.key[2], mood.key[3]]
+		if mood.has("sun"):
+			aim = mood.sun
+		for arg in OS.get_cmdline_user_args():
+			if arg.begins_with("--sun="):
+				aim = {"A": [-28.0, -10.0], "B": [-28.0, 10.0], "C": [-28.0, 10.0]}.get(arg.substr(6).to_upper(), aim)
+		key.rotation_degrees = Vector3(float(aim[0]), float(aim[1]) + KEY_SIDE, 0)
 		# Toward the sun (the light shines down its -Z), for the sky's pieces lit by hand: clouds, ridges (shaders/cloud.gdshader,
 		# painted_ridge.gdshader).
 		RenderingServer.global_shader_parameter_set("pf_sun_dir", key.basis.z.normalized())
@@ -442,7 +455,11 @@ static func stage_mood(env: Environment, root: Node, theme: Dictionary, post: Sh
 		else:
 			key.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
 			key.directional_shadow_split_1 = 0.35
-	RenderingServer.global_shader_parameter_set("pf_cast_shade", look.cast)
+	var cast: Color = look.cast
+	for arg in OS.get_cmdline_user_args():
+		if arg == "--sun=C":
+			cast = Color(0.2, 0.14, 0.42, 1.0)
+	RenderingServer.global_shader_parameter_set("pf_cast_shade", cast)
 	# The light finish (fidelity review 6, see STYLES): bounce light (pf_bounce), a firmer grade and S-curve, the lamps glowing.
 	var finish_off := OS.get_cmdline_user_args().has("--light-finish=off")
 	RenderingServer.global_shader_parameter_set("pf_bounce", Color(0, 0, 0, 0) if finish_off else look.get("bounce", Color(0, 0, 0, 0)))
@@ -469,6 +486,13 @@ static func stage_mood(env: Environment, root: Node, theme: Dictionary, post: Sh
 		post.set_shader_parameter("scenery_lines", float(finish.get("scenery_lines", 0.4)))
 		post.set_shader_parameter("sheets", finish.sheets)
 		post.set_shader_parameter("cut_edge", finish.cut_edge)
+		# (Chosen cut edges, fidelity review 13: a style's finish "cut_choose" [lit side only, own colour] or `--cut=A|B|C`; C also keeps
+		# only 0.4 of the pale lift on the scenery's ink lines.)
+		var choose: Array = finish.get("cut_choose", [0.0, 0.0, 1.0])
+		for arg in OS.get_cmdline_user_args():
+			if arg.begins_with("--cut="):
+				choose = {"A": [1.0, 0.0, 1.0], "B": [1.0, 1.0, 1.0], "C": [1.0, 1.0, 0.4]}.get(arg.substr(6).to_upper(), choose)
+		post.set_shader_parameter("cut_choose", Vector3(choose[0], choose[1], choose[2]))
 		post.set_shader_parameter("fight_lift", finish.fight_lift)
 		# (A dark anchor, fidelity review 13: a style's finish "value_deep" [darks, foot, foot from, reach] or `--value=A|B|C`.)
 		var deep: Array = finish.get("value_deep", [])

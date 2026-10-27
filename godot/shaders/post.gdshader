@@ -92,6 +92,10 @@ uniform float sheets = 0.0;
 uniform vec2 sheet_dir = vec2(0.0, 1.0);
 uniform float cut_edge = 0.0;
 uniform vec4 cut_colour : source_color = vec4(1.0, 0.97, 0.9, 1.0);
+// Chosen cut edges (fidelity review 13: the pale rim round every step back read as sticker outlines): x how far the rim keeps only to the
+// side that faces the light (1 only there), y how far it takes its own surface's colour, lightened, in place of `cut_colour`; z how
+// much of the pale lift on the scenery's ink lines (`paper_edge`) is kept.
+uniform vec3 cut_choose = vec3(0.0, 0.0, 1.0);
 uniform float fight_lift = 0.0;
 // A dark anchor on the stage and scenery (fidelity review 13: three stills held almost no darks, 2 to 4% of the frame under 0.25, and read
 // milky): x how far the scenery's darks are pushed down (its lights kept), y how much the frame's foot is deepened, from z of the way down;
@@ -196,7 +200,7 @@ void fragment() {
 	edge *= id0 > 0.6 ? 1.0 - smoothstep(stage_dist + scenery_ink_from, stage_dist + scenery_ink_from + 16.0, d0) : 1.0;
 	// (Lines on blurred far scenery soften with it.)
 	edge *= 1.0 - 0.6 * blur_k;
-	float card_edge = id0 > 0.6 ? edge * paper_edge : 0.0;
+	float card_edge = id0 > 0.6 ? edge * paper_edge * cut_choose.z : 0.0;
 	edge *= id0 > 0.6 ? scenery_lines : 1.0;
 	// Distance haze on the scenery behind the stage (before the pastel finish and the ink, so far lines fade with it).
 	if (d0 < 400.0) {
@@ -265,13 +269,24 @@ void fragment() {
 		if (cut_edge > 0.0 && near_k > 0.0) {
 			// The near side of a step back of more than half a unit, two pixels across (at 720 lines), softer at the outer one.
 			float back = 0.0;
+			vec2 drop = vec2(0.0);
 			for (int k = 0; k < 8; k++) {
 				float a = float(k) * 0.785398;
-				vec2 o = vec2(cos(a), sin(a)) * to_px;
-				back = max(back, view_depth(uv + o, INV_PROJECTION_MATRIX) - d0);
-				back = max(back, 0.5 * (view_depth(uv + o * 2.0, INV_PROJECTION_MATRIX) - d0));
+				vec2 dir = vec2(cos(a), sin(a));
+				vec2 o = dir * to_px;
+				float b1 = max(view_depth(uv + o, INV_PROJECTION_MATRIX) - d0, 0.5 * (view_depth(uv + o * 2.0, INV_PROJECTION_MATRIX) - d0));
+				drop += dir * max(b1, 0.0);
+				back = max(back, b1);
 			}
-			col = mix(col, cut_colour.rgb, cut_edge * smoothstep(0.6, 4.0, back) * near_k);
+			float rim_k = cut_edge * smoothstep(0.6, 4.0, back) * near_k;
+			if (cut_choose.x > 0.0 && length(drop) > 0.001) {
+				// (The edge faces the way the depth drops away; the light comes from -sheet_dir across the screen, in screen space with y
+				// down, as the sheets' shadows take it.)
+				float facing = dot(normalize(drop * vec2(1.0, -1.0)), -sheet_dir);
+				rim_k *= mix(1.0, smoothstep(-0.1, 0.6, facing), cut_choose.x);
+			}
+			vec3 rim_c = mix(cut_colour.rgb, col * 1.25 + vec3(0.05), cut_choose.y);
+			col = mix(col, rim_c, rim_k);
 		}
 		if (fight_lift > 0.0) {
 			// Round the fight: the frame's middle, a little below centre.
