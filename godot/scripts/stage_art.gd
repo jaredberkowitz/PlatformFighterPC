@@ -3081,6 +3081,21 @@ const RIDGES := {
 ## One painted ridge behind the stage, from a RIDGES entry.
 static func ridge(root: Node3D, t: Dictionary, spec: Dictionary) -> MeshInstance3D:
 	var horizon: Color = t.sky_horizon
+	# (The meadow's ranges toward its land, fidelity review 14 item 7: a pale glassy teal sat apart from the saturated greens in front.
+	# `--peaks=A|B` (the land greener and a step deeper, the snow line 10 higher; B the land deeper still and the tree line 14 higher);
+	# shipping writes them into RIDGES. (The land's colour alone moved nothing: the snow above two thirds of the height and the haze are
+	# most of what shows.)
+	var peaks := ""
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--peaks="):
+			peaks = arg.substr(8).to_upper()
+	if peaks in ["A", "B"] and String(spec.get("model", "")).begins_with("range_meadow"):
+		spec = spec.duplicate()
+		var far: bool = spec.model == "range_meadow_far"
+		spec.land_colour = (Color(0.36, 0.7, 0.6) if far else Color(0.15, 0.52, 0.44)) if peaks == "A" \
+			else (Color(0.3, 0.6, 0.5) if far else Color(0.12, 0.44, 0.36))
+		if spec.has("alt"):
+			spec.alt = [float(spec.alt[0]) + 10.0, float(spec.alt[1]) + 10.0, float(spec.alt[2]) + (14.0 if peaks == "B" else 0.0)]
 	var tone: Color = spec.tone
 	var m := ShaderMaterial.new()
 	m.shader = RIDGE_SHADER

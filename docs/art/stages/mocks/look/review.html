@@ -88,8 +88,33 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
     <p>Two lessons from the reference screenshots, mocked from the match camera: the scenery without ink outlines, its edges lit as card bevels instead, and the paper houses rebuilt at the characters' proportions. The earlier rounds stay on the <a href="https://claude.ai/artifact/D1du6MREVumiJDrEdNypW4">Stage Fidelity Review</a>, which is full.</p>
   </header>
 
+  <section class="panel" aria-labelledby="mt49-h" id="meadowland49">
+    <div class="eyebrow">Your call is needed &middot; review 14, item 7: the meadow's terraces and mountains</div>
+    <h2 id="mt49-h">Terraces cut as card, mountains of rock</h2>
+    <p>First, the beach's folded islands are built (B, the beach re-lit; see its section below). Next, the meadow's two pieces still at 4:</p>
+    <ul style="display:grid;gap:6px;margin:0 0 10px;padding-left:1.4em;max-width:78ch">
+      <li><b>The terraces under the wall:</b> each shelf's low wall was two courses of short blocks in two tones by turns, which read as a pixel checker at the wide camera.</li>
+      <li><b>The great mountains:</b> pale and glassy beside the saturated greens, mostly the painted snow over two-thirds of their height, seen through the haze.</li>
+    </ul>
+    <div class="tablewrap"><table><thead><tr><th>Option</th><th>Terraces</th><th>Mountains</th></tr></thead><tbody>
+      <tr><td>A &middot; A step</td><td>Long blocks of one tone, an odd darker stone</td><td>The rock greener and a step deeper, the snow line raised by 10</td></tr>
+      <tr><td>B &middot; Clear</td><td>Each wall one plain cut-card face under its shelf, as the grove's terraces stand</td><td>The rock deeper still, the snow line raised by 10, the tree line by 14</td></tr>
+    </tbody></table></div>
+    <p>Today then B, wide: the mountains, then the terraces. The terraces are unlit, as mocks are; the shipped ones are re-lit. The sky third's value range goes from 0.36 to 0.39 (A) and 0.42 (B). The frame's darks hold (13%), and so does P1's gap (0.133 to 0.134).</p>
+    <div class="viewer"><img src="mt49_close.jpg" alt="The meadow's mountains and terraces today and with option B"></div>
+    <div class="row" role="group" aria-label="View"><button data-mt49v="m">Match camera</button><button data-mt49v="w">Wide</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-mt49o="T">Today</button><button data-mt49o="A">A &middot; A step</button><button data-mt49o="B">B &middot; Clear</button></div>
+    <div class="viewer"><img id="mt49img" alt="Meadow land option"><span class="vtag" id="mt49tag"></span></div>
+    <p class="muted">My pick: <b>B</b>. The terraces read as cut card shelves rather than a checker. The mountains read as teal rock with snow only on their crowns, still the cool teal against lime that the papercraft reference sets, but solid instead of glassy. Honest notes:
+      <ul>
+        <li>My first mountain change, the rock colour alone, didn't show at all: the snow and the haze were most of it. The snow line had to come down the list too.</li>
+        <li>A's terraces are calmer than today's but still blocky.</li>
+      </ul>
+    </p>
+  </section>
+
   <section class="panel" aria-labelledby="bi48-h" id="beachisles48">
-    <div class="eyebrow">Your call is needed &middot; review 14, item 6: the beach's islands</div>
+    <div class="eyebrow">Built B (the owner's pick) &middot; review 14, item 6: the beach's islands</div>
     <h2 id="bi48-h">Islands folded, not stacked</h2>
     <p>First, the canyon's front is built (B, strata with clefts, the canyon re-lit; see its section below). Next, the beach's background land. The islands' green mounds were cut as stacked contour sheets 0.7 apart, which read as tiered green slabs, a wedding cake. The low hills by the crane were the same.</p>
     <div class="tablewrap"><table><thead><tr><th>Option</th><th>What changes</th></tr></thead><tbody>
@@ -3110,5 +3135,15 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
   group("data-bi48v", function (v) { bi48v = v; }, bi48render);
   group("data-bi48o", function (v) { bi48o = v; }, bi48render);
   bi48render();
+  var mt49v = "w", mt49o = "B";
+  var MT49O = { T: "Today", A: "A · A step", B: "B · Clear" };
+  function mt49render() {
+    document.getElementById("mt49img").src = "mt49_" + mt49o + "_" + mt49v + ".jpg";
+    document.getElementById("mt49tag").textContent = "Meadow · " + MT49O[mt49o] + (mt49v === "w" ? " · wide" : " · match camera");
+    pressed("data-mt49v", mt49v); pressed("data-mt49o", mt49o);
+  }
+  group("data-mt49v", function (v) { mt49v = v; }, mt49render);
+  group("data-mt49o", function (v) { mt49o = v; }, mt49render);
+  mt49render();
 })();
 </script>

@@ -256,3 +256,20 @@ ship: rebuild `godot/models/stages/beach_ground.glb` with `--variant C --isles B
 Built B (the owner's pick): `godot/models/stages/beach_ground.glb` rebuilt with `--variant C --isles B` (7,974 triangles, from 10,960),
 the beach re-lit (front, play, ground). Wide: darks 9%, range 0.59; P1's gap 0.256. Before and after (the islands and low hills, match
 camera): `review14/beach_islands_built.jpg`. All seven tests pass.
+
+## Item 7, the meadow's terraces and mountains (mock, 2026-10-27)
+
+**Terraces** (`make_meadow_ground.py --walls A|B`, on the shipped `--variant FC --pine D --hill fields_lane --stream B`). Each shelf's
+wall was two courses of 1.3 blocks in two tones by turns, a pixel checker at the wide camera.
+- A: blocks 2.6 long, one tone, 18% of them the darker stone.
+- B: each wall one plain `terrace_wall` face from the shelf down to the next, as the grove's terraces stand.
+
+**Mountains** (`--peaks=A|B`, `StageArt.ridge` on the two `range_meadow` specs). The rock colour alone moved nothing (the first try):
+the painted snow above two thirds of the height and the haze were most of what showed.
+- A: `land_colour` far (0.36, 0.7, 0.6), near (0.15, 0.52, 0.44), and the snow and rock lines 10 higher.
+- B: far (0.3, 0.6, 0.5), near (0.12, 0.44, 0.36), the same lines, and the tree line 14 higher.
+
+The sky third's value range (wide) is 0.36 today, 0.39 A, 0.42 B. Darks hold (13%), and P1's gap holds (0.133 to 0.134). The terraces
+are unlit mocks. On the Stage Look Review ("meadowland49", `mt49_*`); recommended B. To ship:
+- rebuild `meadow_ground.glb` and `meadow_pines.glb` with `--walls B`, and re-light the meadow;
+- RIDGES' meadow specs: the colours above, `alt` + [10, 10, 14].
