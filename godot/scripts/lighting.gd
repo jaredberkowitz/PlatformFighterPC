@@ -36,8 +36,10 @@ const MOODS := {
 		"grade": [Color(0.98, 0.9, 1.04), Color(1.04, 0.98, 0.96), 0.3], "haze": Color(0.76, 0.73, 1.0)},
 	# (Its "sun", fidelity review 13, the owner's pick B: the key turned to come low from the drawn sun's side, the front left; from behind
 	# the scene, every face toward the camera sat in shade and the rocks' shadows fell out of sight.)
+	# (Its shade turned as far as it goes toward a blue-violet and a tenth deeper, fidelity review 14 item 4, the owner's pick B: lit and
+	# shaded faces were one pink-orange. It was hue 0.79, shift 0.1, value 0.58.)
 	"sunset": {"key": [Color(1.0, 0.72, 0.5), 1.25, -20.0, -42.0], "sun": [-28.0, 10.0], "fill": [Color(0.6, 0.5, 1.0), 0.42],
-		"ambient": [Color(0.94, 0.84, 0.88), 0.5], "shadow_hue": 0.79, "shadow_shift": 0.1, "shadow_value": 0.58,
+		"ambient": [Color(0.94, 0.84, 0.88), 0.5], "shadow_hue": 0.72, "shadow_shift": 0.25, "shadow_value": 0.522,
 		"shadow_tint": Color(0.72, 0.58, 0.84),
 		# (A cool rim from the dusk sky overhead, art review 6 round 4: an orange rim on warm fighters against warm rock added no separation.)
 		"rim": Color(0.84, 0.8, 1.0),
@@ -238,6 +240,9 @@ const STYLES := {
 			"cut_edge": 0.45, "fight_lift": 0.15, "value_deep": [0.5, 0.42, 0.55, 80.0]}},
 	# (The towers and the street's pieces grounded, a deep violet, the graphics review 5.)
 	"city": {"bounce": Color(1.0, 0.58, 0.52, 0.66), "grade_more": 0.15, "curve_more": 0.06, "glow_from": 1.9,
+		# (Its front calmed a third of the way into the purple haze, not three quarters, fidelity review 14 item 4, the owner's pick B: the
+		# warm brick went mauve.)
+		"front_calm": 0.35,
 		"sun_shadow": [260.0, 4, 1.0], "cast": Color(0.4, 0.3, 0.6, 1.0), "edge": Color(1.0, 0.82, 0.92, 0.55), "paint": [Color(1.06, 0.96, 0.96), Color(0.9, 0.88, 1.1), 0.6], "deep": 0.72, "glow": 1.1,
 		"finish": {"lift": 0.02, "s_curve": 0.48, "quiet": 0.12, "sheets": 0.63, "cut_edge": 0.55, "fight_lift": 0.24}},
 }

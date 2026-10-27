@@ -209,3 +209,11 @@ On the Stage Look Review ("warmcool46", `wc46_*`); recommended B on both. To shi
 - `MOODS.sunset` `shadow_shift` 0.25, `shadow_hue` 0.72 and `shadow_value` 0.522;
 - city.cfg `soil` and `soil_dark` as above, and [backdrop] `roof_warm=0.35`;
 - the city style's `front_calm` 0.35.
+
+Built B on both (the owner's pick):
+- `MOODS.sunset` `shadow_hue` 0.72, `shadow_shift` 0.25, `shadow_value` 0.522;
+- city.cfg `soil` (0.66, 0.36, 0.26) and `soil_dark` (0.48, 0.24, 0.2), and [backdrop] `roof_warm=0.35`;
+- the city style's `front_calm` 0.35.
+
+The shipped frames match the mock. Before and after (the canyon wide, the city's play building): `review14/warm_cool_built.jpg`. All
+seven tests pass.
