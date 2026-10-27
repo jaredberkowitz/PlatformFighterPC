@@ -141,3 +141,7 @@ first try with a fifth of the saturation taken too turned the lawns a grey olive
 The wide frames' value structure is unchanged (darks 10%, 12 to 13%, 18 to 19%). The meadow falls short of 0.12: the rest of its gap
 is the bright hills behind P1. The platforms' tops change too (fighters stand there). On the Stage Look Review ("fightground44",
 `fg44_*`); recommended B. To ship: [backdrop] `fight_ground=[0.32, 0.08]` in meadow.cfg, sunset.cfg and grove.cfg.
+
+Built B (the owner's pick): [backdrop] `fight_ground=[0.32, 0.08]` in meadow.cfg, sunset.cfg and grove.cfg. P1's gap in the game:
+meadow 0.113, canyon 0.165, grove 0.134. Before and after (the fight, match camera): `review14/fight_ground_built.jpg`. All seven
+tests pass.
