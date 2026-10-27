@@ -152,3 +152,14 @@ STYLE_DEFAULT finish `"cut_choose": [1.0, 1.0, 0.4]` (every stage).
 
 Built C (the owner's pick): lighting.gd STYLE_DEFAULT finish `"cut_choose": [1.0, 1.0, 0.4]`, every stage. The city's P1 gap 0.150 in the
 game. Before and after (the hoodoos, the island underside): `review13/cut_edges_built.jpg`. All seven tests pass.
+
+## Item 4, composed skies (mock, 2026-10-27)
+
+`StageArt._composed_sky`: the palette's [backdrop] `sky_groups` [[x, y, z, size, kind], ...] or `--sky=A|B` (`SKY_GROUPS`, meadow and
+sunset), a few larger clouds placed by hand in two groups apart, the sky over the fight open, the canyon's to the right clear of the
+sun. The stage's own cloud call still draws its random numbers into a node thrown away, so the rest of the layout keeps its place. B also
+makes the far layer (`_far_clouds`) a third as many, half again as large. The city's moon down from 34 to 19 (`moon_y`), whole in the
+wide frame. The first placement (18 to 36 up) sat above the wide camera's frame, which ends near 27 at those depths; the meadow's now
+11 to 18, the canyon's 18 to 25. The sky's value range barely moves (its gradient is the sky shader's). P1's gap: meadow 0.043 to
+0.048 (B), canyon 0.078 to 0.081, city 0.152. On the Stage Look Review ("composedsky37", `sk37_*`); recommended B. To ship: meadow.cfg
+and sunset.cfg [backdrop] `sky_groups` from `SKY_GROUPS`, `cloud_far` a third as many and 1.5 times the size, city.cfg `moon_y=19.0`.

@@ -3302,6 +3302,9 @@ static func _far_clouds(root: Node3D, t: Dictionary) -> void:
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--cloud-far="):
 			spec = {"A": [6, 0.75, 0.42], "B": [10, 0.95, 0.3]}.get(arg.substr(12), spec)
+		# (`--sky=B`: the far layer as a few larger clouds, not a scatter of small ones.)
+		if arg == "--sky=B" and spec.size() >= 3:
+			spec = [maxi(3, int(spec[0]) / 3), float(spec[1]) * 1.5, spec[2]]
 	if spec.size() < 3:
 		return
 	var rng := RandomNumberGenerator.new()
@@ -3318,6 +3321,39 @@ static func _far_clouds(root: Node3D, t: Dictionary) -> void:
 	_clouds(root, rng, int(spec[0]), colour, _cloud_band(Vector2(14, 30)), Vector2(deepest - 60.0, deepest - 20.0), [1, 0, 2],
 		float(spec[1]) * _cloud_scale(), Vector2(-170, 170), {"exposure": 0.92})
 	_cloud_keep_out.assign(keep)
+
+
+## A composed sky (fidelity review 13 item 4: rows of small, like cloud cards read as a pattern, not a sky): the palette's [backdrop]
+## `sky_groups` or `--sky=A|B`, a few large clouds placed by hand, each [x, y, z, size, kind]. The stage's own cloud call still draws its
+## random numbers (into a node thrown away), so everything placed after it keeps its layout. Returns false where there are none.
+static func _composed_sky(root: Node3D, rng: RandomNumberGenerator, count: int, color: Color, y_range: Vector2, z_range: Vector2,
+		kinds: Array, scale: float) -> bool:
+	var groups: Array = (_palette.get("backdrop", {}) as Dictionary).get("sky_groups", [])
+	var name := String(_palette.get("_name", ""))
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--sky=") and arg.substr(6).to_upper() in ["A", "B"]:
+			groups = SKY_GROUPS.get(name, [])
+	if groups.is_empty():
+		return false
+	var thrown := Node3D.new()
+	_clouds(thrown, rng, count, color, y_range, z_range, kinds, scale)
+	thrown.free()
+	var own := RandomNumberGenerator.new()
+	own.seed = 211
+	for g: Array in groups:
+		_clouds(root, own, 1, color, Vector2(g[1], g[1] + 1.0), Vector2(g[2] - 2.0, g[2] + 2.0), [int(g[4])], float(g[3]),
+			Vector2(g[0] - 1.5, g[0] + 1.5))
+	return true
+
+
+## The composed skies tried by `--sky=`: two groups apart and the sky over the fight open; the canyon's clear of the sun on the left.
+const SKY_GROUPS := {
+	# (Below about 25 up at these depths: the wide camera's frame ends near 27 there, and higher groups left the sky empty.)
+	# (The meadow's lower still: its clouds stand taller for their size, and at 18 to 25 their crowns met the frame's top.)
+	"meadow": [[-58.0, 12.0, -112.0, 2.1, 1], [-40.0, 16.0, -120.0, 1.4, 2], [-72.0, 17.0, -125.0, 1.1, 0],
+		[48.0, 11.0, -106.0, 1.9, 2], [66.0, 15.0, -116.0, 1.4, 1], [14.0, 18.0, -128.0, 0.9, 0]],
+	"sunset": [[38.0, 18.0, -110.0, 2.2, 1], [58.0, 22.0, -118.0, 1.6, 2], [24.0, 24.0, -124.0, 1.2, 0], [-30.0, 25.0, -126.0, 1.1, 2]],
+}
 
 
 static func _clouds(root: Node3D, rng: RandomNumberGenerator, count: int, color: Color, y_range: Vector2, z_range := Vector2(-120, -85),
@@ -4436,7 +4472,8 @@ static func _meadow(root: Node3D, t: Dictionary, stage: Array) -> void:
 	var ground: Node3D = Node3D.new() if ground_mock else root
 	pine_slots.clear()
 	_hills(ground, rng, _pal("hills_near"), _pal("hills_far"))
-	_clouds(root, rng, 11, Color(1.0, 1.0, 1.0), _cloud_band(Vector2(14, 34)), Vector2(-120, -85), [0, 1, 2], _cloud_scale())
+	if not _composed_sky(root, rng, 11, Color(1.0, 1.0, 1.0), _cloud_band(Vector2(14, 34)), Vector2(-120, -85), [0, 1, 2], _cloud_scale()):
+		_clouds(root, rng, 11, Color(1.0, 1.0, 1.0), _cloud_band(Vector2(14, 34)), Vector2(-120, -85), [0, 1, 2], _cloud_scale())
 	_far_clouds(root, t)
 	# (No islands floating in the sky since the stage became a terrace on a hillside, art review 9: they were pale, flat, pulled the eye, and
 	# said the land floats when it no longer does. Still drawn and thrown away, so the random layout of everything after them stays put.)
@@ -5124,7 +5161,8 @@ static func _sunset(root: Node3D, t: Dictionary, stage: Array) -> void:
 	for x in [e[0] + 1.5, e[1] - 2.0]:
 		_cactus(root, Vector3(x, e[2], -6.5), rng.randf_range(0.65, 0.85))
 		_contact(root, Vector3(x, e[2], -6.5), Vector2(0.45, 0.38))
-	_clouds(root, rng, 6, Color(1.0, 0.78, 0.7), Vector2(18, 30))
+	if not _composed_sky(root, rng, 6, Color(1.0, 0.78, 0.7), Vector2(18, 30), Vector2(-120, -85), [0, 1, 2], 1.0):
+		_clouds(root, rng, 6, Color(1.0, 0.78, 0.7), Vector2(18, 30))
 	_far_clouds(root, t)
 	# A line of telegraph poles running off across the desert floor, wires sagging between them: a road out there somewhere.
 	var pole := Materials.wood(Color(0.5, 0.34, 0.26))
@@ -5588,7 +5626,12 @@ static func _city(root: Node3D, t: Dictionary, stage: Array) -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 33
 	var e := _ext(stage)
-	_mesh(root, _sphere(8.0, 32), _unshaded(Color(0.98, 0.94, 0.82)), Vector3(30, 34, -140))
+	# (Whole in the wide frame, fidelity review 13: at 34 up the frame's top cut it, which ends near 29 at its depth; the palette's [backdrop] `moon_y` or `--sky=`.)
+	var moon_y := float((_palette.get("backdrop", {}) as Dictionary).get("moon_y", 34.0))
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--sky="):
+			moon_y = 19.0
+	_mesh(root, _sphere(8.0, 32), _unshaded(Color(0.98, 0.94, 0.82)), Vector3(30, moon_y, -140))
 	var star := _unshaded(Color(1, 1, 0.9))
 	var dot := _sphere(0.3, 6)
 	for k in 70:

@@ -88,6 +88,29 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
     <p>Two lessons from the reference screenshots, mocked from the match camera: the scenery without ink outlines, its edges lit as card bevels instead, and the paper houses rebuilt at the characters' proportions. The earlier rounds stay on the <a href="https://claude.ai/artifact/D1du6MREVumiJDrEdNypW4">Stage Fidelity Review</a>, which is full.</p>
   </header>
 
+  <section class="panel" aria-labelledby="sk37-h" id="composedsky37">
+    <div class="eyebrow">Your call is needed &middot; review 13, item 4: composed skies</div>
+    <h2 id="sk37-h">Skies composed, not scattered</h2>
+    <p>First, the chosen cut edges are built on every stage (see their section below). Next, the skies. The meadow's and canyon's were 6 to 11 small, like cloud cards scattered at random plus a far layer of ten more, which read as rows of stickers. This places a few larger clouds by hand instead, in two groups apart, with the sky over the fight left open; the canyon's group sits to the right, clear of the sun. The same random numbers are still drawn, so nothing else on the stage moves. The city's moon, cut by the frame's top, comes down whole into the sky.</p>
+    <div class="tablewrap"><table><thead><tr><th>Option</th><th>What changes</th></tr></thead><tbody>
+      <tr><td>A &middot; Composed groups</td><td>The near clouds as placed groups; the far layer as it is</td></tr>
+      <tr><td>B &middot; And a calmer far layer</td><td>A, with the far layer a third as many clouds, half again as large</td></tr>
+    </tbody></table></div>
+    <p>The skies at the wide camera, today then B: the meadow, the canyon and the city. P1's gap holds or rises (meadow 0.043 to 0.048, canyon 0.078 to 0.081, city 0.152).</p>
+    <div class="viewer"><img src="sk37_close.jpg" alt="The meadow's, canyon's and city's skies today and composed"></div>
+    <div class="row" role="group" aria-label="Stage"><button data-sk37s="0">Meadow</button><button data-sk37s="1">Canyon</button><button data-sk37s="3">City</button></div>
+    <div class="row" role="group" aria-label="View"><button data-sk37v="m">Match camera</button><button data-sk37v="w">Wide</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-sk37o="T">Today</button><button data-sk37o="A">A &middot; Composed groups</button><button data-sk37o="B">B &middot; Calmer far layer</button></div>
+    <div class="viewer"><img id="sk37img" alt="Sky option"><span class="vtag" id="sk37tag"></span></div>
+    <p class="muted">My pick: <b>B</b>. Two large groups frame the meadow's peaks and leave its middle open; the canyon's bank sits to the right with the sun clear; the far layer reads as distance, not scatter. Honest notes:
+      <ul>
+        <li>The sky's value range barely changes (its gradient is the sky shader's, unchanged), so this lifts composition more than value.</li>
+        <li>The first placement put the clouds above the wide camera's frame, which ends about 27 up at their depth. They're lower now and some overlap the peaks.</li>
+        <li>The grove and beach skies are left as they are: the grove's is mostly hidden by its trees, and the beach's was composed in review 9.</li>
+      </ul>
+    </p>
+  </section>
+
   <section class="panel" aria-labelledby="ce36-h" id="cutedges36">
     <div class="eyebrow">Built C (the owner's pick) &middot; review 13, item 3: chosen cut edges, every stage</div>
     <h2 id="ce36-h">Cut edges only where light catches them</h2>
@@ -2674,5 +2697,17 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
   group("data-ce36v", function (v) { ce36v = v; }, ce36render);
   group("data-ce36o", function (v) { ce36o = v; }, ce36render);
   ce36render();
+  var sk37s = "0", sk37v = "w", sk37o = "B";
+  var SK37O = { T: "Today", A: "A \u00b7 Composed groups", B: "B \u00b7 Calmer far layer" };
+  var SK37S = { "0": "Meadow", "1": "Canyon", "3": "City" };
+  function sk37render() {
+    document.getElementById("sk37img").src = "sk37_s" + sk37s + "_" + sk37o + "_" + sk37v + ".jpg";
+    document.getElementById("sk37tag").textContent = SK37S[sk37s] + " \u00b7 " + SK37O[sk37o] + (sk37v === "w" ? " \u00b7 wide" : " \u00b7 match camera");
+    pressed("data-sk37s", sk37s); pressed("data-sk37v", sk37v); pressed("data-sk37o", sk37o);
+  }
+  group("data-sk37s", function (v) { sk37s = v; }, sk37render);
+  group("data-sk37v", function (v) { sk37v = v; }, sk37render);
+  group("data-sk37o", function (v) { sk37o = v; }, sk37render);
+  sk37render();
 })();
 </script>
