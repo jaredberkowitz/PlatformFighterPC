@@ -98,3 +98,7 @@ the references' range). Beach: today 2% / 7%, 0.183; A 3% / 16%, 0.210; B 3% / 1
 drawn after the finishing pass, so its wide still barely moves; a deeper `sea_near` (`--sea-near=D`, [1.8, 1.0]) tried with it barely
 changed it either. Its wide darks have to come from item 8. On the Stage Look Review ("valuedeep34", `vm34_*`); recommended C on both.
 To ship: lighting.gd STYLES "meadow" and "ocean" finish `"value_deep": [0.5, 0.42, 0.55, 80.0]`.
+
+Built C on both (the owner's pick): lighting.gd STYLES "meadow" and "ocean" finish `"value_deep": [0.5, 0.42, 0.55, 80.0]`. In the game
+at the match camera: the meadow 17% darks, P1's gap 0.035 (0.016 before); the beach 20% darks, P1's gap 0.234. Before and after
+(match camera, meadow then beach): `review13/meadow_beach_value_built.jpg`. All seven tests pass.

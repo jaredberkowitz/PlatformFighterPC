@@ -187,8 +187,9 @@ const STYLES := {
 		# (Air again, the owner's paint-over pick 2026-10-21: the distance lighter and softer, `haze_max` 0.06 to 0.24.)
 		# (The air retune, 2026-10-22: the middle distance clear and coloured, hazed only from 45 behind the stage and half as much; it had
 		# fallen to saturation 0.18.)
+		# (A dark anchor, fidelity review 13, the owner's pick C: the still held 2% darks, `value_deep` in post.gdshader.)
 		"finish": {"desat": 0.0, "lift": 0.01, "haze_max": 0.1, "haze_start": 45.0, "s_curve": 0.3, "quiet": 0.0, "sheets": 0.49, "cut_edge": 0.5,
-			"fight_lift": 0.15}},
+			"fight_lift": 0.15, "value_deep": [0.5, 0.42, 0.55, 80.0]}},
 	# (Long sunset shadows from the buttes, the arch and the trestle across the floor, a cool violet on the warm sand, the graphics
 	# review 5.)
 	"sunset": {"bounce": Color(1.0, 0.68, 0.44, 0.84), "grade_more": 0.15, "curve_more": 0.06, "glow_from": 1.9,
@@ -209,7 +210,7 @@ const STYLES := {
 		# (Air, the owner's paint-over pick 2026-10-21: `haze_max` 0.07 to 0.24. The air retune, 2026-10-22: from 45 behind and less, so
 		# the town across the bay keeps its colour.)
 		"finish": {"desat": 0.0, "lift": 0.02, "haze_max": 0.1, "haze_start": 45.0, "s_curve": 0.28, "quiet": 0.08, "scenery_lines": 0.18, "sheets": 0.42,
-			"cut_edge": 0.45, "fight_lift": 0.15}},
+			"cut_edge": 0.45, "fight_lift": 0.15, "value_deep": [0.5, 0.42, 0.55, 80.0]}},
 	# (The towers and the street's pieces grounded, a deep violet, the graphics review 5.)
 	"city": {"bounce": Color(1.0, 0.58, 0.52, 0.66), "grade_more": 0.15, "curve_more": 0.06, "glow_from": 1.9,
 		"sun_shadow": [260.0, 4, 1.0], "cast": Color(0.4, 0.3, 0.6, 1.0), "edge": Color(1.0, 0.82, 0.92, 0.55), "paint": [Color(1.06, 0.96, 0.96), Color(0.9, 0.88, 1.1), 0.6], "deep": 0.72, "glow": 1.1,
