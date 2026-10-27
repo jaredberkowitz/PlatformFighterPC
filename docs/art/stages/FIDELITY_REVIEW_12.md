@@ -84,3 +84,7 @@ then re-light the canyon.
 Built A (the owner's pick): `godot/models/stages/canyon_play.glb` rebuilt with `--plat_joints A`, the canyon re-lit (front, paper, play).
 P1's gap 0.043. Before and after (the platforms, match camera): `review12/canyon_platforms_built.jpg`. All seven tests pass. With this,
 review 12's three items are built.
+
+Released (2026-10-27): all three items, with the animation session's round 6 and the aviator cap fix, as
+`playtest-2026-10-27-sim146-review12`, built on `build/art-2026-10-27` (the animation branch at 91333c0f plus this branch, the meadow,
+canyon and city stage-select stills regenerated), pack only, content hash ef93425e6c64eee3.
