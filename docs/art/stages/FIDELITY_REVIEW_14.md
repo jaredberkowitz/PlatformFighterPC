@@ -181,3 +181,7 @@ It doesn't reach the meadow's mountain range (painted_ridge.gdshader), the city'
 The far forms' shade is also lifted back by the haze.
 
 On the Stage Look Review ("keyfill45", `kf45_*`); recommended C. To ship: STYLE_DEFAULT `key_fill` [0.2, 0.2], or a level per style.
+
+Built C on every stage (the owner's pick): STYLE_DEFAULT `key_fill=[0.2, 0.2]`. The shipped frames measure as mock C (canyon wide: darks
+16%, p95 0.74; city: darks 36%). Before and after (wide: the canyon's rocks, the grove's pines, the meadow's pines and barn, the beach's
+town): `review14/key_fill_built.jpg`. All seven tests pass.

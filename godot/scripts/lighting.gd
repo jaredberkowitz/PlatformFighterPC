@@ -80,6 +80,9 @@ const STYLE_DEFAULT := {
 	# The key against the ambient on every stage (`key_light`, see KEY_TRY): the strong key, fidelity review 8, the owner's pick B,
 	# 2026-10-25. `--key=T` shows a stage as before.
 	"key_light": [1.25, 0.48, 0.45],
+	# The ambient and the fill kept on the scenery (`key_fill`, see KEY_FILL_TRY): C, fidelity review 14 item 3, the owner's pick,
+	# 2026-10-27, so the shade sides of the forms drop under their lit sides. `--key-fill=T` shows a stage as before.
+	"key_fill": [0.2, 0.2],
 	# How much deeper the scenery's shade side is than its painted shadow colour (`pf_scenery_shade` in shaders/toon_light.gdshaderinc).
 	"scenery_shade": 0.32,
 	# The finishing pass's value range (shaders/post.gdshader): how far colours are eased toward grey (`desat`), how far the darks are
