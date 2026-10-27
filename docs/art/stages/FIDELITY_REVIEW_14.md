@@ -233,3 +233,8 @@ of drawers.
 The mocks are unlit (today too). The front at the wide camera: contrast 0.084 today, 0.097 A, 0.102 B; value 0.27, 0.27, 0.26. P1's gap
 holds (0.207). On the Stage Look Review ("canyonfront47", `cf47_*`); recommended B. To ship: rebuild
 `godot/models/stages/canyon_front.glb` with the shipped flags plus `--strata B`, and re-light the canyon (front, paper, play).
+
+Built B (the owner's pick): `godot/models/stages/canyon_front.glb` rebuilt with `--variant A --cut 1 --courses 1 --straight C --mass A
+--strata B`. The canyon is re-lit (front, paper, play; `--curve 4.0 --reach 4.5 --floor 0.28` after a fresh `--light-export`). In the
+game, wide: the front's contrast goes from 0.087 to 0.105 and its value from 0.27 to 0.25. P1's gap is 0.208. Before and after:
+`review14/canyon_front_built.jpg`. All seven tests pass.
