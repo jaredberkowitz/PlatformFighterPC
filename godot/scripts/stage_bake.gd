@@ -398,7 +398,7 @@ static func place_front(root: Node3D, t: Dictionary, scene: Node3D) -> void:
 	var grass: Color = t.get("grass", Color(0.5, 0.8, 0.3))
 	var colours := {"quilt": quilt, "button": quilt.darkened(0.35), "earth": (t.get("soil_dark", Color(0.5, 0.35, 0.2)) as Color).darkened(0.55),
 		# (Greyed toward green and the roots a darker bark: under the grove's pink light grey stone read lavender and the bark pink.)
-		"rock": Color(0.48, 0.55, 0.44), "root": Color(0.46, 0.37, 0.3), "moss": grass.darkened(0.12),
+		"rock": Color(0.48, 0.55, 0.44), "root": _root_colour(t), "moss": grass.darkened(0.12),
 		"moss_shade": grass.darkened(0.5),
 		# (The meadow's families, art/blender/make_meadow_front.py: its light-moss ledge, the farm's wood, warm stone, soil, the lawn.)
 		"ledge": t.get("ledge", Color(0.4, 0.62, 0.32)), "log": (t.get("wood", Color(0.86, 0.62, 0.36)) as Color).darkened(0.12),
@@ -1114,6 +1114,8 @@ static func _ground_colours(t: Dictionary) -> Dictionary:
 	# (G2: the deep valley's floor far below the islands and its river, in the valley's own hazed violets.)
 	out["valley_floor"] = Color(0.26, 0.28, 0.44)
 	out["bank_mist"] = Color(0.8, 0.76, 0.92)
+	out["bank_mist_low"] = Color(0.64, 0.6, 0.84)
+	out["bank_mist_top"] = Color(0.93, 0.91, 0.99)
 	out["valley_river"] = Color(0.62, 0.68, 0.9)
 	# (New art toward 5, G1: the grove's falls in two pale blues, their spray, and the mist's farther layers paler with depth.)
 	out["fall"] = Color(0.84, 0.93, 0.98)
@@ -1295,3 +1297,14 @@ static func place_ground(root: Node3D, t: Dictionary, source: Array) -> void:
 		bush.rotation_degrees.y = float(slot[2])
 		root.add_child(bush)
 		_paint_ground(bush, colours)
+
+
+## The front's roots (fidelity review 13 item 5: under the grove's pink light the bark brown read pink, ribbons not roots): the palette's
+## [backdrop] `root_colour` or `--roots=A|B`, a deeper bark; the brown as before without.
+static func _root_colour(t: Dictionary) -> Color:
+	var c: Color = StageArt.palette(String(t.get("name", ""))).get("backdrop", {}).get("root_colour", Color(0.46, 0.37, 0.3))
+	var f := flag("--roots=")
+	if f != "":
+		c = {"A": Color(0.38, 0.26, 0.17), "B": Color(0.3, 0.2, 0.13)}.get(f.to_upper(), c)
+	return c
+

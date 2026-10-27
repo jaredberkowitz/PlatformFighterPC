@@ -741,16 +741,28 @@ FEET = []
 DEEP_Y = float(opts.get("valley_y", "-80"))
 # (The banks in the palest mist: in the abyss's own violet they read as dark blobs floating over the valley.)
 BANK = "bank_mist"
+# (`--banks soft`, fidelity review 13 item 5: each bank flat in one pale tone read as a plastic disc; three stacked sheets instead, each
+# smaller, higher and paler than the one under it, their edges more scalloped, as piled mist.)
+BANKS_SOFT = opts.get("banks", "") == "soft"
 
 
-def blob(name, fam, cx, cz, y, r, rng, edge=True):
+def bank(name, cx, cz, y, r, rng):
+    """One mist bank: a flat sheet, or with `--banks soft` three stacked, each smaller, higher and paler."""
+    if not BANKS_SOFT:
+        blob(name, BANK, cx, cz, y, r, rng)
+        return
+    for k, (fam, f, dy) in enumerate((("bank_mist_low", 1.0, 0.0), (BANK, 0.74, 0.45), ("bank_mist_top", 0.46, 0.9))):
+        blob("%s_%d" % (name, k), fam, cx + rng.uniform(-0.1, 0.1) * r, cz + rng.uniform(-0.08, 0.04) * r, y + dy, r * f, rng, lobes=0.3)
+
+
+def blob(name, fam, cx, cz, y, r, rng, edge=True, lobes=0.18):
     """A scalloped cut sheet lying flat at `y`, round (`cx`, `cz`), about `r` across, its edge a card a little deep."""
     n = 18
     pts = []
     ph = rng.uniform(0.0, math.tau)
     for k in range(n):
         a = math.tau * k / n
-        w = r * (1.0 + 0.18 * math.sin(3 * a + ph) + 0.08 * math.sin(7 * a + ph * 2.0)) * rng.uniform(0.94, 1.06)
+        w = r * (1.0 + lobes * math.sin(3 * a + ph) + 0.08 * math.sin(7 * a + ph * 2.0)) * rng.uniform(0.94, 1.06)
         pts.append((cx + math.cos(a) * w, cz + math.sin(a) * w * 0.7))
     for k in range(n):
         q0, q1 = pts[k], pts[(k + 1) % n]
@@ -765,9 +777,9 @@ def cloud_banks(rng):
     y = -24.0
     k = 0
     for (fx, fz) in FEET:
-        blob("bank%d" % k, BANK, fx, fz, y, rng.uniform(8.0, 10.0), rng)
+        bank("bank%d" % k, fx, fz, y, rng.uniform(8.0, 10.0), rng)
         k += 1
-    blob("bank%d" % k, BANK, 0.0, -2.0, y, 26.0, rng)
+    bank("bank%d" % k, 0.0, -2.0, y, 26.0, rng)
     k += 1
     tries = 0
     placed = [(fx, fz) for (fx, fz) in FEET] + [(0.0, -2.0)]
@@ -777,7 +789,7 @@ def cloud_banks(rng):
         r = rng.uniform(9.0, 18.0)
         if any(math.hypot(cx - px, (cz - pz) / 0.7) < r + 8.0 for (px, pz) in placed):
             continue
-        blob("bank%d" % k, BANK, cx, cz, y + rng.uniform(-0.6, 0.6), r, rng)
+        bank("bank%d" % k, cx, cz, y + rng.uniform(-0.6, 0.6), r, rng)
         placed.append((cx, cz))
         k += 1
 

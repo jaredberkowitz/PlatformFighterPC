@@ -167,3 +167,13 @@ and sunset.cfg [backdrop] `sky_groups` from `SKY_GROUPS`, `cloud_far` a third as
 Built B (the owner's pick): meadow.cfg and sunset.cfg [backdrop] `sky_groups`, sunset.cfg `cloud_far=[3, 1.425, 0.3]` (the meadow has no
 far layer, so its A and B are the same), city.cfg `moon_y=19.0`. Before and after (the skies, wide): `review13/skies_built.jpg`. All seven
 tests pass.
+
+## Item 5, the grove's mist banks and roots (mock, 2026-10-27)
+
+`make_grove_paper.py --banks soft` (`bank`): each mist bank three stacked sheets (1.0, 0.74, 0.46 of its size, 0.45 apart), in
+`bank_mist_low` (0.64, 0.6, 0.84), `bank_mist` and `bank_mist_top` (0.93, 0.91, 0.99), their scallops deeper (0.3); and the front's roots
+from the palette's [backdrop] `root_colour` or `--roots=A|B` (`StageBake._root_colour`): A (0.38, 0.26, 0.17), B (0.3, 0.2, 0.13); the bark
+brown (0.46, 0.37, 0.3) read pink under the grove's light. The side pines are left: they are the stage's one modelled tree kind (the
+owner's rule). P1's gap (all unlit) 0.072 today, 0.073 A, 0.072 B. On the Stage Look Review ("groveroots38", `gr38_*`); recommended B.
+To ship: rebuild `godot/models/stages/grove_paper.glb` with `--banks soft`, re-light the grove, and grove.cfg [backdrop]
+`root_colour=Color(0.3, 0.2, 0.13, 1)`.

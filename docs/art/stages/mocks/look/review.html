@@ -88,6 +88,22 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
     <p>Two lessons from the reference screenshots, mocked from the match camera: the scenery without ink outlines, its edges lit as card bevels instead, and the paper houses rebuilt at the characters' proportions. The earlier rounds stay on the <a href="https://claude.ai/artifact/D1du6MREVumiJDrEdNypW4">Stage Fidelity Review</a>, which is full.</p>
   </header>
 
+  <section class="panel" aria-labelledby="gr38-h" id="groveroots38">
+    <div class="eyebrow">Your call is needed &middot; review 13, item 5: the grove's mist banks and roots</div>
+    <h2 id="gr38-h">Mist that piles, roots of bark</h2>
+    <p>First, the composed skies are built (see their section below). Next, the grove's two pieces that didn't belong to the paper: its mist banks were flat purple discs, and the big roots under the island read as pink ribbons (the bark brown, under the grove's pink light). Each mist bank is now three stacked sheets, each smaller, higher and paler than the one under it, with more scalloped edges; the roots take a deeper bark. Nothing is added.</p>
+    <div class="tablewrap"><table><thead><tr><th>Option</th><th>What changes</th></tr></thead><tbody>
+      <tr><td>A &middot; Piled mist, warm bark</td><td>The banks stacked; the roots a deeper warm bark</td></tr>
+      <tr><td>B &middot; Piled mist, dark bark</td><td>The banks stacked; the roots a dark bark</td></tr>
+    </tbody></table></div>
+    <p>The abyss at the wide camera, today then B, left and right of the island (all three unlit, as mocks are). P1's gap holds (0.072, 0.073, 0.072).</p>
+    <div class="viewer"><img src="gr38_close.jpg" alt="The grove's mist banks and roots today and with option B"></div>
+    <div class="row" role="group" aria-label="View"><button data-gr38v="m">Match camera</button><button data-gr38v="w">Wide</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-gr38o="T">Today</button><button data-gr38o="A">A &middot; Warm bark</button><button data-gr38o="B">B &middot; Dark bark</button></div>
+    <div class="viewer"><img id="gr38img" alt="Grove option"><span class="vtag" id="gr38tag"></span></div>
+    <p class="muted">My pick: <b>B</b>. The roots read as roots: dark bark against the pale stone, the strongest shapes under the island. The mist reads as piled cloud, darker at its foot and pale on top. Honest note: the banks are still strongly violet, which is the grove's own colour. If they should be paler and greyer, that's a one-line colour change. The side pines (the plan's third grove piece) are left as they are: they're the game's one modelled tree kind, kept consistent on purpose.</p>
+  </section>
+
   <section class="panel" aria-labelledby="sk37-h" id="composedsky37">
     <div class="eyebrow">Built B (the owner's pick) &middot; review 13, item 4: composed skies</div>
     <h2 id="sk37-h">Skies composed, not scattered</h2>
@@ -2709,5 +2725,15 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
   group("data-sk37v", function (v) { sk37v = v; }, sk37render);
   group("data-sk37o", function (v) { sk37o = v; }, sk37render);
   sk37render();
+  var gr38v = "w", gr38o = "B";
+  var GR38O = { T: "Today", A: "A \u00b7 Warm bark", B: "B \u00b7 Dark bark" };
+  function gr38render() {
+    document.getElementById("gr38img").src = "gr38_" + gr38o + "_" + gr38v + ".jpg";
+    document.getElementById("gr38tag").textContent = "Grove \u00b7 " + GR38O[gr38o] + (gr38v === "w" ? " \u00b7 wide" : " \u00b7 match camera");
+    pressed("data-gr38v", gr38v); pressed("data-gr38o", gr38o);
+  }
+  group("data-gr38v", function (v) { gr38v = v; }, gr38render);
+  group("data-gr38o", function (v) { gr38o = v; }, gr38render);
+  gr38render();
 })();
 </script>
