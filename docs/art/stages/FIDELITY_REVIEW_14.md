@@ -91,3 +91,29 @@ before.
 
 **Recommended start:** item 1, the cheapest and four cells, then item 2, then item 3 (the biggest gain but the most risk to the look
 everyone has approved, so it is mocked at three strengths).
+
+## Item 1, clouds clear of the frame (mock, 2026-10-27)
+
+Every stage's match camera stands at the same place: 26.5 out at 6.85 up, pitched 10 degrees down, a 30 degree view, with no roll. Its
+frame's top is therefore a plane holding the x axis: 6.85 + (26.5 - z) * 0.0875 up at depth z, about 18.8 at the composed clouds (z
+-110). The wide camera's (60 out, 12.03 up) is about 8 higher. Zooming out only raises it.
+
+`--cloud-clear=A|B` (palette [backdrop] `cloud_clear`; `StageArt._clear_of_frame`, `MATCH_TOP`, `WIDE_TOP`; meadow, canyon, beach and
+grove):
+- Every cloud `_clouds` builds is measured by its meshes' bounds.
+- One crossing the match top is lowered until it's whole (then it's whole at every zoom).
+- One above the match frame that crosses the wide camera's top comes down under it (some of the canyon's far layer, cut in today's wide
+  frame too).
+- B also sets each cloud it moves to 0.8 of its size.
+- No random numbers move.
+- On the beach, the sky's stratus bands become two broader ones (`sky_stratus` [layers, thickness] [2, 1.8]; sky.gdshader `stratus`):
+  its three thin bands read as stripes over the deeper top.
+
+A first B lifted the crossing clouds clear above the match frame instead. It came out the same as A: the two tops are about 8 apart and
+these clouds are taller, so nearly every one fell back into the frame.
+
+The sky's top third (wide), today then A and B: meadow 0.39, 0.40, 0.37; canyon 0.38, 0.41, 0.39; beach 0.36, 0.47, 0.40; grove 0.49,
+0.48, 0.48. P1's gap holds: meadow 0.043, 0.035, 0.040 (its noise); canyon 0.080; beach 0.239 to 0.244; grove 0.073 to 0.071.
+
+On the Stage Look Review ("cloudclear43", `cc43_*`); recommended B. To ship: [backdrop] `cloud_clear="B"` in meadow.cfg, sunset.cfg,
+ocean.cfg and grove.cfg, and ocean.cfg [theme] `sky_stratus=[2.0, 1.8]`.

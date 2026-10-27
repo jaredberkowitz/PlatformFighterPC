@@ -88,8 +88,31 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
     <p>Two lessons from the reference screenshots, mocked from the match camera: the scenery without ink outlines, its edges lit as card bevels instead, and the paper houses rebuilt at the characters' proportions. The earlier rounds stay on the <a href="https://claude.ai/artifact/D1du6MREVumiJDrEdNypW4">Stage Fidelity Review</a>, which is full.</p>
   </header>
 
+  <section class="panel" aria-labelledby="cc43-h" id="cloudclear43">
+    <div class="eyebrow">Your call is needed &middot; review 14, item 1: clouds clear of the frame</div>
+    <h2 id="cc43-h">No cloud cut by the frame</h2>
+    <p>The first item of review 14 (its section below). At the match camera the frame's top cut through clouds on the meadow, canyon, beach and grove, leaving hard pale slabs in the corners. On the canyon, the wide frame cut some far clouds too. Every stage's match camera stands at the same place, so its top edge is one line through the sky; this moves each cloud that crosses it down until it is whole, and does the same for the wide camera's top. On the beach, the sky's three thin painted bands (the stripes over its deep top) become two broader ones.</p>
+    <div class="tablewrap"><table><thead><tr><th>Option</th><th>What changes</th></tr></thead><tbody>
+      <tr><td>A &middot; Whole clouds</td><td>Each crossing cloud lowered until it is whole at both cameras</td></tr>
+      <tr><td>B &middot; Whole and lighter</td><td>A, with each cloud it moves at 0.8 of its size, so the lowered ones crowd the peaks less</td></tr>
+    </tbody></table></div>
+    <p>The top of the match frame, today then B: the meadow, the canyon, the beach and the grove. P1's gap holds on all four (meadow 0.043 to 0.040, canyon 0.080, beach 0.239 to 0.243, grove 0.073 to 0.071).</p>
+    <div class="viewer"><img src="cc43_close.jpg" alt="The four skies at the match camera today and with option B"></div>
+    <div class="row" role="group" aria-label="Stage"><button data-cc43s="0">Meadow</button><button data-cc43s="1">Canyon</button><button data-cc43s="2">Beach</button><button data-cc43s="4">Grove</button></div>
+    <div class="row" role="group" aria-label="View"><button data-cc43v="m">Match camera</button><button data-cc43v="w">Wide</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-cc43o="T">Today</button><button data-cc43o="A">A &middot; Whole clouds</button><button data-cc43o="B">B &middot; Whole and lighter</button></div>
+    <div class="viewer"><img id="cc43img" alt="Cloud option"><span class="vtag" id="cc43tag"></span></div>
+    <p class="muted">My pick: <b>B</b>. Every cloud is whole at both cameras, and the smaller moved ones leave the canyon's and beach's skies open over the fight. Honest notes:
+      <ul>
+        <li>My first B lifted the crossing clouds clear above the match frame. It came out the same as A: the two cameras' tops are only about 8 apart and these clouds are taller, so almost every one fell back.</li>
+        <li>Whole at the match camera means whole at every zoom (zooming out only raises the frame's top). In play the camera also pans, so a cloud can still leave the frame at a side; that's drift, not a cut.</li>
+        <li>The beach's wide sky shows more clouds than before, because some that sat above the frame now come down into it.</li>
+      </ul>
+    </p>
+  </section>
+
   <section class="panel" aria-labelledby="rv14-h" id="review14">
-    <div class="eyebrow">Your call is needed &middot; fidelity review 14: what is left to reach 5 in a still</div>
+    <div class="eyebrow">The plan &middot; fidelity review 14: what is left to reach 5 in a still (its items mocked above)</div>
     <h2 id="rv14-h">The values are fixed; the light and a few surfaces are left</h2>
     <p>First, the sky range is built on the canyon and the beach (B; the meadow as it is; see its section below), and all of review 13 is in the release playtest-2026-10-27-sim146-review13. Then all five stages are scored again on that release, with the same eight categories and measurements. The full write-up is in docs/art/stages/FIDELITY_REVIEW_14.md.</p>
     <div class="tablewrap"><table><thead><tr><th>Stage</th><th>Light</th><th>Surfaces</th><th>Play area</th><th>Background land</th><th>Sky</th><th>World</th><th>Cohesion</th><th>Readability</th><th>Mean</th></tr></thead><tbody>
@@ -2891,5 +2914,17 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
   group("data-sr42v", function (v) { sr42v = v; }, sr42render);
   group("data-sr42o", function (v) { sr42o = v; }, sr42render);
   sr42render();
+  var cc43s = "1", cc43v = "m", cc43o = "B";
+  var CC43O = { T: "Today", A: "A \u00b7 Whole clouds", B: "B \u00b7 Whole and lighter" };
+  var CC43S = { "0": "Meadow", "1": "Canyon", "2": "Beach", "4": "Grove" };
+  function cc43render() {
+    document.getElementById("cc43img").src = "cc43_s" + cc43s + "_" + cc43o + "_" + cc43v + ".jpg";
+    document.getElementById("cc43tag").textContent = CC43S[cc43s] + " \u00b7 " + CC43O[cc43o] + (cc43v === "w" ? " \u00b7 wide" : " \u00b7 match camera");
+    pressed("data-cc43s", cc43s); pressed("data-cc43v", cc43v); pressed("data-cc43o", cc43o);
+  }
+  group("data-cc43s", function (v) { cc43s = v; }, cc43render);
+  group("data-cc43v", function (v) { cc43v = v; }, cc43render);
+  group("data-cc43o", function (v) { cc43o = v; }, cc43render);
+  cc43render();
 })();
 </script>

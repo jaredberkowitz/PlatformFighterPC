@@ -200,6 +200,13 @@ static func sky(t: Dictionary) -> Sky:
 		if arg.begins_with("--sky-look="):
 			look = {"T": 0, "A": 1, "B": 2, "C": 3}.get(arg.substr(11), look)
 	mat.set_shader_parameter("look", look)
+	# (The stratus bands fewer and broader, fidelity review 14 item 1: on the beach's deeper top its three thin bands read as stripes. The
+	# palette's `sky_stratus` [layers, thickness], or on the beach `--cloud-clear=A|B` with the clouds.)
+	var stratus: Array = t.get("sky_stratus", [3.0, 1.0])
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--cloud-clear=") and t.get("name", "") == "ocean":
+			stratus = [2.0, 1.8]
+	mat.set_shader_parameter("stratus", Vector2(float(stratus[0]), float(stratus[1])))
 	var is_night := top.get_luminance() < 0.15
 	var glow: Color = t.sky_glow[0] if t.has("sky_glow") else horizon
 	mat.set_shader_parameter("night", is_night)
@@ -3385,6 +3392,7 @@ static func _clouds(root: Node3D, rng: RandomNumberGenerator, count: int, color:
 		puff = _sphere(1.0, 10)
 	elif style >= 2:
 		puff = _pleated_puff(9, 7)
+	var made: Array = []
 	for k in count:
 		var cloud := Drift.new()
 		cloud.speed = rng.randf_range(0.6, 1.6)
@@ -3399,6 +3407,7 @@ static func _clouds(root: Node3D, rng: RandomNumberGenerator, count: int, color:
 		mat.shader = CLOUD_SHADER
 		mat.set_shader_parameter("colour", color)
 		mat.set_shader_parameter("base_y", cloud.position.y)
+		made.append([cloud, mat])
 		if style >= 1:
 			# (Not the card's: each triangle of its face shaded on its own read as crinkled shards.)
 			mat.set_shader_parameter("flat_planes", style != 4)
@@ -3454,6 +3463,60 @@ static func _clouds(root: Node3D, rng: RandomNumberGenerator, count: int, color:
 		# The flat base: a wide squashed puff under them all.
 		var mb := _mesh(cloud, puff, mat, Vector3(0, 0.6 * size, 0.3), Vector3(span * 0.6, 1.3 * size, 3.4 * size))
 		mb.set_instance_shader_parameter("heap", Vector3(0, -0.8, 0))
+	_clear_of_frame(made)
+
+
+## The match camera's frame top (fidelity review 14 item 1: clouds cut by it read as stray pale slabs in a still). Every stage's match
+## camera stands 26.5 out at 6.85 up, pitched 10 degrees down with a 30 degree view, and has no roll, so its top edge is a plane holding
+## the x axis: at depth z it is MATCH_TOP.x + (MATCH_TOP.y - z) * MATCH_TOP.z up. The wide camera (60 out, the stage reviews' other
+## still) the same way from WIDE_TOP, about 8 higher.
+const MATCH_TOP := Vector3(6.85, 26.5, 0.0875)
+const WIDE_TOP := Vector3(12.03, 60.0, 0.0875)
+
+
+## Clouds crossing the match camera's frame top, moved clear of it: the palette's [backdrop] `cloud_clear` or `--cloud-clear=A|B`. "A"
+## lowers each whole into the frame (then it is whole at every zoom, which only raises the top), and one above the match frame that
+## crosses the wide camera's top comes down under it; "B" the same with each cloud it moves at 0.8 of its size, so the lowered ones
+## crowd the peaks less. (Lifting them clear above the match frame was tried: the two tops are about 8 apart and these clouds are
+## taller, so nearly every one fell back into the frame.) Moves no random numbers.
+static func _clear_of_frame(made: Array) -> void:
+	var mode := String((_palette.get("backdrop", {}) as Dictionary).get("cloud_clear", ""))
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--cloud-clear=") and String(_palette.get("_name", "")) in ["meadow", "sunset", "grove", "ocean"]:
+			mode = arg.substr(14).to_upper()
+	if mode not in ["A", "B"]:
+		return
+	for pair: Array in made:
+		var cloud: Node3D = pair[0]
+		var box := AABB()
+		var first := true
+		for mi: MeshInstance3D in cloud.find_children("*", "MeshInstance3D", true, false):
+			var b := mi.transform * mi.mesh.get_aabb()
+			box = b if first else box.merge(b)
+			first = false
+		if first:
+			continue
+		var top := MATCH_TOP.x + (MATCH_TOP.y - cloud.position.z) * MATCH_TOP.z
+		var wide := WIDE_TOP.x + (WIDE_TOP.y - cloud.position.z) * WIDE_TOP.z
+		var lo := cloud.position.y + box.position.y
+		var hi := lo + box.size.y
+		var crossing := (hi > top - 0.5 and lo < top + 0.5) or (lo > top and hi > wide - 0.5)
+		if not crossing:
+			continue
+		if mode == "B":
+			cloud.scale = Vector3.ONE * 0.8
+			lo = cloud.position.y + box.position.y * 0.8
+			hi = lo + box.size.y * 0.8
+		var shift := 0.0
+		if hi > top - 0.5 and lo < top + 0.5:
+			shift = top - 1.0 - hi
+		# (Above the match frame, crossing the wide one's top: down under it, or, if it can't fit between the two, into the match frame.)
+		elif lo > top and hi > wide - 0.5:
+			shift = wide - 1.0 - hi
+			if lo + shift < top + 0.5:
+				shift = top - 1.0 - hi
+		cloud.position.y += shift
+		(pair[1] as ShaderMaterial).set_shader_parameter("base_y", cloud.position.y)
 
 
 ## A cumulus cut from card (cloud style 4): a flat base and a crown of `lobes` round bumps, tallest in the middle, `depth` thick, its face
