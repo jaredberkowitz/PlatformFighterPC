@@ -117,3 +117,7 @@ The sky's top third (wide), today then A and B: meadow 0.39, 0.40, 0.37; canyon 
 
 On the Stage Look Review ("cloudclear43", `cc43_*`); recommended B. To ship: [backdrop] `cloud_clear="B"` in meadow.cfg, sunset.cfg,
 ocean.cfg and grove.cfg, and ocean.cfg [theme] `sky_stratus=[2.0, 1.8]`.
+
+Built B (the owner's pick): [backdrop] `cloud_clear="B"` in meadow.cfg, sunset.cfg, ocean.cfg and grove.cfg; ocean.cfg [theme]
+`sky_stratus=[2.0, 1.8]`. The shipped frames match the mock (what differs is the clouds' drift and the grove's swaying trees). Before
+and after (the match camera's top: meadow, canyon, beach, grove): `review14/clouds_clear_built.jpg`. All seven tests pass.
