@@ -408,7 +408,15 @@ static func stage_mood(env: Environment, root: Node, theme: Dictionary, post: Sh
 	if key != null:
 		key.light_color = mood.key[0]
 		key.light_energy = mood.key[1]
-		key.rotation_degrees = Vector3(mood.key[2], float(mood.key[3]) + KEY_SIDE, 0)
+		# (A readable sun, fidelity review 13 item 2: a mood's "sun" [pitch, yaw] in place of its key's, or `--sun=A|B|C`. The canyon's key
+		# came from behind the scene, so nearly every face toward the camera sat in shade and its shadows fell behind the rocks.)
+		var aim: Array = [mood.key[2], mood.key[3]]
+		if mood.has("sun"):
+			aim = mood.sun
+		for arg in OS.get_cmdline_user_args():
+			if arg.begins_with("--sun="):
+				aim = {"A": [-28.0, -10.0], "B": [-28.0, 10.0], "C": [-28.0, 10.0]}.get(arg.substr(6).to_upper(), aim)
+		key.rotation_degrees = Vector3(float(aim[0]), float(aim[1]) + KEY_SIDE, 0)
 		# Toward the sun (the light shines down its -Z), for the sky's pieces lit by hand: clouds, ridges (shaders/cloud.gdshader,
 		# painted_ridge.gdshader).
 		RenderingServer.global_shader_parameter_set("pf_sun_dir", key.basis.z.normalized())
@@ -442,7 +450,11 @@ static func stage_mood(env: Environment, root: Node, theme: Dictionary, post: Sh
 		else:
 			key.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
 			key.directional_shadow_split_1 = 0.35
-	RenderingServer.global_shader_parameter_set("pf_cast_shade", look.cast)
+	var cast: Color = look.cast
+	for arg in OS.get_cmdline_user_args():
+		if arg == "--sun=C":
+			cast = Color(0.2, 0.14, 0.42, 1.0)
+	RenderingServer.global_shader_parameter_set("pf_cast_shade", cast)
 	# The light finish (fidelity review 6, see STYLES): bounce light (pf_bounce), a firmer grade and S-curve, the lamps glowing.
 	var finish_off := OS.get_cmdline_user_args().has("--light-finish=off")
 	RenderingServer.global_shader_parameter_set("pf_bounce", Color(0, 0, 0, 0) if finish_off else look.get("bounce", Color(0, 0, 0, 0)))

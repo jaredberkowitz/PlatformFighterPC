@@ -122,3 +122,17 @@ So the far splits' shadows have stopped landing since the 22 October fix (someth
 as the far ranges once did), or the cast tone path no longer fires. Next step: bisect from 7fc9efb with the black-cast debug, then fix;
 only after that can the readable sun be mocked. A fallback that needs no fix: bake the sun's shadow into the ground's vertices
 (`light_stage.py --sun`, the retired pilot), softer but certain.
+
+### Correction, and the mock (2026-10-27)
+
+The far shadows were not broken. The black-cast test was wrong (a shadowed pixel keeps its ambient light, so it never goes black). In a
+bisect checkout on F: (`F:/PlatformFighterBuild/bisect`, removed after), the canyon captured with the sun's shadows on and off (a
+`--noshadow` patch) at 7fc9efb and at dafcfb57: the shadows darken 29.5% and 30.5% of the frame (34.0% and 30.8% of the band behind
+the stage). Mapped, nearly all of it is the faces turned from the sun: the key came from behind the scene (effective yaw -122, pitch
+-20), so every face toward the camera sat in shade and the rocks' shadows fell behind them. Nothing to bisect.
+
+The fix is the sun's direction. `lighting.gd`: a mood's "sun" [pitch, yaw] replaces its key's angles, or `--sun=A|B|C`: A [-28, -10]
+(effective yaw -90, low from the left, square across), B [-28, 10] (from the left and a little toward the camera), C B with the cast
+tone (0.2, 0.14, 0.42). Measured against today (with the shipped dark anchor; wide darks; P1's gap): today 11%, 0.065; A 11%, 0.070;
+B 12%, 0.075; C as B. The rocks gain a lit side toward the sun and their shadows run right across the floor; a modest change at this
+size. On the Stage Look Review ("readablesun35", `sn35_*`); recommended B. To ship: MOODS "sunset" `"sun": [-28.0, 10.0]`.

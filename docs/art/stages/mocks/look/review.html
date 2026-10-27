@@ -88,6 +88,31 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
     <p>Two lessons from the reference screenshots, mocked from the match camera: the scenery without ink outlines, its edges lit as card bevels instead, and the paper houses rebuilt at the characters' proportions. The earlier rounds stay on the <a href="https://claude.ai/artifact/D1du6MREVumiJDrEdNypW4">Stage Fidelity Review</a>, which is full.</p>
   </header>
 
+  <section class="panel" aria-labelledby="sn35-h" id="readablesun35">
+    <div class="eyebrow">Your call is needed &middot; review 13, item 2: a readable sun on the canyon</div>
+    <h2 id="sn35-h">The sun from where it's drawn</h2>
+    <p>First, a correction. I said the far shadows were broken, but they aren't. Measured with the sun's shadows on and off, at the 22 October fix and today, they darken about 30% of the canyon frame both times. The real problem is the sun's direction: the light came from behind the scene, so nearly every face toward the camera (the front, the arch, the buttes, the hoodoos) sat in shade, and the rocks' shadows fell behind them where you can't see them. That's why the sunset never read as sunlight.</p>
+    <p>This turns the key light to come low from the left, the drawn sun's side, so the rocks' faces toward it light up and their shadows stretch right across the floor.</p>
+    <div class="tablewrap"><table><thead><tr><th>Option</th><th>The sun</th><th>Darks (wide)</th><th>P1's gap</th></tr></thead><tbody>
+      <tr><td>Today</td><td>From behind the scene</td><td>11%</td><td>0.065</td></tr>
+      <tr><td>A &middot; From the left</td><td>Low from the left, square across the stage</td><td>11%</td><td>0.070</td></tr>
+      <tr><td>B &middot; From the front left</td><td>Low from the left and a little toward the camera</td><td>12%</td><td>0.075</td></tr>
+      <tr><td>C &middot; And a deeper cast tone</td><td>B, with the shadows on the background a deeper violet</td><td>12%</td><td>0.075</td></tr>
+    </tbody></table></div>
+    <p>The left and right of the wide frame, today then B.</p>
+    <div class="viewer"><img src="sn35_close.jpg" alt="The canyon lit from behind today and from the front left"></div>
+    <div class="row" role="group" aria-label="View"><button data-sn35v="m">Match camera</button><button data-sn35v="w">Wide</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-sn35o="T">Today</button><button data-sn35o="A">A &middot; From the left</button><button data-sn35o="B">B &middot; From the front left</button><button data-sn35o="C">C &middot; Deeper cast tone</button></div>
+    <div class="viewer"><img id="sn35img" alt="Canyon sun option"><span class="vtag" id="sn35tag"></span></div>
+    <p class="muted">My pick: <b>B</b>. The hoodoos and arch get a lit side toward the sun and a shade side away, their shadows run right across the floor, and the fighters, lit from the front left, stand out more (P1's gap 0.065 to 0.075). Honest notes:
+      <ul>
+        <li>It's a modest change at this size. The rocks' lit and shade sides are close in value, and the references' long, dramatic sunset shadows would also need a deeper shade side on the rocks.</li>
+        <li>C's deeper cast tone can't be told from B.</li>
+        <li>A light from the camera's side means the fronts are lit now, so the canyon's front reads a little lighter (the dark anchor keeps its foot dark).</li>
+      </ul>
+    </p>
+  </section>
+
   <section class="panel" aria-labelledby="vm34-h" id="valuedeep34">
     <div class="eyebrow">Built C on both (the owner's pick) &middot; review 13, item 1: a dark anchor on the meadow and the beach</div>
     <h2 id="vm34-h">The meadow and the beach with real darks</h2>
@@ -2609,5 +2634,15 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
   group("data-vm34v", function (v) { vm34v = v; }, vm34render);
   group("data-vm34o", function (v) { vm34o = v; }, vm34render);
   vm34render();
+  var sn35v = "w", sn35o = "B";
+  var SN35O = { T: "Today", A: "A \u00b7 From the left", B: "B \u00b7 From the front left", C: "C \u00b7 Deeper cast tone" };
+  function sn35render() {
+    document.getElementById("sn35img").src = "sn35_" + sn35o + "_" + sn35v + ".jpg";
+    document.getElementById("sn35tag").textContent = "Canyon \u00b7 " + SN35O[sn35o] + (sn35v === "w" ? " \u00b7 wide" : " \u00b7 match camera");
+    pressed("data-sn35v", sn35v); pressed("data-sn35o", sn35o);
+  }
+  group("data-sn35v", function (v) { sn35v = v; }, sn35render);
+  group("data-sn35o", function (v) { sn35o = v; }, sn35render);
+  sn35render();
 })();
 </script>
