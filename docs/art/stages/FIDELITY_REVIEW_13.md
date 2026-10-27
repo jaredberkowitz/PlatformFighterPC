@@ -227,3 +227,7 @@ colour 22% deeper and the middle tint 8%. The sky's value range (the frame's top
 canyon 0.078 to 0.081, beach 0.241 to 0.243). On the Stage Look Review ("skyrange42", `sr42_*`); recommended B on the canyon and the
 beach, A (as today) on the meadow, whose deeper top goes grey. To ship: sunset.cfg and ocean.cfg [theme] `sky_bands=[0.012, 0.07]`,
 their `sky_top` and `sky_mid` deepened.
+
+Built B on the canyon and the beach (the owner's pick; the meadow as it is): sunset.cfg and ocean.cfg [theme] `sky_bands=[0.012, 0.07]`
+and `sky_deepen=[0.22, 0.08]` (`StageArt.sky`: the top and middle deepened in the sky only, so the light's ambient, which reads
+`sky_mid`, is unchanged). The sky's range as mocked: canyon 0.38, beach 0.36. Before and after (wide): `review13/sky_range_built.jpg`.
