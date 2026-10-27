@@ -884,7 +884,10 @@ const BODY_TURN := 80.0
 ## How far off straight-on the body turns in the big moments (see `face_cam`), and how far into that turn it is.
 const FRONTAL_TURN := 28.0
 var face_cam := 0.0
-const CHEST_TO_CAMERA := 6.0
+## (Round 7, pass 61, the owner's pick B: 24, the chest turned 18 degrees more toward the camera than option D's 6 with the hips unchanged,
+## so the neck turns about 30 degrees from the chest to hold the face 40 off the camera instead of about 48: the reference's heads ride
+## the chest.)
+const CHEST_TO_CAMERA := 24.0
 ## How far the head turns back from the chest toward the way the fighter faces (toward its opponent). The eyes in the face look that way
 ## too (see `set_gaze`).
 const HEAD_TOWARD_FOE := 0.0
@@ -1229,8 +1232,10 @@ func _body_follow(s: Dictionary, delta: float) -> void:
 ## never past it. A clip's shoulder turn into a strike, amplified, swung the side-on chest round to 150-180 (the Longsword's jab, tilts,
 ## smashes and specials, 15% of its frames), while the face limit held the head toward the camera: the neck twisted up to 131 degrees, an
 ## owl's head. Side-on is the stance's own rule (pass 28: a move "never passes side-on"); the reference fighters' heads ride the chest.
-const CHEST_SOFT := 90.0
-const CHEST_MOST := 108.0
+## (Pass 61, the owner's pick B: 72 and 90, moved 18 toward the camera with the stance's chest (`CHEST_TO_CAMERA`), so a strike's chest
+## stops at side-on and the neck stays within about 50 of it; at 90 and 108 a strike swung the neck from 30 to 60 on every move.)
+const CHEST_SOFT := 72.0
+const CHEST_MOST := 90.0
 ## With the environment variable PF_R7_OFF (a debugging aid for round 7's before and after images), the round's layers named in it are
 ## left out: "chest" (`_keep_chest_side_on`), "level" (`_level_head` and FACE_UP_MAX), "ease" (`_ease_neck`), "legs" (`_leg_hinge` and
 ## the kick's knee pole), "tumble" (the settle out of a tumble), e.g. PF_R7_OFF=ease,legs.

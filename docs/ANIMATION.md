@@ -1718,13 +1718,37 @@ visible it is at match speed:
 `PF_R7_OFF=chest,level,ease,legs,tumble` leaves out any of the round's layers, for before and after captures.
 
 **Design questions for the owner:**
-1. **The neck under stance option D** (`docs/screenshots/anim/r7_neck_turn_options.jpg`): the chest stands 86-88 degrees off the camera and
+1. **Decided (the owner picked B, 2026-10-27; pass 61).** **The neck under stance option D** (`docs/screenshots/anim/r7_neck_turn_options.jpg`): the chest stands 86-88 degrees off the camera and
    the face 38-40, so the neck stays turned about 45-48 degrees all the time, where the reference's heads ride the chest. A is today. B
    opens the chest 18 degrees more toward the camera (`CHEST_TO_CAMERA` 24, hips unchanged): the neck turns about 27-30, the far fist shows
-   more (0.43 to 0.52 ahead of the chest), both eyes 100%. C lets the head follow the chest to 55: the far eye is lost (0%). Not changed.
+   more (0.43 to 0.52 ahead of the chest), both eyes 100%. C lets the head follow the chest to 55: the far eye is lost (0%). Built as pass 61.
 2. **The idle's legs:** the low stance (passes 1 and 18) bends the lead knee 90-100 degrees and spreads the feet about 1.0 in depth, twice
    the walk's; the references bend 20-40 and stand about hip-wide. A narrower, less deep stance would change an approved look; mocks on
    request.
 
 **Left:** the turnaround's head swing at the body's speed; the clip-posed knee of the Clutch's down special; the flip-cut settle was not
 caught in a capture (the tumble's was); the stance width question above.
+
+### Pass 61: the chest turned toward the camera so the neck stays near the chest (the owner's pick B, 2026-10-27)
+
+- **The decision:** stance option D held the chest 86-88 degrees off the camera and the face 38-40, so the neck stayed turned about 45
+  degrees all the time; the reference's heads ride the chest. The owner picked B from the round 7 mock.
+- **Fix (`fighter_view.gd`):** `CHEST_TO_CAMERA` 6 to 24: the chest turns 18 degrees more toward the camera in every state (idle, walk,
+  run, dash, shield, jumps and landings; one constant), the hips unchanged (`BODY_TURN` 80). Pass 56's chest limit moves with it
+  (`CHEST_SOFT` 90 to 72, `CHEST_MOST` 108 to 90), so a strike's chest stops at side-on; at 90/108 the neck swung from about 25 to 60 on
+  every move. `BODY_TURN_IN_ATTACK` stays 0 and `CHEST_IN_ATTACK` -14 (the striking shoulder still leads).
+- **Measured** (`tests/turn_probe.gd`, both facings, the same either way):
+  - neck (chest off the camera less the face's): Longsword idle 48 to 30 and run 48 to 27; Claws 48 to 30 and 51 to 29; Needles 46 to 28;
+    Embers 40 to 22; Clutch 42 to 24; Settler 39 to 21;
+  - far fist ahead of the chest: 0.36-0.47 to 0.50-0.58 in the idles (the Needles' run 0.03 to 0.23);
+  - both eyes on the face: 100% everywhere (face 38-40 off the camera, under the 47 that loses the far eye).
+- **Measured** (`PF_HEAD_TRACE`, the round's 34,400 frames): the neck's median turn on the chest is idle 43 to 24, walk 46 to 27, run 45
+  to 26, shield 33 to 16, air 36 to 19, attacks 53 to 44; neck past 60: 4,044 frames to 386; chest past 110: 579 to 151. Passes 57-58 hold:
+  head turns over 9 degrees a frame 648 to 636, over 20 110 to 111, tilt over 12 37 to 36, the standing tilt median 5.3.
+- **Face cover** (`PF_FACE_COVER`, gallery, before then after): Longsword 3/3, Claws 2/0, Needles 3/3, Embers 0/0, Gauntlets 3/4,
+  Staff 3/3, Greatsword 8/8, Bracers 7/2, Clutch 0/0, Buckler 2/2, Settler 0/0, Popgun 0/0, Dagger 0/1, Nodachi 1/3; total 32 to 29
+  (differences of up to 3 a class are run-to-run noise).
+- **Image:** `docs/screenshots/anim/r7_pass61_neck_option_b.jpg`: before (D) above, after (B) below: the stage idle at the match camera
+  (both facings), the Longsword's forward tilt, down tilt and forward smash at match distance (facing right), and its jab and forward
+  smash facing left.
+- **Checked:** both facings; the six tests and `swing_toggle_test` pass; no sim change.
