@@ -252,3 +252,7 @@ Triangles: 10,960 today, 23,952 A, 7,974 B. The far hills (the pop-up flats behi
 painting patches onto them would be its own change. The mocks are unlit (today too). Values hold (wide darks 8%, range 0.58); P1's gap
 holds (0.255 to 0.250). A still reads as tiers, only finer. On the Stage Look Review ("beachisles48", `bi48_*`); recommended B. To
 ship: rebuild `godot/models/stages/beach_ground.glb` with `--variant C --isles B`, and re-light the beach.
+
+Built B (the owner's pick): `godot/models/stages/beach_ground.glb` rebuilt with `--variant C --isles B` (7,974 triangles, from 10,960),
+the beach re-lit (front, play, ground). Wide: darks 9%, range 0.59; P1's gap 0.256. Before and after (the islands and low hills, match
+camera): `review14/beach_islands_built.jpg`. All seven tests pass.
