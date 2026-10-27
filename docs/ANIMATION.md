@@ -1626,3 +1626,105 @@ that small are noise.
   1. the built-in Embers fighter's hair and goggles come down over its eyes in its up air's end lag (the look, for the art director);
   2. the Dagger's forward air holds the knife beside the jaw (19 frames by the front measure; the face shows);
   3. the Longsword's up air still holds 17 frames against 11 (the drift after the hit).
+
+### Round 7 (2026-10-27, the owner: heads turn in a distracting way, legs bend and twist unnaturally; refer to the reference moves)
+
+**The audit (measured at 60 frames a second, both facings).** A new trace, `PF_HEAD_TRACE=1` (`fighter_view.gd` `_log_head_legs`),
+prints every frame the head's yaw, pitch and roll against the camera, the chest and hips, the neck's turn on the chest, what the face
+limiter did, and per leg the knee's bend and direction, the shin's twist on the thigh, the toe and sole. `tools/art/review/head_leg_report.py`
+reads it (per move, `--spikes=N` for the biggest per-frame turns, `--frames=STATE[:MOVE]` frame by frame). Captured: the gallery of the
+Longsword, Claws, Needles (quick) and Clutch (heavy) both facings, the locomotion runs, a dash dance, a full hop, and eight
+computer-against-computer matches (`--demo=cpu --chars=A,B` now picks the fighters), 34,900 frames outside hit reactions. Ranked by how
+visible it is at match speed:
+
+1. **Owl necks:** a strike's shoulder turn, amplified, swung the side-on chest round to 150-180 degrees from the camera (its back to us)
+   in 14% of all frames, while the face limit held the head 40 from the camera: the neck twisted up to 131 degrees (the Longsword's jab,
+   tilts, smashes, specials; every class). Pass 56.
+2. **Cocked heads:** every idle, walk, run and shield held the head tilted 17.6 degrees (median) to the side, from the stance's sideways
+   chest bend (`STANCE_SIDE`, written for the old three-quarter turn), and level again in the air: the tilt came and went on every jump.
+   Half of all frames tilted more than 12. Pass 57.
+3. **Head jolts:** 1,710 frames turned the head more than 9 degrees in one frame, 588 more than 20 (up to 77, outside spins): an
+   attack's first frame (posed at once), the face limiter's lift taking hold or letting go (the forward air's head from 40 up to 19 down
+   in one frame), jumps and landings. The head also looked up to 41 degrees up (a chin) in forward air wind-ups. Passes 57 and 58.
+4. **Twisted shins in kicks:** the kick IK turned the thigh and the shin each by its own shortest rotation, so the shin twisted on the
+   thigh by up to 177 degrees (1,432 leg-frames over 15: the Clutch's neutral air, the Needles' forward smash 94, the Claws' up air 66),
+   the knee bent off its hinge and the foot rolled; a leg kicked behind and up folded its knee backward (the Needles' neutral air, 66% of
+   its frames). Pass 59.
+5. **Tumble pops:** out of a tumble in the air, or a midair flip cut short by an aerial, the body turned upright in one frame (up to 171
+   degrees). Pass 60.
+6. Smaller, not changed: the turnaround swings the head across the camera at the body's speed (16-20 degrees a frame, as the reference's
+   whole-body turn); deliberate spins (the Claws' corkscrew, the Embers' down air) turn the head with them; the clip-posed knees point
+   along the hips (0-20 degrees) apart from the Clutch's down special; the idle's feet are planted, but the stance is about twice as wide
+   in depth (1.0) as the walk and run (0.45), with the lead knee bent 90-100 degrees (the owner's low stance; a design question below).
+
+**The references** (the hitbox animations decoded frame by frame, and the owner's combo video seeked at match speed):
+- The head rides the chest. The face shows because the whole upper body turns toward the camera, not because the neck twists: the
+  swordsman's forward tilt turns the whole body about 120 degrees in five frames (frames 10-15) and the head goes with it; through the up
+  air's flip the head stays fixed on the chest.
+- Heads stay upright (no sideways tilt) standing, running and in most attacks; they look along the move toward the opponent and tip
+  only a little up or down.
+- Legs: knees over the toes along the facing, the back foot turned out a little; idle knees bent about 20-40 degrees; aerial tucks keep
+  the knees together pointing forward; a kicking leg's knee tracks the kick's plane and the foot points along it, never twisted.
+
+### Pass 56: the chest never turns its back to the camera (round 7 item 1)
+
+- **Fix (`fighter_view.gd` `_keep_chest_side_on`):** after the body follow, a chest turned more than `CHEST_SOFT` (90) degrees from the
+  camera is eased toward `CHEST_MOST` (108) and never past it. Pass 28 already said a move "never passes side-on"; the clip's own twist
+  passed it.
+- **Measured:** chest past 110 degrees: 4,984 frames to 579; neck turned past 60 on the chest: 5,452 to 4,044 (what is left is the idle's
+  steady 45-65, stance option D). The Longsword's worst neck went from 131 to 63. Face cover (`PF_FACE_COVER`): Longsword 9 to 3 (front
+  measure 12 to 6), Staff 5 to 3, Greatsword 9 to 8, Claws, Needles and Clutch unchanged.
+- **Image:** `docs/screenshots/anim/r7_pass56_chest_side_on.jpg`: the Longsword's jab, forward tilt and forward smash, before above after,
+  facing right then left. Before, the back and the sash face us under a face looking at the camera; after, the side and the vest.
+
+### Pass 57: the head kept upright, and never looking far up (round 7 items 2 and 3)
+
+- **Fix:** `_level_head` cuts the head's sideways tilt (about the way it looks, against the world's vertical) to 30% of itself and at
+  most 7 degrees (`HEAD_ROLL_KEEP`, `HEAD_ROLL_MAX`), except while the body turns over on purpose. The face limiter also stops the head
+  looking more than `FACE_UP_MAX` (24) degrees up, tipped about its own side axis, as pass 30 does for looking down.
+- **Measured:** tilt over 12 degrees: 17,196 frames to 37; standing, walking, running and shielding the median tilt is 17.6 to 5.3.
+- **Image:** `docs/screenshots/anim/r7_pass57_head_level.jpg`: the stage at the match camera (both facings) and the Claws' walk, dash,
+  hop and shield, before and after.
+
+### Pass 58: the head eases into each pose (round 7 item 3)
+
+- **Fix (`_ease_neck`):** the head's orientation in the stage frame moves 40% of the way to the pose the clip and the limits ask for each
+  sim frame, never more than 20 degrees a frame. In the stage frame, so the body's own turns and leans carry the head at once; while the
+  body turns over on purpose it rides the body exactly. On the springs' clock: held in a freeze and a pause, straight on its pose after
+  a rollback or a seek (`motion_test` passes).
+- **Measured (passes 57 and 58 together):** head turns over 9 degrees a frame: 1,710 to 648; over 20: 588 to 110. What is left is mostly
+  deliberate spins and the turnaround. The Longsword's forward air pitch jolt went from 53 to 20 degrees a frame, its down air's turn from
+  45 to 18, the jump's take-off from 22 to 9.
+- **Image:** `docs/screenshots/anim/r7_pass58_head_eased.jpg`: the forward air every frame (2-10), both facings.
+
+### Pass 59: kicking knees bend as hinges (round 7 item 4)
+
+- **Fix (`_aim_leg`, `_leg_hinge`):** the thigh and shin turn about one knee axis across the bend, as the arm's elbow does (pass 4b's
+  `_arm_hinge`), so neither twists about its length and the foot follows the shin. A leg kicked behind and up keeps its knee pointing down,
+  and each knee turns a little out from the body (the far one away from the camera).
+- **Measured:** shin twist over 15 degrees: 1,432 leg-frames to 2 (worst 177 to 17). Knees folded backward: 144 to 136 frames (the rest
+  are clip-posed, mostly the Clutch's down special). The far foot drawn in front of the near one: 602 to 519.
+- **Image:** `docs/screenshots/anim/r7_pass59_kick_knee_hinge.jpg`: the Needles' neutral air (both facings) and up air, and the Claws
+  neutral air, before and after.
+
+### Pass 60: out of a tumble the body settles upright (round 7 item 5)
+
+- **Fix:** out of a tumble in the air, or a midair flip cut short, the body's leftover turn is carried into a settle (`TUMBLE_SETTLE`,
+  0.55 of it left each sim frame, held in a freeze, dropped on a seek), about its middle, instead of snapping upright in one frame.
+- **Image:** `docs/screenshots/anim/r7_pass60_tumble_settle.jpg`: a computer match at 60 frames a second, the sword fighter acting out of a
+  tumble, before and after.
+
+**Checked (passes 56-60):** both facings; the six tests and `swing_toggle_test` pass; content hash unchanged (no sim change).
+`PF_R7_OFF=chest,level,ease,legs,tumble` leaves out any of the round's layers, for before and after captures.
+
+**Design questions for the owner:**
+1. **The neck under stance option D** (`docs/screenshots/anim/r7_neck_turn_options.jpg`): the chest stands 86-88 degrees off the camera and
+   the face 38-40, so the neck stays turned about 45-48 degrees all the time, where the reference's heads ride the chest. A is today. B
+   opens the chest 18 degrees more toward the camera (`CHEST_TO_CAMERA` 24, hips unchanged): the neck turns about 27-30, the far fist shows
+   more (0.43 to 0.52 ahead of the chest), both eyes 100%. C lets the head follow the chest to 55: the far eye is lost (0%). Not changed.
+2. **The idle's legs:** the low stance (passes 1 and 18) bends the lead knee 90-100 degrees and spreads the feet about 1.0 in depth, twice
+   the walk's; the references bend 20-40 and stand about hip-wide. A narrower, less deep stance would change an approved look; mocks on
+   request.
+
+**Left:** the turnaround's head swing at the body's speed; the clip-posed knee of the Clutch's down special; the flip-cut settle was not
+caught in a capture (the tumble's was); the stance width question above.
