@@ -121,3 +121,23 @@ ocean.cfg and grove.cfg, and ocean.cfg [theme] `sky_stratus=[2.0, 1.8]`.
 Built B (the owner's pick): [backdrop] `cloud_clear="B"` in meadow.cfg, sunset.cfg, ocean.cfg and grove.cfg; ocean.cfg [theme]
 `sky_stratus=[2.0, 1.8]`. The shipped frames match the mock (what differs is the clouds' drift and the grove's swaying trees). Before
 and after (the match camera's top: meadow, canyon, beach, grove): `review14/clouds_clear_built.jpg`. All seven tests pass.
+
+## Item 2, the fighters' ground a step deeper (mock, 2026-10-27)
+
+P1's gap (|its body's mean value - the rest of the box|) is the body lighter than its surround on all three stages (meadow 0.603 vs
+0.563, canyon 0.626 vs 0.546, grove 0.599 vs 0.525), so a deeper ground widens it. The top fills a little over half the measured box,
+so reaching 0.12 takes the top itself about 0.1 to 0.14 darker: a real step.
+
+`--ground=A|B` (palette [backdrop] `fight_ground` [darker, less saturated]; `StageBake.place_play`; meadow, grove, canyon): the walked
+families only (lawn, top, path, top_deep, top_lit, top_worn), not the card edges or the cut fringe. A [0.2, 0.0]; B [0.32, 0.08]. A
+first try with a fifth of the saturation taken too turned the lawns a grey olive, so the colour is now kept.
+
+| P1's gap | Today | A | B |
+|---|---|---|---|
+| Meadow | 0.040 | 0.087 | 0.110 |
+| Canyon | 0.080 | 0.137 | 0.168 |
+| Grove | 0.075 | 0.113 | 0.135 |
+
+The wide frames' value structure is unchanged (darks 10%, 12 to 13%, 18 to 19%). The meadow falls short of 0.12: the rest of its gap
+is the bright hills behind P1. The platforms' tops change too (fighters stand there). On the Stage Look Review ("fightground44",
+`fg44_*`); recommended B. To ship: [backdrop] `fight_ground=[0.32, 0.08]` in meadow.cfg, sunset.cfg and grove.cfg.

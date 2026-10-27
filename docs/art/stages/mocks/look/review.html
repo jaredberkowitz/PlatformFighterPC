@@ -88,8 +88,36 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
     <p>Two lessons from the reference screenshots, mocked from the match camera: the scenery without ink outlines, its edges lit as card bevels instead, and the paper houses rebuilt at the characters' proportions. The earlier rounds stay on the <a href="https://claude.ai/artifact/D1du6MREVumiJDrEdNypW4">Stage Fidelity Review</a>, which is full.</p>
   </header>
 
+  <section class="panel" aria-labelledby="fg44-h" id="fightground44">
+    <div class="eyebrow">Your call is needed &middot; review 14, item 2: the fighters' ground a step deeper</div>
+    <h2 id="fg44-h">Fighters lighter than their ground</h2>
+    <p>First, the clouds clear of the frame are built (B on the meadow, canyon, beach and grove; see their section below). Next, readability on the three bright stages. There the yellow and orange fighters stood on a top almost as light as they are: P1 measured only 0.04 to 0.08 lighter than everything around it, where the city and beach (both 5) hold 0.15 and 0.24. This deepens only the surfaces the fighters walk on (the lawn, the sand, the path and their wear patches) and keeps the pale cut lips and card edges as they are.</p>
+    <div class="tablewrap"><table><thead><tr><th>Option</th><th>What changes</th></tr></thead><tbody>
+      <tr><td>A &middot; A step deeper</td><td>The walked surfaces a fifth darker, their colour kept</td></tr>
+      <tr><td>B &middot; Two steps deeper</td><td>About a third darker, a touch less saturated</td></tr>
+    </tbody></table></div>
+    <div class="tablewrap"><table><thead><tr><th>P1's gap</th><th>Today</th><th>A</th><th>B</th></tr></thead><tbody>
+      <tr><td>Meadow</td><td>0.040</td><td>0.087</td><td>0.110</td></tr>
+      <tr><td>Canyon</td><td>0.080</td><td>0.137</td><td>0.168</td></tr>
+      <tr><td>Grove</td><td>0.075</td><td>0.113</td><td>0.135</td></tr>
+    </tbody></table></div>
+    <p>The fight at the match camera, today then B: the meadow, the canyon and the grove.</p>
+    <div class="viewer"><img src="fg44_close.jpg" alt="The fighters on the meadow, canyon and grove today and with option B"></div>
+    <div class="row" role="group" aria-label="Stage"><button data-fg44s="0">Meadow</button><button data-fg44s="1">Canyon</button><button data-fg44s="4">Grove</button></div>
+    <div class="row" role="group" aria-label="View"><button data-fg44v="m">Match camera</button><button data-fg44v="w">Wide</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-fg44o="T">Today</button><button data-fg44o="A">A &middot; A step deeper</button><button data-fg44o="B">B &middot; Two steps deeper</button></div>
+    <div class="viewer"><img id="fg44img" alt="Fighters' ground option"><span class="vtag" id="fg44tag"></span></div>
+    <p class="muted">My pick: <b>B</b>. The fighters are now the lightest things in the fight on all three stages. The lawns stay a rich green and the canyon's top a warm sand, and at the wide camera the tops still belong to their stages. Honest notes:
+      <ul>
+        <li>My first try also took a fifth of the colour out, and the lawns went a grey olive. Now the colour is kept.</li>
+        <li>The meadow reaches 0.110, just short of the 0.12 I aimed for. The rest of its gap is the bright hills behind P1, which this doesn't touch.</li>
+        <li>The platforms' tops change with the main top, as fighters stand on them too.</li>
+      </ul>
+    </p>
+  </section>
+
   <section class="panel" aria-labelledby="cc43-h" id="cloudclear43">
-    <div class="eyebrow">Your call is needed &middot; review 14, item 1: clouds clear of the frame</div>
+    <div class="eyebrow">Built B (the owner's pick) &middot; review 14, item 1: clouds clear of the frame</div>
     <h2 id="cc43-h">No cloud cut by the frame</h2>
     <p>The first item of review 14 (its section below). At the match camera the frame's top cut through clouds on the meadow, canyon, beach and grove, leaving hard pale slabs in the corners. On the canyon, the wide frame cut some far clouds too. Every stage's match camera stands at the same place, so its top edge is one line through the sky; this moves each cloud that crosses it down until it is whole, and does the same for the wide camera's top. On the beach, the sky's three thin painted bands (the stripes over its deep top) become two broader ones.</p>
     <div class="tablewrap"><table><thead><tr><th>Option</th><th>What changes</th></tr></thead><tbody>
@@ -2926,5 +2954,17 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
   group("data-cc43v", function (v) { cc43v = v; }, cc43render);
   group("data-cc43o", function (v) { cc43o = v; }, cc43render);
   cc43render();
+  var fg44s = "0", fg44v = "m", fg44o = "B";
+  var FG44O = { T: "Today", A: "A \u00b7 A step deeper", B: "B \u00b7 Two steps deeper" };
+  var FG44S = { "0": "Meadow", "1": "Canyon", "4": "Grove" };
+  function fg44render() {
+    document.getElementById("fg44img").src = "fg44_s" + fg44s + "_" + fg44o + "_" + fg44v + ".jpg";
+    document.getElementById("fg44tag").textContent = FG44S[fg44s] + " \u00b7 " + FG44O[fg44o] + (fg44v === "w" ? " \u00b7 wide" : " \u00b7 match camera");
+    pressed("data-fg44s", fg44s); pressed("data-fg44v", fg44v); pressed("data-fg44o", fg44o);
+  }
+  group("data-fg44s", function (v) { fg44s = v; }, fg44render);
+  group("data-fg44v", function (v) { fg44v = v; }, fg44render);
+  group("data-fg44o", function (v) { fg44o = v; }, fg44render);
+  fg44render();
 })();
 </script>

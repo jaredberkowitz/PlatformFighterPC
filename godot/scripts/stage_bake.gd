@@ -536,6 +536,19 @@ static func place_play(root: Node3D, t: Dictionary, path: String) -> void:
 		"steel_seam": plate.darkened(0.4), "rivet": plate.lerp(cream, 0.5), "steel_paint": Color(0.94, 0.7, 0.26),
 		"steel_primer": Color(0.76, 0.36, 0.3),
 		"hazard": Color(0.16, 0.14, 0.2), "deck_board": Color(0.74, 0.58, 0.44)}, true)
+	# (The fighters' ground a step deeper, fidelity review 14 item 2: on the meadow, grove and canyon the yellow and orange fighters stood
+	# on a top as light as they are, 0.04 to 0.08 apart in value where the city and beach hold 0.15 and 0.24. The palette's [backdrop]
+	# `fight_ground` [how much darker, how much less saturated] or `--ground=A|B`: the walked surfaces only, the cut lips and the card
+	# edges stay pale.)
+	var ground: Array = (StageArt.palette(String(t.get("name", ""))).get("backdrop", {}) as Dictionary).get("fight_ground", [])
+	if String(t.get("name", "")) in ["meadow", "grove", "sunset"]:
+		# (Deeper at full colour: a first try took a fifth of the saturation too, and the lawns went a grey olive.)
+		ground = {"A": [0.2, 0.0], "B": [0.32, 0.08]}.get(flag("--ground=").to_upper(), ground)
+	if ground.size() == 2:
+		for fam in ["lawn", "top", "path", "top_deep", "top_lit", "top_worn"]:
+			if colours.has(fam):
+				var c: Color = colours[fam]
+				colours[fam] = Color.from_hsv(c.h, c.s * (1.0 - float(ground[1])), c.v * (1.0 - float(ground[0])))
 	scene.name = "ModelledPlay"
 	scene.set_meta("lit_piece", true)
 	root.add_child(scene)
