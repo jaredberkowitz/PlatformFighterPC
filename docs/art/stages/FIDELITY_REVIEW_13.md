@@ -191,12 +191,20 @@ Same colours, moss and cap. The mocks are unlit (today too). P1's gap 0.043 toda
 ("wall39", `wl39_*`); recommended B (A if B's busier wall pulls the eye). To ship: rebuild `meadow_front.glb` with the shipped flags
 plus `--laid B` and re-light the meadow.
 
+Built B (the owner's pick): `godot/models/stages/meadow_front.glb` rebuilt with `--variant B --stones field --moss 1 --warm B --calm B
+--laid B`, the meadow re-lit (front, play, ground; `--curve 4.0 --reach 4.5 --floor 0.28` after a fresh `--light-export`). P1's gap
+0.046. Before and after (the wall, match camera then wide): `review13/meadow_wall_built.jpg`.
+
 ## Item 7, the city's value steps (mock, 2026-10-27)
 
 `--skyline=A|B` (palette [backdrop] `skyline_steps`, `StageArt` city backdrop): the three skyline layers stepped, near (0.19, 0.17, 0.38),
 middle (0.36, 0.37, 0.64), far (0.6, 0.68, 0.9), where they sat close in one purple. B also lights more of the two nearer layers'
 windows (`skyline_warm`, 1.8 times the share). Wide darks 28% today, 32% with A and B; P1's gap 0.151, 0.155, 0.157. On the Stage Look
 Review ("skyline40", `sy40_*`); recommended B. To ship: city.cfg [backdrop] `skyline_steps` and `skyline_warm=1.8`.
+
+Built B (the owner's pick): city.cfg [backdrop] `skyline_steps` and `skyline_warm=1.8`. (They replace `skyline_shades`, so the
+`[try_pre_night]` trial's own shades no longer show; it is not shipped.) P1's gap 0.154. Before and after (the city's top, wide, then the
+beach's near water, match camera): `review13/city_beach_built.jpg`.
 
 ## Item 8, the beach's near water (mock, 2026-10-27)
 
@@ -205,3 +213,17 @@ frame's foot instead of fading into the deepening. Each sheet's tone step up to 
 the shadow it lays on the next stronger, its lit lip softened less there. The first B (tone step 1 + 2 times, lips still softened)
 changed 13% of the lower frame wide but could not be seen, so it was strengthened. P1's gap 0.238 today, 0.240 A, 0.243 B. On the Stage
 Look Review ("nearwaves41", `nw41_*`); recommended B. To ship: ocean.cfg [backdrop] `sea_near_waves=1.2`.
+
+Built B (the owner's pick): ocean.cfg [backdrop] `sea_near_waves=1.2`. P1's gap 0.244. Before and after: the lower half of
+`review13/city_beach_built.jpg`.
+
+## Item 4's second half, a wider sky gradient (mock, 2026-10-27)
+
+The cameras see the sky from about 0.03 to 0.09 up. The canyon's and beach's skies used the shader's own bands (the middle tint at
+0.035, the top colour at 0.13), so the frame only ever showed their pale lower half; the meadow's were already fitted (0.012, 0.07).
+`--sky-range=A|B` (`StageArt.sky`, meadow, canyon and beach only): A fits the bands to the frame (0.012, 0.07); B also takes the top
+colour 22% deeper and the middle tint 8%. The sky's value range (the frame's top third, wide, p5 to p95): meadow 0.39 today, 0.39 A
+(its bands were already fitted), 0.43 B; canyon 0.27, 0.33, 0.38; beach 0.28, 0.33, 0.36. P1's gap holds (meadow noise 0.033 to 0.044,
+canyon 0.078 to 0.081, beach 0.241 to 0.243). On the Stage Look Review ("skyrange42", `sr42_*`); recommended B on the canyon and the
+beach, A (as today) on the meadow, whose deeper top goes grey. To ship: sunset.cfg and ocean.cfg [theme] `sky_bands=[0.012, 0.07]`,
+their `sky_top` and `sky_mid` deepened.

@@ -152,6 +152,16 @@ static func sky(t: Dictionary) -> Sky:
 	mat.shader = SKY_SHADER
 	var top: Color = t.sky_top
 	var horizon: Color = t.sky_horizon
+	# (A wider sky gradient, fidelity review 13 item 4's second half: the cameras see the sky from about 0.03 to 0.09 up, and the canyon's
+	# and beach's reached their top colour at 0.13, so the frame showed only the pale half. `--sky-range=A` fits the bands to the frame;
+	# B also takes the top a step deeper. Shipping writes them into the palette's `sky_bands` and `sky_top`.)
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--sky-range=") and t.get("name", "") in ["meadow", "sunset", "ocean"]:
+			t = t.duplicate()
+			t.sky_bands = [0.012, 0.07]
+			if arg.substr(12).to_upper() == "B":
+				top = top.darkened(0.22)
+				t.sky_mid = (t.get("sky_mid", top.lerp(horizon, 0.5)) as Color).darkened(0.08)
 	mat.set_shader_parameter("top_color", top)
 	mat.set_shader_parameter("mid_color", t.get("sky_mid", top.lerp(horizon, 0.5)))
 	mat.set_shader_parameter("horizon_color", horizon)

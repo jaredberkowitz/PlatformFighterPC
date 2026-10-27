@@ -88,8 +88,25 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
     <p>Two lessons from the reference screenshots, mocked from the match camera: the scenery without ink outlines, its edges lit as card bevels instead, and the paper houses rebuilt at the characters' proportions. The earlier rounds stay on the <a href="https://claude.ai/artifact/D1du6MREVumiJDrEdNypW4">Stage Fidelity Review</a>, which is full.</p>
   </header>
 
+  <section class="panel" aria-labelledby="sr42-h" id="skyrange42">
+    <div class="eyebrow">Your call is needed &middot; review 13, item 4's second half: the sky's range</div>
+    <h2 id="sr42-h">Skies from pale to deep</h2>
+    <p>First, the meadow's hand-laid wall, the city's skyline steps and the beach's near waves are built (all three B; see their sections below). Next, the half of item 4 still open: each sky's gradient. The cameras only see the sky from about 3 to 9 hundredths up. The canyon's and the beach's skies didn't reach their top colour until 13, so every frame showed only their pale lower half. The meadow's were already fitted.</p>
+    <div class="tablewrap"><table><thead><tr><th>Option</th><th>What changes</th></tr></thead><tbody>
+      <tr><td>A &middot; Fitted</td><td>The gradient fitted to what the camera sees (the meadow's is already)</td></tr>
+      <tr><td>B &middot; Fitted and deeper</td><td>A, with the top colour a step deeper and the middle tint a little</td></tr>
+    </tbody></table></div>
+    <p>The skies at the wide camera, today then B: the meadow, the canyon and the beach. The sky's value range (the frame's top third) goes from 0.27 to 0.38 on the canyon, 0.28 to 0.36 on the beach and 0.39 to 0.43 on the meadow. P1's gap holds.</p>
+    <div class="viewer"><img src="sr42_close.jpg" alt="The meadow's, canyon's and beach's skies today and with option B"></div>
+    <div class="row" role="group" aria-label="Stage"><button data-sr42s="0">Meadow</button><button data-sr42s="1">Canyon</button><button data-sr42s="2">Beach</button></div>
+    <div class="row" role="group" aria-label="View"><button data-sr42v="m">Match camera</button><button data-sr42v="w">Wide</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-sr42o="T">Today</button><button data-sr42o="A">A &middot; Fitted</button><button data-sr42o="B">B &middot; Fitted and deeper</button></div>
+    <div class="viewer"><img id="sr42img" alt="Sky range option"><span class="vtag" id="sr42tag"></span></div>
+    <p class="muted">My pick: <b>B on the canyon and the beach</b>, the meadow as it is. The canyon's sky now runs from the sunset's orange to a deep violet overhead, and the beach's from its warm horizon to a real blue. Honest note: on the meadow the deeper top goes slightly grey and dusky, which fights its bright noon, so I'd leave it.</p>
+  </section>
+
   <section class="panel" aria-labelledby="wl39-h" id="wall39">
-    <div class="eyebrow">Your call is needed &middot; review 13, item 6: the meadow's wall</div>
+    <div class="eyebrow">Built B (the owner's pick) &middot; review 13, item 6: the meadow's wall</div>
     <h2 id="wl39-h">A wall laid by hand</h2>
     <p>First, the grove's piled mist and dark bark roots are built (see their section below). Next, the three remaining surfaces at 4. The meadow's front wall is the biggest thing in its frame, and its stones read as a grid of tidy bricks: one size, one row height, set flush. This lays the same courses by hand: stones of mixed widths, some shortened and dropped within their course, rounder, set back further with chinking stones in the gaps. Same colours, same moss and cap.</p>
     <div class="tablewrap"><table><thead><tr><th>Option</th><th>What changes</th></tr></thead><tbody>
@@ -105,7 +122,7 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
   </section>
 
   <section class="panel" aria-labelledby="sy40-h" id="skyline40">
-    <div class="eyebrow">Your call is needed &middot; review 13, item 7: the city's value steps</div>
+    <div class="eyebrow">Built B (the owner's pick) &middot; review 13, item 7: the city's value steps</div>
     <h2 id="sy40-h">The skyline in three steps</h2>
     <p>The city's three skyline layers sat close together in one purple, so the frame read as one mid-tone (its hue score's blocker). This steps them: the near layer a deeper indigo, the far one lighter and bluer, the middle between. Nothing is added.</p>
     <div class="tablewrap"><table><thead><tr><th>Option</th><th>What changes</th></tr></thead><tbody>
@@ -121,7 +138,7 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
   </section>
 
   <section class="panel" aria-labelledby="nw41-h" id="nearwaves41">
-    <div class="eyebrow">Your call is needed &middot; review 13, item 8: the beach's near water</div>
+    <div class="eyebrow">Built B (the owner's pick) &middot; review 13, item 8: the beach's near water</div>
     <h2 id="nw41-h">Paper waves at the frame's foot</h2>
     <p>The sea in front of the pier was one flat cyan: the paper sheets of the far sea faded out as the water deepened toward the camera. This keeps the sheets going to the frame's foot: each one a step darker than the last, curled lighter toward its cut edge, with its lit lip and the shadow it lays on the next.</p>
     <div class="tablewrap"><table><thead><tr><th>Option</th><th>What changes</th></tr></thead><tbody>
@@ -2813,5 +2830,17 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
   group("data-nw41v", function (v) { nw41v = v; }, nw41render);
   group("data-nw41o", function (v) { nw41o = v; }, nw41render);
   nw41render();
+  var sr42s = "1", sr42v = "w", sr42o = "B";
+  var SR42O = { T: "Today", A: "A \u00b7 Fitted", B: "B \u00b7 Fitted and deeper" };
+  var SR42S = { "0": "Meadow", "1": "Canyon", "2": "Beach" };
+  function sr42render() {
+    document.getElementById("sr42img").src = "sr42_s" + sr42s + "_" + sr42o + "_" + sr42v + ".jpg";
+    document.getElementById("sr42tag").textContent = SR42S[sr42s] + " \u00b7 " + SR42O[sr42o] + (sr42v === "w" ? " \u00b7 wide" : " \u00b7 match camera");
+    pressed("data-sr42s", sr42s); pressed("data-sr42v", sr42v); pressed("data-sr42o", sr42o);
+  }
+  group("data-sr42s", function (v) { sr42s = v; }, sr42render);
+  group("data-sr42v", function (v) { sr42v = v; }, sr42render);
+  group("data-sr42o", function (v) { sr42o = v; }, sr42render);
+  sr42render();
 })();
 </script>
