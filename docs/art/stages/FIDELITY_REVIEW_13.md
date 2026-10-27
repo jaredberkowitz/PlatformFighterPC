@@ -163,3 +163,7 @@ wide frame. The first placement (18 to 36 up) sat above the wide camera's frame,
 11 to 18, the canyon's 18 to 25. The sky's value range barely moves (its gradient is the sky shader's). P1's gap: meadow 0.043 to
 0.048 (B), canyon 0.078 to 0.081, city 0.152. On the Stage Look Review ("composedsky37", `sk37_*`); recommended B. To ship: meadow.cfg
 and sunset.cfg [backdrop] `sky_groups` from `SKY_GROUPS`, `cloud_far` a third as many and 1.5 times the size, city.cfg `moon_y=19.0`.
+
+Built B (the owner's pick): meadow.cfg and sunset.cfg [backdrop] `sky_groups`, sunset.cfg `cloud_far=[3, 1.425, 0.3]` (the meadow has no
+far layer, so its A and B are the same), city.cfg `moon_y=19.0`. Before and after (the skies, wide): `review13/skies_built.jpg`. All seven
+tests pass.
