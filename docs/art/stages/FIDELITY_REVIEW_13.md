@@ -149,3 +149,6 @@ and is kept (x) only where that edge faces the light (`-sheet_dir` across the sc
 0.082, beach 0.230 to 0.238, city 0.132 to 0.151, grove 0.060 to 0.072. On the Stage Look Review ("cutedges36", `ce36_*`; the ten
 oldest sections archived from the published copy only, for the artifact's file limit); recommended C. To ship: lighting.gd
 STYLE_DEFAULT finish `"cut_choose": [1.0, 1.0, 0.4]` (every stage).
+
+Built C (the owner's pick): lighting.gd STYLE_DEFAULT finish `"cut_choose": [1.0, 1.0, 0.4]`, every stage. The city's P1 gap 0.150 in the
+game. Before and after (the hoodoos, the island underside): `review13/cut_edges_built.jpg`. All seven tests pass.

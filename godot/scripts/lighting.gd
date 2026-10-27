@@ -99,7 +99,10 @@ const STYLE_DEFAULT := {
 	"sun_shadow": [70.0, 2, 5.0],
 	"cast": Color(1.0, 1.0, 1.0, 0.0),
 	"finish": {"desat": 0.0, "lift": 0.03, "vignette": 0.16, "haze_max": 0.22, "s_curve": 0.22, "quiet": 0.25, "bloom": 0.4,
-		"bloom_from": 0.6, "sheets": 0.0, "cut_edge": 0.0, "fight_lift": 0.0, "haze_desat": 0.35},
+		"bloom_from": 0.6, "sheets": 0.0, "cut_edge": 0.0, "fight_lift": 0.0, "haze_desat": 0.35,
+		# (Chosen cut edges, fidelity review 13, the owner's pick C: the pale rim only where an edge faces the light, in its own colour,
+		# the ink lines' pale lift at 0.4; round every shape it read as sticker outlines. post.gdshader `cut_choose`.)
+		"cut_choose": [1.0, 1.0, 0.4]},
 }
 ## Shaped light (fidelity review 7, the owner's pick A, 2026-10-23): the day stages' `clouds` smaller and over more ground with a
 ## `cloud_tone` laid on the colour (see SHAPED_TRY); `--shaped=T` shows a stage as before.
