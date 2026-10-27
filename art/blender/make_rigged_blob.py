@@ -1198,9 +1198,13 @@ def _spec_pose(spec):
         if lead is not None:
             # The further the legs step apart front to back, the more the feet come in toward one line (as a fencer's): seen turned three
             # quarters to the camera, feet set wide apart sideways would hide the step.
-            pose(rig, "thigh.L", fwd=lead, out=5.0 - 0.4 * abs(lead))
+            # (Round 8: only a step, the legs apart front to back, draws the feet in. Both thighs forward (a tuck, a seat, a ground pound)
+            # drew both knees in across the body by up to 30 degrees: the knees crossed in every aerial tuck and the Clutch's down special
+            # turned its knees sideways. The reference fighters tuck with the knees side by side, pointing ahead.)
+            split = lead * back < 0.0
+            pose(rig, "thigh.L", fwd=lead, out=5.0 - 0.4 * abs(lead) if split else 6.0)
             pose(rig, "shin.L", fwd=-8.0 - max(0.0, -lead) * 0.5 - soft)
-            pose(rig, "thigh.R", fwd=back, out=5.0 - 0.4 * abs(back))
+            pose(rig, "thigh.R", fwd=back, out=5.0 - 0.4 * abs(back) if split else 8.0)
             pose(rig, "shin.R", fwd=-8.0 - max(0.0, -back) * 0.5 - soft * 0.7)
         for bone, v in spec.items():
             if "." in bone:
