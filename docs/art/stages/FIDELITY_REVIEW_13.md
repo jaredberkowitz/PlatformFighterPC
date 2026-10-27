@@ -89,3 +89,12 @@ Stage Look Review ("valuedeep33", `vd33_*`); recommended B (inside the reference
 
 Built B (the owner's pick): lighting.gd STYLES "sunset" finish `"value_deep": [0.35, 0.3, 0.6, 60.0]`. In the game the wide still holds
 11% darks, range 0.56. Before and after (wide): `review13/canyon_value_built.jpg`. All seven tests pass.
+
+## Item 1 on the meadow and the beach (mock, 2026-10-27)
+
+The same `--value=A|B|C` (darks under 0.25, wide / match; P1's gap). Meadow: today 2% / 2%, 0.016; A 3% / 4%, 0.009; B 4% / 6%, 0.008;
+C 10% / 17%, 0.026 (A and B darken the shade at the fighters' level more than the lawn round them, so the gap narrows; only C reaches
+the references' range). Beach: today 2% / 7%, 0.183; A 3% / 16%, 0.210; B 3% / 18%, 0.213; C 4% / 20%, 0.231. The beach's water is
+drawn after the finishing pass, so its wide still barely moves; a deeper `sea_near` (`--sea-near=D`, [1.8, 1.0]) tried with it barely
+changed it either. Its wide darks have to come from item 8. On the Stage Look Review ("valuedeep34", `vm34_*`); recommended C on both.
+To ship: lighting.gd STYLES "meadow" and "ocean" finish `"value_deep": [0.5, 0.42, 0.55, 80.0]`.

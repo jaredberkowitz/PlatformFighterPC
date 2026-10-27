@@ -5388,7 +5388,7 @@ static func _ocean(root: Node3D, t: Dictionary, stage: Array) -> void:
 	var near: Array = (_palette.get("backdrop", {}) as Dictionary).get("sea_near", [])
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--sea-near="):
-			near = {"A": [0.8, 0.0], "B": [0.8, 1.0], "C": [1.25, 1.0]}.get(arg.substr(11), near)
+			near = {"A": [0.8, 0.0], "B": [0.8, 1.0], "C": [1.25, 1.0], "D": [1.8, 1.0]}.get(arg.substr(11), near)
 	if near.size() == 2:
 		wm.set_shader_parameter("near_depth", Vector2(near[0], near[1]))
 	for arg in OS.get_cmdline_user_args():

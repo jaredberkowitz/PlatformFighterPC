@@ -88,6 +88,26 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
     <p>Two lessons from the reference screenshots, mocked from the match camera: the scenery without ink outlines, its edges lit as card bevels instead, and the paper houses rebuilt at the characters' proportions. The earlier rounds stay on the <a href="https://claude.ai/artifact/D1du6MREVumiJDrEdNypW4">Stage Fidelity Review</a>, which is full.</p>
   </header>
 
+  <section class="panel" aria-labelledby="vm34-h" id="valuedeep34">
+    <div class="eyebrow">Your call is needed &middot; review 13, item 1: a dark anchor on the meadow and the beach</div>
+    <h2 id="vm34-h">The meadow and the beach with real darks</h2>
+    <p>First, the canyon's dark anchor B is built (see its section below). This tries the same control on the other two milky stills, with the same three settings: the scenery's darks pushed down and the frame's foot deepened. The fighters, the sky and the far distance are untouched.</p>
+    <div class="tablewrap"><table><thead><tr><th>Option</th><th>Meadow: darks wide / match</th><th>Meadow: P1's gap</th><th>Beach: darks wide / match</th><th>Beach: P1's gap</th></tr></thead><tbody>
+      <tr><td>Today</td><td>2% / 2%</td><td>0.016</td><td>2% / 7%</td><td>0.183</td></tr>
+      <tr><td>A &middot; Deeper darks</td><td>3% / 4%</td><td>0.009</td><td>3% / 16%</td><td>0.210</td></tr>
+      <tr><td>B &middot; And a deep foot</td><td>4% / 6%</td><td>0.008</td><td>3% / 18%</td><td>0.213</td></tr>
+      <tr><td>C &middot; Strongest</td><td>10% / 17%</td><td>0.026</td><td>4% / 20%</td><td>0.231</td></tr>
+    </tbody></table></div>
+    <p>At the match camera, today then C: the meadow on top, the beach below.</p>
+    <div class="viewer"><img src="vm34_close.jpg" alt="The meadow and the beach today and with a dark anchor"></div>
+    <div class="row" role="group" aria-label="Stage"><button data-vm34s="0">Meadow</button><button data-vm34s="2">Beach</button></div>
+    <div class="row" role="group" aria-label="View"><button data-vm34v="m">Match camera</button><button data-vm34v="w">Wide</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-vm34o="T">Today</button><button data-vm34o="A">A &middot; Deeper darks</button><button data-vm34o="B">B &middot; And a deep foot</button><button data-vm34o="C">C &middot; Strongest</button></div>
+    <div class="viewer"><img id="vm34img" alt="Value option"><span class="vtag" id="vm34tag"></span></div>
+    <p class="muted">My pick: <b>C on both</b>. The meadow is so high-key that only C gives it real darks: its wall and the shade under its lip deepen, the wide still reaches 10%, and P1's gap rises to 0.026. A and B slightly narrow that gap, because they darken the shade on the fighters' level more than the lawn around them. On the beach, C gives the dock and its piles weight, with 20% darks at the match camera and P1's gap rising to 0.231.</p>
+    <p class="muted">Honest note: the beach's wide still barely moves (2% to 4% darks). Its water is drawn after the finishing pass, so this control can't reach it, and a deeper near-sea setting tried with it hardly changed it either. The beach's darks at the wide camera have to come from item 8, the near water as paper wave sheets with dark troughs.</p>
+  </section>
+
   <section class="panel" aria-labelledby="vd33-h" id="valuedeep33">
     <div class="eyebrow">Built B (the owner's pick) &middot; review 13, item 1: a dark anchor on the canyon</div>
     <h2 id="vd33-h">The canyon with real darks</h2>
@@ -2578,5 +2598,16 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
   group("data-vd33v", function (v) { vd33v = v; }, vd33render);
   group("data-vd33o", function (v) { vd33o = v; }, vd33render);
   vd33render();
+  var vm34s = "0", vm34v = "m", vm34o = "C";
+  var VM34O = { T: "Today", A: "A \u00b7 Deeper darks", B: "B \u00b7 And a deep foot", C: "C \u00b7 Strongest" };
+  function vm34render() {
+    document.getElementById("vm34img").src = "vm34_s" + vm34s + "_" + vm34o + "_" + vm34v + ".jpg";
+    document.getElementById("vm34tag").textContent = (vm34s === "0" ? "Meadow" : "Beach") + " \u00b7 " + VM34O[vm34o] + (vm34v === "w" ? " \u00b7 wide" : " \u00b7 match camera");
+    pressed("data-vm34s", vm34s); pressed("data-vm34v", vm34v); pressed("data-vm34o", vm34o);
+  }
+  group("data-vm34s", function (v) { vm34s = v; }, vm34render);
+  group("data-vm34v", function (v) { vm34v = v; }, vm34render);
+  group("data-vm34o", function (v) { vm34o = v; }, vm34render);
+  vm34render();
 })();
 </script>
