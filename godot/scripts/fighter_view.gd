@@ -4586,6 +4586,23 @@ func _pose_blade(s: Dictionary, delta: float) -> void:
 		hand += (hand - shoulder).normalized() * springs.value("hand")
 	# Standing on the ground the tip never passes into the floor (a low cut whose arm drops into a deep lunge): the blade turns up about
 	# the hand, keeping its length, just enough to clear it.
+	# (Round 8: a weapon hand that comes up by the face is kept in front of it, out past the drawn face and no higher than the chin, as the
+	# reference fighters hold a raised sword out ahead, instead of being sent behind the head (`HEAD_BEHIND_Z`), where the blade seemed
+	# to come out of the neck with no hand showing. The blade still runs from the hand to its tip.)
+	var front_hand := false
+	if use_base_body and not r8_off.has("front") and bladed(_cls(s)) and _cls(s) != NODACHI_CLASS and blade_up == 0.0 and mill.is_empty() 			and skeleton != null and head_bone >= 0:
+		front_hand = true
+		var lag_now: bool = attacking and float(s.state_frame) > float((s.move_timing as PackedInt32Array)[2])
+		var kf := _behind_head_k(hand, facing, FACE_FWD if lag_now and _cls(s) != NODACHI_CLASS else 0.0)
+		if kf > 0.0:
+			var hp := skeleton.get_bone_global_pose(head_bone)
+			var hc := _skeleton_to_frame() * (hp.origin + hp.basis.y.normalized() * HEAD_CENTRE_UP)
+			# (Out past the drawn face for a blade pointing ahead; past the back of the head for one pointing behind (a back air), so the
+			# blade never crosses the face to reach its tip.)
+			var ahead := tip.x >= hc.x * facing
+			var clear_x := hc.x * facing + (FACE_FWD + HEAD_CLEAR_R * FRONT_CLEAR if ahead else -HEAD_CLEAR_R * FRONT_CLEAR)
+			var clear := Vector2(clear_x, minf(hand.y, hc.y - HEAD_CLEAR_R * FRONT_BELOW))
+			hand = hand.lerp(clear, kf)
 	if s.platform >= 0 and tip.y < GROUND_CLEARANCE and hand.y > GROUND_CLEARANCE:
 		var reach_len := (tip - hand).length()
 		var dy := clampf((GROUND_CLEARANCE - hand.y) / maxf(reach_len, 0.001), -1.0, 1.0)
@@ -4606,7 +4623,7 @@ func _pose_blade(s: Dictionary, delta: float) -> void:
 	# goes behind the head instead, so the drawn face is never covered; the blade or claw still shows round the head. Judged frame by
 	# frame at real speed, the hilt sat over the eyes for 8 frames of the Longsword's up tilt and the claws covered the face through the
 	# forward air's wind-up.)
-	elif use_base_body and blade_up == 0.0 and skeleton != null and head_bone >= 0 and _cls(s) != GREATSWORD_CLASS:
+	elif use_base_body and blade_up == 0.0 and skeleton != null and head_bone >= 0 and _cls(s) != GREATSWORD_CLASS and not front_hand:
 		# (Round 4: a sword held up through its end lag is measured from the drawn face, FACE_FWD ahead of the head's middle: the
 		# Longsword's forward tilt held its hilt over the eyes for about 10 frames.)
 		var end_lag: bool = attacking and float(s.state_frame) > float((s.move_timing as PackedInt32Array)[2])
@@ -4626,7 +4643,7 @@ func _pose_blade(s: Dictionary, delta: float) -> void:
 		hand_z = great_z
 		# (Round 3: its two-handed grip goes behind the head too when the swing brings it up past the face, the broad blade still
 		# showing round the head; it covered the face for 81 frames of its up moves and forward air.)
-		if use_base_body and skeleton != null and head_bone >= 0:
+		if use_base_body and skeleton != null and head_bone >= 0 and not front_hand:
 			hand_z = minf(hand_z, lerpf(hand_z, HEAD_BEHIND_Z, _behind_head_k(hand, facing)))
 	hand_target = Vector3(hand.x * facing, hand.y, hand_z)
 	# The greatsword is held in both hands: the other one a little further down the grip (toward the pommel), just behind the blade.
@@ -4925,6 +4942,10 @@ func _body_clip(cls: int, move: String) -> bool:
 ## the head's middle is HEAD_CENTRE_UP above the head bone (the neck).
 const HEAD_CLEAR_R := 0.55
 const HEAD_BEHIND_Z := -0.35
+## (Round 8) Where a weapon hand by the face is kept instead: this share of HEAD_CLEAR_R out past the drawn face, and this share of it
+## below the head's middle.
+const FRONT_CLEAR := 0.9
+const FRONT_BELOW := 0.55
 const HEAD_CENTRE_UP := 0.36
 ## How far ahead of the head's middle the drawn face is, side-on (forward space).
 const FACE_FWD := 0.3

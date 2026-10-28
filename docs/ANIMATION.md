@@ -1894,3 +1894,18 @@ knee bend (`review1/mock_stance.jpg`, A/B/C).
   Buckler 1 to 2, Nodachi 1 to 0, Dagger 0 to 0 (the hand now sits at the guard, a little nearer the face in the up tilt; within the
   run-to-run noise of 3 a class, but all up by one or more: watched).
 - **Checked:** the six tests, `swing_toggle_test`, `art_pipeline_test` and `prop_check_test` pass.
+
+### Group 8 (round 8): a raised sword hand kept in front of the face, not behind the head
+
+- **Defect (the art director's item 2):** a sword hand that came up by the face (up tilts, up airs, held end lags) was sent behind the
+  head (`HEAD_BEHIND_Z`), so the blade seemed to come out of the neck with no hand showing.
+- **Fix (`fighter_view.gd` `_pose_blade`, `FRONT_CLEAR`, `FRONT_BELOW`):** for the Longsword, Buckler and Greatsword the hand is kept in
+  front, moved out past the drawn face (past the back of the head for a blade pointing behind, as in a back air) and no higher than the
+  chin, eased in by how near the face it is; the blade runs from there to its tip. The Nodachi (its long blade crossed the face from in
+  front: 0 to 4 frames) and the Staff (its two-handed shaft: 4 to 8) keep the behind-the-head guard. `PF_R8_OFF=front` shows the old.
+- **Measured** (`PF_FACE_COVER`, gallery; group 7 then now): Longsword 4 to 3 (front measure 7 to 6), Greatsword 6 to 2, Buckler 2 to 2,
+  Nodachi 0 to 0, Staff 4 to 4. The group 7 creep is back down for the swords; the Staff's (2 to 4, its grip in the fist) stays, listed.
+- **Reference:** the swordsman's up tilt and up air hold the raised sword out ahead with the hand showing (`F:\anim_r8\sheets\marth_*`).
+- **Image:** `docs/screenshots/anim/r8_weapon_hand_in_front.jpg` (the Longsword's up tilt, up air and forward tilt, the Greatsword's up
+  air; before above).
+- **Checked:** the six tests and `swing_toggle_test` pass.
