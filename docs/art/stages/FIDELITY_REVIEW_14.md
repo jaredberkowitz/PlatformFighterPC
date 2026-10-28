@@ -273,3 +273,81 @@ The sky third's value range (wide) is 0.36 today, 0.39 A, 0.42 B. Darks hold (13
 are unlit mocks. On the Stage Look Review ("meadowland49", `mt49_*`); recommended B. To ship:
 - rebuild `meadow_ground.glb` and `meadow_pines.glb` with `--walls B`, and re-light the meadow;
 - RIDGES' meadow specs: the colours above, `alt` + [10, 10, 14].
+
+Built B (the owner's pick):
+- `meadow_ground.glb` rebuilt with `--variant FC --pine D --hill fields_lane --stream B --walls B` (the pines unchanged), and the meadow
+  re-lit (front, play, ground).
+- RIDGES' meadow specs: far `land_colour` (0.3, 0.6, 0.5), `alt` [64, 58, 36]; near (0.12, 0.44, 0.36), `alt` [48, 42, 30].
+
+In the game, wide: the sky third's range is 0.42, darks 14%; P1's gap 0.138. Before (review 14's frame) and after, the mountains and the
+terraces: `review14/meadow_land_built.jpg`. All seven tests pass.
+
+## The owner's note: shade washing out the fronts (mock, 2026-10-28)
+
+The owner: the shadows are starting to wash out the colour on the stage fronts; compare with the papercraft reference and get closer to
+how it handles shade, more colourful and readable.
+
+**Measured.** The reference's shaded faces sit at 0.36 to 0.78 in value: a light colour tinted cool, with drawn detail in them (contrast
+about 0.2); the town shot's shaded building face is 0.67, saturation 0.21. Our fronts at the match camera sat at 0.20 to 0.26:
+meadow 0.24, canyon 0.20 (saturation 0.72, so dark and not grey), beach 0.26, city 0.26, grove 0.21. Five things push them down,
+stacked:
+- the contact shade baked into every modelled piece (review 9's deeper shade: a crevice multiplied down as far as 0.28);
+- the dark anchor's push at the frame's foot (review 13);
+- the low fill since key-to-fill C;
+- each front's fall into a grey-violet shade below its top (`front_fall`);
+- the front calm's greying.
+
+**The mock.** `--shade-colour=A|B|C|D`, scenery only (the fighters keep their light):
+- A halves the dark anchor's foot push, scales the fronts' fall 0.6, halves the calm.
+- B turns the foot push off, halves the fall and tints it toward the stage's own shade hue (`pf_front_tint`, `pf_front_fall_k`), sets
+  the calm to a quarter and the fill to 45% (`key_fill` [0.45, 0.45]).
+- C is B with the calm off, the scenery shade 1.4 times lighter and the fall 0.35.
+- D is C with the baked contact shade eased by half (`pf_vshade_lift` 0.5, toon_common).
+
+| Front value (saturation) | Today | A | B | C | D |
+|---|---|---|---|---|---|
+| Meadow | 0.24 (0.47) | 0.26 | 0.30 (0.53) | 0.31 | 0.41 (0.56) |
+| Canyon | 0.20 (0.72) | 0.21 | 0.25 (0.69) | 0.25 | 0.29 (0.70) |
+| Beach | 0.26 (0.55) | 0.27 | 0.28 (0.49) | 0.28 | 0.29 (0.45) |
+| City | 0.26 (0.56) | 0.26 | 0.28 (0.57) | 0.28 | 0.32 (0.57) |
+| Grove | 0.21 (0.27) | 0.19 | 0.19 (0.33) | | 0.29 (0.31) |
+
+**What it found.** A to C barely move the fronts: the baked contact shade was most of it. C also blacked out the grove's underside
+between its roots, because the calm turned off had been lifting the darkest darks toward a floor. D is the closest to the reference.
+
+**D's costs.**
+- It gives back most of review 13's dark anchor (wide darks: meadow 14% to 3%, canyon 17% to 5%, grove 24% to 17%).
+- It flattens some form inside the fronts (contrast: canyon 0.069 to 0.064, beach 0.123 to 0.089).
+- P1's gap drops on the meadow (0.131 to 0.116) and the grove (0.160 to 0.118).
+
+If D lands, the fronts' form wants rebuilding the reference's way: drawn detail and lit edges rather than dark crevices.
+
+On the Stage Look Review ("shadecolour50", `sh50_*`, with the reference beside our meadow and canyon); recommended D. To ship: the D
+values as a style default (`pf_vshade_lift` 0.5, `front_calm` 0, the fall 0.35 and tinted, `key_fill` [0.45, 0.45], `scenery_shade`
+x1.4, the dark anchor's foot push 0).
+
+Captures: the toon change recompiles every pipeline, and each run lingered on exit compiling the rest (a 15-minute timeout each, until
+the run was capped at 2 minutes; the image is saved in under a minute).
+
+Built D on every stage (the owner's pick): STYLE_DEFAULT `shade_colour="D"` (`Lighting.shade_colour`, `--shade-colour=T` for the look
+before). The shipped fronts measure as mock D: meadow 0.41, canyon 0.29, beach 0.30, city 0.32, grove 0.29. Before and after (the match
+camera: meadow, canyon, city, grove): `review14/shade_colour_built.jpg`.
+
+## Item 8, the grove's falls and path (mock, 2026-10-28)
+
+**Falls** (`make_grove_paper.py --fall_look A|B`, on the shipped flags; `layered_fall`). Each fall is cut into four sheets laid over one
+another from the lip down. Each starts lower than the one above, stands 0.06 further out and is 0.06 wider each side, its blue set per
+sheet (by turns, offset by column), with a pale foam lip in `spray` along its top. A has three columns, B two, with a fuller foam foot.
+Before, five to seven full-height strips alternated two blues: candy stripes on a card.
+
+**Path** (`--path=A|B`, `StageBake.place_play`, grove only): A (0.78, 0.64, 0.5), B (0.7, 0.55, 0.4), in place of the cream (0.88, 0.79,
+0.72) that went lavender under the grove's pink light.
+
+P1's gap 0.124 today (unlit mock ground), 0.128 A, 0.134 B; the wide values hold (darks 17%). The sheets' tops and foam lips are still
+straight, so up close they read a little like stacked tiles; scalloped edges would be next. On the Stage Look Review ("grovefalls51",
+`gf51_*`); recommended B. To ship: rebuild `godot/models/stages/grove_paper.glb` with `--fall_look B`, set grove.cfg's `path_colour` to
+(0.7, 0.55, 0.4), and re-light the grove.
+
+Built B (the owner's pick): `godot/models/stages/grove_paper.glb` rebuilt with `--fall_look B`; grove.cfg `path_colour=Color(0.7, 0.55,
+0.4, 1)`. The grove is re-lit (front, paper, play). P1's gap is 0.132; the wide values hold (darks 17%). Before and after (the path,
+then a fall): `review14/grove_falls_built.jpg`. All seven tests pass. With this every item of review 14 is built.

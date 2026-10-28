@@ -62,6 +62,10 @@ VALLEY = opts.get("valley", "")
 # (`--valley deep`, G2, the owner's approval 2026-10-26: the near abyss as mist banks with gaps over a valley far below, `deep_valley`;
 # `--valley open` without the layered mist sheets and the far abyss sheet behind them, so the valley reads across the lower third.)
 FALLS = int(opts.get("falls", "0"))
+# The falls' look (fidelity review 14 item 8: full-height strips in two blues by turns read as a striped card): `--fall_look A|B`. A: each
+# fall cut into overlapping sheets from the lip down, each a step out from the one above with a pale foam lip, the tone set per sheet,
+# so the water layers instead of striping. B: A in fewer, wider sheets, with a fuller foam foot.
+FALL_LOOK = opts.get("fall_look", "").upper()
 MIST3 = opts.get("mist", "") == "3"
 LONG_ROOTS = opts.get("roots", "") == "long"
 # Depth in the abyss (fidelity review 11: flat purple with soft blotches, the mist's front one long wavy line): `--deep A|B`. A: the
@@ -1071,6 +1075,9 @@ def falls(rng):
         height = y0 - mist_y
         strips = rng.randrange(5, 8)
         steps = 12
+        if FALL_LOOK:
+            layered_fall(name, x, z, tx, tz, ox, oz, w, y0, height, rng)
+            strips = 0
         for q in range(strips):
             u0 = -w * 0.5 + w * q / strips + 0.04
             u1 = -w * 0.5 + w * (q + 1) / strips - 0.04
@@ -1091,13 +1098,51 @@ def falls(rng):
         FEET.append((bx, bz))
         bm = part(name + "_spray", "spray")
         KEEP.add(name + "_spray")
-        for q in range(rng.randrange(4, 7)):
-            r = rng.uniform(0.6, 1.2)
+        for q in range(rng.randrange(4, 7) + (5 if FALL_LOOK == "B" else 0)):
+            r = rng.uniform(0.6, 1.2) * (1.3 if FALL_LOOK == "B" else 1.0)
             u = rng.uniform(-w * 0.7, w * 0.7)
             res = bmesh.ops.create_icosphere(bm, subdivisions=1, radius=r)
             c = P(bx + tx * u, mist_y + r * 0.2, bz + tz * u + rng.uniform(-0.3, 0.3))
             for v in res["verts"]:
                 v.co = Vector((v.co.x * 1.3, v.co.y, v.co.z * 0.7)) + c
+
+
+def layered_fall(name, x, z, tx, tz, ox, oz, w, y0, height, rng):
+    """`--fall_look`: a fall as sheets laid over one another from the lip down, each starting a little below the one before, a step out
+    from it and a little wider, its own blue (a lighter sheet over a deeper one, by turns with a wobble), with a pale foam lip along its
+    top; across, a few columns (B fewer, wider) so the foot stays ragged."""
+    own = random.Random(int(abs(x) * 7 + abs(z) * 3))
+    cols = 2 if FALL_LOOK == "B" else 3
+    sheets = 4
+    steps = 10
+    for c in range(cols):
+        u0 = -w * 0.5 + w * c / cols + 0.03
+        u1 = -w * 0.5 + w * (c + 1) / cols - 0.03
+        for k in range(sheets):
+            # Each sheet from its own start down to the foot, starting lower than the one above, standing out further.
+            t0 = k / sheets * 0.8 + own.uniform(-0.04, 0.04) * (k > 0)
+            end = 1.0 - own.uniform(0.0, 0.08)
+            lift = 0.06 * k
+            grow = 0.06 * k
+            fam = "fall" if (k + c) % 2 == 0 else "fall_shade"
+            bm = part(name, fam)
+            for i in range(steps):
+                ta = t0 + (end - t0) * i / steps
+                tb = t0 + (end - t0) * (i + 1) / steps
+                oa, ob = 0.5 + 1.8 * math.sqrt(ta) + lift, 0.5 + 1.8 * math.sqrt(tb) + lift
+                ya, yb = y0 - height * ta, y0 - height * tb
+                a0, a1 = u0 - grow, u1 + grow
+                pts = (P(x + tx * a0 + ox * oa, ya, z + tz * a0 + oz * oa), P(x + tx * a1 + ox * oa, ya, z + tz * a1 + oz * oa),
+                       P(x + tx * a1 + ox * ob, yb, z + tz * a1 + oz * ob), P(x + tx * a0 + ox * ob, yb, z + tz * a0 + oz * ob))
+                oriented(bm, pts, P(x - ox * 2.0, (ya + yb) * 0.5, z - oz * 2.0))
+            # The sheet's foam lip: a pale band along its top edge.
+            ta, tb = t0, t0 + 0.035
+            oa, ob = 0.5 + 1.8 * math.sqrt(ta) + lift + 0.01, 0.5 + 1.8 * math.sqrt(tb) + lift + 0.01
+            ya, yb = y0 - height * ta, y0 - height * tb
+            a0, a1 = u0 - grow, u1 + grow
+            pts = (P(x + tx * a0 + ox * oa, ya, z + tz * a0 + oz * oa), P(x + tx * a1 + ox * oa, ya, z + tz * a1 + oz * oa),
+                   P(x + tx * a1 + ox * ob, yb, z + tz * a1 + oz * ob), P(x + tx * a0 + ox * ob, yb, z + tz * a0 + oz * ob))
+            oriented(part(name, "spray"), pts, P(x - ox * 2.0, (ya + yb) * 0.5, z - oz * 2.0))
 
 
 def range_flats():

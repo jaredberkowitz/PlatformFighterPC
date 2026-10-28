@@ -489,6 +489,10 @@ static func place_play(root: Node3D, t: Dictionary, path: String) -> void:
 	var grass: Color = t.get("grass", Color(0.5, 0.8, 0.3))
 	var wood: Color = t.get("wood", Color(0.86, 0.62, 0.36))
 	var path_c: Color = t.get("path_colour", Color(0.94, 0.9, 0.74))
+	# (The grove's path a worn earth, fidelity review 14 item 8: its pale cream went lavender under the pink light, a flat stripe.
+	# `--path=A|B`; shipping writes it into grove.cfg's `path_colour`.)
+	if String(t.get("name", "")) == "grove":
+		path_c = {"A": Color(0.78, 0.64, 0.5), "B": Color(0.7, 0.55, 0.4)}.get(flag("--path=").to_upper(), path_c)
 	var colours := {"lawn": grass, "lawn_under": grass.darkened(0.3), "path": path_c, "card": grass.lerp(Color(0.97, 0.96, 0.86), 0.45),
 		"soil": t.get("soil", Color(0.76, 0.56, 0.36)), "stone": Color(0.66, 0.64, 0.6), "fringe": grass.lightened(0.08),
 		"plank": wood, "plank_b": wood.darkened(0.1), "plank_card": wood.lerp(Color(0.98, 0.94, 0.84), 0.45), "rope": Color(0.78, 0.64, 0.42),
