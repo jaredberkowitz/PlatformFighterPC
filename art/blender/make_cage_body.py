@@ -101,6 +101,35 @@ LEG = [
     ((0.302, -0.215, 0.105), (0.06, -1.0, 0.05), 0.222, 0.128, 0.118, 2.4),
 ]
 FOOT_CAP = 0.05
+# (Thicker legs and bigger feet since the feet pass, 2026-10-28, the owner's pick of mocked options after the reference lineup: its legs
+# are thick tubes and its feet about half a head wide, ours about a third.) How much thicker the leg's rings are (the knee and ankle
+# loops, the thigh), and how much bigger the foot is across and in length, and in height (its sole stays on the ground). The feet move
+# out by their extra width, so the two do not meet.
+LEG_THICK = 1.15
+FOOT_GROW = 1.3
+FOOT_TALL = 1.12
+
+
+def _legs():
+    """LEG with LEG_THICK and FOOT_GROW applied: the leg's rings thicker about their own centres, the foot's rings grown about the
+    ankle across and in length (their sole kept where it was) and moved out by the extra width."""
+    ankle = Vector(LEG[7][0])
+    out = []
+    for k, (c, axis, ru, rwb, rwa, sq) in enumerate(LEG):
+        c = Vector(c)
+        if k < 8:
+            out.append((tuple(c), axis, ru * LEG_THICK, rwb * LEG_THICK, rwa * LEG_THICK, sq))
+            continue
+        heel = k == 8
+        d = c - ankle
+        nc = Vector((ankle.x + d.x * FOOT_GROW + ru * (FOOT_GROW - 1.0) * 0.5, ankle.y + d.y * FOOT_GROW, c.z))
+        if heel:
+            # (The heel's ring stands upright: its w radii run front to back, grown with the foot's length.)
+            out.append((tuple(nc), axis, ru * FOOT_GROW, rwb * FOOT_GROW, rwa * FOOT_GROW, sq))
+        else:
+            nc.z = c.z + rwb * (FOOT_TALL - 1.0)
+            out.append((tuple(nc), axis, ru * FOOT_GROW, rwb * FOOT_TALL, rwa * FOOT_TALL, sq))
+    return out
 
 
 class Cage:
@@ -254,8 +283,9 @@ def build_cage():
     }
     for side in (1, -1):
         c0 = Vector((LEG_C0.x * side, LEG_C0.y, TORSO[0][0]))
-        loops = tube(cage, legs[side], LEG, -Z, X * side, Y, c0, side)
-        ax = Vector((LEG[-1][1][0] * side, LEG[-1][1][1], LEG[-1][1][2]))
+        leg = _legs()
+        loops = tube(cage, legs[side], leg, -Z, X * side, Y, c0, side)
+        ax = Vector((leg[-1][1][0] * side, leg[-1][1][1], leg[-1][1][2]))
         cage.cap(loops[-1], 2, 3, ax, FOOT_CAP)
     return cage
 

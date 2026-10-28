@@ -653,3 +653,19 @@ Mocked four options; the owner chose C.
 
 `trim_pass.png`: the default looks from two sides, before above after each, then a match frame before and after. Fighter view,
 loadout, art pipeline, match flow, select grid and editor UI tests pass.
+
+## Legs and feet (2026-10-28, the comparison's next weak point)
+The reference lineup's feet are about half a head wide and its legs thick tubes; ours were about a third. The hands were already close
+in size (and relaxed in the hand pass), so only the legs and feet changed. Mocked by bone scale (feet 30% and 50% bigger, and 30% with
+legs 15% thicker); the owner chose the last.
+- `make_cage_body.py` `_legs()`: the leg's rings 15% thicker (`LEG_THICK`), the foot 30% bigger across and in length about the ankle
+  (`FOOT_GROW`) and 12% taller (`FOOT_TALL`) with its sole kept on the ground, the feet moved out by their extra width so the two do not
+  meet. The body's height, head and hips are unchanged (the content's hurtboxes still match).
+- The full kit's socks: with the thicker legs the turned-down top sat in the knee's bend and tore open; it now ends a little lower
+  (`SOCK_HEIGHT` 0.375 to 0.34), closer to the leg (`SOCK_TOP_LIFT` 0.045 to 0.032), with a fuller roll (`HEM_ROLL`). A thin ink line
+  stays along its top edge, as the other leg already had.
+- Body, joints and rig rebuilt (mesh only; no clip changed).
+
+`feet_pass.png`: the default looks from the front and the side, before above after; the roster's first sheet before and after (the
+socks and boots); a match frame before and after. Fighter view, art pipeline, loadout, animation library, match flow, select grid and
+motion tests pass.

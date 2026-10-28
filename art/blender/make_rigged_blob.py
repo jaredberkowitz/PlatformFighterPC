@@ -2064,10 +2064,11 @@ SLEEVE_TRIM = 0.2
 SHOULDER_BLEND = 0.2
 SHOULDER_SHARE = 0.55   # (the character judge's round 18: more lifted the shirt's shoulder into a flat shelf with the arm)
 # Tall thick ribbed socks (the character judge's round 1): how far up from the ankle, how far off the skin, and their turned-down top.
-SOCK_HEIGHT = 0.375   # (just under the knee-length shorts, the character judge's round 12: higher, the turn-down poked through them in a bend)
+SOCK_HEIGHT = 0.34   # (just under the knee-length shorts, the character judge's round 12: higher, the turn-down poked through them in a bend)
+# (0.375 until the feet pass, 2026-10-28: with the thicker legs the turned-down top sat in the knee's bend and tore open there.)
 SOCK_LIFT = 0.03
 SOCK_TOP_BAND = 0.045
-SOCK_TOP_LIFT = 0.045
+SOCK_TOP_LIFT = 0.032   # (0.045 until the feet pass: off the thicker leg a dark gap showed under the turned-down top)
 SLEEVE_TRIM_LIFT = 0.11   # (about 1.15 times the arm round, the character judge's round 18)
 SLEEVE_SNUG = 0.55      # the sleeve's opening hugs the arm (this share of the shirt's distance), so no dark gap shows inside it
 SHORTS_TOP = -0.002   # the shorts reach just under the shirt's hem (below it a little, they could poke through)
@@ -2099,7 +2100,7 @@ ARMPIT_NO_INK = 0.2          # how far round each armpit the shirt has no ink ou
 
 # The hem pass (2026-10-19, the owner's references: their hems are thick and clean, ours read as torn paper): the bands that end a garment
 # get a round roll along each edge, this thick (radius), so the edge reads as cloth with body rather than a cut sheet.
-HEM_ROLL = {"SockTop": 0.014, "BootCuff": 0.014}
+HEM_ROLL = {"SockTop": 0.02, "BootCuff": 0.014}
 # The shorts' cuffs and the sleeves' trim are built on the garment's own hem rather than cut from the skin and lifted: a solid band (a
 # rounded section this tall and this thick) round each leg opening and sleeve end. (Cut from the skin, each sat at its own distance from
 # the body while the garment's flared hem sat at another, so the two crossed: the cuff showed only as a ragged fringe under the hem, and
