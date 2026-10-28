@@ -664,7 +664,7 @@ func _choose_clip(s: Dictionary) -> Array:
 static var r8_off := OS.get_environment("PF_R8_OFF").split(",")
 const R8_SPECIAL_CLIPS := ["needle_volley", "line_cast", "vanish", "sword_counter", "reflector", "buckler_bow", "buckler_throw",
 	"buckler_bomb", "staff_point", "staff_flame", "staff_guard", "great_wave", "great_rise", "nodachi_flare", "nodachi_orbs",
-	"nodachi_barrier"]
+	"nodachi_barrier", "dagger_guard", "dagger_gun"]
 const R8_SET_STATES := ["Helpless", "ItemPickup", "ItemThrow", "Tether", "WallTech", "ShieldBreak", "Buried"]
 
 
@@ -4083,8 +4083,14 @@ const HELD_BLADE := {
 	# The Exile: the flare and the orbs keep the blade low; the barrier raises it upright ahead, then cuts ahead and down (the miss answer,
 	# 38-53) and lowers it behind to the carry.
 	13: {"neutral special": ["rest"], "extra move 3": ["rest"], "extra move 4": ["rest"], "extra move 5": ["rest"], "side special": ["rest"],
+		# The blade dash: crouched with the blade trailing low behind through the hold (the reference's), then it follows the aimed dash.
+		"up special": [[0, 196.0, 0.1, 0.6], [10, 205.0, -0.05, 0.65], [23, 205.0, -0.05, 0.65], "hit"],
 		"down special": [[0, 196.0, 0.1, 0.6], [6, 76.0, 1.0, 1.0], [30, 76.0, 1.0, 1.0], [36, 104.0, 0.75, 1.25], [40, -5.0, 0.95, 1.05],
 			[52, -20.0, 0.95, 0.95], [70, -164.0, 0.1, 0.6]]},
+	# The Phantom: the gun and the curse bolt from the free hand, the guard behind the raised free arm; the knife kept low (round 8: it
+	# reached for the shot out ahead, the whole body lunging after it).
+	12: {"neutral special": ["rest"], "side special": ["rest"], "extra move 3": ["rest"], "extra move 4": ["rest"], "extra move 5": ["rest"],
+		"extra move 6": ["rest"], "extra move 7": ["rest"], "extra move 8": ["rest"], "down special": ["rest"], "extra move 9": ["rest"]},
 	9: {"neutral special": ["rest"], "extra move 4": ["rest"], "extra move 9": ["rest"], "extra move 10": ["rest"], "side special": ["rest"],
 		"extra move 5": ["rest"], "extra move 6": ["rest"], "extra move 7": ["rest"], "down special": ["rest"], "extra move 8": ["rest"]},
 }
@@ -4095,7 +4101,10 @@ const HELD_BLADE := {
 func _held_pose(s: Dictionary) -> bool:
 	if not use_base_body or r8_off.has("specials"):
 		return false
-	return (HELD_BLADE.get(_cls(s), {}) as Dictionary).has(String(s.move_name))
+	var held: Array = (HELD_BLADE.get(_cls(s), {}) as Dictionary).get(String(s.move_name), [])
+	if not held.is_empty() and held[held.size() - 1] is String and held[0] is Array:
+		return float(s.state_frame) <= float((held[held.size() - 2] as Array)[0])
+	return not held.is_empty()
 
 
 ## Where the hand holds the weapon at rest (forward space), by class (round 8).
@@ -4129,9 +4138,16 @@ func _blade_target(s: Dictionary) -> Array:
 		if held_blade[0] is String:
 			var rest_hand := _rest_hand(s)
 			return [_rest_angle(s), rest_len, rest_hand.x, rest_hand.y]
-		if held_blade[0] is Array:
+		var f := float(s.state_frame)
+		# (Keys ending "hit": held until the last key, then the blade follows the move's hit again, as an aimed dash's.)
+		if held_blade[0] is Array and held_blade[held_blade.size() - 1] is String:
+			held_blade = held_blade.slice(0, held_blade.size() - 1)
+			if f > float((held_blade[held_blade.size() - 1] as Array)[0]):
+				held_blade = []
+		if held_blade.is_empty():
+			pass
+		elif held_blade[0] is Array:
 			# (Keys: eased from one to the next by the move's frame; the fifth entry marks it a held pose that is not the carry.)
-			var f := float(s.state_frame)
 			var a: Array = held_blade[0]
 			var b: Array = held_blade[0]
 			for key in held_blade:
@@ -4141,7 +4157,8 @@ func _blade_target(s: Dictionary) -> Array:
 				a = key
 			var k := 1.0 if float(b[0]) <= float(a[0]) else smoothstep(float(a[0]), float(b[0]), f)
 			return [lerpf(float(a[1]), float(b[1]), k), rest_len, lerpf(float(a[2]), float(b[2]), k), lerpf(float(a[3]), float(b[3]), k), true]
-		return [float(held_blade[0]), rest_len, float(held_blade[1])]
+		else:
+			return [float(held_blade[0]), rest_len, float(held_blade[1])]
 	if name == "" or ((_cls(s) == STAFF_CLASS or _cls(s) == GREATSWORD_CLASS) and _body_clip(_cls(s), name)):
 		var rh := _rest_hand(s)
 		return [_rest_angle(s), rest_len, rh.x, rh.y]
@@ -4391,10 +4408,12 @@ const RELEASE_FRAME := {2: {"extra move 4": 11, "side special": 13}, 0: {"down s
 	9: {"extra move 4": 1, "extra move 9": 1, "extra move 10": 1, "side special": 27, "extra move 5": 27, "extra move 6": 2,
 		"extra move 7": 2, "down special": 16, "extra move 8": 2},
 	5: {"neutral special": 14, "side special": 22, "down special": 6},
-	13: {"extra move 3": 3, "extra move 4": 3, "extra move 5": 3, "side special": 14}}
+	13: {"extra move 3": 3, "extra move 4": 3, "extra move 5": 3, "side special": 14},
+	12: {"neutral special": 11, "side special": 15, "extra move 3": 2, "extra move 4": 2, "extra move 5": 2, "extra move 6": 2,
+		"extra move 7": 2, "extra move 8": 15, "down special": 2, "extra move 9": 2}}
 ## Moves held in their strike pose for as long as they last (no hit times them): the Settler hangs from its balloons, both hands up on
 ## the strings over its head.
-const HELD_STRIKE := {10: ["up special", "extra move 8"], 13: ["neutral special"], 5: ["down special"]}
+const HELD_STRIKE := {10: ["up special", "extra move 8"], 13: ["neutral special"], 5: ["down special"], 12: ["down special", "extra move 9"]}
 const HELD_STRIKE_IN := 8.0
 ## Moves thrown straight out of such a charge: they start in the coil, the fist drawn back (`DEEP_CHAMBER`), instead of from the rest pose.
 const COILED_START := {7: ["extra move 0", "extra move 1", "extra move 2", "extra move 3"]}

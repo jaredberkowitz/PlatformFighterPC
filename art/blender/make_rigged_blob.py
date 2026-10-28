@@ -985,6 +985,18 @@ BODY_MOVES = {
         {"hips": -0.02, "spine": (-2.0, -14.0), "head": (-4.0, 8.0), "stance": (28.0, -22.0)},
         {"hips": -0.06, "spine": (10.0, 14.0), "head": (-6.0, -2.0), "stance": (40.0, -28.0)},
         {"spine": (8.0, 0.0), "stance": (30.0, -20.0)}),
+    # The Phantom's guard: standing tall, the free arm brought up across the front as a shield, the knife kept low (round 8; it crouched
+    # with the knife thrust at the floor).
+    "dagger_guard": (
+        {"hips": -0.04, "spine": (-2.0, -16.0), "head": (-4.0, 10.0), "stance": (30.0, -26.0), "armU.R": (80.0, 24.0), "armL.R": (80.0,)},
+        {"hips": -0.06, "spine": (-6.0, -22.0), "head": (-2.0, 12.0), "stance": (32.0, -30.0), "armU.R": (104.0, 24.0), "armL.R": (100.0,)},
+        {"spine": (8.0, 0.0), "stance": (30.0, -20.0)}),
+    # The Phantom's gun: standing, the free arm drawn up and out level to aim, the knife kept low (the shared blaster clip, amplified for
+    # the brawlers, sank it into a wide lunge).
+    "dagger_gun": (
+        {"hips": -0.02, "spine": (2.0, -24.0), "head": (-2.0, 14.0), "stance": (26.0, -22.0), "armU.R": (50.0, 14.0), "armL.R": (40.0,)},
+        {"hips": -0.02, "spine": (-4.0, -14.0), "head": (-2.0, 10.0), "stance": (28.0, -24.0), "armU.R": (90.0, 4.0), "armL.R": (4.0,)},
+        {"spine": (8.0, 0.0), "stance": (30.0, -20.0)}),
     # Flash Step: gathered into a deep crouch with the arms crossed over the chest, then bursting open (the explosion) tall, arms and
     # chest flung wide; on its reappearing hit the same burst.
     "vanish": (
@@ -3985,7 +3997,7 @@ def main() -> None:
     if BODY:
         for nm in ("needle_volley", "line_cast", "vanish", "sword_counter", "reflector", "buckler_bow", "buckler_throw", "buckler_bomb",
                    "staff_point", "staff_flame", "staff_guard", "great_wave", "great_rise", "nodachi_flare", "nodachi_orbs",
-                   "nodachi_barrier"):
+                   "nodachi_barrier", "dagger_guard", "dagger_gun"):
             clip(rig, nm, 60, {})
     # Headbutts, up and forward (posed in BODY_MOVES; the body is the weapon).
     clip(rig, "body_headbutt", 60, {})

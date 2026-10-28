@@ -382,6 +382,8 @@ const CLASS_MOVES := {
 		# (Round 8: the flare and the shadow orbs from the free hand, the blade kept low; the barrier behind the upright blade, then the
 		# cut. They played the smash, the lunge and the low strike.)
 		"neutral special": "nodachi_flare",
+		# (The blade dash: a lunge along the dash, the blade following its hit; it played the up strike.)
+		"up special": "attack_lunge",
 		"extra move 3": "nodachi_flare",
 		"extra move 4": "nodachi_flare",
 		"extra move 5": "nodachi_flare",
@@ -404,15 +406,18 @@ const CLASS_MOVES := {
 		"dsmash": "sword_dsmash",
 		"fair": "kick_nair",
 		"uair": "kick_uair",
-		"neutral special": "blaster",
-		"side special": "blaster",
-		"extra move 3": "blaster",
-		"extra move 4": "blaster",
-		"extra move 5": "blaster",
-		"extra move 6": "blaster",
-		"extra move 7": "blaster",
-		"extra move 8": "blaster",
-		"extra move 9": "attack_low",
+		# (Round 8: the gun aimed standing and the curse bolt flicked from the free hand (the Exile's swing), the knife kept low; the guard
+		# stands tall behind the raised free arm, where it played the low strike.)
+		"neutral special": "dagger_gun",
+		"extra move 3": "dagger_gun",
+		"extra move 4": "dagger_gun",
+		"extra move 5": "dagger_gun",
+		"extra move 6": "dagger_gun",
+		"extra move 7": "dagger_gun",
+		"side special": "nodachi_orbs",
+		"extra move 8": "nodachi_orbs",
+		"down special": "dagger_guard",
+		"extra move 9": "dagger_guard",
 		"extra move 11": "attack_low",
 		"extra move 12": "attack_low",
 		"extra move 13": "attack_low",
@@ -502,7 +507,7 @@ const STAND_INS := {"jumpsquat": "crouch", "land": "crouch", "spot_dodge": "roll
 	"helpless": "fall", "needle_volley": "blaster", "line_cast": "attack_swing", "vanish": "attack_low", "sword_counter": "attack_low", "reflector": "attack_kick", "buckler_bow": "attack_smash", "buckler_throw": "attack_lunge",
 	"buckler_bomb": "attack_low", "staff_point": "attack_smash", "staff_flame": "attack_lunge", "staff_guard": "attack_low",
 	"great_wave": "attack_smash", "great_rise": "attack_uair", "nodachi_flare": "attack_smash", "nodachi_orbs": "attack_lunge",
-	"nodachi_barrier": "attack_low", "item_pick": "crouch", "item_throw": "throw", "dizzy": "hurt", "buried": "idle"}
+	"nodachi_barrier": "attack_low", "dagger_guard": "attack_low", "dagger_gun": "blaster", "item_pick": "crouch", "item_throw": "throw", "dizzy": "hurt", "buried": "idle"}
 
 ## Clips chosen in fighter_view.gd `_choose_clip` from more than the state (a tech is an intangible landing, a run stop a sliding idle, a
 ## platform drop the first frames of a fall through a platform, heavy hitstun a fast launch that does not tumble, a fidget a long idle).

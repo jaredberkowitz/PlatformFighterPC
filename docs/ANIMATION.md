@@ -1999,3 +1999,23 @@ knee bend (`review1/mock_stance.jpg`, A/B/C).
 - **Review:** a fix to face cover rather than an item's axis (the Seer is in the sword family, whose representative is the Longsword);
   scores unchanged, mean 3.19.
 - **Checked:** the six tests pass.
+
+### Group 13 (round 8): the Phantom's gun, bolt and guard; the Exile's blade dash
+
+- **Defect:** the Phantom's (Dagger's) gun and curse bolt played the shared blaster clip, which is made at the brawlers' 1.75 amplitude,
+  and the lean toward the far-off shot bent the body into a wide lunge, the knife reaching for the shot; its guard crouched with the
+  knife thrust at the floor. The Exile's blade dash played the shared up strike: through its 18-frame hold it stood the blade straight
+  up, following the first hit. The long-blade reference crouches with the blade trailing low behind through the hold (side by side on F:
+  only, `F:/anim_r8/ref/g13_exile_dash_side_by_side.jpg`).
+- **Fix:** `dagger_gun` (standing, the free arm drawn up and out level to aim) for the gun and its follow-ups (extra moves 3-7); the curse
+  bolt flicked from the free hand with the Exile's orbs clip; `dagger_guard` (standing tall, the free arm brought up across the front) for
+  the guard and its held part (extra move 9), a held strike. The knife stays in the carry through all of them (`HELD_BLADE` "rest", so no
+  lean toward the shot). Rig `rig_r8l`. The Exile's dash plays the lunge, and `HELD_BLADE` keys may now end "hit": held to the last key (the
+  blade trailing low behind through the hold), then the blade follows the move's hit again, so the dash's aim still points it.
+- **Measured:** face cover over the gallery, the Phantom 0 and the Exile 0 (both 0 before).
+- **Image:** `docs/screenshots/anim/r8_g13_dagger_exile_specials.jpg` (before above after).
+- **Review:** item 14 (quick specials, the Needles its representative) and item 4 hold their scores: the gun and the guard now stand,
+  but the gun's far hand is hidden behind the body side-on, so they read as poses, not yet as the reference's draws. Mean 3.19.
+- **Left on stand-ins:** the Champion's charge keeps the crouch (its reference's charge is a crouched power-up; no gain worth a clip);
+  the Exile's eight slashes keep the fallback swing (repeated swings at its slashes' hits), the Phantom's hook its up strikes.
+- **Checked:** the six tests pass (`anim_library_test` now pins the gun to `dagger_gun`).
