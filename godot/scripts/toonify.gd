@@ -30,6 +30,13 @@ static func apply(node: Node, outline := true) -> int:
 	return changed
 
 
+## Whether godot/models/props/<name>.glb is there to load. (Ask this, not `load_prop(...) != null`: that makes a copy of the model, and
+## one never placed outlives the stage; the packaged game crashed on quit with such copies still alive.)
+static func has_prop(prop_name: String) -> bool:
+	var path := PROPS + prop_name + ".glb"
+	return ResourceLoader.exists(path) and load(path) is PackedScene
+
+
 ## A prop from godot/models/props/<name>.glb in the cel style, or null if there is no such prop.
 static func load_prop(prop_name: String, outline := true) -> Node3D:
 	var path := PROPS + prop_name + ".glb"
