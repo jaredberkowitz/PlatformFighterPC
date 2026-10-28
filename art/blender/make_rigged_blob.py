@@ -912,6 +912,20 @@ BODY_MOVES = {
         {"hips": -0.04, "spine": (20.0, 24.0), "head": (-8.0, -8.0), "stance": (52.0, -30.0), "armU.L": (112.0, 4.0), "armL.L": (6.0,),
          "armU.R": (-30.0, 24.0), "armL.R": (24.0,)},
         {"spine": (8.0, 0.0), "stance": (28.0, -16.0)}),
+    # (Round 8, the stand-in specials.) The Longsword's counter (it played the low strike): settled back onto the rear foot, chest open,
+    # the free hand drawn back, the blade (the game's) held in front. The Claws' reflector (it played a kick): down over bent knees, the
+    # near palm thrust out low in front, the far arm back.
+    "sword_counter": (
+        {"hips": -0.08, "spine": (8.0, -10.0), "head": (-6.0, 6.0), "stance": (30.0, -20.0)},
+        {"hips": -0.16, "spine": (-6.0, -22.0), "head": (-8.0, 12.0), "stance": (34.0, -34.0), "shin.L": (-56.0,), "shin.R": (-70.0,),
+         "armU.L": (20.0, 24.0)},
+        {"spine": (8.0, 0.0), "stance": (30.0, -20.0)}),
+    "reflector": (
+        {"hips": -0.1, "spine": (16.0, -14.0), "head": (-6.0, 8.0), "stance": (40.0, -24.0), "armU.L": (30.0, 20.0), "armL.L": (96.0,),
+         "armU.R": (24.0, 20.0), "armL.R": (84.0,)},
+        {"hips": -0.18, "spine": (24.0, 10.0), "head": (-12.0, 0.0), "stance": (56.0, -30.0), "armU.L": (66.0, -2.0), "armL.L": (10.0,),
+         "hand.L": (-30.0,), "armU.R": (-20.0, 28.0), "armL.R": (30.0,)},
+        {"spine": (10.0, 0.0), "stance": (30.0, -20.0)}),
     # Flash Step: gathered into a deep crouch with the arms crossed over the chest, then bursting open (the explosion) tall, arms and
     # chest flung wide; on its reappearing hit the same burst.
     "vanish": (
@@ -1147,7 +1161,7 @@ STRIDING = {"run", "dash", "run_quick", "run_heavy", "run_caster", "run_tool", "
 # (Round 2: the Longsword's forward smash coiled at 0.80, the Settler's chop at 0.87.)
 COIL_KEYS = (19, 21)
 COIL_CAPPED = ("attack", "sword_", "kick_", "gaunt_", "tool_", "body_")
-COIL_HIPS_MAX = 0.64
+COIL_HIPS_MAX = 0.82   # (0.64 until round 8's stance C, the owner's pick: the stance's hips stand at 0.85-0.93 now; a coil loads the knees a little below it)
 
 
 def _sink_to(rig, top):
@@ -1257,16 +1271,16 @@ def _stance_over(base, rest, k, legs_only=False):
             a = AMP
             pose(rig, "thigh.L", fwd=STANCE_LEAD / a, out=STANCE_WIDE / a)
             pose(rig, "shin.L", fwd=STANCE_LEAD_SHIN / a)
-            pose(rig, "thigh.R", fwd=STANCE_BACK / a, out=(STANCE_WIDE + 4.0) / a)
+            pose(rig, "thigh.R", fwd=STANCE_BACK / a, out=(STANCE_WIDE + STANCE_WIDE_BACK) / a)
             pose(rig, "shin.R", fwd=STANCE_BACK_SHIN / a)
         elif BODY and CLIP_NOW and grounded(CLIP_NOW):
             a = AMP
             pose(rig, "thigh.L", fwd=STANCE_LEAD / a, out=STANCE_WIDE / a)
             pose(rig, "shin.L", fwd=STANCE_LEAD_SHIN / a)
-            pose(rig, "foot.L", fwd=6.0 / a, out=-10.0 / a)
-            pose(rig, "thigh.R", fwd=STANCE_BACK / a, out=(STANCE_WIDE + 4.0) / a)
+            pose(rig, "foot.L", fwd=6.0 / a, out=STANCE_FOOT_OUT / a)
+            pose(rig, "thigh.R", fwd=STANCE_BACK / a, out=(STANCE_WIDE + STANCE_WIDE_BACK) / a)
             pose(rig, "shin.R", fwd=STANCE_BACK_SHIN / a)
-            pose(rig, "foot.R", fwd=18.0 / a, out=-10.0 / a)
+            pose(rig, "foot.R", fwd=18.0 * STANCE_K / a, out=STANCE_FOOT_OUT / a)
             sp = rest.get("spine", (0.0, 0.0))
             hd = rest.get("head", (0.0, 0.0))
             pose(rig, "spine", fwd=(STANCE_LEAN + sp[0] * k * a) / a, twist=(8.0 + sp[1] * k * a) / a, out=STANCE_SIDE / a)
@@ -3230,9 +3244,16 @@ def lengthen_limbs(rig, parts):
 # stand with the hips 0.09 down.)
 # (Round 2, 2026-10-25: at the match camera the head still sat straight over the hips. The chest goes further down and forward (lean 14
 # to 26, side bend 12 to 20) over deeper knees (lead 44/-72 to 50/-82, back -20/-46 to -24/-54), so the head is out over the front knee.)
-STANCE_LEAD, STANCE_LEAD_SHIN = 50.0, -82.0
-STANCE_BACK, STANCE_BACK_SHIN = -24.0, -54.0
-STANCE_WIDE = 19.0
+# (Round 8, the owner's pick C (2026-10-28) after the stance mock: the knees bent half as far and the feet about a third as far apart in
+# depth, nearer the reference fighters' stances (knees 20-40 degrees, feet about hip-wide). Was 50/-82, -24/-54 and 19: the lead knee bent
+# 90-100 degrees, the feet about 1.0 apart in depth. STANCE_K and STANCE_W scale every family's style (`IDLE_STYLES`) the same way.)
+STANCE_K, STANCE_W = 0.5, 0.35
+STANCE_LEAD, STANCE_LEAD_SHIN = 50.0 * STANCE_K, -82.0 * STANCE_K
+STANCE_BACK, STANCE_BACK_SHIN = -24.0 * STANCE_K, -54.0 * STANCE_K
+STANCE_WIDE = 19.0 * STANCE_W
+# The back thigh's extra turn out, and the feet's counter-turn, scaled with the width.
+STANCE_WIDE_BACK = 4.0 * STANCE_W
+STANCE_FOOT_OUT = -10.0 * STANCE_W
 STANCE_LEAN = 26.0
 # The chest's bend toward the way the fighter faces (degrees): the game turns the body most of the way to the camera, so a forward bend
 # alone leans mostly toward the camera and hardly reads; this bend shows the lean on screen.
@@ -3279,12 +3300,12 @@ def main() -> None:
                 # loop the weight rocks onto the front foot and back.)
                 shift = math.sin(k * 2.0 * math.pi + 0.9)
                 pose(rig, "hips", twist=-6.0 + 1.5 * breath)
-                pose(rig, "thigh.L", fwd=STANCE_LEAD + 4.0 * down + 4.0 * shift, out=STANCE_WIDE)
-                pose(rig, "shin.L", fwd=STANCE_LEAD_SHIN - 12.0 * down - 8.0 * shift)
-                pose(rig, "foot.L", fwd=6.0, out=-10.0)
-                pose(rig, "thigh.R", fwd=STANCE_BACK + 3.0 * down - 3.0 * shift, out=STANCE_WIDE + 4.0)
-                pose(rig, "shin.R", fwd=STANCE_BACK_SHIN - 12.0 * down + 8.0 * shift)
-                pose(rig, "foot.R", fwd=18.0, out=-10.0)
+                pose(rig, "thigh.L", fwd=STANCE_LEAD + (4.0 * down + 4.0 * shift) * STANCE_K, out=STANCE_WIDE)
+                pose(rig, "shin.L", fwd=STANCE_LEAD_SHIN - (12.0 * down + 8.0 * shift) * STANCE_K)
+                pose(rig, "foot.L", fwd=6.0, out=STANCE_FOOT_OUT)
+                pose(rig, "thigh.R", fwd=STANCE_BACK + (3.0 * down - 3.0 * shift) * STANCE_K, out=STANCE_WIDE + STANCE_WIDE_BACK)
+                pose(rig, "shin.R", fwd=STANCE_BACK_SHIN - (12.0 * down - 8.0 * shift) * STANCE_K)
+                pose(rig, "foot.R", fwd=18.0 * STANCE_K, out=STANCE_FOOT_OUT)
             else:
                 pose(rig, "hips", lift=-0.06 - 0.04 * down, twist=-6.0 + 1.5 * breath)
                 pose(rig, "thigh.L", fwd=32.0 + 6.0 * down * flex, out=15.0)
@@ -3366,14 +3387,15 @@ def main() -> None:
             # the hips from the feet.)
             shift = math.sin(k * 2.0 * math.pi + 0.9)
             bob = st["bob"] * 2.0
-            wide = st.get("wide", 15.0)
+            wide = st.get("wide", 15.0) * STANCE_W
             pose(rig, "hips", lift=st["hips"] - 0.03 * down * st["bob"], twist=-6.0 + 1.5 * breath)
-            pose(rig, "thigh.L", fwd=st["lead"] + 4.0 * down * bob + 4.0 * shift, out=wide)
-            pose(rig, "shin.L", fwd=st["shin_l"] - 10.0 * down * bob - 8.0 * shift)
-            pose(rig, "foot.L", fwd=6.0, out=-10.0)
-            pose(rig, "thigh.R", fwd=st["back"] + 3.0 * down * bob - 3.0 * shift, out=wide + 4.0)
-            pose(rig, "shin.R", fwd=st["shin_r"] - 10.0 * down * bob + 8.0 * shift)
-            pose(rig, "foot.R", fwd=14.0, out=-10.0)
+            sk = STANCE_K
+            pose(rig, "thigh.L", fwd=(st["lead"] + 4.0 * down * bob + 4.0 * shift) * sk, out=wide)
+            pose(rig, "shin.L", fwd=(st["shin_l"] - 10.0 * down * bob - 8.0 * shift) * sk)
+            pose(rig, "foot.L", fwd=6.0, out=STANCE_FOOT_OUT)
+            pose(rig, "thigh.R", fwd=(st["back"] + 3.0 * down * bob - 3.0 * shift) * sk, out=wide + STANCE_WIDE_BACK)
+            pose(rig, "shin.R", fwd=(st["shin_r"] - 10.0 * down * bob + 8.0 * shift) * sk)
+            pose(rig, "foot.R", fwd=14.0 * sk, out=STANCE_FOOT_OUT)
             pose(rig, "spine", fwd=st["spine"] + 3.0 * down * bob - 3.0 * breath, twist=8.0 + 2.0 * breath, out=st.get("side", 0.0))
             pose(rig, "head", fwd=st["head"] + 3.0 * down, twist=-4.0 - 1.5 * breath)
             lag = math.cos(k * 4.0 * math.pi - 0.8)
@@ -3902,7 +3924,7 @@ def main() -> None:
         clip(rig, tool, 60, {})
     # (Round 8: the Needles' own specials, posed in BODY_MOVES.)
     if BODY:
-        for nm in ("needle_volley", "line_cast", "vanish"):
+        for nm in ("needle_volley", "line_cast", "vanish", "sword_counter", "reflector"):
             clip(rig, nm, 60, {})
     # Headbutts, up and forward (posed in BODY_MOVES; the body is the weapon).
     clip(rig, "body_headbutt", 60, {})

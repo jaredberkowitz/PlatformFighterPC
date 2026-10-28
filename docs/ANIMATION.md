@@ -1836,3 +1836,39 @@ knee bend (`review1/mock_stance.jpg`, A/B/C).
   the wolf's reflector, crouched with the hand out) are closer after; the counter's blade is still held level by the game's code.
 - **Review:** item 4 (sword specials) poses 2 to 3, overall 2.7 to 3.0; item 9 (brawler specials) poses 2 to 3, overall 2.7 to 3.0.
 - **Checked:** the six tests (`fighter_view_test`'s pinned counter mapping updated) and `swing_toggle_test` pass.
+
+### Group 6 (round 8): stance C, line of action C (the owner's picks, 2026-10-28), and weapons carried out of the way
+
+**Decided (owner picked C, 2026-10-28)** for both review 1 mocks. Images: `docs/screenshots/anim/r8_stance_c.jpg`,
+`r8_line_of_action_c.jpg`, `r8_weapon_carry.jpg`; the reference side-by-sides on F: (`F:\anim_r8\sheets\r8_weapon_carry_with_reference.jpg`,
+`F:\anim_r8\sheets\<family>_vs_ref.jpg`, `F:\anim_r8\ref\carry_refs.jpg`).
+
+- **Stance C (`make_rigged_blob.py`):** `STANCE_K` 0.5 and `STANCE_W` 0.35 scale the stance's knees and its width in depth for every
+  family's idle (`IDLE_STYLES` too) and everything built on the stance (`_stance_over`: the attacks' rest keys, the shield, grab, throw,
+  landing and jump crouch keys, so the hand-offs match). The idle's hips stand at 0.85-0.93 (were 0.63-0.65); a grounded coil now loads to
+  0.82 (`COIL_HIPS_MAX`, was 0.64, which would have dropped every wind-up), and the sword guard's reference height follows
+  (`GUARD_HIPS` 0.86). Pass 61's numbers hold (`turn_probe.gd`): both eyes 100%, the far fist 0.50-0.58 ahead of the chest, the neck
+  21-30; the idle's silhouette is narrower (Longsword 0.91 to 0.68).
+- **Line of action C (`fighter_view.gd` `LINE_OF_ACTION`):** a level grounded strike leans the whole body by 1.6 of its swing and bends the
+  chest 24 more toward the hit for the sword, brawler and heavy families (the swordsman's lunges, the wolf's and dinosaur's horizontal
+  strikes); 0.9 and 12 for the quick (the ninja's tall kicks), 1.1 and 14 for the caster, 0.7 and 8 for the tool users, and the Seer's
+  staff stands tall (0.7, 8: bent over, its casting hand covered the face for 31 frames of its neutral special). It was 0.35 and none for
+  every family.
+- **Weapons carried out of the way (the owner's request):** at rest a one-handed sword (Longsword, Buckler) hangs low at the hip, the blade
+  trailing down and back below the chest (`SWORD_REST_ANGLE` 214, `SWORD_REST_HAND`); the big blades (Greatsword, Nodachi) the same, one-
+  handed, trailing low behind under the body's middle (`GREAT_REST_ANGLE` 196; the Greatsword rested over the shoulder with the blade
+  across the back and above the head); the Seer's staff stands upright a little ahead of the body and behind it in depth
+  (`STAFF_REST_*`). The hand's rest height eases up to the swing through the wind-up and back down through the recovery
+  (`rest_hand_y`), and the blade rises from the carry over the wind-up's first frames instead of in one (exact from the frame before the
+  first hit). The Dagger's knife stays in its guard hand (no cover either way).
+- **Measured:**
+  - the weapon over our own face, outside attacks (share of its length, over the locomotion run and the match camera's idle): Longsword
+    5.1% (in 29% of frames) to 0.3% (0%); Buckler 5.3% (28%) to 0.3% (0%); Nodachi 2.5% (22%) to 0.2% (0%); Staff 4.0% (25%) to 0.9% (2%);
+    Greatsword 0.1% both. Over the chest: Longsword 6.7% to 4.5%, Nodachi 5.3% to 2.7%, Staff 7.1% to 1.4%, Buckler 7.6% to 4.8%,
+    Greatsword 1.1% to 3.7% (its grip now at the hip);
+  - face cover over each class's moves (`PF_FACE_COVER`, the gallery), round 7b then now: Longsword 3 to 1, Claws 0 to 3, Needles 3 to 0,
+    Embers 0 to 1, Gauntlets 4 to 5, Staff 3 to 2, Greatsword 8 to 5, Bracers 2 to 3, Clutch 0 to 3, Buckler 2 to 1, Settler, Popgun 0,
+    Dagger 1 to 0, Nodachi 3 to 1; total 29 to 25 (differences of 3 a class are run-to-run noise).
+- **Review 1:** stance (item 37) poses 2 to 4, overall 3.0 to 3.7; sword locomotion (1) poses 3 to 4 (the carry and the stance), 3.3 to 3.7;
+  brawler attacks (7) and heavy attacks (17) poses 2 to 3. With groups 4 and 5 the mean is 3.15 (poses 3.00, fluidity 3.32, weight 3.14).
+- **Checked:** both facings at the match camera; the six tests and `swing_toggle_test` pass.

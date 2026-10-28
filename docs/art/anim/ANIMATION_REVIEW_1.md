@@ -195,7 +195,8 @@ hold and float home per family.
 | 2 | Quick specials (14) | poses, weight | The Needles' own needle volley (aim and throw), chain swing and vanish clips | Open (next) |
 | 3 | Quick and sword aerials' weight (13, 3) | weight | Per-family end-lag shapes fitted to the reference's hold and recovery | **Shipped, group 2** (and the heavy's and caster's) |
 | 4 | Ground attacks' line of action (7, 12, 17, 2) | poses | Lean the whole body into level strikes (the whole-body lean and a chest bend toward the hit) | **Mock** (`review1/mock_line_of_action.jpg`), awaiting the owner |
-| 5 | Grabs and throws (33) | poses | A clip per throw (forward push, back lift-and-toss, up lift, down slam), mapped by the throw's name | **Tried and reverted.** Built and captured all four (`--demo=grab --throw=fwd/back/up/down`): at the match camera the release is under the hit burst and the raised arms hide behind the head, so before and after barely differ (`F:nim_r8\sheets8_throws.jpg`). Next: carry the thrown fighter's motion in the thrower's whole body (a step and turn) rather than the arms |
+| 5 | Grabs and throws (33) | poses | A clip per throw (forward push, back lift-and-toss, up lift, down slam), mapped by the throw's name | **Tried and reverted.** Built and captured all four (`--demo=grab --throw=fwd/back/up/down`): at the match camera the release is under the hit burst and the raised arms hide behind the head, so before and after barely differ (`F:nim_r8\sheets
+8_throws.jpg`). Next: carry the thrown fighter's motion in the thrower's whole body (a step and turn) rather than the arms |
 | 6 | Clutch down special knee (36) | poses | Knees side by side when both thighs are forward | **Shipped, group 3** (every tuck too) |
 | 7 | Stance width and knee bend (37) | poses | A shallower, narrower stance | **Mock** (`review1/mock_stance.jpg`), awaiting the owner |
 | 8 | Sword, brawler and Staff/Buckler/Nodachi specials (4, 9) | poses | Own clips for the counter, the charged thrust, the reflector, the bow, boomerang and bomb pull | Open |
@@ -214,15 +215,31 @@ Logged in `docs/ANIMATION.md` section 8 (round 8). Images in `docs/screenshots/a
 - **Group 3, knees in tucks** (`r8_g3_tuck_knees.jpg`, commit 00dedc07): the Clutch's down special knees -79/69 degrees off the hips to
   4/2; its forward air 15 to 8.
 
-## 5. Mocks awaiting the owner
+## 5. Mocks (both decided: the owner picked C for each, 2026-10-28)
 
-1. **Line of action in ground strikes** (`review1/mock_line_of_action.jpg`): the Longsword's, Claws' and Clutch's forward tilt and
+1. **Decided (owner picked C, 2026-10-28; built in round 8 group 6).** **Line of action in ground strikes** (`review1/mock_line_of_action.jpg`): the Longsword's, Claws' and Clutch's forward tilt and
    forward smash, frames 7-25.
    - A: today (the whole body leans 35% of the strike's swing, about 4 degrees for a level strike).
    - B: the full lean (about 13 degrees) and the chest bent 10 more toward the hit.
    - C: a deep lean (about 20 degrees) and the chest bent 24 more: nearest the references' horizontal lunges; the head comes down and
      the face limiter lifts it.
-2. **Stance width and knee bend** (`review1/mock_stance.jpg`): the stage idle at the match camera, two pairs of fighters.
+2. **Decided (owner picked C, 2026-10-28; built in round 8 group 6).** **Stance width and knee bend** (`review1/mock_stance.jpg`): the stage idle at the match camera, two pairs of fighters.
    - A: today (the low stance of passes 1 and 18: the lead knee 90-100 degrees, the feet about 1.0 apart in depth).
    - B: knees at 72% of today's and the feet 60% as wide.
    - C: knees at half (about 45-50 degrees) and the feet 35% as wide: nearest the references.
+
+## 6. Scores after round 8's groups 4-6 (2026-10-28)
+
+| # | Item | P | F | W | O | Was |
+|---|---|---|---|---|---|---|
+| 1 | Sword locomotion (the low carry, stance C) | 4 | 4 | 3 | 3.7 | 3.3 |
+| 4 | Sword specials (the counter, group 5) | 3 | 3 | 3 | 3.0 | 2.7 |
+| 7 | Brawler ground attacks (line of action C) | 3 | 3 | 4 | 3.3 | 3.0 |
+| 9 | Brawler specials (the reflector, group 5) | 3 | 3 | 3 | 3.0 | 2.7 |
+| 14 | Quick specials (the Needles' own, group 4) | 3 | 3 | 3 | 3.0 | 2.3 |
+| 17 | Heavy ground attacks (line of action C) | 3 | 3 | 3 | 3.0 | 2.7 |
+| 37 | Stance width and knee bend (stance C) | 4 | 4 | 3 | 3.7 | 3.0 |
+
+**Mean 3.15** (3.07 after groups 1-3, 3.00 before the round). By axis: poses 3.00, fluidity 3.32, weight 3.14. Weapons held out of the
+way (group 6) also lift the sword-stance classes' locomotion and defence reads; their items stay 3 on the family representative.
+

@@ -1246,6 +1246,9 @@ func _body_follow(s: Dictionary, delta: float) -> void:
 			# An arm reaches almost anywhere: lean into low swings in front, a little back from ones overhead or behind.
 			if phi > 0.0 and phi < 80.0:
 				target_bend = (80.0 - phi) * 0.35
+			# (Round 8, line of action C: the chest bends further toward a strike in front, so the body lines up behind it.)
+			if use_base_body and phi > 0.0 and phi < 130.0 and int(s.platform) >= 0:
+				target_bend += float(_line_of_action(s).y)
 			elif phi > 140.0 and not use_base_body:
 				# (Not on the base body: it reaches overhead from the shoulders with the chest lifted; bent back, the round body read as
 				# inhaling. Pose review 2026-10-17.)
@@ -1322,6 +1325,25 @@ func _keep_chest_side_on() -> void:
 	var span := CHEST_MOST - CHEST_SOFT
 	var kept := CHEST_SOFT + span * (1.0 - exp(-(a - CHEST_SOFT) / span))
 	_turn_bone(spine_bone, -signf(away) * (a - kept))
+
+
+## The line of action in grounded strikes (round 8, the owner's pick C after the mock, 2026-10-28): [how much of a level strike's swing the
+## whole body leans into (it was 0.35 for every family, about 4 degrees), the chest's extra bend toward a strike in front (degrees)], by
+## family, fitted to each family's reference: the wolf's and dinosaur's strikes and the swordsman's lunges run nearly horizontal; the
+## ninja's high kicks and the plumber's palm stand taller; the villager's tool swings stay upright.
+const LINE_OF_ACTION := {"sword": Vector2(1.6, 24.0), "brawler": Vector2(1.6, 24.0), "heavy": Vector2(1.6, 24.0),
+	"quick": Vector2(0.9, 12.0), "caster": Vector2(1.1, 14.0), "tool": Vector2(0.7, 8.0)}
+
+
+## Classes standing apart from their family's line: the Seer (staff), in the sword stance, stands tall as the staff reference does (bent
+## over like the swordsmen, its casting hand came over the face for 31 frames of its neutral special).
+const CLASS_LINE_OF_ACTION := {STAFF_CLASS: Vector2(0.7, 8.0)}
+
+
+func _line_of_action(s: Dictionary) -> Vector2:
+	if CLASS_LINE_OF_ACTION.has(_cls(s)):
+		return CLASS_LINE_OF_ACTION[_cls(s)]
+	return LINE_OF_ACTION.get(String(AnimLibrary.CLASS_FAMILY.get(_cls(s), "sword")), LINE_OF_ACTION.sword)
 
 
 ## The chest and head lagging the hips (the `spine`, `head` and `head_turn` springs), on top of the clip and the body follow; and behind a
@@ -3504,7 +3526,7 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 			# 2026-10-17.)
 			if use_base_body:
 				swing = maxf(swing, 0.0)
-			target_lean += swing * _reach_weight(s) * (0.35 if use_base_body else 1.0)
+			target_lean += swing * _reach_weight(s) * (float(_line_of_action(s).x) if use_base_body else 1.0)
 			# (The greatsword's weight, pass 10, the pose review's item: the whole body rocks back to load the huge blade through the coil
 			# and is thrown forward into the cut, rather than standing upright while the blade moves.)
 			if _cls(s) == GREATSWORD_CLASS and grounded and not _body_clip(_cls(s), String(s.move_name)):
@@ -3800,6 +3822,21 @@ func _log_head_legs(s: Dictionary) -> void:
 	line += " chest:%.1f,%.1f hips:%.1f" % [rad_to_deg(atan2(cf.x, cf.z)), rad_to_deg(asin(clampf(cf.y, -1.0, 1.0))), rad_to_deg(atan2(pf.x, pf.z))]
 	line += " rel:%.1f,%.1f" % [rad_to_deg(atan2(rel.x, rel.z)) * f, rad_to_deg(asin(clampf(rel.y, -1.0, 1.0)))]
 	line += " fix:%.1f,%.1f t:%d ov:%d" % [face_fix_turn, face_fix_lift, int(s.frame), 1 if turning_over else 0]
+	# (Round 8: how much of the held weapon lies over our own face or chest on screen, a share of 12 points along it (0 to 1), and
+	# whether it is drawn in front of them: "wc:<face>,<chest>".)
+	var wf := 0.0
+	var wcst := 0.0
+	if blade_pivot != null and blade_pivot.visible:
+		var hp: Transform3D = skeleton.global_transform * skeleton.get_bone_global_pose(head_bone)
+		var face_c: Vector3 = hp.origin + hp.basis.y.normalized() * 0.3
+		var chest_c: Vector3 = skeleton.global_transform * skeleton.get_bone_global_pose(spine_bone).origin + Vector3(0.0, 0.3, 0.0)
+		for i in 12:
+			var pt: Vector3 = blade_pivot.to_global(Vector3(MESH_LENGTH * (float(i) + 0.5) / 12.0, 0.0, 0.0))
+			if pt.z > face_c.z - 0.1 and Vector2(pt.x - face_c.x, pt.y - face_c.y).length() < 0.55:
+				wf += 1.0 / 12.0
+			elif pt.z > chest_c.z - 0.1 and Vector2(pt.x - chest_c.x, pt.y - chest_c.y).length() < 0.5:
+				wcst += 1.0 / 12.0
+	line += " wc:%.2f,%.2f" % [wf, wcst]
 	var near := "L" if f > 0.0 else "R"
 	var far := "R" if f > 0.0 else "L"
 	for side in [near, far]:
@@ -4108,32 +4145,66 @@ const BRAWLER_NO_BLADE := ["utilt", "dtilt", "dash attack", "nair", "bair", "dai
 const BRAWLER_FLAME := ["side special", "up special"]
 var last_percent := -1
 var blade_angle := REST_ANGLE
+var rest_hand_y := 0.95
 var blade_length := 2.0
 
 
 ## The weapon's resting angle (degrees, forward space): the longsword held up and a little forward; the greatsword carried over the
 ## shoulder, its blade lying back across the back (pointing up and behind), so it never hides the fighter or the stage in front.
 func _rest_angle(s: Dictionary) -> float:
-	if _cls(s) == GREATSWORD_CLASS:
+	if _cls(s) == GREATSWORD_CLASS or (_cls(s) == NODACHI_CLASS and use_base_body):
 		return GREAT_REST_ANGLE
+	# (Round 8, the owner: held weapons out of the way. A one-handed sword is carried low at the hip, the blade trailing down and back
+	# below the chest, as the swordsman reference's; a staff stands upright beside the body, as the staff reference's.)
+	if use_base_body and _cls(s) == STAFF_CLASS:
+		return STAFF_REST_ANGLE
+	if use_base_body and bladed(_cls(s)):
+		return SWORD_REST_ANGLE
 	# (Held in the near hand on the base body, the guard's fist is in front of the chest, so a blade up at 68 crossed the face: pointed
 	# forward and up at the foe instead, a fencer's guard.)
 	return REST_ANGLE_NEAR if use_base_body else REST_ANGLE
 
 
-const GREAT_REST_ANGLE := 152.0
-## Where the hand holds the greatsword at rest (forward space): up by the shoulder, a little in front of it.
-const GREAT_REST_HAND := Vector2(0.3, 1.25)
+## (Round 8, the owner: the big blades (the Greatsword's and the Nodachi's) are carried one-handed low at the hip, the blade trailing low
+## behind under the body's middle, as the broadsword reference's; they rested up over the shoulder (152 degrees, the hand at 1.25),
+## the blade across the back and above the head. A one-handed sword trails the same way, shorter; the staff stands upright.)
+const GREAT_REST_ANGLE := 196.0
+const SWORD_REST_ANGLE := 214.0
+const STAFF_REST_ANGLE := 78.0
+## Where the hand holds a weapon at rest (forward space): low at the hip, a little ahead of it (the staff's at arm's length beside the
+## body). The greatsword's was up by the shoulder.
+const GREAT_REST_HAND := Vector2(0.1, 0.6)
+const SWORD_REST_HAND := Vector2(0.12, 0.6)
+const STAFF_REST_HAND := Vector2(0.62, 0.8)
+## How far toward the camera a resting weapon's hand is (in front of the body it crossed the chest; the swing's own depth is 0.35).
+const REST_HAND_Z := 0.1
+## The staff stands on the far side of the body, upright (round 8: on the near side, held at the hip, its shaft ran up over the chest
+## and the face; behind, it shows above the shoulder and below the hip, as the staff reference's stands clear of her front).
+const STAFF_REST_Z := -0.15
 ## How far in front of (positive) or behind the body the greatsword's hand is, eased between the two.
 var great_z := -0.45
 ## The hips' height in the sword family's battle stance: the guard is held for it, and lowered as far as the body sinks below it.
-const GUARD_HIPS := 0.64
+## (0.86 since round 8's stance C, the owner's pick: the battle stance stands taller, its hips 0.85-0.93 against 0.63-0.65.)
+const GUARD_HIPS := 0.86
 ## How far the resting blade dips (degrees) for each unit the body sinks below the stance.
 const GUARD_DIP := 260.0
+## The greatsword's grip in depth at rest (round 8: beside the near leg, the blade trailing low; it was -0.45, the blade across the back).
+const GREAT_REST_Z := 0.05
 ## How far the greatsword's grip moves in depth a sim frame, between its rest behind the back and its swing in front.
 const GREAT_Z_STEP := 0.135
 ## The greatsword's length (hand to point), whatever the hit: the blade reaches about 2 units past the grip.
 const GREAT_LENGTH := 2.45
+
+
+## Where the hand holds the weapon at rest (forward space), by class (round 8).
+func _rest_hand(s: Dictionary) -> Vector2:
+	if _cls(s) == GREATSWORD_CLASS or (_cls(s) == NODACHI_CLASS and use_base_body):
+		return GREAT_REST_HAND
+	if use_base_body and _cls(s) == STAFF_CLASS:
+		return STAFF_REST_HAND
+	if use_base_body and bladed(_cls(s)):
+		return SWORD_REST_HAND
+	return HAND
 
 
 func _rest_length(s: Dictionary) -> float:
@@ -4150,7 +4221,8 @@ func _blade_target(s: Dictionary) -> Array:
 	var rest_len := _rest_length(s)
 	var name: String = s.move_name
 	if name == "" or ((_cls(s) == STAFF_CLASS or _cls(s) == GREATSWORD_CLASS) and _body_clip(_cls(s), name)):
-		return [_rest_angle(s), rest_len, GREAT_REST_HAND.x if _cls(s) == GREATSWORD_CLASS else HAND.x]
+		var rh := _rest_hand(s)
+		return [_rest_angle(s), rest_len, rh.x, rh.y]
 	# The Seer's neutral air: the staff whirled round the body, held at its middle, turning from the wind-up through the last hit.
 	if _cls(s) == STAFF_CLASS and name == "nair":
 		var tt: PackedInt32Array = s.move_timing
@@ -4527,13 +4599,25 @@ func _pose_blade(s: Dictionary, delta: float) -> void:
 	var follow := clampf(delta * 30.0, 0.0, 1.0)
 	if s.move_name != "" and s.state_frame > 0:
 		follow = 1.0  # while attacking, follow the animation exactly so it matches the hitbox
+		# (Round 8: from the low carry the blade rises through the wind-up's first frames, not in one: the carry is far from where a
+		# swing's wind-up starts. Exact again from the frame before the first hit.)
+		var first_hit := float((s.move_timing as PackedInt32Array)[1])
+		if use_base_body and (bladed(_cls(s)) or _cls(s) == STAFF_CLASS) and first_hit > 2.0 and float(s.state_frame) < first_hit - 1.0:
+			follow = clampf(float(s.state_frame) / (first_hit - 1.0), 0.25, 1.0)
+	elif use_base_body and (bladed(_cls(s)) or _cls(s) == STAFF_CLASS):
+		# (Back down to the carry over about a third of a second, not snapped there.)
+		follow = clampf(delta * 12.0, 0.0, 1.0)
 	blade_angle = lerp_angle(deg_to_rad(blade_angle), deg_to_rad(float(target[0])), follow)
 	blade_angle = rad_to_deg(blade_angle)
 	blade_length = lerpf(blade_length, float(target[1]), follow)
 	var facing: int = s.facing
 	# Where the blade's tip is (forward space). It is fixed by the move's hitboxes and never moves because of the arm.
-	var great_rest: bool = _cls(s) == GREATSWORD_CLASS and float(target[2]) == GREAT_REST_HAND.x
-	var old_hand := Vector2(float(target[2]), GREAT_REST_HAND.y if great_rest else HAND.y)
+	var at_rest: bool = target.size() > 3
+	var great_rest: bool = _cls(s) == GREATSWORD_CLASS and at_rest
+	# (Round 8: the rest hand's height is the class's own, `_rest_hand`; it rises to the swing's through the wind-up and comes back down
+	# through the recovery.)
+	rest_hand_y = lerpf(rest_hand_y, float(target[3]) if at_rest else HAND.y, clampf(delta * (14.0 if at_rest else 30.0), 0.0, 1.0))
+	var old_hand := Vector2(float(target[2]), rest_hand_y)
 	old_hand.y -= sink
 	var tip := old_hand + Vector2.from_angle(deg_to_rad(blade_angle)) * blade_length
 	if bladed(_cls(s)) and _whirl(s) != 0.0:
@@ -4667,6 +4751,8 @@ func _pose_blade(s: Dictionary, delta: float) -> void:
 	var angle := swing if facing > 0 else 180.0 - swing
 	# (The greatsword at rest lies behind the body, its blade across the back; swinging, it comes round in front.)
 	var hand_z := lerpf(0.35, behind_z, behind * (1.0 - arm_k))
+	if use_base_body and at_rest and (bladed(_cls(s)) or _cls(s) == STAFF_CLASS):
+		hand_z = lerpf(STAFF_REST_Z if _cls(s) == STAFF_CLASS else REST_HAND_Z, 0.35, arm_k)
 	if mill.size() == 2:
 		hand_z = mill_z
 	# (Round 2: a hand that comes up in front of the face, a sword hilt raised overhead in an up tilt or a claw cocked for a forward air,
@@ -4687,9 +4773,9 @@ func _pose_blade(s: Dictionary, delta: float) -> void:
 	if _cls(s) == GREATSWORD_CLASS:
 		# (By sim frames since round 3, so a freeze holds it and a seek puts it straight there; it moved on real time.)
 		if springs.jumped:
-			great_z = -0.45 if great_rest else 0.35
+			great_z = GREAT_REST_Z if great_rest else 0.35
 		else:
-			great_z = move_toward(great_z, -0.45 if great_rest else 0.35, float(springs.new_frames) * GREAT_Z_STEP)
+			great_z = move_toward(great_z, GREAT_REST_Z if great_rest else 0.35, float(springs.new_frames) * GREAT_Z_STEP)
 		hand_z = great_z
 		# (Round 3: its two-handed grip goes behind the head too when the swing brings it up past the face, the broad blade still
 		# showing round the head; it covered the face for 81 frames of its up moves and forward air.)
