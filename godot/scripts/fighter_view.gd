@@ -663,7 +663,8 @@ func _choose_clip(s: Dictionary) -> Array:
 ## the round's missing sets: the shared clip by state, or the jump's arc in the air.
 static var r8_off := OS.get_environment("PF_R8_OFF").split(",")
 const R8_SPECIAL_CLIPS := ["needle_volley", "line_cast", "vanish", "sword_counter", "reflector", "buckler_bow", "buckler_throw",
-	"buckler_bomb"]
+	"buckler_bomb", "staff_point", "staff_flame", "staff_guard", "great_wave", "great_rise", "nodachi_flare", "nodachi_orbs",
+	"nodachi_barrier"]
 const R8_SET_STATES := ["Helpless", "ItemPickup", "ItemThrow", "Tether", "WallTech", "ShieldBreak", "Buried"]
 
 
@@ -1230,7 +1231,7 @@ func _body_follow(s: Dictionary, delta: float) -> void:
 	var target_bend := 0.0
 	var target_look := 0.0
 	var tip: Vector3 = s.move_tip
-	if s.state == "Attack" and tip != Vector3.ZERO and spine_bone >= 0 and _spin(s) == 0.0:
+	if s.state == "Attack" and tip != Vector3.ZERO and spine_bone >= 0 and _spin(s) == 0.0 and not _held_pose(s):
 		var kicking: bool = AnimLibrary.is_kick(AnimLibrary.attack_clip(_cls(s), s.move_name, anim))
 		var to_frame := _skeleton_to_frame()
 		var hips := skeleton.find_bone("hips")
@@ -1610,7 +1611,8 @@ const OPEN_HAND_STATES := ["Grabbing", "Grabbed", "Hitstun", "Tumble", "LedgeHan
 ## stays closed on it. Embers' cape, the Staff's warp and reflector, the Pockets' catch and release, the Popgun's banana and latch, the
 ## Dagger's guard and counter stance (an open palm), the Nodachi's flare.
 const OPEN_HAND_MOVES := {3: ["side special"], 5: ["up special", "down special"], 10: ["neutral special"],
-	11: ["side special", "down special"], 12: ["down special"], 13: ["neutral special"]}
+	11: ["side special", "down special"], 12: ["down special"],
+	13: ["neutral special", "extra move 3", "extra move 4", "extra move 5", "side special"]}
 
 
 ## Which arm holds the weapon: on the base body the one nearest the camera (the model's left facing right), so a swing's arm reads in
@@ -3352,7 +3354,7 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 		target_lean = clampf(rad_to_deg(atan2(float(s.vel.x) * float(s.facing), float(s.vel.y))), -80.0, 95.0)
 	# The whole body swings with the hit (in the manner of the reference game's big aerials): it pitches into a hit in front or below,
 	# arches back under one overhead and curls forward away from one behind, as far as the limb is into its reach.
-	if state == "Attack" and s.move_tip != Vector3.ZERO:
+	if state == "Attack" and s.move_tip != Vector3.ZERO and not _held_pose(s):
 		var tip: Vector3 = s.move_tip
 		var phi := rad_to_deg(atan2(tip.x, -(tip.y - 1.1)))   # 0 straight down, 90 ahead, 180 overhead, negative behind
 		var swing := clampf((130.0 - phi) * 0.32, -22.0, 30.0) if phi >= 0.0 else clampf(-phi * 0.18, 0.0, 22.0)
@@ -4062,12 +4064,38 @@ const GREAT_Z_STEP := 0.135
 const GREAT_LENGTH := 2.45
 
 
-## Blades held in a pose of their own through a move (round 8): [angle, hand's distance ahead] or ["rest"] for the low carry.
+## Blades held in a pose of their own through a move (round 8): [angle, hand's distance ahead], ["rest"] for the low carry, or keys
+## [move frame, angle, hand ahead, hand height] eased between (angles unwrapped, so a sweep goes the way it is written).
 const HELD_BLADE := {
 	0: {"down special": [40.0, 0.6]},
+	# The Seer: the reticle's staff pointed ahead at the chest (at the shoulder it ran under the chin); the flame's tipped back behind the head, then thrust out level and lifted;
+	# the counter's held up ahead of the body, tipped forward clear of the face (at 72 from 0.8 ahead it ran up across it).
+	5: {"neutral special": [[0, 78.0, 0.62, 0.8], [4, 6.0, 0.85, 0.85], [8, 8.0, 0.95, 0.98], [60, 8.0, 0.95, 0.98], [80, 78.0, 0.62, 0.8]],
+		"side special": [[0, 78.0, 0.62, 0.8], [12, 150.0, 0.2, 1.0], [22, 0.0, 1.0, 1.15], [44, 0.0, 1.0, 1.15], [58, 80.0, 0.65, 1.2],
+			[80, 78.0, 0.62, 0.8]],
+		"down special": [[0, 78.0, 0.62, 0.8], [6, 64.0, 1.0, 1.0], [70, 64.0, 1.0, 1.0], [86, 78.0, 0.62, 0.8]]},
+	# The Champion: the wave's blade dragged low behind, swept under through the front and up overhead, held, then lowered behind to the
+	# carry; the rising slash's from the carry under to low ahead (the first hit), straight up (the second) and tipping back overhead.
+	6: {"neutral special": [[0, 196.0, 0.1, 0.6], [8, 215.0, 0.0, 0.75], [14, 330.0, 0.55, 0.85], [17, 400.0, 0.7, 1.15],
+			[22, 455.0, 0.55, 1.45], [44, 460.0, 0.5, 1.45], [62, 556.0, 0.1, 0.6]],
+		"up special": [[0, 196.0, 0.1, 0.6], [4, 350.0, 0.5, 0.8], [6, 360.0, 0.55, 0.9], [9, 450.0, 0.6, 1.25], [30, 460.0, 0.5, 1.4],
+			[56, 480.0, 0.4, 1.35]]},
+	# The Exile: the flare and the orbs keep the blade low; the barrier raises it upright ahead, then cuts ahead and down (the miss answer,
+	# 38-53) and lowers it behind to the carry.
+	13: {"neutral special": ["rest"], "extra move 3": ["rest"], "extra move 4": ["rest"], "extra move 5": ["rest"], "side special": ["rest"],
+		"down special": [[0, 196.0, 0.1, 0.6], [6, 76.0, 1.0, 1.0], [30, 76.0, 1.0, 1.0], [36, 104.0, 0.75, 1.25], [40, -5.0, 0.95, 1.05],
+			[52, -20.0, 0.95, 0.95], [70, -164.0, 0.1, 0.6]]},
 	9: {"neutral special": ["rest"], "extra move 4": ["rest"], "extra move 9": ["rest"], "extra move 10": ["rest"], "side special": ["rest"],
 		"extra move 5": ["rest"], "extra move 6": ["rest"], "extra move 7": ["rest"], "down special": ["rest"], "extra move 8": ["rest"]},
 }
+
+
+## A move whose weapon holds a pose of its own (`HELD_BLADE`): a cast, a throw from the free hand, a counter's guard. Its body is the
+## clip's alone; the lean and bend toward the move's hit (a projectile's or a counter bubble's, out ahead) bent it into a lunge (round 8).
+func _held_pose(s: Dictionary) -> bool:
+	if not use_base_body or r8_off.has("specials"):
+		return false
+	return (HELD_BLADE.get(_cls(s), {}) as Dictionary).has(String(s.move_name))
 
 
 ## Where the hand holds the weapon at rest (forward space), by class (round 8).
@@ -4101,6 +4129,18 @@ func _blade_target(s: Dictionary) -> Array:
 		if held_blade[0] is String:
 			var rest_hand := _rest_hand(s)
 			return [_rest_angle(s), rest_len, rest_hand.x, rest_hand.y]
+		if held_blade[0] is Array:
+			# (Keys: eased from one to the next by the move's frame; the fifth entry marks it a held pose that is not the carry.)
+			var f := float(s.state_frame)
+			var a: Array = held_blade[0]
+			var b: Array = held_blade[0]
+			for key in held_blade:
+				b = key
+				if float(key[0]) >= f:
+					break
+				a = key
+			var k := 1.0 if float(b[0]) <= float(a[0]) else smoothstep(float(a[0]), float(b[0]), f)
+			return [lerpf(float(a[1]), float(b[1]), k), rest_len, lerpf(float(a[2]), float(b[2]), k), lerpf(float(a[3]), float(b[3]), k), true]
 		return [float(held_blade[0]), rest_len, float(held_blade[1])]
 	if name == "" or ((_cls(s) == STAFF_CLASS or _cls(s) == GREATSWORD_CLASS) and _body_clip(_cls(s), name)):
 		var rh := _rest_hand(s)
@@ -4349,10 +4389,12 @@ const COIL_EASE_IN := {2: ["neutral special"], 9: ["neutral special"]}
 ## Needles' volley throws its first needle on frame 11 and casts its line on 13). Without it such a move struck on its first frame.
 const RELEASE_FRAME := {2: {"extra move 4": 11, "side special": 13}, 0: {"down special": 6},
 	9: {"extra move 4": 1, "extra move 9": 1, "extra move 10": 1, "side special": 27, "extra move 5": 27, "extra move 6": 2,
-		"extra move 7": 2, "down special": 16, "extra move 8": 2}}
+		"extra move 7": 2, "down special": 16, "extra move 8": 2},
+	5: {"neutral special": 14, "side special": 22, "down special": 6},
+	13: {"extra move 3": 3, "extra move 4": 3, "extra move 5": 3, "side special": 14}}
 ## Moves held in their strike pose for as long as they last (no hit times them): the Settler hangs from its balloons, both hands up on
 ## the strings over its head.
-const HELD_STRIKE := {10: ["up special", "extra move 8"]}
+const HELD_STRIKE := {10: ["up special", "extra move 8"], 13: ["neutral special"], 5: ["down special"]}
 const HELD_STRIKE_IN := 8.0
 ## Moves thrown straight out of such a charge: they start in the coil, the fist drawn back (`DEEP_CHAMBER`), instead of from the rest pose.
 const COILED_START := {7: ["extra move 0", "extra move 1", "extra move 2", "extra move 3"]}
@@ -4477,7 +4519,7 @@ func _pose_blade(s: Dictionary, delta: float) -> void:
 	var sink := 0.0
 	# (Round 8: and through a move that keeps the blade in the carry, HELD_BLADE "rest": undipped it was turned flat behind by the floor.)
 	var held: Array = (HELD_BLADE.get(_cls(s), {}) as Dictionary).get(String(s.move_name), [])
-	var held_rest: bool = target.size() > 3 and not held.is_empty()
+	var held_rest: bool = target.size() == 4 and not held.is_empty()
 	if (s.move_name == "" or held_rest) and use_base_body and skeleton != null and int(s.platform) >= 0:
 		var hb := skeleton.find_bone("hips")
 		if hb >= 0:
@@ -4490,7 +4532,9 @@ func _pose_blade(s: Dictionary, delta: float) -> void:
 		# (Round 8: from the low carry the blade rises through the wind-up's first frames, not in one: the carry is far from where a
 		# swing's wind-up starts. Exact again from the frame before the first hit.)
 		var first_hit := float((s.move_timing as PackedInt32Array)[1])
-		if use_base_body and (bladed(_cls(s)) or _cls(s) == STAFF_CLASS) and first_hit > 2.0 and float(s.state_frame) < first_hit - 1.0:
+		# (Not for a held pose's keys, `HELD_BLADE`: they ease already, and lagging them swept the Seer's staff across its face.)
+		if use_base_body and (bladed(_cls(s)) or _cls(s) == STAFF_CLASS) and first_hit > 2.0 and float(s.state_frame) < first_hit - 1.0 \
+				and target.size() != 5:
 			follow = clampf(float(s.state_frame) / (first_hit - 1.0), 0.25, 1.0)
 	elif use_base_body and (bladed(_cls(s)) or _cls(s) == STAFF_CLASS):
 		# (Back down to the carry over about a third of a second, not snapped there.)
@@ -4500,11 +4544,13 @@ func _pose_blade(s: Dictionary, delta: float) -> void:
 	blade_length = lerpf(blade_length, float(target[1]), follow)
 	var facing: int = s.facing
 	# Where the blade's tip is (forward space). It is fixed by the move's hitboxes and never moves because of the arm.
-	var at_rest: bool = target.size() > 3
+	var at_rest: bool = target.size() == 4
 	var great_rest: bool = _cls(s) == GREATSWORD_CLASS and at_rest
 	# (Round 8: the rest hand's height is the class's own, `_rest_hand`; it rises to the swing's through the wind-up and comes back down
 	# through the recovery.)
 	rest_hand_y = lerpf(rest_hand_y, float(target[3]) if at_rest else HAND.y, clampf(delta * (14.0 if at_rest else 30.0), 0.0, 1.0))
+	if target.size() == 5:
+		rest_hand_y = float(target[3])
 	var old_hand := Vector2(float(target[2]), rest_hand_y)
 	old_hand.y -= sink
 	var tip := old_hand + Vector2.from_angle(deg_to_rad(blade_angle)) * blade_length
@@ -4512,7 +4558,7 @@ func _pose_blade(s: Dictionary, delta: float) -> void:
 		tip = SPIN_BLADE_TIP
 	# In a swing the hand leaves its resting spot and sweeps round the shoulder, so the arm throws the blade through its arc; the blade
 	# then runs from the hand to the same tip.
-	var attacking: bool = s.move_name != "" and s.state_frame > 0 and not (target.size() > 3 and s.move_name != "")
+	var attacking: bool = s.move_name != "" and s.state_frame > 0 and not (at_rest and s.move_name != "")
 	arm_k = move_toward(arm_k, 1.0 if attacking else 0.0, delta * 9.0)
 	# A punch reaches out with the wind-up and comes home in the recovery, like a kick (a blade stays in the hand throughout).
 	if attacking and (not bladed(_cls(s)) or _thrust(_cls(s), String(s.move_name))):

@@ -220,6 +220,11 @@ const CLASS_MOVES := {
 		"extra move 10": "attack_jab",
 		"extra move 11": "attack_jab",
 		"extra move 12": "attack_smash",
+		# (Round 8: the reticle pointed, the flame thrust, the counter stood behind the upright staff; they played the smash, the lunge and
+		# the low strike.)
+		"neutral special": "staff_point",
+		"side special": "staff_flame",
+		"down special": "staff_guard",
 	},
 	# Greatsword (the Champion): the longsword's cuts for its sword moves (the blade follows its hits), front kicks for the first two
 	# jabs, a sliding low kick for the down tilt, kicks for the throws (the throw clip, the blade at rest).
@@ -237,6 +242,11 @@ const CLASS_MOVES := {
 		"dair": "sword_plunge",
 		# The gauge charge: a held, crouched stance with the blade at rest (no hitbox).
 		"down special": "crouch",
+		# (Round 8: the wave swept up from low behind, the rising slash carried overhead, the falling slash driven straight down; they
+		# played the smash, the up air and the fallback swing.)
+		"neutral special": "great_wave",
+		"up special": "great_rise",
+		"extra move 3": "sword_plunge",
 	},
 	# Clutch (the Bounder): kicks for its jabs, dash attack and airs, its tail swipes as low and high kicks, a flip kick overhead for the up
 	# smash, the headbutts as heavy strikes. (Placeholders until its own clips; the leg is aimed at each hit.)
@@ -369,6 +379,14 @@ const CLASS_MOVES := {
 		"usmash": "sword_usmash",
 		"dsmash": "sword_dsmash",
 		"dair": "sword_plunge",
+		# (Round 8: the flare and the shadow orbs from the free hand, the blade kept low; the barrier behind the upright blade, then the
+		# cut. They played the smash, the lunge and the low strike.)
+		"neutral special": "nodachi_flare",
+		"extra move 3": "nodachi_flare",
+		"extra move 4": "nodachi_flare",
+		"extra move 5": "nodachi_flare",
+		"side special": "nodachi_orbs",
+		"down special": "nodachi_barrier",
 	},
 	# Dagger (the Phantom, after its reference's knife moves; the knife rides the weapon hand, which the game reaches to each hit, and the
 	# kicks' leg is aimed): an inward slash, a backhanded stab and an outward slash for the jabs, the double thrust as a lunge, the
@@ -482,7 +500,9 @@ const STAND_INS := {"jumpsquat": "crouch", "land": "crouch", "spot_dodge": "roll
 	"body_dash_grab": "grab", "body_pivot_grab": "grab", "fall_start": "fall", "tumble": "hurt",
 	# (Round 8, the missing sets.)
 	"helpless": "fall", "needle_volley": "blaster", "line_cast": "attack_swing", "vanish": "attack_low", "sword_counter": "attack_low", "reflector": "attack_kick", "buckler_bow": "attack_smash", "buckler_throw": "attack_lunge",
-	"buckler_bomb": "attack_low", "item_pick": "crouch", "item_throw": "throw", "dizzy": "hurt", "buried": "idle"}
+	"buckler_bomb": "attack_low", "staff_point": "attack_smash", "staff_flame": "attack_lunge", "staff_guard": "attack_low",
+	"great_wave": "attack_smash", "great_rise": "attack_uair", "nodachi_flare": "attack_smash", "nodachi_orbs": "attack_lunge",
+	"nodachi_barrier": "attack_low", "item_pick": "crouch", "item_throw": "throw", "dizzy": "hurt", "buried": "idle"}
 
 ## Clips chosen in fighter_view.gd `_choose_clip` from more than the state (a tech is an intangible landing, a run stop a sliding idle, a
 ## platform drop the first frames of a fall through a platform, heavy hitstun a fast launch that does not tumble, a fidget a long idle).

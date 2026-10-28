@@ -943,6 +943,48 @@ BODY_MOVES = {
         {"hips": -0.12, "spine": (18.0, -26.0), "head": (-8.0, 14.0), "stance": (34.0, -26.0), "armU.R": (-52.0, 22.0), "armL.R": (28.0,)},
         {"hips": -0.04, "spine": (6.0, 10.0), "head": (-8.0, 0.0), "stance": (28.0, -22.0), "armU.R": (72.0, 10.0), "armL.R": (70.0,)},
         {"spine": (8.0, 0.0), "stance": (30.0, -20.0)}),
+    # (Round 8, the Seer's, the Champion's and the Exile's specials: the body only (and the Exile's free hand); the weapon is held by
+    # the game through each move, `HELD_BLADE` in fighter_view.gd.) The Seer's reticle: upright and leaning a little back, the chest
+    # turned to the front behind the staff pointed ahead.
+    "staff_point": (
+        {"hips": -0.04, "spine": (-4.0, -16.0), "head": (-4.0, 10.0), "stance": (30.0, -26.0)},
+        {"hips": -0.02, "spine": (-8.0, -10.0), "head": (-2.0, 8.0), "stance": (32.0, -30.0)},
+        {"spine": (8.0, 0.0), "stance": (30.0, -20.0)}),
+    # The Seer's explosive flame: turned away as the staff goes up, then leaning into the thrust as it points ahead.
+    "staff_flame": (
+        {"hips": -0.06, "spine": (6.0, -40.0), "head": (-6.0, 22.0), "stance": (26.0, -30.0)},
+        {"hips": -0.06, "spine": (14.0, 18.0), "head": (-6.0, -6.0), "stance": (46.0, -32.0)},
+        {"spine": (8.0, 0.0), "stance": (30.0, -20.0)}),
+    # The Seer's counter and barrier: standing tall behind the upright staff, the chest square.
+    "staff_guard": (
+        {"hips": -0.02, "spine": (-2.0, -12.0), "head": (-4.0, 8.0), "stance": (28.0, -22.0)},
+        {"hips": 0.0, "spine": (-6.0, -20.0), "head": (-2.0, 10.0), "stance": (26.0, -24.0)},
+        {"spine": (8.0, 0.0), "stance": (30.0, -20.0)}),
+    # The Champion's wave: crouched over the blade dragged low behind, then rising tall as it sweeps up through the front to overhead.
+    "great_wave": (
+        {"hips": -0.16, "spine": (24.0, -30.0), "head": (-10.0, 16.0), "stance": (44.0, -34.0)},
+        {"hips": -0.04, "spine": (-10.0, 16.0), "head": (2.0, -4.0), "stance": (40.0, -30.0)},
+        {"spine": (8.0, 0.0), "stance": (30.0, -20.0)}),
+    # The Champion's rising slash: crouched, then stretched tall as the blade comes up, the back leg trailing.
+    "great_rise": (
+        {"hips": -0.14, "spine": (20.0, -20.0), "head": (-8.0, 12.0), "stance": (40.0, -30.0)},
+        {"hips": 0.0, "spine": (-12.0, 10.0), "head": (6.0, 0.0), "stance": (10.0, -40.0)},
+        {"spine": (0.0, 0.0), "stance": (20.0, -30.0)}),
+    # The Exile's flare: the free hand held out ahead, palm open, the long blade kept low in the other.
+    "nodachi_flare": (
+        {"hips": -0.04, "spine": (2.0, -24.0), "head": (-4.0, 14.0), "stance": (28.0, -24.0), "armU.R": (60.0, 10.0), "armL.R": (30.0,)},
+        {"hips": -0.02, "spine": (-6.0, -18.0), "head": (-2.0, 12.0), "stance": (30.0, -28.0), "armU.R": (88.0, 4.0), "armL.R": (6.0,)},
+        {"spine": (8.0, 0.0), "stance": (30.0, -20.0)}),
+    # The Exile's shadow orbs: the free hand drawn back, then swung up and out ahead.
+    "nodachi_orbs": (
+        {"hips": -0.06, "spine": (6.0, -30.0), "head": (-6.0, 16.0), "stance": (28.0, -30.0), "armU.R": (-40.0, 30.0), "armL.R": (50.0,)},
+        {"hips": -0.04, "spine": (10.0, 16.0), "head": (-6.0, -4.0), "stance": (40.0, -30.0), "armU.R": (110.0, 6.0), "armL.R": (10.0,)},
+        {"spine": (8.0, 0.0), "stance": (30.0, -20.0)}),
+    # The Exile's barrier: tall behind the blade held upright, then stepping into the cut ahead.
+    "nodachi_barrier": (
+        {"hips": -0.02, "spine": (-2.0, -14.0), "head": (-4.0, 8.0), "stance": (28.0, -22.0)},
+        {"hips": -0.06, "spine": (10.0, 14.0), "head": (-6.0, -2.0), "stance": (40.0, -28.0)},
+        {"spine": (8.0, 0.0), "stance": (30.0, -20.0)}),
     # Flash Step: gathered into a deep crouch with the arms crossed over the chest, then bursting open (the explosion) tall, arms and
     # chest flung wide; on its reappearing hit the same burst.
     "vanish": (
@@ -3941,7 +3983,9 @@ def main() -> None:
         clip(rig, tool, 60, {})
     # (Round 8: the Needles' own specials, posed in BODY_MOVES.)
     if BODY:
-        for nm in ("needle_volley", "line_cast", "vanish", "sword_counter", "reflector", "buckler_bow", "buckler_throw", "buckler_bomb"):
+        for nm in ("needle_volley", "line_cast", "vanish", "sword_counter", "reflector", "buckler_bow", "buckler_throw", "buckler_bomb",
+                   "staff_point", "staff_flame", "staff_guard", "great_wave", "great_rise", "nodachi_flare", "nodachi_orbs",
+                   "nodachi_barrier"):
             clip(rig, nm, 60, {})
     # Headbutts, up and forward (posed in BODY_MOVES; the body is the weapon).
     clip(rig, "body_headbutt", 60, {})

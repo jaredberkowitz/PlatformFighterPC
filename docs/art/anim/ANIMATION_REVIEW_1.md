@@ -260,3 +260,11 @@ the sword-stance items where they were. **Mean 3.17** (poses 3.03, fluidity 3.35
 | 4 | Sword specials (the counter's raised blade, the Wanderer's bow, boomerang and bomb) | 4 | 3 | 3 | 3.3 | 3.0 |
 
 **Mean 3.18** (poses 3.05, fluidity 3.35, weight 3.14).
+
+## 9. After round 8's group 11 (2026-10-28)
+
+| # | Item | P | F | W | O | Was |
+|---|---|---|---|---|---|---|
+| 4 | Sword specials (every sword-family class on its own specials: the Seer's, the Champion's and the Exile's) | 4 | 3 | 4 | 3.7 | 3.3 |
+
+**Mean 3.19** (poses 3.05, fluidity 3.35, weight 3.16).

@@ -1948,3 +1948,33 @@ knee bend (`review1/mock_stance.jpg`, A/B/C).
 - **Image:** `docs/screenshots/anim/r8_g10_buckler_counter.jpg` (bow, boomerang, bomb and counter, before above after).
 - **Review:** item 4 (sword specials) poses 3 to 4, overall 3.0 to 3.3. Mean 3.18.
 - **Checked:** the six tests pass.
+
+### Group 11 (round 8): the Seer's, the Champion's and the Exile's specials (review item 4)
+
+- **Defect:** the three classes' specials played shared archetypes, and the weapon pointed at each move's hit, which for these is a
+  projectile, an explosion or a counter bubble out ahead. So: the Seer's reticle and flame lunged low with the staff aimed at the far
+  shot, and its counter crouched; the Champion's wave bent double with the blade lying behind it, and its rising slash held the blade level
+  behind; the Exile's flare and shadow orbs lunged with the blade swung at nothing, and its barrier crouched with the blade on the floor.
+  The references (side by side on F: only: `F:/anim_r8/ref/g11_seer_side_by_side.jpg`, `g11_champion_side_by_side.jpg`,
+  `g11_exile_side_by_side.jpg`): the staff reference stands tall and thrusts the staff out level for the flame and holds it up beside her
+  for the counter; the greatsword reference crouches over the blade low behind, then sweeps it up through the front to overhead for the
+  wave, and slashes up from low in front for the rise, the blade held overhead as he rises; the long-blade reference holds his blade upright
+  ahead for the barrier, then cuts ahead.
+- **Fix (`make_rigged_blob.py`, rig `rig_r8j`):** eight body clips, `staff_point`, `staff_flame`, `staff_guard`, `great_wave`, `great_rise`,
+  `nodachi_flare`, `nodachi_orbs`, `nodachi_barrier` (the Exile's free hand held out for the flare, swung up and out for the orbs). Mapped in
+  `anim_library.gd` (the Exile's flare releases, extra moves 3-5, too); the Champion's falling slash (extra move 3) plays the plunge, not
+  the fallback swing.
+- **Fix (`fighter_view.gd`):** `HELD_BLADE` takes keys, `[move frame, angle, hand ahead, hand height]`, eased between, with the angles
+  unwrapped so a sweep goes the way it is written. These moves follow the keys rather than the hit. They also skip the whole-body lean and
+  bend toward the hit (`_held_pose`): toward a projectile out ahead, every cast had read as a lunge. The keys also skip the wind-up's
+  follow ease, which had lagged the Seer's staff across its face. The Seer's counter and the Exile's flare are held strikes
+  (`HELD_STRIKE`); release frames (`RELEASE_FRAME`) time the Seer's cast and the Exile's orbs. `PF_R8_OFF=specials` shows the old.
+- **Tried:** the Seer's reticle staff at shoulder height ran under the chin for six frames, so it is held at the chest. The counter's
+  staff, upright 0.8 ahead, ran up across the face, so it is tipped forward from 1.0 ahead. The flame's wind-up at 120 degrees stood the
+  staff across the face, so it now tips back behind the head at 150. The Exile's upright blade 0.75 ahead was drawn behind the head
+  (hidden), so it is held 1.0 ahead.
+- **Measured:** face cover over the gallery: the Seer's specials cover the face on no frame (its 4 frames left are the open creep in its
+  forward smash, neutral air and up air); the Champion 2 and the Exile 0, unchanged.
+- **Image:** `docs/screenshots/anim/r8_g11_staff_great_nodachi_specials.jpg` (each special, before above after).
+- **Review:** item 4 (sword specials, the whole sword family now on its own specials) weight 3 to 4, overall 3.3 to 3.7. Mean 3.19.
+- **Checked:** the six tests pass.
