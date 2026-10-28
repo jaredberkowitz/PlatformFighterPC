@@ -663,6 +663,7 @@ func _choose_clip(s: Dictionary) -> Array:
 ## With the environment variable PF_R8_OFF (a debugging aid for round 8's before and after images), "sets" plays these states as before
 ## the round's missing sets: the shared clip by state, or the jump's arc in the air.
 static var r8_off := OS.get_environment("PF_R8_OFF").split(",")
+const R8_SPECIAL_CLIPS := ["needle_volley", "line_cast", "vanish"]
 const R8_SET_STATES := ["Helpless", "ItemPickup", "ItemThrow", "Tether", "WallTech", "ShieldBreak", "Buried"]
 
 
@@ -702,6 +703,9 @@ static func dodge_progress(s: Dictionary) -> float:
 func _attack_clip(s: Dictionary) -> Array:
 	var t: PackedInt32Array = s.move_timing
 	var total := maxf(1.0, float(t[0]))
+	var release: Dictionary = RELEASE_FRAME.get(_cls(s), {})
+	if int(t[1]) == 0 and release.has(String(s.move_name)):
+		t = PackedInt32Array([t[0], int(release[String(s.move_name)]), int(release[String(s.move_name)])])
 	var start := clampf(float(t[1]), 1.0, total)
 	var last := clampf(float(t[2]), start, total)
 	var progress := strike_progress(float(s.state_frame), total, start, last, s.get("move_windows", PackedInt32Array()), _end_shape(s))
@@ -714,11 +718,17 @@ func _attack_clip(s: Dictionary) -> Array:
 	elif (HELD_COIL.get(_cls(s), []) as Array).has(name):
 		# (A charge held in the coil, its arm swinging round on top: `WINDMILL`. Round 2.)
 		progress = COIL_PROGRESS + COIL_CREEP * (1.0 + sin(float(s.state_frame) * TAU / 40.0))
+		if (COIL_EASE_IN.get(_cls(s), []) as Array).has(name):
+			progress *= smoothstep(0.0, HELD_STRIKE_IN, float(s.state_frame))
 	elif float(s.state_frame) < start and (COILED_START.get(_cls(s), []) as Array).has(name):
 		# (Thrown straight out of a charge's coil: it starts coiled rather than rising to the rest pose and coiling again.)
 		progress = maxf(progress, COIL_PROGRESS)
 	# Which clip: the moveset's own for this move, or the shared archetype (scripts/anim_library.gd).
-	return [AnimLibrary.attack_clip(_cls(s), s.move_name, anim), 1.0, clampf(progress, 0.0, 1.0)]
+	var clip := AnimLibrary.attack_clip(_cls(s), s.move_name, anim)
+	# (PF_R8_OFF=specials: round 8's new special clips play their stand-ins again, for before images.)
+	if r8_off.has("specials") and R8_SPECIAL_CLIPS.has(clip):
+		clip = String(AnimLibrary.STAND_INS.get(clip, clip))
+	return [clip, 1.0, clampf(progress, 0.0, 1.0)]
 
 
 ## Where an attack clip is (0..1, on the shared move timeline: wind-up to 0.35, strike at 0.55, follow-through to 0.63, settled at 1) at
@@ -4377,7 +4387,12 @@ const BLADE_OVERHEAD_Z := -0.25
 ## Charges (by class) held in the clip's coil for as long as they last (the move has no hit of its own): the Hauler's giant punch wind-up,
 ## planted wide and low (`gaunt_charge`), while its arm swings round (`WINDMILL`). (Round 2: it stood in a plain
 ## guard, fists at the chest, for the whole charge.)
-const HELD_COIL := {7: ["neutral special"], 11: ["up special", "extra move 5"]}
+const HELD_COIL := {7: ["neutral special"], 11: ["up special", "extra move 5"], 2: ["neutral special", "extra move 3"]}
+## Held coils entered from the stance, which ease into the coil over HELD_STRIKE_IN frames rather than snapping into it (round 8).
+const COIL_EASE_IN := {2: ["neutral special"]}
+## Moves with no hitbox of their own (a projectile or a script throws the hit) and the frame their strike lands on, by class (round 8: the
+## Needles' volley throws its first needle on frame 11 and casts its line on 13). Without it such a move struck on its first frame.
+const RELEASE_FRAME := {2: {"extra move 4": 11, "side special": 13}}
 ## Moves held in their strike pose for as long as they last (no hit times them): the Settler hangs from its balloons, both hands up on
 ## the strings over its head.
 const HELD_STRIKE := {10: ["up special", "extra move 8"]}

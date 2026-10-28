@@ -895,6 +895,31 @@ BODY_MOVES = {
         {"hips": -0.1, "spine": (16.0, -26.0), "head": (0.0, 14.0), "stance": (18.0, 10.0), "shin.R": (-40.0,), "arms": (-20.0, 20.0)},
         {"hips": 0.02, "spine": (-8.0, 22.0), "head": (-8.0, -10.0), "stance": (30.0, -26.0), "shin.R": (-6.0,), "armU.L": (-30.0, 34.0)},
         {"spine": (0.0, 6.0), "stance": (12.0, -8.0)}),
+    # ---- Round 8: the Needles' own specials (they played the blaster, the swing and the low strike; ANIMATION_REVIEW_1.md item 14) ----
+    # Needle Volley: coiled low and turned away, the near hand drawn back behind the hip with the needles, the far hand guarding in front
+    # (the charge holds this coil); the throw whips the near arm through flat and out in front as the chest turns into it.
+    "needle_volley": (
+        {"hips": -0.12, "spine": (22.0, -26.0), "head": (-6.0, 16.0), "stance": (42.0, -26.0), "armU.L": (-34.0, 22.0),
+         "armL.L": (64.0,), "armU.R": (62.0, 12.0), "armL.R": (70.0,)},
+        {"hips": -0.08, "spine": (18.0, 26.0), "head": (-10.0, -10.0), "stance": (54.0, -36.0), "armU.L": (94.0, 6.0), "armL.L": (8.0,),
+         "armU.R": (-24.0, 26.0), "armL.R": (30.0,)},
+        {"spine": (10.0, 0.0), "stance": (30.0, -20.0)}),
+    # The pulling line: the line swung back low behind on a step back, then cast forward and up underhand at full stretch, the body
+    # leaning after it.
+    "line_cast": (
+        {"hips": -0.08, "spine": (8.0, -30.0), "head": (-4.0, 18.0), "stance": (24.0, -30.0), "armU.L": (-56.0, 26.0), "armL.L": (14.0,),
+         "armU.R": (56.0, 16.0), "armL.R": (80.0,)},
+        {"hips": -0.04, "spine": (20.0, 24.0), "head": (-8.0, -8.0), "stance": (52.0, -30.0), "armU.L": (112.0, 4.0), "armL.L": (6.0,),
+         "armU.R": (-30.0, 24.0), "armL.R": (24.0,)},
+        {"spine": (8.0, 0.0), "stance": (28.0, -16.0)}),
+    # Flash Step: gathered into a deep crouch with the arms crossed over the chest, then bursting open (the explosion) tall, arms and
+    # chest flung wide; on its reappearing hit the same burst.
+    "vanish": (
+        {"hips": -0.2, "spine": (32.0, 0.0), "head": (-14.0, 0.0), "stance": (62.0, -34.0), "armU.L": (58.0, -6.0), "armL.L": (112.0,),
+         "armU.R": (62.0, -6.0), "armL.R": (112.0,)},
+        {"hips": 0.04, "spine": (-10.0, 0.0), "head": (-6.0, 0.0), "stance": (14.0, -12.0), "armU.L": (-36.0, 44.0), "armL.L": (10.0,),
+         "armU.R": (-30.0, 44.0), "armL.R": (10.0,)},
+        {"spine": (10.0, 0.0), "stance": (30.0, -20.0)}),
     # Digging (the planting): bent right over with both hands low in front driving the shovel in, then levering it back.
     "tool_dig": (
         {"hips": -0.06, "spine": (10.0, -10.0), "head": (4.0, 6.0), "stance": (24.0, -14.0), "arms": (36.0, 10.0)},
@@ -3875,6 +3900,10 @@ def main() -> None:
     # The Settler's tool clips (posed in BODY_MOVES).
     for tool in ("tool_reach", "tool_toss", "tool_dig", "tool_pour", "tool_chop", "tool_heave", "tool_raise", "tool_trip", "tool_shrug", "tool_ride", "tool_float"):
         clip(rig, tool, 60, {})
+    # (Round 8: the Needles' own specials, posed in BODY_MOVES.)
+    if BODY:
+        for nm in ("needle_volley", "line_cast", "vanish"):
+            clip(rig, nm, 60, {})
     # Headbutts, up and forward (posed in BODY_MOVES; the body is the weapon).
     clip(rig, "body_headbutt", 60, {})
     clip(rig, "body_headbutt_fwd", 60, {})

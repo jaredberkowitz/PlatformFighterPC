@@ -1806,3 +1806,22 @@ knee bend (`review1/mock_stance.jpg`, A/B/C).
   the release lands under the hit's burst and the raised arms hide behind the big head, so the four read almost as before
   (`F:\anim_r8\sheets\r8_throws.jpg`). Reverted under the brief's rule (no visible difference at match speed and distance). Next idea in
   `ANIMATION_REVIEW_1.md` item 5.
+
+### Group 4 (round 8): the Needles' own specials (review item 14)
+
+- **Defect:** Needle Volley played the blaster's aim (standing through its charge), the pulling line the shared swing, Flash Step the low
+  strike; the volley's throw and the line, which have no hitbox of their own (the needles and the line are thrown), struck on their
+  first frame.
+- **Fix:** `make_rigged_blob.py` BODY_MOVES `needle_volley` (coiled low and turned away, the near hand drawn back behind the hip; the
+  throw whips it through flat in front), `line_cast` (the line swung back low on a step back, cast forward underhand at full stretch),
+  `vanish` (gathered into a deep crouch, arms crossed, bursting open on the explosion and on the reappearing hit). `anim_library.gd` maps
+  them (both arms posed by the clip, `OWN_ARMS`). `fighter_view.gd`: the charge holds the coil (`HELD_COIL`), the volley's start eases
+  into it over 8 frames (`COIL_EASE_IN`), and `RELEASE_FRAME` times the throw's strike to its first needle (frame 11) and the line's to
+  its cast (13). `PF_R8_OFF=specials` plays the old stand-ins.
+- **Reference:** the ninja's Vanish (gathered low, intangible, the burst, a crouched reappearance) alongside in
+  `F:\anim_r8\sheets\r8_g4_with_reference.jpg`; the volley and the line have no reference animation (the line is ours, the volley's
+  hitbox animation is the needles only).
+- **Image:** `docs/screenshots/anim/r8_g4_needles_specials.jpg` (the volley's charge and throw, the line, Flash Step; before above).
+- **Measured:** face cover over the Needles' moves 3 frames, unchanged. **Review:** item 14 poses 2 to 3, weight 2 to 3 (the strike now
+  lands on the release), overall 2.3 to 3.0.
+- **Checked:** the six tests and `swing_toggle_test` pass.

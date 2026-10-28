@@ -131,11 +131,13 @@ const CLASS_MOVES := {
 		"fsmash": "kick_side",
 		"usmash": "attack_uair",
 		"dsmash": "kick_low",
-		"neutral special": "blaster",
-		"extra move 3": "blaster",
-		"extra move 4": "attack_jab",
-		"side special": "attack_swing",
-		"up special": "attack_low",
+		# (Round 8: its own Needle Volley (the charge holds the coil, the throw whips through), the line cast and Flash Step's gather
+		# and burst; they played the blaster, the swing and the low strike.)
+		"neutral special": "needle_volley",
+		"extra move 3": "needle_volley",
+		"extra move 4": "needle_volley",
+		"side special": "line_cast",
+		"up special": "vanish",
 		"down special": "kick_dair",
 		"extra move 5": "jump",
 	},
@@ -434,7 +436,7 @@ static func is_kick(clip: String) -> bool:
 
 ## Clips that pose both arms themselves: the tool hand is not reached to a hit (fighter_view.gd).
 const OWN_ARMS := ["tool_float", "tool_raise", "tool_shrug", "tool_ride", "tool_reach", "tool_toss", "spin_arms", "spin_arms_air",
-	"slap_ground", "leap_grab", "latch_sit", "rocket_fly"]
+	"slap_ground", "leap_grab", "latch_sit", "rocket_fly", "needle_volley", "line_cast", "vanish"]
 
 
 ## Clips where the whole body is the weapon (a headbutt): no arm or leg reaches for the hitbox, the pose carries the hit.
@@ -464,7 +466,7 @@ const STAND_INS := {"jumpsquat": "crouch", "land": "crouch", "spot_dodge": "roll
 	"tech": "crouch", "run_stop": "skid", "idle_look": "idle", "platform_drop": "fall", "hurt_heavy": "hurt", "hurt_up": "hurt",
 	"body_dash_grab": "grab", "body_pivot_grab": "grab", "fall_start": "fall", "tumble": "hurt",
 	# (Round 8, the missing sets.)
-	"helpless": "fall", "item_pick": "crouch", "item_throw": "throw", "dizzy": "hurt", "buried": "idle"}
+	"helpless": "fall", "needle_volley": "blaster", "line_cast": "attack_swing", "vanish": "attack_low", "item_pick": "crouch", "item_throw": "throw", "dizzy": "hurt", "buried": "idle"}
 
 ## Clips chosen in fighter_view.gd `_choose_clip` from more than the state (a tech is an intangible landing, a run stop a sliding idle, a
 ## platform drop the first frames of a fall through a platform, heavy hitstun a fast launch that does not tumble, a fidget a long idle).
