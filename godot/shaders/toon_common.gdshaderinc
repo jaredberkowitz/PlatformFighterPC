@@ -56,6 +56,13 @@ uniform vec3 front_shade : source_color = vec3(0.6, 0.57, 0.72);
 // `pf_front_calm.a` and, the further below the top, toward the stage's haze (`pf_front_calm.rgb`), so the play surface leads and the
 // mass under it settles into the air. Set by scripts/lighting.gd for each stage.
 global uniform vec4 pf_front_calm;
+// The fronts' fall into shade made lighter and coloured (the owner, 2026-10-28: the shade was washing the fronts' colour out, where the
+// papercraft reference's shade is light and tinted): `pf_front_fall_k` scales every front's `front_fall`, and `pf_front_tint` (its alpha
+// how far) turns the grey-violet `front_shade` toward the stage's own shade hue. 1 and clear as built; scripts/lighting.gd.
+global uniform vec4 pf_front_tint;
+global uniform float pf_front_fall_k;
+// How far the contact shade baked into a modelled piece's vertex colours is eased back toward none (0 as baked; the owner, 2026-10-28).
+global uniform float pf_vshade_lift;
 // A worn path along the play line on a stage top (0 off): where fighters stand and run, a broken band of drier, paler ground (grass worn
 // to earth-tinted, boards scuffed lighter), soft-edged and patchy along its length (the gauntlet's round 1: the tops read as flat fills
 // without the benchmark's wear). `worn_tint` is what the ground wears toward.
@@ -152,7 +159,7 @@ uniform vec4 hem_color : source_color = vec4(0.1, 0.07, 0.12, 1.0);
 void vertex() {
 	world_pos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 	world_normal = normalize((MODEL_MATRIX * vec4(NORMAL, 0.0)).xyz);
-	vshade = vertex_shade ? COLOR.rgb : vec3(1.0);
+	vshade = vertex_shade ? mix(COLOR.rgb, vec3(1.0), pf_vshade_lift) : vec3(1.0);
 	if (instance_tint) {
 		vshade *= INSTANCE_CUSTOM.rgb;
 	}
@@ -275,7 +282,8 @@ void fragment() {
 		c *= brush(UV);
 	}
 	if (fall_by_height) {
-		c *= mix(vec3(1.0), front_shade, front_fall * smoothstep(0.6, front_span, front_top - world_pos.y));
+		c *= mix(vec3(1.0), mix(front_shade, pf_front_tint.rgb, pf_front_tint.a), front_fall * pf_front_fall_k
+			* smoothstep(0.6, front_span, front_top - world_pos.y));
 		c = pf_calm_front(c, front_top - world_pos.y);
 	}
 	if (worn_path > 0.0 && world_normal.y > 0.6) {

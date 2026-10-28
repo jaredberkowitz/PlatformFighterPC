@@ -85,6 +85,9 @@ const STYLE_DEFAULT := {
 	# The ambient and the fill kept on the scenery (`key_fill`, see KEY_FILL_TRY): C, fidelity review 14 item 3, the owner's pick,
 	# 2026-10-27, so the shade sides of the forms drop under their lit sides. `--key-fill=T` shows a stage as before.
 	"key_fill": [0.2, 0.2],
+	# Colourful shade (`shade_colour`, see `shade_colour()`): D, the owner's pick, 2026-10-28, after their note that the shade was washing
+	# the fronts' colour out (the papercraft reference's shade is light and tinted). `--shade-colour=T` shows a stage as before.
+	"shade_colour": "D",
 	# How much deeper the scenery's shade side is than its painted shadow colour (`pf_scenery_shade` in shaders/toon_light.gdshaderinc).
 	"scenery_shade": 0.32,
 	# The finishing pass's value range (shaders/post.gdshader): how far colours are eased toward grey (`desat`), how far the darks are
@@ -162,11 +165,25 @@ const SHADE_TRY := {"T": [1.0, 1.0, 1.0], "A": [0.85, 1.4, 0.85], "B": [0.72, 1.
 const KEY_FILL_TRY := {"T": [1.0, 1.0], "A": [0.7, 0.7], "B": [0.45, 0.45], "C": [0.2, 0.2]}
 
 
+## The colourful shade level for theme `name` (the owner, 2026-10-28): `--shade-colour=T|A|B|C|D` over the style's `shade_colour`.
+## A eases the front calm and the dark anchor's push at the frame's foot, and lightens the fronts' fall into shade; B also turns that fall
+## toward the stage's own shade hue, the calm to a quarter, the foot push off and the fill to 45%; C the calm off and the scenery's shade
+## 1.4 times lighter; D also eases the contact shade baked into the modelled pieces by half (toon_common `pf_vshade_lift`), which was most
+## of what greyed the fronts. Never on the fighters.
+static func shade_colour(name: String) -> String:
+	var flag := _flag_value("--shade-colour=").to_upper()
+	if flag in ["T", "A", "B", "C", "D"]:
+		return flag
+	return String(style(name).get("shade_colour", "T"))
+
+
 ## The key-to-fill level for theme `name`: `--key-fill=` over the style's `key_fill`.
 static func key_fill(name: String) -> Array:
 	var flag := _flag_value("--key-fill=")
 	if KEY_FILL_TRY.has(flag):
 		return KEY_FILL_TRY[flag]
+	if shade_colour(name) in ["B", "C", "D"]:
+		return [0.45, 0.45]
 	return style(name).get("key_fill", KEY_FILL_TRY.T)
 
 
@@ -532,6 +549,10 @@ static func stage_mood(env: Environment, root: Node, theme: Dictionary, post: Sh
 		for arg in OS.get_cmdline_user_args():
 			if arg.begins_with("--value="):
 				deep = {"A": [0.35, 0.0, 0.6, 60.0], "B": [0.35, 0.3, 0.6, 60.0], "C": [0.5, 0.42, 0.55, 80.0]}.get(arg.substr(8).to_upper(), deep)
+		# (`--shade-colour=`: the anchor's push at the frame's foot, where the fronts stand, halved in A and off from B; its darks stay.)
+		var scf := shade_colour(String(theme.get("name", "meadow")))
+		if deep.size() == 4 and scf in ["A", "B", "C", "D"]:
+			deep = [deep[0], float(deep[1]) * (0.5 if scf == "A" else 0.0), deep[2], deep[3]]
 		post.set_shader_parameter("value_deep", Vector4(deep[0], deep[1], deep[2], deep[3]) if deep.size() == 4 else Vector4(0.0, 0.0, 0.6, 60.0))
 		# The key light's way across the screen (the camera looks straight down the stage, so its x and y), for the sheets' shadows.
 		if key != null:
@@ -545,6 +566,16 @@ static func stage_mood(env: Environment, root: Node, theme: Dictionary, post: Sh
 	var calm := float(style(theme.get("name", "meadow")).get("front_calm", FRONT_CALM))
 	if String(theme.get("name", "")) == "city" and _flag_value("--warm-cool=").to_upper() == "B":
 		calm = 0.35
+	# (Colourful shade, the owner, 2026-10-28: the shade was washing the fronts' colour out; the papercraft reference's shade is light and
+	# tinted. `--shade-colour=A|B|C`: the front calm eased, the fronts' fall into shade lighter and, from B, tinted toward the stage's own
+	# shade hue; see also `key_fill`, the scenery's shade and the dark anchor's foot.)
+	var sc := shade_colour(String(theme.get("name", "meadow")))
+	calm *= {"A": 0.5, "B": 0.25, "C": 0.0, "D": 0.0}.get(sc, 1.0)
+	var tint := Color.from_hsv(float(mood.shadow_hue), 0.3, 0.92)
+	RenderingServer.global_shader_parameter_set("pf_front_tint", Color(tint.r, tint.g, tint.b, 1.0 if sc in ["B", "C", "D"] else 0.0))
+	RenderingServer.global_shader_parameter_set("pf_front_fall_k", {"A": 0.6, "B": 0.5, "C": 0.35, "D": 0.35}.get(sc, 1.0))
+	# (D: C with the contact shade baked into the modelled pieces eased by half, the deeper shade of fidelity review 9.)
+	RenderingServer.global_shader_parameter_set("pf_vshade_lift", 0.5 if sc == "D" else 0.0)
 	RenderingServer.global_shader_parameter_set("pf_front_calm", Color(haze.r, haze.g, haze.b, calm))
 	var m := mood.duplicate()
 	if theme.has("sky_horizon"):
@@ -568,6 +599,8 @@ static func stage_mood(env: Environment, root: Node, theme: Dictionary, post: Sh
 			m.shadow_value = float(m.shadow_value) * 0.9
 	var st := style(theme.get("name", "meadow"))
 	st.scenery_shade = float(st.get("scenery_shade", 1.0)) * float(sl[2])
+	if shade_colour(String(theme.get("name", "meadow"))) in ["C", "D"]:
+		st.scenery_shade = float(st.scenery_shade) * 1.4
 	_set_globals(m, st, String(theme.get("name", "meadow")))
 
 
