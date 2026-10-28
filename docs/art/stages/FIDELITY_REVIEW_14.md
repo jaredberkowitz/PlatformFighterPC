@@ -328,3 +328,7 @@ x1.4, the dark anchor's foot push 0).
 
 Captures: the toon change recompiles every pipeline, and each run lingered on exit compiling the rest (a 15-minute timeout each, until
 the run was capped at 2 minutes; the image is saved in under a minute).
+
+Built D on every stage (the owner's pick): STYLE_DEFAULT `shade_colour="D"` (`Lighting.shade_colour`, `--shade-colour=T` for the look
+before). The shipped fronts measure as mock D: meadow 0.41, canyon 0.29, beach 0.30, city 0.32, grove 0.29. Before and after (the match
+camera: meadow, canyon, city, grove): `review14/shade_colour_built.jpg`.
