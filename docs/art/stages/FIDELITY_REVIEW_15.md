@@ -89,3 +89,6 @@ meadow's shipped [0.32, 0.08]. Under the colourful shade the land round the figh
 The frame's values hold (wide darks 3%). D reads well at the match camera, but at the wide camera its top is a dark slab on a lighter
 front and lighter land, the values upside down. On the Stage Look Review ("meadowground52", `mg52_*`); recommended C. To ship:
 meadow.cfg [backdrop] `fight_ground=[0.42, 0.08]`.
+
+Built C (the owner's pick): meadow.cfg [backdrop] `fight_ground=[0.42, 0.08]`. In the game P1's gap is 0.128. Before and after (the fight,
+match camera): `review15/meadow_ground_built.jpg`. All seven tests pass.
