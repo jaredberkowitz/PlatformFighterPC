@@ -76,3 +76,16 @@ has.
 - The fighters stay outside this plan, and they remain the largest gap in any still.
 
 **Recommended start:** item 1, the cheapest, then item 2, the widest gain.
+
+## Item 1, the meadow's ground a step deeper (mock, 2026-10-28)
+
+`--ground=C|D` (`StageBake.place_play`, the same walked families as review 14's item 2): C [0.42, 0.08], D [0.5, 0.1], against the
+meadow's shipped [0.32, 0.08]. Under the colourful shade the land round the fighters lightened, and P1's gap fell from 0.138 to 0.105.
+
+| | Today | C | D |
+|---|---|---|---|
+| P1's gap | 0.105 | 0.121 | 0.135 |
+
+The frame's values hold (wide darks 3%). D reads well at the match camera, but at the wide camera its top is a dark slab on a lighter
+front and lighter land, the values upside down. On the Stage Look Review ("meadowground52", `mg52_*`); recommended C. To ship:
+meadow.cfg [backdrop] `fight_ground=[0.42, 0.08]`.

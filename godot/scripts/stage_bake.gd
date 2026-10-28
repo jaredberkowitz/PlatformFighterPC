@@ -552,7 +552,9 @@ static func place_play(root: Node3D, t: Dictionary, path: String) -> void:
 	var ground: Array = (StageArt.palette(String(t.get("name", ""))).get("backdrop", {}) as Dictionary).get("fight_ground", [])
 	if String(t.get("name", "")) in ["meadow", "grove", "sunset"]:
 		# (Deeper at full colour: a first try took a fifth of the saturation too, and the lawns went a grey olive.)
-		ground = {"A": [0.2, 0.0], "B": [0.32, 0.08]}.get(flag("--ground=").to_upper(), ground)
+		# (C and D, fidelity review 15 item 1: under the colourful shade the meadow's land round the fighters lightened, and P1's gap fell
+		# from 0.138 to 0.105 at B.)
+		ground = {"A": [0.2, 0.0], "B": [0.32, 0.08], "C": [0.42, 0.08], "D": [0.5, 0.1]}.get(flag("--ground=").to_upper(), ground)
 	if ground.size() == 2:
 		for fam in ["lawn", "top", "path", "top_deep", "top_lit", "top_worn"]:
 			if colours.has(fam):

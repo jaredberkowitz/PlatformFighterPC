@@ -88,8 +88,25 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
     <p>Two lessons from the reference screenshots, mocked from the match camera: the scenery without ink outlines, its edges lit as card bevels instead, and the paper houses rebuilt at the characters' proportions. The earlier rounds stay on the <a href="https://claude.ai/artifact/D1du6MREVumiJDrEdNypW4">Stage Fidelity Review</a>, which is full.</p>
   </header>
 
+  <section class="panel" aria-labelledby="mg52-h" id="meadowground52">
+    <div class="eyebrow">Your call is needed &middot; review 15, item 1: the meadow's ground a step deeper</div>
+    <h2 id="mg52-h">The meadow's fighters back above their ground</h2>
+    <p>The first item of review 15 (its section below). With the colourful shade, the land round the meadow's fighters lightened, and P1's gap fell from 0.138 to 0.105, the only readability cell below 5. This takes the meadow's walked lawn and path a step deeper than review 14's ground did (B there was a third darker). Nothing else changes.</p>
+    <div class="tablewrap"><table><thead><tr><th>Option</th><th>The walked lawn and path</th><th>P1's gap</th></tr></thead><tbody>
+      <tr><td>Today</td><td>A third darker (review 14's B)</td><td>0.105</td></tr>
+      <tr><td>C &middot; A step deeper</td><td>Two fifths darker</td><td>0.121</td></tr>
+      <tr><td>D &middot; Two steps deeper</td><td>Half as light, a little less saturated</td><td>0.135</td></tr>
+    </tbody></table></div>
+    <p>The fight at the match camera: today, C, D, then D wide. The frame's values hold (wide darks 3%).</p>
+    <div class="viewer"><img src="mg52_close.jpg" alt="The meadow's fight today, with C and with D"></div>
+    <div class="row" role="group" aria-label="View"><button data-mg52v="m">Match camera</button><button data-mg52v="w">Wide</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-mg52o="T">Today</button><button data-mg52o="C">C &middot; A step deeper</button><button data-mg52o="D">D &middot; Two steps deeper</button></div>
+    <div class="viewer"><img id="mg52img" alt="Meadow ground option"><span class="vtag" id="mg52tag"></span></div>
+    <p class="muted">My pick: <b>C</b>. It clears 0.12 and the lawn stays a rich green. Honest note: D reads well up close, but at the wide camera its top turns into a dark slab sitting on a lighter front and lighter land, the values upside down.</p>
+  </section>
+
   <section class="panel" aria-labelledby="rv15-h" id="review15">
-    <div class="eyebrow">Your call is needed &middot; fidelity review 15: after review 14 and colourful shade</div>
+    <div class="eyebrow">The plan &middot; fidelity review 15: after review 14 and colourful shade (its items mocked above)</div>
     <h2 id="rv15-h">Light and colour are there; surfaces are left</h2>
     <p>First, the grove's falls and path are built (B; see their section below), so all of review 14 is in. Then all five stages are scored again with that and the colourful shade, judged your way: light, coloured shade like the papercraft reference, with form from lit edges rather than dark crevices. The full write-up is in docs/art/stages/FIDELITY_REVIEW_15.md.</p>
     <div class="tablewrap"><table><thead><tr><th>Stage</th><th>Light</th><th>Surfaces</th><th>Play area</th><th>Background land</th><th>Sky</th><th>World</th><th>Cohesion</th><th>Readability</th><th>Mean</th></tr></thead><tbody>
@@ -3267,5 +3284,15 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
   group("data-gf51v", function (v) { gf51v = v; }, gf51render);
   group("data-gf51o", function (v) { gf51o = v; }, gf51render);
   gf51render();
+  var mg52v = "m", mg52o = "C";
+  var MG52O = { T: "Today", C: "C \u00b7 A step deeper", D: "D \u00b7 Two steps deeper" };
+  function mg52render() {
+    document.getElementById("mg52img").src = "mg52_" + mg52o + "_" + mg52v + ".jpg";
+    document.getElementById("mg52tag").textContent = "Meadow \u00b7 " + MG52O[mg52o] + (mg52v === "w" ? " \u00b7 wide" : " \u00b7 match camera");
+    pressed("data-mg52v", mg52v); pressed("data-mg52o", mg52o);
+  }
+  group("data-mg52v", function (v) { mg52v = v; }, mg52render);
+  group("data-mg52o", function (v) { mg52o = v; }, mg52render);
+  mg52render();
 })();
 </script>
