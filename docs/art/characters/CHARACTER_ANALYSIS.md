@@ -703,10 +703,24 @@ P2, before and after. Loadout, fighter view, select grid, match flow, editor UI 
 The comparison's earlier gaps (form light, sash, trim, feet, cloth print, silhouettes) are done. What still separates them, most visible
 first:
 1. **Tinted glasses hide the eyes** on two of the four defaults (the aviator, the holiday shirt): orange lenses with a white glare stripe
-   over the eyes, which carry the face; at match size two orange discs. The reference cast never cover their eyes. The aviator also
-   wears goggles on its cap, so it has two pairs.
+   over the eyes, which carry the face; at match size two orange discs. (The reference's shades do cover the eyes, `peak-character-
+   frown.jpg`, but its eyes read clearly through a pale tint.) The aviator also wears goggles on its cap, so it has two pairs.
 2. **The spiky fringe** ends in a straight jagged band across the brow, a cut-paper crown rather than separate locks falling over it.
 3. **The ranger's lidded eyes** are shaded grey-olive by the heavy lids, so it reads tired or ill beside the others' ivory whites.
 4. **The aviator's collar** close up: two large flat green triangles, with a ragged white edge where the shirt meets the neck.
 5. **Headwear has no print**: the reference's cap carries the same soft fleck as its shirt (and an embroidered emblem); ours are flat.
 6. **The straw hat's weave** tiles as a visible checker up close (not at menu or match size).
+
+## Glasses (2026-10-28, item 1 above)
+Found by rendering the faces with and without their shades: the pupils did not show at all behind the lenses. The lens laid a 42% orange
+over the face, and in linear light that lifted the navy pupil to a mid orange, so pupil and white ran together. The reference's shades
+(the frown) show the eyes plainly through a pale yellow tint, in big thin ink frames. Mocked coloured glass, that with bigger lenses in
+ink frames, and that with the aviator in no specs; the owner chose the second.
+- `lens.gdshader` multiplies what is behind it by a paler, yellower tint (coloured glass: the pupil stays dark; multiplied, the old
+  orange turned blue skin a dirty grey); the glare streaks moved to their own pass, `lens_glare.gdshader`, drawn over it.
+- The shades' lenses and rims 24% bigger and set lower (`SHADES_SIZE`, `SHADES_DROP`), over the whole eye: the whites showed under the
+  rims. Their frames in ink (`SHADES_FRAME`) instead of brown wire. The goggles and round specs are unchanged.
+- At match size the faces are small and the shades read much as before; the change shows in the menus, the creator and close.
+
+`glasses_pass.png`: the aviator and holiday shirt's faces and the menu, before above after; a side view, before left and after right; a
+match frame before and after. Fighter view, art pipeline, loadout, match flow, select grid and editor UI tests pass.

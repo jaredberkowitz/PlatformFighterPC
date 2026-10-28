@@ -2647,6 +2647,13 @@ func _hat() -> void:
 				_part(hat_pivot, _cyl(0.0, 0.11, 0.32), gold, Vector3(sin(a) * 0.5, 2.36, cos(a) * 0.5) - HAT_PIVOT)
 
 
+## The shades (the glasses pass, 2026-10-28): how much bigger than modelled, how far below the eyes' line in the glasses' design space,
+## and their frames' ink.
+const SHADES_SIZE := 1.24
+const SHADES_DROP := 0.05
+const SHADES_FRAME := Color(0.07, 0.06, 0.14)
+
+
 func _glasses() -> void:
 	# (Dark brown wire, the aviator scout pilot, after the owner's reference.)
 	var frame := toon(Color(0.3, 0.17, 0.12), false)
@@ -2673,21 +2680,30 @@ func _glasses() -> void:
 			# Shades: tinted glass the eyes show through, in a dark frame with a heavier brow bar, and a bridge.
 			# (A light peach tint with white glare streaks, shaders/lens.gdshader, the character pass, 2026-10-19, after the reference cast's
 			# shades: a heavy flat orange turned the eyes behind brown.)
+			# (Coloured glass with the glare drawn over it since the glasses pass, 2026-10-28, the owner's pick of mocks: the see-through tint
+			# lifted the pupils to orange and the eyes vanished. The lenses bigger and lower, over the whole eye (the whites showed under the
+			# rims), in thin ink frames as the reference's shades are drawn.)
 			var lens := ShaderMaterial.new()
 			lens.shader = preload("res://shaders/lens.gdshader")
+			var glare := ShaderMaterial.new()
+			glare.shader = preload("res://shaders/lens_glare.gdshader")
+			lens.next_pass = glare
+			var ink_frame := toon(SHADES_FRAME, false)
+			var y := 1.52 - SHADES_DROP
 			if modelled:
+				var size := Vector3(SHADES_SIZE, SHADES_SIZE, 1.0)
 				for sx in [-1.0, 1.0]:
-					_on_face(_part(glasses_rig, g_lens, lens, Vector3.ZERO), to_head, sx * 0.32, 1.52, 0.04, Vector3.ONE)
-					_on_face(_part(glasses_rig, g_rim_shades, frame, Vector3.ZERO), to_head, sx * 0.32, 1.52, 0.05, Vector3.ONE)
-				_on_face(_part(glasses_rig, g_bridge, frame, Vector3.ZERO), to_head, 0.0, 1.56, 0.06, Vector3.ONE)
+					_on_face(_part(glasses_rig, g_lens, lens, Vector3.ZERO), to_head, sx * 0.32, y, 0.04, size)
+					_on_face(_part(glasses_rig, g_rim_shades, ink_frame, Vector3.ZERO), to_head, sx * 0.32, y, 0.05, size)
+				_on_face(_part(glasses_rig, g_bridge, ink_frame, Vector3.ZERO), to_head, 0.0, 1.56 - SHADES_DROP, 0.06, Vector3.ONE)
 			else:
 				var rim := TorusMesh.new()
 				rim.inner_radius = 0.95
 				rim.outer_radius = 1.05
 				for sx in [-1.0, 1.0]:
-					_on_face(_part(glasses_rig, _sphere(1.0), lens, Vector3.ZERO), to_head, sx * 0.32, 1.52, 0.04, Vector3(0.25, 0.18, 0.03))
-					_on_face(_part(glasses_rig, rim, frame, Vector3.ZERO), to_head, sx * 0.32, 1.52, 0.045, Vector3(0.25, 0.04, 0.18), true)
-				_on_face(_part(glasses_rig, _sphere(1.0), frame, Vector3.ZERO), to_head, 0.0, 1.56, 0.06, Vector3(0.1, 0.025, 0.025))
+					_on_face(_part(glasses_rig, _sphere(1.0), lens, Vector3.ZERO), to_head, sx * 0.32, y, 0.04, Vector3(0.25, 0.18, 0.03) * SHADES_SIZE)
+					_on_face(_part(glasses_rig, rim, ink_frame, Vector3.ZERO), to_head, sx * 0.32, y, 0.045, Vector3(0.25, 0.04, 0.18) * SHADES_SIZE, true)
+				_on_face(_part(glasses_rig, _sphere(1.0), ink_frame, Vector3.ZERO), to_head, 0.0, 1.56 - SHADES_DROP, 0.06, Vector3(0.1, 0.025, 0.025))
 		2:
 			# Goggles: deep padded leather cups with glass, and a strap round the head.
 			var leather := _cloth(toon(Color(0.45, 0.28, 0.12)))
