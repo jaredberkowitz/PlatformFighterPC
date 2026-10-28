@@ -700,10 +700,15 @@ def swept_spikes():
         # And a long lock down the side of the face, in front of the ear.
         spike(bm, hair_root(70.0, 70.0 * sx, sink=0.1), Vector((sx * 0.35, -0.25, -1.0)), 0.55, 0.17, bend=(sx * 0.06, -0.04, 0.0),
               across=(0, 1, 0))
-    # The fringe: five long spikes falling forward over the brow, apart at their tips, which stop above the eyes.
-    for az in (-40, -20, 0, 20, 40):
-        sx = math.sin(math.radians(az))
-        spike(bm, hair_root(40.0, az, sink=0.06), Vector((sx * 0.5, -0.8, -0.7)), 0.52, 0.22, bend=(sx * 0.05, -0.05, -0.04), flat=0.4)
+    # The fringe: three long bangs of unequal length, the middle one falling to a point between the eyes and curling aside, the outer two
+    # swept out over the brows, and two short locks between them so no edge of the mass shows.
+    # (Five equal spikes ending level above the eyes until the fringe pass, 2026-10-28, the owner's pick of mocks: from the front they read
+    # as a jagged band across the brow, a cut-paper crown.)
+    spike(bm, hair_root(36.0, 4.0, sink=0.06), Vector((0.1, -0.75, -0.85)), 0.6, 0.25, bend=(0.1, -0.07, 0.0), flat=0.45)
+    spike(bm, hair_root(40.0, -30.0, sink=0.06), Vector((-0.75, -0.7, -0.6)), 0.55, 0.23, bend=(-0.08, -0.04, 0.03), flat=0.45)
+    spike(bm, hair_root(40.0, 32.0, sink=0.06), Vector((0.8, -0.65, -0.5)), 0.48, 0.21, bend=(0.06, -0.03, 0.04), flat=0.45)
+    for az in (-14.0, 18.0):
+        spike(bm, hair_root(46.0, az, sink=0.06), Vector((0.0, -0.9, -0.6)), 0.3, 0.17, flat=0.5)
     locks = _mesh_obj("hair_locks", bm)
     hair_finish("hair", [mass, locks]).parent = root
     return root

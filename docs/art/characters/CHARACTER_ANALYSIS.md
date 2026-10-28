@@ -724,3 +724,14 @@ ink frames, and that with the aviator in no specs; the owner chose the second.
 
 `glasses_pass.png`: the aviator and holiday shirt's faces and the menu, before above after; a side view, before left and after right; a
 match frame before and after. Fighter view, art pipeline, loadout, match flow, select grid and editor UI tests pass.
+
+## Spiky fringe (2026-10-28, item 2 of the second comparison)
+The spiky hair's fringe was five equal spikes ending level above the eyes: from the front a jagged band across the brow, a cut-paper
+crown. Mocked three fringes in Blender over the holiday shirt's look (three long unequal bangs, locks swept to one side, staggered clumps
+with a short row behind); the owner chose the bangs.
+- `make_gear.py` `swept_spikes`: three long bangs, the middle one falling to a point between the eyes and curling aside, the outer two
+  swept out over the brows, two short locks between them so no edge of the hair's mass shows. 2,978 triangles (the hair budget is 3,000).
+- The built-in hero wears the same hair and gets the same fringe.
+
+`fringe_pass.png`: the holiday shirt's look from the front, three-quarters and the side and in the menu, before above after; a match
+frame before and after. Art pipeline, loadout (mesh budget), fighter view, match flow and select grid tests pass.
