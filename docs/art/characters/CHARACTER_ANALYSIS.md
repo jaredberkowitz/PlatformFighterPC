@@ -622,3 +622,21 @@ as flat discs.
 
 `form_light_pass.png`: the default faces, before above after; the sailor and aviator in T-pose, before and after each; a match frame,
 before and after. Fighter view, art pipeline, loadout, animation library, match flow, select grid, editor UI and prop check tests pass.
+
+## Sash (2026-10-28, the comparison's second weak point)
+Every default look wore the same broad maroon sash with four bright badges, which read as a uniform and the busiest thing on each
+chest; the reference cast wear a thin brown leather strap. Mocked four options (the current sash, a thin leather strap with a brass
+buckle, a navy fabric strap, a mix per look); the owner chose the mix.
+- `fighter_view.gd`: the sash is one builder, `_sash(accent, kind)`: 0 the broad badge sash (as before), 1 a thin leather strap
+  (`STRAP_WIDTH`, `STRAP_LEATHER`) with a small brass buckle over the chest (`_strap_buckle`), 2 the strap with two badges
+  (`STRAP_BADGES`).
+- `loadout.gd`: three new neckwear items, appended so saved looks keep theirs: "leather strap" (6), "badge strap" (7), and "sailor
+  collar" (8), the neckerchief with the sailor's square collar and no sash. The badge sash stays in the creator.
+- The default looks: the sailor in the kerchief and its collar (was kerchief and sash), the aviator in the leather strap, the holiday
+  shirt with none, the ranger in the badge strap (each wore the badge sash).
+- Neckwear that rings the neck is one list, `RING_NECKS` (it hides the shirt's collar); the strap hides the shirt's buttons as the sash
+  does; the sailor's white shorts cuffs and the ranger's kerchief knot follow their new items.
+
+`sash_pass.png`: the four default looks before above after, side views (the sailor and the aviator, before then after), and a match
+frame before and after. Fighter view, loadout (the mesh budget per item), art pipeline, animation library, match flow, select grid,
+editor UI and motion tests pass.
