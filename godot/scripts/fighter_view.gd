@@ -969,6 +969,12 @@ const CHEST_IN_ATTACK := -14.0
 ## (0 since round 2: the body is side-on already, so a move only opens the chest toward its hit, `CHEST_IN_ATTACK`, never passing side-on.)
 const BODY_TURN_IN_ATTACK := 0.0
 const FACE_AWAY_IN_ATTACK := 40.0
+## The standing pivot (round 8): the states that turn on the spot, how fast the body swings round (per second, as a lerp), how much of
+## the turn still to come the head is already turned through (it leads), and that turn still to come (degrees).
+const PIVOT_STATES := ["Idle", "Turn", "Walk", "Crouch", "Shield", "ShieldRelease", "Landing"]
+const PIVOT_RATE := 30.0
+const HEAD_TURN_LEAD := 0.7
+var yaw_left := 0.0
 ## How far into a move the body is turned toward the foe (0 none, 1 fully), eased in and out.
 var attack_turn := 0.0
 ## How far the body is turned round toward a hit behind it (0 none, 1 fully; see BACK_ATTACK_TURN).
@@ -1403,6 +1409,9 @@ func _face_camera(facing: int, delta := 1.0 / 60.0) -> void:
 	# aerial's face 30 down and 75 away; measured again after the first pass, both limits hold.)
 	face_fix_turn = 0.0
 	face_fix_lift = 0.0
+	# (Round 8: turning round on the spot, the head goes first, already turned through most of the turn still to come.)
+	if absf(yaw_left) > 1.0:
+		_turn_bone(head_bone, yaw_left * HEAD_TURN_LEAD)
 	for _pass in 3:
 		_face_camera_once(facing)
 	if not turning_over and not r7_off.has("level"):
@@ -1439,7 +1448,10 @@ func _ease_neck(delta: float) -> void:
 		var frames := delta * 60.0
 		var angle := rad_to_deg(neck_q.angle_to(want))
 		if angle > 0.01:
-			var step := minf(angle * (1.0 - pow(1.0 - NECK_EASE, frames)), NECK_MAX_STEP * frames)
+			# (Round 8: turning round on the spot the head leads, so it is let go faster than the body.)
+			var pivoting := absf(yaw_left) > 1.0
+			var ease := 0.8 if pivoting else NECK_EASE
+			var step := minf(angle * (1.0 - pow(1.0 - ease, frames)), (45.0 if pivoting else NECK_MAX_STEP) * frames)
 			neck_q = neck_q.slerp(want, clampf(step / angle, 0.0, 1.0))
 	var global_basis := to_frame.inverse() * Basis(neck_q)
 	var pg := skeleton.get_bone_global_pose(parent).basis.orthonormalized()
@@ -3449,7 +3461,13 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 		behind = _reach_weight(s)
 	back_turn = move_toward(back_turn, behind, delta * 10.0)
 	turn_deg = lerpf(turn_deg, -BACK_ATTACK_TURN, back_turn)
-	yaw = lerp_angle(yaw, float(look) * deg_to_rad(turn_deg), clampf(delta * 14.0, 0.0, 1.0))
+	# (Round 8, the standing pivot: turning round on the spot the body swings round about twice as fast, as the reference fighters
+	# turn in a frame or two, and the head leads it (`_face_camera`); it swung round at the run's pace, the head with it.)
+	var pivot_turn: bool = grounded and use_base_body and not r8_off.has("pivot") and PIVOT_STATES.has(state) \
+		and absf(float(s.vel.x)) <= 0.08
+	var yaw_to := float(look) * deg_to_rad(turn_deg)
+	yaw = lerp_angle(yaw, yaw_to, clampf(delta * (PIVOT_RATE if pivot_turn else 14.0), 0.0, 1.0))
+	yaw_left = rad_to_deg(wrapf(yaw_to - yaw, -PI, PI)) if pivot_turn else 0.0
 	# The eyes switch sides as the body swings past facing the camera.
 	set_gaze(1 if yaw >= 0.0 else -1)
 	# Leaning is a pitch toward the fighter's front (which, turned, is mostly along the stage).
@@ -4805,7 +4823,9 @@ func _secondary(s: Dictionary, delta: float) -> void:
 		springs.kick("spine", -ahead * 320.0 + landing * 90.0)
 		springs.kick("head", -ahead * 480.0 + landing * 160.0)
 		springs.kick("neck", -dv.x * 40.0)
-		if prev_facing != 0 and facing != prev_facing:
+		# (Not when turning round on the spot, round 8: there the head leads the turn rather than looking back the old way.)
+		if prev_facing != 0 and facing != prev_facing and not (int(s.platform) >= 0 and PIVOT_STATES.has(String(s.state))
+				and absf(float(s.vel.x)) <= 0.08 and not r8_off.has("pivot")):
 			springs.kick("head_turn", float(prev_facing) * 420.0)
 	# A hit on the shield: as its freeze ends the chest and head are knocked back behind it and come forward again.
 	if springs.new_frames > 0 and prev_hitlag > 0 and int(s.hitlag) == 0 and String(s.state) == "Shield":

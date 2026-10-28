@@ -1909,3 +1909,19 @@ knee bend (`review1/mock_stance.jpg`, A/B/C).
 - **Image:** `docs/screenshots/anim/r8_weapon_hand_in_front.jpg` (the Longsword's up tilt, up air and forward tilt, the Greatsword's up
   air; before above).
 - **Checked:** the six tests and `swing_toggle_test` pass.
+
+### Group 9 (round 8): the standing pivot (review item 35)
+
+- **Defect:** turning round on the spot the body swung round at the run's pace (about ten render frames to settle), facing the camera
+  square for two or three of them, and the head swung with it at the same speed (and the `head_turn` spring threw it back the old way).
+  The reference fighters turn in a frame or two, the head first.
+- **Fix (`fighter_view.gd`):** in the standing states (`PIVOT_STATES`, not a skid) the body swings round at `PIVOT_RATE` 30 (was 14); the
+  head is already turned through `HEAD_TURN_LEAD` 0.7 of the turn still to come, its ease let go faster while it does (0.8 a frame, up to
+  45 degrees), and the look-back spring is not kicked. New `--demo=turn` (three standing turnarounds, every frame). `PF_R8_OFF=pivot`
+  shows the old.
+- **Measured** (`PF_HEAD_TRACE`, the turn demo): the head reaches the new side (40 off the camera) two render frames into the turn and
+  stays ahead of the chest (head turned +20 to +10 on the chest through the swing, where it trailed by 20-38); the body settles in about
+  four render frames, not ten.
+- **Image:** `docs/screenshots/anim/r8_turn_pivot.jpg` (two turnarounds, every frame; before above).
+- **Review:** item 35 (turnaround) poses 3 to 4, fluidity 3 to 4, overall 3.0 to 3.7. Mean 3.17.
+- **Checked:** the six tests and `swing_toggle_test` pass.

@@ -243,3 +243,12 @@ Logged in `docs/ANIMATION.md` section 8 (round 8). Images in `docs/screenshots/a
 **Mean 3.15** (3.07 after groups 1-3, 3.00 before the round). By axis: poses 3.00, fluidity 3.32, weight 3.14. Weapons held out of the
 way (group 6) also lift the sword-stance classes' locomotion and defence reads; their items stay 3 on the family representative.
 
+## 7. After round 8's groups 8-9 (2026-10-28)
+
+| # | Item | P | F | W | O | Was |
+|---|---|---|---|---|---|---|
+| 35 | Turnaround (the standing pivot, the head leading) | 4 | 4 | 3 | 3.7 | 3.0 |
+
+Group 8 (a raised sword hand kept in front of the face) is a fix to face cover and the hilt's read rather than an item's axis; it holds
+the sword-stance items where they were. **Mean 3.17** (poses 3.03, fluidity 3.35, weight 3.14).
+

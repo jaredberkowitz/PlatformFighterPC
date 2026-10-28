@@ -213,6 +213,16 @@ static func make(demo_name: String, m: Dictionary, dir: String):
 			for f in range(15, 300):
 				d.shots.append([f, "f%03d" % f])
 			d.end_frame = 301
+		"turn":
+			# Standing turnarounds (round 8, the turn pivot): a tap of the stick the other way and back, three times, a picture every
+			# frame, the camera steady on the fighter.
+			d.cam_dist = 9.0
+			d.cam_focus = 0
+			d.events = [[1, "stand", 0, -2.0, 1], [1, "stand", 1, 9.0, -1]]
+			d.timeline = [[0, 0, 0, 0], [30, -40, 0, 0], [32, 0, 0, 0], [70, 40, 0, 0], [72, 0, 0, 0], [110, -40, 0, 0], [112, 0, 0, 0]]
+			for f in range(25, 140):
+				d.shots.append([f, "f%03d" % f])
+			d.end_frame = 141
 		"dashleft":
 			# Standing facing right, a double tap left into a run (the owner's sliding-run bug, the left clips' loop lost; art review 6).
 			d.cam_dist = 16.0
