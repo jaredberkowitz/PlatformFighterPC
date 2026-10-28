@@ -718,7 +718,12 @@ static func make(demo_name: String, m: Dictionary, dir: String):
 			d.chars = [1, 0, 0, 0]
 			d.cam_dist = 20.0
 			d.events = [[1, "stand", 0, -1.2, 1], [1, "stand", 1, 0.6, -1]]
-			d.timeline = [[0, 0, 0, 0], [10, 0, 0, grab], [11, 0, 0, 0], [30, 0, 0, attack], [32, 0, 0, 0], [58, 0, 0, attack], [60, 0, 0, 0], [86, 127, 0, 0], [90, 0, 0, 0]]
+			# (`--throw=back|up|down` throws that way instead, round 8.)
+			var way := [127, 0]
+			for arg in OS.get_cmdline_user_args():
+				if arg.begins_with("--throw="):
+					way = {"back": [-127, 0], "up": [0, 127], "down": [0, -127]}.get(arg.substr(8), way)
+			d.timeline = [[0, 0, 0, 0], [10, 0, 0, grab], [11, 0, 0, 0], [30, 0, 0, attack], [32, 0, 0, 0], [58, 0, 0, attack], [60, 0, 0, 0], [86, way[0], way[1], 0], [90, 0, 0, 0]]
 			d.shots = [[14, "a_reaching"], [20, "b_held"], [34, "c_pummel"], [90, "d_throw_windup"], [102, "e_thrown"], [125, "f_after"]]
 			d.end_frame = 140
 		"shield_grab":

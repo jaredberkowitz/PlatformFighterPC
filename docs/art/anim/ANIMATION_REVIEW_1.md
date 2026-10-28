@@ -195,7 +195,7 @@ hold and float home per family.
 | 2 | Quick specials (14) | poses, weight | The Needles' own needle volley (aim and throw), chain swing and vanish clips | Open (next) |
 | 3 | Quick and sword aerials' weight (13, 3) | weight | Per-family end-lag shapes fitted to the reference's hold and recovery | **Shipped, group 2** (and the heavy's and caster's) |
 | 4 | Ground attacks' line of action (7, 12, 17, 2) | poses | Lean the whole body into level strikes (the whole-body lean and a chest bend toward the hit) | **Mock** (`review1/mock_line_of_action.jpg`), awaiting the owner |
-| 5 | Grabs and throws (33) | poses | A clip per throw (forward push, back turn and toss, up lift, down slam), mapped by the throw's name | Open |
+| 5 | Grabs and throws (33) | poses | A clip per throw (forward push, back lift-and-toss, up lift, down slam), mapped by the throw's name | **Tried and reverted.** Built and captured all four (`--demo=grab --throw=fwd/back/up/down`): at the match camera the release is under the hit burst and the raised arms hide behind the head, so before and after barely differ (`F:nim_r8\sheets8_throws.jpg`). Next: carry the thrown fighter's motion in the thrower's whole body (a step and turn) rather than the arms |
 | 6 | Clutch down special knee (36) | poses | Knees side by side when both thighs are forward | **Shipped, group 3** (every tuck too) |
 | 7 | Stance width and knee bend (37) | poses | A shallower, narrower stance | **Mock** (`review1/mock_stance.jpg`), awaiting the owner |
 | 8 | Sword, brawler and Staff/Buckler/Nodachi specials (4, 9) | poses | Own clips for the counter, the charged thrust, the reflector, the bow, boomerang and bomb pull | Open |

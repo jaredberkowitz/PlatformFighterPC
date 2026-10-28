@@ -1798,3 +1798,11 @@ every state and what it plays. The side-by-sides with the reference stay on F: (
 
 **Mocks awaiting the owner:** the line of action in ground strikes (`review1/mock_line_of_action.jpg`, A/B/C) and the stance's width and
 knee bend (`review1/mock_stance.jpg`, A/B/C).
+
+### Round 8: a clip per throw, tried and reverted
+
+- Four throw clips (a forward shove, a lift and toss behind, an up lift onto straight legs, a slam down) mapped by the throw's name, both
+  arms posed by the clip. Captured each (`--demo=grab --throw=fwd|back|up|down`, new in `demo.gd`) before and after at the match camera:
+  the release lands under the hit's burst and the raised arms hide behind the big head, so the four read almost as before
+  (`F:\anim_r8\sheets\r8_throws.jpg`). Reverted under the brief's rule (no visible difference at match speed and distance). Next idea in
+  `ANIMATION_REVIEW_1.md` item 5.
