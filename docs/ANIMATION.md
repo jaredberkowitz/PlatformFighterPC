@@ -2125,3 +2125,16 @@ knee bend (`review1/mock_stance.jpg`, A/B/C).
   change; reported for the owner.
 - **Review:** items 3, 13 and 18 poses 3 to 4, overall 3.0 to 3.3 each. Mean 3.25 (poses 3.24, fluidity 3.35, weight 3.16).
 - **Checked:** the six tests pass.
+
+### Group 20 (round 8): shoulder mock (awaiting the owner)
+
+- **Ask:** the owner (2026-10-28): higher shoulders, so a raised arm shows above or beside the head; mock three amounts as a body change.
+- **Built:** `make_cage_body.py --shoulder-raise D` (default 0, today's body byte for byte): the arms lifted whole and the torso's armhole
+  rings with them, the top ring under the neck by at most `SHOULDER_TOP_RAISE`. Options A 0.03, B 0.05, C 0.07, each fitted and rigged by
+  the usual pipeline (rigs on F: and in the mock build's `godot/models/mock/`, not committed). The game loads one with
+  `PF_SHOULDER_MOCK=A|B|C` (`FighterView._mock_path`); unset, today's body. New debug measure `PF_ARM_SHOW`.
+- **Result:** no option shows more of a raised arm: the arm cannot reach above the head from any shoulder the head leaves room for, and
+  a higher shoulder puts the raised hand nearer the head's middle, so fewer raised frames show and the Settler's tool hand covers the face
+  (0 frames today, 9 / 34 / 39). Numbers and the recommendation (keep today's shoulders; reach, not height) in `ANIMATION_REVIEW_1.md`
+  section 15; sheet `docs/art/anim/review1/mock_shoulders.jpg`.
+- **Checked:** with each option the loadout, art pipeline, prop check and fighter view tests pass; the six tests pass with the default.

@@ -280,6 +280,12 @@ ARM_SPLAY = 6.0            # degrees the hanging arm turns out from its shoulder
 ARM_ROOT = Vector((0.435, 0.0, 1.37))   # the shoulder cap's middle (ARM[0]), right side
 BODY_HEIGHT = 2.24         # the finished body's height (as before the refit)
 TORSO_CORE = 0.36          # inside this distance from the middle a point is scaled; outside it (the sides, the arms) shifted
+# Higher shoulders (round 8 mock, the owner 2026-10-28: "higher shoulders most likely makes more sense", so a raised arm shows above or
+# beside the big head instead of behind it). `--shoulder-raise D` lifts the arms whole (their length kept) and the torso's shoulder rings
+# with them: the armhole's rings by D, the ring under them easing in, the top ring under the neck by at most SHOULDER_TOP_RAISE, so the
+# shoulder line squares off under the head rather than the arm leaving from the neck. 0 is today's body.
+SHOULDER_RAISE = 0.0
+SHOULDER_TOP_RAISE = 0.02
 
 
 def _rise(z):
@@ -308,6 +314,22 @@ def _width(oz):
     return ramp(SHOULDER_NARROW, 1.0, (oz - 1.5) / 0.08)
 
 
+def _shoulder_rise(z):
+    """How far the shoulder raise lifts a torso point at height z (as built): none at the chest (1.18), all of it through the armhole
+    (1.37 to 1.45), easing to SHOULDER_TOP_RAISE at the top ring (1.52) and none at the neck (1.55)."""
+    d = SHOULDER_RAISE
+    if d == 0.0 or z <= 1.18 or z >= 1.55:
+        return 0.0
+    if z <= 1.37:
+        return d * (z - 1.18) / 0.19
+    if z <= 1.45:
+        return d
+    top = min(d, SHOULDER_TOP_RAISE)
+    if z <= 1.52:
+        return d + (top - d) * (z - 1.45) / 0.07
+    return top * (1.55 - z) / 0.03
+
+
 def _reshape(co, arm=False):
     x, y, z = co
     if arm:
@@ -319,7 +341,7 @@ def _reshape(co, arm=False):
         rel = Vector((rel.x * math.cos(a) - rel.z * math.sin(a), rel.y, rel.x * math.sin(a) + rel.z * math.cos(a)))
         p = root + rel
         k = _width(ARM_ROOT.z)
-        return (p.x + math.copysign(1.0, x) * TORSO_CORE * (k - 1.0), p.y, p.z + _rise(ARM_ROOT.z))
+        return (p.x + math.copysign(1.0, x) * TORSO_CORE * (k - 1.0), p.y, p.z + _rise(ARM_ROOT.z) + SHOULDER_RAISE)
     k = _width(z)
     if abs(x) <= TORSO_CORE:
         x *= k
@@ -327,7 +349,7 @@ def _reshape(co, arm=False):
         # (copysign(1, x) times the shift: copysign(shift, x) dropped the shift's own sign, so until the refit every narrowing outside the
         # core widened instead; the hips stood 0.018 wider than HIP_NARROW asked.)
         x += math.copysign(1.0, x) * TORSO_CORE * (k - 1.0)
-    return (x, y, z + _rise(z))
+    return (x, y, z + _rise(z) + _shoulder_rise(z))
 
 
 def build(name="BaseBody", levels=SUBDIV):
@@ -359,6 +381,8 @@ def build(name="BaseBody", levels=SUBDIV):
 def main():
     argv = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
     opts = {argv[i].lstrip("-"): argv[i + 1] for i in range(0, len(argv), 2)}
+    global SHOULDER_RAISE
+    SHOULDER_RAISE = float(opts.get("shoulder-raise", SHOULDER_RAISE))
     bpy.ops.wm.read_factory_settings(use_empty=True)
     obj = build()
     bpy.context.view_layer.objects.active = obj

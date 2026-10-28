@@ -348,3 +348,39 @@ the face clear. If the back airs should turn as the references' do, C there, aft
 | 18 | Heavy aerials (the up air curls nearly flat, as the dinosaur's tail flip) | 4 | 3 | 3 | 3.3 | 3.0 |
 
 **Mean 3.25** (poses 3.24, fluidity 3.35, weight 3.16).
+
+## 15. Shoulder mock: higher shoulders so a raised arm shows (2026-10-28, awaiting the owner's pick)
+
+The owner (2026-10-28): "higher shoulders most likely makes more sense", so a raised arm shows above or beside the big head instead of
+behind it. Mocked as a change to the body itself (`art/blender/make_cage_body.py --shoulder-raise D`), not a pose: the arms lifted whole,
+their length kept, the torso's armhole rings with them, the top ring under the neck by at most 0.02, so the shoulder line squares off
+under the head. Measured, rigged and run through the whole pipeline (fit_body.py, make_rigged_blob.py) as today's body is.
+
+- **A:** +0.03 (the shoulder joint up 0.04).
+- **B:** +0.05 (up 0.055).
+- **C:** +0.07 (up 0.075; higher and the armhole meets the neck ring, the arm leaving from the neck).
+
+**Sheets:** `review1/mock_shoulders.jpg`, and `review1/mock_shoulders_roster.jpg` (the dressed roster per option: the change is hard to see). Columns are today, A, B and C. Rows: the body front-on (bare and dressed); idle and run; the
+Longsword's up tilt (both facings) and up air; the Settler's, the Clutch's up airs; the special fall; the item throw, at the match camera.
+
+**Measured** (`PF_ARM_SHOW`: frames with a hand raised above its shoulder, how many show clear of the head on screen, and the highest
+raised hand against the head's middle):
+
+| | Longsword up tilt and up air | Settler up air | Clutch up air | Special fall | Item throw |
+|---|---|---|---|---|---|
+| Today | 19 of 47, top -0.08 | 11 of 78, -0.16 | 14 of 52, -0.02 | 24 of 81, -0.17 | 32 of 32, -0.23 |
+| A | 19 of 48, -0.09 | 11 of 79, -0.14 | 14 of 54, -0.02 | 25 of 82, -0.15 | 23 of 33, -0.20 |
+| B | 17 of 46, -0.08 | 11 of 79, -0.12 | 15 of 56, +0.01 | 23 of 82, -0.13 | 20 of 25, -0.18 |
+| C | 17 of 48, -0.10 | 10 of 80, -0.10 | 13 of 56, +0.03 | 22 of 81, -0.11 | 15 of 32, -0.17 |
+
+Face cover over the gallery: the Longsword 3 / 4 / 3 / 2, the Gauntlets 5 / 5 / 6 / 5, the Settler 0 / 9 / 34 / 39 (its raised tool hand
+lands on the face). The shoulder deforms cleanly at rest and with the arms out (T-pose); shirts, sleeves, sash and badges, neckwear, hats
+and glasses follow (the loadout, art pipeline, prop check and fighter view tests pass with each option).
+
+**Why it does not help:** the head is far taller than the arm can reach. From today's shoulder (1.41) the 0.55 arm reaches 1.96 straight up;
+from C's, 2.04; the head's top is at 2.24. No raise the head leaves room for puts a hand above it, and a higher shoulder brings the raised
+hand nearer the head's middle, inside its disc on screen, so fewer raised frames show (the item throw 32 of 32 today, 15 of 32 at C).
+
+**Recommendation:** none of the three; keep today's shoulders. What would show a raised arm is reach, not height: longer arms (the
+reference cast's reach past the head), a smaller head, or raised arms posed out to the side (beside the head rather than over it), the
+last an animation change that needs no new body. Asked of the owner with this sheet.

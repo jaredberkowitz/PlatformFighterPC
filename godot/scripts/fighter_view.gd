@@ -204,6 +204,18 @@ const RIG_LONG_PATH := "res://models/blob_rig_long.glb"
 ## make_rigged_blob.py writes with it. It is the fighters' body; `--blob` brings back the first, built body.
 const RIG_BASE_PATH := "res://models/base_rig.glb"
 const BASE_INFO_PATH := "res://models/base_rig.json"
+## The shoulder mock (round 8, the owner 2026-10-28: higher shoulders, so a raised arm shows above or beside the head): with the
+## environment variable PF_SHOULDER_MOCK set to A, B or C, the base body is the one built with its shoulders raised that much
+## (art/blender/make_cage_body.py --shoulder-raise), from models/mock/ when a mock build carries it. Unset, today's body.
+static var shoulder_mock := OS.get_environment("PF_SHOULDER_MOCK").strip_edges().to_upper()
+
+
+static func _mock_path(path: String) -> String:
+	if shoulder_mock in ["A", "B", "C"]:
+		var alt := path.replace("res://models/base_rig", "res://models/mock/base_rig_" + shoulder_mock)
+		if ResourceLoader.exists(alt) or FileAccess.file_exists(alt):
+			return alt
+	return path
 static var use_base_body: bool = not OS.get_cmdline_user_args().has("--blob")
 static var _base_info: Dictionary = {}
 const LONG_SCALE := 0.92
@@ -284,8 +296,8 @@ static func _model_scene(path: String) -> Node:
 
 
 static func _base_rig_info() -> Dictionary:
-	if _base_info.is_empty() and FileAccess.file_exists(BASE_INFO_PATH):
-		var data = JSON.parse_string(FileAccess.get_file_as_string(BASE_INFO_PATH))
+	if _base_info.is_empty() and FileAccess.file_exists(_mock_path(BASE_INFO_PATH)):
+		var data = JSON.parse_string(FileAccess.get_file_as_string(_mock_path(BASE_INFO_PATH)))
 		if data is Dictionary:
 			_base_info = data
 	return _base_info
@@ -294,7 +306,7 @@ static func _base_rig_info() -> Dictionary:
 ## Builds the rigged blob (arms, legs and animation clips from art/blender/make_rigged_blob.py). Returns false if it is not available, and
 ## the fighter is then built from parts or spheres.
 func _build_rig(skin: Material) -> bool:
-	var rig_path := RIG_BASE_PATH if use_base_body else (RIG_LONG_PATH if long_limbs else RIG_PATH)
+	var rig_path := _mock_path(RIG_BASE_PATH) if use_base_body else (RIG_LONG_PATH if long_limbs else RIG_PATH)
 	if not _rig_templates.has(rig_path):
 		_rig_templates[rig_path] = null
 		_rig_templates[rig_path] = _model_scene(rig_path)
@@ -3229,6 +3241,28 @@ func _body_spring_time(s: Dictionary, delta: float) -> float:
 static var log_cover := OS.has_environment("PF_FACE_COVER")
 const COVER_R := 0.4
 const FRONT_COVER_Z := 0.15
+## With the environment variable PF_ARM_SHOW set (round 8, the shoulder mock's measure): every frame in which a hand is raised above its
+## shoulder is printed, "ARMSHOW <class> <state> <move> <frame> <side> <shown> <height>": shown 1 when the hand stands clear of the head
+## on screen (outside the head's disc, or in front of it), and the hand's height above the head's middle (world units).
+static var log_arm_show := OS.has_environment("PF_ARM_SHOW")
+
+
+func _log_arm_show(s: Dictionary) -> void:
+	if skeleton == null or head_bone < 0:
+		return
+	var hp: Transform3D = skeleton.global_transform * skeleton.get_bone_global_pose(head_bone)
+	var centre: Vector3 = hp.origin + hp.basis.y.normalized() * HEAD_CENTRE_UP * hp.basis.y.length()
+	var r: float = float((_base_rig_info().get("head_ball", [0.0, 0.0, 0.36]) as Array)[2]) * hp.basis.x.length()
+	for side in ["L", "R"]:
+		var h: Vector3 = skeleton.global_transform * skeleton.get_bone_global_pose(skeleton.find_bone("hand." + side)).origin
+		var sh: Vector3 = skeleton.global_transform * skeleton.get_bone_global_pose(skeleton.find_bone("armU." + side)).origin
+		if h.y <= sh.y + 0.05:
+			continue
+		var shown := Vector2(h.x - centre.x, h.y - centre.y).length() > r or h.z > centre.z + r * 0.5
+		print("ARMSHOW %d %s %s %d %s %d %.3f" % [_cls(s), s.state, String(s.move_name).replace(" ", "_"), int(s.state_frame), side,
+			1 if shown else 0, h.y - centre.y])
+
+
 ## How far the face may turn from the camera (its forward axis' depth, world space) and still count as seen.
 const FACE_AWAY_Z := -0.2
 
@@ -6485,6 +6519,8 @@ func _apply_combat(s: Dictionary, delta: float) -> void:
 		_update_smear(s)
 		if log_cover:
 			_log_face_cover(s)
+		if log_arm_show:
+			_log_arm_show(s)
 	# (The claws' flame rushes only: the Needles' specials are their own.)
 	var rushing: bool = _cls(s) == 1 and state == "Attack" and BRAWLER_FLAME.has(s.move_name) and s.state_frame >= 12
 	flame.emitting = rushing
