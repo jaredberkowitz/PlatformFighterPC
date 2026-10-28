@@ -88,8 +88,28 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
     <p>Two lessons from the reference screenshots, mocked from the match camera: the scenery without ink outlines, its edges lit as card bevels instead, and the paper houses rebuilt at the characters' proportions. The earlier rounds stay on the <a href="https://claude.ai/artifact/D1du6MREVumiJDrEdNypW4">Stage Fidelity Review</a>, which is full.</p>
   </header>
 
+  <section class="panel" aria-labelledby="gf51-h" id="grovefalls51">
+    <div class="eyebrow">Your call is needed &middot; review 14, item 8: the grove's falls and path</div>
+    <h2 id="gf51-h">Falls in layers, a path of earth</h2>
+    <p>First, the colourful shade is built (D on every stage; see its section below). Then the last item of review 14, the grove:</p>
+    <ul style="display:grid;gap:6px;margin:0 0 10px;padding-left:1.4em;max-width:78ch">
+      <li><b>The falls</b> were five to seven full-height strips in two blues by turns, which read as candy stripes on a card. Now each fall is cut into sheets laid over one another from the lip down, each a step out from the one above with a pale foam lip, so the water falls in layers.</li>
+      <li><b>The path</b> the fighters stand on was a pale cream that went lavender under the grove's pink light, a flat stripe. Now it's a worn earth.</li>
+    </ul>
+    <div class="tablewrap"><table><thead><tr><th>Option</th><th>Falls</th><th>Path</th></tr></thead><tbody>
+      <tr><td>A &middot; A step</td><td>Three columns of layered sheets</td><td>A worn earth</td></tr>
+      <tr><td>B &middot; Clear</td><td>Two wider columns of layered sheets, with a fuller foam foot</td><td>A deeper earth</td></tr>
+    </tbody></table></div>
+    <p>Today then B: a fall (wide), then the fight's ground (match camera). The falls are unlit, as mocks are; the shipped ones are re-lit. P1's gap rises from 0.124 to 0.134 (B); the frame's values hold.</p>
+    <div class="viewer"><img src="gf51_close.jpg" alt="The grove's falls and path today and with option B"></div>
+    <div class="row" role="group" aria-label="View"><button data-gf51v="m">Match camera</button><button data-gf51v="w">Wide</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-gf51o="T">Today</button><button data-gf51o="A">A &middot; A step</button><button data-gf51o="B">B &middot; Clear</button></div>
+    <div class="viewer"><img id="gf51img" alt="Grove falls and path option"><span class="vtag" id="gf51tag"></span></div>
+    <p class="muted">My pick: <b>B</b>. The path reads as earth worn by feet and lifts the fighters a little more, and the falls read as water dropping in tiers rather than stripes. Honest note: the sheets' tops and foam lips are still straight, so up close they read a little like stacked tiles. Scalloped, ragged sheet edges would be the next step if you want more.</p>
+  </section>
+
   <section class="panel" aria-labelledby="sh50-h" id="shadecolour50">
-    <div class="eyebrow">Your call is needed &middot; your note: the shade washing the fronts' colour out</div>
+    <div class="eyebrow">Built D on every stage (the owner's pick) &middot; your note: the shade washing the fronts' colour out</div>
     <h2 id="sh50-h">Light, coloured shade, as the papercraft reference has it</h2>
     <p>First, the meadow's terraces and mountains are built (B, the meadow re-lit; see its section below). Then your note: the shadows were washing out the colour on the stage fronts. Measured against the papercraft reference, they were. Its shaded faces sit at 0.36 to 0.78 in value, a light colour tinted cool, with drawn detail in them. Our fronts sat at 0.20 to 0.26, dark enough that even a saturated red, the canyon's at 0.72 saturation, reads as mud.</p>
     <p>Five things stacked up to push the fronts down. I measured each one's share:</p>
@@ -3200,5 +3220,15 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
   group("data-sh50v", function (v) { sh50v = v; }, sh50render);
   group("data-sh50o", function (v) { sh50o = v; }, sh50render);
   sh50render();
+  var gf51v = "w", gf51o = "B";
+  var GF51O = { T: "Today", A: "A · A step", B: "B · Clear" };
+  function gf51render() {
+    document.getElementById("gf51img").src = "gf51_" + gf51o + "_" + gf51v + ".jpg";
+    document.getElementById("gf51tag").textContent = "Grove · " + GF51O[gf51o] + (gf51v === "w" ? " · wide" : " · match camera");
+    pressed("data-gf51v", gf51v); pressed("data-gf51o", gf51o);
+  }
+  group("data-gf51v", function (v) { gf51v = v; }, gf51render);
+  group("data-gf51o", function (v) { gf51o = v; }, gf51render);
+  gf51render();
 })();
 </script>

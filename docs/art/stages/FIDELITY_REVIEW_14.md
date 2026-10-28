@@ -332,3 +332,18 @@ the run was capped at 2 minutes; the image is saved in under a minute).
 Built D on every stage (the owner's pick): STYLE_DEFAULT `shade_colour="D"` (`Lighting.shade_colour`, `--shade-colour=T` for the look
 before). The shipped fronts measure as mock D: meadow 0.41, canyon 0.29, beach 0.30, city 0.32, grove 0.29. Before and after (the match
 camera: meadow, canyon, city, grove): `review14/shade_colour_built.jpg`.
+
+## Item 8, the grove's falls and path (mock, 2026-10-28)
+
+**Falls** (`make_grove_paper.py --fall_look A|B`, on the shipped flags; `layered_fall`). Each fall is cut into four sheets laid over one
+another from the lip down. Each starts lower than the one above, stands 0.06 further out and is 0.06 wider each side, its blue set per
+sheet (by turns, offset by column), with a pale foam lip in `spray` along its top. A has three columns, B two, with a fuller foam foot.
+Before, five to seven full-height strips alternated two blues: candy stripes on a card.
+
+**Path** (`--path=A|B`, `StageBake.place_play`, grove only): A (0.78, 0.64, 0.5), B (0.7, 0.55, 0.4), in place of the cream (0.88, 0.79,
+0.72) that went lavender under the grove's pink light.
+
+P1's gap 0.124 today (unlit mock ground), 0.128 A, 0.134 B; the wide values hold (darks 17%). The sheets' tops and foam lips are still
+straight, so up close they read a little like stacked tiles; scalloped edges would be next. On the Stage Look Review ("grovefalls51",
+`gf51_*`); recommended B. To ship: rebuild `godot/models/stages/grove_paper.glb` with `--fall_look B`, set grove.cfg's `path_colour` to
+(0.7, 0.55, 0.4), and re-light the grove.
