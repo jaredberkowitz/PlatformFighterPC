@@ -2070,3 +2070,17 @@ knee bend (`review1/mock_stance.jpg`, A/B/C).
 - **Review:** item 12 (quick ground attacks) poses 2 to 3, overall 2.7 to 3.0; item 18 (heavy aerials) poses 2 to 3, overall 2.7 to 3.0.
   Mean 3.23 (poses 3.16, fluidity 3.35, weight 3.16).
 - **Checked:** the six tests pass.
+
+### Group 17 (round 8): the Longsword's forward air curled over its swing (review item 3)
+
+- **Defect:** the swordsman reference curls forward round his forward air's swing, the legs tucked under (frames 10-22); ours swung the
+  blade under an upright body (side by side on F: only, `F:/anim_r8/ref/g17_side_by_side.jpg`). Checked alongside: the Longsword's
+  forward smash and forward tilt already lunge as low as the reference's since line of action C, and the Needles' forward air already lies
+  flat forward as the ninja's, so neither changed.
+- **Fix (`fighter_view.gd`):** `AIR_CURL` gains the Longsword's forward air, 22 degrees forward on top of the swing's own curl, eased with
+  the reach. `PF_R8_OFF=curl` shows the old.
+- **Measured:** face cover over the gallery 3 frames, unchanged (the back air's 30, the forward air's hilt on 3-4, the up special's 2).
+- **Image:** `docs/screenshots/anim/r8_g17_sword_fair_curl.jpg` (before above after).
+- **Review:** item 3 (sword aerials) holds at 3.0: the curl brings the forward air nearer, but the up air and the back air are where the
+  reference flips and turns the whole body, which the owner turned down (2026-10-13). Mean 3.23.
+- **Checked:** the six tests pass.

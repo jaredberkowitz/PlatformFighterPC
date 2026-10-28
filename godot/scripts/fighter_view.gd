@@ -4818,7 +4818,7 @@ const AIR_BACK_BASE := 12.0
 const AIR_FORWARD := 50.0
 ## Aerials curled further forward over their hit (degrees, on top of `_air_counter`), by class (round 8): the Clutch's forward air, the
 ## headbutt down onto a hit low ahead, curls the body head-down as the dinosaur's does (a pitch, not a flip).
-const AIR_CURL := {8: {"fair": 34.0}}
+const AIR_CURL := {8: {"fair": 34.0}, 0: {"fair": 22.0}}
 const AIR_KICK_BACK := 18.0
 const AIR_KICK_BACK_BASE := 6.0
 const AIR_PIVOT := Vector3(0, 1.0, 0)
