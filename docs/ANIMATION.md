@@ -1978,3 +1978,24 @@ knee bend (`review1/mock_stance.jpg`, A/B/C).
 - **Image:** `docs/screenshots/anim/r8_g11_staff_great_nodachi_specials.jpg` (each special, before above after).
 - **Review:** item 4 (sword specials, the whole sword family now on its own specials) weight 3 to 4, overall 3.3 to 3.7. Mean 3.19.
 - **Checked:** the six tests pass.
+
+### Group 12 (round 8): the Seer's staff drawn behind the head where its shaft passes the face
+
+- **Defect:** since the grip in the fist (group 7) the Seer's face cover had crept from 2 frames to 4 (the forward smash's hilt, the
+  neutral air's other wrist, the up air's hand). Worse, and missed by the measure, which looks at hands and the hilt: the forward smash's
+  wind-up laid the staff's shaft across the mouth and eyes for about six frames (12-17). The staff is long and runs past the hand both
+  ways, so its shaft crossed the face where the hands never came near the head, and the hand-only rule (`_behind_head_k`) never fired.
+- **Fix (`fighter_view.gd`):** `_shaft_face_k` measures how near the shaft (from `SHAFT_BEHIND_HAND` behind the hand to the tip) passes to
+  the drawn face, or to the head's middle, whichever is nearer (turned toward the camera, the face reaches back past `FACE_FWD`). Within
+  `SHAFT_FACE_IN` 0.6 of `HEAD_CLEAR_R` the staff goes behind the head (`HEAD_BEHIND_Z`), easing out by 0.95. It still shows above and
+  below the head. The Seer only. `PF_R8_OFF=shaft` shows the old.
+- **Tried:** at the head's whole size (0.75-1.15) the staff held level at the chest went behind the body and vanished from the forward
+  smash's strike. Measured from the face point alone, the shaft still ran over the back of the face at frames 12-14.
+- **Measured:** the Seer's face cover over the gallery is 2 frames (was 4: the forward smash's hilt on 19 and the up air on 22 remain, the
+  hand at the cheek's edge); the front measure is 12 either way, with a different mix of frames. The forward smash's wind-up now passes
+  behind the head.
+- **Image:** `docs/screenshots/anim/r8_g12_staff_shaft.jpg` (the forward smash's wind-up and the up air, frame by frame, before above
+  after).
+- **Review:** a fix to face cover rather than an item's axis (the Seer is in the sword family, whose representative is the Longsword);
+  scores unchanged, mean 3.19.
+- **Checked:** the six tests pass.

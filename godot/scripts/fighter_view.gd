@@ -4718,6 +4718,13 @@ func _pose_blade(s: Dictionary, delta: float) -> void:
 		var k := _behind_head_k(hand, facing, FACE_FWD if held_up else 0.0)
 		if k > 0.0:
 			hand_z = lerpf(hand_z, HEAD_BEHIND_Z, k)
+	# (Round 8: the Seer's staff is long and runs past the hand both ways, so its shaft crossed the face where its hands never came near
+	# the head: the forward smash's wind-up laid it across the face, the up air stood it beside the chin. Wherever the shaft passes the
+	# drawn face, the staff goes behind the head instead, eased by how near; it still shows above and below it.)
+	if use_base_body and _cls(s) == STAFF_CLASS and skeleton != null and head_bone >= 0 and not r8_off.has("shaft"):
+		var kshaft := _shaft_face_k(hand, tip, facing)
+		if kshaft > 0.0:
+			hand_z = minf(hand_z, lerpf(hand_z, HEAD_BEHIND_Z, kshaft))
 	# (The raised sword is drawn back behind the head in depth, so the hanging blade does not cross the face.)
 	if blade_up > 0.0:
 		hand_z = lerpf(hand_z, BLADE_OVERHEAD_Z, blade_up)
@@ -5098,6 +5105,33 @@ func _behind_head_k(hand: Vector2, facing: int, fwd := 0.0) -> float:
 	var hc3 := _skeleton_to_frame() * (hp.origin + hp.basis.y.normalized() * HEAD_CENTRE_UP)
 	var near := (hand - Vector2(hc3.x * facing + fwd, hc3.y)).length() / HEAD_CLEAR_R
 	return 1.0 - smoothstep(0.75, 1.15, near)
+
+
+## How near a weapon's shaft (forward space, from a little behind the hand to the tip) passes to the drawn face, as the weight for drawing
+## it behind the head (1 across the face, easing to 0 a little past its edge), round 8.
+func _shaft_face_k(hand: Vector2, tip: Vector2, facing: int) -> float:
+	var hp := skeleton.get_bone_global_pose(head_bone)
+	var hc3 := _skeleton_to_frame() * (hp.origin + hp.basis.y.normalized() * HEAD_CENTRE_UP)
+	var face := Vector2(hc3.x * facing + FACE_FWD, hc3.y)
+	var seg := tip - hand
+	var from := hand - seg.normalized() * SHAFT_BEHIND_HAND
+	seg = tip - from
+	# (From the drawn face and from the head's middle, the nearer: turned toward the camera, the face reaches back past FACE_FWD.)
+	var near := INF
+	for p in [face, Vector2(hc3.x * facing, hc3.y)]:
+		var u := clampf((p - from).dot(seg) / maxf(seg.length_squared(), 0.0001), 0.0, 1.0)
+		near = minf(near, (from + seg * u - p).length() / HEAD_CLEAR_R)
+	return 1.0 - smoothstep(SHAFT_FACE_IN, SHAFT_FACE_OUT, near)
+
+
+## The shaft's reach of the face (shares of HEAD_CLEAR_R): behind the head from the drawn face's own size, eased out by a little past it (at
+## the head's whole size, 0.75-1.15, a staff held level at the chest went behind the body and vanished from the forward smash's strike).
+const SHAFT_FACE_IN := 0.6
+const SHAFT_FACE_OUT := 0.95
+
+
+## How far the staff's foot runs past the weapon hand (world units).
+const SHAFT_BEHIND_HAND := 0.3
 
 
 ## A hand covering the drawn face, whatever put it there (a clip's free arm, an overhead reach, a two-handed grip), is moved out to the
