@@ -2054,3 +2054,19 @@ knee bend (`review1/mock_stance.jpg`, A/B/C).
 - **Image:** `docs/screenshots/anim/r8_g15_special_states_body.jpg` (before above after for each).
 - **Review:** item 34 (special states) poses 2 to 3, overall 2.7 to 3.0. Mean 3.21 (poses 3.11, fluidity 3.35, weight 3.16).
 - **Checked:** the six tests pass.
+
+### Group 16 (round 8): the Needles' high forward kick and the Clutch's curled forward air (review items 12 and 18)
+
+- **Defect:** the two lowest items after group 15 (2.7, poses 2). The ninja's forward tilt is a tall, straight high kick, the leg held up
+  near head height through frames 7-16; ours aimed the leg at its chest-high hits, 32 degrees above level from the hip, and read as a
+  knee-high kick. The dinosaur's forward air curls the whole body over, head down, onto its hit low ahead; ours lunged flat, the head
+  level with the hit's top (side by side on F: only, `F:/anim_r8/ref/g16_side_by_side.jpg`).
+- **Fix (`fighter_view.gd`):** `KICK_RAISE`, kicks that rise at least so far from the hip whatever their hit's height (the Needles'
+  forward tilt 50 degrees, the leg straight, under the owner's 65-degree high-kick limit). `AIR_CURL`, aerials curled further forward over
+  their hit, eased with the reach (the Clutch's forward air 34 degrees on top of the swing's own: a pitch, not a flip, after the owner's
+  "our own solutions" for the references' flips). `PF_R8_OFF=kicks` and `curl` show the old.
+- **Measured:** face cover over the gallery unchanged, the Needles 1 frame (a wrist) and the Clutch 3 (its extra move 3).
+- **Image:** `docs/screenshots/anim/r8_g16_high_kick_air_curl.jpg` (before above after).
+- **Review:** item 12 (quick ground attacks) poses 2 to 3, overall 2.7 to 3.0; item 18 (heavy aerials) poses 2 to 3, overall 2.7 to 3.0.
+  Mean 3.23 (poses 3.16, fluidity 3.35, weight 3.16).
+- **Checked:** the six tests pass.

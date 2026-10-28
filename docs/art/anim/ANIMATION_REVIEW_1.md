@@ -288,3 +288,12 @@ states (2.7, poses 2 each).
 | 34 | Special states (the special fall's slump and rock, the daze's wobble, the buried struggle) | 3 | 3 | 3 | 3.0 | 2.7 |
 
 **Mean 3.21** (poses 3.11, fluidity 3.35, weight 3.16). The lowest now: 12 quick ground attacks and 18 heavy aerials (2.7, poses 2).
+
+## 12. After round 8's group 16 (2026-10-28)
+
+| # | Item | P | F | W | O | Was |
+|---|---|---|---|---|---|---|
+| 12 | Quick ground attacks (the forward tilt a high kick, held up) | 3 | 3 | 3 | 3.0 | 2.7 |
+| 18 | Heavy aerials (the forward air curled head-down onto its hit) | 3 | 3 | 3 | 3.0 | 2.7 |
+
+**Mean 3.23** (poses 3.16, fluidity 3.35, weight 3.16). No item is below 3.0 now; the 3.0 items lead with poses next.

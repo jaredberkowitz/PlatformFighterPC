@@ -3362,6 +3362,10 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 			target_lean += _nair_roll(s)
 		elif not grounded and use_base_body:
 			target_lean += _air_counter(s, phi) * _reach_weight(s)
+			# (Round 8, review item 18: an aerial whose body curls right over onto its hit, the dinosaur's headbutt down onto a hit low
+			# ahead; at the swing's 18 degrees the round body lunged flat, the head level with the hit's top.)
+			if not r8_off.has("curl"):
+				target_lean += float((AIR_CURL.get(_cls(s), {}) as Dictionary).get(String(s.move_name), 0.0)) * _reach_weight(s)
 		else:
 			# (A body with legs leans with its spine and hips, from its clips and the body-follow; tipping the whole model would pivot it
 			# on its feet, so the base body keeps only a little of this on the ground.)
@@ -4812,6 +4816,9 @@ func _reach_weight(s: Dictionary) -> float:
 const AIR_BACK := 36.0
 const AIR_BACK_BASE := 12.0
 const AIR_FORWARD := 50.0
+## Aerials curled further forward over their hit (degrees, on top of `_air_counter`), by class (round 8): the Clutch's forward air, the
+## headbutt down onto a hit low ahead, curls the body head-down as the dinosaur's does (a pitch, not a flip).
+const AIR_CURL := {8: {"fair": 34.0}}
 const AIR_KICK_BACK := 18.0
 const AIR_KICK_BACK_BASE := 6.0
 const AIR_PIVOT := Vector3(0, 1.0, 0)
@@ -5406,6 +5413,12 @@ static func _leg_hinge(up0: Vector3, low0: Vector3, up1: Vector3, low1: Vector3,
 const KICK_HIP_Y := 0.6
 ## The steepest a kick rises on the base body (degrees above level, see `_aim_leg`).
 const HIGH_KICK := 65.0
+## Kicks that rise at least this far above level from the hip whatever their hit's height (round 8, review item 12): the Needles'
+## forward tilt is the ninja's tall, straight high kick, the leg held up near head height; aimed at its chest-high hit it rose 32 degrees
+## and read as a knee-high kick.
+const KICK_RAISE := {2: {"ftilt": 50.0}}
+## How far out from the hip a raised kick's foot is aimed at least (the leg straight).
+const KICK_RAISE_REACH := 1.3
 ## How far ahead of the hips an overhead kick's foot is kept, so the leg rises past the face rather than across it (round 3).
 const KICK_CLEAR_X := 0.8
 ## Where (depth, toward the camera positive) a kick behind and overhead puts its foot: behind the head.
@@ -5468,6 +5481,9 @@ func _aim_leg(s: Dictionary, kicking: bool, delta: float) -> void:
 		# body, a high kick that reads (after the reference's high forward kicks: the owner, 2026-10-17).
 		if use_base_body:
 			var from_hip := Vector2(aim.x, aim.y - KICK_HIP_Y)
+			var raise_to: float = (KICK_RAISE.get(_cls(s), {}) as Dictionary).get(String(s.move_name), -1.0)
+			if raise_to > 0.0 and aim.x >= 0.0 and from_hip.angle() < deg_to_rad(raise_to) and not r8_off.has("kicks"):
+				from_hip = Vector2.from_angle(deg_to_rad(raise_to)) * maxf(from_hip.length(), KICK_RAISE_REACH)
 			var a := from_hip.angle()
 			var limit := deg_to_rad(HIGH_KICK)
 			if aim.x >= 0.0 and a > limit and a <= PI * 0.5:
