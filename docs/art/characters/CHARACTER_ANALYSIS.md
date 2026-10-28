@@ -697,3 +697,16 @@ scarf tail on the aviator and the topknot were tried first and changed the outli
 
 `silhouette_pass.png`: the default looks in colour and filled black, before above after; two match frames with the holiday shirt as
 P2, before and after. Loadout, fighter view, select grid, match flow, editor UI and art pipeline tests pass.
+
+## Weak points after the second comparison (2026-10-28, after the silhouette pass)
+`comparison_2026-10-28b.png`: the salute and the lineup above; our default looks' faces close, then the four in the menu at three-quarters.
+The comparison's earlier gaps (form light, sash, trim, feet, cloth print, silhouettes) are done. What still separates them, most visible
+first:
+1. **Tinted glasses hide the eyes** on two of the four defaults (the aviator, the holiday shirt): orange lenses with a white glare stripe
+   over the eyes, which carry the face; at match size two orange discs. The reference cast never cover their eyes. The aviator also
+   wears goggles on its cap, so it has two pairs.
+2. **The spiky fringe** ends in a straight jagged band across the brow, a cut-paper crown rather than separate locks falling over it.
+3. **The ranger's lidded eyes** are shaded grey-olive by the heavy lids, so it reads tired or ill beside the others' ivory whites.
+4. **The aviator's collar** close up: two large flat green triangles, with a ragged white edge where the shirt meets the neck.
+5. **Headwear has no print**: the reference's cap carries the same soft fleck as its shirt (and an embroidered emblem); ours are flat.
+6. **The straw hat's weave** tiles as a visible checker up close (not at menu or match size).
