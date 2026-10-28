@@ -926,6 +926,23 @@ BODY_MOVES = {
         {"hips": -0.18, "spine": (24.0, 10.0), "head": (-12.0, 0.0), "stance": (56.0, -30.0), "armU.L": (66.0, -2.0), "armL.L": (10.0,),
          "hand.L": (-30.0,), "armU.R": (-20.0, 28.0), "armL.R": (30.0,)},
         {"spine": (10.0, 0.0), "stance": (30.0, -20.0)}),
+    # (Round 8, the Wanderer's specials: the sword stays low in the near hand, the free (far) hand works, as the adventurer reference
+    # does with his shield hand.) The bow: the far arm held out straight ahead at shoulder height, the chest squared behind it, the head
+    # down the line; the shot's recoil eases the body back.
+    "buckler_bow": (
+        {"hips": -0.06, "spine": (8.0, -18.0), "head": (-6.0, 14.0), "stance": (34.0, -30.0), "armU.R": (92.0, 4.0), "armL.R": (6.0,)},
+        {"hips": -0.04, "spine": (-6.0, -14.0), "head": (-4.0, 12.0), "stance": (30.0, -36.0), "armU.R": (88.0, 6.0), "armL.R": (10.0,)},
+        {"spine": (8.0, 0.0), "stance": (30.0, -20.0)}),
+    # The boomerang: the far hand cocked back behind the shoulder on a step back, then flung through flat and out ahead.
+    "buckler_throw": (
+        {"hips": -0.08, "spine": (6.0, -28.0), "head": (-6.0, 16.0), "stance": (26.0, -32.0), "armU.R": (-46.0, 30.0), "armL.R": (64.0,)},
+        {"hips": -0.06, "spine": (22.0, 22.0), "head": (-10.0, -8.0), "stance": (50.0, -30.0), "armU.R": (96.0, 4.0), "armL.R": (8.0,)},
+        {"spine": (8.0, 0.0), "stance": (30.0, -20.0)}),
+    # The bomb: the far hand reached back behind the hip, then brought up in front holding it.
+    "buckler_bomb": (
+        {"hips": -0.12, "spine": (18.0, -26.0), "head": (-8.0, 14.0), "stance": (34.0, -26.0), "armU.R": (-52.0, 22.0), "armL.R": (28.0,)},
+        {"hips": -0.04, "spine": (6.0, 10.0), "head": (-8.0, 0.0), "stance": (28.0, -22.0), "armU.R": (72.0, 10.0), "armL.R": (70.0,)},
+        {"spine": (8.0, 0.0), "stance": (30.0, -20.0)}),
     # Flash Step: gathered into a deep crouch with the arms crossed over the chest, then bursting open (the explosion) tall, arms and
     # chest flung wide; on its reappearing hit the same burst.
     "vanish": (
@@ -3924,7 +3941,7 @@ def main() -> None:
         clip(rig, tool, 60, {})
     # (Round 8: the Needles' own specials, posed in BODY_MOVES.)
     if BODY:
-        for nm in ("needle_volley", "line_cast", "vanish", "sword_counter", "reflector"):
+        for nm in ("needle_volley", "line_cast", "vanish", "sword_counter", "reflector", "buckler_bow", "buckler_throw", "buckler_bomb"):
             clip(rig, nm, 60, {})
     # Headbutts, up and forward (posed in BODY_MOVES; the body is the weapon).
     clip(rig, "body_headbutt", 60, {})

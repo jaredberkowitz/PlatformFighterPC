@@ -265,6 +265,18 @@ const CLASS_MOVES := {
 	},
 	# Buckler (the Wanderer): the longsword's cuts (its blade follows its hits).
 	9: {
+		# (Round 8: the bow, the boomerang and the bomb with the free hand, the sword kept low; they played the smash, the lunge and the
+		# low strike, the sword swung at nothing.)
+		"neutral special": "buckler_bow",
+		"extra move 4": "buckler_bow",
+		"extra move 9": "buckler_bow",
+		"extra move 10": "buckler_bow",
+		"side special": "buckler_throw",
+		"extra move 5": "buckler_throw",
+		"extra move 6": "buckler_throw",
+		"extra move 7": "buckler_throw",
+		"down special": "buckler_bomb",
+		"extra move 8": "buckler_bomb",
 		# (Its reference's neutral and back airs are kicks; its down and up airs thrust the blade straight down and up.)
 		"nair": "kick_nair",
 		"bair": "kick_bair",
@@ -469,7 +481,8 @@ const STAND_INS := {"jumpsquat": "crouch", "land": "crouch", "spot_dodge": "roll
 	"tech": "crouch", "run_stop": "skid", "idle_look": "idle", "platform_drop": "fall", "hurt_heavy": "hurt", "hurt_up": "hurt",
 	"body_dash_grab": "grab", "body_pivot_grab": "grab", "fall_start": "fall", "tumble": "hurt",
 	# (Round 8, the missing sets.)
-	"helpless": "fall", "needle_volley": "blaster", "line_cast": "attack_swing", "vanish": "attack_low", "sword_counter": "attack_low", "reflector": "attack_kick", "item_pick": "crouch", "item_throw": "throw", "dizzy": "hurt", "buried": "idle"}
+	"helpless": "fall", "needle_volley": "blaster", "line_cast": "attack_swing", "vanish": "attack_low", "sword_counter": "attack_low", "reflector": "attack_kick", "buckler_bow": "attack_smash", "buckler_throw": "attack_lunge",
+	"buckler_bomb": "attack_low", "item_pick": "crouch", "item_throw": "throw", "dizzy": "hurt", "buried": "idle"}
 
 ## Clips chosen in fighter_view.gd `_choose_clip` from more than the state (a tech is an intangible landing, a run stop a sliding idle, a
 ## platform drop the first frames of a fall through a platform, heavy hitstun a fast launch that does not tumble, a fidget a long idle).

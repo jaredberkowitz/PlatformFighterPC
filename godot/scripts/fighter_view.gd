@@ -662,7 +662,8 @@ func _choose_clip(s: Dictionary) -> Array:
 ## With the environment variable PF_R8_OFF (a debugging aid for round 8's before and after images), "sets" plays these states as before
 ## the round's missing sets: the shared clip by state, or the jump's arc in the air.
 static var r8_off := OS.get_environment("PF_R8_OFF").split(",")
-const R8_SPECIAL_CLIPS := ["needle_volley", "line_cast", "vanish", "sword_counter", "reflector"]
+const R8_SPECIAL_CLIPS := ["needle_volley", "line_cast", "vanish", "sword_counter", "reflector", "buckler_bow", "buckler_throw",
+	"buckler_bomb"]
 const R8_SET_STATES := ["Helpless", "ItemPickup", "ItemThrow", "Tether", "WallTech", "ShieldBreak", "Buried"]
 
 
@@ -4061,6 +4062,14 @@ const GREAT_Z_STEP := 0.135
 const GREAT_LENGTH := 2.45
 
 
+## Blades held in a pose of their own through a move (round 8): [angle, hand's distance ahead] or ["rest"] for the low carry.
+const HELD_BLADE := {
+	0: {"down special": [40.0, 0.6]},
+	9: {"neutral special": ["rest"], "extra move 4": ["rest"], "extra move 9": ["rest"], "extra move 10": ["rest"], "side special": ["rest"],
+		"extra move 5": ["rest"], "extra move 6": ["rest"], "extra move 7": ["rest"], "down special": ["rest"], "extra move 8": ["rest"]},
+}
+
+
 ## Where the hand holds the weapon at rest (forward space), by class (round 8).
 func _rest_hand(s: Dictionary) -> Vector2:
 	if _cls(s) == GREATSWORD_CLASS or (_cls(s) == NODACHI_CLASS and use_base_body):
@@ -4085,6 +4094,14 @@ func _rest_length(s: Dictionary) -> float:
 func _blade_target(s: Dictionary) -> Array:
 	var rest_len := _rest_length(s)
 	var name: String = s.move_name
+	# (Round 8: moves whose blade holds a pose of its own rather than reaching for a hit: the Longsword's counter raises it up and ahead
+	# of the face, the swordsman reference's guard; the Wanderer's free-hand specials keep it in the low carry.)
+	var held_blade: Array = (HELD_BLADE.get(_cls(s), {}) as Dictionary).get(name, [])
+	if use_base_body and not held_blade.is_empty() and not r8_off.has("specials"):
+		if held_blade[0] is String:
+			var rest_hand := _rest_hand(s)
+			return [_rest_angle(s), rest_len, rest_hand.x, rest_hand.y]
+		return [float(held_blade[0]), rest_len, float(held_blade[1])]
 	if name == "" or ((_cls(s) == STAFF_CLASS or _cls(s) == GREATSWORD_CLASS) and _body_clip(_cls(s), name)):
 		var rh := _rest_hand(s)
 		return [_rest_angle(s), rest_len, rh.x, rh.y]
@@ -4324,12 +4341,15 @@ const BLADE_OVERHEAD_Z := -0.25
 ## Charges (by class) held in the clip's coil for as long as they last (the move has no hit of its own): the Hauler's giant punch wind-up,
 ## planted wide and low (`gaunt_charge`), while its arm swings round (`WINDMILL`). (Round 2: it stood in a plain
 ## guard, fists at the chest, for the whole charge.)
-const HELD_COIL := {7: ["neutral special"], 11: ["up special", "extra move 5"], 2: ["neutral special", "extra move 3"]}
+const HELD_COIL := {7: ["neutral special"], 11: ["up special", "extra move 5"], 2: ["neutral special", "extra move 3"],
+	9: ["neutral special"]}
 ## Held coils entered from the stance, which ease into the coil over HELD_STRIKE_IN frames rather than snapping into it (round 8).
-const COIL_EASE_IN := {2: ["neutral special"]}
+const COIL_EASE_IN := {2: ["neutral special"], 9: ["neutral special"]}
 ## Moves with no hitbox of their own (a projectile or a script throws the hit) and the frame their strike lands on, by class (round 8: the
 ## Needles' volley throws its first needle on frame 11 and casts its line on 13). Without it such a move struck on its first frame.
-const RELEASE_FRAME := {2: {"extra move 4": 11, "side special": 13}, 0: {"down special": 6}}
+const RELEASE_FRAME := {2: {"extra move 4": 11, "side special": 13}, 0: {"down special": 6},
+	9: {"extra move 4": 1, "extra move 9": 1, "extra move 10": 1, "side special": 27, "extra move 5": 27, "extra move 6": 2,
+		"extra move 7": 2, "down special": 16, "extra move 8": 2}}
 ## Moves held in their strike pose for as long as they last (no hit times them): the Settler hangs from its balloons, both hands up on
 ## the strings over its head.
 const HELD_STRIKE := {10: ["up special", "extra move 8"]}
@@ -4455,7 +4475,10 @@ func _pose_blade(s: Dictionary, delta: float) -> void:
 	# (Round 3: out of a move, the guard goes down with the body when it sinks below the battle stance, in a jump's crouch or a landing,
 	# and the blade dips with it. Held at the stance's height and angle, the blade crossed the sword fighters' mouths on every jump.)
 	var sink := 0.0
-	if s.move_name == "" and use_base_body and skeleton != null and int(s.platform) >= 0:
+	# (Round 8: and through a move that keeps the blade in the carry, HELD_BLADE "rest": undipped it was turned flat behind by the floor.)
+	var held: Array = (HELD_BLADE.get(_cls(s), {}) as Dictionary).get(String(s.move_name), [])
+	var held_rest: bool = target.size() > 3 and not held.is_empty()
+	if (s.move_name == "" or held_rest) and use_base_body and skeleton != null and int(s.platform) >= 0:
 		var hb := skeleton.find_bone("hips")
 		if hb >= 0:
 			sink = maxf(0.0, GUARD_HIPS - (_skeleton_to_frame() * skeleton.get_bone_global_pose(hb).origin).y)
@@ -4489,7 +4512,7 @@ func _pose_blade(s: Dictionary, delta: float) -> void:
 		tip = SPIN_BLADE_TIP
 	# In a swing the hand leaves its resting spot and sweeps round the shoulder, so the arm throws the blade through its arc; the blade
 	# then runs from the hand to the same tip.
-	var attacking: bool = s.move_name != "" and s.state_frame > 0
+	var attacking: bool = s.move_name != "" and s.state_frame > 0 and not (target.size() > 3 and s.move_name != "")
 	arm_k = move_toward(arm_k, 1.0 if attacking else 0.0, delta * 9.0)
 	# A punch reaches out with the wind-up and comes home in the recovery, like a kick (a blade stays in the hand throughout).
 	if attacking and (not bladed(_cls(s)) or _thrust(_cls(s), String(s.move_name))):

@@ -1925,3 +1925,26 @@ knee bend (`review1/mock_stance.jpg`, A/B/C).
 - **Image:** `docs/screenshots/anim/r8_turn_pivot.jpg` (two turnarounds, every frame; before above).
 - **Review:** item 35 (turnaround) poses 3 to 4, fluidity 3 to 4, overall 3.0 to 3.7. Mean 3.17.
 - **Checked:** the six tests and `swing_toggle_test` pass.
+
+### Group 10 (round 8): the Wanderer's bow, boomerang and bomb; the counter's raised blade (review item 4)
+
+- **Defect:** the Buckler's (the Wanderer's) specials played the sword archetypes: the bow played the forward smash, the boomerang the
+  lunge and the bomb pull the low strike, so the sword swung at nothing while the arrow, the boomerang and the bomb came out of the free
+  hand. The Longsword's counter crouched with the blade held level at the knee; the swordsman reference holds it up ahead of the chin,
+  pointing forward and up (side by side on F: only, `F:/anim_r8/ref/counter_side_by_side.jpg`). The adventurer reference's bow, boomerang
+  and bomb have no hitbox clips on the frame-data site, so the Buckler's are judged from the moves themselves.
+- **Fix (`make_rigged_blob.py`):** three clips posing the far, free hand while the sword stays low in the near one: `buckler_bow` (the
+  far arm straight out ahead at shoulder height, the chest squared behind it, a little recoil), `buckler_throw` (the hand cocked back
+  behind the shoulder on a step back, then flung through flat and out ahead), `buckler_bomb` (reached back behind the hip, then brought
+  up in front holding it). Rig `rig_r8i`. Mapped for the Buckler's neutral, side and down specials and their extra moves
+  (`anim_library.gd`, stand-ins smash, lunge, low).
+- **Fix (`fighter_view.gd`):** `HELD_BLADE`, a per-move override at the top of `_blade_target`: the Longsword's counter holds the blade
+  at 40 degrees, the hand 0.6 ahead (tried at 70 first: near upright, it read as a salute, not the reference's guard); the Buckler's
+  free-hand specials keep the low carry (`["rest"]`), and the carry's dip with the hips now applies through them too (without it the
+  floor clamp turned the blade flat behind the body). `RELEASE_FRAME`, `COIL_EASE_IN` and `HELD_COIL` entries time the Buckler's
+  releases (the bow is held drawn while charging). `PF_R8_OFF=specials` shows the old.
+- **Measured:** face cover over the gallery, Longsword 3 frames and Buckler 2 (unchanged; the counter adds none, its hand stays ahead of
+  the drawn face).
+- **Image:** `docs/screenshots/anim/r8_g10_buckler_counter.jpg` (bow, boomerang, bomb and counter, before above after).
+- **Review:** item 4 (sword specials) poses 3 to 4, overall 3.0 to 3.3. Mean 3.18.
+- **Checked:** the six tests pass.

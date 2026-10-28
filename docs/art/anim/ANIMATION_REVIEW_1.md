@@ -252,3 +252,11 @@ way (group 6) also lift the sword-stance classes' locomotion and defence reads; 
 Group 8 (a raised sword hand kept in front of the face) is a fix to face cover and the hilt's read rather than an item's axis; it holds
 the sword-stance items where they were. **Mean 3.17** (poses 3.03, fluidity 3.35, weight 3.14).
 
+
+## 8. After round 8's group 10 (2026-10-28)
+
+| # | Item | P | F | W | O | Was |
+|---|---|---|---|---|---|---|
+| 4 | Sword specials (the counter's raised blade, the Wanderer's bow, boomerang and bomb) | 4 | 3 | 3 | 3.3 | 3.0 |
+
+**Mean 3.18** (poses 3.05, fluidity 3.35, weight 3.14).
