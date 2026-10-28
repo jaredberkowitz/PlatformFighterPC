@@ -4644,6 +4644,9 @@ func _pose_blade(s: Dictionary, delta: float) -> void:
 	blade_pivot.rotation = Vector3(0, 0, deg_to_rad(angle))
 	var thick := 1.0 if bladed(_cls(s)) or _cls(s) == STAFF_CLASS else 1.7
 	blade_pivot.scale = Vector3(length / MESH_LENGTH, thick, thick)
+	# (Round 8: the modelled weapons at their own size; stretched to each hit's reach, their hilts were squashed or drawn out.)
+	if use_base_body and (bladed(_cls(s)) or _cls(s) == STAFF_CLASS) and not r8_off.has("grip"):
+		blade_pivot.scale = Vector3.ONE
 
 
 ## How far into reaching for its hit a limb should be at this point of the move: easing in over the second half of the wind-up, fully
@@ -4730,6 +4733,36 @@ func _carry_weapon(facing: int) -> void:
 	blade_pivot.position = _skeleton_to_frame() * skeleton.get_bone_global_pose(hand).origin
 	var angle := CARRY_ANGLE if facing > 0 else 180.0 - CARRY_ANGLE
 	blade_pivot.rotation = Vector3(0, 0, deg_to_rad(angle))
+
+
+## (Round 8, the art director's grip pass: the weapon was placed where the hand was, but the fist kept its own turn, so the guard sat beside
+## or behind the fist, or the grip ran through the wrist.) Turns the weapon hand so the grip passes through the curled fingers, the thumb's
+## side toward the tip (the fist's knuckle row along the weapon's line, `make_rigged_blob.py` `fist`), the wrist bending as little as
+## that allows, and puts the weapon's grip in the middle of the fist.
+const GRIP_FROM_WRIST := 0.17
+
+
+func _grip_hand(hb: int) -> void:
+	var il := skeleton.get_bone_parent(hb)
+	if il < 0:
+		return
+	var from_frame := _skeleton_to_frame().affine_inverse()
+	var b: Vector3 = (from_frame.basis * Vector3(cos(blade_pivot.rotation.z), sin(blade_pivot.rotation.z), 0.0)).normalized()
+	var pose := skeleton.get_bone_global_pose(hb)
+	var f: Vector3 = (pose.origin - skeleton.get_bone_global_pose(il).origin).normalized()
+	if absf(f.dot(b)) > 0.97:
+		return
+	var rest := skeleton.get_bone_global_rest(hb)
+	var down_r: Vector3 = (rest.origin - skeleton.get_bone_global_rest(il).origin).normalized()
+	var front_r := Vector3(0, 0, 1) - down_r * down_r.z
+	front_r = front_r.normalized()
+	var d := (f - b * f.dot(b)).normalized()
+	var turn := Basis(d, b, b.cross(d)) * Basis(down_r, front_r, front_r.cross(down_r)).inverse()
+	var scale := pose.basis.get_scale()
+	var hand := Basis(turn.get_rotation_quaternion()) * Basis(rest.basis.get_rotation_quaternion()) * Basis.from_scale(scale)
+	skeleton.set_bone_global_pose_override(hb, Transform3D(hand, pose.origin), 1.0, true)
+	var grip: Vector3 = pose.origin + d * GRIP_FROM_WRIST * scale.y
+	blade_pivot.position = _skeleton_to_frame() * grip
 
 
 ## How hard a change of vertical speed throws the hat down onto the head (or up off it).
@@ -6143,6 +6176,11 @@ func _apply_combat(s: Dictionary, delta: float) -> void:
 				# its forward smash: only the guard showed.)
 				if int(s.platform) >= 0:
 					_lift_tip_off_floor()
+				# (Round 8, the grip: the fist closes round the weapon, the knuckles along its line, and the weapon sits in the fist.)
+				if use_base_body and not r8_off.has("grip") and (bladed(_cls(s)) or _cls(s) == STAFF_CLASS):
+					_grip_hand(hb)
+					if int(s.platform) >= 0:
+						_lift_tip_off_floor()
 		_blade_arc_on_tip(s)
 		if carrying:
 			_carry_weapon(int(s.facing))

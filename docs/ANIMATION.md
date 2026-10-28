@@ -1872,3 +1872,25 @@ knee bend (`review1/mock_stance.jpg`, A/B/C).
 - **Review 1:** stance (item 37) poses 2 to 4, overall 3.0 to 3.7; sword locomotion (1) poses 3 to 4 (the carry and the stance), 3.3 to 3.7;
   brawler attacks (7) and heavy attacks (17) poses 2 to 3. With groups 4 and 5 the mean is 3.15 (poses 3.00, fluidity 3.32, weight 3.14).
 - **Checked:** both facings at the match camera; the six tests and `swing_toggle_test` pass.
+
+### Group 7 (round 8): the modelled weapons merged, and held in the fist
+
+- **Merged** the art director's modelled weapons (`art/weapons` b1670466: the Longsword and the Buckler's, Greatsword, Staff and round
+  shield from `make_weapons.py`). Clean merge.
+- **Defect (the art director's list, "the positioning of the weapons is a bit strange"):** the weapon was placed at the hand but the fist
+  kept its own turn, so the guard sat beside or behind the fist, or the grip ran through the wrist; and the pivot was stretched to each
+  hit's reach, so the modelled hilts were squashed or drawn out.
+- **Fix (`fighter_view.gd` `_grip_hand`):** after the arm reaches, the weapon hand turns so the grip passes through the curled fingers,
+  the thumb's side toward the tip (the fist's knuckle row along the weapon, `make_rigged_blob.py` `fist`), the wrist bending as little as
+  that allows; the weapon's grip sits in the middle of the fist (`GRIP_FROM_WRIST`). The modelled weapons keep their own size
+  (`blade_pivot.scale` 1). For the Longsword, Buckler, Greatsword, Nodachi and Staff; the Dagger's knife and the Claws' claws were already
+  hung on the hand bone. The Greatsword's rest behind the back was replaced by group 6's low carry. `PF_R8_OFF=grip` shows the old.
+- **Not changed:** the hilt sent behind the head in up moves and held end lags (`HEAD_BEHIND_Z`); with the low carry and the lean it shows
+  less, but replacing it with a hand kept below the face line is left for a pass of its own (it was the face cover's main guard).
+- **Image:** `docs/screenshots/anim/r8_weapon_grip.jpg` (close: the Longsword's forward tilt and the Greatsword's forward smash, before
+  left; then the Longsword's forward and up tilts, the Greatsword's forward smash and the Staff's jab, before above). The references'
+  grips alongside on F: (`F:\anim_r8\sheets\r8_weapon_grip_with_reference.jpg`).
+- **Measured:** face cover over the moves (`PF_FACE_COVER`, gallery), group 6 then now: Longsword 1 to 4, Staff 2 to 4, Greatsword 5 to 6,
+  Buckler 1 to 2, Nodachi 1 to 0, Dagger 0 to 0 (the hand now sits at the guard, a little nearer the face in the up tilt; within the
+  run-to-run noise of 3 a class, but all up by one or more: watched).
+- **Checked:** the six tests, `swing_toggle_test`, `art_pipeline_test` and `prop_check_test` pass.
