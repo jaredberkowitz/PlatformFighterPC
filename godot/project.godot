@@ -115,6 +115,18 @@ pf_amb_cut={
 "type": "color",
 "value": Color(0, 0, 0, 0)
 }
+pf_front_tint={
+"type": "color",
+"value": Color(1, 1, 1, 0)
+}
+pf_front_fall_k={
+"type": "float",
+"value": 1.0
+}
+pf_vshade_lift={
+"type": "float",
+"value": 0.0
+}
 pf_front_calm={
 "type": "color",
 "value": Color(0, 0, 0, 0)
