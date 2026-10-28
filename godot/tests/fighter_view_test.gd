@@ -48,7 +48,7 @@ func _initialize() -> void:
 		check(sword.blade_parts[0].visible, "the sword fighter's weapon is a blade in %s" % m)
 	# Every move plays a clip the rig has, and the common ones have their own.
 	var expect := {"jab": "attack_jab", "jab 2": "attack_jab", "dash attack": "attack_lunge", "side special": "attack_lunge", "utilt": "sword_utilt",
-		"up special": "attack_uair", "dtilt": "sword_dtilt", "down special": "attack_low", "neutral special": "attack_smash", "fair": "attack_fair",
+		"up special": "attack_uair", "dtilt": "sword_dtilt", "down special": "sword_counter", "neutral special": "attack_smash", "fair": "attack_fair",
 		"nair": "attack_nair", "usmash": "sword_usmash", "forward throw": "throw", "pummel": "grab", "ftilt": "sword_ftilt", "fsmash": "sword_fsmash", "dsmash": "sword_dsmash"}
 	for m in moves + ["jab 2", "jab 3"]:
 		var clip: String = sword._choose_clip(snap(0, "Attack", m, 10))[0]

@@ -88,6 +88,8 @@ const CLASS_MOVES := {
 		"usmash": "sword_usmash",
 		"dsmash": "sword_dsmash",
 		"dair": "sword_dair",
+		# (Round 8: the counter's own stance; it played the low strike.)
+		"down special": "sword_counter",
 	},
 	# Claws: kicks and the blaster.
 	1: {
@@ -109,7 +111,8 @@ const CLASS_MOVES := {
 		# (The flash dash started in the air, its own slot since sim 143: the side special's clip.)
 		"extra move 3": "attack_kick",
 		"up special": "attack_kick",
-		"down special": "attack_kick",
+		# (Round 8: the reflector's own pose, a palm thrust out low; it played a kick.)
+		"down special": "reflector",
 	},
 	# Needles: kicks for the kicks (the leg is aimed at the hit), the shared chop for the forward air and lunge for the dash attack's
 	# hand strike, hands overhead for the up smash, its down air's landing hit as a landing, the rapid jab's stabs as jabs and its
@@ -436,7 +439,7 @@ static func is_kick(clip: String) -> bool:
 
 ## Clips that pose both arms themselves: the tool hand is not reached to a hit (fighter_view.gd).
 const OWN_ARMS := ["tool_float", "tool_raise", "tool_shrug", "tool_ride", "tool_reach", "tool_toss", "spin_arms", "spin_arms_air",
-	"slap_ground", "leap_grab", "latch_sit", "rocket_fly", "needle_volley", "line_cast", "vanish"]
+	"slap_ground", "leap_grab", "latch_sit", "rocket_fly", "needle_volley", "line_cast", "vanish", "reflector"]
 
 
 ## Clips where the whole body is the weapon (a headbutt): no arm or leg reaches for the hitbox, the pose carries the hit.
@@ -466,7 +469,7 @@ const STAND_INS := {"jumpsquat": "crouch", "land": "crouch", "spot_dodge": "roll
 	"tech": "crouch", "run_stop": "skid", "idle_look": "idle", "platform_drop": "fall", "hurt_heavy": "hurt", "hurt_up": "hurt",
 	"body_dash_grab": "grab", "body_pivot_grab": "grab", "fall_start": "fall", "tumble": "hurt",
 	# (Round 8, the missing sets.)
-	"helpless": "fall", "needle_volley": "blaster", "line_cast": "attack_swing", "vanish": "attack_low", "item_pick": "crouch", "item_throw": "throw", "dizzy": "hurt", "buried": "idle"}
+	"helpless": "fall", "needle_volley": "blaster", "line_cast": "attack_swing", "vanish": "attack_low", "sword_counter": "attack_low", "reflector": "attack_kick", "item_pick": "crouch", "item_throw": "throw", "dizzy": "hurt", "buried": "idle"}
 
 ## Clips chosen in fighter_view.gd `_choose_clip` from more than the state (a tech is an intangible landing, a run stop a sliding idle, a
 ## platform drop the first frames of a fall through a platform, heavy hitstun a fast launch that does not tumble, a fidget a long idle).

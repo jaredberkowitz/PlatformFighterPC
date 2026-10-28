@@ -663,7 +663,7 @@ func _choose_clip(s: Dictionary) -> Array:
 ## With the environment variable PF_R8_OFF (a debugging aid for round 8's before and after images), "sets" plays these states as before
 ## the round's missing sets: the shared clip by state, or the jump's arc in the air.
 static var r8_off := OS.get_environment("PF_R8_OFF").split(",")
-const R8_SPECIAL_CLIPS := ["needle_volley", "line_cast", "vanish"]
+const R8_SPECIAL_CLIPS := ["needle_volley", "line_cast", "vanish", "sword_counter", "reflector"]
 const R8_SET_STATES := ["Helpless", "ItemPickup", "ItemThrow", "Tether", "WallTech", "ShieldBreak", "Buried"]
 
 
@@ -4392,7 +4392,7 @@ const HELD_COIL := {7: ["neutral special"], 11: ["up special", "extra move 5"], 
 const COIL_EASE_IN := {2: ["neutral special"]}
 ## Moves with no hitbox of their own (a projectile or a script throws the hit) and the frame their strike lands on, by class (round 8: the
 ## Needles' volley throws its first needle on frame 11 and casts its line on 13). Without it such a move struck on its first frame.
-const RELEASE_FRAME := {2: {"extra move 4": 11, "side special": 13}}
+const RELEASE_FRAME := {2: {"extra move 4": 11, "side special": 13}, 0: {"down special": 6}}
 ## Moves held in their strike pose for as long as they last (no hit times them): the Settler hangs from its balloons, both hands up on
 ## the strings over its head.
 const HELD_STRIKE := {10: ["up special", "extra move 8"]}

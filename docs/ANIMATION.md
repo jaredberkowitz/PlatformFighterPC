@@ -1825,3 +1825,14 @@ knee bend (`review1/mock_stance.jpg`, A/B/C).
 - **Measured:** face cover over the Needles' moves 3 frames, unchanged. **Review:** item 14 poses 2 to 3, weight 2 to 3 (the strike now
   lands on the release), overall 2.3 to 3.0.
 - **Checked:** the six tests and `swing_toggle_test` pass.
+
+### Group 5 (round 8): the Longsword's counter and the Claws' reflector (review items 4 and 9)
+
+- **Defect:** the counter played the low strike (crouched low, the blade along the floor); the reflector played a high kick.
+- **Fix:** BODY_MOVES `sword_counter` (settled back onto the rear foot, chest open, the free hand drawn back; the game holds the blade)
+  and `reflector` (down over bent knees, the near palm thrust out low in front, the far arm back; both arms its own). The counter's
+  stance lands on its catching window's first frame (`RELEASE_FRAME` 6). `PF_R8_OFF=specials` plays the old ones.
+- **Image:** `docs/screenshots/anim/r8_g5_counter_reflector.jpg`. The references (the swordsman's counter, upright behind a raised blade;
+  the wolf's reflector, crouched with the hand out) are closer after; the counter's blade is still held level by the game's code.
+- **Review:** item 4 (sword specials) poses 2 to 3, overall 2.7 to 3.0; item 9 (brawler specials) poses 2 to 3, overall 2.7 to 3.0.
+- **Checked:** the six tests (`fighter_view_test`'s pinned counter mapping updated) and `swing_toggle_test` pass.
