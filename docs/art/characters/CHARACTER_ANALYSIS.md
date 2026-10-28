@@ -684,3 +684,16 @@ the shirts only, on shirts and shorts, and bolder on both; the owner chose shirt
 
 `fleck_pass.png`: the default looks in the menu, close and from the side, before above after each; a match frame before and after.
 Fighter view, art pipeline, loadout, match flow, select grid, editor UI, prop check and animation library tests pass.
+
+## Silhouettes of the default looks (2026-10-28, the comparison's last gap)
+The reference cast share one body and tell apart by their headwear (a tall chef's hat, a crab hood with claws, a propeller cap).
+Filled black, two of our four defaults made the same shape: the sailor's cap and the holiday shirt's dixie cap were each a flat cap on
+a ball. Mocked the holiday shirt in the swept spikes, that plus the long cape on the aviator, and the holiday shirt in the swoop; a
+scarf tail on the aviator and the topknot were tried first and changed the outline too little. The owner chose the spikes alone.
+- `loadout.gd` `default_for`: the holiday shirt's default wears the swept spikes (hat 8) in place of the dixie cap; the dixie cap stays
+  in the creator. Saved looks keep theirs.
+- The built-in roster's hats are the identity mock's job (branch `art/identity`, waiting on the owner's review). Its five new hats are
+  appended at catalog index 11 onward, where this branch's swoop already is: whichever merges second must move its hats along.
+
+`silhouette_pass.png`: the default looks in colour and filled black, before above after; two match frames with the holiday shirt as
+P2, before and after. Loadout, fighter view, select grid, match flow, editor UI and art pipeline tests pass.

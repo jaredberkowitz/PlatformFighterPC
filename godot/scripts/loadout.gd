@@ -249,7 +249,9 @@ static func default_for(player: int) -> RefCounted:
 			l.hat = 1
 		2:
 			# (The little dixie cap, as the reference's blue scout, the character pass, 2026-10-19.)
-			l.hat = 10
+			# (The swept spikes since the silhouette pass, 2026-10-28, the owner's pick of mocks: the dixie cap and the sailor's cap made the
+			# same shape, a flat cap on a ball, so two of the four defaults shared a silhouette.)
+			l.hat = 8
 		1:
 			l.hat = 2
 		3:
