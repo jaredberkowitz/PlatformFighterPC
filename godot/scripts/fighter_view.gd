@@ -228,7 +228,6 @@ static func release_caches() -> void:
 	_limb_cache.clear()
 	_cloth_cache.clear()
 	_respond_cache.clear()
-	_blade_cache = null
 	_mesh_cache.clear()
 	_outline_mat = null
 	_cloth_outline = null
@@ -1761,114 +1760,27 @@ func build(p: int, l: RefCounted = null) -> void:
 	model.add_child(stage_frame)
 	blade_pivot = Node3D.new()
 	stage_frame.add_child(blade_pivot)
-	var blade_mesh := _blade_shape()
-	blade_parts.append(_part(blade_pivot, blade_mesh, respond(toon(Color(0.82, 0.87, 0.96)), "metal"), Vector3(1.55, 0, 0)))
-	# A blue fuller down the middle of each face and a bright edge along the top: the blade reads as forged steel, not a flat white
-	# slat.
-	var fuller_l := BoxMesh.new()
-	fuller_l.size = Vector3(1.9, 0.045, 0.1)
-	blade_parts.append(_part(blade_pivot, fuller_l, respond(toon(Color(0.36, 0.5, 0.82)), "metal"), Vector3(1.3, 0, 0)))
-	var edge_l := BoxMesh.new()
-	edge_l.size = Vector3(2.5, 0.018, 0.06)
-	blade_parts.append(_part(blade_pivot, edge_l, _unshaded_mat(Color(0.96, 0.99, 1.0)), Vector3(1.5, 0.07, 0)))
-	# The hilt, built as a sword's is: a round crossguard bar with ball ends and a block where it meets the blade, a round grip wrapped
-	# in three bands, and a gold pommel (it was a box guard on a box grip).
+	# The modelled weapons on the pivot (art/blender/make_weapons.py, 2026-10-28: they replaced the code-built ones, laid out the same).
+	# The longsword (the Duelist's and the Wanderer's): a slim diamond-section blade with a blue fuller, a gold hilt and a wrapped grip.
 	var gold := respond(toon(Color(0.92, 0.76, 0.3)), "gold")
-	var bar := CylinderMesh.new()
-	bar.top_radius = 0.05
-	bar.bottom_radius = 0.05
-	bar.height = 0.62
-	bar.radial_segments = 10
-	blade_parts.append(_part(blade_pivot, bar, gold, Vector3(0.18, 0, 0)))
-	for gy in [-0.33, 0.33]:
-		blade_parts.append(_part(blade_pivot, _sphere(0.075), gold, Vector3(0.18, gy, 0)))
-	var block := BoxMesh.new()
-	block.size = Vector3(0.12, 0.2, 0.14)
-	blade_parts.append(_part(blade_pivot, block, gold, Vector3(0.2, 0, 0)))
-	var grip_mesh := CylinderMesh.new()
-	grip_mesh.top_radius = 0.06
-	grip_mesh.bottom_radius = 0.065
-	grip_mesh.height = 0.4
-	grip_mesh.radial_segments = 10
-	blade_parts.append(_part(blade_pivot, grip_mesh, toon(SASH), Vector3(-0.04, 0, 0), Vector3.ONE, Vector3(0, 0, 90)))
-	for wx in [-0.18, -0.04, 0.1]:
-		var band := CylinderMesh.new()
-		band.top_radius = 0.07
-		band.bottom_radius = 0.07
-		band.height = 0.035
-		band.radial_segments = 10
-		blade_parts.append(_part(blade_pivot, band, toon(SASH.darkened(0.35)), Vector3(wx, 0, 0), Vector3.ONE, Vector3(0, 0, 90)))
-	blade_parts.append(_part(blade_pivot, _sphere(0.085), gold, Vector3(-0.28, 0, 0)))
+	blade_parts.append_array(_pivot_weapon("longsword", {"metal": respond(toon(Color(0.82, 0.87, 0.96)), "metal"),
+		"dark": respond(toon(Color(0.36, 0.5, 0.82)), "metal"), "gold": gold, "band": toon(SASH)}))
 	# The modelled weapons worn on the hands (art/blender/make_weapons.py): the Claws class's claws, one on each fist.
 	_mount_weapon_models()
-	# The Seer's staff (class STAFF_CLASS), on the same pivot so it is posed as the blade is: a pale wooden shaft held a little from its
-	# foot, a gold collar and a glowing round head.
+	# The Seer's staff (class STAFF_CLASS), on the same pivot so it is posed as the blade is: a pale wooden shaft held near its foot, a
+	# gold collar and ring, and a glowing crystal in the ring.
 	staff_parts.clear()
-	var shaft := CylinderMesh.new()
-	shaft.top_radius = 0.08
-	shaft.bottom_radius = 0.095
-	shaft.height = MESH_LENGTH
-	shaft.radial_segments = 10
-	staff_parts.append(_part(blade_pivot, shaft, toon(Color(0.86, 0.72, 0.52)), Vector3(MESH_LENGTH * 0.5 - 0.35, 0, 0), Vector3.ONE, Vector3(0, 0, 90)))
-	var collar := CylinderMesh.new()
-	collar.top_radius = 0.14
-	collar.bottom_radius = 0.14
-	collar.height = 0.14
-	collar.radial_segments = 12
-	staff_parts.append(_part(blade_pivot, collar, respond(toon(Color(0.95, 0.78, 0.32)), "gold"), Vector3(MESH_LENGTH - 0.42, 0, 0), Vector3.ONE, Vector3(0, 0, 90)))
-	# The head: a gold ring standing on the shaft's end, and a glowing crystal (a long octahedron) floating in it.
-	var ring := TorusMesh.new()
-	ring.inner_radius = 0.2
-	ring.outer_radius = 0.28
-	ring.rings = 20
-	ring.ring_segments = 8
-	staff_parts.append(_part(blade_pivot, ring, respond(toon(Color(0.95, 0.78, 0.32)), "gold"), Vector3(MESH_LENGTH - 0.1, 0, 0), Vector3.ONE,
-		Vector3(90, 0, 0)))
-	var gem := SphereMesh.new()
-	gem.radius = 0.13
-	gem.height = 0.4
-	gem.radial_segments = 4
-	gem.rings = 2
-	staff_parts.append(_part(blade_pivot, gem, _unshaded_mat(Color(0.6, 0.95, 1.0)), Vector3(MESH_LENGTH - 0.1, 0, 0), Vector3.ONE, Vector3(0, 0, 90)))
+	var staff_gold := respond(toon(Color(0.95, 0.78, 0.32)), "gold")
+	staff_parts.append_array(_pivot_weapon("staff", {"wood": toon(Color(0.86, 0.72, 0.52)), "gold": staff_gold, "band": toon(SASH),
+		"gem": _unshaded_mat(Color(0.6, 0.95, 1.0))}))
 
-	# The Champion's greatsword (class GREATSWORD_CLASS), on the same pivot: a broad single-edged blade with a dark fuller and a chisel
-	# point, a heavy bronze guard, a long leather-wrapped grip for two hands and a round pommel.
+	# The Champion's greatsword (class GREATSWORD_CLASS), on the same pivot: a broad single-edged blade with a bright bevel, a dark fuller
+	# and a chisel point, a heavy bronze guard, a long leather grip for two hands and a round pommel.
 	great_parts.clear()
-	great_parts.append(_part(blade_pivot, _greatsword_shape(), respond(toon(Color(0.78, 0.82, 0.9)), "metal"), Vector3(1.55, 0, 0)))
-	var fuller := BoxMesh.new()
-	fuller.size = Vector3(1.9, 0.07, 0.13)
-	great_parts.append(_part(blade_pivot, fuller, respond(toon(Color(0.42, 0.46, 0.58)), "metal"), Vector3(1.3, 0.1, 0)))
-	# A bright bevel along the cutting edge and its chisel point, so the broad blade reads as sharpened steel, not a flat slab.
-	var bevel := BoxMesh.new()
-	bevel.size = Vector3(2.2, 0.035, 0.05)
-	great_parts.append(_part(blade_pivot, bevel, _unshaded_mat(Color(0.95, 0.98, 1.0)), Vector3(1.1, -0.23, 0)))
-	var chisel_edge := BoxMesh.new()
-	chisel_edge.size = Vector3(0.62, 0.035, 0.05)
-	great_parts.append(_part(blade_pivot, chisel_edge, _unshaded_mat(Color(0.95, 0.98, 1.0)), Vector3(2.38, -0.02, 0), Vector3.ONE,
-		Vector3(0, 0, 45)))
-	for rx in [0.12]:
-		for ry in [-0.3, 0.3]:
-			great_parts.append(_part(blade_pivot, _sphere(0.05), respond(toon(Color(0.5, 0.36, 0.22)), "gold"), Vector3(rx, ry, 0.13)))
-	var g_guard := BoxMesh.new()
-	g_guard.size = Vector3(0.2, 0.86, 0.24)
-	great_parts.append(_part(blade_pivot, g_guard, respond(toon(Color(0.78, 0.56, 0.3)), "gold"), Vector3(0.12, 0, 0)))
-	var g_grip := CylinderMesh.new()
-	g_grip.top_radius = 0.07
-	g_grip.bottom_radius = 0.07
-	g_grip.height = 0.62
-	g_grip.radial_segments = 8
-	great_parts.append(_part(blade_pivot, g_grip, toon(Color(0.36, 0.24, 0.2)), Vector3(-0.28, 0, 0), Vector3.ONE, Vector3(0, 0, 90)))
-	for wx in [-0.48, -0.32, -0.16]:
-		var wrap := CylinderMesh.new()
-		wrap.top_radius = 0.08
-		wrap.bottom_radius = 0.08
-		wrap.height = 0.04
-		wrap.radial_segments = 8
-		great_parts.append(_part(blade_pivot, wrap, toon(Color(0.24, 0.16, 0.14)), Vector3(wx, 0, 0), Vector3.ONE, Vector3(0, 0, 90)))
-	var pommel := SphereMesh.new()
-	pommel.radius = 0.11
-	pommel.height = 0.22
-	great_parts.append(_part(blade_pivot, pommel, respond(toon(Color(0.78, 0.56, 0.3)), "gold"), Vector3(-0.64, 0, 0)))
+	var bronze := respond(toon(Color(0.78, 0.56, 0.3)), "gold")
+	great_parts.append_array(_pivot_weapon("greatsword", {"metal": respond(toon(Color(0.78, 0.82, 0.9)), "metal"),
+		"edge": _unshaded_mat(Color(0.95, 0.98, 1.0)), "dark": respond(toon(Color(0.42, 0.46, 0.58)), "metal"), "gold": bronze,
+		"bronze": respond(toon(Color(0.5, 0.36, 0.22)), "gold"), "leather": toon(Color(0.36, 0.24, 0.2))}))
 
 	# Impact spark, shown during hitlag.
 	spark = MeshInstance3D.new()
@@ -2305,90 +2217,6 @@ func _skin_material(skin_c: Color, shorts_c: Color, painted_clothes := true) -> 
 		m.next_pass = line
 	_limb_cache[key] = m
 	return m
-
-
-## The banded limb material (see shaders/limb.gdshader), with the ink outline. A `top` with negative alpha means no top band.
-static var _blade_cache: ArrayMesh = null
-
-
-## The sword's blade: 2.7 long (x, centred), 0.16 deep and 0.09 thick like the box it replaced (so the code that stretches it to the
-## move's reach is unchanged), but with a diamond cross-section (a ridge down the middle, two bevels each side, flat-shaded) and a point.
-## The upper bevels catch the key light and the lower ones fall into shade, the classic two-tone blade, and as the blade swings its bevels
-## tilt and the metal highlight (`RESPONSES.metal`) slides along them.
-static func _blade_shape() -> ArrayMesh:
-	if _blade_cache != null:
-		return _blade_cache
-	var half := 1.35
-	var tip_from := 0.95
-	var h := 0.08
-	var t := 0.045
-	var st := SurfaceTool.new()
-	st.begin(Mesh.PRIMITIVE_TRIANGLES)
-	st.set_smooth_group(-1)
-	# The cross-section at x: top, front, bottom, back, shrinking to nothing at the point.
-	var ring := func(x: float) -> Array:
-		var k := 1.0 if x <= tip_from else clampf((half - x) / (half - tip_from), 0.0, 1.0)
-		return [Vector3(x, h * k, 0), Vector3(x, 0, t * k), Vector3(x, -h * k, 0), Vector3(x, 0, -t * k)]
-	var xs := [-half, tip_from, half]
-	for i in xs.size() - 1:
-		var a: Array = ring.call(xs[i])
-		var b: Array = ring.call(xs[i + 1])
-		for k in 4:
-			var k2 := (k + 1) % 4
-			st.add_vertex(a[k]); st.add_vertex(b[k]); st.add_vertex(b[k2])
-			st.add_vertex(a[k]); st.add_vertex(b[k2]); st.add_vertex(a[k2])
-	# The flat end at the hilt.
-	var base: Array = ring.call(-half)
-	st.add_vertex(base[0]); st.add_vertex(base[2]); st.add_vertex(base[1])
-	st.add_vertex(base[0]); st.add_vertex(base[3]); st.add_vertex(base[2])
-	st.generate_normals()
-	_blade_cache = st.commit()
-	return _blade_cache
-
-
-## The greatsword's blade, laid out like `_blade_shape` (along x, -1.35 to 1.35, so the pivot's scale fits it to the reach): broad (0.5
-## across) and flat, single-edged, with the back straight and the edge cut in a long chisel to the point, thick at the spine and thin at
-## the edge.
-static func _greatsword_shape() -> ArrayMesh:
-	if _great_cache != null:
-		return _great_cache
-	var half := 1.35
-	var st := SurfaceTool.new()
-	st.begin(Mesh.PRIMITIVE_TRIANGLES)
-	st.set_smooth_group(-1)
-	# The outline (x, y) round the blade, spine at y +0.25 and edge at -0.25, and the thickness at each point (spine thick, edge thin).
-	var top_tip := Vector2(half, 0.25)
-	var chisel := Vector2(half - 0.5, -0.25)
-	var outline := [Vector2(-half, 0.25), top_tip, chisel, Vector2(-half, -0.25)]
-	var thick := func(p: Vector2) -> float:
-		return lerpf(0.012, 0.07, clampf((p.y + 0.25) / 0.5, 0.0, 1.0))
-	# Front and back faces as two triangles each (the outline is convex), then the rim between them.
-	for side in [1.0, -1.0]:
-		var v: Array = []
-		for p in outline:
-			v.append(Vector3(p.x, p.y, side * thick.call(p)))
-		# (Clockwise seen from outside, Godot's front face.)
-		if side > 0.0:
-			st.add_vertex(v[0]); st.add_vertex(v[1]); st.add_vertex(v[2])
-			st.add_vertex(v[0]); st.add_vertex(v[2]); st.add_vertex(v[3])
-		else:
-			st.add_vertex(v[0]); st.add_vertex(v[2]); st.add_vertex(v[1])
-			st.add_vertex(v[0]); st.add_vertex(v[3]); st.add_vertex(v[2])
-	for i in outline.size():
-		var a: Vector2 = outline[i]
-		var b: Vector2 = outline[(i + 1) % outline.size()]
-		var a1 := Vector3(a.x, a.y, thick.call(a))
-		var a2 := Vector3(a.x, a.y, -thick.call(a))
-		var b1 := Vector3(b.x, b.y, thick.call(b))
-		var b2 := Vector3(b.x, b.y, -thick.call(b))
-		st.add_vertex(a1); st.add_vertex(b2); st.add_vertex(b1)
-		st.add_vertex(a1); st.add_vertex(a2); st.add_vertex(b2)
-	st.generate_normals()
-	_great_cache = st.commit()
-	return _great_cache
-
-
-static var _great_cache: ArrayMesh
 
 
 ## A flat-coloured material that ignores the light (a weapon's lit edge, a staff's glowing crystal), cached by colour.
@@ -4053,6 +3881,25 @@ func _mount_weapon_models() -> void:
 			dagger_parts.append(knife)
 
 
+## Hangs a modelled pivot weapon (res://models/weapons/<name>.glb) on the blade's pivot and colours each part by the first word of its
+## name (make_weapons.py: metal, dark, gold, band, ...). Returns its meshes, which take the hit flash with the body's.
+func _pivot_weapon(name: String, mats: Dictionary) -> Array[MeshInstance3D]:
+	var out: Array[MeshInstance3D] = []
+	var scene := _model_scene("res://models/weapons/%s.glb" % name)
+	if scene == null:
+		push_warning("missing weapon model " + name)
+		return out
+	var root: Node3D = scene.duplicate()
+	blade_pivot.add_child(root)
+	for m in root.find_children("*", "MeshInstance3D", true, false):
+		var mi := m as MeshInstance3D
+		var kind := String(mi.name).get_slice("_", 0)
+		mi.material_override = mats.get(kind, mats.values()[0])
+		meshes.append(mi)
+		out.append(mi)
+	return out
+
+
 ## Colours a modelled weapon by its parts' names (make_weapons.py): `band*` the class's wrap, everything else the steel.
 func _paint_weapon(root: Node3D, steel: Material, band: Material) -> void:
 	for m in root.find_children("*", "MeshInstance3D", true, false):
@@ -4996,18 +4843,18 @@ func _place_buckler(s: Dictionary) -> void:
 			return
 		shield_disc = Node3D.new()
 		model.add_child(shield_disc)
-		var face := CylinderMesh.new()
-		face.top_radius = 0.42
-		face.bottom_radius = 0.42
-		face.height = 0.08
-		face.radial_segments = 20
-		_part(shield_disc, face, toon(Color(0.62, 0.42, 0.28)), Vector3.ZERO, Vector3.ONE, Vector3(90, 0, 0))
-		var rim := TorusMesh.new()
-		rim.inner_radius = 0.38
-		rim.outer_radius = 0.46
-		rim.rings = 24
-		_part(shield_disc, rim, respond(toon(Color(0.7, 0.72, 0.8)), "metal"), Vector3(0, 0, 0.03), Vector3.ONE, Vector3(90, 0, 0))
-		_part(shield_disc, _sphere(0.12), respond(toon(loadout.accent_color()), "gold"), Vector3(0, 0, 0.07), Vector3(1, 1, 0.6))
+		# The modelled round shield (make_weapons.py `round_shield`, facing the camera): a domed wooden face, a steel rim and rivets, and
+		# a boss in the fighter's accent colour.
+		var disc := _model_scene("res://models/weapons/round_shield.glb")
+		if disc != null:
+			var mats := {"wood": toon(Color(0.62, 0.42, 0.28)), "metal": respond(toon(Color(0.7, 0.72, 0.8)), "metal"),
+				"band": respond(toon(loadout.accent_color()), "gold")}
+			var root: Node3D = disc.duplicate()
+			shield_disc.add_child(root)
+			for m in root.find_children("*", "MeshInstance3D", true, false):
+				(m as MeshInstance3D).material_override = mats.get(String(m.name).get_slice("_", 0), mats.wood)
+				meshes.append(m)
+			_on_fighter_layer(shield_disc)
 	shield_disc.visible = mine
 	if not mine or skeleton == null:
 		return
