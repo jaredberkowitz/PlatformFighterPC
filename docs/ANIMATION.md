@@ -2085,7 +2085,7 @@ knee bend (`review1/mock_stance.jpg`, A/B/C).
   reference flips and turns the whole body, which the owner turned down (2026-10-13). Mean 3.23.
 - **Checked:** the six tests pass.
 
-### Group 18 (round 8): aerial mocks, original whole-body moves for the references' flips and turns (awaiting the owner)
+### Group 18 (round 8): aerial mocks, original whole-body moves for the references' flips and turns (Decided: owner picked B, 2026-10-28)
 
 - **Ask:** the owner (2026-10-28): where the references flip or turn the whole body in an aerial, mock original whole-body options, no
   straight flips, faces clear, never tipped back under an overhead hit, no sim change.
@@ -2101,3 +2101,27 @@ knee bend (`review1/mock_stance.jpg`, A/B/C).
   today's counts are unchanged by it.
 - **New:** `--gallery-cam=D` (the gallery at the match camera's distance, 20).
 - **Checked:** the six tests pass; the default game is unchanged.
+
+### Group 19 (round 8): the tucked curl, the owner's pick B, made the game's own (review items 3, 13, 18)
+
+- **Built (`fighter_view.gd`, `AIR_TUCK`, `_air_tuck`):** where the references flip or turn the whole body in an up air or a back air,
+  the body curls forward over the hit by the first hit, holds through the first half of the end lag and uncurls. Degrees, by class: the
+  Longsword's up air 55 and back air 40 (the swordsman's somersault and turn); the Greatsword's back air 40 (the broadsword's turning
+  slash); the Exile's up air 55 (the long blade's tumbling arc); the Needles' up air 70 and back air 45 (the ninja's upside-down kick and
+  turned kick); the Phantom's up air 55 and back air 25 (its reference's flip kick and turned slash; at 70 and 45 its knife hand came by
+  the face for 5 frames); the Clutch's up air 80 (the dinosaur's flat tail flip). Not carried: the Seer's, the Wanderer's and the
+  Exile's back air, whose references stay upright (checked on their reference clips). `PF_R8_OFF=tuck` shows the old.
+- **Retired:** the mock's options A and C, `PF_AIR_MOCK` and the three launchers in the game folder (deleted with this install, with
+  their How to play notes).
+- **Measured:** face cover over each class's gallery, with the curl against without: Longsword 3 and 3, Greatsword 2 and 2, Exile 0 and 0,
+  Needles 1 and 1, Phantom 0 and 0, Clutch 4 and 3 (its up air's frame 6). A 60 fps movie of each family's up and back air at the match
+  camera: the curls read clearly at real speed.
+- **Image:** `docs/screenshots/anim/r8_aerials_b.jpg` (from the movies, every third frame, before above after); with the reference strips
+  on F: only (`F:/anim_r8/ref/r8_aerials_b_with_ref.jpg`).
+- **The crash on quit (found while testing the mocks):** the exported game crashes as it quits (exit codes 139 and 127, after the demo
+  or the menu has finished; four of five runs, and from the menu with no fighter loaded). The same pack and the same release bridge
+  DLL under the editor's binary quit cleanly (twice), so it is the release template's shutdown, not the game's scripts (every run
+  leaks 834 objects and 92 resources at exit, which the release template may free after the bridge DLL is gone). Not an animation
+  change; reported for the owner.
+- **Review:** items 3, 13 and 18 poses 3 to 4, overall 3.0 to 3.3 each. Mean 3.25 (poses 3.24, fluidity 3.35, weight 3.16).
+- **Checked:** the six tests pass.

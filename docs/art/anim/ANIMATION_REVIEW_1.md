@@ -298,7 +298,7 @@ states (2.7, poses 2 each).
 
 **Mean 3.23** (poses 3.16, fluidity 3.35, weight 3.16). No item is below 3.0 now; the 3.0 items lead with poses next.
 
-## 13. Aerial mocks: our own whole-body moves where the references flip or turn (2026-10-28, awaiting the owner's pick)
+## 13. Aerial mocks: our own whole-body moves where the references flip or turn (Decided: owner picked B, 2026-10-28)
 
 The owner's call (2026-10-28): where the references flip or turn the whole body in an aerial, original whole-body moves instead, never
 a straight flip, never tipped back under an overhead hit, the hit's timing and place unchanged. The moves covered (each family's
@@ -333,9 +333,18 @@ measure now skips it.)
 `review1/mock_aerials_sword.jpg`, `mock_aerials_quick.jpg`, `mock_aerials_heavy.jpg`. With the reference strips on top they are on F:
 only.
 
-**Try them in the game:** set `PF_AIR_MOCK` to A, B or C before starting it (the mock build's folder has a launcher for each); unset, the
-game is unchanged.
+**Built (group 19):** B is the game's own now (`AIR_TUCK`); A, C, `PF_AIR_MOCK` and the mock build's launchers are retired.
 
 **Recommendation:** B for all three families. It gives the references' whole-body commitment on every move without hiding the face, reads
 clearly at the match camera (the sword's and the heavy's up airs especially, nearest their references' somersault and flat flip), and keeps
 the face clear. If the back airs should turn as the references' do, C there, after a face pass on the turned weapon arm.
+
+## 14. After round 8's group 19, the tucked curl (2026-10-28)
+
+| # | Item | P | F | W | O | Was |
+|---|---|---|---|---|---|---|
+| 3 | Sword aerials (the up and back airs curl over their hits) | 4 | 3 | 3 | 3.3 | 3.0 |
+| 13 | Quick aerials (the up and back airs curl over their hits) | 4 | 3 | 3 | 3.3 | 3.0 |
+| 18 | Heavy aerials (the up air curls nearly flat, as the dinosaur's tail flip) | 4 | 3 | 3 | 3.3 | 3.0 |
+
+**Mean 3.25** (poses 3.24, fluidity 3.35, weight 3.16).
