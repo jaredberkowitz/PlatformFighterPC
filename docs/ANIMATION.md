@@ -1752,3 +1752,49 @@ caught in a capture (the tumble's was); the stance width question above.
   (both facings), the Longsword's forward tilt, down tilt and forward smash at match distance (facing right), and its jab and forward
   smash facing left.
 - **Checked:** both facings; the six tests and `swing_toggle_test` pass; no sim change.
+
+### Round 8 (2026-10-27, the owner: keep refining and build any missing sets, reviewed as the stages are)
+
+The review: `docs/art/anim/ANIMATION_REVIEW_1.md` (37 items scored on poses, fluidity and weight against each family's reference
+fighter; mean 3.00, 3.07 after groups 1-3; poses the weakest axis in 26 items), its sheets in `docs/art/anim/review1/`, the inventory of
+every state and what it plays. The side-by-sides with the reference stay on F: (they hold the reference game's models).
+
+### Group 1 (round 8): the missing sets
+
+- **Defect:** seven states played another state's clip: the special fall played the jump's arc, the item pick-up and throw the idle (or
+  the fall), the shield break the hit reaction's flail, the buried fighter the idle, the tether the fall, the wall tech the shield.
+- **Fix:** `make_rigged_blob.py`: `helpless` (limp and hunched, arms loosely up, legs hanging; a loop), `item_pick` (a dip and a reach
+  to the floor), `item_throw` (the free hand drawn back and whipped through: the near hand holds an armed class's weapon), `dizzy` (a
+  slow dazed sway, once grounded after a shield break), `buried` (arms pushing in turn). `fighter_view.gd` `_choose_clip` maps them (the
+  pick-up and throw by progress over `ITEM_PICK_FRAMES` 8 and `ITEM_THROW_FRAMES` 24, the wall tech over 12), the tether hangs on the
+  ledge hold. `AnimLibrary.STAND_INS` gives older rigs their old clips; `face_cover_probe.gd` covers the new states (0% each).
+  `PF_R8_OFF=sets` plays them as before, for captures.
+- **Image:** `docs/screenshots/anim/r8_g1_missing_sets.jpg`: the special fall and the item throw close up, the shield break, before and
+  after. The reference's hitbox animations have none of these states.
+- **Left:** on this body raised arms hide behind the big head, so the special fall's arms and an armed class's throwing arm read only
+  partly at the match camera; the buried fighter shows only its head.
+
+### Group 2 (round 8): end lags fitted to each family's reference (weight)
+
+- **Defect:** measured against each family's reference fighter (the same hold and recovery measure on both), the quick family's aerials
+  held 12-33 frames where the reference holds 2 and floats home over 14-26; the Longsword's forward air held 19 and recovered in 5 (11 and
+  15); the Clutch's forward air recovered before it held, the Embers' up air and forward smash held too long.
+- **Fix (`CLASS_END_SHAPES`):** per class and move, the hold's end and the recovery (even where the reference floats home at one pace)
+  for the Longsword (jab, forward air, back air, down smash), Needles (neutral, up and back airs, forward and down smashes), Clutch
+  (forward air, forward and up smashes) and Embers (forward and up airs, forward smash).
+- **Measured** (mean error in frames, hold / recovery): Longsword 5.1/3.8 to 4.1/2.9; Needles 6.5/6.5 to 4.3/4.2; Clutch 4.5/2.7 to
+  2.4/2.8; Embers 4.1/3.2 to 2.5/1.7.
+- **Image:** `docs/screenshots/anim/r8_g2_end_lag_weight.jpg` (the reference alongside: `F:\anim_r8\sheets\r8_g2_with_reference.jpg`).
+
+### Group 3 (round 8): knees side by side in tucks and seats
+
+- **Defect:** the Clutch's down special turned both knees sideways (-79 and 69 degrees off the hips); every tuck drew the knees in.
+- **Cause (`make_rigged_blob.py` `_spec_pose`):** every stance drew the feet in toward one line by 0.4 of each thigh's angle, meant for a
+  step; with both thighs forward (a tuck, a seat, the ground pound) it turned both knees in across the body by up to 30 degrees.
+- **Fix:** only a step (legs apart front to back) draws the feet in.
+- **Measured:** the down special's knees 4 and 2 degrees off the hips; the Clutch's forward air 15 to 8.
+- **Image:** `docs/screenshots/anim/r8_g3_tuck_knees.jpg`.
+- **Checked (groups 1-3):** the six tests and `swing_toggle_test` pass; no sim change.
+
+**Mocks awaiting the owner:** the line of action in ground strikes (`review1/mock_line_of_action.jpg`, A/B/C) and the stance's width and
+knee bend (`review1/mock_stance.jpg`, A/B/C).
