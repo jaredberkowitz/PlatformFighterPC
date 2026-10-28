@@ -3525,7 +3525,9 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 		flip += move_flip
 		pivot = Vector3(0, 0.9, 0)
 	var throw_body := _throw_body(s)
-	model.rotation = Vector3(deg_to_rad(lean + throw_body.x) + flip, yaw + _pivot_spin(s) + throw_body.y, 0)
+	var state_body := _state_body(s)
+	model.rotation = Vector3(deg_to_rad(lean + throw_body.x + state_body.x) + flip, yaw + _pivot_spin(s) + throw_body.y,
+		deg_to_rad(state_body.y))
 	turning_over = flip != 0.0 or _spin(s) != 0.0 or state == "Hitstun" or state == "Knockdown" or state == "GetUp" or absf(tumble_angle) > 0.02
 	# A spinning neutral air turns the whole body over once backward, in the plane of the stage (see NAIR_SPIN).
 	var spin := _spin(s)
@@ -5080,6 +5082,39 @@ func _throw_body(s: Dictionary) -> Vector4:
 			var rise := -THROW_UP_DIP * sin(PI * into) if f < release else THROW_UP_RISE * home * (1.0 - smoothstep(release, release + 12.0, f) * 0.5)
 			return Vector4(0.0, 0.0, 0.0, rise)
 	return Vector4.ZERO
+
+
+## The special states read in the whole body (round 8, review item 34): on this body the raised arms of the special fall hide behind
+## the head and buried shows only the head, so the state is carried by the body's swing, which reads at the match camera. Dazed after a
+## shield break, the body wobbles round in a slow circle under the stars; in the special fall it slumps forward, limp, and rocks slowly;
+## buried, the head waggles side to side as it struggles. Returns [pitch, roll] in degrees (pitch forward, roll about the body's front).
+const DAZE_LEAN := 6.0
+const DAZE_ROLL := 9.0
+const DAZE_FRAMES := 80.0
+const HELPLESS_SLUMP := 8.0
+const HELPLESS_ROCK := 8.0
+const HELPLESS_FRAMES := 50.0
+const BURIED_ROLL := 8.0
+const BURIED_FRAMES := 24.0
+
+
+func _state_body(s: Dictionary) -> Vector2:
+	if not use_base_body or r8_off.has("states"):
+		return Vector2.ZERO
+	var f := float(s.frame)
+	var settle := smoothstep(0.0, 16.0, float(s.state_frame))
+	match String(s.state):
+		"ShieldBreak":
+			if int(s.platform) >= 0:
+				var a := TAU * f / DAZE_FRAMES
+				return Vector2(DAZE_LEAN * sin(a), DAZE_ROLL * cos(a)) * settle
+		"Helpless":
+			if int(s.platform) < 0:
+				var a := TAU * f / HELPLESS_FRAMES
+				return Vector2(HELPLESS_SLUMP + HELPLESS_ROCK * sin(a), 0.5 * HELPLESS_ROCK * sin(a * 0.7)) * settle
+		"Buried":
+			return Vector2(0.0, BURIED_ROLL * sin(TAU * f / BURIED_FRAMES)) * settle
+	return Vector2.ZERO
 
 
 func _pivot_spin(s: Dictionary) -> float:

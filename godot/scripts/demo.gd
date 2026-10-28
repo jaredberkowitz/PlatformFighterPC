@@ -708,6 +708,14 @@ static func make(demo_name: String, m: Dictionary, dir: String):
 			d.timeline2 = [[0, 0, 0, 0], [10, 0, 0, shield]]
 			d.shots = [[12, "a_shield_up"], [28, "b_block"], [36, "c_stun"], [70, "d_after"]]
 			d.end_frame = 90
+		"helpless":
+			# (Round 8: a long special fall, for judging it at the match camera: the Champion's rising slash from high up, then the fall.)
+			d.chars = [6, 0, 0, 0]
+			d.cam_dist = 20.0
+			d.events = [[1, "place", 0, -2.0, 9.0], [1, "stand", 1, 7.0, -1]]
+			d.timeline = [[0, 0, 0, 0], [12, 0, 100, special], [14, 0, 0, 0]]
+			d.shots = [[80, "a_falling"], [100, "b_falling_later"]]
+			d.end_frame = 170
 		"shield_break":
 			d.chars = [0, 1, 0, 0]
 			d.cam_dist = 20.0

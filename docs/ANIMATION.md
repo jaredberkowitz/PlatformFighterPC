@@ -2039,3 +2039,18 @@ knee bend (`review1/mock_stance.jpg`, A/B/C).
   above after).
 - **Review:** item 33 (grabs and throws) poses 2 to 3, overall 2.7 to 3.0. Mean 3.20 (poses 3.08, fluidity 3.35, weight 3.16).
 - **Checked:** the six tests pass.
+
+### Group 15 (round 8): the special states carried by the whole body (review item 34)
+
+- **Defect:** group 1 gave the special states their own clips, but on this body the special fall's raised arms hide behind the head,
+  buried shows only the head, and the shield-break daze swayed too little to see at the match camera: the three hung, stood or sat still.
+- **Fix (`fighter_view.gd`, `_state_body`):** each state moves the whole body, settling in over its first 16 frames. Dazed after a
+  shield break, the body wobbles round in a slow circle (6 degrees of pitch, 9 of roll, 80 frames a turn) under the stars. In the special
+  fall it slumps forward 8 degrees, limp, and rocks 8 degrees each way every 50 frames, with a slower half-size roll. Buried, the head
+  waggles 8 degrees side to side every 24 frames as it struggles. The base body only; `PF_R8_OFF=states` shows the old. New
+  `--demo=helpless` (the Champion's rising slash from high up, then a long special fall).
+- **Judged at the match camera** (movies of `--demo=helpless`, `shield_break`, `bury`): the special fall's rock and slump and the buried
+  head's waggle read clearly; the daze's wobble reads on a second look.
+- **Image:** `docs/screenshots/anim/r8_g15_special_states_body.jpg` (before above after for each).
+- **Review:** item 34 (special states) poses 2 to 3, overall 2.7 to 3.0. Mean 3.21 (poses 3.11, fluidity 3.35, weight 3.16).
+- **Checked:** the six tests pass.
