@@ -88,6 +88,29 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
     <p>Two lessons from the reference screenshots, mocked from the match camera: the scenery without ink outlines, its edges lit as card bevels instead, and the paper houses rebuilt at the characters' proportions. The earlier rounds stay on the <a href="https://claude.ai/artifact/D1du6MREVumiJDrEdNypW4">Stage Fidelity Review</a>, which is full.</p>
   </header>
 
+  <section class="panel" aria-labelledby="ff53-h" id="frontform53">
+    <div class="eyebrow">Your call is needed &middot; review 15, item 2: form the reference's way</div>
+    <h2 id="ff53-h">Lit cut edges and drawn joints</h2>
+    <p>First, the meadow's ground C is built (see its section below). Next, surfaces, the 4 left on every stage. Easing the dark crevices lightened the fronts but took some of their form with it: the meadow's stones read as pale blocks. The papercraft reference keeps form with light instead: a lit edge where a cut face turns to the sun, and a drawn line in the joints. This does the same on the fronts, near the stage only: an edge on a face turned toward the sun is lifted as a lit band in its own colour, and one on a face turned away is drawn as a firmer joint line. One change for every stage; the fighters are untouched.</p>
+    <div class="tablewrap"><table><thead><tr><th>Option</th><th>What changes</th></tr></thead><tbody>
+      <tr><td>A &middot; A touch</td><td>Lit edges and joints, gently</td></tr>
+      <tr><td>B &middot; Clear</td><td>Lit edges about twice as strong, three lines wide, and the joints drawn firmly</td></tr>
+    </tbody></table></div>
+    <p>Today then B at the match camera: the canyon's strata, the meadow's wall, the city's facade. The fronts' value holds (meadow 0.41 to 0.42, city 0.32 to 0.34) and their contrast rises a little (city 0.164 to 0.170, grove 0.103 to 0.110). P1's gap holds.</p>
+    <div class="viewer"><img src="ff53_close.jpg" alt="Three fronts today and with option B"></div>
+    <div class="row" role="group" aria-label="Stage"><button data-ff53s="0">Meadow</button><button data-ff53s="1">Canyon</button><button data-ff53s="2">Beach</button><button data-ff53s="3">City</button><button data-ff53s="4">Grove</button></div>
+    <div class="row" role="group" aria-label="View"><button data-ff53v="m">Match camera</button><button data-ff53v="w">Wide</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-ff53o="T">Today</button><button data-ff53o="B">B &middot; Clear</button></div>
+    <div class="viewer"><img id="ff53img" alt="Front form option"><span class="vtag" id="ff53tag"></span></div>
+    <p class="muted">My pick: <b>B</b>. The meadow's stones read as cut card again, each with a lit rim on its sun side, and the city's window frames and sills get crisp lit edges. Honest notes:
+      <ul>
+        <li>My first try drew the lit edge one pixel wide, and it barely showed. It is now a band.</li>
+        <li>On the canyon the step is moderate: its blocks are big and flat, with few edges to light. Its hoodoos and two hues (items 3 and 6) are where its surfaces go next.</li>
+        <li>A sits between today and B; I've left it off the page to fit the page's file limit, but it's in the repo if you want it.</li>
+      </ul>
+    </p>
+  </section>
+
   <section class="panel" aria-labelledby="mg52-h" id="meadowground52">
     <div class="eyebrow">Built C (the owner's pick) &middot; review 15, item 1: the meadow's ground a step deeper</div>
     <h2 id="mg52-h">The meadow's fighters back above their ground</h2>
@@ -3294,5 +3317,17 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
   group("data-mg52v", function (v) { mg52v = v; }, mg52render);
   group("data-mg52o", function (v) { mg52o = v; }, mg52render);
   mg52render();
+  var ff53s = "0", ff53v = "m", ff53o = "B";
+  var FF53O = { T: "Today", B: "B · Clear" };
+  var FF53S = { "0": "Meadow", "1": "Canyon", "2": "Beach", "3": "City", "4": "Grove" };
+  function ff53render() {
+    document.getElementById("ff53img").src = "ff53_s" + ff53s + "_" + ff53o + "_" + ff53v + ".jpg";
+    document.getElementById("ff53tag").textContent = FF53S[ff53s] + " · " + FF53O[ff53o] + (ff53v === "w" ? " · wide" : " · match camera");
+    pressed("data-ff53s", ff53s); pressed("data-ff53v", ff53v); pressed("data-ff53o", ff53o);
+  }
+  group("data-ff53s", function (v) { ff53s = v; }, ff53render);
+  group("data-ff53v", function (v) { ff53v = v; }, ff53render);
+  group("data-ff53o", function (v) { ff53o = v; }, ff53render);
+  ff53render();
 })();
 </script>

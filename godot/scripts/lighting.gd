@@ -554,6 +554,11 @@ static func stage_mood(env: Environment, root: Node, theme: Dictionary, post: Sh
 		if deep.size() == 4 and scf in ["A", "B", "C", "D"]:
 			deep = [deep[0], float(deep[1]) * (0.5 if scf == "A" else 0.0), deep[2], deep[3]]
 		post.set_shader_parameter("value_deep", Vector4(deep[0], deep[1], deep[2], deep[3]) if deep.size() == 4 else Vector4(0.0, 0.0, 0.6, 60.0))
+		# (The fronts' form the papercraft reference's way, fidelity review 15 item 2: a style's finish "front_form" [lit edge, joint ink,
+		# band] or `--front-form=A|B`; see post.gdshader `front_form`.)
+		var ff: Array = finish.get("front_form", [0.0, 0.0, 4.0])
+		ff = {"A": [0.9, 0.7, 4.0], "B": [1.6, 1.0, 4.0]}.get(_flag_value("--front-form="), ff)
+		post.set_shader_parameter("front_form", Vector3(ff[0], ff[1], ff[2]))
 		# The key light's way across the screen (the camera looks straight down the stage, so its x and y), for the sheets' shadows.
 		if key != null:
 			var way := -key.basis.z

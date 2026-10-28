@@ -92,3 +92,29 @@ meadow.cfg [backdrop] `fight_ground=[0.42, 0.08]`.
 
 Built C (the owner's pick): meadow.cfg [backdrop] `fight_ground=[0.42, 0.08]`. In the game P1's gap is 0.128. Before and after (the fight,
 match camera): `review15/meadow_ground_built.jpg`. All seven tests pass.
+
+## Item 2, form the reference's way (mock, 2026-10-28)
+
+`--front-form=A|B` (a style's finish `front_form` [lit edge, joint ink, band]; post.gdshader `front_form`). Within the band (4 units of
+the stage plane, fading over 4 more), on the scenery's edges (the pass's own depth-step and crease tests, nearer side only):
+- an edge on a face turned toward the sun (its view normal against `pf_sun_dir`) is lifted as a lit band in its own colour
+  (`col * 1.3 + warm`), tested out to 2 and 3 line widths so it reads as a band;
+- an edge on a face turned away is inked at `front_form.y` in place of the scenery's 0.4.
+
+A [0.9, 0.7, 4], B [1.6, 1.0, 4]. A first try lit only a one-pixel line and barely showed.
+
+| Front at the match camera (value, contrast) | Today | B |
+|---|---|---|
+| Meadow | 0.41, 0.074 | 0.42, 0.074 |
+| Canyon | 0.29, 0.064 | 0.29, 0.066 |
+| Beach | 0.29, 0.093 | 0.30, 0.091 |
+| City | 0.32, 0.164 | 0.34, 0.170 |
+| Grove | 0.29, 0.103 | 0.29, 0.110 |
+
+The region averages hide a thin effect; by eye:
+- the meadow's stones read as cut card again, each with a lit rim on its sun side;
+- the city's frames and sills get crisp lit edges;
+- the canyon's big flat blocks change least.
+
+P1's gap holds. On the Stage Look Review ("frontform53", `ff53_*`, today and B); recommended B. To ship: STYLE_DEFAULT finish
+`front_form=[1.6, 1.0, 4.0]`.
