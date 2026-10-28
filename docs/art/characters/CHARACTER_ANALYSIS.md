@@ -599,3 +599,26 @@ Mocked two of each as Blender models; the owner chose the long cape and the line
 and after (right) with the cape on player 1 and the hood on player 2 (dash-dance, dash, jump, a tilt), then the cape streaming behind a
 dash and a run at real speed. The match captures used saved looks written for the purpose and removed afterwards. Loadout, fighter
 view, art pipeline, animation library, match flow, replay, select grid and editor UI tests pass.
+
+## Form light (2026-10-28, the comparison's first weak point: "lighting and form")
+Compared side by side with the reference lineup, the biggest gap was how the bodies are lit: the reference figures are lit from above
+with soft studio light, each head and body bright on top and turning into shade underneath, so a round head reads as a ball. Ours read
+as flat discs.
+- **Cause**, found by mocking: the ambient fill (about half of all the light on a fighter) lit every side alike, so the undersides were
+  as bright as the tops whatever the key did; the two-tone step (`PF_FIGHTER_STEP`) mattered less. A soft gradient alone (mock B) and
+  the outline off barely changed anything.
+- Mocked four strengths (E, G, H against the current A); the owner chose G:
+  - the fighters' key tilted up toward the sky (`PF_FIGHTER_TOP` 1.0, `PF_FIGHTER_FORM` 0.6 to 0.8);
+  - the ambient fill from the sky: surfaces facing down keep 15% of it (`pf_fighter_sky`, `PF_FIGHTER_SKY_FLOOR`, multiplied into the
+    AO of the cloth, skin, limb and face shaders, fighters only);
+  - a soft fall-off into shade instead of the hard two-tone step (`PF_FIGHTER_SOFT`), the shadow tone deeper (`PF_FIGHTER_SHADE`
+    0.7 to 0.5);
+  - more of the head's and hat's cast shade on the shirt and shoulders (`PF_FIGHTER_CAST` 0.25 to 0.6), the contact shade the
+    reference figures carry.
+  H, stronger still, muddied pale and warm colours (yellow toward olive, orange toward brown).
+- Fighters only (the `fighter` flag): the canyon and the city rendered with the old and new shaders differ only at the fighters.
+- The look bench passes: every fighter's silhouette still reads against every mood; the body contrast rose on the bright backdrops
+  and fell a little on the dark ones.
+
+`form_light_pass.png`: the default faces, before above after; the sailor and aviator in T-pose, before and after each; a match frame,
+before and after. Fighter view, art pipeline, loadout, animation library, match flow, select grid, editor UI and prop check tests pass.

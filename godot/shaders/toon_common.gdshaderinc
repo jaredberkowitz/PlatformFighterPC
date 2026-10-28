@@ -368,7 +368,7 @@ void fragment() {
 	ALBEDO = c;
 	EMISSION = flash.rgb * flash.a + c * fighter_bounce.rgb * fighter_bounce_amount * fighter * clamp(-world_normal.y, 0.0, 1.0);
 	ROUGHNESS = object_id;
-	AO = pf_stage_ao_ground(world_pos, world_normal);
+	AO = pf_stage_ao_ground(world_pos, world_normal) * pf_fighter_sky(NORMAL, VIEW_MATRIX, fighter);
 	if (use_baked_ao) {
 		AO *= mix(1.0, pow(texture(baked_ao, UV2).r, baked_ao_curve), baked_ao_strength);
 		AO_LIGHT_AFFECT = baked_ao_light;

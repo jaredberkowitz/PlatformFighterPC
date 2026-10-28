@@ -201,7 +201,7 @@ void fragment() {
 	ALBEDO = c;
 	EMISSION = flash.rgb * flash.a + c * bounce.rgb * bounce_amount * clamp(-world_normal.y, 0.0, 1.0);
 	ROUGHNESS = object_id;
-	AO = pf_stage_ao(world_pos);
+	AO = pf_stage_ao(world_pos) * pf_fighter_sky(NORMAL, VIEW_MATRIX, fighter);
 	AO_LIGHT_AFFECT = 0.45;
 	SPECULAR = 0.0;
 }
