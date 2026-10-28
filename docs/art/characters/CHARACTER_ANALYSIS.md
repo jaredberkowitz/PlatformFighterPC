@@ -640,3 +640,16 @@ buckle, a navy fabric strap, a mix per look); the owner chose the mix.
 `sash_pass.png`: the four default looks before above after, side views (the sailor and the aviator, before then after), and a match
 frame before and after. Fighter view, loadout (the mesh budget per item), art pipeline, animation library, match flow, select grid,
 editor UI and motion tests pass.
+
+## Sleeve bands, shorts turn-ups, the strap's badges (2026-10-28, the comparison's next weak points)
+Mocked four options; the owner chose C.
+- **Shorts turn-ups** in the shorts' own colour, a shade darker, on every look (`fighter_view.gd`, ShortsCuff): the sailor's white and
+  the holiday shirt's cream turn-ups read as sock tops at play size.
+- **Sleeve bands** a contrasting colour again, as the reference cast's sleeves end in a coloured stripe: the outfit colour on a white
+  shirt, a deeper shade of it on the outfit shirt, white on the striped and printed ones (SleeveTrim). In the shirt's own cloth the
+  sleeve just stopped. A small change at match distance.
+- **The badge strap's badges** sit on the upper chest (`STRAP_BADGE_FROM`, `STRAP_BADGE_STEP`): at the broad sash's spacing a narrow
+  strap's two badges sat down by the hip, out of sight.
+
+`trim_pass.png`: the default looks from two sides, before above after each, then a match frame before and after. Fighter view,
+loadout, art pipeline, match flow, select grid and editor UI tests pass.

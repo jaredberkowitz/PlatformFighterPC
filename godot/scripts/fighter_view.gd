@@ -383,11 +383,10 @@ func _build_rig(skin: Material) -> bool:
 			# (A cuff of its own per neckwear, so the cast's shorts differ, the character judge's round 6: a white sailor's stripe with the
 			# kerchief, a cream turn-up on the holiday shirt, else a shade darker than the shorts.)
 			var cuff_c: Color = shorts_colour.darkened(0.12)
+			# (In the shorts' own colour, a shade darker, on every look since the trim pass, 2026-10-28, the owner's pick of mocks: the
+			# sailor's white and the holiday shirt's cream turn-ups read as sock tops at play size.)
 			if part.begins_with("ShortsCuff"):
-				if loadout.neck == 5 or loadout.neck == 8:
-					cuff_c = Color(0.97, 0.96, 0.92)
-				elif loadout.shirt == 4:
-					cuff_c = Color(0.95, 0.9, 0.78)
+				cuff_c = shorts_colour.darkened(0.15)
 			mi.material_override = _cloth(toon(cuff_c))
 			mi.visible = loadout.has_belt() if part.begins_with("ShortsPocket") else loadout.has_shorts()
 		elif part.begins_with("Sock"):
@@ -424,9 +423,16 @@ func _build_rig(skin: Material) -> bool:
 			# on a coloured or printed one.
 			mi.visible = loadout.shirt > 0
 			# (Since the owner's second reference: a rolled cuff of the shirt's own cloth.)
-			var cuff_cloth := _garment_shirt_material()
-			if cuff_cloth != null:
-				mi.material_override = _cloth(cuff_cloth)
+			# (A contrasting band again since the trim pass, 2026-10-28, the owner's pick of mocks, as the reference cast's sleeves end in a
+			# coloured stripe: the outfit colour on a white shirt, a deeper shade of it on the outfit shirt, white on the striped and printed
+			# ones. In the shirt's own cloth the sleeve just stopped.)
+			match loadout.shirt:
+				1:
+					mi.material_override = _cloth(toon(loadout.accent_color()))
+				2:
+					mi.material_override = _cloth(toon(loadout.accent_color().darkened(0.35)))
+				_:
+					mi.material_override = _cloth(toon(Color(0.97, 0.96, 0.92)))
 		elif part.begins_with("ShirtCampCollar"):
 			# The holiday shirt's collar, in its own print.
 			mi.visible = loadout.shirt == 4
@@ -2208,6 +2214,10 @@ const STRAP_WIDTH := 0.85
 ## The neckwear that rings the neck (it covers the shirt's collar): the neckerchief, scarf, cape, kerchief and sash, kerchief and collar.
 const RING_NECKS := [2, 3, 4, 5, 8]
 const STRAP_BADGES := 2
+## Where along the strap its badges sit (degrees round the band, 90 the middle of the chest, more toward the shoulder), the trim pass,
+## 2026-10-28: at the sash's spacing a narrow strap's badges sat down by the hip, out of sight.
+const STRAP_BADGE_FROM := 100.0
+const STRAP_BADGE_STEP := 25.0
 const STRAP_LEATHER := Color(0.42, 0.27, 0.17)
 
 
@@ -2279,7 +2289,7 @@ func _sash(accent: Color, kind: int) -> void:
 	var tools := {}
 	var order: Array = []
 	for k in badge_count:
-		var t := deg_to_rad(SASH_BADGE_FROM + SASH_BADGE_STEP * k)
+		var t := deg_to_rad((SASH_BADGE_FROM + SASH_BADGE_STEP * k) if kind == 0 else (STRAP_BADGE_FROM + STRAP_BADGE_STEP * k))
 		var out := Vector3(0.88 * cos(t), 0.0, sin(t)).normalized()
 		var at_b := Vector3(0.88 * 0.655 * cos(t), 0.0, 0.655 * sin(t))
 		var turn := Basis(Quaternion(Vector3.UP, out)) * Basis(Vector3.UP, deg_to_rad(8.0 * float(k % 3 - 1))) * Basis.from_scale(Vector3.ONE * SASH_BADGE_SIZE)
