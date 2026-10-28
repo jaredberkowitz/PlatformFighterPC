@@ -188,7 +188,204 @@ def nodachi():
     return root
 
 
-WEAPONS = {"claw": claw, "dagger": dagger, "nodachi": nodachi}
+# ---- The pivot weapons (2026-10-28, the owner: the code-built weapons replaced with modelled ones). Laid out on the game's weapon pivot
+# like the nodachi (fighter_view.gd `blade_pivot`: the hand at the origin, the blade or shaft along +X to 2.9, its width in Blender Z,
+# the game's Y), so every pose, arc and reach that was fitted to the code-built pieces still fits. More part names:
+#   gold*  the hilt fittings              edge*  a bright sharpened bevel (drawn unlit)
+#   dark*  a fuller                       gem*   a glowing crystal (drawn unlit)
+#   bronze* the greatsword's rivets
+
+
+def _sections(bm, stations, sharp_faces=True):
+    """Lofts closed cross-sections (lists of (y, z) in the plane square to X) through `stations` [(x, section)], capping both ends; a
+    section that has shrunk to a point closes the end."""
+    rings = []
+    for x, sec in stations:
+        rings.append([bm.verts.new((x, y, z)) for (y, z) in sec])
+    n = len(stations[0][1])
+    for r0, r1 in zip(rings, rings[1:]):
+        for j in range(n):
+            bm.faces.new((r0[j], r0[(j + 1) % n], r1[(j + 1) % n], r1[j]))
+    bm.faces.new(list(reversed(rings[0])))
+    bm.faces.new(rings[-1])
+    bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=1e-5)
+
+
+def _torus(bm, centre, radius, minor, segments=32, sides=10, squash=1.0):
+    """A closed ring in the X-Z plane (square to the game's camera) round `centre`, with no seam (a tube's caps left a notch)."""
+    rings = []
+    for i in range(segments):
+        a = math.tau * i / segments
+        out = Vector((math.cos(a), 0.0, math.sin(a)))
+        rings.append([bm.verts.new(centre + out * (radius + minor * math.cos(t)) + Vector((0.0, minor * squash * math.sin(t), 0.0)))
+                      for t in [math.tau * k / sides for k in range(sides)]])
+    for i in range(segments):
+        r0, r1 = rings[i], rings[(i + 1) % segments]
+        for k in range(sides):
+            bm.faces.new((r0[k], r1[k], r1[(k + 1) % sides], r0[(k + 1) % sides]))
+
+
+def longsword():
+    """The Longsword's sword (also the Buckler's): a slim straight double-edged blade with a diamond section (a ridge down each face, so
+    one bevel catches the light and the other falls into shade) and a long tapering point, a dark fuller down the middle, a gently swept
+    crossguard with ball ends and a block where it meets the blade, a wrapped one-hand grip and a round pommel. The blade runs 0.24 to
+    2.9 along X, 0.17 across, as the code-built one did."""
+    root = empty("longsword")
+    bm = bmesh.new()
+    stations = []
+    x0, x1, tip_from = 0.24, 2.9, 2.32
+    for i in range(17):
+        x = x0 + (x1 - x0) * i / 16
+        k = 1.0 if x <= tip_from else max(0.0, (x1 - x) / (x1 - tip_from)) ** 0.85
+        w, t, flat = 0.085 * k, 0.04 * k + 0.004, 0.011 * k
+        stations.append((x, [(flat, w), (t, 0.0), (flat, -w), (-flat, -w), (-t, 0.0), (-flat, w)]))
+    _sections(bm, stations)
+    to_object("metal_blade", bm, sharp=25.0).parent = root
+    bm = bmesh.new()
+    _sections(bm, [(x, [(0.046, 0.022), (0.046, -0.022), (-0.046, -0.022), (-0.046, 0.022)]) for x in (0.3, 2.05)])
+    to_object("dark_fuller", bm, sharp=60.0).parent = root
+    # The crossguard: a round bar across the blade (Z), its ends swept a little toward the point, with ball ends and a block in the middle.
+    bm = bmesh.new()
+    # (The block first: `rounded_box` bevels every edge already in the mesh.)
+    rounded_box(bm, Vector((0.2, 0.0, 0.0)), (0.13, 0.13, 0.2), bevel=0.4, segments=2)
+    pts = [Vector((0.17 + 0.05 * (abs(z) / 0.32) ** 2, 0.0, z)) for z in [-0.32 + 0.64 * k / 10 for k in range(11)]]
+    tube(bm, pts, [0.045] * len(pts), sides=12)
+    for z in (-0.33, 0.33):
+        s = bmesh.ops.create_uvsphere(bm, u_segments=12, v_segments=8, radius=0.072)
+        bmesh.ops.translate(bm, vec=Vector((0.22, 0.0, z)), verts=s["verts"])
+    to_object("gold_guard", bm).parent = root
+    bm = bmesh.new()
+    pts = [Vector((-0.24 + 0.38 * k / 12, 0.0, 0.0)) for k in range(13)]
+    tube(bm, pts, [0.062 + 0.008 * abs(math.sin(k * math.pi * 3 / 12)) for k in range(13)], sides=12)
+    to_object("band_grip", bm).parent = root
+    bm = bmesh.new()
+    bmesh.ops.create_uvsphere(bm, u_segments=14, v_segments=10, radius=0.085)
+    bmesh.ops.translate(bm, vec=Vector((-0.3, 0.0, 0.0)), verts=bm.verts)
+    to_object("gold_pommel", bm).parent = root
+    return root
+
+
+def greatsword():
+    """The Greatsword's broad single-edged blade (the code-built one's outline: 0.2 to 2.9 along X, 0.5 across, the back straight and the
+    edge cut in a long chisel to the point): thick at the spine and thin at the edge, the sharpened bevel its own part so it reads
+    bright, a dark fuller near the back, a heavy bronze guard with two rivets, a long two-hand leather grip and a round pommel."""
+    root = empty("greatsword")
+    x0, x1, chisel = 0.2, 2.9, 2.4
+    body, bevel = [], []
+    for i in range(19):
+        x = x0 + (x1 - x0) * i / 18
+        e = -0.25 if x <= chisel else -0.25 + 0.5 * (x - chisel) / (x1 - chisel)
+        s = (0.25 - e) / 0.5
+        top = e + 0.15 * s
+        spine, mid, sharp_t = 0.07 * (0.35 + 0.65 * s), 0.055 * (0.35 + 0.65 * s), 0.008
+        body.append((x, [(spine, 0.25), (mid, top), (-mid, top), (-spine, 0.25)]))
+        bevel.append((x, [(mid, top), (sharp_t * s, e), (-sharp_t * s, e), (-mid, top)]))
+    bm = bmesh.new()
+    _sections(bm, body)
+    to_object("metal_blade", bm, sharp=30.0).parent = root
+    bm = bmesh.new()
+    _sections(bm, bevel)
+    to_object("edge_bevel", bm, sharp=30.0).parent = root
+    bm = bmesh.new()
+    _sections(bm, [(x, [(0.076, 0.135), (0.076, 0.065), (-0.076, 0.065), (-0.076, 0.135)]) for x in (0.36, 2.2)])
+    to_object("dark_fuller", bm, sharp=60.0).parent = root
+    bm = bmesh.new()
+    rounded_box(bm, Vector((0.12, 0.0, 0.0)), (0.2, 0.24, 0.86), bevel=0.3, segments=3)
+    to_object("gold_guard", bm).parent = root
+    bm = bmesh.new()
+    for z in (-0.3, 0.3):
+        for sy in (-1.0, 1.0):
+            r = bmesh.ops.create_uvsphere(bm, u_segments=10, v_segments=6, radius=0.05)
+            for v in r["verts"]:
+                v.co = Vector((0.12 + v.co.x, sy * (0.12 + 0.6 * abs(v.co.y)), z + v.co.z))
+    to_object("bronze_rivets", bm).parent = root
+    bm = bmesh.new()
+    pts = [Vector((-0.6 + 0.62 * k / 16, 0.0, 0.0)) for k in range(17)]
+    tube(bm, pts, [0.07 + 0.01 * abs(math.sin(k * math.pi * 4 / 16)) for k in range(17)], sides=12)
+    to_object("leather_grip", bm).parent = root
+    bm = bmesh.new()
+    bmesh.ops.create_uvsphere(bm, u_segments=14, v_segments=10, radius=0.11)
+    bmesh.ops.translate(bm, vec=Vector((-0.66, 0.0, 0.0)), verts=bm.verts)
+    to_object("gold_pommel", bm).parent = root
+    return root
+
+
+def staff():
+    """The Seer's staff (the code-built one's layout: held near its foot at the origin, its head at 2.6 along X): a pale wooden shaft
+    tapering toward the head with a gold foot cap and a wrap where the hand holds it, a gold collar, and a round gold ring standing
+    square to the camera (in X and Z) on two short prongs, a glowing crystal floating in it."""
+    root = empty("staff")
+    bm = bmesh.new()
+    pts = [Vector((-0.34 + 2.66 * k / 16, 0.0, 0.0)) for k in range(17)]
+    tube(bm, pts, [0.092 - 0.02 * k / 16 + 0.006 * math.sin(k * 1.7) for k in range(17)], sides=12)
+    to_object("wood_shaft", bm).parent = root
+    bm = bmesh.new()
+    tube(bm, [Vector((-0.42, 0.0, 0.0)), Vector((-0.38, 0.0, 0.0)), Vector((-0.3, 0.0, 0.0))], [0.07, 0.1, 0.1], sides=14)
+    tube(bm, [Vector((2.2, 0.0, 0.0)), Vector((2.26, 0.0, 0.0)), Vector((2.34, 0.0, 0.0)), Vector((2.38, 0.0, 0.0))],
+         [0.1, 0.135, 0.135, 0.1], sides=16)
+    to_object("gold_collar", bm).parent = root
+    bm = bmesh.new()
+    pts = [Vector((-0.2 + 0.42 * k / 10, 0.0, 0.0)) for k in range(11)]
+    tube(bm, pts, [0.1 + 0.008 * abs(math.sin(k * math.pi * 3 / 10)) for k in range(11)], sides=12)
+    to_object("band_wrap", bm).parent = root
+    # The ring (in X and Z, the plane facing the camera) and the two prongs holding it on the collar.
+    bm = bmesh.new()
+    _torus(bm, Vector((2.64, 0.0, 0.0)), 0.24, 0.042)
+    for sz in (-1.0, 1.0):
+        prong = [Vector((2.34 + 0.08 * k, 0.0, sz * (0.07 + 0.12 * math.sin(k * math.pi / 4)))) for k in range(4)]
+        tube(bm, prong, [0.035, 0.033, 0.03, 0.03], sides=8)
+    bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=1e-4)
+    to_object("gold_ring", bm).parent = root
+    bm = bmesh.new()
+    pts = [Vector((2.44, 0.0, 0.0)), Vector((2.64, 0.0, 0.0)), Vector((2.84, 0.0, 0.0))]
+    rings = []
+    for p, rad in zip(pts, [0.0, 0.13, 0.0]):
+        rings.append([bm.verts.new(p + Vector((0.0, rad * math.cos(a), rad * math.sin(a)))) for a in [math.tau * k / 4 + 0.785 for k in range(4)]])
+    for r0, r1 in zip(rings, rings[1:]):
+        for j in range(4):
+            bm.faces.new((r0[j], r0[(j + 1) % 4], r1[(j + 1) % 4], r1[j]))
+    bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=1e-5)
+    to_object("gem_crystal", bm, smooth=False).parent = root
+    return root
+
+
+def round_shield():
+    """The Buckler's round shield, worn on the other forearm facing the camera (the game's +Z, Blender -Y): a domed face of wooden planks
+    0.42 across the radius, a steel rim, six rivets and a boss in the fighter's accent colour."""
+    root = empty("round_shield")
+    bm = bmesh.new()
+    sides = 32
+    rings = []
+    for k in range(7):
+        rr = 0.42 * k / 6
+        dome = 0.07 * (1.0 - (rr / 0.42) ** 2)
+        rings.append([bm.verts.new((rr * math.cos(math.tau * i / sides), -0.04 - dome, rr * math.sin(math.tau * i / sides))) for i in range(sides)])
+    back = [bm.verts.new((0.42 * math.cos(math.tau * i / sides), 0.03, 0.42 * math.sin(math.tau * i / sides))) for i in range(sides)]
+    for r0, r1 in zip(rings, rings[1:]):
+        for i in range(sides):
+            bm.faces.new((r0[i], r1[i], r1[(i + 1) % sides], r0[(i + 1) % sides]))
+    for i in range(sides):
+        bm.faces.new((rings[-1][i], back[i], back[(i + 1) % sides], rings[-1][(i + 1) % sides]))
+    bm.faces.new(list(back))
+    bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=1e-5)
+    to_object("wood_face", bm).parent = root
+    bm = bmesh.new()
+    _torus(bm, Vector((0.0, -0.02, 0.0)), 0.42, 0.045, segments=40)
+    for k in range(6):
+        a = math.tau * k / 6 + 0.26
+        s = bmesh.ops.create_uvsphere(bm, u_segments=8, v_segments=6, radius=0.03)
+        bmesh.ops.translate(bm, vec=Vector((0.34 * math.cos(a), -0.075, 0.34 * math.sin(a))), verts=s["verts"])
+    to_object("metal_rim", bm).parent = root
+    bm = bmesh.new()
+    s = bmesh.ops.create_uvsphere(bm, u_segments=16, v_segments=10, radius=0.13)
+    for v in s["verts"]:
+        v.co = Vector((v.co.x, -0.1 + min(v.co.y, 0.0) * 0.55, v.co.z))
+    to_object("band_boss", bm).parent = root
+    return root
+
+
+WEAPONS = {"claw": claw, "dagger": dagger, "nodachi": nodachi, "longsword": longsword, "greatsword": greatsword, "staff": staff,
+           "round_shield": round_shield}
 
 
 def export(root, path):
@@ -209,12 +406,17 @@ def preview(root, path):
     scene.render.resolution_y = 480
     cam_data = bpy.data.cameras.new("cam")
     cam_data.type = "ORTHO"
-    cam_data.ortho_scale = 1.1
+    lo, hi = Vector((1e9,) * 3), Vector((-1e9,) * 3)
+    for c in root.children_recursive:
+        for v in c.data.vertices:
+            lo = Vector(map(min, lo, v.co))
+            hi = Vector(map(max, hi, v.co))
+    cam_data.ortho_scale = max(1.1, (hi - lo).length * 1.05)
     cam = bpy.data.objects.new("cam", cam_data)
     scene.collection.objects.link(cam)
     scene.camera = cam
-    target = Vector((0.2, 0.0, 0.05))
-    cam.location = target + Vector((0.9, -2.2, 1.3))
+    target = (lo + hi) * 0.5
+    cam.location = target + Vector((0.9, -2.2, 1.3)) * max(1.0, (hi - lo).length)
     cam.rotation_euler = (target - cam.location).to_track_quat("-Z", "Y").to_euler()
     scene.render.filepath = path
     bpy.ops.render.render(write_still=True)
