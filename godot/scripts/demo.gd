@@ -418,6 +418,10 @@ static func make(demo_name: String, m: Dictionary, dir: String):
 					drift = clampi(int(arg.substr(16)), -127, 127)
 			d.chars = [cls, 0, 0, 0]
 			d.cam_dist = 9.0
+			# (`--gallery-cam=D`: the camera this far off, 20 for the match camera's scale: round 8's aerial mocks.)
+			for arg in OS.get_cmdline_user_args():
+				if arg.begins_with("--gallery-cam="):
+					d.cam_dist = float(arg.substr(14))
 			d.cam_focus = 0
 			d.events = [[1, "stand", 1, 7.0 * facing, -facing]]
 			var moves := [["jab", 0, 0, attack, false], ["ftilt", 40, 0, attack, false], ["utilt", 0, 70, attack, false],

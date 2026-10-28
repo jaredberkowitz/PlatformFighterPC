@@ -2084,3 +2084,20 @@ knee bend (`review1/mock_stance.jpg`, A/B/C).
 - **Review:** item 3 (sword aerials) holds at 3.0: the curl brings the forward air nearer, but the up air and the back air are where the
   reference flips and turns the whole body, which the owner turned down (2026-10-13). Mean 3.23.
 - **Checked:** the six tests pass.
+
+### Group 18 (round 8): aerial mocks, original whole-body moves for the references' flips and turns (awaiting the owner)
+
+- **Ask:** the owner (2026-10-28): where the references flip or turn the whole body in an aerial, mock original whole-body options, no
+  straight flips, faces clear, never tipped back under an overhead hit, no sim change.
+- **Built (`fighter_view.gd`, `_air_mock`, `AIR_MOCK`):** off unless `PF_AIR_MOCK` is A, B or C. A corkscrew (a whole turn about the body's
+  long axis through the hit), B a tucked forward curl held through the first half of the end lag, C a whip (up airs) or a 150-degree turn
+  to face the hit and home (back airs). Covered: the Longsword's and the Needles' up and back airs, the Clutch's up air. Options and
+  recommendation in `ANIMATION_REVIEW_1.md` section 13; sheets `docs/art/anim/review1/mock_aerials_<family>.jpg`.
+- **Tuning:** A first turned through the camera and ended 6 frames after the last hit, and the up air's kicking leg crossed the face as the
+  body came round; it now turns its back to the camera first and ends on the last hit. C first held its turn through the end lag and the
+  weapon arm crossed the face; it now turns home straight after the last hit. B first eased with the reach and showed for a frame or two;
+  it now holds.
+- **Measure:** `PF_FACE_COVER` now skips a face turned away from the camera (the back of the head toward it), which cannot be covered;
+  today's counts are unchanged by it.
+- **New:** `--gallery-cam=D` (the gallery at the match camera's distance, 20).
+- **Checked:** the six tests pass; the default game is unchanged.

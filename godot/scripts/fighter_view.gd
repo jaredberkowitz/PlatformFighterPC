@@ -3229,6 +3229,8 @@ func _body_spring_time(s: Dictionary, delta: float) -> float:
 static var log_cover := OS.has_environment("PF_FACE_COVER")
 const COVER_R := 0.4
 const FRONT_COVER_Z := 0.15
+## How far the face may turn from the camera (its forward axis' depth, world space) and still count as seen.
+const FACE_AWAY_Z := -0.2
 
 
 func _log_face_cover(s: Dictionary) -> void:
@@ -3236,6 +3238,9 @@ func _log_face_cover(s: Dictionary) -> void:
 		return
 	var hp: Transform3D = skeleton.global_transform * skeleton.get_bone_global_pose(head_bone)
 	var centre: Vector3 = hp.origin + hp.basis.y.normalized() * 0.3
+	# (Round 8: a face turned away from the camera, the back of the head toward it in a whole-body turn, cannot be covered.)
+	if hp.basis.z.normalized().z < FACE_AWAY_Z:
+		return
 	# (Round 4: PF_FACE_COVER=front measures from the drawn face, FACE_FWD ahead of the head's middle, where side-on it really is.)
 	if OS.get_environment("PF_FACE_COVER") == "front":
 		centre.x += FACE_FWD * float(s.facing)
@@ -3530,8 +3535,9 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 		pivot = Vector3(0, 0.9, 0)
 	var throw_body := _throw_body(s)
 	var state_body := _state_body(s)
-	model.rotation = Vector3(deg_to_rad(lean + throw_body.x + state_body.x) + flip, yaw + _pivot_spin(s) + throw_body.y,
-		deg_to_rad(state_body.y))
+	var air_mock := _air_mock(s)
+	model.rotation = Vector3(deg_to_rad(lean + throw_body.x + state_body.x + air_mock.x) + flip,
+		yaw + _pivot_spin(s) + throw_body.y + air_mock.y, deg_to_rad(state_body.y))
 	turning_over = flip != 0.0 or _spin(s) != 0.0 or state == "Hitstun" or state == "Knockdown" or state == "GetUp" or absf(tumble_angle) > 0.02
 	# A spinning neutral air turns the whole body over once backward, in the plane of the stage (see NAIR_SPIN).
 	var spin := _spin(s)
@@ -5089,6 +5095,56 @@ func _throw_body(s: Dictionary) -> Vector4:
 			var rise := -THROW_UP_DIP * sin(PI * into) if f < release else THROW_UP_RISE * home * (1.0 - smoothstep(release, release + 12.0, f) * 0.5)
 			return Vector4(0.0, 0.0, 0.0, rise)
 	return Vector4.ZERO
+
+
+## The aerial mocks (round 8, the owner's call 2026-10-28): where the references flip or turn the whole body for an up air or a back air,
+## our own whole-body moves instead, never a straight flip and never tipped back under an overhead hit. Off unless the environment variable
+## PF_AIR_MOCK is A, B or C (the default game is unchanged). The options, the same three kinds for each move, tuned per move:
+## A, a corkscrew: one whole turn about the body's long axis through the hit, its back to the camera first, so the blade or leg is carried
+## round it;
+## B, a tucked curl: the body curls forward over the hit (head down, knees up) and uncurls, stopping well short of a flip;
+## C, for an up air a whip: wound back away from the hit, then whipped round into it and settled; for a back air a turn (150 degrees): the body
+## turns to face the hit behind by its first active frame and turns home straight after its last.
+## The moves covered, by class (each family's representative): [kind, the curl's degrees, the whip's or turn's degrees].
+static var air_mock_option := OS.get_environment("PF_AIR_MOCK").strip_edges().to_upper()
+const AIR_MOCK := {
+	0: {"uair": ["up", 55.0, 160.0], "bair": ["back", 40.0, 150.0]},
+	2: {"uair": ["up", 70.0, 160.0], "bair": ["back", 45.0, 150.0]},
+	8: {"uair": ["up", 80.0, 150.0]},
+}
+
+
+func _air_mock(s: Dictionary) -> Vector2:
+	if air_mock_option == "" or not use_base_body or String(s.state) != "Attack" or int(s.platform) >= 0:
+		return Vector2.ZERO
+	var spec: Array = (AIR_MOCK.get(_cls(s), {}) as Dictionary).get(String(s.move_name), [])
+	if spec.is_empty():
+		return Vector2.ZERO
+	var t: PackedInt32Array = s.move_timing
+	var f := float(s.state_frame)
+	var total := maxf(2.0, float(t[0]))
+	var first := clampf(float(t[1]), 1.0, total)
+	var last := clampf(float(t[2]), first, total)
+	var facing := float(s.facing)
+	var home := 1.0 - smoothstep(last + 2.0, last + 2.0 + (total - last) * 0.5, f)
+	match air_mock_option:
+		"A":
+			# One whole turn, from a little before the first hit to the last, its back turned to the camera first (turned the other way, or ending
+			# later, the up air's leg crossed the face as it came round).
+			return Vector2(0.0, -TAU * facing * smoothstep(first - 5.0, last + 1.0, f))
+		"B":
+			# (Curled by the first hit and held through the first half of the end lag, as the references hold theirs: eased with the reach
+			# alone it showed for a frame or two.)
+			return Vector2(float(spec[1]) * smoothstep(0.0, first, f) * home, 0.0)
+		"C":
+			if String(spec[0]) == "back":
+				# (Turned home straight after the last hit: held turned, the weapon arm came across the face.)
+				var back_home := 1.0 - smoothstep(last, last + 6.0, f)
+				return Vector2(0.0, deg_to_rad(float(spec[2])) * facing * smoothstep(first - 6.0, first, f) * back_home)
+			var wind := smoothstep(0.0, first - 2.0, f)
+			var whip := smoothstep(first - 2.0, last + 2.0, f)
+			return Vector2(0.0, deg_to_rad(-50.0 * wind * (1.0 - whip) + float(spec[2]) * whip * home) * facing)
+	return Vector2.ZERO
 
 
 ## The special states read in the whole body (round 8, review item 34): on this body the raised arms of the special fall hide behind

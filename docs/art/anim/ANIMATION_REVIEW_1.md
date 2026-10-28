@@ -297,3 +297,45 @@ states (2.7, poses 2 each).
 | 18 | Heavy aerials (the forward air curled head-down onto its hit) | 3 | 3 | 3 | 3.0 | 2.7 |
 
 **Mean 3.23** (poses 3.16, fluidity 3.35, weight 3.16). No item is below 3.0 now; the 3.0 items lead with poses next.
+
+## 13. Aerial mocks: our own whole-body moves where the references flip or turn (2026-10-28, awaiting the owner's pick)
+
+The owner's call (2026-10-28): where the references flip or turn the whole body in an aerial, original whole-body moves instead, never
+a straight flip, never tipped back under an overhead hit, the hit's timing and place unchanged. The moves covered (each family's
+representative; the pick then goes to the family's other classes):
+
+- **Sword (item 3):** the Longsword's up air (the swordsman somersaults with the blade arcing overhead) and back air (he turns round and
+  slashes behind).
+- **Quick (item 13):** the Needles' up air (the ninja goes upside down to kick straight up) and back air (a turned, flat back kick).
+- **Heavy (item 18):** the Clutch's up air (the dinosaur lies flat forward and flips its tail overhead).
+
+The other families' aerials do not flip or turn the whole body in their references (the brawler's and caster's score 3.3, the tool's
+3.0 for other reasons), so they are not in the mock.
+
+**The options** (the same three kinds for every move, tuned per move):
+
+- **A, corkscrew.** One whole turn of the body about its own long axis, from just before the first hit to the last, its back to the camera
+  for a moment. The blade or leg is carried round with it, as a spinning slash or a spinning heel. Fast: at full speed it reads as a
+  whip-round spin.
+- **B, tucked curl.** The body curls forward over the hit (head down, knees up) by the first hit and holds it through the first half of
+  the end lag, then uncurls: 55 degrees for the sword's up air, 70 for the quick's, 80 for the heavy's (nearly flat, like the dinosaur's),
+  40-45 for the back airs. It stops well short of a flip and never tips back.
+- **C, whip or turn.** Up airs: the body winds 50 degrees away from the hit, then whips round 150-160 degrees into it and settles. Back
+  airs: the body turns 150 degrees to face the hit behind by its first active frame and turns home straight after its last, as the
+  swordsman's back air turns.
+
+**Faces** (`PF_FACE_COVER`, over each class's gallery, frames added beyond today's): B adds none for the sword and the quick and one frame
+for the heavy. A adds 3 for the sword and 6 for the quick (the kicking leg passing the face as the body comes round), none for the heavy. C
+adds 3 for the sword and 3 for the quick, none for the heavy. (A face turned away from the camera mid-turn no longer counts as covered: the
+measure now skips it.)
+
+**Sheets** (the match camera's scale, both facings, every fourth frame, today's row above A, B and C):
+`review1/mock_aerials_sword.jpg`, `mock_aerials_quick.jpg`, `mock_aerials_heavy.jpg`. With the reference strips on top they are on F:
+only.
+
+**Try them in the game:** set `PF_AIR_MOCK` to A, B or C before starting it (the mock build's folder has a launcher for each); unset, the
+game is unchanged.
+
+**Recommendation:** B for all three families. It gives the references' whole-body commitment on every move without hiding the face, reads
+clearly at the match camera (the sword's and the heavy's up airs especially, nearest their references' somersault and flat flip), and keeps
+the face clear. If the back airs should turn as the references' do, C there, after a face pass on the turned weapon arm.
