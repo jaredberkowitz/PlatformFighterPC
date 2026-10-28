@@ -5,6 +5,9 @@ global uniform vec4 pf_paint_warm;
 // slight wobble of colour from sheet to sheet, z a pale cut edge where a surface turns away from the eye. Never on fighters; off is 0.
 global uniform vec4 pf_paper_finish;
 global uniform vec4 pf_paint_cool;
+// The share of the ambient taken off the scenery (fidelity review 14 item 3, with toon_light's `pf_key_fill`): the ambient's colour times
+// the energy removed, subtracted as emission so the fighters keep the whole ambient. Black as built.
+global uniform vec4 pf_amb_cut;
 global uniform float pf_paint_amount;
 uniform vec4 albedo : source_color = vec4(1.0);
 uniform sampler2D albedo_tex : source_color, filter_linear_mipmap, repeat_enable, hint_default_white;
@@ -412,5 +415,6 @@ void fragment() {
 		AO_LIGHT_AFFECT = baked_ao_light;
 	}
 	AO_LIGHT_AFFECT = 0.45;
+	EMISSION -= c * pf_amb_cut.rgb * AO * (1.0 - fighter);
 	SPECULAR = 0.0;
 }

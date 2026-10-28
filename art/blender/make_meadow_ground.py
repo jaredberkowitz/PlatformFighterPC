@@ -69,6 +69,10 @@ HILL = opts.get("hill", "")
 # the middle, crossing each shelf in a narrow winding channel and spilling down each fieldstone wall in a little fall, a plank
 # footbridge where a lane crosses it. B: A a little wider, with a spring pool at its head and wet stones along its banks.
 STREAM = opts.get("stream", "").upper()
+# The terraces' walls (fidelity review 14 item 7: two courses of short blocks in two tones by turns read as a pixel checker at the wide
+# camera): `--walls A|B`. A: long blocks of one tone, an odd darker stone among them. B: each wall one plain cut-card face under the
+# shelf, as the grove's terraces stand.
+WALLS = opts.get("walls", "").upper()
 LAYOUT = json.load(open(os.path.join(opts["dir"], "ground.json")))
 X0, X1 = -200.0, 200.0
 
@@ -482,8 +486,11 @@ def terrace_fields(kk, inner, outer, levels, y, y_next, at, last):
         ln = math.hypot(cx2 - dx, cz - dz)
         if ln < 0.05:
             continue
+        if WALLS == "B":
+            face(part("hill", "terrace_wall"), (P(dx, y, dz), P(cx2, y, cz), P(cx2, y_next, cz), P(dx, y_next, dz)))
+            continue
         nx, nz = (cz - dz) / ln, -(cx2 - dx) / ln
-        blocks = max(1, int(ln / 1.3))
+        blocks = max(1, int(ln / (2.6 if WALLS == "A" else 1.3)))
         for c in range(2):
             ya, yb = y - wall_h * c / 2.0, y - wall_h * (c + 1) / 2.0
             # (The second course offset half a block, its first and last blocks halves, so the courses close; flush, as a block set in
@@ -494,6 +501,8 @@ def terrace_fields(kk, inner, outer, levels, y, y_next, at, last):
                 pa = (dx + (cx2 - dx) * t0, dz + (cz - dz) * t0)
                 pb = (dx + (cx2 - dx) * t1, dz + (cz - dz) * t1)
                 fam = "terrace_wall" if (q + c + frng.randrange(2)) % 2 == 0 else "terrace_wall_b"
+                if WALLS == "A":
+                    fam = "terrace_wall_b" if frng.random() < 0.18 else "terrace_wall"
                 face(part("hill", fam), (P(pa[0], ya, pa[1]), P(pb[0], ya, pb[1]), P(pb[0], yb, pb[1]), P(pa[0], yb, pa[1])))
     if HILL == "fields_lane" and kk < last:
         # The lane along the shelf near its inner edge, from the front's middle out to one side, then a ramp down to the next shelf.

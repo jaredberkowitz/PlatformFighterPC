@@ -107,6 +107,14 @@ pf_scenery_shade={
 "type": "float",
 "value": 1.0
 }
+pf_key_fill={
+"type": "vec3",
+"value": Vector3(1, 1, 1)
+}
+pf_amb_cut={
+"type": "color",
+"value": Color(0, 0, 0, 0)
+}
 pf_front_calm={
 "type": "color",
 "value": Color(0, 0, 0, 0)
