@@ -273,3 +273,11 @@ The sky third's value range (wide) is 0.36 today, 0.39 A, 0.42 B. Darks hold (13
 are unlit mocks. On the Stage Look Review ("meadowland49", `mt49_*`); recommended B. To ship:
 - rebuild `meadow_ground.glb` and `meadow_pines.glb` with `--walls B`, and re-light the meadow;
 - RIDGES' meadow specs: the colours above, `alt` + [10, 10, 14].
+
+Built B (the owner's pick):
+- `meadow_ground.glb` rebuilt with `--variant FC --pine D --hill fields_lane --stream B --walls B` (the pines unchanged), and the meadow
+  re-lit (front, play, ground).
+- RIDGES' meadow specs: far `land_colour` (0.3, 0.6, 0.5), `alt` [64, 58, 36]; near (0.12, 0.44, 0.36), `alt` [48, 42, 30].
+
+In the game, wide: the sky third's range is 0.42, darks 14%; P1's gap 0.138. Before (review 14's frame) and after, the mountains and the
+terraces: `review14/meadow_land_built.jpg`. All seven tests pass.

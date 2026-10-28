@@ -3042,7 +3042,7 @@ const RIDGES := {
 	# (Taller, with real peaks, 2026-10-17: a low wavy strip under the pale horizon read as a flat cloud bank over the mountains, the
 	# owner's note.)
 	# (More, narrower peaks, gauntlet round 2: three broad concave sweeps with a pale crest read as breaking waves.)
-	"meadow": [{"model": "range_meadow_far", "facets": true, "land_colour": Color(0.42, 0.82, 0.8), "land_drop": 16.0, "z": -170.0, "y": -50.0, "height": 88.0, "shape": 1, "seed": 3.0, "base": 0.32, "amplitude": 0.6, "frequency": 5.6,
+	"meadow": [{"model": "range_meadow_far", "facets": true, "land_colour": Color(0.3, 0.6, 0.5), "land_drop": 16.0, "z": -170.0, "y": -50.0, "height": 88.0, "shape": 1, "seed": 3.0, "base": 0.32, "amplitude": 0.6, "frequency": 5.6,
 		# (More of its own blue and less haze, art review 6 round 31: at mix 0.55 the ridge was mostly horizon colour, a formless pale band
 		# behind the crisp painted hills; found with `--pick`.)
 		"tone": Color(0.3, 0.62, 0.72), "mix": 0.55, "edge": 0.1, "haze": 0.5,
@@ -3051,13 +3051,16 @@ const RIDGES := {
 		# thing on the menu; the owner, 2026-10-17, raise the quality of what is there.)
 		"flank": 0.75, "foot_dark": 0.35, "layers": 4, "flank_from": 0.0, "gullies": 0.45, "paper": 0.05, "edge_width": 0.012,
 		# (Painted form, fidelity review 8: snow above about two thirds of its height, a tree line low, `range_form`.)
-		"alt": [54.0, 48.0, 22.0], "alt_foot": Color(0.14, 0.44, 0.36)},
+		# (Rock, not glassy snow, fidelity review 14 item 7, the owner's pick B: the land a deeper green-teal (was 0.42, 0.82, 0.8), the
+		# snow and rock lines 10 higher and the tree line 14 (were 54, 48, 22); the pale snow over two thirds of its height read as glass.)
+		"alt": [64.0, 58.0, 36.0], "alt_foot": Color(0.14, 0.44, 0.36)},
 		# A nearer, lower range in front, deeper teal and less hazed, casting its shadow on the far one: the backdrop as cut cards in layers
 		# with air between them, not one soft band (art review 9).
-		{"model": "range_meadow_near", "facets": true, "land_colour": Color(0.18, 0.62, 0.6), "land_haze": 0.12, "land_drop": 8.0, "z": -140.0, "y": -36.0, "height": 62.0, "shape": 1, "seed": 9.0, "base": 0.4, "amplitude": 0.5, "frequency": 7.0,
+		{"model": "range_meadow_near", "facets": true, "land_colour": Color(0.12, 0.44, 0.36), "land_haze": 0.12, "land_drop": 8.0, "z": -140.0, "y": -36.0, "height": 62.0, "shape": 1, "seed": 9.0, "base": 0.4, "amplitude": 0.5, "frequency": 7.0,
 		"tone": Color(0.14, 0.46, 0.54), "mix": 0.85, "edge": 0.5, "haze": 0.28, "flank": 0.75, "foot_dark": 0.4, "layers": 3,
 		"flank_from": 0.0, "gullies": 0.6, "paper": 0.05, "edge_width": 0.016, "shadow": 0.5,
-		"alt": [38.0, 32.0, 16.0], "alt_foot": Color(0.12, 0.4, 0.32)}],
+		# (Review 14 item 7 B too: was 0.18, 0.62, 0.6 and 38, 32, 16.)
+		"alt": [48.0, 42.0, 30.0], "alt_foot": Color(0.12, 0.4, 0.32)}],
 	"grove": [{"model": "range_grove_far", "facets": true, "land_colour": Color(0.74, 0.68, 0.9), "z": -165.0, "y": -34.0, "height": 52.0, "shape": 0, "seed": 8.0, "base": 0.5, "amplitude": 0.32, "frequency": 3.5,
 		"tone": Color(0.54, 0.54, 0.78), "mix": 0.7, "edge": 0.3, "flank": 0.6, "foot_dark": 0.3, "layers": 4, "flank_from": 0.0, "gullies": 0.6,
 		"haze": 0.34, "paper": 0.05, "edge_width": 0.014},
