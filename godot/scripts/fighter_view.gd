@@ -329,7 +329,6 @@ func _build_rig(skin: Material) -> bool:
 	# The shorts take the outfit colour (the accent, a shade darker) under a plain shirt, and navy under a coloured one.
 	# (Khaki under the holiday shirt and olive under the outfit shirt, as the reference's blue and ranger, the character judge's round 16.)
 	var shorts_colour: Color = loadout.accent_color().darkened(0.2) if loadout.shirt <= 1 else {4: Color(0.7, 0.6, 0.42), 2: Color(0.4, 0.42, 0.26)}.get(loadout.shirt, Color(0.22, 0.25, 0.42))
-	var shorts := toon(shorts_colour)
 	var skin_colour: Color = loadout.body_color()
 	# Arms and legs carry their clothes as painted bands (shaders/limb.gdshader): a sleeve from the shoulder when there is a shirt; the
 	# shorts' leg and a white sock on each leg.
@@ -409,7 +408,8 @@ func _build_rig(skin: Material) -> bool:
 			mi.material_override = toon(BOOT_LEATHER)
 			mi.visible = loadout.has_shoes()
 		elif part.begins_with("Shorts"):
-			mi.material_override = _cloth(shorts)
+			# (In the fleck print since the fleck pass, 2026-10-28, as the shirts.)
+			mi.material_override = _cloth(_fleck(shorts_colour))
 			mi.visible = loadout.has_shorts()
 		elif part.begins_with("Belt"):
 			# The belt the shirt is tucked under (the owner saw PEAK's figures have a waistline): leather, with a brass buckle.
@@ -1697,14 +1697,31 @@ func _garment_shirt_material() -> Material:
 	var accent: Color = loadout.accent_color()
 	match loadout.shirt:
 		1:
-			return toon(SHIRT_WHITE)
+			return _fleck(SHIRT_WHITE)
 		2:
-			return toon(accent)
+			return _fleck(accent)
 		3:
 			return toon(Color(1, 1, 1), true, SvgArt.texture("res://art/cloth/stripes.svg", {"#ff00ff": accent}), Vector2(1.5, 12.0))
 		4:
 			return toon(Color(1, 1, 1), true, SvgArt.texture("res://art/cloth/hibiscus.svg", {"#ff00ff": accent}), Vector2(2.4, 2.4))
 	return null
+
+
+## Plain cloth in colour `c` with the fleck print (godot/art/cloth/fleck.svg, tools/art/make_fleck.py): the fleck pass, 2026-10-28, the
+## owner's pick of mocks, as the reference cast's shirts and shorts carry a soft printed speckle where ours were flat fills. It shows up
+## close, in the menus and the creator; at match size it fades into the colour. Laid three ways by the cloth's rest position
+## (toon_common.gdshaderinc `rest_tri`), so it does not stretch into streaks round the sides.
+const FLECK_TILE := Vector2(2.6, 2.6)
+static var _fleck_cache := {}
+
+
+static func _fleck(c: Color) -> ShaderMaterial:
+	var key := c.to_html()
+	if not _fleck_cache.has(key):
+		var m: ShaderMaterial = toon(c, true, SvgArt.texture("res://art/cloth/fleck.svg"), FLECK_TILE).duplicate()
+		m.set_shader_parameter("rest_tri", true)
+		_fleck_cache[key] = m
+	return _fleck_cache[key]
 
 
 ## A modelled garment's material: its cel material with an ink outline pushed further back than the body's. Cloth folds inward where

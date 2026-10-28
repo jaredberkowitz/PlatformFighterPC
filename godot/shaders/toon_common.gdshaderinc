@@ -13,6 +13,10 @@ uniform vec2 tex_scale = vec2(1.0);
 // Above zero: the texture is laid in world space instead of by UV, `world_tile` world units per repeat, on the top for upward faces and
 // on the front otherwise (so a stage surface tiles evenly whatever the block's size).
 uniform float world_tile = 0.0;
+// A garment's print laid three ways by its rest position (x and height in UV, depth in UV2.x, art/blender/make_rigged_blob.py), front,
+// side and top, blended by which way the cloth faces at rest: laid front-on only, a print stretched into streaks round the sides (the
+// fleck pass, 2026-10-28). For prints that read the same any way round (the fleck); the stripes and flowers keep the front-on map.
+uniform bool rest_tri = false;
 // World-laid surfaces only: how much their colour drifts lighter and darker in broad, slow patches across the stage (0 = none), so a
 // repeating pattern does not read as one tile stamped over and over.
 uniform float world_vary = 0.08;
@@ -177,7 +181,15 @@ void fragment() {
 		if (world_tile > 0.0) {
 			uv = (abs(world_normal.y) > 0.5 && !front_only ? world_pos.xz : vec2(world_pos.x, -world_pos.y)) / world_tile;
 		}
-		c *= texture(albedo_tex, uv).rgb;
+		if (rest_tri) {
+			vec3 rest = vec3(UV.x, UV.y, UV2.x) * tex_scale.x;
+			// (The rest-pose facing from the rest position's slope across the pixel: the posed normal turns with every bone.)
+			vec3 w = pow(abs(normalize(cross(dFdx(rest), dFdy(rest)))), vec3(4.0));
+			w /= w.x + w.y + w.z + 1e-5;
+			c *= texture(albedo_tex, rest.xy).rgb * w.z + texture(albedo_tex, rest.zy).rgb * w.x + texture(albedo_tex, rest.xz).rgb * w.y;
+		} else {
+			c *= texture(albedo_tex, uv).rgb;
+		}
 		if (world_tile > 0.0) {
 			vec2 p = abs(world_normal.y) > 0.5 && !front_only ? world_pos.xz : world_pos.xy;
 			float drift = sin(p.x * 0.37 + sin(p.y * 0.53) * 1.7) * sin(p.y * 0.29 + p.x * 0.11 + 1.3);

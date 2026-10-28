@@ -669,3 +669,18 @@ legs 15% thicker); the owner chose the last.
 `feet_pass.png`: the default looks from the front and the side, before above after; the roster's first sheet before and after (the
 socks and boots); a match frame before and after. Fighter view, art pipeline, loadout, animation library, match flow, select grid and
 motion tests pass.
+
+## Fleck print (2026-10-28, the comparison's shirts gap)
+The reference cast's shirts and shorts carry a soft printed speckle (short grey dashes and dots); ours were flat fills. The earlier
+weave (strokes from `brush.gdshaderinc`) read as ripples and wood grain and was turned off in the finish pass. Mocked a fleck tile on
+the shirts only, on shirts and shorts, and bolder on both; the owner chose shirts and shorts.
+- `godot/art/cloth/fleck.svg`, drawn by `tools/art/make_fleck.py` (seamless, 150 marks, each 12 to 20% dark), multiplied into the
+  plain and outfit shirts and the modelled shorts (`fighter_view.gd` `_fleck`, `FLECK_TILE`). The striped and flowered shirts keep
+  their own prints.
+- Laid three ways by the cloth's rest position (front, side and top, blended by which way the cloth faced at rest:
+  `toon_common.gdshaderinc` `rest_tri`): laid front-on only, as the other prints are, it stretched into streaks round the sides that
+  read as fur.
+- It shows close, in the menus and the creator; at match size it fades into the colour without adding noise.
+
+`fleck_pass.png`: the default looks in the menu, close and from the side, before above after each; a match frame before and after.
+Fighter view, art pipeline, loadout, match flow, select grid, editor UI, prop check and animation library tests pass.
