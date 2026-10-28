@@ -347,3 +347,7 @@ P1's gap 0.124 today (unlit mock ground), 0.128 A, 0.134 B; the wide values hold
 straight, so up close they read a little like stacked tiles; scalloped edges would be next. On the Stage Look Review ("grovefalls51",
 `gf51_*`); recommended B. To ship: rebuild `godot/models/stages/grove_paper.glb` with `--fall_look B`, set grove.cfg's `path_colour` to
 (0.7, 0.55, 0.4), and re-light the grove.
+
+Built B (the owner's pick): `godot/models/stages/grove_paper.glb` rebuilt with `--fall_look B`; grove.cfg `path_colour=Color(0.7, 0.55,
+0.4, 1)`. The grove is re-lit (front, paper, play). P1's gap is 0.132; the wide values hold (darks 17%). Before and after (the path,
+then a fall): `review14/grove_falls_built.jpg`. All seven tests pass. With this every item of review 14 is built.
