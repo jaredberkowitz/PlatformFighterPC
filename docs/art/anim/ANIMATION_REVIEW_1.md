@@ -268,3 +268,15 @@ the sword-stance items where they were. **Mean 3.17** (poses 3.03, fluidity 3.35
 | 4 | Sword specials (every sword-family class on its own specials: the Seer's, the Champion's and the Exile's) | 4 | 3 | 4 | 3.7 | 3.3 |
 
 **Mean 3.19** (poses 3.05, fluidity 3.35, weight 3.16).
+
+## 10. After round 8's groups 12-14 (2026-10-28)
+
+Group 12 (the Seer's staff behind the head where its shaft passes the face) and group 13 (the Phantom's gun, bolt and guard, the Exile's
+blade dash) hold their items' scores (face cover; the gun's free hand hidden side-on).
+
+| # | Item | P | F | W | O | Was |
+|---|---|---|---|---|---|---|
+| 33 | Grabs and throws (throws carried by the whole body: the turn, the step, the slam, the heave) | 3 | 3 | 3 | 3.0 | 2.7 |
+
+**Mean 3.20** (poses 3.08, fluidity 3.35, weight 3.16). The lowest now: 12 quick ground attacks, 18 heavy aerials and 34 special
+states (2.7, poses 2 each).

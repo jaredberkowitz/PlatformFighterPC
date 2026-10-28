@@ -2019,3 +2019,23 @@ knee bend (`review1/mock_stance.jpg`, A/B/C).
 - **Left on stand-ins:** the Champion's charge keeps the crouch (its reference's charge is a crouched power-up; no gain worth a clip);
   the Exile's eight slashes keep the fallback swing (repeated swings at its slashes' hits), the Phantom's hook its up strikes.
 - **Checked:** the six tests pass (`anim_library_test` now pins the gun to `dagger_gun`).
+
+### Group 14 (round 8): throws carried by the whole body (review item 33)
+
+- **Defect:** the four throws played one clip, the thrower standing still while the caught fighter moved; a clip per throw with the arms
+  posed was tried earlier this round and reverted, as it read almost as before at the match camera (the raised arms hide behind the big
+  head, the release is under the hit's burst). The references throw with the whole body: the wolf's back throw turns him round, the
+  forward throws step in, the down throws slam low, the up throws heave upward.
+- **Fix (`fighter_view.gd`, `_throw_body`):** each throw moves the whole body, eased in up to its release (the first active frame) and
+  home over the second half of its end lag: the back throw turns the body round through the camera to face behind (`THROW_TURN`), turning
+  home from the release so the face is hidden only briefly; the forward throw pitches 16 degrees into a 0.3 step; the down throw squats
+  0.24 and pitches 24 onto the slam; the up throw dips 0.16 and rises 0.38 onto the toes as it heaves. All classes, the base body only.
+  `PF_R8_OFF=throws` shows the old.
+- **Tried:** the up throw arched back 8 degrees as well, against the owner's rule (2026-10-17: the body never tips back under an overhead
+  hit), and its first rise of 0.24 barely showed: no arch, a rise of 0.38.
+- **Judged at the match camera** (`--demo=grab --throw=back|up|fwd|down`, movies at 60 frames a second): the back throw's turn, the
+  forward throw's pitch and step and the down throw's squat read clearly; the up throw's rise shows after the release.
+- **Image:** `docs/screenshots/anim/r8_g14_body_led_throws.jpg` (each throw, every fifth frame from frame 90 at the match camera, before
+  above after).
+- **Review:** item 33 (grabs and throws) poses 2 to 3, overall 2.7 to 3.0. Mean 3.20 (poses 3.08, fluidity 3.35, weight 3.16).
+- **Checked:** the six tests pass.

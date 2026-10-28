@@ -3524,7 +3524,8 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 	if move_flip != 0.0:
 		flip += move_flip
 		pivot = Vector3(0, 0.9, 0)
-	model.rotation = Vector3(deg_to_rad(lean) + flip, yaw + _pivot_spin(s), 0)
+	var throw_body := _throw_body(s)
+	model.rotation = Vector3(deg_to_rad(lean + throw_body.x) + flip, yaw + _pivot_spin(s) + throw_body.y, 0)
 	turning_over = flip != 0.0 or _spin(s) != 0.0 or state == "Hitstun" or state == "Knockdown" or state == "GetUp" or absf(tumble_angle) > 0.02
 	# A spinning neutral air turns the whole body over once backward, in the plane of the stage (see NAIR_SPIN).
 	var spin := _spin(s)
@@ -3576,6 +3577,9 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 	# A spot dodge steps back into the stage (away from the camera) and back out, so it reads as getting out of the way.
 	if state == "SpotDodge" and dodge >= 0.0:
 		model.position.z -= SPOT_DODGE_STEP * sin(PI * dodge)
+	# A throw carried by the whole body (`_throw_body`): the step and the drop or rise.
+	var throw_move := _throw_body(s)
+	model.position += Vector3(throw_move.z * float(s.facing), throw_move.w, 0.0)
 	_blink(delta)
 	if log_motion and state in ["Attack", "Hitstun", "Run", "Dash", "Landing"]:
 		_log_motion(s)
@@ -5035,6 +5039,47 @@ func _place_buckler(s: Dictionary) -> void:
 ## body spins back from the way it was running, round through the camera, and faces its new way by the grab's first active frame
 ## (the playtest notes, 2026-10-19: the pivot grab showed no turn).
 const PIVOT_SPIN := PI
+
+
+## Throws carried by the whole body (round 8, review item 33). One clip with the arms posed per throw read almost as before at the match
+## camera (the raised arms hide behind the big head, the release under the hit's burst); the body's whole shape does read there. Eased in
+## up to the throw's release (its first active frame) and held, then home over the second half of its end lag: the back throw turns the
+## body round to face behind, through the camera; the forward throw pitches into a step; the down throw squats and pitches onto the slam;
+## the up throw dips, then rises onto the toes as it heaves (not arched back: the owner's rule, 2026-10-17, the body never tips back under an
+## overhead hit). The back throw turns home from the release, so the face is hidden only briefly. Returns [pitch (degrees, forward), turn (radians), step
+## ahead, rise] as a Vector4.
+const THROW_TURN := PI
+const THROW_FWD_PITCH := 16.0
+const THROW_FWD_STEP := 0.3
+const THROW_DOWN_PITCH := 24.0
+const THROW_DOWN_DROP := 0.24
+const THROW_UP_DIP := 0.16
+const THROW_UP_RISE := 0.38
+
+
+func _throw_body(s: Dictionary) -> Vector4:
+	var name := String(s.move_name)
+	if String(s.state) != "Attack" or not name.ends_with(" throw") or not use_base_body or r8_off.has("throws"):
+		return Vector4.ZERO
+	var t: PackedInt32Array = s.move_timing
+	var f := float(s.state_frame)
+	var total := maxf(2.0, float(t[0]))
+	var release := clampf(float(t[1]), 2.0, total)
+	var into := smoothstep(0.0, release, f)
+	var home := 1.0 - smoothstep(release + (total - release) * 0.5, total, f)
+	var w := into * home
+	match name:
+		"back throw":
+			var back_home := 1.0 - smoothstep(release, release + (total - release) * 0.6, f)
+			return Vector4(0.0, THROW_TURN * float(s.facing) * into * back_home, 0.0, 0.0)
+		"forward throw":
+			return Vector4(THROW_FWD_PITCH * w, 0.0, THROW_FWD_STEP * w, 0.0)
+		"down throw":
+			return Vector4(THROW_DOWN_PITCH * w, 0.0, 0.0, -THROW_DOWN_DROP * w)
+		"up throw":
+			var rise := -THROW_UP_DIP * sin(PI * into) if f < release else THROW_UP_RISE * home * (1.0 - smoothstep(release, release + 12.0, f) * 0.5)
+			return Vector4(0.0, 0.0, 0.0, rise)
+	return Vector4.ZERO
 
 
 func _pivot_spin(s: Dictionary) -> float:
