@@ -979,7 +979,7 @@ static func _mute(node: Node, desat: float, haze: Color, lift: float, ink := tru
 ## A cluster of three to five faceted pines (art/blender/make_props.py `pine`) of different heights round `at`, `size` the tallest's
 ## scale, in deep greens that differ a little; false when the model is missing.
 static func _pine_cluster(root: Node3D, at: Vector3, size: float) -> bool:
-	if Toonify.load_prop("pine") == null:
+	if not Toonify.has_prop("pine"):
 		return false
 	var own := RandomNumberGenerator.new()
 	own.seed = hash(Vector2i(roundi(at.x * 10.0), roundi(at.z * 10.0)))
@@ -1876,6 +1876,9 @@ static func _plank_platform(parent: Node3D, t: Dictionary, left: float, right: f
 				lash.scale = Vector3(1.0, lh0, 1.0)
 				parent.add_child(lash)
 				continue
+			for spare in [log, lash]:
+				if spare != null:
+					spare.free()
 			_mesh(parent, _cylinder(rad, rad, z1 - z0, 8), pole, Vector3(px, py, (z0 + z1) * 0.5), Vector3.ONE, Vector3(90, 0, 0))
 			_mesh(parent, _cylinder(rad * 0.85, rad * 0.85, 0.04, 8), cut, Vector3(px, py, z1 + 0.01), Vector3.ONE, Vector3(90, 0, 0))
 			# The lashing: turns of rope down the front of the board and round the pole.
@@ -2674,7 +2677,7 @@ static func _string_lights(root: Node3D, a: Vector3, b: Vector3, lamp := "string
 	var modelled := String((_palette.get("backdrop", {}) as Dictionary).get("string_lights", "")) == "model"
 	if OS.get_cmdline_user_args().has("--strings=model"):
 		modelled = true
-	if modelled and Toonify.load_prop(lamp) == null:
+	if modelled and not Toonify.has_prop(lamp):
 		modelled = false
 	var n := 18
 	var prev := a
@@ -5258,7 +5261,7 @@ static func _sunset(root: Node3D, t: Dictionary, stage: Array) -> void:
 	# (Modelled in the buttes' chunky cut ledges, art/blender/make_props.py `rock_arch`, the judge's round 40, and in the same painted
 	# strata as the buttes and the stage's front, unfaded, as the nearest rock; the built one stands in without the model.)
 	var arch_before := land.get_child_count()
-	if Toonify.load_prop("rock_arch") != null:
+	if Toonify.has_prop("rock_arch"):
 		_place_prop(land, "rock_arch", Vector3(-34, DESERT_FLOOR, -48), 1.0, 0.0, _under_material(_soil_material(t), 0.35))
 	else:
 		_rock_arch(land, Vector3(-34, DESERT_FLOOR, -48), 12.0, 18.5)
@@ -5458,7 +5461,7 @@ static func _grove(root: Node3D, t: Dictionary, stage: Array) -> void:
 	bush_shade.set_shader_parameter("facets", true)
 	var bush_lit := (FighterView.toon(Color(0.46, 0.76, 0.38), true) as ShaderMaterial).duplicate() as ShaderMaterial
 	bush_lit.set_shader_parameter("facets", true)
-	var faceted_bush := Toonify.load_prop("bush") != null
+	var faceted_bush := Toonify.has_prop("bush")
 	for x in [left + 1.4, left + 3.2, right - 3.2, right - 1.4]:
 		var s := rng.randf_range(1.1, 1.5)
 		if faceted_bush:
@@ -5812,7 +5815,7 @@ static func _city(root: Node3D, t: Dictionary, stage: Array) -> void:
 	var vent := Vector3(float(e[1]) - 6.0, roof, -4.0)
 	# (Modelled, art/blender/make_props.py `ac_unit` and `roof_vent`, and a second of each along the back of the roof, the owner's city
 	# plan, step 3 (rooftop clutter), 2026-10-19. The built ones stand in without the models.)
-	if Toonify.load_prop("ac_unit") != null and Toonify.load_prop("roof_vent") != null:
+	if Toonify.has_prop("ac_unit") and Toonify.has_prop("roof_vent"):
 		_paper_or_prop(root, "ac_unit", unit, 1.0, 0.0)
 		_contact(root, unit, Vector2(0.95, 0.7))
 		_contact(root, vent, Vector2(0.45, 0.38))
@@ -6814,7 +6817,7 @@ static func _tree(root: Node3D, base: Vector3, size: float, rng: RandomNumberGen
 	var bark := Materials.bark(Color(0.56, 0.44, 0.42), Vector2(2.5, 2))
 	# (Faceted in clean tones, the style sheet's section 9, the owner, 2026-10-19: the textured leaf crowns and striped bark clashed with
 	# the faceted ledge, hills and the meadow's pines.)
-	if Toonify.load_prop("tree_crown_a") != null:
+	if Toonify.has_prop("tree_crown_a"):
 		# (A step lighter and without ink, the judge's round 39: dark and inked dead centre, it framed the fighters in a dark block and
 		# was the last inked natural form.)
 		bark = (FighterView.toon(_pal("great_bark"), false) as ShaderMaterial).duplicate() as ShaderMaterial
@@ -6862,7 +6865,7 @@ static func _tree(root: Node3D, base: Vector3, size: float, rng: RandomNumberGen
 	var deep := Materials.foliage(deep_c)
 	var between := Materials.foliage(deep_c.lerp(g[1], 0.5), Vector2(3, 2), false)
 	var top_c := (g[2] as Color).lerp(g[3], 0.6).lerp(Color(1.0, 0.95, 0.62), 0.06)
-	if Toonify.load_prop("tree_crown_a") != null:
+	if Toonify.has_prop("tree_crown_a"):
 		# The crown as a few tiered faceted crowns (art/blender/make_props.py `tree_crown_*`): a big middle one and two at its shoulders,
 		# each lit on its upper planes and shaded below in clean greens.
 		var shade_m := (FighterView.toon(Color(0.2, 0.46, 0.3), true) as ShaderMaterial).duplicate() as ShaderMaterial
@@ -6883,7 +6886,7 @@ static func _tree(root: Node3D, base: Vector3, size: float, rng: RandomNumberGen
 ## each, and cars drifting both ways along the road with lit head and tail lights (`Traffic`). Modelled (art/blender/make_props.py
 ## `street_lamp`, `car`), no ink (mid-ground); nothing without the models.
 static func _street_life(root: Node3D, y: float, front: float) -> void:
-	if Toonify.load_prop("street_lamp") == null or Toonify.load_prop("car") == null:
+	if not Toonify.has_prop("street_lamp") or not Toonify.has_prop("car"):
 		return
 	var warm := Color(1.0, 0.84, 0.56)
 	var lx := -96.0

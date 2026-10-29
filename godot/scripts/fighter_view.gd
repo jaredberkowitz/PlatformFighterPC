@@ -3895,15 +3895,18 @@ func _mount_weapon_models() -> void:
 	nodachi_parts.clear()
 	var steel := respond(toon(Color(0.5, 0.56, 0.68)), "metal")
 	# The Nodachi: on the blade's pivot, laid out as the longsword is (blade 0.2 to 2.9 along x), so it is posed and stretched the same.
+	# (`_model_scene` hands back a new copy each time: it goes on the fighter itself. A copy of it kept and left out of the tree outlived
+	# the fighter, and the packaged game crashed on quit with the models still alive.)
 	var long_sword := _model_scene("res://models/weapons/nodachi.glb")
 	if long_sword != null:
-		var nd: Node3D = long_sword.duplicate()
+		var nd: Node3D = long_sword
 		blade_pivot.add_child(nd)
 		_paint_weapon(nd, respond(toon(Color(0.86, 0.9, 0.97)), "metal"), toon(Color(0.2, 0.2, 0.32)))
 		nd.visible = false
 		nodachi_parts.append(nd)
 	if not use_base_body or skeleton == null:
 		return
+	# (One copy per hand is made from these; they are freed after.)
 	var claw_scene := _model_scene("res://models/weapons/claw.glb")
 	var dagger_scene := _model_scene("res://models/weapons/dagger.glb")
 	for side in ["L", "R"]:
@@ -3937,6 +3940,9 @@ func _mount_weapon_models() -> void:
 			_paint_weapon(knife, respond(toon(Color(0.78, 0.83, 0.92)), "metal"), toon(Color(0.42, 0.26, 0.5)))
 			knife.visible = false
 			dagger_parts.append(knife)
+	for source in [claw_scene, dagger_scene]:
+		if source != null:
+			source.free()
 
 
 ## Hangs a modelled pivot weapon (res://models/weapons/<name>.glb) on the blade's pivot and colours each part by the first word of its
@@ -3947,7 +3953,7 @@ func _pivot_weapon(name: String, mats: Dictionary) -> Array[MeshInstance3D]:
 	if scene == null:
 		push_warning("missing weapon model " + name)
 		return out
-	var root: Node3D = scene.duplicate()
+	var root: Node3D = scene
 	blade_pivot.add_child(root)
 	for m in root.find_children("*", "MeshInstance3D", true, false):
 		var mi := m as MeshInstance3D
@@ -5054,7 +5060,7 @@ func _place_buckler(s: Dictionary) -> void:
 		if disc != null:
 			var mats := {"wood": toon(Color(0.62, 0.42, 0.28)), "metal": respond(toon(Color(0.7, 0.72, 0.8)), "metal"),
 				"band": respond(toon(loadout.accent_color()), "gold")}
-			var root: Node3D = disc.duplicate()
+			var root: Node3D = disc
 			shield_disc.add_child(root)
 			for m in root.find_children("*", "MeshInstance3D", true, false):
 				(m as MeshInstance3D).material_override = mats.get(String(m.name).get_slice("_", 0), mats.wood)
