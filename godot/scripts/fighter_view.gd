@@ -1549,6 +1549,10 @@ func _bend_bone(bone: int, degrees: float, facing: int) -> void:
 	skeleton.set_bone_pose_rotation(bone, local.get_rotation_quaternion())
 
 
+## How big a raised weapon is in the victory pose (evenly, so the hilt keeps its shape), so the blade stays inside the results panel.
+const VICTORY_WEAPON_SCALE := 0.7
+
+
 ## A victory pose for the results screen: plays one of the looping victory clips (by class: the sword is raised high, the claws fighter
 ## pumps a fist; `cheer` makes anyone throw both arms up and hop), with the weapon held up in the raised hand. Call every
 ## frame with the time since the last.
@@ -1567,19 +1571,15 @@ func play_victory(cls: int, delta: float, cheer := false) -> void:
 	_follow_bones()
 	# The sword, gripped in the raised hand and pointing up.
 	var armed := bladed(cls) and not cheer
-	blade_pivot.visible = armed
-	for p in blade_parts:
-		p.visible = cls == 0
-	for p in great_parts:
-		p.visible = cls == GREATSWORD_CLASS
-	for p in staff_parts:
-		p.visible = false
+	# (Every armed class's own weapon, shrunk evenly to fit the results panel: it drew only the longsword or the greatsword, squeezed to
+	# 0.7 of its length alone, which flattened the hilt.)
+	_show_weapon_of(cls if armed else -1)
 	if armed:
 		var hand := skeleton.find_bone("hand.R")
 		var at: Vector3 = _skeleton_to_frame() * skeleton.get_bone_global_pose(hand).origin
 		blade_pivot.position = at
 		blade_pivot.rotation = Vector3(0, 0, PI / 2.0)
-		blade_pivot.scale = Vector3(1.9 / MESH_LENGTH, 1.0, 1.0)
+		blade_pivot.scale = Vector3.ONE * VICTORY_WEAPON_SCALE
 
 
 ## The meshes of the modelled blob (Body, Head, FootL, FootR, HandL, HandR), read straight from the glTF file so no editor import is
@@ -1655,6 +1655,50 @@ func step_pose(delta: float) -> void:
 	if anim != null and anim.is_playing():
 		anim.advance(0.0)
 	_follow_bones()
+	if menu_weapon >= 0:
+		_pose_menu_weapon()
+
+
+## The class whose weapon a menu fighter holds, or -1 for none (the creator, fighter select and the main menu: art polish 2026-10-29;
+## the menus showed every fighter bare-handed, so choosing a weapon showed nothing).
+var menu_weapon := -1
+
+
+## Shows only class `cls`'s weapon parts (the pivot weapons, the claws on both fists, the knife in the weapon hand).
+func _show_weapon_of(cls: int, facing := 1) -> void:
+	blade_pivot.visible = bladed(cls) or cls == STAFF_CLASS
+	for p in blade_parts:
+		p.visible = cls == 0 or cls == BUCKLER_CLASS
+	for p in great_parts:
+		p.visible = cls == GREATSWORD_CLASS
+	for p in staff_parts:
+		p.visible = cls == STAFF_CLASS
+	for p in nodachi_parts:
+		p.visible = cls == NODACHI_CLASS
+	for p in claw_parts:
+		p.visible = cls == 1
+	for p in dagger_parts:
+		p.visible = cls == DAGGER_CLASS and String(p.get_meta("side")) == _weapon_side(facing)
+
+
+## A menu fighter's weapon in the weapon hand, at the class's resting carry as in a match (`_rest_angle`: a sword trailing low and back,
+## the big blades lower, the staff upright), at its true size.
+func _pose_menu_weapon() -> void:
+	if skeleton == null:
+		return
+	_show_weapon_of(menu_weapon)
+	if not blade_pivot.visible:
+		return
+	var hand := skeleton.find_bone("hand." + _weapon_side(1))
+	if hand < 0:
+		return
+	blade_pivot.position = _skeleton_to_frame() * skeleton.get_bone_global_pose(hand).origin
+	blade_pivot.rotation = Vector3(0, 0, deg_to_rad(_rest_angle({"class": menu_weapon, "char": menu_weapon})))
+	blade_pivot.scale = Vector3.ONE
+	if fists.has(_weapon_side(1)):
+		(fists[_weapon_side(1)] as Node3D).visible = true
+		if open_hands.has(_weapon_side(1)):
+			(open_hands[_weapon_side(1)] as Node3D).visible = false
 
 
 func _clench(free: bool, weapon: bool, facing := 1) -> void:

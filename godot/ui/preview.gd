@@ -72,11 +72,19 @@ func _init(vp_size := Vector2i(400, 460), floor := true, cam_distance := 8.2) ->
 	_tidy()
 
 
-## A menu preview shows only the body: no weapon, damage readout or name.
+## A menu preview shows the body and, once `set_weapon` names a class, that class's weapon; no damage readout or name.
 func _tidy() -> void:
 	view.blade_pivot.visible = false
 	view.percent_label.visible = false
 	view.name_label.visible = false
+	if view.menu_weapon >= 0:
+		view._pose_menu_weapon()
+
+
+## Holds class `cls`'s weapon at its resting carry (-1: bare-handed).
+func set_weapon(cls: int) -> void:
+	view.menu_weapon = cls
+	_tidy()
 
 
 func set_loadout(l: RefCounted) -> void:

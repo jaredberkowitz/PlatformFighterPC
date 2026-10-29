@@ -103,6 +103,7 @@ class Title extends CanvasLayer:
 		preview.spin = false
 		preview.facing_bias = -0.4
 		preview.set_loadout(entry.look)
+		preview.set_weapon(cls)
 		board.add_child(preview)
 		# The prompt on its own layer over the world and the fighter (drawn on the board it sat under the backdrop).
 		prompt = Control.new()

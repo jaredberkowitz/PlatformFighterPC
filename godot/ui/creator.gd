@@ -894,6 +894,7 @@ func _can_raise() -> bool:
 func _changed() -> void:
 	var e := current_entry()
 	preview.set_loadout(e.look)
+	preview.set_weapon(int(e["class"]))
 	if CATEGORIES[category].id == "mood":
 		preview.set_expression(Loadout.FACES[look.face])
 	var r: Dictionary = editor.recipe_readout(e["class"], e.size, e.speed, e.jump, e.weight)
