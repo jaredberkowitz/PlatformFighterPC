@@ -118,3 +118,13 @@ The region averages hide a thin effect; by eye:
 
 P1's gap holds. On the Stage Look Review ("frontform53", `ff53_*`, today and B); recommended B. To ship: STYLE_DEFAULT finish
 `front_form=[1.6, 1.0, 4.0]`.
+
+Built B (the owner's pick): STYLE_DEFAULT finish `front_form=[1.6, 1.0, 4.0]`, on every stage; `--front-form=T` turns it off for
+comparison. P1's gap in the game:
+
+| Meadow | Canyon | Beach | City | Grove |
+|---|---|---|---|---|
+| 0.129 | 0.188 | 0.231 (0.287 before) | 0.155 | 0.142 |
+
+The beach's gap narrowed most (its lit sand edges sit near P1) and is still the widest. Before and after (left, right; the meadow, the
+city; match camera): `review15/front_form_built.jpg`. All seven tests pass.
