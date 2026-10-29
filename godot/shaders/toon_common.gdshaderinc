@@ -108,6 +108,9 @@ uniform vec4 paper_own = vec4(-1.0);
 // drift across it, and the light cannot add it): x broad value patches, y a slow warm-to-cool wander, z their size in world units,
 // w the tops a touch warmer and the walls cooler. Set by StageBake on a stage's modelled pieces (the palette's `paint_drift`); 0 off.
 uniform vec4 paint_drift = vec4(0.0);
+// How much of the drifting cloud shadows (`pf_clouds`) this surface takes, 1 all; StageBake's bright floors on trial set it on the walked
+// tops and platforms.
+uniform float cloud_shade = 1.0;
 // Multiply by the mesh's vertex colour (off by default: imported props may carry colours meant for nothing). The crowns' lobed clump balls
 // bake each leaf clump's own light into it (scripts/stage_art.gd `_clump_ball`): a lit top and a dark crevice between clumps.
 uniform bool vertex_shade = false;
@@ -370,7 +373,7 @@ void fragment() {
 	// it dimming, and every fighter keeps the same value on any spot of the stage.)
 	// (Only near the stage, the gauntlet's round 15: on the far ranges the dapples read as low-resolution mottling, not light.)
 	pf_sun = mix(1.0, pf_cloud_sun(world_pos, TIME), smoothstep(0.1, 0.6, world_normal.y) * (1.0 - fighter)
-		* (1.0 - smoothstep(25.0, 55.0, -world_pos.z)));
+		* (1.0 - smoothstep(25.0, 55.0, -world_pos.z)) * cloud_shade);
 	if (pf_cloud_tone.a > 0.0) {
 		// (On the colour, shading ambient and sun alike: see `pf_cloud_tone`. Clouds only, not the platforms' cast shadow below.)
 		c *= mix(vec3(1.0), pf_cloud_tone.rgb, clamp(1.0 - pf_sun, 0.0, 1.0) * pf_cloud_tone.a);

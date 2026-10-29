@@ -213,3 +213,76 @@ On the Stage Look Review ("headland55", `hl55_*`: today and B; A in the close cr
 (top) and wide (bottom): `review15/beach_headland_mock.jpg`. Recommended B.
 
 To ship: an ocean.cfg [backdrop] key read by `_paint_ground`, or HEADLAND_TRY's B as the beach's default.
+
+## Bright floors (the owner, 2026-10-29; mock)
+
+> "the shadows are beginning to drown out the floors of the stages, as most of the stages are covered by shadows. As an example, the
+> canyon stage is almost entirely shadows, and it makes it read as dark and muddy."
+
+The papercraft reference's floors are the lightest thing in each frame: pale paving, light sand paths, small soft shadows under things.
+
+**What darkens our floors, in order:**
+1. **The drifting cloud shadows** of fidelity review 7 (`pf_clouds`, shaped light). On the meadow, grove, canyon and beach they cover
+   60% of every upward face within 55 units of the stage at 0.9 depth, tinted cool (`cloud_tone`). A top read as one field of
+   shadow with a few sunlit gaps.
+2. **The fighters' deeper ground** of review 14 item 2 (`fight_ground`), on the meadow, grove and canyon, for P1's gap.
+3. **On the canyon, since its two hues E:** most of the ambient moved into the sun, so wherever the sun's shadow falls the floor lost
+   its ambient too.
+4. **Smaller:** the sun's cast shadows from platforms and props, the top's fall into shade toward its front edge, and the contact
+   shade baked into the play pieces.
+
+**A first try that missed.** It lightened only item 4 and halved item 2 (today's B and C without the clouds). It barely moved the
+canyon's top: the clouds were the shadow.
+
+`--floor=A|B|C` (StageBake.FLOOR_TRY; a per-material `cloud_shade` in toon_common, set on the walked tops and the platforms only):
+- **A:** the cloud shadows off the floors. The land round them keeps its dappled light.
+- **B:** A, plus:
+  - the sun's cast shadows on the floors lighter (0.35 of 0.8);
+  - their fall toward the front edge halved;
+  - `fight_ground` halved.
+- **C:** B, plus:
+  - the baked contact shade off the floors;
+  - the cast shadows at 0.2.
+
+| Stage | Top value today | A | B | C | P1's gap today | A | B | C |
+|---|---|---|---|---|---|---|---|---|
+| Meadow | 0.36 | 0.44 | 0.61 | 0.63 | 0.135 | 0.108 | 0.053 | 0.034 |
+| Canyon | 0.39 | 0.45 | 0.58 | 0.60 | 0.193 | 0.181 | 0.194 | 0.209 |
+| Beach | 0.30 | 0.34 | 0.34 | 0.35 | 0.230 | 0.216 | 0.213 | 0.205 |
+| City | 0.52 | 0.52 | 0.54 | 0.57 | 0.154 | 0.155 | 0.138 | 0.120 |
+| Grove | 0.45 | 0.55 | 0.62 | 0.64 | 0.134 | 0.101 | 0.061 | 0.054 |
+
+(Top: the band the fighters stand on, the frame's middle 60%. The city has no cloud shadows and the beach's dock is dark wood, so
+those two change little.)
+
+**B and C are the reference's brightness.** But on the meadow and grove the yellow and orange fighters wash into the pale lawns (the
+gap 0.034 to 0.061), the reason for review 14's deeper ground.
+
+**A is the step that keeps the fight readable.** Its gaps are a little under 0.12 on the meadow and grove.
+
+On the canyon, B holds the gap (0.194): its sand is a different hue from the fighters.
+
+**Recommended:**
+- A on every stage;
+- B on the canyon.
+Close (canyon top row, meadow bottom; today, A, B): `review15/bright_floors_mock.jpg`. On the Stage Look Review ("floors56", `fl56_*`).
+
+**Built** (the owner's picks, 2026-10-29): bright floors A on every stage and B on the canyon; the beach's headland B (item 4).
+- **Floors:** StageBake.FLOOR_TRY, the palette's [backdrop] `floor_look` (A without; sunset.cfg "B"). `--floor=T` brings back the
+  floors as before.
+- **Headland:** ocean.cfg [backdrop] `headland="B"`. `--headland=T` brings back the headland as before.
+
+In the game:
+
+| Stage | Top value | P1's gap |
+|---|---|---|
+| Meadow | 0.44 | 0.107 |
+| Canyon | 0.59 | 0.194 |
+| Beach | 0.33 | 0.214 |
+| City | 0.52 | 0.155 |
+| Grove | 0.55 | 0.102 |
+
+Before and after: `review15/floors_headland_built.jpg` (the canyon at the match camera, the beach wide). All seven tests pass.
+
+**Open:** the meadow's and grove's gaps sit a little under 0.12. The fighters still read by their ink and their contact shadows; a
+playtest will say whether that's enough.

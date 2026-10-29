@@ -88,8 +88,134 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
     <p>Two lessons from the reference screenshots, mocked from the match camera: the scenery without ink outlines, its edges lit as card bevels instead, and the paper houses rebuilt at the characters' proportions. The earlier rounds stay on the <a href="https://claude.ai/artifact/D1du6MREVumiJDrEdNypW4">Stage Fidelity Review</a>, which is full.</p>
   </header>
 
+  <section class="panel" aria-labelledby="gl58-h" id="grovelight58">
+    <div class="eyebrow">Your call is needed &middot; review 16, item 2: the grove's light and sky</div>
+    <h2 id="gl58-h">The grove's veil is in its colours, not its light</h2>
+    <p>First, the fighters on bright floors (A) are built (their section below). Next, the grove: a soft pink veil with little lit side and shade side, and a busy pink-violet sky. I tried three rounds of light changes, and none is worth shipping:</p>
+    <ul style="display:grid;gap:6px;margin:0;padding-left:1.4em;max-width:78ch">
+      <li><b>A golden sun</b> warmed the lawn back toward the fighters' yellow: P1's gap fell from 0.120 to 0.091.</li>
+      <li><b>Cooler air and shade</b> (A below) and <b>a stronger lit side with a blue sky</b> (B below) change the frame only a little, and still cost the gap (0.079 and 0.087). The cooler ambient light takes warmth off the fighters too.</li>
+    </ul>
+    <p>Today, A, B at the match camera (top) and wide (bottom):</p>
+    <div class="viewer"><img src="gl58_cmp.jpg" alt="The grove today, with A and with B, match camera and wide"></div>
+    <p>What makes the veil is the grove's own colours: the violet far ridges, the purple mist and abyss, and a lilac sky behind green trees. Clearing it means repainting those toward a blue-green distance and a clear blue-to-peach sky. That would change the grove's violet, slightly magical character, which it has had since the start. So it's your call:</p>
+    <ul style="display:grid;gap:6px;margin:0;padding-left:1.4em;max-width:78ch">
+      <li><b>Keep the violet grove:</b> I drop this item and move to the grove's falls and mist (item 3). Its light and sky may stay at 4.</li>
+      <li><b>Repaint toward a clear day:</b> I mock the grove's far ridges, mist and sky in clearer blue-greens and blues, keeping the lawn and fighters as they are.</li>
+    </ul>
+  </section>
+
+  <section class="panel" aria-labelledby="fs57-h" id="fighterfloor57">
+    <div class="eyebrow">Built A (the owner's pick) &middot; review 16, item 1: the fighters on bright floors</div>
+    <h2 id="fs57-h">Fighters that stand out on a bright lawn</h2>
+    <p>The bright floors stay. On the meadow and grove, though, the yellow and orange fighters sat close in value to a sunlit yellow-green lawn: P1's gap fell to 0.109 and 0.099. This separates them by hue and by their own shadow instead of by a darker floor.</p>
+    <ul style="display:grid;gap:6px;margin:0;padding-left:1.4em;max-width:78ch">
+      <li><b>The lawns cooler.</b> The walked lawns and platform tops move from yellow-green toward a true green, at the same value, away from the fighters' yellow and orange.</li>
+      <li><b>The contact shadows firmer.</b> The shadow under each fighter goes from 64% to 80% strength and 15% wider, so their footing reads on any floor. This one is on every stage.</li>
+    </ul>
+    <div class="tablewrap"><table><thead><tr><th>Option</th><th>The lawn</th><th>P1's gap, meadow / grove</th></tr></thead><tbody>
+      <tr><td>Today</td><td>Yellow-green</td><td>0.109 / 0.099</td></tr>
+      <tr><td>A &middot; A step cooler</td><td>About 14&deg; toward a true green</td><td>0.122 / 0.119</td></tr>
+      <tr><td>B &middot; Toward emerald</td><td>About 29&deg;, a touch richer</td><td>0.127 / 0.128</td></tr>
+    </tbody></table></div>
+    <p>The fight on the meadow (top) and grove (bottom): today, A, B. The floors stay as bright (meadow 0.44 to 0.43, grove 0.55 to 0.53). With the firmer shadow alone, the canyon's gap goes from 0.192 to 0.216.</p>
+    <div class="viewer"><img src="fs57_close.jpg" alt="The meadow's and grove's fight today, with A and with B"></div>
+    <div class="row" role="group" aria-label="Stage"><button data-fs57s="0">Meadow</button><button data-fs57s="4">Grove</button></div>
+    <div class="row" role="group" aria-label="View"><button data-fs57v="m">Match camera</button><button data-fs57v="w">Wide</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-fs57o="T">Today</button><button data-fs57o="A">A &middot; A step cooler</button><button data-fs57o="B">B &middot; Toward emerald</button></div>
+    <div class="viewer"><img id="fs57img" alt="Fighters on bright floors option"><span class="vtag" id="fs57tag"></span></div>
+    <p class="muted">My pick: <b>A</b>. The fighters lift off the lawn and stand on a clear shadow, and the lawn still belongs with the meadow's lime hills and the grove's green. Honest notes:
+      <ul>
+        <li>B clears the line by more, but on the meadow its lawn turns a little teal against the lime hills behind it, the floor a different green from the land.</li>
+        <li>With A the grove's gap is 0.119, right on the line. If it needs a hair more, a touch more on the grove alone is easy.</li>
+        <li>The firmer contact shadow is presentation only; it never touches the game's simulation.</li>
+      </ul>
+    </p>
+  </section>
+
+  <section class="panel" aria-labelledby="rv16-h" id="review16">
+    <div class="eyebrow">The plan &middot; fidelity review 16: after review 15's items 1 to 4 and bright floors</div>
+    <h2 id="rv16-h">Where the stages stand, and the path to 5</h2>
+    <p>First, the build is out: <b>playtest-2026-10-29-sim146-floors</b> (the latest release), with animation round 8n. Then all five stages are scored again on that build, judged your way: light, coloured shade, form from lit edges, and floors as bright as the papercraft reference's. The full write-up is in docs/art/stages/FIDELITY_REVIEW_16.md.</p>
+    <div class="tablewrap"><table><thead><tr><th>Stage</th><th>Light</th><th>Surfaces</th><th>Play area</th><th>Background land</th><th>Sky</th><th>World</th><th>Cohesion</th><th>Readability</th><th>Mean</th></tr></thead><tbody>
+      <tr><td>Beach</td><td>5</td><td>4</td><td>5</td><td><b>5 &uarr;</b></td><td>5</td><td>5</td><td>5</td><td>5</td><td><b>4.88</b></td></tr>
+      <tr><td>Canyon</td><td><b>5 &uarr;</b></td><td>4</td><td>4</td><td>5</td><td>5</td><td>4</td><td><b>5 &uarr;</b></td><td>5</td><td><b>4.63</b></td></tr>
+      <tr><td>City</td><td>5</td><td>4</td><td>5</td><td>5</td><td>5</td><td>5</td><td>5</td><td>5</td><td>4.88</td></tr>
+      <tr><td>Grove</td><td>4</td><td>4</td><td>4</td><td>5</td><td>4</td><td>5</td><td>5</td><td><i>4 &darr;</i></td><td><i>4.38</i></td></tr>
+      <tr><td>Meadow</td><td>5</td><td>4</td><td>5</td><td>5</td><td>5</td><td>5</td><td>5</td><td>4</td><td>4.75</td></tr>
+    </tbody></table></div>
+    <p>The mean is <b>4.70</b> (review 15: 4.65). Twenty-eight of forty cells are 5.</p>
+    <ul style="display:grid;gap:6px;margin:0;padding-left:1.4em;max-width:78ch">
+      <li><b>Up:</b> the canyon's two hues and bright sand lift its light and cohesion, and the painted headland lifts the beach's background land.</li>
+      <li><b>Down:</b> the grove's readability. Its brighter lawn brought P1's gap to 0.099.</li>
+      <li><b>Every stage is still 4 on surfaces.</b></li>
+    </ul>
+    <h3>What blocks 5</h3>
+    <ul style="display:grid;gap:6px;margin:0;padding-left:1.4em;max-width:78ch">
+      <li><b>Surfaces (all 4):</b>
+        <ul>
+          <li>the meadow's stones have lit rims but read khaki-grey;</li>
+          <li>the canyon's hoodoos are stacked drums;</li>
+          <li>the beach's headland goes blotchy blue-grey on its shade side;</li>
+          <li>the city's roof is a plain pink sheet, and its facade one repeating brick;</li>
+          <li>the grove's falls read as tiles, and its mist as flat violet.</li>
+        </ul>
+      </li>
+      <li><b>Readability (meadow, grove):</b> the yellow and orange fighters are close in value to a sunlit yellow-green lawn.</li>
+      <li><b>The grove's light and sky:</b> a soft pink veil, and a busy sky with little gradient.</li>
+      <li><b>Play areas:</b> the canyon's strata are still straight-cut blocks; the grove is a plain lawn and an earth path.</li>
+    </ul>
+    <h3>The plan to 5 (all refinements; nothing new is added)</h3>
+    <ol style="display:grid;gap:6px;margin:0;padding-left:1.4em;max-width:78ch">
+      <li><b>The fighters on bright floors:</b> the lawns a cooler, bluer green, away from the fighters' yellow and orange, and their contact shadows a little larger and firmer. The floors stay bright. <i>Readability, 2 cells, half a session.</i></li>
+      <li><b>The grove's light and sky:</b> a warmer lit side under the canopy and a clearer gradient. <i>2 cells, half a session.</i></li>
+      <li><b>The grove's falls and mist:</b> scalloped sheets; mist greyer on top. <i>Surfaces, 1 session.</i></li>
+      <li><b>The canyon's hoodoos</b> as eroded, tapering columns with a cap rock. <i>Surfaces, 1 session.</i></li>
+      <li><b>The meadow's stones as card stone:</b> a pale warm grey with the olive veil off. <i>Surfaces, half a session.</i></li>
+      <li><b>The city's roof and brick:</b> painted variation and patched bricks; a felt roof with seams. <i>Surfaces, half a session.</i></li>
+      <li><b>The beach's headland, finer:</b> smaller, softer patches, kept warm-green in shade. <i>Surfaces, a quarter session.</i></li>
+      <li><b>The canyon's strata front, eroded:</b> uneven courses, undercut ledges, rounded lips. <i>Play area, 1 session.</i></li>
+      <li><b>The grove's lawn and path:</b> a painted lawn, the path's edges broken with grass. <i>Play area, half a session.</i></li>
+    </ol>
+    <p>Items 1 and 2 lift four cells for about one session. With 1 to 7, every stage but the canyon reaches 5 on its open cells, and the mean about 4.9. The canyon's world and life may stay 4 under the no-animals, far-back rule. The fighters remain the largest gap in any still.</p>
+    <p>The weak spots, close (the meadow's front stones; the beach's headland; the city's facade; the grove's fighters on their lawn; the canyon's fighters on the sand; its hoodoos and strata):</p>
+    <div class="viewer"><img src="r16_crops.jpg" alt="The weak spots close"></div>
+    <h3>Every stage today</h3>
+    <div class="viewer"><img src="r16_sheet.jpg" alt="Every stage at the match camera and wide"></div>
+    <p class="muted">My recommended start: item 1. It answers what the bright floors cost, and it's cheap.</p>
+  </section>
+
+  <section class="panel" aria-labelledby="fl56-h" id="floors56">
+    <div class="eyebrow">Built A, B on the canyon (the owner's pick) &middot; your note: shadows drowning the floors</div>
+    <h2 id="fl56-h">Bright floors, as the reference has them</h2>
+    <p>Your note: "the shadows are beginning to drown out the floors of the stages." The reference's floors are the lightest thing in each frame, with small soft shadows under things. Ours had three layers of shade on them:</p>
+    <ul style="display:grid;gap:6px;margin:0;padding-left:1.4em;max-width:78ch">
+      <li><b>Drifting cloud shadows</b> (review 7's shaped light), the main one. On the meadow, grove, canyon and beach they cover 60% of the ground near the stage at nearly full depth, tinted cool, so a floor read as a field of shadow with a few sunlit gaps.</li>
+      <li><b>The fighters' deeper ground</b> (review 14 item 2), on the meadow, grove and canyon, so the fighters stand out.</li>
+      <li><b>On the canyon, since yesterday's two hues:</b> most of the ambient moved into the sun, so wherever a shadow falls the floor lost its ambient too. That's the dark, muddy top you saw.</li>
+    </ul>
+    <div class="tablewrap"><table><thead><tr><th>Option</th><th>On the floors and platforms only</th><th>Top value, canyon / meadow / grove</th><th>P1's gap, canyon / meadow / grove</th></tr></thead><tbody>
+      <tr><td>Today</td><td></td><td>0.39 / 0.36 / 0.45</td><td>0.193 / 0.135 / 0.134</td></tr>
+      <tr><td>A &middot; Clouds off the floors</td><td>The cloud shadows off them; the land around keeps its dappled light</td><td>0.45 / 0.44 / 0.55</td><td>0.181 / 0.108 / 0.101</td></tr>
+      <tr><td>B &middot; Bright floors</td><td>A, the sun's shadows on them lighter, and the deeper fighters' ground halved</td><td>0.58 / 0.61 / 0.62</td><td>0.194 / 0.053 / 0.061</td></tr>
+    </tbody></table></div>
+    <p>Today, A, B: the canyon (top row) and the meadow (bottom), the fight band at the match camera. The beach's dock is dark wood and the city has no cloud shadows, so those two change little.</p>
+    <div class="viewer"><img src="fl56_close.jpg" alt="The canyon's and meadow's floors today, with A and with B"></div>
+    <div class="row" role="group" aria-label="Stage"><button data-fl56s="0">Meadow</button><button data-fl56s="1">Canyon</button><button data-fl56s="2">Beach</button><button data-fl56s="3">City</button><button data-fl56s="4">Grove</button></div>
+    <div class="row" role="group" aria-label="View"><button data-fl56v="m">Match camera</button><button data-fl56v="w">Wide</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-fl56o="T">Today</button><button data-fl56o="A">A &middot; Clouds off the floors</button><button data-fl56o="B">B &middot; Bright floors</button></div>
+    <div class="viewer"><img id="fl56img" alt="Floor option"><span class="vtag" id="fl56tag"></span></div>
+    <p class="muted">My pick: <b>A on every stage, and B on the canyon.</b> A turns every floor from shadow to sunlit ground. On the canyon, B brings the top to a bright gold sand and the fighters still stand out (its sand is a different hue from them). Honest notes:
+      <ul>
+        <li>B everywhere is closest to the reference's brightness. But on the meadow and grove the yellow and orange fighters wash into the pale lawns: P1's gap falls to about half of what review 14 set it to. That's the reason the ground was deepened.</li>
+        <li>With A the meadow's and grove's gaps sit a little under the 0.12 line (0.108 and 0.101).</li>
+        <li>My first try only lightened the sun's shadows and the deeper ground, and it barely moved the canyon. The clouds were the shadow.</li>
+      </ul>
+    </p>
+  </section>
+
   <section class="panel" aria-labelledby="hl55-h" id="headland55">
-    <div class="eyebrow">Your call is needed &middot; review 15, item 4: the beach's headland painted</div>
+    <div class="eyebrow">Built B (the owner's pick) &middot; review 15, item 4: the beach's headland painted</div>
     <h2 id="hl55-h">The hill behind the town as painted land</h2>
     <p>First, the canyon's two hues E are built (their section below). Next, the beach. The big hill behind the town is one pale sage card at both cameras. Its folded hill and the pop-up flats behind it carry the stage's air at about 200 units, and that air flattened every fold to one tone, with no shade side and no paint. This mock paints it the way the meadow's peaks are painted. Nothing is added; the hill keeps its shape.</p>
     <div class="tablewrap"><table><thead><tr><th>Option</th><th>What changes</th></tr></thead><tbody>
@@ -3393,5 +3519,29 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
   group("data-hl55v", function (v) { hl55v = v; }, hl55render);
   group("data-hl55o", function (v) { hl55o = v; }, hl55render);
   hl55render();
+  var fl56s = "1", fl56v = "m", fl56o = "A";
+  var FL56O = { T: "Today", A: "A · Clouds off the floors", B: "B · Bright floors" };
+  var FL56S = { "0": "Meadow", "1": "Canyon", "2": "Beach", "3": "City", "4": "Grove" };
+  function fl56render() {
+    $id("fl56img").src = "fl56_s" + fl56s + "_" + fl56o + "_" + fl56v + ".jpg";
+    $id("fl56tag").textContent = FL56S[fl56s] + " · " + FL56O[fl56o] + (fl56v === "w" ? " · wide" : " · match camera");
+    pressed("data-fl56s", fl56s); pressed("data-fl56v", fl56v); pressed("data-fl56o", fl56o);
+  }
+  group("data-fl56s", function (v) { fl56s = v; }, fl56render);
+  group("data-fl56v", function (v) { fl56v = v; }, fl56render);
+  group("data-fl56o", function (v) { fl56o = v; }, fl56render);
+  fl56render();
+  var fs57s = "0", fs57v = "m", fs57o = "A";
+  var FS57O = { T: "Today", A: "A · A step cooler", B: "B · Toward emerald" };
+  var FS57S = { "0": "Meadow", "4": "Grove" };
+  function fs57render() {
+    $id("fs57img").src = "fs57_s" + fs57s + "_" + fs57o + "_" + fs57v + ".jpg";
+    $id("fs57tag").textContent = FS57S[fs57s] + " · " + FS57O[fs57o] + (fs57v === "w" ? " · wide" : " · match camera");
+    pressed("data-fs57s", fs57s); pressed("data-fs57v", fs57v); pressed("data-fs57o", fs57o);
+  }
+  group("data-fs57s", function (v) { fs57s = v; }, fs57render);
+  group("data-fs57v", function (v) { fs57v = v; }, fs57render);
+  group("data-fs57o", function (v) { fs57o = v; }, fs57render);
+  fs57render();
 })();
 </script>
