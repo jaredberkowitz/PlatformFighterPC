@@ -27,7 +27,7 @@ const FACE_UI := preload("res://shaders/face_ui.gdshader")
 const CATEGORIES := [
 	{"id": "body", "title": "Body", "slot": "color", "kind": "swatch"},
 	{"id": "eyes", "title": "Eyes", "slot": "eyes", "color": "eye_color", "adjust": ["eye_y", "eye_gap", "eye_size", "eye_turn", "eye_squash"],
-		"face": true, "view": ["eye", 1.7]},
+		"face": true, "view": ["eye", 3.4]},
 	{"id": "brows", "title": "Brows", "slot": "brows", "color": "brow_color", "adjust": ["brow_y", "brow_gap", "brow_size", "brow_turn"],
 		"face": true, "view": ["brow", 1.7]},
 	{"id": "nose", "title": "Nose", "slot": "nose", "adjust": ["nose_y", "nose_size"], "face": true, "view": ["nose", 2.6]},
@@ -100,6 +100,11 @@ var fighter_select: Control
 var rules: Control
 var stat_rows := {}
 var class_cards: Array = []
+## The chosen class's description, under the class grid.
+var class_blurb: Label
+## The class grid: columns, and each tile's size with its gap.
+const CLASS_COLUMNS := 5
+const CLASS_TILE := Vector2(98, 50)
 var bars: Control
 var points_tag: Control
 var delete_button: Control
@@ -543,6 +548,7 @@ func _build_page() -> void:
 	frozen.clear()
 	stat_rows.clear()
 	class_cards.clear()
+	class_blurb = null
 	var cat: Dictionary = CATEGORIES[category]
 	if cat.id == "play":
 		_build_play_page()
@@ -609,6 +615,10 @@ func _paint_thumb(t: Dictionary) -> void:
 		"cheek", "freckle":
 			y = FaceLook.EYE_Y + 0.1
 	mat.set_shader_parameter("view", Vector3(0.5, y, float(t.view[1])))
+	if str(t.view[0]) == "eye":
+		# (Close on one eye, the face's right: framed on the pair, the eight styles looked alike at the tile's size. Art audit
+		# 2026-10-29.)
+		mat.set_shader_parameter("view", Vector3(0.5 + FaceLook.EYE_GAP + FaceLook.offset(variant, "eye_gap") * 0.012, y, float(t.view[1])))
 	if str(t.view[0]) == "freckle":
 		# (Close on one cheek: the whole face showed the dots as specks.)
 		var cp: Vector3 = mat.get_shader_parameter("cheek_place")
@@ -654,22 +664,15 @@ func _build_play_page() -> void:
 	fighter_select.position = Vector2(0, 0)
 	page.add_child(fighter_select)
 	page_items.append(fighter_select)
+	# The class (the fighter's weapon and moveset): a grid of named tiles that fits the page (one row of fourteen cards ran off it and
+	# over the tools: art audit 2026-10-29), and the chosen class's description under it.
 	for c in Roster.CLASS_NAMES.size():
 		var card := Choice.new()
 		card.seed = 400 + c
 		card.caption = Roster.CLASS_NAMES[c]
-		card.position = Vector2(c * 246, 56)
-		card.size = Vector2(240, 120)
-		var blurb := Label.new()
-		blurb.text = Roster.CLASS_BLURBS[c]
-		blurb.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		blurb.position = Vector2(16, 10)
-		blurb.size = Vector2(206, 70)
-		blurb.add_theme_font_override("font", UI.font())
-		blurb.add_theme_font_size_override("font_size", 16)
-		blurb.add_theme_color_override("font_color", Art.INK)
-		blurb.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		card.add_child(blurb)
+		card.cut = 8.0
+		card.position = Vector2((c % CLASS_COLUMNS) * CLASS_TILE.x, 52 + (c / CLASS_COLUMNS) * CLASS_TILE.y)
+		card.size = CLASS_TILE - Vector2(2, 2)
 		var ci := c
 		card.activated.connect(func():
 			class_index = ci
@@ -679,7 +682,17 @@ func _build_play_page() -> void:
 		page.add_child(card)
 		page_items.append(card)
 		class_cards.append(card)
-	var y := 190.0
+	var rows_used := ceili(float(Roster.CLASS_NAMES.size()) / CLASS_COLUMNS)
+	class_blurb = Label.new()
+	class_blurb.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	class_blurb.position = Vector2(6, 58 + rows_used * CLASS_TILE.y)
+	class_blurb.size = Vector2(480, 62)
+	class_blurb.add_theme_font_override("font", UI.font())
+	class_blurb.add_theme_font_size_override("font_size", 17)
+	class_blurb.add_theme_color_override("font_color", Art.INK)
+	class_blurb.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	page.add_child(class_blurb)
+	var y := 128.0 + rows_used * CLASS_TILE.y
 	for stat in ["size", "speed", "jump", "weight"]:
 		var r := UI.StatRow.new(stat.capitalize())
 		r.set_value(int(_stats[stat]), false)
@@ -694,7 +707,7 @@ func _build_play_page() -> void:
 		page.add_child(r)
 		page_items.append(r)
 		stat_rows[stat] = r
-		y += 50.0
+		y += 44.0
 	rules = UI.Selector.new("Rules", ["Ranked", "Casual"])
 	rules.set_index(1 if casual else 0, false)
 	rules.changed.connect(func(i):
@@ -799,6 +812,8 @@ func _mark_choice() -> void:
 	if cat.id == "play":
 		for c in class_cards.size():
 			class_cards[c].chosen = c == class_index
+		if class_blurb != null and class_index >= 0 and class_index < Roster.CLASS_BLURBS.size():
+			class_blurb.text = Roster.CLASS_BLURBS[class_index]
 	else:
 		var v: int = look.get_slot(cat.slot)
 		for k in page_items.size():

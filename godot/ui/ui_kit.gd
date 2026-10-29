@@ -1411,7 +1411,8 @@ class Bars extends Control:
 		var row := size.y / maxf(order.size(), 1)
 		for i in order.size():
 			var y := i * row
-			draw_string(f, Vector2(4, y + row * 0.68), order[i], HORIZONTAL_ALIGNMENT_LEFT, 150, 22, Color(1, 1, 1, 0.92))
+			# (Stat names in ink on the light ground, docs/UI_DESIGN_SYSTEM.md: they were white and vanished on it.)
+			draw_string(f, Vector2(4, y + row * 0.68), order[i], HORIZONTAL_ALIGNMENT_LEFT, 150, 22, Color(D.INK, 0.8))
 			var track := Rect2(160, y + row * 0.2, size.x - 170, row * 0.55)
 			D.draw_slant(self, track, Color(0.16, 0.19, 0.25), D.INK, 2.0, false)
 			var amount: float = clampf(float(values.get(order[i], 0.0)), 0.0, 1.0)
