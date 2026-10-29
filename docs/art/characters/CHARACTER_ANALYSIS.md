@@ -755,7 +755,22 @@ in the shirt's own cloth; the owner chose it.
   reference's scout shirts; the collar keeps its colour. The striped and flowered shirts keep their pale placket.
 - **Not fixed**: a ragged edge at the top of every shirt, where the bottom of the head meets the shirt and the collar over the shoulders.
   Lifting and narrowing the collar band, ending the shirt lower at the neck, and cutting the neck finer (scratch rigs) each left it or
-  made it worse. Looked into next.
+  made it worse. Looked into next (below).
 
 `placket_pass.png`: the aviator close from the front, three-quarters and the side, before above after; the sailor and the ranger, before
 left and after right; the default looks in the menu, before above after. Fighter view, loadout, editor UI and select grid tests pass.
+
+## Collar band (2026-10-29, the ragged edge at the top of the shirts)
+Found by hiding the parts in turn: with the collar hidden the shirt's neckline is clean; with the ink off the shards stay. So the ragged
+edge was the collar band. Each of its points was set on the nearest point of the shirt; over the shoulders, where the sleeve meets the
+body, the nearest point flipped between the two, and the band zigzagged into green and white shards. The owner chose the fix mocked in a
+scratch rig.
+- `make_rigged_blob.py` `collar`: the laid band is relaxed over the cloth (`COLLAR_RELAX` 8 times: each point eased toward its
+  neighbours along the band, and across it inside its edges), and only a point that sank into the shirt is pushed back out to its lift.
+  The collar's shape and lift are as before; the camp collar of the flowered shirt is built the same way.
+- Rig rebuilt (mesh only: no joint or clip changed).
+- Smaller shards remain at the top of the shoulders when the fists come up, where the sleeves rise with the arms.
+
+`collar_band_pass.png`: the aviator close, fists raised, before above after; the sailor and the ranger, before left and after right; the
+aviator with arms relaxed (as is, collar hidden, shirt hidden, ink off, head hidden), before above after; a match frame before and after.
+Art pipeline, fighter view, loadout, animation library, match flow, motion and select grid tests pass.

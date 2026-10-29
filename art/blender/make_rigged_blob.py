@@ -1984,7 +1984,7 @@ def shirt_front(shirt, skin, neck_line, waist, trunk_weights):
             for _ in range(COLLAR_SMOOTH):
                 cols = [cols[0]] + [[(a + 2.0 * b + c) / 4.0 for a, b, c in zip(cols[k - 1], cols[k], cols[k + 1])]
                                     for k in range(1, len(cols) - 1)] + [cols[-1]]
-            grid = {}
+            pos = {}
             for i, pts in enumerate(cols):
                 for j, p in enumerate(pts):
                     loc, nrm, _, _ = tree.find_nearest(p)
@@ -1992,7 +1992,24 @@ def shirt_front(shirt, skin, neck_line, waist, trunk_weights):
                     k = j / n_d
                     # The fold along the top stands off the shirt and rounds over; the free edge lifts a little, as a pressed collar does.
                     lift = out_by + COLLAR_FOLD * (1.0 - k) ** 2 + COLLAR_EDGE_LIFT * k ** 3
-                    grid[i, j] = bm.verts.new(loc + nrm * lift)
+                    pos[i, j] = [loc + nrm * lift, lift]
+            # Relaxed over the cloth: each point eased toward its neighbours (along the band, and across it inside its edges), and only a
+            # point that sank into the shirt pushed back out to its lift. (Set on the nearest cloth point by point until the collar pass,
+            # 2026-10-29: over the shoulders, where the sleeve meets the body, the nearest point flipped between the two and the band
+            # zigzagged, a ragged edge of green and white shards along the top of every shirt.)
+            for _ in range(COLLAR_RELAX):
+                eased = {}
+                for (i, j), (p, _lift) in pos.items():
+                    nb = [pos[q][0] for q in ((i - 1, j), (i + 1, j)) if q in pos]
+                    if 0 < j < n_d:
+                        nb += [pos[q][0] for q in ((i, j - 1), (i, j + 1)) if q in pos]
+                    eased[i, j] = p.lerp(sum(nb, Vector()) / len(nb), 0.5) if nb else p
+                for key, p in eased.items():
+                    loc, nrm, _, _ = tree.find_nearest(p)
+                    nrm = outward(loc, nrm)
+                    d = (p - loc).dot(nrm)
+                    pos[key][0] = p + nrm * (pos[key][1] - d) if d < pos[key][1] else p
+            grid = {key: bm.verts.new(p) for key, (p, _lift) in pos.items()}
             for (i, j), v in list(grid.items()):
                 a, b, c = grid.get((i + 1, j)), grid.get((i, j + 1)), grid.get((i + 1, j + 1))
                 if a and b and c:
@@ -2033,6 +2050,7 @@ def shirt_front(shirt, skin, neck_line, waist, trunk_weights):
 COLLAR_SHAPE = [(0.1, 0.03), (0.42, 0.26), (0.9, 0.11), (1.6, 0.075), (math.pi, 0.065)]
 COLLAR_REACH = 0.36
 COLLAR_SMOOTH = 3
+COLLAR_RELAX = 8        # how many times the laid band is relaxed over the cloth (see `collar`)
 COLLAR_FOLD = 0.014
 COLLAR_EDGE_LIFT = 0.01
 SHIRT_LIFT = 0.085      # how far off the skin the shirt sits (0.065 until the body rebuild: it read painted on; the reference's shirts hang loose)
