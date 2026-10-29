@@ -445,6 +445,10 @@ func _build_rig(skin: Material) -> bool:
 			# shirt, white on a printed one; the collar hides under a ring of neckwear.
 			mi.visible = loadout.shirt > 0 and not (part.begins_with("ShirtCollar") and (loadout.neck in RING_NECKS or loadout.shirt == 4))
 			mi.material_override = _cloth(toon(_collar_colour()))
+			# (The placket in the shirt's own cloth on the plain shirts since the collar pass, 2026-10-29, the owner's pick of mocks, as the
+			# reference's scout shirts: in the collar's colour it ran down the chest as a painted stripe.)
+			if part.begins_with("ShirtPlacket") and loadout.shirt in [1, 2]:
+				mi.material_override = _cloth(_garment_shirt_material())
 		elif part.begins_with("Buttons"):
 			# (Not under a sash, the badge pass, 2026-10-19: the band crosses the button line and the buttons poked through it as a row of
 			# pale dots in the middle of the chest.)

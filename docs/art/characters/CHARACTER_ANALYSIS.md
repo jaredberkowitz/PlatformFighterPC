@@ -747,3 +747,15 @@ the less yellow ivory (the tinted ones read tan).
 `eye_white_pass.png`: the ranger front and three-quarter and the sailor close, before above after; the aviator and holiday shirt, before
 left and after right; the default looks in the menu, before above after; a match frame before and after. Fighter view, art pipeline,
 loadout, editor UI, select grid and match flow tests pass.
+
+## Placket (2026-10-29, item 4 of the second comparison)
+Close on the aviator, the green placket ran down the white shirt as a painted stripe beside the green collar points. Mocked the placket
+in the shirt's own cloth; the owner chose it.
+- `fighter_view.gd` ShirtPlacket: the plain and outfit shirts' plackets in the shirt's own cloth (with its fleck print), as the
+  reference's scout shirts; the collar keeps its colour. The striped and flowered shirts keep their pale placket.
+- **Not fixed**: a ragged edge at the top of every shirt, where the bottom of the head meets the shirt and the collar over the shoulders.
+  Lifting and narrowing the collar band, ending the shirt lower at the neck, and cutting the neck finer (scratch rigs) each left it or
+  made it worse. Looked into next.
+
+`placket_pass.png`: the aviator close from the front, three-quarters and the side, before above after; the sailor and the ranger, before
+left and after right; the default looks in the menu, before above after. Fighter view, loadout, editor UI and select grid tests pass.
