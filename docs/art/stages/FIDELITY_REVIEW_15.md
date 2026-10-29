@@ -128,3 +128,44 @@ comparison. P1's gap in the game:
 
 The beach's gap narrowed most (its lit sand edges sit near P1) and is still the widest. Before and after (left, right; the meadow, the
 city; match camera): `review15/front_form_built.jpg`. All seven tests pass.
+
+## Item 3, the canyon's two hues (mock, 2026-10-28)
+
+**Why it was one hue:**
+- **The shade went the short way round.** `pf_painted_shadow` turns a colour's hue toward the shadow hue by the shorter way round the
+  wheel, at most `shadow_shift`. From the rock's orange (about 0.05) to violet (0.72) the shorter way runs backward through red and
+  pink, and the 0.25 limit stopped it at magenta.
+- **The violet fill and the grade pinked the lit rock.** The fill light and the grade's shadow tint mixed violet into the orange.
+- **The ambient held the shade sides red.** It is untouched by the painted shade, so it adds the rock's own red to every shade side.
+- **The distance is the same rosy rock as the front.**
+
+`--two-hue=A|B|C|D|E` (Lighting.TWO_HUE_TRY, the canyon only; the shift limit is now a mood's `shift_cap`):
+
+| | What it changes | Front value, hue, sat | P1's gap |
+|---|---|---|---|
+| Today | | 0.29, 356°, 0.69 | 0.188 |
+| A | shade the long way to violet (shift 0.34), tint, ambient and casts cooler | 0.29, 356°, 0.68 | 0.206 |
+| B | A bluer (0.4 to hue 0.68), sun gold, grade shadows blue-violet, violet air 0.16 | 0.29, 358°, 0.63 | 0.206 |
+| C | B, fill and ambient blue, grade lights warmer | 0.31, 2°, 0.59 | 0.176 |
+| D | C, most of the ambient into the key (`key_fill` [0.1, 0.3]) | 0.29, 3°, 0.64 | 0.188 |
+| E | D, the air 0.34 toward a blue-violet (0.64, 0.64, 0.94) | 0.28, 2°, 0.64 | 0.189 |
+
+**A to C barely show.** The sun comes from the front left, so few faces toward the camera sit in shade.
+
+**E is the one that splits the frame:**
+- warm near rock and sand;
+- a lavender distance under the violet upper sky;
+- the gold sun between them.
+
+The front's red goes a little browner. The next lever, if that reads dull, is the rock's own colour, a re-bake.
+
+On the Stage Look Review ("twohues54", `th54_*`: today, D, E). Today against E: `review15/canyon_two_hues_E.jpg`. Recommended E.
+
+To ship E, write into MOODS.sunset:
+- `shadow_hue` 0.68, `shadow_shift` 0.4, `shift_cap` 0.4;
+- the tint, ambient, key, fill, grade and haze;
+
+and into STYLES.sunset:
+- `cast`;
+- finish `haze_max` 0.34;
+- `key_fill` [0.1, 0.3].

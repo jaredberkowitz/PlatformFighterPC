@@ -88,8 +88,30 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
     <p>Two lessons from the reference screenshots, mocked from the match camera: the scenery without ink outlines, its edges lit as card bevels instead, and the paper houses rebuilt at the characters' proportions. The earlier rounds stay on the <a href="https://claude.ai/artifact/D1du6MREVumiJDrEdNypW4">Stage Fidelity Review</a>, which is full.</p>
   </header>
 
+  <section class="panel" aria-labelledby="th54-h" id="twohues54">
+    <div class="eyebrow">Your call is needed &middot; review 15, item 3: the canyon's two hues</div>
+    <h2 id="th54-h">Warm rock in the sun, violet in the shade and the distance</h2>
+    <p>First, the lit edges B are built on every stage (their section below). Next, the canyon, which still reads one pink-orange from the floor to the sky. I found why. Its shade turned orange toward violet the short way round the colour wheel, through pink to magenta, so the shade came out pink. The violet fill light and the grade's shadow tint also pinked the lit rock. And its distance is the same rosy rock as the front.</p>
+    <div class="tablewrap"><table><thead><tr><th>Option</th><th>What changes</th></tr></thead><tbody>
+      <tr><td>D &middot; Two hues in the light</td><td>The shade turned the long way, to a blue-violet; the sun a warmer gold; the fill light and the grade's shadow tint blue instead of violet; more of the ambient moved into the sun, so the shade sides take the violet rather than the rock's own red</td></tr>
+      <tr><td>E &middot; And in the air</td><td>D, and the upper sky's violet carried into the distance: the far buttes, the trestle and the far rim go lavender as they recede</td></tr>
+    </tbody></table></div>
+    <p>Today, then E, at the match camera (top) and wide (bottom). The front's value holds (0.29 to 0.28); its hue moves from pink-red (356&deg;) to red-orange (2&deg;). P1's gap holds (0.188 to 0.189).</p>
+    <div class="viewer"><img src="th54_close.jpg" alt="The canyon today and with option E, match camera and wide"></div>
+    <div class="row" role="group" aria-label="View"><button data-th54v="m">Match camera</button><button data-th54v="w">Wide</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-th54o="T">Today</button><button data-th54o="D">D &middot; Two hues in the light</button><button data-th54o="E">E &middot; And in the air</button></div>
+    <div class="viewer"><img id="th54img" alt="Canyon two hues option"><span class="vtag" id="th54tag"></span></div>
+    <p class="muted">My pick: <b>E</b>. It's the only option where the split shows across the whole frame: warm near rock and sand, a violet distance under a violet sky, with the sun's gold between them. Honest notes:
+      <ul>
+        <li>A, B and C were lighter versions of D (the shade alone, then the fill). On this stage they barely showed, because the sun comes from the front left and few faces toward the camera sit in shade. I've left them off the page.</li>
+        <li>The front's red goes a little browner and less saturated (0.69 to 0.64). If that reads as dull, the next step is the rock's own colour toward a clearer terracotta, which means re-baking the canyon's models.</li>
+        <li>At round 39 you preferred clear air over fog on the far buttes. E's air is a colour, not a fog: the far buttes keep their shape and value steps, but it's the part to judge.</li>
+      </ul>
+    </p>
+  </section>
+
   <section class="panel" aria-labelledby="ff53-h" id="frontform53">
-    <div class="eyebrow">Your call is needed &middot; review 15, item 2: form the reference's way</div>
+    <div class="eyebrow">Built B (the owner's pick) &middot; review 15, item 2: form the reference's way</div>
     <h2 id="ff53-h">Lit cut edges and drawn joints</h2>
     <p>First, the meadow's ground C is built (see its section below). Next, surfaces, the 4 left on every stage. Easing the dark crevices lightened the fronts but took some of their form with it: the meadow's stones read as pale blocks. The papercraft reference keeps form with light instead: a lit edge where a cut face turns to the sun, and a drawn line in the joints. This does the same on the fronts, near the stage only: an edge on a face turned toward the sun is lifted as a lit band in its own colour, and one on a face turned away is drawn as a firmer joint line. One change for every stage; the fighters are untouched.</p>
     <div class="tablewrap"><table><thead><tr><th>Option</th><th>What changes</th></tr></thead><tbody>
@@ -3329,5 +3351,15 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
   group("data-ff53v", function (v) { ff53v = v; }, ff53render);
   group("data-ff53o", function (v) { ff53o = v; }, ff53render);
   ff53render();
+  var th54v = "m", th54o = "E";
+  var TH54O = { T: "Today", D: "D · Two hues in the light", E: "E · And in the air" };
+  function th54render() {
+    $id("th54img").src = "th54_" + th54o + "_" + th54v + ".jpg";
+    $id("th54tag").textContent = "Canyon · " + TH54O[th54o] + (th54v === "w" ? " · wide" : " · match camera");
+    pressed("data-th54v", th54v); pressed("data-th54o", th54o);
+  }
+  group("data-th54v", function (v) { th54v = v; }, th54render);
+  group("data-th54o", function (v) { th54o = v; }, th54render);
+  th54render();
 })();
 </script>

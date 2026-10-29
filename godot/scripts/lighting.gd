@@ -61,6 +61,38 @@ const MOODS := {
 }
 
 
+## The canyon's two hues on trial, fidelity review 15 item 3 (`--two-hue=A|B`): its shade turned from orange the short way round the colour
+## wheel, through pink to magenta, so lit and shaded rock were one pink-orange. Turned the long way instead, past the 0.25 limit:
+##   A  to violet (shift 0.34), the shade's tint, the ambient and the cast shadows cooler;
+##   B  to a bluer violet (0.4 toward hue 0.68), and the sun a warmer gold, the grade's shadows blue-violet and the distance in the upper
+##      sky's violet air;
+##   C  B with the fill and the ambient blue rather than violet, the grade's lights warmer: the violet fill pinked the lit rock;
+##   D  C with most of the ambient moved into the key (`key_fill` [0.1, 0.3]), so the shade sides take the painted violet rather than
+##      the rock's own red;
+##   E  D with that violet air far stronger (`haze_max` 0.34 toward a blue-violet), the far buttes lavender as they recede.
+## A to C barely showed: the sun comes from the front left, so few faces toward the camera sit in shade.
+const TWO_HUE_TRY := {
+	"A": {"mood": {"shadow_hue": 0.72, "shadow_shift": 0.34, "shift_cap": 0.34, "shadow_tint": Color(0.66, 0.62, 0.9),
+		"ambient": [Color(0.88, 0.84, 0.96), 0.5]}, "cast": Color(0.26, 0.22, 0.52, 1.0)},
+	"B": {"mood": {"shadow_hue": 0.68, "shadow_shift": 0.4, "shift_cap": 0.4, "shadow_tint": Color(0.62, 0.64, 0.94),
+		"ambient": [Color(0.84, 0.84, 0.98), 0.5], "key": [Color(1.0, 0.76, 0.46), 1.25, -20.0, -42.0],
+		"grade": [Color(0.84, 0.84, 1.08), Color(1.08, 0.96, 0.86), 0.45], "haze": Color(0.8, 0.74, 0.96)},
+		"cast": Color(0.24, 0.26, 0.56, 1.0), "haze_max": 0.16},
+	"C": {"mood": {"shadow_hue": 0.68, "shadow_shift": 0.4, "shift_cap": 0.4, "shadow_tint": Color(0.62, 0.64, 0.94),
+		"ambient": [Color(0.86, 0.9, 1.0), 0.5], "key": [Color(1.0, 0.8, 0.5), 1.25, -20.0, -42.0], "fill": [Color(0.52, 0.66, 1.0), 0.42],
+		"grade": [Color(0.86, 0.9, 1.08), Color(1.1, 0.98, 0.8), 0.45], "haze": Color(0.8, 0.74, 0.96)},
+		"cast": Color(0.24, 0.26, 0.56, 1.0), "haze_max": 0.16},
+	"D": {"mood": {"shadow_hue": 0.68, "shadow_shift": 0.4, "shift_cap": 0.4, "shadow_tint": Color(0.62, 0.64, 0.94),
+		"ambient": [Color(0.86, 0.9, 1.0), 0.5], "key": [Color(1.0, 0.8, 0.5), 1.25, -20.0, -42.0], "fill": [Color(0.52, 0.66, 1.0), 0.42],
+		"grade": [Color(0.86, 0.9, 1.08), Color(1.1, 0.98, 0.8), 0.45], "haze": Color(0.8, 0.74, 0.96)},
+		"cast": Color(0.24, 0.26, 0.56, 1.0), "haze_max": 0.16, "key_fill": [0.1, 0.3]},
+	"E": {"mood": {"shadow_hue": 0.68, "shadow_shift": 0.4, "shift_cap": 0.4, "shadow_tint": Color(0.62, 0.64, 0.94),
+		"ambient": [Color(0.86, 0.9, 1.0), 0.5], "key": [Color(1.0, 0.8, 0.5), 1.25, -20.0, -42.0], "fill": [Color(0.52, 0.66, 1.0), 0.42],
+		"grade": [Color(0.86, 0.9, 1.08), Color(1.1, 0.98, 0.8), 0.45], "haze": Color(0.64, 0.64, 0.94)},
+		"cast": Color(0.24, 0.26, 0.56, 1.0), "haze_max": 0.34, "key_fill": [0.1, 0.3]},
+}
+
+
 ## The menus' 3D previews: plain warm daylight (the meadow's look before it turned to magic hour), so a stage's mood never reaches them.
 const MENU_MOOD := {"shadow_hue": 0.73, "shadow_shift": 0.07, "shadow_value": 0.64, "shadow_tint": Color(0.74, 0.7, 0.88),
 	"rim": Color(1.0, 0.94, 0.84)}
@@ -454,6 +486,11 @@ const FRONT_CALM := 0.75
 
 static func stage_mood(env: Environment, root: Node, theme: Dictionary, post: ShaderMaterial = null) -> void:
 	var mood: Dictionary = MOODS.get(theme.get("name", "meadow"), MOODS.meadow)
+	# (The canyon's two hues, fidelity review 15 item 3: `--two-hue=A|B`, see TWO_HUE_TRY.)
+	var two: Dictionary = TWO_HUE_TRY.get(_flag_value("--two-hue=").to_upper(), {}) if String(theme.get("name", "")) == "sunset" else {}
+	if two.has("mood"):
+		mood = mood.duplicate()
+		mood.merge(two.mood, true)
 	var key := root.get_node_or_null("KeyLight") as DirectionalLight3D
 	if key != null:
 		key.light_color = mood.key[0]
@@ -485,7 +522,7 @@ static func stage_mood(env: Environment, root: Node, theme: Dictionary, post: Sh
 	var sky_n := sky / maxf(maxf(sky.r, sky.g), maxf(sky.b, 0.01))
 	env.ambient_light_color = (mood.ambient[0] as Color).lerp(Color(sky_n.r, sky_n.g, sky_n.b), float(kl[2]))
 	# (The key against the fill on the scenery, fidelity review 14 item 3; see KEY_FILL_TRY. Set on every stage, as globals outlive it.)
-	var kf := key_fill(String(theme.get("name", "meadow")))
+	var kf: Array = two.get("key_fill", key_fill(String(theme.get("name", "meadow"))))
 	var cut := env.ambient_light_color * env.ambient_light_energy * (1.0 - float(kf[0]))
 	var boost := 1.0
 	if key != null:
@@ -512,6 +549,7 @@ static func stage_mood(env: Environment, root: Node, theme: Dictionary, post: Sh
 	for arg in OS.get_cmdline_user_args():
 		if arg == "--sun=C":
 			cast = Color(0.2, 0.14, 0.42, 1.0)
+	cast = two.get("cast", cast)
 	RenderingServer.global_shader_parameter_set("pf_cast_shade", cast)
 	# The light finish (fidelity review 6, see STYLES): bounce light (pf_bounce), a firmer grade and S-curve, the lamps glowing.
 	var finish_off := OS.get_cmdline_user_args().has("--light-finish=off")
@@ -528,7 +566,7 @@ static func stage_mood(env: Environment, root: Node, theme: Dictionary, post: Sh
 		post.set_shader_parameter("pastel_desat", finish.desat)
 		post.set_shader_parameter("pastel_lift", finish.lift)
 		post.set_shader_parameter("vignette", finish.vignette)
-		post.set_shader_parameter("haze_max", finish.haze_max)
+		post.set_shader_parameter("haze_max", float(two.get("haze_max", finish.haze_max)))
 		post.set_shader_parameter("haze_desat", float(finish.get("haze_desat", 1.3)))
 		post.set_shader_parameter("haze_start", float(finish.get("haze_start", 14.0)))
 		post.set_shader_parameter("stage_quiet", float(finish.get("quiet", 0.0)))
@@ -594,7 +632,7 @@ static func stage_mood(env: Environment, root: Node, theme: Dictionary, post: Sh
 		key.rotation_degrees.y += float(sl[3])
 		RenderingServer.global_shader_parameter_set("pf_sun_dir", key.basis.z.normalized())
 	m.shadow_value = float(mood.shadow_value) * float(sl[0])
-	m.shadow_shift = minf(float(mood.shadow_shift) * float(sl[1]), 0.25)
+	m.shadow_shift = minf(float(mood.shadow_shift) * float(sl[1]), float(mood.get("shift_cap", 0.25)))
 	# (Warm against cool, fidelity review 14 item 4: the canyon's shade turned further toward the dusk's violet, so its light is warm and
 	# its shade is not; every face of it was one pink-orange. `--warm-cool=A|B`; shipping writes it into MOODS.sunset.)
 	if String(theme.get("name", "")) == "sunset":
