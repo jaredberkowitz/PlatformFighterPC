@@ -278,7 +278,15 @@ func _player_count() -> int:
 	return 2
 
 
+func _set_cam_mock(option: String) -> void:
+	var m: Array = CAM_MOCKS.get(option.to_upper(), CAM_MOCKS.A)
+	cam_nearest = float(m[0])
+	cam_margin = float(m[1])
+
+
 func _parse_demo_args() -> void:
+	if OS.get_environment("PF_CAM_MOCK") != "":
+		_set_cam_mock(OS.get_environment("PF_CAM_MOCK"))
 	var name := ""
 	var dir := ""
 	for a in OS.get_cmdline_user_args():
@@ -286,6 +294,8 @@ func _parse_demo_args() -> void:
 			name = a.substr(7)
 		elif a.begins_with("--shots="):
 			dir = a.substr(8)
+		elif a.begins_with("--cam-mock="):
+			_set_cam_mock(a.substr(11))
 		elif a.begins_with("--cam="):
 			# (A fixed camera distance for any demo, e.g. `--demo=stage --cam=60` to see a whole stage and what hangs under it.)
 			cam_override = float(a.substr(6))
@@ -2089,6 +2099,12 @@ const CAMERA_PITCH := 10.0
 const CAMERA_NEAREST := 26.0
 ## The nearest the knock-out close-up comes (it never comes in past the match framing it starts from).
 const KO_NEAREST := 21.0
+## The framing mock (art audit 2026-10-29, for the owner to compare; the game's own framing is A): the nearest the camera comes and
+## the margin round the fighters, by option. B comes in to about a fifth of the screen's height for a fighter, C to about a quarter;
+## both pull out the same as A once the fighters spread. Chosen with the environment variable PF_CAM_MOCK or `--cam-mock=`.
+const CAM_MOCKS := {"A": [CAMERA_NEAREST, 14.0], "B": [21.0, 12.0], "C": [18.0, 10.0]}
+var cam_nearest := CAMERA_NEAREST
+var cam_margin := 14.0
 
 
 ## The steady camera (the Display setting, on by default): a fighter in the air counts at the height it last stood on until it is more
@@ -2127,8 +2143,8 @@ func _update_camera(a: float, delta: float) -> void:
 	var center := (lo + hi) / 2.0
 	# Fit both fighters (plus margin) in view: visible width at distance d is about d * 0.95 at 30 deg fov, 16:9.
 	# (Close together, the camera comes in, but never nearer than CAMERA_NEAREST: see there.)
-	var spread := maxf(hi.x - lo.x + 14.0, (hi.y - lo.y + 8.0) * 1.78)
-	var dist := clampf(spread / 0.95, CAMERA_NEAREST, 85.0)
+	var spread := maxf(hi.x - lo.x + cam_margin, (hi.y - lo.y + 8.0) * 1.78)
+	var dist := clampf(spread / 0.95, cam_nearest, 85.0)
 	if demo != null and demo.cam_dist > 0.0:
 		dist = demo.cam_dist
 	# (Aimed a little low, by a share of the view's height, so fighters on the ground sit clear of the match display along the bottom.)
@@ -2153,7 +2169,7 @@ func _update_camera(a: float, delta: float) -> void:
 			hi2 = hi2.max(w + Vector2(0, 2.2))
 		var mid := (lo2 + hi2) / 2.0
 		var fit := maxf(hi2.x - lo2.x + 9.0, (hi2.y - lo2.y + 6.0) * 1.78) / 0.95
-		target = Vector3(mid.x, mid.y + 0.4, clampf(fit, KO_NEAREST, dist))
+		target = Vector3(mid.x, mid.y + 0.4, clampf(fit, minf(KO_NEAREST, cam_nearest), dist))
 		rate = 6.0
 	cam_base = cam_base.lerp(target, clampf(delta * rate, 0.0, 1.0))
 	# A heavy hit's punch-in: the camera jumps closer and eases back.
