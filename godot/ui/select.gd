@@ -351,6 +351,7 @@ class PlayerPanel extends Control:
 			preview.set_size_percent(size_percent)
 			name_text = e.name
 			var c := int(e.get("class", -1))
+			preview.set_weapon(c)
 			class_text = Roster.CLASS_NAMES[c].to_upper() if c >= 0 and c < Roster.CLASS_NAMES.size() else ""
 		is_ready = ready
 		queue_redraw()
