@@ -88,6 +88,28 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
     <p>Two lessons from the reference screenshots, mocked from the match camera: the scenery without ink outlines, its edges lit as card bevels instead, and the paper houses rebuilt at the characters' proportions. The earlier rounds stay on the <a href="https://claude.ai/artifact/D1du6MREVumiJDrEdNypW4">Stage Fidelity Review</a>, which is full.</p>
   </header>
 
+  <section class="panel" aria-labelledby="hl55-h" id="headland55">
+    <div class="eyebrow">Your call is needed &middot; review 15, item 4: the beach's headland painted</div>
+    <h2 id="hl55-h">The hill behind the town as painted land</h2>
+    <p>First, the canyon's two hues E are built (their section below). Next, the beach. The big hill behind the town is one pale sage card at both cameras. Its folded hill and the pop-up flats behind it carry the stage's air at about 200 units, and that air flattened every fold to one tone, with no shade side and no paint. This mock paints it the way the meadow's peaks are painted. Nothing is added; the hill keeps its shape.</p>
+    <div class="tablewrap"><table><thead><tr><th>Option</th><th>What changes</th></tr></thead><tbody>
+      <tr><td>A &middot; Painted patches</td><td>Broad painted patches over the hill, lighter and darker, warmer and cooler, with the tops warmer and the walls cooler</td></tr>
+      <tr><td>B &middot; And a shade side</td><td>A, with the greens a step deeper and richer, less than half the air over it, and the folds turned from the sun falling into shade: a lit side to the left and a shade side toward the town</td></tr>
+    </tbody></table></div>
+    <p>Close on the headland: today, A, B at the match camera (top) and wide (bottom). P1's gap holds (0.231 today, 0.252 with B) and the front doesn't change.</p>
+    <div class="viewer"><img src="hl55_close.jpg" alt="The beach's headland today, with A and with B, match camera and wide"></div>
+    <div class="row" role="group" aria-label="View"><button data-hl55v="m">Match camera</button><button data-hl55v="w">Wide</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-hl55o="T">Today</button><button data-hl55o="B">B &middot; And a shade side</button></div>
+    <div class="viewer"><img id="hl55img" alt="Beach headland option"><span class="vtag" id="hl55tag"></span></div>
+    <p class="muted">My pick: <b>B</b>. The hill reads as land at a distance, with a lit flank, a shade side and painted patches, rather than a flat card behind the town. Honest notes:
+      <ul>
+        <li>My first try (gentler patches and half the air) barely showed at that distance.</li>
+        <li>B's patches go blue-grey in places on the shaded side. If they read as blotches, a version with finer patches is easy.</li>
+        <li>A appears only in the close comparison, to keep the page within its file limit. Older sections are archived in the repo's copy of the page.</li>
+      </ul>
+    </p>
+  </section>
+
   <section class="panel" aria-labelledby="th54-h" id="twohues54">
     <div class="eyebrow">Built E (the owner's pick) &middot; review 15, item 3: the canyon's two hues</div>
     <h2 id="th54-h">Warm rock in the sun, violet in the shade and the distance</h2>
@@ -3361,5 +3383,15 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
   group("data-th54v", function (v) { th54v = v; }, th54render);
   group("data-th54o", function (v) { th54o = v; }, th54render);
   th54render();
+  var hl55v = "m", hl55o = "B";
+  var HL55O = { T: "Today", B: "B · And a shade side" };
+  function hl55render() {
+    $id("hl55img").src = "hl55_" + hl55o + "_" + hl55v + ".jpg";
+    $id("hl55tag").textContent = "Beach · " + HL55O[hl55o] + (hl55v === "w" ? " · wide" : " · match camera");
+    pressed("data-hl55v", hl55v); pressed("data-hl55o", hl55o);
+  }
+  group("data-hl55v", function (v) { hl55v = v; }, hl55render);
+  group("data-hl55o", function (v) { hl55o = v; }, hl55render);
+  hl55render();
 })();
 </script>

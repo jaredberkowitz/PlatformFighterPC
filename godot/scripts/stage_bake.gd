@@ -1195,25 +1195,48 @@ static func _paint_ground(node: Node3D, colours: Dictionary, t := {}) -> void:
 	var finish := String((StageArt.palette(String(t.get("name", ""))).get("backdrop", {}) as Dictionary).get("ground_finish", ""))
 	if flag("--ground-finish=") != "":
 		finish = flag("--ground-finish=").to_upper()
+	# (The beach's headland painted, fidelity review 15 item 4: through the air at about 200 its folded hill and pop-up flats were one pale
+	# sage card. `--headland=A|B`, see HEADLAND_TRY.)
+	var head: Dictionary = HEADLAND_TRY.get(flag("--headland=").to_upper(), {}) if String(t.get("name", "")) == "ocean" else {}
 	for mi: MeshInstance3D in node.find_children("*", "MeshInstance3D", true, false):
 		for s in mi.mesh.get_surface_count():
 			var src := mi.mesh.surface_get_material(s)
 			var fam := src.resource_name if src != null else "grass"
-			var m := (FighterView.toon(colours.get(fam, Color(0.6, 0.6, 0.6)), false) as ShaderMaterial).duplicate() as ShaderMaterial
+			var colour: Color = (head.get("colours", {}) as Dictionary).get(fam, colours.get(fam, Color(0.6, 0.6, 0.6)))
+			var m := (FighterView.toon(colour, false) as ShaderMaterial).duplicate() as ShaderMaterial
 			m.set_shader_parameter("facets", fam != "bark")
 			m.set_shader_parameter("vertex_shade", true)
 			m.set_shader_parameter("ramp_softness", 0.12)
 			if finish in ["A", "B"] and fam in GROUND_DRIFT:
 				var d: Vector4 = GROUND_DRIFT[fam]
 				m.set_shader_parameter("paint_drift", d if finish == "A" else Vector4(d.x * 1.5, d.y * 1.3, d.z * 0.4, d.w))
+			if fam in ["head_near", "head_far"] and head.has("drift"):
+				m.set_shader_parameter("paint_drift", head.drift)
+				m.set_shader_parameter("ramp_center", float(head.get("ramp_center", 0.45)))
 			mi.set_surface_override_material(s, m)
 		mi.set_meta("prebaked", true)
 		var depth := -(mi.global_transform * mi.mesh.get_aabb().get_center()).z
+		if head.has("air") and String(mi.name).begins_with("head"):
+			var amount := StageArt._air_amount(depth) * float(head.air)
+			StageArt._mute(mi, amount.x, (StageArt._palette.get("air", {}) as Dictionary).get("haze", Color(0.8, 0.85, 0.95)), amount.y, false)
+			continue
 		StageArt._air(mi, depth)
 
 
 ## A front's strata lifted toward a pale warm sand by the theme's `front_lift` (`--front-lift=` to try): fidelity review 5, the canyon's
 ## front dark and saturated (value 0.30, saturation 0.61) weighing down the lower half of the frame.
+## The beach's headland painted, on trial (fidelity review 15 item 4, `--headland=A|B`), as the meadow's peaks have it:
+##   A  painted patches over its folded hill and pop-up flats, the tops warmer and the walls cooler (toon_common `paint_drift`);
+##   B  A, its greens a step deeper and richer, two fifths of the air over it, and the toon ramp's turn moved up (`ramp_center` 0.62) so
+##      the folds turned from the sun fall into shade: a lit side and a shade side toward the town.
+## (A first try at patches 2.0 and half the air barely showed at its distance.)
+const HEADLAND_TRY := {
+	"A": {"drift": Vector4(3.2, 1.6, 10.0, 1.2)},
+	"B": {"drift": Vector4(3.2, 1.6, 10.0, 1.2), "air": 0.4, "ramp_center": 0.62,
+		"colours": {"head_near": Color(0.22, 0.5, 0.36), "head_far": Color(0.22, 0.46, 0.5)}},
+}
+
+
 ## The painted variation on a ground's land families (`ground_finish`): broader than a play area's, the size a hillside's.
 ## The meadow's hill, the grove's abyss and its mist, the canyon's floor.
 const GROUND_DRIFT := {"hill": Vector4(1.6, 0.9, 22.0, 0.0), "bank": Vector4(1.3, 0.7, 18.0, 0.0), "hill_near": Vector4(1.3, 0.8, 30.0, 0.0),

@@ -182,3 +182,34 @@ In the game the front measures 0.29, 3°, saturation 0.64; P1's gap is 0.191. Be
 
 The fighters' shade takes 0.35 of the stage's shift, so on the canyon it now turns 0.14 rather than 0.09: a touch pinker in their shade
 sides.
+
+## Item 4, the beach's headland painted (mock, 2026-10-29)
+
+**Why it was one card:**
+- The headland stands about 200 behind the stage: the folded hill `head_near` and the pop-up flats `head_far`, from
+  make_beach_ground.py.
+- It takes the stage's air at that depth (`StageArt._air`). The air lifted and greyed every fold to one pale sage.
+- It had no painted variation: `GROUND_DRIFT` covers only the meadow's, grove's and canyon's land.
+
+`--headland=A|B` (StageBake.HEADLAND_TRY, the beach only, in `_paint_ground`):
+- **A:** painted patches over both families (`paint_drift` [3.2, 1.6, 10, 1.2]: value patches, a warm-cool wander, tops warmer and
+  walls cooler).
+- **B:** A, plus:
+  - the greens a step deeper and richer: near (0.22, 0.5, 0.36), far (0.22, 0.46, 0.5);
+  - 0.4 of the air over the headland's pieces;
+  - `ramp_center` 0.62, so the folds turned from the sun fall into shade, a shade side toward the town.
+
+A first try (patches 2.0, half the air, no ramp move) barely showed at that distance.
+
+| | Front value, contrast | P1's gap |
+|---|---|---|
+| Today | 0.30, 0.091 | 0.231 |
+| A | 0.30, 0.087 | 0.242 |
+| B | 0.30, 0.091 | 0.252 |
+
+The front and the fight don't change. B's patches go blue-grey in places on its shaded side.
+
+On the Stage Look Review ("headland55", `hl55_*`: today and B; A in the close crop). Close crop, today, A and B at the match camera
+(top) and wide (bottom): `review15/beach_headland_mock.jpg`. Recommended B.
+
+To ship: an ocean.cfg [backdrop] key read by `_paint_ground`, or HEADLAND_TRY's B as the beach's default.
