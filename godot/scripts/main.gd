@@ -2339,11 +2339,6 @@ func _unhandled_key_input(event: InputEvent) -> void:
 	match event.keycode:
 		KEY_F4:
 			Music.of(self).set_muted(sfx.toggle_mute())
-		KEY_F10:
-			# The sword swing's A/B (fighter_view.gd `sword_sweep`, presentation only, kept in the user's settings): snap or sweep.
-			FighterView.load_sweep()
-			FighterView.set_sweep(not FighterView.sword_sweep)
-			_note("Sword swing: " + ("sweep" if FighterView.sword_sweep else "snap"))
 		KEY_F5:
 			# Player 2 played by the computer, or by a person again.
 			cpu_levels[1] = 0 if cpu_levels[1] > 0 else CPU_LEVEL

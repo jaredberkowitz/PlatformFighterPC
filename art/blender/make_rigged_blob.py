@@ -1390,11 +1390,20 @@ def _chamber_spec(wind, aerial):
     return out
 
 
+FOLLOW_BEND = 4.0     # degrees the chest bends on past the strike
+FOLLOW_TWIST = 1.3    # the chest's twist past the strike (1.45 tried in round 8: the far fist came round over the face)
+FOLLOW_SINK = 0.03    # how far the hips sink into the follow-through
+FOLLOW_AMP = 1.2      # the follow-through pose's amplification (1.1 until round 8)
+
+
 def _follow_spec(strike):
     """The follow-through: the torso turns on past the target (its twist further) while the head lags behind it."""
     out = dict(strike)
+    # (Round 8, the owner's note on weightless attacks: the body carries on past the hit, the chest bending on and the hips sinking a
+    # little (the weight dropping into the follow-through, settled by the recovery), rather than only twisting further.)
     if "spine" in out:
-        out["spine"] = (out["spine"][0], out["spine"][1] * 1.3)
+        out["spine"] = (out["spine"][0] + FOLLOW_BEND, out["spine"][1] * FOLLOW_TWIST)
+    out["hips"] = out.get("hips", 0.0) - FOLLOW_SINK
     if "head" in out:
         out["head"] = (out["head"][0] * 0.7, out["head"][1] * 0.6)
     return out
@@ -1442,7 +1451,7 @@ def clip(rig, name, frames, poses):
         # carries on, then the body eases home.)
         chamber = _chamber_spec(wind, not grounded(name))
         poses = {0: _stance_rest(rest, 0.0), 19: _amped_pose(_spec_pose(chamber), CHAMBER_AMP), 29: _spec_pose(_launch_spec(chamber, strike)),
-                 32: _spec_pose(strike), 36: _spec_pose(strike), 40: _amped_pose(_spec_pose(_follow_spec(strike)), 1.1),
+                 32: _spec_pose(strike), 36: _spec_pose(strike), 40: _amped_pose(_spec_pose(_follow_spec(strike)), FOLLOW_AMP),
                  47: _stance_rest(rest, 1.0), 60: _stance_rest(rest, 0.0)}
     action = bpy.data.actions.new(name)
     action.use_fake_user = True

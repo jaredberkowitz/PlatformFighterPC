@@ -4389,7 +4389,7 @@ func _blade_target(s: Dictionary) -> Array:
 	var swing_from := start * SNAP_AT
 	var angle := swing
 	var len := length
-	# (Round 5, the owner's A/B: `sword_sweep`. The Longsword's blade sweeps through its hit instead of snapping onto it and stopping:
+	# (Round 5, the owner's A/B, decided for the sweep 2026-10-29: `sweeping`. The blade sweeps through its hit instead of snapping onto it and stopping:
 	# it sets off sooner and arrives SWEEP_IN short of the hitbox's middle, crosses the hitbox through the active frames (still inside it),
 	# and carries on from the far side. The sim's hitboxes and timing are the same either way.)
 	var sweep := 0.0
@@ -4497,43 +4497,23 @@ const LIMB_CARRY_DEG := 20.0
 
 ## How low the hand is in a held lunge (forward space), for where the floor stops a held cut.
 const HELD_HAND_Y := 0.6
-## The swing A/B (round 5, the owner's call to make by playtest): false is the snap (the blade arrives on the hit at full speed and stands
-## on it while it is live), true the sweep (`sweeping`). F10 in a match flips it; kept in user://animation.cfg. Presentation only.
-static var sword_sweep := false
-static var _sweep_loaded := false
-const SWEEP_PATH := "user://animation.cfg"
+## The swing (round 5's A/B, the owner's pick 2026-10-29: the sweep). The blade sets off sooner, arrives short of the hit, crosses the
+## hitbox through the active frames and carries on from the far side, rather than snapping onto the hit and standing on it (the snap,
+## `PF_R8_OFF=sweep`, for before images). The F10 toggle, `--swing=` and user://animation.cfg's swing key are retired.
 ## The sweep's arrival short of the hitbox's middle (degrees, at most; less for a small hitbox, so the blade is always inside it while it
 ## is live), and when (a share of the startup) the swing sets off.
 const SWEEP_IN := 14.0
 const SWEEP_FROM := 0.5
 
-
-static func load_sweep() -> void:
-	if _sweep_loaded:
-		return
-	_sweep_loaded = true
-	var cfg := ConfigFile.new()
-	if cfg.load(SWEEP_PATH) == OK:
-		sword_sweep = bool(cfg.get_value("swing", "sweep", false))
-	# (`--swing=sweep` or `--swing=snap` for this run only, for captures; not saved.)
-	for a in OS.get_cmdline_user_args():
-		if a.begins_with("--swing="):
-			sword_sweep = a.substr(8) == "sweep"
+## The weapon classes whose cuts sweep (round 8, the owner's pick: every blade and the staff, weapon fixes apply to all).
+const SWEEP_CLASSES := [0, BUCKLER_CLASS, GREATSWORD_CLASS, NODACHI_CLASS, STAFF_CLASS]
 
 
-static func set_sweep(on: bool) -> void:
-	_sweep_loaded = true
-	sword_sweep = on
-	var cfg := ConfigFile.new()
-	cfg.load(SWEEP_PATH)
-	cfg.set_value("swing", "sweep", on)
-	cfg.save(SWEEP_PATH)
-
-
-## Whether this move's blade sweeps through its hit (the A/B on, the Longsword, a cut: not a thrust and not the neutral air's windmill).
+## Whether this move's blade sweeps through its hit: a weapon class's cut, not a thrust and not a neutral air's windmill or whirl.
 func sweeping(s: Dictionary) -> bool:
-	load_sweep()
-	return sword_sweep and _cls(s) == 0 and not _thrust(_cls(s), String(s.move_name)) and String(s.move_name) != "nair"
+	if r8_off.has("sweep") or not SWEEP_CLASSES.has(_cls(s)):
+		return false
+	return not _thrust(_cls(s), String(s.move_name)) and String(s.move_name) != "nair"
 
 
 ## The steepest (degrees above forward) a grounded cut is held at through its end lag.
@@ -5404,6 +5384,7 @@ func _aim_arm(facing: int, holding: bool, two_hands := false, amount := 1.0) -> 
 	if skeleton == null:
 		return
 	arms_held.clear()
+	arms_ik.clear()
 	for side in ["L", "R"]:
 		var mine: bool = side == _weapon_side(facing)
 		var iu := skeleton.find_bone("armU." + side)
@@ -5598,21 +5579,24 @@ func _arms_beside_head(facing: int) -> void:
 			sgn = -float(facing)
 
 
-## The sides whose leg `_aim_leg` placed this frame.
+## The sides whose leg `_aim_leg` placed this frame, and whose arm any IK placed (the reach, the face guard, the arms beside the head):
+## the joint limits leave those alone (rewriting them from the clip's pose undid the face guard's push: the guard fist came back over the
+## face in the brawlers' jabs).
 var legs_aimed: Array = []
+var arms_ik: Array = []
 ## Joint limits (round 8, the owner's standing rule 2026-10-29: no unnatural limb bending). A knee or an elbow the clip poses (not placed
 ## by the IK, which keeps its own hinge) folds only its natural way and at most this far: measured over every gallery the airs' tucks folded
 ## the knees past 160 degrees, the shin through the thigh, and some clip elbows (the knockdown, the Bracers' idle) bent backward.
 const KNEE_MAX := 150.0
 const ELBOW_MAX := 150.0
-## How far a joint may bend the wrong way before it is straightened (a straight limb's sign is noise).
+## How far a joint may bend the wrong way before it is turned to bend the natural way (a straight limb's sign is noise).
 const JOINT_BACK_SLACK := 8.0
 
 
 func _limit_joints() -> void:
 	for limb in [["thigh", "shin", "foot", 1.0, KNEE_MAX], ["armU", "armL", "hand", -1.0, ELBOW_MAX]]:
 		for side in ["L", "R"]:
-			if (limb[0] == "thigh" and legs_aimed.has(side)) or (limb[0] == "armU" and arms_held.has(side)):
+			if (limb[0] == "thigh" and legs_aimed.has(side)) or (limb[0] == "armU" and arms_ik.has(side)):
 				continue
 			var a := skeleton.find_bone(limb[0] + "." + side)
 			var b := skeleton.find_bone(limb[1] + "." + side)
@@ -5633,7 +5617,9 @@ func _limit_joints() -> void:
 			if fold > float(limb[4]) or fold < -90.0:
 				want = float(limb[4])
 			elif fold < -JOINT_BACK_SLACK:
-				want = 0.0
+				# (The same bend the natural way, not straightened: a guard arm folded the wrong way at the chin, straightened, threw its fist
+				# out over the face, the Claws' and the Gauntlets' jabs, 4 frames each.)
+				want = minf(-fold, float(limb[4]))
 			if want == fold:
 				continue
 			var turn := Basis(h, deg_to_rad(want - fold))
@@ -5643,6 +5629,8 @@ func _limit_joints() -> void:
 
 ## Two-bone IK for one arm: the hand to `target` (stage frame), blended in by `amount` over the clip's pose.
 func _ik_arm(side: String, mine: bool, target: Vector3, amount: float) -> void:
+		if not arms_ik.has(side):
+			arms_ik.append(side)
 		var iu := skeleton.find_bone("armU." + side)
 		var il := skeleton.find_bone("armL." + side)
 		var ih := skeleton.find_bone("hand." + side)

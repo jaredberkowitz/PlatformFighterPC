@@ -413,3 +413,12 @@ Raised hands clear of the head over every class's gallery and the state demos: 4
 
 Bend flags over every gallery and four CPU matches: 10,174 of 316,832 limb-frames before, 3,512 after. **Mean 3.31** (poses 3.38,
 fluidity 3.38, weight 3.16). The follow-through, the weight axis's shared gap (2 frames short), waits on the snap-or-sweep decision.
+
+## 19. After round 8's group 24, the sweep and the weight pass (2026-10-29)
+
+| # | Item | P | F | W | O | Was |
+|---|---|---|---|---|---|---|
+| 2 | Sword ground attacks (the sweep through the hit, the body's follow-through) | 4 | 3 | 4 | 3.7 | 3.3 |
+
+Timing against the references (six families, mean |error| in frames, follow-through / hold / recovery): 2.38 / 3.67 / 3.05 before,
+2.27 / 3.63 / 2.87 after. **Mean 3.32** (poses 3.38, fluidity 3.38, weight 3.19).

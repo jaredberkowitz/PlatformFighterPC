@@ -2234,3 +2234,32 @@ knee bend (`review1/mock_stance.jpg`, A/B/C).
 - **Review:** item 8 (brawler aerials) and item 23 (caster aerials) poses 3 to 4 (their tucked knees no longer fold through the thighs).
   Mean 3.31.
 - **Checked:** the six tests and the orphan test pass; face cover unchanged.
+
+### Group 24 (round 8): the sweep, the owner's pick (2026-10-29), for every weapon; the weight pass
+
+- **The swing:** the owner picked the sweep (pass 49's A/B). It is the game's own now for every weapon class's cuts, the Longsword's,
+  the Wanderer's, the Greatsword's, the Exile's and the Seer's staff (`SWEEP_CLASSES`; thrusts and the neutral airs' windmills and whirls
+  keep their own paths): the blade sets off sooner, arrives short of the hit, crosses the hitbox through the active frames and carries on
+  from the far side. **Retired:** the F10 toggle and its note (`main.gd`), `--swing=`, user://animation.cfg's swing key, F10's reservation
+  in `bindings.gd`; `swing_toggle_test.gd` now checks the sweep is the default for every weapon class, not for the unarmed, and that F10
+  is free. `PF_R8_OFF=sweep` shows the snap for before images.
+- **Weight, measured** (`timing_report.py` against each family's reference, mean |error| in frames, follow-through / hold / recovery):
+  before 2.38 / 3.67 / 3.05 over the six families, after 2.27 / 3.63 / 2.87. The sword family (Longsword against the swordsman) 3.4 / 4.8
+  / 3.5 to 3.2 / 4.1 / 3.0; the caster's recovery 3.5 to 2.9. The sword family's follow-through by class (frames after the last hit)
+  with the sweep: Longsword 0.5 to 0.7, Wanderer 0.1 to 0.8, Greatsword 0.7 to 0.8, Exile 0.9 to 1.6, Seer 0.4 to 0.8.
+- **Shared follow-through (`make_rigged_blob.py`, rig rebuilt):** the body clips' follow-through pose now bends on 4 degrees past the
+  strike and sinks the hips 0.03 (the weight dropping into the follow-through, settled by the recovery), amplified 1.2 (1.1 before).
+- **Tried and reverted:** each move's carry set to its reference's follow-through frames, and the carry's pace 22 to 40 degrees a frame:
+  the follow-through measured no closer (the measure is against the move's peak speed, which is a one-frame spike in the wind-up's
+  coil), and the faster carry broke the holds (the forward smash held 1 frame and recovered over 32); a further twist of the chest in the
+  follow-through (1.45) brought the far fist round over the face (Claws 3 to 14 frames).
+- **Joint limits (group 23) corrected:** they rewrote any arm the IK had not held, from the clip's pose, which undid the face guard's
+  push: the brawlers' guard fist came back over the face in their jabs (Claws 5 to 9, Gauntlets 7 to 11). Now any arm an IK placed this
+  frame (the reach, the face guard, the arms beside the head) is left alone, and a fold the wrong way is turned to the same bend the
+  natural way rather than straightened. Face cover: Longsword 3, Claws 5, Gauntlets 8, Wanderer 1.
+- **Image:** `docs/screenshots/anim/r8_sweep_default.jpg` (the Longsword's forward tilt and forward smash and the Greatsword's forward
+  smash, snap above sweep, every frame through the strike).
+- **Review:** item 2 (sword ground attacks) weight 3 to 4 (the sweep and the body's follow-through), overall 3.3 to 3.7. Mean 3.32 (weight
+  3.19). The follow-through's remaining gap (about 2 frames short) needs the clips' own follow-through keys rebuilt per family against
+  the references; the measure's peak sits in the wind-up's coil, so it reads any carry as a stop.
+- **Checked:** the six tests, the orphan test and the new swing default test pass.

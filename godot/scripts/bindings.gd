@@ -24,7 +24,7 @@ const DEFAULTS := [
 ]
 
 ## Keys that stay free for the game and its menus; they cannot be bound.
-const RESERVED := [KEY_ESCAPE, KEY_F1, KEY_F2, KEY_F3, KEY_F5, KEY_F6, KEY_F7, KEY_F8, KEY_F9, KEY_F10]
+const RESERVED := [KEY_ESCAPE, KEY_F1, KEY_F2, KEY_F3, KEY_F5, KEY_F6, KEY_F7, KEY_F8, KEY_F9]
 
 static var _table: Array = []
 static var _loaded := false
