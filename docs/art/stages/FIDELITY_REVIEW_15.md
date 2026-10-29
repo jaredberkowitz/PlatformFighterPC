@@ -266,3 +266,23 @@ On the canyon, B holds the gap (0.194): its sand is a different hue from the fig
 - A on every stage;
 - B on the canyon.
 Close (canyon top row, meadow bottom; today, A, B): `review15/bright_floors_mock.jpg`. On the Stage Look Review ("floors56", `fl56_*`).
+
+**Built** (the owner's picks, 2026-10-29): bright floors A on every stage and B on the canyon; the beach's headland B (item 4).
+- **Floors:** StageBake.FLOOR_TRY, the palette's [backdrop] `floor_look` (A without; sunset.cfg "B"). `--floor=T` brings back the
+  floors as before.
+- **Headland:** ocean.cfg [backdrop] `headland="B"`. `--headland=T` brings back the headland as before.
+
+In the game:
+
+| Stage | Top value | P1's gap |
+|---|---|---|
+| Meadow | 0.44 | 0.107 |
+| Canyon | 0.59 | 0.194 |
+| Beach | 0.33 | 0.214 |
+| City | 0.52 | 0.155 |
+| Grove | 0.55 | 0.102 |
+
+Before and after: `review15/floors_headland_built.jpg` (the canyon at the match camera, the beach wide). All seven tests pass.
+
+**Open:** the meadow's and grove's gaps sit a little under 0.12. The fighters still read by their ink and their contact shadows; a
+playtest will say whether that's enough.
