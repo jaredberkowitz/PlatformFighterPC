@@ -3347,6 +3347,35 @@ func _log_arm_hide(s: Dictionary) -> void:
 		int(s.state_frame), hid.call(hand), hid.call(fore)])
 
 
+## With the environment variable PF_BEND set (round 8, the owner's standing rule 2026-10-29: no unnatural limb bending), every frame, per
+## limb: "BEND <class> <state> <move> <frame> <limb> <bend degrees> <hinge sign> <off-plane degrees>": the angle between the upper and the
+## lower bone, which way round the upper bone's hinge axis (its local X) the lower one folds (+1 or -1), and how far the lower bone leaves
+## the hinge's plane (a twist or a sideways bend).
+static var log_bend := OS.has_environment("PF_BEND")
+
+
+func _log_bend(s: Dictionary) -> void:
+	var mv := String(s.move_name).replace(" ", "_") if s.move_name != "" else "-"
+	for limb in [["armU", "armL", "hand"], ["thigh", "shin", "foot"]]:
+		for side in ["L", "R"]:
+			var a := skeleton.find_bone(limb[0] + "." + side)
+			var b := skeleton.find_bone(limb[1] + "." + side)
+			var c := skeleton.find_bone(limb[2] + "." + side)
+			if a < 0 or b < 0 or c < 0:
+				continue
+			var pa := skeleton.get_bone_global_pose(a)
+			var u := skeleton.get_bone_global_pose(b).origin - pa.origin
+			var l := skeleton.get_bone_global_pose(c).origin - skeleton.get_bone_global_pose(b).origin
+			if u.length() < 0.001 or l.length() < 0.001:
+				continue
+			var hinge := pa.basis.x.normalized()
+			var bend := rad_to_deg(u.angle_to(l))
+			var turn := u.cross(l).dot(hinge)
+			var off := rad_to_deg(asin(clampf(l.normalized().dot(hinge), -1.0, 1.0)))
+			print("BEND %d %s %s %d %s%s %.1f %d %.1f" % [_cls(s), s.state, mv, int(s.state_frame), limb[0], side, bend,
+				1 if turn >= 0.0 else -1, off])
+
+
 ## How far the face may turn from the camera (its forward axis' depth, world space) and still count as seen.
 const FACE_AWAY_Z := -0.2
 
@@ -6734,6 +6763,8 @@ func _apply_combat(s: Dictionary, delta: float) -> void:
 			_log_arm_show(s)
 		if log_arm_hide:
 			_log_arm_hide(s)
+		if log_bend:
+			_log_bend(s)
 	# (The claws' flame rushes only: the Needles' specials are their own.)
 	var rushing: bool = _cls(s) == 1 and state == "Attack" and BRAWLER_FLAME.has(s.move_name) and s.state_frame >= 12
 	flame.emitting = rushing
