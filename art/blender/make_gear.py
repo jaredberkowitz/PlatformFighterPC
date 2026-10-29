@@ -683,17 +683,22 @@ def swept_spikes():
     """Big anime-style spiky hair: long chunky spikes sweeping up and back from the crown, a heavy fringe of long spikes falling over the
     brow (stopping above the eyes), and spikes flaring out over the ears and down the back, all out of one mass."""
     root = empty("swept_spikes")
-    mb, mass = hair_mass(front=50.0, side=96.0, back=124.0)
+    # (The mass down to 112 degrees at the nape, 124 until the nape pass, 2026-10-29: see the tufts below.)
+    mb, mass = hair_mass(front=50.0, side=96.0, back=112.0)
     bm = bmesh.new()
     # The crown: four big spikes swept up, back and out, the middle two tallest (about a head's radius and a half).
     for az, ln in ((-48, 1.0), (-16, 1.18), (16, 1.18), (48, 1.0)):
         sx = math.sin(math.radians(az))
         spike(bm, hair_root(16.0, az, sink=0.14), Vector((sx * 0.55, 0.45, 1.0)), ln, 0.3, bend=(sx * 0.2, 0.22, -0.06))
-    # Behind them, a row fanning back and up, and a lower row out and down over the back of the head.
+    # Behind them, a row fanning back and up, a lower row swept out and up over the back of the head, and the nape in tapered tufts
+    # lying down the head. (The lower row hung down, and the mass ended in a level hem, until the nape pass, 2026-10-29, the owner's pick
+    # of mocks: from behind it read as a helmet's rim with teeth hanging from it.)
     for az in (140, 180, 220):
         spike(bm, hair_root(42.0, az, sink=0.14), hair_dir(55.0, az) + Vector((0, 0, 0.5)), 0.95, 0.29, bend=(0.0, 0.0, -0.1))
-    for az in (115, 155, 205, 245):
-        spike(bm, hair_root(74.0, az, sink=0.14), hair_dir(92.0, az) + Vector((0, 0, -0.15)), 0.75, 0.26, bend=(0.0, 0.0, -0.12))
+    for az in (120, 160, 200, 240):
+        spike(bm, hair_root(70.0, az, sink=0.14), hair_dir(80.0, az) + Vector((0, 0, 0.25)), 0.7, 0.26, bend=(0.0, 0.0, 0.08))
+    for az, ln in ((135, 0.32), (158, 0.4), (180, 0.44), (202, 0.4), (225, 0.32)):
+        spike(bm, hair_root(110.0, float(az), sink=0.1), hair_dir(130.0, az) * 0.35 + Vector((0, 0, -1.0)), ln, 0.2, flat=0.4)
     for sx in (-1.0, 1.0):
         # Over the ears: a big spike each side flaring out, up a little and back.
         spike(bm, hair_root(56.0, 96.0 * sx, sink=0.14), Vector((sx * 1.0, 0.3, 0.45)), 0.85, 0.27, bend=(0.0, 0.12, -0.12))

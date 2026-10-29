@@ -826,3 +826,14 @@ and a deeper flap; the owner chose the stripe.
 `sailor_collar_pass.png`: the sailor from behind, the side, three-quarters behind and the front, and in the menu front and back, before
 above after; the aviator and the ranger from behind, before above after; a match frame before and after. Art pipeline, fighter view,
 loadout, animation library, match flow, motion, select grid and editor UI tests pass.
+
+## Spiky hair's nape (2026-10-29, item 3 of the third comparison)
+From behind, the spiky hair's mass ended in a level hem halfway down the back of the head with its lower row of spikes hanging from it: a
+helmet's rim with teeth. Mocked the lower row swept up with tapered tufts at the nape, every row flaring up as in the reference anime
+hair, and a soft nape with locks curling under; the owner chose the tufts.
+- `make_gear.py` `swept_spikes`: the lower row swept out and up over the back of the head; five tapered tufts lying down the head at the
+  nape, the middle longest; the mass ends a little higher (112 degrees from the top, was 124) under them. 2,973 triangles.
+- The front, the fringe and the ear spikes are unchanged; the built-in hero gets it too.
+
+`nape_pass.png`: the holiday shirt's look from behind, three-quarters behind, the side and the menu, before above after; the front after;
+a match frame before and after. Art pipeline, loadout, fighter view and match flow tests pass.
