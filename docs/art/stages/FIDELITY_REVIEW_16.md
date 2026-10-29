@@ -137,3 +137,30 @@ In the game:
 The meadow's capture differs from the mock (0.122) by the fighter's pose in that frame.
 
 Before and after (meadow top, grove bottom): `review16/fighters_floor_built.jpg`. All seven tests pass.
+
+## Item 2, the grove's light and sky (tried, 2026-10-29; not recommended)
+
+`--grove-light=A|B` (Lighting.GROVE_LIGHT_TRY; StageArt.sky for B's sky). Three rounds:
+1. **A golden key, the shade cooler, the sky's top deeper.** It warmed the lawn back toward the fighters' yellow: P1's gap went from
+   0.120 to 0.091. The sky barely changed.
+2. **The key near neutral, most of the ambient into the key (`key_fill` [0.2, 0.3]), a blue sky.** Gap 0.088. The sky showed only a
+   touch bluer.
+3. **Today's A and B.**
+   - **A, clear air:** the haze from lavender to a pale cool blue, the ambient and fill cooler, the shade toward a violet-blue, a
+     cool/warm grade. Gap 0.079.
+   - **B:** A, plus the stronger lit/shade split, a blue sky and half the horizon glow. Gap 0.087.
+
+Each changes the frame only a little, and each costs P1's gap: the cooler ambient takes warmth off the fighters too.
+
+**What actually makes the veil is the grove's own colours:**
+- the violet far ridges;
+- the purple mist and abyss;
+- the lilac sky behind green trees.
+
+Clearing it means repainting those toward a blue-green distance and a clear blue-to-peach sky, which would change the grove's violet
+character.
+
+Put to the owner on the Stage Look Review ("grovelight58"; `review16/grove_light_tries.jpg`: today, A, B; match camera top, wide
+bottom):
+- keep the violet grove and drop this item (its light and sky may stay 4); or
+- mock a repaint toward a clear day.

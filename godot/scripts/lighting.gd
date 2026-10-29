@@ -76,6 +76,25 @@ const TWO_HUE_TRY := {
 }
 
 
+## The grove's light and sky on trial, fidelity review 16 item 2 (`--grove-light=A|B`): a soft pink veil, little lit side or shade side
+## under the canopy, a busy pink-violet sky.
+##   A  clear air: the distance haze from lavender to a pale cool blue, the ambient and fill cooler and less pink, the shade turned
+##      toward a violet-blue (hue 0.7, shift 0.14), the grade's shadows cool and lights a touch warm, the key near neutral;
+##   B  A, and most of the ambient moved into the key (`key_fill` [0.2, 0.3], as the canyon's), so every tree, trunk and rock has a lit
+##      side and a cool shade side, and a clear blue sky behind the trees (StageArt.sky: a blue top and middle, a warm pale horizon, calmer
+##      wisps, half the glow).
+## (A first try with a golden key warmed the lawn back toward the fighters' yellow, P1's gap 0.120 to 0.091, and its sky change, a
+## deeper violet, barely showed: the lavender haze and the pink glow lay over the whole distance.)
+const GROVE_LIGHT_TRY := {
+	"A": {"mood": {"key": [Color(1.0, 0.92, 0.82), 1.32, -32.0, -28.0], "fill": [Color(0.66, 0.68, 1.0), 0.38],
+		"ambient": [Color(0.9, 0.92, 1.0), 0.47], "shadow_hue": 0.7, "shadow_shift": 0.14, "shadow_tint": Color(0.66, 0.66, 0.94),
+		"grade": [Color(0.92, 0.92, 1.06), Color(1.06, 1.0, 0.94), 0.36], "haze": Color(0.8, 0.88, 1.0)}},
+	"B": {"mood": {"key": [Color(1.0, 0.92, 0.82), 1.32, -32.0, -28.0], "fill": [Color(0.66, 0.68, 1.0), 0.38],
+		"ambient": [Color(0.9, 0.92, 1.0), 0.47], "shadow_hue": 0.7, "shadow_shift": 0.14, "shadow_tint": Color(0.66, 0.66, 0.94),
+		"grade": [Color(0.92, 0.92, 1.06), Color(1.06, 1.0, 0.94), 0.36], "haze": Color(0.8, 0.88, 1.0)}, "key_fill": [0.2, 0.3]},
+}
+
+
 ## The menus' 3D previews: plain warm daylight (the meadow's look before it turned to magic hour), so a stage's mood never reaches them.
 const MENU_MOOD := {"shadow_hue": 0.73, "shadow_shift": 0.07, "shadow_value": 0.64, "shadow_tint": Color(0.74, 0.7, 0.88),
 	"rim": Color(1.0, 0.94, 0.84)}
@@ -478,6 +497,9 @@ static func stage_mood(env: Environment, root: Node, theme: Dictionary, post: Sh
 	var mood: Dictionary = MOODS.get(theme.get("name", "meadow"), MOODS.meadow)
 	# (The canyon before its two hues, fidelity review 15 item 3: `--two-hue=T`, see TWO_HUE_TRY.)
 	var two: Dictionary = TWO_HUE_TRY.get(_flag_value("--two-hue=").to_upper(), {}) if String(theme.get("name", "")) == "sunset" else {}
+	# (The grove's light, fidelity review 16 item 2: `--grove-light=A|B`, see GROVE_LIGHT_TRY.)
+	if String(theme.get("name", "")) == "grove":
+		two = GROVE_LIGHT_TRY.get(_flag_value("--grove-light=").to_upper(), {})
 	if two.has("mood"):
 		mood = mood.duplicate()
 		mood.merge(two.mood, true)

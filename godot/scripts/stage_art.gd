@@ -175,6 +175,18 @@ static func sky(t: Dictionary) -> Sky:
 			t = t.duplicate()
 			t.sky_bands = [0.012, 0.07]
 			deepen = [0.22, 0.08] if arg.substr(12).to_upper() == "B" else [0.0, 0.0]
+	# (The grove's sky cleared, fidelity review 16 item 2, `--grove-light=B` (Lighting.GROVE_LIGHT_TRY): busy pink-violet with little
+	# gradient behind the trees; a clear blue top and middle, a warm pale horizon, calmer wisps.)
+	if t.get("name", "") == "grove":
+		for arg in OS.get_cmdline_user_args():
+			if arg == "--grove-light=B":
+				t = t.duplicate()
+				top = Color(0.2, 0.36, 0.8)
+				t.sky_mid = Color(0.48, 0.62, 0.94)
+				t.sky_horizon = Color(1.0, 0.88, 0.76)
+				t.sky_wisps = [Color(1.0, 0.96, 0.94), 0.2]
+				t.sky_glow = [(t.sky_glow as Array)[0], float((t.sky_glow as Array)[1]) * 0.5]
+				horizon = t.sky_horizon
 	if float(deepen[0]) > 0.0 or float(deepen[1]) > 0.0:
 		t = t.duplicate()
 		t.sky_mid = (t.get("sky_mid", top.lerp(horizon, 0.5)) as Color).darkened(float(deepen[1]))
