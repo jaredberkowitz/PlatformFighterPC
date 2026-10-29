@@ -38,12 +38,17 @@ const MOODS := {
 	# the scene, every face toward the camera sat in shade and the rocks' shadows fell out of sight.)
 	# (Its shade turned as far as it goes toward a blue-violet and a tenth deeper, fidelity review 14 item 4, the owner's pick B: lit and
 	# shaded faces were one pink-orange. It was hue 0.79, shift 0.1, value 0.58.)
-	"sunset": {"key": [Color(1.0, 0.72, 0.5), 1.25, -20.0, -42.0], "sun": [-28.0, 10.0], "fill": [Color(0.6, 0.5, 1.0), 0.42],
-		"ambient": [Color(0.94, 0.84, 0.88), 0.5], "shadow_hue": 0.72, "shadow_shift": 0.25, "shadow_value": 0.522,
-		"shadow_tint": Color(0.72, 0.58, 0.84),
+	# (Two hues, fidelity review 15 item 3, the owner's pick E: the shade turned the long way round the colour wheel to a blue-violet
+	# (`shift_cap` past the usual 0.25; the short way from the rock's orange ran through pink to magenta), the sun a warmer gold, the fill,
+	# ambient and grade's shadows blue rather than violet (violet over orange read pink) and the haze the upper sky's blue-violet; with
+	# STYLES.sunset's `key_fill`, `cast` and `haze_max`. Lit rock warm, shade and distance violet; every face of it was one pink-orange.
+	# `--two-hue=T` brings back the look before, TWO_HUE_TRY.)
+	"sunset": {"key": [Color(1.0, 0.8, 0.5), 1.25, -20.0, -42.0], "sun": [-28.0, 10.0], "fill": [Color(0.52, 0.66, 1.0), 0.42],
+		"ambient": [Color(0.86, 0.9, 1.0), 0.5], "shadow_hue": 0.68, "shadow_shift": 0.4, "shift_cap": 0.4, "shadow_value": 0.522,
+		"shadow_tint": Color(0.62, 0.64, 0.94),
 		# (A cool rim from the dusk sky overhead, art review 6 round 4: an orange rim on warm fighters against warm rock added no separation.)
 		"rim": Color(0.84, 0.8, 1.0),
-		"grade": [Color(0.88, 0.8, 1.05), Color(1.08, 0.96, 0.86), 0.45], "haze": Color(1.0, 0.79, 0.82)},
+		"grade": [Color(0.86, 0.9, 1.08), Color(1.1, 0.98, 0.8), 0.45], "haze": Color(0.64, 0.64, 0.94)},
 	"night": {"key": [Color(0.72, 0.8, 1.0), 0.95, -48.0, -24.0], "fill": [Color(0.5, 0.56, 0.95), 0.4],
 		"ambient": [Color(0.58, 0.64, 0.95), 0.55], "shadow_hue": 0.66, "shadow_shift": 0.1, "shadow_value": 0.56,
 		"shadow_tint": Color(0.62, 0.66, 0.92), "rim": Color(0.62, 0.78, 1.0),
@@ -58,6 +63,16 @@ const MOODS := {
 		"ambient": [Color(0.84, 0.8, 0.94), 0.55], "shadow_hue": 0.75, "shadow_shift": 0.1, "shadow_value": 0.55,
 		"shadow_tint": Color(0.66, 0.6, 0.88), "rim": Color(1.0, 0.62, 0.78),
 		"grade": [Color(0.92, 0.82, 1.08), Color(1.06, 0.97, 0.98), 0.4], "haze": Color(0.57, 0.42, 0.9)},
+}
+
+
+## The canyon before its two hues (fidelity review 15 item 3, built E), for comparison captures: `--two-hue=T`. Its trial's other levels
+## (A to D: the shade alone, then the fill, then the ambient) are in docs/art/stages/FIDELITY_REVIEW_15.md.
+const TWO_HUE_TRY := {
+	"T": {"mood": {"shadow_hue": 0.72, "shadow_shift": 0.25, "shift_cap": 0.25, "shadow_tint": Color(0.72, 0.58, 0.84),
+		"ambient": [Color(0.94, 0.84, 0.88), 0.5], "key": [Color(1.0, 0.72, 0.5), 1.25, -20.0, -42.0], "fill": [Color(0.6, 0.5, 1.0), 0.42],
+		"grade": [Color(0.88, 0.8, 1.05), Color(1.08, 0.96, 0.86), 0.45], "haze": Color(1.0, 0.79, 0.82)},
+		"cast": Color(0.3, 0.22, 0.48, 1.0), "haze_max": 0.08, "key_fill": [0.45, 0.45]},
 }
 
 
@@ -110,7 +125,10 @@ const STYLE_DEFAULT := {
 		"bloom_from": 0.6, "sheets": 0.0, "cut_edge": 0.0, "fight_lift": 0.0, "haze_desat": 0.35,
 		# (Chosen cut edges, fidelity review 13, the owner's pick C: the pale rim only where an edge faces the light, in its own colour,
 		# the ink lines' pale lift at 0.4; round every shape it read as sticker outlines. post.gdshader `cut_choose`.)
-		"cut_choose": [1.0, 1.0, 0.4]},
+		"cut_choose": [1.0, 1.0, 0.4],
+		# (The fronts' form the papercraft reference's way, fidelity review 15 item 2, the owner's pick B: a lit band on the edges of faces
+		# turned to the sun and a firmer drawn line in the joints, within 4 units of the stage plane. post.gdshader `front_form`.)
+		"front_form": [1.6, 1.0, 4.0]},
 }
 ## Shaped light (fidelity review 7, the owner's pick A, 2026-10-23): the day stages' `clouds` smaller and over more ground with a
 ## `cloud_tone` laid on the colour (see SHAPED_TRY); `--shaped=T` shows a stage as before.
@@ -182,6 +200,9 @@ static func key_fill(name: String) -> Array:
 	var flag := _flag_value("--key-fill=")
 	if KEY_FILL_TRY.has(flag):
 		return KEY_FILL_TRY[flag]
+	# (A stage's own `key_fill` comes before the colourful shade's: the canyon's two hues, fidelity review 15 item 3.)
+	if (STYLES.get(name, {}) as Dictionary).has("key_fill"):
+		return STYLES[name].key_fill
 	if shade_colour(name) in ["B", "C", "D"]:
 		return [0.45, 0.45]
 	return style(name).get("key_fill", KEY_FILL_TRY.T)
@@ -237,9 +258,13 @@ const STYLES := {
 	# (Long sunset shadows from the buttes, the arch and the trestle across the floor, a cool violet on the warm sand, the graphics
 	# review 5.)
 	"sunset": {"bounce": Color(1.0, 0.68, 0.44, 0.84), "grade_more": 0.15, "curve_more": 0.06, "glow_from": 1.9,
-		"clouds": [0.9, 11.0, 0.6, 0.4], "cloud_tone": Color(0.66, 0.72, 0.9, 1.0), "sun_shadow": [260.0, 4, 1.0], "cast": Color(0.3, 0.22, 0.48, 1.0), "edge": Color(1.0, 0.86, 0.74, 0.44), "paint": [Color(1.1, 0.98, 0.86), Color(0.86, 0.86, 1.08), 0.7], "deep": 0.72,
+		"clouds": [0.9, 11.0, 0.6, 0.4], "cloud_tone": Color(0.66, 0.72, 0.9, 1.0), "sun_shadow": [260.0, 4, 1.0], "edge": Color(1.0, 0.86, 0.74, 0.44), "paint": [Color(1.1, 0.98, 0.86), Color(0.86, 0.86, 1.08), 0.7], "deep": 0.72,
+		# (Two hues, fidelity review 15 item 3, the owner's pick E (see MOODS.sunset): the cast shadows blue-violet, most of the ambient
+		# moved into the key so the shade sides take the painted violet rather than the rock's own red, and the far land in the upper sky's
+		# violet air. They were (0.3, 0.22, 0.48), the colourful shade's 0.45 and 0.08.)
+		"cast": Color(0.24, 0.26, 0.56, 1.0), "key_fill": [0.1, 0.3],
 		# (A dark anchor, fidelity review 13, the owner's pick B: the still held 4% darks and read milky, `value_deep` in post.gdshader.)
-		"finish": {"desat": 0.0, "lift": 0.02, "haze_max": 0.08, "s_curve": 0.3, "quiet": 0.08, "sheets": 0.56, "cut_edge": 0.5, "fight_lift": 0.15,
+		"finish": {"desat": 0.0, "lift": 0.02, "haze_max": 0.34, "s_curve": 0.3, "quiet": 0.08, "sheets": 0.56, "cut_edge": 0.5, "fight_lift": 0.15,
 			"value_deep": [0.35, 0.3, 0.6, 60.0]}},
 	"night": {"edge": Color(0.78, 0.86, 1.0, 0.62), "paint": [Color(0.98, 1.0, 1.08), Color(0.86, 0.9, 1.1), 0.5], "deep": 0.74, "glow": 0.95,
 		"ramp": [[0.0, 0.0], [0.36, 0.0], [0.44, 0.5], [0.56, 0.5], [0.64, 1.0], [1.0, 1.0]]},
@@ -451,6 +476,11 @@ const FRONT_CALM := 0.75
 
 static func stage_mood(env: Environment, root: Node, theme: Dictionary, post: ShaderMaterial = null) -> void:
 	var mood: Dictionary = MOODS.get(theme.get("name", "meadow"), MOODS.meadow)
+	# (The canyon before its two hues, fidelity review 15 item 3: `--two-hue=T`, see TWO_HUE_TRY.)
+	var two: Dictionary = TWO_HUE_TRY.get(_flag_value("--two-hue=").to_upper(), {}) if String(theme.get("name", "")) == "sunset" else {}
+	if two.has("mood"):
+		mood = mood.duplicate()
+		mood.merge(two.mood, true)
 	var key := root.get_node_or_null("KeyLight") as DirectionalLight3D
 	if key != null:
 		key.light_color = mood.key[0]
@@ -482,7 +512,7 @@ static func stage_mood(env: Environment, root: Node, theme: Dictionary, post: Sh
 	var sky_n := sky / maxf(maxf(sky.r, sky.g), maxf(sky.b, 0.01))
 	env.ambient_light_color = (mood.ambient[0] as Color).lerp(Color(sky_n.r, sky_n.g, sky_n.b), float(kl[2]))
 	# (The key against the fill on the scenery, fidelity review 14 item 3; see KEY_FILL_TRY. Set on every stage, as globals outlive it.)
-	var kf := key_fill(String(theme.get("name", "meadow")))
+	var kf: Array = two.get("key_fill", key_fill(String(theme.get("name", "meadow"))))
 	var cut := env.ambient_light_color * env.ambient_light_energy * (1.0 - float(kf[0]))
 	var boost := 1.0
 	if key != null:
@@ -509,6 +539,7 @@ static func stage_mood(env: Environment, root: Node, theme: Dictionary, post: Sh
 	for arg in OS.get_cmdline_user_args():
 		if arg == "--sun=C":
 			cast = Color(0.2, 0.14, 0.42, 1.0)
+	cast = two.get("cast", cast)
 	RenderingServer.global_shader_parameter_set("pf_cast_shade", cast)
 	# The light finish (fidelity review 6, see STYLES): bounce light (pf_bounce), a firmer grade and S-curve, the lamps glowing.
 	var finish_off := OS.get_cmdline_user_args().has("--light-finish=off")
@@ -525,7 +556,7 @@ static func stage_mood(env: Environment, root: Node, theme: Dictionary, post: Sh
 		post.set_shader_parameter("pastel_desat", finish.desat)
 		post.set_shader_parameter("pastel_lift", finish.lift)
 		post.set_shader_parameter("vignette", finish.vignette)
-		post.set_shader_parameter("haze_max", finish.haze_max)
+		post.set_shader_parameter("haze_max", float(two.get("haze_max", finish.haze_max)))
 		post.set_shader_parameter("haze_desat", float(finish.get("haze_desat", 1.3)))
 		post.set_shader_parameter("haze_start", float(finish.get("haze_start", 14.0)))
 		post.set_shader_parameter("stage_quiet", float(finish.get("quiet", 0.0)))
@@ -554,6 +585,11 @@ static func stage_mood(env: Environment, root: Node, theme: Dictionary, post: Sh
 		if deep.size() == 4 and scf in ["A", "B", "C", "D"]:
 			deep = [deep[0], float(deep[1]) * (0.5 if scf == "A" else 0.0), deep[2], deep[3]]
 		post.set_shader_parameter("value_deep", Vector4(deep[0], deep[1], deep[2], deep[3]) if deep.size() == 4 else Vector4(0.0, 0.0, 0.6, 60.0))
+		# (The fronts' form the papercraft reference's way, fidelity review 15 item 2: a style's finish "front_form" [lit edge, joint ink,
+		# band] or `--front-form=T|A|B`, T off; see post.gdshader `front_form`.)
+		var ff: Array = finish.get("front_form", [0.0, 0.0, 4.0])
+		ff = {"T": [0.0, 0.0, 4.0], "A": [0.9, 0.7, 4.0], "B": [1.6, 1.0, 4.0]}.get(_flag_value("--front-form="), ff)
+		post.set_shader_parameter("front_form", Vector3(ff[0], ff[1], ff[2]))
 		# The key light's way across the screen (the camera looks straight down the stage, so its x and y), for the sheets' shadows.
 		if key != null:
 			var way := -key.basis.z
@@ -586,7 +622,7 @@ static func stage_mood(env: Environment, root: Node, theme: Dictionary, post: Sh
 		key.rotation_degrees.y += float(sl[3])
 		RenderingServer.global_shader_parameter_set("pf_sun_dir", key.basis.z.normalized())
 	m.shadow_value = float(mood.shadow_value) * float(sl[0])
-	m.shadow_shift = minf(float(mood.shadow_shift) * float(sl[1]), 0.25)
+	m.shadow_shift = minf(float(mood.shadow_shift) * float(sl[1]), float(mood.get("shift_cap", 0.25)))
 	# (Warm against cool, fidelity review 14 item 4: the canyon's shade turned further toward the dusk's violet, so its light is warm and
 	# its shade is not; every face of it was one pink-orange. `--warm-cool=A|B`; shipping writes it into MOODS.sunset.)
 	if String(theme.get("name", "")) == "sunset":
