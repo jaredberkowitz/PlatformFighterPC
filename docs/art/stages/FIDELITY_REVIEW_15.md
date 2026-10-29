@@ -169,3 +169,16 @@ and into STYLES.sunset:
 - `cast`;
 - finish `haze_max` 0.34;
 - `key_fill` [0.1, 0.3].
+
+Built E (the owner's pick):
+- **MOODS.sunset:** E's shade, tint, ambient, key, fill, grade and haze.
+- **STYLES.sunset:** `cast`, `key_fill` [0.1, 0.3] and finish `haze_max` 0.34. A stage's own `key_fill` now comes before the colourful
+  shade's 0.45.
+- **No re-light.** The light export bakes only the occluders, not the mood.
+- **Comparison:** `--two-hue=T` brings back the look before.
+
+In the game the front measures 0.29, 3°, saturation 0.64; P1's gap is 0.191. Before and after (match camera):
+`review15/canyon_two_hues_built.jpg`. All seven tests pass.
+
+The fighters' shade takes 0.35 of the stage's shift, so on the canyon it now turns 0.14 rather than 0.09: a touch pinker in their shade
+sides.
