@@ -403,3 +403,13 @@ Raised hands clear of the head over every class's gallery and the state demos: 4
 | 3 | Sword aerials (the neutral air's blade path between and after its hits) | 4 | 4 | 3 | 3.7 | 3.3 |
 
 **Mean 3.29** (poses 3.32, fluidity 3.38, weight 3.16).
+
+## 18. After round 8's group 23, joint limits (2026-10-29)
+
+| # | Item | P | F | W | O | Was |
+|---|---|---|---|---|---|---|
+| 8 | Brawler aerials (tucked knees no longer fold through the thighs) | 4 | 3 | 4 | 3.7 | 3.3 |
+| 23 | Caster aerials (the same) | 4 | 3 | 4 | 3.7 | 3.3 |
+
+Bend flags over every gallery and four CPU matches: 10,174 of 316,832 limb-frames before, 3,512 after. **Mean 3.31** (poses 3.38,
+fluidity 3.38, weight 3.16). The follow-through, the weight axis's shared gap (2 frames short), waits on the snap-or-sweep decision.

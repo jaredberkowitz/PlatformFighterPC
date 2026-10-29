@@ -2201,3 +2201,36 @@ knee bend (`review1/mock_stance.jpg`, A/B/C).
 - **Review:** item 2 (sword ground attacks) poses 3 to 4, overall 3.0 to 3.3; item 3 (sword aerials) fluidity 3 to 4, overall 3.3 to
   3.7. Mean 3.29.
 - **Checked:** the six tests, prop check and the orphan test pass.
+
+### Group 23 (round 8): no unnatural limb bending, measured game-wide (the owner's standing rule, 2026-10-29)
+
+- **Measure (new, `PF_BEND`):** every frame, per elbow and knee, the bend, which way round the upper bone's hinge (its local X) the lower
+  bone folds, and how far it leaves the hinge's plane. Calibrated on the Longsword's gallery and locomotion: an elbow folds one way (-1)
+  and a knee the other (+1) in natural motion, nothing leaves the plane. Flagged: a fold the wrong way past 15 degrees, or past 160.
+  With `PF_ARM_HIDE` (group 22) for the striking hand hidden in the body. Run over all 14 classes' galleries in both facings and four
+  CPU matches (316,832 limb-frames).
+- **Before:** 10,174 flagged (3.2%): reversed elbows 5,888, reversed knees 3,505, knees folded past 160 1,653 (the airs' tucks: the
+  Wanderer's, the Champion's, the Exile's and the Phantom's down airs, the Bracers' and the Gauntlets' forward airs, the neutral airs; the
+  shin folded through the thigh and read as a reversed knee), elbows past 160 46. Worst elbows: the knockdown (clip), the Bracers' idle,
+  the brawlers' and casters' jabs (the far guard arm).
+- **Shared cause and fix (`fighter_view.gd`, `_limit_joints`):** the clip-posed limbs had no limits (the IK arms and aimed kicks keep
+  their own hinge). Now a clip-posed knee or elbow folds only its natural way and at most `KNEE_MAX` / `ELBOW_MAX` 150 degrees; a fold the
+  wrong way past `JOINT_BACK_SLACK` is straightened, one past fully closed is set back to the limit, by turning the lower bone about the
+  hinge. `PF_R8_OFF=joints` shows the old.
+- **After:** 3,512 flagged (1.1%, down 65%): reversed knees 551, knees past 160 33, reversed elbows 2,932, elbows past 160 11. What is left
+  is mostly the IK-held arms in overhead swings (the Longsword's up air, the Champion's up special and back air, the Claws' up air),
+  where the IK keeps the fold on the side the arm already turns toward, to avoid twisting the shoulder half a turn (art review 6).
+- **Hidden striking hand in attacks:** 2,180 of 25,246 attack frames before, 2,164 after. The top ones are false positives of the
+  weapon-hand measure on kicks (the Champion's jab is a kick); the Seer's counter and the Settler's balloon float hold the hand in front of
+  the chest.
+- **Weight (B), measured** (`timing_report.py` against each family's reference, mean |error| in frames, follow-through / hold / recovery
+  / wind-up w50): sword 3.4 / 4.8 / 3.5 / 1.1, brawler 1.3 / 2.6 / 2.4 / 2.2, quick 3.0 / 4.9 / 3.5 / 0.4, heavy 3.6 / 3.3 / 3.3 / 1.2,
+  caster 2.2 / 3.3 / 3.5 / 0.7, tool 0.8 / 3.1 / 2.1 / 1.2. The shared gap is the follow-through, 2 frames short on average (sword,
+  quick and heavy 2.8-3.6): ours measures 0 on most moves where the references carry on 1-10. **Tried:** a per-family carry from each
+  reference's follow-through; no measured change, because the follow-through is measured against the strike's peak speed and our peak is
+  the one-frame snap, so any carry falls under it at once. Reverted. The follow-through waits on the snap-or-sweep decision.
+- **Image:** `docs/screenshots/anim/r8_joint_limits.jpg` (the Wanderer's and the Champion's down airs, the Needles' neutral and back
+  airs, before above after).
+- **Review:** item 8 (brawler aerials) and item 23 (caster aerials) poses 3 to 4 (their tucked knees no longer fold through the thighs).
+  Mean 3.31.
+- **Checked:** the six tests and the orphan test pass; face cover unchanged.
