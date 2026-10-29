@@ -2163,3 +2163,41 @@ knee bend (`review1/mock_stance.jpg`, A/B/C).
 - **Retired:** the shoulder mock's `PF_SHOULDER_MOCK` switch (`make_cage_body.py --shoulder-raise` stays, default 0).
 - **Review:** items 28 (tool aerials) and 34 (special states) poses 3 to 4, overall 3.0 to 3.3. Mean 3.27.
 - **Checked:** the six tests pass.
+
+### Group 22 (round 8): the owner's three Longsword notes (2026-10-29)
+
+1. **"The arm is sometimes hidden underneath the body."**
+   - **Measured** (`PF_ARM_HIDE`, new: the weapon hand inside the torso's or the hips' and thighs' outline on screen and behind their near
+     surface): in the low carry the fist at thigh height sat inside the near thigh, only the pommel showing. Hand hidden, before: the
+     Longsword's gallery 1698 / 2464 frames (facing right) and 1674 (left), locomotion 539 / 592, landings 78 / 86, the turn 260 / 262, a
+     CPU match 420 / 1277, the Wanderer 1714 / 2464.
+   - **Fix (`fighter_view.gd`):** the carry kept as low as the owner approved, the hand brought out toward the camera past the near thigh
+     (`REST_HAND_Z` 0.1 to 0.3, `GREAT_REST_Z` 0.05 to 0.3) and a little forward (`SWORD_REST_HAND` x 0.12 to 0.22, `GREAT_REST_HAND`
+     0.1 to 0.2), so the fist shows beside the body, slightly forward, as the swordsman reference's. And a bug: the floor lift
+     (`_lift_tip_off_floor`) read the blade's rotation wrapped into -180..180, so a blade trailing back and down was turned the long way
+     round, through straight ahead, and swung forward under the body after a run or a landing; unwrapped first. The guard's dip no
+     further than `LOW_CARRY_DIP_MAX` for a low carry.
+   - **After:** the Longsword's gallery 66 / 2464 and 70, locomotion 1 / 592, landings 0, the turn 3 / 262, the CPU match 90 / 1277, the
+     Wanderer 68 / 2464. What is left is the counter (32 / 63, the hand ahead at the chin inside the torso's outline) and the neutral
+     special's charge.
+2. **"The neutral air swing seems a bit unnatural."** Decoded against the swordsman's (F: only): a rising cut in front (frames 5-6), the
+   blade held up in front and rising a little (7-13), then a whole windmill round the body (14-20, the hitboxes go round), lowered down
+   and back through a long recovery, the body upright and tucked. Ours had the path right through the hits but between them the blade
+   dropped forward and down, then snapped back up for the windmill; and in the recovery it was taken home to the carry as numbers, up over
+   the front and round, swinging up again at the end. **Fix:** between two of a move's authored arcs the blade goes on from the first's end
+   to the next's start (`_arc_gap`, every class's multi-arc moves); in the air the blade comes home the short way round. `PF_R8_OFF=nair`
+   shows the old.
+3. **"The sword itself is a bit too long."** Measured on the references' frames against their own height: the swordsman's blade about 0.6
+   of his height, the broadsword reference's about 1.05, the long-blade reference's longer than his height. Ours were 1.2 (the Longsword's
+   and the Wanderer's, 0.24 to 2.9) and 1.2 (the Greatsword's) and 1.2 (the Exile's). **Fix (`art/blender/make_weapons.py`):** the
+   Longsword's blade (the Wanderer's too, the same model) 0.24 to 1.64 (`LONGSWORD_END`), the Greatsword's 0.2 to 2.55 (`GREATSWORD_END`),
+   the hilts unchanged; the Exile's kept (shorter than its reference's already). The view's tips per class (`BLADE_TIP_X_BY`, the floor
+   lift and the rest length); the swing arcs stay on the hit's edge (`BLADE_TIP_X` along the blade), as the swordsman's tipper reaches past
+   his blade, so the hitboxes and the arcs carry the reach as before. `PF_R8_OFF=length` puts the old tips back (not the model).
+   Cost: the Wanderer's forward smash wind-up shows less blade above the head.
+- **Measured:** face cover over the galleries, the Longsword 2, the Wanderer 2, the Greatsword 3, the Exile 9 (as after group 21).
+- **Image:** `docs/screenshots/anim/r8_longsword_notes.jpg` (the carry in idle, walk, run, landing and shield; the neutral air; the
+  Longsword's, the Wanderer's and the Greatsword's swings; before (8n) above after). The references' strips on F: only.
+- **Review:** item 2 (sword ground attacks) poses 3 to 4, overall 3.0 to 3.3; item 3 (sword aerials) fluidity 3 to 4, overall 3.3 to
+  3.7. Mean 3.29.
+- **Checked:** the six tests, prop check and the orphan test pass.

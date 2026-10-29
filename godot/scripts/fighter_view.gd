@@ -3251,6 +3251,45 @@ func _log_arm_show(s: Dictionary) -> void:
 			1 if shown else 0, h.y - centre.y])
 
 
+## With the environment variable PF_ARM_HIDE set (round 8, the owner's Longsword note "the arm is sometimes hidden underneath the
+## body"): every frame, "ARMHIDE <class> <state> <move> <frame> <hand hidden> <forearm hidden>" for the weapon arm, hidden being inside the
+## torso's outline on screen and behind its middle in depth (the torso: TORSO_UP above the spine joint, TORSO_HALF across and up).
+static var log_arm_hide := OS.has_environment("PF_ARM_HIDE")
+const TORSO_UP := 0.12
+const TORSO_HALF := Vector2(0.28, 0.32)
+const LEGS_HALF := Vector2(0.26, 0.32)
+const LEGS_DOWN := 0.2
+const TORSO_DEPTH := 0.3
+const LEG_R := 0.19
+
+
+func _log_arm_hide(s: Dictionary) -> void:
+	var ispine := skeleton.find_bone("spine") if skeleton != null else -1
+	if ispine < 0:
+		return
+	var to_frame := _skeleton_to_frame()
+	var sp := skeleton.get_bone_global_pose(ispine)
+	var t := to_frame * (sp.origin + sp.basis.y.normalized() * TORSO_UP)
+	var side := _weapon_side(int(s.facing))
+	var hand := to_frame * skeleton.get_bone_global_pose(skeleton.find_bone("hand." + side)).origin
+	var elbow := to_frame * skeleton.get_bone_global_pose(skeleton.find_bone("armL." + side)).origin
+	var fore := (hand + elbow) * 0.5
+	# (And the hips and legs: the low carry's hand at thigh height went behind the near thigh, the owner's "underneath the body".)
+	var hb := to_frame * skeleton.get_bone_global_pose(skeleton.find_bone("hips")).origin
+	var near_z := -INF
+	for leg in ["L", "R"]:
+		near_z = maxf(near_z, (to_frame * skeleton.get_bone_global_pose(skeleton.find_bone("thigh." + leg)).origin).z)
+	var hid := func(q: Vector3) -> int:
+		var d := Vector2((q.x - t.x) / TORSO_HALF.x, (q.y - t.y) / TORSO_HALF.y)
+		# (Behind the near surface: inside the body's thickness is hidden too, not only behind its middle.)
+		if d.length() < 1.0 and q.z < t.z + TORSO_DEPTH * sqrt(1.0 - d.length_squared()):
+			return 1
+		var e := Vector2((q.x - hb.x) / LEGS_HALF.x, (q.y - (hb.y - LEGS_DOWN)) / LEGS_HALF.y)
+		return 1 if e.length() < 1.0 and q.z < near_z + LEG_R * sqrt(1.0 - e.length_squared()) else 0
+	print("ARMHIDE %d %s %s %d %d %d" % [_cls(s), s.state, String(s.move_name).replace(" ", "_") if s.move_name != "" else "-",
+		int(s.state_frame), hid.call(hand), hid.call(fore)])
+
+
 ## How far the face may turn from the camera (its forward axis' depth, world space) and still count as seen.
 const FACE_AWAY_Z := -0.2
 
@@ -3638,7 +3677,7 @@ func _log_motion(s: Dictionary) -> void:
 		var p: Vector3 = skeleton.global_transform * skeleton.get_bone_global_pose(bi).origin - global_position
 		line += " %s:%.3f,%.3f" % [b, p.x * f, p.y]
 	if blade_pivot != null and blade_pivot.visible:
-		var t: Vector3 = blade_pivot.to_global(Vector3(BLADE_TIP_X, 0.0, 0.0)) - global_position
+		var t: Vector3 = blade_pivot.to_global(Vector3(_blade_tip_x(_cls(s)), 0.0, 0.0)) - global_position
 		line += " tip:%.3f,%.3f" % [t.x * f, t.y]
 	line += " pitch:%.1f" % rad_to_deg(model.rotation.x)
 	if head_bone >= 0:
@@ -4084,11 +4123,15 @@ const SWORD_REST_ANGLE := 214.0
 const STAFF_REST_ANGLE := 78.0
 ## Where the hand holds a weapon at rest (forward space): low at the hip, a little ahead of it (the staff's at arm's length beside the
 ## body). The greatsword's was up by the shoulder.
-const GREAT_REST_HAND := Vector2(0.1, 0.6)
-const SWORD_REST_HAND := Vector2(0.12, 0.6)
+## (Round 8, the owner's Longsword note "the arm is sometimes hidden underneath the body": a little further forward, 0.1 and 0.12 until
+## then, so the fist reads beside the body, slightly forward, as the swordsman reference's.)
+const GREAT_REST_HAND := Vector2(0.2, 0.6)
+const SWORD_REST_HAND := Vector2(0.22, 0.6)
 const STAFF_REST_HAND := Vector2(0.62, 0.8)
 ## How far toward the camera a resting weapon's hand is (in front of the body it crossed the chest; the swing's own depth is 0.35).
-const REST_HAND_Z := 0.1
+## (0.1 until the owner's note: at thigh height the fist sank into the near thigh, only the pommel showing, in 64-100% of the carry's
+## frames; out past the thigh's surface it shows, the carry as low as before.)
+const REST_HAND_Z := 0.3
 ## The staff stands on the far side of the body, upright (round 8: on the near side, held at the hip, its shaft ran up over the chest
 ## and the face; behind, it shows above the shoulder and below the hip, as the staff reference's stands clear of her front).
 const STAFF_REST_Z := -0.15
@@ -4100,7 +4143,7 @@ const GUARD_HIPS := 0.86
 ## How far the resting blade dips (degrees) for each unit the body sinks below the stance.
 const GUARD_DIP := 260.0
 ## The greatsword's grip in depth at rest (round 8: beside the near leg, the blade trailing low; it was -0.45, the blade across the back).
-const GREAT_REST_Z := 0.05
+const GREAT_REST_Z := 0.3   # (0.05 until the owner's hidden-arm note, as REST_HAND_Z)
 ## How far the greatsword's grip moves in depth a sim frame, between its rest behind the back and its swing in front.
 const GREAT_Z_STEP := 0.135
 ## The greatsword's length (hand to point), whatever the hit: the blade reaches about 2 units past the grip.
@@ -4150,6 +4193,15 @@ func _held_pose(s: Dictionary) -> bool:
 	return not held.is_empty()
 
 
+## The deepest a low-carried blade dips (degrees; 270 is straight down).
+const LOW_CARRY_DIP_MAX := 250.0
+
+
+## Whether this fighter carries its blade low, trailing behind (the swords, the Greatsword, the Exile's), rather than the staff upright.
+func at_low_carry(s: Dictionary) -> bool:
+	return _cls(s) != STAFF_CLASS and (bladed(_cls(s)) or _cls(s) == GREATSWORD_CLASS)
+
+
 ## Where the hand holds the weapon at rest (forward space), by class (round 8).
 func _rest_hand(s: Dictionary) -> Vector2:
 	if _cls(s) == GREATSWORD_CLASS or (_cls(s) == NODACHI_CLASS and use_base_body):
@@ -4162,6 +4214,9 @@ func _rest_hand(s: Dictionary) -> Vector2:
 
 
 func _rest_length(s: Dictionary) -> float:
+	# (Round 8: a modelled blade at rest is its own length, the hand to its tip.)
+	if use_base_body and BLADE_TIP_X_BY.has(_cls(s)) and not r8_off.has("length"):
+		return _blade_tip_x(_cls(s))
 	# Swords are long; claws and bare hands are short.
 	if _cls(s) == STAFF_CLASS:
 		return 2.0
@@ -4298,9 +4353,34 @@ func _blade_target(s: Dictionary) -> Array:
 		if s.platform >= 0 and _cls(s) != NODACHI_CLASS and past > HELD_UP_MAX and past < 160.0 and swing < 160.0:
 			past = lerpf(past, HELD_UP_MAX, follow_k(f, float(t[2]) - _carry_lead(t), shape))
 		var home := home_k(f, float(t[2]), float(t[0]), shape, ARM_LAG)
-		angle = lerpf(past, _rest_angle(s), home)
+		var rest_deg := _rest_angle(s)
+		# (Round 8, the owner's Longsword note on the neutral air: in the air the blade comes home the short way round. Taken as numbers,
+		# a cut ending level in front (-8) went up over the front and round to the low carry behind (214), the blade swinging up again at
+		# the end of the recovery; the swordsman lowers it down and back.)
+		if int(s.platform) < 0 and use_base_body and not r8_off.has("nair"):
+			rest_deg = past + rad_to_deg(angle_difference(deg_to_rad(past), deg_to_rad(rest_deg)))
+		angle = lerpf(past, rest_deg, home)
 		len = lerpf(length, rest_len, home)
+	# (Round 8, the same note: between two authored arcs of one move (`ARCS`), the blade goes on from where the first ended toward where
+	# the next starts, the way it travels, rather than pointing at a hit that is over. The neutral air's dropped forward and down between its
+	# rising cut and its windmill, then snapped back up; the swordsman's stays up in front and rises a little into the windmill.)
+	var gap := _arc_gap(s)
+	if not gap.is_empty() and use_base_body and not r8_off.has("nair"):
+		angle = float(gap[0])
 	return [angle, len, hand_x]
+
+
+## Between two of a move's authored arcs (`ARCS`): [the blade's angle, eased from the first's end to the next's start], else empty.
+func _arc_gap(s: Dictionary) -> Array:
+	var arcs: Array = (ARCS.get(_cls(s), {}) as Dictionary).get(String(s.move_name), [])
+	var f := float(s.state_frame)
+	for k in range(arcs.size() - 1):
+		var a: Array = arcs[k]
+		var b: Array = arcs[k + 1]
+		if f > float(a[6]) and f < float(b[5]):
+			var u := smoothstep(float(a[6]), float(b[5]), f)
+			return [lerpf(float(a[4]), float(b[3]), u)]
+	return []
 
 
 ## The carry starts this much before the last active frame when the hit lasts more than one frame (round 4), so the swing never stops on
@@ -4587,6 +4667,10 @@ func _pose_blade(s: Dictionary, delta: float) -> void:
 		if hb >= 0:
 			sink = maxf(0.0, GUARD_HIPS - (_skeleton_to_frame() * skeleton.get_bone_global_pose(hb).origin).y)
 			target[0] = float(target[0]) - sink * GUARD_DIP * (1.0 if cos(deg_to_rad(float(target[0]))) >= 0.0 else -1.0)
+			# (Round 8: a blade carried low and trailing behind dips no further than straight down: past it, the owner's hidden-arm note, it
+			# swung forward under the body after a walk or a landing.)
+			if use_base_body and at_low_carry(s):
+				target[0] = clampf(float(target[0]), 180.0, LOW_CARRY_DIP_MAX)
 	# A little smoothing so the rest pose and quick direction changes do not pop.
 	var follow := clampf(delta * 30.0, 0.0, 1.0)
 	if s.move_name != "" and s.state_frame > 0:
@@ -5252,7 +5336,8 @@ var arms_held: Array = []
 ## Turns the blade up about its hilt, keeping its length, just enough that its tip clears the floor (`GROUND_CLEARANCE`), measured in the
 ## world: the body's lean and squash carry the blade's frame with them.
 func _lift_tip_off_floor() -> void:
-	var tip_y := func() -> float: return (blade_pivot.to_global(Vector3(BLADE_TIP_X, 0.0, 0.0)) - global_position).y
+	var tip_x := _blade_tip_x(_cls_now)
+	var tip_y := func() -> float: return (blade_pivot.to_global(Vector3(tip_x, 0.0, 0.0)) - global_position).y
 	var hilt_y := (blade_pivot.global_position - global_position).y
 	if hilt_y <= GROUND_CLEARANCE or tip_y.call() >= GROUND_CLEARANCE:
 		return
@@ -5260,6 +5345,10 @@ func _lift_tip_off_floor() -> void:
 	# with the body, so its level is not the world's.)
 	var low := blade_pivot.rotation.z
 	var high := 1.2 if cos(low) >= 0.0 else PI - 1.2
+	# (Round 8, the owner's Longsword note: the rotation reads back wrapped into -180..180, so a blade trailing back and down (214, read
+	# as -146) was turned toward the high mark the long way round, through straight ahead: it swung forward under the body. Unwrapped onto
+	# the high mark's side first, it turns the short way, up behind.)
+	low = wrapf(low, 0.0, TAU) if cos(low) < 0.0 else wrapf(low, -PI, PI)
 	for _i in 12:
 		blade_pivot.rotation.z = (low + high) * 0.5
 		if tip_y.call() < GROUND_CLEARANCE:
@@ -5909,6 +5998,17 @@ func _arc_circle(w: Array) -> Array:
 
 ## The blade's tip as the mesh has it (the blade mesh ends 2.9 along its pivot's x).
 const BLADE_TIP_X := 2.9
+## (Round 8, the owner 2026-10-29: "the sword itself is a bit too long".) The modelled blades' own tips by class, fitted to the references'
+## blade against their height (art/blender/make_weapons.py LONGSWORD_END, GREATSWORD_END): the Longsword's and the Wanderer's 1.64, the
+## Greatsword's 2.55; others as the mesh. The swing arcs stay on the hit's edge, BLADE_TIP_X along the blade (the hit reaches past the
+## shorter blade, as the swordsman reference's tipper does), so they carry the reach.
+const BLADE_TIP_X_BY := {0: 1.64, BUCKLER_CLASS: 1.64, GREATSWORD_CLASS: 2.55}
+
+
+func _blade_tip_x(cls: int) -> float:
+	if not use_base_body or r8_off.has("length"):
+		return BLADE_TIP_X
+	return float(BLADE_TIP_X_BY.get(cls, BLADE_TIP_X))
 ## The classes whose swing arcs follow the blade's live tip (`_blade_arc_on_tip`).
 const TIP_ARC_CLASSES := [0, BUCKLER_CLASS]
 ## The depth the arc being drawn is at (the blade's own while a sword swing is live, else ARC_Z).
@@ -6575,6 +6675,8 @@ func _apply_combat(s: Dictionary, delta: float) -> void:
 			_log_face_cover(s)
 		if log_arm_show:
 			_log_arm_show(s)
+		if log_arm_hide:
+			_log_arm_hide(s)
 	# (The claws' flame rushes only: the Needles' specials are their own.)
 	var rushing: bool = _cls(s) == 1 and state == "Attack" and BRAWLER_FLAME.has(s.move_name) and s.state_frame >= 12
 	flame.emitting = rushing

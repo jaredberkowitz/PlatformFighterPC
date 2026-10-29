@@ -394,3 +394,12 @@ last an animation change that needs no new body. Asked of the owner with this sh
 
 Raised hands clear of the head over every class's gallery and the state demos: 4118 of 7369 frames (56%) before, 6214 of 7163
 (87%) after. **Mean 3.27** (poses 3.30, fluidity 3.35, weight 3.16).
+
+## 17. After round 8's group 22, the owner's Longsword notes (2026-10-29)
+
+| # | Item | P | F | W | O | Was |
+|---|---|---|---|---|---|---|
+| 2 | Sword ground attacks (the blades at the references' length; the carried fist shows) | 4 | 3 | 3 | 3.3 | 3.0 |
+| 3 | Sword aerials (the neutral air's blade path between and after its hits) | 4 | 4 | 3 | 3.7 | 3.3 |
+
+**Mean 3.29** (poses 3.32, fluidity 3.38, weight 3.16).

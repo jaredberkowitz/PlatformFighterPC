@@ -225,6 +225,13 @@ def _torus(bm, centre, radius, minor, segments=32, sides=10, squash=1.0):
             bm.faces.new((r0[k], r1[k], r1[(k + 1) % sides], r0[(k + 1) % sides]))
 
 
+# The blades' ends along X (round 8, the owner 2026-10-29: "the sword itself is a bit too long"). Fitted to the references' blade against
+# their character's height: the swordsman's blade is about 0.6 of his height (ours ran 0.24 to 2.9, 1.2 times our 2.24-tall body), the
+# broadsword reference's about 1.05 (ours was 1.2). The view's tips (fighter_view.gd BLADE_TIP_X_BY) follow these.
+LONGSWORD_END = 1.64
+GREATSWORD_END = 2.55
+
+
 def longsword():
     """The Longsword's sword (also the Buckler's): a slim straight double-edged blade with a diamond section (a ridge down each face, so
     one bevel catches the light and the other falls into shade) and a long tapering point, a dark fuller down the middle, a gently swept
@@ -233,7 +240,8 @@ def longsword():
     root = empty("longsword")
     bm = bmesh.new()
     stations = []
-    x0, x1, tip_from = 0.24, 2.9, 2.32
+    x0, x1 = 0.24, LONGSWORD_END
+    tip_from = x1 - 0.58 * (x1 - x0) / 2.66
     for i in range(17):
         x = x0 + (x1 - x0) * i / 16
         k = 1.0 if x <= tip_from else max(0.0, (x1 - x) / (x1 - tip_from)) ** 0.85
@@ -242,7 +250,7 @@ def longsword():
     _sections(bm, stations)
     to_object("metal_blade", bm, sharp=25.0).parent = root
     bm = bmesh.new()
-    _sections(bm, [(x, [(0.046, 0.022), (0.046, -0.022), (-0.046, -0.022), (-0.046, 0.022)]) for x in (0.3, 2.05)])
+    _sections(bm, [(x, [(0.046, 0.022), (0.046, -0.022), (-0.046, -0.022), (-0.046, 0.022)]) for x in (0.3, tip_from - 0.15)])
     to_object("dark_fuller", bm, sharp=60.0).parent = root
     # The crossguard: a round bar across the blade (Z), its ends swept a little toward the point, with ball ends and a block in the middle.
     bm = bmesh.new()
@@ -270,7 +278,8 @@ def greatsword():
     edge cut in a long chisel to the point): thick at the spine and thin at the edge, the sharpened bevel its own part so it reads
     bright, a dark fuller near the back, a heavy bronze guard with two rivets, a long two-hand leather grip and a round pommel."""
     root = empty("greatsword")
-    x0, x1, chisel = 0.2, 2.9, 2.4
+    x0, x1 = 0.2, GREATSWORD_END
+    chisel = x1 - 0.5
     body, bevel = [], []
     for i in range(19):
         x = x0 + (x1 - x0) * i / 18
@@ -287,7 +296,7 @@ def greatsword():
     _sections(bm, bevel)
     to_object("edge_bevel", bm, sharp=30.0).parent = root
     bm = bmesh.new()
-    _sections(bm, [(x, [(0.076, 0.135), (0.076, 0.065), (-0.076, 0.065), (-0.076, 0.135)]) for x in (0.36, 2.2)])
+    _sections(bm, [(x, [(0.076, 0.135), (0.076, 0.065), (-0.076, 0.065), (-0.076, 0.135)]) for x in (0.36, chisel - 0.2)])
     to_object("dark_fuller", bm, sharp=60.0).parent = root
     bm = bmesh.new()
     rounded_box(bm, Vector((0.12, 0.0, 0.0)), (0.2, 0.24, 0.86), bevel=0.3, segments=3)
