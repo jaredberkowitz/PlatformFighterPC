@@ -1722,6 +1722,8 @@ func build(p: int, l: RefCounted = null) -> void:
 	shield.mesh = _sphere(1.5)
 	var sm := ShaderMaterial.new()
 	sm.shader = SHIELD_SHADER
+	# (The folded paper medallion with the effects' paper look; the older painted bubble with `--fx=ink`.)
+	sm.set_shader_parameter("paper", FxMaterial.paper)
 	shield.material_override = sm
 	shield.position = Vector3(0, 1.1, 0)
 	shield.visible = false
