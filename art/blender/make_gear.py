@@ -833,8 +833,237 @@ def neckwear():
     return root
 
 
+
+# ---- Signature hats (the fighter identity pass, 2026-10-26: one head piece of its own for each built-in fighter that shared a hat or
+# went bareheaded; every one leaves the face and brows clear) ----------------------------------------------------------------------------
+
+def _shell(name, centre, radius, height, back_deg, front_deg, thickness=0.035, seg_u=40, seg_v=14):
+    """A shell over the head on the caps' ellipsoid, down to `front_deg` from the top at the face and `back_deg` behind."""
+    bm = bmesh.new()
+    rows = []
+    for j in range(seg_v + 1):
+        phi = math.radians(6.0 + 94.0 * j / seg_v)
+        row = []
+        for i in range(seg_u):
+            a = math.tau * i / seg_u
+            ph = phi * (_bowl_phi_low(a, back_deg, back_deg - front_deg) / math.radians(100.0))
+            row.append(bm.verts.new((radius * math.sin(ph) * math.cos(a), radius * math.sin(ph) * math.sin(a), centre + height * math.cos(ph))))
+        rows.append(row)
+    top = bm.verts.new((0.0, 0.0, centre + height))
+    for i in range(seg_u):
+        bm.faces.new((rows[0][i], rows[0][(i + 1) % seg_u], top))
+    for j in range(seg_v):
+        for i in range(seg_u):
+            k = (i + 1) % seg_u
+            bm.faces.new((rows[j][i], rows[j][k], rows[j + 1][k], rows[j + 1][i]))
+    bmesh.ops.solidify(bm, geom=bm.faces[:], thickness=-thickness)
+    return to_object(name, bm, sharp=55.0)
+
+
+def _strip(name, points, width, thickness, twist=None):
+    """A flat strip through `points`, `width` across (level, square to its run), solidified `thickness`."""
+    bm = bmesh.new()
+    left, right = [], []
+    n = len(points)
+    for s, p in enumerate(points):
+        ahead = (points[min(s + 1, n - 1)] - points[max(s - 1, 0)]).normalized()
+        side = ahead.cross(Vector((0.0, 0.0, 1.0)))
+        if side.length < 0.01:
+            side = Vector((1.0, 0.0, 0.0))
+        side.normalize()
+        if twist:
+            side = Matrix.Rotation(twist(s / max(n - 1, 1)), 3, ahead) @ side
+        w = width(s / max(n - 1, 1)) if callable(width) else width
+        left.append(bm.verts.new(p - side * w))
+        right.append(bm.verts.new(p + side * w))
+    for s in range(n - 1):
+        bm.faces.new((left[s], right[s], right[s + 1], left[s + 1]))
+    bmesh.ops.solidify(bm, geom=bm.faces[:], thickness=thickness)
+    return to_object(name, bm, sharp=70.0)
+
+
+def racing_helmet():
+    """The speedster's racing helmet: a round shell in the outfit's colour over the whole head, open at the face, a white stripe down its
+    middle from brow to nape, and a tinted visor flipped up on the brow on two brass hinges (raised, so the eyes show)."""
+    root = empty("racing_helmet")
+    _shell("fabric_shell", 1.5, 0.94, 1.12, 112.0, 52.0).parent = root
+    pts = []
+    for k in range(17):
+        # (From the nape over the crown to the brow, where the front opening starts.)
+        ph = math.radians(-100.0 + 148.0 * k / 16)
+        pts.append(Vector((0.0, -0.965 * math.sin(ph), 1.5 + 1.15 * math.cos(ph))))
+    _strip("canvas_stripe", pts, 0.08, 0.025).parent = root
+    bm = bmesh.new()
+    rows = []
+    for j in range(5):
+        # (Jutting out over the brow as a peak, the identity pass's second look: flat on the shell it vanished in silhouette.)
+        ph = math.radians(30.0 + 8.0 * j)
+        out = 1.0 + 0.05 * j
+        row = []
+        for i in range(17):
+            a = math.radians(-90.0 - 62.0 + 124.0 * i / 16)
+            row.append(bm.verts.new((out * math.sin(ph) * math.cos(a), out * math.sin(ph) * math.sin(a), 1.5 + 1.17 * math.cos(ph) + 0.02 * j)))
+        rows.append(row)
+    for j in range(4):
+        for i in range(16):
+            bm.faces.new((rows[j][i], rows[j][i + 1], rows[j + 1][i + 1], rows[j + 1][i]))
+    bmesh.ops.solidify(bm, geom=bm.faces[:], thickness=0.03)
+    to_object("glass_visor", bm, sharp=60.0).parent = root
+    # The fin: a swept blade along the back of the shell (a racing helmet's spoiler), the speedster's silhouette.
+    bm = bmesh.new()
+    prof = []
+    for k in range(9):
+        t = k / 8.0
+        ph = math.radians(10.0 + 70.0 * t)
+        base = Vector((0.0, 0.94 * math.sin(ph), 1.5 + 1.12 * math.cos(ph)))
+        rise = 0.32 * math.sin(math.pi * min(1.0, t * 1.25)) * (1.0 - 0.3 * t)
+        prof.append((base, base + Vector((0.0, rise * 0.75, rise))))
+    lo = [bm.verts.new(b) for b, _ in prof]
+    hi = [bm.verts.new(h) for _, h in prof]
+    for k in range(8):
+        bm.faces.new((lo[k], lo[k + 1], hi[k + 1], hi[k]))
+    bmesh.ops.solidify(bm, geom=bm.faces[:], thickness=0.06)
+    to_object("canvas_fin", bm, sharp=50.0).parent = root
+    for sx in (-1.0, 1.0):
+        bm = bmesh.new()
+        cv = bmesh.ops.create_cone(bm, cap_ends=True, cap_tris=False, segments=16, radius1=0.09, radius2=0.08, depth=0.05)["verts"]
+        bmesh.ops.rotate(bm, cent=Vector((0, 0, 0)), matrix=Matrix.Rotation(math.radians(90.0), 3, "Y"), verts=cv)
+        bmesh.ops.translate(bm, vec=Vector((sx * 0.86, -0.36, 2.16)), verts=cv)
+        to_object("brass_hinge" + ("L" if sx < 0 else "R"), bm).parent = root
+    return root
+
+
+def eared_cap():
+    """The trickster's soft cap with two round ears: a snug crown in the outfit's colour pulled down to the brow, a short peak over the
+    face, and a round ear high on each side, its inside pale."""
+    root = empty("eared_cap")
+    _shell("fabric_crown", 1.52, 0.92, 1.0, 100.0, 62.0, thickness=0.04).parent = root
+    bm = bmesh.new()
+    rows = []
+    ph = math.radians(62.0)
+    for j in range(4):
+        out = 0.92 * math.sin(ph) + 0.12 * j
+        row = []
+        for i in range(15):
+            a = math.radians(-90.0 - 48.0 + 96.0 * i / 14)
+            row.append(bm.verts.new((out * math.cos(a), out * math.sin(a), 1.52 + 1.0 * math.cos(ph) - 0.02 * j * j)))
+        rows.append(row)
+    for j in range(3):
+        for i in range(14):
+            bm.faces.new((rows[j][i], rows[j][i + 1], rows[j + 1][i + 1], rows[j + 1][i]))
+    bmesh.ops.solidify(bm, geom=bm.faces[:], thickness=0.04)
+    to_object("fabric_peak", bm, sharp=50.0).parent = root
+    for sx in (-1.0, 1.0):
+        nm = "L" if sx < 0 else "R"
+        centre = Vector((sx * 0.7, 0.08, 2.24))
+        turn = Matrix.Rotation(math.radians(sx * 30.0), 3, "Y")
+        for part, scale, push in (("fabric_ear", (0.3, 0.07, 0.3), 0.0), ("canvas_inner", (0.2, 0.04, 0.2), -0.05)):
+            bm = bmesh.new()
+            ret = bmesh.ops.create_uvsphere(bm, u_segments=20, v_segments=12, radius=1.0)
+            for v in ret["verts"]:
+                v.co = centre + turn @ Vector((v.co.x * scale[0], v.co.y * scale[1] + push, v.co.z * scale[2]))
+            to_object(part + nm, bm).parent = root
+    return root
+
+
+def headband():
+    """The wandering swordsman's headband: tousled hair, a band of the outfit's colour tied round the brow, its knot at the back and two
+    long tails streaming back and down."""
+    root = empty("headband")
+    _hair_cap("hair_cap", 64.0, 118.0, 0.62, bumps=0.05, seed=2.1).parent = root
+    bm = bmesh.new()
+    sides = 48
+    rings = []
+    for dr, dz in [(0.0, -0.07), (0.035, -0.055), (0.035, 0.055), (0.0, 0.07)]:
+        ring = []
+        for i in range(sides):
+            a = math.tau * i / sides
+            front = max(0.0, -math.sin(a))
+            zc = 1.98 - 0.14 * (1.0 - front)
+            # (Round the hair cap's ellipsoid, a strap's thickness out.)
+            r = 0.88 * math.sqrt(max(0.0, 1.0 - ((zc - 1.74) / 0.62) ** 2)) + 0.05 + dr
+            ring.append(bm.verts.new((r * math.cos(a), r * math.sin(a), zc + dz)))
+        rings.append(ring)
+    for k in range(len(rings) - 1):
+        for i in range(sides):
+            j = (i + 1) % sides
+            bm.faces.new((rings[k][i], rings[k][j], rings[k + 1][j], rings[k + 1][i]))
+    to_object("fabric_band", bm, sharp=60.0).parent = root
+    knot = Vector((0.0, 0.9, 1.86))
+    bm = bmesh.new()
+    ret = bmesh.ops.create_uvsphere(bm, u_segments=14, v_segments=10, radius=1.0)
+    for v in ret["verts"]:
+        v.co = knot + Vector((v.co.x * 0.12, v.co.y * 0.08, v.co.z * 0.1))
+    to_object("fabric_knot", bm).parent = root
+    # (Long and wide, spreading out to the sides as they fly back, so they show past the head from the front three-quarters as well as
+    # side on, the identity pass's second look: close behind the head they hid and the band read as a cap.)
+    for k, (sx, length, drop) in enumerate(((-1.0, 1.25, 0.2), (1.0, 1.1, 0.45))):
+        pts = []
+        for s in range(13):
+            t = s / 12.0
+            pts.append(knot + Vector((sx * 0.55 * t, length * t, -drop * t * t + 0.28 * math.sin(t * math.pi))))
+        _strip("fabric_tail%d" % k, pts, lambda t: 0.12 * (1.0 - 0.3 * t), 0.025, twist=lambda t, sx=sx: sx * 0.5 * t).parent = root
+    return root
+
+
+def top_hat():
+    """The gentleman thief's top hat: a tall crown of dark felt flaring a little toward its flat top, a band of the outfit's colour at its
+    foot, and a brim curled up at the sides, worn tipped a little back."""
+    root = empty("top_hat")
+    base = 2.08
+    bm = bmesh.new()
+    rings = lathe(bm, [(0.5, base - 0.02), (0.5, base + 0.05), (0.49, base + 0.35), (0.51, base + 0.62), (0.54, base + 0.78), (0.52, base + 0.8)])
+    cap_ring(bm, rings[-1], base + 0.8)
+    to_object("felt_crown", bm).parent = root
+    bm = bmesh.new()
+    lathe(bm, [(0.515, base + 0.03), (0.525, base + 0.05), (0.52, base + 0.17), (0.505, base + 0.19)])
+    to_object("fabric_band", bm, sharp=60.0).parent = root
+    bm = bmesh.new()
+    sides = 48
+    rings = []
+    for r_ in (0.48, 0.62, 0.74, 0.8):
+        ring = []
+        u = (r_ - 0.48) / 0.32
+        for i in range(sides):
+            a = math.tau * i / sides
+            ring.append(bm.verts.new((r_ * math.cos(a), r_ * math.sin(a), base + 0.14 * abs(math.cos(a)) ** 2 * u * u)))
+        rings.append(ring)
+    for k in range(len(rings) - 1):
+        for i in range(sides):
+            j = (i + 1) % sides
+            bm.faces.new((rings[k][i], rings[k][j], rings[k + 1][j], rings[k + 1][i]))
+    bmesh.ops.solidify(bm, geom=bm.faces[:], thickness=0.035)
+    to_object("felt_brim", bm, sharp=60.0).parent = root
+    _tilt(root, -8.0, base)
+    return root
+
+
+def conical_hat():
+    """The exile's wide conical hat of woven straw: a shallow cone out over the shoulders with a rolled rim, a small knob at its peak, and
+    a band of the outfit's colour round its foot where it sits on the head."""
+    root = empty("conical_hat")
+    base = 2.08
+    bm = bmesh.new()
+    prof = [(1.04, base - 0.02), (1.06, base + 0.01), (1.0, base + 0.05), (0.78, base + 0.17), (0.5, base + 0.32), (0.22, base + 0.47),
+            (0.06, base + 0.55)]
+    rings = lathe(bm, prof, sides=48, wobble=lambda a, k: 1.0 + 0.012 * math.sin(a * 7.0 + k))
+    cap_ring(bm, rings[-1], base + 0.56)
+    to_object("straw_cone", bm).parent = root
+    bm = bmesh.new()
+    ret = bmesh.ops.create_uvsphere(bm, u_segments=12, v_segments=8, radius=0.06)
+    bmesh.ops.translate(bm, vec=Vector((0.0, 0.0, base + 0.58)), verts=ret["verts"])
+    to_object("fabric_knob", bm).parent = root
+    bm = bmesh.new()
+    hr = head_r(base)
+    lathe(bm, [(hr + 0.01, base - 0.07), (hr + 0.04, base - 0.04), (hr + 0.04, base + 0.02), (hr + 0.01, base + 0.04)], sides=36)
+    to_object("fabric_band", bm, sharp=60.0).parent = root
+    _tilt(root, -6.0, base)
+    return root
+
+
 GEAR = {"neckwear": neckwear, "glasses": glasses, "sailor_cap": sailor_cap, "dixie_cap": dixie_cap, "aviator_cap": aviator_cap, "straw_hat": straw_hat, "plumed_helm": plumed_helm, "crown": crown,
-        "swept_spikes": swept_spikes, "topknot": topknot, "beanie": beanie}
+        "swept_spikes": swept_spikes, "topknot": topknot, "beanie": beanie,
+        "racing_helmet": racing_helmet, "eared_cap": eared_cap, "headband": headband, "top_hat": top_hat, "conical_hat": conical_hat}
 
 
 def _lumpy(root, amount=0.045, seed=1.0):
