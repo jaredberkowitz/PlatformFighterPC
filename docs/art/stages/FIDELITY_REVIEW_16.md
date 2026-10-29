@@ -164,3 +164,31 @@ Put to the owner on the Stage Look Review ("grovelight58"; `review16/grove_light
 bottom):
 - keep the violet grove and drop this item (its light and sky may stay 4); or
 - mock a repaint toward a clear day.
+
+**Owner, 2026-10-29: keep the grove violet.** Item 2 is dropped; the grove's light and sky may stay 4.
+
+## Item 3, the grove's falls and mist (mock, 2026-10-29)
+
+**Falls** (`make_grove_paper.py --scallop A|B|C`, on the shipped flags; `layered_fall`):
+- **A, B:** each sheet's top edge and its foam lip in rounded lobes rising between sharp dips. A has three shallow lobes a column
+  (0.14), B two deeper (0.26). Each sheet is cut into twelve slices across to carry them. The phase is drawn from its own seed, so the
+  sheets' starts and ends are as before.
+- **C:** B's lobes, with the two blues as the water's lit side and shade side (the last column the deeper `fall_shade`). Before, they
+  were a checker by sheet and column, which still read as tiles under scalloped tops.
+
+**Mist** (`--mist-grey=A|B`, StageBake's grove colours; C uses B):
+- **A:** the mist families at half their saturation.
+- **B:** a quarter, ×1.12 lighter.
+
+Near grey, the grove's painted shade turns their shade sides violet on its own (low-saturation colours take the shade tint), so the
+lit tops read grey-white.
+
+Measures: P1's gap 0.122 for all four (today, the unlit control model, A, B, C); the wide values hold (darks 17%).
+
+On the Stage Look Review ("fallsmist59", `fm59_*`). Close (today and A top, B and C bottom): `review16/grove_falls_mist_mock.jpg`.
+Recommended C.
+
+To ship:
+- rebuild `grove_paper.glb` with `--scallop C`;
+- set grove.cfg `mist_grey` (a palette key read where the flag is);
+- re-light the grove.

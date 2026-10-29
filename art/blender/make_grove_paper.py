@@ -66,6 +66,12 @@ FALLS = int(opts.get("falls", "0"))
 # fall cut into overlapping sheets from the lip down, each a step out from the one above with a pale foam lip, the tone set per sheet,
 # so the water layers instead of striping. B: A in fewer, wider sheets, with a fuller foam foot.
 FALL_LOOK = opts.get("fall_look", "").upper()
+# The sheets' tops scalloped (fidelity review 16 item 3: straight-cut tops read as stacked tiles): `--scallop A|B`, each sheet's top edge
+# and its foam lip in rounded lobes rising between sharp dips, as water curling over a lip. A three shallow lobes a column, B two deeper.
+SCALLOP = {"A": (3, 0.14), "B": (2, 0.26), "C": (2, 0.26)}.get(opts.get("scallop", "").upper())
+# (C: B, and the two blues as the water's lit side and shade side, the last column the deeper one, in place of the checker of blues by
+# sheet and column, which read as tiles even with scalloped tops.)
+FALL_SIDES = opts.get("scallop", "").upper() == "C"
 MIST3 = opts.get("mist", "") == "3"
 LONG_ROOTS = opts.get("roots", "") == "long"
 # Depth in the abyss (fidelity review 11: flat purple with soft blotches, the mist's front one long wavy line): `--deep A|B`. A: the
@@ -1125,24 +1131,42 @@ def layered_fall(name, x, z, tx, tz, ox, oz, w, y0, height, rng):
             lift = 0.06 * k
             grow = 0.06 * k
             fam = "fall" if (k + c) % 2 == 0 else "fall_shade"
+            if FALL_SIDES:
+                fam = "fall_shade" if c == cols - 1 else "fall"
             bm = part(name, fam)
+            a0, a1 = u0 - grow, u1 + grow
+            # Across the sheet in slices, so its top edge can carry the scallops (one slice without them).
+            sub = 12 if SCALLOP else 1
+            # (Its own draw, so the sheets' starts and ends come out as they did without the scallops.)
+            phase = random.Random(k * 31 + c * 7 + int(abs(x) * 5)).uniform(0.0, 0.5)
+
+            def lobe(j):
+                if not SCALLOP:
+                    return 0.0
+                return SCALLOP[1] * abs(math.sin(math.pi * (SCALLOP[0] * j / sub + phase)))
+
             for i in range(steps):
                 ta = t0 + (end - t0) * i / steps
                 tb = t0 + (end - t0) * (i + 1) / steps
                 oa, ob = 0.5 + 1.8 * math.sqrt(ta) + lift, 0.5 + 1.8 * math.sqrt(tb) + lift
                 ya, yb = y0 - height * ta, y0 - height * tb
-                a0, a1 = u0 - grow, u1 + grow
-                pts = (P(x + tx * a0 + ox * oa, ya, z + tz * a0 + oz * oa), P(x + tx * a1 + ox * oa, ya, z + tz * a1 + oz * oa),
-                       P(x + tx * a1 + ox * ob, yb, z + tz * a1 + oz * ob), P(x + tx * a0 + ox * ob, yb, z + tz * a0 + oz * ob))
-                oriented(bm, pts, P(x - ox * 2.0, (ya + yb) * 0.5, z - oz * 2.0))
-            # The sheet's foam lip: a pale band along its top edge.
+                for j in range(sub):
+                    s0, s1 = a0 + (a1 - a0) * j / sub, a0 + (a1 - a0) * (j + 1) / sub
+                    # (The top row's upper edge rises in lobes; the rest of the sheet is as before.)
+                    ya0, ya1 = (ya + lobe(j), ya + lobe(j + 1)) if i == 0 else (ya, ya)
+                    pts = (P(x + tx * s0 + ox * oa, ya0, z + tz * s0 + oz * oa), P(x + tx * s1 + ox * oa, ya1, z + tz * s1 + oz * oa),
+                           P(x + tx * s1 + ox * ob, yb, z + tz * s1 + oz * ob), P(x + tx * s0 + ox * ob, yb, z + tz * s0 + oz * ob))
+                    oriented(bm, pts, P(x - ox * 2.0, (ya + yb) * 0.5, z - oz * 2.0))
+            # The sheet's foam lip: a pale band along its top edge, following its scallops.
             ta, tb = t0, t0 + 0.035
             oa, ob = 0.5 + 1.8 * math.sqrt(ta) + lift + 0.01, 0.5 + 1.8 * math.sqrt(tb) + lift + 0.01
             ya, yb = y0 - height * ta, y0 - height * tb
-            a0, a1 = u0 - grow, u1 + grow
-            pts = (P(x + tx * a0 + ox * oa, ya, z + tz * a0 + oz * oa), P(x + tx * a1 + ox * oa, ya, z + tz * a1 + oz * oa),
-                   P(x + tx * a1 + ox * ob, yb, z + tz * a1 + oz * ob), P(x + tx * a0 + ox * ob, yb, z + tz * a0 + oz * ob))
-            oriented(part(name, "spray"), pts, P(x - ox * 2.0, (ya + yb) * 0.5, z - oz * 2.0))
+            for j in range(sub):
+                s0, s1 = a0 + (a1 - a0) * j / sub, a0 + (a1 - a0) * (j + 1) / sub
+                la, lb = lobe(j), lobe(j + 1)
+                pts = (P(x + tx * s0 + ox * oa, ya + la, z + tz * s0 + oz * oa), P(x + tx * s1 + ox * oa, ya + lb, z + tz * s1 + oz * oa),
+                       P(x + tx * s1 + ox * ob, yb + lb, z + tz * s1 + oz * ob), P(x + tx * s0 + ox * ob, yb + la, z + tz * s0 + oz * ob))
+                oriented(part(name, "spray"), pts, P(x - ox * 2.0, (ya + yb) * 0.5, z - oz * 2.0))
 
 
 def range_flats():
