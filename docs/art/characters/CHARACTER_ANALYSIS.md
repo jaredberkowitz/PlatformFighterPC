@@ -837,3 +837,15 @@ hair, and a soft nape with locks curling under; the owner chose the tufts.
 
 `nape_pass.png`: the holiday shirt's look from behind, three-quarters behind, the side and the menu, before above after; the front after;
 a match frame before and after. Art pipeline, loadout, fighter view and match flow tests pass.
+
+## Shoulder shards (2026-10-29, item 4 of the third comparison)
+Found by hiding the parts in turn with the fists up: the collar band took the trunk's weights by height, so it stayed with the torso
+while the sleeve's top under it rose with the arm, and the shirt poked through the collar in shards at the top of the shoulders. Mocked
+the collars taking the shirt's own weights; the owner chose it.
+- `make_rigged_blob.py` `shirt_front` `finish`: the shirt collar, the camp collar and the sailor collar and stripe each take the weights
+  of the nearest point of the shirt, so they move with the cloth under them. The placket and buttons keep the trunk's weights.
+- Rig rebuilt (mesh only). A modest gain: clearest on the aviator's shoulder from the side; the holiday shirt's barely changes.
+
+`shoulder_pass.png`: the aviator and the holiday shirt with fists up, from the side then the front, before then after each; the sailor's
+collar from behind, the side and three-quarters behind, before above after; a match frame before and after. Art pipeline, fighter view,
+loadout, animation library, match flow and motion tests pass.

@@ -1845,6 +1845,10 @@ def shirt_front(shirt, skin, neck_line, waist, trunk_weights):
     sbm.normal_update()
     tree = bvhtree.BVHTree.FromBMesh(sbm)
     names = [g.name for g in skin.vertex_groups]
+    shirt_points = kdtree.KDTree(len(shirt.data.vertices))
+    for v in shirt.data.vertices:
+        shirt_points.insert(v.co, v.index)
+    shirt_points.balance()
 
     def on_front(x, z, out_by):
         hit, normal, _, _ = tree.ray_cast(Vector((x, -3.0, z)), Vector((0.0, 1.0, 0.0)))
@@ -1875,6 +1879,17 @@ def shirt_front(shirt, skin, neck_line, waist, trunk_weights):
             data = obj.data.uv_layers[layer].data
             for loop in obj.data.loops:
                 data[loop.index].uv = uv_of(obj.data.vertices[loop.vertex_index].co)
+        if name.endswith("Collar") or name.startswith("Sailor"):
+            # A collar lying on the shirt takes the weights of the shirt under it, so it moves with that cloth. (The trunk's weights by
+            # height until the shoulder pass, 2026-10-29: when the fists came up the sleeve's top rose with the arm under a collar that
+            # stayed with the torso, and poked through it in shards at the top of the shoulders.)
+            for v in obj.data.vertices:
+                _co, si, _d = shirt_points.find(v.co)
+                for g in shirt.data.vertices[si].groups:
+                    gname = shirt.vertex_groups[g.group].name
+                    group = obj.vertex_groups.get(gname) or obj.vertex_groups.new(name=gname)
+                    group.add([v.index], g.weight, "REPLACE")
+            return obj
         for v in obj.data.vertices:
             for gi, w in (trunk_weights(v.co.z) or {}).items():
                 group = obj.vertex_groups.get(names[gi]) or obj.vertex_groups.new(name=names[gi])
