@@ -809,3 +809,20 @@ side. From the front the defaults now hold up beside the references; what is lef
    green, the ranger's yellow), reading as shoulder pads rather than one collar round the neck.
 3. **The spiky hair's nape** ends in a hard level edge with teeth hanging from it across the back of the head, a helmet's rim.
 4. **Small shards at the top of the shoulders** remain on the flowered shirt from behind, and on every shirt when the fists come up.
+
+## Sailor collar and the collar's back (2026-10-29, items 1 and 2 of the third comparison)
+The sailor's collar was flat boxes built in the game; over the loose modelled shirt most of the back flap sat inside the cloth and only
+two corners showed, as floating blue tabs. Separately, every shirt collar was built in two halves meeting at the spine, which left a
+seam of shirt down the back: from behind, two pads on the shoulder blades. Mocked a modelled square flap, that with a pale edge stripe,
+and a deeper flap; the owner chose the stripe.
+- `make_rigged_blob.py` `collar`: one strip from the throat's left round the back to its right (was two halves), and a `shape` per
+  collar. The shirt collar and the camp collar keep COLLAR_SHAPE and now close at the back.
+- `SailorCollar` and `SailorStripe`: the same band laid on the shirt with `SAILOR_SHAPE` (narrow down the front and over the shoulders,
+  a broad square flap across the back), and a pale stripe along its free edge (`SAILOR_STRIPE_AT`, `SAILOR_STRIPE_ROWS`). Rig rebuilt
+  (mesh only).
+- `fighter_view.gd`: worn with the neckerchief's sailor collar (and the kerchief and sash), in the fleck print by the cloth's rest
+  position. The code-built boxes (`_sailor_collar`) stay only for a rig without the modelled collar.
+
+`sailor_collar_pass.png`: the sailor from behind, the side, three-quarters behind and the front, and in the menu front and back, before
+above after; the aviator and the ranger from behind, before above after; a match frame before and after. Art pipeline, fighter view,
+loadout, animation library, match flow, motion, select grid and editor UI tests pass.

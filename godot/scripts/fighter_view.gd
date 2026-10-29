@@ -449,6 +449,12 @@ func _build_rig(skin: Material) -> bool:
 			# reference's scout shirts: in the collar's colour it ran down the chest as a painted stripe.)
 			if part.begins_with("ShirtPlacket") and loadout.shirt in [1, 2]:
 				mi.material_override = _cloth(_garment_shirt_material())
+		elif part.begins_with("SailorCollar") or part.begins_with("SailorStripe"):
+			# The sailor's square collar, modelled on the shirt (make_rigged_blob.py's `shirt_front`), with a pale stripe along its edge;
+			# with the neckerchief's sailor collar and kerchief and sash. In the fleck print by the cloth's rest position, as the shirt.
+			# (Built here from flat boxes until the sailor collar pass, 2026-10-29: see `_sailor_collar`.)
+			mi.visible = (loadout.neck == 5 or loadout.neck == 8) and loadout.shirt > 0
+			mi.material_override = _cloth(_fleck(loadout.accent_color() if part.begins_with("SailorCollar") else Color(0.97, 0.96, 0.92)))
 		elif part.begins_with("Buttons"):
 			# (Not under a sash, the badge pass, 2026-10-19: the band crosses the button line and the buttons poked through it as a row of
 			# pale dots in the middle of the chest.)
@@ -2103,7 +2109,8 @@ func _neck_on_rig(accent: Color) -> void:
 	# (6 a leather strap, 7 a leather strap with badges, 8 a neckerchief with the sailor's collar, since the sash pass, 2026-10-28.)
 	for piece in ([2, 1] if loadout.neck == 5 else ([2] if loadout.neck == 8 else [loadout.neck])):
 		_neck_piece(accent, piece)
-	if (loadout.neck == 5 or loadout.neck == 8) and loadout.shirt > 0:
+	# (Only for a rig without the modelled sailor collar, the sailor collar pass, 2026-10-29.)
+	if (loadout.neck == 5 or loadout.neck == 8) and loadout.shirt > 0 and (rig == null or rig.find_child("SailorCollar", true, false) == null):
 		_sailor_collar(accent)
 	if (loadout.neck == 1 or loadout.neck == 7) and loadout.shirt == 2:
 		_kerchief_knot(Color(0.7, 0.16, 0.16))
