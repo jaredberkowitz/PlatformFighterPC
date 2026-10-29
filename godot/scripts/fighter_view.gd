@@ -2223,7 +2223,8 @@ func _neck_piece(accent: Color, kind: int) -> void:
 				torso_rig.add_child(cape_rig)
 				cape_rig.transform = torso_fit.affine_inverse()
 				# (A step deeper than the outfit's colour, so it parts from shorts of the same colour behind it.)
-				cape_rig.build(modelled, _fabric(accent.darkened(0.3)))
+				# (Plain cloth, not `_fabric`'s print: laid by the part's position, it would slide over the cape as it swings.)
+				cape_rig.build(modelled, _cloth(toon(accent.darkened(0.3))))
 				meshes.append_array(cape_rig.meshes())
 			else:
 				var at := _collar(accent)
@@ -2444,14 +2445,14 @@ func _gear_model(name: String, accent: Color) -> bool:
 	gold.set_shader_parameter("metal", 0.3)
 	gold.set_shader_parameter("rim_strength", 0.2)
 	# (A model's "metal" is the helm's steel, or the caps' brass; "brass" and "gold" name themselves.)
-	var mats := {"fabric": _fabric(accent), "canvas": _cloth(toon(Color(0.95, 0.94, 0.9))), "leather": _cloth(toon(Color(0.4, 0.25, 0.17))),
+	var mats := {"fabric": _fabric(accent), "canvas": _fabric(Color(0.95, 0.94, 0.9)), "leather": _cloth(toon(Color(0.4, 0.25, 0.17))),
 		"metal": steel if name == "plumed_helm" else brass, "brass": brass, "gold": gold, "glass": toon(Color(0.66, 0.84, 0.95), false),
 		"straw": straw, "hair": toon(FaceLook.hair_color(loadout.brow_color)),
 		# (Cream fleece, the aviator scout pilot, 2026-10-19.)
 		# (A soft curly painted tile, the character judge's round 1: the fleece read as a smooth ring.)
-		"navy": _cloth(toon(Color(0.2, 0.28, 0.58))),
+		"navy": _fabric(Color(0.2, 0.28, 0.58)),
 		# (The hood in the outfit's colour a shade deeper, its rolled rim a lighter lining, the hood pass, 2026-10-25.)
-		"hood": _cloth(toon(accent.darkened(0.18))), "lining": _cloth(toon(accent.lightened(0.35))),
+		"hood": _fabric(accent.darkened(0.18)), "lining": _fabric(accent.lightened(0.35)),
 		"fleece": toon(Color(1, 1, 1), true, SvgArt.texture("res://art/cloth/fleece.svg", {"#ff00ff": Color(0.93, 0.86, 0.72)}), Vector2(1, 2))}
 	# One mesh per material, its parts merged (the loadout budget, docs plan 7.3: the crown's set stones and the helm's plume feathers, a
 	# mesh each, came to 16 and 24 meshes on one hat).
@@ -2489,8 +2490,15 @@ func _gear_model(name: String, accent: Color) -> bool:
 
 ## A fabric accessory's material (hats, neckwear, bands): the cloth's softer step and fine weave (`_cloth`), as the shirts and shorts
 ## have (2026-10-18, the owner after the reference cast: the accessories in flat plastic read cheaper than the clothes).
+## (In the fleck print since the headwear pass, 2026-10-29, the owner's pick of mocks, as the reference's cap carries its shirt's speckle:
+## laid by each part's own position, `part_tri`, as these rigid parts have no rest maps.)
 func _fabric(c: Color) -> Material:
-	return _cloth(toon(c))
+	var key := "part" + c.to_html()
+	if not _fleck_cache.has(key):
+		var m: ShaderMaterial = toon(c, true, SvgArt.texture("res://art/cloth/fleck.svg"), FLECK_TILE).duplicate()
+		m.set_shader_parameter("part_tri", true)
+		_fleck_cache[key] = m
+	return _cloth(_fleck_cache[key])
 
 
 func _collar(accent: Color, snug := 1.0, lift := 0.0, thick := 1.0) -> float:

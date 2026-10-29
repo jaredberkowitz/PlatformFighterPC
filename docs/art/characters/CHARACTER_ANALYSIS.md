@@ -774,3 +774,17 @@ scratch rig.
 `collar_band_pass.png`: the aviator close, fists raised, before above after; the sailor and the ranger, before left and after right; the
 aviator with arms relaxed (as is, collar hidden, shirt hidden, ink off, head hidden), before above after; a match frame before and after.
 Art pipeline, fighter view, loadout, animation library, match flow, motion and select grid tests pass.
+
+## Headwear and neckwear print (2026-10-29, item 5 of the second comparison)
+The reference's cap carries the same soft speckle as its shirt; our caps, hood and neckwear were flat. Mocked the fleck print on the
+hats' cloth at the shirts' scale, finer, and on the hats' cloth and the neckwear; the owner chose the last.
+- `toon_common.gdshaderinc` `part_tri`: the print laid three ways by the part's own position (as `rest_tri` lays the garments' by
+  their rest position): the hats and neckwear are rigid parts with no rest maps. Off for everything else.
+- `fighter_view.gd` `_fabric` (the neckwear, the code-built hats' cloth, the modelled hats' "fabric") and the modelled hats' canvas,
+  navy, hood and lining all take the fleck. The cape keeps plain cloth: it is skinned to its spring bones, so a print laid by position
+  would slide over it as it swings.
+- It shows close and in the menus; at match size it fades into the colour.
+
+`headwear_pass.png`: the sailor cap, beanie and hood close, before above after; six heads (sailor, aviator, dixie cap, hood, beanie),
+before left and after right; the default looks in the menu, before above after; a match frame before and after. Fighter view, art
+pipeline, loadout, match flow, select grid, editor UI, prop check and camera tests pass.

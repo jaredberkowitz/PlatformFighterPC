@@ -17,6 +17,10 @@ uniform float world_tile = 0.0;
 // side and top, blended by which way the cloth faces at rest: laid front-on only, a print stretched into streaks round the sides (the
 // fleck pass, 2026-10-28). For prints that read the same any way round (the fleck); the stripes and flowers keep the front-on map.
 uniform bool rest_tri = false;
+// The same, laid by the part's own position instead (a rigid part with no rest maps: the hats' cloth, the neckwear; the headwear pass,
+// 2026-10-29).
+uniform bool part_tri = false;
+varying vec3 part_pos;
 // World-laid surfaces only: how much their colour drifts lighter and darker in broad, slow patches across the stage (0 = none), so a
 // repeating pattern does not read as one tile stamped over and over.
 uniform float world_vary = 0.08;
@@ -139,6 +143,7 @@ uniform vec4 hem_color : source_color = vec4(0.1, 0.07, 0.12, 1.0);
 #endif
 
 void vertex() {
+	part_pos = VERTEX;
 	world_pos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 	world_normal = normalize((MODEL_MATRIX * vec4(NORMAL, 0.0)).xyz);
 	vshade = vertex_shade ? COLOR.rgb : vec3(1.0);
@@ -181,8 +186,8 @@ void fragment() {
 		if (world_tile > 0.0) {
 			uv = (abs(world_normal.y) > 0.5 && !front_only ? world_pos.xz : vec2(world_pos.x, -world_pos.y)) / world_tile;
 		}
-		if (rest_tri) {
-			vec3 rest = vec3(UV.x, UV.y, UV2.x) * tex_scale.x;
+		if (rest_tri || part_tri) {
+			vec3 rest = (part_tri ? part_pos : vec3(UV.x, UV.y, UV2.x)) * tex_scale.x;
 			// (The rest-pose facing from the rest position's slope across the pixel: the posed normal turns with every bone.)
 			vec3 w = pow(abs(normalize(cross(dFdx(rest), dFdy(rest)))), vec3(4.0));
 			w /= w.x + w.y + w.z + 1e-5;
