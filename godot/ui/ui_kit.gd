@@ -283,8 +283,20 @@ class TopBar extends Control:
 		mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 	func _draw() -> void:
-		draw_rect(Rect2(0, 0, size.x, HEIGHT), Color(Art.INK, 0.94))
-		draw_line(Vector2(0, HEIGHT), Vector2(size.x, HEIGHT), D.GOLD, 3.0)
+		if Art.paper_style() > 0:
+			# (Paper: a strip of dark paper over a gold one, their cut edges lit, on a soft shadow.)
+			var gold := PackedVector2Array([Vector2(0, 0), Vector2(size.x, 0), Vector2(size.x, HEIGHT + 4.0), Vector2(0, HEIGHT + 4.0)])
+			for layer in [[Vector2(0, 3), 0.18], [Vector2(0, 7), 0.1]]:
+				var sh := PackedVector2Array()
+				for q in gold:
+					sh.append(q + (layer[0] as Vector2))
+				draw_colored_polygon(sh, Color(Art.INK, float(layer[1])))
+			draw_colored_polygon(gold, D.GOLD)
+			draw_rect(Rect2(0, 0, size.x, HEIGHT), Color("1d2244"))
+			draw_line(Vector2(0, HEIGHT - 1.0), Vector2(size.x, HEIGHT - 1.0), Color(Art.PAPER_EDGE, 0.5), 2.0)
+		else:
+			draw_rect(Rect2(0, 0, size.x, HEIGHT), Color(Art.INK, 0.94))
+			draw_line(Vector2(0, HEIGHT), Vector2(size.x, HEIGHT), D.GOLD, 3.0)
 		Art.title(self, title, Vector2(40, 43), TYPE_HEADING, Color.WHITE, 0.0)
 		var f := D.display_font()
 		var x := size.x - 40.0
@@ -674,10 +686,35 @@ class Reveal extends CanvasLayer:
 		var k := clampf(t / MOTION_SCREEN, 0.0, 1.0)
 		var ease := 1.0 - pow(1.0 - k, 3.0)
 		var lean := h * 0.35
+		if Art.paper_style() > 0:
+			_paint_paper(w, h, ease, lean)
+			return
 		var x1 := lerpf(-lean, w + lean, ease)
 		board.draw_colored_polygon(PackedVector2Array([Vector2(x1, 0), Vector2(w + lean, 0), Vector2(w + lean, h), Vector2(x1 - lean, h)]), Color(0.06, 0.07, 0.14))
 		var x2 := lerpf(-lean - 40.0, w + lean, clampf(ease * 1.12, 0.0, 1.0))
 		board.draw_colored_polygon(PackedVector2Array([Vector2(x2, 0), Vector2(x2 + 26.0, 0), Vector2(x2 + 26.0 - lean, h), Vector2(x2 - lean, h)]), D.GOLD)
+
+	## The paper look's wipe: two sheets of paper slide off the screen to the right, an ink one and a gold one just behind its edge,
+	## their leading edges cut ragged (torn by hand), each with a pale cut edge and a shadow on the screen it uncovers.
+	func _paint_paper(w: float, h: float, ease: float, lean: float) -> void:
+		for sheet in [[D.GOLD, clampf(ease * 0.94, 0.0, 1.0), 34.0], [Color("1d2244"), ease, 0.0]]:
+			var x := lerpf(-lean, w + lean + 60.0, float(sheet[1])) + float(sheet[2])
+			var edge := PackedVector2Array()
+			var n := 14
+			for k in n + 1:
+				var y := h * k / n
+				edge.append(Vector2(x - lean * (y / h) + Art.noise(k * 37 + int(sheet[2])) * 9.0, y))
+			var shadow := PackedVector2Array()
+			for q in edge:
+				shadow.append(q + Vector2(-10, 0))
+			shadow.append(Vector2(w + lean + 200.0, h))
+			shadow.append(Vector2(w + lean + 200.0, 0))
+			board.draw_colored_polygon(shadow, Color(D.INK, 0.18))
+			var poly := edge.duplicate()
+			poly.append(Vector2(w + lean + 200.0, h))
+			poly.append(Vector2(w + lean + 200.0, 0))
+			board.draw_colored_polygon(poly, sheet[0])
+			board.draw_polyline(edge, Color(Art.PAPER_EDGE, 0.85), 3.0, true)
 
 
 static func reveal(screen: Node) -> void:

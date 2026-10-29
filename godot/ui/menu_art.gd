@@ -225,6 +225,9 @@ static func _paper_banner(c: CanvasItem, rect: Rect2, fill: Color, lean: float, 
 		_paper_shadow(c, strip, fill.a)
 	c.draw_colored_polygon(strip, Color(SUN, fill.a))
 	_paper_edges(c, strip, SUN, 1.5)
+	# (An ink band is printed on a deep indigo paper, not the near-black ink, so it reads as a sheet.)
+	if fill.v < 0.25:
+		fill = Color("232955", fill.a)
 	c.draw_colored_polygon(pts, fill)
 	_paper_fibre(c, Rect2(x0, y0, x1 - x0, h).grow(-4), int(x1) + int(y0), fill.a)
 	_paper_edges(c, pts, fill, 2.5)
