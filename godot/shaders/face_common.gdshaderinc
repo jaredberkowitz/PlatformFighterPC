@@ -58,7 +58,9 @@ uniform vec4 freckle_color : source_color = vec4(0.25, 0.15, 0.12, 1.0);
 uniform vec4 ink_color : source_color = vec4(0.04, 0.04, 0.22, 1.0);
 // (A clean white since the face finish pass: the warm cream read greyish and dull.)
 // (A warm ivory since the reference pass, sampled off the salute's whites, 0.85, 0.83, 0.68; the owner: too white.)
-uniform vec4 cream_color : source_color = vec4(0.86, 0.83, 0.69, 1.0);
+// (Less yellow since the eye-white pass, 2026-10-29, the owner's pick of mocks: the salute's ivory sits on yellow skin; beside pink skin
+// it read as khaki, the ranger's whites tired or ill. Still well short of white.)
+uniform vec4 cream_color : source_color = vec4(0.88, 0.86, 0.79, 1.0);
 
 // Where `uv` falls in a part's drawing (0..1 inside it) for a part at `centre`. `side` is 1 for the right-hand part (or a single one)
 // and -1 for the left, which is mirrored and turned the other way.

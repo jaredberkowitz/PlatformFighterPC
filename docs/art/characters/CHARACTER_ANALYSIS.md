@@ -735,3 +735,15 @@ with a short row behind); the owner chose the bangs.
 
 `fringe_pass.png`: the holiday shirt's look from the front, three-quarters and the side and in the menu, before above after; a match
 frame before and after. Art pipeline, loadout (mesh budget), fighter view, match flow and select grid tests pass.
+
+## Eye whites (2026-10-29, item 3 of the second comparison)
+The ranger's whites read grey-olive, tired or ill. Rendered with the hat off and with the lid's shadow off: neither was the cause. Every
+face shares one ivory, sampled off the salute's whites on yellow skin (0.86, 0.83, 0.69); beside pink skin its yellow reads khaki. Mocked
+whites tinted toward each skin's hue, a less yellow ivory on every face, and the tinted whites with a lighter edge shade; the owner chose
+the less yellow ivory (the tinted ones read tan).
+- `face_common.gdshaderinc` `cream_color` 0.88, 0.86, 0.79: still well short of white (the owner found white too bright), less yellow.
+  On every face, in the game and in the creator.
+
+`eye_white_pass.png`: the ranger front and three-quarter and the sailor close, before above after; the aviator and holiday shirt, before
+left and after right; the default looks in the menu, before above after; a match frame before and after. Fighter view, art pipeline,
+loadout, editor UI, select grid and match flow tests pass.
