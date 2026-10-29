@@ -81,6 +81,11 @@ static func skew_points(rect: Rect2, skew := SKEW) -> PackedVector2Array:
 ## A slanted panel: a soft two-step shadow, a fill that is lighter at the top (a little gloss), a thin highlight under the top edge,
 ## and an optional ink edge.
 static func draw_slant(c: CanvasItem, rect: Rect2, fill: Color, edge := Color(0, 0, 0, 0), edge_width := 3.0, shadow := true, skew := SKEW) -> void:
+	# (The paper look, the owner's pick A: a strip of paper with cut edges, lit from the upper left, on a soft lifted shadow; a gold
+	# edge, the focus, stays as a cut gold border.)
+	if paper_on():
+		_paper_slant(c, rect, fill, edge, edge_width, shadow, skew)
+		return
 	if shadow:
 		c.draw_colored_polygon(skew_points(Rect2(rect.position + Vector2(6, 10), rect.size), skew), Color(0, 0, 0, 0.12 * fill.a))
 		c.draw_colored_polygon(skew_points(Rect2(rect.position + Vector2(3, 5), rect.size), skew), Color(0, 0, 0, 0.22 * fill.a))
@@ -97,6 +102,42 @@ static func draw_slant(c: CanvasItem, rect: Rect2, fill: Color, edge := Color(0,
 	if edge.a > 0.0:
 		pts.append(pts[0])
 		c.draw_polyline(pts, edge, edge_width, true)
+
+
+## Whether the menus are in the paper look (ui/menu_art.gd `paper_style`; kept here so the drawing helpers need no circular preload).
+static var _paper_on := -1
+
+
+static func paper_on() -> bool:
+	if _paper_on < 0:
+		var pick := OS.get_environment("PF_UI_PAPER")
+		for a in OS.get_cmdline_user_args():
+			if a.begins_with("--ui-paper="):
+				pick = a.substr(11)
+		_paper_on = 0 if pick.to_upper().begins_with("0") else 1
+	return _paper_on == 1
+
+
+static func _paper_slant(c: CanvasItem, rect: Rect2, fill: Color, edge: Color, edge_width: float, shadow: bool, skew: float) -> void:
+	var pts := skew_points(rect, skew)
+	if shadow and fill.a > 0.3:
+		for layer in [[Vector2(2, 3), 0.18], [Vector2(4, 7), 0.1]]:
+			var sh := PackedVector2Array()
+			for q in pts:
+				sh.append(q + (layer[0] as Vector2))
+			c.draw_colored_polygon(sh, Color(INK, float(layer[1]) * fill.a))
+	c.draw_colored_polygon(pts, fill)
+	if fill.a > 0.5:
+		var pale := Color(1.0, 0.97, 0.9, 0.85 * fill.a)
+		var deep := Color(fill.darkened(0.45), 0.7 * fill.a)
+		c.draw_line(pts[0] + Vector2(1, 1.2), pts[1] + Vector2(-1, 1.2), pale, 2.0, true)
+		c.draw_line(pts[3] + Vector2(1, 0), pts[0] + Vector2(1, 1), pale, 2.0, true)
+		c.draw_line(pts[2] + Vector2(0, -1.2), pts[3] + Vector2(0, -1.2), deep, 2.0, true)
+		c.draw_line(pts[1] + Vector2(-1, 0), pts[2] + Vector2(-1, 0), deep, 2.0, true)
+	if edge.a > 0.0:
+		var ring := pts.duplicate()
+		ring.append(pts[0])
+		c.draw_polyline(ring, edge, edge_width, true)
 
 
 ## A soft glow around a slanted panel (selected buttons and tiles).
