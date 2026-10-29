@@ -799,3 +799,13 @@ rows running round the hat, and a wider braid; the owner chose the braided rows.
 
 `straw_pass.png`: the ranger's hat from the front, three-quarters, above and the side, close on the crown, and in the menu, before above
 after. Fighter view, loadout and art pipeline tests pass.
+
+## Weak points after the third comparison (2026-10-29)
+`comparison_2026-10-29.png`: the references above; our default looks' faces close, at three-quarters, then close from behind and the
+side. From the front the defaults now hold up beside the references; what is left shows from behind and the side, most visible first:
+1. **The sailor collar's back flap** shows as two floating blue tabs on the shirt's back, and from the side as a bar standing off it;
+   the reference's sailor collar is one square flap across the back with a pale stripe round its edge.
+2. **The shirt collar's band is split at the back**: two separate bars over the shoulder blades with a gap at the spine (the aviator's
+   green, the ranger's yellow), reading as shoulder pads rather than one collar round the neck.
+3. **The spiky hair's nape** ends in a hard level edge with teeth hanging from it across the back of the head, a helmet's rim.
+4. **Small shards at the top of the shoulders** remain on the flowered shirt from behind, and on every shirt when the fists come up.
