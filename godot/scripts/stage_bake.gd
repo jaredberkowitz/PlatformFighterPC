@@ -555,6 +555,12 @@ static func place_play(root: Node3D, t: Dictionary, path: String) -> void:
 		# (C and D, fidelity review 15 item 1: under the colourful shade the meadow's land round the fighters lightened, and P1's gap fell
 		# from 0.138 to 0.105 at B.)
 		ground = {"A": [0.2, 0.0], "B": [0.32, 0.08], "C": [0.42, 0.08], "D": [0.5, 0.1]}.get(flag("--ground=").to_upper(), ground)
+	var floor_look := String((StageArt.palette(String(t.get("name", ""))).get("backdrop", {}) as Dictionary).get("floor_look", "A"))
+	if flag("--floor=") != "":
+		floor_look = flag("--floor=").to_upper()
+	var bright: Dictionary = FLOOR_TRY.get(floor_look, {})
+	if ground.size() == 2 and bright.has("ground"):
+		ground = [float(ground[0]) * float(bright.ground), float(ground[1]) * float(bright.ground)]
 	if ground.size() == 2:
 		for fam in ["lawn", "top", "path", "top_deep", "top_lit", "top_worn"]:
 			if colours.has(fam):
@@ -583,13 +589,41 @@ static func place_play(root: Node3D, t: Dictionary, path: String) -> void:
 			# (Form on the ground, the light pass, the owner's pick 2026-10-21: the top falls softly into shade toward its front edge; the
 			# lawns read flat once the scenery's ink went.)
 			if fam in ["lawn", "top", "path", "fringe", "top_deep", "top_lit", "top_worn", "nail"]:
-				m.set_shader_parameter("lawn_fall", 0.9)
+				m.set_shader_parameter("lawn_fall", 0.9 * float(bright.get("fall", 1.0)))
 				m.set_shader_parameter("lawn_front", StageArt.STAGE_FRONT)
 				m.set_shader_parameter("lawn_span", 6.0)
+			# (Bright floors on trial, the owner 2026-10-29; see FLOOR_TRY.)
+			if fam in ["lawn", "top", "path", "fringe", "top_deep", "top_lit", "top_worn", "plank", "plank_b", "deck_board", "steel"]:
+				if bright.has("clouds"):
+					m.set_shader_parameter("cloud_shade", float(bright.clouds))
+				if bright.has("cast"):
+					m.set_shader_parameter("shadow_amount", float(bright.cast))
+				if bright.get("bare", false):
+					m.set_shader_parameter("vertex_shade", false)
 			_paint_drift(m, t, true)
 			mi.set_surface_override_material(s, m)
 		mi.set_meta("prebaked", true)
 	print("play mock: placed %s" % path.get_file())
+
+
+## Bright floors (the owner, 2026-10-29: "the shadows are beginning to drown out the floors of the stages"; the canyon's top read
+## almost all shadow, dark and muddy, where the papercraft reference's floors are bright with small shadows under things). The owner's
+## pick: A on every stage, B on the canyon (the palette's [backdrop] `floor_look`, A without; `--floor=T|A|B|C` to compare, T as before).
+## On the walked tops and the platforms:
+##   A  the drifting cloud shadows of fidelity review 7 (0.9 deep over 60% of every upward face near the stage) off them, the land
+##      round them as it is: most of what read as a floor in shadow;
+##   B  A, the sun's cast shadows on them lighter (`shadow_amount` 0.35 of the scenery's 0.8), their fall into shade toward the front
+##      edge halved, and the deeper fighters' ground of fidelity review 14 item 2 (`fight_ground`) halved;
+##   C  B, and the contact shade baked into the play pieces off on them, the cast shadows lighter still (0.2).
+## (A first try without the clouds, B and C here less A, barely moved the canyon's top: the clouds were the shadow.)
+## (B on the meadow and grove washed the yellow and orange fighters into the pale lawns, P1's gap 0.05 to 0.06; the canyon's sand is
+## another hue and holds 0.19.)
+const FLOOR_TRY := {
+	"T": {},
+	"A": {"clouds": 0.0},
+	"B": {"clouds": 0.0, "cast": 0.35, "fall": 0.5, "ground": 0.5},
+	"C": {"clouds": 0.0, "cast": 0.2, "fall": 0.3, "ground": 0.5, "bare": true},
+}
 
 
 ## Modelled play areas (the stage's top and its platforms, art/blender/make_meadow_play.py), by the exact stage they were built on.
@@ -1197,7 +1231,10 @@ static func _paint_ground(node: Node3D, colours: Dictionary, t := {}) -> void:
 		finish = flag("--ground-finish=").to_upper()
 	# (The beach's headland painted, fidelity review 15 item 4: through the air at about 200 its folded hill and pop-up flats were one pale
 	# sage card. `--headland=A|B`, see HEADLAND_TRY.)
-	var head: Dictionary = HEADLAND_TRY.get(flag("--headland=").to_upper(), {}) if String(t.get("name", "")) == "ocean" else {}
+	var head_look := String((StageArt.palette(String(t.get("name", ""))).get("backdrop", {}) as Dictionary).get("headland", ""))
+	if flag("--headland=") != "":
+		head_look = flag("--headland=").to_upper()
+	var head: Dictionary = HEADLAND_TRY.get(head_look, {}) if String(t.get("name", "")) == "ocean" else {}
 	for mi: MeshInstance3D in node.find_children("*", "MeshInstance3D", true, false):
 		for s in mi.mesh.get_surface_count():
 			var src := mi.mesh.surface_get_material(s)
@@ -1225,7 +1262,8 @@ static func _paint_ground(node: Node3D, colours: Dictionary, t := {}) -> void:
 
 ## A front's strata lifted toward a pale warm sand by the theme's `front_lift` (`--front-lift=` to try): fidelity review 5, the canyon's
 ## front dark and saturated (value 0.30, saturation 0.61) weighing down the lower half of the frame.
-## The beach's headland painted, on trial (fidelity review 15 item 4, `--headland=A|B`), as the meadow's peaks have it:
+## The beach's headland painted (fidelity review 15 item 4, the owner's pick B: ocean.cfg [backdrop] `headland`; `--headland=T|A|B` to
+## compare, T as before), as the meadow's peaks have it:
 ##   A  painted patches over its folded hill and pop-up flats, the tops warmer and the walls cooler (toon_common `paint_drift`);
 ##   B  A, its greens a step deeper and richer, two fifths of the air over it, and the toon ramp's turn moved up (`ramp_center` 0.62) so
 ##      the folds turned from the sun fall into shade: a lit side and a shade side toward the town.
