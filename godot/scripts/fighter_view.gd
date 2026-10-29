@@ -5598,6 +5598,49 @@ func _arms_beside_head(facing: int) -> void:
 			sgn = -float(facing)
 
 
+## The sides whose leg `_aim_leg` placed this frame.
+var legs_aimed: Array = []
+## Joint limits (round 8, the owner's standing rule 2026-10-29: no unnatural limb bending). A knee or an elbow the clip poses (not placed
+## by the IK, which keeps its own hinge) folds only its natural way and at most this far: measured over every gallery the airs' tucks folded
+## the knees past 160 degrees, the shin through the thigh, and some clip elbows (the knockdown, the Bracers' idle) bent backward.
+const KNEE_MAX := 150.0
+const ELBOW_MAX := 150.0
+## How far a joint may bend the wrong way before it is straightened (a straight limb's sign is noise).
+const JOINT_BACK_SLACK := 8.0
+
+
+func _limit_joints() -> void:
+	for limb in [["thigh", "shin", "foot", 1.0, KNEE_MAX], ["armU", "armL", "hand", -1.0, ELBOW_MAX]]:
+		for side in ["L", "R"]:
+			if (limb[0] == "thigh" and legs_aimed.has(side)) or (limb[0] == "armU" and arms_held.has(side)):
+				continue
+			var a := skeleton.find_bone(limb[0] + "." + side)
+			var b := skeleton.find_bone(limb[1] + "." + side)
+			var c := skeleton.find_bone(limb[2] + "." + side)
+			if a < 0 or b < 0 or c < 0:
+				continue
+			var pa := skeleton.get_bone_global_pose(a)
+			var pb := skeleton.get_bone_global_pose(b)
+			var pc := skeleton.get_bone_global_pose(c)
+			var u := pb.origin - pa.origin
+			var l := pc.origin - pb.origin
+			if u.length() < 0.001 or l.length() < 0.001:
+				continue
+			var h: Vector3 = pa.basis.x.normalized() * float(limb[3])
+			# The fold about the hinge, signed so the natural way is positive (-180..180; past fully closed reads as a large negative).
+			var fold := rad_to_deg(atan2(u.cross(l).dot(h), u.dot(l)))
+			var want := fold
+			if fold > float(limb[4]) or fold < -90.0:
+				want = float(limb[4])
+			elif fold < -JOINT_BACK_SLACK:
+				want = 0.0
+			if want == fold:
+				continue
+			var turn := Basis(h, deg_to_rad(want - fold))
+			skeleton.set_bone_global_pose_override(b, Transform3D(turn * pb.basis, pb.origin), 1.0, true)
+			skeleton.set_bone_global_pose_override(c, Transform3D(turn * pc.basis, pb.origin + turn * (pc.origin - pb.origin)), 1.0, true)
+
+
 ## Two-bone IK for one arm: the hand to `target` (stage frame), blended in by `amount` over the clip's pose.
 func _ik_arm(side: String, mine: bool, target: Vector3, amount: float) -> void:
 		var iu := skeleton.find_bone("armU." + side)
@@ -5732,6 +5775,7 @@ const OVERHEAD_KICK := 40.0
 ## A kick: the leg on the side of the hitbox reaches the live hitbox with two-bone IK (hip, knee, ankle), so the foot is where the hit
 ## is; the other leg and the body come from the move's clip.
 func _aim_leg(s: Dictionary, kicking: bool, delta: float) -> void:
+	legs_aimed.clear()
 	if skeleton == null:
 		return
 	var tip: Vector3 = s.move_tip
@@ -5758,6 +5802,7 @@ func _aim_leg(s: Dictionary, kicking: bool, delta: float) -> void:
 			skeleton.set_bone_global_pose_override(ish, Transform3D(), 0.0, false)
 			skeleton.set_bone_global_pose_override(ift, Transform3D(), 0.0, false)
 			continue
+		legs_aimed.append(side)
 		var rest_t := skeleton.get_bone_global_rest(it)
 		var rest_s := skeleton.get_bone_global_rest(ish)
 		var rest_f := skeleton.get_bone_global_rest(ift)
@@ -6759,6 +6804,8 @@ func _apply_combat(s: Dictionary, delta: float) -> void:
 		if carrying:
 			_carry_weapon(int(s.facing))
 		_aim_leg(s, state == "Attack" and AnimLibrary.is_kick(AnimLibrary.attack_clip(_cls(s), s.move_name, anim)), delta)
+		if use_base_body and not r8_off.has("joints"):
+			_limit_joints()
 		_update_smear(s)
 		if log_cover:
 			_log_face_cover(s)
