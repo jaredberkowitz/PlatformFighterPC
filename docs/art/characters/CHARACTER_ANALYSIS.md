@@ -788,3 +788,14 @@ hats' cloth at the shirts' scale, finer, and on the hats' cloth and the neckwear
 `headwear_pass.png`: the sailor cap, beanie and hood close, before above after; six heads (sailor, aviator, dixie cap, hood, beanie),
 before left and after right; the default looks in the menu, before above after; a match frame before and after. Fighter view, art
 pipeline, loadout, match flow, select grid, editor UI, prop check and camera tests pass.
+
+## Straw braid (2026-10-29, item 6 of the second comparison)
+The straw hat's weave was a basketweave of square blocks, which close up read as a checkerboard. Mocked the same weave finer, braided
+rows running round the hat, and a wider braid; the owner chose the braided rows.
+- `godot/art/cloth/straw_braid.svg` (`tools/art/make_straw_braid.py`): rows of plaited straw, each a herringbone of slanted strands with
+  a fine seam between rows. The modelled straw hat's texture map runs round the crown and the brim, so the rows coil round the crown and
+  ring the brim, as a hat sewn from one long braid. The ranger, the traveller and the villager wear it.
+- The code-built stand-in hat (without the model) keeps its old weave.
+
+`straw_pass.png`: the ranger's hat from the front, three-quarters, above and the side, close on the crown, and in the menu, before above
+after. Fighter view, loadout and art pipeline tests pass.

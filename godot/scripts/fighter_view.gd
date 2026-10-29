@@ -2433,7 +2433,9 @@ func _gear_model(name: String, accent: Color) -> bool:
 	model.position = -HAT_PIVOT
 	hat_pivot.add_child(model)
 	# (A fine low-contrast weave, the character judge's round 6: coarse, it read as a picnic cloth.)
-	var straw := toon(Color(1, 1, 1), true, SvgArt.texture("res://art/cloth/straw_fine.svg", {"#ff00ff": Color(0.92, 0.8, 0.48)}), Vector2(9, 9))
+	# (Braided rows running round the crown and the brim since the straw pass, 2026-10-29, the owner's pick of mocks: the basketweave's
+	# square blocks read as a checkerboard close up. tools/art/make_straw_braid.py.)
+	var straw := toon(Color(1, 1, 1), true, SvgArt.texture("res://art/cloth/straw_braid.svg", {"#ff00ff": Color(0.92, 0.8, 0.48)}), Vector2(9, 9))
 	var brass := (respond(toon(Color(0.78, 0.64, 0.38)), "gold") as ShaderMaterial).duplicate() as ShaderMaterial
 	brass.set_shader_parameter("metal", 0.3)
 	brass.set_shader_parameter("rim_strength", 0.2)
