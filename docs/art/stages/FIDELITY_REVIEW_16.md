@@ -120,3 +120,20 @@ On the Stage Look Review ("fighterfloor57", `fs57_*`). Close (the meadow top, th
 Recommended A. To ship:
 - `LAWN_COOL` A as the meadow's and grove's default (a palette key);
 - the contact shadow's 0.8 and 1.15 as FighterView's own.
+
+**Built A** (the owner's pick):
+- meadow.cfg and grove.cfg [backdrop] `lawn_cool="A"`;
+- the firmer contact shadow as FighterView's own, on every stage.
+
+`--fighter-floor=T` brings back both as before.
+
+In the game:
+
+| | Meadow | Grove | Canyon | Beach |
+|---|---|---|---|---|
+| P1's gap | 0.116 | 0.120 | 0.217 | 0.228 |
+| Top value | 0.43 | 0.53 | | |
+
+The meadow's capture differs from the mock (0.122) by the fighter's pose in that frame.
+
+Before and after (meadow top, grove bottom): `review16/fighters_floor_built.jpg`. All seven tests pass.
