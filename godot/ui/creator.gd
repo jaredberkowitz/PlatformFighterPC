@@ -27,7 +27,7 @@ const FACE_UI := preload("res://shaders/face_ui.gdshader")
 const CATEGORIES := [
 	{"id": "body", "title": "Body", "slot": "color", "kind": "swatch"},
 	{"id": "eyes", "title": "Eyes", "slot": "eyes", "color": "eye_color", "adjust": ["eye_y", "eye_gap", "eye_size", "eye_turn", "eye_squash"],
-		"face": true, "view": ["eye", 1.7]},
+		"face": true, "view": ["eye", 3.4]},
 	{"id": "brows", "title": "Brows", "slot": "brows", "color": "brow_color", "adjust": ["brow_y", "brow_gap", "brow_size", "brow_turn"],
 		"face": true, "view": ["brow", 1.7]},
 	{"id": "nose", "title": "Nose", "slot": "nose", "adjust": ["nose_y", "nose_size"], "face": true, "view": ["nose", 2.6]},
@@ -609,6 +609,10 @@ func _paint_thumb(t: Dictionary) -> void:
 		"cheek", "freckle":
 			y = FaceLook.EYE_Y + 0.1
 	mat.set_shader_parameter("view", Vector3(0.5, y, float(t.view[1])))
+	if str(t.view[0]) == "eye":
+		# (Close on one eye, the face's right: framed on the pair, the eight styles looked alike at the tile's size. Art audit
+		# 2026-10-29.)
+		mat.set_shader_parameter("view", Vector3(0.5 + FaceLook.EYE_GAP + FaceLook.offset(variant, "eye_gap") * 0.012, y, float(t.view[1])))
 	if str(t.view[0]) == "freckle":
 		# (Close on one cheek: the whole face showed the dots as specks.)
 		var cp: Vector3 = mat.get_shader_parameter("cheek_place")

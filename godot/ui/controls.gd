@@ -39,6 +39,13 @@ var display_page: Control
 var setting := 0
 var tabs: Array = []
 var keybar: Control
+## The keys page's two players' headings and columns (the player not being edited is dimmed).
+var heads: Array = []
+var boxes: Array = []
+## The keys page's groups, by the row each starts on (Bindings.ACTIONS' order): a caption in the gutter at the left of that row.
+const KEY_GROUPS := {0: "Move", 5: "Jump", 7: "Attack", 10: "Defend"}
+## How far the player not being edited is dimmed on the keys page.
+const OTHER_PLAYER_DIM := 0.62
 
 
 func _ready() -> void:
@@ -59,29 +66,39 @@ func _ready() -> void:
 		head.ink = Color(1, 1, 1)
 		head.edge = UI.INK
 		head.font_size = 28
-		head.position = Vector2(70 + p * 600, 90)
+		head.position = Vector2(150 + p * 570, 90)
 		add_child(head)
 		key_page.append(head)
 		var box := VBoxContainer.new()
-		box.position = Vector2(70 + p * 600, 142)
+		box.position = Vector2(150 + p * 570, 142)
 		box.add_theme_constant_override("separation", 4)
 		add_child(box)
 		key_page.append(box)
 		var col := []
-		for a in Bindings.ACTIONS:
+		for r in Bindings.ACTIONS.size():
+			var a: Array = Bindings.ACTIONS[r]
+			# (A small gap before each group after the first, so the twelve rows read as four groups.)
+			if r > 0 and KEY_GROUPS.has(r):
+				var gap := Control.new()
+				gap.custom_minimum_size = Vector2(0, 6)
+				box.add_child(gap)
 			var line := HBoxContainer.new()
 			line.add_theme_constant_override("separation", 6)
-			var label := UI.Tag.new(a[1], Vector2(250, 32))
+			var label := UI.Tag.new(a[1], Vector2(250, 30))
 			label.fill = Color(UI.INK, 0.72)
 			label.ink = Color(1, 1, 1, 0.92)
 			label.font_size = 19
 			line.add_child(label)
-			var key := UI.Tag.new("", Vector2(210, 32))
+			if KEY_GROUPS.has(r):
+				label.add_child(_group_caption(KEY_GROUPS[r]))
+			var key := UI.Tag.new("", Vector2(210, 30))
 			key.font_size = 21
 			line.add_child(key)
 			box.add_child(line)
 			col.append({"label": label, "key": key})
 		cells.append(col)
+		heads.append(head)
+		boxes.append(box)
 
 	# Where the controllers are set up, on a dark band so it reads over the sky.
 	info = UI.Tag.new("Controllers: press Q or E for the Controller page (buttons, tap jump, right stick, rumble)", Vector2(1160, 36))
@@ -161,6 +178,21 @@ func _ready() -> void:
 	Shot.attach(self)
 
 
+## A group's caption in the gutter left of its first row: small capitals in the secondary text colour (docs/UI_DESIGN_SYSTEM.md).
+func _group_caption(text: String) -> Label:
+	var cap := Label.new()
+	cap.text = text.to_upper()
+	cap.add_theme_font_override("font", UI.D.label_font())
+	cap.add_theme_font_size_override("font_size", UI.TYPE_CAPTION)
+	cap.add_theme_color_override("font_color", UI.D.LABEL)
+	cap.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	cap.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	cap.position = Vector2(-96, 0)
+	cap.size = Vector2(88, 30)
+	cap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return cap
+
+
 ## Switches between the keys, controller and display pages.
 func _set_page(p: int) -> void:
 	page = posmod(p, PAGES)
@@ -198,6 +230,8 @@ func _show() -> void:
 		display_rows[k].label.queue_redraw()
 	(display_page.get_node("About") as Control).set_text(VisualSettings.OPTIONS[VisualSettings.ORDER[setting]].about)
 	for p in 2:
+		heads[p].modulate.a = 1.0 if p == column else OTHER_PLAYER_DIM
+		boxes[p].modulate.a = 1.0 if p == column else OTHER_PLAYER_DIM
 		for r in cells[p].size():
 			var action: String = Bindings.ACTIONS[r][0]
 			var here: bool = p == column and r == row
