@@ -61,6 +61,12 @@ class Backdrop extends Control:
 		m.set_shader_parameter("mark", Color(D.GROUND_MARK, 0.06))
 		var tint := Color(1.0, 0.78, 0.7, 0.14) if warm else Color(D.GROUND_BOTTOM.darkened(0.06), dim * 0.5)
 		m.set_shader_parameter("tint", tint)
+		if Art.paper_style() > 0:
+			# (Paper: a warm sheet, lit from the upper left, deeper toward the foot.)
+			m.set_shader_parameter("paper", true)
+			m.set_shader_parameter("top", Color("f6f1e6"))
+			m.set_shader_parameter("bottom", Color("e2d8c4"))
+			m.set_shader_parameter("light", Color("fffaf0"))
 		rect.material = m
 		add_child(rect)
 
@@ -893,6 +899,13 @@ class Tile extends Control:
 	## A press: the card sinks into its body for a moment (1 at the press, easing to 0).
 	var press := 0.0
 	const TILE_SKEW := 0.08
+	## The entrance (paper look): 0 before the sheet is laid down, 1 once it rests; the menu sets 0 and a delay so the sheets land one
+	## after another, each dropping from a little above, turned, settling flat with its shadow tightening.
+	var enter := 1.0
+	var enter_delay := 0.0
+	const ENTER_TIME := 0.42
+	var _clock := 0.0
+	var _dropped := Vector2.ZERO
 
 	func _init(label: String, sub: String, tint: Color, glyph: String) -> void:
 		title = label
@@ -913,17 +926,30 @@ class Tile extends Control:
 		queue_redraw()
 
 	func _process(delta: float) -> void:
+		_clock += delta
 		var was := pop
 		pop = move_toward(pop, 1.0 if (selected or hover) else 0.0, delta / MOTION_FAST)
 		var was_press := press
 		press = move_toward(press, 0.0, delta * 7.0)
-		if pop == was and press == was_press and _laid == size:
+		var entering := enter < 1.0
+		if entering and _clock >= enter_delay:
+			enter = minf(1.0, enter + delta / ENTER_TIME)
+		# (Paper: the focused sheet floats a little on its mount, so it keeps drawing while focused.)
+		var floating := Art.paper_style() > 0 and pop > 0.0
+		if pop == was and press == was_press and _laid == size and not entering and not floating:
 			return
 		_laid = size
+		# The entrance: an overshooting ease, the sheet dropping in from up and left, turned, a touch bigger. (Added on top of wherever the
+		# screen's own entrance puts the tile, so the two never fight over its position.)
+		var e := _ease_back(enter)
+		var drop := Vector2(-8.0, -22.0) * (1.0 - e)
+		position += drop - _dropped
+		_dropped = drop
+		modulate.a = clampf(enter * 3.0, 0.0, 1.0)
 		# Focused, the tile stands out of the mosaic: tilted, a little bigger, over its neighbours (daylight, docs/UI_DESIGN_SYSTEM.md).
 		pivot_offset = size * 0.5
-		rotation = deg_to_rad(FOCUS_TILT) * pop
-		scale = Vector2.ONE * lerpf(1.0, focus_scale, pop)
+		rotation = deg_to_rad(FOCUS_TILT) * pop + deg_to_rad(-4.0) * (1.0 - e)
+		scale = Vector2.ONE * lerpf(1.0, focus_scale, pop) * (1.0 + 0.05 * (1.0 - e))
 		z_index = 1 if pop > 0.01 else 0
 		if mask != null:
 			var r := _card_rect()
@@ -994,7 +1020,14 @@ class Tile extends Control:
 		move_child(top, -1)
 
 	func _lift() -> float:
-		return pop * 7.0 - press * (_slab() + 3.0)
+		var bob := 2.0 * sin(_clock * 2.0) * pop if Art.paper_style() > 0 else 0.0
+		return pop * 7.0 + bob - press * (_slab() + 3.0)
+
+	## An ease that overshoots a little and settles (the sheet landing).
+	static func _ease_back(t: float) -> float:
+		var k := 1.4
+		var u := t - 1.0
+		return 1.0 + u * u * ((k + 1.0) * u + k)
 
 	func _slab() -> float:
 		return 7.0 if tier == 0 else 4.0
@@ -1009,13 +1042,19 @@ class Tile extends Control:
 		# The line in a deep shade of the card's own colour (the hero keeps the ink, with its gold rim), thinner for a utility card.
 		var line := Art.INK if hero else color.darkened(0.62)
 		var weight := 4.0 if tier == 0 else 3.0
-		Art.card(self, r, fill, absi(title.hash()) % 997, CUT, weight, Color(Art.SUN, 0.85) if hero else Color(0, 0, 0, 0), _lift(), line, _slab(),
-			pop < 0.5)
+		var paper := Art.paper_style() > 0
+		var rim := Color(Art.SUN, 0.85) if hero and not paper else Color(0, 0, 0, 0)
+		Art.card(self, r, fill, absi(title.hash()) % 997, CUT, weight, rim, _lift(), line, _slab(), pop < 0.5)
+		if paper and pop > 0.01 and icon != "":
+			_paper_rays(self, r, pop)
 		if top == null:
 			paint_text(self)
 
 	## The icon, the title and the subtitle (on `c`, the tile itself or its top layer).
 	func paint_text(c: CanvasItem) -> void:
+		if Art.paper_style() > 0:
+			_paint_paper_text(c)
+			return
 		var rect := _card_rect()
 		rect.position.y -= _lift()
 		# The icon: one size rule and one line weight for every tile, pale, with a shadow the way the light falls (down and right).
@@ -1055,6 +1094,149 @@ class Tile extends Control:
 			var at := Vector2(rect.position.x + pad + 2.0, rect.end.y - pad + 2.0)
 			c.draw_string(body, at + Vector2(1, 2), subtitle, HORIZONTAL_ALIGNMENT_LEFT, -1, sub_size, Color(D.INK, 0.45))
 			c.draw_string(body, at, subtitle, HORIZONTAL_ALIGNMENT_LEFT, -1, sub_size, Color(1, 1, 1, 0.92))
+
+	## Where a tile's pictogram sits and how big it is (paper look): upper right, a third of the card's short side.
+	func _paper_icon_place(rect: Rect2) -> Array:
+		var short := minf(rect.size.x, rect.size.y)
+		# (The hero's pictogram is its picture: big, as the references fill their lead tile with its art.)
+		var r := clampf(short * (0.36 if hero else (0.33 if tier == 0 else 0.27)), 18.0, 150.0)
+		var ic := Vector2(rect.end.x - r * 1.15 - 14.0, rect.position.y + r * 1.1 + 12.0)
+		if hero:
+			ic = Vector2(rect.end.x - r * 1.2 - 34.0, rect.position.y + r * 0.95 + 20.0)
+		if rect.size.y < 110.0:
+			ic = Vector2(rect.end.x - r * 1.3 - 14.0, rect.get_center().y)
+		return [ic, r]
+
+	## Faint paper rays fanning out behind the focused tile's pictogram, inside the card (the references' focused tile reads as lit).
+	func _paper_rays(c: CanvasItem, rect: Rect2, k: float) -> void:
+		var r := rect
+		r.position.y -= _lift()
+		var at: Vector2 = _paper_icon_place(r)[0]
+		var inner := r.grow(-12.0)
+		var n := 18
+		for i in n:
+			if i % 2 == 1:
+				continue
+			var a0 := TAU * i / n + _clock * 0.05
+			var a1 := TAU * (i + 1) / n + _clock * 0.05
+			c.draw_colored_polygon(PackedVector2Array([at, _to_edge(at, a0, inner), _to_edge(at, a1, inner)]), Color(1, 1, 1, 0.12 * k))
+
+	static func _to_edge(from: Vector2, a: float, r: Rect2) -> Vector2:
+		var d := Vector2.from_angle(a)
+		var t := 1e6
+		if absf(d.x) > 1e-4:
+			t = minf(t, ((r.end.x if d.x > 0.0 else r.position.x) - from.x) / d.x)
+		if absf(d.y) > 1e-4:
+			t = minf(t, ((r.end.y if d.y > 0.0 else r.position.y) - from.y) / d.y)
+		return from + d * maxf(t, 0.0)
+
+	## The paper look's text and pictogram: the pictogram a paper cut-out, printed in a deeper ink of the tile's own colour at rest and
+	## a cream sheet on its own shadow when focused (the references: one hero in full contrast, the rest in one colour); the title in big
+	## cut-paper letters, cream on a short shadow.
+	func _paint_paper_text(c: CanvasItem) -> void:
+		var rect := _card_rect()
+		rect.position.y -= _lift()
+		var bg := color.lerp(color.lightened(0.1), pop)
+		if icon != "":
+			var place := _paper_icon_place(rect)
+			var ic: Vector2 = place[0]
+			var r: float = place[1]
+			var ink := color.darkened(0.3).lerp(Art.PAPER_EDGE, pop)
+			if pop > 0.01:
+				_paper_icon(c, ic + Vector2(4, 6) * (r / 60.0), r, Color(color.darkened(0.55), 0.45 * pop), Color(0, 0, 0, 0))
+			_paper_icon(c, ic, r, ink, bg)
+		var f := D.display_font()
+		var big := clampi(int(rect.size.y * (0.32 if hero else 0.25)), 28, 120) if tier == 0 else clampi(int(rect.size.y * 0.26), 22, 34)
+		var room := rect.size.x - 44.0
+		while big > 16 and f.get_string_size(title, HORIZONTAL_ALIGNMENT_LEFT, -1, big).x > room:
+			big -= 2
+		var pad := 24.0 if rect.size.y > 200.0 else 16.0
+		var base := rect.end.y - pad
+		if rect.size.y < 110.0:
+			base = rect.get_center().y + big * 0.36
+		var at := Vector2(rect.position.x + pad, base)
+		c.draw_string(f, at + Vector2(3, 4) * (big / 56.0), title, HORIZONTAL_ALIGNMENT_LEFT, -1, big, Color(D.INK, 0.3))
+		c.draw_string(f, at, title, HORIZONTAL_ALIGNMENT_LEFT, -1, big, Art.PAPER_EDGE)
+
+	## A pictogram cut from paper (filled shapes, original): `col` the sheet, `cut` the card showing through its cut-outs (clear: none).
+	func _paper_icon(c: CanvasItem, at: Vector2, r: float, col: Color, cut: Color) -> void:
+		var pts := func(list: Array) -> PackedVector2Array:
+			var out := PackedVector2Array()
+			for q in list:
+				out.append(at + (q as Vector2) * r)
+			return out
+		var has_cut := cut.a > 0.0
+		match icon:
+			"play":
+				# Two swords crossed.
+				for s in [-1.0, 1.0]:
+					var rot := deg_to_rad(-45.0 * s - 90.0)
+					var shape := func(list: Array) -> PackedVector2Array:
+						var out := PackedVector2Array()
+						for q in list:
+							out.append(at + (q as Vector2).rotated(rot) * r)
+						return out
+					c.draw_colored_polygon(shape.call([Vector2(-0.2, -0.11), Vector2(0.88, -0.11), Vector2(1.12, 0.0), Vector2(0.88, 0.11),
+						Vector2(-0.2, 0.11)]), col)
+					c.draw_colored_polygon(shape.call([Vector2(-0.32, -0.32), Vector2(-0.18, -0.32), Vector2(-0.18, 0.32), Vector2(-0.32, 0.32)]), col)
+					c.draw_colored_polygon(shape.call([Vector2(-0.72, -0.08), Vector2(-0.32, -0.08), Vector2(-0.32, 0.08), Vector2(-0.72, 0.08)]), col)
+					var pommel: Vector2 = shape.call([Vector2(-0.8, 0.0)])[0]
+					c.draw_circle(pommel, r * 0.13, col)
+			"online":
+				c.draw_circle(at, r * 0.8, col)
+				if has_cut:
+					var w := r * 0.08
+					c.draw_line(at + Vector2(-r * 0.8, 0), at + Vector2(r * 0.8, 0), cut, w)
+					for y in [-0.45, 0.45]:
+						var half := sqrt(0.64 - y * y) * r
+						c.draw_line(at + Vector2(-half, y * r), at + Vector2(half, y * r), cut, w)
+					var ell := PackedVector2Array()
+					for k in 33:
+						var a := TAU * k / 32.0
+						ell.append(at + Vector2(cos(a) * r * 0.34, sin(a) * r * 0.8))
+					c.draw_polyline(ell, cut, w, true)
+			"replays":
+				c.draw_colored_polygon(pts.call([Vector2(-0.95, -0.62), Vector2(0.95, -0.62), Vector2(0.95, 0.62), Vector2(-0.95, 0.62)]), col)
+				if has_cut:
+					for k in 5:
+						var x := -0.8 + k * 0.37
+						for y in [-0.5, 0.36]:
+							c.draw_colored_polygon(pts.call([Vector2(x, y), Vector2(x + 0.17, y), Vector2(x + 0.17, y + 0.14), Vector2(x, y + 0.14)]), cut)
+					c.draw_colored_polygon(pts.call([Vector2(-0.2, -0.26), Vector2(0.3, 0.0), Vector2(-0.2, 0.26)]), cut)
+			"creator":
+				# Scissors: two blades crossing above two ring handles.
+				c.draw_colored_polygon(pts.call([Vector2(-0.3, 0.32), Vector2(0.55, -0.85), Vector2(0.7, -0.75), Vector2(-0.12, 0.42)]), col)
+				c.draw_colored_polygon(pts.call([Vector2(0.3, 0.32), Vector2(-0.55, -0.85), Vector2(-0.7, -0.75), Vector2(0.12, 0.42)]), col)
+				for s in [-1.0, 1.0]:
+					var ring := at + Vector2(s * 0.4, 0.62) * r
+					c.draw_circle(ring, r * 0.3, col)
+					if has_cut:
+						c.draw_circle(ring, r * 0.15, cut)
+			"controls":
+				c.draw_colored_polygon(pts.call([Vector2(-0.55, -0.38), Vector2(0.55, -0.38), Vector2(0.78, -0.25), Vector2(0.92, 0.3),
+					Vector2(0.8, 0.5), Vector2(0.58, 0.48), Vector2(0.38, 0.22), Vector2(-0.38, 0.22), Vector2(-0.58, 0.48), Vector2(-0.8, 0.5),
+					Vector2(-0.92, 0.3), Vector2(-0.78, -0.25)]), col)
+				if has_cut:
+					c.draw_line(at + Vector2(-r * 0.6, -r * 0.06), at + Vector2(-r * 0.26, -r * 0.06), cut, r * 0.11)
+					c.draw_line(at + Vector2(-r * 0.43, -r * 0.23), at + Vector2(-r * 0.43, r * 0.11), cut, r * 0.11)
+					c.draw_circle(at + Vector2(r * 0.32, -r * 0.14), r * 0.08, cut)
+					c.draw_circle(at + Vector2(r * 0.52, r * 0.04), r * 0.08, cut)
+			"editors":
+				c.draw_colored_polygon(pts.call([Vector2(-0.72, 0.6), Vector2(0.08, -0.2), Vector2(0.2, -0.08), Vector2(-0.6, 0.72)]), col)
+				c.draw_circle(at + Vector2(0.34, -0.34) * r, r * 0.34, col)
+				if has_cut:
+					c.draw_colored_polygon(pts.call([Vector2(0.3, -0.42), Vector2(0.6, -0.72), Vector2(0.72, -0.6), Vector2(0.42, -0.3)]), cut)
+			"quit":
+				c.draw_colored_polygon(pts.call([Vector2(-0.65, -0.78), Vector2(0.1, -0.78), Vector2(0.1, 0.78), Vector2(-0.65, 0.78)]), col)
+				c.draw_colored_polygon(pts.call([Vector2(0.05, -0.1), Vector2(0.6, -0.1), Vector2(0.6, -0.32), Vector2(1.0, 0.0), Vector2(0.6, 0.32),
+					Vector2(0.6, 0.1), Vector2(0.05, 0.1)]), col)
+				if has_cut:
+					c.draw_circle(at + Vector2(-0.08, 0.05) * r, r * 0.07, cut)
+			"run":
+				for k in 3:
+					var x := -0.75 + k * 0.55
+					c.draw_colored_polygon(pts.call([Vector2(x, -0.6), Vector2(x + 0.3, -0.6), Vector2(x + 0.7, 0.0), Vector2(x + 0.3, 0.6),
+						Vector2(x, 0.6), Vector2(x + 0.4, 0.0)]), Color(col, col.a * (0.55 + 0.22 * k)))
 
 	## Simple line icons drawn in code (original, no fonts or images), all with the same line weight.
 	const ICON_LINE := 5.5

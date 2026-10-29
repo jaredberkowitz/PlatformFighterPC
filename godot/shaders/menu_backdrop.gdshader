@@ -12,6 +12,13 @@ uniform vec4 tint : source_color = vec4(0.0, 0.0, 0.0, 0.0);
 uniform float vignette = 0.1;
 uniform float skew = 0.22;
 uniform float aspect = 1.7778;
+// The paper look (ui/menu_art.gd `paper_style`, the owner's pick A): a warm sheet of paper with two broad folds across it, each facet a
+// step lighter or darker as it faces the light, and a faint fibre, in place of the stripes and the halftone.
+uniform bool paper = false;
+
+float bd_hash(vec2 p) {
+	return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+}
 
 void fragment() {
 	vec2 uv = UV;
@@ -29,6 +36,17 @@ void fragment() {
 	float corner = max(smoothstep(0.55, 1.0, uv.y) * smoothstep(0.45, 1.0, uv.x), smoothstep(0.6, 1.0, uv.y) * smoothstep(0.5, 0.0, uv.x));
 	float dot_r = 0.42 * corner;
 	c = mix(c, mark.rgb, (1.0 - smoothstep(dot_r - 0.06, dot_r, length(cell))) * step(0.01, corner) * mark.a * 1.6);
+	if (paper) {
+		c = mix(top.rgb, bottom.rgb, smoothstep(0.0, 1.0, uv.y));
+		c = mix(c, light.rgb, 0.3 * exp(-dot(p, p) * 1.6));
+		// Two folds: a line from the upper right down to the lower left, and one across the lower part; the facets they make step.
+		float f1 = step(0.0, (uv.x - 0.62) * 0.55 + (uv.y - 0.1) * 0.45 - uv.y * 0.6 + 0.12);
+		float f2 = step(0.0, uv.y - 0.58 - (uv.x - 0.5) * 0.12);
+		c *= 1.0 + 0.025 * f1 - 0.035 * f2 * (1.0 - f1 * 0.5);
+		// The fibre: fine grain, faint.
+		vec2 q = FRAGCOORD.xy;
+		c *= 1.0 + (bd_hash(floor(q / 2.0)) - 0.5) * 0.035;
+	}
 	c = mix(c, tint.rgb, tint.a);
 	// A soft vignette toward the steel.
 	vec2 v = uv - 0.5;

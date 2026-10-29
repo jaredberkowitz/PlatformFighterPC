@@ -181,7 +181,14 @@ func _ready() -> void:
 		tile.mouse_entered.connect(func(): _select(buttons.find(tile)))
 		add_child(tile)
 		buttons.append(tile)
-		if item[4] == "play":
+		# (The paper look, the owner's pick A: every tile carries its paper-cut pictogram and no fighters (2026-10-29: the reusable
+		# fighters read cheap in the tiles); the sheets are laid down one after another.)
+		if Art.paper_style() > 0:
+			tile.enter = 0.0
+			tile.enter_delay = 0.12 + 0.05 * buttons.size()
+			if item[4] == "play":
+				tile.hero = true
+		elif item[4] == "play":
 			# The last fighter played stands in the Play tile (in place of its icon).
 			tile.icon = ""
 			tile.hero = true

@@ -63,6 +63,9 @@ static func brush_band(c: CanvasItem, rect: Rect2, fill: Color, seed: int, lean 
 ## A banner (`brush_band`'s shape): a slanted band, its ends cut into a shallow chevron, lighter at the top, a lit top edge, an ink
 ## outline, a hard shadow and a thin gold stripe along its foot.
 static func _banner(c: CanvasItem, rect: Rect2, fill: Color, lean: float, shadow: bool, ends: float) -> void:
+	if paper_style() > 0:
+		_paper_banner(c, rect, fill, lean, shadow, ends)
+		return
 	var h := rect.size.y
 	var x0 := rect.position.x
 	var x1 := rect.end.x
@@ -93,6 +96,144 @@ static func _banner(c: CanvasItem, rect: Rect2, fill: Color, lean: float, shadow
 const SHADOW := Vector2(6, 8)
 
 
+# ---- Paper look mock (UI paper pass, 2026-10-29: the owner wants the menus in the stages' cut-paper language) -------------------------
+## The owner picked A (2026-10-29), so it is the default; `--ui-paper=0` (or PF_UI_PAPER=0) shows the painted tiles from before.
+## 0 the painted tiles; 1 (A) cut card: flat paper sheets with pale cut edges lifted on soft shadows, no ink outline; 2 (B) layered
+## sheets: A over a second, darker sheet showing beneath it, a little turned; 3 (C) inked paper: today's ink outline kept, with the paper
+## fibre, cut edges and lifted shadow. Chosen with PF_UI_PAPER=A|B|C or `--ui-paper=`.
+const PAPER_EDGE := Color(1.0, 0.97, 0.9)
+static var _paper := -1
+
+
+static func paper_style() -> int:
+	if _paper < 0:
+		var pick := OS.get_environment("PF_UI_PAPER")
+		for a in OS.get_cmdline_user_args():
+			if a.begins_with("--ui-paper="):
+				pick = a.substr(11)
+		_paper = maxi(0, "-ABC".find(pick.to_upper().left(1))) if pick != "" else 1
+	return _paper
+
+
+## A paper sheet's soft lifted shadow: two offset layers, nearer and darker, then farther and fainter (`lift` raises the sheet).
+static func _paper_shadow(c: CanvasItem, shape: PackedVector2Array, alpha: float, lift := 0.0) -> void:
+	for layer in [[Vector2(2, 3), 0.2], [Vector2(5, 7) + Vector2(lift * 0.4, lift * 0.8), 0.12]]:
+		var sh := PackedVector2Array()
+		for q in shape:
+			sh.append(q + (layer[0] as Vector2))
+		c.draw_colored_polygon(sh, Color(INK, float(layer[1]) * alpha))
+
+
+## The paper's fibre over a sheet: short faint strokes, light and dark, placed by the seed (the stages' faint fibre, at menu scale).
+static func _paper_fibre(c: CanvasItem, r: Rect2, seed: int, alpha: float) -> void:
+	var n := clampi(int(r.size.x * r.size.y / 700.0), 6, 70)
+	for i in n:
+		var at := r.position + Vector2((noise(seed * 7 + i * 13) * 0.5 + 0.5) * r.size.x, (noise(seed * 11 + i * 29) * 0.5 + 0.5) * r.size.y)
+		var dir := Vector2.from_angle(noise(seed + i * 41) * PI) * (4.0 + 5.0 * (noise(seed + i * 53) * 0.5 + 0.5))
+		var col := Color(1, 1, 1, 0.09 * alpha) if i % 2 == 0 else Color(INK, 0.05 * alpha)
+		c.draw_line(at, at + dir, col, 1.2, true)
+
+
+## A sheet's cut edge: pale along the edges that face the light (top and left), darker along the others, so it reads as card with a
+## thickness, as the stages' cut edges do.
+static func _paper_edges(c: CanvasItem, shape: PackedVector2Array, fill: Color, width := 2.0) -> void:
+	var n := shape.size()
+	var centre := Vector2.ZERO
+	for q in shape:
+		centre += q
+	centre /= n
+	for i in n:
+		var a := shape[i]
+		var b := shape[(i + 1) % n]
+		var out := (b - a).orthogonal().normalized()
+		if out.dot((a + b) * 0.5 - centre) < 0.0:
+			out = -out
+		var lit := out.dot(Vector2(-0.6, -0.8)) > 0.0
+		var inset := -out * width * 0.5
+		c.draw_line(a + inset, b + inset, Color(PAPER_EDGE, 0.9 * fill.a) if lit else Color(fill.darkened(0.45), 0.8 * fill.a), width, true)
+
+
+## A card in the paper look (see `card` for the arguments; `style` from `paper_style`).
+static func _paper_card(c: CanvasItem, rect: Rect2, fill: Color, seed: int, cut: float, outline: float, border: Color, lift: float,
+		line: Color, slab: float, shadow: bool, style: int) -> PackedVector2Array:
+	var r := rect
+	r.position.y -= lift
+	var short := minf(r.size.x, r.size.y)
+	if cut < 0.0:
+		cut = clampf(short * 0.13, 8.0, 20.0)
+	if outline < 0.0:
+		outline = 3.0 if short < 50.0 else 4.0
+	var shape := card_shape(r, cut, seed)
+	if style == 2:
+		# The sheet under it: the same cut, offset down and right and turned a touch, in a deeper shade.
+		var under := PackedVector2Array()
+		var centre := r.get_center()
+		var turn := deg_to_rad(noise(seed * 3 + 5) * 1.6)
+		for q in shape:
+			under.append(centre + (q - centre).rotated(turn) + Vector2(5, 6))
+		if shadow:
+			_paper_shadow(c, under, fill.a, lift)
+		c.draw_colored_polygon(under, Color(fill.darkened(0.32).lerp(PAPER_EDGE, 0.12), fill.a))
+		_paper_edges(c, under, fill.darkened(0.32), 1.5)
+	elif shadow:
+		_paper_shadow(c, shape, fill.a, lift)
+	if slab > 0.0:
+		var drop := slab + lift * 0.5
+		var body := PackedVector2Array()
+		for q in shape:
+			body.append(q + Vector2(0, drop))
+		c.draw_colored_polygon(body, fill.darkened(0.38))
+	# A flat sheet, barely lighter at the top (paper, not a glossy tile).
+	var cols := PackedColorArray()
+	for q in shape:
+		cols.append(fill.lightened(0.05).lerp(fill.darkened(0.05), clampf((q.y - r.position.y) / maxf(r.size.y, 1.0), 0.0, 1.0)))
+	c.draw_polygon(shape, cols)
+	_paper_fibre(c, r.grow(-4), seed, fill.a)
+	if border.a > 0.0:
+		var inner := PackedVector2Array()
+		var centre2 := r.get_center()
+		for q in shape:
+			inner.append(centre2 + (q - centre2) * Vector2(1.0 - 14.0 / r.size.x, 1.0 - 14.0 / r.size.y))
+		inner.append(inner[0])
+		c.draw_polyline(inner, border, 4.0, true)
+	_paper_edges(c, shape, fill, 2.5 if short >= 50.0 else 2.0)
+	var closed := shape.duplicate()
+	closed.append(shape[0])
+	if style == 3:
+		var edge := line if line.a > 0.0 else Color(fill.darkened(0.62), 1.0).lerp(INK, 0.25)
+		c.draw_polyline(closed, edge, outline, true)
+	else:
+		# (A hairline where the sheet's edge meets the ground, so it stays crisp without an ink outline.)
+		c.draw_polyline(closed, Color(fill.darkened(0.55), 0.55 * fill.a), 1.0, true)
+	return shape
+
+
+## The banner in the paper look: the same chevron-ended band as a strip of paper with a cut gold strip under it.
+static func _paper_banner(c: CanvasItem, rect: Rect2, fill: Color, lean: float, shadow: bool, ends: float) -> void:
+	var h := rect.size.y
+	var x0 := rect.position.x
+	var x1 := rect.end.x
+	var y0 := rect.position.y
+	var tip := 14.0 * ends
+	var pts := PackedVector2Array([Vector2(x0 + lean, y0), Vector2(x1 + lean * 0.5, y0), Vector2(x1 + tip, y0 + h * 0.5),
+		Vector2(x1 - lean * 0.5, y0 + h), Vector2(x0, y0 + h), Vector2(x0 + lean * 0.5 - tip, y0 + h * 0.5)])
+	# The gold strip, a separate sheet showing under the band's foot.
+	var strip := PackedVector2Array()
+	for p in pts:
+		strip.append(p + Vector2(4, 6))
+	if shadow:
+		_paper_shadow(c, strip, fill.a)
+	c.draw_colored_polygon(strip, Color(SUN, fill.a))
+	_paper_edges(c, strip, SUN, 1.5)
+	c.draw_colored_polygon(pts, fill)
+	_paper_fibre(c, Rect2(x0, y0, x1 - x0, h).grow(-4), int(x1) + int(y0), fill.a)
+	_paper_edges(c, pts, fill, 2.5)
+	if paper_style() == 3:
+		var closed := pts.duplicate()
+		closed.append(pts[0])
+		c.draw_polyline(closed, Color(fill.darkened(0.55), fill.a).lerp(INK, 0.4), 3.0, true)
+
+
 ## A card: an angled panel (corners cut on the top left and bottom right) with one recipe everywhere: a soft offset shadow, the fill
 ## lighter toward the top, a broad pale shape across its upper part (the light falling on it), a highlight along the top edge, and an
 ## ink outline. `cut` and `outline` below zero pick the standard ones for the card's size (corners 13% of its short side, 8 to 20; a 4
@@ -103,6 +244,8 @@ const SHADOW := Vector2(6, 8)
 ## `shadow` false leaves out its short shadow (a focused card stands on the long one from `focus_frame` instead).
 static func card(c: CanvasItem, rect: Rect2, fill: Color, seed: int, cut := -1.0, outline := -1.0, border := Color(0, 0, 0, 0), lift := 0.0,
 		line := Color(0, 0, 0, 0), slab := 0.0, shadow := true) -> PackedVector2Array:
+	if paper_style() > 0:
+		return _paper_card(c, rect, fill, seed, cut, outline, border, lift, line, slab, shadow, paper_style())
 	var r := rect
 	r.position.y -= lift
 	var short := minf(r.size.x, r.size.y)
@@ -188,6 +331,22 @@ static func focus_frame(c: CanvasItem, rect: Rect2, strength: float, cut := -1.0
 	var short := minf(rect.size.x, rect.size.y)
 	if cut < 0.0:
 		cut = clampf(short * 0.13, 8.0, 20.0)
+	if paper_style() == 1 or paper_style() == 2:
+		# (Paper: a pale mount behind the focused card, a sheet it sits on, on a long soft shadow; C keeps the ink frame.)
+		var m := clampf(short * 0.06, 4.0, 8.0)
+		var mount := card_shape(Rect2(rect.position, rect.size + Vector2(0, below)).grow(m), cut + m * 0.5, 0)
+		var fall2 := FOCUS_SHADOW * clampf(short / 120.0, 0.45, 1.0) * strength
+		for layer in [[fall2 * 0.5, 0.22], [fall2, 0.16]]:
+			var sh2 := PackedVector2Array()
+			for q in mount:
+				sh2.append(q + (layer[0] as Vector2))
+			c.draw_colored_polygon(sh2, Color(INK, float(layer[1]) * strength))
+		c.draw_colored_polygon(mount, Color(PAPER_EDGE, strength))
+		_paper_edges(c, mount, Color(PAPER_EDGE, strength), 2.0)
+		var ring := mount.duplicate()
+		ring.append(mount[0])
+		c.draw_polyline(ring, Color(INK, 0.7 * strength), 2.0, true)
+		return
 	var white := clampf(short * 0.05, 3.0, 6.0)
 	var ink := clampf(short * 0.045, 3.0, 6.0)
 	var body := Rect2(rect.position, rect.size + Vector2(0, below))
