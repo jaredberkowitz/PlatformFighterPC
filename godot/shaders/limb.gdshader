@@ -40,7 +40,7 @@ void fragment() {
 	ALBEDO = c * brush(UV);
 	EMISSION = flash.rgb * flash.a;
 	ROUGHNESS = object_id;
-	AO = pf_stage_ao(world_pos);
+	AO = pf_stage_ao(world_pos) * pf_fighter_sky(NORMAL, VIEW_MATRIX, fighter);
 	AO_LIGHT_AFFECT = 0.45;
 	SPECULAR = 0.0;
 }

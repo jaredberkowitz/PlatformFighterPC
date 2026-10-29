@@ -13,6 +13,14 @@ uniform vec2 tex_scale = vec2(1.0);
 // Above zero: the texture is laid in world space instead of by UV, `world_tile` world units per repeat, on the top for upward faces and
 // on the front otherwise (so a stage surface tiles evenly whatever the block's size).
 uniform float world_tile = 0.0;
+// A garment's print laid three ways by its rest position (x and height in UV, depth in UV2.x, art/blender/make_rigged_blob.py), front,
+// side and top, blended by which way the cloth faces at rest: laid front-on only, a print stretched into streaks round the sides (the
+// fleck pass, 2026-10-28). For prints that read the same any way round (the fleck); the stripes and flowers keep the front-on map.
+uniform bool rest_tri = false;
+// The same, laid by the part's own position instead (a rigid part with no rest maps: the hats' cloth, the neckwear; the headwear pass,
+// 2026-10-29).
+uniform bool part_tri = false;
+varying vec3 part_pos;
 // World-laid surfaces only: how much their colour drifts lighter and darker in broad, slow patches across the stage (0 = none), so a
 // repeating pattern does not read as one tile stamped over and over.
 uniform float world_vary = 0.08;
@@ -135,6 +143,7 @@ uniform vec4 hem_color : source_color = vec4(0.1, 0.07, 0.12, 1.0);
 #endif
 
 void vertex() {
+	part_pos = VERTEX;
 	world_pos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 	world_normal = normalize((MODEL_MATRIX * vec4(NORMAL, 0.0)).xyz);
 	vshade = vertex_shade ? COLOR.rgb : vec3(1.0);
@@ -177,7 +186,15 @@ void fragment() {
 		if (world_tile > 0.0) {
 			uv = (abs(world_normal.y) > 0.5 && !front_only ? world_pos.xz : vec2(world_pos.x, -world_pos.y)) / world_tile;
 		}
-		c *= texture(albedo_tex, uv).rgb;
+		if (rest_tri || part_tri) {
+			vec3 rest = (part_tri ? part_pos : vec3(UV.x, UV.y, UV2.x)) * tex_scale.x;
+			// (The rest-pose facing from the rest position's slope across the pixel: the posed normal turns with every bone.)
+			vec3 w = pow(abs(normalize(cross(dFdx(rest), dFdy(rest)))), vec3(4.0));
+			w /= w.x + w.y + w.z + 1e-5;
+			c *= texture(albedo_tex, rest.xy).rgb * w.z + texture(albedo_tex, rest.zy).rgb * w.x + texture(albedo_tex, rest.xz).rgb * w.y;
+		} else {
+			c *= texture(albedo_tex, uv).rgb;
+		}
 		if (world_tile > 0.0) {
 			vec2 p = abs(world_normal.y) > 0.5 && !front_only ? world_pos.xz : world_pos.xy;
 			float drift = sin(p.x * 0.37 + sin(p.y * 0.53) * 1.7) * sin(p.y * 0.29 + p.x * 0.11 + 1.3);
@@ -368,7 +385,7 @@ void fragment() {
 	ALBEDO = c;
 	EMISSION = flash.rgb * flash.a + c * fighter_bounce.rgb * fighter_bounce_amount * fighter * clamp(-world_normal.y, 0.0, 1.0);
 	ROUGHNESS = object_id;
-	AO = pf_stage_ao_ground(world_pos, world_normal);
+	AO = pf_stage_ao_ground(world_pos, world_normal) * pf_fighter_sky(NORMAL, VIEW_MATRIX, fighter);
 	if (use_baked_ao) {
 		AO *= mix(1.0, pow(texture(baked_ao, UV2).r, baked_ao_curve), baked_ao_strength);
 		AO_LIGHT_AFFECT = baked_ao_light;

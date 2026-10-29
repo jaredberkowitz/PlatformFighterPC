@@ -45,9 +45,12 @@ const DAZED_FACE := {"name": "dazed"}
 const SHOCK_FACE := {"name": "shock"}
 const HAPPY_FACE := {"name": "happy"}
 
-const HATS := ["none", "sailor cap", "aviator cap", "straw hat", "beanie", "crown", "hood", "plumed helm", "swept spikes", "topknot", "dixie cap"]
+## (The swoop, a short cut with a big forelock, since the hair pass, 2026-10-24; appended so saved looks keep their hats.)
+const HATS := ["none", "sailor cap", "aviator cap", "straw hat", "beanie", "crown", "hood", "plumed helm", "swept spikes", "topknot", "dixie cap",
+	"swoop"]
 const GLASSES := ["none", "shades", "goggles", "round specs"]
-const NECKS := ["none", "sash", "neckerchief", "scarf", "cape", "kerchief and sash"]
+## (A leather strap, a badge strap and the sailor's collar since the sash pass, 2026-10-28; appended so saved looks keep theirs.)
+const NECKS := ["none", "sash", "neckerchief", "scarf", "cape", "kerchief and sash", "leather strap", "badge strap", "sailor collar"]
 ## Shirts: a plain white one, one in the outfit (accent) colour, stripes and a flower print (godot/art/cloth/).
 const SHIRTS := ["none", "white shirt", "outfit shirt", "striped shirt", "flower shirt"]
 ## Gear over the bare body (the concept art's plain body is the default): shorts, then gloves, then socks and shoes, each step adding to the
@@ -246,7 +249,9 @@ static func default_for(player: int) -> RefCounted:
 			l.hat = 1
 		2:
 			# (The little dixie cap, as the reference's blue scout, the character pass, 2026-10-19.)
-			l.hat = 10
+			# (The swept spikes since the silhouette pass, 2026-10-28, the owner's pick of mocks: the dixie cap and the sailor's cap made the
+			# same shape, a flat cap on a ball, so two of the four defaults shared a silhouette.)
+			l.hat = 8
 		1:
 			l.hat = 2
 		3:
@@ -280,7 +285,9 @@ static func default_for(player: int) -> RefCounted:
 	# holiday shirt (flowers, sash, biscuit), a ranger (outfit shirt, sash, sunny); every one in the full kit (shorts, gloves, socks, shoes).
 	# (The sailor in the kerchief and sash, neck 5, as the reference's, the character judge's round 5.)
 	# (The holiday shirt on cream (cloud), so its red hibiscus print reads as the reference's, the character judge's round 5.)
-	var outfits := [[1, 5, 2, 0], [1, 1, 4, 1], [4, 1, 8, 1], [2, 1, 0, 0]]
+	# (Since the sash pass, 2026-10-28, the owner's pick of mocked sashes: the sailor in the kerchief and its collar without the sash, the aviator in
+	# a leather strap, the holiday shirt with none, the ranger in a leather strap with two badges; each wore the same broad badge sash.)
+	var outfits := [[1, 8, 2, 0], [1, 6, 4, 1], [4, 0, 8, 1], [2, 7, 0, 0]]
 	var o: Array = outfits[player % 4]
 	l.shirt = o[0]
 	l.neck = o[1]

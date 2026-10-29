@@ -45,6 +45,7 @@ const MotionDeform := preload("res://scripts/motion_deform.gd")
 const Smear := preload("res://scripts/smear.gd")
 const MotionSprings := preload("res://scripts/motion_springs.gd")
 const TailRig := preload("res://scripts/tail_rig.gd")
+const CapeRig := preload("res://scripts/cape_rig.gd")
 
 
 ## The soft cel material (`shaders/toon.gdshader`) in colour `c`, with the ink outline unless `outline` is false. Cached per colour.
@@ -97,6 +98,7 @@ func rebuild(l: RefCounted) -> void:
 	unkeyed = {}
 	neck_pivot = null
 	tails = []
+	cape_rig = null
 	# (The dust puffs were children too: freed above, so the references go with them, or the next puff used a freed mesh.)
 	dusts.clear()
 	dust_age.clear()
@@ -327,7 +329,6 @@ func _build_rig(skin: Material) -> bool:
 	# The shorts take the outfit colour (the accent, a shade darker) under a plain shirt, and navy under a coloured one.
 	# (Khaki under the holiday shirt and olive under the outfit shirt, as the reference's blue and ranger, the character judge's round 16.)
 	var shorts_colour: Color = loadout.accent_color().darkened(0.2) if loadout.shirt <= 1 else {4: Color(0.7, 0.6, 0.42), 2: Color(0.4, 0.42, 0.26)}.get(loadout.shirt, Color(0.22, 0.25, 0.42))
-	var shorts := toon(shorts_colour)
 	var skin_colour: Color = loadout.body_color()
 	# Arms and legs carry their clothes as painted bands (shaders/limb.gdshader): a sleeve from the shoulder when there is a shirt; the
 	# shorts' leg and a white sock on each leg.
@@ -381,11 +382,10 @@ func _build_rig(skin: Material) -> bool:
 			# (A cuff of its own per neckwear, so the cast's shorts differ, the character judge's round 6: a white sailor's stripe with the
 			# kerchief, a cream turn-up on the holiday shirt, else a shade darker than the shorts.)
 			var cuff_c: Color = shorts_colour.darkened(0.12)
+			# (In the shorts' own colour, a shade darker, on every look since the trim pass, 2026-10-28, the owner's pick of mocks: the
+			# sailor's white and the holiday shirt's cream turn-ups read as sock tops at play size.)
 			if part.begins_with("ShortsCuff"):
-				if loadout.neck == 5:
-					cuff_c = Color(0.97, 0.96, 0.92)
-				elif loadout.shirt == 4:
-					cuff_c = Color(0.95, 0.9, 0.78)
+				cuff_c = shorts_colour.darkened(0.15)
 			mi.material_override = _cloth(toon(cuff_c))
 			mi.visible = loadout.has_belt() if part.begins_with("ShortsPocket") else loadout.has_shorts()
 		elif part.begins_with("Sock"):
@@ -408,7 +408,8 @@ func _build_rig(skin: Material) -> bool:
 			mi.material_override = toon(BOOT_LEATHER)
 			mi.visible = loadout.has_shoes()
 		elif part.begins_with("Shorts"):
-			mi.material_override = _cloth(shorts)
+			# (In the fleck print since the fleck pass, 2026-10-28, as the shirts.)
+			mi.material_override = _cloth(_fleck(shorts_colour))
 			mi.visible = loadout.has_shorts()
 		elif part.begins_with("Belt"):
 			# The belt the shirt is tucked under (the owner saw PEAK's figures have a waistline): leather, with a brass buckle.
@@ -422,9 +423,16 @@ func _build_rig(skin: Material) -> bool:
 			# on a coloured or printed one.
 			mi.visible = loadout.shirt > 0
 			# (Since the owner's second reference: a rolled cuff of the shirt's own cloth.)
-			var cuff_cloth := _garment_shirt_material()
-			if cuff_cloth != null:
-				mi.material_override = _cloth(cuff_cloth)
+			# (A contrasting band again since the trim pass, 2026-10-28, the owner's pick of mocks, as the reference cast's sleeves end in a
+			# coloured stripe: the outfit colour on a white shirt, a deeper shade of it on the outfit shirt, white on the striped and printed
+			# ones. In the shirt's own cloth the sleeve just stopped.)
+			match loadout.shirt:
+				1:
+					mi.material_override = _cloth(toon(loadout.accent_color()))
+				2:
+					mi.material_override = _cloth(toon(loadout.accent_color().darkened(0.35)))
+				_:
+					mi.material_override = _cloth(toon(Color(0.97, 0.96, 0.92)))
 		elif part.begins_with("ShirtCampCollar"):
 			# The holiday shirt's collar, in its own print.
 			mi.visible = loadout.shirt == 4
@@ -435,12 +443,22 @@ func _build_rig(skin: Material) -> bool:
 		elif part.begins_with("ShirtCollar") or part.begins_with("ShirtPlacket"):
 			# The collar and the placket, modelled on the shirt's front (make_rigged_blob.py's `shirt_front`): a shade darker than a plain
 			# shirt, white on a printed one; the collar hides under a ring of neckwear.
-			mi.visible = loadout.shirt > 0 and not (part.begins_with("ShirtCollar") and (loadout.neck >= 2 or loadout.shirt == 4))
+			mi.visible = loadout.shirt > 0 and not (part.begins_with("ShirtCollar") and (loadout.neck in RING_NECKS or loadout.shirt == 4))
 			mi.material_override = _cloth(toon(_collar_colour()))
+			# (The placket in the shirt's own cloth on the plain shirts since the collar pass, 2026-10-29, the owner's pick of mocks, as the
+			# reference's scout shirts: in the collar's colour it ran down the chest as a painted stripe.)
+			if part.begins_with("ShirtPlacket") and loadout.shirt in [1, 2]:
+				mi.material_override = _cloth(_garment_shirt_material())
+		elif part.begins_with("SailorCollar") or part.begins_with("SailorStripe"):
+			# The sailor's square collar, modelled on the shirt (make_rigged_blob.py's `shirt_front`), with a pale stripe along its edge;
+			# with the neckerchief's sailor collar and kerchief and sash. In the fleck print by the cloth's rest position, as the shirt.
+			# (Built here from flat boxes until the sailor collar pass, 2026-10-29: see `_sailor_collar`.)
+			mi.visible = (loadout.neck == 5 or loadout.neck == 8) and loadout.shirt > 0
+			mi.material_override = _cloth(_fleck(loadout.accent_color() if part.begins_with("SailorCollar") else Color(0.97, 0.96, 0.92)))
 		elif part.begins_with("Buttons"):
 			# (Not under a sash, the badge pass, 2026-10-19: the band crosses the button line and the buttons poked through it as a row of
 			# pale dots in the middle of the chest.)
-			mi.visible = loadout.shirt > 0 and not (loadout.neck == 1 or loadout.neck == 5)
+			mi.visible = loadout.shirt > 0 and not (loadout.neck in [1, 5, 6, 7])
 			# (No ink ring round each since the shirt pass, 2026-10-20: three ringed buttons stacked read as the figure 8.)
 			mi.material_override = toon(Color(0.95, 0.9, 0.78), false)
 		elif part.begins_with("Shirt"):
@@ -1689,14 +1707,31 @@ func _garment_shirt_material() -> Material:
 	var accent: Color = loadout.accent_color()
 	match loadout.shirt:
 		1:
-			return toon(SHIRT_WHITE)
+			return _fleck(SHIRT_WHITE)
 		2:
-			return toon(accent)
+			return _fleck(accent)
 		3:
 			return toon(Color(1, 1, 1), true, SvgArt.texture("res://art/cloth/stripes.svg", {"#ff00ff": accent}), Vector2(1.5, 12.0))
 		4:
 			return toon(Color(1, 1, 1), true, SvgArt.texture("res://art/cloth/hibiscus.svg", {"#ff00ff": accent}), Vector2(2.4, 2.4))
 	return null
+
+
+## Plain cloth in colour `c` with the fleck print (godot/art/cloth/fleck.svg, tools/art/make_fleck.py): the fleck pass, 2026-10-28, the
+## owner's pick of mocks, as the reference cast's shirts and shorts carry a soft printed speckle where ours were flat fills. It shows up
+## close, in the menus and the creator; at match size it fades into the colour. Laid three ways by the cloth's rest position
+## (toon_common.gdshaderinc `rest_tri`), so it does not stretch into streaks round the sides.
+const FLECK_TILE := Vector2(2.6, 2.6)
+static var _fleck_cache := {}
+
+
+static func _fleck(c: Color) -> ShaderMaterial:
+	var key := c.to_html()
+	if not _fleck_cache.has(key):
+		var m: ShaderMaterial = toon(c, true, SvgArt.texture("res://art/cloth/fleck.svg"), FLECK_TILE).duplicate()
+		m.set_shader_parameter("rest_tri", true)
+		_fleck_cache[key] = m
+	return _fleck_cache[key]
 
 
 ## A modelled garment's material: its cel material with an ink outline pushed further back than the body's. Cloth folds inward where
@@ -2071,11 +2106,13 @@ const SASH_OVER_SHIRT := 1.36   # (1.2 until the badge pass, 2026-10-19: the puf
 ## the pose.
 func _neck_on_rig(accent: Color) -> void:
 	# (The kerchief and sash together, neck 5: the reference's sailor wears both, the character judge's round 5.)
-	for piece in ([2, 1] if loadout.neck == 5 else [loadout.neck]):
+	# (6 a leather strap, 7 a leather strap with badges, 8 a neckerchief with the sailor's collar, since the sash pass, 2026-10-28.)
+	for piece in ([2, 1] if loadout.neck == 5 else ([2] if loadout.neck == 8 else [loadout.neck])):
 		_neck_piece(accent, piece)
-	if loadout.neck == 5 and loadout.shirt > 0:
+	# (Only for a rig without the modelled sailor collar, the sailor collar pass, 2026-10-29.)
+	if (loadout.neck == 5 or loadout.neck == 8) and loadout.shirt > 0 and (rig == null or rig.find_child("SailorCollar", true, false) == null):
 		_sailor_collar(accent)
-	if loadout.neck == 1 and loadout.shirt == 2:
+	if (loadout.neck == 1 or loadout.neck == 7) and loadout.shirt == 2:
 		_kerchief_knot(Color(0.7, 0.16, 0.16))
 
 
@@ -2148,90 +2185,13 @@ func _neck_piece(accent: Color, kind: int) -> void:
 				point.size = Vector3(0.13, 0.12, 0.04)
 				for sx in [-1.0, 1.0]:
 					_part(torso_rig, point, _fabric(_collar_colour()), Vector3(sx * 0.07, cat - 0.04, 0.42), Vector3.ONE, Vector3(-10, 0, 180.0 - sx * 22.0))
-			# Sash: a ring worn diagonally from shoulder to hip.
-			var ring := TorusMesh.new()
-			ring.inner_radius = 0.5
-			ring.outer_radius = 0.64
-			ring.rings = 36
-			ring.ring_segments = 10
-			# A flat band (the ring's tube stretched across the ring's plane), worn diagonally.
-			var sash := Node3D.new()
-			sash.position = centre
-			sash.rotation_degrees = Vector3(0, 0, -42)
-			torso_rig.add_child(sash)
-			# (Over the shirt, which since the body rebuild hangs looser: fitted to the bare torso, the band sank into the cloth in pieces.)
-			var over := SASH_OVER_SHIRT if loadout.shirt > 0 else 1.0
-			# (Twice as wide, the character judge's round 1: the reference's sash is a broad band.)
-			# (Deeper too, the cap pass, 2026-10-19: at 0.45 of the widening the puffed shirt showed through the band on the back.)
-			sash.scale = Vector3(over, 1.9, 1.0 + (over - 1.0) * 0.8)
-			var strap := _gear_mesh("neckwear", "fabric_sash")
-			if strap != null:
-				_part(sash, strap, _cloth(toon(SASH, false)), Vector3.ZERO)
-			else:
-				_part(sash, ring, toon(SASH, false), Vector3.ZERO, Vector3(0.88, 1.7, 1.0))
-			# Six small square enamel badges along the band, facing out from it (the aviator scout pilot, 2026-10-19, after the owner's
-			# reference: three big plain dots read as buttons): each a brass plate with a coloured enamel face and a pale mark on it.
-			# (Smaller, spaced apart and of different shapes, each with its own little mark, the character judge's round 1: six bright
-			# squares in a tight row read as stickers.)
-			var square := BoxMesh.new()
-			# (A fifth smaller, thinner rims and muted, the character judge's round 2: the brightest things on the fighter.)
-			square.size = Vector3(0.061, 0.02, 0.061)
-			var round_plate := CylinderMesh.new()
-			round_plate.top_radius = 0.037
-			round_plate.bottom_radius = 0.037
-			round_plate.height = 0.024
-			round_plate.radial_segments = 14
-			var plates := [square, round_plate, square, round_plate, square, round_plate]
-			var sq_face := BoxMesh.new()
-			sq_face.size = Vector3(0.052, 0.026, 0.052)
-			var rd_face := CylinderMesh.new()
-			rd_face.top_radius = 0.031
-			rd_face.bottom_radius = 0.031
-			rd_face.height = 0.03
-			rd_face.radial_segments = 14
-			var faces := [sq_face, rd_face, sq_face, rd_face, sq_face, rd_face]
-			var dot := CylinderMesh.new()
-			dot.top_radius = 0.014
-			dot.bottom_radius = 0.014
-			dot.height = 0.036
-			dot.radial_segments = 8
-			var bar := BoxMesh.new()
-			bar.size = Vector3(0.04, 0.036, 0.012)
-			var tri := PrismMesh.new()
-			tri.size = Vector3(0.036, 0.036, 0.03)
-			var marks := [tri, dot, bar, dot, tri, bar]
-			var brass := respond(toon(Color(0.86, 0.68, 0.32)), "gold")
-			var colours := [Color(0.92, 0.32, 0.28), accent, Color(0.3, 0.52, 0.86), Color(0.98, 0.8, 0.28), Color(0.4, 0.7, 0.42),
-				Color(0.62, 0.42, 0.8)]
-			# (Four, spread along the strap from the shoulder to the hip, a little bigger, since the badge pass, 2026-10-19: six packed into the
-			# middle of the chest every 13.5 degrees merged into one cluster of rings at any distance; the reference's sit apart.)
-			# (All in one mesh, a surface per material, so the sash keeps to the loadout's mesh budget.)
-			var tools := {}
-			var order: Array = []
-			for k in SASH_BADGES:
-				var t := deg_to_rad(SASH_BADGE_FROM + SASH_BADGE_STEP * k)
-				var out := Vector3(0.88 * cos(t), 0.0, sin(t)).normalized()
-				var at_b := Vector3(0.88 * 0.655 * cos(t), 0.0, 0.655 * sin(t))
-				var turn := Basis(Quaternion(Vector3.UP, out)) * Basis(Vector3.UP, deg_to_rad(8.0 * float(k % 3 - 1))) * Basis.from_scale(Vector3.ONE * SASH_BADGE_SIZE)
-				for piece in [[plates[k], "brass"], [faces[k], "face%d" % k], [marks[k], "mark"]]:
-					var key: String = piece[1]
-					if not tools.has(key):
-						var st := SurfaceTool.new()
-						st.begin(Mesh.PRIMITIVE_TRIANGLES)
-						tools[key] = st
-						order.append(key)
-					(tools[key] as SurfaceTool).append_from(piece[0], 0, Transform3D(turn, at_b))
-			var badges := ArrayMesh.new()
-			for key in order:
-				(tools[key] as SurfaceTool).commit(badges)
-			var bm := _part(sash, badges, null, Vector3.ZERO)
-			for i in order.size():
-				var key: String = order[i]
-				var c_b: Color = colours[int(key.substr(4))] if key.begins_with("face") else Color.WHITE
-				var m: Material = brass if key == "brass" else (toon(Color(0.98, 0.95, 0.88)) if key == "mark" else respond(toon(c_b.lerp(Color(0.55, 0.5, 0.5), SASH_BADGE_MUTE)), "rubber"))
-				bm.set_surface_override_material(i, m)
+			_sash(accent, 0)
 			# The sash's knotted end hanging at the hip, swinging with the body (`TailRig`).
 			# (No knotted tail since the character judge's round 1: the reference's sash ends at the hip.)
+		6:
+			_sash(accent, 1)
+		7:
+			_sash(accent, 2)
 		2:
 			# Neckerchief: a collar ring round the top of the torso with a point hanging in front.
 			# (Snug round the neck and up to the head, the character judge's round 4: wide, it read as a bar across the chest.)
@@ -2259,16 +2219,150 @@ func _neck_piece(accent: Color, kind: int) -> void:
 			# (A chain of pieces on springs, so it swings and whips with the body: `TailRig`.)
 			_tail(Vector3(0.24, at - 0.06, 0.62), _fabric(accent), 0.52, 0.22, 0.07, 4)
 		4:
-			# Cape: a collar ring and a broad cloth hanging down the back to the knees, on springs, so it streams behind the fighter's runs
-			# and jumps: the biggest change to the outline the wardrobe has.
-			var at := _collar(accent)
-			_tail(Vector3(0, at - 0.02, -0.42), _fabric(accent.darkened(0.08)), 1.15, 0.92, 0.05, 5)
+			# Cape: a broad cloth hanging down the back, on springs, so it streams behind the fighter's runs and jumps: the biggest change to
+			# the outline the wardrobe has.
+			# (Modelled since the cape pass, 2026-10-25, the owner's pick of mocked capes: laid over the shoulders and falling from the
+			# shoulder blades to the calves with soft folds, hung on a chain of bones, `CapeRig`, art/blender/make_gear.py `cape`. It was a
+			# collar ring and a flat panel of boxes hanging close behind the back that barely showed.)
+			var modelled := _gear_mesh("cape", "fabric_cape")
+			if modelled != null:
+				cape_rig = CapeRig.new()
+				torso_rig.add_child(cape_rig)
+				cape_rig.transform = torso_fit.affine_inverse()
+				# (A step deeper than the outfit's colour, so it parts from shorts of the same colour behind it.)
+				# (Plain cloth, not `_fabric`'s print: laid by the part's position, it would slide over the cape as it swings.)
+				cape_rig.build(modelled, _cloth(toon(accent.darkened(0.3))))
+				meshes.append_array(cape_rig.meshes())
+			else:
+				var at := _collar(accent)
+				_tail(Vector3(0, at - 0.02, -0.42), _fabric(accent.darkened(0.08)), 1.15, 0.92, 0.05, 5)
+
+
+## The leather strap's width (the sash's band is 1.9 across in the same units) and how many badges the badge strap keeps.
+const STRAP_WIDTH := 0.85
+## The neckwear that rings the neck (it covers the shirt's collar): the neckerchief, scarf, cape, kerchief and sash, kerchief and collar.
+const RING_NECKS := [2, 3, 4, 5, 8]
+const STRAP_BADGES := 2
+## Where along the strap its badges sit (degrees round the band, 90 the middle of the chest, more toward the shoulder), the trim pass,
+## 2026-10-28: at the sash's spacing a narrow strap's badges sat down by the hip, out of sight.
+const STRAP_BADGE_FROM := 100.0
+const STRAP_BADGE_STEP := 25.0
+const STRAP_LEATHER := Color(0.42, 0.27, 0.17)
+
+
+## A band worn diagonally from shoulder to hip: `kind` 0 the broad badge sash, 1 a thin leather strap with a brass buckle, 2 the leather
+## strap with a couple of badges. (The leather straps since the sash pass, 2026-10-28, the owner's pick of mocked sashes: the reference
+## cast wear a thin brown strap; the same broad maroon band of badges on every default look read as a uniform.)
+func _sash(accent: Color, kind: int) -> void:
+	var centre := Vector3(0, TORSO_CENTRE_Y, 0)
+	var colour: Color = SASH if kind == 0 else STRAP_LEATHER
+	var badge_count: int = SASH_BADGES if kind == 0 else (STRAP_BADGES if kind == 2 else 0)
+	# Sash: a ring worn diagonally from shoulder to hip.
+	var ring := TorusMesh.new()
+	ring.inner_radius = 0.5
+	ring.outer_radius = 0.64
+	ring.rings = 36
+	ring.ring_segments = 10
+	# A flat band (the ring's tube stretched across the ring's plane), worn diagonally.
+	var sash := Node3D.new()
+	sash.position = centre
+	sash.rotation_degrees = Vector3(0, 0, -42)
+	torso_rig.add_child(sash)
+	# (Over the shirt, which since the body rebuild hangs looser: fitted to the bare torso, the band sank into the cloth in pieces.)
+	var over := SASH_OVER_SHIRT if loadout.shirt > 0 else 1.0
+	# (Twice as wide, the character judge's round 1: the reference's sash is a broad band.)
+	# (Deeper too, the cap pass, 2026-10-19: at 0.45 of the widening the puffed shirt showed through the band on the back.)
+	sash.scale = Vector3(over, 1.9 if kind == 0 else STRAP_WIDTH, 1.0 + (over - 1.0) * 0.8)
+	var strap := _gear_mesh("neckwear", "fabric_sash")
+	if strap != null:
+		_part(sash, strap, _cloth(toon(colour, false)), Vector3.ZERO)
+	else:
+		_part(sash, ring, toon(colour, false), Vector3.ZERO, Vector3(0.88, 1.7, 1.0))
+	# Six small square enamel badges along the band, facing out from it (the aviator scout pilot, 2026-10-19, after the owner's
+	# reference: three big plain dots read as buttons): each a brass plate with a coloured enamel face and a pale mark on it.
+	# (Smaller, spaced apart and of different shapes, each with its own little mark, the character judge's round 1: six bright
+	# squares in a tight row read as stickers.)
+	var square := BoxMesh.new()
+	# (A fifth smaller, thinner rims and muted, the character judge's round 2: the brightest things on the fighter.)
+	square.size = Vector3(0.061, 0.02, 0.061)
+	var round_plate := CylinderMesh.new()
+	round_plate.top_radius = 0.037
+	round_plate.bottom_radius = 0.037
+	round_plate.height = 0.024
+	round_plate.radial_segments = 14
+	var plates := [square, round_plate, square, round_plate, square, round_plate]
+	var sq_face := BoxMesh.new()
+	sq_face.size = Vector3(0.052, 0.026, 0.052)
+	var rd_face := CylinderMesh.new()
+	rd_face.top_radius = 0.031
+	rd_face.bottom_radius = 0.031
+	rd_face.height = 0.03
+	rd_face.radial_segments = 14
+	var faces := [sq_face, rd_face, sq_face, rd_face, sq_face, rd_face]
+	var dot := CylinderMesh.new()
+	dot.top_radius = 0.014
+	dot.bottom_radius = 0.014
+	dot.height = 0.036
+	dot.radial_segments = 8
+	var bar := BoxMesh.new()
+	bar.size = Vector3(0.04, 0.036, 0.012)
+	var tri := PrismMesh.new()
+	tri.size = Vector3(0.036, 0.036, 0.03)
+	var marks := [tri, dot, bar, dot, tri, bar]
+	var brass := respond(toon(Color(0.86, 0.68, 0.32)), "gold")
+	var colours := [Color(0.92, 0.32, 0.28), accent, Color(0.3, 0.52, 0.86), Color(0.98, 0.8, 0.28), Color(0.4, 0.7, 0.42),
+		Color(0.62, 0.42, 0.8)]
+	# (Four, spread along the strap from the shoulder to the hip, a little bigger, since the badge pass, 2026-10-19: six packed into the
+	# middle of the chest every 13.5 degrees merged into one cluster of rings at any distance; the reference's sit apart.)
+	# (All in one mesh, a surface per material, so the sash keeps to the loadout's mesh budget.)
+	var tools := {}
+	var order: Array = []
+	for k in badge_count:
+		var t := deg_to_rad((SASH_BADGE_FROM + SASH_BADGE_STEP * k) if kind == 0 else (STRAP_BADGE_FROM + STRAP_BADGE_STEP * k))
+		var out := Vector3(0.88 * cos(t), 0.0, sin(t)).normalized()
+		var at_b := Vector3(0.88 * 0.655 * cos(t), 0.0, 0.655 * sin(t))
+		var turn := Basis(Quaternion(Vector3.UP, out)) * Basis(Vector3.UP, deg_to_rad(8.0 * float(k % 3 - 1))) * Basis.from_scale(Vector3.ONE * SASH_BADGE_SIZE)
+		for piece in [[plates[k], "brass"], [faces[k], "face%d" % k], [marks[k], "mark"]]:
+			var key: String = piece[1]
+			if not tools.has(key):
+				var st := SurfaceTool.new()
+				st.begin(Mesh.PRIMITIVE_TRIANGLES)
+				tools[key] = st
+				order.append(key)
+			(tools[key] as SurfaceTool).append_from(piece[0], 0, Transform3D(turn, at_b))
+	var badges := ArrayMesh.new()
+	for key in order:
+		(tools[key] as SurfaceTool).commit(badges)
+	var bm := _part(sash, badges, null, Vector3.ZERO)
+	for i in order.size():
+		var key: String = order[i]
+		var c_b: Color = colours[int(key.substr(4))] if key.begins_with("face") else Color.WHITE
+		var m: Material = brass if key == "brass" else (toon(Color(0.98, 0.95, 0.88)) if key == "mark" else respond(toon(c_b.lerp(Color(0.55, 0.5, 0.5), SASH_BADGE_MUTE)), "rubber"))
+		bm.set_surface_override_material(i, m)
+	if kind > 0:
+		_strap_buckle(sash, colour)
+
+
+## A small brass buckle on the strap over the chest, kept square against the band's stretch, with the strap's end showing through it.
+func _strap_buckle(sash: Node3D, leather: Color) -> void:
+	var t := deg_to_rad(62.0)
+	var at := Vector3(0.88 * 0.67 * cos(t), 0.0, 0.67 * sin(t))
+	var turn := Vector3(0.0, rad_to_deg(-t + PI / 2.0), 0.0)
+	var unscale := Vector3(1.0 / sash.scale.x, 1.0 / sash.scale.y, 1.0 / sash.scale.z)
+	var frame := BoxMesh.new()
+	frame.size = Vector3(0.11, 0.12, 0.03)
+	_part(sash, frame, respond(toon(Color(0.84, 0.66, 0.32)), "gold"), at, unscale, turn)
+	var hole := BoxMesh.new()
+	hole.size = Vector3(0.06, 0.07, 0.034)
+	_part(sash, hole, _cloth(toon(leather.darkened(0.3), false)), at, unscale, turn)
 
 
 ## The pivot the neckerchief's point hangs from (none for the other neckwear), and the cloth tails on spring chains (the scarf's end, the
 ## sash's end).
 var neck_pivot: Node3D
 var tails: Array = []
+## The modelled cape on its own bones (neckwear 4), or none.
+var cape_rig: Node3D
 
 
 func _tail(at: Vector3, mat: Material, length: float, width: float, thickness: float, segments: int) -> void:
@@ -2284,7 +2378,7 @@ func _tail(at: Vector3, mat: Material, length: float, width: float, thickness: f
 ## sleeves; ours were plain tubes of colour): two pointed flaps folded down under the chin, a placket with three buttons down the front.
 ## Only with a shirt and no ring of neckwear (which covers the neck already).
 func _shirt_collar() -> void:
-	if not use_base_body or loadout.shirt <= 0 or loadout.neck >= 2:
+	if not use_base_body or loadout.shirt <= 0 or loadout.neck in RING_NECKS:
 		return
 	if rig != null and rig.find_child("ShirtCollar", true, false) != null:
 		return
@@ -2329,8 +2423,8 @@ func _shirt_collar() -> void:
 ## Returns its height in the torso's design space, for what hangs from it.
 ## The hats modelled in Blender (art/blender/make_gear.py, godot/models/gear), by hat slot (the owner, 2026-10-18: moving the
 ## accessories from built primitives to models over time).
-const GEAR_HATS := {1: "sailor_cap", 2: "aviator_cap", 3: "straw_hat", 4: "beanie", 5: "crown", 7: "plumed_helm", 8: "swept_spikes",
-	9: "topknot", 10: "dixie_cap"}
+const GEAR_HATS := {1: "sailor_cap", 2: "aviator_cap", 3: "straw_hat", 4: "beanie", 5: "crown", 6: "hood", 7: "plumed_helm",
+	8: "swept_spikes", 9: "topknot", 10: "dixie_cap", 11: "swoop"}
 
 
 ## Puts the modelled accessory `name` on the hat pivot, each part coloured by what it is made of (its name's first word): fabric in
@@ -2346,7 +2440,9 @@ func _gear_model(name: String, accent: Color) -> bool:
 	model.position = -HAT_PIVOT
 	hat_pivot.add_child(model)
 	# (A fine low-contrast weave, the character judge's round 6: coarse, it read as a picnic cloth.)
-	var straw := toon(Color(1, 1, 1), true, SvgArt.texture("res://art/cloth/straw_fine.svg", {"#ff00ff": Color(0.92, 0.8, 0.48)}), Vector2(9, 9))
+	# (Braided rows running round the crown and the brim since the straw pass, 2026-10-29, the owner's pick of mocks: the basketweave's
+	# square blocks read as a checkerboard close up. tools/art/make_straw_braid.py.)
+	var straw := toon(Color(1, 1, 1), true, SvgArt.texture("res://art/cloth/straw_braid.svg", {"#ff00ff": Color(0.92, 0.8, 0.48)}), Vector2(9, 9))
 	var brass := (respond(toon(Color(0.78, 0.64, 0.38)), "gold") as ShaderMaterial).duplicate() as ShaderMaterial
 	brass.set_shader_parameter("metal", 0.3)
 	brass.set_shader_parameter("rim_strength", 0.2)
@@ -2358,12 +2454,14 @@ func _gear_model(name: String, accent: Color) -> bool:
 	gold.set_shader_parameter("metal", 0.3)
 	gold.set_shader_parameter("rim_strength", 0.2)
 	# (A model's "metal" is the helm's steel, or the caps' brass; "brass" and "gold" name themselves.)
-	var mats := {"fabric": _fabric(accent), "canvas": _cloth(toon(Color(0.95, 0.94, 0.9))), "leather": _cloth(toon(Color(0.4, 0.25, 0.17))),
+	var mats := {"fabric": _fabric(accent), "canvas": _fabric(Color(0.95, 0.94, 0.9)), "leather": _cloth(toon(Color(0.4, 0.25, 0.17))),
 		"metal": steel if name == "plumed_helm" else brass, "brass": brass, "gold": gold, "glass": toon(Color(0.66, 0.84, 0.95), false),
-		"straw": straw, "hair": toon(FaceLook.BROW_COLORS[clampi(loadout.brow_color, 0, FaceLook.BROW_COLORS.size() - 1)]),
+		"straw": straw, "hair": toon(FaceLook.hair_color(loadout.brow_color)),
 		# (Cream fleece, the aviator scout pilot, 2026-10-19.)
 		# (A soft curly painted tile, the character judge's round 1: the fleece read as a smooth ring.)
-		"navy": _cloth(toon(Color(0.2, 0.28, 0.58))),
+		"navy": _fabric(Color(0.2, 0.28, 0.58)),
+		# (The hood in the outfit's colour a shade deeper, its rolled rim a lighter lining, the hood pass, 2026-10-25.)
+		"hood": _fabric(accent.darkened(0.18)), "lining": _fabric(accent.lightened(0.35)),
 		"fleece": toon(Color(1, 1, 1), true, SvgArt.texture("res://art/cloth/fleece.svg", {"#ff00ff": Color(0.93, 0.86, 0.72)}), Vector2(1, 2))}
 	# One mesh per material, its parts merged (the loadout budget, docs plan 7.3: the crown's set stones and the helm's plume feathers, a
 	# mesh each, came to 16 and 24 meshes on one hat).
@@ -2401,8 +2499,15 @@ func _gear_model(name: String, accent: Color) -> bool:
 
 ## A fabric accessory's material (hats, neckwear, bands): the cloth's softer step and fine weave (`_cloth`), as the shirts and shorts
 ## have (2026-10-18, the owner after the reference cast: the accessories in flat plastic read cheaper than the clothes).
+## (In the fleck print since the headwear pass, 2026-10-29, the owner's pick of mocks, as the reference's cap carries its shirt's speckle:
+## laid by each part's own position, `part_tri`, as these rigid parts have no rest maps.)
 func _fabric(c: Color) -> Material:
-	return _cloth(toon(c))
+	var key := "part" + c.to_html()
+	if not _fleck_cache.has(key):
+		var m: ShaderMaterial = toon(c, true, SvgArt.texture("res://art/cloth/fleck.svg"), FLECK_TILE).duplicate()
+		m.set_shader_parameter("part_tri", true)
+		_fleck_cache[key] = m
+	return _cloth(_fleck_cache[key])
 
 
 func _collar(accent: Color, snug := 1.0, lift := 0.0, thick := 1.0) -> float:
@@ -2448,7 +2553,8 @@ func _hat() -> void:
 	# (Oversized, as the reference's hats are, art review 10: at play size the hats read as small caps and every fighter as the same
 	# round head; a bigger hat is most of a fighter's silhouette. Scaled about the top of the head, so each still sits on it.)
 	# (Only the hats that sit on top of the head: scaled, the caps that wrap it (aviator cap, beanie, hood, topknot) came down over the eyes.)
-	if loadout.hat in [1, 3, 5, 7, 8]:
+	# (Not the hair since the hair pass, 2026-10-24: scaled up as a hat it stood off the head and read as one.)
+	if loadout.hat in [1, 3, 5, 7]:
 		# (Only part of the head shape's stretch reaches the hat, the character judge's round 14: on the wide bun head the aviator's hat
 		# spread into a flat platter. The hat fits the head without taking its proportions.)
 		var hs: Vector3 = Loadout.HEAD_SCALES.get(Loadout.HEADS[clampi(int(loadout.get("head")), 0, Loadout.HEADS.size() - 1)], HEAD_SIZE)
@@ -2536,7 +2642,7 @@ func _hat() -> void:
 		8:
 			# Swept spikes: a cap of hair over the crown with thick, blunt spikes swept up and back, in the brow colour (a hairstyle, worn in
 			# the hat slot).
-			var hair := toon(FaceLook.BROW_COLORS[clampi(loadout.brow_color, 0, FaceLook.BROW_COLORS.size() - 1)])
+			var hair := toon(FaceLook.hair_color(loadout.brow_color))
 			_part(hat_pivot, _sphere(0.86), hair, Vector3(0, 1.74, -0.08) - HAT_PIVOT, Vector3(1.02, 0.62, 1.0))
 			# [x, y, z, sideways lean, length]: a fan across the crown and a few swept back, each a thick cone leaning up and back.
 			var spikes := [[-0.55, 2.1, 0.15, 48.0, 1.0], [-0.22, 2.3, 0.1, 20.0, 1.2], [0.18, 2.32, 0.08, -14.0, 1.2], [0.52, 2.12, 0.12, -44.0, 1.0],
@@ -2546,7 +2652,7 @@ func _hat() -> void:
 					Vector3(-34, 0, float(sp[3])))
 		9:
 			# Topknot: close-cropped hair over the crown and a round knot of hair on top, tied with a band in the accent colour.
-			var hair := toon(FaceLook.BROW_COLORS[clampi(loadout.brow_color, 0, FaceLook.BROW_COLORS.size() - 1)])
+			var hair := toon(FaceLook.hair_color(loadout.brow_color))
 			_part(hat_pivot, _sphere(0.86), hair, Vector3(0, 1.72, -0.1) - HAT_PIVOT, Vector3(1.02, 0.6, 1.0))
 			_part(hat_pivot, _sphere(0.32), hair, Vector3(0, 2.36, -0.15) - HAT_PIVOT, Vector3(1.0, 0.9, 1.0))
 			_part(hat_pivot, _cyl(0.2, 0.2, 0.1), _fabric(accent), Vector3(0, 2.12, -0.13) - HAT_PIVOT)
@@ -2560,6 +2666,13 @@ func _hat() -> void:
 			for i in 5:
 				var a := TAU * i / 5.0
 				_part(hat_pivot, _cyl(0.0, 0.11, 0.32), gold, Vector3(sin(a) * 0.5, 2.36, cos(a) * 0.5) - HAT_PIVOT)
+
+
+## The shades (the glasses pass, 2026-10-28): how much bigger than modelled, how far below the eyes' line in the glasses' design space,
+## and their frames' ink.
+const SHADES_SIZE := 1.24
+const SHADES_DROP := 0.05
+const SHADES_FRAME := Color(0.07, 0.06, 0.14)
 
 
 func _glasses() -> void:
@@ -2588,21 +2701,30 @@ func _glasses() -> void:
 			# Shades: tinted glass the eyes show through, in a dark frame with a heavier brow bar, and a bridge.
 			# (A light peach tint with white glare streaks, shaders/lens.gdshader, the character pass, 2026-10-19, after the reference cast's
 			# shades: a heavy flat orange turned the eyes behind brown.)
+			# (Coloured glass with the glare drawn over it since the glasses pass, 2026-10-28, the owner's pick of mocks: the see-through tint
+			# lifted the pupils to orange and the eyes vanished. The lenses bigger and lower, over the whole eye (the whites showed under the
+			# rims), in thin ink frames as the reference's shades are drawn.)
 			var lens := ShaderMaterial.new()
 			lens.shader = preload("res://shaders/lens.gdshader")
+			var glare := ShaderMaterial.new()
+			glare.shader = preload("res://shaders/lens_glare.gdshader")
+			lens.next_pass = glare
+			var ink_frame := toon(SHADES_FRAME, false)
+			var y := 1.52 - SHADES_DROP
 			if modelled:
+				var size := Vector3(SHADES_SIZE, SHADES_SIZE, 1.0)
 				for sx in [-1.0, 1.0]:
-					_on_face(_part(glasses_rig, g_lens, lens, Vector3.ZERO), to_head, sx * 0.32, 1.52, 0.04, Vector3.ONE)
-					_on_face(_part(glasses_rig, g_rim_shades, frame, Vector3.ZERO), to_head, sx * 0.32, 1.52, 0.05, Vector3.ONE)
-				_on_face(_part(glasses_rig, g_bridge, frame, Vector3.ZERO), to_head, 0.0, 1.56, 0.06, Vector3.ONE)
+					_on_face(_part(glasses_rig, g_lens, lens, Vector3.ZERO), to_head, sx * 0.32, y, 0.04, size)
+					_on_face(_part(glasses_rig, g_rim_shades, ink_frame, Vector3.ZERO), to_head, sx * 0.32, y, 0.05, size)
+				_on_face(_part(glasses_rig, g_bridge, ink_frame, Vector3.ZERO), to_head, 0.0, 1.56 - SHADES_DROP, 0.06, Vector3.ONE)
 			else:
 				var rim := TorusMesh.new()
 				rim.inner_radius = 0.95
 				rim.outer_radius = 1.05
 				for sx in [-1.0, 1.0]:
-					_on_face(_part(glasses_rig, _sphere(1.0), lens, Vector3.ZERO), to_head, sx * 0.32, 1.52, 0.04, Vector3(0.25, 0.18, 0.03))
-					_on_face(_part(glasses_rig, rim, frame, Vector3.ZERO), to_head, sx * 0.32, 1.52, 0.045, Vector3(0.25, 0.04, 0.18), true)
-				_on_face(_part(glasses_rig, _sphere(1.0), frame, Vector3.ZERO), to_head, 0.0, 1.56, 0.06, Vector3(0.1, 0.025, 0.025))
+					_on_face(_part(glasses_rig, _sphere(1.0), lens, Vector3.ZERO), to_head, sx * 0.32, y, 0.04, Vector3(0.25, 0.18, 0.03) * SHADES_SIZE)
+					_on_face(_part(glasses_rig, rim, ink_frame, Vector3.ZERO), to_head, sx * 0.32, y, 0.045, Vector3(0.25, 0.04, 0.18) * SHADES_SIZE, true)
+				_on_face(_part(glasses_rig, _sphere(1.0), ink_frame, Vector3.ZERO), to_head, 0.0, 1.56 - SHADES_DROP, 0.06, Vector3(0.1, 0.025, 0.025))
 		2:
 			# Goggles: deep padded leather cups with glass, and a strap round the head.
 			var leather := _cloth(toon(Color(0.45, 0.28, 0.12)))
@@ -2851,6 +2973,8 @@ func reset_motion() -> void:
 	flinch_left = 0.0
 	for t in tails:
 		t.reset()
+	if cape_rig != null:
+		cape_rig.reset()
 ## Where the run cycle was last frame, for the footfalls.
 var last_step_phase := 0.0
 
@@ -3683,6 +3807,8 @@ func _secondary(s: Dictionary, delta: float) -> void:
 		neck_pivot.rotation = Vector3(0, 0, springs.value("neck"))
 	for t in tails:
 		t.update(int(s.frame), int(s.hitlag), dv, 1.0, delta)
+	if cape_rig != null:
+		cape_rig.update(int(s.frame), int(s.hitlag), vel, dv, facing, delta)
 
 
 ## The Bounder's egg round a fighter shut in it (state `Encased`, the bridge's `fighter_egg_radius`): a cream egg standing on the

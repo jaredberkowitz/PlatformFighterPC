@@ -558,3 +558,294 @@ built as chosen:
 `reference_face_pass.png`: the reference beside ours; the defaults close up before and after; front views before and after (the head);
 every expression before and after; the creator's eyes page and a match frame before and after. Fighter view, art pipeline, loadout,
 animation library, editor UI, select grid, match flow, replay and prop check tests pass.
+
+## Hair (2026-10-24, the owner: "the hair currently reads as a spiky hat")
+- **Cause**: each hairstyle (`make_gear.py` `swept_spikes`, `topknot`) was a rigid cap standing well off the head with a hard rim at the
+  brow, separate cones stuck on top, scaled up 1.22 like the hats (`HAT_SIZE`), and in the brow colour, which since the face pass is
+  the faces' navy ink: a dark helmet.
+- **Now** each style is one soft mass hugging the head down to the nape (metaballs laid just under the head's surface, measured off
+  the rig in the gear design space, `HEAD_PROFILE`), its locks growing out of it, fused into one surface by a voxel remesh, its inside
+  cut away, about 3,000 triangles (`hair_mass`, `spike`, `hair_finish`).
+- **Spiky hair**, after the owner's direction (big spiky anime hair): four long spikes swept up and back from the crown, a row fanning
+  back and a lower row out over the back of the head, a big spike flaring out over each ear, a long lock down each side of the face,
+  and five long fringe spikes falling over the brow, stopping above the eyes.
+- **Topknot**: hair drawn back smooth into a round knot, a band of the outfit's colour, a loose lock at each temple.
+- **Swoop** (new, hat 11, appended so saved looks keep theirs): a short soft cut with a big forelock swept up and over to the side.
+- Hair is no longer scaled up as a hat, and takes its own colour: `FaceLook.hair_color`, the brow colour but a dark brown where the
+  brows are the faces' navy ink.
+
+`hair_pass.png`: the old spikes and topknot beside the new spiky, swoop and topknot (front, three-quarter, back), then the roster's
+second sheet before and after (the hero and the bruiser wear hair). Loadout (the mesh budget per item), fighter view, art pipeline,
+animation library, editor UI, select grid and match flow tests pass.
+
+## Cape and hood (2026-10-25, the owner: the cape "a flat panel from the back", the hood "a flat rim at the face")
+Mocked two of each as Blender models; the owner chose the long cape and the lined hood.
+- **Cape** (neckwear 4, `make_gear.py` `cape`): modelled round the base body (the rig's own space): laid round the back of the neck and
+  over the shoulders, kept off the body there by pushing it out of the fighter's mesh, then falling straight from the shoulder blades and
+  flaring back to the calves, with soft folds and a rounded hem; about 3,100 triangles. It was a collar ring and a chain of flat boxes
+  hanging close behind the back that barely showed. Pushing the whole cloth off the body clung to the back and seat in crumples, so only
+  the shoulders and upper back are pushed.
+- **It swings** (`cape_rig.gd`): the game skins it to a chain of five bones down its back, the first holding the shoulders still, each
+  on a spring like the scarf's tail (stepped with the sim, frozen in hitlag and pause, at rest after a rollback). It lifts out behind a
+  fighter moving ahead or falling and kicks with every change of speed: about half a radian at the hem through a run, fully lifted
+  through a dash-dance, and back at rest standing (traced at a fixed 60 frames a second). In a shade deeper than the outfit's colour, so
+  it parts from shorts of the same colour.
+- **Hood** (hat 6, `make_gear.py` `hood`): a soft loose cloth shell over the head round an open face, a soft peak over the brow, a
+  drooping point behind, a cowl close round the neck, and a thick rolled rim of a lighter lining framing the face (metaballs fused by a
+  voxel remesh, as the hair). It was a stiff open shell with a flat rim, a cone for a point and a wide flat cowl. The cloth the outfit's
+  colour a shade deeper, the rim lighter (`fighter_view.gd` `_gear_model` "hood", "lining").
+
+`cape_hood_pass.png`: menus before above after (cape from the back and side; hood front, side, back), then match frames before (left)
+and after (right) with the cape on player 1 and the hood on player 2 (dash-dance, dash, jump, a tilt), then the cape streaming behind a
+dash and a run at real speed. The match captures used saved looks written for the purpose and removed afterwards. Loadout, fighter
+view, art pipeline, animation library, match flow, replay, select grid and editor UI tests pass.
+
+## Form light (2026-10-28, the comparison's first weak point: "lighting and form")
+Compared side by side with the reference lineup, the biggest gap was how the bodies are lit: the reference figures are lit from above
+with soft studio light, each head and body bright on top and turning into shade underneath, so a round head reads as a ball. Ours read
+as flat discs.
+- **Cause**, found by mocking: the ambient fill (about half of all the light on a fighter) lit every side alike, so the undersides were
+  as bright as the tops whatever the key did; the two-tone step (`PF_FIGHTER_STEP`) mattered less. A soft gradient alone (mock B) and
+  the outline off barely changed anything.
+- Mocked four strengths (E, G, H against the current A); the owner chose G:
+  - the fighters' key tilted up toward the sky (`PF_FIGHTER_TOP` 1.0, `PF_FIGHTER_FORM` 0.6 to 0.8);
+  - the ambient fill from the sky: surfaces facing down keep 15% of it (`pf_fighter_sky`, `PF_FIGHTER_SKY_FLOOR`, multiplied into the
+    AO of the cloth, skin, limb and face shaders, fighters only);
+  - a soft fall-off into shade instead of the hard two-tone step (`PF_FIGHTER_SOFT`), the shadow tone deeper (`PF_FIGHTER_SHADE`
+    0.7 to 0.5);
+  - more of the head's and hat's cast shade on the shirt and shoulders (`PF_FIGHTER_CAST` 0.25 to 0.6), the contact shade the
+    reference figures carry.
+  H, stronger still, muddied pale and warm colours (yellow toward olive, orange toward brown).
+- Fighters only (the `fighter` flag): the canyon and the city rendered with the old and new shaders differ only at the fighters.
+- The look bench passes: every fighter's silhouette still reads against every mood; the body contrast rose on the bright backdrops
+  and fell a little on the dark ones.
+
+`form_light_pass.png`: the default faces, before above after; the sailor and aviator in T-pose, before and after each; a match frame,
+before and after. Fighter view, art pipeline, loadout, animation library, match flow, select grid, editor UI and prop check tests pass.
+
+## Sash (2026-10-28, the comparison's second weak point)
+Every default look wore the same broad maroon sash with four bright badges, which read as a uniform and the busiest thing on each
+chest; the reference cast wear a thin brown leather strap. Mocked four options (the current sash, a thin leather strap with a brass
+buckle, a navy fabric strap, a mix per look); the owner chose the mix.
+- `fighter_view.gd`: the sash is one builder, `_sash(accent, kind)`: 0 the broad badge sash (as before), 1 a thin leather strap
+  (`STRAP_WIDTH`, `STRAP_LEATHER`) with a small brass buckle over the chest (`_strap_buckle`), 2 the strap with two badges
+  (`STRAP_BADGES`).
+- `loadout.gd`: three new neckwear items, appended so saved looks keep theirs: "leather strap" (6), "badge strap" (7), and "sailor
+  collar" (8), the neckerchief with the sailor's square collar and no sash. The badge sash stays in the creator.
+- The default looks: the sailor in the kerchief and its collar (was kerchief and sash), the aviator in the leather strap, the holiday
+  shirt with none, the ranger in the badge strap (each wore the badge sash).
+- Neckwear that rings the neck is one list, `RING_NECKS` (it hides the shirt's collar); the strap hides the shirt's buttons as the sash
+  does; the sailor's white shorts cuffs and the ranger's kerchief knot follow their new items.
+
+`sash_pass.png`: the four default looks before above after, side views (the sailor and the aviator, before then after), and a match
+frame before and after. Fighter view, loadout (the mesh budget per item), art pipeline, animation library, match flow, select grid,
+editor UI and motion tests pass.
+
+## Sleeve bands, shorts turn-ups, the strap's badges (2026-10-28, the comparison's next weak points)
+Mocked four options; the owner chose C.
+- **Shorts turn-ups** in the shorts' own colour, a shade darker, on every look (`fighter_view.gd`, ShortsCuff): the sailor's white and
+  the holiday shirt's cream turn-ups read as sock tops at play size.
+- **Sleeve bands** a contrasting colour again, as the reference cast's sleeves end in a coloured stripe: the outfit colour on a white
+  shirt, a deeper shade of it on the outfit shirt, white on the striped and printed ones (SleeveTrim). In the shirt's own cloth the
+  sleeve just stopped. A small change at match distance.
+- **The badge strap's badges** sit on the upper chest (`STRAP_BADGE_FROM`, `STRAP_BADGE_STEP`): at the broad sash's spacing a narrow
+  strap's two badges sat down by the hip, out of sight.
+
+`trim_pass.png`: the default looks from two sides, before above after each, then a match frame before and after. Fighter view,
+loadout, art pipeline, match flow, select grid and editor UI tests pass.
+
+## Legs and feet (2026-10-28, the comparison's next weak point)
+The reference lineup's feet are about half a head wide and its legs thick tubes; ours were about a third. The hands were already close
+in size (and relaxed in the hand pass), so only the legs and feet changed. Mocked by bone scale (feet 30% and 50% bigger, and 30% with
+legs 15% thicker); the owner chose the last.
+- `make_cage_body.py` `_legs()`: the leg's rings 15% thicker (`LEG_THICK`), the foot 30% bigger across and in length about the ankle
+  (`FOOT_GROW`) and 12% taller (`FOOT_TALL`) with its sole kept on the ground, the feet moved out by their extra width so the two do not
+  meet. The body's height, head and hips are unchanged (the content's hurtboxes still match).
+- The full kit's socks: with the thicker legs the turned-down top sat in the knee's bend and tore open; it now ends a little lower
+  (`SOCK_HEIGHT` 0.375 to 0.34), closer to the leg (`SOCK_TOP_LIFT` 0.045 to 0.032), with a fuller roll (`HEM_ROLL`). A thin ink line
+  stays along its top edge, as the other leg already had.
+- Body, joints and rig rebuilt (mesh only; no clip changed).
+
+`feet_pass.png`: the default looks from the front and the side, before above after; the roster's first sheet before and after (the
+socks and boots); a match frame before and after. Fighter view, art pipeline, loadout, animation library, match flow, select grid and
+motion tests pass.
+
+## Fleck print (2026-10-28, the comparison's shirts gap)
+The reference cast's shirts and shorts carry a soft printed speckle (short grey dashes and dots); ours were flat fills. The earlier
+weave (strokes from `brush.gdshaderinc`) read as ripples and wood grain and was turned off in the finish pass. Mocked a fleck tile on
+the shirts only, on shirts and shorts, and bolder on both; the owner chose shirts and shorts.
+- `godot/art/cloth/fleck.svg`, drawn by `tools/art/make_fleck.py` (seamless, 150 marks, each 12 to 20% dark), multiplied into the
+  plain and outfit shirts and the modelled shorts (`fighter_view.gd` `_fleck`, `FLECK_TILE`). The striped and flowered shirts keep
+  their own prints.
+- Laid three ways by the cloth's rest position (front, side and top, blended by which way the cloth faced at rest:
+  `toon_common.gdshaderinc` `rest_tri`): laid front-on only, as the other prints are, it stretched into streaks round the sides that
+  read as fur.
+- It shows close, in the menus and the creator; at match size it fades into the colour without adding noise.
+
+`fleck_pass.png`: the default looks in the menu, close and from the side, before above after each; a match frame before and after.
+Fighter view, art pipeline, loadout, match flow, select grid, editor UI, prop check and animation library tests pass.
+
+## Silhouettes of the default looks (2026-10-28, the comparison's last gap)
+The reference cast share one body and tell apart by their headwear (a tall chef's hat, a crab hood with claws, a propeller cap).
+Filled black, two of our four defaults made the same shape: the sailor's cap and the holiday shirt's dixie cap were each a flat cap on
+a ball. Mocked the holiday shirt in the swept spikes, that plus the long cape on the aviator, and the holiday shirt in the swoop; a
+scarf tail on the aviator and the topknot were tried first and changed the outline too little. The owner chose the spikes alone.
+- `loadout.gd` `default_for`: the holiday shirt's default wears the swept spikes (hat 8) in place of the dixie cap; the dixie cap stays
+  in the creator. Saved looks keep theirs.
+- The built-in roster's hats are the identity mock's job (branch `art/identity`, waiting on the owner's review). Its five new hats are
+  appended at catalog index 11 onward, where this branch's swoop already is: whichever merges second must move its hats along.
+
+`silhouette_pass.png`: the default looks in colour and filled black, before above after; two match frames with the holiday shirt as
+P2, before and after. Loadout, fighter view, select grid, match flow, editor UI and art pipeline tests pass.
+
+## Weak points after the second comparison (2026-10-28, after the silhouette pass)
+`comparison_2026-10-28b.png`: the salute and the lineup above; our default looks' faces close, then the four in the menu at three-quarters.
+The comparison's earlier gaps (form light, sash, trim, feet, cloth print, silhouettes) are done. What still separates them, most visible
+first:
+1. **Tinted glasses hide the eyes** on two of the four defaults (the aviator, the holiday shirt): orange lenses with a white glare stripe
+   over the eyes, which carry the face; at match size two orange discs. (The reference's shades do cover the eyes, `peak-character-
+   frown.jpg`, but its eyes read clearly through a pale tint.) The aviator also wears goggles on its cap, so it has two pairs.
+2. **The spiky fringe** ends in a straight jagged band across the brow, a cut-paper crown rather than separate locks falling over it.
+3. **The ranger's lidded eyes** are shaded grey-olive by the heavy lids, so it reads tired or ill beside the others' ivory whites.
+4. **The aviator's collar** close up: two large flat green triangles, with a ragged white edge where the shirt meets the neck.
+5. **Headwear has no print**: the reference's cap carries the same soft fleck as its shirt (and an embroidered emblem); ours are flat.
+6. **The straw hat's weave** tiles as a visible checker up close (not at menu or match size).
+
+## Glasses (2026-10-28, item 1 above)
+Found by rendering the faces with and without their shades: the pupils did not show at all behind the lenses. The lens laid a 42% orange
+over the face, and in linear light that lifted the navy pupil to a mid orange, so pupil and white ran together. The reference's shades
+(the frown) show the eyes plainly through a pale yellow tint, in big thin ink frames. Mocked coloured glass, that with bigger lenses in
+ink frames, and that with the aviator in no specs; the owner chose the second.
+- `lens.gdshader` multiplies what is behind it by a paler, yellower tint (coloured glass: the pupil stays dark; multiplied, the old
+  orange turned blue skin a dirty grey); the glare streaks moved to their own pass, `lens_glare.gdshader`, drawn over it.
+- The shades' lenses and rims 24% bigger and set lower (`SHADES_SIZE`, `SHADES_DROP`), over the whole eye: the whites showed under the
+  rims. Their frames in ink (`SHADES_FRAME`) instead of brown wire. The goggles and round specs are unchanged.
+- At match size the faces are small and the shades read much as before; the change shows in the menus, the creator and close.
+
+`glasses_pass.png`: the aviator and holiday shirt's faces and the menu, before above after; a side view, before left and after right; a
+match frame before and after. Fighter view, art pipeline, loadout, match flow, select grid and editor UI tests pass.
+
+## Spiky fringe (2026-10-28, item 2 of the second comparison)
+The spiky hair's fringe was five equal spikes ending level above the eyes: from the front a jagged band across the brow, a cut-paper
+crown. Mocked three fringes in Blender over the holiday shirt's look (three long unequal bangs, locks swept to one side, staggered clumps
+with a short row behind); the owner chose the bangs.
+- `make_gear.py` `swept_spikes`: three long bangs, the middle one falling to a point between the eyes and curling aside, the outer two
+  swept out over the brows, two short locks between them so no edge of the hair's mass shows. 2,978 triangles (the hair budget is 3,000).
+- The built-in hero wears the same hair and gets the same fringe.
+
+`fringe_pass.png`: the holiday shirt's look from the front, three-quarters and the side and in the menu, before above after; a match
+frame before and after. Art pipeline, loadout (mesh budget), fighter view, match flow and select grid tests pass.
+
+## Eye whites (2026-10-29, item 3 of the second comparison)
+The ranger's whites read grey-olive, tired or ill. Rendered with the hat off and with the lid's shadow off: neither was the cause. Every
+face shares one ivory, sampled off the salute's whites on yellow skin (0.86, 0.83, 0.69); beside pink skin its yellow reads khaki. Mocked
+whites tinted toward each skin's hue, a less yellow ivory on every face, and the tinted whites with a lighter edge shade; the owner chose
+the less yellow ivory (the tinted ones read tan).
+- `face_common.gdshaderinc` `cream_color` 0.88, 0.86, 0.79: still well short of white (the owner found white too bright), less yellow.
+  On every face, in the game and in the creator.
+
+`eye_white_pass.png`: the ranger front and three-quarter and the sailor close, before above after; the aviator and holiday shirt, before
+left and after right; the default looks in the menu, before above after; a match frame before and after. Fighter view, art pipeline,
+loadout, editor UI, select grid and match flow tests pass.
+
+## Placket (2026-10-29, item 4 of the second comparison)
+Close on the aviator, the green placket ran down the white shirt as a painted stripe beside the green collar points. Mocked the placket
+in the shirt's own cloth; the owner chose it.
+- `fighter_view.gd` ShirtPlacket: the plain and outfit shirts' plackets in the shirt's own cloth (with its fleck print), as the
+  reference's scout shirts; the collar keeps its colour. The striped and flowered shirts keep their pale placket.
+- **Not fixed**: a ragged edge at the top of every shirt, where the bottom of the head meets the shirt and the collar over the shoulders.
+  Lifting and narrowing the collar band, ending the shirt lower at the neck, and cutting the neck finer (scratch rigs) each left it or
+  made it worse. Looked into next (below).
+
+`placket_pass.png`: the aviator close from the front, three-quarters and the side, before above after; the sailor and the ranger, before
+left and after right; the default looks in the menu, before above after. Fighter view, loadout, editor UI and select grid tests pass.
+
+## Collar band (2026-10-29, the ragged edge at the top of the shirts)
+Found by hiding the parts in turn: with the collar hidden the shirt's neckline is clean; with the ink off the shards stay. So the ragged
+edge was the collar band. Each of its points was set on the nearest point of the shirt; over the shoulders, where the sleeve meets the
+body, the nearest point flipped between the two, and the band zigzagged into green and white shards. The owner chose the fix mocked in a
+scratch rig.
+- `make_rigged_blob.py` `collar`: the laid band is relaxed over the cloth (`COLLAR_RELAX` 8 times: each point eased toward its
+  neighbours along the band, and across it inside its edges), and only a point that sank into the shirt is pushed back out to its lift.
+  The collar's shape and lift are as before; the camp collar of the flowered shirt is built the same way.
+- Rig rebuilt (mesh only: no joint or clip changed).
+- Smaller shards remain at the top of the shoulders when the fists come up, where the sleeves rise with the arms.
+
+`collar_band_pass.png`: the aviator close, fists raised, before above after; the sailor and the ranger, before left and after right; the
+aviator with arms relaxed (as is, collar hidden, shirt hidden, ink off, head hidden), before above after; a match frame before and after.
+Art pipeline, fighter view, loadout, animation library, match flow, motion and select grid tests pass.
+
+## Headwear and neckwear print (2026-10-29, item 5 of the second comparison)
+The reference's cap carries the same soft speckle as its shirt; our caps, hood and neckwear were flat. Mocked the fleck print on the
+hats' cloth at the shirts' scale, finer, and on the hats' cloth and the neckwear; the owner chose the last.
+- `toon_common.gdshaderinc` `part_tri`: the print laid three ways by the part's own position (as `rest_tri` lays the garments' by
+  their rest position): the hats and neckwear are rigid parts with no rest maps. Off for everything else.
+- `fighter_view.gd` `_fabric` (the neckwear, the code-built hats' cloth, the modelled hats' "fabric") and the modelled hats' canvas,
+  navy, hood and lining all take the fleck. The cape keeps plain cloth: it is skinned to its spring bones, so a print laid by position
+  would slide over it as it swings.
+- It shows close and in the menus; at match size it fades into the colour.
+
+`headwear_pass.png`: the sailor cap, beanie and hood close, before above after; six heads (sailor, aviator, dixie cap, hood, beanie),
+before left and after right; the default looks in the menu, before above after; a match frame before and after. Fighter view, art
+pipeline, loadout, match flow, select grid, editor UI, prop check and camera tests pass.
+
+## Straw braid (2026-10-29, item 6 of the second comparison)
+The straw hat's weave was a basketweave of square blocks, which close up read as a checkerboard. Mocked the same weave finer, braided
+rows running round the hat, and a wider braid; the owner chose the braided rows.
+- `godot/art/cloth/straw_braid.svg` (`tools/art/make_straw_braid.py`): rows of plaited straw, each a herringbone of slanted strands with
+  a fine seam between rows. The modelled straw hat's texture map runs round the crown and the brim, so the rows coil round the crown and
+  ring the brim, as a hat sewn from one long braid. The ranger, the traveller and the villager wear it.
+- The code-built stand-in hat (without the model) keeps its old weave.
+
+`straw_pass.png`: the ranger's hat from the front, three-quarters, above and the side, close on the crown, and in the menu, before above
+after. Fighter view, loadout and art pipeline tests pass.
+
+## Weak points after the third comparison (2026-10-29)
+`comparison_2026-10-29.png`: the references above; our default looks' faces close, at three-quarters, then close from behind and the
+side. From the front the defaults now hold up beside the references; what is left shows from behind and the side, most visible first:
+1. **The sailor collar's back flap** shows as two floating blue tabs on the shirt's back, and from the side as a bar standing off it;
+   the reference's sailor collar is one square flap across the back with a pale stripe round its edge.
+2. **The shirt collar's band is split at the back**: two separate bars over the shoulder blades with a gap at the spine (the aviator's
+   green, the ranger's yellow), reading as shoulder pads rather than one collar round the neck.
+3. **The spiky hair's nape** ends in a hard level edge with teeth hanging from it across the back of the head, a helmet's rim.
+4. **Small shards at the top of the shoulders** remain on the flowered shirt from behind, and on every shirt when the fists come up.
+
+## Sailor collar and the collar's back (2026-10-29, items 1 and 2 of the third comparison)
+The sailor's collar was flat boxes built in the game; over the loose modelled shirt most of the back flap sat inside the cloth and only
+two corners showed, as floating blue tabs. Separately, every shirt collar was built in two halves meeting at the spine, which left a
+seam of shirt down the back: from behind, two pads on the shoulder blades. Mocked a modelled square flap, that with a pale edge stripe,
+and a deeper flap; the owner chose the stripe.
+- `make_rigged_blob.py` `collar`: one strip from the throat's left round the back to its right (was two halves), and a `shape` per
+  collar. The shirt collar and the camp collar keep COLLAR_SHAPE and now close at the back.
+- `SailorCollar` and `SailorStripe`: the same band laid on the shirt with `SAILOR_SHAPE` (narrow down the front and over the shoulders,
+  a broad square flap across the back), and a pale stripe along its free edge (`SAILOR_STRIPE_AT`, `SAILOR_STRIPE_ROWS`). Rig rebuilt
+  (mesh only).
+- `fighter_view.gd`: worn with the neckerchief's sailor collar (and the kerchief and sash), in the fleck print by the cloth's rest
+  position. The code-built boxes (`_sailor_collar`) stay only for a rig without the modelled collar.
+
+`sailor_collar_pass.png`: the sailor from behind, the side, three-quarters behind and the front, and in the menu front and back, before
+above after; the aviator and the ranger from behind, before above after; a match frame before and after. Art pipeline, fighter view,
+loadout, animation library, match flow, motion, select grid and editor UI tests pass.
+
+## Spiky hair's nape (2026-10-29, item 3 of the third comparison)
+From behind, the spiky hair's mass ended in a level hem halfway down the back of the head with its lower row of spikes hanging from it: a
+helmet's rim with teeth. Mocked the lower row swept up with tapered tufts at the nape, every row flaring up as in the reference anime
+hair, and a soft nape with locks curling under; the owner chose the tufts.
+- `make_gear.py` `swept_spikes`: the lower row swept out and up over the back of the head; five tapered tufts lying down the head at the
+  nape, the middle longest; the mass ends a little higher (112 degrees from the top, was 124) under them. 2,973 triangles.
+- The front, the fringe and the ear spikes are unchanged; the built-in hero gets it too.
+
+`nape_pass.png`: the holiday shirt's look from behind, three-quarters behind, the side and the menu, before above after; the front after;
+a match frame before and after. Art pipeline, loadout, fighter view and match flow tests pass.
+
+## Shoulder shards (2026-10-29, item 4 of the third comparison)
+Found by hiding the parts in turn with the fists up: the collar band took the trunk's weights by height, so it stayed with the torso
+while the sleeve's top under it rose with the arm, and the shirt poked through the collar in shards at the top of the shoulders. Mocked
+the collars taking the shirt's own weights; the owner chose it.
+- `make_rigged_blob.py` `shirt_front` `finish`: the shirt collar, the camp collar and the sailor collar and stripe each take the weights
+  of the nearest point of the shirt, so they move with the cloth under them. The placket and buttons keep the trunk's weights.
+- Rig rebuilt (mesh only). A modest gain: clearest on the aviator's shoulder from the side; the holiday shirt's barely changes.
+
+`shoulder_pass.png`: the aviator and the holiday shirt with fists up, from the side then the front, before then after each; the sailor's
+collar from behind, the side and three-quarters behind, before above after; a match frame before and after. Art pipeline, fighter view,
+loadout, animation library, match flow and motion tests pass.

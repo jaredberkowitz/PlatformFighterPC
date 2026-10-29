@@ -517,101 +517,246 @@ def crown():
 
 
 # ---- Hair ------------------------------------------------------------------------------------------------------------------------------
+# (Rebuilt in the hair pass, 2026-10-24, the owner: "the hair currently reads as a spiky hat". It was a rigid cap standing off the head
+# with a hard rim and separate cones stuck on. Now each style is one soft mass hugging the head down to the nape, its locks growing out of
+# it: the mass from metaballs laid just under the measured head's surface, the locks as tapered curved cones, all fused into one surface
+# by a voxel remesh, its inside (within the head) cut away, then brought down to the budget.)
 
-def _hair_cap(name, front_deg, back_deg, height, bumps=0.0, seed=0.0):
-    """A cap of hair over the crown on the caps' ellipsoid (clear of the oval head): down to `front_deg` from the top at the face and
-    `back_deg` behind, its hairline in front notched into a few soft points, the surface swelling in `bumps` of locks."""
-    bm = bmesh.new()
-    seg_u, seg_v = 48, 12
-    rows = []
-    for j in range(seg_v + 1):
-        t = j / seg_v
-        row = []
-        for i in range(seg_u):
-            a = math.tau * i / seg_u
-            front = max(0.0, -math.sin(a))
-            low = math.radians(back_deg) - math.radians(back_deg - front_deg) * front ** 1.2
-            # The hairline's points across the brow.
-            low += math.radians(7.0) * front * (0.5 + 0.5 * math.cos(a * 7.0 + seed)) * (t ** 4)
-            ph = math.radians(4.0) + (low - math.radians(4.0)) * t
-            r = 0.88 * (1.0 + bumps * math.sin(a * 5.0 + seed) * math.sin(ph * 3.0))
-            row.append(bm.verts.new((r * math.sin(ph) * math.cos(a), r * math.sin(ph) * math.sin(a), 1.74 + height * math.cos(ph))))
-        rows.append(row)
-    top = bm.verts.new((0.0, 0.0, 1.74 + height))
-    for i in range(seg_u):
-        bm.faces.new((rows[0][i], rows[0][(i + 1) % seg_u], top))
-    for j in range(seg_v):
-        for i in range(seg_u):
-            k = (i + 1) % seg_u
-            bm.faces.new((rows[j][i], rows[j][k], rows[j + 1][k], rows[j + 1][i]))
-    bmesh.ops.solidify(bm, geom=bm.faces[:], thickness=-0.04)
-    return to_object(name, bm, sharp=60.0)
+# The fighter's head in this design space (polar angle from the top in degrees, radius), measured off the rig: a ball of 0.8 above its
+# middle, widening below it into the jaw and neck.
+HEAD_PROFILE = [(0, 0.8), (30, 0.79), (50, 0.77), (70, 0.775), (90, 0.79), (100, 0.82), (110, 0.87), (120, 0.9), (130, 0.95), (140, 1.0)]
+# How far under the head's surface the mass's metaballs are centred, how far its surface stands off the head, the remesh's voxel size,
+# and the triangle budget.
+HAIR_SINK = 0.13
+HAIR_DEPTH = 0.055
+HAIR_VOXEL = 0.022
+HAIR_BUDGET = 3000
 
 
-def _lock(name, base, direction, length, width, curl, sides=7, rings=8, depth=0.6, across=None):
-    """A lock of hair: a thick tapered cone from `base` along `direction`, curving up by `curl`, its cross-section a soft leaf (wider than
-    thick), ending in a blunt point."""
-    bm = bmesh.new()
+def head_surface(pol):
+    for (p0, r0), (p1, r1) in zip(HEAD_PROFILE, HEAD_PROFILE[1:]):
+        if p0 <= pol <= p1:
+            return r0 + (r1 - r0) * (pol - p0) / (p1 - p0)
+    return HEAD_PROFILE[-1][1]
+
+
+def hair_dir(polar_deg, azimuth_deg):
+    """A direction from the head's middle: `polar` from the top, `azimuth` round from the face (0 front, 90 the right side, 180 back)."""
+    p = math.radians(polar_deg)
+    a = math.radians(azimuth_deg)
+    return Vector((math.sin(p) * math.sin(a), -math.sin(p) * math.cos(a), math.cos(p)))
+
+
+def hair_root(polar_deg, azimuth_deg, sink=0.02):
+    """A point on the hair's surface, `sink` under it (where a lock is rooted, so it grows out of the mass)."""
+    return HEAD_C + hair_dir(polar_deg, azimuth_deg) * (head_surface(polar_deg) + HAIR_DEPTH - sink)
+
+
+def _hairline(az, front, side, back):
+    a = abs(((az + 180.0) % 360.0) - 180.0)   # 0 front .. 180 back
+    t = a / 90.0 if a <= 90.0 else (a - 90.0) / 90.0
+    s = t * t * (3 - 2 * t)
+    return front + (side - front) * s if a <= 90.0 else side + (back - side) * s
+
+
+def hair_mass(front, side, back, r=0.24, step=8.0):
+    """The hair's mass: metaballs over its area (down to `front` degrees from the top at the face, `side` over the ears, `back` at the
+    nape), close enough to merge into one smooth shell HAIR_DEPTH off the head, a little thicker toward the hairline and below the head's
+    middle (thin there, the skin broke through its lower edge)."""
+    mb = bpy.data.metaballs.new("hair_mass")
+    mb.resolution = 0.045
+    mb.threshold = 0.6
+    obj = bpy.data.objects.new("hair_mass", mb)
+    bpy.context.scene.collection.objects.link(obj)
+    pol = 2.0
+    while pol <= 125.0:
+        n = max(1, int(360.0 * math.sin(math.radians(pol)) / step + 0.5))
+        for i in range(n):
+            az = 360.0 * (i + 0.5 * (int(pol / step) % 2)) / n
+            lim = _hairline(az, front, side, back)
+            if pol > lim:
+                continue
+            k = max(0.7, min(1.0, (lim - pol) / 16.0))
+            low = max(0.0, min(1.0, (pol - 80.0) / 40.0))
+            e = mb.elements.new()
+            e.co = HEAD_C + hair_dir(pol, az) * (head_surface(pol) - HAIR_SINK + HAIR_DEPTH + (1.0 - k) * 0.06 + 0.06 * low)
+            e.radius = r * k
+            e.stiffness = 2.0
+        pol += step
+    return mb, obj
+
+
+def hair_balls(mb, centres, radius, stiffness=2.4):
+    for c in centres:
+        e = mb.elements.new()
+        e.co = c
+        e.radius = radius
+        e.stiffness = stiffness
+
+
+def spike(bm, root, direction, length, width, bend=(0.0, 0.0, 0.0), flat=0.55, rings=10, sides=9, tip=0.008, across=None):
+    """A lock of hair as a tapered cone: from `root` out along `direction` for `length`, curving by `bend` (an offset reached at the tip,
+    growing with the square of the distance), `width` across at the root and `flat` of that through its thickness, narrowing to a point.
+    Its width runs along `across` (by default level, square to the lock)."""
     d = Vector(direction).normalized()
-    # (`across`: the way the lock's width runs; by default level and square to it. A lock hanging straight down takes it round the head,
-    # or its width stands out from the head as a wing.)
     side = Vector(across) if across is not None else d.cross(Vector((0, 0, 1)))
     if side.length < 0.01:
         side = Vector((1, 0, 0))
     side = (side - d * side.dot(d)).normalized()
     up = side.cross(d).normalized()
-    ring_vs = []
+    bend = Vector(bend)
+    rings_v = []
     for k in range(rings):
         t = k / (rings - 1)
-        c = Vector(base) + d * length * t + up * curl * t * t
-        w = width * (1.0 - t) ** 0.85 + 0.01
-        ring = []
-        for i in range(sides):
-            a = math.tau * i / sides
-            ring.append(bm.verts.new(c + side * math.cos(a) * w + up * math.sin(a) * w * depth))
-        ring_vs.append(ring)
+        c = root + d * length * t + bend * t * t
+        # (Full through its first quarter, then narrowing to the point: a chunky lock, not a needle.)
+        w = width if t <= 0.25 else max(tip, width * (1.0 - (t - 0.25) / 0.75) ** 1.25)
+        ring = [bm.verts.new(c + side * math.cos(a) * w + up * math.sin(a) * w * flat)
+                for a in (math.tau * i / sides for i in range(sides))]
+        rings_v.append(ring)
     for k in range(rings - 1):
         for i in range(sides):
             j = (i + 1) % sides
-            bm.faces.new((ring_vs[k][i], ring_vs[k][j], ring_vs[k + 1][j], ring_vs[k + 1][i]))
-    bm.faces.new(ring_vs[0])
-    tip = bm.verts.new(Vector(base) + d * length * 1.04 + up * curl)
+            bm.faces.new((rings_v[k][i], rings_v[k][j], rings_v[k + 1][j], rings_v[k + 1][i]))
+    bm.faces.new(rings_v[0])
+    tip_v = bm.verts.new(root + d * length * 1.03 + bend)
     for i in range(sides):
-        bm.faces.new((ring_vs[-1][i], ring_vs[-1][(i + 1) % sides], tip))
-    return to_object(name, bm, sharp=55.0)
+        bm.faces.new((rings_v[-1][i], rings_v[-1][(i + 1) % sides], tip_v))
+    return bm
+
+
+def _mesh_obj(name, bm):
+    me = bpy.data.meshes.new(name)
+    bm.to_mesh(me)
+    bm.free()
+    obj = bpy.data.objects.new(name, me)
+    bpy.context.scene.collection.objects.link(obj)
+    return obj
+
+
+def hair_finish(name, objs, budget=None):
+    """Fuses the mass and the locks into one surface (a voxel remesh, smoothed), cuts away its inside (within the head), and brings it
+    down to the budget, smooth-shaded."""
+    dg = bpy.context.evaluated_depsgraph_get()
+    bm = bmesh.new()
+    for o in objs:
+        me = bpy.data.meshes.new_from_object(o.evaluated_get(dg))
+        me.transform(o.matrix_world)
+        bm.from_mesh(me)
+        bpy.data.meshes.remove(me)
+    for o in objs:
+        bpy.data.objects.remove(o)
+    obj = _mesh_obj(name, bm)
+    bpy.context.view_layer.objects.active = obj
+    obj.select_set(True)
+    rm = obj.modifiers.new("remesh", "REMESH")
+    rm.mode = "VOXEL"
+    rm.voxel_size = HAIR_VOXEL
+    bpy.ops.object.modifier_apply(modifier="remesh")
+    sm = obj.modifiers.new("smooth", "SMOOTH")
+    sm.factor = 0.5
+    sm.iterations = 2
+    bpy.ops.object.modifier_apply(modifier="smooth")
+    bm = bmesh.new()
+    bm.from_mesh(obj.data)
+
+    def inside(v):
+        rel = v.co - HEAD_C
+        pol = math.degrees(math.acos(max(-1.0, min(1.0, rel.normalized().z))))
+        return rel.length < head_surface(pol) - 0.03
+    bmesh.ops.delete(bm, geom=[f for f in bm.faces if all(inside(v) for v in f.verts)], context="FACES")
+    bm.to_mesh(obj.data)
+    bm.free()
+    tris = sum(len(p.vertices) - 2 for p in obj.data.polygons)
+    budget = budget or HAIR_BUDGET
+    if tris > budget:
+        dec = obj.modifiers.new("dec", "DECIMATE")
+        dec.ratio = budget / tris
+        bpy.ops.object.modifier_apply(modifier="dec")
+    obj.data.materials.append(material("m_hair"))
+    for p in obj.data.polygons:
+        p.use_smooth = True
+    return obj
 
 
 def swept_spikes():
-    """Spiky hair swept up and back: a cap of hair with a pointed hairline, and seven thick locks rising from it, fanned across the crown and
-    swept back, each a tapered curving blade with a blunt tip (not straight cones)."""
+    """Big anime-style spiky hair: long chunky spikes sweeping up and back from the crown, a heavy fringe of long spikes falling over the
+    brow (stopping above the eyes), and spikes flaring out over the ears and down the back, all out of one mass."""
     root = empty("swept_spikes")
-    _hair_cap("hair_cap", 62.0, 118.0, 0.62, bumps=0.03, seed=1.3).parent = root
-    # (Thick swept blades lying back over the head, 2026-10-18: thin upright cones read as a crown of thorns.)
-    locks = [(-0.38, -0.3, 2.12, (-0.45, 0.55, 0.7), 0.7, 0.3, 0.16), (0.0, -0.38, 2.22, (0.0, 0.6, 0.8), 0.8, 0.32, 0.18),
-             (0.38, -0.3, 2.12, (0.45, 0.55, 0.7), 0.7, 0.3, 0.16), (-0.42, 0.15, 2.18, (-0.4, 0.9, 0.35), 0.72, 0.28, 0.12),
-             (0.42, 0.15, 2.18, (0.4, 0.9, 0.35), 0.72, 0.28, 0.12), (0.0, 0.2, 2.3, (0.0, 1.0, 0.3), 0.75, 0.3, 0.1)]
-    for k, (x, y, z, d, ln, w, c) in enumerate(locks):
-        _lock("hair_lock%d" % k, (x, y, z), d, ln, w, c).parent = root
+    # (The mass down to 112 degrees at the nape, 124 until the nape pass, 2026-10-29: see the tufts below.)
+    mb, mass = hair_mass(front=50.0, side=96.0, back=112.0)
+    bm = bmesh.new()
+    # The crown: four big spikes swept up, back and out, the middle two tallest (about a head's radius and a half).
+    for az, ln in ((-48, 1.0), (-16, 1.18), (16, 1.18), (48, 1.0)):
+        sx = math.sin(math.radians(az))
+        spike(bm, hair_root(16.0, az, sink=0.14), Vector((sx * 0.55, 0.45, 1.0)), ln, 0.3, bend=(sx * 0.2, 0.22, -0.06))
+    # Behind them, a row fanning back and up, a lower row swept out and up over the back of the head, and the nape in tapered tufts
+    # lying down the head. (The lower row hung down, and the mass ended in a level hem, until the nape pass, 2026-10-29, the owner's pick
+    # of mocks: from behind it read as a helmet's rim with teeth hanging from it.)
+    for az in (140, 180, 220):
+        spike(bm, hair_root(42.0, az, sink=0.14), hair_dir(55.0, az) + Vector((0, 0, 0.5)), 0.95, 0.29, bend=(0.0, 0.0, -0.1))
+    for az in (120, 160, 200, 240):
+        spike(bm, hair_root(70.0, az, sink=0.14), hair_dir(80.0, az) + Vector((0, 0, 0.25)), 0.7, 0.26, bend=(0.0, 0.0, 0.08))
+    for az, ln in ((135, 0.32), (158, 0.4), (180, 0.44), (202, 0.4), (225, 0.32)):
+        spike(bm, hair_root(110.0, float(az), sink=0.1), hair_dir(130.0, az) * 0.35 + Vector((0, 0, -1.0)), ln, 0.2, flat=0.4)
+    for sx in (-1.0, 1.0):
+        # Over the ears: a big spike each side flaring out, up a little and back.
+        spike(bm, hair_root(56.0, 96.0 * sx, sink=0.14), Vector((sx * 1.0, 0.3, 0.45)), 0.85, 0.27, bend=(0.0, 0.12, -0.12))
+        # And a long lock down the side of the face, in front of the ear.
+        spike(bm, hair_root(70.0, 70.0 * sx, sink=0.1), Vector((sx * 0.35, -0.25, -1.0)), 0.55, 0.17, bend=(sx * 0.06, -0.04, 0.0),
+              across=(0, 1, 0))
+    # The fringe: three long bangs of unequal length, the middle one falling to a point between the eyes and curling aside, the outer two
+    # swept out over the brows, and two short locks between them so no edge of the mass shows.
+    # (Five equal spikes ending level above the eyes until the fringe pass, 2026-10-28, the owner's pick of mocks: from the front they read
+    # as a jagged band across the brow, a cut-paper crown.)
+    spike(bm, hair_root(36.0, 4.0, sink=0.06), Vector((0.1, -0.75, -0.85)), 0.6, 0.25, bend=(0.1, -0.07, 0.0), flat=0.45)
+    spike(bm, hair_root(40.0, -30.0, sink=0.06), Vector((-0.75, -0.7, -0.6)), 0.55, 0.23, bend=(-0.08, -0.04, 0.03), flat=0.45)
+    spike(bm, hair_root(40.0, 32.0, sink=0.06), Vector((0.8, -0.65, -0.5)), 0.48, 0.21, bend=(0.06, -0.03, 0.04), flat=0.45)
+    for az in (-14.0, 18.0):
+        spike(bm, hair_root(46.0, az, sink=0.06), Vector((0.0, -0.9, -0.6)), 0.3, 0.17, flat=0.5)
+    locks = _mesh_obj("hair_locks", bm)
+    hair_finish("hair", [mass, locks]).parent = root
+    return root
+
+
+def swoop():
+    """A short soft cut down to the nape, one big forelock swept up and over to the side (a quiff), a soft tuft over each ear."""
+    root = empty("swoop")
+    mb, mass = hair_mass(front=58.0, side=96.0, back=126.0)
+
+    def lock(start_pol, start_az, c1, c2, r0, r1, n):
+        base = HEAD_C + hair_dir(start_pol, start_az) * (head_surface(start_pol) + 0.02)
+        for k in range(n):
+            t = k / (n - 1)
+            hair_balls(mb, [base + Vector(c1) * (2 * t * (1 - t)) + Vector(c2) * (t * t)], r0 + (r1 - r0) * t)
+    lock(48.0, -10.0, (0.1, -0.22, 0.22), (0.34, -0.12, 0.3), 0.22, 0.1, 7)
+    lock(44.0, 15.0, (0.16, -0.16, 0.18), (0.42, -0.04, 0.2), 0.18, 0.08, 6)
+    for az in (-94.0, 94.0):
+        lock(88.0, az, (0.0, 0.0, -0.06), (0.0, 0.04, -0.14), 0.12, 0.07, 3)
+    hair_finish("hair", [mass]).parent = root
     return root
 
 
 def topknot():
-    """Close-cropped hair with a round knot of hair tied on top: the cap with a straight hairline, a bun of three twisted lobes, and a band
-    of the outfit's colour where the knot is tied."""
+    """Hair drawn back smooth from the hairline into a round knot on top, tied with a band of the outfit's colour, a loose lock at each
+    temple."""
     root = empty("topknot")
-    _hair_cap("hair_cap", 66.0, 118.0, 0.6, bumps=0.015, seed=0.4).parent = root
-    for k in range(3):
-        a = math.tau * k / 3.0
-        bm = bmesh.new()
-        ret = bmesh.ops.create_uvsphere(bm, u_segments=18, v_segments=12, radius=1.0)
-        for v in ret["verts"]:
-            v.co = Vector((v.co.x * 0.22, v.co.y * 0.22, v.co.z * 0.17)) + Vector((0.08 * math.cos(a), 0.12 + 0.08 * math.sin(a), 2.5 + 0.04 * k))
-        to_object("hair_knot%d" % k, bm).parent = root
+    mb, mass = hair_mass(front=54.0, side=96.0, back=126.0)
+    knot = HEAD_C + hair_dir(12.0, 180.0) * (head_surface(12.0) + 0.16)
+    hair_balls(mb, [knot + Vector((0.08 * math.cos(a), 0.08 * math.sin(a), 0.03 * k))
+                    for k, a in enumerate(math.tau * i / 3.0 for i in range(3))], 0.24)
+    for az in (-62.0, 62.0):
+        base = HEAD_C + hair_dir(60.0, az) * (head_surface(60.0) + 0.02)
+        hair_balls(mb, [base + Vector((0.0, -0.03, -0.12)) * t + Vector((0.04 * (1 if az > 0 else -1), -0.05, -0.26)) * t * t
+                        for t in (0.0, 0.33, 0.66, 1.0)], 0.07)
+    hair_finish("hair", [mass]).parent = root
+    # The band where the knot is tied.
     bm = bmesh.new()
-    rows = lathe(bm, [(0.17, 2.34), (0.19, 2.36), (0.19, 2.41), (0.17, 2.43)], sides=24)
+    kz = knot.z - 0.12
+    rows = lathe(bm, [(0.17, kz - 0.03), (0.19, kz - 0.01), (0.19, kz + 0.03), (0.17, kz + 0.05)], sides=24)
     for ring in rows:
         for v in ring:
-            v.co.y += 0.12
+            v.co.y += knot.y
     to_object("fabric_band", bm, sharp=60.0).parent = root
     return root
 
@@ -830,8 +975,168 @@ def neckwear():
     return root
 
 
+# ---- Hood and cape ---------------------------------------------------------------------------------------------------------------------
+# (Modelled in the cape and hood pass, 2026-10-25, the owner's picks of mocked options: the hood was a stiff open shell with a flat rim and
+# a cone for a point, the cape a flat panel hanging behind the back that barely showed.)
+
+def hood():
+    """A soft hood (in the head's design space, as the hair): a loose cloth shell over the head round an open face, a soft peak over the
+    brow, a drooping point behind, a cowl falling round the neck, and a thick rolled rim of a lighter lining framing the face. The shell
+    and the cowl are one surface (metaballs fused by a voxel remesh, its inside cut away); the rim its own part."""
+    root = empty("hood")
+    loose, face_w, face_h, face_c, point = 0.07, 70.0, 50.0, 92.0 + 2.0, 0.8
+
+    def in_face(pol, az, grow):
+        a = ((az + 180.0) % 360.0) - 180.0
+        return (a / (face_w + grow)) ** 2 + ((pol - face_c) / (face_h + grow)) ** 2 < 1.0
+    mb = bpy.data.metaballs.new("hoodshell")
+    mb.resolution = 0.045
+    mb.threshold = 0.6
+    shell = bpy.data.objects.new("hoodshell", mb)
+    bpy.context.scene.collection.objects.link(shell)
+    pol = 2.0
+    while pol <= 132.0:
+        n = max(1, int(360.0 * math.sin(math.radians(pol)) / 8.0 + 0.5))
+        for i in range(n):
+            az = 360.0 * (i + 0.5 * (int(pol / 8.0) % 2)) / n
+            if not in_face(pol, az, 6.0):
+                hair_balls(mb, [HEAD_C + hair_dir(pol, az) * (head_surface(pol) - 0.13 + loose)], 0.24, 2.0)
+        pol += 8.0
+    # The cowl: close round the neck, only a little wider at its foot (a wide ring read as a rubber float), lower behind.
+    for z, r in ((0.9, 0.6), (0.82, 0.64), (0.74, 0.69), (0.66, 0.74)):
+        for i in range(36):
+            a = math.tau * i / 36
+            hair_balls(mb, [Vector((r * math.sin(a), -r * math.cos(a) * 0.92, z - 0.05 * (0.5 - 0.5 * math.cos(a))))], 0.16, 2.0)
+    # The point: out back and drooping, tapering (what keeps the hood from reading as a helmet).
+    for k in range(15):
+        t = k / 14.0
+        p = HEAD_C + hair_dir(34.0, 180.0) * (head_surface(34.0) + loose - 0.04) + Vector((0.0, point * t, -point * 0.8 * t * t))
+        hair_balls(mb, [p], 0.22 * (1.0 - 0.42 * t), 2.0)
+    # A soft peak over the brow, the cloth gathered forward at the top of the opening.
+    for k in range(4):
+        t = k / 3.0
+        p = HEAD_C + hair_dir(face_c - face_h - 2.0, 0.0) * (head_surface(40.0) + loose + 0.04 * t) + Vector((0.0, -0.05 * t, 0.03 * t))
+        hair_balls(mb, [p], 0.2 - 0.03 * t, 2.0)
+    # The rolled rim on the shell's edge round the face.
+    rmb = bpy.data.metaballs.new("hoodrim")
+    rmb.resolution = 0.04
+    rmb.threshold = 0.6
+    rim = bpy.data.objects.new("hoodrim", rmb)
+    bpy.context.scene.collection.objects.link(rim)
+    for i in range(72):
+        t = math.tau * i / 72
+        az = (face_w + 5.0) * math.sin(t)
+        pol = face_c + (face_h + 5.0) * math.cos(t)
+        hair_balls(rmb, [HEAD_C + hair_dir(pol, az) * (head_surface(pol) + loose)], 0.17, 2.0)
+    hair_finish("hood_cloth", [shell]).parent = root
+    hair_finish("lining_rim", [rim], budget=1000).parent = root
+    for o in root.children:
+        o.data.materials.clear()
+        o.data.materials.append(material("m_" + o.name.split("_")[0]))
+    return root
+
+
+# The cape's shape: from the collar to the calves (heights in the rig's space), how far round the shoulders it wraps at the top and lower
+# down (degrees from straight back), its half widths there, its folds, how much shorter its sides are than its middle, how far it stands
+# off the body, and how far it flares back toward the hem.
+CAPE = {"top": 1.53, "hem": 0.42, "wrap_top": 118.0, "wrap_low": 62.0, "w_top": 0.3, "w_low": 0.66, "folds": 4, "fold_amp": 0.03,
+        "hem_curve": 0.08, "gap": 0.04, "flare": 0.16, "rows": 26, "cols": 28, "thick": 0.028}
+RIG = "godot/models/base_rig.glb"
+
+
+def cape():
+    """A long cape (in the rig's own space, not the head's: it hangs from the shoulders): laid round the back of the neck and over the
+    shoulders, kept off the body by pushing it out of the fighter's own mesh there, then falling straight from the shoulder blades and
+    flaring back to the calves, with soft folds and a rounded hem. The game hangs it on a chain of bones down its back that swings
+    (fighter_view.gd `CapeRig`)."""
+    from mathutils import bvhtree
+    bpy.ops.import_scene.gltf(filepath=os.path.abspath(RIG))
+    body = bmesh.new()
+    for o in bpy.data.objects:
+        if o.type != "MESH" or not o.name.startswith(("Skin", "Shirt", "Shorts", "Belt")) or o.name.startswith("ShirtCampCollar"):
+            continue
+        me = o.data.copy()
+        me.transform(o.matrix_world)
+        part = bmesh.new()
+        part.from_mesh(me)
+        # (No arms: their faces stand out to the sides below the shoulders.)
+        bmesh.ops.delete(part, geom=[f for f in part.faces if any(abs(v.co.x) > 0.47 and v.co.z < 1.4 for v in f.verts)],
+                         context="FACES")
+        tmp = bpy.data.meshes.new("tmp")
+        part.to_mesh(tmp)
+        part.free()
+        body.from_mesh(tmp)
+        bpy.data.meshes.remove(tmp)
+        bpy.data.meshes.remove(me)
+    for o in list(bpy.data.objects):
+        bpy.data.objects.remove(o)
+    body.normal_update()
+    tree = bvhtree.BVHTree.FromBMesh(body)
+    st = CAPE
+
+    def back_depth(z, half=0.35):
+        ys = [v.co.y for v in body.verts if abs(v.co.z - z) < 0.035 and abs(v.co.x) < half]
+        return max(ys) if ys else 0.3
+
+    def smooth(a, b, t):
+        t = max(0.0, min(1.0, (t - a) / (b - a)))
+        return t * t * (3 - 2 * t)
+    neck = [v.co for v in body.verts if abs(v.co.z - st["top"]) < 0.03 and abs(v.co.x) < 0.4]
+    yc_top = (min(c.y for c in neck) + max(c.y for c in neck)) / 2.0
+    blades = max(back_depth(z) for z in (1.3, 1.25, 1.2))
+    rows, cols = st["rows"], st["cols"]
+    grid = []
+    for j in range(rows + 1):
+        v = j / rows
+        row = []
+        for i in range(cols + 1):
+            u = -1.0 + 2.0 * i / cols
+            vv = v * (1.0 - st["hem_curve"] * u * u)
+            z = st["top"] - (st["top"] - st["hem"]) * vv
+            s = smooth(0.0, 0.35, vv)
+            wrap = math.radians(st["wrap_top"] + (st["wrap_low"] - st["wrap_top"]) * s)
+            th = u * wrap
+            back = blades + st["gap"] + st["flare"] * smooth(0.25, 1.0, vv) ** 1.5
+            w = st["w_low"] * (0.8 + 0.2 * vv)
+            rx = st["w_top"] + (w / max(0.3, math.sin(wrap)) - st["w_top"]) * s
+            ry = 0.27 + (0.34 - 0.27) * s
+            yc = yc_top + ((back - 0.34) - yc_top) * s
+            p = Vector((rx * math.sin(th), yc + ry * math.cos(th), z))
+            p += Vector((math.sin(th), math.cos(th), 0.0)) * st["fold_amp"] * smooth(0.15, 0.9, vv) * math.sin(
+                st["folds"] * math.pi * (u + 1.0) - math.pi / 2)
+            row.append(p)
+        grid.append(row)
+    # Off the body round the shoulders and upper back (below them it hangs free: pushed off everywhere it clung in crumples).
+    for it in range(6):
+        for j in range(rows + 1):
+            for i in range(cols + 1):
+                p = grid[j][i]
+                if p.z < 1.18:
+                    continue
+                loc, nrm, _, _ = tree.find_nearest(p)
+                if loc is not None and (p - loc).dot(nrm) < st["gap"]:
+                    grid[j][i] = loc + nrm * st["gap"]
+        if it < 5:
+            new = [r[:] for r in grid]
+            for j in range(1, rows):
+                for i in range(1, cols):
+                    new[j][i] = (grid[j][i] * 4 + grid[j - 1][i] + grid[j + 1][i] + grid[j][i - 1] + grid[j][i + 1]) / 8.0
+            grid = new
+    body.free()
+    bm = bmesh.new()
+    vs = [[bm.verts.new(p) for p in r] for r in grid]
+    for j in range(rows):
+        for i in range(cols):
+            bm.faces.new((vs[j][i], vs[j][i + 1], vs[j + 1][i + 1], vs[j + 1][i]))
+    bmesh.ops.solidify(bm, geom=bm.faces[:], thickness=st["thick"])
+    root = empty("cape")
+    to_object("fabric_cape", bm, sharp=80.0).parent = root
+    return root
+
+
 GEAR = {"neckwear": neckwear, "glasses": glasses, "sailor_cap": sailor_cap, "dixie_cap": dixie_cap, "aviator_cap": aviator_cap, "straw_hat": straw_hat, "plumed_helm": plumed_helm, "crown": crown,
-        "swept_spikes": swept_spikes, "topknot": topknot, "beanie": beanie}
+        "swept_spikes": swept_spikes, "topknot": topknot, "swoop": swoop, "beanie": beanie, "hood": hood,
+        "cape": cape}
 
 
 def _lumpy(root, amount=0.045, seed=1.0):
