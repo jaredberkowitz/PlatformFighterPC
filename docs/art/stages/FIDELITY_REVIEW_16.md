@@ -88,3 +88,35 @@ separate from it by hue and by their own shadow, not by a darker floor.
 - The fighters stay outside this plan, and they remain the largest gap in any still.
 
 **Recommended start:** item 1. It answers what the bright floors cost, and it is cheap.
+
+## Item 1, the fighters on bright floors (mock, 2026-10-29)
+
+`--fighter-floor=A|B`. Two changes:
+- **Cooler lawns** (StageBake.LAWN_COOL, the meadow and grove only). The walked lawns and platform tops are turned in hue away from
+  the yellow and orange fighters, at the same value.
+- **Firmer contact shadows** (FighterView, every stage; presentation only). The shadow under each fighter goes from 0.64 to 0.8
+  strength and 15% wider.
+
+Options:
+- **A:** +0.04 hue, about 14° toward a true green.
+- **B:** +0.08 hue, about 29° toward an emerald, saturation ×1.08.
+
+| | Meadow top | Meadow gap | Grove top | Grove gap |
+|---|---|---|---|---|
+| Today | 0.44 | 0.109 | 0.55 | 0.099 |
+| A | 0.43 | 0.122 | 0.53 | 0.119 |
+| B | 0.42 | 0.127 | 0.52 | 0.128 |
+
+With A's firmer shadow, the canyon's gap goes from 0.192 to 0.216.
+
+**B clears the line by more**, but on the meadow its lawn turns a little teal against the lime hills: the floor a different green from
+the land.
+
+**A** keeps the lawn with the land. Its grove gap of 0.119 is on the line.
+
+On the Stage Look Review ("fighterfloor57", `fs57_*`). Close (the meadow top, the grove bottom; today, A, B):
+`review16/fighters_floor_mock.jpg`.
+
+Recommended A. To ship:
+- `LAWN_COOL` A as the meadow's and grove's default (a palette key);
+- the contact shadow's 0.8 and 1.15 as FighterView's own.

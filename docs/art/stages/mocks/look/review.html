@@ -88,6 +88,34 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
     <p>Two lessons from the reference screenshots, mocked from the match camera: the scenery without ink outlines, its edges lit as card bevels instead, and the paper houses rebuilt at the characters' proportions. The earlier rounds stay on the <a href="https://claude.ai/artifact/D1du6MREVumiJDrEdNypW4">Stage Fidelity Review</a>, which is full.</p>
   </header>
 
+  <section class="panel" aria-labelledby="fs57-h" id="fighterfloor57">
+    <div class="eyebrow">Your call is needed &middot; review 16, item 1: the fighters on bright floors</div>
+    <h2 id="fs57-h">Fighters that stand out on a bright lawn</h2>
+    <p>The bright floors stay. On the meadow and grove, though, the yellow and orange fighters sat close in value to a sunlit yellow-green lawn: P1's gap fell to 0.109 and 0.099. This separates them by hue and by their own shadow instead of by a darker floor.</p>
+    <ul style="display:grid;gap:6px;margin:0;padding-left:1.4em;max-width:78ch">
+      <li><b>The lawns cooler.</b> The walked lawns and platform tops move from yellow-green toward a true green, at the same value, away from the fighters' yellow and orange.</li>
+      <li><b>The contact shadows firmer.</b> The shadow under each fighter goes from 64% to 80% strength and 15% wider, so their footing reads on any floor. This one is on every stage.</li>
+    </ul>
+    <div class="tablewrap"><table><thead><tr><th>Option</th><th>The lawn</th><th>P1's gap, meadow / grove</th></tr></thead><tbody>
+      <tr><td>Today</td><td>Yellow-green</td><td>0.109 / 0.099</td></tr>
+      <tr><td>A &middot; A step cooler</td><td>About 14&deg; toward a true green</td><td>0.122 / 0.119</td></tr>
+      <tr><td>B &middot; Toward emerald</td><td>About 29&deg;, a touch richer</td><td>0.127 / 0.128</td></tr>
+    </tbody></table></div>
+    <p>The fight on the meadow (top) and grove (bottom): today, A, B. The floors stay as bright (meadow 0.44 to 0.43, grove 0.55 to 0.53). With the firmer shadow alone, the canyon's gap goes from 0.192 to 0.216.</p>
+    <div class="viewer"><img src="fs57_close.jpg" alt="The meadow's and grove's fight today, with A and with B"></div>
+    <div class="row" role="group" aria-label="Stage"><button data-fs57s="0">Meadow</button><button data-fs57s="4">Grove</button></div>
+    <div class="row" role="group" aria-label="View"><button data-fs57v="m">Match camera</button><button data-fs57v="w">Wide</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-fs57o="T">Today</button><button data-fs57o="A">A &middot; A step cooler</button><button data-fs57o="B">B &middot; Toward emerald</button></div>
+    <div class="viewer"><img id="fs57img" alt="Fighters on bright floors option"><span class="vtag" id="fs57tag"></span></div>
+    <p class="muted">My pick: <b>A</b>. The fighters lift off the lawn and stand on a clear shadow, and the lawn still belongs with the meadow's lime hills and the grove's green. Honest notes:
+      <ul>
+        <li>B clears the line by more, but on the meadow its lawn turns a little teal against the lime hills behind it, the floor a different green from the land.</li>
+        <li>With A the grove's gap is 0.119, right on the line. If it needs a hair more, a touch more on the grove alone is easy.</li>
+        <li>The firmer contact shadow is presentation only; it never touches the game's simulation.</li>
+      </ul>
+    </p>
+  </section>
+
   <section class="panel" aria-labelledby="rv16-h" id="review16">
     <div class="eyebrow">The plan &middot; fidelity review 16: after review 15's items 1 to 4 and bright floors</div>
     <h2 id="rv16-h">Where the stages stand, and the path to 5</h2>
@@ -3486,5 +3514,17 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
   group("data-fl56v", function (v) { fl56v = v; }, fl56render);
   group("data-fl56o", function (v) { fl56o = v; }, fl56render);
   fl56render();
+  var fs57s = "0", fs57v = "m", fs57o = "A";
+  var FS57O = { T: "Today", A: "A · A step cooler", B: "B · Toward emerald" };
+  var FS57S = { "0": "Meadow", "4": "Grove" };
+  function fs57render() {
+    $id("fs57img").src = "fs57_s" + fs57s + "_" + fs57o + "_" + fs57v + ".jpg";
+    $id("fs57tag").textContent = FS57S[fs57s] + " · " + FS57O[fs57o] + (fs57v === "w" ? " · wide" : " · match camera");
+    pressed("data-fs57s", fs57s); pressed("data-fs57v", fs57v); pressed("data-fs57o", fs57o);
+  }
+  group("data-fs57s", function (v) { fs57s = v; }, fs57render);
+  group("data-fs57v", function (v) { fs57v = v; }, fs57render);
+  group("data-fs57o", function (v) { fs57o = v; }, fs57render);
+  fs57render();
 })();
 </script>

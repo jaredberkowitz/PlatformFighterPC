@@ -1569,6 +1569,15 @@ func _on_fighter_layer(node: Node) -> void:
 		(g as GeometryInstance3D).layers = 2
 
 
+## The fighters on bright floors on trial (fidelity review 16 item 1): `--fighter-floor=A|B`, or "" without. Both make the contact shadow
+## firmer (0.8 from 0.64) and 15% wider; StageBake turns the meadow's and grove's lawns cooler (`LAWN_COOL`).
+static func _fighter_floor() -> String:
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--fighter-floor="):
+			return arg.substr(16).to_upper()
+	return ""
+
+
 func _contact_shadow() -> void:
 	if _shadow_tex == null:
 		# (A crisp, even ellipse in a deep cool shade at half strength, the judge's round 39: near-black at 0.85 with a long soft tail, it
@@ -1576,9 +1585,11 @@ func _contact_shadow() -> void:
 		# falls on, as the reference's shadows do, and its clean edge marks the feet.)
 		var g := Gradient.new()
 		# (A little fuller, round 40: the fighters on the light lawns needed a firmer footing.)
-		g.set_color(0, Color(0.14, 0.08, 0.2, 0.64))
+		# (Firmer again on trial, fidelity review 16 item 1, `--fighter-floor=A|B`: on the bright floors the fighters lost their footing.)
+		var a := 0.8 if _fighter_floor() != "" else 0.64
+		g.set_color(0, Color(0.14, 0.08, 0.2, a))
 		g.set_color(1, Color(0.14, 0.08, 0.2, 0.0))
-		g.add_point(0.68, Color(0.14, 0.08, 0.2, 0.6))
+		g.add_point(0.68, Color(0.14, 0.08, 0.2, a * 0.94))
 		g.add_point(0.86, Color(0.14, 0.08, 0.2, 0.1))
 		_shadow_tex = GradientTexture2D.new()
 		_shadow_tex.gradient = g
@@ -1589,7 +1600,7 @@ func _contact_shadow() -> void:
 		_shadow_tex.height = 64
 	contact_shadow = Decal.new()
 	contact_shadow.texture_albedo = _shadow_tex
-	contact_shadow.size = Vector3(3.0, SHADOW_DEPTH, 2.6)
+	contact_shadow.size = Vector3(3.0, SHADOW_DEPTH, 2.6) * (Vector3(1.15, 1.0, 1.15) if _fighter_floor() != "" else Vector3.ONE)
 	# Only on surfaces facing up (not down the front of the stage).
 	contact_shadow.normal_fade = 0.6
 	# (Nudged toward the camera so it shows in front of the feet, which would otherwise hide it from the low match camera.)

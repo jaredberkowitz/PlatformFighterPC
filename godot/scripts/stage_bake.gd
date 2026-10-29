@@ -487,6 +487,10 @@ static func place_play(root: Node3D, t: Dictionary, path: String) -> void:
 		push_warning("play mock %s could not be read" % path)
 		return
 	var grass: Color = t.get("grass", Color(0.5, 0.8, 0.3))
+	# (The fighters on bright floors, fidelity review 16 item 1: `--fighter-floor=A|B`, see LAWN_COOL.)
+	if String(t.get("name", "")) in ["meadow", "grove"] and LAWN_COOL.has(flag("--fighter-floor=").to_upper()):
+		var lc: Array = LAWN_COOL[flag("--fighter-floor=").to_upper()]
+		grass = Color.from_hsv(grass.h + float(lc[0]), minf(grass.s * float(lc[1]), 1.0), grass.v)
 	var wood: Color = t.get("wood", Color(0.86, 0.62, 0.36))
 	var path_c: Color = t.get("path_colour", Color(0.94, 0.9, 0.74))
 	# (The grove's path a worn earth, fidelity review 14 item 8: its pale cream went lavender under the pink light, a flat stripe.
@@ -624,6 +628,14 @@ const FLOOR_TRY := {
 	"B": {"clouds": 0.0, "cast": 0.35, "fall": 0.5, "ground": 0.5},
 	"C": {"clouds": 0.0, "cast": 0.2, "fall": 0.3, "ground": 0.5, "bare": true},
 }
+
+
+## The fighters on bright floors on trial (fidelity review 16 item 1, `--fighter-floor=A|B`): the meadow's and grove's walked lawns
+## turned cooler [hue step, saturation scale], away from the yellow and orange fighters, at the same value, so they separate by hue now
+## the floors are bright; FighterView firms their contact shadows too.
+##   A  a step toward a true green (+0.04 hue, about 14 degrees);
+##   B  further, toward an emerald (+0.08, about 29 degrees), a touch richer.
+const LAWN_COOL := {"A": [0.04, 1.0], "B": [0.08, 1.08]}
 
 
 ## Modelled play areas (the stage's top and its platforms, art/blender/make_meadow_play.py), by the exact stage they were built on.
