@@ -349,7 +349,7 @@ the face clear. If the back airs should turn as the references' do, C there, aft
 
 **Mean 3.25** (poses 3.24, fluidity 3.35, weight 3.16).
 
-## 15. Shoulder mock: higher shoulders so a raised arm shows (2026-10-28, awaiting the owner's pick)
+## 15. Shoulder mock: higher shoulders so a raised arm shows (Decided: owner: keep shoulders, arms out to the side, 2026-10-28)
 
 The owner (2026-10-28): "higher shoulders most likely makes more sense", so a raised arm shows above or beside the big head instead of
 behind it. Mocked as a change to the body itself (`art/blender/make_cage_body.py --shoulder-raise D`), not a pose: the arms lifted whole,
@@ -384,3 +384,13 @@ hand nearer the head's middle, inside its disc on screen, so fewer raised frames
 **Recommendation:** none of the three; keep today's shoulders. What would show a raised arm is reach, not height: longer arms (the
 reference cast's reach past the head), a smaller head, or raised arms posed out to the side (beside the head rather than over it), the
 last an animation change that needs no new body. Asked of the owner with this sheet.
+
+## 16. After round 8's group 21, raised arms beside the head (2026-10-29)
+
+| # | Item | P | F | W | O | Was |
+|---|---|---|---|---|---|---|
+| 28 | Tool aerials (the Settler's up air hand shows beside the head) | 4 | 3 | 3 | 3.3 | 3.0 |
+| 34 | Special states (the special fall's and item throw's raised hands show) | 4 | 3 | 3 | 3.3 | 3.0 |
+
+Raised hands clear of the head over every class's gallery and the state demos: 4118 of 7369 frames (56%) before, 6214 of 7163
+(87%) after. **Mean 3.27** (poses 3.30, fluidity 3.35, weight 3.16).

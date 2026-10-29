@@ -204,18 +204,6 @@ const RIG_LONG_PATH := "res://models/blob_rig_long.glb"
 ## make_rigged_blob.py writes with it. It is the fighters' body; `--blob` brings back the first, built body.
 const RIG_BASE_PATH := "res://models/base_rig.glb"
 const BASE_INFO_PATH := "res://models/base_rig.json"
-## The shoulder mock (round 8, the owner 2026-10-28: higher shoulders, so a raised arm shows above or beside the head): with the
-## environment variable PF_SHOULDER_MOCK set to A, B or C, the base body is the one built with its shoulders raised that much
-## (art/blender/make_cage_body.py --shoulder-raise), from models/mock/ when a mock build carries it. Unset, today's body.
-static var shoulder_mock := OS.get_environment("PF_SHOULDER_MOCK").strip_edges().to_upper()
-
-
-static func _mock_path(path: String) -> String:
-	if shoulder_mock in ["A", "B", "C"]:
-		var alt := path.replace("res://models/base_rig", "res://models/mock/base_rig_" + shoulder_mock)
-		if ResourceLoader.exists(alt) or FileAccess.file_exists(alt):
-			return alt
-	return path
 static var use_base_body: bool = not OS.get_cmdline_user_args().has("--blob")
 static var _base_info: Dictionary = {}
 const LONG_SCALE := 0.92
@@ -296,8 +284,8 @@ static func _model_scene(path: String) -> Node:
 
 
 static func _base_rig_info() -> Dictionary:
-	if _base_info.is_empty() and FileAccess.file_exists(_mock_path(BASE_INFO_PATH)):
-		var data = JSON.parse_string(FileAccess.get_file_as_string(_mock_path(BASE_INFO_PATH)))
+	if _base_info.is_empty() and FileAccess.file_exists(BASE_INFO_PATH):
+		var data = JSON.parse_string(FileAccess.get_file_as_string(BASE_INFO_PATH))
 		if data is Dictionary:
 			_base_info = data
 	return _base_info
@@ -306,7 +294,7 @@ static func _base_rig_info() -> Dictionary:
 ## Builds the rigged blob (arms, legs and animation clips from art/blender/make_rigged_blob.py). Returns false if it is not available, and
 ## the fighter is then built from parts or spheres.
 func _build_rig(skin: Material) -> bool:
-	var rig_path := _mock_path(RIG_BASE_PATH) if use_base_body else (RIG_LONG_PATH if long_limbs else RIG_PATH)
+	var rig_path := RIG_BASE_PATH if use_base_body else (RIG_LONG_PATH if long_limbs else RIG_PATH)
 	if not _rig_templates.has(rig_path):
 		_rig_templates[rig_path] = null
 		_rig_templates[rig_path] = _model_scene(rig_path)
@@ -5368,6 +5356,64 @@ func _guard_face(facing: int, on_ground := true) -> void:
 				_ik_arm(side, mine, again, k)
 
 
+## Raised arms beside the head, not over it (round 8, the owner 2026-10-28, after the shoulder mock: keep the shoulders, raise the arms
+## out to the side). The short arm cannot reach above the big head, so a hand raised above its shoulder ended inside the head's outline on
+## screen, behind it, and the raise did not read (the Settler's up air, the special fall, the item throw, the swords' overhead swings).
+## Such a hand is carried out sideways on screen to BESIDE_OUT of the head's radius from its middle, ahead or behind as it already leans
+## (the weapon hand ahead, the free hand behind when it is square under the head: a V), as high as the arm can reach there, eased in by
+## how far inside the outline and how far above the shoulder it is. A weapon hand stays no higher than the chin (the 8c rule); the
+## weapon follows the hand, so a sword raised overhead arcs over the head from beside it with the fist showing.
+const BESIDE_OUT := 1.4
+## How far the hand may reach (a share of the arm's full length) when it is placed beside the head.
+const BESIDE_REACH := 0.95
+
+
+func _arms_beside_head(facing: int) -> void:
+	if not use_base_body or skeleton == null or head_bone < 0:
+		return
+	var to_frame := _skeleton_to_frame()
+	var hp := skeleton.get_bone_global_pose(head_bone)
+	var c := to_frame * (hp.origin + hp.basis.y.normalized() * HEAD_CENTRE_UP * hp.basis.y.length())
+	var r: float = float((_base_rig_info().get("head_ball", [0.0, 0.0, 0.36]) as Array)[2]) * (to_frame.basis * hp.basis).x.length()
+	for side in ["L", "R"]:
+		var ih := skeleton.find_bone("hand." + side)
+		var iu := skeleton.find_bone("armU." + side)
+		var il := skeleton.find_bone("armL." + side)
+		var p := to_frame * skeleton.get_bone_global_pose(ih).origin
+		var sh := to_frame * skeleton.get_bone_global_pose(iu).origin
+		var inside := Vector2(p.x - c.x, p.y - c.y).length() / r
+		var k := (1.0 - smoothstep(0.95, 1.2, inside)) * smoothstep(0.03, 0.12, p.y - sh.y)
+		# (Only a hand behind the head's middle in depth, which the head hides: one in front of it is the face guard's, and carried out
+		# beside the head it came up across the face, the Settler's tool hand.)
+		if k <= 0.0 or p.z > c.z:
+			continue
+		var mine: bool = side == _weapon_side(facing)
+		var off := p.x - c.x
+		var sgn := signf(off) if absf(off) > 0.06 else (float(facing) if mine else -float(facing))
+		var reach := ((skeleton.get_bone_global_rest(il).origin - skeleton.get_bone_global_rest(iu).origin).length()
+			+ (skeleton.get_bone_global_rest(ih).origin - skeleton.get_bone_global_rest(il).origin).length() + 0.07)
+		reach *= BESIDE_REACH * (to_frame.basis.x.length())
+		# (Carried out ahead, a weapon hand the arm could not take far enough stopped by the drawn face: then it goes out behind the head
+		# instead, the face kept clear first.)
+		for attempt in 2:
+			var tx := c.x + sgn * r * BESIDE_OUT
+			var dx := clampf(tx - sh.x, -reach * 0.98, reach * 0.98)
+			var ty := minf(p.y, sh.y + sqrt(maxf(0.0, reach * reach - dx * dx)))
+			if mine and (bladed(_cls_now) or _cls_now == STAFF_CLASS):
+				ty = minf(ty, c.y - r * FRONT_BELOW)
+			# (Behind the head's middle in depth, so it is never carried across the face.)
+			var target := Vector3(sh.x + dx, maxf(ty, sh.y + 0.04), minf(p.z, c.z - 0.05))
+			if arms_held.has(side):
+				_ik_arm(side, mine, p.lerp(target, k), 1.0)
+			else:
+				_ik_arm(side, mine, target, k)
+			var got := to_frame * skeleton.get_bone_global_pose(ih).origin
+			var face := Vector2(c.x + FACE_FWD * float(facing), c.y - r * 0.2)
+			if attempt == 1 or sgn != float(facing) or (Vector2(got.x, got.y) - face).length() > COVER_R:
+				break
+			sgn = -float(facing)
+
+
 ## Two-bone IK for one arm: the hand to `target` (stage frame), blended in by `amount` over the clip's pose.
 func _ik_arm(side: String, mine: bool, target: Vector3, amount: float) -> void:
 		var iu := skeleton.find_bone("armU." + side)
@@ -6494,6 +6540,8 @@ func _apply_combat(s: Dictionary, delta: float) -> void:
 			amount = ik_fade * ik_fade * (3.0 - 2.0 * ik_fade)
 		_aim_arm(int(s.facing), hold_now or ik_fade > 0.0, two, amount)
 		_guard_face(int(s.facing), int(s.platform) >= 0)
+		if not r8_off.has("beside") and not turning_over and not two:
+			_arms_beside_head(int(s.facing))
 		# The hilt goes where the hand actually got to (an arm shorter than the swing wants stops short of its target): the weapon is
 		# always in the hand, never floating in front of it.
 		if holding and not carrying and skeleton != null:

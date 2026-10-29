@@ -2126,7 +2126,7 @@ knee bend (`review1/mock_stance.jpg`, A/B/C).
 - **Review:** items 3, 13 and 18 poses 3 to 4, overall 3.0 to 3.3 each. Mean 3.25 (poses 3.24, fluidity 3.35, weight 3.16).
 - **Checked:** the six tests pass.
 
-### Group 20 (round 8): shoulder mock (awaiting the owner)
+### Group 20 (round 8): shoulder mock (Decided: owner: keep shoulders, arms out to the side, 2026-10-28)
 
 - **Ask:** the owner (2026-10-28): higher shoulders, so a raised arm shows above or beside the head; mock three amounts as a body change.
 - **Built:** `make_cage_body.py --shoulder-raise D` (default 0, today's body byte for byte): the arms lifted whole and the torso's armhole
@@ -2138,3 +2138,28 @@ knee bend (`review1/mock_stance.jpg`, A/B/C).
   (0 frames today, 9 / 34 / 39). Numbers and the recommendation (keep today's shoulders; reach, not height) in `ANIMATION_REVIEW_1.md`
   section 15; sheet `docs/art/anim/review1/mock_shoulders.jpg`.
 - **Checked:** with each option the loadout, art pipeline, prop check and fighter view tests pass; the six tests pass with the default.
+
+### Group 21 (round 8): raised arms beside the head, not over it (the owner, 2026-10-28; review items 28, 34)
+
+- **Defect:** the short arm cannot reach above the big head (group 20), so a hand raised above its shoulder ended inside the head's
+  outline on screen, behind it, and the raise did not read: 44% of raised-hand frames over the galleries were hidden.
+- **Fix (`fighter_view.gd`, `_arms_beside_head`, after the face guard):** a hand above its shoulder, behind the head's middle in depth
+  and inside its outline, is carried out sideways on screen to `BESIDE_OUT` (1.4) of the head's radius, ahead or behind as it leans (the
+  weapon hand ahead, the free hand behind when square under the head: a V), as high as the arm reaches there (`BESIDE_REACH`), eased by
+  how far inside and how high it is; a weapon hand no higher than the chin (the 8c rule). If the weapon hand would stop by the drawn
+  face it goes out behind the head instead (face first). The weapon follows the hand, so an overhead sword arcs over the head from
+  beside it, the fist showing. Not in a two-handed grip or a whole-body turn. `PF_R8_OFF=beside` shows the old.
+- **Tried:** acting on any hand inside the outline carried hands in front of the head out across the face (the Settler's tool hand, 15
+  frames); only hands behind the head's middle now.
+- **Measured** (`PF_ARM_SHOW` over all 14 classes' galleries plus the special fall, item throw and shield-break demos): raised hands
+  shown clear of the head 4118 / 7369 (56%) before, 6214 / 7163 (87%) after. The special fall 24 / 81 to 48 / 48, the item throw 32 / 32
+  and 25 / 25, the shield break 4 / 4 to 16 / 16, the Longsword 264 / 373 to 369 / 370, the Settler 271 / 699 to 526 / 642, the Embers
+  152 / 389 to 349 / 359, the Seer 264 / 727 to 412 / 731. Face cover over the galleries unchanged for 11 classes (Bracers 3 to 0);
+  up for the Gauntlets 5 to 7, the Phantom 0 to 3 and the Exile 0 to 8: in each the weapon fist now sits beside the chin on the back
+  side of the head with the face showing (judged frame by frame, `F:/anim_r8/sheets/x16.jpg`), within the measure's radius of the
+  head's middle.
+- **Image:** `docs/screenshots/anim/r8_arms_side.jpg` (the Longsword's up tilt and up air, the Settler's and the Clutch's up airs, the
+  special fall and the item throw, at the match camera, before above after).
+- **Retired:** the shoulder mock's `PF_SHOULDER_MOCK` switch (`make_cage_body.py --shoulder-raise` stays, default 0).
+- **Review:** items 28 (tool aerials) and 34 (special states) poses 3 to 4, overall 3.0 to 3.3. Mean 3.27.
+- **Checked:** the six tests pass.
