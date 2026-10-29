@@ -1197,6 +1197,14 @@ static func _ground_colours(t: Dictionary) -> Dictionary:
 	out["spray"] = Color(0.92, 0.94, 1.0)
 	out["abyss_mist2"] = Color(0.5, 0.44, 0.7)
 	out["abyss_mist3"] = Color(0.58, 0.52, 0.78)
+	# (The mist greyer, fidelity review 16 item 3, `--mist-grey=A|B` [saturation kept, value scale]: flat violet banks under the falls.
+	# Near grey, the grove's painted shade turns them violet on its own (toon_light `pf_painted_shadow`: low-saturation colours take the
+	# shade tint), so the lit tops read grey-white and only the shade stays violet. A half the saturation; B a quarter, a step lighter.)
+	var mist_grey: Array = {"A": [0.5, 1.0], "B": [0.25, 1.12]}.get(flag("--mist-grey=").to_upper(), [])
+	if mist_grey.size() == 2:
+		for fam in ["abyss_mist", "abyss_mist2", "abyss_mist3", "card_abyss_mist", "bank_mist", "bank_mist_low", "bank_mist_top"]:
+			var c: Color = out[fam]
+			out[fam] = Color.from_hsv(c.h, c.s * float(mist_grey[0]), minf(c.v * float(mist_grey[1]), 1.0))
 	# (One rock for the grove, fidelity review 9: the island's underside is grey-green stone, the terraces' blocks a deep teal, two
 	# languages side by side. The palette's [backdrop] `cliff_stone` (or `--cliff-stone=`), how far the terraces' rock turns to the
 	# island's stone, its value kept deep for the fighters in front of it.)
