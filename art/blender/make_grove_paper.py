@@ -34,7 +34,7 @@ Families `grass`, `grass_far`, `cliff`, `range_far`, `range_near`, their cut edg
 Shipped (new art toward 5, the owner's pick B, 2026-10-25): godot/models/stages/grove_paper.glb, `--variant H --rock shaped
 --abyss mist --valley none --falls 3 --mist 3 --roots long`, then lit (review 9's without the falls, mist and roots); with `--deep A`
 since fidelity review 11 (2026-10-26), and `--valley open --valley_y -50` in place of `--valley none` since G2 (2026-10-26), and `--banks soft` since
-fidelity review 13 (2026-10-27).
+fidelity review 13 (2026-10-27), and `--scallop C` since fidelity review 16 (2026-10-29).
 
 Run (Blender 5.2):
   blender --background --python art/blender/make_grove_paper.py -- --dir godot/art/baked/<key> --variant A --ground <g.glb>

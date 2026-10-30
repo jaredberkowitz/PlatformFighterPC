@@ -192,3 +192,10 @@ To ship:
 - rebuild `grove_paper.glb` with `--scallop C`;
 - set grove.cfg `mist_grey` (a palette key read where the flag is);
 - re-light the grove.
+
+Built C (the owner's pick):
+- `godot/models/stages/grove_paper.glb` rebuilt with `--scallop C`;
+- grove.cfg [backdrop] `mist_grey="B"` (`--mist-grey=T` brings back the mist as before);
+- the grove re-lit (front, paper, play).
+
+P1's gap is 0.122; the wide values hold (darks 17%). Before and after (wide): `review16/grove_falls_built.jpg`. All seven tests pass.
