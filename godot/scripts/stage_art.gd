@@ -3474,6 +3474,7 @@ static func _clouds(root: Node3D, rng: RandomNumberGenerator, count: int, color:
 		mat.set_shader_parameter("belly_height", 2.2 * size)
 		if style == 4:
 			# Two cards: a deeper one behind, up and to one side, and the cloud's face in front, each a flat cumulus with a scalloped crown.
+			mat.set_shader_parameter("card_cloud", true)
 			# (The tower kind lower and with more bumps: at three tall lobes it read as a box.)
 			var lobes: int = [5, 7, 4][kind]
 			var cw: float = [11.0, 15.0, 9.0][kind] * size
@@ -3579,22 +3580,30 @@ static func _card_cloud(lobes: int, width: float, height: float, seed: int, dept
 	var r := RandomNumberGenerator.new()
 	r.seed = seed
 	var outline := PackedVector2Array()
-	outline.append(Vector2(-width * 0.5, 0.0))
+	# (A cumulus cut from card, fidelity review 17: at 1080 lines the old outline read as a box, tall vertical sides under the end lobes and a
+	# base ruled nearly flat. The crown domes down to low round ends, which curl under onto a base of shallow lobes.)
 	for k in lobes:
 		var u0 := float(k) / lobes
 		var u1 := float(k + 1) / lobes
 		var mid := (u0 + u1) * 0.5
-		var lift := height * (0.55 + 0.45 * sin(mid * PI)) * r.randf_range(0.85, 1.1)
 		var rad := (u1 - u0) * width * 0.62
-		var cx := -width * 0.5 + mid * width
-		for j in 9:
-			var a := PI - PI * j / 8.0
+		var lift := maxf(rad * 1.05, height * pow(sin(mid * PI), 0.8) * r.randf_range(0.88, 1.08))
+		var cx := -width * 0.5 + rad * 0.9 + mid * (width - rad * 1.8)
+		# (The first lobe starts under its own round end, the last finishes under its own.)
+		var from := PI * 1.3 if k == 0 else PI
+		var to := -PI * 0.3 if k == lobes - 1 else 0.0
+		var steps := 12 if k == 0 or k == lobes - 1 else 9
+		for j in steps + 1:
+			var a: float = lerpf(from, to, float(j) / steps)
 			outline.append(Vector2(cx + cos(a) * rad, maxf(lift - rad + sin(a) * rad, 0.0)))
-	outline.append(Vector2(width * 0.5, 0.0))
-	# (The base a gentle belly, not a ruler line.)
-	for j in range(1, 8):
-		var u := 1.0 - j / 8.0
-		outline.append(Vector2(-width * 0.5 + u * width, -0.35 * height * 0.1 * sin(u * PI)))
+	# The base, right to left, a few shallow lobes hanging a little.
+	var base_from := outline[outline.size() - 1]
+	var base_to := outline[0]
+	var base_lobes := maxi(lobes - 1, 2)
+	for j in range(1, base_lobes * 6):
+		var u := float(j) / (base_lobes * 6)
+		var hang := absf(sin(u * PI * base_lobes)) * height * 0.05 + sin(u * PI) * height * 0.03
+		outline.append(Vector2(lerpf(base_from.x, base_to.x, u), lerpf(base_from.y, base_to.y, u) - hang))
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
 	var centre := Vector2(0.0, height * 0.32)
