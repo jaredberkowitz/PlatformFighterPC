@@ -409,7 +409,9 @@ void fragment() {
 		c *= mix(vec3(1.0), vec3(1.02, 1.0, 0.97), paper_fin.y * clamp(w + 0.5, 0.0, 1.0));
 		// The cut edge: where the surface turns away from the eye, a pale card edge.
 		float rim = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 5.0);
-		c = mix(c, c * 0.4 + vec3(0.56, 0.54, 0.5), rim * paper_fin.z * 0.55);
+		// (In its own colour, fidelity review 17: a fixed pale grey also took every top seen nearly edge-on, so ledges and stones' tops read as grey
+		// metal strips at 1080 lines, and in the grove's violet shade as purple slivers through the moss.)
+		c = mix(c, c * 1.22 + vec3(0.05), rim * paper_fin.z * 0.55);
 	}
 	// (Not on flat tops, whose own normal is already the face's: rebuilt from the screen derivatives it came out turned over on them, so
 	// the background's grass, sand and terrace tops were lit as undersides, in their shade colour, and took no cast shadow; the graphics

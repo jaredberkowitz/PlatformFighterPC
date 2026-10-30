@@ -567,8 +567,6 @@ static func stage_mood(env: Environment, root: Node, theme: Dictionary, post: Sh
 		if arg == "--sun=C":
 			cast = Color(0.2, 0.14, 0.42, 1.0)
 	cast = two.get("cast", cast)
-	if OS.get_cmdline_user_args().has("--cast-off"):
-		cast = Color(1, 1, 1, 0)
 	RenderingServer.global_shader_parameter_set("pf_cast_shade", cast)
 	# The light finish (fidelity review 6, see STYLES): bounce light (pf_bounce), a firmer grade and S-curve, the lamps glowing.
 	var finish_off := OS.get_cmdline_user_args().has("--light-finish=off")
