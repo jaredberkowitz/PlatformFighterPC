@@ -88,6 +88,23 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
     <p>Two lessons from the reference screenshots, mocked from the match camera: the scenery without ink outlines, its edges lit as card bevels instead, and the paper houses rebuilt at the characters' proportions. The earlier rounds stay on the <a href="https://claude.ai/artifact/D1du6MREVumiJDrEdNypW4">Stage Fidelity Review</a>, which is full.</p>
   </header>
 
+  <section class="panel" aria-labelledby="st61-h" id="stones61">
+    <div class="eyebrow">Your call is needed &middot; review 16, item 5: the meadow's stones</div>
+    <h2 id="st61-h">The meadow's wall as card stone</h2>
+    <p>First, the canyon's hoodoos B are built (their section below). The meadow's stones had lit rims but read khaki-grey. I found why: the fronts' fall into shade is tinted with each stage's shade hue, and the meadow's is a green, so warm stone turned olive. That tint arrived with the colourful shade.</p>
+    <div class="tablewrap"><table><thead><tr><th>Option</th><th>What changes</th><th>Front value, contrast</th><th>P1's gap</th></tr></thead><tbody>
+      <tr><td>Today</td><td></td><td>0.42, 0.079</td><td>0.120</td></tr>
+      <tr><td>A &middot; Veil off</td><td>The fall tint a neutral cool grey-blue on the meadow, and the stone a step paler</td><td>0.44, 0.093</td><td>0.127</td></tr>
+      <tr><td>B &middot; Card stone</td><td>A, with a paler, greyer stone, a lighter moss, and half the fall into shade on them</td><td>0.46, 0.121</td><td>0.127</td></tr>
+    </tbody></table></div>
+    <p>Close: today, A, B at the match camera (top) and wide (bottom).</p>
+    <div class="viewer"><img src="st61_close.jpg" alt="The meadow's wall today, with A and with B"></div>
+    <div class="row" role="group" aria-label="View"><button data-st61v="m">Match camera</button><button data-st61v="w">Wide</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-st61o="T">Today</button><button data-st61o="A">A &middot; Veil off</button><button data-st61o="B">B &middot; Card stone</button></div>
+    <div class="viewer"><img id="st61img" alt="Meadow stones option"><span class="vtag" id="st61tag"></span></div>
+    <p class="muted">My pick: <b>B</b>. Each stone reads as a pale cut card against the warm earth, and the wall has real contrast. Honest note: at the wide camera B's wall is the palest thing in the lower frame, nearly cream. If that pulls too much, A is the warmer, quieter step. Nothing needs re-baking.</p>
+  </section>
+
   <section class="panel" aria-labelledby="hd60-h" id="hoodoos60">
     <div class="eyebrow">Built B (the owner's pick) &middot; review 16, item 4: the canyon's hoodoos</div>
     <h2 id="hd60-h">Hoodoos as worn rock, not stacked drums</h2>
@@ -3601,5 +3618,15 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
   group("data-hd60v", function (v) { hd60v = v; }, hd60render);
   group("data-hd60o", function (v) { hd60o = v; }, hd60render);
   hd60render();
+  var st61v = "m", st61o = "B";
+  var ST61O = { T: "Today", A: "A · Veil off", B: "B · Card stone" };
+  function st61render() {
+    $id("st61img").src = "st61_" + st61o + "_" + st61v + ".jpg";
+    $id("st61tag").textContent = "Meadow · " + ST61O[st61o] + (st61v === "w" ? " · wide" : " · match camera");
+    pressed("data-st61v", st61v); pressed("data-st61o", st61o);
+  }
+  group("data-st61v", function (v) { st61v = v; }, st61render);
+  group("data-st61o", function (v) { st61o = v; }, st61render);
+  st61render();
 })();
 </script>

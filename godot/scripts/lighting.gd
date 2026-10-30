@@ -630,6 +630,9 @@ static func stage_mood(env: Environment, root: Node, theme: Dictionary, post: Sh
 	var sc := shade_colour(String(theme.get("name", "meadow")))
 	calm *= {"A": 0.5, "B": 0.25, "C": 0.0, "D": 0.0}.get(sc, 1.0)
 	var tint := Color.from_hsv(float(mood.shadow_hue), 0.3, 0.92)
+	# (The meadow's stones, fidelity review 16 item 5, `--stones=A|B`; see StageBake.STONE_TRY: its shade hue is a green, and green over warm stone reads olive.)
+	if String(theme.get("name", "")) == "meadow" and _flag_value("--stones=").to_upper() in ["A", "B"]:
+		tint = Color.from_hsv(0.6, 0.16, 0.94)
 	RenderingServer.global_shader_parameter_set("pf_front_tint", Color(tint.r, tint.g, tint.b, 1.0 if sc in ["B", "C", "D"] else 0.0))
 	RenderingServer.global_shader_parameter_set("pf_front_fall_k", {"A": 0.6, "B": 0.5, "C": 0.35, "D": 0.35}.get(sc, 1.0))
 	# (D: C with the contact shade baked into the modelled pieces eased by half, the deeper shade of fidelity review 9.)

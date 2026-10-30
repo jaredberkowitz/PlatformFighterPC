@@ -226,3 +226,29 @@ To ship:
 Built B (the owner's pick): `godot/models/stages/canyon_paper.glb` rebuilt with `--hoodoo_look B`; the canyon re-lit (front, paper,
 play). P1's gap is 0.214; the wide values hold (darks 4%). Before and after (wide): `review16/canyon_hoodoos_built.jpg`. All seven
 tests pass.
+
+## Item 5, the meadow's stones as card stone (mock, 2026-10-30)
+
+**Why they read khaki-grey:** the fronts' fall into shade is tinted with each stage's shade hue (`pf_front_tint`, since the colourful
+shade), and the meadow's hue is a green (0.4), so warm stone turned olive.
+
+`--stones=A|B` (StageBake.STONE_TRY; Lighting.stage_mood, the meadow only). Both turn that tint a neutral cool grey-blue:
+- **A:** the fieldstone a step paler, (0.84, 0.77, 0.66).
+- **B:** a paler, greyer card stone, (0.88, 0.85, 0.78); a lighter moss, (0.42, 0.6, 0.3); half the fall into shade on them (0.2).
+
+| | Today | A | B |
+|---|---|---|---|
+| Front value | 0.42 | 0.44 | 0.46 |
+| Front contrast | 0.079 | 0.093 | 0.121 |
+| P1's gap | 0.120 | 0.127 | 0.127 |
+
+At the wide camera B's wall is the palest thing in the lower frame, nearly cream.
+
+On the Stage Look Review ("stones61", `st61_*`). Close (today, A, B; match top, wide bottom): `review16/meadow_stones_mock.jpg`.
+Recommended B.
+
+To ship:
+- a meadow.cfg key for the stones;
+- the tint a style or mood key.
+
+Nothing needs re-baking.

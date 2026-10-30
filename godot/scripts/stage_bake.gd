@@ -423,6 +423,9 @@ static func place_front(root: Node3D, t: Dictionary, scene: Node3D) -> void:
 		"trim": Color(0.9, 0.8, 0.68), "frame": Color(0.86, 0.7, 0.46), "curtain_a": Color(0.92, 0.54, 0.58), "curtain_b": Color(0.56, 0.72, 0.92),
 		"curtain_c": Color(0.92, 0.76, 0.44), "neon": Color(0.88, 0.3, 0.38), "pipe": Color(0.48, 0.48, 0.58), "pot": Color(0.78, 0.4, 0.3),
 		"leaf": Color(0.36, 0.62, 0.3), "ac": Color(0.74, 0.75, 0.8), "spandrel": (t.get("soil_dark", Color(0.4, 0.3, 0.4)) as Color).darkened(0.3)}
+	# (The meadow's stones as card stone, fidelity review 16 item 5, `--stones=A|B`; see STONE_TRY.)
+	var stones: Dictionary = STONE_TRY.get(flag("--stones=").to_upper(), {})
+	colours.merge(stones.get("colours", {}), true)
 	# (Lit rooms, dark panes and bulbs keep their own colour whatever the light, as the code-built facade's glass does.)
 	var glow := {"glass_lit": Color(1.0, 0.72, 0.4), "glass_dark": Color(0.12, 0.13, 0.26), "bulb": Color(1.0, 0.94, 0.8)}
 	scene.name = "ModelledFront"
@@ -456,11 +459,24 @@ static func place_front(root: Node3D, t: Dictionary, scene: Node3D) -> void:
 			m.set_shader_parameter("fall_by_height", fam != "foam" and String(t.get("name", "")) != "ocean")
 			# (Gentler on posts standing in the sea: at the cliffs' 0.4 the beach's piles fell nearly black.)
 			m.set_shader_parameter("front_fall", 0.15 if fam in ["post", "waterline", "weed", "rope"] else 0.4)
+			if fam in ["fieldstone", "wall_moss"] and stones.has("fall"):
+				m.set_shader_parameter("front_fall", float(stones.fall))
 			m.set_shader_parameter("front_span", 7.0)
 			_paint_drift(m, t, false)
 			mi.set_surface_override_material(s, m)
 		mi.set_instance_shader_parameter("front_top", top)
 		mi.set_meta("prebaked", true)
+
+
+## The meadow's stones as card stone, on trial (fidelity review 16 item 5, `--stones=A|B`): khaki-grey under an olive veil, as the fronts'
+## fall into shade is tinted with the stage's shade hue (Lighting `pf_front_tint`), on the meadow a green. Both turn that tint a neutral
+## cool grey-blue on the meadow (Lighting.stage_mood).
+##   A  the stone a step paler;
+##   B  a paler, greyer card stone, a lighter moss, and half the fall into shade on them.
+const STONE_TRY := {
+	"A": {"colours": {"fieldstone": Color(0.84, 0.77, 0.66)}},
+	"B": {"colours": {"fieldstone": Color(0.88, 0.85, 0.78), "wall_moss": Color(0.42, 0.6, 0.3)}, "fall": 0.2},
+}
 
 
 ## Painted variation on a modelled piece's material (fidelity review 10; toon_common `paint_drift`): the palette's [backdrop]
