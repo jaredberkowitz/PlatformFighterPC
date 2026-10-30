@@ -92,7 +92,9 @@ static func _sky(x: float, y: float, rects: Array) -> float:
 ## How far a platform's shadow leans to the right per unit it falls (the key light is up and to the left, as the painted ground shadows
 ## lean, `StageArt._ground_shadow`), and how dark it is at most (0 none, 1 full shade).
 const DROP_LEAN := 0.12
-const DROP_STRENGTH := 0.9
+## (0.5, fidelity review 17, the owner 2026-10-29, "the shadows are beginning to drown out the floors": at 0.9 a platform's shadow was a hard dark
+## mat across the bright floors.)
+const DROP_STRENGTH := 0.5
 
 
 ## How much sun (0..1) the point at `x`, `y` gets past the platforms above it: under one, the shade of its shape cast straight down and
@@ -108,7 +110,8 @@ static func _drop(x: float, y: float, rects: Array) -> float:
 			continue
 		var sx := x - fall * DROP_LEAN
 		# (Crisper, the judge's round 39: a wide soft edge read as a smudge, not the reference's clean cast shade.)
-		var soft := 0.1 + fall * 0.015
+		# (Softer again, fidelity review 17: a clean edge suits a lawn, but on the bright floors the crisp rectangles read as mats.)
+		var soft := 0.7 + fall * 0.09
 		var cover := clampf((sx - float(r[0])) / soft + 0.5, 0.0, 1.0) * clampf((float(r[1]) - sx) / soft + 0.5, 0.0, 1.0)
 		cover *= smoothstep(0.6, 1.2, fall) * lerpf(1.0, 0.7, fall / 16.0)
 		sun = minf(sun, 1.0 - cover * DROP_STRENGTH)

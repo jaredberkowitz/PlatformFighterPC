@@ -40,6 +40,7 @@ float pf_stage_sun(vec3 p, vec3 n) {
 		return 1.0;
 	}
 	float outside = max(pf_ao_depth.x - p.z, p.z - pf_ao_depth.y);
-	float under = 1.0 - smoothstep(-0.15, 0.35, outside);
+	// (A longer fall at its edge front and back, fidelity review 17, as `_drop`'s softer sides.)
+	float under = 1.0 - smoothstep(-1.1, 0.9, outside);
 	return mix(1.0, texture(pf_ao_map, vec2(uv.x, 1.0 - uv.y)).g, under * smoothstep(0.5, 0.85, n.y));
 }
