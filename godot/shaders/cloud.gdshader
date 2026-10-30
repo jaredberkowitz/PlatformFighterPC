@@ -34,7 +34,13 @@ varying vec3 wn;
 varying vec3 wp;
 
 float h3(vec3 p) {
-	return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758.5453);
+	// (Exact integer arithmetic, fidelity review 17, as the sky's `hash`: a float hash could step across a cell's edge, and a step in `lump`
+	// tore the cloud's surface.)
+	ivec3 q = ivec3(p);
+	uint h = (uint(q.x) * 1597334677u) ^ (uint(q.y) * 3812015801u) ^ (uint(q.z) * 2946901019u);
+	h = (h ^ (h >> 15u)) * 2246822519u;
+	h = h ^ (h >> 13u);
+	return float(h) / 4294967295.0;
 }
 
 float n3(vec3 p) {

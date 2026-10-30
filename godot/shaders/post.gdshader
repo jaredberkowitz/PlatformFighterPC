@@ -131,14 +131,24 @@ float hash(vec2 p) {
 	return fract(p.x * p.y);
 }
 
+float lattice_hash(vec2 p) {
+	// (Exact integer arithmetic, fidelity review 17: the old float hash was chaotic, so when the GPU rounded `hash(i + 1)` differently from
+	// the next cell's `hash(i)` the two sides of a cell took different values, a hard straight cut at fixed places, the sky's streaks.)
+	ivec2 q = ivec2(p);
+	uint h = (uint(q.x) * 1597334677u) ^ (uint(q.y) * 3812015801u);
+	h = (h ^ (h >> 15u)) * 2246822519u;
+	h = h ^ (h >> 13u);
+	return float(h) / 4294967295.0;
+}
+
 float value_noise(vec2 p) {
 	vec2 i = floor(p);
 	vec2 f = fract(p);
 	f = f * f * (3.0 - 2.0 * f);
-	float a = hash(i);
-	float b = hash(i + vec2(1.0, 0.0));
-	float c = hash(i + vec2(0.0, 1.0));
-	float d = hash(i + vec2(1.0, 1.0));
+	float a = lattice_hash(i);
+	float b = lattice_hash(i + vec2(1.0, 0.0));
+	float c = lattice_hash(i + vec2(0.0, 1.0));
+	float d = lattice_hash(i + vec2(1.0, 1.0));
 	return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
 }
 
