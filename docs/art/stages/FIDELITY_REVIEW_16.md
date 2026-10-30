@@ -283,3 +283,7 @@ On the Stage Look Review ("citybrick62", `cp62_*`). Close (today, A, B): `review
 To ship:
 - a city.cfg key for the look;
 - remove the unused tile.
+
+Built A (the owner's pick): city.cfg [backdrop] `city_paint="A"` (`StageArt.city_paint`; `--city-paint=T` brings back the look before);
+`brick_b.png` removed. The front measures 0.30 in value, 0.177 in contrast; P1's gap is 0.178. Before and after (match top, wide bottom):
+`review16/city_brick_built.jpg`. All seven tests pass.
