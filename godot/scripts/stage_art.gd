@@ -787,6 +787,10 @@ static func _soil_material(t: Dictionary) -> ShaderMaterial:
 	# recessed mortar, soot streaks, the owner's painted materials, 2026-10-18.)
 	elif pattern == "facade" and Materials._png_tile("brick") != null:
 		tex = Materials._png_tile("brick")
+		# (The tile's tones stretched, fidelity review 16 item 6, `--city-paint=A|B`; see StageBake.CITY_PAINT.)
+		for arg in OS.get_cmdline_user_args():
+			if arg in ["--city-paint=A", "--city-paint=B"]:
+				tex = Materials._png_tile("brick_" + arg.substr(13).to_lower())
 		tint = a
 	# On the stage's cel shading, laid in world space (one repeat every 3 units, so the stones and bands read large and calm; a facade's every 6.6).
 	var m := FighterView.toon(tint, true, tex, Vector2.ONE, {"facade": 6.6, "masonry": 7.0, "strata": 6.0, "roots": 8.0, "earth": 12.0, "seawall": 10.0}.get(pattern, 3.0))

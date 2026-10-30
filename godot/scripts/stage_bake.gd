@@ -467,9 +467,21 @@ static func place_front(root: Node3D, t: Dictionary, scene: Node3D) -> void:
 				m.set_shader_parameter("front_fall", float(stones.fall))
 			m.set_shader_parameter("front_span", 7.0)
 			_paint_drift(m, t, false)
+			if fam.begins_with("brick") and CITY_PAINT.has(flag("--city-paint=").to_upper()):
+				m.set_shader_parameter("paint_drift", CITY_PAINT[flag("--city-paint=").to_upper()].brick)
 			mi.set_surface_override_material(s, m)
 		mi.set_instance_shader_parameter("front_top", top)
 		mi.set_meta("prebaked", true)
+
+
+## The city's roof and brick painted, on trial (fidelity review 16 item 6, `--city-paint=A|B`): the brick tile's five tones were rendered nearly
+## white and squeezed together, so the wall read as one colour repeated, and the roof a plain pink sheet. The tile's tones stretched
+## (art/stage/png/brick_a.png, brick_b.png, StageArt._soil_material), which deepens its mortar too, with broad weathering on the wall, and
+## painted patches on the roof (toon_common `paint_drift`). A moderate, B strong. Both tiles: ffmpeg `curves` on brick.png.
+const CITY_PAINT := {
+	"A": {"brick": Vector4(1.0, 0.6, 7.0, 0.0), "roof": Vector4(2.6, 1.0, 5.0, 0.4)},
+	"B": {"brick": Vector4(1.4, 0.8, 7.0, 0.0), "roof": Vector4(3.6, 1.4, 4.0, 0.5)},
+}
 
 
 ## The meadow's stones as card stone (fidelity review 16 item 5, the owner's pick B, meadow.cfg `stones`): khaki-grey under an olive veil, as the fronts'
@@ -629,6 +641,8 @@ static func place_play(root: Node3D, t: Dictionary, path: String) -> void:
 				if bright.get("bare", false):
 					m.set_shader_parameter("vertex_shade", false)
 			_paint_drift(m, t, true)
+			if fam in ["top", "top_deep", "top_lit", "top_worn"] and String(t.get("name", "")) == "city" and CITY_PAINT.has(flag("--city-paint=").to_upper()):
+				m.set_shader_parameter("paint_drift", CITY_PAINT[flag("--city-paint=").to_upper()].roof)
 			mi.set_surface_override_material(s, m)
 		mi.set_meta("prebaked", true)
 	print("play mock: placed %s" % path.get_file())

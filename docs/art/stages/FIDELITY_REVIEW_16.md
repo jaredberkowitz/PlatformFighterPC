@@ -256,3 +256,30 @@ Nothing needs re-baking.
 Built B (the owner's pick): meadow.cfg [backdrop] `stones="B"`; MOODS.meadow `front_tint` [0.6, 0.16, 0.94]. `--stones=T` brings back
 both as before. The front measures 0.47 in value, 0.122 in contrast; P1's gap is 0.125. Before and after (match top, wide bottom):
 `review16/meadow_stones_built.jpg`. All seven tests pass.
+
+## Item 6, the city's roof and brick (mock, 2026-10-30)
+
+**Why the wall read as one colour:** `godot/art/stage/png/brick.png` already has five brick tones, bevels and soot, but it was rendered
+nearly white, so the tones were squeezed together and the tint flattened them.
+
+`--city-paint=A|B` (StageBake.CITY_PAINT; StageArt._soil_material):
+- the tile's tones stretched: `brick_a.png` (moderate), `brick_b.png` (strong), both ffmpeg `curves` on brick.png; this also deepens the
+  mortar;
+- broad weathering across the wall and painted patches on the roof (`paint_drift`).
+
+A first try with paint alone at about a brick's size came out soft and smudgy, not brick by brick.
+
+| | Today | A | B |
+|---|---|---|---|
+| Front value | 0.31 | 0.30 | 0.29 |
+| Front contrast | 0.169 | 0.176 | 0.183 |
+| P1's gap | 0.178 | 0.180 | 0.181 |
+
+B darkens the front, against the owner's note on dark fronts. The roof changes only a little: the lamp pools dominate it, and seams and
+tar patches would mean rebuilding `city_play.glb`.
+
+On the Stage Look Review ("citybrick62", `cp62_*`). Close (today, A, B): `review16/city_brick_mock.jpg`. Recommended A.
+
+To ship:
+- a city.cfg key for the look;
+- remove the unused tile.

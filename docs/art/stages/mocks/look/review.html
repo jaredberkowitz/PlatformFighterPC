@@ -88,6 +88,28 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
     <p>Two lessons from the reference screenshots, mocked from the match camera: the scenery without ink outlines, its edges lit as card bevels instead, and the paper houses rebuilt at the characters' proportions. The earlier rounds stay on the <a href="https://claude.ai/artifact/D1du6MREVumiJDrEdNypW4">Stage Fidelity Review</a>, which is full.</p>
   </header>
 
+  <section class="panel" aria-labelledby="cp62-h" id="citybrick62">
+    <div class="eyebrow">Your call is needed &middot; review 16, item 6: the city's roof and brick</div>
+    <h2 id="cp62-h">Brick that reads brick by brick</h2>
+    <p>First, the meadow's stones B are built (their section below). The city's wall read as one repeating colour. I found why: the brick texture already has five tones and soot, but it was rendered nearly white, so the tones were squeezed together. These options stretch them, which also deepens the mortar joints, and add broad weathering across the wall and painted patches on the roof. Nothing is modelled or re-baked.</p>
+    <div class="tablewrap"><table><thead><tr><th>Option</th><th>The brick's tones</th><th>Front value, contrast</th></tr></thead><tbody>
+      <tr><td>Today</td><td>Squeezed</td><td>0.31, 0.169</td></tr>
+      <tr><td>A &middot; Stretched</td><td>Moderate</td><td>0.30, 0.176</td></tr>
+      <tr><td>B &middot; Strong</td><td>Strong</td><td>0.29, 0.183</td></tr>
+    </tbody></table></div>
+    <p>Close at the match camera: today, A, B. P1's gap holds (0.178 to 0.180).</p>
+    <div class="viewer"><img src="cp62_close.jpg" alt="The city's wall and roof today, with A and with B"></div>
+    <div class="row" role="group" aria-label="View"><button data-cp62v="m">Match camera</button><button data-cp62v="w">Wide</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-cp62o="T">Today</button><button data-cp62o="A">A &middot; Stretched</button><button data-cp62o="B">B &middot; Strong</button></div>
+    <div class="viewer"><img id="cp62img" alt="City brick option"><span class="vtag" id="cp62tag"></span></div>
+    <p class="muted">My pick: <b>A</b>. The bricks read one by one and the wall keeps its value. Honest notes:
+      <ul>
+        <li>B is crisper still, but it darkens the front, against your note that dark fronts read washed out.</li>
+        <li>The roof changes only a little: the lamp pools' warm light dominates it. Seams and tar patches would mean rebuilding its model, which I've left out.</li>
+      </ul>
+    </p>
+  </section>
+
   <section class="panel" aria-labelledby="st61-h" id="stones61">
     <div class="eyebrow">Built B (the owner's pick) &middot; review 16, item 5: the meadow's stones</div>
     <h2 id="st61-h">The meadow's wall as card stone</h2>
@@ -3628,5 +3650,15 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
   group("data-st61v", function (v) { st61v = v; }, st61render);
   group("data-st61o", function (v) { st61o = v; }, st61render);
   st61render();
+  var cp62v = "m", cp62o = "A";
+  var CP62O = { T: "Today", A: "A · Stretched", B: "B · Strong" };
+  function cp62render() {
+    $id("cp62img").src = "cp62_" + cp62o + "_" + cp62v + ".jpg";
+    $id("cp62tag").textContent = "City · " + CP62O[cp62o] + (cp62v === "w" ? " · wide" : " · match camera");
+    pressed("data-cp62v", cp62v); pressed("data-cp62o", cp62o);
+  }
+  group("data-cp62v", function (v) { cp62v = v; }, cp62render);
+  group("data-cp62o", function (v) { cp62o = v; }, cp62render);
+  cp62render();
 })();
 </script>
