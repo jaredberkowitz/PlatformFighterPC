@@ -1147,6 +1147,7 @@ const HANDOFF_BY_CLIP := {"jumpsquat": 2.0, "land": 2.0, "tech": 2.0, "knockdown
 ## With the environment variable PF_R9_OFF (before and after images, round 9): "handoff" leaves the cross-fades as they were.
 static var r9_off := OS.get_environment("PF_R9_OFF").split(",")
 var handoff_clip := ""
+var handoff_state := ""
 var handoff_frame := -1
 var handoff_t := 1.0
 var handoff_len := 0.0
@@ -1178,12 +1179,15 @@ func _ease_handoff(s: Dictionary, clip: String) -> void:
 			len = clampf(first - 2.0 if first > 0.0 else 3.0, 0.0, 4.0)
 		if int(s.hitlag) > 0:
 			len = 0.0
+		elif String(s.state) == "Hitstun" and handoff_state == "Hitstun":
+			len = 6.0
 		handoff_clip = clip
 		handoff_len = len
 		handoff_t = 0.0 if len > 0.0 else 1.0
 		handoff_from = handoff_last.duplicate()
 		handoff_from_hips = handoff_last_hips
 	handoff_clip = clip
+	handoff_state = String(s.state)
 	var count := skeleton.get_bone_count()
 	if handoff_t < 1.0:
 		if int(s.hitlag) <= 0 and handoff_len > 0.0:
@@ -3644,6 +3648,8 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 		target_lean = LEAN.Knockdown * (1.0 - smoothstep(0.0, 0.55, dodge_progress(s)))
 	if heavy_landing:
 		target_lean = 8.0
+	if state == "AirDodge":
+		target_lean += _air_dodge_lie(s)
 	# (A rocket's flight: the body laid along its path, round 2.)
 	if state == "Attack" and (FLIGHT_MOVES.get(_cls(s), []) as Array).has(String(s.move_name)) and Vector2(s.vel).length() > 0.05:
 		target_lean = clampf(rad_to_deg(atan2(float(s.vel.x) * float(s.facing), float(s.vel.y))), -80.0, 95.0)
@@ -5525,16 +5531,19 @@ func _state_body(s: Dictionary) -> Vector2:
 				return Vector2(HELPLESS_SLUMP + HELPLESS_ROCK * sin(a), 0.5 * HELPLESS_ROCK * sin(a * 0.7)) * settle
 		"Buried":
 			return Vector2(0.0, BURIED_ROLL * sin(TAU * f / BURIED_FRAMES)) * settle
-		"AirDodge":
-			# (Round 9: a directional dodge lies along its way, head first, as the reference's do; ahead up to AIR_DODGE_LIE, behind less, and it
-			# comes upright over the back half.)
-			var d: Vector2 = s.get("dodge_dir", Vector2.ZERO)
-			var ahead := d.x * float(s.facing)
-			if absf(ahead) > 0.1:
-				var k := dodge_progress(s)
-				var e := smoothstep(0.0, 0.08, k) * (1.0 - smoothstep(0.45, 0.8, k))
-				return Vector2((AIR_DODGE_LIE if ahead > 0.0 else -AIR_DODGE_BACK) * absf(ahead) * e, 0.0)
 	return Vector2.ZERO
+
+
+## A directional air dodge lies along its way, head first, as the references' do (round 9): ahead up to AIR_DODGE_LIE, behind less, and it comes upright over the back half. On the lean spring, so a
+## landing out of it (a wave land) eases upright.
+func _air_dodge_lie(s: Dictionary) -> float:
+	var d: Vector2 = s.get("dodge_dir", Vector2.ZERO)
+	var ahead := d.x * float(s.facing)
+	if absf(ahead) <= 0.1 or not use_base_body:
+		return 0.0
+	var k := dodge_progress(s)
+	var e := (1.0 - smoothstep(0.45, 0.8, k))
+	return (AIR_DODGE_LIE if ahead > 0.0 else -AIR_DODGE_BACK) * absf(ahead) * e
 
 
 func _pivot_spin(s: Dictionary) -> float:
@@ -6999,6 +7008,13 @@ func _apply_combat(s: Dictionary, delta: float) -> void:
 			ik_last_hand = hand_target
 			ik_last_off = off_hand_target
 			ik_last_two = two
+			# (Round 9: a blade's arm too, over a few frames out of whatever the hand was doing, always there by the frame before the hit: out of a landing the sword hand jumped 1.1 units on the move's first frame.)
+			if state == "Attack" and not brawler:
+				var first := float((s.move_timing as PackedInt32Array)[1])
+				var ease_in := minf(3.0, first - 2.0) if first > 2.0 else 0.0
+				if ease_in > 0.0:
+					var k := clampf((float(s.state_frame) + 1.0) / ease_in, 0.0, 1.0)
+					amount = k * k * (3.0 - 2.0 * k)
 			if state == "Attack" and brawler:
 				var first := float((s.move_timing as PackedInt32Array)[1])
 				var ease_in := minf(IK_EASE_IN, first - 1.0) if first > 1.0 else 0.0
