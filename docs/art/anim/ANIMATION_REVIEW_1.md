@@ -438,3 +438,11 @@ Timing against the references (six families, mean |error| in frames, follow-thro
 Timing against the references (six families, mean |error| in frames, follow-through / hold / recovery): 2.27 / 3.63 / 2.87 before,
 2.22 / 1.55 / 1.80 after. **Mean 3.38** (poses 3.38, fluidity 3.41, weight 3.35). Quick's holds stay the furthest off (3.2), its up air above
 all; follow-through stays short where the reference's whole body keeps travelling.
+
+## 21. Hand-over on 8r: corrections (2026-10-30)
+
+Section 18's "3,512 after" is superseded: on 8r the bend flags are **6,309 of 316,832** (10,174 before the limits); the knees are fixed
+(reversed 3,505 to 538, over-folded 1,653 to 33), the elbows are not (reversed 5,888 to 5,727, mostly IK-placed arms, not yet judged by eye).
+The hidden hand in attacks rose from 2,180 to **2,736 of 25,246** with group 24's stronger follow-through pose. The scores above were not
+lowered for it: the mean stays 3.38 (poses 3.38, fluidity 3.41, weight 3.35), and the poses of the brawler, caster and tool items should be
+looked at again once that pose is settled. Details: `docs/ANIMATION.md`, "Round 8 at hand-over".
