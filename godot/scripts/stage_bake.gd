@@ -423,6 +423,11 @@ static func place_front(root: Node3D, t: Dictionary, scene: Node3D) -> void:
 		"trim": Color(0.9, 0.8, 0.68), "frame": Color(0.86, 0.7, 0.46), "curtain_a": Color(0.92, 0.54, 0.58), "curtain_b": Color(0.56, 0.72, 0.92),
 		"curtain_c": Color(0.92, 0.76, 0.44), "neon": Color(0.88, 0.3, 0.38), "pipe": Color(0.48, 0.48, 0.58), "pot": Color(0.78, 0.4, 0.3),
 		"leaf": Color(0.36, 0.62, 0.3), "ac": Color(0.74, 0.75, 0.8), "spandrel": (t.get("soil_dark", Color(0.4, 0.3, 0.4)) as Color).darkened(0.3)}
+	# (The island's lip, fidelity review 17: the earth behind the moss fell into the grove's violet shade and read as purple slivers through it.
+	# A deep moss green. Its rock a paler warm stone: under the print it read as dull grey-olive card.)
+	if String(t.get("name", "")) == "grove":
+		colours.earth = Color(0.2, 0.34, 0.16)
+		colours.rock = GROVE_ROCK
 	# (The meadow's stones as card stone, fidelity review 16 item 5, the owner's pick B: the palette's [backdrop] `stones` or
 	# `--stones=T|A|B`; see STONE_TRY.)
 	var stone_look := String((StageArt.palette(String(t.get("name", ""))).get("backdrop", {}) as Dictionary).get("stones", ""))
@@ -574,7 +579,9 @@ static func place_play(root: Node3D, t: Dictionary, path: String) -> void:
 	if String(t.get("name", "")) == "ocean":
 		colours.merge({"top_worn": base_top.lerp(Color(0.66, 0.62, 0.58), 0.4), "top_deep": base_top.darkened(0.18),
 			"top_lit": base_top.lightened(0.14)}, true)
-	var plate := wood.lerp(Color(0.3, 0.3, 0.42), 0.95)
+	# (A pale lilac, fidelity review 17: near black, the city's platform tops were the darkest thing in the play area, when they should be among the
+	# brightest. It was Color(0.3, 0.3, 0.42).)
+	var plate := wood.lerp(Color(0.64, 0.56, 0.72), 0.95)
 	colours.merge({"top": top, "top_card": top.lerp(cream, 0.45), "layer1": layer1, "layer2": layer2, "fringe": fringe,
 		"steel": plate, "steel_dark": (t.get("wood_dark", plate.darkened(0.3)) as Color).darkened(0.15), "steel_card": plate.lerp(cream, 0.35),
 		# (The city's platforms in its own materials, fidelity review 8: plate seams, rivets and clamps, a safety paint, red-oxide primer, hazard stripes and
@@ -602,7 +609,9 @@ static func place_play(root: Node3D, t: Dictionary, path: String) -> void:
 		for fam in ["lawn", "top", "path", "top_deep", "top_lit", "top_worn"]:
 			if colours.has(fam):
 				var c: Color = colours[fam]
-				colours[fam] = Color.from_hsv(c.h, c.s * (1.0 - float(ground[1])), c.v * (1.0 - float(ground[0])))
+				# (The path half as deep and keeping its colour, fidelity review 17: at the lawn's depth a warm sand went asphalt grey.)
+				var k := 0.5 if fam == "path" else 1.0
+				colours[fam] = Color.from_hsv(c.h, c.s * (1.0 - float(ground[1]) * (1.0 - k)), c.v * (1.0 - float(ground[0]) * k))
 	scene.name = "ModelledPlay"
 	scene.set_meta("lit_piece", true)
 	root.add_child(scene)
@@ -880,7 +889,7 @@ const PRINTS := {"grass": ["grass", 0.45, 5.0], "lawn": ["grass", 0.45, 5.0], "l
 ## beach, roofing on the city), and the other stages' props; over `PRINTS`.
 const PRINTS_BY_THEME := {
 	"grove": {"top": ["grass", 0.45, 5.0], "top_card": ["grass", 0.35, 5.0], "layer1": ["soil", 0.35, 4.0], "layer2": ["soil", 0.35, 4.0],
-		"earth": ["soil", 0.35, 4.0], "rock": ["stone", 0.35, 2.5], "root": ["wood", 0.4, 3.0], "moss_shade": ["grass", 0.3, 3.0]},
+		"earth": ["soil", 0.35, 4.0], "rock": ["stone", 0.14, 2.5], "root": ["wood", 0.4, 3.0], "moss_shade": ["grass", 0.3, 3.0]},
 	# (Sandstone on the canyon's rock, fidelity review 9, the owner's pick: `strata`'s long thin lines read as wood grain on the long beds.)
 	"sunset": {"top": ["sand", 0.45, 5.0], "top_card": ["sand", 0.35, 5.0], "layer1": ["sandstone", 0.4, 4.0], "layer2": ["sandstone", 0.4, 4.0],
 		"strata_a": ["sandstone", 0.4, 4.0], "strata_b": ["sandstone", 0.4, 4.0], "strata_c": ["sandstone", 0.4, 4.0]},
@@ -923,6 +932,9 @@ static func print_for(theme_name: String, family: String) -> Array:
 	return PRINTS_PROPS.get(fam, [])
 
 
+## The grove's one rock (the island's front and the terraces), fidelity review 17: a paler, warmer stone, its print quieter (the hatching read as a
+## screen door over it at 1080 lines). It was Color(0.48, 0.55, 0.44).
+const GROVE_ROCK := Color(0.55, 0.58, 0.5)
 ## The printed surfaces (tools/art/make_prints.py, fidelity review 3's idea 2) on the modelled front and play area and the paper props, by
 ## each surface's material family (`PRINTS`), and the front's own paper finish level (`paper_own`; "C" the full finish, the owner's
 ## pick for every front, 2026-10-21): from the stage's palette ([backdrop] `paper_print`, a folder in art/stage/prints/, and `front_finish`),
@@ -1090,7 +1102,7 @@ static func _ground_colours(t: Dictionary) -> Dictionary:
 	var pines: Array = bd.get("pine_greens", [Color(0.2, 0.36, 0.28)])
 	# (The cliffs a step deeper, the readability pass: the grove's paper terraces right behind the fighters measured their value.)
 	var out := {"grass": land, "grass_far": Color(0.38, 0.62, 0.36), "cliff": Color(0.1, 0.24, 0.23),
-		"earth": Color(0.24, 0.2, 0.18), "rock": Color(0.48, 0.55, 0.44), "root": Color(0.46, 0.37, 0.3), "bark": Color(0.46, 0.37, 0.3),
+		"earth": Color(0.24, 0.2, 0.18), "rock": GROVE_ROCK, "root": Color(0.46, 0.37, 0.3), "bark": Color(0.46, 0.37, 0.3),
 		"leaf_lit": Color(0.46, 0.74, 0.36), "leaf_shade": Color(0.2, 0.46, 0.3), "moss": (t.get("grass", Color(0.5, 0.8, 0.3)) as Color).darkened(0.12),
 		"fern": Color(0.36, 0.66, 0.34), "fern_shade": Color(0.18, 0.42, 0.26),
 		# (The meadow's, art/blender/make_meadow_ground.py: its hill rows, the rise and its fields and hedgerows from the palette, the paper's
@@ -1249,9 +1261,11 @@ static func _ground_colours(t: Dictionary) -> Dictionary:
 			stone_k = float(arg.substr(14))
 	if stone_k > 0.0:
 		var stone: Color = out["rock"]
-		out["cliff"] = (out["cliff"] as Color).lerp(stone.darkened(0.55), stone_k)
-		out["cliff_b"] = (out["cliff_b"] as Color).lerp(stone.darkened(0.42), stone_k)
-		out["cliff_lit"] = (out["cliff_lit"] as Color).lerp(stone.darkened(0.08), stone_k)
+		# (A step lighter, fidelity review 17: 0.55 and 0.42 down, the terraces' drums were the darkest thing in the frame, near black in a light
+		# pastel world, and they stand well clear of the fight.)
+		out["cliff"] = (out["cliff"] as Color).lerp(stone.darkened(0.34), stone_k)
+		out["cliff_b"] = (out["cliff_b"] as Color).lerp(stone.darkened(0.24), stone_k)
+		out["cliff_lit"] = (out["cliff_lit"] as Color).lerp(stone.lightened(0.04), stone_k)
 		out["card_cliff"] = (out["cliff"] as Color).lerp(Color(0.92, 0.93, 0.86), 0.04)
 	# (The canyon's floor in paper: its sand sheets in three tones round the desert floor's, their cut edges, wind ripples, the dry wash
 	# and its banks, pebbles, scrub and the shade under it.)
@@ -1331,6 +1345,10 @@ const HEADLAND_TRY := {
 	"A": {"drift": Vector4(3.2, 1.6, 10.0, 1.2)},
 	"B": {"drift": Vector4(3.2, 1.6, 10.0, 1.2), "air": 0.4, "ramp_center": 0.62,
 		"colours": {"head_near": Color(0.22, 0.5, 0.36), "head_far": Color(0.22, 0.46, 0.5)}},
+	# (Fidelity review 17: under the sun in front B's shade came out as dark wavering strokes. Finer patches, the folds' turn at the ramp's own place.)
+	# (Greens with some yellow in them: sunlit by the warm key, the blue-greens went a dull slate.)
+	"C": {"drift": Vector4(1.8, 1.0, 16.0, 0.8), "air": 0.6,
+		"colours": {"head_near": Color(0.4, 0.66, 0.34), "head_far": Color(0.46, 0.68, 0.46)}},
 }
 
 

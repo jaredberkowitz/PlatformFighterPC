@@ -21,7 +21,9 @@ const MOODS := {
 	# (Round 12: that overshot into a yellow-green cast over every material. A cream-peach key; the cool kept to the shade.)
 	# (The sun 8 degrees lower on the day stages and every haze a clearer colour, the light pass, docs/art/stages/BACKGROUNDS.md
 	# round 3, the owner's pick 2026-10-21: the props and banks model more, and the distance stays coloured instead of milky.)
-	"meadow": {"key": [Color(1.0, 0.94, 0.88), 1.38, -36.0, -34.0], "fill": [Color(0.58, 0.76, 1.0), 0.4],
+	# (The sun on the camera's side, fidelity review 17: from behind the scene, KEY_SIDE taken in, every slope and wall facing the camera sat in
+	# shade, and the meadow's hills read as dark bands. The bright lit faces of the papercraft reference come from this.)
+	"meadow": {"key": [Color(1.0, 0.94, 0.88), 1.38, -36.0, -34.0], "sun": [-38.0, 25.0], "fill": [Color(0.58, 0.76, 1.0), 0.4],
 		# (Shade a deeper version of each colour, barely turned toward blue-green, the meadow rebuild's step 3: the reference's grass shade
 		# is a crisp deep green, ours read as a soft olive.)
 		"ambient": [Color(0.88, 0.92, 1.0), 0.48], "shadow_hue": 0.4, "shadow_shift": 0.1, "shadow_value": 0.38, "front_tint": [0.6, 0.16, 0.94],
@@ -30,7 +32,9 @@ const MOODS := {
 	# (Art review 6 round 9: a weaker key, more pink ambient and a stronger grade than the meadow left the grove under a pale veil, the
 	# softest stage. Its colours kept; its contrast brought near the meadow's.)
 	# (Its pink grade and ambient eased, round 24: pink over the lawn's green cancelled toward grey, the palest stage left.)
-	"grove": {"key": [Color(1.0, 0.92, 0.84), 1.32, -32.0, -28.0], "fill": [Color(0.86, 0.66, 1.0), 0.38],
+	# (A raking sun from the side, fidelity review 17: from in front the trees went flat; this lifts the trunk and the island's rock and holds a
+	# lit side and a shade side on the pines.)
+	"grove": {"key": [Color(1.0, 0.92, 0.84), 1.32, -32.0, -28.0], "sun": [-34.0, -8.0], "fill": [Color(0.86, 0.66, 1.0), 0.38],
 		"ambient": [Color(1.0, 0.93, 0.95), 0.47], "shadow_hue": 0.78, "shadow_shift": 0.06, "shadow_value": 0.42,
 		"shadow_tint": Color(0.72, 0.62, 0.92), "rim": Color(1.0, 0.86, 0.92),
 		"grade": [Color(0.98, 0.9, 1.04), Color(1.04, 0.98, 0.96), 0.3], "haze": Color(0.76, 0.73, 1.0)},
@@ -55,7 +59,8 @@ const MOODS := {
 		"grade": [Color(0.8, 0.88, 1.1), Color(0.95, 0.98, 1.06), 0.8], "haze": Color(0.6, 0.63, 0.96)},
 	# (Late afternoon, the light pass, the owner's pick 2026-10-21: the beach had no mood, plain midday. A low warm sun, the shade a cool
 	# blue, a peach horizon (ocean.cfg's sky).)
-	"ocean": {"key": [Color(1.0, 0.84, 0.66), 1.34, -24.0, -40.0], "fill": [Color(0.58, 0.68, 1.0), 0.42],
+	# (The sun on the camera's side, fidelity review 17, as the meadow's: the town, the hill and the dock's fronts face it.)
+	"ocean": {"key": [Color(1.0, 0.84, 0.66), 1.34, -24.0, -40.0], "sun": [-38.0, 25.0], "fill": [Color(0.58, 0.68, 1.0), 0.42],
 		"ambient": [Color(0.96, 0.9, 0.92), 0.46], "shadow_hue": 0.64, "shadow_shift": 0.09, "shadow_value": 0.5,
 		"shadow_tint": Color(0.66, 0.72, 0.94), "rim": Color(1.0, 0.86, 0.72),
 		"grade": [Color(0.88, 0.9, 1.08), Color(1.1, 1.0, 0.88), 0.55], "haze": Color(1.0, 0.79, 0.67)},
@@ -562,6 +567,8 @@ static func stage_mood(env: Environment, root: Node, theme: Dictionary, post: Sh
 		if arg == "--sun=C":
 			cast = Color(0.2, 0.14, 0.42, 1.0)
 	cast = two.get("cast", cast)
+	if OS.get_cmdline_user_args().has("--cast-off"):
+		cast = Color(1, 1, 1, 0)
 	RenderingServer.global_shader_parameter_set("pf_cast_shade", cast)
 	# The light finish (fidelity review 6, see STYLES): bounce light (pf_bounce), a firmer grade and S-curve, the lamps glowing.
 	var finish_off := OS.get_cmdline_user_args().has("--light-finish=off")

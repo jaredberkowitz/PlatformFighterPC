@@ -1586,11 +1586,13 @@ func _contact_shadow() -> void:
 		var g := Gradient.new()
 		# (A little fuller, round 40: the fighters on the light lawns needed a firmer footing.)
 		# (Firmer again, fidelity review 16 item 1, the owner's pick A: on the bright floors the fighters lost their footing.)
-		var a := 0.8 if _fighter_floor() != "T" else 0.64
-		g.set_color(0, Color(0.14, 0.08, 0.2, a))
-		g.set_color(1, Color(0.14, 0.08, 0.2, 0.0))
-		g.add_point(0.68, Color(0.14, 0.08, 0.2, a * 0.94))
-		g.add_point(0.86, Color(0.14, 0.08, 0.2, 0.1))
+		# (Fidelity review 17: at 0.8 in that near black, on the bright floors the ovals read as stains. A coloured deep shade, a softer edge.)
+		var a := 0.74 if _fighter_floor() != "T" else 0.64
+		var c := Color(0.2, 0.12, 0.27) if _fighter_floor() != "T" else Color(0.14, 0.08, 0.2)
+		g.set_color(0, Color(c.r, c.g, c.b, a))
+		g.set_color(1, Color(c.r, c.g, c.b, 0.0))
+		g.add_point(0.62, Color(c.r, c.g, c.b, a * 0.94))
+		g.add_point(0.88, Color(c.r, c.g, c.b, 0.1))
 		_shadow_tex = GradientTexture2D.new()
 		_shadow_tex.gradient = g
 		_shadow_tex.fill = GradientTexture2D.FILL_RADIAL
