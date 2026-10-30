@@ -258,7 +258,7 @@ class PlayerPanel extends Control:
 		# (A clean pool of light in a softer take on the player's colour, no rays or hatching: the slots were the heaviest thing on the
 		# screen; the design system's lessons from the owner's results plan, 2026-10-17.)
 		# (Richer since the UI pass: the pale pool washed the panels out against the menus' deep backdrop.)
-		spot.colour = Color.from_hsv(flag.h, 0.62, 0.5)
+		spot.colour = Color.from_hsv(flag.h, 0.62, 0.72 if Art.paper_style() > 0 else 0.5)
 		spot.plain = true
 		spot.feet = [[0.5, 0.72]]
 		spot.seed = 11 + p * 17
@@ -290,6 +290,9 @@ class PlayerPanel extends Control:
 			Vector2(f.position.x, f.end.y)])
 		# (Crisp since the UI pass, docs/UI_REVIEW.md: the hand-wobbled frame beside the crisp cards read as two styles.)
 		var rough := outer
+		if Art.paper_style() > 0:
+			_draw_paper_frame(rough, f)
+			return
 		var sh := PackedVector2Array()
 		for q in rough:
 			sh.append(q + Art.SHADOW)
@@ -311,6 +314,16 @@ class PlayerPanel extends Control:
 		var closed := rough.duplicate()
 		closed.append(rough[0])
 		draw_polyline(closed, Art.INK, 5.0, true)
+
+	## The paper look's frame: a cream mount (gold once locked in) on a soft lifted shadow, under the panel's own sheet of colour.
+	func _draw_paper_frame(shape: PackedVector2Array, f: Rect2) -> void:
+		var centre := f.get_center()
+		var mount := PackedVector2Array()
+		for q in shape:
+			mount.append(centre + (q - centre) * 1.0)
+		Art._paper_shadow(self, mount, 1.0, 4.0)
+		draw_colored_polygon(mount, Art.SUN if is_ready else Art.PAPER_EDGE)
+		Art._paper_edges(self, mount, Art.SUN if is_ready else Art.PAPER_EDGE, 2.0)
 
 	## Drawn above the fighter by the screen's overlay: the name stroke, the tab and the badge (and "?" with nobody chosen).
 	func paint_over(over: Control) -> void:

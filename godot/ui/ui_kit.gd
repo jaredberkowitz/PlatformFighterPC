@@ -149,10 +149,44 @@ class Spotlight extends Control:
 		if what == NOTIFICATION_RESIZED:
 			queue_redraw()
 
+	## The paper look: a flat sheet of the card's colour, paper rays behind the fighters, and a stage cut from a lighter sheet with a pale
+	## lit edge and a soft shadow under it, the fighters' shadows on it. No gradients, pools of light or hatching.
+	func _paint_paper(w: float, h: float) -> void:
+		draw_rect(Rect2(0, 0, w, h), colour)
+		var fy := h * 0.72
+		var cx := w * 0.5
+		if not feet.is_empty():
+			fy = float(feet[0][1]) * h
+			var sum := 0.0
+			for f in feet:
+				sum += float(f[0]) * w
+			cx = sum / feet.size()
+		_SpotPaper.rays(self, Vector2(cx, fy - h * 0.3), maxf(w, h) * 1.3, Color(colour.lightened(0.09), 1.0), seed)
+		Art._paper_fibre(self, Rect2(0, 0, w, h), seed + 3, 1.0)
+		if not show_floor:
+			return
+		var disc := PackedVector2Array()
+		for k in 40:
+			var a := TAU * k / 40.0
+			disc.append(Vector2(cx, fy + h * 0.03) + Vector2(cos(a) * w * 0.5, sin(a) * h * 0.1))
+		Art._paper_shadow(self, disc, 1.0)
+		draw_colored_polygon(disc, colour.darkened(0.2).lerp(Art.PAPER_EDGE, 0.08))
+		Art._paper_edges(self, disc, colour.darkened(0.2), 2.5)
+		for f in feet:
+			var at := Vector2(float(f[0]) * w + 4.0, float(f[1]) * h + 2.0)
+			var sh := PackedVector2Array()
+			for k in 21:
+				var a := TAU * k / 20.0
+				sh.append(at + Vector2(cos(a) * h * 0.12, sin(a) * h * 0.022))
+			draw_colored_polygon(sh, Color(D.INK, 0.28))
+
 	func _draw() -> void:
 		var w := size.x
 		var h := size.y
 		if w < 4.0 or h < 4.0:
+			return
+		if Art.paper_style() > 0:
+			_paint_paper(w, h)
 			return
 		# (Less washed toward white since the daylight ground, 2026-10-19: the colour lives in the cards, so they keep it.)
 		var top := colour.lightened(0.14)
@@ -196,6 +230,16 @@ class Spotlight extends Control:
 					var a := TAU * k / 20.0
 					sh.append(at + Vector2(cos(a) * h * 0.12, sin(a) * h * 0.022))
 				draw_colored_polygon(sh, Color(D.INK, 0.3))
+
+
+class _SpotPaper:
+	## Rays of paper fanning from `centre`, every other one a sheet a step lighter than the ground; hard edged, as cut paper is.
+	static func rays(c: CanvasItem, centre: Vector2, reach: float, colour: Color, seed: int) -> void:
+		var n := 12
+		for k in n:
+			var a0 := TAU * (float(k) + Art.noise(seed + k) * 0.12) / n
+			var a1 := a0 + TAU * 0.5 / n
+			c.draw_colored_polygon(PackedVector2Array([centre, centre + Vector2.from_angle(a0) * reach, centre + Vector2.from_angle(a1) * reach]), colour)
 
 
 class Mask extends Control:
@@ -658,7 +702,9 @@ class Stage extends Control:
 		mask.add_child(preview)
 
 	func _draw() -> void:
-		Art.card(self, Rect2(Vector2.ZERO, size - Vector2(10, 12)), Art.INDIGO, 61, 20.0, 5.0, rim)
+		# (Paper: the picture sits on a cream mount, its own colour a thin rim inside it.)
+		var fill := Art.PAPER_EDGE if Art.paper_style() > 0 else Art.INDIGO
+		Art.card(self, Rect2(Vector2.ZERO, size - Vector2(10, 12)), fill, 61, 20.0, 5.0, rim)
 
 
 ## A wipe that opens a new screen: two slanted bands slide away. `UI.reveal(screen)` from a screen's `_ready`.
@@ -748,6 +794,22 @@ class Entrance extends Node:
 				continue
 			var home := card.position
 			var was := card.modulate.a
+			if Art.paper_style() > 0:
+				# (Paper: each sheet is laid down, dropping from up and left, a little turned, settling flat with a small overshoot. A card
+				# already animating its own rotation, a menu tile, keeps it.)
+				card.position = home + Vector2(-8.0, -22.0)
+				card.modulate.a = 0.0
+				var delay2 := ENTRANCE_START + ENTRANCE_STAGGER * 1.4 * float(k)
+				var lay := card.create_tween().set_parallel(true).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+				lay.tween_property(card, "position", home, 0.42).set_delay(delay2)
+				lay.tween_property(card, "modulate:a", was, 0.14).set_delay(delay2)
+				if not card is Tile:
+					var home_rot := card.rotation
+					card.pivot_offset = card.size * 0.5
+					card.rotation = home_rot - deg_to_rad(3.0)
+					lay.tween_property(card, "rotation", home_rot, 0.42).set_delay(delay2)
+				k += 1
+				continue
 			card.position = home + Vector2(0.0, ENTRANCE_RISE)
 			card.modulate.a = 0.0
 			var tw := card.create_tween().set_parallel(true).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
@@ -851,11 +913,20 @@ class Btn extends Control:
 			hover = true)
 		mouse_exited.connect(func():
 			hover = false)
+		activated.connect(func():
+			press = 1.0
+			queue_redraw())
+
+	## A press: the sheet flattens onto the ground for a moment (1 at the press, easing to 0).
+	var press := 0.0
 
 	func _process(delta: float) -> void:
 		var target := 1.0 if (selected or hover) and not disabled else 0.0
 		var was := pop
 		pop = move_toward(pop, target, delta / MOTION_FAST)
+		if press > 0.0:
+			press = move_toward(press, 0.0, delta * 6.0)
+			queue_redraw()
 		# The shine crosses once when the button is selected (brief focus feedback), then the button rests.
 		if selected and shine < 1.0:
 			shine = minf(1.0, shine + delta / MOTION_SHINE)
@@ -878,7 +949,10 @@ class Btn extends Control:
 		var base := fill if not disabled else Color(0.6, 0.6, 0.6)
 		# (Solid gold when focused, the UI pass: a pale half-mix read as a disabled button.)
 		var shown := base.lerp(accent, pop * 0.9)
-		var lift := pop * 4.0
+		var lift := pop * 4.0 - press * 4.0
+		if press > 0.0:
+			# (Pressed flat: down and right, along its shadow.)
+			rect.position += Vector2(2.0, 3.0) * press
 		var r := Rect2(rect.position - Vector2(0, lift), rect.size)
 		# Focused: the frame and the long shadow (daylight, docs/UI_DESIGN_SYSTEM.md), never tilted, so rows stay aligned.
 		Art.focus_frame(self, r, pop)
