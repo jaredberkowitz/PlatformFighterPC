@@ -561,9 +561,10 @@ def _attack_clip(name):
     return name.startswith(("attack", "sword_", "kick_", "gaunt_", "body_"))
 
 
-def pose(rig, bone, fwd=0.0, out=0.0, twist=0.0, lift=0.0):
+def pose(rig, bone, fwd=0.0, out=0.0, twist=0.0, lift=0.0, ahead=0.0):
     """Sets a bone's pose from forward / outward / twist degrees (and an offset for the hips: upward on the base body; on the blob, whose
-    clips were tuned with it, along the hip bone's own z, which is backward and forward)."""
+    clips were tuned with it, along the hip bone's own z, which is backward and forward). `ahead` moves the base body's hips along its
+    forward axis, the weight shifting between planted feet (units, not exaggerated: round 9)."""
     fwd, out, twist, lift = fwd * AMP, out * AMP, twist * AMP, lift * AMP
     # (On the base body the game aims the arm nearest the camera, the left facing right, at the hit: weapon or fist. An attack clip's
     # posed arms go to the other sides, so the free arm's counterbalance is the far arm and the near one is left to the game. The game
@@ -609,7 +610,7 @@ def pose(rig, bone, fwd=0.0, out=0.0, twist=0.0, lift=0.0):
     z = (-out if left else out)
     pb.rotation_euler = (math.radians(x), math.radians(twist), math.radians(z))
     if bone == "hips":
-        pb.location = (0.0, lift, 0.0) if BODY else (0.0, 0.0, lift)
+        pb.location = (0.0, lift, ahead) if BODY else (0.0, 0.0, lift)
 
 
 # How far back (degrees) the base body's head may tip, and the clips exempt (lying down or hanging, where the head lifts off the floor or
@@ -1085,6 +1086,8 @@ BODY_MOVES = {
 # legs never needed any of it.
 def grounded(name):
     """Whether a clip is played on the ground (the feet planted), not in the air, hit, rolling, lying down or on a ledge."""
+    if name.startswith(("jump_", "fall_")):
+        return False
     if name in ("jump", "fall", "fall_start", "tumble", "air_jump", "air_dodge", "hurt", "roll", "knockdown", "getup", "ledge", "ledge_climb", "kick_dash", "body_drop",
                 "hurt_heavy", "hurt_up", "platform_drop", "gaunt_knee", "gaunt_stomp", "tool_ride", "tool_float",
                 # (Aerials whose names do not end in "air": round 2, so their rest keys do not take the battle stance.)
@@ -1095,7 +1098,7 @@ def grounded(name):
     return not name.endswith("air")
 
 
-STANDING = {"item_pick", "item_throw", "dizzy", "idle", "idle_brawler", "idle_quick", "idle_heavy", "idle_caster", "idle_tool", "crouch", "jumpsquat", "land", "spot_dodge", "shield", "skid", "grab", "throw", "blaster", "sword_usmash", "sword_dsmash",
+STANDING = {"jumpsquat_brawler", "jumpsquat_quick", "jumpsquat_heavy", "jumpsquat_caster", "jumpsquat_tool", "land_brawler", "land_quick", "land_heavy", "land_caster", "land_tool", "spot_dodge_brawler", "spot_dodge_quick", "spot_dodge_heavy", "spot_dodge_caster", "spot_dodge_tool", "item_pick", "item_throw", "dizzy", "idle", "idle_brawler", "idle_quick", "idle_heavy", "idle_caster", "idle_tool", "crouch", "jumpsquat", "land", "spot_dodge", "shield", "skid", "grab", "throw", "blaster", "sword_usmash", "sword_dsmash",
             "tech", "run_stop", "idle_look", "idle_look_brawler", "idle_look_quick", "idle_look_heavy", "idle_look_caster", "idle_look_tool"}
 
 
@@ -1332,6 +1335,17 @@ def _stance_rest(rest, k):
     return _stance_over(_spec_held(rest, k), rest, k)
 
 
+def _stance_feet(rig):
+    """The battle stance's legs and hips (the sword family's row of `_STANCE_ROWS`), for the keys every grounded clip starts from and ends on, so
+    they match the idle (round 9: on authored feet; `pose` multiplies a key's lift by the clip's exaggeration, so it is divided here)."""
+    hips, near_a, far_a, near_w, far_w = _STANCE_ROWS[""][STANCE_MOCK]
+    rest_hips = rig.pose.bones["hips"].bone.head_local.z
+    pose(rig, "hips", lift=(hips - rest_hips) / AMP)
+    for sd, a, wd in (("L", near_a, near_w), ("R", far_a, far_w)):
+        foot_to(rig, sd, a, 0.0, wd)
+        _level_sole(rig, sd)
+
+
 def _stance_over(base, rest, k, legs_only=False):
     """`base` (a pose function) with the battle stance's legs, lean and head put back on top on the ground (see `_stance_rest`); `rest`'s
     spine and head (scaled by `k`) ride on the stance's. With `legs_only`, only the legs (the pose keeps its own chest and head)."""
@@ -1340,24 +1354,16 @@ def _stance_over(base, rest, k, legs_only=False):
         base(rig)
         if BODY and CLIP_NOW and grounded(CLIP_NOW) and legs_only:
             a = AMP
-            pose(rig, "thigh.L", fwd=STANCE_LEAD / a, out=STANCE_WIDE / a)
-            pose(rig, "shin.L", fwd=STANCE_LEAD_SHIN / a)
-            pose(rig, "thigh.R", fwd=STANCE_BACK / a, out=(STANCE_WIDE + STANCE_WIDE_BACK) / a)
-            pose(rig, "shin.R", fwd=STANCE_BACK_SHIN / a)
+            _stance_feet(rig)
         elif BODY and CLIP_NOW and grounded(CLIP_NOW):
             a = AMP
-            pose(rig, "thigh.L", fwd=STANCE_LEAD / a, out=STANCE_WIDE / a)
-            pose(rig, "shin.L", fwd=STANCE_LEAD_SHIN / a)
-            pose(rig, "foot.L", fwd=6.0 / a, out=STANCE_FOOT_OUT / a)
-            pose(rig, "thigh.R", fwd=STANCE_BACK / a, out=(STANCE_WIDE + STANCE_WIDE_BACK) / a)
-            pose(rig, "shin.R", fwd=STANCE_BACK_SHIN / a)
-            pose(rig, "foot.R", fwd=18.0 * STANCE_K / a, out=STANCE_FOOT_OUT / a)
             sp = rest.get("spine", (0.0, 0.0))
             hd = rest.get("head", (0.0, 0.0))
             pose(rig, "spine", fwd=(STANCE_LEAN + sp[0] * k * a) / a, twist=(8.0 + sp[1] * k * a) / a, out=STANCE_SIDE / a)
             HEAD_LIMIT_NOW = HEAD_BACK_IDLE
             pose(rig, "head", fwd=(STANCE_HEAD + hd[0] * k * a) / a, twist=hd[1] * k)
             HEAD_LIMIT_NOW = None
+            _stance_feet(rig)
     return f
 
 
@@ -1390,10 +1396,10 @@ def _chamber_spec(wind, aerial):
     return out
 
 
-FOLLOW_BEND = 4.0     # degrees the chest bends on past the strike
+FOLLOW_BEND = float(os.environ.get("PF_FOLLOW_BEND", "2.0"))     # degrees the chest bends on past the strike (4 and an amplification of 1.2 in round 8: the chest bent over the fist, hidden striking hands 2,180 to 2,736; round 9: 2 and 1.1, Popgun 85 to 41, Embers 82 to 60, Bracers 86 to 53)
 FOLLOW_TWIST = 1.3    # the chest's twist past the strike (1.45 tried in round 8: the far fist came round over the face)
 FOLLOW_SINK = 0.03    # how far the hips sink into the follow-through
-FOLLOW_AMP = 1.2      # the follow-through pose's amplification (1.1 until round 8)
+FOLLOW_AMP = float(os.environ.get("PF_FOLLOW_AMP", "1.1"))      # the follow-through pose's amplification
 
 
 def _follow_spec(strike):
@@ -1435,7 +1441,7 @@ def clip(rig, name, frames, poses):
         AMP = 1.75
     elif name in ("walk", "run", "dash", "skid"):
         AMP = 1.0
-    elif name in ("jump", "fall", "fall_start", "tumble", "hurt", "crouch", "jumpsquat", "land", "shield", "roll", "spot_dodge", "air_dodge", "knockdown"):
+    elif name in ("jump", "fall", "fall_start", "tumble", "hurt", "crouch", "jumpsquat", "land", "shield", "roll", "spot_dodge", "air_dodge", "knockdown") or name.startswith(("jump_", "fall_", "jumpsquat_", "land_", "spot_dodge_")):
         AMP = 1.25
     else:
         AMP = 1.0
@@ -1517,6 +1523,51 @@ def foot_to(rig, side, ahead, height, width):
         e = err(v)
     if os.environ.get("FOOT_DEBUG") and e.length > 0.03:
         print("FOOT %s %s goal ahead %.3f height %.3f -> thigh %.1f shin %.1f out %.1f miss %.3f" % (CLIP_NOW, side, ahead, height, v[0], v[1], v[2], e.length))
+    return e.length
+
+
+def _wrist(rig, side):
+    bpy.context.view_layer.update()
+    return rig.pose.bones["hand." + side].head.copy()
+
+
+def hand_to(rig, side, ahead, up, out):
+    """Bends an arm so its wrist is `ahead` units ahead of the body's centre line (the forward axis, -y), `up` units above the ground and
+    `out` units out to its own side, about the chest as it is posed now: a solve by Newton's method on the rig, as `foot_to`. The elbow only
+    bends forward. Returns the largest miss (units). (Round 9: the reference fighters' hands are placed along the stage, where they read;
+    an arm posed by angles on the side-on body pointed at the camera and sat over the body.)"""
+    outward = -1.0 if side == "L" else 1.0
+    goal = Vector((outward * out, -ahead, up))
+
+    def err(v):
+        pose(rig, "armU." + side, fwd=v[0], out=v[1])
+        pose(rig, "armL." + side, fwd=v[2])
+        return goal - _wrist(rig, side)
+
+    v = Vector((30.0, 20.0, 60.0))
+    e = err(v)
+    for _ in range(14):
+        if e.length < 0.002:
+            break
+        h = 0.5
+        cols = []
+        for n in range(3):
+            d = v.copy()
+            d[n] += h
+            cols.append((err(d) - e) / h)
+        jac = Matrix((cols[0], cols[1], cols[2])).transposed()
+        try:
+            step = jac.inverted() @ e
+        except ValueError:
+            break
+        big = max(abs(x) for x in step)
+        if big > 18.0:
+            step *= 18.0 / big
+        v -= step
+        v[0] = clampf(v[0], -100.0, 172.0)
+        v[1] = clampf(v[1], -30.0, 80.0)
+        v[2] = clampf(v[2], 4.0, 140.0)
+        e = err(v)
     return e.length
 
 
@@ -3334,20 +3385,343 @@ STANCE_WIDE = 19.0 * STANCE_W
 # The back thigh's extra turn out, and the feet's counter-turn, scaled with the width.
 STANCE_WIDE_BACK = 4.0 * STANCE_W
 STANCE_FOOT_OUT = -10.0 * STANCE_W
-STANCE_LEAN = 26.0
+STANCE_LEAN = 22.0   # (26 and a side bend of 20 until round 9: side-on, the side bend only tipped the near shoulder down toward the camera)
 # The chest's bend toward the way the fighter faces (degrees): the game turns the body most of the way to the camera, so a forward bend
 # alone leans mostly toward the camera and hardly reads; this bend shows the lean on screen.
-STANCE_SIDE = 20.0
+STANCE_SIDE = 8.0
 # In an idle the head may tip back this far against the chest (the general limit is `HEAD_BACK_LIMIT`), so the leaned stance keeps the face
 # level toward the camera instead of looking at the floor and showing the hat's crown.
 HEAD_BACK_IDLE = -24.0
 # The sword stance's head against its chest (the idle's, at the bottom of its bob), for the attacks' stance keys.
-STANCE_HEAD = -19.0
+STANCE_HEAD = -16.0
 # The far arm (the right one in a clip; the game mirrors facing left) carried this much further forward and in (degrees) in the idle, walk
 # and run, so its hand shows past the chest once the body stands side-on (round 2, the owner's pick D).
 FAR_ARM_FWD, FAR_ARM_IN = 18.0, 8.0
 # Idle loops are this long (frames): two bobs, one breath and one weight shift a loop.
 IDLE_FRAMES = 96
+
+
+# ---- Round 9: the idles against the references (docs/art/anim/ANIMATION_REVIEW_2.md) ------------------------------------------------------
+# The reference fighters' idles were measured frame by frame (F: only): their hips never stand still. Each moves between planted feet (hips
+# along the stage 2-8% of the body's height, up and down 4-10%), on a beat of its own: the plumber's boxer's bounce every 27 frames, the
+# dinosaur's every 30, the ninja's every 46, the villager's about 60, the wolf's about 75, the swordsman's weight crossing from foot to foot
+# with the hips rising as they pass between the feet. Ours, posed as leg angles, moved the hips 0.1-1% and never along the stage. So the feet
+# are authored and the hips move over them (`foot_to`).
+#   frames: the loop; sway: how far the hips go each way along the stage; dwell: how long the sway waits at each end (0 a sine, up to 1);
+#   rise: how far the hips rise as they cross between the feet; bob: the knees' dip and bobs: how many a loop; hips: the height at the top of the
+#   dip; near, far: each foot's (ahead, width beyond the hip); lean, side, head, twist: the chest's lean, side bend and turn and the head's
+#   counter-tilt; arm_l, arm_r: (upper arm forward, out, elbow, the upper arm's and the elbow's pump, phase in beats).
+# (The near arm of an armed class is the game's; its numbers matter only to the classes that show it.)
+_STANCE_ROWS = {
+    # family: (hips at the top of the idle's dip, near ahead, far ahead, near wide, far wide) in the mock's three options:
+    #         A, round 8's stance C: the feet nearly one behind the other on screen, 0.00-0.14 of the body's height apart along the stage;
+    #         B, the same knees with the feet set apart along the stage at the reference's width (0.2-0.33);
+    #         C, the owner's pick (2026-10-30): as B with the knees at the reference's bend for that family (hip height over rest height,
+    #         through the dip: swordsman 0.96, wolf 0.84, ninja 0.96, plumber 0.83, dinosaur 0.82, on our shorter legs as far as they reach).
+    "":        {"A": (0.885, 0.13, -0.21, 0.165, 0.19), "B": (0.87, 0.26, -0.21, 0.11, 0.13), "C": (0.88, 0.26, -0.21, 0.11, 0.13)},
+    "brawler": {"A": (0.885, 0.13, -0.21, 0.17, 0.20), "B": (0.84, 0.36, -0.30, 0.11, 0.13), "C": (0.83, 0.36, -0.30, 0.11, 0.13)},
+    "quick":   {"A": (0.865, 0.19, -0.27, 0.165, 0.19), "B": (0.84, 0.36, -0.36, 0.09, 0.11), "C": (0.84, 0.36, -0.36, 0.09, 0.11)},
+    "heavy":   {"A": (0.885, 0.13, -0.17, 0.21, 0.23), "B": (0.85, 0.22, -0.20, 0.17, 0.19), "C": (0.86, 0.22, -0.20, 0.17, 0.19)},
+    "caster":  {"A": (0.92, 0.09, -0.08, 0.16, 0.18), "B": (0.86, 0.28, -0.26, 0.10, 0.12), "C": (0.87, 0.28, -0.26, 0.10, 0.12)},
+    "tool":    {"A": (0.93, 0.075, -0.05, 0.15, 0.17), "B": (0.87, 0.26, -0.24, 0.08, 0.10), "C": (0.85, 0.26, -0.24, 0.08, 0.10)},
+}
+# (The owner's pick C, 2026-10-30, from docs/art/anim/review2/mock_stance_width.jpg: A stays for before images.)
+STANCE_MOCK = sys.argv[sys.argv.index("--stance") + 1] if "--stance" in sys.argv else "C"
+IDLE_CORE = {
+    "": dict(frames=120, sway=0.07, dwell=0.45, rise=0.06, bob=0.0, bobs=2, lean=22.0, side=8.0, head=-16.0, twist=8.0,
+             arm_l=(10.0, 30.0, 40.0, 3.0, 4.0, 0.0), arm_r=(32.0, 14.0, 32.0, 6.0, 8.0, 0.1)),
+    "brawler": dict(frames=80, sway=0.03, dwell=0.0, rise=0.0, bob=0.08, bobs=1, lean=28.0, side=8.0, head=-16.0, twist=8.0,
+                    arm_l=(8.0, 40.0, 112.0, 6.0, 8.0, 0.0), arm_r=(38.0, 14.0, 28.0, 8.0, 8.0, 0.25)),
+    "quick": dict(frames=92, sway=0.06, dwell=0.2, rise=0.0, bob=0.08, bobs=2, lean=24.0, side=8.0, head=-14.0, twist=8.0,
+                  arm_l=(50.0, 30.0, 108.0, 5.0, 6.0, 0.0), arm_r=(74.0, 10.0, 72.0, 6.0, 8.0, 0.3)),
+    "heavy": dict(frames=60, sway=0.03, dwell=0.0, rise=0.0, bob=0.20, bobs=2, lean=34.0, side=6.0, head=-14.0, twist=8.0,
+                  arm_l=(32.0, 26.0, 62.0, 5.0, 8.0, 0.0), arm_r=(42.0, 14.0, 62.0, 5.0, 8.0, 0.2)),
+    "caster": dict(frames=54, sway=0.07, dwell=0.0, rise=0.0, bob=0.22, bobs=2, lean=10.0, side=4.0, head=-8.0, twist=8.0,
+                   arm_l=(18.0, 30.0, 104.0, 10.0, 12.0, 0.0), arm_r=(52.0, 12.0, 62.0, 10.0, 12.0, 0.5)),
+    "tool": dict(frames=60, sway=0.03, dwell=0.0, rise=0.0, bob=0.10, bobs=1, lean=6.0, side=3.0, head=-4.0, twist=8.0,
+                 arm_l=(10.0, 30.0, 22.0, 3.0, 4.0, 0.0), arm_r=(20.0, 20.0, 26.0, 3.0, 4.0, 0.2)),
+}
+
+
+def _dwell(k, d):
+    """A sway about 0 over a loop (k in loops, one way and back) that waits at each end by `d`, crossing between them quicker: -1 to 1."""
+    s = math.sin(2.0 * math.pi * k)
+    return math.copysign(abs(s) ** (1.0 - 0.8 * d), s)
+
+
+def _stance_pose(rig, fam, h, sway, lean, side, head, twist, hip_twist, head_twist, arm_l, arm_r, near=None, far=None):
+    """A standing pose on `fam`'s planted feet: the hips at height `h`, `sway` along the stage, and the chest, head and arms (upper arm forward,
+    out, elbow). `near` or `far` (ahead, height) lifts that foot off its place."""
+    _, near_a, far_a, near_w, far_w = _STANCE_ROWS[fam][STANCE_MOCK]
+    rest_hips = rig.pose.bones["hips"].bone.head_local.z
+    amp = AMP
+    pose(rig, "hips", lift=(h - rest_hips) / amp, ahead=sway, twist=hip_twist / amp)
+    pose(rig, "spine", fwd=lean / amp, twist=twist / amp, out=side / amp)
+    pose(rig, "head", fwd=head / amp, twist=head_twist / amp)
+    for sd, a, wd, lifted in (("L", near_a, near_w, near), ("R", far_a, far_w, far)):
+        ahead, height = lifted if lifted is not None else (a, 0.0)
+        miss = foot_to(rig, sd, ahead, height, wd)
+        if miss > 0.012:
+            print("stance %s: the %s foot misses by %.3f" % (CLIP_NOW, sd, miss))
+        _level_sole(rig, sd)
+    for sd, arm in (("L", arm_l), ("R", arm_r)):
+        pose(rig, "armU." + sd, fwd=arm[0] / amp, out=arm[1] / amp)
+        pose(rig, "armL." + sd, fwd=arm[2] / amp)
+
+
+def idle_core(k, fam):
+    """One frame of a family's idle (`IDLE_CORE`) at `k` (0..1 over the loop)."""
+    st = IDLE_CORE[fam]
+    hips = _STANCE_ROWS[fam][STANCE_MOCK][0]
+
+    def f(rig):
+        lag = lambda frames: k - frames / float(st["frames"])
+        w = _dwell(k, st["dwell"])
+        dip = 0.5 - 0.5 * math.cos(2.0 * math.pi * st["bobs"] * k)   # 0 at the top of a bob, 1 at the bottom
+        h = hips - st["rise"] * w * w - st["bob"] * dip
+        # The chest follows the hips a beat late; the head a beat later, keeping the face level.
+        w2 = _dwell(lag(4.0), st["dwell"])
+        dip2 = 0.5 - 0.5 * math.cos(2.0 * math.pi * st["bobs"] * lag(2.0))
+        breath = math.sin(2.0 * math.pi * k)
+        dip3 = 0.5 - 0.5 * math.cos(2.0 * math.pi * st["bobs"] * lag(3.0))
+        # The arms ride the body and pump on their own beat, a little behind it.
+        arms = []
+        for arm in (st["arm_l"], st["arm_r"]):
+            fw, ot, el, pf, pe, ph = arm
+            beat = 2.0 * math.pi * (st["bobs"] * lag(4.0) + ph)
+            arms.append((fw + pf * math.sin(beat), ot, el + pe * math.cos(beat)))
+        _stance_pose(rig, fam, h, st["sway"] * w, st["lean"] + 5.0 * dip2 - 2.0 * breath, st["side"] - 3.0 * w2, st["head"] + 3.0 * dip3,
+                     st["twist"] + 3.0 * w2, -6.0 + 3.0 * w, -4.0 - 2.0 * w2, arms[0], arms[1])
+    return f
+
+
+def _env(u, a=0.2, b=0.8):
+    """Up over the first share `a` of u (0..1), held, down from `b`: a fidget's envelope, smooth at both ends."""
+    def sm(x):
+        x = clampf(x, 0.0, 1.0)
+        return x * x * (3.0 - 2.0 * x)
+    return sm(u / a) * (1.0 - sm((u - b) / (1.0 - b)))
+
+
+# The long idle's fidget per family, after the reference fighters' second and third idles (each kept to what reads on our body, the face clear):
+# frames, and what each does. The swordsman looks over his free hand; the wolf drops into a low crouch and rises with a snarl; the ninja draws a
+# knee up; the dinosaur kicks a foot out and looks round; the plumber swings a fist up beside his head; the villager scratches the back of its head.
+FIDGET_FRAMES = {"": 110, "brawler": 90, "quick": 84, "heavy": 72, "caster": 72, "tool": 96}
+
+
+def fidget_core(u, fam):
+    st = IDLE_CORE[fam]
+    hips = _STANCE_ROWS[fam][STANCE_MOCK][0]
+    near_a, far_a = _STANCE_ROWS[fam][STANCE_MOCK][1:3]
+
+    def lerp3(a, b, t):
+        return (a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t)
+
+    def f(rig):
+        e = _env(u)
+        base_l, base_r = st["arm_l"][:3], st["arm_r"][:3]
+        h = hips - 0.5 * st["bob"]
+        sway = 0.0
+        lean, side, head, twist = st["lean"], st["side"], st["head"], st["twist"]
+        head_twist, hip_twist = -4.0, -6.0
+        arm_l, arm_r = base_l, base_r
+        near, far = None, None
+        if fam == "":
+            # The free hand comes up in front of the chest and is looked over; the weight settles back.
+            sway = -0.06 * e
+            h = hips - 0.05 * e
+            arm_r = lerp3(base_r, (44.0, 16.0, 88.0 - 10.0 * math.sin(u * 8.0 * math.pi)), e)
+            head += 6.0 * e
+            head_twist += 10.0 * e
+            twist += 6.0 * e
+        elif fam == "brawler":
+            # Down into a low crouch with the claws out, a shake of the shoulders, up with the head lifted.
+            crouch = _env(u, 0.25, 0.6)
+            h = hips - 0.16 * crouch
+            lean += 14.0 * crouch
+            head -= 8.0 * crouch
+            shake = math.sin(u * 10.0 * math.pi) * crouch
+            twist += 6.0 * shake
+            arm_l = lerp3(base_l, (30.0, 40.0, 60.0), crouch)
+            arm_r = lerp3(base_r, (48.0, 14.0, 18.0), crouch)
+            rise = _env((u - 0.55) / 0.45, 0.3, 0.6) if u > 0.55 else 0.0
+            lean -= 14.0 * rise
+            head -= 6.0 * rise
+            arm_l = lerp3(arm_l, (20.0, 50.0, 40.0), rise)
+            arm_r = lerp3(arm_r, (60.0, 20.0, 30.0), rise)
+        elif fam == "quick":
+            # The weight goes over the far foot and the near knee is drawn up, the arms settling.
+            e2 = _env(u, 0.3, 0.7)
+            sway = (far_a * 0.55) * e2
+            h = hips - 0.04 + 0.06 * e2
+            near = (near_a * (1.0 - e2) + 0.22 * e2, 0.42 * e2)
+            lean -= 8.0 * e2
+            arm_l = lerp3(base_l, (20.0, 34.0, 70.0), e2)
+            arm_r = lerp3(base_r, (86.0, 12.0, 60.0), e2)
+            head_twist += 8.0 * e2
+        elif fam == "heavy":
+            # A foot kicked out in front and set down again, then a look round.
+            kick = _env(u, 0.2, 0.4) if u < 0.55 else 0.0
+            sway = -0.08 * kick
+            h = hips - st["bob"] * 0.4 - 0.02 * kick
+            near = (near_a + 0.34 * kick, 0.36 * kick)
+            lean -= 12.0 * kick
+            look = _env((u - 0.45) / 0.55, 0.3, 0.7) if u > 0.45 else 0.0
+            head_twist += 22.0 * look * math.sin((u - 0.45) / 0.55 * 2.0 * math.pi)
+            head += 6.0 * look
+        elif fam == "caster":
+            # A fist swung up beside the head, the chest opening under it.
+            e2 = _env(u, 0.25, 0.75)
+            arm_r = lerp3(base_r, (150.0, 22.0, 70.0), e2)
+            arm_l = lerp3(base_l, (6.0, 30.0, 90.0), e2)
+            lean -= 8.0 * e2
+            head += 2.0 * e2
+            h = hips - 0.04 - 0.05 * math.sin(u * 6.0 * math.pi) * e2
+        elif fam == "tool":
+            # The far hand goes to the back of the head and scratches; a look up and round.
+            e2 = _env(u, 0.25, 0.8)
+            arm_r = lerp3(base_r, (158.0, 18.0, 128.0 + 8.0 * math.sin(u * 16.0 * math.pi)), e2)
+            lean -= 4.0 * e2
+            head -= 4.0 * e2
+            head_twist += 14.0 * e2
+            h = hips - 0.04 * (0.5 - 0.5 * math.cos(u * 4.0 * math.pi))
+        _stance_pose(rig, fam, h, sway, lean, side, head, twist, hip_twist, head_twist, arm_l, arm_r, near, far)
+    return f
+
+
+# The spot dodge per family, after the reference fighters' (round 9; `spot.mp4` on F:, frame by frame): the body snaps into its dodge by the third
+# frame, as the intangibility starts, holds, and comes back up slowly. The swordsman stays tall, turning his chest open; the wolf drops into a deep
+# squat with the arms out and is up again by the eighth frame; the ninja lunges low to the side and stays down; the dinosaur goes flat over its
+# knees; the plumber ducks; the villager bows right over with the back foot off the floor. ours: `spot_core` by progress (the game plays it over the
+# fighter's own frames, 23 or 25). low: the hips' height at the bottom; lean, head: the chest and head there; twist: the chest's turn; hold: until
+# when it stays down (share of the dodge); arm_l, arm_r: (upper arm forward, out, elbow); far: the far foot lifted (ahead, height).
+SPOT_CORE = {
+    "": dict(low=0.80, lean=10.0, head=-8.0, twist=34.0, hold=0.55, arm_l=(10.0, 30.0, 40.0), arm_r=(52.0, 26.0, 52.0)),
+    "brawler": dict(low=0.56, lean=34.0, head=-14.0, twist=16.0, hold=0.22, arm_l=(30.0, 58.0, 30.0), arm_r=(44.0, 40.0, 30.0)),
+    "quick": dict(low=0.52, lean=30.0, head=-10.0, twist=12.0, hold=0.6, arm_l=(-26.0, 30.0, 24.0), arm_r=(-16.0, 30.0, 26.0)),
+    "heavy": dict(low=0.52, lean=60.0, head=-26.0, twist=8.0, hold=0.32, arm_l=(32.0, 24.0, 64.0), arm_r=(42.0, 16.0, 64.0)),
+    "caster": dict(low=0.56, lean=42.0, head=-20.0, twist=10.0, hold=0.28, arm_l=(40.0, 30.0, 72.0), arm_r=(52.0, 20.0, 72.0)),
+    "tool": dict(low=0.60, lean=62.0, head=-24.0, twist=8.0, hold=0.4, arm_l=(20.0, 30.0, 30.0), arm_r=(28.0, 24.0, 30.0), far=(-0.42, 0.24)),
+}
+
+
+def spot_core(u, fam):
+    st = SPOT_CORE[fam]
+    idle_st = IDLE_CORE[fam]
+    hips = _STANCE_ROWS[fam][STANCE_MOCK][0]
+
+    def lerp3(a, b, t):
+        return (a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t)
+
+    def f(rig):
+        def sm(x):
+            x = clampf(x, 0.0, 1.0)
+            return x * x * (3.0 - 2.0 * x)
+        down = sm(u / 0.1) * (1.0 - sm((u - st["hold"]) / (0.92 - st["hold"])))
+        far = None
+        _, _, far_a = _STANCE_ROWS[fam][STANCE_MOCK][:3]
+        if "far" in st and down > 0.02:
+            far = (far_a + (st["far"][0] - far_a) * down, st["far"][1] * down)
+        _stance_pose(rig, fam, hips + (st["low"] - hips) * down, 0.0, idle_st["lean"] + (st["lean"] - idle_st["lean"]) * down, idle_st["side"] * (1.0 - down),
+                     idle_st["head"] + (st["head"] - idle_st["head"]) * down, idle_st["twist"] + (st["twist"] - idle_st["twist"]) * down, -6.0, -4.0,
+                     lerp3(idle_st["arm_l"][:3], st["arm_l"], down), lerp3(idle_st["arm_r"][:3], st["arm_r"], down), None, far)
+    return f
+
+
+# The air per family, after the reference fighters' full hops decoded frame by frame (round 9): each leaves the floor stretched long, the legs trailing;
+# the arms are what differ. The swordsman keeps his low (the blade down in front); the wolf and the plumber throw the far arm up and swing the near one
+# back; the ninja reaches ahead; the dinosaur rises head first with its arms down; the villager lifts both. At the top the wolf and the ninja curl right up
+# (they turn over; ours curls, as the owner's pick for aerials), the swordsman and the villager draw one knee, the plumber both, the dinosaur's legs pump.
+# On the way down the legs open and reach for the floor, the plumber's long and together, the villager leaning forward with its arms out.
+# Arms are (upper arm forward, out, elbow): `rise_*` at the take-off, `top_*` at the top, `fall_*` falling. A far hand raised over its shoulder must stay clear of
+# the big head (ahead of it), or the game carries it out behind (`_arms_beside_head`), the elbow reversed. Legs are the (far thigh, far shin, near thigh, near shin).
+AIR_CORE = {
+    "": dict(lean=2.0, rise_n=(-16.0, 26.0, 26.0), rise_f=(18.0, 24.0, 34.0), top_n=(10.0, 26.0, 50.0), top_f=(42.0, 22.0, 60.0), top_lean=14.0,
+             top_legs=(74.0, -96.0, 26.0, -64.0), open_legs=(44.0, -60.0, -12.0, -34.0), fall_n=(24.0, 30.0, 34.0), fall_f=(88.0, 30.0, 34.0), fast_legs=(24.0, -30.0, -18.0, -18.0), fall_lean=2.0),
+    "brawler": dict(lean=4.0, rise_n=(-34.0, 26.0, 24.0), rise_f=(104.0, 16.0, 34.0), top_n=(30.0, 20.0, 104.0), top_f=(52.0, 18.0, 110.0), top_lean=38.0,
+                    top_legs=(96.0, -122.0, 90.0, -118.0), open_legs=(42.0, -58.0, -16.0, -32.0), fall_n=(36.0, 34.0, 44.0), fall_f=(96.0, 30.0, 44.0), fast_legs=(26.0, -32.0, -20.0, -18.0), fall_lean=4.0),
+    "quick": dict(lean=6.0, rise_n=(-30.0, 20.0, 22.0), rise_f=(92.0, 12.0, 22.0), top_n=(36.0, 18.0, 110.0), top_f=(56.0, 16.0, 114.0), top_lean=44.0,
+                  top_legs=(100.0, -126.0, 94.0, -122.0), open_legs=(36.0, -44.0, -20.0, -24.0), fall_n=(30.0, 30.0, 30.0), fall_f=(92.0, 24.0, 30.0), fast_legs=(30.0, -24.0, -22.0, -14.0), fall_lean=6.0),
+    "heavy": dict(lean=24.0, rise_n=(-18.0, 30.0, 40.0), rise_f=(-6.0, 30.0, 40.0), top_n=(24.0, 30.0, 64.0), top_f=(34.0, 26.0, 64.0), top_lean=20.0,
+                  top_legs=(62.0, -84.0, 36.0, -70.0), open_legs=(30.0, -48.0, -10.0, -36.0), fall_n=(30.0, 34.0, 70.0), fall_f=(44.0, 30.0, 70.0), fast_legs=(26.0, -40.0, -10.0, -30.0), fall_lean=14.0),
+    "caster": dict(lean=2.0, rise_n=(-38.0, 26.0, 26.0), rise_f=(112.0, 12.0, 26.0), top_n=(-8.0, 28.0, 60.0), top_f=(104.0, 14.0, 34.0), top_lean=8.0,
+                   top_legs=(74.0, -98.0, 58.0, -92.0), open_legs=(26.0, -40.0, -6.0, -24.0), fall_n=(-8.0, 30.0, 44.0), fall_f=(62.0, 26.0, 52.0), fast_legs=(8.0, -16.0, -4.0, -14.0), fall_lean=2.0),
+    "tool": dict(lean=4.0, rise_n=(40.0, 50.0, 30.0), rise_f=(102.0, 26.0, 26.0), top_n=(44.0, 48.0, 40.0), top_f=(96.0, 26.0, 40.0), top_lean=6.0,
+                 top_legs=(52.0, -72.0, 30.0, -62.0), open_legs=(28.0, -52.0, -8.0, -40.0), fall_n=(24.0, 46.0, 30.0), fall_f=(74.0, 30.0, 30.0), fast_legs=(22.0, -50.0, -10.0, -42.0), fall_lean=14.0),
+}
+
+
+def _air_pose(rig, fam, legs, arm_n, arm_f, lean, head=-4.0, foot_f=0.0, foot_n=-20.0, twist=4.0):
+    """A pose in the air, each angle as written (the clip's exaggeration divided out)."""
+    a = AMP
+    pose(rig, "thigh.R", fwd=legs[0] / a, out=10.0 / a)
+    pose(rig, "shin.R", fwd=legs[1] / a)
+    pose(rig, "foot.R", fwd=foot_f / a)
+    pose(rig, "thigh.L", fwd=legs[2] / a, out=12.0 / a)
+    pose(rig, "shin.L", fwd=legs[3] / a)
+    pose(rig, "foot.L", fwd=foot_n / a)
+    pose(rig, "armU.L", fwd=arm_n[0] / a, out=arm_n[1] / a)
+    pose(rig, "armL.L", fwd=arm_n[2] / a)
+    pose(rig, "armU.R", fwd=arm_f[0] / a, out=arm_f[1] / a)
+    pose(rig, "armL.R", fwd=arm_f[2] / a)
+    pose(rig, "spine", fwd=lean / a, twist=twist / a)
+    pose(rig, "head", fwd=head / a)
+
+
+def air_core(which, fam, w=0.0):
+    st = AIR_CORE[fam]
+
+    def lerp(a, b, t):
+        return tuple(x + (y - x) * t for x, y in zip(a, b))
+
+    def f(rig):
+        if which == "stretch":
+            _air_pose(rig, fam, (10.0, -10.0, -8.0, -10.0), st["rise_n"], st["rise_f"], st["lean"], foot_f=-30.0, foot_n=-34.0)
+        elif which == "knee":
+            # (The near knee is left to hang, the far knee drawn up ahead of the body: both legs show.)
+            legs = lerp((10.0, -10.0, -8.0, -10.0), st["top_legs"], 0.62)
+            _air_pose(rig, fam, legs, lerp(st["rise_n"], st["top_n"], 0.4), lerp(st["rise_f"], st["top_f"], 0.4), st["lean"] + (st["top_lean"] - st["lean"]) * 0.5, foot_f=8.0, foot_n=-20.0)
+        elif which == "tuck":
+            _air_pose(rig, fam, st["top_legs"], st["top_n"], st["top_f"], st["top_lean"], foot_f=16.0, foot_n=8.0)
+        elif which == "open":
+            _air_pose(rig, fam, st["open_legs"], lerp(st["top_n"], st["fall_n"], 0.8), lerp(st["top_f"], st["fall_f"], 0.8), st["fall_lean"] + 4.0, foot_f=6.0, foot_n=-16.0)
+        else:
+            # Falling at full speed: legs long and reaching down, the arms paddling a little.
+            s = math.sin(w * 2.0 * math.pi)
+            legs = st["fast_legs"]
+            _air_pose(rig, fam, (legs[0] + 5.0 * s, legs[1] - 6.0 * s, legs[2] - 5.0 * s, legs[3] + 5.0 * s),
+                      (st["fall_n"][0] + 8.0 * s, st["fall_n"][1], st["fall_n"][2]), (st["fall_f"][0] - 8.0 * s, st["fall_f"][1], st["fall_f"][2]), st["fall_lean"], foot_f=-8.0, foot_n=-24.0, twist=4.0 * s)
+    return f
+
+
+# The jump's crouch and the landing per family (round 9). The references' feet stay where they stood and the weight drops over them (ours slid together); a
+# landing bottoms out by its third frame with the hips about a fifth of the height up, then comes up over twelve frames or so: quicker for the light fighters, slower
+# and deeper for the heavy one. low: the hips at the bottom of the crouch; land: at the bottom of a landing; lean, head: the chest and head at the bottom.
+LAND_CORE = {
+    "": dict(low=0.60, land=0.50, lean=32.0, head=-20.0, arm_n=(16.0, 40.0, 30.0), arm_f=(36.0, 44.0, 30.0)),
+    "brawler": dict(low=0.56, land=0.44, lean=42.0, head=-22.0, arm_n=(20.0, 46.0, 40.0), arm_f=(44.0, 40.0, 30.0)),
+    "quick": dict(low=0.56, land=0.48, lean=38.0, head=-20.0, arm_n=(-20.0, 30.0, 24.0), arm_f=(10.0, 30.0, 26.0)),
+    "heavy": dict(low=0.54, land=0.42, lean=54.0, head=-26.0, arm_n=(26.0, 36.0, 60.0), arm_f=(38.0, 30.0, 60.0)),
+    "caster": dict(low=0.54, land=0.42, lean=40.0, head=-22.0, arm_n=(14.0, 44.0, 40.0), arm_f=(30.0, 44.0, 36.0)),
+    "tool": dict(low=0.56, land=0.42, lean=48.0, head=-24.0, arm_n=(14.0, 48.0, 26.0), arm_f=(24.0, 44.0, 26.0)),
+}
+
+
+def crouch_key(fam, h, k, arm_k=1.0):
+    """The stance's feet with the hips at `h`, the chest and arms `k` of the way to the family's crouch."""
+    st = LAND_CORE[fam]
+    idle_st = IDLE_CORE[fam]
+
+    def lerp3(a, b, t):
+        return (a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t)
+
+    def f(rig):
+        a = AMP
+        arm_l = lerp3(idle_st["arm_l"][:3], st["arm_n"], k * arm_k)
+        arm_r = lerp3(idle_st["arm_r"][:3], st["arm_f"], k * arm_k)
+        _stance_pose(rig, fam, h, 0.0, (idle_st["lean"] + (st["lean"] - idle_st["lean"]) * k), idle_st["side"] * (1.0 - k), idle_st["head"] + (st["head"] - idle_st["head"]) * k,
+                     idle_st["twist"] * (1.0 - 0.5 * k), -6.0, -4.0, arm_l, arm_r)
+    return f
 
 
 def main() -> None:
@@ -3432,7 +3806,13 @@ def main() -> None:
                 pose(rig, "hand.R", fwd=-14.0)
         return f
 
-    clip(rig, "idle", IDLE_FRAMES, {i: idle(i / IDLE_FRAMES) for i in range(0, IDLE_FRAMES + 1, 4)})
+    if BODY:
+        # (Round 9: the idle measured against the reference's, `idle_core`; this keeps the name the other clips' stance keys call.)
+        idle = lambda k: idle_core(k, "")
+        n = IDLE_CORE[""]["frames"]
+        clip(rig, "idle", n, {i: idle(i / n) for i in range(0, n + 1, 3)})
+    else:
+        clip(rig, "idle", IDLE_FRAMES, {i: idle(i / IDLE_FRAMES) for i in range(0, IDLE_FRAMES + 1, 4)})
 
     # Each unarmed family's own stance on the base body (the pose review: nine unarmed classes stood alike), the brawlers keeping the bouncy
     # guard above: the quick fighters low and coiled with the lead hand out, the heavy one wide and planted with its arms low and slow, the
@@ -3485,8 +3865,9 @@ def main() -> None:
         return f
 
     if BODY:
-        for fam, st in IDLE_STYLES.items():
-            clip(rig, "idle_" + fam, IDLE_FRAMES, {i: styled_idle(i / IDLE_FRAMES, st) for i in range(0, IDLE_FRAMES + 1, 4)})
+        for fam in IDLE_STYLES:
+            n = IDLE_CORE[fam]["frames"]
+            clip(rig, "idle_" + fam, n, {i: idle_core(i / n, fam) for i in range(0, n + 1, 3)})
 
     # A bouncy, swaggering walk: knees lifting, a springy bob on every step, arms swinging wide with loose bent elbows, a little lean.
     # A big, bouncy, swaggering walk (in the manner of a plumber's cheerful stride): long steps with the knee lifted high as the leg
@@ -3673,8 +4054,11 @@ def main() -> None:
         # (Animation overhaul, the air arc: the game plays the rise by how fast the fighter still climbs, not by time, so this clip runs
         # from the take-off (0) to the top of the jump (30): stretched long off the floor, the near knee driven up, then both knees pulled
         # in to a tuck at the top. `fall_start` opens out of the tuck on the way down. It was one pose, the knee up, eased a little.)
-        clip(rig, "jump", 30, {0: amped(air_stretch, 1.05), 9: amped(jump(1.0), 1.08), 19: air_between(jump(1.0), air_tuck),
-                               30: air_tuck})
+        # (Round 9: each family's own arc, `air_core`, after the references.)
+        for fam in [""] + list(IDLE_STYLES):
+            suffix = "_" + fam if fam else ""
+            clip(rig, "jump" + suffix, 30, {0: air_core("stretch", fam), 9: air_core("knee", fam), 19: air_between(air_core("knee", fam), air_core("tuck", fam)),
+                                            30: air_core("tuck", fam)})
     else:
         clip(rig, "jump", 14, {0: jump(0.0), 5: jump(1.0), 14: jump(0.85)})
 
@@ -3697,8 +4081,11 @@ def main() -> None:
     if BODY:
         # The way down (the air arc): played by how fast the fighter falls, from the tuck at the top (0), the legs opening and reaching
         # for the floor as it speeds up (12), to the long open pose at full speed (30), where `fall` takes over and paddles.
-        clip(rig, "fall_start", 30, {0: air_tuck, 12: air_open, 30: air_fast(0.0)})
-        clip(rig, "fall", 30, {0: air_fast(0.0), 8: air_fast(0.25), 15: air_fast(0.5), 23: air_fast(0.75), 30: air_fast(1.0)})
+        # (Round 9: each family's own, `air_core`.)
+        for fam in [""] + list(IDLE_STYLES):
+            suffix = "_" + fam if fam else ""
+            clip(rig, "fall_start" + suffix, 30, {0: air_core("tuck", fam), 12: air_core("open", fam), 30: air_core("fast", fam, 0.0)})
+            clip(rig, "fall" + suffix, 30, {i: air_core("fast", fam, i / 30.0) for i in (0, 8, 15, 23, 30)})
     else:
         clip(rig, "fall", 30, {0: fall(0.0), 8: fall(0.25), 15: fall(0.5), 23: fall(0.75), 30: fall(1.0)})
 
@@ -3744,7 +4131,15 @@ def main() -> None:
         return f
 
     # (Round 2: the crouch starts from the battle stance's legs; it started standing 0.17 taller than the idle, so a jump rose before it sank.)
-    clip(rig, "jumpsquat", 4, {0: _stance_over(jumpsquat(0.3), {}, 0.0, True), 4: jumpsquat(1.0)})
+    if BODY:
+        # (Round 9: the feet stay where they stand, and each family's own depth, `crouch_key`; the feet slid together in the 3 frames of the crouch.)
+        for fam in [""] + list(IDLE_STYLES):
+            suffix = "_" + fam if fam else ""
+            hips = _STANCE_ROWS[fam][STANCE_MOCK][0]
+            low = LAND_CORE[fam]["low"]
+            clip(rig, "jumpsquat" + suffix, 4, {0: crouch_key(fam, hips - 0.06, 0.3, 0.5), 2: crouch_key(fam, (hips + low) * 0.5 - 0.02, 0.7, 0.8), 4: crouch_key(fam, low, 1.0)})
+    else:
+        clip(rig, "jumpsquat", 4, {0: _stance_over(jumpsquat(0.3), {}, 0.0, True), 4: jumpsquat(1.0)})
 
     # Landing: the weight drops onto bent knees, the chest pitched forward and the arms flung out and down for balance, then a small
     # rebound and a settle back up toward standing (the game adds its squash on top, deeper after an aerial).
@@ -3762,7 +4157,17 @@ def main() -> None:
         return f
 
     # (Round 2: it settles into the battle stance's legs; it stood 0.17 taller than the idle at its end, then sank into the idle.)
-    clip(rig, "land", 14, {0: land(1.0), 3: amped(land(1.0), 1.06), 8: land(0.45, rebound=1.0), 14: _stance_over(land(0.3), {}, 0.0, True)})
+    if BODY:
+        # (Round 9: bottoming out on the third frame over planted feet, each family's own depth; played by the game over the landing's lag and on into the idle, `_land_progress`.)
+        for fam in [""] + list(IDLE_STYLES):
+            suffix = "_" + fam if fam else ""
+            hips = _STANCE_ROWS[fam][STANCE_MOCK][0]
+            low = LAND_CORE[fam]["land"]
+            n = 16
+            clip(rig, "land" + suffix, n, {0: crouch_key(fam, (hips + low) * 0.5, 0.6), 2: crouch_key(fam, low + 0.03, 0.95), 4: crouch_key(fam, low, 1.0), 6: crouch_key(fam, low + 0.02, 1.0),
+                                           10: crouch_key(fam, low + (hips - low) * 0.55, 0.55), 13: crouch_key(fam, low + (hips - low) * 0.86, 0.2), 16: crouch_key(fam, hips, 0.0)})
+    else:
+        clip(rig, "land", 14, {0: land(1.0), 3: amped(land(1.0), 1.06), 8: land(0.45, rebound=1.0), 14: _stance_over(land(0.3), {}, 0.0, True)})
 
     def shield(rig):
         pose(rig, "hips", lift=-0.08)
@@ -4483,23 +4888,53 @@ def main() -> None:
                 pose(rig, "armU." + side, fwd=30.0, out=24.0)
                 pose(rig, "armL." + side, fwd=50.0)
 
-        clip(rig, "roll", 30, {0: roll_launch, 4: roll_pose, 21: roll_pose, 27: roll_land, 30: roll_land})
-
-        # A spot dodge: a quick duck and tuck in place, arms drawn in to the chest and the knees bent, held while it is safe, then
-        # back up (the game turns the chest away and steps the body back into the stage).
-        def duck(k):
+        # (Round 9, against the plumber's rolls frame by frame, on F:: the reference stays low all the way, the head at the floor when the body is
+        # upside down at 38% of the roll, the legs open, not a ball, round again by about 65%, then it rises slowly out of a long low crawl: at 70% its
+        # hips are at a fifth of its height, at 85% a quarter, a stand only at the very end. Ours crouched, spun a tight ball about the body's middle, its head 0.3 off the floor, and was
+        # nearly standing by 80%. The game turns the somersault (`ROLL_SPIN_*`), now about a lower point.)
+        def roll_key(hips, spine, head, thigh, shin, arm_u, arm_l):
             def f(rig):
-                pose(rig, "hips", lift=-0.18 * k)
-                pose(rig, "spine", fwd=6.0 + 14.0 * k)
-                pose(rig, "head", fwd=-4.0 - 6.0 * k)
-                for side in "LR":
-                    pose(rig, "thigh." + side, fwd=22.0 + 34.0 * k, out=8.0)
-                    pose(rig, "shin." + side, fwd=-30.0 - 50.0 * k)
-                    pose(rig, "armU." + side, fwd=30.0 + 34.0 * k, out=20.0 - 14.0 * k)
-                    pose(rig, "armL." + side, fwd=60.0 + 60.0 * k)
+                rest_hips = rig.pose.bones["hips"].bone.head_local.z
+                pose(rig, "hips", lift=(hips - rest_hips) / AMP)
+                pose(rig, "spine", fwd=spine / AMP)
+                pose(rig, "head", fwd=head / AMP)
+                for sd, off in (("L", 1.0), ("R", 0.92)):
+                    pose(rig, "thigh." + sd, fwd=thigh * off / AMP, out=6.0)
+                    pose(rig, "shin." + sd, fwd=shin * off / AMP)
+                    pose(rig, "armU." + sd, fwd=arm_u / AMP, out=14.0)
+                    pose(rig, "armL." + sd, fwd=arm_l / AMP)
             return f
 
-        clip(rig, "spot_dodge", 30, {0: _stance_over(duck(0.2), {}, 0.0, True), 5: amped(duck(1.0), 1.05), 22: duck(1.0), 30: _stance_over(duck(0.2), {}, 0.0, True)})
+        def roll_planted(hips, spine, head, arm_u, arm_l):
+            # On the floor at either end of the somersault: the feet solved onto it.
+            def f(rig):
+                _, near_a, far_a, near_w, far_w = _STANCE_ROWS[""][STANCE_MOCK]
+                rest_hips = rig.pose.bones["hips"].bone.head_local.z
+                pose(rig, "hips", lift=(hips - rest_hips) / AMP)
+                pose(rig, "spine", fwd=spine / AMP)
+                pose(rig, "head", fwd=head / AMP)
+                for sd, a, wd in (("L", near_a, near_w), ("R", far_a, far_w)):
+                    foot_to(rig, sd, a, 0.0, wd)
+                    _level_sole(rig, sd)
+                    pose(rig, "armU." + sd, fwd=arm_u / AMP, out=14.0)
+                    pose(rig, "armL." + sd, fwd=arm_l / AMP)
+            return f
+
+        clip(rig, "roll", 30, {0: _stance_over(roll_key(0.88, 22.0, -16.0, 20.0, -30.0, 24.0, 40.0), {}, 0.0, True),
+                               3: roll_planted(0.72, 34.0, -10.0, 34.0, 40.0),
+                               7: roll_key(0.56, 62.0, -22.0, 84.0, -108.0, 50.0, 40.0),
+                               11: roll_key(0.60, 50.0, -18.0, 70.0, -74.0, 30.0, 84.0),
+                               15: roll_key(0.58, 56.0, -16.0, 88.0, -112.0, 30.0, 92.0),
+                               19: roll_planted(0.46, 48.0, -24.0, 62.0, 14.0),
+                               24: roll_planted(0.50, 46.0, -24.0, 62.0, 12.0),
+                               27: roll_planted(0.66, 36.0, -16.0, 44.0, 36.0),
+                               30: _stance_over(roll_planted(0.88, 22.0, -16.0, 24.0, 40.0), {}, 0.0, True)})
+
+        # A spot dodge: (round 9) each family's own, `spot_core`.
+        n = 30
+        clip(rig, "spot_dodge", n, {i: spot_core(i / n, "") for i in range(0, n + 1, 2)})
+        for fam in IDLE_STYLES:
+            clip(rig, "spot_dodge_" + fam, n, {i: spot_core(i / n, fam) for i in range(0, n + 1, 2)})
 
         # An air dodge: a flinch into a tight curl, knees up and arms crossed before the face (not over it: the hands stay under the
         # chin), held through the dodge, then opening into the fall.
@@ -4514,7 +4949,7 @@ def main() -> None:
                     pose(rig, "armL." + side, fwd=50.0 + 60.0 * k)
             return f
 
-        clip(rig, "air_dodge", 30, {0: curl(0.3), 4: amped(curl(1.0), 1.06), 20: curl(1.0), 30: fall(0.0)})
+        clip(rig, "air_dodge", 30, {0: curl(0.3), 4: amped(curl(1.0), 1.06), 20: curl(1.0), 30: air_core("fast", "", 0.0)})
     else:
         clip(rig, "roll", 8, {0: roll_pose, 8: roll_pose})
 
@@ -4621,7 +5056,7 @@ def main() -> None:
                 pose(rig, "armU." + side, fwd=96.0, out=58.0)
                 pose(rig, "armL." + side, fwd=20.0)
 
-        clip(rig, "platform_drop", 20, {0: drop_tip, 8: drop_away, 20: fall(0.0)})
+        clip(rig, "platform_drop", 20, {0: drop_tip, 8: drop_away, 20: air_core("fast", "", 0.0)})
 
         # A run stopping: braced and leaning back against the slide, the front heel dug in and the arms flung back, a rebound forward
         # over the feet, then settling into the stance.
@@ -4741,10 +5176,10 @@ def main() -> None:
             clip(rig, name, 72, {0: base, 12: glance(1.0, 0.5), 30: glance(1.0, 1.0), 42: glance(-0.6, 0.0), 60: glance(-0.6, -0.5),
                                  72: base})
 
-        look_clip("idle_look", idle(0.0), glance_on(idle(0.0), STANCE_LEAN, STANCE_SIDE, -16.0, -0.06))
-        for fam, st in IDLE_STYLES.items():
-            look_clip("idle_look_" + fam, styled_idle(0.0, st),
-                      glance_on(styled_idle(0.0, st), st["spine"], st.get("side", 0.0), st["head"], st["hips"]))
+        # (Round 9: on each family's planted feet, `fidget_core`, one to each, after the reference fighters' own: it was one glance for all.)
+        for fam in [""] + list(IDLE_STYLES):
+            n = FIDGET_FRAMES[fam]
+            clip(rig, "idle_look_" + fam if fam else "idle_look", n, {i: fidget_core(i / n, fam) for i in range(0, n + 1, 3)})
     else:
         clip(rig, "knockdown", 8, {0: down_pose, 8: down_pose})
 

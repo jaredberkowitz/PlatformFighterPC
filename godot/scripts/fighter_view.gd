@@ -212,7 +212,7 @@ const LONG_FIT := Transform3D(Basis(Vector3(0.92, 0, 0), Vector3(0, 0.92, 0), Ve
 ## Where the head and torso sit in the rig compared with the sphere-built look the face, hats and glasses were designed for.
 const HEAD_FIT := Transform3D(Basis(Vector3(0.825, 0, 0), Vector3(0, 0.825, 0), Vector3(0, 0, 0.825)), Vector3(0, 1.56 - 1.42 * 0.825, 0))
 const TORSO_FIT := Transform3D()
-const LOOPING := ["tumble", "idle", "idle_brawler", "idle_quick", "idle_heavy", "idle_caster", "idle_tool", "run_brawler", "run_quick", "run_heavy", "run_caster", "run_tool", "walk", "walk_brawler", "walk_quick", "walk_heavy", "walk_caster", "walk_tool", "run", "dash", "fall", "victory_a", "victory_b", "victory_c",
+const LOOPING := ["tumble", "idle", "idle_brawler", "idle_quick", "idle_heavy", "idle_caster", "idle_tool", "run_brawler", "run_quick", "run_heavy", "run_caster", "run_tool", "walk", "walk_brawler", "walk_quick", "walk_heavy", "walk_caster", "walk_tool", "run", "dash", "fall", "fall_brawler", "fall_quick", "fall_heavy", "fall_caster", "fall_tool", "victory_a", "victory_b", "victory_c",
 	"helpless", "dizzy", "buried"]
 ## The rig is read once and copied for every fighter (reading it again renames its bones).
 static var _rig_templates: Dictionary = {}
@@ -528,8 +528,8 @@ const STEP_CADENCE := 1.4
 ## The base body's runs play once a cycle every clip-frames x RUN_TEMPO units of ground (make_rigged_blob.py RUN_TEMPO).
 const RUN_TEMPO := 0.17
 const RUN_STOP_FRAMES := 20.0
-const FIDGET_AFTER := 300
-const FIDGET_EVERY := 420
+const FIDGET_AFTER := 240   # (round 9: the reference fighters' come every three or four seconds; 300 and 420 until then)
+const FIDGET_EVERY := 300
 const FIDGET_FRAMES := 72.0
 const DROP_FRAMES := 20.0
 const HEAVY_HITSTUN_SPEED := 0.15
@@ -570,7 +570,8 @@ func _choose_clip(s: Dictionary) -> Array:
 				return ["crouch", 1.0, 1.0]
 		"Turn":
 			# Turning out of a run skids; a turn from standing just turns.
-			return ["skid", 1.0, -1.0] if speed > 0.08 else ["idle", 1.0, -1.0]
+			# (Round 9: its own family's idle; every class played the sword family's for the frames of a turn.)
+			return ["skid", 1.0, -1.0] if speed > 0.08 else [AnimLibrary.family_clip(_cls(s), "idle", anim), 1.0, -1.0]
 		"LedgeGetUp":
 			if ledge_rolling:
 				return ["roll", 1.0, ledge_k]
@@ -580,14 +581,24 @@ func _choose_clip(s: Dictionary) -> Array:
 			# respawn has far more): a slap on the floor and a pop up, over its lag.
 			if int(s.get("invuln", 0)) > 0 and int(s.get("invuln", 0)) <= TECH_INVULN_AT_MOST:
 				return [AnimLibrary.or_stand_in("tech", anim), 1.0, clampf(float(s.state_frame) / maxf(1.0, float(s.get("lag", 4))), 0.0, 1.0)]
+			if use_base_body:
+				return [AnimLibrary.family_clip(_cls(s), "land", anim), 1.0, _land_progress(s)]
 		"Idle":
+			# (Round 9: a landing is two or three frames of lag in a plain hop, far less than it takes the body to come up: it goes on into the idle.)
+			if use_base_body and land_from >= 0 and int(s.frame) >= land_from:
+				var lp := _land_progress(s)
+				if lp < 1.0:
+					return [AnimLibrary.family_clip(_cls(s), "land", anim), 1.0, lp]
 			# Still sliding as it stops out of a run: braced against the slide, then settled.
 			if grounded and speed > RUN_STOP_SPEED and int(s.state_frame) < RUN_STOP_FRAMES:
 				return [AnimLibrary.or_stand_in("run_stop", anim), 1.0, float(s.state_frame) / RUN_STOP_FRAMES]
 			# Standing still for a long time, a fidget now and then.
 			var still := int(s.state_frame) - FIDGET_AFTER
-			if grounded and still >= 0 and still % FIDGET_EVERY < FIDGET_FRAMES:
-				return [AnimLibrary.family_clip(_cls(s), AnimLibrary.or_stand_in("idle_look", anim), anim), 1.0, float(still % FIDGET_EVERY) / FIDGET_FRAMES]
+			if grounded and still >= 0:
+				var look := AnimLibrary.family_clip(_cls(s), AnimLibrary.or_stand_in("idle_look", anim), anim)
+				var look_frames: float = anim.get_animation(look).length * 60.0 if anim != null and anim.has_animation(look) else FIDGET_FRAMES
+				if float(still % FIDGET_EVERY) < look_frames:
+					return [look, 1.0, float(still % FIDGET_EVERY) / look_frames]
 		"Airborne":
 			# Just dropped through a platform (the sim ignores platforms for a few frames after it): a hop down out of a crouch.
 			if int(s.get("ignore", 0)) > 0 and int(s.state_frame) < DROP_FRAMES and flip_left <= 0.0:
@@ -651,12 +662,12 @@ func _choose_clip(s: Dictionary) -> Array:
 	# rollback or a replay seek redraws the same pose (it depends only on the velocity). Falling at full speed, the fall paddles.
 	var vy := float(s.vel.y)
 	if vy > 0.0:
-		return ["jump", 1.0, clampf(1.0 - vy / AIR_RISE_SPEED, 0.0, 1.0)]
+		return [AnimLibrary.family_clip(_cls(s), "jump", anim), 1.0, clampf(1.0 - vy / AIR_RISE_SPEED, 0.0, 1.0)]
 	var opening := -vy / AIR_OPEN_SPEED
 	var start := AnimLibrary.or_stand_in("fall_start", anim)
 	if opening < 1.0 and start != "fall":
-		return [start, 1.0, clampf(opening, 0.0, 1.0)]
-	return ["fall", 1.0, -1.0]
+		return [AnimLibrary.family_clip(_cls(s), start, anim), 1.0, clampf(opening, 0.0, 1.0)]
+	return [AnimLibrary.family_clip(_cls(s), "fall", anim), 1.0, -1.0]
 
 
 ## With the environment variable PF_R8_OFF (a debugging aid for round 8's before and after images), "sets" plays these states as before
@@ -675,6 +686,26 @@ func _choose_clip_before_r8(s: Dictionary) -> Array:
 	if int(s.platform) >= 0:
 		return [AnimLibrary.family_clip(_cls(s), "idle", anim), 1.0, -1.0]
 	return ["fall", 1.0, -1.0]
+
+
+## How far through the landing's clip the body is: down on the impact by frame LAND_DOWN, staying down through a long lag (an aerial's), then up over the frames left of
+## the clip, past the end of the lag and into the idle. By frames from touching down (`land_from`, seen by this view), lighter fighters quicker, heavier slower.
+const LAND_DOWN := 4.0
+const LAND_RISE := 12.0
+const LAND_RISE_BY := {"quick": 9.0, "heavy": 16.0, "caster": 11.0, "tool": 13.0}
+var land_from := -1
+var land_lag := 0.0
+
+
+func _land_progress(s: Dictionary) -> float:
+	var f := float(int(s.frame) - land_from)
+	var rise: float = LAND_RISE_BY.get(String(AnimLibrary.CLASS_FAMILY.get(_cls(s), "sword")), LAND_RISE)
+	var down_at := LAND_DOWN / 16.0
+	if f < LAND_DOWN:
+		return down_at * f / LAND_DOWN
+	# (A long lag keeps it down until its last frames.)
+	var hold := maxf(0.0, land_lag - LAND_DOWN - 4.0)
+	return clampf(down_at + (1.0 - down_at) * (f - LAND_DOWN - hold) / rise, down_at, 1.0)
 
 
 ## The item pick-up and throws' lengths (the ruleset's `item_pick_frames` and `item_side_frames`; the up, down and dash throws run 19-29,
@@ -1105,7 +1136,7 @@ func _animate(s: Dictionary, delta: float) -> void:
 ## HANDOFF_FRAMES by the clip being entered; what must land at once takes none or one (a hit's pose, the landing's impact).
 const HANDOFF_FRAMES := 5.0
 const HANDOFF_BY_CLIP := {"jumpsquat": 2.0, "land": 2.0, "tech": 2.0, "knockdown": 2.0, "hurt": 1.0, "hurt_heavy": 1.0, "hurt_up": 1.0,
-	"tumble": 4.0, "dash": 3.0, "skid": 3.0, "air_jump": 3.0, "roll": 4.0, "spot_dodge": 3.0, "air_dodge": 2.0, "jump": 2.0, "grab": 3.0, "ledge": 3.0}
+	"tumble": 4.0, "dash": 3.0, "skid": 3.0, "air_jump": 3.0, "roll": 3.0, "spot_dodge": 2.0, "air_dodge": 2.0, "jump": 2.0, "grab": 3.0, "ledge": 3.0}
 ## With the environment variable PF_R9_OFF (before and after images, round 9): "handoff" leaves the cross-fades as they were.
 static var r9_off := OS.get_environment("PF_R9_OFF").split(",")
 var handoff_clip := ""
@@ -1130,7 +1161,10 @@ func _ease_handoff(s: Dictionary, clip: String) -> void:
 		handoff_t = 1.0
 		handoff_len = 0.0
 	elif clip != handoff_clip:
-		var len: float = float(HANDOFF_BY_CLIP.get(clip, HANDOFF_FRAMES))
+		var base := clip
+		for suffix in ["_brawler", "_quick", "_heavy", "_caster", "_tool"]:
+			base = base.trim_suffix(suffix)
+		var len: float = float(HANDOFF_BY_CLIP.get(base, HANDOFF_FRAMES))
 		# (A move's first active frame lands on its own pose: the ease is over before it.)
 		if String(s.state) == "Attack":
 			var first := float((s.move_timing as PackedInt32Array)[1])
@@ -3194,8 +3228,8 @@ const TAKE_OFF_KICK := 9.0
 const TAKE_OFF_STRETCH := -0.15
 ## On touching down the body is squashed at once to LAND_IMPACT plus LAND_IMPACT_PER_SPEED times the fall speed (units per frame, up to
 ## 0.35), still pushing down at LAND_IMPACT_PUSH times it, and the spring rebounds it to the landing's own squash.
-const LAND_IMPACT := 0.1
-const LAND_IMPACT_PER_SPEED := 0.55
+const LAND_IMPACT := 0.06   # (0.1 and 0.55 until round 9, when the clip itself bottoms out: both together flattened the body)
+const LAND_IMPACT_PER_SPEED := 0.3
 const LAND_IMPACT_PUSH := 6.0
 ## Weight by class (round 2, the owner: the heavy fighters moved as light as the quick ones): [the body springs' stiffness, the landing
 ## squash] as shares of the usual. The heavy fighters (Greatsword, Bracers, Clutch) sink deeper on landing and settle slower, with less
@@ -3269,8 +3303,9 @@ func _ledge_motion(s: Dictionary, pos: Vector3) -> void:
 
 ## A roll's somersault turns through the middle of the roll (as shares of it), and a spot dodge steps this far back into the stage.
 const ROLL_SPIN_FROM := 0.12
-const ROLL_SPIN_TO := 0.78
-const SPOT_DODGE_STEP := 0.7
+const ROLL_SPIN_TO := 0.66   # (0.78 until round 9)
+const ROLL_PIVOT := 0.66
+const SPOT_DODGE_STEP := 0.2   # (0.7 until round 9: the reference fighters dodge on the spot, their feet staying put)
 ## How far a fighter lying on the floor is raised (see `apply`).
 const KNOCKDOWN_LIFT := 0.32
 ## The midair jump's front flip: seconds left of it, and the offset that keeps it turning about the body's middle.
@@ -3444,8 +3479,31 @@ func _log_bend(s: Dictionary) -> void:
 			var bend := rad_to_deg(u.angle_to(l))
 			var turn := u.cross(l).dot(hinge)
 			var off := rad_to_deg(asin(clampf(l.normalized().dot(hinge), -1.0, 1.0)))
-			print("BEND %d %s %s %d %s%s %.1f %d %.1f" % [_cls(s), s.state, mv, int(s.state_frame), limb[0], side, bend,
-				1 if turn >= 0.0 else -1, off])
+			# (Round 9: the angle between the fold this shape needs and where the joint's own hinge lies with no twist of the upper bone: 0 a
+			# natural fold, 180 fully reversed. The sign above reads the upper bone's local x, and the arm IK sets that on whichever side is the
+			# shorter turn, so it flips with no change at all in the arm's shape; a shoulder turns about a quarter turn either way, so a shape
+			# only reads as backward well past 90. In the frame of the bone the limb hangs from, so the chest's own turns do not count.)
+			var parent := skeleton.get_bone_parent(a)
+			var pr: Basis = (skeleton.get_bone_global_pose(parent).basis * skeleton.get_bone_global_rest(parent).basis.inverse()).orthonormalized() if parent >= 0 else Basis()
+			var u0 := (skeleton.get_bone_global_rest(b).origin - skeleton.get_bone_global_rest(a).origin).normalized()
+			var u1: Vector3 = (pr.inverse() * u).normalized()
+			var l1: Vector3 = (pr.inverse() * l).normalized()
+			var h0 := (Vector3.RIGHT - u0 * Vector3.RIGHT.dot(u0)).normalized()
+			var carried: Vector3 = Quaternion(u0, u1) * h0
+			# (A forward fold of an arm turns about -x at rest; a knee's folds the other way.)
+			var need := u1.cross(l1) * (-1.0 if limb[0] == "armU" else 1.0)
+			var away := rad_to_deg(carried.angle_to(need.normalized())) if need.length() > 0.02 else 0.0
+			# (Round 9: how the joint reads at the match camera: its signed bend on screen, positive the natural way round for a fighter facing right
+			# (an elbow's forearm folding ahead of the upper arm, a knee's shin behind the thigh), with each bone's share of its length that shows,
+			# as foreshortened bones do not read.)
+			var gu: Vector3 = skeleton.global_transform.basis * u
+			var gl: Vector3 = skeleton.global_transform.basis * l
+			var su := Vector2(gu.x * float(s.facing), gu.y)
+			var sl := Vector2(gl.x * float(s.facing), gl.y)
+			var scr := rad_to_deg(su.angle_to(sl)) * (-1.0 if limb[0] == "armU" else 1.0) * -1.0
+			var show := minf(su.length() / maxf(gu.length(), 0.001), sl.length() / maxf(gl.length(), 0.001))
+			print("BEND %d %s %s %d %s%s %.1f %d %.1f %.0f %.0f %.2f" % [_cls(s), s.state, mv, int(s.state_frame), limb[0], side, bend,
+				1 if turn >= 0.0 else -1, off, away, scr, show])
 
 
 ## How far the face may turn from the camera (its forward axis' depth, world space) and still count as seen.
@@ -3546,6 +3604,10 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 	# Landing out of an aerial or a fast fall stumbles: deeper, and pitched forward, for its whole landing lag.
 	if state == "Landing" and last_state != "Landing":
 		heavy_landing = last_state == "Attack" or s.fast_fall
+		land_from = int(s.frame)
+		land_lag = float(s.get("lag", 4))
+	if state != "Landing" and state != "Idle":
+		land_from = -1
 	if state != "Landing":
 		heavy_landing = false
 	if heavy_landing:
@@ -3745,9 +3807,10 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 	var dodge := dodge_progress(s)
 	if state == "Roll" and dodge >= 0.0:
 		var way: int = (s.dodge as PackedInt32Array)[1]
-		flip += (-1.0 if way < 0 else 1.0) * TAU * smoothstep(ROLL_SPIN_FROM, ROLL_SPIN_TO, dodge)
-		# (About the curled ball's middle, high enough that the head clears the floor as it comes round.)
-		pivot = Vector3(0, 0.8, 0)
+		# (Round 9: a back roll starts its turn a little later, the feet going first; as the reference's.)
+		flip += (-1.0 if way < 0 else 1.0) * TAU * smoothstep(ROLL_SPIN_FROM + (0.04 if way < 0 else 0.0), ROLL_SPIN_TO + (0.06 if way < 0 else 0.0), dodge)
+		# (About a point low enough that the head comes round at the floor, as the reference's does; it was 0.8, the head 0.3 up in the air.)
+		pivot = Vector3(0, ROLL_PIVOT, 0)
 	var move_flip := _move_flip(s)
 	if move_flip != 0.0:
 		flip += move_flip
@@ -4315,13 +4378,13 @@ const STAFF_REST_ANGLE := 78.0
 ## body). The greatsword's was up by the shoulder.
 ## (Round 8, the owner's Longsword note "the arm is sometimes hidden underneath the body": a little further forward, 0.1 and 0.12 until
 ## then, so the fist reads beside the body, slightly forward, as the swordsman reference's.)
-const GREAT_REST_HAND := Vector2(0.2, 0.6)
-const SWORD_REST_HAND := Vector2(0.22, 0.6)
+const GREAT_REST_HAND := Vector2(0.24, 0.86)
+const SWORD_REST_HAND := Vector2(0.24, 0.96)
 const STAFF_REST_HAND := Vector2(0.62, 0.8)
 ## How far toward the camera a resting weapon's hand is (in front of the body it crossed the chest; the swing's own depth is 0.35).
 ## (0.1 until the owner's note: at thigh height the fist sank into the near thigh, only the pommel showing, in 64-100% of the carry's
 ## frames; out past the thigh's surface it shows, the carry as low as before.)
-const REST_HAND_Z := 0.3
+const REST_HAND_Z := 0.38
 ## The staff stands on the far side of the body, upright (round 8: on the near side, held at the hip, its shaft ran up over the chest
 ## and the face; behind, it shows above the shoulder and below the hip, as the staff reference's stands clear of her front).
 const STAFF_REST_Z := -0.15
@@ -4333,7 +4396,7 @@ const GUARD_HIPS := 0.86
 ## How far the resting blade dips (degrees) for each unit the body sinks below the stance.
 const GUARD_DIP := 260.0
 ## The greatsword's grip in depth at rest (round 8: beside the near leg, the blade trailing low; it was -0.45, the blade across the back).
-const GREAT_REST_Z := 0.3   # (0.05 until the owner's hidden-arm note, as REST_HAND_Z)
+const GREAT_REST_Z := 0.38   # (0.05 until the owner's hidden-arm note, as REST_HAND_Z)
 ## How far the greatsword's grip moves in depth a sim frame, between its rest behind the back and its swing in front.
 const GREAT_Z_STEP := 0.135
 ## The greatsword's length (hand to point), whatever the hit: the blade reaches about 2 units past the grip.
@@ -4384,7 +4447,7 @@ func _held_pose(s: Dictionary) -> bool:
 
 
 ## The deepest a low-carried blade dips (degrees; 270 is straight down).
-const LOW_CARRY_DIP_MAX := 250.0
+const LOW_CARRY_DIP_MAX := 232.0   # (250 until round 9: past about 230 `_blade_round_side` began turning the carried blade toward the camera in idle, walk and landing dips)
 
 
 ## Whether this fighter carries its blade low, trailing behind (the swords, the Greatsword, the Exile's), rather than the staff upright.
@@ -5428,6 +5491,8 @@ const HELPLESS_ROCK := 8.0
 const HELPLESS_FRAMES := 50.0
 const BURIED_ROLL := 8.0
 const BURIED_FRAMES := 24.0
+const AIR_DODGE_LIE := 62.0
+const AIR_DODGE_BACK := 24.0
 
 
 func _state_body(s: Dictionary) -> Vector2:
@@ -5446,6 +5511,15 @@ func _state_body(s: Dictionary) -> Vector2:
 				return Vector2(HELPLESS_SLUMP + HELPLESS_ROCK * sin(a), 0.5 * HELPLESS_ROCK * sin(a * 0.7)) * settle
 		"Buried":
 			return Vector2(0.0, BURIED_ROLL * sin(TAU * f / BURIED_FRAMES)) * settle
+		"AirDodge":
+			# (Round 9: a directional dodge lies along its way, head first, as the reference's do; ahead up to AIR_DODGE_LIE, behind less, and it
+			# comes upright over the back half.)
+			var d: Vector2 = s.get("dodge_dir", Vector2.ZERO)
+			var ahead := d.x * float(s.facing)
+			if absf(ahead) > 0.1:
+				var k := dodge_progress(s)
+				var e := smoothstep(0.0, 0.08, k) * (1.0 - smoothstep(0.45, 0.8, k))
+				return Vector2((AIR_DODGE_LIE if ahead > 0.0 else -AIR_DODGE_BACK) * absf(ahead) * e, 0.0)
 	return Vector2.ZERO
 
 
@@ -5695,7 +5769,10 @@ func _arms_beside_head(facing: int) -> void:
 		if k <= 0.0 or p.z > c.z:
 			continue
 		var mine: bool = side == _weapon_side(facing)
-		var off := p.x - c.x
+		# (Round 9: a free hand goes out the way it already lies from its own shoulder. Measured from the head's middle, a guard fist ahead of its
+		# shoulder but just behind the leaning head was carried right back behind the body, the elbow folding the wrong way: the far guard arm
+		# of every jab, the most flagged elbow in the game.)
+		var off := p.x - c.x if mine else p.x - sh.x
 		var sgn := signf(off) if absf(off) > 0.06 else (float(facing) if mine else -float(facing))
 		var reach := ((skeleton.get_bone_global_rest(il).origin - skeleton.get_bone_global_rest(iu).origin).length()
 			+ (skeleton.get_bone_global_rest(ih).origin - skeleton.get_bone_global_rest(il).origin).length() + 0.07)
@@ -5803,6 +5880,12 @@ func _ik_arm(side: String, mine: bool, target: Vector3, amount: float) -> void:
 		# The elbow points down and out to the side, as a person's does reaching forward. (It pointed a little back: on a reach in front the
 		# upper arm ran back behind the torso while the forearm came forward to the hand, an arm behind and in front at once. Art review 5.)
 		var pole := Vector3(0.8 if side == "R" else -0.8, -1.0, 0.1)
+		# (Round 9: a hand drawn back past its shoulder folds as a curl, the elbow going forward: with the elbow kept out and down the forearm folded
+		# backward about it, a reversed elbow. In the chest's frame, so its own turn does not count; eased in, so it never pops.)
+		if parent >= 0:
+			var chest: Basis = (skeleton.get_bone_global_pose(parent).basis * skeleton.get_bone_global_rest(parent).basis.inverse()).orthonormalized()
+			var back: float = (chest.inverse() * d).z
+			pole = chest * (pole + Vector3(0.0, 0.0, 1.6 * smoothstep(0.02, 0.3, -back)))
 		var bend := (pole - dir * pole.dot(dir)).normalized()
 		var elbow := shoulder + dir * (cos(ang) * upper) + bend * (sin(ang) * upper)
 		var fore := (goal - elbow).normalized()

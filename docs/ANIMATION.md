@@ -2328,3 +2328,60 @@ Measured on the installed 8r code after group 25. **These replace the numbers lo
 - **The crossing checked in a movie:** the gallery's stills skip a frame around it, so the forward tilt's rows in the first version of
   `r8_weight_fit.jpg` showed no change; a 60 fps movie does (the image now uses movie frames). Judge fast transitions in `--write-movie`
   frames, not gallery stills.
+
+### Round 9 (2026-10-30, the owner: an animations pass at maximum effort, the re-usable animations as close to the reference as possible)
+
+The review: `docs/art/anim/ANIMATION_REVIEW_2.md`. Every shared clip decoded from reference footage at 60 frames a second (compilations of each fighter's idle, spot dodge, air dodge,
+run, dash dance, crouch, ledge, dizzy and reel, the owner's match and training videos), measured with the new `PF_ANIM_TRACE` and `tools/art/review/clip_report.py`. The footage and the
+side-by-sides stay on F:.
+
+### Group 1 (round 9): the idle moves as the references' do, on the wider stance (Decided: owner picked C, 2026-10-30)
+
+- **Measured (reference, share of its height):** the hips never stand still. Up and down: swordsman 3.7%, wolf 3.6%, ninja 4.5%, plumber 10% (a boxer's bounce every 27 frames), dinosaur 10% (every
+  30), villager 5%. Along the stage: 2-8%, the weight moving between planted feet. Feet apart along the stage: 0.26, 0.39, 0.48, 0.25, 0.19, 0.27. **Ours (8r):** hips up and down 0.1-1%, along the stage
+  0, feet apart 0.00-0.14: one foot behind the other on screen, because round 8's stance scaled the leg angles by half and the width along the stage went with them.
+- **Decided (owner picked C, 2026-10-30)** from `docs/art/anim/review2/mock_stance_width.jpg`: the feet set apart along the stage at the reference's width, the knees at each family's reference bend.
+- **Fix (`make_rigged_blob.py`):** the feet are authored and the hips move over them (`IDLE_CORE`, `_STANCE_ROWS`, `idle_core`, `foot_to`): each family's own beat, sway, dwell and bob; the chest follows
+  the hips a beat late and the head a beat later. Every grounded clip's stance keys stand on the same feet (`_stance_feet`). The long idle's fidget is each family's own (`fidget_core`, sooner and oftener:
+  `FIDGET_AFTER` 240, `FIDGET_EVERY` 300). A standing turn plays the fighter's own idle, not the sword family's.
+- **The carried blade's hand raised to the hip** (`SWORD_REST_HAND` y 0.6 to 0.96, `GREAT_REST_HAND` 0.6 to 0.86; `REST_HAND_Z` 0.38): at thigh height with the new stance the arm hung locked straight into the near
+  thigh; the reference's hand is at 0.40 of its height. `PF_ARM_HIDE`: locomotion 2 of 614. The blade still trails low and back.
+- **Blade round the side:** `LOW_CARRY_DIP_MAX` 250 to 232, so idle, walk and landing dips stay in the plane: past about 230 `_blade_round_side` began turning the carried blade toward the camera.
+- **Measured (ours, before to after; reference):** hips up and down / along the stage / feet apart / period in frames:
+  sword 0.9% / 0 / 0.10 / 96 to 2.7% / 6.2% / 0.16 / 59 (3.7% / 6.5% / 0.26 / about 60);
+  brawler 0.8% / 0 / 0.09 / 96 to 3.6% / 2.6% / 0.24 / 80 (3.6% / 1.8% / 0.39 / about 75);
+  quick 1.0% / 0 / 0.14 / 96 to 3.5% / 5.3% / 0.27 / 44 (4.5% / 5.5% / 0.48 / 46);
+  heavy 0.5% / 0 / 0.07 / 96 to 8.8% / 2.6% / 0.13 / 30 (10% / 3% / 0.19 / 30);
+  caster 0.2% / 0 / 0.02 / 47 to 9.5% / 6.1% / 0.19 / 27 (10% / 7.6% / 0.25 / 27);
+  tool 0.1% / 0 / 0.00 / 48 to 4.5% / 2.6% / 0.18 / 59 (5.5% / about 3% / 0.27 / about 60).
+  The feet stay short of the references: the legs are short and a wider step reads as a lunge on this body.
+- **Image:** `docs/screenshots/anim/r9_idle_stance_c.jpg` (six families over a beat, 8r left, now right).
+
+### Group 2 (round 9): rolls and dodges
+
+- **Measured (the plumber's rolls, the only ones in training-mode footage, F:):** low all the way: the head at the floor upside down at 38% of the roll, the legs open, not a ball, round again by 65%, then a long low crawl that stands only at the very end. Ours crouched, spun a tight ball about the
+  body's middle with the head 0.3 off the floor, and was nearly standing by 80%. Spot dodges (F:, every fighter): the body snaps into its dodge by the third frame and holds, and each is its own: the swordsman tall with the chest opened, the wolf a deep squat up by the
+  eighth frame, the ninja a low lunge, the dinosaur flat over its knees, the plumber a duck, the villager a bow with the back foot up. None steps back in depth. Air dodges: a directional one lies along its way, head first.
+- **Whole-body flips:** a roll is a true somersault in the references, as ours already was; kept.
+- **Fix:** `roll` re-keyed (`roll_key`, `roll_planted`) with the turn about a lower point (`ROLL_PIVOT` 0.66, was 0.8) and over the reference's frames (`ROLL_SPIN_TO` 0.66, was 0.78); `spot_dodge` per family (`SPOT_CORE`, `spot_core`), the step into depth 0.7 to 0.2; a directional air dodge lies along its way (`_state_body`, `AIR_DODGE_LIE`, `dodge_dir` in the snapshot).
+- **Measured:** the hips' lowest in a roll 0.26H (reference about 0.2H), the head's lowest at the floor.
+- **Not matched, a sim request:** the references' forward roll ends turned round, facing the way it came; the sim keeps the facing, so ours ends facing on. For the moveset porting agent.
+- **Image:** `docs/screenshots/anim/r9_rolls.jpg`, `r9_spot_dodge.jpg` (8r above, now below).
+
+### Group 3 (round 9): jumps and landings
+
+- **Measured (full hops of six reference fighters on a training grid, F:):** a take-off stretched long with the legs trailing, then each family's own arms: the swordsman's low, the wolf's and plumber's far arm thrown up and the near swung back, the ninja's ahead, the dinosaur's down, the villager's both up. At the top the wolf and ninja
+  curl right up, the swordsman and villager draw one knee, the plumber both. The fall opens and reaches. The crouch and landing keep the feet where they stood; a landing bottoms out by its third frame at about a fifth of the height.
+- **Fix:** `AIR_CORE`, `air_core`: `jump`, `fall_start`, `fall` per family (`AnimLibrary.FAMILY_CLIPS`); `LAND_CORE`, `crouch_key`: `jumpsquat`, `land` per family, played by the frames since touching down and on into the idle (`_land_progress`: a plain landing's lag is shorter than the body takes to come up; quick families 9 frames, heavy 16). The view's squash on impact halved, since the clip now bottoms out by itself (`LAND_IMPACT`).
+- **Image:** `docs/screenshots/anim/r9_jumps.jpg`.
+
+### Hand-offs (round 9, tool and fix)
+
+- `clip_report.py --pops` lists every joint jumping further in a frame than its limit, at hand-offs and inside clips. A clip played by progress (a move, a dodge, the air's arc) started on its own first pose in one frame, since a cross-fade cannot run while a clip is posed by seeking: at the jump's take-off a hand moved 1.0 units in a frame,
+  shield to roll 0.44, out of a run 0.52. **Fix:** `_ease_handoff`: every clip change eases over a few sim frames from the pose the body was last in, by sim frames, held by a freeze, dropped on a seek. `PF_R9_OFF=handoff` shows the old.
+
+### The hand-over's regressions (round 9)
+
+- **Hidden striking hands:** `_follow_spec`'s bend and amplification were weighed apart from the sweep: 4 and 1.2 (8r): Popgun 85, Embers 82, Bracers 86, Claws 57 hidden frames, timing follow-through / hold / recovery 2.31 / 1.72 / 1.94; 2 and 1.1 (now): 41, 60, 53, 41, timing 2.34 / 1.84 / 2.16; 0 and 1.1: 38, 53, 51, 37, timing 2.37 / 1.91 / 2.18. Kept 2 and 1.1, most of the hands back for little of the timing. All attacks: 2,722 of 24,678 on 8r, 2,209 now.
+- **Elbows, the measure corrected:** `PF_BEND` now prints two more columns. `away`: the angle between the fold the shape needs and where the joint's hinge lies with no twist of the upper bone (0 natural, 180 fully reversed), which does not flip with the IK's choice of hinge. `scr`, with how much of each bone shows: the signed bend on screen at the match camera. The old sign test flagged 5,628 elbow-frames on 8r; of those `away` over 125 is 3,936.
+- **Elbows, the real causes found:** `_arms_beside_head` carried a guard fist that lay just behind the leaning head out behind the body (the far guard arm in every jab); it now goes out the way the hand lies from its own shoulder. The arm IK's pole kept the elbow out and down when a hand was drawn back past its shoulder, folding the forearm backward; the elbow now comes forward (a curl).
