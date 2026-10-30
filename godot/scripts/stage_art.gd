@@ -39,6 +39,14 @@ static var sun_world := Vector3.INF
 static var palette_misses: Array = []
 
 
+## The city's painted brick and roof: the palette's [backdrop] `city_paint`, or `--city-paint=T|A` (StageBake.CITY_PAINT).
+static func city_paint() -> String:
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--city-paint="):
+			return arg.substr(13).to_upper()
+	return String((palette("city").get("backdrop", {}) as Dictionary).get("city_paint", ""))
+
+
 ## A theme's palette file as {section: {key: value}}.
 static func palette(name: String) -> Dictionary:
 	if _palette_cache.has(name):
@@ -787,6 +795,9 @@ static func _soil_material(t: Dictionary) -> ShaderMaterial:
 	# recessed mortar, soot streaks, the owner's painted materials, 2026-10-18.)
 	elif pattern == "facade" and Materials._png_tile("brick") != null:
 		tex = Materials._png_tile("brick")
+		# (The tile's tones stretched, fidelity review 16 item 6, the owner's pick A; see StageBake.CITY_PAINT.)
+		if city_paint() == "A":
+			tex = Materials._png_tile("brick_a")
 		tint = a
 	# On the stage's cel shading, laid in world space (one repeat every 3 units, so the stones and bands read large and calm; a facade's every 6.6).
 	var m := FighterView.toon(tint, true, tex, Vector2.ONE, {"facade": 6.6, "masonry": 7.0, "strata": 6.0, "roots": 8.0, "earth": 12.0, "seawall": 10.0}.get(pattern, 3.0))

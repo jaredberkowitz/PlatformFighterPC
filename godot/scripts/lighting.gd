@@ -24,7 +24,7 @@ const MOODS := {
 	"meadow": {"key": [Color(1.0, 0.94, 0.88), 1.38, -36.0, -34.0], "fill": [Color(0.58, 0.76, 1.0), 0.4],
 		# (Shade a deeper version of each colour, barely turned toward blue-green, the meadow rebuild's step 3: the reference's grass shade
 		# is a crisp deep green, ours read as a soft olive.)
-		"ambient": [Color(0.88, 0.92, 1.0), 0.48], "shadow_hue": 0.4, "shadow_shift": 0.1, "shadow_value": 0.38,
+		"ambient": [Color(0.88, 0.92, 1.0), 0.48], "shadow_hue": 0.4, "shadow_shift": 0.1, "shadow_value": 0.38, "front_tint": [0.6, 0.16, 0.94],
 		"shadow_tint": Color(0.6, 0.78, 0.74), "rim": Color(1.0, 0.98, 0.9),
 		"grade": [Color(0.92, 0.97, 1.06), Color(1.04, 1.02, 0.96), 0.5], "haze": Color(0.58, 0.8, 1.0)},
 	# (Art review 6 round 9: a weaker key, more pink ambient and a stronger grade than the meadow left the grove under a pale veil, the
@@ -630,9 +630,10 @@ static func stage_mood(env: Environment, root: Node, theme: Dictionary, post: Sh
 	var sc := shade_colour(String(theme.get("name", "meadow")))
 	calm *= {"A": 0.5, "B": 0.25, "C": 0.0, "D": 0.0}.get(sc, 1.0)
 	var tint := Color.from_hsv(float(mood.shadow_hue), 0.3, 0.92)
-	# (The meadow's stones, fidelity review 16 item 5, `--stones=A|B`; see StageBake.STONE_TRY: its shade hue is a green, and green over warm stone reads olive.)
-	if String(theme.get("name", "")) == "meadow" and _flag_value("--stones=").to_upper() in ["A", "B"]:
-		tint = Color.from_hsv(0.6, 0.16, 0.94)
+	# (A mood's own `front_tint` [hue, saturation, value], the meadow's stones, fidelity review 16 item 5, the owner's pick B: its shade hue is
+	# a green, and green over warm stone read olive; StageBake.STONE_TRY. `--stones=T` brings back the tint as before.)
+	if mood.has("front_tint") and _flag_value("--stones=").to_upper() != "T":
+		tint = Color.from_hsv(mood.front_tint[0], mood.front_tint[1], mood.front_tint[2])
 	RenderingServer.global_shader_parameter_set("pf_front_tint", Color(tint.r, tint.g, tint.b, 1.0 if sc in ["B", "C", "D"] else 0.0))
 	RenderingServer.global_shader_parameter_set("pf_front_fall_k", {"A": 0.6, "B": 0.5, "C": 0.35, "D": 0.35}.get(sc, 1.0))
 	# (D: C with the contact shade baked into the modelled pieces eased by half, the deeper shade of fidelity review 9.)

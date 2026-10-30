@@ -423,8 +423,12 @@ static func place_front(root: Node3D, t: Dictionary, scene: Node3D) -> void:
 		"trim": Color(0.9, 0.8, 0.68), "frame": Color(0.86, 0.7, 0.46), "curtain_a": Color(0.92, 0.54, 0.58), "curtain_b": Color(0.56, 0.72, 0.92),
 		"curtain_c": Color(0.92, 0.76, 0.44), "neon": Color(0.88, 0.3, 0.38), "pipe": Color(0.48, 0.48, 0.58), "pot": Color(0.78, 0.4, 0.3),
 		"leaf": Color(0.36, 0.62, 0.3), "ac": Color(0.74, 0.75, 0.8), "spandrel": (t.get("soil_dark", Color(0.4, 0.3, 0.4)) as Color).darkened(0.3)}
-	# (The meadow's stones as card stone, fidelity review 16 item 5, `--stones=A|B`; see STONE_TRY.)
-	var stones: Dictionary = STONE_TRY.get(flag("--stones=").to_upper(), {})
+	# (The meadow's stones as card stone, fidelity review 16 item 5, the owner's pick B: the palette's [backdrop] `stones` or
+	# `--stones=T|A|B`; see STONE_TRY.)
+	var stone_look := String((StageArt.palette(String(t.get("name", ""))).get("backdrop", {}) as Dictionary).get("stones", ""))
+	if flag("--stones=") != "":
+		stone_look = flag("--stones=").to_upper()
+	var stones: Dictionary = STONE_TRY.get(stone_look, {})
 	colours.merge(stones.get("colours", {}), true)
 	# (Lit rooms, dark panes and bulbs keep their own colour whatever the light, as the code-built facade's glass does.)
 	var glow := {"glass_lit": Color(1.0, 0.72, 0.4), "glass_dark": Color(0.12, 0.13, 0.26), "bulb": Color(1.0, 0.94, 0.8)}
@@ -463,14 +467,23 @@ static func place_front(root: Node3D, t: Dictionary, scene: Node3D) -> void:
 				m.set_shader_parameter("front_fall", float(stones.fall))
 			m.set_shader_parameter("front_span", 7.0)
 			_paint_drift(m, t, false)
+			if fam.begins_with("brick") and CITY_PAINT.has(StageArt.city_paint()):
+				m.set_shader_parameter("paint_drift", CITY_PAINT[StageArt.city_paint()].brick)
 			mi.set_surface_override_material(s, m)
 		mi.set_instance_shader_parameter("front_top", top)
 		mi.set_meta("prebaked", true)
 
 
-## The meadow's stones as card stone, on trial (fidelity review 16 item 5, `--stones=A|B`): khaki-grey under an olive veil, as the fronts'
+## The city's roof and brick painted (fidelity review 16 item 6, the owner's pick A: city.cfg [backdrop] `city_paint`, or `--city-paint=T|A`, T
+## as before): the brick tile's five tones were rendered nearly white and squeezed together, so the wall read as one colour repeated, and the
+## roof a plain pink sheet. The tile's tones stretched (art/stage/png/brick_a.png, ffmpeg `curves` on brick.png; StageArt._soil_material),
+## which deepens its mortar too, with broad weathering on the wall, and painted patches on the roof (toon_common `paint_drift`).
+const CITY_PAINT := {"A": {"brick": Vector4(1.0, 0.6, 7.0, 0.0), "roof": Vector4(2.6, 1.0, 5.0, 0.4)}}
+
+
+## The meadow's stones as card stone (fidelity review 16 item 5, the owner's pick B, meadow.cfg `stones`): khaki-grey under an olive veil, as the fronts'
 ## fall into shade is tinted with the stage's shade hue (Lighting `pf_front_tint`), on the meadow a green. Both turn that tint a neutral
-## cool grey-blue on the meadow (Lighting.stage_mood).
+## cool grey-blue on the meadow (MOODS.meadow `front_tint`).
 ##   A  the stone a step paler;
 ##   B  a paler, greyer card stone, a lighter moss, and half the fall into shade on them.
 const STONE_TRY := {
@@ -625,6 +638,8 @@ static func place_play(root: Node3D, t: Dictionary, path: String) -> void:
 				if bright.get("bare", false):
 					m.set_shader_parameter("vertex_shade", false)
 			_paint_drift(m, t, true)
+			if fam in ["top", "top_deep", "top_lit", "top_worn"] and String(t.get("name", "")) == "city" and CITY_PAINT.has(StageArt.city_paint()):
+				m.set_shader_parameter("paint_drift", CITY_PAINT[StageArt.city_paint()].roof)
 			mi.set_surface_override_material(s, m)
 		mi.set_meta("prebaked", true)
 	print("play mock: placed %s" % path.get_file())
