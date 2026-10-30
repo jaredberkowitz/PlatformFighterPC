@@ -213,6 +213,40 @@ static func make(demo_name: String, m: Dictionary, dir: String):
 			for f in range(15, 300):
 				d.shots.append([f, "f%03d" % f])
 			d.end_frame = 301
+		"idle":
+			# (Round 9, the shared clips against their references: both fighters standing, the camera steady on the first, for the stance,
+			# the breath and the weight shift.)
+			d.cam_dist = 7.0
+			d.cam_focus = 0
+			d.events = [[1, "stand", 0, -2.0, 1], [1, "stand", 1, 9.0, -1]]
+			d.timeline = [[0, 0, 0, 0]]
+			d.end_frame = 300
+		"idlelong":
+			# (Round 9: long enough for the long idle's fidget.)
+			d.cam_dist = 7.0
+			d.cam_focus = 0
+			d.events = [[1, "stand", 0, -2.0, 1], [1, "stand", 1, 9.0, -1]]
+			d.timeline = [[0, 0, 0, 0]]
+			d.end_frame = 460
+		"defence":
+			# (Round 9: a forward roll, a back roll, a spot dodge, then a hop with a neutral air dodge, a landing, and a shield held and dropped,
+			# every frame, the camera steady on the first fighter.)
+			d.cam_dist = 9.0
+			d.cam_focus = 0
+			d.events = [[1, "stand", 0, -3.0, 1], [1, "stand", 1, 9.0, -1]]
+			d.timeline = [[0, 0, 0, 0], [20, 0, 0, shield], [30, 127, 0, shield], [31, 0, 0, 0], [90, 0, 0, shield], [100, -127, 0, shield], [101, 0, 0, 0],
+				[160, 0, 0, shield], [170, 0, -127, shield], [171, 0, 0, 0], [240, 0, 0, jump], [242, 0, 0, 0], [252, 0, 0, shield], [254, 0, 0, 0],
+				[330, 0, 0, shield], [360, 0, 0, 0]]
+			d.end_frame = 400
+		"airs":
+			# (Round 9: a short hop, a full hop, a full hop with a midair jump, a full hop fast-fallen, a walk off nothing: every frame, the camera
+			# steady on the first fighter.)
+			d.cam_dist = 9.0
+			d.cam_focus = 0
+			d.events = [[1, "stand", 0, -3.0, 1], [1, "stand", 1, 9.0, -1]]
+			d.timeline = [[0, 0, 0, 0], [20, 0, 0, jump], [21, 0, 0, 0], [90, 0, 0, jump], [110, 0, 0, 0], [190, 0, 0, jump], [210, 0, 0, 0], [222, 0, 0, jump], [224, 0, 0, 0],
+				[340, 0, 0, jump], [360, 0, 0, 0], [378, 0, -127, 0], [381, 0, 0, 0], [384, 0, -127, 0], [400, 0, 0, 0]]
+			d.end_frame = 450
 		"turn":
 			# Standing turnarounds (round 8, the turn pivot): a tap of the stick the other way and back, three times, a picture every
 			# frame, the camera steady on the fighter.
@@ -307,7 +341,7 @@ static func make(demo_name: String, m: Dictionary, dir: String):
 			# The same, held for footage of the scenery's life (with Godot's --write-movie; docs/art/stages/WORLD.md round 2).
 			d.timeline = [[0, 0, 0, 0]]
 			d.shots = []
-			d.end_frame = 660
+			d.end_frame = 240 if OS.get_cmdline_user_args().has("--short") else 660
 		"moves":
 			# A tour of ground moves for checking animation: forward tilt, up tilt, down tilt, then the smashes (sword fighter, player 1).
 			d.chars = [0, 1, 0, 1]

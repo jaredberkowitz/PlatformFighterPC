@@ -1061,7 +1061,9 @@ func _animate(s: Dictionary, delta: float) -> void:
 		var follows: bool = float(pick[2]) >= 0.0
 		# Likewise a hit's pose: a fighter frozen by hitlag is already in it for the whole freeze (the animation does not move on then).
 		var frozen: bool = int(s.hitlag) > 0
-		anim.play(shown, (JUMP_SQUAT_BLEND if clip == "jumpsquat" else 0.1) if current_clip != "" and not follows and not frozen and not clip.begins_with("attack") else 0.0)
+		# (Round 9: no cross-fade on the player: `_ease_handoff` eases every clip change over sim frames, the ones a cross-fade never reached too.)
+		var fade: float = (JUMP_SQUAT_BLEND if clip == "jumpsquat" else 0.1) if current_clip != "" and not follows and not frozen and not clip.begins_with("attack") else 0.0
+		anim.play(shown, 0.0 if use_base_body and not r9_off.has("handoff") else fade)
 		shown_clip = shown
 		if frozen and not follows:
 			anim.advance(0.0)
@@ -1087,11 +1089,76 @@ func _animate(s: Dictionary, delta: float) -> void:
 		# added again on top: through a pummel's freeze the grabbed fighter's head bent round in a circle and its hand crossed the face.)
 		anim.seek(anim.current_animation_position, true)
 	_rest_unkeyed(clip)
+	_ease_handoff(s, clip)
 	_bulk_arms(_cls(s))
 	_body_follow(s, delta)
 	_lag_bones(s)
 	_face_camera(int(s.facing), delta)
 	_follow_bones()
+
+
+## The hand-off between two clips (round 9, the shared clips against their references). A clip played by progress (a move, a dodge, the air's arc
+## by velocity, a get-up, a tech, the ledge's climb) started on its own first pose in one frame, since a cross-fade cannot run while it is posed
+## by seeking: at the jump's take-off a hand moved 1.0 units in a frame, from a shield into a roll 0.44, out of a run 0.52 (`clip_report.py
+## --pops`). So every clip change now eases over a few sim frames from the pose the body was last in, before the layers on top go on: by the sim's
+## frames, so a freeze holds it, and dropped at once on a jump in the sim frame (a rollback or a seek redraws the clip's own pose).
+## HANDOFF_FRAMES by the clip being entered; what must land at once takes none or one (a hit's pose, the landing's impact).
+const HANDOFF_FRAMES := 5.0
+const HANDOFF_BY_CLIP := {"jumpsquat": 2.0, "land": 2.0, "tech": 2.0, "knockdown": 2.0, "hurt": 1.0, "hurt_heavy": 1.0, "hurt_up": 1.0,
+	"tumble": 4.0, "dash": 3.0, "skid": 3.0, "air_jump": 3.0, "roll": 4.0, "spot_dodge": 3.0, "air_dodge": 2.0, "jump": 2.0, "grab": 3.0, "ledge": 3.0}
+## With the environment variable PF_R9_OFF (before and after images, round 9): "handoff" leaves the cross-fades as they were.
+static var r9_off := OS.get_environment("PF_R9_OFF").split(",")
+var handoff_clip := ""
+var handoff_frame := -1
+var handoff_t := 1.0
+var handoff_len := 0.0
+var handoff_from: Array[Quaternion] = []
+var handoff_last: Array[Quaternion] = []
+var handoff_from_hips := Vector3.ZERO
+var handoff_last_hips := Vector3.ZERO
+
+
+func _ease_handoff(s: Dictionary, clip: String) -> void:
+	if not use_base_body or skeleton == null or r9_off.has("handoff"):
+		return
+	var f := int(s.frame)
+	var jumped := handoff_frame >= 0 and (f < handoff_frame or f - handoff_frame > 2)
+	var fresh := handoff_frame < 0 or handoff_last.size() != skeleton.get_bone_count()
+	var moved := 0 if jumped or fresh else f - handoff_frame
+	handoff_frame = f
+	if jumped or fresh:
+		handoff_t = 1.0
+		handoff_len = 0.0
+	elif clip != handoff_clip:
+		var len: float = float(HANDOFF_BY_CLIP.get(clip, HANDOFF_FRAMES))
+		# (A move's first active frame lands on its own pose: the ease is over before it.)
+		if String(s.state) == "Attack":
+			var first := float((s.move_timing as PackedInt32Array)[1])
+			len = clampf(first - 2.0 if first > 0.0 else 3.0, 0.0, 4.0)
+		if int(s.hitlag) > 0:
+			len = 0.0
+		handoff_clip = clip
+		handoff_len = len
+		handoff_t = 0.0 if len > 0.0 else 1.0
+		handoff_from = handoff_last.duplicate()
+		handoff_from_hips = handoff_last_hips
+	handoff_clip = clip
+	var count := skeleton.get_bone_count()
+	if handoff_t < 1.0:
+		if int(s.hitlag) <= 0 and handoff_len > 0.0:
+			handoff_t = minf(1.0, handoff_t + float(moved) / handoff_len)
+		var u := handoff_t * handoff_t * (3.0 - 2.0 * handoff_t)
+		for b in count:
+			skeleton.set_bone_pose_rotation(b, handoff_from[b].slerp(skeleton.get_bone_pose_rotation(b), u))
+		var hb := skeleton.find_bone("hips")
+		if hb >= 0:
+			skeleton.set_bone_pose_position(hb, handoff_from_hips.lerp(skeleton.get_bone_pose_position(hb), u))
+	handoff_last.resize(count)
+	for b in count:
+		handoff_last[b] = skeleton.get_bone_pose_rotation(b)
+	var hips := skeleton.find_bone("hips")
+	if hips >= 0:
+		handoff_last_hips = skeleton.get_bone_pose_position(hips)
 
 
 ## Arm bulk by class: [forearm scale, hand scale] (the bone's own axes: x and z across it, y along it). The Hauler (Bracers) has huge
@@ -3254,6 +3321,8 @@ func reset_motion() -> void:
 	flinch_left = 0.0
 	ik_fade = 0.0
 	neck_ok = false
+	handoff_frame = -1
+	handoff_t = 1.0
 	body_spring_frame = -1
 	body_still = 0.0
 	for t in tails:
@@ -3746,6 +3815,8 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 		_log_motion(s)
 	if log_head:
 		_log_head_legs(s)
+	if log_anim:
+		_log_anim(s)
 
 
 ## With the environment variable PF_MOTION_TRACE set (a debugging aid for the timing audit, round 3), every frame of an attack, a hit
@@ -3773,6 +3844,36 @@ func _log_motion(s: Dictionary) -> void:
 		var hd: Transform3D = skeleton.get_bone_global_pose(head_bone) * head_rest_inv
 		var look: Vector3 = (skeleton.global_transform.basis * hd.basis * Vector3(0, 0, 1)).normalized()
 		line += " look:%.2f,%.2f,%.2f" % [look.x * f, look.y, look.z]
+	print(line)
+
+
+## With the environment variable PF_ANIM_TRACE set (a debugging aid for the shared-clips pass, round 9), every frame of every state prints
+## every joint and the sim's place, for `tools/art/review/clip_report.py`: "ATR <player> <class> <state> <move> <state frame> <hitlag>
+## <facing> <grounded> <clip> <clip position> world:<x>,<y> vel:<x>,<y> pitch:<model x rotation, degrees> yaw:<degrees> sq:<squash> <bone>:<x>,<y>,<z>...",
+## each joint relative to the sim's place, forward along the facing as +x, up +y, toward the camera +z.
+static var log_anim := OS.has_environment("PF_ANIM_TRACE")
+const ANIM_TRACE_BONES := ["hips", "spine", "head", "thigh.L", "thigh.R", "shin.L", "shin.R", "foot.L", "foot.R", "armU.L", "armU.R", "armL.L", "armL.R",
+	"hand.L", "hand.R"]
+
+
+func _log_anim(s: Dictionary) -> void:
+	if skeleton == null or not skeleton.is_inside_tree():
+		return
+	var f := float(s.facing)
+	var mv := String(s.move_name).replace(" ", "_")
+	var line := "ATR %d %d %s %s %d %d %d %d %s %.3f" % [player, _cls(s), s.state, mv if mv != "" else "-", int(s.state_frame), int(s.hitlag), int(f),
+		1 if int(s.platform) >= 0 else 0, current_clip if current_clip != "" else "-", anim.current_animation_position if anim != null else 0.0]
+	line += " t:%d world:%.3f,%.3f vel:%.3f,%.3f pitch:%.1f yaw:%.1f sq:%.3f" % [int(s.frame), global_position.x, global_position.y, float(s.vel.x), float(s.vel.y),
+		rad_to_deg(model.rotation.x), rad_to_deg(model.rotation.y), squash]
+	for b in ANIM_TRACE_BONES:
+		var bi := skeleton.find_bone(b)
+		if bi < 0:
+			continue
+		var p: Vector3 = skeleton.global_transform * skeleton.get_bone_global_pose(bi).origin - global_position
+		line += " %s:%.3f,%.3f,%.3f" % [b, p.x * f, p.y, p.z]
+	if blade_pivot != null and blade_pivot.visible:
+		var t: Vector3 = blade_pivot.to_global(Vector3(_blade_tip_x(_cls(s)), 0.0, 0.0)) - global_position
+		line += " tip:%.3f,%.3f,%.3f" % [t.x * f, t.y, t.z]
 	print(line)
 
 

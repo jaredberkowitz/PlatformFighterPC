@@ -315,6 +315,9 @@ func _parse_demo_args() -> void:
 		if perf:
 			demo.shots = []
 			demo.end_frame = 600
+		# (`--noshots`: no pictures, for a trace run, which can then go headless: a shot waits for a frame to be drawn.)
+		if user_args.has("--noshots"):
+			demo.shots = []
 		print("demo '%s' starting" % name)
 
 
