@@ -199,3 +199,26 @@ Built C (the owner's pick):
 - the grove re-lit (front, paper, play).
 
 P1's gap is 0.122; the wide values hold (darks 17%). Before and after (wide): `review16/grove_falls_built.jpg`. All seven tests pass.
+
+## Item 4, the canyon's hoodoos (mock, 2026-10-30)
+
+`make_canyon_paper.py --hoodoo_look A|B` (`eroded_column`, on the shipped flags). The columns keep their places and sizes: the old
+rings are still drawn, so every later random draw comes out the same.
+
+- **A:** one lofted column instead of three or four equal drums under a disc: a flared foot tapering to a waist, fluted (each corner
+  keeps its own reach), its strata in uneven bands, under an overhanging, uneven cap rock with a pale underside.
+- **B:** A, plus soft bands weathered in so the outline steps in and out, a stronger lean, tilted caps, and about one column in four a
+  broken spire with no cap.
+
+| | Today (unlit control) | A | B |
+|---|---|---|---|
+| P1's gap | 0.215 | 0.217 | 0.215 |
+| Wide darks | 5% | 5% | 4% |
+| Ground triangles | 26,576 | 26,725 | 27,492 |
+
+On the Stage Look Review ("hoodoos60", `hd60_*`). Close (today, A, B; wide top, match bottom): `review16/canyon_hoodoos_mock.jpg`.
+Recommended B.
+
+To ship:
+- rebuild `canyon_paper.glb` with `--hoodoo_look B`;
+- re-light the canyon.

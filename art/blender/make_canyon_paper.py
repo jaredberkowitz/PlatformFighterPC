@@ -60,6 +60,8 @@ FLOOR = -16.0
 STRATA = ["rock_a", "rock_b", "rock_a", "rock_c"]
 FOOT = opts.get("foot", "")
 HOODOOS = int(opts.get("hoodoos", "0"))
+# The hoodoos' look (fidelity review 16 item 4: stacks of equal drums under a disc): `--hoodoo_look A|B`, `eroded_column`.
+HOODOO_LOOK = opts.get("hoodoo_look", "").upper()
 # The dry river gorge (new art toward 5, C1, the owner's approval 2026-10-26): the wash's line made a real channel, `--gorge A|B`. A: its
 # bed wider and strewn with pebbles, each bank stepping up in three sandstone ledges in the strata's colours to a rim, the rim falling
 # away outside in a long slope of sand. B: four taller ledges, and fallen blocks in the bed.
@@ -509,6 +511,75 @@ def mesa_foot(rng):
         shade("talus%d_shade" % (side > 0), cx + side * (half + 2.0), FLOOR + 0.45, STAGE_FZ - 1.5, 4.5)
 
 
+def eroded_column(nm, hx, y, hz, h, r, k, c):
+    """`--hoodoo_look`: a hoodoo as one worn column, not stacked drums: a flared foot tapering to a waist under an overhanging cap rock,
+    fluted up its length (each corner keeps its own reach), its strata in uneven bands. B also weathers the soft bands in, leans it
+    further, tilts its cap, and leaves about one in four a broken spire with no cap."""
+    own = random.Random(int(abs(hx) * 131 + abs(hz) * 17) + c * 7)
+    worn = HOODOO_LOOK == "B"
+    corners = 8 if worn else 7
+    rot = own.uniform(0, math.tau)
+    angs = [rot + math.tau * (i + own.uniform(-0.22, 0.22)) / corners for i in range(corners)]
+    flute = [own.uniform(0.84, 1.12) for _ in angs]
+    reach = 0.09 if worn else 0.05
+    lean = (own.uniform(-reach, reach) * h, own.uniform(-reach, reach) * h)
+    spire = worn and own.random() < 0.25
+    if spire:
+        levels = [(0.0, 1.45), (0.07, 1.12), (0.2, 0.95), (0.34, 0.74), (0.46, 0.84), (0.6, 0.6), (0.72, 0.66), (0.86, 0.42), (1.0, 0.2)]
+    elif worn:
+        levels = [(0.0, 1.5), (0.07, 1.14), (0.18, 1.0), (0.28, 0.8), (0.38, 0.92), (0.5, 0.68), (0.6, 0.8), (0.72, 0.58), (0.82, 0.66),
+                  (0.93, 0.44), (1.0, 0.52)]
+    else:
+        levels = [(0.0, 1.45), (0.08, 1.15), (0.2, 1.0), (0.4, 0.86), (0.6, 0.74), (0.8, 0.62), (0.92, 0.5), (1.0, 0.56)]
+    rings = []
+    for (t, p) in levels:
+        cx, cz = hx + lean[0] * t, hz + lean[1] * t
+        rings.append([(cx + r * p * flute[i] * own.uniform(0.96, 1.04) * math.cos(a), cz + r * p * flute[i] * own.uniform(0.96, 1.04) * math.sin(a))
+                      for i, a in enumerate(angs)])
+    bands = own.randrange(3, 5)
+    OWN.add(nm)
+    for s in range(len(levels) - 1):
+        ta, tb = levels[s][0], levels[s + 1][0]
+        ya, yb = y + h * ta, y + h * tb
+        fam = STRATA[(min(int(((ta + tb) * 0.5) ** 0.85 * bands), bands - 1) + k) % len(STRATA)]
+        bm = part(nm, fam)
+        centre = P(hx + lean[0] * (ta + tb) * 0.5, (ya + yb) * 0.5, hz + lean[1] * (ta + tb) * 0.5)
+        for i in range(corners):
+            j = (i + 1) % corners
+            oriented(bm, (P(rings[s][i][0], ya, rings[s][i][1]), P(rings[s][j][0], ya, rings[s][j][1]),
+                          P(rings[s + 1][j][0], yb, rings[s + 1][j][1]), P(rings[s + 1][i][0], yb, rings[s + 1][i][1])), centre)
+    top_y = y + h
+    tx, tz = hx + lean[0], hz + lean[1]
+    oriented(part(nm, STRATA[k % len(STRATA)]), [P(q[0], top_y, q[1]) for q in rings[-1]], P(tx, top_y - 1.0, tz))
+    if spire:
+        return
+    # The cap rock: a pale underside flaring out from the waist, a dark hard stone over it, wider than the column and uneven.
+    cap_corners = 6
+    cap_r = r * own.uniform(1.25, 1.6)
+    cap_rot = own.uniform(0, math.tau)
+    cap_angs = [cap_rot + math.tau * (i + own.uniform(-0.25, 0.25)) / cap_corners for i in range(cap_corners)]
+    cap_reach = [own.uniform(0.82, 1.12) for _ in cap_angs]
+    tilt = 0.2 if worn else 0.08
+    slope = (own.uniform(-tilt, tilt), own.uniform(-tilt, tilt))
+    # (Each stage of the cap [how far out, how far above the column's top]: under, edge, upper edge, top.)
+    stages = [(0.5, -0.05), (1.0, 0.3), (0.96, 0.6), (0.68, 0.85)]
+    cap = []
+    for (out, up) in stages:
+        row = []
+        for i, a in enumerate(cap_angs):
+            dx, dz = cap_r * out * cap_reach[i] * math.cos(a), cap_r * out * cap_reach[i] * math.sin(a)
+            row.append((tx + dx, top_y + up + slope[0] * dx + slope[1] * dz, tz + dz))
+        cap.append(row)
+    centre = P(tx, top_y + 0.4, tz)
+    for s in range(len(stages) - 1):
+        bm = part(nm, "rock_c" if s == 0 else "rock_b")
+        for i in range(cap_corners):
+            j = (i + 1) % cap_corners
+            oriented(bm, (P(*cap[s][i]), P(*cap[s][j]), P(*cap[s + 1][j]), P(*cap[s + 1][i])), centre)
+    oriented(part(nm, "rock_b"), [P(*q) for q in cap[-1]], centre)
+    oriented(part(nm, "rock_c"), [P(*q) for q in cap[0]], centre)
+
+
 def hoodoos(rng):
     """Clusters of hoodoos either side of the mesa (C2), at true size: each column a stack of strata blocks narrowing upward under a
     wider pale-banded cap stone, two to four to a cluster, boulders round them and their shade; off the wash, the arch and the buttes'
@@ -538,13 +609,23 @@ def hoodoos(rng):
             nm = "hoodoo%d_%d" % (k, c)
             rot = rng.uniform(0, math.tau)
             bands = rng.randrange(3, 5)
+            # (The rings are drawn with or without `--hoodoo_look`, so every later draw, and every placement, comes out the same.)
             for q in range(bands):
                 ya, yb = y + h * q / bands, y + h * (q + 1) / bands
                 # (Narrowing up the column, a waist below the cap where the soft rock wore away.)
                 rr = r * (1.0 - 0.18 * q / bands) * (0.85 if q == bands - 1 else 1.0)
-                block(nm, STRATA[(q + k) % len(STRATA)], facet_ring(hx, hz, rr, rr * 0.85, 6, rng, rot), ya, yb, 0.15)
-            block(nm, "rock_c", facet_ring(hx, hz, r * 1.35, r * 1.15, 5, rng, rot), y + h, y + h + 0.35, 0.08)
-            block(nm, "rock_b", facet_ring(hx + rng.uniform(-0.2, 0.2), hz, r * 1.25, r * 1.05, 5, rng, rot), y + h + 0.35, y + h + 1.1, 0.3)
+                ring = facet_ring(hx, hz, rr, rr * 0.85, 6, rng, rot)
+                if not HOODOO_LOOK:
+                    block(nm, STRATA[(q + k) % len(STRATA)], ring, ya, yb, 0.15)
+            ring = facet_ring(hx, hz, r * 1.35, r * 1.15, 5, rng, rot)
+            if not HOODOO_LOOK:
+                block(nm, "rock_c", ring, y + h, y + h + 0.35, 0.08)
+            cap_x = hx + rng.uniform(-0.2, 0.2)
+            ring = facet_ring(cap_x, hz, r * 1.25, r * 1.05, 5, rng, rot)
+            if not HOODOO_LOOK:
+                block(nm, "rock_b", ring, y + h + 0.35, y + h + 1.1, 0.3)
+            else:
+                eroded_column(nm, hx, y, hz, h, r, k, c)
         for q in range(rng.randrange(3, 6)):
             ang = rng.uniform(0, math.tau)
             bx, bz = x + 5.0 * math.cos(ang), z + 3.0 * math.sin(ang)

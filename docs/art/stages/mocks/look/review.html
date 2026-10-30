@@ -88,6 +88,22 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
     <p>Two lessons from the reference screenshots, mocked from the match camera: the scenery without ink outlines, its edges lit as card bevels instead, and the paper houses rebuilt at the characters' proportions. The earlier rounds stay on the <a href="https://claude.ai/artifact/D1du6MREVumiJDrEdNypW4">Stage Fidelity Review</a>, which is full.</p>
   </header>
 
+  <section class="panel" aria-labelledby="hd60-h" id="hoodoos60">
+    <div class="eyebrow">Your call is needed &middot; review 16, item 4: the canyon's hoodoos</div>
+    <h2 id="hd60-h">Hoodoos as worn rock, not stacked drums</h2>
+    <p>First, the grove's falls and mist C are built (their section below). The canyon's hoodoos were stacks of three or four equal drums under a flat disc. This rebuilds each as one worn column, in the same places and at the same sizes, in the canyon's own strata.</p>
+    <div class="tablewrap"><table><thead><tr><th>Option</th><th>What changes</th></tr></thead><tbody>
+      <tr><td>A &middot; Eroded columns</td><td>A flared foot tapering to a waist under an overhanging, uneven cap rock, fluted up its length, its strata in uneven bands</td></tr>
+      <tr><td>B &middot; And weathered</td><td>A, with soft bands worn in so the outline steps in and out, a stronger lean, tilted caps, and about one in four a broken spire with no cap</td></tr>
+    </tbody></table></div>
+    <p>Close: today, A, B at the wide camera (top) and the match camera (bottom). P1's gap holds (0.215) and so do the frame's values (darks 5%). B adds under 1,000 triangles.</p>
+    <div class="viewer"><img src="hd60_close.jpg" alt="The canyon's hoodoos today, with A and with B"></div>
+    <div class="row" role="group" aria-label="View"><button data-hd60v="m">Match camera</button><button data-hd60v="w">Wide</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-hd60o="U">Today</button><button data-hd60o="A">A &middot; Eroded columns</button><button data-hd60o="B">B &middot; And weathered</button></div>
+    <div class="viewer"><img id="hd60img" alt="Canyon hoodoos option"><span class="vtag" id="hd60tag"></span></div>
+    <p class="muted">My pick: <b>B</b>. Its stepped, leaning outlines and tilted caps read as rock the wind has worn. A is cleaner and a little more mushroom-like. Shipping means rebuilding the canyon's ground model and re-lighting the canyon.</p>
+  </section>
+
   <section class="panel" aria-labelledby="fm59-h" id="fallsmist59">
     <div class="eyebrow">Built C (the owner's pick) &middot; review 16, item 3: the grove's falls and mist</div>
     <h2 id="fm59-h">Falls that read as water, mist that reads as mist</h2>
@@ -3575,5 +3591,15 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
   group("data-fm59v", function (v) { fm59v = v; }, fm59render);
   group("data-fm59o", function (v) { fm59o = v; }, fm59render);
   fm59render();
+  var hd60v = "w", hd60o = "B";
+  var HD60O = { U: "Today", A: "A · Eroded columns", B: "B · And weathered" };
+  function hd60render() {
+    $id("hd60img").src = "hd60_" + hd60o + "_" + hd60v + ".jpg";
+    $id("hd60tag").textContent = "Canyon · " + HD60O[hd60o] + (hd60v === "w" ? " · wide" : " · match camera");
+    pressed("data-hd60v", hd60v); pressed("data-hd60o", hd60o);
+  }
+  group("data-hd60v", function (v) { hd60v = v; }, hd60render);
+  group("data-hd60o", function (v) { hd60o = v; }, hd60render);
+  hd60render();
 })();
 </script>
