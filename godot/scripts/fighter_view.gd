@@ -212,7 +212,7 @@ const LONG_FIT := Transform3D(Basis(Vector3(0.92, 0, 0), Vector3(0, 0.92, 0), Ve
 ## Where the head and torso sit in the rig compared with the sphere-built look the face, hats and glasses were designed for.
 const HEAD_FIT := Transform3D(Basis(Vector3(0.825, 0, 0), Vector3(0, 0.825, 0), Vector3(0, 0, 0.825)), Vector3(0, 1.56 - 1.42 * 0.825, 0))
 const TORSO_FIT := Transform3D()
-const LOOPING := ["tumble", "idle", "idle_brawler", "idle_quick", "idle_heavy", "idle_caster", "idle_tool", "run_brawler", "run_quick", "run_heavy", "run_caster", "run_tool", "walk", "walk_brawler", "walk_quick", "walk_heavy", "walk_caster", "walk_tool", "run", "dash", "dash_brawler", "dash_quick", "dash_heavy", "dash_caster", "dash_tool", "fall", "fall_brawler", "fall_quick", "fall_heavy", "fall_caster", "fall_tool", "crouch", "crouch_brawler", "crouch_quick", "crouch_heavy", "crouch_caster", "crouch_tool", "victory_a", "victory_b", "victory_c",
+const LOOPING := ["ledge", "tumble", "idle", "idle_brawler", "idle_quick", "idle_heavy", "idle_caster", "idle_tool", "run_brawler", "run_quick", "run_heavy", "run_caster", "run_tool", "walk", "walk_brawler", "walk_quick", "walk_heavy", "walk_caster", "walk_tool", "run", "dash", "dash_brawler", "dash_quick", "dash_heavy", "dash_caster", "dash_tool", "fall", "fall_brawler", "fall_quick", "fall_heavy", "fall_caster", "fall_tool", "crouch", "crouch_brawler", "crouch_quick", "crouch_heavy", "crouch_caster", "crouch_tool", "victory_a", "victory_b", "victory_c",
 	"helpless", "dizzy", "buried"]
 ## The rig is read once and copied for every fighter (reading it again renames its bones).
 static var _rig_templates: Dictionary = {}
@@ -616,6 +616,12 @@ func _choose_clip(s: Dictionary) -> Array:
 					return [tumble, 1.0, -1.0]
 			if not s.tumble and kb.length() > HEAVY_HITSTUN_SPEED:
 				return [AnimLibrary.or_stand_in("hurt_up" if kb.y > absf(kb.x) else "hurt_heavy", anim), 1.0, -1.0]
+			# (Round 9: a flinch on the ground stands on it, the feet where they are: the air's hurt clip hung them through the floor or off it.)
+			if grounded:
+				return [AnimLibrary.or_stand_in("hurt_ground", anim), 1.0, -1.0]
+		"Grabbed", "Rebound":
+			if grounded:
+				return [AnimLibrary.or_stand_in("hurt_ground", anim), 1.0, -1.0]
 		# (Round 8, the missing sets: states that played another state's clip. `ANIMATION_REVIEW_1.md`.)
 		"Helpless":
 			# The special fall: limp, arms loosely up (it played the jump's arc, a fighter still in control).
@@ -853,7 +859,7 @@ const CLIP_END_SHAPES := {"body_headbutt_fwd": Vector3(0.12, 0.8, CARRY_FRAMES)}
 const CLASS_END_SHAPES := {
 	0: {"bair": Vector2(0.550, 0.850), "dair": Vector2(0.900, 0.984), "dsmash": Vector2(0.803, 0.990), "dtilt": Vector2(0.020, 0.563), "fair": Vector2(0.243, EVEN + 0.990), "fsmash": Vector2(0.020, 0.990), "ftilt": Vector2(0.766, 0.990), "jab": Vector2(0.020, 0.461), "uair": Vector2(0.020, EVEN + 0.990), "usmash": Vector2(0.405, 0.990)},
 	1: {"bair": Vector2(0.515, 0.990), "dair": Vector2(0.393, 0.990), "fair": Vector2(0.713, 0.990), "ftilt": Vector2(0.394, 0.990), "jab": Vector2(0.604, 0.990), "nair": Vector2(0.020, 0.987), "usmash": Vector2(0.306, 0.746), "utilt": Vector2(0.084, 0.990)},
-	2: {"bair": Vector2(0.171, EVEN + 0.970), "dsmash": Vector2(0.035, EVEN + 0.990), "dtilt": Vector2(0.691, 0.920), "fair": Vector2(0.403, 0.882), "fsmash": Vector2(0.273, 0.577), "ftilt": Vector2(0.214, 0.786), "jab": Vector2(0.900, 0.990), "nair": Vector2(0.040, EVEN + 0.960), "uair": Vector2(0.030, EVEN + 0.970), "usmash": Vector2(0.202, 0.892), "utilt": Vector2(0.675, 0.950)},
+	2: {"bair": Vector2(0.171, EVEN + 0.970), "dsmash": Vector2(0.035, EVEN + 0.990), "dtilt": Vector2(0.691, 0.920), "fair": Vector2(0.403, 0.882), "fsmash": Vector2(0.273, 0.577), "ftilt": Vector2(0.214, 0.786), "jab": Vector2(0.829, 0.990), "nair": Vector2(0.040, EVEN + 0.960), "uair": Vector2(0.030, EVEN + 0.970), "usmash": Vector2(0.202, 0.892), "utilt": Vector2(0.675, 0.950)},
 	3: {"bair": Vector2(0.482, 0.990), "dsmash": Vector2(0.373, 0.563), "dtilt": Vector2(0.585, 0.973), "fair": Vector2(0.858, 0.990), "fsmash": Vector2(0.186, EVEN + 0.990), "ftilt": Vector2(0.020, 0.861), "nair": Vector2(0.186, 0.920), "uair": Vector2(0.020, EVEN + 0.789), "utilt": Vector2(0.418, 0.950)},
 	8: {"bair": Vector2(0.871, 0.951), "dair": Vector2(0.020, 0.990), "dsmash": Vector2(0.480, 0.840), "dtilt": Vector2(0.313, 0.587), "fair": Vector2(0.550, 0.900), "fsmash": Vector2(0.207, 0.990), "jab": Vector2(0.326, 0.612), "nair": Vector2(0.257, 0.990), "usmash": Vector2(0.020, 0.100), "utilt": Vector2(0.020, 0.990)},
 	10: {"bair": Vector2(0.800, 0.990), "dair": Vector2(0.347, 0.987), "dsmash": Vector2(0.598, 0.979), "dtilt": Vector2(0.720, 0.990), "ftilt": Vector2(0.623, 0.990), "jab": Vector2(0.042, 0.990), "nair": Vector2(0.207, 0.738), "usmash": Vector2(0.647, 0.727), "utilt": Vector2(0.490, 0.990)},
@@ -1142,7 +1148,7 @@ func _animate(s: Dictionary, delta: float) -> void:
 ## frames, so a freeze holds it, and dropped at once on a jump in the sim frame (a rollback or a seek redraws the clip's own pose).
 ## HANDOFF_FRAMES by the clip being entered; what must land at once takes none or one (a hit's pose, the landing's impact).
 const HANDOFF_FRAMES := 5.0
-const HANDOFF_BY_CLIP := {"jumpsquat": 2.0, "land": 2.0, "tech": 2.0, "knockdown": 2.0, "hurt": 1.0, "hurt_heavy": 1.0, "hurt_up": 1.0,
+const HANDOFF_BY_CLIP := {"jumpsquat": 2.0, "land": 1.0, "tech": 2.0, "knockdown": 2.0, "hurt": 1.0, "hurt_ground": 1.0, "hurt_heavy": 1.0, "hurt_up": 1.0,
 	"shield": 3.0, "crouch": 5.0, "tumble": 4.0, "dash": 3.0, "skid": 3.0, "air_jump": 3.0, "roll": 3.0, "spot_dodge": 2.0, "air_dodge": 2.0, "jump": 2.0, "grab": 3.0, "ledge": 3.0}
 ## With the environment variable PF_R9_OFF (before and after images, round 9): "handoff" leaves the cross-fades as they were.
 static var r9_off := OS.get_environment("PF_R9_OFF").split(",")
@@ -1268,23 +1274,29 @@ var unkeyed := {}
 
 
 func _rest_unkeyed(clip: String) -> void:
+	# (Round 9: every bone and both channels. The exporter drops a track that never leaves rest, and a clip that never moves the hips (`hurt`, `hurt_up`, `tumble`, the air's clips) left them where the
+	# last clip had them: after a landing's crouch a hit reaction stood with its legs through the floor, the feet 0.3 under it.)
 	if not unkeyed.has(clip):
-		var missing: Array[int] = []
+		var missing: Array = []
 		var a := anim.get_animation(clip) if anim.has_animation(clip) else null
-		for bone in [spine_bone, head_bone]:
-			if bone < 0 or a == null:
-				continue
-			var name := skeleton.get_bone_name(bone)
-			var found := false
+		if a != null:
+			var rot := {}
+			var pos := {}
 			for t in a.get_track_count():
-				if String(a.track_get_path(t)).get_slice(":", 1) == name:
-					found = true
-					break
-			if not found:
-				missing.append(bone)
+				var name := String(a.track_get_path(t)).get_slice(":", 1)
+				if a.track_get_type(t) == Animation.TYPE_ROTATION_3D:
+					rot[name] = true
+				elif a.track_get_type(t) == Animation.TYPE_POSITION_3D:
+					pos[name] = true
+			for bone in skeleton.get_bone_count():
+				var name := skeleton.get_bone_name(bone)
+				missing.append([bone, not rot.has(name), not pos.has(name)])
 		unkeyed[clip] = missing
-	for bone in unkeyed[clip]:
-		skeleton.reset_bone_pose(bone)
+	for m in unkeyed[clip]:
+		if m[1]:
+			skeleton.set_bone_pose_rotation(m[0], skeleton.get_bone_rest(m[0]).basis.get_rotation_quaternion())
+		if m[2]:
+			skeleton.set_bone_pose_position(m[0], skeleton.get_bone_rest(m[0]).origin)
 
 
 ## Moves the head's and the torso's pieces (hats, glasses, neckwear) with the head and chest bones as they are posed now.
@@ -3283,7 +3295,10 @@ func _ledge_motion(s: Dictionary, pos: Vector3) -> void:
 	if state == "LedgeHang":
 		if not was_hanging:
 			ledge_swing_t = 0.0
-		hang_from = pos
+		# (Round 9: drawn in against the wall, so the raised hand reaches the edge: the sim's hanging place is further out than the short arm reaches. Eased in, and the climb starts from it.)
+		var drawn_in := LEDGE_HANG_IN * smoothstep(0.0, 8.0, float(s.state_frame)) * float(s.facing)
+		ledge_offset = Vector3(drawn_in, 0.0, 0.0)
+		hang_from = pos + ledge_offset
 		was_hanging = true
 		climbing = false
 		return
@@ -3317,6 +3332,7 @@ func _ledge_motion(s: Dictionary, pos: Vector3) -> void:
 const ROLL_SPIN_FROM := 0.12
 const ROLL_SPIN_TO := 0.66   # (0.78 until round 9)
 const ROLL_PIVOT := 0.66
+const LEDGE_HANG_IN := 0.34
 const LEDGE_ROLL_UP := 0.2
 const SPOT_DODGE_STEP := 0.2   # (0.7 until round 9: the reference fighters dodge on the spot, their feet staying put)
 ## How far a fighter lying on the floor is raised (see `apply`).
@@ -3376,7 +3392,7 @@ func reset_motion() -> void:
 	for t in tails:
 		t.reset()
 ## How much a run's footfall squashes the body (and its stride stretches it), before the body's weight.
-const STEP_SQUASH := 0.07
+const STEP_SQUASH := 0.03
 ## Where the run cycle was last frame, for the footfalls.
 var last_step_phase := 0.0
 
@@ -3600,6 +3616,10 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 		var heft: float = float(_weight(s)[1])
 		squash = maxf(squash, (LAND_IMPACT + impact * LAND_IMPACT_PER_SPEED) * heft)
 		squash_vel = impact * LAND_IMPACT_PUSH * heft
+		# (Round 9: an aerial's lean does not carry on over the feet: pitched about them the front foot went through the floor on the landing, 0.3 under it.)
+		if use_base_body:
+			lean *= 0.3
+			lean_vel = 0.0
 	if state == "JumpSquat" and last_state != "JumpSquat":
 		squash = maxf(squash, JUMP_SQUAT_START)
 		squash_vel = maxf(squash_vel, 0.0)
@@ -3639,6 +3659,9 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 	if state == "Airborne" or state == "Helpless":
 		target_squash = -0.05 if vy > 0.06 else (-0.03 if vy < -0.12 else 0.0)
 	var target_lean: float = LEAN.get(state, 0.0)
+	# (Round 9: the run's and the dash's lean is in the clips now, from the hips: pitched about the feet the whole body put the front foot through the floor and lifted the back one.)
+	if use_base_body and (state == "Run" or state == "Dash"):
+		target_lean = 0.0
 	# (Round 8: dazed on the ground after a shield break the body stands and sways (`dizzy`); the lean was for the hurt pose it held.)
 	if state == "ShieldBreak" and grounded and use_base_body:
 		target_lean = 4.0
@@ -3888,7 +3911,8 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 		model.position.z -= SPOT_DODGE_STEP * sin(PI * dodge)
 	# A throw carried by the whole body (`_throw_body`): the step and the drop or rise.
 	var throw_move := _throw_body(s)
-	model.position += Vector3(throw_move.z * float(s.facing), throw_move.w, 0.0)
+	# (Round 9: never below the floor: the slam's drop put the thrower's feet 0.3 through it; the pitch carries the slam.)
+	model.position += Vector3(throw_move.z * float(s.facing), maxf(throw_move.w, 0.0), 0.0)
 	_blink(delta)
 	if log_motion and state in ["Attack", "Hitstun", "Run", "Dash", "Landing"]:
 		_log_motion(s)
@@ -4394,8 +4418,8 @@ const STAFF_REST_ANGLE := 78.0
 ## body). The greatsword's was up by the shoulder.
 ## (Round 8, the owner's Longsword note "the arm is sometimes hidden underneath the body": a little further forward, 0.1 and 0.12 until
 ## then, so the fist reads beside the body, slightly forward, as the swordsman reference's.)
-const GREAT_REST_HAND := Vector2(0.24, 0.86)
-const SWORD_REST_HAND := Vector2(0.24, 0.96)
+const GREAT_REST_HAND := Vector2(0.08, 0.86)
+const SWORD_REST_HAND := Vector2(0.08, 0.96)
 const STAFF_REST_HAND := Vector2(0.62, 0.8)
 ## How far toward the camera a resting weapon's hand is (in front of the body it crossed the chest; the swing's own depth is 0.35).
 ## (0.1 until the owner's note: at thigh height the fist sank into the near thigh, only the pommel showing, in 64-100% of the carry's
@@ -5789,6 +5813,10 @@ func _arms_beside_head(facing: int) -> void:
 		var sh := to_frame * skeleton.get_bone_global_pose(iu).origin
 		var inside := Vector2(p.x - c.x, p.y - c.y).length() / r
 		var k := (1.0 - smoothstep(0.95, 1.2, inside)) * smoothstep(0.03, 0.12, p.y - sh.y)
+		# (Round 9: a free hand only just above its shoulder is a guard, not a raised arm: carried out from behind the head it went back behind the body, the elbow reversed: the far arm of every jab,
+		# bend 120 the natural way with this layer off, 140 the wrong way with it on.)
+		if side != _weapon_side(facing):
+			k *= smoothstep(0.14, 0.26, p.y - sh.y)
 		# (Only a hand behind the head's middle in depth, which the head hides: one in front of it is the face guard's, and carried out
 		# beside the head it came up across the face, the Settler's tool hand.)
 		if k <= 0.0 or p.z > c.z:

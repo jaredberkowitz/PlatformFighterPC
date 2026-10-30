@@ -213,6 +213,20 @@ static func make(demo_name: String, m: Dictionary, dir: String):
 			for f in range(15, 300):
 				d.shots.append([f, "f%03d" % f])
 			d.end_frame = 301
+		"runlong":
+			# (Round 9: a long held run, for judging the run's silhouette against the reference.)
+			d.cam_dist = 9.0
+			d.cam_focus = 0
+			d.events = [[1, "stand", 0, -11.0, 1], [1, "stand", 1, 12.0, -1]]
+			d.timeline = [[0, 0, 0, 0], [20, 127, 0, 0], [21, 0, 0, 0], [23, 127, 0, 0], [125, 0, 0, 0]]
+			d.end_frame = 130
+		"ledges":
+			# (Round 9: the ledge's grab and hang, then the climb, the roll, the jump and the attack, the camera steady on the fighter.)
+			d.cam_dist = 9.0
+			d.cam_focus = 0
+			d.events = [[2, "place", 0, -12.0, -0.5], [150, "place", 0, -12.0, -0.5], [300, "place", 0, -12.0, -0.5], [450, "place", 0, -12.0, -0.5]]
+			d.timeline = [[0, 0, 0, 0], [60, 0, 127, 0], [61, 0, 0, 0], [210, 0, 0, shield], [211, 0, 0, 0], [360, 0, 0, jump], [361, 0, 0, 0], [510, 0, 0, attack], [511, 0, 0, 0]]
+			d.end_frame = 590
 		"idle":
 			# (Round 9, the shared clips against their references: both fighters standing, the camera steady on the first, for the stance,
 			# the breath and the weight shift.)
