@@ -2267,7 +2267,7 @@ knee bend (`review1/mock_stance.jpg`, A/B/C).
 ### Group 25 (round 8): the weight pass: holds and recoveries fitted, the blade round the side
 
 - **Measured first, with the sweep default:** the six families' mean |error| against their references, in frames, follow-through / hold
-  / recovery: 2.27 / 3.63 / 2.87. Looking at the speed curves, 18 of 68 moves had their fastest moment in the wind-up, not the strike.
+  / recovery: 2.27 / 3.63 / 2.87. Looking at the speed curves, 18 of 72 moves had their fastest moment in the wind-up, not the strike.
 - **The blade's pop (`_blade_round_side`):** from the low carry behind, a cut winding up low in front had to pass straight down, where the
   floor stops the blade: stopped on one side and then the other, it flipped across in one frame and stood still (the Longsword's forward
   tilt: tip speed 1.00 on frame 5, then 0.00 and 0.01), the fastest thing in the move. Through the arc the floor forbids it now swings in
