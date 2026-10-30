@@ -471,6 +471,8 @@ static func place_front(root: Node3D, t: Dictionary, scene: Node3D) -> void:
 			if fam in ["fieldstone", "wall_moss"] and stones.has("fall"):
 				m.set_shader_parameter("front_fall", float(stones.fall))
 			m.set_shader_parameter("front_span", 7.0)
+			if flag("--front-shadow=") != "":
+				m.set_shader_parameter("shadow_amount", float(flag("--front-shadow=")))
 			_paint_drift(m, t, false)
 			if fam.begins_with("brick") and CITY_PAINT.has(StageArt.city_paint()):
 				m.set_shader_parameter("paint_drift", CITY_PAINT[StageArt.city_paint()].brick)
@@ -536,7 +538,7 @@ static func place_play(root: Node3D, t: Dictionary, path: String) -> void:
 	if String(t.get("name", "")) == "grove":
 		path_c = {"A": Color(0.78, 0.64, 0.5), "B": Color(0.7, 0.55, 0.4)}.get(flag("--path=").to_upper(), path_c)
 	var colours := {"lawn": grass, "lawn_under": grass.darkened(0.3), "path": path_c, "card": grass.lerp(Color(0.97, 0.96, 0.86), 0.45),
-		"soil": t.get("soil", Color(0.76, 0.56, 0.36)), "stone": Color(0.66, 0.64, 0.6), "fringe": grass.lightened(0.08),
+		"soil": t.get("soil", Color(0.76, 0.56, 0.36)), "stone": Color(0.76, 0.64, 0.46), "fringe": grass.lightened(0.08),
 		"plank": wood, "plank_b": wood.darkened(0.1), "plank_card": wood.lerp(Color(0.98, 0.94, 0.84), 0.45), "rope": Color(0.78, 0.64, 0.42),
 		"shadow": Color(0.1, 0.12, 0.08)}
 	# (The other stages' families, art/blender/make_play.py: each stage's top, the layers under it, its cut fringe and its platforms.)
@@ -1102,7 +1104,7 @@ static func _ground_colours(t: Dictionary) -> Dictionary:
 	var pines: Array = bd.get("pine_greens", [Color(0.2, 0.36, 0.28)])
 	# (The cliffs a step deeper, the readability pass: the grove's paper terraces right behind the fighters measured their value.)
 	var out := {"grass": land, "grass_far": Color(0.38, 0.62, 0.36), "cliff": Color(0.1, 0.24, 0.23),
-		"earth": Color(0.24, 0.2, 0.18), "rock": GROVE_ROCK, "root": Color(0.46, 0.37, 0.3), "bark": Color(0.46, 0.37, 0.3),
+		"earth": Color(0.24, 0.2, 0.18), "rock": GROVE_ROCK, "root": Color(0.46, 0.37, 0.3), "bark": Color(0.52, 0.41, 0.32),
 		"leaf_lit": Color(0.46, 0.74, 0.36), "leaf_shade": Color(0.2, 0.46, 0.3), "moss": (t.get("grass", Color(0.5, 0.8, 0.3)) as Color).darkened(0.12),
 		"fern": Color(0.36, 0.66, 0.34), "fern_shade": Color(0.18, 0.42, 0.26),
 		# (The meadow's, art/blender/make_meadow_ground.py: its hill rows, the rise and its fields and hedgerows from the palette, the paper's

@@ -417,7 +417,10 @@ void fragment() {
 	// the background's grass, sand and terrace tops were lit as undersides, in their shade colour, and took no cast shadow; the graphics
 	// review 5, 2026-10-22.)
 	if (facets && world_normal.y < 0.97) {
-		NORMAL = normalize(cross(dFdx(VERTEX), dFdy(VERTEX)));
+		// (dFdy first, fidelity review 17: this renderer's screen y runs down, so the other way round the normal pointed away from the camera on every
+		// faceted surface, each one lit as if from the far side. The stages' suns had been set from behind the scene to suit it, and every face toward
+		// the camera that wasn't faceted went into shade.)
+		NORMAL = normalize(cross(dFdy(VERTEX), dFdx(VERTEX)));
 	}
 	ALBEDO = c;
 	EMISSION = flash.rgb * flash.a + c * fighter_bounce.rgb * fighter_bounce_amount * fighter * clamp(-world_normal.y, 0.0, 1.0);

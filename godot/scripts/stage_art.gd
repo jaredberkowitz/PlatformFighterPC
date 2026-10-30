@@ -5521,7 +5521,7 @@ static func _grove(root: Node3D, t: Dictionary, stage: Array) -> void:
 	var tw := Twinkle.new()
 	root.add_child(tw)
 	for k in 14:
-		tw.add(Vector3(rng.randf_range(-11, 11), top + rng.randf_range(9, 20), -15.0 + rng.randf_range(-1, 1)), rng.randf_range(0.5, 0.9), rng.randf() * TAU,
+		tw.add(Vector3(rng.randf_range(-11, 11), top + rng.randf_range(9, 20), -15.0 + rng.randf_range(-1, 1)), rng.randf_range(0.26, 0.46), rng.randf() * TAU,
 			[Color(1, 0.95, 0.6), Color(1, 0.8, 0.95), Color(0.8, 0.95, 1)][k % 3])
 
 
@@ -6335,8 +6335,54 @@ static func _shopfront(root: Node3D, cx: float, width: float, y: float, front: f
 	_door_face(root, Vector2(1.4, 2.6), Color(0.62, 0.42, 0.3), Vector3(cx, y + 1.55, front + 0.13))
 	# The awning: a canopy of stripes over a scalloped valance (`_awning`), tipped out over the pavement.
 	_awning(root, cx - width / 2.0, cx + width / 2.0, y + 3.8, front + 0.1, Color(0.92, 0.34, 0.42), Color(0.98, 0.94, 0.9), 1.5, true)
-	_glass(root, Vector2(width * 0.4, 0.8), Color(0.98, 0.5, 0.74), Vector3(cx, y + 4.4, front + 0.2))
-	_halo(root, Vector3(cx, y + 1.8, front + 0.8), Color(1.0, 0.8, 0.5), width * 0.35)
+	# (A lettered sign, fidelity review 17: at 1080 lines a blank pink panel over two blank cream windows and a glow the size of the door read as
+	# unfinished. Goods in the windows as the street's shops have, and the glow down to the doorway.)
+	_shop_sign(root, Vector2(width * 0.4, 0.8), Vector3(cx, y + 4.4, front + 0.2))
+	var g := RandomNumberGenerator.new()
+	g.seed = 4007
+	for side in [-1.0, 1.0]:
+		var win_x: float = cx + side * width * 0.27
+		var win_w := width * 0.32
+		var gx: float = win_x - win_w * 0.46
+		while gx < win_x + win_w * 0.42:
+			var gw := g.randf_range(0.3, 0.75)
+			var gh := g.randf_range(0.3, 1.25)
+			var goods: Color = [Color(0.42, 0.26, 0.34), Color(0.86, 0.5, 0.46), Color(0.5, 0.7, 0.62), Color(0.72, 0.52, 0.3)][g.randi_range(0, 3)]
+			_mesh(root, _box(Vector3(gw, gh, 0.1)), FighterView.toon(goods), Vector3(gx + gw * 0.5, y + 0.66 + gh * 0.5, front + 0.24))
+			gx += gw + g.randf_range(0.1, 0.32)
+	_halo(root, Vector3(cx, y + 1.8, front + 0.8), Color(1.0, 0.8, 0.5), width * 0.14)
+
+
+## A lit shop sign: a pink panel with its name in block letters.
+static var _shop_sign_tex: Texture2D
+
+
+static func _shop_sign(root: Node3D, size: Vector2, at: Vector3) -> void:
+	if _shop_sign_tex == null:
+		# Block letters on a five-row grid, cell 16: B A K E R Y.
+		var letters := ["###.|#..#|###.|#..#|###.", ".##.|#..#|####|#..#|#..#", "#..#|#.#.|##..|#.#.|#..#", "####|#...|###.|#...|####", "###.|#..#|###.|#.#.|#..#", "#..#|#..#|.##.|.#..|.#.."]
+		var body := '<rect width="512" height="128" rx="10" fill="#f58cc0"/><rect x="8" y="8" width="496" height="112" rx="6" fill="none" stroke="#fff0f6" stroke-width="5"/>'
+		var cell := 12.0
+		var x0 := 48.0
+		for l: String in letters:
+			var rows := l.split("|")
+			for r in rows.size():
+				for c in rows[r].length():
+					if rows[r][c] == "#":
+						body += '<rect x="%.0f" y="%.0f" width="%.0f" height="%.0f" fill="#6a1f58"/>' % [x0 + c * cell, 34.0 + r * cell, cell + 0.5, cell + 0.5]
+			x0 += cell * 5.0 + 6.0
+		var img := Image.new()
+		img.load_svg_from_string('<svg xmlns="http://www.w3.org/2000/svg" width="512" height="128" viewBox="0 0 512 128">%s</svg>' % body, 1.0)
+		img.generate_mipmaps()
+		_shop_sign_tex = ImageTexture.create_from_image(img)
+	var m := StandardMaterial3D.new()
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.albedo_texture = _shop_sign_tex
+	m.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
+	var q := QuadMesh.new()
+	q.size = size
+	var mi := _mesh(root, q, m, at)
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 
 
 ## Weathering on the rooftop behind the fighters: a water stain, a puddle with the sky in it, a tar patch and some grime
