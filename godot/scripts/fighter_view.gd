@@ -31,6 +31,7 @@ const TOON_CLOTH_SHADER := preload("res://shaders/toon_cloth.gdshader")
 const FACE_SHADER := preload("res://shaders/face.gdshader")
 const OUTLINE_SHADER := preload("res://shaders/outline.gdshader")
 const VisualSettings := preload("res://scripts/visual_settings.gd")
+const Lighting := preload("res://scripts/lighting.gd")
 const SHIELD_SHADER := preload("res://shaders/shield.gdshader")
 const Effects := preload("res://scripts/effects.gd")
 const LIMB_SHADER := preload("res://shaders/limb.gdshader")
@@ -1586,13 +1587,12 @@ func _contact_shadow() -> void:
 		var g := Gradient.new()
 		# (A little fuller, round 40: the fighters on the light lawns needed a firmer footing.)
 		# (Firmer again, fidelity review 16 item 1, the owner's pick A: on the bright floors the fighters lost their footing.)
-		# (Fidelity review 17: at 0.8 in that near black, on the bright floors the ovals read as stains. A coloured deep shade, a softer edge.)
-		var a := 0.74 if _fighter_floor() != "T" else 0.64
-		var c := Color(0.2, 0.12, 0.27) if _fighter_floor() != "T" else Color(0.14, 0.08, 0.2)
-		g.set_color(0, Color(c.r, c.g, c.b, a))
-		g.set_color(1, Color(c.r, c.g, c.b, 0.0))
-		g.add_point(0.62, Color(c.r, c.g, c.b, a * 0.94))
-		g.add_point(0.88, Color(c.r, c.g, c.b, 0.1))
+		# (Fidelity review 17: at 0.8 in that near black, on the bright floors the ovals read as stains. White here, a softer edge; the colour and
+		# strength from the stage, `Lighting.contact_tint`, through the decal's modulate.)
+		g.set_color(0, Color(1, 1, 1, 1.0))
+		g.set_color(1, Color(1, 1, 1, 0.0))
+		g.add_point(0.62, Color(1, 1, 1, 0.94))
+		g.add_point(0.88, Color(1, 1, 1, 0.14))
 		_shadow_tex = GradientTexture2D.new()
 		_shadow_tex.gradient = g
 		_shadow_tex.fill = GradientTexture2D.FILL_RADIAL
@@ -2896,6 +2896,8 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 	# Standing, the drop shadow reaches only just past the floor (the full depth also printed it on whatever lies under the stage: two
 	# dark ovals on the beach's rocks and sea, art review 5); in the air it reaches all the way down, so the landing spot stays marked.
 	if contact_shadow != null:
+		if contact_shadow.modulate != Lighting.contact_tint:
+			contact_shadow.modulate = Lighting.contact_tint
 		var depth: float = SHADOW_DEPTH_GROUNDED if grounded else SHADOW_DEPTH
 		if contact_shadow.size.y != depth:
 			contact_shadow.size.y = depth

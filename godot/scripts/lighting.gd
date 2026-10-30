@@ -24,6 +24,7 @@ const MOODS := {
 	# (The sun on the camera's side, fidelity review 17: from behind the scene, KEY_SIDE taken in, every slope and wall facing the camera sat in
 	# shade, and the meadow's hills read as dark bands. The bright lit faces of the papercraft reference come from this.)
 	"meadow": {"key": [Color(1.0, 0.94, 0.88), 1.38, -36.0, -34.0], "sun": [-38.0, 25.0], "fill": [Color(0.58, 0.76, 1.0), 0.4],
+		"contact": Color(0.2, 0.25, 0.13, 0.72),
 		# (Shade a deeper version of each colour, barely turned toward blue-green, the meadow rebuild's step 3: the reference's grass shade
 		# is a crisp deep green, ours read as a soft olive.)
 		"ambient": [Color(0.88, 0.92, 1.0), 0.48], "shadow_hue": 0.4, "shadow_shift": 0.1, "shadow_value": 0.38, "front_tint": [0.6, 0.16, 0.94],
@@ -35,8 +36,10 @@ const MOODS := {
 	# (A raking sun from the side, fidelity review 17: from in front the trees went flat; this lifts the trunk and the island's rock and holds a
 	# lit side and a shade side on the pines.)
 	"grove": {"key": [Color(1.0, 0.92, 0.84), 1.32, -32.0, -28.0], "sun": [-34.0, -8.0], "fill": [Color(0.86, 0.66, 1.0), 0.38],
+		"contact": Color(0.3, 0.18, 0.26, 0.72),
 		"ambient": [Color(1.0, 0.93, 0.95), 0.47], "shadow_hue": 0.78, "shadow_shift": 0.06, "shadow_value": 0.42,
-		"shadow_tint": Color(0.72, 0.62, 0.92), "rim": Color(1.0, 0.86, 0.92),
+		# (Less violet, fidelity review 17: its grey rock took it whole, lilac strips under the moss. The grove's far land and sky keep theirs.)
+		"shadow_tint": Color(0.76, 0.72, 0.88), "rim": Color(1.0, 0.86, 0.92),
 		"grade": [Color(0.98, 0.9, 1.04), Color(1.04, 0.98, 0.96), 0.3], "haze": Color(0.76, 0.73, 1.0)},
 	# (Its "sun", fidelity review 13, the owner's pick B: the key turned to come low from the drawn sun's side, the front left; from behind
 	# the scene, every face toward the camera sat in shade and the rocks' shadows fell out of sight.)
@@ -48,6 +51,7 @@ const MOODS := {
 	# STYLES.sunset's `key_fill`, `cast` and `haze_max`. Lit rock warm, shade and distance violet; every face of it was one pink-orange.
 	# `--two-hue=T` brings back the look before, TWO_HUE_TRY.)
 	"sunset": {"key": [Color(1.0, 0.8, 0.5), 1.25, -20.0, -42.0], "sun": [-28.0, 10.0], "fill": [Color(0.52, 0.66, 1.0), 0.42],
+		"contact": Color(0.5, 0.26, 0.34, 0.72),
 		"ambient": [Color(0.86, 0.9, 1.0), 0.5], "shadow_hue": 0.68, "shadow_shift": 0.4, "shift_cap": 0.4, "shadow_value": 0.522,
 		"shadow_tint": Color(0.62, 0.64, 0.94),
 		# (A cool rim from the dusk sky overhead, art review 6 round 4: an orange rim on warm fighters against warm rock added no separation.)
@@ -61,10 +65,12 @@ const MOODS := {
 	# blue, a peach horizon (ocean.cfg's sky).)
 	# (The sun on the camera's side, fidelity review 17, as the meadow's: the town, the hill and the dock's fronts face it.)
 	"ocean": {"key": [Color(1.0, 0.84, 0.66), 1.34, -24.0, -40.0], "sun": [-38.0, 25.0], "fill": [Color(0.58, 0.68, 1.0), 0.42],
+		"contact": Color(0.36, 0.18, 0.12, 0.72),
 		"ambient": [Color(0.96, 0.9, 0.92), 0.46], "shadow_hue": 0.64, "shadow_shift": 0.09, "shadow_value": 0.5,
 		"shadow_tint": Color(0.66, 0.72, 0.94), "rim": Color(1.0, 0.86, 0.72),
 		"grade": [Color(0.88, 0.9, 1.08), Color(1.1, 1.0, 0.88), 0.55], "haze": Color(1.0, 0.79, 0.67)},
 	"city": {"key": [Color(1.0, 0.82, 0.7), 1.0, -34.0, -36.0], "fill": [Color(0.82, 0.5, 0.95), 0.48],
+		"contact": Color(0.3, 0.14, 0.32, 0.72),
 		"ambient": [Color(0.84, 0.8, 0.94), 0.55], "shadow_hue": 0.75, "shadow_shift": 0.1, "shadow_value": 0.55,
 		"shadow_tint": Color(0.66, 0.6, 0.88), "rim": Color(1.0, 0.62, 0.78),
 		"grade": [Color(0.92, 0.82, 1.08), Color(1.06, 0.97, 0.98), 0.4], "haze": Color(0.57, 0.42, 0.9)},
@@ -98,6 +104,11 @@ const GROVE_LIGHT_TRY := {
 		"ambient": [Color(0.9, 0.92, 1.0), 0.47], "shadow_hue": 0.7, "shadow_shift": 0.14, "shadow_tint": Color(0.66, 0.66, 0.94),
 		"grade": [Color(0.92, 0.92, 1.06), Color(1.06, 1.0, 0.94), 0.36], "haze": Color(0.8, 0.88, 1.0)}, "key_fill": [0.2, 0.3]},
 }
+
+
+## The colour and strength of the contact shadow under the fighters (FighterView; set by `stage_mood`, each mood's "contact"). Fidelity review 17:
+## one plum over every floor went to a stain on the sand and the deck; a deep tone that belongs to the floor reads as its shade.
+static var contact_tint := Color(0.25, 0.16, 0.31, 0.7)
 
 
 ## The menus' 3D previews: plain warm daylight (the meadow's look before it turned to magic hour), so a stage's mood never reaches them.
@@ -508,6 +519,7 @@ static func stage_mood(env: Environment, root: Node, theme: Dictionary, post: Sh
 	if two.has("mood"):
 		mood = mood.duplicate()
 		mood.merge(two.mood, true)
+	contact_tint = mood.get("contact", Color(0.25, 0.16, 0.31, 0.7))
 	var key := root.get_node_or_null("KeyLight") as DirectionalLight3D
 	if key != null:
 		key.light_color = mood.key[0]

@@ -197,7 +197,8 @@ void fragment() {
 		float y = world_pos.y;
 		float rag = 2.6 * sin(world_pos.x * 0.083 + 1.3) + 1.5 * sin(world_pos.x * 0.21 + 0.4) + 0.8 * sin(world_pos.x * 0.53);
 		// The tree line: a deep green round the foot, its top ragged.
-		float foot = 1.0 - smoothstep(alt_bands.z - 1.5, alt_bands.z + 1.5, y - rag * 0.8);
+		// (Crisp, fidelity review 17: the papercraft reference's mountains are clean planes; at 1.5 and 1.0 either side these lines were airbrushed bands.)
+		float foot = 1.0 - smoothstep(alt_bands.z - 0.3, alt_bands.z + 0.3, y - rag * 0.8);
 		c = mix(c, alt_foot.rgb, foot * 0.85 * alt_bands.w);
 		// Rock: broken strata between the tree line and the snow, a stripe every few units, darker on the faces turned from up.
 		if (alt_rock_bands > 0.0) {
@@ -206,7 +207,7 @@ void fragment() {
 			c = mix(c, alt_rock.rgb, span * stripe * 0.55 * alt_rock_bands * alt_bands.w);
 		}
 		// Snow on what faces up above the snow line, its edge ragged; a little on the steep faces near the top too.
-		float above = smoothstep(alt_bands.x - 1.0, alt_bands.x + 1.0, y + rag);
+		float above = smoothstep(alt_bands.x - 0.25, alt_bands.x + 0.25, y + rag);
 		float up = smoothstep(0.2, 0.55, world_normal.y) + 0.35 * smoothstep(alt_bands.x + 6.0, alt_bands.x + 12.0, y);
 		c = mix(c, alt_snow.rgb, clamp(above * up, 0.0, 1.0) * alt_bands.w);
 	}
@@ -384,7 +385,14 @@ void fragment() {
 		// (On what faces up, stretched five times along the depth: the match camera sees a top almost edge on, squeezed about that much,
 		// and laid evenly every mark blurred into the grey of the texture's smallest copies.)
 		vec2 pp = abs(world_normal.y) > 0.5 ? vec2(world_pos.x, world_pos.z * 0.2) : (abs(world_normal.x) > 0.6 ? vec2(world_pos.z, -world_pos.y) : vec2(world_pos.x, -world_pos.y));
-		c *= 1.0 + print_amount * (texture(print_tex, pp / print_scale).r - 0.5) * 2.0;
+		// (Faded on what the camera sees at a grazing angle, fidelity review 17: squeezed one way only, the filtering keeps the print's fine lines the
+		// other way, and a bevel read as a screen door at 1080 lines.)
+		vec2 pdx = dFdx(pp);
+		vec2 pdy = dFdy(pp);
+		float pa = length(pdx);
+		float pb = length(pdy);
+		float squeeze = max(pa, pb) / max(min(pa, pb), 1e-5);
+		c *= 1.0 + print_amount * (1.0 - smoothstep(3.0, 8.0, squeeze)) * (texture(print_tex, pp / print_scale).r - 0.5) * 2.0;
 	}
 	if (fighter < 0.5 && paint_drift.x + paint_drift.y + paint_drift.w > 0.0) {
 		// (Tops stretched along the depth, as the print is: the match camera sees them almost edge on.)
@@ -400,7 +408,9 @@ void fragment() {
 		// Fibre: fine grain stretched along the sheet, on whichever plane the surface lies.
 		vec2 fp = abs(world_normal.y) > 0.5 ? world_pos.xz : (abs(world_normal.x) > 0.6 ? world_pos.zy : world_pos.xy);
 		float fib = brush_noise(fp * vec2(7.0, 26.0)) * 0.6 + brush_noise(fp * vec2(19.0, 57.0)) * 0.4;
-		c *= 1.0 + paper_fin.x * 0.22 * (fib - 0.5);
+		// (Faded where its cells fall under a pixel, fidelity review 17: there it aliases into a moire of fine lines.)
+		float fib_k = 1.0 - smoothstep(0.35, 0.9, max(fwidth(fp.x) * 19.0, fwidth(fp.y) * 57.0));
+		c *= 1.0 + paper_fin.x * 0.22 * fib_k * (fib - 0.5);
 		// Sheet to sheet: each piece a touch lighter or darker and warmer or cooler, broad across the merged meshes.
 		float sheet = fract(sin(dot(NODE_POSITION_WORLD, vec3(12.9898, 78.233, 37.719))) * 43758.5453);
 		float broad = brush_noise(world_pos.xy * 0.11 + world_pos.zz * 0.07);

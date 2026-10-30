@@ -495,7 +495,9 @@ const CITY_PAINT := {"A": {"brick": Vector4(1.0, 0.6, 7.0, 0.0), "roof": Vector4
 ##   B  a paler, greyer card stone, a lighter moss, and half the fall into shade on them.
 const STONE_TRY := {
 	"A": {"colours": {"fieldstone": Color(0.84, 0.77, 0.66)}},
-	"B": {"colours": {"fieldstone": Color(0.88, 0.85, 0.78), "wall_moss": Color(0.42, 0.6, 0.3)}, "fall": 0.2},
+	# (Fidelity review 17: truly lit, B's 0.88, 0.85, 0.78 blew out to white. A step down keeps the pale card stone it was picked for, and the moss
+	# a clear green: its caps read as dark lids.)
+	"B": {"colours": {"fieldstone": Color(0.74, 0.69, 0.6), "wall_moss": Color(0.52, 0.72, 0.36)}, "fall": 0.2},
 }
 
 
@@ -553,9 +555,11 @@ static func place_play(root: Node3D, t: Dictionary, path: String) -> void:
 		"sunset":
 			# (A step paler and cooler than the stage's sand, the readability pass: the orange fighter stood on sand of its own hue,
 			# apart by value alone.)
-			top = grass.lerp(Color(0.98, 0.93, 0.82), 0.35)
+			# (0.5, fidelity review 17: under the warm key and bright as it now is, a gold sand sat right on the orange fighters, delta E 20.)
+			top = grass.lerp(Color(0.98, 0.93, 0.82), 0.5)
 			layer1 = soil
-			layer2 = soil_dark.darkened(0.12)
+			# (Fidelity review 17: at soil_dark, a step deeper, the platforms' lower course was the darkest thing near the fight, and read as brick.)
+			layer2 = soil_dark.lightened(0.1)
 			fringe = soil
 		"ocean":
 			top = _pal_of(t, "deck_wood", Color(0.62, 0.42, 0.26))
@@ -581,6 +585,13 @@ static func place_play(root: Node3D, t: Dictionary, path: String) -> void:
 	if String(t.get("name", "")) == "ocean":
 		colours.merge({"top_worn": base_top.lerp(Color(0.66, 0.62, 0.58), 0.4), "top_deep": base_top.darkened(0.18),
 			"top_lit": base_top.lightened(0.14)}, true)
+	# (The canyon's a breath apart, fidelity review 17: trodden toward the red soil, the patches round the fighters read as dark mud on the sand, the
+	# owner's "dark and muddy".)
+	if String(t.get("name", "")) == "sunset":
+		colours.merge({"top_worn": base_top.lerp(Color(0.94, 0.72, 0.46), 0.3), "top_deep": base_top.darkened(0.09)}, true)
+	# (The city's patched felt quieter, fidelity review 17: at this low camera a sun-faded sheet 0.18 up read as a pale fish on the roof.)
+	if String(t.get("name", "")) == "city":
+		colours.merge({"top_lit": base_top.lightened(0.05)}, true)
 	# (A pale lilac, fidelity review 17: near black, the city's platform tops were the darkest thing in the play area, when they should be among the
 	# brightest. It was Color(0.3, 0.3, 0.42).)
 	var plate := wood.lerp(Color(0.64, 0.56, 0.72), 0.95)
@@ -670,8 +681,10 @@ static func place_play(root: Node3D, t: Dictionary, path: String) -> void:
 ## another hue and holds 0.19.)
 const FLOOR_TRY := {
 	"T": {},
-	"A": {"clouds": 0.0},
-	"B": {"clouds": 0.0, "cast": 0.35, "fall": 0.5, "ground": 0.5},
+	# (With "cast" 0.5, fidelity review 17: with the sun on the camera's side the platforms' real shadows fell across the lawns as hard dark mats.)
+	"A": {"clouds": 0.0, "cast": 0.5, "fall": 0.6},
+	# (Lighter than a first 0.35 and 0.5: a thin mix of the sand's gold and the shade's violet goes to grey-brown, the mud the owner saw.)
+	"B": {"clouds": 0.0, "cast": 0.15, "fall": 0.25, "ground": 0.5},
 	"C": {"clouds": 0.0, "cast": 0.2, "fall": 0.3, "ground": 0.5, "bare": true},
 }
 
@@ -1077,7 +1090,8 @@ static func place_trees(root: Node3D, t: Dictionary, slots: Array, source: Varia
 				var m := (FighterView.toon(colours.get(fam, Color(0.6, 0.6, 0.6)), fam != "bark") as ShaderMaterial).duplicate() as ShaderMaterial
 				m.set_shader_parameter("facets", fam != "bark")
 				m.set_shader_parameter("vertex_shade", true)
-				m.set_shader_parameter("ramp_softness", 0.25 if fam == "bark" else 0.1)
+				# (0.5 on the bark, fidelity review 17: every flat quad of its ridges took a step of the ramp, a mosaic of little rectangles up the trunk.)
+				m.set_shader_parameter("ramp_softness", 0.5 if fam == "bark" else 0.1)
 				mi.set_surface_override_material(s, m)
 			mi.set_meta("prebaked", true)
 	if sources[0] is String:

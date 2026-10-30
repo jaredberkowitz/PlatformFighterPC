@@ -353,9 +353,9 @@ static func chimney_smoke(parent: Node, source: Node3D) -> Burst:
 	b.damping = 0.3
 	# (Thinner and a warm pale grey, fidelity review 17: full white at this size, the column stood out as a stack of marshmallows, brighter than the
 	# house it came from.)
-	b.colours = [Color(0.96, 0.95, 0.93, 0.8), Color(0.94, 0.94, 0.96, 0.6), Color(0.92, 0.92, 0.96, 0)]
+	b.colours = [Color(0.84, 0.83, 0.82, 1.0), Color(0.86, 0.86, 0.88, 0.8), Color(0.88, 0.88, 0.92, 0)]
 	b.spawn = func(at: Vector3) -> Array:
-		return [at, Vector3(randf_range(-0.2, 0.2), randf_range(1.4, 2.0), 0), randf_range(2.6, 3.4), randf_range(0.9, 1.3)]
+		return [at, Vector3(randf_range(-0.2, 0.2), randf_range(1.4, 2.0), 0), randf_range(2.6, 3.4), randf_range(0.65, 0.95)]
 	parent.add_child(b)
 	return b
 
