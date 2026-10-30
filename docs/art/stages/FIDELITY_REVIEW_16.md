@@ -252,3 +252,7 @@ To ship:
 - the tint a style or mood key.
 
 Nothing needs re-baking.
+
+Built B (the owner's pick): meadow.cfg [backdrop] `stones="B"`; MOODS.meadow `front_tint` [0.6, 0.16, 0.94]. `--stones=T` brings back
+both as before. The front measures 0.47 in value, 0.122 in contrast; P1's gap is 0.125. Before and after (match top, wide bottom):
+`review16/meadow_stones_built.jpg`. All seven tests pass.
