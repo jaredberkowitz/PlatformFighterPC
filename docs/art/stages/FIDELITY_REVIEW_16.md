@@ -222,3 +222,7 @@ Recommended B.
 To ship:
 - rebuild `canyon_paper.glb` with `--hoodoo_look B`;
 - re-light the canyon.
+
+Built B (the owner's pick): `godot/models/stages/canyon_paper.glb` rebuilt with `--hoodoo_look B`; the canyon re-lit (front, paper,
+play). P1's gap is 0.214; the wide values hold (darks 4%). Before and after (wide): `review16/canyon_hoodoos_built.jpg`. All seven
+tests pass.
