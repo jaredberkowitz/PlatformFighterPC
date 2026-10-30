@@ -580,7 +580,7 @@ def pose(rig, bone, fwd=0.0, out=0.0, twist=0.0, lift=0.0, ahead=0.0):
     # (A planted move's thigh stays in a lunge's range: exaggerated, a lunge's front thigh rose past level and folded the belly over it.
     # Art review 5. Kicks and aerials keep their reach.)
     # (Not the runs, round 3: their feet are solved onto authored paths (`run_style`), and the knee drive and the heel kick need the range.)
-    if BODY and bone.startswith("thigh.") and CLIP_NOW and not CLIP_NOW.startswith(("kick", "run")) and grounded(CLIP_NOW):
+    if BODY and bone.startswith("thigh.") and CLIP_NOW and not CLIP_NOW.startswith(("kick", "run", "dash", "crouch", "land", "jumpsquat", "spot_dodge", "idle", "skid", "shield", "item_pick", "tech", "getup")) and grounded(CLIP_NOW):
         fwd = clampf(fwd, -50.0, 75.0)
     # (In an attack the arms stay in the fight, as the reference fighters' do: an elbow never flung straight, an arm never thrown far behind
     # the body. The owner: arms bent and flailed in ways out of place in combat. Art review 5.)
@@ -601,7 +601,7 @@ def pose(rig, bone, fwd=0.0, out=0.0, twist=0.0, lift=0.0, ahead=0.0):
         if HEAD_LIMIT_NOW is not None:
             fwd = max(fwd, HEAD_LIMIT_NOW)
         else:
-            fwd = max(fwd, HEAD_BACK_IDLE if CLIP_NOW.startswith(("idle", "walk")) else HEAD_BACK_LIMIT)
+            fwd = max(fwd, HEAD_BACK_IDLE if CLIP_NOW.startswith(("idle", "walk", "run_", "dash", "jump", "land", "spot")) or CLIP_NOW == "run" else HEAD_BACK_LIMIT)
     pb = rig.pose.bones[bone]
     pb.rotation_mode = "XYZ"
     limb = bone.split(".")[0] in LIMBS
@@ -1098,7 +1098,7 @@ def grounded(name):
     return not name.endswith("air")
 
 
-STANDING = {"jumpsquat_brawler", "jumpsquat_quick", "jumpsquat_heavy", "jumpsquat_caster", "jumpsquat_tool", "land_brawler", "land_quick", "land_heavy", "land_caster", "land_tool", "spot_dodge_brawler", "spot_dodge_quick", "spot_dodge_heavy", "spot_dodge_caster", "spot_dodge_tool", "item_pick", "item_throw", "dizzy", "idle", "idle_brawler", "idle_quick", "idle_heavy", "idle_caster", "idle_tool", "crouch", "jumpsquat", "land", "spot_dodge", "shield", "skid", "grab", "throw", "blaster", "sword_usmash", "sword_dsmash",
+STANDING = {"crouch_brawler", "crouch_quick", "crouch_heavy", "crouch_caster", "crouch_tool", "shield_brawler", "shield_quick", "shield_heavy", "shield_caster", "shield_tool", "run_stop_brawler", "run_stop_quick", "run_stop_heavy", "run_stop_caster", "run_stop_tool", "jumpsquat_brawler", "jumpsquat_quick", "jumpsquat_heavy", "jumpsquat_caster", "jumpsquat_tool", "land_brawler", "land_quick", "land_heavy", "land_caster", "land_tool", "spot_dodge_brawler", "spot_dodge_quick", "spot_dodge_heavy", "spot_dodge_caster", "spot_dodge_tool", "item_pick", "item_throw", "dizzy", "idle", "idle_brawler", "idle_quick", "idle_heavy", "idle_caster", "idle_tool", "crouch", "jumpsquat", "land", "spot_dodge", "shield", "skid", "grab", "throw", "blaster", "sword_usmash", "sword_dsmash",
             "tech", "run_stop", "idle_look", "idle_look_brawler", "idle_look_quick", "idle_look_heavy", "idle_look_caster", "idle_look_tool"}
 
 
@@ -1226,7 +1226,7 @@ def _bend_up(rig, side, ground):
 
 
 ## Clips with a moment in the air between steps: their feet are only kept from going through the ground.
-STRIDING = {"run", "dash", "run_quick", "run_heavy", "run_caster", "run_tool", "run_brawler", "walk", "walk_brawler", "walk_quick", "walk_heavy",
+STRIDING = {"dash_quick", "dash_heavy", "dash_caster", "dash_tool", "dash_brawler", "run", "dash", "run_quick", "run_heavy", "run_caster", "run_tool", "run_brawler", "walk", "walk_brawler", "walk_quick", "walk_heavy",
              "walk_caster", "walk_tool"}
 
 
@@ -1441,7 +1441,7 @@ def clip(rig, name, frames, poses):
         AMP = 1.75
     elif name in ("walk", "run", "dash", "skid"):
         AMP = 1.0
-    elif name in ("jump", "fall", "fall_start", "tumble", "hurt", "crouch", "jumpsquat", "land", "shield", "roll", "spot_dodge", "air_dodge", "knockdown") or name.startswith(("jump_", "fall_", "jumpsquat_", "land_", "spot_dodge_")):
+    elif name in ("jump", "fall", "fall_start", "tumble", "hurt", "crouch", "jumpsquat", "land", "shield", "roll", "spot_dodge", "air_dodge", "knockdown") or name.startswith(("jump_", "fall_", "jumpsquat_", "land_", "spot_dodge_", "crouch_", "shield_")):
         AMP = 1.25
     else:
         AMP = 1.0
@@ -1583,27 +1583,28 @@ def hand_to(rig, side, ahead, up, out):
 #   ahead: where the sweep is centred, ahead of the hip; lean, side, head: the chest's lean and side bend and the head's counter-tilt (as
 #   the family's idle); twist: the hips and shoulders counter-turning; sway: the hips rolling side to side; wide: each foot set out from its hip (units);
 #   arms: (upper arm forward, out, elbow) for the near and far arm, and how far they swing.
-WALK_TEMPO = 0.055
+WALK_TEMPO = 0.0985    # (0.055 until round 9: a full-tilt walk cycled every 9.5 frames, a scurry; the reference fighters' walks take about twice that and more, the feet off the floor
+                       # between steps. Each foot is down long enough to sweep what the short legs can, `down`.)
 WALK_TURN_SHARE = 0.96
 WALK_STYLES = {
     # The sword family: a guarded advance in the battle stance, the free hand up, small arm swings.
-    "": dict(frames=34, hips=0.74, down=0.42, lift=0.15, bob=0.025, ahead=0.02, lean=26.0, side=20.0, head=-19.0, twist=6.0,
-             sway=0.0, wide=0.02, arm_l=(28.0, 30.0, 100.0), arm_r=(24.0, 28.0, 108.0), swing=10.0),
-    # The brawlers: a hunched prowl, both fists up in the guard, the shoulders rolling.
-    "brawler": dict(frames=35, hips=0.71, down=0.40, lift=0.14, bob=0.03, ahead=0.02, lean=30.0, side=18.0, head=-16.0,
-                    twist=9.0, sway=0.0, wide=0.04, arm_l=(52.0, 20.0, 96.0), arm_r=(40.0, 26.0, 108.0), swing=8.0),
-    # The quick fighters: low and springy, long light steps with a bounce between them, the lead hand out.
-    "quick": dict(frames=38, hips=0.72, down=0.32, lift=0.16, bob=0.05, ahead=0.0, lean=28.0, side=14.0, head=-16.0,
-                  twist=8.0, sway=0.0, wide=0.02, arm_l=(64.0, 10.0, 40.0), arm_r=(-14.0, 24.0, 100.0), swing=14.0),
-    # The heavy one: wide, planted steps, the hips rolling side to side and the arms swinging big and slow.
-    "heavy": dict(frames=33, hips=0.70, down=0.46, lift=0.12, bob=0.035, ahead=0.0, lean=18.0, side=12.0, head=-8.0,
-                  twist=8.0, sway=5.0, wide=0.1, arm_l=(10.0, 46.0, 46.0), arm_r=(6.0, 46.0, 50.0), swing=24.0),
-    # The caster: upright and neat, small even steps, the lead palm open and the other hand held in.
-    "caster": dict(frames=35, hips=0.80, down=0.36, lift=0.13, bob=0.02, ahead=0.02, lean=8.0, side=6.0, head=-8.0,
-                   twist=5.0, sway=0.0, wide=0.0, arm_l=(66.0, 10.0, 30.0), arm_r=(-16.0, 36.0, 104.0), swing=6.0),
+    "": dict(frames=34, hips=0.82, down=0.27, lift=0.15, bob=0.03, ahead=0.02, lean=20.0, side=4.0, head=-14.0, twist=6.0,
+             sway=0.0, wide=0.05, arm_l=(10.0, 30.0, 40.0), arm_r=(32.0, 14.0, 34.0), swing=10.0),
+    # The brawlers: a hunched prowl, the arms hanging out ready, the shoulders rolling.
+    "brawler": dict(frames=35, hips=0.78, down=0.25, lift=0.14, bob=0.03, ahead=0.02, lean=28.0, side=4.0, head=-16.0,
+                    twist=9.0, sway=0.0, wide=0.06, arm_l=(8.0, 40.0, 104.0), arm_r=(38.0, 14.0, 28.0), swing=8.0),
+    # The quick fighters: low and springy, long light steps with a bounce between them, the hands out.
+    "quick": dict(frames=38, hips=0.78, down=0.24, lift=0.16, bob=0.05, ahead=0.0, lean=24.0, side=4.0, head=-14.0,
+                  twist=8.0, sway=0.0, wide=0.05, arm_l=(50.0, 30.0, 104.0), arm_r=(74.0, 10.0, 72.0), swing=10.0),
+    # The heavy one: wide, planted steps, the hips rolling side to side and the arms swinging.
+    "heavy": dict(frames=33, hips=0.78, down=0.28, lift=0.13, bob=0.04, ahead=0.0, lean=30.0, side=4.0, head=-14.0,
+                  twist=8.0, sway=5.0, wide=0.1, arm_l=(32.0, 26.0, 62.0), arm_r=(42.0, 14.0, 62.0), swing=16.0),
+    # The caster: neat, a bounce on every step, the arms pumping as they do at its idle.
+    "caster": dict(frames=35, hips=0.80, down=0.25, lift=0.14, bob=0.05, ahead=0.02, lean=10.0, side=3.0, head=-8.0,
+                   twist=6.0, sway=0.0, wide=0.04, arm_l=(14.0, 26.0, 84.0), arm_r=(46.0, 12.0, 58.0), swing=14.0),
     # The tool users: a loose, bouncy stroll, the arms swinging free.
-    "tool": dict(frames=37, hips=0.79, down=0.34, lift=0.16, bob=0.04, ahead=0.02, lean=6.0, side=5.0, head=-4.0, twist=10.0,
-                 sway=0.0, wide=0.01, arm_l=(4.0, 14.0, 34.0), arm_r=(2.0, 16.0, 30.0), swing=34.0),
+    "tool": dict(frames=37, hips=0.80, down=0.24, lift=0.16, bob=0.05, ahead=0.02, lean=6.0, side=3.0, head=-4.0, twist=10.0,
+                 sway=0.0, wide=0.03, arm_l=(10.0, 26.0, 26.0), arm_r=(18.0, 18.0, 28.0), swing=30.0),
 }
 for _st in WALK_STYLES.values():
     _st["sweep"] = _st["down"] * _st["frames"] * WALK_TEMPO / WALK_TURN_SHARE
@@ -1661,35 +1662,52 @@ def walk_style(phase, st):
 #   kicks up; bob: the hips' drop on each landing; lean, side, head: the chest's lean and side bend and the head's counter-tilt; twist: the
 #   hips and shoulders counter-turning; sway: the hips rolling; wide: each foot set out from its hip; arm_l, arm_r: (upper arm forward,
 #   out, elbow) for the near (weapon) and far arm; swing_l, swing_r: how far each pumps.
-RUN_TEMPO = 0.17
+RUN_TEMPO = 0.25    # (0.17 until round 9, and down 0.25: the legs turned over a full cycle every 14 frames at a run, twice the reference fighters' 22-30. They bound: each foot is down only
+                    # 4 or 5 frames, a long flight between with the legs spread wide, one reaching ahead and one trailing, as far as the short legs go.)
 RUN_TURN_SHARE = 0.98
 RUN_STYLES = {
-    # The sword family: leaning in, the blade carried low behind in the near hand, the far fist pumping.
-    "": dict(frames=21, hips=0.68, down=0.25, lift=0.3, kick=0.16, bob=0.07, lean=26.0, side=8.0, head=-14.0, twist=10.0, sway=0.0,
-             wide=0.03, arm_l=(-12.0, 26.0, 40.0), arm_r=(14.0, 22.0, 96.0), swing_l=18.0, swing_r=48.0),
-    # The brawlers: hunched low, both fists up and pumping short and hard.
-    "brawler": dict(frames=21, hips=0.64, down=0.25, lift=0.28, kick=0.14, bob=0.08, lean=34.0, side=10.0, head=-18.0, twist=12.0,
-                    sway=0.0, wide=0.04, arm_l=(34.0, 22.0, 104.0), arm_r=(36.0, 20.0, 108.0), swing_l=30.0, swing_r=34.0),
-    # The quick fighters: very low and long, the arms swept back.
-    "quick": dict(frames=23, hips=0.62, down=0.24, lift=0.32, kick=0.2, bob=0.05, lean=40.0, side=6.0, head=-20.0, twist=8.0, sway=0.0,
-                  wide=0.02, arm_l=(-44.0, 18.0, 24.0), arm_r=(-40.0, 20.0, 28.0), swing_l=12.0, swing_r=12.0),
-    # The heavy one (round 4: it read like the others): lower, longer strides at a slower cadence (as long as the short legs reach), a
-    # long, heavy contact with the weight dropping onto each step after the foot is down (`sink`), the feet kept low, the body rocking
-    # side to side and the arms swinging wide. (fighter_view.gd squashes it harder on each footfall, `STEP_SQUASH`.)
-    "heavy": dict(frames=22, hips=0.61, down=0.32, lift=0.16, kick=0.04, bob=0.12, lean=14.0, side=8.0, head=-7.0, twist=16.0, sway=9.0,
-                  wide=0.1, arm_l=(4.0, 44.0, 60.0), arm_r=(6.0, 44.0, 64.0), swing_l=44.0, swing_r=44.0, sink=0.03),
-    # The caster: neat and upright, the arms held in.
-    "caster": dict(frames=21, hips=0.72, down=0.25, lift=0.24, kick=0.12, bob=0.05, lean=18.0, side=6.0, head=-10.0, twist=8.0, sway=0.0,
-                   wide=0.0, arm_l=(22.0, 16.0, 84.0), arm_r=(18.0, 18.0, 88.0), swing_l=22.0, swing_r=22.0),
-    # The tool users: a loose, bouncy jog, the arms swinging free.
-    "tool": dict(frames=21, hips=0.7, down=0.25, lift=0.28, kick=0.14, bob=0.09, lean=16.0, side=5.0, head=-8.0, twist=12.0, sway=0.0,
-                 wide=0.02, arm_l=(6.0, 24.0, 62.0), arm_r=(8.0, 24.0, 66.0), swing_l=52.0, swing_r=52.0),
+    # The sword family: leaning in, the blade carried low behind in the near hand, the far fist low. (The swordsman reference: step 13 frames, leaning about 35.)
+    "": dict(frames=26, hips=0.70, down=0.155, lift=0.44, trail=0.62, kick=0.30, reach=0.62, bob=0.05, lean=30.0, side=4.0, head=-16.0, twist=10.0, sway=0.0,
+             wide=0.05, arm_l=(-12.0, 26.0, 40.0), arm_r=(10.0, 20.0, 80.0), swing_l=14.0, swing_r=26.0),
+    # The brawlers: hunched right over, the arms hanging back and low. (The wolf: step 13, leaning about 50.)
+    "brawler": dict(frames=21, hips=0.68, down=0.19, lift=0.42, trail=0.62, kick=0.30, reach=0.62, bob=0.05, lean=44.0, side=4.0, head=-24.0, twist=10.0,
+                    sway=0.0, wide=0.06, arm_l=(-26.0, 30.0, 34.0), arm_r=(-18.0, 26.0, 40.0), swing_l=16.0, swing_r=16.0),
+    # The quick fighters: nearly flat out, the arms swept back, the longest bounds. (The ninja: step 11, leaning about 60.)
+    "quick": dict(frames=27, hips=0.66, down=0.148, lift=0.46, trail=0.66, kick=0.34, reach=0.64, bob=0.04, lean=50.0, side=4.0, head=-26.0, twist=8.0, sway=0.0,
+                  wide=0.04, arm_l=(-58.0, 18.0, 16.0), arm_r=(-50.0, 20.0, 18.0), swing_l=8.0, swing_r=8.0),
+    # The heavy one: upright, the steps heavier and slower, the feet low, the weight coming down onto each. (The dinosaur: step 15, leaning about 20.)
+    "heavy": dict(frames=31, hips=0.66, down=0.135, lift=0.30, trail=0.56, kick=0.20, reach=0.58, bob=0.08, lean=20.0, side=4.0, head=-8.0, twist=14.0, sway=7.0,
+                  wide=0.1, arm_l=(24.0, 34.0, 76.0), arm_r=(30.0, 26.0, 76.0), swing_l=22.0, swing_r=22.0, sink=0.03),
+    # The caster: the arms flung ahead and behind through each bound. (The plumber: step 12.5, leaning about 25.)
+    "caster": dict(frames=22, hips=0.68, down=0.18, lift=0.42, trail=0.62, kick=0.28, reach=0.62, bob=0.06, lean=22.0, side=3.0, head=-10.0, twist=10.0, sway=0.0,
+                   wide=0.03, arm_l=(2.0, 22.0, 56.0), arm_r=(16.0, 20.0, 60.0), swing_l=42.0, swing_r=42.0),
+    # The tool users: a loose jog, the arms pumping. (The villager: step 13.5, leaning about 15.)
+    "tool": dict(frames=22, hips=0.70, down=0.18, lift=0.38, trail=0.56, kick=0.24, reach=0.56, bob=0.06, lean=14.0, side=3.0, head=-6.0, twist=12.0, sway=0.0,
+                 wide=0.03, arm_l=(4.0, 22.0, 66.0), arm_r=(10.0, 22.0, 70.0), swing_l=40.0, swing_r=40.0),
 }
 for _st in RUN_STYLES.values():
     _st["sweep"] = _st["down"] * _st["frames"] * RUN_TEMPO / RUN_TURN_SHARE
 
 
-def run_style(phase, st):
+def _path(keys, q):
+    """Catmull-Rom through `keys` [(q, value)...], with the first and last keys' tangents given: [(q, value, tangent at the ends)]."""
+    for i in range(len(keys) - 1):
+        q0, v0 = keys[i][0], keys[i][1]
+        q1, v1 = keys[i + 1][0], keys[i + 1][1]
+        if q <= q1 or i == len(keys) - 2:
+            h = q1 - q0
+            def tan(j):
+                if len(keys[j]) > 2:
+                    return keys[j][2]
+                return (keys[j + 1][1] - keys[j - 1][1]) / (keys[j + 1][0] - keys[j - 1][0])
+            m0, m1 = tan(i) * h, tan(i + 1) * h
+            u = clampf((q - q0) / h, 0.0, 1.0)
+            h00, h10, h01, h11 = 2 * u ** 3 - 3 * u * u + 1, u ** 3 - 2 * u * u + u, -2 * u ** 3 + 3 * u * u, u ** 3 - u * u
+            return h00 * v0 + h10 * m0 + h01 * v1 + h11 * m1
+    return keys[-1][1]
+
+
+def run_style(phase, st, lean_more=0.0, lower=0.0):
     """One frame of a family's run (`RUN_STYLES`) at `phase` (0..1). The left foot lands at phase 0, the right at 0.5."""
     def f(rig):
         rest_hips = rig.pose.bones["hips"].bone.head_local.z
@@ -1697,8 +1715,8 @@ def run_style(phase, st):
         # onto the step after the foot is planted.
         lowest = math.cos((phase - 0.05 - st.get("sink", 0.0)) * 4.0 * math.pi)
         roll = math.sin(phase * 2.0 * math.pi)
-        pose(rig, "hips", lift=st["hips"] - rest_hips - st["bob"] * lowest, twist=-st["twist"] * roll, out=st["sway"] * roll)
-        pose(rig, "spine", fwd=st["lean"] + 4.0 * lowest, twist=8.0 + st["twist"] * 1.4 * roll, out=st["side"])
+        pose(rig, "hips", lift=st["hips"] - lower - rest_hips - st["bob"] * lowest, twist=-st["twist"] * roll, out=st["sway"] * roll)
+        pose(rig, "spine", fwd=st["lean"] + lean_more + 4.0 * lowest, twist=8.0 + st["twist"] * 1.4 * roll, out=st["side"])
         pose(rig, "head", fwd=st["head"] - 4.0 * lowest, twist=-4.0 - st["twist"] * 0.9 * roll)
         for side, arm, amp in (("L", st["arm_l"], st["swing_l"]), ("R", st["arm_r"], st["swing_r"])):
             # Each arm pumps with the other leg: back as its own leg lands in front, the elbow closing as it comes forward.
@@ -1715,20 +1733,14 @@ def run_style(phase, st):
                 height = 0.0
                 toe = -18.0 * max(0.0, u - 0.6) / 0.4
             else:
-                u = (p - down) / (1.0 - down)
-                # (Leaving still going back and landing already going back, as the walk's foot; the heel kicks up behind early in the
-                # swing, then the knee drives through and the foot reaches ahead.)
-                # (It reaches a little past its landing point and paws back onto it, so it touches down already moving back with the
-                # ground; both ends of the lift are steep, so it is never skimming the floor.)
-                m0, m1 = -sweep * 0.35, -sweep * 1.6
-                h00, h10, h01, h11 = 2 * u ** 3 - 3 * u * u + 1, u ** 3 - 2 * u * u + u, -2 * u ** 3 + 3 * u * u, u ** 3 - u * u
-                ahead = h00 * (-0.5 * sweep) + h10 * m0 + h01 * (0.5 * sweep) + h11 * m1
-                ahead -= st["kick"] * math.sin(math.pi * min(1.0, u / 0.55))
-                height = st["lift"] * math.sin(math.pi * u) ** 0.6
-                toe = -30.0 * math.sin(math.pi * u * 2.0) if u < 0.5 else 16.0 * math.sin(math.pi * (u - 0.5) * 2.0)
-            miss = foot_to(rig, side, ahead, height, st["wide"])
-            if miss > 0.01:
-                print("run %s: the %s foot misses by %.3f at %.2f" % (CLIP_NOW, side, miss, phase))
+                q = (p - down) / (1.0 - down)
+                # (Off the floor still going back; on up behind to its trail, the heel kicked up; the knee drives through under the hips; out to its reach ahead; pawing back onto its
+                # landing with the ground's pace. Half a cycle apart, one leg is at its trail as the other is at its reach: the legs spread wide in the flight.)
+                ground = -sweep / down * (1.0 - down)
+                ahead = _path([(0.0, -0.5 * sweep, ground), (0.22, -st["trail"]), (0.54, -0.04), (0.84, st["reach"]), (1.0, 0.5 * sweep, ground)], q)
+                height = _path([(0.0, 0.0, st["kick"] * 3.0), (0.22, st["kick"]), (0.54, st["lift"]), (0.84, st["kick"] * 0.8), (1.0, 0.0, -st["kick"] * 2.0)], q)
+                toe = -34.0 * math.sin(math.pi * clampf(q / 0.5, 0.0, 1.0)) if q < 0.5 else 16.0 * math.sin(math.pi * (q - 0.5) * 2.0)
+            miss = foot_to(rig, side, ahead, max(0.0, height), st["wide"])
             _level_sole(rig, side)
             rig.pose.bones["foot." + side].rotation_euler.x += math.radians(-toe)
     return f
@@ -3724,6 +3736,52 @@ def crouch_key(fam, h, k, arm_k=1.0):
     return f
 
 
+# The crouch per family (round 9): the references fold right over bent knees, the hips about a fifth of the height up and the chest nearly level, the head up looking ahead; it was one clip for all,
+# the hips at a third of the height, the chest barely bent. A slow breath so it stays alive. The shield per family: a step lower than the stance, hunched behind the bubble, fists in at the chest.
+CROUCH_CORE = {
+    "": dict(hips=0.54, lean=50.0, head=-24.0, arm_l=(24.0, 34.0, 50.0), arm_r=(50.0, 16.0, 70.0)),
+    "brawler": dict(hips=0.50, lean=58.0, head=-24.0, arm_l=(30.0, 40.0, 40.0), arm_r=(56.0, 16.0, 44.0)),
+    "quick": dict(hips=0.48, lean=60.0, head=-24.0, arm_l=(36.0, 30.0, 40.0), arm_r=(58.0, 14.0, 44.0)),
+    "heavy": dict(hips=0.52, lean=66.0, head=-24.0, arm_l=(30.0, 30.0, 70.0), arm_r=(44.0, 16.0, 70.0)),
+    "caster": dict(hips=0.50, lean=50.0, head=-24.0, arm_l=(28.0, 36.0, 60.0), arm_r=(50.0, 16.0, 64.0)),
+    "tool": dict(hips=0.52, lean=46.0, head=-22.0, arm_l=(24.0, 36.0, 36.0), arm_r=(40.0, 20.0, 40.0)),
+}
+
+
+def crouch_core(k, fam):
+    st = CROUCH_CORE[fam]
+
+    def f(rig):
+        b = math.sin(2.0 * math.pi * k)
+        _stance_pose(rig, fam, st["hips"] + 0.012 * b, 0.0, st["lean"] - 2.0 * b, 0.0, st["head"] + 1.5 * b, 6.0, -6.0, -4.0,
+                     (st["arm_l"][0] + 2.0 * b, st["arm_l"][1], st["arm_l"][2]), (st["arm_r"][0] + 2.0 * b, st["arm_r"][1], st["arm_r"][2]))
+    return f
+
+
+def shield_core(fam):
+    idle_st = IDLE_CORE[fam]
+    hips = _STANCE_ROWS[fam][STANCE_MOCK][0]
+
+    def f(rig):
+        _stance_pose(rig, fam, hips - 0.1, 0.0, idle_st["lean"] + 8.0, idle_st["side"], idle_st["head"] - 4.0, 12.0, -6.0, -4.0, (18.0, 16.0, 96.0), (34.0, 16.0, 96.0))
+    return f
+
+
+def brake_core(fam, which):
+    """Braking out of a run (no close reference footage: by craft, on the run's feet): the front heel dug in and the back knee low, leaning back against the slide; a rebound forward over the feet."""
+    idle_st = IDLE_CORE[fam]
+    hips = _STANCE_ROWS[fam][STANCE_MOCK][0]
+
+    def f(rig):
+        if which == 0:
+            _stance_pose(rig, fam, hips - 0.2, 0.0, -10.0, 0.0, -2.0, 10.0, -8.0, -4.0, (-26.0, 44.0, 26.0), (-40.0, 40.0, 30.0), (0.5, 0.0), (-0.26, 0.0))
+        elif which == 1:
+            _stance_pose(rig, fam, hips - 0.26, 0.0, -14.0, 0.0, 0.0, 10.0, -8.0, -4.0, (-34.0, 46.0, 24.0), (-48.0, 42.0, 28.0), (0.54, 0.0), (-0.28, 0.0))
+        else:
+            _stance_pose(rig, fam, hips - 0.1, 0.0, idle_st["lean"] + 12.0, idle_st["side"], idle_st["head"] - 6.0, 10.0, -6.0, -4.0, (20.0, 34.0, 50.0), (44.0, 26.0, 56.0), (0.36, 0.0), (-0.3, 0.0))
+    return f
+
+
 def main() -> None:
     clear()
     rig = make_armature()
@@ -3915,7 +3973,13 @@ def main() -> None:
             n = st["frames"]
             clip(rig, "run_" + fam if fam else "run", n, {i: run_style(i / n, st) for i in range(0, n + 1)})
     # The initial dash: the same stride, launched lower and further forward, arms flung harder.
-    clip(rig, "dash", 16, {i: run_pose(i / 16.0, lean=32.0, stride=1.1, arms=1.15, bounce=0.06) for i in range(0, 17)})
+    if BODY:
+        # (Round 9: each family's own, its run's gait lower and leaning further: the first steps out of the stance; it was one old angle-keyed clip for all, 16 frames a cycle.)
+        for fam, st in RUN_STYLES.items():
+            n = st["frames"]
+            clip(rig, "dash_" + fam if fam else "dash", n, {i: run_style(i / n, st, lean_more=8.0, lower=0.03) for i in range(0, n + 1)})
+    else:
+        clip(rig, "dash", 16, {i: run_pose(i / 16.0, lean=32.0, stride=1.1, arms=1.15, bounce=0.06) for i in range(0, 17)})
 
     # A skid: braking out of a run to turn around. Leaning back hard on a planted front heel, the back knee bent low, arms flung back and
     # up for balance; a little wobble so it is alive.
@@ -3935,7 +3999,10 @@ def main() -> None:
                 pose(rig, "armL." + side, fwd=20.0)
         return f
 
-    clip(rig, "skid", 12, {0: skid(0.0), 3: skid(0.25), 6: skid(0.5), 9: skid(0.75), 12: skid(1.0)})
+    if BODY:
+        clip(rig, "skid", 12, {0: brake_core("", 0), 4: brake_core("", 1), 12: brake_core("", 1)})
+    else:
+        clip(rig, "skid", 12, {0: skid(0.0), 3: skid(0.25), 6: skid(0.5), 9: skid(0.75), 12: skid(1.0)})
 
     # The jump (rising): pushing off with both legs straight, then the front knee driven up high and the back leg trailing down and
     # behind, the lead fist thrown up and the other arm swung back (the reference game's jumping pose), held as it rises.
@@ -4113,7 +4180,11 @@ def main() -> None:
         pose(rig, "spine", fwd=14.0)
         pose(rig, "head", fwd=-8.0)
 
-    clip(rig, "crouch", 8, {0: crouch, 8: crouch})
+    if BODY:
+        for fam in [""] + list(IDLE_STYLES):
+            clip(rig, "crouch_" + fam if fam else "crouch", 60, {i: crouch_core(i / 60.0, fam) for i in range(0, 61, 6)})
+    else:
+        clip(rig, "crouch", 8, {0: crouch, 8: crouch})
 
     # The jump's take-off crouch (anticipation, a few frames): the knees load deep, the chest leans into it and both arms swing down and
     # back, so the jump that follows throws them up through the push-off.
@@ -4180,7 +4251,11 @@ def main() -> None:
         pose(rig, "spine", fwd=12.0)
 
     # (Round 2: on the battle stance's legs; it stood up 0.23 out of the idle to shield and sank back on dropping it.)
-    clip(rig, "shield", 8, {0: _stance_over(shield, {}, 0.0, True), 8: _stance_over(shield, {}, 0.0, True)})
+    if BODY:
+        for fam in [""] + list(IDLE_STYLES):
+            clip(rig, "shield_" + fam if fam else "shield", 8, {0: shield_core(fam), 8: shield_core(fam)})
+    else:
+        clip(rig, "shield", 8, {0: _stance_over(shield, {}, 0.0, True), 8: _stance_over(shield, {}, 0.0, True)})
 
     def hurt(rig):
         for side in "LR":
@@ -5083,7 +5158,9 @@ def main() -> None:
                 pose(rig, "armU." + side, fwd=46.0, out=34.0)
                 pose(rig, "armL." + side, fwd=60.0)
 
-        clip(rig, "run_stop", 20, {0: stop_brace, 4: amped(stop_brace, 1.08), 11: stop_rebound, 20: idle(0.0)})
+        # (Round 9: each family's own, ending in its own stance.)
+        for fam in [""] + list(IDLE_STYLES):
+            clip(rig, "run_stop_" + fam if fam else "run_stop", 20, {0: brake_core(fam, 0), 4: brake_core(fam, 1), 11: brake_core(fam, 2), 20: idle_core(0.0, fam)})
 
         # Hitstun from a hit strong enough to send the fighter flying but not to tumble: folded round the blow (the game turns it to
         # face the hit), the arms and legs left trailing toward the hitter, the head pitched down over it but still showing the face.
@@ -5341,6 +5418,9 @@ def main() -> None:
                 pose(rig, "shin.R", fwd=-30.0)
                 return
             if k == 2:
+                if BODY:
+                    _stance_pose(rig, "", 0.62, 0.0, 34.0, 0.0, -18.0, 8.0, -6.0, -4.0, (24.0, 26.0, 40.0), (44.0, 18.0, 50.0))
+                    return
                 pose(rig, "hips", lift=-0.18)
                 for side in "LR":
                     pose(rig, "thigh." + side, fwd=66.0, out=8.0)
@@ -5349,6 +5429,9 @@ def main() -> None:
                     pose(rig, "armL." + side, fwd=40.0)
                 pose(rig, "spine", fwd=24.0)
                 pose(rig, "head", fwd=-12.0)
+                return
+            if BODY:
+                idle_core(0.0, "")(rig)
                 return
             for side in "LR":
                 pose(rig, "armU." + side, fwd=8.0, out=14.0)

@@ -212,7 +212,7 @@ const LONG_FIT := Transform3D(Basis(Vector3(0.92, 0, 0), Vector3(0, 0.92, 0), Ve
 ## Where the head and torso sit in the rig compared with the sphere-built look the face, hats and glasses were designed for.
 const HEAD_FIT := Transform3D(Basis(Vector3(0.825, 0, 0), Vector3(0, 0.825, 0), Vector3(0, 0, 0.825)), Vector3(0, 1.56 - 1.42 * 0.825, 0))
 const TORSO_FIT := Transform3D()
-const LOOPING := ["tumble", "idle", "idle_brawler", "idle_quick", "idle_heavy", "idle_caster", "idle_tool", "run_brawler", "run_quick", "run_heavy", "run_caster", "run_tool", "walk", "walk_brawler", "walk_quick", "walk_heavy", "walk_caster", "walk_tool", "run", "dash", "fall", "fall_brawler", "fall_quick", "fall_heavy", "fall_caster", "fall_tool", "victory_a", "victory_b", "victory_c",
+const LOOPING := ["tumble", "idle", "idle_brawler", "idle_quick", "idle_heavy", "idle_caster", "idle_tool", "run_brawler", "run_quick", "run_heavy", "run_caster", "run_tool", "walk", "walk_brawler", "walk_quick", "walk_heavy", "walk_caster", "walk_tool", "run", "dash", "dash_brawler", "dash_quick", "dash_heavy", "dash_caster", "dash_tool", "fall", "fall_brawler", "fall_quick", "fall_heavy", "fall_caster", "fall_tool", "crouch", "crouch_brawler", "crouch_quick", "crouch_heavy", "crouch_caster", "crouch_tool", "victory_a", "victory_b", "victory_c",
 	"helpless", "dizzy", "buried"]
 ## The rig is read once and copied for every fighter (reading it again renames its bones).
 static var _rig_templates: Dictionary = {}
@@ -521,12 +521,12 @@ func _build_rig(skin: Material) -> bool:
 const RUN_STOP_SPEED := 0.04
 ## The walk clip plays once a cycle at this ground speed (units a frame), faster or slower with the speed: quick enough that the planted
 ## foot slides only about a third of the ground speed on the short legs (motion plan phase 4), not so quick that the walk scurries.
-const WALK_TEMPO := 0.055
+const WALK_TEMPO := 0.0985
 ## The run and dash take this many more steps than one stride a dash length: the cute body's short legs cover less ground a step, so
 ## they scurry (motion plan phase 4, measured by tests/motion_probe.gd).
 const STEP_CADENCE := 1.4
 ## The base body's runs play once a cycle every clip-frames x RUN_TEMPO units of ground (make_rigged_blob.py RUN_TEMPO).
-const RUN_TEMPO := 0.17
+const RUN_TEMPO := 0.25
 const RUN_STOP_FRAMES := 20.0
 const FIDGET_AFTER := 240   # (round 9: the reference fighters' come every three or four seconds; 300 and 420 until then)
 const FIDGET_EVERY := 300
@@ -545,18 +545,18 @@ func _choose_clip(s: Dictionary) -> Array:
 	match state:
 		"Walk":
 			# (Each family's own walk, `walk_<family>`, round 2; the clip's length sets its stride, see make_rigged_blob.py WALK_STYLES.)
-			return [AnimLibrary.family_clip(_cls(s), "walk", anim), clampf(speed / WALK_TEMPO, 0.5, 3.6), -1.0]
+			return [AnimLibrary.family_clip(_cls(s), "walk", anim), clampf(speed / WALK_TEMPO, 0.25, 3.6), -1.0]
 		"Run", "Dash":
 			# Cycles a second (two dash lengths each) times the clip's length in seconds.
 			var stride := 2.0 * maxf(0.5, float(s.get("dash_length", 2.4)))
 			# (Each family's own run, `run_<family>`: round 2 found the family runs built in pass 1 never played, because this returned the
 			# shared run before the family lookup below.)
-			var clip := "dash" if state == "Dash" else AnimLibrary.family_clip(_cls(s), "run", anim)
+			var clip := AnimLibrary.family_clip(_cls(s), "dash" if state == "Dash" else "run", anim)
 			var length := anim.get_animation(clip).length if anim != null and anim.has_animation(clip) else 0.3
-			if state == "Run" and use_base_body:
+			if use_base_body:
 				# (Round 3: the runs' feet are authored to cover RUN_TEMPO units of ground a clip frame, make_rigged_blob.py RUN_STYLES, so
-				# the clip plays at the ground's pace and a planted foot stays put.)
-				return [clip, clampf(speed / RUN_TEMPO, 0.5, 3.2), -1.0]
+				# the clip plays at the ground's pace and a planted foot stays put. Round 9: the dash too, and never slower than this as it starts from a stand: the push-off.)
+				return [clip, clampf(speed / RUN_TEMPO, 0.8, 3.2), -1.0]
 			return [clip, minf(3.2, speed * 60.0 / stride * length * STEP_CADENCE), -1.0]
 		"Attack":
 			return _attack_clip(s)
@@ -573,8 +573,11 @@ func _choose_clip(s: Dictionary) -> Array:
 			# (Round 9: its own family's idle; every class played the sword family's for the frames of a turn.)
 			return ["skid", 1.0, -1.0] if speed > 0.08 else [AnimLibrary.family_clip(_cls(s), "idle", anim), 1.0, -1.0]
 		"LedgeGetUp":
+			# (Round 9, after the references' ledge rolls, frame by frame: hanging, up onto the edge by a fifth of the way, then the somersault along the floor and up; it spun the whole way up from the hang.)
 			if ledge_rolling:
-				return ["roll", 1.0, ledge_k]
+				if ledge_k < LEDGE_ROLL_UP:
+					return ["ledge_climb", 1.0, ledge_k / LEDGE_ROLL_UP * 0.66]
+				return ["roll", 1.0, (ledge_k - LEDGE_ROLL_UP) / (1.0 - LEDGE_ROLL_UP)]
 			return ["ledge_climb", 1.0, ledge_k]
 		"Landing":
 			# A tech in place is a landing with a tech's intangibility (a plain landing has none; a fighter still invincible from its
@@ -591,7 +594,7 @@ func _choose_clip(s: Dictionary) -> Array:
 					return [AnimLibrary.family_clip(_cls(s), "land", anim), 1.0, lp]
 			# Still sliding as it stops out of a run: braced against the slide, then settled.
 			if grounded and speed > RUN_STOP_SPEED and int(s.state_frame) < RUN_STOP_FRAMES:
-				return [AnimLibrary.or_stand_in("run_stop", anim), 1.0, float(s.state_frame) / RUN_STOP_FRAMES]
+				return [AnimLibrary.family_clip(_cls(s), AnimLibrary.or_stand_in("run_stop", anim), anim), 1.0, float(s.state_frame) / RUN_STOP_FRAMES]
 			# Standing still for a long time, a fidget now and then.
 			var still := int(s.state_frame) - FIDGET_AFTER
 			if grounded and still >= 0:
@@ -848,12 +851,12 @@ const CLIP_END_SHAPES := {"body_headbutt_fwd": Vector3(0.12, 0.8, CARRY_FRAMES)}
 ## family's aerials and down smash held 12-33 frames where its reference holds 2-6 and floats home over 14-26; the Longsword's forward
 ## air and jab held too long and recovered in 3-5; the heavy's forward air and smash, the caster's up air and forward smash.)
 const CLASS_END_SHAPES := {
-	0: {"bair": Vector2(0.550, 0.850), "dair": Vector2(0.900, 0.984), "dsmash": Vector2(0.835, 0.990), "dtilt": Vector2(0.020, 0.563), "fair": Vector2(0.243, EVEN + 0.990), "fsmash": Vector2(0.020, 0.990), "ftilt": Vector2(0.766, 0.990), "jab": Vector2(0.020, 0.461), "uair": Vector2(0.020, EVEN + 0.990), "usmash": Vector2(0.405, 0.990)},
-	1: {"bair": Vector2(0.515, 0.990), "dair": Vector2(0.393, 0.990), "fair": Vector2(0.713, 0.990), "ftilt": Vector2(0.394, 0.990), "jab": Vector2(0.417, 0.983), "nair": Vector2(0.020, 0.987), "usmash": Vector2(0.306, 0.746), "utilt": Vector2(0.127, 0.990)},
-	2: {"bair": Vector2(0.080, EVEN + 0.970), "dsmash": Vector2(0.035, EVEN + 0.990), "dtilt": Vector2(0.691, 0.920), "fsmash": Vector2(0.273, 0.577), "ftilt": Vector2(0.347, 0.853), "jab": Vector2(0.900, 0.990), "nair": Vector2(0.040, EVEN + 0.960), "uair": Vector2(0.030, EVEN + 0.970), "usmash": Vector2(0.230, 0.864), "utilt": Vector2(0.675, 0.950)},
-	3: {"bair": Vector2(0.482, 0.990), "dsmash": Vector2(0.373, 0.563), "dtilt": Vector2(0.585, 0.973), "fair": Vector2(0.858, 0.990), "fsmash": Vector2(0.220, EVEN + 0.990), "ftilt": Vector2(0.020, 0.861), "nair": Vector2(0.186, 0.920), "uair": Vector2(0.020, EVEN + 0.789)},
-	8: {"bair": Vector2(0.871, 0.951), "dair": Vector2(0.020, 0.990), "dsmash": Vector2(0.400, 0.920), "fair": Vector2(0.550, 0.900), "fsmash": Vector2(0.264, 0.990), "nair": Vector2(0.257, 0.990), "usmash": Vector2(0.020, 0.100), "utilt": Vector2(0.020, 0.990)},
-	10: {"bair": Vector2(0.800, 0.990), "dair": Vector2(0.347, 0.987), "dtilt": Vector2(0.720, 0.990), "ftilt": Vector2(0.623, 0.990), "jab": Vector2(0.042, 0.990), "nair": Vector2(0.207, 0.738), "utilt": Vector2(0.490, 0.990)},
+	0: {"bair": Vector2(0.550, 0.850), "dair": Vector2(0.900, 0.984), "dsmash": Vector2(0.803, 0.990), "dtilt": Vector2(0.020, 0.563), "fair": Vector2(0.243, EVEN + 0.990), "fsmash": Vector2(0.020, 0.990), "ftilt": Vector2(0.766, 0.990), "jab": Vector2(0.020, 0.461), "uair": Vector2(0.020, EVEN + 0.990), "usmash": Vector2(0.405, 0.990)},
+	1: {"bair": Vector2(0.515, 0.990), "dair": Vector2(0.393, 0.990), "fair": Vector2(0.713, 0.990), "ftilt": Vector2(0.394, 0.990), "jab": Vector2(0.604, 0.990), "nair": Vector2(0.020, 0.987), "usmash": Vector2(0.306, 0.746), "utilt": Vector2(0.084, 0.990)},
+	2: {"bair": Vector2(0.171, EVEN + 0.970), "dsmash": Vector2(0.035, EVEN + 0.990), "dtilt": Vector2(0.691, 0.920), "fair": Vector2(0.403, 0.882), "fsmash": Vector2(0.273, 0.577), "ftilt": Vector2(0.214, 0.786), "jab": Vector2(0.900, 0.990), "nair": Vector2(0.040, EVEN + 0.960), "uair": Vector2(0.030, EVEN + 0.970), "usmash": Vector2(0.202, 0.892), "utilt": Vector2(0.675, 0.950)},
+	3: {"bair": Vector2(0.482, 0.990), "dsmash": Vector2(0.373, 0.563), "dtilt": Vector2(0.585, 0.973), "fair": Vector2(0.858, 0.990), "fsmash": Vector2(0.186, EVEN + 0.990), "ftilt": Vector2(0.020, 0.861), "nair": Vector2(0.186, 0.920), "uair": Vector2(0.020, EVEN + 0.789), "utilt": Vector2(0.418, 0.950)},
+	8: {"bair": Vector2(0.871, 0.951), "dair": Vector2(0.020, 0.990), "dsmash": Vector2(0.480, 0.840), "dtilt": Vector2(0.313, 0.587), "fair": Vector2(0.550, 0.900), "fsmash": Vector2(0.207, 0.990), "jab": Vector2(0.326, 0.612), "nair": Vector2(0.257, 0.990), "usmash": Vector2(0.020, 0.100), "utilt": Vector2(0.020, 0.990)},
+	10: {"bair": Vector2(0.800, 0.990), "dair": Vector2(0.347, 0.987), "dsmash": Vector2(0.598, 0.979), "dtilt": Vector2(0.720, 0.990), "ftilt": Vector2(0.623, 0.990), "jab": Vector2(0.042, 0.990), "nair": Vector2(0.207, 0.738), "usmash": Vector2(0.647, 0.727), "utilt": Vector2(0.490, 0.990)},
 }
 ## The clip's follow-through key (frame 40 of 60).
 const FOLLOW_PROGRESS := 0.667
@@ -1064,7 +1067,11 @@ var shown_clip := ""
 ## The dash and the runs (the shared one and each family's, not the stop out of a run): the clips whose stride carries on from one to the
 ## next and whose footfalls squash the body.
 static func _gait_clip(c: String) -> bool:
-	return c == "dash" or c == "run" or (c.begins_with("run_") and c != "run_stop")
+	return c == "dash" or c == "run" or (c.begins_with("run_") and not c.begins_with("run_stop")) or c.begins_with("dash_")
+
+
+static func _dash_clip(c: String) -> bool:
+	return c == "dash" or c.begins_with("dash_")
 
 
 ## Plays the right clip for this frame and moves the head and torso followers with their bones.
@@ -1077,7 +1084,7 @@ func _animate(s: Dictionary, delta: float) -> void:
 	var gait := -1.0
 	if _gait_clip(current_clip):
 		gait = fmod(anim.current_animation_position / maxf(anim.current_animation_length, 0.001), 1.0)
-	var new_dash: bool = s.state == "Dash" and (current_clip != "dash" or int(s.state_frame) < gait_frame)
+	var new_dash: bool = s.state == "Dash" and (not _dash_clip(current_clip) or int(s.state_frame) < gait_frame)
 	gait_frame = int(s.state_frame) if s.state == "Dash" else -1
 	var shown := _sided(clip, int(s.facing))
 	if clip == current_clip and shown != shown_clip:
@@ -1099,7 +1106,7 @@ func _animate(s: Dictionary, delta: float) -> void:
 		if frozen and not follows:
 			anim.advance(0.0)
 		current_clip = clip
-		if clip != "dash" and _gait_clip(clip) and gait >= 0.0:
+		if not _dash_clip(clip) and _gait_clip(clip) and gait >= 0.0:
 			anim.seek(gait * anim.current_animation_length, true)
 	if new_dash:
 		# Off the foot that is down: the push-off of whichever step comes next.
@@ -1136,7 +1143,7 @@ func _animate(s: Dictionary, delta: float) -> void:
 ## HANDOFF_FRAMES by the clip being entered; what must land at once takes none or one (a hit's pose, the landing's impact).
 const HANDOFF_FRAMES := 5.0
 const HANDOFF_BY_CLIP := {"jumpsquat": 2.0, "land": 2.0, "tech": 2.0, "knockdown": 2.0, "hurt": 1.0, "hurt_heavy": 1.0, "hurt_up": 1.0,
-	"tumble": 4.0, "dash": 3.0, "skid": 3.0, "air_jump": 3.0, "roll": 3.0, "spot_dodge": 2.0, "air_dodge": 2.0, "jump": 2.0, "grab": 3.0, "ledge": 3.0}
+	"shield": 3.0, "crouch": 5.0, "tumble": 4.0, "dash": 3.0, "skid": 3.0, "air_jump": 3.0, "roll": 3.0, "spot_dodge": 2.0, "air_dodge": 2.0, "jump": 2.0, "grab": 3.0, "ledge": 3.0}
 ## With the environment variable PF_R9_OFF (before and after images, round 9): "handoff" leaves the cross-fades as they were.
 static var r9_off := OS.get_environment("PF_R9_OFF").split(",")
 var handoff_clip := ""
@@ -3213,8 +3220,9 @@ var heavy_landing := false
 
 ## Squash pose per state as a single number: positive squashes down and out, negative stretches up.
 const SQUASH := {
-	"JumpSquat": 0.32, "Landing": 0.2, "Crouch": 0.28, "WaveLand": 0.24, "Turn": 0.08,
-	"Dash": 0.04, "ShieldDrop": 0.0, "Roll": 0.3, "SpotDodge": 0.34, "ShieldBreak": 0.22, "Grabbed": 0.14, "Knockdown": 0.12, "GetUp": 0.1,
+	# (Round 9: a third to a half of what they were: the clips now reach their own depth on bent knees, and on top of that the squash flattened the whole body, the head too; the reference fighters do not deform.)
+	"JumpSquat": 0.14, "Landing": 0.08, "Crouch": 0.05, "WaveLand": 0.12, "Turn": 0.04,
+	"Dash": 0.02, "ShieldDrop": 0.0, "Roll": 0.06, "SpotDodge": 0.05, "ShieldBreak": 0.12, "Grabbed": 0.08, "Knockdown": 0.06, "GetUp": 0.04,
 }
 ## Forward lean in degrees per state.
 const LEAN := {"Dash": 18.0, "Run": 14.0, "WaveLand": 28.0, "Walk": 4.0, "LedgeAttack": 20.0, "ShieldBreak": 32.0, "Grabbing": 8.0, "Grabbed": -10.0, "Knockdown": 78.0, "GetUp": 24.0}
@@ -3225,7 +3233,7 @@ const SPRING_DAMP := 22.0  # a bit under critical (2*sqrt(K) = 41), so there is 
 ## How hard the take-off throws the squash spring into a stretch (its velocity, per second).
 const TAKE_OFF_KICK := 9.0
 ## On the take-off the body is stretched at once to this (negative stretches up), then the spring eases it to the rise's own stretch.
-const TAKE_OFF_STRETCH := -0.15
+const TAKE_OFF_STRETCH := -0.1
 ## On touching down the body is squashed at once to LAND_IMPACT plus LAND_IMPACT_PER_SPEED times the fall speed (units per frame, up to
 ## 0.35), still pushing down at LAND_IMPACT_PUSH times it, and the spring rebounds it to the landing's own squash.
 const LAND_IMPACT := 0.06   # (0.1 and 0.55 until round 9, when the clip itself bottoms out: both together flattened the body)
@@ -3242,7 +3250,7 @@ func _weight(s: Dictionary) -> Array:
 ## How far down the jump's crouch starts, on its first frame (the spring eases it on to `SQUASH.JumpSquat`): the crouch lasts three
 ## frames, and eased in by the spring from standing it only reached its depth as the feet left the ground, so it hardly read (the
 ## owner's playtest notes, 2026-10-19: "no crouch before a jump"). (A kick to the spring instead overshot into a flat pancake.)
-const JUMP_SQUAT_START := 0.2
+const JUMP_SQUAT_START := 0.1
 ## How long the jump's crouch clip takes to blend in (seconds; other clips take 0.1, longer than the whole crouch).
 const JUMP_SQUAT_BLEND := 0.03
 
@@ -3305,6 +3313,7 @@ func _ledge_motion(s: Dictionary, pos: Vector3) -> void:
 const ROLL_SPIN_FROM := 0.12
 const ROLL_SPIN_TO := 0.66   # (0.78 until round 9)
 const ROLL_PIVOT := 0.66
+const LEDGE_ROLL_UP := 0.2
 const SPOT_DODGE_STEP := 0.2   # (0.7 until round 9: the reference fighters dodge on the spot, their feet staying put)
 ## How far a fighter lying on the floor is raised (see `apply`).
 const KNOCKDOWN_LIFT := 0.32
@@ -3611,7 +3620,7 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 	if state != "Landing":
 		heavy_landing = false
 	if heavy_landing:
-		target_squash = 0.28
+		target_squash = 0.12
 	if state == "Attack" and s.move_timing[1] > 0:
 		# Coil down while winding up, stretch tall through the strike: the move reads from far away.
 		var first: float = s.move_timing[1]
@@ -3624,7 +3633,7 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 			# 2026-10-17.)
 			target_squash = 0.0 if use_base_body else -0.2
 	if state == "Airborne" or state == "Helpless":
-		target_squash = -0.1 if vy > 0.06 else (-0.05 if vy < -0.12 else 0.0)
+		target_squash = -0.05 if vy > 0.06 else (-0.03 if vy < -0.12 else 0.0)
 	var target_lean: float = LEAN.get(state, 0.0)
 	# (Round 8: dazed on the ground after a shield break the body stands and sways (`dizzy`); the lean was for the hurt pose it held.)
 	if state == "ShieldBreak" and grounded and use_base_body:
@@ -3686,7 +3695,7 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 			target_lunge = 0.32 * lunge_k * (1.0 + carry) * (1.0 - home_k(f, last, float(s.move_timing[0]), shape))
 	var fast_falling: bool = s.fast_fall and not grounded and (state == "Airborne" or state == "Helpless" or state == "ShieldDrop")
 	if fast_falling:
-		target_squash = -0.28
+		target_squash = -0.12
 
 	# Fixed sub-steps keep the spring stable at any frame rate.
 	# (Round 2: stepped only while the sim moves on, as the motion springs are (`MotionSprings`): frozen through hitlag and a pause, so a
@@ -3756,8 +3765,9 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 	turn_deg = lerpf(turn_deg, -BACK_ATTACK_TURN, back_turn)
 	# (Round 8, the standing pivot: turning round on the spot the body swings round about twice as fast, as the reference fighters
 	# turn in a frame or two, and the head leads it (`_face_camera`); it swung round at the run's pace, the head with it.)
-	var pivot_turn: bool = grounded and use_base_body and not r8_off.has("pivot") and PIVOT_STATES.has(state) \
-		and absf(float(s.vel.x)) <= 0.08
+	# (Round 9: a dash reversing (a dash dance) as fast, whatever its speed: the reference fighters are round in two or three frames; at the run's pace the body stood square to the camera at
+	# each reversal.)
+	var pivot_turn: bool = grounded and use_base_body and not r8_off.has("pivot") and ((PIVOT_STATES.has(state) and absf(float(s.vel.x)) <= 0.08) or state == "Dash")
 	var yaw_to := float(look) * deg_to_rad(turn_deg)
 	yaw = lerp_angle(yaw, yaw_to, clampf(delta * (PIVOT_RATE if pivot_turn else 14.0), 0.0, 1.0))
 	yaw_left = rad_to_deg(wrapf(yaw_to - yaw, -PI, PI)) if pivot_turn else 0.0
@@ -3800,8 +3810,8 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 		flip += deg_to_rad(22.0) * exp(-ledge_swing_t * 3.2) * sin(ledge_swing_t * 10.0)
 		pivot = Vector3(0, 2.0, 0)
 	if ledge_rolling and state == "LedgeGetUp":
-		flip += TAU * ledge_k
-		pivot = Vector3(0, 0.6, 0)
+		flip += TAU * smoothstep(LEDGE_ROLL_UP + 0.1 * (1.0 - LEDGE_ROLL_UP), LEDGE_ROLL_UP + 0.66 * (1.0 - LEDGE_ROLL_UP), ledge_k)
+		pivot = Vector3(0, ROLL_PIVOT, 0)
 	# A roll is a somersault the way it goes (forward, or backward for a back roll), about the curled body's middle, over the roll's
 	# moving frames; the `roll` clip curls the body up for it.
 	var dodge := dodge_progress(s)
@@ -5221,7 +5231,9 @@ func _air_counter(s: Dictionary, phi: float) -> float:
 
 
 ## Puts the weapon in the weapon hand as the clip moves it, swept back and up behind the runner (carried in a run).
-const CARRY_ANGLE := 158.0
+const SWORD_RUN_ANGLE := 196.0
+const GREAT_RUN_ANGLE := 186.0
+const STAFF_RUN_ANGLE := 104.0
 
 
 func _carry_weapon(facing: int) -> void:
@@ -5229,7 +5241,9 @@ func _carry_weapon(facing: int) -> void:
 	if hand < 0:
 		return
 	blade_pivot.position = _skeleton_to_frame() * skeleton.get_bone_global_pose(hand).origin
-	var angle := CARRY_ANGLE if facing > 0 else 180.0 - CARRY_ANGLE
+	# (Round 9: low and trailing, as at rest, the owner's standing call and the swordsman reference's run; CARRY_ANGLE 158 carried it up behind the shoulder. The big blades lower, the staff upright.)
+	var base: float = STAFF_RUN_ANGLE if _cls_now == STAFF_CLASS else (GREAT_RUN_ANGLE if _cls_now == GREATSWORD_CLASS or _cls_now == NODACHI_CLASS else SWORD_RUN_ANGLE)
+	var angle := base if facing > 0 else 180.0 - base
 	blade_pivot.rotation = Vector3(0, 0, deg_to_rad(angle))
 
 
@@ -5553,6 +5567,8 @@ const FACE_FWD := 0.3
 ## How many sim frames an arm's reach takes to let go when it ends, and at most how many a move's reach takes to come in (fewer when the
 ## move strikes sooner); the reach's weight while letting go, and the targets it lets go from.
 const IK_FADE_FRAMES := 6.0
+const IK_IN_FRAMES := 6.0
+var ik_in := 1.0
 const IK_EASE_IN := 3.0
 var ik_fade := 0.0
 var ik_last_hand := Vector3.ZERO
@@ -6971,6 +6987,13 @@ func _apply_combat(s: Dictionary, delta: float) -> void:
 		# over IK_FADE_FRAMES sim frames from where it was, instead of jumping to the clip's pose in one frame.)
 		var hold_now: bool = holding and not carrying
 		var amount := 1.0
+		# (Round 9: out of a run or a hit the hand comes back to its carry over a few sim frames; it jumped there in one, 0.52 units.)
+		if not hold_now or springs.jumped:
+			ik_in = 1.0 if springs.jumped else 0.0
+		else:
+			ik_in = minf(1.0, ik_in + float(springs.new_frames) / IK_IN_FRAMES)
+			if state != "Attack":
+				amount = ik_in * ik_in * (3.0 - 2.0 * ik_in)
 		if hold_now:
 			ik_fade = 1.0
 			ik_last_hand = hand_target
