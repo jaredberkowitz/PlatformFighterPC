@@ -2263,3 +2263,31 @@ knee bend (`review1/mock_stance.jpg`, A/B/C).
   3.19). The follow-through's remaining gap (about 2 frames short) needs the clips' own follow-through keys rebuilt per family against
   the references; the measure's peak sits in the wind-up's coil, so it reads any carry as a stop.
 - **Checked:** the six tests, the orphan test and the new swing default test pass.
+
+### Group 25 (round 8): the weight pass: holds and recoveries fitted, the blade round the side
+
+- **Measured first, with the sweep default:** the six families' mean |error| against their references, in frames, follow-through / hold
+  / recovery: 2.27 / 3.63 / 2.87. Looking at the speed curves, 18 of 68 moves had their fastest moment in the wind-up, not the strike.
+- **The blade's pop (`_blade_round_side`):** from the low carry behind, a cut winding up low in front had to pass straight down, where the
+  floor stops the blade: stopped on one side and then the other, it flipped across in one frame and stood still (the Longsword's forward
+  tilt: tip speed 1.00 on frame 5, then 0.00 and 0.01), the fastest thing in the move. Through the arc the floor forbids it now swings in
+  depth, past the near leg, level with the floor's limit: 0.76, 0.78, 0.37 over three frames, and the strike is the move's fastest
+  moment. A pure function of the frame's angle, so a freeze holds it and a seek is exact. `PF_R8_OFF=round` shows the old.
+- **Home the short way, on the ground too:** with that, a blade comes home to the carry the short way round on the ground as in the air: a low
+  cut lowers and comes round behind, where it swung up over the head and past the face at the end of its recovery. Greatsword 2 to 1
+  and Exile 9 to 7 frames of face cover.
+- **Holds and recoveries fitted (`CLASS_END_SHAPES`, the Longsword, Claws, Needles, Clutch, Embers and Settler, 68 moves):** each move's
+  end shape nudged toward its reference's hold and recovery and measured, over three rounds (two more for the Longsword on its new
+  path), keeping per move the shape with the lowest error. Mean hold + recovery error per move 6.46 to 3.34 frames.
+- **After:** follow-through / hold / recovery 2.22 / 1.55 / 1.80; by family, hold / recovery, sword 4.1 / 3.0 to 0.8 / 1.3, brawler 2.8 / 2.5
+  to 1.0 / 1.5, quick 5.0 / 3.5 to 3.2 / 3.0, heavy 3.2 / 3.2 to 1.6 / 2.0, caster 3.4 / 2.9 to 1.4 / 1.7, tool 3.3 / 2.1 to 1.3 / 1.3.
+  The other classes of each family keep the shared shape (no reference timing measured for them).
+- **Still short, the follow-through:** tried again with the pop gone: each Longsword move's carry at its reference's frames matched some
+  moves (the up tilt 7-8 against 7, the down air 7 against 6) but moved the mean only 3.0 to 3.1 and broke the holds it was fitted with (1.0
+  to 2.6), at a faster pace worse (the forward smash held 2 against 16). Reverted. The remaining gap is in moves whose reference keeps the
+  whole body travelling after the hit (the quick up air's 10, the heavy up smash's 19): those need their own clip keys.
+- **Measured:** face cover Longsword 2, Claws 5, Needles 1, Clutch 3, Embers 2, Settler 1, Greatsword 1, Wanderer 1, Exile 7.
+- **Image:** `docs/screenshots/anim/r8_weight_fit.jpg` (the blade crossing in the forward tilt, the Longsword's forward smash and down tilt,
+  the Needles' forward smash, the Clutch's back air; 8q above, now below). With the swordsman's strip on F: only.
+- **Review:** see section 20 of `ANIMATION_REVIEW_1.md`. Mean 3.38.
+- **Checked:** the six tests, the orphan test and the swing default test pass.

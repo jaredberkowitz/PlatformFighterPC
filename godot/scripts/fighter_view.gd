@@ -817,12 +817,12 @@ const CLIP_END_SHAPES := {"body_headbutt_fwd": Vector3(0.12, 0.8, CARRY_FRAMES)}
 ## family's aerials and down smash held 12-33 frames where its reference holds 2-6 and floats home over 14-26; the Longsword's forward
 ## air and jab held too long and recovered in 3-5; the heavy's forward air and smash, the caster's up air and forward smash.)
 const CLASS_END_SHAPES := {
-	0: {"fsmash": Vector2(0.2, 0.99), "uair": Vector2(0.02, EVEN + 0.99), "fair": Vector2(0.1, EVEN + 0.97), "jab": Vector2(0.08, 0.85),
-		"dsmash": Vector2(0.6, 0.9), "bair": Vector2(0.55, 0.85)},
-	2: {"nair": Vector2(0.04, EVEN + 0.96), "uair": Vector2(0.03, EVEN + 0.97), "bair": Vector2(0.08, EVEN + 0.97),
-		"dsmash": Vector2(0.1, EVEN + 0.97), "fsmash": Vector2(0.5, 0.85)},
-	8: {"fair": Vector2(0.55, 0.9), "fsmash": Vector2(0.35, 0.99), "usmash": Vector2(0.04, 0.6)},
-	3: {"fair": Vector2(0.75, 0.97), "uair": Vector2(0.2, EVEN + 0.97), "fsmash": Vector2(0.22, EVEN + 0.99)},
+	0: {"bair": Vector2(0.550, 0.850), "dair": Vector2(0.900, 0.984), "dsmash": Vector2(0.835, 0.990), "dtilt": Vector2(0.020, 0.563), "fair": Vector2(0.243, EVEN + 0.990), "fsmash": Vector2(0.020, 0.990), "ftilt": Vector2(0.766, 0.990), "jab": Vector2(0.020, 0.461), "uair": Vector2(0.020, EVEN + 0.990), "usmash": Vector2(0.405, 0.990)},
+	1: {"bair": Vector2(0.515, 0.990), "dair": Vector2(0.393, 0.990), "fair": Vector2(0.713, 0.990), "ftilt": Vector2(0.394, 0.990), "jab": Vector2(0.417, 0.983), "nair": Vector2(0.020, 0.987), "usmash": Vector2(0.306, 0.746), "utilt": Vector2(0.127, 0.990)},
+	2: {"bair": Vector2(0.080, EVEN + 0.970), "dsmash": Vector2(0.035, EVEN + 0.990), "dtilt": Vector2(0.691, 0.920), "fsmash": Vector2(0.273, 0.577), "ftilt": Vector2(0.347, 0.853), "jab": Vector2(0.900, 0.990), "nair": Vector2(0.040, EVEN + 0.960), "uair": Vector2(0.030, EVEN + 0.970), "usmash": Vector2(0.230, 0.864), "utilt": Vector2(0.675, 0.950)},
+	3: {"bair": Vector2(0.482, 0.990), "dsmash": Vector2(0.373, 0.563), "dtilt": Vector2(0.585, 0.973), "fair": Vector2(0.858, 0.990), "fsmash": Vector2(0.220, EVEN + 0.990), "ftilt": Vector2(0.020, 0.861), "nair": Vector2(0.186, 0.920), "uair": Vector2(0.020, EVEN + 0.789)},
+	8: {"bair": Vector2(0.871, 0.951), "dair": Vector2(0.020, 0.990), "dsmash": Vector2(0.400, 0.920), "fair": Vector2(0.550, 0.900), "fsmash": Vector2(0.264, 0.990), "nair": Vector2(0.257, 0.990), "usmash": Vector2(0.020, 0.100), "utilt": Vector2(0.020, 0.990)},
+	10: {"bair": Vector2(0.800, 0.990), "dair": Vector2(0.347, 0.987), "dtilt": Vector2(0.720, 0.990), "ftilt": Vector2(0.623, 0.990), "jab": Vector2(0.042, 0.990), "nair": Vector2(0.207, 0.738), "utilt": Vector2(0.490, 0.990)},
 }
 ## The clip's follow-through key (frame 40 of 60).
 const FOLLOW_PROGRESS := 0.667
@@ -4446,7 +4446,9 @@ func _blade_target(s: Dictionary) -> Array:
 		# (Round 8, the owner's Longsword note on the neutral air: in the air the blade comes home the short way round. Taken as numbers,
 		# a cut ending level in front (-8) went up over the front and round to the low carry behind (214), the blade swinging up again at
 		# the end of the recovery; the swordsman lowers it down and back.)
-		if int(s.platform) < 0 and use_base_body and not r8_off.has("nair"):
+		# (On the ground too since the blade can pass the floor round the side, `_blade_round_side`: home over the head, a low cut's blade swung
+		# up past the face at the end of the recovery.)
+		if (int(s.platform) < 0 or bladed(_cls(s))) and use_base_body and not r8_off.has("nair"):
 			rest_deg = past + rad_to_deg(angle_difference(deg_to_rad(past), deg_to_rad(rest_deg)))
 		angle = lerpf(past, rest_deg, home)
 		len = lerpf(length, rest_len, home)
@@ -4905,6 +4907,9 @@ func _pose_blade(s: Dictionary, delta: float) -> void:
 			var clear_x := hc.x * facing + (FACE_FWD + HEAD_CLEAR_R * FRONT_CLEAR if ahead else -HEAD_CLEAR_R * FRONT_CLEAR)
 			var clear := Vector2(clear_x, minf(hand.y, hc.y - HEAD_CLEAR_R * FRONT_BELOW))
 			hand = hand.lerp(clear, kf)
+	# (The angle before the floor stops it, for `_blade_round_side`, in the pivot's own terms.)
+	var raw_deg := rad_to_deg((tip - hand).angle())
+	raw_blade_deg = raw_deg if facing > 0 else 180.0 - raw_deg
 	if s.platform >= 0 and tip.y < GROUND_CLEARANCE and hand.y > GROUND_CLEARANCE:
 		var reach_len := (tip - hand).length()
 		var dy := clampf((GROUND_CLEARANCE - hand.y) / maxf(reach_len, 0.001), -1.0, 1.0)
@@ -5409,6 +5414,8 @@ func _lift_tip_off_floor() -> void:
 	var tip_x := _blade_tip_x(_cls_now)
 	var tip_y := func() -> float: return (blade_pivot.to_global(Vector3(tip_x, 0.0, 0.0)) - global_position).y
 	var hilt_y := (blade_pivot.global_position - global_position).y
+	if _blade_round_side(hilt_y, tip_x):
+		return
 	if hilt_y <= GROUND_CLEARANCE or tip_y.call() >= GROUND_CLEARANCE:
 		return
 	# (A bisection between where it points and well up ahead, the way it already points: the least turn that clears. The frame leans
@@ -5426,6 +5433,40 @@ func _lift_tip_off_floor() -> void:
 		else:
 			high = blade_pivot.rotation.z
 	blade_pivot.rotation.z = high
+
+
+## The blade's angle this frame before the floor stopped it (the pivot's degrees).
+var raw_blade_deg := 0.0
+## Where in the arc the floor forbids (0 its back end, 1 its front end) the blade turns round the side (round 8, the weight pass).
+const ROUND_SIDE_FROM := 0.2
+const ROUND_SIDE_TO := 0.8
+
+
+## The blade crossing under the hand on the ground goes round the side, past the near leg (round 8, the owner's note on weightless attacks).
+## From the low carry behind to a cut that winds up low in front the blade must pass straight down, where the floor stops it: stopped on
+## one side then the other, it flipped across in one frame and stood still (the Longsword's forward tilt, frame 5, the fastest thing in the
+## whole move), so nothing after it read as moving. Through the forbidden arc it now swings in depth, level with the floor's limit, the way
+## a swordsman brings a low blade round. A pure function of this frame's angle, so a freeze holds it and a seek puts it straight there.
+## Returns whether it placed the blade.
+func _blade_round_side(hilt_y: float, tip_x: float) -> bool:
+	if not use_base_body or r8_off.has("round") or not bladed(_cls_now):
+		return false
+	var drop := (hilt_y - GROUND_CLEARANCE) / tip_x
+	if drop <= 0.0 or drop >= 1.0:
+		return false
+	var e := asin(drop)
+	var half := PI * 0.5 - e
+	var from_down := angle_difference(deg_to_rad(270.0), deg_to_rad(raw_blade_deg))
+	if absf(from_down) >= half:
+		return false
+	var t := smoothstep(ROUND_SIDE_FROM, ROUND_SIDE_TO, (from_down + half) / (2.0 * half))
+	if t <= 0.0 or t >= 1.0:
+		return false
+	var phi := PI * (1.0 - t)
+	var x := Vector3(cos(e) * cos(phi), -sin(e), cos(e) * sin(phi))
+	var z := x.cross(Vector3.UP).normalized()
+	blade_pivot.basis = Basis(x, z.cross(x), z)
+	return true
 
 
 ## How far a hand at `hand` (forward space) should go behind the head in depth: 1 over the face's middle, easing to 0 past its edge.

@@ -422,3 +422,19 @@ fluidity 3.38, weight 3.16). The follow-through, the weight axis's shared gap (2
 
 Timing against the references (six families, mean |error| in frames, follow-through / hold / recovery): 2.38 / 3.67 / 3.05 before,
 2.27 / 3.63 / 2.87 after. **Mean 3.32** (poses 3.38, fluidity 3.38, weight 3.19).
+
+## 20. After round 8's group 25, the weight pass (2026-10-30)
+
+| # | Item | P | F | W | O | Was |
+|---|---|---|---|---|---|---|
+| 2 | Sword ground attacks (the blade's pop gone, the short way home) | 4 | 4 | 4 | 4.0 | 3.7 |
+| 3 | Sword aerials (fitted holds and recoveries) | 4 | 4 | 4 | 4.0 | 3.7 |
+| 17 | Heavy ground attacks (the same) | 3 | 3 | 4 | 3.3 | 3.0 |
+| 18 | Heavy aerials (the same) | 4 | 3 | 4 | 3.7 | 3.3 |
+| 22 | Caster ground attacks (the same) | 3 | 3 | 4 | 3.3 | 3.0 |
+| 27 | Tool ground attacks (the same) | 3 | 3 | 4 | 3.3 | 3.0 |
+| 28 | Tool aerials (the same) | 4 | 3 | 4 | 3.7 | 3.3 |
+
+Timing against the references (six families, mean |error| in frames, follow-through / hold / recovery): 2.27 / 3.63 / 2.87 before,
+2.22 / 1.55 / 1.80 after. **Mean 3.38** (poses 3.38, fluidity 3.41, weight 3.35). Quick's holds stay the furthest off (3.2), its up air above
+all; follow-through stays short where the reference's whole body keeps travelling.
