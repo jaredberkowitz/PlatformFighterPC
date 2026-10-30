@@ -13,7 +13,8 @@ Families `top`, `top_card`, `layer1`, `layer2`, `fringe`, `path`, `plank`, `plan
 
 Shipped since fidelity review 7 (the owner's picks, 2026-10-22), each with `--wear 2`, then lit: grove_play.glb `--theme grove --variant B
 --plat islet`, canyon_play.glb `--theme sunset --variant B --plat rock`, beach_play.glb `--theme ocean --variant A`, city_play.glb
-`--theme city --variant A`.
+`--theme city --variant A`; since fidelity review 8, city_play.glb `--theme city --variant A --plat deck --wear 2`
+(with `--roofing A` since fidelity review 12); canyon_play.glb with `--plat_joints A` since fidelity review 12.
 
 Run (Blender 5.2):
   blender --background --python art/blender/make_play.py -- --dir godot/art/baked/<key> --theme grove --variant A --out <file.glb>
@@ -32,9 +33,17 @@ from mathutils import Vector
 argv = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
 opts = {argv[i].lstrip("-"): argv[i + 1] for i in range(0, len(argv) - 1, 2)}
 VARIANT = opts.get("variant", "A").upper()
-# The platforms after fidelity review 6 (`--plat islet|islet_moss` on the grove, `rock|rock_under` on the canyon).
+# The platforms after fidelity review 6 (`--plat islet|islet_moss` on the grove, `rock|rock_under` on the canyon) and review 8
+# (`deck|boards` on the city).
 PLAT = opts.get("plat", "")
+# The canyon platforms jointed (fidelity review 12: plain flat red slabs at the match camera): `--plat_joints A|B`. A: each strata course
+# cut by vertical joints into blocks, each set a little in or out, the lower course broken unevenly at both ends, as the front's
+# jointed rock; B: A with the tapered rock hung under it (`rock_under`).
+PLAT_JOINTS = opts.get("plat_joints", "").upper()
 WEAR = int(opts.get("wear", "0"))
+# The city roof's felt (fidelity review 12: the most-seen surface on the city, one flat pink plane under the lamp pools): `--roofing A|B`.
+# A: laid in sheets running front to back, each seam a thin dark line with a pale lap beside it; B: A with gravel specks over it.
+ROOFING = opts.get("roofing", "").upper()
 THEME = opts.get("theme", "grove")
 manifest = json.load(open(os.path.join(opts["dir"], "manifest.json")))
 FZ = float(manifest["front_z"])
@@ -280,6 +289,32 @@ def deck_boards(x0, x1, top, zb, zf, thick):
         box(x0 + 0.2, x1 - 0.2, top - thick - 0.4, top - thick, jz - 0.25, jz + 0.25, "layer1", "layer1")
 
 
+def up(fam, pts):
+    """A flat face facing up (the camera sees only the up side)."""
+    f = face(fam, pts)
+    f.normal_update()
+    if f.normal.z < 0.0:
+        f.normal_flip()
+
+
+def roof_felt(x0, x1, top, zb, zf, rng):
+    """The city roof laid in felt sheets running front to back: at each sheet's edge a thin dark seam and, beside it, the pale lap of the
+    sheet over it; with `--roofing B` gravel specks scattered over the felt. Flush with the walkable top, as the stage test asks."""
+    x = x0 + rng.uniform(0.4, 0.9)
+    y = top + 0.007
+    while x < x1 - 0.4:
+        w = rng.uniform(1.25, 1.55)
+        up("top_deep", (P(x - 0.03, y, zb + 0.3), P(x - 0.03, y, zf - 0.5), P(x + 0.03, y, zf - 0.5), P(x + 0.03, y, zb + 0.3)))
+        up("top_lit", (P(x + 0.03, y, zb + 0.3), P(x + 0.03, y, zf - 0.5), P(x + 0.15, y, zf - 0.5), P(x + 0.15, y, zb + 0.3)))
+        x += w
+    if ROOFING == "B":
+        for _ in range(int((x1 - x0) * 9)):
+            gx, gz = rng.uniform(x0 + 0.2, x1 - 0.2), rng.uniform(zb + 0.3, zf - 0.55)
+            r = rng.uniform(0.03, 0.06)
+            fam = "top_lit" if rng.random() < 0.6 else "top_deep"
+            up(fam, (P(gx - r, y + 0.002, gz - r), P(gx - r, y + 0.002, gz + r), P(gx + r, y + 0.002, gz + r), P(gx + r, y + 0.002, gz - r)))
+
+
 def top_area(rng):
     for r in TOPS:
         x0, x1, top = r[0] - 0.12, r[1] + 0.12, r[2]
@@ -333,6 +368,8 @@ def top_area(rng):
             elif THEME == "city":
                 # The roof's patched felt: darker tar patches and paler sun-faded sheets.
                 wear_top(x0 + 0.3, x1 - 0.3, top, zb, zf, wr, [("top_deep", 7, (0.6, 1.4)), ("top_lit", 5, (0.8, 1.6))])
+                if ROOFING:
+                    roof_felt(x0, x1, top, zb, zf, wr)
             else:
                 wear_top(x0 + 0.3, x1 - 0.3, top, zb, zf, wr, [("top_deep", 22, (0.6, 1.8)), ("top_lit", 16, (0.7, 1.9)), ("top_worn", 4, (0.4, 0.9))],
                          path_z=FZ - 1.9, path_half=1.0)
@@ -360,11 +397,79 @@ def platform(r, rng):
         # (Fidelity review 6: the canyon's platforms a bare board. A slab of the stage's own sandstone: a sand top over two strata courses,
         # the lower set in and broken short at one end; `rock_under` with a tapered rock hanging under it, a piece of mesa.)
         box(x0 - 0.1, x1 + 0.1, top - 0.1, top, zb, zf, "top", "top_card", "layer1")
+        if PLAT_JOINTS:
+            # Each course in blocks between vertical joints, each block a little in or out, so the slab reads as jointed sandstone.
+            jr = random.Random(int(x0 * 10) + 7)
+            for (ya, yb, inset, fam, lo, hi) in ((top - 0.38, top - 0.1, 0.02, "layer1", x0 - 0.06, x1 + 0.06),
+                                                 (top - 0.66, top - 0.4, 0.1, "layer2", x0 + jr.uniform(0.1, 0.6), x1 - jr.uniform(0.1, 0.6))):
+                x = lo
+                while x < hi - 0.05:
+                    xe = min(hi, x + jr.uniform(0.9, 1.8))
+                    if hi - xe < 0.5:
+                        xe = hi
+                    dz = jr.uniform(-0.08, 0.06)
+                    box(x + 0.03, xe - 0.03, ya, yb, zb + inset, zf - (0.06 if fam == "layer2" else -0.02) + dz, fam, fam)
+                    x = xe
+            if PLAT_JOINTS == "B":
+                underside(x0 + 0.2, x1 - 0.2, top - 0.66, zb + 0.2, zf - 0.12, 1.0, rng, "layer1", "layer2")
+            return
         box(x0 - 0.06, x1 + 0.06, top - 0.38, top - 0.1, zb + 0.02, zf + 0.02, "layer1", "layer1")
         cut_l, cut_r = rng.uniform(0.05, 0.45), rng.uniform(0.05, 0.45)
         box(x0 + cut_l, x1 - cut_r, top - 0.66, top - 0.4, zb + 0.1, zf - 0.06, "layer2", "layer2")
         if PLAT == "rock_under":
             underside(x0 + 0.2, x1 - 0.2, top - 0.66, zb + 0.2, zf - 0.12, 1.0, rng, "layer1", "layer2")
+        return
+    if PLAT in ("deck", "boards") and GIRDER:
+        # (Fidelity review 8: the city's platforms a plain dark card on the scaffold. In the city's own materials: `deck` a steel deck of
+        # plates with their seams, a painted safety line along the front, a riveted girder in red-oxide primer; `boards` scaffold boards laid on
+        # steel tubes, clamped, over a toe board painted with hazard stripes. Nothing rises above the walking surface.)
+        if PLAT == "deck":
+            box(x0, x1, top - 0.1, top, zb, zf, "steel", "steel_card", "steel_dark")
+            n = max(2, round((x1 - x0) / 1.8))
+            w = (x1 - x0) / n
+            for i in range(1, n):
+                sx = x0 + w * i
+                face("steel_seam", (P(sx - 0.03, top + 0.004, zf - 0.02), P(sx + 0.03, top + 0.004, zf - 0.02),
+                                    P(sx + 0.03, top + 0.004, zb + 0.02), P(sx - 0.03, top + 0.004, zb + 0.02)))
+            face("steel_paint", (P(x0 + 0.05, top + 0.005, zf - 0.05), P(x1 - 0.05, top + 0.005, zf - 0.05),
+                                 P(x1 - 0.05, top + 0.005, zf - 0.3), P(x0 + 0.05, top + 0.005, zf - 0.3)))
+            # The girder under the deck's front edge in red-oxide primer (a deep channel went black in its own shade), its flanges standing
+            # a little proud, and a joist under every seam.
+            box(x0 + 0.04, x1 - 0.04, top - 0.62, top - 0.1, zf - 0.16, zf, "steel_dark", "steel_primer", "steel_dark")
+            box(x0 + 0.04, x1 - 0.04, top - 0.18, top - 0.1, zf - 0.16, zf + 0.04, "steel_primer", "steel_primer", "steel_dark")
+            box(x0 + 0.04, x1 - 0.04, top - 0.62, top - 0.54, zf - 0.16, zf + 0.04, "steel_primer", "steel_primer", "steel_dark")
+            for i in range(n + 1):
+                jx = min(max(x0 + w * i, x0 + 0.2), x1 - 0.2)
+                box(jx - 0.08, jx + 0.08, top - 0.5, top - 0.1, zb + 0.2, zf - 0.16, "steel_dark", "steel_dark")
+            k = 0.45
+            rx = x0 + 0.25
+            while rx < x1 - 0.2:
+                for ry in (top - 0.27, top - 0.45):
+                    box(rx - 0.04, rx + 0.04, ry - 0.04, ry + 0.04, zf - 0.02, zf + 0.025, "rivet", "rivet")
+                rx += k
+        else:
+            gap = 0.07
+            nb = 4
+            bw = (zf - zb - gap * (nb - 1)) / nb
+            for k in range(nb):
+                za = zb + k * (bw + gap)
+                ea, eb = rng.uniform(-0.25, 0.05), rng.uniform(-0.05, 0.25)
+                box(x0 + ea, x1 + eb, top - 0.12, top, za, za + bw, "deck_board", "plank_card", "plank_b")
+                # The steel hoops round each board's ends.
+                for hx in (x0 + ea + 0.18, x1 + eb - 0.18):
+                    box(hx - 0.05, hx + 0.05, top - 0.13, top + 0.006, za - 0.005, za + bw + 0.005, "rivet", "rivet")
+            # The transoms under the boards, and the ledger along the front with a clamp where each crosses it.
+            for tx in (x0 + 0.45, (x0 + x1) * 0.5, x1 - 0.45):
+                box(tx - 0.09, tx + 0.09, top - 0.3, top - 0.12, zb + 0.05, zf + 0.05, "steel", "steel_card", "steel_dark")
+                box(tx - 0.14, tx + 0.14, top - 0.36, top - 0.1, zf + 0.06, zf + 0.12, "rivet", "rivet")
+            box(x0 - 0.15, x1 + 0.15, top - 0.36, top - 0.18, zf - 0.08, zf + 0.06, "steel", "steel_card", "steel_dark")
+            # The toe board, hung below the boards' front, painted in hazard stripes.
+            box(x0 + 0.1, x1 - 0.1, top - 0.68, top - 0.36, zf - 0.04, zf + 0.04, "steel_paint", "steel_paint", "plank_b")
+            sx = x0 + 0.25
+            while sx < x1 - 0.5:
+                face("hazard", (P(sx, top - 0.66, zf + 0.045), P(sx + 0.22, top - 0.66, zf + 0.045),
+                                P(sx + 0.42, top - 0.38, zf + 0.045), P(sx + 0.2, top - 0.38, zf + 0.045)))
+                sx += 0.6
         return
     if GIRDER:
         if VARIANT == "A":

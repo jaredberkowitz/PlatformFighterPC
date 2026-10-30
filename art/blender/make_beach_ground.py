@@ -23,9 +23,17 @@ import bmesh
 import bpy
 from mathutils import Vector
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from fold_kit import folded_dome  # noqa: E402
+
 argv = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
 opts = {argv[i].lstrip("-"): argv[i + 1] for i in range(0, len(argv) - 1, 2)}
 VARIANT = opts.get("variant", "A").upper()
+# Rounder islands (fidelity review 14 item 6: the islands read as stacked green slabs, the near hills as one pale mass): `--isles A|B`.
+# A: the contours finer (the islands' every 0.32, not 0.7; the near hills' every 0.7, not 1.5), and each sand mound wider, so a rim of
+# sand shows round the green at the waterline. B: the islands' green and the near hills as folded paper domes (the grove's and the
+# meadow's fold, fold_kit.folded_dome), each fold lit on one side, on A's sand. The far hills stay pop-up flats.
+ISLES = opts.get("isles", "").upper()
 LAYOUT = json.load(open(os.path.join(opts["dir"], "ground.json")))
 WATER = -10.6          # a little under the sea's surface, so every dome's foot is in the water
 RING = 56
@@ -38,6 +46,7 @@ def P(x, y, z):
 
 PARTS = {}
 CENTRES = {}
+FOLDED = set()
 
 
 def part(name, mat):
@@ -130,11 +139,37 @@ def flats(name, fam, c, r, rng, count=3):
             face(part(name, "card_" + fam), (P(xa, ya, z - th), P(xa, ya, z), P(xb, yb, z), P(xb, yb, z - th)))
 
 
+def folded_hill(name, fam, c, r, rng):
+    """`--isles B`: a dome of half-axes `r` (Godot's x, y, z) on the centre `c` as a folded paper dome, its pleats lit on one side; the
+    folds into `fam`, the skirt and underside into its cut edge's family (a shade under the tops, as the contours' edges are)."""
+    cx, cy, cz = c
+    rx, ry, rz = r
+    lit, shade = part(name, fam), part(name, "card_" + fam)
+    counts = (len(lit.verts), len(shade.verts))
+    rr = rx / 1.08
+    base = P(cx, cy, cz)
+    folded_dome(lit, shade, (base.x, base.y, base.z), rr, 7, rng, rows=[(-0.12, 0.3), (0.32, 0.2), (0.68, 0.1)])
+    # (Out of the round dome the kit folds into the hill's own ellipsoid: deep as it is, as tall as it is.)
+    for bm, n in ((lit, counts[0]), (shade, counts[1])):
+        bm.verts.ensure_lookup_table()
+        for v in bm.verts[n:]:
+            v.co.y = base.y + (v.co.y - base.y) * (rz / rr)
+            v.co.z = base.z + (v.co.z - base.z) * (ry / (0.8 * rr))
+    FOLDED.add(name)
+
+
 def build_ground():
     rng = random.Random(73)
     thick = VARIANT == "B"
     for k, i in enumerate(LAYOUT["islands"]):
         c = (i[0], i[1], i[2])
+        if ISLES:
+            dome_layers("isle%d_sand" % k, "sand", c, (i[3] * 1.15, i[4], i[5] * 1.15), 0.32, rng)
+            if ISLES == "B":
+                folded_hill("isle%d_green" % k, "isle_green", (i[0], i[1] + 2.0, i[2]), (i[6], i[7], i[8]), rng)
+            else:
+                dome_layers("isle%d_green" % k, "isle_green", (i[0], i[1] + 2.0, i[2]), (i[6], i[7], i[8]), 0.32, rng)
+            continue
         dome_layers("isle%d_sand" % k, "sand", c, (i[3], i[4], i[5]), 1.4 if thick else 0.7, rng, lip=thick)
         dome_layers("isle%d_green" % k, "isle_green", (i[0], i[1] + 2.0, i[2]), (i[6], i[7], i[8]), 1.4 if thick else 0.7, rng,
                     lip=thick)
@@ -143,6 +178,10 @@ def build_ground():
         fam = "head_near" if row == "near" else "head_far"
         if VARIANT == "C" and row == "far":
             flats("head%d" % k, fam, c, r, rng)
+        elif ISLES == "B" and row == "near":
+            folded_hill("head%d" % k, fam, c, r, rng)
+        elif ISLES == "A" and row == "near":
+            dome_layers("head%d" % k, fam, c, r, 0.7, rng)
         else:
             dome_layers("head%d" % k, fam, c, r, (3.0 if thick else 1.5) * (1.6 if row == "far" else 1.0), rng, lip=thick)
 
@@ -152,6 +191,14 @@ def make_objects():
         bmesh.ops.remove_doubles(bm, verts=bm.verts[:], dist=0.0005)
         bm.normal_update()
         centre = CENTRES.get(name)
+        if name in FOLDED:
+            # (The folded domes face their own way, fold_kit.folded_dome.)
+            bm.to_mesh(me := bpy.data.meshes.new(name + "_" + mat))
+            bm.free()
+            m = bpy.data.materials.get(mat) or bpy.data.materials.new(mat)
+            me.materials.append(m)
+            bpy.context.scene.collection.objects.link(bpy.data.objects.new(name + "_" + mat, me))
+            continue
         for f in bm.faces:
             c = f.calc_center_median()
             if centre is None:

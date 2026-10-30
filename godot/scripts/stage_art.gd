@@ -39,6 +39,14 @@ static var sun_world := Vector3.INF
 static var palette_misses: Array = []
 
 
+## The city's painted brick and roof: the palette's [backdrop] `city_paint`, or `--city-paint=T|A` (StageBake.CITY_PAINT).
+static func city_paint() -> String:
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--city-paint="):
+			return arg.substr(13).to_upper()
+	return String((palette("city").get("backdrop", {}) as Dictionary).get("city_paint", ""))
+
+
 ## A theme's palette file as {section: {key: value}}.
 static func palette(name: String) -> Dictionary:
 	if _palette_cache.has(name):
@@ -141,7 +149,20 @@ static func theme(look: Dictionary) -> Dictionary:
 		t.sky_top = Color.html(top)
 	if bottom.length() == 6:
 		t.sky_horizon = Color.html(bottom)
+	# (Warm against cool, fidelity review 14 item 4: the city's brick a warm red, where it read pink-mauve under its purple night.
+	# `--warm-cool=A|B`; shipping writes it into city.cfg's `soil` and `soil_dark`.)
+	if name == "city" and _flag_set("--warm-cool="):
+		t.soil = Color(0.66, 0.36, 0.26)
+		t.soil_dark = Color(0.48, 0.24, 0.2)
 	return t
+
+
+## Whether a command-line flag beginning `prefix` was given.
+static func _flag_set(prefix: String) -> bool:
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with(prefix):
+			return true
+	return false
 
 
 ## The sky for a theme: a gradient from the top colour to the horizon (the camera never sees below the horizon much).
@@ -152,6 +173,32 @@ static func sky(t: Dictionary) -> Sky:
 	mat.shader = SKY_SHADER
 	var top: Color = t.sky_top
 	var horizon: Color = t.sky_horizon
+	# (A wider sky gradient, fidelity review 13 item 4's second half: the cameras see the sky from about 0.03 to 0.09 up, and the canyon's
+	# and beach's reached their top colour at 0.13, so the frame showed only the pale half. `--sky-range=A` fits the bands to the frame;
+	# B also takes the top a step deeper: the palette's `sky_bands` and `sky_deepen` [top, middle], the canyon's and beach's, the owner's
+	# pick B, 2026-10-27. In the sky only: the light's ambient still takes the palette's own `sky_mid`.)
+	var deepen: Array = t.get("sky_deepen", [0.0, 0.0])
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--sky-range=") and t.get("name", "") in ["meadow", "sunset", "ocean"]:
+			t = t.duplicate()
+			t.sky_bands = [0.012, 0.07]
+			deepen = [0.22, 0.08] if arg.substr(12).to_upper() == "B" else [0.0, 0.0]
+	# (The grove's sky cleared, fidelity review 16 item 2, `--grove-light=B` (Lighting.GROVE_LIGHT_TRY): busy pink-violet with little
+	# gradient behind the trees; a clear blue top and middle, a warm pale horizon, calmer wisps.)
+	if t.get("name", "") == "grove":
+		for arg in OS.get_cmdline_user_args():
+			if arg == "--grove-light=B":
+				t = t.duplicate()
+				top = Color(0.2, 0.36, 0.8)
+				t.sky_mid = Color(0.48, 0.62, 0.94)
+				t.sky_horizon = Color(1.0, 0.88, 0.76)
+				t.sky_wisps = [Color(1.0, 0.96, 0.94), 0.2]
+				t.sky_glow = [(t.sky_glow as Array)[0], float((t.sky_glow as Array)[1]) * 0.5]
+				horizon = t.sky_horizon
+	if float(deepen[0]) > 0.0 or float(deepen[1]) > 0.0:
+		t = t.duplicate()
+		t.sky_mid = (t.get("sky_mid", top.lerp(horizon, 0.5)) as Color).darkened(float(deepen[1]))
+		top = top.darkened(float(deepen[0]))
 	mat.set_shader_parameter("top_color", top)
 	mat.set_shader_parameter("mid_color", t.get("sky_mid", top.lerp(horizon, 0.5)))
 	mat.set_shader_parameter("horizon_color", horizon)
@@ -186,6 +233,13 @@ static func sky(t: Dictionary) -> Sky:
 		if arg.begins_with("--sky-look="):
 			look = {"T": 0, "A": 1, "B": 2, "C": 3}.get(arg.substr(11), look)
 	mat.set_shader_parameter("look", look)
+	# (The stratus bands fewer and broader, fidelity review 14 item 1: on the beach's deeper top its three thin bands read as stripes. The
+	# palette's `sky_stratus` [layers, thickness], or on the beach `--cloud-clear=A|B` with the clouds.)
+	var stratus: Array = t.get("sky_stratus", [3.0, 1.0])
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--cloud-clear=") and t.get("name", "") == "ocean":
+			stratus = [2.0, 1.8]
+	mat.set_shader_parameter("stratus", Vector2(float(stratus[0]), float(stratus[1])))
 	var is_night := top.get_luminance() < 0.15
 	var glow: Color = t.sky_glow[0] if t.has("sky_glow") else horizon
 	mat.set_shader_parameter("night", is_night)
@@ -741,6 +795,9 @@ static func _soil_material(t: Dictionary) -> ShaderMaterial:
 	# recessed mortar, soot streaks, the owner's painted materials, 2026-10-18.)
 	elif pattern == "facade" and Materials._png_tile("brick") != null:
 		tex = Materials._png_tile("brick")
+		# (The tile's tones stretched, fidelity review 16 item 6, the owner's pick A; see StageBake.CITY_PAINT.)
+		if city_paint() == "A":
+			tex = Materials._png_tile("brick_a")
 		tint = a
 	# On the stage's cel shading, laid in world space (one repeat every 3 units, so the stones and bands read large and calm; a facade's every 6.6).
 	var m := FighterView.toon(tint, true, tex, Vector2.ONE, {"facade": 6.6, "masonry": 7.0, "strata": 6.0, "roots": 8.0, "earth": 12.0, "seawall": 10.0}.get(pattern, 3.0))
@@ -3008,19 +3065,25 @@ const RIDGES := {
 	# (Taller, with real peaks, 2026-10-17: a low wavy strip under the pale horizon read as a flat cloud bank over the mountains, the
 	# owner's note.)
 	# (More, narrower peaks, gauntlet round 2: three broad concave sweeps with a pale crest read as breaking waves.)
-	"meadow": [{"model": "range_meadow_far", "facets": true, "land_colour": Color(0.42, 0.82, 0.8), "land_drop": 16.0, "z": -170.0, "y": -50.0, "height": 88.0, "shape": 1, "seed": 3.0, "base": 0.32, "amplitude": 0.6, "frequency": 5.6,
+	"meadow": [{"model": "range_meadow_far", "facets": true, "land_colour": Color(0.3, 0.6, 0.5), "land_drop": 16.0, "z": -170.0, "y": -50.0, "height": 88.0, "shape": 1, "seed": 3.0, "base": 0.32, "amplitude": 0.6, "frequency": 5.6,
 		# (More of its own blue and less haze, art review 6 round 31: at mix 0.55 the ridge was mostly horizon colour, a formless pale band
 		# behind the crisp painted hills; found with `--pick`.)
 		"tone": Color(0.3, 0.62, 0.72), "mix": 0.55, "edge": 0.1, "haze": 0.5,
 		# (Teal, not blue: the owner's papercraft reference sets bright lime ground against cool teal mountains.)
 		# (A lit flank and a shaded flank on every peak, as the canyon's mesas have: a flat blue cut-out read as the least finished
 		# thing on the menu; the owner, 2026-10-17, raise the quality of what is there.)
-		"flank": 0.75, "foot_dark": 0.35, "layers": 4, "flank_from": 0.0, "gullies": 0.45, "paper": 0.05, "edge_width": 0.012},
+		"flank": 0.75, "foot_dark": 0.35, "layers": 4, "flank_from": 0.0, "gullies": 0.45, "paper": 0.05, "edge_width": 0.012,
+		# (Painted form, fidelity review 8: snow above about two thirds of its height, a tree line low, `range_form`.)
+		# (Rock, not glassy snow, fidelity review 14 item 7, the owner's pick B: the land a deeper green-teal (was 0.42, 0.82, 0.8), the
+		# snow and rock lines 10 higher and the tree line 14 (were 54, 48, 22); the pale snow over two thirds of its height read as glass.)
+		"alt": [64.0, 58.0, 36.0], "alt_foot": Color(0.14, 0.44, 0.36)},
 		# A nearer, lower range in front, deeper teal and less hazed, casting its shadow on the far one: the backdrop as cut cards in layers
 		# with air between them, not one soft band (art review 9).
-		{"model": "range_meadow_near", "facets": true, "land_colour": Color(0.18, 0.62, 0.6), "land_haze": 0.12, "land_drop": 8.0, "z": -140.0, "y": -36.0, "height": 62.0, "shape": 1, "seed": 9.0, "base": 0.4, "amplitude": 0.5, "frequency": 7.0,
+		{"model": "range_meadow_near", "facets": true, "land_colour": Color(0.12, 0.44, 0.36), "land_haze": 0.12, "land_drop": 8.0, "z": -140.0, "y": -36.0, "height": 62.0, "shape": 1, "seed": 9.0, "base": 0.4, "amplitude": 0.5, "frequency": 7.0,
 		"tone": Color(0.14, 0.46, 0.54), "mix": 0.85, "edge": 0.5, "haze": 0.28, "flank": 0.75, "foot_dark": 0.4, "layers": 3,
-		"flank_from": 0.0, "gullies": 0.6, "paper": 0.05, "edge_width": 0.016, "shadow": 0.5}],
+		"flank_from": 0.0, "gullies": 0.6, "paper": 0.05, "edge_width": 0.016, "shadow": 0.5,
+		# (Review 14 item 7 B too: was 0.18, 0.62, 0.6 and 38, 32, 16.)
+		"alt": [48.0, 42.0, 30.0], "alt_foot": Color(0.12, 0.4, 0.32)}],
 	"grove": [{"model": "range_grove_far", "facets": true, "land_colour": Color(0.74, 0.68, 0.9), "z": -165.0, "y": -34.0, "height": 52.0, "shape": 0, "seed": 8.0, "base": 0.5, "amplitude": 0.32, "frequency": 3.5,
 		"tone": Color(0.54, 0.54, 0.78), "mix": 0.7, "edge": 0.3, "flank": 0.6, "foot_dark": 0.3, "layers": 4, "flank_from": 0.0, "gullies": 0.6,
 		"haze": 0.34, "paper": 0.05, "edge_width": 0.014},
@@ -3044,6 +3107,21 @@ const RIDGES := {
 ## One painted ridge behind the stage, from a RIDGES entry.
 static func ridge(root: Node3D, t: Dictionary, spec: Dictionary) -> MeshInstance3D:
 	var horizon: Color = t.sky_horizon
+	# (The meadow's ranges toward its land, fidelity review 14 item 7: a pale glassy teal sat apart from the saturated greens in front.
+	# `--peaks=A|B` (the land greener and a step deeper, the snow line 10 higher; B the land deeper still and the tree line 14 higher);
+	# shipping writes them into RIDGES. (The land's colour alone moved nothing: the snow above two thirds of the height and the haze are
+	# most of what shows.)
+	var peaks := ""
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--peaks="):
+			peaks = arg.substr(8).to_upper()
+	if peaks in ["A", "B"] and String(spec.get("model", "")).begins_with("range_meadow"):
+		spec = spec.duplicate()
+		var far: bool = spec.model == "range_meadow_far"
+		spec.land_colour = (Color(0.36, 0.7, 0.6) if far else Color(0.15, 0.52, 0.44)) if peaks == "A" \
+			else (Color(0.3, 0.6, 0.5) if far else Color(0.12, 0.44, 0.36))
+		if spec.has("alt"):
+			spec.alt = [float(spec.alt[0]) + 10.0, float(spec.alt[1]) + 10.0, float(spec.alt[2]) + (14.0 if peaks == "B" else 0.0)]
 	var tone: Color = spec.tone
 	var m := ShaderMaterial.new()
 	m.shader = RIDGE_SHADER
@@ -3069,10 +3147,34 @@ static func ridge(root: Node3D, t: Dictionary, spec: Dictionary) -> MeshInstance
 		if faceted:
 			land.set_shader_parameter("facets", true)
 			land.set_shader_parameter("ramp_softness", 0.1)
+		# (Painted variation on the ranges, fidelity review 12: the meadow's great peaks were big flat facets, each one tone. The
+		# palette's [backdrop] `range_drift` [value patches, warm-cool wander, size, tops warm] or `--range-drift=A|B`: the play areas'
+		# paint at a mountain's size.)
+		var drift: Array = (_palette.get("backdrop", {}) as Dictionary).get("range_drift", [])
+		for arg in OS.get_cmdline_user_args():
+			if arg.begins_with("--range-drift="):
+				drift = {"A": [3.0, 1.2, 24.0, 0.8], "B": [4.5, 1.6, 16.0, 1.0]}.get(arg.substr(14).to_upper(), drift)
+		if drift.size() == 4:
+			land.set_shader_parameter("paint_drift", Vector4(drift[0], drift[1], drift[2], drift[3]))
 			# (Not on dunes, a spec's "no_fall": falling into shade toward their foot, the sand read mauve against the golden floor.)
 			land.set_shader_parameter("fall_by_height", not spec.get("no_fall", false))
 			land.set_shader_parameter("front_fall", 0.38)
 			land.set_shader_parameter("front_span", float(spec.height) * 0.75)
+		# (Painted form, fidelity review 8: a spec's "alt" [snow line, rock top, tree line] in heights above the range's foot, with the
+		# palette's [backdrop] `range_form` (0 off, 1 the snow and tree line, 2 with rock bands), or `--range-form=`.)
+		var form := int((_palette.get("backdrop", {}) as Dictionary).get("range_form", 0))
+		for arg in OS.get_cmdline_user_args():
+			if arg.begins_with("--range-form="):
+				form = int(arg.substr(13))
+		if form > 0 and spec.has("alt"):
+			var foot_y := float(spec.y) - float(spec.get("land_drop", 0.0))
+			var alt: Array = spec.alt
+			land.set_shader_parameter("alt_bands", Vector4(foot_y + float(alt[0]), foot_y + float(alt[1]), foot_y + float(alt[2]), 1.0))
+			land.set_shader_parameter("alt_rock_bands", 1.0 if form >= 2 else 0.0)
+			# (Through the air at the range's depth, as its land is.)
+			land.set_shader_parameter("alt_snow", _air_colour(Color(0.96, 0.98, 1.0), float(spec.z), false))
+			land.set_shader_parameter("alt_rock", _air_colour((spec.land_colour as Color).darkened(0.28).lerp(Color(0.5, 0.52, 0.6), 0.4), float(spec.z), false))
+			land.set_shader_parameter("alt_foot", _air_colour(spec.get("alt_foot", Color(0.16, 0.42, 0.34)), float(spec.z), false))
 		_place_prop(root, String(spec.model), Vector3(0, float(spec.y) - float(spec.get("land_drop", 0.0)),
 			float(spec.z) + float(spec.height) * 0.55), 1.0, 0.0, land)
 		# (No shadows from it, round 15: at that distance the shadow map is coarse, and its self-shadowing streaked the flanks.)
@@ -3267,6 +3369,68 @@ static func _cloud_scale() -> float:
 	return float((_palette.get("backdrop", {}) as Dictionary).get("cloud_scale", 1.0))
 
 
+## A second, farther layer of clouds behind the stage's own (fidelity review 9: at 5 a day sky wants depth in its clouds, one band read
+## flat): smaller, paler toward the sky's colour, behind the furthest range so they show over and between its peaks. The palette's
+## [backdrop] `cloud_far` [count, size, how pale] or `--cloud-far=A|B` (A a thin layer, B a fuller one); none without.
+static func _far_clouds(root: Node3D, t: Dictionary) -> void:
+	var spec: Array = (_palette.get("backdrop", {}) as Dictionary).get("cloud_far", [])
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--cloud-far="):
+			spec = {"A": [6, 0.75, 0.42], "B": [10, 0.95, 0.3]}.get(arg.substr(12), spec)
+		# (`--sky=B`: the far layer as a few larger clouds, not a scatter of small ones.)
+		if arg == "--sky=B" and spec.size() >= 3:
+			spec = [maxi(3, int(spec[0]) / 3), float(spec[1]) * 1.5, spec[2]]
+	if spec.size() < 3:
+		return
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 77
+	var deepest := -200.0
+	for band: Vector2 in _cloud_keep_out:
+		deepest = minf(deepest, band.y)
+	# (Behind the ranges on purpose, so the keep-out that sets a cloud in front of a range is off for this layer.)
+	var keep := _cloud_keep_out.duplicate()
+	_cloud_keep_out.clear()
+	# (Toward the horizon's pale colour, as the air does: toward the sky's middle blue they read as darker blue blots.)
+	var sky: Color = t.get("sky_horizon", Color(0.86, 0.9, 0.96))
+	var colour := Color(1, 1, 1).lerp(sky, float(spec[2]))
+	_clouds(root, rng, int(spec[0]), colour, _cloud_band(Vector2(14, 30)), Vector2(deepest - 60.0, deepest - 20.0), [1, 0, 2],
+		float(spec[1]) * _cloud_scale(), Vector2(-170, 170), {"exposure": 0.92})
+	_cloud_keep_out.assign(keep)
+
+
+## A composed sky (fidelity review 13 item 4: rows of small, like cloud cards read as a pattern, not a sky): the palette's [backdrop]
+## `sky_groups` or `--sky=A|B`, a few large clouds placed by hand, each [x, y, z, size, kind]. The stage's own cloud call still draws its
+## random numbers (into a node thrown away), so everything placed after it keeps its layout. Returns false where there are none.
+static func _composed_sky(root: Node3D, rng: RandomNumberGenerator, count: int, color: Color, y_range: Vector2, z_range: Vector2,
+		kinds: Array, scale: float) -> bool:
+	var groups: Array = (_palette.get("backdrop", {}) as Dictionary).get("sky_groups", [])
+	var name := String(_palette.get("_name", ""))
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--sky=") and arg.substr(6).to_upper() in ["A", "B"]:
+			groups = SKY_GROUPS.get(name, [])
+	if groups.is_empty():
+		return false
+	var thrown := Node3D.new()
+	_clouds(thrown, rng, count, color, y_range, z_range, kinds, scale)
+	thrown.free()
+	var own := RandomNumberGenerator.new()
+	own.seed = 211
+	for g: Array in groups:
+		_clouds(root, own, 1, color, Vector2(g[1], g[1] + 1.0), Vector2(g[2] - 2.0, g[2] + 2.0), [int(g[4])], float(g[3]),
+			Vector2(g[0] - 1.5, g[0] + 1.5))
+	return true
+
+
+## The composed skies tried by `--sky=`: two groups apart and the sky over the fight open; the canyon's clear of the sun on the left.
+const SKY_GROUPS := {
+	# (Below about 25 up at these depths: the wide camera's frame ends near 27 there, and higher groups left the sky empty.)
+	# (The meadow's lower still: its clouds stand taller for their size, and at 18 to 25 their crowns met the frame's top.)
+	"meadow": [[-58.0, 12.0, -112.0, 2.1, 1], [-40.0, 16.0, -120.0, 1.4, 2], [-72.0, 17.0, -125.0, 1.1, 0],
+		[48.0, 11.0, -106.0, 1.9, 2], [66.0, 15.0, -116.0, 1.4, 1], [14.0, 18.0, -128.0, 0.9, 0]],
+	"sunset": [[38.0, 18.0, -110.0, 2.2, 1], [58.0, 22.0, -118.0, 1.6, 2], [24.0, 24.0, -124.0, 1.2, 0], [-30.0, 25.0, -126.0, 1.1, 2]],
+}
+
+
 static func _clouds(root: Node3D, rng: RandomNumberGenerator, count: int, color: Color, y_range: Vector2, z_range := Vector2(-120, -85),
 		kinds := [0, 1, 2], scale := 1.0, x_range := Vector2(-90, 90), look := {}) -> void:
 	# The clouds' construction (the palette's [backdrop] `cloud_style`; docs/art/stages/FOLDED_STYLE.md): 0 smooth painted puffs, 1
@@ -3282,6 +3446,7 @@ static func _clouds(root: Node3D, rng: RandomNumberGenerator, count: int, color:
 		puff = _sphere(1.0, 10)
 	elif style >= 2:
 		puff = _pleated_puff(9, 7)
+	var made: Array = []
 	for k in count:
 		var cloud := Drift.new()
 		cloud.speed = rng.randf_range(0.6, 1.6)
@@ -3296,6 +3461,7 @@ static func _clouds(root: Node3D, rng: RandomNumberGenerator, count: int, color:
 		mat.shader = CLOUD_SHADER
 		mat.set_shader_parameter("colour", color)
 		mat.set_shader_parameter("base_y", cloud.position.y)
+		made.append([cloud, mat])
 		if style >= 1:
 			# (Not the card's: each triangle of its face shaded on its own read as crinkled shards.)
 			mat.set_shader_parameter("flat_planes", style != 4)
@@ -3351,6 +3517,60 @@ static func _clouds(root: Node3D, rng: RandomNumberGenerator, count: int, color:
 		# The flat base: a wide squashed puff under them all.
 		var mb := _mesh(cloud, puff, mat, Vector3(0, 0.6 * size, 0.3), Vector3(span * 0.6, 1.3 * size, 3.4 * size))
 		mb.set_instance_shader_parameter("heap", Vector3(0, -0.8, 0))
+	_clear_of_frame(made)
+
+
+## The match camera's frame top (fidelity review 14 item 1: clouds cut by it read as stray pale slabs in a still). Every stage's match
+## camera stands 26.5 out at 6.85 up, pitched 10 degrees down with a 30 degree view, and has no roll, so its top edge is a plane holding
+## the x axis: at depth z it is MATCH_TOP.x + (MATCH_TOP.y - z) * MATCH_TOP.z up. The wide camera (60 out, the stage reviews' other
+## still) the same way from WIDE_TOP, about 8 higher.
+const MATCH_TOP := Vector3(6.85, 26.5, 0.0875)
+const WIDE_TOP := Vector3(12.03, 60.0, 0.0875)
+
+
+## Clouds crossing the match camera's frame top, moved clear of it: the palette's [backdrop] `cloud_clear` or `--cloud-clear=A|B`. "A"
+## lowers each whole into the frame (then it is whole at every zoom, which only raises the top), and one above the match frame that
+## crosses the wide camera's top comes down under it; "B" the same with each cloud it moves at 0.8 of its size, so the lowered ones
+## crowd the peaks less. (Lifting them clear above the match frame was tried: the two tops are about 8 apart and these clouds are
+## taller, so nearly every one fell back into the frame.) Moves no random numbers.
+static func _clear_of_frame(made: Array) -> void:
+	var mode := String((_palette.get("backdrop", {}) as Dictionary).get("cloud_clear", ""))
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--cloud-clear=") and String(_palette.get("_name", "")) in ["meadow", "sunset", "grove", "ocean"]:
+			mode = arg.substr(14).to_upper()
+	if mode not in ["A", "B"]:
+		return
+	for pair: Array in made:
+		var cloud: Node3D = pair[0]
+		var box := AABB()
+		var first := true
+		for mi: MeshInstance3D in cloud.find_children("*", "MeshInstance3D", true, false):
+			var b := mi.transform * mi.mesh.get_aabb()
+			box = b if first else box.merge(b)
+			first = false
+		if first:
+			continue
+		var top := MATCH_TOP.x + (MATCH_TOP.y - cloud.position.z) * MATCH_TOP.z
+		var wide := WIDE_TOP.x + (WIDE_TOP.y - cloud.position.z) * WIDE_TOP.z
+		var lo := cloud.position.y + box.position.y
+		var hi := lo + box.size.y
+		var crossing := (hi > top - 0.5 and lo < top + 0.5) or (lo > top and hi > wide - 0.5)
+		if not crossing:
+			continue
+		if mode == "B":
+			cloud.scale = Vector3.ONE * 0.8
+			lo = cloud.position.y + box.position.y * 0.8
+			hi = lo + box.size.y * 0.8
+		var shift := 0.0
+		if hi > top - 0.5 and lo < top + 0.5:
+			shift = top - 1.0 - hi
+		# (Above the match frame, crossing the wide one's top: down under it, or, if it can't fit between the two, into the match frame.)
+		elif lo > top and hi > wide - 0.5:
+			shift = wide - 1.0 - hi
+			if lo + shift < top + 0.5:
+				shift = top - 1.0 - hi
+		cloud.position.y += shift
+		(pair[1] as ShaderMaterial).set_shader_parameter("base_y", cloud.position.y)
 
 
 ## A cumulus cut from card (cloud style 4): a flat base and a crown of `lobes` round bumps, tallest in the middle, `depth` thick, its face
@@ -4383,7 +4603,9 @@ static func _meadow(root: Node3D, t: Dictionary, stage: Array) -> void:
 	var ground: Node3D = Node3D.new() if ground_mock else root
 	pine_slots.clear()
 	_hills(ground, rng, _pal("hills_near"), _pal("hills_far"))
-	_clouds(root, rng, 11, Color(1.0, 1.0, 1.0), _cloud_band(Vector2(14, 34)), Vector2(-120, -85), [0, 1, 2], _cloud_scale())
+	if not _composed_sky(root, rng, 11, Color(1.0, 1.0, 1.0), _cloud_band(Vector2(14, 34)), Vector2(-120, -85), [0, 1, 2], _cloud_scale()):
+		_clouds(root, rng, 11, Color(1.0, 1.0, 1.0), _cloud_band(Vector2(14, 34)), Vector2(-120, -85), [0, 1, 2], _cloud_scale())
+	_far_clouds(root, t)
 	# (No islands floating in the sky since the stage became a terrace on a hillside, art review 9: they were pale, flat, pulled the eye, and
 	# said the land floats when it no longer does. Still drawn and thrown away, so the random layout of everything after them stays put.)
 	var gone := Node3D.new()
@@ -5070,7 +5292,9 @@ static func _sunset(root: Node3D, t: Dictionary, stage: Array) -> void:
 	for x in [e[0] + 1.5, e[1] - 2.0]:
 		_cactus(root, Vector3(x, e[2], -6.5), rng.randf_range(0.65, 0.85))
 		_contact(root, Vector3(x, e[2], -6.5), Vector2(0.45, 0.38))
-	_clouds(root, rng, 6, Color(1.0, 0.78, 0.7), Vector2(18, 30))
+	if not _composed_sky(root, rng, 6, Color(1.0, 0.78, 0.7), Vector2(18, 30), Vector2(-120, -85), [0, 1, 2], 1.0):
+		_clouds(root, rng, 6, Color(1.0, 0.78, 0.7), Vector2(18, 30))
+	_far_clouds(root, t)
 	# A line of telegraph poles running off across the desert floor, wires sagging between them: a road out there somewhere.
 	var pole := Materials.wood(Color(0.5, 0.34, 0.26))
 	var wire := FighterView.toon(Color(0.3, 0.2, 0.22), false)
@@ -5224,6 +5448,7 @@ static func _grove(root: Node3D, t: Dictionary, stage: Array) -> void:
 	var ground: Node3D = Node3D.new() if ground_mock else root
 	_hills(ground, rng, _pal("hills_near"), _pal("hills_far"))
 	_clouds(root, rng, 8, Color(1, 0.97, 1), _cloud_band(Vector2(10, 36)), Vector2(-120, -85), [0, 1, 2], _cloud_scale())
+	_far_clouds(root, t)
 	_birds(root, rng, Color(0.25, 0.22, 0.3))
 	var top: float = stage[2] if stage.size() == 4 else 0.0
 	var left: float = stage[0] if stage.size() == 4 else -11.0
@@ -5315,6 +5540,32 @@ static func _ocean(root: Node3D, t: Dictionary, stage: Array) -> void:
 		if arg.begins_with("--sea-vary="):
 			sea_vary = int(arg.substr(11))
 	wm.set_shader_parameter("wave_vary", sea_vary)
+	# (The paper waves as soft bands, fidelity review 8: the palette's `sea_band`, `--sea-band=` to try; see water.gdshader `wave_band`.)
+	var sea_band := int((_palette.get("backdrop", {}) as Dictionary).get("sea_band", 0))
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--sea-band="):
+			sea_band = int(arg.substr(11))
+	wm.set_shader_parameter("wave_band", sea_band)
+	# (The shallows round the dock, new art toward 5: the palette's `sea_shallows` [how strong, reach, rocks], `--shallows=A|B` to try.)
+	var sh: Array = (_palette.get("backdrop", {}) as Dictionary).get("sea_shallows", [])
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--shallows="):
+			sh = {"A": [1.0, 40.0, 0.0], "B": [1.0, 40.0, 1.0]}.get(arg.substr(11), sh)
+	if sh.size() == 3:
+		wm.set_shader_parameter("shallows", Vector3(sh[0], sh[1], sh[2]))
+	# (The near sea, fidelity review 11: the palette's `sea_near` [how much it deepens toward the frame's foot, its patches], `--sea-near=A|B|C`.)
+	var near: Array = (_palette.get("backdrop", {}) as Dictionary).get("sea_near", [])
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--sea-near="):
+			near = {"A": [0.8, 0.0], "B": [0.8, 1.0], "C": [1.25, 1.0], "D": [1.8, 1.0]}.get(arg.substr(11), near)
+	if near.size() == 2:
+		wm.set_shader_parameter("near_depth", Vector2(near[0], near[1]))
+	# (The near sea's paper waves, fidelity review 13 item 8: the palette's `sea_near_waves` or `--near-waves=A|B`.)
+	var nwaves := float((_palette.get("backdrop", {}) as Dictionary).get("sea_near_waves", 0.0))
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--near-waves="):
+			nwaves = {"A": 0.6, "B": 1.2}.get(arg.substr(13).to_upper(), nwaves)
+	wm.set_shader_parameter("near_waves", nwaves)
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--sea-look="):
 			wm.set_shader_parameter("look", {"T": 0, "A": 1, "B": 2, "C": 3}.get(arg.substr(11), int(_pal("sea_look"))))
@@ -5327,7 +5578,26 @@ static func _ocean(root: Node3D, t: Dictionary, stage: Array) -> void:
 	# (Lifted clear of the horizon, the owner, 2026-10-19: sitting on it, the clouds read too low and blurred the sea into the sky.)
 	# (Seven, not sixteen, the judge's round 39: sixteen piled into one heavy lumpy band across the top third, the busiest area of the
 	# frame; a few apart leave open sky over the fight.)
-	_clouds(root, bank_rng, int(_pal("cloud_bank")), Color(1, 1, 1), Vector2(10.0, 18.0), Vector2(-215, -195), [1, 0, 1], 1.9, Vector2(-90, 90), cloud_look)
+	# (Banks apart, fidelity review 9: seven wide cards along one line at one height joined into an unbroken strip, a border across the
+	# sky. The palette's [backdrop] `bank_look` or `--bank=A|B`: A five banks spread across the sky, each at its own height and depth;
+	# B two groups, three behind the town and two to the right, the sky over the fight left open.)
+	var bank_look := String((_palette.get("backdrop", {}) as Dictionary).get("bank_look", ""))
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--bank="):
+			bank_look = arg.substr(7)
+	if bank_look == "A":
+		var slots := [-80.0, -42.0, -5.0, 36.0, 76.0]
+		for i in slots.size():
+			_clouds(root, bank_rng, 1, Color(1, 1, 1), Vector2(8.0 + 3.5 * (i % 3), 13.0 + 5.0 * (i % 3)), Vector2(-235, -175), [[1, 2, 0][i % 3]],
+				[2.5, 1.9, 2.2, 1.8, 2.6][i], Vector2(slots[i] - 6.0, slots[i] + 6.0), cloud_look)
+	elif bank_look == "B":
+		var group := [[-88.0, 9.0, -215.0, 2.5, 1], [-68.0, 17.0, -235.0, 2.0, 2], [-50.0, 11.0, -195.0, 1.7, 0], [58.0, 13.0, -220.0, 2.1, 1],
+			[80.0, 8.0, -200.0, 1.6, 2]]
+		for g: Array in group:
+			_clouds(root, bank_rng, 1, Color(1, 1, 1), Vector2(g[1], g[1] + 2.0), Vector2(g[2] - 4.0, g[2] + 4.0), [g[4]], g[3],
+				Vector2(g[0] - 3.0, g[0] + 3.0), cloud_look)
+	else:
+		_clouds(root, bank_rng, int(_pal("cloud_bank")), Color(1, 1, 1), Vector2(10.0, 18.0), Vector2(-215, -195), [1, 0, 1], 1.9, Vector2(-90, 90), cloud_look)
 	_birds(root, rng, Color(0.97, 0.97, 1.0))
 	# (Under a modelled ground the islands' mounds and the headland's hills are built into a node that is thrown away, their numbers
 	# still drawn; what stands on them stays: art/blender/make_beach_ground.py.)
@@ -5493,7 +5763,12 @@ static func _city(root: Node3D, t: Dictionary, stage: Array) -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 33
 	var e := _ext(stage)
-	_mesh(root, _sphere(8.0, 32), _unshaded(Color(0.98, 0.94, 0.82)), Vector3(30, 34, -140))
+	# (Whole in the wide frame, fidelity review 13: at 34 up the frame's top cut it, which ends near 29 at its depth; the palette's [backdrop] `moon_y` or `--sky=`.)
+	var moon_y := float((_palette.get("backdrop", {}) as Dictionary).get("moon_y", 34.0))
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--sky="):
+			moon_y = 19.0
+	_mesh(root, _sphere(8.0, 32), _unshaded(Color(0.98, 0.94, 0.82)), Vector3(30, moon_y, -140))
 	var star := _unshaded(Color(1, 1, 0.9))
 	var dot := _sphere(0.3, 6)
 	for k in 70:
@@ -5514,6 +5789,14 @@ static func _city(root: Node3D, t: Dictionary, stage: Array) -> void:
 		# (Lighter, cooler and hazier with distance, the gauntlet's round 3 after the owner's city reference, kept at night: the towers sat
 		# as dark and saturated as the play building and nothing separated. A night haze of pale blue-lilac, more of it further back.)
 		shade = (_pal("skyline_shades") as Array)[layer]
+		# (Value steps, fidelity review 13 item 7: the three layers sat close in one purple. `--skyline=A|B`, or the palette's
+		# [backdrop] `skyline_steps`: the near layer a deeper indigo, the far one lighter and bluer, the middle between.)
+		var steps: Array = (_palette.get("backdrop", {}) as Dictionary).get("skyline_steps", [])
+		for arg in OS.get_cmdline_user_args():
+			if arg.begins_with("--skyline=") and arg.substr(10).to_upper() in ["A", "B"]:
+				steps = [Color(0.19, 0.17, 0.38), Color(0.36, 0.37, 0.64), Color(0.6, 0.68, 0.9)]
+		if steps.size() == 3:
+			shade = steps[layer]
 		_skyline_layer(root, rng, layer, z, shade, float(e[3]) - CITY_STREET_DROP)
 	# A water tower and an antenna on the roof behind the stage.
 	var roof: float = e[2]
@@ -5634,9 +5917,17 @@ const CITY_STREET_DROP := 6.0
 static func _street(root: Node3D, y: float, front: float) -> void:
 	# (Painted asphalt (godot/art/stage/asphalt.svg: grit, a sealed crack, a patch) laid in world space, and inked stone kerbs: flat fills read as a
 	# different, unfinished style beside the painted rooftop.)
-	var asphalt := Materials.world("asphalt", Color(0.3, 0.27, 0.4), 6.0, false).duplicate() as ShaderMaterial
+	# (A road you can read from the wide camera, fidelity review 9: the street was flat bands of purple, the one plain stretch on the stage.
+	# The palette's [backdrop] `street_look` or `--street=A|B`: A a road a step lighter and greyer than the purple around it, its patches
+	# stronger, and the lanes worn darker where the tyres run; B A with the street lamps' warm light pooled on the road and pavement.)
+	var street_look := String((_palette.get("backdrop", {}) as Dictionary).get("street_look", ""))
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--street="):
+			street_look = arg.substr(9)
+	var worn := street_look in ["A", "B"]
+	var asphalt := Materials.world("asphalt", Color(0.36, 0.34, 0.44) if worn else Color(0.3, 0.27, 0.4), 6.0, false).duplicate() as ShaderMaterial
 	# (Broad painted patches on the road, darker where the tyres run: one flat sheet read as a Flash backdrop, 2026-10-18.)
-	asphalt.set_shader_parameter("patch_amount", 0.3)
+	asphalt.set_shader_parameter("patch_amount", 0.55 if worn else 0.3)
 	# Paving slabs with bevelled, lit joints (art/stage/png/paving.png), laid in world space, two slabs a metre or so.
 	var pave := Materials.world("paving", Color(0.56, 0.52, 0.66), 4.5, false)
 	var kerb := Materials.stone(Color(0.66, 0.62, 0.76), Vector2(60, 1))
@@ -5650,6 +5941,12 @@ static func _street(root: Node3D, y: float, front: float) -> void:
 		_mesh(root, _box(Vector3(300.0, 0.34, 0.5)), kerb, Vector3(0, y + 0.12, kz))
 		var road_side := -1.0 if kz > front - 18.0 else 1.0
 		_mesh(root, _box(Vector3(300.0, 0.02, 0.22)), gutter, Vector3(0, y + 0.005, kz + road_side * 0.36))
+	if worn:
+		# The lanes worn darker where the tyres run, two tracks to each.
+		var tracks := Materials.world("asphalt", Color(0.26, 0.24, 0.33), 6.0, false)
+		for lane in [front - 13.5, front - 22.5]:
+			for side in [-0.75, 0.75]:
+				_mesh(root, _box(Vector3(300.0, 0.02, 0.62)), tracks, Vector3(0, y + 0.004, lane + side))
 	# The line down the middle of the road.
 	# (Road paint lit like the road, a little worn, not unshaded strips glowing over it, 2026-10-18.)
 	var paint := Materials.world("asphalt", Color(0.95, 0.8, 0.42), 6.0, false)
@@ -5673,6 +5970,13 @@ static func _street(root: Node3D, y: float, front: float) -> void:
 		_mesh(root, _box(Vector3(0.12, 0.12, 1.6)), iron, at + Vector3(0, 5.9, 0.7))
 		_mesh(root, _sphere(0.32, 10), lamp, at + Vector3(0, 5.7, 1.4), Vector3(1.0, 0.7, 1.0))
 		_halo(root, at + Vector3(0, 5.6, 1.6), Color(1.0, 0.8, 0.5), 4.2)
+		if street_look == "B":
+			# The lamp's warm light pooled on the road and the pavement under it (as the rooftop's string lights pool on the roof).
+			var q := QuadMesh.new()
+			q.size = Vector2(9.0, 6.5)
+			q.orientation = PlaneMesh.FACE_Y
+			var pm := _mesh(root, q, _street_pool(), Vector3(x, y + 0.03, front - 28.0))
+			pm.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		x += 16.5
 	# Cars: two lanes, one each way, a cab among them.
 	var colours := [Color(0.92, 0.36, 0.4), Color(0.36, 0.7, 0.86), Color(0.98, 0.8, 0.3), Color(0.62, 0.48, 0.9), Color(0.9, 0.9, 0.94),
@@ -5687,6 +5991,31 @@ static func _street(root: Node3D, y: float, front: float) -> void:
 		_car(car, colours[k % colours.size()], dir, k == 2)
 	_street_furniture(root, y, front)
 	_street_life(root, y, front)
+
+
+## A street lamp's pool of warm light on the ground: unshaded, a radial fade from a soft warm centre (`street_look` B).
+static var _street_pool_mat: StandardMaterial3D = null
+
+
+static func _street_pool() -> StandardMaterial3D:
+	if _street_pool_mat != null:
+		return _street_pool_mat
+	var m := StandardMaterial3D.new()
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	m.disable_fog = true
+	var g := Gradient.new()
+	g.set_color(0, Color(1.0, 0.84, 0.56, 0.6))
+	g.set_color(1, Color(1.0, 0.62, 0.36, 0.0))
+	g.add_point(0.55, Color(1.0, 0.76, 0.48, 0.38))
+	var tex := GradientTexture2D.new()
+	tex.gradient = g
+	tex.fill = GradientTexture2D.FILL_RADIAL
+	tex.fill_from = Vector2(0.5, 0.5)
+	tex.fill_to = Vector2(1.0, 0.5)
+	m.albedo_texture = tex
+	_street_pool_mat = m
+	return m
 
 
 ## A little car pointing along `dir` (+1 right, -1 left), `taxi` for a cab: a body with a bonnet and a boot stepping down from the cabin,
@@ -5797,6 +6126,14 @@ static func _street_furniture(root: Node3D, y: float, front: float) -> void:
 	# (A step below full white, and the glows round them half the size: art review 6 round 7, the lit shops bloomed into the brightest
 	# blobs on screen, down in the corners where the eye lands.)
 	var glows := [Color(0.9, 0.76, 0.5), Color(0.6, 0.78, 0.9), Color(0.9, 0.62, 0.74), Color(0.74, 0.88, 0.64)]
+	# (Storefronts with depth, new art toward 5, Ci1, the owner's approval 2026-10-25: the palette's [backdrop] `storefront` or
+	# `--storefront=A|B`. A each shop's window and door set back in a recess with its reveals and a soffit, goods in the window, the
+	# awnings at their own heights and reaches, one shop in four without; B with a lit blade sign standing out from every other shop.)
+	var store := String((_palette.get("backdrop", {}) as Dictionary).get("storefront", ""))
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--storefront="):
+			store = arg.substr(13)
+	var deep := store in ["A", "B"]
 	x = -126.0
 	k = 0
 	while x < 126.0:
@@ -5805,11 +6142,21 @@ static func _street_furniture(root: Node3D, y: float, front: float) -> void:
 		# (Each shop its own, 2026-10-17, the owner: the shops were basic shapes in one repeated pattern. Pilasters either side, a stall riser
 		# under the window, a panelled door, a sign and a built awning; glass and door with depth, not flat fills, 2026-10-18.)
 		var wall_c: Color = Color(0.26, 0.2, 0.34).lerp([Color(0.36, 0.22, 0.26), Color(0.22, 0.24, 0.36), Color(0.3, 0.26, 0.24)][k % 3], 0.5)
+		var r := 0.55 if deep else 0.0
+		var front_z := shop_z
+		shop_z -= r
 		_mesh(root, _box(Vector3(w - 0.4, 3.2, 0.2)), FighterView.toon(wall_c), Vector3(cx, y + 1.85, shop_z))
+		if deep:
+			# The recess: its two reveals and a soffit in the wall's shade, a fascia over it carrying the sign.
+			var reveal := FighterView.toon(wall_c.darkened(0.3))
+			for px in [x + 0.53, x + w - 0.53]:
+				_mesh(root, _box(Vector3(0.1, 3.2, r)), reveal, Vector3(px, y + 1.85, front_z - r * 0.5 + 0.1))
+			_mesh(root, _box(Vector3(w - 1.0, 0.2, r)), reveal, Vector3(cx, y + 3.35, front_z - r * 0.5 + 0.1))
+			_mesh(root, _box(Vector3(w - 0.4, 1.3, 0.2)), FighterView.toon(wall_c), Vector3(cx, y + 4.1, front_z))
 		var pil := FighterView.toon(wall_c.lightened(0.18))
 		for px in [x + 0.35, x + w - 0.35]:
-			_mesh(root, _box(Vector3(0.36, 3.3, 0.34)), pil, Vector3(px, y + 1.85, shop_z + 0.1))
-			_mesh(root, _box(Vector3(0.5, 0.18, 0.44)), pil, Vector3(px, y + 3.45, shop_z + 0.12))
+			_mesh(root, _box(Vector3(0.36, 3.3, 0.34)), pil, Vector3(px, y + 1.85, front_z + 0.1))
+			_mesh(root, _box(Vector3(0.5, 0.18, 0.44)), pil, Vector3(px, y + 3.45, front_z + 0.12))
 		var pane: Color = glows[k % glows.size()]
 		var win_w := w * 0.6
 		var win_x := cx - w * 0.13
@@ -5825,6 +6172,17 @@ static func _street_furniture(root: Node3D, y: float, front: float) -> void:
 			_mesh(root, _box(Vector3(0.04, 0.5, 0.1)), mullion, Vector3(mx - win_w / panes * 0.5, y + 0.45, shop_z + 0.24))
 		_mesh(root, _box(Vector3(win_w, 0.1, 0.1)), mullion, Vector3(win_x, y + 2.35, shop_z + 0.17))
 		_mesh(root, _box(Vector3(win_w + 0.2, 0.12, 0.3)), riser, Vector3(win_x, y + 0.78, shop_z + 0.2))
+		if deep:
+			# Goods in the window, against its light: a few shapes of their own heights on the sill.
+			var g := RandomNumberGenerator.new()
+			g.seed = 4100 + k
+			var gx := win_x - win_w * 0.42
+			while gx < win_x + win_w * 0.4:
+				var gw := g.randf_range(0.25, 0.6)
+				var gh := g.randf_range(0.25, 0.95)
+				var goods: Color = [wall_c.darkened(0.45), Color(0.86, 0.5, 0.46), Color(0.5, 0.7, 0.62), Color(0.92, 0.8, 0.5)][g.randi_range(0, 3)]
+				_mesh(root, _box(Vector3(gw, gh, 0.22)), FighterView.toon(goods), Vector3(gx + gw * 0.5, y + 0.84 + gh * 0.5, shop_z + 0.32))
+				gx += gw + g.randf_range(0.12, 0.35)
 		# The door: a frame, a glazed upper panel lit from inside, a solid lower one and a handle.
 		var dx := cx + w * 0.32
 		var door_c: Color = [Color(0.5, 0.3, 0.26), Color(0.24, 0.4, 0.42), Color(0.46, 0.38, 0.22), Color(0.36, 0.28, 0.46)][k % 4]
@@ -5833,12 +6191,27 @@ static func _street_furniture(root: Node3D, y: float, front: float) -> void:
 		_mesh(root, _box(Vector3(0.08, 0.08, 0.12)), FighterView.respond(FighterView.toon(Color(0.9, 0.78, 0.4)), "gold"), Vector3(dx + 0.36, y + 1.2, shop_z + 0.25))
 		# The awning (`_awning`): a canopy of stripes, each sagging a little, over a valance with a scalloped or straight hem.
 		var pair: Array = awnings[k % awnings.size()]
-		_awning(root, x + 0.15, x + w - 0.15, y + 3.75, shop_z + 0.22, pair[0], pair[1], 1.35, k % 2 == 0)
+		if not deep:
+			_awning(root, x + 0.15, x + w - 0.15, y + 3.75, shop_z + 0.22, pair[0], pair[1], 1.35, k % 2 == 0)
+		elif k % 4 != 3:
+			# (Each at its own height and reach, from the fascia; one shop in four without.)
+			_awning(root, x + 0.15, x + w - 0.15, y + 3.5 + [0.0, 0.3, 0.12][k % 3], front_z + 0.22, pair[0], pair[1], [1.35, 1.6, 1.15][k % 3],
+				k % 2 == 0)
 		# The sign over it: a lit panel in a dark frame.
 		var sign_c: Color = (glows[(k + 2) % glows.size()] as Color).lerp(Color.WHITE, 0.2)
 		var sw := w * 0.5
-		_mesh(root, _box(Vector3(sw + 0.16, 0.76, 0.1)), FighterView.toon(wall_c.darkened(0.25)), Vector3(cx, y + 4.3, shop_z + 0.1))
-		_glass(root, Vector2(sw, 0.6), sign_c, Vector3(cx, y + 4.3, shop_z + 0.2))
+		# (In relief with the storefronts: a deeper frame standing proud of the fascia.)
+		var sign_z := front_z + 0.2 if deep else shop_z + 0.1
+		_mesh(root, _box(Vector3(sw + 0.16, 0.76, 0.3 if deep else 0.1)), FighterView.toon(wall_c.darkened(0.25)), Vector3(cx, y + 4.3, sign_z))
+		_glass(root, Vector2(sw, 0.6), sign_c, Vector3(cx, y + 4.3, sign_z + (0.2 if deep else 0.1)))
+		if store == "B" and k % 2 == 1:
+			# A blade sign standing out from the wall at the shop's edge, lit on both faces.
+			var bx := x + w - 0.6
+			_mesh(root, _box(Vector3(0.12, 1.5, 1.0)), FighterView.toon(wall_c.darkened(0.3)), Vector3(bx, y + 3.3, front_z + 0.65))
+			for side in [-1.0, 1.0]:
+				var bs := _glass(root, Vector2(0.8, 1.3), glows[(k + 1) % glows.size()], Vector3(bx + side * 0.07, y + 3.3, front_z + 0.65))
+				bs.rotation_degrees = Vector3(0, 90.0 * side, 0)
+		shop_z = front_z
 		x += w
 		k += 1
 
@@ -6205,7 +6578,13 @@ static func _skyline_layer(root: Node3D, rng: RandomNumberGenerator, layer: int,
 	m.set_shader_parameter("base_shade", shade)
 	m.set_shader_parameter("roof_shade", shade.lightened(0.12))
 	m.set_shader_parameter("lit_energy", FACADE_LIT[layer])
-	m.set_shader_parameter("lit_share", FACADE_LIT_SHARE[layer])
+	var share: float = FACADE_LIT_SHARE[layer]
+	# (`--skyline=B` or the palette's `skyline_warm`: more of the nearer layers' windows lit, warm light spread through the purple.)
+	var warm := float((_palette.get("backdrop", {}) as Dictionary).get("skyline_warm", 1.0))
+	for arg in OS.get_cmdline_user_args():
+		if arg == "--skyline=B":
+			warm = 1.8
+	m.set_shader_parameter("lit_share", share * (warm if layer < 2 else 1.0))
 	# The far layer: windows only (frames, sills and floor bands would be noise at that distance).
 	# (And the middle layer too since art review 10, so only the nearest buildings carry frames and sills.)
 	m.set_shader_parameter("detail", 0.0 if layer >= 1 else 1.0)
@@ -7673,14 +8052,21 @@ static func _meadow_hill(root: Node3D, t: Dictionary, l: float, r: float, bottom
 	var props := Node3D.new()
 	props.name = "HillProps"
 	root.add_child(props)
+	# (Tidied, fidelity review 9: three bales at odd angles, one half on another, read as strewn down the slope at the wide camera. Two
+	# side by side, square to the wall; the palette's [backdrop] `foot_tidy`, `--foot-tidy` to try.)
+	var tidy := bool((_palette.get("backdrop", {}) as Dictionary).get("foot_tidy", false)) or OS.get_cmdline_user_args().has("--foot-tidy")
 	for side in [-1.0, 1.0]:
 		var ex: float = (l + 2.8) if side < 0.0 else (r - 2.8)
 		var d := 1.6
 		var y: float = slope.call(d)
 		var z := front + d
-		_hay_bale(props, Vector3(ex, y, z), rng.randf_range(-30, 30))
-		_hay_bale(props, Vector3(ex + side * 1.4, slope.call(d + 0.8) - 0.1, z + 0.8), rng.randf_range(-30, 30))
-		_hay_bale(props, Vector3(ex + side * 0.5, y + 0.8, z + 0.3), rng.randf_range(-30, 30))
+		if tidy:
+			_hay_bale(props, Vector3(ex, y, z), 0.0)
+			_hay_bale(props, Vector3(ex + side * 1.35, y, z + 0.1), side * 6.0)
+		else:
+			_hay_bale(props, Vector3(ex, y, z), rng.randf_range(-30, 30))
+			_hay_bale(props, Vector3(ex + side * 1.4, slope.call(d + 0.8) - 0.1, z + 0.8), rng.randf_range(-30, 30))
+			_hay_bale(props, Vector3(ex + side * 0.5, y + 0.8, z + 0.3), rng.randf_range(-30, 30))
 		_barrel(props, Vector3(ex - side * 1.6, y, z - 0.2), 0.8)
 		_rock(props, Vector3(ex - side * 2.6, y - 0.2, z + 0.6), 0.5, rng)
 	for c in props.get_children():

@@ -28,8 +28,14 @@ the plain empty at the wide camera; the arch boxy), on KC's floor with `--arch s
   `--fight wide`    with it, the butte behind the fight a broad flat-topped mesa, a calm table behind the fighters, not a pillar;
   `--plain outcrops` low rock ledges and boulders across the plain, off the wash, the buttes' feet and the strip behind the fight.
 
-Shipped (fidelity review 7, the owner's pick B, 2026-10-22): godot/models/stages/canyon_paper.glb, `--variant KC --arch chipped
---buttes solid --fight broken --plain outcrops`, then lit (review 6's had `--fight wide`, review 5's `--variant KC --arch solid`).
+New art toward 5 (docs/art/stages/NEW_ART_PLAN.md, C3 and C2, the owner's approval 2026-10-25), on KC:
+  `--foot talus`  the stage mesa's foot: a fan of fallen sandstone blocks and scree spreading from its sides onto the floor, the biggest
+                  nearest the wall, so the mesa stands on the ground;
+  `--hoodoos N`   N clusters of wind-carved hoodoos on the floor either side of the mesa, at true size (columns of stacked strata under a
+                  wider cap stone), with boulders round them and their shade.
+
+Shipped (new art toward 5, the owner's pick B, 2026-10-25): godot/models/stages/canyon_paper.glb, `--variant KC --arch chipped
+--buttes solid --fight broken --plain outcrops --foot talus --hoodoos 5` (with `--gorge B` since 2026-10-26, `--hoodoo_look B` since 2026-10-30), then lit (review 7's without `--foot` and `--hoodoos`) (review 6's had `--fight wide`, review 5's `--variant KC --arch solid`).
 
 Run (Blender 5.2):
   blender --background --python art/blender/make_canyon_paper.py -- --dir godot/art/baked/<key> --variant A --ground <g.glb>
@@ -43,7 +49,7 @@ import sys
 
 import bmesh
 import bpy
-from mathutils import Vector
+from mathutils import Matrix, Vector
 
 argv = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
 opts = {argv[i].lstrip("-"): argv[i + 1] for i in range(0, len(argv) - 1, 2)}
@@ -52,6 +58,18 @@ CHIP = opts.get("arch", "") == "chipped"
 LAYOUT = json.load(open(os.path.join(opts["dir"], "ground.json")))
 FLOOR = -16.0
 STRATA = ["rock_a", "rock_b", "rock_a", "rock_c"]
+FOOT = opts.get("foot", "")
+HOODOOS = int(opts.get("hoodoos", "0"))
+# The hoodoos' look (fidelity review 16 item 4: stacks of equal drums under a disc): `--hoodoo_look A|B`, `eroded_column`.
+HOODOO_LOOK = opts.get("hoodoo_look", "").upper()
+# The dry river gorge (new art toward 5, C1, the owner's approval 2026-10-26): the wash's line made a real channel, `--gorge A|B`. A: its
+# bed wider and strewn with pebbles, each bank stepping up in three sandstone ledges in the strata's colours to a rim, the rim falling
+# away outside in a long slope of sand. B: four taller ledges, and fallen blocks in the bed.
+GORGE = opts.get("gorge", "").upper()
+# The stage mesa (the play block from the bake manifest): its sides and its front, for the talus at its foot.
+MANIFEST = json.load(open(os.path.join(opts["dir"], "manifest.json")))
+STAGE = [r for r in MANIFEST["rects"] if r[4] < 0.5][0]
+STAGE_FZ = float(MANIFEST["front_z"])
 
 
 def P(x, y, z):
@@ -474,6 +492,149 @@ def outcrops(rng):
         shade(nm + "_shade", x, seat(x, z), z, max(rx, rz) * 1.1)
 
 
+def mesa_foot(rng):
+    """The stage mesa's foot (C3): either side, a fan of scree a step darker than the sand, and on it fallen blocks of the mesa's strata,
+    the biggest against the wall and smaller out across the fan."""
+    cx = (STAGE[0] + STAGE[1]) * 0.5
+    half = (STAGE[1] - STAGE[0]) * 0.5 * 1.04
+    for side in (-1.0, 1.0):
+        fx = cx + side * (half + 3.5)
+        floor_sheet("scree%d" % (side > 0), "scree", oblong(fx, STAGE_FZ - 2.5, 7.5, 5.5, rng), FLOOR + 0.42)
+        for q in range(12):
+            d = rng.uniform(0.0, 1.0) ** 1.4
+            x = cx + side * (half + 0.4 + d * 8.5)
+            z = STAGE_FZ - rng.uniform(-1.5, 6.5) + d * 1.5
+            sz = (2.4 - 1.9 * d) * rng.uniform(0.7, 1.15)
+            y = seat(x, z) - 0.2
+            block("talus%d_%d" % (side > 0, q), rng.choice(STRATA), facet_ring(x, z, sz, sz * 0.75, rng.randrange(4, 7), rng,
+                  rng.uniform(0, math.tau)), y, y + sz * rng.uniform(0.7, 1.2), sz * 0.22)
+        shade("talus%d_shade" % (side > 0), cx + side * (half + 2.0), FLOOR + 0.45, STAGE_FZ - 1.5, 4.5)
+
+
+def eroded_column(nm, hx, y, hz, h, r, k, c):
+    """`--hoodoo_look`: a hoodoo as one worn column, not stacked drums: a flared foot tapering to a waist under an overhanging cap rock,
+    fluted up its length (each corner keeps its own reach), its strata in uneven bands. B also weathers the soft bands in, leans it
+    further, tilts its cap, and leaves about one in four a broken spire with no cap."""
+    own = random.Random(int(abs(hx) * 131 + abs(hz) * 17) + c * 7)
+    worn = HOODOO_LOOK == "B"
+    corners = 8 if worn else 7
+    rot = own.uniform(0, math.tau)
+    angs = [rot + math.tau * (i + own.uniform(-0.22, 0.22)) / corners for i in range(corners)]
+    flute = [own.uniform(0.84, 1.12) for _ in angs]
+    reach = 0.09 if worn else 0.05
+    lean = (own.uniform(-reach, reach) * h, own.uniform(-reach, reach) * h)
+    spire = worn and own.random() < 0.25
+    if spire:
+        levels = [(0.0, 1.45), (0.07, 1.12), (0.2, 0.95), (0.34, 0.74), (0.46, 0.84), (0.6, 0.6), (0.72, 0.66), (0.86, 0.42), (1.0, 0.2)]
+    elif worn:
+        levels = [(0.0, 1.5), (0.07, 1.14), (0.18, 1.0), (0.28, 0.8), (0.38, 0.92), (0.5, 0.68), (0.6, 0.8), (0.72, 0.58), (0.82, 0.66),
+                  (0.93, 0.44), (1.0, 0.52)]
+    else:
+        levels = [(0.0, 1.45), (0.08, 1.15), (0.2, 1.0), (0.4, 0.86), (0.6, 0.74), (0.8, 0.62), (0.92, 0.5), (1.0, 0.56)]
+    rings = []
+    for (t, p) in levels:
+        cx, cz = hx + lean[0] * t, hz + lean[1] * t
+        rings.append([(cx + r * p * flute[i] * own.uniform(0.96, 1.04) * math.cos(a), cz + r * p * flute[i] * own.uniform(0.96, 1.04) * math.sin(a))
+                      for i, a in enumerate(angs)])
+    bands = own.randrange(3, 5)
+    OWN.add(nm)
+    for s in range(len(levels) - 1):
+        ta, tb = levels[s][0], levels[s + 1][0]
+        ya, yb = y + h * ta, y + h * tb
+        fam = STRATA[(min(int(((ta + tb) * 0.5) ** 0.85 * bands), bands - 1) + k) % len(STRATA)]
+        bm = part(nm, fam)
+        centre = P(hx + lean[0] * (ta + tb) * 0.5, (ya + yb) * 0.5, hz + lean[1] * (ta + tb) * 0.5)
+        for i in range(corners):
+            j = (i + 1) % corners
+            oriented(bm, (P(rings[s][i][0], ya, rings[s][i][1]), P(rings[s][j][0], ya, rings[s][j][1]),
+                          P(rings[s + 1][j][0], yb, rings[s + 1][j][1]), P(rings[s + 1][i][0], yb, rings[s + 1][i][1])), centre)
+    top_y = y + h
+    tx, tz = hx + lean[0], hz + lean[1]
+    oriented(part(nm, STRATA[k % len(STRATA)]), [P(q[0], top_y, q[1]) for q in rings[-1]], P(tx, top_y - 1.0, tz))
+    if spire:
+        return
+    # The cap rock: a pale underside flaring out from the waist, a dark hard stone over it, wider than the column and uneven.
+    cap_corners = 6
+    cap_r = r * own.uniform(1.25, 1.6)
+    cap_rot = own.uniform(0, math.tau)
+    cap_angs = [cap_rot + math.tau * (i + own.uniform(-0.25, 0.25)) / cap_corners for i in range(cap_corners)]
+    cap_reach = [own.uniform(0.82, 1.12) for _ in cap_angs]
+    tilt = 0.2 if worn else 0.08
+    slope = (own.uniform(-tilt, tilt), own.uniform(-tilt, tilt))
+    # (Each stage of the cap [how far out, how far above the column's top]: under, edge, upper edge, top.)
+    stages = [(0.5, -0.05), (1.0, 0.3), (0.96, 0.6), (0.68, 0.85)]
+    cap = []
+    for (out, up) in stages:
+        row = []
+        for i, a in enumerate(cap_angs):
+            dx, dz = cap_r * out * cap_reach[i] * math.cos(a), cap_r * out * cap_reach[i] * math.sin(a)
+            row.append((tx + dx, top_y + up + slope[0] * dx + slope[1] * dz, tz + dz))
+        cap.append(row)
+    centre = P(tx, top_y + 0.4, tz)
+    for s in range(len(stages) - 1):
+        bm = part(nm, "rock_c" if s == 0 else "rock_b")
+        for i in range(cap_corners):
+            j = (i + 1) % cap_corners
+            oriented(bm, (P(*cap[s][i]), P(*cap[s][j]), P(*cap[s + 1][j]), P(*cap[s + 1][i])), centre)
+    oriented(part(nm, "rock_b"), [P(*q) for q in cap[-1]], centre)
+    oriented(part(nm, "rock_c"), [P(*q) for q in cap[0]], centre)
+
+
+def hoodoos(rng):
+    """Clusters of hoodoos either side of the mesa (C2), at true size: each column a stack of strata blocks narrowing upward under a
+    wider pale-banded cap stone, two to four to a cluster, boulders round them and their shade; off the wash, the arch and the buttes'
+    feet, and clear of the strip under the fight."""
+    feet = [((m[0] + m[3]) * 0.5, (m[2] + m[5]) * 0.5, (m[3] - m[0]) * 0.6, (m[5] - m[2]) * 0.6) for m in LAYOUT.get("mesas", [])]
+    a = LAYOUT.get("arch")
+    if a:
+        feet.append(((a[0] + a[3]) * 0.5, (a[2] + a[5]) * 0.5, (a[3] - a[0]) * 0.8, (a[5] - a[2]) * 1.4))
+    line = wash_line()
+    placed = []
+    tries = 0
+    while len(placed) < HOODOOS and tries < 4000:
+        tries += 1
+        side = -1.0 if len(placed) % 2 == 0 else 1.0
+        x, z = side * rng.uniform(22.0, 58.0), rng.uniform(-34.0, -4.0)
+        if any(((x - fx) / fr) ** 2 + ((z - fz) / fd) ** 2 < 1.0 for (fx, fz, fr, fd) in feet):
+            continue
+        if near_wash(line, x, z, 7.0) or any(math.hypot(x - px, z - pz) < 18.0 for (px, pz) in placed):
+            continue
+        placed.append((x, z))
+        k = len(placed) - 1
+        for c in range(rng.randrange(2, 5)):
+            hx, hz = x + rng.uniform(-3.5, 3.5), z + rng.uniform(-2.0, 2.0)
+            h = rng.uniform(4.0, 9.0) * (1.0 - 0.25 * c / 4.0)
+            r = rng.uniform(0.9, 1.4)
+            y = seat(hx, hz) - 0.2
+            nm = "hoodoo%d_%d" % (k, c)
+            rot = rng.uniform(0, math.tau)
+            bands = rng.randrange(3, 5)
+            # (The rings are drawn with or without `--hoodoo_look`, so every later draw, and every placement, comes out the same.)
+            for q in range(bands):
+                ya, yb = y + h * q / bands, y + h * (q + 1) / bands
+                # (Narrowing up the column, a waist below the cap where the soft rock wore away.)
+                rr = r * (1.0 - 0.18 * q / bands) * (0.85 if q == bands - 1 else 1.0)
+                ring = facet_ring(hx, hz, rr, rr * 0.85, 6, rng, rot)
+                if not HOODOO_LOOK:
+                    block(nm, STRATA[(q + k) % len(STRATA)], ring, ya, yb, 0.15)
+            ring = facet_ring(hx, hz, r * 1.35, r * 1.15, 5, rng, rot)
+            if not HOODOO_LOOK:
+                block(nm, "rock_c", ring, y + h, y + h + 0.35, 0.08)
+            cap_x = hx + rng.uniform(-0.2, 0.2)
+            ring = facet_ring(cap_x, hz, r * 1.25, r * 1.05, 5, rng, rot)
+            if not HOODOO_LOOK:
+                block(nm, "rock_b", ring, y + h + 0.35, y + h + 1.1, 0.3)
+            else:
+                eroded_column(nm, hx, y, hz, h, r, k, c)
+        for q in range(rng.randrange(3, 6)):
+            ang = rng.uniform(0, math.tau)
+            bx, bz = x + 5.0 * math.cos(ang), z + 3.0 * math.sin(ang)
+            sz = rng.uniform(0.6, 1.5)
+            block("hoodoo%d_b" % k, rng.choice(STRATA), facet_ring(bx, bz, sz, sz * 0.8, rng.randrange(4, 6), rng), seat(bx, bz) - 0.2,
+                  seat(bx, bz) + sz * 1.1, sz * 0.25)
+        shade("hoodoo%d_shade" % k, x, seat(x, z), z, 6.0)
+
+
 def arch_blocks(name, b, rng, courses=False):
     """The arch: two legs of blocks (or slab courses) and a span of three bevelled beams bowing across their tops."""
     x0, y0, z0, x1, y1, z1 = b
@@ -688,7 +849,8 @@ def dry_wash(rng):
         ln = math.hypot(tx, tz) or 1.0
         nx, nz = -tz / ln, tx / ln
         t = (z + 150.0) / 166.0
-        half = 2.0 + 2.6 * t + 0.4 * math.sin(i * 0.7)
+        half = (2.0 + 2.6 * t + 0.4 * math.sin(i * 0.7)) * (1.3 if GORGE else 1.0)
+        HALVES.append(half)
         left.append((x + nx * half, z + nz * half))
         right.append((x - nx * half, z - nz * half))
         bl.append((x + nx * (half + 0.9), z + nz * (half + 0.9)))
@@ -703,16 +865,80 @@ def dry_wash(rng):
     for i in range(len(line) - 1):
         face(part("wash", "wash"), (P(left[i][0], y, left[i][1]), P(left[i + 1][0], y, left[i + 1][1]),
                                     P(right[i + 1][0], y, right[i + 1][1]), P(right[i][0], y, right[i][1])))
+        if GORGE:
+            continue
         for (o, n_) in ((bl, left), (br, right)):
             face(part("wash", "card_wash"), (P(o[i][0], y - 0.15, o[i][1]), P(o[i + 1][0], y - 0.15, o[i + 1][1]),
                                              P(n_[i + 1][0], y, n_[i + 1][1]), P(n_[i][0], y, n_[i][1])))
             face(part("wash", "card_wash"), (P(o[i][0], y - 0.15, o[i][1]), P(o[i + 1][0], y - 0.15, o[i + 1][1]),
                                              P(o[i + 1][0], FLOOR - 0.05, o[i + 1][1]), P(o[i][0], FLOOR - 0.05, o[i][1])))
+    if GORGE:
+        gorge_banks(line, y, rng)
     return line
 
 
+HALVES = []
+# (How far out the rim's slope runs down to the floor, and where along the wash the gorge begins.)
+SLOPE = 8.0
+GORGE_FROM = -95.0
+
+
+def gorge_banks(line, bed, rng):
+    """The gorge's banks (C1): each side steps up from the bed in ledges, a vertical face in a stratum's colour and a pale top, to a
+    rim of sand whose outer edge is a cut card down to the floor; in B, fallen blocks lie in the bed."""
+    levels, h, w, rim = (3, 0.9, 1.1, 3.0) if GORGE == "A" else (4, 1.3, 1.2, 3.0)
+    normals = []
+    for i, (x, z) in enumerate(line):
+        a, b = line[max(0, i - 1)], line[min(len(line) - 1, i + 1)]
+        tx, tz = b[0] - a[0], b[1] - a[1]
+        ln = math.hypot(tx, tz) or 1.0
+        normals.append((-tz / ln, tx / ln))
+
+    def at(i, side, off):
+        (x, z), (nx, nz) = line[i], normals[i]
+        return (x + side * nx * off, z + side * nz * off)
+
+    for side in (1.0, -1.0):
+        for i in range(len(line) - 1):
+            # (Only the nearer reach: further back, behind the fight at the wide camera, the rim's rise stood right behind the fighters;
+            # there the wash stays a flat bed.)
+            if line[i][1] < GORGE_FROM:
+                continue
+            for k in range(levels):
+                o0 = HALVES[i] + k * w
+                o1 = HALVES[i + 1] + k * w
+                ya, yb = bed + k * h, bed + (k + 1) * h
+                p0, p1 = at(i, side, o0), at(i + 1, side, o1)
+                face(part("gorge", STRATA[k % len(STRATA)]), (P(p0[0], ya - 0.05, p0[1]), P(p1[0], ya - 0.05, p1[1]), P(p1[0], yb, p1[1]),
+                                                             P(p0[0], yb, p0[1])))
+                q0, q1 = at(i, side, o0 + w), at(i + 1, side, o1 + w)
+                top = "rock_c" if k < levels - 1 else "sand_a"
+                out = rim if k == levels - 1 else 0.0
+                if out:
+                    q0, q1 = at(i, side, o0 + w + out), at(i + 1, side, o1 + w + out)
+                face(part("gorge", top), (P(p0[0], yb, p0[1]), P(p1[0], yb, p1[1]), P(q1[0], yb, q1[1]), P(q0[0], yb, q0[1])))
+                if out:
+                    # (The rim falls away outside in a long slope of the floor's own sand, so the gorge is cut into a broad rise: a cut
+                    # wall there stood the banks up out of the plain as an embankment.)
+                    s0, s1 = at(i, side, o0 + w + out + SLOPE), at(i + 1, side, o1 + w + out + SLOPE)
+                    face(part("gorge", "sand_a"), (P(q0[0], yb, q0[1]), P(q1[0], yb, q1[1]), P(s1[0], FLOOR + 0.1, s1[1]),
+                                                  P(s0[0], FLOOR + 0.1, s0[1])))
+    if GORGE == "B":
+        first = next(i for i, (x, z) in enumerate(line) if z >= GORGE_FROM)
+        for k in range(14):
+            i = rng.randrange(first, len(line) - 2)
+            x, z = at(i, rng.choice((1.0, -1.0)), HALVES[i] * rng.uniform(0.3, 0.85))
+            sc = rng.uniform(0.6, 1.3) * (1.0 + (z + 150.0) / 166.0)
+            res = bmesh.ops.create_cube(part("gorge_blocks", rng.choice(("rock_a", "rock_b"))), size=1.0)
+            for v in res["verts"]:
+                v.co = Vector((v.co.x * sc * 1.4, v.co.y * sc, v.co.z * sc * 0.8))
+                v.co.rotate(Matrix.Rotation(rng.uniform(0.0, math.tau), 3, "Z"))
+                v.co += P(x, bed + sc * 0.35, z)
+
+
 def near_wash(line, x, z, pad):
-    return any(math.hypot(x - a, z - b) < pad for (a, b) in line[::2])
+    # (A gorge's banks reach well past the old wash's: keep the scatter, outcrops and hoodoos off them too.)
+    return any(math.hypot(x - a, z - b) < pad + (13.0 if GORGE and b >= GORGE_FROM else 0.0) for (a, b) in line[::2])
 
 
 def scrub(name, x, y, z, sc, rng):
@@ -816,6 +1042,11 @@ def build_ground():
                 butte_blocks("butte%d" % k, m, rng, notched=VARIANT == "KC")
         if opts.get("plain", "") == "outcrops":
             outcrops(random.Random(71))
+        # (New art toward 5: their own random numbers, so the rest keeps its layout.)
+        if FOOT == "talus":
+            mesa_foot(random.Random(301))
+        if HOODOOS:
+            hoodoos(random.Random(307))
         if LAYOUT.get("arch"):
             # (`--arch solid`: fidelity review 5's rock arch, `arch_rock`; `--arch chipped` it broken, review 6.)
             if opts.get("arch", "") in ("solid", "chipped"):

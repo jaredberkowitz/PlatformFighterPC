@@ -5,6 +5,9 @@ global uniform vec4 pf_paint_warm;
 // slight wobble of colour from sheet to sheet, z a pale cut edge where a surface turns away from the eye. Never on fighters; off is 0.
 global uniform vec4 pf_paper_finish;
 global uniform vec4 pf_paint_cool;
+// The share of the ambient taken off the scenery (fidelity review 14 item 3, with toon_light's `pf_key_fill`): the ambient's colour times
+// the energy removed, subtracted as emission so the fighters keep the whole ambient. Black as built.
+global uniform vec4 pf_amb_cut;
 global uniform float pf_paint_amount;
 uniform vec4 albedo : source_color = vec4(1.0);
 uniform sampler2D albedo_tex : source_color, filter_linear_mipmap, repeat_enable, hint_default_white;
@@ -27,6 +30,14 @@ uniform float back_span = 7.0;
 // A play top's soft fall into shade toward its front edge (0 off; the light pass, docs/art/stages/BACKGROUNDS.md): from `lawn_front`
 // (world z, the front edge) back over `lawn_span` units, deeper and a little cooler by `lawn_fall`, so the ground has form.
 uniform float lawn_fall = 0.0;
+// A mountain range's painted form (fidelity review 8: the meadow's range read as a few flat teal planes): `alt_bands` [snow line, rock
+// band top, tree line, how much] in world heights. Above a ragged snow line the faces turned up take `alt_snow`; between the tree line
+// and the snow, broken strata of `alt_rock`; below the tree line a deep `alt_foot` green. `alt_rock_bands` 0 leaves the rock bands out.
+uniform vec4 alt_bands = vec4(0.0);
+uniform vec4 alt_snow : source_color = vec4(0.95, 0.97, 1.0, 1.0);
+uniform vec4 alt_rock : source_color = vec4(0.5, 0.56, 0.6, 1.0);
+uniform vec4 alt_foot : source_color = vec4(0.16, 0.36, 0.3, 1.0);
+uniform float alt_rock_bands = 0.0;
 uniform float lawn_front = 2.0;
 uniform float lawn_span = 4.0;
 // World-laid tops only: painted grass-blade clumps (0 off), a few short tapered strokes leaning together in scattered clumps, lit in the
@@ -45,6 +56,13 @@ uniform vec3 front_shade : source_color = vec3(0.6, 0.57, 0.72);
 // `pf_front_calm.a` and, the further below the top, toward the stage's haze (`pf_front_calm.rgb`), so the play surface leads and the
 // mass under it settles into the air. Set by scripts/lighting.gd for each stage.
 global uniform vec4 pf_front_calm;
+// The fronts' fall into shade made lighter and coloured (the owner, 2026-10-28: the shade was washing the fronts' colour out, where the
+// papercraft reference's shade is light and tinted): `pf_front_fall_k` scales every front's `front_fall`, and `pf_front_tint` (its alpha
+// how far) turns the grey-violet `front_shade` toward the stage's own shade hue. 1 and clear as built; scripts/lighting.gd.
+global uniform vec4 pf_front_tint;
+global uniform float pf_front_fall_k;
+// How far the contact shade baked into a modelled piece's vertex colours is eased back toward none (0 as baked; the owner, 2026-10-28).
+global uniform float pf_vshade_lift;
 // A worn path along the play line on a stage top (0 off): where fighters stand and run, a broken band of drier, paler ground (grass worn
 // to earth-tinted, boards scuffed lighter), soft-edged and patchy along its length (the gauntlet's round 1: the tops read as flat fills
 // without the benchmark's wear). `worn_tint` is what the ground wears toward.
@@ -86,6 +104,13 @@ uniform float print_amount = 0.0;
 uniform float print_scale = 2.0;
 // This surface's own paper finish instead of the stage's (a stage front at the full finish, "C"); x below 0 takes the stage's.
 uniform vec4 paper_own = vec4(-1.0);
+// Painted variation (fidelity review 10: a surface read as one flat colour times a grey print; the references paint broad value and hue
+// drift across it, and the light cannot add it): x broad value patches, y a slow warm-to-cool wander, z their size in world units,
+// w the tops a touch warmer and the walls cooler. Set by StageBake on a stage's modelled pieces (the palette's `paint_drift`); 0 off.
+uniform vec4 paint_drift = vec4(0.0);
+// How much of the drifting cloud shadows (`pf_clouds`) this surface takes, 1 all; StageBake's bright floors on trial set it on the walked
+// tops and platforms.
+uniform float cloud_shade = 1.0;
 // Multiply by the mesh's vertex colour (off by default: imported props may carry colours meant for nothing). The crowns' lobed clump balls
 // bake each leaf clump's own light into it (scripts/stage_art.gd `_clump_ball`): a lit top and a dark crevice between clumps.
 uniform bool vertex_shade = false;
@@ -137,7 +162,7 @@ uniform vec4 hem_color : source_color = vec4(0.1, 0.07, 0.12, 1.0);
 void vertex() {
 	world_pos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 	world_normal = normalize((MODEL_MATRIX * vec4(NORMAL, 0.0)).xyz);
-	vshade = vertex_shade ? COLOR.rgb : vec3(1.0);
+	vshade = vertex_shade ? mix(COLOR.rgb, vec3(1.0), pf_vshade_lift) : vec3(1.0);
 	if (instance_tint) {
 		vshade *= INSTANCE_CUSTOM.rgb;
 	}
@@ -168,6 +193,23 @@ void fragment() {
 	vec3 c = albedo.rgb * vshade;
 	// (How lit the grass blades are, -1 until the painted patches say; see `blades`.)
 	float blade_light = -1.0;
+	if (alt_bands.w > 0.0) {
+		float y = world_pos.y;
+		float rag = 2.6 * sin(world_pos.x * 0.083 + 1.3) + 1.5 * sin(world_pos.x * 0.21 + 0.4) + 0.8 * sin(world_pos.x * 0.53);
+		// The tree line: a deep green round the foot, its top ragged.
+		float foot = 1.0 - smoothstep(alt_bands.z - 1.5, alt_bands.z + 1.5, y - rag * 0.8);
+		c = mix(c, alt_foot.rgb, foot * 0.85 * alt_bands.w);
+		// Rock: broken strata between the tree line and the snow, a stripe every few units, darker on the faces turned from up.
+		if (alt_rock_bands > 0.0) {
+			float span = smoothstep(alt_bands.z + 1.0, alt_bands.z + 4.0, y) * (1.0 - smoothstep(alt_bands.y - 2.0, alt_bands.y + 2.0, y));
+			float stripe = smoothstep(0.55, 0.8, sin(y * 0.9 + rag * 0.6 + world_pos.x * 0.04)) * smoothstep(0.3, 0.6, sin(world_pos.x * 0.11 + y * 0.2) * 0.5 + 0.5);
+			c = mix(c, alt_rock.rgb, span * stripe * 0.55 * alt_rock_bands * alt_bands.w);
+		}
+		// Snow on what faces up above the snow line, its edge ragged; a little on the steep faces near the top too.
+		float above = smoothstep(alt_bands.x - 1.0, alt_bands.x + 1.0, y + rag);
+		float up = smoothstep(0.2, 0.55, world_normal.y) + 0.35 * smoothstep(alt_bands.x + 6.0, alt_bands.x + 12.0, y);
+		c = mix(c, alt_snow.rgb, clamp(above * up, 0.0, 1.0) * alt_bands.w);
+	}
 	if (lawn_fall > 0.0 && world_normal.y > 0.5) {
 		float edge = smoothstep(lawn_front - lawn_span, lawn_front, world_pos.z);
 		c *= mix(vec3(1.0), vec3(0.62, 0.68, 0.84), edge * edge * lawn_fall);
@@ -243,7 +285,8 @@ void fragment() {
 		c *= brush(UV);
 	}
 	if (fall_by_height) {
-		c *= mix(vec3(1.0), front_shade, front_fall * smoothstep(0.6, front_span, front_top - world_pos.y));
+		c *= mix(vec3(1.0), mix(front_shade, pf_front_tint.rgb, pf_front_tint.a), front_fall * pf_front_fall_k
+			* smoothstep(0.6, front_span, front_top - world_pos.y));
 		c = pf_calm_front(c, front_top - world_pos.y);
 	}
 	if (worn_path > 0.0 && world_normal.y > 0.6) {
@@ -330,7 +373,7 @@ void fragment() {
 	// it dimming, and every fighter keeps the same value on any spot of the stage.)
 	// (Only near the stage, the gauntlet's round 15: on the far ranges the dapples read as low-resolution mottling, not light.)
 	pf_sun = mix(1.0, pf_cloud_sun(world_pos, TIME), smoothstep(0.1, 0.6, world_normal.y) * (1.0 - fighter)
-		* (1.0 - smoothstep(25.0, 55.0, -world_pos.z)));
+		* (1.0 - smoothstep(25.0, 55.0, -world_pos.z)) * cloud_shade);
 	if (pf_cloud_tone.a > 0.0) {
 		// (On the colour, shading ambient and sun alike: see `pf_cloud_tone`. Clouds only, not the platforms' cast shadow below.)
 		c *= mix(vec3(1.0), pf_cloud_tone.rgb, clamp(1.0 - pf_sun, 0.0, 1.0) * pf_cloud_tone.a);
@@ -342,6 +385,15 @@ void fragment() {
 		// and laid evenly every mark blurred into the grey of the texture's smallest copies.)
 		vec2 pp = abs(world_normal.y) > 0.5 ? vec2(world_pos.x, world_pos.z * 0.2) : (abs(world_normal.x) > 0.6 ? vec2(world_pos.z, -world_pos.y) : vec2(world_pos.x, -world_pos.y));
 		c *= 1.0 + print_amount * (texture(print_tex, pp / print_scale).r - 0.5) * 2.0;
+	}
+	if (fighter < 0.5 && paint_drift.x + paint_drift.y + paint_drift.w > 0.0) {
+		// (Tops stretched along the depth, as the print is: the match camera sees them almost edge on.)
+		vec2 dp = abs(world_normal.y) > 0.5 ? world_pos.xz * vec2(1.0, 2.5) : vec2(world_pos.x + world_pos.z * 0.5, world_pos.y * 1.6);
+		float n1 = brush_noise(dp / max(paint_drift.z, 0.5));
+		float n2 = brush_noise(dp / max(paint_drift.z * 2.3, 0.5) + vec2(13.1, 7.7));
+		c *= 1.0 + paint_drift.x * 0.24 * (smoothstep(0.15, 0.85, n1) - 0.5);
+		c *= mix(vec3(1.0), mix(vec3(0.91, 0.96, 1.07), vec3(1.07, 1.0, 0.88), smoothstep(0.2, 0.8, n2)), paint_drift.y);
+		c *= mix(vec3(1.0), world_normal.y > 0.5 ? vec3(1.05, 1.02, 0.93) : vec3(0.95, 0.95, 0.99), paint_drift.w);
 	}
 	vec4 paper_fin = paper_own.x >= 0.0 ? paper_own : pf_paper_finish;
 	if (fighter < 0.5 && paper_fin.x + paper_fin.y + paper_fin.z > 0.0) {
@@ -374,5 +426,6 @@ void fragment() {
 		AO_LIGHT_AFFECT = baked_ao_light;
 	}
 	AO_LIGHT_AFFECT = 0.45;
+	EMISSION -= c * pf_amb_cut.rgb * AO * (1.0 - fighter);
 	SPECULAR = 0.0;
 }

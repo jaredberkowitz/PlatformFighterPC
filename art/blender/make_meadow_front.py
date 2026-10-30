@@ -15,8 +15,8 @@ After fidelity review 6 (B's stones, in even courses of one size and one grey, r
   `--moss 1`        with it, moss on the stones' tops and dripping down a few faces, thickest under the logs, and grass at the foot. Families `ledge`, `stone`, `log`, `log_end`, `soil`, `grass`, `moss`, painted from the
 stage's palette in the game; each piece bakes its occlusion into linear vertex colours with the built meadow round it.
 
-Shipped (the owner's pick, fidelity review 6, 2026-10-22): godot/models/stages/meadow_front.glb, `--variant B --stones field
---moss 1`, then lit.
+Shipped (fidelity review 9, the owner's pick B, 2026-10-25): godot/models/stages/meadow_front.glb, `--variant B --stones field --moss 1
+--warm B --calm B`, then lit (review 8's had no `--calm`, review 6's no `--warm`).
 
 Run (Blender 5.2):
   blender --background --python art/blender/make_meadow_front.py -- --dir godot/art/baked/<key> --variant A --out <file.glb>
@@ -42,6 +42,23 @@ FIELD = opts.get("stones", "") == "field"
 MOSS = opts.get("moss", "0") == "1"
 # Fieldstone tints (multiplied into the baked occlusion with the stone's own value): warm ochre, blue-grey, plain, rosy, lichen.
 TINTS = [(1.0, 0.86, 0.68), (0.8, 0.86, 1.0), (0.96, 0.96, 0.96), (1.0, 0.82, 0.76), (0.86, 0.95, 0.74)]
+# Fidelity review 8 (the wall read as grey cubes with neon moss drips): `--warm A|B`. Both paint the stones in their own warm family
+# (`fieldstone`, not the old wall's near-grey `stone`, which the front's calm and shade then took to grey) and the moss in a deep olive
+# (`wall_moss`, not the lawn's lime), as low caps with no drips. B also gives every stone a wider warm-to-cool spread and keeps the moss to
+# the courses under the logs and the wall's foot.
+WARM = opts.get("warm", "")
+# Fidelity review 9 (at the wide camera the wall was a grid of small pale stones, each outlined, the busiest and brightest mass under the
+# fight): `--calm A|B`. A: fewer, larger stones in taller courses, rarely split, their values closer; B: A, a step lower in value, so the
+# wall sits back under the lawn.
+CALM = opts.get("calm", "").upper()
+# Fidelity review 13 (the wall still read as near-identical grey boxes in a grid): `--laid A|B`, on the calm fieldstone. A: hand-laid,
+# each stone its own height within its course and set at its own height in it, rounder (corners pulled in further, a wider bevel),
+# widths ranging further, and small chinking stones packed into the gaps, set back; B: A with the stones' values and set spread wider.
+LAID = opts.get("laid", "").upper()
+if WARM:
+    TINTS = [(1.0, 0.84, 0.66), (0.84, 0.86, 0.94), (1.0, 0.92, 0.8), (0.98, 0.78, 0.68), (0.9, 0.9, 0.78)]
+    if WARM == "B":
+        TINTS = [(1.0, 0.8, 0.6), (0.78, 0.82, 0.94), (1.0, 0.94, 0.82), (0.96, 0.72, 0.62), (0.86, 0.88, 0.72), (0.7, 0.66, 0.62)]
 manifest = json.load(open(os.path.join(opts["dir"], "manifest.json")))
 BLOCK = [r for r in manifest["rects"] if r[4] < 0.5][0]
 LEFT, RIGHT, TOP, BOTTOM = BLOCK[0], BLOCK[1], BLOCK[2], BLOCK[3]
@@ -93,7 +110,7 @@ def stone(bm, c, size, rng, bevel=0.18):
             v[layer] = tone
 
 
-def rough_stone(bm, c, size, rng, tint, value):
+def rough_stone(bm, c, size, rng, tint, value, pull=0.14, bevel=0.16):
     """A fieldstone: a box pushed out of square at every corner, bevelled, in its own value and tint."""
     res = bmesh.ops.create_cube(bm, size=2.0)
     verts = res["verts"]
@@ -102,11 +119,11 @@ def rough_stone(bm, c, size, rng, tint, value):
     for v in verts:
         # (Each corner pulled in, never out: pushed out, a stone ran into its neighbours and the corners buried in them baked black. Its
         # depth one for the whole stone: a front twisted out of plane folded under the bevel and baked black too.)
-        kx, kz = 1.0 - rng.uniform(0.0, 0.14), 1.0 - rng.uniform(0.0, 0.14)
+        kx, kz = 1.0 - rng.uniform(0.0, pull), 1.0 - rng.uniform(0.0, pull)
         v.co = rot @ Vector((v.co.x * kx * size.x, v.co.y * deep, v.co.z * kz * size.z)) + c
     edges_ = list({e for v in verts for e in v.link_edges})
     # (Clamped: on a lump with corners pulled in unevenly, a wider bevel overlapped itself, folded faces inward and baked them black.)
-    out = bmesh.ops.bevel(bm, geom=edges_, offset=min(size.x, size.z) * 0.16, segments=1, affect="EDGES", clamp_overlap=True)
+    out = bmesh.ops.bevel(bm, geom=edges_, offset=min(size.x, size.z) * bevel, segments=1, affect="EDGES", clamp_overlap=True)
     layers = [bm.verts.layers.float.get(k) for k in ("tone", "tr", "tg", "tb")]
     for v in out["verts"]:
         if v.is_valid:
@@ -143,26 +160,57 @@ def moss_on(bm, c, size, rng, drip):
 def field_wall(y, rng):
     """The wall under the logs in fieldstone (fidelity review 6): courses of uneven height, a big stone now and then with smaller ones
     packed above and below it, every stone a rough lump of its own value and tint, set in or out a little."""
-    bm = part("Stones", "stone")
-    moss = part("Moss", "moss") if MOSS else None
+    bm = part("Stones", "fieldstone" if WARM else "stone")
+    moss = part("Moss", "wall_moss" if WARM else "moss") if MOSS else None
     first = True
+    course = 0
     while y > Y_BOT + 0.25:
         lo, hi = edges(y)
-        row_h = rng.uniform(0.5, 0.85)
+        row_h = rng.uniform(0.85, 1.25) if CALM else rng.uniform(0.5, 0.85)
         x = lo - rng.uniform(0.0, 0.5)
         while x < hi - 0.15:
             big = rng.random() < 0.3
-            w = rng.uniform(1.0, 1.8) if big else rng.uniform(0.45, 1.0)
-            stack = [row_h] if big or rng.random() < 0.55 else [row_h * 0.45, row_h * 0.55]
+            if LAID:
+                w = rng.uniform(1.9, 3.1) if big else rng.uniform(0.8, 1.9)
+                stack = [row_h] if big or rng.random() < 0.65 else [row_h * 0.45, row_h * 0.55]
+            elif CALM:
+                w = rng.uniform(2.0, 3.0) if big else rng.uniform(1.2, 2.0)
+                stack = [row_h] if big or rng.random() < 0.8 else [row_h * 0.45, row_h * 0.55]
+            else:
+                w = rng.uniform(1.0, 1.8) if big else rng.uniform(0.45, 1.0)
+                stack = [row_h] if big or rng.random() < 0.55 else [row_h * 0.45, row_h * 0.55]
             yy = y
             for h in stack:
                 hh = h - 0.05
                 ww = w * (rng.uniform(0.8, 1.0) if len(stack) > 1 else 1.0)
                 cx = min(x + ww * 0.5, hi - ww * 0.4)
-                c = P(cx, yy - hh * 0.5, FZ + 0.32 + rng.uniform(-0.08, 0.1))
+                drop = 0.0
+                if LAID:
+                    # (Its own height in the course, and sat at its own height in it.)
+                    short = hh * rng.uniform(0.0, 0.28)
+                    drop = rng.uniform(0.0, short)
+                    hh -= short
+                set_in = rng.uniform(-0.08, 0.1) * (1.8 if LAID == "B" else 1.0)
+                c = P(cx, yy - drop - hh * 0.5, FZ + 0.32 + set_in)
                 size = Vector((ww * 0.47, 0.32, hh * 0.47))
-                rough_stone(bm, c, size, rng, rng.choice(TINTS), rng.uniform(0.72, 1.0))
-                if moss is not None and rng.random() < (0.75 if first else 0.22):
+                value = rng.uniform(0.62, 1.0) if WARM == "B" else rng.uniform(0.72, 1.0)
+                if CALM:
+                    value = 0.8 + (value - 0.8) * (0.85 if LAID == "B" else 0.5) - (0.12 if CALM == "B" else 0.0)
+                if LAID:
+                    rough_stone(bm, c, size, rng, rng.choice(TINTS), value, pull=0.26, bevel=0.24)
+                    if rng.random() < 0.45:
+                        # A chinking stone packed into the gap at the stone's side, set back and a step darker.
+                        cw, ch = rng.uniform(0.18, 0.32), rng.uniform(0.14, 0.26)
+                        cc = P(min(x + ww + 0.03, hi - 0.1), yy - rng.uniform(0.15, max(0.2, h - 0.2)), FZ + 0.42)
+                        rough_stone(bm, cc, Vector((cw, 0.2, ch)), rng, rng.choice(TINTS), value * 0.75, pull=0.3, bevel=0.3)
+                else:
+                    rough_stone(bm, c, size, rng, rng.choice(TINTS), value)
+                if WARM:
+                    # (Caps only, no drips; with B only under the logs.)
+                    share = (0.7 if first else (0.0 if WARM == "B" else 0.15))
+                    if moss is not None and rng.random() < share:
+                        moss_on(moss, c, size, rng, drip=False)
+                elif moss is not None and rng.random() < (0.75 if first else 0.22):
                     moss_on(moss, c, size, rng, drip=rng.random() < (0.5 if first else 0.25))
                 yy -= h
             x += w + 0.06
@@ -346,6 +394,10 @@ def clamp(bm, margin=0.9):
 
 def make_objects():
     for (name, mat), bm in PARTS.items():
+        # (A part made and left empty, the old wall's stones with the fieldstone laid: nothing to bake.)
+        if len(bm.faces) == 0:
+            bm.free()
+            continue
         clamp(bm)
         me = bpy.data.meshes.new(name + "_" + mat)
         bm.normal_update()

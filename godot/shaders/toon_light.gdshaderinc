@@ -16,6 +16,11 @@ global uniform float pf_deep_shade;
 // applied in linear light, so 0.56 shows on screen as only about a fifth darker: the scenery's light and shade read flat and cloud
 // shadows barely showed (2026-10-18, art review 9). Per stage (scripts/lighting.gd STYLES `scenery_shade`).
 global uniform float pf_scenery_shade;
+// The key against the fill on the scenery (fidelity review 14 item 3: the shade sides of the big forms sat barely below their lit sides,
+// the ambient and the fill carrying most of the shade's light): x the key's share, y the fill's (every directional light that is not
+// the key, told apart by its direction against `pf_sun_dir`). Never on fighters. (1, 1, 1) as built; scripts/lighting.gd `key_fill`.
+global uniform vec3 pf_key_fill;
+global uniform vec3 pf_sun_dir;
 // The paper look under trial (scripts/lighting.gd `paper`, 0 off, 1 on; the papercraft adventure as the benchmark, 2026-10-18): on the
 // scenery a soft turn from light into shade instead of the cel ramp's bands, and a lighter, cooler shade (the soft occlusion gives the
 // depth instead). Fighters keep their own shading.
@@ -196,7 +201,12 @@ void light() {
 	// A point or spot light (a practical lamp in the scenery) fades with distance: ATTENUATION carries its falloff, and the cel ramp would
 	// otherwise light everything inside its range evenly and stop dead at the edge.
 	float falloff = LIGHT_IS_DIRECTIONAL ? 1.0 : ATTENUATION;
-	DIFFUSE_LIGHT += tone * LIGHT_COLOR / PI * falloff;
+	float key_fill = 1.0;
+	if (LIGHT_IS_DIRECTIONAL && fighter < 1.0 && pf_key_fill != vec3(1.0)) {
+		float is_key = step(0.98, dot(LIGHT, normalize((VIEW_MATRIX * vec4(pf_sun_dir, 0.0)).xyz)));
+		key_fill = mix(1.0, mix(pf_key_fill.y, pf_key_fill.x, is_key), 1.0 - fighter);
+	}
+	DIFFUSE_LIGHT += tone * LIGHT_COLOR / PI * falloff * key_fill;
 	float edge = 1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0);
 	float width = mix(rim_width, PF_FIGHTER_RIM_WIDTH, fighter);
 	float rim = smoothstep(1.0 - width, 1.0, edge) * clamp(wrap + 0.2, 0.0, 1.0);

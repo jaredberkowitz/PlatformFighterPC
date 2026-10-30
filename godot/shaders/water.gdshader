@@ -30,6 +30,19 @@ uniform int look = 0;
 // The paper waves' variety (fidelity review 6: every tier one scallop at one spacing read as a pattern): 0 as they were; 1 each tier's
 // arcs their own width and depth, wandering along the row; 2 with that, calm stretches where a tier's edge lies flat and unlit.
 uniform int wave_vary = 0;
+// The paper waves as soft bands (fidelity review 8: the lit lips read as white loops drawn across the sea): 0 as they are; 1 soft
+// bands, each sheet's edge a rounded swell, not a cusp, its lip a wide soft lift in the water's own paler tint; 2 tone tiers, no lip at
+// all, each sheet a deeper step of tone shaded toward its edge, read by the step and the shadow.
+uniform int wave_band = 0;
+// The shallows (new art toward 5, B1, the owner's approval 2026-10-25): near the dock, sand bars and rocks seen through clear water, the
+// sea deepening past them. x how strong (0 off), y how far back they reach in units, z the rocks' share (0 sand bars only).
+uniform vec3 shallows = vec3(0.0);
+// The near sea (fidelity review 11: in front of the stage the water was one flat colour, a third of the wide frame): x how much it deepens
+// and cools toward the camera (0 off), y how strong its broad slow patches there are.
+uniform vec2 near_depth = vec2(0.0);
+// The near sea's paper waves (fidelity review 13 item 8: in front of the stage the water was broad flat facets): how much stronger the
+// bands' tone steps and the dark trough under each lip are toward the frame's foot (0 as before).
+uniform float near_waves = 0.0;
 uniform sampler2D screen_tex : hint_screen_texture, filter_linear_mipmap;
 varying vec3 world_pos;
 
@@ -100,9 +113,32 @@ void fragment() {
 		vec3 far_c = mix(pow(vec3(0.16, 0.46, 0.7), vec3(2.2)), horizon.rgb, 0.25);
 		vec3 col = mix(near_c, mid_c, smoothstep(4.0, 45.0, back));
 		col = mix(col, far_c, smoothstep(45.0, 170.0, back));
+		if (shallows.x > 0.0) {
+			// Sand bars: long soft patches of pale sandy turquoise, fading out with depth; rocks: smaller darker patches among them.
+			float near_k = 1.0 - smoothstep(shallows.y * 0.5, shallows.y, back);
+			vec2 sq = q * vec2(0.045, 0.11);
+			float bar = smoothstep(0.48, 0.66, noise(sq + vec2(3.7, 1.1)) * 0.7 + noise(sq * 2.3 + vec2(-1.3, 4.2)) * 0.3);
+			vec3 sand_c = pow(vec3(0.56, 0.84, 0.76), vec3(2.2));
+			col = mix(col, sand_c, bar * near_k * 0.75 * shallows.x);
+			// (A soft deeper rim round each bar, where the bottom drops away.)
+			float rim = smoothstep(0.38, 0.5, noise(sq + vec2(3.7, 1.1)) * 0.7 + noise(sq * 2.3 + vec2(-1.3, 4.2)) * 0.3) * (1.0 - bar);
+			col *= 1.0 - rim * near_k * 0.12 * shallows.x;
+			if (shallows.z > 0.0) {
+				// (Few and through the water's colour: darker and more of them read as blotches.)
+				float rock = smoothstep(0.8, 0.86, noise(q * vec2(0.22, 0.5) + vec2(9.1, 2.3)));
+				col = mix(col, pow(vec3(0.24, 0.48, 0.46), vec3(2.2)), rock * near_k * shallows.z * shallows.x * 0.6);
+			}
+		}
 		// Broad soft patches, deeper and lighter, drifting: the water's large forms.
 		float sw = noise(q * vec2(0.02, 0.06) + vec2(TIME * 0.025, 0.0)) * 0.6 + noise(q * vec2(0.05, 0.14) + vec2(-TIME * 0.04, 2.0)) * 0.4;
 		col *= mix(0.9, 1.08, sw);
+		// (By the frame's height, not the world's depth: in front of the stage the water lies within a few units of the stage plane.)
+		float front_k = smoothstep(0.5, 1.0, SCREEN_UV.y);
+		if (near_depth.y > 0.0) {
+			// Broad slow patches across the near water, deeper and lighter, so the frame's foot has forms of its own.
+			float pn = noise(q * vec2(0.035, 0.09) + vec2(TIME * 0.02, 5.0)) * 0.65 + noise(q * vec2(0.08, 0.2) - vec2(TIME * 0.03, 1.0)) * 0.35;
+			col *= mix(1.0, mix(0.66, 1.15, smoothstep(0.25, 0.75, pn)), front_k * near_depth.y);
+		}
 		if (look == 3) {
 			// Paper waves: the sea as overlapping sheets of card, each a tier a step further out, its far edge cut into rounded wave
 			// caps. Each sheet is shaded across (lighter toward its cut edge, as a card curling toward the light), its edge is a lit lip,
@@ -111,6 +147,10 @@ void fragment() {
 			// its tiers were one tone.)
 			float bs = -world_pos.z;
 			float width = mix(14.0, 36.0, smoothstep(0.0, 150.0, max(bs, 0.0)));
+			// (Soft bands: narrower sheets near the stage, so the bands read without a white lip to mark them.)
+			if (wave_band > 0) {
+				width = mix(9.0, 30.0, smoothstep(0.0, 150.0, max(bs, 0.0)));
+			}
 			float tier = floor(bs / width);
 			float b = bs;
 			for (int it = 0; it < 2; it++) {
@@ -124,25 +164,48 @@ void fragment() {
 					xw += 10.0 * noise(vec2(world_pos.x * 0.022, tier * 1.3));
 				}
 				float cap = pow(abs(sin(xw * freq + ph)), 0.55);
+				// (Soft bands: a rounder swell, shallower, so no cusps draw loops between the caps.)
+				if (wave_band > 0) {
+					cap = 0.5 + 0.5 * sin(xw * freq + ph);
+					depth *= 0.75;
+				}
 				b = bs + width * depth * (1.0 - cap);
 				tier = floor(b / width);
 			}
 			float u = fract(b / width);
 			float calm = 1.0 - smoothstep(70.0, 190.0, bs);
 			// Each sheet its own tone, and shaded across toward its edge.
-			col *= 1.0 - 0.08 * mod(tier, 2.0) * calm;
-			col *= mix(1.0, mix(0.93, 1.07, smoothstep(0.15, 1.0, u)), calm);
+			float tone_step = wave_band > 1 ? 0.18 : (wave_band > 0 ? 0.1 : 0.08);
+			float nw = near_waves * front_k;
+			tone_step *= 1.0 + 3.5 * nw;
+			col *= 1.0 - tone_step * mod(tier, 2.0) * calm;
+			vec2 across = wave_band > 1 ? vec2(0.82, 1.16) : (wave_band > 0 ? vec2(0.88, 1.1) : vec2(0.93, 1.07));
+			across = mix(across, vec2(0.7, 1.25), clamp(nw, 0.0, 1.0));
+			col *= mix(1.0, mix(across.x, across.y, smoothstep(0.15, 1.0, u)), calm);
 			// The nearer sheet's shadow on this one, just past its edge (u from 0), soft.
 			// Calm stretches (wave_vary 2): the tier's edge lying flat, no lit lip and no shadow on the sheet behind.
 			// (The shadow just past this sheet's near edge is the nearer sheet's, one tier in: it follows that sheet's calm.)
 			float run = wave_vary > 1 ? smoothstep(0.32, 0.46, noise(vec2(world_pos.x * 0.035, tier * 2.1 + 5.0))) : 1.0;
 			float run_in = wave_vary > 1 ? smoothstep(0.32, 0.46, noise(vec2(world_pos.x * 0.035, (tier - 1.0) * 2.1 + 5.0))) : 1.0;
 			float shadow = (1.0 - smoothstep(0.0, 0.16, u)) * run_in;
-			col = mix(col, col * vec3(0.7, 0.8, 0.9), shadow * 0.55 * calm);
+			col = mix(col, col * vec3(0.7, 0.8, 0.9), shadow * (0.55 + 0.4 * nw) * calm);
 			// This sheet's own cut edge, lit (u toward 1).
 			float lip = smoothstep(0.925, 0.965, u);
 			lip *= run;
-			col = mix(col, mix(col, pow(vec3(0.92, 1.0, 0.98), vec3(2.2)), 0.6), lip * calm);
+			vec3 lip_c = pow(vec3(0.92, 1.0, 0.98), vec3(2.2));
+			float lip_k = 0.6;
+			if (wave_band == 1) {
+				// A wide soft lift toward the edge in the water's own paler tint, not a white line.
+				lip = smoothstep(0.72, 0.99, u) * run;
+				lip_c = col * vec3(1.5, 1.5, 1.35);
+				lip_k = 0.75;
+			} else if (wave_band > 1) {
+				lip = 0.0;
+			}
+			// (The near sea's lips softened toward the frame's foot with its deepening: their pale sheets read as streaks there.)
+			// (Less so with the near sea's paper waves, item 8: there the sheets' edges are what give the foot its forms.)
+			lip *= 1.0 - clamp(front_k * near_depth.x * 0.6 * (1.0 - 0.7 * clamp(nw, 0.0, 1.0)), 0.0, 0.9);
+			col = mix(col, mix(col, lip_c, lip_k), lip * calm);
 		} else {
 			// A soft caustic net near the stage, the light through the ripples (the reference's turquoise lattice), and fine ripples
 			// further out: no crest rows.
@@ -157,6 +220,9 @@ void fragment() {
 			col *= 1.0 - 0.06 * smoothstep(0.55, 0.8, rip) * (1.0 - far_k);
 			col = mix(col, mix(col, vec3(1.0), 0.3), smoothstep(0.8, 0.95, rip) * 0.35 * (1.0 - far_k) * (1.0 - near_k * 0.6));
 		}
+		// The near sea deeper and cooler toward the camera, so the frame's foot frames the stage instead of glaring.
+		// (Strong in linear light: the finishing pass's tone curve takes most of it back; at 0.6 the foot moved 0.03.)
+		col = mix(col, col * vec3(0.42, 0.58, 0.8), front_k * near_depth.x);
 		// (Not on the Fast tier: the trace is the look's one real cost.)
 		if (look >= 2 && !cheap) {
 			// Reflections: march the reflected view ray across the screen until it passes behind something drawn, and take that

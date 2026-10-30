@@ -20,12 +20,21 @@ After fidelity review 6 (H's rock read as flat dark-teal blocks over a flat viol
   `--rock shaped`  each block its own tone, its bevel a lighter lit rim (`cliff_lit`), roots hanging from the lips facing the camera;
   `--abyss mist`   with it, a misty valley in the abyss: two layers of violet mist with cut edges at different depths, the tops of a
                    forest of the grove's trees rising through them.
+After fidelity review 9 (the pale pine tops near the chasm read as trees standing in water): `--valley none|far` with `--abyss mist`,
+  none  the mist without the trees; far  only the trees well back in the valley (behind 80), fewer.
+New art toward 5 (docs/art/stages/NEW_ART_PLAN.md, G1 and G3, the owner's approval 2026-10-25), with `--abyss mist`:
+  `--falls N`     N waterfalls pouring off the terraces' lips into the abyss, away from the fight: cut paper strips in two blues
+                  arcing off the edge and falling to the mist, spray heaped where they meet it;
+  `--mist 3`      the mist in three layers that pale and thicken with depth, in place of two;
+  `--roots long`  the roots hanging from the lips grown long into the abyss.
 Every look carries the far ranges as standing cut-out flats, three to a range, their crests from the painted ranges they stand in for.
 Each piece is its own object so the game can lay the air of its depth over it, and bakes its occlusion into linear vertex colours.
 Families `grass`, `grass_far`, `cliff`, `range_far`, `range_near`, their cut edges `card_<family>`, `leaf_lit`, `leaf_shade`, `bark`.
 
-Shipped (the owner's pick, fidelity review 6, 2026-10-22): godot/models/stages/grove_paper.glb, `--variant H --rock shaped
---abyss mist`, then lit.
+Shipped (new art toward 5, the owner's pick B, 2026-10-25): godot/models/stages/grove_paper.glb, `--variant H --rock shaped
+--abyss mist --valley none --falls 3 --mist 3 --roots long`, then lit (review 9's without the falls, mist and roots); with `--deep A`
+since fidelity review 11 (2026-10-26), and `--valley open --valley_y -50` in place of `--valley none` since G2 (2026-10-26), and `--banks soft` since
+fidelity review 13 (2026-10-27), and `--scallop C` since fidelity review 16 (2026-10-29).
 
 Run (Blender 5.2):
   blender --background --python art/blender/make_grove_paper.py -- --dir godot/art/baked/<key> --variant A --ground <g.glb>
@@ -49,6 +58,28 @@ opts = {argv[i].lstrip("-"): argv[i + 1] for i in range(0, len(argv) - 1, 2)}
 VARIANT = opts.get("variant", "A").upper()
 SHAPED = opts.get("rock", "") == "shaped"
 MISTY = opts.get("abyss", "") == "mist"
+VALLEY = opts.get("valley", "")
+# (`--valley deep`, G2, the owner's approval 2026-10-26: the near abyss as mist banks with gaps over a valley far below, `deep_valley`;
+# `--valley open` without the layered mist sheets and the far abyss sheet behind them, so the valley reads across the lower third.)
+FALLS = int(opts.get("falls", "0"))
+# The falls' look (fidelity review 14 item 8: full-height strips in two blues by turns read as a striped card): `--fall_look A|B`. A: each
+# fall cut into overlapping sheets from the lip down, each a step out from the one above with a pale foam lip, the tone set per sheet,
+# so the water layers instead of striping. B: A in fewer, wider sheets, with a fuller foam foot.
+FALL_LOOK = opts.get("fall_look", "").upper()
+# The sheets' tops scalloped (fidelity review 16 item 3: straight-cut tops read as stacked tiles): `--scallop A|B`, each sheet's top edge
+# and its foam lip in rounded lobes rising between sharp dips, as water curling over a lip. A three shallow lobes a column, B two deeper.
+SCALLOP = {"A": (3, 0.14), "B": (2, 0.26), "C": (2, 0.26)}.get(opts.get("scallop", "").upper())
+# (C: B, and the two blues as the water's lit side and shade side, the last column the deeper one, in place of the checker of blues by
+# sheet and column, which read as tiles even with scalloped tops.)
+FALL_SIDES = opts.get("scallop", "").upper() == "C"
+MIST3 = opts.get("mist", "") == "3"
+LONG_ROOTS = opts.get("roots", "") == "long"
+# Depth in the abyss (fidelity review 11: flat purple with soft blotches, the mist's front one long wavy line): `--deep A|B`. A: the
+# near abyss sheet shaded deeper under the island and toward the frame's foot, and the nearest mist's front broken into sheets at their
+# own depths, each with its own cut edge. B: A with each mist sheet lighter at its cut edge and deeper behind it.
+DEEP = opts.get("deep", "").upper()
+# Edges facing the camera, for the falls: (x, z, top, drop, tx, tz, ox, oz).
+FALL_SPOTS = []
 LAYOUT = json.load(open(os.path.join(opts["dir"], "ground.json")))
 SIDE_TREES = [(-30.0, -55.0), (32.0, -55.0)]
 # The ledges of the shipped ground (make_grove_ground.py A): name, x0, x1, front z, back z, top, top family.
@@ -624,6 +655,8 @@ def terrace(name, poly, top, exposed, tiers, rng, far, fam):
         oriented(lip, (P(ax, top, az), P(ax, top - 0.55, az), P(bx, top - 0.55, bz), P(bx, top, bz)), P((a[0] + b[0]) * 0.5, top - 0.3, (a[1] + b[1]) * 0.5))
         hang = rng.uniform(0.9, 2.2) * (0.7 if far else 1.0)
         cx, cz = (ax + bx) * 0.5 + ox * 0.08, (az + bz) * 0.5 + oz * 0.08
+        if not far and oz >= 0.6:
+            FALL_SPOTS.append((cx, cz, top, drop, tx, tz, ox, oz))
         oriented(lip, (P(ax, top - 0.5, az), P(bx, top - 0.5, bz), P(bx - tx * 0.25, top - 0.5 - hang * 0.7, bz + oz * 0.05),
                        P(cx, top - 0.5 - hang, cz), P(ax + tx * 0.25, top - 0.5 - hang * 0.7, az + oz * 0.05)),
                  P((a[0] + b[0]) * 0.5 - ox, top - 0.8, (a[1] + b[1]) * 0.5 - oz))
@@ -645,7 +678,8 @@ def terrace(name, poly, top, exposed, tiers, rng, far, fam):
                                                                P(vx + wob + sd * 1.0, ya - 0.15, vz + 0.02), P(vx + wob + sd * 0.3, ya - 0.35, vz + 0.02)))
         if SHAPED and rng.random() < 0.3:
             # Roots hanging from the lip, tapering, one forking (review 6: the reference's rock is hung with roots).
-            length = min(rng.uniform(2.0, 5.5), top - drop - 1.0)
+            # (Long, `--roots long`: the same draws, so the layout after them stays as it was.)
+            length = min(rng.uniform(2.0, 5.5) * (2.4 if LONG_ROOTS else 1.0), top - drop - 1.0)
             if length > 1.2:
                 rx_, rz_ = cx + ox * 0.15 + tx * rng.uniform(-0.8, 0.8), cz + oz * 0.15
                 for strand in range(rng.randrange(1, 3)):
@@ -705,8 +739,104 @@ def hero_ledges(rng):
         terrace(name, poly, top, exposed, tiers, rng, far, "grass_far" if grass_far else "grass")
     HERO_TIERS.extend(tiers)
     abyss()
-    if MISTY:
+    if MISTY and VALLEY != "open":
         misty_valley(random.Random(83))
+    if FALLS:
+        falls(random.Random(131))
+    if VALLEY in ("deep", "open"):
+        deep_valley(random.Random(149))
+        cloud_banks(random.Random(151))
+
+
+FEET = []
+DEEP_Y = float(opts.get("valley_y", "-80"))
+# (The banks in the palest mist: in the abyss's own violet they read as dark blobs floating over the valley.)
+BANK = "bank_mist"
+# (`--banks soft`, fidelity review 13 item 5: each bank flat in one pale tone read as a plastic disc; three stacked sheets instead, each
+# smaller, higher and paler than the one under it, their edges more scalloped, as piled mist.)
+BANKS_SOFT = opts.get("banks", "") == "soft"
+
+
+def bank(name, cx, cz, y, r, rng):
+    """One mist bank: a flat sheet, or with `--banks soft` three stacked, each smaller, higher and paler."""
+    if not BANKS_SOFT:
+        blob(name, BANK, cx, cz, y, r, rng)
+        return
+    for k, (fam, f, dy) in enumerate((("bank_mist_low", 1.0, 0.0), (BANK, 0.74, 0.45), ("bank_mist_top", 0.46, 0.9))):
+        blob("%s_%d" % (name, k), fam, cx + rng.uniform(-0.1, 0.1) * r, cz + rng.uniform(-0.08, 0.04) * r, y + dy, r * f, rng, lobes=0.3)
+
+
+def blob(name, fam, cx, cz, y, r, rng, edge=True, lobes=0.18):
+    """A scalloped cut sheet lying flat at `y`, round (`cx`, `cz`), about `r` across, its edge a card a little deep."""
+    n = 18
+    pts = []
+    ph = rng.uniform(0.0, math.tau)
+    for k in range(n):
+        a = math.tau * k / n
+        w = r * (1.0 + lobes * math.sin(3 * a + ph) + 0.08 * math.sin(7 * a + ph * 2.0)) * rng.uniform(0.94, 1.06)
+        pts.append((cx + math.cos(a) * w, cz + math.sin(a) * w * 0.7))
+    for k in range(n):
+        q0, q1 = pts[k], pts[(k + 1) % n]
+        face(part(name, fam), (P(cx, y, cz), P(q0[0], y, q0[1]), P(q1[0], y, q1[1])))
+        if edge:
+            face(part(name, "card_abyss_mist"), (P(q0[0], y, q0[1]), P(q1[0], y, q1[1]), P(q1[0], y - 0.5, q1[1]), P(q0[0], y - 0.5, q0[1])))
+
+
+def cloud_banks(rng):
+    """G2 (the owner's approval 2026-10-26): the near abyss as banks of mist with gaps between them, one under each fall's foot and a broad
+    one under the island, so the water and the island's rock end in mist; through the gaps the valley shows far below."""
+    y = -24.0
+    k = 0
+    for (fx, fz) in FEET:
+        bank("bank%d" % k, fx, fz, y, rng.uniform(8.0, 10.0), rng)
+        k += 1
+    bank("bank%d" % k, 0.0, -2.0, y, 26.0, rng)
+    k += 1
+    tries = 0
+    placed = [(fx, fz) for (fx, fz) in FEET] + [(0.0, -2.0)]
+    while k < 26 and tries < 600:
+        tries += 1
+        cx, cz = rng.uniform(-150.0, 150.0), rng.uniform(-22.0, 45.0)
+        r = rng.uniform(9.0, 18.0)
+        if any(math.hypot(cx - px, (cz - pz) / 0.7) < r + 8.0 for (px, pz) in placed):
+            continue
+        bank("bank%d" % k, cx, cz, y + rng.uniform(-0.6, 0.6), r, rng)
+        placed.append((cx, cz))
+        k += 1
+
+
+def deep_valley(rng):
+    """G2: the valley far below the islands: a floor of hazed violet-green in rows (so each takes its own depth's air), a pale river winding
+    across it, and the grove's pines on it at their true size, seen from above."""
+    zs = [60.0 - 20.0 * j for j in range(17)]
+    for j in range(len(zs) - 1):
+        name = "valley_floor%d" % j
+        xs = xs_across(-260, 260, 20.0)
+        for i in range(len(xs) - 1):
+            face(part(name, "grass_far"), (P(xs[i], DEEP_Y, zs[j]), P(xs[i + 1], DEEP_Y, zs[j]), P(xs[i + 1], DEEP_Y, zs[j + 1]),
+                                              P(xs[i], DEEP_Y, zs[j + 1])))
+    # The river: a ribbon winding across, wider as it comes near.
+    pts = [(x, -95.0 + 22.0 * math.sin(x * 0.018 + 0.7) + 8.0 * math.sin(x * 0.05)) for x in range(-260, 261, 8)]
+    for i in range(len(pts) - 1):
+        (xa, za), (xb, zb) = pts[i], pts[i + 1]
+        w = 3.5
+        face(part("valley_river%d" % (i // 8), "valley_river"), (P(xa, DEEP_Y + 0.1, za - w), P(xb, DEEP_Y + 0.1, zb - w),
+                                                               P(xb, DEEP_Y + 0.1, zb + w), P(xa, DEEP_Y + 0.1, za + w)))
+    placed = []
+    tries = 0
+    # (Where the cameras see the floor through the gaps, about z -110 to -230: nearer than that it is under the frame.)
+    while len(placed) < 220 and tries < 8000:
+        tries += 1
+        # (Scaled with the floor's depth: the reach the frame sees moves nearer as the floor rises.)
+        near = -105.0 * (-DEEP_Y / 80.0) ** 1.4
+        x, z = rng.uniform(-260.0, 260.0), rng.uniform(near - 130.0, near)
+        if any(abs(z - (-95.0 + 22.0 * math.sin(x * 0.018 + 0.7) + 8.0 * math.sin(x * 0.05))) < 7.0 for _ in [0]):
+            continue
+        if any(math.hypot(x - px, z - pz) < 7.0 for (px, pz) in placed):
+            continue
+        placed.append((x, z))
+        # (In the grove forest's own greens: in the valley's violets they bleached to pale cones in the depth's haze.)
+        forest_tree("deep%d" % (len(placed) // 12), x, DEEP_Y, z, rng.uniform(10.0, 14.0), rng)
 
 
 HERO_TIERS = []
@@ -840,6 +970,25 @@ def abyss():
     for k, (y, zf, fam) in enumerate(((-24.0, -20.0, "abyss"), (-20.0, -84.0, "abyss_far"))):
         name = "abyss%d" % k
         xs = xs_across(-220, 220, 5.0)
+        if VALLEY in ("deep", "open") and (k == 0 or VALLEY == "open"):
+            # (The deep valley: the near sheet becomes mist banks with gaps, `cloud_banks`, after the falls.)
+            continue
+        if DEEP and k == 0:
+            # (In rows, so its tone can change toward the camera and round the island: one sheet per column had no vertices to carry it.)
+            bm = part(name, fam)
+            layer = bm.verts.layers.float.get("tone")
+            zs = [-220.0, -60.0] + [-20.0 + 4.0 * j for j in range(21)]
+            for i in range(len(xs) - 1):
+                xa, xb = xs[i], xs[i + 1]
+                for j in range(len(zs) - 1):
+                    za, zb = zs[j], zs[j + 1]
+                    f = face(bm, (P(xa, y, za), P(xa, y, zb), P(xb, y, zb), P(xb, y, za)))
+                    for v in f.verts:
+                        gx, gz = v.co.x, -v.co.y
+                        under = math.exp(-(gx / 20.0) ** 2 - ((gz + 2.0) / 16.0) ** 2)
+                        foot = min(1.0, max(0.0, (gz - 10.0) / 40.0))
+                        v[layer] = (1.0 - 0.4 * under) * (1.0 - 0.28 * foot)
+            continue
         for i in range(len(xs) - 1):
             xa, xb = xs[i], xs[i + 1]
             fa = zf + 1.8 * math.sin(xa * 0.09 + k)
@@ -852,20 +1001,50 @@ def abyss():
 def misty_valley(rng):
     """The abyss as a misty valley (review 6): two layers of violet mist at different depths, each a sheet with a wavy cut front edge,
     and the tops of a forest of the grove's trees rising through them, smaller and fainter further back."""
-    for k, (y, zf, zb) in enumerate(((-21.5, -24.0, -70.0), (-17.5, -62.0, -130.0))):
+    layers = ((-21.5, -24.0, -70.0), (-17.5, -62.0, -130.0))
+    if MIST3:
+        # (Three, each paler and higher than the one before it, so the mist thickens with depth.)
+        layers = ((-22.0, -22.0, -58.0), (-19.6, -50.0, -96.0), (-17.0, -88.0, -140.0))
+    for k, (y, zf, zb) in enumerate(layers):
         name = "mist%d" % k
+        fam = ("abyss_mist", "abyss_mist2", "abyss_mist3")[k] if MIST3 else "abyss_mist"
         xs = xs_across(-220, 220, 4.0)
+        # (`--deep`: the nearest layer's front in sheets of their own, 30 to 70 across, each further in or out and a little higher or lower.)
+        sheets = [(-220.0, 0.0, 0.0)]
+        if DEEP and k == 0:
+            sr = random.Random(91)
+            x = -220.0
+            sheets = []
+            while x < 220.0:
+                sheets.append((x, sr.uniform(-5.0, 4.0), sr.uniform(-0.5, 0.4)))
+                x += sr.uniform(30.0, 70.0)
         for i in range(len(xs) - 1):
             xa, xb = xs[i], xs[i + 1]
-            fa = zf + 2.5 * math.sin(xa * 0.11 + k * 2.0) + 1.2 * math.sin(xa * 0.37 + k)
-            fb = zf + 2.5 * math.sin(xb * 0.11 + k * 2.0) + 1.2 * math.sin(xb * 0.37 + k)
-            face(part(name, "abyss_mist"), (P(xa, y, zb), P(xa, y, fa), P(xb, y, fb), P(xb, y, zb)))
-            face(part(name, "card_abyss_mist"), (P(xa, y, fa), P(xa, y - 0.5, fa), P(xb, y - 0.5, fb), P(xb, y, fb)))
+            _, dz, dy = [sh for sh in sheets if sh[0] <= xa + 0.01][-1]
+            yy = y + dy
+            fa = zf + dz + 2.5 * math.sin(xa * 0.11 + k * 2.0) + 1.2 * math.sin(xa * 0.37 + k)
+            fb = zf + dz + 2.5 * math.sin(xb * 0.11 + k * 2.0) + 1.2 * math.sin(xb * 0.37 + k)
+            top = face(part(name, fam), (P(xa, yy, zb), P(xa, yy, fa), P(xb, yy, fb), P(xb, yy, zb)))
+            face(part(name, "card_abyss_mist"), (P(xa, yy, fa), P(xa, yy - 0.5, fa), P(xb, yy - 0.5, fb), P(xb, yy, fb)))
+            if DEEP == "B":
+                # Lighter toward its cut edge, deeper behind it, as a sheet of mist with a lit lip.
+                layer = part(name, fam).verts.layers.float.get("tone")
+                for v in top.verts:
+                    v[layer] = 1.1 if abs(-v.co.y - zb) > 1.0 else 0.82
+        if DEEP and k == 0:
+            # The ends of each sheet where the next steps in or out: a side cut so no gap shows the abyss through.
+            for (sx, dz, dy) in sheets[1:]:
+                prev = [sh for sh in sheets if sh[0] < sx][-1]
+                for (pdz, pdy) in ((prev[1], prev[2]), (dz, dy)):
+                    f0 = zf + pdz + 2.5 * math.sin(sx * 0.11) + 1.2 * math.sin(sx * 0.37)
+                    face(part(name, "card_abyss_mist"), (P(sx, y + pdy, zb), P(sx, y + pdy, f0), P(sx, y + pdy - 0.5, f0), P(sx, y + pdy - 0.5, zb)))
     placed = []
     tries = 0
-    while len(placed) < 70 and tries < 4000:
+    if VALLEY in ("none", "deep"):
+        return
+    while len(placed) < (30 if VALLEY == "far" else 70) and tries < 4000:
         tries += 1
-        x, z = rng.uniform(-140.0, 140.0), rng.uniform(-110.0, -26.0)
+        x, z = rng.uniform(-140.0, 140.0), rng.uniform(-110.0, -80.0 if VALLEY == "far" else -26.0)
         if any(math.hypot(x - px, z - pz) < 5.5 for (px, pz) in placed):
             continue
         # (Under the terraces' tops nothing shows; keep to the open chasm and the far valley.)
@@ -877,6 +1056,117 @@ def misty_valley(rng):
         # (In the valley's own hazed violet-greens: in the forest's, spread across the chasm in pieces of no one depth, they took no air
         # and stood out lime against the violet.)
         forest_tree("valley%d" % (len(placed) // 10), x, ABYSS_FLOOR - 1.0, z, h, rng, ("valley_bark", "valley_lit", "valley_shade"))
+
+
+def falls(rng):
+    """Waterfalls off the terraces' lips into the abyss (G1): chosen where an edge faces the camera over the chasm, away from the fight
+    and from one another; each a sheet of cut strips in two blues arcing out from the lip and falling to the mist, ragged at its foot,
+    with spray heaped where it meets the mist."""
+    mist_y = -22.0 if MIST3 else -21.5
+    # (Beside the island, inside the wide camera's frame: further out than 32 they fell off its edges.)
+    spots = [s for s in FALL_SPOTS if s[3] <= ABYSS_FLOOR + 1.0 and 15.0 < abs(s[0]) < 32.0 and s[1] > -70.0]
+    spots.sort(key=lambda s: (abs(abs(s[0]) - 24.0), -s[1]))
+    chosen = []
+    for s in spots:
+        if all(math.hypot(s[0] - c[0], s[1] - c[1]) > 12.0 for c in chosen):
+            chosen.append(s)
+        if len(chosen) == FALLS:
+            break
+    print("grove falls at %s" % [(round(c[0], 1), round(c[1], 1)) for c in chosen])
+    for k, (x, z, top, drop, tx, tz, ox, oz) in enumerate(chosen):
+        name = "fall%d" % k
+        KEEP.add(name)
+        w = rng.uniform(3.0, 4.4)
+        y0 = top - 0.35
+        height = y0 - mist_y
+        strips = rng.randrange(5, 8)
+        steps = 12
+        if FALL_LOOK:
+            layered_fall(name, x, z, tx, tz, ox, oz, w, y0, height, rng)
+            strips = 0
+        for q in range(strips):
+            u0 = -w * 0.5 + w * q / strips + 0.04
+            u1 = -w * 0.5 + w * (q + 1) / strips - 0.04
+            fam = "fall" if q % 2 == 0 else "fall_shade"
+            end = 1.0 - rng.uniform(0.0, 0.06)
+            lift = 0.03 * (q % 2)
+            bm = part(name, fam)
+            for i in range(steps):
+                ta, tb = end * i / steps, end * (i + 1) / steps
+                # (Out from the lip, then falling: the arc of water leaving an edge.)
+                oa, ob = 0.5 + 1.8 * math.sqrt(ta) + lift, 0.5 + 1.8 * math.sqrt(tb) + lift
+                ya, yb = y0 - height * ta, y0 - height * tb
+                pts = (P(x + tx * u0 + ox * oa, ya, z + tz * u0 + oz * oa), P(x + tx * u1 + ox * oa, ya, z + tz * u1 + oz * oa),
+                       P(x + tx * u1 + ox * ob, yb, z + tz * u1 + oz * ob), P(x + tx * u0 + ox * ob, yb, z + tz * u0 + oz * ob))
+                oriented(bm, pts, P(x - ox * 2.0, (ya + yb) * 0.5, z - oz * 2.0))
+        # Spray where it meets the mist: low heaped puffs.
+        bx, bz = x + ox * 2.3, z + oz * 2.3
+        FEET.append((bx, bz))
+        bm = part(name + "_spray", "spray")
+        KEEP.add(name + "_spray")
+        for q in range(rng.randrange(4, 7) + (5 if FALL_LOOK == "B" else 0)):
+            r = rng.uniform(0.6, 1.2) * (1.3 if FALL_LOOK == "B" else 1.0)
+            u = rng.uniform(-w * 0.7, w * 0.7)
+            res = bmesh.ops.create_icosphere(bm, subdivisions=1, radius=r)
+            c = P(bx + tx * u, mist_y + r * 0.2, bz + tz * u + rng.uniform(-0.3, 0.3))
+            for v in res["verts"]:
+                v.co = Vector((v.co.x * 1.3, v.co.y, v.co.z * 0.7)) + c
+
+
+def layered_fall(name, x, z, tx, tz, ox, oz, w, y0, height, rng):
+    """`--fall_look`: a fall as sheets laid over one another from the lip down, each starting a little below the one before, a step out
+    from it and a little wider, its own blue (a lighter sheet over a deeper one, by turns with a wobble), with a pale foam lip along its
+    top; across, a few columns (B fewer, wider) so the foot stays ragged."""
+    own = random.Random(int(abs(x) * 7 + abs(z) * 3))
+    cols = 2 if FALL_LOOK == "B" else 3
+    sheets = 4
+    steps = 10
+    for c in range(cols):
+        u0 = -w * 0.5 + w * c / cols + 0.03
+        u1 = -w * 0.5 + w * (c + 1) / cols - 0.03
+        for k in range(sheets):
+            # Each sheet from its own start down to the foot, starting lower than the one above, standing out further.
+            t0 = k / sheets * 0.8 + own.uniform(-0.04, 0.04) * (k > 0)
+            end = 1.0 - own.uniform(0.0, 0.08)
+            lift = 0.06 * k
+            grow = 0.06 * k
+            fam = "fall" if (k + c) % 2 == 0 else "fall_shade"
+            if FALL_SIDES:
+                fam = "fall_shade" if c == cols - 1 else "fall"
+            bm = part(name, fam)
+            a0, a1 = u0 - grow, u1 + grow
+            # Across the sheet in slices, so its top edge can carry the scallops (one slice without them).
+            sub = 12 if SCALLOP else 1
+            # (Its own draw, so the sheets' starts and ends come out as they did without the scallops.)
+            phase = random.Random(k * 31 + c * 7 + int(abs(x) * 5)).uniform(0.0, 0.5)
+
+            def lobe(j):
+                if not SCALLOP:
+                    return 0.0
+                return SCALLOP[1] * abs(math.sin(math.pi * (SCALLOP[0] * j / sub + phase)))
+
+            for i in range(steps):
+                ta = t0 + (end - t0) * i / steps
+                tb = t0 + (end - t0) * (i + 1) / steps
+                oa, ob = 0.5 + 1.8 * math.sqrt(ta) + lift, 0.5 + 1.8 * math.sqrt(tb) + lift
+                ya, yb = y0 - height * ta, y0 - height * tb
+                for j in range(sub):
+                    s0, s1 = a0 + (a1 - a0) * j / sub, a0 + (a1 - a0) * (j + 1) / sub
+                    # (The top row's upper edge rises in lobes; the rest of the sheet is as before.)
+                    ya0, ya1 = (ya + lobe(j), ya + lobe(j + 1)) if i == 0 else (ya, ya)
+                    pts = (P(x + tx * s0 + ox * oa, ya0, z + tz * s0 + oz * oa), P(x + tx * s1 + ox * oa, ya1, z + tz * s1 + oz * oa),
+                           P(x + tx * s1 + ox * ob, yb, z + tz * s1 + oz * ob), P(x + tx * s0 + ox * ob, yb, z + tz * s0 + oz * ob))
+                    oriented(bm, pts, P(x - ox * 2.0, (ya + yb) * 0.5, z - oz * 2.0))
+            # The sheet's foam lip: a pale band along its top edge, following its scallops.
+            ta, tb = t0, t0 + 0.035
+            oa, ob = 0.5 + 1.8 * math.sqrt(ta) + lift + 0.01, 0.5 + 1.8 * math.sqrt(tb) + lift + 0.01
+            ya, yb = y0 - height * ta, y0 - height * tb
+            for j in range(sub):
+                s0, s1 = a0 + (a1 - a0) * j / sub, a0 + (a1 - a0) * (j + 1) / sub
+                la, lb = lobe(j), lobe(j + 1)
+                pts = (P(x + tx * s0 + ox * oa, ya + la, z + tz * s0 + oz * oa), P(x + tx * s1 + ox * oa, ya + lb, z + tz * s1 + oz * oa),
+                       P(x + tx * s1 + ox * ob, yb + lb, z + tz * s1 + oz * ob), P(x + tx * s0 + ox * ob, yb + la, z + tz * s0 + oz * ob))
+                oriented(part(name, "spray"), pts, P(x - ox * 2.0, (ya + yb) * 0.5, z - oz * 2.0))
 
 
 def range_flats():

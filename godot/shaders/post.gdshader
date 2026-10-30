@@ -92,7 +92,20 @@ uniform float sheets = 0.0;
 uniform vec2 sheet_dir = vec2(0.0, 1.0);
 uniform float cut_edge = 0.0;
 uniform vec4 cut_colour : source_color = vec4(1.0, 0.97, 0.9, 1.0);
+// Chosen cut edges (fidelity review 13: the pale rim round every step back read as sticker outlines): x how far the rim keeps only to the
+// side that faces the light (1 only there), y how far it takes its own surface's colour, lightened, in place of `cut_colour`; z how
+// much of the pale lift on the scenery's ink lines (`paper_edge`) is kept.
+uniform vec3 cut_choose = vec3(0.0, 0.0, 1.0);
 uniform float fight_lift = 0.0;
+// A dark anchor on the stage and scenery (fidelity review 13: three stills held almost no darks, 2 to 4% of the frame under 0.25, and read
+// milky): x how far the scenery's darks are pushed down (its lights kept), y how much the frame's foot is deepened, from z of the way down;
+// not on the fighters, the sky or the far distance (w, units behind the stage where it fades out).
+uniform vec4 value_deep = vec4(0.0, 0.0, 0.6, 60.0);
+// Form the papercraft reference's way on the fronts (fidelity review 15 item 2: with the dark crevices eased, the stones, strata and
+// bricks lost their form): within `front_form.z` units of the stage plane, an edge on a face turned toward the sun is lifted as a lit cut
+// edge in its own colour (x), and one on a face turned away is drawn as a firmer joint line (y). Scenery only; 0 off.
+uniform vec3 front_form = vec3(0.0, 0.0, 4.0);
+global uniform vec3 pf_sun_dir;
 uniform float impact = 0.0;
 uniform vec4 impact_dark : source_color = vec4(0.1, 0.05, 0.13, 1.0);
 uniform vec4 impact_light : source_color = vec4(1.0, 0.97, 0.9, 1.0);
@@ -192,8 +205,35 @@ void fragment() {
 	edge *= id0 > 0.6 ? 1.0 - smoothstep(stage_dist + scenery_ink_from, stage_dist + scenery_ink_from + 16.0, d0) : 1.0;
 	// (Lines on blurred far scenery soften with it.)
 	edge *= 1.0 - 0.6 * blur_k;
-	float card_edge = id0 > 0.6 ? edge * paper_edge : 0.0;
+	float card_edge = id0 > 0.6 ? edge * paper_edge * cut_choose.z : 0.0;
+	// (The fronts' form, `front_form`: how near the stage plane this is, and how far its face turns toward the sun.)
+	float fband = 0.0;
+	float lit_face = 0.0;
+	if (front_form.x + front_form.y > 0.0 && id0 > 0.8 && d0 < 400.0) {
+		fband = 1.0 - smoothstep(front_form.z, front_form.z + 4.0, abs(d0 - stage_dist));
+		vec3 sun_v = normalize((VIEW_MATRIX * vec4(pf_sun_dir, 0.0)).xyz);
+		lit_face = smoothstep(0.05, 0.5, dot(normalize(n0), sun_v));
+	}
+	// (The lit edge a band, as the reference's are, not the one-pixel line: the same tests 2 and 3 lines' widths out, nearer side only.)
+	float edge_wide = edge;
+	if (fband > 0.0 && front_form.x > 0.0) {
+		for (int r = 2; r <= 3; r++) {
+			for (int k = 0; k < 4; k++) {
+				vec2 q = uv + offs[k] * float(r);
+				float d = view_depth(q, INV_PROJECTION_MATRIX);
+				float w = r == 2 ? 0.85 : 0.6;
+				edge_wide = max(edge_wide, smoothstep(depth_edge, depth_edge * 2.0, (d - d0) / max(d0, 0.001)) * w);
+				vec3 n = texture(normal_tex, q).xyz * 2.0 - 1.0;
+				edge_wide = max(edge_wide, smoothstep(normal_edge, normal_edge * 1.5, 1.0 - dot(normalize(n0), normalize(n))) * 0.55 * w);
+			}
+		}
+	}
+	float front_lit = edge_wide * front_form.x * fband * lit_face;
+	float front_ink = edge * front_form.y * fband * (1.0 - lit_face);
 	edge *= id0 > 0.6 ? scenery_lines : 1.0;
+	if (fband > 0.0) {
+		edge = mix(edge, max(edge * (1.0 - lit_face), front_ink), fband);
+	}
 	// Distance haze on the scenery behind the stage (before the pastel finish and the ink, so far lines fade with it).
 	if (d0 < 400.0) {
 		float far_k = smoothstep(haze_start, haze_end, d0 - stage_dist) * haze_max;
@@ -227,7 +267,14 @@ void fragment() {
 	vec3 c01 = clamp(col, 0.0, 1.0);
 	col += (c01 * c01 * (3.0 - 2.0 * c01) - c01) * s_curve * soften;
 	col = mix(col, ink.rgb, edge * line_strength);
+	col = mix(col, col * 1.3 + vec3(0.08, 0.07, 0.05), clamp(front_lit, 0.0, 1.0));
 	col = mix(col, col * 1.12 + vec3(0.07, 0.07, 0.06), clamp(card_edge, 0.0, 1.0));
+	if (id0 > 0.8 && d0 < 400.0 && value_deep.x + value_deep.y > 0.0) {
+		float near_v = 1.0 - smoothstep(stage_dist + value_deep.w * 0.5, stage_dist + value_deep.w, d0);
+		float yv = dot(clamp(col, 0.0, 1.0), vec3(0.3, 0.59, 0.11));
+		col *= 1.0 - value_deep.x * (1.0 - smoothstep(0.12, 0.72, yv)) * near_v;
+		col *= 1.0 - value_deep.y * smoothstep(value_deep.z, 1.0, SCREEN_UV.y) * near_v;
+	}
 
 	// The paper target on the stage and scenery (see `sheets`), full to 12 units behind the play area and gone by 50, as in the
 	// paint-overs: the sheets that take the shadows are the hills, terraces and towers behind it.
@@ -255,13 +302,24 @@ void fragment() {
 		if (cut_edge > 0.0 && near_k > 0.0) {
 			// The near side of a step back of more than half a unit, two pixels across (at 720 lines), softer at the outer one.
 			float back = 0.0;
+			vec2 drop = vec2(0.0);
 			for (int k = 0; k < 8; k++) {
 				float a = float(k) * 0.785398;
-				vec2 o = vec2(cos(a), sin(a)) * to_px;
-				back = max(back, view_depth(uv + o, INV_PROJECTION_MATRIX) - d0);
-				back = max(back, 0.5 * (view_depth(uv + o * 2.0, INV_PROJECTION_MATRIX) - d0));
+				vec2 dir = vec2(cos(a), sin(a));
+				vec2 o = dir * to_px;
+				float b1 = max(view_depth(uv + o, INV_PROJECTION_MATRIX) - d0, 0.5 * (view_depth(uv + o * 2.0, INV_PROJECTION_MATRIX) - d0));
+				drop += dir * max(b1, 0.0);
+				back = max(back, b1);
 			}
-			col = mix(col, cut_colour.rgb, cut_edge * smoothstep(0.6, 4.0, back) * near_k);
+			float rim_k = cut_edge * smoothstep(0.6, 4.0, back) * near_k;
+			if (cut_choose.x > 0.0 && length(drop) > 0.001) {
+				// (The edge faces the way the depth drops away; the light comes from -sheet_dir across the screen, in screen space with y
+				// down, as the sheets' shadows take it.)
+				float facing = dot(normalize(drop * vec2(1.0, -1.0)), -sheet_dir);
+				rim_k *= mix(1.0, smoothstep(-0.1, 0.6, facing), cut_choose.x);
+			}
+			vec3 rim_c = mix(cut_colour.rgb, col * 1.25 + vec3(0.05), cut_choose.y);
+			col = mix(col, rim_c, rim_k);
 		}
 		if (fight_lift > 0.0) {
 			// Round the fight: the frame's middle, a little below centre.

@@ -41,6 +41,8 @@ Shipped (the owner's pick, 2026-10-22): FC with `--pine D` as godot/models/stage
 (light_stage.py on the front, the play area and the ground).
 
 Shipped since fidelity review 6 (the owner's pick B, 2026-10-22): `--variant FC --pine D --hill banks`, then lit.
+Shipped since the new art toward 5 (the owner's pick B, 2026-10-25): `--variant FC --pine D --hill fields_lane`, then lit; with
+`--stream B` since 2026-10-26.
 
 Run (Blender 5.2):
   blender --background --python art/blender/make_meadow_ground.py -- --dir godot/art/baked/<key> --variant A --ground <g.glb> --bush <p.glb>
@@ -63,6 +65,14 @@ argv = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
 opts = {argv[i].lstrip("-"): argv[i + 1] for i in range(0, len(argv) - 1, 2)}
 VARIANT = opts.get("variant", "A").upper()
 HILL = opts.get("hill", "")
+# A stream down the terraces (new art toward 5, M2, the owner's approval 2026-10-26): `--stream A|B`. A: rising at the wall's foot right of
+# the middle, crossing each shelf in a narrow winding channel and spilling down each fieldstone wall in a little fall, a plank
+# footbridge where a lane crosses it. B: A a little wider, with a spring pool at its head and wet stones along its banks.
+STREAM = opts.get("stream", "").upper()
+# The terraces' walls (fidelity review 14 item 7: two courses of short blocks in two tones by turns read as a pixel checker at the wide
+# camera): `--walls A|B`. A: long blocks of one tone, an odd darker stone among them. B: each wall one plain cut-card face under the
+# shelf, as the grove's terraces stand.
+WALLS = opts.get("walls", "").upper()
 LAYOUT = json.load(open(os.path.join(opts["dir"], "ground.json")))
 X0, X1 = -200.0, 200.0
 
@@ -368,7 +378,7 @@ def hill_layers(rng):
     # (Fidelity review 6: at a sheet every half unit the hill read as a regular stepped cake, the one machine-made shape beside the
     # terraced farmland. `--hill big` fewer, bigger sheets of uneven height and a broader wobble; `--hill banks` those as terraces,
     # each shelf falling to the next on a grass bank, as the farmland's do.)
-    big = HILL in ("big", "banks")
+    big = HILL in ("big", "banks", "fields", "fields_lane")
     hrng = random.Random(29)
     while levels[-1] < 22.0:
         drop = 0.5 * (1.0 + k * 0.1)
@@ -408,6 +418,11 @@ def hill_layers(rng):
         y = hill_slope(bottom, levels[kk])
         y_next = hill_slope(bottom, levels[kk + 1])
         inner, outer = rings[kk], rings[kk + 1]
+        if HILL in ("fields", "fields_lane"):
+            terrace_fields(kk, inner, outer, levels, y, y_next, at, len(levels) - 2)
+            if STREAM:
+                stream_shelf(kk, inner, outer, levels, y, y_next, at, len(levels) - 2)
+            continue
         if HILL == "banks":
             # A shelf out to a little past halfway, then a grass bank down to the next shelf.
             dm = levels[kk] + (levels[kk + 1] - levels[kk]) * 0.55
@@ -432,6 +447,163 @@ def hill_layers(rng):
             face(part("hill", "hill"), (P(ax, y, az), P(bx, y, bz), P(cx2, y, cz), P(dx, y, dz)))
             bottom_y = y_next if kk < len(levels) - 2 else y_next - 30.0
             face(part("hill", "card_hill"), (P(dx, y, dz), P(cx2, y, cz), P(cx2, bottom_y, cz), P(dx, bottom_y, dz)))
+
+
+def terrace_fields(kk, inner, outer, levels, y, y_next, at, last):
+    """One terrace of the hill as farm fields (new art toward 5, M1, the owner's approval 2026-10-25; `--hill fields`): the shelf laid in
+    fields of the valley's own kinds, rows on the crops, held by a low fieldstone wall at its outer edge down to the next shelf; with
+    `--hill fields_lane` a lane along each shelf, switching back from side to side and stepping down a ramp to the next."""
+    frng = random.Random(41 + kk)
+    kinds = [k for k in FIELD_KINDS for _ in range(k[2])]
+    n = len(inner)
+    i = 0
+    while i < n - 1:
+        run = frng.randrange(3, 7)
+        fam, row, _ = frng.choice(kinds)
+        for j in range(i, min(i + run, n - 1)):
+            ax, az = at(inner[j], levels[kk])
+            bx, bz = at(inner[j + 1], levels[kk])
+            cx2, cz = at(outer[j + 1], levels[kk + 1])
+            dx, dz = at(outer[j], levels[kk + 1])
+            face(part("hill", fam), (P(ax, y, az), P(bx, y, bz), P(cx2, y, cz), P(dx, y, dz)))
+            if row:
+                for f in (0.3, 0.55, 0.8):
+                    def lp(p, q, t):
+                        return p[0] + (q[0] - p[0]) * t, p[1] + (q[1] - p[1]) * t
+                    a0, a1 = lp((ax, az), (dx, dz), f - 0.05), lp((ax, az), (dx, dz), f + 0.05)
+                    b0, b1 = lp((bx, bz), (cx2, cz), f - 0.05), lp((bx, bz), (cx2, cz), f + 0.05)
+                    face(part("hill", row), (P(a0[0], y + 0.02, a0[1]), P(b0[0], y + 0.02, b0[1]), P(b1[0], y + 0.02, b1[1]),
+                                             P(a1[0], y + 0.02, a1[1])))
+        i += run
+    # The fieldstone wall at the shelf's outer edge, in two courses of blocks a little in and out, two tones.
+    bottom = y_next if kk < last else y_next - 30.0
+    wall_h = y - y_next
+    for j in range(n - 1):
+        cx2, cz = at(outer[j + 1], levels[kk + 1])
+        dx, dz = at(outer[j], levels[kk + 1])
+        if kk == last:
+            face(part("hill", "card_hill"), (P(dx, y_next, dz), P(cx2, y_next, cz), P(cx2, bottom, cz), P(dx, bottom, dz)))
+        ln = math.hypot(cx2 - dx, cz - dz)
+        if ln < 0.05:
+            continue
+        if WALLS == "B":
+            face(part("hill", "terrace_wall"), (P(dx, y, dz), P(cx2, y, cz), P(cx2, y_next, cz), P(dx, y_next, dz)))
+            continue
+        nx, nz = (cz - dz) / ln, -(cx2 - dx) / ln
+        blocks = max(1, int(ln / (2.6 if WALLS == "A" else 1.3)))
+        for c in range(2):
+            ya, yb = y - wall_h * c / 2.0, y - wall_h * (c + 1) / 2.0
+            # (The second course offset half a block, its first and last blocks halves, so the courses close; flush, as a block set in
+            # or out drew a cut edge round itself and the wall read as a grid.)
+            cuts = [q / blocks for q in range(blocks + 1)] if c == 0 else [0.0] + [(q + 0.5) / blocks for q in range(blocks)] + [1.0]
+            for q in range(len(cuts) - 1):
+                t0, t1 = cuts[q], cuts[q + 1]
+                pa = (dx + (cx2 - dx) * t0, dz + (cz - dz) * t0)
+                pb = (dx + (cx2 - dx) * t1, dz + (cz - dz) * t1)
+                fam = "terrace_wall" if (q + c + frng.randrange(2)) % 2 == 0 else "terrace_wall_b"
+                if WALLS == "A":
+                    fam = "terrace_wall_b" if frng.random() < 0.18 else "terrace_wall"
+                face(part("hill", fam), (P(pa[0], ya, pa[1]), P(pb[0], ya, pb[1]), P(pb[0], yb, pb[1]), P(pa[0], yb, pa[1])))
+    if HILL == "fields_lane" and kk < last:
+        # The lane along the shelf near its inner edge, from the front's middle out to one side, then a ramp down to the next shelf.
+        mid = n // 2
+        end = min(n - 2, mid + 12) if kk % 2 == 0 else max(1, mid - 12)
+        step = 1 if end > mid else -1
+        for j in range(mid, end, step):
+            j2 = j + step
+            a = at(inner[j], levels[kk]); b = at(inner[j2], levels[kk])
+            c2 = at(outer[j2], levels[kk + 1]); d = at(outer[j], levels[kk + 1])
+            def lp2(p, q, t):
+                return p[0] + (q[0] - p[0]) * t, p[1] + (q[1] - p[1]) * t
+            a0, a1 = lp2(a, d, 0.12), lp2(a, d, 0.36)
+            b0, b1 = lp2(b, c2, 0.12), lp2(b, c2, 0.36)
+            face(part("hill", "lane"), (P(a0[0], y + 0.04, a0[1]), P(b0[0], y + 0.04, b0[1]), P(b1[0], y + 0.04, b1[1]), P(a1[0], y + 0.04, a1[1])))
+        # The ramp: from the lane's end over the wall, down onto the next shelf.
+        a = at(inner[end], levels[kk]); d = at(outer[end], levels[kk + 1])
+        e = at(outer[end - step], levels[kk + 1])
+        top0, top1 = (a[0] + (d[0] - a[0]) * 0.12, a[1] + (d[1] - a[1]) * 0.12), (a[0] + (d[0] - a[0]) * 0.36, a[1] + (d[1] - a[1]) * 0.36)
+        out = (d[0] + (d[0] - a[0]) * 0.25, d[1] + (d[1] - a[1]) * 0.25)
+        face(part("hill", "lane"), (P(top0[0], y + 0.04, top0[1]), P(top1[0], y + 0.04, top1[1]), P(out[0], y_next + 0.04, out[1]),
+                                    P(e[0], y_next + 0.04, e[1])))
+
+
+def stream_shelf(kk, inner, outer, levels, y, y_next, at, last):
+    """M2: the stream's reach across one shelf, its fall down the shelf's wall, its footbridge and stones."""
+    n = len(inner)
+    js = n // 2 + 7
+    if js + 1 >= n:
+        return
+    srng = random.Random(77 + kk)
+    a, b = at(inner[js], levels[kk]), at(inner[js + 1], levels[kk])
+    c, d = at(outer[js + 1], levels[kk + 1]), at(outer[js], levels[kk + 1])
+    p_in = ((a[0] + b[0]) * 0.5, (a[1] + b[1]) * 0.5)
+    p_out = ((c[0] + d[0]) * 0.5, (c[1] + d[1]) * 0.5)
+    tx, tz = b[0] - a[0], b[1] - a[1]
+    tl = math.hypot(tx, tz) or 1.0
+    tx, tz = tx / tl, tz / tl
+    half = 0.45 if STREAM == "A" else 0.65
+    # The channel, winding a little as it crosses the shelf.
+    steps = 6
+    pts = []
+    for q in range(steps + 1):
+        f = q / steps
+        wob = 0.0 if q in (0, steps) else srng.uniform(-0.6, 0.6)
+        pts.append((p_in[0] + (p_out[0] - p_in[0]) * f + tx * wob, p_in[1] + (p_out[1] - p_in[1]) * f + tz * wob))
+    for q in range(steps):
+        (x0, z0), (x1, z1) = pts[q], pts[q + 1]
+        face(part("stream", "stream"), (P(x0 - tx * half, y + 0.05, z0 - tz * half), P(x0 + tx * half, y + 0.05, z0 + tz * half),
+                                        P(x1 + tx * half, y + 0.05, z1 + tz * half), P(x1 - tx * half, y + 0.05, z1 - tz * half)))
+        # Its banks: a darker cut edge either side.
+        for sd in (-1.0, 1.0):
+            e0 = (x0 + sd * tx * half, z0 + sd * tz * half)
+            e1 = (x1 + sd * tx * half, z1 + sd * tz * half)
+            face(part("stream", "card_stream"), (P(e0[0], y + 0.06, e0[1]), P(e1[0], y + 0.06, e1[1]),
+                                                 P(e1[0] + sd * tx * 0.18, y + 0.04, e1[1] + sd * tz * 0.18),
+                                                 P(e0[0] + sd * tx * 0.18, y + 0.04, e0[1] + sd * tz * 0.18)))
+        if STREAM == "B":
+            for sd in (-1.0, 1.0):
+                if srng.random() < 0.7:
+                    sc = srng.uniform(0.18, 0.32)
+                    res = bmesh.ops.create_icosphere(part("stream", "wet_stone"), subdivisions=1, radius=sc)
+                    for v in res["verts"]:
+                        v.co.z *= 0.55
+                        v.co += P(x0 + sd * tx * (half + 0.3), y + 0.05, z0 + sd * tz * (half + 0.3))
+    if kk == 0 and STREAM == "B":
+        # The spring's pool at the wall's foot.
+        ring_ = [(p_in[0] + math.cos(t) * 1.4 - (p_out[0] - p_in[0]) * 0.0, p_in[1] + math.sin(t) * 0.9) for t in
+                 [math.tau * k / 12 for k in range(12)]]
+        for k in range(12):
+            face(part("stream", "stream"), (P(p_in[0], y + 0.06, p_in[1]), P(ring_[k][0], y + 0.06, ring_[k][1]),
+                                            P(ring_[(k + 1) % 12][0], y + 0.06, ring_[(k + 1) % 12][1])))
+    # The fall down the shelf's wall to the next, a strip of pale water just proud of the stones, and its splash at the foot.
+    ox, oz = pts[-1]
+    nx, nz = p_out[0] - p_in[0], p_out[1] - p_in[1]
+    nl = math.hypot(nx, nz) or 1.0
+    nx, nz = nx / nl, nz / nl
+    fh = 0.38 if STREAM == "A" else 0.55
+    face(part("stream", "fall"), (P(ox - tx * fh + nx * 0.08, y + 0.05, oz - tz * fh + nz * 0.08),
+                                  P(ox + tx * fh + nx * 0.08, y + 0.05, oz + tz * fh + nz * 0.08),
+                                  P(ox + tx * fh + nx * 0.12, y_next + 0.05, oz + tz * fh + nz * 0.12),
+                                  P(ox - tx * fh + nx * 0.12, y_next + 0.05, oz - tz * fh + nz * 0.12)))
+    res = bmesh.ops.create_icosphere(part("stream", "spray"), subdivisions=1, radius=0.4 * (1.3 if STREAM == "B" else 1.0))
+    for v in res["verts"]:
+        v.co.z *= 0.45
+        v.co += P(ox + nx * 0.4, y_next + 0.08, oz + nz * 0.4)
+    if HILL == "fields_lane" and kk < last and kk % 2 == 0:
+        # The footbridge: where the lane (from the middle out to this side) crosses the stream, a plank deck over it.
+        l0 = (p_in[0] + (p_out[0] - p_in[0]) * 0.1, p_in[1] + (p_out[1] - p_in[1]) * 0.1)
+        l1 = (p_in[0] + (p_out[0] - p_in[0]) * 0.38, p_in[1] + (p_out[1] - p_in[1]) * 0.38)
+        span = half + 0.5
+        yb = y + 0.28
+        for k in range(4):
+            f0, f1 = k / 4.0 + 0.01, (k + 1) / 4.0 - 0.01
+            q0 = (l0[0] + (l1[0] - l0[0]) * f0, l0[1] + (l1[1] - l0[1]) * f0)
+            q1 = (l0[0] + (l1[0] - l0[0]) * f1, l0[1] + (l1[1] - l0[1]) * f1)
+            face(part("stream", "plank"), (P(q0[0] - tx * span, yb, q0[1] - tz * span), P(q0[0] + tx * span, yb, q0[1] + tz * span),
+                                           P(q1[0] + tx * span, yb, q1[1] + tz * span), P(q1[0] - tx * span, yb, q1[1] - tz * span)))
+        # Its front edge, down to the bank.
+        face(part("stream", "card_plank"), (P(l1[0] - tx * span, yb, l1[1] - tz * span), P(l1[0] + tx * span, yb, l1[1] + tz * span),
+                                            P(l1[0] + tx * span, y + 0.05, l1[1] + tz * span), P(l1[0] - tx * span, y + 0.05, l1[1] - tz * span)))
 
 
 def hill_field():

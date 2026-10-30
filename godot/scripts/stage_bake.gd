@@ -398,11 +398,14 @@ static func place_front(root: Node3D, t: Dictionary, scene: Node3D) -> void:
 	var grass: Color = t.get("grass", Color(0.5, 0.8, 0.3))
 	var colours := {"quilt": quilt, "button": quilt.darkened(0.35), "earth": (t.get("soil_dark", Color(0.5, 0.35, 0.2)) as Color).darkened(0.55),
 		# (Greyed toward green and the roots a darker bark: under the grove's pink light grey stone read lavender and the bark pink.)
-		"rock": Color(0.48, 0.55, 0.44), "root": Color(0.46, 0.37, 0.3), "moss": grass.darkened(0.12),
+		"rock": Color(0.48, 0.55, 0.44), "root": _root_colour(t), "moss": grass.darkened(0.12),
 		"moss_shade": grass.darkened(0.5),
 		# (The meadow's families, art/blender/make_meadow_front.py: its light-moss ledge, the farm's wood, warm stone, soil, the lawn.)
 		"ledge": t.get("ledge", Color(0.4, 0.62, 0.32)), "log": (t.get("wood", Color(0.86, 0.62, 0.36)) as Color).darkened(0.12),
 		"log_end": (t.get("wood", Color(0.86, 0.62, 0.36)) as Color).lightened(0.25), "stone": Color(0.66, 0.64, 0.6),
+		# (The meadow's fieldstone, fidelity review 8: a warm sandstone grey and a deep olive moss, so the front's calm and cool shade leave
+		# a stone colour and the moss no longer reads neon.)
+		"fieldstone": Color(0.8, 0.7, 0.56), "wall_moss": Color(0.36, 0.5, 0.26),
 		"soil": t.get("soil", Color(0.76, 0.56, 0.36)), "grass": grass,
 		# (The beach's families, art/blender/make_beach_front.py: the deck's honey for beams, the posts' brown, a pale waterline, iron,
 		# rope, harbour stone, foam.)
@@ -420,6 +423,13 @@ static func place_front(root: Node3D, t: Dictionary, scene: Node3D) -> void:
 		"trim": Color(0.9, 0.8, 0.68), "frame": Color(0.86, 0.7, 0.46), "curtain_a": Color(0.92, 0.54, 0.58), "curtain_b": Color(0.56, 0.72, 0.92),
 		"curtain_c": Color(0.92, 0.76, 0.44), "neon": Color(0.88, 0.3, 0.38), "pipe": Color(0.48, 0.48, 0.58), "pot": Color(0.78, 0.4, 0.3),
 		"leaf": Color(0.36, 0.62, 0.3), "ac": Color(0.74, 0.75, 0.8), "spandrel": (t.get("soil_dark", Color(0.4, 0.3, 0.4)) as Color).darkened(0.3)}
+	# (The meadow's stones as card stone, fidelity review 16 item 5, the owner's pick B: the palette's [backdrop] `stones` or
+	# `--stones=T|A|B`; see STONE_TRY.)
+	var stone_look := String((StageArt.palette(String(t.get("name", ""))).get("backdrop", {}) as Dictionary).get("stones", ""))
+	if flag("--stones=") != "":
+		stone_look = flag("--stones=").to_upper()
+	var stones: Dictionary = STONE_TRY.get(stone_look, {})
+	colours.merge(stones.get("colours", {}), true)
 	# (Lit rooms, dark panes and bulbs keep their own colour whatever the light, as the code-built facade's glass does.)
 	var glow := {"glass_lit": Color(1.0, 0.72, 0.4), "glass_dark": Color(0.12, 0.13, 0.26), "bulb": Color(1.0, 0.94, 0.8)}
 	scene.name = "ModelledFront"
@@ -453,10 +463,48 @@ static func place_front(root: Node3D, t: Dictionary, scene: Node3D) -> void:
 			m.set_shader_parameter("fall_by_height", fam != "foam" and String(t.get("name", "")) != "ocean")
 			# (Gentler on posts standing in the sea: at the cliffs' 0.4 the beach's piles fell nearly black.)
 			m.set_shader_parameter("front_fall", 0.15 if fam in ["post", "waterline", "weed", "rope"] else 0.4)
+			if fam in ["fieldstone", "wall_moss"] and stones.has("fall"):
+				m.set_shader_parameter("front_fall", float(stones.fall))
 			m.set_shader_parameter("front_span", 7.0)
+			_paint_drift(m, t, false)
+			if fam.begins_with("brick") and CITY_PAINT.has(StageArt.city_paint()):
+				m.set_shader_parameter("paint_drift", CITY_PAINT[StageArt.city_paint()].brick)
 			mi.set_surface_override_material(s, m)
 		mi.set_instance_shader_parameter("front_top", top)
 		mi.set_meta("prebaked", true)
+
+
+## The city's roof and brick painted (fidelity review 16 item 6, the owner's pick A: city.cfg [backdrop] `city_paint`, or `--city-paint=T|A`, T
+## as before): the brick tile's five tones were rendered nearly white and squeezed together, so the wall read as one colour repeated, and the
+## roof a plain pink sheet. The tile's tones stretched (art/stage/png/brick_a.png, ffmpeg `curves` on brick.png; StageArt._soil_material),
+## which deepens its mortar too, with broad weathering on the wall, and painted patches on the roof (toon_common `paint_drift`).
+const CITY_PAINT := {"A": {"brick": Vector4(1.0, 0.6, 7.0, 0.0), "roof": Vector4(2.6, 1.0, 5.0, 0.4)}}
+
+
+## The meadow's stones as card stone (fidelity review 16 item 5, the owner's pick B, meadow.cfg `stones`): khaki-grey under an olive veil, as the fronts'
+## fall into shade is tinted with the stage's shade hue (Lighting `pf_front_tint`), on the meadow a green. Both turn that tint a neutral
+## cool grey-blue on the meadow (MOODS.meadow `front_tint`).
+##   A  the stone a step paler;
+##   B  a paler, greyer card stone, a lighter moss, and half the fall into shade on them.
+const STONE_TRY := {
+	"A": {"colours": {"fieldstone": Color(0.84, 0.77, 0.66)}},
+	"B": {"colours": {"fieldstone": Color(0.88, 0.85, 0.78), "wall_moss": Color(0.42, 0.6, 0.3)}, "fall": 0.2},
+}
+
+
+## Painted variation on a modelled piece's material (fidelity review 10; toon_common `paint_drift`): the palette's [backdrop]
+## `paint_drift` [value patches, warm-cool wander, size, tops warm and walls cool], or `--paint-drift=A|B|C` to try (C as A on the play
+## area only: on the front, a wall of small stones and logs that already vary, it only darkened and greyed); off without. `play` for the
+## play area's pieces; the palette's optional fifth value 1 keeps it to them.
+static func _paint_drift(m: ShaderMaterial, t: Dictionary, play: bool) -> void:
+	var d: Array = (StageArt.palette(String(t.get("name", ""))).get("backdrop", {}) as Dictionary).get("paint_drift", [])
+	var f := flag("--paint-drift=")
+	if f != "":
+		d = {"A": [1.3, 0.8, 14.0, 0.5], "B": [2.0, 1.2, 18.0, 0.7], "C": [1.3, 0.8, 14.0, 0.5, 1]}.get(f.to_upper(), d)
+	if d.size() == 5 and int(d[4]) == 1 and not play:
+		return
+	if d.size() >= 4:
+		m.set_shader_parameter("paint_drift", Vector4(d[0], d[1], d[2], d[3]))
 
 
 ## A modelled play area to try (`--play-mock=<glb>`, art/blender/make_meadow_play.py, the paper pilot): the stage's top and its
@@ -468,8 +516,20 @@ static func place_play(root: Node3D, t: Dictionary, path: String) -> void:
 		push_warning("play mock %s could not be read" % path)
 		return
 	var grass: Color = t.get("grass", Color(0.5, 0.8, 0.3))
+	# (The fighters on bright floors, fidelity review 16 item 1: the palette's [backdrop] `lawn_cool` or `--fighter-floor=T|A|B`, see
+	# LAWN_COOL.)
+	var cool := String((StageArt.palette(String(t.get("name", ""))).get("backdrop", {}) as Dictionary).get("lawn_cool", ""))
+	if flag("--fighter-floor=") != "":
+		cool = flag("--fighter-floor=").to_upper()
+	if String(t.get("name", "")) in ["meadow", "grove"] and LAWN_COOL.has(cool):
+		var lc: Array = LAWN_COOL[cool]
+		grass = Color.from_hsv(grass.h + float(lc[0]), minf(grass.s * float(lc[1]), 1.0), grass.v)
 	var wood: Color = t.get("wood", Color(0.86, 0.62, 0.36))
 	var path_c: Color = t.get("path_colour", Color(0.94, 0.9, 0.74))
+	# (The grove's path a worn earth, fidelity review 14 item 8: its pale cream went lavender under the pink light, a flat stripe.
+	# `--path=A|B`; shipping writes it into grove.cfg's `path_colour`.)
+	if String(t.get("name", "")) == "grove":
+		path_c = {"A": Color(0.78, 0.64, 0.5), "B": Color(0.7, 0.55, 0.4)}.get(flag("--path=").to_upper(), path_c)
 	var colours := {"lawn": grass, "lawn_under": grass.darkened(0.3), "path": path_c, "card": grass.lerp(Color(0.97, 0.96, 0.86), 0.45),
 		"soil": t.get("soil", Color(0.76, 0.56, 0.36)), "stone": Color(0.66, 0.64, 0.6), "fringe": grass.lightened(0.08),
 		"plank": wood, "plank_b": wood.darkened(0.1), "plank_card": wood.lerp(Color(0.98, 0.94, 0.84), 0.45), "rope": Color(0.78, 0.64, 0.42),
@@ -497,6 +557,11 @@ static func place_play(root: Node3D, t: Dictionary, path: String) -> void:
 			fringe = top.darkened(0.1)
 		"city":
 			top = grass.lerp(Color(0.84, 0.56, 0.42), 0.9).lightened(0.18)
+			# (A warm lit roof against the cool night, fidelity review 14 item 4: the palette's [backdrop] `roof_warm`, or `--warm-cool=`.)
+			var warm := float((StageArt.palette("city").get("backdrop", {}) as Dictionary).get("roof_warm", 0.0))
+			if flag("--warm-cool=") != "":
+				warm = 0.35
+			top = top.lerp(Color(0.95, 0.62, 0.4), warm)
 			layer1 = grass.darkened(0.18)
 			layer2 = soil_dark.darkened(0.35)
 			fringe = (t.get("grass_light", top) as Color).lerp(Color(1.0, 0.9, 0.78), 0.6)
@@ -511,7 +576,33 @@ static func place_play(root: Node3D, t: Dictionary, path: String) -> void:
 			"top_lit": base_top.lightened(0.14)}, true)
 	var plate := wood.lerp(Color(0.3, 0.3, 0.42), 0.95)
 	colours.merge({"top": top, "top_card": top.lerp(cream, 0.45), "layer1": layer1, "layer2": layer2, "fringe": fringe,
-		"steel": plate, "steel_dark": (t.get("wood_dark", plate.darkened(0.3)) as Color).darkened(0.15), "steel_card": plate.lerp(cream, 0.35)}, true)
+		"steel": plate, "steel_dark": (t.get("wood_dark", plate.darkened(0.3)) as Color).darkened(0.15), "steel_card": plate.lerp(cream, 0.35),
+		# (The city's platforms in its own materials, fidelity review 8: plate seams, rivets and clamps, a safety paint, red-oxide primer, hazard stripes and
+		# scaffold boards.)
+		"steel_seam": plate.darkened(0.4), "rivet": plate.lerp(cream, 0.5), "steel_paint": Color(0.94, 0.7, 0.26),
+		"steel_primer": Color(0.76, 0.36, 0.3),
+		"hazard": Color(0.16, 0.14, 0.2), "deck_board": Color(0.74, 0.58, 0.44)}, true)
+	# (The fighters' ground a step deeper, fidelity review 14 item 2: on the meadow, grove and canyon the yellow and orange fighters stood
+	# on a top as light as they are, 0.04 to 0.08 apart in value where the city and beach hold 0.15 and 0.24. The palette's [backdrop]
+	# `fight_ground` [how much darker, how much less saturated] or `--ground=A|B`: the walked surfaces only, the cut lips and the card
+	# edges stay pale.)
+	var ground: Array = (StageArt.palette(String(t.get("name", ""))).get("backdrop", {}) as Dictionary).get("fight_ground", [])
+	if String(t.get("name", "")) in ["meadow", "grove", "sunset"]:
+		# (Deeper at full colour: a first try took a fifth of the saturation too, and the lawns went a grey olive.)
+		# (C and D, fidelity review 15 item 1: under the colourful shade the meadow's land round the fighters lightened, and P1's gap fell
+		# from 0.138 to 0.105 at B.)
+		ground = {"A": [0.2, 0.0], "B": [0.32, 0.08], "C": [0.42, 0.08], "D": [0.5, 0.1]}.get(flag("--ground=").to_upper(), ground)
+	var floor_look := String((StageArt.palette(String(t.get("name", ""))).get("backdrop", {}) as Dictionary).get("floor_look", "A"))
+	if flag("--floor=") != "":
+		floor_look = flag("--floor=").to_upper()
+	var bright: Dictionary = FLOOR_TRY.get(floor_look, {})
+	if ground.size() == 2 and bright.has("ground"):
+		ground = [float(ground[0]) * float(bright.ground), float(ground[1]) * float(bright.ground)]
+	if ground.size() == 2:
+		for fam in ["lawn", "top", "path", "top_deep", "top_lit", "top_worn"]:
+			if colours.has(fam):
+				var c: Color = colours[fam]
+				colours[fam] = Color.from_hsv(c.h, c.s * (1.0 - float(ground[1])), c.v * (1.0 - float(ground[0])))
 	scene.name = "ModelledPlay"
 	scene.set_meta("lit_piece", true)
 	root.add_child(scene)
@@ -535,12 +626,51 @@ static func place_play(root: Node3D, t: Dictionary, path: String) -> void:
 			# (Form on the ground, the light pass, the owner's pick 2026-10-21: the top falls softly into shade toward its front edge; the
 			# lawns read flat once the scenery's ink went.)
 			if fam in ["lawn", "top", "path", "fringe", "top_deep", "top_lit", "top_worn", "nail"]:
-				m.set_shader_parameter("lawn_fall", 0.9)
+				m.set_shader_parameter("lawn_fall", 0.9 * float(bright.get("fall", 1.0)))
 				m.set_shader_parameter("lawn_front", StageArt.STAGE_FRONT)
 				m.set_shader_parameter("lawn_span", 6.0)
+			# (Bright floors on trial, the owner 2026-10-29; see FLOOR_TRY.)
+			if fam in ["lawn", "top", "path", "fringe", "top_deep", "top_lit", "top_worn", "plank", "plank_b", "deck_board", "steel"]:
+				if bright.has("clouds"):
+					m.set_shader_parameter("cloud_shade", float(bright.clouds))
+				if bright.has("cast"):
+					m.set_shader_parameter("shadow_amount", float(bright.cast))
+				if bright.get("bare", false):
+					m.set_shader_parameter("vertex_shade", false)
+			_paint_drift(m, t, true)
+			if fam in ["top", "top_deep", "top_lit", "top_worn"] and String(t.get("name", "")) == "city" and CITY_PAINT.has(StageArt.city_paint()):
+				m.set_shader_parameter("paint_drift", CITY_PAINT[StageArt.city_paint()].roof)
 			mi.set_surface_override_material(s, m)
 		mi.set_meta("prebaked", true)
 	print("play mock: placed %s" % path.get_file())
+
+
+## Bright floors (the owner, 2026-10-29: "the shadows are beginning to drown out the floors of the stages"; the canyon's top read
+## almost all shadow, dark and muddy, where the papercraft reference's floors are bright with small shadows under things). The owner's
+## pick: A on every stage, B on the canyon (the palette's [backdrop] `floor_look`, A without; `--floor=T|A|B|C` to compare, T as before).
+## On the walked tops and the platforms:
+##   A  the drifting cloud shadows of fidelity review 7 (0.9 deep over 60% of every upward face near the stage) off them, the land
+##      round them as it is: most of what read as a floor in shadow;
+##   B  A, the sun's cast shadows on them lighter (`shadow_amount` 0.35 of the scenery's 0.8), their fall into shade toward the front
+##      edge halved, and the deeper fighters' ground of fidelity review 14 item 2 (`fight_ground`) halved;
+##   C  B, and the contact shade baked into the play pieces off on them, the cast shadows lighter still (0.2).
+## (A first try without the clouds, B and C here less A, barely moved the canyon's top: the clouds were the shadow.)
+## (B on the meadow and grove washed the yellow and orange fighters into the pale lawns, P1's gap 0.05 to 0.06; the canyon's sand is
+## another hue and holds 0.19.)
+const FLOOR_TRY := {
+	"T": {},
+	"A": {"clouds": 0.0},
+	"B": {"clouds": 0.0, "cast": 0.35, "fall": 0.5, "ground": 0.5},
+	"C": {"clouds": 0.0, "cast": 0.2, "fall": 0.3, "ground": 0.5, "bare": true},
+}
+
+
+## The fighters on bright floors (fidelity review 16 item 1, the owner's pick A: meadow.cfg and grove.cfg [backdrop] `lawn_cool`): the
+## walked lawns turned cooler [hue step, saturation scale], away from the yellow and orange fighters, at the same value, so they separate
+## by hue now the floors are bright; FighterView firms their contact shadows too.
+##   A  a step toward a true green (+0.04 hue, about 14 degrees);
+##   B  further, toward an emerald (+0.08, about 29 degrees), a touch richer.
+const LAWN_COOL := {"A": [0.04, 1.0], "B": [0.08, 1.08]}
 
 
 ## Modelled play areas (the stage's top and its platforms, art/blender/make_meadow_play.py), by the exact stage they were built on.
@@ -751,12 +881,15 @@ const PRINTS := {"grass": ["grass", 0.45, 5.0], "lawn": ["grass", 0.45, 5.0], "l
 const PRINTS_BY_THEME := {
 	"grove": {"top": ["grass", 0.45, 5.0], "top_card": ["grass", 0.35, 5.0], "layer1": ["soil", 0.35, 4.0], "layer2": ["soil", 0.35, 4.0],
 		"earth": ["soil", 0.35, 4.0], "rock": ["stone", 0.35, 2.5], "root": ["wood", 0.4, 3.0], "moss_shade": ["grass", 0.3, 3.0]},
-	"sunset": {"top": ["sand", 0.45, 5.0], "top_card": ["sand", 0.35, 5.0], "layer1": ["strata", 0.4, 4.0], "layer2": ["strata", 0.4, 4.0],
-		"strata_a": ["strata", 0.4, 4.0], "strata_b": ["strata", 0.4, 4.0], "strata_c": ["strata", 0.4, 4.0]},
+	# (Sandstone on the canyon's rock, fidelity review 9, the owner's pick: `strata`'s long thin lines read as wood grain on the long beds.)
+	"sunset": {"top": ["sand", 0.45, 5.0], "top_card": ["sand", 0.35, 5.0], "layer1": ["sandstone", 0.4, 4.0], "layer2": ["sandstone", 0.4, 4.0],
+		"strata_a": ["sandstone", 0.4, 4.0], "strata_b": ["sandstone", 0.4, 4.0], "strata_c": ["sandstone", 0.4, 4.0]},
 	"ocean": {"top": ["wood", 0.22, 3.0], "top_card": ["wood", 0.22, 3.0], "layer1": ["wood", 0.3, 3.0], "beam": ["wood", 0.4, 3.0],
 		"post": ["wood", 0.4, 2.0], "iron": ["steel", 0.3, 1.5]},
 	"city": {"top": ["roof", 0.4, 5.0], "top_card": ["roof", 0.3, 5.0], "layer1": ["stone", 0.3, 2.5], "steel": ["steel", 0.3, 1.5],
-		"steel_card": ["steel", 0.3, 1.5], "steel_dark": ["steel", 0.3, 1.5], "brick": ["stone", 0.2, 2.0], "trim": ["stone", 0.25, 2.0],
+		"steel_card": ["steel", 0.3, 1.5], "steel_dark": ["steel", 0.3, 1.5], "steel_seam": ["steel", 0.3, 1.5], "rivet": ["steel", 0.2, 1.0],
+		"steel_paint": ["steel", 0.25, 1.5], "steel_primer": ["steel", 0.3, 1.5],
+		"deck_board": ["wood", 0.4, 3.0], "brick": ["stone", 0.2, 2.0], "trim": ["stone", 0.25, 2.0],
 		"frame": ["wood", 0.25, 1.5], "pipe": ["steel", 0.3, 1.5], "iron": ["steel", 0.3, 1.5], "ac": ["steel", 0.3, 1.5],
 		"leaf": ["grass", 0.25, 1.0]},
 }
@@ -987,6 +1120,9 @@ static func _ground_colours(t: Dictionary) -> Dictionary:
 	out["rock_c"] = soil.lerp(Color(1.0, 0.86, 0.66), 0.35).darkened(0.08)
 	# (Deeper and rosier than the painted dunes' sands: as flats they take the full air of their depth and faded into the horizon.)
 	out["dune_far"] = Color(0.9, 0.6, 0.5)
+	# (New art toward 5, C3: the scree at the mesa's foot, a step deeper and redder than the sand.)
+	out["scree"] = (t.get("soil", Color(0.86, 0.5, 0.32)) as Color).lerp(Color(0.94, 0.68, 0.4), 0.45).darkened(0.08)
+	out["card_scree"] = (out["scree"] as Color).darkened(0.1)
 	out["dune_near"] = Color(0.92, 0.58, 0.42)
 	for fam in ["rock_a", "rock_b", "rock_c", "dune_far", "dune_near"]:
 		out["card_" + fam] = (out[fam] as Color).darkened(0.1)
@@ -1006,6 +1142,21 @@ static func _ground_colours(t: Dictionary) -> Dictionary:
 	# stones and flowers dotted over them.)
 	out["lane"] = Color(0.95, 0.91, 0.74)
 	out["card_lane"] = Color(0.84, 0.78, 0.6)
+	# (Fidelity review 11: the cream lanes were the brightest thing in the meadow's lower third, white ribbons down the terraces. The
+	# palette's [backdrop] `lane_look` or `--lane=A|B|C`: A the farm track's dust, B a deeper trodden earth, C the farmyard's own earth.)
+	var lane_look := String(bd.get("lane_look", ""))
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--lane="):
+			lane_look = arg.substr(7)
+	if lane_look == "A":
+		out["lane"] = Color(0.84, 0.74, 0.54)
+		out["card_lane"] = Color(0.7, 0.6, 0.44)
+	elif lane_look == "B":
+		out["lane"] = Color(0.74, 0.62, 0.44)
+		out["card_lane"] = Color(0.6, 0.5, 0.36)
+	elif lane_look == "C":
+		out["lane"] = Color(0.62, 0.5, 0.34)
+		out["card_lane"] = Color(0.5, 0.4, 0.28)
 	out["shade"] = (out["rise"] as Color).darkened(0.32)
 	out["stone"] = Color(0.82, 0.81, 0.78)
 	out["flower_a"] = Color(0.98, 0.64, 0.72)
@@ -1022,6 +1173,15 @@ static func _ground_colours(t: Dictionary) -> Dictionary:
 	# (The meadow's hedged farmland, 2026-10-22: rows in the wheat and ploughed fields, young crops in green rows on brown, the lanes'
 	# grass crown, the terraces' banks in a deep grass green: in earth brown they read muddy.)
 	out["wheat_row"] = Color(0.8, 0.66, 0.32)
+	# (New art toward 5, M1: the hill's terraced fields held by walls of the stage wall's own warm fieldstone.)
+	out["terrace_wall"] = Color(0.66, 0.58, 0.46)
+	out["terrace_wall_b"] = Color(0.56, 0.5, 0.42)
+	# (New art toward 5, M2: the meadow's stream down the terraces, its banks, its footbridge's planks, the wet stones along it.)
+	out["stream"] = Color(0.44, 0.68, 0.84)
+	out["card_stream"] = Color(0.32, 0.46, 0.4)
+	out["plank"] = Color(0.66, 0.5, 0.34)
+	out["card_plank"] = Color(0.48, 0.36, 0.26)
+	out["wet_stone"] = Color(0.5, 0.52, 0.5)
 	out["plough"] = Color(0.6, 0.44, 0.32)
 	out["plough_row"] = Color(0.48, 0.34, 0.25)
 	out["crop_row"] = Color(0.5, 0.74, 0.3)
@@ -1056,6 +1216,43 @@ static func _ground_colours(t: Dictionary) -> Dictionary:
 	out["valley_lit"] = Color(0.4, 0.5, 0.62)
 	out["valley_shade"] = Color(0.28, 0.3, 0.5)
 	out["valley_bark"] = Color(0.32, 0.28, 0.44)
+	# (G2: the deep valley's floor far below the islands and its river, in the valley's own hazed violets.)
+	out["valley_floor"] = Color(0.26, 0.28, 0.44)
+	out["bank_mist"] = Color(0.8, 0.76, 0.92)
+	out["bank_mist_low"] = Color(0.64, 0.6, 0.84)
+	out["bank_mist_top"] = Color(0.93, 0.91, 0.99)
+	out["valley_river"] = Color(0.62, 0.68, 0.9)
+	# (New art toward 5, G1: the grove's falls in two pale blues, their spray, and the mist's farther layers paler with depth.)
+	out["fall"] = Color(0.84, 0.93, 0.98)
+	out["fall_shade"] = Color(0.6, 0.76, 0.9)
+	out["spray"] = Color(0.92, 0.94, 1.0)
+	out["abyss_mist2"] = Color(0.5, 0.44, 0.7)
+	out["abyss_mist3"] = Color(0.58, 0.52, 0.78)
+	# (The mist greyer, fidelity review 16 item 3, the owner's pick B (with the falls' C): flat violet banks under the falls. Near grey, the
+	# grove's painted shade turns them violet on its own (toon_light `pf_painted_shadow`: low-saturation colours take the shade tint), so
+	# the lit tops read grey-white and only the shade stays violet. The palette's [backdrop] `mist_grey` or `--mist-grey=T|A|B`
+	# [saturation kept, value scale]: A half the saturation; B a quarter, a step lighter; T as before.)
+	var mist_look := String(bd.get("mist_grey", ""))
+	if flag("--mist-grey=") != "":
+		mist_look = flag("--mist-grey=").to_upper()
+	var mist_grey: Array = {"A": [0.5, 1.0], "B": [0.25, 1.12]}.get(mist_look, [])
+	if mist_grey.size() == 2:
+		for fam in ["abyss_mist", "abyss_mist2", "abyss_mist3", "card_abyss_mist", "bank_mist", "bank_mist_low", "bank_mist_top"]:
+			var c: Color = out[fam]
+			out[fam] = Color.from_hsv(c.h, c.s * float(mist_grey[0]), minf(c.v * float(mist_grey[1]), 1.0))
+	# (One rock for the grove, fidelity review 9: the island's underside is grey-green stone, the terraces' blocks a deep teal, two
+	# languages side by side. The palette's [backdrop] `cliff_stone` (or `--cliff-stone=`), how far the terraces' rock turns to the
+	# island's stone, its value kept deep for the fighters in front of it.)
+	var stone_k := float(bd.get("cliff_stone", 0.0))
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--cliff-stone="):
+			stone_k = float(arg.substr(14))
+	if stone_k > 0.0:
+		var stone: Color = out["rock"]
+		out["cliff"] = (out["cliff"] as Color).lerp(stone.darkened(0.55), stone_k)
+		out["cliff_b"] = (out["cliff_b"] as Color).lerp(stone.darkened(0.42), stone_k)
+		out["cliff_lit"] = (out["cliff_lit"] as Color).lerp(stone.darkened(0.08), stone_k)
+		out["card_cliff"] = (out["cliff"] as Color).lerp(Color(0.92, 0.93, 0.86), 0.04)
 	# (The canyon's floor in paper: its sand sheets in three tones round the desert floor's, their cut edges, wind ripples, the dry wash
 	# and its banks, pebbles, scrub and the shade under it.)
 	var sand: Color = bd.get("desert_floor", Color(0.94, 0.68, 0.4))
@@ -1084,23 +1281,67 @@ static var _calm_k := 0.72
 
 
 ## Paints a modelled background piece: each family's toon material, its own baked occlusion (vertex colours), and the air at its depth.
-static func _paint_ground(node: Node3D, colours: Dictionary) -> void:
+static func _paint_ground(node: Node3D, colours: Dictionary, t := {}) -> void:
+	# (The ground's own finish, fidelity review 10: the meadow's hill under the wall a plain faceted green at the wide camera. The
+	# palette's [backdrop] `ground_finish` or `--ground-finish=A|B`: painted variation on the land's families, A broad (`GROUND_DRIFT`),
+	# B finer and stronger, patches a few units across.)
+	var finish := String((StageArt.palette(String(t.get("name", ""))).get("backdrop", {}) as Dictionary).get("ground_finish", ""))
+	if flag("--ground-finish=") != "":
+		finish = flag("--ground-finish=").to_upper()
+	# (The beach's headland painted, fidelity review 15 item 4: through the air at about 200 its folded hill and pop-up flats were one pale
+	# sage card. `--headland=A|B`, see HEADLAND_TRY.)
+	var head_look := String((StageArt.palette(String(t.get("name", ""))).get("backdrop", {}) as Dictionary).get("headland", ""))
+	if flag("--headland=") != "":
+		head_look = flag("--headland=").to_upper()
+	var head: Dictionary = HEADLAND_TRY.get(head_look, {}) if String(t.get("name", "")) == "ocean" else {}
 	for mi: MeshInstance3D in node.find_children("*", "MeshInstance3D", true, false):
 		for s in mi.mesh.get_surface_count():
 			var src := mi.mesh.surface_get_material(s)
 			var fam := src.resource_name if src != null else "grass"
-			var m := (FighterView.toon(colours.get(fam, Color(0.6, 0.6, 0.6)), false) as ShaderMaterial).duplicate() as ShaderMaterial
+			var colour: Color = (head.get("colours", {}) as Dictionary).get(fam, colours.get(fam, Color(0.6, 0.6, 0.6)))
+			var m := (FighterView.toon(colour, false) as ShaderMaterial).duplicate() as ShaderMaterial
 			m.set_shader_parameter("facets", fam != "bark")
 			m.set_shader_parameter("vertex_shade", true)
 			m.set_shader_parameter("ramp_softness", 0.12)
+			if finish in ["A", "B"] and fam in GROUND_DRIFT:
+				var d: Vector4 = GROUND_DRIFT[fam]
+				m.set_shader_parameter("paint_drift", d if finish == "A" else Vector4(d.x * 1.5, d.y * 1.3, d.z * 0.4, d.w))
+			if fam in ["head_near", "head_far"] and head.has("drift"):
+				m.set_shader_parameter("paint_drift", head.drift)
+				m.set_shader_parameter("ramp_center", float(head.get("ramp_center", 0.45)))
 			mi.set_surface_override_material(s, m)
 		mi.set_meta("prebaked", true)
 		var depth := -(mi.global_transform * mi.mesh.get_aabb().get_center()).z
+		if head.has("air") and String(mi.name).begins_with("head"):
+			var amount := StageArt._air_amount(depth) * float(head.air)
+			StageArt._mute(mi, amount.x, (StageArt._palette.get("air", {}) as Dictionary).get("haze", Color(0.8, 0.85, 0.95)), amount.y, false)
+			continue
 		StageArt._air(mi, depth)
 
 
 ## A front's strata lifted toward a pale warm sand by the theme's `front_lift` (`--front-lift=` to try): fidelity review 5, the canyon's
 ## front dark and saturated (value 0.30, saturation 0.61) weighing down the lower half of the frame.
+## The beach's headland painted (fidelity review 15 item 4, the owner's pick B: ocean.cfg [backdrop] `headland`; `--headland=T|A|B` to
+## compare, T as before), as the meadow's peaks have it:
+##   A  painted patches over its folded hill and pop-up flats, the tops warmer and the walls cooler (toon_common `paint_drift`);
+##   B  A, its greens a step deeper and richer, two fifths of the air over it, and the toon ramp's turn moved up (`ramp_center` 0.62) so
+##      the folds turned from the sun fall into shade: a lit side and a shade side toward the town.
+## (A first try at patches 2.0 and half the air barely showed at its distance.)
+const HEADLAND_TRY := {
+	"A": {"drift": Vector4(3.2, 1.6, 10.0, 1.2)},
+	"B": {"drift": Vector4(3.2, 1.6, 10.0, 1.2), "air": 0.4, "ramp_center": 0.62,
+		"colours": {"head_near": Color(0.22, 0.5, 0.36), "head_far": Color(0.22, 0.46, 0.5)}},
+}
+
+
+## The painted variation on a ground's land families (`ground_finish`): broader than a play area's, the size a hillside's.
+## The meadow's hill, the grove's abyss and its mist, the canyon's floor.
+const GROUND_DRIFT := {"hill": Vector4(1.6, 0.9, 22.0, 0.0), "bank": Vector4(1.3, 0.7, 18.0, 0.0), "hill_near": Vector4(1.3, 0.8, 30.0, 0.0),
+	"rise": Vector4(1.3, 0.8, 26.0, 0.0), "abyss": Vector4(1.8, 1.0, 16.0, 0.0), "abyss_far": Vector4(1.4, 0.8, 24.0, 0.0),
+	"abyss_mist": Vector4(1.6, 1.0, 14.0, 0.0), "sand_a": Vector4(1.3, 0.8, 20.0, 0.0), "sand_b": Vector4(1.3, 0.8, 20.0, 0.0),
+	"sand_c": Vector4(1.3, 0.8, 20.0, 0.0)}
+
+
 static func _front_lift(t: Dictionary, c: Color) -> Color:
 	var lift := float(t.get("front_lift", 0.0))
 	if flag("--front-lift=") != "":
@@ -1161,7 +1402,7 @@ static func place_ground(root: Node3D, t: Dictionary, source: Array) -> void:
 		ground.name = "ModelledGround"
 		ground.set_meta("lit_piece", true)
 		root.add_child(ground)
-		_paint_ground(ground, colours)
+		_paint_ground(ground, colours, t)
 		# (Trees the ground asks for, `treeslot` empties: the theme's modelled tree stands at each, as at the code-built trees' places.)
 		for n in ground.find_children("treeslot*", "", true, false):
 			StageArt.tree_slots.append([(n as Node3D).position, (n as Node3D).scale.x])
@@ -1200,3 +1441,14 @@ static func place_ground(root: Node3D, t: Dictionary, source: Array) -> void:
 		bush.rotation_degrees.y = float(slot[2])
 		root.add_child(bush)
 		_paint_ground(bush, colours)
+
+
+## The front's roots (fidelity review 13 item 5: under the grove's pink light the bark brown read pink, ribbons not roots): the palette's
+## [backdrop] `root_colour` or `--roots=A|B`, a deeper bark; the brown as before without.
+static func _root_colour(t: Dictionary) -> Color:
+	var c: Color = StageArt.palette(String(t.get("name", ""))).get("backdrop", {}).get("root_colour", Color(0.46, 0.37, 0.3))
+	var f := flag("--roots=")
+	if f != "":
+		c = {"A": Color(0.38, 0.26, 0.17), "B": Color(0.3, 0.2, 0.13)}.get(f.to_upper(), c)
+	return c
+

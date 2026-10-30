@@ -38,6 +38,9 @@ uniform float halo = 0.0;
 // lit on top and shaded underneath (on a night sky, `night`, lit from below by the city's glow instead); 3 those layers as cut paper:
 // crisp scalloped edges, two tones, a lit cut edge and the soft shadow each lays on the sky under it.
 uniform int look = 0;
+// (How many stratus layers and how thick, look 2 and up: fewer and broader read less as stripes against a deep top, fidelity review
+// 14 item 1; StageArt.sky from the palette's `sky_stratus`.)
+uniform vec2 stratus = vec2(3.0, 1.0);
 uniform vec4 cloud_lit : source_color = vec4(1.0, 0.96, 0.92, 1.0);
 uniform vec4 cloud_shade : source_color = vec4(0.7, 0.76, 0.9, 1.0);
 uniform vec4 haze_band : source_color = vec4(0.9, 0.94, 0.96, 1.0);
@@ -112,9 +115,12 @@ void sky() {
 			// Three layers of stratus: centre height, thickness, how much of the band is cloud.
 			for (int k = 0; k < 3; k++) {
 				float fk = float(k);
+				if (fk >= stratus.x) {
+					break;
+				}
 				// (Low: the cameras see the sky only up to about 5 degrees, 0.087.)
 				float c = 0.02 + 0.021 * fk + 0.006 * noise(vec2(az * 0.8 + fk * 5.0, 2.0));
-				float th = 0.007 + 0.003 * fk;
+				float th = (0.007 + 0.003 * fk) * stratus.y;
 				float n1 = noise(vec2(az * (5.0 + fk * 2.0) + fk * 13.0, 3.0));
 				float n2 = noise(vec2(az * (13.0 + fk * 3.0) + fk * 7.0, 5.0));
 				float top = c + th * (0.35 + 0.65 * n1);

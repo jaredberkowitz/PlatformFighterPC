@@ -9,6 +9,13 @@ looks for the owner to pick from, rendered in the game from the match camera (`-
   C  both: the quilt above, roots wrapping it lower down and gathering into a rocky keel.
 Material names are families (`quilt`, `button`, `earth`, `rock`, `root`, `moss`) that the game paints from the stage's palette.
 
+Calmer (fidelity review 8: B's underside was busy, rock, roots and moss all at one weight), `--calm A|B` on B:
+  A  big stones: fewer, larger stones in fewer rows, their tones closer; moss only on the top row, under the lip; the roots in two
+     groups (a pair on the left, one on the right);
+  B  massed: the stones gathered into a few large masses with dark earth between them, each mass one tone; moss only under the lip; the
+     roots in one group sweeping from the left.
+Shipped since fidelity review 8 (the owner's pick): grove_front.glb `--variant B --calm A`.
+
 Run (Blender 5.2):
   blender --background --python art/blender/make_grove_front.py -- --dir godot/art/baked/<key> --variant A --out <file.glb>
 """
@@ -29,6 +36,7 @@ from fold_kit import folded_dome  # noqa: E402
 argv = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
 opts = {argv[i].lstrip("-"): argv[i + 1] for i in range(0, len(argv) - 1, 2)}
 VARIANT = opts.get("variant", "A").upper()
+CALM = opts.get("calm", "").upper()
 manifest = json.load(open(os.path.join(opts["dir"], "manifest.json")))
 SOLIDS = [r for r in manifest["rects"] if r[4] < 0.5]
 FZ = float(manifest["front_z"])
@@ -122,6 +130,9 @@ def rock(bm, c, r, rng):
     res = bmesh.ops.create_cube(bm, size=2.0)
     verts = res["verts"]
     s = Vector((rng.uniform(0.9, 1.35), rng.uniform(0.5, 0.7), rng.uniform(0.65, 0.95))) * r
+    if CALM:
+        # (Calmer stones lie flatter against the island, so the roots still cross in front of them.)
+        s.y *= 0.55
     rot = Matrix.Rotation(rng.uniform(-0.35, 0.35), 3, "Y") @ Matrix.Rotation(rng.uniform(-0.2, 0.2), 3, "X")
     for v in verts:
         v.co = rot @ Vector((v.co.x * s.x * rng.uniform(0.85, 1.1), v.co.y * s.y, v.co.z * s.z * rng.uniform(0.85, 1.1))) + c
@@ -131,9 +142,16 @@ def rock(bm, c, r, rng):
     layer = bm.verts.layers.float.get("tone")
     # (Its own random numbers from where it sits, so the stones' layout does not move with it.)
     tone = random.Random(round(c.x * 10.0) * 7919 + round(c.z * 10.0)).uniform(0.72, 1.05)
+    if CALM:
+        # (Calmer: the stones' tones closer together, or one per mass, `ROCK_TONE`.)
+        tone = ROCK_TONE[0] if ROCK_TONE else 0.78 + (tone - 0.72) * 0.45
     for v in out["verts"]:
         if layer is not None and v.is_valid:
             v[layer] = tone
+
+
+# (The tone every stone of the mass being built takes, `--calm B`; empty for each its own.)
+ROCK_TONE = []
 
 
 def tube(bm, pts, r0, r1, rng, sides=10, ribs=6, rib=0.2):
@@ -278,7 +296,9 @@ def build():
         bm.verts.layers.float.new("tone")
         y = CURL - 0.4 if VARIANT == "B" else LOW + 0.6
         tops = []
-        while y > Y_BOT + 0.4:
+        if CALM and VARIANT == "B":
+            stones_calm(bm, rng, tops)
+        while y > Y_BOT + 0.4 and not (CALM and VARIANT == "B"):
             lo, hi = edges(y)
             x = lo + rng.uniform(0.3, 0.9)
             while x < hi - 0.3:
@@ -302,7 +322,25 @@ def build():
                     v.co = squash @ (v.co - top_c) + top_c
         # The roots: from under the lip, wrapping down over the face, a few dangling under the island.
         bm = bmesh.new()
-        if VARIANT == "B":
+        if VARIANT == "B" and CALM:
+            # (Calmer: the roots in two groups, or one, each a main root with its branch, standing over the larger stones.)
+            def follow(x, y):
+                return 1.3
+            if CALM == "A":
+                mains = [(-9.6, -4.5, 0.8, Y_BOT - 2.5), (-7.4, -2.0, 0.55, LOW - 0.5), (8.4, 3.0, 0.75, Y_BOT - 2.0)]
+            else:
+                mains = [(-9.4, -1.5, 0.85, Y_BOT - 3.0), (-7.2, 1.0, 0.58, LOW - 0.5)]
+            for x0, x1, r0, y_end in mains:
+                pts = root_path(x0, y_end, rng, 0.25, follow, x1=x1, sway=0.7)
+                if len(pts) > 2:
+                    tube(bm, pts, r0, 0.12, rng)
+                    k = len(pts) // 3
+                    bx, by = pts[k].x, pts[k].z
+                    bend = 3.0 if x1 < x0 else -3.0
+                    bpts = root_path(bx, by - rng.uniform(2.5, 3.5), rng, 0.15, follow, x1=bx + bend, sway=0.3, y0=by)
+                    if len(bpts) > 2:
+                        tube(bm, bpts, r0 * 0.45, 0.06, rng, sides=8)
+        elif VARIANT == "B":
             # (A few thick roots sweeping across the stones and crossing, after the grove reference, in place of a row of thin parallel
             # ones; branches split off them; the side roots wrap round the island's curved flanks; some dangle under the keel.)
             def follow(x, y):
@@ -334,6 +372,41 @@ def build():
     else:
         lit.free()
         shade.free()
+
+
+def stones_calm(bm, rng, tops):
+    """The calmer stones (`--calm`): A fewer, larger stones in fewer rows; B a few large masses of stones, each one tone, with the earth
+    between them. Moss caps (`tops`) only on the top row, under the lip."""
+    y = CURL - 0.6
+    row = 0
+    while y > Y_BOT + 0.6:
+        lo, hi = edges(y)
+        x = lo + rng.uniform(0.2, 0.7)
+        while x < hi - 0.4:
+            if CALM == "B":
+                # A mass: two to four stones packed tight, one tone, then a gap of earth.
+                n = rng.randint(2, 4)
+                ROCK_TONE[:] = [rng.uniform(0.74, 0.94)]
+                for _ in range(n):
+                    if x > hi - 0.4:
+                        break
+                    r = rng.uniform(1.1, 1.7) * (0.85 if y < LOW else 1.0)
+                    c = P(x, y + rng.uniform(-0.3, 0.3), base_z(x, y) + r * 0.3)
+                    rock(bm, c, r, rng)
+                    if row == 0 and rng.random() < 0.7:
+                        tops.append((c, r))
+                    x += r * rng.uniform(1.2, 1.4)
+                ROCK_TONE.clear()
+                x += rng.uniform(1.6, 3.2)
+            else:
+                r = rng.uniform(1.2, 1.9) * (0.85 if y < LOW else 1.0)
+                c = P(x, y, base_z(x, y) + r * 0.3)
+                rock(bm, c, r, rng)
+                if row == 0 and rng.random() < 0.7:
+                    tops.append((c, r))
+                x += r * rng.uniform(1.45, 1.7)
+        y -= rng.uniform(1.7, 2.1) if CALM == "A" else rng.uniform(1.9, 2.3)
+        row += 1
 
 
 def bake_occlusion():

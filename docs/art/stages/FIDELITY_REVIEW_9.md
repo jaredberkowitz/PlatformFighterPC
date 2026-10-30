@@ -1,0 +1,175 @@
+# Stage fidelity review 9 (2026-10-25, after review 8's work): the path to 5
+
+The owner: "If there are no more items from the last analysis to work on, we can do another of all four stages." Review 8's list is
+built and released (playtest-2026-10-25-sim146-review8). This review covers all five stages: meadow, grove, beach, canyon, city. The
+method is the same: eight categories scored 1 to 5 (5 = a still could sit beside the references), review 3's regions, the same
+references. The judge is the hand that built the work, so read the scores as "the gaps this review can see".
+
+**Evidence:** art/stage-refine 2492df9 (the released build), at the match camera and wide (`review9/fidelity9_sheet.jpg`: each row a
+stage, match camera left, wide right: meadow, grove, beach, canyon, city), and close crops (`review9/review9_crops.jpg`, left to right
+and down: the meadow's wall wide, the canyon's front, a canyon platform's cactus, the canyon's sky, the beach's clouds, the beach's posts
+in the water, the grove's abyss, the city's street).
+
+## Scorecard
+
+| Stage | Light | Surfaces | Play area and front | Background land | Sky | World and life | Cohesion | Readability | Mean | Review 8 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| Beach | 4 | 4 | 4 | 4 | 4 | 4 | 4 | 4 | **4.0** | 4.0 |
+| City | 4 | 4 | 4 | 4 | 4 | 4 | 4 | 4 | **4.0** | 4.0 |
+| Grove | 4 | 4 | 4 | 4 | 4 | 4 | 4 | 4 | **4.0** | 4.0 |
+| Meadow | 4 | 4 | 4 | 4 | 4 | 4 | 4 | 4 | **4.0** | 3.9 |
+| Canyon | 4 | 3 | 4 | 4 | 4 | 4 | 4 | 4 | **3.9** | 4.0 |
+| **Mean** | 4.0 | 3.8 | 4.0 | 4.0 | 4.0 | 4.0 | 4.0 | 4.0 | **3.98** | 3.98 |
+
+- **What moved:** the meadow's wall is no longer grey (surfaces 3 to 4) and its range has painted form. The city's platforms are steel,
+  the grove's underside is calmer, and the beach's loops are gone. The stronger key gave every fighter a clear shadow side. Those are
+  real gains, but each closes a gap inside a 4, so no score reaches 5.
+- **One 3, a step back:** the canyon's front. Laid in long straight beds (review 8, item 3), the rock now takes its `strata` print (thin
+  broken horizontal lines every few pixels) along each bed's full length, so the front and the platform slabs read as **planks of wood**
+  with grain, at both cameras. The wobble is gone, but it isn't rock.
+
+## What stands between each column and 5
+
+| Column | The gap | Where |
+|---|---|---|
+| **Surfaces** | The canyon's front and platform slabs read as wood grain (above). At the wide camera the meadow's wall is a grid of small pale stones, each outlined: it's warm now, but it's the busiest, brightest mass under the fight. | canyon, meadow |
+| **World and life** | Under the dock, every post in the water has the same set of white ripple rings, so they read as a row of targets. The canyon's cacti under the platforms are stacked paper coils (the owner's pick B, 2026-10-21) that read as springs at play size. | beach, canyon |
+| **Sky** | The beach's clouds are one unbroken strip of joined cloud cards along a single line, a border across the sky. At 5 the day skies want a second, farther cloud layer (open since review 8). | beach, meadow, grove |
+| **Background land, cohesion** | The grove's abyss has pale blue pine cards standing in the purple, which reads as trees growing in water. The main island's underside (stone and roots) and its neighbours' (teal hex columns) are two languages. | grove |
+| **Play area** | Good. The city's street at the wide camera is flat bands of purple with nothing on the road surface, the one plain stretch on that stage. | city |
+| **Light** | The strong key reached the fighters, but scenery contrast moved within 0.01. The next lever is the painted shadow colours themselves (`pf_shadow_value`, `scenery_shade`), a larger pass with the fighters' readability measured again. | all |
+| **Readability** | Good. The grove is the narrowest (P1's value gap to the ground 0.04); the edge light and hue carry it. | grove |
+
+## The order
+
+1. **The canyon's rock print:** a sandstone print for the front's beds and the platform slabs (speckle, cross-bedding in short arcs, a
+   few weathering streaks down the face), in place of the long thin lines that read as grain. A step back, so first.
+2. **The meadow's wall at a distance:** fewer, larger stones with joints darker than the faces, and a little lower in value, so the wall
+   reads as one mass that sits back under the lawn. Also tidy the haybales and barrel strewn on the slope at its foot.
+3. **The beach:** the ripple rings varied and softer (not every post, different sizes and phases), and the cloud strip broken into
+   separate banks at different heights and depths.
+4. **The grove's abyss:** the pale pine cards out of the purple (a removal, within the standing rule), and the neighbour islands'
+   undersides brought toward the main island's stone (the same rock colour family at least).
+5. **The canyon's cacti:** the owner's call. Keep the rolled coils, or try A's ribbed cactus under the platforms where they read as
+   springs.
+6. **The city's street:** a road surface on the flat bands (an asphalt print, lane wear, a kerb line), a refinement of what's there.
+7. **The light at 5:** the painted shadow colours, mocked with the fighters' readability measured (item 7 of review 8, continued).
+
+Items 1 to 6 are refinements of what exists, within the standing rule. Items 1 and 2 lift the surfaces column; 3 and 4 the beach's and
+grove's worlds and skies. Item 7 is still the one change that moves every stage's light toward 5.
+
+## Item 1, the canyon's rock (2026-10-25, built)
+
+`tools/art/make_prints.py` family `sandstone` (`--sandstone A|B`, appended after `steel` so every other family's random numbers, and so
+its print, stay byte-identical, checked against `prints/hatched`): sand grains, soft patches a little deeper (a first try at full
+strength read as camouflage), and short sets of cross-bedding arcs, no long lines; B adds faint weathering streaks and pits. Mocked with
+`--print-mock=<folder>` as `strata.png`, so it lands on everything `strata` printed: the front's beds and the platform slabs (`layer1`,
+`layer2`, `strata_*`; the buttes' `rock_*` families carry no print). The print takes the grain away at the match camera; at the wide
+camera the even 0.75 beds, a step lighter and darker by turns, still stacked like planks, so C adds `make_canyon_front.py --straight C`:
+beds of uneven thickness (thin partings of 0.3 to 0.5 between beds of 0.9 to 2.2), 6 to 14 long, the tone stepping less (15,848
+triangles). On the Stage Look Review ("sand9", `s9_*`, C shown before the light bake); recommended C.
+
+Built C (the owner's pick): `prints/hatched/sandstone.png` (`--style B --sandstone A`; only that file copied in, every other print
+unchanged), mapped for the canyon's `layer1`, `layer2` and `strata_*` in `StageBake.PRINTS_BY_THEME`; canyon_front.glb rebuilt with
+`--straight C`; the canyon re-lit (front, paper, play). The front measures value 0.39 (0.37 before: fewer, larger flat faces), with
+sunset.cfg `front_lift` 0.35 to 0.28 (it moves the face only 0.01). Before and after (match camera, then wide):
+`review9/canyon_rock_built.jpg`. All seven tests pass.
+
+## Item 2, the meadow's wall at a distance (2026-10-25, built)
+
+`make_meadow_front.py --calm A|B` (with the shipped `--variant B --stones field --moss 1 --warm B`): A lays stones 1.2 to 3 wide
+(big ones 2 to 3) in courses 0.85 to 1.25 tall, split only one time in five, their values half as spread round 0.8; B is A a step
+lower (0.12) in value. 7,864 triangles, from 13,627. At the wide camera the wall's contrast falls from 0.151 to 0.133 (A) and 0.125 (B),
+its value 0.51 to 0.53 and 0.50 (shown before the light bake). Both mocks also tidy the foot: `StageArt` HillProps with the palette's
+[backdrop] `foot_tidy` (`--foot-tidy`): two bales side by side square to the wall at each end, in place of three at odd angles with one
+half on another; the barrel and rock kept. On the Stage Look Review ("wallcalm9", `wl9_*`); recommended B.
+
+Built B (the owner's pick): meadow_front.glb rebuilt with `--calm B` (7,864 triangles), meadow.cfg [backdrop] `foot_tidy=true`, the
+meadow re-lit (front, play, ground). Before and after (wide, then the match camera): `review9/meadow_wall_built.jpg`. All seven tests
+pass.
+
+## Item 3, the beach's rings and clouds (2026-10-25, built)
+
+Two picks. Rings: `make_mood.py --theme ocean --variant B --rings A|B` (`post_rings`, own random numbers): A, a quarter of the posts bare,
+the rest each its own size (0.75 to 1.25) and strength, the near-side crescent kept and the outer ring a broken arc; B only the
+crescent, a broken arc at some posts. 3,520 (A) and 2,228 (B) triangles, from 9,280; without `--rings` the build is byte-identical to the
+shipped beach_mood.glb. Clouds: `StageArt._ocean` with the palette's [backdrop] `bank_look` (`--bank=A|B`): A five banks in slots across
+the sky at three heights and depths (scales 1.8 to 2.6; a first try at 1.2 to 1.8 read as specks), B two groups, three behind the town
+and two to the right, the sky over the fight left open. On the Stage Look Review ("beach9", `bc9_*`, shown in pairs: A with A, B with B);
+recommended rings A, clouds B.
+
+Built rings A and clouds B (the owner's picks): beach_mood.glb `--theme ocean --variant B --rings A` (the mood light is unshaded glow,
+nothing to re-light), ocean.cfg [backdrop] `bank_look="B"`. Before and after (wide, then the match camera):
+`review9/beach_rings_clouds_built.jpg`. All seven tests pass (the runner after its known coin flake, on a rerun).
+
+## Item 4, the grove's abyss (2026-10-25, built)
+
+`make_grove_paper.py --valley none|far` (with the shipped `--variant H --rock shaped --abyss mist`): none drops the misty valley's pine
+tops and keeps the mist; far keeps 30 of them, only behind 80. 134,262 (none) and 143,202 (far) triangles, from 155,122. The terraces'
+rock: `StageBake._ground_colours` with the palette's [backdrop] `cliff_stone` (`--cliff-stone=`), how far `cliff`, `cliff_b` and
+`cliff_lit` turn to the island's `rock` (darkened 0.55, 0.42 and 0.08, so the terraces stay deep behind the fighters). A: no trees,
+stone 1.0; B: far trees, stone 0.6. P1's value gap to the ground is 0.042 today, 0.042 (A) and 0.039 (B). On the Stage Look Review
+("grove9", `gv9_*`, shown before the light bake); recommended A.
+
+Built A (the owner's pick): grove_paper.glb `--variant H --rock shaped --abyss mist --valley none`, grove.cfg [backdrop]
+`cliff_stone=1.0`, the grove re-lit (front, paper, play). Before and after (wide, then the match camera): `review9/grove_abyss_built.jpg`.
+All seven tests pass.
+
+## Item 5, the canyon's cacti (2026-10-25, built)
+
+The owner's call. The paper kit (`make_paper_props.py --style C --variant A --b stump,crate,cactus`, the owner's picks of 2026-10-21;
+rebuilt, the same size as the shipped kit, its bytes differing only by the occlusion bake's noise) built with `--b stump,crate`, so the
+cactus takes A's ribbed design (a lathed trunk with pressed ribs and two arms) in place of B's stacked coils, everywhere in the canyon
+(`--prop-mock=`). The dark band at the ribbed cactus's foot is the stage top's violet cast shadow (`cast` in the canyon's style), not
+the model: a ring added over its foot changed nothing, and was taken out. On the Stage Look Review ("cactus9", `ct9_*`); recommended A.
+
+Built A (the owner's pick): godot/models/props/paper_props.glb rebuilt with `--style C --variant A --b stump,crate`. Before and after (the
+cacti under the left and right platforms at the match camera): `review9/canyon_cactus_built.jpg`. All seven tests pass.
+
+## Item 6, the city's street (2026-10-25, built)
+
+`StageArt._street` with the palette's [backdrop] `street_look` (`--street=A|B`): A the asphalt a step lighter and greyer, (0.36, 0.34,
+0.44) from (0.3, 0.27, 0.4), its painted patches 0.55 from 0.3, and two darker tyre tracks along each lane; B A with a warm pool of the
+street lamps' light (`_street_pool`, unshaded radial fade) on the road and pavement under each lamp (a first pass at 0.42 barely
+showed; 0.6). The road's left stretch at the wide camera: value 0.34 to 0.38 (A) and 0.39 (B), saturation 0.40 to 0.34 and 0.33. On the
+Stage Look Review ("street9", `st9_*`); recommended B, both modest.
+
+Built B (the owner's pick): city.cfg [backdrop] `street_look="B"` (code-built, nothing to re-light). Before and after (the road's left
+stretch, wide): `review9/city_street_built.jpg`. All seven tests pass (the runner after its known "the way out" flake, on a rerun).
+
+## Item 7, the painted shadow colours (2026-10-25, mock and a finding)
+
+`Lighting.SHADE_TRY` (`--shade=T|A|B|C`; a style's `shade_try` ships one), applied in `stage_mood`: [shadow_value times, shadow_shift
+times (at most 0.25), scenery_shade times, optional key yaw]. A [0.85, 1.4, 0.85], B [0.72, 1.8, 0.72], C A with the key 22 degrees
+further round behind the stage. Measured at the match camera on every stage (the review regions and scratch `readab.gd`):
+
+- **The scenery does not move.** Fronts, tops and middle distance hold value and contrast within 0.01 under A, B and C (C included: the
+  fronts' value is not set by the key's direction). Only the faces already in shade (trunks, posts, undersides) deepen.
+- **The fighters do.** Their shade deepens with the scene's: P1's value gap to the ground on the grove 0.042 today, 0.030 (A), 0.016 (B),
+  0.030 (C); on the beach 0.177 to 0.160, 0.144, 0.143. Their form rises a little on the beach and grove and falls on the meadow.
+
+Recommended: keep today. The scenery's value lives in its baked shading, prints and paper finish; light at 5 would come through the
+light bake (deeper occlusion, darker undersides in the models), a per-stage pass. On the Stage Look Review ("shade9", `sh9_*`).
+
+## After review 9: contact shade and far clouds (2026-10-25, built)
+
+The owner: "continue working on any other items that would help us reach a 5/5 in the art categories". Two levers, both on the Stage
+Look Review:
+
+- **Deeper contact shade** ("lightbake10", `lb10_*`): item 7's finding put the scenery's light in its baked shading, so `light_stage.py`
+  on every stage's pieces (the same pieces each re-light takes) at A `--curve 3.2 --reach 3.5 --floor 0.36` and B `--curve 4.0 --reach 4.5
+  --floor 0.28`, against today's 2.5, 2.5 and 0.45, written to scratch folders (`--out`) and shown with `--front-mock`, `--play-mock`,
+  `--ground-mock`. The review regions move within 0.01 (the shade is local: under the lips, at the walls' feet, round props); it shows
+  as a darker band under the meadow's turf lip, shade in the canyon top's corners and the grove's lip. The fighters are not baked: P1's
+  gap holds or grows (the grove 0.041 to 0.048, the city 0.121 to 0.131 at B). Recommended B.
+- **A second, farther cloud layer** ("farclouds10", `fc10_*`): `StageArt._far_clouds` with the palette's [backdrop] `cloud_far` [count,
+  size, how pale] (`--cloud-far=A|B`, A [6, 0.75, 0.42], B [10, 0.95, 0.3]) on the meadow, canyon and grove: behind the furthest range
+  (the range keep-out off for this layer), at the main band's heights, tinted toward the horizon (toward the sky's middle blue they read
+  as blue blots). It adds clouds, so the owner's call under the standing rule. Recommended B on the canyon only (its sky had two clouds).
+
+Built the owner's picks: every stage re-lit in place with `--curve 4.0 --reach 4.5 --floor 0.28` after a fresh `--light-export` (the
+meadow's front, play area and ground; the canyon's front, paper and play area; the beach's ground and play area; the city's front and
+play area; the grove's front, paper and play area), the settings recorded in `light_stage.py` for every later re-light; sunset.cfg
+[backdrop] `cloud_far=[10, 0.95, 0.3]` (the canyon only). Before and after (the meadow's turf lip, the canyon's top, the grove's lip at
+the match camera, then the canyon's sky wide): `review9/shade_clouds_built.jpg`. All seven tests pass (the runner's coin flake failed
+twice, then passed three times in a row).
