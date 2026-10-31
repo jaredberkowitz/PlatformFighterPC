@@ -108,6 +108,9 @@ uniform vec4 paper_own = vec4(-1.0);
 // drift across it, and the light cannot add it): x broad value patches, y a slow warm-to-cool wander, z their size in world units,
 // w the tops a touch warmer and the walls cooler. Set by StageBake on a stage's modelled pieces (the palette's `paint_drift`); 0 off.
 uniform vec4 paint_drift = vec4(0.0);
+// The darkest the baked contact shade may take this surface (`vertex_shade`; 0 no floor), set by StageBake on the fronts' stones and moss
+// (fidelity review 17: every stone's top, pressed under the course above, baked to a dark slate lid). The stones' own tones lie above it.
+uniform float vshade_floor = 0.0;
 // How much of the drifting cloud shadows (`pf_clouds`) this surface takes, 1 all; StageBake's bright floors on trial set it on the walked
 // tops and platforms.
 uniform float cloud_shade = 1.0;
@@ -162,7 +165,7 @@ uniform vec4 hem_color : source_color = vec4(0.1, 0.07, 0.12, 1.0);
 void vertex() {
 	world_pos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 	world_normal = normalize((MODEL_MATRIX * vec4(NORMAL, 0.0)).xyz);
-	vshade = vertex_shade ? mix(COLOR.rgb, vec3(1.0), pf_vshade_lift) : vec3(1.0);
+	vshade = vertex_shade ? max(mix(COLOR.rgb, vec3(1.0), pf_vshade_lift), vec3(vshade_floor)) : vec3(1.0);
 	if (instance_tint) {
 		vshade *= INSTANCE_CUSTOM.rgb;
 	}

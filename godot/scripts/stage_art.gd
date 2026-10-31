@@ -183,18 +183,6 @@ static func sky(t: Dictionary) -> Sky:
 			t = t.duplicate()
 			t.sky_bands = [0.012, 0.07]
 			deepen = [0.22, 0.08] if arg.substr(12).to_upper() == "B" else [0.0, 0.0]
-	# (The grove's sky cleared, fidelity review 16 item 2, `--grove-light=B` (Lighting.GROVE_LIGHT_TRY): busy pink-violet with little
-	# gradient behind the trees; a clear blue top and middle, a warm pale horizon, calmer wisps.)
-	if t.get("name", "") == "grove":
-		for arg in OS.get_cmdline_user_args():
-			if arg == "--grove-light=B":
-				t = t.duplicate()
-				top = Color(0.2, 0.36, 0.8)
-				t.sky_mid = Color(0.48, 0.62, 0.94)
-				t.sky_horizon = Color(1.0, 0.88, 0.76)
-				t.sky_wisps = [Color(1.0, 0.96, 0.94), 0.2]
-				t.sky_glow = [(t.sky_glow as Array)[0], float((t.sky_glow as Array)[1]) * 0.5]
-				horizon = t.sky_horizon
 	if float(deepen[0]) > 0.0 or float(deepen[1]) > 0.0:
 		t = t.duplicate()
 		t.sky_mid = (t.get("sky_mid", top.lerp(horizon, 0.5)) as Color).darkened(float(deepen[1]))
@@ -4323,7 +4311,8 @@ static func underside(root: Node3D, t: Dictionary, e: Array) -> void:
 				var col := _mesh(root, mesa, _under_material(_soil_material(t), 0.62), Vector3.ZERO)
 				col.name = "Underside"
 				col.set_instance_shader_parameter("front_top", e[2])
-			_under_haze(root, t, bottom - 1.0, 6.0, 0.5)
+			# (0.2, fidelity review 17: at 0.5 the foreground rock and hoodoos of the wide frame's lower third dissolved in a milky peach.)
+			_under_haze(root, t, bottom - 1.0, 6.0, 0.2)
 			# The desert floor the mesa stands in (level with the far buttes' feet) and fallen rock heaped round its foot.
 			var floor_y := DESERT_FLOOR
 			# (Painted sand laid in world space with soil detail, not a flat fill, and a scatter of scrub and stones over it so the floor
@@ -5832,7 +5821,8 @@ static func _city(root: Node3D, t: Dictionary, stage: Array) -> void:
 		for ly in range(5):
 			_mesh(root, _box(Vector3(0.4, 0.04, 0.04)), iron, tower + Vector3(1.0, 0.8 + ly * 0.7, 0.95))
 	var mast := Vector3(float(e[1]) - 2.5, roof, -6.5)
-	_mesh(root, _cylinder(0.08, 0.15, 6.0, 6), FighterView.respond(FighterView.toon(Color(0.6, 0.62, 0.7)), "metal"), mast + Vector3(0, 3, 0))
+	# (A matte steel, fidelity review 17: its metal band burned white, the brightest line in the frame beside the fight.)
+	_mesh(root, _cylinder(0.08, 0.15, 6.0, 6), FighterView.toon(Color(0.42, 0.42, 0.54)), mast + Vector3(0, 3, 0))
 	var blink := Blinker.new()
 	blink.position = mast + Vector3(0, 6.1, 0)
 	root.add_child(blink)
@@ -6350,7 +6340,7 @@ static func _shopfront(root: Node3D, cx: float, width: float, y: float, front: f
 			var goods: Color = [Color(0.42, 0.26, 0.34), Color(0.86, 0.5, 0.46), Color(0.5, 0.7, 0.62), Color(0.72, 0.52, 0.3)][g.randi_range(0, 3)]
 			_mesh(root, _box(Vector3(gw, gh, 0.1)), FighterView.toon(goods), Vector3(gx + gw * 0.5, y + 0.66 + gh * 0.5, front + 0.24))
 			gx += gw + g.randf_range(0.1, 0.32)
-	_halo(root, Vector3(cx, y + 1.8, front + 0.8), Color(1.0, 0.8, 0.5), width * 0.14)
+	_halo(root, Vector3(cx, y + 3.15, front + 0.5), Color(1.0, 0.8, 0.5), width * 0.06)
 
 
 ## A lit shop sign: a pink panel with its name in block letters.

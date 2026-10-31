@@ -678,7 +678,9 @@ def cutout(name, fam, profile, z, bottom, thick=0.6, hole=None):
         if hole and xa >= hole[0] and xb <= hole[1]:
             lo_a = lo_b = hole[2]
             face(part(name, "card_" + fam), (P(xa, lo_a, z), P(xa, lo_a, z - thick), P(xb, lo_b, z - thick), P(xb, lo_b, z)))
-        face(part(name, fam), (P(xa, ya, z), P(xa, lo_a, z), P(xb, lo_b, z), P(xb, ya, z)))
+        # (`yb` at its far side, fidelity review 17: `ya` both ways made every column's top flat, the far dunes' crest a stair of little steps against the
+        # sunset's glow.)
+        face(part(name, fam), (P(xa, ya, z), P(xa, lo_a, z), P(xb, lo_b, z), P(xb, yb, z)))
         face(part(name, "card_" + fam), (P(xa, ya, z - thick), P(xa, ya, z), P(xb, yb, z), P(xb, yb, z - thick)))
 
 

@@ -471,8 +471,11 @@ static func place_front(root: Node3D, t: Dictionary, scene: Node3D) -> void:
 			if fam in ["fieldstone", "wall_moss"] and stones.has("fall"):
 				m.set_shader_parameter("front_fall", float(stones.fall))
 			m.set_shader_parameter("front_span", 7.0)
-			if flag("--front-shadow=") != "":
-				m.set_shader_parameter("shadow_amount", float(flag("--front-shadow=")))
+			if fam in ["fieldstone", "wall_moss", "moss", "moss_shade", "rock"]:
+				m.set_shader_parameter("vshade_floor", 0.84)
+			# (The canyon's beds a little lower, so the shade under their ledges stays; below it, on long faces, it smeared in blotches.)
+			if fam.begins_with("strata_"):
+				m.set_shader_parameter("vshade_floor", 0.76)
 			_paint_drift(m, t, false)
 			if fam.begins_with("brick") and CITY_PAINT.has(StageArt.city_paint()):
 				m.set_shader_parameter("paint_drift", CITY_PAINT[StageArt.city_paint()].brick)
@@ -899,15 +902,15 @@ const PRINTS := {"grass": ["grass", 0.45, 5.0], "lawn": ["grass", 0.45, 5.0], "l
 	"log": ["wood", 0.4, 3.0], "log_end": ["wood", 0.3, 1.5], "plank": ["wood", 0.4, 3.0], "plank_b": ["wood", 0.4, 3.0],
 	"plank_card": ["wood", 0.35, 3.0], "wood": ["wood", 0.4, 1.6], "wood_light": ["wood", 0.4, 1.6], "wood_dark": ["wood", 0.35, 1.6],
 	"band": ["wood", 0.3, 1.2], "stem": ["grass", 0.2, 1.0], "stone": ["stone", 0.35, 2.5], "stone2": ["stone", 0.35, 2.5],
-	"stone_light": ["stone", 0.35, 2.5], "straw": ["straw", 0.45, 1.4], "straw_end": ["straw", 0.4, 1.0]}
+	"stone_light": ["stone", 0.35, 2.5], "straw": ["straw", 0.45, 1.4], "straw_end": ["straw", 0.4, 1.0], "terrace_wall": ["stone", 0.4, 3.0]}
 ## Each stage's own families where they mean something else there (`top` is grass on the grove, sand on the canyon, boards on the
 ## beach, roofing on the city), and the other stages' props; over `PRINTS`.
 const PRINTS_BY_THEME := {
 	"grove": {"top": ["grass", 0.45, 5.0], "top_card": ["grass", 0.35, 5.0], "layer1": ["soil", 0.35, 4.0], "layer2": ["soil", 0.35, 4.0],
 		"earth": ["soil", 0.35, 4.0], "rock": ["stone", 0.14, 2.5], "root": ["wood", 0.4, 3.0], "moss_shade": ["grass", 0.3, 3.0]},
 	# (Sandstone on the canyon's rock, fidelity review 9, the owner's pick: `strata`'s long thin lines read as wood grain on the long beds.)
-	"sunset": {"top": ["sand", 0.45, 5.0], "top_card": ["sand", 0.35, 5.0], "layer1": ["sandstone", 0.4, 4.0], "layer2": ["sandstone", 0.4, 4.0],
-		"strata_a": ["sandstone", 0.4, 4.0], "strata_b": ["sandstone", 0.4, 4.0], "strata_c": ["sandstone", 0.4, 4.0]},
+	"sunset": {"top": ["sand", 0.28, 5.0], "top_card": ["sand", 0.28, 5.0], "layer1": ["sandstone", 0.4, 4.0], "layer2": ["sandstone", 0.4, 4.0],
+		"strata_a": ["sandstone", 0.24, 4.0], "strata_b": ["sandstone", 0.24, 4.0], "strata_c": ["sandstone", 0.24, 4.0]},
 	"ocean": {"top": ["wood", 0.22, 3.0], "top_card": ["wood", 0.22, 3.0], "layer1": ["wood", 0.3, 3.0], "beam": ["wood", 0.4, 3.0],
 		"post": ["wood", 0.4, 2.0], "iron": ["steel", 0.3, 1.5]},
 	"city": {"top": ["roof", 0.4, 5.0], "top_card": ["roof", 0.3, 5.0], "layer1": ["stone", 0.3, 2.5], "steel": ["steel", 0.3, 1.5],
@@ -1143,7 +1146,9 @@ static func _ground_colours(t: Dictionary) -> Dictionary:
 	var soil: Color = t.get("soil", Color(0.86, 0.5, 0.32))
 	# (A step deeper, the readability pass: the butte behind the fight measured the fighters' own value.)
 	out["rock_a"] = soil.darkened(0.12)
-	out["rock_b"] = (t.get("soil_dark", Color(0.68, 0.34, 0.24)) as Color).darkened(0.22)
+	# (0.04 lighter, not 0.22 darker, fidelity review 17: truly lit, with its shade side deep, it was near black on the hoodoos and the talus, the
+	# darkest thing in a bright frame. The buttes keep their step of value from rock_a.)
+	out["rock_b"] = (t.get("soil_dark", Color(0.68, 0.34, 0.24)) as Color).lightened(0.04)
 	# (A step paler, not the front's 0.6: in thin plates the pale bands striped the arch like candy.)
 	out["rock_c"] = soil.lerp(Color(1.0, 0.86, 0.66), 0.35).darkened(0.08)
 	# (Deeper and rosier than the painted dunes' sands: as flats they take the full air of their depth and faded into the horizon.)
@@ -1210,8 +1215,9 @@ static func _ground_colours(t: Dictionary) -> Dictionary:
 	out["plank"] = Color(0.66, 0.5, 0.34)
 	out["card_plank"] = Color(0.48, 0.36, 0.26)
 	out["wet_stone"] = Color(0.5, 0.52, 0.5)
-	out["plough"] = Color(0.6, 0.44, 0.32)
-	out["plough_row"] = Color(0.48, 0.34, 0.25)
+	# (A step lighter, fidelity review 17: the furrows and their shade were the darkest patches on the meadow, chocolate either side of the wall.)
+	out["plough"] = Color(0.74, 0.56, 0.4)
+	out["plough_row"] = Color(0.62, 0.46, 0.33)
 	out["crop_row"] = Color(0.5, 0.74, 0.3)
 	out["verge"] = Color(0.5, 0.74, 0.34)
 	# (A clear mid green, fidelity review 17: at 0.27, 0.44, 0.27 the tall banks between the terraces read as dark bands across the frame, the
@@ -1338,6 +1344,9 @@ static func _paint_ground(node: Node3D, colours: Dictionary, t := {}) -> void:
 			if finish in ["A", "B"] and fam in GROUND_DRIFT:
 				var d: Vector4 = GROUND_DRIFT[fam]
 				m.set_shader_parameter("paint_drift", d if finish == "A" else Vector4(d.x * 1.5, d.y * 1.3, d.z * 0.4, d.w))
+			# (Fidelity review 17: at the wide camera the terrace walls were long plain card bands.)
+			if fam == "terrace_wall":
+				m.set_shader_parameter("paint_drift", Vector4(2.2, 1.2, 7.0, 0.5))
 			if fam in ["head_near", "head_far"] and head.has("drift"):
 				m.set_shader_parameter("paint_drift", head.drift)
 				m.set_shader_parameter("ramp_center", float(head.get("ramp_center", 0.45)))

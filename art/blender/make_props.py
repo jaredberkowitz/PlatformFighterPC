@@ -1667,7 +1667,8 @@ def dune_range(name, seed, height, rows):
             f = max(0.0, 1.0 + d / (amp * 4.5)) if d < 0.0 else max(0.0, 1.0 - d / (amp * 1.4))
             best = max(best, amp * f ** 1.3)
         return best
-    nx, ny = 72, 22
+    # (Finer, fidelity review 17: 7 units a column, the crest's silhouette against the sunset's glow was a row of little stair steps.)
+    nx, ny = 160, 44
     bm = bmesh.new()
     grid = []
     for j in range(ny + 2):

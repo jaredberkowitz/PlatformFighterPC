@@ -255,18 +255,22 @@ def strata_bed(bm, x0, x1, y0, y1, face, amp, rng, fissures, tone_at, back, shap
         # (The lit ledge: the bed's top front edge cut back, a face that catches the sun as a soft band, not a ruled line.)
         ch = min(0.09, (top - foot) * 0.25)
         cols.append((x, foot, top - ch, top, z, z - ch * 1.6, tone_at(x)))
-    centre = P((x0 + x1) * 0.5, (y0 + y1) * 0.5, back - 0.5)
     rows = []
     for (x, foot, mid, top, z, zc, t) in cols:
         row = [bm.verts.new(P(x, foot, z)), bm.verts.new(P(x, mid, z)), bm.verts.new(P(x, top, zc)), bm.verts.new(P(x, top, back)), bm.verts.new(P(x, foot, back))]
         tone(bm, row, t)
         rows.append(row)
+    # (Turned out from a point behind each column, not the bed's middle: from there, a face sloping along a long bed came out turned in and was culled,
+    # a dark square hole showing the ledge behind it.)
     for a, b in zip(rows, rows[1:]):
+        centre = (a[0].co + a[3].co + b[0].co + b[3].co) * 0.25
+        centre.y += 0.5
         for k in range(4):
-            oriented = bm.faces.new((a[k], b[k], b[k + 1], a[k + 1]))
-            oriented.normal_update()
-            if oriented.normal.dot(oriented.calc_center_median() - centre) < 0:
-                oriented.normal_flip()
+            f = bm.faces.new((a[k], b[k], b[k + 1], a[k + 1]))
+            f.normal_update()
+            if f.normal.dot(f.calc_center_median() - centre) < 0:
+                f.normal_flip()
+    centre = P((x0 + x1) * 0.5, (y0 + y1) * 0.5, back - 0.5)
     for row in (rows[0], rows[-1]):
         end = bm.faces.new(row)
         end.normal_update()
@@ -279,12 +283,6 @@ def strata_face():
     rng = random.Random(907)
     y = Y_TOP
     k = 0
-    # Long cracks: [x, top, bottom], running through a few beds. A few, and not evenly spaced, so they read as weathering, not as joints.
-    cracks = []
-    w = half_width(Y_TOP)
-    for cx in (-0.62, -0.2, 0.17, 0.66):
-        top = Y_TOP - rng.uniform(1.0, 7.0)
-        cracks.append((cx * w + rng.uniform(-0.9, 0.9), top, top - rng.uniform(3.0, 6.5)))
     back = FZ - 1.45
     since_pale = 0
     while y > FLOOR - 0.5:
@@ -310,14 +308,17 @@ def strata_face():
         amp = 0.14 if first else (0.1 if soft else rng.uniform(0.18, 0.36))
         ym = y - h * 0.5
         hw = half_width(ym) + rng.uniform(-0.1, 0.32) - (0.35 if soft else 0.0)
+        # (Long shallow scoops of erosion along a bed, each its own: cracks lined up from bed to bed read as stacked planks at the wide camera.)
         fissures = []
         if not soft:
-            for (cx, ct, cb) in cracks:
-                if cb < ym < ct:
-                    fissures.append((cx + rng.uniform(-0.14, 0.14), rng.uniform(0.14, 0.26), rng.uniform(0.3, 0.42)))
-            # A short check in the thicker beds, its own.
-            for _ in range(rng.randrange(0, 3) if h > 1.2 else 0):
-                fissures.append((rng.uniform(-hw + 1.0, hw - 1.0), rng.uniform(0.08, 0.15), rng.uniform(0.14, 0.24)))
+            for _ in range(rng.randrange(0, 3)):
+                fissures.append((rng.uniform(-hw + 2.0, hw - 2.0), rng.uniform(1.3, 3.4), rng.uniform(0.12, 0.34)))
+        # A loose joint in some of the hard beds, at its own place, one side of it standing a little proud.
+        spans = [(-hw, hw, 0.0)]
+        if not soft and not first and h > 0.9 and rng.random() < 0.4:
+            jx = rng.uniform(-hw + 2.5, hw - 2.5)
+            step_z = rng.uniform(0.06, 0.14) * rng.choice((-1.0, 1.0))
+            spans = [(-hw, jx - 0.02, 0.0), (jx + 0.02, hw, step_z)]
         base = rng.uniform(0.92, 1.06) * (0.9 if soft else 1.0)
         ph = rng.uniform(0.0, math.tau)
         wl = rng.uniform(7.0, 14.0)
@@ -337,8 +338,9 @@ def strata_face():
             def course_tone(x, step=step, tone_at=tone_at):
                 return tone_at(x) * step
 
-            strata_bed(part(fam), -hw, hw, ya - 0.16, yb, face + (rng.uniform(-0.07, 0.07) if courses > 1 else 0.0), amp, rng, fissures, course_tone, back,
-                       shape=random.Random(seed))
+            dz = rng.uniform(-0.07, 0.07) if courses > 1 else 0.0
+            for (xa, xb, step_z) in spans:
+                strata_bed(part(fam), xa, xb, ya - 0.16, yb, face + dz + step_z, amp, rng, fissures, course_tone, back, shape=random.Random(seed))
         y -= h
         k += 1
 

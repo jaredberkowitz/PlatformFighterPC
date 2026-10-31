@@ -24,7 +24,7 @@ const MOODS := {
 	# (The sun on the camera's side, fidelity review 17: from behind the scene, KEY_SIDE taken in, every slope and wall facing the camera sat in
 	# shade, and the meadow's hills read as dark bands. The bright lit faces of the papercraft reference come from this.)
 	"meadow": {"key": [Color(1.0, 0.94, 0.88), 1.38, -36.0, -34.0], "sun": [-38.0, 25.0], "fill": [Color(0.58, 0.76, 1.0), 0.4],
-		"contact": Color(0.2, 0.25, 0.13, 0.72),
+		"contact": Color(0.13, 0.27, 0.22, 0.7),
 		# (Shade a deeper version of each colour, barely turned toward blue-green, the meadow rebuild's step 3: the reference's grass shade
 		# is a crisp deep green, ours read as a soft olive.)
 		"ambient": [Color(0.88, 0.92, 1.0), 0.48], "shadow_hue": 0.4, "shadow_shift": 0.1, "shadow_value": 0.38, "front_tint": [0.6, 0.16, 0.94],
@@ -36,7 +36,7 @@ const MOODS := {
 	# (A raking sun from the side, fidelity review 17: from in front the trees went flat; this lifts the trunk and the island's rock and holds a
 	# lit side and a shade side on the pines.)
 	"grove": {"key": [Color(1.0, 0.92, 0.84), 1.32, -32.0, -28.0], "sun": [-34.0, -8.0], "fill": [Color(0.86, 0.66, 1.0), 0.38],
-		"contact": Color(0.3, 0.18, 0.26, 0.72),
+		"contact": Color(0.24, 0.2, 0.26, 0.66),
 		"ambient": [Color(1.0, 0.93, 0.95), 0.47], "shadow_hue": 0.78, "shadow_shift": 0.06, "shadow_value": 0.42,
 		# (Less violet, fidelity review 17: its grey rock took it whole, lilac strips under the moss. The grove's far land and sky keep theirs.)
 		"shadow_tint": Color(0.76, 0.72, 0.88), "rim": Color(1.0, 0.86, 0.92),
@@ -51,7 +51,8 @@ const MOODS := {
 	# STYLES.sunset's `key_fill`, `cast` and `haze_max`. Lit rock warm, shade and distance violet; every face of it was one pink-orange.
 	# `--two-hue=T` brings back the look before, TWO_HUE_TRY.)
 	"sunset": {"key": [Color(1.0, 0.8, 0.5), 1.25, -20.0, -42.0], "sun": [-28.0, 10.0], "fill": [Color(0.52, 0.66, 1.0), 0.42],
-		"contact": Color(0.5, 0.26, 0.34, 0.72),
+		# (A deep sand; a rosier one read as a red stain under the fighters.)
+		"contact": Color(0.52, 0.36, 0.3, 0.64),
 		"ambient": [Color(0.86, 0.9, 1.0), 0.5], "shadow_hue": 0.68, "shadow_shift": 0.4, "shift_cap": 0.4, "shadow_value": 0.522,
 		"shadow_tint": Color(0.62, 0.64, 0.94),
 		# (A cool rim from the dusk sky overhead, art review 6 round 4: an orange rim on warm fighters against warm rock added no separation.)
@@ -84,25 +85,6 @@ const TWO_HUE_TRY := {
 		"ambient": [Color(0.94, 0.84, 0.88), 0.5], "key": [Color(1.0, 0.72, 0.5), 1.25, -20.0, -42.0], "fill": [Color(0.6, 0.5, 1.0), 0.42],
 		"grade": [Color(0.88, 0.8, 1.05), Color(1.08, 0.96, 0.86), 0.45], "haze": Color(1.0, 0.79, 0.82)},
 		"cast": Color(0.3, 0.22, 0.48, 1.0), "haze_max": 0.08, "key_fill": [0.45, 0.45]},
-}
-
-
-## The grove's light and sky on trial, fidelity review 16 item 2 (`--grove-light=A|B`): a soft pink veil, little lit side or shade side
-## under the canopy, a busy pink-violet sky.
-##   A  clear air: the distance haze from lavender to a pale cool blue, the ambient and fill cooler and less pink, the shade turned
-##      toward a violet-blue (hue 0.7, shift 0.14), the grade's shadows cool and lights a touch warm, the key near neutral;
-##   B  A, and most of the ambient moved into the key (`key_fill` [0.2, 0.3], as the canyon's), so every tree, trunk and rock has a lit
-##      side and a cool shade side, and a clear blue sky behind the trees (StageArt.sky: a blue top and middle, a warm pale horizon, calmer
-##      wisps, half the glow).
-## (A first try with a golden key warmed the lawn back toward the fighters' yellow, P1's gap 0.120 to 0.091, and its sky change, a
-## deeper violet, barely showed: the lavender haze and the pink glow lay over the whole distance.)
-const GROVE_LIGHT_TRY := {
-	"A": {"mood": {"key": [Color(1.0, 0.92, 0.82), 1.32, -32.0, -28.0], "fill": [Color(0.66, 0.68, 1.0), 0.38],
-		"ambient": [Color(0.9, 0.92, 1.0), 0.47], "shadow_hue": 0.7, "shadow_shift": 0.14, "shadow_tint": Color(0.66, 0.66, 0.94),
-		"grade": [Color(0.92, 0.92, 1.06), Color(1.06, 1.0, 0.94), 0.36], "haze": Color(0.8, 0.88, 1.0)}},
-	"B": {"mood": {"key": [Color(1.0, 0.92, 0.82), 1.32, -32.0, -28.0], "fill": [Color(0.66, 0.68, 1.0), 0.38],
-		"ambient": [Color(0.9, 0.92, 1.0), 0.47], "shadow_hue": 0.7, "shadow_shift": 0.14, "shadow_tint": Color(0.66, 0.66, 0.94),
-		"grade": [Color(0.92, 0.92, 1.06), Color(1.06, 1.0, 0.94), 0.36], "haze": Color(0.8, 0.88, 1.0)}, "key_fill": [0.2, 0.3]},
 }
 
 
@@ -272,7 +254,7 @@ const STYLES := {
 	# (The background grounded, the graphics review 5: the sun's shadows out over the terraces, the trees' and gates' a cool violet.)
 	"grove": {"bounce": Color(0.6, 0.86, 0.46, 0.6), "grade_more": 0.15, "curve_more": 0.06, "glow_from": 1.9,
 		"paint": [Color(1.06, 0.99, 0.94), Color(0.94, 0.9, 1.06), 0.55], "clouds": [0.9, 5.5, 0.6, 0.25], "cloud_tone": Color(0.66, 0.72, 0.9, 1.0),
-		"sun_shadow": [260.0, 4, 1.0], "cast": Color(0.22, 0.24, 0.48, 1.0),
+		"sun_shadow": [260.0, 4, 1.0], "cast": Color(0.46, 0.46, 0.68, 1.0),
 		"finish": {"desat": 0.0, "lift": 0.02, "haze_max": 0.04, "haze_start": 45.0, "s_curve": 0.3, "quiet": 0.08, "sheets": 0.56, "cut_edge": 0.5,
 			"fight_lift": 0.18}},
 	# Crisper light-to-shadow steps (a clear lit side and shaded side on every prop, in the manner of a cel-shaded adventure), warmer tops
@@ -281,7 +263,7 @@ const STYLES := {
 		"ramp": [[0.0, 0.0], [0.38, 0.0], [0.43, 0.52], [0.55, 0.52], [0.6, 1.0], [1.0, 1.0]],
 		"paint": [Color(1.1, 1.02, 0.88), Color(0.88, 0.88, 1.1), 0.65], "deep": 0.74, "clouds": [0.9, 8.0, 0.6, 0.7], "cloud_tone": Color(0.66, 0.72, 0.9, 1.0),
 		# (The windmill, cottages, pines and haystacks grounded, a cool blue-green shadow, the graphics review 5.)
-		"sun_shadow": [260.0, 4, 1.0], "cast": Color(0.28, 0.4, 0.52, 1.0),
+		"sun_shadow": [260.0, 4, 1.0], "cast": Color(0.5, 0.6, 0.68, 1.0),
 		# (Less haze and no greying of the scenery, 2026-10-17: together they washed the mid-distance cottages, trees and mountains into
 		# flat pastel shapes, the owner's "flat" feel; depth still reads through the cooler, lighter far colours.)
 		# (Air again, the owner's paint-over pick 2026-10-21: the distance lighter and softer, `haze_max` 0.06 to 0.24.)
@@ -297,7 +279,8 @@ const STYLES := {
 		# (Two hues, fidelity review 15 item 3, the owner's pick E (see MOODS.sunset): the cast shadows blue-violet, most of the ambient
 		# moved into the key so the shade sides take the painted violet rather than the rock's own red, and the far land in the upper sky's
 		# violet air. They were (0.3, 0.22, 0.48), the colourful shade's 0.45 and 0.08.)
-		"cast": Color(0.24, 0.26, 0.56, 1.0), "key_fill": [0.1, 0.3],
+		# (Lighter, fidelity review 17: at 0.24, 0.26, 0.56 the hoodoos laid hard black-violet shapes across the lit dunes.)
+		"cast": Color(0.5, 0.48, 0.74, 1.0), "key_fill": [0.1, 0.3],
 		# (A dark anchor, fidelity review 13, the owner's pick B: the still held 4% darks and read milky, `value_deep` in post.gdshader.)
 		"finish": {"desat": 0.0, "lift": 0.02, "haze_max": 0.34, "s_curve": 0.3, "quiet": 0.08, "sheets": 0.56, "cut_edge": 0.5, "fight_lift": 0.15,
 			"value_deep": [0.35, 0.3, 0.6, 60.0]}},
@@ -309,7 +292,7 @@ const STYLES := {
 	# stops short of the headland behind the town, about 205 from the camera, whose standing flats shadowed each other in stripes.)
 	"ocean": {"bounce": Color(0.42, 0.86, 0.92, 0.66), "grade_more": 0.15, "curve_more": 0.06, "glow_from": 1.9,
 		"paint": [Color(1.05, 1.02, 0.94), Color(0.9, 0.97, 1.06), 0.5], "clouds": [0.9, 9.0, 0.6, 0.9], "cloud_tone": Color(0.66, 0.72, 0.9, 1.0),
-		"sun_shadow": [190.0, 4, 1.0], "cast": Color(0.3, 0.36, 0.58, 1.0),
+		"sun_shadow": [190.0, 4, 1.0], "cast": Color(0.5, 0.54, 0.72, 1.0),
 		"ramp": [[0.0, 0.0], [0.3, 0.1], [0.45, 0.45], [0.6, 0.82], [0.75, 1.0], [1.0, 1.0]],
 		# (Air, the owner's paint-over pick 2026-10-21: `haze_max` 0.07 to 0.24. The air retune, 2026-10-22: from 45 behind and less, so
 		# the town across the bay keeps its colour.)
@@ -513,9 +496,6 @@ static func stage_mood(env: Environment, root: Node, theme: Dictionary, post: Sh
 	var mood: Dictionary = MOODS.get(theme.get("name", "meadow"), MOODS.meadow)
 	# (The canyon before its two hues, fidelity review 15 item 3: `--two-hue=T`, see TWO_HUE_TRY.)
 	var two: Dictionary = TWO_HUE_TRY.get(_flag_value("--two-hue=").to_upper(), {}) if String(theme.get("name", "")) == "sunset" else {}
-	# (The grove's light, fidelity review 16 item 2: `--grove-light=A|B`, see GROVE_LIGHT_TRY.)
-	if String(theme.get("name", "")) == "grove":
-		two = GROVE_LIGHT_TRY.get(_flag_value("--grove-light=").to_upper(), {})
 	if two.has("mood"):
 		mood = mood.duplicate()
 		mood.merge(two.mood, true)

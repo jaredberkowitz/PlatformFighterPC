@@ -1570,15 +1570,6 @@ func _on_fighter_layer(node: Node) -> void:
 		(g as GeometryInstance3D).layers = 2
 
 
-## The fighters on bright floors (fidelity review 16 item 1, the owner's pick A): the contact shadow firmer (0.8 from 0.64) and 15% wider;
-## StageBake turns the meadow's and grove's lawns cooler (`LAWN_COOL`). `--fighter-floor=T` brings back the shadow as before.
-static func _fighter_floor() -> String:
-	for arg in OS.get_cmdline_user_args():
-		if arg.begins_with("--fighter-floor="):
-			return arg.substr(16).to_upper()
-	return "A"
-
-
 func _contact_shadow() -> void:
 	if _shadow_tex == null:
 		# (A crisp, even ellipse in a deep cool shade at half strength, the judge's round 39: near-black at 0.85 with a long soft tail, it
@@ -1586,7 +1577,6 @@ func _contact_shadow() -> void:
 		# falls on, as the reference's shadows do, and its clean edge marks the feet.)
 		var g := Gradient.new()
 		# (A little fuller, round 40: the fighters on the light lawns needed a firmer footing.)
-		# (Firmer again, fidelity review 16 item 1, the owner's pick A: on the bright floors the fighters lost their footing.)
 		# (Fidelity review 17: at 0.8 in that near black, on the bright floors the ovals read as stains. White here, a softer edge; the colour and
 		# strength from the stage, `Lighting.contact_tint`, through the decal's modulate.)
 		g.set_color(0, Color(1, 1, 1, 1.0))
@@ -1602,7 +1592,8 @@ func _contact_shadow() -> void:
 		_shadow_tex.height = 64
 	contact_shadow = Decal.new()
 	contact_shadow.texture_albedo = _shadow_tex
-	contact_shadow.size = Vector3(3.0, SHADOW_DEPTH, 2.6) * (Vector3(1.15, 1.0, 1.15) if _fighter_floor() != "T" else Vector3.ONE)
+	contact_shadow.size = Vector3(3.0, SHADOW_DEPTH, 2.6)
+	contact_shadow.modulate = Lighting.contact_tint
 	# Only on surfaces facing up (not down the front of the stage).
 	contact_shadow.normal_fade = 0.6
 	# (Nudged toward the camera so it shows in front of the feet, which would otherwise hide it from the low match camera.)

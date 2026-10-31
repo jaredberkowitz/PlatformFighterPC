@@ -13,7 +13,7 @@ Every look has a mossy foot whose roots splay into the ground, and bakes its own
 families `bark`, `leaf_lit`, `leaf_shade`, `moss`, painted from the stage's palette in the game.
 
 Shipped since fidelity review 6 (the owner's pick B, 2026-10-22): grove_tree.glb (C), grove_tree_tall.glb (`--variant C --shape
-tall`) and grove_tree_broad.glb (`--variant C --shape broad`), StageBake.TREES.
+tall`) and grove_tree_broad.glb (`--variant C --shape broad`), StageBake.TREES; with `--bark folded` since fidelity review 17 (2026-10-30).
 
 Run (Blender 5.2):
   blender --background --python art/blender/make_grove_trees.py -- --variant A --out <file.glb>
@@ -39,12 +39,13 @@ TRUNK_H = 18.0
 R_BOT, R_TOP = 2.9, 2.0
 
 
-def trunk(bm, ridges, twist, depth, sharp, sides=56, rings=64, flare=1.6, bend=0.7):
+def trunk(bm, ridges, twist, depth, sharp, sides=56, rings=64, flare=1.6, bend=0.7, ease=1.0):
     """A trunk lofted ring by ring: `ridges` lobes round it (each `depth` of the radius, `sharp` how ropey) spiralling `twist` turns
     up its height, tapering and bowing a little, and at its foot the lobes splaying out into buttress roots that dip into the ground."""
     grid = []
     for j in range(rings + 1):
-        v = j / rings
+        # (`ease` above 1 puts the rings closer toward the foot, where the buttresses need them.)
+        v = (j / rings) ** ease
         h = -1.2 + (TRUNK_H + 1.2) * v
         r = R_BOT + (R_TOP - R_BOT) * v
         foot = math.exp(-max(h, 0.0) * 0.55)
@@ -156,7 +157,12 @@ def build():
                                  math.sin(el) * d * 0.9))
                 dome(lit, shade, p, rng.uniform(1.6, 2.5), 7, rng)
     else:
-        trunk(bark, ridges=6, twist=0.18, depth=0.4, sharp=1.0, sides=36, rings=24)
+        # (`--bark folded`, fidelity review 17: 24 rings each flat-shaded, the twist turning every quad a little, read as a mosaic of little rectangles at
+        # 1080 lines. Few rings: long folded planes running up the trunk.)
+        if opts.get("bark", "") == "folded":
+            trunk(bark, ridges=6, twist=0.1, depth=0.4, sharp=1.0, sides=24, rings=8, ease=1.8)
+        else:
+            trunk(bark, ridges=6, twist=0.18, depth=0.4, sharp=1.0, sides=36, rings=24)
         # (Five tiers from two thirds up the trunk: starting at its top, the side trees read as pines on stilts.)
         tiers = [(12.6, 11.5, 3.8, 13), (15.6, 10.4, 3.6, 13), (18.6, 8.6, 3.4, 12), (21.4, 6.2, 3.2, 10), (23.8, 3.6, 2.8, 8)]
         axis = (0.6, 0.0)
