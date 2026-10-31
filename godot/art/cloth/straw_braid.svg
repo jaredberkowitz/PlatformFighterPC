@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <rect width="64" height="64" fill="#ff00ff"/>
+  <path d="M0.0,0.8 L4.4,0.8 L7.6,16.0 L3.2,16.0 Z" fill="#ffffff" opacity="0.2"/>
+  <path d="M3.2,16.0 L7.6,16.0 L4.4,31.2 L0.0,31.2 Z" fill="#000000" opacity="0.06"/>
+  <path d="M4.4,0.8 L7.6,16.0 L4.4,31.2" fill="none" stroke="#000000" stroke-opacity="0.12" stroke-width="0.8"/>
+  <path d="M8.0,0.8 L12.4,0.8 L15.6,16.0 L11.2,16.0 Z" fill="#ffffff" opacity="0.2"/>
+  <path d="M11.2,16.0 L15.6,16.0 L12.4,31.2 L8.0,31.2 Z" fill="#000000" opacity="0.06"/>
+  <path d="M12.4,0.8 L15.6,16.0 L12.4,31.2" fill="none" stroke="#000000" stroke-opacity="0.12" stroke-width="0.8"/>
+  <path d="M16.0,0.8 L20.4,0.8 L23.6,16.0 L19.2,16.0 Z" fill="#ffffff" opacity="0.2"/>
+  <path d="M19.2,16.0 L23.6,16.0 L20.4,31.2 L16.0,31.2 Z" fill="#000000" opacity="0.06"/>
+  <path d="M20.4,0.8 L23.6,16.0 L20.4,31.2" fill="none" stroke="#000000" stroke-opacity="0.12" stroke-width="0.8"/>
+  <path d="M24.0,0.8 L28.4,0.8 L31.6,16.0 L27.2,16.0 Z" fill="#ffffff" opacity="0.2"/>
+  <path d="M27.2,16.0 L31.6,16.0 L28.4,31.2 L24.0,31.2 Z" fill="#000000" opacity="0.06"/>
+  <path d="M28.4,0.8 L31.6,16.0 L28.4,31.2" fill="none" stroke="#000000" stroke-opacity="0.12" stroke-width="0.8"/>
+  <path d="M32.0,0.8 L36.4,0.8 L39.6,16.0 L35.2,16.0 Z" fill="#ffffff" opacity="0.2"/>
+  <path d="M35.2,16.0 L39.6,16.0 L36.4,31.2 L32.0,31.2 Z" fill="#000000" opacity="0.06"/>
+  <path d="M36.4,0.8 L39.6,16.0 L36.4,31.2" fill="none" stroke="#000000" stroke-opacity="0.12" stroke-width="0.8"/>
+  <path d="M40.0,0.8 L44.4,0.8 L47.6,16.0 L43.2,16.0 Z" fill="#ffffff" opacity="0.2"/>
+  <path d="M43.2,16.0 L47.6,16.0 L44.4,31.2 L40.0,31.2 Z" fill="#000000" opacity="0.06"/>
+  <path d="M44.4,0.8 L47.6,16.0 L44.4,31.2" fill="none" stroke="#000000" stroke-opacity="0.12" stroke-width="0.8"/>
+  <path d="M48.0,0.8 L52.4,0.8 L55.6,16.0 L51.2,16.0 Z" fill="#ffffff" opacity="0.2"/>
+  <path d="M51.2,16.0 L55.6,16.0 L52.4,31.2 L48.0,31.2 Z" fill="#000000" opacity="0.06"/>
+  <path d="M52.4,0.8 L55.6,16.0 L52.4,31.2" fill="none" stroke="#000000" stroke-opacity="0.12" stroke-width="0.8"/>
+  <path d="M56.0,0.8 L60.4,0.8 L63.6,16.0 L59.2,16.0 Z" fill="#ffffff" opacity="0.2"/>
+  <path d="M59.2,16.0 L63.6,16.0 L60.4,31.2 L56.0,31.2 Z" fill="#000000" opacity="0.06"/>
+  <path d="M60.4,0.8 L63.6,16.0 L60.4,31.2" fill="none" stroke="#000000" stroke-opacity="0.12" stroke-width="0.8"/>
+  <path d="M64.0,0.8 L68.4,0.8 L71.6,16.0 L67.2,16.0 Z" fill="#ffffff" opacity="0.2"/>
+  <path d="M67.2,16.0 L71.6,16.0 L68.4,31.2 L64.0,31.2 Z" fill="#000000" opacity="0.06"/>
+  <path d="M68.4,0.8 L71.6,16.0 L68.4,31.2" fill="none" stroke="#000000" stroke-opacity="0.12" stroke-width="0.8"/>
+  <rect x="0" y="31.1" width="64" height="1.6" fill="#000000" opacity="0.16"/>
+  <path d="M0.0,32.8 L4.4,32.8 L7.6,48.0 L3.2,48.0 Z" fill="#ffffff" opacity="0.2"/>
+  <path d="M3.2,48.0 L7.6,48.0 L4.4,63.2 L0.0,63.2 Z" fill="#000000" opacity="0.06"/>
+  <path d="M4.4,32.8 L7.6,48.0 L4.4,63.2" fill="none" stroke="#000000" stroke-opacity="0.12" stroke-width="0.8"/>
+  <path d="M8.0,32.8 L12.4,32.8 L15.6,48.0 L11.2,48.0 Z" fill="#ffffff" opacity="0.2"/>
+  <path d="M11.2,48.0 L15.6,48.0 L12.4,63.2 L8.0,63.2 Z" fill="#000000" opacity="0.06"/>
+  <path d="M12.4,32.8 L15.6,48.0 L12.4,63.2" fill="none" stroke="#000000" stroke-opacity="0.12" stroke-width="0.8"/>
+  <path d="M16.0,32.8 L20.4,32.8 L23.6,48.0 L19.2,48.0 Z" fill="#ffffff" opacity="0.2"/>
+  <path d="M19.2,48.0 L23.6,48.0 L20.4,63.2 L16.0,63.2 Z" fill="#000000" opacity="0.06"/>
+  <path d="M20.4,32.8 L23.6,48.0 L20.4,63.2" fill="none" stroke="#000000" stroke-opacity="0.12" stroke-width="0.8"/>
+  <path d="M24.0,32.8 L28.4,32.8 L31.6,48.0 L27.2,48.0 Z" fill="#ffffff" opacity="0.2"/>
+  <path d="M27.2,48.0 L31.6,48.0 L28.4,63.2 L24.0,63.2 Z" fill="#000000" opacity="0.06"/>
+  <path d="M28.4,32.8 L31.6,48.0 L28.4,63.2" fill="none" stroke="#000000" stroke-opacity="0.12" stroke-width="0.8"/>
+  <path d="M32.0,32.8 L36.4,32.8 L39.6,48.0 L35.2,48.0 Z" fill="#ffffff" opacity="0.2"/>
+  <path d="M35.2,48.0 L39.6,48.0 L36.4,63.2 L32.0,63.2 Z" fill="#000000" opacity="0.06"/>
+  <path d="M36.4,32.8 L39.6,48.0 L36.4,63.2" fill="none" stroke="#000000" stroke-opacity="0.12" stroke-width="0.8"/>
+  <path d="M40.0,32.8 L44.4,32.8 L47.6,48.0 L43.2,48.0 Z" fill="#ffffff" opacity="0.2"/>
+  <path d="M43.2,48.0 L47.6,48.0 L44.4,63.2 L40.0,63.2 Z" fill="#000000" opacity="0.06"/>
+  <path d="M44.4,32.8 L47.6,48.0 L44.4,63.2" fill="none" stroke="#000000" stroke-opacity="0.12" stroke-width="0.8"/>
+  <path d="M48.0,32.8 L52.4,32.8 L55.6,48.0 L51.2,48.0 Z" fill="#ffffff" opacity="0.2"/>
+  <path d="M51.2,48.0 L55.6,48.0 L52.4,63.2 L48.0,63.2 Z" fill="#000000" opacity="0.06"/>
+  <path d="M52.4,32.8 L55.6,48.0 L52.4,63.2" fill="none" stroke="#000000" stroke-opacity="0.12" stroke-width="0.8"/>
+  <path d="M56.0,32.8 L60.4,32.8 L63.6,48.0 L59.2,48.0 Z" fill="#ffffff" opacity="0.2"/>
+  <path d="M59.2,48.0 L63.6,48.0 L60.4,63.2 L56.0,63.2 Z" fill="#000000" opacity="0.06"/>
+  <path d="M60.4,32.8 L63.6,48.0 L60.4,63.2" fill="none" stroke="#000000" stroke-opacity="0.12" stroke-width="0.8"/>
+  <path d="M64.0,32.8 L68.4,32.8 L71.6,48.0 L67.2,48.0 Z" fill="#ffffff" opacity="0.2"/>
+  <path d="M67.2,48.0 L71.6,48.0 L68.4,63.2 L64.0,63.2 Z" fill="#000000" opacity="0.06"/>
+  <path d="M68.4,32.8 L71.6,48.0 L68.4,63.2" fill="none" stroke="#000000" stroke-opacity="0.12" stroke-width="0.8"/>
+  <rect x="0" y="63.1" width="64" height="1.6" fill="#000000" opacity="0.16"/>
+</svg>
