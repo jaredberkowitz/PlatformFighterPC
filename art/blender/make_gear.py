@@ -33,6 +33,25 @@ def material(name):
     return m
 
 
+def thicken(bm, thickness):
+    """The faces given a real thickness: a second skin `thickness` behind them, joined round the edge. (bmesh's solidify until the hat pass,
+    2026-10-31. It moves the new skin along the vertex normals, which a freshly built mesh does not have yet: it left two skins exactly on
+    top of each other, wound opposite ways, on every shell, brim and cape, and they fought over which one drew, which the two-sided cloth
+    shader showed as hard-edged dark patches and stair-steps. Given normals, it threw long spikes off sharp creases.)"""
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    bm.normal_update()
+    back = {v: bm.verts.new(v.co - v.normal * abs(thickness)) for v in list(bm.verts)}
+    rim = [e for e in bm.edges if len(e.link_faces) == 1]
+    for f in list(bm.faces):
+        bm.faces.new([back[v] for v in reversed(f.verts)])
+    for e in rim:
+        for lp in e.link_loops:
+            a, b = lp.vert, lp.link_loop_next.vert
+            if a in back and b in back:
+                bm.faces.new((b, a, back[a], back[b]))
+                break
+
+
 def to_object(name, bm, smooth=True, sharp=40.0):
     me = bpy.data.meshes.new(name)
     # (Faces turned outward whichever way a part was built: the aviator's shell, built from the crown down, faced in and was culled.)
@@ -202,7 +221,7 @@ def aviator_cap():
             k = (i + 1) % seg_u
             bm.faces.new((rows[j][i], rows[j][k], rows[j + 1][k], rows[j + 1][i]))
     rim = [v.co.copy() for v in rows[-1]]
-    bmesh.ops.solidify(bm, geom=bm.faces[:], thickness=-0.03)
+    thicken(bm, 0.03)
     o = to_object("leather_shell", bm)
     o.parent = root
     # (The aviator scout pilot, 2026-10-19, after the owner's reference: a fleece-lined flying hat, its fleece rolled out round the rim and
@@ -335,7 +354,7 @@ def straw_hat():
             f = bm.faces.new((rings[k][i], rings[k][j], rings[k + 1][j], rings[k + 1][i]))
             for lp, (a_, b_) in zip(f.loops, ((i, k), (i + 1, k), (i + 1, k + 1), (i, k + 1))):
                 lp[uv].uv = (a_ / sides * 6.0, b_ / (len(rings) - 1) * 0.6)
-    bmesh.ops.solidify(bm, geom=bm.faces[:], thickness=0.03)
+    thicken(bm, 0.03)
     to_object("straw_brim", bm, sharp=70.0).parent = root
     bm = bmesh.new()
     # (Tall enough to stand clear of the game's head, which is drawn taller and wider than the design head.)
@@ -410,7 +429,7 @@ def plumed_helm():
         for i in range(seg_u):
             k = (i + 1) % seg_u
             bm.faces.new((rows[j][i], rows[j][k], rows[j + 1][k], rows[j + 1][i]))
-    bmesh.ops.solidify(bm, geom=bm.faces[:], thickness=-0.035)
+    thicken(bm, 0.035)
     o = to_object("metal_bowl", bm, sharp=50.0)
     o.parent = root
     # The brow band along the bowl's lower edge.
@@ -465,7 +484,7 @@ def plumed_helm():
         for k in range(6):
             bm.faces.new((left[k], mid[k], mid[k + 1], left[k + 1]))
             bm.faces.new((mid[k], right[k], right[k + 1], mid[k + 1]))
-        bmesh.ops.solidify(bm, geom=bm.faces[:], thickness=0.025)
+        thicken(bm, 0.025)
         o = to_object("fabric_feather%d" % b, bm, sharp=70.0)
         o.parent = root
     return root
@@ -502,7 +521,7 @@ def crown():
             right.append(bm.verts.new(out * 0.6 * fit + side * w + Vector((0, 0, base + 0.2 + 0.32 * t))))
         for k in range(8):
             bm.faces.new((left[k], right[k], right[k + 1], left[k + 1]))
-        bmesh.ops.solidify(bm, geom=bm.faces[:], thickness=0.035)
+        thicken(bm, 0.035)
         o = to_object("gold_point%d" % i, bm, sharp=40.0)
         o.parent = root
         bm = bmesh.new()
@@ -797,7 +816,7 @@ def beanie():
         for i in range(seg_u):
             k = (i + 1) % seg_u
             bm.faces.new((rows[j][i], rows[j][k], rows[j + 1][k], rows[j + 1][i]))
-    bmesh.ops.solidify(bm, geom=bm.faces[:], thickness=-0.04)
+    thicken(bm, 0.04)
     to_object("fabric_crown", bm).parent = root
     # The folded cuff: a thick band round the lower edge, a little proud.
     bm = bmesh.new()
@@ -953,7 +972,7 @@ def neckwear():
     for r in range(rows_n):
         for c in range(cols_n):
             bm.faces.new((grid[r][c], grid[r][c + 1], grid[r + 1][c + 1], grid[r + 1][c]))
-    bmesh.ops.solidify(bm, geom=bm.faces[:], thickness=0.025)
+    thicken(bm, 0.025)
     to_object("fabric_kerchief", bm).parent = root
     # The sash: a flat strap round the sash node's origin (the game turns it onto the diagonal), ellipse radii 0.5 by 0.57 in its x and z,
     # 0.22 wide along its y, its edges turned.
@@ -1001,7 +1020,7 @@ def _shell(name, centre, radius, height, back_deg, front_deg, thickness=0.035, s
         for i in range(seg_u):
             k = (i + 1) % seg_u
             bm.faces.new((rows[j][i], rows[j][k], rows[j + 1][k], rows[j + 1][i]))
-    bmesh.ops.solidify(bm, geom=bm.faces[:], thickness=-thickness)
+    thicken(bm, thickness)
     return to_object(name, bm, sharp=55.0)
 
 
@@ -1023,7 +1042,7 @@ def _strip(name, points, width, thickness, twist=None):
         right.append(bm.verts.new(p + side * w))
     for s in range(n - 1):
         bm.faces.new((left[s], right[s], right[s + 1], left[s + 1]))
-    bmesh.ops.solidify(bm, geom=bm.faces[:], thickness=thickness)
+    thicken(bm, thickness)
     return to_object(name, bm, sharp=70.0)
 
 
@@ -1052,7 +1071,7 @@ def racing_helmet():
     for j in range(4):
         for i in range(16):
             bm.faces.new((rows[j][i], rows[j][i + 1], rows[j + 1][i + 1], rows[j + 1][i]))
-    bmesh.ops.solidify(bm, geom=bm.faces[:], thickness=0.03)
+    thicken(bm, 0.03)
     to_object("glass_visor", bm, sharp=60.0).parent = root
     # The fin: a swept blade along the back of the shell (a racing helmet's spoiler), the speedster's silhouette.
     bm = bmesh.new()
@@ -1067,7 +1086,7 @@ def racing_helmet():
     hi = [bm.verts.new(h) for _, h in prof]
     for k in range(8):
         bm.faces.new((lo[k], lo[k + 1], hi[k + 1], hi[k]))
-    bmesh.ops.solidify(bm, geom=bm.faces[:], thickness=0.06)
+    thicken(bm, 0.06)
     to_object("canvas_fin", bm, sharp=50.0).parent = root
     for sx in (-1.0, 1.0):
         bm = bmesh.new()
@@ -1096,7 +1115,7 @@ def eared_cap():
     for j in range(3):
         for i in range(14):
             bm.faces.new((rows[j][i], rows[j][i + 1], rows[j + 1][i + 1], rows[j + 1][i]))
-    bmesh.ops.solidify(bm, geom=bm.faces[:], thickness=0.04)
+    thicken(bm, 0.04)
     to_object("fabric_peak", bm, sharp=50.0).parent = root
     for sx in (-1.0, 1.0):
         nm = "L" if sx < 0 else "R"
@@ -1181,7 +1200,7 @@ def top_hat():
         for i in range(sides):
             j = (i + 1) % sides
             bm.faces.new((rings[k][i], rings[k][j], rings[k + 1][j], rings[k + 1][i]))
-    bmesh.ops.solidify(bm, geom=bm.faces[:], thickness=0.035)
+    thicken(bm, 0.035)
     to_object("felt_brim", bm, sharp=60.0).parent = root
     _tilt(root, -8.0, base)
     return root
@@ -1342,6 +1361,8 @@ def cape():
             row.append(p)
         grid.append(row)
     # Off the body round the shoulders and upper back (below them it hangs free: pushed off everywhere it clung in crumples).
+    # (Its top row and side edges smoothed along themselves too, and the last pass smooths as well, the hat pass, 2026-10-31: pushed point by
+    # point and left, the top edge stood in a row of little horns.)
     for it in range(6):
         for j in range(rows + 1):
             for i in range(cols + 1):
@@ -1351,19 +1372,23 @@ def cape():
                 loc, nrm, _, _ = tree.find_nearest(p)
                 if loc is not None and (p - loc).dot(nrm) < st["gap"]:
                     grid[j][i] = loc + nrm * st["gap"]
-        if it < 5:
-            new = [r[:] for r in grid]
-            for j in range(1, rows):
-                for i in range(1, cols):
-                    new[j][i] = (grid[j][i] * 4 + grid[j - 1][i] + grid[j + 1][i] + grid[j][i - 1] + grid[j][i + 1]) / 8.0
-            grid = new
+        new = [r[:] for r in grid]
+        for j in range(1, rows):
+            for i in range(1, cols):
+                new[j][i] = (grid[j][i] * 4 + grid[j - 1][i] + grid[j + 1][i] + grid[j][i - 1] + grid[j][i + 1]) / 8.0
+        for i in range(1, cols):
+            new[0][i] = (grid[0][i] * 2 + grid[0][i - 1] + grid[0][i + 1]) / 4.0
+        for j in range(1, rows):
+            new[j][0] = (grid[j][0] * 2 + grid[j - 1][0] + grid[j + 1][0]) / 4.0
+            new[j][cols] = (grid[j][cols] * 2 + grid[j - 1][cols] + grid[j + 1][cols]) / 4.0
+        grid = new
     body.free()
     bm = bmesh.new()
     vs = [[bm.verts.new(p) for p in r] for r in grid]
     for j in range(rows):
         for i in range(cols):
             bm.faces.new((vs[j][i], vs[j][i + 1], vs[j + 1][i + 1], vs[j + 1][i]))
-    bmesh.ops.solidify(bm, geom=bm.faces[:], thickness=st["thick"])
+    thicken(bm, st["thick"])
     root = empty("cape")
     to_object("fabric_cape", bm, sharp=80.0).parent = root
     return root
@@ -1383,12 +1408,17 @@ def _lumpy(root, amount=0.045, seed=1.0):
         me = c.data
         lo = min(v.co.z for v in me.vertices)
         hi = max(v.co.z for v in me.vertices)
+        centre = Vector((0.0, 0.0, lo))
         for v in me.vertices:
             p = v.co
             n = (math.sin(p.x * 3.1 + seed) * math.sin(p.y * 2.7 + 1.3 * seed) + 0.6 * math.sin(p.z * 4.3 + p.x * 1.7 + 2.0 * seed)) / 1.6
             # (None at the rim, so the band, trim or fleece seated there stays seated.)
             up = max(0.0, min(1.0, ((p.z - lo) / max(hi - lo, 1e-4) - 0.35) / 0.3))
-            v.co = p + v.normal * amount * n * up
+            # Always outward from the hat's middle, whichever way this point's face looks. (Along each point's own normal until the hat
+            # pass, 2026-10-31: on a shell with an inside and an outside skin the noise moved the two opposite ways, they crossed, and the
+            # inside poked through the crown as a hard-edged dark patch.)
+            out = v.normal if v.normal.dot(p - centre) >= 0.0 else -v.normal
+            v.co = p + out * amount * n * up
 
 
 def export(root, path):
