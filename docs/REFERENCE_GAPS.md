@@ -1,7 +1,7 @@
 # 1v1 against the reference game: what is left
 
 Executive review of standard one-on-one play (movement, combat, defence, controls, match rules, presentation), 14 October 2026, at
-sim 111. Online play and other modes are out of scope. Sources: SmashWiki and ultimateframedata.com (reference version 13.0.1), the code on
+sim 111. Online play and other modes are out of scope. Sources: ssbwiki.com and ultimateframedata.com (reference version 13.0.1), the code on
 `main`, and the earlier audits (`FEEL_AUDIT.md`, `PHASE1_MOVEMENT.md`, `COMBAT.md`, `movesets/SHARED_MECHANICS.md`).
 
 **Verdict.** The numbers players feel most already match the reference: knockback, hitstun, hitlag, launch speed and decay, DI / SDI / LSI,
@@ -17,7 +17,8 @@ setup, and 1v1 match rules. None of it means rebuilding anything.
 - Movement: 3-frame jump squat, short/full hop airtimes, short-hop aerial macro, fast fall, air dodges and wavedash, landing lag, the
   committed initial dash, dash dance and foxtrot (sim 103/106), RAR, B-reverse, wall jumps, platform drops.
 - Ledges: grab box, intangibility from airtime and damage, regrab limit, ledge trump, get-up / roll / jump / attack, hang time.
-- Techs (floor, wall, ceiling), missed techs and knockdown get-ups, trips, bury, grabs, pummels, throws, grab mashing.
+- Techs (floor, wall, ceiling), missed techs and knockdown get-ups, trips, bury, grabs, pummels, throws, grab mashing (the rolls out
+  of a tech, a knockdown or a trip still play the shield roll's frames: D7).
 - Shield: 50 HP, drain, regen, stun `0.8 x d x mult + 2`, pushback, break and its stun; out of shield (sim 109); smash charge (60 frames,
   1.4x); clanks.
 - Presentation: hit freeze in the damage pose, contact-point effects by kind, layered hit sounds, camera shake, the game-ending KO slow
@@ -45,6 +46,19 @@ Impact: how much a player would notice. Effort: S (an evening), M (a few sims), 
 | D3 | Jab lock and jab reset (**done, sim 132**: a weak hit on a lying fighter keeps it floored, at most twice per knockdown; the bounce is 12 frames [E], `Ruleset::jab_lock_frames`) | A weak hit on a lying fighter forces a short "down damage" reaction, and a second one forces it to stand up (no lock loops) | A lying fighter takes an ordinary hit | Med | S |
 | D4 | Shield drop through platforms | Removed | **Kept, as shield + special (sim 112, owner decision)**; since sim 144 (playtest 2026-10-19) a hard down flick drops through too, as the reference's (a double tap of down on a keyboard); a slow tilt or single press crouches | Decided | S |
 | D5 | Spot dodge cancel | Reportedly some actions can cancel a spot dodge's end; needs checking against 13.0.1 | None | Low (verify first) | S |
+| D6 | A forward roll ends turned round (**done, sim 147**: the turn lands on the frame the roll ends, a stale roll's later end included, so a grab, attack, jump or special buffered out of it comes out facing the new way; `Fighter::roll_turns`, tests `roll_facing.rs`) | A forward roll out of a shield ends facing the way it came from, so rolling past an opponent leaves you facing them; a back roll keeps its facing. Tech rolls, get-up rolls (a trip's too) and ledge rolls keep their facing whichever way they go | A forward roll kept facing the way it rolled, so rolling past someone left your back to them | High | S |
+| D7 | Tech, get-up and trip rolls on their own frames | A tech roll lasts 40 frames (acts on 41), intangible 1-20, either way, on every body we have ported; a get-up roll 35 (acts on 36), intangible from frame 1 to somewhere between 14 and 31 by body, way and lying face up or down; a trip's roll 28 (acts on 29), intangible 1-9 | All three play the body's shield roll (26 to 35 frames, intangible from frame 4 or 5), so a tech roll is open on its first three frames and ends 5 to 14 frames early | Med | S-M (new fields; the distances [E]) |
+
+**How D6 was checked** (2 November 2026). ssbwiki.com `Roll` gives the rule for rolls out of a shield but says nothing about tech
+or get-up rolls, and no other written source found does. Those were checked in a public dump of the reference's own game scripts:
+the turn is an explicit command in the forward roll's script on every body that has one (91), never in a back roll's, and in none
+of the 94 bodies' tech rolls or get-up rolls, nor in the trip rolls, ledge rolls or the phantom's gun dodges of the bodies we have
+ported. An earlier reference generation's decompiled source agrees: its roll turns the fighter, its tech and get-up rolls do not.
+Not yet checked against footage. One difference on purpose: the reference turns part-way through the roll (frame 19 or 20 on every
+body we have ported, about two thirds of the way through), ours on the roll's last frame, as this item's brief asked. Apart from
+where a held item is carried, nothing reads a rolling fighter's facing but the roll itself, and a hit sets it anyway, so play is the
+same; the visible turn is the view's to place inside the roll. D7's numbers come from the same dump's animation data; the one
+fighter's tech page checked on ssbwiki.com agrees (40 frames, intangible 1-20).
 
 ### Offence and movement
 
@@ -63,7 +77,7 @@ Impact: how much a player would notice. Effort: S (an evening), M (a few sims), 
 
 ### Owner decisions where we differ on purpose (keep)
 
-- Smash 4-style perfect shield, not the reference's release parry.
+- The previous reference generation's perfect shield (timed on the press), not the current reference's release parry.
 - Late dash turns are instant (sim 106); the reference's held turn is `dash_reverse_frames = 5`, kept for an A/B test.
 - A dash flicked during a throw, landing lag or a falling jump is kept longer than the reference's buffer.
 - Wall jumps need the stick held away from the wall plus jump (sim 101).
