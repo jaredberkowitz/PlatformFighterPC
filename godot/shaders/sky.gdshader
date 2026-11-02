@@ -45,6 +45,16 @@ uniform vec4 cloud_lit : source_color = vec4(1.0, 0.96, 0.92, 1.0);
 uniform vec4 cloud_shade : source_color = vec4(0.7, 0.76, 0.9, 1.0);
 uniform vec4 haze_band : source_color = vec4(0.9, 0.94, 0.96, 1.0);
 uniform bool night = false;
+// The stepped paper sky (after fidelity review 17, the owner: stages more their own, more stylized): `steps` above 0 cuts the sky over the
+// horizon into that many layers of paper, as a diorama's backdrop is cut, each a flat tone of the sky's own colour at its height (the glow
+// and the sun's side still warm it across); `step_wave` how far each cut wanders, as if cut by hand; `step_edge` the light along each
+// layer's cut edge; `step_shadow` the soft shadow each nearer, lower layer lays on the one behind it; `step_paper` a fibre and a slight
+// tone of its own on each sheet. The cut-paper stratus and the card clouds stay in front of it.
+uniform int steps = 0;
+uniform float step_wave = 0.0;
+uniform float step_edge = 0.0;
+uniform float step_shadow = 0.0;
+uniform float step_paper = 0.0;
 
 float hash(vec2 p) {
 	// (Exact integer arithmetic, fidelity review 17: the old float hash was chaotic, so when the GPU rounded `hash(i + 1)` differently from
@@ -63,9 +73,9 @@ float noise(vec2 p) {
 	return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), f.x), mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), f.x), f.y);
 }
 
-void sky() {
-	vec3 d = normalize(EYEDIR);
-	float e = d.y;
+// The sky's colour toward `d` at elevation `e` (`e` is `d.y`, or a layer's height on the stepped sky): the bands, the glow, the sun's side
+// and the haze over the horizon.
+vec3 sky_colour(vec3 d, float e, bool wisps) {
 	vec3 col;
 	if (e < 0.0) {
 		col = mix(horizon_color.rgb, ground_color.rgb, smoothstep(0.0, 0.25, -e));
@@ -79,7 +89,7 @@ void sky() {
 	float glow = pow(toward, 1.0 / max(glow_size, 0.01) * 2.0) * (1.0 - smoothstep(0.0, glow_height, glow_below ? max(e - glow_at, 0.0) : abs(e - glow_at)));
 	col = mix(col, glow_color.rgb, clamp(glow * glow_strength, 0.0, 1.0));
 	// Wisps: long thin streaks of painted cloud low in the sky, brightest near the glow.
-	if (wisp_amount > 0.0 && e > 0.0) {
+	if (wisps && wisp_amount > 0.0 && e > 0.0) {
 		float az = atan(d.x, -d.z);
 		vec2 p = vec2(az * 2.6, e * 22.0);
 		float n = noise(p + vec2(noise(p * 0.5) * 2.0, 0.0)) * 0.65 + noise(p * 2.3) * 0.35;
@@ -115,6 +125,88 @@ void sky() {
 		// Broad soft mottling.
 		float m = noise(vec2(az * 1.3, e * 9.0)) * 0.6 + noise(vec2(az * 3.1 + 7.0, e * 19.0)) * 0.4;
 		col *= mix(0.95, 1.05, m);
+	}
+	return col;
+}
+
+// Where the stepped sky's cut `k` sits at rest: closer together low down, where the cameras see most of the sky, as a fraction of the
+// height the top colour is reached at.
+float step_at(int k) {
+	float f = float(k);
+	return top_at * (0.07 + 0.11 * f + 0.025 * f * f);
+}
+
+// Cut `k` toward azimuth `az`: wandering a share of the gap under it, as a hand cut does (never far enough to cross the next).
+float step_cut(int k, float az) {
+	float lo = k > 0 ? step_at(k - 1) : 0.0;
+	float f = float(k);
+	float w = noise(vec2(az * 3.0 + f * 7.1, f * 1.7)) * 0.6 + noise(vec2(az * 9.0 + f * 3.3, f * 5.1)) * 0.4 - 0.5;
+	return step_at(k) + step_wave * 0.7 * (step_at(k) - lo) * w;
+}
+
+// The height layer `j` of `n` takes its colour at: the middle of its band.
+float step_mid(int j, int n) {
+	if (j <= 0) {
+		return step_at(0) * 0.5;
+	}
+	if (j >= n) {
+		return step_at(n - 1) * 1.2;
+	}
+	return 0.5 * (step_at(j - 1) + step_at(j));
+}
+
+void sky() {
+	vec3 d = normalize(EYEDIR);
+	float e = d.y;
+	vec3 col;
+	if (steps > 0 && e > 0.0) {
+		float az = atan(d.x, -d.z);
+		int n = min(steps, 7);
+		// Which layer this is: the cut under it and the one over it.
+		int j = 0;
+		float below = 0.0;
+		float above = 1000.0;
+		for (int k = 0; k < 7; k++) {
+			if (k >= n) {
+				break;
+			}
+			float b = step_cut(k, az);
+			if (e > b) {
+				j = k + 1;
+				below = b;
+			} else {
+				above = b;
+				break;
+			}
+		}
+		col = sky_colour(d, step_mid(j, n), false);
+		// Each cut a pixel soft, so a wandering edge doesn't step at 1080 lines.
+		float px = max(fwidth(e), 1e-5);
+		if (j > 0 && e - below < px) {
+			col = mix(sky_colour(d, step_mid(j - 1, n), false), col, smoothstep(-px, px, e - below));
+		}
+		if (above - e < px) {
+			col = mix(col, sky_colour(d, step_mid(j + 1, n), false), smoothstep(-px, px, e - above));
+		}
+		if (step_paper > 0.0) {
+			float sheet = hash(vec2(float(j) * 3.0 + 1.0, 7.0)) - 0.5;
+			float fibre = noise(vec2(az * 260.0, e * 1400.0)) - 0.5;
+			col *= 1.0 + step_paper * (sheet * 0.05 + fibre * 0.05);
+		}
+		// The light along this layer's own cut edge, and the shadow the nearer layer under it lays on it.
+		if (step_edge > 0.0 && above < 100.0) {
+			float lit = 1.0 - smoothstep(0.0, 2.5 * px, above - e);
+			col = mix(col, col * 1.16 + vec3(0.035), lit * step_edge);
+		}
+		if (step_shadow > 0.0 && j > 0) {
+			float sh = 1.0 - smoothstep(0.0, 14.0 * px, e - below);
+			col *= 1.0 - step_shadow * 0.22 * sh * sh;
+		}
+	} else {
+		col = sky_colour(d, e, true);
+	}
+	if (look > 0 && e > -0.05) {
+		float az = atan(d.x, -d.z);
 		if (look >= 2) {
 			// Three layers of stratus: centre height, thickness, how much of the band is cloud.
 			for (int k = 0; k < 3; k++) {

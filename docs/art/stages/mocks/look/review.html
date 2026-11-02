@@ -88,6 +88,30 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
     <p>Two lessons from the reference screenshots, mocked from the match camera: the scenery without ink outlines, its edges lit as card bevels instead, and the paper houses rebuilt at the characters' proportions. The earlier rounds stay on the <a href="https://claude.ai/artifact/D1du6MREVumiJDrEdNypW4">Stage Fidelity Review</a>, which is full.</p>
   </header>
 
+  <section class="panel" aria-labelledby="sk65-h" id="skysteps65">
+    <div class="eyebrow">After review 17 &middot; making the stages more their own, step 1: stepped paper skies</div>
+    <h2 id="sk65-h">Skies cut from paper</h2>
+    <p>The first step toward stages that feel more stylized. Each sky is cut into six layers of paper, the way a diorama's backdrop is cut. Each layer is a flat tone of that stage's own sky at its height, so the glow and the sun's side still warm it from one side to the other. The card clouds stay in front. Nothing is added: it's the same sky, cut.</p>
+    <div class="tablewrap"><table><thead><tr><th>Option</th><th>What changes</th></tr></thead><tbody>
+      <tr><td>Today</td><td>A smooth painted gradient</td></tr>
+      <tr><td>A &middot; Flat layers</td><td>Six flat layers with near-straight cuts and a light along each cut</td></tr>
+      <tr><td>B &middot; Cut layers</td><td>A, with the cuts wandering as if cut by hand, and the soft shadow each nearer layer lays on the one behind it</td></tr>
+      <tr><td>C &middot; Paper layers</td><td>B, with a paper fibre and a slight tone of its own on each sheet</td></tr>
+    </tbody></table></div>
+    <p>The canyon at the wide camera: today and A (top), B and C (bottom). The play areas don't change, so the fighters' numbers hold.</p>
+    <div class="viewer"><img src="sk65_close.jpg" alt="The canyon's sky today, with A, B and C"></div>
+    <div class="row" role="group" aria-label="Stage"><button data-sk65s="0">Meadow</button><button data-sk65s="1">Canyon</button><button data-sk65s="2">Beach</button><button data-sk65s="3">City</button><button data-sk65s="4">Grove</button></div>
+    <div class="row" role="group" aria-label="View"><button data-sk65v="m">Match camera</button><button data-sk65v="w">Wide</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-sk65o="T">Today</button><button data-sk65o="A">A &middot; Flat layers</button><button data-sk65o="B">B &middot; Cut layers</button><button data-sk65o="C">C &middot; Paper layers</button></div>
+    <div class="viewer"><img id="sk65img" alt="Stepped sky option"><span class="vtag" id="sk65tag"></span></div>
+    <p class="muted">My pick: <b>B</b>. The wandering cuts and their shadows read as layers of cut paper. A's near-straight cuts read as stripes. C looks the same as B at normal size; its fibre shows only up close. Honest notes:
+      <ul>
+        <li>It shows most on the canyon's sunset and the beach. On the city and the grove, towers and trees hide most of the sky.</li>
+        <li>The sun's soft glow on the canyon is a separate piece and stays smooth. A cut-paper sun would be a next step.</li>
+      </ul>
+    </p>
+  </section>
+
   <section class="panel" aria-labelledby="gy64-h" id="grovesky64">
     <div class="eyebrow">Built B (the owner's pick) &middot; after review 17: the grove's sky</div>
     <h2 id="gy64-h">A calmer distance behind the grove's trees</h2>
@@ -3737,5 +3761,17 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
   group("data-gy64v", function (v) { gy64v = v; }, gy64render);
   group("data-gy64o", function (v) { gy64o = v; }, gy64render);
   gy64render();
+  var sk65s = "1", sk65v = "w", sk65o = "B";
+  var SK65S = { "0": "Meadow", "1": "Canyon", "2": "Beach", "3": "City", "4": "Grove" };
+  var SK65O = { T: "Today", A: "A · Flat layers", B: "B · Cut layers", C: "C · Paper layers" };
+  function sk65render() {
+    $id("sk65img").src = "sk65_s" + sk65s + "_" + sk65v + "_" + sk65o + ".jpg";
+    $id("sk65tag").textContent = SK65S[sk65s] + " · " + SK65O[sk65o] + (sk65v === "w" ? " · wide" : " · match camera");
+    pressed("data-sk65s", sk65s); pressed("data-sk65v", sk65v); pressed("data-sk65o", sk65o);
+  }
+  group("data-sk65s", function (v) { sk65s = v; }, sk65render);
+  group("data-sk65v", function (v) { sk65v = v; }, sk65render);
+  group("data-sk65o", function (v) { sk65o = v; }, sk65render);
+  sk65render();
 })();
 </script>
