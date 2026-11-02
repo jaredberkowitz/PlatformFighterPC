@@ -749,8 +749,8 @@ const AIR_OPEN_SPEED := 0.15
 ## Sim 147: the forward roll turns the fighter round (`fighter_dodge`'s third value is 1). The view draws the turn from this frame of the
 ## roll (the reference's own count, 1 the frame of the input; 20 for most bodies, 19 for those in ROLL_TURN_EARLY), after the
 ## somersault (`ROLL_SPIN_TO`): the body turns round through the camera over ROLL_TURN_FRAMES while it stands up, the pose and the
-## weapon going over to the other side with it. Timed from the roll's start, as the clip is: on a stale roll, which the sim draws out
-## up to a third longer, the turn comes as early as on a fresh one, the clip already at its end.
+## weapon going over to the other side with it. On a stale roll, which the sim plays slowed (up to a third longer), at the same point of
+## it and over as much longer, by its real length (`dodge_total`); timed from the fresh length when the bridge does not give that.
 const ROLL_TURN_FRAME := 20
 const ROLL_TURN_EARLY := {3: 19, 6: 19, 12: 19, 13: 19}
 const ROLL_TURN_FRAMES := 6.0
@@ -770,11 +770,22 @@ func _side_now(s: Dictionary) -> int:
 
 ## The state frame (`state_frame`, one less than the reference's count) the forward roll is drawn turned round from, for class `cls`,
 ## leaving the turn time to finish before a roll of `length` frames ends.
-static func roll_turn_frame(cls: int, length := 0) -> int:
-	var f: int = int(ROLL_TURN_EARLY.get(cls, ROLL_TURN_FRAME)) - 1
-	if length > 0:
-		f = mini(f, length - int(ROLL_TURN_FRAMES) - 1)
-	return f
+static func roll_turn_frame(cls: int, length := 0, total := 0) -> int:
+	var f: float = float(int(ROLL_TURN_EARLY.get(cls, ROLL_TURN_FRAME)) - 1)
+	var end := float(length)
+	if total > length and length > 0:
+		f *= float(total) / float(length)
+		end = float(total)
+	if end > 0.0:
+		f = minf(f, end - roll_turn_span(length, total) - 1.0)
+	return int(round(f))
+
+
+## How many frames the forward roll's turn takes: ROLL_TURN_FRAMES, drawn out with a stale roll.
+static func roll_turn_span(length: int, total: int) -> float:
+	if total > length and length > 0:
+		return ROLL_TURN_FRAMES * float(total) / float(length)
+	return ROLL_TURN_FRAMES
 
 
 ## True while a roll that ends turned round is drawn turned (sim 147's third `dodge` value; absent before, so never then).
@@ -783,14 +794,15 @@ static func roll_turns_early(s: Dictionary, cls: int) -> bool:
 	if String(s.get("state", "")) != "Roll" or r9_off.has("rollturn"):
 		return false
 	var d: PackedInt32Array = s.get("dodge", PackedInt32Array())
-	return d.size() >= 3 and d[2] == 1 and int(s.state_frame) >= roll_turn_frame(cls, d[0])
+	return d.size() >= 3 and d[2] == 1 and int(s.state_frame) >= roll_turn_frame(cls, d[0], dodge_total(d))
 
 
 ## How far through the forward roll's turn round the body is, 0 to 1, eased.
 static func roll_turn_k(s: Dictionary, cls: int) -> float:
 	var d: PackedInt32Array = s.get("dodge", PackedInt32Array())
 	var length: int = d[0] if d.size() > 0 else 0
-	var k := clampf((float(s.state_frame) - float(roll_turn_frame(cls, length)) + 1.0) / ROLL_TURN_FRAMES, 0.0, 1.0)
+	var total := dodge_total(d)
+	var k := clampf((float(s.state_frame) - float(roll_turn_frame(cls, length, total)) + 1.0) / roll_turn_span(length, total), 0.0, 1.0)
 	return k * k * (3.0 - 2.0 * k)
 
 
@@ -824,7 +836,15 @@ static func dodge_progress(s: Dictionary) -> float:
 	var d: PackedInt32Array = s.get("dodge", PackedInt32Array())
 	if d.size() < 2 or d[0] <= 0:
 		return -1.0
-	return clampf(float(s.state_frame) / float(d[0]), 0.0, 1.0)
+	return clampf(float(s.state_frame) / float(dodge_total(d)), 0.0, 1.0)
+
+
+## A dodge's real length (round 9): the bridge's fourth `dodge` value where it gives one. A stale roll or spot dodge lasts longer than a
+## fresh one (the sim plays it slowed), and posed by the fresh length the clip reached its end early and held its last pose for the rest.
+static func dodge_total(d: PackedInt32Array) -> int:
+	if d.size() >= 4 and d[3] > 0 and not r9_off.has("total"):
+		return d[3]
+	return d[0] if d.size() > 0 else 0
 
 
 ## The clip for the move being performed and how far through it we are, mapped onto the clip's timeline: wind-up to 0.35, the strike

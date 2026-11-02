@@ -252,6 +252,20 @@ static func make(demo_name: String, m: Dictionary, dir: String):
 				[160, 0, 0, shield], [170, 0, -127, shield], [171, 0, 0, 0], [240, 0, 0, jump], [242, 0, 0, 0], [252, 0, 0, shield], [254, 0, 0, 0],
 				[330, 0, 0, shield], [360, 0, 0, 0]]
 			d.end_frame = 400
+		"stale":
+			# (Round 9: six forward rolls back to back, each turning the fighter round (sim 147), then six spot dodges, so the last of each is
+			# fully stale and drawn out; every frame, the camera steady on the first fighter.)
+			d.cam_dist = 9.0
+			d.cam_focus = 0
+			d.events = [[1, "stand", 0, -3.0, 1], [1, "stand", 1, 9.0, -1]]
+			d.timeline = [[0, 0, 0, 0]]
+			for i in 6:
+				var f0 := 20 + i * 50
+				d.timeline.append_array([[f0, 0, 0, shield], [f0 + 8, 127 if i % 2 == 0 else -127, 0, shield], [f0 + 9, 0, 0, 0]])
+			for i in 6:
+				var f0 := 330 + i * 45
+				d.timeline.append_array([[f0, 0, 0, shield], [f0 + 8, 0, -127, shield], [f0 + 9, 0, 0, 0]])
+			d.end_frame = 620
 		"airs":
 			# (Round 9: a short hop, a full hop, a full hop with a midair jump, a full hop fast-fallen, a walk off nothing: every frame, the camera
 			# steady on the first fighter.)
