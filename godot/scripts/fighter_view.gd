@@ -31,6 +31,7 @@ const TOON_CLOTH_SHADER := preload("res://shaders/toon_cloth.gdshader")
 const FACE_SHADER := preload("res://shaders/face.gdshader")
 const OUTLINE_SHADER := preload("res://shaders/outline.gdshader")
 const VisualSettings := preload("res://scripts/visual_settings.gd")
+const Lighting := preload("res://scripts/lighting.gd")
 const SHIELD_SHADER := preload("res://shaders/shield.gdshader")
 const Effects := preload("res://scripts/effects.gd")
 const LIMB_SHADER := preload("res://shaders/limb.gdshader")
@@ -2108,15 +2109,6 @@ func _on_fighter_layer(node: Node) -> void:
 		(g as GeometryInstance3D).layers = 2
 
 
-## The fighters on bright floors (fidelity review 16 item 1, the owner's pick A): the contact shadow firmer (0.8 from 0.64) and 15% wider;
-## StageBake turns the meadow's and grove's lawns cooler (`LAWN_COOL`). `--fighter-floor=T` brings back the shadow as before.
-static func _fighter_floor() -> String:
-	for arg in OS.get_cmdline_user_args():
-		if arg.begins_with("--fighter-floor="):
-			return arg.substr(16).to_upper()
-	return "A"
-
-
 func _contact_shadow() -> void:
 	if _shadow_tex == null:
 		# (A crisp, even ellipse in a deep cool shade at half strength, the judge's round 39: near-black at 0.85 with a long soft tail, it
@@ -2124,12 +2116,12 @@ func _contact_shadow() -> void:
 		# falls on, as the reference's shadows do, and its clean edge marks the feet.)
 		var g := Gradient.new()
 		# (A little fuller, round 40: the fighters on the light lawns needed a firmer footing.)
-		# (Firmer again, fidelity review 16 item 1, the owner's pick A: on the bright floors the fighters lost their footing.)
-		var a := 0.8 if _fighter_floor() != "T" else 0.64
-		g.set_color(0, Color(0.14, 0.08, 0.2, a))
-		g.set_color(1, Color(0.14, 0.08, 0.2, 0.0))
-		g.add_point(0.68, Color(0.14, 0.08, 0.2, a * 0.94))
-		g.add_point(0.86, Color(0.14, 0.08, 0.2, 0.1))
+		# (Fidelity review 17: at 0.8 in that near black, on the bright floors the ovals read as stains. White here, a softer edge; the colour and
+		# strength from the stage, `Lighting.contact_tint`, through the decal's modulate.)
+		g.set_color(0, Color(1, 1, 1, 1.0))
+		g.set_color(1, Color(1, 1, 1, 0.0))
+		g.add_point(0.62, Color(1, 1, 1, 0.94))
+		g.add_point(0.88, Color(1, 1, 1, 0.14))
 		_shadow_tex = GradientTexture2D.new()
 		_shadow_tex.gradient = g
 		_shadow_tex.fill = GradientTexture2D.FILL_RADIAL
@@ -2139,7 +2131,8 @@ func _contact_shadow() -> void:
 		_shadow_tex.height = 64
 	contact_shadow = Decal.new()
 	contact_shadow.texture_albedo = _shadow_tex
-	contact_shadow.size = Vector3(3.0, SHADOW_DEPTH, 2.6) * (Vector3(1.15, 1.0, 1.15) if _fighter_floor() != "T" else Vector3.ONE)
+	contact_shadow.size = Vector3(3.0, SHADOW_DEPTH, 2.6)
+	contact_shadow.modulate = Lighting.contact_tint
 	# Only on surfaces facing up (not down the front of the stage).
 	contact_shadow.normal_fade = 0.6
 	# (Nudged toward the camera so it shows in front of the feet, which would otherwise hide it from the low match camera.)
@@ -3603,6 +3596,8 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 	# Standing, the drop shadow reaches only just past the floor (the full depth also printed it on whatever lies under the stage: two
 	# dark ovals on the beach's rocks and sea, art review 5); in the air it reaches all the way down, so the landing spot stays marked.
 	if contact_shadow != null:
+		if contact_shadow.modulate != Lighting.contact_tint:
+			contact_shadow.modulate = Lighting.contact_tint
 		var depth: float = SHADOW_DEPTH_GROUNDED if grounded else SHADOW_DEPTH
 		if contact_shadow.size.y != depth:
 			contact_shadow.size.y = depth

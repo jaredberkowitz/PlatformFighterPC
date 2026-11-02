@@ -223,7 +223,9 @@ def lip_tufts(bm_lit, bm_shade, rng):
         r = rng.uniform(0.5, 0.85)
         c = P(x, CURL - 0.05 + rng.uniform(-0.15, 0.1), base_z(x, CURL) + 0.7 + rng.uniform(-0.1, 0.15))
         n_lit, n_shade = len(bm_lit.verts), len(bm_shade.verts)
-        folded_dome(bm_lit, bm_shade, tuple(c), r, 6, rng)
+        # (Shade and light swapped, fidelity review 17: a dome turned over hangs its lit crown under its shaded skirt, so every tuft read as lit from below, a
+        # bright stripe along its hanging edge.)
+        folded_dome(bm_shade, bm_lit, tuple(c), r, 6, rng)
         flip = Matrix.Rotation(math.pi + rng.uniform(-0.25, 0.25), 3, "X") @ Matrix.Diagonal((1.15, 1.0, rng.uniform(0.5, 0.95)))
         for bm, n in ((bm_lit, n_lit), (bm_shade, n_shade)):
             bm.verts.ensure_lookup_table()

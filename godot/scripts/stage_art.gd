@@ -183,18 +183,6 @@ static func sky(t: Dictionary) -> Sky:
 			t = t.duplicate()
 			t.sky_bands = [0.012, 0.07]
 			deepen = [0.22, 0.08] if arg.substr(12).to_upper() == "B" else [0.0, 0.0]
-	# (The grove's sky cleared, fidelity review 16 item 2, `--grove-light=B` (Lighting.GROVE_LIGHT_TRY): busy pink-violet with little
-	# gradient behind the trees; a clear blue top and middle, a warm pale horizon, calmer wisps.)
-	if t.get("name", "") == "grove":
-		for arg in OS.get_cmdline_user_args():
-			if arg == "--grove-light=B":
-				t = t.duplicate()
-				top = Color(0.2, 0.36, 0.8)
-				t.sky_mid = Color(0.48, 0.62, 0.94)
-				t.sky_horizon = Color(1.0, 0.88, 0.76)
-				t.sky_wisps = [Color(1.0, 0.96, 0.94), 0.2]
-				t.sky_glow = [(t.sky_glow as Array)[0], float((t.sky_glow as Array)[1]) * 0.5]
-				horizon = t.sky_horizon
 	if float(deepen[0]) > 0.0 or float(deepen[1]) > 0.0:
 		t = t.duplicate()
 		t.sky_mid = (t.get("sky_mid", top.lerp(horizon, 0.5)) as Color).darkened(float(deepen[1]))
@@ -3477,6 +3465,7 @@ static func _clouds(root: Node3D, rng: RandomNumberGenerator, count: int, color:
 		mat.set_shader_parameter("belly_height", 2.2 * size)
 		if style == 4:
 			# Two cards: a deeper one behind, up and to one side, and the cloud's face in front, each a flat cumulus with a scalloped crown.
+			mat.set_shader_parameter("card_cloud", true)
 			# (The tower kind lower and with more bumps: at three tall lobes it read as a box.)
 			var lobes: int = [5, 7, 4][kind]
 			var cw: float = [11.0, 15.0, 9.0][kind] * size
@@ -3582,22 +3571,30 @@ static func _card_cloud(lobes: int, width: float, height: float, seed: int, dept
 	var r := RandomNumberGenerator.new()
 	r.seed = seed
 	var outline := PackedVector2Array()
-	outline.append(Vector2(-width * 0.5, 0.0))
+	# (A cumulus cut from card, fidelity review 17: at 1080 lines the old outline read as a box, tall vertical sides under the end lobes and a
+	# base ruled nearly flat. The crown domes down to low round ends, which curl under onto a base of shallow lobes.)
 	for k in lobes:
 		var u0 := float(k) / lobes
 		var u1 := float(k + 1) / lobes
 		var mid := (u0 + u1) * 0.5
-		var lift := height * (0.55 + 0.45 * sin(mid * PI)) * r.randf_range(0.85, 1.1)
 		var rad := (u1 - u0) * width * 0.62
-		var cx := -width * 0.5 + mid * width
-		for j in 9:
-			var a := PI - PI * j / 8.0
+		var lift := maxf(rad * 1.05, height * pow(sin(mid * PI), 0.8) * r.randf_range(0.88, 1.08))
+		var cx := -width * 0.5 + rad * 0.9 + mid * (width - rad * 1.8)
+		# (The first lobe starts under its own round end, the last finishes under its own.)
+		var from := PI * 1.3 if k == 0 else PI
+		var to := -PI * 0.3 if k == lobes - 1 else 0.0
+		var steps := 12 if k == 0 or k == lobes - 1 else 9
+		for j in steps + 1:
+			var a: float = lerpf(from, to, float(j) / steps)
 			outline.append(Vector2(cx + cos(a) * rad, maxf(lift - rad + sin(a) * rad, 0.0)))
-	outline.append(Vector2(width * 0.5, 0.0))
-	# (The base a gentle belly, not a ruler line.)
-	for j in range(1, 8):
-		var u := 1.0 - j / 8.0
-		outline.append(Vector2(-width * 0.5 + u * width, -0.35 * height * 0.1 * sin(u * PI)))
+	# The base, right to left, a few shallow lobes hanging a little.
+	var base_from := outline[outline.size() - 1]
+	var base_to := outline[0]
+	var base_lobes := maxi(lobes - 1, 2)
+	for j in range(1, base_lobes * 6):
+		var u := float(j) / (base_lobes * 6)
+		var hang := absf(sin(u * PI * base_lobes)) * height * 0.05 + sin(u * PI) * height * 0.03
+		outline.append(Vector2(lerpf(base_from.x, base_to.x, u), lerpf(base_from.y, base_to.y, u) - hang))
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
 	var centre := Vector2(0.0, height * 0.32)
@@ -4317,7 +4314,8 @@ static func underside(root: Node3D, t: Dictionary, e: Array) -> void:
 				var col := _mesh(root, mesa, _under_material(_soil_material(t), 0.62), Vector3.ZERO)
 				col.name = "Underside"
 				col.set_instance_shader_parameter("front_top", e[2])
-			_under_haze(root, t, bottom - 1.0, 6.0, 0.5)
+			# (0.2, fidelity review 17: at 0.5 the foreground rock and hoodoos of the wide frame's lower third dissolved in a milky peach.)
+			_under_haze(root, t, bottom - 1.0, 6.0, 0.2)
 			# The desert floor the mesa stands in (level with the far buttes' feet) and fallen rock heaped round its foot.
 			var floor_y := DESERT_FLOOR
 			# (Painted sand laid in world space with soil detail, not a flat fill, and a scatter of scrub and stones over it so the floor
@@ -5515,7 +5513,7 @@ static func _grove(root: Node3D, t: Dictionary, stage: Array) -> void:
 	var tw := Twinkle.new()
 	root.add_child(tw)
 	for k in 14:
-		tw.add(Vector3(rng.randf_range(-11, 11), top + rng.randf_range(9, 20), -15.0 + rng.randf_range(-1, 1)), rng.randf_range(0.5, 0.9), rng.randf() * TAU,
+		tw.add(Vector3(rng.randf_range(-11, 11), top + rng.randf_range(9, 20), -15.0 + rng.randf_range(-1, 1)), rng.randf_range(0.26, 0.46), rng.randf() * TAU,
 			[Color(1, 0.95, 0.6), Color(1, 0.8, 0.95), Color(0.8, 0.95, 1)][k % 3])
 
 
@@ -5826,7 +5824,8 @@ static func _city(root: Node3D, t: Dictionary, stage: Array) -> void:
 		for ly in range(5):
 			_mesh(root, _box(Vector3(0.4, 0.04, 0.04)), iron, tower + Vector3(1.0, 0.8 + ly * 0.7, 0.95))
 	var mast := Vector3(float(e[1]) - 2.5, roof, -6.5)
-	_mesh(root, _cylinder(0.08, 0.15, 6.0, 6), FighterView.respond(FighterView.toon(Color(0.6, 0.62, 0.7)), "metal"), mast + Vector3(0, 3, 0))
+	# (A matte steel, fidelity review 17: its metal band burned white, the brightest line in the frame beside the fight.)
+	_mesh(root, _cylinder(0.08, 0.15, 6.0, 6), FighterView.toon(Color(0.42, 0.42, 0.54)), mast + Vector3(0, 3, 0))
 	var blink := Blinker.new()
 	blink.position = mast + Vector3(0, 6.1, 0)
 	root.add_child(blink)
@@ -6329,8 +6328,54 @@ static func _shopfront(root: Node3D, cx: float, width: float, y: float, front: f
 	_door_face(root, Vector2(1.4, 2.6), Color(0.62, 0.42, 0.3), Vector3(cx, y + 1.55, front + 0.13))
 	# The awning: a canopy of stripes over a scalloped valance (`_awning`), tipped out over the pavement.
 	_awning(root, cx - width / 2.0, cx + width / 2.0, y + 3.8, front + 0.1, Color(0.92, 0.34, 0.42), Color(0.98, 0.94, 0.9), 1.5, true)
-	_glass(root, Vector2(width * 0.4, 0.8), Color(0.98, 0.5, 0.74), Vector3(cx, y + 4.4, front + 0.2))
-	_halo(root, Vector3(cx, y + 1.8, front + 0.8), Color(1.0, 0.8, 0.5), width * 0.35)
+	# (A lettered sign, fidelity review 17: at 1080 lines a blank pink panel over two blank cream windows and a glow the size of the door read as
+	# unfinished. Goods in the windows as the street's shops have, and the glow down to the doorway.)
+	_shop_sign(root, Vector2(width * 0.4, 0.8), Vector3(cx, y + 4.4, front + 0.2))
+	var g := RandomNumberGenerator.new()
+	g.seed = 4007
+	for side in [-1.0, 1.0]:
+		var win_x: float = cx + side * width * 0.27
+		var win_w := width * 0.32
+		var gx: float = win_x - win_w * 0.46
+		while gx < win_x + win_w * 0.42:
+			var gw := g.randf_range(0.3, 0.75)
+			var gh := g.randf_range(0.3, 1.25)
+			var goods: Color = [Color(0.42, 0.26, 0.34), Color(0.86, 0.5, 0.46), Color(0.5, 0.7, 0.62), Color(0.72, 0.52, 0.3)][g.randi_range(0, 3)]
+			_mesh(root, _box(Vector3(gw, gh, 0.1)), FighterView.toon(goods), Vector3(gx + gw * 0.5, y + 0.66 + gh * 0.5, front + 0.24))
+			gx += gw + g.randf_range(0.1, 0.32)
+	_halo(root, Vector3(cx, y + 3.15, front + 0.5), Color(1.0, 0.8, 0.5), width * 0.06)
+
+
+## A lit shop sign: a pink panel with its name in block letters.
+static var _shop_sign_tex: Texture2D
+
+
+static func _shop_sign(root: Node3D, size: Vector2, at: Vector3) -> void:
+	if _shop_sign_tex == null:
+		# Block letters on a five-row grid, cell 16: B A K E R Y.
+		var letters := ["###.|#..#|###.|#..#|###.", ".##.|#..#|####|#..#|#..#", "#..#|#.#.|##..|#.#.|#..#", "####|#...|###.|#...|####", "###.|#..#|###.|#.#.|#..#", "#..#|#..#|.##.|.#..|.#.."]
+		var body := '<rect width="512" height="128" rx="10" fill="#f58cc0"/><rect x="8" y="8" width="496" height="112" rx="6" fill="none" stroke="#fff0f6" stroke-width="5"/>'
+		var cell := 12.0
+		var x0 := 48.0
+		for l: String in letters:
+			var rows := l.split("|")
+			for r in rows.size():
+				for c in rows[r].length():
+					if rows[r][c] == "#":
+						body += '<rect x="%.0f" y="%.0f" width="%.0f" height="%.0f" fill="#6a1f58"/>' % [x0 + c * cell, 34.0 + r * cell, cell + 0.5, cell + 0.5]
+			x0 += cell * 5.0 + 6.0
+		var img := Image.new()
+		img.load_svg_from_string('<svg xmlns="http://www.w3.org/2000/svg" width="512" height="128" viewBox="0 0 512 128">%s</svg>' % body, 1.0)
+		img.generate_mipmaps()
+		_shop_sign_tex = ImageTexture.create_from_image(img)
+	var m := StandardMaterial3D.new()
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.albedo_texture = _shop_sign_tex
+	m.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
+	var q := QuadMesh.new()
+	q.size = size
+	var mi := _mesh(root, q, m, at)
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 
 
 ## Weathering on the rooftop behind the fighters: a water stain, a puddle with the sky in it, a tar patch and some grime

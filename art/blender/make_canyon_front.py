@@ -16,7 +16,7 @@ Families `strata_a`, `strata_b`, `strata_c`; each piece bakes its occlusion into
 
 Shipped (fidelity review 9, the owner's pick C, 2026-10-25): godot/models/stages/canyon_front.glb, `--variant A --cut 1 --courses 1
 --straight C` (review 8's `--straight A`, review 6's without `--straight`); with `--mass A` since fidelity review 11 (2026-10-26),
-then lit (the palette's `front_lift` raised to 0.35 to keep the face at 0.33).
+then lit (the palette's `front_lift` raised to 0.35 to keep the face at 0.33); with `--strata C` since fidelity review 17 (2026-10-30).
 
 Run (Blender 5.2):
   blender --background --python art/blender/make_canyon_front.py -- --dir godot/art/baked/<key> --variant A --out <file.glb>
@@ -51,6 +51,9 @@ MASS = opts.get("mass", "").upper()
 # `--strata A|B`. A: the tiers alternate hard beds, thicker and standing out, with soft ones, thinner and set deep back, so the face
 # steps in ledges with shadow lines under them, and the top bed overhangs. B: A with every third joint opened into a deep cleft and the
 # face darkening further toward its foot.
+# C (fidelity review 17: at 1080 lines B's beds were still big plain drawers with ruled seams, the weakest thing on the stage): the face as natural
+# strata, `strata_face`. Long beds of uneven thickness whose fronts and top edges wander, thick hard beds standing out over thin soft ones set
+# back, a lit ledge on each, a few cracks that run through one to three beds instead of a grid of joints, and a gentle fall into shade below.
 STRATA = opts.get("strata", "").upper()
 manifest = json.load(open(os.path.join(opts["dir"], "manifest.json")))
 BLOCK = [r for r in manifest["rects"] if r[4] < 0.5][0]
@@ -219,6 +222,129 @@ def courses(bm, x0, x1, y0, y1, out, rng, cols=6):
              shade=base * (1.06 if k % 2 == 0 else 0.94) * rng.uniform(0.97, 1.03))
 
 
+def strata_bed(bm, x0, x1, y0, y1, face, amp, rng, fissures, tone_at, back, shape=None):
+    """One bed from `y0` up to `y1`, its front `face` out from the plane, wandering by `amp`, its top and foot edges wandering a little, and its
+    lit ledge going back to `back`. `fissures` [x, width, depth] cut into its front and top; `tone_at(x)` each column's tone. All quads, so the
+    wandering stays clean."""
+    # (`shape` its own random numbers for the wander, so the courses of one bed wander together.)
+    sr = shape or rng
+    ph = [sr.uniform(0.0, math.tau) for _ in range(5)]
+    wl = [sr.uniform(9.0, 17.0), sr.uniform(3.5, 6.5), sr.uniform(1.6, 2.6)]
+    xs = []
+    x = x0
+    while x < x1 - 0.2:
+        xs.append(x)
+        x += rng.uniform(0.45, 0.95)
+    xs.append(x1)
+    for (fx, fw, _) in fissures:
+        xs.extend(q for q in (fx - fw, fx - fw * 0.25, fx + fw * 0.25, fx + fw) if x0 < q < x1)
+    xs.sort()
+    xs = [q for k, q in enumerate(xs) if k == 0 or q - xs[k - 1] > 0.02]
+    cols = []
+    for x in xs:
+        z = face + amp * (0.6 * math.sin(math.tau * x / wl[0] + ph[0]) + 0.3 * math.sin(math.tau * x / wl[1] + ph[1]) + 0.1 * math.sin(math.tau * x / wl[2] + ph[2]))
+        z += rng.uniform(-0.035, 0.035)
+        top = y1 + 0.07 * math.sin(math.tau * x / wl[1] + ph[3]) + rng.uniform(-0.018, 0.018)
+        foot = y0 + 0.05 * math.sin(math.tau * x / wl[1] + ph[4])
+        for (fx, fw, fd) in fissures:
+            d = abs(x - fx)
+            if d < fw:
+                k = 1.0 - d / fw
+                z -= fd * k
+                top -= 0.05 * k
+        # (The lit ledge: the bed's top front edge cut back, a face that catches the sun as a soft band, not a ruled line.)
+        ch = min(0.09, (top - foot) * 0.25)
+        cols.append((x, foot, top - ch, top, z, z - ch * 1.6, tone_at(x)))
+    rows = []
+    for (x, foot, mid, top, z, zc, t) in cols:
+        row = [bm.verts.new(P(x, foot, z)), bm.verts.new(P(x, mid, z)), bm.verts.new(P(x, top, zc)), bm.verts.new(P(x, top, back)), bm.verts.new(P(x, foot, back))]
+        tone(bm, row, t)
+        rows.append(row)
+    # (Turned out from a point behind each column, not the bed's middle: from there, a face sloping along a long bed came out turned in and was culled,
+    # a dark square hole showing the ledge behind it.)
+    for a, b in zip(rows, rows[1:]):
+        centre = (a[0].co + a[3].co + b[0].co + b[3].co) * 0.25
+        centre.y += 0.5
+        for k in range(4):
+            f = bm.faces.new((a[k], b[k], b[k + 1], a[k + 1]))
+            f.normal_update()
+            if f.normal.dot(f.calc_center_median() - centre) < 0:
+                f.normal_flip()
+    centre = P((x0 + x1) * 0.5, (y0 + y1) * 0.5, back - 0.5)
+    for row in (rows[0], rows[-1]):
+        end = bm.faces.new(row)
+        end.normal_update()
+        if end.normal.dot(end.calc_center_median() - centre) < 0:
+            end.normal_flip()
+
+
+def strata_face():
+    """`--strata C`: see `STRATA`."""
+    rng = random.Random(907)
+    y = Y_TOP
+    k = 0
+    back = FZ - 1.45
+    since_pale = 0
+    while y > FLOOR - 0.5:
+        first = k == 0
+        soft = not first and k % 2 == 1 and rng.random() < 0.8
+        # (Thinner than a first try's 1.7 and up to 2.3: at the match camera only the top beds show, and they filled the frame as plain panels.)
+        if first:
+            h = 1.0
+        elif soft:
+            h = rng.uniform(0.22, 0.5)
+        else:
+            h = rng.choice([rng.uniform(0.7, 1.05), rng.uniform(1.1, 1.7), rng.uniform(0.8, 1.3)])
+        since_pale += 1
+        if soft:
+            fam = "strata_b"
+        # (A pale bed high up as well, where the match camera sees it.)
+        elif k == 2 or (not first and since_pale >= 3 and rng.random() < 0.55):
+            fam = "strata_c"
+            since_pale = 0
+        else:
+            fam = "strata_a"
+        face = (0.62 if first else (rng.uniform(-0.72, -0.46) if soft else rng.uniform(0.04, 0.44))) + FZ
+        amp = 0.14 if first else (0.1 if soft else rng.uniform(0.18, 0.36))
+        ym = y - h * 0.5
+        hw = half_width(ym) + rng.uniform(-0.1, 0.32) - (0.35 if soft else 0.0)
+        # (Long shallow scoops of erosion along a bed, each its own: cracks lined up from bed to bed read as stacked planks at the wide camera.)
+        fissures = []
+        if not soft:
+            for _ in range(rng.randrange(0, 3)):
+                fissures.append((rng.uniform(-hw + 2.0, hw - 2.0), rng.uniform(1.3, 3.4), rng.uniform(0.12, 0.34)))
+        # A loose joint in some of the hard beds, at its own place, one side of it standing a little proud.
+        spans = [(-hw, hw, 0.0)]
+        if not soft and not first and h > 0.9 and rng.random() < 0.4:
+            jx = rng.uniform(-hw + 2.5, hw - 2.5)
+            step_z = rng.uniform(0.06, 0.14) * rng.choice((-1.0, 1.0))
+            spans = [(-hw, jx - 0.02, 0.0), (jx + 0.02, hw, step_z)]
+        base = rng.uniform(0.92, 1.06) * (0.9 if soft else 1.0)
+        ph = rng.uniform(0.0, math.tau)
+        wl = rng.uniform(7.0, 14.0)
+
+        def tone_at(x, base=base, ph=ph, wl=wl):
+            return base * (1.0 + 0.05 * math.sin(math.tau * x / wl + ph))
+
+        # A thicker bed in courses of sediment, each a shade apart and a little in or out, wandering together.
+        courses = 1 if soft or h < 0.65 else (2 if h < 1.15 else 3)
+        seed = rng.randrange(1 << 30)
+        cuts = sorted(rng.uniform(0.25, 0.75) for _ in range(courses - 1))
+        edges_h = [0.0] + cuts + [1.0]
+        for c in range(courses):
+            ya, yb = y - h * edges_h[c + 1], y - h * edges_h[c]
+            step = 1.0 + (rng.uniform(-0.07, 0.07) if courses > 1 else 0.0)
+
+            def course_tone(x, step=step, tone_at=tone_at):
+                return tone_at(x) * step
+
+            dz = rng.uniform(-0.07, 0.07) if courses > 1 else 0.0
+            for (xa, xb, step_z) in spans:
+                strata_bed(part(fam), xa, xb, ya - 0.16, yb, face + dz + step_z, amp, rng, fissures, course_tone, back, shape=random.Random(seed))
+        y -= h
+        k += 1
+
+
 def core():
     """A plain core behind the face, so no gap between tiers shows the sky (the code-built block it replaces is hidden)."""
     bm = part("strata_b")
@@ -254,7 +380,9 @@ def build():
             if len(JOINTS) % 3 == 0:
                 CLEFTS[round(x, 3)] = True
             x += jr.uniform(5.0, 11.0)
-    if VARIANT == "A":
+    if STRATA == "C":
+        strata_face()
+    elif VARIANT == "A":
         y = Y_TOP
         tier = 0
         while y > FLOOR - 0.5:
@@ -326,7 +454,8 @@ def darken_down():
         layer = bm.verts.layers.float.get("tone")
         for v in bm.verts:
             t = min(1.0, max(0.0, (Y_TOP - v.co.z) / (Y_TOP - FLOOR)))
-            v[layer] = v[layer] * (1.04 - (0.42 if STRATA == "B" else 0.26) * t ** 1.2)
+            # (C a gentle fall: the owner's dark fronts read as washed out, and its own soft beds already step it back.)
+            v[layer] = v[layer] * (1.04 - {"B": 0.42, "C": 0.16}.get(STRATA, 0.26) * t ** 1.2)
 
 
 def clamp(bm, margin=0.9):

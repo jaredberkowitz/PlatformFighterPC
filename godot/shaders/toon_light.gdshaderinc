@@ -50,7 +50,13 @@ varying float pf_sun;
 #endif
 
 float pf_cloud_hash(vec2 p) {
-	return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+	// (Exact integer arithmetic, fidelity review 17: the old float hash was chaotic, so when the GPU rounded `hash(i + 1)` differently from
+	// the next cell's `hash(i)` the two sides of a cell took different values, a hard straight cut at fixed places, the sky's streaks.)
+	ivec2 q = ivec2(p);
+	uint h = (uint(q.x) * 1597334677u) ^ (uint(q.y) * 3812015801u);
+	h = (h ^ (h >> 15u)) * 2246822519u;
+	h = h ^ (h >> 13u);
+	return float(h) / 4294967295.0;
 }
 
 float pf_cloud_noise(vec2 p) {

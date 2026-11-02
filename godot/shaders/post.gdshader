@@ -131,14 +131,24 @@ float hash(vec2 p) {
 	return fract(p.x * p.y);
 }
 
+float lattice_hash(vec2 p) {
+	// (Exact integer arithmetic, fidelity review 17: the old float hash was chaotic, so when the GPU rounded `hash(i + 1)` differently from
+	// the next cell's `hash(i)` the two sides of a cell took different values, a hard straight cut at fixed places, the sky's streaks.)
+	ivec2 q = ivec2(p);
+	uint h = (uint(q.x) * 1597334677u) ^ (uint(q.y) * 3812015801u);
+	h = (h ^ (h >> 15u)) * 2246822519u;
+	h = h ^ (h >> 13u);
+	return float(h) / 4294967295.0;
+}
+
 float value_noise(vec2 p) {
 	vec2 i = floor(p);
 	vec2 f = fract(p);
 	f = f * f * (3.0 - 2.0 * f);
-	float a = hash(i);
-	float b = hash(i + vec2(1.0, 0.0));
-	float c = hash(i + vec2(0.0, 1.0));
-	float d = hash(i + vec2(1.0, 1.0));
+	float a = lattice_hash(i);
+	float b = lattice_hash(i + vec2(1.0, 0.0));
+	float c = lattice_hash(i + vec2(0.0, 1.0));
+	float d = lattice_hash(i + vec2(1.0, 1.0));
 	return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
 }
 
@@ -267,8 +277,10 @@ void fragment() {
 	vec3 c01 = clamp(col, 0.0, 1.0);
 	col += (c01 * c01 * (3.0 - 2.0 * c01) - c01) * s_curve * soften;
 	col = mix(col, ink.rgb, edge * line_strength);
-	col = mix(col, col * 1.3 + vec3(0.08, 0.07, 0.05), clamp(front_lit, 0.0, 1.0));
-	col = mix(col, col * 1.12 + vec3(0.07, 0.07, 0.06), clamp(card_edge, 0.0, 1.0));
+	// (In the surface's own colour, fidelity review 17: a fixed grey added here drew pale grey frames round every dark recess and shaded top at 1080
+	// lines, the fronts' sticker outlines.)
+	col = mix(col, col * vec3(1.42, 1.38, 1.32), clamp(front_lit, 0.0, 1.0));
+	col = mix(col, col * 1.3, clamp(card_edge, 0.0, 1.0));
 	if (id0 > 0.8 && d0 < 400.0 && value_deep.x + value_deep.y > 0.0) {
 		float near_v = 1.0 - smoothstep(stage_dist + value_deep.w * 0.5, stage_dist + value_deep.w, d0);
 		float yv = dot(clamp(col, 0.0, 1.0), vec3(0.3, 0.59, 0.11));
@@ -318,7 +330,7 @@ void fragment() {
 				float facing = dot(normalize(drop * vec2(1.0, -1.0)), -sheet_dir);
 				rim_k *= mix(1.0, smoothstep(-0.1, 0.6, facing), cut_choose.x);
 			}
-			vec3 rim_c = mix(cut_colour.rgb, col * 1.25 + vec3(0.05), cut_choose.y);
+			vec3 rim_c = mix(cut_colour.rgb, col * 1.42, cut_choose.y);
 			col = mix(col, rim_c, rim_k);
 		}
 		if (fight_lift > 0.0) {

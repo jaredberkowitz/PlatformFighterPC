@@ -64,6 +64,11 @@ void fragment() {
 	if (ink_left < 0.15) {
 		discard;
 	}
+	// (With the scenery's ink off its hull has no width, but it still drew every back face at the surface in flat violet-grey, whatever the light:
+	// purple slivers wherever an open shell showed its inside, the grove's moss lip at 1080 lines. Fidelity review 17.)
+	if (outline_weight < 0.62 && pf_paper > 0.5) {
+		discard;
+	}
 	if (outline_weight < 0.62 && pf_xray_cut(xray_at, CAMERA_POSITION_WORLD, FRAGCOORD.xy)) {
 		discard;
 	}
