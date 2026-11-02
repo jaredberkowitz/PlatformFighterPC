@@ -88,6 +88,24 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
     <p>Two lessons from the reference screenshots, mocked from the match camera: the scenery without ink outlines, its edges lit as card bevels instead, and the paper houses rebuilt at the characters' proportions. The earlier rounds stay on the <a href="https://claude.ai/artifact/D1du6MREVumiJDrEdNypW4">Stage Fidelity Review</a>, which is full.</p>
   </header>
 
+  <section class="panel" aria-labelledby="gy64-h" id="grovesky64">
+    <div class="eyebrow">After review 17 &middot; the grove's sky, its one 4 you can change</div>
+    <h2 id="gy64-h">A calmer distance behind the grove's trees</h2>
+    <p>The grove stays violet, as you chose. What made its sky busy is the near range behind the forest. It's a saturated violet, darker than the sky, and it fills every gap between the trees, so the frame reads as a green and purple checkerboard. These options light it toward the sky, as distance does: the same hills, nothing added or re-baked.</p>
+    <div class="tablewrap"><table><thead><tr><th>Option</th><th>The near range: value, saturation</th><th>Its hue</th></tr></thead><tbody>
+      <tr><td>Today</td><td>0.47, 0.43</td><td>Violet</td></tr>
+      <tr><td>A &middot; Lighter</td><td>0.63, 0.27</td><td>Violet</td></tr>
+      <tr><td>B &middot; Into the haze</td><td>0.71, 0.16</td><td>Lilac</td></tr>
+      <tr><td>C &middot; Warm haze</td><td>0.72, 0.18</td><td>Pink lilac</td></tr>
+    </tbody></table></div>
+    <p>Wide camera: today and A (top), B and C (bottom). P1's gap holds (0.095 to 0.102).</p>
+    <div class="viewer"><img src="gy64_close.jpg" alt="The grove at the wide camera today, with A, B and C"></div>
+    <div class="row" role="group" aria-label="View"><button data-gy64v="m">Match camera</button><button data-gy64v="w">Wide</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-gy64o="T">Today</button><button data-gy64o="A">A &middot; Lighter</button><button data-gy64o="B">B &middot; Into the haze</button><button data-gy64o="C">C &middot; Warm haze</button></div>
+    <div class="viewer"><img id="gy64img" alt="Grove distance option"><span class="vtag" id="gy64tag"></span></div>
+    <p class="muted">My pick: <b>B</b>. The gaps read as calm distance, the trees stand out against it, and it's still violet. A is a half step. C turns the distance pink, away from the violet you chose.</p>
+  </section>
+
   <section class="panel" aria-labelledby="ps63-h" id="pass63">
     <div class="eyebrow">Review 17 &middot; the full stage pass &middot; on branch art/stage-pass17, not yet in a build</div>
     <h2 id="ps63-h">Every stage after the full pass</h2>
@@ -3709,5 +3727,15 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
   group("data-ps63v", function (v) { ps63v = v; }, ps63render);
   group("data-ps63o", function (v) { ps63o = v; }, ps63render);
   ps63render();
+  var gy64v = "w", gy64o = "B";
+  var GY64O = { T: "Today", A: "A · Lighter", B: "B · Into the haze", C: "C · Warm haze" };
+  function gy64render() {
+    $id("gy64img").src = "gy64_" + gy64o + "_" + gy64v + ".jpg";
+    $id("gy64tag").textContent = "Grove · " + GY64O[gy64o] + (gy64v === "w" ? " · wide" : " · match camera");
+    pressed("data-gy64v", gy64v); pressed("data-gy64o", gy64o);
+  }
+  group("data-gy64v", function (v) { gy64v = v; }, gy64render);
+  group("data-gy64o", function (v) { gy64o = v; }, gy64render);
+  gy64render();
 })();
 </script>

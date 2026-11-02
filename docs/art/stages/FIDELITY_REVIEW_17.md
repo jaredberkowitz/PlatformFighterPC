@@ -120,3 +120,22 @@ Mean **4.95** (review 16: 4.70). Bold: up. Thirty-eight of forty cells are 5.
 - **At full size,** the canyon's beds show faint rectangles of tone, one per cut column. They read as paper pieces, so I kept them.
 - **The run mode** shares the fixed shaders. Its tests pass, but its look hasn't been reviewed (its art is deferred).
 - **Nothing of this is in a build yet.** Next: merge art/stage-pass17 into art/stage-refine and build, with the stage stills regenerated.
+
+## After review 17: the grove's distance (mock, 2026-11-02)
+
+The grove's sky, its one 4 that may change (the grove stays violet, as the owner chose). What made it busy is the near range behind the
+forest (the baked ground's `range_near`). It is a saturated violet, darker than the sky, and it fills every gap between the trees, so the
+frame read as a green and purple checkerboard. Found by painting the far families in pure colours.
+
+`--pal-try=range_a|range_b|range_c` (grove.cfg [backdrop] `range_tones` [near, far], StageBake). Nothing is added or re-baked.
+
+| Option | The near range: value, saturation, hue |
+|---|---|
+| Today | 0.47, 0.43, violet (266) |
+| A, lighter | 0.63, 0.27, violet (276) |
+| B, into the haze | 0.71, 0.16, lilac (287) |
+| C, warm haze | 0.72, 0.18, pink lilac (314) |
+
+P1's gap holds (0.095 to 0.102). On the Stage Look Review ("grovesky64", `gy64_*`).
+
+Recommended B: the gaps read as calm distance, the trees stand out against it, and it is still violet. C turns the distance pink.
