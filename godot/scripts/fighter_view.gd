@@ -731,6 +731,73 @@ const AIR_RISE_SPEED := 0.3
 const AIR_OPEN_SPEED := 0.15
 
 
+## Sim 147: the forward roll turns the fighter round (`fighter_dodge`'s third value is 1). The view draws the turn from this frame of the
+## roll (the reference's own count, 1 the frame of the input; 20 for most bodies, 19 for those in ROLL_TURN_EARLY), after the
+## somersault (`ROLL_SPIN_TO`): the body turns round through the camera over ROLL_TURN_FRAMES while it stands up, the pose and the
+## weapon going over to the other side with it. Timed from the roll's start, as the clip is: on a stale roll, which the sim draws out
+## up to a third longer, the turn comes as early as on a fresh one, the clip already at its end.
+const ROLL_TURN_FRAME := 20
+const ROLL_TURN_EARLY := {3: 19, 6: 19, 12: 19, 13: 19}
+const ROLL_TURN_FRAMES := 6.0
+var roll_turning := false
+## Through the forward roll's turn round, the facing the body shows, going over from the old side to the new through 0 by the turn's
+## frames (the facing itself otherwise): the chest's and head's turns toward the camera and the foe, the bends toward the front and the
+## face's limits follow it, so they turn with the body. Against the new facing from the turn's first frame, with the body still turned the
+## old way, the face's lift tipped the head over backward and the chest's turn jumped 48 degrees.
+var face_side := 1.0
+
+
+func _side_now(s: Dictionary) -> int:
+	if roll_turning and face_side != 0.0:
+		return 1 if face_side > 0.0 else -1
+	return int(s.facing)
+
+
+## The state frame (`state_frame`, one less than the reference's count) the forward roll is drawn turned round from, for class `cls`,
+## leaving the turn time to finish before a roll of `length` frames ends.
+static func roll_turn_frame(cls: int, length := 0) -> int:
+	var f: int = int(ROLL_TURN_EARLY.get(cls, ROLL_TURN_FRAME)) - 1
+	if length > 0:
+		f = mini(f, length - int(ROLL_TURN_FRAMES) - 1)
+	return f
+
+
+## True while a roll that ends turned round is drawn turned (sim 147's third `dodge` value; absent before, so never then).
+static func roll_turns_early(s: Dictionary, cls: int) -> bool:
+	# (`PF_R9_OFF=rollturn` leaves the turn to the sim's last frame, as before.)
+	if String(s.get("state", "")) != "Roll" or r9_off.has("rollturn"):
+		return false
+	var d: PackedInt32Array = s.get("dodge", PackedInt32Array())
+	return d.size() >= 3 and d[2] == 1 and int(s.state_frame) >= roll_turn_frame(cls, d[0])
+
+
+## How far through the forward roll's turn round the body is, 0 to 1, eased.
+static func roll_turn_k(s: Dictionary, cls: int) -> float:
+	var d: PackedInt32Array = s.get("dodge", PackedInt32Array())
+	var length: int = d[0] if d.size() > 0 else 0
+	var k := clampf((float(s.state_frame) - float(roll_turn_frame(cls, length)) + 1.0) / ROLL_TURN_FRAMES, 0.0, 1.0)
+	return k * k * (3.0 - 2.0 * k)
+
+
+## The weapon's place before the forward roll's turn round, in the fighter's own space: through the turn it goes over from there to the
+## other hand with the pose (it changed hands in one frame).
+var weapon_before_turn := Transform3D()
+var weapon_before_ok := false
+
+
+func _weapon_over(s: Dictionary) -> void:
+	if blade_pivot == null or not blade_pivot.is_inside_tree():
+		return
+	var here: Transform3D = global_transform.affine_inverse() * blade_pivot.global_transform
+	if not roll_turning:
+		weapon_before_turn = here
+		weapon_before_ok = String(s.state) == "Roll"
+		return
+	var k := roll_turn_k(s, _cls(s))
+	if weapon_before_ok and k < 1.0:
+		blade_pivot.global_transform = global_transform * weapon_before_turn.interpolate_with(here, k)
+
+
 ## How far through its dodge (roll, spot dodge, air dodge) the fighter is, 0..1, or -1 when not dodging (`dodge` from the bridge's
 ## `fighter_dodge`: [length, way]).
 static func dodge_progress(s: Dictionary) -> float:
@@ -1094,12 +1161,14 @@ func _animate(s: Dictionary, delta: float) -> void:
 	var new_dash: bool = s.state == "Dash" and (not _dash_clip(current_clip) or int(s.state_frame) < gait_frame)
 	gait_frame = int(s.state_frame) if s.state == "Dash" else -1
 	var shown := _sided(clip, int(s.facing))
+	var crossed := false
 	if clip == current_clip and shown != shown_clip:
 		# (Turned round mid-clip: the other side's clip, at the same point.)
 		var at := anim.current_animation_position
 		anim.play(shown, 0.0)
 		anim.seek(at, true)
 		shown_clip = shown
+		crossed = roll_turning
 	if clip != current_clip:
 		# A clip that follows the move (or the ledge climb) starts at once: it is posed by seeking while paused, and seeking never moves
 		# a cross-fade on, so it would stay showing the clip before.
@@ -1134,11 +1203,12 @@ func _animate(s: Dictionary, delta: float) -> void:
 		# added again on top: through a pummel's freeze the grabbed fighter's head bent round in a circle and its hand crossed the face.)
 		anim.seek(anim.current_animation_position, true)
 	_rest_unkeyed(clip)
-	_ease_handoff(s, clip)
+	roll_crossed_now = crossed
+	_ease_handoff(s, clip, crossed)
 	_bulk_arms(_cls(s))
 	_body_follow(s, delta)
 	_lag_bones(s)
-	_face_camera(int(s.facing), delta)
+	_face_camera(_side_now(s), delta)
 	_follow_bones()
 
 
@@ -1151,7 +1221,8 @@ func _animate(s: Dictionary, delta: float) -> void:
 const HANDOFF_FRAMES := 5.0
 const HANDOFF_BY_CLIP := {"jumpsquat": 2.0, "land": 1.0, "tech": 2.0, "knockdown": 2.0, "hurt": 1.0, "hurt_ground": 1.0, "hurt_heavy": 1.0, "hurt_up": 1.0,
 	"shield": 3.0, "crouch": 5.0, "tumble": 4.0, "dash": 3.0, "skid": 3.0, "air_jump": 3.0, "roll": 3.0, "spot_dodge": 2.0, "air_dodge": 2.0, "jump": 2.0, "grab": 3.0, "ledge": 3.0}
-## With the environment variable PF_R9_OFF (before and after images, round 9): "handoff" leaves the cross-fades as they were.
+## With the environment variable PF_R9_OFF (before and after images, round 9): "handoff" leaves the cross-fades as they were; "rollturn" leaves
+## the forward roll's turn round to the sim's last frame.
 static var r9_off := OS.get_environment("PF_R9_OFF").split(",")
 var handoff_clip := ""
 var handoff_state := ""
@@ -1162,9 +1233,25 @@ var handoff_from: Array[Quaternion] = []
 var handoff_last: Array[Quaternion] = []
 var handoff_from_hips := Vector3.ZERO
 var handoff_last_hips := Vector3.ZERO
+## The arms as they were last drawn, every layer on (the weapon hand's IK above all), by bone: the forward roll's turn round eases the arms
+## from there, since the weapon hand's IK goes over to the other hand with it (round 9, sim 147).
+var arms_seen := {}
+var roll_crossed_now := false
+const SEEN_ARM_BONES := ["armU.L", "armL.L", "hand.L", "armU.R", "armL.R", "hand.R"]
 
 
-func _ease_handoff(s: Dictionary, clip: String) -> void:
+func _remember_arms() -> void:
+	if skeleton == null:
+		return
+	for name in SEEN_ARM_BONES:
+		var b := skeleton.find_bone(name)
+		var parent := skeleton.get_bone_parent(b)
+		if b < 0 or parent < 0:
+			continue
+		arms_seen[b] = (skeleton.get_bone_global_pose(parent).affine_inverse() * skeleton.get_bone_global_pose(b)).basis.get_rotation_quaternion()
+
+
+func _ease_handoff(s: Dictionary, clip: String, crossed := false) -> void:
 	if not use_base_body or skeleton == null or r9_off.has("handoff"):
 		return
 	var f := int(s.frame)
@@ -1175,6 +1262,16 @@ func _ease_handoff(s: Dictionary, clip: String) -> void:
 	if jumped or fresh:
 		handoff_t = 1.0
 		handoff_len = 0.0
+	elif crossed:
+		# (Round 9, sim 147: the forward roll's turn round, the same clip from the other side: the pose goes over with the turn, the arms
+		# from where they were drawn, the weapon hand's IK in it, since that goes over to the other hand.)
+		handoff_len = ROLL_TURN_FRAMES
+		handoff_t = 0.0
+		handoff_from = handoff_last.duplicate()
+		for b in arms_seen:
+			if int(b) < handoff_from.size():
+				handoff_from[int(b)] = arms_seen[b]
+		handoff_from_hips = handoff_last_hips
 	elif clip != handoff_clip:
 		var base := clip
 		for suffix in ["_brawler", "_quick", "_heavy", "_caster", "_tool"]:
@@ -1408,12 +1505,12 @@ func _body_follow(s: Dictionary, delta: float) -> void:
 	body_bend = lerpf(body_bend, target_bend, follow)
 	head_look = lerpf(head_look, target_look, follow)
 	if absf(body_bend) > 0.05:
-		_bend_bone(spine_bone, body_bend, int(s.facing))
+		_bend_bone(spine_bone, body_bend, _side_now(s))
 	# (When the body arches back, the head tips forward against most of it, so the face stays toward the camera: the big head tipped back
 	# showed only its chin.)
 	var head_bend := -head_look - minf(body_bend, 0.0) * HEAD_COUNTER_ARCH
 	if absf(head_bend) > 0.05:
-		_bend_bone(head_bone, head_bend, int(s.facing))
+		_bend_bone(head_bone, head_bend, _side_now(s))
 	# A flinch: the chest and head snap back from the hit and come forward again.
 	if flinch_left > 0.0:
 		# (Round 4: by sim frames, as the springs are, so a hit's freeze holds the flinch where the hit put it and a seek ends it. On real
@@ -1425,8 +1522,8 @@ func _body_follow(s: Dictionary, delta: float) -> void:
 		_bend_bone(head_bone, -12.0 * k, int(s.facing))
 	# Open the chest to the camera and turn the head back toward the opponent (see BODY_TURN). In a move the chest turns into it instead,
 	# toward the opponent (`attack_turn`), so a strike is thrown at the foe and not at the camera.
-	_turn_bone(spine_bone, -lerpf(CHEST_TO_CAMERA, CHEST_IN_ATTACK, attack_turn) * float(s.facing))
-	_turn_bone(head_bone, HEAD_TOWARD_FOE * float(s.facing))
+	_turn_bone(spine_bone, -lerpf(CHEST_TO_CAMERA, CHEST_IN_ATTACK, attack_turn) * face_side)
+	_turn_bone(head_bone, HEAD_TOWARD_FOE * face_side)
 	if use_base_body and not turning_over and not r7_off.has("chest"):
 		_keep_chest_side_on(int(s.facing))
 
@@ -1491,7 +1588,7 @@ const SHIELD_BREATH_FRAMES := 80.0
 func _lag_bones(s: Dictionary) -> void:
 	if skeleton == null or spine_bone < 0:
 		return
-	var facing := int(s.facing)
+	var facing := _side_now(s)
 	if String(s.state) == "Shield":
 		var b := sin(float(s.frame) * TAU / SHIELD_BREATH_FRAMES)
 		_bend_bone(spine_bone, SHIELD_BREATH * b, facing)
@@ -3663,6 +3760,16 @@ func _log_face_cover(s: Dictionary) -> void:
 
 ## `s` is a dictionary of sim state (see main.gd `_refresh`).
 func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
+	# (Round 9, sim 147: a forward roll out of a shield ends turned round, the sim flipping the facing on the roll's last frame. The view
+	# draws it turned round from the roll's stand-up, `ROLL_TURN_FRAME`, as the reference turns, so the sim's flip at the end changes
+	# nothing on screen: everything drawn from the facing below (the yaw, the clip's side, the weapon's hand) goes over there.)
+	roll_turning = roll_turns_early(s, _cls(s))
+	if roll_turning:
+		s = s.duplicate()
+		s.facing = -int(s.facing)
+	face_side = float(s.facing)
+	if roll_turning:
+		face_side = lerpf(-float(s.facing), float(s.facing), roll_turn_k(s, _cls(s)))
 	# The old built body's brawler has longer limbs: swap to its rig the first time we see its class. (The base body is one rig for every
 	# class, so it never rebuilds here: a rebuild on the first frame of a match also left that fighter's per-mesh shader values, the ink
 	# pass's object id among them, stale on part of the body, which drew a line round its face.)
@@ -3887,6 +3994,9 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 	var pivot_turn: bool = grounded and use_base_body and not r8_off.has("pivot") and ((PIVOT_STATES.has(state) and absf(float(s.vel.x)) <= 0.08) or state == "Dash")
 	var yaw_to := float(look) * deg_to_rad(turn_deg)
 	yaw = lerp_angle(yaw, yaw_to, clampf(delta * (PIVOT_RATE if pivot_turn else 14.0), 0.0, 1.0))
+	# (Round 9, sim 147: the forward roll's turn round goes through the camera by the roll's own frames, from the side it came from.)
+	if roll_turning:
+		yaw = lerp_angle(-yaw_to, yaw_to, roll_turn_k(s, _cls(s)))
 	yaw_left = rad_to_deg(wrapf(yaw_to - yaw, -PI, PI)) if pivot_turn else 0.0
 	# The eyes switch sides as the body swings past facing the camera.
 	set_gaze(1 if yaw >= 0.0 else -1)
@@ -5434,7 +5544,7 @@ func _secondary(s: Dictionary, delta: float) -> void:
 		springs.kick("head", -ahead * 480.0 + landing * 160.0)
 		springs.kick("neck", -dv.x * 40.0)
 		# (Not when turning round on the spot, round 8: there the head leads the turn rather than looking back the old way.)
-		if prev_facing != 0 and facing != prev_facing and not (int(s.platform) >= 0 and PIVOT_STATES.has(String(s.state))
+		if prev_facing != 0 and facing != prev_facing and not roll_turning and not (int(s.platform) >= 0 and PIVOT_STATES.has(String(s.state))
 				and absf(float(s.vel.x)) <= 0.08 and not r8_off.has("pivot")):
 			springs.kick("head_turn", float(prev_facing) * 420.0)
 	# A hit on the shield: as its freeze ends the chest and head are knocked back behind it and come forward again.
@@ -7224,6 +7334,9 @@ func _apply_combat(s: Dictionary, delta: float) -> void:
 		if not hold_now or springs.jumped:
 			ik_in = 1.0 if springs.jumped else 0.0
 		else:
+			# (Round 9, sim 147: and in the forward roll's turn round, to the other hand.)
+			if roll_crossed_now:
+				ik_in = 0.0
 			ik_in = minf(1.0, ik_in + float(springs.new_frames) / IK_IN_FRAMES)
 			if state != "Attack":
 				amount = ik_in * ik_in * (3.0 - 2.0 * ik_in)
@@ -7279,9 +7392,11 @@ func _apply_combat(s: Dictionary, delta: float) -> void:
 		_blade_arc_on_tip(s)
 		if carrying:
 			_carry_weapon(int(s.facing))
+		_weapon_over(s)
 		_aim_leg(s, state == "Attack" and AnimLibrary.is_kick(AnimLibrary.attack_clip(_cls(s), s.move_name, anim)), delta)
 		if use_base_body and not r8_off.has("joints"):
 			_limit_joints()
+		_remember_arms()
 		_update_smear(s)
 		if log_cover:
 			_log_face_cover(s)
