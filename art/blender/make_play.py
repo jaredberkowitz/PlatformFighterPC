@@ -246,6 +246,15 @@ def wear_top(x0, x1, top, zb, zf, rng, kinds, path_z=None, path_half=0.7):
             rx = rng.uniform(0.35, 0.9)
             patch_flat("top_worn", x, path_z + side * (path_half + 0.12), rx, rng.uniform(0.12, 0.22), top + 0.012, rng, n=10)
             x += rng.uniform(1.2, 2.6)
+    if THEME == "grove" and path_z is not None:
+        # (The lawn biting into the path's edges in flat tongues, fidelity review 17: at the match camera its smooth edges read as a stripe painted across the
+        # lawn. Their own random numbers, so the tufts after them keep their layout. Flat, because nothing may stand up where the fighters walk.)
+        br = random.Random(17 + int(x0 * 10))
+        x = x0 + br.uniform(0.2, 0.8)
+        while x < x1 - 0.4:
+            side = br.choice((-1.0, 1.0))
+            patch_flat("top", x, path_z + side * (path_half + 0.06), br.uniform(0.25, 0.75), br.uniform(0.1, 0.2), top + 0.014, br, n=10)
+            x += br.uniform(0.5, 1.6)
 
 
 def edge_tufts(x0, x1, top, zf, rng, fam="fringe", every=(0.35, 0.8), tall=(0.18, 0.34)):
@@ -264,14 +273,17 @@ def edge_tufts(x0, x1, top, zf, rng, fam="fringe", every=(0.35, 0.8), tall=(0.18
 def edge_pebbles(x0, x1, top, zf, rng, fam="top_deep"):
     """Pebbles along the front edge (in the strip the stage test leaves out), low and flattened."""
     import bmesh as _b
-    x = x0 + rng.uniform(0.2, 0.6)
-    while x < x1 - 0.2:
-        r = rng.uniform(0.07, 0.16)
-        res = _b.ops.create_icosphere(part(fam), subdivisions=1, radius=r)
-        for v in res["verts"]:
-            v.co.z *= 0.55
-            v.co += P(x, top + r * 0.3, zf - rng.uniform(0.05, 0.2))
-        x += rng.uniform(0.4, 1.3)
+    x = x0 + rng.uniform(0.4, 2.0)
+    while x < x1 - 0.6:
+        # (In small scatters with long gaps, fidelity review 17: spaced evenly along the edge they read as a row of rivets.)
+        for _ in range(rng.randrange(1, 5)):
+            r = rng.uniform(0.05, 0.16)
+            at = P(x + rng.uniform(-0.45, 0.45), top + r * 0.3, zf - rng.uniform(0.05, 0.2))
+            res = _b.ops.create_icosphere(part(fam), subdivisions=1, radius=r)
+            for v in res["verts"]:
+                v.co.z *= 0.55
+                v.co += at
+        x += rng.uniform(1.8, 5.5)
 
 
 def board_marks(x0, x1, top, zb, zf, n, rng):

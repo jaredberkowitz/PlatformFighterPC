@@ -1667,8 +1667,9 @@ def dune_range(name, seed, height, rows):
             f = max(0.0, 1.0 + d / (amp * 4.5)) if d < 0.0 else max(0.0, 1.0 - d / (amp * 1.4))
             best = max(best, amp * f ** 1.3)
         return best
-    # (Finer, fidelity review 17: 7 units a column, the crest's silhouette against the sunset's glow was a row of little stair steps.)
-    nx, ny = 160, 44
+    # (Finer, fidelity review 17: at 72 columns, 7 units each, the crest against the sunset's glow read as a ruled polyline. Within the props' budget of
+    # 10,000 triangles, tests/prop_check_test.gd.)
+    nx, ny = 112, 36
     bm = bmesh.new()
     grid = []
     for j in range(ny + 2):

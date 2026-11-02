@@ -88,6 +88,44 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
     <p>Two lessons from the reference screenshots, mocked from the match camera: the scenery without ink outlines, its edges lit as card bevels instead, and the paper houses rebuilt at the characters' proportions. The earlier rounds stay on the <a href="https://claude.ai/artifact/D1du6MREVumiJDrEdNypW4">Stage Fidelity Review</a>, which is full.</p>
   </header>
 
+  <section class="panel" aria-labelledby="ps63-h" id="pass63">
+    <div class="eyebrow">Review 17 &middot; the full stage pass &middot; on branch art/stage-pass17, not yet in a build</div>
+    <h2 id="ps63-h">Every stage after the full pass</h2>
+    <p>You asked for a pass on all of the stage art at full effort. Most of what held the stages under 5 turned out to be faults, not taste. I fixed those at the root, which changed every stage at once, then tuned each stage on the corrected light.</p>
+    <div class="tablewrap"><table><thead><tr><th>What was wrong</th><th>What it did on screen</th></tr></thead><tbody>
+      <tr><td>Faceted faces lit from the wrong side, since 18 October</td><td>The flat, dark look: the suns had been set behind the scene to suit it, so every face toward the camera sat in shade</td></tr>
+      <tr><td>Cloud shadows tinting whatever faces up, still on the fronts and props</td><td>Slate tops on the meadow's stones; dark tops on crates, barrels and rocks over lit fronts, as if lit from below</td></tr>
+      <tr><td>A noise pattern computed in imprecise numbers</td><td>Hard vertical cuts in the sky; torn notches in the clouds</td></tr>
+      <tr><td>The outline shell's inside drawn with its ink off</td><td>Purple slivers through the grove's moss</td></tr>
+      <tr><td>A fixed grey in the card edges</td><td>Grey strips on every top seen edge-on; grey frames round dark recesses</td></tr>
+      <tr><td>The canyon's far cards cut flat per column</td><td>A stair-stepped horizon against the glow</td></tr>
+      <tr><td>The grove's moss tufts built upside down</td><td>Each tuft lit from below</td></tr>
+    </tbody></table></div>
+    <div class="row" role="group" aria-label="Stage"><button data-ps63s="0">Meadow</button><button data-ps63s="1">Canyon</button><button data-ps63s="2">Beach</button><button data-ps63s="3">City</button><button data-ps63s="4">Grove</button></div>
+    <div class="row" role="group" aria-label="View"><button data-ps63v="m">Match camera</button><button data-ps63v="w">Wide</button></div>
+    <div class="row" role="group" aria-label="Before or after"><button data-ps63o="b">Before</button><button data-ps63o="a">After</button></div>
+    <div class="viewer"><img id="ps63img" alt="The stage before or after the pass"><span class="vtag" id="ps63tag"></span></div>
+    <p>Close at full size, before (left) and after (right): the meadow's stones, the grove's lip, the canyon's floor and front, the canyon's props.</p>
+    <div class="viewer" style="aspect-ratio: 1280 / 800"><img src="ps63_close.jpg" alt="Close crops before and after the pass"></div>
+    <div class="tablewrap"><table><thead><tr><th>Stage</th><th>Review 16</th><th>Review 17</th><th>Still under 5</th></tr></thead><tbody>
+      <tr><td>Beach</td><td>4.88</td><td><b>5.00</b></td><td></td></tr>
+      <tr><td>Canyon</td><td>4.63</td><td><b>4.88</b></td><td>World and life: small and far, by the rule</td></tr>
+      <tr><td>City</td><td>4.88</td><td><b>5.00</b></td><td></td></tr>
+      <tr><td>Grove</td><td>4.38</td><td><b>4.88</b></td><td>Sky: busy behind the trees</td></tr>
+      <tr><td>Meadow</td><td>4.75</td><td><b>5.00</b></td><td></td></tr>
+      <tr><td><b>Mean</b></td><td>4.70</td><td><b>4.95</b></td><td>38 of 40 cells at 5</td></tr>
+    </tbody></table></div>
+    <p class="muted">Honest notes:
+      <ul>
+        <li>The fronts and floors are brighter on every stage but the night city. The canyon's front doubled in value.</li>
+        <li>The cost of bright floors: the fighters' value gap fell on every stage. Each still separates from its floor by value or by colour, with its outline and shadow. The meadow and grove do it by colour only.</li>
+        <li>The fixed shaders also reach the run mode. Its tests pass, but I haven't reviewed its look (its art is deferred).</li>
+        <li>The fighters, outside this plan, are now plainly the largest gap in any still.</li>
+        <li>Nothing is in a build yet. Full write-up: docs/art/stages/FIDELITY_REVIEW_17.md.</li>
+      </ul>
+    </p>
+  </section>
+
   <section class="panel" aria-labelledby="cp62-h" id="citybrick62">
     <div class="eyebrow">Built A (the owner's pick) &middot; review 16, item 6: the city's roof and brick</div>
     <h2 id="cp62-h">Brick that reads brick by brick</h2>
@@ -3660,5 +3698,16 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
   group("data-cp62v", function (v) { cp62v = v; }, cp62render);
   group("data-cp62o", function (v) { cp62o = v; }, cp62render);
   cp62render();
+  var ps63s = "0", ps63v = "m", ps63o = "a";
+  var PS63S = { "0": "Meadow", "1": "Canyon", "2": "Beach", "3": "City", "4": "Grove" };
+  function ps63render() {
+    $id("ps63img").src = "ps63_s" + ps63s + "_" + ps63v + "_" + ps63o + ".jpg";
+    $id("ps63tag").textContent = PS63S[ps63s] + " · " + (ps63o === "a" ? "After" : "Before") + (ps63v === "w" ? " · wide" : " · match camera");
+    pressed("data-ps63s", ps63s); pressed("data-ps63v", ps63v); pressed("data-ps63o", ps63o);
+  }
+  group("data-ps63s", function (v) { ps63s = v; }, ps63render);
+  group("data-ps63v", function (v) { ps63v = v; }, ps63render);
+  group("data-ps63o", function (v) { ps63o = v; }, ps63render);
+  ps63render();
 })();
 </script>

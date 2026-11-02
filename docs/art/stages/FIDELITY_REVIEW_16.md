@@ -287,3 +287,10 @@ To ship:
 Built A (the owner's pick): city.cfg [backdrop] `city_paint="A"` (`StageArt.city_paint`; `--city-paint=T` brings back the look before);
 `brick_b.png` removed. The front measures 0.30 in value, 0.177 in contrast; P1's gap is 0.178. Before and after (match top, wide bottom):
 `review16/city_brick_built.jpg`. All seven tests pass.
+
+## Items 7 to 9
+
+Done within the full pass of review 17 (FIDELITY_REVIEW_17.md), on branch art/stage-pass17:
+- the beach's headland finer;
+- the canyon's strata front eroded;
+- the grove's lawn and path.

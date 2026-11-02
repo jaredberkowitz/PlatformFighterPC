@@ -21,6 +21,15 @@ float pf_stage_ao(vec3 p) {
 	return mix(1.0, texture(pf_ao_map, vec2(uv.x, 1.0 - uv.y)).r, pf_ao_strength);
 }
 
+// How far `p` is within the play area: 1 over the stage, its platforms and what stands on them to a little behind them, 0 six units out.
+float pf_play_area(vec3 p) {
+	if (pf_ao_strength <= 0.0) {
+		return 0.0;
+	}
+	vec2 o = max(pf_ao_rect.xy - p.xy, p.xy - (pf_ao_rect.xy + pf_ao_rect.zw));
+	return 1.0 - smoothstep(0.0, 6.0, max(max(o.x, o.y), max(-12.0 - p.z, p.z - 4.0)));
+}
+
 // `pf_stage_ao` for a surface whose world normal is `n`: where it faces up (the ground), only under the platforms' depth.
 float pf_stage_ao_ground(vec3 p, vec3 n) {
 	float ao = pf_stage_ao(p);

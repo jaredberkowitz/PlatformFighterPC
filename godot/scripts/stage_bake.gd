@@ -398,8 +398,11 @@ static func place_front(root: Node3D, t: Dictionary, scene: Node3D) -> void:
 	var grass: Color = t.get("grass", Color(0.5, 0.8, 0.3))
 	var colours := {"quilt": quilt, "button": quilt.darkened(0.35), "earth": (t.get("soil_dark", Color(0.5, 0.35, 0.2)) as Color).darkened(0.55),
 		# (Greyed toward green and the roots a darker bark: under the grove's pink light grey stone read lavender and the bark pink.)
-		"rock": Color(0.48, 0.55, 0.44), "root": _root_colour(t), "moss": grass.darkened(0.12),
-		"moss_shade": grass.darkened(0.5),
+		"rock": Color(0.48, 0.55, 0.44), "root": _root_colour(t),
+		# (A step under the lawn and in its hue, fidelity review 17: with the fronts clear of the clouds' tint, a front's moss was the brightest green on the stage,
+		# a lime brighter than the ground the fighters stand on.)
+		"moss": _lawn_green(t).darkened(0.3),
+		"moss_shade": _lawn_green(t).darkened(0.5),
 		# (The meadow's families, art/blender/make_meadow_front.py: its light-moss ledge, the farm's wood, warm stone, soil, the lawn.)
 		"ledge": t.get("ledge", Color(0.4, 0.62, 0.32)), "log": (t.get("wood", Color(0.86, 0.62, 0.36)) as Color).darkened(0.12),
 		"log_end": (t.get("wood", Color(0.86, 0.62, 0.36)) as Color).lightened(0.25), "stone": Color(0.82, 0.74, 0.62),
@@ -471,8 +474,16 @@ static func place_front(root: Node3D, t: Dictionary, scene: Node3D) -> void:
 			if fam in ["fieldstone", "wall_moss"] and stones.has("fall"):
 				m.set_shader_parameter("front_fall", float(stones.fall))
 			m.set_shader_parameter("front_span", 7.0)
-			if fam in ["fieldstone", "wall_moss", "moss", "moss_shade", "rock"]:
+			if fam in ["moss", "moss_shade", "rock"]:
 				m.set_shader_parameter("vshade_floor", 0.84)
+			# (No cloud shadows on a front, fidelity review 17: they tint the colour of whatever faces up, so with the floors clear of them every little top
+			# left on a front, a stone's or a ledge's, stayed slate under a sky with nothing in the way.)
+			if flag("--front-clouds=") != "1":
+				m.set_shader_parameter("cloud_shade", 0.0)
+			# (The grove's rock clear of the real shadows' streaks, which ran across its folds under the lip; and the meadow's stones, where the moss caps' shadows
+			# stepped across the bevels in dashes at 1080 lines.)
+			if fam in ["fieldstone", "wall_moss"] or (fam == "rock" and String(t.get("name", "")) == "grove"):
+				m.set_shader_parameter("shadow_amount", 0.2)
 			# (The canyon's beds a little lower, so the shade under their ledges stays; below it, on long faces, it smeared in blotches.)
 			if fam.begins_with("strata_"):
 				m.set_shader_parameter("vshade_floor", 0.76)
@@ -500,7 +511,7 @@ const STONE_TRY := {
 	"A": {"colours": {"fieldstone": Color(0.84, 0.77, 0.66)}},
 	# (Fidelity review 17: truly lit, B's 0.88, 0.85, 0.78 blew out to white. A step down keeps the pale card stone it was picked for, and the moss
 	# a clear green: its caps read as dark lids.)
-	"B": {"colours": {"fieldstone": Color(0.74, 0.69, 0.6), "wall_moss": Color(0.52, 0.72, 0.36)}, "fall": 0.2},
+	"B": {"colours": {"fieldstone": Color(0.74, 0.69, 0.6), "wall_moss": Color(0.46, 0.7, 0.38)}, "fall": 0.2},
 }
 
 
@@ -527,15 +538,7 @@ static func place_play(root: Node3D, t: Dictionary, path: String) -> void:
 	if scene == null:
 		push_warning("play mock %s could not be read" % path)
 		return
-	var grass: Color = t.get("grass", Color(0.5, 0.8, 0.3))
-	# (The fighters on bright floors, fidelity review 16 item 1: the palette's [backdrop] `lawn_cool` or `--fighter-floor=T|A|B`, see
-	# LAWN_COOL.)
-	var cool := String((StageArt.palette(String(t.get("name", ""))).get("backdrop", {}) as Dictionary).get("lawn_cool", ""))
-	if flag("--fighter-floor=") != "":
-		cool = flag("--fighter-floor=").to_upper()
-	if String(t.get("name", "")) in ["meadow", "grove"] and LAWN_COOL.has(cool):
-		var lc: Array = LAWN_COOL[cool]
-		grass = Color.from_hsv(grass.h + float(lc[0]), minf(grass.s * float(lc[1]), 1.0), grass.v)
+	var grass := _lawn_green(t)
 	var wood: Color = t.get("wood", Color(0.86, 0.62, 0.36))
 	var path_c: Color = t.get("path_colour", Color(0.94, 0.9, 0.74))
 	# (The grove's path a worn earth, fidelity review 14 item 8: its pale cream went lavender under the pink light, a flat stripe.
@@ -700,6 +703,19 @@ const FLOOR_TRY := {
 const LAWN_COOL := {"A": [0.04, 1.0], "B": [0.08, 1.08]}
 
 
+## The stage's grass with that step taken: the walked lawn's green.
+static func _lawn_green(t: Dictionary) -> Color:
+	var grass: Color = t.get("grass", Color(0.5, 0.8, 0.3))
+	# (The palette's [backdrop] `lawn_cool` or `--fighter-floor=T|A|B`.)
+	var cool := String((StageArt.palette(String(t.get("name", ""))).get("backdrop", {}) as Dictionary).get("lawn_cool", ""))
+	if flag("--fighter-floor=") != "":
+		cool = flag("--fighter-floor=").to_upper()
+	if String(t.get("name", "")) in ["meadow", "grove"] and LAWN_COOL.has(cool):
+		var lc: Array = LAWN_COOL[cool]
+		grass = Color.from_hsv(grass.h + float(lc[0]), minf(grass.s * float(lc[1]), 1.0), grass.v)
+	return grass
+
+
 ## Modelled play areas (the stage's top and its platforms, art/blender/make_meadow_play.py), by the exact stage they were built on.
 const PLAYS := {"meadow_62409190": "res://models/stages/meadow_play.glb", "grove_14d06e65": "res://models/stages/grove_play.glb",
 	"sunset_19cad55b": "res://models/stages/canyon_play.glb", "ocean_d9c5edff": "res://models/stages/beach_play.glb",
@@ -739,7 +755,7 @@ const WORLD_COLOURS := {"hull": Color(0.32, 0.5, 0.62), "hull_stripe": Color(0.9
 	"awning_a": Color(0.92, 0.4, 0.38), "awning_b": Color(0.98, 0.94, 0.86),
 	"stall": Color(0.76, 0.56, 0.38), "coat_a": Color(0.36, 0.48, 0.72), "coat_b": Color(0.82, 0.5, 0.32), "coat_c": Color(0.5, 0.62, 0.4),
 	"skin": Color(0.96, 0.8, 0.66), "flag_a": Color(0.92, 0.36, 0.36), "flag_b": Color(1.0, 0.84, 0.36), "flag_c": Color(0.4, 0.66, 0.86),
-	"smoke": Color(0.9, 0.88, 0.92), "timber": Color(0.62, 0.42, 0.3), "timber_dark": Color(0.44, 0.3, 0.24), "iron": Color(0.32, 0.3, 0.36),
+	"smoke": Color(0.68, 0.68, 0.74), "timber": Color(0.62, 0.42, 0.3), "timber_dark": Color(0.44, 0.3, 0.24), "iron": Color(0.32, 0.3, 0.36),
 	"engine": Color(0.22, 0.24, 0.3), "engine_cab": Color(0.7, 0.22, 0.22), "car_a": Color(0.78, 0.5, 0.3), "car_b": Color(0.46, 0.58, 0.5),
 	"tank": Color(0.62, 0.4, 0.3), "tank_dark": Color(0.42, 0.28, 0.24), "trail": Color(0.96, 0.84, 0.68), "canvas": Color(0.96, 0.93, 0.84),
 	"blade": Color(0.86, 0.84, 0.8),
