@@ -350,9 +350,12 @@ static func builtins() -> Array:
 	var exile := neutral_entry("Exile", 13, wanderer_look)
 	exile.builtin = true
 	exile.base_index = 13
-	# (The built-in fighters keep their belts: the outfit pass took them off the default looks only.)
+	# (The built-in fighters kept their belts until the roster pass, 2026-11-02: the outfit pass took them off the default looks only.)
+	# Bare legs and no belt on every built-in fighter since the roster pass, the owner's pick of mocks (C), as the default looks and the
+	# reference cast: no socks, boots or belt with its buckle (eleven fighters wore the same brass buckle, five the boots); the gloves stay.
 	for l in [knight, scrapper, hooded, plumber, racer, oracle, hero, bruiser, hopper, traveller, villager, monkey, thief, wanderer_look]:
-		l.belt = 0
+		l.belt = 1
+		l.gear = mini(l.gear, 2)
 	return [duelist, brawler, rogue, tumbler, sprinter, seer, champion, hauler, bounder, wanderer, settler, scamp, phantom, exile]
 
 
