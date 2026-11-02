@@ -23,7 +23,8 @@ the simulation (the sim's frame data is the only clock). Sister documents: `ART_
   through while active, holds through end lag and settles at the end. So one clip serves moves of any length without changing their frame
   data, and the animation can never become the source of truth.
 - **Timed states**: the dodges and the stand-up from the floor are played by progress through their own lengths (the bridge's
-  `fighter_dodge`: the state's length from the fighter's parameters, and which way it goes), so a fighter with longer rolls still lands
+  `fighter_dodge`: the state's length from the fighter's parameters, which way it goes, whether a roll ends turned round (sim 147),
+  and how many frames it really lasts, longer for a stale roll or spot dodge), so a fighter with longer rolls still lands
   its roll's poses on its own frames. The roll's somersault and the spot dodge's step back into the stage are code on top.
 - **Multihit**: the bridge exposes each move's separate hits (`fighter_move_windows`: one window per hitbox group, cut again at every
   re-hit of a `rehit` move). Between two hits the body draws back toward the wind-up and strikes again on the next hit's first frame;
