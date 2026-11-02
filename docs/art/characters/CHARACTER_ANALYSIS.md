@@ -849,3 +849,48 @@ the collars taking the shirt's own weights; the owner chose it.
 `shoulder_pass.png`: the aviator and the holiday shirt with fists up, from the side then the front, before then after each; the sailor's
 collar from behind, the side and three-quarters behind, before above after; a match frame before and after. Art pipeline, fighter view,
 loadout, animation library, match flow and motion tests pass.
+
+## The roster on the build line (2026-10-31 to 11-02)
+**Merge.** None of the character passes since the 2026-10-25 merge (hair, cape and hood, form light, strap, trim, legs and feet, fleck
+print, silhouettes, shades, fringe, eye whites, placket, collars, headwear print, straw braid, nape; 22 commits on art/character-beta) was
+in any build: the builds come from the animator's line (art/anim-core), not main. They are merged onto art/anim-core b3046c09 in branch
+art/character-merge (worktree F:/character/merge, not pushed). Conflicts: the identity pass's hats keep their numbers 11 to 15 and the
+swoop moves to 16 (saved looks in installed builds keep theirs); the headband hat moved onto the hair pass's soft hair mass; the hat scale
+list keeps the top and conical hats and drops the hair. The rig was rebuilt from the merged script; its joints are within a millimetre of
+the animator's.
+
+**Defects found on the whole roster, fixed** (`defects_2026-11-02.png`, commits de320752 and 868558ff):
+- Every solidified hat, brim and cape was two skins exactly on top of each other, wound opposite ways: bmesh's solidify moves the new skin
+  along vertex normals that a freshly built mesh does not have. The two-sided cloth shader drew whichever won as the garment's inside, a
+  shade darker: the hard-edged dark patches on the beanie, the eared cap, the aviator cap and the racing helmet, and the stair-steps on the
+  capes. `make_gear.py` `thicken()` offsets the second skin itself; the hats' lumpiness moves both skins the same way.
+- The shirt came through the capes in two patches over the shoulder blades: the cape was pushed off the body by the nearest surface, which
+  could be the shirt's inside skin. Now along its line from the neck.
+- Boots were cut from the skin and pushed out part by part with a toe cap: torn edges, the bare foot through them in purple patches (the
+  old painted shoe), black lumps at play size. Now one smooth surface per foot (`modelled_boots`: the foot pushed out, voxel remeshed,
+  smoothed, cut into upper, sole and cuff, each weighted from its own leg); the foot under it is left out and the leg's line stops under
+  the socks; the leather a step lighter.
+- With the arms raised the shirt's shoulder came up through the collar band in shards: no upper-arm bone in the shirt where the collar
+  lies (`COLLAR_CLEAR`), the collar's weights blended over the face beneath.
+- The buckle's outline broke into a dashed halo (hard edges); the placket and buttons end clear of it.
+
+**Proposals, built for the owner to keep or drop** (`neck_hats_2026-11-02.png`, commit d99670ec):
+- The neckerchief and scarf on the outfit shirt in a deeper, warmer shade of the outfit colour (the body's colour where that is pale), as
+  the reference ranger's kerchief; in the shirt's own colour they vanished (the Hauler's, the Sprinter's, the Exile's, the Seer's).
+- The scarf's tail a modelled soft ribbon from a knot, skinned to the same spring chain (`TailRig.build_modelled`); it was a plank.
+- The plumed helm snug on the head (it was scaled up as a hat and stood off as a bowl) in duller steel; the racing helmet's visor a band of
+  tinted, outlined glass on the shell (a flat pale plate); the eared cap's peak rounded; the headband fuller; the straw crown smoothed.
+
+**The roster's kit** (`roster_kit_options.png`): eleven of the fourteen built-in fighters wear the belt with its brass buckle, and five the
+boots; the reference cast wear neither, and the default looks dropped both (the outfit pass). A: as now; B: no belts, boots kept; C: bare
+legs and no belts, as the default looks.
+
+**Still weak, smaller:**
+1. With the arms up, a small horn on the shirt's shoulder at the sleeve seam, where the collar band ends.
+2. The pale outline on the darkest bodies (the Phantom, the Champion) draws arcs inside the hands.
+3. The racing helmet stays busy (visor, fin, hinges, stripe); it is in the identity review.
+4. The menu's deep-knee stances show the sock's top as a ring round the back knee seen from the front (the geometry is right; the pose
+   shows it).
+
+Sheets: `roster_pass_2026-11-02.png` (the roster before above after, and a match before and after). All the Godot tests pass (art pipeline,
+fighter view, loadout, animation library, match flow, motion, select grid, editor UI, orphan, creator flow, replay).
