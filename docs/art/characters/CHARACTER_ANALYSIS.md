@@ -881,9 +881,11 @@ the animator's.
 - The plumed helm snug on the head (it was scaled up as a hat and stood off as a bowl) in duller steel; the racing helmet's visor a band of
   tinted, outlined glass on the shell (a flat pale plate); the eared cap's peak rounded; the headband fuller; the straw crown smoothed.
 
-**The roster's kit** (`roster_kit_options.png`): eleven of the fourteen built-in fighters wear the belt with its brass buckle, and five the
-boots; the reference cast wear neither, and the default looks dropped both (the outfit pass). A: as now; B: no belts, boots kept; C: bare
-legs and no belts, as the default looks.
+**The roster's kit** (`roster_kit_options.png`): eleven of the fourteen built-in fighters wore the belt with its brass buckle, and six the
+socks and boots; the reference cast wear neither, and the default looks dropped both (the outfit pass). A: as then; B: no belts, boots kept;
+C: bare legs and no belts, as the default looks. The owner chose C: `roster.gd` `builtins` gives every built-in fighter no belt and at most
+the shorts and gloves (the gloves stay where a fighter wore them). The boots stay in the creator's full kit. `roster_kit_pass.png`: the
+roster before above after, and two matches before (left) and after.
 
 **Still weak, smaller:**
 1. With the arms up, a small horn on the shirt's shoulder at the sleeve seam, where the collar band ends.
