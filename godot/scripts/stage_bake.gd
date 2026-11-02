@@ -1158,6 +1158,12 @@ static func _ground_colours(t: Dictionary) -> Dictionary:
 	# (A step deeper than the ranges' land colours: the flats take the air of their depth on top, and came out a pale lilac.)
 	out["range_far"] = Color(0.62, 0.55, 0.84)
 	out["range_near"] = Color(0.46, 0.4, 0.72)
+	# (The palette's [backdrop] `range_tones` [near, far] over these, after fidelity review 17: in its saturated violet the near range filled every gap
+	# between the grove's trees, darker than the sky, so the frame read as a green and purple checkerboard.)
+	var tones: Array = bd.get("range_tones", [])
+	if tones.size() == 2:
+		out["range_near"] = tones[0]
+		out["range_far"] = tones[1]
 	# (The canyon's paper, art/blender/make_canyon_paper.py: its strata as the modelled front has them, and the dunes' sands.)
 	var soil: Color = t.get("soil", Color(0.86, 0.5, 0.32))
 	# (A step deeper, the readability pass: the butte behind the fight measured the fighters' own value.)
