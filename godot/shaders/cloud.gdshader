@@ -26,6 +26,9 @@ uniform float heap_weight = 1.1;
 // Where the flat underside's crisp shade edge sits, a share of `belly_height` over the base.
 uniform float underside = 0.85;
 instance uniform vec3 heap = vec3(0.0, 1.0, 0.0);
+// A cloud cut from card (`_card_cloud`, the palette's `cloud_style` 4; fidelity review 17): the shade along its base in rounded puffs, a clean
+// cut, a third of the height, in place of a broad belly with a wobbling edge, which read as a flat slab under a torn white cap.
+uniform bool card_cloud = false;
 // Flat-shaded planes (the folded and faceted clouds, docs/art/stages/FOLDED_STYLE.md): each panel lit as one plane, and the heap bends
 // it less, so the folds read.
 uniform bool flat_planes = false;
@@ -34,7 +37,13 @@ varying vec3 wn;
 varying vec3 wp;
 
 float h3(vec3 p) {
-	return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758.5453);
+	// (Exact integer arithmetic, fidelity review 17, as the sky's `hash`: a float hash could step across a cell's edge, and a step in `lump`
+	// tore the cloud's surface.)
+	ivec3 q = ivec3(p);
+	uint h = (uint(q.x) * 1597334677u) ^ (uint(q.y) * 3812015801u) ^ (uint(q.z) * 2946901019u);
+	h = (h ^ (h >> 15u)) * 2246822519u;
+	h = h ^ (h >> 13u);
+	return float(h) / 4294967295.0;
 }
 
 float n3(vec3 p) {
@@ -59,6 +68,10 @@ void fragment() {
 		vec3 fn = normalize(cross(dFdx(wp), dFdy(wp)));
 		n = dot(fn, n) < 0.0 ? -fn : fn;
 	}
+	// (A card's thin edge walls take its face's tone: lit on their own they showed as pale slivers at the notches between the lobes.)
+	if (card_cloud) {
+		n = vec3(0.0, 0.0, 1.0);
+	}
 	vec3 L = normalize(pf_sun_dir);
 	// The surface's light: its own normal bent toward where the puff sits in the heap, so one side of the whole cloud is lit.
 	vec3 nh = normalize(n + heap * heap_weight * (flat_planes ? 0.25 : 1.0));
@@ -77,6 +90,13 @@ void fragment() {
 	float edge_y = base_y + belly_height * underside + (n3(wp * vec3(0.35, 0.0, 0.35)) - 0.5) * belly_height * 0.5;
 	float under = 1.0 - smoothstep(edge_y - 0.15, edge_y + 0.15, wp.y);
 	float deep = 1.0 - smoothstep(base_y, base_y + belly_height * 0.5, wp.y);
+	if (card_cloud) {
+		// The white puffs hang into the shade: arcs bulging down, sharp where they meet.
+		float arc = abs(sin(wp.x * 1.45 / max(belly_height, 0.01) + base_y * 3.0));
+		float edge = base_y + belly_height * (0.72 - 0.34 * arc);
+		under = 1.0 - smoothstep(edge - 0.03, edge + 0.03, wp.y);
+		deep = 0.0;
+	}
 	c = mix(c, shade, under * 0.9);
 	c = mix(c, shade * 0.9, deep * 0.5);
 	// The silver lining.

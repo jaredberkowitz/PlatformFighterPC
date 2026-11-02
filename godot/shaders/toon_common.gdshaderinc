@@ -108,6 +108,9 @@ uniform vec4 paper_own = vec4(-1.0);
 // drift across it, and the light cannot add it): x broad value patches, y a slow warm-to-cool wander, z their size in world units,
 // w the tops a touch warmer and the walls cooler. Set by StageBake on a stage's modelled pieces (the palette's `paint_drift`); 0 off.
 uniform vec4 paint_drift = vec4(0.0);
+// The darkest the baked contact shade may take this surface (`vertex_shade`; 0 no floor), set by StageBake on the fronts' stones and moss
+// (fidelity review 17: every stone's top, pressed under the course above, baked to a dark slate lid). The stones' own tones lie above it.
+uniform float vshade_floor = 0.0;
 // How much of the drifting cloud shadows (`pf_clouds`) this surface takes, 1 all; StageBake's bright floors on trial set it on the walked
 // tops and platforms.
 uniform float cloud_shade = 1.0;
@@ -162,7 +165,7 @@ uniform vec4 hem_color : source_color = vec4(0.1, 0.07, 0.12, 1.0);
 void vertex() {
 	world_pos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 	world_normal = normalize((MODEL_MATRIX * vec4(NORMAL, 0.0)).xyz);
-	vshade = vertex_shade ? mix(COLOR.rgb, vec3(1.0), pf_vshade_lift) : vec3(1.0);
+	vshade = vertex_shade ? max(mix(COLOR.rgb, vec3(1.0), pf_vshade_lift), vec3(vshade_floor)) : vec3(1.0);
 	if (instance_tint) {
 		vshade *= INSTANCE_CUSTOM.rgb;
 	}
@@ -197,7 +200,8 @@ void fragment() {
 		float y = world_pos.y;
 		float rag = 2.6 * sin(world_pos.x * 0.083 + 1.3) + 1.5 * sin(world_pos.x * 0.21 + 0.4) + 0.8 * sin(world_pos.x * 0.53);
 		// The tree line: a deep green round the foot, its top ragged.
-		float foot = 1.0 - smoothstep(alt_bands.z - 1.5, alt_bands.z + 1.5, y - rag * 0.8);
+		// (Crisp, fidelity review 17: the papercraft reference's mountains are clean planes; at 1.5 and 1.0 either side these lines were airbrushed bands.)
+		float foot = 1.0 - smoothstep(alt_bands.z - 0.3, alt_bands.z + 0.3, y - rag * 0.8);
 		c = mix(c, alt_foot.rgb, foot * 0.85 * alt_bands.w);
 		// Rock: broken strata between the tree line and the snow, a stripe every few units, darker on the faces turned from up.
 		if (alt_rock_bands > 0.0) {
@@ -206,7 +210,7 @@ void fragment() {
 			c = mix(c, alt_rock.rgb, span * stripe * 0.55 * alt_rock_bands * alt_bands.w);
 		}
 		// Snow on what faces up above the snow line, its edge ragged; a little on the steep faces near the top too.
-		float above = smoothstep(alt_bands.x - 1.0, alt_bands.x + 1.0, y + rag);
+		float above = smoothstep(alt_bands.x - 0.25, alt_bands.x + 0.25, y + rag);
 		float up = smoothstep(0.2, 0.55, world_normal.y) + 0.35 * smoothstep(alt_bands.x + 6.0, alt_bands.x + 12.0, y);
 		c = mix(c, alt_snow.rgb, clamp(above * up, 0.0, 1.0) * alt_bands.w);
 	}
@@ -372,8 +376,10 @@ void fragment() {
 	// (On what faces up: on a wall the drifting field showed as long slanted stripes. Not on fighters: a passing shade over one read as
 	// it dimming, and every fighter keeps the same value on any spot of the stage.)
 	// (Only near the stage, the gauntlet's round 15: on the far ranges the dapples read as low-resolution mottling, not light.)
+	// (Nor in the play area, fidelity review 17: they tint the colour, so with the floors and fronts clear of them every crate, barrel and rock kept a dark top
+	// over its own lit front, as if lit from below.)
 	pf_sun = mix(1.0, pf_cloud_sun(world_pos, TIME), smoothstep(0.1, 0.6, world_normal.y) * (1.0 - fighter)
-		* (1.0 - smoothstep(25.0, 55.0, -world_pos.z)) * cloud_shade);
+		* (1.0 - smoothstep(25.0, 55.0, -world_pos.z)) * (1.0 - pf_play_area(world_pos)) * cloud_shade);
 	if (pf_cloud_tone.a > 0.0) {
 		// (On the colour, shading ambient and sun alike: see `pf_cloud_tone`. Clouds only, not the platforms' cast shadow below.)
 		c *= mix(vec3(1.0), pf_cloud_tone.rgb, clamp(1.0 - pf_sun, 0.0, 1.0) * pf_cloud_tone.a);
@@ -384,7 +390,14 @@ void fragment() {
 		// (On what faces up, stretched five times along the depth: the match camera sees a top almost edge on, squeezed about that much,
 		// and laid evenly every mark blurred into the grey of the texture's smallest copies.)
 		vec2 pp = abs(world_normal.y) > 0.5 ? vec2(world_pos.x, world_pos.z * 0.2) : (abs(world_normal.x) > 0.6 ? vec2(world_pos.z, -world_pos.y) : vec2(world_pos.x, -world_pos.y));
-		c *= 1.0 + print_amount * (texture(print_tex, pp / print_scale).r - 0.5) * 2.0;
+		// (Faded on what the camera sees at a grazing angle, fidelity review 17: squeezed one way only, the filtering keeps the print's fine lines the
+		// other way, and a bevel read as a screen door at 1080 lines.)
+		vec2 pdx = dFdx(pp);
+		vec2 pdy = dFdy(pp);
+		float pa = length(pdx);
+		float pb = length(pdy);
+		float squeeze = max(pa, pb) / max(min(pa, pb), 1e-5);
+		c *= 1.0 + print_amount * (1.0 - smoothstep(3.0, 8.0, squeeze)) * (texture(print_tex, pp / print_scale).r - 0.5) * 2.0;
 	}
 	if (fighter < 0.5 && paint_drift.x + paint_drift.y + paint_drift.w > 0.0) {
 		// (Tops stretched along the depth, as the print is: the match camera sees them almost edge on.)
@@ -400,7 +413,9 @@ void fragment() {
 		// Fibre: fine grain stretched along the sheet, on whichever plane the surface lies.
 		vec2 fp = abs(world_normal.y) > 0.5 ? world_pos.xz : (abs(world_normal.x) > 0.6 ? world_pos.zy : world_pos.xy);
 		float fib = brush_noise(fp * vec2(7.0, 26.0)) * 0.6 + brush_noise(fp * vec2(19.0, 57.0)) * 0.4;
-		c *= 1.0 + paper_fin.x * 0.22 * (fib - 0.5);
+		// (Faded where its cells fall under a pixel, fidelity review 17: there it aliases into a moire of fine lines.)
+		float fib_k = 1.0 - smoothstep(0.35, 0.9, max(fwidth(fp.x) * 19.0, fwidth(fp.y) * 57.0));
+		c *= 1.0 + paper_fin.x * 0.22 * fib_k * (fib - 0.5);
 		// Sheet to sheet: each piece a touch lighter or darker and warmer or cooler, broad across the merged meshes.
 		float sheet = fract(sin(dot(NODE_POSITION_WORLD, vec3(12.9898, 78.233, 37.719))) * 43758.5453);
 		float broad = brush_noise(world_pos.xy * 0.11 + world_pos.zz * 0.07);
@@ -409,13 +424,18 @@ void fragment() {
 		c *= mix(vec3(1.0), vec3(1.02, 1.0, 0.97), paper_fin.y * clamp(w + 0.5, 0.0, 1.0));
 		// The cut edge: where the surface turns away from the eye, a pale card edge.
 		float rim = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 5.0);
-		c = mix(c, c * 0.4 + vec3(0.56, 0.54, 0.5), rim * paper_fin.z * 0.55);
+		// (In its own colour, fidelity review 17: a fixed pale grey also took every top seen nearly edge-on, so ledges and stones' tops read as grey
+		// metal strips at 1080 lines, and in the grove's violet shade as purple slivers through the moss.)
+		c = mix(c, c * 1.22 + vec3(0.05), rim * paper_fin.z * 0.55);
 	}
 	// (Not on flat tops, whose own normal is already the face's: rebuilt from the screen derivatives it came out turned over on them, so
 	// the background's grass, sand and terrace tops were lit as undersides, in their shade colour, and took no cast shadow; the graphics
 	// review 5, 2026-10-22.)
 	if (facets && world_normal.y < 0.97) {
-		NORMAL = normalize(cross(dFdx(VERTEX), dFdy(VERTEX)));
+		// (dFdy first, fidelity review 17: this renderer's screen y runs down, so the other way round the normal pointed away from the camera on every
+		// faceted surface, each one lit as if from the far side. The stages' suns had been set from behind the scene to suit it, and every face toward
+		// the camera that wasn't faceted went into shade.)
+		NORMAL = normalize(cross(dFdy(VERTEX), dFdx(VERTEX)));
 	}
 	ALBEDO = c;
 	EMISSION = flash.rgb * flash.a + c * fighter_bounce.rgb * fighter_bounce_amount * fighter * clamp(-world_normal.y, 0.0, 1.0);

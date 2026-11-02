@@ -8,6 +8,9 @@ extends Node3D
 const KINDS := ["bob", "train", "drive", "stroll", "dance", "sway", "flutter", "smoke", "twinkle", "firefly"]
 ## The ones that travel (held still under `--world-motion=place`).
 const TRAVELLERS := ["train", "drive", "stroll"]
+## How large each puff of smoke is, and how far apart they rise, against the model's.
+const SMOKE_SIZE := 0.62
+const SMOKE_SPREAD := 1.2
 
 ## [node, kind, its rest transform, phase, [child, its rest position, its centre over the pivot, its material, its colour] for smoke and
 ## for twinkling]
@@ -36,6 +39,12 @@ func setup(world: Node3D, mode: String) -> void:
 			if c is MeshInstance3D:
 				var mi := c as MeshInstance3D
 				var mat = mi.material_override
+				if kind == "smoke":
+					# (Fidelity review 17: full size and touching, chimney smoke read as a tall stack of marshmallows, brighter than the houses. Each puff
+					# smaller, about its own middle, and the column a little longer, so they rise apart, as a storybook draws them.)
+					var centre: Vector3 = mi.transform * mi.get_aabb().get_center()
+					mi.scale = Vector3.ONE * SMOKE_SIZE
+					mi.position = Vector3(centre.x, centre.y * SMOKE_SPREAD, centre.z) - mi.basis * mi.get_aabb().get_center()
 				parts.append([mi, mi.position, mi.transform * mi.get_aabb().get_center(), mat,
 					(mat as StandardMaterial3D).albedo_color if mat is StandardMaterial3D else Color.WHITE])
 		# (Each its own phase, from its place, so neighbours never move in step.)

@@ -178,15 +178,23 @@ def scallop(cx, cy, z, rx, ry, lobes, phase, depth=0.16, n=28):
 # ---- Shared pieces -------------------------------------------------------------------------------------------------------------------
 
 
-def smoke(at, n=5, size=0.6, rng=None):
+def smoke(at, n=5, size=0.6, rng=None, keep=None):
     """Chimney smoke as cut-card puffs, scalloped and thick, rising and drifting, larger up the column (each puff its own part, so the
-    column can curl: `move_smoke`). (Faceted balls read as low-poly rock beside the paper clouds.)"""
+    column can curl: `move_smoke`). (Faceted balls read as low-poly rock beside the paper clouds.) `keep`: only the lowest puffs of the
+    `n` are made, the rest of the random numbers still drawn so everything after keeps its layout."""
     rng = rng or random.Random(5)
     for k in range(n):
         t = k / max(1, n - 1)
         c = Vector(at) + Vector((t * 1.6 + rng.uniform(-0.2, 0.2), k * size * 1.3, 0.02 * k))
         r = size * (0.7 + 0.6 * t)
-        card(scallop(c.x, c.y, c.z, r, r * 0.86, rng.choice((3, 4)), rng.uniform(0.0, math.tau)), "smoke", "smoke", thick=0.3 * r)
+        # (A soft uneven blob, fidelity review 17: scalloped with three or four lobes a puff drew as a rounded square or a dumbbell at 1080 lines, with five or six
+        # as a little flower.)
+        lumps, phase = rng.choice((2, 3)), rng.uniform(0.0, math.tau)
+        outline = [(c.x + r * q * math.cos(a), c.y + r * 0.86 * q * math.sin(a), c.z)
+                   for a in (math.tau * i / 28 for i in range(28))
+                   for q in (1.0 + 0.11 * math.sin(lumps * a + phase) + 0.05 * math.sin((lumps + 2) * a + phase * 1.7),)]
+        if keep is None or k < keep:
+            card(outline, "smoke", "smoke", thick=0.3 * r)
 
 
 def smoke_column(at, n=5, size=0.6, rng=None):
@@ -1052,7 +1060,9 @@ def ground_y(glb, x, z):
 def meadow_c():
     rng = random.Random(12)
     # Chimney smoke over the farmhouse and the far cottage; washing on a line by the farm; a scarecrow in the near field.
-    moving("smoke", (-28.0, -8.0, -36.5), scaled, (-28.0, -8.0, -36.5), 1.6, smoke, (-28.0, -8.0, -36.5), 6, 0.5, rng)
+    # (From the chimney's top and shorter, fidelity review 17: from y -8 its lowest puff lay on the roof, and at 1.6 and six puffs it stood across the dark pine
+    # behind the house in the match frame like lumps of snow.)
+    moving("smoke", (-28.0, -6.8, -36.5), scaled, (-28.0, -6.8, -36.5), 1.2, smoke, (-28.0, -6.8, -36.5), 6, 0.5, rng, 4)
     moving("smoke", (42.5, -4.0, -72.5), scaled, (42.5, -4.0, -72.5), 2.4, smoke, (42.5, -4.0, -72.5), 6, 0.5, rng)
     # (The line and the scarecrow in the field right of the farmhouse, each on the land under it, the
     # believability pass, 2026-10-22: the line stood across the lane and the barn's front, the scarecrow before the farmhouse's door.)

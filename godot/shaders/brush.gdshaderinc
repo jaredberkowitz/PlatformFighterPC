@@ -4,9 +4,13 @@ uniform float brush_strength = 0.0;
 uniform float brush_scale = 1.0;
 
 float brush_hash(vec2 p) {
-	p = fract(p * vec2(123.34, 456.21));
-	p += dot(p, p + 45.32);
-	return fract(p.x * p.y);
+	// (Exact integer arithmetic, fidelity review 17: the old float hash was chaotic, so when the GPU rounded `hash(i + 1)` differently from
+	// the next cell's `hash(i)` the two sides of a cell took different values, a hard straight cut at fixed places, the sky's streaks.)
+	ivec2 q = ivec2(p);
+	uint h = (uint(q.x) * 1597334677u) ^ (uint(q.y) * 3812015801u);
+	h = (h ^ (h >> 15u)) * 2246822519u;
+	h = h ^ (h >> 13u);
+	return float(h) / 4294967295.0;
 }
 
 float brush_noise(vec2 p) {
