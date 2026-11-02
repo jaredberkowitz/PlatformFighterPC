@@ -1728,6 +1728,24 @@ fn stale_length(frames: u8, percent: u8, level: u8) -> u16 {
     (u16::from(frames) * (100 + u16::from(percent) * u16::from(level))).div_ceil(100)
 }
 
+/// How many frames the roll in progress lasts, made at its staleness (`dodge_level`): the frame it ends on. Rolling backward (away from
+/// the way the fighter faces) takes longer. The roll ends by it, and the view reads it (the bridge's `fighter_dodge`).
+pub fn roll_length(f: &Fighter, p: &FighterParams, rules: &Ruleset) -> u16 {
+    let back = f.dodge_dir.x.signum_int() != i32::from(f.facing);
+    let (frames, percent) = if back {
+        (p.roll_back_frames, rules.dodge_stale_back_roll)
+    } else {
+        (p.roll_frames, rules.dodge_stale_roll)
+    };
+    stale_length(frames, percent, f.dodge_level)
+}
+
+/// How many frames the spot dodge in progress lasts, made at its staleness (`dodge_level`): the frame it ends on. The spot dodge
+/// ends by it, and the view reads it.
+pub fn spot_dodge_length(f: &Fighter, p: &FighterParams, rules: &Ruleset) -> u16 {
+    stale_length(p.spot_dodge_frames, rules.dodge_stale_spot, f.dodge_level)
+}
+
 /// How many frames later a stale dodge's intangibility starts: `full` when fully stale, in between by level (rounded).
 fn stale_shift(full: u8, level: u8, rules: &Ruleset) -> u8 {
     let max = u16::from(rules.dodge_stale_max.max(1));
@@ -1767,13 +1785,7 @@ fn roll(f: &mut Fighter, p: &FighterParams, stage: &Stage, rules: &Ruleset) {
         f.vel.x = approach(f.vel.x, Fx::ZERO, p.ground_friction);
     }
     slide_kept_on_platform(f, p, stage);
-    // Rolling backward (away from the way the fighter faces) takes longer.
-    let frames = if back {
-        p.roll_back_frames
-    } else {
-        p.roll_frames
-    };
-    if f.state_frame >= stale_length(frames, percent, level) {
+    if f.state_frame >= roll_length(f, p, rules) {
         // (On the frame it ends, not before: the facing says which way the roll goes while it lasts. Whatever comes out next frame,
         // buffered or not, comes out facing the new way.)
         if f.roll_turns {
@@ -1796,7 +1808,7 @@ fn spot_dodge(f: &mut Fighter, p: &FighterParams, stage: &Stage, rules: &Ruleset
     }
     f.vel.x = approach(f.vel.x, Fx::ZERO, p.ground_friction);
     slide_kept_on_platform(f, p, stage);
-    if f.state_frame >= stale_length(p.spot_dodge_frames, rules.dodge_stale_spot, level) {
+    if f.state_frame >= spot_dodge_length(f, p, rules) {
         enter(f, S::Idle);
     }
 }

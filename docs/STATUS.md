@@ -98,7 +98,8 @@ roll out of a shield ends turned round, facing the way it came from, so rolling 
 (`docs/REFERENCE_GAPS.md` D6). A back roll keeps its facing, and tech, get-up and trip rolls keep theirs whichever way they go, as
 the reference's do. The turn lands on the frame the roll ends, a stale roll's later end included, so anything buffered out of the
 roll comes out facing the new way. New hashed `Fighter::roll_turns`; the bridge's `fighter_dodge` gains a third value (1 for a roll
-that turns) for the view, which still has to hide the turn inside the roll. Tests `roll_facing.rs` (16); `fuzz-rollback 1000` and
+that turns) for the view, which still has to hide the turn inside the roll, and a fourth: the frames the dodge really lasts (a stale
+roll or spot dodge plays longer than the fresh length; `fighter::roll_length` and `spot_dodge_length`, which the dodges end by). Tests `roll_facing.rs` (16); `fuzz-rollback 1000` and
 `net-fuzz 2000`: 0 mismatches.
 **Sim 141** (released together; the moveset session's 138 and 139 below landed after the run mode's 140, so they ship as 141 under the max+1 rule: everything those entries call sim 138 and 139 is in 141).
 **Sim 139** (branch `recovery-audit`, from `origin/main` at 3d8d5d3, sim 137; content schema 8 unchanged; sim 138 is the Longsword's
