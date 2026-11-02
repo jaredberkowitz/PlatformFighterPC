@@ -798,6 +798,7 @@ static func roll_turn_k(s: Dictionary, cls: int) -> float:
 ## other hand with the pose (it changed hands in one frame).
 var weapon_before_turn := Transform3D()
 var weapon_before_ok := false
+const WEAPON_OVER_FRONT := 0.55
 
 
 func _weapon_over(s: Dictionary) -> void:
@@ -810,7 +811,11 @@ func _weapon_over(s: Dictionary) -> void:
 		return
 	var k := roll_turn_k(s, _cls(s))
 	if weapon_before_ok and k < 1.0:
-		blade_pivot.global_transform = global_transform * weapon_before_turn.interpolate_with(here, k)
+		var t: Transform3D = weapon_before_turn.interpolate_with(here, k)
+		# (Carried across in front of the body, toward the camera: straight across, the blade stood up through the thighs for two or three
+		# frames, the art director's note on core4.)
+		t.origin += Vector3(0.0, 0.0, WEAPON_OVER_FRONT * sin(PI * k))
+		blade_pivot.global_transform = global_transform * t
 
 
 ## How far through its dodge (roll, spot dodge, air dodge) the fighter is, 0..1, or -1 when not dodging (`dodge` from the bridge's
