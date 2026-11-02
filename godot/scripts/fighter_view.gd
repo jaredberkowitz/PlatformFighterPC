@@ -2663,6 +2663,7 @@ func _neck_piece(accent: Color, kind: int) -> void:
 		2:
 			# Neckerchief: a collar ring round the top of the torso with a point hanging in front.
 			# (Snug round the neck and up to the head, the character judge's round 4: wide, it read as a bar across the chest.)
+			accent = _neck_colour(accent)
 			var at := _collar(accent, 0.74, 0.12)
 			# (A folded triangle of cloth pointing down, 2026-10-18: a square turned on its corner read as a flat plastic diamond.)
 			var bib := PrismMesh.new()
@@ -2683,9 +2684,14 @@ func _neck_piece(accent: Color, kind: int) -> void:
 			# Scarf: the collar ring and a tail hanging down the front on one side.
 			# (Up at the neck over the shirt's neckline and fuller, the scarf pass, 2026-10-20: at the plain collar's height it sank inside
 			# the puffed shirt and showed only as a thin stripe across the chest, its tail hidden inside the shirt.)
+			accent = _neck_colour(accent)
 			var at := _collar(accent, SCARF_SNUG, SCARF_LIFT, SCARF_THICK)
 			# (A chain of pieces on springs, so it swings and whips with the body: `TailRig`.)
-			_tail(Vector3(0.24, at - 0.06, 0.62), _fabric(accent), 0.52, 0.22, 0.07, 4)
+			# (A soft modelled ribbon hanging from a knot at the side of the throat since the scarf pass, 2026-10-31.)
+			var knot := _gear_mesh("neckwear", "fabric_knot")
+			if knot != null:
+				_part(torso_rig, knot, _fabric(accent.darkened(0.08)), SCARF_KNOT + Vector3(0, at, 0), Vector3.ONE * 1.25, Vector3(-10, 0, -12))
+			_tail(SCARF_KNOT + Vector3(0, at - 0.05, 0.02), _cloth(toon(accent)), 0.52, 0.22, 0.07, 4)
 		4:
 			# Cape: a broad cloth hanging down the back, on springs, so it streams behind the fighter's runs and jumps: the biggest change to
 			# the outline the wardrobe has.
@@ -2837,9 +2843,29 @@ func _tail(at: Vector3, mat: Material, length: float, width: float, thickness: f
 	var t := TailRig.new()
 	t.position = at
 	torso_rig.add_child(t)
-	t.build(mat, length, width, thickness, segments)
+	var modelled := _gear_mesh("neckwear", "fabric_tail") if length < 1.0 else null
+	if modelled != null:
+		t.build_modelled(modelled, mat, segments)
+	else:
+		t.build(mat, length, width, thickness, segments)
 	meshes.append_array(t.meshes())
 	tails.append(t)
+
+
+## The neckerchief's and scarf's colour: the outfit colour, but on the outfit shirt (the same colour) a deeper, warmer shade of it, as the
+## reference ranger's burnt-orange kerchief on its ochre shirt, or the body's own colour where the outfit colour is pale. (The scarf pass,
+## 2026-10-31: in the shirt's own colour the kerchief and the scarf vanished into it, only their ink lines showing.)
+func _neck_colour(accent: Color) -> Color:
+	if loadout.shirt != 2:
+		return accent
+	if accent.s < 0.25:
+		return loadout.body_color().darkened(0.12)
+	return Color.from_hsv(fposmod(accent.h - NECK_HUE_SHIFT, 1.0), minf(1.0, accent.s * 1.1), accent.v * NECK_DEEPEN)
+
+
+## How far round the hue wheel toward red, and how much darker, the neckwear is on the outfit shirt (`_neck_colour`).
+const NECK_HUE_SHIFT := 0.035
+const NECK_DEEPEN := 0.72
 
 
 ## A shirt's collar on the rigged torso (the owner's PEAK references, 2026-10-14: their shirts have a collar, a button placket and banded
@@ -2916,14 +2942,17 @@ func _gear_model(name: String, accent: Color) -> bool:
 	brass.set_shader_parameter("rim_strength", 0.2)
 	# (A deep blued steel: a pale one vanished against light backgrounds.)
 	var steel := (respond(toon(Color(0.4, 0.43, 0.52)), "metal") as ShaderMaterial).duplicate() as ShaderMaterial
-	steel.set_shader_parameter("metal", 0.3)
-	steel.set_shader_parameter("rim_strength", 0.15)
+	# (Duller, the hat pass, 2026-10-31: at 0.3 the bowl's soft highlights read as glass.)
+	steel.set_shader_parameter("metal", 0.12)
+	steel.set_shader_parameter("rim_strength", 0.1)
 	var gold := (respond(toon(Color(0.86, 0.66, 0.24)), "gold") as ShaderMaterial).duplicate() as ShaderMaterial
 	gold.set_shader_parameter("metal", 0.3)
 	gold.set_shader_parameter("rim_strength", 0.2)
 	# (A model's "metal" is the helm's steel, or the caps' brass; "brass" and "gold" name themselves.)
 	var mats := {"fabric": _fabric(accent), "canvas": _fabric(Color(0.95, 0.94, 0.9)), "leather": _cloth(toon(Color(0.4, 0.25, 0.17))),
 		"metal": steel if name == "plumed_helm" else brass, "brass": brass, "gold": gold, "glass": toon(Color(0.66, 0.84, 0.95), false),
+		# (The racing helmet's visor its own tinted glass with an ink line, the hat pass: pale and unlined it floated off the shell.)
+		"visor": toon(Color(0.42, 0.62, 0.8)),
 		# (Dark felt for the top hat, the fighter identity pass.)
 		"felt": _cloth(toon(Color(0.17, 0.15, 0.21))),
 		"straw": straw, "hair": toon(FaceLook.hair_color(loadout.brow_color)),
@@ -3006,6 +3035,8 @@ func _collar(accent: Color, snug := 1.0, lift := 0.0, thick := 1.0) -> float:
 const COLLAR_BELOW_NECK := 0.1
 ## The scarf's collar: how snug, how far up and how much thicker than the plain collar ring (the scarf pass, 2026-10-20).
 const SCARF_SNUG := 0.98
+## Where the scarf's knot sits, from the scarf ring's height (torso rig units): to one side of the throat, out over the chest.
+const SCARF_KNOT := Vector3(0.2, -0.04, 0.6)
 const SCARF_LIFT := 0.1
 const SCARF_THICK := 1.6
 
@@ -3025,7 +3056,8 @@ func _hat() -> void:
 	# (Only the hats that sit on top of the head: scaled, the caps that wrap it (aviator cap, beanie, hood, topknot) came down over the eyes.)
 	# (The top hat and the conical hat sit on top too, the fighter identity pass.)
 	# (Not the hair since the hair pass, 2026-10-24: scaled up as a hat it stood off the head and read as one.)
-	if loadout.hat in [1, 3, 5, 7, 14, 15]:
+	# (Not the plumed helm since the hat pass, 2026-10-31: it wraps the head as the caps do, and scaled up it stood off it as a bowl.)
+	if loadout.hat in [1, 3, 5, 14, 15]:
 		# (Only part of the head shape's stretch reaches the hat, the character judge's round 14: on the wide bun head the aviator's hat
 		# spread into a flat platter. The hat fits the head without taking its proportions.)
 		var hs: Vector3 = Loadout.HEAD_SCALES.get(Loadout.HEADS[clampi(int(loadout.get("head")), 0, Loadout.HEADS.size() - 1)], HEAD_SIZE)

@@ -376,7 +376,9 @@ def straw_hat():
     for ring in rings[3:]:
         for v in ring:
             v.co.z -= 0.07 * max(0.0, 1.0 - abs(v.co.x) / 0.25)
-    to_object("straw_crown", bm).parent = root
+    # (Subdivided and smoothed, the hat pass, 2026-10-31: in six rings the pinch and the crease were hard facets.)
+    bmesh.ops.subdivide_edges(bm, edges=bm.edges[:], cuts=1, use_grid_fill=True, smooth=0.6)
+    to_object("straw_crown", bm, sharp=70.0).parent = root
     bm = bmesh.new()
     lathe(bm, [(0.585, base + 0.05), (0.592, base + 0.07), (0.588, base + 0.14), (0.58, base + 0.16)])
     # (A dark leather band, as the reference's.)
@@ -994,7 +996,38 @@ def neckwear():
         for j in range(m):
             bm.faces.new((rows[i][j], rows[(i + 1) % seg][j], rows[(i + 1) % seg][(j + 1) % m], rows[i][(j + 1) % m]))
     to_object("fabric_sash", bm, sharp=50.0).parent = root
+    # The scarf's tail (the scarf pass, 2026-10-31): a soft ribbon of cloth hanging from its knot at the origin, gathered under the knot,
+    # easing wider, its sides turned back a little and a soft fold down its middle, a gentle S down its length, the end cut on a rounded
+    # slant. The game hangs it on a chain of springs (`TailRig`). (A chain of flat boxes before: it read as a plank on the chest.)
+    bm = bmesh.new()
+    rows_n, cols_n = 16, 8
+    length = SCARF_TAIL["length"]
+    grid = []
+    for r in range(rows_n + 1):
+        t = r / rows_n
+        half = SCARF_TAIL["root"] + (SCARF_TAIL["width"] - SCARF_TAIL["root"]) * min(1.0, t / 0.35) ** 0.6
+        row = []
+        for c in range(cols_n + 1):
+            u = c / cols_n * 2.0 - 1.0
+            # The end cut on a slant, its corners rounded: the outer side hangs longer than the inner.
+            drop = length * t
+            if r == rows_n:
+                drop += SCARF_TAIL["slant"] * (u + 1.0) * 0.5 - 0.02 * (1.0 - u * u)
+            x = half * u + SCARF_TAIL["sway"] * math.sin(t * math.pi * 1.3) * t
+            z = 0.018 * (1.0 - abs(u)) - 0.03 * u * u + SCARF_TAIL["curl"] * math.sin(t * math.pi) * (1.0 - 0.5 * t)
+            row.append(bm.verts.new(_g(x, -drop, z)))
+        grid.append(row)
+    for r in range(rows_n):
+        for c in range(cols_n):
+            bm.faces.new((grid[r][c], grid[r][c + 1], grid[r + 1][c + 1], grid[r + 1][c]))
+    thicken(bm, 0.03)
+    to_object("fabric_tail", bm, sharp=70.0).parent = root
     return root
+
+
+# The scarf's tail (neckwear `fabric_tail`): its length, its width under the knot and lower down (half widths), how much longer its outer
+# side hangs at the end, how far it sways across and curls forward down its length.
+SCARF_TAIL = {"length": 0.5, "root": 0.06, "width": 0.11, "slant": 0.07, "sway": 0.03, "curl": 0.03}
 
 
 
@@ -1057,34 +1090,45 @@ def racing_helmet():
         ph = math.radians(-100.0 + 148.0 * k / 16)
         pts.append(Vector((0.0, -0.965 * math.sin(ph), 1.5 + 1.15 * math.cos(ph))))
     _strip("canvas_stripe", pts, 0.08, 0.025).parent = root
+    # The visor, raised: a band of tinted glass following the shell's curve a little out from it, from the brow up over the forehead, its
+    # corners rounded and its front edge rolled into a lip that stands off the shell, so it reads in silhouette over the brow.
+    # (A flat plate standing out from the shell as a peak until the hat pass, 2026-10-31: it read as a paper plate on the head.)
     bm = bmesh.new()
     rows = []
-    for j in range(5):
-        # (Jutting out over the brow as a peak, the identity pass's second look: flat on the shell it vanished in silhouette.)
-        ph = math.radians(30.0 + 8.0 * j)
-        out = 1.0 + 0.05 * j
+    rows_n, cols_n = 6, 20
+    for j in range(rows_n + 1):
+        v = j / rows_n
+        ph = math.radians(26.0 + 30.0 * v)
+        # (Further out toward its front edge, the lip.)
+        out = 0.98 + 0.05 + 0.06 * v ** 3
         row = []
-        for i in range(17):
-            a = math.radians(-90.0 - 62.0 + 124.0 * i / 16)
-            row.append(bm.verts.new((out * math.sin(ph) * math.cos(a), out * math.sin(ph) * math.sin(a), 1.5 + 1.17 * math.cos(ph) + 0.02 * j)))
+        span = 64.0 - 10.0 * v ** 4
+        for i in range(cols_n + 1):
+            u = i / cols_n * 2.0 - 1.0
+            a_ = math.radians(-90.0 + span * u)
+            # (The corners rounded: the band's ends drawn in toward its middle row.)
+            pz = ph + math.radians(5.0) * (abs(u) ** 6) * (0.5 - v) * 2.0
+            row.append(bm.verts.new((out * math.sin(pz) * math.cos(a_), out * math.sin(pz) * math.sin(a_), 1.5 + 1.15 * out * math.cos(pz))))
         rows.append(row)
-    for j in range(4):
-        for i in range(16):
+    for j in range(rows_n):
+        for i in range(cols_n):
             bm.faces.new((rows[j][i], rows[j][i + 1], rows[j + 1][i + 1], rows[j + 1][i]))
-    thicken(bm, 0.03)
-    to_object("glass_visor", bm, sharp=60.0).parent = root
+    thicken(bm, 0.035)
+    to_object("visor_glass", bm, sharp=60.0).parent = root
     # The fin: a swept blade along the back of the shell (a racing helmet's spoiler), the speedster's silhouette.
     bm = bmesh.new()
     prof = []
-    for k in range(9):
-        t = k / 8.0
+    # (Smooth along its edge, the hat pass, 2026-10-31: in eight steps its top edge read as torn card.)
+    steps = 24
+    for k in range(steps + 1):
+        t = k / steps
         ph = math.radians(10.0 + 70.0 * t)
         base = Vector((0.0, 0.94 * math.sin(ph), 1.5 + 1.12 * math.cos(ph)))
-        rise = 0.32 * math.sin(math.pi * min(1.0, t * 1.25)) * (1.0 - 0.3 * t)
+        rise = 0.32 * math.sin(math.pi * min(1.0, t * 1.25)) ** 0.8 * (1.0 - 0.3 * t)
         prof.append((base, base + Vector((0.0, rise * 0.75, rise))))
     lo = [bm.verts.new(b) for b, _ in prof]
     hi = [bm.verts.new(h) for _, h in prof]
-    for k in range(8):
+    for k in range(steps):
         bm.faces.new((lo[k], lo[k + 1], hi[k + 1], hi[k]))
     thicken(bm, 0.06)
     to_object("canvas_fin", bm, sharp=50.0).parent = root
@@ -1105,15 +1149,19 @@ def eared_cap():
     bm = bmesh.new()
     rows = []
     ph = math.radians(62.0)
-    for j in range(4):
-        out = 0.92 * math.sin(ph) + 0.12 * j
+    # (Its corners rounded, the front shorter at the sides, the hat pass, 2026-10-31: square, it read as a duck's bill.)
+    for j in range(7):
+        t = j / 6.0
         row = []
-        for i in range(15):
-            a = math.radians(-90.0 - 48.0 + 96.0 * i / 14)
-            row.append(bm.verts.new((out * math.cos(a), out * math.sin(a), 1.52 + 1.0 * math.cos(ph) - 0.02 * j * j)))
+        for i in range(21):
+            u = i / 20 * 2.0 - 1.0
+            reach = 0.36 * t * (1.0 - 0.45 * u ** 4)
+            out = 0.92 * math.sin(ph) + reach
+            a = math.radians(-90.0 + 50.0 * u * (1.0 - 0.18 * t * t))
+            row.append(bm.verts.new((out * math.cos(a), out * math.sin(a), 1.52 + 1.0 * math.cos(ph) - 0.1 * reach * reach / 0.13)))
         rows.append(row)
-    for j in range(3):
-        for i in range(14):
+    for j in range(6):
+        for i in range(20):
             bm.faces.new((rows[j][i], rows[j][i + 1], rows[j + 1][i + 1], rows[j + 1][i]))
     thicken(bm, 0.04)
     to_object("fabric_peak", bm, sharp=50.0).parent = root
@@ -1150,7 +1198,8 @@ def headband():
     bm = bmesh.new()
     sides = 48
     rings = []
-    for dr, dpol in [(0.012, -7.0), (0.04, -5.0), (0.04, 5.0), (0.012, 7.0)]:
+    # (Fuller, the hat pass, 2026-10-31: thin, it read as a line drawn round the hair.)
+    for dr, dpol in [(0.01, -9.0), (0.055, -6.5), (0.055, 6.5), (0.01, 9.0)]:
         rings.append([bm.verts.new(band_at(360.0 * i / sides, dr, dpol)) for i in range(sides)])
     for k in range(len(rings) - 1):
         for i in range(sides):
@@ -1170,7 +1219,9 @@ def headband():
         for s_ in range(13):
             t = s_ / 12.0
             pts.append(knot + Vector((sx * 0.55 * t, length * t, -drop * t * t + 0.28 * math.sin(t * math.pi))))
-        _strip("fabric_tail%d" % k, pts, lambda t: 0.12 * (1.0 - 0.3 * t), 0.025, twist=lambda t, sx=sx: sx * 0.5 * t).parent = root
+        # (Thicker, ending in a rounded point, the hat pass: thin and cut square they read as strips of card.)
+        _strip("fabric_tail%d" % k, pts, lambda t: 0.12 * (1.0 - 0.3 * t) * min(1.0, (1.0 - t) * 5.0) ** 0.5 + 0.01, 0.04,
+               twist=lambda t, sx=sx: sx * 0.5 * t).parent = root
     return root
 
 
