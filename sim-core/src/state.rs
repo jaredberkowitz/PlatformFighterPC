@@ -297,6 +297,9 @@ pub struct Fighter {
     pub dodge_level: u8,
     /// Frames since the last dodge ended (or began, while it lasts), for the staleness to wear off.
     pub dodge_clock: u16,
+    /// The current roll ends with the fighter turned round (sim 147, the reference's): a forward roll out of a shield. A back
+    /// roll keeps its facing, and so do tech and get-up rolls (see `fighter::roll`).
+    pub roll_turns: bool,
     /// Attack-button presses and releases since the current attack began (the move a button or an action started; follow-ups
     /// reached by `next`, `goto` or a counter keep counting), counted every frame, hitlag included: what a rapid jab's entry rule
     /// reads (the script registers `presses` and `releases`). The press that started the attack (if attack did) is the first.
@@ -846,6 +849,7 @@ impl Fighter {
             dodge_stale: 0,
             dodge_level: 0,
             dodge_clock: 0,
+            roll_turns: false,
             presses: 0,
             releases: 0,
             next_move: 0,
@@ -1102,6 +1106,7 @@ impl StateHash for Fighter {
         h.write_u8(self.dodge_stale);
         h.write_u8(self.dodge_level);
         h.write_u16(self.dodge_clock);
+        h.write_bool(self.roll_turns);
         h.write_u8(self.presses);
         h.write_u8(self.releases);
         h.write_u8(self.next_move);
@@ -1716,6 +1721,11 @@ mod tests {
             ("dodge_clock", {
                 let mut s = state;
                 s.fighters[1].dodge_clock = 1;
+                s
+            }),
+            ("roll_turns", {
+                let mut s = state;
+                s.fighters[1].roll_turns = true;
                 s
             }),
             ("air_flags", {

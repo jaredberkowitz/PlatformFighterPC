@@ -145,9 +145,11 @@ impl Fighter {
 fn enter(f: &mut Fighter, state: S) {
     // A pending post-shieldstun shield grab belongs to the shield it was pressed in.
     f.shield_grab = 0;
-    // A dodge is fresh unless the code that starts it stales it (`stale_dodge`): get-up and tech rolls are not staled.
+    // A dodge is fresh unless the code that starts it stales it (`stale_dodge`): get-up and tech rolls are not staled. Nor do they
+    // turn the fighter round (`Fighter::roll_turns`, set by the shield).
     if matches!(state, S::Roll | S::SpotDodge | S::AirDodge) {
         f.dodge_level = 0;
+        f.roll_turns = false;
     }
     // A pull lasts only while the fighter is in hitstun.
     if state != S::Hitstun {
@@ -1654,6 +1656,8 @@ fn shield(f: &mut Fighter, p: &FighterParams, weapon: &Weapon, stage: &Stage, ru
         f.dodge_dir = Vec2::new(Fx::from_int(i32::from(f.flick_x(TAP_BUFFER))), Fx::ZERO);
         enter(f, S::Roll);
         stale_dodge(f, rules);
+        // (A forward one ends turned round: see `roll`.)
+        f.roll_turns = f.flick_x(TAP_BUFFER) == f.facing;
     } else if f.hard_down(TAP_BUFFER) {
         enter(f, S::SpotDodge);
         stale_dodge(f, rules);
@@ -1731,7 +1735,9 @@ fn stale_shift(full: u8, level: u8, rules: &Ruleset) -> u8 {
 }
 
 /// A roll out of a shield: intangible for part of it, moving along the ground for part of it. A stale one (`dodge_level`) plays
-/// slower and is intangible later.
+/// slower and is intangible later. A forward one ends turned round (`Fighter::roll_turns`), facing the way it came from, so rolling
+/// past an opponent leaves the fighter facing it (sim 147, the reference's). Tech and get-up rolls come here too and keep their
+/// facing.
 fn roll(f: &mut Fighter, p: &FighterParams, stage: &Stage, rules: &Ruleset) {
     let dir = f.dodge_dir.x.signum_int();
     let back = dir != i32::from(f.facing);
@@ -1768,6 +1774,11 @@ fn roll(f: &mut Fighter, p: &FighterParams, stage: &Stage, rules: &Ruleset) {
         p.roll_frames
     };
     if f.state_frame >= stale_length(frames, percent, level) {
+        // (On the frame it ends, not before: the facing says which way the roll goes while it lasts. Whatever comes out next frame,
+        // buffered or not, comes out facing the new way.)
+        if f.roll_turns {
+            f.facing = -f.facing;
+        }
         enter(f, S::Idle);
     }
 }
