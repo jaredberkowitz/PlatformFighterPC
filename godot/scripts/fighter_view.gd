@@ -31,6 +31,7 @@ const TOON_CLOTH_SHADER := preload("res://shaders/toon_cloth.gdshader")
 const FACE_SHADER := preload("res://shaders/face.gdshader")
 const OUTLINE_SHADER := preload("res://shaders/outline.gdshader")
 const VisualSettings := preload("res://scripts/visual_settings.gd")
+const Lighting := preload("res://scripts/lighting.gd")
 const SHIELD_SHADER := preload("res://shaders/shield.gdshader")
 const Effects := preload("res://scripts/effects.gd")
 const LIMB_SHADER := preload("res://shaders/limb.gdshader")
@@ -1442,7 +1443,7 @@ func _body_follow(s: Dictionary, delta: float) -> void:
 	_turn_bone(spine_bone, -lerpf(CHEST_TO_CAMERA, CHEST_IN_ATTACK, attack_turn) * float(s.facing))
 	_turn_bone(head_bone, HEAD_TOWARD_FOE * float(s.facing))
 	if use_base_body and not turning_over and not r7_off.has("chest"):
-		_keep_chest_side_on()
+		_keep_chest_side_on(int(s.facing))
 
 
 ## The chest never turns its back to the camera (round 7): past CHEST_SOFT degrees from the camera its turn is eased toward CHEST_MOST and
@@ -1453,24 +1454,28 @@ func _body_follow(s: Dictionary, delta: float) -> void:
 ## stops at side-on and the neck stays within about 50 of it; at 90 and 108 a strike swung the neck from 30 to 60 on every move.)
 const CHEST_SOFT := 72.0
 const CHEST_MOST := 90.0
+const CHEST_WRAP := 150.0
 ## With the environment variable PF_R7_OFF (a debugging aid for round 7's before and after images), the round's layers named in it are
 ## left out: "chest" (`_keep_chest_side_on`), "level" (`_level_head` and FACE_UP_MAX), "ease" (`_ease_neck`), "legs" (`_leg_hinge` and
 ## the kick's knee pole), "tumble" (the settle out of a tumble), e.g. PF_R7_OFF=ease,legs.
 static var r7_off := OS.get_environment("PF_R7_OFF").split(",")
 
 
-func _keep_chest_side_on() -> void:
+func _keep_chest_side_on(facing: int) -> void:
 	var g: Basis = skeleton.get_bone_global_pose(spine_bone).basis * skeleton.get_bone_global_rest(spine_bone).basis.inverse()
 	var ahead: Vector3 = (_skeleton_to_frame().basis * g * Vector3(0, 0, 1))
 	if Vector2(ahead.x, ahead.z).length() < 0.3:
 		return
-	var away := rad_to_deg(atan2(ahead.x, ahead.z))
+	# (Round 9: measured the way the fighter faces. A chest swung past its back by a strike wrapped round to the other side here, and was then held at side-on the WRONG way round: the whole chest flipped 180 degrees for the frames it stayed there, in one frame each way, jab, forward smash and neutral special of the unarmed classes above all, 95 frames in seven classes, the head jumping up to a unit and the fist going over the face. A back air's chest, turned back on purpose, reaches -134.)
+	var away := rad_to_deg(atan2(ahead.x, ahead.z)) * float(facing)
+	if away < -CHEST_WRAP:
+		away += 360.0
 	var a := absf(away)
 	if a <= CHEST_SOFT:
 		return
 	var span := CHEST_MOST - CHEST_SOFT
 	var kept := CHEST_SOFT + span * (1.0 - exp(-(a - CHEST_SOFT) / span))
-	_turn_bone(spine_bone, -signf(away) * (a - kept))
+	_turn_bone(spine_bone, -signf(away) * float(facing) * (a - kept))
 
 
 ## The line of action in grounded strikes (round 8, the owner's pick C after the mock, 2026-10-28): [how much of a level strike's swing the
@@ -2123,15 +2128,6 @@ func _on_fighter_layer(node: Node) -> void:
 		(g as GeometryInstance3D).layers = 2
 
 
-## The fighters on bright floors (fidelity review 16 item 1, the owner's pick A): the contact shadow firmer (0.8 from 0.64) and 15% wider;
-## StageBake turns the meadow's and grove's lawns cooler (`LAWN_COOL`). `--fighter-floor=T` brings back the shadow as before.
-static func _fighter_floor() -> String:
-	for arg in OS.get_cmdline_user_args():
-		if arg.begins_with("--fighter-floor="):
-			return arg.substr(16).to_upper()
-	return "A"
-
-
 func _contact_shadow() -> void:
 	if _shadow_tex == null:
 		# (A crisp, even ellipse in a deep cool shade at half strength, the judge's round 39: near-black at 0.85 with a long soft tail, it
@@ -2139,12 +2135,12 @@ func _contact_shadow() -> void:
 		# falls on, as the reference's shadows do, and its clean edge marks the feet.)
 		var g := Gradient.new()
 		# (A little fuller, round 40: the fighters on the light lawns needed a firmer footing.)
-		# (Firmer again, fidelity review 16 item 1, the owner's pick A: on the bright floors the fighters lost their footing.)
-		var a := 0.8 if _fighter_floor() != "T" else 0.64
-		g.set_color(0, Color(0.14, 0.08, 0.2, a))
-		g.set_color(1, Color(0.14, 0.08, 0.2, 0.0))
-		g.add_point(0.68, Color(0.14, 0.08, 0.2, a * 0.94))
-		g.add_point(0.86, Color(0.14, 0.08, 0.2, 0.1))
+		# (Fidelity review 17: at 0.8 in that near black, on the bright floors the ovals read as stains. White here, a softer edge; the colour and
+		# strength from the stage, `Lighting.contact_tint`, through the decal's modulate.)
+		g.set_color(0, Color(1, 1, 1, 1.0))
+		g.set_color(1, Color(1, 1, 1, 0.0))
+		g.add_point(0.62, Color(1, 1, 1, 0.94))
+		g.add_point(0.88, Color(1, 1, 1, 0.14))
 		_shadow_tex = GradientTexture2D.new()
 		_shadow_tex.gradient = g
 		_shadow_tex.fill = GradientTexture2D.FILL_RADIAL
@@ -2154,7 +2150,8 @@ func _contact_shadow() -> void:
 		_shadow_tex.height = 64
 	contact_shadow = Decal.new()
 	contact_shadow.texture_albedo = _shadow_tex
-	contact_shadow.size = Vector3(3.0, SHADOW_DEPTH, 2.6) * (Vector3(1.15, 1.0, 1.15) if _fighter_floor() != "T" else Vector3.ONE)
+	contact_shadow.size = Vector3(3.0, SHADOW_DEPTH, 2.6)
+	contact_shadow.modulate = Lighting.contact_tint
 	# Only on surfaces facing up (not down the front of the stage).
 	contact_shadow.normal_fade = 0.6
 	# (Nudged toward the camera so it shows in front of the feet, which would otherwise hide it from the low match camera.)
@@ -3697,6 +3694,92 @@ func _log_bend(s: Dictionary) -> void:
 const FACE_AWAY_Z := -0.2
 
 
+## The drawn eyes and mouth in the world, where they show on the head (the drawing slides round the head toward the camera, `_slide_face`). In the head's design space (a ball of radius 0.8, 1.42 up), the eyes and the mouth from `FaceLook`'s places on the drawing. Round 9.
+const FACE_EYE_N := Vector3(0.34, -0.03, 0.94)
+const FACE_MOUTH_N := Vector3(0.0, -0.38, 0.925)
+
+
+func _face_points() -> Array:
+	var slide := 0.0
+	if face_mat != null:
+		var v: Variant = face_mat.get_shader_parameter("face_slide")
+		slide = float(v) if v != null else 0.0
+	var turn := Basis(Vector3.UP, slide)
+	# (As `_follow_bones` places the head's pieces, from the head bone as it is posed now.)
+	var to_model := _skeleton_to_model()
+	var head: Transform3D = model.global_transform * to_model * (skeleton.get_bone_global_pose(head_bone) * head_rest_inv) * to_model.affine_inverse() * head_fit
+	var out := []
+	for n in [Vector3(-FACE_EYE_N.x, FACE_EYE_N.y, FACE_EYE_N.z), FACE_EYE_N, FACE_MOUTH_N]:
+		out.append(head * (Vector3(0.0, 1.42, 0.0) + turn * (n as Vector3) * 0.8))
+	return out
+
+
+## PF_FACE_COVER=features: a hand, the hilt, the blade, a foot or a shin between the camera and a drawn eye or the mouth, on screen: "COVER <class> <state> <move> <frame> <what> <eye|mouth>". The drawn feature's own size, then each thing's: a fist, the thin blade, a foot.
+const COVER_FEATURE_R := 0.07
+const COVER_FIST_R := 0.15
+const COVER_BLADE_R := 0.04
+const COVER_FOOT_R := 0.13
+
+
+## Where a hand is, for the face's sake: the fist's middle along the forearm's line, and along the claws for the class wearing them (they reach 0.3 past the knuckles, `CLAW_LENGTH`).
+func _hand_points(side: String, fist: float) -> Array:
+	var wrist: Vector3 = skeleton.global_transform * skeleton.get_bone_global_pose(skeleton.find_bone("hand." + side)).origin
+	var elbow: Vector3 = skeleton.global_transform * skeleton.get_bone_global_pose(skeleton.find_bone("armL." + side)).origin
+	var along: Vector3 = (wrist - elbow).normalized()
+	if _cls_now == 1:
+		return [wrist + along * 0.08, wrist + along * 0.2, wrist + along * 0.32]
+	return [wrist + along * 0.08 * fist]
+
+
+func _log_face_features(s: Dictionary) -> void:
+	var things := []
+	# (The fist's size by class, the Bracers' half as large again.)
+	var fist: float = float((ARM_BULK.get(_cls(s), [Vector3.ONE, Vector3.ONE])[1] as Vector3).x)
+	for side in ["L", "R"]:
+		for at in _hand_points(side, fist):
+			things.append([at, COVER_FIST_R * fist, side + ("w" if side == _weapon_side(int(s.facing)) else "")])
+		var f: Vector3 = skeleton.global_transform * skeleton.get_bone_global_pose(skeleton.find_bone("foot." + side)).origin
+		var k: Vector3 = skeleton.global_transform * skeleton.get_bone_global_pose(skeleton.find_bone("shin." + side)).origin
+		things.append([f, COVER_FOOT_R, "foot" + side])
+		things.append([(f + k) * 0.5, COVER_FOOT_R, "shin" + side])
+	if blade_pivot != null and blade_pivot.visible:
+		var g: Vector3 = blade_pivot.global_position
+		var along := Vector3(cos(blade_pivot.global_rotation.z), sin(blade_pivot.global_rotation.z), 0.0)
+		things.append([g, COVER_FIST_R, "hilt"])
+		var len_now: float = minf(blade_length, 3.0)
+		var u := 0.1
+		while u < len_now:
+			things.append([g + along * u, COVER_BLADE_R, "blade"])
+			u += 0.08
+	var feats := _face_points()
+	var labels := ["eye", "eye", "mouth"]
+	var cam := _face_cam()
+	for t in things:
+		var p: Vector3 = t[0]
+		for j in feats.size():
+			var f: Vector3 = feats[j]
+			var q := _along_ray(p, f.z, cam)
+			if p.z + float(t[1]) > f.z and Vector2(q.x - f.x, q.y - f.y).length() < float(t[1]) + COVER_FEATURE_R:
+				print("COVER %d %s %s %d %s %s" % [_cls(s), s.state, String(s.move_name).replace(" ", "_"), int(s.state_frame), t[2], labels[j]])
+				return
+
+
+## Where the drawing is judged from: the camera (a hand nearer the camera than the eye shifts on screen, about 0.3 of the depth between them for a fighter toward the stage's edge). PF_COVER_CAM_X (a debugging aid) puts it that far to the side at the match camera's distance, as a fighter away from the middle of the stage sees it.
+static var cover_cam_x := OS.get_environment("PF_COVER_CAM_X")
+
+
+func _face_cam() -> Vector3:
+	if cover_cam_x != "":
+		return global_position + Vector3(float(cover_cam_x), 3.0, 26.0)
+	var cam := get_viewport().get_camera_3d() if is_inside_tree() else null
+	return cam.global_position if cam != null else global_position + Vector3(0.0, 2.0, 26.0)
+
+
+## The point on the plane at depth `z` on the camera's ray through `p`.
+static func _along_ray(p: Vector3, z: float, cam: Vector3) -> Vector3:
+	return cam + (p - cam) * ((z - cam.z) / minf(p.z - cam.z, -0.01))
+
+
 func _log_face_cover(s: Dictionary) -> void:
 	if skeleton == null or head_bone < 0:
 		return
@@ -3704,6 +3787,9 @@ func _log_face_cover(s: Dictionary) -> void:
 	var centre: Vector3 = hp.origin + hp.basis.y.normalized() * 0.3
 	# (Round 8: a face turned away from the camera, the back of the head toward it in a whole-body turn, cannot be covered.)
 	if hp.basis.z.normalized().z < FACE_AWAY_Z:
+		return
+	if OS.get_environment("PF_FACE_COVER") == "features":
+		_log_face_features(s)
 		return
 	# (Round 4: PF_FACE_COVER=front measures from the drawn face, FACE_FWD ahead of the head's middle, where side-on it really is.)
 	if OS.get_environment("PF_FACE_COVER") == "front":
@@ -3761,6 +3847,8 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 	# Standing, the drop shadow reaches only just past the floor (the full depth also printed it on whatever lies under the stage: two
 	# dark ovals on the beach's rocks and sea, art review 5); in the air it reaches all the way down, so the landing spot stays marked.
 	if contact_shadow != null:
+		if contact_shadow.modulate != Lighting.contact_tint:
+			contact_shadow.modulate = Lighting.contact_tint
 		var depth: float = SHADOW_DEPTH_GROUNDED if grounded else SHADOW_DEPTH
 		if contact_shadow.size.y != depth:
 			contact_shadow.size.y = depth
@@ -4135,7 +4223,22 @@ func _log_anim(s: Dictionary) -> void:
 	if blade_pivot != null and blade_pivot.visible:
 		var t: Vector3 = blade_pivot.to_global(Vector3(_blade_tip_x(_cls(s)), 0.0, 0.0)) - global_position
 		line += " tip:%.3f,%.3f,%.3f" % [t.x * f, t.y, t.z]
+	# (Round 9: each foot's lowest point, heel or toe, above the fighter's feet: whether it touches the floor, for the run's flight.)
+	var soles := []
+	for side in ["L", "R"]:
+		var fi := skeleton.find_bone("foot." + side)
+		var g: Transform3D = skeleton.get_bone_global_pose(fi)
+		var turn: Basis = g.basis * skeleton.get_bone_global_rest(fi).basis.inverse()
+		var low := INF
+		for off in SOLE_POINTS:
+			low = minf(low, (skeleton.global_transform * (g.origin + turn * (off as Vector3))).y - global_position.y)
+		soles.append(low)
+	line += " sole:%.3f,%.3f" % soles
 	print(line)
+
+
+## The heel and the toe from the ankle, in the skeleton's rest (for the trace's "sole").
+const SOLE_POINTS := [Vector3(0.0, -0.168, -0.06), Vector3(0.0, -0.14, 0.25)]
 
 
 ## With the environment variable PF_HEAD_TRACE set (a debugging aid for round 7's head and leg audit), every frame of every state prints
@@ -4587,7 +4690,7 @@ const REST_HAND_Z := 0.38
 ## and the face; behind, it shows above the shoulder and below the hip, as the staff reference's stands clear of her front).
 const STAFF_REST_Z := -0.15
 ## How far in front of (positive) or behind the body the greatsword's hand is, eased between the two.
-var great_z := -0.45
+var great_z := GREAT_REST_Z
 ## The hips' height in the sword family's battle stance: the guard is held for it, and lowered as far as the body sinks below it.
 ## (0.86 since round 8's stance C, the owner's pick: the battle stance stands taller, its hips 0.85-0.93 against 0.63-0.65.)
 const GUARD_HIPS := 0.86
@@ -5893,57 +5996,150 @@ const SHAFT_BEHIND_HAND := 0.3
 ## A hand covering the drawn face, whatever put it there (a clip's free arm, an overhead reach, a two-handed grip), is moved out to the
 ## face's edge on screen and back toward the head, by the arm's IK (round 2, the real-speed audit: hands crossed the face in 2-50 frames of
 ## every class's up moves, raised specials and two-handed swings, `PF_FACE_COVER`). Eased in by how near the face it is, so it never pops.
-const FACE_GUARD_R := 0.45
-## How far out (a share of FACE_GUARD_R) a hand that fell short of the face's edge is sent the second time.
-const GUARD_FURTHER := 1.5
+## (Round 9: from the drawing. Fully moved inside FACE_GUARD_IN of a fist's reach of a drawn eye or the mouth, not at all past FACE_GUARD_OUT; to FACE_GUARD_EDGE of that reach round the drawing.)
+const FACE_GUARD_IN := 0.95
+const FACE_GUARD_OUT := 1.3
+const FACE_GUARD_EDGE := 1.1
+## How far out (a share of the way to the edge) a hand that fell short of the face's edge is sent the second time.
+const GUARD_FURTHER := 1.4
+const WEAPON_HAND_GUARD_R := 0.45
+## The head's middle on screen that a free hand in front of it is moved out of first (round 2's guard, round 9 keeping the hand's depth).
+const FACE_GUARD_MID_R := 0.45
 
 
 func _guard_face(facing: int, on_ground := true) -> void:
-	if not use_base_body or skeleton == null or head_bone < 0:
+	if not use_base_body or skeleton == null or head_bone < 0 or not skeleton.is_inside_tree():
 		return
-	var to_frame := _skeleton_to_frame()
-	var hp := skeleton.get_bone_global_pose(head_bone)
-	var centre := to_frame * (hp.origin + hp.basis.y.normalized() * 0.3)
+	# (Round 9: judged in the world, as the camera sees it. In the frame that leans with the body a body pitched into a strike tilts depth toward the screen, so a fist measured clear of the head's middle sat over the mouth on screen.)
+	var world_to_frame: Transform3D = _skeleton_to_frame() * skeleton.global_transform.affine_inverse()
+	var cam := _face_cam()
+	var feats := _face_points()
+	var eyes: Vector3 = ((feats[0] as Vector3) + (feats[1] as Vector3)) * 0.5
+	var mouth: Vector3 = feats[2]
+	var zf: float = (eyes.z + mouth.z) * 0.5
+	var eye_a := _along_ray(feats[0], zf, cam)
+	var eye_b := _along_ray(feats[1], zf, cam)
+	var mouth_at := _along_ray(mouth, zf, cam)
+	var flat := [eye_a, eye_b, mouth_at]
+	var eyes_at := (eye_a + eye_b) * 0.5
+	var middle := Vector2(eyes_at.x + mouth_at.x, eyes_at.y + mouth_at.y) * 0.5
+	var half := Vector2(absf(eye_a.x - eye_b.x) * 0.5, absf(eyes_at.y - mouth_at.y) * 0.5)
+	var fist: float = float((ARM_BULK.get(_cls_now, [Vector3.ONE, Vector3.ONE])[1] as Vector3).x)
+	var r: float = COVER_FIST_R * fist + COVER_FEATURE_R
+	var hp := skeleton.global_transform * skeleton.get_bone_global_pose(head_bone)
+	var centre: Vector3 = hp.origin + hp.basis.y.normalized() * 0.3
 	for side in ["L", "R"]:
 		var ih := skeleton.find_bone("hand." + side)
-		var p := to_frame * skeleton.get_bone_global_pose(ih).origin
-		if p.z <= centre.z:
+		var mine: bool = side == _weapon_side(facing)
+		# A hand holding a weapon: kept clear of the head's whole front, because the weapon goes where the hand goes and the blade crosses the drawing long before the fist does.
+		if mine and (bladed(_cls_now) or _cls_now == STAFF_CLASS or _cls_now == DAGGER_CLASS):
+			_guard_weapon_hand(side, ih, centre, world_to_frame, facing, on_ground)
 			continue
-		# (Round 5: a sword hand is measured from the drawn face too, FACE_FWD ahead of the head's middle, whichever is nearer: the
-		# Longsword's guard came up under the mouth after its neutral air's windmill while it measured clear of the head's middle. Not the
-		# staff's two-handed grip, which this pushed onto the face.)
-		var from := Vector2(centre.x, centre.y)
-		# (And the Dagger's knife hand on the ground, round 5: held up past the cheek in its forward tilt, 6 frames. Not in the air: its
-		# forward air holds the knife beside the jaw, and sent out it went behind the head and the knife vanished.)
-		if (bladed(_cls_now) or (_cls_now == DAGGER_CLASS and on_ground)) and side == _weapon_side(facing):
-			var face := from + Vector2(FACE_FWD * float(facing), 0.0)
-			if (Vector2(p.x, p.y) - face).length() < (Vector2(p.x, p.y) - from).length():
-				from = face
-		var near := (Vector2(p.x, p.y) - from).length() / FACE_GUARD_R
-		var k := 1.0 - smoothstep(0.8, 1.2, near)
+		var h: Transform3D = skeleton.global_transform * skeleton.get_bone_global_pose(ih)
+		var wrist: Vector3 = h.origin
+		# First out of the head's middle on screen, as round 2's guard did, but keeping the hand's depth (round 9: sent half way back toward the head as well, the hand went behind it, the arm with it).
+		var k_mid := 0.0
+		var shift := Vector3.ZERO
+		if wrist.z > centre.z:
+			var d_mid := Vector2(wrist.x - centre.x, wrist.y - centre.y)
+			k_mid = 1.0 - smoothstep(0.8, 1.2, d_mid.length() / FACE_GUARD_MID_R)
+			if k_mid > 0.0:
+				var out_mid := d_mid.normalized() if d_mid.length() > 0.01 else Vector2(float(facing), 1.0).normalized()
+				var e_mid := Vector2(centre.x, centre.y) + out_mid * FACE_GUARD_MID_R * 1.05
+				shift = Vector3(e_mid.x - wrist.x, e_mid.y - wrist.y, 0.0)
+		# Then clear of the drawing itself, from where that leaves the hand (round 9): its eyes and mouth where they show on the head (`_face_points`), seen from the camera, with the fist's or the claws' size. The drawing sits toward the way the head faces, partly outside the head's middle, and a fist moved out of that alone could still cover an eye.
+		var near := INF
+		var p: Vector3 = wrist
+		var seen := Vector3.ZERO
+		for point in _hand_points(side, fist):
+			var pt: Vector3 = (point as Vector3) + shift * k_mid
+			var q := _along_ray(pt, zf, cam)
+			for i in flat.size():
+				if pt.z + r > (feats[i] as Vector3).z:
+					var d: float = Vector2(q.x - (flat[i] as Vector3).x, q.y - (flat[i] as Vector3).y).length() / r
+					if d < near:
+						near = d
+						p = pt
+						seen = q
+		var k := 1.0 - smoothstep(FACE_GUARD_IN, FACE_GUARD_OUT, near)
+		var target: Vector3 = wrist + shift
+		var amount := k_mid
+		var out := Vector2(float(facing), -0.5).normalized()
+		var edge_at := 0.0
+		var to_hand := Vector3.ZERO
+		if k > 0.0:
+			to_hand = wrist + shift * k_mid - p
+			out = Vector2(seen.x, seen.y) - middle
+			out = out.normalized() if out.length() > 0.01 else Vector2(float(facing), -0.5).normalized()
+			# (To the edge of an oval round the drawing, the fist's size outside it, and back along the camera's ray to the depth the hand is at.)
+			edge_at = 1.0 / Vector2(out.x / (half.x + r * FACE_GUARD_EDGE), out.y / (half.y + r * FACE_GUARD_EDGE)).length()
+			var edge := middle + out * edge_at
+			target = _along_ray(Vector3(edge.x, edge.y, zf), p.z, cam) + to_hand
+			amount = maxf(k_mid, k)
+		if amount <= 0.0:
+			continue
+		var guard: Vector3 = world_to_frame * target
+		var at: Vector3 = world_to_frame * wrist
+		if arms_held.has(side):
+			_ik_arm(side, mine, at.lerp(guard, amount), 1.0)
+		else:
+			_ik_arm(side, mine, guard, amount)
 		if k <= 0.0:
 			continue
-		# (Out past the face's edge on screen and half way back toward the head: the short arms cannot reach behind the big head at
-		# face height, so pushed straight back the hand stopped in front of it.)
-		var out := Vector2(p.x, p.y) - from
-		out = out.normalized() if out.length() > 0.01 else Vector2(float(facing), 1.0).normalized()
-		var edge := from + out * FACE_GUARD_R * 1.05
-		var guard := Vector3(edge.x, edge.y, lerpf(p.z, centre.z + HEAD_BEHIND_Z, 0.5))
-		var mine: bool = side == _weapon_side(facing)
-		if arms_held.has(side):
-			_ik_arm(side, mine, p.lerp(guard, k), 1.0)
-		else:
-			_ik_arm(side, mine, guard, k)
 		# (Round 5: an arm too short to reach the face's edge stopped just inside it, a fist at the chin: the Settler's forward tilt, held
-		# 8 frames. Then it is sent further out the same way, and further back in depth, once more.)
-		var got := to_frame * skeleton.get_bone_global_pose(ih).origin
-		if k > 0.5 and (Vector2(got.x, got.y) - from).length() < FACE_GUARD_R * 0.95:
-			var further := from + out * FACE_GUARD_R * GUARD_FURTHER
-			var again := Vector3(further.x, further.y, lerpf(got.z, centre.z + HEAD_BEHIND_Z, 0.75))
+		# 8 frames. Then it is sent further out the same way, and back in depth, once more.)
+		var still := INF
+		for point in _hand_points(side, fist):
+			var q := _along_ray(point, zf, cam)
+			for i in flat.size():
+				still = minf(still, Vector2(q.x - (flat[i] as Vector3).x, q.y - (flat[i] as Vector3).y).length() / r)
+		if k > 0.5 and still < 1.0:
+			var further := middle + out * edge_at * GUARD_FURTHER
+			var deep: float = lerpf(p.z, centre.z + HEAD_BEHIND_Z, 0.75)
+			var again: Vector3 = world_to_frame * (_along_ray(Vector3(further.x, further.y, zf), deep, cam) + to_hand)
 			if arms_held.has(side):
-				_ik_arm(side, mine, p.lerp(again, k), 1.0)
+				_ik_arm(side, mine, at.lerp(again, k), 1.0)
 			else:
 				_ik_arm(side, mine, again, k)
+
+
+func _guard_weapon_hand(side: String, ih: int, centre: Vector3, world_to_frame: Transform3D, facing: int, on_ground: bool) -> void:
+	var p: Vector3 = skeleton.global_transform * skeleton.get_bone_global_pose(ih).origin
+	if p.z <= centre.z:
+		return
+	# (Round 5: a sword hand is measured from the drawn face too, FACE_FWD ahead of the head's middle, whichever is nearer: the
+	# Longsword's guard came up under the mouth after its neutral air's windmill while it measured clear of the head's middle. Not the
+	# staff's two-handed grip, which this pushed onto the face.)
+	var from := Vector2(centre.x, centre.y)
+	# (And the Dagger's knife hand on the ground, round 5: held up past the cheek in its forward tilt, 6 frames. Not in the air: its
+	# forward air holds the knife beside the jaw, and sent out it went behind the head and the knife vanished.)
+	if bladed(_cls_now) or (_cls_now == DAGGER_CLASS and on_ground):
+		var face := from + Vector2(FACE_FWD * float(facing), 0.0)
+		if (Vector2(p.x, p.y) - face).length() < (Vector2(p.x, p.y) - from).length():
+			from = face
+	var near := (Vector2(p.x, p.y) - from).length() / WEAPON_HAND_GUARD_R
+	var k := 1.0 - smoothstep(0.8, 1.2, near)
+	if k <= 0.0:
+		return
+	# (Out past the face's edge on screen and half way back toward the head: the short arms cannot reach behind the big head at
+	# face height, so pushed straight back the hand stopped in front of it.)
+	var out := Vector2(p.x, p.y) - from
+	out = out.normalized() if out.length() > 0.01 else Vector2(float(facing), 1.0).normalized()
+	var edge := from + out * WEAPON_HAND_GUARD_R * 1.05
+	var guard: Vector3 = world_to_frame * Vector3(edge.x, edge.y, lerpf(p.z, centre.z + HEAD_BEHIND_Z, 0.5))
+	var at: Vector3 = world_to_frame * p
+	if arms_held.has(side):
+		_ik_arm(side, true, at.lerp(guard, k), 1.0)
+	else:
+		_ik_arm(side, true, guard, k)
+	var got: Vector3 = skeleton.global_transform * skeleton.get_bone_global_pose(ih).origin
+	if k > 0.5 and (Vector2(got.x, got.y) - from).length() < WEAPON_HAND_GUARD_R * 0.95:
+		var further := from + out * WEAPON_HAND_GUARD_R * 1.5
+		var again: Vector3 = world_to_frame * Vector3(further.x, further.y, lerpf(got.z, centre.z + HEAD_BEHIND_Z, 0.75))
+		if arms_held.has(side):
+			_ik_arm(side, true, at.lerp(again, k), 1.0)
+		else:
+			_ik_arm(side, true, again, k)
 
 
 ## Raised arms beside the head, not over it (round 8, the owner 2026-10-28, after the shoulder mock: keep the shoulders, raise the arms

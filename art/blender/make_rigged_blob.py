@@ -1683,13 +1683,13 @@ RUN_STYLES = {
     # dinosaur 40, villager 18. The head stays nearer level than the chest, as they do.)
     # The sword family: leaning in, the blade carried low behind in the near hand, the far fist low. (Step 13 frames.)
     "": dict(frames=26, hips=0.70, pitch=29.0, down=0.155, lift=0.38, trail=0.78, kick=0.30, reach=0.74, bob=0.05, lean=30.0, side=3.0, head=-24.0, twist=10.0, sway=0.0,
-             wide=0.05, arm_l=(38.0, 26.0, 40.0), arm_r=(52.0, 18.0, 66.0), swing_l=12.0, swing_r=22.0),
-    # The brawlers: hunched right over, the arms hanging low ahead. (Step 13.)
+             wide=0.05, arm_l=(30.0, 28.0, 58.0), arm_r=(52.0, 18.0, 66.0), swing_l=16.0, swing_r=22.0),
+    # The brawlers: hunched right over, the arms bent and swinging low ahead, the hand about knee height. (Step 13.)
     "brawler": dict(frames=21, hips=0.68, pitch=36.0, down=0.19, lift=0.38, trail=0.78, kick=0.30, reach=0.74, bob=0.05, lean=34.0, side=3.0, head=-24.0, twist=10.0,
-                    sway=0.0, wide=0.06, arm_l=(52.0, 30.0, 30.0), arm_r=(64.0, 24.0, 36.0), swing_l=16.0, swing_r=16.0),
-    # The quick fighters: nearly flat out, the arms swept back, the longest bounds. (Step 11.)
-    "quick": dict(frames=27, hips=0.66, pitch=41.0, down=0.148, lift=0.38, trail=0.80, kick=0.32, reach=0.76, bob=0.04, lean=38.0, side=3.0, head=-24.0, twist=8.0, sway=0.0,
-                  wide=0.04, arm_l=(-8.0, 20.0, 16.0), arm_r=(4.0, 20.0, 18.0), swing_l=8.0, swing_r=8.0),
+                    sway=0.0, wide=0.06, arm_l=(34.0, 34.0, 74.0), arm_r=(52.0, 24.0, 66.0), swing_l=26.0, swing_r=22.0),
+    # The quick fighters: low, the longest strides but close over the floor, the near arm trailing where it shows. (Step 11. Lower and leaning less than at first: flat out, high off the floor, it read as flying.)
+    "quick": dict(frames=27, hips=0.58, pitch=31.0, down=0.178, lift=0.28, trail=0.72, kick=0.15, reach=0.68, bob=0.025, lean=36.0, side=3.0, head=-24.0, twist=8.0, sway=0.0,
+                  wide=0.04, arm_l=(12.0, 36.0, 24.0), arm_r=(30.0, 24.0, 30.0), swing_l=16.0, swing_r=16.0),
     # The heavy one: leaning less, the steps heavier and slower, the feet low, the weight coming down onto each. (Step 15.)
     "heavy": dict(frames=31, hips=0.66, pitch=24.0, down=0.135, lift=0.30, trail=0.70, kick=0.24, reach=0.68, bob=0.08, lean=24.0, side=3.0, head=-20.0, twist=14.0, sway=7.0,
                   wide=0.1, arm_l=(44.0, 34.0, 76.0), arm_r=(50.0, 26.0, 76.0), swing_l=20.0, swing_r=20.0, sink=0.03),

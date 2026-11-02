@@ -347,13 +347,17 @@ static func chimney_smoke(parent: Node, source: Node3D) -> Burst:
 	b.looping = true
 	b.emitting = true
 	b.source = source
-	b.spawn_per_second = 2.2
+	# (Fidelity review 17: a puff is opaque, its alpha only breaks it up as it ends, so a column at 1.6 a second read as a stack of marshmallows. A few
+	# small puffs rising apart, as a storybook draws it.)
+	b.spawn_per_second = 0.8
 	b.grow = true
 	b.gravity = Vector3(0.5, 0.4, 0)
 	b.damping = 0.3
-	b.colours = [Color(1, 1, 1, 1), Color(0.96, 0.96, 1.0, 0.85), Color(0.94, 0.94, 1.0, 0)]
+	# (Thinner and a warm pale grey, fidelity review 17: full white at this size, the column stood out as a stack of marshmallows, brighter than the
+	# house it came from.)
+	b.colours = [Color(0.84, 0.83, 0.82, 1.0), Color(0.86, 0.86, 0.88, 0.8), Color(0.88, 0.88, 0.92, 0)]
 	b.spawn = func(at: Vector3) -> Array:
-		return [at, Vector3(randf_range(-0.2, 0.2), randf_range(1.4, 2.0), 0), randf_range(2.6, 3.4), randf_range(1.4, 2.0)]
+		return [at, Vector3(randf_range(-0.2, 0.2), randf_range(1.4, 2.0), 0), randf_range(2.6, 3.4), randf_range(0.36, 0.56)]
 	parent.add_child(b)
 	return b
 
