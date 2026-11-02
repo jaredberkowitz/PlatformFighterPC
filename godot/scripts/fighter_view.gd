@@ -393,19 +393,16 @@ func _build_rig(skin: Material) -> bool:
 			# (A warm cream, the turn-down a shaded step under it, the character judge's round 10: pure white tubes were the brightest mass.)
 			mi.material_override = _cloth(toon(Color(0.76, 0.72, 0.64) if part.begins_with("SockTop") else Color(0.88, 0.85, 0.78)))
 			mi.visible = loadout.has_shoes()
-		elif part.begins_with("BootToe"):
-			# The toe cap, a polished step over the leather.
-			mi.material_override = toon(BOOT_LEATHER.lightened(0.14))
-			mi.visible = loadout.has_shoes()
 		elif part.begins_with("BootCuff"):
-			mi.material_override = toon(BOOT_LEATHER.darkened(0.3))
+			mi.material_override = _cloth(toon(BOOT_LEATHER.darkened(0.25)))
 			mi.visible = loadout.has_shoes()
 		elif part.begins_with("BootSole"):
-			mi.material_override = respond(toon(BOOT_SOLE), "rubber")
+			mi.material_override = _cloth(toon(BOOT_SOLE))
 			mi.visible = loadout.has_shoes()
 		elif part.begins_with("Boot"):
-			# Hiking boots over the painted shoes (the owner's PEAK references): leather on a thick pale sole.
-			mi.material_override = toon(BOOT_LEATHER)
+			# Boots over the bare foot (the owner's PEAK references): one smooth leather surface on a thick sole, make_rigged_blob.py
+			# `modelled_boots`.
+			mi.material_override = _cloth(toon(BOOT_LEATHER))
 			mi.visible = loadout.has_shoes()
 		elif part.begins_with("Shorts"):
 			# (In the fleck print since the fleck pass, 2026-10-28, as the shirts.)
@@ -2349,7 +2346,7 @@ const SHIRT_HEM_BELOW_WAIST := 0.012
 const SHIRT_HEM_INK := 0.01
 const BELT_LEATHER := Color(0.4, 0.26, 0.18)
 ## (Darker, the character judge's round 1: the reference's shoes are a small dark leather.)
-const BOOT_LEATHER := Color(0.28, 0.17, 0.13)
+const BOOT_LEATHER := Color(0.42, 0.24, 0.16)   # (0.28, 0.17, 0.13 until the boots pass, 2026-10-31: under the form light it read as black lumps)
 ## (Dark, a step under the leather, the character judge's round 3: pale soles read as a second outline under each foot.)
 ## (A step lighter than the leather again, a lit edge round the foot, the character judge's round 11; pale, it read as a second outline.)
 const BOOT_SOLE := Color(0.46, 0.36, 0.3)
@@ -2418,7 +2415,11 @@ func _skin_material(skin_c: Color, shorts_c: Color, painted_clothes := true) -> 
 	m.set_shader_parameter("shorts", shorts_c)
 	m.set_shader_parameter("painted_clothes", painted_clothes)
 	m.set_shader_parameter("shorts_on", loadout.has_shorts())
-	m.set_shader_parameter("shod", loadout.has_shoes())
+	# (Shoes painted on the foot only without modelled boots. Under them the foot is left out, the boots pass, 2026-10-31: it poked through as
+	# purple patches, the painted shoe's old colours.)
+	m.set_shader_parameter("shod", loadout.has_shoes() and painted_clothes)
+	if loadout.has_shoes() and not painted_clothes:
+		m.set_shader_parameter("hidden_below_z", float(_base_rig_info().get("clothes", {}).get("shoe_top", -99.0)) - 0.02)
 	for p in RESPONSES.skin:
 		m.set_shader_parameter(p, RESPONSES.skin[p])
 	m.set_shader_parameter("shoe", Color(0.27, 0.2, 0.3))
@@ -2445,6 +2446,7 @@ func _skin_material(skin_c: Color, shorts_c: Color, painted_clothes := true) -> 
 		var line: ShaderMaterial = (m.next_pass as ShaderMaterial).duplicate()
 		line.set_shader_parameter("hide_under_shirt", loadout.shirt != 0)
 		line.set_shader_parameter("hide_under_shorts", loadout.has_shorts())
+		line.set_shader_parameter("hide_under_boots", loadout.has_shoes())
 		m.next_pass = line
 	_limb_cache[key] = m
 	return m

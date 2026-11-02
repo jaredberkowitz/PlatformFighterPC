@@ -1294,7 +1294,7 @@ def hood():
 # down (degrees from straight back), its half widths there, its folds, how much shorter its sides are than its middle, how far it stands
 # off the body, and how far it flares back toward the hem.
 CAPE = {"top": 1.53, "hem": 0.42, "wrap_top": 118.0, "wrap_low": 62.0, "w_top": 0.3, "w_low": 0.66, "folds": 4, "fold_amp": 0.03,
-        "hem_curve": 0.08, "gap": 0.04, "flare": 0.16, "rows": 26, "cols": 28, "thick": 0.028}
+        "hem_curve": 0.08, "gap": 0.05, "flare": 0.16, "rows": 26, "cols": 28, "thick": 0.028}
 RIG = "godot/models/base_rig.glb"
 
 
@@ -1360,18 +1360,27 @@ def cape():
                 st["folds"] * math.pi * (u + 1.0) - math.pi / 2)
             row.append(p)
         grid.append(row)
-    # Off the body round the shoulders and upper back (below them it hangs free: pushed off everywhere it clung in crumples).
-    # (Its top row and side edges smoothed along themselves too, and the last pass smooths as well, the hat pass, 2026-10-31: pushed point by
-    # point and left, the top edge stood in a row of little horns.)
-    for it in range(6):
+    # Off the body round the shoulders and upper back (below them it hangs free: pushed off everywhere it clung in crumples): each point at
+    # least the gap outside the body's outermost surface along its line from the neck's axis.
+    # (By the nearest surface until the hat pass, 2026-10-31: on the shirt's two skins the nearest could be the inside one, so a point inside
+    # the shirt counted as clear, and the shirt came through the cape in two patches over the shoulder blades. Its top row and side edges are
+    # smoothed along themselves too: pushed point by point and left, the top edge stood in a row of little horns.)
+    def push_off(grid):
         for j in range(rows + 1):
             for i in range(cols + 1):
                 p = grid[j][i]
                 if p.z < 1.18:
                     continue
-                loc, nrm, _, _ = tree.find_nearest(p)
-                if loc is not None and (p - loc).dot(nrm) < st["gap"]:
-                    grid[j][i] = loc + nrm * st["gap"]
+                axis = Vector((0.0, yc_top, p.z))
+                d = p - axis
+                if d.length < 1e-4:
+                    continue
+                d.normalize()
+                hit, _, _, _ = tree.ray_cast(axis + d * 3.0, -d, 3.0)
+                if hit is not None and (p - axis).length < (hit - axis).length + st["gap"]:
+                    grid[j][i] = hit + d * st["gap"]
+    for it in range(6):
+        push_off(grid)
         new = [r[:] for r in grid]
         for j in range(1, rows):
             for i in range(1, cols):
@@ -1382,6 +1391,7 @@ def cape():
             new[j][0] = (grid[j][0] * 2 + grid[j - 1][0] + grid[j + 1][0]) / 4.0
             new[j][cols] = (grid[j][cols] * 2 + grid[j - 1][cols] + grid[j + 1][cols]) / 4.0
         grid = new
+    push_off(grid)
     body.free()
     bm = bmesh.new()
     vs = [[bm.verts.new(p) for p in r] for r in grid]

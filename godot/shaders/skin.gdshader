@@ -47,6 +47,8 @@ uniform bool painted_clothes = true;
 // The look's gear (Loadout.GEAR): shorts, and socks and shoes. Without them the legs and feet are the bare body.
 uniform bool shorts_on = true;
 uniform bool shod = true;
+// Below this rest height the foot is left out: it is inside modelled boots. -90 or less: none.
+uniform float hidden_below_z = -99.0;
 // How far inside a modelled garment's hems the skin stops being drawn (rest units; along the upper arm, a share of it).
 const float COVER = 0.03;
 const float COVER_ARM = 0.15;
@@ -99,6 +101,9 @@ float along_arm(vec2 p, vec2 a, vec2 b) {
 
 void fragment() {
 	vec2 p = vec2(UV.x, 1.0 - UV.y);   // rest x and height
+	if (p.y < hidden_below_z) {
+		discard;
+	}
 	vec3 c = skin.rgb;
 	// (The head is never clothed: an arm is below the neck.)
 	// On the arm: close to its axis (shoulder to wrist, the wrist taken past the elbow), as make_rigged_blob.py's garments decide it. The

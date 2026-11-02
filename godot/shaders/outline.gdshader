@@ -23,6 +23,8 @@ uniform vec4 scenery_color : source_color = vec4(0.34, 0.3, 0.4, 1.0);
 // it gets there, so the body's outline does not poke through the cloth. Off for everything else.
 uniform bool hide_under_shirt = false;
 uniform bool hide_under_shorts = false;
+// (And its alpha under the socks and boots.)
+uniform bool hide_under_boots = false;
 // A fighter's line takes a little of its own colour (`rgb`, by `a`), so its line art reads as its own rather than a generic black.
 instance uniform vec4 outline_tint : instance_index(5) = vec4(0.0);
 // The paper look under trial (scripts/lighting.gd `paper`): the scenery's line goes (its edges are told by light instead); the fighters'
@@ -38,7 +40,7 @@ void vertex() {
 	vec3 n = (MODELVIEW_MATRIX * vec4(NORMAL, 0.0)).xyz;
 	vec2 across = n.xy / max(length(n.xy), 0.0001);
 	// A mesh can leave the line out in places through its vertex colour's red (the shirt, round the armpits); without colours it is white.
-	float cover = (hide_under_shirt ? COLOR.g : 1.0) * (hide_under_shorts ? COLOR.b : 1.0);
+	float cover = (hide_under_shirt ? COLOR.g : 1.0) * (hide_under_shorts ? COLOR.b : 1.0) * (hide_under_boots ? COLOR.a : 1.0);
 	float w = clamp(-view.z * width, min_width, max_width) * outline_weight * COLOR.r * cover;
 	w *= 1.0 - pf_paper * (1.0 - step(0.62, outline_weight));
 	// (The scenery's line fades out with distance, gone on the far layers: the gauntlet's round 13, as in shaders/post.gdshader.)
