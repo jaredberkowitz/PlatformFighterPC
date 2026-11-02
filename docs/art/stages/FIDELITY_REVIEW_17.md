@@ -139,3 +139,11 @@ frame read as a green and purple checkerboard. Found by painting the far familie
 P1's gap holds (0.095 to 0.102). On the Stage Look Review ("grovesky64", `gy64_*`).
 
 Recommended B: the gaps read as calm distance, the trees stand out against it, and it is still violet. C turns the distance pink.
+
+**Built B** (the owner's pick):
+- grove.cfg [backdrop] `range_tones`; `--pal-try=pre_range` brings back the violets before.
+- The near range measures 0.71 in value and 0.16 in saturation. P1's gap is 0.096.
+- Before and after (match camera top, wide bottom): `review17/grove_distance_built.jpg`.
+
+With it the grove's sky is a 5: the mean is 4.98, with 39 of 40 cells at 5. The one 4 left is the canyon's world and life, by the rule.
+All seven tests pass.
