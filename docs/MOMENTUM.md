@@ -7,6 +7,10 @@ sim-core --test momentum_table -- --ignored --nocapture`), full hops on a long f
 
 ## The rule today (sim 145)
 
+(Since sim 148, `docs/MOVEMENT_1TO1.md`: a jump's takeoff frame is already an airborne frame and moves, so the speed read on it has
+had one frame of air control, a few thousandths off the take-off speeds below. The stops, the dash and part-way air drift also follow
+the reference's rules now; the jump rule here is unchanged.)
+
 Each body has the reference's three published numbers: `jump_speed_x` (a standing jump's sideways speed at full stick),
 `jump_speed_x_mul` (the share of ground speed kept, 70-90%) and `jump_speed_x_max` (the most a ground jump leaves with). How the
 reference combines them is **not published** (searched again 19 October). Since sim 144 (`jump_stick_share` 2) they add: kept ground

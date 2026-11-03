@@ -132,13 +132,15 @@ pub fn separate(state: &mut GameState, content: &Content, before: &[Fx; MAX_BODI
             if gap >= width {
                 continue;
             }
-            // Which way `i` is pushed (toward +x if it is to the right of `j`). Standing on the same spot, the way they came from,
-            // and failing that by player order.
+            // Which way `i` is pushed (toward +x if it is to the right of `j`). Standing on the same spot, or crossed over within this
+            // frame (one step past the other's middle: the reference's dash at full speed from its first frame, sim 148), the way they
+            // came from, and failing that by player order.
             let was = before[i] - before[j];
-            let dir: i32 = if dx != Fx::ZERO {
-                dx.signum_int()
-            } else if was != Fx::ZERO {
+            let crossed = was != Fx::ZERO && dx.signum_int() != was.signum_int();
+            let dir: i32 = if crossed {
                 was.signum_int()
+            } else if dx != Fx::ZERO {
+                dx.signum_int()
             } else {
                 -1
             };

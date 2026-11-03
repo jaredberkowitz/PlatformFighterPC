@@ -1792,6 +1792,9 @@ fn block(
         push = push * Fx::from_ratio(2, 5);
     }
     def.vel.x += push.mul_int(i32::from(facing));
+    // The push slides on plain traction (sim 148, `Ruleset::traction_rule`: the reference's guard damage brakes at its traction times
+    // `damage_ground_mul` 1, never doubled), however fast the shield began.
+    def.brake_from = Fx::ZERO;
 }
 
 /// A shield's pushback for `stun` frames of shield stun: (stun + 1) * 0.09 reference units a frame, at most 1.3 (world units).

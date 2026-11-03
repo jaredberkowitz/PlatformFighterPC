@@ -109,9 +109,11 @@ fn a_jump_out_of_a_rolled_turnaround_is_a_reverse_aerial_rush() {
         }
         assert!(!sim.f().grounded(), "dir {dir}");
         assert_eq!(sim.f().facing, -1, "dir {dir}: facing back");
+        // (At least the duelist's jump cap, `jump_speed_x_max` 1.2 of the reference's units: sim 139; less one frame of air control on
+        // the takeoff frame, already airborne since sim 148.)
+        let p = sim.content.fighters[0];
         assert!(
-            // (At least the duelist's jump cap, `jump_speed_x_max` 1.2 of the reference's units: sim 139.)
-            sim.f().vel.x >= fx(15, 100),
+            sim.f().vel.x >= fx(15, 100) - p.air_accel - p.air_accel_stick,
             "dir {dir}: still carried forward: {:?}",
             sim.f().vel.x
         );

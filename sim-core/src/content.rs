@@ -640,17 +640,37 @@ impl FighterParams {
 }
 
 impl FighterParams {
-    /// How far a whole initial dash from a standstill goes over the frames it is shown as a dash (`dash_frames`, before it becomes a
-    /// run or brakes). The view times the dash's stride by it; a test checks the simulation agrees.
-    pub fn initial_dash_distance(&self) -> Fx {
-        let mut v = self.dash_initial_speed;
+    /// How far a whole initial dash from a standstill, the stick held forward, goes over the frames it is shown as a dash
+    /// (`dash_frames`, before it becomes a run or brakes), by the ruleset's dash (`Ruleset::dash_keep_frames`, sim 148). The view times
+    /// the dash's stride by it; a test checks the simulation agrees.
+    pub fn initial_dash_distance(&self, rules: &Ruleset) -> Fx {
+        let keep = u16::from(rules.dash_keep_frames);
+        let mut v = if keep > 0 {
+            self.dash_speed
+        } else {
+            self.dash_initial_speed
+        };
         let mut d = Fx::ZERO;
-        for _ in 0..self.dash_frames {
-            v = if v < self.dash_speed {
-                (v + self.dash_accel).min(self.dash_speed)
-            } else {
-                (v - self.dash_accel).max(self.dash_speed)
-            };
+        for k in 0..u16::from(self.dash_frames) {
+            if keep == 0 {
+                v = if v < self.dash_speed {
+                    (v + self.dash_accel).min(self.dash_speed)
+                } else {
+                    (v - self.dash_accel).max(self.dash_speed)
+                };
+            } else if k >= keep {
+                // The run's pull at full stick: its acceleration up to the run speed, braking above it (see `fighter::run_toward`).
+                v = if v > self.run_speed {
+                    let brake = if rules.traction_rule == 0 {
+                        self.run_decel
+                    } else {
+                        self.ground_friction * Fx::HALF
+                    };
+                    (v - brake).max(self.run_speed)
+                } else {
+                    (v + self.run_accel + self.run_accel_stick).min(self.run_speed)
+                };
+            }
             d += v;
         }
         d
@@ -2452,6 +2472,24 @@ pub struct Ruleset {
     /// keeps only that much, so a fast recovery that ends on the stage does not slide across it on the gentle `landing_friction`
     /// [E: the reference publishes no landing rule]. 0: no cap (the rule before sim 143).
     pub landing_speed_cap: u8,
+    /// How the ground brakes a fighter (sim 148, `docs/MOVEMENT_1TO1.md`): 0 (before sim 148) every stop on the ground brakes at
+    /// the body's `ground_friction` (twice the reference's traction) and a landing at `landing_friction`; 1 (the reference's, from
+    /// its parameter file and a public re-creation of its movement code) a stop brakes at traction, half of `ground_friction`,
+    /// doubled to the whole of it when the stop began faster than the body's walk speed (the reference's `stop_over_speed_brake_mul`
+    /// 2, decided as the state begins); letting go of a run brakes at traction (its run brake, `run_brake_brake_mul` 1), and so does
+    /// a run's speed above the run speed (left from the dash, `run_decel` before); a landing is a stop like any other; a standing
+    /// turn brakes at traction (a run's skid keeps `ground_friction`); a shield pushed back by a hit slides on traction.
+    pub traction_rule: u8,
+    /// The initial dash's speed (sim 148): 0 (before sim 148) it starts at `dash_initial_speed`, eases up to `dash_speed` at
+    /// `dash_accel` and keeps it to its end whatever the stick does; above 0 (the reference's, 6: its `dash_speed_keep_frame`) it
+    /// starts at `dash_speed` at once and keeps it for this many frames, then the stick held forward eases it toward the run's speed
+    /// (the run's acceleration, or braking at traction above it) and anything else brakes it at traction, to the dash's end.
+    pub dash_keep_frames: u8,
+    /// Air drift above the stick's share of the air speed (sim 148): 0 (before sim 148) slows at the air acceleration down to it
+    /// (the air friction only above the full air speed); 1 (the reference's: its air control caps the speed at the air speed times
+    /// the stick and brakes anything above the cap at the air friction) slows at the air friction only, so easing the stick part
+    /// way back keeps nearly all of the drift.
+    pub air_drift_brake: u8,
     /// A fighter that has just grabbed a ledge can still be hit for this many frames before its ledge intangibility starts (sim 144,
     /// from a playtest: the reference's "two-frame", ssbwiki.com `Edge`: "exactly two frames ... before the intangibility activates").
     pub ledge_exposed_frames: u8,
@@ -2764,6 +2802,9 @@ impl Ruleset {
             push_hard: Fx::from_ratio(7, 10),
             push_speed: Fx::from_ratio(3, 40),
             air_push: 0,
+            traction_rule: 1,
+            dash_keep_frames: 6,
+            air_drift_brake: 1,
             jump_momentum: Fx::from_ratio(17, 20),
             jump_momentum_max: Fx::from_ratio(5, 4),
             jump_stick_share: 2,
@@ -2947,6 +2988,9 @@ impl StateHash for Ruleset {
         self.push_hard.hash_into(h);
         self.push_speed.hash_into(h);
         h.write_u8(self.air_push);
+        h.write_u8(self.traction_rule);
+        h.write_u8(self.dash_keep_frames);
+        h.write_u8(self.air_drift_brake);
         self.jump_momentum.hash_into(h);
         self.jump_momentum_max.hash_into(h);
         h.write_u8(self.jump_stick_share);
@@ -3344,6 +3388,9 @@ mod tests {
             |r: &mut Ruleset| r.push_hard += Fx::from_raw(1),
             |r: &mut Ruleset| r.push_speed += Fx::from_raw(1),
             |r: &mut Ruleset| r.air_push ^= 1,
+            |r: &mut Ruleset| r.traction_rule ^= 1,
+            |r: &mut Ruleset| r.dash_keep_frames += 1,
+            |r: &mut Ruleset| r.air_drift_brake ^= 1,
             |r: &mut Ruleset| r.jump_momentum += Fx::from_raw(1),
             |r: &mut Ruleset| r.jump_momentum_max += Fx::from_raw(1),
             |r: &mut Ruleset| r.jump_stick_share ^= 3,

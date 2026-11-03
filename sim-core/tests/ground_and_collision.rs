@@ -46,7 +46,8 @@ fn a_quick_flick_dashes_then_runs_while_held() {
     let p = sim.content.fighters[0];
     sim.tick(inp(127, 0, 0));
     assert_eq!(sim.f().state, S::Dash);
-    assert!(sim.f().vel.x >= p.dash_initial_speed && sim.f().vel.x < p.dash_speed);
+    // (The reference's dash: at its speed from the first frame, sim 148.)
+    assert_eq!(sim.f().vel.x, p.dash_speed);
     sim.ticks(usize::from(p.dash_frames) + 2, inp(127, 0, 0));
     assert_eq!(sim.f().state, S::Run);
     sim.ticks(20, inp(127, 0, 0));
@@ -348,26 +349,38 @@ fn ledge_attack_gets_up_onto_the_stage_and_takes_longer_than_a_normal_get_up() {
 // ---- Smooth dash and landing ------------------------------------------------------------------
 
 #[test]
-fn a_dash_ramps_up_instead_of_jumping_to_full_speed() {
+fn a_dash_starts_at_its_speed_and_keeps_it_for_its_first_frames() {
+    // Sim 148, the reference's dash (its `dash_speed` at once, kept `dash_speed_keep_frame` 6 frames): before, it eased up from
+    // `dash_initial_speed`, so a dash started soft and covered less ground.
     let mut sim = Sim::new();
     let p = sim.content.fighters[0];
-    let mut last = Fx::ZERO;
-    let mut reached_top = false;
-    for frame in 0..usize::from(p.dash_frames) {
+    let keep = usize::from(sim.content.rules.dash_keep_frames);
+    assert_eq!(keep, 6);
+    for frame in 0..keep {
         sim.tick(inp(127, 0, 0));
-        let v = sim.f().vel.x;
-        // The first frame is the initial speed plus one step; after that, one step at a time.
-        let allowed = if frame == 0 {
-            p.dash_initial_speed + p.dash_accel
-        } else {
-            p.dash_accel
-        };
-        assert!(v - last <= allowed, "jumped from {last:?} to {v:?}");
-        assert!(v >= last, "dash slowed down mid-ramp");
-        last = v;
-        reached_top |= v == p.dash_speed;
+        assert_eq!(sim.f().vel.x, p.dash_speed, "frame {frame}");
     }
-    assert!(reached_top, "never reached dash speed");
+    // Then, held forward, it eases toward the run's speed: the duelist's dash is faster than its run, so it brakes at traction.
+    sim.tick(inp(127, 0, 0));
+    assert_eq!(sim.f().vel.x, p.dash_speed - p.ground_friction * Fx::HALF);
+    // The older dash is one switch away.
+    let mut old = Sim::new();
+    old.content.rules.dash_keep_frames = 0;
+    old.tick(inp(127, 0, 0));
+    assert_eq!(old.f().vel.x, p.dash_initial_speed + p.dash_accel);
+}
+
+#[test]
+fn a_dash_let_go_brakes_at_traction_after_its_kept_frames_but_still_runs_its_length() {
+    let mut sim = Sim::new();
+    let p = sim.content.fighters[0];
+    let keep = usize::from(sim.content.rules.dash_keep_frames);
+    sim.tick(inp(127, 0, 0));
+    sim.ticks(keep - 1, inp(0, 0, 0));
+    assert_eq!(sim.f().vel.x, p.dash_speed, "kept whatever the stick does");
+    sim.tick(inp(0, 0, 0));
+    assert_eq!(sim.f().vel.x, p.dash_speed - p.ground_friction * Fx::HALF);
+    assert_eq!(sim.f().state, S::Dash, "letting go does not end it");
 }
 
 #[test]
@@ -375,16 +388,22 @@ fn dash_speed_eases_down_into_run_speed() {
     let mut sim = Sim::new();
     sim.state.fighters[0].pos.x = Fx::from_int(-10);
     let p = sim.content.fighters[0];
-    sim.ticks(usize::from(p.dash_frames) + 1, inp(127, 0, 0));
-    assert_eq!(sim.f().state, S::Run);
+    // (Within the dash's kept frames it is still at dash speed; after them it eases down: sim 148.)
+    let keep = usize::from(sim.content.rules.dash_keep_frames);
+    sim.ticks(keep, inp(127, 0, 0));
     let mut last = sim.f().vel.x;
     assert!(last > p.run_speed, "should still carry dash speed");
+    // The reference's run brakes speed above its own at traction (half of `ground_friction`; `run_decel` before sim 148).
     for _ in 0..60 {
         sim.tick(inp(127, 0, 0));
         let v = sim.f().vel.x;
-        assert!(last - v <= p.run_decel, "snapped from {last:?} to {v:?}");
+        assert!(
+            last - v <= p.ground_friction * Fx::HALF,
+            "snapped from {last:?} to {v:?}"
+        );
         last = v;
     }
+    assert_eq!(sim.f().state, S::Run);
     assert_eq!(last, p.run_speed);
 }
 
@@ -406,25 +425,32 @@ fn landing_while_holding_the_stick_walks_on_instead_of_running() {
 }
 
 #[test]
-fn landing_without_input_slides_gently_rather_than_stopping_dead() {
-    let mut sim = Sim::new();
-    let p = sim.content.fighters[0];
-    sim.put_airborne(0, Fx::ZERO, Fx::from_int(2), fx(1, 10), Fx::ZERO);
-    let mut speeds = Vec::new();
-    for _ in 0..40 {
-        sim.tick(inp(0, 0, 0));
-        if sim.f().state == S::Landing {
-            speeds.push(sim.f().vel.x);
+fn landing_without_input_slides_on_traction_rather_than_stopping_dead() {
+    // Sim 148, the reference's: a landing is a stop like any other, at traction (half of `ground_friction`), doubled when it lands
+    // faster than a walk (before: the gentle `landing_friction`).
+    for (vx, doubled) in [(fx(1, 10), false), (fx(25, 100), true)] {
+        let mut sim = Sim::new();
+        let p = sim.content.fighters[0];
+        assert_eq!(vx > p.walk_speed, doubled);
+        sim.put_airborne(0, Fx::ZERO, Fx::from_int(2), vx, Fx::ZERO);
+        let mut speeds = Vec::new();
+        for _ in 0..40 {
+            sim.tick(inp(0, 0, 0));
+            if sim.f().state == S::Landing {
+                speeds.push(sim.f().vel.x);
+            }
         }
+        assert!(speeds.len() >= 2, "landing lag too short to observe");
+        let brake = if doubled {
+            p.ground_friction
+        } else {
+            p.ground_friction * Fx::HALF
+        };
+        for pair in speeds.windows(2) {
+            assert_eq!(pair[0] - pair[1], brake, "landing at {vx:?}");
+        }
+        assert!(speeds.iter().all(|v| *v > Fx::ZERO), "stopped dead");
     }
-    assert!(speeds.len() >= 2, "landing lag too short to observe");
-    for pair in speeds.windows(2) {
-        assert!(
-            pair[0] - pair[1] <= p.landing_friction,
-            "bled off faster than landing_friction"
-        );
-    }
-    assert!(p.landing_friction < p.ground_friction);
 }
 
 // ---- Reference jump heights and momentum ------------------------------------------------------
@@ -526,7 +552,8 @@ fn a_running_jump_keeps_some_of_its_ground_speed_into_the_air() {
     let takeoff = (run * Fx::from_ratio(i32::from(p.jump_speed_x_mul), 100))
         .max(stick)
         .min(p.jump_speed_x_max);
-    assert_eq!(sim.f().vel.x, takeoff);
+    // (The takeoff frame is already an airborne frame, sim 148: above the air speed, one frame of air friction.)
+    assert_eq!(sim.f().vel.x, takeoff - p.air_friction);
     assert!(takeoff < run);
     // In the air it keeps almost all of that, since only light air friction acts on speed above the air speed.
     sim.ticks(15, inp(127, 0, 0));
@@ -693,7 +720,12 @@ fn jumping_out_of_a_cancelled_dash_keeps_the_momentum_in_the_air() {
     // The jump squat itself loses nothing; the takeoff carries the reduced, capped share of it (see the running jump above).
     let takeoff =
         (squat_start * Fx::from_ratio(i32::from(p.jump_speed_x_mul), 100)).min(p.jump_speed_x_max);
-    assert_eq!(sim.f().vel.x, takeoff, "jump squat must not eat the speed");
+    // (Less the takeoff frame's own air friction: it is already an airborne frame, sim 148.)
+    assert_eq!(
+        sim.f().vel.x,
+        takeoff - p.air_friction,
+        "jump squat must not eat the speed"
+    );
     // With no stick held the air drift continues, slowed only by light air friction.
     sim.ticks(10, inp(0, 0, 0));
     assert!(sim.f().vel.x >= takeoff - p.air_friction.mul_int(11));
@@ -939,17 +971,29 @@ fn stopping_from_a_full_dash_or_run_is_short_and_quick() {
 }
 
 #[test]
-fn stopping_from_a_full_run_takes_under_ten_frames() {
-    let mut sim = Sim::new();
-    sim.state.fighters[0].pos.x = Fx::from_int(-10);
+fn letting_go_of_a_run_brakes_at_traction_to_a_stop() {
+    // Sim 148, the reference's run brake (`run_brake_brake_mul` 1): plain traction, half of `ground_friction`, from the run's speed
+    // all the way to a stop (the duelist: 18 frames, about 2 world units). Before, the doubled friction stopped it in under ten.
+    let mut sim = Sim::alone();
+    sim.stand(1, Fx::from_int(60), -1);
+    sim.content.stage.platforms[0].left = Fx::from_int(-80);
+    sim.content.stage.platforms[0].right = Fx::from_int(80);
+    let p = sim.content.fighters[0];
     sim.ticks(40, inp(127, 0, 0));
+    assert_eq!(sim.f().state, S::Run);
+    assert_eq!(sim.f().vel.x, p.run_speed);
+    let traction = p.ground_friction * Fx::HALF;
+    let mut last = sim.f().vel.x;
     let mut frames = 0;
     while sim.f().vel.x != Fx::ZERO {
         sim.tick(inp(0, 0, 0));
         frames += 1;
         assert!(frames < 60);
+        let v = sim.f().vel.x;
+        assert!(last - v == traction || v == Fx::ZERO, "{last:?} to {v:?}");
+        last = v;
     }
-    assert!(frames <= 10, "took {frames} frames to stop");
+    assert_eq!(frames, 18, "the duelist's run brake");
 }
 
 /// Puts player 0 in the air rising so that it reaches the apex after `frames` frames, then holds the stick hard down from
@@ -1099,10 +1143,21 @@ fn momentum_above_max_air_speed_is_worn_down_by_friction_not_by_the_stick() {
 }
 
 #[test]
-fn easing_the_stick_back_slows_you_with_acceleration_not_friction() {
+fn easing_the_stick_back_keeps_the_drift_slowed_only_by_air_friction() {
+    // Sim 148, the reference's air control: the stick's share of the air speed is a cap, and speed above it is braked at the air
+    // friction alone, so easing the stick part way back keeps nearly all the drift. (Before, the air acceleration pulled it down to
+    // the stick's share at once: `Ruleset::air_drift_brake` 0, still checked below.)
     let p = Sim::new().content.fighters[0];
     let tilt = Input::axis(64);
     let mut sim = high_air(p.air_speed);
+    sim.tick(inp(64, 0, 0));
+    assert_eq!(p.air_speed - sim.f().vel.x, p.air_friction);
+    sim.ticks(40, inp(64, 0, 0));
+    assert_eq!(sim.f().vel.x, p.air_speed - p.air_friction.mul_int(41));
+    assert!(sim.f().vel.x > tilt * p.air_speed);
+    // The older rule.
+    let mut sim = high_air(p.air_speed);
+    sim.content.rules.air_drift_brake = 0;
     sim.tick(inp(64, 0, 0));
     assert_eq!(
         p.air_speed - sim.f().vel.x,

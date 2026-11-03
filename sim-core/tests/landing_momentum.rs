@@ -1,7 +1,8 @@
 //! How much speed a fighter keeps along the ground as it lands (sim 143, owner decision 102: "I slid way too far across the stage by
 //! doing up special pointed towards the stage into the stage"). The ruleset's `landing_speed_cap` (100: the body's dash speed) caps a
-//! landing out of a jump, a move or a special fall; the slide then bleeds off at the body's `landing_friction` as before. The reference
-//! publishes no landing rule [E]; `docs/movesets/SHARED_MECHANICS.md` ("Landing speed").
+//! landing out of a jump, a move or a special fall [E: no published cap]; the slide then bleeds off at the reference's traction, doubled
+//! when it lands faster than a walk (sim 148, `Ruleset::traction_rule`; before, the body's gentle `landing_friction`).
+//! `docs/movesets/SHARED_MECHANICS.md` ("Landing speed"), `docs/MOVEMENT_1TO1.md`.
 
 mod common;
 
@@ -13,8 +14,14 @@ use sim_core::Fx;
 const EXILE: u8 = 13;
 
 fn sim_for(c: u8, cap: u8) -> Sim {
+    sim_with(c, cap, 1)
+}
+
+/// [`sim_for`] under `traction_rule` (0: the landing friction before sim 148).
+fn sim_with(c: u8, cap: u8, traction_rule: u8) -> Sim {
     let mut sim = Sim::with_chars([c, 0, 0, 0]);
     sim.content.rules.landing_speed_cap = cap;
+    sim.content.rules.traction_rule = traction_rule;
     sim.stand(1, Fx::from_int(10), -1);
     sim.state.fighters[1].invuln = 255;
     sim.state.fighters[2].active = false;
@@ -25,7 +32,18 @@ fn sim_for(c: u8, cap: u8) -> Sim {
 /// Class `c` in the air near the left edge (3 units up), facing the stage; it starts a special with stick `(sx, sy)` and then holds
 /// `aim` until it lands. Returns its speed along the ground on landing, how far it slides from there, and whether it stayed on the stage.
 fn into_the_stage(c: u8, cap: u8, (sx, sy): (i8, i8), aim: (i8, i8)) -> Option<(Fx, Fx, bool)> {
-    let mut sim = sim_for(c, cap);
+    into_the_stage_with(c, cap, 1, (sx, sy), aim)
+}
+
+/// [`into_the_stage`] under `traction_rule`.
+fn into_the_stage_with(
+    c: u8,
+    cap: u8,
+    traction_rule: u8,
+    (sx, sy): (i8, i8),
+    aim: (i8, i8),
+) -> Option<(Fx, Fx, bool)> {
+    let mut sim = sim_with(c, cap, traction_rule);
     sim.put_airborne(0, Fx::from_int(-10), Fx::from_int(3), Fx::ZERO, Fx::ZERO);
     sim.state.fighters[0].facing = 1;
     let mut landed: Option<(Fx, Fx)> = None;
@@ -53,16 +71,17 @@ fn the_exiles_blade_dash_into_the_stage_keeps_at_most_its_dash_speed() {
     // Aimed down and forward into the stage (the stick at 45 degrees, then 20 below level).
     for aim in [(127i8, -127i8), (127, -40)] {
         let (v_old, slide_old, kept_old) =
-            into_the_stage(EXILE, 0, (90, 90), aim).expect("it lands (no cap)");
+            into_the_stage_with(EXILE, 0, 0, (90, 90), aim).expect("it lands (no cap)");
         let (v, slide, kept) = into_the_stage(EXILE, 100, (90, 90), aim).expect("it lands");
         // Before sim 143: the dash's 11 units a frame (less a frame's friction) carried on into the landing: it slid off the stage
-        // from the steep aim, about 59 reference units from the shallow one.
+        // from the steep aim, about 59 reference units from the shallow one (on the gentle landing friction, before sim 148).
         assert!(v_old > p.dash_speed, "aim {aim:?}: {v_old:?}");
         assert!(
             !kept_old || slide_old > su(55),
             "aim {aim:?}: {slide_old:?}"
         );
-        // Since: at most the dash speed (less a frame of the landing friction), about 37 units of slide, and still on the stage.
+        // Since: at most the dash speed (less a frame of the landing's brake), a short slide, and still on the stage. (The cap still
+        // matters with the reference's traction since sim 148: the steep aim lands at about 11 units a frame, too fast for traction alone.)
         assert!(v <= p.dash_speed && v > Fx::ZERO, "aim {aim:?}: {v:?}");
         assert!(kept, "aim {aim:?}: stayed on the stage");
         assert!(slide < su(40), "aim {aim:?}: slid {slide:?}");
