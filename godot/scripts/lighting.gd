@@ -670,7 +670,7 @@ static func _set_globals(mood: Dictionary, look: Dictionary, stage_name := "") -
 	# (The fighters' values, art audit 2026-11-02, the owner's pick C: a pale cut edge on the fighters' upper left, in matches only. In the
 	# menus' close-ups a pale rim read as a sticker edge round every piece, the character judge's round 10.)
 	var cut_on: bool = stage_name != "" and preload("res://scripts/loadout.gd").value_mock() in ["B", "C"]
-	RenderingServer.global_shader_parameter_set("pf_fighter_cut", Color(1.0, 0.96, 0.86, 3.0 if cut_on else 0.0))
+	RenderingServer.global_shader_parameter_set("pf_fighter_cut", Color(1.0, 0.96, 0.86, 1.0 if cut_on else 0.0))
 	RenderingServer.global_shader_parameter_set("pf_paint_warm", look.paint[0])
 	RenderingServer.global_shader_parameter_set("pf_paint_cool", look.paint[1])
 	RenderingServer.global_shader_parameter_set("pf_paint_amount", look.paint[2])
