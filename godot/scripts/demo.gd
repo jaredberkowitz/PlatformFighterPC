@@ -287,6 +287,22 @@ static func make(demo_name: String, m: Dictionary, dir: String):
 				d.events.append_array([[f0, "stand", 0, x0, 1], [f0, "stand", 1, x0 + 1.9, h[2]], [f0, "percent", 1, h[1]]])
 				d.timeline.append_array([[f0 + 12, h[3], h[4], h[5]], [f0 + 13, 0, 0, 0]])
 			d.end_frame = 900
+		"floorrolls":
+			# (Round 9, sim 149: the second fighter (`--chars=A,B`, B) launched twice by A's strong forward tilt: it techs the first landing
+			# with a roll forward (shield and the stick held toward A as it comes down), lies after the second and rolls away from the floor.)
+			d.chars = [0, 1, 0, 1]
+			for a in OS.get_cmdline_user_args():
+				if a.begins_with("--chars="):
+					var picked := a.substr(8).split(",")
+					d.chars = [int(picked[0]), int(picked[1]) if picked.size() > 1 else 1, 0, 1]
+			d.timeline = [[0, 0, 0, 0]]
+			d.timeline2 = [[0, 0, 0, 0]]
+			for f0 in [1, 200]:
+				d.events.append_array([[f0, "stand", 0, -7.0, 1], [f0, "stand", 1, -5.1, -1], [f0, "percent", 1, 90.0]])
+				d.timeline.append_array([[f0 + 12, 40, 0, attack], [f0 + 13, 0, 0, 0]])
+			var tech_at := int(OS.get_environment("PF_TECH_AT")) if OS.has_environment("PF_TECH_AT") else 62
+			d.timeline2.append_array([[tech_at, -127, 0, shield], [tech_at + 3, 0, 0, 0], [300, 127, 0, 0], [302, 0, 0, 0]])
+			d.end_frame = 400
 		"airs":
 			# (Round 9: a short hop, a full hop, a full hop with a midair jump, a full hop fast-fallen, a walk off nothing: every frame, the camera
 			# steady on the first fighter.)

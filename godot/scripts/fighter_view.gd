@@ -896,7 +896,23 @@ static func dodge_progress(s: Dictionary) -> float:
 	var d: PackedInt32Array = s.get("dodge", PackedInt32Array())
 	if d.size() < 2 or d[0] <= 0:
 		return -1.0
-	return clampf(float(s.state_frame) / float(dodge_total(d)), 0.0, 1.0)
+	var total := float(dodge_total(d))
+	var sf := float(s.state_frame)
+	# (Round 9, sim 149: a tech, get-up or trip roll (the fifth value, its kind, 1 to 3) lasts the reference's 40, 35 or 28 frames but moves
+	# only until the sixth, the last frame the sim carries it (24 on most bodies). Played by its whole length one somersault took the 40
+	# frames, slow and floaty: it rolls over its moving frames as a shield roll does, to where a shield roll stops moving (`ROLL_MOVE_END`),
+	# then stands up over the rest.)
+	if String(s.get("state", "")) == "Roll" and d.size() >= 6 and d[4] >= 1 and d[5] > 0 and float(d[5]) < total and not r9_off.has("floorroll"):
+		var moves := float(d[5])
+		if sf <= moves:
+			return clampf(sf / moves * ROLL_MOVE_END, 0.0, 1.0)
+		return clampf(ROLL_MOVE_END + (1.0 - ROLL_MOVE_END) * (sf - moves) / (total - moves), 0.0, 1.0)
+	return clampf(sf / total, 0.0, 1.0)
+
+
+## How far through a shield roll the body stops moving (its move frames end about frame 24 of 30): a floor roll rolls over its own moving
+## frames to here, then stands up.
+const ROLL_MOVE_END := 0.8
 
 
 ## A dodge's real length (round 9): the bridge's fourth `dodge` value where it gives one. A stale roll or spot dodge lasts longer than a
@@ -1324,7 +1340,8 @@ const HANDOFF_BY_CLIP := {"jumpsquat": 2.0, "land": 1.0, "tech": 2.0, "knockdown
 ## With the environment variable PF_R9_OFF (before and after images, round 9): "handoff" leaves the cross-fades as they were; "rollturn" leaves
 ## the forward roll's turn round to the sim's last frame; "react" leaves the hit reactions as they were at core4 (a clip chosen every frame by
 ## the knockback, the ground's flinch without its recoil, a launch and a tumble pitched about the body's side, the damage fall a plain fall);
-## "stops" leaves a run's stop and a walk's slide to the plain idle, as before sim 148.
+## "stops" leaves a run's stop and a walk's slide to the plain idle, as before sim 148; "floorroll" plays a tech, get-up or trip roll by
+## its whole length, as before sim 149.
 static var r9_off := OS.get_environment("PF_R9_OFF").split(",")
 var handoff_clip := ""
 var handoff_state := ""

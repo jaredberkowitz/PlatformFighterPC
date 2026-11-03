@@ -231,6 +231,14 @@ func _initialize() -> void:
 	stopping.frame = 6400
 	hurt.apply(Vector3.ZERO, stopping, 1.0 / 60.0)
 	check(hurt.stop_k < 0.0, "a seek ends the stop")
+	# (Sim 149.) A tech roll (kind 1) of 40 frames that moves until frame 24 has rolled over by then and stands up over the rest; a shield
+	# roll (kind 0) keeps its progress by its whole length.
+	var tech := {"state": "Roll", "state_frame": 24, "dodge": PackedInt32Array([40, 1, 0, 40, 1, 24])}
+	check(absf(FighterView.dodge_progress(tech) - FighterView.ROLL_MOVE_END) < 0.001, "a tech roll has rolled over by its last moving frame")
+	tech.state_frame = 40
+	check(absf(FighterView.dodge_progress(tech) - 1.0) < 0.001, "a tech roll stands up by its end")
+	var shield_roll := {"state": "Roll", "state_frame": 15, "dodge": PackedInt32Array([30, 1, 0, 30, 0, 24])}
+	check(absf(FighterView.dodge_progress(shield_roll) - 0.5) < 0.001, "a shield roll goes by its whole length")
 
 	print("motion test ", "FAILED" if failed else "PASSED")
 	quit(1 if failed else 0)
