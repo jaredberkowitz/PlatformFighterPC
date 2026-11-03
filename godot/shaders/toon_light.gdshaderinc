@@ -260,10 +260,11 @@ void light() {
 	vec3 cream = mix(pf_edge_light.rgb, pf_edge_light.rgb * min(ALBEDO * 1.6 + 0.25, vec3(1.0)), PF_FIGHTER_CREAM);
 	SPECULAR_LIGHT += cream * pf_edge_light.a * around * fighter * 0.5;
 	// (The cut edge: lit from the upper left of the screen, as the paper menus' cut edges are, whatever the stage's sun; half from each of
-	// the two lights, as the edge light above.)
+	// the two lights, as the edge light above. It brings the surface's colour toward the cream of cut paper, never past it: added as
+	// light, a bright one glowed round the fighter on dark backdrops and blurred its silhouette, tests/look_bench.gd, 2026-11-03.)
 	if (pf_fighter_cut.a > 0.0 && fighter > 0.0) {
 		float band = smoothstep(0.6, 0.66, edge) * clamp(dot(NORMAL, normalize(vec3(-0.62, 0.78, 0.0))) * 3.0, 0.0, 1.0);
-		SPECULAR_LIGHT += pf_fighter_cut.rgb * pf_fighter_cut.a * band * fighter * 0.5;
+		SPECULAR_LIGHT += max(pf_fighter_cut.rgb - ALBEDO, vec3(0.0)) * min(pf_fighter_cut.a, 1.0) * band * fighter * 0.5;
 	}
 #ifdef PF_TRANSLUCENT
 	// Thin things (leaves) glow a little where the light is behind them (`translucency`, defined by the including shader).
