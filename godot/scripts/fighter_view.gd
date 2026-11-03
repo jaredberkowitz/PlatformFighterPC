@@ -7684,7 +7684,11 @@ func _apply_combat(s: Dictionary, delta: float) -> void:
 			two = ik_last_two
 			amount = ik_fade * ik_fade * (3.0 - 2.0 * ik_fade)
 		_aim_arm(int(s.facing), hold_now or ik_fade > 0.0, two, amount)
-		_guard_face(int(s.facing), int(s.platform) >= 0)
+		# (Round 9: not lying down. Face down, the arms flung out past the head along the floor, the guard pulled the weapon hand off a face
+		# turned to the floor and folded its elbow backward, 60 degrees, for the whole knockdown (the most reversed elbow of all, 242 frames
+		# over the galleries); face up, the near arm lies along the body.)
+		if state != "Knockdown" or r9_off.has("react"):
+			_guard_face(int(s.facing), int(s.platform) >= 0)
 		if not r8_off.has("beside") and not turning_over and not two:
 			_arms_beside_head(int(s.facing))
 		# The hilt goes where the hand actually got to (an arm shorter than the swing wants stops short of its target): the weapon is
