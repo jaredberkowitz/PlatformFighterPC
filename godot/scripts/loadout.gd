@@ -372,6 +372,42 @@ func accent_color() -> Color:
 	return PALETTE[accent]
 
 
+## The fighters' values (art audit 2026-11-02, the owner's pick C, 2026-11-03): in greyscale 11 of the 14 built-in fighters had no large
+## dark area and sat inside the stages' mid greys. A: the outfit in a deep shade of its own colour (the shirt, the shorts, the prints,
+## collars, sleeve bands, neckwear and outfit-coloured hats), so every fighter carries a dark area; B: a pale cut edge on the silhouette's
+## upper left in matches (shaders/toon_light.gdshaderinc `pf_fighter_cut`, set by scripts/lighting.gd); C, the default: both.
+## `--fighter-mock=A|B|C|0` or PF_FIGHTER_MOCK picks one for comparison; 0 is the look before.
+static var _value_mock := "?"
+
+
+static func value_mock() -> String:
+	if _value_mock == "?":
+		var pick := "C"
+		var asked := OS.get_environment("PF_FIGHTER_MOCK")
+		for a in OS.get_cmdline_user_args():
+			if a.begins_with("--fighter-mock="):
+				asked = a.substr(15)
+		if asked != "":
+			pick = asked.to_upper().left(1)
+		_value_mock = pick if "ABC".contains(pick) and pick != "" else ""
+	return _value_mock
+
+
+## The outfit colour's deep shade: the same hue, a little richer, at under half its value. A fighter whose body is already dark (the
+## Champion's slate, the Phantom's midnight) keeps its outfit as it is, so its light accent stays.
+func deep_accent() -> Color:
+	var a := accent_color()
+	if body_color().v < 0.5:
+		return a
+	return Color.from_hsv(a.h, minf(1.0, a.s * 1.1 + 0.05), a.v * 0.42)
+
+
+## The colour the outfit is drawn in (the outfit shirt, the prints on the striped and flower shirts, collars and sleeve bands, neckwear and
+## outfit-coloured hats): its deep shade under A and C, the default.
+func outfit_color() -> Color:
+	return deep_accent() if value_mock() in ["A", "C"] else accent_color()
+
+
 func body_color() -> Color:
 	return PALETTE[color]
 
