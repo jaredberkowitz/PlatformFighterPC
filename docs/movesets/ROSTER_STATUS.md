@@ -684,6 +684,8 @@ Owner decision 2026-10-17 (built in sim 138, branch `longsword-jab`):
       percent but is a true combo only at 90-150%.
     * Engine tests that used the old placeholder jab as a generic weak hit now ask for it (`common::Sim::plain_jab`, used by
       `Sim::duel` and three other tests); the kit's three old jab tests in `kits.rs` were replaced by `longsword_jab.rs`.
+    * 2026-11-03: Sim 148 (movement 1:1, the dash at full speed from frame 1): after jab 1 the dash attack no longer connects;
+      after jab 2 it true-combos at 0-20% (`longsword_jab.rs`).
 
 Open for the owner from decision 98: answered by decision 101 (keep the tip pull; jab 2 acts from frame 16).
 
