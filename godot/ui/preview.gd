@@ -81,6 +81,17 @@ func _tidy() -> void:
 		view._pose_menu_weapon()
 
 
+## Holds clip `clip` still at `at` (a share of its length) in place of the look's menu stance: fighter select's hero pose. Call after
+## `set_loadout` (which sets the stance).
+func hold_clip(clip: String, at: float) -> void:
+	var anim: AnimationPlayer = view.anim
+	if anim == null or not anim.has_animation(clip):
+		return
+	anim.play(clip)
+	anim.seek(at * anim.current_animation_length, true)
+	anim.speed_scale = 0.0
+
+
 ## Holds class `cls`'s weapon at its resting carry (-1: bare-handed).
 func set_weapon(cls: int) -> void:
 	view.menu_weapon = cls

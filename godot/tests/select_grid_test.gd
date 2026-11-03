@@ -29,7 +29,8 @@ func _initialize() -> void:
 			check(rows * (Select.card_height(t) + 12 + Select.GRID_GAP.y) <= Select.GRID_AREA.y + 0.5, "%d cards: every row fits the band %s" % [n, fit])
 		check(t <= prev_t, "%d cards: cards never grow as the roster grows" % n)
 		prev_t = t
-	check(int(Select.grid_layout(9)[0]) >= 9, "nine cards sit in one row")
+	# (Face-off, 2026-11-03: the roster is a grid in the centre column.) The built-in roster fits whole at a readable size.
+	check(int(Select.grid_layout(17)[1]) >= 80, "the built-in roster's seventeen cards fit without scrolling, 80 px or more")
 	check(ceili(30.0 / float(Select.grid_layout(30)[0])) >= 2, "thirty cards start new rows")
 	# The roster refuses a fighter past the cap (a rename of a saved one still saves). Test fighters are named zz_cap and removed after.
 	var made: Array = []
