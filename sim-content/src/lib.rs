@@ -75,6 +75,7 @@ pub fn validate(content: &Content) -> Result<(), Vec<String>> {
     }
     validate_stage(&content.stage, &mut errors);
     validate_item_rules(&content.rules, &content.fighters, &mut errors);
+    validate_floor_rolls(&content.rules, &content.fighters, &mut errors);
     validate_previous_rules(&content.rules, &mut errors);
     validate_look(&content.look, &mut errors);
 
@@ -140,6 +141,37 @@ fn validate_item_rules(
         if late {
             errors.push(format!(
                 "fighter {i}: an item throw lets go after the ruleset's length for it"
+            ));
+        }
+    }
+}
+
+/// The rolls out of a tech, a knockdown and a trip (sim 149): each intangible to no later than its roll ends, every body's own get-up
+/// roll window too. (A length of 0 plays the body's shield roll, whose own windows are checked with the body.)
+fn validate_floor_rolls(
+    r: &sim_core::content::Ruleset,
+    fighters: &[FighterParams],
+    errors: &mut Vec<String>,
+) {
+    if r.tech_roll_frames > 0 && r.tech_roll_intangible > r.tech_roll_frames {
+        errors.push("ruleset: tech_roll_intangible cannot be above tech_roll_frames".to_string());
+    }
+    if r.trip_roll_frames > 0 && r.trip_roll_intangible > r.trip_roll_frames {
+        errors.push("ruleset: trip_roll_intangible cannot be above trip_roll_frames".to_string());
+    }
+    if r.getup_roll_frames == 0 {
+        return;
+    }
+    if r.getup_roll_intangible.max(r.getup_roll_back_intangible) > r.getup_roll_frames {
+        errors.push(
+            "ruleset: getup_roll_intangible and getup_roll_back_intangible cannot be above getup_roll_frames"
+                .to_string(),
+        );
+    }
+    for (i, f) in fighters.iter().enumerate() {
+        if f.getup_roll_intangible.max(f.getup_roll_back_intangible) > r.getup_roll_frames {
+            errors.push(format!(
+                "fighter {i}: getup_roll_intangible and getup_roll_back_intangible cannot be above the ruleset's getup_roll_frames"
             ));
         }
     }
@@ -2667,5 +2699,101 @@ mod combat_tests {
             .unwrap_err()
             .iter()
             .any(|e| e.contains("jump_speed_x_max")));
+    }
+
+    #[test]
+    fn the_floor_roll_fields_round_trip_and_are_checked() {
+        // Sim 149 (D7): the ruleset's tech, get-up and trip rolls and each body's own get-up roll window come back from a file
+        // unchanged, 0 (a length that plays the shield roll) too; a file without the ruleset's plays the standard (the reference's),
+        // a body without its own window takes the ruleset's (0); windows that outlast their roll are refused.
+        let base = Content::placeholder();
+        let r = base.rules;
+        assert_eq!(
+            [
+                r.tech_roll_frames,
+                r.tech_roll_intangible,
+                r.getup_roll_frames,
+                r.getup_roll_intangible,
+                r.getup_roll_back_intangible,
+                r.trip_roll_frames,
+                r.trip_roll_intangible
+            ],
+            [40, 20, 35, 21, 22, 28, 9]
+        );
+        assert!(base
+            .fighters
+            .iter()
+            .all(|p| p.getup_roll_intangible > 0 && p.getup_roll_back_intangible > 0));
+        let text = crate::bundle::to_text(&base, "test", "", "", false);
+        for field in [
+            "tech_roll_frames 40",
+            "tech_roll_intangible 20",
+            "getup_roll_frames 35",
+            "trip_roll_frames 28",
+            "trip_roll_intangible 9",
+            "getup_roll_intangible 19",
+            "getup_roll_back_intangible 31",
+        ] {
+            assert!(text.contains(field), "{field}");
+        }
+        let back = crate::bundle::load(&text).expect("reads back").content;
+        assert_eq!(back, base);
+        let mut shield = base.clone();
+        shield.rules.tech_roll_frames = 0;
+        shield.rules.getup_roll_frames = 0;
+        shield.rules.trip_roll_frames = 0;
+        shield.fighters[0].getup_roll_intangible = 0;
+        let text_shield = crate::bundle::to_text(&shield, "test", "", "", false);
+        let back = crate::bundle::load(&text_shield)
+            .expect("reads back")
+            .content;
+        assert_eq!(back, shield);
+        let stripped = text
+            .lines()
+            .filter(|l| {
+                !["tech_roll_", "getup_roll_", "trip_roll_"]
+                    .iter()
+                    .any(|k| l.contains(k))
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
+        let older = crate::bundle::load(&stripped)
+            .unwrap_or_else(|e| panic!("{}", e.join("\n")))
+            .content;
+        assert_eq!(older.rules, base.rules);
+        assert!(older
+            .fighters
+            .iter()
+            .all(|p| p.getup_roll_intangible == 0 && p.getup_roll_back_intangible == 0));
+        for (change, name) in [
+            (
+                (|c: &mut Content| c.rules.tech_roll_intangible = 41) as fn(&mut Content),
+                "tech_roll_intangible",
+            ),
+            (
+                |c: &mut Content| c.rules.trip_roll_intangible = 29,
+                "trip_roll_intangible",
+            ),
+            (
+                |c: &mut Content| c.rules.getup_roll_back_intangible = 36,
+                "getup_roll_back_intangible",
+            ),
+            (
+                |c: &mut Content| c.fighters[3].getup_roll_intangible = 36,
+                "fighter 3: getup_roll_intangible",
+            ),
+        ] {
+            let mut c = base.clone();
+            change(&mut c);
+            assert!(
+                validate(&c).unwrap_err().iter().any(|e| e.contains(name)),
+                "{name}"
+            );
+        }
+        // (A length of 0 plays the shield roll, so its window is not read.)
+        let mut c = shield;
+        c.rules.tech_roll_intangible = 41;
+        c.fighters[3].getup_roll_intangible = 36;
+        assert!(validate(&c).is_ok());
     }
 }

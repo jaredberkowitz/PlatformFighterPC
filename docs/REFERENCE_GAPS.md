@@ -17,8 +17,9 @@ setup, and 1v1 match rules. None of it means rebuilding anything.
 - Movement: 3-frame jump squat, short/full hop airtimes, short-hop aerial macro, fast fall, air dodges and wavedash, landing lag, the
   committed initial dash, dash dance and foxtrot (sim 103/106), RAR, B-reverse, wall jumps, platform drops.
 - Ledges: grab box, intangibility from airtime and damage, regrab limit, ledge trump, get-up / roll / jump / attack, hang time.
-- Techs (floor, wall, ceiling), missed techs and knockdown get-ups, trips, bury, grabs, pummels, throws, grab mashing (the rolls out
-  of a tech, a knockdown or a trip still play the shield roll's frames: D7).
+- Techs (floor, wall, ceiling), missed techs and knockdown get-ups, trips, bury, grabs, pummels, throws, grab mashing; the rolls out
+  of a tech, a knockdown or a trip on their own frames since sim 149 (D7). Not yet: the tech in place's and the stand-ups' lengths
+  (D8).
 - Shield: 50 HP, drain, regen, stun `0.8 x d x mult + 2`, pushback, break and its stun; out of shield (sim 109); smash charge (60 frames,
   1.4x); clanks.
 - Presentation: hit freeze in the damage pose, contact-point effects by kind, layered hit sounds, camera shake, the game-ending KO slow
@@ -47,7 +48,8 @@ Impact: how much a player would notice. Effort: S (an evening), M (a few sims), 
 | D4 | Shield drop through platforms | Removed | **Kept, as shield + special (sim 112, owner decision)**; since sim 144 (playtest 2026-10-19) a hard down flick drops through too, as the reference's (a double tap of down on a keyboard); a slow tilt or single press crouches | Decided | S |
 | D5 | Spot dodge cancel | Reportedly some actions can cancel a spot dodge's end; needs checking against 13.0.1 | None | Low (verify first) | S |
 | D6 | A forward roll ends turned round (**done, sim 147**: the turn lands on the frame the roll ends, a stale roll's later end included, so a grab, attack, jump or special buffered out of it comes out facing the new way; `Fighter::roll_turns`, tests `roll_facing.rs`) | A forward roll out of a shield ends facing the way it came from, so rolling past an opponent leaves you facing them; a back roll keeps its facing. Tech rolls, get-up rolls (a trip's too) and ledge rolls keep their facing whichever way they go | A forward roll kept facing the way it rolled, so rolling past someone left your back to them | High | S |
-| D7 | Tech, get-up and trip rolls on their own frames | A tech roll lasts 40 frames (acts on 41), intangible 1-20, either way, on every body we have ported; a get-up roll 35 (acts on 36), intangible from frame 1 to somewhere between 14 and 31 by body, way and lying face up or down; a trip's roll 28 (acts on 29), intangible 1-9 | All three play the body's shield roll (26 to 35 frames, intangible from frame 4 or 5), so a tech roll is open on its first three frames and ends 5 to 14 frames early | Med | S-M (new fields; the distances [E]) |
+| D7 | Tech, get-up and trip rolls on their own frames (**done, sim 149**: the ruleset's `tech_roll_*`, `getup_roll_*` and `trip_roll_*`, each body's own get-up roll window (`FighterParams::getup_roll_intangible` / `getup_roll_back_intangible`), hashed `Fighter::roll_kind`; lying face up only, as the sim has one way of lying [E]; the distances are the shield roll's [E]; tests `floor_rolls.rs`) | A tech roll lasts 40 frames (acts on 41), intangible 1-20, either way, on every body we have ported; a get-up roll 35 (acts on 36), intangible from frame 1 to somewhere between 14 and 31 by body, way and lying face up or down; a trip's roll 28 (acts on 29), intangible 1-9 | All three played the body's shield roll (26 to 35 frames, intangible from frame 4 or 5), so a tech roll was open on its first three frames and ended 5 to 14 frames early | Med | S-M (new fields; the distances [E]) |
+| D8 | The tech in place and the stand-ups on their own frames | A tech in place lasts 26 frames (acts on 27), intangible 1-20; standing up from lying 29 (acts on 30), intangible 1-22; standing up from a trip 21 (acts on 22), intangible 1-16: each the same on every body that has it (one body stands up a frame sooner) | A tech in place is 4 frames of landing lag with 18 intangible frames, so it can act 22 frames early; standing up lasts 26 frames, the first 15 intangible, from lying and from a trip alike | Med-High (tech chasing) | S (ruleset numbers; found while doing D7, not yet checked against footage) |
 
 **How D6 was checked** (2 November 2026). ssbwiki.com `Roll` gives the rule for rolls out of a shield but says nothing about tech
 or get-up rolls, and no other written source found does. Those were checked in a public dump of the reference's own game scripts:
@@ -59,6 +61,17 @@ body we have ported, about two thirds of the way through), ours on the roll's la
 where a held item is carried, nothing reads a rolling fighter's facing but the roll itself, and a hit sets it anyway, so play is the
 same; the visible turn is the view's to place inside the roll. D7's numbers come from the same dump's animation data; the one
 fighter's tech page checked on ssbwiki.com agrees (40 frames, intangible 1-20).
+
+**How D7 was done** (2 November 2026, sim 149). A public dump of the reference's game data gives each motion its intangible frames
+and the frame it can act on. On all 93 bodies that have them, a tech roll is intangible 1-20 and acts on 41, a get-up roll acts on
+36 and a trip's roll is intangible 1-9 and acts on 29: those are ruleset numbers. A get-up roll's intangibility differs by body, by
+way and by lying face up or face down: each body we have ported carries its own two face-up windows, forward and back (from 1-19 to
+1-31; a body without its own takes the reference's most common, 1-21 forward and 1-22 back). The sim does not track how a fighter
+lies, and only one get-up attack exists per body (the face-up one), so the face-down windows are noted in each body's parameters but
+not used [E]. Frame 1 is the frame the roll begins on: the landing for a tech roll, the flick for the others, so each is intangible
+on its first frame too. The rolls still move as the body's shield roll does [E: the reference publishes no distances], are never
+staled and keep their facing (D6). A ruleset length of 0 plays the shield roll instead, the rule before sim 149. D8's numbers are
+from the same dump.
 
 ### Offence and movement
 

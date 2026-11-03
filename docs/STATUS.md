@@ -101,6 +101,17 @@ roll comes out facing the new way. New hashed `Fighter::roll_turns`; the bridge'
 that turns) for the view, which still has to hide the turn inside the roll, and a fourth: the frames the dodge really lasts (a stale
 roll or spot dodge plays longer than the fresh length; `fighter::roll_length` and `spot_dodge_length`, which the dodges end by). Tests `roll_facing.rs` (16); `fuzz-rollback 1000` and
 `net-fuzz 2000`: 0 mismatches.
+**Sim 149** (branch `claude/musing-greider-d1f75e`, on sim 147's branch at 83e558f1; 148 is the movement session's; content schema 8
+unchanged): tech, get-up and trip rolls play the reference's own frames instead of the body's shield roll (`docs/REFERENCE_GAPS.md`
+D7): a tech roll 40 frames, intangible 1-20; a get-up roll 35, intangible from frame 1 through the body's own window (lying face up,
+forward and back, 1-19 to 1-31); a trip's roll 28, intangible 1-9; frame 1 is the landing or the flick. New ruleset fields
+`tech_roll_frames` / `tech_roll_intangible`, `getup_roll_frames` / `getup_roll_intangible` / `getup_roll_back_intangible` (the
+window for a body without its own) and `trip_roll_frames` / `trip_roll_intangible` (a length of 0 plays the shield roll, the older
+rule); optional fighter fields `getup_roll_intangible` / `getup_roll_back_intangible`; hashed `Fighter::roll_kind`. The rolls move as
+the shield roll does [E]. The bridge's `fighter_dodge` reports each roll's own length, and (behaviour-neutral, for the view) a fifth
+and sixth value: the roll's kind and the last frame it moves on (`fighter::roll_moves_until`). Tests `floor_rolls.rs` (7), the bridge's
+`dodge_info_totals_are_the_frames_each_dodge_ends_on`, sim-content `the_floor_roll_fields_round_trip_and_are_checked`;
+`fuzz-rollback 1000` and `net-fuzz 2000`: 0 mismatches. Found on the way, not done: the tech in place and the stand-ups (D8).
 **Sim 141** (released together; the moveset session's 138 and 139 below landed after the run mode's 140, so they ship as 141 under the max+1 rule: everything those entries call sim 138 and 139 is in 141).
 **Sim 139** (branch `recovery-audit`, from `origin/main` at 3d8d5d3, sim 137; content schema 8 unchanged; sim 138 is the Longsword's
 older-jab branch): recoveries, air movement and side specials checked against the reference for all 14 fighters (owner decision 99,
