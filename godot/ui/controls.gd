@@ -42,6 +42,9 @@ var keybar: Control
 ## The keys page's two players' headings and columns (the player not being edited is dimmed).
 var heads: Array = []
 var boxes: Array = []
+## The cardstock look (docs/UI_DESIGN_SYSTEM.md): rows printed on sheets.
+var paper := false
+var key_sheet: Control
 ## The keys page's groups, by the row each starts on (Bindings.ACTIONS' order): a caption in the gutter at the left of that row.
 const KEY_GROUPS := {0: "Move", 5: "Jump", 7: "Attack", 10: "Defend"}
 ## How far the player not being edited is dimmed on the keys page.
@@ -50,6 +53,7 @@ const OTHER_PLAYER_DIM := 0.62
 
 func _ready() -> void:
 	set_anchors_preset(Control.PRESET_FULL_RECT)
+	paper = UI.Art.paper_style() == 1
 	add_child(UI.Backdrop.new(false, 0.38))
 	add_child(UI.ScreenTitle.new("Controls"))
 	# The two pages' tabs.
@@ -70,8 +74,17 @@ func _ready() -> void:
 		add_child(head)
 		key_page.append(head)
 		var box := VBoxContainer.new()
-		box.position = Vector2(150 + p * 570, 142)
+		box.position = Vector2(150 + p * 570, 150)
 		box.add_theme_constant_override("separation", 4)
+		if paper and p == 0:
+			# Both players' keys on one cream sheet (cardstock, docs/UI_DESIGN_SYSTEM.md), the group captions in its gutter.
+			key_sheet = UI.Sheet.new(box)
+			key_sheet.pad = Vector2(20, 14)
+			key_sheet.extra_left = 96.0
+			add_child(key_sheet)
+			key_page.append(key_sheet)
+		elif paper:
+			key_sheet.target2 = box
 		add_child(box)
 		key_page.append(box)
 		var col := []
@@ -82,20 +95,25 @@ func _ready() -> void:
 				var gap := Control.new()
 				gap.custom_minimum_size = Vector2(0, 6)
 				box.add_child(gap)
-			var line := HBoxContainer.new()
-			line.add_theme_constant_override("separation", 6)
+			var line := UI.Row.new()
 			var label := UI.Tag.new(a[1], Vector2(250, 30))
 			label.fill = Color(UI.INK, 0.72)
 			label.ink = Color(1, 1, 1, 0.92)
 			label.font_size = 19
+			if paper:
+				label.printed = "label"
+			line.label = label
 			line.add_child(label)
 			if KEY_GROUPS.has(r):
 				label.add_child(_group_caption(KEY_GROUPS[r]))
 			var key := UI.Tag.new("", Vector2(210, 30))
 			key.font_size = 21
+			if paper:
+				key.printed = "value"
+				key.fill = Color.WHITE
 			line.add_child(key)
 			box.add_child(line)
-			col.append({"label": label, "key": key})
+			col.append({"label": label, "key": key, "row": line})
 		cells.append(col)
 		heads.append(head)
 		boxes.append(box)
@@ -107,6 +125,10 @@ func _ready() -> void:
 	info.font_size = 18
 	info.shadow = false
 	info.position = Vector2(60, 592)
+	if paper:
+		# (Printed on the paper: a line of help, not a panel.)
+		info.printed = "value"
+		info.ink = UI.D.LABEL
 	add_child(info)
 	key_page.append(info)
 
@@ -115,6 +137,8 @@ func _ready() -> void:
 	pad_page.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	pad_page.visible = false
 	add_child(pad_page)
+	if paper:
+		pad_page.add_child(_fixed_sheet(Rect2(276, 128, 700, (PadBindings.ACTIONS.size() + PadBindings.OPTIONS.size()) * 40 + 30)))
 	pad_head = UI.Tag.new("", Vector2(520, 44))
 	pad_head.font_size = 28
 	pad_head.ink = Color(1, 1, 1)
@@ -131,6 +155,8 @@ func _ready() -> void:
 		label.fill = Color(UI.INK, 0.72)
 		label.ink = Color(1, 1, 1, 0.92)
 		label.font_size = 20
+		if paper:
+			label.printed = "label"
 		label.position = Vector2(300, 138 + k * 40 + (14 if k >= PadBindings.ACTIONS.size() else 0))
 		pad_page.add_child(label)
 		var value := UI.Tag.new("", Vector2(380, 34))
@@ -144,12 +170,16 @@ func _ready() -> void:
 	display_page.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	display_page.visible = false
 	add_child(display_page)
+	if paper:
+		display_page.add_child(_fixed_sheet(Rect2(226, 104, 810, VisualSettings.ORDER.size() * 72 + 92)))
 	for k in VisualSettings.ORDER.size():
 		var key: String = VisualSettings.ORDER[k]
 		var label := UI.Tag.new(VisualSettings.OPTIONS[key].label, Vector2(320, 52))
 		label.fill = Color(UI.INK, 0.72)
 		label.ink = Color(1, 1, 1, 0.92)
 		label.font_size = 26
+		if paper:
+			label.printed = "label"
 		label.position = Vector2(250, 120 + k * 72)
 		display_page.add_child(label)
 		var value := UI.Tag.new("", Vector2(420, 52))
@@ -163,6 +193,9 @@ func _ready() -> void:
 	about.font_size = 19
 	about.shadow = false
 	about.position = Vector2(190, 130 + VisualSettings.ORDER.size() * 72)
+	if paper:
+		about.printed = "value"
+		about.ink = UI.D.LABEL
 	about.name = "About"
 	display_page.add_child(about)
 	status = UI.notice(Vector2(60, 632), 1100, 22)
@@ -176,6 +209,14 @@ func _ready() -> void:
 	UI.reveal(self)
 	Music.of(self).play("menu")
 	Shot.attach(self)
+
+
+## A cream sheet of card of a fixed size, for a page whose rows are placed by hand.
+func _fixed_sheet(r: Rect2) -> Control:
+	var sheet := UI.Sheet.new()
+	sheet.position = r.position
+	sheet.size = r.size
+	return sheet
 
 
 ## A group's caption in the gutter left of its first row: small capitals in the secondary text colour (docs/UI_DESIGN_SYSTEM.md).
@@ -236,6 +277,12 @@ func _show() -> void:
 			var action: String = Bindings.ACTIONS[r][0]
 			var here: bool = p == column and r == row
 			cells[p][r].key.set_text("press a key..." if (here and capturing) else Bindings.key_name(Bindings.key(p, action)))
+			if paper:
+				# The focused row on its gold strip, its key risen onto a white tab (cardstock).
+				cells[p][r].row.set_focus_mark(here)
+				cells[p][r].key.printed = "" if here else "value"
+				cells[p][r].key.queue_redraw()
+				continue
 			cells[p][r].key.fill = UI.GOLD if here else UI.CREAM
 			cells[p][r].key.highlight = here
 			cells[p][r].label.highlight = here

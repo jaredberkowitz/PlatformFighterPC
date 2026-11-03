@@ -262,19 +262,23 @@ class Mask extends Control:
 # ---- Key glyphs --------------------------------------------------------------------------------------------------
 
 class KeyBar extends Control:
-	## The controls along the bottom of a screen: a dark translucent ribbon of key glyphs and what they do. `items` is a list of
-	## [key, what it does].
+	## The controls along the bottom of a screen: key glyphs and what they do. `items` is a list of [key, what it does]. Printed on the
+	## paper (cardstock, docs/UI_DESIGN_SYSTEM.md); `band` puts them on a dark ribbon instead, for keys shown over a match.
 	var items: Array = []
+	var band := false
 
 	func _init(list: Array) -> void:
 		items = list
 		mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 	func _draw() -> void:
-		# A slim slanted backing in the menus' deep indigo (the utility tiles' colour), with a lit top edge, tying the hints to the cards.
-		var band := PackedVector2Array([Vector2(12, 0), Vector2(size.x, 0), Vector2(size.x - 12, size.y), Vector2(0, size.y)])
-		draw_colored_polygon(band, Color(0.21, 0.22, 0.38, 0.88))
-		draw_line(Vector2(13, 1.5), Vector2(size.x - 1, 1.5), Color(1, 1, 1, 0.18), 2.0, true)
+		var printed := not band and Art.paper_style() == 1
+		if not printed:
+			# A slim slanted backing in the menus' deep indigo (the utility tiles' colour), with a lit top edge.
+			var strip := PackedVector2Array([Vector2(12, 0), Vector2(size.x, 0), Vector2(size.x - 12, size.y), Vector2(0, size.y)])
+			draw_colored_polygon(strip, Color(0.21, 0.22, 0.38, 0.88))
+			draw_line(Vector2(13, 1.5), Vector2(size.x - 1, 1.5), Color(1, 1, 1, 0.18), 2.0, true)
+		var words := D.LABEL.darkened(0.15) if printed else Color(1, 1, 1, 0.9)
 		var f := D.font()
 		var widths := []
 		var total := 0.0
@@ -288,7 +292,7 @@ class KeyBar extends Control:
 			var kw: float = widths[k][0]
 			Art.key_cap(self, Rect2(x, size.y * 0.5 - 12.0, kw, 24.0), items[k][0])
 			x += kw + 6.0
-			draw_string(f, Vector2(x, size.y * 0.5 + 6.0), items[k][1], HORIZONTAL_ALIGNMENT_LEFT, -1, 16, Color(1, 1, 1, 0.9))
+			draw_string(f, Vector2(x, size.y * 0.5 + 6.0), items[k][1], HORIZONTAL_ALIGNMENT_LEFT, -1, 16, words)
 			x += float(widths[k][1]) + 18.0
 
 
@@ -654,9 +658,11 @@ class StagePicker extends Control:
 ## A line of news for the player (a status, a warning) on a dark band in gold, so it reads over the sky; nothing while it is empty.
 static func notice(at: Vector2, width: float, font_size := 22) -> Tag:
 	var t := Tag.new("", Vector2(width, 38))
-	t.fill = Color(Art.INK, 0.78)
+	# (An indigo card of the cardstock since 2026-11-03; a see-through ink strip before.)
+	t.fill = D.PAPER_INDIGO if Art.paper_style() == 1 else Color(Art.INK, 0.78)
 	t.ink = Art.SUN
 	t.shadow = false
+	t.hide_empty = true
 	t.font_size = font_size
 	t.position = at
 	return t
@@ -832,6 +838,11 @@ class Tag extends Control:
 	var font_size := 24
 	var shadow := true
 	var highlight := false
+	## Nothing at all while it has no text (a notice).
+	var hide_empty := false
+	## Printed straight on the paper, no card (cardstock forms, docs/UI_DESIGN_SYSTEM.md): "label" (letter-spaced small capitals at the
+	## left, slate, ink when `highlight`), "value" (centred ink), or "" for a card.
+	var printed := ""
 
 	func _init(label := "", min_size := Vector2(120, 40)) -> void:
 		text = label
@@ -845,6 +856,17 @@ class Tag extends Control:
 
 	func _draw() -> void:
 		var rect := Rect2(Vector2.ZERO, size).grow(-4)
+		if hide_empty and text == "":
+			return
+		if printed == "label":
+			var lf := D.label_font()
+			var fs := mini(font_size, 18)
+			var y := (size.y + lf.get_ascent(fs) - lf.get_descent(fs)) * 0.5
+			draw_string(lf, Vector2(10, y), text.to_upper(), HORIZONTAL_ALIGNMENT_LEFT, size.x - 12, fs, INK if highlight else D.LABEL)
+			return
+		if printed == "value":
+			D.draw_text_centered(self, text, rect, font_size, ink)
+			return
 		if fill.a < 0.9 and text == "":
 			return
 		if fill.a < 0.9:
@@ -927,8 +949,9 @@ class Btn extends Control:
 		if press > 0.0:
 			press = move_toward(press, 0.0, delta * 6.0)
 			queue_redraw()
-		# The shine crosses once when the button is selected (brief focus feedback), then the button rests.
-		if selected and shine < 1.0:
+		# The shine crosses once when the button is selected (brief focus feedback), then the button rests. (None on cardstock:
+		# paper has no gloss.)
+		if selected and shine < 1.0 and Art.paper_style() != 1:
 			shine = minf(1.0, shine + delta / MOTION_SHINE)
 			queue_redraw()
 		elif not selected:
@@ -957,7 +980,7 @@ class Btn extends Control:
 		# Focused: the frame and the long shadow (daylight, docs/UI_DESIGN_SYSTEM.md), never tilted, so rows stay aligned.
 		Art.focus_frame(self, r, pop)
 		var shape := Art.card(self, rect, shown, seed, -1.0, -1.0, Color(0, 0, 0, 0), lift, Color(0, 0, 0, 0), 0.0, pop < 0.5)
-		if selected and shine < 1.0:
+		if selected and shine > 0.0 and shine < 1.0:
 			# The shine, crossing once.
 			var sx := lerpf(r.position.x - 40.0, r.end.x + 40.0, shine)
 			var lean := r.size.y * D.SKEW
@@ -1445,19 +1468,100 @@ class Arrow extends Control:
 	func _draw() -> void:
 		var c := size * 0.5
 		var r := minf(size.x, size.y) * 0.5 - 3.0
+		var d := float(direction)
+		if Art.paper_style() == 1:
+			# Cardstock: a punched indigo disc with a cream chevron, on its paper shadow; gold under the mouse.
+			r -= 2.0
+			draw_circle(c + Vector2(1.5, 2.5), r, Color(INK, 0.25))
+			draw_circle(c + Vector2(4, 6), r, Color(INK, 0.08))
+			draw_circle(c, r, D.GOLD if hover else D.PAPER_INDIGO)
+			var chev := PackedVector2Array([c + Vector2(-4 * d, -7), c + Vector2(6 * d, 0), c + Vector2(-4 * d, 7)])
+			draw_colored_polygon(chev, INK if hover else D.SHEET)
+			return
 		draw_circle(c + Vector2(2, 3), r, Color(0, 0, 0, 0.3))
 		draw_circle(c, r, Color(1.0, 0.85, 0.3) if hover else fill)
 		draw_arc(c, r, 0, TAU, 32, INK, 3.0, true)
-		var d := float(direction)
 		var tri := PackedVector2Array([c + Vector2(-5 * d, -9), c + Vector2(7 * d, 0), c + Vector2(-5 * d, 9)])
 		draw_colored_polygon(tri, Color(0.82, 0.45, 0.2))
 		tri.append(tri[0])
 		draw_polyline(tri, INK, 2.0, true)
 
 
+# ---- Form rows and the sheet they sit on (cardstock, docs/UI_DESIGN_SYSTEM.md) ------------------------------------
+
+## A row of a form: its pieces side by side; focused, a gold strip of card under the whole row, lifted on its shadow. `label` is the
+## row's printed label (ink while focused).
+class Row extends HBoxContainer:
+	var focus_mark := false
+	var label: Control
+
+	func _init() -> void:
+		add_theme_constant_override("separation", 6)
+
+	func set_focus_mark(on: bool) -> void:
+		focus_mark = on
+		if label != null:
+			label.highlight = on
+			label.queue_redraw()
+		queue_redraw()
+
+	func _draw() -> void:
+		if focus_mark and Art.paper_style() == 1:
+			Art.card(self, Rect2(Vector2(-12, -5), size + Vector2(24, 10)), D.GOLD, 7, 10.0, -1.0, Color(0, 0, 0, 0), 2.0)
+
+
+## A cream sheet of card that a form's rows sit on: it follows `target`'s rect (a column of rows) with `pad` round it, so rows shown and
+## hidden resize it.
+class Sheet extends Control:
+	var target: Control
+	## A second column it also covers (one sheet under two side by side).
+	var target2: Control
+	var pad := Vector2(26, 20)
+	## More room on the left (a form's group captions sit in its gutter).
+	var extra_left := 0.0
+	var seed := 23
+
+	func _init(t: Control = null) -> void:
+		target = t
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	func _process(_delta: float) -> void:
+		if target == null or not is_instance_valid(target):
+			return
+		var box := Rect2(target.position, target.size)
+		if target2 != null and is_instance_valid(target2):
+			box = box.merge(Rect2(target2.position, target2.size))
+		var r := Rect2(box.position - pad - Vector2(extra_left, 0), box.size + pad * 2.0 + Vector2(extra_left, 0))
+		if r.position != position or r.size != size:
+			position = r.position
+			size = r.size
+			queue_redraw()
+
+	func _draw() -> void:
+		Art.card(self, Rect2(Vector2.ZERO, size), D.SHEET, seed, 16.0)
+
+
+## A text field cut into the sheet: a recessed window of darker paper (cardstock); a cream box with a gold edge in the older looks.
+static func field_style() -> StyleBoxFlat:
+	var sb := StyleBoxFlat.new()
+	if Art.paper_style() == 1:
+		sb.bg_color = D.SHEET_WINDOW
+		sb.border_color = Color(INK, 0.2)
+		sb.border_width_top = 3
+		sb.border_width_left = 2
+		sb.set_corner_radius_all(2)
+	else:
+		sb.bg_color = CREAM
+		sb.border_color = GOLD
+		sb.set_border_width_all(4)
+		sb.set_corner_radius_all(6)
+	sb.content_margin_left = 14
+	return sb
+
+
 # ---- Selector row: [label] <  value  > ----------------------------------------------------------------------------
 
-class Selector extends HBoxContainer:
+class Selector extends Row:
 	## A label tab, a left arrow, a value tab and a right arrow. `changed(index)` fires on every change.
 	signal changed(index: int)
 	signal focused
@@ -1466,20 +1570,25 @@ class Selector extends HBoxContainer:
 	var tag: Control
 	var value_tag: Control
 	var swatches := false
-	var focus_mark := false
 
-	func _init(label: String, choices: Array) -> void:
+	func _init(text: String, choices: Array) -> void:
 		options = choices
 		add_theme_constant_override("separation", 6)
-		tag = Tag.new(label, Vector2(150, 38))
+		tag = Tag.new(text, Vector2(150, 38))
 		tag.fill = D.CREAM_DARK
 		tag.font_size = 22
+		if Art.paper_style() == 1:
+			tag.printed = "label"
+		label = tag
 		add_child(tag)
 		var left := Arrow.new(-1)
 		left.pressed.connect(func(): step(-1))
 		add_child(left)
 		value_tag = Tag.new("", Vector2(210, 38))
 		value_tag.font_size = 24
+		if Art.paper_style() == 1:
+			value_tag.printed = "value"
+			value_tag.fill = Color.WHITE
 		add_child(value_tag)
 		var right := Arrow.new(1)
 		right.pressed.connect(func(): step(1))
@@ -1496,6 +1605,12 @@ class Selector extends HBoxContainer:
 			changed.emit(index)
 
 	func set_focus_mark(on: bool) -> void:
+		if Art.paper_style() == 1:
+			# The value rises onto a white tab on the row's gold strip.
+			value_tag.printed = "" if on else "value"
+			value_tag.queue_redraw()
+			super.set_focus_mark(on)
+			return
 		focus_mark = on
 		tag.highlight = on
 		tag.fill = D.GOLD.lerp(D.CREAM, 0.35) if on else D.CREAM_DARK

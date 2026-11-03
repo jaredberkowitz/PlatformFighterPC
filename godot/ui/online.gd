@@ -76,8 +76,10 @@ func _ready() -> void:
 	add_child(UI.ScreenTitle.new("Online match"))
 
 	column = VBoxContainer.new()
-	column.position = Vector2(40, 92)
-	column.add_theme_constant_override("separation", 5)
+	column.position = Vector2(52, 110)
+	column.add_theme_constant_override("separation", 7)
+	# The rows on one cream sheet of card (cardstock, docs/UI_DESIGN_SYSTEM.md): it follows the column as rows show and hide.
+	add_child(UI.Sheet.new(column))
 	add_child(column)
 
 	_add_selector("link", "Connect", ["Code", "Direct", "Relay"])
@@ -113,6 +115,9 @@ func _ready() -> void:
 	add_child(status)
 
 	connect_button = UI.Btn.new("Connect", Vector2(300, 64))
+	# The screen's one primary action, in coral; Back stays the quiet cream.
+	connect_button.fill = UI.Art.CORAL
+	connect_button.ink = UI.D.SHEET
 	connect_button.position = Vector2(960, 638)
 	connect_button.activated.connect(_connect)
 	add_child(connect_button)
@@ -148,11 +153,9 @@ func _add_selector(id: String, label: String, options: Array) -> void:
 
 
 func _add_edit(id: String, label: String, placeholder: String) -> void:
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 6)
-	var tag := UI.Tag.new(label, Vector2(150, 38))
-	tag.fill = UI.CREAM_DARK
-	tag.font_size = 22
+	var row := UI.Row.new()
+	var tag := _row_label(label)
+	row.label = tag
 	row.add_child(tag)
 	var edit := LineEdit.new()
 	edit.custom_minimum_size = Vector2(330, 38)
@@ -162,12 +165,8 @@ func _add_edit(id: String, label: String, placeholder: String) -> void:
 	edit.add_theme_font_size_override("font_size", 24)
 	edit.add_theme_color_override("font_color", UI.INK)
 	edit.add_theme_color_override("font_placeholder_color", Color(0.4, 0.4, 0.45))
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = UI.CREAM
-	sb.border_color = UI.GOLD
-	sb.set_border_width_all(4)
-	sb.set_corner_radius_all(6)
-	sb.content_margin_left = 14
+	# A window cut in the sheet (cardstock); the row's gold strip shows its focus.
+	var sb := UI.field_style()
 	edit.add_theme_stylebox_override("normal", sb)
 	edit.add_theme_stylebox_override("focus", sb)
 	edit.text_submitted.connect(func(_t): _connect())
@@ -181,17 +180,15 @@ func _add_edit(id: String, label: String, placeholder: String) -> void:
 
 ## The "Your code" row: the code on a card, and a Copy button.
 func _add_code_row() -> void:
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 6)
-	var tag := UI.Tag.new("Your code", Vector2(150, 38))
-	tag.fill = UI.CREAM_DARK
-	tag.font_size = 22
+	var row := UI.Row.new()
+	var tag := _row_label("Your code")
+	row.label = tag
 	row.add_child(tag)
 	code_label = UI.Tag.new("...", Vector2(330, 38))
 	code_label.font_size = 24
+	code_label.fill = Color.WHITE
 	row.add_child(code_label)
-	var copy := UI.Btn.new("Copy", Vector2(110, 38))
-	copy.font_size = 22
+	var copy := _chip("Copy")
 	copy.activated.connect(_copy_code)
 	row.add_child(copy)
 	column.add_child(row)
@@ -200,12 +197,31 @@ func _add_code_row() -> void:
 
 func _add_paste_button() -> void:
 	var row: HBoxContainer = rows[rows.size() - 1].node
-	var paste := UI.Btn.new("Paste", Vector2(110, 38))
-	paste.font_size = 22
+	var paste := _chip("Paste")
 	paste.activated.connect(_paste_code)
 	row.add_child(paste)
 	edits["friend"].max_length = 80
 	edits["friend"].text_changed.connect(func(_t): _show_role())
+
+
+## A row's label: printed on the sheet (cardstock); a tab in the older looks.
+func _row_label(text: String) -> Control:
+	var tag := UI.Tag.new(text, Vector2(150, 38))
+	tag.fill = UI.CREAM_DARK
+	tag.font_size = 22
+	if UI.Art.paper_style() == 1:
+		tag.printed = "label"
+	return tag
+
+
+## A small action beside a field (Copy, Paste): a blue card.
+func _chip(text: String) -> Control:
+	var b := UI.Btn.new(text, Vector2(110, 38))
+	b.font_size = 22
+	if UI.Art.paper_style() == 1:
+		b.fill = UI.Art.BLUE
+		b.ink = UI.D.SHEET
+	return b
 
 
 func _code() -> bool:

@@ -117,7 +117,8 @@ static func paper_style() -> int:
 
 ## A paper sheet's soft lifted shadow: two offset layers, nearer and darker, then farther and fainter (`lift` raises the sheet).
 static func _paper_shadow(c: CanvasItem, shape: PackedVector2Array, alpha: float, lift := 0.0) -> void:
-	for layer in [[Vector2(2, 3), 0.2], [Vector2(5, 7) + Vector2(lift * 0.4, lift * 0.8), 0.12]]:
+	# (Cardstock, the owner's pick of 2026-11-03: a near crisp shadow and a far soft one, docs/UI_DESIGN_SYSTEM.md.)
+	for layer in [[Vector2(1.5, 2.5), 0.24], [Vector2(5, 7) + Vector2(lift * 0.4, lift * 0.8), 0.12], [Vector2(7, 10) + Vector2(lift * 0.5, lift), 0.05]]:
 		var sh := PackedVector2Array()
 		for q in shape:
 			sh.append(q + (layer[0] as Vector2))
@@ -177,6 +178,14 @@ static func _paper_card(c: CanvasItem, rect: Rect2, fill: Color, seed: int, cut:
 		_paper_edges(c, under, fill.darkened(0.32), 1.5)
 	elif shadow:
 		_paper_shadow(c, shape, fill.a, lift)
+	if style == 1:
+		# Cardstock: the sheet's white core, showing as a thin pale rim along the right and bottom edges where the card was cut
+		# (the owner's pick of 2026-11-03), in place of drawn edge lines.
+		var k := clampf(short * 0.035, 1.5, 3.0)
+		var core := PackedVector2Array()
+		for q in shape:
+			core.append(q + Vector2(k, k))
+		c.draw_colored_polygon(core, Color(PAPER_EDGE, fill.a))
 	if slab > 0.0:
 		var drop := slab + lift * 0.5
 		var body := PackedVector2Array()
@@ -196,14 +205,15 @@ static func _paper_card(c: CanvasItem, rect: Rect2, fill: Color, seed: int, cut:
 			inner.append(centre2 + (q - centre2) * Vector2(1.0 - 14.0 / r.size.x, 1.0 - 14.0 / r.size.y))
 		inner.append(inner[0])
 		c.draw_polyline(inner, border, 4.0, true)
-	_paper_edges(c, shape, fill, 2.5 if short >= 50.0 else 2.0)
+	if style != 1:
+		_paper_edges(c, shape, fill, 2.5 if short >= 50.0 else 2.0)
 	var closed := shape.duplicate()
 	closed.append(shape[0])
 	if style == 3:
 		var edge := line if line.a > 0.0 else Color(fill.darkened(0.62), 1.0).lerp(INK, 0.25)
 		c.draw_polyline(closed, edge, outline, true)
-	else:
-		# (A hairline where the sheet's edge meets the ground, so it stays crisp without an ink outline.)
+	elif style == 2:
+		# (A hairline where the sheet's edge meets the ground, so it stays crisp without an ink outline; cardstock has its core rim.)
 		c.draw_polyline(closed, Color(fill.darkened(0.55), 0.55 * fill.a), 1.0, true)
 	return shape
 
@@ -383,8 +393,12 @@ static func title_centered(c: CanvasItem, text: String, rect: Rect2, size: int, 
 	title(c, text, Vector2(rect.position.x + (rect.size.x - w) * 0.5, y), s, fill, outline_scale)
 
 
-## A key glyph: a small cream keycap with an ink edge and its label.
+## A key glyph: a small cream keycap with an ink edge and its label. (Cardstock: a small cream card on its paper shadow.)
 static func key_cap(c: CanvasItem, rect: Rect2, label: String) -> void:
+	if paper_style() == 1:
+		card(c, rect, D.SHEET.lightened(0.4), int(rect.position.x), 4.0)
+		D.draw_text_centered(c, label, rect.grow_individual(0, 0, -2, -2), int(rect.size.y * 0.6), INK)
+		return
 	c.draw_rect(Rect2(rect.position + Vector2(1, 2), rect.size), Color(INK, 0.6))
 	var body := rect
 	c.draw_rect(body, CREAM)

@@ -114,6 +114,7 @@ func build(all_entries: Array, start_index: int, start_stage: int) -> void:
 	their_stage.position = Vector2(700, 586)
 	fighter_step.add_child(their_stage)
 	hint = UI.KeyBar.new([["A D", "Change"], ["Enter", "Lock in"], ["Esc", "Back"]])
+	hint.band = true
 	hint.position = Vector2(60, 686)
 	hint.size = Vector2(700, 30)
 	fighter_step.add_child(hint)
@@ -131,6 +132,7 @@ func build(all_entries: Array, start_index: int, start_stage: int) -> void:
 	bar = UI.TopBar.new("LOBBY")
 	stage_step.add_child(bar)
 	var keys := UI.KeyBar.new(STAGE_KEYS)
+	keys.band = true
 	keys.position = Vector2(340, 680)
 	keys.size = Vector2(600, 30)
 	# (Over the cards, as on stage select: the focused card's long shadow fell across the keys.)

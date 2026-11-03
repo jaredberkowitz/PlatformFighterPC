@@ -380,6 +380,7 @@ func _ready() -> void:
 	preview.position = Vector2.ZERO
 	stage_mask.add_child(preview)
 	var hint := UI.KeyBar.new([["Z X", "Turn"], ["C", "Face front"]])
+	hint.band = true
 	hint.position = STAGE.position + Vector2(24, 22)
 	hint.size = Vector2(250, 28)
 	add_child(hint)

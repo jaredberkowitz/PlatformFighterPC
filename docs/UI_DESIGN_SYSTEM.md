@@ -55,6 +55,24 @@ Constants: `UiKit.TYPE_CAPTION` ... `UiKit.TYPE_DISPLAY`. Upper case for titles 
 - Depth: a hard ink offset shadow under every card (`Art.SHADOW`, 6 by 8 px), a gloss band under the top edge; no soft drop shadows.
   On the light ground the shadow is what separates a card from it, so every card keeps one.
 - Corners: square on slanted panels (the slant is the shape); round only for round things (arrows, stock icons).
+- (Edges and depth above are the daylight look's; in the paper look below, cards have no ink outline and stand on paper shadows.)
+
+## Paper construction: cardstock (the owner's picks, 2026-10-29 and 2026-11-03)
+
+The menus are cut paper (the owner's pick A on 2026-10-29: paper sheets, monotone pictograms, the focused tile on a pale mount), and
+every piece is built as **cardstock** (pick 1 of the second round, 2026-11-03, the "Paper UI Mocks" canvas):
+
+- **A card** is a flat sheet in one colour with the paper's fibre, sitting on a sheet of white core that shows as a thin pale rim along
+  its right and bottom edges (the cut edge of a thick card), on two paper shadows: a near crisp one and a far soft one. No gloss, no
+  bevel, no shine, no ink outline. `Art.card` draws it; every panel, tile, button and tag goes through it.
+- **A form is one sheet.** Rows of settings sit on one cream sheet (`UI.Sheet`) instead of each label and value being its own slab.
+  A row's label is printed on the sheet (letter-spaced small capitals in `LABEL`), its value printed in ink between two punched
+  discs (`UI.Arrow`: an indigo disc with a cream chevron). A text field is a cut window in the sheet (recessed, darker paper).
+- **A row's focus** is a gold strip of card under the whole row, lifted on its shadow; the value rises onto a white tab. Buttons keep
+  the pale mount (pick A) and the gold fill. Exactly one thing is focused.
+- **Keys** are printed on the paper: small cream key cards and slate words, no band (`UI.KeyBar`); over a match (pause, results,
+  lobby) the band stays, since there is no paper under it.
+- Small things may turn a little (a degree or two) like cards laid by hand; never text that must be read in a list.
 
 ## Layout
 

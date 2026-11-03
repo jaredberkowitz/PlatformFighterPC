@@ -150,3 +150,33 @@ Checked: `tests/online_flow_test.gd` (two players through the bridge: the stage 
 the focused card is the stage sent, both locks) and the other UI tests (select grid, controls, pause, creator flow, editor UI, match
 flow, input e2e, stage select). `tests/runner_test.gd` failed once on "a coin picked up is gone" and passed on a re-run (timing; the run
 mode does not use the lobby or the stage cards). Not checked: the mouse on the lobby's cards, a real controller's Y, two real machines.
+
+## Paper pass 5: cardstock, the owner's pick of the second paper round (2026-11-03)
+
+Branch `art/ui-paper2` from `art/anim-core` core4 (889008d9), where the paper passes 1-4 (`art/ui-paper`) and the creator fixes
+(`art/ui-polish`) already are. The owner asked to keep refining the UI in its own paper-crafted style at the competitors' fidelity.
+Judged on core4 at 1920x1080: the menu, select, stage select and results read as paper, but the dense screens (Online, Controls, the
+creator's tools, Replays) were still the daylight kit's slabs in paper colours: every label and value its own bar, pale-on-pale, no
+hierarchy. Three ways to build the kit's pieces in paper were mocked on the Online screen ("Paper UI Mocks" canvas, row 2: Cardstock,
+Scrapbook, Folded); the owner picked **1, Cardstock**. Rules: `docs/UI_DESIGN_SYSTEM.md`, "Paper construction: cardstock".
+
+Before/after: `cardstock_before_after.png` (Online, Controls keys, Replays); captures in `cardstock/` (also the controller and display
+pages and the menu).
+
+| Change | Where |
+| --- | --- |
+| A card is a flat sheet on a white core that shows as a thin pale cut rim along its right and bottom edges, on three paper shadows (near crisp, far soft); no drawn edge lines | `menu_art.gd` `_paper_card`, `_paper_shadow` |
+| A form is one cream sheet (`UI.Sheet`, following its column as rows show and hide; one sheet can cover two columns): Online's rows, both players' keys, the controller and display pages | `ui_kit.gd`, `online.gd`, `controls.gd` |
+| Row labels printed on the sheet (letter-spaced small capitals in `LABEL`, ink while focused) and values printed in ink (`Tag.printed`) instead of a slab each | `ui_kit.gd` `Tag`, `Selector`, `online.gd`, `controls.gd` |
+| A row's focus: a gold strip of card under the whole row, its value risen onto a white tab (`UI.Row`) | `ui_kit.gd` |
+| Choosers' arrows are punched indigo discs with a cream chevron | `ui_kit.gd` `Arrow` |
+| Text fields are cut windows in the sheet (`UI.field_style`) | `ui_kit.gd`, `online.gd` |
+| Keys printed on the paper (small cream key cards, slate words); over a match (pause, the lobby, the creator's preview) the band stays (`KeyBar.band`) | `ui_kit.gd`, `menu_art.gd` `key_cap`, `pause_menu.gd`, `net_lobby.gd`, `creator.gd` |
+| No gloss sweep on cardstock buttons; Connect the screen's one coral primary action, Copy and Paste small blue cards; notices on an indigo card and hidden while empty (the empty dark bar on Controls) | `ui_kit.gd`, `online.gd` |
+| New paper tokens `SHEET`, `SHEET_WINDOW`, `PAPER_INDIGO` | `ui_draw.gd` |
+
+The older looks (`--ui-paper=0|B|C`) keep their pieces: every cardstock branch checks `Art.paper_style() == 1`.
+
+Not done: the lobby's stage step sits on paper but keeps the band keys; the creator's tool buttons and category column are still
+separate cards (the owner's creator redesign comes later); Replays' rows are already cards and only changed material. Not checked: a
+real gamepad, the mouse on the new rows (the rows keep their nodes and signals).
