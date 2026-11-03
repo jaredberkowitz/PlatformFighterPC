@@ -111,11 +111,6 @@ uniform vec4 paint_drift = vec4(0.0);
 // The darkest the baked contact shade may take this surface (`vertex_shade`; 0 no floor), set by StageBake on the fronts' stones and moss
 // (fidelity review 17: every stone's top, pressed under the course above, baked to a dark slate lid). The stones' own tones lie above it.
 uniform float vshade_floor = 0.0;
-// Corrugated card (the style pass's step 2, the canyon, docs/art/stages/STYLE_PASS.md): what faces sideways shows the cut edge of
-// stacked boards, counted down from a front's top (`front_top`) or from 0 elsewhere. [board height, flute period, how much fluting, how
-// dark its hollows]: a pale liner along each board's top and foot with a fine seam between boards, and between the liners the fluting,
-// a light wave with the soft hollows of its arches either side. Faded where a board falls under a few pixels. 0 height: none.
-uniform vec4 corrugate = vec4(0.0);
 // How much of the drifting cloud shadows (`pf_clouds`) this surface takes, 1 all; StageBake's bright floors on trial set it on the walked
 // tops and platforms.
 uniform float cloud_shade = 1.0;
@@ -412,31 +407,6 @@ void fragment() {
 		c *= 1.0 + paint_drift.x * 0.24 * (smoothstep(0.15, 0.85, n1) - 0.5);
 		c *= mix(vec3(1.0), mix(vec3(0.91, 0.96, 1.07), vec3(1.07, 1.0, 0.88), smoothstep(0.2, 0.8, n2)), paint_drift.y);
 		c *= mix(vec3(1.0), world_normal.y > 0.5 ? vec3(1.05, 1.02, 0.93) : vec3(0.95, 0.95, 0.99), paint_drift.w);
-	}
-	if (fighter < 0.5 && corrugate.x > 0.0 && abs(world_normal.y) < 0.6) {
-		float yb = ((front_top > -1000.0 ? front_top : 0.0) - world_pos.y) / corrugate.x;
-		float f = fract(yb);
-		float along = abs(world_normal.x) > 0.6 ? world_pos.z : world_pos.x;
-		float bpx = max(fwidth(yb), 1e-4);
-		float show = 1.0 - smoothstep(1.0 / 10.0, 1.0 / 6.0, bpx);
-		float edge_d = min(f, 1.0 - f);
-		float aa = max(bpx * 1.2, 0.012);
-		// The seam between two boards, and the pale liners either side of it.
-		float seam = 1.0 - smoothstep(0.0, max(0.03, aa), edge_d);
-		float liner = 1.0 - smoothstep(0.08, 0.08 + aa, edge_d);
-		vec3 k = vec3(mix(1.0, 1.08, liner) * mix(1.0, 0.72, seam));
-		if (corrugate.z > 0.0) {
-			// (The fluting from liner to liner, the arches either side of it hollow and in shade, darkest across their middle: a light wave
-			// alone, as a first try had it, read as a zigzag print, a woven blanket, not card.)
-			float wv = 0.5 + 0.42 * sin(6.2831853 * along / max(corrugate.y, 0.05));
-			float dm = abs(f - wv);
-			float medium = 1.0 - smoothstep(0.03, 0.03 + aa, dm);
-			float gap = f > wv ? 0.92 - wv : wv - 0.08;
-			float deep = smoothstep(0.0, 0.6, clamp(dm / max(gap, 0.05), 0.0, 1.0));
-			float hollow = (1.0 - liner) * (1.0 - medium) * corrugate.z * mix(0.45, 1.0, deep);
-			k *= mix(1.0, corrugate.w, hollow) * mix(1.0, 1.06, medium * corrugate.z);
-		}
-		c *= mix(vec3(1.0), k, show);
 	}
 	vec4 paper_fin = paper_own.x >= 0.0 ? paper_own : pf_paper_finish;
 	if (fighter < 0.5 && paper_fin.x + paper_fin.y + paper_fin.z > 0.0) {

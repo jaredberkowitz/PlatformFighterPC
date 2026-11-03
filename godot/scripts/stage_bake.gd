@@ -496,7 +496,6 @@ static func place_front(root: Node3D, t: Dictionary, scene: Node3D) -> void:
 			# (The canyon's beds a little lower, so the shade under their ledges stays; below it, on long faces, it smeared in blotches.)
 			if fam.begins_with("strata_"):
 				m.set_shader_parameter("vshade_floor", 0.76)
-				m.set_shader_parameter("corrugate", _cardboard(t))
 			_paint_drift(m, t, false)
 			if fam.begins_with("brick") and CITY_PAINT.has(StageArt.city_paint()):
 				m.set_shader_parameter("paint_drift", CITY_PAINT[StageArt.city_paint()].brick)
@@ -676,8 +675,6 @@ static func place_play(root: Node3D, t: Dictionary, path: String) -> void:
 				if bright.get("bare", false):
 					m.set_shader_parameter("vertex_shade", false)
 			_paint_drift(m, t, true)
-			if fam in ["layer1", "layer2"]:
-				m.set_shader_parameter("corrugate", _cardboard(t))
 			if fam in ["top", "top_deep", "top_lit", "top_worn"] and String(t.get("name", "")) == "city" and CITY_PAINT.has(StageArt.city_paint()):
 				m.set_shader_parameter("paint_drift", CITY_PAINT[StageArt.city_paint()].roof)
 			mi.set_surface_override_material(s, m)
@@ -1419,27 +1416,6 @@ const GROUND_DRIFT := {"hill": Vector4(1.6, 0.9, 22.0, 0.0), "bank": Vector4(1.3
 	"rise": Vector4(1.3, 0.8, 26.0, 0.0), "abyss": Vector4(1.8, 1.0, 16.0, 0.0), "abyss_far": Vector4(1.4, 0.8, 24.0, 0.0),
 	"abyss_mist": Vector4(1.6, 1.0, 14.0, 0.0), "sand_a": Vector4(1.3, 0.8, 20.0, 0.0), "sand_b": Vector4(1.3, 0.8, 20.0, 0.0),
 	"sand_c": Vector4(1.3, 0.8, 20.0, 0.0)}
-
-
-## Corrugated card on the canyon (the style pass's step 2, docs/art/stages/STYLE_PASS.md): the beds of its front and its platforms' sides
-## show the cut edge of stacked boards (toon_common `corrugate` [board height, flute period, fluting, hollows]). The palette's
-## [backdrop] `cardboard` or `--cardboard=T|A|B|C`:
-## Each board a pale liner at its top and foot, a fine seam between boards, and between the liners the fluting: a light wave from liner to
-## liner with the arches either side of it hollow and in shade.
-##   A  light: the hollows a soft shade;
-##   B  the hollows deep, as a card's cut edge shows them;
-##   C  B, with boards half as tall again and broader flutes, so it reads from the wide camera.
-const CARDBOARD_TRY := {"T": Vector4(0.0, 0.0, 0.0, 1.0), "A": Vector4(0.6, 0.75, 1.0, 0.82), "B": Vector4(0.6, 0.75, 1.0, 0.66),
-	"C": Vector4(0.95, 1.15, 1.0, 0.66)}
-
-
-static func _cardboard(t: Dictionary) -> Vector4:
-	if String(t.get("name", "")) != "sunset":
-		return Vector4.ZERO
-	var look := String((StageArt.palette("sunset").get("backdrop", {}) as Dictionary).get("cardboard", ""))
-	if flag("--cardboard=") != "":
-		look = flag("--cardboard=").to_upper()
-	return CARDBOARD_TRY.get(look, Vector4.ZERO)
 
 
 ## Torn paper on the canyon (the style pass's step 2, docs/art/stages/STYLE_PASS.md; the corrugated card before it read as a woven chevron on

@@ -16,7 +16,8 @@ Families `strata_a`, `strata_b`, `strata_c`; each piece bakes its occlusion into
 
 Shipped (fidelity review 9, the owner's pick C, 2026-10-25): godot/models/stages/canyon_front.glb, `--variant A --cut 1 --courses 1
 --straight C` (review 8's `--straight A`, review 6's without `--straight`); with `--mass A` since fidelity review 11 (2026-10-26),
-then lit (the palette's `front_lift` raised to 0.35 to keep the face at 0.33); with `--strata C` since fidelity review 17 (2026-10-30).
+then lit (the palette's `front_lift` raised to 0.35 to keep the face at 0.33); with `--strata C` since fidelity review 17 (2026-10-30);
+with `--tear 1` since the style pass's step 2 (2026-11-03).
 
 Run (Blender 5.2):
   blender --background --python art/blender/make_canyon_front.py -- --dir godot/art/baked/<key> --variant A --out <file.glb>

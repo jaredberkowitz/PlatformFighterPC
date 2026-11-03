@@ -109,4 +109,9 @@ The front's value holds (0.55 to 0.56) and its contrast rises a little (0.118 to
 Recommended B: it reads as torn paper at both cameras and keeps the rock. C's shadow reads as an ink line, which the scenery doesn't use
 anywhere else. A is faint at the wide camera.
 
-The mock's canyon models (the front with its tears, and the canyon re-lit) are in the worktree, not committed; shipping commits them.
+**Built B** (the owner's pick, 2026-11-03):
+- sunset.cfg [backdrop] `torn="B"`; the canyon's front rebuilt with `--tear 1` and the canyon re-lit. `--torn=T` hides the tears.
+- The cardboard trial was removed (the toon shader's `corrugate`, StageBake's `CARDBOARD_TRY`), since the owner chose torn paper over it.
+  Its mock stays on the Stage Look Review and in git history.
+- Before and after at the match camera (top) and wide (bottom), before left: `style/torn_built.jpg`.
+All seven tests pass.
