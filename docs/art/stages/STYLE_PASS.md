@@ -115,3 +115,28 @@ anywhere else. A is faint at the wide camera.
   Its mock stays on the Stage Look Review and in git history.
 - Before and after at the match camera (top) and wide (bottom), before left: `style/torn_built.jpg`.
 All seven tests pass.
+
+## Step 3: the city's pop-up book print (mock, 2026-11-03)
+
+The owner: "Next stage's craft". facade.gdshader `halftone` prints the skyline towers like a pop-up book's pages:
+- each wall is printed flat, and its shade is carried by halftone dots of a darker ink on a 45-degree grid;
+- each dot is sized so the wall keeps the tone it had;
+- the dots fade back to the smooth shade where they would be under a few pixels.
+
+Only the skyline's own shader changes. The middle and far layers' dots are larger in world units, so the dots stay about one size on screen.
+The palette's [backdrop] `halftone`, or `--halftone=T|A|B|C` (StageArt.HALFTONE_TRY):
+
+| Option | What changes |
+|---|---|
+| Today | Smooth shade |
+| A, fine | Fine dots on the side walls only |
+| B, printed shade | The fall toward the street in dots as well |
+| C, bold | B, in larger dots of a darker ink |
+
+P1's gap holds (0.150), and so do the backdrop's value and contrast. On the Stage Look Review ("halftone68", `ht68_*`).
+
+Recommended B: its dots read as print on the towers' side walls without busying the window fronts behind the fighters. A barely shows; C's
+dots read coarse.
+- Most of the skyline seen is window fronts, so it is a modest change, showing most on the side walls and at the wide camera.
+- Printing the fronts as well would be bolder, but it would busy the backdrop right behind the fighters, which the city's notes have kept
+  calm.
