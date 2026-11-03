@@ -2475,3 +2475,19 @@ side-by-sides stay on F:.
     (the hand-off from the stance blends the planted feet into the dash's). A one-frame hand-off took off about a fifth of it and made a
     bigger jump in the joints (0.62 to 0.79 units a frame); kept as it was. Left.
 - **Checked:** the tests pass (`motion_test` with a new check: a run's stop braced, a seek ending it).
+
+### Group 10 (round 9): floor rolls on sim 149, and core5
+
+- **Sim 149 (69012bcc, merged with 148 from main):** a tech roll lasts 40 frames, a get-up roll 35 and a trip's roll 28 (the reference's own),
+  but the sim carries the fighter only until the shield roll's last move frame (24 on most bodies), and `fighter_dodge` says which kind
+  of roll it is and that last frame. **Played by its whole length, one somersault took the 40 frames, slow and floaty, then stood still.**
+  **Fix (`dodge_progress`, `ROLL_MOVE_END`):** a floor roll rolls over its moving frames to where a shield roll stops moving (0.8 of the
+  clip), then stands up over the rest; a shield roll is unchanged. Traced (`--demo=floorrolls`): the tech roll's somersault from its frame 4
+  to 20 and its slide until 28, then the rise to frame 39; the get-up roll from lying on the back the same, backward. `PF_R9_OFF=floorroll`
+  shows the old. With 149 the stand-up stays 26 frames and the tech in place the 4-frame landing, as before.
+- **Installed as core5** (3 November 2026, simulation version 149, content hash 0d09e102dcfb7b1b, checked in the staged copy and the
+  extracted zip), with the fighters' outfit values (the owner's pick C, its cut edge kept to the cream of cut paper), the cardstock menus
+  and the face-off fighter select merged. The look bench: worst silhouette 0.96 (it fell to 0.84 with the first version of the cut edge,
+  fixed on that branch). Face cover after the outfit merge: drawn eyes or mouth covered 12 frames over every gallery in both facings (as
+  at core4), striking hands hidden 1,510 (1,511). `cargo test --workspace` and clippy pass; the Rust and content are 69012bcc's to the line,
+  which passed net-fuzz 2000 and fuzz-rollback 1000 at 0 mismatches.
