@@ -88,6 +88,28 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
     <p>Two lessons from the reference screenshots, mocked from the match camera: the scenery without ink outlines, its edges lit as card bevels instead, and the paper houses rebuilt at the characters' proportions. The earlier rounds stay on the <a href="https://claude.ai/artifact/D1du6MREVumiJDrEdNypW4">Stage Fidelity Review</a>, which is full.</p>
   </header>
 
+  <section class="panel" aria-labelledby="cb66-h" id="cardboard66">
+    <div class="eyebrow">After review 17 &middot; making the stages more their own, step 2: the canyon's cardboard</div>
+    <h2 id="cb66-h">The canyon's front as corrugated card</h2>
+    <p>This draws the cut edge of corrugated card on the canyon's front beds and its platforms' sides: a pale liner at each board's top and bottom, and the fluting between them. Nothing is added or re-baked.</p>
+    <div class="tablewrap"><table><thead><tr><th>Option</th><th>What changes</th></tr></thead><tbody>
+      <tr><td>Today</td><td>The natural rock beds</td></tr>
+      <tr><td>A &middot; Light</td><td>Boards with fluting, the hollows a soft shade</td></tr>
+      <tr><td>B &middot; Deep</td><td>The hollows deep, as a card's cut edge shows them</td></tr>
+      <tr><td>C &middot; Bold</td><td>B, with boards half as tall again and broader flutes</td></tr>
+    </tbody></table></div>
+    <p>The front at the match camera: today and A (top), B and C (bottom).</p>
+    <div class="viewer"><img src="cb66_close.jpg" alt="The canyon's front today, with A, B and C"></div>
+    <div class="row" role="group" aria-label="View"><button data-cb66v="m">Match camera</button><button data-cb66v="w">Wide</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-cb66o="T">Today</button><button data-cb66o="A">A &middot; Light</button><button data-cb66o="B">B &middot; Deep</button><button data-cb66o="C">C &middot; Bold</button></div>
+    <div class="viewer"><img id="cb66img" alt="Canyon cardboard option"><span class="vtag" id="cb66tag"></span></div>
+    <p class="muted">My honest read: none of these reads as cardboard. Flutes need straight, flat boards to read as card. On the front's eroded, wandering beds they read as a woven chevron pattern, like a blanket, especially at the wide camera. I'd keep today's front.
+      <ul>
+        <li>For the canyon's own craft I'd try torn paper instead: each bed's edge torn, with the paper's pale core showing along the tear. It suits rock shapes, and it's a classic papercraft way to draw strata.</li>
+      </ul>
+    </p>
+  </section>
+
   <section class="panel" aria-labelledby="sk65-h" id="skysteps65">
     <div class="eyebrow">Built B (the owner's pick) &middot; making the stages more their own, step 1: stepped paper skies</div>
     <h2 id="sk65-h">Skies cut from paper</h2>
@@ -3773,5 +3795,15 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
   group("data-sk65v", function (v) { sk65v = v; }, sk65render);
   group("data-sk65o", function (v) { sk65o = v; }, sk65render);
   sk65render();
+  var cb66v = "m", cb66o = "B";
+  var CB66O = { T: "Today", A: "A · Light", B: "B · Deep", C: "C · Bold" };
+  function cb66render() {
+    $id("cb66img").src = "cb66_" + cb66o + "_" + cb66v + ".jpg";
+    $id("cb66tag").textContent = "Canyon · " + CB66O[cb66o] + (cb66v === "w" ? " · wide" : " · match camera");
+    pressed("data-cb66v", cb66v); pressed("data-cb66o", cb66o);
+  }
+  group("data-cb66v", function (v) { cb66v = v; }, cb66render);
+  group("data-cb66o", function (v) { cb66o = v; }, cb66render);
+  cb66render();
 })();
 </script>

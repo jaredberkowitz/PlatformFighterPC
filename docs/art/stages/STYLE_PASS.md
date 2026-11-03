@@ -61,5 +61,27 @@ same as B at normal size; its fibre only shows up close.
 - The shipped skies measure the same as the mock's B.
 - Before and after, the five stages at the wide camera (rows meadow, canyon, beach, city, grove; before left): `style/skies_built.jpg`.
 
-Next: step 2, the canyon's corrugated cardboard.
 All seven tests pass.
+
+## Step 2: the canyon's cardboard (mock, 2026-11-03)
+
+toon_common `corrugate` [board height, flute period, fluting, hollows]: what faces sideways shows the cut edge of stacked boards, counted
+down from the front's top. Each board has a pale liner at its top and bottom and a fine seam to the next. Between the liners is the
+fluting: a light wave from liner to liner, with the arches either side of it hollow and in shade. It is on the canyon's front beds and its
+platforms' sides only. `--cardboard=T|A|B|C`, or the palette's [backdrop] `cardboard` (StageBake.CARDBOARD_TRY):
+
+| Option | What changes |
+|---|---|
+| Today | The natural rock beds |
+| A, light | Boards with fluting, the hollows a soft shade |
+| B, deep | The hollows deep, as a card's cut edge shows them |
+| C, bold | B, with boards half as tall again and broader flutes |
+
+A first try with a light wave and pale hollows read as a zigzag print. The arches were then drawn hollow and in shade.
+
+**Honest read: none of these reads as cardboard.** Flutes need straight, flat boards to read as card. On the front's eroded, wandering beds
+(review 17's natural strata), they read as a woven chevron pattern, like a blanket, worst at the wide camera. Recommended: keep today's
+front. On the Stage Look Review ("cardboard66", `cb66_*`).
+
+Proposed instead for the canyon's own craft: **torn paper**. Each bed's edge torn, with the paper's pale core showing along the tear. It
+suits rock shapes, and it is a classic papercraft way to draw strata.
