@@ -54,3 +54,12 @@ Recommended B: the wandering cuts and their shadows read as layers of cut paper,
 same as B at normal size; its fibre only shows up close.
 - It shows most on the canyon's sunset and the beach. The city's towers and the grove's trees hide most of their skies.
 - The canyon's soft sun is a separate piece and stays smooth. A cut-paper sun would be a next step.
+
+**Built B** (the owner's pick, 2026-11-02):
+- `sky_steps=[6, 0.8, 0.7, 0.6, 0.0]` in each stage's palette (meadow, sunset, ocean, city, grove); `--sky-steps=T` brings back the smooth
+  sky.
+- The shipped skies measure the same as the mock's B.
+- Before and after, the five stages at the wide camera (rows meadow, canyon, beach, city, grove; before left): `style/skies_built.jpg`.
+
+Next: step 2, the canyon's corrugated cardboard.
+All seven tests pass.
