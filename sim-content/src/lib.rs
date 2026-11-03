@@ -202,6 +202,15 @@ fn validate_previous_rules(r: &sim_core::content::Ruleset, errors: &mut Vec<Stri
                 .to_string(),
         );
     }
+    if r.traction_rule > 1 {
+        errors.push("ruleset: traction_rule must be 0 or 1".to_string());
+    }
+    if r.air_drift_brake > 1 {
+        errors.push("ruleset: air_drift_brake must be 0 or 1".to_string());
+    }
+    if r.dash_keep_frames > 60 {
+        errors.push("ruleset: dash_keep_frames must be at most 60".to_string());
+    }
     if r.air_push > 1 {
         errors.push("ruleset: air_push must be 0 or 1".to_string());
     }

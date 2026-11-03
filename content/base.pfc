@@ -6,7 +6,7 @@ bundle {
     name "Base Roster"
     description "The built-in roster: a longsword duelist and a close-range brawler."
     sim_version 149
-    hash 8dc14a7702f4367c
+    hash 0d09e102dcfb7b1b
 }
 
 ruleset {
@@ -24,6 +24,9 @@ ruleset {
     push_hard 0.7
     push_speed 0.075
     air_push 0
+    traction_rule 1
+    dash_keep_frames 6
+    air_drift_brake 1
     jump_momentum 0.84999
     jump_momentum_max 1.25
     jump_stick_share 2

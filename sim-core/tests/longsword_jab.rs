@@ -393,14 +393,10 @@ fn the_cancelled_jab_1_strings_into_tilts_aerials_and_the_up_special() {
         &[(0, 150)],
         "jump > forward air",
     );
-    true_combo_window(
-        DUELIST,
-        false,
-        near,
-        DASH_ATTACK,
-        &[(90, 150)],
-        "dash attack",
-    );
+    // (A dash attack two frames into a dash missed at every percent from sim 148: the reference's dash runs at its full speed from
+    // its first frame, so the dash attack slides past the foe jab 1 left this close. It was a true combo at 90-150% while the dash
+    // eased up from a slower start.)
+    true_combo_window(DUELIST, false, near, DASH_ATTACK, &[], "dash attack");
     true_combo_window(DUELIST, false, near, UP_SPECIAL, &[(0, 150)], "up special");
 }
 
@@ -416,21 +412,30 @@ fn jab_2_reaches_the_foe_the_tip_pulled_in() {
 }
 
 #[test]
-fn jab_2_is_the_launcher_nothing_on_the_ground_follows_it() {
+fn jab_2_is_the_launcher_only_a_dash_attack_follows_it_at_low_percent() {
     // Jab 2 (45 degrees, BK 62, KS 75) sends the foe up and out of reach: on the duelist no follow-up started at jab 2's frame 16
-    // catches it (the frame advantage is there, 18 frames at 0% to 48 at 150%, but not the reach), as the previous version's
-    // "no longer punishable on hit" launcher.
+    // catches it but a dash attack at 0-20% (the frame advantage is there, 18 frames at 0% to 48 at 150%, but not the reach), as the
+    // previous version's "no longer punishable on hit" launcher.
     for f in [
         JAB_AGAIN,
         UP_TILT,
         FORWARD_TILT,
         DOWN_TILT,
         GRAB_IT,
-        DASH_ATTACK,
         UP_SMASH,
     ] {
         true_combo_window(DUELIST, true, fx(11, 10), f, &[], "after jab 2");
     }
+    // The one exception since sim 148: a dash attack reaches the launched foe at 0-20% (the reference's dash runs at its full speed
+    // from its first frame; it missed while the dash eased up from a slower start).
+    true_combo_window(
+        DUELIST,
+        true,
+        fx(11, 10),
+        DASH_ATTACK,
+        &[(0, 20)],
+        "after jab 2",
+    );
     for percent in [0, 50, 100, 150] {
         assert!(advantage(DUELIST, percent, true, fx(11, 10)) >= 18);
     }

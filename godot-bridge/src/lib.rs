@@ -1403,7 +1403,8 @@ impl SimRunner {
     #[func]
     fn fighter_dash_length(&self, i: i32) -> f32 {
         self.fighter(i).map_or(0.0, |fi| {
-            f(sim_core::combat::params_of(&self.content, fi).initial_dash_distance())
+            f(sim_core::combat::params_of(&self.content, fi)
+                .initial_dash_distance(&self.content.rules))
         })
     }
 

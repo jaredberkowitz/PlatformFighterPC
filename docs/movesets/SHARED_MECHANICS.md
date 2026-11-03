@@ -195,7 +195,8 @@ the two the same way, a stick held back never cutting the run's share), for play
 
 A landing (out of a jump, a move landing mid-way or a special fall: `fighter.rs` `cap_landing_speed`, called before `enter_landing` in
 `airborne`, `helpless` and both landing paths of `attack`) keeps at most `Ruleset::landing_speed_cap` percent (100) of the body's
-`dash_speed` along the ground; the slide then bleeds off at the body's `landing_friction` during the lag, as before. Not applied: a
+`dash_speed` along the ground; the slide then bleeds off at the reference's traction, doubled when it lands faster than a walk
+(sim 148, `docs/MOVEMENT_1TO1.md`; the body's gentle `landing_friction` before). Not applied: a
 tumble's landing (tech or knockdown), a waveland (its own speed), an air dodge's landing, a move's landing hit (`landing_move`), a move
 that goes on along the ground (`land_continue` / `lands_from`). The reference publishes no landing rule [E]; the owner's suggestion ("a
 maximum velocity relative to their speed"). Measured over every built-in special aimed into the stage from near the edge, only two were
