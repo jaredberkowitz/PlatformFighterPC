@@ -99,27 +99,25 @@ fn clamp_i8(v: i32) -> i8 {
     v.clamp(-127, 127) as i8
 }
 
-/// What `fighter_dodge` reports: [length, way, turns, total]. `length` is the dodge's fresh length; `way` 1 forward, -1 backward, 0 in
-/// place; `turns` 1 for a roll whose last frame flips `facing` (sim 147's `Fighter::roll_turns`: tech and get-up rolls go the same
-/// way but do not turn); `total` the frames it really lasts, the frame the sim ends it on: longer than `length` for a stale roll or
-/// spot dodge, the same for an air dodge (staling shortens its travel, not its time) and for the stand-up from the floor.
+/// What `fighter_dodge` reports: [length, way, turns, total]. `length` is the dodge's fresh length (sim 149: a tech, get-up or trip
+/// roll its own, the ruleset's 40, 35 or 28); `way` 1 forward, -1 backward, 0 in place; `turns` 1 for a roll whose last frame flips
+/// `facing` (sim 147's `Fighter::roll_turns`: tech and get-up rolls go the same way but do not turn); `total` the frames it really
+/// lasts, the frame the sim ends it on: longer than `length` for a stale roll or spot dodge, the same for an air dodge (staling
+/// shortens its travel, not its time), a tech, get-up or trip roll (never stale) and the stand-up from the floor.
 fn dodge_info(
     fi: &sim_core::Fighter,
     p: &sim_core::content::FighterParams,
     rules: &sim_core::content::Ruleset,
 ) -> [i32; 4] {
-    use sim_core::fighter::{air_dodge_length, roll_length, spot_dodge_length};
+    use sim_core::fighter::{air_dodge_length, roll_fresh_length, roll_length, spot_dodge_length};
     use sim_core::state::FighterState as S;
     let way = fi.dodge_dir.x.signum_int() * i32::from(fi.facing);
     let turns = i32::from(fi.roll_turns);
     match fi.state {
         S::Roll => {
+            let length = i32::from(roll_fresh_length(fi, p, rules));
             let total = i32::from(roll_length(fi, p, rules));
-            if way >= 0 {
-                [i32::from(p.roll_frames), 1, turns, total]
-            } else {
-                [i32::from(p.roll_back_frames), -1, turns, total]
-            }
+            [length, if way >= 0 { 1 } else { -1 }, turns, total]
         }
         S::SpotDodge => {
             let total = i32::from(spot_dodge_length(fi, p, rules));
@@ -3841,18 +3839,19 @@ mod tests {
         (first, frames)
     }
 
-    /// Player 0 lying after a knockdown, long enough to get up, then `held` for a frame.
-    fn get_up(ch: u8, level: u8, held: Input) -> (Content, GameState) {
+    /// Player 0 lying after a knockdown (sitting after a trip if `tripped`), long enough to get up, then `held` for a frame.
+    fn get_up(ch: u8, level: u8, tripped: bool, held: Input) -> (Content, GameState) {
         let (content, mut state) = alone(ch, level);
         state.fighters[0].state = S::Knockdown;
+        state.fighters[0].tripped = tripped;
         state.fighters[0].state_frame = 60;
         tick(&content, &mut state, held);
         (content, state)
     }
 
     /// `fighter_dodge`'s fourth value is the frame the sim really ends each dodge on, fresh and stale, on every body: rolls both
-    /// ways and spot dodges at every staleness, air dodges (staling shortens their travel, not their time), tech and get-up rolls
-    /// (never stale) and the stand-up from the floor. The first three values stay what they were.
+    /// ways and spot dodges at every staleness, air dodges (staling shortens their travel, not their time), tech, get-up and trip
+    /// rolls (never stale, each its own length since sim 149, which is also their first value) and the stand-up from the floor.
     #[test]
     fn dodge_info_totals_are_the_frames_each_dodge_ends_on() {
         let base = Content::placeholder();
@@ -3910,8 +3909,9 @@ mod tests {
                     assert_eq!(info[3], info[0]);
                 }
             }
+            let rules = base.rules;
             for x in [127i8, -127] {
-                // A tech roll and a get-up roll, however stale the fighter's dodges are.
+                // A tech roll, a get-up roll and a trip's roll, however stale the fighter's dodges are.
                 let (content, mut state) = alone(ch, max);
                 let f = &mut state.fighters[0];
                 f.state = S::Hitstun;
@@ -3930,19 +3930,26 @@ mod tests {
                 }
                 let (info, frames) = play(&content, &mut state, S::Roll);
                 assert_eq!(
-                    (info[3], info[0]),
-                    (frames, frames),
+                    (info[3], info[0], info[2]),
+                    (frames, frames, 0),
                     "body {ch}, tech roll {x}"
                 );
-                let (content, mut state) = get_up(ch, max, input(x, 0, 0));
-                let (info, frames) = play(&content, &mut state, S::Roll);
-                assert_eq!(
-                    (info[3], info[0]),
-                    (frames, frames),
-                    "body {ch}, get-up roll {x}"
-                );
+                assert_eq!(frames, i32::from(rules.tech_roll_frames), "body {ch}");
+                for (tripped, n) in [
+                    (false, rules.getup_roll_frames),
+                    (true, rules.trip_roll_frames),
+                ] {
+                    let (content, mut state) = get_up(ch, max, tripped, input(x, 0, 0));
+                    let (info, frames) = play(&content, &mut state, S::Roll);
+                    assert_eq!(
+                        (info[3], info[0], info[2]),
+                        (frames, frames, 0),
+                        "body {ch}, get-up roll {x}, tripped {tripped}"
+                    );
+                    assert_eq!(frames, i32::from(n), "body {ch}, tripped {tripped}");
+                }
             }
-            let (content, mut state) = get_up(ch, 0, input(0, 100, 0));
+            let (content, mut state) = get_up(ch, 0, false, input(0, 100, 0));
             let (info, frames) = play(&content, &mut state, S::GetUp);
             let n = i32::from(base.rules.getup_frames);
             assert_eq!((info, frames), ([n, 0, 0, n], n), "body {ch}, stand-up");

@@ -475,6 +475,14 @@ Line numbers inside a script count from its first non-blank line.
   have `roll_back_intangible_start` / `roll_back_intangible_end` (optional, inherited, written only when the end is above 0): the
   backward roll's own intangible frames; none means the forward roll's. Dodge intangibility frames count from 1, the frame of the
   input, as the reference's (they came one frame late before).
+  Still schema 8 (sim v149, `docs/REFERENCE_GAPS.md` D7): the ruleset's `tech_roll_frames` (40) and `tech_roll_intangible` (20),
+  `getup_roll_frames` (35), `getup_roll_intangible` (21) and `getup_roll_back_intangible` (22), `trip_roll_frames` (28) and
+  `trip_roll_intangible` (9): the rolls out of a tech, a knockdown and a trip, each intangible from its first frame through its
+  window; a length of 0 plays the body's shield roll (the rule before sim 149), and a window cannot outlast its roll. Fighters may
+  have `getup_roll_intangible` / `getup_roll_back_intangible` (optional, inherited, written when above 0): the body's own get-up roll
+  windows forward and back, lying face up; none means the ruleset's. **This changes older content** as `trip_base` did: a file
+  without the ruleset's fields plays the standard (the reference's rolls); write the three lengths as 0 for the shield roll. The
+  existing roll fields keep their meaning (the shield roll's).
   Still schema 6 (sim v95): fighters may have `air_jump_drift`; moves `late_next` / `late_until`, `ledge_falling_only`,
   `drop_from` / `drop_frames` / `drop_while_down`; projectiles `bounce_keep_y`, `bounce_max_fall`; bursts `on_ground`, `on_expire`,
   `keep_hits`. Every one defaults to the old behaviour, so an older file loads unchanged.

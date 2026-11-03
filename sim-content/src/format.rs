@@ -273,6 +273,8 @@ macro_rules! params_io {
                 jump_speed_x_max: Fx::ZERO,
                 roll_back_intangible_start: 0,
                 roll_back_intangible_end: 0,
+                getup_roll_intangible: 0,
+                getup_roll_back_intangible: 0,
                 item_throws: base.map_or(sim_core::content::ItemThrows::STANDARD, |b| b.item_throws),
                 weapon,
             }
@@ -447,6 +449,13 @@ rules_io! {
     getup_frames: u8,
     getup_intangible: u8,
     tech_invuln: u8,
+    tech_roll_frames: u8,
+    tech_roll_intangible: u8,
+    getup_roll_frames: u8,
+    getup_roll_intangible: u8,
+    getup_roll_back_intangible: u8,
+    trip_roll_frames: u8,
+    trip_roll_intangible: u8,
     charge_frames: u8,
     charge_bonus_percent: u8,
     shield_max: Fx,
@@ -2984,6 +2993,17 @@ pub fn read_content(root: &Block, errors: &mut Vec<String>) -> Content {
             base.map_or(0, |p| p.roll_back_intangible_end),
             errors,
         );
+        // A get-up roll's own intangible frames (sim 149): optional, the inherited fighter's or none (0: the ruleset's).
+        params.getup_roll_intangible = f.or(
+            "getup_roll_intangible",
+            base.map_or(0, |p| p.getup_roll_intangible),
+            errors,
+        );
+        params.getup_roll_back_intangible = f.or(
+            "getup_roll_back_intangible",
+            base.map_or(0, |p| p.getup_roll_back_intangible),
+            errors,
+        );
         f.finish(errors);
         // The gauge (schema 6): a `gauge { ... }` block, or the inherited fighter's, or none.
         if let Some(g) = at_most_one(children(b, "gauge"), "gauge", &context, errors) {
@@ -3473,6 +3493,15 @@ pub fn fighter_block(name: &str, p: &FighterParams, weapon_name: &str) -> Block 
         b.field(
             "roll_back_intangible_end",
             p.roll_back_intangible_end.to_string(),
+        );
+    }
+    if p.getup_roll_intangible != 0 {
+        b.field("getup_roll_intangible", p.getup_roll_intangible.to_string());
+    }
+    if p.getup_roll_back_intangible != 0 {
+        b.field(
+            "getup_roll_back_intangible",
+            p.getup_roll_back_intangible.to_string(),
         );
     }
     if p.gauge != Gauge::NONE {

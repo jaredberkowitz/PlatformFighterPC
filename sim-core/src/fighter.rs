@@ -14,7 +14,9 @@ use crate::input::{
 };
 use crate::moves::{Encase, Motion, Move, MoveId, Weapon};
 use crate::scripting;
-use crate::state::{Fighter, FighterState as S, NONE};
+use crate::state::{
+    Fighter, FighterState as S, NONE, ROLL_GETUP, ROLL_SHIELD, ROLL_TECH, ROLL_TRIP,
+};
 use crate::trig::{self, Angle};
 use crate::vec2::Vec2;
 
@@ -146,10 +148,12 @@ fn enter(f: &mut Fighter, state: S) {
     // A pending post-shieldstun shield grab belongs to the shield it was pressed in.
     f.shield_grab = 0;
     // A dodge is fresh unless the code that starts it stales it (`stale_dodge`): get-up and tech rolls are not staled. Nor do they
-    // turn the fighter round (`Fighter::roll_turns`, set by the shield).
+    // turn the fighter round (`Fighter::roll_turns`, set by the shield). A roll is a shield's unless the code that starts it says
+    // otherwise (`begin_floor_roll`).
     if matches!(state, S::Roll | S::SpotDodge | S::AirDodge) {
         f.dodge_level = 0;
         f.roll_turns = false;
+        f.roll_kind = ROLL_SHIELD;
     }
     // A pull lasts only while the fighter is in hitstun.
     if state != S::Hitstun {
@@ -1307,7 +1311,7 @@ fn airborne(
     let tumbling = f.damage_fall;
     if air_move(f, p, stage) {
         if tumbling {
-            tumble_landing(f, rules);
+            tumble_landing(f, p, rules);
         } else {
             cap_landing_speed(f, p, rules);
             enter_landing(f, lag);
@@ -1728,16 +1732,76 @@ fn stale_length(frames: u8, percent: u8, level: u8) -> u16 {
     (u16::from(frames) * (100 + u16::from(percent) * u16::from(level))).div_ceil(100)
 }
 
-/// How many frames the roll in progress lasts, made at its staleness (`dodge_level`): the frame it ends on. Rolling backward (away from
-/// the way the fighter faces) takes longer. The roll ends by it, and the view reads it (the bridge's `fighter_dodge`).
+/// The length a tech, get-up or trip roll is played on (sim 149: `Fighter::roll_kind`, the ruleset's `*_roll_frames`), or `None` for a
+/// roll out of a shield and for one whose ruleset length is 0 (it plays the body's shield roll, the rule before sim 149).
+fn floor_roll_frames(f: &Fighter, rules: &Ruleset) -> Option<u8> {
+    let frames = match f.roll_kind {
+        ROLL_TECH => rules.tech_roll_frames,
+        ROLL_GETUP => rules.getup_roll_frames,
+        ROLL_TRIP => rules.trip_roll_frames,
+        _ => 0,
+    };
+    (frames > 0).then_some(frames)
+}
+
+/// How many frames the roll in progress lasts fresh: a tech, get-up or trip roll its own length (`floor_roll_frames`), a shield roll
+/// the body's, longer backward (away from the way the fighter faces). The view reads it (the bridge's `fighter_dodge`).
+pub fn roll_fresh_length(f: &Fighter, p: &FighterParams, rules: &Ruleset) -> u8 {
+    let back = f.dodge_dir.x.signum_int() != i32::from(f.facing);
+    match floor_roll_frames(f, rules) {
+        Some(frames) => frames,
+        None if back => p.roll_back_frames,
+        None => p.roll_frames,
+    }
+}
+
+/// How many frames the roll in progress lasts, made at its staleness (`dodge_level`; only a shield roll is ever stale): the frame it
+/// ends on. The roll ends by it, and the view reads it (the bridge's `fighter_dodge`).
 pub fn roll_length(f: &Fighter, p: &FighterParams, rules: &Ruleset) -> u16 {
     let back = f.dodge_dir.x.signum_int() != i32::from(f.facing);
-    let (frames, percent) = if back {
-        (p.roll_back_frames, rules.dodge_stale_back_roll)
+    let percent = if back {
+        rules.dodge_stale_back_roll
     } else {
-        (p.roll_frames, rules.dodge_stale_roll)
+        rules.dodge_stale_roll
     };
-    stale_length(frames, percent, f.dodge_level)
+    stale_length(roll_fresh_length(f, p, rules), percent, f.dodge_level)
+}
+
+/// The frames the roll in progress is intangible on, fresh (`start..=end`, counted as `dodge_frame` counts): a tech roll's and a
+/// trip's the ruleset's, a get-up roll's the body's own (the ruleset's for a body without one), all from frame 1 (sim 149); a shield
+/// roll's the body's, a backward one's own when the body gives one (sim 144).
+fn roll_intangible(f: &Fighter, p: &FighterParams, rules: &Ruleset) -> (u8, u8) {
+    let back = f.dodge_dir.x.signum_int() != i32::from(f.facing);
+    let own = |body: u8, rule: u8| if body > 0 { body } else { rule };
+    if floor_roll_frames(f, rules).is_some() {
+        let end = match f.roll_kind {
+            ROLL_TECH => rules.tech_roll_intangible,
+            ROLL_TRIP => rules.trip_roll_intangible,
+            _ if back => own(
+                p.getup_roll_back_intangible,
+                rules.getup_roll_back_intangible,
+            ),
+            _ => own(p.getup_roll_intangible, rules.getup_roll_intangible),
+        };
+        return (1, end);
+    }
+    if back && p.roll_back_intangible_end > 0 {
+        (p.roll_back_intangible_start, p.roll_back_intangible_end)
+    } else {
+        (p.roll_intangible_start, p.roll_intangible_end)
+    }
+}
+
+/// Begins a roll out of a tech, a knockdown or a trip (`kind`: `ROLL_TECH`, `ROLL_GETUP` or `ROLL_TRIP`; sim 149) the way `dir`: on its
+/// own frames, never staled and keeping its facing (see `roll`). This frame is its first, so a window from frame 1 covers it already.
+fn begin_floor_roll(f: &mut Fighter, p: &FighterParams, rules: &Ruleset, kind: u8, dir: i8) {
+    f.dodge_dir = Vec2::new(Fx::from_int(i32::from(dir)), Fx::ZERO);
+    enter(f, S::Roll);
+    f.roll_kind = kind;
+    let (start, end) = roll_intangible(f, p, rules);
+    if within(1, start, end) {
+        f.invuln = f.invuln.max(1);
+    }
 }
 
 /// How many frames the spot dodge in progress lasts, made at its staleness (`dodge_level`): the frame it ends on. The spot dodge
@@ -1754,8 +1818,9 @@ fn stale_shift(full: u8, level: u8, rules: &Ruleset) -> u8 {
 
 /// A roll out of a shield: intangible for part of it, moving along the ground for part of it. A stale one (`dodge_level`) plays
 /// slower and is intangible later. A forward one ends turned round (`Fighter::roll_turns`), facing the way it came from, so rolling
-/// past an opponent leaves the fighter facing it (sim 147, the reference's). Tech and get-up rolls come here too and keep their
-/// facing.
+/// past an opponent leaves the fighter facing it (sim 147, the reference's). Tech, get-up and trip rolls come here too, on their own
+/// length and intangibility (sim 149: `roll_fresh_length`, `roll_intangible`), moving as the body's shield roll does [E], and keep
+/// their facing.
 fn roll(f: &mut Fighter, p: &FighterParams, stage: &Stage, rules: &Ruleset) {
     let dir = f.dodge_dir.x.signum_int();
     let back = dir != i32::from(f.facing);
@@ -1766,12 +1831,7 @@ fn roll(f: &mut Fighter, p: &FighterParams, stage: &Stage, rules: &Ruleset) {
         rules.dodge_stale_roll
     };
     let shift = stale_shift(rules.dodge_stale_roll_shift, level, rules);
-    // (A backward roll has its own window, the reference's, when the body gives one: sim 144.)
-    let (start, end) = if back && p.roll_back_intangible_end > 0 {
-        (p.roll_back_intangible_start, p.roll_back_intangible_end)
-    } else {
-        (p.roll_intangible_start, p.roll_intangible_end)
-    };
+    let (start, end) = roll_intangible(f, p, rules);
     if within(dodge_frame(f), start.saturating_add(shift), end) {
         f.invuln = f.invuln.max(1);
     }
@@ -2430,8 +2490,9 @@ fn knockdown(f: &mut Fighter, p: &FighterParams, weapon: &Weapon, stage: &Stage,
             .invuln
             .max(weapon.get(MoveId::GetUpAttack as u8).intangible);
     } else if flick != 0 {
-        f.dodge_dir = Vec2::new(Fx::from_int(i32::from(flick)), Fx::ZERO);
-        enter(f, S::Roll);
+        // A get-up roll, or a trip's own roll out of a trip.
+        let kind = if f.tripped { ROLL_TRIP } else { ROLL_GETUP };
+        begin_floor_roll(f, p, rules, kind, flick);
     } else if f.history[0].stick_y >= STICK_DOWN
         || f.take(buttons::JUMP, p.input_buffer)
         || f.state_frame >= u16::from(max)
@@ -4003,7 +4064,7 @@ fn knockback_frame(f: &mut Fighter, p: &FighterParams, stage: &Stage, rules: &Ru
         f.kb_vel = Vec2::ZERO;
         f.hitstun = 0;
         f.tumble = false;
-        tumble_landing(f, rules);
+        tumble_landing(f, p, rules);
         return false;
     }
     true
@@ -4028,15 +4089,14 @@ fn pull_frame(f: &mut Fighter, rules: &Ruleset) {
     f.vel = Vec2::ZERO;
 }
 
-/// Touching down from a launch, or from the tumble after one: a shield press just before is a tech (in place, or a roll if the stick
-/// is flicked sideways); without one it is a missed tech and the fighter lies in a knockdown and picks a get-up.
-fn tumble_landing(f: &mut Fighter, rules: &Ruleset) {
+/// Touching down from a launch, or from the tumble after one: a shield press just before is a tech (in place, or a tech roll if the
+/// stick is flicked sideways); without one it is a missed tech and the fighter lies in a knockdown and picks a get-up.
+fn tumble_landing(f: &mut Fighter, p: &FighterParams, rules: &Ruleset) {
     let teched = tech_ready(f, rules);
     let roll_dir = f.flick_x(rules.tech_window);
     f.vel.x = Fx::ZERO;
     if teched && roll_dir != 0 {
-        f.dodge_dir = Vec2::new(Fx::from_int(i32::from(roll_dir)), Fx::ZERO);
-        enter(f, S::Roll);
+        begin_floor_roll(f, p, rules, ROLL_TECH, roll_dir);
     } else if teched {
         f.invuln = f.invuln.max(rules.tech_invuln);
         enter_landing(f, rules.tech_lag);

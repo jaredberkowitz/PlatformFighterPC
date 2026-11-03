@@ -31,6 +31,14 @@ pub const LINK_VORTEX: u8 = 1;
 pub const LINK_POSVEC: u8 = 2;
 /// `Fighter::link_kind`: half the attacker's momentum (angle 365, sim 123).
 pub const LINK_HALF: u8 = 3;
+/// `Fighter::roll_kind`: a roll out of a shield (the body's `roll_*`; it stales, and a forward one ends turned round).
+pub const ROLL_SHIELD: u8 = 0;
+/// `Fighter::roll_kind`: a tech roll (sim 149: the ruleset's `tech_roll_*`).
+pub const ROLL_TECH: u8 = 1;
+/// `Fighter::roll_kind`: a get-up roll out of a knockdown (sim 149: the ruleset's `getup_roll_*`, the body's own window).
+pub const ROLL_GETUP: u8 = 2;
+/// `Fighter::roll_kind`: a roll out of a trip (sim 149: the ruleset's `trip_roll_*`).
+pub const ROLL_TRIP: u8 = 3;
 /// Frames a vortex hit (366) pulls its victim toward the hitbox centre (the reference's 5).
 pub const VORTEX_FRAMES: u8 = 5;
 
@@ -300,6 +308,9 @@ pub struct Fighter {
     /// The current roll ends with the fighter turned round (sim 147, the reference's): a forward roll out of a shield. A back
     /// roll keeps its facing, and so do tech and get-up rolls (see `fighter::roll`).
     pub roll_turns: bool,
+    /// What the current roll comes out of (sim 149, `ROLL_*`): a shield, a tech, a knockdown or a trip, each with its own length and
+    /// intangibility (see `fighter::roll`).
+    pub roll_kind: u8,
     /// Attack-button presses and releases since the current attack began (the move a button or an action started; follow-ups
     /// reached by `next`, `goto` or a counter keep counting), counted every frame, hitlag included: what a rapid jab's entry rule
     /// reads (the script registers `presses` and `releases`). The press that started the attack (if attack did) is the first.
@@ -850,6 +861,7 @@ impl Fighter {
             dodge_level: 0,
             dodge_clock: 0,
             roll_turns: false,
+            roll_kind: ROLL_SHIELD,
             presses: 0,
             releases: 0,
             next_move: 0,
@@ -1107,6 +1119,7 @@ impl StateHash for Fighter {
         h.write_u8(self.dodge_level);
         h.write_u16(self.dodge_clock);
         h.write_bool(self.roll_turns);
+        h.write_u8(self.roll_kind);
         h.write_u8(self.presses);
         h.write_u8(self.releases);
         h.write_u8(self.next_move);
@@ -1726,6 +1739,11 @@ mod tests {
             ("roll_turns", {
                 let mut s = state;
                 s.fighters[1].roll_turns = true;
+                s
+            }),
+            ("roll_kind", {
+                let mut s = state;
+                s.fighters[1].roll_kind = ROLL_TECH;
                 s
             }),
             ("air_flags", {

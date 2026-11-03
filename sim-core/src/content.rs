@@ -159,6 +159,12 @@ pub struct FighterParams {
     /// backward against 4-15 forward). `roll_back_intangible_end` 0 uses the forward roll's window (content written before sim 144).
     pub roll_back_intangible_start: u8,
     pub roll_back_intangible_end: u8,
+    /// A get-up roll's intangible frames (sim 149, the reference's per body): from its first frame through `getup_roll_intangible`
+    /// rolling forward and `getup_roll_back_intangible` rolling back, lying face up (the sim has one way of lying, so the reference's
+    /// face-down windows are not used [E]). 0 takes the ruleset's of the same name. The roll's length is the ruleset's
+    /// (`Ruleset::getup_roll_frames`).
+    pub getup_roll_intangible: u8,
+    pub getup_roll_back_intangible: u8,
     pub spot_dodge_frames: u8,
     pub spot_intangible_start: u8,
     pub spot_intangible_end: u8,
@@ -902,6 +908,9 @@ impl FighterParams {
             // The reference's most common backward roll (ultimateframedata.com, 13.0.1): intangible 5-16 [R].
             roll_back_intangible_start: 5,
             roll_back_intangible_end: 16,
+            // No get-up roll window of its own: the ruleset's (every body below sets its own).
+            getup_roll_intangible: 0,
+            getup_roll_back_intangible: 0,
             item_throws: ItemThrows::STANDARD,
             walk_speed: gu(1400),
             run_speed: gu(1800),
@@ -1082,6 +1091,10 @@ impl FighterParams {
                 dash: 6,
                 drop: 7,
             },
+            // Get-up rolls (a public dump of the reference's game data): intangible 1-19 forward and 1-19 back lying face up;
+            // face down 1-19 and 1-24, not used (one way of lying) [E].
+            getup_roll_intangible: 19,
+            getup_roll_back_intangible: 19,
             ..FighterParams::base()
         }
     }
@@ -1141,6 +1154,10 @@ impl FighterParams {
             wall_jump: 1,
             wall_jump_vx: su(1300),
             wall_jump_vy: su(2300),
+            // Get-up rolls (a public dump of the reference's game data): intangible 1-21 forward and 1-22 back lying face up;
+            // face down 1-19 and 1-24, not used (one way of lying) [E].
+            getup_roll_intangible: 21,
+            getup_roll_back_intangible: 22,
             ..FighterParams::base()
         }
     }
@@ -1225,6 +1242,10 @@ impl FighterParams {
             },
             roll_back_intangible_start: 4,
             roll_back_intangible_end: 14,
+            // Get-up rolls (a public dump of the reference's game data): intangible 1-19 forward and 1-22 back lying face up;
+            // face down 1-19 and 1-19, not used (one way of lying) [E].
+            getup_roll_intangible: 19,
+            getup_roll_back_intangible: 22,
             ..FighterParams::base()
         }
     }
@@ -1290,6 +1311,10 @@ impl FighterParams {
             wall_jump: 1,
             wall_jump_vx: su(1300),
             wall_jump_vy: su(2300),
+            // Get-up rolls (a public dump of the reference's game data): intangible 1-21 forward and 1-22 back lying face up;
+            // face down 1-19 and 1-24, not used (one way of lying) [E].
+            getup_roll_intangible: 21,
+            getup_roll_back_intangible: 22,
             ..FighterParams::base()
         }
     }
@@ -1367,6 +1392,10 @@ impl FighterParams {
             // [E].
             ecb_height: r(13, 5),
             ecb_side_height: r(13, 10),
+            // Get-up rolls (a public dump of the reference's game data): intangible 1-23 forward and 1-19 back lying face up;
+            // face down 1-19 and 1-25, not used (one way of lying) [E].
+            getup_roll_intangible: 23,
+            getup_roll_back_intangible: 19,
             ..FighterParams::base()
         }
     }
@@ -1446,6 +1475,10 @@ impl FighterParams {
                 dash: 4,
                 drop: 5,
             },
+            // Get-up rolls (a public dump of the reference's game data): intangible 1-22 forward and 1-22 back lying face up;
+            // face down 1-22 and 1-22, not used (one way of lying) [E].
+            getup_roll_intangible: 22,
+            getup_roll_back_intangible: 22,
             ..FighterParams::base()
         }
     }
@@ -1510,6 +1543,10 @@ impl FighterParams {
             wall_jump_vx: su(1300),
             wall_jump_vy: su(2400),
             gauge: Self::champion_gauge(),
+            // Get-up rolls (a public dump of the reference's game data): intangible 1-22 forward and 1-22 back lying face up;
+            // face down 1-22 and 1-22, not used (one way of lying) [E].
+            getup_roll_intangible: 22,
+            getup_roll_back_intangible: 22,
             ..FighterParams::base()
         }
     }
@@ -1621,6 +1658,10 @@ impl FighterParams {
                 dash: 6,
                 drop: 7,
             },
+            // Get-up rolls (a public dump of the reference's game data): intangible 1-19 forward and 1-24 back lying face up;
+            // face down 1-14 and 1-24, not used (one way of lying) [E].
+            getup_roll_intangible: 19,
+            getup_roll_back_intangible: 24,
             ..FighterParams::base()
         }
     }
@@ -1708,6 +1749,10 @@ impl FighterParams {
                 dash: 7,
                 drop: 6,
             },
+            // Get-up rolls (a public dump of the reference's game data): intangible 1-19 forward and 1-24 back lying face up;
+            // face down 1-14 and 1-29, not used (one way of lying) [E].
+            getup_roll_intangible: 19,
+            getup_roll_back_intangible: 24,
             ..FighterParams::base()
         }
     }
@@ -1800,6 +1845,10 @@ impl FighterParams {
                 dash: 4,
                 drop: 5,
             },
+            // Get-up rolls (a public dump of the reference's game data): intangible 1-24 forward and 1-31 back lying face up;
+            // face down 1-19 and 1-25, not used (one way of lying) [E].
+            getup_roll_intangible: 24,
+            getup_roll_back_intangible: 31,
             ..FighterParams::base()
         }
     }
@@ -1894,6 +1943,10 @@ impl FighterParams {
                 dash: 5,
                 drop: 6,
             },
+            // Get-up rolls (a public dump of the reference's game data): intangible 1-22 forward and 1-22 back lying face up;
+            // face down 1-22 and 1-22, not used (one way of lying) [E].
+            getup_roll_intangible: 22,
+            getup_roll_back_intangible: 22,
             ..FighterParams::base()
         }
     }
@@ -1976,6 +2029,10 @@ impl FighterParams {
             },
             roll_back_intangible_start: 4,
             roll_back_intangible_end: 15,
+            // Get-up rolls (a public dump of the reference's game data): intangible 1-22 forward and 1-22 back lying face up;
+            // face down 1-22 and 1-22, not used (one way of lying) [E].
+            getup_roll_intangible: 22,
+            getup_roll_back_intangible: 22,
             ..FighterParams::base()
         }
     }
@@ -2049,6 +2106,10 @@ impl FighterParams {
             wall_jump_vx: su(1300),
             wall_jump_vy: su(2700),
             gauge: Self::phantom_gauge(),
+            // Get-up rolls (a public dump of the reference's game data): intangible 1-21 forward and 1-22 back lying face up;
+            // face down 1-19 and 1-24, not used (one way of lying) [E].
+            getup_roll_intangible: 21,
+            getup_roll_back_intangible: 22,
             ..FighterParams::base()
         }
     }
@@ -2119,6 +2180,10 @@ impl FighterParams {
             wall_jump_vx: su(1300),
             wall_jump_vy: su(2400),
             wing: Some(Self::exile_wing()),
+            // Get-up rolls (a public dump of the reference's game data): intangible 1-21 forward and 1-22 back lying face up;
+            // face down 1-19 and 1-24, not used (one way of lying) [E].
+            getup_roll_intangible: 21,
+            getup_roll_back_intangible: 22,
             ..FighterParams::base()
         }
     }
@@ -2238,6 +2303,8 @@ impl StateHash for FighterParams {
         h.write_u8(self.air_jump_drift);
         h.write_u8(self.roll_back_intangible_start);
         h.write_u8(self.roll_back_intangible_end);
+        h.write_u8(self.getup_roll_intangible);
+        h.write_u8(self.getup_roll_back_intangible);
         // (Sim 139: only a body with its own jump rule writes anything, so an older body's hash is unchanged.)
         if self.jump_speed_x_max != Fx::ZERO {
             self.jump_speed_x.hash_into(h);
@@ -2468,6 +2535,21 @@ pub struct Ruleset {
     pub getup_intangible: u8,
     /// Intangible frames of a tech in place.
     pub tech_invuln: u8,
+    /// Rolls out of a tech, a knockdown and a trip (sim 149, D7; a public dump of the reference's game data, where the lengths and the
+    /// tech and trip windows are the same on all 93 bodies that have them): a tech roll lasts `tech_roll_frames` (40: it acts on 41),
+    /// intangible from its first frame through `tech_roll_intangible` (20); a get-up roll `getup_roll_frames` (35), intangible through
+    /// the body's own window (`FighterParams::getup_roll_intangible` / `getup_roll_back_intangible`) or, for a body without one,
+    /// through `getup_roll_intangible` rolling forward and `getup_roll_back_intangible` rolling back (21 and 22, the reference's most
+    /// common); a trip's roll `trip_roll_frames` (28), intangible through `trip_roll_intangible` (9). Frame 1 is the one the roll
+    /// begins on (the landing, or the flick). They move as the body's shield roll does [E: no distances are published], are never
+    /// staled and never turn the fighter round. A length of 0 plays the body's shield roll instead (the rule before sim 149).
+    pub tech_roll_frames: u8,
+    pub tech_roll_intangible: u8,
+    pub getup_roll_frames: u8,
+    pub getup_roll_intangible: u8,
+    pub getup_roll_back_intangible: u8,
+    pub trip_roll_frames: u8,
+    pub trip_roll_intangible: u8,
     /// Frames a smash attack can be held charging.
     pub charge_frames: u8,
     /// Extra damage at full charge, in percent (40 means 1.4 times the damage).
@@ -2777,6 +2859,13 @@ impl Ruleset {
             getup_frames: 26,
             getup_intangible: 15,
             tech_invuln: 18,
+            tech_roll_frames: 40,
+            tech_roll_intangible: 20,
+            getup_roll_frames: 35,
+            getup_roll_intangible: 21,
+            getup_roll_back_intangible: 22,
+            trip_roll_frames: 28,
+            trip_roll_intangible: 9,
             charge_frames: 60,
             charge_bonus_percent: 40,
             shield_max: Fx::from_int(50),
@@ -2960,6 +3049,13 @@ impl StateHash for Ruleset {
         h.write_u8(self.getup_frames);
         h.write_u8(self.getup_intangible);
         h.write_u8(self.tech_invuln);
+        h.write_u8(self.tech_roll_frames);
+        h.write_u8(self.tech_roll_intangible);
+        h.write_u8(self.getup_roll_frames);
+        h.write_u8(self.getup_roll_intangible);
+        h.write_u8(self.getup_roll_back_intangible);
+        h.write_u8(self.trip_roll_frames);
+        h.write_u8(self.trip_roll_intangible);
         h.write_u8(self.charge_frames);
         h.write_u8(self.charge_bonus_percent);
         self.shield_max.hash_into(h);
@@ -3294,6 +3390,12 @@ mod tests {
         let mut c = base.clone();
         c.fighters[0].roll_back_intangible_start += 1;
         assert_ne!(h, c.hash());
+        let mut c = base.clone();
+        c.fighters[0].getup_roll_intangible += 1;
+        assert_ne!(h, c.hash());
+        let mut c = base.clone();
+        c.fighters[0].getup_roll_back_intangible += 1;
+        assert_ne!(h, c.hash());
         // The ground jump's own rule (sim 139), every field of it.
         let mut j = base.clone();
         j.fighters[0].jump_speed_x_max = Fx::from_ratio(1, 8);
@@ -3349,6 +3451,13 @@ mod tests {
             |r: &mut Ruleset| r.jump_stick_share ^= 3,
             |r: &mut Ruleset| r.landing_speed_cap += 1,
             |r: &mut Ruleset| r.ledge_exposed_frames += 1,
+            |r: &mut Ruleset| r.tech_roll_frames += 1,
+            |r: &mut Ruleset| r.tech_roll_intangible += 1,
+            |r: &mut Ruleset| r.getup_roll_frames += 1,
+            |r: &mut Ruleset| r.getup_roll_intangible += 1,
+            |r: &mut Ruleset| r.getup_roll_back_intangible += 1,
+            |r: &mut Ruleset| r.trip_roll_frames += 1,
+            |r: &mut Ruleset| r.trip_roll_intangible += 1,
         ] {
             let mut c = base.clone();
             change(&mut c.rules);
