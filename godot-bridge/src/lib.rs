@@ -99,17 +99,23 @@ fn clamp_i8(v: i32) -> i8 {
     v.clamp(-127, 127) as i8
 }
 
-/// What `fighter_dodge` reports: [length, way, turns, total]. `length` is the dodge's fresh length (sim 149: a tech, get-up or trip
-/// roll its own, the ruleset's 40, 35 or 28); `way` 1 forward, -1 backward, 0 in place; `turns` 1 for a roll whose last frame flips
-/// `facing` (sim 147's `Fighter::roll_turns`: tech and get-up rolls go the same way but do not turn); `total` the frames it really
-/// lasts, the frame the sim ends it on: longer than `length` for a stale roll or spot dodge, the same for an air dodge (staling
-/// shortens its travel, not its time), a tech, get-up or trip roll (never stale) and the stand-up from the floor.
+/// What `fighter_dodge` reports: [length, way, turns, total, kind, moves_until]. `length` is the dodge's fresh length (sim 149: a
+/// tech, get-up or trip roll its own, the ruleset's 40, 35 or 28); `way` 1 forward, -1 backward, 0 in place; `turns` 1 for a roll
+/// whose last frame flips `facing` (sim 147's `Fighter::roll_turns`: tech and get-up rolls go the same way but do not turn); `total`
+/// the frames it really lasts, the frame the sim ends it on: longer than `length` for a stale roll or spot dodge, the same for an air
+/// dodge (staling shortens its travel, not its time), a tech, get-up or trip roll (never stale) and the stand-up from the floor. For a
+/// roll only (0 and 0 otherwise): `kind` what it rolls out of (`Fighter::roll_kind`: 0 a shield, 1 a tech, 2 a knockdown, 3 a trip),
+/// and `moves_until` the last frame (`state_frame`) on which it carries the fighter (`fighter::roll_moves_until`: 24 on most bodies,
+/// later for a stale roll), so a floor roll can roll over its moving frames and stand up after them. Presentation only: none of it
+/// is hashed or sent.
 fn dodge_info(
     fi: &sim_core::Fighter,
     p: &sim_core::content::FighterParams,
     rules: &sim_core::content::Ruleset,
-) -> [i32; 4] {
-    use sim_core::fighter::{air_dodge_length, roll_fresh_length, roll_length, spot_dodge_length};
+) -> [i32; 6] {
+    use sim_core::fighter::{
+        air_dodge_length, roll_fresh_length, roll_length, roll_moves_until, spot_dodge_length,
+    };
     use sim_core::state::FighterState as S;
     let way = fi.dodge_dir.x.signum_int() * i32::from(fi.facing);
     let turns = i32::from(fi.roll_turns);
@@ -117,21 +123,30 @@ fn dodge_info(
         S::Roll => {
             let length = i32::from(roll_fresh_length(fi, p, rules));
             let total = i32::from(roll_length(fi, p, rules));
-            [length, if way >= 0 { 1 } else { -1 }, turns, total]
+            let kind = i32::from(fi.roll_kind);
+            let moves_until = i32::from(roll_moves_until(fi, p, rules));
+            [
+                length,
+                if way >= 0 { 1 } else { -1 },
+                turns,
+                total,
+                kind,
+                moves_until,
+            ]
         }
         S::SpotDodge => {
             let total = i32::from(spot_dodge_length(fi, p, rules));
-            [i32::from(p.spot_dodge_frames), 0, 0, total]
+            [i32::from(p.spot_dodge_frames), 0, 0, total, 0, 0]
         }
         S::GetUp => {
             let n = i32::from(rules.getup_frames);
-            [n, 0, 0, n]
+            [n, 0, 0, n, 0, 0]
         }
         S::AirDodge => {
             let n = i32::from(air_dodge_length(p, fi.dodge_dir));
-            [n, way, 0, n]
+            [n, way, 0, n, 0, 0]
         }
-        _ => [0, 0, 0, 0],
+        _ => [0; 6],
     }
 }
 
@@ -1541,12 +1556,13 @@ impl SimRunner {
     }
 
     /// For the view: how many frames the fighter's current dodge lasts, which way it goes and whether it ends turned round, as
-    /// [length, way, turns, total] (see `dodge_info`). Rolls, spot dodges, air dodges and the stand-up from the floor; zeros
-    /// otherwise. The animation is played by progress through it.
+    /// [length, way, turns, total, kind, moves_until] (see `dodge_info`; the last two, a roll's kind and its last moving frame,
+    /// since sim 149). Rolls, spot dodges, air dodges and the stand-up from the floor; zeros otherwise. The animation is played by
+    /// progress through it.
     #[func]
     fn fighter_dodge(&self, i: i32) -> PackedInt32Array {
         let Some(fi) = self.fighter(i) else {
-            return PackedInt32Array::from(&[0, 0, 0, 0][..]);
+            return PackedInt32Array::from(&[0; 6][..]);
         };
         let p = sim_core::combat::params_of(&self.content, fi);
         PackedInt32Array::from(&dodge_info(fi, p, &self.content.rules)[..])
@@ -3821,22 +3837,60 @@ mod tests {
     }
 
     /// Plays player 0's dodge (state `kind`, just begun) out with the stick let go. Returns `dodge_info` on its first frame (checked
-    /// to stay the same on every frame of it) and how many frames it lasted.
-    fn play(content: &Content, state: &mut GameState, kind: S) -> ([i32; 4], i32) {
+    /// to stay the same on every frame of it), how many frames it lasted and the last frame (`state_frame`) on which it moved at its
+    /// body's roll speed (0 if it never did).
+    fn play(content: &Content, state: &mut GameState, kind: S) -> ([i32; 6], i32, i32) {
         let info = |state: &GameState| {
             let f = &state.fighters[0];
             dodge_info(f, sim_core::combat::params_of(content, f), &content.rules)
         };
+        let speed = sim_core::combat::params_of(content, &state.fighters[0]).roll_speed;
         assert_eq!(state.fighters[0].state, kind);
         let first = info(state);
         let mut frames = 0;
+        let mut moved = 0;
         while state.fighters[0].state == kind {
             assert_eq!(info(state), first, "frame {frames} of {kind:?}");
             tick(content, state, Input::default());
             frames += 1;
+            if state.fighters[0].vel.x.abs() == speed {
+                moved = frames;
+            }
             assert!(frames < 400, "{kind:?} never ended");
         }
-        (first, frames)
+        (first, frames, moved)
+    }
+
+    /// Body `ch`, its dodges `level` stale, raises its shield and flicks the stick `x`: the frame its roll begins.
+    fn shield_roll(ch: u8, level: u8, x: i8) -> (Content, GameState) {
+        let (content, mut state) = alone(ch, level);
+        for _ in 0..6 {
+            tick(&content, &mut state, input(0, 0, SHIELD));
+        }
+        tick(&content, &mut state, input(x, 0, SHIELD));
+        (content, state)
+    }
+
+    /// Body `ch`, its dodges `level` stale, falls tumbling onto the stage, presses shield just before landing and flicks the stick `x`
+    /// as it lands: the frame its tech roll begins.
+    fn tech_roll(ch: u8, level: u8, x: i8) -> (Content, GameState) {
+        let (content, mut state) = alone(ch, level);
+        let f = &mut state.fighters[0];
+        f.state = S::Hitstun;
+        f.hitstun = 80;
+        f.tumble = true;
+        f.pos = Vec2::new(Fx::ZERO, Fx::from_ratio(1, 2));
+        f.vel = Vec2::new(Fx::ZERO, Fx::from_ratio(-1, 5));
+        f.platform = NONE;
+        tick(&content, &mut state, input(0, 0, SHIELD));
+        for t in 0..8 {
+            let stick = if t == 0 { x } else { x / 5 * 4 };
+            tick(&content, &mut state, input(stick, 0, SHIELD));
+            if state.fighters[0].state != S::Hitstun {
+                break;
+            }
+        }
+        (content, state)
     }
 
     /// Player 0 lying after a knockdown (sitting after a trip if `tripped`), long enough to get up, then `held` for a frame.
@@ -3852,6 +3906,7 @@ mod tests {
     /// `fighter_dodge`'s fourth value is the frame the sim really ends each dodge on, fresh and stale, on every body: rolls both
     /// ways and spot dodges at every staleness, air dodges (staling shortens their travel, not their time), tech, get-up and trip
     /// rolls (never stale, each its own length since sim 149, which is also their first value) and the stand-up from the floor.
+    /// The last two are 0 for everything but a roll (see `dodge_info_reports_each_rolls_kind_and_its_last_moving_frame`).
     #[test]
     fn dodge_info_totals_are_the_frames_each_dodge_ends_on() {
         let base = Content::placeholder();
@@ -3861,12 +3916,8 @@ mod tests {
             let p = base.fighters[usize::from(ch)];
             for level in 0..=max {
                 for (x, way) in [(127, 1), (-127, -1)] {
-                    let (content, mut state) = alone(ch, level);
-                    for _ in 0..6 {
-                        tick(&content, &mut state, input(0, 0, SHIELD));
-                    }
-                    tick(&content, &mut state, input(x, 0, SHIELD));
-                    let (info, frames) = play(&content, &mut state, S::Roll);
+                    let (content, mut state) = shield_roll(ch, level, x);
+                    let (info, frames, _) = play(&content, &mut state, S::Roll);
                     let fresh = if way > 0 {
                         p.roll_frames
                     } else {
@@ -3882,10 +3933,10 @@ mod tests {
                     tick(&content, &mut state, input(0, 0, SHIELD));
                 }
                 tick(&content, &mut state, input(0, -127, SHIELD));
-                let (info, frames) = play(&content, &mut state, S::SpotDodge);
+                let (info, frames, _) = play(&content, &mut state, S::SpotDodge);
                 assert_eq!(
-                    [info[0], info[1], info[2]],
-                    [i32::from(p.spot_dodge_frames), 0, 0]
+                    [info[0], info[1], info[2], info[4], info[5]],
+                    [i32::from(p.spot_dodge_frames), 0, 0, 0, 0]
                 );
                 assert_eq!(info[3], frames, "body {ch}, spot dodge, level {level}");
                 assert!(
@@ -3901,34 +3952,20 @@ mod tests {
                     f.platform = NONE;
                     f.state = S::Airborne;
                     tick(&content, &mut state, input(x, y, SHIELD));
-                    let (info, frames) = play(&content, &mut state, S::AirDodge);
+                    let (info, frames, _) = play(&content, &mut state, S::AirDodge);
                     assert_eq!(
                         info[3], frames,
                         "body {ch}, air dodge ({x}, {y}), level {level}"
                     );
                     assert_eq!(info[3], info[0]);
+                    assert_eq!([info[4], info[5]], [0, 0]);
                 }
             }
             let rules = base.rules;
             for x in [127i8, -127] {
                 // A tech roll, a get-up roll and a trip's roll, however stale the fighter's dodges are.
-                let (content, mut state) = alone(ch, max);
-                let f = &mut state.fighters[0];
-                f.state = S::Hitstun;
-                f.hitstun = 80;
-                f.tumble = true;
-                f.pos = Vec2::new(Fx::ZERO, Fx::from_ratio(1, 2));
-                f.vel = Vec2::new(Fx::ZERO, Fx::from_ratio(-1, 5));
-                f.platform = NONE;
-                tick(&content, &mut state, input(0, 0, SHIELD));
-                for t in 0..8 {
-                    let stick = if t == 0 { x } else { x / 5 * 4 };
-                    tick(&content, &mut state, input(stick, 0, SHIELD));
-                    if state.fighters[0].state != S::Hitstun {
-                        break;
-                    }
-                }
-                let (info, frames) = play(&content, &mut state, S::Roll);
+                let (content, mut state) = tech_roll(ch, max, x);
+                let (info, frames, _) = play(&content, &mut state, S::Roll);
                 assert_eq!(
                     (info[3], info[0], info[2]),
                     (frames, frames, 0),
@@ -3940,7 +3977,7 @@ mod tests {
                     (true, rules.trip_roll_frames),
                 ] {
                     let (content, mut state) = get_up(ch, max, tripped, input(x, 0, 0));
-                    let (info, frames) = play(&content, &mut state, S::Roll);
+                    let (info, frames, _) = play(&content, &mut state, S::Roll);
                     assert_eq!(
                         (info[3], info[0], info[2]),
                         (frames, frames, 0),
@@ -3950,9 +3987,45 @@ mod tests {
                 }
             }
             let (content, mut state) = get_up(ch, 0, false, input(0, 100, 0));
-            let (info, frames) = play(&content, &mut state, S::GetUp);
+            let (info, frames, _) = play(&content, &mut state, S::GetUp);
             let n = i32::from(base.rules.getup_frames);
-            assert_eq!((info, frames), ([n, 0, 0, n], n), "body {ch}, stand-up");
+            assert_eq!(
+                (info, frames),
+                ([n, 0, 0, n, 0, 0], n),
+                "body {ch}, stand-up"
+            );
+        }
+    }
+
+    /// `fighter_dodge`'s fifth and sixth values (sim 149, for the view): what a roll comes out of (0 a shield, 1 a tech, 2 a
+    /// knockdown, 3 a trip) and the last frame on which the sim carries the fighter at its roll speed, on every body, both ways: the
+    /// body's last move frame for a fresh roll and for every floor roll (never stale), later for a stale shield roll.
+    #[test]
+    fn dodge_info_reports_each_rolls_kind_and_its_last_moving_frame() {
+        let base = Content::placeholder();
+        let bodies = u8::try_from(base.fighters.len()).unwrap();
+        let max = base.rules.dodge_stale_max;
+        for ch in 0..bodies {
+            let p = base.fighters[usize::from(ch)];
+            for x in [127i8, -127] {
+                let rolls = [
+                    (0, 0, shield_roll(ch, 0, x)),
+                    (0, max, shield_roll(ch, max, x)),
+                    (1, 0, tech_roll(ch, max, x)),
+                    (2, 0, get_up(ch, max, false, input(x, 0, 0))),
+                    (3, 0, get_up(ch, max, true, input(x, 0, 0))),
+                ];
+                for (kind, level, (content, mut state)) in rolls {
+                    let (info, _, moved) = play(&content, &mut state, S::Roll);
+                    let at = format!("body {ch}, kind {kind}, level {level}, stick {x}");
+                    assert_eq!([info[4], info[5]], [kind, moved], "{at}");
+                    if level == 0 {
+                        assert_eq!(moved, i32::from(p.roll_move_end), "{at}");
+                    } else {
+                        assert!(moved > i32::from(p.roll_move_end), "{at}: later when stale");
+                    }
+                }
+            }
         }
     }
 

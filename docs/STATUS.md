@@ -108,7 +108,8 @@ forward and back, 1-19 to 1-31); a trip's roll 28, intangible 1-9; frame 1 is th
 `tech_roll_frames` / `tech_roll_intangible`, `getup_roll_frames` / `getup_roll_intangible` / `getup_roll_back_intangible` (the
 window for a body without its own) and `trip_roll_frames` / `trip_roll_intangible` (a length of 0 plays the shield roll, the older
 rule); optional fighter fields `getup_roll_intangible` / `getup_roll_back_intangible`; hashed `Fighter::roll_kind`. The rolls move as
-the shield roll does [E]. The bridge's `fighter_dodge` reports each roll's own length. Tests `floor_rolls.rs` (7), the bridge's
+the shield roll does [E]. The bridge's `fighter_dodge` reports each roll's own length, and (behaviour-neutral, for the view) a fifth
+and sixth value: the roll's kind and the last frame it moves on (`fighter::roll_moves_until`). Tests `floor_rolls.rs` (7), the bridge's
 `dodge_info_totals_are_the_frames_each_dodge_ends_on`, sim-content `the_floor_roll_fields_round_trip_and_are_checked`;
 `fuzz-rollback 1000` and `net-fuzz 2000`: 0 mismatches. Found on the way, not done: the tech in place and the stand-ups (D8).
 **Sim 141** (released together; the moveset session's 138 and 139 below landed after the run mode's 140, so they ship as 141 under the max+1 rule: everything those entries call sim 138 and 139 is in 141).

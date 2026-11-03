@@ -1767,6 +1767,28 @@ pub fn roll_length(f: &Fighter, p: &FighterParams, rules: &Ruleset) -> u16 {
     stale_length(roll_fresh_length(f, p, rules), percent, f.dodge_level)
 }
 
+/// The last frame (`state_frame`) on which the roll in progress carries the fighter at its speed, as `roll` plays it: the body's move
+/// frames (`roll_move_start..=roll_move_end`, the same for every kind of roll) stretched by the roll's staleness, within its length;
+/// 0 if it never moves. Only the view reads it (the bridge's `fighter_dodge`), to roll over the moving frames and stand up after them.
+pub fn roll_moves_until(f: &Fighter, p: &FighterParams, rules: &Ruleset) -> u16 {
+    let back = f.dodge_dir.x.signum_int() != i32::from(f.facing);
+    let percent = if back {
+        rules.dodge_stale_back_roll
+    } else {
+        rules.dodge_stale_roll
+    };
+    (1..=roll_length(f, p, rules))
+        .rev()
+        .find(|&frame| {
+            within(
+                stale_frame(frame, percent, f.dodge_level),
+                p.roll_move_start,
+                p.roll_move_end,
+            )
+        })
+        .unwrap_or(0)
+}
+
 /// The frames the roll in progress is intangible on, fresh (`start..=end`, counted as `dodge_frame` counts): a tech roll's and a
 /// trip's the ruleset's, a get-up roll's the body's own (the ruleset's for a body without one), all from frame 1 (sim 149); a shield
 /// roll's the body's, a backward one's own when the body gives one (sim 144).
