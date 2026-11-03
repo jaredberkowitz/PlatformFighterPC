@@ -139,9 +139,15 @@ fn play(l: Loop) -> Played {
         } else if me.state == S::JumpSquat
             || (!me.grounded() && me.state == S::Airborne && started > 0)
         {
-            // Until the aerial starts, the stick picks it.
+            // Until the aerial starts, the stick picks it. A neutral air's jump is held toward the target through the squat (the jump's
+            // stick share carries it there), then let go as the aerial starts: since sim 148 the landing before it slides on the
+            // reference's traction and stops short of a fleeing target, as a player would hold forward.
             let press = if me.state == S::Airborne { ATTACK } else { 0 };
-            input = inp(cur.0 * me.facing, cur.1, press);
+            input = if me.state == S::JumpSquat && cur == (0, 0) {
+                inp(toward, 0, press)
+            } else {
+                inp(cur.0 * me.facing, cur.1, press)
+            };
         } else if !me.grounded() && me.state == S::Attack {
             let want = dx.abs() - l.behind;
             let drift: i8 = if want > slack {

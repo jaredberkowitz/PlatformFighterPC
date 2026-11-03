@@ -74,6 +74,12 @@ The placeholder stage is now Final Destination-sized (main block 22 wide, side p
   (`ground_friction`), not the gentle `run_decel`.
 - A dash attack slides on the reference game's traction (`dash_attack_friction`: 0.114, 0.11 and 0.106 reference units a frame for
   the three classes), about two world units out of a run (sim v35; it slid nearly twice as far before).
+- **Sim 148, the reference's rules (`docs/MOVEMENT_1TO1.md`)**: a stop on the ground (standing, crouching, a landing, a shield, an
+  attack) brakes at traction, half of `ground_friction`, doubled when it began faster than the walk speed; letting go of a run, and
+  run speed above the run's own, brake at traction; the dash starts at `dash_speed`, keeps it 6 frames, then eases toward the run
+  (stick held forward) or brakes at traction; air speed above the stick's share brakes at the air friction only; and a jump's
+  takeoff frame moves. Each rule is a ruleset switch (`traction_rule`, `dash_keep_frames`, `air_drift_brake`). The lines above that
+  name `landing_friction`, `run_decel` or a doubled traction for stops describe the rules before sim 148.
 
 ## Ledge grab rule (bug fix)
 

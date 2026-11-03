@@ -280,8 +280,9 @@ fn a_full_hop_opens_fast_and_covers_most_of_its_rise_early() {
         let squat = usize::from(p.jump_squat_frames);
         let burst = usize::from(p.hop_burst_frames);
         // When the opening ends the fighter has risen about 55% of the hop.
-        // Takeoff happens on tick `squat` (index), and the opening moves on the next `burst` ticks.
-        let at_burst = heights[squat + burst];
+        // Takeoff happens on tick `squat` (index), and the opening moves on it and the next `burst - 1` ticks (the takeoff frame is
+        // already an airborne one: sim 148, the reference's airtimes).
+        let at_burst = heights[squat + burst - 1];
         assert!(
             at_burst > apex * fx(50, 100) && at_burst < apex * fx(60, 100),
             "after the opening: {at_burst:?} of {apex:?}"
@@ -402,9 +403,10 @@ fn brawler() -> Sim {
 #[test]
 fn a_dash_attack_out_of_a_dash_keeps_sliding_forward_on_traction() {
     // From dash speed (2.09 reference units a frame) at the reference traction (0.11): about 20 reference units, 2.5 world units,
-    // well past where a standing attack stops (sim v35; it slid a gentler 3.5 and more before).
+    // well past where a standing attack stops (sim v35; it slid a gentler 3.5 and more before). (Out of the dash's kept frames, while
+    // it is still at its speed: sim 148.)
     let mut sim = brawler();
-    sim.ticks(8, inp(127, 0, 0));
+    sim.ticks(5, inp(127, 0, 0));
     assert_eq!(sim.f().state, S::Dash);
     let x0 = sim.f().pos.x;
     sim.tick(inp(127, 0, ATTACK));
@@ -427,9 +429,14 @@ fn dash_then_let_go(sim: &mut Sim) {
 }
 
 #[test]
-fn attack_just_after_letting_go_of_a_dash_is_still_a_dash_attack_not_a_jab() {
+fn attack_after_letting_go_of_the_stick_in_a_dash_is_still_a_dash_attack_not_a_jab() {
+    // The dash is committed: let go, it runs its length (braking at traction after its kept frames since sim 148), and an attack in
+    // it is the dash attack. (Before sim 148 it kept its full speed to its end, so it was still sliding fast enough after it ended for
+    // the dash attack too: `start_ground_attack`'s slide rule, which the reference's braking dash no longer reaches.)
     let mut sim = brawler();
-    dash_then_let_go(&mut sim); // the fighter is still sliding fast
+    sim.ticks(3, inp(127, 0, 0));
+    sim.ticks(4, inp(0, 0, 0));
+    assert_eq!(sim.f().state, S::Dash);
     sim.tick(inp(0, 0, ATTACK));
     assert_eq!(sim.f().move_id, MoveId::DashAttack as u8);
 }
@@ -474,13 +481,28 @@ fn a_tap_covers_the_whole_initial_dash() {
     let dash = usize::from(sim.content.fighters[0].dash_frames);
     let (tapped, dashing) = tapped_dash(dash);
     assert!(dashing, "letting go does not end the dash");
-    // The same distance as a dash with the stick held all the way.
+    // Its speed is kept for its first frames whatever the stick does (sim 148, the reference's dash: `dash_keep_frames`); after
+    // them a tap brakes at traction while a held dash eases toward the run, so the tap goes a little less far.
     let mut held = Sim::alone();
     let x0 = held.f().pos.x;
     held.ticks(dash, inp(127, 0, 0));
-    assert_eq!(tapped, held.f().pos.x - x0, "a tap dashes as far as a hold");
-    // The view draws the dash's stride from this, so it must be what the simulation does.
-    assert_eq!(tapped, sim.content.fighters[0].initial_dash_distance());
+    let held = held.f().pos.x - x0;
+    assert!(tapped <= held, "a tap dashes no further than a hold");
+    let keep = usize::from(sim.content.rules.dash_keep_frames);
+    let (kept, _) = tapped_dash(keep);
+    let mut held_keep = Sim::alone();
+    let x0 = held_keep.f().pos.x;
+    held_keep.ticks(keep, inp(127, 0, 0));
+    assert_eq!(
+        kept,
+        held_keep.f().pos.x - x0,
+        "the kept frames go as far either way"
+    );
+    // The view draws the dash's stride from this (a held dash), so it must be what the simulation does.
+    assert_eq!(
+        held,
+        sim.content.fighters[0].initial_dash_distance(&sim.content.rules)
+    );
     // Then it ends by itself, braking to a stand.
     let mut sim = Sim::alone();
     sim.tick(inp(127, 0, 0));
@@ -567,8 +589,10 @@ fn the_shield_cuts_the_initial_dash_to_about_half() {
     full.ticks(30 + half, inp(0, 0, 0));
     let whole = full.f().pos.x - x0;
     assert!(shielded > Fx::ZERO, "it did move");
+    // (The reference's dash runs at its full speed from the first frame and the shield slides out of it at the doubled traction, so
+    // about three quarters: sim 148. It was about half while the dash eased up from a slower start.)
     assert!(
-        shielded < whole * fx(7, 10),
+        shielded < whole * fx(8, 10),
         "shield {shielded:?} against {whole:?}"
     );
 }

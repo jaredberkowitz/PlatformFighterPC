@@ -142,6 +142,10 @@ pub struct Fighter {
     /// The horizontal speed the fighter had as it turned around out of a dash or run (0 for a turn from a walk or standing). A jump
     /// in the first frames of a dash turnaround keeps it (a reverse aerial rush); in a turn it marks a run's skid.
     pub turn_speed: Fx,
+    /// The fighter's horizontal speed when its stop on the ground began (sim 148, `Ruleset::traction_rule`): set as each state begins
+    /// and while it walks, dashes or runs, so a stop brakes at the doubled traction when it began faster than a walk. A run let go
+    /// sets 0 (its run brake is plain traction), as does a hit on a shield.
+    pub brake_from: Fx,
     /// While non-zero, pass-through platforms are ignored (set by shield drop).
     pub platform_ignore: u8,
     /// Ledge currently held, or [`NONE`].
@@ -749,6 +753,7 @@ impl Fighter {
             dash_age: 255,
             dash_wait: 0,
             turn_speed: Fx::ZERO,
+            brake_from: Fx::ZERO,
             platform_ignore: 0,
             ledge: NONE,
             ledge_invuln: 0,
@@ -1015,6 +1020,7 @@ impl StateHash for Fighter {
         h.write_u8(self.dash_age);
         h.write_u8(self.dash_wait);
         self.turn_speed.hash_into(h);
+        self.brake_from.hash_into(h);
         h.write_u8(self.platform_ignore);
         h.write_i8(self.ledge);
         h.write_u8(self.ledge_invuln);
@@ -1351,6 +1357,11 @@ mod tests {
             ("platform_ignore", {
                 let mut s = state;
                 s.fighters[0].platform_ignore = 1;
+                s
+            }),
+            ("brake_from", {
+                let mut s = state;
+                s.fighters[0].brake_from = Fx::from_raw(1);
                 s
             }),
             ("ledge", {
