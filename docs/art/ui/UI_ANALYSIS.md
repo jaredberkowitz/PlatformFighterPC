@@ -180,3 +180,23 @@ The older looks (`--ui-paper=0|B|C`) keep their pieces: every cardstock branch c
 Not done: the lobby's stage step sits on paper but keeps the band keys; the creator's tool buttons and category column are still
 separate cards (the owner's creator redesign comes later); Replays' rows are already cards and only changed material. Not checked: a
 real gamepad, the mouse on the new rows (the rows keep their nodes and signals).
+
+## Paper pass 6: fighter select as "face-off", the owner's pick of the select hero mocks (2026-11-03)
+
+The open item from the paper passes was the select screen's hero layout (the fighters at about a third of the height). Three layouts
+were mocked with real renders on the "Paper UI Mocks" canvas, row 3 (Face-off, Split sheet, Break-out); the owner picked **Face-off**.
+Before/after: `faceoff_before_after.png`; states in `faceoff/` (choosing, both ready, four players, the run).
+
+| Change | Where |
+| --- | --- |
+| The players' panels at either side, the screen's height (66-646), the fighter about 85% of it, facing the centre; with three or four players two panels stacked at each side; the run's one panel at the left | `select.gd` `_layout_panels`, `SIDE_W`, `PANEL_H` |
+| The fighter held in its class's jump at the top of its spring (`AnimLibrary.family_clip(cls, "jump")` at 0.35), a little wider than its panel and up past its top | `preview.gd` `hold_clip`, `select.gd` `PlayerPanel` |
+| The fighter cut out of paper: a cream die-cut rim and a hard paper shadow round its shape | `shaders/die_cut.gdshader` on the panel's preview |
+| The roster a grid in the centre column under a gold VS (17 cards at 89 px in four columns; the run's grid spans the right side) | `select.gd` `GRID_AREA`, `GRID_LEFT`, `GRID_AREA_RUN`, `grid_layout(n, area)` |
+| Cardstock top layer: the name on a cream plate at the foot with the class above it in the player's colour, the P tab a small card at the top corner, READY! a gold card stamped on the plate's corner (at the top it covered the head) | `select.gd` `_paint_over_cardstock` |
+| READY TO FIGHT! a coral card over the centre column, words stacked | `select.gd` `Ribbon` |
+
+The grid test's "nine cards sit in one row" (the old strip) is now "the built-in roster's seventeen cards fit without scrolling at 80 px
+or more". Not done: the poses are today's jump frames; striking menu poses of their own (and a weapon that follows a swing in the
+menus: `_pose_menu_weapon` holds it at rest) need the animator. Not checked: 30 and 100 saved fighters (the grid scrolls), long names
+on the plate (they shrink to fit), a real gamepad.

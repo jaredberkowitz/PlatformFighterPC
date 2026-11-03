@@ -1,5 +1,7 @@
 extends Control
-## Character select, "fighters forward" (the owner's pick of 2026-10-19, docs/art/ui/mocks/select_options.png layout 3): the chosen
+## Character select, "face-off" (the owner's pick of 2026-11-03, the "Paper UI Mocks" canvas, round 3): the chosen fighters full
+## height in a panel at either side, facing each other in a held jump, cut out of paper; the roster as a grid in the centre column under
+## a gold VS; the match rules on the top bar. (Before: "fighters forward" (the owner's pick of 2026-10-19, docs/art/ui/mocks/select_options.png layout 3): the chosen
 ## fighters large in a tall panel each (facing across a VS with two players), the roster as a strip of cards along the bottom (each with
 ## the fighter's own 3D portrait; the built-in fighters, every fighter saved from the creator, a random pick and a "new fighter" door),
 ## the match rules in a bar along the top, and a "ready to fight" band over the strip once everyone has locked in.
@@ -18,15 +20,24 @@ const Preview := preload("res://ui/preview.gd")
 const Loadout := preload("res://scripts/loadout.gd")
 const Roster := preload("res://scripts/roster.gd")
 const Shot := preload("res://ui/shot.gd")
+const AnimLibrary := preload("res://scripts/anim_library.gd")
+const DIE_CUT := preload("res://shaders/die_cut.gdshader")
 const PadNav := preload("res://scripts/pad_nav.gd")
 
 ## The roster grid fits its cards into the strip along the bottom (GRID_AREA, from GRID_TOP): as many fighters are saved, it starts new
 ## rows and makes every card smaller (from TOKEN_MAX down to TOKEN_MIN wide), so a long roster still shows whole at once; past what fits
 ## at the smallest size (the roster holds up to Roster.MAX_FIGHTERS) it scrolls. `grid_layout` picks the columns and the card width; a
 ## card is CARD_H of its width tall (wider than tall: head and shoulders), plus 12 for its lift and body.
-const GRID_AREA := Vector2(1192, 214)
-const GRID_TOP := 452.0
+const GRID_AREA := Vector2(432, 440)
+const GRID_TOP := 150.0
+## The grid's left edge: the centre column between the players' panels (the run's one panel leaves it the right side, GRID_AREA_RUN).
+const GRID_LEFT := 424.0
+const GRID_AREA_RUN := Vector2(820, 440)
 const CARD_H := 0.78
+## The players' panels at either side (face-off): their width, the gap from the screen's edge, and the gap between two stacked panels.
+const SIDE_W := 384.0
+const SIDE_MARGIN := 20.0
+const STACK_GAP := 12.0
 const TOKEN_MAX := 132
 const TOKEN_MIN := 52
 const GRID_GAP := Vector2(10, 12)
@@ -37,17 +48,17 @@ var columns := 9
 
 ## [columns, card size] for `n` cards: the largest card that fits them all in GRID_AREA (cards are square, plus 12 for the lift), or the
 ## smallest size filling the width when even that does not fit (then the grid scrolls).
-static func grid_layout(n: int) -> Array:
+static func grid_layout(n: int, area := GRID_AREA) -> Array:
 	var best := [maxi(1, n), 0]
 	for cols in range(1, maxi(1, n) + 1):
 		var rows := ceili(float(n) / float(cols))
-		var by_width := floori((GRID_AREA.x - GRID_GAP.x) / float(cols) - GRID_GAP.x)
-		var by_height := floori((GRID_AREA.y / float(rows) - GRID_GAP.y - 12.0) / CARD_H)
+		var by_width := floori((area.x - GRID_GAP.x) / float(cols) - GRID_GAP.x)
+		var by_height := floori((area.y / float(rows) - GRID_GAP.y - 12.0) / CARD_H)
 		var t := mini(TOKEN_MAX, mini(by_width, by_height))
 		if t > int(best[1]):
 			best = [cols, t]
 	if int(best[1]) < TOKEN_MIN:
-		return [floori((GRID_AREA.x - GRID_GAP.x) / (TOKEN_MIN + GRID_GAP.x)), TOKEN_MIN]
+		return [floori((area.x - GRID_GAP.x) / (TOKEN_MIN + GRID_GAP.x)), TOKEN_MIN]
 	return best
 ## A card's face height for a card `t` wide.
 static func card_height(t: int) -> int:
@@ -63,8 +74,8 @@ const KEYS := [["WASD", "P1 move   J lock   K back"], ["\u2190\u2192", "P2 move 
 	["E", "Edit"], ["T", "Stocks"], ["Y", "Time"], ["Esc", "Menu"]]
 const RUN_KEYS := [["WASD", "Move   J lock   K back"], ["Enter", "Run"], ["E", "Edit"], ["Esc", "Menu"]]
 ## The players' panels' top and height (between the top bar and the news line over the roster).
-const PANEL_TOP := 64.0
-const PANEL_H := 348.0
+const PANEL_TOP := 66.0
+const PANEL_H := 580.0
 const P_COLORS := [Color(0.92, 0.36, 0.36), Color(0.36, 0.52, 0.95), Color(0.95, 0.78, 0.3), Color(0.4, 0.8, 0.5)]
 const P_DISC := [Color(0.98, 0.72, 0.72), Color(0.74, 0.8, 0.98), Color(0.99, 0.9, 0.62), Color(0.76, 0.94, 0.8)]
 
@@ -229,7 +240,9 @@ class PlayerPanel extends Control:
 	const LEAN := 30.0
 	## The fighter's resting height in the panel, and how far it rises from on a new pick and hops on locking in.
 	# (Lower since the select rebuild, 2026-10-19: in the tall panels the fighter's feet floated over its name and its hat left the frame.)
-	const BASE_Y := 4.0
+	const BASE_Y := -34.0
+	## Which way the fighter faces: 1 toward the right (a panel on the left), -1 toward the left.
+	var facing := 1
 	const PICK_RISE := 30.0
 	const LOCK_HOP := 18.0
 	var pick_t := 1.0
@@ -264,7 +277,15 @@ class PlayerPanel extends Control:
 		spot.seed = 11 + p * 17
 		scenery = spot
 		mask.add_child(scenery)
-		preview = Preview.new(Vector2i(260, 260), false, 6.8)
+		# (Closer since the face-off, 2026-11-03: the fighter fills a panel the screen's height, about 85% of it, cut out of paper.)
+		preview = Preview.new(Vector2i(260, 260), false, 7.4)
+		preview.spin = false
+		preview.camera.position = Vector3(0, 1.3, 7.4)
+		preview.camera.look_at_from_position(preview.camera.position, Vector3(0, 1.2, 0))
+		if Art.paper_style() > 0:
+			var m := ShaderMaterial.new()
+			m.shader = DIE_CUT
+			preview.material = m
 		add_child(preview)
 
 	func _frame() -> Rect2:
@@ -277,11 +298,13 @@ class PlayerPanel extends Control:
 		mask.size = f.size - Vector2(16, 16)
 		mask.set_shape(PackedVector2Array([Vector2(LEAN, 0), Vector2(mask.size.x, 0), Vector2(mask.size.x - LEAN, mask.size.y), Vector2(0, mask.size.y)]))
 		scenery.size = mask.size
-		# The fighter fills the panel's height (the camera keeps the height, so a taller view is a bigger fighter).
-		var ph := h - 30.0
-		var pw := minf(w * 0.86, ph * 1.1)
+		# The fighter fills the panel's height (the camera keeps the height, so a taller view is a bigger fighter), a little wider than the
+		# panel and up past its top, so it breaks out of its frame as a cut-out (face-off). It faces the screen's centre.
+		var ph := h + 10.0
+		var pw := w * 1.12
 		preview.size = Vector2(pw, ph)
-		preview.position = Vector2(w * 0.5 - pw * 0.5 + 10.0, BASE_Y)
+		preview.position = Vector2(w * 0.5 - pw * 0.5, BASE_Y)
+		preview.facing_bias = 0.55 if facing > 0 else -0.55
 
 
 	func _draw() -> void:
@@ -327,6 +350,9 @@ class PlayerPanel extends Control:
 
 	## Drawn above the fighter by the screen's overlay: the name stroke, the tab and the badge (and "?" with nobody chosen).
 	func paint_over(over: Control) -> void:
+		if Art.paper_style() == 1:
+			_paint_over_cardstock(over)
+			return
 		var f := _frame()
 		f.position += position
 		if empty:
@@ -351,6 +377,44 @@ class PlayerPanel extends Control:
 			Art.brush_band(over, badge, Art.SUN, 110 + player, 12.0, true, 0.6)
 			Art.title_centered(over, "READY!", badge, 30, Art.INK, 0.0)
 
+	## The cardstock top layer (face-off): the name on a cream plate at the foot with the class over it in the player's colour, the
+	## player's tab a small card in its colour at the top corner, READY! a gold card; each laid a little turned, as cards by hand.
+	func _paint_over_cardstock(over: Control) -> void:
+		var f := _frame()
+		f.position += position
+		var tall := f.size.y > 400.0
+		if empty:
+			Art.title_centered(over, "?", Rect2(f.position, f.size - Vector2(0, 80)), 140 if tall else 90, Color(1, 1, 1, 0.75))
+		var side := float(facing)
+		var plate_h := 78.0 if tall else 60.0
+		var plate_w := minf(f.size.x - 40.0, 340.0)
+		var plate := Rect2(Vector2(f.position.x + (16.0 if facing > 0 else f.size.x - plate_w - 16.0), f.end.y - plate_h + 10.0),
+			Vector2(plate_w, plate_h))
+		over.draw_set_transform(plate.get_center(), deg_to_rad(-1.5 * side))
+		var local := Rect2(-plate.size * 0.5, plate.size)
+		Art.card(over, local, D.SHEET.lightened(0.3), 31 + player, 10.0)
+		var shown := name_text.to_upper() if not empty else "CHOOSE A FIGHTER"
+		var name_size := (52 if tall else 36) if not empty else (32 if tall else 24)
+		var nf := D.display_font()
+		while name_size > 18 and nf.get_string_size(shown, HORIZONTAL_ALIGNMENT_LEFT, -1, name_size).x > local.size.x - 36.0:
+			name_size -= 2
+		over.draw_string(nf, Vector2(local.position.x + 18.0, local.end.y - (14.0 if tall else 10.0)), shown, HORIZONTAL_ALIGNMENT_LEFT, -1,
+			name_size, Art.INK)
+		if not empty and class_text != "":
+			over.draw_string(D.label_font(), Vector2(local.position.x + 20.0, local.position.y + (22.0 if tall else 17.0)), class_text,
+				HORIZONTAL_ALIGNMENT_LEFT, -1, UI.TYPE_CAPTION, flag_color.darkened(0.35))
+		var tab := Rect2(Vector2(f.position.x - 8.0 if facing > 0 else f.end.x - 70.0, f.position.y - 20.0), Vector2(78, 48))
+		over.draw_set_transform(tab.get_center(), deg_to_rad(-3.0 * side))
+		Art.card(over, Rect2(-tab.size * 0.5, tab.size), flag_color, 51 + player, 8.0)
+		Art.title_centered(over, "CPU" if cpu else "P%d" % (player + 1), Rect2(-tab.size * 0.5, tab.size), 32, Color.WHITE, 0.0)
+		if is_ready:
+			# Stamped on the name plate's top corner (at the panel's top it covered the fighter's head, which breaks out of the frame).
+			var badge := Rect2(Vector2(plate.end.x - 140.0, plate.position.y - 30.0), Vector2(128, 46))
+			over.draw_set_transform(badge.get_center(), deg_to_rad(4.0 * side))
+			Art.card(over, Rect2(-badge.size * 0.5, badge.size), Art.SUN, 71 + player, 8.0)
+			Art.title_centered(over, "READY!", Rect2(-badge.size * 0.5, badge.size), 32, Art.INK, 0.0)
+		over.draw_set_transform(Vector2.ZERO, 0.0)
+
 	func show_entry(e: Dictionary, size_percent: float, ready: bool) -> void:
 		# A new fighter slides up into the light; locking in gives a hop (`_process`).
 		if not e.is_empty() and str(e.get("name", "")) != name_text:
@@ -365,6 +429,8 @@ class PlayerPanel extends Control:
 			name_text = e.name
 			var c := int(e.get("class", -1))
 			preview.set_weapon(c)
+			# The hero pose: the class's own jump, held at the top of its spring (face-off).
+			preview.hold_clip(AnimLibrary.family_clip(c, "jump", preview.view.anim), 0.35)
 			class_text = Roster.CLASS_NAMES[c].to_upper() if c >= 0 and c < Roster.CLASS_NAMES.size() else ""
 		is_ready = ready
 		queue_redraw()
@@ -402,7 +468,7 @@ class Header extends Control:
 		draw_line(Vector2(0, TOP_BAR), Vector2(size.x, TOP_BAR), D.GOLD, 3.0)
 		Art.title(self, mode_text, Vector2(40, 43), UI.TYPE_HEADING, Color.WHITE, 0.0)
 		if show_vs:
-			Art.title_centered(self, "VS", Rect2(Vector2(580, 180), Vector2(120, 110)), 80, D.GOLD, 0.12)
+			Art.title_centered(self, "VS", Rect2(Vector2(560, 64), Vector2(160, 84)), 72, D.GOLD, 0.12)
 
 
 ## The top bar's height.
@@ -423,6 +489,15 @@ class Ribbon extends Control:
 
 
 	func _draw() -> void:
+		if Art.paper_style() == 1:
+			# Cardstock (face-off): a coral card over the centre column, the words stacked.
+			var rc := Rect2(Vector2(8, 8), size - Vector2(16, 16))
+			Art.card(self, rc, Art.CORAL, 21, 16.0)
+			Art.title_centered(self, "READY TO FIGHT!", Rect2(rc.position + Vector2(0, 12), Vector2(rc.size.x, rc.size.y * 0.55)),
+				UI.TYPE_TITLE, Color.WHITE, 0.0)
+			Art.title_centered(self, "Press Start", Rect2(rc.position + Vector2(0, rc.size.y * 0.58), Vector2(rc.size.x, rc.size.y * 0.32)),
+				UI.TYPE_LABEL, D.SHEET, 0.0)
+			return
 		var r := Rect2(Vector2(40, 6), size - Vector2(80, 12))
 		Art.brush_band(self, r, Color("e8424a"), 21, 28.0, true, 1.6)
 		Art.brush_band(self, Rect2(r.position + Vector2(80, r.size.y * 0.7), Vector2(r.size.x - 220, r.size.y * 0.16)), Color(1, 1, 1, 0.12), 27, 6.0, false, 0.6)
@@ -454,13 +529,14 @@ func _ready() -> void:
 	# (No "new fighter" card once the roster is full.)
 	if Roster.saved().size() >= Roster.MAX_FIGHTERS:
 		specials = ["random"]
-	var fit := grid_layout(entries.size() + specials.size())
+	var area := GRID_AREA_RUN if run_mode else GRID_AREA
+	var fit := grid_layout(entries.size() + specials.size(), area)
 	columns = fit[0]
 	token = fit[1]
 	var shown := mini(columns, entries.size() + specials.size())
 	var grid_w := shown * (token + int(GRID_GAP.x)) + int(GRID_GAP.x)
-	scroll.position = Vector2(640 - grid_w * 0.5, GRID_TOP)
-	scroll.size = Vector2(grid_w + 16, GRID_AREA.y)
+	scroll.position = Vector2(GRID_LEFT + area.x * 0.5 - grid_w * 0.5, GRID_TOP)
+	scroll.size = Vector2(grid_w + 16, area.y)
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	add_child(scroll)
 	var grid := GridContainer.new()
@@ -526,7 +602,7 @@ func _ready() -> void:
 	add_child(footer)
 
 	# News (the rules' meaning, players 3 and 4) on a dark band between the fighters and the roster.
-	status = UI.notice(Vector2(340, 410), 600, UI.TYPE_BODY)
+	status = UI.notice(Vector2(GRID_LEFT, 604), GRID_AREA.x, UI.TYPE_BODY)
 	add_child(status)
 
 	# The match rules, on the top bar at the right (they floated between the grid and the panels before the rebuild).
@@ -545,8 +621,8 @@ func _ready() -> void:
 
 	# The band across the roster once everyone has locked in (the roster is done with by then).
 	start_button = Ribbon.new()
-	start_button.position = Vector2(-20, 500)
-	start_button.size = Vector2(1320, 84)
+	start_button.position = Vector2(GRID_LEFT - 12.0, 290)
+	start_button.size = Vector2(GRID_AREA.x + 24.0, 150)
 	start_button.activated.connect(_start)
 	start_button.visible = false
 	add_child(start_button)
@@ -801,13 +877,17 @@ func _all_locked() -> bool:
 ## The players' panels between the top bar and the roster: two face each other across the VS; three or four stand side by side; the run's
 ## one stands in the middle.
 func _layout_panels() -> void:
-	var gap := 80.0 if count == 2 else 12.0
-	var w := (1220.0 - gap * (count - 1)) / count if count > 1 else 600.0
-	var x0 := 30.0 if count > 1 else 640.0 - w * 0.5
+	# Face-off: player 1 (and 3) at the left, player 2 (and 4) at the right, facing the centre; with three or four players each side's
+	# column holds two panels stacked. The run's one player stands at the left.
+	var stacked := count > 2
+	var h := (PANEL_H - STACK_GAP) * 0.5 if stacked else PANEL_H
 	for p in 4:
 		var panel: Control = panels[p]
-		panel.position = Vector2(x0 + p * (w + gap), PANEL_TOP)
-		panel.lay_out(w, PANEL_H)
+		var right := p % 2 == 1
+		panel.facing = -1 if right else 1
+		var x := 1280.0 - SIDE_MARGIN - SIDE_W if right else SIDE_MARGIN
+		panel.position = Vector2(x, PANEL_TOP + (p / 2) * (h + STACK_GAP))
+		panel.lay_out(SIDE_W, h)
 	if header != null:
 		header.show_vs = count == 2
 	if panels_overlay != null:
