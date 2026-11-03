@@ -226,8 +226,12 @@ fn a_reverse_aerial_rush_carries_the_runs_momentum() {
     // Sim 145 (the owner after docs/MOMENTUM.md): the stick back with the jump out of a run turns the fighter round and keeps the run's
     // share whole (it took a standing jump's speed off it in sim 144: the Claws left at 0.23 reference units a frame).
     let (neutral, rar) = (takeoff_speed(127, 25, 0), takeoff_speed(127, 25, -127));
+    // (Both left at the run's share; the takeoff frame, already airborne since sim 148, then drifted once: the stick held back
+    // against the motion at the air acceleration, the stick let go at the air friction.)
+    let p = Sim::with_chars([1, 0, 0, 0]).content.fighters[1];
     assert_eq!(
-        rar, neutral,
+        rar + p.air_accel + p.air_accel_stick,
+        neutral + p.air_friction,
         "the run's share, as a jump with the stick let go"
     );
     assert!(rar > Fx::ZERO);

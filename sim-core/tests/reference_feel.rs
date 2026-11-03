@@ -170,9 +170,11 @@ fn a_reverse_aerial_rush_out_of_the_initial_dash_jumps_backward_facing_with_the_
     for gap in [0, 1, 2] {
         let (facing, vx, aerial) = rar_from_dash(6, gap);
         assert_eq!(facing, -1, "gap {gap}: facing back");
+        // (At least the duelist's jump cap, 1.2 of the reference's units: `jump_speed_x_max`, sim 139; less one frame of air control
+        // on the takeoff frame, already airborne since sim 148.)
+        let p = Sim::new().content.fighters[0];
         assert!(
-            // (At least the duelist's jump cap, 1.2 of the reference's units: `jump_speed_x_max`, sim 139.)
-            vx >= fx(15, 100),
+            vx >= fx(15, 100) - p.air_accel - p.air_accel_stick,
             "gap {gap}: still moving forward fast: {vx:?}"
         );
         assert_eq!(
@@ -315,8 +317,10 @@ fn a_keyboard_style_soft_push_back_out_of_a_run_is_a_rar_too() {
             n += 1;
         }
         assert_eq!(sim.f().facing, -1, "gap {gap}");
+        // (Less one frame of air control on the takeoff frame: sim 148.)
+        let p = Sim::new().content.fighters[0];
         assert!(
-            sim.f().vel.x >= fx(15, 100),
+            sim.f().vel.x >= fx(15, 100) - p.air_accel - p.air_accel_stick,
             "gap {gap}: {:?}",
             sim.f().vel.x
         );

@@ -228,6 +228,18 @@ static func sky(t: Dictionary) -> Sky:
 		if arg.begins_with("--cloud-clear=") and t.get("name", "") == "ocean":
 			stratus = [2.0, 1.8]
 	mat.set_shader_parameter("stratus", Vector2(float(stratus[0]), float(stratus[1])))
+	# (The stepped paper sky, after fidelity review 17: the palette's `sky_steps` [layers, wander, cut edge, shadow, paper], or
+	# `--sky-steps=T|A|B|C` to compare; see sky.gdshader `steps`.)
+	var st: Array = t.get("sky_steps", [0, 0.0, 0.0, 0.0, 0.0])
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--sky-steps="):
+			st = {"T": [0, 0.0, 0.0, 0.0, 0.0], "A": [6, 0.35, 0.5, 0.0, 0.0], "B": [6, 0.8, 0.7, 0.6, 0.0],
+				"C": [6, 0.8, 0.7, 0.6, 1.0]}.get(arg.substr(12).to_upper(), st)
+	mat.set_shader_parameter("steps", int(st[0]))
+	mat.set_shader_parameter("step_wave", float(st[1]))
+	mat.set_shader_parameter("step_edge", float(st[2]))
+	mat.set_shader_parameter("step_shadow", float(st[3]))
+	mat.set_shader_parameter("step_paper", float(st[4]))
 	var is_night := top.get_luminance() < 0.15
 	var glow: Color = t.sky_glow[0] if t.has("sky_glow") else horizon
 	mat.set_shader_parameter("night", is_night)

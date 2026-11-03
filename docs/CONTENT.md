@@ -466,6 +466,16 @@ Line numbers inside a script count from its first non-blank line.
   cap; owner decision 102): a fighter landing (out of a jump, a move or a special fall) keeps at most that share of its dash speed
   along the ground, so a fast recovery ending on the stage does not slide across it on the gentle `landing_friction`. A file without it
   plays as 100 (the sim 143 rule; write 0 for the older free slide).
+  Still schema 8 (sim v148, `docs/MOVEMENT_1TO1.md`): three ruleset switches for the reference's movement rules, each 0 for the
+  rule before sim 148; a file without them plays the reference's. `traction_rule` (default 1): a stop on the ground brakes at
+  traction, half of the body's `ground_friction`, doubled to all of it when the stop began faster than the body's walk speed; letting
+  go of a run, and a run's speed above the run speed, brake at traction; a landing is a stop like any other (`landing_friction` is
+  then unused) and a shield's pushback slides on traction (0: `ground_friction` everywhere, `run_decel`, `landing_friction`).
+  `dash_keep_frames` (default 6, at most 60): the dash starts at `dash_speed` and keeps it this many frames, then the stick held
+  forward eases it toward the run's speed (the run's acceleration, or traction above it) and anything else brakes it at traction
+  (0: from `dash_initial_speed` up at `dash_accel` to `dash_speed`, kept to the dash's end). `air_drift_brake` (default 1): air speed
+  above the stick's share of the air speed brakes at the air friction (0: at the air acceleration down to the stick's share).
+  Also in sim 148, with no switch: a jump's takeoff frame is airborne and moves (it stood a frame at the ground's height).
   Still schema 8 (sim v146): the ruleset's `air_push` (default 0, a file without it plays as 0: bodies push only when both stand on
   the ground, so hops cross over and fighters pass in the air; 1 is the rule of sims 67 to 145, bodies in the air pushed too).
   Still schema 8 (sim v144, the 2026-10-19 playtest): `jump_stick_share` may be 2 (the standard now: the ground speed's kept share

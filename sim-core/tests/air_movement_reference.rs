@@ -225,10 +225,11 @@ fn a_ground_jump_leaves_at_the_bodys_own_horizontal_rule() {
         let p = sim_for(c).content.fighters[usize::from(c)];
         let slack = p.air_accel + p.air_accel_stick + p.air_friction;
         let stick = inp(127, 0, 0).stick_x_fx() * p.jump_speed_x;
-        // (The takeoff frame then drifts one frame toward the stick's air-speed target.)
+        // (The takeoff frame then drifts one frame toward the stick's air-speed target, or brakes at the air friction above it.)
         let (_, vx) = ground_jump_x(c, 0, 0, 0, 127);
         assert!(
-            vx >= stick.min(p.jump_speed_x_max) && vx <= stick + p.air_accel + p.air_accel_stick,
+            vx >= stick.min(p.jump_speed_x_max) - p.air_friction
+                && vx <= stick + p.air_accel + p.air_accel_stick,
             "class {c} standing jump: {vx:?} vs {stick:?}"
         );
         for x in [127i8, 0, -127] {
