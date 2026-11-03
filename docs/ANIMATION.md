@@ -1906,7 +1906,7 @@ knee bend (`review1/mock_stance.jpg`, A/B/C).
   front: 0 to 4 frames) and the Staff (its two-handed shaft: 4 to 8) keep the behind-the-head guard. `PF_R8_OFF=front` shows the old.
 - **Measured** (`PF_FACE_COVER`, gallery; group 7 then now): Longsword 4 to 3 (front measure 7 to 6), Greatsword 6 to 2, Buckler 2 to 2,
   Nodachi 0 to 0, Staff 4 to 4. The group 7 creep is back down for the swords; the Staff's (2 to 4, its grip in the fist) stays, listed.
-- **Reference:** the swordsman's up tilt and up air hold the raised sword out ahead with the hand showing (`F:\anim_r8\sheets\marth_*`).
+- **Reference:** the swordsman's up tilt and up air hold the raised sword out ahead with the hand showing (the swordsman reference sheets on F:).
 - **Image:** `docs/screenshots/anim/r8_weapon_hand_in_front.jpg` (the Longsword's up tilt, up air and forward tilt, the Greatsword's up
   air; before above).
 - **Checked:** the six tests and `swing_toggle_test` pass.
