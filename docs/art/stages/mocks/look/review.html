@@ -88,6 +88,42 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
     <p>Two lessons from the reference screenshots, mocked from the match camera: the scenery without ink outlines, its edges lit as card bevels instead, and the paper houses rebuilt at the characters' proportions. The earlier rounds stay on the <a href="https://claude.ai/artifact/D1du6MREVumiJDrEdNypW4">Stage Fidelity Review</a>, which is full.</p>
   </header>
 
+  <section class="panel" aria-labelledby="ht68-h" id="halftone68">
+    <div class="eyebrow">After review 17 &middot; making the stages more their own, step 3: the city's pop-up book print</div>
+    <h2 id="ht68-h">The city's skyline printed like a pop-up book</h2>
+    <p>The city's craft: its skyline towers printed like a pop-up book's pages. Each wall is printed flat, and its shade is carried by halftone dots of a darker ink, each dot sized so the wall keeps the tone it had. Only the skyline's own shader changes; the play building, the street and the fighters are untouched.</p>
+    <div class="tablewrap"><table><thead><tr><th>Option</th><th>What changes</th></tr></thead><tbody>
+      <tr><td>Today</td><td>Smooth shade</td></tr>
+      <tr><td>A &middot; Fine</td><td>Fine dots on the side walls only</td></tr>
+      <tr><td>B &middot; Printed shade</td><td>The fall toward the street in dots as well</td></tr>
+      <tr><td>C &middot; Bold</td><td>B, in larger dots of a darker ink</td></tr>
+    </tbody></table></div>
+    <p>Close at the match camera: today and A (top), B and C (bottom). P1's gap holds (0.150), and so do the backdrop's value and contrast.</p>
+    <div class="viewer"><img src="ht68_close.jpg" alt="The city's skyline today, with A, B and C"></div>
+    <div class="row" role="group" aria-label="View"><button data-ht68v="m">Match camera</button><button data-ht68v="w">Wide</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-ht68o="T">Today</button><button data-ht68o="A">A &middot; Fine</button><button data-ht68o="B">B &middot; Printed shade</button><button data-ht68o="C">C &middot; Bold</button></div>
+    <div class="viewer"><img id="ht68img" alt="City halftone option"><span class="vtag" id="ht68tag"></span></div>
+    <p class="muted">My pick: <b>B</b>. Its dots read as print on the towers' side walls without busying the window fronts behind the fighters. A barely shows; C's dots read coarse. Honest note: most of the skyline you see is window fronts, so this is a modest change. It shows most on the side walls and at the wide camera. Printing the fronts too would be bolder, but it would busy the backdrop right behind the fighters, which your city notes have asked to keep calm.</p>
+  </section>
+
+  <section class="panel" aria-labelledby="tp67-h" id="torn67">
+    <div class="eyebrow">Built B (the owner's pick) &middot; making the stages more their own, step 2: the canyon's torn paper</div>
+    <h2 id="tp67-h">The canyon's beds as torn paper</h2>
+    <p>The cardboard read as a knit pattern, so this tries torn paper instead, as you asked. A torn edge hangs along the top of each hard bed: the paper's pale core shows down to a jagged, fibrous edge, a hair in front of the face. It's modelled into the canyon's front, which is re-lit; the rock beds underneath are unchanged.</p>
+    <div class="tablewrap"><table><thead><tr><th>Option</th><th>What changes</th></tr></thead><tbody>
+      <tr><td>Today</td><td>No tear: the natural beds</td></tr>
+      <tr><td>A &middot; Soft</td><td>The tear in a pale tone of the rock</td></tr>
+      <tr><td>B &middot; Paper core</td><td>The paper's cream core</td></tr>
+      <tr><td>C &middot; With its shadow</td><td>B, with the thin shadow the torn layer lays under it</td></tr>
+    </tbody></table></div>
+    <p>The front at the match camera: today and A (top), B and C (bottom). The front's value holds (0.55 to 0.56) and its contrast rises a little (0.118 to 0.128). P1's gap holds (0.159).</p>
+    <div class="viewer"><img src="tp67_close.jpg" alt="The canyon's front today, with A, B and C"></div>
+    <div class="row" role="group" aria-label="View"><button data-tp67v="m">Match camera</button><button data-tp67v="w">Wide</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-tp67o="T">Today</button><button data-tp67o="A">A &middot; Soft</button><button data-tp67o="B">B &middot; Paper core</button><button data-tp67o="C">C &middot; With its shadow</button></div>
+    <div class="viewer"><img id="tp67img" alt="Canyon torn paper option"><span class="vtag" id="tp67tag"></span></div>
+    <p class="muted">My pick: <b>B</b>. It reads as torn paper at both cameras and keeps the rock. C's shadow reads as an ink line, which the scenery doesn't use anywhere else. A is faint at the wide camera.</p>
+  </section>
+
   <section class="panel" aria-labelledby="cb66-h" id="cardboard66">
     <div class="eyebrow">After review 17 &middot; making the stages more their own, step 2: the canyon's cardboard</div>
     <h2 id="cb66-h">The canyon's front as corrugated card</h2>
@@ -3805,5 +3841,25 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
   group("data-cb66v", function (v) { cb66v = v; }, cb66render);
   group("data-cb66o", function (v) { cb66o = v; }, cb66render);
   cb66render();
+  var tp67v = "m", tp67o = "B";
+  var TP67O = { T: "Today", A: "A · Soft", B: "B · Paper core", C: "C · With its shadow" };
+  function tp67render() {
+    $id("tp67img").src = "tp67_" + tp67o + "_" + tp67v + ".jpg";
+    $id("tp67tag").textContent = "Canyon · " + TP67O[tp67o] + (tp67v === "w" ? " · wide" : " · match camera");
+    pressed("data-tp67v", tp67v); pressed("data-tp67o", tp67o);
+  }
+  group("data-tp67v", function (v) { tp67v = v; }, tp67render);
+  group("data-tp67o", function (v) { tp67o = v; }, tp67render);
+  tp67render();
+  var ht68v = "m", ht68o = "B";
+  var HT68O = { T: "Today", A: "A · Fine", B: "B · Printed shade", C: "C · Bold" };
+  function ht68render() {
+    $id("ht68img").src = "ht68_" + ht68o + "_" + ht68v + ".jpg";
+    $id("ht68tag").textContent = "City · " + HT68O[ht68o] + (ht68v === "w" ? " · wide" : " · match camera");
+    pressed("data-ht68v", ht68v); pressed("data-ht68o", ht68o);
+  }
+  group("data-ht68v", function (v) { ht68v = v; }, ht68render);
+  group("data-ht68o", function (v) { ht68o = v; }, ht68render);
+  ht68render();
 })();
 </script>

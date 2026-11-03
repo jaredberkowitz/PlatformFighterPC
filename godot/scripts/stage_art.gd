@@ -6453,6 +6453,13 @@ static func _roof_mark_textures() -> Array:
 
 
 const FACADE_SHADER := preload("res://shaders/facade.gdshader")
+## The city's skyline printed as a pop-up book's pages (the style pass, docs/art/stages/STYLE_PASS.md; facade.gdshader `halftone`): each wall
+## printed flat, its shade in halftone dots [the near layer's dot pitch (the middle and far layers' larger, so the dots stay about one size
+## on screen), the ink's darkness, how much of the fall toward the street goes into dots]:
+##   A  fine dots on the side walls only;
+##   B  the fall toward the street in dots as well;
+##   C  B, in larger dots of a darker ink.
+const HALFTONE_TRY := {"T": [], "A": [0.3, 0.32, 0.0], "B": [0.38, 0.4, 1.0], "C": [0.56, 0.5, 1.0]}
 ## How bright each skyline layer's lit windows are (times white; the glow threshold is 2.3): the near layer blooms softly, the others do not
 ## (emissive, not bloomed: the background should not outshine the fighters).
 ## (Art review 6, refinement round 1: all three layers were near-white and the near one bloomed right behind the fighters, a field of
@@ -6666,6 +6673,14 @@ static func _skyline_layer(root: Node3D, rng: RandomNumberGenerator, layer: int,
 		if arg.begins_with("--city-calm="):
 			calm = float(arg.substr(12))
 	m.set_shader_parameter("calm", calm if layer < 2 else 0.0)
+	# (A pop-up book's print, the style pass: the palette's [backdrop] `halftone` or `--halftone=T|A|B|C`; see HALFTONE_TRY.)
+	var ht_look := String((_palette.get("backdrop", {}) as Dictionary).get("halftone", ""))
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--halftone="):
+			ht_look = arg.substr(11).to_upper()
+	var ht: Array = HALFTONE_TRY.get(ht_look, [])
+	if ht.size() == 3:
+		m.set_shader_parameter("halftone", Vector3(float(ht[0]) * [1.0, 1.5, 2.3][layer], float(ht[1]), float(ht[2])))
 	# (Haze between the rows, the palette's `skyline_haze`, [strength, height] a layer near to far, in `skyline_haze_color`: each row's
 	# foot fades into the street's lit haze, the further rows more, so every row reads further back than the one in front. Fidelity
 	# review 6, the city's depth.)

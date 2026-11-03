@@ -85,3 +85,58 @@ front. On the Stage Look Review ("cardboard66", `cb66_*`).
 
 Proposed instead for the canyon's own craft: **torn paper**. Each bed's edge torn, with the paper's pale core showing along the tear. It
 suits rock shapes, and it is a classic papercraft way to draw strata.
+
+## Step 2, again: the canyon's torn paper (mock, 2026-11-03)
+
+The owner: "Yes, torn paper". `make_canyon_front.py --tear 1` hangs a torn edge along the top of each hard bed's top course:
+- a strip a hair in front of the face, from the lit ledge down to a jagged, fibrous edge;
+- finer than the bed's own columns, and tapering to nothing at the bed's ends;
+- its own families, `tear` and `tear_shade` (a thin shadow following the tear).
+
+The beds are unchanged; the tear has its own random numbers. The game colours the tear or hides it (StageBake.TEAR_TRY): the palette's
+[backdrop] `torn`, or `--torn=T|A|B|C`, with T hidden.
+
+| Option | What changes |
+|---|---|
+| Today | No tear: the natural beds |
+| A, soft | The tear in a pale tone of the rock |
+| B, paper core | The paper's cream core |
+| C, with its shadow | B, with the thin shadow the torn layer lays under it |
+
+The front's value holds (0.55 to 0.56) and its contrast rises a little (0.118 to 0.128); P1's gap holds (0.159). On the Stage Look Review
+("torn67", `tp67_*`).
+
+Recommended B: it reads as torn paper at both cameras and keeps the rock. C's shadow reads as an ink line, which the scenery doesn't use
+anywhere else. A is faint at the wide camera.
+
+**Built B** (the owner's pick, 2026-11-03):
+- sunset.cfg [backdrop] `torn="B"`; the canyon's front rebuilt with `--tear 1` and the canyon re-lit. `--torn=T` hides the tears.
+- The cardboard trial was removed (the toon shader's `corrugate`, StageBake's `CARDBOARD_TRY`), since the owner chose torn paper over it.
+  Its mock stays on the Stage Look Review and in git history.
+- Before and after at the match camera (top) and wide (bottom), before left: `style/torn_built.jpg`.
+All seven tests pass.
+
+## Step 3: the city's pop-up book print (mock, 2026-11-03)
+
+The owner: "Next stage's craft". facade.gdshader `halftone` prints the skyline towers like a pop-up book's pages:
+- each wall is printed flat, and its shade is carried by halftone dots of a darker ink on a 45-degree grid;
+- each dot is sized so the wall keeps the tone it had;
+- the dots fade back to the smooth shade where they would be under a few pixels.
+
+Only the skyline's own shader changes. The middle and far layers' dots are larger in world units, so the dots stay about one size on screen.
+The palette's [backdrop] `halftone`, or `--halftone=T|A|B|C` (StageArt.HALFTONE_TRY):
+
+| Option | What changes |
+|---|---|
+| Today | Smooth shade |
+| A, fine | Fine dots on the side walls only |
+| B, printed shade | The fall toward the street in dots as well |
+| C, bold | B, in larger dots of a darker ink |
+
+P1's gap holds (0.150), and so do the backdrop's value and contrast. On the Stage Look Review ("halftone68", `ht68_*`).
+
+Recommended B: its dots read as print on the towers' side walls without busying the window fronts behind the fighters. A barely shows; C's
+dots read coarse.
+- Most of the skyline seen is window fronts, so it is a modest change, showing most on the side walls and at the wide camera.
+- Printing the fronts as well would be bolder, but it would busy the backdrop right behind the fighters, which the city's notes have kept
+  calm.

@@ -39,6 +39,11 @@ uniform vec4 glow_edge_color : source_color = vec4(1.0, 0.62, 0.5, 1.0);
 uniform float foot_height = 10.0;
 uniform vec4 foot_color : source_color = vec4(0.6, 0.4, 0.6, 1.0);
 uniform float street_y = 0.0;
+// A pop-up book's print (the style pass, the city, docs/art/stages/STYLE_PASS.md): the wall printed flat and its shade carried by halftone dots
+// of a darker ink on a 45-degree grid, each dot sized so the wall keeps the tone it had. [dot pitch in world units, how dark the ink, how much
+// of the fall toward the street goes into dots as well (0 the fall stays smooth)]; 0 pitch none. Where the dots would fall under a few pixels
+// the smooth shade comes back.
+uniform vec3 halftone = vec3(0.0);
 
 varying vec3 wn;
 varying float wx;
@@ -132,11 +137,25 @@ void fragment() {
 			base = mix(base, vec3(grey), 0.4) * vec3(0.96, 1.02, 1.1);
 		}
 		// Darker toward the street, a little lighter toward the top.
-		vec3 col = base * mix(0.72, 1.06, smoothstep(0.0, 16.0, at.y));
+		float fall = mix(0.72, 1.06, smoothstep(0.0, 16.0, at.y));
+		vec3 col = base * fall;
 		// The side walls a step darker than the fronts (the moon is up on the left, so the right sides darkest): the buildings read as
 		// blocks with depth, not flat cut-outs (the owner, 2026-10-17: basic shapes, no real detail).
 		float side = abs(wn.x) > 0.5 ? (wn.x > 0.0 ? 0.7 : 0.84) : 1.0;
 		col *= side;
+		if (halftone.x > 0.0 && !plain) {
+			vec3 flat_print = base * mix(fall, 1.06, halftone.z);
+			float keep = side * fall / mix(fall, 1.06, halftone.z);
+			float cover = clamp((1.0 - keep) / max(halftone.y, 0.05), 0.0, 0.78);
+			vec2 g = at / halftone.x;
+			vec2 q = fract(vec2(g.x + g.y, g.x - g.y) * 0.7071) - 0.5;
+			float r = sqrt(cover / 3.14159);
+			float d = length(q);
+			float aa = max(fwidth(d), 1e-4);
+			float dot_ink = (1.0 - smoothstep(r - aa, r + aa, d)) * step(0.002, cover);
+			float show = 1.0 - smoothstep(0.3, 0.5, max(fwidth(g.x), fwidth(g.y)));
+			col = mix(col, flat_print * (1.0 - dot_ink * halftone.y), show);
+		}
 		// The moonlit edge: a thin bright strip up the corner of each front facing the moon, cool, so each tower's outline reads as a lit
 		// block against the one behind it (art review 9: the skyline towers were flat boxes). Not on the side walls or the roofs.
 		if (!plain && abs(wn.z) > 0.5) {

@@ -16,7 +16,8 @@ Families `strata_a`, `strata_b`, `strata_c`; each piece bakes its occlusion into
 
 Shipped (fidelity review 9, the owner's pick C, 2026-10-25): godot/models/stages/canyon_front.glb, `--variant A --cut 1 --courses 1
 --straight C` (review 8's `--straight A`, review 6's without `--straight`); with `--mass A` since fidelity review 11 (2026-10-26),
-then lit (the palette's `front_lift` raised to 0.35 to keep the face at 0.33); with `--strata C` since fidelity review 17 (2026-10-30).
+then lit (the palette's `front_lift` raised to 0.35 to keep the face at 0.33); with `--strata C` since fidelity review 17 (2026-10-30);
+with `--tear 1` since the style pass's step 2 (2026-11-03).
 
 Run (Blender 5.2):
   blender --background --python art/blender/make_canyon_front.py -- --dir godot/art/baked/<key> --variant A --out <file.glb>
@@ -55,6 +56,11 @@ MASS = opts.get("mass", "").upper()
 # strata, `strata_face`. Long beds of uneven thickness whose fronts and top edges wander, thick hard beds standing out over thin soft ones set
 # back, a lit ledge on each, a few cracks that run through one to three beds instead of a grid of joints, and a gentle fall into shade below.
 STRATA = opts.get("strata", "").upper()
+# Torn paper (the style pass's step 2, docs/art/stages/STYLE_PASS.md): `--tear 1` hangs a torn edge along the top of each hard bed's top
+# course, on `--strata C`: a strip just proud of the face, from the lit ledge down to a jagged, fibrous lower edge, in its own families
+# (`tear`, and `tear_shade` a thin shadow under it) that the game colours, or hides (StageBake.TEAR_TRY). Its own random numbers, so the
+# beds themselves come out as without it.
+TEAR = opts.get("tear", "0") == "1"
 manifest = json.load(open(os.path.join(opts["dir"], "manifest.json")))
 BLOCK = [r for r in manifest["rects"] if r[4] < 0.5][0]
 LEFT, RIGHT, TOP, BOTTOM = BLOCK[0], BLOCK[1], BLOCK[2], BLOCK[3]
@@ -222,7 +228,38 @@ def courses(bm, x0, x1, y0, y1, out, rng, cols=6):
              shade=base * (1.06 if k % 2 == 0 else 0.94) * rng.uniform(0.97, 1.03))
 
 
-def strata_bed(bm, x0, x1, y0, y1, face, amp, rng, fissures, tone_at, back, shape=None):
+def torn_edge(cols, rng, x0, x1):
+    """The torn edge along a bed's top: from just over the top of its front face down to a jagged lower edge, finer than the bed's own columns,
+    a little proud of the face, tapering to nothing at the bed's ends; and under it a thin shadow following the tear."""
+    edge, shade = part("tear"), part("tear_shade")
+    pts = []
+    for a, b in zip(cols, cols[1:]):
+        n = max(2, int((b[0] - a[0]) / 0.06))
+        for i in range(n):
+            u = i / n
+            x = a[0] + (b[0] - a[0]) * u
+            mid = a[2] + (b[2] - a[2]) * u
+            z = a[4] + (b[4] - a[4]) * u
+            # (Each step its own depth, now and then a long fibre: a tear, not a wave.)
+            w = 0.1 * (0.55 + 0.8 * rng.random()) * (1.7 if rng.random() < 0.12 else 1.0)
+            w *= min(1.0, (x - x0) / 0.35, (x1 - x) / 0.35)
+            pts.append((x, mid, z, max(w, 0.0)))
+    last = cols[-1]
+    pts.append((last[0], last[2], last[4], 0.0))
+    rows, under = [], []
+    for (x, mid, z, w) in pts:
+        rows.append((edge.verts.new(P(x, mid + 0.012, z + 0.014)), edge.verts.new(P(x, mid - w, z + 0.014))))
+        under.append((shade.verts.new(P(x, mid - w + 0.004, z + 0.01)), shade.verts.new(P(x, mid - w - 0.035, z + 0.01))))
+    for bm, strip in ((edge, rows), (shade, under)):
+        for (ta, ba), (tb, bb) in zip(strip, strip[1:]):
+            f = bm.faces.new((ta, ba, bb, tb))
+            f.normal_update()
+            # (Facing the camera, game +z, which is Blender's -y.)
+            if f.normal.y > 0.0:
+                f.normal_flip()
+
+
+def strata_bed(bm, x0, x1, y0, y1, face, amp, rng, fissures, tone_at, back, shape=None, tear=None):
     """One bed from `y0` up to `y1`, its front `face` out from the plane, wandering by `amp`, its top and foot edges wandering a little, and its
     lit ledge going back to `back`. `fissures` [x, width, depth] cut into its front and top; `tone_at(x)` each column's tone. All quads, so the
     wandering stays clean."""
@@ -255,6 +292,8 @@ def strata_bed(bm, x0, x1, y0, y1, face, amp, rng, fissures, tone_at, back, shap
         # (The lit ledge: the bed's top front edge cut back, a face that catches the sun as a soft band, not a ruled line.)
         ch = min(0.09, (top - foot) * 0.25)
         cols.append((x, foot, top - ch, top, z, z - ch * 1.6, tone_at(x)))
+    if tear is not None:
+        torn_edge(cols, tear, x0, x1)
     rows = []
     for (x, foot, mid, top, z, zc, t) in cols:
         row = [bm.verts.new(P(x, foot, z)), bm.verts.new(P(x, mid, z)), bm.verts.new(P(x, top, zc)), bm.verts.new(P(x, top, back)), bm.verts.new(P(x, foot, back))]
@@ -340,7 +379,9 @@ def strata_face():
 
             dz = rng.uniform(-0.07, 0.07) if courses > 1 else 0.0
             for (xa, xb, step_z) in spans:
-                strata_bed(part(fam), xa, xb, ya - 0.16, yb, face + dz + step_z, amp, rng, fissures, course_tone, back, shape=random.Random(seed))
+                tear = random.Random(seed + 7 + int(xa * 10)) if TEAR and c == 0 and not soft else None
+                strata_bed(part(fam), xa, xb, ya - 0.16, yb, face + dz + step_z, amp, rng, fissures, course_tone, back, shape=random.Random(seed),
+                           tear=tear)
         y -= h
         k += 1
 
