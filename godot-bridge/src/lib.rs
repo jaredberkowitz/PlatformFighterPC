@@ -103,7 +103,8 @@ fn clamp_i8(v: i32) -> i8 {
 /// tech, get-up or trip roll its own, the ruleset's 40, 35 or 28); `way` 1 forward, -1 backward, 0 in place; `turns` 1 for a roll
 /// whose last frame flips `facing` (sim 147's `Fighter::roll_turns`: tech and get-up rolls go the same way but do not turn); `total`
 /// the frames it really lasts, the frame the sim ends it on: longer than `length` for a stale roll or spot dodge, the same for an air
-/// dodge (staling shortens its travel, not its time), a tech, get-up or trip roll (never stale) and the stand-up from the floor. For a
+/// dodge (staling shortens its travel, not its time), a tech, get-up or trip roll (never stale) and the stand-up from the floor (sim
+/// 150: the ruleset's 29 from lying, 21 out of a trip, the length it was given as it began: `Fighter::lag`). For a
 /// roll only (0 and 0 otherwise): `kind` what it rolls out of (`Fighter::roll_kind`: 0 a shield, 1 a tech, 2 a knockdown, 3 a trip),
 /// and `moves_until` the last frame (`state_frame`) on which it carries the fighter (`fighter::roll_moves_until`: 24 on most bodies,
 /// later for a stale roll), so a floor roll can roll over its moving frames and stand up after them. Presentation only: none of it
@@ -139,7 +140,7 @@ fn dodge_info(
             [i32::from(p.spot_dodge_frames), 0, 0, total, 0, 0]
         }
         S::GetUp => {
-            let n = i32::from(rules.getup_frames);
+            let n = i32::from(fi.lag);
             [n, 0, 0, n, 0, 0]
         }
         S::AirDodge => {
@@ -3987,14 +3988,19 @@ mod tests {
                     assert_eq!(frames, i32::from(n), "body {ch}, tripped {tripped}");
                 }
             }
-            let (content, mut state) = get_up(ch, 0, false, input(0, 100, 0));
-            let (info, frames, _) = play(&content, &mut state, S::GetUp);
-            let n = i32::from(base.rules.getup_frames);
-            assert_eq!(
-                (info, frames),
-                ([n, 0, 0, n, 0, 0], n),
-                "body {ch}, stand-up"
-            );
+            for (tripped, n) in [
+                (false, base.rules.getup_frames),
+                (true, base.rules.trip_getup_frames),
+            ] {
+                let (content, mut state) = get_up(ch, 0, tripped, input(0, 100, 0));
+                let (info, frames, _) = play(&content, &mut state, S::GetUp);
+                let n = i32::from(n);
+                assert_eq!(
+                    (info, frames),
+                    ([n, 0, 0, n, 0, 0], n),
+                    "body {ch}, stand-up, tripped {tripped}"
+                );
+            }
         }
     }
 

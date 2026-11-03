@@ -522,7 +522,7 @@ pub fn update(
         S::SpotDodge => spot_dodge(f, p, stage, rules),
         S::ShieldBreak => shield_break(f, p, stage, rules),
         S::Knockdown => knockdown(f, p, weapon, stage, rules),
-        S::GetUp => get_up_stand(f, p, stage, rules),
+        S::GetUp => get_up_stand(f, p, stage),
         S::Grabbing => grabbing(f, weapon),
         S::Carrying => return carrying(f, p, weapon, stage, rules),
         // Being held: the holder pins this fighter in place (see `grab::update`).
@@ -2626,20 +2626,31 @@ fn knockdown(f: &mut Fighter, p: &FighterParams, weapon: &Weapon, stage: &Stage,
         || f.take(buttons::JUMP, p.input_buffer)
         || f.state_frame >= u16::from(max)
     {
-        enter(f, S::GetUp);
+        stand_up(f, rules);
     }
 }
 
-/// Standing up: intangible at first, then free.
-fn get_up_stand(f: &mut Fighter, p: &FighterParams, stage: &Stage, rules: &Ruleset) {
-    if f.state_frame <= u16::from(rules.getup_intangible) {
-        f.invuln = f.invuln.max(1);
-    }
+/// Stands up from lying, or from sitting after a trip (sim 150, D8: the reference's, every body alike): `getup_frames` long (a
+/// trip's `trip_getup_frames`), kept in `Fighter::lag`, and intangible on `invuln` from its first frame, this one, through
+/// `getup_intangible` (a trip's `trip_getup_intangible`), as the get-up attack is.
+fn stand_up(f: &mut Fighter, rules: &Ruleset) {
+    let (frames, intangible) = if f.tripped {
+        (rules.trip_getup_frames, rules.trip_getup_intangible)
+    } else {
+        (rules.getup_frames, rules.getup_intangible)
+    };
+    enter(f, S::GetUp);
+    f.lag = frames;
+    f.invuln = f.invuln.max(intangible);
+}
+
+/// Standing up: intangible at first, then free once its length has passed (both set when it began: `stand_up`).
+fn get_up_stand(f: &mut Fighter, p: &FighterParams, stage: &Stage) {
     f.vel.x = approach(f.vel.x, Fx::ZERO, p.ground_friction);
     if !slide_on_platform(f, p, stage) {
         return;
     }
-    if f.state_frame >= u16::from(rules.getup_frames) {
+    if f.state_frame >= u16::from(f.lag) {
         enter(f, S::Idle);
     }
 }

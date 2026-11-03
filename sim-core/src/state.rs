@@ -138,7 +138,8 @@ pub struct Fighter {
     pub platform: i8,
     pub air_jumps_left: u8,
     pub air_dodge_used: bool,
-    /// Frames of lag for the current `Landing` state (normal vs helpless landing).
+    /// Frames of lag for the current `Landing` state (normal vs helpless landing), or the length a timed state was given when it
+    /// began (a ledge option, a rebound, a stand-up from the floor: sim 150).
     pub lag: u8,
     pub fast_fall: bool,
     /// Frames left of the fast opening of a full hop (see `FighterParams::hop_burst_frames`).

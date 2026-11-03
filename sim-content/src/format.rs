@@ -451,6 +451,8 @@ rules_io! {
     knockdown_max: u8,
     getup_frames: u8,
     getup_intangible: u8,
+    trip_getup_frames: u8,
+    trip_getup_intangible: u8,
     tech_invuln: u8,
     tech_roll_frames: u8,
     tech_roll_intangible: u8,

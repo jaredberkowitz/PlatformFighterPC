@@ -111,7 +111,17 @@ rule); optional fighter fields `getup_roll_intangible` / `getup_roll_back_intang
 the shield roll does [E]. The bridge's `fighter_dodge` reports each roll's own length, and (behaviour-neutral, for the view) a fifth
 and sixth value: the roll's kind and the last frame it moves on (`fighter::roll_moves_until`). Tests `floor_rolls.rs` (7), the bridge's
 `dodge_info_totals_are_the_frames_each_dodge_ends_on`, sim-content `the_floor_roll_fields_round_trip_and_are_checked`;
-`fuzz-rollback 1000` and `net-fuzz 2000`: 0 mismatches. Found on the way, not done: the tech in place and the stand-ups (D8).
+`fuzz-rollback 1000` and `net-fuzz 2000`: 0 mismatches. Found on the way: the tech in place and the stand-ups (D8, sim 150 below).
+The branch then merged the movement session's sim 148 (e9389411, 69012bcc) under 149, agreed with that session, the moveset session
+and the art director, so it carries 147, 148, 149 and 150 in order: 1792 workspace tests, clippy, both fuzzers at 0 mismatches.
+**Sim 150** (same branch, on 149 with 148 merged; content schema 8 unchanged; the owner's call): the tech in place and the
+stand-ups on the reference's frames (`docs/REFERENCE_GAPS.md` D8, the same public dump): a tech in place 26 frames on the ground,
+intangible 1-20 (it was 4 of lag, 18 intangible: it could act 22 frames early); standing up from lying 29 frames, intangible 1-22
+(was 26, from the second frame through the sixteenth); from a trip, hard or soft, 21, intangible 1-16 (new ruleset fields
+`trip_getup_frames` / `trip_getup_intangible`; it used the knockdown's). A stand-up's length and intangibility are set as it begins
+(`fighter::stand_up`: `Fighter::lag`, `invuln`), so its first frame is intangible too; the bridge's `fighter_dodge` reports its
+real length. Tests `techs_and_stand_ups.rs` (6), the bridge's dodge test, sim-content
+`the_stand_up_and_tech_fields_round_trip_and_are_checked`.
 **Sim 141** (released together; the moveset session's 138 and 139 below landed after the run mode's 140, so they ship as 141 under the max+1 rule: everything those entries call sim 138 and 139 is in 141).
 **Sim 139** (branch `recovery-audit`, from `origin/main` at 3d8d5d3, sim 137; content schema 8 unchanged; sim 138 is the Longsword's
 older-jab branch): recoveries, air movement and side specials checked against the reference for all 14 fighters (owner decision 99,

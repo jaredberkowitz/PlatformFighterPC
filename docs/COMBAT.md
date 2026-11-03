@@ -252,20 +252,23 @@ strong-attack buttons too. Demos: `grab`, `shield_grab`.
 
 ## Phase 3 completion: techs, knockdown, ledge attack, training mode (sim v18)
 
-- **Tech:** a shield press up to 5 frames before landing in hitstun. In place: 4 frames of lag and 18 intangible frames. With the stick
+- **Tech:** a shield press up to 5 frames before landing in hitstun. In place: 26 frames on the ground, intangible from the landing
+  through frame 20 (sim 150, the reference's; it was 4 frames of lag with 18 intangible). With the stick
   flicked sideways: a tech roll (40 frames, intangible 1-20 from the landing, sim 149; it keeps its facing either way, sim 147). No
   tech: the fighter lies in a **knockdown** (vulnerable).
-- **Knockdown get-ups** after lying for at least 24 frames (it stands by itself at 90): **stick up or jump** stands (26 frames, the first
-  15 intangible), **attack** is a get-up attack (hits both sides, intangible for 10 frames), a **sideways flick** is a get-up roll
+- **Knockdown get-ups** after lying for at least 24 frames (it stands by itself at 90): **stick up or jump** stands (29 frames,
+  intangible from its first frame through 22, sim 150; it was 26 with 15), **attack** is a get-up attack (hits both sides,
+  intangible for 10 frames), a **sideways flick** is a get-up roll
   (35 frames, intangible from the flick through the body's own window, sim 149; keeping its facing either way, sim 147).
-  `Ruleset`: `knockdown_lag`, `knockdown_max`, `getup_frames`, `getup_intangible`, `tech_invuln`, and since sim 149 the rolls'
-  `tech_roll_*`, `getup_roll_*` and `trip_roll_*` (`docs/REFERENCE_GAPS.md` D7).
+  `Ruleset`: `knockdown_lag`, `knockdown_max`, `getup_frames`, `getup_intangible`, `tech_lag`, `tech_invuln`, since sim 149 the
+  rolls' `tech_roll_*`, `getup_roll_*` and `trip_roll_*` (`docs/REFERENCE_GAPS.md` D7), and since sim 150 `trip_getup_*` (D8).
 - **Trips** (sim v86, E20): a hit with a trip chance (`Hitbox::trip`, the reference's percent) on a fighter on the ground whose
   launch would not lift it off the ground (sent sideways or down) rolls the game's random generator (`GameState::rng`, hashed, so
   every machine rolls the same; nothing is rolled for a hit that cannot trip). On a success the fighter takes the damage and hitlag,
   then sits in a knockdown (`Fighter::tripped`): intangible through the hitlag and 5 frames after, a get-up from frame 40, standing up
   by itself on frame 100 (the reference's hard trip). The get-ups are the knockdown's (the trip get-up attack has no slot of its own),
-  but a roll out of a trip is its own: 28 frames, intangible 1-9 (sim 149).
+  but a roll out of a trip is its own, 28 frames, intangible 1-9 (sim 149), and so is the stand-up, 21 frames, intangible 1-16 (sim
+  150).
   `Ruleset`: `trip_lag`, `trip_max`, `trip_invuln`. Not modelled: the reference's base 7% trip on any hit over 55 knockback that does
   not lift, and slopes (every stage is flat, so a trip at an upward angle never happens).
 - **Slips** (sim v117, E44): a hit with `Hitbox::slip` trips a fighter on the ground (not lying or sitting) every time, whatever its

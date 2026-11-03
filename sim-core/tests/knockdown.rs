@@ -49,7 +49,8 @@ fn knocked_down() -> Sim {
 // ---- Techs -----------------------------------------------------------------------------------------------------
 
 #[test]
-fn a_tech_in_place_is_intangible_and_short() {
+fn a_tech_in_place_is_intangible_from_the_landing() {
+    // (Its length and window are the reference's since sim 150: `techs_and_stand_ups.rs`.)
     let sim = land_with(inp(0, 0, SHIELD));
     let f = sim.fighter(1);
     assert_eq!(f.state, S::Landing);
