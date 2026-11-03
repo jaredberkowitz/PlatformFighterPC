@@ -667,6 +667,9 @@ static func _set_globals(mood: Dictionary, look: Dictionary, stage_name := "") -
 	RenderingServer.global_shader_parameter_set("pf_ramp", ramp_texture(look.ramp))
 	RenderingServer.global_shader_parameter_set("pf_deep_shade", look.deep)
 	RenderingServer.global_shader_parameter_set("pf_edge_light", look.edge)
+	# (The fighters' value mock, art audit 2026-11-02: B and C draw a pale cut edge on the fighters' lit side.)
+	var cut_on: bool = preload("res://scripts/loadout.gd").value_mock() in ["B", "C"]
+	RenderingServer.global_shader_parameter_set("pf_fighter_cut", Color(1.0, 0.96, 0.86, 3.0 if cut_on else 0.0))
 	RenderingServer.global_shader_parameter_set("pf_paint_warm", look.paint[0])
 	RenderingServer.global_shader_parameter_set("pf_paint_cool", look.paint[1])
 	RenderingServer.global_shader_parameter_set("pf_paint_amount", look.paint[2])
