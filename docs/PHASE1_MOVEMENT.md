@@ -332,6 +332,8 @@ jumping, grabbing, rolling and dodging straight out of the shield skip it. The p
 the shield, Smash 4 style), on purpose.
 
 **Rolls and spot dodge**: forward roll 29 frames, backward roll 34 (`roll_back_frames`), intangible 4-15; spot dodge 25, intangible 3-17.
+A forward roll ends turned round, facing the way it came from, on its last frame; a backward roll keeps its facing (sim 147,
+`roll_facing.rs`).
 
 **Air dodges** (per body type; duelist figures, brawler in brackets):
 - A **neutral** dodge keeps the fighter's momentum (it falls and drifts as usual) and lasts 52 [44] frames, intangible 3-29 [2-26].

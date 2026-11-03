@@ -253,9 +253,11 @@ strong-attack buttons too. Demos: `grab`, `shield_grab`.
 ## Phase 3 completion: techs, knockdown, ledge attack, training mode (sim v18)
 
 - **Tech:** a shield press up to 5 frames before landing in hitstun. In place: 4 frames of lag and 18 intangible frames. With the stick
-  flicked sideways: a tech roll (the shield roll, intangible). No tech: the fighter lies in a **knockdown** (vulnerable).
+  flicked sideways: a tech roll (the shield roll, intangible; it keeps its facing either way, sim 147). No tech: the fighter lies in
+  a **knockdown** (vulnerable).
 - **Knockdown get-ups** after lying for at least 24 frames (it stands by itself at 90): **stick up or jump** stands (26 frames, the first
-  15 intangible), **attack** is a get-up attack (hits both sides, intangible for 10 frames), a **sideways flick** is a get-up roll.
+  15 intangible), **attack** is a get-up attack (hits both sides, intangible for 10 frames), a **sideways flick** is a get-up roll
+  (keeping its facing either way, sim 147).
   `Ruleset`: `knockdown_lag`, `knockdown_max`, `getup_frames`, `getup_intangible`, `tech_invuln`.
 - **Trips** (sim v86, E20): a hit with a trip chance (`Hitbox::trip`, the reference's percent) on a fighter on the ground whose
   launch would not lift it off the ground (sent sideways or down) rolls the game's random generator (`GameState::rng`, hashed, so
