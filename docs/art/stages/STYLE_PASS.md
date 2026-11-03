@@ -85,3 +85,28 @@ front. On the Stage Look Review ("cardboard66", `cb66_*`).
 
 Proposed instead for the canyon's own craft: **torn paper**. Each bed's edge torn, with the paper's pale core showing along the tear. It
 suits rock shapes, and it is a classic papercraft way to draw strata.
+
+## Step 2, again: the canyon's torn paper (mock, 2026-11-03)
+
+The owner: "Yes, torn paper". `make_canyon_front.py --tear 1` hangs a torn edge along the top of each hard bed's top course:
+- a strip a hair in front of the face, from the lit ledge down to a jagged, fibrous edge;
+- finer than the bed's own columns, and tapering to nothing at the bed's ends;
+- its own families, `tear` and `tear_shade` (a thin shadow following the tear).
+
+The beds are unchanged; the tear has its own random numbers. The game colours the tear or hides it (StageBake.TEAR_TRY): the palette's
+[backdrop] `torn`, or `--torn=T|A|B|C`, with T hidden.
+
+| Option | What changes |
+|---|---|
+| Today | No tear: the natural beds |
+| A, soft | The tear in a pale tone of the rock |
+| B, paper core | The paper's cream core |
+| C, with its shadow | B, with the thin shadow the torn layer lays under it |
+
+The front's value holds (0.55 to 0.56) and its contrast rises a little (0.118 to 0.128); P1's gap holds (0.159). On the Stage Look Review
+("torn67", `tp67_*`).
+
+Recommended B: it reads as torn paper at both cameras and keeps the rock. C's shadow reads as an ink line, which the scenery doesn't use
+anywhere else. A is faint at the wide camera.
+
+The mock's canyon models (the front with its tears, and the canyon re-lit) are in the worktree, not committed; shipping commits them.

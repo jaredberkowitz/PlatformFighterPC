@@ -417,6 +417,8 @@ static func place_front(root: Node3D, t: Dictionary, scene: Node3D) -> void:
 		"waterline": Color(0.72, 0.7, 0.58), "iron": Color(0.22, 0.2, 0.22), "rope": Color(0.78, 0.64, 0.42),
 		# (The harbour town's own quay stone, warm: a neutral grey went cold blue-grey under the sea's sky light.)
 		"harbour_stone": _pal_of(t, "quay", Color(0.7, 0.6, 0.48)), "foam": Color(0.9, 0.97, 1.0), "weed": Color(0.26, 0.46, 0.3),
+		# (The canyon's torn paper, make_canyon_front.py --tear 1: its torn edge and the thin shadow under it; see TEAR_TRY, hidden unless chosen.)
+		"tear": Color(0.98, 0.92, 0.8), "tear_shade": Color(0.5, 0.26, 0.22),
 		# (The canyon's strata, art/blender/make_canyon_front.py: its sandstone, its deep brick and a pale band, as the code-built strata.)
 		# (Wider apart than the code-built strata's: under the dusk light three close reds read as one.)
 		"strata_a": _front_lift(t, t.get("soil", Color(0.86, 0.5, 0.32))),
@@ -459,6 +461,13 @@ static func place_front(root: Node3D, t: Dictionary, scene: Node3D) -> void:
 				mi.set_surface_override_material(s, g)
 				continue
 			# (The city's wall in its own brick, laid in world space as the code-built facade's.)
+			# (The canyon's torn paper: hidden, or in the look chosen; see TEAR_TRY.)
+			if fam in ["tear", "tear_shade"]:
+				var tl: Dictionary = _tear_look(t)
+				if not tl.has(fam):
+					mi.visible = false
+					continue
+				colours[fam] = tl[fam]
 			var m := ((StageArt._soil_material(t) if fam.begins_with("brick") else FighterView.toon(colours.get(fam, Color(0.6, 0.6, 0.6)), true)) \
 				as ShaderMaterial).duplicate() as ShaderMaterial
 			m.set_shader_parameter("facets", fam != "quilt")
@@ -1431,6 +1440,25 @@ static func _cardboard(t: Dictionary) -> Vector4:
 	if flag("--cardboard=") != "":
 		look = flag("--cardboard=").to_upper()
 	return CARDBOARD_TRY.get(look, Vector4.ZERO)
+
+
+## Torn paper on the canyon (the style pass's step 2, docs/art/stages/STYLE_PASS.md; the corrugated card before it read as a woven chevron on
+## the natural beds): along the top of each hard bed a torn edge, the paper's pale core showing down to a jagged, fibrous edge
+## (make_canyon_front.py --tear 1). The palette's [backdrop] `torn` or `--torn=T|A|B|C`, T hidden:
+##   A  the tear a pale tone of the rock, soft;
+##   B  the paper's cream core;
+##   C  B, with the thin shadow the torn layer lays on the face under it.
+const TEAR_TRY := {"T": {}, "A": {"tear": Color(0.92, 0.7, 0.5)}, "B": {"tear": Color(0.98, 0.92, 0.8)},
+	"C": {"tear": Color(0.98, 0.92, 0.8), "tear_shade": Color(0.5, 0.26, 0.22)}}
+
+
+static func _tear_look(t: Dictionary) -> Dictionary:
+	if String(t.get("name", "")) != "sunset":
+		return {}
+	var look := String((StageArt.palette("sunset").get("backdrop", {}) as Dictionary).get("torn", ""))
+	if flag("--torn=") != "":
+		look = flag("--torn=").to_upper()
+	return TEAR_TRY.get(look, {})
 
 
 static func _front_lift(t: Dictionary, c: Color) -> Color:
