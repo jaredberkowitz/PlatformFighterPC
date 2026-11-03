@@ -2447,3 +2447,29 @@ side-by-sides stay on F:.
 - **Checked:** both facings (the demo's victim faces left, the CPU match both ways); the weapon in the Longsword's tumble and knockdown (the blade crosses the hat for a frame or two of a spin, not the eyes); the tests (`anim_library_test`, `fighter_view_test`, `motion_test` with four new checks: the ground flinch's recoil past the freeze, a pop's clip kept as it slows, the tumble in the stage's plane, the damage fall and its end on a seek; `match_flow_test`, `replay_test`, `look_bench` and the rest pass).
 - **Left:** the slam onto the floor is still the lean's spring from upright (about 6 frames), not a body arriving flat from the flight; a trip still lies with the knockdown's forward lean under its crouch (not seen in a capture); the light flinch's poses are as they were (the pose review's compact recoil, hands outside the torso).
 - **Image:** `docs/screenshots/anim/r9_reactions.jpg` (a forward smash's launch and tumble, then the damage fall, the knockdown and the get-up; core4 above now, at the size a 1080p screen shows them).
+
+### Group 9 (round 9): the attack timing refitted, the knockdown's elbow, the view against sim 148
+
+- **The timing refit** (`CLASS_END_SHAPES`, fitted against the reference by `F:\anim_core\tools\fitshapes.py`, restarted from the code's shapes with
+  the old rigs' errors dropped, four rounds and the best of each move): mean error in frames over 68 moves, follow-through / hold / recovery /
+  wind-up, core4 2.34 / 1.62 / 2.03 / 1.13 to **2.34 / 1.49 / 1.96 / 1.13** (8r 2.29 / 1.56 / 1.81 / 1.15). Hold is better than 8r; recovery is
+  not back to it. The moves that keep it up: the Longsword's forward tilt (recovery 11 frames against the reference's 3; 5 at 8r: since the
+  character work's rig the pose creeps a third of the way home through the hold, and its end shape does not reach that creep), the Needles'
+  up air (16, out of the fit's reach since 8r) and the Embers' up smash (10, likewise).
+- **Elbows, the knockdown:** the most reversed elbow on screen over every gallery and four CPU matches (`PF_BEND`, `scr`) was a lying
+  Longsword's weapon arm, 242 frames: face down, with the arms flung out past the head along the floor, the face guard pulled the weapon hand
+  off a face turned to the floor and folded the elbow backward 60 degrees for the whole knockdown. **Fix:** no face guard while lying down
+  (face up, the near arm lies along the body). The Clutch's galleries 86 frames to 0. All elbows reading reversed on screen at the start of
+  this group: 2,065 (knees 1,188), against 1,941 and 1,302 at group 5.
+- **Sim 148 (merged from the movement session's build):** the view checked against it.
+  - **Stops:** a run let go slides on in the idle state with its state frame running on from the run's, so the run's stop clip (`run_stop`)
+    **never played**, at sim 147 either: the plain idle skated through the whole slide, 8 frames at 147 and 17 at 148 (the Longsword). A
+    walk let go slid 4 frames, now 8. **Fix (`stop_k`, `walk_out`):** the view counts the stop from the run's end: braced, held braced while
+    the slide is faster than 0.1 a frame (`BRAKE_HOLD_SPEED`), then the rebound and the settle into the stance (the Longsword: braced for the
+    slide's 17 frames, standing by frame 25); a walk's steps go on at the slide's pace until it stops. `PF_R9_OFF=stops` shows the old.
+  - **Jumps:** the jump squat is 3 frames at 147 and 148 alike; a short and a full hop are a frame shorter in the air (42 to 41, 36 to 35).
+    The air's poses follow the velocity and the landing counts from touching down, so nothing to change.
+  - **Dash:** full speed from its first frame. A planted foot slides 0.1-0.18 units a frame over the dash's first 4 frames, as at 147
+    (the hand-off from the stance blends the planted feet into the dash's). A one-frame hand-off took off about a fifth of it and made a
+    bigger jump in the joints (0.62 to 0.79 units a frame); kept as it was. Left.
+- **Checked:** the tests pass (`motion_test` with a new check: a run's stop braced, a seek ending it).

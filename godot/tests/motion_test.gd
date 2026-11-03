@@ -219,6 +219,18 @@ func _initialize() -> void:
 	fallen.frame = 5400
 	hurt.apply(Vector3(0, 3.0, 0), fallen, 1.0 / 60.0)
 	check(not hurt.damage_fall, "a seek ends the damage fall")
+	# (Sim 148.) A run let go slides on in the idle state, its state frame running on from the run's: the stop is braced from the run's
+	# end, by the view's own count, and a seek ends it.
+	var runner := snap(0, "Run", "", 6000, 30)
+	runner.vel = Vector2(0.25, 0.0)
+	hurt.apply(Vector3.ZERO, runner, 1.0 / 60.0)
+	var stopping := snap(0, "Idle", "", 6001, 31)
+	stopping.vel = Vector2(0.23, 0.0)
+	hurt.apply(Vector3.ZERO, stopping, 1.0 / 60.0)
+	check(hurt.stop_k >= 0.0 and hurt.current_clip.begins_with("run_stop"), "a run's stop is braced (%s)" % hurt.current_clip)
+	stopping.frame = 6400
+	hurt.apply(Vector3.ZERO, stopping, 1.0 / 60.0)
+	check(hurt.stop_k < 0.0, "a seek ends the stop")
 
 	print("motion test ", "FAILED" if failed else "PASSED")
 	quit(1 if failed else 0)

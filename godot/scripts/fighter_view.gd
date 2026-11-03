@@ -544,6 +544,14 @@ const STEP_CADENCE := 1.4
 ## The base body's runs play once a cycle every clip-frames x RUN_TEMPO units of ground (make_rigged_blob.py RUN_TEMPO).
 const RUN_TEMPO := 0.25
 const RUN_STOP_FRAMES := 20.0
+## Round 9, sim 148: the run stop's place in its clip (0 to 1, -1 when not stopping), counted from the run's end; the brace holds at
+## BRAKE_HOLD_K while the slide is faster than BRAKE_HOLD_SPEED (units a frame); a walk let go steps on (`walk_out`) until it is slower
+## than WALK_OUT_SPEED.
+var stop_k := -1.0
+var walk_out := false
+const BRAKE_HOLD_SPEED := 0.1
+const BRAKE_HOLD_K := 0.2
+const WALK_OUT_SPEED := 0.02
 const FIDGET_AFTER := 240   # (round 9: the reference fighters' come every three or four seconds; 300 and 420 until then)
 const FIDGET_EVERY := 300
 const FIDGET_FRAMES := 72.0
@@ -615,8 +623,17 @@ func _choose_clip(s: Dictionary) -> Array:
 				if lp < 1.0:
 					return [AnimLibrary.family_clip(_cls(s), "land", anim), 1.0, lp]
 			# Still sliding as it stops out of a run: braced against the slide, then settled.
-			if grounded and speed > RUN_STOP_SPEED and int(s.state_frame) < RUN_STOP_FRAMES:
-				return [AnimLibrary.family_clip(_cls(s), AnimLibrary.or_stand_in("run_stop", anim), anim), 1.0, float(s.state_frame) / RUN_STOP_FRAMES]
+			if r9_off.has("stops"):
+				if grounded and speed > RUN_STOP_SPEED and int(s.state_frame) < RUN_STOP_FRAMES:
+					return [AnimLibrary.family_clip(_cls(s), AnimLibrary.or_stand_in("run_stop", anim), anim), 1.0, float(s.state_frame) / RUN_STOP_FRAMES]
+			elif grounded:
+				# (Round 9, sim 148: by the view's own count from the run's end, `stop_k`: the sim's state frame runs on from the run's, so this
+				# never played and the plain idle skated through the whole slide, 8 frames at sim 147 and 17 at 148. A walk let go slides too
+				# (4 frames, now 8): its steps go on at the slide's pace, `walk_out`.)
+				if stop_k >= 0.0:
+					return [AnimLibrary.family_clip(_cls(s), AnimLibrary.or_stand_in("run_stop", anim), anim), 1.0, stop_k]
+				if walk_out:
+					return [AnimLibrary.family_clip(_cls(s), "walk", anim), clampf(speed / WALK_TEMPO, 0.25, 3.6), -1.0]
 			# Standing still for a long time, a fidget now and then.
 			var still := int(s.state_frame) - FIDGET_AFTER
 			if grounded and still >= 0:
@@ -1303,7 +1320,8 @@ const HANDOFF_BY_CLIP := {"jumpsquat": 2.0, "land": 1.0, "tech": 2.0, "knockdown
 	"shield": 3.0, "crouch": 5.0, "tumble": 4.0, "dash": 3.0, "skid": 3.0, "air_jump": 3.0, "roll": 3.0, "spot_dodge": 2.0, "air_dodge": 2.0, "jump": 2.0, "grab": 3.0, "ledge": 3.0}
 ## With the environment variable PF_R9_OFF (before and after images, round 9): "handoff" leaves the cross-fades as they were; "rollturn" leaves
 ## the forward roll's turn round to the sim's last frame; "react" leaves the hit reactions as they were at core4 (a clip chosen every frame by
-## the knockback, the ground's flinch without its recoil, a launch and a tumble pitched about the body's side, the damage fall a plain fall).
+## the knockback, the ground's flinch without its recoil, a launch and a tumble pitched about the body's side, the damage fall a plain fall);
+## "stops" leaves a run's stop and a walk's slide to the plain idle, as before sim 148.
 static var r9_off := OS.get_environment("PF_R9_OFF").split(",")
 var handoff_clip := ""
 var handoff_state := ""
@@ -4260,6 +4278,24 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 			damage_fall = damage_fall_armed
 		if prev_jumps >= 0 and int(s.get("jumps", 0)) < prev_jumps:
 			damage_fall = false
+	# (Round 9, sim 148: the stop out of a run or a dash, and a walk's slide, counted by the view from the frame the run ended (the sim's
+	# state frame runs on). The brace holds while the slide is fast, `BRAKE_HOLD_SPEED`, then the rebound and settle play out.)
+	var slide := absf(float(s.vel.x))
+	if springs.jumped or state != "Idle":
+		stop_k = -1.0
+		walk_out = false
+	else:
+		if last_state == "Run" or last_state == "Dash":
+			stop_k = 0.0
+		elif last_state == "Walk":
+			walk_out = true
+		if stop_k >= 0.0:
+			if not (slide > BRAKE_HOLD_SPEED and stop_k >= BRAKE_HOLD_K):
+				stop_k += float(springs.new_frames) / RUN_STOP_FRAMES
+			if stop_k >= 1.0:
+				stop_k = -1.0
+		if walk_out and slide <= WALK_OUT_SPEED:
+			walk_out = false
 	# (The side it lies on, from the launch that put it down; a seek lies it on its back.)
 	if springs.jumped and (state == "Knockdown" or state == "GetUp"):
 		lying_back = true
