@@ -266,6 +266,27 @@ static func make(demo_name: String, m: Dictionary, dir: String):
 				var f0 := 330 + i * 45
 				d.timeline.append_array([[f0, 0, 0, shield], [f0 + 8, 0, -127, shield], [f0 + 9, 0, 0, 0]])
 			d.end_frame = 620
+		"reactions":
+			# (Round 9, the hit reactions: the second fighter (`--chars=A,B`, B) hit by the first in turn with a jab, a forward tilt, an up
+			# tilt, a down tilt, a forward tilt from behind, a stronger forward tilt and a forward smash that launches it tumbling onto the
+			# floor, where it lies until it gets up by itself; each hit from the same places at a set damage. The match camera, unless
+			# `--cam=N`.)
+			d.chars = [0, 1, 0, 1]
+			for a in OS.get_cmdline_user_args():
+				if a.begins_with("--chars="):
+					var picked := a.substr(8).split(",")
+					d.chars = [int(picked[0]), int(picked[1]) if picked.size() > 1 else 1, 0, 1]
+			# [first frame, the victim's damage, the victim's facing, stick x, stick y, buttons]
+			var hits := [[1, 0.0, -1, 0, 0, attack], [90, 30.0, -1, 40, 0, attack], [180, 40.0, -1, 0, 70, attack], [270, 50.0, -1, 0, -70, attack],
+				[360, 30.0, 1, 40, 0, attack], [450, 90.0, -1, 40, 0, attack], [560, 80.0, -1, 127, 0, attack]]
+			d.timeline = [[0, 0, 0, 0]]
+			for h in hits:
+				var f0: int = h[0]
+				# (The smash from the far left, so the launch comes down on the stage rather than at its far ledge.)
+				var x0 := -10.6 if int(h[3]) == 127 else -7.0
+				d.events.append_array([[f0, "stand", 0, x0, 1], [f0, "stand", 1, x0 + 1.9, h[2]], [f0, "percent", 1, h[1]]])
+				d.timeline.append_array([[f0 + 12, h[3], h[4], h[5]], [f0 + 13, 0, 0, 0]])
+			d.end_frame = 900
 		"airs":
 			# (Round 9: a short hop, a full hop, a full hop with a midair jump, a full hop fast-fallen, a walk off nothing: every frame, the camera
 			# steady on the first fighter.)

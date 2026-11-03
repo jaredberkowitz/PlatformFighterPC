@@ -47,10 +47,10 @@ stage at the reference's width, the knees at each family's own bend. It is the d
 | Ledge climb | 3 / 3 / 3 | 3.0 | 3 / 4 / 3 | 3.3 | yes |
 | Ledge roll | 2 / 3 / 3 | 2.7 | 4 / 4 / 3 | 3.7 | two fighters |
 | Ledge jump, ledge attack's body | 3 / 3 / 3 | 3.0 | 3 / 3 / 3 | 3.0 | yes |
-| Flinch (light hit, standing) | 3 / 3 / 3 | 3.0 | 3 / 4 / 3 | 3.3 | no close footage |
-| Heavy hit, upward hit | 3 / 3 / 3 | 3.0 | 3 / 3 / 3 | 3.0 | no close footage |
-| Launch, tumble | 3 / 4 / 4 | 3.7 | 3 / 4 / 4 | 3.7 | match camera only |
-| Knockdown, get-up | 3 / 3 / 3 | 3.0 | 3 / 3 / 3 | 3.0 | partly |
+| Flinch (light hit, standing) | 3 / 3 / 3 | 3.0 | 3 / 4 / 4 | 3.7 | no close footage |
+| Heavy hit, upward hit | 3 / 3 / 3 | 3.0 | 3 / 4 / 3 | 3.3 | no close footage |
+| Launch, tumble | 3 / 4 / 4 | 3.7 | 4 / 4 / 4 | 4.0 | match camera only |
+| Knockdown, get-up | 3 / 3 / 3 | 3.0 | 4 / 4 / 3 | 3.7 | partly |
 | Tech in place, tech roll, missed tech | 3 / 3 / 3 | 3.0 | 3 / 3 / 3 | 3.0 | no, by craft |
 | Shield break, dizzy | 2 / 3 / 3 | 2.7 | 2 / 3 / 3 | 2.7 | yes |
 | Helpless (special fall) | 3 / 3 / 3 | 3.0 | 3 / 3 / 3 | 3.0 | yes |
@@ -58,8 +58,9 @@ stage at the reference's width, the knees at each family's own bend. It is the d
 | Respawn | 3 / 3 / 3 | 3.0 | 3 / 3 / 3 | 3.0 | no, by craft |
 | Victory poses | 3 / 3 / 3 | 3.0 | 3 / 3 / 3 | 3.0 | yes, not reworked |
 
-**Mean (34 clips): before 2.84, now 3.40.** The reactions, shield break, dizzy, helpless, respawn and victory poses were not reworked in
-round 9 and keep their scores; they are next in the order (section 5).
+**Mean (34 clips): before 2.84, now 3.40** at core4; **3.45** with group 8 (the reactions, 2026-11-03: the flinch, heavy hit, launch and
+knockdown rows; `docs/ANIMATION.md` group 8). The tech, shield break, dizzy, helpless, grabbed, respawn and victory poses were not
+reworked in round 9 and keep their scores.
 
 ## 2. Measured, ours against the references
 
@@ -123,8 +124,9 @@ pass).
 - **The run's lean:** the torso is shorter than the references', so the neck is less far ahead at the same angle; the head rule is not
   the cap (measured: tipping the head 40 instead of 18 would add 0.045 of the height).
 - **Rolls:** the hips stay about 0.06H higher than the plumber's at the bottom of the roll; the head reaches the floor.
-- **Reactions:** not reworked this round. The flinch keeps its arms close (the pose review of 2026-10-17 asked for a recoil, not arms
-  thrown wide); at the match camera the owner now wants limbs clear of the body, so the flinch, heavy hit and launch are next.
+- **Reactions (group 8):** the launch and the tumble turn in the plane of the stage with the face toward the camera all the way round,
+  the damage fall flails, a knockdown lies on its back. Still differs: the slam onto the floor is the body tipping over from upright in
+  about 6 frames, where the references arrive nearly flat from the flight; the flinch keeps the pose review's poses (a compact recoil).
 - **Elbows:** 1,941 elbow-frames still read reversed on screen at group 5 (the knockdowns and the overhead moves to judge by eye).
 
 ## 4. No adequate reference: judged by craft

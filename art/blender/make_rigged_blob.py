@@ -620,7 +620,7 @@ HEAD_BACK_LIMIT = -8.0
 FREE_ARM_FWD = (10.0, 80.0)
 FREE_ARM_OUT = 24.0
 FREE_ELBOW = 90.0
-HEAD_FREE_CLIPS = ("knockdown", "getup", "ledge", "ledge_climb")
+HEAD_FREE_CLIPS = ("knockdown", "getup", "knockdown_up", "getup_up", "ledge", "ledge_climb")
 CLIP_NOW = ""
 # A head limit for the key being posed (the attacks' stance keys take the idle's, `_stance_rest`), or None for the clip's own.
 HEAD_LIMIT_NOW = None
@@ -1088,7 +1088,7 @@ def grounded(name):
     """Whether a clip is played on the ground (the feet planted), not in the air, hit, rolling, lying down or on a ledge."""
     if name.startswith(("jump_", "fall_")):
         return False
-    if name in ("jump", "fall", "fall_start", "tumble", "air_jump", "air_dodge", "hurt", "roll", "knockdown", "getup", "ledge", "ledge_climb", "kick_dash", "body_drop",
+    if name in ("jump", "fall", "fall_start", "tumble", "air_jump", "air_dodge", "hurt", "roll", "knockdown", "getup", "knockdown_up", "getup_up", "ledge", "ledge_climb", "kick_dash", "body_drop",
                 "hurt_heavy", "hurt_up", "platform_drop", "gaunt_knee", "gaunt_stomp", "tool_ride", "tool_float",
                 # (Aerials whose names do not end in "air": round 2, so their rest keys do not take the battle stance.)
                 "sword_rise", "sword_plunge", "kick_double", "leap_grab", "latch_sit", "rocket_fly",
@@ -4512,6 +4512,25 @@ def main() -> None:
         def f(rig):
             w = math.sin(k * 2.0 * math.pi)
             v = math.cos(k * 2.0 * math.pi)
+            if BODY:
+                # (Round 9, the reactions: open, so the tumble and the damage fall after it read at the match camera, the limbs clear of the
+                # body as the references' tumbling fighters' are: the arms flung up beside the head and out, flailing in turn, the legs apart
+                # and kicking. Curled, it was a ball at the match camera, the fists at the face.)
+                pose(rig, "spine", fwd=10.0 + 5.0 * w, twist=5.0 * w)
+                pose(rig, "head", fwd=-2.0)
+                pose(rig, "thigh.R", fwd=42.0 + 18.0 * w, out=18.0)
+                pose(rig, "shin.R", fwd=-62.0 - 14.0 * v)
+                pose(rig, "thigh.L", fwd=18.0 - 18.0 * w, out=20.0)
+                pose(rig, "shin.L", fwd=-50.0 + 14.0 * v)
+                # (Raised out to the sides, past level: forward (the swing comes before the spread, so a forward arm spread no further) the
+                # near hand came over the face once the body turned toward the camera for the hit, and raised straight up both went behind
+                # the big head.)
+                # (The elbows nearly straight: bent, the hands came back in over the edges of the face.)
+                pose(rig, "armU.L", fwd=14.0 + 12.0 * v, out=106.0 + 10.0 * w)
+                pose(rig, "armL.L", fwd=8.0 + 6.0 * w)
+                pose(rig, "armU.R", fwd=20.0 - 12.0 * v, out=102.0 - 10.0 * w)
+                pose(rig, "armL.R", fwd=8.0 - 6.0 * w)
+                return
             pose(rig, "spine", fwd=22.0 + 6.0 * w)
             pose(rig, "head", fwd=-4.0)
             pose(rig, "thigh.R", fwd=62.0 + 22.0 * w, out=14.0)
@@ -5292,6 +5311,67 @@ def main() -> None:
                 pose(rig, "shin." + side, fwd=-98.0)
 
         clip(rig, "getup", 30, {0: flat, 9: push_up, 18: rise, 30: idle(0.0)})
+
+        # (Round 9, the reactions: onto the back. The sim turns a fighter it hits to face the hit, so nearly every launch sends it backward,
+        # and the references' fighters launched backward come down on their backs: the body slams flat, the limbs bounce up off the floor
+        # and fall back, then it lies with one knee up. Every knockdown lay face down, the face to the floor. The game lays the body back
+        # with its lean; the chest and head turn toward the camera, so the face shows lying down.)
+        def slam_up(rig):
+            pose(rig, "spine", fwd=16.0, twist=10.0)
+            pose(rig, "head", fwd=14.0, twist=30.0)
+            for side, sign in (("L", 1.0), ("R", -1.0)):
+                pose(rig, "thigh." + side, fwd=58.0 + 10.0 * sign, out=16.0)
+                pose(rig, "shin." + side, fwd=-70.0 - 8.0 * sign)
+                pose(rig, "foot." + side, fwd=-12.0)
+            # (Flung up and out to the sides: forward, the near hand rose in front of the face while the body was still tipping back.)
+            pose(rig, "armU.L", fwd=12.0, out=104.0)
+            pose(rig, "armL.L", fwd=12.0)
+            pose(rig, "armU.R", fwd=20.0, out=98.0)
+            pose(rig, "armL.R", fwd=12.0)
+
+        def flat_up(rig):
+            pose(rig, "spine", fwd=2.0, twist=14.0)
+            pose(rig, "head", fwd=-2.0, twist=40.0)
+            # The near knee drawn up, the foot flat on the floor; the far leg out straight.
+            pose(rig, "thigh.L", fwd=46.0, out=14.0)
+            pose(rig, "shin.L", fwd=-84.0)
+            pose(rig, "foot.L", fwd=20.0)
+            pose(rig, "thigh.R", fwd=4.0, out=12.0)
+            pose(rig, "shin.R", fwd=-10.0)
+            pose(rig, "foot.R", fwd=-24.0)
+            # The near arm down along the body on the floor, the far one flung out past the head. (The near one past the head too came forward
+            # over the face on its way to the floor behind in the get-up; out to the side, it lay between the camera and the face.)
+            pose(rig, "armU.L", fwd=-6.0, out=26.0)
+            pose(rig, "armL.L", fwd=18.0)
+            pose(rig, "armU.R", fwd=150.0, out=40.0)
+            pose(rig, "armL.R", fwd=18.0)
+
+        clip(rig, "knockdown_up", 16, {0: slam_up, 3: amped(slam_up, 1.12), 8: flat_up, 11: amped(flat_up, 0.96), 16: flat_up})
+
+        # Up off the back (played by progress; the game swings the body upright over the first half): sat up with the hands planted behind,
+        # the knees drawn in, rocked forward over the feet into a crouch, then standing.
+        def sit_up(rig):
+            pose(rig, "spine", fwd=46.0, twist=8.0)
+            pose(rig, "head", fwd=8.0, twist=16.0)
+            for side, sign in (("L", 1.0), ("R", -1.0)):
+                pose(rig, "thigh." + side, fwd=96.0 + 6.0 * sign, out=12.0)
+                pose(rig, "shin." + side, fwd=-124.0)
+                pose(rig, "foot." + side, fwd=26.0)
+                pose(rig, "armU." + side, fwd=-34.0, out=30.0)
+                pose(rig, "armL." + side, fwd=14.0)
+
+        def rock_up(rig):
+            pose(rig, "hips", lift=-0.2)
+            pose(rig, "spine", fwd=34.0)
+            pose(rig, "head", fwd=-10.0)
+            for side in "LR":
+                pose(rig, "thigh." + side, fwd=82.0, out=10.0)
+                pose(rig, "shin." + side, fwd=-112.0)
+                pose(rig, "foot." + side, fwd=30.0)
+                pose(rig, "armU." + side, fwd=46.0, out=26.0)
+                pose(rig, "armL." + side, fwd=36.0)
+
+        clip(rig, "getup_up", 30, {0: flat_up, 8: sit_up, 15: rock_up, 21: rise, 30: idle(0.0)})
 
         # Motion polish phase 3 (docs/MOTION_POLISH_PLAN.md): the clips the inventory was missing.
 

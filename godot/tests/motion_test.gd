@@ -162,5 +162,63 @@ func _initialize() -> void:
 		sword.apply(Vector3.ZERO, snap(0, "Attack", "ftilt", 300 + f, f), 1.0 / 60.0)
 	check(sword.smear_pts.is_empty(), "a move with an arc draws no smear")
 
+	# Round 9, the reactions. A flinch on the ground keeps its recoil past the freeze: the body leans back off the hit in the freeze and
+	# goes on leaning back after it (it stood straight up in one frame when the freeze ended).
+	var hurt := FighterView.new()
+	root.add_child(hurt)
+	hurt.build(1, Loadout.default_for(1))
+	await process_frame
+	var flinch := snap(1, "Hitstun", "", 5000, 0)
+	flinch.facing = -1
+	flinch.hitstun = 20
+	flinch.hitlag = 4
+	for f in 4:
+		flinch.frame = 5000 + f
+		flinch.hitlag = 4 - f
+		hurt.apply(Vector3.ZERO, flinch, 1.0 / 60.0)
+	var frozen_lean := hurt.model.rotation.x
+	flinch.hitlag = 0
+	flinch.frame = 5004
+	flinch.state_frame = 1
+	flinch.hitstun = 19
+	flinch.kb_vel = Vector2(0.1, 0.0)
+	hurt.apply(Vector3.ZERO, flinch, 1.0 / 60.0)
+	check(frozen_lean < -0.05 and hurt.model.rotation.x < frozen_lean * 0.8, "a ground flinch goes on recoiling after the freeze (%.2f, then %.2f)" % [frozen_lean, hurt.model.rotation.x])
+	# A launch's clip is chosen on its first frame and kept while the knockback slows (it went from the arch to the air's flinch).
+	var pop := snap(1, "Hitstun", "", 5100, 0)
+	pop.platform = -1
+	pop.facing = -1
+	pop.kb_vel = Vector2(0.05, 0.22)
+	hurt.apply(Vector3(0, 0.5, 0), pop, 1.0 / 60.0)
+	var first_clip := hurt.hit_clip
+	pop.frame = 5113
+	pop.state_frame = 13
+	pop.kb_vel = Vector2(0.03, 0.12)
+	for f in 13:
+		pop.frame = 5101 + f
+		pop.state_frame = 1 + f
+		hurt.apply(Vector3(0, 0.5, 0), pop, 1.0 / 60.0)
+	check(first_clip == "hurt_up" and hurt.hit_clip == "hurt_up", "a pop upward keeps its clip as it slows (%s, then %s)" % [first_clip, hurt.hit_clip])
+	# A tumble turns in the plane of the stage: the body's up stays across the screen, never tipped toward or away from the camera.
+	var spin := snap(1, "Hitstun", "", 5200, 0)
+	spin.platform = -1
+	spin.tumble = true
+	spin.kb_vel = Vector2(0.15, 0.05)
+	var most_depth := 0.0
+	for f in 30:
+		spin.frame = 5200 + f
+		spin.state_frame = f
+		hurt.apply(Vector3(0, 3.0, 0), spin, 1.0 / 60.0)
+		most_depth = maxf(most_depth, absf(hurt.model.global_transform.basis.y.normalized().z))
+	check(absf(hurt.tumble_angle) > 0.5 and most_depth < 0.2, "a tumble spins in the stage's plane (turned %.2f, depth %.2f)" % [hurt.tumble_angle, most_depth])
+	# Out of a tumbling hitstun into the air the damage fall goes on flailing; a seek ends it.
+	var fallen := snap(1, "Airborne", "", 5230, 0)
+	fallen.platform = -1
+	hurt.apply(Vector3(0, 3.0, 0), fallen, 1.0 / 60.0)
+	check(hurt.damage_fall and hurt.current_clip == "tumble", "a damage fall keeps tumbling (%s)" % hurt.current_clip)
+	fallen.frame = 5400
+	hurt.apply(Vector3(0, 3.0, 0), fallen, 1.0 / 60.0)
+	check(not hurt.damage_fall, "a seek ends the damage fall")
+
 	print("motion test ", "FAILED" if failed else "PASSED")
 	quit(1 if failed else 0)

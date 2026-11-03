@@ -584,6 +584,12 @@ func _choose_clip(s: Dictionary) -> Array:
 			# A trip is a fall onto the seat, not onto the back: crouched low, held, rather than laid flat (`tripped` from the bridge).
 			if s.get("tripped", false):
 				return ["crouch", 1.0, 1.0]
+			# (Round 9: on the back after a launch backward, as the references' fighters come down: `hit_back`, `lying_back`.)
+			if lying_back and not r9_off.has("react"):
+				return [AnimLibrary.or_stand_in("knockdown_up", anim), 1.0, -1.0]
+		"GetUp":
+			if lying_back and not r9_off.has("react") and dodge_progress(s) >= 0.0:
+				return [AnimLibrary.or_stand_in("getup_up", anim), 1.0, dodge_progress(s)]
 		"Turn":
 			# Turning out of a run skids; a turn from standing just turns.
 			# (Round 9: its own family's idle; every class played the sword family's for the frames of a turn.)
@@ -622,6 +628,12 @@ func _choose_clip(s: Dictionary) -> Array:
 			# Just dropped through a platform (the sim ignores platforms for a few frames after it): a hop down out of a crouch.
 			if int(s.get("ignore", 0)) > 0 and int(s.state_frame) < DROP_FRAMES and flip_left <= 0.0:
 				return [AnimLibrary.or_stand_in("platform_drop", anim), 1.0, float(s.state_frame) / DROP_FRAMES]
+			# (Round 9, the reactions: still tumbling after a launch's hitstun ran out (the sim's damage fall, until the fighter acts), it keeps
+			# flailing, as the references' tumbling fall does; it played the plain fall, a fighter in control, and then lay down on landing.)
+			if damage_fall and not r9_off.has("react"):
+				var flail := AnimLibrary.or_stand_in("tumble", anim)
+				if flail != "tumble" or anim == null or anim.has_animation("tumble"):
+					return [flail, 1.0, -1.0]
 		"Hitstun":
 			# Sent flying by a hit that does not tumble: folded round the blow, or arched up off it when sent upward.
 			var kb: Vector2 = s.get("kb_vel", Vector2.ZERO)
@@ -630,11 +642,39 @@ func _choose_clip(s: Dictionary) -> Array:
 				var tumble := AnimLibrary.or_stand_in("tumble", anim)
 				if tumble != "tumble" or anim == null or anim.has_animation("tumble"):
 					return [tumble, 1.0, -1.0]
-			if not s.tumble and kb.length() > HEAVY_HITSTUN_SPEED:
-				return [AnimLibrary.or_stand_in("hurt_up" if kb.y > absf(kb.x) else "hurt_heavy", anim), 1.0, -1.0]
-			# (Round 9: a flinch on the ground stands on it, the feet where they are: the air's hurt clip hung them through the floor or off it.)
-			if grounded:
-				return [AnimLibrary.or_stand_in("hurt_ground", anim), 1.0, -1.0]
+			if r9_off.has("react"):
+				if not s.tumble and kb.length() > HEAVY_HITSTUN_SPEED:
+					return [AnimLibrary.or_stand_in("hurt_up" if kb.y > absf(kb.x) else "hurt_heavy", anim), 1.0, -1.0]
+				# (Round 9: a flinch on the ground stands on it, the feet where they are: the air's hurt clip hung them through the floor or off it.)
+				if grounded:
+					return [AnimLibrary.or_stand_in("hurt_ground", anim), 1.0, -1.0]
+			else:
+				# (Round 9, the reactions: the launch's clip is chosen once, on the hitstun's first frame after the freeze, and kept for the
+				# whole hitstun; chosen again every frame as the knockback slowed, one jab's pop went through the flinch, the upward arch and the
+				# air's flinch, each from its first pose. Every hit clip plays by the hitstun's own frames (`hit_progress`), so a landing in
+				# the middle of one goes on from where the reaction is instead of snapping back as if hit again, and a freeze or a seek holds it.)
+				if int(s.hitlag) > 0:
+					hit_from_ground = grounded
+				else:
+					var key := int(s.frame) - int(s.state_frame)
+					if key != hit_clip_key or springs.jumped:
+						hit_clip_key = key
+						hit_clip = ""
+						# (Knocked along the floor from standing, it slides on its feet: such a launch leaves the ground for a frame or two, which
+						# chose the air's fold for those frames between two of the ground's flinch.)
+						hit_slide = hit_from_ground and kb.y < HIT_SLIDE_RISE
+						if not s.tumble and kb.length() > HEAVY_HITSTUN_SPEED and not hit_slide:
+							hit_clip = "hurt_up" if kb.y > absf(kb.x) else "hurt_heavy"
+						# (Sent back, away from the way it faces, or up, it will come down on its back: the sim turns a fighter it hits to face the
+						# hit, so that is nearly every launch. Sent clearly forward, or spiked, onto its front.)
+						hit_back = kb.x * float(s.facing) <= maxf(0.02, 0.3 * kb.y) and kb.y >= -absf(kb.x)
+				var sf := float(s.state_frame)
+				if grounded or (hit_slide and not s.tumble and sf < HIT_SLIDE_FRAMES):
+					return [AnimLibrary.or_stand_in("hurt_ground", anim), 1.0, hit_progress(sf, 66.0, 18.0)]
+				# (Not in a new hit's freeze: the clip is the last hit's until this one's launch chooses.)
+				if hit_clip != "" and not s.tumble and int(s.hitlag) == 0:
+					return [AnimLibrary.or_stand_in(hit_clip, anim), 1.0, hit_progress(sf, 60.0, 24.0)]
+				return [AnimLibrary.or_stand_in("hurt", anim), 1.0, hit_progress(sf, 66.0, 18.0)]
 		"Grabbed", "Rebound":
 			if grounded:
 				return [AnimLibrary.or_stand_in("hurt_ground", anim), 1.0, -1.0]
@@ -1259,10 +1299,11 @@ func _animate(s: Dictionary, delta: float) -> void:
 ## frames, so a freeze holds it, and dropped at once on a jump in the sim frame (a rollback or a seek redraws the clip's own pose).
 ## HANDOFF_FRAMES by the clip being entered; what must land at once takes none or one (a hit's pose, the landing's impact).
 const HANDOFF_FRAMES := 5.0
-const HANDOFF_BY_CLIP := {"jumpsquat": 2.0, "land": 1.0, "tech": 2.0, "knockdown": 2.0, "hurt": 1.0, "hurt_ground": 1.0, "hurt_heavy": 1.0, "hurt_up": 1.0,
+const HANDOFF_BY_CLIP := {"jumpsquat": 2.0, "land": 1.0, "tech": 2.0, "knockdown": 2.0, "knockdown_up": 2.0, "hurt": 1.0, "hurt_ground": 1.0, "hurt_heavy": 1.0, "hurt_up": 1.0,
 	"shield": 3.0, "crouch": 5.0, "tumble": 4.0, "dash": 3.0, "skid": 3.0, "air_jump": 3.0, "roll": 3.0, "spot_dodge": 2.0, "air_dodge": 2.0, "jump": 2.0, "grab": 3.0, "ledge": 3.0}
 ## With the environment variable PF_R9_OFF (before and after images, round 9): "handoff" leaves the cross-fades as they were; "rollturn" leaves
-## the forward roll's turn round to the sim's last frame.
+## the forward roll's turn round to the sim's last frame; "react" leaves the hit reactions as they were at core4 (a clip chosen every frame by
+## the knockback, the ground's flinch without its recoil, a launch and a tumble pitched about the body's side, the damage fall a plain fall).
 static var r9_off := OS.get_environment("PF_R9_OFF").split(",")
 var handoff_clip := ""
 var handoff_state := ""
@@ -3457,8 +3498,45 @@ func _face_for(s: Dictionary) -> Dictionary:
 
 ## How far round a tumbling launch has turned the body (radians).
 var tumble_angle := 0.0
+## Round 9, the reactions: the clip a hit's launch chose (`_choose_clip`), kept for its whole hitstun, which began on frame `hit_clip_key`;
+## whether that launch sends the fighter onto its back (`hit_back`: away from the way it faces, or straight up); and whether the fighter
+## is still in a tumble's damage fall (a tumbling hitstun ran out in the air and it has not acted since, the sim's `damage_fall`, which
+## the snapshot does not carry: followed from the states seen, and dropped on a seek).
+var hit_clip := ""
+var hit_clip_key := -1
+var hit_back := true
+## Lying on the back (round 9): set as a knockdown begins from the launch that caused it (`hit_back`), kept through it and the get-up; a
+## trip sits down instead, and on a seek it lies on its back, as nearly every launch ends.
+var lying_back := true
+## The knockdown's lean when lying on the back (degrees: the body laid back over its feet).
+const KNOCKDOWN_BACK := -80.0
+## How fast a fighter lying down turns side-on (per second, for the frontal turn's share and the yaw).
+const LIE_TURN_RATE := 24.0
+## Whether the hit's freeze found the fighter on the ground, and whether its launch only slides it along the floor (rising slower than
+## HIT_SLIDE_RISE a frame): then it keeps the ground's flinch for its first HIT_SLIDE_FRAMES frames even where the sim lifts it a little.
+var hit_from_ground := false
+var hit_slide := false
+const HIT_SLIDE_RISE := 0.06
+const HIT_SLIDE_FRAMES := 6.0
+var damage_fall := false
+var damage_fall_armed := false
+
+
+## A hit clip's place by the hitstun's own frames (round 9): through the clip once, then round its tail from `loop_from` (the reel and
+## the flail), so a long stun stays alive; by the snapshot, so a freeze holds it and a seek redraws it.
+static func hit_progress(sf: float, length: float, loop_from: float) -> float:
+	if sf < length:
+		return sf / length
+	return (loop_from + fmod(sf - loop_from, length - loop_from)) / length
 ## Out of a tumble in the air, the share of the tumble's turn left after each sim frame (round 7): upright in about six frames.
 const TUMBLE_SETTLE := 0.55
+## Round 9, the reactions: in a damage fall, upright in about fifteen frames; a launch's head turns toward the way it flies by this share a
+## sim frame; a tumble turns by its speed times TUMBLE_SPIN_PER_SPEED radians a sim frame, from TUMBLE_SPIN_MIN to TUMBLE_SPIN_MAX.
+const DAMAGE_FALL_SETTLE := 0.82
+const LAUNCH_LEAD_RATE := 0.3
+const TUMBLE_SPIN_PER_SPEED := 0.9
+const TUMBLE_SPIN_MIN := 0.08
+const TUMBLE_SPIN_MAX := 0.26
 ## Flying faster than this (world units a frame), a launched fighter is thrown head first along its path rather than tumbling.
 const LAUNCH_POSE_SPEED := 0.32
 ## The hurt recoil (round 3 item 3): the whole body snaps away from the hit over HURT_SNAP_FRAMES, holds a moment, then recovers to
@@ -3470,6 +3548,10 @@ const HURT_RECOIL_MAX := 26.0
 const HURT_WEAK := 8.0
 const HURT_STRONG := 32.0
 const HURT_RECOVERED := 0.7
+## Round 9: the fewest frames a recoil takes to come back upright; and over how many frames a launch's first frames ease out the lean the
+## freeze snapped the body to, as the folded or arched clip takes over (it went in one frame, 11-14 degrees).
+const HURT_RECOVER_MIN := 4.0
+const LAUNCH_RECOIL_OUT := 4.0
 
 
 func _recoil(s: Dictionary) -> void:
@@ -3483,7 +3565,7 @@ static func hurt_recoil(s: Dictionary) -> float:
 	var f := float(s.state_frame)
 	var total := maxf(1.0, f + left)
 	var strength := clampf((total - HURT_WEAK) / (HURT_STRONG - HURT_WEAK), 0.0, 1.0)
-	var amount := lerpf(HURT_RECOIL_MIN, HURT_RECOIL_MAX, strength)
+	var amount := hurt_amount(s)
 	var kb: Vector2 = s.get("kb_vel", Vector2.ZERO)
 	# (Rotation about x leans the body back when negative, facing either way.)
 	var away := 1.0 if kb.x * float(s.facing) > 0.02 else -1.0
@@ -3491,6 +3573,11 @@ static func hurt_recoil(s: Dictionary) -> float:
 	if int(s.get("hitlag", 0)) <= 0:
 		var hold := HURT_SNAP_FRAMES + 2.0 + 5.0 * strength
 		var back := maxf(hold + 2.0, total * HURT_RECOVERED)
+		if not r9_off.has("react"):
+			# (Round 9: back up over at least HURT_RECOVER_MIN frames, and upright by the stun's last frame: a short stun stood up in two
+			# frames, 9 degrees in one, and one that ended before it was back stood up straight in one.)
+			back = clampf(total * HURT_RECOVERED, hold + HURT_RECOVER_MIN, total - 1.0)
+			hold = minf(hold, back - HURT_RECOVER_MIN)
 		if f < HURT_SNAP_FRAMES:
 			var u := f / HURT_SNAP_FRAMES
 			k = 0.55 + 0.45 * (1.0 - (1.0 - u) * (1.0 - u))
@@ -3502,6 +3589,12 @@ static func hurt_recoil(s: Dictionary) -> float:
 		else:
 			k = 0.0
 	return away * amount * k
+
+
+## How far a hit's recoil leans the body (degrees), by the hit's strength: its whole hitstun, from HURT_WEAK to HURT_STRONG frames.
+static func hurt_amount(s: Dictionary) -> float:
+	var total := maxf(1.0, float(s.state_frame) + float(s.get("hitstun", 0)))
+	return lerpf(HURT_RECOIL_MIN, HURT_RECOIL_MAX, clampf((total - HURT_WEAK) / (HURT_STRONG - HURT_WEAK), 0.0, 1.0))
 ## A hit too weak to launch: the body snaps back from it and recovers over this long (seconds left of FLINCH_TIME).
 var flinch_left := 0.0
 const FLINCH_TIME := 0.22
@@ -4045,8 +4138,12 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 		target_lean = 4.0
 	# Standing up from the floor: the body rises from lying (the knockdown's lean) as the `getup` clip sits it up and gets the feet
 	# under it.
+	# (Round 9: on the back after a launch backward, `lying_back`.)
+	var lie_lean: float = KNOCKDOWN_BACK if lying_back and not r9_off.has("react") else LEAN.Knockdown
+	if state == "Knockdown" and not s.get("tripped", false):
+		target_lean = lie_lean
 	if state == "GetUp" and dodge_progress(s) >= 0.0:
-		target_lean = LEAN.Knockdown * (1.0 - smoothstep(0.0, 0.55, dodge_progress(s)))
+		target_lean = lie_lean * (1.0 - smoothstep(0.0, 0.55, dodge_progress(s)))
 	if heavy_landing:
 		target_lean = 8.0
 	if state == "AirDodge":
@@ -4150,6 +4247,24 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 	var total := squash + step_squash
 	model.scale = Vector3(1.0 + 0.5 * total, 1.0 - total, 1.0 + 0.5 * total)
 	_secondary(s, delta)
+	# (Round 9: the damage fall, as the sim's: armed through a tumbling hitstun, on when that hitstun runs out in the air, and over once the
+	# fighter does anything (another state, or a midair jump), lands, or the view jumps to another frame.)
+	if springs.jumped or (state != "Airborne" and state != "Hitstun"):
+		damage_fall = false
+		damage_fall_armed = false
+	elif state == "Hitstun":
+		damage_fall = false
+		damage_fall_armed = bool(s.tumble)
+	else:
+		if last_state == "Hitstun":
+			damage_fall = damage_fall_armed
+		if prev_jumps >= 0 and int(s.get("jumps", 0)) < prev_jumps:
+			damage_fall = false
+	# (The side it lies on, from the launch that put it down; a seek lies it on its back.)
+	if springs.jumped and (state == "Knockdown" or state == "GetUp"):
+		lying_back = true
+	elif state == "Knockdown" and last_state != "Knockdown":
+		lying_back = hit_back
 	# Skidding out of a run, the fighter still faces the way it was running (the simulation has already turned it), leaning back
 	# against the slide; it swings round as the skid ends.
 	var look := facing
@@ -4160,7 +4275,10 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 	# In the big moments (hit, a broken shield, the respawn) the body swings round toward the camera, so the face and the reaction read
 	# (the owner's direction, 2026-10-14: turned more frontal at times, as PEAK's characters are).
 	var showy := 1.0 if state == "Hitstun" or state == "ShieldBreak" or state == "Respawn" else 0.0
-	face_cam = move_toward(face_cam, showy, delta * (8.0 if showy > face_cam else 3.0))
+	# (Round 9: lying down it turns side-on at once, so it lies along the stage: easing back from the hit's frontal turn over a third of a
+	# second, the body tipped over into the screen, at the camera, for the knockdown's first 10-20 frames.)
+	var lying := (state == "Knockdown" or state == "GetUp") and not r9_off.has("react")
+	face_cam = move_toward(face_cam, showy, delta * (8.0 if showy > face_cam else (LIE_TURN_RATE if lying else 3.0)))
 	var turn_deg := lerpf(BODY_TURN + BODY_TURN_IN_ATTACK * attack_turn, FRONTAL_TURN, face_cam)
 	# A hit behind (a back air, a back throw's swing): the body swings round through the camera toward the back for the strike, the chest
 	# facing the swing, and back again after (the owner, 2026-10-17, after the reference's back airs). By the move's reach, so it
@@ -4176,7 +4294,7 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 	# each reversal.)
 	var pivot_turn: bool = grounded and use_base_body and not r8_off.has("pivot") and ((PIVOT_STATES.has(state) and absf(float(s.vel.x)) <= 0.08) or state == "Dash")
 	var yaw_to := float(look) * deg_to_rad(turn_deg)
-	yaw = lerp_angle(yaw, yaw_to, clampf(delta * (PIVOT_RATE if pivot_turn else 14.0), 0.0, 1.0))
+	yaw = lerp_angle(yaw, yaw_to, clampf(delta * (PIVOT_RATE if pivot_turn else (LIE_TURN_RATE if lying else 14.0)), 0.0, 1.0))
 	# (Round 9, sim 147: the forward roll's turn round goes through the camera by the roll's own frames, from the side it came from.)
 	if roll_turning:
 		yaw = lerp_angle(-yaw_to, yaw_to, roll_turn_k(s, _cls(s)))
@@ -4349,6 +4467,14 @@ func _log_anim(s: Dictionary) -> void:
 		1 if int(s.platform) >= 0 else 0, current_clip if current_clip != "" else "-", anim.current_animation_position if anim != null else 0.0]
 	line += " t:%d world:%.3f,%.3f vel:%.3f,%.3f pitch:%.1f yaw:%.1f sq:%.3f" % [int(s.frame), global_position.x, global_position.y, float(s.vel.x), float(s.vel.y),
 		rad_to_deg(model.rotation.x), rad_to_deg(model.rotation.y), squash]
+	# (Round 9, the reactions: the launch's speed, the tumble flag, the body's roll in the stage's plane, and how far the face turns toward
+	# the camera: the head's front in the world, toward the camera (hf: 1 facing it, 0 side on, below 0 turned away) and up (hy: toward
+	# the sky, or below 0 the floor).)
+	var kbv: Vector2 = s.get("kb_vel", Vector2.ZERO)
+	var face := Vector3.ZERO
+	if head_bone >= 0:
+		face = (skeleton.global_transform.basis * skeleton.get_bone_global_pose(head_bone).basis).z.normalized()
+	line += " kb:%.3f,%.3f tum:%d roll:%.1f hf:%.2f hy:%.2f" % [kbv.x, kbv.y, 1 if s.get("tumble", false) else 0, rad_to_deg(model.rotation.z), face.z, face.y]
 	for b in ANIM_TRACE_BONES:
 		var bi := skeleton.find_bone(b)
 		if bi < 0:
@@ -4369,6 +4495,11 @@ func _log_anim(s: Dictionary) -> void:
 			low = minf(low, (skeleton.global_transform * (g.origin + turn * (off as Vector3))).y - global_position.y)
 		soles.append(low)
 	line += " sole:%.3f,%.3f" % soles
+	# (Round 9: where the body's middle is on screen, in pixels, for cropping movie frames round a fighter.)
+	var cam3 := get_viewport().get_camera_3d() if is_inside_tree() else null
+	if cam3 != null:
+		var px := cam3.unproject_position(global_position + Vector3(0, 1.1, 0))
+		line += " scr:%d,%d" % [int(px.x), int(px.y)]
 	print(line)
 
 
@@ -7645,6 +7776,7 @@ func _apply_combat(s: Dictionary, delta: float) -> void:
 		spark.visible = (s.frame / 3) % 2 == 0
 		spark.scale = Vector3.ONE * (0.4 + 0.9 * amount)
 		model.position = Vector3(sin(float(s.frame) * 2.3) * 0.04 * (1.0 + 2.0 * amount) + lunge * float(s.facing), 0, 0)
+	var in_plane := not r9_off.has("react")
 	if state == "Hitstun" and hitlag == 0:
 		if s.tumble:
 			var flight: Vector2 = s.vel + s.get("kb_vel", Vector2.ZERO)
@@ -7652,24 +7784,57 @@ func _apply_combat(s: Dictionary, delta: float) -> void:
 				# Thrown along the launch: arched back (the hurt pose), the head leading the way it flies and the limbs trailing,
 				# as the reference game's fighters fly off a strong hit.
 				var lead := atan2(flight.x * float(s.facing), flight.y)
-				tumble_angle = lerp_angle(tumble_angle, lead, clampf(delta * 18.0, 0.0, 1.0))
+				if in_plane:
+					# (Round 9: by sim frames, so a freeze holds it and a seek puts it there.)
+					tumble_angle = lead if springs.jumped else lerp_angle(tumble_angle, lead, 1.0 - pow(1.0 - LAUNCH_LEAD_RATE, float(springs.new_frames)))
+				else:
+					tumble_angle = lerp_angle(tumble_angle, lead, clampf(delta * 18.0, 0.0, 1.0))
+			elif in_plane:
+				# (Round 9: a turn in about 25 to 80 frames by how fast it still flies, by sim frames; it was 10 to 52, by the clock, and a blur
+				# at the match camera.)
+				tumble_angle -= clampf(flight.length() * TUMBLE_SPIN_PER_SPEED, TUMBLE_SPIN_MIN, TUMBLE_SPIN_MAX) * float(springs.new_frames)
 			else:
 				# Slowing down, it tumbles head over heels, faster the faster it still flies.
 				tumble_angle -= clampf(flight.length() * 1.3, 0.12, 0.6) * delta * 60.0
-			model.rotation.x = tumble_angle
-			# About the middle of the body, not the feet (which would swing the body down through the floor).
-			model.position += SPIN_PIVOT_3D - Basis.from_euler(model.rotation) * SPIN_PIVOT_3D
-		elif current_clip == "hurt":
+			if in_plane:
+				_roll_in_stage(tumble_angle, int(s.facing))
+			else:
+				model.rotation.x = tumble_angle
+				# About the middle of the body, not the feet (which would swing the body down through the floor).
+				model.position += SPIN_PIVOT_3D - Basis.from_euler(model.rotation) * SPIN_PIVOT_3D
+		elif current_clip == "hurt" or (current_clip == "hurt_ground" and in_plane):
+			# (Round 9: on the ground too. Group 5 gave the ground's flinch its own clip, and the recoil, which looked for the air's, stopped
+			# at the end of the freeze: the body stood up straight in one frame, 11-14 degrees, and the snap back off the hit was gone.)
 			_recoil(s)
+		elif in_plane and (current_clip == "hurt_heavy" or current_clip == "hurt_up") and float(s.state_frame) < LAUNCH_RECOIL_OUT:
+			model.rotation.x = deg_to_rad(-hurt_amount(s) * 0.55 * (1.0 - float(s.state_frame) / LAUNCH_RECOIL_OUT))
 	elif state == "Hitstun" and not s.tumble and (s.get("kb_vel", Vector2.ZERO) as Vector2).length() <= HEAVY_HITSTUN_SPEED:
 		# (Frozen by the hit: already snapped part of the way off it.)
 		_recoil(s)
 		tumble_angle = 0.0
-	elif int(s.platform) < 0 and absf(tumble_angle) > 0.02 and not springs.jumped and not r7_off.has("tumble"):
+	# (Round 9: and onto the floor in a knockdown, which a tumble can reach before its hitstun runs out: the spin's last 35 degrees went in
+	# one frame as the body touched down.)
+	elif (int(s.platform) < 0 or (state == "Knockdown" and in_plane)) and absf(tumble_angle) > 0.02 and not springs.jumped and not r7_off.has("tumble"):
 		# (Round 7: out of a tumble in the air (a jump, an air dodge or an aerial out of it) the body comes upright over a few sim frames,
 		# the short way round, instead of in one: it turned up to 171 degrees in a frame, the head with it, in every computer match.)
-		tumble_angle = wrapf(tumble_angle, -PI, PI) * pow(TUMBLE_SETTLE, float(springs.new_frames))
-		model.rotation.x += tumble_angle
-		model.position += SPIN_PIVOT_3D - Basis.from_euler(model.rotation) * SPIN_PIVOT_3D - (SPIN_PIVOT_3D - Basis.from_euler(Vector3(model.rotation.x - tumble_angle, model.rotation.y, model.rotation.z)) * SPIN_PIVOT_3D)
+		# (Round 9: in a damage fall, still tumbling, it comes upright more slowly.)
+		var settle := DAMAGE_FALL_SETTLE if damage_fall and in_plane else TUMBLE_SETTLE
+		tumble_angle = wrapf(tumble_angle, -PI, PI) * pow(settle, float(springs.new_frames))
+		if in_plane:
+			_roll_in_stage(tumble_angle, int(s.facing))
+		else:
+			model.rotation.x += tumble_angle
+			model.position += SPIN_PIVOT_3D - Basis.from_euler(model.rotation) * SPIN_PIVOT_3D - (SPIN_PIVOT_3D - Basis.from_euler(Vector3(model.rotation.x - tumble_angle, model.rotation.y, model.rotation.z)) * SPIN_PIVOT_3D)
 	else:
 		tumble_angle = 0.0
+
+
+## The body turned in the plane of the stage (round 9): a launch's lead and a tumble's spin go round the depth axis through the body's
+## middle, so the face and the limbs stay toward the camera all the way round. As a pitch about the body's own side, with the body turned
+## toward the camera in a hit (`FRONTAL_TURN`), the spin went into the screen: the back and top of the head showed for about half of every
+## turn, and a head-first launch tipped the head at the camera instead of along the way it flew. `phi` is the head's angle from straight
+## up toward the fighter's front.
+func _roll_in_stage(phi: float, facing: int) -> void:
+	var q := Quaternion(Vector3(0, 0, 1), -phi * float(facing))
+	model.quaternion = q * model.quaternion
+	model.position += SPIN_PIVOT_3D - q * SPIN_PIVOT_3D
