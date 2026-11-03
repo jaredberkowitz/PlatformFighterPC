@@ -26,8 +26,9 @@ global uniform vec3 pf_sun_dir;
 // depth instead). Fighters keep their own shading.
 global uniform float pf_paper;
 global uniform vec4 pf_edge_light;
-// The fighters' value mock B and C (art audit 2026-11-02): a pale cut edge, a thin crisp band just inside the ink line on the side the
-// key light falls on, as the stages' fronts carry a pale cut-paper edge (rgb, and a the strength; 0 off). Set by scripts/lighting.gd.
+// The fighters' pale cut edge (art audit 2026-11-02, the owner's pick C): a thin crisp band just inside the ink line on the silhouette's
+// upper left, as the paper menus and the stages' fronts carry a pale cut-paper edge (rgb, and a the strength; 0 off). Set by
+// scripts/lighting.gd, in matches only.
 global uniform vec4 pf_fighter_cut;
 // Bounce light (fidelity review 6, the light finish): the colour of the ground the light comes back up from (warm sand, sunlit grass, the
 // sea, the street's glow) and, in its alpha, how much; it fills the side turned from the light, most on faces turned down. 0 off.
@@ -258,8 +259,8 @@ void light() {
 	float around = smoothstep(0.62, 0.95, edge);
 	vec3 cream = mix(pf_edge_light.rgb, pf_edge_light.rgb * min(ALBEDO * 1.6 + 0.25, vec3(1.0)), PF_FIGHTER_CREAM);
 	SPECULAR_LIGHT += cream * pf_edge_light.a * around * fighter * 0.5;
-	// (The value mock's cut edge: lit from the upper left of the screen, as the paper menus' cut edges are, whatever the stage's sun; half
-	// from each of the two lights, as the edge light above.)
+	// (The cut edge: lit from the upper left of the screen, as the paper menus' cut edges are, whatever the stage's sun; half from each of
+	// the two lights, as the edge light above.)
 	if (pf_fighter_cut.a > 0.0 && fighter > 0.0) {
 		float band = smoothstep(0.6, 0.66, edge) * clamp(dot(NORMAL, normalize(vec3(-0.62, 0.78, 0.0))) * 3.0, 0.0, 1.0);
 		SPECULAR_LIGHT += pf_fighter_cut.rgb * pf_fighter_cut.a * band * fighter * 0.5;

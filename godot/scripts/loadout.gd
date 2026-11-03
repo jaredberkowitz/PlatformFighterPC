@@ -372,20 +372,24 @@ func accent_color() -> Color:
 	return PALETTE[accent]
 
 
-## The fighters' value mock (art audit 2026-11-02, for the owner to pick): `--fighter-mock=` or PF_FIGHTER_MOCK. A: the outfit in a deep
-## shade (the outfit shirt and the shorts), so every fighter carries a dark area; B: a pale cut edge on the lit side of the silhouette
-## (shaders/toon_light.gdshaderinc `pf_fighter_cut`, set by scripts/lighting.gd); C: both. Empty: as before.
+## The fighters' values (art audit 2026-11-02, the owner's pick C, 2026-11-03): in greyscale 11 of the 14 built-in fighters had no large
+## dark area and sat inside the stages' mid greys. A: the outfit in a deep shade of its own colour (the shirt, the shorts, the prints,
+## collars, sleeve bands, neckwear and outfit-coloured hats), so every fighter carries a dark area; B: a pale cut edge on the silhouette's
+## upper left in matches (shaders/toon_light.gdshaderinc `pf_fighter_cut`, set by scripts/lighting.gd); C, the default: both.
+## `--fighter-mock=A|B|C|0` or PF_FIGHTER_MOCK picks one for comparison; 0 is the look before.
 static var _value_mock := "?"
 
 
 static func value_mock() -> String:
 	if _value_mock == "?":
-		var pick := OS.get_environment("PF_FIGHTER_MOCK")
+		var pick := "C"
+		var asked := OS.get_environment("PF_FIGHTER_MOCK")
 		for a in OS.get_cmdline_user_args():
 			if a.begins_with("--fighter-mock="):
-				pick = a.substr(15)
-		pick = pick.to_upper().left(1)
-		_value_mock = pick if pick != "" and "ABC".contains(pick) else ""
+				asked = a.substr(15)
+		if asked != "":
+			pick = asked.to_upper().left(1)
+		_value_mock = pick if "ABC".contains(pick) and pick != "" else ""
 	return _value_mock
 
 
@@ -398,7 +402,8 @@ func deep_accent() -> Color:
 	return Color.from_hsv(a.h, minf(1.0, a.s * 1.1 + 0.05), a.v * 0.42)
 
 
-## The colour the outfit shirt and its sleeves are drawn in: the outfit colour, or its deep shade in mocks A and C.
+## The colour the outfit is drawn in (the outfit shirt, the prints on the striped and flower shirts, collars and sleeve bands, neckwear and
+## outfit-coloured hats): its deep shade under A and C, the default.
 func outfit_color() -> Color:
 	return deep_accent() if value_mock() in ["A", "C"] else accent_color()
 

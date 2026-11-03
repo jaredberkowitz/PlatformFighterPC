@@ -330,7 +330,7 @@ func _build_rig(skin: Material) -> bool:
 	# The shorts take the outfit colour (the accent, a shade darker) under a plain shirt, and navy under a coloured one.
 	# (Khaki under the holiday shirt and olive under the outfit shirt, as the reference's blue and ranger, the character judge's round 16.)
 	var shorts_colour: Color = loadout.accent_color().darkened(0.2) if loadout.shirt <= 1 else {4: Color(0.7, 0.6, 0.42), 2: Color(0.4, 0.42, 0.26)}.get(loadout.shirt, Color(0.22, 0.25, 0.42))
-	# (The value mock, art audit 2026-11-02: A and C put every fighter's shorts in the deep shade of its own outfit colour.)
+	# (The fighters' values, art audit 2026-11-02, the owner's pick C: every fighter's shorts in the deep shade of its own outfit colour.)
 	if loadout.value_mock() in ["A", "C"]:
 		shorts_colour = loadout.deep_accent()
 	var skin_colour: Color = loadout.body_color()
@@ -429,7 +429,7 @@ func _build_rig(skin: Material) -> bool:
 			# ones. In the shirt's own cloth the sleeve just stopped.)
 			match loadout.shirt:
 				1:
-					mi.material_override = _cloth(toon(loadout.accent_color()))
+					mi.material_override = _cloth(toon(loadout.outfit_color()))
 				2:
 					mi.material_override = _cloth(toon(loadout.accent_color().darkened(0.35)))
 				_:
@@ -2357,12 +2357,13 @@ const SHIRT_WHITE := Color(0.97, 0.95, 0.9)
 
 
 func _shirt_material() -> Material:
-	var accent: Color = loadout.accent_color()
+	# (The outfit's deep shade under the fighters' values pick, `Loadout.outfit_color`: the outfit shirt and the stripes and flowers.)
+	var accent: Color = loadout.outfit_color()
 	match loadout.shirt:
 		1:
 			return toon(SHIRT_WHITE)
 		2:
-			return toon(loadout.outfit_color())
+			return toon(accent)
 		3:
 			return toon(Color(1, 1, 1), true, SvgArt.texture("res://art/cloth/stripes.svg", {"#ff00ff": accent}), Vector2(1, 7))
 		4:
@@ -2373,12 +2374,12 @@ func _shirt_material() -> Material:
 ## The modelled shirt's material for this look (or null: no shirt): the cel material in the shirt's colour, its print laid by the
 ## garment's rest-pose texture map (x and height, as the skin's), at the scales the painted shirt used.
 func _garment_shirt_material() -> Material:
-	var accent: Color = loadout.accent_color()
+	var accent: Color = loadout.outfit_color()
 	match loadout.shirt:
 		1:
 			return _fleck(SHIRT_WHITE)
 		2:
-			return _fleck(loadout.outfit_color())
+			return _fleck(accent)
 		3:
 			return toon(Color(1, 1, 1), true, SvgArt.texture("res://art/cloth/stripes.svg", {"#ff00ff": accent}), Vector2(1.5, 12.0))
 		4:
@@ -2479,8 +2480,9 @@ const BELT_BRASS := Color(0.95, 0.74, 0.32)
 func _collar_colour() -> Color:
 	match loadout.shirt:
 		1:
-			# (The outfit colour on a white shirt, as the reference scout's green collar, the aviator scout pilot.)
-			return loadout.accent_color()
+			# (The outfit colour on a white shirt, as the reference scout's green collar, the aviator scout pilot; its deep shade under the
+			# fighters' values pick, so a white shirt still carries a dark collar.)
+			return loadout.outfit_color()
 		2:
 			# (A clear step darker, so the collar reads on the shirt, the character judge's round 6.)
 			return loadout.accent_color().darkened(0.28)
@@ -2643,7 +2645,7 @@ var last_expression := {}
 
 
 func _neck(_skin: Material) -> void:
-	# (The value mock A and C, art audit 2026-11-02: the capes, scarves and kerchiefs in the outfit's deep shade too.)
+	# (The fighters' values pick: the capes, scarves and kerchiefs in the outfit's deep shade too.)
 	var accent: Color = loadout.outfit_color()
 	if rig != null:
 		_neck_on_rig(accent)
@@ -3189,7 +3191,7 @@ func _hat() -> void:
 		var k := Vector3(pow(HEAD_SIZE.x / hs.x, 0.7), pow(HEAD_SIZE.y / hs.y, 0.7), pow(HEAD_SIZE.z / hs.z, 0.7))
 		hat_pivot.scale = k * HAT_SIZE
 	head_rig.add_child(hat_pivot)
-	# (The value mock A and C: hats in the outfit colour, the hood and the beanie, take its deep shade.)
+	# (The fighters' values pick: hats in the outfit colour, the hood and the beanie, take its deep shade.)
 	var accent: Color = loadout.outfit_color()
 	var white := toon(Color(0.97, 0.97, 1.0))
 	# The modelled hats (art/blender/make_gear.py) where there is one; the built ones below stand in.
