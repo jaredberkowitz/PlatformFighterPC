@@ -70,6 +70,7 @@ func build(choices: Array, is_online: bool, heading := "PAUSED") -> void:
 		actions.append(action)
 		labels.append(c[0])
 	hint = UI.KeyBar.new([["Up/Down", "Choose"], ["Enter", "Pick"], ["Esc", "Resume"]])
+	hint.band = true
 	hint.position = Vector2(340, 664)
 	hint.size = Vector2(600, 36)
 	add_child(hint)

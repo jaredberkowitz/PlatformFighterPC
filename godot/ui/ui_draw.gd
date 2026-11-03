@@ -18,6 +18,11 @@ const SLATE_BOTTOM := Color(0.12, 0.15, 0.2)
 const GROUND_TOP := Color("f4f7fc")
 const GROUND_BOTTOM := Color("c9d3e8")
 const GROUND_MARK := Color("3c5a9c")
+## The form sheet's paper (cardstock, docs/UI_DESIGN_SYSTEM.md): the cream every form's rows sit on, and its cut windows (fields).
+const SHEET := Color("faf5e9")
+const SHEET_WINDOW := Color("ebe3d2")
+## The cardstock's indigo (banners, notices, punched discs): a paper, not the near-black ink.
+const PAPER_INDIGO := Color("2a2f5e")
 const RED := Color(0.92, 0.28, 0.3)
 const BLUE := Color(0.25, 0.5, 0.95)
 const SKEW := 0.22
