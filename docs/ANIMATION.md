@@ -2523,3 +2523,20 @@ side-by-sides stay on F:.
   up straight, a plain pose at the match camera.
 - **Image:** `docs/screenshots/anim/r9_attack_hold.jpg` (the Longsword's forward tilt, then the Embers' headbutt, frames 8-26, core5 above
   now, at the close camera).
+
+### Mock (round 9): hero poses for the fighter select's face-off (the owner's request of 2026-11-04; waiting for the owner's pick)
+
+- **Ask:** the face-off panels hold each fighter in its family's jump (a stand-in); the owner's rule for fighters in UI art is very animated,
+  striking, unique poses. One hero pose per family (sword, brawler, heavy, quick, caster, tool) and the staff its own.
+- **Mock:** `docs/screenshots/anim/r9_hero_pose_mock.jpg`, 16 options (sword 3, staff 2, brawler 3, heavy 2, quick 2, caster 2, tool 2), each
+  in the real select screen at the panel's size and framing, P1 and P2 (mirrored, `@m`) on two fighters of the family, built as held clips
+  in a mock copy of the rig (`F:\anim_core\wt_hero`, specs in `F:\anim_core\tools\hero_specs.py.txt`); the branch's rig is unchanged.
+- **Found on the way:** the panel turns the fighter only 0.55 rad from facing the camera, so a pose's "forward" (a lunge, a thrust) points at
+  the viewer and reads as nothing; the poses are built sideways (the arms and legs out to the sides, the chest bent toward or away from the
+  foe). An arm raised overhead goes behind the big head and vanishes, as do fists folded up beside it, so the hands stay at shoulder
+  height or below and a weapon carries the line upward. The arm's twist in `pose` is not mirrored by side.
+- **The weapon in a held clip (`_pose_menu_weapon`, the blocker named with the ask):** a hero pose names its weapon's angle
+  (`MENU_WEAPON_DEG`); a strike's frame held still carries it along the fist (`MENU_STRIKE_CLIPS`, `_fist_line`); the look's stance and the
+  held jump keep the resting carry (along the fist of the jump's swinging arm the greatsword crossed the face). A mirrored clip holds it in
+  the other hand. An attack frame is not a hero pose: its weapon arm is the game's to aim, unposed by the clip, so its fist points anywhere
+  (the Longsword's forward smash held at its strike crosses the face).

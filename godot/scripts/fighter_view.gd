@@ -1991,6 +1991,7 @@ func hold_pose() -> void:
 		anim.speed_scale = 0.35
 		current_clip = clip
 		shown_clip = clip
+	menu_stance_clip = clip
 	var open: bool = Loadout.POSE_OPEN.get(p, false)
 	if not fists.is_empty():
 		_clench(not open, not open)
@@ -2026,24 +2027,79 @@ func _show_weapon_of(cls: int, facing := 1) -> void:
 		p.visible = cls == DAGGER_CLASS and String(p.get_meta("side")) == _weapon_side(facing)
 
 
-## A menu fighter's weapon in the weapon hand, at the class's resting carry as in a match (`_rest_angle`: a sword trailing low and back,
-## the big blades lower, the staff upright), at its true size.
+## The stance clip `hold_pose` plays (the look's menu stance). Any other clip a menu holds still (fighter select's hero pose, a mock's
+## frame) carries the weapon as the hand there holds it (`_pose_menu_weapon`).
+var menu_stance_clip := ""
+## (Round 9, the fighter select's hero poses: by clip, the weapon's angle in the hand, degrees in the fighter's own frame (0 ahead, 90 up).
+## A held strike's frame not listed carries it along the fist, the way the grip holds a weapon in a match (`_fist_line`).)
+const MENU_WEAPON_DEG := {}
+## Held clips that carry the weapon along the fist when `MENU_WEAPON_DEG` does not name them: a strike's frames. Any other held clip (fighter
+## select's held jump until the hero poses) keeps the resting carry: along the fist of an arm a jump swings, the greatsword crossed the face.
+const MENU_STRIKE_CLIPS := ["attack_", "sword_", "kick_", "gaunt_", "body_", "tool_", "staff_", "nodachi_", "dagger_", "buckler_", "great_", "blaster"]
+## Held clips whose free hand is open (a palm thrust out, a wave); every other held clip closes both hands.
+const MENU_OPEN_HAND := ["menu_hero_caster_a", "menu_hero_tool_a", "menu_hero_staff_a"]
+
+
+## A menu fighter's weapon in the weapon hand, at its true size: at the class's resting carry in the look's stance, as in a match
+## (`_rest_angle`: a sword trailing low and back, the big blades lower, the staff upright). (Round 9: in a hero pose or a strike's frame
+## held still, the hand's own: the angle the clip names (`MENU_WEAPON_DEG`) or along the fist (`MENU_STRIKE_CLIPS`), the fist turned round
+## the grip; a mirrored clip (`@m`, a fighter facing left) holds it in the other hand. At the carry an attack frame showed its blade
+## trailing low behind a raised fist.)
 func _pose_menu_weapon() -> void:
 	if skeleton == null:
 		return
-	_show_weapon_of(menu_weapon)
-	if not blade_pivot.visible:
-		return
-	var hand := skeleton.find_bone("hand." + _weapon_side(1))
-	if hand < 0:
+	var clip := String(anim.current_animation) if anim != null else ""
+	var held := clip != "" and clip != menu_stance_clip
+	var facing := -1 if held and clip.ends_with("@m") else 1
+	var side := _weapon_side(facing)
+	_show_weapon_of(menu_weapon, facing)
+	# (Fists, but for the clips whose free hand is open: a palm thrust out, a wave.)
+	if held and not fists.is_empty():
+		_clench(not MENU_OPEN_HAND.has(clip.trim_suffix("@m")), true, facing)
+	var hand := skeleton.find_bone("hand." + side)
+	for sd in ["L", "R"]:
+		var hb := skeleton.find_bone("hand." + sd)
+		if hb >= 0:
+			skeleton.set_bone_global_pose_override(hb, Transform3D(), 0.0, false)
+	if not blade_pivot.visible or hand < 0:
 		return
 	blade_pivot.position = _skeleton_to_frame() * skeleton.get_bone_global_pose(hand).origin
-	blade_pivot.rotation = Vector3(0, 0, deg_to_rad(_rest_angle({"class": menu_weapon, "char": menu_weapon})))
+	var deg := _rest_angle({"class": menu_weapon, "char": menu_weapon})
+	var own := clip.trim_suffix("@m")
+	var gripped := held and MENU_WEAPON_DEG.has(own)
+	for pre in MENU_STRIKE_CLIPS:
+		gripped = gripped or (held and own.begins_with(String(pre)))
+	if gripped:
+		if MENU_WEAPON_DEG.has(own):
+			deg = float(MENU_WEAPON_DEG[own])
+			if facing < 0:
+				deg = 180.0 - deg
+		else:
+			deg = _fist_line(hand, deg)
+	blade_pivot.rotation = Vector3(0, 0, deg_to_rad(deg))
 	blade_pivot.scale = Vector3.ONE
-	if fists.has(_weapon_side(1)):
-		(fists[_weapon_side(1)] as Node3D).visible = true
-		if open_hands.has(_weapon_side(1)):
-			(open_hands[_weapon_side(1)] as Node3D).visible = false
+	if gripped:
+		_grip_hand(hand)
+	if fists.has(side):
+		(fists[side] as Node3D).visible = true
+		if open_hands.has(side):
+			(open_hands[side] as Node3D).visible = false
+
+
+## The way a weapon held in hand bone `hb` points, as the grip holds one (`_grip_hand` the other way round: at rest the fist's knuckle row
+## runs ahead of the body), in degrees in the fighter's own frame; `fallback` when the fist points at the camera.
+func _fist_line(hb: int, fallback: float) -> float:
+	var il := skeleton.get_bone_parent(hb)
+	if il < 0:
+		return fallback
+	var rest := skeleton.get_bone_global_rest(hb)
+	var down_r: Vector3 = (rest.origin - skeleton.get_bone_global_rest(il).origin).normalized()
+	var front_r := (Vector3(0, 0, 1) - down_r * down_r.z).normalized()
+	var turn: Basis = skeleton.get_bone_global_pose(hb).basis.orthonormalized() * rest.basis.orthonormalized().inverse()
+	var b: Vector3 = _skeleton_to_frame().basis * (turn * front_r)
+	if Vector2(b.x, b.y).length() < 0.3:
+		return fallback
+	return rad_to_deg(atan2(b.y, b.x))
 
 
 func _clench(free: bool, weapon: bool, facing := 1) -> void:
