@@ -140,3 +140,9 @@ dots read coarse.
 - Most of the skyline seen is window fronts, so it is a modest change, showing most on the side walls and at the wide camera.
 - Printing the fronts as well would be bolder, but it would busy the backdrop right behind the fighters, which the city's notes have kept
   calm.
+
+**Built B** (the owner's pick, 2026-11-04):
+- city.cfg [backdrop] `halftone="B"`; `--halftone=T` shows the smooth shade.
+- The shipped skyline measures the same as the mock's B.
+- Before and after at the match camera (top) and wide (bottom), before left: `style/halftone_built.jpg`.
+All seven tests pass.
