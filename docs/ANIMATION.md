@@ -2909,3 +2909,14 @@ side-by-sides stay on F:.
   hit's strength only.
 - **Image:** `docs/screenshots/anim/r9_light_flinch.jpg` (a forward tilt's flinch: the Claws and the Needles at a closer camera, then the
   Claws at the match camera; before above each, now below).
+
+### core9 installed (4 November 2026)
+
+- Groups 19 and 20 (the end-lag pops left at core8 and the recovery brought back, the Bounder's jabs as standing kicks, the light flinch
+  leaning off the hit in the plane of the stage), with the stage select stills regenerated (4ba093de). Nothing newer to merge (the stage,
+  menu, outfit and character branches were all in). Simulation version 149, content hash 0d09e102dcfb7b1b (the same Rust and content as
+  core5 to core8), checked in the staged copy and the extracted zip ("Platform Fighter playtest 2026-11-04 sim149 animation core9.zip";
+  the core8 zip removed); the release exe quits with code 0. The tests pass; the look bench passes.
+- Re-measured on the installed code (core8, core9): end-lag jumps of 0.5 units or more 31, 7 (0.7 or more 17, 1); attack timing
+  2.37 / 1.40 / 1.75 / 1.15, 2.38 / 1.38 / 1.65 / 1.13; drawn eyes or mouth covered 7, 7; striking hands hidden 1,354, 1,349; limbs
+  reading reversed on screen 2,741, 2,695.
