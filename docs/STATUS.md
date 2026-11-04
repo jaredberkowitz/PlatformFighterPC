@@ -122,6 +122,24 @@ intangible 1-20 (it was 4 of lag, 18 intangible: it could act 22 frames early); 
 (`fighter::stand_up`: `Fighter::lag`, `invuln`), so its first frame is intangible too; the bridge's `fighter_dodge` reports its
 real length. Tests `techs_and_stand_ups.rs` (6), the bridge's dodge test, sim-content
 `the_stand_up_and_tech_fields_round_trip_and_are_checked`.
+**Sim 148** (branch `sim/movement-1to1`, landed on main at d122c889 with 147, released `playtest-2026-11-03-sim148-movement`): the
+movement checked 1:1 against the reference for all 14 fighters (`docs/MOVEMENT_1TO1.md`): every per-body number already matched its
+parameter file, the differences were in the rules. Ground stops brake at traction (half of `ground_friction`), doubled only when the
+stop began faster than walk speed; the dash runs at full `dash_speed` from its first frame and keeps it 6 frames; half-stick air drift
+slows only above the stick's cap; the jump's takeoff frame moves (all 56 published airtimes now exact). Each rule is a ruleset switch
+(`traction_rule`, `dash_keep_frames`, `air_drift_brake`; 0 = the older rule). Tests `movement_trace.rs` (measuring, ignored) and the
+updated feel tests.
+**Sim 151** (branch `sim/jumpsquat-hitslide`, on 149's 69012bcc; merged over 150 for the owner's build of 2026-11-04, so 151 carries
+147 to 151): the jump squat brakes the speed carried into it at traction on each of its frames, the press frame included, which now
+moves too (`jump_squat_brake` 1, the reference's: its squat is a ground motion that moves nothing of its own); a grounded hit's slide
+at traction alone (`ground_hit_slide`) is built but OFF until the moveset session checks the jabs (with it on, the Needles' rapid jab
+loses its target). Test `squat_and_hit_slide.rs`. The view: a tech in place (150's 26 frames, intangible only through frame 20) is
+told as it lands and plays the tech for its whole landing, then the fighter's own stance (`fighter_view.gd` `TECH_KEYS`,
+`tech_landing`; `PF_R9_OFF=tech26` shows the old).
+**Main, 2026-11-04 (the owner: everything into a new build and into main):** main fast-forwarded to `build/sim151-2026-11-04`: the
+animator's core10 (`art/anim-core` 538daa3b, holding every art branch then on the build line: stage pass and style pass through step
+4, paper UI 2, fighter values, the character merge, animation round 9 through group 22) plus 150 and 151. Released
+`playtest-2026-11-04-sim151`.
 **Sim 141** (released together; the moveset session's 138 and 139 below landed after the run mode's 140, so they ship as 141 under the max+1 rule: everything those entries call sim 138 and 139 is in 141).
 **Sim 139** (branch `recovery-audit`, from `origin/main` at 3d8d5d3, sim 137; content schema 8 unchanged; sim 138 is the Longsword's
 older-jab branch): recoveries, air movement and side specials checked against the reference for all 14 fighters (owner decision 99,

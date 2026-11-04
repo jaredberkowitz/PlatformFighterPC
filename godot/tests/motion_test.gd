@@ -421,5 +421,42 @@ func _initialize() -> void:
 		last_hips = at
 	check(still < 4, "a ledge climb's last frames are alive, not one pose held (%d still frames of 16)" % still)
 
+	# (Sim 150: a tech in place is the reference's 26 frames, intangible only through frame 20.) It plays the tech for its whole landing,
+	# not the landing's crouch from frame 21 when the intangibility ends, and the idle after it does not play the landing's rise again;
+	# after the slap no point jumps further in a frame than the pop limits (tools/art/review/clip_report.py: hips 0.12, head 0.16).
+	var teched := FighterView.new()
+	root.add_child(teched)
+	teched.build(0, Loadout.default_for(0))
+	await process_frame
+	for f in 12:
+		var tumbling := snap(0, "Hitstun", "", 9960 + f, f)
+		tumbling.platform = -1
+		tumbling.tumble = true
+		teched.apply(Vector3.ZERO, tumbling, 1.0 / 60.0)
+	var t_hips := teched.skeleton.find_bone("hips")
+	var t_head := teched.skeleton.find_bone("head")
+	var landing_clips: Array[String] = []
+	var after_clips: Array[String] = []
+	var was_hips := Vector3.INF
+	var was_head := Vector3.INF
+	var worst := Vector2.ZERO
+	for f in 36:
+		var teching := f < 26
+		var t := snap(0, "Landing" if teching else "Idle", "", 9980 + f, f if teching else f - 26)
+		t.lag = 26 if teching else 0
+		t.invuln = maxi(0, 20 - f)
+		teched.apply(Vector3.ZERO, t, 1.0 / 60.0)
+		(landing_clips if teching else after_clips).append(teched.current_clip)
+		var tech_hips_at: Vector3 = teched.skeleton.global_transform * teched.skeleton.get_bone_global_pose(t_hips).origin
+		var tech_head_at: Vector3 = teched.skeleton.global_transform * teched.skeleton.get_bone_global_pose(t_head).origin
+		if f >= 3:
+			worst = Vector2(maxf(worst.x, tech_hips_at.distance_to(was_hips)), maxf(worst.y, tech_head_at.distance_to(was_head)))
+		was_hips = tech_hips_at
+		was_head = tech_head_at
+	check(landing_clips.all(func(c: String) -> bool: return not c.begins_with("land")), "a 26-frame tech in place keeps its tech (%s)" % str(landing_clips))
+	check(after_clips.all(func(c: String) -> bool: return not c.begins_with("land")), "and no landing rise follows it (%s)" % str(after_clips))
+	check(worst.x <= 0.12 and worst.y <= 0.16, "a tech in place moves no further in a frame than the pop limits (hips %.3f, head %.3f)" % [worst.x, worst.y])
+	print("tech in place: clips ", landing_clips, " then ", after_clips, ", largest move a frame: hips %.3f, head %.3f" % [worst.x, worst.y])
+
 	print("motion test ", "FAILED" if failed else "PASSED")
 	quit(1 if failed else 0)

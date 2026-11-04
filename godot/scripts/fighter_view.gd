@@ -561,6 +561,14 @@ const FIDGET_FRAMES := 72.0
 const DROP_FRAMES := 20.0
 const HEAVY_HITSTUN_SPEED := 0.15
 const TECH_INVULN_AT_MOST := 24
+## A tech in place on its clip (sim 150, the reference's: 26 frames, intangible through frame 20; it was 4): [frame, clip progress]
+## knots, slapped down on the floor by frame 4 (the clip's 3/12), popped up by 10 (7/12) and in the stance by 16 (12/12); then the
+## fighter's own family stance breathes until it can act, as a ledge climb's last frames do. A tech no longer than the last knot (an
+## older ruleset's 4 frames) plays the clip over its whole lag, as before. `PF_R9_OFF=tech26` shows the old.
+const TECH_KEYS := [[0.0, 0.0], [4.0, 0.25], [10.0, 7.0 / 12.0], [16.0, 1.0]]
+## Whether this landing began as a tech in place (told on its first frame by the tech's intangibility, which since sim 150 ends six
+## frames before the landing does) and so plays the tech for the whole landing.
+var tech_landing := false
 
 
 ## Which clip suits this state of the simulation: [clip name, speed, progress]. Progress is -1 for a clip that simply plays, or 0..1 for
@@ -624,8 +632,13 @@ func _choose_clip(s: Dictionary) -> Array:
 		"Landing":
 			# A tech in place is a landing with a tech's intangibility (a plain landing has none; a fighter still invincible from its
 			# respawn has far more): a slap on the floor and a pop up, over its lag.
-			if int(s.get("invuln", 0)) > 0 and int(s.get("invuln", 0)) <= TECH_INVULN_AT_MOST:
-				return [AnimLibrary.or_stand_in("tech", anim), 1.0, clampf(float(s.state_frame) / maxf(1.0, float(s.get("lag", 4))), 0.0, 1.0)]
+			# (Sim 150: 26 frames, intangible only through frame 20, so the tech is told as it lands and kept for the whole landing,
+			# `tech_landing`: from frame 21 the landing clip took over mid-tech. Played by `_tech_k`, then the fighter's own stance.)
+			if tech_landing or (int(s.get("invuln", 0)) > 0 and int(s.get("invuln", 0)) <= TECH_INVULN_AT_MOST):
+				var tk := _tech_k(s)
+				if tk >= 1.0 and use_base_body and _long_tech(s):
+					return [AnimLibrary.family_clip(_cls(s), "idle", anim), 1.0, -1.0]
+				return [AnimLibrary.or_stand_in("tech", anim), 1.0, tk]
 			if use_base_body:
 				return [AnimLibrary.family_clip(_cls(s), "land", anim), 1.0, _land_progress(s)]
 		"Idle":
@@ -800,6 +813,25 @@ func _land_progress(s: Dictionary) -> float:
 	# (A long lag keeps it down until its last frames.)
 	var hold := maxf(0.0, land_lag - LAND_DOWN - 4.0)
 	return clampf(down_at + (1.0 - down_at) * (f - LAND_DOWN - hold) / rise, down_at, 1.0)
+
+
+## Whether this tech in place is longer than the clip's own knots (`TECH_KEYS`): the reference's 26 frames since sim 150.
+static func _long_tech(s: Dictionary) -> bool:
+	return float(s.get("lag", 4)) > float(TECH_KEYS[TECH_KEYS.size() - 1][0]) and not r9_off.has("tech26")
+
+
+## How far through the `tech` clip a tech in place is (0..1): by `TECH_KEYS` for a long one, so the slap and the pop keep their snap and
+## are done with the clip by its last knot; over its whole lag for a short one.
+static func _tech_k(s: Dictionary) -> float:
+	var f := float(s.state_frame)
+	if not _long_tech(s):
+		return clampf(f / maxf(1.0, float(s.get("lag", 4))), 0.0, 1.0)
+	for i in range(1, TECH_KEYS.size()):
+		var a: Array = TECH_KEYS[i - 1]
+		var b: Array = TECH_KEYS[i]
+		if f <= float(b[0]):
+			return lerpf(float(a[1]), float(b[1]), clampf((f - float(a[0])) / (float(b[0]) - float(a[0])), 0.0, 1.0))
+	return 1.0
 
 
 ## The item pick-up and throws' lengths (the ruleset's `item_pick_frames` and `item_side_frames`; the up, down and dash throws run 19-29,
@@ -4360,10 +4392,16 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 		heavy_landing = last_state == "Attack" or s.fast_fall
 		land_from = int(s.frame)
 		land_lag = float(s.get("lag", 4))
+		# (Sim 150: a tech in place, told by its intangibility as it lands, plays the tech for its whole landing; a long one ends in the
+		# stance, so the idle after it does not play the landing's rise again.)
+		tech_landing = int(s.get("invuln", 0)) > 0 and int(s.get("invuln", 0)) <= TECH_INVULN_AT_MOST and not r9_off.has("tech26")
+		if tech_landing and _long_tech(s):
+			land_from = -1
 	if state != "Landing" and state != "Idle":
 		land_from = -1
 	if state != "Landing":
 		heavy_landing = false
+		tech_landing = false
 	if heavy_landing:
 		target_squash = 0.12
 	if state == "Attack" and s.move_timing[1] > 0:
