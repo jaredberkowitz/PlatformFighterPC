@@ -5,8 +5,8 @@ bundle {
     schema 8
     name "Base Roster"
     description "The built-in roster: a longsword duelist and a close-range brawler."
-    sim_version 150
-    hash 7c362565b9a10718
+    sim_version 151
+    hash 6d2f76fdb6bbb5eb
 }
 
 ruleset {
@@ -27,6 +27,8 @@ ruleset {
     traction_rule 1
     dash_keep_frames 6
     air_drift_brake 1
+    jump_squat_brake 1
+    ground_hit_slide 0
     jump_momentum 0.84999
     jump_momentum_max 1.25
     jump_stick_share 2

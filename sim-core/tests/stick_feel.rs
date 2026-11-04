@@ -113,7 +113,9 @@ fn a_jump_out_of_a_rolled_turnaround_is_a_reverse_aerial_rush() {
         // the takeoff frame, already airborne since sim 148.)
         let p = sim.content.fighters[0];
         assert!(
-            sim.f().vel.x >= fx(15, 100) - p.air_accel - p.air_accel_stick,
+            // (Since sim 151 the run's share less the skid's and the squat's braking, the reference's squat braking at traction:
+            // at least two thirds of the duelist's jump cap, 0.8 of the reference's units, less one frame of air control.)
+            sim.f().vel.x >= fx(1, 10) - p.air_accel - p.air_accel_stick,
             "dir {dir}: still carried forward: {:?}",
             sim.f().vel.x
         );

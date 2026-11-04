@@ -439,6 +439,8 @@ rules_io! {
     traction_rule: u8,
     dash_keep_frames: u8,
     air_drift_brake: u8,
+    jump_squat_brake: u8,
+    ground_hit_slide: u8,
     jump_momentum: Fx,
     jump_momentum_max: Fx,
     jump_stick_share: u8,

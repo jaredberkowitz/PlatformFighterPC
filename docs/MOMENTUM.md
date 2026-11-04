@@ -7,6 +7,8 @@ sim-core --test momentum_table -- --ignored --nocapture`), full hops on a long f
 
 ## The rule today (sim 145)
 
+(Since sim 151 the jump squat brakes the speed carried into it at traction on each of its frames, as the reference's does: with the
+stick let go or held back, eight bodies' run jumps below leave slower, the walk jumps all about 0.25 slower; `docs/MOVEMENT_1TO1.md`.)
 (Since sim 148, `docs/MOVEMENT_1TO1.md`: a jump's takeoff frame is already an airborne frame and moves, so the speed read on it has
 had one frame of air control, a few thousandths off the take-off speeds below. The stops, the dash and part-way air drift also follow
 the reference's rules now; the jump rule here is unchanged.)
