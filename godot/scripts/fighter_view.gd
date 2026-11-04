@@ -948,7 +948,10 @@ func _attack_clip(s: Dictionary) -> Array:
 		t = PackedInt32Array([t[0], int(release[String(s.move_name)]), int(release[String(s.move_name)])])
 	var start := clampf(float(t[1]), 1.0, total)
 	var last := clampf(float(t[2]), start, total)
-	var progress := strike_progress(float(s.state_frame), total, start, last, s.get("move_windows", PackedInt32Array()), _end_shape(s))
+	var follow := FOLLOW_PROGRESS
+	if anim != null and not r9_off.has("sweep"):
+		follow = float(CLIP_FOLLOW.get(AnimLibrary.attack_clip(_cls(s), String(s.move_name), anim), FOLLOW_PROGRESS))
+	var progress := strike_progress(float(s.state_frame), total, start, last, s.get("move_windows", PackedInt32Array()), _end_shape(s), follow)
 	var name := String(s.move_name)
 	if (HELD_STRIKE.get(_cls(s), []) as Array).has(name):
 		# (A hold with no hit to time it, round 3: the Settler's balloon float. Rises into its pose over HELD_STRIKE_IN frames and stays
@@ -978,7 +981,7 @@ func _attack_clip(s: Dictionary) -> Array:
 ## for each: between two hits the body draws partly back toward the wind-up, then snaps forward onto the next hit's first frame, so a
 ## sequence of hits reads as a rhythm of strikes rather than one long held pose; the last hit gets the full follow-through. Only the
 ## move's frames drive it, so the animation never sets the timing.
-static func strike_progress(f: float, total: float, start: float, last: float, windows: PackedInt32Array, shape := END_SHAPE) -> float:
+static func strike_progress(f: float, total: float, start: float, last: float, windows: PackedInt32Array, shape := END_SHAPE, follow := FOLLOW_PROGRESS) -> float:
 	if f < start:
 		# (Animation overhaul pass 3: the wind-up coils, holds, then snaps, as the reference's moves do, instead of drifting from rest to
 		# the strike at one pace. The clip reaches its chamber key (19 of 60) by COIL_AT of the startup, creeps on through the hold, and
@@ -1019,7 +1022,7 @@ static func strike_progress(f: float, total: float, start: float, last: float, w
 	# (Round 3, measured against the reference's hitbox animations: the swing carries on into its follow-through and stops within a few
 	# frames of the last hit, the pose is held, creeping, for about half the end lag, then the body recovers quickly and settles. It used
 	# to drift home at one slow ease across the whole end lag, which read as floaty.)
-	return lerpf(0.63, FOLLOW_PROGRESS, follow_k(f, last, shape)) + (1.0 - FOLLOW_PROGRESS) * home_k(f, last, total, shape, 0.0, BODY_CREEP)
+	return lerpf(0.63, follow, follow_k(f, last, shape)) + (1.0 - follow) * home_k(f, last, total, shape, 0.0, BODY_CREEP)
 
 
 ## The end lag's shape, shared by the body, the weapon and the reaching limbs (animation round 3, from the reference's hitbox animations:
@@ -1059,12 +1062,22 @@ const CLASS_END_SHAPES := {
 	0: {"bair": Vector2(0.550, 0.850), "dair": Vector2(0.760, 0.990), "dsmash": Vector2(0.803, 0.990), "dtilt": Vector2(0.020, 0.563), "fair": Vector2(0.350, EVEN + 0.990), "fsmash": Vector2(0.020, 0.990), "ftilt": Vector2(0.766, 0.990), "jab": Vector2(0.020, 0.684), "uair": Vector2(0.078, EVEN + 0.732), "usmash": Vector2(0.150, EVEN + 0.990), "utilt": Vector2(0.060, 0.950)},
 	1: {"bair": Vector2(0.479, 0.990), "dair": Vector2(0.393, 0.990), "fair": Vector2(0.713, 0.990), "ftilt": Vector2(0.307, 0.990), "jab": Vector2(0.479, 0.990), "nair": Vector2(0.020, 0.987), "usmash": Vector2(0.306, 0.746), "utilt": Vector2(0.084, 0.990)},
 	2: {"bair": Vector2(0.444, EVEN + 0.990), "dsmash": Vector2(0.035, EVEN + 0.990), "dtilt": Vector2(0.691, 0.920), "fair": Vector2(0.403, 0.882), "fsmash": Vector2(0.273, 0.577), "ftilt": Vector2(0.214, 0.786), "jab": Vector2(0.704, 0.990), "nair": Vector2(0.040, EVEN + 0.960), "uair": Vector2(0.030, EVEN + 0.970), "usmash": Vector2(0.146, 0.892), "utilt": Vector2(0.490, 0.990)},
-	3: {"bair": Vector2(0.664, 0.990), "dsmash": Vector2(0.373, 0.563), "dtilt": Vector2(0.585, 0.973), "fair": Vector2(0.858, 0.990), "fsmash": Vector2(0.289, EVEN + 0.990), "ftilt": Vector2(0.020, 0.861), "jab": Vector2(0.346, 0.990), "nair": Vector2(0.186, 0.920), "uair": Vector2(0.020, EVEN + 0.950), "usmash": Vector2(0.326, 0.843), "utilt": Vector2(0.418, 0.950)},
+	3: {"bair": Vector2(0.664, 0.990), "dsmash": Vector2(0.310, 0.560), "dtilt": Vector2(0.585, 0.973), "fair": Vector2(0.858, 0.990), "fsmash": Vector2(0.289, EVEN + 0.990), "ftilt": Vector2(0.020, 0.861), "jab": Vector2(0.346, 0.990), "nair": Vector2(0.186, 0.920), "uair": Vector2(0.020, EVEN + 0.950), "usmash": Vector2(0.326, 0.843), "utilt": Vector2(0.418, 0.950)},
 	8: {"bair": Vector2(0.755, 0.905), "dair": Vector2(0.020, 0.990), "dsmash": Vector2(0.400, 0.800), "dtilt": Vector2(0.313, 0.646), "fair": Vector2(0.550, 0.900), "fsmash": Vector2(0.207, 0.990), "ftilt": Vector2(0.528, 0.872), "jab": Vector2(0.200, 0.540), "nair": Vector2(0.257, 0.990), "usmash": Vector2(0.020, 0.158), "utilt": Vector2(0.020, 0.990)},
 	10: {"bair": Vector2(0.490, 0.990), "dair": Vector2(0.347, 0.987), "dsmash": Vector2(0.598, 0.979), "dtilt": Vector2(0.720, 0.990), "ftilt": Vector2(0.623, 0.990), "jab": Vector2(0.020, 0.990), "nair": Vector2(0.020, 0.465), "usmash": Vector2(0.147, 0.783), "utilt": Vector2(0.205, 0.990)},
 }
 ## The clip's follow-through key (frame 40 of 60).
 const FOLLOW_PROGRESS := 0.667
+## (Round 9, the follow-through) Clips with a follow-through of their own past the strike key, keyed further on (the share of the clip
+## where it ends: `kick_sweep`'s leg carries on rising behind and comes down into a crouch over frames 38-48 of 60), played over the
+## move's carry (`CLASS_CARRY`); every other clip carries on from frame 38 to 40.
+const CLIP_FOLLOW := {"kick_sweep": 0.8}
+## Per class, the moves whose carry (the frames the swing keeps going past its last hit, `shape.z`) is their own: the follow-through
+## a clip keys past its strike (`CLIP_FOLLOW`) plays over it, the reference's own (the plumber's down smash carries on about 11 frames).
+const CLASS_CARRY := {3: {"dsmash": 9.0}}
+## Kick clips whose kicking leg the game gives back to the clip after the last hit, over this many sim frames, so the clip's own
+## follow-through shows (the leg aim held it on the last hit's place through the end lag).
+const CLIP_LEG_RELEASE := {"kick_sweep": 3.0}
 ## The weapon arm and the reaching limbs come home this much of the end lag after the body, so the hips lead the recovery.
 const ARM_LAG := 0.08
 
@@ -1123,6 +1136,9 @@ func _end_shape(s: Dictionary) -> Vector3:
 	if own.has(name):
 		shape.x = (own[name] as Vector2).x
 		shape.y = (own[name] as Vector2).y
+	var carry: Dictionary = CLASS_CARRY.get(_cls(s), {})
+	if carry.has(name) and not r9_off.has("sweep"):
+		shape.z = float(carry[name])
 	return shape
 
 
@@ -1364,7 +1380,7 @@ const HANDOFF_BY_CLIP := {"jumpsquat": 2.0, "land": 1.0, "tech": 2.0, "knockdown
 ## strike's lean to its spring through the end lag (`strike_lean`);
 ## "dashpin" lets a dash's planted feet go with the hand-off (`_pin_dash_feet`); "held" holds a raised cut's blade as before
 ## (`HELD_UP_MAX_BASE`, `HELD_SAG`); "upcut" holds the blade classes' up tilts and up smashes with the cap they had before group 16
-## (`UP_CUTS`); "climbidle" holds a ledge climb's last pose still through its last frames, as before group 22.
+## (`UP_CUTS`); "climbidle" holds a ledge climb's last pose still through its last frames, as before group 22; "sweep" plays the Tumbler's down smash's follow-through as before group 23 (no clip follow-through span, carry or leg release).
 static var r9_off := OS.get_environment("PF_R9_OFF").split(",")
 var handoff_clip := ""
 var handoff_state := ""
@@ -7553,6 +7569,12 @@ func _aim_leg(s: Dictionary, kicking: bool, delta: float) -> void:
 	var live := kicking and tip != Vector3.ZERO
 	# The leg reaches for the hit as the wind-up builds, is on it while it is live, and comes home through the recovery.
 	leg_k = _reach_weight(s) if live else move_toward(leg_k, 0.0, delta * 12.0)
+	# (Round 9, the follow-through: a clip that carries its kick on past the last hit takes the leg back over a few frames.)
+	if live and anim != null and not r9_off.has("sweep"):
+		var release := float(CLIP_LEG_RELEASE.get(AnimLibrary.attack_clip(_cls(s), String(s.move_name), anim), 0.0))
+		var t: PackedInt32Array = s.move_timing
+		if release > 0.0 and t.size() > 2 and float(s.state_frame) > float(t[2]):
+			leg_k *= 1.0 - smoothstep(float(t[2]), float(t[2]) + release, float(s.state_frame))
 	var facing := int(s.facing)
 	# The front leg kicks forward and up, the back leg backward.
 	# On the turned body the model's left leg is the one nearest the camera when facing right (and the right one facing left): it is the

@@ -3017,3 +3017,34 @@ side-by-sides stay on F:.
   Bounder, the Tumbler, the Settler and the Scamp, against each other and across families: faces clear with both eyes, no arm behind the
   head. Image: `docs/screenshots/anim/r9_hero_poses_2.jpg`. Every family now holds its own hero pose; the long blades' tips are the UI
   session's (drawn a little smaller or lower in their panels).
+
+### Group 23 (round 9): the Tumbler's down smash carries on round (the coordinator's order of 2026-11-04, item 3, the follow-through)
+
+- **Reference** (the frame-data site's hitbox clip of the plumber's down smash, frame by frame, F:): down onto the hands, a sweep in front
+  (frame 5) and behind (12), then the legs keep sweeping round for about 12 frames (up over 15, low round 17-21, up again 23), down into a
+  low crouch on all fours (25-43). **Ours** (`kick_low`, shared by 16 moves): after the back kick the body sat with the leg out behind,
+  still, for ten frames, then stood up.
+- **Fix:** its own clip, `kick_sweep` (`make_rigged_blob.py`, `kick_sweep_poses`): `kick_low`'s wind-up and strikes, then keys of its own
+  past the strike (frames 38-48 of 60): the kicking leg, out behind along the floor, sweeps on round by the far side to the front, the
+  knee folding as it passes under the body, the body turning on with it and its weight carried after the leg, then a low crouch, held, and
+  the rise. Not grounded by name, each key puts its own feet down (the swinging leg's keys only the planted foot); the head held up
+  (`HEAD_FREE_CLIPS`) so the face stays to the camera. `fighter_view.gd`: a clip's own follow-through span (`CLIP_FOLLOW` 0.8: frames
+  38-48 played over the carry; every other clip still 38-40), the move's own carry (`CLASS_CARRY` 3 `dsmash` 9 frames), the kicking leg's
+  aim let go over 3 frames after the last hit so the clip's sweep shows (`CLIP_LEG_RELEASE`); the end shape refitted (3 `dsmash`
+  0.310, 0.560). `PF_R9_OFF=sweep` turns off the span, the carry and the release.
+- **Tried on the way:** the leg rising behind with the body pitched forward over the front leg (a mule kick): the face went to the floor
+  (the hat's top to the camera); swung far out to the side the leg went into the screen and stood still on it; straight under the body it
+  struck the floor.
+- **Measured (the timing report, 68 moves):** the Tumbler's down smash follow-through / hold / recovery 1 / 10 / 9 to **1 / 11 / 9**
+  against the reference's 11 / 10 / 7: the follow-through as the report counts it did not move. Its rule is the frames after the last hit
+  moving faster than 0.3 of the move's peak speed, averaged over seven body points; the peak is the snap into the back kick (0.45 units a
+  frame), and the sweep moves the body points 0.08-0.21 a frame, mostly the one leg. The gentler reading (frames above 0.1 of the peak,
+  `carry`) went 2 to 16. Means: **2.40 / 1.41 / 1.65 / 1.13** (core10 2.40 / 1.40 / 1.65 / 1.13; limits hold 1.56, recovery 1.65). The
+  Tumbler's gallery in both facings: eyes or mouth covered 0 (as before), striking hands hidden 59 (51), no end-lag jump of 0.5 or more.
+- **Judged by eye at real speed** against the reference: the sweep carries on round after the back kick and comes down into a crouch
+  before rising, where it sat still; the reference's whole body turns on its hands, ours on its seat with one leg (the short arms do not
+  reach the floor seated).
+- **Left:** to register under the report's rule a follow-through needs the whole body travelling about as fast as a third of the strike's
+  snap for ten frames (the torso, both legs and the arms, not one leg): the next moves on the list (the Needles' forward smash, the
+  Longsword's jab and down tilt, the Bounder's down tilt) want that kind of whole-body carry, or the rule weighed by the limbs that strike.
+- **Image:** `docs/screenshots/anim/r9_sweep_followthrough.jpg` (frames 12-36 and 40: core8 above, now below, close camera).

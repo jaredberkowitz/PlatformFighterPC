@@ -154,7 +154,9 @@ const CLASS_MOVES := {
 		"dtilt": "kick_low",
 		"dash attack": "kick_dash",
 		"usmash": "body_headbutt",
-		"dsmash": "kick_low",
+		# (Round 9: its own, `kick_sweep`: after the back kick the leg carries on rising behind and the body comes down into a low crouch
+		# before it rises, as its reference's legs carry on round; `kick_low` stopped dead after the back kick.)
+		"dsmash": "kick_sweep",
 		"nair": "kick_nair",
 		"bair": "kick_bair",
 		"uair": "kick_uair",

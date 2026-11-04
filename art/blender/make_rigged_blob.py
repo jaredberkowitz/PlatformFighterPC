@@ -620,7 +620,7 @@ HEAD_BACK_LIMIT = -8.0
 FREE_ARM_FWD = (10.0, 80.0)
 FREE_ARM_OUT = 24.0
 FREE_ELBOW = 90.0
-HEAD_FREE_CLIPS = ("knockdown", "getup", "knockdown_up", "getup_up", "ledge", "ledge_climb")
+HEAD_FREE_CLIPS = ("knockdown", "getup", "knockdown_up", "getup_up", "ledge", "ledge_climb", "kick_sweep")
 CLIP_NOW = ""
 # A head limit for the key being posed (the attacks' stance keys take the idle's, `_stance_rest`), or None for the clip's own.
 HEAD_LIMIT_NOW = None
@@ -1092,6 +1092,8 @@ def grounded(name):
                 "hurt_heavy", "hurt_up", "platform_drop", "gaunt_knee", "gaunt_stomp", "tool_ride", "tool_float",
                 # (Aerials whose names do not end in "air": round 2, so their rest keys do not take the battle stance.)
                 "sword_rise", "sword_plunge", "kick_double", "leap_grab", "latch_sit", "rocket_fly",
+                # (Round 9: keyed foot by foot itself, a leg raised behind in its follow-through.)
+                "kick_sweep",
                 # (Round 8: the special fall, and buried, whose legs are under the ground.)
                 "helpless", "buried"):
         return False
@@ -5050,6 +5052,61 @@ def main() -> None:
             {"hips": -0.2, "spine": (26.0, -14.0), "stance": (60.0, 40.0), "shin.L": (-100.0,), "shin.R": (-100.0,), "arms": (30.0, 30.0)},
             {"hips": -0.24, "spine": (34.0, 20.0), "head": (-12.0, 0.0), "stance": (70.0, 50.0), "shin.R": (-110.0,), "arms": (50.0, 40.0)},
             {"hips": -0.12, "spine": (16.0, 0.0), "stance": (40.0, 30.0)})
+    # (Round 9, the follow-through: the Tumbler's down smash, after the reference plumber's, whose legs carry on round after its back kick
+    # and come down into a low crouch before it rises.) The low sweep's wind-up and strikes (`kick_low`'s poses, the game aiming the
+    # kicking leg at each hit, front then back), then a follow-through of its own past the strike key (frames 38-48, played over the
+    # move's carry, fighter_view.gd `CLIP_FOLLOW`): the back leg, kicked out behind along the floor, carries on rising behind, the body
+    # tipping forward over the bent front leg as a mule kick does, then both legs come down into a low crouch, held, and it rises. Posed
+    # key by key (not grounded: each key puts its feet down itself, the raised leg's keys only the lower foot).
+    def kick_sweep_poses():
+        wind, strike, rest = BODY_MOVES["kick_low"]
+        chamber = _chamber_spec(wind, False)
+
+        def planted(fn, both=True, coil=False):
+            def f(rig):
+                fn(rig)
+                plant(rig, both)
+                if coil:
+                    _sink_to(rig, COIL_HIPS_MAX)
+            return f
+
+        def pitched(spec, pitch):
+            base = _spec_pose(spec)
+
+            def f(rig):
+                base(rig)
+                pose(rig, "hips", fwd=pitch, lift=spec.get("hips", 0.0))
+            return f
+
+        out = {0: planted(_stance_rest(rest, 0.0)), 19: planted(_amped_pose(_spec_pose(chamber), CHAMBER_AMP), coil=True),
+               29: planted(_spec_pose(_launch_spec(chamber, strike))), 32: planted(_spec_pose(strike)), 36: planted(_spec_pose(strike))}
+        # The back kick out along the floor (the game's leg aim lets go to this after the last hit).
+        def shifted(spec, ahead):
+            base = _spec_pose(spec)
+
+            def f(rig):
+                base(rig)
+                pose(rig, "hips", lift=spec.get("hips", 0.0), ahead=ahead)
+            return f
+
+        out[38] = planted(shifted({"hips": -0.2, "spine": (24.0, 10.0), "head": (-10.0, 0.0), "thigh.L": (50.0, 8.0), "shin.L": (-80.0,),
+                                   "thigh.R": (-48.0, 6.0), "shin.R": (-6.0,), "armU.L": (40.0, 24.0)}, -0.12), both=False)
+        # The kicking leg sweeps on round by the far side to the front, the knee folding as it passes under the body (out to the side only a
+        # little: swung far out the leg went into the screen and stood still on it, and straight it struck the floor), the body turning on
+        # with it and its weight carried along after the leg, never stopping (the reference's legs sweep on round), then it folds into a
+        # low crouch, held, and rises.
+        sweep = [(41, -30.0, 20.0, -20.0, 22.0, 22.0, -0.04), (44, 0.0, 26.0, -60.0, 34.0, 20.0, 0.08), (46, 30.0, 20.0, -20.0, 42.0, 22.0, 0.16)]
+        for frame, fwd, out_, knee, twist, lean, ahead in sweep:
+            out[frame] = planted(shifted({"hips": -0.2, "spine": (lean, twist), "head": (-10.0, 0.0), "thigh.L": (50.0, 8.0), "shin.L": (-80.0,),
+                                          "thigh.R": (fwd, out_), "shin.R": (knee,), "armU.L": (40.0 + frame - 38.0, 24.0)}, ahead), both=False)
+        # Down into a low crouch (held through the end lag's hold), turned back square.
+        out[48] = planted(shifted({"hips": -0.24, "spine": (30.0, 4.0), "head": (-12.0, 0.0), "stance": (64.0, 58.0), "shin.L": (-96.0,),
+                                   "shin.R": (-96.0,), "armU.L": (60.0, 24.0)}, 0.1))
+        out[54] = planted(shifted({"spine": (16.0, 0.0), "stance": (36.0, 34.0), "shin.L": (-56.0,), "shin.R": (-56.0,)}, 0.04))
+        out[60] = planted(_stance_rest(rest, 0.0))
+        return out
+
+    clip(rig, "kick_sweep", 60, kick_sweep_poses())
     # Dash attack: a flying kick.
     move_of("kick_dash",
             {"hips": -0.04, "spine": (20.0, 0.0), "stance": (30.0, -30.0), "arms": (30.0, 20.0)},
