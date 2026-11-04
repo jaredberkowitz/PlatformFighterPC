@@ -169,3 +169,9 @@ Recommended B: its pleats read as folded paper across the near sea.
 - It shows mostly at the wide camera. At the match camera the sea is mostly far water and reflections.
 - The tiers wander, so the facets are irregular, and up close they can read as low-poly glass rather than pleats. C pushes that further;
   A is the quiet choice.
+
+**Built B** (the owner's pick, 2026-11-04):
+- ocean.cfg [backdrop] `sea_fold="B"`; `--origami=T` shows the smooth tiers.
+- The shipped sea measures the same as the mock's B.
+- Before and after at the match camera (top) and wide (bottom), before left: `style/origami_built.jpg`.
+All seven tests pass (the runner test failed once on a coin pickup, "a coin picked up is gone: 9 from 9", and passed on the rerun: an intermittent failure in the run mode, not the sea).
