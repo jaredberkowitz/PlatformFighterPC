@@ -38,6 +38,11 @@ const CARD_H := 0.78
 const SIDE_W := 384.0
 const SIDE_MARGIN := 20.0
 const STACK_GAP := 12.0
+## The select fighter's turn toward the centre (radians) without a hero pose of its own, and the most a pose may ask for (past about
+## 0.9 the far eye goes behind the round head).
+const HERO_TURN_DEFAULT := 0.55
+const HERO_TURN_MAX := 0.9
+const STAFF_CLASS := 5
 const TOKEN_MAX := 132
 const TOKEN_MIN := 52
 const GRID_GAP := Vector2(10, 12)
@@ -243,6 +248,8 @@ class PlayerPanel extends Control:
 	const BASE_Y := -34.0
 	## Which way the fighter faces: 1 toward the right (a panel on the left), -1 toward the left.
 	var facing := 1
+	## How far the fighter turns toward the centre (radians): HERO_TURN_DEFAULT, or what the class's hero pose names.
+	var hero_turn := HERO_TURN_DEFAULT
 	const PICK_RISE := 30.0
 	const LOCK_HOP := 18.0
 	var pick_t := 1.0
@@ -304,7 +311,11 @@ class PlayerPanel extends Control:
 		var pw := w * 1.12
 		preview.size = Vector2(pw, ph)
 		preview.position = Vector2(w * 0.5 - pw * 0.5, BASE_Y)
-		preview.facing_bias = 0.55 if facing > 0 else -0.55
+		_face()
+
+	## The fighter's turn toward the screen's centre: the hero pose's own (`hero_turn`) or the default.
+	func _face() -> void:
+		preview.facing_bias = hero_turn * float(facing)
 
 
 	func _draw() -> void:
@@ -415,6 +426,29 @@ class PlayerPanel extends Control:
 			Art.title_centered(over, "READY!", Rect2(-badge.size * 0.5, badge.size), 32, Art.INK, 0.0)
 		over.draw_set_transform(Vector2.ZERO, 0.0)
 
+	## The hero pose (face-off, the owner's picks of 2026-11-04 on the animator's sheet r9_hero_pose_mock): the class's `menu_hero` clip
+	## (menu_hero_<family> through `family_clip`; menu_hero_staff for the staff), held, its weapon in hand, the right-hand panels holding
+	## the mirrored `@m` clip so both present toward the centre, turned by the pose's own amount (AnimLibrary `HERO_TURN`, by clip, when
+	## the rig has it). A class whose pose is not built yet holds its family's jump at the top of its spring, as before.
+	func _hold_hero(c: int) -> void:
+		var anim: AnimationPlayer = preview.view.anim
+		var clip := AnimLibrary.family_clip(c, "menu_hero", anim)
+		if c == STAFF_CLASS and anim != null and anim.has_animation("menu_hero_staff"):
+			clip = "menu_hero_staff"
+		if anim != null and anim.has_animation(clip):
+			if facing < 0 and anim.has_animation(clip + "@m"):
+				clip += "@m"
+			# (Through a Script value: a preloaded class's own constant table cannot be asked for directly.)
+			var lib: Script = AnimLibrary
+			var consts: Dictionary = lib.get_script_constant_map()
+			var key := clip.trim_suffix("@m")
+			hero_turn = clampf(float((consts.get("HERO_TURN", {}) as Dictionary).get(key, HERO_TURN_DEFAULT)), 0.0, HERO_TURN_MAX)
+			preview.hold_clip(clip, float((consts.get("HERO_AT", {}) as Dictionary).get(key, 0.5)))
+		else:
+			hero_turn = HERO_TURN_DEFAULT
+			preview.hold_clip(AnimLibrary.family_clip(c, "jump", anim), 0.35)
+		_face()
+
 	func show_entry(e: Dictionary, size_percent: float, ready: bool) -> void:
 		# A new fighter slides up into the light; locking in gives a hop (`_process`).
 		if not e.is_empty() and str(e.get("name", "")) != name_text:
@@ -429,8 +463,7 @@ class PlayerPanel extends Control:
 			name_text = e.name
 			var c := int(e.get("class", -1))
 			preview.set_weapon(c)
-			# The hero pose: the class's own jump, held at the top of its spring (face-off).
-			preview.hold_clip(AnimLibrary.family_clip(c, "jump", preview.view.anim), 0.35)
+			_hold_hero(c)
 			class_text = Roster.CLASS_NAMES[c].to_upper() if c >= 0 and c < Roster.CLASS_NAMES.size() else ""
 		is_ready = ready
 		queue_redraw()
