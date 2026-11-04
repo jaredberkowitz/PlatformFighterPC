@@ -147,12 +147,19 @@ fn validate_item_rules(
 }
 
 /// The rolls out of a tech, a knockdown and a trip (sim 149): each intangible to no later than its roll ends, every body's own get-up
-/// roll window too. (A length of 0 plays the body's shield roll, whose own windows are checked with the body.)
+/// roll window too. (A length of 0 plays the body's shield roll, whose own windows are checked with the body.) The stand-ups from
+/// the floor likewise (sim 150), whose intangibility would otherwise outlast them.
 fn validate_floor_rolls(
     r: &sim_core::content::Ruleset,
     fighters: &[FighterParams],
     errors: &mut Vec<String>,
 ) {
+    if r.getup_intangible > r.getup_frames {
+        errors.push("ruleset: getup_intangible cannot be above getup_frames".to_string());
+    }
+    if r.trip_getup_intangible > r.trip_getup_frames {
+        errors.push("ruleset: trip_getup_intangible cannot be above trip_getup_frames".to_string());
+    }
     if r.tech_roll_frames > 0 && r.tech_roll_intangible > r.tech_roll_frames {
         errors.push("ruleset: tech_roll_intangible cannot be above tech_roll_frames".to_string());
     }
@@ -207,6 +214,12 @@ fn validate_previous_rules(r: &sim_core::content::Ruleset, errors: &mut Vec<Stri
     }
     if r.air_drift_brake > 1 {
         errors.push("ruleset: air_drift_brake must be 0 or 1".to_string());
+    }
+    if r.jump_squat_brake > 1 {
+        errors.push("ruleset: jump_squat_brake must be 0 or 1".to_string());
+    }
+    if r.ground_hit_slide > 1 {
+        errors.push("ruleset: ground_hit_slide must be 0 or 1".to_string());
     }
     if r.dash_keep_frames > 60 {
         errors.push("ruleset: dash_keep_frames must be at most 60".to_string());
@@ -2795,5 +2808,71 @@ mod combat_tests {
         c.rules.tech_roll_intangible = 41;
         c.fighters[3].getup_roll_intangible = 36;
         assert!(validate(&c).is_ok());
+    }
+
+    #[test]
+    fn the_stand_up_and_tech_fields_round_trip_and_are_checked() {
+        // Sim 150 (D8): the tech in place and the stand-ups on the reference's frames; the trip's stand-up fields come back from a
+        // file unchanged, a file without them plays the standard, and a stand-up whose intangibility outlasts it is refused.
+        let base = Content::placeholder();
+        let r = base.rules;
+        assert_eq!(
+            [
+                r.tech_lag,
+                r.tech_invuln,
+                r.getup_frames,
+                r.getup_intangible,
+                r.trip_getup_frames,
+                r.trip_getup_intangible
+            ],
+            [26, 20, 29, 22, 21, 16]
+        );
+        let text = crate::bundle::to_text(&base, "test", "", "", false);
+        for field in [
+            "tech_lag 26",
+            "tech_invuln 20",
+            "getup_frames 29",
+            "getup_intangible 22",
+            "trip_getup_frames 21",
+            "trip_getup_intangible 16",
+        ] {
+            assert!(text.contains(field), "{field}");
+        }
+        let back = crate::bundle::load(&text).expect("reads back").content;
+        assert_eq!(back, base);
+        let mut other = base.clone();
+        other.rules.trip_getup_frames = 30;
+        other.rules.trip_getup_intangible = 0;
+        let text_other = crate::bundle::to_text(&other, "test", "", "", false);
+        let back = crate::bundle::load(&text_other)
+            .expect("reads back")
+            .content;
+        assert_eq!(back, other);
+        let stripped = text
+            .lines()
+            .filter(|l| !l.contains("trip_getup_"))
+            .collect::<Vec<_>>()
+            .join("\n");
+        let older = crate::bundle::load(&stripped)
+            .unwrap_or_else(|e| panic!("{}", e.join("\n")))
+            .content;
+        assert_eq!(older.rules, base.rules);
+        for (change, name) in [
+            (
+                (|c: &mut Content| c.rules.getup_intangible = 30) as fn(&mut Content),
+                "getup_intangible",
+            ),
+            (
+                |c: &mut Content| c.rules.trip_getup_intangible = 22,
+                "trip_getup_intangible",
+            ),
+        ] {
+            let mut c = base.clone();
+            change(&mut c);
+            assert!(
+                validate(&c).unwrap_err().iter().any(|e| e.contains(name)),
+                "{name}"
+            );
+        }
     }
 }

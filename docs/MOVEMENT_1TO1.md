@@ -32,7 +32,9 @@ Units are the reference's (our world unit is 8 of them), speeds a frame.
 | Air drift with the stick part way | The cap is the air speed times the stick; above it only the air friction brakes | The air acceleration pulled the drift down to the stick's share at once | **As the reference** (`air_drift_brake` 1) |
 | Air drift: acceleration, cap, letting go, turning round, speed above the air speed | Base + stick share toward the air speed times the stick; air friction above it and with the stick let go | Same | Same |
 | A jump's first airborne frame | Moves (the jump rises on it) | Stood a frame at the ground's height: every jump one frame longer than the published airtimes | **Moves** (no switch: a timing fix) |
-| Jump heights, gravity, fall and fast fall speeds, the jump squat | Per body | Same numbers | Same |
+| The jump squat's momentum (sim 151) | Its squat is a ground motion that moves nothing of its own, so the speed carried into it brakes at traction on each of its 3 frames [E: from its motion type and the re-creation's motion code; no footage] | Kept whole, and the press frame stood still | **As the reference** (`jump_squat_brake` 1) |
+| A grounded hit's slide (sim 151) | Traction alone (`damage_ground_mul` 1); a launch's own decay only in the air | The launch decay plus the doubled traction | Built, **off for now** (`ground_hit_slide` 0): see below |
+| Jump heights, gravity, fall and fast fall speeds, the jump squat's length | Per body | Same numbers | Same |
 | A ground jump's sideways speed | The stick's share plus the ground speed's kept share, capped (a public re-creation of the reference's jump agrees) | Same since sim 144 (sim 145: a reverse aerial rush keeps the run's share) | Same |
 
 Each new rule is one ruleset switch (`docs/CONTENT.md`), so the older feel can be tried against it: `traction_rule`, `dash_keep_frames`
@@ -112,9 +114,12 @@ lines the touchdown frame up a frame differently there).
 - **The walk.** The reference walks with the stick's tilt and has three walk speeds' worth of thresholds (`walk_slow_speed_mul`
   0.2, `walk_middle_ratio` 0.5, `walk_fast_ratio` 0.75); how its walk speed follows the stick is not in the public re-creation.
   Ours reaches full walk speed at the stick's 0.6 (the flick threshold). Unverified either way.
-- **The jump squat.** The re-creation's notes say a jump squat brakes its momentum at traction; ours keeps the ground speed whole (no
-  braking: `docs/MOMENTUM.md`). A run jump would leave at about the same speed (most bodies' runs reach the jump's cap either way);
-  a walk jump would leave a little slower. Left until footage settles it.
+- **The jump squat (settled in sim 151).** The reference's squat runs its motion kinetic type, and a ground motion that moves nothing
+  of its own brakes at traction (the public re-creation names the squat among those states), so the speed carried into the squat
+  loses three frames of traction before the jump keeps its share. With the stick held forward nothing changes (every body's run
+  jump still reaches its cap); with the stick let go, and out of a reverse aerial rush, eight bodies leave slower (the Claws 1.23 to
+  0.97, the Gauntlets 1.91 to 1.68, the Bracers 1.50 to 1.20, the Pockets 1.12 to 0.80), and every walk jump about 0.25 slower.
+  The press frame now moves too (it stood still). `jump_squat_brake` 0 restores the old squat. Footage would confirm it.
 - **The end of a let-go dash.** The reference has `dash_end_speed_mul` 0.67, probably taking a third off the speed as a let-go dash
   ends; ours takes `dash_brake` (0.52) off instead. Both give about the same slide (within 2 units on most bodies).
 - **Walking or running off a ledge.** Ours keeps 85% of the ground speed (at most 1.25 times the air speed); the reference holds the
@@ -124,9 +129,12 @@ lines the touchdown frame up a frame differently there).
   reference's rule is not in the re-creation. Not changed.
 - **A run's skid (turnaround).** The reference doubles its brake under a condition the re-creation does not name; ours always
   brakes it at the doubled traction.
-- **Ground knockback and wavedash slides.** The reference slides a grounded hit at traction (`damage_ground_mul` 1) and a waveland
-  on the landing's traction; ours keeps the doubled friction for hits (jab follow-ups were measured on it) and the wavedash's own
-  `waveland_friction`. Candidates for a later pass, with the moveset tests.
+- **A grounded hit's slide (built in sim 151, off).** The reference slides a fighter hit on the ground at its traction alone; ours
+  takes the launch decay and the doubled traction off as well, so its pushes are about 2.4 times shorter. The rule is built
+  (`ground_hit_slide` 1) but off: with it on, the Needles' rapid jab pushes its target out of reach after a few stabs, where the
+  reference's keeps it caught (our stabs' reach is an estimate, and the reference's rapid jab may step forward). For the moveset
+  session to check the jabs against, then turn on.
+- **Wavedash slides.** The reference slides a waveland on the landing's traction; ours on the wavedash's own `waveland_friction`.
 - **Rolls and spot dodges** keep the doubled friction for their leftover speed: the reference's are driven by their animation, and
   ours were fitted to it.
 - **Heavy landings.** The reference lands heavy after falling at full speed for a body's set time; ours as soon as it falls at full

@@ -5,8 +5,8 @@ bundle {
     schema 8
     name "Base Roster"
     description "The built-in roster: a longsword duelist and a close-range brawler."
-    sim_version 149
-    hash 0d09e102dcfb7b1b
+    sim_version 151
+    hash 6d2f76fdb6bbb5eb
 }
 
 ruleset {
@@ -27,6 +27,8 @@ ruleset {
     traction_rule 1
     dash_keep_frames 6
     air_drift_brake 1
+    jump_squat_brake 1
+    ground_hit_slide 0
     jump_momentum 0.84999
     jump_momentum_max 1.25
     jump_stick_share 2
@@ -34,12 +36,14 @@ ruleset {
     ledge_exposed_frames 2
     respawn_invuln 120
     tech_window 11
-    tech_lag 4
+    tech_lag 26
     knockdown_lag 24
     knockdown_max 90
-    getup_frames 26
-    getup_intangible 15
-    tech_invuln 18
+    getup_frames 29
+    getup_intangible 22
+    trip_getup_frames 21
+    trip_getup_intangible 16
+    tech_invuln 20
     tech_roll_frames 40
     tech_roll_intangible 20
     getup_roll_frames 35

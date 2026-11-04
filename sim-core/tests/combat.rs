@@ -500,7 +500,9 @@ fn a_shield_press_just_before_landing_in_hitstun_is_a_tech() {
     let rules = Sim::new().content.rules;
     assert_eq!(land_in_hitstun(true), (S::Landing, rules.tech_lag));
     assert_eq!(land_in_hitstun(false).0, S::Knockdown);
-    assert!(rules.tech_lag < rules.knockdown_lag);
+    // A tech is up sooner than a missed tech's quickest stand-up. (Since sim 150 the tech in place is the reference's 26 frames,
+    // longer than the shortest lie alone, 24.)
+    assert!(rules.tech_lag < rules.knockdown_lag + rules.getup_frames);
 }
 
 // ---- Aerial landing lag ----------------------------------------------------------------------------------

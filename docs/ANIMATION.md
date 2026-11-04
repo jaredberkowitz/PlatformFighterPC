@@ -26,7 +26,8 @@ the simulation (the sim's frame data is the only clock). Sister documents: `ART_
   `fighter_dodge`: the state's length from the fighter's parameters, which way it goes, whether a roll ends turned round (sim 147),
   and how many frames it really lasts, longer for a stale roll or spot dodge; since sim 149 a tech, get-up or trip roll has its own
   length, the ruleset's 40, 35 or 28, and moves only on the shield roll's move frames: a fifth and sixth value say what the roll
-  comes out of, 0 a shield, 1 a tech, 2 a knockdown, 3 a trip, and the last frame it moves on), so a fighter with longer rolls still lands
+  comes out of, 0 a shield, 1 a tech, 2 a knockdown, 3 a trip, and the last frame it moves on; since sim 150 the stand-up lasts 29
+  frames, 21 out of a trip, and a tech in place is a 26-frame landing, intangible through 20), so a fighter with longer rolls still lands
   its roll's poses on its own frames. The roll's somersault and the spot dodge's step back into the stage are code on top.
 - **Multihit**: the bridge exposes each move's separate hits (`fighter_move_windows`: one window per hitbox group, cut again at every
   re-hit of a `rehit` move). Between two hits the body draws back toward the wind-up and strikes again on the next hit's first frame;
@@ -3048,3 +3049,23 @@ side-by-sides stay on F:.
   snap for ten frames (the torso, both legs and the arms, not one leg): the next moves on the list (the Needles' forward smash, the
   Longsword's jab and down tilt, the Bounder's down tilt) want that kind of whole-body carry, or the rule weighed by the limbs that strike.
 - **Image:** `docs/screenshots/anim/r9_sweep_followthrough.jpg` (frames 12-36 and 40: core8 above, now below, close camera).
+
+### Sim 150's tech in place on the view (the movement session, 2026-11-04, for the owner's build of sims 150 and 151)
+
+- **Found (the art director's note):** sim 150 makes a tech in place the reference's 26 frames, intangible only through frame 20. The view
+  told a tech by its intangibility on every frame (`invuln` 1 to `TECH_INVULN_AT_MOST`) and played the 12-frame `tech` clip (slapped down
+  at 0, held at 3, popped up at 7, the stance at 12) by `state_frame / lag`. So from frame 21 it fell to the landing clip mid-tech, a dip
+  back into the landing's crouch (hips 0.37, head 0.48 units in one frame); the idle after it played the landing's rise again for 8
+  frames; and the slap and the pop stretched over the 26 frames.
+- **Fix (`fighter_view.gd`):** a landing that begins with a tech's intangibility is a tech for its whole length (`tech_landing`, set as
+  the landing begins, cleared as it ends). `TECH_KEYS` place the clip by frame: slapped down by frame 4, popped up by 10, in the stance
+  by 16; then the fighter's own family idle runs on into the idle state, as group 22's ledge climb does. A long tech clears `land_from`,
+  so the idle after it does not play the landing's rise. A tech no longer than the last knot (an older ruleset's 4 frames) plays as
+  before. `PF_R9_OFF=tech26` shows the old.
+- **Checked:** `motion_test` with a new check (a 26-frame tech out of a tumble plays the tech and then the idle, never the landing clip,
+  during it or after; after the slap the largest move in a frame is hips 0.064 and head 0.112 units, under the pop limits of 0.12 and
+  0.16; the old 0.369 and 0.481). `tests/anim_sheet.gd --what=tech` now poses the 26-frame tech and two frames of the idle after it.
+- **For the animator:** the knots are a first timing, not measured against the reference's tech in place; retime them, and the clip,
+  against it.
+- **Image:** `docs/screenshots/anim/sim150_tech_in_place.jpg` (the Longsword, every second frame from the landing: before above, now
+  below).

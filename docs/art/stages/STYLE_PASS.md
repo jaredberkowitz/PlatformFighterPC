@@ -175,3 +175,34 @@ Recommended B: its pleats read as folded paper across the near sea.
 - The shipped sea measures the same as the mock's B.
 - Before and after at the match camera (top) and wide (bottom), before left: `style/origami_built.jpg`.
 All seven tests pass (the runner test failed once on a coin pickup, "a coin picked up is gone: 9 from 9", and passed on the rerun: an intermittent failure in the run mode, not the sea).
+
+## Step 5: the meadow's patchwork and stitch (mock, 2026-11-04)
+
+The owner: "Next stage's craft". Running stitches, each a dash of thread, a gap, a dash, in their own family `stitch` that the game colours
+or hides (StageBake.STITCH_TRY):
+- along the lawn's card edge, right under the fighters (`make_meadow_play.py --stitch 1`);
+- along the crown of every hedgerow on the farmland, like a quilt's seams (`make_meadow_ground.py --stitch 1`); the far hills are already
+  drawn as a quilt.
+
+The stitches have their own random numbers, so the land comes out as without them. With them hidden, the rebuilt and re-lit meadow measures
+the same as today. The palette's [backdrop] `stitch`, or `--stitch=T|A|B|C`, with T hidden:
+
+| Option | What changes |
+|---|---|
+| Today | No stitches |
+| A, lawn edge | A running stitch along the lawn's card edge, in a cream thread |
+| B, and the hedgerows | A, with seams along the hedgerows |
+| C, red thread | B, in a red thread |
+
+On the Stage Look Review ("stitch70", `st70_*`).
+
+Recommended A: the cream stitch reads as a sewn seam right under the fighters.
+- The hedgerows' seams don't land. At the wide camera they are small white dashes, and at the match camera they barely show. In red they
+  read as berries.
+- C's red thread along the lawn is the bolder craft accent, but it is a saturated red right under the fighters.
+
+**Built A** (the owner's pick, 2026-11-04):
+- meadow.cfg [backdrop] `stitch="A"`; the meadow's play area rebuilt with `--stitch 1` and the meadow re-lit. `--stitch=T` hides it.
+- The ground stays as it was, without the hedgerows' seams, since B and C weren't taken.
+- Before and after at the match camera (top) and wide (bottom), before left: `style/stitch_built.jpg`.
+All seven tests pass (the runner test failed twice in four runs, on its coin pickup and "the way out", and passed on the rerun: it waits on real-time timers and flakes when the machine is busy).

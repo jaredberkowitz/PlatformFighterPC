@@ -320,7 +320,9 @@ fn a_keyboard_style_soft_push_back_out_of_a_run_is_a_rar_too() {
         // (Less one frame of air control on the takeoff frame: sim 148.)
         let p = Sim::new().content.fighters[0];
         assert!(
-            sim.f().vel.x >= fx(15, 100) - p.air_accel - p.air_accel_stick,
+            // (Since sim 151 the run's share less the skid's and the squat's braking, the reference's squat braking at traction:
+            // at least two thirds of the duelist's jump cap, 0.8 of the reference's units, less one frame of air control.)
+            sim.f().vel.x >= fx(1, 10) - p.air_accel - p.air_accel_stick,
             "gap {gap}: {:?}",
             sim.f().vel.x
         );

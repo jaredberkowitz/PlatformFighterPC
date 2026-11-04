@@ -122,7 +122,8 @@ func _initialize() -> void:
 			for f in range(0, 30, 2):
 				frames.append(f)
 		"tech":
-			for f in range(0, 12, 1):
+			# (Sim 150: the reference's 26 frames, then two of the idle after it.)
+			for f in range(0, 30, 2):
 				frames.append(f)
 		"fidget":
 			for f in range(300, 376, 5):
@@ -195,9 +196,12 @@ func _initialize() -> void:
 				state = "Shield"
 				move = ""
 			"tech":
-				state = "Landing"
+				# (Sim 150: 26 frames, intangible through frame 20; then the idle.)
+				state = "Landing" if f < 26 else "Idle"
 				move = ""
-				extra = {"invuln": 18, "lag": 12}
+				extra = {"invuln": maxi(0, 20 - f), "lag": 26 if f < 26 else 0}
+				if f >= 26:
+					extra["state_frame"] = f - 26
 			"runstop":
 				state = "Idle"
 				move = ""
