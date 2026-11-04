@@ -2557,6 +2557,17 @@ pub struct Ruleset {
     /// the stick and brakes anything above the cap at the air friction) slows at the air friction only, so easing the stick part
     /// way back keeps nearly all of the drift.
     pub air_drift_brake: u8,
+    /// The jump squat (sim 151, `docs/MOVEMENT_1TO1.md`): 1 (the reference's: its jump squat is a ground motion that moves nothing of
+    /// its own, which brakes the speed carried into it at the body's traction) brakes that speed at traction, half of `ground_friction`,
+    /// on each of the squat's frames, the frame the jump is pressed included (it now moves too), so a run jump leaves with the run's
+    /// speed less three frames of traction; 0 (before sim 151) keeps the speed whole and stands still on the press frame.
+    pub jump_squat_brake: u8,
+    /// A grounded hit's slide (sim 151): 1 (the reference's: a fighter hit on the ground brakes at its traction times
+    /// `damage_ground_mul` 1, and a launch's own decay applies only in the air) slides at traction alone; 0 (the standard for now,
+    /// the rule before sim 151) at the launch decay plus the doubled `ground_friction`. Off until the moveset session has checked the
+    /// jabs against it: with it on, the Needles' rapid jab pushes its target out of reach after a few stabs, where the reference's
+    /// keeps it caught (our stabs' reach is an estimate, and the reference's rapid jab may step forward).
+    pub ground_hit_slide: u8,
     /// A fighter that has just grabbed a ledge can still be hit for this many frames before its ledge intangibility starts (sim 144,
     /// from a playtest: the reference's "two-frame", ssbwiki.com `Edge`: "exactly two frames ... before the intangibility activates").
     pub ledge_exposed_frames: u8,
@@ -2887,6 +2898,8 @@ impl Ruleset {
             traction_rule: 1,
             dash_keep_frames: 6,
             air_drift_brake: 1,
+            jump_squat_brake: 1,
+            ground_hit_slide: 0,
             jump_momentum: Fx::from_ratio(17, 20),
             jump_momentum_max: Fx::from_ratio(5, 4),
             jump_stick_share: 2,
@@ -3080,6 +3093,8 @@ impl StateHash for Ruleset {
         h.write_u8(self.traction_rule);
         h.write_u8(self.dash_keep_frames);
         h.write_u8(self.air_drift_brake);
+        h.write_u8(self.jump_squat_brake);
+        h.write_u8(self.ground_hit_slide);
         self.jump_momentum.hash_into(h);
         self.jump_momentum_max.hash_into(h);
         h.write_u8(self.jump_stick_share);
@@ -3493,6 +3508,8 @@ mod tests {
             |r: &mut Ruleset| r.traction_rule ^= 1,
             |r: &mut Ruleset| r.dash_keep_frames += 1,
             |r: &mut Ruleset| r.air_drift_brake ^= 1,
+            |r: &mut Ruleset| r.jump_squat_brake ^= 1,
+            |r: &mut Ruleset| r.ground_hit_slide ^= 1,
             |r: &mut Ruleset| r.jump_momentum += Fx::from_raw(1),
             |r: &mut Ruleset| r.jump_momentum_max += Fx::from_raw(1),
             |r: &mut Ruleset| r.jump_stick_share ^= 3,

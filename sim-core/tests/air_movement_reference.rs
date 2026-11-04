@@ -9,7 +9,7 @@ mod common;
 use common::{inp, Sim};
 use sim_core::input::buttons::JUMP;
 use sim_core::state::FighterState as S;
-use sim_core::Fx;
+use sim_core::{content::FighterParams, Fx};
 
 /// One body's published air numbers, in thousandths of the reference's units (friction in hundred-thousandths), heights in
 /// hundredths, the jump's ground share and the midair jump's drift in percent.
@@ -216,6 +216,16 @@ fn ground_jump_x(c: u8, share: u8, move_x: i8, frames: usize, jump_x: i8) -> (Fx
     (before, sim.f().vel.x)
 }
 
+/// The ground speed a jump keeps: what the squat leaves of it (sim 151, `Ruleset::jump_squat_brake`: traction, half of
+/// `ground_friction`, on each of the squat's frames), times the body's `jump_speed_x_mul`.
+fn kept_share(p: &FighterParams, ground: Fx) -> Fx {
+    let squat = (p.ground_friction * Fx::HALF).mul_int(i32::from(p.jump_squat_frames));
+    let braked = (ground.abs() - squat)
+        .max(Fx::ZERO)
+        .mul_int(ground.signum_int());
+    braked * Fx::from_ratio(i32::from(p.jump_speed_x_mul), 100)
+}
+
 /// A ground jump leaves at the body's own rule (owner decision 100, the standard `jump_stick_share` 0): from standing with the stick
 /// held, at once at the stick's share of `jump_speed_x`; out of a run, `jump_speed_x_mul` of the run held within `jump_speed_x_max`,
 /// whatever the stick (held forward or back).
@@ -234,8 +244,7 @@ fn a_ground_jump_leaves_at_the_bodys_own_horizontal_rule() {
         );
         for x in [127i8, 0, -127] {
             let (run, vx) = ground_jump_x(c, 0, 127, 30, x);
-            let kept =
-                (run * Fx::from_ratio(i32::from(p.jump_speed_x_mul), 100)).min(p.jump_speed_x_max);
+            let kept = kept_share(&p, run).min(p.jump_speed_x_max);
             assert!(
                 (vx - kept).abs() <= slack,
                 "class {c} run jump (stick {x}): {vx:?}, run {run:?}, kept {kept:?}"
@@ -243,7 +252,7 @@ fn a_ground_jump_leaves_at_the_bodys_own_horizontal_rule() {
         }
         // A slow walk into a jump with the stick pushed full: the walk's share, not the stick's (faster) one.
         let (walk, vx) = ground_jump_x(c, 0, 30, 30, 127);
-        let kept = walk * Fx::from_ratio(i32::from(p.jump_speed_x_mul), 100);
+        let kept = kept_share(&p, walk);
         assert!(walk > Fx::ZERO, "class {c} walks");
         assert!(
             (vx - kept).abs() <= slack,
@@ -262,8 +271,7 @@ fn with_the_stick_share_on_a_jump_takes_the_faster_of_the_run_and_the_stick() {
         let stick = (inp(127, 0, 0).stick_x_fx() * p.jump_speed_x).min(p.jump_speed_x_max);
         for back in [false, true] {
             let (run, vx) = ground_jump_x(c, 1, 127, 30, if back { -127 } else { 127 });
-            let kept =
-                (run * Fx::from_ratio(i32::from(p.jump_speed_x_mul), 100)).min(p.jump_speed_x_max);
+            let kept = kept_share(&p, run).min(p.jump_speed_x_max);
             let want = kept.max(if back { Fx::ZERO } else { stick });
             assert!(
                 (vx - want).abs() <= slack,
@@ -272,7 +280,7 @@ fn with_the_stick_share_on_a_jump_takes_the_faster_of_the_run_and_the_stick() {
         }
         // The slow walk with the stick full: the stick's share, where it is the faster.
         let (walk, vx) = ground_jump_x(c, 1, 30, 30, 127);
-        let kept = walk * Fx::from_ratio(i32::from(p.jump_speed_x_mul), 100);
+        let kept = kept_share(&p, walk);
         let want = kept.max(stick);
         assert!(
             (vx - want).abs() <= slack,

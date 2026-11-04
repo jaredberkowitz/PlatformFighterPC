@@ -466,6 +466,10 @@ Line numbers inside a script count from its first non-blank line.
   cap; owner decision 102): a fighter landing (out of a jump, a move or a special fall) keeps at most that share of its dash speed
   along the ground, so a fast recovery ending on the stage does not slide across it on the gentle `landing_friction`. A file without it
   plays as 100 (the sim 143 rule; write 0 for the older free slide).
+  Still schema 8 (sim v151, `docs/MOVEMENT_1TO1.md`): two more ruleset switches, a file without them playing the standard.
+  `jump_squat_brake` (default 1): the jump squat brakes the speed carried into it at traction (half of `ground_friction`) on each of its
+  frames, the press frame included, which now moves too (0: the speed kept whole, the press frame standing still). `ground_hit_slide`
+  (default 0 for now): 1 slides a grounded hit at traction alone, as the reference's (0: the launch decay plus `ground_friction`).
   Still schema 8 (sim v148, `docs/MOVEMENT_1TO1.md`): three ruleset switches for the reference's movement rules, each 0 for the
   rule before sim 148; a file without them plays the reference's. `traction_rule` (default 1): a stop on the ground brakes at
   traction, half of the body's `ground_friction`, doubled to all of it when the stop began faster than the body's walk speed; letting

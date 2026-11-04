@@ -208,6 +208,12 @@ fn validate_previous_rules(r: &sim_core::content::Ruleset, errors: &mut Vec<Stri
     if r.air_drift_brake > 1 {
         errors.push("ruleset: air_drift_brake must be 0 or 1".to_string());
     }
+    if r.jump_squat_brake > 1 {
+        errors.push("ruleset: jump_squat_brake must be 0 or 1".to_string());
+    }
+    if r.ground_hit_slide > 1 {
+        errors.push("ruleset: ground_hit_slide must be 0 or 1".to_string());
+    }
     if r.dash_keep_frames > 60 {
         errors.push("ruleset: dash_keep_frames must be at most 60".to_string());
     }

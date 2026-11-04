@@ -758,6 +758,12 @@ fn ground(
             f.vel.x = f.turn_speed;
         }
         enter(f, S::JumpSquat);
+        // The press frame is the squat's first (sim 151, `Ruleset::jump_squat_brake`): it brakes at traction and moves, as each of the
+        // reference's squat frames does (before, the fighter stood still on it).
+        if rules.jump_squat_brake != 0 {
+            f.vel.x = approach(f.vel.x, Fx::ZERO, traction(p));
+            slide_on_platform(f, p, stage);
+        }
         return;
     }
     let shield_held_back = initial_dash && f.state_frame < u16::from(p.dash_shield_frame);
@@ -1042,7 +1048,11 @@ fn ground(
 fn jump_squat(f: &mut Fighter, p: &FighterParams, weapon: &Weapon, stage: &Stage, rules: &Ruleset) {
     // (Where the squat stood, for a takeoff on this frame: see below.)
     let ground_pos = f.pos;
-    // No friction here: a run or dash jump keeps its momentum into the air.
+    // The squat's frames brake the speed carried into it at traction (sim 151, `Ruleset::jump_squat_brake`: the reference's squat is a
+    // ground motion that moves nothing of its own); before, no friction here, so a run or dash jump kept its whole speed into the air.
+    if rules.jump_squat_brake != 0 && f.state_frame < u16::from(p.jump_squat_frames) {
+        f.vel.x = approach(f.vel.x, Fx::ZERO, traction(p));
+    }
     if !slide_on_platform(f, p, stage) {
         return;
     }
@@ -4094,7 +4104,8 @@ fn knockback_frame(f: &mut Fighter, p: &FighterParams, stage: &Stage, rules: &Ru
     if carried {
         f.posvec -= 1;
         f.vel = Vec2::ZERO;
-    } else {
+    } else if !(f.grounded() && rules.ground_hit_slide != 0) {
+        // (On the ground the reference's launch decay does not apply: its traction alone slows the slide, below. Sim 151.)
         let decay = rules.knockback_decay;
         let speed = f.kb_vel.length();
         f.kb_vel = if speed > decay {
@@ -4126,8 +4137,14 @@ fn knockback_frame(f: &mut Fighter, p: &FighterParams, stage: &Stage, rules: &Ru
         }
         // A grounded hit slides the fighter along the floor, and its traction slows the slide too (the reference: low-traction
         // fighters slide farther when hit on the ground), so a jab's push stays short and its next hit reaches. (A pull is not slowed.)
+        // Since sim 151 at the reference's traction alone (`Ruleset::ground_hit_slide`; before, the doubled `ground_friction`).
         if !f.pull && !carried {
-            f.kb_vel.x = approach(f.kb_vel.x, Fx::ZERO, p.ground_friction);
+            let brake = if rules.ground_hit_slide != 0 {
+                traction(p)
+            } else {
+                p.ground_friction
+            };
+            f.kb_vel.x = approach(f.kb_vel.x, Fx::ZERO, brake);
         }
         f.vel = Vec2::new(f.kb_vel.x, Fx::ZERO);
         if collision::move_x(stage, p, &mut f.pos, f.vel.x) || (carried && f.posvec == 0) {
