@@ -286,6 +286,37 @@ func _initialize() -> void:
 	cut.apply(Vector3.ZERO, sought, 1.0 / 60.0)
 	check(absf(cut.lean) < 0.5, "a seek into the hold leans as the hit says (%.1f)" % cut.lean)
 
+	# (Round 9, the art director's note on group 16.) A raised forward cut is held out toward the foe, no steeper than the cap, but an up
+	# smash, a straight thrust overhead, holds its blade upright beside the head (the cap pointed it forward at 45 degrees), and a seek into
+	# its hold draws it the same.
+	cut.apply(Vector3.ZERO, snap(0, "Idle", "", 9100, 0), 1.0 / 60.0)
+	var ft_held := 0.0
+	for f in 24:
+		var st := snap(0, "Attack", "ftilt", 9200 + f, f)
+		st.move_timing = PackedInt32Array([32, 7, 10])
+		st.move_tip = tips[clampi(f - 7, 0, 3)]
+		cut.apply(Vector3.ZERO, st, 1.0 / 60.0)
+		if f == 18:
+			ft_held = cut.raw_blade_deg
+	check(ft_held < 60.0, "a raised forward cut is held out toward the foe (%.1f degrees)" % ft_held)
+	cut.apply(Vector3.ZERO, snap(0, "Idle", "", 9300, 0), 1.0 / 60.0)
+	var up_held := 0.0
+	for f in 30:
+		var st := snap(0, "Attack", "usmash", 9400 + f, f)
+		st.move_timing = PackedInt32Array([57, 12, 16])
+		st.move_tip = Vector3(0.55, 3.3, 0.8)
+		cut.apply(Vector3.ZERO, st, 1.0 / 60.0)
+		if f == 26:
+			up_held = cut.raw_blade_deg
+	# (Upright in a match; here, with the body unposed by its clip, the short arm leaves the fist nearer the face and the blade is leaned
+	# out to clear the head, still well up past the forward cut's cap.)
+	check(up_held > maxf(ft_held, FighterView.HELD_UP_MAX_BASE) + 12.0, "an up smash holds its blade up, not out toward the foe (%.1f against %.1f degrees)" % [up_held, ft_held])
+	var up_seek := snap(0, "Attack", "usmash", 9900, 26)
+	up_seek.move_timing = PackedInt32Array([57, 12, 16])
+	up_seek.move_tip = Vector3(0.55, 3.3, 0.8)
+	cut.apply(Vector3.ZERO, up_seek, 1.0 / 60.0)
+	check(absf(cut.raw_blade_deg - up_held) < 3.0, "a seek into the up smash's hold draws the same blade (%.1f, %.1f)" % [cut.raw_blade_deg, up_held])
+
 	# (Round 9.) A dash's push-off: a foot planted as the dash sets off stays where it stood while the body goes (it slid with the body).
 	var dasher := FighterView.new()
 	root.add_child(dasher)

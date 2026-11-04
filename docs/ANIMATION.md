@@ -2650,3 +2650,57 @@ side-by-sides stay on F:.
 - **What it needs:** longer follow-through travel in the body, per move: the follow-through key further past the strike in the clips
   (`_follow_spec`, or own keys for the moves furthest off), with the end shapes refitted after; the carry frames (`shape.z`) only spread the
   same travel thinner.
+
+### Group 17 (round 9): the up tilts and up smashes keep their blades up (the art director's note on group 16, 2026-11-04)
+
+- **The note:** group 16's cap (a raised cut held at most 50 degrees up, sagging forward) fixed the forward tilt's plume, but it flattened
+  the up moves too: in `r9_held_blade.jpg` the Longsword's up smash, a straight thrust overhead, held its blade forward at about 45
+  degrees. Keep the cap for the forward cuts; hold the up moves' blades up beside the head, the whole blade showing, never behind the hat
+  and never across the face; check every blade class's up moves against the references at real speed.
+- **References** (the frame-data site's hitbox clips, frame by frame, F:): the swordsman's up smash stands its blade upright above the
+  head from frame 13 to about 31, then lowers it back by 51; its up tilt is an arc from in front over the top to behind (6-12), carried on
+  down to low behind by 13-14 and held crouched to 33. The greatsword fighter's up tilt arcs from behind over the top to the front (6-9)
+  and carries on down to level (11-12), then shoulders the blade; its up smash goes from in front over the top to behind (12-16) and holds
+  it up and back over the head. The adventurer's up tilt arcs from behind over the top to level in front (8-13); its up smash is three
+  sweeps from in front over the top to behind. The long-blade swordsman's up tilt is an upright thrust held up (13-37).
+- **Found:** (1) the cap acted on every raised cut on the ground, so beyond the up smash it pulled the Longsword's up tilt, whose arc ends
+  behind, forward to 45 (its recovery then swung back over the top past the face, frames 21-24, and its striking hand hid 14 frames), and
+  it also lowered every other class's up tilt and up smash: the Seer's staff from 60-68 degrees to about 45, the fists' and the knife's
+  up moves (not intended in group 16). (2) In the strike the hand was kept out past the face while the blade pointed at the hit overhead,
+  so the blade slanted back behind the hat: the up smash's thrust showed only its tip above the crown, and its wind-up stood the blade
+  upright behind the head (frames 8-11). (3) The Greatsword's up smash popped forward for one frame after its last hit: the cap's own
+  limit (a blade past 160 is not capped) let go as the carry crossed it (angles 120, 79, 164). (4) Its last hit behind turned the body
+  round to the camera (the back turn), so the blade was held across the chest.
+- **Fix (`fighter_view.gd` `UP_CUTS`, `_up_cut`, `_up_way`):** per class, after the references. The Longsword's up smash is held upright
+  (90) beside the head through its hold, wound up with the blade raised ahead (60, brought round the front from the carry, as the
+  swordsman crouches), and lowered forward and down round the side; its up tilt carries on over the top and down behind into the low
+  carry (4 frames' carry), crouched, as the reference's. The Greatsword's and the Wanderer's up smashes are held up the same way; their
+  up tilts wind up low behind and arc from behind over the top to the front (they swung forward and back again, and carried on up and
+  back after the last hit), keeping their references' level end, lowered forward. In `_pose_blade`, from the frame before an up cut's
+  first hit, its hand is kept beside the head whenever the blade points up (on the face's side or behind the head by the blade's own
+  angle), within the arm's reach (the weapon is put in the fist the arm reaches), brought down beside the chin if the arm cannot take it
+  out past the face, and the blade runs from it at its own angle, leaned out from the head as far as it needs to clear its outline
+  (`UP_CLEAR_R`). The back turn is not for up cuts. `_holds_raised` leaves out every up tilt and up smash, so the other classes' up moves
+  are as before group 16. The Nodachi is unchanged: its up tilt already stands its long blade up beside the head, and its up smash goes
+  over the top and down behind as its reference's. `PF_R9_OFF=upcut` shows the up moves as before group 16.
+- **Tried and set aside:** lowering the up smash back, as the reference does: the short arm cannot take the fist behind the head, so the
+  blade passed behind the head for about five frames on its way down (`UP_CUTS` way 1 keeps it as an option); forward it never does.
+  Raised upright, the Greatsword's and the Wanderer's blades stood across the face's edge or behind the crown: their fists reach only
+  about 0.4 past the head's middle, so they are leaned out to about 70 degrees.
+- **After:** the Longsword's up smash upright beside the head from its strike through frame 27, lowered forward by 51; its up tilt over
+  the top and down behind by frame 17, low behind through the crouch; the Greatsword's and the Wanderer's up smashes held up at about 70
+  degrees beside the head; their up tilts sweep up from low behind. Measured: eyes or mouth covered over every gallery in both facings 11
+  (as before; the blade classes 0, also with the camera to either side); striking hands hidden 1,519 to 1,499 (the Longsword's up tilt 14
+  to 0, the Embers' and Bracers' restored up moves 65 to 59 and 57, the Popgun's 34 to 38); limbs reading reversed on screen 3,063 to 3,054.
+  Attack timing (follow-through / hold / recovery / wind-up) 2.37 / 1.24 / 1.60 / 1.13 to **2.37 / 1.28 / 1.65 / 1.13**: the up smash
+  measures 0 / 25 / 10 against the reference's 1 / 21 / 14 (by eye it stands still 17-27 and lowers through 51; the measure times the
+  recovery by the distance from the last pose, and lowered forward the tip first moves away from where it ends, low behind), the up tilt
+  3 / 8 / 7 against 7 / 5 / 8; the end shapes refitted (`CLASS_END_SHAPES` 0 `usmash`, `utilt`).
+- **Checked:** both facings; the match camera (`--gallery-cam=20`); the tests (`motion_test` with new checks: a raised forward cut is
+  held out toward the foe, an up smash holds its blade up, not out, and a seek into its hold draws the same blade); the look bench 0.96.
+- **Left:** the up tilts follow their references (the Longsword's carried down behind and held low, the Greatsword's and the Wanderer's
+  ending level in front) rather than holding the blade up; if the art director wants them held up beside the head, each is one
+  `UP_CUTS` entry (`["hold", 90.0, -1.0]`). The Greatsword's and the Wanderer's up smashes are not upright (above). The swordsman's
+  backward lowering is not matched (above).
+- **Image:** `docs/screenshots/anim/r9_up_blades.jpg` (the Longsword's up tilt and up smash, then the Greatsword's, then the Wanderer's:
+  the build before, group 16, above each, now below).
