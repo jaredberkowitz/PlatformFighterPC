@@ -1051,7 +1051,7 @@ const CLIP_END_SHAPES := {"body_headbutt_fwd": Vector3(0.12, 0.8, CARRY_FRAMES)}
 ## family's aerials and down smash held 12-33 frames where its reference holds 2-6 and floats home over 14-26; the Longsword's forward
 ## air and jab held too long and recovered in 3-5; the heavy's forward air and smash, the caster's up air and forward smash.)
 const CLASS_END_SHAPES := {
-	0: {"bair": Vector2(0.550, 0.850), "dair": Vector2(0.900, 0.984), "dsmash": Vector2(0.803, 0.990), "dtilt": Vector2(0.020, 0.563), "fair": Vector2(0.350, EVEN + 0.990), "fsmash": Vector2(0.020, 0.990), "ftilt": Vector2(0.766, 0.990), "jab": Vector2(0.020, 0.684), "uair": Vector2(0.078, EVEN + 0.732), "usmash": Vector2(0.405, 0.990)},
+	0: {"bair": Vector2(0.550, 0.850), "dair": Vector2(0.900, 0.984), "dsmash": Vector2(0.803, 0.990), "dtilt": Vector2(0.020, 0.563), "fair": Vector2(0.350, EVEN + 0.990), "fsmash": Vector2(0.020, 0.990), "ftilt": Vector2(0.766, 0.990), "jab": Vector2(0.020, 0.684), "uair": Vector2(0.078, EVEN + 0.732), "usmash": Vector2(0.205, 0.990), "utilt": Vector2(0.200, 0.950)},
 	1: {"bair": Vector2(0.479, 0.990), "dair": Vector2(0.393, 0.990), "fair": Vector2(0.713, 0.990), "ftilt": Vector2(0.307, 0.990), "jab": Vector2(0.479, 0.990), "nair": Vector2(0.020, 0.987), "usmash": Vector2(0.306, 0.746), "utilt": Vector2(0.084, 0.990)},
 	2: {"bair": Vector2(0.444, EVEN + 0.990), "dsmash": Vector2(0.035, EVEN + 0.990), "dtilt": Vector2(0.691, 0.920), "fair": Vector2(0.403, 0.882), "fsmash": Vector2(0.273, 0.577), "ftilt": Vector2(0.214, 0.786), "jab": Vector2(0.758, 0.990), "nair": Vector2(0.040, EVEN + 0.960), "uair": Vector2(0.030, EVEN + 0.970), "usmash": Vector2(0.146, 0.892), "utilt": Vector2(0.675, 0.950)},
 	3: {"bair": Vector2(0.664, 0.990), "dsmash": Vector2(0.373, 0.563), "dtilt": Vector2(0.585, 0.973), "fair": Vector2(0.858, 0.990), "fsmash": Vector2(0.289, EVEN + 0.990), "ftilt": Vector2(0.020, 0.861), "jab": Vector2(0.346, 0.990), "nair": Vector2(0.186, 0.920), "uair": Vector2(0.020, EVEN + 0.744), "usmash": Vector2(0.326, 0.843), "utilt": Vector2(0.418, 0.950)},
@@ -1353,7 +1353,8 @@ const HANDOFF_BY_CLIP := {"jumpsquat": 2.0, "land": 1.0, "tech": 2.0, "knockdown
 ## "stops" leaves a run's stop and a walk's slide to the plain idle, as before sim 148; "floorroll" plays a tech, get-up or trip roll by
 ## its whole length, as before sim 149; "react" also leaves a knockdown's slam to the lean's spring (`_slam`); "weight" leaves a grounded
 ## strike's lean to its spring through the end lag (`strike_lean`);
-## "dashpin" lets a dash's planted feet go with the hand-off (`_pin_dash_feet`).
+## "dashpin" lets a dash's planted feet go with the hand-off (`_pin_dash_feet`); "held" holds a raised cut's blade as before
+## (`HELD_UP_MAX_BASE`, `HELD_SAG`).
 static var r9_off := OS.get_environment("PF_R9_OFF").split(",")
 var handoff_clip := ""
 var handoff_state := ""
@@ -5366,9 +5367,17 @@ func _blade_target(s: Dictionary) -> Array:
 		# (Round 4: a cut that ends raised is held leaning forward, no steeper than HELD_UP_MAX: held upright, or carried on over the top,
 		# the short arm left the hilt over the eyes, and drawn back behind the head the blade vanished behind it.)
 		# (Not the Nodachi's: its long blade held forward came home across the face, 3 frames.)
-		if s.platform >= 0 and _cls(s) != NODACHI_CLASS and past > HELD_UP_MAX and past < 160.0 and swing < 160.0:
-			past = lerpf(past, HELD_UP_MAX, follow_k(f, float(t[2]) - _carry_lead(t), shape))
+		var top := _held_up_max(s)
+		var raised: bool = int(s.platform) >= 0 and _cls(s) != NODACHI_CLASS and past > top and past < 160.0 and swing < 160.0
+		if raised:
+			past = lerpf(past, top, follow_k(f, float(t[2]) - _carry_lead(t), shape))
 		var home := home_k(f, float(t[2]), float(t[0]), shape, ARM_LAG)
+		# (Round 9: a raised cut's hold sags its blade a little forward, down toward the foe, instead of creeping it back over the top toward
+		# the carry; it recovers from there. Crept back, the Longsword's forward tilt stood its blade upright behind the hat for the whole hold,
+		# the tip poking out of the crown like a plume.)
+		if raised and _holds_raised(s):
+			past -= HELD_SAG * minf(home, HOLD_CREEP) / HOLD_CREEP
+			home = clampf((home - HOLD_CREEP) / (1.0 - HOLD_CREEP), 0.0, 1.0)
 		var rest_deg := _rest_angle(s)
 		# (Round 8, the owner's Longsword note on the neutral air: in the air the blade comes home the short way round. Taken as numbers,
 		# a cut ending level in front (-8) went up over the front and round to the low carry behind (214), the blade swinging up again at
@@ -5447,6 +5456,21 @@ func sweeping(s: Dictionary) -> bool:
 
 ## The steepest (degrees above forward) a grounded cut is held at through its end lag.
 const HELD_UP_MAX := 68.0
+## (Round 9: on the base body a raised cut is held at most this steep, and sags this much further forward through its hold. At 68 the blade
+## rose from the hand held out at the chest across the side of the head (the head is drawn over it, so only the tip showed above the hat),
+## and crept back toward upright; held lower it points up and out past the face, toward the foe, as the reference swordsman's held cut.)
+const HELD_UP_MAX_BASE := 50.0
+const HELD_SAG := 6.0
+
+
+func _held_up_max(s: Dictionary) -> float:
+	return HELD_UP_MAX_BASE if _holds_raised(s) else HELD_UP_MAX
+
+
+## Whether a raised cut is held up and out toward the foe through its end lag (round 9): the tilts, smashes and specials, not a jab, whose
+## end lag runs straight into the next jab (lowered, the second jab's blade came back up across the face as the third began).
+func _holds_raised(s: Dictionary) -> bool:
+	return use_base_body and not r9_off.has("held") and not String(s.move_name).begins_with("jab")
 
 
 ## How fast (degrees a frame) a blade carries on past its last hit (the reference's sword cuts carry about 25-30 degrees on in their first
@@ -5833,7 +5857,13 @@ func _pose_blade(s: Dictionary, delta: float) -> void:
 			var ahead := tip.x >= hc.x * facing
 			var clear_x := hc.x * facing + (FACE_FWD + HEAD_CLEAR_R * FRONT_CLEAR if ahead else -HEAD_CLEAR_R * FRONT_CLEAR)
 			var clear := Vector2(clear_x, minf(hand.y, hc.y - HEAD_CLEAR_R * FRONT_BELOW))
-			hand = hand.lerp(clear, kf)
+			var moved := hand.lerp(clear, kf) - hand
+			hand += moved
+			# (Round 9: through a cut's end lag the blade goes with the hand, keeping its held angle. Left pointing at the tip while the hand
+			# was brought out and down past the face, a cut held up and forward stood straight up from the fist instead, behind the hat: the
+			# Longsword's forward and up tilts held a plume on the crown for their whole hold.)
+			if lag_now and int(s.platform) >= 0 and _holds_raised(s):
+				tip += moved
 	# (The angle before the floor stops it, for `_blade_round_side`, in the pivot's own terms.)
 	var raw_deg := rad_to_deg((tip - hand).angle())
 	raw_blade_deg = raw_deg if facing > 0 else 180.0 - raw_deg

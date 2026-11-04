@@ -2611,3 +2611,25 @@ side-by-sides stay on F:.
 - **Checked:** the reactions demo at the match camera; the face measure over its reactions as core5's (eyes or mouth covered 3 frames in the
   knockdown in both; the face to the floor 0 frames, 1 at core5); `motion_test` with a new check (a knockdown is down by its third frame).
 - **Image:** `docs/screenshots/anim/r9_slam.jpg` (the forward smash's knockdown, frames 0-12 at the match camera: core5 above, now below).
+
+### Group 16 (round 9): a raised cut's blade held up and out toward the foe (the coordinator's order of 2026-11-04, item 1)
+
+- **Found:** through the hold of the Longsword's forward tilt, up tilt and up smash, and the Wanderer's up tilt, the blade stood straight up
+  behind the hat, its tip poking out of the crown like a plume (`r9_attack_hold.jpg`, frames 16-26), or crossed the side of the face (the
+  Longsword's up tilt, frames 16-20). **Cause, shared:** a weapon hand that comes up by the face is brought out past the face and down to the
+  chin (round 8, `front_hand`), but the blade was left pointing at the tip where the swing had put it, so moving the hand out and down turned
+  the blade upright; and through the hold the angle crept back toward the carry, the short way over the top. The angle the blade was set to
+  (`HELD_UP_MAX` 68, a held cut leaning forward) never showed.
+- **Fix (`fighter_view.gd`):** on the ground, through a cut's end lag, the blade moves with the hand and keeps its angle; a raised cut is held
+  at most 50 degrees up (`HELD_UP_MAX_BASE`) and sags 6 further forward through its hold (`HELD_SAG`) instead of creeping back, then recovers
+  from there. Not the jabs (`_holds_raised`: a jab's end lag runs straight into the next jab, and the lowered second jab's blade came back up
+  across the face as the third began), not the Nodachi (its long blade stands beside the head and shows), not in the air. `PF_R9_OFF=held`
+  shows the old.
+- **After:** the held blades point up and out past the face toward the foe at the match camera: the Longsword's forward tilt, up tilt and up
+  smash, the Greatsword's tilts (it showed beside the head before, now held toward the foe), the Wanderer's up tilt. Face cover over the
+  Longsword's, Greatsword's, Wanderer's and Seer's galleries in both facings: 0 (as before). Striking hands hidden: the Longsword's up tilt
+  18 frames (4), the fist held at the chest in front of the body, by eye in view. Attack timing refitted (the up smash held 7 frames longer):
+  2.37 / 1.24 / 1.60 / 1.13 (group 11 2.35 / 1.19 / 1.57 / 1.13).
+- **Left:** the Longsword's up tilt's recovery swings the blade up past the side of the face for a frame or two as it goes home over the top.
+- **Image:** `docs/screenshots/anim/r9_held_blade.jpg` (the Longsword's forward tilt, up tilt and up smash, then the Greatsword's tilts and the
+  Wanderer's: before above each, now below).
