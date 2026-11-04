@@ -851,8 +851,16 @@ static func make(demo_name: String, m: Dictionary, dir: String):
 		"grab":
 			# Grab, two pummels, then a forward throw.
 			d.chars = [1, 0, 0, 0]
+			# (Round 9: `--chars=A,B`, the grabber A; `--grab-left` grabs facing left.)
+			var gf := 1
+			for a in OS.get_cmdline_user_args():
+				if a.begins_with("--chars="):
+					var picked := a.substr(8).split(",")
+					d.chars = [int(picked[0]), int(picked[1]) if picked.size() > 1 else 0, 0, 0]
+				elif a == "--grab-left":
+					gf = -1
 			d.cam_dist = 20.0
-			d.events = [[1, "stand", 0, -1.2, 1], [1, "stand", 1, 0.6, -1]]
+			d.events = [[1, "stand", 0, -1.2 * gf, gf], [1, "stand", 1, 0.6 * gf, -gf]]
 			# (`--throw=back|up|down` throws that way instead, round 8.)
 			var way := [127, 0]
 			for arg in OS.get_cmdline_user_args():

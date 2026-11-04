@@ -2556,3 +2556,19 @@ side-by-sides stay on F:.
   in front, the blade ran across the face's near side; creeping back, it stands behind the hat. Neither reads as the reference's raised blade
   (its arm held up and out); left as it was.
 - **Image:** `docs/screenshots/anim/r9_trip_seat.jpg` (a trip and its stand-up: before above, now below).
+
+### Group 13 (round 9): the overhead elbows and the knees, judged by eye (the order's item 2). No change.
+
+- **Measured (`PF_BEND`, every class's gallery in both facings and four CPU matches, on 2f411e47):** limbs reading reversed on screen 3,125
+  (elbows 1,989, knees 1,136; at group 9's start 2,065 and 1,188). The worst elbows: the Greatsword's up special 77 frame-limbs, the
+  Bracers' pummel 66, the Settler's back air 54, the Clutch in the air 50, the Seer's up air 46, the Phantom's back air 46, the Exile's 42,
+  the Longsword's 40; the worst knees: the Seer's down smash 75, the Longsword's down air 74 and down smash 71, the Seer's up air 70.
+- **Judged by eye** (each at a close camera, every third frame, `F:\anim_core\sheets\aw\el_all.jpg`, `kn_all.jpg`, `air_8.jpg`): almost all
+  are joints folding the natural way in 3D (`away` 2-48 degrees off the hinge) that only point backward in the projection: a forearm
+  folded across the chest in a back air or the up special, a knee tucked or knelt on with the thigh toward the camera, the heavy's arms
+  bent in a jump. None reads as a reversed joint at real speed. The one true reversal among them (`away` 170) is the far arm in a grab's
+  hold and pummels, put there by the layer that keeps a raised hand beside the head (`_arms_beside_head`): with it off the elbow is natural
+  but the pummel's far fist comes over the face (checked in `--demo=grab`, now with `--chars=A,B` and `--grab-left`); the arm is behind the
+  body, so the layer stays. In a CPU match the same arm reached a 92-degree reversal in the pummel's strike once (not reproduced in the demo).
+- **Image:** `docs/screenshots/anim/r9_bends_by_eye.jpg` (the Greatsword's up special, the back airs of the Settler, Longsword and Phantom,
+  then the Longsword's down smash and down air and the Seer's down smash and up air).
