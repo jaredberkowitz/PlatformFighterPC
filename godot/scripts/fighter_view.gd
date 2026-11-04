@@ -2124,12 +2124,12 @@ func _show_weapon_of(cls: int, facing := 1) -> void:
 var menu_stance_clip := ""
 ## (Round 9, the fighter select's hero poses: by clip, the weapon's angle in the hand, degrees in the fighter's own frame (0 ahead, 90 up).
 ## A held strike's frame not listed carries it along the fist, the way the grip holds a weapon in a match (`_fist_line`).)
-const MENU_WEAPON_DEG := {}
+const MENU_WEAPON_DEG := {"menu_hero": 110.0, "menu_hero_staff": 24.0}
 ## Held clips that carry the weapon along the fist when `MENU_WEAPON_DEG` does not name them: a strike's frames. Any other held clip (fighter
 ## select's held jump until the hero poses) keeps the resting carry: along the fist of an arm a jump swings, the greatsword crossed the face.
-const MENU_STRIKE_CLIPS := ["attack_", "sword_", "kick_", "gaunt_", "body_", "tool_", "staff_", "nodachi_", "dagger_", "buckler_", "great_", "blaster"]
+const MENU_STRIKE_CLIPS := ["attack_", "sword_", "kick_", "gaunt_", "body_", "tool_", "staff_", "nodachi_", "dagger_", "buckler_", "great_", "blaster", "menu_hero_quick"]
 ## Held clips whose free hand is open (a palm thrust out, a wave); every other held clip closes both hands.
-const MENU_OPEN_HAND := ["menu_hero_caster_a", "menu_hero_tool_a", "menu_hero_staff_a"]
+const MENU_OPEN_HAND := ["menu_hero", "menu_hero_staff", "menu_hero_caster", "menu_hero_tool"]
 
 
 ## A menu fighter's weapon in the weapon hand, at its true size: at the class's resting carry in the look's stance, as in a match
