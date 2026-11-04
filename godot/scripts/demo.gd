@@ -287,6 +287,25 @@ static func make(demo_name: String, m: Dictionary, dir: String):
 				d.events.append_array([[f0, "stand", 0, x0, 1], [f0, "stand", 1, x0 + 1.9, h[2]], [f0, "percent", 1, h[1]]])
 				d.timeline.append_array([[f0 + 12, h[3], h[4], h[5]], [f0 + 13, 0, 0, 0]])
 			d.end_frame = 900
+		"airhits":
+			# (Round 9, the light flinch in the air: the second fighter (`--chars=A,B`, B) and the first both dropped from rest high over the
+			# stage, B hit by A's neutral air, forward air at two damages, and a down air from above (a hit downward), each too weak to
+			# launch it tumbling. The match camera, unless `--cam=N`.)
+			d.chars = [0, 1, 0, 1]
+			for a in OS.get_cmdline_user_args():
+				if a.begins_with("--chars="):
+					var picked := a.substr(8).split(",")
+					d.chars = [int(picked[0]), int(picked[1]) if picked.size() > 1 else 1, 0, 1]
+			# [first frame, the victim's damage, the victim's height over the attacker's, stick x, stick y, buttons]
+			var air_hits := [[1, 0.0, 0.0, 0, 0, attack], [100, 0.0, 0.0, 127, 0, attack], [200, 30.0, 0.0, 127, 0, attack],
+				[300, 10.0, -1.2, 0, -70, attack]]
+			d.timeline = [[0, 0, 0, 0]]
+			for h in air_hits:
+				var f0: int = h[0]
+				d.events.append_array([[f0, "stand", 0, -4.0, 1], [f0, "stand", 1, -2.9, -1], [f0, "percent", 1, h[1]],
+					[f0 + 2, "place", 0, -4.0, 5.5], [f0 + 2, "place", 1, -3.0, 5.5 + float(h[2])]])
+				d.timeline.append_array([[f0 + 6, h[3], h[4], h[5]], [f0 + 7, 0, 0, 0]])
+			d.end_frame = 400
 		"trips":
 			# (Round 9: the second fighter (`--chars=A,B`, B) down-tilted by the first twelve times from the same place, undamaged: a down tilt
 			# that trips (the Longsword's and the Claws' can) sits it down, and it lies its trip out and stands. `--cam=N` as the reactions.)

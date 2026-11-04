@@ -615,6 +615,11 @@ func _choose_clip(s: Dictionary) -> Array:
 				if ledge_k < LEDGE_ROLL_UP:
 					return ["ledge_climb", 1.0, ledge_k / LEDGE_ROLL_UP * 0.66]
 				return ["roll", 1.0, (ledge_k - LEDGE_ROLL_UP) / (1.0 - LEDGE_ROLL_UP)]
+			# (Round 9, after group 21: stood up, the climb's last frames breathe in the fighter's own stance. The clip ends half way through
+			# the climb's frames, so it held its last pose, the sword family's stance, dead still for 16 frames of 34, then every other family
+			# changed stance as it took control.)
+			if ledge_k >= 1.0 and use_base_body and not r9_off.has("climbidle"):
+				return [AnimLibrary.family_clip(_cls(s), "idle", anim), 1.0, -1.0]
 			return ["ledge_climb", 1.0, ledge_k]
 		"Landing":
 			# A tech in place is a landing with a tech's intangibility (a plain landing has none; a fighter still invincible from its
@@ -1359,7 +1364,7 @@ const HANDOFF_BY_CLIP := {"jumpsquat": 2.0, "land": 1.0, "tech": 2.0, "knockdown
 ## strike's lean to its spring through the end lag (`strike_lean`);
 ## "dashpin" lets a dash's planted feet go with the hand-off (`_pin_dash_feet`); "held" holds a raised cut's blade as before
 ## (`HELD_UP_MAX_BASE`, `HELD_SAG`); "upcut" holds the blade classes' up tilts and up smashes with the cap they had before group 16
-## (`UP_CUTS`).
+## (`UP_CUTS`); "climbidle" holds a ledge climb's last pose still through its last frames, as before group 22.
 static var r9_off := OS.get_environment("PF_R9_OFF").split(",")
 var handoff_clip := ""
 var handoff_state := ""

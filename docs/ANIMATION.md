@@ -2944,3 +2944,32 @@ side-by-sides stay on F:.
   side-on to the wall, an arm swung out or a knee kicked goes toward the camera or into the wall, and wants a mock.
 - **Checked:** the tests pass (`motion_test` with a new check: a climb is over the edge before it stands up; it fails with
   `PF_R9_OFF=ledge`, 0.305 units still to go at frame 12).
+
+### Group 22 (round 9): core9's air flinch and group 21's climb checked on every family; the climb's last frames alive (the coordinator's order of 2026-11-04, item 1)
+
+- **The light flinch in the air (group 20, installed in core9), at real speed:** a new demo, `--demo=airhits --chars=A,B` (B dropped from
+  rest high over the stage beside A and hit by A's neutral air, forward air at 0% and 30%, and a down air from above), and two computer
+  matches (Longsword against Claws, Needles against Clutch), every frame traced and filmed at the match camera. In the air the flinch's lean
+  shows in a hit's freeze (every air hit's freeze plays the air's flinch) and over the whole stun of the weakest hits (a launch faster than
+  `HEAVY_HITSTUN_SPEED` takes the upward arch or the heavy fold after its freeze). Judged at real speed against core8's (`PF_R9_OFF=flinch`):
+  the freeze leans back off the hit a little in the stage's plane, the arms out, then the arch or the fold, the face to the camera
+  throughout; at the match camera the two read alike. The freeze's release into an arch or a fold moves a bone at most 0.28 units in a frame
+  (0.09 before: the freeze's lean is in the plane, the launch's first frames pitch about the side), under the pop threshold and not visible at
+  real speed. A tumbling launch's first frame moves the head 1.30 units (1.63 before group 20): the head-first lead of group 8 starting at the
+  freeze's release, part of the launch, left. No change.
+- **The ledge climb on every family (group 21; the ledges demo filmed for the Longsword, Claws, Needles, Embers, Clutch, Pockets, Greatsword
+  and Seer):** the climb follows the same path on every body (the same body and hang), over the edge by its frame 11 and standing where it
+  landed, the weapons clear of the floor. The ledge attack's climb (14 frames) also takes group 21's rates: over the edge by frame 9 instead
+  of 13, standing for four frames before the sweep; judged at real speed it reads as a quicker vault, as the references' (up on the stage by
+  about frame 11), kept. Older than group 21 and left: the climbing knee's foot passes inside the stage's corner for two frames as it comes
+  over (frames 4-5; 5-7 before), hidden behind the stage's front at the match camera.
+- **Found, older than group 21:** the climb's clip ends half way through the climb's frames (a 30-frame clip over 17 of the 34), so the body
+  held the clip's last pose dead still for 16 frames, and that pose is the sword family's stance for every family: the Clutch, the Claws
+  and the rest changed stance as they took control.
+- **Fix (`fighter_view.gd`, `LedgeGetUp`):** once the climb's clip has stood up, the fighter's own family idle plays (eased in by the
+  hand-off over 5 frames) and runs on into the idle state without a restart. The largest bone move in a frame through the hand-off 0.07
+  units. `PF_R9_OFF=climbidle` shows the old.
+- **Checked:** `motion_test` with a new check (a climb's last 16 frames are not one pose held: 15 still frames without the fix, none with
+  it); both facings are the same code path.
+- **Image:** `docs/screenshots/anim/r9_climb_idle.jpg` (the Clutch's climb, frames 8-32 and its third idle frame: before above, now below,
+  close camera).

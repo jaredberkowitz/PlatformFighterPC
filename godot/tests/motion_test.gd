@@ -407,6 +407,19 @@ func _initialize() -> void:
 		if f == 12:
 			landed_x = climber.ledge_offset.x
 	check(absf(landed_x) < 0.01, "a ledge climb is over the edge before it stands up (still %.3f to go at frame 12)" % landed_x)
+	# (And stood up, it breathes in its own stance for the climb's last frames rather than holding the clip's last pose still.)
+	var hips := climber.skeleton.find_bone("hips")
+	var still := 0
+	var last_hips := Vector3.INF
+	for f in range(18, 34):
+		var climb_on := snap(0, "LedgeGetUp", "", 9920 + f, f)
+		climb_on.lag = 34
+		climber.apply(Vector3(-10.0, 0.0, 0), climb_on, 1.0 / 60.0)
+		var at: Vector3 = climber.skeleton.get_bone_global_pose(hips).origin
+		if at.is_equal_approx(last_hips):
+			still += 1
+		last_hips = at
+	check(still < 4, "a ledge climb's last frames are alive, not one pose held (%d still frames of 16)" % still)
 
 	print("motion test ", "FAILED" if failed else "PASSED")
 	quit(1 if failed else 0)
