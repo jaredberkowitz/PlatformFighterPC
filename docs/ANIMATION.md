@@ -2704,3 +2704,11 @@ side-by-sides stay on F:.
   backward lowering is not matched (above).
 - **Image:** `docs/screenshots/anim/r9_up_blades.jpg` (the Longsword's up tilt and up smash, then the Greatsword's, then the Wanderer's:
   the build before, group 16, above each, now below).
+
+### core7 installed (4 November 2026)
+
+- Groups 15-17 (the knockdown's slam, a raised forward cut's blade held up and out toward the foe, the up tilts and up smashes keeping
+  their blades up) with the stage select stills regenerated (91687c13). Nothing newer to merge (the stage, menu, character, outfit and
+  identity branches were all in). Simulation version 149, content hash 0d09e102dcfb7b1b (the same Rust and content as core5 and core6),
+  checked in the staged copy and the extracted zip ("Platform Fighter playtest 2026-11-04 sim149 animation core7.zip"); the release exe
+  quits with code 0. The tests pass; the look bench 0.96.
