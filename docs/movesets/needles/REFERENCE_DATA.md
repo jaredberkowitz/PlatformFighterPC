@@ -164,7 +164,7 @@ Sources as above, plus SmashWiki's `Sheik_(SSBU)/Neutral_attack/Hit_1`, `/Hit_2`
 | Jab 1 to 2 | a press (or attack held through the hit) carries on from frame 4 | [R] (a script) |
 | Jab 2 | frame 3, 1.6%, FAF 18, H 1.2; angle 361 BK 35 / 35 / 25, KS 25 / 25 / 20 | [R] |
 | Jab 2 to rapid jab | from frame 5, after two presses since jab 1 (the reference: three; presses during hitlag reach no script) or attack held as it hits | [D] |
-| Rapid jab | stabs on loop frames 5-13 every 2 frames, 0.3%, angle 361 BK 12 KS 15, +2 hitstun, H 0.5, SDI 0.4; loops while attack is held or pressed within 10 frames | values [R]; the loop is 14 frames (the reference's 12) [D] |
+| Rapid jab | stabs on loop frames 5-13 every 2 frames, 0.3%, angle 361 BK 12 KS 15, +2 hitstun, H 0.5, SDI 0.4; loops while attack is held or pressed within 10 frames | values [R]; the loop is 14 frames (the reference's 12) [D]; the outer stab a lying capsule from 7 to 13 ahead at 8 up, radius 4.5, so 1.25 ± 0.375 ahead, 1.0 up, radius 0.5625 [R: a public dump of the reference's move scripts, sim 152; a sphere at its middle before, 0.39 short]; the inner stab rides the hand bone [E] |
 | Finisher | frames 5-6, 2%, 40 degrees, BK 60, KS 132, H 2.0, FAF 36 | [R] |
 | Dash attack (the earlier game's) | clean frame 6: 10%, 80 degrees, BK 34, KS 100; late 7-12: 7%, angle 361, BK 15, KS 100; FAF 36; radii 3.9 / 3.1 of its units | [R] (earlier game); positions [E]; its knockback runs through our (the reference's) formula [D] |
 | Forward smash | hit 1 frame 12: 5%, FKV 47 / 47 / 30 at 35 / 45 / 80 degrees, KS 100, SDI 0.5; hit 2 frames 20-21: 8%, angle 361, BK 60, KS 109; charge hold frame 3; FAF 45 | [R] |
