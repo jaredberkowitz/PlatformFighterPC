@@ -116,8 +116,9 @@ hidden by the body 2,470 / about 2,140 / 1,511 (1,354 before the character work'
 borderline count, mostly the Buckler's down air, visible by eye). Elbows reading reversed on screen (`PF_BEND` `scr`): core1 4,540
 (elbow 3,180, knee 1,360), group 5 3,243 (elbow 1,941, knee 1,302). Attack timing, mean error in frames over 68 moves
 (follow-through / hold / recovery / wind-up): 8r 2.29 / 1.56 / 1.81 / 1.15, core4 2.34 / 1.62 / 2.03 / 1.13, refitted (group 9)
-2.34 / 1.49 / 1.96 / 1.13, with the strike's lean held through the hold and refitted (group 11, 2026-11-03) **2.35 / 1.19 / 1.57 /
-1.13**.
+2.34 / 1.49 / 1.96 / 1.13, with the strike's lean held through the hold and refitted (group 11, 2026-11-03) 2.35 / 1.19 / 1.57 /
+1.13, with the raised cuts' blades held up and out and refitted (group 16, 2026-11-04) **2.37 / 1.24 / 1.60 / 1.13**. Limbs reading
+reversed on screen at group 16: 3,063 (elbows 1,925, knees 1,138), the worst of them natural folds by eye (group 13).
 
 ## 3. What still differs, and why
 
