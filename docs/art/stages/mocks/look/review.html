@@ -88,6 +88,34 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
     <p>Two lessons from the reference screenshots, mocked from the match camera: the scenery without ink outlines, its edges lit as card bevels instead, and the paper houses rebuilt at the characters' proportions. The earlier rounds stay on the <a href="https://claude.ai/artifact/D1du6MREVumiJDrEdNypW4">Stage Fidelity Review</a>, which is full.</p>
   </header>
 
+  <section class="panel" aria-labelledby="wa71-h" id="washi71">
+    <div class="eyebrow">After review 17 &middot; making the stages more their own, step 6: the grove's washi</div>
+    <h2 id="wa71-h">The grove in washi</h2>
+    <p>The grove's craft is washi, the paper that glows when light comes through it. Two things change:</p>
+    <ul>
+      <li>The lanterns, on the strings and under the platforms, become washi lit from inside. Each is whiter where it faces you and warmer at its edges, with the paper's fibres showing.</li>
+      <li>The mist banks become stacked sheets of tissue. They have no card edge, and each sheet is see-through, so the valley shows faintly under one sheet. The edges fray into fibres.</li>
+    </ul>
+    <p>Nothing is remodelled: the game rebuilds the mist from today's model. The play area measures the same in every option.</p>
+    <div class="tablewrap"><table><thead><tr><th>Option</th><th>What changes</th></tr></thead><tbody>
+      <tr><td>Today</td><td>Flat lantern glows, and the mist in card sheets</td></tr>
+      <tr><td>A &middot; Lanterns</td><td>The lanterns in washi, lit from inside</td></tr>
+      <tr><td>B &middot; And the mist</td><td>A, with the mist in tissue</td></tr>
+      <tr><td>C &middot; Bolder</td><td>B, with thinner tissue, bolder fibres and heavier lantern paper</td></tr>
+    </tbody></table></div>
+    <p>Top: the lanterns under the top platform at the match camera, today, A and C. Bottom: the mist under a fall at the wide camera, today, B and C.</p>
+    <div class="viewer" style="aspect-ratio: 1920 / 720"><img src="wa71_close.jpg" alt="The grove's lanterns and mist today and in washi"></div>
+    <div class="row" role="group" aria-label="View"><button data-wa71v="m">Match camera</button><button data-wa71v="w">Wide</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-wa71o="T">Today</button><button data-wa71o="A">A &middot; Lanterns</button><button data-wa71o="B">B &middot; And the mist</button><button data-wa71o="C">C &middot; Bolder</button></div>
+    <div class="viewer"><img id="wa71img" alt="Grove washi option"><span class="vtag" id="wa71tag"></span></div>
+    <p class="muted">My pick: <b>B</b>. The lanterns read as paper with a lamp inside, and the tissue mist is the grove's own: no other stage has see-through paper. Honest notes:</p>
+    <ul class="muted">
+      <li>The lanterns are small at the match camera. Their washi shows mostly as a whiter middle and a golden rim, not as fibres. They also glow a little less around them, since their rims are darker.</li>
+      <li>The tissue gives up the crisp stacked card the mist had. It is softer, closer to real mist. At its own colour it went grey with the valley showing through (saturation 0.04, from 0.10), so the sheets are tinted to stay violet.</li>
+      <li>C's thinner sheets show more of the valley, but its fibres start to read as scratches at the edges.</li>
+    </ul>
+  </section>
+
   <section class="panel" aria-labelledby="st70-h" id="stitch70">
     <div class="eyebrow">Built A (the owner's pick) &middot; making the stages more their own, step 5: the meadow's patchwork and stitch</div>
     <h2 id="st70-h">The meadow sewn like a quilt</h2>
@@ -3927,5 +3955,15 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
   group("data-st70v", function (v) { st70v = v; }, st70render);
   group("data-st70o", function (v) { st70o = v; }, st70render);
   st70render();
+  var wa71v = "m", wa71o = "B";
+  var WA71O = { T: "Today", A: "A · Lanterns", B: "B · And the mist", C: "C · Bolder" };
+  function wa71render() {
+    $id("wa71img").src = "wa71_" + wa71o + "_" + wa71v + ".jpg";
+    $id("wa71tag").textContent = "Grove · " + WA71O[wa71o] + (wa71v === "w" ? " · wide" : " · match camera");
+    pressed("data-wa71v", wa71v); pressed("data-wa71o", wa71o);
+  }
+  group("data-wa71v", function (v) { wa71v = v; }, wa71render);
+  group("data-wa71o", function (v) { wa71o = v; }, wa71render);
+  wa71render();
 })();
 </script>

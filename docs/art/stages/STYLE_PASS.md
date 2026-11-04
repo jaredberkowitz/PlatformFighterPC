@@ -206,3 +206,43 @@ Recommended A: the cream stitch reads as a sewn seam right under the fighters.
 - The ground stays as it was, without the hedgerows' seams, since B and C weren't taken.
 - Before and after at the match camera (top) and wide (bottom), before left: `style/stitch_built.jpg`.
 All seven tests pass (the runner test failed twice in four runs, on its coin pickup and "the way out", and passed on the rerun: it waits on real-time timers and flakes when the machine is busy).
+
+## Step 6: the grove's washi (mock, 2026-11-04)
+
+The owner: "Next stage's craft". Washi is the Japanese paper that glows when light comes through it, its long fibres and thicker clouds
+showing against the light. The grove already has the things washi is made into: paper lanterns and mist. One seamless texture holds the
+paper (`tools/art/make_washi.py`, `godot/art/stage/png/washi.png`): long fibres, the sheet's thicker clouds and finer fibres, one per
+channel.
+- **The lanterns** (`shaders/washi.gdshader`), on the strings and under the platforms: each one's paper lit from inside in place of a flat
+  glow. It is whiter where it faces the eye, and deeper and warmer toward its edges, where the light crosses more paper. Its fibres and
+  clouds show darker against the light.
+- **The mist** (`shaders/toon_tissue.gdshader`): each bank's three stacked sheets as tissue with no thickness, their card edges gone. Each
+  sheet is see-through, so the valley shows faintly under one sheet and hardly under three. The edge is torn, wandering in and out with
+  fibres reaching past it, and the paper's fibres and clouds lie over the sheets (toon_common `washi_paper`, `tissue`). The sheets are
+  rebuilt in the game from the shipped ground (StageBake._tissue_mesh): nothing is remodelled or re-lit.
+
+The palette's [backdrop] `washi`, or `--washi=T|A|B|C` (StageArt.WASHI_TRY):
+
+| Option | What changes |
+|---|---|
+| Today | Flat lantern glows; the mist in card sheets |
+| A, lanterns | The lanterns in washi, lit from inside |
+| B, and the mist | A, with the mist in tissue |
+| C, bolder | B, the tissue thinner, its fibres bolder, the lanterns' paper heavier |
+
+With `tissue_sat` the sheets' own colour is more saturated: at its own colour, with the green valley showing through, the mist measured
+grey (saturation 0.04, from 0.10). Tinted, B's mist measures saturation 0.07. The play area measures the same in every option (value
+0.59 at the match camera).
+
+On the Stage Look Review ("washi71", `wa71_*`).
+
+Recommended B: the lanterns read as paper with a lamp inside, and the tissue mist is the grove's own, since no other stage has
+see-through paper.
+- The lanterns are small at the match camera. Their washi shows mostly as a whiter middle and a golden rim, not as fibres. They also glow a
+  little less around them, since their rims are darker.
+- The tissue gives up the crisp stacked card the mist had. It is softer, closer to real mist.
+- C's thinner sheets show more of the valley, but its fibres start to read as scratches at the edges.
+
+Capture note: while a full-screen game was open on this machine, the captures hung with vsync on (the window not responding, its CPU
+idle). With `--disable-vsync` before the scene, each took about 20 seconds.
+All seven tests pass.

@@ -2687,6 +2687,47 @@ static func _potted_plant(root: Node3D, at: Vector3) -> void:
 		_mesh(root, _sphere(1.0, 6), leaf, at + Vector3(cos(a) * 0.25, 0.85, sin(a) * 0.2), Vector3(0.18, 0.55, 0.1), Vector3(0, -rad_to_deg(a), 30))
 
 
+## Washi on the grove (the style pass's step 6, docs/art/stages/STYLE_PASS.md): the palette's [backdrop] `washi` or `--washi=T|A|B|C`,
+## T as before:
+##   A  the lanterns in washi, on the strings and under the platforms: each one's paper lit from inside (shaders/washi.gdshader), whiter
+##      where it faces the eye, deeper and warmer toward its edges, its fibres and thicker clouds darker against the light;
+##   B  A, and the mist in tissue: each bank's three stacked sheets as tissue with no thickness (their card edges gone), each see-through,
+##      so the valley shows faintly under one sheet and hardly under three, its edge torn and wandering with fibres reaching past it
+##      (shaders/toon_tissue.gdshader), the paper's fibres and clouds over them;
+##   C  B, the tissue thinner and its fibres bolder, the lanterns' paper heavier.
+## [lantern: core, rim, fibres, repeats a unit], [mist: fibres, clouds, units a repeat], [tissue: opacity, edge, fibres, thin rim].
+## `tissue_sat`: the sheets' own colour that much more saturated, so with the green valley showing through them the mist stays violet
+## (at its own colour it measured grey, saturation 0.04 from 0.10).
+const WASHI_TRY := {"T": {},
+	"A": {"lantern": Vector4(0.55, 0.5, 0.35, 1.2)},
+	"B": {"lantern": Vector4(0.55, 0.5, 0.35, 1.2), "mist": Vector4(0.45, 0.22, 12.0, 0.0), "tissue": Vector4(0.74, 0.1, 0.8, 0.35), "tissue_sat": 2.6},
+	"C": {"lantern": Vector4(0.5, 0.6, 0.5, 1.6), "mist": Vector4(0.7, 0.32, 10.0, 0.0), "tissue": Vector4(0.58, 0.14, 1.0, 0.45), "tissue_sat": 3.2}}
+const WASHI_TEX := "res://art/stage/png/washi.png"
+const WASHI_SHADER := "res://shaders/washi.gdshader"
+
+
+## The grove's washi (`WASHI_TRY`) for the stage `stage_name`; empty for every other stage, or with none chosen.
+static func washi_look(stage_name: String) -> Dictionary:
+	if stage_name != "grove":
+		return {}
+	var look := String((palette("grove").get("backdrop", {}) as Dictionary).get("washi", ""))
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--washi="):
+			look = arg.substr(8).to_upper()
+	return WASHI_TRY.get(look, {})
+
+
+## A paper lantern's body in washi (`WASHI_TRY` lantern), glowing `glow`; `vertex_tone` multiplies in the mesh's own shading.
+static func washi_lantern(glow: Color, look: Vector4, vertex_tone := false) -> ShaderMaterial:
+	var m := ShaderMaterial.new()
+	m.shader = load(WASHI_SHADER)
+	m.set_shader_parameter("glow", glow)
+	m.set_shader_parameter("washi", look)
+	m.set_shader_parameter("washi_tex", load(WASHI_TEX))
+	m.set_shader_parameter("vertex_tone", vertex_tone)
+	return m
+
+
 ## A string of little lit bulbs sagging between two points.
 ## `lamp` the modelled light hung along it (art/blender/make_props.py: "paper_lantern" on the grove, "string_bulb" in the city) with the
 ## palette's [backdrop] `string_lights="model"` or `--strings=model` (fidelity review 6: the strings were code-built spheres); without,
@@ -2699,6 +2740,8 @@ static func _string_lights(root: Node3D, a: Vector3, b: Vector3, lamp := "string
 		modelled = true
 	if modelled and Toonify.load_prop(lamp) == null:
 		modelled = false
+	# (The grove's lanterns in washi, the style pass's step 6: `WASHI_TRY`.)
+	var washi := washi_look(String(_palette.get("_name", ""))) if lamp == "paper_lantern" else {}
 	var n := 18
 	var prev := a
 	for k in range(1, n + 1):
@@ -2717,7 +2760,7 @@ static func _string_lights(root: Node3D, a: Vector3, b: Vector3, lamp := "string
 			root.add_child(model)
 			for mi in model.find_children("*", "MeshInstance3D", true, false):
 				if String(mi.name).begins_with("glow"):
-					(mi as MeshInstance3D).material_override = _unshaded(glow)
+					(mi as MeshInstance3D).material_override = washi_lantern(glow, washi.lantern) if washi.has("lantern") else _unshaded(glow)
 			var drop := 0.42 if lamp == "paper_lantern" else 0.2
 			_halo(root, p + Vector3(0, -drop, 0.2), glow, 0.9 if lamp == "paper_lantern" else 0.5)
 		elif k < n:
