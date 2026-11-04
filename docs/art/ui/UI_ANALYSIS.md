@@ -213,3 +213,12 @@ bar, which would cover the stocks and time.
 
 Before/after: `hero_fit_before_after.png` (Champion vs Exile both ways round, Duelist vs Brawler); four players both ways round in
 `hero_fit/`. Checked: both sides, two and four players. Tests: select_grid, creator_flow, match_flow, stage_select, runner and orphan pass.
+
+### Redo: the card crops the fighter instead (2026-11-04)
+
+The fit above cost too much size (the art director: the Exile read as a much smaller character beside an unscaled Brawler; face-off art
+should hold every fighter at one size). Now each fighter is cut at its own card's top edge (`PlayerPanel.clip`, open at the sides and
+the foot, so it still breaks out past the card's sides and stands over its name plate). A long raised blade is cropped by the card's frame
+as key art crops at a panel edge (the owner picked Sword A from a mock whose tips were already cut), and it is never drawn over the bar,
+the VERSUS title or the tabs. `HERO_FIT` is empty: every fighter at one size. Before/after: `hero_crop_before_after.png` (red the fit,
+green the crop: Champion v Exile both ways round, four players); also Exile v Brawler both ways round in `hero_crop/`.

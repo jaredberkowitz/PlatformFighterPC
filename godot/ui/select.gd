@@ -47,7 +47,7 @@ const STAFF_CLASS := 5
 ## Greatsword's and the Nodachi's blades ran past the panel and under the top bar; the Longsword's reached the bar and the VERSUS title):
 ## [k, lower]: the fighter drawn k times smaller with its feet where they were, then `lower` world units lower in the panel (its feet
 ## still above the name plate), so the whole blade clears the bar. By class.
-const HERO_FIT := {0: Vector2(1.14, 0.0), 6: Vector2(1.32, 0.42), 13: Vector2(1.4, 0.72)}
+const HERO_FIT := {}
 ## The panel camera's height, aim and distance (scaled together by HERO_FIT, which keeps the feet in place).
 const HERO_CAM := Vector3(0, 1.3, 7.4)
 const HERO_AIM_Y := 1.2
@@ -254,6 +254,13 @@ class PlayerPanel extends Control:
 	## The fighter's resting height in the panel, and how far it rises from on a new pick and hops on locking in.
 	# (Lower since the select rebuild, 2026-10-19: in the tall panels the fighter's feet floated over its name and its hat left the frame.)
 	const BASE_Y := -34.0
+	## The fighter's resting y inside `clip` (BASE_Y in the panel's own coordinates).
+	var rest_y := BASE_Y
+	## The fighter is cut at its card's top edge (the art director, 2026-11-04: a raised blade crossed the top bar, the VERSUS title and the
+	## tab; cropped by the card's frame instead, as key art crops at a panel edge). Open at the sides and the foot, so the fighter still
+	## breaks out past the card's sides and stands over its name plate.
+	var clip: Control
+	const CLIP_SPARE := 400.0
 	## Which way the fighter faces: 1 toward the right (a panel on the left), -1 toward the left.
 	var facing := 1
 	## How far the fighter turns toward the centre (radians): HERO_TURN_DEFAULT, or what the class's hero pose names.
@@ -269,7 +276,7 @@ class PlayerPanel extends Control:
 		pick_t = minf(1.0, pick_t + delta / UI.MOTION_BASE)
 		lock_t = minf(1.0, lock_t + delta / (UI.MOTION_BASE * 1.5))
 		var k := 1.0 - pow(1.0 - pick_t, 3.0)
-		preview.position.y = BASE_Y + (1.0 - k) * PICK_RISE - sin(lock_t * PI) * LOCK_HOP
+		preview.position.y = rest_y + (1.0 - k) * PICK_RISE - sin(lock_t * PI) * LOCK_HOP
 		preview.modulate.a = lerpf(0.25, 1.0, k)
 	const MOODS := [0.85, -0.7, 0.35, 0.0]
 
@@ -300,7 +307,11 @@ class PlayerPanel extends Control:
 			var m := ShaderMaterial.new()
 			m.shader = DIE_CUT
 			preview.material = m
-		add_child(preview)
+		clip = Control.new()
+		clip.clip_contents = true
+		clip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		add_child(clip)
+		clip.add_child(preview)
 
 	func _frame() -> Rect2:
 		return Rect2(Vector2(10, 8), size - Vector2(20, 22))
@@ -317,7 +328,10 @@ class PlayerPanel extends Control:
 		var ph := h + 10.0
 		var pw := w * 1.12
 		preview.size = Vector2(pw, ph)
-		preview.position = Vector2(w * 0.5 - pw * 0.5, BASE_Y)
+		clip.position = Vector2(-CLIP_SPARE, f.position.y)
+		clip.size = Vector2(w + CLIP_SPARE * 2.0, h + CLIP_SPARE)
+		rest_y = BASE_Y - f.position.y
+		preview.position = Vector2(w * 0.5 - pw * 0.5 + CLIP_SPARE, rest_y)
 		_face()
 
 	## The fighter's turn toward the screen's centre: the hero pose's own (`hero_turn`) or the default.
