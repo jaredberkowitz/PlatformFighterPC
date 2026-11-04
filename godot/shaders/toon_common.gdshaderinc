@@ -161,6 +161,20 @@ instance uniform float front_top : instance_index(6) = -100000.0;
 #include "res://shaders/stage_ao.gdshaderinc"
 #include "res://shaders/xray.gdshaderinc"
 
+// Washi on the grove's mist (the style pass's step 6, StageArt.WASHI_TRY): [fibres, clouds, units a repeat, -], the paper's long fibres
+// a step paler and its thicker clouds paler too, as thicker paper over the dark valley; laid flat in world space (art/stage/png/washi.png,
+// tools/art/make_washi.py). Off at 0.
+uniform vec4 washi_paper = vec4(0.0, 0.0, 12.0, 0.0);
+uniform sampler2D washi_tex : filter_linear_mipmap_anisotropic, repeat_enable, hint_default_white;
+
+#ifdef PF_TISSUE
+// Tissue (shaders/toon_tissue.gdshader): [opacity, edge, fibres, thin rim]: how opaque one sheet is; how far in from its edge (a share of the
+// way to its middle, by the vertex alpha StageBake._tissue_mesh writes) the torn edge wanders; how strongly the fibres reach past it; how much
+// thinner the paper is in a band just inside the tear.
+uniform vec4 tissue = vec4(0.62, 0.1, 0.8, 0.35);
+varying float tissue_in;
+#endif
+
 #ifdef PF_TWO_SIDED
 // An ink line along the garment's bottom hem (the shirt's, over the shorts), `hem_ink` wide in rest units above `hem_low`; 0 for none.
 uniform float hem_low = -99.0;
@@ -178,6 +192,9 @@ void vertex() {
 	if (instance_tint) {
 		vshade *= INSTANCE_CUSTOM.rgb;
 	}
+#ifdef PF_TISSUE
+	tissue_in = COLOR.a;
+#endif
 }
 
 // A stage front's colour calmed (`pf_front_calm`), `depth` units below its top.
@@ -374,6 +391,11 @@ void fragment() {
 		vec3 blade_c = mix(c * vec3(0.62, 0.72, 0.8), c * vec3(1.25, 1.2, 0.8) + 0.04, lit_side);
 		c = mix(c, blade_c, hit * blades);
 	}
+	if (washi_paper.x + washi_paper.y > 0.0) {
+		vec3 wp = texture(washi_tex, world_pos.xz / max(washi_paper.z, 0.1)).rgb;
+		c = mix(c, c * 1.14 + vec3(0.04), clamp(max(wp.r, wp.b * 0.75), 0.0, 1.0) * washi_paper.x);
+		c *= 1.0 + (wp.g - 0.5) * washi_paper.y;
+	}
 	// The painted gradient (the stage's profile, scripts/lighting.gd): what faces up leans warm, what faces down leans cool. Fighters take
 	// a third of it, so their own colours stay true.
 	float up = smoothstep(0.2, 0.8, world_normal.y * 0.5 + 0.5);
@@ -465,4 +487,15 @@ void fragment() {
 	AO_LIGHT_AFFECT = 0.45;
 	EMISSION -= c * pf_amb_cut.rgb * AO * (1.0 - fighter);
 	SPECULAR = 0.0;
+#ifdef PF_TISSUE
+	{
+		vec3 tw = texture(washi_tex, world_pos.xz / max(washi_paper.z, 0.1)).rgb;
+		// The tear: it wanders in and out with the paper's clouds, crisp; just inside it the paper is thinner; past it only fibres reach.
+		float tear = tissue.y * (0.2 + 0.8 * tw.g);
+		float body = smoothstep(tear - 0.012, tear + 0.012, tissue_in);
+		body *= mix(1.0 - tissue.w, 1.0, smoothstep(tear, tear + tissue.y * 0.6, tissue_in));
+		float fib = smoothstep(0.35, 0.8, max(tw.r, tw.b * 0.8)) * step(0.002, tissue_in) * tissue.z;
+		ALPHA = clamp(tissue.x * max(body, fib * 0.85) * (0.9 + 0.25 * (tw.g - 0.5)), 0.0, 1.0);
+	}
+#endif
 }

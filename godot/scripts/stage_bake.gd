@@ -857,7 +857,7 @@ static func place_world(root: Node3D, source: Variant) -> void:
 
 ## Places the mood light (`source`: a PackedScene, or a glTF path for mocks): searchlight beams, paper lanterns, ripple rings, each
 ## piece unshaded with its own brightness and fade in its vertex colours, so it reads as light whatever the scene's.
-static func place_mood(root: Node3D, source: Variant) -> void:
+static func place_mood(root: Node3D, source: Variant, stage_name := "") -> void:
 	var scene := _scene_from(source)
 	if scene == null:
 		push_warning("mood light %s could not be read" % str(source))
@@ -872,11 +872,16 @@ static func place_mood(root: Node3D, source: Variant) -> void:
 	scene.name = "ModelledMood"
 	scene.set_meta("lit_piece", true)
 	root.add_child(scene)
+	# (The grove's lanterns in washi, `StageArt.WASHI_TRY`: by the stage's own name, since the mood is placed before the palette is read.)
+	var washi := StageArt.washi_look(stage_name)
 	for mi: MeshInstance3D in scene.find_children("*", "MeshInstance3D", true, false):
 		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		for s in mi.mesh.get_surface_count():
 			var src := mi.mesh.surface_get_material(s)
 			var look: Array = looks.get(src.resource_name if src != null else "glow", looks["glow"])
+			if washi.has("lantern") and (src == null or src.resource_name == "glow"):
+				mi.set_surface_override_material(s, StageArt.washi_lantern(look[0], washi.lantern, true))
+				continue
 			if look[3]:
 				mi.set_surface_override_material(s, FighterView.toon(look[0], false))
 				continue
@@ -1370,7 +1375,17 @@ static func _paint_ground(node: Node3D, colours: Dictionary, t := {}) -> void:
 	if flag("--headland=") != "":
 		head_look = flag("--headland=").to_upper()
 	var head: Dictionary = HEADLAND_TRY.get(head_look, {}) if String(t.get("name", "")) == "ocean" else {}
+	var washi := StageArt.washi_look(String(t.get("name", "")))
 	for mi: MeshInstance3D in node.find_children("*", "MeshInstance3D", true, false):
+		# (The grove's mist banks in tissue, `StageArt.WASHI_TRY`: no card edge, each sheet see-through, the upper ones drawn after the ones under them.)
+		var tissue := washi.has("tissue") and String(mi.name).begins_with("bank")
+		if tissue:
+			if String(mi.name).ends_with("card_abyss_mist"):
+				mi.visible = false
+				continue
+			mi.mesh = _tissue_mesh(mi.mesh)
+			mi.sorting_offset = 4.0 * float(String(mi.name).get_slice("_", 1).to_int())
+			mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		for s in mi.mesh.get_surface_count():
 			var src := mi.mesh.surface_get_material(s)
 			var fam := src.resource_name if src != null else "grass"
@@ -1395,6 +1410,15 @@ static func _paint_ground(node: Node3D, colours: Dictionary, t := {}) -> void:
 			if fam in ["head_near", "head_far"] and head.has("drift"):
 				m.set_shader_parameter("paint_drift", head.drift)
 				m.set_shader_parameter("ramp_center", float(head.get("ramp_center", 0.45)))
+			if tissue:
+				var tc := m.get_shader_parameter("albedo") as Color
+				m.set_shader_parameter("albedo", Color.from_hsv(tc.h, minf(tc.s * float(washi.get("tissue_sat", 1.0)), 1.0), tc.v))
+			if washi.has("mist") and fam in ["bank_mist_low", "bank_mist", "bank_mist_top"]:
+				m.set_shader_parameter("washi_paper", washi.mist)
+				m.set_shader_parameter("washi_tex", load(StageArt.WASHI_TEX))
+			if tissue:
+				m.shader = load(TISSUE_SHADER)
+				m.set_shader_parameter("tissue", washi.tissue)
 			mi.set_surface_override_material(s, m)
 		mi.set_meta("prebaked", true)
 		var depth := -(mi.global_transform * mi.mesh.get_aabb().get_center()).z
@@ -1441,6 +1465,39 @@ const GROUND_DRIFT := {"hill": Vector4(1.6, 0.9, 22.0, 0.0), "bank": Vector4(1.3
 ## The owner's pick A (meadow.cfg `stitch`, 2026-11-04).
 const STITCH_TRY := {"T": {}, "A": {"play": Color(0.98, 0.94, 0.82)}, "B": {"play": Color(0.98, 0.94, 0.82), "ground": Color(0.98, 0.94, 0.82)},
 	"C": {"play": Color(0.86, 0.22, 0.2), "ground": Color(0.86, 0.22, 0.2)}}
+
+
+const TISSUE_SHADER := "res://shaders/toon_tissue.gdshader"
+
+
+## A mist sheet as tissue: the same triangles, each vertex's alpha how far in from the sheet's edge it lies, 1 at the middle its triangles
+## fan from and 0 round its rim, for shaders/toon_tissue.gdshader's torn edge. (The banks are fans of 18 round a middle vertex: the
+## middle is the place most corners share.)
+static func _tissue_mesh(mesh: Mesh) -> ArrayMesh:
+	var out := ArrayMesh.new()
+	for s in mesh.get_surface_count():
+		var arrays := mesh.surface_get_arrays(s)
+		var verts: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+		var idx: PackedInt32Array = arrays[Mesh.ARRAY_INDEX] if arrays[Mesh.ARRAY_INDEX] != null else PackedInt32Array()
+		var corners := {}
+		if idx.is_empty():
+			for v in verts:
+				var key := v.snappedf(0.01)
+				corners[key] = int(corners.get(key, 0)) + 1
+		else:
+			for i in idx:
+				var key := verts[i].snappedf(0.01)
+				corners[key] = int(corners.get(key, 0)) + 1
+		var cols: PackedColorArray = arrays[Mesh.ARRAY_COLOR] if arrays[Mesh.ARRAY_COLOR] != null else PackedColorArray()
+		if cols.size() != verts.size():
+			cols.resize(verts.size())
+			cols.fill(Color.WHITE)
+		for i in verts.size():
+			cols[i].a = 1.0 if int(corners.get(verts[i].snappedf(0.01), 0)) >= 6 else 0.0
+		arrays[Mesh.ARRAY_COLOR] = cols
+		out.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+		out.surface_set_material(s, mesh.surface_get_material(s))
+	return out
 
 
 static func _stitch_look(t: Dictionary) -> Dictionary:
