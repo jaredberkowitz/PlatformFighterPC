@@ -2491,3 +2491,35 @@ side-by-sides stay on F:.
   fixed on that branch). Face cover after the outfit merge: drawn eyes or mouth covered 12 frames over every gallery in both facings (as
   at core4), striking hands hidden 1,510 (1,511). `cargo test --workspace` and clippy pass; the Rust and content are 69012bcc's to the line,
   which passed net-fuzz 2000 and fuzz-rollback 1000 at 0 mismatches.
+
+### Group 11 (round 9): attack weight, the strike held (the owner's order of 2026-11-02, item 2)
+
+- **Measured (each move's timing against its reference, the six family representatives, 68 moves):** the three moves keeping recovery
+  above 8r's were each a body still moving through its hold. The Longsword's forward tilt (hold 9 and recovery 11 frames, the reference 17
+  and 3): its cut rises from low in front to over the head, the whole body's lean is a spring, and the spring was still on its way to the
+  low cut's 30 degrees when the hit reached overhead (0), so it peaked at 11 degrees on the last hit and pitched back 12 through the hold.
+  The Embers' headbutt (7 and 16 against 16 and 6): the same, 9 back. The other way round, the Clutch's jab and forward tilt (14-16) and
+  the Greatsword's jab (8) went on leaning into a hit that was over.
+- **Fix (`fighter_view.gd` `_hold_strike_lean`, `strike_lean`, `lean_held`):** on the ground, from the first frame after the last hit
+  the body carries on where it was going and stops there (where the spring was, plus the way its speed takes it, never past the hit's
+  own lean), holds that through the hold, creeping as the body's clip does, and goes home with the recovery; the lean's spring is damped
+  to critical meanwhile, so it stops without swinging back. Up to the last hit the lean is as it was (the owner's line of action C). A
+  seek into the end lag leans as the hit says. `PF_R9_OFF=weight` shows the old. Aerials keep their spring: their bodies roll on with the
+  swing through the end lag, as the references' do (held, the Longsword's up air lost a third of its curl).
+- **Tried and dropped:** the lean set out 2-4 frames ahead of the limb (the hips leading), alone and with a stiffer spring: held, it left
+  the forward tilt bowed 20 degrees over its raised sword for the whole hold (28 with the stiff spring, the wind-up bowing as it coiled),
+  a bigger change to the strikes' own look than this group set out to make.
+- **The end shapes refitted** (`CLASS_END_SHAPES`, `F:\anim_core\tools\fitshapes.py`, four rounds). Mean error in frames over 68 moves,
+  follow-through / hold / recovery / wind-up: core5 2.34 / 1.49 / 1.96 / 1.13, **now 2.35 / 1.19 / 1.57 / 1.13** (8r 2.29 / 1.56 /
+  1.81 / 1.15): recovery and hold both better than 8r. The forward tilt 0/17/3 against 1/17/3, the headbutt 0/17/6 against 3/16/6. Left
+  far off: the Needles' up air (16), whose reference frames take only the first of its hits (the move is a run of kicks from frame 4 to 15
+  and a last kick on 23-24; the reference strip shows the same), so the measure compares a held kick with a single one; the Claws' back air
+  5/21 against 13/14, a plateau at the hold's threshold (its kicking leg comes in through the hold while the body's lean stays).
+- **Checked:** face cover over every gallery in both facings 11 (core5 12); striking hands hidden 1,530 (core5 1,510: the Greatsword's jab
+  +19, a kick whose weapon hand the measure counts, its lean now held at 8 degrees where it rose on to 16); the tests pass (`motion_test`
+  with a new check: a strike's lean holds through the hold, and a seek into it leans as the hit says), the look bench passes.
+- **Left:** the forward tilt's held sword stands upright behind the hat for the hold, where the reference holds its blade up in front
+  (the blade's held angle creeps back toward the carry behind, `HELD_UP_MAX`, `HOLD_CREEP`); the headbutt's strike is the body standing
+  up straight, a plain pose at the match camera.
+- **Image:** `docs/screenshots/anim/r9_attack_hold.jpg` (the Longsword's forward tilt, then the Embers' headbutt, frames 8-26, core5 above
+  now, at the close camera).

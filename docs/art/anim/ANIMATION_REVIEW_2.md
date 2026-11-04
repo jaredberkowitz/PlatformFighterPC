@@ -113,9 +113,9 @@ hand 1.0 units in a frame, shield to roll 0.44, out of a run 0.52. The carried w
 hidden by the body 2,470 / about 2,140 / 1,511 (1,354 before the character work's rebuilt rig, whose 1-3 mm joint shifts moved a
 borderline count, mostly the Buckler's down air, visible by eye). Elbows reading reversed on screen (`PF_BEND` `scr`): core1 4,540
 (elbow 3,180, knee 1,360), group 5 3,243 (elbow 1,941, knee 1,302). Attack timing, mean error in frames over 68 moves
-(follow-through / hold / recovery / wind-up): 8r 2.29 / 1.56 / 1.81 / 1.15, now 2.34 / 1.62 / 2.03 / 1.13 (the last 0.09 of hold and
-0.06 of recovery from the rebuilt rig flipping one frame between hold and recovery in 14 moves; to be refitted with the attack-weight
-pass).
+(follow-through / hold / recovery / wind-up): 8r 2.29 / 1.56 / 1.81 / 1.15, core4 2.34 / 1.62 / 2.03 / 1.13, refitted (group 9)
+2.34 / 1.49 / 1.96 / 1.13, with the strike's lean held through the hold and refitted (group 11, 2026-11-03) **2.35 / 1.19 / 1.57 /
+1.13**.
 
 ## 3. What still differs, and why
 

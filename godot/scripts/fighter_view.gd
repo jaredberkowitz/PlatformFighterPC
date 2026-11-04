@@ -1041,12 +1041,12 @@ const CLIP_END_SHAPES := {"body_headbutt_fwd": Vector3(0.12, 0.8, CARRY_FRAMES)}
 ## family's aerials and down smash held 12-33 frames where its reference holds 2-6 and floats home over 14-26; the Longsword's forward
 ## air and jab held too long and recovered in 3-5; the heavy's forward air and smash, the caster's up air and forward smash.)
 const CLASS_END_SHAPES := {
-	0: {"bair": Vector2(0.550, 0.850), "dair": Vector2(0.900, 0.984), "dsmash": Vector2(0.803, 0.990), "dtilt": Vector2(0.020, 0.563), "fair": Vector2(0.350, EVEN + 0.990), "fsmash": Vector2(0.020, 0.990), "ftilt": Vector2(0.766, 0.990), "jab": Vector2(0.020, 0.461), "uair": Vector2(0.020, EVEN + 0.790), "usmash": Vector2(0.405, 0.990)},
-	1: {"bair": Vector2(0.479, 0.990), "dair": Vector2(0.393, 0.990), "fair": Vector2(0.713, 0.990), "ftilt": Vector2(0.394, 0.990), "jab": Vector2(0.604, 0.990), "nair": Vector2(0.020, 0.987), "usmash": Vector2(0.306, 0.746), "utilt": Vector2(0.084, 0.990)},
-	2: {"bair": Vector2(0.444, EVEN + 0.990), "dsmash": Vector2(0.035, EVEN + 0.990), "dtilt": Vector2(0.691, 0.920), "fair": Vector2(0.403, 0.882), "fsmash": Vector2(0.273, 0.577), "ftilt": Vector2(0.214, 0.786), "jab": Vector2(0.829, 0.990), "nair": Vector2(0.040, EVEN + 0.960), "uair": Vector2(0.030, EVEN + 0.970), "usmash": Vector2(0.202, 0.892), "utilt": Vector2(0.675, 0.950)},
-	3: {"bair": Vector2(0.482, 0.990), "dsmash": Vector2(0.373, 0.563), "dtilt": Vector2(0.585, 0.973), "fair": Vector2(0.858, 0.990), "fsmash": Vector2(0.186, EVEN + 0.990), "ftilt": Vector2(0.020, 0.861), "nair": Vector2(0.186, 0.920), "uair": Vector2(0.020, EVEN + 0.744), "utilt": Vector2(0.418, 0.950)},
-	8: {"bair": Vector2(0.785, 0.865), "dair": Vector2(0.020, 0.990), "dsmash": Vector2(0.480, 0.840), "dtilt": Vector2(0.313, 0.587), "fair": Vector2(0.550, 0.900), "fsmash": Vector2(0.207, 0.990), "jab": Vector2(0.326, 0.612), "nair": Vector2(0.257, 0.990), "usmash": Vector2(0.020, 0.100), "utilt": Vector2(0.020, 0.990)},
-	10: {"bair": Vector2(0.800, 0.990), "dair": Vector2(0.347, 0.987), "dsmash": Vector2(0.598, 0.979), "dtilt": Vector2(0.720, 0.990), "ftilt": Vector2(0.623, 0.990), "jab": Vector2(0.020, 0.990), "nair": Vector2(0.207, 0.738), "usmash": Vector2(0.647, 0.727), "utilt": Vector2(0.490, 0.990)},
+	0: {"bair": Vector2(0.550, 0.850), "dair": Vector2(0.900, 0.984), "dsmash": Vector2(0.803, 0.990), "dtilt": Vector2(0.020, 0.563), "fair": Vector2(0.350, EVEN + 0.990), "fsmash": Vector2(0.020, 0.990), "ftilt": Vector2(0.766, 0.990), "jab": Vector2(0.020, 0.684), "uair": Vector2(0.078, EVEN + 0.732), "usmash": Vector2(0.405, 0.990)},
+	1: {"bair": Vector2(0.479, 0.990), "dair": Vector2(0.393, 0.990), "fair": Vector2(0.713, 0.990), "ftilt": Vector2(0.307, 0.990), "jab": Vector2(0.479, 0.990), "nair": Vector2(0.020, 0.987), "usmash": Vector2(0.306, 0.746), "utilt": Vector2(0.084, 0.990)},
+	2: {"bair": Vector2(0.444, EVEN + 0.990), "dsmash": Vector2(0.035, EVEN + 0.990), "dtilt": Vector2(0.691, 0.920), "fair": Vector2(0.403, 0.882), "fsmash": Vector2(0.273, 0.577), "ftilt": Vector2(0.214, 0.786), "jab": Vector2(0.758, 0.990), "nair": Vector2(0.040, EVEN + 0.960), "uair": Vector2(0.030, EVEN + 0.970), "usmash": Vector2(0.146, 0.892), "utilt": Vector2(0.675, 0.950)},
+	3: {"bair": Vector2(0.664, 0.990), "dsmash": Vector2(0.373, 0.563), "dtilt": Vector2(0.585, 0.973), "fair": Vector2(0.858, 0.990), "fsmash": Vector2(0.289, EVEN + 0.990), "ftilt": Vector2(0.020, 0.861), "jab": Vector2(0.346, 0.990), "nair": Vector2(0.186, 0.920), "uair": Vector2(0.020, EVEN + 0.744), "usmash": Vector2(0.326, 0.843), "utilt": Vector2(0.418, 0.950)},
+	8: {"bair": Vector2(0.785, 0.865), "dair": Vector2(0.020, 0.990), "dsmash": Vector2(0.400, 0.800), "dtilt": Vector2(0.313, 0.393), "fair": Vector2(0.550, 0.900), "fsmash": Vector2(0.207, 0.990), "ftilt": Vector2(0.528, 0.872), "jab": Vector2(0.403, 0.535), "nair": Vector2(0.257, 0.990), "usmash": Vector2(0.020, 0.100), "utilt": Vector2(0.020, 0.990)},
+	10: {"bair": Vector2(0.800, 0.990), "dair": Vector2(0.347, 0.987), "dsmash": Vector2(0.598, 0.979), "dtilt": Vector2(0.720, 0.990), "ftilt": Vector2(0.623, 0.990), "jab": Vector2(0.020, 0.990), "nair": Vector2(0.207, 0.738), "usmash": Vector2(0.147, 0.783), "utilt": Vector2(0.490, 0.990)},
 }
 ## The clip's follow-through key (frame 40 of 60).
 const FOLLOW_PROGRESS := 0.667
@@ -1341,7 +1341,7 @@ const HANDOFF_BY_CLIP := {"jumpsquat": 2.0, "land": 1.0, "tech": 2.0, "knockdown
 ## the forward roll's turn round to the sim's last frame; "react" leaves the hit reactions as they were at core4 (a clip chosen every frame by
 ## the knockback, the ground's flinch without its recoil, a launch and a tumble pitched about the body's side, the damage fall a plain fall);
 ## "stops" leaves a run's stop and a walk's slide to the plain idle, as before sim 148; "floorroll" plays a tech, get-up or trip roll by
-## its whole length, as before sim 149.
+## its whole length, as before sim 149; "weight" leaves a grounded strike's lean to its spring through the end lag (`strike_lean`).
 static var r9_off := OS.get_environment("PF_R9_OFF").split(",")
 var handoff_clip := ""
 var handoff_state := ""
@@ -3657,6 +3657,17 @@ const LEAN := {"Dash": 18.0, "Run": 14.0, "WaveLand": 28.0, "Walk": 4.0, "LedgeA
 
 # Damped springs make landings and takeoffs read as soft and elastic instead of linear and stiff.
 const SPRING_K := 420.0
+## (Round 9, attack weight: the strike is held. The lean's spring reaches 90% of a new target about 5 frames after it is set and peaks
+## about 11 after, and a strike's target can change under it as the hit moves, so through the hold of a grounded strike the body went on
+## pitching back, or on into the strike, where the references stand still: the Longsword's forward tilt 12 degrees back as its cut rose
+## from low in front (30) to over the head (0), the Clutch's jab and forward tilt 14-16 on into the hit, the Embers' headbutt 9 back. A
+## lead (the lean set out ahead of the limb) was tried too: held, it left the forward tilt bowed 20 degrees over its raised sword for the
+## whole hold, and it changed the strikes' own look, which the owner had picked; the lean up to the last hit is as it was.)
+## The lean a strike left the body in, held through its hold (`strike_lean_key`: the move it belongs to, -1 for none; `lean_held`: this
+## frame's lean is a held strike's, its spring damped to critical).
+var strike_lean := 0.0
+var strike_lean_key := -1
+var lean_held := false
 const SPRING_DAMP := 22.0  # a bit under critical (2*sqrt(K) = 41), so there is a small rebound
 ## How hard the take-off throws the squash spring into a stretch (its velocity, per second).
 const TAKE_OFF_KICK := 9.0
@@ -4174,6 +4185,7 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 	if state == "Airborne" or state == "Helpless":
 		target_squash = -0.05 if vy > 0.06 else (-0.03 if vy < -0.12 else 0.0)
 	var target_lean: float = LEAN.get(state, 0.0)
+	lean_held = false
 	# (Round 9: the run's and the dash's lean is in the clips now, from the hips: pitched about the feet the whole body put the front foot through the floor and lifted the back one.)
 	if use_base_body and (state == "Run" or state == "Dash"):
 		target_lean = 0.0
@@ -4222,6 +4234,8 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 			if _cls(s) == GREATSWORD_CLASS and grounded and not _body_clip(_cls(s), String(s.move_name)):
 				var mt: PackedInt32Array = s.move_timing
 				target_lean += -GREAT_LOAD_BACK * coil_k(float(s.state_frame), float(mt[1])) + GREAT_LOAD_IN * _reach_weight(s)
+		if not (not grounded and use_base_body and bladed(_cls(s)) and String(s.move_name) == "nair"):
+			target_lean = _hold_strike_lean(s, target_lean)
 	# The attack lunge: drawn back while winding up, thrown forward through the strike.
 	var target_lunge := 0.0
 	if state == "Attack" and s.move_timing[1] > 0:
@@ -4263,10 +4277,11 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 	var wk: float = float(_weight(s)[0])
 	var sk := SPRING_K * wk
 	var sd := SPRING_DAMP * sqrt(wk) * (1.25 if wk < 1.0 else 1.0)
+	var ld := 2.0 * sqrt(sk) if lean_held else sd
 	for _i in steps:
 		squash_vel += (sk * (target_squash - squash) - sd * squash_vel) * h
 		squash += squash_vel * h
-		lean_vel += (sk * (target_lean - lean) - sd * lean_vel) * h
+		lean_vel += (sk * (target_lean - lean) - ld * lean_vel) * h
 		lean += lean_vel * h
 		lunge_vel += (SPRING_K * 1.6 * (target_lunge - lunge) - SPRING_DAMP * 1.2 * lunge_vel) * h
 		lunge += lunge_vel * h
@@ -5775,6 +5790,35 @@ func _pose_blade(s: Dictionary, delta: float) -> void:
 
 ## How far into reaching for its hit a limb should be at this point of the move: easing in over the second half of the wind-up, fully
 ## there while the hit is live, and easing back out over the first half of the recovery.
+## The lean through a grounded strike's end lag (round 9, attack weight; see `strike_lean`): from the first frame after the last hit the body carries on
+## where it was going and stops there, as a body coming to rest does (where the spring was, plus the way its speed takes it, never past
+## the hit's own lean), holds that through the hold, creeping as the body's clip does (`BODY_CREEP`), and goes home with the recovery as
+## the arm does; the spring is damped to critical meanwhile (`lean_held`), so it stops without swinging back. A seek
+## or a rollback into the end lag has no strike to remember, and leans as the hit says (`target`).
+func _hold_strike_lean(s: Dictionary, target: float) -> float:
+	var mt: PackedInt32Array = s.move_timing
+	# (On the ground only: an aerial's body rolls on with the swing's momentum through its end lag, as the references' do, and its end
+	# shapes are fitted to that.)
+	if not use_base_body or r9_off.has("weight") or int(s.platform) < 0 or mt.size() < 3 or mt[1] <= 0 or (FLIGHT_MOVES.get(_cls(s), []) as Array).has(String(s.move_name)):
+		return target
+	var f := float(s.state_frame)
+	var last := float(mt[2])
+	if f <= last:
+		return target
+	var key := int(s.frame) - int(s.state_frame)
+	if strike_lean_key != key:
+		# (A jump in the sim's frame, as `_body_spring_time` reads it: this runs before it, and before the motion springs hear of the frame.)
+		var jumped := body_spring_frame >= 0 and (int(s.frame) < body_spring_frame or int(s.frame) - body_spring_frame > 2)
+		if jumped or int(s.hitlag) > 0:
+			return target
+		strike_lean_key = key
+		var w := sqrt(SPRING_K * float(_weight(s)[0]))
+		strike_lean = clampf(lean + lean_vel / w, minf(lean, target), maxf(lean, target))
+	lean_held = true
+	var total := maxf(last + 1.0, float(mt[0]))
+	return strike_lean * (1.0 - home_k(f, last, total, _end_shape(s), ARM_LAG, BODY_CREEP))
+
+
 func _reach_weight(s: Dictionary) -> float:
 	var t: PackedInt32Array = s.move_timing
 	var f: float = s.state_frame

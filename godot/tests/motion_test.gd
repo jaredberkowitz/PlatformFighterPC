@@ -240,5 +240,28 @@ func _initialize() -> void:
 	var shield_roll := {"state": "Roll", "state_frame": 15, "dodge": PackedInt32Array([30, 1, 0, 30, 0, 24])}
 	check(absf(FighterView.dodge_progress(shield_roll) - 0.5) < 0.001, "a shield roll goes by its whole length")
 
+	# (Round 9, attack weight.) A grounded strike's lean is held through its hold where the strike left it: the Longsword's forward tilt
+	# rises from a low cut in front to over the head, and its body went on pitching back through the hold; a seek into the hold leans as
+	# the hit says.
+	var cut := FighterView.new()
+	root.add_child(cut)
+	cut.build(0, Loadout.default_for(0))
+	await process_frame
+	var tips := [Vector3(2.2, 0.3, 0.7), Vector3(2.4, 1.1, 0.7), Vector3(2.2, 1.9, 0.7), Vector3(1.7, 2.6, 0.7)]
+	var held_at := {}
+	for f in 30:
+		var st := snap(0, "Attack", "ftilt", 7000 + f, f)
+		st.move_timing = PackedInt32Array([32, 7, 10])
+		st.move_tip = tips[clampi(f - 7, 0, 3)]
+		cut.apply(Vector3.ZERO, st, 1.0 / 60.0)
+		if f == 13 or f == 24:
+			held_at[f] = cut.lean
+	check(held_at[13] > 4.0 and absf(held_at[24] - held_at[13]) < 1.5, "a strike's lean holds through the hold (%.1f, then %.1f)" % [held_at[13], held_at[24]])
+	var sought := snap(0, "Attack", "ftilt", 9000, 20)
+	sought.move_timing = PackedInt32Array([32, 7, 10])
+	sought.move_tip = tips[3]
+	cut.apply(Vector3.ZERO, sought, 1.0 / 60.0)
+	check(absf(cut.lean) < 0.5, "a seek into the hold leans as the hit says (%.1f)" % cut.lean)
+
 	print("motion test ", "FAILED" if failed else "PASSED")
 	quit(1 if failed else 0)
