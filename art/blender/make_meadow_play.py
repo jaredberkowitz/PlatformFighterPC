@@ -9,7 +9,8 @@ the sim's height; the modelled front under the lawn stays. Three looks for the o
      plank-shaped cut-outs with notched ends over a soft cast-shadow card.
 Families `lawn`, `lawn_under`, `path`, `card`, `soil`, `stone`, `fringe`, `plank`, `plank_b`, `plank_card`, `rope`, `shadow`.
 
-Shipped since fidelity review 7 (the owner's picks, 2026-10-22): `--variant B --plat timber --wear 2` into meadow_play.glb, then lit.
+Shipped since fidelity review 7 (the owner's picks, 2026-10-22): `--variant B --plat timber --wear 2` into meadow_play.glb, then lit;
+with `--stitch 1` since the style pass's step 5 (2026-11-04).
 
 Run (Blender 5.2):
   blender --background --python art/blender/make_meadow_play.py -- --dir godot/art/baked/<key> --variant A --out <file.glb>
@@ -31,6 +32,9 @@ VARIANT = opts.get("variant", "A").upper()
 # The platforms after fidelity review 6 (`--plat timber|timber_moss`; on the shipped B's lawn).
 PLAT = opts.get("plat", "")
 WEAR = int(opts.get("wear", "0"))
+# Stitched (the style pass, the meadow's patchwork and stitch, docs/art/stages/STYLE_PASS.md): `--stitch 1` sews a running stitch along the
+# lawn's card edge, a hair in front of it, in its own family `stitch`, which the game colours or hides (StageBake.STITCH_TRY).
+STITCH = opts.get("stitch", "0") == "1"
 manifest = json.load(open(os.path.join(opts["dir"], "manifest.json")))
 FZ = float(manifest["front_z"])
 BLOCK = [r for r in manifest["rects"] if r[4] < 0.5][0]
@@ -250,6 +254,13 @@ def lawn(rng):
         box(x0, x1, top - 0.5, top, zb, zf, "lawn", "card", "lawn_under")
     elif VARIANT == "B":
         box(x0, x1, top - 0.2, top, zb, zf, "lawn", "card", "lawn_under")
+        if STITCH:
+            # A running stitch along the middle of the card edge: a dash of thread, a gap, a dash.
+            x, y = x0 + 0.15, top - 0.1
+            while x < x1 - 0.3:
+                face("stitch", (P(x, y - 0.022, zf + 0.008), P(x + 0.22, y - 0.022, zf + 0.008), P(x + 0.22, y + 0.022, zf + 0.008),
+                                P(x, y + 0.022, zf + 0.008)))
+                x += 0.36
         box(x0 - 0.12, x1 + 0.12, top - 0.55, top - 0.2, zb, zf + 0.12, "soil", "soil")
         box(x0 - 0.24, x1 + 0.24, top - 0.95, top - 0.55, zb, zf + 0.24, "stone", "stone")
     else:
