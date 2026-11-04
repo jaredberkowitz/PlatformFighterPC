@@ -140,3 +140,38 @@ dots read coarse.
 - Most of the skyline seen is window fronts, so it is a modest change, showing most on the side walls and at the wide camera.
 - Printing the fronts as well would be bolder, but it would busy the backdrop right behind the fighters, which the city's notes have kept
   calm.
+
+**Built B** (the owner's pick, 2026-11-04):
+- city.cfg [backdrop] `halftone="B"`; `--halftone=T` shows the smooth shade.
+- The shipped skyline measures the same as the mock's B.
+- Before and after at the match camera (top) and wide (bottom), before left: `style/halftone_built.jpg`.
+All seven tests pass.
+
+## Step 4: the beach's origami sea (mock, 2026-11-04)
+
+The owner: "Next stage's craft". The beach's sea was already cut paper: tiers of card, each with a scalloped, lit edge. water.gdshader
+`fold` folds each tier instead of shading it smoothly:
+- the near face turned from the light and the far face toward it, with a crisp crease between, lit as a ridge;
+- with pleats, the crease zigzags along the tier, so the faces are triangles, the rising ones lit and the falling ones shaded.
+
+Only the water's shader changes. The palette's [backdrop] `sea_fold`, or `--origami=T|A|B|C` (StageArt.SEA_FOLD_TRY):
+
+| Option | What changes |
+|---|---|
+| Today | Each tier shaded smoothly toward its edge |
+| A, folded | Each tier folded along a straight crease |
+| B, pleated | The crease zigzags, so the faces are triangles |
+| C, wide pleats | B, with pleats twice as wide and a brighter crease |
+
+P1's gap holds (0.165 to 0.170), and so do the sea's value and contrast. On the Stage Look Review ("origami69", `og69_*`).
+
+Recommended B: its pleats read as folded paper across the near sea.
+- It shows mostly at the wide camera. At the match camera the sea is mostly far water and reflections.
+- The tiers wander, so the facets are irregular, and up close they can read as low-poly glass rather than pleats. C pushes that further;
+  A is the quiet choice.
+
+**Built B** (the owner's pick, 2026-11-04):
+- ocean.cfg [backdrop] `sea_fold="B"`; `--origami=T` shows the smooth tiers.
+- The shipped sea measures the same as the mock's B.
+- Before and after at the match camera (top) and wide (bottom), before left: `style/origami_built.jpg`.
+All seven tests pass (the runner test failed once on a coin pickup, "a coin picked up is gone: 9 from 9", and passed on the rerun: an intermittent failure in the run mode, not the sea).

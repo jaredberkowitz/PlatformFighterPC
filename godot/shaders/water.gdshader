@@ -43,6 +43,11 @@ uniform vec2 near_depth = vec2(0.0);
 // The near sea's paper waves (fidelity review 13 item 8: in front of the stage the water was broad flat facets): how much stronger the
 // bands' tone steps and the dark trough under each lip are toward the frame's foot (0 as before).
 uniform float near_waves = 0.0;
+// Origami (the style pass, the beach, docs/art/stages/STYLE_PASS.md): each paper wave's sheet folded along a crease into two flat faces, the
+// near one turned from the light and the far one toward it, in place of its smooth shading across. [how much (0 none), the pleat's period
+// along the row in world units (0 a straight crease; with one the crease zigzags, so the faces are triangles, the rising ones toward the
+// light and the falling ones from it), how bright the crease's ridge].
+uniform vec3 fold = vec3(0.0);
 uniform sampler2D screen_tex : hint_screen_texture, filter_linear_mipmap;
 varying vec3 world_pos;
 
@@ -181,7 +186,31 @@ void fragment() {
 			col *= 1.0 - tone_step * mod(tier, 2.0) * calm;
 			vec2 across = wave_band > 1 ? vec2(0.82, 1.16) : (wave_band > 0 ? vec2(0.88, 1.1) : vec2(0.93, 1.07));
 			across = mix(across, vec2(0.7, 1.25), clamp(nw, 0.0, 1.0));
-			col *= mix(1.0, mix(across.x, across.y, smoothstep(0.15, 1.0, u)), calm);
+			float acr = mix(across.x, across.y, smoothstep(0.15, 1.0, u));
+			if (fold.x > 0.0) {
+				float crease = 0.5;
+				float rising = 1.0;
+				if (fold.y > 0.0) {
+					float s = (world_pos.x + tier * 7.3) / fold.y;
+					float fs = fract(s);
+					// The crease falls from 0.8 to 0.2 across a sheet over the first half of each pleat and rises back over the second.
+					crease = 0.5 + 0.3 * (abs(fs * 2.0 - 1.0) * 2.0 - 1.0);
+					// (Soft over a pixel or so where the faces turn, at each pleat's peak and foot.)
+					float sw = max(fwidth(s), 1e-4) * 1.5;
+					rising = smoothstep(0.5 - sw, 0.5 + sw, fs) * (1.0 - smoothstep(1.0 - 2.0 * sw, 1.0, fs));
+				}
+				float uw = max(fwidth(u), 1e-4) * 1.2;
+				float far_face = smoothstep(crease - uw, crease + uw, u);
+				// The near face from the light and the far face toward it; on a pleat, the rising faces a step lighter than the falling.
+				float near_t = mix(0.86, 0.92, rising);
+				float far_t = mix(1.04, 1.14, rising);
+				float facet = mix(near_t, far_t, far_face);
+				// The crease's ridge, catching the light.
+				float ridge = 1.0 - smoothstep(0.0, uw * 2.5, abs(u - crease));
+				facet *= 1.0 + fold.z * 0.18 * ridge;
+				acr = mix(acr, facet, fold.x);
+			}
+			col *= mix(1.0, acr, calm);
 			// The nearer sheet's shadow on this one, just past its edge (u from 0), soft.
 			// Calm stretches (wave_vary 2): the tier's edge lying flat, no lit lip and no shadow on the sheet behind.
 			// (The shadow just past this sheet's near edge is the nearer sheet's, one tier in: it follows that sheet's calm.)

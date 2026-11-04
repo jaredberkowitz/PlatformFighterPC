@@ -88,8 +88,31 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
     <p>Two lessons from the reference screenshots, mocked from the match camera: the scenery without ink outlines, its edges lit as card bevels instead, and the paper houses rebuilt at the characters' proportions. The earlier rounds stay on the <a href="https://claude.ai/artifact/D1du6MREVumiJDrEdNypW4">Stage Fidelity Review</a>, which is full.</p>
   </header>
 
+  <section class="panel" aria-labelledby="og69-h" id="origami69">
+    <div class="eyebrow">Built B (the owner's pick) &middot; making the stages more their own, step 4: the beach's origami sea</div>
+    <h2 id="og69-h">The beach's sea folded like origami</h2>
+    <p>The beach's craft. Its sea was already cut paper: tiers of card, each with a scalloped, lit edge. These options fold each tier instead of shading it smoothly. The near face is turned from the light and the far face toward it, with a crisp crease between. With pleats, the crease zigzags along the tier, so the faces are triangles, lit and shaded by turns. Only the water's shader changes.</p>
+    <div class="tablewrap"><table><thead><tr><th>Option</th><th>What changes</th></tr></thead><tbody>
+      <tr><td>Today</td><td>Each tier shaded smoothly toward its edge</td></tr>
+      <tr><td>A &middot; Folded</td><td>Each tier folded along a straight crease</td></tr>
+      <tr><td>B &middot; Pleated</td><td>The crease zigzags, so the faces are triangles</td></tr>
+      <tr><td>C &middot; Wide pleats</td><td>B, with pleats twice as wide and a brighter crease</td></tr>
+    </tbody></table></div>
+    <p>The near sea at the wide camera: today and A (top), B and C (bottom). P1's gap holds (0.165 to 0.170), and so do the sea's value and contrast.</p>
+    <div class="viewer"><img src="og69_close.jpg" alt="The beach's near sea today, with A, B and C"></div>
+    <div class="row" role="group" aria-label="View"><button data-og69v="m">Match camera</button><button data-og69v="w">Wide</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-og69o="T">Today</button><button data-og69o="A">A &middot; Folded</button><button data-og69o="B">B &middot; Pleated</button><button data-og69o="C">C &middot; Wide pleats</button></div>
+    <div class="viewer"><img id="og69img" alt="Beach origami option"><span class="vtag" id="og69tag"></span></div>
+    <p class="muted">My pick: <b>B</b>. Its pleats read as folded paper across the near sea. Honest notes:
+      <ul>
+        <li>It shows mostly at the wide camera. At the match camera the sea is mostly far water and reflections, and the fold barely shows.</li>
+        <li>The tiers wander, so the facets are irregular, and up close they can read as low-poly glass rather than pleats. C's bigger facets push that further. A is the quiet choice if that bothers you.</li>
+      </ul>
+    </p>
+  </section>
+
   <section class="panel" aria-labelledby="ht68-h" id="halftone68">
-    <div class="eyebrow">After review 17 &middot; making the stages more their own, step 3: the city's pop-up book print</div>
+    <div class="eyebrow">Built B (the owner's pick) &middot; making the stages more their own, step 3: the city's pop-up book print</div>
     <h2 id="ht68-h">The city's skyline printed like a pop-up book</h2>
     <p>The city's craft: its skyline towers printed like a pop-up book's pages. Each wall is printed flat, and its shade is carried by halftone dots of a darker ink, each dot sized so the wall keeps the tone it had. Only the skyline's own shader changes; the play building, the street and the fighters are untouched.</p>
     <div class="tablewrap"><table><thead><tr><th>Option</th><th>What changes</th></tr></thead><tbody>
@@ -3861,5 +3884,15 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
   group("data-ht68v", function (v) { ht68v = v; }, ht68render);
   group("data-ht68o", function (v) { ht68o = v; }, ht68render);
   ht68render();
+  var og69v = "w", og69o = "B";
+  var OG69O = { T: "Today", A: "A · Folded", B: "B · Pleated", C: "C · Wide pleats" };
+  function og69render() {
+    $id("og69img").src = "og69_" + og69o + "_" + og69v + ".jpg";
+    $id("og69tag").textContent = "Beach · " + OG69O[og69o] + (og69v === "w" ? " · wide" : " · match camera");
+    pressed("data-og69v", og69v); pressed("data-og69o", og69o);
+  }
+  group("data-og69v", function (v) { og69v = v; }, og69render);
+  group("data-og69o", function (v) { og69o = v; }, og69render);
+  og69render();
 })();
 </script>
