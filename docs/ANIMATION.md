@@ -2633,3 +2633,20 @@ side-by-sides stay on F:.
 - **Left:** the Longsword's up tilt's recovery swings the blade up past the side of the face for a frame or two as it goes home over the top.
 - **Image:** `docs/screenshots/anim/r9_held_blade.jpg` (the Longsword's forward tilt, up tilt and up smash, then the Greatsword's tilts and the
   Wanderer's: before above each, now below).
+
+### The follow-through (the coordinator's order of 2026-11-04, item 2): measured, a parameter change tried and reverted
+
+- **Measured (68 moves, follow-through frames ours against the reference):** mean error 2.37. The largest: the Clutch's up smash 0 against 19,
+  the Embers' down smash 1 against 11, the Longsword's up air 0 against 10, the Needles' forward smash 0 against 8, the Longsword's jab 0
+  against 7, its down tilt 0 against 6, the Clutch's down tilt 0 against 6 (the Needles' up air's 10 is the measure's own error: its
+  reference frames count only the first of its hits).
+- **Why the carries do not show:** the measure counts the frames after the last hit that move faster than 0.3 of the strike's peak, averaged
+  over the body's points and the tip. Ours stop within one to three frames: the body clip carries on only from its strike key to its
+  follow-through key (0.63 to 0.667 of the shared timeline), a fixed short travel, and the blade's or fist's carry (`CARRY_DEG` 22 a frame,
+  `LIMB_CARRY_DEG` 20) moves the tip alone while the body stands, below 0.3 of the snap's peak.
+- **Tried and reverted:** faster and longer carries (`CARRY_DEG` 34, `LIMB_CARRY_DEG` 32, the Longsword's jab, tilts and airs carried 4-6
+  frames): the follow-through error moved only 2.37 to 2.29 while the Longsword's hold and recovery fell apart (its down smash's blade
+  carried round to near its rest, so the hold read as 1 frame; hold 1.24 to 2.19, recovery 1.60 to 2.50).
+- **What it needs:** longer follow-through travel in the body, per move: the follow-through key further past the strike in the clips
+  (`_follow_spec`, or own keys for the moves furthest off), with the end shapes refitted after; the carry frames (`shape.z`) only spread the
+  same travel thinner.
