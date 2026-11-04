@@ -393,8 +393,46 @@ def round_shield():
     return root
 
 
+def popgun():
+    """The Popgun class's toy cork gun (the Scamp), held in the weapon hand like the dagger (hung on the hand bone along the forearm's
+    line): a chunky barrel in the class colour sitting on the back of the fist with a flared gold muzzle and a cork in it, a rounded
+    wooden body over the knuckles with a short grip down into the fist, and a gold plunger knob at the back. About 0.6 long past the
+    hand's middle, the dagger's reach, so the cork is where the shots leave. A part named cork* is painted pale cork."""
+    root = empty("popgun")
+    z = 0.1  # the barrel's line, on the back of the fist
+    bm = bmesh.new()
+    pts = [Vector((0.08 + 0.42 * k / 6, 0.0, z)) for k in range(7)]
+    # (Chunky and a little bellied, flaring into the muzzle: a toy, not a firearm.)
+    tube(bm, pts, [0.062, 0.066, 0.066, 0.064, 0.064, 0.07, 0.082], sides=14)
+    to_object("band_barrel", bm).parent = root
+    bm = bmesh.new()
+    _torus(bm, Vector((0.0, 0.0, 0.0)), 0.074, 0.02, segments=20, sides=8)
+    for v in bm.verts:
+        # The ring stands square to the barrel (its plane in Y and Z), at the muzzle.
+        v.co = Vector((0.505 + v.co.y, v.co.x, z + v.co.z))
+    s = bmesh.ops.create_uvsphere(bm, u_segments=12, v_segments=8, radius=0.042)
+    bmesh.ops.translate(bm, vec=Vector((-0.16, 0.0, z)), verts=s["verts"])
+    tube(bm, [Vector((-0.13, 0.0, z)), Vector((-0.1, 0.0, z))], [0.02, 0.02], sides=8)
+    to_object("gold_fittings", bm).parent = root
+    bm = bmesh.new()
+    tube(bm, [Vector((0.5, 0.0, z)), Vector((0.55, 0.0, z)), Vector((0.6, 0.0, z))], [0.05, 0.054, 0.05], sides=12)
+    to_object("cork_plug", bm).parent = root
+    bm = bmesh.new()
+    rounded_box(bm, Vector((0.0, 0.0, z)), (0.22, 0.12, 0.13), bevel=0.45)
+    to_object("wood_body", bm).parent = root
+    bm = bmesh.new()
+    rounded_box(bm, Vector((0.0, 0.0, 0.0)), (0.1, 0.09, 0.2), bevel=0.45)
+    a = math.radians(-18.0)
+    for v in bm.verts:
+        # The grip leans back from the body down into the fist, as a pistol grip does.
+        x, zz = v.co.x, v.co.z
+        v.co = Vector((-0.04 + x * math.cos(a) - zz * math.sin(a), v.co.y, x * math.sin(a) + zz * math.cos(a)))
+    to_object("wood_grip", bm).parent = root
+    return root
+
+
 WEAPONS = {"claw": claw, "dagger": dagger, "nodachi": nodachi, "longsword": longsword, "greatsword": greatsword, "staff": staff,
-           "round_shield": round_shield}
+           "round_shield": round_shield, "popgun": popgun}
 
 
 def export(root, path):
