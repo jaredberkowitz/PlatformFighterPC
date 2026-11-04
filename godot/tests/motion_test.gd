@@ -389,5 +389,24 @@ func _initialize() -> void:
 	check(flincher.current_clip != "hurt_ground" or absf(up_now.z) < 0.05, "the flinch leans in the stage's plane, not into the screen (up %s)" % str(up_now))
 	check(flincher.current_clip != "hurt_ground" or absf(up_now.x) > 0.03, "and it leans (up %s)" % str(up_now))
 
+	# (Round 9, the ledge details.) A climb from the ledge is over the edge by the time the clip has it crouched on the floor (two thirds
+	# of its travel), so it stands up where it landed instead of sliding along the floor on its feet.
+	var climber := FighterView.new()
+	root.add_child(climber)
+	climber.build(0, Loadout.default_for(0))
+	await process_frame
+	for f in 20:
+		var hang := snap(0, "LedgeHang", "", 9900 + f, f)
+		hang.platform = -1
+		climber.apply(Vector3(-11.8, -1.8, 0), hang, 1.0 / 60.0)
+	var landed_x := INF
+	for f in 18:
+		var climb_up := snap(0, "LedgeGetUp", "", 9920 + f, f)
+		climb_up.lag = 34
+		climber.apply(Vector3(-10.0, 0.0, 0), climb_up, 1.0 / 60.0)
+		if f == 12:
+			landed_x = climber.ledge_offset.x
+	check(absf(landed_x) < 0.01, "a ledge climb is over the edge before it stands up (still %.3f to go at frame 12)" % landed_x)
+
 	print("motion test ", "FAILED" if failed else "PASSED")
 	quit(1 if failed else 0)

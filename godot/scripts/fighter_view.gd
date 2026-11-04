@@ -3924,6 +3924,13 @@ func _ledge_motion(s: Dictionary, pos: Vector3) -> void:
 	ledge_k = clampf(f / maxf(1.0, travel), 0.0, 1.0)
 	var ease := ledge_k * ledge_k * (3.0 - 2.0 * ledge_k)
 	var rise := minf(1.0, ledge_k * (3.0 if ledge_rolling else 1.6))
+	# (Round 9, the ledge details: a climb is over the edge by the time the clip has it crouched on the floor (two thirds of the way,
+	# `ledge_climb`'s third key), up first and then over, and stands up where it landed. Carried over the edge at one ease over the whole
+	# travel, it landed after the rise and then slid along the floor on its feet, about half a unit through the stand-up.)
+	if not ledge_rolling and not r9_off.has("ledge"):
+		rise = minf(1.0, ledge_k * LEDGE_RISE_RATE)
+		var over := minf(1.0, ledge_k * LEDGE_OVER_RATE)
+		ease = over * over * (3.0 - 2.0 * over)
 	rise = rise * rise * (3.0 - 2.0 * rise)
 	ledge_offset = Vector3(climb_from.x * (1.0 - ease), climb_from.y * (1.0 - rise), 0.0)
 
@@ -3933,6 +3940,10 @@ const ROLL_SPIN_FROM := 0.12
 const ROLL_SPIN_TO := 0.66   # (0.78 until round 9)
 const ROLL_PIVOT := 0.66
 const LEDGE_HANG_IN := 0.34
+## (Round 9) How fast a climb (not a roll) rises off the hang and comes over the edge, as multiples of its travel: up by half of it, over
+## by two thirds.
+const LEDGE_RISE_RATE := 2.0
+const LEDGE_OVER_RATE := 1.5
 const LEDGE_ROLL_UP := 0.2
 const SPOT_DODGE_STEP := 0.2   # (0.7 until round 9: the reference fighters dodge on the spot, their feet staying put)
 ## How far a fighter lying on the floor is raised (see `apply`).
@@ -4706,7 +4717,7 @@ var tip_last_move := ""
 var tip_last_frame := -1
 
 
-## After a move's last hit its tip stays where that hit was: the bridge's tip for an end lag is the furthest of the hitboxes ending last,
+## After a kick's last hit its tip stays where that hit was: the bridge's tip for an end lag is the furthest of the hitboxes ending last,
 ## whatever the attack's aim or mode, so it could jump to a hitbox the move never had out (the Phantom's forward air's kick to one of its
 ## upward hits at frame 14, the foot thrown 0.83 units up to above the head). Followed frame by frame, as `springs` follows the sim's frames;
 ## after a seek into an end lag the bridge's tip is taken as before.
@@ -4726,7 +4737,10 @@ func _hold_last_tip(s: Dictionary) -> Dictionary:
 		tip_last_frame = -1
 		return s
 	tip_last_frame = f
-	if (s.move_tip as Vector3) != tip_last:
+	# (A kick's only: the leg is aimed at the tip through the end lag. A weapon's or a fist's end lag is shaped by the move's carry and
+	# recovery, and held at a low hit there the Phantom's knife hand sank behind the hip through its up smash's end lag instead of staying
+	# up at the chin, 35 striking-hand frames hidden.)
+	if (s.move_tip as Vector3) != tip_last and anim != null and AnimLibrary.is_kick(AnimLibrary.attack_clip(_cls(s), String(s.move_name), anim)):
 		s = s.duplicate()
 		s.move_tip = tip_last
 	return s

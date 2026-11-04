@@ -2920,3 +2920,27 @@ side-by-sides stay on F:.
 - Re-measured on the installed code (core8, core9): end-lag jumps of 0.5 units or more 31, 7 (0.7 or more 17, 1); attack timing
   2.37 / 1.40 / 1.75 / 1.15, 2.38 / 1.38 / 1.65 / 1.13; drawn eyes or mouth covered 7, 7; striking hands hidden 1,354, 1,349; limbs
   reading reversed on screen 2,741, 2,695.
+
+### Group 21 (round 9): the ledge climb lands before it stands; the held tip kept to kicks (the coordinator's order of 2026-11-04, item 3, and its note on core9)
+
+- **The coordinator's note on core9:** the Phantom's striking hands hidden rose from 27 to 68 (its up smash 0 to 35 frames, its down air 0
+  to 8), all in their end lags. **Cause:** group 19's held tip (`_hold_last_tip`) kept the end lag aimed at the last live hit for every
+  move; the Phantom's up smash's live hit is low in front of the face (the bridge's end-lag tip, overhead, came from a variant), so held
+  there the knife hand sank from the chin to behind the hip through the end lag. The held tip fixed pops only in kicks (the Phantom's
+  forward air, the Tumbler's and the Sprinter's forward tilts: all feet). **Fix:** the tip is held for kick clips only. The Phantom's hidden
+  hands 68 to 25; the three kick pops stay fixed.
+- **Shield, against the guide's shield footage (the plumber, 60 frames a second, F:):** the guard is snapped into in two or three frames,
+  crouched with the fists up at the chest, and held; ours snaps in a frame into each family's guard (group 4's `shield_core`), fists at the
+  chest, and the release eases back into the stance over about four frames (`_ease_handoff`). Judged close enough; no change. (The footage
+  cuts away before its release.)
+- **The ledge climb, measured:** the climb rose off the hang over 10.6 frames but came over the edge on one ease over the whole 17-frame
+  travel (`_ledge_motion`), so once its feet were on the floor it slid on along it for about half a unit while the clip stood it up. The
+  references' climbs vault up and over onto the edge into a crouch, then stand where they landed (the frame-data site's ledge roll and ledge
+  attack, frame by frame). **Fix (`LEDGE_RISE_RATE` 2.0, `LEDGE_OVER_RATE` 1.5):** up by half the travel, over the edge by two thirds of it,
+  when `ledge_climb` has it crouched on the floor (its third key), then the stand-up in place. A roll is unchanged. `PF_R9_OFF=ledge` shows
+  the old.
+- **The ledge hang, against the ledge-grab compilation (F:):** the references hang from one hand and stay alive, the free arm swinging out
+  and the legs kicking in turn every two seconds or so; ours hangs from the far hand with the near hand at the wall and a slow sway. Left:
+  side-on to the wall, an arm swung out or a knee kicked goes toward the camera or into the wall, and wants a mock.
+- **Checked:** the tests pass (`motion_test` with a new check: a climb is over the edge before it stands up; it fails with
+  `PF_R9_OFF=ledge`, 0.305 units still to go at frame 12).
