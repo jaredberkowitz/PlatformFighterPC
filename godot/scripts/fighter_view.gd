@@ -2133,6 +2133,8 @@ func _show_weapon_of(cls: int, facing := 1) -> void:
 		p.visible = cls == 1
 	for p in dagger_parts:
 		p.visible = cls == DAGGER_CLASS and String(p.get_meta("side")) == _weapon_side(facing)
+	for p in popgun_parts:
+		p.visible = cls == POPGUN_CLASS and String(p.get_meta("side")) == _weapon_side(facing)
 
 
 ## The stance clip `hold_pose` plays (the look's menu stance). Any other clip a menu holds still (fighter select's hero pose, a mock's
@@ -5142,6 +5144,9 @@ var claw_parts: Array[Node3D] = []
 ## The Dagger's knife, one on each hand (only the weapon hand's shows), and the Nodachi's long sword (on the blade's pivot).
 var dagger_parts: Array[Node3D] = []
 var nodachi_parts: Array[Node3D] = []
+## The Popgun's toy cork gun, one on each hand like the knife (only the weapon hand's shows). (2026-11-04, the owner: the Scamp had no
+## gun to hold, so its popgun showed only through its moves' effects, and its select-screen pose pointed an empty hand.)
+var popgun_parts: Array[Node3D] = []
 ## How far past the knuckles the claws reach (forward space): the claw arcs and the fist's reach count it.
 const CLAW_LENGTH := 0.3
 ## Where a modelled hand weapon's origin sits on the hand: this far from the wrist along the forearm's line.
@@ -5155,6 +5160,7 @@ func _mount_weapon_models() -> void:
 	claw_parts.clear()
 	dagger_parts.clear()
 	nodachi_parts.clear()
+	popgun_parts.clear()
 	var steel := respond(toon(Color(0.5, 0.56, 0.68)), "metal")
 	# The Nodachi: on the blade's pivot, laid out as the longsword is (blade 0.2 to 2.9 along x), so it is posed and stretched the same.
 	# (`_model_scene` hands back a new copy each time: it goes on the fighter itself. A copy of it kept and left out of the tree outlived
@@ -5171,6 +5177,7 @@ func _mount_weapon_models() -> void:
 	# (One copy per hand is made from these; they are freed after.)
 	var claw_scene := _model_scene("res://models/weapons/claw.glb")
 	var dagger_scene := _model_scene("res://models/weapons/dagger.glb")
+	var popgun_scene := _model_scene("res://models/weapons/popgun.glb")
 	for side in ["L", "R"]:
 		var ih := skeleton.find_bone("hand." + side)
 		var il := skeleton.find_bone("armL." + side)
@@ -5202,9 +5209,27 @@ func _mount_weapon_models() -> void:
 			_paint_weapon(knife, respond(toon(Color(0.78, 0.83, 0.92)), "metal"), toon(Color(0.42, 0.26, 0.5)))
 			knife.visible = false
 			dagger_parts.append(knife)
-	for source in [claw_scene, dagger_scene]:
+		if popgun_scene != null:
+			var gun: Node3D = popgun_scene.duplicate()
+			gun.transform = frame
+			gun.set_meta("side", side)
+			holder.add_child(gun)
+			_paint_popgun(gun)
+			gun.visible = false
+			popgun_parts.append(gun)
+	for source in [claw_scene, dagger_scene, popgun_scene]:
 		if source != null:
 			source.free()
+
+
+## Colours the Popgun's toy cork gun by its parts' names (make_weapons.py `popgun`): a toy-red barrel (it reads against the Scamp's green
+## and pink at match size), a wooden body and grip, gold fittings and a pale cork.
+func _paint_popgun(root: Node3D) -> void:
+	var mats := {"band": toon(Color(0.84, 0.2, 0.16)), "wood": toon(Color(0.62, 0.42, 0.28)),
+		"gold": respond(toon(Color(0.92, 0.76, 0.3)), "gold"), "cork": toon(Color(0.88, 0.74, 0.54))}
+	for m in root.find_children("*", "MeshInstance3D", true, false):
+		var mi := m as MeshInstance3D
+		mi.material_override = mats.get(String(mi.name).get_slice("_", 0), mats["wood"])
 
 
 ## Hangs a modelled pivot weapon (res://models/weapons/<name>.glb) on the blade's pivot and colours each part by the first word of its
@@ -5255,6 +5280,8 @@ const BUCKLER_CLASS := 9
 ## The Dagger's class (a knife in the weapon hand, hung on the hand bone) and the Nodachi's (a very long sword on the blade's pivot).
 const DAGGER_CLASS := 12
 const NODACHI_CLASS := 13
+## The Popgun's class (the Scamp): a toy cork gun in the weapon hand, hung on the hand bone like the knife.
+const POPGUN_CLASS := 11
 var shield_disc: Node3D
 ## How many times the Seer's neutral air whirls the staff round.
 const STAFF_NAIR_TURNS := 2.0
@@ -8553,6 +8580,8 @@ func _apply_combat(s: Dictionary, delta: float) -> void:
 		p.visible = _cls(s) == 1
 	for p in dagger_parts:
 		p.visible = _cls(s) == DAGGER_CLASS and String(p.get_meta("side")) == _weapon_side(int(s.facing))
+	for p in popgun_parts:
+		p.visible = _cls(s) == POPGUN_CLASS and String(p.get_meta("side")) == _weapon_side(int(s.facing))
 	var nodachi: bool = _cls(s) == NODACHI_CLASS
 	for p in nodachi_parts:
 		p.visible = nodachi
