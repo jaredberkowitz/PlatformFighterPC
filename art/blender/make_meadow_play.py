@@ -9,7 +9,8 @@ the sim's height; the modelled front under the lawn stays. Three looks for the o
      plank-shaped cut-outs with notched ends over a soft cast-shadow card.
 Families `lawn`, `lawn_under`, `path`, `card`, `soil`, `stone`, `fringe`, `plank`, `plank_b`, `plank_card`, `rope`, `shadow`.
 
-Shipped since fidelity review 7 (the owner's picks, 2026-10-22): `--variant B --plat timber --wear 2` into meadow_play.glb, then lit.
+Shipped since fidelity review 7 (the owner's picks, 2026-10-22): `--variant B --plat timber --wear 2` into meadow_play.glb, then lit;
+with `--stitch 1` since the style pass's step 5 (2026-11-04).
 
 Run (Blender 5.2):
   blender --background --python art/blender/make_meadow_play.py -- --dir godot/art/baked/<key> --variant A --out <file.glb>

@@ -1436,8 +1436,9 @@ const GROUND_DRIFT := {"hill": Vector4(1.6, 0.9, 22.0, 0.0), "bank": Vector4(1.3
 ## (make_meadow_play.py --stitch 1) and along the crown of every hedgerow on the farmland (make_meadow_ground.py --stitch 1), in their own
 ## family `stitch`. The palette's [backdrop] `stitch` or `--stitch=T|A|B|C`, T hidden:
 ##   A  the lawn's edge, in a cream thread;
-##   B  A, with the hedgerows' seams;
+##   B  A, with the hedgerows' seams (they need the ground built with --stitch 1, which the shipped ground is not);
 ##   C  B, in a red thread.
+## The owner's pick A (meadow.cfg `stitch`, 2026-11-04).
 const STITCH_TRY := {"T": {}, "A": {"play": Color(0.98, 0.94, 0.82)}, "B": {"play": Color(0.98, 0.94, 0.82), "ground": Color(0.98, 0.94, 0.82)},
 	"C": {"play": Color(0.86, 0.22, 0.2), "ground": Color(0.86, 0.22, 0.2)}}
 

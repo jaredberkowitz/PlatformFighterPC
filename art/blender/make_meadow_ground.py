@@ -75,7 +75,8 @@ STREAM = opts.get("stream", "").upper()
 WALLS = opts.get("walls", "").upper()
 # Stitched seams (the style pass, the meadow's patchwork and stitch, docs/art/stages/STYLE_PASS.md): `--stitch 1` sews a running stitch along
 # the crown of every hedgerow, in its own family `stitch`, which the game colours or hides (StageBake.STITCH_TRY). Its own random numbers, so
-# the land comes out as without it.
+# the land comes out as without it. (Tried and not shipped, 2026-11-04: at the cameras' distance the seams read as dashes or berries, not
+# stitches; the shipped ground is built without it.)
 STITCH = opts.get("stitch", "0") == "1"
 STITCH_RNG = random.Random(4711)
 LAYOUT = json.load(open(os.path.join(opts["dir"], "ground.json")))

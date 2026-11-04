@@ -201,5 +201,8 @@ Recommended A: the cream stitch reads as a sewn seam right under the fighters.
   read as berries.
 - C's red thread along the lawn is the bolder craft accent, but it is a saturated red right under the fighters.
 
-The mock's meadow models (the play area and ground with stitches, and the meadow re-lit) are in the worktree, not committed. Their backups
-are in the session scratchpad (stitch15).
+**Built A** (the owner's pick, 2026-11-04):
+- meadow.cfg [backdrop] `stitch="A"`; the meadow's play area rebuilt with `--stitch 1` and the meadow re-lit. `--stitch=T` hides it.
+- The ground stays as it was, without the hedgerows' seams, since B and C weren't taken.
+- Before and after at the match camera (top) and wide (bottom), before left: `style/stitch_built.jpg`.
+All seven tests pass (the runner test failed twice in four runs, on its coin pickup and "the way out", and passed on the rerun: it waits on real-time timers and flakes when the machine is busy).
