@@ -3010,3 +3010,10 @@ side-by-sides stay on F:.
   foe); tool C (point: leaning in, the near heel kicked up, the far arm pointing, the near hand on the hip), D (tiptoe wave: the near
   hand waving beside the head, the far foot popped up), E (throw: the far knee up, the far arm leading, the near arm drawn back low). Built
   in the mock worktree's rig only (`F:\anim_core\wt_hero`, specs `F:\anim_core\tools\hero_specs_r2.py.txt`); the branch's rig is unchanged.
+
+- **Second round picked and built (the owner, 2026-11-04):** heavy C (charge), caster C (fireball), tool C (point), as `menu_hero_heavy`,
+  `menu_hero_caster` and `menu_hero_tool` (the families' own names `select.gd` already asks for), turned 0.55, the fireball's and the
+  point's free hands open. The rig rebuilt: those three added, every other clip unchanged. Checked on the face-off panels, both sides, the
+  Bounder, the Tumbler, the Settler and the Scamp, against each other and across families: faces clear with both eyes, no arm behind the
+  head. Image: `docs/screenshots/anim/r9_hero_poses_2.jpg`. Every family now holds its own hero pose; the long blades' tips are the UI
+  session's (drawn a little smaller or lower in their panels).

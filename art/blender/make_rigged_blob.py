@@ -5170,6 +5170,15 @@ def main() -> None:
         # The quick family (quick A, "side kick"): a side kick at the foe, the weapon hand raised high.
         "menu_hero_quick": {"hips": 0.02, "spine": (-8.0, -12.0), "bend": -14.0, "head": (-6.0, -10.0), "tilt": 8.0, "thigh.L": (0.0, 4.0), "shin.L": (-12.0,),
                             "thigh.R": (14.0, 96.0), "shin.R": (-8.0,), "armU.L": (10.0, 118.0), "armL.L": (24.0,), "armU.R": (50.0, 30.0), "armL.R": (80.0,)},
+        # (Second round, the owner's picks of 2026-11-04 from docs/screenshots/anim/r9_hero_pose_mock_2.jpg.)
+        # The heavy family (heavy C, "charge"): thrown in toward the foe off the long straight back leg, the far fist leading high, the near
+        # arm swept back low.
+        "menu_hero_heavy": {"hips": -0.24, "spine": (20.0, -10.0), "bend": 24.0, "head": (-16.0, -10.0), "tilt": -10.0, "thigh.L": (-34.0, 40.0), "shin.L": (-4.0,), "thigh.R": (46.0, 36.0), "shin.R": (-74.0,), "armU.R": (50.0, 104.0), "armL.R": (24.0,), "armU.L": (-36.0, 20.0), "armL.L": (10.0,)},
+        # The caster family (caster C, "fireball"): the far palm thrust out at the foe, the near fist pulled back, lunging onto the front leg.
+        "menu_hero_caster": {"hips": -0.22, "spine": (12.0, -18.0), "bend": 10.0, "head": (-10.0, -12.0), "thigh.L": (-18.0, 26.0), "shin.L": (-10.0,), "thigh.R": (38.0, 44.0), "shin.R": (-70.0,), "armU.R": (30.0, 90.0), "armL.R": (6.0,), "armU.L": (-30.0, 28.0), "armL.L": (20.0,)},
+        # The tool family (tool C, "point"): leaning in toward the foe on the far leg, the near heel kicked up behind, the far arm pointing,
+        # the near hand on the hip.
+        "menu_hero_tool": {"hips": -0.08, "spine": (10.0, -14.0), "bend": 12.0, "head": (-6.0, -10.0), "tilt": 8.0, "thigh.L": (-36.0, 12.0), "shin.L": (-86.0,), "thigh.R": (18.0, 30.0), "shin.R": (-26.0,), "armU.R": (40.0, 90.0), "armL.R": (4.0,), "armU.L": (0.0, 50.0), "armL.L": (100.0,)},
     }
     for key, spec in HERO.items():
         clip(rig, key, 10, {0: hero(spec), 10: hero(spec)})
