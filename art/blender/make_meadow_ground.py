@@ -73,6 +73,11 @@ STREAM = opts.get("stream", "").upper()
 # camera): `--walls A|B`. A: long blocks of one tone, an odd darker stone among them. B: each wall one plain cut-card face under the
 # shelf, as the grove's terraces stand.
 WALLS = opts.get("walls", "").upper()
+# Stitched seams (the style pass, the meadow's patchwork and stitch, docs/art/stages/STYLE_PASS.md): `--stitch 1` sews a running stitch along
+# the crown of every hedgerow, in its own family `stitch`, which the game colours or hides (StageBake.STITCH_TRY). Its own random numbers, so
+# the land comes out as without it.
+STITCH = opts.get("stitch", "0") == "1"
+STITCH_RNG = random.Random(4711)
 LAYOUT = json.load(open(os.path.join(opts["dir"], "ground.json")))
 X0, X1 = -200.0, 200.0
 
@@ -1191,17 +1196,43 @@ def resample(pts2, step):
     return out
 
 
-def hedge_run(bm, pts, rng, rad):
-    """A bushy hedgerow along world points: a rolled tube whose girth swells and shrinks, with a round bush now and then."""
+def hedge_run(bm, pts, rng, rad, stitch=None):
+    """A bushy hedgerow along world points: a rolled tube whose girth swells and shrinks, with a round bush now and then; with `stitch`, a running
+    stitch along its crown into that mesh."""
     for i in range(len(pts) - 1):
         a, b = pts[i], pts[i + 1]
         rr = rad * rng.uniform(0.8, 1.15)
         tube_seg(bm, P(*a), P(*b), rr, segs=5)
+        if stitch is not None:
+            seam(stitch, Vector(a), Vector(b), rr)
         # (Low bushes: at this distance a twenty-faced one reads as round, and four times as many cost a third of the band.)
         if rng.random() < 0.3:
             ret = bmesh.ops.create_icosphere(bm, subdivisions=0, radius=rad * rng.uniform(1.3, 1.8))
             for v in ret["verts"]:
                 v.co = Vector((v.co.x, v.co.y, v.co.z * 0.85)) + P(*a)
+
+
+def seam(bm, a, b, rr):
+    """A running stitch along the crown of a hedgerow's segment from `a` to `b` (world points), its tube `rr` round: dashes of thread lying on
+    top, a gap between."""
+    d = b - a
+    ln = d.length
+    if ln < 1e-4:
+        return
+    d = d / ln
+    side = Vector((-d.z, 0.0, d.x))
+    side = side.normalized() * 0.07 if side.length > 1e-4 else Vector((0.07, 0.0, 0.0))
+    lift = Vector((0.0, rr * 1.02, 0.0))
+    s = STITCH_RNG.uniform(0.0, 0.8)
+    while s < ln - 0.1:
+        e = min(s + 0.45, ln)
+        p0, p1 = a + d * s + lift, a + d * e + lift
+        f = face(bm, (P(*(p0 - side)), P(*(p1 - side)), P(*(p1 + side)), P(*(p0 + side))))
+        f.normal_update()
+        # (Facing up: Blender's z is the game's y.)
+        if f.normal.z < 0.0:
+            f.normal_flip()
+        s += 0.8
 
 
 def farm_band(name, fam, bumps, floor_y, z, profile, rng, fields=True):
@@ -1336,12 +1367,12 @@ def farm_band(name, fam, bumps, floor_y, z, profile, rng, fields=True):
             q = at(x, d)
             if near_lane(q, 0.5) or in_yard(x, d):
                 if len(run) > 1:
-                    hedge_run(hedge_bm, [p + normal(*xd) * rad for p, xd in run], rng, rad)
+                    hedge_run(hedge_bm, [p + normal(*xd) * rad for p, xd in run], rng, rad, part(name, "stitch") if STITCH else None)
                 run = []
                 continue
             run.append((q, (x, d)))
         if len(run) > 1:
-            hedge_run(hedge_bm, [p + normal(*xd) * rad for p, xd in run], rng, rad)
+            hedge_run(hedge_bm, [p + normal(*xd) * rad for p, xd in run], rng, rad, part(name, "stitch") if STITCH else None)
         CORNERS.append(at(*line[0]))
     # The lanes: a pale ribbon with a grass crown down its middle, its cut edges, and hedges along both sides.
     for (pts, world, w) in lanes:
@@ -1374,12 +1405,12 @@ def farm_band(name, fam, bumps, floor_y, z, profile, rng, fields=True):
                 # (Open where another lane joins, and round the farmyard.)
                 if in_yard(x, d) or any(near_lane_other(q, other) for other in lanes if other[1] is not world):
                     if len(run) > 1:
-                        hedge_run(hedge_bm, run, rng, 0.28)
+                        hedge_run(hedge_bm, run, rng, 0.28, part(name, "stitch") if STITCH else None)
                     run = []
                     continue
                 run.append(q)
             if len(run) > 1:
-                hedge_run(hedge_bm, run, rng, 0.28)
+                hedge_run(hedge_bm, run, rng, 0.28, part(name, "stitch") if STITCH else None)
     if fields and VARIANT == "FC":
         copse(rng, at)
 

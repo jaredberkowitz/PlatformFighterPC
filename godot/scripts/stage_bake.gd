@@ -654,6 +654,13 @@ static func place_play(root: Node3D, t: Dictionary, path: String) -> void:
 				sh.albedo_color = Color(0.08, 0.1, 0.06, 0.35)
 				mi.set_surface_override_material(s, sh)
 				continue
+			# (The meadow's stitches, see STITCH_TRY: hidden, or in the thread chosen.)
+			if fam == "stitch":
+				var sl: Dictionary = _stitch_look(t)
+				if not sl.has("play"):
+					mi.visible = false
+					continue
+				colours[fam] = sl.play
 			var m := (FighterView.toon(colours.get(fam, Color(0.6, 0.6, 0.6)), false) as ShaderMaterial).duplicate() as ShaderMaterial
 			# (No facets: every piece is flat, and on the lawn's top the normal rebuilt from screen derivatives turned over, so it lit as an
 			# underside and the fighters' contact shadows, which only fall on what faces up, vanished.)
@@ -1367,7 +1374,14 @@ static func _paint_ground(node: Node3D, colours: Dictionary, t := {}) -> void:
 		for s in mi.mesh.get_surface_count():
 			var src := mi.mesh.surface_get_material(s)
 			var fam := src.resource_name if src != null else "grass"
+			if fam == "stitch":
+				var gl: Dictionary = _stitch_look(t)
+				if not gl.has("ground"):
+					mi.visible = false
+					continue
 			var colour: Color = (head.get("colours", {}) as Dictionary).get(fam, colours.get(fam, Color(0.6, 0.6, 0.6)))
+			if fam == "stitch":
+				colour = _stitch_look(t).ground
 			var m := (FighterView.toon(colour, false) as ShaderMaterial).duplicate() as ShaderMaterial
 			m.set_shader_parameter("facets", fam != "bark")
 			m.set_shader_parameter("vertex_shade", true)
@@ -1416,6 +1430,25 @@ const GROUND_DRIFT := {"hill": Vector4(1.6, 0.9, 22.0, 0.0), "bank": Vector4(1.3
 	"rise": Vector4(1.3, 0.8, 26.0, 0.0), "abyss": Vector4(1.8, 1.0, 16.0, 0.0), "abyss_far": Vector4(1.4, 0.8, 24.0, 0.0),
 	"abyss_mist": Vector4(1.6, 1.0, 14.0, 0.0), "sand_a": Vector4(1.3, 0.8, 20.0, 0.0), "sand_b": Vector4(1.3, 0.8, 20.0, 0.0),
 	"sand_c": Vector4(1.3, 0.8, 20.0, 0.0)}
+
+
+## Patchwork and stitch on the meadow (the style pass, docs/art/stages/STYLE_PASS.md): running stitches sewn along the lawn's card edge
+## (make_meadow_play.py --stitch 1) and along the crown of every hedgerow on the farmland (make_meadow_ground.py --stitch 1), in their own
+## family `stitch`. The palette's [backdrop] `stitch` or `--stitch=T|A|B|C`, T hidden:
+##   A  the lawn's edge, in a cream thread;
+##   B  A, with the hedgerows' seams;
+##   C  B, in a red thread.
+const STITCH_TRY := {"T": {}, "A": {"play": Color(0.98, 0.94, 0.82)}, "B": {"play": Color(0.98, 0.94, 0.82), "ground": Color(0.98, 0.94, 0.82)},
+	"C": {"play": Color(0.86, 0.22, 0.2), "ground": Color(0.86, 0.22, 0.2)}}
+
+
+static func _stitch_look(t: Dictionary) -> Dictionary:
+	if String(t.get("name", "")) != "meadow":
+		return {}
+	var look := String((StageArt.palette("meadow").get("backdrop", {}) as Dictionary).get("stitch", ""))
+	if flag("--stitch=") != "":
+		look = flag("--stitch=").to_upper()
+	return STITCH_TRY.get(look, {})
 
 
 ## Torn paper on the canyon (the style pass's step 2, docs/art/stages/STYLE_PASS.md; the corrugated card before it read as a woven chevron on

@@ -88,6 +88,29 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
     <p>Two lessons from the reference screenshots, mocked from the match camera: the scenery without ink outlines, its edges lit as card bevels instead, and the paper houses rebuilt at the characters' proportions. The earlier rounds stay on the <a href="https://claude.ai/artifact/D1du6MREVumiJDrEdNypW4">Stage Fidelity Review</a>, which is full.</p>
   </header>
 
+  <section class="panel" aria-labelledby="st70-h" id="stitch70">
+    <div class="eyebrow">After review 17 &middot; making the stages more their own, step 5: the meadow's patchwork and stitch</div>
+    <h2 id="st70-h">The meadow sewn like a quilt</h2>
+    <p>The meadow's craft. A running stitch is sewn along the lawn's card edge, right under the fighters. In B and C it also runs along the crown of every hedgerow on the farmland, like the seams of a quilt; the far hills are already drawn as a quilt. The meadow's play area and ground were rebuilt with the stitches and re-lit. With them hidden, it measures the same as today.</p>
+    <div class="tablewrap"><table><thead><tr><th>Option</th><th>What changes</th></tr></thead><tbody>
+      <tr><td>Today</td><td>No stitches</td></tr>
+      <tr><td>A &middot; Lawn edge</td><td>A running stitch along the lawn's card edge, in a cream thread</td></tr>
+      <tr><td>B &middot; And the hedgerows</td><td>A, with seams along the hedgerows</td></tr>
+      <tr><td>C &middot; Red thread</td><td>B, in a red thread</td></tr>
+    </tbody></table></div>
+    <p>Top: the lawn's edge at the match camera, today, A and C. Bottom: the farm's hedgerows at the wide camera, enlarged, today, B and C.</p>
+    <div class="viewer" style="aspect-ratio: 1920 / 720"><img src="st70_close.jpg" alt="The meadow's lawn edge and hedgerows today and stitched"></div>
+    <div class="row" role="group" aria-label="View"><button data-st70v="m">Match camera</button><button data-st70v="w">Wide</button></div>
+    <div class="row" role="group" aria-label="Option"><button data-st70o="T">Today</button><button data-st70o="A">A &middot; Lawn edge</button><button data-st70o="B">B &middot; And the hedgerows</button><button data-st70o="C">C &middot; Red thread</button></div>
+    <div class="viewer"><img id="st70img" alt="Meadow stitch option"><span class="vtag" id="st70tag"></span></div>
+    <p class="muted">My pick: <b>A</b>. The cream stitch reads as a sewn seam right under the fighters. Honest notes:
+      <ul>
+        <li>The hedgerows' seams don't land. At the wide camera they're small white dashes, and at the match camera they barely show. In red they read as berries.</li>
+        <li>C's red thread along the lawn is the bolder craft accent, but it's a saturated red right under the fighters.</li>
+      </ul>
+    </p>
+  </section>
+
   <section class="panel" aria-labelledby="og69-h" id="origami69">
     <div class="eyebrow">Built B (the owner's pick) &middot; making the stages more their own, step 4: the beach's origami sea</div>
     <h2 id="og69-h">The beach's sea folded like origami</h2>
@@ -3894,5 +3917,15 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
   group("data-og69v", function (v) { og69v = v; }, og69render);
   group("data-og69o", function (v) { og69o = v; }, og69render);
   og69render();
+  var st70v = "m", st70o = "A";
+  var ST70O = { T: "Today", A: "A · Lawn edge", B: "B · And the hedgerows", C: "C · Red thread" };
+  function st70render() {
+    $id("st70img").src = "st70_" + st70o + "_" + st70v + ".jpg";
+    $id("st70tag").textContent = "Meadow · " + ST70O[st70o] + (st70v === "w" ? " · wide" : " · match camera");
+    pressed("data-st70v", st70v); pressed("data-st70o", st70o);
+  }
+  group("data-st70v", function (v) { st70v = v; }, st70render);
+  group("data-st70o", function (v) { st70o = v; }, st70render);
+  st70render();
 })();
 </script>
