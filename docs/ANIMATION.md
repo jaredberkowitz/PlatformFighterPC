@@ -3123,3 +3123,15 @@ lies at the hit), `bodyft.py` (the torso's travel after the last hit), `windpops
   the Popgun holds its gun in the pointing hand, the far one, clenched round the grip, so it aims along the arm at the other card; the
   near hand rests on the hip (`MENU_POINT_GUN`). The Settler is unchanged. Checked: the Scamp against the Settler and the Tumbler, both
   ways round. Image: `docs/screenshots/anim/r10_popgun_select.jpg`.
+
+### Tried and reverted (round 10): the six-pose strike's second key moving on (review 3, cause 2)
+
+- **The idea (the audit's cause 2):** the six-pose clips key the strike twice (frames 32 and 36 the same pose), so the clip's body comes to
+  rest on the hit, and only then moves on into its follow-through (40). The second key was set 0.4 of the way on toward the follow-through
+  (57 clips changed in the rig).
+- **Measured:** attack timing 2.35 / 1.44 / 1.66 / 1.18 to 2.37 / 1.43 / 1.66 / 1.18; the torso's carry-through after the last hit
+  (`bodyft.py`) the same or less. **Traced:** the drawn head and hips through the Claws' jab and forward tilt moved within 0.01 units of
+  before: the view's own body layers (the lunge and its carry, the strike's lean held through the hold) already carry the torso on through
+  the hit and slow it over about five frames; the clip's held key did not show. No visible difference at match speed: reverted. The
+  audit's cause 2 as worded (the torso stopping on the strike) does not hold for the drawn body; its weight gap is in the wind-up (group 2)
+  and the settle.

@@ -115,3 +115,14 @@ clips (idle to air dodge) sit at 3.0-4.0 after round 9; every attack row sits at
 
 Limits held throughout: hold at most 1.56, recovery at most 1.65, eyes or mouth covered at most 7, hidden hands, reversed limbs and pops
 not rising.
+
+## 5. Round 10 so far
+
+- **Group 1 (cause 1, done):** back kicks with the near leg, the back one; crossings at the hit past 0.15 units 22 to 0. Back airs
+  readability 2 to 4, accuracy 2 to 3 (mean 2.3 to 3.3).
+- **Group 2 (found in these traces, done):** the wind-up's crouch was the clip's full chamber whatever the startup: 53 of 134 grounded
+  moves dropped the hips or head 0.25 units or more in one frame of their wind-up (16 of 0.4 or more). Each wind-up now goes as deep as its
+  frames allow: 32 (5). Jabs and tilts weight 3 to 4 where the jolt was the weak point (the jab, tilt and smash rows' weight 3 to 3.3).
+- **Cause 2 corrected:** tried and reverted (`docs/ANIMATION.md`): the drawn torso does carry on through the hit, by the view's lunge and
+  lean layers, for about five frames; the clip's held strike key did not show. The stop the audit read in the clip is not on screen.
+
