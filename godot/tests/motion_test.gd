@@ -273,5 +273,22 @@ func _initialize() -> void:
 	cut.apply(Vector3.ZERO, sought, 1.0 / 60.0)
 	check(absf(cut.lean) < 0.5, "a seek into the hold leans as the hit says (%.1f)" % cut.lean)
 
+	# (Round 9.) A dash's push-off: a foot planted as the dash sets off stays where it stood while the body goes (it slid with the body).
+	var dasher := FighterView.new()
+	root.add_child(dasher)
+	dasher.build(0, Loadout.default_for(0))
+	await process_frame
+	for f in 30:
+		dasher.apply(Vector3.ZERO, snap(0, "Idle", "", 9500 + f, f), 1.0 / 60.0)
+	var stood: Dictionary = dasher.feet_last.duplicate(true)
+	var dash_go := snap(0, "Dash", "", 9530, 0)
+	dash_go.vel = Vector2(0.28, 0.0)
+	dasher.apply(Vector3(0.28, 0.0, 0.0), dash_go, 1.0 / 60.0)
+	var most := 0.0
+	for side in stood:
+		if float(stood[side][1]) < 0.03:
+			most = maxf(most, absf((dasher.feet_last[side][0] as Vector3).x - (stood[side][0] as Vector3).x))
+	check(most < 0.02, "a dash's planted feet stay where they stood as it sets off (moved %.3f)" % most)
+
 	print("motion test ", "FAILED" if failed else "PASSED")
 	quit(1 if failed else 0)

@@ -1351,7 +1351,8 @@ const HANDOFF_BY_CLIP := {"jumpsquat": 2.0, "land": 1.0, "tech": 2.0, "knockdown
 ## the forward roll's turn round to the sim's last frame; "react" leaves the hit reactions as they were at core4 (a clip chosen every frame by
 ## the knockback, the ground's flinch without its recoil, a launch and a tumble pitched about the body's side, the damage fall a plain fall);
 ## "stops" leaves a run's stop and a walk's slide to the plain idle, as before sim 148; "floorroll" plays a tech, get-up or trip roll by
-## its whole length, as before sim 149; "weight" leaves a grounded strike's lean to its spring through the end lag (`strike_lean`).
+## its whole length, as before sim 149; "weight" leaves a grounded strike's lean to its spring through the end lag (`strike_lean`);
+## "dashpin" lets a dash's planted feet go with the hand-off (`_pin_dash_feet`).
 static var r9_off := OS.get_environment("PF_R9_OFF").split(",")
 var handoff_clip := ""
 var handoff_state := ""
@@ -6829,6 +6830,118 @@ static func _leg_hinge(up0: Vector3, low0: Vector3, up1: Vector3, low1: Vector3,
 	return [(want_u * rest_u.inverse()).get_rotation_quaternion(), (want_l * rest_l.inverse()).get_rotation_quaternion()]
 
 
+## (Round 9, the dash's push-off: a foot planted as a dash sets off stays where it stood while the body goes, the leg stretching out behind,
+## for DASH_PIN_FRAMES sim frames, then lets go over DASH_PIN_RELEASE as the dash's stride lifts it. The sim moves the body at full speed
+## from the dash's first frame, and the hand-off from the stance into the dash clip carried the planted foot along with it: it slid 0.1-0.18
+## units a frame over the dash's first four frames, and went 0.14 under the floor on the second. A one-frame hand-off took off only a fifth
+## of it and jumped the joints further.)
+const DASH_PIN_FRAMES := 2.0
+const DASH_PIN_RELEASE := 2.0
+## Each foot's place in the world (its ankle) and its sole's height over the fighter's feet, as last drawn, with the sim frame it was drawn
+## on (`_remember_feet`); and the feet pinned for this dash's start, {side: place}, keyed by the frame the dash began on.
+var feet_last := {}
+var feet_last_frame := -1
+var dash_pins := {}
+var dash_pin_key := -1
+## A pinned foot the clip lifts lets go from the frame before (`dash_pin_lift`, {side: frame}); its sole that far up in the clip.
+var dash_pin_lift := {}
+const DASH_PIN_LIFT := 0.05
+## Over how many frames a stepping foot lets go (it was held where it stood for the dash's first frame).
+const DASH_STEP_RELEASE := 3.0
+
+
+func _remember_feet(s: Dictionary) -> void:
+	if skeleton == null:
+		return
+	for side in ["L", "R"]:
+		var fi := skeleton.find_bone("foot." + side)
+		if fi < 0:
+			continue
+		var g: Transform3D = skeleton.get_bone_global_pose(fi)
+		var turn: Basis = g.basis * skeleton.get_bone_global_rest(fi).basis.inverse()
+		var low := INF
+		for off in SOLE_POINTS:
+			low = minf(low, (skeleton.global_transform * (g.origin + turn * (off as Vector3))).y - global_position.y)
+		feet_last[side] = [skeleton.global_transform * g.origin, low]
+	feet_last_frame = int(s.frame) if int(s.platform) >= 0 else -1
+
+
+func _pin_dash_feet(s: Dictionary) -> void:
+	if not use_base_body or r9_off.has("dashpin") or skeleton == null or String(s.state) != "Dash" or int(s.platform) < 0:
+		dash_pins.clear()
+		dash_pin_key = -1
+		return
+	var key := int(s.frame) - int(s.state_frame)
+	if key != dash_pin_key:
+		dash_pin_key = key
+		dash_pins.clear()
+		dash_pin_lift.clear()
+		# (Only from the frame before, drawn on the ground: not after a seek, a rollback or a landing straight into a dash.)
+		if int(s.state_frame) == 0 and feet_last_frame >= 0 and int(s.frame) - feet_last_frame == 1:
+			for side in feet_last:
+				if float(feet_last[side][1]) < 0.03:
+					dash_pins[side] = feet_last[side][0]
+	var f := float(s.state_frame)
+	# (The ankle's goal eases from where the foot stood to where the clip has it, the leg always solved fully: blended bone by bone, the
+	# overrides compounded down the leg and threw the foot up to the hip for the release's frame.)
+	for side in dash_pins:
+		var fi := skeleton.find_bone("foot." + String(side))
+		if fi < 0:
+			continue
+		var g: Transform3D = skeleton.get_bone_global_pose(fi)
+		# (A foot the dash's stride lifts (its sole up off the floor in the clip) steps away now; only the one it pushes off stays: held
+		# by both, the stepping foot dragged behind and was flung forward 0.9 units in a frame on its release.)
+		if f >= 1.0 and not dash_pin_lift.has(side):
+			var turn: Basis = g.basis * skeleton.get_bone_global_rest(fi).basis.inverse()
+			var low := INF
+			for off in SOLE_POINTS:
+				low = minf(low, (skeleton.global_transform * (g.origin + turn * (off as Vector3))).y - global_position.y)
+			if low > DASH_PIN_LIFT:
+				dash_pin_lift[side] = f - 1.0
+		var w := 1.0 - smoothstep(DASH_PIN_FRAMES, DASH_PIN_FRAMES + DASH_PIN_RELEASE, f)
+		if dash_pin_lift.has(side):
+			w = 1.0 - smoothstep(float(dash_pin_lift[side]), float(dash_pin_lift[side]) + DASH_STEP_RELEASE, f)
+		if w <= 0.0:
+			continue
+		_pin_leg(String(side), (skeleton.global_transform * g.origin).lerp(dash_pins[side], w))
+
+
+## Puts leg `side`'s ankle at `place` (the world), as near as the leg reaches, by turning the thigh and the shin in the plane the leg is
+## already bent in, the foot keeping its own turn.
+func _pin_leg(side: String, place: Vector3) -> void:
+	var it := skeleton.find_bone("thigh." + side)
+	var ish := skeleton.find_bone("shin." + side)
+	var ift := skeleton.find_bone("foot." + side)
+	if it < 0 or ish < 0 or ift < 0:
+		return
+	var g_t: Transform3D = skeleton.get_bone_global_pose(it)
+	var g_s: Transform3D = skeleton.get_bone_global_pose(ish)
+	var g_f: Transform3D = skeleton.get_bone_global_pose(ift)
+	var hip := g_t.origin
+	var knee0 := g_s.origin
+	var ankle0 := g_f.origin
+	var upper := (knee0 - hip).length()
+	var lower := (ankle0 - knee0).length()
+	if upper < 0.01 or lower < 0.01:
+		return
+	var goal: Vector3 = skeleton.global_transform.affine_inverse() * place
+	var d := goal - hip
+	var dist := clampf(d.length(), 0.05, upper + lower - 0.002)
+	var dir := d.normalized()
+	var off := (knee0 - hip) - dir * (knee0 - hip).dot(dir)
+	if off.length() < 0.005:
+		return
+	var bend := off.normalized()
+	var ang := acos(clampf((upper * upper + dist * dist - lower * lower) / (2.0 * upper * dist), -1.0, 1.0))
+	var knee := hip + dir * (cos(ang) * upper) + bend * (sin(ang) * upper)
+	var shin_dir := (hip + dir * dist - knee).normalized()
+	var q_t := Quaternion((knee0 - hip).normalized(), (knee - hip).normalized())
+	var q_s := Quaternion((ankle0 - knee0).normalized(), shin_dir)
+	skeleton.set_bone_global_pose_override(it, Transform3D(Basis(q_t) * g_t.basis, hip), 1.0, true)
+	skeleton.set_bone_global_pose_override(ish, Transform3D(Basis(q_s) * g_s.basis, knee), 1.0, true)
+	skeleton.set_bone_global_pose_override(ift, Transform3D(Basis(q_s) * g_f.basis, knee + shin_dir * lower), 1.0, true)
+
+
 ## About where the hips are (forward space, height), for how steeply a kick rises.
 const KICK_HIP_Y := 0.6
 ## The steepest a kick rises on the base body (degrees above level, see `_aim_leg`).
@@ -7901,9 +8014,11 @@ func _apply_combat(s: Dictionary, delta: float) -> void:
 			_carry_weapon(int(s.facing))
 		_weapon_over(s)
 		_aim_leg(s, state == "Attack" and AnimLibrary.is_kick(AnimLibrary.attack_clip(_cls(s), s.move_name, anim)), delta)
+		_pin_dash_feet(s)
 		if use_base_body and not r8_off.has("joints"):
 			_limit_joints()
 		_remember_arms()
+		_remember_feet(s)
 		_update_smear(s)
 		if log_cover:
 			_log_face_cover(s)

@@ -2572,3 +2572,23 @@ side-by-sides stay on F:.
   body, so the layer stays. In a CPU match the same arm reached a 92-degree reversal in the pummel's strike once (not reproduced in the demo).
 - **Image:** `docs/screenshots/anim/r9_bends_by_eye.jpg` (the Greatsword's up special, the back airs of the Settler, Longsword and Phantom,
   then the Longsword's down smash and down air and the Seer's down smash and up air).
+
+### Group 14 (round 9): the dash's push-off, the planted feet held (the order's item 3)
+
+- **Measured (the loco and dash-dance demos, six families, every planted foot in the dash's first frames, units a frame):** the sim moves the
+  body at full speed from the dash's first frame, and the hand-off from the stance into the dash clip carried the planted feet along with
+  it: frame 0 0.163 (worst 0.512), frame 1 0.127, frame 2 0.086, frame 3 0.110, frame 4 0.051; the push-off foot went 0.14 under the floor
+  on the second frame.
+- **Fix (`fighter_view.gd` `_pin_dash_feet`, `_pin_leg`, `_remember_feet`):** each foot's place is remembered as drawn; on a dash's first frame
+  (from the frame before, on the ground) the feet that stood on the floor are pinned there, the leg solved to reach the spot in the plane it
+  is already bent in. The foot the dash's stride lifts (its sole up off the floor in the clip) lets go over three frames from its second
+  frame (`DASH_STEP_RELEASE`); the one it pushes off stays until frame 2 and lets go over two (`DASH_PIN_FRAMES`, `DASH_PIN_RELEASE`), as the
+  clip lifts it into the stride. The ankle's goal eases from the spot to the clip's foot and the leg is always solved fully (blended bone by
+  bone, the overrides compounded and threw the foot up to the hip). `PF_R9_OFF=dashpin` shows the old.
+- **After:** frame 0 0.007, frame 1 0.020, frame 2 0.002, frame 3 0.062, frame 4 0.023. The largest joint jump in a frame (relative to the
+  body): frames 1-4 before 0.33 / 0.34 / 0.24 / 0.24, now 0.28 / 0.39 / 0.40 / 0.24 (the stepping foot catching up as it swings
+  through; the run's own is about 0.20, at most 0.46). A planted foot no longer skates: the rear leg stretches out behind and pushes off.
+- **Checked:** `motion_test` with a new check (a dash's planted feet stay where they stood as it sets off: 0.191 units without the pin);
+  the tests pass; the look bench crashed once on a lost Vulkan device (another capture was running) and passed on its own (0.96).
+- **Image:** `docs/screenshots/anim/r9_dash_pushoff.jpg` (the Claws' dash from a stand, the stance's last frame and the dash's frames 0-7,
+  before above, now below).
