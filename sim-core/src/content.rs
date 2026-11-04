@@ -2563,15 +2563,23 @@ pub struct Ruleset {
     pub respawn_invuln: u8,
     /// A shield press this many frames before landing in hitstun is a tech.
     pub tech_window: u8,
+    /// A tech in place keeps the fighter on the ground (`FighterState::Landing`) for `tech_lag` frames (26: it acts on 27), intangible
+    /// from the landing through `tech_invuln` (20). Sim 150 (D8; a public dump of the reference's game data, the same on all 93
+    /// bodies that have it); before, 4 and 18.
     pub tech_lag: u8,
     /// A fighter that lands in hitstun without teching lies down for at least this many frames.
     pub knockdown_lag: u8,
     /// ...and gets up by itself after this many.
     pub knockdown_max: u8,
-    /// Frames of a neutral get-up, and how many of them are intangible.
+    /// Standing up from lying (sim 150, D8; the same dump, face up or down alike, and every body we have ported): `getup_frames` (29:
+    /// it acts on 30), intangible from its first frame (the press, or the frame it gets up by itself) through `getup_intangible` (22);
+    /// from sitting after a trip, hard or soft, `trip_getup_frames` (21) and `trip_getup_intangible` (16). Before sim 150 both were
+    /// 26 frames, intangible from the second frame through the sixteenth.
     pub getup_frames: u8,
     pub getup_intangible: u8,
-    /// Intangible frames of a tech in place.
+    pub trip_getup_frames: u8,
+    pub trip_getup_intangible: u8,
+    /// Intangible frames of a tech in place (see `tech_lag`).
     pub tech_invuln: u8,
     /// Rolls out of a tech, a knockdown and a trip (sim 149, D7; a public dump of the reference's game data, where the lengths and the
     /// tech and trip windows are the same on all 93 bodies that have them): a tech roll lasts `tech_roll_frames` (40: it acts on 41),
@@ -2894,12 +2902,14 @@ impl Ruleset {
             ledge_exposed_frames: 2,
             respawn_invuln: 120,
             tech_window: 11,
-            tech_lag: 4,
+            tech_lag: 26,
             knockdown_lag: 24,
             knockdown_max: 90,
-            getup_frames: 26,
-            getup_intangible: 15,
-            tech_invuln: 18,
+            getup_frames: 29,
+            getup_intangible: 22,
+            trip_getup_frames: 21,
+            trip_getup_intangible: 16,
+            tech_invuln: 20,
             tech_roll_frames: 40,
             tech_roll_intangible: 20,
             getup_roll_frames: 35,
@@ -3092,6 +3102,8 @@ impl StateHash for Ruleset {
         h.write_u8(self.knockdown_max);
         h.write_u8(self.getup_frames);
         h.write_u8(self.getup_intangible);
+        h.write_u8(self.trip_getup_frames);
+        h.write_u8(self.trip_getup_intangible);
         h.write_u8(self.tech_invuln);
         h.write_u8(self.tech_roll_frames);
         h.write_u8(self.tech_roll_intangible);
@@ -3505,6 +3517,8 @@ mod tests {
             |r: &mut Ruleset| r.getup_roll_back_intangible += 1,
             |r: &mut Ruleset| r.trip_roll_frames += 1,
             |r: &mut Ruleset| r.trip_roll_intangible += 1,
+            |r: &mut Ruleset| r.trip_getup_frames += 1,
+            |r: &mut Ruleset| r.trip_getup_intangible += 1,
         ] {
             let mut c = base.clone();
             change(&mut c.rules);

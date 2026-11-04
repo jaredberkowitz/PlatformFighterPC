@@ -26,7 +26,8 @@ the simulation (the sim's frame data is the only clock). Sister documents: `ART_
   `fighter_dodge`: the state's length from the fighter's parameters, which way it goes, whether a roll ends turned round (sim 147),
   and how many frames it really lasts, longer for a stale roll or spot dodge; since sim 149 a tech, get-up or trip roll has its own
   length, the ruleset's 40, 35 or 28, and moves only on the shield roll's move frames: a fifth and sixth value say what the roll
-  comes out of, 0 a shield, 1 a tech, 2 a knockdown, 3 a trip, and the last frame it moves on), so a fighter with longer rolls still lands
+  comes out of, 0 a shield, 1 a tech, 2 a knockdown, 3 a trip, and the last frame it moves on; since sim 150 the stand-up lasts 29
+  frames, 21 out of a trip, and a tech in place is a 26-frame landing, intangible through 20), so a fighter with longer rolls still lands
   its roll's poses on its own frames. The roll's somersault and the spot dodge's step back into the stage are code on top.
 - **Multihit**: the bridge exposes each move's separate hits (`fighter_move_windows`: one window per hitbox group, cut again at every
   re-hit of a `rehit` move). Between two hits the body draws back toward the wind-up and strikes again on the next hit's first frame;
