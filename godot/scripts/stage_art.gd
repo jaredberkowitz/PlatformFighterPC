@@ -5576,6 +5576,14 @@ static func _ocean(root: Node3D, t: Dictionary, stage: Array) -> void:
 		if arg.begins_with("--near-waves="):
 			nwaves = {"A": 0.6, "B": 1.2}.get(arg.substr(13).to_upper(), nwaves)
 	wm.set_shader_parameter("near_waves", nwaves)
+	# (Origami, the style pass: the palette's [backdrop] `sea_fold` or `--origami=T|A|B|C`; see SEA_FOLD_TRY.)
+	var fold_look := String((_palette.get("backdrop", {}) as Dictionary).get("sea_fold", ""))
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--origami="):
+			fold_look = arg.substr(10).to_upper()
+	var fd: Array = SEA_FOLD_TRY.get(fold_look, [])
+	if fd.size() == 3:
+		wm.set_shader_parameter("fold", Vector3(fd[0], fd[1], fd[2]))
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--sea-look="):
 			wm.set_shader_parameter("look", {"T": 0, "A": 1, "B": 2, "C": 3}.get(arg.substr(11), int(_pal("sea_look"))))
@@ -6450,6 +6458,12 @@ static func _roof_mark_textures() -> Array:
 
 
 const FACADE_SHADER := preload("res://shaders/facade.gdshader")
+## The beach's sea folded like origami (the style pass, docs/art/stages/STYLE_PASS.md; water.gdshader `fold` [how much, pleat period, the
+## crease's ridge]):
+##   A  each sheet folded along a straight crease, the near face from the light and the far face toward it;
+##   B  the crease zigzagging in pleats, so the faces are triangles, the rising ones lit and the falling ones shaded;
+##   C  B, the pleats twice as wide and the crease a brighter ridge.
+const SEA_FOLD_TRY := {"T": [], "A": [1.0, 0.0, 0.6], "B": [1.0, 5.0, 0.6], "C": [1.0, 10.0, 1.0]}
 ## The city's skyline printed as a pop-up book's pages (the style pass, docs/art/stages/STYLE_PASS.md; facade.gdshader `halftone`): each wall
 ## printed flat, its shade in halftone dots [the near layer's dot pitch (the middle and far layers' larger, so the dots stay about one size
 ## on screen), the ink's darkness, how much of the fall toward the street goes into dots]:

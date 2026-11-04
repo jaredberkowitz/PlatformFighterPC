@@ -146,3 +146,26 @@ dots read coarse.
 - The shipped skyline measures the same as the mock's B.
 - Before and after at the match camera (top) and wide (bottom), before left: `style/halftone_built.jpg`.
 All seven tests pass.
+
+## Step 4: the beach's origami sea (mock, 2026-11-04)
+
+The owner: "Next stage's craft". The beach's sea was already cut paper: tiers of card, each with a scalloped, lit edge. water.gdshader
+`fold` folds each tier instead of shading it smoothly:
+- the near face turned from the light and the far face toward it, with a crisp crease between, lit as a ridge;
+- with pleats, the crease zigzags along the tier, so the faces are triangles, the rising ones lit and the falling ones shaded.
+
+Only the water's shader changes. The palette's [backdrop] `sea_fold`, or `--origami=T|A|B|C` (StageArt.SEA_FOLD_TRY):
+
+| Option | What changes |
+|---|---|
+| Today | Each tier shaded smoothly toward its edge |
+| A, folded | Each tier folded along a straight crease |
+| B, pleated | The crease zigzags, so the faces are triangles |
+| C, wide pleats | B, with pleats twice as wide and a brighter crease |
+
+P1's gap holds (0.165 to 0.170), and so do the sea's value and contrast. On the Stage Look Review ("origami69", `og69_*`).
+
+Recommended B: its pleats read as folded paper across the near sea.
+- It shows mostly at the wide camera. At the match camera the sea is mostly far water and reflections.
+- The tiers wander, so the facets are irregular, and up close they can read as low-poly glass rather than pleats. C pushes that further;
+  A is the quiet choice.
