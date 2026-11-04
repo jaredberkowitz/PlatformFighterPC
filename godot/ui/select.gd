@@ -43,6 +43,14 @@ const STACK_GAP := 12.0
 const HERO_TURN_DEFAULT := 0.55
 const HERO_TURN_MAX := 0.9
 const STAFF_CLASS := 5
+## Hero poses whose raised weapon is longer than the room above the hand at the panel's scale (the art director, 2026-11-04: the
+## Greatsword's and the Nodachi's blades ran past the panel and under the top bar; the Longsword's reached the bar and the VERSUS title):
+## [k, lower]: the fighter drawn k times smaller with its feet where they were, then `lower` world units lower in the panel (its feet
+## still above the name plate), so the whole blade clears the bar. By class.
+const HERO_FIT := {0: Vector2(1.14, 0.0), 6: Vector2(1.32, 0.42), 13: Vector2(1.4, 0.72)}
+## The panel camera's height, aim and distance (scaled together by HERO_FIT, which keeps the feet in place).
+const HERO_CAM := Vector3(0, 1.3, 7.4)
+const HERO_AIM_Y := 1.2
 const TOKEN_MAX := 132
 const TOKEN_MIN := 52
 const GRID_GAP := Vector2(10, 12)
@@ -285,10 +293,9 @@ class PlayerPanel extends Control:
 		scenery = spot
 		mask.add_child(scenery)
 		# (Closer since the face-off, 2026-11-03: the fighter fills a panel the screen's height, about 85% of it, cut out of paper.)
-		preview = Preview.new(Vector2i(260, 260), false, 7.4)
+		preview = Preview.new(Vector2i(260, 260), false, HERO_CAM.z)
 		preview.spin = false
-		preview.camera.position = Vector3(0, 1.3, 7.4)
-		preview.camera.look_at_from_position(preview.camera.position, Vector3(0, 1.2, 0))
+		_fit(1.0)
 		if Art.paper_style() > 0:
 			var m := ShaderMaterial.new()
 			m.shader = DIE_CUT
@@ -430,6 +437,12 @@ class PlayerPanel extends Control:
 	## (menu_hero_<family> through `family_clip`; menu_hero_staff for the staff), held, its weapon in hand, the right-hand panels holding
 	## the mirrored `@m` clip so both present toward the centre, turned by the pose's own amount (AnimLibrary `HERO_TURN`, by clip, when
 	## the rig has it). A class whose pose is not built yet holds its family's jump at the top of its spring, as before.
+	## Draws the fighter `k` times smaller with its feet where they were: the camera's height, aim and distance all scale by `k` (a point
+	## at height y sits (y - aim) / distance off the view's centre, so the feet, at height 0, stay put).
+	func _fit(k: float, lower := 0.0) -> void:
+		preview.camera.position = HERO_CAM * k + Vector3(0, lower, 0)
+		preview.camera.look_at_from_position(preview.camera.position, Vector3(0, HERO_AIM_Y * k + lower, 0))
+
 	func _hold_hero(c: int) -> void:
 		var anim: AnimationPlayer = preview.view.anim
 		var clip := AnimLibrary.family_clip(c, "menu_hero", anim)
@@ -444,9 +457,12 @@ class PlayerPanel extends Control:
 			var key := clip.trim_suffix("@m")
 			hero_turn = clampf(float((consts.get("HERO_TURN", {}) as Dictionary).get(key, HERO_TURN_DEFAULT)), 0.0, HERO_TURN_MAX)
 			preview.hold_clip(clip, float((consts.get("HERO_AT", {}) as Dictionary).get(key, 0.5)))
+			var fit: Vector2 = HERO_FIT.get(c, Vector2(1.0, 0.0))
+			_fit(fit.x, fit.y)
 		else:
 			hero_turn = HERO_TURN_DEFAULT
 			preview.hold_clip(AnimLibrary.family_clip(c, "jump", anim), 0.35)
+			_fit(1.0)
 		_face()
 
 	func show_entry(e: Dictionary, size_percent: float, ready: bool) -> void:

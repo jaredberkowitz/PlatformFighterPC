@@ -200,3 +200,16 @@ The grid test's "nine cards sit in one row" (the old strip) is now "the built-in
 or more". Not done: the poses are today's jump frames; striking menu poses of their own (and a weapon that follows a swing in the
 menus: `_pose_menu_weapon` holds it at rest) need the animator. Not checked: 30 and 100 saved fighters (the grid scrolls), long names
 on the plate (they shrink to fit), a real gamepad.
+
+## Hero fit: long blades clear the top bar (2026-11-04)
+
+The animator's hero poses (art/anim-core 60abf33c, the owner's picks: sword A, staff B, brawler B, quick A) raise the blade. On the face-off
+panels the Greatsword's (Champion) and the Nodachi's (Exile) ran past the card's top and under the top bar; the Longsword's (Duelist)
+reached the bar and covered the VERSUS title and the P1 tab. The animator tried other hand positions (the blade left the panel's side,
+reached the bar upright, or crossed the face), so the fit is on the UI side: `select.gd` `HERO_FIT`, by class, [k, lower]. The fighter
+is drawn k times smaller with its feet in place (camera height, aim and distance scaled together), then `lower` world units lower.
+Duelist 1.14 / 0; Champion 1.32 / 0.42; Exile 1.4 / 0.72 (the nodachi is the longest and most upright). Blades are never drawn over the
+bar, which would cover the stocks and time.
+
+Before/after: `hero_fit_before_after.png` (Champion vs Exile both ways round, Duelist vs Brawler); four players both ways round in
+`hero_fit/`. Checked: both sides, two and four players. Tests: select_grid, creator_flow, match_flow, stage_select, runner and orphan pass.
