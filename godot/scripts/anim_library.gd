@@ -548,10 +548,11 @@ const FAMILY_SHARES := {}
 const OWN_ONLY := ["menu_hero"]
 ## A class's own take on a shared clip, ahead of its family's (round 9: the Seer's hero pose with its staff, in the sword family).
 const CLASS_OWN_CLIPS := {5: {"menu_hero": "menu_hero_staff"}}
-## The fighter select's hero poses (round 9, the owner's picks of 2026-11-04: sword A, staff B, brawler B, quick A; the heavy, caster and
-## tool families still to pick): how far each turns its fighter from facing the camera toward its foe in the face-off panel (radians, at
+## The fighter select's hero poses (round 9, the owner's picks of 2026-11-04: sword A, staff B, brawler B, quick A; and from the second
+## round heavy C, caster C, tool C): how far each turns its fighter from facing the camera toward its foe in the face-off panel (radians, at
 ## most 0.9; `select.gd` reads it, and holds the clip at `HERO_AT` of its length, 0.5 when not named: each pose is one held still).
-const HERO_TURN := {"menu_hero": 0.55, "menu_hero_staff": 0.55, "menu_hero_brawler": 0.55, "menu_hero_quick": 0.55}
+const HERO_TURN := {"menu_hero": 0.55, "menu_hero_staff": 0.55, "menu_hero_brawler": 0.55, "menu_hero_quick": 0.55, "menu_hero_heavy": 0.55,
+	"menu_hero_caster": 0.55, "menu_hero_tool": 0.55}
 
 
 ## Class `cls`'s own take on the shared clip `clip` (its family's, `<clip>_<family>`) when it has one and the rig has it, else `clip`.

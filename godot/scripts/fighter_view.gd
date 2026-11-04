@@ -2097,7 +2097,7 @@ const MENU_WEAPON_DEG := {"menu_hero": 110.0, "menu_hero_staff": 24.0}
 ## select's held jump until the hero poses) keeps the resting carry: along the fist of an arm a jump swings, the greatsword crossed the face.
 const MENU_STRIKE_CLIPS := ["attack_", "sword_", "kick_", "gaunt_", "body_", "tool_", "staff_", "nodachi_", "dagger_", "buckler_", "great_", "blaster", "menu_hero_quick"]
 ## Held clips whose free hand is open (a palm thrust out, a wave); every other held clip closes both hands.
-const MENU_OPEN_HAND := ["menu_hero", "menu_hero_staff"]
+const MENU_OPEN_HAND := ["menu_hero", "menu_hero_staff", "menu_hero_caster", "menu_hero_tool"]
 
 
 ## A menu fighter's weapon in the weapon hand, at its true size: at the class's resting carry in the look's stance, as in a match
