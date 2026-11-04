@@ -251,8 +251,10 @@ const CLASS_MOVES := {
 	# Clutch (the Bounder): kicks for its jabs, dash attack and airs, its tail swipes as low and high kicks, a flip kick overhead for the up
 	# smash, the headbutts as heavy strikes. (Placeholders until its own clips; the leg is aimed at each hit.)
 	8: {
-		"jab": "kick_low",
-		"jab 2": "kick_low",
+		# (Round 9: standing kicks, as its reference's two jabs are, upright on the standing leg. Seated in the low sweep's crouch, every
+		# jab dropped the body 0.6 units in its one frame of startup and stood it up in two after.)
+		"jab": "kick_up",
+		"jab 2": "kick_up",
 		"ftilt": "kick_low",
 		"utilt": "kick_up",
 		"dtilt": "kick_low",

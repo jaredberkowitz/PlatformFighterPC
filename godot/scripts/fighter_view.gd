@@ -1051,11 +1051,11 @@ const CLIP_END_SHAPES := {"body_headbutt_fwd": Vector3(0.12, 0.8, CARRY_FRAMES)}
 ## family's aerials and down smash held 12-33 frames where its reference holds 2-6 and floats home over 14-26; the Longsword's forward
 ## air and jab held too long and recovered in 3-5; the heavy's forward air and smash, the caster's up air and forward smash.)
 const CLASS_END_SHAPES := {
-	0: {"bair": Vector2(0.550, 0.850), "dair": Vector2(0.773, 0.990), "dsmash": Vector2(0.803, 0.990), "dtilt": Vector2(0.020, 0.563), "fair": Vector2(0.350, EVEN + 0.990), "fsmash": Vector2(0.020, 0.990), "ftilt": Vector2(0.766, 0.990), "jab": Vector2(0.020, 0.684), "uair": Vector2(0.078, EVEN + 0.732), "usmash": Vector2(0.150, EVEN + 0.990), "utilt": Vector2(0.060, 0.950)},
+	0: {"bair": Vector2(0.550, 0.850), "dair": Vector2(0.760, 0.990), "dsmash": Vector2(0.803, 0.990), "dtilt": Vector2(0.020, 0.563), "fair": Vector2(0.350, EVEN + 0.990), "fsmash": Vector2(0.020, 0.990), "ftilt": Vector2(0.766, 0.990), "jab": Vector2(0.020, 0.684), "uair": Vector2(0.078, EVEN + 0.732), "usmash": Vector2(0.150, EVEN + 0.990), "utilt": Vector2(0.060, 0.950)},
 	1: {"bair": Vector2(0.479, 0.990), "dair": Vector2(0.393, 0.990), "fair": Vector2(0.713, 0.990), "ftilt": Vector2(0.307, 0.990), "jab": Vector2(0.479, 0.990), "nair": Vector2(0.020, 0.987), "usmash": Vector2(0.306, 0.746), "utilt": Vector2(0.084, 0.990)},
 	2: {"bair": Vector2(0.444, EVEN + 0.990), "dsmash": Vector2(0.035, EVEN + 0.990), "dtilt": Vector2(0.691, 0.920), "fair": Vector2(0.403, 0.882), "fsmash": Vector2(0.273, 0.577), "ftilt": Vector2(0.214, 0.786), "jab": Vector2(0.704, 0.990), "nair": Vector2(0.040, EVEN + 0.960), "uair": Vector2(0.030, EVEN + 0.970), "usmash": Vector2(0.146, 0.892), "utilt": Vector2(0.490, 0.990)},
-	3: {"bair": Vector2(0.664, 0.990), "dsmash": Vector2(0.373, 0.563), "dtilt": Vector2(0.585, 0.973), "fair": Vector2(0.858, 0.990), "fsmash": Vector2(0.289, EVEN + 0.990), "ftilt": Vector2(0.020, 0.861), "jab": Vector2(0.346, 0.990), "nair": Vector2(0.186, 0.920), "uair": Vector2(0.020, EVEN + 0.744), "usmash": Vector2(0.326, 0.843), "utilt": Vector2(0.418, 0.950)},
-	8: {"bair": Vector2(0.814, 0.928), "dair": Vector2(0.020, 0.990), "dsmash": Vector2(0.400, 0.800), "dtilt": Vector2(0.313, 0.646), "fair": Vector2(0.550, 0.900), "fsmash": Vector2(0.207, 0.990), "ftilt": Vector2(0.528, 0.872), "jab": Vector2(0.403, 0.711), "nair": Vector2(0.257, 0.990), "usmash": Vector2(0.020, 0.158), "utilt": Vector2(0.020, 0.990)},
+	3: {"bair": Vector2(0.664, 0.990), "dsmash": Vector2(0.373, 0.563), "dtilt": Vector2(0.585, 0.973), "fair": Vector2(0.858, 0.990), "fsmash": Vector2(0.289, EVEN + 0.990), "ftilt": Vector2(0.020, 0.861), "jab": Vector2(0.346, 0.990), "nair": Vector2(0.186, 0.920), "uair": Vector2(0.020, EVEN + 0.950), "usmash": Vector2(0.326, 0.843), "utilt": Vector2(0.418, 0.950)},
+	8: {"bair": Vector2(0.755, 0.905), "dair": Vector2(0.020, 0.990), "dsmash": Vector2(0.400, 0.800), "dtilt": Vector2(0.313, 0.646), "fair": Vector2(0.550, 0.900), "fsmash": Vector2(0.207, 0.990), "ftilt": Vector2(0.528, 0.872), "jab": Vector2(0.200, 0.540), "nair": Vector2(0.257, 0.990), "usmash": Vector2(0.020, 0.158), "utilt": Vector2(0.020, 0.990)},
 	10: {"bair": Vector2(0.490, 0.990), "dair": Vector2(0.347, 0.987), "dsmash": Vector2(0.598, 0.979), "dtilt": Vector2(0.720, 0.990), "ftilt": Vector2(0.623, 0.990), "jab": Vector2(0.020, 0.990), "nair": Vector2(0.020, 0.465), "usmash": Vector2(0.147, 0.783), "utilt": Vector2(0.205, 0.990)},
 }
 ## The clip's follow-through key (frame 40 of 60).
@@ -1663,6 +1663,8 @@ func _body_follow(s: Dictionary, delta: float) -> void:
 	_turn_bone(head_bone, HEAD_TOWARD_FOE * face_side)
 	if use_base_body and not turning_over and not r7_off.has("chest"):
 		_keep_chest_side_on(int(s.facing))
+	else:
+		chest_away_ok = false
 
 
 ## The chest never turns its back to the camera (round 7): past CHEST_SOFT degrees from the camera its turn is eased toward CHEST_MOST and
@@ -1674,6 +1676,21 @@ func _body_follow(s: Dictionary, delta: float) -> void:
 const CHEST_SOFT := 72.0
 const CHEST_MOST := 90.0
 const CHEST_WRAP := 150.0
+## (Round 9, the end-lag pops: the turn is weighed by how much of the chest's front lies level, eased in from CHEST_LEVEL_FROM to
+## CHEST_LEVEL_TO of it, instead of switched off below 0.3: a chest curled over to face the floor has no clear heading, and turning it
+## about the upright moves the shoulder line instead. Switched, the Embers' forward air's chest turned 77 degrees in one frame as it
+## curled past 0.3 (frame 22, the far fist flung from in front of the chest to behind the back) and back as it uncurled (frame 53).)
+const CHEST_LEVEL_FROM := 0.15
+const CHEST_LEVEL_TO := 0.5
+## (Round 9, the end-lag pops: the chest's heading is followed from frame to frame the way it turns, `chest_away`, and only taken afresh
+## (wrapped at CHEST_WRAP) when it was not followed the frame before, after a seek or a turn round, or once it is back within CHEST_SOFT of
+## the camera. Wrapped afresh every frame, a chest still turning on past its back crossed CHEST_WRAP and was held side-on the other way
+## round: the Gauntlets' charged punch turned its chest 172 degrees in one frame at frame 58, the far fist flung to the near side.) The
+## followed heading is taken no further than CHEST_TRACK_MOST either way.
+const CHEST_TRACK_MOST := 240.0
+var chest_away := 0.0
+var chest_away_ok := false
+var chest_away_facing := 0
 ## With the environment variable PF_R7_OFF (a debugging aid for round 7's before and after images), the round's layers named in it are
 ## left out: "chest" (`_keep_chest_side_on`), "level" (`_level_head` and FACE_UP_MAX), "ease" (`_ease_neck`), "legs" (`_leg_hinge` and
 ## the kick's knee pole), "tumble" (the settle out of a tumble), e.g. PF_R7_OFF=ease,legs.
@@ -1683,18 +1700,32 @@ static var r7_off := OS.get_environment("PF_R7_OFF").split(",")
 func _keep_chest_side_on(facing: int) -> void:
 	var g: Basis = skeleton.get_bone_global_pose(spine_bone).basis * skeleton.get_bone_global_rest(spine_bone).basis.inverse()
 	var ahead: Vector3 = (_skeleton_to_frame().basis * g * Vector3(0, 0, 1))
-	if Vector2(ahead.x, ahead.z).length() < 0.3:
+	var level := Vector2(ahead.x, ahead.z).length()
+	var weight := 1.0 if level >= 0.3 else 0.0
+	if not _r9p("chestlevel"):
+		weight = smoothstep(CHEST_LEVEL_FROM, CHEST_LEVEL_TO, level)
+	if weight <= 0.0:
+		chest_away_ok = false
 		return
 	# (Round 9: measured the way the fighter faces. A chest swung past its back by a strike wrapped round to the other side here, and was then held at side-on the WRONG way round: the whole chest flipped 180 degrees for the frames it stayed there, in one frame each way, jab, forward smash and neutral special of the unarmed classes above all, 95 frames in seven classes, the head jumping up to a unit and the fist going over the face. A back air's chest, turned back on purpose, reaches -134.)
-	var away := rad_to_deg(atan2(ahead.x, ahead.z)) * float(facing)
+	var raw := rad_to_deg(atan2(ahead.x, ahead.z)) * float(facing)
+	var away := raw
 	if away < -CHEST_WRAP:
 		away += 360.0
+	if not _r9p("chestwrap"):
+		if chest_away_ok and not springs.jumped and chest_away_facing == facing and absf(raw) > CHEST_SOFT:
+			chest_away += wrapf(raw - chest_away, -180.0, 180.0)
+		else:
+			chest_away = away
+		chest_away_ok = true
+		chest_away_facing = facing
+		away = clampf(chest_away, -CHEST_TRACK_MOST, CHEST_TRACK_MOST)
 	var a := absf(away)
 	if a <= CHEST_SOFT:
 		return
 	var span := CHEST_MOST - CHEST_SOFT
 	var kept := CHEST_SOFT + span * (1.0 - exp(-(a - CHEST_SOFT) / span))
-	_turn_bone(spine_bone, -signf(away) * float(facing) * (a - kept))
+	_turn_bone(spine_bone, -signf(away) * float(facing) * (a - kept) * weight)
 
 
 ## The line of action in grounded strikes (round 8, the owner's pick C after the mock, 2026-10-28): [how much of a level strike's swing the
@@ -4212,6 +4243,8 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 	face_side = float(s.facing)
 	if roll_turning:
 		face_side = lerpf(-float(s.facing), float(s.facing), roll_turn_k(s, _cls(s)))
+	if not _r9p("tip"):
+		s = _hold_last_tip(s)
 	# The old built body's brawler has longer limbs: swap to its rig the first time we see its class. (The base body is one rig for every
 	# class, so it never rebuilds here: a rebuild on the first frame of a match also left that fighter's per-mesh shader values, the ink
 	# pass's object id among them, stale on part of the body, which drew a line round its face.)
@@ -4629,6 +4662,39 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 ## arc, front, guard, beside).
 func _r9p(what: String) -> bool:
 	return r9_off.has("pops") or r9_off.has(what)
+
+
+## (Round 9, the end-lag pops) The tip a move's last hit was at (`_hold_last_tip`), the move it belongs to, and the sim frame it was last
+## carried on (-1: none).
+var tip_last := Vector3.ZERO
+var tip_last_move := ""
+var tip_last_frame := -1
+
+
+## After a move's last hit its tip stays where that hit was: the bridge's tip for an end lag is the furthest of the hitboxes ending last,
+## whatever the attack's aim or mode, so it could jump to a hitbox the move never had out (the Phantom's forward air's kick to one of its
+## upward hits at frame 14, the foot thrown 0.83 units up to above the head). Followed frame by frame, as `springs` follows the sim's frames;
+## after a seek into an end lag the bridge's tip is taken as before.
+func _hold_last_tip(s: Dictionary) -> Dictionary:
+	var f := int(s.frame)
+	var on := tip_last_frame >= 0 and f - tip_last_frame >= 0 and f - tip_last_frame <= 2
+	var mt: PackedInt32Array = s.move_timing
+	if String(s.state) != "Attack" or String(s.move_name) == "" or mt.size() < 3 or mt[2] <= 0:
+		tip_last_frame = -1
+		return s
+	if int(s.state_frame) <= mt[2]:
+		tip_last = s.move_tip
+		tip_last_move = String(s.move_name)
+		tip_last_frame = f
+		return s
+	if not on or tip_last_move != String(s.move_name):
+		tip_last_frame = -1
+		return s
+	tip_last_frame = f
+	if (s.move_tip as Vector3) != tip_last:
+		s = s.duplicate()
+		s.move_tip = tip_last
+	return s
 
 
 ## (Debugging aid, PF_LAYER_TRACE: both hands after each arm layer, stage frame: "LAYER <class> <move> <frame> <layer> L:x,y,z R:x,y,z".)
@@ -5524,6 +5590,8 @@ const ARC_EITHER_WAY := 0.0
 const ARC_EITHER_WAY_BLADE := deg_to_rad(150.0)
 var arc_prev := 0.0
 var arc_prev_ok := false
+## The fastest a fist turns round its shoulder in an end lag (degrees a sim frame; round 9).
+const ARC_LAG_DEG := 40.0
 
 
 ## How low the hand is in a held lunge (forward space), for where the floor stops a held cut.
@@ -5991,8 +6059,17 @@ func _pose_blade(s: Dictionary, delta: float) -> void:
 		# (A blade raised high is held out in front of the face, not over it: the arm is short against the big head, so straight up the
 		# hilt ended in front of the face and the arm hid behind the blade. Art review 5, after the reference's up smash, whose arm is
 		# straight and clear of the head.)
-		if bladed(_cls(s)) and use_base_body and dir.angle() > deg_to_rad(HIGH_BLADE_ARM) and dir.angle() < deg_to_rad(150.0):
-			dir = Vector2.from_angle(deg_to_rad(HIGH_BLADE_ARM))
+		# (Round 9, the end-lag pops: let go gradually as the blade points on round behind, from HIGH_ARM_FROM to HIGH_ARM_TO, instead of all at once
+		# at 150 degrees: a blade swinging on over the top threw the arm from up in front to behind in one frame (88 degrees), the Exile's up
+		# air's hand 1.1 units, and one rising behind brought it from behind to up in front, then back round the head (the Wanderer's back
+		# air, 1.75 units). Not the up cuts (`UP_CUTS`), which place their hand beside the head themselves.)
+		if bladed(_cls(s)) and use_base_body and dir.angle() > deg_to_rad(HIGH_BLADE_ARM):
+			if _r9p("higharm") or not _up_cut(s).is_empty():
+				if dir.angle() < deg_to_rad(150.0):
+					dir = Vector2.from_angle(deg_to_rad(HIGH_BLADE_ARM))
+			else:
+				var free := smoothstep(HIGH_ARM_FROM, HIGH_ARM_TO, rad_to_deg(dir.angle()))
+				dir = Vector2.from_angle(lerpf(deg_to_rad(HIGH_BLADE_ARM), dir.angle(), free))
 		var goal := shoulder + dir * reach
 		# A fist's forward air on the base body is an overhead punch (`_overhead_angle`), not a jab at the hitbox.
 		if use_base_body and not bladed(_cls(s)) and _overhead_punch(s):
@@ -6012,6 +6089,12 @@ func _pose_blade(s: Dictionary, delta: float) -> void:
 					var other := from_v.angle() + (d - signf(d) * TAU) * arm_k
 					if absf(angle_difference(arc_prev, other)) < absf(angle_difference(arc_prev, angle)):
 						angle = other
+				# (Round 9: and in an end lag a fist turns round the shoulder no faster than ARC_LAG_DEG a sim frame: the way round flips over as its
+				# rest sweeps past its reach, a hand taken the long way (the Bracers' down smash, rising) jumped 104 degrees round, 0.63 units, at
+				# frame 40. Not a blade's arm: held back, the Longsword's up tilt went home late and the Exile's jumped later instead.)
+				if arc_prev_ok and not springs.jumped and not _r9p("arclag") and not bladed(_cls(s)) 						and float(s.state_frame) > float((s.move_timing as PackedInt32Array)[2]):
+					var most := deg_to_rad(ARC_LAG_DEG) * float(springs.new_frames)
+					angle = arc_prev + clampf(angle_difference(arc_prev, angle), -most, most)
 				arc_prev = angle
 				arc_prev_ok = true
 			hand = shoulder + Vector2.from_angle(angle) * lerpf(from_v.length(), to_v.length(), arm_k)
@@ -6065,6 +6148,16 @@ func _pose_blade(s: Dictionary, delta: float) -> void:
 		var up_deg := wrapf(blade_angle, -150.0, 210.0)
 		if up_now:
 			kf = maxf(kf, smoothstep(UP_HAND_FROM, UP_HAND_TO, up_deg) * (1.0 - smoothstep(UP_HAND_BACK_FROM, UP_HAND_BACK_TO, up_deg)))
+		# (Round 9, the end-lag pops: in an end lag the hand lets go of the face's clearing over FRONT_SIDE_FRAMES sim frames, as it goes over
+		# to the head's other side, instead of in one: swung away from the head as the blade went over the top, the arm's own reach dropped
+		# the weight from 1 to 0 in a frame and the hand jumped from its cleared place to the reach's, the Champion's up air 0.95 units,
+		# across the mouth. A seek, or out of an end lag, takes the weight as it is.)
+		if not _r9p("frontk"):
+			var held_on := front_k_frame >= 0 and int(s.frame) - front_k_frame >= 0 and int(s.frame) - front_k_frame <= 2
+			if lag_now and not up_now and not springs.jumped and held_on:
+				kf = maxf(kf, front_k - float(springs.new_frames) / FRONT_SIDE_FRAMES)
+			front_k = kf
+			front_k_frame = int(s.frame)
 		if kf > 0.0:
 			var hp := skeleton.get_bone_global_pose(head_bone)
 			var hc := _skeleton_to_frame() * (hp.origin + hp.basis.y.normalized() * HEAD_CENTRE_UP)
@@ -6081,10 +6174,14 @@ func _pose_blade(s: Dictionary, delta: float) -> void:
 			# air, 0.65-0.9 units in a frame with the hand at the face. Out of the end lag it is on its side at once, as before; a seek
 			# puts it there.)
 			var side_to := 1.0 if ahead else 0.0
-			if _r9p("front") or up_now or not lag_now or springs.jumped:
+			# (Round 9: a side left from frames the hand was not by the face (a move before, or this one's strike) is not eased from: it put
+			# the Champion's neutral special's hand behind the head for a frame as its end lag began, 0.84 units.)
+			var stale := not _r9p("frontk") and (front_side_frame < 0 or int(s.frame) - front_side_frame < 0 or int(s.frame) - front_side_frame > 2)
+			if _r9p("front") or up_now or not lag_now or springs.jumped or stale:
 				front_side = side_to
 			else:
 				front_side = move_toward(front_side, side_to, float(springs.new_frames) / FRONT_SIDE_FRAMES)
+			front_side_frame = int(s.frame)
 			if not _r9p("front") and not up_now:
 				var fs := smoothstep(0.0, 1.0, front_side)
 				clear_x = hc.x * facing + lerpf(-HEAD_CLEAR_R * FRONT_CLEAR, FACE_FWD + HEAD_CLEAR_R * FRONT_CLEAR, fs)
@@ -6173,6 +6270,10 @@ func _pose_blade(s: Dictionary, delta: float) -> void:
 		# showing round the head; it covered the face for 81 frames of its up moves and forward air.)
 		if use_base_body and skeleton != null and head_bone >= 0 and not front_hand:
 			hand_z = minf(hand_z, lerpf(hand_z, HEAD_BEHIND_Z, _behind_head_k(hand, facing)))
+		# (Round 9, the end-lag pops: and round behind the head while it goes over to the head's other side, `front_cross`, as the other blades'
+		# hands do: kept at its own depth, the grip went across in front of the mouth, the Champion's up air.)
+		if front_cross > 0.0 and not _r9p("frontk"):
+			hand_z = lerpf(hand_z, HEAD_BEHIND_Z, front_cross)
 	hand_target = Vector3(hand.x * facing, hand.y, hand_z)
 	# The greatsword is held in both hands: the other one a little further down the grip (toward the pommel), just behind the blade.
 	var back_along := Vector2.from_angle(deg_to_rad(angle)) * -0.3
@@ -6645,6 +6746,14 @@ var front_side := 1.0
 ## How far the weapon hand is through going round behind the head this frame (0 not crossing, 1 halfway), for the hand's depth and the
 ## layers after it.
 var front_cross := 0.0
+## How much the weapon hand was kept clear of the face last frame (`_pose_blade`'s `kf`): in an end lag it lets go over FRONT_SIDE_FRAMES
+## sim frames (round 9, the end-lag pops).
+var front_k := 0.0
+## The sim frame `front_k` was last set on (-1 none): a weight left from frames the hand was not cleared (a windmill's charge, another
+## move) is not carried on.
+var front_k_frame := -1
+## The sim frame `front_side` was last set on (-1 none).
+var front_side_frame := -1
 ## How many sim frames an arm's reach takes to let go when it ends, and at most how many a move's reach takes to come in (fewer when the
 ## move strikes sooner); the reach's weight while letting go, and the targets it lets go from.
 const IK_FADE_FRAMES := 6.0
@@ -6960,6 +7069,11 @@ const BESIDE_REACH := 0.95
 const BESIDE_SIDE_BAND := 0.3
 ## Whether this frame's side is eased (`_apply_combat`: a move's end lag after its hits).
 var beside_ease_side := false
+## (Round 9) How many sim frames a hand beside the head takes to go over to the head's other side in an end lag, and the side (-1..1) each hand
+## was taken to and the sim frame of it.
+const BESIDE_SIDE_FRAMES := 4.0
+var beside_sgn := {}
+var beside_sgn_frame := {}
 ## (Round 9, the end-lag pops: the face guards ease out across this depth as a hand goes behind the head's middle.)
 const GUARD_DEPTH_BAND := 0.08
 const BESIDE_DEPTH_BAND := 0.08
@@ -7007,11 +7121,23 @@ func _arms_beside_head(facing: int) -> void:
 		var off := p.x - c.x if mine else p.x - sh.x
 		var dflt := float(facing) if mine else -float(facing)
 		var sgn := signf(off) if absf(off) > 0.06 else dflt
-		if not (_r9p("beside") or _r9p("bside")) and beside_ease_side:
-			# (Past 0.06 the other side, eased across BESIDE_SIDE_BAND beyond it; in a move's end lag only: a hitless special's held pose
-			# that sat in the band all through (the Phantom's down special) put its far hand over the head's middle, the elbow reversed.)
-			var at := -0.06 * dflt
-			sgn = dflt * (2.0 * (1.0 - smoothstep(0.0, BESIDE_SIDE_BAND, (at - off) * dflt)) - 1.0)
+		if not (_r9p("beside") or _r9p("bside")):
+			if not _r9p("bsidet"):
+				# (Round 9, the end-lag pops: in a move's end lag the side goes over to the other in BESIDE_SIDE_FRAMES sim frames from where it
+				# was the frame before. Eased by the hand's place in the end lag only (below, BESIDE_SIDE_BAND), it disagreed with the strike's
+				# side on the end lag's first frame and the hand jumped round the head then, 0.5-0.75 units: the up tilts of the Popgun, the
+				# Bracers, the Phantom and the Settler. A seek, or out of an end lag, takes the side as it is.)
+				var was: int = beside_sgn_frame.get(side, -1)
+				var on: bool = was >= 0 and springs.frame - was >= 0 and springs.frame - was <= 2
+				if beside_ease_side and on and not springs.jumped:
+					sgn = move_toward(float(beside_sgn.get(side, sgn)), sgn, 2.0 * float(springs.new_frames) / BESIDE_SIDE_FRAMES)
+				beside_sgn[side] = sgn
+				beside_sgn_frame[side] = springs.frame
+			elif beside_ease_side:
+				# (Past 0.06 the other side, eased across BESIDE_SIDE_BAND beyond it; in a move's end lag only: a hitless special's held pose
+				# that sat in the band all through (the Phantom's down special) put its far hand over the head's middle, the elbow reversed.)
+				var at := -0.06 * dflt
+				sgn = dflt * (2.0 * (1.0 - smoothstep(0.0, BESIDE_SIDE_BAND, (at - off) * dflt)) - 1.0)
 		var reach := ((skeleton.get_bone_global_rest(il).origin - skeleton.get_bone_global_rest(iu).origin).length()
 			+ (skeleton.get_bone_global_rest(ih).origin - skeleton.get_bone_global_rest(il).origin).length() + 0.07)
 		reach *= BESIDE_REACH * (to_frame.basis.x.length())
@@ -7517,6 +7643,9 @@ const ARC_WIDTH := 0.22
 const ARC_MAX_GROW := 1.15
 ## The highest a sword arm points (degrees above forward) when the blade goes up overhead.
 const HIGH_BLADE_ARM := 62.0
+## Past these (degrees above forward) the sword arm follows a blade pointing on round behind instead, eased from one to the other (round 9).
+const HIGH_ARM_FROM := 100.0
+const HIGH_ARM_TO := 150.0
 ## How see-through the swing arcs and smears are: painted, but a trail of light, not a solid shape (the fighter shows through it).
 ## (0.62, art review 6: at 0.82 the pale crescent was the biggest, most solid shape on screen at the moment of a hit, over both fighters.)
 const ARC_OPACITY := 0.62

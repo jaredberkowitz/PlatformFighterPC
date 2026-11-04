@@ -334,5 +334,30 @@ func _initialize() -> void:
 			most = maxf(most, absf((dasher.feet_last[side][0] as Vector3).x - (stood[side][0] as Vector3).x))
 	check(most < 0.02, "a dash's planted feet stay where they stood as it sets off (moved %.3f)" % most)
 
+	# (Round 9, the end-lag pops.) After a move's last hit its tip stays where that hit was, whatever the bridge's end-lag tip says (it can
+	# name a hitbox the move never had out); a freeze holds it, and a seek into the end lag takes the bridge's.
+	var kicker := FighterView.new()
+	root.add_child(kicker)
+	kicker.build(12, Loadout.default_for(12))
+	await process_frame
+	var live_tip := Vector3(1.0, 1.1, 0.4)
+	var late_tip := Vector3(0.6, 2.3, 0.9)
+	var got := {}
+	for f in 18:
+		var st := snap(12, "Attack", "fair", 9600 + f, f)
+		st.move_timing = PackedInt32Array([46, 9, 13])
+		st.move_tip = live_tip if f <= 13 else late_tip
+		got = kicker._hold_last_tip(st)
+	check((got.move_tip as Vector3).is_equal_approx(live_tip), "an end lag keeps its last hit's tip (%s)" % str(got.move_tip))
+	var tip_frozen := snap(12, "Attack", "fair", 9617, 17)
+	tip_frozen.move_timing = PackedInt32Array([46, 9, 13])
+	tip_frozen.move_tip = late_tip
+	tip_frozen.hitlag = 3
+	check((kicker._hold_last_tip(tip_frozen).move_tip as Vector3).is_equal_approx(live_tip), "a freeze in the end lag keeps it too")
+	var sought_tip := snap(12, "Attack", "fair", 9900, 20)
+	sought_tip.move_timing = PackedInt32Array([46, 9, 13])
+	sought_tip.move_tip = late_tip
+	check((kicker._hold_last_tip(sought_tip).move_tip as Vector3).is_equal_approx(late_tip), "a seek into an end lag takes the bridge's tip")
+
 	print("motion test ", "FAILED" if failed else "PASSED")
 	quit(1 if failed else 0)

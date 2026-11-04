@@ -2828,3 +2828,58 @@ side-by-sides stay on F:.
   round on the hands for about 12 frames after the back kick (frames 15-27), then the body comes up. Ours stops after the back kick. As
   the earlier sessions concluded, it needs whole-body travel past the strike in the clip keys (`make_rigged_blob.py`: the sweep's legs and
   hips turning on round after the last hit), a rig rebuild, and then the move's end shape refitted. Not started this session.
+
+### Group 19 (round 9): the end-lag pops left at core8, and the recovery brought back (the coordinator's order of 2026-11-04, item 1)
+
+- **The pops judged by eye at core8 and left, each traced to the layer that made it** (`PF_LAYER_TRACE`, `F:\anim_core\tools\layerblame.py`),
+  and fixed where the cause was shared (`fighter_view.gd`):
+  1. **The Embers' forward air** (frames 22 and 53, the far fist 0.9 units): `_keep_chest_side_on` switched itself off once the chest's front
+     lay less than 0.3 level. Curled over the strike, the chest faces the floor, so its 77-degree turn toward side-on vanished in one frame (the
+     fist flung from in front of the chest to behind the back), and came back as it uncurled. The turn is now weighed by how level the chest
+     is, eased in from `CHEST_LEVEL_FROM` 0.15 to `CHEST_LEVEL_TO` 0.5.
+  2. **The Gauntlets' charged punch** (frame 58, 0.83): the same layer wrapped the chest's heading at 150 degrees afresh every frame, so a
+     chest still turning on past its back crossed it and was held side-on the other way round, 172 degrees in a frame. The heading is now
+     followed from frame to frame the way it turns (`chest_away`), taken afresh only after a seek, a turn round, or back near the camera.
+  3. **The Phantom's forward air** (frame 14, the foot thrown 0.83 units up past the head): the bridge's tip for an end lag is the furthest
+     hitbox ending last, whatever the attack's aim, so it named one of the move's upward hits that was never out. The view keeps the last live
+     hit's tip through the end lag (`_hold_last_tip`); a seek into an end lag takes the bridge's.
+  4. **The Champion's up air** (frame 25, its grip 0.95 units across the mouth): the weapon hand's clearing of the face let go in one frame
+     as the arm swung away from the head, and its depth behind the head while it crosses over (`front_cross`) was overwritten by the
+     greatsword's own. In an end lag the clearing now lets go over 5 sim frames (`front_k`), the greatsword's hands go round behind the head as
+     the other blades' do, and a side left from earlier frames is not eased from (`front_side_frame`: it put the Champion's neutral special's
+     hand behind the head for a frame, 0.84 units).
+  5. **The Exile's up air** (frame 21) **and the Wanderer's back air** (frames 18 and 20, 1.0 units each): the sword arm's cap
+     (`HIGH_BLADE_ARM`: 62 degrees for any blade pointing between 62 and 150) let go all at once at 150, so the arm swung 88 degrees in a frame,
+     from up in front to behind, or back. It now lets go gradually from `HIGH_ARM_FROM` 100 to `HIGH_ARM_TO` 150 (not the up cuts, which place
+     their hand themselves). 95 to 140 was tried first: the Longsword's back air raised its hilt over the far eye on its strike frame.
+  6. **The Clutch's two jabs:** they played the low sweep (`kick_low`), seated on the floor, so the body dropped 0.6 units in the jab's one frame
+     of startup and stood up again in two. Its reference's jabs (the frame-data site's hitbox clips, frame by frame) are standing kicks, upright
+     on the standing leg: both now play the standing kick (`kick_up`, `AnimLibrary.CLASS_MOVES` 8). The side kick (`kick_side`) was tried for
+     the second and leaned the body far back, which the reference does not.
+  7. **The Claws' blaster's free hand, and the up tilts of the Popgun, the Bracers, the Phantom, the Settler and the Embers** (0.5-1.0 units
+     on the end lag's first frame): group 18 eased the arms-beside-the-head layer's side by the hand's place, in end lags only, so on the end
+     lag's first frame it disagreed with the strike's side and the hand jumped round the head. The side now goes over to the other in
+     `BESIDE_SIDE_FRAMES` 4 sim frames from where it was.
+  8. **The Bracers' down smash** (frame 40, 0.63 units): a fist kept on the long way round its shoulder (group 18's `arc_prev`) flipped over
+     as its rest swept past its reach. In an end lag a fist now turns round its shoulder no faster than `ARC_LAG_DEG` 40 degrees a sim frame.
+- **Tried and dropped:** the face guard's way out of the head turned gradually in end lags (it fixed the Gauntlets' up air, 0.79 units, but
+  a wrist crossed the Clutch's up air's eye for a frame); the face guard eased in by depth (the Gauntlets' hidden striking hands 66 to 86);
+  the turn limit for a blade's arm too (the Longsword's up tilt went home late, the Exile's up tilt jumped later instead).
+- **The recovery drift:** since core6 (1.57) the recovery measure moved most on the Longsword's up smash and up tilt (the coordinator's
+  decisions, kept), the Clutch's back air (18 to 15 frames against the reference's 18: group 18's refit put it on the other side of a
+  plateau), the Longsword's down air and the Embers' up air. Refitted by hand, each recovery still over at least the fitter's floor of 4
+  frames (`CLASS_END_SHAPES`; `F:\anim_core\tools\setshape.py`): the Clutch's back air (0.755, 0.905), 14/19 against 13/18; its jab on the
+  standing kick (0.200, 0.540), 6/4 against 6/2; the Longsword's down air (0.760, 0.990), 30/9 against 31/9; the Embers' up air (EVEN + 0.950),
+  11/9 against 7/10. Not chased: the Needles' up tilt (its reference recovers in 0 frames, under the floor), the Longsword's up smash.
+- **Measured (core8, now):** end-lag jumps of 0.5 units or more 31, **7**; of 0.7 or more 17, **1**; attack timing (follow-through / hold /
+  recovery / wind-up, 68 moves) 2.37 / 1.40 / 1.75 / 1.15, **2.38 / 1.38 / 1.65 / 1.13**; drawn eyes or mouth covered 7, 7; striking hands
+  hidden 1,354, 1,349; limbs reading reversed on screen 2,741, 2,711.
+- **Left:** the Gauntlets' up air (frame 12, 0.79: the fist pushed out of the head's middle changes sides as it crosses it) and up special
+  (frame 31, 0.63); the Exile's up tilt (frame 26, 0.54, its hand rising beside the head as the blade tilts back); the Phantom's up air (0.60,
+  a fast arm); the Popgun's down tilt's free hand (0.54); the Wanderer's neutral air's last frame.
+- `PF_R9_OFF=chestlevel`, `chestwrap`, `tip`, `frontk`, `higharm`, `arclag`, `bsidet` show each as before (`pops` all of round 9's).
+- **Checked:** both facings (the face and bend measures); the tests pass (`motion_test` with new checks: an end lag keeps its last hit's tip,
+  a freeze keeps it, a seek takes the bridge's); the look bench passes.
+- **Image:** `docs/screenshots/anim/r9_pops_finished.jpg` (core8 above each, now below, close camera; left: the Champion's up air 22-27, the
+  Embers' forward air 19-24, the Gauntlets' charged punch 55-60, the Phantom's forward air 11-16; right: the Exile's up air 18-23, the
+  Clutch's second jab 0-5, the Wanderer's back air 15-20, the Bracers' down smash 37-42).

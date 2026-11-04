@@ -134,6 +134,12 @@ end lag, the arms-beside-the-head layer's side, depth and face fall-back, a rais
 sword hand's side of the face, and a fist's way round its shoulder. The fitter's floor is now 4 frames, not a share of the end lag (a
 12-frame end lag stood up in one). Attack timing, refitted: **2.37 / 1.40 / 1.75 / 1.15** (hold and recovery above core7's, under 8r's).
 Drawn eyes or mouth covered 11 to 7; striking hands hidden 1,499 to 1,354; limbs reading reversed on screen 3,054 to 2,741.
+**Group 19 (2026-11-04):** the pops left at core8, each traced to its layer: the chest's side-on turn switching off as a chest curled over
+to face the floor, and its heading wrapped afresh as it turned on past its back; an end lag's tip naming a hit the move never had out; the
+weapon hand's face clearing letting go in a frame; the sword arm's cap letting go all at once at 150 degrees; the Clutch's jabs seated in the
+low sweep (now standing kicks, as its reference's); the side beside the head disagreeing with the strike's on the end lag's first frame.
+End-lag jumps of 0.5 units or more 31 to 7 (0.7 or more 17 to 1). Recovery refitted by hand on the moves that drifted since core6: attack
+timing **2.38 / 1.38 / 1.65 / 1.13**. Eyes or mouth covered 7 (as core8); striking hands hidden 1,349; limbs reading reversed 2,711.
 
 ## 3. What still differs, and why
 
