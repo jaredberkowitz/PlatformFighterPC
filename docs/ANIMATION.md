@@ -2592,3 +2592,10 @@ side-by-sides stay on F:.
   the tests pass; the look bench crashed once on a lost Vulkan device (another capture was running) and passed on its own (0.96).
 - **Image:** `docs/screenshots/anim/r9_dash_pushoff.jpg` (the Claws' dash from a stand, the stance's last frame and the dash's frames 0-7,
   before above, now below).
+
+### core6 installed (4 November 2026)
+
+- Groups 11-14 (the held strike and the refitted timing, the trip's seat, the bends judged by eye, the dash's push-off) and the menu weapon in
+  a held clip, with the stage branch's halftone city and origami sea merged (f965609c; stills regenerated, f8684a06). Simulation version 149,
+  content hash 0d09e102dcfb7b1b (the same Rust and content as core5), checked in the staged copy and the extracted zip ("Platform Fighter
+  playtest 2026-11-04 sim149 animation core6.zip"); the release exe quits with code 0. The tests pass; the look bench 0.96.
