@@ -2712,3 +2712,29 @@ side-by-sides stay on F:.
   identity branches were all in). Simulation version 149, content hash 0d09e102dcfb7b1b (the same Rust and content as core5 and core6),
   checked in the staged copy and the extracted zip ("Platform Fighter playtest 2026-11-04 sim149 animation core7.zip"); the release exe
   quits with code 0. The tests pass; the look bench 0.96.
+
+### The follow-through, continued (2026-11-04): three more approaches measured and reverted
+
+- **The coordinator's decisions on group 17:** the up tilts stay as their references (the Longsword's over the top and down behind, the
+  Greatsword's and the Wanderer's swept from low behind to the front); the Longsword's up smash keeps lowering forward, its measured hold
+  and recovery accepted as the measure's artifact (section 2 of the review). Checked on the art director's note: the Wanderer's up tilt
+  ends with its blade about 35 degrees below level in front at frame 24; the adventurer reference holds its sword low in front, pointing
+  down about 35-40 degrees, from frame 16 to its end (frame 13 is the only level one), so it is kept.
+- **Tried, each measured on the six family representatives (68 moves, follow-through / hold / recovery / wind-up, from 2.37 / 1.28 / 1.65
+  / 1.13) and reverted:**
+  1. Every six-pose clip's follow-through pose carried on past the strike the way the launch threw it (the chest's and arms' strike past
+     their launch, half again; `_follow_spec`): 2.38 / 1.46 / 1.72. The follow-through did not register and the holds lengthened.
+  2. The body's own carry frames per move where the reference's carries on (the Longsword's jab 5 and down tilt 4, the Needles' forward
+     smash 6, the Embers' down smash 8, the Clutch's up smash 6, jab 3, down tilt 4, down smash 3), on the same poses: 2.38 / 1.29 / 1.66.
+  3. Both, the follow pose carried 0.8 past the strike on the jab, headbutt, low strike and kick clips: 2.38 / 1.35 / 1.68. Only the jab's
+     and the headbutt's poses changed (the low strike's and the kicks' launches already hold the strike's chest and arms).
+- **Why nothing moved:** the measure counts the frames after the last hit that move faster than 0.3 of the strike's peak speed, averaged
+  over seventeen body points and the tip. The snap into the strike is fast, so to stay above that for the reference's 5-19 frames the
+  body must travel after the hit about as far as its whole launch-to-strike swing, spread over those frames: whole-body motion authored per
+  move (the sweep kicks turning on round, the headbutt rising on, the jab's shoulders turning through), with the moves' clip keys and the
+  view's body carry both changed, then refitted. A shared parameter only spreads a small travel thinner or lengthens the hold.
+- **Found on the way, not fixed:** end-lag snaps. The Clutch's down tilt stands up from its crouch in one frame (hips 0.39 to 0.80 at frame
+  15): its fitted end shape recovers over 8% of a 12-frame end lag, the fitter's own floor (`fitshapes.py`: recover-by at least 0.08 past
+  hold-to); a floor in frames (3-4) would stop such snaps. The Longsword's forward tilt's blade moves 1.75 units in its frame 31.
+  `F:\anim_core\tools\snaps.py` and `endpops.py` list them over every class; judge each by eye (the Gauntlets' down smash's hand leaving
+  the floor for its back kick reads as part of the move).
