@@ -3069,3 +3069,35 @@ side-by-sides stay on F:.
   against it.
 - **Image:** `docs/screenshots/anim/sim150_tech_in_place.jpg` (the Longsword, every second frame from the landing: before above, now
   below).
+
+### Round 10 (2026-11-04, the owner: "a bit less weightless, more readable, and more accurate to the reference's animations")
+
+The audit: `docs/art/anim/ANIMATION_REVIEW_3.md` (core10 at the match camera, mean 3.30, the ten shared causes ranked by gain for cost).
+Measured on every class's gallery in both facings; the new tools (`F:\anim_core\t3`): `cross.py` (which limb strikes and where its root
+lies at the hit), `bodyft.py` (the torso's travel after the last hit), `windpops.py` (one-frame jumps of the hips or head in a wind-up).
+
+### Group 1 (round 10): back kicks with the leg on the kick's side (the owner's note of 2026-11-04; review 3, cause 1)
+
+- **The note:** "For back airs where they kick backwards, certain characters cross their leg over where it would make sense to use the
+  other leg so nothing crosses." Taken as a rule for every strike: the striking limb is the one on the strike's side.
+- **Measured (core10, `cross.py`, every gallery, both facings):** the striking limb's root (hip or shoulder) on the far side of the other
+  limb's root from the strike by more than 0.15 units at the hit: 22 move-facings. Every kick back air (the Claws, Embers, Staff, Bracers,
+  Clutch, Wanderer and Scamp) and the Greatsword's back air's legs, the hip 0.22-0.31 units on the wrong side in both facings; the Needles'
+  down smash's back kick (0.26); the Bracers' down special and the Nodachi's up tilt (a trailing foot and the blade arm, judged by eye: no
+  strike crosses).
+- **Cause:** `_aim_leg` kicked behind with the far leg ("a kick behind uses the far leg"), a rule from when the near leg stood in front.
+  Since stance C the near foot is the back one, and for a hit behind the body swings round through the camera (`BACK_ATTACK_TURN`), which
+  brings the far hip to the front. The clips (`kick_bair`, `attack_bair`) tucked the near knee forward and trailed the far leg back, so the
+  far leg kicked back from behind the tucked near one: the legs scissored and the kick left from behind the body.
+- **Fix:** a kick behind uses the near leg (`_aim_leg`; below `NEAR_KICK_BEHIND_Y` 1.3: a kick behind and overhead keeps the far leg, which
+  goes behind the head, and `kick_sweep`, whose far leg sweeps on round after its kick, keeps it: `FAR_KICK_CLIPS`); `kick_bair` and
+  `attack_bair` tuck the far knee and trail the near leg (the rig rebuilt: those two clips changed, every other clip byte for byte the
+  same). Both facings take it alike (the `@m` clips swap the legs with the facing). `PF_R10_OFF=cross` kicks with the far leg again.
+- **After:** every back air's kicking leg leaves from the hip on the kick's side (0.10-0.24 units toward it), the Needles' down smash's
+  back kick too (0.13); crossings past 0.15: 22 to 0 (the two by-eye ones left as they were). By eye at the match camera, both facings: the
+  kick reads from hip to foot in front of the body, the tucked knee behind it.
+- **Measured (core10, now):** attack timing (follow-through / hold / recovery / wind-up) 2.40 / 1.40 / 1.65 / 1.13, 2.40 / 1.44 / 1.68 /
+  1.10 (the back airs a frame either way; refitted with group 3); eyes or mouth covered 7, 7; striking hands hidden 1,306, 1,314 (group
+  23's Tumbler, +8); end-lag pops of 0.5 or more 7, 7.
+- **Image:** `docs/screenshots/anim/r10_back_kicks.jpg` (each class's back air around its hit, core10 left, now right; facing right, then
+  the Claws and the Clutch facing left; match size).

@@ -831,11 +831,14 @@ BODY_MOVES = {
         {"spine": (2.0, 0.0), "stance": (24.0, 16.0), "shin.L": (-50.0,), "shin.R": (-40.0,)}),
     # Back air (a rising crescent behind): the shoulders turn toward the front, then twist right round so the chest faces behind as the
     # swing goes up behind, the head looking back over the shoulder, the front knee tucked and the back leg reaching out behind.
+    # (Round 10, the owner's note: nothing crosses at the hit. The game turns the body round through the camera for a hit behind, which
+    # brings the far hip to the front: the far knee is the one tucked now, and the near leg, on the back side, reaches out behind. The far leg
+    # reaching back crossed behind the tucked near one.)
     "attack_bair": (
-        {"spine": (10.0, 26.0), "head": (-4.0, -10.0), "stance": (30.0, 10.0), "shin.L": (-70.0,), "armU.L": (30.0, 20.0)},
-        {"spine": (-12.0, -52.0), "head": (6.0, -18.0), "stance": (50.0, -26.0), "shin.L": (-90.0,), "shin.R": (-20.0,),
+        {"spine": (10.0, 26.0), "head": (-4.0, -10.0), "stance": (10.0, 30.0), "shin.R": (-70.0,), "armU.L": (30.0, 20.0)},
+        {"spine": (-12.0, -52.0), "head": (6.0, -18.0), "stance": (-26.0, 50.0), "shin.R": (-90.0,), "shin.L": (-20.0,),
          "armU.L": (40.0, 30.0), "armL.L": (40.0,)},
-        {"spine": (-4.0, -16.0), "stance": (24.0, 0.0), "shin.L": (-40.0,)}),
+        {"spine": (-4.0, -16.0), "stance": (0.0, 24.0), "shin.R": (-40.0,)}),
     # Down air (both claws, or the weapon, brought down through the space below): both arms raised overhead with the body leaning back and
     # the knees drawn up, then the torso curls over and both arms sweep down in front of the knees, the head looking down at the hit.
     "attack_dair": (
@@ -5014,10 +5017,13 @@ def main() -> None:
              "foot.L": (-30.0,), "foot.R": (-24.0,), "arms": (-40.0, 64.0)},
             {"spine": (-6.0, 0.0), "stance": (76.0, 66.0), "shin.L": (-30.0,), "shin.R": (-40.0,), "arms": (-16.0, 50.0)})
     # Back air: lean forward and drive the heel back (not so far forward, nor twisted, that the big head shows its crown).
+    # (Round 10, the owner's note: the leg on the kick's side kicks, so nothing crosses at the hit. The game kicks behind with the near
+    # leg (fighter_view.gd `_aim_leg`), the back one in the stance and after the body's turn round for a hit behind, and this clip tucks
+    # the far knee: the far leg kicking back crossed behind the near one, tucked, 0.22-0.31 units past it.)
     move_of("kick_bair",
             {"spine": (24.0, 10.0), "head": (10.0, 20.0), "stance": (60.0, 50.0), "shin.L": (-90.0,), "shin.R": (-90.0,), "arms": (40.0, 20.0)},
-            {"spine": (14.0, -10.0), "head": (-6.0, 10.0), "stance": (50.0, -20.0), "shin.L": (-80.0,), "arms": (60.0, 30.0)},
-            {"spine": (10.0, 0.0), "stance": (30.0, 0.0)})
+            {"spine": (14.0, -10.0), "head": (-6.0, 10.0), "stance": (-20.0, 50.0), "shin.R": (-80.0,), "arms": (60.0, 30.0)},
+            {"spine": (10.0, 0.0), "stance": (0.0, 30.0)})
     # Up air: a flip kick, leaning back a little as the leg goes up (the game adds the counter-lean; the head stays level).
     move_of("kick_uair",
             {"spine": (24.0, 0.0), "stance": (60.0, 60.0), "shin.L": (-100.0,), "shin.R": (-100.0,), "arms": (20.0, 20.0)},

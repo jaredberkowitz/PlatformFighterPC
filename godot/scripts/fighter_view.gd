@@ -1414,6 +1414,9 @@ const HANDOFF_BY_CLIP := {"jumpsquat": 2.0, "land": 1.0, "tech": 2.0, "knockdown
 ## (`HELD_UP_MAX_BASE`, `HELD_SAG`); "upcut" holds the blade classes' up tilts and up smashes with the cap they had before group 16
 ## (`UP_CUTS`); "climbidle" holds a ledge climb's last pose still through its last frames, as before group 22; "sweep" plays the Tumbler's down smash's follow-through as before group 23 (no clip follow-through span, carry or leg release).
 static var r9_off := OS.get_environment("PF_R9_OFF").split(",")
+## With the environment variable PF_R10_OFF (before and after images, round 10): "cross" kicks behind with the far leg again (the leg
+## crossing the other at the hit, `_aim_leg`; the back airs' tucks, moved to the far leg with it, are in the rig).
+static var r10_off := OS.get_environment("PF_R10_OFF").split(",")
 var handoff_clip := ""
 var handoff_state := ""
 var handoff_frame := -1
@@ -7624,6 +7627,12 @@ const KICK_BEHIND_Z := -0.35
 const OVERHEAD_KICK := 40.0
 
 
+## Below this height (forward space, from the feet) a kick behind is the near leg's (round 10); above it, the far leg's, behind the head.
+const NEAR_KICK_BEHIND_Y := 1.3
+## Kick clips whose far leg strikes behind and carries on round after it (round 9 group 23's sweep): the far leg keeps the kick behind.
+const FAR_KICK_CLIPS := ["kick_sweep"]
+
+
 ## A kick: the leg on the side of the hitbox reaches the live hitbox with two-bone IK (hip, knee, ankle), so the foot is where the hit
 ## is; the other leg and the body come from the move's clip.
 func _aim_leg(s: Dictionary, kicking: bool, delta: float) -> void:
@@ -7641,12 +7650,20 @@ func _aim_leg(s: Dictionary, kicking: bool, delta: float) -> void:
 		if release > 0.0 and t.size() > 2 and float(s.state_frame) > float(t[2]):
 			leg_k *= 1.0 - smoothstep(float(t[2]), float(t[2]) + release, float(s.state_frame))
 	var facing := int(s.facing)
-	# The front leg kicks forward and up, the back leg backward.
-	# On the turned body the model's left leg is the one nearest the camera when facing right (and the right one facing left): it is the
-	# front leg, so a kick in front is in plain view and a kick behind uses the far leg.
+	# On the turned body the model's left leg is the one nearest the camera when facing right (and the right one facing left), so a kick
+	# in front is in plain view.
 	var front := "L" if facing > 0 else "R"
 	var back := "R" if facing > 0 else "L"
 	var kicker := front if tip.x >= 0.0 else back
+	# (Round 10, the owner's note of 2026-11-04: the leg on the strike's side strikes, so nothing crosses at the hit. A kick behind used the
+	# far leg, from when the near leg stood in front; since stance C the near foot is the back one, and for a hit behind the body swings
+	# round through the camera (`BACK_ATTACK_TURN`), which brings the far hip to the front: the far leg crossed behind the near one to kick
+	# back, 0.22-0.31 units past it at the hit in every kick back air. The near leg kicks behind now, in plain view; a kick behind and
+	# overhead keeps the far leg, which goes behind the head (`KICK_BEHIND_Z`), and a clip whose far leg sweeps on round after its kick
+	# keeps it (`FAR_KICK_CLIPS`).)
+	if tip.x < 0.0 and tip.y < NEAR_KICK_BEHIND_Y and not r10_off.has("cross") and anim != null \
+			and not FAR_KICK_CLIPS.has(AnimLibrary.attack_clip(_cls(s), String(s.move_name), anim)):
+		kicker = front
 	# Where each kicking leg's foot goes (forward space). A split kick (the neutral air) kicks both legs out, one ahead and one behind.
 	var goals := {kicker: tip}
 	if SPLIT_KICKS.has(String(s.move_name)):
