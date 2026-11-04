@@ -2883,3 +2883,29 @@ side-by-sides stay on F:.
 - **Image:** `docs/screenshots/anim/r9_pops_finished.jpg` (core8 above each, now below, close camera; left: the Champion's up air 22-27, the
   Embers' forward air 19-24, the Gauntlets' charged punch 55-60, the Phantom's forward air 11-16; right: the Exile's up air 18-23, the
   Clutch's second jab 0-5, the Wanderer's back air 15-20, the Bracers' down smash 37-42).
+
+### Group 20 (round 9): the light flinch leans off the hit where it shows (the coordinator's order of 2026-11-04, item 2)
+
+- **Reference:** the training-mode guide's light hits (60 frames a second, frame by frame, F:): the body snaps back off the blow, the head
+  and chest leading, the arms flung out, the feet planted, held a moment, then back into the stance; a hit from above presses the body down
+  rather than tipping it back.
+- **Found (the reactions demo, four victims of four families, at the match camera and closer):** the light flinch read as standing up
+  straight with the arms out, square to the camera. The recoil (`_recoil`, 12-26 degrees by the hit's strength) and the clip's own snap back
+  (`hurt_snap`, the chest back about 26 degrees) both pitch the body about its own side; with the body turned toward the camera for the hit
+  (`FRONTAL_TURN` 28 degrees from facing it), that pitch goes almost wholly into the screen, so the lean back off the hit hardly showed.
+- **Fix (`fighter_view.gd` `_recoil`, `flinch_lean`, `_body_follow`):** a flinch (`hurt_ground` on the ground, `hurt` in the air) leans off
+  the hit in the plane of the stage: the whole body from its planted feet (in the air about its middle) by `FLINCH_BODY` 0.35 of the
+  recoil, the chest bending back with it by `FLINCH_CHEST` 0.8, the head giving `FLINCH_HEAD_KEEP` 0.45 of that back so the face stays to
+  the camera. Same timing as before (snapped in over the hit's freeze, held, upright by the stun's last frame), by sim frames, so a freeze
+  holds it and a seek redraws it. Under a hit from above (knocked down more than along) it ducks forward a little (`FLINCH_DUCK` 0.5)
+  instead of tipping back. `PF_R9_OFF=flinch` shows the old.
+- **Measured (the reactions demo, Longsword on Claws and Claws on Longsword):** the face turned from the camera 0 frames in hitstun, as
+  before; drawn eyes or mouth covered in reactions as before (3 in the knockdown); every gallery in both facings: eyes or mouth covered 7,
+  striking hands hidden 1,349 (as group 19); limbs reading reversed on screen 2,697 (group 19 2,711).
+- **Checked:** both facings; the match camera and a closer one; the tests pass (`motion_test`: the ground flinch's check now reads the lean
+  in the stage's plane, and new checks: back off a hit from the front, forward off one from behind, forward under one from above, and in
+  the plane, not into the screen).
+- **Left:** the hurt clip's own poses (the arms out, the knees giving) are as they were; the heavy and quick families flinch alike, by the
+  hit's strength only.
+- **Image:** `docs/screenshots/anim/r9_light_flinch.jpg` (a forward tilt's flinch: the Claws and the Needles at a closer camera, then the
+  Claws at the match camera; before above each, now below).

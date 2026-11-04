@@ -1657,6 +1657,12 @@ func _body_follow(s: Dictionary, delta: float) -> void:
 		var k := flinch_left / FLINCH_TIME
 		_bend_bone(spine_bone, -16.0 * k, int(s.facing))
 		_bend_bone(head_bone, -12.0 * k, int(s.facing))
+	# (Round 9, the light flinch: the chest bends back off the hit in the plane of the stage with the body's lean (`_recoil`), the head
+	# giving some of it back.)
+	if use_base_body and String(s.state) == "Hitstun" and (current_clip == "hurt_ground" or current_clip == "hurt") and not r9_off.has("flinch"):
+		var bend := flinch_lean(s)
+		_bend_bone(spine_bone, bend * FLINCH_CHEST, int(s.facing))
+		_bend_bone(head_bone, -bend * FLINCH_HEAD_KEEP, int(s.facing))
 	# Open the chest to the camera and turn the head back toward the opponent (see BODY_TURN). In a move the chest turns into it instead,
 	# toward the opponent (`attack_turn`), so a strike is thrown at the foe and not at the camera.
 	_turn_bone(spine_bone, -lerpf(CHEST_TO_CAMERA, CHEST_IN_ATTACK, attack_turn) * face_side)
@@ -3741,7 +3747,30 @@ const LAUNCH_RECOIL_OUT := 4.0
 
 
 func _recoil(s: Dictionary) -> void:
+	# (Round 9, the light flinch: on the ground the body leans off the hit in the plane of the stage, from its planted feet, as the
+	# references' light flinch does; pitched about its own side, as before, with the body turned toward the camera for the hit
+	# (`FRONTAL_TURN`), the lean went mostly into the screen and the flinch read as standing up straight. The chest bends back with it in
+	# `_body_follow`.)
+	if use_base_body and (current_clip == "hurt_ground" or current_clip == "hurt") and not r9_off.has("flinch"):
+		model.rotation.x = 0.0
+		var q := Quaternion(Vector3(0, 0, 1), deg_to_rad(-flinch_lean(s) * FLINCH_BODY) * float(s.facing))
+		model.quaternion = q * model.quaternion
+		# (In the air about the body's middle, as the tumble turns; on the ground about the planted feet.)
+		if current_clip == "hurt":
+			model.position += SPIN_PIVOT_3D - q * SPIN_PIVOT_3D
+		return
 	model.rotation.x = deg_to_rad(hurt_recoil(s))
+
+
+## The light flinch's lean (degrees, negative back, positive forward): the recoil's (`hurt_recoil`), away from the hit; but under a hit
+## from above (knocked down more than along), it ducks forward a little instead of tipping back (the owner's rule: no tipping back under
+## overhead hits).
+static func flinch_lean(s: Dictionary) -> float:
+	var lean := hurt_recoil(s)
+	var kb: Vector2 = s.get("kb_vel", Vector2.ZERO)
+	if kb.y < -maxf(0.02, absf(kb.x)):
+		return absf(lean) * FLINCH_DUCK
+	return lean
 
 
 ## The body's pitch (degrees, the model's x rotation) in a hit reaction that does not tumble: away from the hit (back off a blow from the
@@ -3784,6 +3813,12 @@ static func hurt_amount(s: Dictionary) -> float:
 ## A hit too weak to launch: the body snaps back from it and recovers over this long (seconds left of FLINCH_TIME).
 var flinch_left := 0.0
 const FLINCH_TIME := 0.22
+## (Round 9) The light flinch on the ground (`_recoil`, `_body_follow`): the share of its lean taken by the whole body from the feet, by the
+## chest bending back, and given back by the head so the face stays to the camera; and how far forward it ducks under a hit from above.
+const FLINCH_BODY := 0.35
+const FLINCH_CHEST := 0.8
+const FLINCH_HEAD_KEEP := 0.45
+const FLINCH_DUCK := 0.5
 ## Landing out of an aerial (its landing lag) or a fast fall: a heavier, deeper landing until it ends.
 var heavy_landing := false
 

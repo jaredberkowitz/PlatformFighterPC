@@ -176,14 +176,16 @@ func _initialize() -> void:
 		flinch.frame = 5000 + f
 		flinch.hitlag = 4 - f
 		hurt.apply(Vector3.ZERO, flinch, 1.0 / 60.0)
-	var frozen_lean := hurt.model.rotation.x
+	# (Since the light flinch's round 9 pass the lean is in the plane of the stage: how far the body's up leans away from the way it faces.)
+	var frozen_lean := hurt.model.basis.y.x * float(-flinch.facing)
 	flinch.hitlag = 0
 	flinch.frame = 5004
 	flinch.state_frame = 1
 	flinch.hitstun = 19
 	flinch.kb_vel = Vector2(0.1, 0.0)
 	hurt.apply(Vector3.ZERO, flinch, 1.0 / 60.0)
-	check(frozen_lean < -0.05 and hurt.model.rotation.x < frozen_lean * 0.8, "a ground flinch goes on recoiling after the freeze (%.2f, then %.2f)" % [frozen_lean, hurt.model.rotation.x])
+	var after_lean := hurt.model.basis.y.x * float(-flinch.facing)
+	check(frozen_lean > 0.02 and after_lean > frozen_lean * 0.8, "a ground flinch goes on recoiling after the freeze (%.3f, then %.3f)" % [frozen_lean, after_lean])
 	# A launch's clip is chosen on its first frame and kept while the knockback slows (it went from the arch to the air's flinch).
 	var pop := snap(1, "Hitstun", "", 5100, 0)
 	pop.platform = -1
@@ -358,6 +360,34 @@ func _initialize() -> void:
 	sought_tip.move_timing = PackedInt32Array([46, 9, 13])
 	sought_tip.move_tip = late_tip
 	check((kicker._hold_last_tip(sought_tip).move_tip as Vector3).is_equal_approx(late_tip), "a seek into an end lag takes the bridge's tip")
+
+	# (Round 9, the light flinch.) On the ground a flinch leans back off a hit from the front, forward off one from behind, and ducks
+	# forward under one from above instead of tipping back; and the lean is in the plane of the stage (the model turned about the depth
+	# axis), not pitched into the screen.
+	var front_hit := snap(1, "Hitstun", "", 9700, 4)
+	front_hit.hitstun = 16
+	front_hit.kb_vel = Vector2(-0.12, 0.0)
+	check(FighterView.flinch_lean(front_hit) < -5.0, "a flinch leans back off a hit from the front (%.1f)" % FighterView.flinch_lean(front_hit))
+	var back_hit := front_hit.duplicate()
+	back_hit.kb_vel = Vector2(0.12, 0.0)
+	check(FighterView.flinch_lean(back_hit) > 5.0, "and forward off a hit from behind (%.1f)" % FighterView.flinch_lean(back_hit))
+	var down_hit := front_hit.duplicate()
+	down_hit.kb_vel = Vector2(-0.03, -0.12)
+	check(FighterView.flinch_lean(down_hit) > 0.0, "a hit from above ducks it forward, never back (%.1f)" % FighterView.flinch_lean(down_hit))
+	var flincher := FighterView.new()
+	root.add_child(flincher)
+	flincher.build(1, Loadout.default_for(1))
+	await process_frame
+	for f in 30:
+		flincher.apply(Vector3.ZERO, snap(1, "Idle", "", 9800 + f, f), 1.0 / 60.0)
+	for f in 6:
+		var st := snap(1, "Hitstun", "", 9830 + f, f)
+		st.hitstun = 16 - f
+		st.kb_vel = Vector2(-0.12, 0.0)
+		flincher.apply(Vector3.ZERO, st, 1.0 / 60.0)
+	var up_now: Vector3 = flincher.model.basis.y
+	check(flincher.current_clip != "hurt_ground" or absf(up_now.z) < 0.05, "the flinch leans in the stage's plane, not into the screen (up %s)" % str(up_now))
+	check(flincher.current_clip != "hurt_ground" or absf(up_now.x) > 0.03, "and it leans (up %s)" % str(up_now))
 
 	print("motion test ", "FAILED" if failed else "PASSED")
 	quit(1 if failed else 0)
