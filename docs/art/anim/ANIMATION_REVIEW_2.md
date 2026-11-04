@@ -27,7 +27,7 @@ stage at the reference's width, the knees at each family's own bend. It is the d
 | Long idle (fidget) | 3 / 3 / 2 | 2.7 | 3 / 4 / 3 | 3.3 | yes |
 | Walk | 3 / 2 / 2 | 2.3 | 3 / 4 / 3 | 3.3 | yes |
 | Run | 2 / 2 / 2 | 2.0 | 4 / 4 / 4 | 4.0 | yes |
-| Dash | 3 / 3 / 2 | 2.7 | 4 / 3 / 4 | 3.7 | yes |
+| Dash | 3 / 3 / 2 | 2.7 | 4 / 4 / 4 | 4.0 | yes |
 | Dash dance | 3 / 3 / 3 | 3.0 | 4 / 4 / 3 | 3.7 | yes |
 | Run stop, skid | 3 / 3 / 3 | 3.0 | 3 / 4 / 3 | 3.3 | no, by craft |
 | Standing turn | 3 / 3 / 3 | 3.0 | 3 / 4 / 3 | 3.3 | yes |
@@ -59,7 +59,9 @@ stage at the reference's width, the knees at each family's own bend. It is the d
 | Victory poses | 3 / 3 / 3 | 3.0 | 3 / 3 / 3 | 3.0 | yes, not reworked |
 
 **Mean (34 clips): before 2.84, now 3.40** at core4; **3.45** with group 8 (the reactions, 2026-11-03: the flinch, heavy hit, launch and
-knockdown rows; `docs/ANIMATION.md` group 8). The tech, shield break, dizzy, helpless, grabbed, respawn and victory poses were not
+knockdown rows; `docs/ANIMATION.md` group 8); **3.46** with group 14 (2026-11-04: the dash's planted feet held through its push-off, the
+dash's fluidity 3 to 4). Group 12's trip (it lay face down for the whole trip, now sat on its seat) and group 11's held strikes (the attack
+timing, section 2) do not move a row's score: neither is a row of this review. The tech, shield break, dizzy, helpless, grabbed, respawn and victory poses were not
 reworked in round 9 and keep their scores.
 
 ## 2. Measured, ours against the references
