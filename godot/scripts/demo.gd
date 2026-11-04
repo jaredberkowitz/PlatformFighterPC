@@ -287,6 +287,20 @@ static func make(demo_name: String, m: Dictionary, dir: String):
 				d.events.append_array([[f0, "stand", 0, x0, 1], [f0, "stand", 1, x0 + 1.9, h[2]], [f0, "percent", 1, h[1]]])
 				d.timeline.append_array([[f0 + 12, h[3], h[4], h[5]], [f0 + 13, 0, 0, 0]])
 			d.end_frame = 900
+		"trips":
+			# (Round 9: the second fighter (`--chars=A,B`, B) down-tilted by the first twelve times from the same place, undamaged: a down tilt
+			# that trips (the Longsword's and the Claws' can) sits it down, and it lies its trip out and stands. `--cam=N` as the reactions.)
+			d.chars = [0, 1, 0, 1]
+			for a in OS.get_cmdline_user_args():
+				if a.begins_with("--chars="):
+					var picked := a.substr(8).split(",")
+					d.chars = [int(picked[0]), int(picked[1]) if picked.size() > 1 else 1, 0, 1]
+			d.timeline = [[0, 0, 0, 0]]
+			for k in 12:
+				var f0 := 1 + k * 160
+				d.events.append_array([[f0, "stand", 0, -7.0, 1], [f0, "stand", 1, -5.6, -1], [f0, "percent", 1, 0.0]])
+				d.timeline.append_array([[f0 + 12, 0, -70, attack], [f0 + 13, 0, 0, 0]])
+			d.end_frame = 12 * 160 + 20
 		"floorrolls":
 			# (Round 9, sim 149: the second fighter (`--chars=A,B`, B) launched twice by A's strong forward tilt: it techs the first landing
 			# with a roll forward (shield and the stick held toward A as it comes down), lies after the second and rolls away from the floor.)

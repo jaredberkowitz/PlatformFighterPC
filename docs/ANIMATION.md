@@ -2540,3 +2540,19 @@ side-by-sides stay on F:.
   held jump keep the resting carry (along the fist of the jump's swinging arm the greatsword crossed the face). A mirrored clip holds it in
   the other hand. An attack frame is not a hero pose: its weapon arm is the game's to aim, unposed by the clip, so its fist points anywhere
   (the Longsword's forward smash held at its strike crosses the face).
+
+### Group 12 (round 9): a trip sits on its seat (the order's item 4)
+
+- **Found:** a trip (the sim's `tripped` knockdown, from the Claws' down tilt and the slips) played the crouch held, with the knockdown's 78-degree
+  lean still under it: the fighter lay face down on the floor for its whole trip (up to 100 frames), the back of its head to the camera.
+  Not seen in a capture before: the new demo `--demo=trips --chars=1,0` down-tilts the second fighter twelve times from the same place, and
+  four of the twelve trip.
+- **Fix (`fighter_view.gd` `TRIP_SEAT`, `trip_seat`, `_getup_k`):** a trip sits on the floor as the get-up off the back sits (`getup_up`'s
+  frame 8 of 30, the hands planted behind, the knees drawn in, with that point's lean), face up; its stand-up (which the sim no longer marks as
+  a trip's) goes on from the seat instead of starting from lying flat. A seek into the stand-up lies on its back, as before. `PF_R9_OFF=react`
+  shows the old.
+- **Checked:** the trips demo at a close camera; `motion_test` with two new checks (a trip sits on its seat; its stand-up starts from it).
+- **Tried and set aside:** the Longsword's forward tilt holding its raised blade still through the hold (no creep back toward the carry): held up
+  in front, the blade ran across the face's near side; creeping back, it stands behind the hat. Neither reads as the reference's raised blade
+  (its arm held up and out); left as it was.
+- **Image:** `docs/screenshots/anim/r9_trip_seat.jpg` (a trip and its stand-up: before above, now below).

@@ -593,14 +593,18 @@ func _choose_clip(s: Dictionary) -> Array:
 			return [AnimLibrary.or_stand_in("attack_uair", anim), 1.0, 0.45]
 		"Knockdown":
 			# A trip is a fall onto the seat, not onto the back: crouched low, held, rather than laid flat (`tripped` from the bridge).
+			# (Round 9: sat on the floor, the get-up off the back's sitting pose held, `TRIP_SEAT`; the crouch was pitched forward by the
+			# knockdown's 78 degrees under it, face down on the floor.)
 			if s.get("tripped", false):
+				if not r9_off.has("react"):
+					return [AnimLibrary.or_stand_in("getup_up", anim), 1.0, TRIP_SEAT]
 				return ["crouch", 1.0, 1.0]
 			# (Round 9: on the back after a launch backward, as the references' fighters come down: `hit_back`, `lying_back`.)
 			if lying_back and not r9_off.has("react"):
 				return [AnimLibrary.or_stand_in("knockdown_up", anim), 1.0, -1.0]
 		"GetUp":
 			if lying_back and not r9_off.has("react") and dodge_progress(s) >= 0.0:
-				return [AnimLibrary.or_stand_in("getup_up", anim), 1.0, dodge_progress(s)]
+				return [AnimLibrary.or_stand_in("getup_up", anim), 1.0, _getup_k(s)]
 		"Turn":
 			# Turning out of a run skids; a turn from standing just turns.
 			# (Round 9: its own family's idle; every class played the sword family's for the frames of a turn.)
@@ -908,6 +912,12 @@ static func dodge_progress(s: Dictionary) -> float:
 			return clampf(sf / moves * ROLL_MOVE_END, 0.0, 1.0)
 		return clampf(ROLL_MOVE_END + (1.0 - ROLL_MOVE_END) * (sf - moves) / (total - moves), 0.0, 1.0)
 	return clampf(sf / total, 0.0, 1.0)
+
+
+## How far through the get-up off the back a stand-up is (0..1): its own progress, or from a trip's seat on (`TRIP_SEAT`).
+func _getup_k(s: Dictionary) -> float:
+	var p := dodge_progress(s)
+	return TRIP_SEAT + p * (1.0 - TRIP_SEAT) if trip_seat else p
 
 
 ## How far through a shield roll the body stops moving (its move frames end about frame 24 of 30): a floor roll rolls over its own moving
@@ -3610,6 +3620,10 @@ var hit_back := true
 var lying_back := true
 ## The knockdown's lean when lying on the back (degrees: the body laid back over its feet).
 const KNOCKDOWN_BACK := -80.0
+## Where a trip sits (round 9): the get-up off the back's sitting pose (`getup_up`'s frame 8 of 30, the hands planted behind, the knees
+## drawn in), with that point's lean; its get-up stands from there (`trip_seat`, `_getup_k`).
+const TRIP_SEAT := 0.267
+var trip_seat := false
 ## How fast a fighter lying down turns side-on (per second, for the frontal turn's share and the yaw).
 const LIE_TURN_RATE := 24.0
 ## Whether the hit's freeze found the fighter on the ground, and whether its launch only slides it along the floor (rising slower than
@@ -4255,7 +4269,11 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 	if state == "Knockdown" and not s.get("tripped", false):
 		target_lean = lie_lean
 	if state == "GetUp" and dodge_progress(s) >= 0.0:
-		target_lean = lie_lean * (1.0 - smoothstep(0.0, 0.55, dodge_progress(s)))
+		target_lean = lie_lean * (1.0 - smoothstep(0.0, 0.55, _getup_k(s)))
+	# (Round 9: sat on the floor after a trip, as the get-up off the back sits at `TRIP_SEAT`; the crouch it played was pitched forward by
+	# the knockdown's lean, face down on the floor.)
+	if state == "Knockdown" and s.get("tripped", false) and not r9_off.has("react"):
+		target_lean = KNOCKDOWN_BACK * (1.0 - smoothstep(0.0, 0.55, TRIP_SEAT))
 	if heavy_landing:
 		target_lean = 8.0
 	if state == "AirDodge":
@@ -4398,6 +4416,13 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 		lying_back = true
 	elif state == "Knockdown" and last_state != "Knockdown":
 		lying_back = hit_back
+	# (A trip sits on its seat, and stands up from there: `trip_seat`, kept into the get-up, which the sim does not mark as a trip's.)
+	if state == "Knockdown":
+		trip_seat = bool(s.get("tripped", false)) and not r9_off.has("react")
+		if trip_seat:
+			lying_back = true
+	elif state != "GetUp" or springs.jumped:
+		trip_seat = false
 	# Skidding out of a run, the fighter still faces the way it was running (the simulation has already turned it), leaning back
 	# against the slide; it swings round as the skid ends.
 	var look := facing

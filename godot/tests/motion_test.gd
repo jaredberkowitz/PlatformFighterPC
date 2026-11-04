@@ -240,6 +240,16 @@ func _initialize() -> void:
 	var shield_roll := {"state": "Roll", "state_frame": 15, "dodge": PackedInt32Array([30, 1, 0, 30, 0, 24])}
 	check(absf(FighterView.dodge_progress(shield_roll) - 0.5) < 0.001, "a shield roll goes by its whole length")
 
+	# (Round 9.) A trip sits on its seat (the get-up's sitting pose), not face down under a crouch, and its stand-up starts from there.
+	var trip := snap(0, "Knockdown", "", 8000, 5)
+	trip.tripped = true
+	hurt.apply(Vector3.ZERO, trip, 1.0 / 60.0)
+	check(hurt.current_clip.begins_with("getup_up") and hurt.trip_seat, "a trip sits on its seat (%s)" % hurt.current_clip)
+	var up := snap(0, "GetUp", "", 8001, 0)
+	up.dodge = PackedInt32Array([26, 0, 0, 26])
+	hurt.apply(Vector3.ZERO, up, 1.0 / 60.0)
+	check(hurt._getup_k(up) >= FighterView.TRIP_SEAT - 0.001, "a trip's stand-up starts from the seat (%.2f)" % hurt._getup_k(up))
+
 	# (Round 9, attack weight.) A grounded strike's lean is held through its hold where the strike left it: the Longsword's forward tilt
 	# rises from a low cut in front to over the head, and its body went on pitching back through the hold; a seek into the hold leans as
 	# the hit says.
