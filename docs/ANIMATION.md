@@ -2599,3 +2599,15 @@ side-by-sides stay on F:.
   a held clip, with the stage branch's halftone city and origami sea merged (f965609c; stills regenerated, f8684a06). Simulation version 149,
   content hash 0d09e102dcfb7b1b (the same Rust and content as core5), checked in the staged copy and the extracted zip ("Platform Fighter
   playtest 2026-11-04 sim149 animation core6.zip"); the release exe quits with code 0. The tests pass; the look bench 0.96.
+
+### Group 15 (round 9): a knockdown slams down (the order's item 4)
+
+- **Found:** laid down by the lean's spring, a fighter coming down out of a launch tipped over from upright like a felled tree: 15 degrees a
+  frame at most, flat only by its sixth to ninth frame (the forward smash's launch in `--demo=reactions`: frames 0-9 -1, -15, -30, -45, -59, -70,
+  -79, -85, -88, -90). The references arrive nearly flat and bounce.
+- **Fix (`fighter_view.gd` `_slam`, `KNOCKDOWN_SLAM_FRAMES`, `KNOCKDOWN_BOUNCE`):** the lean falls from where it was to lying over three sim
+  frames, faster as it goes (-5, -33, -79), then rebounds 0.12 of its last frame's fall and the spring settles it (up about 7 degrees, down
+  again by frame 12). A trip and a seek do not slam. `PF_R9_OFF=react` shows the old.
+- **Checked:** the reactions demo at the match camera; the face measure over its reactions as core5's (eyes or mouth covered 3 frames in the
+  knockdown in both; the face to the floor 0 frames, 1 at core5); `motion_test` with a new check (a knockdown is down by its third frame).
+- **Image:** `docs/screenshots/anim/r9_slam.jpg` (the forward smash's knockdown, frames 0-12 at the match camera: core5 above, now below).

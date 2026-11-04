@@ -240,6 +240,19 @@ func _initialize() -> void:
 	var shield_roll := {"state": "Roll", "state_frame": 15, "dodge": PackedInt32Array([30, 1, 0, 30, 0, 24])}
 	check(absf(FighterView.dodge_progress(shield_roll) - 0.5) < 0.001, "a shield roll goes by its whole length")
 
+	# (Round 9.) A knockdown slams down: lying by its third frame (laid down by the lean's spring it tipped over like a felled tree, flat by
+	# its sixth to ninth).
+	var slammer := FighterView.new()
+	root.add_child(slammer)
+	slammer.build(1, Loadout.default_for(1))
+	await process_frame
+	for f in 10:
+		slammer.apply(Vector3.ZERO, snap(1, "Idle", "", 8500 + f, f), 1.0 / 60.0)
+	for f in 3:
+		slammer.apply(Vector3.ZERO, snap(1, "Knockdown", "", 8510 + f, f), 1.0 / 60.0)
+	var lying_lean: float = FighterView.KNOCKDOWN_BACK if slammer.lying_back else float(FighterView.LEAN.Knockdown)
+	check(absf(slammer.lean - lying_lean) < absf(lying_lean) * 0.1, "a knockdown is down by its third frame (%.1f of %.1f)" % [slammer.lean, lying_lean])
+
 	# (Round 9.) A trip sits on its seat (the get-up's sitting pose), not face down under a crouch, and its stand-up starts from there.
 	var trip := snap(0, "Knockdown", "", 8000, 5)
 	trip.tripped = true

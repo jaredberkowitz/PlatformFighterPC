@@ -1351,7 +1351,8 @@ const HANDOFF_BY_CLIP := {"jumpsquat": 2.0, "land": 1.0, "tech": 2.0, "knockdown
 ## the forward roll's turn round to the sim's last frame; "react" leaves the hit reactions as they were at core4 (a clip chosen every frame by
 ## the knockback, the ground's flinch without its recoil, a launch and a tumble pitched about the body's side, the damage fall a plain fall);
 ## "stops" leaves a run's stop and a walk's slide to the plain idle, as before sim 148; "floorroll" plays a tech, get-up or trip roll by
-## its whole length, as before sim 149; "weight" leaves a grounded strike's lean to its spring through the end lag (`strike_lean`);
+## its whole length, as before sim 149; "react" also leaves a knockdown's slam to the lean's spring (`_slam`); "weight" leaves a grounded
+## strike's lean to its spring through the end lag (`strike_lean`);
 ## "dashpin" lets a dash's planted feet go with the hand-off (`_pin_dash_feet`).
 static var r9_off := OS.get_environment("PF_R9_OFF").split(",")
 var handoff_clip := ""
@@ -3621,6 +3622,39 @@ var hit_back := true
 var lying_back := true
 ## The knockdown's lean when lying on the back (degrees: the body laid back over its feet).
 const KNOCKDOWN_BACK := -80.0
+## (Round 9, the reactions' leftover: a knockdown slams down. Laid down by the lean's spring, a fighter coming down out of a launch tipped
+## over from upright like a felled tree, flat only by its sixth to ninth frame, where the references' arrive nearly flat and bounce. The
+## lean now falls from where it was to lying over KNOCKDOWN_SLAM_FRAMES sim frames, faster as it goes, and bounces back up
+## KNOCKDOWN_BOUNCE of its last frame's fall, the spring settling it. A seek lies down at once.)
+const KNOCKDOWN_SLAM_FRAMES := 3.0
+const KNOCKDOWN_BOUNCE := 0.12
+var slam_key := -1
+var slam_from := 0.0
+
+
+func _slam(s: Dictionary, target: float, before: float, dt: float) -> void:
+	if String(s.state) != "Knockdown" or s.get("tripped", false) or r9_off.has("react") or not use_base_body:
+		slam_key = -1
+		return
+	var key := int(s.frame) - int(s.state_frame)
+	if key != slam_key:
+		if int(s.state_frame) > 0 or dt <= 0.0:
+			return
+		slam_key = key
+		slam_from = before
+	var f := float(s.state_frame)
+	if f >= KNOCKDOWN_SLAM_FRAMES:
+		return
+	var k := (f + 1.0) / KNOCKDOWN_SLAM_FRAMES
+	lean = lerpf(slam_from, target, k * k)
+	if f + 1.0 >= KNOCKDOWN_SLAM_FRAMES:
+		# (The impact: the fall's last frame turned into a little rebound.)
+		var fall := (target - slam_from) * (1.0 - pow((f) / KNOCKDOWN_SLAM_FRAMES, 2.0))
+		lean_vel = -fall * KNOCKDOWN_BOUNCE * 60.0
+	else:
+		lean_vel = 0.0
+
+
 ## Where a trip sits (round 9): the get-up off the back's sitting pose (`getup_up`'s frame 8 of 30, the hands planted behind, the knees
 ## drawn in), with that point's lean; its get-up stands from there (`trip_seat`, `_getup_k`).
 const TRIP_SEAT := 0.267
@@ -4337,6 +4371,7 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 	# Fixed sub-steps keep the spring stable at any frame rate.
 	# (Round 2: stepped only while the sim moves on, as the motion springs are (`MotionSprings`): frozen through hitlag and a pause, so a
 	# strong hit's freeze no longer wobbles, and put straight on their targets after a rollback or a replay seek.)
+	var lean_before := lean
 	var body_dt := _body_spring_time(s, delta)
 	if body_dt < 0.0:
 		squash = target_squash
@@ -4346,6 +4381,7 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 		lean_vel = 0.0
 		lunge_vel = 0.0
 		body_dt = 0.0
+		slam_key = -1
 	var steps := ceili(body_dt / 0.008)
 	var h := body_dt / maxi(steps, 1)
 	# (A heavier body's springs are softer and damped toward critical, so it sinks and settles slowly without bouncing; a light one snaps.)
@@ -4361,6 +4397,7 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 		lunge_vel += (SPRING_K * 1.6 * (target_lunge - lunge) - SPRING_DAMP * 1.2 * lunge_vel) * h
 		lunge += lunge_vel * h
 	squash = clampf(squash, -0.35, 0.55)
+	_slam(s, target_lean, lean_before, body_dt)
 
 	# Running, every footfall squashes the body a little and every stride between them stretches it, in step with the clip.
 	var step_squash := 0.0
