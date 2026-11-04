@@ -3135,3 +3135,19 @@ lies at the hit), `bodyft.py` (the torso's travel after the last hit), `windpops
   the hit and slow it over about five frames; the clip's held key did not show. No visible difference at match speed: reverted. The
   audit's cause 2 as worded (the torso stopping on the strike) does not hold for the drawn body; its weight gap is in the wind-up (group 2)
   and the settle.
+
+### r10a installed (4 November 2026)
+
+- Groups 1 and 2 (back kicks with the back leg, the anticipation by the move's frames) and the Scamp's popgun in its pointing hand on the
+  fighter select, with origin/main (sims 150 and 151, 8843803a), the popgun (a8ccba96) and the stage branch's style pass step 6
+  (c6ec3f07) merged; stills regenerated (482cbce7). Pack only: the Rust and content are main's to the line. Simulation version 151,
+  content hash 6d2f76fdb6bbb5eb, checked in the staged copy and the extracted zip ("Platform Fighter playtest 2026-11-04 sim151 animation
+  r10a.zip"); the release exe quits with code 0. The Godot tests pass; the look bench passes.
+- Re-measured on the installed code (`F:\anim_core\wt_meas` at 482cbce7): attack timing 2.35 / 1.44 / 1.66 / 1.18 (core10 2.40 / 1.40 /
+  1.65 / 1.13: the recovery a hundredth over, from the back airs' one-frame shifts; `setshape.py 3 bair 0.700 0.990` and
+  `10 bair 0.530 0.990` are the next refit); end-lag pops of 0.5 or more 8 (7: the Clutch's up air is new); wind-up jumps of 0.25 or
+  more 32 (core10 53).
+- **Not done, found:** the Popgun's peanut shot (extra move 3, `POPGUN_FIRE`) plays the fallback swing and its gun stays at the low carry
+  through the draw and the shot. Mapped to the blaster with a release on its first frame and the draw held in its coil, the gun still
+  pointed at the floor: the weapon arm of a move with no hitbox is not aimed by the clip's arm; it needs an aim target ahead at shoulder
+  height for projectile moves. Reverted; next.
