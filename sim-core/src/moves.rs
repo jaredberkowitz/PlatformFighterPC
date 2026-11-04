@@ -4226,6 +4226,16 @@ pub fn needles() -> Weapon {
         h.sdi = 40;
         h.hitstun_add = 2;
     });
+    // The outer stab is the reference's lying capsule on its root (sim 152, a public dump of its move scripts): from 7 to 13 of its
+    // units ahead at 8 up, radius 4.5, so 1.25 ahead with 0.375 either way, 1.0 up, radius 0.5625 [R]. A sphere at its middle (the
+    // estimate before) reached 0.39 short, and with the reference's slide on the ground (`Ruleset::ground_hit_slide`) the stabs lost
+    // their target. (The inner stab rides the hand bone, so its place stays an estimate.)
+    set_rows(&mut rapid, &[1], |h| {
+        h.x = Fx::from_ratio(10, 8);
+        h.y = Fx::ONE;
+        h.radius = Fx::from_ratio(9, 16);
+        h.half_width = Fx::from_ratio(3, 8);
+    });
     rapid.rehit = Some((4, 2));
     rapid.script = Some(script(
         Kind::Fighter,

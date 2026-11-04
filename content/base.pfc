@@ -5,8 +5,8 @@ bundle {
     schema 8
     name "Base Roster"
     description "The built-in roster: a longsword duelist and a close-range brawler."
-    sim_version 151
-    hash 6d2f76fdb6bbb5eb
+    sim_version 152
+    hash 3e8182f865102756
 }
 
 ruleset {
@@ -1578,7 +1578,7 @@ weapon needles {
         rehit_start 4
         rehit_every 2
         hitbox { start 4 end 12 x 0.79999 y 1.09999 radius 0.29999 damage 0.29999 angle 361 bkb 12 kbg 15 hitlag 50 hitstun_add 2 sdi 40 }
-        hitbox { start 4 end 12 x 1.2 y 1 radius 0.59999 damage 0.29999 angle 361 bkb 12 kbg 15 priority 1 hitlag 50 hitstun_add 2 sdi 40 }
+        hitbox { start 4 end 12 x 1.25 y 1 radius 0.5625 damage 0.29999 angle 361 bkb 12 kbg 15 priority 1 hitlag 50 hitstun_add 2 sdi 40 half_width 0.375 }
         script {
             // Needles rapid jab (ext1, slot 29): one loop of quick stabs. At its end it loops again while attack is held or was pressed in
             // the last 10 frames; otherwise it ends in the finisher (30 = ext2).

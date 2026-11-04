@@ -92,7 +92,7 @@ func build(sim) -> void:
 	# Mood light in paper for this exact stage (`--mood-mock=<glb>` to try one, `--no-mood` to compare).
 	var mood = StageBake.mood_source(bake_key)
 	if mood != null:
-		StageBake.place_mood(self, mood)
+		StageBake.place_mood(self, mood, String(theme.get("name", "")))
 	# The paper finish on the scenery, as this stage's palette asks (`paper_finish`), or the command line's.
 	Lighting.stage_finish = String(StageArt.palette(String(theme.get("name", ""))).get("backdrop", {}).get("paper_finish", ""))
 	RenderingServer.global_shader_parameter_set("pf_paper_finish", Lighting.paper_finish())

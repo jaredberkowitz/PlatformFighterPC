@@ -3019,6 +3019,37 @@ side-by-sides stay on F:.
   head. Image: `docs/screenshots/anim/r9_hero_poses_2.jpg`. Every family now holds its own hero pose; the long blades' tips are the UI
   session's (drawn a little smaller or lower in their panels).
 
+### Group 23 (round 9): the Tumbler's down smash carries on round (the coordinator's order of 2026-11-04, item 3, the follow-through)
+
+- **Reference** (the frame-data site's hitbox clip of the plumber's down smash, frame by frame, F:): down onto the hands, a sweep in front
+  (frame 5) and behind (12), then the legs keep sweeping round for about 12 frames (up over 15, low round 17-21, up again 23), down into a
+  low crouch on all fours (25-43). **Ours** (`kick_low`, shared by 16 moves): after the back kick the body sat with the leg out behind,
+  still, for ten frames, then stood up.
+- **Fix:** its own clip, `kick_sweep` (`make_rigged_blob.py`, `kick_sweep_poses`): `kick_low`'s wind-up and strikes, then keys of its own
+  past the strike (frames 38-48 of 60): the kicking leg, out behind along the floor, sweeps on round by the far side to the front, the
+  knee folding as it passes under the body, the body turning on with it and its weight carried after the leg, then a low crouch, held, and
+  the rise. Not grounded by name, each key puts its own feet down (the swinging leg's keys only the planted foot); the head held up
+  (`HEAD_FREE_CLIPS`) so the face stays to the camera. `fighter_view.gd`: a clip's own follow-through span (`CLIP_FOLLOW` 0.8: frames
+  38-48 played over the carry; every other clip still 38-40), the move's own carry (`CLASS_CARRY` 3 `dsmash` 9 frames), the kicking leg's
+  aim let go over 3 frames after the last hit so the clip's sweep shows (`CLIP_LEG_RELEASE`); the end shape refitted (3 `dsmash`
+  0.310, 0.560). `PF_R9_OFF=sweep` turns off the span, the carry and the release.
+- **Tried on the way:** the leg rising behind with the body pitched forward over the front leg (a mule kick): the face went to the floor
+  (the hat's top to the camera); swung far out to the side the leg went into the screen and stood still on it; straight under the body it
+  struck the floor.
+- **Measured (the timing report, 68 moves):** the Tumbler's down smash follow-through / hold / recovery 1 / 10 / 9 to **1 / 11 / 9**
+  against the reference's 11 / 10 / 7: the follow-through as the report counts it did not move. Its rule is the frames after the last hit
+  moving faster than 0.3 of the move's peak speed, averaged over seven body points; the peak is the snap into the back kick (0.45 units a
+  frame), and the sweep moves the body points 0.08-0.21 a frame, mostly the one leg. The gentler reading (frames above 0.1 of the peak,
+  `carry`) went 2 to 16. Means: **2.40 / 1.41 / 1.65 / 1.13** (core10 2.40 / 1.40 / 1.65 / 1.13; limits hold 1.56, recovery 1.65). The
+  Tumbler's gallery in both facings: eyes or mouth covered 0 (as before), striking hands hidden 59 (51), no end-lag jump of 0.5 or more.
+- **Judged by eye at real speed** against the reference: the sweep carries on round after the back kick and comes down into a crouch
+  before rising, where it sat still; the reference's whole body turns on its hands, ours on its seat with one leg (the short arms do not
+  reach the floor seated).
+- **Left:** to register under the report's rule a follow-through needs the whole body travelling about as fast as a third of the strike's
+  snap for ten frames (the torso, both legs and the arms, not one leg): the next moves on the list (the Needles' forward smash, the
+  Longsword's jab and down tilt, the Bounder's down tilt) want that kind of whole-body carry, or the rule weighed by the limbs that strike.
+- **Image:** `docs/screenshots/anim/r9_sweep_followthrough.jpg` (frames 12-36 and 40: core8 above, now below, close camera).
+
 ### Sim 150's tech in place on the view (the movement session, 2026-11-04, for the owner's build of sims 150 and 151)
 
 - **Found (the art director's note):** sim 150 makes a tech in place the reference's 26 frames, intangible only through frame 20. The view
@@ -3038,3 +3069,69 @@ side-by-sides stay on F:.
   against it.
 - **Image:** `docs/screenshots/anim/sim150_tech_in_place.jpg` (the Longsword, every second frame from the landing: before above, now
   below).
+
+### Round 10 (2026-11-04, the owner: "a bit less weightless, more readable, and more accurate to the reference's animations")
+
+The audit: `docs/art/anim/ANIMATION_REVIEW_3.md` (core10 at the match camera, mean 3.30, the ten shared causes ranked by gain for cost).
+Measured on every class's gallery in both facings; the new tools (`F:\anim_core\t3`): `cross.py` (which limb strikes and where its root
+lies at the hit), `bodyft.py` (the torso's travel after the last hit), `windpops.py` (one-frame jumps of the hips or head in a wind-up).
+
+### Group 1 (round 10): back kicks with the leg on the kick's side (the owner's note of 2026-11-04; review 3, cause 1)
+
+- **The note:** "For back airs where they kick backwards, certain characters cross their leg over where it would make sense to use the
+  other leg so nothing crosses." Taken as a rule for every strike: the striking limb is the one on the strike's side.
+- **Measured (core10, `cross.py`, every gallery, both facings):** the striking limb's root (hip or shoulder) on the far side of the other
+  limb's root from the strike by more than 0.15 units at the hit: 22 move-facings. Every kick back air (the Claws, Embers, Staff, Bracers,
+  Clutch, Wanderer and Scamp) and the Greatsword's back air's legs, the hip 0.22-0.31 units on the wrong side in both facings; the Needles'
+  down smash's back kick (0.26); the Bracers' down special and the Nodachi's up tilt (a trailing foot and the blade arm, judged by eye: no
+  strike crosses).
+- **Cause:** `_aim_leg` kicked behind with the far leg ("a kick behind uses the far leg"), a rule from when the near leg stood in front.
+  Since stance C the near foot is the back one, and for a hit behind the body swings round through the camera (`BACK_ATTACK_TURN`), which
+  brings the far hip to the front. The clips (`kick_bair`, `attack_bair`) tucked the near knee forward and trailed the far leg back, so the
+  far leg kicked back from behind the tucked near one: the legs scissored and the kick left from behind the body.
+- **Fix:** a kick behind uses the near leg (`_aim_leg`; below `NEAR_KICK_BEHIND_Y` 1.3: a kick behind and overhead keeps the far leg, which
+  goes behind the head, and `kick_sweep`, whose far leg sweeps on round after its kick, keeps it: `FAR_KICK_CLIPS`); `kick_bair` and
+  `attack_bair` tuck the far knee and trail the near leg (the rig rebuilt: those two clips changed, every other clip byte for byte the
+  same). Both facings take it alike (the `@m` clips swap the legs with the facing). `PF_R10_OFF=cross` kicks with the far leg again.
+- **After:** every back air's kicking leg leaves from the hip on the kick's side (0.10-0.24 units toward it), the Needles' down smash's
+  back kick too (0.13); crossings past 0.15: 22 to 0 (the two by-eye ones left as they were). By eye at the match camera, both facings: the
+  kick reads from hip to foot in front of the body, the tucked knee behind it.
+- **Measured (core10, now):** attack timing (follow-through / hold / recovery / wind-up) 2.40 / 1.40 / 1.65 / 1.13, 2.40 / 1.44 / 1.68 /
+  1.10 (the back airs a frame either way; refitted with group 3); eyes or mouth covered 7, 7; striking hands hidden 1,306, 1,314 (group
+  23's Tumbler, +8); end-lag pops of 0.5 or more 7, 7.
+- **Image:** `docs/screenshots/anim/r10_back_kicks.jpg` (each class's back air around its hit, core10 left, now right; facing right, then
+  the Claws and the Clutch facing left; match size).
+
+### Group 2 (round 10): the anticipation as deep as the move has frames for (weight; found in the audit's traces)
+
+- **Found (new measure, `windpops.py`: the largest one-frame move of the hips or head from a grounded move's first frame to the frame
+  before its first hit, every class's gallery):** at core10, 53 of 134 grounded moves jumped 0.25 units or more in one frame of their
+  wind-up, 16 of them 0.4 or more (the Scamp's down tilt's head 0.81 in its first frame, the Bracers' 0.74, the Longsword's 0.61; the
+  Phantom's, the Settler's, the Scamp's, the Sprinter's and the Claws' jabs 0.45-0.51). Each wind-up went to its clip's full chamber,
+  which on the ground sinks the hips from the stance's 0.88 to 0.12-0.46 and draws the arm right back, in 45% of its startup
+  (`COIL_AT`): a 2-6 frame wind-up dropped the body a fifth of its height in one frame and came back up for the strike in the next, a jolt
+  at real speed rather than a gathering of weight. The end-lag pops were measured in round 9; the wind-ups never were.
+- **Fix (`fighter_view.gd` `strike_progress`, `anticipation_depth`):** a wind-up goes part of the way to its chamber by its startup:
+  `ANTICIPATION_MIN` 0.35 of the way at two frames, all of it from `ANTICIPATION_FULL` 9 frames on, in proportion between, and a short one
+  reaches it a little later in its startup (`COIL_LATE` 0.1). Charges and moves thrown out of a charge keep their full coil. Spending the
+  whole startup on the coil (holding it less) was tried first: wind-up timing 1.21 against 1.18 with this. `PF_R10_OFF=coil` shows the
+  old.
+- **After:** wind-up jumps of 0.25 or more 53 to 32, of 0.4 or more 16 to 5 (worst 0.81 to 0.51); the five left are the deep crouches of
+  the down tilts with long startups and two up smashes, whose crouch is the move. Attack timing (follow-through / hold / recovery /
+  wind-up) 2.40 / 1.44 / 1.68 / 1.10 (group 1) to 2.35 / 1.44 / 1.66 / 1.18: the short moves' wind-ups reach their middle a frame later.
+- **With it, the Scamp's popgun on the fighter select (the art director's note on the popgun merge):** in the point (`menu_hero_tool`)
+  the Popgun holds its gun in the pointing hand, the far one, clenched round the grip, so it aims along the arm at the other card; the
+  near hand rests on the hip (`MENU_POINT_GUN`). The Settler is unchanged. Checked: the Scamp against the Settler and the Tumbler, both
+  ways round. Image: `docs/screenshots/anim/r10_popgun_select.jpg`.
+
+### Tried and reverted (round 10): the six-pose strike's second key moving on (review 3, cause 2)
+
+- **The idea (the audit's cause 2):** the six-pose clips key the strike twice (frames 32 and 36 the same pose), so the clip's body comes to
+  rest on the hit, and only then moves on into its follow-through (40). The second key was set 0.4 of the way on toward the follow-through
+  (57 clips changed in the rig).
+- **Measured:** attack timing 2.35 / 1.44 / 1.66 / 1.18 to 2.37 / 1.43 / 1.66 / 1.18; the torso's carry-through after the last hit
+  (`bodyft.py`) the same or less. **Traced:** the drawn head and hips through the Claws' jab and forward tilt moved within 0.01 units of
+  before: the view's own body layers (the lunge and its carry, the strike's lean held through the hold) already carry the torso on through
+  the hit and slow it over about five frames; the clip's held key did not show. No visible difference at match speed: reverted. The
+  audit's cause 2 as worded (the torso stopping on the strike) does not hold for the drawn body; its weight gap is in the wind-up (group 2)
+  and the settle.

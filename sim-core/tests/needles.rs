@@ -528,6 +528,32 @@ fn the_rapid_jab_holds_its_target_in_place() {
 }
 
 #[test]
+fn the_rapid_jabs_outer_stab_is_the_references_capsule() {
+    // Sim 152 (a public dump of the reference's move scripts): on its root, from 7 to 13 of its units ahead at 8 up, radius 4.5.
+    let sim = duel();
+    let stab = &needles(&sim).moves[MoveId::Ext1 as usize].hitboxes[1];
+    assert_eq!(
+        (stab.x, stab.y, stab.radius, stab.half_width),
+        (
+            Fx::from_ratio(10, 8),
+            Fx::ONE,
+            Fx::from_ratio(9, 16),
+            Fx::from_ratio(3, 8)
+        )
+    );
+    // So it reaches a fighter standing 3.0 apart (the duelist's body, as far as 3.2), where a sphere at its middle (the estimate
+    // before) reached only 2.8.
+    let mut sim = up_close(Fx::from_int(3));
+    sim_core::fighter::begin_attack(&mut sim.state.fighters[0], MoveId::Ext1);
+    let mut hit = false;
+    for _ in 0..12 {
+        sim.tick(inp(0, 0, ATTACK));
+        hit |= sim.fighter(1).percent > Fx::ZERO;
+    }
+    assert!(hit, "a stab reached 3.0 apart");
+}
+
+#[test]
 fn dash_attack_is_the_earlier_games_pop_up() {
     let mut sim = up_close(fx(6, 10));
     sim_core::fighter::begin_attack(&mut sim.state.fighters[0], MoveId::DashAttack);

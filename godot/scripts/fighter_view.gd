@@ -980,7 +980,10 @@ func _attack_clip(s: Dictionary) -> Array:
 		t = PackedInt32Array([t[0], int(release[String(s.move_name)]), int(release[String(s.move_name)])])
 	var start := clampf(float(t[1]), 1.0, total)
 	var last := clampf(float(t[2]), start, total)
-	var progress := strike_progress(float(s.state_frame), total, start, last, s.get("move_windows", PackedInt32Array()), _end_shape(s))
+	var follow := FOLLOW_PROGRESS
+	if anim != null and not r9_off.has("sweep"):
+		follow = float(CLIP_FOLLOW.get(AnimLibrary.attack_clip(_cls(s), String(s.move_name), anim), FOLLOW_PROGRESS))
+	var progress := strike_progress(float(s.state_frame), total, start, last, s.get("move_windows", PackedInt32Array()), _end_shape(s), follow)
 	var name := String(s.move_name)
 	if (HELD_STRIKE.get(_cls(s), []) as Array).has(name):
 		# (A hold with no hit to time it, round 3: the Settler's balloon float. Rises into its pose over HELD_STRIKE_IN frames and stays
@@ -1010,18 +1013,25 @@ func _attack_clip(s: Dictionary) -> Array:
 ## for each: between two hits the body draws partly back toward the wind-up, then snaps forward onto the next hit's first frame, so a
 ## sequence of hits reads as a rhythm of strikes rather than one long held pose; the last hit gets the full follow-through. Only the
 ## move's frames drive it, so the animation never sets the timing.
-static func strike_progress(f: float, total: float, start: float, last: float, windows: PackedInt32Array, shape := END_SHAPE) -> float:
+static func strike_progress(f: float, total: float, start: float, last: float, windows: PackedInt32Array, shape := END_SHAPE, follow := FOLLOW_PROGRESS) -> float:
 	if f < start:
 		# (Animation overhaul pass 3: the wind-up coils, holds, then snaps, as the reference's moves do, instead of drifting from rest to
 		# the strike at one pace. The clip reaches its chamber key (19 of 60) by COIL_AT of the startup, creeps on through the hold, and
 		# from SNAP_AT accelerates through the launch into the strike on the first active frame.)
+		# (Round 10, weight: the anticipation is as deep as the move has frames for. Every wind-up went to the clip's full chamber, which
+		# on the ground sinks the hips to 0.12-0.46 (the stance stands at 0.88) and draws the arm right back, in COIL_AT of its startup: a
+		# 2-6 frame wind-up dropped the hips or head 0.25-0.8 units in one frame and came back up for the strike in the next (53 of 134
+		# grounded moves at core10, the jabs and down tilts worst), a jolt at real speed rather than a gathering of weight. A short wind-up
+		# goes part of the way to its chamber (`anticipation_depth`), a little later in its startup (`COIL_LATE`).)
+		var depth := anticipation_depth(start)
+		var coil_at := lerpf(COIL_AT + COIL_LATE, COIL_AT, depth)
 		var u := f / start
-		if u <= COIL_AT:
-			return COIL_PROGRESS * coil_ease(u / COIL_AT)
+		if u <= coil_at:
+			return COIL_PROGRESS * depth * coil_ease(u / coil_at)
 		if u <= SNAP_AT:
-			return COIL_PROGRESS + COIL_CREEP * (u - COIL_AT) / (SNAP_AT - COIL_AT)
+			return (COIL_PROGRESS + COIL_CREEP * (u - coil_at) / maxf(SNAP_AT - coil_at, 0.001)) * depth
 		var k := (u - SNAP_AT) / (1.0 - SNAP_AT)
-		return lerpf(COIL_PROGRESS + COIL_CREEP, 0.55, k * k)
+		return lerpf((COIL_PROGRESS + COIL_CREEP) * depth, 0.55, k * k)
 	if windows.size() >= 4:
 		for k in range(0, windows.size() - 2, 2):
 			var a := float(windows[k])
@@ -1051,7 +1061,7 @@ static func strike_progress(f: float, total: float, start: float, last: float, w
 	# (Round 3, measured against the reference's hitbox animations: the swing carries on into its follow-through and stops within a few
 	# frames of the last hit, the pose is held, creeping, for about half the end lag, then the body recovers quickly and settles. It used
 	# to drift home at one slow ease across the whole end lag, which read as floaty.)
-	return lerpf(0.63, FOLLOW_PROGRESS, follow_k(f, last, shape)) + (1.0 - FOLLOW_PROGRESS) * home_k(f, last, total, shape, 0.0, BODY_CREEP)
+	return lerpf(0.63, follow, follow_k(f, last, shape)) + (1.0 - follow) * home_k(f, last, total, shape, 0.0, BODY_CREEP)
 
 
 ## The end lag's shape, shared by the body, the weapon and the reaching limbs (animation round 3, from the reference's hitbox animations:
@@ -1091,12 +1101,22 @@ const CLASS_END_SHAPES := {
 	0: {"bair": Vector2(0.550, 0.850), "dair": Vector2(0.760, 0.990), "dsmash": Vector2(0.803, 0.990), "dtilt": Vector2(0.020, 0.563), "fair": Vector2(0.350, EVEN + 0.990), "fsmash": Vector2(0.020, 0.990), "ftilt": Vector2(0.766, 0.990), "jab": Vector2(0.020, 0.684), "uair": Vector2(0.078, EVEN + 0.732), "usmash": Vector2(0.150, EVEN + 0.990), "utilt": Vector2(0.060, 0.950)},
 	1: {"bair": Vector2(0.479, 0.990), "dair": Vector2(0.393, 0.990), "fair": Vector2(0.713, 0.990), "ftilt": Vector2(0.307, 0.990), "jab": Vector2(0.479, 0.990), "nair": Vector2(0.020, 0.987), "usmash": Vector2(0.306, 0.746), "utilt": Vector2(0.084, 0.990)},
 	2: {"bair": Vector2(0.444, EVEN + 0.990), "dsmash": Vector2(0.035, EVEN + 0.990), "dtilt": Vector2(0.691, 0.920), "fair": Vector2(0.403, 0.882), "fsmash": Vector2(0.273, 0.577), "ftilt": Vector2(0.214, 0.786), "jab": Vector2(0.704, 0.990), "nair": Vector2(0.040, EVEN + 0.960), "uair": Vector2(0.030, EVEN + 0.970), "usmash": Vector2(0.146, 0.892), "utilt": Vector2(0.490, 0.990)},
-	3: {"bair": Vector2(0.664, 0.990), "dsmash": Vector2(0.373, 0.563), "dtilt": Vector2(0.585, 0.973), "fair": Vector2(0.858, 0.990), "fsmash": Vector2(0.289, EVEN + 0.990), "ftilt": Vector2(0.020, 0.861), "jab": Vector2(0.346, 0.990), "nair": Vector2(0.186, 0.920), "uair": Vector2(0.020, EVEN + 0.950), "usmash": Vector2(0.326, 0.843), "utilt": Vector2(0.418, 0.950)},
+	3: {"bair": Vector2(0.664, 0.990), "dsmash": Vector2(0.310, 0.560), "dtilt": Vector2(0.585, 0.973), "fair": Vector2(0.858, 0.990), "fsmash": Vector2(0.289, EVEN + 0.990), "ftilt": Vector2(0.020, 0.861), "jab": Vector2(0.346, 0.990), "nair": Vector2(0.186, 0.920), "uair": Vector2(0.020, EVEN + 0.950), "usmash": Vector2(0.326, 0.843), "utilt": Vector2(0.418, 0.950)},
 	8: {"bair": Vector2(0.755, 0.905), "dair": Vector2(0.020, 0.990), "dsmash": Vector2(0.400, 0.800), "dtilt": Vector2(0.313, 0.646), "fair": Vector2(0.550, 0.900), "fsmash": Vector2(0.207, 0.990), "ftilt": Vector2(0.528, 0.872), "jab": Vector2(0.200, 0.540), "nair": Vector2(0.257, 0.990), "usmash": Vector2(0.020, 0.158), "utilt": Vector2(0.020, 0.990)},
 	10: {"bair": Vector2(0.490, 0.990), "dair": Vector2(0.347, 0.987), "dsmash": Vector2(0.598, 0.979), "dtilt": Vector2(0.720, 0.990), "ftilt": Vector2(0.623, 0.990), "jab": Vector2(0.020, 0.990), "nair": Vector2(0.020, 0.465), "usmash": Vector2(0.147, 0.783), "utilt": Vector2(0.205, 0.990)},
 }
 ## The clip's follow-through key (frame 40 of 60).
 const FOLLOW_PROGRESS := 0.667
+## (Round 9, the follow-through) Clips with a follow-through of their own past the strike key, keyed further on (the share of the clip
+## where it ends: `kick_sweep`'s leg carries on rising behind and comes down into a crouch over frames 38-48 of 60), played over the
+## move's carry (`CLASS_CARRY`); every other clip carries on from frame 38 to 40.
+const CLIP_FOLLOW := {"kick_sweep": 0.8}
+## Per class, the moves whose carry (the frames the swing keeps going past its last hit, `shape.z`) is their own: the follow-through
+## a clip keys past its strike (`CLIP_FOLLOW`) plays over it, the reference's own (the plumber's down smash carries on about 11 frames).
+const CLASS_CARRY := {3: {"dsmash": 9.0}}
+## Kick clips whose kicking leg the game gives back to the clip after the last hit, over this many sim frames, so the clip's own
+## follow-through shows (the leg aim held it on the last hit's place through the end lag).
+const CLIP_LEG_RELEASE := {"kick_sweep": 3.0}
 ## The weapon arm and the reaching limbs come home this much of the end lag after the body, so the hips lead the recovery.
 const ARM_LAG := 0.08
 
@@ -1155,6 +1175,9 @@ func _end_shape(s: Dictionary) -> Vector3:
 	if own.has(name):
 		shape.x = (own[name] as Vector2).x
 		shape.y = (own[name] as Vector2).y
+	var carry: Dictionary = CLASS_CARRY.get(_cls(s), {})
+	if carry.has(name) and not r9_off.has("sweep"):
+		shape.z = float(carry[name])
 	return shape
 
 
@@ -1167,7 +1190,21 @@ static func coil_ease(k: float) -> float:
 
 ## The wind-up's shape (shares of the startup, the frames before the first active one): coiled by COIL_AT, held (creeping COIL_CREEP of
 ## the clip on) until SNAP_AT, then the snap into the strike. The clip's chamber key is COIL_PROGRESS of its length (frame 19 of 60).
+## (Round 10) How far a wind-up goes toward its chamber (0..1) by its startup in frames: all the way from ANTICIPATION_FULL frames on, and
+## ANTICIPATION_MIN of the way at two frames; between, in proportion. `PF_R10_OFF=coil` goes all the way, as before.
+const ANTICIPATION_FULL := 9.0
+const ANTICIPATION_MIN := 0.35
+
+
+static func anticipation_depth(start: float) -> float:
+	if r10_off.has("coil"):
+		return 1.0
+	return clampf(ANTICIPATION_MIN + (1.0 - ANTICIPATION_MIN) * (start - 2.0) / (ANTICIPATION_FULL - 2.0), ANTICIPATION_MIN, 1.0)
+
+
 const COIL_AT := 0.45
+## (Round 10) How much later in its startup a short wind-up (`anticipation_depth` at its least) reaches its chamber.
+const COIL_LATE := 0.1
 const SNAP_AT := 0.8
 const COIL_PROGRESS := 0.317
 const COIL_CREEP := 0.02
@@ -1396,8 +1433,12 @@ const HANDOFF_BY_CLIP := {"jumpsquat": 2.0, "land": 1.0, "tech": 2.0, "knockdown
 ## strike's lean to its spring through the end lag (`strike_lean`);
 ## "dashpin" lets a dash's planted feet go with the hand-off (`_pin_dash_feet`); "held" holds a raised cut's blade as before
 ## (`HELD_UP_MAX_BASE`, `HELD_SAG`); "upcut" holds the blade classes' up tilts and up smashes with the cap they had before group 16
-## (`UP_CUTS`); "climbidle" holds a ledge climb's last pose still through its last frames, as before group 22.
+## (`UP_CUTS`); "climbidle" holds a ledge climb's last pose still through its last frames, as before group 22; "sweep" plays the Tumbler's down smash's follow-through as before group 23 (no clip follow-through span, carry or leg release).
 static var r9_off := OS.get_environment("PF_R9_OFF").split(",")
+## With the environment variable PF_R10_OFF (before and after images, round 10): "cross" kicks behind with the far leg again (the leg
+## crossing the other at the hit, `_aim_leg`; the back airs' tucks, moved to the far leg with it, are in the rig); "coil" winds every
+## move up to its full chamber whatever its startup (`anticipation_depth`).
+static var r10_off := OS.get_environment("PF_R10_OFF").split(",")
 var handoff_clip := ""
 var handoff_state := ""
 var handoff_frame := -1
@@ -2117,6 +2158,8 @@ func _show_weapon_of(cls: int, facing := 1) -> void:
 		p.visible = cls == 1
 	for p in dagger_parts:
 		p.visible = cls == DAGGER_CLASS and String(p.get_meta("side")) == _weapon_side(facing)
+	for p in popgun_parts:
+		p.visible = cls == POPGUN_CLASS and String(p.get_meta("side")) == _weapon_side(facing)
 
 
 ## The stance clip `hold_pose` plays (the look's menu stance). Any other clip a menu holds still (fighter select's hero pose, a mock's
@@ -2130,6 +2173,8 @@ const MENU_WEAPON_DEG := {"menu_hero": 110.0, "menu_hero_staff": 24.0}
 const MENU_STRIKE_CLIPS := ["attack_", "sword_", "kick_", "gaunt_", "body_", "tool_", "staff_", "nodachi_", "dagger_", "buckler_", "great_", "blaster", "menu_hero_quick"]
 ## Held clips whose free hand is open (a palm thrust out, a wave); every other held clip closes both hands.
 const MENU_OPEN_HAND := ["menu_hero", "menu_hero_staff", "menu_hero_caster", "menu_hero_tool"]
+## Held clips that point with the far hand: the Popgun holds its gun there (round 10).
+const MENU_POINT_GUN := ["menu_hero_tool"]
 
 
 ## A menu fighter's weapon in the weapon hand, at its true size: at the class's resting carry in the look's stance, as in a match
@@ -2148,6 +2193,14 @@ func _pose_menu_weapon() -> void:
 	# (Fists, but for the clips whose free hand is open: a palm thrust out, a wave.)
 	if held and not fists.is_empty():
 		_clench(not MENU_OPEN_HAND.has(clip.trim_suffix("@m")), true, facing)
+	# (Round 10, the art director's note on the popgun: in a pose that points (`MENU_POINT_GUN`), the Popgun's gun is in the pointing hand,
+	# the far one, clenched round its grip, so it aims along the arm at the other card; the near hand rests on the hip.)
+	if held and menu_weapon == POPGUN_CLASS and MENU_POINT_GUN.has(clip.trim_suffix("@m")):
+		var point := "R" if side == "L" else "L"
+		for p in popgun_parts:
+			p.visible = String(p.get_meta("side")) == point
+		if not fists.is_empty():
+			_clench(true, true, facing)
 	var hand := skeleton.find_bone("hand." + side)
 	for sd in ["L", "R"]:
 		var hb := skeleton.find_bone("hand." + sd)
@@ -5126,6 +5179,9 @@ var claw_parts: Array[Node3D] = []
 ## The Dagger's knife, one on each hand (only the weapon hand's shows), and the Nodachi's long sword (on the blade's pivot).
 var dagger_parts: Array[Node3D] = []
 var nodachi_parts: Array[Node3D] = []
+## The Popgun's toy cork gun, one on each hand like the knife (only the weapon hand's shows). (2026-11-04, the owner: the Scamp had no
+## gun to hold, so its popgun showed only through its moves' effects, and its select-screen pose pointed an empty hand.)
+var popgun_parts: Array[Node3D] = []
 ## How far past the knuckles the claws reach (forward space): the claw arcs and the fist's reach count it.
 const CLAW_LENGTH := 0.3
 ## Where a modelled hand weapon's origin sits on the hand: this far from the wrist along the forearm's line.
@@ -5139,6 +5195,7 @@ func _mount_weapon_models() -> void:
 	claw_parts.clear()
 	dagger_parts.clear()
 	nodachi_parts.clear()
+	popgun_parts.clear()
 	var steel := respond(toon(Color(0.5, 0.56, 0.68)), "metal")
 	# The Nodachi: on the blade's pivot, laid out as the longsword is (blade 0.2 to 2.9 along x), so it is posed and stretched the same.
 	# (`_model_scene` hands back a new copy each time: it goes on the fighter itself. A copy of it kept and left out of the tree outlived
@@ -5155,6 +5212,7 @@ func _mount_weapon_models() -> void:
 	# (One copy per hand is made from these; they are freed after.)
 	var claw_scene := _model_scene("res://models/weapons/claw.glb")
 	var dagger_scene := _model_scene("res://models/weapons/dagger.glb")
+	var popgun_scene := _model_scene("res://models/weapons/popgun.glb")
 	for side in ["L", "R"]:
 		var ih := skeleton.find_bone("hand." + side)
 		var il := skeleton.find_bone("armL." + side)
@@ -5186,9 +5244,27 @@ func _mount_weapon_models() -> void:
 			_paint_weapon(knife, respond(toon(Color(0.78, 0.83, 0.92)), "metal"), toon(Color(0.42, 0.26, 0.5)))
 			knife.visible = false
 			dagger_parts.append(knife)
-	for source in [claw_scene, dagger_scene]:
+		if popgun_scene != null:
+			var gun: Node3D = popgun_scene.duplicate()
+			gun.transform = frame
+			gun.set_meta("side", side)
+			holder.add_child(gun)
+			_paint_popgun(gun)
+			gun.visible = false
+			popgun_parts.append(gun)
+	for source in [claw_scene, dagger_scene, popgun_scene]:
 		if source != null:
 			source.free()
+
+
+## Colours the Popgun's toy cork gun by its parts' names (make_weapons.py `popgun`): a toy-red barrel (it reads against the Scamp's green
+## and pink at match size), a wooden body and grip, gold fittings and a pale cork.
+func _paint_popgun(root: Node3D) -> void:
+	var mats := {"band": toon(Color(0.84, 0.2, 0.16)), "wood": toon(Color(0.62, 0.42, 0.28)),
+		"gold": respond(toon(Color(0.92, 0.76, 0.3)), "gold"), "cork": toon(Color(0.88, 0.74, 0.54))}
+	for m in root.find_children("*", "MeshInstance3D", true, false):
+		var mi := m as MeshInstance3D
+		mi.material_override = mats.get(String(mi.name).get_slice("_", 0), mats["wood"])
 
 
 ## Hangs a modelled pivot weapon (res://models/weapons/<name>.glb) on the blade's pivot and colours each part by the first word of its
@@ -5239,6 +5315,8 @@ const BUCKLER_CLASS := 9
 ## The Dagger's class (a knife in the weapon hand, hung on the hand bone) and the Nodachi's (a very long sword on the blade's pivot).
 const DAGGER_CLASS := 12
 const NODACHI_CLASS := 13
+## The Popgun's class (the Scamp): a toy cork gun in the weapon hand, hung on the hand bone like the knife.
+const POPGUN_CLASS := 11
 var shield_disc: Node3D
 ## How many times the Seer's neutral air whirls the staff round.
 const STAFF_NAIR_TURNS := 2.0
@@ -7581,6 +7659,12 @@ const KICK_BEHIND_Z := -0.35
 const OVERHEAD_KICK := 40.0
 
 
+## Below this height (forward space, from the feet) a kick behind is the near leg's (round 10); above it, the far leg's, behind the head.
+const NEAR_KICK_BEHIND_Y := 1.3
+## Kick clips whose far leg strikes behind and carries on round after it (round 9 group 23's sweep): the far leg keeps the kick behind.
+const FAR_KICK_CLIPS := ["kick_sweep"]
+
+
 ## A kick: the leg on the side of the hitbox reaches the live hitbox with two-bone IK (hip, knee, ankle), so the foot is where the hit
 ## is; the other leg and the body come from the move's clip.
 func _aim_leg(s: Dictionary, kicking: bool, delta: float) -> void:
@@ -7591,13 +7675,27 @@ func _aim_leg(s: Dictionary, kicking: bool, delta: float) -> void:
 	var live := kicking and tip != Vector3.ZERO
 	# The leg reaches for the hit as the wind-up builds, is on it while it is live, and comes home through the recovery.
 	leg_k = _reach_weight(s) if live else move_toward(leg_k, 0.0, delta * 12.0)
+	# (Round 9, the follow-through: a clip that carries its kick on past the last hit takes the leg back over a few frames.)
+	if live and anim != null and not r9_off.has("sweep"):
+		var release := float(CLIP_LEG_RELEASE.get(AnimLibrary.attack_clip(_cls(s), String(s.move_name), anim), 0.0))
+		var t: PackedInt32Array = s.move_timing
+		if release > 0.0 and t.size() > 2 and float(s.state_frame) > float(t[2]):
+			leg_k *= 1.0 - smoothstep(float(t[2]), float(t[2]) + release, float(s.state_frame))
 	var facing := int(s.facing)
-	# The front leg kicks forward and up, the back leg backward.
-	# On the turned body the model's left leg is the one nearest the camera when facing right (and the right one facing left): it is the
-	# front leg, so a kick in front is in plain view and a kick behind uses the far leg.
+	# On the turned body the model's left leg is the one nearest the camera when facing right (and the right one facing left), so a kick
+	# in front is in plain view.
 	var front := "L" if facing > 0 else "R"
 	var back := "R" if facing > 0 else "L"
 	var kicker := front if tip.x >= 0.0 else back
+	# (Round 10, the owner's note of 2026-11-04: the leg on the strike's side strikes, so nothing crosses at the hit. A kick behind used the
+	# far leg, from when the near leg stood in front; since stance C the near foot is the back one, and for a hit behind the body swings
+	# round through the camera (`BACK_ATTACK_TURN`), which brings the far hip to the front: the far leg crossed behind the near one to kick
+	# back, 0.22-0.31 units past it at the hit in every kick back air. The near leg kicks behind now, in plain view; a kick behind and
+	# overhead keeps the far leg, which goes behind the head (`KICK_BEHIND_Z`), and a clip whose far leg sweeps on round after its kick
+	# keeps it (`FAR_KICK_CLIPS`).)
+	if tip.x < 0.0 and tip.y < NEAR_KICK_BEHIND_Y and not r10_off.has("cross") and anim != null \
+			and not FAR_KICK_CLIPS.has(AnimLibrary.attack_clip(_cls(s), String(s.move_name), anim)):
+		kicker = front
 	# Where each kicking leg's foot goes (forward space). A split kick (the neutral air) kicks both legs out, one ahead and one behind.
 	var goals := {kicker: tip}
 	if SPLIT_KICKS.has(String(s.move_name)):
@@ -8531,6 +8629,8 @@ func _apply_combat(s: Dictionary, delta: float) -> void:
 		p.visible = _cls(s) == 1
 	for p in dagger_parts:
 		p.visible = _cls(s) == DAGGER_CLASS and String(p.get_meta("side")) == _weapon_side(int(s.facing))
+	for p in popgun_parts:
+		p.visible = _cls(s) == POPGUN_CLASS and String(p.get_meta("side")) == _weapon_side(int(s.facing))
 	var nodachi: bool = _cls(s) == NODACHI_CLASS
 	for p in nodachi_parts:
 		p.visible = nodachi
