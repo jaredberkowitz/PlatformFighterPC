@@ -304,6 +304,10 @@ func _on_changed(id: String) -> void:
 func _show_fighter() -> void:
 	var e: Dictionary = entries[selectors["fighter"].index]
 	preview.set_loadout(e.look)
+	# (Its hero pose with its weapon, as on fighter select, turned toward the form at its left.)
+	var cls := int(e.get("class", 0))
+	preview.set_weapon(cls)
+	preview.facing_bias = -UI.hero_pose(preview, cls, -1)
 	var ed: RefCounted = ClassDB.instantiate("ContentEditor")
 	ed.new_from_builtin("preview")
 	var r: Dictionary = ed.recipe_readout(e["class"], e.size, e.speed, e.jump, e.weight)
