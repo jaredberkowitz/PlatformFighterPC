@@ -580,7 +580,7 @@ def pose(rig, bone, fwd=0.0, out=0.0, twist=0.0, lift=0.0, ahead=0.0):
     # (A planted move's thigh stays in a lunge's range: exaggerated, a lunge's front thigh rose past level and folded the belly over it.
     # Art review 5. Kicks and aerials keep their reach.)
     # (Not the runs, round 3: their feet are solved onto authored paths (`run_style`), and the knee drive and the heel kick need the range.)
-    if BODY and bone.startswith("thigh.") and CLIP_NOW and not CLIP_NOW.startswith(("kick", "run", "dash", "crouch", "land", "jumpsquat", "spot_dodge", "idle", "skid", "shield", "item_pick", "tech", "getup", "hurt_ground")) and grounded(CLIP_NOW):
+    if BODY and bone.startswith("thigh.") and CLIP_NOW and not CLIP_NOW.startswith(("kick", "run", "dash", "crouch", "land", "jumpsquat", "spot_dodge", "idle", "skid", "shield", "item_pick", "tech", "getup", "hurt_ground", "menu_hero")) and grounded(CLIP_NOW):
         fwd = clampf(fwd, -50.0, 75.0)
     # (In an attack the arms stay in the fight, as the reference fighters' do: an elbow never flung straight, an arm never thrown far behind
     # the body. The owner: arms bent and flailed in ways out of place in combat. Art review 5.)
@@ -5131,6 +5131,48 @@ def main() -> None:
                      "stance": (10.0 + 40.0 * k, 10.0 + 40.0 * k), "shin.L": (-10.0 - 60.0 * k,), "shin.R": (-10.0 - 60.0 * k,),
                      "armL.L": (10.0,), "armL.R": (10.0,)})
     clip(rig, "victory_c", 60, {0: cheer(0.0), 12: cheer(0.6), 22: cheer(1.0), 34: cheer(0.4), 44: cheer(0.0), 60: cheer(0.0)})
+
+    # ---- The fighter select's hero poses (round 9; the owner's picks of 2026-11-04 from the mock docs/screenshots/anim/r9_hero_pose_mock.jpg:
+    # sword A, staff B, brawler B, quick A; the heavy, caster and tool families are still to pick, a second round) ----
+    # Each a still held in the face-off panel (`AnimLibrary.hero_clip`, turned by `AnimLibrary.hero_turn`): the weapon hand the near one (L),
+    # its weapon's angle set by the game (fighter_view.gd `MENU_WEAPON_DEG`); the far arm free. A hero pose also bends the chest sideways
+    # (`bend`, degrees), tilts the head (`tilt`) and turns an arm about its length (`twists`, bone: degrees), so a forearm can fold up beside
+    # the head instead of in front of the face. The panel turns the fighter only part way from the camera, so the poses are built sideways
+    # (arms and legs out to the sides): a pose's "forward" points at the viewer and reads as nothing, and an arm raised overhead goes behind
+    # the big head.
+    def hero(spec):
+        base = body({key: v for key, v in spec.items() if key not in ("bend", "tilt", "twists")})
+
+        def f(rig):
+            base(rig)
+            sp = spec.get("spine", (0.0, 0.0))
+            if "bend" in spec:
+                pose(rig, "spine", fwd=sp[0], out=spec["bend"], twist=sp[1])
+            hd = spec.get("head", (0.0, 0.0))
+            if "tilt" in spec:
+                pose(rig, "head", fwd=hd[0], out=spec["tilt"], twist=hd[1])
+            for bone, tw in spec.get("twists", {}).items():
+                v = spec[bone]
+                pose(rig, bone, fwd=v[0], out=v[1] if len(v) > 1 else 0.0, twist=tw)
+        return f
+
+    HERO = {
+        # The sword family (sword A, "blade raised"): the blade raised on the outer side, the free palm out at the foe.
+        "menu_hero": {"hips": -0.16, "spine": (6.0, -18.0), "bend": -8.0, "head": (-6.0, -10.0), "tilt": -8.0, "thigh.L": (6.0, 22.0), "shin.L": (-22.0,),
+                      "thigh.R": (34.0, 36.0), "shin.R": (-60.0,), "armU.L": (14.0, 106.0), "armL.L": (40.0,), "armU.R": (56.0, 66.0), "armL.R": (24.0,)},
+        # The Seer (staff B, "staffs crossed"): the staff held across toward the foe, the free hand raised.
+        "menu_hero_staff": {"hips": -0.2, "spine": (14.0, -20.0), "bend": 12.0, "head": (-8.0, -10.0), "thigh.L": (8.0, 30.0), "shin.L": (-40.0,),
+                            "thigh.R": (30.0, 34.0), "shin.R": (-56.0,), "armU.L": (-6.0, 50.0), "armL.L": (40.0,), "armU.R": (34.0, 100.0), "armL.R": (76.0,),
+                            "twists": {"armU.R": 60.0}},
+        # The brawlers (brawler B, "pounce"): crouched wide to pounce, both claws out.
+        "menu_hero_brawler": {"hips": -0.34, "spine": (30.0, -12.0), "bend": 8.0, "head": (-16.0, -8.0), "thigh.L": (34.0, 38.0), "shin.L": (-80.0,),
+                              "thigh.R": (34.0, 38.0), "shin.R": (-80.0,), "armU.L": (30.0, 80.0), "armL.L": (36.0,), "armU.R": (44.0, 70.0), "armL.R": (30.0,)},
+        # The quick family (quick A, "side kick"): a side kick at the foe, the weapon hand raised high.
+        "menu_hero_quick": {"hips": 0.02, "spine": (-8.0, -12.0), "bend": -14.0, "head": (-6.0, -10.0), "tilt": 8.0, "thigh.L": (0.0, 4.0), "shin.L": (-12.0,),
+                            "thigh.R": (14.0, 96.0), "shin.R": (-8.0,), "armU.L": (10.0, 118.0), "armL.L": (24.0,), "armU.R": (50.0, 30.0), "armL.R": (80.0,)},
+    }
+    for key, spec in HERO.items():
+        clip(rig, key, 10, {0: hero(spec), 10: hero(spec)})
 
     # Grabs and throws.
     def grab_pose(rig):

@@ -2973,3 +2973,28 @@ side-by-sides stay on F:.
   it); both facings are the same code path.
 - **Image:** `docs/screenshots/anim/r9_climb_idle.jpg` (the Clutch's climb, frames 8-32 and its third idle frame: before above, now below,
   close camera).
+
+### Hero poses (round 9): the owner's picks built for the fighter select's face-off (2026-11-04)
+
+- **Picked** from `docs/screenshots/anim/r9_hero_pose_mock.jpg`: sword A (the blade raised on the outer side, the free palm out at the foe),
+  staff B (the staff held across toward the foe, so the two Seers' staffs cross between the panels), brawler B (crouched wide to pounce,
+  both claws out), quick A (a side kick at the foe, the weapon hand raised beside the head). The heavy, caster and tool families get a
+  second round of mocks.
+- **Built** (`make_rigged_blob.py` `HERO`, `hero`, the mock's specs unchanged) as held clips: `menu_hero` (the sword family),
+  `menu_hero_staff` (the Seer), `menu_hero_brawler`, `menu_hero_quick`. The rig rebuilt: those four clips added, every other clip's keys
+  byte for byte the same. `AnimLibrary`: "menu_hero" is a family clip; the Seer's own (`CLASS_OWN_CLIPS`) comes through `family_clip`; a
+  family still to pick gets its own name, which the rig lacks, so the select screen keeps its held jump (`OWN_ONLY`), not the sword
+  family's pose; `HERO_TURN` per pose (the UI session's `select.gd`, art/ui-paper2 4fa1dc73, merged here, reads it, P2 and P4 holding the
+  `@m` clip). `fighter_view.gd`: the raised blade at 110 degrees and the staff across at 24 (`MENU_WEAPON_DEG`), the Phantom's knife along
+  its fist (`MENU_STRIKE_CLIPS`), the sword's and the staff's free hands open (`MENU_OPEN_HAND`).
+- **Turn:** 0.55 for all four, the turn the owner picked them at. 0.75 tried: the staffs no longer cross between the panels, the
+  Greatsword's blade came in front of the body and the side kick read less; kept 0.55.
+- **Checked** on the real face-off panels, every family's fighters on both sides (the Duelist, Champion, Wanderer and Exile; the Seer; the
+  Brawler, Sprinter and Hauler; the Rogue and Phantom): faces clear with both eyes showing, no arm behind the head, the weapons in hand.
+  **Not fully in frame:** the Greatsword's and the Nodachi's raised blades run past the card's top into the top bar, as in the mock the
+  owner picked. Their blades are longer than the space above the raised hand at the panel's scale: lower hands put the blade off the
+  panel's side, upright beside the body it still reaches the bar, and pointed toward the foe it crosses the face. Left for the UI session
+  (a smaller or lower fighter in the panel for those two) or a lowered pose for them, to decide.
+- **Tests:** `anim_library_test` with new checks (each picked family's pose is in the rig and turns 0-0.9 rad; the Seer's own; the
+  families still to pick keep the stand-in).
+- **Image:** `docs/screenshots/anim/r9_hero_poses.jpg` (every picked family's fighters on both sides of the face-off).

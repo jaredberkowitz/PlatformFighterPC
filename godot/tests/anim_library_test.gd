@@ -50,6 +50,18 @@ func _rig_has_every_clip() -> void:
 			var want: String = c if (AnimLibrary.FAMILY_SHARES.get(fam, []) as Array).has(c) else "%s_%s" % [c, fam]
 			check(own == want, "class %d plays its family's %s (got %s)" % [cls, c, own])
 	check(AnimLibrary.family_clip(0, "idle", ap) == "idle", "the longsword keeps the shared idle")
+	# (Round 9: the fighter select's hero poses, the owner's picks: the sword family's, the Seer's own with its staff, the brawlers' and the
+	# quick family's; a family still to pick gets its own name, not in the rig, so the select screen keeps its held jump.)
+	check(AnimLibrary.family_clip(0, "menu_hero", ap) == "menu_hero" and AnimLibrary.family_clip(6, "menu_hero", ap) == "menu_hero", "the sword family holds its hero pose")
+	check(AnimLibrary.family_clip(5, "menu_hero", ap) == "menu_hero_staff", "the Seer holds its own hero pose")
+	for c in [1, 4, 7, 2, 12]:
+		check(ap.has_animation(AnimLibrary.family_clip(c, "menu_hero", ap)), "class %d's hero pose is in the rig" % c)
+	for c in [8, 3, 10, 11]:
+		var pending := AnimLibrary.family_clip(c, "menu_hero", ap)
+		check(pending != "menu_hero" and not ap.has_animation(pending), "class %d keeps the select's stand-in until its pose is picked (%s)" % [c, pending])
+	for clip in AnimLibrary.HERO_TURN:
+		var t := float(AnimLibrary.HERO_TURN[clip])
+		check(t > 0.0 and t <= 0.9 and ap.has_animation(String(clip)), "hero pose %s is in the rig and turns 0-0.9 rad (%.2f)" % [clip, t])
 	scene.free()
 
 

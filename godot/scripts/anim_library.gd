@@ -539,19 +539,32 @@ const CLASS_FAMILY := {1: "brawler", 4: "brawler", 7: "brawler", 2: "quick", 12:
 ## The shared clips a family has its own take on (`<clip>_<family>` in the rig). (The long idle's fidget too, since step 9 of the
 ## animation overhaul: on the sword stance it popped the other families out of their own.)
 ## (And the walk, since round 2: the one shared walk stood up out of every stance and slid.)
-const FAMILY_CLIPS := ["idle", "run", "idle_look", "walk", "spot_dodge", "jump", "fall_start", "fall", "jumpsquat", "land", "dash", "crouch", "shield", "run_stop"]
+const FAMILY_CLIPS := ["idle", "run", "idle_look", "walk", "spot_dodge", "jump", "fall_start", "fall", "jumpsquat", "land", "dash", "crouch", "shield", "run_stop", "menu_hero"]
 ## Families that keep a shared clip of FAMILY_CLIPS rather than having their own (none since round 3, when the brawlers got their run).
 const FAMILY_SHARES := {}
+## Family clips with no shared fall-back: a family without its own gets its own name all the same, missing from the rig, so the caller keeps
+## its stand-in (round 9: the fighter select's hero pose, `menu_hero`: a family whose pose is still to be picked keeps its held jump rather
+## than the sword family's raised blade).
+const OWN_ONLY := ["menu_hero"]
+## A class's own take on a shared clip, ahead of its family's (round 9: the Seer's hero pose with its staff, in the sword family).
+const CLASS_OWN_CLIPS := {5: {"menu_hero": "menu_hero_staff"}}
+## The fighter select's hero poses (round 9, the owner's picks of 2026-11-04: sword A, staff B, brawler B, quick A; the heavy, caster and
+## tool families still to pick): how far each turns its fighter from facing the camera toward its foe in the face-off panel (radians, at
+## most 0.9; `select.gd` reads it, and holds the clip at `HERO_AT` of its length, 0.5 when not named: each pose is one held still).
+const HERO_TURN := {"menu_hero": 0.55, "menu_hero_staff": 0.55, "menu_hero_brawler": 0.55, "menu_hero_quick": 0.55}
 
 
 ## Class `cls`'s own take on the shared clip `clip` (its family's, `<clip>_<family>`) when it has one and the rig has it, else `clip`.
 static func family_clip(cls: int, clip: String, anim: AnimationPlayer = null) -> String:
+	var mine: String = (CLASS_OWN_CLIPS.get(cls, {}) as Dictionary).get(clip, "")
+	if mine != "" and (anim == null or anim.has_animation(mine)):
+		return mine
 	if not FAMILY_CLIPS.has(clip) or not CLASS_FAMILY.has(cls):
 		return clip
 	if (FAMILY_SHARES.get(CLASS_FAMILY[cls], []) as Array).has(clip):
 		return clip
 	var own := "%s_%s" % [clip, CLASS_FAMILY[cls]]
-	if anim != null and not anim.has_animation(own):
+	if anim != null and not anim.has_animation(own) and not OWN_ONLY.has(clip):
 		return clip
 	return own
 
@@ -571,7 +584,7 @@ static func problems(anim: AnimationPlayer) -> Array[String]:
 	var named := {}
 	for c in STATE_CLIPS.values():
 		named[c] = "state"
-	for c in ["idle", "walk", "run", "dash", "skid", "jump", "fall", "air_jump", "ledge_climb", "attack_low"] + POLISH_CLIPS:
+	for c in ["idle", "walk", "run", "dash", "skid", "jump", "fall", "air_jump", "ledge_climb", "attack_low"] + HERO_TURN.keys() + POLISH_CLIPS:
 		named[c] = "state"
 	for c in SHARED_MOVES.values():
 		named[c] = "shared move"
