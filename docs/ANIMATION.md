@@ -3101,3 +3101,25 @@ lies at the hit), `bodyft.py` (the torso's travel after the last hit), `windpops
   23's Tumbler, +8); end-lag pops of 0.5 or more 7, 7.
 - **Image:** `docs/screenshots/anim/r10_back_kicks.jpg` (each class's back air around its hit, core10 left, now right; facing right, then
   the Claws and the Clutch facing left; match size).
+
+### Group 2 (round 10): the anticipation as deep as the move has frames for (weight; found in the audit's traces)
+
+- **Found (new measure, `windpops.py`: the largest one-frame move of the hips or head from a grounded move's first frame to the frame
+  before its first hit, every class's gallery):** at core10, 53 of 134 grounded moves jumped 0.25 units or more in one frame of their
+  wind-up, 16 of them 0.4 or more (the Scamp's down tilt's head 0.81 in its first frame, the Bracers' 0.74, the Longsword's 0.61; the
+  Phantom's, the Settler's, the Scamp's, the Sprinter's and the Claws' jabs 0.45-0.51). Each wind-up went to its clip's full chamber,
+  which on the ground sinks the hips from the stance's 0.88 to 0.12-0.46 and draws the arm right back, in 45% of its startup
+  (`COIL_AT`): a 2-6 frame wind-up dropped the body a fifth of its height in one frame and came back up for the strike in the next, a jolt
+  at real speed rather than a gathering of weight. The end-lag pops were measured in round 9; the wind-ups never were.
+- **Fix (`fighter_view.gd` `strike_progress`, `anticipation_depth`):** a wind-up goes part of the way to its chamber by its startup:
+  `ANTICIPATION_MIN` 0.35 of the way at two frames, all of it from `ANTICIPATION_FULL` 9 frames on, in proportion between, and a short one
+  reaches it a little later in its startup (`COIL_LATE` 0.1). Charges and moves thrown out of a charge keep their full coil. Spending the
+  whole startup on the coil (holding it less) was tried first: wind-up timing 1.21 against 1.18 with this. `PF_R10_OFF=coil` shows the
+  old.
+- **After:** wind-up jumps of 0.25 or more 53 to 32, of 0.4 or more 16 to 5 (worst 0.81 to 0.51); the five left are the deep crouches of
+  the down tilts with long startups and two up smashes, whose crouch is the move. Attack timing (follow-through / hold / recovery /
+  wind-up) 2.40 / 1.44 / 1.68 / 1.10 (group 1) to 2.35 / 1.44 / 1.66 / 1.18: the short moves' wind-ups reach their middle a frame later.
+- **With it, the Scamp's popgun on the fighter select (the art director's note on the popgun merge):** in the point (`menu_hero_tool`)
+  the Popgun holds its gun in the pointing hand, the far one, clenched round the grip, so it aims along the arm at the other card; the
+  near hand rests on the hip (`MENU_POINT_GUN`). The Settler is unchanged. Checked: the Scamp against the Settler and the Tumbler, both
+  ways round. Image: `docs/screenshots/anim/r10_popgun_select.jpg`.

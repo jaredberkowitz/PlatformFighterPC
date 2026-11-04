@@ -1018,13 +1018,20 @@ static func strike_progress(f: float, total: float, start: float, last: float, w
 		# (Animation overhaul pass 3: the wind-up coils, holds, then snaps, as the reference's moves do, instead of drifting from rest to
 		# the strike at one pace. The clip reaches its chamber key (19 of 60) by COIL_AT of the startup, creeps on through the hold, and
 		# from SNAP_AT accelerates through the launch into the strike on the first active frame.)
+		# (Round 10, weight: the anticipation is as deep as the move has frames for. Every wind-up went to the clip's full chamber, which
+		# on the ground sinks the hips to 0.12-0.46 (the stance stands at 0.88) and draws the arm right back, in COIL_AT of its startup: a
+		# 2-6 frame wind-up dropped the hips or head 0.25-0.8 units in one frame and came back up for the strike in the next (53 of 134
+		# grounded moves at core10, the jabs and down tilts worst), a jolt at real speed rather than a gathering of weight. A short wind-up
+		# goes part of the way to its chamber (`anticipation_depth`), a little later in its startup (`COIL_LATE`).)
+		var depth := anticipation_depth(start)
+		var coil_at := lerpf(COIL_AT + COIL_LATE, COIL_AT, depth)
 		var u := f / start
-		if u <= COIL_AT:
-			return COIL_PROGRESS * coil_ease(u / COIL_AT)
+		if u <= coil_at:
+			return COIL_PROGRESS * depth * coil_ease(u / coil_at)
 		if u <= SNAP_AT:
-			return COIL_PROGRESS + COIL_CREEP * (u - COIL_AT) / (SNAP_AT - COIL_AT)
+			return (COIL_PROGRESS + COIL_CREEP * (u - coil_at) / maxf(SNAP_AT - coil_at, 0.001)) * depth
 		var k := (u - SNAP_AT) / (1.0 - SNAP_AT)
-		return lerpf(COIL_PROGRESS + COIL_CREEP, 0.55, k * k)
+		return lerpf((COIL_PROGRESS + COIL_CREEP) * depth, 0.55, k * k)
 	if windows.size() >= 4:
 		for k in range(0, windows.size() - 2, 2):
 			var a := float(windows[k])
@@ -1183,7 +1190,21 @@ static func coil_ease(k: float) -> float:
 
 ## The wind-up's shape (shares of the startup, the frames before the first active one): coiled by COIL_AT, held (creeping COIL_CREEP of
 ## the clip on) until SNAP_AT, then the snap into the strike. The clip's chamber key is COIL_PROGRESS of its length (frame 19 of 60).
+## (Round 10) How far a wind-up goes toward its chamber (0..1) by its startup in frames: all the way from ANTICIPATION_FULL frames on, and
+## ANTICIPATION_MIN of the way at two frames; between, in proportion. `PF_R10_OFF=coil` goes all the way, as before.
+const ANTICIPATION_FULL := 9.0
+const ANTICIPATION_MIN := 0.35
+
+
+static func anticipation_depth(start: float) -> float:
+	if r10_off.has("coil"):
+		return 1.0
+	return clampf(ANTICIPATION_MIN + (1.0 - ANTICIPATION_MIN) * (start - 2.0) / (ANTICIPATION_FULL - 2.0), ANTICIPATION_MIN, 1.0)
+
+
 const COIL_AT := 0.45
+## (Round 10) How much later in its startup a short wind-up (`anticipation_depth` at its least) reaches its chamber.
+const COIL_LATE := 0.1
 const SNAP_AT := 0.8
 const COIL_PROGRESS := 0.317
 const COIL_CREEP := 0.02
@@ -1415,7 +1436,8 @@ const HANDOFF_BY_CLIP := {"jumpsquat": 2.0, "land": 1.0, "tech": 2.0, "knockdown
 ## (`UP_CUTS`); "climbidle" holds a ledge climb's last pose still through its last frames, as before group 22; "sweep" plays the Tumbler's down smash's follow-through as before group 23 (no clip follow-through span, carry or leg release).
 static var r9_off := OS.get_environment("PF_R9_OFF").split(",")
 ## With the environment variable PF_R10_OFF (before and after images, round 10): "cross" kicks behind with the far leg again (the leg
-## crossing the other at the hit, `_aim_leg`; the back airs' tucks, moved to the far leg with it, are in the rig).
+## crossing the other at the hit, `_aim_leg`; the back airs' tucks, moved to the far leg with it, are in the rig); "coil" winds every
+## move up to its full chamber whatever its startup (`anticipation_depth`).
 static var r10_off := OS.get_environment("PF_R10_OFF").split(",")
 var handoff_clip := ""
 var handoff_state := ""
@@ -2151,6 +2173,8 @@ const MENU_WEAPON_DEG := {"menu_hero": 110.0, "menu_hero_staff": 24.0}
 const MENU_STRIKE_CLIPS := ["attack_", "sword_", "kick_", "gaunt_", "body_", "tool_", "staff_", "nodachi_", "dagger_", "buckler_", "great_", "blaster", "menu_hero_quick"]
 ## Held clips whose free hand is open (a palm thrust out, a wave); every other held clip closes both hands.
 const MENU_OPEN_HAND := ["menu_hero", "menu_hero_staff", "menu_hero_caster", "menu_hero_tool"]
+## Held clips that point with the far hand: the Popgun holds its gun there (round 10).
+const MENU_POINT_GUN := ["menu_hero_tool"]
 
 
 ## A menu fighter's weapon in the weapon hand, at its true size: at the class's resting carry in the look's stance, as in a match
@@ -2169,6 +2193,14 @@ func _pose_menu_weapon() -> void:
 	# (Fists, but for the clips whose free hand is open: a palm thrust out, a wave.)
 	if held and not fists.is_empty():
 		_clench(not MENU_OPEN_HAND.has(clip.trim_suffix("@m")), true, facing)
+	# (Round 10, the art director's note on the popgun: in a pose that points (`MENU_POINT_GUN`), the Popgun's gun is in the pointing hand,
+	# the far one, clenched round its grip, so it aims along the arm at the other card; the near hand rests on the hip.)
+	if held and menu_weapon == POPGUN_CLASS and MENU_POINT_GUN.has(clip.trim_suffix("@m")):
+		var point := "R" if side == "L" else "L"
+		for p in popgun_parts:
+			p.visible = String(p.get_meta("side")) == point
+		if not fists.is_empty():
+			_clench(true, true, facing)
 	var hand := skeleton.find_bone("hand." + side)
 	for sd in ["L", "R"]:
 		var hb := skeleton.find_bone("hand." + sd)
