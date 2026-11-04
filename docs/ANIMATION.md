@@ -2998,3 +2998,15 @@ side-by-sides stay on F:.
 - **Tests:** `anim_library_test` with new checks (each picked family's pose is in the rig and turns 0-0.9 rad; the Seer's own; the
   families still to pick keep the stand-in).
 - **Image:** `docs/screenshots/anim/r9_hero_poses.jpg` (every picked family's fighters on both sides of the face-off).
+
+### Mock (round 9): hero poses, second round for the heavy, caster and tool families (waiting for the owner's pick)
+
+- **Ask (the art director's note on the first round):** asymmetric poses, the weight on one leg, one arm leading, a strong diagonal; no
+  symmetric spread.
+- **Mock:** `docs/screenshots/anim/r9_hero_pose_mock_2.jpg`, nine options in the real face-off panels at the panel's turn (0.55), P2
+  mirrored: heavy C (charge: thrown in off the long back leg, the far fist leading), D (stomp: up on one leg, the far knee high, the fist
+  raised over it), E (flex: the near arm flexed beside the head, the far fist on the hip, the hip cocked); caster C (fireball: the far palm
+  thrust at the foe, lunging), D (jumping punch: the far fist punched up and out, the knee up), E (dash: low and leaning in, reaching for the
+  foe); tool C (point: leaning in, the near heel kicked up, the far arm pointing, the near hand on the hip), D (tiptoe wave: the near
+  hand waving beside the head, the far foot popped up), E (throw: the far knee up, the far arm leading, the near arm drawn back low). Built
+  in the mock worktree's rig only (`F:\anim_core\wt_hero`, specs `F:\anim_core\tools\hero_specs_r2.py.txt`); the branch's rig is unchanged.
