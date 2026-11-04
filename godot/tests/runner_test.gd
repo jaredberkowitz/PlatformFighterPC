@@ -7,6 +7,8 @@ extends SceneTree
 ## out of the view is knocked out with the knock-out's effect, a grunt shows one small damage label, and a closed shop hangs its sign.
 ## R3: the shop's six wares (two staples, four drawn pedestals), buying, the bell, the card over a ware, the build's strip under the
 ## coins, finds on routes, and the build on the results.
+## The test steps the run scene itself, a known number of ticks at a time (`_ticks`): a check on what a tick changes waits with `_ticks`,
+## not with a count of frames or a timer, which race the ticks on a busy machine.
 ## Run: Godot --headless --path godot --script res://tests/runner_test.gd
 
 const Roster := preload("res://scripts/roster.gd")
@@ -226,9 +228,15 @@ func _scene() -> void:
 	Roster.session = {"from_menu": true, "run_entry": Roster.builtins()[1], "run_seed": 42}
 	var main: Node = load("res://runner.tscn").instantiate()
 	root.add_child(main)
-	for i in 8:
+	# From here the test steps the run itself (`_ticks`): the scene ticks the sim only while the test lets it, so every check below
+	# reads the run a known number of ticks after what the test did, with the last tick drawn.
+	main.set_physics_process(false)
+	var frames := 0
+	while not main.warmed and frames < WARM_FRAMES:
 		await process_frame
-	await create_timer(1.5).timeout
+		frames += 1
+	check(main.warmed, "the run scene warms up in %d frames" % WARM_FRAMES)
+	await _ticks(main, 60)
 	check(main.run_error == "", "the run is set up: " + main.run_error)
 	check(main.sim.run_active() and main.run_seed == 42, "the run scene starts the menus' run: seed %d" % main.run_seed)
 	check(main.PLAYERS == 1 and main.views.size() == 1, "one fighter")
@@ -292,11 +300,14 @@ func _scene() -> void:
 	var coins: PackedFloat32Array = main.sim.run_coins()
 	var shown_before: int = main.run_stage.coins_shown()
 	var seen: PackedFloat32Array = main.sim.run_view()
+	var placed := false
 	for c in coins.size() / 4:
 		# (A coin in the view: the blast zone follows the camera, R2d's rooms reach further.)
 		if coins[c * 4 + 2] < 0.5 and coins[c * 4] > seen[0] + 2.0 and coins[c * 4] < seen[0] + seen[1] - 2.0:
 			main.sim.debug_place_airborne(0, coins[c * 4], coins[c * 4 + 1] - 1.0)
+			placed = true
 			break
+	check(placed or shown_before == 0, "a coin in the view to fly into: view from %.1f, coins %s" % [seen[0], str(coins)])
 	await _ticks(main, 4)
 	check(main.run_stage.coins_shown() < shown_before or shown_before == 0, "a coin picked up is gone: %d from %d" % [main.run_stage.coins_shown(), shown_before])
 	var far_x: float = main.run_stage.far_layer.position.x
@@ -318,8 +329,8 @@ func _scene() -> void:
 	check(main.run_stage.keeper_bubble.visible and main.run_stage.keeper_bubble.text == "Welcome!", "the shopkeeper waves hello: " + main.run_stage.keeper_bubble.text)
 
 	# R3: the card over the ware stood by, the bell re-drawing the wares.
-	# (The display and the shop read the sim on its ticks, so these wait for ticks, not frames or time: a loaded machine runs
-	# frames with no tick in them.)
+	# (The display and the shop show the numbers the scene took from the sim on its last tick, so a debug move shows only after a tick
+	# and a frame: `_ticks`.)
 	main.sim.run_debug_coins(1000)
 	main.sim.run_debug_shop_spot(3)
 	await _ticks(main, 2)
@@ -369,7 +380,9 @@ func _scene() -> void:
 		main.sim.debug_place_airborne(0, main.sim.run_view()[0] + 10.0, main.sim.run_view()[3] - 4.0)
 		await _ticks(main, 15)
 	check(main.sim.run_info()[0] == 1, "out of lives: the run is over")
-	await create_timer(2.2).timeout
+	# (The results come up `RESULTS_AFTER` seconds of frame time after the run ends, counted in `_process` with the run stopped, so
+	# this waits on the same clock: a timer, which ends after that frame's `_process`.)
+	await create_timer(main.RESULTS_AFTER + 0.6).timeout
 	check(main.results != null, "the results appear")
 	if main.results != null:
 		check(int(main.results.stats.get("seed", 0)) == 42, "with the run's seed")
@@ -385,19 +398,34 @@ func _scene() -> void:
 	await process_frame
 
 
-## Waits until the sim has run `ticks` more ticks and the scene has drawn once after the last: the run screen takes the sim's numbers
-## on a tick (`_physics_process`) and shows them in the next `_process`. (A frame can run with no tick, and a timer can end before
-## the tick it waited for has been drawn, so neither is enough on a loaded machine.) Gives up after ten seconds; the checks then fail.
-func _ticks(main: Node, ticks: int) -> void:
-	var until: int = main.sim.frame() + ticks
-	var give_up := Time.get_ticks_msec() + 10000
-	while main.sim.frame() < until and Time.get_ticks_msec() < give_up:
-		await process_frame
-	# (`process_frame` comes before the nodes' `_process` in a frame: one more, and the last tick has been drawn.)
+## Frames the run scene may take to warm up before the test gives up on it.
+const WARM_FRAMES := 600
+## Physics frames past the ticks asked for before `_ticks` calls the run stalled (two seconds' worth).
+const STALL := 120
+
+
+## Steps the run exactly `n` ticks and lets the scene draw them. The run screen takes the sim's numbers (the shop, the run, the mobs,
+## the build) on a tick in `_physics_process` and draws them in the next `_process`, so the test keeps the scene's physics processing
+## off between steps and on for exactly `n` physics frames. (Waiting a count of frames or a timer instead raced the ticks on a busy
+## machine: frames ran with no tick in them, or the tick came just before the check with no `_process` yet to draw it, and the
+## checks read the last spot's hint or a coin not yet gone.) A run that stops ticking fails here instead of hanging.
+func _ticks(main: Node, n: int) -> void:
+	var start: int = main.sim.frame()
+	var steps := 0
+	main.set_physics_process(true)
+	while main.sim.frame() < start + n and steps <= n + STALL:
+		# (`physics_frame` comes before the nodes' `_physics_process` in a physics frame: switched off here, the scene does not tick
+		# in it.)
+		await physics_frame
+		steps += 1
+	main.set_physics_process(false)
+	check(main.sim.frame() == start + n, "the run ticks when let: %d of %d" % [main.sim.frame() - start, n])
+	# (`process_frame` comes before the nodes' `_process` in a frame: after two, a whole `_process` has drawn the last tick.)
+	await process_frame
 	await process_frame
 
 
-## Presses up for six ticks (as long as a tap of a tenth of a second), lets go, and waits six more for what it did to be drawn.
+## Presses up for six ticks (as long as a tap of a tenth of a second), lets go, and steps six more for what it did to be drawn.
 func _press_up(main: Node) -> void:
 	main._send_key(KEY_W, true)
 	await _ticks(main, 6)
