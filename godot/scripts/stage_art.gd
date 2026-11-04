@@ -2698,6 +2698,7 @@ static func _potted_plant(root: Node3D, at: Vector3) -> void:
 ## [lantern: core, rim, fibres, repeats a unit], [mist: fibres, clouds, units a repeat], [tissue: opacity, edge, fibres, thin rim].
 ## `tissue_sat`: the sheets' own colour that much more saturated, so with the green valley showing through them the mist stays violet
 ## (at its own colour it measured grey, saturation 0.04 from 0.10).
+## The owner's pick B (grove.cfg `washi`, 2026-11-04).
 const WASHI_TRY := {"T": {},
 	"A": {"lantern": Vector4(0.55, 0.5, 0.35, 1.2)},
 	"B": {"lantern": Vector4(0.55, 0.5, 0.35, 1.2), "mist": Vector4(0.45, 0.22, 12.0, 0.0), "tissue": Vector4(0.74, 0.1, 0.8, 0.35), "tissue_sat": 2.6},

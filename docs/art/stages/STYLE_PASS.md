@@ -246,3 +246,13 @@ see-through paper.
 Capture note: while a full-screen game was open on this machine, the captures hung with vsync on (the window not responding, its CPU
 idle). With `--disable-vsync` before the scene, each took about 20 seconds.
 All seven tests pass.
+
+**Built B** (the owner's pick, 2026-11-04):
+- grove.cfg [backdrop] `washi="B"`. Nothing is remodelled or re-lit: the lanterns take their washi material, and the game rebuilds the mist
+  sheets as tissue. `--washi=T` shows the flat lanterns and the card mist before.
+- The shipped grove measures the same as the mock's B (the mist at value 0.54, saturation 0.07).
+- Before and after at the match camera (top) and wide (bottom), before left: `style/washi_built.jpg`.
+All seven tests pass.
+
+With this, each stage has its own craft. Left of the plan are the two changes across every stage: scenery on twos, and each stage's
+paper colour on its cut edges.
