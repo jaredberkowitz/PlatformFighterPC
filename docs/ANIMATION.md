@@ -2806,3 +2806,25 @@ side-by-sides stay on F:.
   pass; the look bench passes (it crashed once while another capture ran, and passed alone).
 - **Image:** `docs/screenshots/anim/r9_end_pops.jpg` (the Longsword's forward tilt 24-31 and up special 8-17, the Clutch's down tilt 11-18,
   the Claws' blaster 17-26, the Hauler's and the Settler's neutral airs; core7 above each, now below; close camera).
+
+### core8 installed (4 November 2026)
+
+- Group 18 (the end-lag pops) with the stage select stills regenerated (9a8b6ec0). Nothing newer to merge (the stage, menu and build
+  branches were all in). Simulation version 149, content hash 0d09e102dcfb7b1b (the same Rust and content as core5 to core7), checked in
+  the staged copy and the extracted zip ("Platform Fighter playtest 2026-11-04 sim149 animation core8.zip"); the release exe quits with
+  code 0. The tests pass; the look bench passes.
+
+### The follow-through, judged by eye (the coordinator's order of 2026-11-04, item 2)
+
+- **The three worst by the measure** (follow-through frames, ours against the reference), each judged by eye at real speed against the
+  frame-data site's hitbox clip, frame by frame (F:):
+  1. **The Bounder's up smash** (0 against 19): ours does stop. It bobs through frames 17-25 and then stands still from 26, while the
+     reference's body is still swinging until about 30. But the reference's swing is the body tipping over backward, to lying flat in the
+     air, after its overhead hit. That is what the owner's standing rule forbids (no tipping back under overhead hits), so it is not authored.
+  2. **The Duelist's up air** (0 against 10): the reference carries its swing on into a full somersault (frames 10-27). The owner's tucked
+     curl (group 19) replaces straight flips on aerials, so the gap is that decision, not a missing carry.
+  3. **The Rogue's up air** (0 against 10): the measure's own error. The reference frames count only the first of its hits (group 11).
+- **The next worst, and the first one to author:** the Tumbler's down smash (1 against 11). In the reference, the legs keep sweeping
+  round on the hands for about 12 frames after the back kick (frames 15-27), then the body comes up. Ours stops after the back kick. As
+  the earlier sessions concluded, it needs whole-body travel past the strike in the clip keys (`make_rigged_blob.py`: the sweep's legs and
+  hips turning on round after the last hit), a rig rebuild, and then the move's end shape refitted. Not started this session.
