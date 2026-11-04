@@ -44,7 +44,7 @@ stage at the reference's width, the knees at each family's own bend. It is the d
 | Spot dodge | 2 / 3 / 3 | 2.7 | 4 / 4 / 3 | 3.7 | yes |
 | Air dodge | 3 / 3 / 3 | 3.0 | 4 / 4 / 3 | 3.7 | yes |
 | Ledge grab and hang | 2 / 2 / 2 | 2.0 | 3 / 4 / 3 | 3.3 | yes |
-| Ledge climb | 3 / 3 / 3 | 3.0 | 3 / 4 / 3 | 3.3 | yes |
+| Ledge climb | 3 / 3 / 3 | 3.0 | 3 / 4 / 4 | 3.7 | yes (group 21: lands, then stands) |
 | Ledge roll | 2 / 3 / 3 | 2.7 | 4 / 4 / 3 | 3.7 | two fighters |
 | Ledge jump, ledge attack's body | 3 / 3 / 3 | 3.0 | 3 / 3 / 3 | 3.0 | yes |
 | Flinch (light hit, standing) | 3 / 3 / 3 | 3.0 | 4 / 4 / 4 | 4.0 | the guide's light hits (group 20) |
@@ -60,7 +60,7 @@ stage at the reference's width, the knees at each family's own bend. It is the d
 
 **Mean (34 clips): before 2.84, now 3.40** at core4; **3.45** with group 8 (the reactions, 2026-11-03: the flinch, heavy hit, launch and
 knockdown rows; `docs/ANIMATION.md` group 8); **3.46** with group 14 (2026-11-04: the dash's planted feet held through its push-off, the
-dash's fluidity 3 to 4). **3.47** with group 20 (2026-11-04: the light flinch leans off the hit in the plane of the stage, where it shows; pose 3 to 4). Group 12's trip (it lay face down for the whole trip, now sat on its seat) and group 11's held strikes (the attack
+dash's fluidity 3 to 4). **3.47** with group 20 (2026-11-04: the light flinch leans off the hit in the plane of the stage, where it shows; pose 3 to 4). **3.48** with group 21 (the ledge climb comes over the edge before it stands up, instead of sliding on its feet; weight 3 to 4). Group 12's trip (it lay face down for the whole trip, now sat on its seat) and group 11's held strikes (the attack
 timing, section 2) do not move a row's score: neither is a row of this review. The tech, shield break, dizzy, helpless, grabbed, respawn and victory poses were not
 reworked in round 9 and keep their scores.
 
