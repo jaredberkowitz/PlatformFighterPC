@@ -1051,12 +1051,12 @@ const CLIP_END_SHAPES := {"body_headbutt_fwd": Vector3(0.12, 0.8, CARRY_FRAMES)}
 ## family's aerials and down smash held 12-33 frames where its reference holds 2-6 and floats home over 14-26; the Longsword's forward
 ## air and jab held too long and recovered in 3-5; the heavy's forward air and smash, the caster's up air and forward smash.)
 const CLASS_END_SHAPES := {
-	0: {"bair": Vector2(0.550, 0.850), "dair": Vector2(0.900, 0.984), "dsmash": Vector2(0.803, 0.990), "dtilt": Vector2(0.020, 0.563), "fair": Vector2(0.350, EVEN + 0.990), "fsmash": Vector2(0.020, 0.990), "ftilt": Vector2(0.766, 0.990), "jab": Vector2(0.020, 0.684), "uair": Vector2(0.078, EVEN + 0.732), "usmash": Vector2(0.150, EVEN + 0.990), "utilt": Vector2(0.060, 0.950)},
+	0: {"bair": Vector2(0.550, 0.850), "dair": Vector2(0.773, 0.990), "dsmash": Vector2(0.803, 0.990), "dtilt": Vector2(0.020, 0.563), "fair": Vector2(0.350, EVEN + 0.990), "fsmash": Vector2(0.020, 0.990), "ftilt": Vector2(0.766, 0.990), "jab": Vector2(0.020, 0.684), "uair": Vector2(0.078, EVEN + 0.732), "usmash": Vector2(0.150, EVEN + 0.990), "utilt": Vector2(0.060, 0.950)},
 	1: {"bair": Vector2(0.479, 0.990), "dair": Vector2(0.393, 0.990), "fair": Vector2(0.713, 0.990), "ftilt": Vector2(0.307, 0.990), "jab": Vector2(0.479, 0.990), "nair": Vector2(0.020, 0.987), "usmash": Vector2(0.306, 0.746), "utilt": Vector2(0.084, 0.990)},
-	2: {"bair": Vector2(0.444, EVEN + 0.990), "dsmash": Vector2(0.035, EVEN + 0.990), "dtilt": Vector2(0.691, 0.920), "fair": Vector2(0.403, 0.882), "fsmash": Vector2(0.273, 0.577), "ftilt": Vector2(0.214, 0.786), "jab": Vector2(0.758, 0.990), "nair": Vector2(0.040, EVEN + 0.960), "uair": Vector2(0.030, EVEN + 0.970), "usmash": Vector2(0.146, 0.892), "utilt": Vector2(0.675, 0.950)},
+	2: {"bair": Vector2(0.444, EVEN + 0.990), "dsmash": Vector2(0.035, EVEN + 0.990), "dtilt": Vector2(0.691, 0.920), "fair": Vector2(0.403, 0.882), "fsmash": Vector2(0.273, 0.577), "ftilt": Vector2(0.214, 0.786), "jab": Vector2(0.704, 0.990), "nair": Vector2(0.040, EVEN + 0.960), "uair": Vector2(0.030, EVEN + 0.970), "usmash": Vector2(0.146, 0.892), "utilt": Vector2(0.490, 0.990)},
 	3: {"bair": Vector2(0.664, 0.990), "dsmash": Vector2(0.373, 0.563), "dtilt": Vector2(0.585, 0.973), "fair": Vector2(0.858, 0.990), "fsmash": Vector2(0.289, EVEN + 0.990), "ftilt": Vector2(0.020, 0.861), "jab": Vector2(0.346, 0.990), "nair": Vector2(0.186, 0.920), "uair": Vector2(0.020, EVEN + 0.744), "usmash": Vector2(0.326, 0.843), "utilt": Vector2(0.418, 0.950)},
-	8: {"bair": Vector2(0.785, 0.865), "dair": Vector2(0.020, 0.990), "dsmash": Vector2(0.400, 0.800), "dtilt": Vector2(0.313, 0.393), "fair": Vector2(0.550, 0.900), "fsmash": Vector2(0.207, 0.990), "ftilt": Vector2(0.528, 0.872), "jab": Vector2(0.403, 0.535), "nair": Vector2(0.257, 0.990), "usmash": Vector2(0.020, 0.100), "utilt": Vector2(0.020, 0.990)},
-	10: {"bair": Vector2(0.800, 0.990), "dair": Vector2(0.347, 0.987), "dsmash": Vector2(0.598, 0.979), "dtilt": Vector2(0.720, 0.990), "ftilt": Vector2(0.623, 0.990), "jab": Vector2(0.020, 0.990), "nair": Vector2(0.207, 0.738), "usmash": Vector2(0.147, 0.783), "utilt": Vector2(0.490, 0.990)},
+	8: {"bair": Vector2(0.814, 0.928), "dair": Vector2(0.020, 0.990), "dsmash": Vector2(0.400, 0.800), "dtilt": Vector2(0.313, 0.646), "fair": Vector2(0.550, 0.900), "fsmash": Vector2(0.207, 0.990), "ftilt": Vector2(0.528, 0.872), "jab": Vector2(0.403, 0.711), "nair": Vector2(0.257, 0.990), "usmash": Vector2(0.020, 0.158), "utilt": Vector2(0.020, 0.990)},
+	10: {"bair": Vector2(0.490, 0.990), "dair": Vector2(0.347, 0.987), "dsmash": Vector2(0.598, 0.979), "dtilt": Vector2(0.720, 0.990), "ftilt": Vector2(0.623, 0.990), "jab": Vector2(0.020, 0.990), "nair": Vector2(0.020, 0.465), "usmash": Vector2(0.147, 0.783), "utilt": Vector2(0.205, 0.990)},
 }
 ## The clip's follow-through key (frame 40 of 60).
 const FOLLOW_PROGRESS := 0.667
@@ -4330,7 +4330,7 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 		var swing := clampf((130.0 - phi) * 0.32, -22.0, 30.0) if phi >= 0.0 else clampf(-phi * 0.18, 0.0, 22.0)
 		if not grounded and use_base_body and bladed(_cls(s)) and String(s.move_name) == "nair":
 			target_lean += _nair_roll(s)
-		elif not grounded and use_base_body:
+		elif not grounded and use_base_body and (_r9p("spin") or not _spins_whole_body(s)):
 			target_lean += _air_counter(s, phi) * _reach_weight(s)
 			# (Round 8, review item 18: an aerial whose body curls right over onto its hit, the dinosaur's headbutt down onto a hit low
 			# ahead; at the swing's 18 degrees the round body lunged flat, the head level with the hit's top.)
@@ -4625,6 +4625,27 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 		_log_anim(s)
 
 
+## The end-lag pops' fixes (round 9) switched off for before images: PF_R9_OFF=pops all of them, or one by name (spin, handx, lead, blade,
+## arc, front, guard, beside).
+func _r9p(what: String) -> bool:
+	return r9_off.has("pops") or r9_off.has(what)
+
+
+## (Debugging aid, PF_LAYER_TRACE: both hands after each arm layer, stage frame: "LAYER <class> <move> <frame> <layer> L:x,y,z R:x,y,z".)
+static var log_layers := OS.has_environment("PF_LAYER_TRACE")
+
+
+func _ltrace(s: Dictionary, layer: String) -> void:
+	if not log_layers or skeleton == null or String(s.state) != "Attack":
+		return
+	var to_frame := _skeleton_to_frame()
+	var line := "LAYER %d %s %d %s" % [_cls(s), String(s.move_name).replace(" ", "_"), int(s.state_frame), layer]
+	for side in ["L", "R"]:
+		var p: Vector3 = to_frame * skeleton.get_bone_global_pose(skeleton.find_bone("hand." + side)).origin
+		line += " %s:%.3f,%.3f,%.3f" % [side, p.x * float(s.facing), p.y, p.z]
+	print(line)
+
+
 ## With the environment variable PF_MOTION_TRACE set (a debugging aid for the timing audit, round 3), every frame of an attack, a hit
 ## reaction or a run prints where the body's joints and the weapon's tip are, relative to the fighter's feet with forward as +x:
 ## "TRACE <class> <state> <move> <state frame> <hitlag> <name>:x,y ...". `tools/art/review/timing_report.py` turns it into speed and pose curves.
@@ -4646,6 +4667,10 @@ func _log_motion(s: Dictionary) -> void:
 		var t: Vector3 = blade_pivot.to_global(Vector3(_blade_tip_x(_cls(s)), 0.0, 0.0)) - global_position
 		line += " tip:%.3f,%.3f" % [t.x * f, t.y]
 	line += " pitch:%.1f" % rad_to_deg(model.rotation.x)
+	# (Round 9: the move's timing, total, first and last active frames, so a pop can be placed in the wind-up, the hits or the end lag.)
+	if s.has("move_timing") and (s.move_timing as PackedInt32Array).size() >= 3:
+		var mt: PackedInt32Array = s.move_timing
+		line += " mt:%d,%d,%d" % [mt[0], mt[1], mt[2]]
 	if head_bone >= 0:
 		var hd: Transform3D = skeleton.get_bone_global_pose(head_bone) * head_rest_inv
 		var look: Vector3 = (skeleton.global_transform.basis * hd.basis * Vector3(0, 0, 1)).normalized()
@@ -5376,7 +5401,8 @@ func _blade_target(s: Dictionary) -> Array:
 		# frame for the move's carry, then slows to a stop: `follow_k`.)
 		var shape := _end_shape(s)
 		var carry_deg := CARRY_DEG * (shape.z + CARRY_EASE * 0.5) if shape.z > 0.0 else 0.0
-		var past := swing + travel * sweep + travel * carry_deg * follow_k(f, float(t[2]) - _carry_lead(t), shape)
+		var lead := _carry_lead(t)
+		var past := swing + travel * sweep + travel * carry_deg * follow_k(f, float(t[2]) - lead, shape)
 		# (Round 4: on the ground the held cut stops where the floor stops it, the hand as low as a lunge takes it (`HELD_HAND_Y`).
 		# Held below it, the floor check pinned the tip still while the angle came home underneath, so the recovery showed only in its
 		# last few frames: the forward smash measured 7 frames of recovery against the reference's 17.)
@@ -5391,10 +5417,10 @@ func _blade_target(s: Dictionary) -> Array:
 		var up := _up_cut(s)
 		var raised: bool = up.is_empty() and int(s.platform) >= 0 and _cls(s) != NODACHI_CLASS and past > top and past < 160.0 and swing < 160.0
 		if raised:
-			past = lerpf(past, top, follow_k(f, float(t[2]) - _carry_lead(t), shape))
+			past = lerpf(past, top, follow_k(f, float(t[2]) - lead, shape))
 		# (Round 9: an up cut held up is eased to its own angle instead, `UP_CUTS`.)
 		if not up.is_empty() and String(up[0]) == "hold":
-			past = lerpf(past, float(up[1]), follow_k(f, float(t[2]) - _carry_lead(t), shape))
+			past = lerpf(past, float(up[1]), follow_k(f, float(t[2]) - lead, shape))
 		var home := home_k(f, float(t[2]), float(t[0]), shape, ARM_LAG)
 		# (Round 9: a raised cut's hold sags its blade a little forward, down toward the foe, instead of creeping it back over the top toward
 		# the carry; it recovers from there. Crept back, the Longsword's forward tilt stood its blade upright behind the hat for the whole hold,
@@ -5418,13 +5444,31 @@ func _blade_target(s: Dictionary) -> Array:
 		# the face.)
 		var turn_home := home
 		var way := _up_way(up)
+		# (Round 9, the end-lag pops: a raised forward cut held out toward the foe goes home forward and down, round the side past the
+		# legs, as a swordsman lowers a blade, never back over the head. The carry lies about half a turn behind it, so the short way often
+		# went over the top: the Longsword's forward tilt flipped its blade up past the hat and down behind in three frames.)
+		if raised and _holds_raised(s) and not _r9p("blade"):
+			way = -1.0
 		if way < 0.0 and rest_deg > past:
 			rest_deg -= 360.0
 		elif way > 0.0 and rest_deg < past:
 			rest_deg += 360.0
+		# (Round 9, the end-lag pops: the blade turns home no faster than BLADE_HOME_DEG a frame at its fastest, starting earlier in the
+		# end lag and ending where it did. The body's fitted recovery can take as little as four frames, and the blade swung up to half a
+		# turn in them, 1.5-2.2 units a frame at its tip.)
+		if not _r9p("blade"):
+			var lag_frames := maxf(1.0, (float(t[0]) - float(t[2])) * (1.0 - ARM_LAG))
+			var by := shape.y - EVEN if shape.y > 1.0 else shape.y
+			var need := 1.5 * absf(rest_deg - past) / BLADE_HOME_DEG / lag_frames
+			if by - shape.x < need:
+				var wide := shape
+				wide.x = maxf(0.0, by - need)
+				turn_home = home_k(f, float(t[2]), float(t[0]), wide, ARM_LAG)
+				if (raised and _holds_raised(s)) or (not up.is_empty() and String(up[0]) == "hold"):
+					turn_home = clampf((turn_home - HOLD_CREEP) / (1.0 - HOLD_CREEP), 0.0, 1.0)
 		# (Lowered back: the hand comes down in front first, the blade still up, and the blade falls back behind once the fist is low.)
 		if way > 0.0:
-			turn_home = smoothstep(UP_BACK_LAG, 1.0, home)
+			turn_home = smoothstep(UP_BACK_LAG, 1.0, turn_home)
 		angle = lerpf(past, rest_deg, turn_home)
 		len = lerpf(length, rest_len, home)
 	# (Round 8, the same note: between two authored arcs of one move (`ARCS`), the blade goes on from where the first ended toward where
@@ -5470,6 +5514,16 @@ func _limb_carry(s: Dictionary) -> float:
 
 
 const LIMB_CARRY_DEG := 20.0
+## The fastest a blade turns home through its recovery (degrees a frame at the turn's peak; round 9, the end-lag pops).
+const BLADE_HOME_DEG := 36.0
+## (Round 9, the end-lag pops: a weapon arm's way round to its reach, kept from frame to frame (a fist's always, `ARC_EITHER_WAY`); the
+## angle it had.)
+const ARC_EITHER_WAY := 0.0
+## (A blade's arm only when it is about half a turn either way: kept from the frame before throughout, the Longsword's up tilt went home
+## another way round.)
+const ARC_EITHER_WAY_BLADE := deg_to_rad(150.0)
+var arc_prev := 0.0
+var arc_prev_ok := false
 
 
 ## How low the hand is in a held lunge (forward space), for where the floor stops a held cut.
@@ -5707,8 +5761,12 @@ const OVERHEAD_CHAMBER := {12: {"fsmash": [150.0, -0.5]}, 7: {"fair": [110.0, 0.
 ## Wanderer's spin attack (pass 14: its sword held out, SPIN_BLADE_TIP), the Settler's and the Scamp's neutral airs (pass 15). The pose is
 ## the arms-out clip (`spin_arms`, `spin_arms_air`); the turn depends only on the move's frame, so hitlag freezes it and a seek redraws
 ## it. (Animation overhaul pass 13.)
-const SPIN_MOVES := {3: {"dair": [3, 24, 3.0]}, 7: {"nair": [6, 27, 1.5], "up special": [16, 64, 6.0], "extra move 6": [2, 66, 7.0]},
-	9: {"up special": [5, 14, 2.0], "extra move 0": [6, 48, 6.0]}, 10: {"nair": [1, 23, 2.5]}, 11: {"nair": [6, 20, 2.0]}}
+## (Round 9, the end-lag pops: whole turns. The Hauler's neutral air turned one and a half and the Settler's two and a half, and when the
+## turn ended the body came back round the other half in one frame, its back to the foe until then. Two each: the Hauler's reference
+## turns about twice and ends facing the way it began.)
+const SPIN_MOVES := {3: {"dair": [3, 24, 3.0]}, 7: {"nair": [6, 27, 2.0], "up special": [16, 64, 6.0], "extra move 6": [2, 66, 7.0]},
+	9: {"up special": [5, 14, 2.0], "extra move 0": [6, 48, 6.0]}, 10: {"nair": [1, 23, 2.0]}, 11: {"nair": [6, 20, 2.0]}}
+const SPIN_MOVES_R9 := {7: {"nair": 1.5}, 10: {"nair": 2.5}}
 ## Where a sword is held while its body spins (forward space: out level at the hip, so the turning body sweeps it round, as the
 ## Wanderer's spin attack does; the blade does not also follow the hitboxes, which go round with the body).
 const SPIN_BLADE_TIP := Vector2(2.2, 0.95)
@@ -5733,6 +5791,35 @@ func _move_flip(s: Dictionary) -> float:
 	return TAU * float(w[2]) * (k * k * (3.0 - 2.0 * k))
 
 
+## The Claws' flame rush's corkscrew (radians, `t` frames into the rush): CORKSCREW_RATE a frame through the dash, then slowing to a stop on
+## CORKSCREW_TURNS whole turns over CORKSCREW_EASE frames. (Round 9, the end-lag pops: it turned on through the whole end lag and came back
+## round by whatever angle it had reached, up to 285 degrees in one frame, when the move ended.)
+const CORKSCREW_RATE := 0.75
+const CORKSCREW_TURNS := 2.0
+const CORKSCREW_EASE := 6.0
+
+
+static func _corkscrew(t: float) -> float:
+	var total := TAU * CORKSCREW_TURNS
+	var t1 := (total - CORKSCREW_RATE * CORKSCREW_EASE * 0.5) / CORKSCREW_RATE
+	if t <= 0.0:
+		return 0.0
+	if t <= t1:
+		return CORKSCREW_RATE * t
+	var u := minf(t - t1, CORKSCREW_EASE)
+	return CORKSCREW_RATE * t1 + CORKSCREW_RATE * u - CORKSCREW_RATE * u * u / (2.0 * CORKSCREW_EASE)
+
+
+## A move that turns the whole body about its long axis (`SPIN_MOVES`, the Claws' corkscrew): it spins upright, without the air's
+## counter-pitch toward its hit, which went round with the spinning hitboxes and laid the turning body over up to 45 degrees.
+func _spins_whole_body(s: Dictionary) -> bool:
+	if String(s.move_name) == "":
+		return false
+	if _cls(s) == 1 and String(s.move_name) == "up special":
+		return true
+	return (SPIN_MOVES.get(_cls(s), {}) as Dictionary).has(String(s.move_name))
+
+
 ## How far round a spinning move has turned the body (radians, 0 when not spinning).
 func _whirl(s: Dictionary) -> float:
 	if String(s.state) != "Attack" or s.move_name == "":
@@ -5743,8 +5830,11 @@ func _whirl(s: Dictionary) -> float:
 	var k := clampf((float(s.state_frame) - float(w[0])) / maxf(1.0, float(w[1]) - float(w[0])), 0.0, 1.0)
 	if k <= 0.0 or k >= 1.0:
 		return 0.0
+	var turns := float(w[2])
+	if _r9p("spin"):
+		turns = float((SPIN_MOVES_R9.get(_cls(s), {}) as Dictionary).get(String(s.move_name), turns))
 	# (Eased in and out: a smoothstep on the turn, so it winds up and settles rather than starting and stopping dead.)
-	return TAU * float(w[2]) * (k * k * (3.0 - 2.0 * k))
+	return TAU * turns * (k * k * (3.0 - 2.0 * k))
 
 
 ## Unarmed moves (by class) thrown with both fists together, the other arm reaching beside the striking one (`_aim_arm` with two hands):
@@ -5832,6 +5922,8 @@ func _pose_blade(s: Dictionary, delta: float) -> void:
 	# then runs from the hand to the same tip.
 	var attacking: bool = s.move_name != "" and s.state_frame > 0 and not (at_rest and s.move_name != "")
 	arm_k = move_toward(arm_k, 1.0 if attacking else 0.0, delta * 9.0)
+	if not attacking:
+		arc_prev_ok = false
 	# A punch reaches out with the wind-up and comes home in the recovery, like a kick (a blade stays in the hand throughout).
 	if attacking and (not bladed(_cls(s)) or _thrust(_cls(s), String(s.move_name))):
 		arm_k = _reach_weight(s)
@@ -5910,6 +6002,18 @@ func _pose_blade(s: Dictionary, delta: float) -> void:
 			var from_v := from_hand - shoulder
 			var to_v := goal - shoulder
 			var angle := lerp_angle(from_v.angle(), to_v.angle(), arm_k)
+			# (Round 9, the end-lag pops: a fist goes on the way round it was going, by the angle the arm had the frame before, instead of
+			# taking whichever side is shorter this frame: as the short way changed sides the hand jumped from behind the head to in front of
+			# the body in one frame, 0.7-1 units: the Embers' up air, the down and back airs' recoveries as the raking fist's carry swept round.
+			# A seek takes the short way.)
+			if not _r9p("arc"):
+				var d := angle_difference(from_v.angle(), to_v.angle())
+				if arc_prev_ok and not springs.jumped and absf(d) > (ARC_EITHER_WAY_BLADE if bladed(_cls(s)) else ARC_EITHER_WAY):
+					var other := from_v.angle() + (d - signf(d) * TAU) * arm_k
+					if absf(angle_difference(arc_prev, other)) < absf(angle_difference(arc_prev, angle)):
+						angle = other
+				arc_prev = angle
+				arc_prev_ok = true
 			hand = shoulder + Vector2.from_angle(angle) * lerpf(from_v.length(), to_v.length(), arm_k)
 		else:
 			hand = from_hand.lerp(goal, arm_k)
@@ -5949,6 +6053,7 @@ func _pose_blade(s: Dictionary, delta: float) -> void:
 	# reference fighters hold a raised sword out ahead, instead of being sent behind the head (`HEAD_BEHIND_Z`), where the blade seemed
 	# to come out of the neck with no hand showing. The blade still runs from the hand to its tip.)
 	var front_hand := false
+	front_cross = 0.0
 	# (Round 9: an up cut, `UP_CUTS`, from the frame before its first hit: its hand is kept beside the head whenever the blade points up,
 	# whatever the arm's reach did, and the blade runs from the hand at its own angle, not to the hit overhead.)
 	var up_now: bool = attacking and not _up_cut(s).is_empty() and float(s.state_frame) >= float((s.move_timing as PackedInt32Array)[1]) - 1.0
@@ -5970,6 +6075,20 @@ func _pose_blade(s: Dictionary, delta: float) -> void:
 			if up_now:
 				ahead = up_deg < (UP_SIDE if String(_up_cut(s)[0]) == "hold" else UP_SIDE_OVER) or _lowering_back(s, up_deg)
 			var clear_x := hc.x * facing + (FACE_FWD + HEAD_CLEAR_R * FRONT_CLEAR if ahead else -HEAD_CLEAR_R * FRONT_CLEAR)
+			# (Round 9, the end-lag pops: through the end lag the hand goes over to the other side of the head over FRONT_SIDE_FRAMES sim
+			# frames, round behind the head in depth (`front_cross`), instead of in one frame when the tip crosses the head's middle: the
+			# Longsword's up special and back air, the Champion's up air, up special and neutral special, the Wanderer's forward tilt and up
+			# air, 0.65-0.9 units in a frame with the hand at the face. Out of the end lag it is on its side at once, as before; a seek
+			# puts it there.)
+			var side_to := 1.0 if ahead else 0.0
+			if _r9p("front") or up_now or not lag_now or springs.jumped:
+				front_side = side_to
+			else:
+				front_side = move_toward(front_side, side_to, float(springs.new_frames) / FRONT_SIDE_FRAMES)
+			if not _r9p("front") and not up_now:
+				var fs := smoothstep(0.0, 1.0, front_side)
+				clear_x = hc.x * facing + lerpf(-HEAD_CLEAR_R * FRONT_CLEAR, FACE_FWD + HEAD_CLEAR_R * FRONT_CLEAR, fs)
+				front_cross = 4.0 * fs * (1.0 - fs) * kf
 			var clear := Vector2(clear_x, minf(hand.y, hc.y - HEAD_CLEAR_R * FRONT_BELOW))
 			var moved := hand.lerp(clear, kf) - hand
 			hand += moved
@@ -6019,6 +6138,8 @@ func _pose_blade(s: Dictionary, delta: float) -> void:
 		hand_z = lerpf(STAFF_REST_Z if _cls(s) == STAFF_CLASS else REST_HAND_Z, 0.35, arm_k)
 	if mill.size() == 2:
 		hand_z = mill_z
+	if front_cross > 0.0:
+		hand_z = lerpf(hand_z, HEAD_BEHIND_Z, front_cross)
 	# (Round 2: a hand that comes up in front of the face, a sword hilt raised overhead in an up tilt or a claw cocked for a forward air,
 	# goes behind the head instead, so the drawn face is never covered; the blade or claw still shows round the head. Judged frame by
 	# frame at real speed, the hilt sat over the eyes for 8 frames of the Longsword's up tilt and the claws covered the face through the
@@ -6517,6 +6638,13 @@ const FRONT_BELOW := 0.55
 const HEAD_CENTRE_UP := 0.36
 ## How far ahead of the head's middle the drawn face is, side-on (forward space).
 const FACE_FWD := 0.3
+## How many sim frames a weapon hand by the face takes to go round behind the head to its other side in an end lag (round 9).
+const FRONT_SIDE_FRAMES := 5.0
+## Which side of the face the weapon hand is cleared to (1 ahead, 0 behind), stepped by sim frames in an end lag (`_pose_blade`).
+var front_side := 1.0
+## How far the weapon hand is through going round behind the head this frame (0 not crossing, 1 halfway), for the hand's depth and the
+## layers after it.
+var front_cross := 0.0
 ## How many sim frames an arm's reach takes to let go when it ends, and at most how many a move's reach takes to come in (fewer when the
 ## move strikes sooner); the reach's weight while letting go, and the targets it lets go from.
 const IK_FADE_FRAMES := 6.0
@@ -6762,8 +6890,16 @@ func _guard_face(facing: int, on_ground := true) -> void:
 
 func _guard_weapon_hand(side: String, ih: int, centre: Vector3, world_to_frame: Transform3D, facing: int, on_ground: bool) -> void:
 	var p: Vector3 = skeleton.global_transform * skeleton.get_bone_global_pose(ih).origin
-	if p.z <= centre.z:
-		return
+	# (Round 9, the end-lag pops: eased out across GUARD_DEPTH_BAND in front of the head's middle in depth as the hand goes behind it, not
+	# cut there; never further back than it acted, where it pushed hands on back out of sight.)
+	var deep := 1.0
+	if _r9p("guard"):
+		if p.z <= centre.z:
+			return
+	else:
+		deep = smoothstep(centre.z, centre.z + GUARD_DEPTH_BAND, p.z)
+		if deep <= 0.0:
+			return
 	# (Round 5: a sword hand is measured from the drawn face too, FACE_FWD ahead of the head's middle, whichever is nearer: the
 	# Longsword's guard came up under the mouth after its neutral air's windmill while it measured clear of the head's middle. Not the
 	# staff's two-handed grip, which this pushed onto the face.)
@@ -6775,7 +6911,7 @@ func _guard_weapon_hand(side: String, ih: int, centre: Vector3, world_to_frame: 
 		if (Vector2(p.x, p.y) - face).length() < (Vector2(p.x, p.y) - from).length():
 			from = face
 	var near := (Vector2(p.x, p.y) - from).length() / WEAPON_HAND_GUARD_R
-	var k := 1.0 - smoothstep(0.8, 1.2, near)
+	var k := (1.0 - smoothstep(0.8, 1.2, near)) * deep
 	if k <= 0.0:
 		return
 	# (Out past the face's edge on screen and half way back toward the head: the short arms cannot reach behind the big head at
@@ -6790,13 +6926,21 @@ func _guard_weapon_hand(side: String, ih: int, centre: Vector3, world_to_frame: 
 	else:
 		_ik_arm(side, true, guard, k)
 	var got: Vector3 = skeleton.global_transform * skeleton.get_bone_global_pose(ih).origin
-	if k > 0.5 and (Vector2(got.x, got.y) - from).length() < WEAPON_HAND_GUARD_R * 0.95:
+	# (Round 9, the end-lag pops: the second push weighed in by how far in the hand still is and how strongly the guard holds it, not
+	# switched at k 0.5 and 0.95 of the radius.)
+	var push := 0.0
+	if _r9p("guard"):
+		push = 1.0 if k > 0.5 and (Vector2(got.x, got.y) - from).length() < WEAPON_HAND_GUARD_R * 0.95 else 0.0
+	else:
+		push = smoothstep(0.5, 0.7, k) * (1.0 - smoothstep(0.9, 0.95, (Vector2(got.x, got.y) - from).length() / WEAPON_HAND_GUARD_R))
+	if push > 0.0:
 		var further := from + out * WEAPON_HAND_GUARD_R * 1.5
 		var again: Vector3 = world_to_frame * Vector3(further.x, further.y, lerpf(got.z, centre.z + HEAD_BEHIND_Z, 0.75))
+		var got_f: Vector3 = world_to_frame * got
 		if arms_held.has(side):
-			_ik_arm(side, true, at.lerp(again, k), 1.0)
+			_ik_arm(side, true, at.lerp(guard, k).lerp(at.lerp(again, k), push), 1.0)
 		else:
-			_ik_arm(side, true, again, k)
+			_ik_arm(side, true, got_f.lerp(again, push), k)
 
 
 ## Raised arms beside the head, not over it (round 8, the owner 2026-10-28, after the shoulder mock: keep the shoulders, raise the arms
@@ -6809,6 +6953,17 @@ func _guard_weapon_hand(side: String, ih: int, centre: Vector3, world_to_frame: 
 const BESIDE_OUT := 1.4
 ## How far the hand may reach (a share of the arm's full length) when it is placed beside the head.
 const BESIDE_REACH := 0.95
+## (Round 9, the end-lag pops: the layer's two switches made continuous. A hand crossing to its other side of the head moves across over this
+## much of its own travel along the stage (units; it jumped from beside one side of the head to the other in one frame, up to 0.85 units:
+## the Phantom's and the Settler's up tilts, the Settler's up smash, the Popgun's up tilt); a hand coming round behind the head's middle in
+## depth is taken over across this depth (it was all or nothing at the middle: the Phantom's forward tilt).)
+const BESIDE_SIDE_BAND := 0.3
+## Whether this frame's side is eased (`_apply_combat`: a move's end lag after its hits).
+var beside_ease_side := false
+## (Round 9, the end-lag pops: the face guards ease out across this depth as a hand goes behind the head's middle.)
+const GUARD_DEPTH_BAND := 0.08
+const BESIDE_DEPTH_BAND := 0.08
+const BESIDE_FACE_BAND := 0.8
 
 
 func _arms_beside_head(facing: int) -> void:
@@ -6832,36 +6987,81 @@ func _arms_beside_head(facing: int) -> void:
 			k *= smoothstep(0.14, 0.26, p.y - sh.y)
 		# (Only a hand behind the head's middle in depth, which the head hides: one in front of it is the face guard's, and carried out
 		# beside the head it came up across the face, the Settler's tool hand.)
-		if k <= 0.0 or p.z > c.z:
-			continue
+		if (_r9p("beside") or _r9p("bdepth")):
+			if k <= 0.0 or p.z > c.z:
+				continue
+		else:
+			k *= 1.0 - smoothstep(c.z, c.z + BESIDE_DEPTH_BAND, p.z)
+			if k <= 0.0:
+				continue
 		var mine: bool = side == _weapon_side(facing)
+		# (Round 9, the end-lag pops: not a weapon hand going round behind the head, `front_cross`: taken out beside the head as it passed
+		# behind its middle, it jumped to the back of the head at once.)
+		if mine and front_cross > 0.0 and not _r9p("front"):
+			k *= 1.0 - smoothstep(0.0, 0.5, front_cross)
+			if k <= 0.0:
+				continue
 		# (Round 9: a free hand goes out the way it already lies from its own shoulder. Measured from the head's middle, a guard fist ahead of its
 		# shoulder but just behind the leaning head was carried right back behind the body, the elbow folding the wrong way: the far guard arm
 		# of every jab, the most flagged elbow in the game.)
 		var off := p.x - c.x if mine else p.x - sh.x
-		var sgn := signf(off) if absf(off) > 0.06 else (float(facing) if mine else -float(facing))
+		var dflt := float(facing) if mine else -float(facing)
+		var sgn := signf(off) if absf(off) > 0.06 else dflt
+		if not (_r9p("beside") or _r9p("bside")) and beside_ease_side:
+			# (Past 0.06 the other side, eased across BESIDE_SIDE_BAND beyond it; in a move's end lag only: a hitless special's held pose
+			# that sat in the band all through (the Phantom's down special) put its far hand over the head's middle, the elbow reversed.)
+			var at := -0.06 * dflt
+			sgn = dflt * (2.0 * (1.0 - smoothstep(0.0, BESIDE_SIDE_BAND, (at - off) * dflt)) - 1.0)
 		var reach := ((skeleton.get_bone_global_rest(il).origin - skeleton.get_bone_global_rest(iu).origin).length()
 			+ (skeleton.get_bone_global_rest(ih).origin - skeleton.get_bone_global_rest(il).origin).length() + 0.07)
 		reach *= BESIDE_REACH * (to_frame.basis.x.length())
 		# (Carried out ahead, a weapon hand the arm could not take far enough stopped by the drawn face: then it goes out behind the head
 		# instead, the face kept clear first.)
+		var face := Vector2(c.x + FACE_FWD * float(facing), c.y - r * 0.2)
+		if not (_r9p("beside") or _r9p("bface")):
+			# (Round 9, the end-lag pops: whether the side ahead would stop by the face is judged on the side ahead itself, where the arm
+			# takes the hand there, and the hand is eased toward behind by how near it stops (from COVER_R in to BESIDE_FACE_BAND of it). Switched at
+			# COVER_R on the side it was on, the hand went from beside the face to behind the head and back in single frames, 0.6-0.8 units,
+			# the Claws' free hand in the blaster's end lag.)
+			var t := clampf((sgn * float(facing) + 1.0) * 0.5, 0.0, 1.0)
+			var w := 0.0
+			if t > 0.0:
+				var ahead := _beside_target(p, sh, c, r, reach, float(facing), mine)
+				if arms_held.has(side):
+					_ik_arm(side, mine, p.lerp(ahead, k), 1.0)
+				else:
+					_ik_arm(side, mine, ahead, k)
+				var got := to_frame * skeleton.get_bone_global_pose(ih).origin
+				w = 1.0 - smoothstep(COVER_R * BESIDE_FACE_BAND, COVER_R, (Vector2(got.x, got.y) - face).length())
+			sgn = float(facing) * (-1.0 + 2.0 * t * (1.0 - w))
+			var target := _beside_target(p, sh, c, r, reach, sgn, mine)
+			if arms_held.has(side):
+				_ik_arm(side, mine, p.lerp(target, k), 1.0)
+			else:
+				_ik_arm(side, mine, target, k)
+			continue
 		for attempt in 2:
-			var tx := c.x + sgn * r * BESIDE_OUT
-			var dx := clampf(tx - sh.x, -reach * 0.98, reach * 0.98)
-			var ty := minf(p.y, sh.y + sqrt(maxf(0.0, reach * reach - dx * dx)))
-			if mine and (bladed(_cls_now) or _cls_now == STAFF_CLASS):
-				ty = minf(ty, c.y - r * FRONT_BELOW)
-			# (Behind the head's middle in depth, so it is never carried across the face.)
-			var target := Vector3(sh.x + dx, maxf(ty, sh.y + 0.04), minf(p.z, c.z - 0.05))
+			var target := _beside_target(p, sh, c, r, reach, sgn, mine)
 			if arms_held.has(side):
 				_ik_arm(side, mine, p.lerp(target, k), 1.0)
 			else:
 				_ik_arm(side, mine, target, k)
 			var got := to_frame * skeleton.get_bone_global_pose(ih).origin
-			var face := Vector2(c.x + FACE_FWD * float(facing), c.y - r * 0.2)
 			if attempt == 1 or sgn != float(facing) or (Vector2(got.x, got.y) - face).length() > COVER_R:
 				break
 			sgn = -float(facing)
+
+
+## Where `_arms_beside_head` takes a hand (stage frame): out beside the head to BESIDE_OUT of its radius on the side `sgn` (forward space,
+## -1..1), as high as the arm reaches there, behind the head's middle in depth.
+func _beside_target(p: Vector3, sh: Vector3, c: Vector3, r: float, reach: float, sgn: float, mine: bool) -> Vector3:
+	var tx := c.x + sgn * r * BESIDE_OUT
+	var dx := clampf(tx - sh.x, -reach * 0.98, reach * 0.98)
+	var ty := minf(p.y, sh.y + sqrt(maxf(0.0, reach * reach - dx * dx)))
+	if mine and (bladed(_cls_now) or _cls_now == STAFF_CLASS):
+		ty = minf(ty, c.y - r * FRONT_BELOW)
+	# (Behind the head's middle in depth, so it is never carried across the face.)
+	return Vector3(sh.x + dx, maxf(ty, sh.y + 0.04), minf(p.z, c.z - 0.05))
 
 
 ## The sides whose leg `_aim_leg` placed this frame, and whose arm any IK placed (the reach, the face guard, the arms beside the head):
@@ -8186,14 +8386,20 @@ func _apply_combat(s: Dictionary, delta: float) -> void:
 			off_hand_target = ik_last_off
 			two = ik_last_two
 			amount = ik_fade * ik_fade * (3.0 - 2.0 * ik_fade)
+		_ltrace(s, "clip")
 		_aim_arm(int(s.facing), hold_now or ik_fade > 0.0, two, amount)
+		_ltrace(s, "aim")
 		# (Round 9: not lying down. Face down, the arms flung out past the head along the floor, the guard pulled the weapon hand off a face
 		# turned to the floor and folded its elbow backward, 60 degrees, for the whole knockdown (the most reversed elbow of all, 242 frames
 		# over the galleries); face up, the near arm lies along the body.)
 		if state != "Knockdown" or r9_off.has("react"):
 			_guard_face(int(s.facing), int(s.platform) >= 0)
+		_ltrace(s, "guard")
 		if not r8_off.has("beside") and not turning_over and not two:
+			var mt_b: PackedInt32Array = s.move_timing
+			beside_ease_side = state == "Attack" and mt_b.size() >= 3 and mt_b[2] > 0 and int(s.state_frame) > mt_b[2]
 			_arms_beside_head(int(s.facing))
+		_ltrace(s, "beside")
 		# The hilt goes where the hand actually got to (an arm shorter than the swing wants stops short of its target): the weapon is
 		# always in the hand, never floating in front of it.
 		if holding and not carrying and skeleton != null:
@@ -8220,6 +8426,7 @@ func _apply_combat(s: Dictionary, delta: float) -> void:
 		_pin_dash_feet(s)
 		if use_base_body and not r8_off.has("joints"):
 			_limit_joints()
+		_ltrace(s, "joints")
 		_remember_arms()
 		_remember_feet(s)
 		_update_smear(s)
@@ -8236,11 +8443,19 @@ func _apply_combat(s: Dictionary, delta: float) -> void:
 	flame.emitting = rushing
 	# The flame rush up: a corkscrew about the body's own upright axis (our take; the head stays up, the face comes round every turn).
 	if _cls(s) == 1 and state == "Attack" and s.move_name == "up special" and s.state_frame >= 17:
-		model.rotation.y = yaw + float(s.state_frame - 17) * 0.75
+		if _r9p("spin"):
+			model.rotation.y = yaw + float(s.state_frame - 17) * 0.75
+		else:
+			model.basis = model.basis * Basis(Vector3.UP, _corkscrew(float(s.state_frame) - 17.0))
 	# Spinning moves (SPIN_MOVES): the whole body turns about its upright axis with the arms out, by the move's own frame.
+	# (Round 9, the end-lag pops: about the body's own long axis, after its lean. Turned about the upright through the feet, a body leaning in
+	# the air swung round a circle half its height across, out to one side and back, the Hauler's hips 1.4 units from where it stood.)
 	var whirl := _whirl(s)
 	if whirl != 0.0:
-		model.rotation.y = yaw + whirl * float(s.facing)
+		if _r9p("spin"):
+			model.rotation.y = yaw + whirl * float(s.facing)
+		else:
+			model.basis = model.basis * Basis(Vector3.UP, whirl * float(s.facing))
 
 	var hitlag: int = s.hitlag
 	# The face follows what the fighter is doing (cosmetic): hurt when hit, a yell in an attack, and so on, then its own face again.

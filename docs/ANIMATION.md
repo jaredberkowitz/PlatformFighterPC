@@ -2738,3 +2738,71 @@ side-by-sides stay on F:.
   hold-to); a floor in frames (3-4) would stop such snaps. The Longsword's forward tilt's blade moves 1.75 units in its frame 31.
   `F:\anim_core\tools\snaps.py` and `endpops.py` list them over every class; judge each by eye (the Gauntlets' down smash's hand leaving
   the floor for its back kick reads as part of the move).
+
+### Group 18 (round 9): end-lag pops (the coordinator's order of 2026-11-04, item 1)
+
+- **Measured first:** the trace now carries each move's timing (`mt:` in `PF_MOTION_TRACE`), so a jump can be placed in the end lag;
+  `F:\anim_core\tools\lagpops.py` lists every frame after a move's last hit where a body point or the blade's tip moves far more in one
+  frame than in the frames either side (every class's gallery), and `layerblame.py` with the new `PF_LAYER_TRACE` says which arm layer made
+  it (the clip and reach, the face guard, the arms beside the head, the joint limits). Each case was then judged by eye at real speed, every
+  frame, in movies of the galleries (`F:\anim_core\sheets\pops`, `r9pops`). On core7: 46 such jumps of 0.5 units or more (24 of 0.7 or more).
+- **The fitter's floor in frames** (`F:\anim_core\tools\fitshapes.py`): a recovery (hold-to to recover-by) never takes fewer than 4 frames
+  of the end lag; it was a share, 0.08, so a 12-frame end lag recovered in one frame. 4, because the shape's ease covers the measure's
+  recovery (a quarter to 85% of the way home) in about half its length, which reads as the references' shortest real recoveries, 2 frames
+  (the dinosaur's down tilt and jab, the ninja's down tilt, the plumber's forward air). Eight moves were under it (the Clutch's down tilt 1.0
+  frames, the Settler's back air 1.5, the Clutch's jab 1.7, the Needles' up tilt 2.2, the Clutch's up smash 2.3 and back air 2.8, the
+  Needles' jab 3.2); refitted, then every move refitted after the fixes below (four rounds; the Longsword's up smash and up tilt keep their
+  hand-set shapes, the coordinator's decision on group 17). The Clutch's down tilt stands up over two to three frames (hips 0.39, 0.54,
+  0.81), not one.
+- **Shared causes found and fixed (`fighter_view.gd`), each a switch that flipped in one frame:**
+  1. **Spins** (`SPIN_MOVES`, `_whirl`): the Hauler's neutral air turned one and a half times and the Settler's two and a half, so the body
+     came back round the other half in one frame at the end (hand 3.0 units); now two whole turns each (the Hauler's reference turns about
+     twice and ends facing the way it began). The turn was about the upright through the feet after the air's lean, so a leaning body swung
+     round a circle half its height across (the hips 1.4 units out to the side); it now turns about its own long axis, upright (no air
+     counter-pitch in a spin, `_spins_whole_body`). The Claws' flame rush up corkscrewed on through its whole end lag and came back round by
+     whatever angle it had reached (up to 285 degrees in a frame); it now eases out onto two whole turns six frames after its dash
+     (`_corkscrew`).
+  2. **The arms beside the head** (`_arms_beside_head`): which side of the head a hand goes to, whether it is behind the head's middle in
+     depth, and the fall-back from the face were each all or nothing; a hand hovering at any of them jumped 0.6-0.85 units (the Phantom's and
+     the Settler's up tilts, the Settler's up smash, the Popgun's up tilt, the Phantom's forward tilt, the Claws' blaster hand twice). Each is
+     eased now: the side over 0.3 units of the hand's way past its shoulder in a move's end lag (`BESIDE_SIDE_BAND`; everywhere, a hitless
+     special's held pose that sat in the band, the Phantom's down special, put its far hand over the head with the elbow reversed), the depth
+     over 0.08 in front of the head's
+     middle (`BESIDE_DEPTH_BAND`), and the fall-back from the face judged where the arm really takes the hand on the side ahead, eased in
+     from `COVER_R` to 0.8 of it (`BESIDE_FACE_BAND`), never sending behind a hand it left before (eased out past `COVER_R`, it sent the
+     grab's far arm behind the body more often: limbs reading reversed in a computer match 185 to 332).
+  3. **A raised forward cut's way home** (`_blade_target`): held out toward the foe (group 16), the carry lay about half a turn behind it,
+     so the short way often went over the top: the Longsword's forward tilt flipped its blade up past the hat and down behind in three frames
+     (1.5-1.75 units a frame at the tip). It now lowers forward and down, round the side past the legs, as a swordsman lowers a blade, and a
+     blade turns home no faster than 36 degrees a frame at its fastest (`BLADE_HOME_DEG`), starting earlier and ending where it did.
+  4. **A weapon hand by the face** (`_pose_blade`, `front_side`, `front_cross`): its side of the face was the blade tip's side of the head,
+     so when the tip passed over the head the hand jumped from in front of the face to behind the head in one frame (the Longsword's up
+     special 0.9 units, its back air, the Champion's up special and neutral special, the Wanderer's forward tilt and up air). In an end lag it
+     now goes round behind the head over five sim frames (`FRONT_SIDE_FRAMES`); out of the end lag, or after a seek, it is on its side at
+     once, as before.
+  5. **The weapon hand's face guard** (`_guard_weapon_hand`): eased out in depth and its second push weighed in, never stronger than before.
+  6. **A fist's way round to its reach** (`_pose_blade`, `arc_prev`): the hand travelled round the shoulder the shorter way each frame, so when
+     its goal swept round past half a turn (a raking fist's carry in the down and back airs' recoveries, the Embers' up air) it jumped from
+     behind the head to in front of the body, 0.7-1 units. A fist now goes on the way it was going (a blade's arm only when it is half a turn
+     either way); a seek takes the short way.
+  `PF_R9_OFF=pops` shows all of them as before, or one by name (`spin`, `beside`, `blade`, `front`, `guard`, `arc`).
+- **Tried and reverted:** the carry starting at a sweeping cut's last hit instead of half a frame before it (the up special's first carry
+  frame 34 to 24 degrees, but the Longsword's down air's carry kinked and its up tilt's timing moved); letting the high blade arm's cap go
+  gradually (it changed the up tilt's look and did not fix the Champion's up air); easing the resting hand between front and behind by the
+  hit's place (it hid 66 more striking hands in the Clutch's side special and did not fix the Embers' forward air).
+- **Judged natural at real speed, left:** the Longsword's down tilt lowering its blade past its leg (1.85 units at the tip, continuous in
+  depth), its forward and back airs' swings, its jab; the Claws' down smash standing up; the Gauntlets' down smash's hand leaving the floor
+  for its back kick; the blades now lowered round the side, which the flat trace reads as a jump of the tip.
+- **After (every class's gallery; core7, now):** end-lag jumps of 0.5 units or more 46 to 31, of 0.7 or more 24 to 17 (the blade's tip
+  jumping 1 unit or more 25 to 29: the blades lowered round the side); attack timing (follow-through / hold / recovery / wind-up, 68 moves)
+  2.37 / 1.28 / 1.65 / 1.13 to **2.37 / 1.40 / 1.75 / 1.15** (hold and recovery above core7's, under 8r's 1.56 / 1.81: the floor's longer
+  recoveries, the Clutch's back air on its plateau, 15/18 or 18/15 against 13/18); drawn eyes or mouth covered 11 to 7 (the Settler's
+  forward tilt's 4 gone); striking hands hidden 1,499 to 1,354; limbs reading reversed on screen 3,054 to 2,741 (the Hauler's pummel 66
+  to 0).
+- **Left (judged, not fixed):** the Champion's up air (its hands pass the mouth for a frame as the blade goes over, 0.99), the Embers'
+  forward air's fist at frames 22 and 53 (0.9), the Gauntlets' charged punch's arm at 58 (0.8), the Bracers' forward tilt's free fist as
+  the strike carries (1.25, part of the swing), the Phantom's forward air's foot (0.86), the Clutch's second jab, the Exile's up air.
+- **Checked:** both facings (face and bend measures, every gallery and four computer matches); the tests (`motion_test` and the rest)
+  pass; the look bench passes (it crashed once while another capture ran, and passed alone).
+- **Image:** `docs/screenshots/anim/r9_end_pops.jpg` (the Longsword's forward tilt 24-31 and up special 8-17, the Clutch's down tilt 11-18,
+  the Claws' blaster 17-26, the Hauler's and the Settler's neutral airs; core7 above each, now below; close camera).

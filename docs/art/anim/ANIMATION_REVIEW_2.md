@@ -126,6 +126,15 @@ hold 25 and recovery 10 against the reference's 21 and 14. Limbs reading
 reversed on screen at group 16: 3,063 (elbows 1,925, knees 1,138), the worst of them natural folds by eye (group 13); at group 17
 3,054 (elbows 1,916, knees 1,138).
 
+**End-lag pops (group 18, 2026-11-04).** Frames after a move's last hit where a body point jumps in one frame far more than in the frames
+either side (`lagpops.py`, every class's gallery): core7 46 of 0.5 units or more (24 of 0.7 or more), now 31 (17). The worst were switches
+in the shared layers, each flipping in one frame: a half-turn left over at the end of two spins (the body came round 180 degrees at once),
+spins turning about the feet after the air's lean (the body swung half its height out to one side), the corkscrew turning on through its
+end lag, the arms-beside-the-head layer's side, depth and face fall-back, a raised cut's blade going home over the top in three frames, the
+sword hand's side of the face, and a fist's way round its shoulder. The fitter's floor is now 4 frames, not a share of the end lag (a
+12-frame end lag stood up in one). Attack timing, refitted: **2.37 / 1.40 / 1.75 / 1.15** (hold and recovery above core7's, under 8r's).
+Drawn eyes or mouth covered 11 to 7; striking hands hidden 1,499 to 1,354; limbs reading reversed on screen 3,054 to 2,741.
+
 ## 3. What still differs, and why
 
 - **Width and reach:** short legs and arms. Stances, strides and the run's spread stop at about two thirds of the references' spans,
