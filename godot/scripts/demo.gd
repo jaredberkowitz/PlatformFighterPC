@@ -28,6 +28,20 @@ static func make(demo_name: String, m: Dictionary, dir: String):
 	var special: int = m.special
 	var strong: int = m.strong
 	var grab: int = m.grab
+	if demo_name == "props_tree":
+		# The Settler's tree from planting to felling (for checking the props pass's sapling, tree, falling tree and wood chips): down
+		# special to plant, again to water, the tree up about 46 frames after the first drop, then two axes from the left so it falls
+		# away to the right, past the other fighter. A picture every other frame, the camera steady and far enough out for the tree.
+		d.chars = [10, 0, 10, 0]
+		d.cam_dist = 16.0
+		d.cam_focus = 0
+		d.events = [[1, "stand", 0, -2.0, 1], [1, "stand", 1, 3.2, -1]]
+		d.timeline = [[0, 0, 0, 0], [10, 0, -100, special], [11, 0, 0, 0], [60, 0, -100, special], [61, 0, 0, 0],
+			[140, 0, -100, special], [141, 0, 0, 0], [195, 0, -100, special], [196, 0, 0, 0]]
+		for f in range(10, 330, 2):
+			d.shots.append([f, "f%03d" % f])
+		d.end_frame = 331
+		return d
 	if demo_name.begins_with("fx_"):
 		# One move landing on a fighter up close, a picture on every frame, the camera steady on the attacker (for checking trails, hit
 		# effects and the animation): fx_<sword|claws|needles|embers|gauntlets|staff|greatsword|bracers|clutch|buckler|pockets|popgun|dagger|nodachi>_<jab|ftilt|utilt|dtilt|fsmash|usmash|dsmash|nair|fair|bair|uair|dair|
@@ -67,6 +81,9 @@ static func make(demo_name: String, m: Dictionary, dir: String):
 			d.timeline = [[0, 0, 0, 0], [10, input[0], input[1], input[2]], [11, 0, 0, 0], [40, 0, 0, special], [41, 0, 0, 0]]
 		if demo_name.ends_with("_ko"):
 			d.events.append([1, "percent", 1, 170.0])
+		# (`_wide` in the name: the camera twice as far out, for a shot that lands far ahead, such as the Seer's flame burst.)
+		if demo_name.contains("_wide"):
+			d.cam_dist = 22.0
 		# (`_whiff` on the end: the other fighter out of reach, so the swing's arc and hitboxes show without a hit over them.)
 		if demo_name.contains("_whiff"):
 			for e in d.events:
