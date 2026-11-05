@@ -3253,4 +3253,6 @@ lies at the hit), `bodyft.py` (the torso's travel after the last hit), `windpops
   default) merged; main unchanged (a75f86fd). Stills regenerated for four stages (b72a73e3, the pack; the meadow's still run crashed
   once and kept r10b's). Pack only. Simulation version 152, content hash 3e8182f865102756, checked in the staged copy and the extracted
   zip ("Platform Fighter playtest 2026-11-04 sim152 animation r10c.zip"); the installed exe quits with code 0. The Godot tests pass, the
-  props test (13 props, 11 painted kinds, 12 tools) and the look bench (0 buffer overflows, worst 0.90 on the city's bright light).
+  props test (13 props, 11 painted kinds, 12 tools) and the look bench (0 buffer overflows, worst 0.90 on the city's bright light: the
+  darkest body, midnight, fifth in its row; the stage merge's light moved it (every body there 0.17-0.25 against 0.25-0.31 before), not the
+  settle, which leaves it the same with `PF_R10_OFF=settle`).
