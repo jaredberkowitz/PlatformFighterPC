@@ -75,6 +75,9 @@ static func make(demo_name: String, m: Dictionary, dir: String):
 		var input: Array = inputs.get(move, inputs.ftilt)
 		# (Neutral special is held: a charge of three needles.)
 		var hold := 46 if move == "nspecial" else 1
+		# (Round 10: `_hold` in the name keeps the special held past any charge, 110 frames: the Popgun's gun goes off in its hands.)
+		if demo_name.contains("_hold"):
+			hold = 110
 		d.timeline = [[0, 0, 0, 0], [10, input[0], input[1], input[2]], [10 + hold, 0, 0, 0]]
 		# (`_again` in the name: the special pressed a second time 30 frames in, which throws a charged special such as a giant punch.)
 		if demo_name.contains("_again"):
@@ -91,6 +94,8 @@ static func make(demo_name: String, m: Dictionary, dir: String):
 					e[3] = 9.0
 		# (Long enough for a smash, or a multi-hit move whose hits freeze it.)
 		var last := 120 if move.ends_with("special") else 75
+		if demo_name.contains("_hold"):
+			last = 250
 		for f in range(11, last):
 			d.shots.append([f, "f%02d" % (f - 10)])
 		d.end_frame = last + 1

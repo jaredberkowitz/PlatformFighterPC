@@ -3524,3 +3524,20 @@ lies at the hit), `bodyft.py` (the torso's travel after the last hit), `windpops
   the roll's pace before it. No tech in place happens in the galleries or the four computer matches, so the round's measures are group
   12's by construction (reversed limbs re-run on the matches: 2,789, unchanged). Tests pass; the look bench passes (worst 0.90).
 - **Image:** `docs/screenshots/anim/r10_tech_roll.jpg` (r10e above now, close up both facings, then the match camera's size).
+
+### Group 14 (round 10): the Popgun's misfire is a reaction, not a swing (the coordinator's item 7; group 3's leftover)
+
+- **Found:** the misfire (class 11's extra move 4: the special held past its full charge, the gun goes off in the Scamp's hands on frame 2,
+  then 106 frames before it can act) played the fallback swing, the gun swept round at nothing with a calm face. The reference's (the frame
+  data site's clip, on F:): thrown back by the blast with the arms up and the head back, reeling for about 30 frames, then slumped and
+  dazed with the arms hanging, coming to by the end.
+- **Fix (`fighter_view.gd` `_misfire`, `_misfire_clip`):** thrown back and reeling on the light flinch's clip (`hurt_ground`, by its hit
+  progress) to `MISFIRE_REEL` 30; then dazed and swaying on group 12's `dizzy` (by the move's frame, so a seek redraws it) to
+  `MISFIRE_DAZE_END` 96; then the fighter's own stance as it comes to; the hurt face through the blast, the dazed one after, its own face
+  at the end. The clips pose both arms (no reach for the blast's hitbox), and the clip changes after its hit ease over the hand-off's
+  frames (a move's clip change is instant elsewhere, and here jumped 0.25 units in a frame). `PF_R10_OFF=misfire` shows the old.
+  `demo.gd`: `fx_<class>_nspecial_hold` keeps the special held 110 frames.
+- **Checked:** the misfire close up and at the match camera; the largest one-frame move after the blast's snap 0.08 units. Only an
+  overcharged draw reaches it, so the round's measures are group 13's by construction. Tests pass; the look bench passes (worst 0.90).
+- **Left:** the gun stays whole in the hand (the reference's bursts); the blast's own effect is the props' and effects' side.
+- **Image:** `docs/screenshots/anim/r10_popgun_misfire.jpg` (r10e above now, close up then the match camera's size, frames 0-100).

@@ -1070,6 +1070,9 @@ static func dodge_total(d: PackedInt32Array) -> int:
 ## The clip for the move being performed and how far through it we are, mapped onto the clip's timeline: wind-up to 0.35, the strike
 ## through 0.55 to 0.75, then recovery. The move's own frames set the pace, so the swing lands when the hitbox does.
 func _attack_clip(s: Dictionary) -> Array:
+	# (Round 10: the Popgun's misfire is a reaction, not a swing, `_misfire_clip`.)
+	if _misfire(s):
+		return _misfire_clip(s)
 	var t: PackedInt32Array = s.move_timing
 	var total := maxf(1.0, float(t[0]))
 	var release: Dictionary = release_frames(_cls(s))
@@ -1108,6 +1111,28 @@ func _attack_clip(s: Dictionary) -> Array:
 	if r8_off.has("specials") and R8_SPECIAL_CLIPS.has(clip):
 		clip = String(AnimLibrary.STAND_INS.get(clip, clip))
 	return [clip, 1.0, clampf(progress, 0.0, 1.0)]
+
+
+## (Round 10, the coordinator's item 7, after the reference's misfire) The Popgun's misfire (class 11's extra move 4: the gun goes off
+## in its hands on frame 2, then 106 frames before it can act) is a reaction, not a swing: thrown back by the blast and reeling (the light
+## flinch's clip, `hurt_ground`, by its hit progress) to MISFIRE_REEL, then dazed and swaying, the arms hanging (`dizzy`, by the move's
+## frame, so a seek redraws it) to MISFIRE_DAZE_END, then the fighter's own stance as it comes to; the hurt face through the blast, the
+## dazed one after. It played the fallback swing, the gun swept round at nothing. `PF_R10_OFF=misfire` shows the old.
+const MISFIRE_REEL := 30.0
+const MISFIRE_DAZE_END := 96.0
+
+
+func _misfire(s: Dictionary) -> bool:
+	return use_base_body and _cls(s) == POPGUN_CLASS and String(s.move_name) == "extra move 4" and not r10_off.has("misfire")
+
+
+func _misfire_clip(s: Dictionary) -> Array:
+	var f := float(s.state_frame)
+	if f < MISFIRE_REEL:
+		return [AnimLibrary.or_stand_in("hurt_ground", anim), 1.0, hit_progress(f, 66.0, 18.0)]
+	if f < MISFIRE_DAZE_END:
+		return [AnimLibrary.or_stand_in("dizzy", anim), 1.0, fmod((f - MISFIRE_REEL) / 100.0, 1.0)]
+	return [AnimLibrary.family_clip(_cls(s), "idle", anim), 1.0, -1.0]
 
 
 ## Where an attack clip is (0..1, on the shared move timeline: wind-up to 0.35, strike at 0.55, follow-through to 0.63, settled at 1) at
@@ -1566,7 +1591,8 @@ static var r9_off := OS.get_environment("PF_R9_OFF").split(",")
 ## (`_free_arm_swing`); "sling" gives the Settler's back air the shared back air's clip and its strike on its first frame
 ## (`release_frames`, AnimLibrary); "flinchw" gives every class the shared light flinch (`FLINCH_WEIGHT`); "gcross" pushes a hand
 ## crossing the head's middle in an end lag out of the face as before (`_guard_cross_k`); "dizzy" plays round 8's dizzy; "techroll"
-## leaves the tech in place's slap without its roll back over the shoulders (`_tech_rolling`).
+## leaves the tech in place's slap without its roll back over the shoulders (`_tech_rolling`); "misfire" plays the Popgun's misfire as
+## the fallback swing (`_misfire`).
 static var r10_off := OS.get_environment("PF_R10_OFF").split(",")
 var handoff_clip := ""
 var handoff_state := ""
@@ -1621,8 +1647,9 @@ func _ease_handoff(s: Dictionary, clip: String, crossed := false) -> void:
 		for suffix in ["_brawler", "_quick", "_heavy", "_caster", "_tool"]:
 			base = base.trim_suffix(suffix)
 		var len: float = float(HANDOFF_BY_CLIP.get(base, HANDOFF_FRAMES))
-		# (A move's first active frame lands on its own pose: the ease is over before it.)
-		if String(s.state) == "Attack":
+		# (A move's first active frame lands on its own pose: the ease is over before it. Not the Popgun's misfire, whose clips change
+		# after its hit, round 10: they jumped 0.25 units in a frame.)
+		if String(s.state) == "Attack" and not _misfire(s):
 			var first := float((s.move_timing as PackedInt32Array)[1])
 			len = clampf(first - 2.0 if first > 0.0 else 3.0, 0.0, 4.0)
 		if int(s.hitlag) > 0:
@@ -3862,6 +3889,12 @@ func _face_for(s: Dictionary) -> Dictionary:
 		"Knockdown", "Rebound":
 			return Loadout.HURT
 		"Attack":
+			if _misfire(s):
+				if float(s.state_frame) < MISFIRE_REEL:
+					return Loadout.HURT
+				if float(s.state_frame) < MISFIRE_DAZE_END:
+					return Loadout.DAZED_FACE
+				return Loadout.FACES[loadout.face]
 			if _charging(s) > 0:
 				return Loadout.EFFORT_FACE
 			var t: PackedInt32Array = s.move_timing
@@ -9281,7 +9314,7 @@ func _apply_combat(s: Dictionary, delta: float) -> void:
 	# gripping the rocket. Its tool hand is not pulled to a hit.)
 	if s.move_name != "" and not body_move:
 		var own := AnimLibrary.attack_clip(_cls(s), s.move_name, anim)
-		body_move = AnimLibrary.is_body(own) or AnimLibrary.OWN_ARMS.has(own)
+		body_move = AnimLibrary.is_body(own) or AnimLibrary.OWN_ARMS.has(own) or _misfire(s)
 	var swinging_arm: bool = not ((brawler or staff or great) and body_move)
 	# (The Seer keeps its staff in hand through a kick, held at rest, as the Champion does its greatsword.)
 	blade_pivot.visible = (not brawler and swinging_arm) or staff or great

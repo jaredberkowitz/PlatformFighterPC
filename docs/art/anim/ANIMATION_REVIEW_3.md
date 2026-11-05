@@ -173,3 +173,5 @@ not rising.
 - **Group 13 (the tech's roll, done):** the tech in place goes down onto its shoulders and rolls back over them onto its feet by frame 11,
   as the reference's does, then crouches and stands; the sim's frames untouched. Knockdown, tech and get-ups: accuracy 4 (the tech was the
   gap left at group 7).
+- **Group 14 (the Popgun's misfire, done):** the gun going off in its hands throws the Scamp back reeling, then leaves it dazed and
+  swaying until it comes to (it played the fallback swing). Group 3's leftover closed; the gun stays whole in the hand.
