@@ -3245,3 +3245,12 @@ lies at the hit), `bodyft.py` (the torso's travel after the last hit), `windpops
   height in a frame. `F:\anim_core\r10\g2\g2_check.jpg` (core10 above now, per class).
 - **Image:** `docs/screenshots/anim/r10_settle.jpg` (each move at its settle's deepest frame, r10b left and now right, a red line at
   r10b's hat top; match camera, 2x).
+
+### r10c installed (4 November 2026)
+
+- Group 5 (the settle), with the props pass's last tips (origin/art/match-props 2b1d2e90: the tools held, the worn kit, the bomb, the
+  shadow orbs) and the stage branch (origin/art/stage-refine 76123791: the shader buffer raised, the scenery-on-twos mock inert by
+  default) merged; main unchanged (a75f86fd). Stills regenerated for four stages (b72a73e3, the pack; the meadow's still run crashed
+  once and kept r10b's). Pack only. Simulation version 152, content hash 3e8182f865102756, checked in the staged copy and the extracted
+  zip ("Platform Fighter playtest 2026-11-04 sim152 animation r10c.zip"); the installed exe quits with code 0. The Godot tests pass, the
+  props test (13 props, 11 painted kinds, 12 tools) and the look bench (0 buffer overflows, worst 0.90 on the city's bright light).
