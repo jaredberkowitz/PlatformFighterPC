@@ -3375,3 +3375,14 @@ lies at the hit), `bodyft.py` (the torso's travel after the last hit), `windpops
   heavier-reading strikes would need the clips' keys themselves (a deeper chamber, the body's mass behind the follow-through) rather than
   the timing, measured against the reference move by move.
 - **Image:** `docs/screenshots/anim/r10_family_weight.jpg` (the Clutch's forward smash wind-up, r10c above now; match camera).
+
+### r10e installed (5 November 2026)
+
+- Group 8 (the heavy family's own coil), with the UI branch's online lobby merged (origin/art/ui-paper2 8b678590: the lobby's fighter step as
+  fighter select's face-off, the owner's pick); main (a75f86fd), the stage branch (e982cf1f) and the props branch (5da63ddd) unchanged since
+  r10d. Re-imported twice; stills regenerated (e8fa2f18, the pack). Pack only: the Rust and content are main's, the bridge DLL the
+  folder's 152. Simulation version 152, content hash 3e8182f865102756, checked in the staged copy and the extracted zip ("Platform Fighter
+  playtest 2026-11-05 sim152 animation r10e.zip"); the r10d zip moved to `F:\anim_core\build\old_zips`. The installed exe runs the ledge
+  demo to r10d's checksum and quits with code 0 (the staged copy's check run lost its graphics device once, in the NVIDIA driver, after
+  loading the content). The Godot tests pass (with the online flow, online fighters, creator and props tests: 13 props, 11 painted kinds,
+  12 tools) and the look bench (0 buffer overflows, worst 0.90).
