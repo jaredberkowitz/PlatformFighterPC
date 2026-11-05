@@ -3636,3 +3636,19 @@ lies at the hit), `bodyft.py` (the torso's travel after the last hit), `windpops
   winner further side-on or looked from higher: a question for the results screen, not the poses.
 - **Images:** `docs/screenshots/anim/r10_victory_mock_<family>.jpg` (sword, staff, brawler, quick, heavy, caster, tool; each option at three
   moments of its loop, from 1.4 seconds after the results open; the sword's sheet also shows the Greatsword, the Nodachi and P2 winning).
+
+### r10g installed (5 November 2026)
+
+- The podium victory weapon fix (above) with the stage branch's two review 18 picks merged (origin/art/stage-refine 72828832: the grove's
+  forest into the air, B, and the beach's deck boards at dark joints, A) and the UI branch's podium results screen (origin/art/ui-paper2
+  43396bc7, the owner's pick of the results mocks); main (a75f86fd) and the props branch (5da63ddd) unchanged since r10f. Re-imported
+  twice; the stage select stills regenerated (25ab8848, the pack). Pack only: the Rust and content are main's, the bridge DLL the folder's
+  152. Simulation version 152, content hash 3e8182f865102756, checked in the staged copy and the extracted zip ("Platform Fighter playtest
+  2026-11-05 sim152 animation r10g.zip"); the r10f zip moved to `F:\anim_core\build\old_zips`. The installed exe runs the ledge demo to
+  r10f's checksum (2ee084357e1b24e9) and quits with code 0. How to play leads with "animation r10g, the podium results, the grove's air and
+  the beach's boards", our block on top. The Godot tests pass (with the stage select, online flow, online fighters, creator and props
+  tests; in the full run the stage select test failed its three view checks once while other sessions' Godot runs shared the user folder,
+  and passed alone) and the look bench (0 buffer overflows, worst 0.90). On the merged podium the Longsword winner raises its sword in the
+  right hand. The attack measures were not re-run: no code a match draws changed since r10f (timing 2.34 / 1.51 / 1.65 / 1.15, eyes or
+  mouth covered 7, hidden hands 1,284 there). The stage branch's 1f7d98e9 (the beach's dock edge back to its lit wood) and the UI branch's
+  a1b398a7 (the Online screen's code cards) arrived during the build: they go in the next install.
