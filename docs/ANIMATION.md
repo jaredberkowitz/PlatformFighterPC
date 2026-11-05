@@ -3624,8 +3624,8 @@ lies at the hit), `bodyft.py` (the torso's travel after the last hit), `windpops
   hands out at the sides or flexed beside the head, and a weapon carries the line upward; a blade laid back over the shoulder or held
   forward needs a sideways direction (the mock sets it in 3D) or it hides behind the head or crosses the face. The card is not mirrored
   for P2 (only its colour changes); the runner-up's snapshot holds its look's stance, no victory pose.
-- **Options** (each a loop after the cheer, in the real podium card at its size; built in a mock rig only, `F:nim_core\wt_victory`,
-  specs `F:nim_core	oolsictory_specs.py.txt`; nothing in the build): sword B the blade on the shoulder, C the blade planted point-down;
+- **Options** (each a loop after the cheer, in the real podium card at its size; built in a mock rig only, `F:\anim_core\wt_victory`,
+  specs `F:\anim_core\tools\victory_specs.py.txt`; nothing in the build): sword B the blade on the shoulder, C the blade planted point-down;
   staff A planted upright with the free palm out, B raised high; brawler B one arm flexed (the claws clear of the face), C one fist thrown
   up; quick A arms out pointing with a heel kicked up, B a hand thrown up and a knee up; heavy A beating the chest in turn, B one fist high
   and the other arm wide, C a laugh; caster A ta-da, B a flame in a raised palm; tool A the tool held up beside the head, B a wave with the
