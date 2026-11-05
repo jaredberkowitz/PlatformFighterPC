@@ -230,8 +230,7 @@ def shovel():
     tube(bm, [Vector((-0.12, 0.0, 0.0)), Vector((0.82, 0.0, 0.0))], [0.026, 0.024], sides=8, axis_hint=Vector((0.0, 1.0, 0.0)))
     to_object("wood_handle", bm).parent = root
     bm = bmesh.new()
-    # The spade: a rounded, pointed blade lofted along +X, wide across Z (the back of the hand: square to the camera with the arm level)
-    # and thin across Y.
+    # The spade: a rounded, pointed blade lofted along +X, thin across Z (the back of the hand) and wide across Y.
     stations = []
     for i in range(9):
         t = i / 8.0
@@ -391,6 +390,55 @@ PROPS = {"umbrella": umbrella, "shovel": shovel, "axe": axe, "watering_can": wat
          "firework": firework, "turnips": turnips, "balloons": balloons}
 
 
+# ---- Worn and held kit for other classes -------------------------------------------------------------------------------------------
+
+def bow():
+    """The Wanderer's bow, held in the free hand: a wooden bow standing across the fist (its limbs along the thumb's line, Blender
+    +-Y), curving back to the tips, with a leather grip and a pale string from tip to tip behind it."""
+    root = empty("bow")
+    for sgn in (-1.0, 1.0):
+        bm = bmesh.new()
+        pts = [Vector((0.0, 0.0, 0.0)), Vector((-0.03, sgn * 0.18, 0.0)), Vector((-0.08, sgn * 0.36, 0.0)),
+               Vector((-0.15, sgn * 0.5, 0.0)), Vector((-0.2, sgn * 0.58, 0.0)), Vector((-0.18, sgn * 0.64, 0.0))]
+        tube(bm, pts, [0.034, 0.03, 0.026, 0.022, 0.018, 0.014], sides=8, axis_hint=Vector((0.0, 0.0, 1.0)))
+        to_object("wood_limb%s" % ("u" if sgn > 0 else "d"), bm).parent = root
+    bm = bmesh.new()
+    tube(bm, [Vector((0.0, -0.08, 0.0)), Vector((0.0, 0.08, 0.0))], [0.042, 0.042], sides=8, axis_hint=Vector((0.0, 0.0, 1.0)))
+    to_object("leather_grip", bm).parent = root
+    bm = bmesh.new()
+    tube(bm, [Vector((-0.2, -0.6, 0.0)), Vector((-0.2, 0.6, 0.0))], [0.007, 0.007], sides=5, axis_hint=Vector((0.0, 0.0, 1.0)))
+    to_object("pith_string", bm).parent = root
+    return root
+
+
+def water_tank():
+    """Embers' water pack, worn on the back for the pump: a rounded tank with two red bands, a brass cap, and a short nozzle reaching
+    forward over the shoulder. Built at the spine: up is +Z, forward (the way the fighter faces at rest) -Y, the back +Y."""
+    root = empty("water_tank")
+    bm = bmesh.new()
+    lathe(bm, [(0.0, -0.22), (0.12, -0.22), (0.17, -0.16), (0.18, 0.12), (0.14, 0.2), (0.0, 0.22)], sides=16)
+    bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=1e-4)
+    transform(bm.verts, Matrix.Translation(Vector((0.0, 0.0, 0.0))))
+    to_object("glass_tank", bm).parent = root
+    bm = bmesh.new()
+    for z in (-0.1, 0.08):
+        tube(bm, [Vector((0.0, 0.0, z - 0.025)), Vector((0.0, 0.0, z + 0.025))], [0.186, 0.186], sides=16, axis_hint=Vector((0.0, 1.0, 0.0)))
+    to_object("band_hoops", bm).parent = root
+    bm = bmesh.new()
+    lathe(bm, [(0.0, 0.2), (0.06, 0.2), (0.06, 0.27), (0.0, 0.28)], sides=10)
+    bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=1e-4)
+    to_object("rim_cap", bm).parent = root
+    bm = bmesh.new()
+    tube(bm, [Vector((0.14, 0.0, 0.1)), Vector((0.24, -0.12, 0.16)), Vector((0.26, -0.32, 0.12)), Vector((0.26, -0.44, 0.06))],
+         [0.04, 0.035, 0.03, 0.026], sides=8)
+    to_object("dark_hose", bm).parent = root
+    bm = bmesh.new()
+    tube(bm, [Vector((0.26, -0.44, 0.06)), Vector((0.26, -0.56, 0.04))], [0.04, 0.03], sides=8)
+    to_object("rim_nozzle", bm).parent = root
+    return root
+
+
+PROPS.update({"bow": bow, "water_tank": water_tank})
 def export(root, path):
     bpy.ops.object.select_all(action="DESELECT")
     root.select_set(True)

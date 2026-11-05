@@ -49,6 +49,8 @@ const PROP_COLOURS := {
 	"balloons": {"glass": Color(0.32, 0.56, 0.95)},
 	"shovel": {"wood": Color(0.72, 0.5, 0.3)},
 	"axe": {"wood": Color(0.72, 0.5, 0.3)},
+	"bow": {"wood": Color(0.62, 0.4, 0.24), "pith": Color(0.95, 0.93, 0.86)},
+	"water_tank": {"glass": Color(0.3, 0.56, 0.92)},
 }
 
 ## The modelled shots by the move that fires them: Vector2i(class, move id) -> prop. An empty name hides the shot (a hit with no body of

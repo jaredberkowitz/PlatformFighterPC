@@ -1199,5 +1199,11 @@ projectiles and items, read through the bridge.
   above and behind the back. Each tool is built the first time a move needs it, so no other fighter pays for it, and is tagged as the
   fighter's own for the outline (`_as_tool`). A grip pass with the animator may turn tools in the hand: the shovel's spade can show
   edge-on in the down smash.
-- **Not yet:** the Scamp's worn barrels, Embers' water pack and the Wanderer's bow. The Exile's orbs on a fighter have no bridge
-  accessor yet. The bomb is still built in code.
+- **Worn and held kit for other classes (same file):**
+  - the Scamp's rocket barrels, strapped to its back for its up special;
+  - Embers' water tank, on its back for the pump;
+  - the Wanderer's bow, in its free hand.
+
+  The Settler's bowling ball is held until the heave lets it go (frame 23, `until`). Worn kit hangs on the spine bone, placed in the
+  body's rest space (`WORN_AT`), so it turns and leans with the body.
+- **Not yet:** the Exile's orbs on a fighter (no bridge accessor yet) and a modelled bomb (still built in code).

@@ -5190,8 +5190,8 @@ var nodachi_parts: Array[Node3D] = []
 ## The Popgun's toy cork gun, one on each hand like the knife (only the weapon hand's shows). (2026-11-04, the owner: the Scamp had no
 ## gun to hold, so its popgun showed only through its moves' effects, and its select-screen pose pointed an empty hand.)
 var popgun_parts: Array[Node3D] = []
-## The tools this fighter's moves hold (held_props.gd: the Settler's umbrella, shovel, slingshot, firework, turnips, watering can, axe and
-## balloons), built the first time a move needs one.
+## The tools and kit this fighter's moves hold or wear (held_props.gd: the Settler's tools, the Scamp's rocket barrels, Embers' water
+## tank, the Wanderer's bow), built the first time a move needs one.
 var held_tools = HeldProps.Held.new()
 ## How far past the knuckles the claws reach (forward space): the claw arcs and the fist's reach count it.
 const CLAW_LENGTH := 0.3
@@ -8643,7 +8643,7 @@ func _apply_combat(s: Dictionary, delta: float) -> void:
 	for p in popgun_parts:
 		p.visible = _cls(s) == POPGUN_CLASS and String(p.get_meta("side")) == _weapon_side(int(s.facing))
 	HeldProps.update(held_tools, self, skeleton if use_base_body else null, _cls(s), String(s.move_name), state == "Attack",
-		_weapon_side(int(s.facing)), float(s.facing))
+		_weapon_side(int(s.facing)), float(s.facing), int(s.state_frame))
 	var nodachi: bool = _cls(s) == NODACHI_CLASS
 	for p in nodachi_parts:
 		p.visible = nodachi

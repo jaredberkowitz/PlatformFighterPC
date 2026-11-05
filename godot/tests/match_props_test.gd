@@ -74,16 +74,18 @@ func _initialize() -> void:
 	var tools := {}
 	for cls in HeldProps.TOOLS:
 		for move in HeldProps.TOOLS[cls]:
-			tools[String(HeldProps.TOOLS[cls][move][0])] = true
+			for entry in HeldProps.TOOLS[cls][move]:
+				check(String(entry[1]) in ["weapon", "free", "worn", "back"], "%s's place for %s is known" % [entry[0], move])
+				tools[String(entry[0])] = true
 	for tool_name in tools:
-		var path := HeldProps.DIR % tool_name
+		var path: String = HeldProps._path(tool_name)
 		var packed = load(path) if ResourceLoader.exists(path) else null
 		check(packed is PackedScene, "tool %s loads" % tool_name)
 		if not (packed is PackedScene):
 			continue
 		var t: Node3D = (packed as PackedScene).instantiate()
 		holder.add_child(t)
-		MatchProps.paint(t, tool_name)
+		MatchProps.paint(t, tool_name.get_file())
 		var ttris := 0
 		for mi: MeshInstance3D in t.find_children("*", "MeshInstance3D", true, false):
 			var word := String(mi.name).get_slice("_", 0)
