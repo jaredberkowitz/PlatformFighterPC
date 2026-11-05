@@ -43,7 +43,7 @@ func _ready() -> void:
 	for i in names.size():
 		blurbs.append(Roster.stage_blurb(i))
 	# (Above the backdrop and under the bar.)
-	picker = UI.StagePicker.new(names, blurbs, true, Roster.match_stage)
+	picker = UI.StagePicker.new(names, blurbs, true, Roster.match_stage, Roster.stage_layouts())
 	picker.hovered.connect(_focus)
 	picker.activated.connect(_pick)
 	add_child(picker)

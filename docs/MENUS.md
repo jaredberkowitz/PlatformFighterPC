@@ -57,7 +57,8 @@ in a strip at the foot). **V**, Tab or a controller's **Y** switches; the choice
 
 The pictures are `godot/art/ui/stages/stage_<n>.webp`, made by `tests/stage_stills.gd` (one stage per run, in a window; see its header).
 Render them again when a stage's art changes, then import. A stage without a picture gets a plain card. Test: `tests/stage_select_test.gd`.
-The cards and both views are the kit's `StagePicker` (`ui/ui_kit.gd`), shared with the online lobby: there, once a player's fighter is
+Beside the preview, a stage sheet: the name, the blurb, the stage's layout drawn from the sim's own platforms inside its dashed blast
+zone, and its floor, room to survive (meters against the other stages) and platforms. The cards and both views are the kit's `StagePicker` (`ui/ui_kit.gd`), shared with the online lobby: there, once a player's fighter is
 locked in, the stage step is this screen's look in the same remembered view, the friend's stage badged with their name, without
 Random (the friend sees the very stage the player would fight on). Test: `tests/online_flow_test.gd`; capture: `tests/lobby_shot.gd`.
 The lobby's fighter step before it is fighter select's face-off (2026-11-05): this player's panel at the left, the friend's at the right,
