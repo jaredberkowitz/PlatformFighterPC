@@ -7082,6 +7082,7 @@ static func _street_life(root: Node3D, y: float, front: float) -> void:
 ##   A  30 pictures a second (on twos), as the effects;
 ##   B  15 a second (on fours);
 ##   C  10 a second (on sixes).
+## The owner's pick B (every stage palette's `scene_steps`, 2026-11-05).
 const SCENE_STEPS_TRY := {"T": 0.0, "A": 30.0, "B": 15.0, "C": 10.0}
 
 
