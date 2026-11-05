@@ -23,6 +23,8 @@ const PAINTED := {
 	Vector2i(13, 35): "dark_burst",  # the Exile's ring burst (extra move 7)
 }
 
+## Slower than this a frame, a shot of the Exile's beam move is one of its shadow orbs circling a fighter (the beam flies at 0.68 or more).
+const ORB_SPEED := 0.4
 ## The Seer's flame burst grows to this radius (its last hit's) over this many frames.
 const FLAME_BURST_MAX := 1.9
 const FLAME_BURST_GROW := 24.0
@@ -84,7 +86,12 @@ static func draw(node: MeshInstance3D, kind: String, at: Vector3, vel: Vector2, 
 		"laser":
 			_streak(im, ang, 1.3, 0.085, LASER, step)
 		"beam":
-			_streak(im, ang, 1.7, 0.1, CURSE, step)
+			if vel.length() < ORB_SPEED:
+				# One of the shadow orbs the beam put on a fighter (they are its move's projectiles too, circling the chest at about
+				# 0.16 a frame): a small dark fireball, its tongues trailing round its circle.
+				_flame_ball(im, ang, 0.2, [DARK[0], DARK[1], DARK[2], DARK[0]], step, 0.9)
+			else:
+				_streak(im, ang, 1.7, 0.1, CURSE, step)
 		"barrier":
 			_barrier(im, dir, step)
 		"orb":

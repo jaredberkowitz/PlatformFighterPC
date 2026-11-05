@@ -47,6 +47,7 @@ const Smear := preload("res://scripts/smear.gd")
 const MotionSprings := preload("res://scripts/motion_springs.gd")
 const TailRig := preload("res://scripts/tail_rig.gd")
 const CapeRig := preload("res://scripts/cape_rig.gd")
+const HeldProps := preload("res://scripts/held_props.gd")
 
 
 ## The soft cel material (`shaders/toon.gdshader`) in colour `c`, with the ink outline unless `outline` is false. Cached per colour.
@@ -2426,6 +2427,13 @@ func build(p: int, l: RefCounted = null) -> void:
 
 ## (1.4 until the muted trial, 2026-10-18: a strong rim on every fighter read as glossy and striking.)
 const FIGHTER_RIM_BOOST := 1.1
+
+
+## Tags a held tool's meshes as this fighter's own (held_props.gd builds them after the fighter), so the ink draws round the fighter and
+## its tool as one, with the fighter's outline.
+func _as_tool(n: Node) -> void:
+	for g in n.find_children("*", "GeometryInstance3D", true, false):
+		_tag_object(g)
 
 
 ## Gives every cel-shaded part of this fighter its own object id (see `object_id` in shaders/toon.gdshader), so the ink pass draws a line
@@ -5192,6 +5200,9 @@ var nodachi_parts: Array[Node3D] = []
 ## The Popgun's toy cork gun, one on each hand like the knife (only the weapon hand's shows). (2026-11-04, the owner: the Scamp had no
 ## gun to hold, so its popgun showed only through its moves' effects, and its select-screen pose pointed an empty hand.)
 var popgun_parts: Array[Node3D] = []
+## The tools and kit this fighter's moves hold or wear (held_props.gd: the Settler's tools, the Scamp's rocket barrels, Embers' water
+## tank, the Wanderer's bow), built the first time a move needs one.
+var held_tools = HeldProps.Held.new()
 ## How far past the knuckles the claws reach (forward space): the claw arcs and the fist's reach count it.
 const CLAW_LENGTH := 0.3
 ## Where a modelled hand weapon's origin sits on the hand: this far from the wrist along the forearm's line.
@@ -8875,6 +8886,8 @@ func _apply_combat(s: Dictionary, delta: float) -> void:
 		p.visible = _cls(s) == DAGGER_CLASS and String(p.get_meta("side")) == _weapon_side(int(s.facing))
 	for p in popgun_parts:
 		p.visible = _cls(s) == POPGUN_CLASS and String(p.get_meta("side")) == _weapon_side(int(s.facing))
+	HeldProps.update(held_tools, self, skeleton if use_base_body else null, _cls(s), String(s.move_name), state == "Attack",
+		_weapon_side(int(s.facing)), float(s.facing), int(s.state_frame))
 	var nodachi: bool = _cls(s) == NODACHI_CLASS
 	for p in nodachi_parts:
 		p.visible = nodachi
