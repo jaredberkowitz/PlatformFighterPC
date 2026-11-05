@@ -3737,3 +3737,17 @@ lies at the hit), `bodyft.py` (the torso's travel after the last hit), `windpops
   With the Display setting's fighter outline off the weight stays 0, as before. Tests pass; the look bench passes (worst 0.90).
 - **Image:** `docs/screenshots/anim/r10_fighter_outline.jpg` (the meadow before and now, full frame and the fighters at 1:1; then the
   podium as shipped and with the bold line tried in the menus).
+
+### r10h installed (5 November 2026)
+
+- Groups 16-19 (the victory poses by family, the Hauler's ledge climb, the Gauntlets' and the Dagger's up air, the fighters' bolder ink
+  in matches) with the stage branch's dock edge merged (origin/art/stage-refine 1f7d98e9: the beach's deck edge back to its lit wood, the
+  owner's pick B of review 19; its newer 969a5abd adds only the contrast map tool and a doc line) and the UI branch's code cards
+  (origin/art/ui-paper2 a1b398a7: the Online screen's code layout on two cards, the owner's pick); main (a75f86fd) and the props branch
+  (5da63ddd) unchanged. Re-imported twice; the stage select stills regenerated (484ef1ae, the pack). Pack only: the Rust and content are
+  main's, the bridge DLL the folder's 152. Simulation version 152, content hash 3e8182f865102756, checked in the staged copy and the
+  extracted zip ("Platform Fighter playtest 2026-11-05 sim152 animation r10h.zip"); the r10g zip moved to
+  `F:\anim_core\build\old_zips`. The installed exe runs the ledge demo to r10g's checksum (2ee084357e1b24e9) and quits
+  with code 0. How to play leads with "animation r10h, victory poses, bolder fighter ink, the dock edge and code cards", our block on
+  top. The Godot tests pass (with the stage select, online flow, online fighters, creator and
+  props tests) and the look bench (0 buffer overflows, worst 0.90).
