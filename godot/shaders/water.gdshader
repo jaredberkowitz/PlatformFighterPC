@@ -5,6 +5,7 @@ shader_type spatial;
 // (shaders/post.gdshader), so it fades into the stage's haze itself, the same way the scenery does. `cheap` (the Fast tier) keeps only
 // the bands.
 render_mode unshaded, cull_disabled, depth_draw_always, shadows_disabled, fog_disabled;
+#include "res://shaders/scene_time.gdshaderinc"
 
 uniform sampler2D depth_tex : hint_depth_texture, filter_nearest;
 uniform vec4 shallow : source_color = vec4(0.12, 0.74, 0.88, 1.0);
@@ -94,7 +95,7 @@ float cell_edge(vec2 p, float t) {
 void vertex() {
 	vec3 w = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 	if (!cheap) {
-		VERTEX.y += sin(w.x * 0.07 + TIME * 0.6) * 0.18 + sin(w.z * 0.11 + w.x * 0.02 + TIME * 0.8) * 0.12;
+		VERTEX.y += sin(w.x * 0.07 + SCENE_TIME * 0.6) * 0.18 + sin(w.z * 0.11 + w.x * 0.02 + SCENE_TIME * 0.8) * 0.12;
 	}
 	world_pos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 }
@@ -135,13 +136,13 @@ void fragment() {
 			}
 		}
 		// Broad soft patches, deeper and lighter, drifting: the water's large forms.
-		float sw = noise(q * vec2(0.02, 0.06) + vec2(TIME * 0.025, 0.0)) * 0.6 + noise(q * vec2(0.05, 0.14) + vec2(-TIME * 0.04, 2.0)) * 0.4;
+		float sw = noise(q * vec2(0.02, 0.06) + vec2(SCENE_TIME * 0.025, 0.0)) * 0.6 + noise(q * vec2(0.05, 0.14) + vec2(-SCENE_TIME * 0.04, 2.0)) * 0.4;
 		col *= mix(0.9, 1.08, sw);
 		// (By the frame's height, not the world's depth: in front of the stage the water lies within a few units of the stage plane.)
 		float front_k = smoothstep(0.5, 1.0, SCREEN_UV.y);
 		if (near_depth.y > 0.0) {
 			// Broad slow patches across the near water, deeper and lighter, so the frame's foot has forms of its own.
-			float pn = noise(q * vec2(0.035, 0.09) + vec2(TIME * 0.02, 5.0)) * 0.65 + noise(q * vec2(0.08, 0.2) - vec2(TIME * 0.03, 1.0)) * 0.35;
+			float pn = noise(q * vec2(0.035, 0.09) + vec2(SCENE_TIME * 0.02, 5.0)) * 0.65 + noise(q * vec2(0.08, 0.2) - vec2(SCENE_TIME * 0.03, 1.0)) * 0.35;
 			col *= mix(1.0, mix(0.66, 1.15, smoothstep(0.25, 0.75, pn)), front_k * near_depth.y);
 		}
 		if (look == 3) {
@@ -159,7 +160,7 @@ void fragment() {
 			float tier = floor(bs / width);
 			float b = bs;
 			for (int it = 0; it < 2; it++) {
-				float ph = tier * 1.7 + TIME * 0.12 * (mod(tier, 2.0) * 2.0 - 1.0);
+				float ph = tier * 1.7 + SCENE_TIME * 0.12 * (mod(tier, 2.0) * 2.0 - 1.0);
 				float freq = 0.12;
 				float depth = 0.34;
 				float xw = world_pos.x;
@@ -240,12 +241,12 @@ void fragment() {
 			// further out: no crest rows.
 			float near_k = 1.0 - smoothstep(8.0, 70.0, back);
 			// (The cells' edges wander, warped by a slow noise, and are thin: straight, they read as cracked tiles.)
-			vec2 warp = vec2(noise(q * 0.21 + TIME * 0.05), noise(q * 0.21 + 7.0 - TIME * 0.04)) * 1.6;
-			float e1 = cell_edge(q * vec2(0.3, 0.3) + warp + vec2(TIME * 0.06, 0.0), TIME);
-			float e2 = cell_edge(q * vec2(0.62, 0.62) + warp * 1.7 + vec2(-TIME * 0.05, 3.0), TIME * 1.3);
+			vec2 warp = vec2(noise(q * 0.21 + SCENE_TIME * 0.05), noise(q * 0.21 + 7.0 - SCENE_TIME * 0.04)) * 1.6;
+			float e1 = cell_edge(q * vec2(0.3, 0.3) + warp + vec2(SCENE_TIME * 0.06, 0.0), SCENE_TIME);
+			float e2 = cell_edge(q * vec2(0.62, 0.62) + warp * 1.7 + vec2(-SCENE_TIME * 0.05, 3.0), SCENE_TIME * 1.3);
 			float net = (1.0 - smoothstep(0.0, 0.035, e1)) * 0.6 + (1.0 - smoothstep(0.0, 0.03, e2)) * 0.35;
 			col = mix(col, mix(col, pow(vec3(0.7, 0.98, 0.95), vec3(2.2)), 0.6), net * near_k * 0.5);
-			float rip = noise(q * vec2(0.5, 1.6) + vec2(TIME * 0.3, 0.0));
+			float rip = noise(q * vec2(0.5, 1.6) + vec2(SCENE_TIME * 0.3, 0.0));
 			col *= 1.0 - 0.06 * smoothstep(0.55, 0.8, rip) * (1.0 - far_k);
 			col = mix(col, mix(col, vec3(1.0), 0.3), smoothstep(0.8, 0.95, rip) * 0.35 * (1.0 - far_k) * (1.0 - near_k * 0.6));
 		}
@@ -257,7 +258,7 @@ void fragment() {
 			// Reflections: march the reflected view ray across the screen until it passes behind something drawn, and take that
 			// colour, darkened and tinted by the water; rippled a little; fading with distance and where the ray finds nothing.
 			vec3 vdir = normalize(world_pos - CAMERA_POSITION_WORLD);
-			float wob = (noise(q * vec2(0.6, 2.4) + vec2(TIME * 0.5, 0.0)) - 0.5) * 0.05;
+			float wob = (noise(q * vec2(0.6, 2.4) + vec2(SCENE_TIME * 0.5, 0.0)) - 0.5) * 0.05;
 			vec3 rdir = normalize(reflect(vdir, normalize(vec3(wob, 1.0, wob * 0.5))));
 			vec3 hit_col = vec3(0.0);
 			float hit = 0.0;
@@ -288,7 +289,7 @@ void fragment() {
 		float dd = texture(depth_tex, SCREEN_UV).r;
 		vec4 vv = INV_PROJECTION_MATRIX * vec4(SCREEN_UV * 2.0 - 1.0, dd, 1.0);
 		float gap = (-vv.z / vv.w) - (-VERTEX.z);
-		float ruffle = noise(q * 1.3 + vec2(TIME * 0.3, 0.0)) * 0.6;
+		float ruffle = noise(q * 1.3 + vec2(SCENE_TIME * 0.3, 0.0)) * 0.6;
 		float shore = 1.0 - smoothstep(0.0, foam_width, gap + ruffle);
 		col = mix(col, col * vec3(0.7, 0.8, 0.88), smoothstep(0.75, 0.95, shore) * 0.5);
 		float ring1 = smoothstep(0.35, 0.5, shore) * (1.0 - smoothstep(0.55, 0.72, shore));
@@ -298,7 +299,7 @@ void fragment() {
 			vec2 sd = normalize(sun_dir.xz);
 			float across = abs(to_p.x * sd.y - to_p.z * sd.x);
 			float path = (1.0 - smoothstep(0.02, 0.12 + 0.1 * far_k, across)) * smoothstep(20.0, 90.0, back);
-			vec2 gp = q * vec2(0.5, 1.6) + vec2(TIME * 0.2, TIME * 0.05);
+			vec2 gp = q * vec2(0.5, 1.6) + vec2(SCENE_TIME * 0.2, SCENE_TIME * 0.05);
 			float sparkle = smoothstep(0.62, 0.8, noise(gp) * 0.6 + noise(gp * 2.7 + 5.0) * 0.4);
 			col = mix(col, vec3(1.0, 0.98, 0.9), path * sparkle * glint_path * 0.8);
 		}
@@ -319,7 +320,7 @@ void fragment() {
 		// Broad swaths under everything (art review 5: the sea read as one flat cyan with a pattern on it): long, slow patches a little
 		// deeper and a little lighter, stretched along the shore and drifting one way, so the water has large forms before any detail.
 		vec2 q = world_pos.xz;
-		float swath = noise(q * vec2(0.018, 0.07) + vec2(TIME * 0.03, 0.0)) * 0.65 + noise(q * vec2(0.045, 0.16) + vec2(TIME * 0.05, 3.0)) * 0.35;
+		float swath = noise(q * vec2(0.018, 0.07) + vec2(SCENE_TIME * 0.03, 0.0)) * 0.65 + noise(q * vec2(0.045, 0.16) + vec2(SCENE_TIME * 0.05, 3.0)) * 0.35;
 		float swath_k = (1.0 - band * 0.7);
 		col = mix(col, deep.rgb * 0.92, smoothstep(0.45, 0.75, swath) * 0.5 * swath_k);
 		col = mix(col, mix(shallow.rgb, vec3(1.0), 0.18), (1.0 - smoothstep(0.22, 0.42, swath)) * 0.32 * swath_k);
@@ -327,15 +328,15 @@ void fragment() {
 		// toward the light and falling into a deeper trough behind, wavering and breaking up along their length; strongest near the stage,
 		// gone toward the horizon where they would only shimmer.
 		float swell_k = 1.0 - smoothstep(10.0, 110.0, back);
-		float ph = world_pos.z * 0.62 + noise(q * vec2(0.035, 0.05)) * 5.0 + sin(world_pos.x * 0.06 + 1.3) * 1.2 + TIME * 0.7;
+		float ph = world_pos.z * 0.62 + noise(q * vec2(0.035, 0.05)) * 5.0 + sin(world_pos.x * 0.06 + 1.3) * 1.2 + SCENE_TIME * 0.7;
 		float slope = cos(ph);
-		float broken = smoothstep(0.3, 0.6, noise(q * vec2(0.09, 0.25) + vec2(TIME * 0.04, 0.0)));
+		float broken = smoothstep(0.3, 0.6, noise(q * vec2(0.09, 0.25) + vec2(SCENE_TIME * 0.04, 0.0)));
 		col = mix(col, mix(col, shallow.rgb * 1.15 + 0.04, 0.6), smoothstep(0.6, 0.78, slope) * swell_k * broken * 0.75);
 		col = mix(col, deep.rgb * 0.8, smoothstep(0.55, 0.85, -slope) * swell_k * 0.35);
 		// Two layers of long streaks drifting at different speeds, stretched along the shore (crisp painted strokes, not soft smudges).
 		vec2 p = world_pos.xz;
-		float s1 = noise(p * vec2(0.06, 0.45) + vec2(TIME * 0.05, 0.0));
-		float s2 = noise(p * vec2(0.1, 0.8) + vec2(-TIME * 0.08, TIME * 0.02) + 17.0);
+		float s1 = noise(p * vec2(0.06, 0.45) + vec2(SCENE_TIME * 0.05, 0.0));
+		float s2 = noise(p * vec2(0.1, 0.8) + vec2(-SCENE_TIME * 0.08, SCENE_TIME * 0.02) + 17.0);
 		// (Soft painted highlights rather than crisp strokes, the gauntlet's round 7 after the owner's harbour reference.)
 		float streaks = smoothstep(0.76, 0.86, s1) * 0.32 + smoothstep(0.82, 0.92, s2) * 0.2;
 		col = mix(col, streak.rgb, streaks * (1.0 - band * 0.6));
@@ -343,10 +344,10 @@ void fragment() {
 		// slowly, a pale crest with a darker trough just behind it, fading with distance.
 		float rowz = -p.y / mix(4.6, 8.0, smoothstep(0.0, 120.0, back));
 		float row = floor(rowz);
-		float wob = 0.18 * sin(p.x * 0.11 + row * 1.7 + TIME * 0.35) + 0.08 * sin(p.x * 0.37 + row * 3.1);
+		float wob = 0.18 * sin(p.x * 0.11 + row * 1.7 + SCENE_TIME * 0.35) + 0.08 * sin(p.x * 0.37 + row * 3.1);
 		float fz = fract(rowz + wob);
 		// (Fewer and of varied length: a slower noise along each row, cut higher; each crest thicker in its middle than at its ends.)
-		float along = noise(vec2(p.x * mix(0.05, 0.11, hash(vec2(row, 1.3))) + TIME * 0.04 * (mod(row, 2.0) * 2.0 - 1.0), row * 3.7));
+		float along = noise(vec2(p.x * mix(0.05, 0.11, hash(vec2(row, 1.3))) + SCENE_TIME * 0.04 * (mod(row, 2.0) * 2.0 - 1.0), row * 3.7));
 		float dash = smoothstep(0.6, 0.66, along);
 		float thick = mix(0.035, 0.085, smoothstep(0.6, 0.85, along));
 		float crest = (1.0 - smoothstep(thick * 0.5, thick + 0.09, abs(fz - 0.5))) * dash;
@@ -364,7 +365,7 @@ void fragment() {
 		vec2 cs = p * vec2(0.9, 2.2);
 		vec2 cell = floor(cs);
 		float g = hash(cell);
-		float twinkle = smoothstep(0.75, 1.0, sin(TIME * 2.3 + g * 40.0));
+		float twinkle = smoothstep(0.75, 1.0, sin(SCENE_TIME * 2.3 + g * 40.0));
 		vec2 in_cell = (fract(cs) - 0.5) * vec2(1.0, 2.4);
 		float star = max(1.0 - smoothstep(0.0, 0.28, abs(in_cell.x) + abs(in_cell.y) * 3.0), 1.0 - smoothstep(0.0, 0.28, abs(in_cell.y) + abs(in_cell.x) * 3.0));
 		col = mix(col, vec3(1.0), step(0.965, g) * twinkle * star * (1.0 - band) * 0.9);
@@ -373,7 +374,7 @@ void fragment() {
 		vec4 v = INV_PROJECTION_MATRIX * vec4(SCREEN_UV * 2.0 - 1.0, d, 1.0);
 		float scene = -v.z / v.w;
 		float gap = scene - (-VERTEX.z);
-		float ruffle = noise(p * 1.3 + vec2(TIME * 0.3, 0.0)) * 0.6;
+		float ruffle = noise(p * 1.3 + vec2(SCENE_TIME * 0.3, 0.0)) * 0.6;
 		float shore = 1.0 - smoothstep(0.0, foam_width, gap + ruffle);
 		// A solid band of foam right at the waterline, and a fainter broken ring further out where the wash spreads.
 		// (A soft ripple ring rather than a solid band of white, round 7: a darker wet band right at the waterline, a pale soft ring out
@@ -381,7 +382,7 @@ void fragment() {
 		col = mix(col, col * vec3(0.7, 0.8, 0.88), smoothstep(0.75, 0.95, shore) * 0.6);
 		float ring1 = smoothstep(0.35, 0.5, shore) * (1.0 - smoothstep(0.55, 0.72, shore));
 		col = mix(col, foam.rgb, ring1 * 0.55);
-		float ring2 = smoothstep(0.12, 0.2, shore) * (1.0 - smoothstep(0.24, 0.32, shore)) * smoothstep(0.35, 0.6, noise(p * 2.1 - vec2(TIME * 0.2, 0.0)));
+		float ring2 = smoothstep(0.12, 0.2, shore) * (1.0 - smoothstep(0.24, 0.32, shore)) * smoothstep(0.35, 0.6, noise(p * 2.1 - vec2(SCENE_TIME * 0.2, 0.0)));
 		col = mix(col, foam.rgb, ring2 * 0.3);
 	}
 	// The far sea brightening toward the horizon, and the line softened into the sky's own colour.
@@ -392,7 +393,7 @@ void fragment() {
 		vec2 sd = normalize(sun_dir.xz);
 		float across = abs(to_p.x * sd.y - to_p.z * sd.x);
 		float path = (1.0 - smoothstep(0.02, 0.12 + 0.1 * band, across)) * smoothstep(20.0, 90.0, back);
-		vec2 gp = world_pos.xz * vec2(0.5, 1.6) + vec2(TIME * 0.2, TIME * 0.05);
+		vec2 gp = world_pos.xz * vec2(0.5, 1.6) + vec2(SCENE_TIME * 0.2, SCENE_TIME * 0.05);
 		float sparkle = smoothstep(0.62, 0.8, noise(gp) * 0.6 + noise(gp * 2.7 + 5.0) * 0.4);
 		col = mix(col, vec3(1.0, 0.98, 0.9), path * sparkle * glint_path);
 		col = mix(col, mix(col, vec3(1.0), 0.25), path * 0.3 * glint_path);
