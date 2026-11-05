@@ -293,3 +293,22 @@ replay (stage_preview) and the UI suite pass.
 The art director's note: in the full view the keys' words were printed in the paper's label grey on the ink band at the foot, about
 1.5:1. `KeyBar.on_dark` prints them in the sheet's cream there instead (about 14:1 against the band, #23253a); the preview view keeps the
 grey on paper. Before/after: `stage_keys_before_after.png`.
+
+## The results screen as a podium, the owner's pick of the results mocks (2026-11-05)
+
+A survey of every screen (after the creator, lobby and stage sheet) named the results screen and Online the two weakest: both still
+used the old sunburst `UI.Stage` card with a small fighter. Three results layouts were mocked with real victory renders on the "Paper UI
+Mocks" canvas, row 7 (Podium, Trophy, Split); the owner picked **1, Podium**. Before/after: `results_podium_before_after.png`; two, four
+and one player and a draw in `results_podium/states.png`.
+
+| Before | After | Where |
+| --- | --- | --- |
+| An ink veil over the stage, the heading on a brush stroke | A paper veil, the menus' top bar (RESULTS), the heading large in ink on a gold shadow | `results.gd` `Board` |
+| The winner small on a sunburst card | The first place tall in its player's colour (fighter select's panel look), cut out of paper, clipped only at the top edge, in its victory pose; its tab, its fighter's name on a plate, a gold WINNER! card (DRAW in a draw) | `_panel`, `Over` |
+| A card per fighter stacked at the right | One score sheet: a chip per fighter in finishing order in its player's colour, a line each for KOs, falls, damage dealt and taken, stocks left; the winner's numbers in ink | `Board._draw_sheet` |
+| The runner-up on a second sunburst card | In a one-on-one, its snapshot at the sheet's corner, turned and dimmed (with three or four players the sheet's columns tell it) | `_runner_up`, `Snap` |
+| Choices in a row, Rematch in the winner's colour | Under the sheet, Rematch in gold, with the keys printed under them | `build` |
+
+`main.gd` now passes each fighter's own name (`fighter`) with the cards; the player's name when the match has no roster entry.
+Tests: match_flow (four players), runner, online_flow, replay and the UI suite pass (runner_test's shop-hint flake showed once and
+passed twice on rerun: the known one, PR #15).
