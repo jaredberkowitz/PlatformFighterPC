@@ -287,3 +287,9 @@ stage step); the longest blurb and Random in `stage_sheet/`.
 
 The full view is unchanged. All numbers come from the sim's stages; nothing new reaches the sim. Tests: stage_select, online_flow,
 replay (stage_preview) and the UI suite pass.
+
+## Stage select's full view: the key words readable on its band (2026-11-05)
+
+The art director's note: in the full view the keys' words were printed in the paper's label grey on the ink band at the foot, about
+1.5:1. `KeyBar.on_dark` prints them in the sheet's cream there instead (about 14:1 against the band, #23253a); the preview view keeps the
+grey on paper. Before/after: `stage_keys_before_after.png`.

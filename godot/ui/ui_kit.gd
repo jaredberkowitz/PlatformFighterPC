@@ -305,6 +305,12 @@ class KeyBar extends Control:
 	## paper (cardstock, docs/UI_DESIGN_SYSTEM.md); `band` puts them on a dark ribbon instead, for keys shown over a match.
 	var items: Array = []
 	var band := false
+	## Printed over a dark picture (stage select's full view, on its ink band at the foot): the words in the sheet's cream, not
+	## the label grey that is meant for paper (it read about 1.5:1 against the navy; cream is about 12:1).
+	var on_dark := false:
+		set(v):
+			on_dark = v
+			queue_redraw()
 
 	func _init(list: Array) -> void:
 		items = list
@@ -317,7 +323,7 @@ class KeyBar extends Control:
 			var strip := PackedVector2Array([Vector2(12, 0), Vector2(size.x, 0), Vector2(size.x - 12, size.y), Vector2(0, size.y)])
 			draw_colored_polygon(strip, Color(0.21, 0.22, 0.38, 0.88))
 			draw_line(Vector2(13, 1.5), Vector2(size.x - 1, 1.5), Color(1, 1, 1, 0.18), 2.0, true)
-		var words := D.LABEL.darkened(0.15) if printed else Color(1, 1, 1, 0.9)
+		var words := D.LABEL.darkened(0.15) if printed and not on_dark else (D.SHEET if printed else Color(1, 1, 1, 0.9))
 		var f := D.font()
 		var widths := []
 		var total := 0.0
