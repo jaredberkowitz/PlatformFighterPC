@@ -620,7 +620,7 @@ HEAD_BACK_LIMIT = -8.0
 FREE_ARM_FWD = (10.0, 80.0)
 FREE_ARM_OUT = 24.0
 FREE_ELBOW = 90.0
-HEAD_FREE_CLIPS = ("knockdown", "getup", "knockdown_up", "getup_up", "ledge", "ledge_climb", "kick_sweep")
+HEAD_FREE_CLIPS = ("knockdown", "getup", "knockdown_up", "getup_up", "ledge", "ledge_r9", "ledge_climb", "kick_sweep")
 CLIP_NOW = ""
 # A head limit for the key being posed (the attacks' stance keys take the idle's, `_stance_rest`), or None for the clip's own.
 HEAD_LIMIT_NOW = None
@@ -1102,7 +1102,7 @@ def grounded(name):
     """Whether a clip is played on the ground (the feet planted), not in the air, hit, rolling, lying down or on a ledge."""
     if name.startswith(("jump_", "fall_")):
         return False
-    if name in ("jump", "fall", "fall_start", "tumble", "air_jump", "air_dodge", "hurt", "roll", "knockdown", "getup", "knockdown_up", "getup_up", "ledge", "ledge_climb", "kick_dash", "body_drop",
+    if name in ("jump", "fall", "fall_start", "tumble", "air_jump", "air_dodge", "hurt", "roll", "knockdown", "getup", "knockdown_up", "getup_up", "ledge", "ledge_r9", "ledge_climb", "kick_dash", "body_drop",
                 "hurt_heavy", "hurt_up", "platform_drop", "gaunt_knee", "gaunt_stomp", "tool_ride", "tool_float",
                 # (Aerials whose names do not end in "air": round 2, so their rest keys do not take the battle stance.)
                 "sword_rise", "sword_plunge", "kick_double", "leap_grab", "latch_sit", "rocket_fly",
@@ -5678,26 +5678,43 @@ def main() -> None:
     else:
         clip(rig, "knockdown", 8, {0: down_pose, 8: down_pose})
 
-    def ledge_pose(k):
+    def _ledge_bump(k, a, peak, b):
+        # (0 outside a..b, rising to 1 at the peak and back, eased at both ends.)
+        if k <= a or k >= b:
+            return 0.0
+        u = (k - a) / (peak - a) if k < peak else (b - k) / (b - peak)
+        return u * u * (3.0 - 2.0 * u)
+
+    def ledge_pose(k, fidget=True):
         # (Round 9: hanging from the far hand, after the references: the far arm up to the edge, the near hand against the wall at the chest (never over the face), the legs dangling, soft, the feet down, a slow swing. It posed
         # both arms at -168, which the shoulder's limit stopped at -100: straight out behind.)
+        # (Round 10, review 3's cause 8, the owner's pick C of the mock: the references hang alive, so the 2-second loop hangs still for most
+        # of it, then fidgets for about two thirds of a second, as the reference plumber's: the near hand off the wall and swung out behind
+        # into the open air (in the screen's plane: the body hangs side-on), the elbow opening, and back; with it a kick, the near knee
+        # drawn up toward the wall and the far leg swung back, then down and the other way a little, a pedal. `fidget=False` is round 9's
+        # still hang, the clip `ledge_r9`.)
         def f(rig):
             w = math.sin(k * 2.0 * math.pi)
+            e = _ledge_bump(k, 0.45, 0.6, 0.9) if fidget else 0.0
+            e2 = _ledge_bump(k, 0.45, 0.6, 0.95) if fidget else 0.0
+            back = _ledge_bump(k, 0.62, 0.78, 0.98) if fidget else 0.0
             pose(rig, "spine", fwd=8.0 + 2.0 * w)
             pose(rig, "head", fwd=-6.0)
             pose(rig, "armU.R", fwd=132.0, out=10.0)
             pose(rig, "armL.R", fwd=12.0)
-            pose(rig, "armU.L", fwd=54.0 + 3.0 * w, out=20.0)
-            pose(rig, "armL.L", fwd=66.0)
-            pose(rig, "thigh.L", fwd=10.0 + 5.0 * w, out=8.0)
-            pose(rig, "shin.L", fwd=-24.0 - 4.0 * w)
+            pose(rig, "armU.L", fwd=54.0 + 3.0 * w - 104.0 * e, out=20.0 + 24.0 * e)
+            pose(rig, "armL.L", fwd=66.0 - 50.0 * e)
+            pose(rig, "thigh.L", fwd=10.0 + 5.0 * w + 80.0 * e2 - 20.0 * back, out=8.0)
+            pose(rig, "shin.L", fwd=-24.0 - 4.0 * w - 86.0 * e2)
             pose(rig, "foot.L", fwd=-26.0)
-            pose(rig, "thigh.R", fwd=-2.0 - 5.0 * w, out=8.0)
-            pose(rig, "shin.R", fwd=-18.0 + 4.0 * w)
+            pose(rig, "thigh.R", fwd=-2.0 - 5.0 * w - 40.0 * e2 + 44.0 * back, out=8.0)
+            pose(rig, "shin.R", fwd=-18.0 + 4.0 * w - 34.0 * e2 - 40.0 * back)
             pose(rig, "foot.R", fwd=-30.0)
         return f
 
-    clip(rig, "ledge", 120, {i: ledge_pose(i / 120.0) for i in range(0, 121, 15)})
+    # (Round 10: keyed every 5 frames for the fidget; `ledge_r9` is round 9's still hang, for `PF_R10_OFF=ledgehang`.)
+    clip(rig, "ledge", 120, {i: ledge_pose(i / 120.0) for i in range(0, 121, 5)})
+    clip(rig, "ledge_r9", 120, {i: ledge_pose(i / 120.0, False) for i in range(0, 121, 15)})
 
     if BODY:
         # ---- Round 8: the states that played another state's clip (docs/art/anim/ANIMATION_REVIEW_1.md, the missing sets) ----

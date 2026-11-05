@@ -3554,3 +3554,34 @@ lies at the hit), `bodyft.py` (the torso's travel after the last hit), `windpops
 - **What it would take:** the dive itself, the pelvis tipped forward with the legs planted (the builder's pose specs have no pelvis tilt),
   or a whole-body pitch into the lunge as the Greatsword's load has (`GREAT_LOAD_BACK`, `GREAT_LOAD_IN`; on the ground that pivots the body
   on its feet, so the front foot would need planting). Either is its own group.
+
+### Group 15 (round 10): the ledge hang, the owner's pick C; the tech's roll side-on (the coordinator's note on group 13)
+
+- **The ledge hang (review 3, cause 8; the owner picked C of the mock):** built into `ledge_pose` (`make_rigged_blob.py`), keyed every 5
+  frames. The 2-second loop hangs still until 0.45 of the way through; then, for about two thirds of a second, the near hand comes off the
+  wall and swings out behind into the open air, the elbow opening, and back, while the near knee draws up toward the wall and the far leg
+  swings back, then down and the other way a little (a pedal); still again from 0.98. The fighters whose near hand holds a weapon on the
+  blade's pivot (the Longsword, the Staff, the Greatsword, the Buckler, the Nodachi) keep it at its carry and only kick: that hand is the
+  weapon's, not free (their near hand moves 0.02 units through the fidget, every other class's 0.55-0.74). Round 9's still hang is kept as
+  `ledge_r9` (`PF_R10_OFF=ledgehang`).
+- **Out of the fidget:** a ledge action started mid-fidget eases off it over 7 frames at the least (`LEDGE_FIDGET_HANDOFF`, by the hang's
+  place in its loop, `hang_phase`). With the jump's own 2, its first frames moved a foot 0.46 units in a frame against the body (the Bracers
+  0.58; from the still hang 0.22 and 0.28). Now, over each action's first 3 frames, at most: the climb and the roll 0.24, the jump 0.23, the
+  attack 0.14 (the Bracers 0.30, 0.30, 0.18), each at or under the same action's from the still hang (0.36, 0.22, 0.18; the Bracers 0.46,
+  0.28, 0.21); over its first 8 frames the jump's near hand comes round into its flip at most 0.05 faster than from the still hang (0.33
+  against 0.28, the Bracers 0.42 against 0.36). Measured on every class, both facings, started at the arm's peak (0.6 of the loop) and at the
+  kick back (0.78) (`demo.gd` `ledges`: `--ledge-at`, `--flip`, `--cam`, `--ledge-end`). The Bracers' larger numbers are its own, from
+  the still hang too.
+- **The tech's roll side-on:** the tech in place rolled about the body as the hit had turned it, toward the camera (29-51 degrees from
+  facing it), so the turn's last quarter swung the head out at the camera: at frame 9 it was 0.5 units nearer than at frame 4 and read
+  as a big ball of a crown. Now the roll turns the body side-on as it goes down (the knockdown's turn rate, all the way to 90 degrees,
+  `TECH_ROLL_TURN`) and rolls in the stage's plane: the head's depth through the roll 0.09-0.15 units (it was -0.24 to 0.32), the face
+  three-quarters to the camera as it goes over. `PF_R10_OFF=techside` shows group 13's.
+- **Checked:** close up both facings and at the match camera; every class's hang at the fidget's frames; the tech's limbs no faster than
+  group 13's through the roll (largest one-frame move 0.71 units at its slap, as before). `motion_test` checks that the hang is still
+  before its fidget (the Claws' near hand), that the fidget swings it out, and that a climb from the fidget's peak moves no faster than one
+  from the still hang. No ledge hang or tech in place happens in the galleries or the computer matches: the round's measures are group
+  14's by construction. Tests pass; the look bench passes (worst 0.90).
+- **Images:** `docs/screenshots/anim/r10_ledge_hang.jpg` (the Claws before and now, close up both facings and at the match camera, the
+  Longsword now; then every class at the fidget's frames), `docs/screenshots/anim/r10_tech_side.jpg` (group 13 above side-on, close up both
+  facings, then the match camera).

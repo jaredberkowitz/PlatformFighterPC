@@ -244,11 +244,27 @@ static func make(demo_name: String, m: Dictionary, dir: String):
 			d.end_frame = 130
 		"ledges":
 			# (Round 9: the ledge's grab and hang, then the climb, the roll, the jump and the attack, the camera steady on the fighter.)
+			# (Round 10: `--ledge-at=N` starts each N frames later, into the hang's fidget; `--flip` hangs from the right-hand ledge, facing left;
+			# `--cam=N` sets the camera's distance, 20 for the match's size.)
 			d.cam_dist = 9.0
 			d.cam_focus = 0
-			d.events = [[2, "place", 0, -12.0, -0.5], [150, "place", 0, -12.0, -0.5], [300, "place", 0, -12.0, -0.5], [450, "place", 0, -12.0, -0.5]]
-			d.timeline = [[0, 0, 0, 0], [60, 0, 127, 0], [61, 0, 0, 0], [210, 0, 0, shield], [211, 0, 0, 0], [360, 0, 0, jump], [361, 0, 0, 0], [510, 0, 0, attack], [511, 0, 0, 0]]
-			d.end_frame = 590
+			var at := 0
+			var lx := -12.0
+			for a in OS.get_cmdline_user_args():
+				if a.begins_with("--ledge-at="):
+					at = int(a.substr(11))
+				elif a.begins_with("--cam="):
+					d.cam_dist = float(a.substr(6))
+			if OS.get_cmdline_user_args().has("--flip"):
+				lx = 12.0
+			d.events = [[2, "place", 0, lx, -0.5], [150, "place", 0, lx, -0.5], [300, "place", 0, lx, -0.5], [450, "place", 0, lx, -0.5]]
+			d.timeline = [[0, 0, 0, 0], [60 + at, 0, 127, 0], [61 + at, 0, 0, 0], [210 + at, 0, 0, shield], [211 + at, 0, 0, 0], [360 + at, 0, 0, jump], [361 + at, 0, 0, 0],
+				[510 + at, 0, 0, attack], [511 + at, 0, 0, 0]]
+			d.end_frame = 590 + at
+			# (`--ledge-end=N` stops it at frame N: the first hang alone.)
+			for a in OS.get_cmdline_user_args():
+				if a.begins_with("--ledge-end="):
+					d.end_frame = int(a.substr(12))
 		"idle":
 			# (Round 9, the shared clips against their references: both fighters standing, the camera steady on the first, for the stance,
 			# the breath and the weight shift.)

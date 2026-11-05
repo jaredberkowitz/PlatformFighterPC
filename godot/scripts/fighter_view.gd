@@ -216,7 +216,7 @@ const LONG_FIT := Transform3D(Basis(Vector3(0.92, 0, 0), Vector3(0, 0.92, 0), Ve
 ## Where the head and torso sit in the rig compared with the sphere-built look the face, hats and glasses were designed for.
 const HEAD_FIT := Transform3D(Basis(Vector3(0.825, 0, 0), Vector3(0, 0.825, 0), Vector3(0, 0, 0.825)), Vector3(0, 1.56 - 1.42 * 0.825, 0))
 const TORSO_FIT := Transform3D()
-const LOOPING := ["ledge", "tumble", "idle", "idle_brawler", "idle_quick", "idle_heavy", "idle_caster", "idle_tool", "run_brawler", "run_quick", "run_heavy", "run_caster", "run_tool", "walk", "walk_brawler", "walk_quick", "walk_heavy", "walk_caster", "walk_tool", "run", "dash", "dash_brawler", "dash_quick", "dash_heavy", "dash_caster", "dash_tool", "fall", "fall_brawler", "fall_quick", "fall_heavy", "fall_caster", "fall_tool", "crouch", "crouch_brawler", "crouch_quick", "crouch_heavy", "crouch_caster", "crouch_tool", "victory_a", "victory_b", "victory_c",
+const LOOPING := ["ledge", "ledge_r9", "tumble", "idle", "idle_brawler", "idle_quick", "idle_heavy", "idle_caster", "idle_tool", "run_brawler", "run_quick", "run_heavy", "run_caster", "run_tool", "walk", "walk_brawler", "walk_quick", "walk_heavy", "walk_caster", "walk_tool", "run", "dash", "dash_brawler", "dash_quick", "dash_heavy", "dash_caster", "dash_tool", "fall", "fall_brawler", "fall_quick", "fall_heavy", "fall_caster", "fall_tool", "crouch", "crouch_brawler", "crouch_quick", "crouch_heavy", "crouch_caster", "crouch_tool", "victory_a", "victory_b", "victory_c",
 	"helpless", "dizzy", "dizzy_r9", "buried"]
 ## The rig is read once and copied for every fighter (reading it again renames its bones).
 static var _rig_templates: Dictionary = {}
@@ -585,6 +585,8 @@ var tech_landing := false
 const TECH_ROLL_KEYS := [[0.0, 0.0], [3.0, 0.32], [7.0, 0.55], [11.0, 1.0]]
 const TECH_ROLL_CLIP_KEYS := [[0.0, 0.1], [3.0, 0.3], [7.0, 0.55], [11.0, 0.9]]
 const TECH_ROLL_END := 11.0
+## The body's turn from the camera through the roll: side-on (`tech_side` in the turn's update).
+const TECH_ROLL_TURN := 90.0
 
 
 ## The tech's roll's turn at frame `f` (shares of a whole turn): eased into the fall onto the shoulders, slow over them, and brought to rest
@@ -605,6 +607,22 @@ static func tech_roll_turn(f: float) -> float:
 	var u2 := u * u
 	var u3 := u2 * u
 	return (2.0 * u3 - 3.0 * u2 + 1.0) * p0 + (u3 - 2.0 * u2 + u) * m0 + (-2.0 * u3 + 3.0 * u2) * p1
+
+
+## The ledge hang's fidget (round 10, review 3's cause 8, the owner's pick C): its part of the 2-second loop (`make_rigged_blob.py`
+## `ledge_pose`), the hand-off's frames out of it at the least (`_ease_handoff`), and where the loop was on the last frame of the hang.
+const LEDGE_FIDGET_FROM := 0.45
+const LEDGE_FIDGET_TO := 0.98
+const LEDGE_FIDGET_HANDOFF := 7.0
+var hang_phase := 0.0
+
+
+## The ledge hang's clip: `ledge` hangs still for most of its 2-second loop, then the near arm swings out behind and the legs kick (a weapon
+## hand keeps its weapon at the carry); `PF_R10_OFF=ledgehang` plays round 9's still hang, `ledge_r9`.
+func _hang_clip() -> String:
+	if r10_off.has("ledgehang") and anim != null and anim.has_animation("ledge_r9"):
+		return "ledge_r9"
+	return "ledge"
 
 
 ## Whether this frame is in a tech in place's roll (`TECH_ROLL_KEYS`).
@@ -782,7 +800,7 @@ func _choose_clip(s: Dictionary) -> Array:
 			return [AnimLibrary.or_stand_in("item_throw", anim), 1.0, clampf(float(s.state_frame) / ITEM_THROW_FRAMES, 0.0, 1.0)]
 		"Tether":
 			# Hanging from the tether's line: the ledge hang's arms-up hold (it fell).
-			return ["ledge", 1.0, -1.0]
+			return [_hang_clip(), 1.0, -1.0]
 		"WallTech":
 			# A slap against the wall and a push off it: the floor tech's pose over its first frames (it held up a shield).
 			return [AnimLibrary.or_stand_in("tech", anim), 1.0, clampf(float(s.state_frame) / WALL_TECH_FRAMES, 0.0, 1.0)]
@@ -804,6 +822,8 @@ func _choose_clip(s: Dictionary) -> Array:
 			return ["attack_low", 1.0, clampf(p, 0.0, 1.0)]
 	# The shared clips (scripts/anim_library.gd): the same for every moveset. The dodges follow their own frames.
 	var shared := AnimLibrary.state_clip(state, anim)
+	if shared == "ledge":
+		shared = _hang_clip()
 	# (Each unarmed family stands and runs its own way: AnimLibrary.CLASS_FAMILY.)
 	shared = AnimLibrary.family_clip(_cls(s), shared, anim)
 	if shared != "":
@@ -1505,6 +1525,9 @@ func _animate(s: Dictionary, delta: float) -> void:
 		return
 	var pick: Array = _choose_clip(s) if not r8_off.has("sets") or not R8_SET_STATES.has(String(s.state)) else _choose_clip_before_r8(s)
 	var clip: String = pick[0]
+	# (Round 10: where the hang's loop is, for the hand-off out of its fidget, `LEDGE_FIDGET_HANDOFF`.)
+	if current_clip == "ledge" and anim.current_animation != "":
+		hang_phase = fmod(anim.current_animation_position / maxf(anim.current_animation_length, 0.001), 1.0)
 	# Where the stride is: a dash to a run goes on in step, and a new dash (also one the other way) starts on its push-off.
 	var gait := -1.0
 	if _gait_clip(current_clip):
@@ -1572,7 +1595,7 @@ func _animate(s: Dictionary, delta: float) -> void:
 ## HANDOFF_FRAMES by the clip being entered; what must land at once takes none or one (a hit's pose, the landing's impact).
 const HANDOFF_FRAMES := 5.0
 const HANDOFF_BY_CLIP := {"jumpsquat": 2.0, "land": 1.0, "tech": 2.0, "knockdown": 2.0, "knockdown_up": 2.0, "hurt": 1.0, "hurt_ground": 1.0, "hurt_heavy": 1.0, "hurt_up": 1.0,
-	"shield": 3.0, "crouch": 5.0, "tumble": 4.0, "dash": 3.0, "skid": 3.0, "air_jump": 3.0, "roll": 3.0, "spot_dodge": 2.0, "air_dodge": 2.0, "jump": 2.0, "grab": 3.0, "ledge": 3.0}
+	"shield": 3.0, "crouch": 5.0, "tumble": 4.0, "dash": 3.0, "skid": 3.0, "air_jump": 3.0, "roll": 3.0, "spot_dodge": 2.0, "air_dodge": 2.0, "jump": 2.0, "grab": 3.0, "ledge": 3.0, "ledge_r9": 3.0}
 ## With the environment variable PF_R9_OFF (before and after images, round 9): "handoff" leaves the cross-fades as they were; "rollturn" leaves
 ## the forward roll's turn round to the sim's last frame; "react" leaves the hit reactions as they were at core4 (a clip chosen every frame by
 ## the knockback, the ground's flinch without its recoil, a launch and a tumble pitched about the body's side, the damage fall a plain fall);
@@ -1592,7 +1615,8 @@ static var r9_off := OS.get_environment("PF_R9_OFF").split(",")
 ## (`release_frames`, AnimLibrary); "flinchw" gives every class the shared light flinch (`FLINCH_WEIGHT`); "gcross" pushes a hand
 ## crossing the head's middle in an end lag out of the face as before (`_guard_cross_k`); "dizzy" plays round 8's dizzy; "techroll"
 ## leaves the tech in place's slap without its roll back over the shoulders (`_tech_rolling`); "misfire" plays the Popgun's misfire as
-## the fallback swing (`_misfire`).
+## the fallback swing (`_misfire`); "techside" rolls the tech in place about the body turned toward the camera from the hit (`tech_side`,
+## TECH_ROLL_TURN); "ledgehang" hangs still from the ledge, without the fidget (`_hang_clip`).
 static var r10_off := OS.get_environment("PF_R10_OFF").split(",")
 var handoff_clip := ""
 var handoff_state := ""
@@ -1656,6 +1680,10 @@ func _ease_handoff(s: Dictionary, clip: String, crossed := false) -> void:
 			len = 0.0
 		elif String(s.state) == "Hitstun" and handoff_state == "Hitstun":
 			len = 6.0
+		elif handoff_clip == "ledge" and hang_phase > LEDGE_FIDGET_FROM and hang_phase < LEDGE_FIDGET_TO:
+			# (Round 10: out of the hang's fidget, the free arm out and the legs kicking, over more frames: the ledge jump's two moved a foot
+			# 0.46-0.58 units in a frame against the body, 0.22-0.27 from the still hang.)
+			len = maxf(len, LEDGE_FIDGET_HANDOFF)
 		handoff_clip = clip
 		handoff_len = len
 		handoff_t = 0.0 if len > 0.0 else 1.0
@@ -4842,8 +4870,14 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 	# (Round 9: lying down it turns side-on at once, so it lies along the stage: easing back from the hit's frontal turn over a third of a
 	# second, the body tipped over into the screen, at the camera, for the knockdown's first 10-20 frames.)
 	var lying := (state == "Knockdown" or state == "GetUp") and not r9_off.has("react")
-	face_cam = move_toward(face_cam, showy, delta * (8.0 if showy > face_cam else (LIE_TURN_RATE if lying else 3.0)))
+	# (Round 10: a tech in place's roll back over the shoulders turns side-on as fast, all the way, so it rolls in the stage's plane, the
+	# face three-quarters to the camera; still turned toward the camera from the hit, the turn swung the head out at the camera over its
+	# last quarter, a big ball of a crown at frame 9. `PF_R10_OFF=techside`.)
+	var tech_side := _tech_rolling(s) and not r10_off.has("techside")
+	face_cam = move_toward(face_cam, showy, delta * (8.0 if showy > face_cam else (LIE_TURN_RATE if lying or tech_side else 3.0)))
 	var turn_deg := lerpf(BODY_TURN + BODY_TURN_IN_ATTACK * attack_turn, FRONTAL_TURN, face_cam)
+	if tech_side:
+		turn_deg = TECH_ROLL_TURN
 	# A hit behind (a back air, a back throw's swing): the body swings round through the camera toward the back for the strike, the chest
 	# facing the swing, and back again after (the owner, 2026-10-17, after the reference's back airs). By the move's reach, so it
 	# turns in with the wind-up and home through the end lag.
@@ -4860,7 +4894,7 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 	# each reversal.)
 	var pivot_turn: bool = grounded and use_base_body and not r8_off.has("pivot") and ((PIVOT_STATES.has(state) and absf(float(s.vel.x)) <= 0.08) or state == "Dash")
 	var yaw_to := float(look) * deg_to_rad(turn_deg)
-	yaw = lerp_angle(yaw, yaw_to, clampf(delta * (PIVOT_RATE if pivot_turn else (LIE_TURN_RATE if lying else 14.0)), 0.0, 1.0))
+	yaw = lerp_angle(yaw, yaw_to, clampf(delta * (PIVOT_RATE if pivot_turn else (LIE_TURN_RATE if lying or tech_side else 14.0)), 0.0, 1.0))
 	# (Round 9, sim 147: the forward roll's turn round goes through the camera by the roll's own frames, from the side it came from.)
 	if roll_turning:
 		yaw = lerp_angle(-yaw_to, yaw_to, roll_turn_k(s, _cls(s)))

@@ -16,6 +16,18 @@ func check(ok: bool, what: String) -> void:
 		failed = true
 
 
+## (Round 10) `PF_R10_OFF=ledgehang` (the still hang) skips the fidget's checks.
+var r10_off_ledge := OS.get_environment("PF_R10_OFF").split(",").has("ledgehang")
+
+
+## Every bone's place in the world (for the largest one-frame move).
+func _bone_points(v: FighterView) -> Array:
+	var out := []
+	for b in v.skeleton.get_bone_count():
+		out.append(v.skeleton.global_transform * v.skeleton.get_bone_global_pose(b).origin)
+	return out
+
+
 func snap(cls: int, state: String, move: String, frame: int, state_frame: int) -> Dictionary:
 	return {"state": state, "facing": 1, "vel": Vector2.ZERO, "kb_vel": Vector2.ZERO, "platform": 0, "fast_fall": false, "invuln": 0,
 		"ledge_invuln": 0, "frame": frame, "shield": 1.0, "percent": 0.0, "move_name": move, "move_tip": Vector3(1.3, 1.1, 0.6),
@@ -429,6 +441,43 @@ func _initialize() -> void:
 			still += 1
 		last_hips = at
 	check(still < 4, "a ledge climb's last frames are alive, not one pose held (%d still frames of 16)" % still)
+
+	# (Round 10, the owner's pick C of the ledge hang mock.) The hang is still for most of its 2-second loop, then the near hand swings out
+	# behind (an unarmed fighter's: the Claws; a weapon hand keeps its weapon at the carry and only the legs kick); and a climb started at the
+	# fidget's peak eases off it no faster than one started from the still hang.
+	var climb_jump := []
+	for start in [40, 72]:
+		var hanger := FighterView.new()
+		root.add_child(hanger)
+		hanger.build(0, Loadout.default_for(0))
+		await process_frame
+		var near := hanger.skeleton.find_bone("hand.L")
+		var near_at := {}
+		for f in start + 1:
+			var hang := snap(1, "LedgeHang", "", 9900 + f, f)
+			hang.platform = -1
+			hanger.apply(Vector3(-11.8, -1.8, 0), hang, 1.0 / 60.0)
+			if f == 15 or f == 40 or f == 72:
+				near_at[f] = hanger.skeleton.get_bone_global_pose(near).origin
+		if start == 72:
+			var still_move: float = (near_at[15] as Vector3).distance_to(near_at[40])
+			var swing: float = (near_at[40] as Vector3).distance_to(near_at[72])
+			check(r10_off_ledge or still_move < 0.08, "the ledge hang is still before its fidget (the near hand moves %.3f)" % still_move)
+			check(r10_off_ledge or swing > 0.3, "the ledge hang's fidget swings the near hand out (%.3f)" % swing)
+		var worst := 0.0
+		var last := _bone_points(hanger)
+		for f in 8:
+			var climb := snap(1, "LedgeGetUp", "", 9900 + start + 1 + f, f)
+			climb.lag = 34
+			hanger.apply(Vector3(-10.0, 0.0, 0), climb, 1.0 / 60.0)
+			var now := _bone_points(hanger)
+			for i in now.size():
+				worst = maxf(worst, (now[i] as Vector3).distance_to(last[i]))
+			last = now
+		climb_jump.append(worst)
+		hanger.queue_free()
+	check(float(climb_jump[1]) <= float(climb_jump[0]) + 0.08, "a climb out of the hang's fidget eases off it (largest one-frame move %.3f; from the still hang %.3f)"
+		% [climb_jump[1], climb_jump[0]])
 
 	# (Sim 150: a tech in place is the reference's 26 frames, intangible only through frame 20.) It plays the tech for its whole landing,
 	# not the landing's crouch from frame 21 when the intangibility ends, and the idle after it does not play the landing's rise again;

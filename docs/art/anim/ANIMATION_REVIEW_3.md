@@ -175,3 +175,8 @@ not rising.
   gap left at group 7).
 - **Group 14 (the Popgun's misfire, done):** the gun going off in its hands throws the Scamp back reeling, then leaves it dazed and
   swaying until it comes to (it played the fallback swing). Group 3's leftover closed; the gun stays whole in the hand.
+- **Group 15 (cause 8 built, the owner's pick C; the tech's roll side-on):** hanging from a ledge, the fighter hangs still for most of
+  each 2 seconds, then swings its free hand out behind and kicks its legs, as the references do (a hand holding a blade or a staff keeps
+  it, and the legs kick); a climb, roll, jump or attack started mid-fidget eases off it about as smoothly as from the still hang. Ledge:
+  readability and accuracy 3 to 4 (mean 3.0 to 3.7). The tech in place's roll turns side-on as it goes down, so its head no longer swings
+  out at the camera over the roll's last quarter.
