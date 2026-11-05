@@ -4,6 +4,8 @@ global uniform vec4 pf_paint_warm;
 // The paper finish on the scenery (scripts/lighting.gd `paper_finish`; the stage refinement's paper pilot): x a fine fibre grain, y a
 // slight wobble of colour from sheet to sheet, z a pale cut edge where a surface turns away from the eye. Never on fighters; off is 0.
 global uniform vec4 pf_paper_finish;
+// Each stage's paper core (the style pass, StageArt.PAPER_CORE_TRY): the cut-edge light's colour (rgb) and how far it takes it (a, 0 none).
+global uniform vec4 pf_paper_core;
 global uniform vec4 pf_paint_cool;
 // The share of the ambient taken off the scenery (fidelity review 14 item 3, with toon_light's `pf_key_fill`): the ambient's colour times
 // the energy removed, subtracted as emission so the fighters keep the whole ambient. Black as built.
@@ -448,7 +450,10 @@ void fragment() {
 		float rim = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 5.0);
 		// (In its own colour, fidelity review 17: a fixed pale grey also took every top seen nearly edge-on, so ledges and stones' tops read as grey
 		// metal strips at 1080 lines, and in the grove's violet shade as purple slivers through the moss.)
-		c = mix(c, c * 1.22 + vec3(0.05), rim * paper_fin.z * 0.55);
+		// (The paper core only on what stands up, the walls and the cards' sides: on a top the match camera sees almost edge on, it washed
+		// the lawn under the fighters toward the core.)
+		float side = 1.0 - smoothstep(0.55, 0.85, world_normal.y);
+		c = mix(c, mix(c * 1.22 + vec3(0.05), pf_paper_core.rgb, pf_paper_core.a * side), rim * paper_fin.z * 0.55);
 	}
 	// (Not on flat tops, whose own normal is already the face's: rebuilt from the screen derivatives it came out turned over on them, so
 	// the background's grass, sand and terrace tops were lit as undersides, in their shade colour, and took no cast shadow; the graphics

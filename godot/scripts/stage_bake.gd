@@ -640,6 +640,12 @@ static func place_play(root: Node3D, t: Dictionary, path: String) -> void:
 				# (The path half as deep and keeping its colour, fidelity review 17: at the lawn's depth a warm sand went asphalt grey.)
 				var k := 0.5 if fam == "path" else 1.0
 				colours[fam] = Color.from_hsv(c.h, c.s * (1.0 - float(ground[1]) * (1.0 - k)), c.v * (1.0 - float(ground[0]) * k))
+	# (Each stage's paper core on its card edges, the style pass: StageArt.PAPER_CORE_TRY.)
+	var pc := StageArt.paper_core(String(t.get("name", "")))
+	if not pc.is_empty():
+		for fam in ["card", "plank_card", "top_card", "steel_card"]:
+			if colours.has(fam):
+				colours[fam] = (colours[fam] as Color).lerp(pc.core as Color, float(pc.edges))
 	scene.name = "ModelledPlay"
 	scene.set_meta("lit_piece", true)
 	root.add_child(scene)
@@ -661,6 +667,9 @@ static func place_play(root: Node3D, t: Dictionary, path: String) -> void:
 					mi.visible = false
 					continue
 				colours[fam] = sl.play
+				# (On the white card of the paper core the cream thread vanished: a linen tan, StageArt.PAPER_CORE_TRY.)
+				if not pc.is_empty():
+					colours[fam] = Color(0.8, 0.68, 0.5)
 			var m := (FighterView.toon(colours.get(fam, Color(0.6, 0.6, 0.6)), false) as ShaderMaterial).duplicate() as ShaderMaterial
 			# (No facets: every piece is flat, and on the lawn's top the normal rebuilt from screen derivatives turned over, so it lit as an
 			# underside and the fighters' contact shadows, which only fall on what faces up, vanished.)
@@ -1376,6 +1385,7 @@ static func _paint_ground(node: Node3D, colours: Dictionary, t := {}) -> void:
 		head_look = flag("--headland=").to_upper()
 	var head: Dictionary = HEADLAND_TRY.get(head_look, {}) if String(t.get("name", "")) == "ocean" else {}
 	var washi := StageArt.washi_look(String(t.get("name", "")))
+	var core := StageArt.paper_core(String(t.get("name", "")))
 	for mi: MeshInstance3D in node.find_children("*", "MeshInstance3D", true, false):
 		# (The grove's mist banks in tissue, `StageArt.WASHI_TRY`: no card edge, each sheet see-through, the upper ones drawn after the ones under them.)
 		var tissue := washi.has("tissue") and String(mi.name).begins_with("bank")
@@ -1397,6 +1407,9 @@ static func _paint_ground(node: Node3D, colours: Dictionary, t := {}) -> void:
 			var colour: Color = (head.get("colours", {}) as Dictionary).get(fam, colours.get(fam, Color(0.6, 0.6, 0.6)))
 			if fam == "stitch":
 				colour = _stitch_look(t).ground
+			# (Each stage's paper core on its cut sheets' edges, the style pass: StageArt.PAPER_CORE_TRY.)
+			if not core.is_empty() and (fam.begins_with("card") or fam == "qcard"):
+				colour = colour.lerp(core.core as Color, float(core.edges))
 			var m := (FighterView.toon(colour, false) as ShaderMaterial).duplicate() as ShaderMaterial
 			m.set_shader_parameter("facets", fam != "bark")
 			m.set_shader_parameter("vertex_shade", true)

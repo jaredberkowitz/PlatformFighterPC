@@ -301,3 +301,50 @@ stages never overflowed.
 - Recorded as built, the meadow's windmill and the beach's sea change 15 times a second, and the fighters every frame.
 - Today against built, the windmill every second frame (each picture held for four frames), and the fighters: `style/twos_built.jpg`.
 All seven tests pass, and the look bench passes with no overflow.
+
+## Step 8: each stage's paper on its cut edges (mock, 2026-11-05)
+
+The owner: "Cut-edge colours". Cut card shows its stock at the edge: a sheet printed green on white card has a white edge. Today every
+cut edge in the game is a pale version of its own face (the lawn's edge pale green, the boardwalk's pale wood). Here each stage has its
+own paper (StageArt.PAPER_CORES), and its cut edges show it:
+- the meadow, white card, with its stitch in linen thread (the cream thread vanished on white);
+- the canyon, kraft;
+- the beach, bleached origami paper;
+- the city, newsprint (the plan's blue-grey board turned the pink roof's edge purple);
+- the grove, washi, faintly violet.
+
+The cut edges are the modelled play areas' card edges (`card`, `plank_card`, `top_card` and `steel_card` in `StageBake.place_play`) and
+the ground's cut sheets (the card families in `_paint_ground`). The cut-edge light (toon_common's paper finish) takes the paper's colour
+through the global `pf_paper_core`, on side faces only, so the lawns' tops stay as they are. The palette's [backdrop] `paper_core_look`
+(and `paper_core` for another colour), or `--paper-core=T|A|B|C` (StageArt.PAPER_CORE_TRY):
+
+| Option | What changes |
+|---|---|
+| Today | Each edge a pale version of its own face |
+| A, a hint | The paper 40 per cent of the way on the cut edges |
+| B, the paper | 70 per cent, and the cut-edge light on the sides in the paper's colour |
+| C, all the way | The cut edges are the paper |
+
+The main edge measured at the match camera (mean colour of a strip of it; value, hue and saturation):
+
+| Stage, paper | Today | A | B | C |
+|---|---|---|---|---|
+| Meadow, white card | 0.80, hue 89, sat 0.26 | 0.81, hue 67, sat 0.19 | 0.83, hue 52, sat 0.13 | 0.85, hue 37, sat 0.10 |
+| Canyon, kraft | 0.80, hue 42, sat 0.48 | 0.70, hue 36, sat 0.55 | 0.60, hue 29, sat 0.60 | 0.48, hue 22, sat 0.65 |
+| Beach, bleached paper | 0.62, hue 29, sat 0.47 | 0.76, hue 34, sat 0.33 | 0.82, hue 36, sat 0.22 | 0.86, hue 35, sat 0.15 |
+| City, newsprint | 0.49, hue 346, sat 0.45 | 0.52, hue 341, sat 0.40 | 0.54, hue 335, sat 0.35 | 0.57, hue 324, sat 0.31 |
+| Grove, washi | 0.69, hue 89, sat 0.34 | 0.71, hue 74, sat 0.16 | 0.74, hue 19, sat 0.06 | 0.74, hue 324, sat 0.10 |
+
+Every stage's walkable top measures the same in every option (value within 0.02), and so do the walls. The exception is the beach's
+deck: its planks' sides turn pale, and its contrast goes from 0.07 to 0.10. On the Stage Look Review ("papercore73"), a close-up sheet
+of each stage's edge (`pc73_close.jpg`) and each stage's four options at the match and wide cameras (`pc73_s<stage>_<m|w>.jpg`).
+
+Recommended B: each stage's edges read as its own stock (the meadow's white card, the beach's bleached paper, the grove's washi), and
+they still keep a trace of the face they were cut from.
+- The beach changes most. The boardwalk's front edge turns from wood to a pale band, and the gaps between the deck's planks become thin
+  pale lines, under the fighters.
+- Under the city's violet dusk, the newsprint reads mauve, not grey, because pale paper takes the light's colour (the edge's hue goes
+  from 346 to 335 in B and 324 in C). The blue-grey board was more purple still.
+- Kraft is the one paper darker than today's edge, so the canyon's lip darkens instead of lighting up. Of the five, it changes least.
+- B's edge light on the sides barely shows, because the rims were already pale. It adds only a thin line along the city roof's lip.
+All seven tests pass, and the look bench passes.
