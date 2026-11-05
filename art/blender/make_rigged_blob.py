@@ -1114,7 +1114,7 @@ def grounded(name):
     return not name.endswith("air")
 
 
-STANDING = {"hurt_ground", "crouch_brawler", "crouch_quick", "crouch_heavy", "crouch_caster", "crouch_tool", "shield_brawler", "shield_quick", "shield_heavy", "shield_caster", "shield_tool", "run_stop_brawler", "run_stop_quick", "run_stop_heavy", "run_stop_caster", "run_stop_tool", "jumpsquat_brawler", "jumpsquat_quick", "jumpsquat_heavy", "jumpsquat_caster", "jumpsquat_tool", "land_brawler", "land_quick", "land_heavy", "land_caster", "land_tool", "spot_dodge_brawler", "spot_dodge_quick", "spot_dodge_heavy", "spot_dodge_caster", "spot_dodge_tool", "item_pick", "item_throw", "dizzy", "idle", "idle_brawler", "idle_quick", "idle_heavy", "idle_caster", "idle_tool", "crouch", "jumpsquat", "land", "spot_dodge", "shield", "skid", "grab", "throw", "blaster", "sword_usmash", "sword_dsmash",
+STANDING = {"hurt_ground", "crouch_brawler", "crouch_quick", "crouch_heavy", "crouch_caster", "crouch_tool", "shield_brawler", "shield_quick", "shield_heavy", "shield_caster", "shield_tool", "run_stop_brawler", "run_stop_quick", "run_stop_heavy", "run_stop_caster", "run_stop_tool", "jumpsquat_brawler", "jumpsquat_quick", "jumpsquat_heavy", "jumpsquat_caster", "jumpsquat_tool", "land_brawler", "land_quick", "land_heavy", "land_caster", "land_tool", "spot_dodge_brawler", "spot_dodge_quick", "spot_dodge_heavy", "spot_dodge_caster", "spot_dodge_tool", "item_pick", "item_throw", "dizzy", "dizzy_r9", "idle", "idle_brawler", "idle_quick", "idle_heavy", "idle_caster", "idle_tool", "crouch", "jumpsquat", "land", "spot_dodge", "shield", "skid", "grab", "throw", "blaster", "sword_usmash", "sword_dsmash",
             "tech", "run_stop", "idle_look", "idle_look_brawler", "idle_look_quick", "idle_look_heavy", "idle_look_caster", "idle_look_tool"}
 
 
@@ -5804,7 +5804,34 @@ def main() -> None:
                 pose(rig, "armL.R", fwd=20.0)
             return f
 
-        clip(rig, "dizzy", 80, {i: dizzy(i / 80.0) for i in range(0, 81, 10)})
+        # (Round 10, review 3's cause 10, after the reference's dizzy: the body stands nearly upright on soft knees and sways slowly from side
+        # to side, the head lolling round after it, the arms hanging limp and swinging with the sway. Hunched over with the head down, the
+        # hat hid the face for the whole stun and the sway hardly showed. `dizzy_r9` keeps the old for PF_R10_OFF=dizzy.)
+        clip(rig, "dizzy_r9", 80, {i: dizzy(i / 80.0) for i in range(0, 81, 10)})
+
+        def dizzy_sway(k):
+            def f(rig):
+                a = k * 2.0 * math.pi
+                sx, sy = math.sin(a), math.cos(a)
+                loll = a - 1.0
+                pose(rig, "hips", lift=-0.05, twist=5.0 * sx)
+                pose(rig, "thigh.L", fwd=18.0 + 6.0 * sy, out=12.0)
+                pose(rig, "shin.L", fwd=-34.0 - 8.0 * sy)
+                pose(rig, "foot.L", fwd=10.0)
+                pose(rig, "thigh.R", fwd=4.0 - 6.0 * sy, out=14.0)
+                pose(rig, "shin.R", fwd=-28.0 + 8.0 * sy)
+                pose(rig, "foot.R", fwd=8.0)
+                pose(rig, "spine", fwd=5.0 + 3.0 * sy, out=18.0 * sx, twist=6.0 * sx)
+                # (The head never drops forward past level, so the hat stays off the face.)
+                pose(rig, "head", fwd=-4.0 + 4.0 * math.cos(loll), out=20.0 * math.sin(loll), twist=6.0 * math.sin(loll))
+                swing = math.sin(a - 1.4)
+                pose(rig, "armU.L", fwd=4.0 + 12.0 * swing, out=14.0 + 6.0 * sx)
+                pose(rig, "armL.L", fwd=18.0)
+                pose(rig, "armU.R", fwd=2.0 - 12.0 * swing, out=16.0 - 6.0 * sx)
+                pose(rig, "armL.R", fwd=16.0)
+            return f
+
+        clip(rig, "dizzy", 100, {i: dizzy_sway(i / 100.0) for i in range(0, 101, 10)})
 
         # Buried (`Buried`, the body sunk to the waist by the game): both arms raised and pushing at the ground round it in turn, the
         # chest straining side to side. A loop; it stood in the idle under the ground.

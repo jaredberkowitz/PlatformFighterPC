@@ -902,6 +902,20 @@ static func make(demo_name: String, m: Dictionary, dir: String):
 			d.timeline2 = [[0, 0, 0, 0], [10, 0, 0, shield]]
 			d.shots = [[26, "a_hit"], [34, "b_broken_hop"], [60, "c_stunned"], [110, "d_still_stunned"]]
 			d.end_frame = 130
+		"dizzy":
+			# (Round 10: the shield break as above, then the whole stun on the floor, for judging the dizzy against the reference's; the
+			# camera steady on the stunned fighter. `--chars=A,B`: B is the one stunned.)
+			d.chars = [0, 1, 0, 0]
+			for a in OS.get_cmdline_user_args():
+				if a.begins_with("--chars="):
+					var picked := a.substr(8).split(",")
+					d.chars = [int(picked[0]), int(picked[1]) if picked.size() > 1 else 1, 0, 0]
+			d.cam_dist = 9.0
+			d.cam_focus = 1
+			d.events = [[1, "stand", 0, -1.2, 1], [1, "stand", 1, 0.6, -1], [2, "shield", 1, 6.0]]
+			d.timeline = [[0, 0, 0, 0], [20, 30, 0, attack], [22, 0, 0, 0]]
+			d.timeline2 = [[0, 0, 0, 0], [10, 0, 0, shield]]
+			d.end_frame = 330
 		"roll":
 			d.chars = [0, 0, 0, 0]
 			d.cam_dist = 20.0

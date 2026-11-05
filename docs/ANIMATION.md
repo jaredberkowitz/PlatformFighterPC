@@ -3489,3 +3489,21 @@ lies at the hit), `bodyft.py` (the torso's travel after the last hit), `windpops
   head to keep the face clear, takes the hand behind the body), a trade the face rule wins.
 - **Image:** `docs/screenshots/anim/r10_guard_cross.jpg` (the Clutch's up air, close up and at the match camera's size, before above now,
   both facings).
+
+### Group 12 (round 10): the dizzy sways and lolls with the face clear (review 3, cause 10)
+
+- **Found (r10e; the new `dizzy` demo: a shield broken by the Longsword's forward tilt, then the whole stun on the floor, the camera on the
+  stunned fighter):** hunched over the knees with the head down, the hat brim over the eyes for the whole stun, and a sway of a few degrees
+  that hardly showed. The reference's dizzy (a public compilation, on F:) stands nearly upright on soft knees and sways slowly from side to
+  side, the head lolling round after the body, the arms hanging limp.
+- **Fix (`make_rigged_blob.py` `dizzy_sway`, the rig rebuilt: `dizzy` changed and the old kept as `dizzy_r9`, every other clip byte for
+  byte the same):** a 100-frame loop: the chest upright (5 degrees forward) and bending 18 degrees to either side, the head lolling 20 degrees
+  a quarter of a beat behind it and never dropping forward past level, so the hat stays off the face; the knees soft and giving in turn;
+  the arms hanging and swinging with the sway. The game's frontal turn for a broken shield puts the sway in the screen's plane.
+  `PF_R10_OFF=dizzy` plays the old (`fighter_view.gd` picks `dizzy_r9`).
+- **Checked:** the dizzy demo close up and at the match camera, facing left (the demo's stunned fighter); the drawn dizzy eyes show
+  through the stun. Only a broken shield on the floor plays it, so the attack measures and the computer matches (no shield breaks in them)
+  are group 11's by construction. Tests pass; the look bench passes (worst 0.90).
+- **Left:** the reference falls on its face and gets up into the dizzy; ours lands straight into it from the launch's reaction pose.
+  The victory poses (the rest of cause 10) are a design choice: a mock for the owner, as the hero poses were, if wanted.
+- **Image:** `docs/screenshots/anim/r10_dizzy.jpg` (r10e above now, the stun's frames 60-200, close up then the match camera's size).

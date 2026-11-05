@@ -217,7 +217,7 @@ const LONG_FIT := Transform3D(Basis(Vector3(0.92, 0, 0), Vector3(0, 0.92, 0), Ve
 const HEAD_FIT := Transform3D(Basis(Vector3(0.825, 0, 0), Vector3(0, 0.825, 0), Vector3(0, 0, 0.825)), Vector3(0, 1.56 - 1.42 * 0.825, 0))
 const TORSO_FIT := Transform3D()
 const LOOPING := ["ledge", "tumble", "idle", "idle_brawler", "idle_quick", "idle_heavy", "idle_caster", "idle_tool", "run_brawler", "run_quick", "run_heavy", "run_caster", "run_tool", "walk", "walk_brawler", "walk_quick", "walk_heavy", "walk_caster", "walk_tool", "run", "dash", "dash_brawler", "dash_quick", "dash_heavy", "dash_caster", "dash_tool", "fall", "fall_brawler", "fall_quick", "fall_heavy", "fall_caster", "fall_tool", "crouch", "crouch_brawler", "crouch_quick", "crouch_heavy", "crouch_caster", "crouch_tool", "victory_a", "victory_b", "victory_c",
-	"helpless", "dizzy", "buried"]
+	"helpless", "dizzy", "dizzy_r9", "buried"]
 ## The rig is read once and copied for every fighter (reading it again renames its bones).
 static var _rig_templates: Dictionary = {}
 
@@ -752,8 +752,10 @@ func _choose_clip(s: Dictionary) -> Array:
 			return [AnimLibrary.or_stand_in("tech", anim), 1.0, clampf(float(s.state_frame) / WALL_TECH_FRAMES, 0.0, 1.0)]
 		"ShieldBreak":
 			# Down on the ground after the break's launch: dazed and swaying (it held the hit reaction's flail).
+			# (Round 10: `dizzy` sways and lolls upright; `PF_R10_OFF=dizzy` plays round 8's, hunched over with the face under the hat.)
 			if grounded:
-				return [AnimLibrary.or_stand_in("dizzy", anim), 1.0, -1.0]
+				var dz := "dizzy_r9" if r10_off.has("dizzy") and anim != null and anim.has_animation("dizzy_r9") else "dizzy"
+				return [AnimLibrary.or_stand_in(dz, anim), 1.0, -1.0]
 		"Buried":
 			# Sunk to the waist: both arms pushing at the ground in turn (it stood in the idle).
 			return [AnimLibrary.or_stand_in("buried", anim), 1.0, -1.0]
@@ -1527,7 +1529,7 @@ static var r9_off := OS.get_environment("PF_R9_OFF").split(",")
 ## move home into its stance without the knees taking its weight (`_settle_dip`); "free" leaves a strike's free arm to its clip
 ## (`_free_arm_swing`); "sling" gives the Settler's back air the shared back air's clip and its strike on its first frame
 ## (`release_frames`, AnimLibrary); "flinchw" gives every class the shared light flinch (`FLINCH_WEIGHT`); "gcross" pushes a hand
-## crossing the head's middle in an end lag out of the face as before (`_guard_cross_k`).
+## crossing the head's middle in an end lag out of the face as before (`_guard_cross_k`); "dizzy" plays round 8's dizzy.
 static var r10_off := OS.get_environment("PF_R10_OFF").split(",")
 var handoff_clip := ""
 var handoff_state := ""

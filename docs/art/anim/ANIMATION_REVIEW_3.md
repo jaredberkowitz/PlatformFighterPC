@@ -167,3 +167,6 @@ not rising.
   hit (it jumped 0.6 units from one side of the face to the other); pops 8 to 7, timing and cover unchanged, hidden hands 1,278 to 1,284
   (the fist behind the head counted). The hidden-hands count itself is mostly hands lying on the body's surface: bringing them out in
   front changed the count by a quarter and nothing on screen, so it was reverted; the Seer's real ones are the face rule's trade.
+- **Group 12 (cause 10, the dizzy, done):** the stunned fighter sways slowly side to side on soft knees, the head lolling after it with
+  the face clear (it hunched with the hat over the eyes). Shield break, dizzy: accuracy 2 to 3, readability 3 to 3.5. The victory poses
+  are left for an owner's mock.
