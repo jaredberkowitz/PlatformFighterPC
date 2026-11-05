@@ -3598,3 +3598,18 @@ lies at the hit), `bodyft.py` (the torso's travel after the last hit), `windpops
   The installed exe runs the ledge demo to r10e's checksum (2ee084357e1b24e9) and quits with code 0. How to play leads with "animation
   r10f, livelier ledge hangs, paper edges and the stage sheet", our block on top. The Godot tests pass (with the stage select, online
   flow, online fighters, creator and props tests) and the look bench (0 buffer overflows, worst 0.90).
+
+### Fix (round 10): the victory pose holds its own weapon (the podium results screen; for r10g)
+
+- **Found (rendering the victory mock in the owner's new podium results screen, origin/art/ui-paper2 43396bc7):** the podium names the
+  winner's weapon for its preview (`set_weapon`), and the preview's menu carry (`_pose_menu_weapon`) ran after `play_victory` every frame:
+  the Longsword winner raised an empty fist while its sword hung from the other hand at its low carry, out past the card's left edge.
+- **Fix (`fighter_view.gd` `play_victory`):** the victory pose holds its own weapon (`menu_weapon = -1`), so the blade is raised in the right
+  hand as designed; `results.gd` needs nothing. The weapons hung on the hand bones (the Claws' claws, the Popgun's gun, the Dagger's knife,
+  `VICTORY_HAND_WEAPONS`) go with their hand and stay in today's pose, in the pumping hand that rises beside the head (in the braced hand,
+  at the podium's turn, the gun lay over the face). A weapon on the blade's pivot shows only raised: the Seer's staff stays hidden in
+  today's fist pump until the new victory poses ship. `PF_R10_OFF=vicweapon` leaves both as before. No effect on the old results screen,
+  which named no weapon.
+- **Checked:** on the podium in the victory mock's tree (43396bc7 merged there): the Longsword, the Claws, the Popgun, the Dagger. Tests pass;
+  the look bench passes (worst 0.90).
+- **Image:** `docs/screenshots/anim/r10_victory_weapon.jpg`.

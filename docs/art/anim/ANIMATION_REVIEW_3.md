@@ -180,3 +180,6 @@ not rising.
   it, and the legs kick); a climb, roll, jump or attack started mid-fidget eases off it about as smoothly as from the still hang. Ledge:
   readability and accuracy 3 to 4 (mean 3.0 to 3.7). The tech in place's roll turns side-on as it goes down, so its head no longer swings
   out at the camera over the roll's last quarter.
+- **Podium fix (for r10g):** on the owner's new podium results screen the winner's sword hung from the wrong hand at its low carry; the
+  victory pose now holds its own weapon (raised as designed), and the claws, the gun and the knife stay in the pumping hand. The victory
+  poses themselves: an owner's mock, `docs/ANIMATION.md`.

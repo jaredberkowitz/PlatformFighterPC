@@ -1616,7 +1616,8 @@ static var r9_off := OS.get_environment("PF_R9_OFF").split(",")
 ## crossing the head's middle in an end lag out of the face as before (`_guard_cross_k`); "dizzy" plays round 8's dizzy; "techroll"
 ## leaves the tech in place's slap without its roll back over the shoulders (`_tech_rolling`); "misfire" plays the Popgun's misfire as
 ## the fallback swing (`_misfire`); "techside" rolls the tech in place about the body turned toward the camera from the hit (`tech_side`,
-## TECH_ROLL_TURN); "ledgehang" hangs still from the ledge, without the fidget (`_hang_clip`).
+## TECH_ROLL_TURN); "ledgehang" hangs still from the ledge, without the fidget (`_hang_clip`); "vicweapon" leaves the victory pose's
+## weapon to the menu carry when a screen names one (`play_victory`), and the hand-hung weapons hidden in it.
 static var r10_off := OS.get_environment("PF_R10_OFF").split(",")
 var handoff_clip := ""
 var handoff_state := ""
@@ -2211,6 +2212,8 @@ func _bend_bone(bone: int, degrees: float, facing: int) -> void:
 	skeleton.set_bone_pose_rotation(bone, local.get_rotation_quaternion())
 
 
+## The classes whose weapon hangs on the hand bones and is shown in the victory pose (round 10): the Claws, the Popgun, the Dagger.
+const VICTORY_HAND_WEAPONS := [1, 11, 12]
 ## How big a raised weapon is in the victory pose (evenly, so the hilt keeps its shape), so the blade stays inside the results panel.
 const VICTORY_WEAPON_SCALE := 0.7
 
@@ -2221,6 +2224,12 @@ const VICTORY_WEAPON_SCALE := 0.7
 func play_victory(cls: int, delta: float, cheer := false) -> void:
 	if anim == null:
 		return
+	# (Round 10: the victory pose holds its own weapon. The podium results screen names the winner's weapon for its preview
+	# (`set_weapon`), whose menu carry ran after this every frame and moved the raised sword to the other hand at its low carry, out past
+	# the card's edge. `PF_R10_OFF=vicweapon` leaves it so.)
+	var own_weapon := not r10_off.has("vicweapon")
+	if own_weapon:
+		menu_weapon = -1
 	var clip := "victory_c" if cheer else ("victory_b" if not bladed(cls) else "victory_a")
 	set_expression(Loadout.HAPPY_FACE)
 	_blink(delta)
@@ -2235,7 +2244,11 @@ func play_victory(cls: int, delta: float, cheer := false) -> void:
 	var armed := bladed(cls) and not cheer
 	# (Every armed class's own weapon, shrunk evenly to fit the results panel: it drew only the longsword or the greatsword, squeezed to
 	# 0.7 of its length alone, which flattened the hilt.)
-	_show_weapon_of(cls if armed else -1)
+	# (Round 10: a weapon hung on the hand bones (the Claws' claws, the Dagger's knife, the Popgun's gun) goes with its hand, so it stays
+	# in the pose too, in the pumping hand that rises beside the head (in the braced one, at the podium's turn, the gun lay over the
+	# face); a weapon on the blade's pivot shows only raised.)
+	var on_hand := own_weapon and VICTORY_HAND_WEAPONS.has(cls)
+	_show_weapon_of(cls if armed or on_hand else -1, -1 if on_hand else 1)
 	if armed:
 		var hand := skeleton.find_bone("hand.R")
 		var at: Vector3 = _skeleton_to_frame() * skeleton.get_bone_global_pose(hand).origin
