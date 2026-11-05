@@ -181,3 +181,13 @@ the cut-edge colours. P1 stands out from it more than today.
   (0.129 and 0.147). In C the grey boards read a little patchy. Balanced to keep the deck's value, the tones would be another round.
 - Only the main deck changes; the side platforms are a separate model.
 All seven tests pass (the runner test too, this run); the look bench passes.
+
+**Built A** (the owner's pick, 2026-11-05):
+- ocean.cfg [backdrop] `deck_look="A"`. `--deck=T` shows the gaps' pale cut sides before.
+- The built beach measures as the mock's A: the play area's top at 3.7% edges (from 6.4%), the deck's contrast 0.083 (from 0.106), P1's
+  gap 0.174 (from 0.155). It differs from the mock's capture only by a few pixels of framing as the fighters move.
+- Before and after (match camera top, wide bottom, before left): `review18/beach_deck_built.jpg`.
+
+With it the beach's play area is a 5. **Review 18 is done:** the mean is 4.98, with 39 of 40 cells at 5. The one 4 is the canyon's world
+and life, held there by the rule (no animals, life far back at true size). The fighters remain the largest gap in any still.
+All seven tests pass; the look bench passes.

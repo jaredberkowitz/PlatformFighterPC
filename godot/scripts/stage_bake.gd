@@ -715,10 +715,11 @@ static func place_play(root: Node3D, t: Dictionary, path: String) -> void:
 
 ## The beach's deck boards (fidelity review 18 item 2: since the cut-edge colours the gaps between its boards showed their pale cut
 ## sides, ruled lines under the fighters, where the reference's boards each have their own tone and dark gaps). The palette's [backdrop]
-## `deck_look`, or `--deck=T|A|B|C`, T as built:
+## `deck_look`, or `--deck=T|A|B|C`, T as before:
 ##   A  joints: the boards' cut sides seen through the gaps (every one but the deck's front edge) in the deck's wood, darker;
-##   B  boards: each board in one of four tones of the wood (`_board_tone`), spread unevenly by its place; the gaps as built;
+##   B  boards: each board in one of four tones of the wood (`_board_tone`), spread unevenly by its place; the gaps as before;
 ##   C  both.
+## The owner's pick A (ocean.cfg [backdrop] `deck_look`, 2026-11-05).
 const DECK_TRY := {"T": {}, "A": {"joint": 0.35}, "B": {"tones": 2.0}, "C": {"joint": 0.35, "tones": 2.0}}
 
 
