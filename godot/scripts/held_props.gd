@@ -239,6 +239,24 @@ static func update(h: Held, view: Node3D, skeleton: Skeleton3D, cls: int, move: 
 	h.shown = now
 
 
+## Shows one hand tool, `tool`, in hand `side` ("L"/"R") outside any move, or none with "" (round 10: the Settler's umbrella raised in the
+## results screen's victory pose, `fighter_view.gd` `_victory_weapon`); hides whatever else was shown. `skeleton` null shows none.
+static func hold(h: Held, view: Node3D, skeleton: Skeleton3D, tool: String, side: String) -> void:
+	var now: Array = []
+	if tool != "" and skeleton != null:
+		var key := "%s|%s" % [tool, side]
+		if not h.tools.has(key):
+			h.tools[key] = _make(h, view, skeleton, tool, "weapon", side)
+		if h.tools[key] != null:
+			now.append(h.tools[key])
+	for n in h.shown:
+		if is_instance_valid(n) and not now.has(n):
+			(n as Node3D).visible = false
+	for n in now:
+		(n as Node3D).visible = true
+	h.shown = now
+
+
 ## How far a POINT entry holds at frame `f` (0..1).
 static func _point_weight(e: Array, f: float) -> float:
 	var ease := maxf(1.0, float(e[3]))

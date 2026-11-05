@@ -3652,3 +3652,33 @@ lies at the hit), `bodyft.py` (the torso's travel after the last hit), `windpops
   right hand. The attack measures were not re-run: no code a match draws changed since r10f (timing 2.34 / 1.51 / 1.65 / 1.15, eyes or
   mouth covered 7, hidden hands 1,284 there). The stage branch's 1f7d98e9 (the beach's dock edge back to its lit wood) and the UI branch's
   a1b398a7 (the Online screen's code cards) arrived during the build: they go in the next install.
+
+### Group 16 (round 10): the victory poses by family, the owner's picks (review 3, cause 10)
+
+- **The picks (the owner, 2026-11-05, from the podium mock above; the podium card's framing kept as it is):** the sword family B (the blade
+  on the shoulder, a hand on the hip), the staff A (planted upright, the free palm out), the brawlers B (one arm flexed beside the head, the
+  claws clear of the face), the quick family A (an arm out pointing, a heel kicked up), the heavy A (beating the chest in turn), the tool
+  family A (the tool held up beside the head). The caster keeps round 9's fist pump until a second round. The raised bare-hand options are
+  dropped: at the card's turn (0.45 rad) a raised hand stands behind the big head.
+- **Built:** the mock's specs (`F:\anim_core\tools\victory_specs.py.txt`) as six looping clips in `make_rigged_blob.py`, one per family
+  (`victory_sword`, `victory_staff`, `victory_brawler`, `victory_quick`, `victory_heavy`, `victory_tool`), keyed every 5 frames; the rig
+  rebuilt, and only those six clips differ from r10f's. `fighter_view.gd` `play_victory` plays the family's clip after the cheer
+  (`VICTORY_FAMILY_CLIPS`, `victory_clip`: the bladed classes the sword's, the Staff its own, the rest by `AnimLibrary.CLASS_FAMILY`), and
+  `_victory_weapon` holds the class's own weapon as the mock did: in the right hand, the one on the card's right; the sword laid back and
+  out over the shoulder and the staff nearly upright by a whole direction (`VICTORY_WEAPON_DIR`), at the results' scale, the fist turned
+  round the grip; the claws on both fists, the knife and the gun in the right hand; the staff's free palm and the quick family's pointing
+  hand open (`VICTORY_OPEN`). The Settler, which has no menu weapon, raises its umbrella (`VICTORY_TOOL`; `held_props.gd` `hold`, the
+  props pass's model at its size): an open parasol over the hat's brim, inside the card. The weapon fix stays (the pose owns its weapon).
+  The caster, a rig without the clips and `PF_R10_OFF=victory` play round 9's two poses (`vicweapon` turns both changes off).
+- **Checked:** on the real podium results screen (the UI session's capture tool copied, `F:\anim_core\tools\podium_shot.gd`), every class
+  winning as P1, and the Longsword, the Settler and the Dagger winning as P2 (the card is not mirrored for P2; only its colour changes);
+  and on the title screen, which plays the same pose for the last fighter played, turned the other way (`menu.gd` `Title`, -0.4), for the
+  Longsword, the Greatsword, the Nodachi, the Seer, the Claws, the Needles, the Dagger, the Clutch, the Popgun and the Settler. Both eyes
+  show in every pose and nothing crosses the face; the blades and the staff read beside the head on both screens; the staff's head and
+  the long blades pass the podium card's top edge, as in the mock the owner picked. `motion_test` checks each family's clip after the
+  cheer, the sword in the right hand and the Settler's umbrella shown. No match animation changed (`play_victory` runs only on the results
+  and title screens), so the round's measures were not re-run. Tests pass; the look bench passes (worst 0.90).
+- **Left:** the caster's second round (a palm out at the side); a raised tool's hand stands behind the head (the tool shows above it); the
+  Wanderer's round shield is drawn in matches only, so its victory pose shows the sword alone (as before).
+- **Images:** `docs/screenshots/anim/r10_victory_poses.jpg` (each class before, then the new pose at three moments of its loop, on the
+  podium card at its size; then P2 winning), `docs/screenshots/anim/r10_victory_title.jpg` (the title screen, before, then at two moments).

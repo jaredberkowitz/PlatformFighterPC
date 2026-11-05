@@ -523,5 +523,28 @@ func _initialize() -> void:
 	check(worst.x <= 0.12 and worst.y <= 0.16, "a tech in place moves no further in a frame than the pop limits (hips %.3f, head %.3f)" % [worst.x, worst.y])
 	print("tech in place: clips ", landing_clips, " then ", after_clips, ", largest move a frame: hips %.3f, head %.3f" % [worst.x, worst.y])
 
+	# (Round 10, the owner's picks of the victory mock.) After the cheer each family plays its own victory pose (the caster keeps round 9's
+	# fist pump) with its own weapon in the right hand: the Longsword's blade on the shoulder, the Settler's umbrella raised.
+	var vic_off := OS.get_environment("PF_R10_OFF").split(",")
+	var vic_on := not (vic_off.has("victory") or vic_off.has("vicweapon") or vic_off.has("all"))
+	var poses := {0: "victory_sword", 6: "victory_sword", 5: "victory_staff", 1: "victory_brawler", 2: "victory_quick", 8: "victory_heavy",
+		10: "victory_tool", 11: "victory_tool", 3: "victory_b"}
+	for c in poses:
+		var winner := FighterView.new()
+		root.add_child(winner)
+		winner.build(0, Loadout.default_for(0))
+		await process_frame
+		for f in 20:
+			winner.play_victory(int(c), 1.0 / 60.0, f < 10)
+		var want: String = poses[c] if vic_on else ("victory_a" if FighterView.bladed(int(c)) else "victory_b")
+		check(winner.current_clip == want, "class %d's victory pose is its family's (%s)" % [c, winner.current_clip])
+		if vic_on and int(c) == 0:
+			var grip: Vector3 = winner._skeleton_to_frame() * winner.skeleton.get_bone_global_pose(winner.skeleton.find_bone("hand.R")).origin
+			check(winner.blade_pivot.visible and winner.blade_pivot.position.distance_to(grip) < 0.3,
+				"the sword is held in the right hand (%.2f from it)" % winner.blade_pivot.position.distance_to(grip))
+		if vic_on and int(c) == 10:
+			check(winner.held_tools.shown.size() == 1 and (winner.held_tools.shown[0] as Node3D).visible, "the Settler raises its umbrella")
+		winner.queue_free()
+
 	print("motion test ", "FAILED" if failed else "PASSED")
 	quit(1 if failed else 0)

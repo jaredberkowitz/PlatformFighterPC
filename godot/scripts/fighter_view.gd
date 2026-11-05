@@ -216,7 +216,7 @@ const LONG_FIT := Transform3D(Basis(Vector3(0.92, 0, 0), Vector3(0, 0.92, 0), Ve
 ## Where the head and torso sit in the rig compared with the sphere-built look the face, hats and glasses were designed for.
 const HEAD_FIT := Transform3D(Basis(Vector3(0.825, 0, 0), Vector3(0, 0.825, 0), Vector3(0, 0, 0.825)), Vector3(0, 1.56 - 1.42 * 0.825, 0))
 const TORSO_FIT := Transform3D()
-const LOOPING := ["ledge", "ledge_r9", "tumble", "idle", "idle_brawler", "idle_quick", "idle_heavy", "idle_caster", "idle_tool", "run_brawler", "run_quick", "run_heavy", "run_caster", "run_tool", "walk", "walk_brawler", "walk_quick", "walk_heavy", "walk_caster", "walk_tool", "run", "dash", "dash_brawler", "dash_quick", "dash_heavy", "dash_caster", "dash_tool", "fall", "fall_brawler", "fall_quick", "fall_heavy", "fall_caster", "fall_tool", "crouch", "crouch_brawler", "crouch_quick", "crouch_heavy", "crouch_caster", "crouch_tool", "victory_a", "victory_b", "victory_c",
+const LOOPING := ["ledge", "ledge_r9", "tumble", "idle", "idle_brawler", "idle_quick", "idle_heavy", "idle_caster", "idle_tool", "run_brawler", "run_quick", "run_heavy", "run_caster", "run_tool", "walk", "walk_brawler", "walk_quick", "walk_heavy", "walk_caster", "walk_tool", "run", "dash", "dash_brawler", "dash_quick", "dash_heavy", "dash_caster", "dash_tool", "fall", "fall_brawler", "fall_quick", "fall_heavy", "fall_caster", "fall_tool", "crouch", "crouch_brawler", "crouch_quick", "crouch_heavy", "crouch_caster", "crouch_tool", "victory_a", "victory_b", "victory_c", "victory_sword", "victory_staff", "victory_brawler", "victory_quick", "victory_heavy", "victory_tool",
 	"helpless", "dizzy", "dizzy_r9", "buried"]
 ## The rig is read once and copied for every fighter (reading it again renames its bones).
 static var _rig_templates: Dictionary = {}
@@ -1617,7 +1617,8 @@ static var r9_off := OS.get_environment("PF_R9_OFF").split(",")
 ## leaves the tech in place's slap without its roll back over the shoulders (`_tech_rolling`); "misfire" plays the Popgun's misfire as
 ## the fallback swing (`_misfire`); "techside" rolls the tech in place about the body turned toward the camera from the hit (`tech_side`,
 ## TECH_ROLL_TURN); "ledgehang" hangs still from the ledge, without the fidget (`_hang_clip`); "vicweapon" leaves the victory pose's
-## weapon to the menu carry when a screen names one (`play_victory`), and the hand-hung weapons hidden in it.
+## weapon to the menu carry when a screen names one (`play_victory`), and the hand-hung weapons hidden in it (and the family poses off);
+## "victory" plays round 9's two victory poses (the blade raised, the fist pump) in place of the families' own (`VICTORY_FAMILY_CLIPS`).
 static var r10_off := OS.get_environment("PF_R10_OFF").split(",")
 var handoff_clip := ""
 var handoff_state := ""
@@ -2216,6 +2217,29 @@ func _bend_bone(bone: int, degrees: float, facing: int) -> void:
 const VICTORY_HAND_WEAPONS := [1, 11, 12]
 ## How big a raised weapon is in the victory pose (evenly, so the hilt keeps its shape), so the blade stays inside the results panel.
 const VICTORY_WEAPON_SCALE := 0.7
+## (Round 10, the owner's picks of the podium mock, 2026-11-05: docs/screenshots/anim/r10_victory_mock_<family>.jpg.) The victory pose by
+## family, after the cheer (`make_rigged_blob.py`): the sword family's blade laid on the shoulder with a hand on the hip, the staff planted
+## upright with the free palm out, the brawlers' flex, the quick family pointing with a heel kicked up, the heavy beating its chest in
+## turn, the tool family's tool held up beside the head. The caster keeps the fist pump (`victory_b`) until its second round. Round 9 gave
+## every fighter one of two poses: the blade raised, or the fist pump.
+const VICTORY_FAMILY_CLIPS := {"sword": "victory_sword", "staff": "victory_staff", "brawler": "victory_brawler", "quick": "victory_quick",
+	"heavy": "victory_heavy", "tool": "victory_tool"}
+## The weapon's direction in a family pose, in the weapon's frame (`stage_frame`; at the podium card's turn x runs to the card's right, y
+## up, z toward the camera on the card's left): a blade laid straight back over the shoulder hid behind the head, and held forward it
+## crossed the face, so the sword lies back and out over the shoulder; the staff stands nearly upright at the side. A weapon not listed
+## goes along the fist.
+const VICTORY_WEAPON_DIR := {"victory_sword": Vector3(0.6, 0.7, -0.4), "victory_staff": Vector3(0.1, 1.0, -0.2)}
+## The family poses whose free hand is open: the staff's palm held out, the quick family's pointing hand.
+const VICTORY_OPEN := ["victory_staff", "victory_quick"]
+## The tool a class with no weapon of its own holds up in the tool pose (a `held_props.gd` model): the Settler's umbrella.
+const VICTORY_TOOL := {10: "umbrella"}
+
+
+## The victory pose of class `cls`'s family (`VICTORY_FAMILY_CLIPS`: the bladed classes the sword's, the Staff its own), or "" for a class
+## that keeps round 9's (the caster).
+static func victory_clip(cls: int) -> String:
+	var family := "sword" if bladed(cls) else ("staff" if cls == STAFF_CLASS else String(AnimLibrary.CLASS_FAMILY.get(cls, "")))
+	return String(VICTORY_FAMILY_CLIPS.get(family, ""))
 
 
 ## A victory pose for the results screen: plays one of the looping victory clips (by class: the sword is raised high, the claws fighter
@@ -2231,6 +2255,11 @@ func play_victory(cls: int, delta: float, cheer := false) -> void:
 	if own_weapon:
 		menu_weapon = -1
 	var clip := "victory_c" if cheer else ("victory_b" if not bladed(cls) else "victory_a")
+	# (Round 10, the owner's picks: after the cheer, the family's own pose holding its own weapon, `_victory_weapon`. A rig without the
+	# clip plays round 9's.)
+	var family := victory_clip(cls) if own_weapon and not r10_off.has("victory") else ""
+	if not cheer and family != "" and anim.has_animation(family):
+		clip = family
 	set_expression(Loadout.HAPPY_FACE)
 	_blink(delta)
 	if current_clip != clip and anim.has_animation(clip):
@@ -2240,6 +2269,10 @@ func play_victory(cls: int, delta: float, cheer := false) -> void:
 	anim.speed_scale = 1.0
 	anim.advance(delta)
 	_follow_bones()
+	if clip == family:
+		_victory_weapon(cls, clip)
+		return
+	HeldProps.hold(held_tools, self, null, "", "R")
 	# The sword, gripped in the raised hand and pointing up.
 	var armed := bladed(cls) and not cheer
 	# (Every armed class's own weapon, shrunk evenly to fit the results panel: it drew only the longsword or the greatsword, squeezed to
@@ -2255,6 +2288,31 @@ func play_victory(cls: int, delta: float, cheer := false) -> void:
 		blade_pivot.position = at
 		blade_pivot.rotation = Vector3(0, 0, PI / 2.0)
 		blade_pivot.scale = Vector3.ONE * VICTORY_WEAPON_SCALE
+
+
+## A family victory pose's weapon (round 10, as the mock placed it): the class's own weapon in the right hand, the one on the podium card's
+## right (the claws on both fists); a weapon on the blade's pivot by the clip's direction (`VICTORY_WEAPON_DIR`), else along the fist, at
+## the results' scale, the fist turned round its grip; the free hand open in the poses that show a palm (`VICTORY_OPEN`); the Settler's
+## umbrella raised in the tool pose (`VICTORY_TOOL`).
+func _victory_weapon(cls: int, clip: String) -> void:
+	var facing := 1 if _weapon_side(1) == "R" else -1
+	_show_weapon_of(cls, facing)
+	if not fists.is_empty():
+		_clench(not VICTORY_OPEN.has(clip), true, facing)
+	var tool: String = VICTORY_TOOL.get(cls, "") if clip == "victory_tool" else ""
+	HeldProps.hold(held_tools, self, skeleton if use_base_body else null, tool, "R")
+	var hand := skeleton.find_bone("hand.R")
+	if not blade_pivot.visible or hand < 0:
+		return
+	blade_pivot.position = _skeleton_to_frame() * skeleton.get_bone_global_pose(hand).origin
+	blade_pivot.rotation = Vector3(0, 0, deg_to_rad(_fist_line(hand, 90.0)))
+	blade_pivot.scale = Vector3.ONE * VICTORY_WEAPON_SCALE
+	if VICTORY_WEAPON_DIR.has(clip):
+		# (A whole direction, for a blade that must point sideways to read with the fighter turned to the camera.)
+		var x: Vector3 = (VICTORY_WEAPON_DIR[clip] as Vector3).normalized()
+		var z: Vector3 = (Vector3(0, 0, 1) - x * x.z).normalized() if absf(x.z) < 0.95 else (Vector3(0, 1, 0) - x * x.y).normalized()
+		blade_pivot.basis = Basis(x, z.cross(x), z).scaled(Vector3.ONE * VICTORY_WEAPON_SCALE)
+	_grip_hand(hand)
 
 
 ## The meshes of the modelled blob (Body, Head, FootL, FootR, HandL, HandR), read straight from the glTF file so no editor import is

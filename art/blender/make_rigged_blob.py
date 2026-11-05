@@ -5209,6 +5209,66 @@ def main() -> None:
                      "armL.L": (10.0,), "armL.R": (10.0,)})
     clip(rig, "victory_c", 60, {0: cheer(0.0), 12: cheer(0.6), 22: cheer(1.0), 34: cheer(0.4), 44: cheer(0.0), 60: cheer(0.0)})
 
+    # ---- The victory poses by family (round 10, the owner's picks of 2026-11-05 from the podium mock,
+    # docs/screenshots/anim/r10_victory_mock_<family>.jpg; the caster keeps victory_b until a second round) ----
+    # Each a loop after the cheer, keyed every 5 frames: spec(k) for k from 0 to 1 over the loop; fighter_view.gd `play_victory` picks one by
+    # family. The podium card turns the winner only 0.45 rad from the camera, so the poses work sideways and up (arms out, beside the head),
+    # not forward at the viewer, and a raised bare hand stands behind the big head there: only a held weapon or tool goes up. The weapon hand
+    # is the right (as victory_a's raised sword), on the card's right; the game sets the weapon's direction (`VICTORY_WEAPON_DIR`). A pose
+    # also bends the chest sideways (`bend`, degrees) and tilts the head (`tilt`), as the hero poses do.
+    def vic_body(spec):
+        base = body({key: v for key, v in spec.items() if key not in ("bend", "tilt")})
+
+        def f(rig):
+            base(rig)
+            sp = spec.get("spine", (0.0, 0.0))
+            if "bend" in spec:
+                pose(rig, "spine", fwd=sp[0], out=spec["bend"], twist=sp[1])
+            hd = spec.get("head", (0.0, 0.0))
+            if "tilt" in spec:
+                pose(rig, "head", fwd=hd[0], out=spec["tilt"], twist=hd[1])
+        return f
+
+    def vic(name, frames, spec_of):
+        clip(rig, name, frames, {i: vic_body(spec_of(i / float(frames))) for i in range(0, frames + 1, 5)})
+
+    def s1(k, n=1.0):
+        return math.sin(k * 2.0 * math.pi * n)
+
+    if BODY:
+        # The sword family (pick B, "shoulder"): the blade laid back over the shoulder, the free hand on the hip, the weight on the back
+        # leg, a cocky lean and a slow bob of the blade.
+        vic("victory_sword", 90, lambda k: {"arms": (8.0, 14.0), "hips": -0.03 + 0.012 * s1(k), "spine": (-4.0, 10.0), "bend": 6.0,
+                                            "head": (-8.0 + 2.0 * s1(k), -10.0), "tilt": 8.0, "stance": (10.0, -14.0),
+                                            "armU.R": (62.0 + 5.0 * s1(k), 52.0), "armL.R": (128.0,), "armU.L": (-14.0, 42.0), "armL.L": (84.0,)})
+        # The staff (pick A, "planted"): the staff stood upright at the side, the hand low; the free palm held out at the side.
+        vic("victory_staff", 90, lambda k: {"arms": (8.0, 14.0), "hips": 0.01 * s1(k), "spine": (-6.0, 6.0), "head": (-10.0, -6.0), "tilt": 6.0,
+                                            "stance": (12.0, -12.0), "armU.R": (10.0, 40.0), "armL.R": (30.0,),
+                                            "armU.L": (14.0, 84.0 + 4.0 * s1(k)), "armL.L": (12.0,)})
+        # The brawlers (pick B, "flex"): one arm flexed out at the side, the fist up clear of the face, the other hand low at the side, the
+        # weight on the back leg and the chest turned to the camera; the flexed arm squeezes once a second.
+        vic("victory_brawler", 60, lambda k: {"arms": (8.0, 14.0), "hips": -0.05 - 0.02 * max(0.0, s1(k)), "spine": (-6.0, 14.0), "bend": -8.0,
+                                              "head": (-6.0, -10.0), "tilt": -8.0, "stance": (24.0, -10.0),
+                                              "armU.R": (14.0, 96.0), "armL.R": (84.0 + 14.0 * max(0.0, s1(k)),),
+                                              "armU.L": (-14.0, 42.0), "armL.L": (84.0,)})
+        # The quick family (pick A, "point"): one hand pointing out to the side at shoulder height, the other on the hip, the weight on one
+        # leg with the other heel kicked up behind, a bounce.
+        vic("victory_quick", 60, lambda k: {"arms": (8.0, 14.0), "hips": -0.02 + 0.02 * abs(s1(k)), "spine": (-6.0, 14.0), "bend": 8.0,
+                                            "head": (-8.0, -12.0), "tilt": 10.0, "stance": (8.0, -4.0), "thigh.R": (-18.0, 6.0), "shin.R": (-80.0,),
+                                            "armU.L": (14.0, 86.0), "armL.L": (6.0,), "armU.R": (-14.0, 42.0), "armL.R": (84.0,)})
+
+        # The heavy (pick A, "thump"): the fists beating the chest in turn, the head thrown back, a roar.
+        def thump(k):
+            a = max(0.0, s1(k, 2.0))
+            b = max(0.0, -s1(k, 2.0))
+            return {"arms": (8.0, 14.0), "hips": -0.06, "spine": (-10.0, 0.0), "head": (-18.0, 0.0), "stance": (16.0, -16.0),
+                    "armU.R": (36.0 + 24.0 * a, 40.0 - 14.0 * a), "armL.R": (126.0,), "armU.L": (36.0 + 24.0 * b, 40.0 - 14.0 * b), "armL.L": (126.0,)}
+        vic("victory_heavy", 60, thump)
+        # The tool family (pick A, "show"): the tool held straight up beside the head, the other hand on the hip, a bounce.
+        vic("victory_tool", 60, lambda k: {"arms": (8.0, 14.0), "hips": 0.02 * abs(s1(k)), "spine": (-8.0, 0.0), "head": (-12.0, 8.0),
+                                           "stance": (12.0, -12.0), "armU.R": (168.0, 12.0), "armL.R": (8.0 + 8.0 * abs(s1(k)),),
+                                           "armU.L": (-14.0, 42.0), "armL.L": (84.0,)})
+
     # ---- The fighter select's hero poses (round 9; the owner's picks of 2026-11-04 from the mock docs/screenshots/anim/r9_hero_pose_mock.jpg:
     # sword A, staff B, brawler B, quick A; the heavy, caster and tool families are still to pick, a second round) ----
     # Each a still held in the face-off panel (`AnimLibrary.hero_clip`, turned by `AnimLibrary.hero_turn`): the weapon hand the near one (L),

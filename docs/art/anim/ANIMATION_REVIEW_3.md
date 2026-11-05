@@ -186,3 +186,8 @@ not rising.
 - **Victory poses (mock, for the owner):** two or three options per family on the podium card
   (`docs/screenshots/anim/r10_victory_mock_<family>.jpg`), recommended sword B, staff A, brawler B, quick A, heavy A, tool A; the caster needs
   a second round. Raised bare hands hide behind the head at the card's turn. Nothing built until the owner picks.
+- **Group 16 (cause 10, the victory poses, the owner's picks):** after the cheer each family strikes its own pose on the podium card,
+  holding its own weapon: the sword family the blade on the shoulder, the Seer its staff planted, the brawlers a flex, the quick family a
+  point with a heel kicked up, the heavy beating its chest, the tool family the tool up beside the head (the Settler its umbrella). The
+  caster keeps the fist pump until a second round. Victory poses: readability 3 to 4 (each pose reads at the card's size and turn, the
+  weapon carrying the line upward), accuracy 3 to 3.5 (a pose by family, the references' by fighter). No match animation changed.
