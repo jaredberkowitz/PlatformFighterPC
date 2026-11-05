@@ -1,10 +1,10 @@
 extends Control
-## The character creator, laid out like a caricature kit. Down the left, the categories: the body's colour, the face's parts (eyes,
-## brows, nose, mouth, cheeks), its resting mood, the hat, glasses, neckwear and shirt, and how the fighter plays (class, four stats,
-## rules). Beside them the fighter, large on its own little stage, turned to the camera (the camera moves in on the head for the
-## face); its name on the plate below. In the middle, the choices for the category; on the right, the chosen part's colours and the
-## buttons that move it up and down, closer or apart, make it bigger or smaller, tilt it and stretch it (each press says what it did
-## at the top, "+1 height"), and Reset. Exit and Done at the top right; Done saves the fighter and goes to character select.
+## The character creator as a cutting mat (the owner's pick of 2026-11-05, the "Paper UI Mocks" canvas, round 4): a bar along the top
+## with Exit and Done; under it the categories as named tabs in groups (body; the face's parts and mood; the outfit; how it plays); the
+## fighter whole on a green cutting mat at the left, cut out of paper, turned to the camera (it moves in on the head for the face), its
+## name on a card at the mat's foot; on the right the category's name and its choices as cards, and under them a card with the part's
+## colours and its fit, each fit button named (height, spacing, size, tilt, stretch; each press says what it did beside the name,
+## "+1 height"), and Reset. Done saves the fighter and goes to character select.
 ##
 ## Looks are cosmetic (loadout.gd, face_look.gd) and never reach the simulation; the stats become fighter parameters in Rust only
 ## (sim-content recipe.rs). Keys: arrows or WASD move between the categories, the choices and the tools (left and right change a stat
@@ -58,13 +58,18 @@ const PART_TEXTURES := {"eye": ["eye_fill_tex", "eye_line_tex", "eye_extra_tex"]
 	"mouth": ["mouth_tex"], "cheek": ["cheek_tex", "freckle_tex"], "freckle": ["freckle_tex", "cheek_tex"]}
 const ALL_PART_TEXTURES := ["eye_fill_tex", "eye_line_tex", "eye_extra_tex", "brow_tex", "nose_tex", "mouth_tex", "cheek_tex", "freckle_tex"]
 
-# Layout (a 1280x720 screen).
-const RAIL := Rect2(12, 78, 56, 630)
-const STAGE := Rect2(80, 78, 410, 560)
-const PLATE := Rect2(80, 646, 410, 62)
-const GRID := Rect2(504, 128, 492, 580)
-const TOOLS_X := 1010.0
-const CELL := Vector2(116, 112)
+# Layout (a 1280x720 screen): the tabs' row, the mat, the name card on its foot, the choices and the fit card under them.
+const TABS_Y := 82.0
+const STAGE := Rect2(24, 132, 540, 516)
+const PLATE := Rect2(40, 596, 340, 66)
+const GRID := Rect2(592, 184, 664, 306)
+const TOOLS_RECT := Rect2(590, 498, 668, 156)
+const CELL := Vector2(102, 94)
+const GRID_COLUMNS := 6
+## The categories' groups along the tab row: [caption, first category, last category].
+const GROUPS := [["BODY", 0, 0], ["FACE", 1, 7], ["OUTFIT", 8, 12], ["PLAY", 13, 13]]
+## The cutting mat's green.
+const MAT_GREEN := Color("2f8a6a")
 
 var look: RefCounted
 var class_index := 0
@@ -103,8 +108,8 @@ var class_cards: Array = []
 ## The chosen class's description, under the class grid.
 var class_blurb: Label
 ## The class grid: columns, and each tile's size with its gap.
-const CLASS_COLUMNS := 5
-const CLASS_TILE := Vector2(98, 50)
+const CLASS_COLUMNS := 7
+const CLASS_TILE := Vector2(94, 46)
 var bars: Control
 var points_tag: Control
 var delete_button: Control
@@ -159,10 +164,15 @@ class Pick extends Control:
 
 
 class RailTab extends Pick:
-	## A category's tab on the rail: its icon, drawn in ink.
+	## A category's tab along the top: its name on a small card (gold when open). (An icon on a rail down the left before the
+	## cutting mat: unnamed, the fourteen read as a puzzle.)
 	var icon := ""
+	var label := ""
 
 	func _paint(r: Rect2) -> void:
+		if label != "":
+			UI.D.draw_text_centered(self, label, r.grow_individual(0, 0, -2, -1), 18, Art.INK)
+			return
 		var c := r.get_center()
 		var s := minf(r.size.x, r.size.y) * 0.32
 		var ink := Art.INK
@@ -299,43 +309,90 @@ class ToolButton extends Pick:
 
 
 class Header extends Control:
-	## The screen's title on a brush stroke, the category's name on another, and the last change in big letters ("+1 height").
+	## Printed on the paper: the tab groups' captions, the open category's name with how many choices it has, and the last change beside
+	## it ("+1 height").
 	var category := ""
+	var count_text := ""
 	var feedback := ""
 	var feedback_alpha := 0.0
+	## [x, caption] for each group of tabs.
+	var groups: Array = []
 
 	func _init() -> void:
 		mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 	func _draw() -> void:
-		var title := Rect2(Vector2(12, 8), Vector2(470, 62))
-		Art.brush_band(self, title, Art.INK, 41, 20.0, true, 0.9)
-		Art.title_centered(self, "CHARACTER CREATOR", title.grow_individual(-10, 0, -22, 0), 44, Color.WHITE, 0.0)
-		var cat := Rect2(Vector2(504, 12), Vector2(300, 54))
-		Art.brush_band(self, cat, Art.SUN, 47, 16.0, true, 0.8)
-		Art.title_centered(self, category.to_upper(), cat.grow_individual(-8, 0, -18, 0), 38, Art.INK, 0.0)
+		var lf := UI.D.label_font()
+		for g in groups:
+			draw_string(lf, Vector2(float(g[0]) + 4.0, TABS_Y - 6.0), str(g[1]), HORIZONTAL_ALIGNMENT_LEFT, -1, 13, UI.D.LABEL)
+		var df := UI.D.display_font()
+		var at := Vector2(GRID.position.x, GRID.position.y - 14.0)
+		draw_string(df, at, category.to_upper(), HORIZONTAL_ALIGNMENT_LEFT, -1, 40, Art.INK)
+		var w := df.get_string_size(category.to_upper(), HORIZONTAL_ALIGNMENT_LEFT, -1, 40).x
+		if count_text != "":
+			draw_string(UI.D.font(), at + Vector2(w + 14.0, -4.0), count_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 18, UI.D.LABEL)
 		if feedback != "" and feedback_alpha > 0.0:
-			Art.title_centered(self, feedback, Rect2(Vector2(504, 70), Vector2(492, 56)), 46, Color(1, 1, 1, feedback_alpha), 0.14)
+			var fw := df.get_string_size(feedback, HORIZONTAL_ALIGNMENT_LEFT, -1, 30).x
+			draw_string(df, Vector2(GRID.end.x - fw, at.y - 2.0), feedback, HORIZONTAL_ALIGNMENT_LEFT, -1, 30, Color(Art.CORAL, feedback_alpha))
 
 
 class StageFrame extends Control:
-	## The fighter's stage: a painted card behind the scene.
+	## The cutting mat's card: green cardstock on its paper shadows.
 	func _init() -> void:
 		mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 	func _draw() -> void:
-		Art.card(self, Rect2(Vector2.ZERO, size - Vector2(10, 12)), Art.INDIGO, 61, 20.0, 5.0, Color(1, 1, 1, 0.5))
+		Art.card(self, Rect2(Vector2.ZERO, size - Vector2(10, 12)), MAT_GREEN, 61, 16.0)
+
+
+class Mat extends Control:
+	## The cutting mat's face: fine white rules every 36 px, stronger every 180, and the fighter's contact shade (off close up).
+	var show_floor := true:
+		set(v):
+			show_floor = v
+			queue_redraw()
+
+	func _init() -> void:
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	func _draw() -> void:
+		draw_rect(Rect2(Vector2.ZERO, size), MAT_GREEN)
+		var x := 18.0
+		while x < size.x:
+			draw_line(Vector2(x, 0), Vector2(x, size.y), Color(1, 1, 1, 0.22 if int(x - 18.0) % 180 == 0 else 0.11), 2.0 if int(x - 18.0) % 180 == 0 else 1.0)
+			x += 36.0
+		var y := 18.0
+		while y < size.y:
+			draw_line(Vector2(0, y), Vector2(size.x, y), Color(1, 1, 1, 0.22 if int(y - 18.0) % 180 == 0 else 0.11), 2.0 if int(y - 18.0) % 180 == 0 else 1.0)
+			y += 36.0
+		if show_floor:
+			var c := Vector2(size.x * 0.5, size.y * 0.71)
+			var pts := PackedVector2Array()
+			for k in 33:
+				var a := TAU * k / 32.0
+				pts.append(c + Vector2(cos(a) * size.x * 0.3, sin(a) * size.y * 0.06))
+			draw_colored_polygon(pts, Color(0.04, 0.16, 0.12, 0.3))
 
 
 class Plate extends Control:
-	## The name plate under the stage: a brush stroke the name is typed on.
+	## The name card on the mat's foot: cream cardstock, a small caption, the name typed on it (gold while typing).
 	var focused := false
 
 	func _init() -> void:
 		mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 	func _draw() -> void:
-		Art.brush_band(self, Rect2(Vector2(6, 4), size - Vector2(36, 10)), Art.CORAL if not focused else Art.SUN, 71, 14.0, true, 0.8)
+		Art.card(self, Rect2(Vector2.ZERO, size - Vector2(6, 6)), Art.SUN if focused else UI.D.SHEET.lightened(0.3), 71, 10.0)
+		draw_string(UI.D.label_font(), Vector2(16, 18), "NAME  ·  N TO TYPE", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, UI.D.LABEL)
+
+
+## The fit card under the choices: a sheet of cream card behind the colours and the fit buttons.
+class FitCard extends Control:
+	func _init() -> void:
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	func _draw() -> void:
+		Art.card(self, Rect2(Vector2.ZERO, size - Vector2(6, 6)), UI.D.SHEET, 83, 14.0)
 
 
 # ---- Building the screen ------------------------------------------------------------------------------------------------------
@@ -345,8 +402,9 @@ func _ready() -> void:
 	editor = ClassDB.instantiate("ContentEditor")
 	editor.new_from_builtin("preview")
 	add_child(UI.Backdrop.new(false, 0.38))
+	add_child(UI.TopBar.new("CREATE"))
 	header = Header.new()
-	header.size = Vector2(1000, 130)
+	header.size = Vector2(1280, 720)
 	add_child(header)
 
 	# The stage: a painted scene in a card, the fighter standing on its ledge.
@@ -361,11 +419,8 @@ func _ready() -> void:
 	stage_mask.set_shape(PackedVector2Array([Vector2(16, 0), Vector2(m.x, 0), Vector2(m.x, m.y - 16), Vector2(m.x - 16, m.y), Vector2(0, m.y),
 		Vector2(0, 16)]))
 	add_child(stage_mask)
-	var scene := UI.Spotlight.new()
+	var scene := Mat.new()
 	stage_scene = scene
-	scene.colour = Color(0.36, 0.46, 0.84)
-	scene.feet = [[0.5, 0.7]]
-	scene.seed = 31
 	scene.size = stage_mask.size
 	stage_mask.add_child(scene)
 	preview = Preview.new(Vector2i(int(m.x), int(m.y)), false, 8.2)
@@ -378,11 +433,13 @@ func _ready() -> void:
 	preview.body_at = Vector3(0, 0.79, 0)
 	preview.size = m
 	preview.position = Vector2.ZERO
+	# (Cut out of paper, as on every menu.)
+	UI.die_cut(preview)
 	stage_mask.add_child(preview)
-	var hint := UI.KeyBar.new([["Z X", "Turn"], ["C", "Face front"]])
+	var hint := UI.KeyBar.new([["Z X", "Turn"], ["C", "Front"]])
 	hint.band = true
-	hint.position = STAGE.position + Vector2(24, 22)
-	hint.size = Vector2(250, 28)
+	hint.position = Vector2(STAGE.end.x - 214.0, STAGE.position.y + 16.0)
+	hint.size = Vector2(190, 28)
 	add_child(hint)
 
 	# The name plate.
@@ -391,18 +448,16 @@ func _ready() -> void:
 	plate.size = PLATE.size
 	add_child(plate)
 	name_edit = LineEdit.new()
-	name_edit.position = PLATE.position + Vector2(40, 8)
-	name_edit.size = Vector2(PLATE.size.x - 100, PLATE.size.y - 20)
+	name_edit.position = PLATE.position + Vector2(10, 20)
+	name_edit.size = Vector2(PLATE.size.x - 30, PLATE.size.y - 26)
 	name_edit.max_length = 24
 	name_edit.placeholder_text = "Type a name"
-	name_edit.alignment = HORIZONTAL_ALIGNMENT_CENTER
+	name_edit.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	name_edit.add_theme_font_override("font", UI.D.display_font())
-	name_edit.add_theme_font_size_override("font_size", 32)
-	name_edit.add_theme_color_override("font_color", Color.WHITE)
-	name_edit.add_theme_color_override("font_placeholder_color", Color(1, 1, 1, 0.65))
-	name_edit.add_theme_color_override("caret_color", Color.WHITE)
-	name_edit.add_theme_constant_override("outline_size", 6)
-	name_edit.add_theme_color_override("font_outline_color", Art.INK)
+	name_edit.add_theme_font_size_override("font_size", 34)
+	name_edit.add_theme_color_override("font_color", Art.INK)
+	name_edit.add_theme_color_override("font_placeholder_color", Color(UI.D.LABEL, 0.8))
+	name_edit.add_theme_color_override("caret_color", Art.INK)
 	var clear := StyleBoxEmpty.new()
 	name_edit.add_theme_stylebox_override("normal", clear)
 	name_edit.add_theme_stylebox_override("focus", clear)
@@ -415,24 +470,27 @@ func _ready() -> void:
 		plate.queue_redraw())
 	add_child(name_edit)
 
-	status = UI.Tag.new("", Vector2(410, 34))
-	status.fill = Color(Art.INK, 0.75)
-	status.ink = Art.SUN
-	status.shadow = false
-	status.font_size = 18
-	status.position = STAGE.position + Vector2(0, STAGE.size.y - 52)
+	status = UI.notice(STAGE.position + Vector2(14, 14), STAGE.size.x - 38, 18)
 	status.visible = false
 	add_child(status)
 
-	# The rail of categories.
+	# The categories' tabs along the top, in their groups, each named.
+	var x := 24.0
 	for i in CATEGORIES.size():
+		for g in GROUPS:
+			if int(g[1]) == i:
+				if i > 0:
+					x += 18.0
+				header.groups.append([x, g[0]])
 		var tab := RailTab.new()
 		tab.icon = CATEGORIES[i].id
+		tab.label = CATEGORIES[i].title
 		tab.seed = 200 + i
-		tab.cut = 8.0
-		tab.tooltip_text = CATEGORIES[i].title
-		tab.position = RAIL.position + Vector2(0, i * (RAIL.size.y / CATEGORIES.size()))
-		tab.size = Vector2(RAIL.size.x + 10, RAIL.size.y / CATEGORIES.size() + 6)
+		tab.cut = 6.0
+		var w := UI.D.font().get_string_size(tab.label, HORIZONTAL_ALIGNMENT_LEFT, -1, 18).x + 34.0
+		tab.position = Vector2(x, TABS_Y)
+		tab.size = Vector2(w, 46)
+		x += w - 6.0
 		var index := i
 		tab.activated.connect(func(): _open(index))
 		tab.hovered.connect(func(): _focus(tab))
@@ -445,15 +503,20 @@ func _ready() -> void:
 	page.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(page)
 	tools = Control.new()
-	tools.position = Vector2(TOOLS_X, 70)
-	tools.size = Vector2(262, 640)
+	tools.position = TOOLS_RECT.position
+	tools.size = TOOLS_RECT.size
 	tools.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(tools)
 
-	exit_button = _tool_word("Exit", Vector2(TOOLS_X, 6), Vector2(124, 58), Art.CORAL)
+	var keys := UI.KeyBar.new([["Q E", "Category"], ["WASD", "Choose"], ["Enter", "Pick"], ["N", "Name"], ["Z X", "Turn"], ["Esc", "Exit"]])
+	keys.position = Vector2(24, 674)
+	keys.size = Vector2(1232, 30)
+	add_child(keys)
+
+	exit_button = _tool_word("Exit", Vector2(1040, 4), Vector2(100, 50), UI.D.SHEET.lightened(0.3))
 	exit_button.activated.connect(_back)
 	add_child(exit_button)
-	done_button = _tool_word("Done", Vector2(TOOLS_X + 132, 6), Vector2(130, 58), Art.SUN)
+	done_button = _tool_word("Done", Vector2(1146, 4), Vector2(112, 50), Art.SUN)
 	done_button.activated.connect(_finish)
 	add_child(done_button)
 
@@ -523,6 +586,9 @@ func _open(i: int) -> void:
 	for k in tabs.size():
 		tabs[k].chosen = k == category
 	header.category = cat.title
+	header.count_text = ""
+	if cat.has("slot") and cat.id != "body":
+		header.count_text = "%d to choose from" % Loadout.slot_size(cat.slot)
 	header.queue_redraw()
 	var close: bool = bool(cat.get("face", false)) or str(cat.get("shot", "")) == "head"
 	preview.frame_face(close)
@@ -560,7 +626,7 @@ func _build_page() -> void:
 	for v in count:
 		var item: Pick = Swatch.new() if cat.get("kind", "") == "swatch" else Choice.new()
 		item.seed = 300 + v * 11
-		item.position = Vector2((v % 4) * (CELL.x + 6), (v / 4) * (CELL.y + 6))
+		item.position = Vector2((v % GRID_COLUMNS) * (CELL.x + 10), (v / GRID_COLUMNS) * (CELL.y + 8))
 		item.size = CELL
 		var value := v
 		item.activated.connect(func(): _choose(value))
@@ -686,14 +752,14 @@ func _build_play_page() -> void:
 	var rows_used := ceili(float(Roster.CLASS_NAMES.size()) / CLASS_COLUMNS)
 	class_blurb = Label.new()
 	class_blurb.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	class_blurb.position = Vector2(6, 58 + rows_used * CLASS_TILE.y)
-	class_blurb.size = Vector2(480, 62)
+	class_blurb.position = Vector2(6, 56 + rows_used * CLASS_TILE.y)
+	class_blurb.size = Vector2(GRID.size.x - 10, 44)
 	class_blurb.add_theme_font_override("font", UI.font())
 	class_blurb.add_theme_font_size_override("font_size", 17)
 	class_blurb.add_theme_color_override("font_color", Art.INK)
 	class_blurb.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	page.add_child(class_blurb)
-	var y := 128.0 + rows_used * CLASS_TILE.y
+	var y := 106.0 + rows_used * CLASS_TILE.y
 	for stat in ["size", "speed", "jump", "weight"]:
 		var r := UI.StatRow.new(stat.capitalize())
 		r.set_value(int(_stats[stat]), false)
@@ -708,7 +774,7 @@ func _build_play_page() -> void:
 		page.add_child(r)
 		page_items.append(r)
 		stat_rows[stat] = r
-		y += 44.0
+		y += 42.0
 	rules = UI.Selector.new("Rules", ["Ranked", "Casual"])
 	rules.set_index(1 if casual else 0, false)
 	rules.changed.connect(func(i):
@@ -719,7 +785,7 @@ func _build_play_page() -> void:
 	page.add_child(rules)
 	page_items.append(rules)
 	if editing_slug != "":
-		delete_button = _tool_word("Delete fighter", Vector2(0, y + 70), Vector2(220, 52), Art.CORAL.lerp(Art.CREAM, 0.4))
+		delete_button = _tool_word("Delete fighter", Vector2(GRID.size.x - 210, 0), Vector2(200, 44), Art.CORAL.lerp(Art.CREAM, 0.4))
 		delete_button.activated.connect(_delete)
 		page.add_child(delete_button)
 		page_items.append(delete_button)
@@ -732,37 +798,47 @@ func _build_tools() -> void:
 	bars = null
 	points_tag = null
 	var cat: Dictionary = CATEGORIES[category]
-	var y := 8.0
 	if cat.id == "play":
-		var how := UI.Tag.new("How it plays", Vector2(250, 40))
-		how.fill = UI.CREAM_DARK
-		how.font_size = 22
+		# How it plays: the bars and the points on a card beside the stats.
+		tools.position = Vector2(1040, GRID.position.y + 196)
+		var sheet := FitCard.new()
+		sheet.size = Vector2(222, 278)
+		tools.add_child(sheet)
+		var how := UI.Tag.new("How it plays", Vector2(180, 30))
+		how.printed = "label"
+		how.position = Vector2(4, 6)
 		tools.add_child(how)
-		bars = UI.Bars.new(Vector2(250, 230))
-		bars.position = Vector2(0, 50)
+		bars = UI.Bars.new(Vector2(204, 180))
+		bars.position = Vector2(8, 38)
 		tools.add_child(bars)
-		points_tag = UI.Tag.new("", Vector2(250, 46))
-		points_tag.font_size = 26
-		points_tag.position = Vector2(0, 290)
+		points_tag = UI.Tag.new("", Vector2(206, 44))
+		points_tag.font_size = 22
+		points_tag.position = Vector2(4, 222)
 		tools.add_child(points_tag)
 		_changed()
 		return
+	tools.position = TOOLS_RECT.position
+	var adjust: Array = cat.get("adjust", [])
+	if not cat.has("color") and adjust.is_empty():
+		return
+	var sheet := FitCard.new()
+	sheet.size = TOOLS_RECT.size
+	tools.add_child(sheet)
+	var y := 36.0
 	if cat.has("color"):
 		var slot: String = cat.color
 		var colours: Array = _palette(slot)
-		var label := UI.Tag.new("Outfit colour" if slot == "accent" else "Colour", Vector2(160, 36))
-		label.fill = UI.CREAM_DARK
-		label.font_size = 20
-		label.position = Vector2(0, y)
+		var label := UI.Tag.new("Outfit colour" if slot == "accent" else "Colour", Vector2(200, 28))
+		label.printed = "label"
+		label.position = Vector2(8, 6)
 		tools.add_child(label)
-		y += 42.0
 		for v in colours.size():
 			var sw := Swatch.new()
 			sw.colour = colours[v]
 			sw.seed = 500 + v
 			sw.cut = 6.0
-			sw.position = Vector2((v % 5) * 52, y + (v / 5) * 52)
-			sw.size = Vector2(54, 54)
+			sw.position = Vector2(14 + (v % 6) * 46, y + (v / 6) * 52)
+			sw.size = Vector2(48, 50)
 			var value := v
 			sw.activated.connect(func(): _set_slot(slot, value, str(Loadout.slot_names(slot)[value]).capitalize()))
 			sw.hovered.connect(func(): _focus(sw))
@@ -770,16 +846,28 @@ func _build_tools() -> void:
 			sw.set_meta("value", v)
 			tools.add_child(sw)
 			tool_items.append(sw)
-		y += ceilf(colours.size() / 5.0) * 52.0 + 14.0
-	var adjust: Array = cat.get("adjust", [])
-	for a in adjust:
+	# The fit: a pair of buttons for each adjustment, named, in two columns of three (right of the colours when there are colours).
+	var fit_x := 300.0 if cat.has("color") else 8.0
+	if not adjust.is_empty():
+		var fit_label := UI.Tag.new("Fit", Vector2(120, 28))
+		fit_label.printed = "label"
+		fit_label.position = Vector2(fit_x, 6)
+		tools.add_child(fit_label)
+	for i in adjust.size():
+		var a: String = adjust[i]
 		var t: Array = TOOLS[a]
+		var at := Vector2(fit_x + 6.0 + (i / 3) * 180.0, 34.0 + (i % 3) * 38.0)
+		var word := UI.Tag.new(str(t[2]).capitalize(), Vector2(84, 34))
+		word.printed = "label"
+		word.font_size = 15
+		word.position = at + Vector2(98, 0)
+		tools.add_child(word)
 		for k in 2:
 			var b := ToolButton.new()
 			b.icon = t[k]
 			b.seed = 600 + tool_items.size()
-			b.position = Vector2(k * 130, y)
-			b.size = Vector2(128, 62)
+			b.position = at + Vector2(k * 48, 0)
+			b.size = Vector2(52, 40)
 			b.tooltip_text = "%s %s" % [t[2].capitalize(), "-" if k == 0 else "+"]
 			var slot: String = a
 			var step := -1 if k == 0 else 1
@@ -787,9 +875,8 @@ func _build_tools() -> void:
 			b.hovered.connect(func(): _focus(b))
 			tools.add_child(b)
 			tool_items.append(b)
-		y += 66.0
 	if not adjust.is_empty() or cat.has("color"):
-		var reset := _tool_word("Reset", Vector2(0, maxf(y + 6.0, 560.0)), Vector2(258, 58), Art.CREAM)
+		var reset := _tool_word("Reset", Vector2(TOOLS_RECT.size.x - 112, 6), Vector2(100, 36), UI.D.SHEET.lightened(0.3))
 		reset.activated.connect(_reset_part)
 		tools.add_child(reset)
 		tool_items.append(reset)

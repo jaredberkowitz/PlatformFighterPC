@@ -234,3 +234,23 @@ idle on violet spotlit cards, beside fighter select's die-cut hero poses. Applie
 - The results' winner keeps its victory pose (now die-cut).
 
 Before/after: `hero_everywhere_before_after.png` (lobby, Online, results). The eleven UI tests pass.
+
+## The character creator as a cutting mat, the owner's pick of the creator mocks (2026-11-05)
+
+Three directions were mocked with a real fighter render and the real hat cards on the "Paper UI Mocks" canvas, row 4 (Cutting mat,
+Sticker book, Wardrobe); the owner picked **1, Cutting mat**. Before/after: `creator_mat_before_after.png` (eyes, hat, how it plays);
+captures in `creator_mat/` (also the shirt page).
+
+| Before | After | Where |
+| --- | --- | --- |
+| Fourteen unnamed icons in a rail down the left | Named tabs along the top in groups (BODY; FACE: eyes to mood; OUTFIT: hat to gear; PLAY), the open one gold; left and right on the tabs open categories, as Q and E do | `creator.gd` `RailTab.label`, `GROUPS`, `Header` |
+| The fighter cropped to head and shoulders in a violet spotlit card | The fighter whole on a green cutting mat (fine and strong rules), cut out of paper; still moving in on the head for the face and hats | `Mat`, `StageFrame`, `UI.die_cut` |
+| The name on a coral brush stroke | A cream name card at the mat's foot, "NAME · N TO TYPE", the name typed in ink | `Plate` |
+| The category on a gold banner, the change ("+1 height") under it | The category's name printed large with how many choices it has; the change in coral at the line's right | `Header` |
+| A 4-wide grid, an empty half below | A 6-wide grid (every category fits three rows; hats are 17) | `CELL`, `GRID_COLUMNS` |
+| Ten unnamed icon buttons in a column, colours above | One card under the choices: the colours, and the fit as named pairs (Height, Spacing, Size, Tilt, Stretch) in two columns, Reset at its corner; no card for parts without either | `_build_tools`, `FitCard` |
+| How it plays: classes in 5 columns, the bars in the right column | Classes in 7 columns, the stats' labels printed (kit `StatRow`), the bars and points on a card beside the stats (kit `Bars` scale their names' column to their width) | `_build_play_page`, `ui_kit.gd` |
+| Exit and Done big at the top right | On the top bar | `_ready` |
+
+Tests: creator_flow and online_fighters (which drive the creator) and the UI suite pass. Not checked: a real gamepad on the tab row,
+names longer than the card (the field scrolls).
