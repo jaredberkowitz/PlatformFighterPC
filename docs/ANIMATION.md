@@ -3541,3 +3541,16 @@ lies at the hit), `bodyft.py` (the torso's travel after the last hit), `windpops
   overcharged draw reaches it, so the round's measures are group 13's by construction. Tests pass; the look bench passes (worst 0.90).
 - **Left:** the gun stays whole in the hand (the reference's bursts); the blast's own effect is the props' and effects' side.
 - **Image:** `docs/screenshots/anim/r10_popgun_misfire.jpg` (r10e above now, close up then the match camera's size, frames 0-100).
+
+### Tried and reverted (round 10): the heavy's own weight from the clip's keys (the coordinator's stretch item; review 3, cause 4)
+
+- **The reference (the dinosaur's forward smash, the frame data site's clip):** reared back, then a diving headbutt, the whole body flat out
+  low over the ground for about 15 frames before it gets up: the mass committed behind the head. Ours (`body_headbutt_fwd`, only the
+  Clutch plays it: its forward smash, forward air and neutral special) leans the chest and head into the lunge over an upright pelvis.
+- **Tried:** the clip's keys: reared further back onto the back leg and sunk into the load (the spine -22, the hips -0.1), then a longer,
+  lower lunge (the hips -0.18, the front knee deeper, the back leg longer). Measured: the Clutch's wind-up against its reference 1.08 to
+  1.00 frames (the round's 1.15 to 1.13), every other timing the same. Filmed close up and at the match camera, both facings: a little
+  lower in the lunge close up, no visible difference at the match camera. Reverted.
+- **What it would take:** the dive itself, the pelvis tipped forward with the legs planted (the builder's pose specs have no pelvis tilt),
+  or a whole-body pitch into the lunge as the Greatsword's load has (`GREAT_LOAD_BACK`, `GREAT_LOAD_IN`; on the ground that pivots the body
+  on its feet, so the front foot would need planting). Either is its own group.
