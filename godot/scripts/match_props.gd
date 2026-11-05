@@ -78,6 +78,9 @@ const SHOTS := {
 const MOTION := {"cork": "along", "arrow": "along", "rocket": "along", "boomerang": "spin", "barrels": "spin", "flowerpot": "spin",
 	"pellet": "spin", "bowling_ball": "roll", "tree": "topple"}
 const SPIN := {"boomerang": 0.62, "barrels": 0.22, "flowerpot": 0.12, "pellet": 0.3}
+## A shot drawn bigger than its model as built: the Scamp's knocked-off rocket barrels at the size they are worn (held_props.gd
+## WORN_SCALE, the animator's grip pass of 2026-11-04: half as big again, so they show at the waist in the upright flight).
+const SHOT_SCALE := {"barrels": 1.5}
 ## Spinning shots that sit upright once they come to rest (`projectile_rest` above 0).
 const UPRIGHT_AT_REST := {"flowerpot": true}
 ## A shot at rest on the floor has its middle on the floor line (the sim lands a shot by its point; its hit is centred there), so the
@@ -227,7 +230,7 @@ static func update_shot(slot: Slot, name: String, from: Array, at: Vector3, vel:
 	var age := frame - slot.since
 	var step := maxi(frame - slot.last_frame, 0)
 	slot.last_frame = frame
-	var s := clampf(scale_pct / 100.0, 0.5, 1.6) if scale_pct > 0.0 else 1.0
+	var s := (clampf(scale_pct / 100.0, 0.5, 1.6) if scale_pct > 0.0 else 1.0) * float(SHOT_SCALE.get(name, 1.0))
 	if tracing():
 		print("PROP %d %s %.2f %.2f age %d" % [frame, name, at.x, at.y, age])
 	n.scale = Vector3.ONE * s
