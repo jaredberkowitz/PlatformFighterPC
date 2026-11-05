@@ -3461,3 +3461,31 @@ lies at the hit), `bodyft.py` (the torso's travel after the last hit), `windpops
   body stays leaned and how soon it is back up.
 - **Image:** `docs/screenshots/anim/r10_flinch_weight.jpg` (the Clutch, the Claws and the Needles off the same forward tilt, r10e above
   now, frames 6-22 of the stun).
+
+### Group 11 (round 10): a hand crossing the head's middle after a hit goes round behind the head (review 3, cause 9); the hidden hands measured and left
+
+- **The Clutch's up air (the end-lag pop judged in round 10):** two frames after the last hit the near fist swept across the head's
+  middle, and both the face guard's pushes (out of the head's middle, then clear of the drawing) turned over with it, so the drawn fist
+  jumped from one side of the face to the other in a frame (0.61 units).
+- **Fix (`fighter_view.gd` `_guard_cross_k`, `_guard_face`):** in a move's end lag, when a hand the guard was pushing crosses the head's
+  middle from one frame to the next, it goes round behind the head in depth (`GUARD_CROSS_BACK` behind its middle) for
+  `GUARD_CROSS_FRAMES` 2 sim frames while it is within `GUARD_CROSS_BAND` of the middle line and at the face's height (`GUARD_CROSS_DY`),
+  and the pushes give way to it; the arms-beside-the-head layer leaves such a hand be (`guard_cross`). The arm is solved whole from the
+  clip's own elbow (`_ik_arm`'s `pole_hint`). By the sim's frames from the frame before, as the beside layer's side is: dropped on a seek.
+  `PF_R10_OFF=gcross` leaves the guard as before. First tried wherever a hand was near the middle in an end lag: it took the up moves'
+  hands behind the head for many frames (hidden hands up 85, the hold's timing 1.51 to 1.57, over its limit): narrowed to the crossings.
+- **Measured (every class, both facings; group 10 in brackets):** end-lag pops of 0.5 or more 7 (8: the Clutch's up air gone; the
+  Gauntlets' up air 0.79 to 0.71, still the one of 0.7 or more: its fist is held at the face's side through the last hit and starts the end
+  lag already across it); attack timing 2.34 / 1.51 / 1.65 / 1.15 (the same, no move changed); eyes or mouth covered 7 (7); wind-up jumps 31
+  (31); limbs reading reversed on screen 2,789 (2,796); striking hands hidden 1,284 (1,278: the Gauntlets 4 and the Popgun 2 more, the fist
+  going round behind the head, which the measure's torso outline counts). Tests pass; the look bench passes (worst 0.90).
+- **The hidden striking hands (review 3, cause 9), measured and left:** split by the move's phase, 351 of the 1,278 hidden frames fell on
+  the hits, most of them the plunging down airs (the Wanderer 94, the Champion 54, the Nodachi 23), the Embers' neutral air (45) and other
+  kicks. Bringing the weapon hand out in front of the body's outline in depth (0.06 units in front of the torso's and legs' near surface,
+  giving way to the face's own depth rules) cut the count to 965 and the hits' share to 83, with the eyes and mouth still covered 7 frames;
+  but filmed before and after, close up and at the match camera, nothing changed: those hands sat at the body's surface (the plunge's fist
+  0.005 units inside the near leg, the knee and the fist the same colour), not behind it. No visible difference: reverted. The measure counts
+  a hand inside the body's thickness, so most of its frames are hands lying on the body. The Seer's 385 are real (its staff, put behind the
+  head to keep the face clear, takes the hand behind the body), a trade the face rule wins.
+- **Image:** `docs/screenshots/anim/r10_guard_cross.jpg` (the Clutch's up air, close up and at the match camera's size, before above now,
+  both facings).

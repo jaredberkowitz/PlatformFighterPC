@@ -163,3 +163,7 @@ not rising.
   lean to a light hit, slower to go and upright sooner; the quick ones (the Needles, the Dagger) are thrown back 1.35 times as far, faster.
   The Clutch's head lean off a forward tilt 0.16 to 0.10 units, the Needles' 0.17 to 0.22. Reversed limbs 2,804 to 2,796; the attack
   measures unchanged. Light hurt accuracy 4 (one clip still, scaled: own snap poses per weight would be next).
+- **Group 11 (cause 9, done as far as it shows):** the Clutch's up air's fist goes round behind the head as it crosses the face after the
+  hit (it jumped 0.6 units from one side of the face to the other); pops 8 to 7, timing and cover unchanged, hidden hands 1,278 to 1,284
+  (the fist behind the head counted). The hidden-hands count itself is mostly hands lying on the body's surface: bringing them out in
+  front changed the count by a quarter and nothing on screen, so it was reverted; the Seer's real ones are the face rule's trade.

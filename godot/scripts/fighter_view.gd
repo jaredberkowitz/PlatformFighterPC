@@ -1526,7 +1526,8 @@ static var r9_off := OS.get_environment("PF_R9_OFF").split(",")
 ## (`AIM_AHEAD`); "charge" keeps the charge's glow, tremble and squint on through the whole move (`_charging`); "settle" brings a grounded
 ## move home into its stance without the knees taking its weight (`_settle_dip`); "free" leaves a strike's free arm to its clip
 ## (`_free_arm_swing`); "sling" gives the Settler's back air the shared back air's clip and its strike on its first frame
-## (`release_frames`, AnimLibrary); "flinchw" gives every class the shared light flinch (`FLINCH_WEIGHT`).
+## (`release_frames`, AnimLibrary); "flinchw" gives every class the shared light flinch (`FLINCH_WEIGHT`); "gcross" pushes a hand
+## crossing the head's middle in an end lag out of the face as before (`_guard_cross_k`).
 static var r10_off := OS.get_environment("PF_R10_OFF").split(",")
 var handoff_clip := ""
 var handoff_state := ""
@@ -7460,6 +7461,7 @@ func _guard_face(facing: int, on_ground := true) -> void:
 	var r: float = COVER_FIST_R * fist + COVER_FEATURE_R
 	var hp := skeleton.global_transform * skeleton.get_bone_global_pose(head_bone)
 	var centre: Vector3 = hp.origin + hp.basis.y.normalized() * 0.3
+	guard_cross.clear()
 	for side in ["L", "R"]:
 		var ih := skeleton.find_bone("hand." + side)
 		var mine: bool = side == _weapon_side(facing)
@@ -7469,12 +7471,30 @@ func _guard_face(facing: int, on_ground := true) -> void:
 			continue
 		var h: Transform3D = skeleton.global_transform * skeleton.get_bone_global_pose(ih)
 		var wrist: Vector3 = h.origin
+		# (Round 10, review 3's cause 9: a hand crossing the head's middle in a move's end lag goes round behind the head, `GUARD_CROSS_*`,
+		# and the pushes below give way to it.)
+		var cross_k := _guard_cross_k(side, wrist, centre)
+		guard_cross[side] = cross_k
+		if cross_k > 0.0:
+			var ilow := skeleton.find_bone("armL." + side)
+			var iup := skeleton.find_bone("armU." + side)
+			var c_hand := skeleton.get_bone_global_pose(ih).origin
+			var c_sh := skeleton.get_bone_global_pose(iup).origin
+			var c_el := skeleton.get_bone_global_pose(ilow).origin
+			var line := (c_hand - c_sh).normalized()
+			var pole := (c_el - c_sh) - line * (c_el - c_sh).dot(line)
+			var behind := Vector3(wrist.x, wrist.y, lerpf(wrist.z, centre.z - GUARD_CROSS_BACK, cross_k))
+			_ik_arm(side, mine, world_to_frame * behind, 1.0, pole if pole.length() > 0.02 else Vector3.ZERO)
+			if not arms_held.has(side):
+				arms_held.append(side)
+			h = skeleton.global_transform * skeleton.get_bone_global_pose(ih)
+			wrist = h.origin
 		# First out of the head's middle on screen, as round 2's guard did, but keeping the hand's depth (round 9: sent half way back toward the head as well, the hand went behind it, the arm with it).
 		var k_mid := 0.0
 		var shift := Vector3.ZERO
 		if wrist.z > centre.z:
 			var d_mid := Vector2(wrist.x - centre.x, wrist.y - centre.y)
-			k_mid = 1.0 - smoothstep(0.8, 1.2, d_mid.length() / FACE_GUARD_MID_R)
+			k_mid = (1.0 - smoothstep(0.8, 1.2, d_mid.length() / FACE_GUARD_MID_R)) * (1.0 - cross_k)
 			if k_mid > 0.0:
 				var out_mid := d_mid.normalized() if d_mid.length() > 0.01 else Vector2(float(facing), 1.0).normalized()
 				var e_mid := Vector2(centre.x, centre.y) + out_mid * FACE_GUARD_MID_R * 1.05
@@ -7493,7 +7513,7 @@ func _guard_face(facing: int, on_ground := true) -> void:
 						near = d
 						p = pt
 						seen = q
-		var k := 1.0 - smoothstep(FACE_GUARD_IN, FACE_GUARD_OUT, near)
+		var k := (1.0 - smoothstep(FACE_GUARD_IN, FACE_GUARD_OUT, near)) * (1.0 - cross_k)
 		var target: Vector3 = wrist + shift
 		var amount := k_mid
 		var out := Vector2(float(facing), -0.5).normalized()
@@ -7510,6 +7530,7 @@ func _guard_face(facing: int, on_ground := true) -> void:
 			amount = maxf(k_mid, k)
 		if amount <= 0.0:
 			continue
+		_guard_note_side(side, wrist, centre)
 		var guard: Vector3 = world_to_frame * target
 		var at: Vector3 = world_to_frame * wrist
 		if arms_held.has(side):
@@ -7533,6 +7554,53 @@ func _guard_face(facing: int, on_ground := true) -> void:
 				_ik_arm(side, mine, at.lerp(again, k), 1.0)
 			else:
 				_ik_arm(side, mine, again, k)
+
+
+## (Round 10, review 3's cause 9) In a move's end lag (`guard_end_lag`), a hand the face guard was pushing out of the face that crosses
+## the head's middle on screen from one frame to the next goes round behind the head in depth (GUARD_CROSS_BACK behind its middle) for
+## GUARD_CROSS_FRAMES sim frames, while it is within GUARD_CROSS_BAND of the middle line, rather than being pushed out to one side and then
+## the other: both the guard's pushes turn over as a hand passes the middle, and the Clutch's up air's fist jumped 0.6 units across the
+## face in a frame. Only on such a crossing: acting wherever a hand was near the middle in an end lag, it took the up moves' hands behind
+## the head for many frames (hidden hands up 85, the hold's timing over its limit). `PF_R10_OFF=gcross` leaves it.
+const GUARD_CROSS_BAND := 0.25
+const GUARD_CROSS_BACK := 0.25
+const GUARD_CROSS_FRAMES := 2.0
+## (Within this much of the head's middle up and down, as shares of FACE_GUARD_MID_R: across the face, not the chin, where behind the
+## head was behind the shoulders too, the Gauntlets' up air's fist.)
+const GUARD_CROSS_DY := 0.9
+var guard_end_lag := false
+## How far each hand is through going round behind the head this frame (0 not), so the arms beside the head leave it be: they took the
+## hand behind the head out to one side, and let it go on the other a few frames later.
+var guard_cross := {}
+## Per hand: the side of the head's middle it was on when the guard last pushed it, the sim frame of that, and the crossing's frames left.
+var guard_side_was := {}
+var guard_side_frame := {}
+var guard_cross_left := {}
+
+
+func _guard_cross_k(side: String, wrist: Vector3, centre: Vector3) -> float:
+	if not guard_end_lag or r10_off.has("gcross") or springs.jumped:
+		guard_cross_left.erase(side)
+		guard_side_was.erase(side)
+		return 0.0
+	var off := wrist.x - centre.x
+	var now := signf(off)
+	var dy := absf(wrist.y - centre.y) / FACE_GUARD_MID_R
+	var near := (1.0 - smoothstep(0.0, GUARD_CROSS_BAND, absf(off))) * (1.0 - smoothstep(GUARD_CROSS_DY * 0.7, GUARD_CROSS_DY, dy))
+	var was_frame: int = guard_side_frame.get(side, -10)
+	var fresh: bool = springs.frame - was_frame >= 0 and springs.frame - was_frame <= 2
+	if fresh and guard_side_was.has(side) and float(guard_side_was[side]) != now and near > 0.0 and wrist.z > centre.z - GUARD_CROSS_BACK:
+		guard_cross_left[side] = GUARD_CROSS_FRAMES
+	var left: float = guard_cross_left.get(side, 0.0)
+	if left > 0.0:
+		guard_cross_left[side] = maxf(0.0, left - float(springs.new_frames))
+	return near * clampf(left / GUARD_CROSS_FRAMES, 0.0, 1.0)
+
+
+## The guard pushed this hand this frame (`_guard_face`): remember its side of the head's middle for `_guard_cross_k`.
+func _guard_note_side(side: String, wrist: Vector3, centre: Vector3) -> void:
+	guard_side_was[side] = signf(wrist.x - centre.x)
+	guard_side_frame[side] = springs.frame
 
 
 func _guard_weapon_hand(side: String, ih: int, centre: Vector3, world_to_frame: Transform3D, facing: int, on_ground: bool) -> void:
@@ -7647,6 +7715,10 @@ func _arms_beside_head(facing: int) -> void:
 			if k <= 0.0:
 				continue
 		var mine: bool = side == _weapon_side(facing)
+		# (Round 10: nor any hand going round behind the head in an end lag, `_guard_cross_k`.)
+		k *= 1.0 - float(guard_cross.get(side, 0.0))
+		if k <= 0.0:
+			continue
 		# (Round 9, the end-lag pops: not a weapon hand going round behind the head, `front_cross`: taken out beside the head as it passed
 		# behind its middle, it jumped to the back of the head at once.)
 		if mine and front_cross > 0.0 and not _r9p("front"):
@@ -9240,7 +9312,10 @@ func _apply_combat(s: Dictionary, delta: float) -> void:
 		# (Round 9: not lying down. Face down, the arms flung out past the head along the floor, the guard pulled the weapon hand off a face
 		# turned to the floor and folded its elbow backward, 60 degrees, for the whole knockdown (the most reversed elbow of all, 242 frames
 		# over the galleries); face up, the near arm lies along the body.)
+		guard_cross.clear()
 		if state != "Knockdown" or r9_off.has("react"):
+			var mt_g: PackedInt32Array = s.move_timing
+			guard_end_lag = state == "Attack" and mt_g.size() >= 3 and mt_g[2] > 0 and int(s.state_frame) > mt_g[2]
 			_guard_face(int(s.facing), int(s.platform) >= 0)
 		_ltrace(s, "guard")
 		if not r8_off.has("beside") and not turning_over and not two:
