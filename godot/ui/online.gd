@@ -6,6 +6,11 @@ extends Control
 ## Connect; the game finds a way through both routers (UDP hole punching, `transport::punch`) and the lower code hosts. Direct: the
 ## host opens a UDP port and the joiner types the host's address. Relay: both type a relay server's address (`pftool net-relay`) and a
 ## room number.
+##
+## Laid out for Code (the default) as code cards (the owner's pick of the Online mocks, 2026-11-05): the two codes are the screen, a
+## numbered card for this player's code (1, with Copy) and one for the friend's (2, with Paste), then Connect (3); the match settings on
+## a sheet at the right with the news and the focused row's note under it. A duel's fighter and stage are chosen in the lobby, so no
+## fighter shows here. Direct and Relay keep the form at the left and the fighter (which a group match still brings) at the right.
 
 const Music := preload("res://scripts/music.gd")
 const UI := preload("res://ui/ui_kit.gd")
@@ -56,6 +61,11 @@ var bubble: Control
 var status: Control
 var connect_button: Control
 var column: VBoxContainer
+## The code cards (Code), the fighter's card (the other ways), Back and the keys: placed by `_layout_mode`.
+var code_cards: Control
+var stage_card: Control
+var back_button: Control
+var keys_bar: Control
 var settings := {}
 ## Playing by code: the socket and its state (bridge `NetCode`), the code shown, and the last state seen.
 var netcode: RefCounted = null
@@ -82,10 +92,14 @@ func _ready() -> void:
 	add_child(UI.Sheet.new(column))
 	add_child(column)
 
-	_add_selector("link", "Connect", ["Code", "Direct", "Relay"])
+	# The code rows first (so Code focuses this player's code first), on their cards; the rest on the sheet.
+	code_cards = CodeCards.new()
+	add_child(code_cards)
 	_add_code_row()
 	_add_edit("friend", "Friend", "paste your friend's code")
 	_add_paste_button()
+	_card_rows()
+	_add_selector("link", "Connect", ["Code", "Direct", "Relay"])
 	_add_selector("role", "Role", ["Host", "Join", "Watch", "Quick match"])
 	_add_selector("mode", "Mode", ["Duel (2)", "Group (3-4)"])
 	_add_edit("address", "Address", "ip:port")
@@ -105,6 +119,7 @@ func _ready() -> void:
 	var stage := UI.Stage.new(Vector2(560, 470), 0.25, 47)
 	stage.position = Vector2(690, 150)
 	add_child(stage)
+	stage_card = stage
 	preview = Preview.new(Vector2i(530, 438), false)
 	stage.add_fighter(preview)
 	bubble = UI.Bubble.new(Vector2(600, 124))
@@ -124,10 +139,12 @@ func _ready() -> void:
 	var back := UI.Btn.new("Back", Vector2(190, 64))
 	back.font_size = 30
 	back.position = Vector2(750, 638)
+	back_button = back
 	var keys := UI.KeyBar.new([["W S", "Choose"], ["A D", "Change"], ["Enter", "Go"], ["Esc", "Back"]])
 	keys.position = Vector2(40, 672)
 	keys.size = Vector2(620, 30)
 	add_child(keys)
+	keys_bar = keys
 	back.activated.connect(_back)
 	add_child(back)
 
@@ -139,6 +156,44 @@ func _ready() -> void:
 	UI.reveal(self)
 	Music.of(self).play("menu")
 	Shot.attach(self)
+
+
+class CodeCards extends Control:
+	## Code's own layer: the heading and its line, the two numbered cards the code rows sit on, the number on Connect, and the settings'
+	## caption.
+	const CARD1 := Rect2(44, 176, 610, 150)
+	const CARD2 := Rect2(44, 346, 610, 150)
+	const CONNECT := Rect2(112, 524, 360, 72)
+	const D := preload("res://ui/ui_draw.gd")
+	const Art := preload("res://ui/menu_art.gd")
+
+	func _init() -> void:
+		set_anchors_preset(Control.PRESET_FULL_RECT)
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	func _draw() -> void:
+		Art.title(self, "PLAY A FRIEND", Vector2(44, 128), 48, Art.INK, 0.0)
+		draw_string(D.font(), Vector2(46, 158), "Swap codes over any chat, then both press Connect. You choose fighters and the stage together once you are in.",
+			HORIZONTAL_ALIGNMENT_LEFT, 1180, 19, Color(Art.INK, 0.7))
+		_card(CARD1, -0.6, Art.CORAL, "1", "YOUR CODE", "Send it to your friend")
+		_card(CARD2, 0.5, Art.BLUE, "2", "YOUR FRIEND'S CODE", "Ctrl+V, or Paste")
+		var tab := Rect2(Vector2(44, CONNECT.position.y), Vector2(60, CONNECT.size.y))
+		Art.card(self, tab, Art.CORAL, 87, 8.0)
+		Art.title_centered(self, "3", tab, 44, Color.WHITE, 0.0)
+		draw_string(D.font(), Vector2(CONNECT.end.x + 22, CONNECT.position.y + 44), "The first code hosts.", HORIZONTAL_ALIGNMENT_LEFT,
+			-1, 18, Color(Art.INK, 0.7))
+		draw_string(D.label_font(), Vector2(706, 194), "MATCH SETTINGS  \u00b7  THE HOST'S ARE USED", HORIZONTAL_ALIGNMENT_LEFT, -1, 15, D.LABEL)
+
+	func _card(r: Rect2, turn: float, colour: Color, number: String, caption: String, hint: String) -> void:
+		draw_set_transform(r.get_center(), deg_to_rad(turn), Vector2.ONE)
+		var o := -r.size * 0.5
+		Art.card(self, Rect2(o, r.size), D.SHEET, 61 + number.hash() % 7, 12.0)
+		var tab := Rect2(o, Vector2(64, r.size.y))
+		draw_rect(tab, colour)
+		Art.title_centered(self, number, tab, 46, Color.WHITE, 0.0)
+		draw_string(D.label_font(), o + Vector2(90, 32), caption, HORIZONTAL_ALIGNMENT_LEFT, -1, 15, D.LABEL)
+		draw_string(D.font(), o + Vector2(90, r.size.y - 18), hint, HORIZONTAL_ALIGNMENT_LEFT, -1, 17, Color(Art.INK, 0.65))
+		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 
 # ---- Rows -------------------------------------------------------------------------------------------------------------------
@@ -275,7 +330,58 @@ func _row_shown(id: String) -> bool:
 	return true
 
 
+## The code rows moved from the form onto their cards: the codes large, each row's own label left off (the card says it).
+func _card_rows() -> void:
+	for r in rows:
+		if r.id != "mycode" and r.id != "friend":
+			continue
+		var row: Control = r.node
+		row.reparent(code_cards, false)
+		row.position = (CodeCards.CARD1 if r.id == "mycode" else CodeCards.CARD2).position + Vector2(84, 44)
+		r.tag.visible = false
+	code_label.custom_minimum_size = Vector2(394, 56)
+	code_label.font_size = 40
+	if UI.Art.paper_style() == 1:
+		code_label.printed = "value"
+	var edit: LineEdit = edits["friend"]
+	edit.custom_minimum_size = Vector2(394, 52)
+	edit.add_theme_font_size_override("font_size", 32)
+	# (Sized to their own contents: in the form they had taken the column's width, and their focus strip ran off the card.)
+	for r in rows:
+		if r.id == "mycode" or r.id == "friend":
+			(r.node as Control).reset_size()
+
+
+## Code's layout (the cards, the sheet at the right) or the other ways' (the form at the left, the fighter at the right).
+func _layout_mode() -> void:
+	var code := _code()
+	code_cards.visible = code
+	stage_card.visible = not code
+	if code:
+		column.position = Vector2(730, 214)
+		_place(bubble, Vector2(704, 512), Vector2(536, 116))
+		_place(status, Vector2(704, 458), Vector2(536, 38))
+		_place(connect_button, CodeCards.CONNECT.position, CodeCards.CONNECT.size)
+		_place(back_button, Vector2(44, 616), Vector2(170, 56))
+		_place(keys_bar, Vector2(704, 672), Vector2(536, 30))
+	else:
+		column.position = Vector2(52, 110)
+		_place(bubble, Vector2(660, 16), Vector2(600, 124))
+		_place(status, Vector2(40, 600), Vector2(620, 38))
+		_place(connect_button, Vector2(960, 638), Vector2(300, 64))
+		_place(back_button, Vector2(750, 638), Vector2(190, 64))
+		_place(keys_bar, Vector2(40, 672), Vector2(620, 30))
+
+
+func _place(c: Control, at: Vector2, sz: Vector2) -> void:
+	c.position = at
+	c.custom_minimum_size = sz
+	c.size = sz
+	c.queue_redraw()
+
+
 func _update_rows() -> void:
+	_layout_mode()
 	for r in rows:
 		r.node.visible = _row_shown(r.id)
 	if edits.has("address"):
