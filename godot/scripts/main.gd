@@ -1592,9 +1592,12 @@ func _save_replay() -> String:
 func _show_results(winner: int) -> void:
 	var saved := _save_replay() if not spectate_mode else ""
 	var cards := []
+	var entries: Array = Roster.session.get("entries", [])
 	for i in PLAYERS:
 		var st: Dictionary = stats[i] if i < stats.size() else {}
-		cards.append({"name": names[i], "stocks": snaps[i].get("stocks", 0), "percent": snaps[i].get("percent", 0.0), "winner": i == winner,
+		# (The fighter's own name for the results' plate and sheet; the player's name when the match has no roster entry.)
+		var fighter: String = str(entries[i].get("name", names[i])) if i < entries.size() else names[i]
+		cards.append({"name": names[i], "fighter": fighter, "stocks": snaps[i].get("stocks", 0), "percent": snaps[i].get("percent", 0.0), "winner": i == winner,
 			"kos": st.get("kos", 0), "falls": st.get("falls", 0), "dealt": st.get("dealt", 0.0), "taken": st.get("taken", 0.0),
 			"look": views[i].loadout, "class": sim.fighter_class(i)})
 	var heading := "DRAW!" if winner < 0 else "%s wins!" % names[winner]

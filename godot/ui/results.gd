@@ -1,8 +1,10 @@
 extends CanvasLayer
-## The results screen shown when a match ends, in the menus' painted style over the softened stage: the winner on a painted stage of its
-## own, doing its victory pose, the heading on a brush stroke, a card for every fighter in finishing order
-## with how their match went (knock-outs, falls, damage dealt and taken, stocks left), and what to do next.
-## Left and right choose, Enter (or J, Space) picks, the mouse works too. It reports the choice through `chosen`.
+## The results screen shown when a match ends, over the softened stage. Laid out as a podium (the owner's pick of the results mocks,
+## 2026-11-05, "Podium"; docs/art/ui/UI_ANALYSIS.md): the winner tall at the left in its player's colour, cut out of paper and doing its
+## victory pose, its fighter's name on a plate and a gold WINNER! card; at the right the heading large, one score sheet with a column
+## for every fighter in finishing order (knock-outs, falls, damage dealt and taken, stocks left), the runner-up's snapshot at the
+## sheet's corner in a one-on-one, and what to do next under it. Left and right choose, Enter (or J, Space) picks, the mouse works too.
+## It reports the choice through `chosen`.
 
 const UI := preload("res://ui/ui_kit.gd")
 const D := preload("res://ui/ui_draw.gd")
@@ -13,6 +15,21 @@ const Roster := preload("res://scripts/roster.gd")
 signal chosen(action: String)
 
 const PLAYER_COLORS := [Color(0.92, 0.36, 0.36), Color(0.36, 0.52, 0.95), Color(0.95, 0.78, 0.3), Color(0.4, 0.8, 0.5)]
+## The winner's panel, the score sheet, the runner-up's snapshot and the row of choices.
+const PANEL := Rect2(28, 86, 450, 540)
+const SHEET := Rect2(520, 184, 730, 330)
+const SNAP := Rect2(1104, 384, 150, 150)
+const CHOICES_AT := Vector2(520, 586)
+## The sheet's rows: what each says, and the card's key.
+const ROWS := [["KOs", "kos"], ["FALLS", "falls"], ["DAMAGE DEALT", "dealt"], ["DAMAGE TAKEN", "taken"], ["STOCKS LEFT", "stocks"]]
+## The panel camera (as fighter select's face-off: the fighter fills the panel's height, its feet on the floor of the light).
+const HERO_CAM := Vector3(0, 1.3, 7.4)
+const HERO_AIM_Y := 1.2
+## How far the winner turns toward the sheet, and the runner-up toward the winner.
+const WINNER_TURN := 0.45
+const RUNNER_UP_TURN := -0.5
+## How far the runner-up's snapshot is dimmed (it lost; the winner's panel is the bright one).
+const RUNNER_UP_DIM := Color(0.86, 0.86, 0.9)
 
 var root: Control
 var buttons: Array = []
@@ -21,6 +38,7 @@ var index := 0
 var card_data: Array = []
 var title := ""
 var board: Control
+var over: Control
 var note := ""
 var winner := -1
 var order: Array = []   # player indices, first place first
@@ -30,8 +48,8 @@ var t := 0.0
 
 
 class Board extends Control:
-	## The results' painted layer: a soft veil over the (blurred) stage, the heading on an ink brush stroke with the winner's colour under
-	## it, a card for each fighter in finishing order, and the note. Drawn when something changes, not every frame.
+	## Under everything: a paper veil over the blurred stage, the winner's panel (a cream mount and its sheet of colour come from the
+	## spotlight child), the heading, the score sheet and the note. Drawn when something changes, not every frame.
 	var owner_screen
 
 	func _init() -> void:
@@ -45,72 +63,127 @@ class Board extends Control:
 		var r = owner_screen
 		var w := size.x
 		var h := size.y
-		var tint: Color = PLAYER_COLORS[r.winner % 4] if r.winner >= 0 else Color(0.55, 0.55, 0.65)
-		# A light veil, deeper toward the top behind the heading, so the stage behind stays readable as a place without competing (a flat
-		# 0.42 ink read as muddy: the owner's results-screen plan, 2026-10-17).
-		var veil_top := Color(Art.INK, 0.46)
-		var veil_low := Color(Art.INK, 0.2)
-		draw_polygon(PackedVector2Array([Vector2.ZERO, Vector2(w, 0), Vector2(w, h), Vector2(0, h)]), PackedColorArray([veil_top, veil_top, veil_low, veil_low]))
+		# A light paper veil, so the stage behind stays a place without competing.
+		var top := Color(D.SHEET, 0.8)
+		var low := Color(D.SHEET.darkened(0.06), 0.9)
+		draw_polygon(PackedVector2Array([Vector2.ZERO, Vector2(w, 0), Vector2(w, h), Vector2(0, h)]), PackedColorArray([top, top, low, low]))
 		var t: float = r.t
-		var land := _ease(clampf(t / 0.3, 0.0, 1.0))
-		# The heading: the winner's colour as a brush stroke, the title on ink over it.
-		var slide := Vector2((1.0 - land) * -60.0, 0.0)
-		Art.brush_band(self, Rect2(Vector2(46, 86) + slide, Vector2(560, 30)), Color(tint, land), 81, 14.0, false, 0.8)
-		var banner := Rect2(Vector2(24, 28) + slide, Vector2(600, 72))
-		Art.brush_band(self, banner, Art.INK, 83, 22.0, true, 1.0)
-		Art.title_centered(self, r.title.to_upper(), banner.grow_individual(-12, 0, -26, 0), UI.TYPE_TITLE, Color.WHITE, 0.0)
-		# A card for each fighter, in finishing order.
-		var f := D.font()
+		var land := _ease(clampf(t / 0.35, 0.0, 1.0))
+		# The winner's panel: a cream mount on its paper shadow (its colour is the spotlight over it).
+		var mount := PANEL.grow(8.0)
+		var pts := PackedVector2Array([mount.position, Vector2(mount.end.x, mount.position.y), mount.end, Vector2(mount.position.x, mount.end.y)])
+		Art._paper_shadow(self, pts, 1.0, 4.0)
+		draw_colored_polygon(pts, Art.PAPER_EDGE)
+		# The heading, large, with a gold shadow; it slides in.
+		var slide := (1.0 - land) * 40.0
+		var at := Vector2(SHEET.position.x + slide, 152)
+		var size_px := 72
+		var f := D.display_font()
+		while size_px > 40 and f.get_string_size(r.title.to_upper(), HORIZONTAL_ALIGNMENT_LEFT, -1, size_px).x > SHEET.size.x:
+			size_px -= 4
+		Art.title(self, r.title.to_upper(), at + Vector2(3, 4), size_px, Color(Art.SUN, 0.95 * land), 0.0)
+		Art.title(self, r.title.to_upper(), at, size_px, Color(Art.INK, land), 0.0)
+		_draw_sheet(r, land)
+		if r.note != "":
+			var band := Rect2(Vector2(SHEET.position.x, SHEET.end.y + 16.0), Vector2(560, 36))
+			draw_rect(band, D.PAPER_INDIGO)
+			D.draw_text_centered(self, r.note, band, UI.TYPE_BODY, Art.SUN)
+
+	## One cardstock sheet: THE MATCH, a chip per fighter in its player's colour (finishing order, left to right), then a line for each
+	## row with every fighter's number; the winner's numbers in ink, the others quieter.
+	func _draw_sheet(r, land: float) -> void:
+		draw_set_transform(SHEET.get_center(), deg_to_rad(0.4), Vector2.ONE)
+		var o := -SHEET.size * 0.5
+		Art.card(self, Rect2(o, SHEET.size), D.SHEET, 57, 16.0)
+		var lf := D.label_font()
 		var big := D.display_font()
-		var count: int = r.order.size()
-		var top := 40.0
-		var card_h := minf(120.0, (h - 230.0) / maxf(1.0, count))
-		for place in count:
+		draw_string(lf, o + Vector2(28, 38), "THE MATCH", HORIZONTAL_ALIGNMENT_LEFT, -1, UI.TYPE_CAPTION, D.LABEL)
+		var n: int = r.order.size()
+		var label_w := 290.0
+		var col_w := minf(170.0, (SHEET.size.x - label_w - 24.0) / maxf(1.0, n))
+		var x0 := o.x + label_w
+		for place in n:
 			var i: int = r.order[place]
 			var c: Dictionary = r.card_data[i]
-			var first: bool = c.winner
-			# Each card slides in from the right a beat after the one above it (settled within about a second).
-			var k := _ease(clampf((t - 0.2 - 0.09 * place) / 0.3, 0.0, 1.0))
-			if k <= 0.0:
-				continue
-			var rect := Rect2(Vector2(w * 0.5 + 10.0 - place * 8.0 + (1.0 - k) * 50.0, top + place * (card_h + 14.0)), Vector2(w * 0.5 - 40.0, card_h - 6.0))
-			# (Cards with a body, as the main menu's tiles: the winner's deeper, and rimmed in gold.)
-			Art.card(self, rect, Art.CREAM if first else Art.CREAM.darkened(0.12), 90 + i, -1.0, -1.0,
-				Art.SUN if first else Color(0, 0, 0, 0), 0.0, Color(0, 0, 0, 0), 7.0 if first else 4.0)
-			# The place on a brush tab in the player's colour.
-			var tab := Rect2(rect.position + Vector2(-14, 10), Vector2(92, rect.size.y - 30))
-			Art.brush_band(self, tab, PLAYER_COLORS[i % 4], 100 + i, 10.0, true, 0.4)
-			Art.title_centered(self, str(place + 1), tab.grow_individual(0, 0, -10, 0), int(card_h * 0.55), Color.WHITE, 0.12)
-			# The player, then their fighter's class in the quieter caption (not "P1 PLAYER 1": the name already says it).
-			var who := str(c.name).left(18).to_upper()
-			draw_string(big, rect.position + Vector2(100, 38), who, HORIZONTAL_ALIGNMENT_LEFT, -1, UI.TYPE_LABEL, Art.INK)
-			var cls_name: String = Roster.CLASS_NAMES[clampi(int(c.get("class", 0)), 0, Roster.CLASS_NAMES.size() - 1)]
-			var who_w := big.get_string_size(who, HORIZONTAL_ALIGNMENT_LEFT, -1, UI.TYPE_LABEL).x
-			draw_string(D.label_font(), rect.position + Vector2(112 + who_w, 37), cls_name.to_upper(), HORIZONTAL_ALIGNMENT_LEFT, -1, UI.TYPE_CAPTION, D.LABEL)
-			# The winner says so in words as well as in gold (not by colour alone).
-			if first:
-				var ribbon := Rect2(rect.end.x - 150.0, rect.position.y + 10.0, 124.0, 30.0)
-				draw_rect(ribbon, Art.SUN)
-				D.draw_text_centered(self, "WINNER", ribbon, UI.TYPE_CAPTION, Art.INK)
-			var stats := [["KOs", str(c.get("kos", 0))], ["Falls", str(c.get("falls", 0))], ["Dealt", "%d%%" % int(c.get("dealt", 0.0))],
-				["Taken", "%d%%" % int(c.get("taken", 0.0))], ["Stocks", str(c.stocks)]]
-			var sx := rect.position.x + 100.0
-			for st in stats:
-				draw_string(D.label_font(), Vector2(sx, rect.position.y + card_h - 42.0), str(st[0]).to_upper().replace("KOS", "KOs"), HORIZONTAL_ALIGNMENT_LEFT, -1, UI.TYPE_CAPTION, D.LABEL)
-				draw_string(big, Vector2(sx, rect.position.y + card_h - 16.0), st[1], HORIZONTAL_ALIGNMENT_LEFT, -1, UI.TYPE_LABEL, Art.INK)
-				sx += (rect.size.x - 124.0) / stats.size()
-		if r.note != "":
-			var band := Rect2(Vector2(w * 0.47, h - 152), Vector2(w * 0.5, 38))
-			draw_rect(band, Color(Art.INK, 0.78))
-			D.draw_text_centered(self, r.note, band, UI.TYPE_BODY, Art.SUN)
+			var chip := Rect2(Vector2(x0 + place * col_w + 6.0, o.y + 14.0), Vector2(col_w - 12.0, 40.0))
+			draw_rect(chip, PLAYER_COLORS[i % 4].darkened(0.12))
+			var words := "P%d · %s" % [i + 1, str(c.get("fighter", c.name)).to_upper()]
+			var fs := 22
+			while fs > 13 and big.get_string_size(words, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x > chip.size.x - 12.0:
+				fs -= 1
+			D.draw_text_centered(self, words, chip, fs, Color.WHITE)
+		var y := o.y + 72.0
+		for row in ROWS:
+			draw_line(Vector2(o.x + 24.0, y - 6.0), Vector2(o.x + SHEET.size.x - 24.0, y - 6.0), Color(D.LABEL, 0.25), 1.0)
+			draw_string(lf, Vector2(o.x + 28.0, y + 24.0), row[0], HORIZONTAL_ALIGNMENT_LEFT, -1, UI.TYPE_CAPTION, D.LABEL)
+			for place in n:
+				var i: int = r.order[place]
+				var c: Dictionary = r.card_data[i]
+				var v = c.get(row[1], 0)
+				var text := ("%d%%" % int(v)) if row[1] in ["dealt", "taken"] else str(int(v))
+				var tw := big.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 30).x
+				var ink: Color = Art.INK if c.winner else Color(D.LABEL.darkened(0.2), 1.0)
+				draw_string(big, Vector2(x0 + place * col_w + (col_w - tw) * 0.5, y + 30.0), text, HORIZONTAL_ALIGNMENT_LEFT, -1, 30,
+					Color(ink, land))
+			y += 50.0
+		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
+
+class Over extends Control:
+	## Above the fighters: the winner's tab, its name plate and the WINNER! card (DRAW for a draw), each laid a little turned.
+	var owner_screen
+
+	func _init() -> void:
+		set_anchors_preset(Control.PRESET_FULL_RECT)
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	func _draw() -> void:
+		var r = owner_screen
+		if r.order.is_empty():
+			return
+		var i: int = r.order[0]
+		var c: Dictionary = r.card_data[i]
+		var colour: Color = PLAYER_COLORS[i % 4]
+		var tab := Rect2(PANEL.position + Vector2(-6, -20), Vector2(96, 48))
+		draw_set_transform(tab.get_center(), deg_to_rad(-3.0), Vector2.ONE)
+		Art.card(self, Rect2(-tab.size * 0.5, tab.size), colour, 51 + i, 8.0)
+		Art.title_centered(self, "P%d" % (i + 1), Rect2(-tab.size * 0.5, tab.size), 32, Color.WHITE, 0.0)
+		var plate := Rect2(Vector2(PANEL.position.x + 16, PANEL.end.y - 70), Vector2(330, 82))
+		draw_set_transform(plate.get_center(), deg_to_rad(-1.2), Vector2.ONE)
+		var local := Rect2(-plate.size * 0.5, plate.size)
+		Art.card(self, local, D.SHEET.lightened(0.3), 31 + i, 10.0)
+		var cls := int(c.get("class", -1))
+		if cls >= 0 and cls < Roster.CLASS_NAMES.size():
+			draw_string(D.label_font(), local.position + Vector2(20, 22), Roster.CLASS_NAMES[cls].to_upper(), HORIZONTAL_ALIGNMENT_LEFT, -1,
+				UI.TYPE_CAPTION, colour.darkened(0.35))
+		var shown := str(c.get("fighter", c.name)).to_upper()
+		var fs := 52
+		var nf := D.display_font()
+		while fs > 24 and nf.get_string_size(shown, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x > local.size.x - 36.0:
+			fs -= 2
+		draw_string(nf, Vector2(local.position.x + 18, local.end.y - 14), shown, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Art.INK)
+		var badge := Rect2(Vector2(PANEL.end.x - 186, PANEL.end.y - 112), Vector2(176, 54))
+		draw_set_transform(badge.get_center(), deg_to_rad(4.0), Vector2.ONE)
+		Art.card(self, Rect2(-badge.size * 0.5, badge.size), Art.SUN, 71 + i, 8.0)
+		Art.title_centered(self, "WINNER!" if c.winner else "DRAW", Rect2(-badge.size * 0.5, badge.size), 36, Art.INK, 0.0)
+		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
+
+class Snap extends Control:
+	## The runner-up's snapshot: a cream mount, its sheet of colour, a little turned (the fighter is a child, clipped to it).
+	var colour := Color.WHITE
+
+	func _draw() -> void:
+		draw_rect(Rect2(Vector2(-6, -6), size + Vector2(12, 12)), Art.PAPER_EDGE)
+		draw_rect(Rect2(Vector2.ZERO, size), colour)
 
 
 func _init() -> void:
 	layer = 10
 
 
-## `cards`: per player {name, stocks, percent, winner, and optionally kos, falls, dealt, taken, look}. `choices`: [[label, action], ...]
-## (the first is selected).
+## `cards`: per player {name, stocks, percent, winner, and optionally fighter, kos, falls, dealt, taken, look, class}. `choices`:
+## [[label, action], ...] (the first is selected).
 func build(heading: String, cards: Array, choices: Array) -> void:
 	title = heading
 	card_data = cards
@@ -133,75 +206,104 @@ func build(heading: String, cards: Array, choices: Array) -> void:
 	board = Board.new()
 	board.owner_screen = self
 	add_child(board)
-	# The winner on a painted stage of its own (a warm one), standing on its platform.
-	if winner >= 0 and cards[winner].has("look"):
-		var stage := UI.Stage.new(Vector2(560, 470), 0.6, 13 + winner)
-		# (Its frame rimmed in the winner's colour.)
-		stage.rim = Color(PLAYER_COLORS[winner % 4], 0.9)
-		# (Its spotlight in the winner's own colour, not one warm pink for everyone: the UI pass, 2026-10-17.)
-		var pc: Color = PLAYER_COLORS[winner % 4]
-		# (Deeper since the UI pass: the pale pool washed the winner out.)
-		stage.scene.colour = Color.from_hsv(pc.h, 0.62, 0.55)
-		stage.scene.plain = true
-		stage.position = Vector2(40, 140)
-		add_child(stage)
-		preview = Preview.new(Vector2i(530, 438), false, 9.4)
-		stage.add_fighter(preview)
-		# The stage's framing scaled up about the feet (so they stay on the painted platform): room over the head for the cheering hop
-		# (a sword held straight up may still break the top edge, as a hero shot does).
-		preview.body_from *= RESULTS_FRAME
-		preview.body_at *= RESULTS_FRAME
-		preview.facing_bias = -0.5
-		preview.set_loadout(cards[winner].look)
-		_runner_up(cards)
-	# The choices share the room from x 560 to the right safe margin (1240), so the last one never runs off the screen.
+	add_child(UI.TopBar.new("RESULTS"))
+	# The first place (the winner, or the leader of a draw) in its panel.
+	if not order.is_empty() and cards[order[0]].has("look"):
+		_panel(cards[order[0]], order[0])
+	over = Over.new()
+	over.owner_screen = self
+	add_child(over)
+	_runner_up(cards)
+	# The choices under the sheet.
 	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 16)
-	row.position = Vector2(560, 610)
+	row.add_theme_constant_override("separation", 14)
+	row.position = CHOICES_AT
 	add_child(row)
-	var button_w := minf(230.0, (680.0 - 16.0 * (choices.size() - 1)) / maxf(1.0, choices.size()))
+	var button_w := minf(230.0, (SHEET.size.x - 14.0 * (choices.size() - 1)) / maxf(1.0, choices.size()))
 	for c in choices:
-		var b := UI.Btn.new(c[0], Vector2(button_w, 64))
+		var b := UI.Btn.new(c[0], Vector2(button_w, 56))
 		b.font_size = UI.TYPE_LABEL
-		# The first choice (Rematch) is the primary action, in the winner's colour; the rest stay the quiet cream.
-		if buttons.is_empty() and winner >= 0:
-			b.fill = (PLAYER_COLORS[winner % 4] as Color).lightened(0.55)
+		# The first choice (Rematch) is the primary action, in gold; the rest stay the quiet cream.
+		if buttons.is_empty():
+			b.fill = Art.SUN
 		var action: String = c[1]
 		b.activated.connect(func(): chosen.emit(action))
 		row.add_child(b)
 		buttons.append(b)
 		actions.append(action)
+	var keys := UI.KeyBar.new([["A D", "Choose"], ["Enter", "Pick"]])
+	keys.position = Vector2(CHOICES_AT.x, 660)
+	keys.size = Vector2(SHEET.size.x, 30)
+	add_child(keys)
 	_select(0)
 	add_child(UI.Reveal.new())
 
 
-const RESULTS_FRAME := 1.15
+## The first place's panel: its player's colour as a plain pool of light (fighter select's look), the fighter filling the panel's height,
+## cut out of paper and clipped only at the panel's top edge (open at the sides and the foot, so it breaks out of the frame).
+func _panel(c: Dictionary, i: int) -> void:
+	var mask := UI.Mask.new()
+	mask.position = PANEL.position
+	mask.size = PANEL.size
+	mask.set_shape(PackedVector2Array([Vector2.ZERO, Vector2(PANEL.size.x, 0), PANEL.size, Vector2(0, PANEL.size.y)]))
+	add_child(mask)
+	var spot := UI.Spotlight.new()
+	var pc: Color = PLAYER_COLORS[i % 4]
+	spot.colour = Color.from_hsv(pc.h, 0.62, 0.72)
+	spot.plain = true
+	spot.feet = [[0.5, 0.8]]
+	spot.seed = 13 + i
+	spot.size = PANEL.size
+	mask.add_child(spot)
+	var clip := Control.new()
+	clip.clip_contents = true
+	clip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	clip.position = Vector2(PANEL.position.x - 300.0, PANEL.position.y)
+	clip.size = Vector2(PANEL.size.x + 600.0, PANEL.size.y + 300.0)
+	add_child(clip)
+	var pw := PANEL.size.x * 1.2
+	var ph := PANEL.size.y + 10.0
+	preview = Preview.new(Vector2i(int(pw), int(ph)), false, HERO_CAM.z)
+	preview.spin = false
+	UI.die_cut(preview)
+	preview.size = Vector2(pw, ph)
+	preview.position = Vector2(300.0 + PANEL.size.x * 0.5 - pw * 0.5, -30.0)
+	clip.add_child(preview)
+	preview.camera.position = HERO_CAM
+	preview.camera.look_at_from_position(HERO_CAM, Vector3(0, HERO_AIM_Y, 0))
+	preview.facing_bias = WINNER_TURN
+	preview.set_loadout(c.look)
+	preview.set_weapon(int(c.get("class", -1)))
 
 
-## In a one-on-one, the runner-up on a smaller stage of its own under the cards, dimmed and in its own colour, so the screen shows both
-## fighters, not one and an empty corner (with three or four players the cards fill that space).
+## In a one-on-one, the runner-up's snapshot at the sheet's corner, dimmed and in its own colour, turned toward the winner (with three
+## or four players the sheet's columns tell the rest).
 func _runner_up(cards: Array) -> void:
 	if order.size() != 2:
 		return
 	var i: int = order[1]
 	if not cards[i].has("look"):
 		return
-	var stage := UI.Stage.new(Vector2(300, 270), 0.2, 17 + i)
-	var pc: Color = PLAYER_COLORS[i % 4]
-	stage.rim = Color(pc, 0.7)
-	stage.scene.colour = Color.from_hsv(pc.h, 0.45, 0.42)
-	stage.scene.plain = true
-	stage.position = Vector2(660, 318)
-	stage.modulate = RUNNER_UP_DIM
-	add_child(stage)
-	runner_up = Preview.new(Vector2i(270, 238), false, 9.4)
-	stage.add_fighter(runner_up)
-	runner_up.facing_bias = 0.5
+	var snap := Snap.new()
+	snap.colour = Color.from_hsv((PLAYER_COLORS[i % 4] as Color).h, 0.55, 0.66)
+	snap.position = SNAP.position
+	snap.size = SNAP.size
+	snap.pivot_offset = SNAP.size * 0.5
+	snap.rotation = deg_to_rad(5.0)
+	snap.clip_contents = true
+	snap.modulate = RUNNER_UP_DIM
+	add_child(snap)
+	runner_up = Preview.new(Vector2i(220, 260), false, 5.2)
+	runner_up.spin = false
+	UI.die_cut(runner_up)
+	runner_up.size = Vector2(220, 260)
+	runner_up.position = Vector2(-35, -8)
+	snap.add_child(runner_up)
+	runner_up.camera.position = Vector3(0, 1.45, 5.2)
+	runner_up.camera.look_at_from_position(runner_up.camera.position, Vector3(0, 1.25, 0))
+	runner_up.facing_bias = RUNNER_UP_TURN
 	runner_up.set_loadout(cards[i].look)
-
-
-## How far the runner-up's card is dimmed (it lost; the winner's card is the bright one).
-const RUNNER_UP_DIM := Color(0.8, 0.8, 0.86)
+	runner_up.set_weapon(int(cards[i].get("class", -1)))
 
 
 func _process(delta: float) -> void:
@@ -209,8 +311,8 @@ func _process(delta: float) -> void:
 	if t < 1.4 and board != null:
 		board.queue_redraw()
 	# The winner's victory pose (a cheering hop first, then their own pose).
-	if preview != null and preview.view != null:
-		var cls: int = card_data[winner].get("class", 0) if winner >= 0 else 0
+	if preview != null and preview.view != null and winner >= 0:
+		var cls: int = card_data[winner].get("class", 0)
 		preview.view.play_victory(cls, delta, t < 1.0)
 
 
