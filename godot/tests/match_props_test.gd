@@ -9,6 +9,7 @@ extends SceneTree
 
 const MatchProps := preload("res://scripts/match_props.gd")
 const ShotPaint := preload("res://scripts/shot_paint.gd")
+const HeldProps := preload("res://scripts/held_props.gd")
 
 const BUDGET := 3000
 ## Props that stand or lie on the floor (base on Z = 0 as built).
@@ -69,6 +70,30 @@ func _initialize() -> void:
 			var h := maxf(box.size.y, 0.001)
 			check(absf(box.position.y) <= 0.02 * h + 0.005, "%s stands on its origin (lowest point %.3f)" % [prop_name, box.position.y])
 		print("%-13s tris %4d  size %s" % [prop_name, tris, box.size])
+	# The tools held for moves (held_props.gd): each loads, is coloured with known part words and keeps to the budget.
+	var tools := {}
+	for cls in HeldProps.TOOLS:
+		for move in HeldProps.TOOLS[cls]:
+			tools[String(HeldProps.TOOLS[cls][move][0])] = true
+	for tool_name in tools:
+		var path := HeldProps.DIR % tool_name
+		var packed = load(path) if ResourceLoader.exists(path) else null
+		check(packed is PackedScene, "tool %s loads" % tool_name)
+		if not (packed is PackedScene):
+			continue
+		var t: Node3D = (packed as PackedScene).instantiate()
+		holder.add_child(t)
+		MatchProps.paint(t, tool_name)
+		var ttris := 0
+		for mi: MeshInstance3D in t.find_children("*", "MeshInstance3D", true, false):
+			var word := String(mi.name).get_slice("_", 0)
+			check(MatchProps.PALETTE.has(word), "tool %s's part %s has a colour (word '%s')" % [tool_name, mi.name, word])
+			for sidx in mi.mesh.get_surface_count():
+				var arrays := mi.mesh.surface_get_arrays(sidx)
+				var idx = arrays[Mesh.ARRAY_INDEX]
+				ttris += (idx.size() if idx != null else (arrays[Mesh.ARRAY_VERTEX] as PackedVector3Array).size()) / 3
+		check(ttris <= BUDGET, "tool %s within %d triangles (%d)" % [tool_name, BUDGET, ttris])
+		print("tool %-12s tris %4d" % [tool_name, ttris])
 	for k in MatchProps.SHOTS:
 		check(not ShotPaint.PAINTED.has(k), "shot %s is not both modelled and painted" % k)
 	# Every painted kind draws without error, flying and bursting.
@@ -98,5 +123,6 @@ func _initialize() -> void:
 			if n != null and n.get_parent() == null:
 				left.append("%s (%s)" % [n.name, n.get_class()])
 	check(left.is_empty(), "no match prop outlives its slot (%s)" % ", ".join(left))
-	print("match props test %s (%d props, %d painted kinds)" % ["FAILED" if failed else "PASSED", names.size(), kinds.size()])
+	print("match props test %s (%d props, %d painted kinds, %d tools)" % ["FAILED" if failed else "PASSED", names.size(), kinds.size(),
+		tools.size()])
 	quit(1 if failed else 0)

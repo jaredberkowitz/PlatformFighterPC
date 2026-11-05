@@ -1193,5 +1193,11 @@ projectiles and items, read through the bridge.
   - `--demo=fx_<class>_<move>[_again][_whiff][_wide]`; `_wide` takes the camera out for the Seer's far flame burst.
   - `PF_PROP_TRACE=1` prints each drawn prop's frame and place, for picking frames from a capture.
 - Before and after, every prop at its moment: `docs/art/props/props_before_after.jpg`.
-- **Not yet:** the held tools (the Settler's umbrella, shovel, axe, watering can and slingshot; the Scamp's worn barrels) and the
-  Exile's orbs on a fighter. The bridge has no accessor for the orbs yet. The bomb is still built in code.
+- **The Settler's held tools:** `art/blender/make_tools.py` builds `godot/models/tools/`: umbrella, shovel, axe, watering can,
+  slingshot, firework, turnips and balloons. `godot/scripts/held_props.gd` maps each tool to its moves (`TOOLS`). The tools hang on
+  the weapon hand's bone in the weapons' frame (+X along the forearm from the fist, +Y the back of the hand). The balloons float
+  above and behind the back. Each tool is built the first time a move needs it, so no other fighter pays for it, and is tagged as the
+  fighter's own for the outline (`_as_tool`). A grip pass with the animator may turn tools in the hand: the shovel's spade can show
+  edge-on in the down smash.
+- **Not yet:** the Scamp's worn barrels, Embers' water pack and the Wanderer's bow. The Exile's orbs on a fighter have no bridge
+  accessor yet. The bomb is still built in code.

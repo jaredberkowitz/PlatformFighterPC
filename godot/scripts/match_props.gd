@@ -43,6 +43,12 @@ const PROP_COLOURS := {
 	"rocket": {"dark": Color(0.3, 0.3, 0.36)},
 	"banana_peel": {"dark": Color(0.36, 0.24, 0.14)},
 	"boomerang": {"wood": Color(0.74, 0.5, 0.3)},
+	# The Settler's tools (held_props.gd).
+	"watering_can": {"paint": Color(0.36, 0.64, 0.52), "metal": Color(0.92, 0.76, 0.3)},
+	"turnips": {"pith": Color(0.97, 0.96, 0.92), "petal": Color(0.66, 0.32, 0.66)},
+	"balloons": {"glass": Color(0.32, 0.56, 0.95)},
+	"shovel": {"wood": Color(0.72, 0.5, 0.3)},
+	"axe": {"wood": Color(0.72, 0.5, 0.3)},
 }
 
 ## The modelled shots by the move that fires them: Vector2i(class, move id) -> prop. An empty name hides the shot (a hit with no body of
