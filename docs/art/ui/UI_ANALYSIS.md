@@ -254,3 +254,19 @@ captures in `creator_mat/` (also the shirt page).
 
 Tests: creator_flow and online_fighters (which drive the creator) and the UI suite pass. Not checked: a real gamepad on the tab row,
 names longer than the card (the field scrolls).
+
+## The online lobby's fighter step as fighter select's face-off, the owner's pick of the lobby mocks (2026-11-05)
+
+The fighter step was the last screen in the old look (an ink veil over the match, a brush LOBBY banner, sunburst cards, the fighter
+picked by name with arrows). Three directions were mocked with real renders on the "Paper UI Mocks" canvas, row 5 (Face-off online,
+Tickets, Postcard); the owner picked **1, Face-off online**. Before/after: `lobby_faceoff_before_after.png`; capture in `lobby_faceoff/`.
+
+| Before | After | Where |
+| --- | --- | --- |
+| A dark veil over the match, a brush LOBBY banner | The menus' paper ground and fighter select's top bar: LOBBY, "online with" the friend's name, and the three steps (1 Fighter, 2 Stage, 3 Ready) at the right, the one this player is on gold, those done ticked | `net_lobby.gd` `Steps`, `select.gd` `Header` |
+| Two small fighters standing on sunburst cards | Fighter select's face-off panels (`PlayerPanel`): this player at the left, the friend at the right, hero-posed toward the VS and cut out of paper; tabs YOU and the friend's name; the friend's panel says READY! once they lock in | `select.gd` `PlayerPanel.tab_text` |
+| The fighter chosen by name with arrows, one at a time | The roster's cards between the panels, as on fighter select (WASD over the grid, left and right go round its ends; a click locks in); the friend's pick badged with their name and ringed in their colour | `_build_cards`, `_mark_cards`, `_step` |
+| The friend's fighter and stage on two plain tags | Their panel shows their fighter; their news line says where they are ("Ready on Flat Island!") | `show_view` |
+
+The stage step is unchanged (stage select's views). Tests: online_flow (now steps the grid), online_fighters, select_grid and the UI suite
+pass. Not checked: a friend's own made fighter (not in this player's roster: their panel shows it, no card is badged), a real pad.
