@@ -60,12 +60,48 @@ const WORN_AT := {"match_props/barrels": Vector3(0.0, 0.12, -0.42), "water_tank"
 ## A turn about the body's up for worn kit that is not built facing the body's front (Blender -Y, the glTF +Z, is the body's front at
 ## rest: the water tank's nozzle already reaches forward over the shoulder, and the barrels are the same from either side).
 const WORN_TURN := {}
+## Worn kit drawn larger than its model (the match props' size), by tool. (Round 10, the grip pass: the Scamp's rocket barrels sat
+## hidden behind the body when it faced the camera to fly, upright; its reference's are as broad as its body and show at both sides
+## of its waist. Half as big again, ours do.)
+const WORN_SCALE := {"match_props/barrels": 1.5}
+## (Round 10, the grip pass) A held tool's length turned to point along a line for part of a move, about the fist, by class, move and
+## tool: [where, from frame, to frame, ease frames]. `where` is a direction in forward space (x ahead, y up, in the stage's plane) or
+## "tip", toward the move's tip from the fist (`move_tip`: a projectile move's is where its shot starts). Eased in over `ease` frames
+## before `from` and out over them after `to`, by the move's frame (a freeze holds it, a seek redraws it). The Settler holds its turnips
+## up through the up air's hits, as its reference holds them overhead (they pointed back from the shoulder at the chest); its slingshot
+## points along its shots, at where the pellet starts (the forward air's pointed at the floor, the back air's at the camera).
+const POINT_UP := [Vector3(-0.2, 1.0, 0.0), 5, 20, 4]
+const POINT := {
+	10: {
+		"uair": {"turnips": POINT_UP},
+		"extra move 0": {"turnips": POINT_UP},
+		"extra move 1": {"turnips": POINT_UP},
+		"fair": {"slingshot": ["tip", 3, 20, 3]},
+		"bair": {"slingshot": ["tip", 4, 23, 3]},
+	},
+}
+## (Round 10, the grip pass) Flat tools whose face turns toward the camera by a roll about their length, by tool: the face's normal in
+## the tool's own frame. (The mitten fist does not show the hand's roll.) The Settler's spade lay flat on the floor at the down smash's
+## dig, edge-on to the camera. A tool pointing at the camera keeps its roll (`FACE_MIN`: how far across the view its length must lie).
+const FACE := {"shovel": Vector3(0.0, 0.0, 1.0)}
+const FACE_MIN := Vector2(0.25, 0.5)
 ## The balloons above the back: this far up from the spine and behind the body (away from the way it faces), a little behind in depth.
 const BALLOON_UP := 0.8
 const BALLOON_BEHIND := 0.32
 const BALLOON_DEPTH := -0.2
 
 static var _packed := {}
+## PF_R10_OFF=grip shows the tools as the props pass held them.
+static var _r10_off := OS.get_environment("PF_R10_OFF").split(",")
+
+
+static func _off(what: String) -> bool:
+	return _r10_off.has(what) or _r10_off.has("all")
+
+
+## A hand tool's place on hand `side` before any turn: the weapons' frame and the tool's offset in the fist.
+static func _base(h: Held, tool: String, side: String) -> Transform3D:
+	return (h.frames[side] as Transform3D) * Transform3D(Basis.IDENTITY, HAND_OFFSET.get(tool, Vector3.ZERO))
 
 
 ## One fighter's held kit: the holders (a hand's or the spine's, built on first use) and each tool made once per place.
@@ -154,7 +190,8 @@ static func _make(h: Held, view: Node3D, skeleton: Skeleton3D, tool: String, whe
 				return null
 			var rest: Transform3D = h.frames["spine"]
 			var at: Vector3 = rest.origin + (WORN_AT.get(tool, Vector3(0.0, 0.1, -0.35)) as Vector3)
-			var place := Transform3D(Basis(Vector3.UP, float(WORN_TURN.get(tool, 0.0))), at)
+			var grow := float(WORN_SCALE.get(tool, 1.0)) if not _off("grip") else 1.0
+			var place := Transform3D(Basis(Vector3.UP, float(WORN_TURN.get(tool, 0.0))).scaled(Vector3.ONE * grow), at)
 			made.transform = rest.affine_inverse() * place
 			holder.add_child(made)
 		_:
@@ -162,8 +199,7 @@ static func _make(h: Held, view: Node3D, skeleton: Skeleton3D, tool: String, whe
 			if holder == null:
 				made.free()
 				return null
-			var frame: Transform3D = h.frames[side]
-			made.transform = frame * Transform3D(Basis.IDENTITY, HAND_OFFSET.get(tool, Vector3.ZERO))
+			made.transform = _base(h, tool, side)
 			holder.add_child(made)
 	made.visible = false
 	if view.has_method("_as_tool"):
@@ -201,3 +237,70 @@ static func update(h: Held, view: Node3D, skeleton: Skeleton3D, cls: int, move: 
 	for n in now:
 		(n as Node3D).visible = true
 	h.shown = now
+
+
+## How far a POINT entry holds at frame `f` (0..1).
+static func _point_weight(e: Array, f: float) -> float:
+	var ease := maxf(1.0, float(e[3]))
+	return smoothstep(float(e[1]) - ease, float(e[1]), f) * (1.0 - smoothstep(float(e[2]), float(e[2]) + ease, f))
+
+
+## Turns the shown hand tools after the arm layers have posed the hands (`POINT`, `FACE`), from their base place in the fist each frame.
+## `to_frame` takes the rig's space to the stage frame (the fighter's, unflipped); `s` is the fighter's snapshot. With PF_GRIP_TRACE set,
+## prints each shown hand tool's axes in the stage frame (x forward by the facing, y up, z toward the camera):
+## "GRIP <class> <move> <frame> <tool> x:.. y:.. z:.. at:..".
+static func pose(h: Held, skeleton: Skeleton3D, to_frame: Transform3D, cls: int, s: Dictionary) -> void:
+	if skeleton == null:
+		return
+	var move := String(s.move_name)
+	var f := float(s.state_frame)
+	var facing := float(s.facing)
+	var from_frame := to_frame.affine_inverse()
+	for key in h.tools:
+		var n: Node3D = h.tools[key]
+		var tool := String(key).get_slice("|", 0)
+		var side := String(key).get_slice("|", 1)
+		if n == null or not n.visible or not (side == "L" or side == "R"):
+			continue
+		var bone: Transform3D = skeleton.get_bone_global_pose(skeleton.find_bone("hand." + side))
+		# The tool in the rig's space: its basis turned about its own origin (the fist) by the entries below.
+		var held: Transform3D = bone * _base(h, tool, side)
+		var b := held.basis
+		if not _off("grip"):
+			var e: Array = ((POINT.get(cls, {}) as Dictionary).get(move, {}) as Dictionary).get(tool, [])
+			var w := _point_weight(e, f) if not e.is_empty() else 0.0
+			if w > 0.0:
+				var grip: Vector3 = to_frame * held.origin
+				var want := Vector3.ZERO
+				if e[0] is String:
+					var tip: Vector3 = s.get("move_tip", Vector3.ZERO)
+					want = Vector3(tip.x * facing, tip.y, grip.z) - grip
+				else:
+					var d: Vector3 = e[0]
+					want = Vector3(d.x * facing, d.y, d.z)
+				var to := (from_frame.basis * want).normalized()
+				var along := b.x.normalized()
+				if to.length() > 0.5 and along.dot(to) > -0.999:
+					b = Basis(Quaternion.IDENTITY.slerp(Quaternion(along, to), w)) * b
+			var face: Vector3 = FACE.get(tool, Vector3.ZERO)
+			if face != Vector3.ZERO:
+				var along := b.x.normalized()
+				var cam := (from_frame.basis * Vector3(0.0, 0.0, 1.0)).normalized()
+				var want := cam - along * cam.dot(along)
+				var k := smoothstep(FACE_MIN.x, FACE_MIN.y, want.length())
+				var now := b * face
+				now = now - along * now.dot(along)
+				if k > 0.0 and now.length() > 0.001:
+					want = want.normalized()
+					now = now.normalized()
+					# (Either side of a flat face does: the shortest roll.)
+					if now.dot(want) < 0.0:
+						want = -want
+					b = Basis(along, now.signed_angle_to(want, along) * k) * b
+		n.transform = bone.affine_inverse() * Transform3D(b, held.origin)
+		if OS.has_environment("PF_GRIP_TRACE"):
+			var g: Transform3D = to_frame * Transform3D(b, held.origin)
+			var o := g.basis.orthonormalized()
+			print("GRIP %d %s %d %s x:%.2f,%.2f,%.2f y:%.2f,%.2f,%.2f z:%.2f,%.2f,%.2f at:%.2f,%.2f,%.2f" % [cls, move.replace(" ", "_"),
+				int(f), tool.get_file(), o.x.x * facing, o.x.y, o.x.z, o.y.x * facing, o.y.y, o.y.z, o.z.x * facing, o.z.y, o.z.z,
+				g.origin.x * facing, g.origin.y, g.origin.z])

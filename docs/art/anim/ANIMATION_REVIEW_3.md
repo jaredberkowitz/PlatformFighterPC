@@ -135,3 +135,9 @@ not rising.
   barely, a smash clearly, feet planted), refitted: timing 2.35 / 1.50 / 1.63 / 1.18, pops 8, eyes or mouth covered 7, hidden hands 1,310,
   reversed limbs 2,841. The smashes' and tilts' weight 3 to 3.5 where the glide home was the weak point. Group 2 checked at real speed
   against core10: the jolt is gone, nothing lost.
+- **Group 6 (the coordinator's item 1, done): the grip pass.** The Settler's spade turns its face to the camera at the dig; its turnips
+  stand up through the up air's hits (they pointed back at the chest); its slingshot points along its shots, at where the pellet starts
+  (the forward air's pointed at the floor, the back air's at the camera); the Wanderer's shield is carried low while the bow is out (it
+  covered the bow); the Scamp's barrels show at both sides of its waist in flight (they were hidden behind the body). Eyes or mouth
+  covered and hidden hands unchanged; no body bone moves. Left: the turnips beside the head rather than over it (an owner pick), the
+  down smash's spade held in the ground between the digs, the back air's tucked kick pose (`docs/ANIMATION.md`).

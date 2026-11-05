@@ -6863,7 +6863,32 @@ func _place_buckler(s: Dictionary) -> void:
 	if hb < 0:
 		return
 	var at: Vector3 = _skeleton_to_frame() * skeleton.get_bone_global_pose(hb).origin
-	shield_disc.position = stage_frame.transform * at + Vector3(0.12 * facing, -0.05, 0.25)
+	shield_disc.position = stage_frame.transform * at + Vector3(0.12 * facing, -0.05, 0.25) + stage_frame.transform.basis * _buckler_bow_drop(s)
+
+
+## (Round 10, the grip pass) While the Wanderer holds its bow in the shield's hand (held_props.gd), the shield is carried low, by the
+## thigh, clear of the bow (stage frame, x forward): it covered the bow's grip and string, only the limbs showing above and below it.
+## Carried back behind the body instead, it went out of sight. Eased in over the draw's first BUCKLER_BOW_IN frames and out over the
+## release's last BUCKLER_BOW_OUT, by the move's frame. `PF_R10_OFF=grip` shows the old.
+const BUCKLER_BOW_DROP := Vector3(-0.1, -0.6, 0.0)
+const BUCKLER_BOW_IN := 6.0
+const BUCKLER_BOW_OUT := 6.0
+
+
+func _buckler_bow_drop(s: Dictionary) -> Vector3:
+	if r10_off.has("grip") or String(s.get("state", "")) != "Attack":
+		return Vector3.ZERO
+	var kit: Array = (HeldProps.TOOLS.get(BUCKLER_CLASS, {}) as Dictionary).get(String(s.get("move_name", "")), [])
+	var bow := false
+	for e in kit:
+		bow = bow or String(e[0]) == "bow"
+	if not bow:
+		return Vector3.ZERO
+	var f := float(s.state_frame)
+	var k := smoothstep(0.0, BUCKLER_BOW_IN, f)
+	if String(s.move_name) != "neutral special":
+		k = 1.0 - smoothstep(float((s.move_timing as PackedInt32Array)[0]) - BUCKLER_BOW_OUT, float((s.move_timing as PackedInt32Array)[0]), f)
+	return Vector3(BUCKLER_BOW_DROP.x * float(s.facing), BUCKLER_BOW_DROP.y, BUCKLER_BOW_DROP.z) * k
 
 
 ## The pivot grab's turn (radians added to the body's yaw): the simulation turns the fighter round at once as the grab starts, so the
@@ -9010,6 +9035,9 @@ func _apply_combat(s: Dictionary, delta: float) -> void:
 		if use_base_body and not r8_off.has("joints"):
 			_limit_joints()
 		_ltrace(s, "joints")
+		# (Round 10, the grip pass: the held tools turned in the fist where the hands now are, `HeldProps.pose`.)
+		if use_base_body:
+			HeldProps.pose(held_tools, skeleton, _skeleton_to_frame(), _cls(s), s)
 		_remember_arms()
 		_remember_feet(s)
 		_update_smear(s)

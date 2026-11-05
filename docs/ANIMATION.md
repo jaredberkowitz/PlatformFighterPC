@@ -3256,3 +3256,46 @@ lies at the hit), `bodyft.py` (the torso's travel after the last hit), `windpops
   props test (13 props, 11 painted kinds, 12 tools) and the look bench (0 buffer overflows, worst 0.90 on the city's bright light: the
   darkest body, midnight, fifth in its row; the stage merge's light moved it (every body there 0.17-0.25 against 0.25-0.31 before), not the
   settle, which leaves it the same with `PF_R10_OFF=settle`).
+
+### Group 6 (round 10): the grip pass on the held tools (the coordinator's order of 2026-11-04, item 1)
+
+- **Found (r10c; the Settler's, the Wanderer's and the Scamp's galleries at the match camera, both facings, and each tool's axes traced
+  after the arm layers, new `PF_GRIP_TRACE`):**
+  - the shovel's spade (its flat face is the tool's own z) pointed down into the floor at the down smash's dig, about 60 degrees off the
+    camera: a hairline at the handle's end;
+  - the turnips pointed back from the shoulder at the chest through the up air's hits (the raised-arms rule carries the hand out behind
+    the head at shoulder height). The reference holds them up by their tops, bulbs up, over its head; the down air already held them
+    below;
+  - the slingshot pointed at the floor through the forward air (the clip's low hold) and at the camera in the back air, so the pellet
+    came out of neither;
+  - the umbrella is thrust forward with its dome leading at the strike, as the reference's: no change;
+  - the Wanderer's bow sat behind its own shield (both on the free arm), only its limbs showing above and below;
+  - the Scamp's rocket barrels were hidden behind the body while it flies upright facing the camera. The reference's are as broad as its
+    body and show at both sides of its waist.
+- **Fix (`held_props.gd`, data; `fighter_view.gd` calls `HeldProps.pose` after the arm layers):**
+  - `FACE`: a flat tool's face turns to the camera by a roll about its length (the shovel; the mitten fist shows no wrist roll), not
+    while the handle points at the camera (`FACE_MIN`);
+  - `POINT`: a tool's length turns about the fist toward a line for part of a move, eased by the move's frame. The turnips point up
+    (`POINT_UP`: frames 5-20, eased over 4) in the up air and its two smaller versions; the slingshot points toward where its pellet
+    starts (the move's tip) in the forward air (frames 3-20) and the back air (4-23);
+  - `WORN_SCALE`: the barrels worn half as big again (1.5), as broad as the body;
+  - the Wanderer's shield is carried low by the thigh while the bow is out (`BUCKLER_BOW_DROP` (-0.1, -0.6) in the stage frame), eased in
+    over the draw's first 6 frames and out over the release's last 6. Carried back toward the body instead, it went out of sight behind
+    it (tried); higher at the hip, it still covered the bow's lower half (tried).
+  - Every turn starts from the tool's place in the fist each frame and goes by the move's frame and the drawn pose, so a freeze holds it
+    and a seek redraws it. `PF_R10_OFF=grip` shows the old.
+- **Checked:** both facings, at the match camera and close up; the two facings trace as exact mirrors. Eyes or mouth covered and
+  striking hands hidden on the three classes, re-run: 0 and 178 (the Wanderer), 0 and 60 (the Settler), 0 and 48 (the Scamp), as at
+  r10c. No body bone moves, so the timing, the end-lag pops and the reversed limbs are r10c's by construction. The tests pass (the props
+  test: 13 props, 11 painted kinds, 12 tools); the look bench passes (worst 0.90, as at r10c).
+- **Left:**
+  - the turnips stand up beside the back of the head, not over it. Beside the big head the arm cannot lift the hand above its shoulder,
+    so truly overhead needs the hand over the head, hidden behind it, which the raised-arms rule forbids: an owner pick, if wanted;
+  - the down smash holds the spade in the ground between its two digs (the shared sword clip's hold); the reference lifts the shovel
+    out between them;
+  - the back air keeps the tucked back-kick pose (`attack_bair`); the reference spreads its arms and holds the slingshot out behind at
+    the shoulder. The pellets start at hip height (the sim's 0.75 above the feet), so a slingshot at the shoulder would fire from below
+    it: a question for the moveset session (the pellet's start height against the reference's);
+  - the shed barrels (the props' projectile) are drawn at the props' size, smaller than the worn ones now.
+- **Image:** `docs/screenshots/anim/r10_grip_pass.jpg` (each item at its frame: before and after, facing right, then left; the match
+  camera's scale, cropped and enlarged a little).
