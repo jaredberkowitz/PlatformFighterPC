@@ -348,3 +348,15 @@ they still keep a trace of the face they were cut from.
 - Kraft is the one paper darker than today's edge, so the canyon's lip darkens instead of lighting up. Of the five, it changes least.
 - B's edge light on the sides barely shows, because the rims were already pale. It adds only a thin line along the city roof's lip.
 All seven tests pass, and the look bench passes.
+
+**Built B** (the owner's pick, 2026-11-05):
+- Every stage palette's [backdrop] `paper_core_look="B"` (meadow, sunset, ocean, city, grove). `--paper-core=T` brings back each edge in
+  its own colour.
+- The shipped edges measure the same as the mock's B on all five stages, and the tops the same as before.
+- Before and after, a strip of each stage's play area around its front edge at the match camera (rows meadow, canyon, beach, city, grove;
+  before left): `style/papercore_built.jpg`.
+All tests pass but the runner test, which failed 9 of 13 runs on its coin pickup and "the way out" while the machine was busy (88%
+CPU): its known real-time flake, fixed by PR #15, still open. The run mode has no stage palette, so the paper core never reaches it.
+The look bench passes.
+
+With this, every step of the style pass's plan is built.

@@ -7124,6 +7124,7 @@ class SteppedMotes extends GPUParticles3D:
 ##   B  the paper: 70 per cent, with the cut-edge light on the walls and the cards' sides (toon_common's paper finish) in the core's
 ##      colour too (it shows only as a line along a lip, as on the city's roof; the rims were already pale);
 ##   C  all the way.
+## The owner's pick B (every stage palette's `paper_core_look`, 2026-11-05).
 const PAPER_CORE_TRY := {"T": {}, "A": {"edges": 0.4, "rim": 0.0}, "B": {"edges": 0.7, "rim": 0.8}, "C": {"edges": 1.0, "rim": 1.0}}
 const PAPER_CORES := {"meadow": Color(0.98, 0.96, 0.9), "sunset": Color(0.74, 0.55, 0.36), "ocean": Color(0.93, 0.96, 0.98),
 	"city": Color(0.86, 0.85, 0.81), "grove": Color(0.95, 0.89, 0.95)}
