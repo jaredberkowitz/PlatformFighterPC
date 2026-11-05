@@ -129,3 +129,5 @@ not rising.
   floor, and the shot swung the gun over the head); the charge's glow, tremble and squint only while the charge builds (they ran through
   the whole shot, and every charged smash's swing). The Scamp's eyes or mouth covered, hidden hands and reversed limbs as at r10a; every
   other class's poses identical.
+- **Group 4 (done):** the recovery refitted: timing 2.35 / 1.43 / 1.65 / 1.18 (the recovery back to the 1.65 limit). The Clutch's up
+  air's new end-lag pop judged real (the near fist crosses the head's middle in a frame) and left for cause 9 (`docs/ANIMATION.md`).

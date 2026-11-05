@@ -3183,3 +3183,22 @@ lies at the hit), `bodyft.py` (the torso's travel after the last hit), `windpops
   stayed yellow and squinting through the swing and the hit; now they stop at the first hit, so the strike shows clean.
 - **Image:** `docs/screenshots/anim/r10_popgun_shot.jpg` (the tapped shot at the match camera, facing right then left, and a held charge
   close up: r10a above each row's now); `docs/screenshots/anim/r10_charge_glow.jpg` (the charged smash).
+
+### Group 4 (round 10): the back airs' recovery refitted (the coordinator's order, item 2)
+
+- **Found (r10a):** attack timing (follow-through / hold / recovery / wind-up) 2.35 / 1.44 / 1.66 / 1.18: the recovery 0.01 over the 1.65
+  limit, from the Embers' and the Pockets' back airs moving a frame either way when group 1 put their kick on the near leg.
+- **Fix:** their end shapes (`CLASS_END_SHAPES`, hold to / recover by): the Embers' back air 0.664 to 0.700, the Pockets' 0.490 to 0.530,
+  both recovering by 0.990. The fit's record (`F:\anim_core\t3\shapes.json`) updated with them, and with the Tumbler's down smash
+  (0.310, 0.560), which group 23 set by hand.
+- **After (the six family representatives' 68 moves):** 2.35 / 1.43 / 1.65 / 1.18.
+
+### Judged, not fixed (round 10): the Clutch's up air's near fist (the end-lag pop new at r10a)
+
+- **Judged real:** two frames after the last hit, with the body pitched over 75 degrees in the flip, the near fist jumps from over the
+  brow to behind the head in one frame (0.61 units, both facings). The face guard's two pushes (out of the head's middle, then clear of
+  the drawing) each push the fist out on the side it is on, and both change sides as the fist crosses the head's middle on its way back.
+- **Tried and reverted:** near the middle in an end lag, behind the head in depth instead of out to the side: the drawing's push still
+  threw it out in front (0.65). Easing the side across frames put a wrist over the eye on this same move in round 9. A fix needs the
+  guard to keep its side through a crossing, behind the head in depth (as the blades' `front_cross` does); left for the hidden-hands
+  item (cause 9).
