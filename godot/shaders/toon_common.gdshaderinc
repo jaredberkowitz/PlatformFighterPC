@@ -121,6 +121,10 @@ uniform vec4 paint_drift = vec4(0.0);
 // The darkest the baked contact shade may take this surface (`vertex_shade`; 0 no floor), set by StageBake on the fronts' stones and moss
 // (fidelity review 17: every stone's top, pressed under the course above, baked to a dark slate lid). The stones' own tones lie above it.
 uniform float vshade_floor = 0.0;
+// The air in front of this surface (fidelity review 18 item 1, StageArt._mute's near air): `air_mix.a` of what reaches the eye is the
+// air's own light (`air_mix.rgb`) instead of the surface's, so its lit and shaded sides both settle toward it and its folds calm, as
+// distance does. A lifted albedo only lightened the colour: the shade, a share of the light, stayed as far under the lit side. 0 as built.
+uniform vec4 air_mix = vec4(0.0);
 // How much of the drifting cloud shadows (`pf_clouds`) this surface takes, 1 all; StageBake's bright floors on trial set it on the walked
 // tops and platforms.
 uniform float cloud_shade = 1.0;
@@ -481,8 +485,9 @@ void fragment() {
 		// the camera that wasn't faceted went into shade.)
 		NORMAL = normalize(cross(dFdy(VERTEX), dFdx(VERTEX)));
 	}
-	ALBEDO = c;
+	ALBEDO = c * (1.0 - air_mix.a);
 	EMISSION = flash.rgb * flash.a + c * fighter_bounce.rgb * fighter_bounce_amount * fighter * clamp(-world_normal.y, 0.0, 1.0);
+	EMISSION += air_mix.rgb * air_mix.a;
 	ROUGHNESS = object_id;
 	AO = pf_stage_ao_ground(world_pos, world_normal) * pf_fighter_sky(NORMAL, VIEW_MATRIX, fighter);
 	if (use_baked_ao) {
@@ -490,7 +495,7 @@ void fragment() {
 		AO_LIGHT_AFFECT = baked_ao_light;
 	}
 	AO_LIGHT_AFFECT = 0.45;
-	EMISSION -= c * pf_amb_cut.rgb * AO * (1.0 - fighter);
+	EMISSION -= c * (1.0 - air_mix.a) * pf_amb_cut.rgb * AO * (1.0 - fighter);
 	SPECULAR = 0.0;
 #ifdef PF_TISSUE
 	{

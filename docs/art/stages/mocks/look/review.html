@@ -88,6 +88,101 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
     <p>Two lessons from the reference screenshots, mocked from the match camera: the scenery without ink outlines, its edges lit as card bevels instead, and the paper houses rebuilt at the characters' proportions. The earlier rounds stay on the <a href="https://claude.ai/artifact/D1du6MREVumiJDrEdNypW4">Stage Fidelity Review</a>, which is full.</p>
   </header>
 
+  <section class="panel" aria-labelledby="db76-h" id="deckboards76">
+    <div class="eyebrow">Built A (the owner's pick) &middot; review 18, item 2: the beach's deck boards</div>
+    <h2 id="db76-h">The beach's deck boards</h2>
+    <p>Review 18 found the beach's deck the busiest floor of the five. Since the cut-edge colours, the gaps between its seven boards show the boards' pale cut sides, so the deck reads as ruled lines under the fighters. The reference's boards each have their own tone and dark gaps. Nothing is remodelled: the game splits the gaps and the boards out of today's model as it loads it.</p>
+    <div class="tablewrap"><table><thead><tr><th>Option</th><th>The deck</th><th>Busy (edges)</th><th>Its contrast</th><th>P1's gap</th></tr></thead><tbody>
+      <tr><td>Today</td><td>Pale cut sides in every gap</td><td>6.4%</td><td>0.106</td><td>0.155</td></tr>
+      <tr><td>A &middot; Dark joints</td><td>The cut sides seen through the gaps in the deck's own wood, darker. The pale paper stays on the deck's front edge.</td><td>3.6%</td><td>0.076</td><td>0.171</td></tr>
+      <tr><td>B &middot; Boards in their own tones</td><td>Each board one of four tones of the wood: as it is, darker and redder, lighter and yellower, or weathered grey. The gaps as today.</td><td>5.9%</td><td>0.100</td><td>0.129</td></tr>
+      <tr><td>C &middot; Both</td><td>A and B</td><td>4.5%</td><td>0.107</td><td>0.147</td></tr>
+    </tbody></table></div>
+    <p>Busy is the share of edge pixels on the play area's top. The deck measured 4.4% before the cut-edge colours. P1's gap is P1's value against the floor beside them. Each image shows the four options, today at top left, A at top right, B at bottom left and C at bottom right.</p>
+    <div class="row" role="group" aria-label="View"><button data-db76v="m">Match camera</button><button data-db76v="w">Wide</button></div>
+    <div class="viewer"><img id="db76img" alt="The beach's deck options"><span class="vtag" id="db76tag"></span></div>
+    <p>The deck at full size.</p>
+    <div class="viewer"><img src="db76_close.jpg" alt="The deck in each option at full size"></div>
+    <p class="muted">My pick: <b>A</b>. The deck reads as boards with dark gaps, as the reference's do, and it's the calmest it has been: quieter than before the cut-edge colours. The fighters stand out from it more than today. Honest notes:</p>
+    <ul class="muted">
+      <li>A keeps the beach's bleached paper on the deck's front edge, so the cut-edge colours stay where they mark the play line.</li>
+      <li>B and C give each board its own tone, as the reference does, but the lighter and greyer boards lift the deck on average (value 0.49 to 0.53 to 0.56). The fighters lose some of their gap: 0.129 in B and 0.147 in C, against 0.155 today. In C the grey boards also read a little patchy.</li>
+      <li>If you want the boards' own tones as well, I can balance them so the deck keeps its value. That would mean another round.</li>
+      <li>Only the main deck changes; the side platforms are a separate model.</li>
+    </ul>
+  </section>
+
+  <section class="panel" aria-labelledby="fa75-h" id="forestair75">
+    <div class="eyebrow">Built B (the owner's pick) &middot; review 18, item 1: the grove's forest into the air</div>
+    <h2 id="fa75-h">The grove's forest into the air</h2>
+    <p>Review 18 found the grove's forest the busiest backdrop of the five, and busier than the island in front of it. Two things caused it:</p>
+    <ul>
+      <li>The forest's trees took no air at all. Every other piece of scenery fades with its depth, but the trees kept their full colour and ink at any distance.</li>
+      <li>The grove's air only starts 80 units back, behind most of the forest.</li>
+    </ul>
+    <p>Here the trees take the air at their depth, as everything else does, and a near band of air lies over everything between the island and the far ranges. The far ranges you picked after review 17 stay as they are. The air is mixed in as light, so each tree's lit side and shaded side both settle toward it and its folds calm. Lightening the trees' colour alone barely changed them: their shaded side stayed just as far below the lit side.</p>
+    <div class="tablewrap"><table><thead><tr><th>Option</th><th>The forest</th><th>Busy behind (edges)</th><th>Its folds (contrast)</th><th>Its colour (saturation)</th></tr></thead><tbody>
+      <tr><td>Today</td><td>Full colour and ink at every depth</td><td>4.4% (the island's top 3.8%)</td><td>0.16 to 0.19</td><td>0.29 to 0.30</td></tr>
+      <tr><td>A &middot; Into the violet haze</td><td>A third of the way into the grove's violet air by 75 units back</td><td>4.0%</td><td>0.15 to 0.16</td><td>0.12 to 0.18</td></tr>
+      <tr><td>B &middot; Its own light green</td><td>A third of the way into a light tint of its own colour</td><td>3.9%</td><td>0.14 to 0.16</td><td>0.32 to 0.33</td></tr>
+      <tr><td>C &middot; Its own green, halfway</td><td>B, halfway</td><td>3.8%</td><td>0.14 to 0.15</td><td>0.33 to 0.35</td></tr>
+    </tbody></table></div>
+    <p>The island is unchanged: its lawn measures the same, and P1's gap goes from 0.096 to 0.099. Each image shows the four options, today at top left, A at top right, B at bottom left and C at bottom right.</p>
+    <div class="row" role="group" aria-label="View"><button data-fa75v="m">Match camera</button><button data-fa75v="w">Wide</button></div>
+    <div class="viewer"><img id="fa75img" alt="The grove's forest options"><span class="vtag" id="fa75tag"></span></div>
+    <p>Close up at full size: the forest behind the left platform.</p>
+    <div class="viewer"><img src="fa75_close.jpg" alt="The forest behind the left platform in each option at full size"></div>
+    <p class="muted">My pick: <b>B</b>. The forest steps back in its own green, its folds calmer, and the island's lawn now leads. The backdrop comes down to about the island's own busyness. Honest notes:</p>
+    <ul class="muted">
+      <li>None of the three takes the backdrop clearly under the island: B 3.9% against 3.7%, C level. What's left is the lanterns, the clouds and the side platforms, which are lights and play pieces the air leaves alone.</li>
+      <li>A is closest to the reference's violet forest, but it greys the forest (saturation 0.29 to 0.12 to 0.18), the greying October's air retune undid. Its trees also go violet while the ground they stand on stays green.</li>
+      <li>C starts to wash the forest pale.</li>
+      <li>In the air, the trees lose their ink, as the style sheet has it for the mid-ground. That is part of the calm.</li>
+      <li>Air mixed in as light is new to the toon shader. Only the grove's trial uses it; every other stage is unchanged.</li>
+    </ul>
+  </section>
+
+  <section class="panel" aria-labelledby="r18-h" id="review18">
+    <div class="eyebrow">Review 18 &middot; after the style pass &middot; as built on art/stage-refine b91195d4</div>
+    <h2 id="r18-h">Every stage after the style pass</h2>
+    <p>I judged every stage with all eight style pass steps in, using the same eight categories as before (5 means the still could sit beside the references) at 1920x1080. The rows are the meadow, grove, beach, canyon and city, with the match camera on the left and wide on the right.</p>
+    <div class="viewer" style="aspect-ratio: 1920 / 2700"><img src="r18_sheet.jpg" alt="Every stage as built after the style pass, match camera and wide"></div>
+    <div class="tablewrap"><table><thead><tr><th>Stage</th><th>Review 17</th><th>Review 18</th><th>Under 5</th></tr></thead><tbody>
+      <tr><td>Beach</td><td>5.00</td><td><b>4.88</b></td><td>Play area: the deck's plank gaps are now pale lines</td></tr>
+      <tr><td>Canyon</td><td>4.88</td><td>4.88</td><td>World and life: small and far, by the rule</td></tr>
+      <tr><td>City</td><td>5.00</td><td>5.00</td><td></td></tr>
+      <tr><td>Grove</td><td>5.00</td><td><b>4.88</b></td><td>Background land: the forest is as busy as the island</td></tr>
+      <tr><td>Meadow</td><td>5.00</td><td>5.00</td><td></td></tr>
+      <tr><td><b>Mean</b></td><td>4.98</td><td><b>4.93</b></td><td>37 of 40 cells at 5</td></tr>
+    </tbody></table></div>
+    <p>The style pass left the play areas where review 17 had them. Every fighter still stands clear of its floor, by value or by colour. New this time is how busy each layer is: the share of edge pixels above the play area and on its top. The references keep the distance calmer than the ground in front, and so does every stage but the grove.</p>
+    <div class="tablewrap"><table><thead><tr><th>Stage</th><th>Background</th><th>Play area's top</th></tr></thead><tbody>
+      <tr><td>Meadow</td><td>2.1%</td><td>5.4%</td></tr>
+      <tr><td>Canyon</td><td>0.8%</td><td>2.1%</td></tr>
+      <tr><td>Beach</td><td>1.6%</td><td><b>6.4%</b> (4.4% before the cut-edge colours)</td></tr>
+      <tr><td>City</td><td>3.1%</td><td>4.9%</td></tr>
+      <tr><td>Grove</td><td><b>4.4%</b></td><td>3.8%</td></tr>
+    </tbody></table></div>
+    <p>The two weakest visuals at full size. Top: the grove's forest behind the island, in colour and in grey. Bottom: the beach's deck, before the cut-edge colours and as built.</p>
+    <div class="viewer"><img src="r18_crops.jpg" alt="The grove's forest and the beach's deck at full size"></div>
+    <ul>
+      <li><b>The grove's forest</b> is the busiest backdrop of the five, busier than the night city's windows and busier than the island's own top. It sits close to the lawn in value (0.51 to 0.54, against 0.61), so the island doesn't stand out from it. In the reference, the forest recedes darker and simpler. It hasn't changed since review 17, where I scored it 5; this is the first time it's been measured.</li>
+      <li><b>The beach's deck</b> is now the busiest floor. The cut-edge colours turned the gaps between its planks into pale lines, as the mock said the beach would change most. The reference's boards each have their own tone and dark gaps; ours are long, even strips ruled with light lines.</li>
+    </ul>
+    <div class="tablewrap"><table><thead><tr><th>The plan</th><th>What changes</th><th>Options to mock</th></tr></thead><tbody>
+      <tr><td>1 &middot; The grove's forest into the air</td><td>The forest between the island and the far range takes the violet air from nearer, so it lifts toward the haze, its facets calm and the island stands in front. A palette change only.</td><td>The air from 40 (80 today); from 40 with twice the lift; from 20 with twice the lift</td></tr>
+      <tr><td>2 &middot; The beach's deck boards</td><td>Each board in its own tone, as the reference's are, and the gaps reading as joints, not ruled lines.</td><td>The gaps back toward the wood; the boards in their own tones; both</td></tr>
+    </tbody></table></div>
+    <p class="muted">My pick to start: <b>item 1</b>. The grove's backdrop affects the whole frame, and the fix is in the palette. Honest notes:</p>
+    <ul class="muted">
+      <li>With both items, the mean is back to 4.98. The one 4 left would be the canyon's world and life, by the rule.</li>
+      <li>Item 1 has to lift the forest toward the violet haze without greying it. In October's air retune, the air from 40 greyed the middle distance.</li>
+      <li>Item 2 partly walks back the beach's share of the cut-edge colours you just picked. The other four stages keep theirs.</li>
+      <li>The eight categories measure closeness to the references, not identity. The style pass's gain, each stage in its own craft, doesn't show in them. The meadow's stitch is the quietest of the five crafts at the match camera.</li>
+      <li>The fighters, outside this plan, remain the largest gap in any still. Full write-up: docs/art/stages/FIDELITY_REVIEW_18.md.</li>
+    </ul>
+  </section>
+
   <section class="panel" aria-labelledby="pc73-h" id="papercore73">
     <div class="eyebrow">Built B (the owner's pick) &middot; making the stages more their own: each stage's paper on its cut edges</div>
     <h2 id="pc73-h">Each stage's paper on its cut edges</h2>
@@ -4056,5 +4151,21 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
   group("data-pc73s", function (v) { pc73s = v; }, pc73render);
   group("data-pc73v", function (v) { pc73v = v; }, pc73render);
   pc73render();
+  var fa75v = "m";
+  function fa75render() {
+    $id("fa75img").src = "fa75_" + fa75v + ".jpg";
+    $id("fa75tag").textContent = "Grove" + (fa75v === "w" ? " · wide" : " · match camera");
+    pressed("data-fa75v", fa75v);
+  }
+  group("data-fa75v", function (v) { fa75v = v; }, fa75render);
+  fa75render();
+  var db76v = "m";
+  function db76render() {
+    $id("db76img").src = "db76_" + db76v + ".jpg";
+    $id("db76tag").textContent = "Beach" + (db76v === "w" ? " · wide" : " · match camera");
+    pressed("data-db76v", db76v);
+  }
+  group("data-db76v", function (v) { db76v = v; }, db76render);
+  db76render();
 })();
 </script>
