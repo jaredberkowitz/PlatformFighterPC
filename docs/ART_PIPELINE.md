@@ -1148,3 +1148,49 @@ The moveset session's new fighters and states (sim 96 to 97), presentation only:
 The first pass of the visual polish plan; the audit, the ranking and the full change report are in `docs/VISUAL_POLISH.md`. Fighters
 are shaded in two flat tones split by a hard step, with one clean shadow colour each, and the base body is re-laid as even quads
 (`make_base_body.py`, `REDUCE`) so that step draws a smooth edge. The collision-box outlines no longer show in `--noecb` shots.
+
+## Shots and items as props (the props pass, 2026-11-04)
+
+Until this pass, every shot without a look of its own was drawn as one generic purple bolt (about 30 moves across 10 classes:
+the popgun's shot, the fireball, the arrows, the boomerang, the bowling ball, the flares...). Four item kinds were not drawn at
+all: the Scamp's banana peel (9) and the Settler's sapling (5), tree (6) and wood chip (8). Presentation only: the sim's
+projectiles and items, read through the bridge.
+
+- **Modelled props:** `art/blender/make_match_props.py` builds `godot/models/match_props/`. There are 12 props:
+  - the cork and the rocket barrels;
+  - the banana peel;
+  - the sapling, the tree, the wood chip, the flowerpot, the bowling ball, the slingshot pellet and the toy rocket;
+  - the arrow and the boomerang.
+
+  Each is in the weapons' chunky style, with parts named by material word. `godot/scripts/match_props.gd` colours them by those
+  words (`PALETTE`, `PROP_COLOURS`). `SHOTS` maps each shot, keyed by `Vector2i(class, move)`, to its prop; `MOTION` says how it
+  moves:
+  - `along` points it the way it flies;
+  - `spin` turns it about the camera's axis;
+  - `roll` rolls it along the floor;
+  - `topple` is the felled tree, which pivots on its stump and comes to rest on its crown.
+
+  A round shot at rest is lifted onto the floor (`REST_LIFT`), because the sim lands a shot by its middle. `ITEMS` maps item kinds
+  to props. The tree grows from the sapling's size when a sapling becomes one. A thrown peel turns in the air. The arrow item wears
+  the arrow model. main.gd keeps one `MatchProps.Slot` per projectile slot and per item slot; a slot builds each prop the first time
+  it needs it and never keeps a node out of the tree (see `orphan_test.gd`). A prop that bursts, such as the Scamp's barrels, goes
+  in a painted fire burst.
+- **Painted energy shots:** `godot/scripts/shot_paint.gd` paints them the way the hit effects are painted. Each is layered
+  outside-in: a dark rim, the colour, a paler band, a white-hot core. They flicker on twos, are pointed the way the shot flies, and
+  are drawn into the slot's painted-shape mesh (the Champion's wave's). `PAINTED` covers:
+  - the Claws' laser;
+  - Embers' fireball, with tongues streaming back, and its water;
+  - the Seer's light shots and its flame burst;
+  - the Bounder's landing stars;
+  - the Phantom's curse bolt, which erupts in flames;
+  - the Exile's beam, its honeycomb barrier, its flares (dark orbs that burst in rings) and its ring burst;
+  - the Settler's watering can.
+- The Champion's aerial wave (extra move 0) is drawn as the wave (`WAVE_MOVES`).
+- **Checks:**
+  - `tests/match_props_test.gd`: every prop loads, is coloured, keeps to 3,000 triangles and uses known part words; floor props
+    stand on their origin; no shot is both modelled and painted; every painted kind draws; nothing outlives a slot.
+  - `--demo=props_tree`: plant, water, two chops.
+  - `--demo=fx_<class>_<move>[_again][_whiff][_wide]`; `_wide` takes the camera out for the Seer's far flame burst.
+  - `PF_PROP_TRACE=1` prints each drawn prop's frame and place, for picking frames from a capture.
+- **Not yet:** the held tools (the Settler's umbrella, shovel, axe, watering can and slingshot; the Scamp's worn barrels) and the
+  Exile's orbs on a fighter. The bridge has no accessor for the orbs yet. The bomb is still built in code.

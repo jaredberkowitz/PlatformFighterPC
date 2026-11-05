@@ -10,6 +10,8 @@ const FxMaterial := preload("res://scripts/fx_material.gd")
 const Particles := preload("res://scripts/particles.gd")
 const POST_SHADER := preload("res://shaders/post.gdshader")
 const FighterView := preload("res://scripts/fighter_view.gd")
+const MatchProps := preload("res://scripts/match_props.gd")
+const ShotPaint := preload("res://scripts/shot_paint.gd")
 const UiDraw := preload("res://ui/ui_draw.gd")
 const Loadout := preload("res://scripts/loadout.gd")
 const Roster := preload("res://scripts/roster.gd")
@@ -2494,6 +2496,8 @@ const ITEM_ARROW := 3
 ## The bomb's fuse flashes over its last frames.
 const ITEM_FLASH := 45
 var item_nodes: Array = []
+## Per item slot: its modelled props (match_props.gd: the banana peel, sapling, tree and wood chip).
+var item_props: Array = []
 var item_burst_shown: Array = []
 ## Per slot: which way the item last moved (x sign), so a lodged arrow keeps pointing the way it flew.
 var item_last_dir: Array = []
@@ -2583,6 +2587,14 @@ func _build_items() -> void:
 			fl.position = Vector3(-0.48, 0.15 + side * 0.06, 0)
 			fl.rotation_degrees = Vector3(0, 0, side * 20.0)
 			arrow.add_child(fl)
+		# The modelled arrow (match_props.gd), the flying shot's own, in place of the built one when it is there.
+		var arrow_model := MatchProps.make("arrow")
+		if arrow_model != null:
+			for c in arrow.get_children():
+				(c as Node3D).visible = false
+			arrow_model.position = Vector3(0, 0.15, 0)
+			arrow.add_child(arrow_model)
+		item_props.append(MatchProps.Slot.new(n, _as_play_object))
 		_as_play_object(n)
 		item_nodes.append(n)
 		item_burst_shown.append(false)
@@ -2638,6 +2650,7 @@ func _update_items() -> void:
 		# The bomb spins while it flies after a throw, the way it was thrown.
 		var flight: int = int(sim.item_flight(k)) if sim.has_method("item_flight") else 0
 		bomb.rotation.z = 0.0 if holder >= 0 or flight <= 0 or vel.length() < 0.001 else deg_to_rad(-ITEM_BOMB_SPIN * float(flight) * way)
+		MatchProps.update_item(item_props[k], kind, int(sim.frame()), flight, way, holder >= 0)
 		if kind == ITEM_BOMB:
 			var left := int(sim.item_life_left(k))
 			var flash := left >= 0 and left <= ITEM_FLASH and (int(sim.frame()) / 4) % 2 == 0
@@ -2656,10 +2669,11 @@ const PROJECTILE_STRIDE := 9
 ## The Needles class (2) and the move slots its needles and line come from (ext4 = 32, side special = 14).
 const NEEDLE_FROM := [2, 32]
 const LINE_FROM := [2, 14]
-## The Champion's (class 6) sword wave: its neutral special (13), and the powered wave (ext6 = 34, ext7 = 35), which is taller and turns
+## The Champion's (class 6) sword wave: its neutral special (13) and its aerial version (ext0 = 28; it was drawn as the purple bolt
+## until the props pass), and the powered wave (ext6 = 34, ext7 = 35), which is taller and turns
 ## into a spinning burst where it hits (`projectile_bursting`, when the bridge has it).
 const WAVE_CLASS := 6
-const WAVE_MOVES := [13, 34, 35]
+const WAVE_MOVES := [13, 28, 34, 35]
 const WAVE_POWERED := [34, 35]
 ## The Wanderer's (Buckler, class 9) sword wave: fired with its forward smash (5) at 0%, a horizontal blade of light about 1.75 long.
 const BLADE_WAVE_FROM := [9, 5]
@@ -2672,6 +2686,13 @@ var proj_balls: Array = []
 var proj_ball_burst: Array = []
 
 var proj_nodes: Array = []
+## Per slot: its modelled props (match_props.gd `SHOTS`), and whether a prop's burst has been shown.
+var proj_props: Array = []
+var proj_prop_burst: Array = []
+## Per slot: the painted energy shot's kind and move (shot_paint.gd `PAINTED`), when it appeared and when its burst began (sim frames).
+var proj_paint_key: Array = []
+var proj_paint_since: Array = []
+var proj_paint_burst_since: Array = []
 var proj_needles: Array = []
 var proj_lines: Array = []
 ## Per slot: the painted wave (an ImmediateMesh redrawn on twos) and its spin for a burst.
@@ -2736,6 +2757,11 @@ func _build_projectiles() -> void:
 		proj_waves.append(wv)
 		proj_balls.append(_basketball())
 		proj_ball_burst.append(false)
+		proj_props.append(MatchProps.Slot.new(self, _as_play_object))
+		proj_prop_burst.append(false)
+		proj_paint_key.append("")
+		proj_paint_since.append(0)
+		proj_paint_burst_since.append(-1)
 
 
 func _update_projectiles(a: float) -> void:
@@ -2750,9 +2776,18 @@ func _update_projectiles(a: float) -> void:
 		var wave: bool = active and (blade_wave or (int(from[0]) == WAVE_CLASS and WAVE_MOVES.has(int(from[1]))))
 		var ball: bool = active and from == BALL_FROM
 		var ball_bursting: bool = ball and sim.has_method("projectile_bursting") and bool(sim.projectile_bursting(k))
-		proj_waves[k].visible = wave
+		# A shot with a modelled prop (match_props.gd `SHOTS`; "" for one drawn as nothing).
+		var prop: Variant = MatchProps.shot(from) if active and not needle and not line and not wave and not ball else null
+		# An energy shot painted as the effects are (shot_paint.gd `PAINTED`).
+		var painted: String = ShotPaint.kind_of(from) if active and not needle and not line and not wave and not ball and prop == null else ""
+		proj_waves[k].visible = wave or painted != ""
 		(proj_balls[k] as Node3D).visible = ball and not ball_bursting
-		proj_nodes[k].visible = active and not needle and not line and not wave and not ball
+		proj_nodes[k].visible = active and not needle and not line and not wave and not ball and prop == null and painted == ""
+		if painted == "":
+			proj_paint_key[k] = ""
+		if prop == null:
+			MatchProps.hide_slot(proj_props[k])
+			proj_prop_burst[k] = false
 		proj_needles[k].visible = needle
 		proj_lines[k][0].visible = line
 		proj_lines[k][1].visible = line
@@ -2785,6 +2820,35 @@ func _update_projectiles(a: float) -> void:
 		elif line:
 			proj_lines[k][0].position = at
 			_draw_cord(proj_lines[k][1], int(proj_cur[i + 8]), at, a)
+		elif painted != "":
+			var frame_now := int(sim.frame())
+			var pkey := "%s|%d|%d" % [painted, int(from[1]), int(proj_cur[i + 8])]
+			if pkey != proj_paint_key[k] or frame_now < int(proj_paint_since[k]):
+				proj_paint_key[k] = pkey
+				proj_paint_since[k] = frame_now
+				proj_paint_burst_since[k] = -1
+			var p_bursting: bool = sim.has_method("projectile_bursting") and bool(sim.projectile_bursting(k))
+			if p_bursting and int(proj_paint_burst_since[k]) < 0:
+				proj_paint_burst_since[k] = frame_now
+			var p_age: int = frame_now - (int(proj_paint_burst_since[k]) if p_bursting else int(proj_paint_since[k]))
+			if MatchProps.tracing():
+				print("PAINT %d %s %.2f %.2f age %d burst %s" % [frame_now, painted, at.x, at.y, p_age, p_bursting])
+			ShotPaint.draw(proj_waves[k], painted, at, Vector2(proj_cur[i + 4], proj_cur[i + 5]), float(proj_cur[i + 3]), p_age,
+				p_bursting, int(from[1]))
+		elif prop != null:
+			var bursting: bool = sim.has_method("projectile_bursting") and bool(sim.projectile_bursting(k))
+			if bursting:
+				# A prop that bursts (the Scamp's barrels) goes in a painted fire burst, once.
+				MatchProps.hide_slot(proj_props[k])
+				if not proj_prop_burst[k]:
+					Effects.hit(self, at, Vector2.UP, Color(1.0, 0.55, 0.15), 1.2, Effects.Kind.FIRE)
+					proj_prop_burst[k] = true
+			else:
+				proj_prop_burst[k] = false
+				var scale_pct: float = float(sim.projectile_scale(k)) if sim.has_method("projectile_scale") else 100.0
+				var rest: int = int(sim.projectile_rest(k)) if sim.has_method("projectile_rest") else 0
+				MatchProps.update_shot(proj_props[k], String(prop), from, at, Vector2(proj_cur[i + 4], proj_cur[i + 5]),
+					float(proj_cur[i + 3]), int(sim.frame()), scale_pct, rest)
 		else:
 			proj_nodes[k].position = at
 
