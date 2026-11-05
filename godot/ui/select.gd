@@ -20,8 +20,6 @@ const Preview := preload("res://ui/preview.gd")
 const Loadout := preload("res://scripts/loadout.gd")
 const Roster := preload("res://scripts/roster.gd")
 const Shot := preload("res://ui/shot.gd")
-const AnimLibrary := preload("res://scripts/anim_library.gd")
-const DIE_CUT := preload("res://shaders/die_cut.gdshader")
 const PadNav := preload("res://scripts/pad_nav.gd")
 
 ## The roster grid fits its cards into the strip along the bottom (GRID_AREA, from GRID_TOP): as many fighters are saved, it starts new
@@ -40,9 +38,7 @@ const SIDE_MARGIN := 20.0
 const STACK_GAP := 12.0
 ## The select fighter's turn toward the centre (radians) without a hero pose of its own, and the most a pose may ask for (past about
 ## 0.9 the far eye goes behind the round head).
-const HERO_TURN_DEFAULT := 0.55
-const HERO_TURN_MAX := 0.9
-const STAFF_CLASS := 5
+const HERO_TURN_DEFAULT := UI.HERO_TURN_DEFAULT
 ## Hero poses whose raised weapon is longer than the room above the hand at the panel's scale (the art director, 2026-11-04: the
 ## Greatsword's and the Nodachi's blades ran past the panel and under the top bar; the Longsword's reached the bar and the VERSUS title):
 ## [k, lower]: the fighter drawn k times smaller with its feet where they were, then `lower` world units lower in the panel (its feet
@@ -303,10 +299,7 @@ class PlayerPanel extends Control:
 		preview = Preview.new(Vector2i(260, 260), false, HERO_CAM.z)
 		preview.spin = false
 		_fit(1.0)
-		if Art.paper_style() > 0:
-			var m := ShaderMaterial.new()
-			m.shader = DIE_CUT
-			preview.material = m
+		UI.die_cut(preview)
 		clip = Control.new()
 		clip.clip_contents = true
 		clip.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -458,25 +451,9 @@ class PlayerPanel extends Control:
 		preview.camera.look_at_from_position(preview.camera.position, Vector3(0, HERO_AIM_Y * k + lower, 0))
 
 	func _hold_hero(c: int) -> void:
-		var anim: AnimationPlayer = preview.view.anim
-		var clip := AnimLibrary.family_clip(c, "menu_hero", anim)
-		if c == STAFF_CLASS and anim != null and anim.has_animation("menu_hero_staff"):
-			clip = "menu_hero_staff"
-		if anim != null and anim.has_animation(clip):
-			if facing < 0 and anim.has_animation(clip + "@m"):
-				clip += "@m"
-			# (Through a Script value: a preloaded class's own constant table cannot be asked for directly.)
-			var lib: Script = AnimLibrary
-			var consts: Dictionary = lib.get_script_constant_map()
-			var key := clip.trim_suffix("@m")
-			hero_turn = clampf(float((consts.get("HERO_TURN", {}) as Dictionary).get(key, HERO_TURN_DEFAULT)), 0.0, HERO_TURN_MAX)
-			preview.hold_clip(clip, float((consts.get("HERO_AT", {}) as Dictionary).get(key, 0.5)))
-			var fit: Vector2 = HERO_FIT.get(c, Vector2(1.0, 0.0))
-			_fit(fit.x, fit.y)
-		else:
-			hero_turn = HERO_TURN_DEFAULT
-			preview.hold_clip(AnimLibrary.family_clip(c, "jump", anim), 0.35)
-			_fit(1.0)
+		hero_turn = UI.hero_pose(preview, c, facing)
+		var fit: Vector2 = HERO_FIT.get(c, Vector2(1.0, 0.0))
+		_fit(fit.x, fit.y)
 		_face()
 
 	func show_entry(e: Dictionary, size_percent: float, ready: bool) -> void:

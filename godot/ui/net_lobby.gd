@@ -97,14 +97,14 @@ func build(all_entries: Array, start_index: int, start_stage: int) -> void:
 	fighter_step = _step_group()
 	board = Board.new()
 	fighter_step.add_child(board)
-	var mine := _player_card(Vector2(60, 120), "YOU")
+	var mine := _player_card(Vector2(60, 120), "YOU", P_COLORS[slot % 4])
 	my_preview = mine.preview
 	var names := entries.map(func(e): return e.name)
 	fighter_row = UI.Selector.new("Fighter", names)
 	fighter_row.position = Vector2(60, 540)
 	fighter_row.changed.connect(func(i): _pick_fighter(i))
 	fighter_step.add_child(fighter_row)
-	var theirs := _player_card(Vector2(700, 120), "FRIEND")
+	var theirs := _player_card(Vector2(700, 120), "FRIEND", P_COLORS[(1 - slot) % 4])
 	their_preview = theirs.preview
 	their_name = theirs.label
 	their_fighter = UI.Tag.new("...", Vector2(400, 40))
@@ -152,8 +152,10 @@ func build(all_entries: Array, start_index: int, start_stage: int) -> void:
 
 
 ## A card with a fighter standing on a little stage and a name tag over it.
-func _player_card(at: Vector2, heading: String) -> Dictionary:
+func _player_card(at: Vector2, heading: String, colour: Color) -> Dictionary:
 	var stand := UI.Stage.new(Vector2(520, 380), 0.25, 61 if heading == "YOU" else 67)
+	# (Each player's card in their own colour, as fighter select's panels: both were one violet.)
+	stand.scene.colour = Color.from_hsv(colour.h, 0.62, 0.72)
 	stand.position = at + Vector2(0, 40)
 	fighter_step.add_child(stand)
 	var preview := Preview.new(Vector2i(500, 360), false)
@@ -209,6 +211,24 @@ func _click_stage(i: int) -> void:
 func _show_mine() -> void:
 	var e: Dictionary = entries[fighter_index]
 	my_preview.set_loadout(e.look)
+	_pose(my_preview, int(e.get("class", 0)), 1)
+
+
+## A lobby fighter in its hero pose with its weapon (as on fighter select), turned toward the other card: `facing` 1 on the left.
+func _pose(pv: Control, cls: int, facing: int) -> void:
+	pv.set_weapon(cls)
+	pv.facing_bias = UI.hero_pose(pv, cls, facing) * float(facing)
+
+
+## The class a fighter spec names (`Roster.spec_bytes`: [0, n] a built-in fighter, [1, class, ...] a made one), or 0.
+func _spec_class(spec: PackedByteArray) -> int:
+	if spec.size() >= 2 and spec[0] == 1:
+		return spec[1]
+	if spec.size() >= 2:
+		for e in entries:
+			if Roster.spec_bytes(e) == spec:
+				return int(e.get("class", 0))
+	return 0
 
 
 func _emit() -> void:
@@ -268,6 +288,7 @@ func show_view(pick: Dictionary) -> void:
 		their_look_bytes = cosmetics
 		var profile := Roster.parse_profile(cosmetics, 1)
 		their_preview.set_loadout(profile.look)
+		_pose(their_preview, _spec_class(pick.get("fighter", PackedByteArray())), -1)
 		var n: String = profile.name if profile.name != "" else "Your friend's fighter"
 		their_fighter.set_text(n)
 		their_fighter_name = profile.name if profile.name != "" else "?"

@@ -222,3 +222,15 @@ the foot, so it still breaks out past the card's sides and stands over its name 
 as key art crops at a panel edge (the owner picked Sword A from a mock whose tips were already cut), and it is never drawn over the bar,
 the VERSUS title or the tabs. `HERO_FIT` is empty: every fighter at one size. Before/after: `hero_crop_before_after.png` (red the fit,
 green the crop: Champion v Exile both ways round, four players); also Exile v Brawler both ways round in `hero_crop/`.
+
+## Hero poses and die-cut fighters on every menu fighter card (2026-11-04)
+
+Reviewing every screen on main (sim 151): the online lobby, the Online screen and the results still showed their fighters in the old
+idle on violet spotlit cards, beside fighter select's die-cut hero poses. Applied the look already picked, no new design:
+- The hero pose moved into the kit (`UI.hero_pose(preview, cls, facing)` returns the turn; select uses it), and `UI.die_cut(preview)`;
+  `UI.Stage.add_fighter` cuts every card fighter out of paper (the lobby, Online, the results' winner and runner-up).
+- The lobby's two fighters hold their hero poses with their weapons, facing each other (the friend's class read from its fighter spec),
+  each card in its player's colour (both were violet); Online's fighter holds its pose facing the form.
+- The results' winner keeps its victory pose (now die-cut).
+
+Before/after: `hero_everywhere_before_after.png` (lobby, Online, results). The eleven UI tests pass.

@@ -4,6 +4,45 @@ extends RefCounted
 
 const D := preload("res://ui/ui_draw.gd")
 const Art := preload("res://ui/menu_art.gd")
+const AnimLibrary := preload("res://scripts/anim_library.gd")
+const KIT := preload("res://ui/ui_kit.gd")
+const DIE_CUT := preload("res://shaders/die_cut.gdshader")
+## A menu fighter's turn toward the screen's centre without a hero pose of its own, and the most a pose may ask for (past about 0.9 the
+## far eye goes behind the round head). The staff class's own hero pose.
+const HERO_TURN_DEFAULT := 0.55
+const HERO_TURN_MAX := 0.9
+const STAFF_CLASS := 5
+
+
+## Holds class `cls`'s hero pose on a menu preview (the owner's picks of 2026-11-04 on the animator's sheet r9_hero_pose_mock): its
+## `menu_hero` clip (menu_hero_<family> through `family_clip`; menu_hero_staff for the staff), the mirrored `@m` clip when the fighter
+## faces left (`facing` -1) so it presents its weapon toward the centre, held at the pose's HERO_AT. A class whose pose is not built holds
+## its family's jump at the top of its spring. Returns how far to turn it toward the centre (radians, AnimLibrary HERO_TURN by clip).
+## Call after `set_loadout` and `set_weapon`. Fighter select, the online lobby and the Online screen share it.
+static func hero_pose(preview: Control, cls: int, facing := 1) -> float:
+	var anim: AnimationPlayer = preview.view.anim
+	var clip := AnimLibrary.family_clip(cls, "menu_hero", anim)
+	if cls == STAFF_CLASS and anim != null and anim.has_animation("menu_hero_staff"):
+		clip = "menu_hero_staff"
+	if anim == null or not anim.has_animation(clip):
+		preview.hold_clip(AnimLibrary.family_clip(cls, "jump", anim), 0.35)
+		return HERO_TURN_DEFAULT
+	if facing < 0 and anim.has_animation(clip + "@m"):
+		clip += "@m"
+	# (Through a Script value: a preloaded class's own constant table cannot be asked for directly.)
+	var lib: Script = AnimLibrary
+	var consts: Dictionary = lib.get_script_constant_map()
+	var key := clip.trim_suffix("@m")
+	preview.hold_clip(clip, float((consts.get("HERO_AT", {}) as Dictionary).get(key, 0.5)))
+	return clampf(float((consts.get("HERO_TURN", {}) as Dictionary).get(key, HERO_TURN_DEFAULT)), 0.0, HERO_TURN_MAX)
+
+
+## Gives a menu preview the die-cut edge (cardstock): a cream rim round the fighter and a paper shadow (shaders/die_cut.gdshader).
+static func die_cut(preview: Control) -> void:
+	if Art.paper_style() > 0:
+		var m := ShaderMaterial.new()
+		m.shader = DIE_CUT
+		preview.material = m
 const INK := D.INK
 const CREAM_DARK := D.CREAM_DARK
 const CREAM := D.CREAM
@@ -699,6 +738,9 @@ class Stage extends Control:
 	func add_fighter(preview: Control) -> void:
 		preview.spin = false
 		preview.facing_bias = 0.35
+		# (Cut out of paper, as on fighter select, since 2026-11-04: the lobby, Online and the results. Inner classes reach the script's
+		# static functions through its own preload.)
+		KIT.die_cut(preview)
 		preview.framed = true
 		# The camera aims so the feet are on the platform (0.7 of the way down; see the creator's stage).
 		preview.body_from = Vector3(0, 1.0, 7.4)
