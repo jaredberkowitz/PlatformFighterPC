@@ -88,6 +88,30 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
     <p>Two lessons from the reference screenshots, mocked from the match camera: the scenery without ink outlines, its edges lit as card bevels instead, and the paper houses rebuilt at the characters' proportions. The earlier rounds stay on the <a href="https://claude.ai/artifact/D1du6MREVumiJDrEdNypW4">Stage Fidelity Review</a>, which is full.</p>
   </header>
 
+  <section class="panel" aria-labelledby="de78-h" id="deckedge78">
+    <div class="eyebrow">Review 19, item 1 &middot; the beach's deck edge under the fight</div>
+    <h2 id="de78-h">The beach's deck edge</h2>
+    <p>Review 19's contrast map found that the band of bleached paper along the deck's front edge out-contrasts the fighters. It runs the deck's whole width, right under them, so it lifted every block in that row. Here the band is made quieter in three ways. Nothing is remodelled; only the band's colour changes.</p>
+    <div class="tablewrap"><table><thead><tr><th>Option</th><th>The band</th><th>Its value</th><th>The fighters' blocks</th><th>The blocks under the fight</th></tr></thead><tbody>
+      <tr><td>Today</td><td>Bleached paper</td><td>0.84</td><td>#17 and #19</td><td>#4 to #9</td></tr>
+      <tr><td>A &middot; Halfway to the wood</td><td>Halfway back toward the deck's lit wood</td><td>0.76</td><td>#6 and #10</td><td>#5 to #15</td></tr>
+      <tr><td>B &middot; The lit wood, as before</td><td>The deck's lit wood, as before the cut-edge colours</td><td>0.65</td><td><b>#6 and #8</b></td><td><b>#14 to #23</b></td></tr>
+      <tr><td>C &middot; The paper in shade</td><td>The bleached paper, a step darker</td><td>0.68</td><td>#7 and #8</td><td>#10 to #20</td></tr>
+    </tbody></table></div>
+    <p>The ranks are of the frame's 96 blocks by contrast; lower numbers lead the eye. P1's gap is the same in all four (0.17). Each image shows the four options, today at top left, A at top right, B at bottom left and C at bottom right.</p>
+    <div class="row" role="group" aria-label="View"><button data-de78v="m">Match camera</button><button data-de78v="w">Wide</button></div>
+    <div class="viewer"><img id="de78img" alt="The beach's deck edge options"><span class="vtag" id="de78tag"></span></div>
+    <p>The deck edge at full size.</p>
+    <div class="viewer"><img src="de78_close.jpg" alt="The deck edge in each option at full size"></div>
+    <p class="muted">My pick: <b>B</b>. The band reads as the deck's own honey timber with a soft lit edge, as the reference's boards have, and it clears the fight by the widest margin: every block under the fight now ranks below the fighters. Honest notes:</p>
+    <ul class="muted">
+      <li>B takes the bleached paper off the deck. The beach keeps it on its other cut edges: the sheets of its shore, headland and islands.</li>
+      <li>C keeps the paper on the deck and also clears the fight, by less. Darkened, the bleached paper reads a little grey against the warm wood.</li>
+      <li>A doesn't clear it: one block under the fight still ranks above a fighter (#5 against #6 and #10).</li>
+      <li>With the band quieter, the fighters lead the beach's frame almost as the canyon's and city's do (#6 to #8), up from #17 and #19.</li>
+    </ul>
+  </section>
+
   <section class="panel" aria-labelledby="r19-h" id="review19">
     <div class="eyebrow">Review 19 &middot; after review 18 &middot; as built on art/stage-refine 72828832</div>
     <h2 id="r19-h">Every stage after review 18</h2>
@@ -4208,5 +4232,13 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
   }
   group("data-db76v", function (v) { db76v = v; }, db76render);
   db76render();
+  var de78v = "m";
+  function de78render() {
+    $id("de78img").src = "de78_" + de78v + ".jpg";
+    $id("de78tag").textContent = "Beach" + (de78v === "w" ? " · wide" : " · match camera");
+    pressed("data-de78v", de78v);
+  }
+  group("data-de78v", function (v) { de78v = v; }, de78render);
+  de78render();
 })();
 </script>

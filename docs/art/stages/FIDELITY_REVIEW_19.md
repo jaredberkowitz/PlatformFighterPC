@@ -99,3 +99,26 @@ Mean **4.93** (review 18 as closed: 4.98). Bold: down. Thirty-seven of forty cel
   the fight, and the city's fighters still rank #8 and #9, so I left it.
 - At the wide camera the meadow's stone wall is the largest busy area, and the grove's side cliffs are its dullest surface (a plain
   grey-brown). Neither leads its frame.
+
+## Item 1, the beach's deck edge (mock, 2026-11-05)
+
+The owner: "Start item 1". The band is what `StageBake._split_boards` leaves in `top_card` once the joints are split off: the deck's
+front edge, and the boards' ends at the deck's far sides. It runs the deck's whole width, so it lifted every block in its row, and that
+is why the fighters had fallen to #17 and #19. The palette's [backdrop] `deck_edge`, or `--deck-edge=T|A|B|C` (`StageBake.DECK_EDGE_TRY`):
+
+| Option | The band | Its value | The fighters' blocks | The blocks under the fight |
+|---|---|---|---|---|
+| Today | Bleached paper (the paper core, 70%) | 0.84 | #17 and #19 | #4 to #9 |
+| A, halfway to the wood | Halfway back toward the deck's lit wood | 0.76 | #6 and #10 | #5 to #15 |
+| B, the lit wood, as before | The edge's colour before the paper core | 0.65 | #6 and #8 | #14 to #23 |
+| C, the paper in shade | The bleached paper, 0.2 darker | 0.68 | #7 and #8 | #10 to #20 |
+
+P1's gap is the same in all four (0.170 to 0.173). On the Stage Look Review ("deckedge78", `de78_*`).
+
+Recommended B: the band reads as the deck's own honey timber with a soft lit edge, as the reference's boards have, and it clears the
+fight by the widest margin.
+- B takes the bleached paper off the deck. The beach keeps it on its other cut edges: the sheets of its shore, headland and islands
+  (make_beach_ground.py's `card_` families).
+- C keeps the paper on the deck and clears the fight too, by less. Darkened, the bleached paper reads a little grey against the warm wood.
+- A doesn't clear it: one block under the fight still ranks above a fighter (#5 against #6 and #10).
+All tests pass but the runner test, which failed three runs in a row on its known flakes ("the way out" and the coin pickup; PR #15) with the machine busy; the deck edge never reaches the run mode (`deck_edge_look` is the beach's only). The look bench passes.
