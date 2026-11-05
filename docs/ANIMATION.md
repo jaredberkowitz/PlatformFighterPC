@@ -3386,3 +3386,55 @@ lies at the hit), `bodyft.py` (the torso's travel after the last hit), `windpops
   demo to r10d's checksum and quits with code 0 (the staged copy's check run lost its graphics device once, in the NVIDIA driver, after
   loading the content). The Godot tests pass (with the online flow, online fighters, creator and props tests: 13 props, 11 painted kinds,
   12 tools) and the look bench (0 buffer overflows, worst 0.90).
+
+### Group 9 (round 10): the free arm aims in the wind-up and swings back at the hit (review 3, cause 5); the Settler's back air
+
+- **Found (r10e; each class's gallery traced, the far hand placed from its own shoulder):** the attack clips hold the free arm in close
+  (`make_rigged_blob.py` `FREE_ARM_*`: the upper arm 10-80 degrees forward and 24 out, the elbow folded 90 or more), so through a forward
+  strike it went from a guard by the chin in the wind-up (the Embers' forward smash: 0.10-0.13 units ahead of its shoulder and 0.15-0.18
+  above it) to the belly at the hit (0.18-0.20 below): a drop, not a swing. The reference's off hand aims at the target while the striking
+  fist cocks back, and pulls back as the strike goes through (the owner's gold standard, the plumber's forward air).
+- **Fix (`fighter_view.gd` `_free_arm_swing`, run after the weapon arm's aim and before the face guard):** in the forward strikes
+  (`FREE_SWING_MOVES`: forward tilt, forward smash, dash attack, forward air, side special, where their clip is one of
+  `FREE_SWING_CLIPS`), the far hand reaches out toward the foe from its own shoulder through the coil (`FREE_AIM`: 0.85 of the arm's reach
+  along the facing, a little under the shoulder), as deep as the wind-up goes (`anticipation_depth`); swings back down past its shoulder
+  as the strike snaps through (`FREE_PULL`); holds there through the hits and the hold; and goes home with the arms' recovery (`home_k`,
+  `ARM_LAG`). The elbow points down under the aim and back behind the pull (`FREE_AIM_POLE`, `FREE_PULL_POLE`; left to the IK, the
+  drawn-back elbow pointed down and out and read folded backward on screen, a jab's free arm 90-100 frames each). The arm is always solved
+  whole, the hand going from where the clip has it toward the swing's place with the clip's own elbow (`_ik_arm`'s new `pole_hint`):
+  blended bone by bone at a part weight, the hand flipped round its elbow, 0.24 units in a frame, as the weight passed 0.3. A move cut
+  short (a forward air landing) lets the hand go back over `FREE_FADE_FRAMES` 4 sim frames from where the swing left it; not into a hit's
+  reaction. Not the jabs (their guard hand stays by the chin, as a boxer's, and one jab cancelled into the next would throw the pulled-back
+  hand up to the guard in a frame), the two-handed grips, nor the Wanderer, whose free arm carries its shield. By the move's frame, so a
+  freeze holds it and a seek redraws it. `PF_R10_OFF=free` leaves the clip's arm.
+- **The Settler's back air (the coordinator's item, folded in):** after the reference, the arms spread wide at the shoulders with the
+  slingshot held out behind. Its own clip, `tool_sling_bair` (`BODY_MOVES`; the rig rebuilt, every other clip byte for byte the same):
+  gathered with the knees up and both fists in, then both arms spread to the sides, one knee up and the other leg hanging, the body
+  upright; the game turns it round toward the shot (a hit behind), so the slingshot hand points behind and the other ahead, and the clip
+  poses both arms (`AnimLibrary.OWN_ARMS`). It played the shared back air: turned away in a tucked kick, the slingshot at the chest. Its
+  strike lands on frame 11, when the sim fires the pellet (`RELEASE_FRAME`, through `release_frames`), not on its first frame. The forward
+  air keeps its first frame: struck on frame 8, its end lag measured 3 frames further from the reference's (tried, reverted).
+  `PF_R10_OFF=sling` shows the old back air.
+- **Measured (every class, both facings; r10e in brackets):** attack timing (follow-through / hold / recovery / wind-up) 2.34 / 1.51 / 1.65
+  / 1.15 (2.35 / 1.50 / 1.63 / 1.16; the moves that moved: the Embers' forward smash nearer its reference, follow-through and hold a frame
+  each; the Longsword's forward smash's recovery a frame quicker; the Settler's back air's hold 2 frames shorter than its reference's);
+  wind-up jumps of 0.25 or more 31 (31); end-lag pops 8 (8); eyes or mouth covered 7 (7); striking hands hidden 1,278 (1,310: the
+  Settler's back air 60 to 28); limbs reading reversed on screen 2,804 (2,841 at r10c; the galleries alone 2,152 to 2,116, the Settler's
+  back air the only move that changed). The free arm's share of the screen in the Embers' forward smash's wind-up: 0.36 to 0.97 (it was
+  behind the body). Tests pass; the look bench passes (worst 0.90).
+- **Left:** at the hit the pulled-back hand is mostly behind the side-on body (shown, it would be an arm flung back, which the owner's
+  rule forbids); the forward strikes with a short wind-up (the tilts, the forward airs) show only a little aim; the Settler's pellets start
+  at hip height (the sim's), below the slingshot held at the shoulder (a question for the moveset session).
+- **Image:** `docs/screenshots/anim/r10_free_arm.jpg` (the Embers' forward smash, close up and at the match camera's size, then the
+  Settler's back air; r10e above now, facing right then left).
+
+### Mock (round 10): a livelier ledge hang (review 3, cause 8; for the owner to pick)
+
+- **Found:** the hang is still: hanging from the far hand, the near hand at the chest, the legs dangling with a 2-second sway of a few
+  degrees. The references hang from one hand and stay alive: the plumber swings his free arm out and lifts a knee every couple of
+  seconds, the dinosaur kicks its legs.
+- **Options** (each a 2-second loop: still most of it, then a fidget over about two thirds of a second; built in a mock rig, nothing in
+  the build): **A** the free hand swung off the wall out behind into the open air, the elbow opening, and back; **B** the legs kicked, the
+  near knee up toward the wall and the far leg back, a pedal; **C** both together, as the reference plumber's.
+- **Image:** `docs/screenshots/anim/r10_ledge_hang_mock.jpg` (today, A, B and C over one cycle; close up, then the match camera's size).
+  A moving side-by-side is on F: (`F:\anim_core\r10\g9\ledge_mock_4up.mp4`).

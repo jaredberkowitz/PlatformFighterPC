@@ -1034,7 +1034,7 @@ static func dodge_total(d: PackedInt32Array) -> int:
 func _attack_clip(s: Dictionary) -> Array:
 	var t: PackedInt32Array = s.move_timing
 	var total := maxf(1.0, float(t[0]))
-	var release: Dictionary = RELEASE_FRAME.get(_cls(s), {})
+	var release: Dictionary = release_frames(_cls(s))
 	if int(t[1]) == 0 and release.has(String(s.move_name)):
 		t = PackedInt32Array([t[0], int(release[String(s.move_name)]), int(release[String(s.move_name)])])
 	var start := clampf(float(t[1]), 1.0, total)
@@ -1059,7 +1059,7 @@ func _attack_clip(s: Dictionary) -> Array:
 		# (Round 10: a gun's shot out of its draw, `AIM_AHEAD`, keeps the draw's braced stance (the coil) through its release and hold, the
 		# gun kicking up in the hand, then lowers back to the stance the way it came. Through the clip's strike its free arm went up
 		# overhead and the arms-beside-the-head layer folded its elbow backward behind the head.)
-		var rel := float((RELEASE_FRAME.get(_cls(s), {}) as Dictionary).get(name, 0))
+		var rel := float((release_frames(_cls(s)) as Dictionary).get(name, 0))
 		progress = COIL_PROGRESS * (1.0 - home_k(float(s.state_frame), rel, total, _end_shape(s), 0.0, BODY_CREEP))
 	elif float(s.state_frame) < start and (COILED_START.get(_cls(s), []) as Array).has(name):
 		# (Thrown straight out of a charge's coil: it starts coiled rather than rising to the rest pose and coiling again.)
@@ -1524,7 +1524,9 @@ static var r9_off := OS.get_environment("PF_R9_OFF").split(",")
 ## crossing the other at the hit, `_aim_leg`; the back airs' tucks, moved to the far leg with it, are in the rig); "coil" winds every
 ## move up to its full chamber whatever its startup (`anticipation_depth`); "aim" leaves a gun's arm to its move's missing hit
 ## (`AIM_AHEAD`); "charge" keeps the charge's glow, tremble and squint on through the whole move (`_charging`); "settle" brings a grounded
-## move home into its stance without the knees taking its weight (`_settle_dip`).
+## move home into its stance without the knees taking its weight (`_settle_dip`); "free" leaves a strike's free arm to its clip
+## (`_free_arm_swing`); "sling" gives the Settler's back air the shared back air's clip and its strike on its first frame
+## (`release_frames`, AnimLibrary).
 static var r10_off := OS.get_environment("PF_R10_OFF").split(",")
 var handoff_clip := ""
 var handoff_state := ""
@@ -6044,14 +6046,26 @@ const HELD_COIL := {7: ["neutral special"], 11: ["up special", "extra move 5", "
 const COIL_EASE_IN := {2: ["neutral special"], 9: ["neutral special"], 11: ["neutral special"]}
 ## Moves with no hitbox of their own (a projectile or a script throws the hit) and the frame their strike lands on, by class (round 8: the
 ## Needles' volley throws its first needle on frame 11 and casts its line on 13). Without it such a move struck on its first frame.
-## (Round 10: the Popgun's shot, its peanut out as the move begins.)
+## (Round 10: the Popgun's shot, its peanut out as the move begins; the Settler's back air, its pellet out behind on frame 11 as the
+## sim spawns it: the arms spread before the shot, where it struck on its first frame. Its forward air (pellet out on 8) keeps its first
+## frame: on 8 its end lag measured 3 frames further from the reference's.)
 const RELEASE_FRAME := {11: {"extra move 3": 1}, 2: {"extra move 4": 11, "side special": 13}, 0: {"down special": 6},
+	10: {"bair": 11},
 	9: {"extra move 4": 1, "extra move 9": 1, "extra move 10": 1, "side special": 27, "extra move 5": 27, "extra move 6": 2,
 		"extra move 7": 2, "down special": 16, "extra move 8": 2},
 	5: {"neutral special": 14, "side special": 22, "down special": 6},
 	13: {"extra move 3": 3, "extra move 4": 3, "extra move 5": 3, "side special": 14},
 	12: {"neutral special": 11, "side special": 15, "extra move 3": 2, "extra move 4": 2, "extra move 5": 2, "extra move 6": 2,
 		"extra move 7": 2, "extra move 8": 15, "down special": 2, "extra move 9": 2}}
+
+
+## A class's release frames (`RELEASE_FRAME`); `PF_R10_OFF=sling` leaves the Settler's back air striking on its first frame, as before.
+static func release_frames(cls: int) -> Dictionary:
+	if cls == 10 and r10_off.has("sling"):
+		return {}
+	return RELEASE_FRAME.get(cls, {})
+
+
 ## Moves held in their strike pose for as long as they last (no hit times them): the Settler hangs from its balloons, both hands up on
 ## the strings over its head.
 const HELD_STRIKE := {10: ["up special", "extra move 8"], 13: ["neutral special"], 5: ["down special"], 12: ["down special", "extra move 9"]}
@@ -6117,7 +6131,7 @@ func _aims_ahead(s: Dictionary) -> bool:
 
 ## The aim's angle above level at this frame (degrees, forward space): the shot's kick, up at its release, eased back level.
 func _aim_kick(s: Dictionary) -> float:
-	var rel: Dictionary = RELEASE_FRAME.get(_cls(s), {})
+	var rel: Dictionary = release_frames(_cls(s))
 	if not rel.has(String(s.move_name)):
 		return 0.0
 	var u := (float(s.state_frame) - float(rel[String(s.move_name)])) / AIM_KICK_FRAMES
@@ -6687,7 +6701,7 @@ func _reach_weight(s: Dictionary) -> float:
 	if _aims_ahead(s):
 		if (HELD_COIL.get(_cls(s), []) as Array).has(String(s.move_name)):
 			return 1.0
-		var rel := float((RELEASE_FRAME.get(_cls(s), {}) as Dictionary).get(String(s.move_name), 0))
+		var rel := float((release_frames(_cls(s)) as Dictionary).get(String(s.move_name), 0))
 		if f <= rel:
 			return 1.0
 		return 1.0 - home_k(f, rel, maxf(rel + 1.0, float(t[0])), _end_shape(s), ARM_LAG)
@@ -7172,6 +7186,130 @@ func _aim_arm(facing: int, holding: bool, two_hands := false, amount := 1.0) -> 
 var arms_held: Array = []
 
 
+## (Round 10, review 3's cause 5) The free arm in a strike thrown ahead. The attack clips hold it in close to the body
+## (`make_rigged_blob.py` FREE_ARM_*), so it neither reached toward the foe in the wind-up nor swung back at the hit: from a guard by the
+## chin it dropped to the belly. The reference's off hand aims at the target while the striking fist cocks back, then pulls back as the
+## strike goes through (the owner's gold standard, the plumber's forward air). The far hand (the free one: the near one strikes) reaches
+## out toward the foe from its own shoulder through the coil (FREE_AIM, shares of the arm's reach along the facing and up, as deep as the
+## wind-up goes, `anticipation_depth`), swings back down past its shoulder as the strike snaps through (FREE_PULL), holds there through
+## the hits and the hold, and goes back to the clip's arm as the body comes home. By the move's frame, so a freeze holds it and a seek
+## redraws it; the face guard and the arms beside the head still act on it after. Not the jabs: their guard hand stays up by the chin, as a
+## boxer's, and one jab cancelled into the next would have thrown the pulled-back hand up to the guard in a frame. `PF_R10_OFF=free`
+## leaves the clip's arm.
+const FREE_SWING_MOVES := ["ftilt", "fsmash", "dash attack", "fair", "side special"]
+const FREE_SWING_CLIPS := ["attack_swing", "attack_smash", "attack_lunge", "attack_fair", "attack_knife_smash", "gaunt_punch",
+	"sword_ftilt", "sword_fsmash"]
+## Classes whose free arm keeps the clip's: the Wanderer's carries its shield in front.
+const FREE_KEEP_CLASSES := [9]
+const FREE_AIM := Vector3(0.85, -0.05, 0.05)
+const FREE_PULL := Vector3(-0.25, -0.55, 0.0)
+## Which way the elbow points (stage frame; the pull's x along the facing): down under the aim, back and down behind the pull.
+const FREE_AIM_POLE := Vector3(0.0, -1.0, -0.2)
+const FREE_PULL_POLE := Vector3(-1.0, -0.5, -0.2)
+## A move cut short (a forward air landing, a dash attack run off into a fall) lets the free hand go back to its clip's place over this
+## many sim frames from where the swing had it, rather than in one (not into a hit's reaction, whose pose lands at once).
+const FREE_FADE_FRAMES := 4.0
+var free_fade := 0.0
+var free_last := Vector3.ZERO
+var free_last_pole := Vector3.ZERO
+var free_last_side := ""
+
+
+## The free arm's weights this frame: x how much the layer holds the arm (0 the clip's), y how far from the aim to the pull (0 aiming,
+## 1 pulled back).
+func _free_swing_k(s: Dictionary) -> Vector2:
+	var t: PackedInt32Array = s.move_timing
+	if t.size() < 3 or t[1] <= 0:
+		return Vector2.ZERO
+	var f := float(s.state_frame)
+	var first := float(t[1])
+	var last := float(t[2])
+	var total := maxf(1.0, float(t[0]))
+	if f < first:
+		var depth := anticipation_depth(first)
+		var coil_base := _family_weight(s, "coil_at", COIL_AT)
+		var coil_at := lerpf(coil_base + COIL_LATE, coil_base, depth)
+		var u := f / first
+		var on := depth * coil_ease(u / coil_at) if u < coil_at else depth
+		var k := snap_k(f, first, _family_weight(s, "snap_at", SNAP_AT))
+		return Vector2(lerpf(on, 1.0, k), k)
+	if f <= last:
+		return Vector2(1.0, 1.0)
+	return Vector2(1.0 - home_k(f, last, total, _end_shape(s), ARM_LAG), 1.0)
+
+
+## Whether this frame's move swings the free arm (`FREE_SWING_MOVES`).
+func _free_swings(s: Dictionary) -> bool:
+	if not use_base_body or r10_off.has("free") or String(s.state) != "Attack":
+		return false
+	var name := String(s.move_name)
+	if not FREE_SWING_MOVES.has(name) or FREE_KEEP_CLASSES.has(_cls(s)):
+		return false
+	return FREE_SWING_CLIPS.has(AnimLibrary.attack_clip(_cls(s), name, anim))
+
+
+func _free_arm_swing(s: Dictionary) -> void:
+	if skeleton == null:
+		return
+	var facing := int(s.facing)
+	var side := "R" if _weapon_side(facing) == "L" else "L"
+	var w := _free_swing_k(s) if _free_swings(s) else Vector2.ZERO
+	var fade := 0.0
+	if w.x <= 0.0:
+		# (Cut short: let go from where the swing left the hand. Not after a seek or a turn round, nor into a hit.)
+		if free_fade <= 0.0 or springs.jumped or side != free_last_side or REELING_STATES.has(String(s.state)) or r10_off.has("free"):
+			free_fade = 0.0
+			return
+		free_fade = maxf(0.0, free_fade - float(springs.new_frames) / FREE_FADE_FRAMES)
+		fade = free_fade * free_fade * (3.0 - 2.0 * free_fade)
+		if fade <= 0.0:
+			return
+	if arms_held.has(side):
+		free_fade = 0.0
+		return
+	var to_frame := _skeleton_to_frame()
+	var iu := skeleton.find_bone("armU." + side)
+	var il := skeleton.find_bone("armL." + side)
+	var ih := skeleton.find_bone("hand." + side)
+	var sh := to_frame * skeleton.get_bone_global_pose(iu).origin
+	# (Always solved whole, the hand going from where the clip has it toward the swing's place, the elbow pointing the way the clip's
+	# does: blended bone by bone at a part weight, the overrides compounded down the arm and the hand flipped round its elbow, 0.24 units
+	# in a frame, as the weight passed 0.3 in the Embers' forward smash's end lag.)
+	var clip_hand := skeleton.get_bone_global_pose(ih).origin
+	var clip_elbow := skeleton.get_bone_global_pose(il).origin
+	var clip_sh := skeleton.get_bone_global_pose(iu).origin
+	var line := (clip_hand - clip_sh).normalized()
+	var pole := (clip_elbow - clip_sh) - line * (clip_elbow - clip_sh).dot(line)
+	pole = pole.normalized() if pole.length() > 0.02 else Vector3(0.8 if side == "R" else -0.8, -1.0, 0.1).normalized()
+	var goal: Vector3
+	if fade > 0.0:
+		goal = (to_frame * clip_hand).lerp(sh + free_last, fade)
+		pole = pole.lerp(free_last_pole, fade)
+	else:
+		var reach := ((skeleton.get_bone_global_rest(il).origin - skeleton.get_bone_global_rest(iu).origin).length()
+			+ (skeleton.get_bone_global_rest(ih).origin - skeleton.get_bone_global_rest(il).origin).length() + 0.07) * to_frame.basis.x.length()
+		var f := float(facing)
+		var aim := sh + Vector3(f * reach * FREE_AIM.x, reach * FREE_AIM.y, FREE_AIM.z)
+		var pull := sh + Vector3(f * reach * FREE_PULL.x, reach * FREE_PULL.y, FREE_PULL.z)
+		# (The elbow the way a person's goes: down under an arm reaching out, back behind one drawn back to the side. Left to the IK, the
+		# drawn-back elbow pointed down and out and the arm read folded backward on screen.)
+		var to_skel := to_frame.affine_inverse().basis
+		var want := (to_skel * FREE_AIM_POLE).normalized().lerp((to_skel * Vector3(f * FREE_PULL_POLE.x, FREE_PULL_POLE.y, FREE_PULL_POLE.z)).normalized(), w.y)
+		pole = pole.lerp(want.normalized(), w.x)
+		goal = (to_frame * clip_hand).lerp(aim.lerp(pull, w.y), w.x)
+		free_last = goal - sh
+		free_last_pole = pole
+		free_last_side = side
+		free_fade = 1.0
+	# (Not stretched with the strike: only the striking limb is.)
+	var keep_e := strike_e
+	strike_e = 0.0
+	_ik_arm(side, false, goal, 1.0, pole)
+	strike_e = keep_e
+	# (Held by this layer, the face guard and the arms beside the head go on from where it put the hand, rather than from the clip's.)
+	arms_held.append(side)
+
+
 ## Turns the blade up about its hilt, keeping its length, just enough that its tip clears the floor (`GROUND_CLEARANCE`), measured in the
 ## world: the body's lean and squash carry the blade's frame with them.
 func _lift_tip_off_floor() -> void:
@@ -7621,8 +7759,10 @@ func _limit_joints() -> void:
 			skeleton.set_bone_global_pose_override(c, Transform3D(turn * pc.basis, pb.origin + turn * (pc.origin - pb.origin)), 1.0, true)
 
 
-## Two-bone IK for one arm: the hand to `target` (stage frame), blended in by `amount` over the clip's pose.
-func _ik_arm(side: String, mine: bool, target: Vector3, amount: float) -> void:
+## Two-bone IK for one arm: the hand to `target` (stage frame), blended in by `amount` over the clip's pose. (Round 10: `pole_hint`, a
+## direction in the skeleton's space, sets which way the elbow points instead of the usual down and out: the free arm's swing keeps the
+## clip's own elbow, `_free_arm_swing`.)
+func _ik_arm(side: String, mine: bool, target: Vector3, amount: float, pole_hint := Vector3.ZERO) -> void:
 		if not arms_ik.has(side):
 			arms_ik.append(side)
 		var iu := skeleton.find_bone("armU." + side)
@@ -7661,6 +7801,10 @@ func _ik_arm(side: String, mine: bool, target: Vector3, amount: float) -> void:
 			var chest: Basis = (skeleton.get_bone_global_pose(parent).basis * skeleton.get_bone_global_rest(parent).basis.inverse()).orthonormalized()
 			var back: float = (chest.inverse() * d).z
 			pole = chest * (pole + Vector3(0.0, 0.0, 1.6 * smoothstep(0.02, 0.3, -back)))
+		if pole_hint != Vector3.ZERO:
+			# (Unless it lies along the arm's line, where it says nothing: then eased back to the usual.)
+			var across := (pole_hint.normalized() - dir * pole_hint.normalized().dot(dir)).length()
+			pole = pole.normalized().lerp(pole_hint.normalized(), smoothstep(0.1, 0.3, across))
 		var bend := (pole - dir * pole.dot(dir)).normalized()
 		var elbow := shoulder + dir * (cos(ang) * upper) + bend * (sin(ang) * upper)
 		var fore := (goal - elbow).normalized()
@@ -7859,7 +8003,7 @@ func _settle_dip(s: Dictionary) -> float:
 		return 0.0
 	var last := float(mt[2])
 	if int(mt[1]) == 0:
-		last = float((RELEASE_FRAME.get(_cls(s), {}) as Dictionary).get(name, 0))
+		last = float((release_frames(_cls(s)) as Dictionary).get(name, 0))
 	var total := float(mt[0])
 	var lag := total - last
 	if last <= 0.0 or lag < 3.0:
@@ -9073,6 +9217,8 @@ func _apply_combat(s: Dictionary, delta: float) -> void:
 			amount = ik_fade * ik_fade * (3.0 - 2.0 * ik_fade)
 		_ltrace(s, "clip")
 		_aim_arm(int(s.facing), hold_now or ik_fade > 0.0, two, amount)
+		if not two:
+			_free_arm_swing(s)
 		_ltrace(s, "aim")
 		# (Round 9: not lying down. Face down, the arms flung out past the head along the floor, the guard pulled the weapon hand off a face
 		# turned to the floor and folded its elbow backward, 60 degrees, for the whole knockdown (the most reversed elbow of all, 242 frames

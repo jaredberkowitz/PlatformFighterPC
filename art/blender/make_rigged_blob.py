@@ -1072,6 +1072,17 @@ BODY_MOVES = {
          "armU.R": (104.0, -6.0), "armL.R": (14.0,), "armL.L": (64.0,)},
         {"spine": (-6.0, 0.0), "head": (-8.0, 0.0), "stance": (10.0, 10.0), "shin.L": (-30.0,), "shin.R": (-30.0,), "arms": (36.0, 2.0),
          "armU.R": (102.0, -6.0), "armL.R": (16.0,), "armL.L": (62.0,)}),
+    # The slingshot fired behind (the Settler's back air; round 10, after its reference's): gathered with the knees up and both fists
+    # drawn in at the chest, then the arms spread wide to the sides at the shoulders, the slingshot held out behind and the other hand out
+    # ahead, the body upright with one knee up and the other leg hanging. The game turns the body round toward the shot (a hit behind),
+    # so the arms spread along the stage, and the clip poses both (AnimLibrary.OWN_ARMS).
+    # (The gather leans only a little: curled further, the hat came down over the eyes.)
+    "tool_sling_bair": (
+        {"spine": (4.0, 0.0), "head": (2.0, 0.0), "stance": (40.0, 34.0), "shin.L": (-90.0,), "shin.R": (-84.0,), "arms": (24.0, 16.0),
+         "armL.L": (70.0,), "armL.R": (70.0,)},
+        {"spine": (-4.0, 0.0), "head": (-2.0, 0.0), "stance": (40.0, -6.0), "shin.L": (-80.0,), "shin.R": (-20.0,), "arms": (0.0, 56.0),
+         "armL.L": (8.0,), "armL.R": (8.0,)},
+        {"spine": (2.0, 0.0), "stance": (24.0, 16.0), "shin.L": (-50.0,), "shin.R": (-40.0,)}),
     # Fencer's up tilt: the blade sweeps overhead from front to back while the body stands tall under it.
     # (Pose review 2026-10-17: up moves reach from the shoulders with the chest lifted and the hips over the feet; the round body arched
     # back with its belly forward read as inhaling, not striking.)
@@ -4716,6 +4727,9 @@ def main() -> None:
     # The Settler's tool clips (posed in BODY_MOVES).
     for tool in ("tool_reach", "tool_toss", "tool_dig", "tool_pour", "tool_chop", "tool_heave", "tool_raise", "tool_trip", "tool_shrug", "tool_ride", "tool_float"):
         clip(rig, tool, 60, {})
+    # (Round 10: the slingshot fired behind, after the other tool clips so every clip before it builds as before.)
+    if BODY:
+        clip(rig, "tool_sling_bair", 60, {})
     # (Round 8: the Needles' own specials, posed in BODY_MOVES.)
     if BODY:
         for nm in ("needle_volley", "line_cast", "vanish", "sword_counter", "reflector", "buckler_bow", "buckler_throw", "buckler_bomb",

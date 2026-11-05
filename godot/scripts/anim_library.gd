@@ -318,6 +318,8 @@ const CLASS_MOVES := {
 		"dash attack": "tool_trip",
 		"dsmash": "sword_dsmash",
 		"fair": "blaster",
+		# (Round 10: the slingshot fired behind with the arms spread wide, as its reference's; it played the shared back air's tucked kick.)
+		"bair": "tool_sling_bair",
 		# (The neutral air spins with both arms out, the game turning the body: pass 15.)
 		"nair": "spin_arms_air",
 		"extra move 0": "attack_uair",
@@ -480,7 +482,7 @@ static func is_kick(clip: String) -> bool:
 
 ## Clips that pose both arms themselves: the tool hand is not reached to a hit (fighter_view.gd).
 const OWN_ARMS := ["tool_float", "tool_raise", "tool_shrug", "tool_ride", "tool_reach", "tool_toss", "spin_arms", "spin_arms_air",
-	"slap_ground", "leap_grab", "latch_sit", "rocket_fly", "needle_volley", "line_cast", "vanish", "reflector"]
+	"slap_ground", "leap_grab", "latch_sit", "rocket_fly", "needle_volley", "line_cast", "vanish", "reflector", "tool_sling_bair"]
 
 
 ## Clips where the whole body is the weapon (a headbutt): no arm or leg reaches for the hitbox, the pose carries the hit.
@@ -489,12 +491,16 @@ static func is_body(clip: String) -> bool:
 
 
 static var _warned := {}
+## (Round 10) With the environment variable PF_R10_OFF=sling (before images), the Settler's back air plays the shared back air again.
+static var _r10_off := OS.get_environment("PF_R10_OFF").split(",")
 
 
 ## The clip for move `move` of a fighter of class `cls`, checked against the clips `anim` has (when given): a class override, the shared
 ## archetype, or the fallback.
 static func attack_clip(cls: int, move: String, anim: AnimationPlayer = null) -> String:
 	var clip: String = CLASS_MOVES.get(cls, {}).get(move, SHARED_MOVES.get(move, ""))
+	if cls == 10 and move == "bair" and _r10_off.has("sling"):
+		clip = SHARED_MOVES["bair"]
 	if clip == "":
 		if not move.begins_with(EXTRA_PREFIX):
 			_warn("move '%s' (class %d) has no clip in AnimLibrary; it plays %s" % [move, cls, FALLBACK])
@@ -513,7 +519,9 @@ const STAND_INS := {"jumpsquat": "crouch", "land": "crouch", "spot_dodge": "roll
 	"helpless": "fall", "needle_volley": "blaster", "line_cast": "attack_swing", "vanish": "attack_low", "sword_counter": "attack_low", "reflector": "attack_kick", "buckler_bow": "attack_smash", "buckler_throw": "attack_lunge",
 	"buckler_bomb": "attack_low", "staff_point": "attack_smash", "staff_flame": "attack_lunge", "staff_guard": "attack_low",
 	"great_wave": "attack_smash", "great_rise": "attack_uair", "nodachi_flare": "attack_smash", "nodachi_orbs": "attack_lunge",
-	"nodachi_barrier": "attack_low", "dagger_guard": "attack_low", "dagger_gun": "blaster", "item_pick": "crouch", "item_throw": "throw", "dizzy": "hurt", "buried": "idle"}
+	"nodachi_barrier": "attack_low", "dagger_guard": "attack_low", "dagger_gun": "blaster", "item_pick": "crouch", "item_throw": "throw", "dizzy": "hurt", "buried": "idle",
+	# (Round 10.)
+	"tool_sling_bair": "attack_bair"}
 
 ## Clips chosen in fighter_view.gd `_choose_clip` from more than the state (a tech is an intangible landing, a run stop a sliding idle, a
 ## platform drop the first frames of a fall through a platform, heavy hitstun a fast launch that does not tumble, a fidget a long idle, a

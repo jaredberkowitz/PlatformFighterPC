@@ -149,3 +149,13 @@ not rising.
   the round's 1.18 to 1.16). Its longer carry and deeper settle, and the quick family's shorter snap and lighter settle, were measured and
   left out: each moved the timing away from the references past the round's limits, raised hidden hands, or did not show. The heavy's
   reference is not heavier in timing than ours; more weight there means the clips' own keys, move by move. No score change.
+- **Group 9 (cause 5, done): the free arm.** In the forward strikes (tilts, smashes, dash attacks, forward airs, side specials) the free
+  hand reaches at the foe through the wind-up and swings back down past its shoulder as the strike goes through, the elbow down under the
+  aim and back behind the pull; the jabs keep their guard by the chin, the Wanderer its shield. The Settler's back air spreads its arms
+  wide at the shoulders with the slingshot out behind, as its reference's (it played a tucked kick), striking when the pellet is fired.
+  Timing 2.34 / 1.51 / 1.65 / 1.15, pops 8, eyes or mouth covered 7, hidden hands 1,310 to 1,278, reversed limbs not up (the galleries
+  2,152 to 2,116). The smashes' readability 3 to 3.5 (the wind-up's aim reads at the match camera); the back airs' accuracy 3 to 3.3
+  (the Settler's now its reference's). Left: the pulled-back hand mostly behind the side-on body at the hit; little aim in the short
+  wind-ups.
+- **Cause 8 (mock, for the owner):** three livelier ledge hangs (`docs/screenshots/anim/r10_ledge_hang_mock.jpg`): A the free hand swung
+  out behind, B the legs kicked, C both, every 2 seconds. Nothing built until the owner picks.
