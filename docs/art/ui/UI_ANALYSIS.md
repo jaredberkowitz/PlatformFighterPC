@@ -312,3 +312,20 @@ and one player and a draw in `results_podium/states.png`.
 `main.gd` now passes each fighter's own name (`fighter`) with the cards; the player's name when the match has no roster entry.
 Tests: match_flow (four players), runner, online_flow, replay and the UI suite pass (runner_test's shop-hint flake showed once and
 passed twice on rerun: the known one, PR #15).
+
+## The Online screen's Code layout as code cards, the owner's pick of the Online mocks (2026-11-05)
+
+The other weakest screen in the survey. With Code (the default) a duel chooses its fighter in the lobby, yet the right half held a fighter
+on the old sunburst card, while the two codes, the screen's whole job, sat small in the form. Three layouts were mocked on the "Paper UI
+Mocks" canvas, row 8 (Code cards, Handshake, Form + guide); the owner picked **1, Code cards**. Before/after:
+`online_codes_before_after.png`.
+
+| Before | After | Where |
+| --- | --- | --- |
+| The codes as two rows of the form | PLAY A FRIEND and one line on how it goes, then two numbered cards: 1 this player's code large with Copy, 2 the friend's code in a window with Paste, each with a hint; the code rows come first, so the screen opens on this player's code | `online.gd` `CodeCards`, `_card_rows` |
+| Connect at the bottom right | 3 Connect! under the cards, coral, with "The first code hosts." | `_layout_mode` |
+| A fighter on a sunburst card at the right | The match settings on a sheet at the right (MATCH SETTINGS, the host's are used), the news and the focused row's note under it | `_layout_mode` |
+
+Direct and Relay keep the form at the left and the fighter at the right (a group match still brings the fighter chosen there).
+Tests: online_flow, online_fighters and the UI suite pass (stage_select's "remembers the full view" failed once on timing and passed
+twice on rerun; not touched here).
