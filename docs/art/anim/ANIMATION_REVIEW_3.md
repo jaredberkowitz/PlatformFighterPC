@@ -183,3 +183,6 @@ not rising.
 - **Podium fix (for r10g):** on the owner's new podium results screen the winner's sword hung from the wrong hand at its low carry; the
   victory pose now holds its own weapon (raised as designed), and the claws, the gun and the knife stay in the pumping hand. The victory
   poses themselves: an owner's mock, `docs/ANIMATION.md`.
+- **Victory poses (mock, for the owner):** two or three options per family on the podium card
+  (`docs/screenshots/anim/r10_victory_mock_<family>.jpg`), recommended sword B, staff A, brawler B, quick A, heavy A, tool A; the caster needs
+  a second round. Raised bare hands hide behind the head at the card's turn. Nothing built until the owner picks.

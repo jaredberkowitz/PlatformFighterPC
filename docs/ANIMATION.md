@@ -3613,3 +3613,26 @@ lies at the hit), `bodyft.py` (the torso's travel after the last hit), `windpops
 - **Checked:** on the podium in the victory mock's tree (43396bc7 merged there): the Longsword, the Claws, the Popgun, the Dagger. Tests pass;
   the look bench passes (worst 0.90).
 - **Image:** `docs/screenshots/anim/r10_victory_weapon.jpg`.
+
+### Mock (round 10): victory poses by family, on the podium card (review 3, cause 10; for the owner to pick)
+
+- **Found:** after the cheering hop the winner plays one of two poses: the four blade classes raise the blade (`victory_a`), every other
+  class pumps a fist (`victory_b`); the Seer's staff is not shown. The references give each fighter poses of its own.
+- **Framing (the owner's podium, origin/art/ui-paper2 43396bc7: the card turns the winner 0.45 rad from the camera, which looks from chest
+  height):** a raised bare hand stands behind the big head, at any angle out (only a held blade or staff, or the gun, shows above it); a
+  raised left arm goes behind the head or across the face; a fist low across the belly rises over the face. So the poses that read keep the
+  hands out at the sides or flexed beside the head, and a weapon carries the line upward; a blade laid back over the shoulder or held
+  forward needs a sideways direction (the mock sets it in 3D) or it hides behind the head or crosses the face. The card is not mirrored
+  for P2 (only its colour changes); the runner-up's snapshot holds its look's stance, no victory pose.
+- **Options** (each a loop after the cheer, in the real podium card at its size; built in a mock rig only, `F:nim_core\wt_victory`,
+  specs `F:nim_core	oolsictory_specs.py.txt`; nothing in the build): sword B the blade on the shoulder, C the blade planted point-down;
+  staff A planted upright with the free palm out, B raised high; brawler B one arm flexed (the claws clear of the face), C one fist thrown
+  up; quick A arms out pointing with a heel kicked up, B a hand thrown up and a knee up; heavy A beating the chest in turn, B one fist high
+  and the other arm wide, C a laugh; caster A ta-da, B a flame in a raised palm; tool A the tool held up beside the head, B a wave with the
+  tool low. Today's pose leads each family's sheet.
+- **Recommended:** sword B, staff A, brawler B, quick A, heavy A, tool A (on the Popgun; the Settler's tools are props the menus do not
+  show). The caster: neither option reads on the card (the raised palm hides behind the head), so today's until a second round with the
+  palm out at the side. The raised-hand options (brawler C, quick B, heavy B, caster A and B, tool B) read only if the card turned the
+  winner further side-on or looked from higher: a question for the results screen, not the poses.
+- **Images:** `docs/screenshots/anim/r10_victory_mock_<family>.jpg` (sword, staff, brawler, quick, heavy, caster, tool; each option at three
+  moments of its loop, from 1.4 seconds after the results open; the sword's sheet also shows the Greatsword, the Nodachi and P2 winning).
