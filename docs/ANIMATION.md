@@ -3212,3 +3212,36 @@ lies at the hit), `bodyft.py` (the torso's travel after the last hit), `windpops
   bridge DLL the folder's 152. Simulation version 152, content hash 3e8182f865102756, checked in the staged copy and the extracted zip
   ("Platform Fighter playtest 2026-11-04 sim152 animation r10b.zip"); the installed exe quits with code 0. The Godot tests, the props
   test (12 props, 11 painted kinds) and the look bench (worst 0.96) pass.
+
+### Group 5 (round 10): the settle, the knees taking the weight as a grounded move comes home (review 3, cause 3; the coordinator's order, item 3)
+
+- **Found (review 3):** a grounded move came home into its stance gliding: the recovery eased the body straight home and the hand-off
+  eased it into the idle, and the knees never took its weight as it arrived.
+- **Fix (`fighter_view.gd`):** over the end lag's last frames (`SETTLE_SHARE` 0.35 of it, 4 to 10 frames), the hips dip straight down and
+  come back up, deepest 0.4 of the way in, back to nothing on the move's last frame (`_settle_dip`): `SETTLE_DEPTH` 0.09 units times the
+  move's strength (`SETTLE_BY`: the jab 0.2, the tilts 0.4-0.5, the dash attack 0.7, the smashes 0.9-1; the specials on the ground
+  0.5; not the extra moves, many of which touch down part way, nor the held poses and charges, nor a clip that crouches and rises in its
+  own follow-through, `CLIP_FOLLOW`) and a family scale for cause 4 (`SETTLE_FAMILY`, all 1 for now). The dip goes on the clip's hips
+  before the layers on top (`_settle_hips`), so the arms' reach and the face guard work on the lowered body; then each leg the move is
+  not aiming has its ankle put back where it stood (`_settle_feet`), the knee folding its natural way about the thigh's hinge
+  (`_pin_leg_hinged`: pinned in the plane the clip had it bent in, a near-straight knee folded backward and the joint limits flipped the
+  shin round, a foot jumping 0.64 units in the Bracers' and the Claws' up smashes) and the foot keeping its own turn, flat on the floor.
+  By the move's frame, so a freeze holds it and a seek redraws it. `PF_R10_OFF=settle` shows the old.
+- **Refit:** the settle's dip moves the body as it arrives, so the timing report's recovery (a quarter to 85% of the way home) grew from
+  1.65 to 1.84; nine moves' end shapes were brought home sooner by hand (the Claws' up and forward smashes, the Needles' forward and up
+  smashes and forward tilt, the Embers' up smash, the Clutch's forward and down smashes; `shapes.json` in step). The Claws' up smash's
+  first refit (recover by 0.529) swung its kicking leg home in two jumps of 0.5-0.6 units: eased back to 0.640.
+- **And:** eased out as the clip's knees are already deep (`SETTLE_KNEE_FROM` 70 to `SETTLE_KNEE_TO` 100 degrees of fold: rising out of a
+  deep crouch, the Longsword's down smash, its far knee read reversed for longer); the hand coming home to its rest goes down with the dip
+  (`_pose_blade`, held where it was the elbows folded the other way as the shoulders dipped under them: 20 more frames of elbows reading
+  reversed across the down and up smashes).
+- **Measured (every class's gallery, both facings; r10a or group 1 in brackets):** attack timing (follow-through / hold / recovery /
+  wind-up) 2.35 / 1.50 / 1.63 / 1.18 (2.35 / 1.44 / 1.66 / 1.18); end-lag pops of 0.5 or more 8 (8); eyes or mouth covered 7 (7); striking
+  hands hidden 1,310 (1,306); limbs reading reversed on screen 2,841 (2,859). The feet stay on the floor through the dip, both facings
+  (traced). Tests pass; the look bench passes.
+- **Group 2 checked (the coordinator's open check):** the jabs and down tilts of the six family representatives filmed at the match camera
+  on core10 and now, frame by frame: the one-frame drop into a jab's crouch (core10's jab frame 1) is gone, the strikes unchanged; the
+  references' jabs (the swordsman's thrust, the wolf's and the plumber's punches) gather the weight a little and never drop a fifth of the
+  height in a frame. `F:\anim_core\r10\g2\g2_check.jpg` (core10 above now, per class).
+- **Image:** `docs/screenshots/anim/r10_settle.jpg` (each move at its settle's deepest frame, r10b left and now right, a red line at
+  r10b's hat top; match camera, 2x).

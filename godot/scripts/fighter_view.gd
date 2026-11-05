@@ -1105,10 +1105,10 @@ const CLIP_END_SHAPES := {"body_headbutt_fwd": Vector3(0.12, 0.8, CARRY_FRAMES)}
 ## air and jab held too long and recovered in 3-5; the heavy's forward air and smash, the caster's up air and forward smash.)
 const CLASS_END_SHAPES := {
 	0: {"bair": Vector2(0.550, 0.850), "dair": Vector2(0.760, 0.990), "dsmash": Vector2(0.803, 0.990), "dtilt": Vector2(0.020, 0.563), "fair": Vector2(0.350, EVEN + 0.990), "fsmash": Vector2(0.020, 0.990), "ftilt": Vector2(0.766, 0.990), "jab": Vector2(0.020, 0.684), "uair": Vector2(0.078, EVEN + 0.732), "usmash": Vector2(0.150, EVEN + 0.990), "utilt": Vector2(0.060, 0.950)},
-	1: {"bair": Vector2(0.479, 0.990), "dair": Vector2(0.393, 0.990), "fair": Vector2(0.713, 0.990), "ftilt": Vector2(0.307, 0.990), "jab": Vector2(0.479, 0.990), "nair": Vector2(0.020, 0.987), "usmash": Vector2(0.306, 0.746), "utilt": Vector2(0.084, 0.990)},
-	2: {"bair": Vector2(0.444, EVEN + 0.990), "dsmash": Vector2(0.035, EVEN + 0.990), "dtilt": Vector2(0.691, 0.920), "fair": Vector2(0.403, 0.882), "fsmash": Vector2(0.273, 0.577), "ftilt": Vector2(0.214, 0.786), "jab": Vector2(0.704, 0.990), "nair": Vector2(0.040, EVEN + 0.960), "uair": Vector2(0.030, EVEN + 0.970), "usmash": Vector2(0.146, 0.892), "utilt": Vector2(0.490, 0.990)},
-	3: {"bair": Vector2(0.700, 0.990), "dsmash": Vector2(0.310, 0.560), "dtilt": Vector2(0.585, 0.973), "fair": Vector2(0.858, 0.990), "fsmash": Vector2(0.289, EVEN + 0.990), "ftilt": Vector2(0.020, 0.861), "jab": Vector2(0.346, 0.990), "nair": Vector2(0.186, 0.920), "uair": Vector2(0.020, EVEN + 0.950), "usmash": Vector2(0.326, 0.843), "utilt": Vector2(0.418, 0.950)},
-	8: {"bair": Vector2(0.755, 0.905), "dair": Vector2(0.020, 0.990), "dsmash": Vector2(0.400, 0.800), "dtilt": Vector2(0.313, 0.646), "fair": Vector2(0.550, 0.900), "fsmash": Vector2(0.207, 0.990), "ftilt": Vector2(0.528, 0.872), "jab": Vector2(0.200, 0.540), "nair": Vector2(0.257, 0.990), "usmash": Vector2(0.020, 0.158), "utilt": Vector2(0.020, 0.990)},
+	1: {"fsmash": Vector2(0.480, 0.861), "bair": Vector2(0.479, 0.990), "dair": Vector2(0.393, 0.990), "fair": Vector2(0.713, 0.990), "ftilt": Vector2(0.307, 0.990), "jab": Vector2(0.479, 0.990), "nair": Vector2(0.020, 0.987), "usmash": Vector2(0.306, 0.640), "utilt": Vector2(0.084, 0.990)},
+	2: {"bair": Vector2(0.444, EVEN + 0.990), "dsmash": Vector2(0.035, EVEN + 0.990), "dtilt": Vector2(0.691, 0.920), "fair": Vector2(0.403, 0.882), "fsmash": Vector2(0.273, 0.455), "ftilt": Vector2(0.214, 0.719), "jab": Vector2(0.704, 0.990), "nair": Vector2(0.040, EVEN + 0.960), "uair": Vector2(0.030, EVEN + 0.970), "usmash": Vector2(0.146, 0.864), "utilt": Vector2(0.490, 0.990)},
+	3: {"bair": Vector2(0.700, 0.990), "dsmash": Vector2(0.310, 0.560), "dtilt": Vector2(0.585, 0.973), "fair": Vector2(0.858, 0.990), "fsmash": Vector2(0.289, EVEN + 0.990), "ftilt": Vector2(0.020, 0.861), "jab": Vector2(0.346, 0.990), "nair": Vector2(0.186, 0.920), "uair": Vector2(0.020, EVEN + 0.950), "usmash": Vector2(0.326, 0.767), "utilt": Vector2(0.418, 0.950)},
+	8: {"bair": Vector2(0.755, 0.905), "dair": Vector2(0.020, 0.990), "dsmash": Vector2(0.400, 0.720), "dtilt": Vector2(0.313, 0.646), "fair": Vector2(0.550, 0.900), "fsmash": Vector2(0.207, 0.961), "ftilt": Vector2(0.528, 0.872), "jab": Vector2(0.200, 0.540), "nair": Vector2(0.257, 0.990), "usmash": Vector2(0.020, 0.158), "utilt": Vector2(0.020, 0.990)},
 	10: {"bair": Vector2(0.530, 0.990), "dair": Vector2(0.347, 0.987), "dsmash": Vector2(0.598, 0.979), "dtilt": Vector2(0.720, 0.990), "ftilt": Vector2(0.623, 0.990), "jab": Vector2(0.020, 0.990), "nair": Vector2(0.020, 0.465), "usmash": Vector2(0.147, 0.783), "utilt": Vector2(0.205, 0.990)},
 }
 ## The clip's follow-through key (frame 40 of 60).
@@ -1415,6 +1415,7 @@ func _animate(s: Dictionary, delta: float) -> void:
 	_rest_unkeyed(clip)
 	roll_crossed_now = crossed
 	_ease_handoff(s, clip, crossed)
+	_settle_hips(s)
 	_bulk_arms(_cls(s))
 	_body_follow(s, delta)
 	_lag_bones(s)
@@ -1443,7 +1444,9 @@ const HANDOFF_BY_CLIP := {"jumpsquat": 2.0, "land": 1.0, "tech": 2.0, "knockdown
 static var r9_off := OS.get_environment("PF_R9_OFF").split(",")
 ## With the environment variable PF_R10_OFF (before and after images, round 10): "cross" kicks behind with the far leg again (the leg
 ## crossing the other at the hit, `_aim_leg`; the back airs' tucks, moved to the far leg with it, are in the rig); "coil" winds every
-## move up to its full chamber whatever its startup (`anticipation_depth`).
+## move up to its full chamber whatever its startup (`anticipation_depth`); "aim" leaves a gun's arm to its move's missing hit
+## (`AIM_AHEAD`); "charge" keeps the charge's glow, tremble and squint on through the whole move (`_charging`); "settle" brings a grounded
+## move home into its stance without the knees taking its weight (`_settle_dip`).
 static var r10_off := OS.get_environment("PF_R10_OFF").split(",")
 var handoff_clip := ""
 var handoff_state := ""
@@ -6228,6 +6231,9 @@ func _pose_blade(s: Dictionary, delta: float) -> void:
 		rest_hand_y = float(target[3])
 	var old_hand := Vector2(float(target[2]), rest_hand_y)
 	old_hand.y -= sink
+	# (Round 10: and down with the settle's dip (`settle_now`), so a hand coming home to its rest goes down with the body: held where it
+	# was, the elbow folded the other way as the shoulder dipped under it.)
+	old_hand.y -= settle_now
 	var tip := old_hand + Vector2.from_angle(deg_to_rad(blade_angle)) * blade_length
 	if bladed(_cls(s)) and _whirl(s) != 0.0:
 		tip = SPIN_BLADE_TIP
@@ -7703,6 +7709,146 @@ func _pin_dash_feet(s: Dictionary) -> void:
 		_pin_leg(String(side), (skeleton.global_transform * g.origin).lerp(dash_pins[side], w))
 
 
+## (Round 10, weight: review 3's cause 3) The settle. A grounded move came home into its stance gliding, the knees never taking the body's
+## weight as it arrived. Now, over the end lag's last frames (SETTLE_SHARE of it, SETTLE_FRAMES_MIN to SETTLE_FRAMES_MAX), the hips dip
+## and come back up, deepest SETTLE_PEAK of the way in, with the feet held where they stand so the knees bend (`_settle_hips`, then
+## `_settle_feet` after the legs' own layers): SETTLE_DEPTH (world units) times the move's strength (`SETTLE_BY`: a jab barely, a smash
+## clearly; SETTLE_OTHER for the rest) and the family's (`SETTLE_FAMILY`, by `CLASS_FAMILY`). Straight down, so the head never tips;
+## by the move's frame, so a freeze holds it and a seek redraws it; back to nothing on the move's last frame. `PF_R10_OFF=settle`.
+const SETTLE_DEPTH := 0.09
+const SETTLE_BY := {"jab": 0.2, "jab 2": 0.25, "jab 3": 0.4, "ftilt": 0.5, "utilt": 0.4, "dtilt": 0.45, "dash attack": 0.7,
+	"fsmash": 1.0, "usmash": 0.9, "dsmash": 0.9}
+## (The specials on the ground, the throws.)
+const SETTLE_OTHER := 0.5
+const SETTLE_FAMILY := {}
+const SETTLE_SHARE := 0.35
+const SETTLE_FRAMES_MIN := 4.0
+const SETTLE_FRAMES_MAX := 10.0
+const SETTLE_PEAK := 0.4
+const SETTLE_KNEE_FROM := 70.0
+const SETTLE_KNEE_TO := 100.0
+var settle_now := 0.0
+
+
+## How far the settle has the hips down this frame (world units).
+func _settle_dip(s: Dictionary) -> float:
+	if not use_base_body or r10_off.has("settle") or String(s.state) != "Attack" or int(s.platform) < 0:
+		return 0.0
+	var name := String(s.move_name)
+	if (HELD_STRIKE.get(_cls(s), []) as Array).has(name) or (HELD_COIL.get(_cls(s), []) as Array).has(name):
+		return 0.0
+	# (Not a clip that comes down into a crouch and rises in its own follow-through (`CLIP_FOLLOW`: the Tumbler's down smash): it settles.)
+	if anim != null and CLIP_FOLLOW.has(AnimLibrary.attack_clip(_cls(s), name, anim)):
+		return 0.0
+	var mt: PackedInt32Array = s.move_timing
+	if mt.size() < 3:
+		return 0.0
+	var last := float(mt[2])
+	if int(mt[1]) == 0:
+		last = float((RELEASE_FRAME.get(_cls(s), {}) as Dictionary).get(name, 0))
+	var total := float(mt[0])
+	var lag := total - last
+	if last <= 0.0 or lag < 3.0:
+		return 0.0
+	var n := minf(clampf(lag * SETTLE_SHARE, SETTLE_FRAMES_MIN, SETTLE_FRAMES_MAX), lag)
+	var p := (float(s.state_frame) - (total - n)) / n
+	if p <= 0.0 or p >= 1.0:
+		return 0.0
+	var bump := smoothstep(0.0, SETTLE_PEAK, p) if p < SETTLE_PEAK else 1.0 - smoothstep(SETTLE_PEAK, 1.0, p)
+	var family := float(SETTLE_FAMILY.get(AnimLibrary.CLASS_FAMILY.get(_cls(s), ""), 1.0))
+	# (Not an extra move: most are an air version or a follow-up that can touch down part way, so its dip would start at the landing in a
+	# frame: the Gauntlets' flash dash from the air, its hand 0.55 units.)
+	var strength := float(SETTLE_BY.get(name, 0.0 if name.begins_with("extra") else SETTLE_OTHER))
+	return SETTLE_DEPTH * strength * family * bump
+
+
+## The settle's dip on the hips (straight down in the world), on the clip's pose before the layers on top, which pose from it.
+func _settle_hips(s: Dictionary) -> void:
+	settle_now = _settle_dip(s) if skeleton != null else 0.0
+	if settle_now <= 0.0:
+		return
+	var hb := skeleton.find_bone("hips")
+	if hb < 0:
+		return
+	# (Less as the clip's knees are already deep, SETTLE_KNEE_FROM to SETTLE_KNEE_TO degrees of fold: a move rising out of a deep crouch
+	# (the Longsword's down smash) has its weight in its knees already, and bent further its far knee read reversed for longer.)
+	var deepest := 0.0
+	for side in ["L", "R"]:
+		var a := skeleton.find_bone("thigh." + side)
+		var b := skeleton.find_bone("shin." + side)
+		var c := skeleton.find_bone("foot." + side)
+		if a < 0 or b < 0 or c < 0:
+			continue
+		var u := skeleton.get_bone_global_pose(b).origin - skeleton.get_bone_global_pose(a).origin
+		var l := skeleton.get_bone_global_pose(c).origin - skeleton.get_bone_global_pose(b).origin
+		if u.length() > 0.001 and l.length() > 0.001:
+			deepest = maxf(deepest, rad_to_deg(u.angle_to(l)))
+	settle_now *= 1.0 - smoothstep(SETTLE_KNEE_FROM, SETTLE_KNEE_TO, deepest)
+	if settle_now <= 0.0:
+		return
+	var down: Vector3 = skeleton.global_transform.basis.inverse() * Vector3(0.0, -settle_now, 0.0)
+	var parent := skeleton.get_bone_parent(hb)
+	if parent >= 0:
+		down = skeleton.get_bone_global_pose(parent).basis.inverse() * down
+	skeleton.set_bone_pose_position(hb, skeleton.get_bone_pose_position(hb) + down)
+
+
+## The settle's feet: each leg the move is not aiming put back where the clip stood it before the dip, so the knees take it.
+func _settle_feet(_s: Dictionary) -> void:
+	if settle_now <= 0.0 or skeleton == null:
+		return
+	for side in ["L", "R"]:
+		if legs_aimed.has(side):
+			continue
+		var fi := skeleton.find_bone("foot." + side)
+		if fi < 0:
+			continue
+		# (The foot keeps its own turn, flat on the floor: turned with the shin, its toe or heel dipped into the floor.)
+		_pin_leg_hinged(side, skeleton.global_transform * skeleton.get_bone_global_pose(fi).origin + Vector3(0.0, settle_now, 0.0))
+
+
+## Puts leg `side`'s ankle at `place` (the world) with the knee folding its natural way about the thigh's hinge (`_limit_joints`' own
+## measure), as near as the leg reaches; false when it cannot. (Round 10, the settle: pinned in the plane the clip had it bent in, a
+## near-straight leg's knee could fold backward, and the joint limits then flipped the shin round, the foot jumping 0.64 units: the
+## Bracers' and the Claws' up smashes.)
+func _pin_leg_hinged(side: String, place: Vector3) -> bool:
+	var it := skeleton.find_bone("thigh." + side)
+	var ish := skeleton.find_bone("shin." + side)
+	var ift := skeleton.find_bone("foot." + side)
+	if it < 0 or ish < 0 or ift < 0:
+		return false
+	var g_t: Transform3D = skeleton.get_bone_global_pose(it)
+	var g_s: Transform3D = skeleton.get_bone_global_pose(ish)
+	var g_f: Transform3D = skeleton.get_bone_global_pose(ift)
+	var hip := g_t.origin
+	var knee0 := g_s.origin
+	var ankle0 := g_f.origin
+	var upper := (knee0 - hip).length()
+	var lower := (ankle0 - knee0).length()
+	if upper < 0.01 or lower < 0.01:
+		return false
+	var goal: Vector3 = skeleton.global_transform.affine_inverse() * place
+	var d := goal - hip
+	var dist := clampf(d.length(), 0.05, upper + lower - 0.002)
+	var dir := d.normalized()
+	var h := g_t.basis.x.normalized()
+	var bend := h.cross(dir)
+	if bend.length() < 0.05:
+		return false
+	bend = bend.normalized()
+	var ang := acos(clampf((upper * upper + dist * dist - lower * lower) / (2.0 * upper * dist), -1.0, 1.0))
+	var knee := hip + dir * (cos(ang) * upper) + bend * (sin(ang) * upper)
+	if (knee - hip).cross(hip + dir * dist - knee).dot(h) < 0.0:
+		knee = hip + dir * (cos(ang) * upper) - bend * (sin(ang) * upper)
+	var shin_dir := (hip + dir * dist - knee).normalized()
+	var q_t := Quaternion((knee0 - hip).normalized(), (knee - hip).normalized())
+	var q_s := Quaternion((ankle0 - knee0).normalized(), shin_dir)
+	skeleton.set_bone_global_pose_override(it, Transform3D(Basis(q_t) * g_t.basis, hip), 1.0, true)
+	skeleton.set_bone_global_pose_override(ish, Transform3D(Basis(q_s) * g_s.basis, knee), 1.0, true)
+	skeleton.set_bone_global_pose_override(ift, Transform3D(g_f.basis, knee + shin_dir * lower), 1.0, true)
+	return true
+
+
 ## Puts leg `side`'s ankle at `place` (the world), as near as the leg reaches, by turning the thigh and the shin in the plane the leg is
 ## already bent in, the foot keeping its own turn.
 func _pin_leg(side: String, place: Vector3) -> void:
@@ -8847,6 +8993,7 @@ func _apply_combat(s: Dictionary, delta: float) -> void:
 		_weapon_over(s)
 		_aim_leg(s, state == "Attack" and AnimLibrary.is_kick(AnimLibrary.attack_clip(_cls(s), s.move_name, anim)), delta)
 		_pin_dash_feet(s)
+		_settle_feet(s)
 		if use_base_body and not r8_off.has("joints"):
 			_limit_joints()
 		_ltrace(s, "joints")

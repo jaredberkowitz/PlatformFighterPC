@@ -131,3 +131,7 @@ not rising.
   other class's poses identical. Left: the misfire (extra move 4, the gun going off in the hands) still plays the fallback swing.
 - **Group 4 (done):** the recovery refitted: timing 2.35 / 1.43 / 1.65 / 1.18 (the recovery back to the 1.65 limit). The Clutch's up
   air's new end-lag pop judged real (the near fist crosses the head's middle in a frame) and left for cause 9 (`docs/ANIMATION.md`).
+- **Group 5 (cause 3, done):** the settle: the hips dip and rise with the knees taking the weight as a grounded move comes home (a jab
+  barely, a smash clearly, feet planted), refitted: timing 2.35 / 1.50 / 1.63 / 1.18, pops 8, eyes or mouth covered 7, hidden hands 1,310,
+  reversed limbs 2,841. The smashes' and tilts' weight 3 to 3.5 where the glide home was the weak point. Group 2 checked at real speed
+  against core10: the jolt is gone, nothing lost.
