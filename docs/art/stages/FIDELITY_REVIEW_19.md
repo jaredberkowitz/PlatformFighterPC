@@ -122,3 +122,13 @@ fight by the widest margin.
 - C keeps the paper on the deck and clears the fight too, by less. Darkened, the bleached paper reads a little grey against the warm wood.
 - A doesn't clear it: one block under the fight still ranks above a fighter (#5 against #6 and #10).
 All tests pass but the runner test, which failed three runs in a row on its known flakes ("the way out" and the coin pickup; PR #15) with the machine busy; the deck edge never reaches the run mode (`deck_edge_look` is the beach's only). The look bench passes.
+
+**Built B** (the owner's pick, 2026-11-05):
+- ocean.cfg [backdrop] `deck_edge="B"`. `--deck-edge=T` shows the paper band.
+- The built beach measures as the mock's B: the band at value 0.64; the fighters' blocks #6 and #8 (from #17 and #19); the blocks under
+  the fight #14 to #28, all below the fighters; P1's gap 0.174.
+- Before and after (match camera top, wide bottom, before left): `review19/beach_edge_built.jpg`.
+
+With it the beach's readability is a 5: the mean is 4.95, with 38 of 40 cells at 5. Left: item 2, the meadow's edge pines, and the
+canyon's world and life (4 by the rule).
+All seven tests pass; the look bench passes.

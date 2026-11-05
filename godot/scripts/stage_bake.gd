@@ -732,10 +732,11 @@ const DECK_TRY := {"T": {}, "A": {"joint": 0.35}, "B": {"tones": 2.0}, "C": {"jo
 ## The beach's deck edge under the fight (fidelity review 19 item 1: since the cut-edge colours the deck's front edge is a band of bleached
 ## paper, value 0.82 between the deck's 0.46 and the dark beam, right under the fighters, and the blocks under the fight out-contrast
 ## them). The cut edges of the deck that `_split_boards` leaves in `top_card` (its front edge and the boards' ends; not the joints). The
-## palette's [backdrop] `deck_edge`, or `--deck-edge=T|A|B|C`, T as built:
+## palette's [backdrop] `deck_edge`, or `--deck-edge=T|A|B|C`, T the paper band:
 ##   A  halfway back from the paper toward the deck's lit wood (the edge's colour before the paper core);
 ##   B  the deck's lit wood, as before the cut-edge colours;
 ##   C  the bleached paper, a step into shade.
+## The owner's pick B (ocean.cfg [backdrop] `deck_edge`, 2026-11-05).
 const DECK_EDGE_TRY := {"T": {}, "A": {"wood": 0.5}, "B": {"wood": 1.0}, "C": {"shade": 0.2}}
 
 
