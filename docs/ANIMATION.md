@@ -3202,3 +3202,13 @@ lies at the hit), `bodyft.py` (the torso's travel after the last hit), `windpops
   threw it out in front (0.65). Easing the side across frames put a wrist over the eye on this same move in round 9. A fix needs the
   guard to keep its side through a crossing, behind the head in depth (as the blades' `front_cross` does); left for the hidden-hands
   item (cause 9).
+
+### r10b installed (4 November 2026)
+
+- Groups 3 and 4 (the popgun aimed at the foe, the charge's glow only while it builds, the back airs' recovery refitted), with origin/main
+  (sim 152, a75f86fd), the props pass (origin/art/match-props 1d1b1331: modelled and painted shots and items) and the UI branch
+  (origin/art/ui-paper2 37eccc56) merged; the stage branch's scenery-on-twos mock (74773667) left out, since it fails the look bench
+  (ocean, the sixth fighter's edge 0.44). Stills regenerated (d99b4674, the pack). Pack only: the Rust and content are main's, the
+  bridge DLL the folder's 152. Simulation version 152, content hash 3e8182f865102756, checked in the staged copy and the extracted zip
+  ("Platform Fighter playtest 2026-11-04 sim152 animation r10b.zip"); the installed exe quits with code 0. The Godot tests, the props
+  test (12 props, 11 painted kinds) and the look bench (worst 0.96) pass.
