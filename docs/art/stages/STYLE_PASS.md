@@ -289,3 +289,15 @@ it.
 - The motes are a GPU particle system: on the scenery's clock they hold still and then catch up (`speed_scale`), so they move on the same
   frames as everything else.
 All seven tests pass.
+
+The look bench (`tests/look_bench.gd`) failed on this mock at first: the pale fighter's edge was 0.44 against the ocean's bright haze.
+The bench already overflowed Godot's shared shader buffer (479 "Too many instances" errors before the mock; it passed only because the
+instances that lost their slots happened not to matter). The clock's two global values moved the loss onto that fighter's outline. The
+buffer is now doubled (project.godot `limits/global_shader_variables/buffer_size=131072`): no overflow, and the bench passes. The real
+stages never overflowed.
+
+**Built B** (the owner's pick, 2026-11-05):
+- Every stage palette's [backdrop] `scene_steps=15.0` (meadow, sunset, ocean, city, grove). `--scene-steps=T` brings back every frame.
+- Recorded as built, the meadow's windmill and the beach's sea change 15 times a second, and the fighters every frame.
+- Today against built, the windmill every second frame (each picture held for four frames), and the fighters: `style/twos_built.jpg`.
+All seven tests pass, and the look bench passes with no overflow.
