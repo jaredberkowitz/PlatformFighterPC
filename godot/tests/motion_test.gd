@@ -374,6 +374,15 @@ func _initialize() -> void:
 	var down_hit := front_hit.duplicate()
 	down_hit.kb_vel = Vector2(-0.03, -0.12)
 	check(FighterView.flinch_lean(down_hit) > 0.0, "a hit from above ducks it forward, never back (%.1f)" % FighterView.flinch_lean(down_hit))
+	# (Round 10, review 3's cause 7) By weight: off the same hit a heavy fighter leans less and a quick one further (`FLINCH_WEIGHT`).
+	var heavy_hit := front_hit.duplicate()
+	heavy_hit["class"] = 8
+	var quick_hit := front_hit.duplicate()
+	quick_hit["class"] = 2
+	var lean_h := absf(FighterView.flinch_lean(heavy_hit))
+	var lean_m := absf(FighterView.flinch_lean(front_hit))
+	var lean_q := absf(FighterView.flinch_lean(quick_hit))
+	check(lean_h < lean_m and lean_m < lean_q, "a heavy fighter flinches less, a quick one more (%.1f, %.1f, %.1f)" % [lean_h, lean_m, lean_q])
 	var flincher := FighterView.new()
 	root.add_child(flincher)
 	flincher.build(1, Loadout.default_for(1))

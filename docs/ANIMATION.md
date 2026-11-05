@@ -3438,3 +3438,26 @@ lies at the hit), `bodyft.py` (the torso's travel after the last hit), `windpops
   near knee up toward the wall and the far leg back, a pedal; **C** both together, as the reference plumber's.
 - **Image:** `docs/screenshots/anim/r10_ledge_hang_mock.jpg` (today, A, B and C over one cycle; close up, then the match camera's size).
   A moving side-by-side is on F: (`F:\anim_core\r10\g9\ledge_mock_4up.mp4`).
+
+### Group 10 (round 10): the light flinch by the fighter's weight (review 3, cause 7)
+
+- **Found (r10e; the reactions demo, each family's fighter hit by the Longsword at the same damage, the head's lean from the hips traced):**
+  every class flinched alike, by the hit's strength only (round 9, group 20): the Clutch, the Claws and the Needles leaned their heads
+  0.19-0.20 units off the same forward tilt and stood upright again by the same frame (16).
+- **Fix (`fighter_view.gd` `FLINCH_WEIGHT`, `flinch_weight`, `flinch_lean`; `hurt_recoil` takes the snap's frames and the share of the
+  stun it is upright by):** by the classes `CLASS_WEIGHT` already makes heavy (the Greatsword, the Bracers, the Clutch) or quick (the
+  Needles, the Dagger), the same way it weights their landings: a heavy fighter gives 0.55 of the lean to a light hit, its body slower to
+  go (the snap over 4 frames, 3 shared) and upright again by 0.55 of the stun (0.7); a quick one is thrown back 1.35 times as far in 2
+  frames. The body's lean, the chest's bend and the head's give-back all take it, and the small flinch of a hit that does not stun. By the
+  snapshot, so a freeze holds it and a seek redraws it. `PF_R10_OFF=flinchw` gives every class the shared flinch. `motion_test` checks a
+  heavy, a middle and a quick fighter off the same hit.
+- **Measured:** the head's lean through the two longer ground flinches: the Clutch 0.19 and 0.16 to 0.16 and 0.10 units, upright by
+  frames 13 and 12 (16, 15); the Claws unchanged (0.20, 0.17); the Needles 0.20 and 0.17 to 0.23 and 0.22, upright by 16 as before. Its face
+  stays to the camera (the face's turn to the camera within 0.02 of before through the stun). Limbs reading reversed on screen 2,804 to
+  2,796 (the four computer matches; the galleries' fighter is never hit, so the attack measures are group 9's by construction). Tests
+  pass; the look bench passes (worst 0.90).
+- **Left:** one pose set still (the same `hurt_ground` clip, scaled): a heavy's braced snap and a quick one's arms flung further would be
+  their own clips; at the match camera the hit's effect covers the flinch's first frames, so the difference shows mostly in how far the
+  body stays leaned and how soon it is back up.
+- **Image:** `docs/screenshots/anim/r10_flinch_weight.jpg` (the Clutch, the Claws and the Needles off the same forward tilt, r10e above
+  now, frames 6-22 of the stun).

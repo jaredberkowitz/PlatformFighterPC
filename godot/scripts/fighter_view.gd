@@ -1526,7 +1526,7 @@ static var r9_off := OS.get_environment("PF_R9_OFF").split(",")
 ## (`AIM_AHEAD`); "charge" keeps the charge's glow, tremble and squint on through the whole move (`_charging`); "settle" brings a grounded
 ## move home into its stance without the knees taking its weight (`_settle_dip`); "free" leaves a strike's free arm to its clip
 ## (`_free_arm_swing`); "sling" gives the Settler's back air the shared back air's clip and its strike on its first frame
-## (`release_frames`, AnimLibrary).
+## (`release_frames`, AnimLibrary); "flinchw" gives every class the shared light flinch (`FLINCH_WEIGHT`).
 static var r10_off := OS.get_environment("PF_R10_OFF").split(",")
 var handoff_clip := ""
 var handoff_state := ""
@@ -1821,7 +1821,7 @@ func _body_follow(s: Dictionary, delta: float) -> void:
 		# time it ran on through the freeze: a grabbed fighter's head bent back and forward again within each pummel's hitlag, and its
 		# weapon hand crossed the face, 5-8 frames a pummel.)
 		flinch_left = 0.0 if springs.jumped else maxf(0.0, flinch_left - float(springs.new_frames) / 60.0)
-		var k := flinch_left / FLINCH_TIME
+		var k := flinch_left / FLINCH_TIME * flinch_weight(s).x
 		_bend_bone(spine_bone, -16.0 * k, int(s.facing))
 		_bend_bone(head_bone, -12.0 * k, int(s.facing))
 	# (Round 9, the light flinch: the chest bends back off the hit in the plane of the stage with the body's lean (`_recoil`), the head
@@ -3952,7 +3952,8 @@ func _recoil(s: Dictionary) -> void:
 ## from above (knocked down more than along), it ducks forward a little instead of tipping back (the owner's rule: no tipping back under
 ## overhead hits).
 static func flinch_lean(s: Dictionary) -> float:
-	var lean := hurt_recoil(s)
+	var w := flinch_weight(s)
+	var lean := hurt_recoil(s, w.y, w.z) * w.x
 	var kb: Vector2 = s.get("kb_vel", Vector2.ZERO)
 	if kb.y < -maxf(0.02, absf(kb.x)):
 		return absf(lean) * FLINCH_DUCK
@@ -3961,7 +3962,7 @@ static func flinch_lean(s: Dictionary) -> float:
 
 ## The body's pitch (degrees, the model's x rotation) in a hit reaction that does not tumble: away from the hit (back off a blow from the
 ## front, forward off one from behind), by the snapshot only, so a freeze holds it and a rollback redraws it.
-static func hurt_recoil(s: Dictionary) -> float:
+static func hurt_recoil(s: Dictionary, snap := HURT_SNAP_FRAMES, recovered := HURT_RECOVERED) -> float:
 	var left := float(s.get("hitstun", 0))
 	var f := float(s.state_frame)
 	var total := maxf(1.0, f + left)
@@ -3972,15 +3973,15 @@ static func hurt_recoil(s: Dictionary) -> float:
 	var away := 1.0 if kb.x * float(s.facing) > 0.02 else -1.0
 	var k := 0.55
 	if int(s.get("hitlag", 0)) <= 0:
-		var hold := HURT_SNAP_FRAMES + 2.0 + 5.0 * strength
-		var back := maxf(hold + 2.0, total * HURT_RECOVERED)
+		var hold := snap + 2.0 + 5.0 * strength
+		var back := maxf(hold + 2.0, total * recovered)
 		if not r9_off.has("react"):
 			# (Round 9: back up over at least HURT_RECOVER_MIN frames, and upright by the stun's last frame: a short stun stood up in two
 			# frames, 9 degrees in one, and one that ended before it was back stood up straight in one.)
-			back = clampf(total * HURT_RECOVERED, hold + HURT_RECOVER_MIN, total - 1.0)
+			back = clampf(total * recovered, hold + HURT_RECOVER_MIN, total - 1.0)
 			hold = minf(hold, back - HURT_RECOVER_MIN)
-		if f < HURT_SNAP_FRAMES:
-			var u := f / HURT_SNAP_FRAMES
+		if f < snap:
+			var u := f / snap
 			k = 0.55 + 0.45 * (1.0 - (1.0 - u) * (1.0 - u))
 		elif f < hold:
 			k = 1.0
@@ -3996,6 +3997,22 @@ static func hurt_recoil(s: Dictionary) -> float:
 static func hurt_amount(s: Dictionary) -> float:
 	var total := maxf(1.0, float(s.state_frame) + float(s.get("hitstun", 0)))
 	return lerpf(HURT_RECOIL_MIN, HURT_RECOIL_MAX, clampf((total - HURT_WEAK) / (HURT_STRONG - HURT_WEAK), 0.0, 1.0))
+## (Round 10, review 3's cause 7) The light flinch by the fighter's weight, the classes `CLASS_WEIGHT` makes heavy or quick: the lean's
+## share, the frames it snaps back in and the share of the stun it is upright by. A heavy fighter gives less to a light hit, its body slower
+## to go, and shrugs it off sooner; a quick one is snapped back further and faster. Every class flinched alike before (round 9, group 20),
+## by the hit's strength only. `PF_R10_OFF=flinchw` shows the shared flinch.
+const FLINCH_WEIGHT := {6: Vector3(0.55, 4.0, 0.55), 7: Vector3(0.55, 4.0, 0.55), 8: Vector3(0.55, 4.0, 0.55),
+	2: Vector3(1.35, 2.0, 0.7), 12: Vector3(1.35, 2.0, 0.7)}
+
+
+## This fighter's light flinch (`FLINCH_WEIGHT`): x the lean's share, y its snap's frames, z the share of the stun it is upright by.
+static func flinch_weight(s: Dictionary) -> Vector3:
+	var shared := Vector3(1.0, HURT_SNAP_FRAMES, HURT_RECOVERED)
+	if r10_off.has("flinchw"):
+		return shared
+	return FLINCH_WEIGHT.get(int(s.get("class", s.get("char", -1))), shared)
+
+
 ## A hit too weak to launch: the body snaps back from it and recovers over this long (seconds left of FLINCH_TIME).
 var flinch_left := 0.0
 const FLINCH_TIME := 0.22

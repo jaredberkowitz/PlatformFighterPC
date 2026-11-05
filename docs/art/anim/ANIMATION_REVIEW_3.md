@@ -159,3 +159,7 @@ not rising.
   wind-ups.
 - **Cause 8 (mock, for the owner):** three livelier ledge hangs (`docs/screenshots/anim/r10_ledge_hang_mock.jpg`): A the free hand swung
   out behind, B the legs kicked, C both, every 2 seconds. Nothing built until the owner picks.
+- **Group 10 (cause 7, done): the light flinch by weight.** The heavy fighters (the Greatsword, the Bracers, the Clutch) give 0.55 of the
+  lean to a light hit, slower to go and upright sooner; the quick ones (the Needles, the Dagger) are thrown back 1.35 times as far, faster.
+  The Clutch's head lean off a forward tilt 0.16 to 0.10 units, the Needles' 0.17 to 0.22. Reversed limbs 2,804 to 2,796; the attack
+  measures unchanged. Light hurt accuracy 4 (one clip still, scaled: own snap poses per weight would be next).
