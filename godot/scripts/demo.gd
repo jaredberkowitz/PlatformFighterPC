@@ -255,6 +255,11 @@ static func make(demo_name: String, m: Dictionary, dir: String):
 					at = int(a.substr(11))
 				elif a.begins_with("--cam="):
 					d.cam_dist = float(a.substr(6))
+			# (`--cam-match` frames both fighters as a match's camera does, easing, instead of snapping to the hanging one: a jump of the
+			# body against the stage shows as it would in play.)
+			if OS.get_cmdline_user_args().has("--cam-match"):
+				d.cam_focus = -1
+				d.cam_dist = 0.0
 			if OS.get_cmdline_user_args().has("--flip"):
 				lx = 12.0
 			d.events = [[2, "place", 0, lx, -0.5], [150, "place", 0, lx, -0.5], [300, "place", 0, lx, -0.5], [450, "place", 0, lx, -0.5]]

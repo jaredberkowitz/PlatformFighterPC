@@ -479,6 +479,34 @@ func _initialize() -> void:
 	check(float(climb_jump[1]) <= float(climb_jump[0]) + 0.08, "a climb out of the hang's fidget eases off it (largest one-frame move %.3f; from the still hang %.3f)"
 		% [climb_jump[1], climb_jump[0]])
 
+	# (Round 10) A fighter drawn larger (main.gd scales a view by the sim's fighter scale: the Hauler) starts its climb where it hung: the
+	# climb's first frame moves no bone further than at the plain size, scaled (it jumped 0.5-0.8 units further).
+	var ls_first := []
+	for ls_size in [1.0, 1.25]:
+		var ls_view := FighterView.new()
+		root.add_child(ls_view)
+		ls_view.build(0, Loadout.default_for(0))
+		ls_view.scale = Vector3.ONE * ls_size
+		await process_frame
+		for f in 20:
+			var ls_hold := snap(7, "LedgeHang", "", 9700 + f, f)
+			ls_hold.platform = -1
+			ls_view.apply(Vector3(-12.1, -1.8, 0), ls_hold, 1.0 / 60.0)
+		var ls_was := _bone_points(ls_view)
+		var ls_up := snap(7, "LedgeGetUp", "", 9720, 0)
+		ls_up.lag = 34
+		ls_view.apply(Vector3(-10.0, 0.0, 0), ls_up, 1.0 / 60.0)
+		var ls_now := _bone_points(ls_view)
+		var ls_most := 0.0
+		for i in ls_now.size():
+			ls_most = maxf(ls_most, (ls_now[i] as Vector3).distance_to(ls_was[i]))
+		ls_first.append(ls_most)
+		ls_view.queue_free()
+	var ls_off := OS.get_environment("PF_R10_OFF").split(",").has("ledgescale")
+	check(ls_off or float(ls_first[1]) <= float(ls_first[0]) * 1.25 + 0.05,
+		"a fighter drawn larger climbs from where it hung (first frame %.3f; at the plain size %.3f)" % [ls_first[1], ls_first[0]])
+	print("ledge climb's first frame, drawn 1.25 times: largest bone move %.3f (plain size %.3f)" % [ls_first[1], ls_first[0]])
+
 	# (Sim 150: a tech in place is the reference's 26 frames, intangible only through frame 20.) It plays the tech for its whole landing,
 	# not the landing's crouch from frame 21 when the intangibility ends, and the idle after it does not play the landing's rise again;
 	# after the slap no point jumps further in a frame than the pop limits (tools/art/review/clip_report.py: hips 0.12, head 0.16).

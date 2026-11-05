@@ -3682,3 +3682,41 @@ lies at the hit), `bodyft.py` (the torso's travel after the last hit), `windpops
   Wanderer's round shield is drawn in matches only, so its victory pose shows the sword alone (as before).
 - **Images:** `docs/screenshots/anim/r10_victory_poses.jpg` (each class before, then the new pose at three moments of its loop, on the
   podium card at its size; then P2 winning), `docs/screenshots/anim/r10_victory_title.jpg` (the title screen, before, then at two moments).
+
+### Group 17 (round 10): a fighter drawn larger climbs on from where it hung (the coordinator's stretch item, the Bracers' ledge jump)
+
+- **Found (in group 15's traces):** the Bracers' fighter (the Hauler) moved a hand or a forearm 0.8-1.2 units in the first frame of its ledge
+  climb, roll and attack; every other class 0.3 units or less. Measured from the hips the jump was gone: the whole body moved. main.gd
+  scales each fighter's view by the sim's fighter scale (the Hauler is drawn larger), and `_ledge_motion` carries the climb on from the
+  hang's place by an offset in world units (`climb_from`) set inside that scaled view: 1.25 times too far, so the body started its climb,
+  roll or attack about 0.8 units below and behind where it had hung.
+- **Fix (`fighter_view.gd` `_ledge_motion`):** the offset divided by the view's scale, and the hang's own offset multiplied by it where its
+  place in the world is taken. Nothing changes at the plain size. `PF_R10_OFF=ledgescale` shows the old.
+- **Checked:** the ledges demo traced for the Hauler and the Claws, from the still hang and from the fidget, both facings: the Hauler's
+  largest one-frame move in an action's first 8 frames, the climb 0.78-0.81 to 0.28-0.30, the roll 1.18-1.20 to 0.21-0.36, the attack
+  0.85-0.87 to 0.39-0.46, none of them in the first frame now (the Claws', unchanged: 0.25-0.28, 0.16-0.23, 0.39-0.42, the Hauler's about
+  its size larger); the ledge jump, which has no such offset, unchanged. `motion_test` checks a view drawn 1.25 times: the climb's first
+  frame moves 0.170 units (0.801 before; 0.136 at the plain size). The ledges demo takes `--cam-match` (the match's easing camera on both
+  fighters, for a jump against the stage). The galleries and the computer matches have no ledge actions: the round's measures are
+  unchanged by construction. Tests pass; the look bench passes (worst 0.90).
+- **Image:** `docs/screenshots/anim/r10_ledge_scale.jpg` (the Hauler from the hang into its climb at the match camera, the crop held
+  still, before and now).
+
+### Group 18 (round 10): the Gauntlets' and the Dagger's up air pose their arms from the clip (the coordinator's stretch item, the end-lag pop)
+
+- **Found (group 11's leftover):** the Gauntlets' up air (`kick_uair`) is a kick, but the class's kicks were not body moves, so the near arm
+  was reached to the kick's hit above the head through the hits and, after the last one, jumped 0.71 units across the face in a frame; the
+  Dagger's the same, 0.60. The Claws' and the Needles' kicks pose both arms from the clip.
+- **Measured first, every kick of every other unarmed class by the clip** (the Embers, Gauntlets, Bracers, Clutch, Settler, Popgun and
+  Dagger; galleries, tag ka1): end-lag pops 7 to 5 (none of 0.7 or more), hidden hands about 180 fewer, eyes or mouth covered 7 to 6; but
+  the timing went to 2.32 / 1.93 / 2.03 / 1.16, the hold and the recovery past the round's limits (the Embers' and the Clutch's back airs:
+  with the arm reaching, their hold and recovery match the references'), and reversed limbs on screen 732 to 754 (the Clutch's back air's
+  arm). Every up air by the clip (ka3): the same two pops gone, the recovery 1.65, but the hold 1.57, past its 1.56.
+- **Built (the narrow form, as the coordinator set):** only the Gauntlets' and the Dagger's up air poses its arms from the clip
+  (`CLIP_ARMS_UAIR`, `fighter_view.gd` `_apply_combat`'s body move). Measured on this tree (tag ka4): timing 2.34 / 1.51 / 1.65 / 1.15
+  (no move's changed), end-lag pops 7 to 5 (0.7 or more: 1 to 0), hidden hands the Gauntlets 66 to 60 and the Dagger 25 to 10 (1,284 to
+  1,263), eyes or mouth covered unchanged (the Gauntlets 4, the Dagger 0), reversed limbs on screen in their galleries 235 to 233. The
+  kick's smear ribbon now trails the kicking foot, as the Claws' and the Needles' kicks' do (it trailed the reached fist behind the head).
+  `PF_R10_OFF=kickarms` reaches the arm again.
+- **Image:** `docs/screenshots/anim/r10_kick_arms.jpg` (both up airs at the match camera around the last hit, before and now, both facings
+  now).

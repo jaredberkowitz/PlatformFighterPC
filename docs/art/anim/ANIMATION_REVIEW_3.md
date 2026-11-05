@@ -191,3 +191,9 @@ not rising.
   point with a heel kicked up, the heavy beating its chest, the tool family the tool up beside the head (the Settler its umbrella). The
   caster keeps the fist pump until a second round. Victory poses: readability 3 to 4 (each pose reads at the card's size and turn, the
   weapon carrying the line upward), accuracy 3 to 3.5 (a pose by family, the references' by fighter). No match animation changed.
+- **Group 17 (the Bracers' ledge jump, a stretch item):** the Hauler, drawn larger, no longer jumps 0.8 units down and back in the first frame
+  of its ledge climb, roll and attack: the hang-to-climb offset is in world units and was scaled with its view. No score change (a bug
+  on one fighter).
+- **Group 18 (the end-lag pop, a stretch item):** the Gauntlets' and the Dagger's up air pose both arms from the clip, so the near fist no
+  longer jumps across the face after the last hit: end-lag pops 7 to 5, hidden hands 1,284 to 1,263, timing unchanged. Every kick by
+  the clip was measured and left out: it pushed the hold and the recovery past the round's limits through the back airs.

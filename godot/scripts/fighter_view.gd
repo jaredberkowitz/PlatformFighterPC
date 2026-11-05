@@ -1618,7 +1618,9 @@ static var r9_off := OS.get_environment("PF_R9_OFF").split(",")
 ## the fallback swing (`_misfire`); "techside" rolls the tech in place about the body turned toward the camera from the hit (`tech_side`,
 ## TECH_ROLL_TURN); "ledgehang" hangs still from the ledge, without the fidget (`_hang_clip`); "vicweapon" leaves the victory pose's
 ## weapon to the menu carry when a screen names one (`play_victory`), and the hand-hung weapons hidden in it (and the family poses off);
-## "victory" plays round 9's two victory poses (the blade raised, the fist pump) in place of the families' own (`VICTORY_FAMILY_CLIPS`).
+## "victory" plays round 9's two victory poses (the blade raised, the fist pump) in place of the families' own (`VICTORY_FAMILY_CLIPS`);
+## "ledgescale" carries a ledge climb on from the hang's place scaled with the fighter's view, as before (`_ledge_motion`); "kickarms"
+## reaches the Gauntlets' and the Dagger's near arm to their up air's kick again (`CLIP_ARMS_UAIR`).
 static var r10_off := OS.get_environment("PF_R10_OFF").split(",")
 var handoff_clip := ""
 var handoff_state := ""
@@ -2213,6 +2215,12 @@ func _bend_bone(bone: int, degrees: float, facing: int) -> void:
 	skeleton.set_bone_pose_rotation(bone, local.get_rotation_quaternion())
 
 
+## (Round 10) The classes whose up air's kick (`kick_uair`) poses both arms from the clip, as the Claws' and the Needles' kicks do: the
+## Gauntlets and the Dagger. Their near fist was reached to the kick's hit above the head and, after the last hit, jumped 0.6-0.7 units
+## across the face in a frame. The same kick by the Embers, the Clutch and the Popgun moves its arm without a jump, and with the arm
+## reaching its timing stays nearer the references': every kick, or every up air, posed by the clip pushed the round's hold or recovery
+## past its limit (the back airs' and the up airs' holds). `PF_R10_OFF=kickarms` reaches the arm again.
+const CLIP_ARMS_UAIR := [4, 12]
 ## The classes whose weapon hangs on the hand bones and is shown in the victory pose (round 10): the Claws, the Popgun, the Dagger.
 const VICTORY_HAND_WEAPONS := [1, 11, 12]
 ## How big a raised weapon is in the victory pose (evenly, so the hilt keeps its shape), so the blade stays inside the results panel.
@@ -4267,13 +4275,17 @@ var last_state := ""
 func _ledge_motion(s: Dictionary, pos: Vector3) -> void:
 	var state: String = s.state
 	ledge_offset = Vector3.ZERO
+	# (Round 10: the offset is drawn inside this view, which main.gd scales by the fighter's size, so a place in the world (the hang's,
+	# `climb_from`) is divided by that scale: the Hauler, drawn larger, started its climb, roll and attack 0.5-0.8 units below and behind
+	# where it hung, in one frame. `PF_R10_OFF=ledgescale` shows it so.)
+	var unit := maxf(0.01, scale.x) if not r10_off.has("ledgescale") else 1.0
 	if state == "LedgeHang":
 		if not was_hanging:
 			ledge_swing_t = 0.0
 		# (Round 9: drawn in against the wall, so the raised hand reaches the edge: the sim's hanging place is further out than the short arm reaches. Eased in, and the climb starts from it.)
 		var drawn_in := LEDGE_HANG_IN * smoothstep(0.0, 8.0, float(s.state_frame)) * float(s.facing)
 		ledge_offset = Vector3(drawn_in, 0.0, 0.0)
-		hang_from = pos + ledge_offset
+		hang_from = pos + ledge_offset * unit
 		was_hanging = true
 		climbing = false
 		return
@@ -4307,7 +4319,7 @@ func _ledge_motion(s: Dictionary, pos: Vector3) -> void:
 		var over := minf(1.0, ledge_k * LEDGE_OVER_RATE)
 		ease = over * over * (3.0 - 2.0 * over)
 	rise = rise * rise * (3.0 - 2.0 * rise)
-	ledge_offset = Vector3(climb_from.x * (1.0 - ease), climb_from.y * (1.0 - rise), 0.0)
+	ledge_offset = Vector3(climb_from.x * (1.0 - ease), climb_from.y * (1.0 - rise), 0.0) / unit
 
 
 ## A roll's somersault turns through the middle of the roll (as shares of it), and a spot dodge steps this far back into the stage.
@@ -9415,6 +9427,8 @@ func _apply_combat(s: Dictionary, delta: float) -> void:
 		body_move = BRAWLER_NO_BLADE.has(s.move_name)
 	elif (_cls(s) == 2 or staff or great) and s.move_name != "":
 		body_move = _body_clip(_cls(s), s.move_name)
+	elif CLIP_ARMS_UAIR.has(_cls(s)) and s.move_name != "" and not r10_off.has("kickarms"):
+		body_move = AnimLibrary.attack_clip(_cls(s), s.move_name, anim) == "kick_uair"
 	# (A clip that poses both arms itself, whatever the class: a headbutt, both hands up on the balloon strings or the firework, a shrug,
 	# gripping the rocket. Its tool hand is not pulled to a hit.)
 	if s.move_name != "" and not body_move:
