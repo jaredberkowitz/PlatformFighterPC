@@ -32,6 +32,7 @@ var index: int:
 		return picker.index
 var rng := RandomNumberGenerator.new()
 var leaving := false
+var keys: Control
 
 
 func _ready() -> void:
@@ -43,7 +44,7 @@ func _ready() -> void:
 	for i in names.size():
 		blurbs.append(Roster.stage_blurb(i))
 	# (Above the backdrop and under the bar.)
-	picker = UI.StagePicker.new(names, blurbs, true, Roster.match_stage)
+	picker = UI.StagePicker.new(names, blurbs, true, Roster.match_stage, Roster.stage_layouts())
 	picker.hovered.connect(_focus)
 	picker.activated.connect(_pick)
 	add_child(picker)
@@ -56,7 +57,8 @@ func _ready() -> void:
 			items.append(["VS", D.GOLD])
 		items.append([str(chosen[p].get("name", "")).to_upper(), P_COLORS[p % 4]])
 	add_child(UI.TopBar.new("STAGE", items))
-	var keys := UI.KeyBar.new(KEYS)
+	keys = UI.KeyBar.new(KEYS)
+	keys.on_dark = picker.view == "full"
 	keys.position = Vector2(300, 680)
 	keys.size = Vector2(680, 30)
 	# (Over the cards: the focused card's long shadow fell across the keys.)
@@ -100,6 +102,7 @@ func pad_scheme(_pad: int) -> Dictionary:
 
 func toggle_view() -> void:
 	picker.toggle_view()
+	keys.on_dark = picker.view == "full"
 	Sfx.of(self).play("blip")
 
 

@@ -167,7 +167,7 @@ func build(all_entries: Array, start_index: int, start_stage: int) -> void:
 	var blurbs := []
 	for i in stage_names.size():
 		blurbs.append(Roster.stage_blurb(i))
-	picker = UI.StagePicker.new(stage_names, blurbs, false, stage)
+	picker = UI.StagePicker.new(stage_names, blurbs, false, stage, Roster.stage_layouts(), false)
 	picker.hovered.connect(_hover_stage)
 	picker.activated.connect(_click_stage)
 	stage_step.add_child(picker)
@@ -369,6 +369,10 @@ func _refresh() -> void:
 
 ## Puts the two lines of news where the step has room: under each player's card, or stacked beside the stages with their chips.
 func _layout() -> void:
+	# (Smaller beside the stages, at the foot of the preview's stage sheet: at full size the line ran past its edge.)
+	for t in [my_state, their_state]:
+		t.font_size = 22 if phase == FIGHTER or picker.view == "full" else 19
+		t.queue_redraw()
 	if phase == FIGHTER:
 		_place(my_state, Vector2(Select.SIDE_MARGIN + 8.0, 626), Select.SIDE_W - 16.0)
 		_place(their_state, Vector2(1280.0 - Select.SIDE_MARGIN - Select.SIDE_W + 8.0, 626), Select.SIDE_W - 16.0)

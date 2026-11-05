@@ -111,6 +111,7 @@ static var match_time := DEFAULT_TIME
 static var match_stage := 0
 static var _stage_names: Array = []
 static var _stage_blurbs: Array = []
+static var _stage_layouts: Array = []
 static var _match_loaded := false
 
 
@@ -147,8 +148,15 @@ static func stage_names() -> Array:
 		for i in sim.stage_count():
 			_stage_names.append(sim.stage_name(i))
 			_stage_blurbs.append(sim.stage_blurb(i))
+			_stage_layouts.append(sim.stage_preview(i))
 		sim.free()
 	return _stage_names
+
+
+## Each stage's layout for drawing (the bridge's `stage_preview`: its platforms, then its blast zone).
+static func stage_layouts() -> Array:
+	stage_names()
+	return _stage_layouts
 
 
 static func stage_blurb(i: int) -> String:

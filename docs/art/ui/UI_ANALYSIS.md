@@ -270,3 +270,26 @@ Tickets, Postcard); the owner picked **1, Face-off online**. Before/after: `lobb
 
 The stage step is unchanged (stage select's views). Tests: online_flow (now steps the grid), online_fighters, select_grid and the UI suite
 pass. Not checked: a friend's own made fighter (not in this player's roster: their panel shows it, no card is badged), a real pad.
+
+## Stage select's right column as a stage sheet, the owner's pick of the stage mocks (2026-11-05)
+
+Beside the preview, the column held only the stage's name and one line on the bare ground, with half the column empty below it.
+Three fillings were mocked on the "Paper UI Mocks" canvas, row 6 (Stage sheet, Match card, Blueprint), each drawn from the sim's own
+stage data; the owner picked **1, Stage sheet**. Before/after: `stage_sheet_before_after.png` (stage select, then the online lobby's
+stage step); the longest blurb and Random in `stage_sheet/`.
+
+| Before | After | Where |
+| --- | --- | --- |
+| The name and blurb straight on the ground | One cardstock sheet, a little turned: the name over its gold rule, the blurb (up to three lines) | `ui_kit.gd` `StagePicker._paint_preview_words`, `SHEET_RECT` |
+| Nothing below | THE LAYOUT: the stage drawn to one scale from the bridge's `stage_preview` (solid ground green, boards one passes through cream, all inked) inside its blast zone, dashed coral; Random shows its "?" | `_draw_layout`, `Roster.stage_layouts` |
+| Nothing below | The dashes' key, then FLOOR and ROOM TO SURVIVE as five-step meters against the other stages (short / standard / long, tight / standard / roomy) and the PLATFORMS count | `_paint_facts` |
+| The lobby's two news lines under the blurb | At the sheet's foot in the facts' place (`FREE`), a size smaller so they fit | `net_lobby.gd` `_layout` |
+
+The full view is unchanged. All numbers come from the sim's stages; nothing new reaches the sim. Tests: stage_select, online_flow,
+replay (stage_preview) and the UI suite pass.
+
+## Stage select's full view: the key words readable on its band (2026-11-05)
+
+The art director's note: in the full view the keys' words were printed in the paper's label grey on the ink band at the foot, about
+1.5:1. `KeyBar.on_dark` prints them in the sheet's cream there instead (about 14:1 against the band, #23253a); the preview view keeps the
+grey on paper. Before/after: `stage_keys_before_after.png`.

@@ -305,6 +305,12 @@ class KeyBar extends Control:
 	## paper (cardstock, docs/UI_DESIGN_SYSTEM.md); `band` puts them on a dark ribbon instead, for keys shown over a match.
 	var items: Array = []
 	var band := false
+	## Printed over a dark picture (stage select's full view, on its ink band at the foot): the words in the sheet's cream, not
+	## the label grey that is meant for paper (it read about 1.5:1 against the navy; cream is about 12:1).
+	var on_dark := false:
+		set(v):
+			on_dark = v
+			queue_redraw()
 
 	func _init(list: Array) -> void:
 		items = list
@@ -317,7 +323,7 @@ class KeyBar extends Control:
 			var strip := PackedVector2Array([Vector2(12, 0), Vector2(size.x, 0), Vector2(size.x - 12, size.y), Vector2(0, size.y)])
 			draw_colored_polygon(strip, Color(0.21, 0.22, 0.38, 0.88))
 			draw_line(Vector2(13, 1.5), Vector2(size.x - 1, 1.5), Color(1, 1, 1, 0.18), 2.0, true)
-		var words := D.LABEL.darkened(0.15) if printed else Color(1, 1, 1, 0.9)
+		var words := D.LABEL.darkened(0.15) if printed and not on_dark else (D.SHEET if printed else Color(1, 1, 1, 0.9))
 		var f := D.font()
 		var widths := []
 		var total := 0.0
@@ -502,8 +508,19 @@ class StagePicker extends Control:
 	const VIEWS := ["preview", "full"]
 	const VIEW_PATH := "user://stage_view.txt"
 	const STILLS := "res://art/ui/stages/stage_%d.webp"
-	## Under the words beside the preview; over the top right of the full picture.
-	const FREE := {"preview": Rect2(840, 420, 400, 96), "full": Rect2(800, 78, 440, 96)}
+	## Free room for a screen's own lines: at the foot of the preview view's sheet (where its facts sit when `show_facts` is on);
+	## over the top right of the full picture.
+	const FREE := {"preview": Rect2(852, 446, 384, 90), "full": Rect2(800, 78, 440, 96)}
+	## The preview view's stage sheet beside the picture (the owner's pick of the stage select mocks, 2026-11-05, "Stage sheet"): the
+	## name, what it plays like, the stage's layout drawn from the sim's own platforms with its blast zone dashed, and three facts.
+	const SHEET_RECT := Rect2(836, 84, 412, 452)
+	const BLURB_SIZE := 22
+	const LABEL_INK := Color("7a6e55")
+	## Each stage's layout (the bridge's `stage_preview`: [left, right, top, bottom, pass_through] for each platform, the blast zone
+	## [left, right, bottom, top] last); none draws no layout.
+	var layouts: Array = []
+	## The floor, room and platform facts under the layout (off in the online lobby: its two lines of news sit there).
+	var show_facts := true
 	var view := "preview"
 	var names: Array = []
 	var blurbs: Array = []
@@ -520,11 +537,13 @@ class StagePicker extends Control:
 	var words: Control
 	var full: TextureRect
 
-	func _init(stage_names: Array, stage_blurbs: Array, with_random := true, start := 0) -> void:
+	func _init(stage_names: Array, stage_blurbs: Array, with_random := true, start := 0, stage_layouts := [], facts := true) -> void:
 		set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 		mouse_filter = Control.MOUSE_FILTER_IGNORE
 		names = stage_names
 		blurbs = stage_blurbs
+		layouts = stage_layouts
+		show_facts = facts
 		random = with_random
 		for i in names.size():
 			var path := STILLS % i
@@ -651,13 +670,111 @@ class StagePicker extends Control:
 	func _blurb() -> String:
 		return blurbs[index] if index < blurbs.size() else "Any of the %d stages, chosen when the match starts." % names.size()
 
+	## The sheet beside the preview, a little turned as a card laid by hand: the name over a gold rule, what it plays like, THE LAYOUT
+	## in a window cut into the sheet, and (with `show_facts`) the blast zone's key and the floor, the room to survive and the platforms.
 	func _paint_preview_words(c: Control) -> void:
-		Art.title(c, stage_name().to_upper(), Vector2(840, 150), TYPE_TITLE, D.INK, 0.0)
-		c.draw_line(Vector2(842, 168), Vector2(1100, 168), D.GOLD, 4.0)
-		var y := 210.0
-		for line in _wrap(_blurb(), 390.0, TYPE_LABEL):
-			c.draw_string(D.font(), Vector2(842, y), line, HORIZONTAL_ALIGNMENT_LEFT, -1, TYPE_LABEL, D.INK)
-			y += 36.0
+		var r := SHEET_RECT
+		c.draw_set_transform(r.get_center(), deg_to_rad(0.5), Vector2.ONE)
+		var o := -r.size * 0.5
+		Art.card(c, Rect2(o, r.size), D.SHEET, 41, 16.0)
+		Art.title(c, stage_name().to_upper(), o + Vector2(22, 66), TYPE_TITLE, D.INK, 0.0)
+		c.draw_line(o + Vector2(24, 82), o + Vector2(224, 82), D.GOLD, 4.0)
+		var y := 114.0
+		var lines := _wrap(_blurb(), r.size.x - 48.0, BLURB_SIZE)
+		for line in lines.slice(0, 3):
+			c.draw_string(D.font(), o + Vector2(24, y), line, HORIZONTAL_ALIGNMENT_LEFT, -1, BLURB_SIZE, D.INK)
+			y += 27.0
+		var box := Rect2(o + Vector2(24, 202), Vector2(r.size.x - 48.0, 146))
+		c.draw_string(D.label_font(), box.position + Vector2(0, -9), "THE LAYOUT", HORIZONTAL_ALIGNMENT_LEFT, -1, TYPE_CAPTION, LABEL_INK)
+		c.draw_rect(box, D.SHEET_WINDOW)
+		var known := index < names.size() and index < layouts.size() and not (layouts[index] as Array).is_empty()
+		if known:
+			_draw_layout(c, box.grow(-10.0), layouts[index])
+		else:
+			Art.title_centered(c, "?", box, 96, Color(Art.SUN, 0.9), 0.06)
+		if show_facts and known:
+			_paint_facts(c, o + Vector2(24, 368), layouts[index])
+		c.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
+	## The layout to one scale in `area`: the blast zone dashed in coral, the solid ground in green, the platforms one passes through
+	## as thin cream boards, all outlined in ink.
+	func _draw_layout(c: Control, area: Rect2, rows: Array) -> void:
+		var blast: PackedFloat32Array = rows[rows.size() - 1]
+		var w := blast[1] - blast[0]
+		var h := blast[3] - blast[2]
+		if w <= 0.0 or h <= 0.0:
+			return
+		var k := minf(area.size.x / w, area.size.y / h)
+		var at := area.position + (area.size - Vector2(w, h) * k) * 0.5
+		var zone := Rect2(at, Vector2(w, h) * k)
+		var dash := Color(Art.CORAL, 0.8)
+		for edge in [[zone.position, Vector2(zone.end.x, zone.position.y)], [Vector2(zone.end.x, zone.position.y), zone.end],
+				[zone.end, Vector2(zone.position.x, zone.end.y)], [Vector2(zone.position.x, zone.end.y), zone.position]]:
+			c.draw_dashed_line(edge[0], edge[1], dash, 2.0, 7.0)
+		for i in rows.size() - 1:
+			var p: PackedFloat32Array = rows[i]
+			var x0 := at.x + (p[0] - blast[0]) * k
+			var x1 := at.x + (p[1] - blast[0]) * k
+			var top := at.y + (blast[3] - p[2]) * k
+			if p[4] > 0.5:
+				var board := Rect2(Vector2(x0, top - 3.0), Vector2(x1 - x0, 6.0))
+				c.draw_rect(board, D.SHEET.lightened(0.4))
+				c.draw_rect(board, D.INK, false, 2.0)
+			else:
+				var ground := Rect2(Vector2(x0, top), Vector2(x1 - x0, (p[2] - p[3]) * k))
+				c.draw_rect(ground, Art.GREEN)
+				c.draw_rect(ground, D.INK, false, 2.5)
+
+	## Under the layout: the dashes' key, then the floor's length and the room to survive (the blast zone's size) as five-step meters
+	## against the other stages, and the platforms one stands on above the ground.
+	func _paint_facts(c: Control, at: Vector2, rows: Array) -> void:
+		c.draw_string(D.font(), at + Vector2(2, 0), "- - -  past the dashes is a lost stock", HORIZONTAL_ALIGNMENT_LEFT, -1, 15,
+			Art.CORAL.darkened(0.3))
+		var floors := []
+		var rooms := []
+		for l in layouts:
+			floors.append(_floor_of(l))
+			rooms.append(_room_of(l))
+		var facts := [["FLOOR", _share(_floor_of(rows), floors), ["short", "standard", "long"]],
+			["ROOM TO SURVIVE", _share(_room_of(rows), rooms), ["tight", "standard", "roomy"]]]
+		var y := at.y + 26.0
+		var lf := D.label_font()
+		for fact in facts:
+			c.draw_string(lf, Vector2(at.x, y), fact[0], HORIZONTAL_ALIGNMENT_LEFT, -1, TYPE_CAPTION, LABEL_INK)
+			var lit := 1 + roundi(float(fact[1]) * 4.0)
+			for b in 5:
+				var x := at.x + 160.0 + b * 26.0
+				c.draw_colored_polygon(PackedVector2Array([Vector2(x + 3, y - 12), Vector2(x + 25, y - 12), Vector2(x + 22, y),
+					Vector2(x, y)]), D.INK if b < lit else Color(D.INK, 0.14))
+			var word: String = fact[2][0 if fact[1] < 0.3 else (2 if fact[1] > 0.7 else 1)]
+			c.draw_string(D.font(), Vector2(at.x + 300.0, y), word, HORIZONTAL_ALIGNMENT_LEFT, -1, 18, D.INK)
+			y += 25.0
+		var plats := 0
+		for i in rows.size() - 1:
+			if (rows[i] as PackedFloat32Array)[4] > 0.5:
+				plats += 1
+		c.draw_string(lf, Vector2(at.x, y), "PLATFORMS", HORIZONTAL_ALIGNMENT_LEFT, -1, TYPE_CAPTION, LABEL_INK)
+		c.draw_string(D.display_font(), Vector2(at.x + 160.0, y + 2.0), str(plats), HORIZONTAL_ALIGNMENT_LEFT, -1, 22, D.INK)
+
+	static func _floor_of(rows: Array) -> float:
+		var best := 0.0
+		for i in rows.size() - 1:
+			var p: PackedFloat32Array = rows[i]
+			if p[4] < 0.5:
+				best = maxf(best, p[1] - p[0])
+		return best
+
+	static func _room_of(rows: Array) -> float:
+		if rows.is_empty():
+			return 0.0
+		var b: PackedFloat32Array = rows[rows.size() - 1]
+		return (b[1] - b[0]) * (b[3] - b[2])
+
+	## Where `v` falls between the smallest and the largest of `all` (0 to 1; the middle when they are all one).
+	static func _share(v: float, all: Array) -> float:
+		var lo: float = all.min()
+		var hi: float = all.max()
+		return 0.5 if hi - lo < 0.001 else clampf((v - lo) / (hi - lo), 0.0, 1.0)
 
 	func _paint_full_words(c: Control) -> void:
 		if full.texture == null:
