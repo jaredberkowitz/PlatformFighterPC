@@ -1695,6 +1695,10 @@ class StatRow extends HBoxContainer:
 		tag = Tag.new(label, Vector2(150, 38))
 		tag.fill = D.CREAM_DARK
 		tag.font_size = 22
+		if Art.paper_style() == 1:
+			# (Printed on the paper, as the forms' labels are: cardstock.)
+			tag.printed = "label"
+			tag.custom_minimum_size = Vector2(104, 38)
 		add_child(tag)
 		var left := Arrow.new(-1)
 		left.pressed.connect(func(): step(-1))
@@ -1859,11 +1863,14 @@ class Bars extends Control:
 	func _draw() -> void:
 		var f := D.font()
 		var row := size.y / maxf(order.size(), 1)
+		# (The names' column and type scale with the width, so the bars fit a narrow card: the creator's cutting mat, 2026-11-05.)
+		var label_w := clampf(size.x * 0.46, 90.0, 150.0)
+		var fs := 22 if size.x >= 300.0 else 17
 		for i in order.size():
 			var y := i * row
 			# (Stat names in ink on the light ground, docs/UI_DESIGN_SYSTEM.md: they were white and vanished on it.)
-			draw_string(f, Vector2(4, y + row * 0.68), order[i], HORIZONTAL_ALIGNMENT_LEFT, 150, 22, Color(D.INK, 0.8))
-			var track := Rect2(160, y + row * 0.2, size.x - 170, row * 0.55)
+			draw_string(f, Vector2(4, y + row * 0.68), order[i], HORIZONTAL_ALIGNMENT_LEFT, label_w, fs, Color(D.INK, 0.8))
+			var track := Rect2(label_w + 10.0, y + row * 0.2, size.x - label_w - 20.0, row * 0.55)
 			D.draw_slant(self, track, Color(0.16, 0.19, 0.25), D.INK, 2.0, false)
 			var amount: float = clampf(float(values.get(order[i], 0.0)), 0.0, 1.0)
 			if amount > 0.02:

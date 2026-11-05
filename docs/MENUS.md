@@ -12,14 +12,7 @@ condensed type, and a slight lift on hovered buttons (see "Look" below). The pie
 
 ## Character creator
 
-Laid out like a caricature kit (`godot/ui/creator.gd`). Down the left, the **categories**: body colour, the face's **eyes, brows,
-nose, mouth and cheeks**, its resting **mood**, the **hat, glasses, neckwear and shirt**, and **how it plays**. Beside them the fighter
-on its own little stage, turned to the camera (it moves in close for the face and the hat; Z and X turn it, C faces it front), with its
-**name** on the plate below. In the middle the choices for the category, as pictures (the part alone for face parts, the fighter
-wearing it for clothes); on the right the part's **colours** and the **tools**: move up or down, closer or apart, smaller or bigger,
-tilt, squash or stretch, each press saying what it did at the top ("+1 height"), and **Reset**. **Exit** (asks again with unsaved
-changes) and **Done** (saves and goes to character select) at the top right. How it plays holds the saved-fighter picker ("New
-fighter" or one to edit, and Delete), the **class** (the moveset: Longsword or Claws), the four **stats** and the rules.
+Laid out as a cutting mat (the paper UI pass, 2026-11-05, `docs/art/ui/UI_ANALYSIS.md`): the categories as named tabs along the top in groups (body; the face's **eyes, brows, nose, mouth, cheeks, freckles** and resting **mood**; the outfit's **hat, glasses, neckwear, shirt and gear**; and **how it plays**), the fighter whole on a green mat at the left (it moves in close for the face and the hat; Z and X turn it, C faces it front), its **name** on a card at the mat's foot; on the right the category's choices as cards and, under them, a card with the part's **colours** and its **fit** (height, spacing, size, tilt, stretch, each press saying what it did beside the category's name, "+1 height") and **Reset**. **Exit** (asks again with unsaved changes) and **Done** (saves and goes to character select) on the top bar. How it plays holds the saved-fighter picker ("New fighter" or one to edit, and Delete), the **class** (the moveset), the four **stats**, the rules, and the bars and points beside them.
 
 Keys: arrows or WASD move between the categories, the choices and the tools (on a stat or a selector, left and right change it); J,
 Space or Enter picks; Q and E change category; N types the name; Esc exits. Looks are cosmetic only (`docs/ART_PIPELINE.md`, faces from
