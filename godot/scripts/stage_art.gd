@@ -2014,6 +2014,9 @@ static func backdrop(root: Node3D, t: Dictionary, stage: Array) -> void:
 	# (Scenery on twos, the style pass: the scenery's pictures a second, and the clock the shaders share, scripts/scene_clock.gd.)
 	_set_scene_steps(t)
 	root.add_child(SceneClock.new())
+	# (Each stage's paper core on the cut-edge light, `PAPER_CORE_TRY`; alpha 0 keeps each edge in its own colour.)
+	var pc := paper_core(String(t.name))
+	RenderingServer.global_shader_parameter_set("pf_paper_core", Color(pc.core as Color, float(pc.rim)) if not pc.is_empty() else Color(1, 1, 1, 0))
 	_house_n = 0
 	_chunky_hills = false
 	# (Fresh per build: the painted ground shadows live in these materials, `_ground_shadow`.)
@@ -7114,6 +7117,37 @@ class SteppedMotes extends GPUParticles3D:
 		_pic = pic
 		speed_scale = _held / maxf(delta, 0.0001)
 		_held = 0.0
+
+
+## Each stage's paper on its cut edges (the style pass, docs/art/stages/STYLE_PASS.md): the colour of the card's core, as cut card shows
+## its stock at the edge. White card for the meadow, kraft for the canyon, bleached origami paper for the beach, newsprint for the city
+## (its print; a blue-grey board turned its pink roof's edge purple), washi for the grove. The palette's [backdrop] `paper_core` (the
+## colour) and `paper_core_look`, or `--paper-core=T|A|B|C`, T as before (each edge a pale version of its own face):
+##   A  a hint: the core on the modelled card edges (the play areas' top edges and the ground's cut sheets), 40 per cent of the way;
+##   B  the paper: 70 per cent, with the cut-edge light on the walls and the cards' sides (toon_common's paper finish) in the core's
+##      colour too (it shows only as a line along a lip, as on the city's roof; the rims were already pale);
+##   C  all the way.
+## The owner's pick B (every stage palette's `paper_core_look`, 2026-11-05).
+const PAPER_CORE_TRY := {"T": {}, "A": {"edges": 0.4, "rim": 0.0}, "B": {"edges": 0.7, "rim": 0.8}, "C": {"edges": 1.0, "rim": 1.0}}
+const PAPER_CORES := {"meadow": Color(0.98, 0.96, 0.9), "sunset": Color(0.74, 0.55, 0.36), "ocean": Color(0.93, 0.96, 0.98),
+	"city": Color(0.86, 0.85, 0.81), "grove": Color(0.95, 0.89, 0.95)}
+
+
+## The stage's paper core (`PAPER_CORE_TRY`): {core, edges, rim}, or empty for none.
+static func paper_core(stage_name: String) -> Dictionary:
+	if not PAPER_CORES.has(stage_name):
+		return {}
+	var bd := palette(stage_name).get("backdrop", {}) as Dictionary
+	var look := String(bd.get("paper_core_look", ""))
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--paper-core="):
+			look = arg.substr(13).to_upper()
+	var d: Dictionary = PAPER_CORE_TRY.get(look, {})
+	if d.is_empty():
+		return {}
+	var out := d.duplicate()
+	out["core"] = bd.get("paper_core", PAPER_CORES[stage_name])
+	return out
 
 
 ## Scenery that moves on the scenery's pictures (`SceneClock.picture`): `_step(delta)` is the time since its last picture when it takes a
