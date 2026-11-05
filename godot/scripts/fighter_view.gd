@@ -995,6 +995,12 @@ func _attack_clip(s: Dictionary) -> Array:
 		progress = COIL_PROGRESS + COIL_CREEP * (1.0 + sin(float(s.state_frame) * TAU / 40.0))
 		if (COIL_EASE_IN.get(_cls(s), []) as Array).has(name):
 			progress *= smoothstep(0.0, HELD_STRIKE_IN, float(s.state_frame))
+	elif _aims_ahead(s) and (COILED_START.get(_cls(s), []) as Array).has(name):
+		# (Round 10: a gun's shot out of its draw, `AIM_AHEAD`, keeps the draw's braced stance (the coil) through its release and hold, the
+		# gun kicking up in the hand, then lowers back to the stance the way it came. Through the clip's strike its free arm went up
+		# overhead and the arms-beside-the-head layer folded its elbow backward behind the head.)
+		var rel := float((RELEASE_FRAME.get(_cls(s), {}) as Dictionary).get(name, 0))
+		progress = COIL_PROGRESS * (1.0 - home_k(float(s.state_frame), rel, total, _end_shape(s), 0.0, BODY_CREEP))
 	elif float(s.state_frame) < start and (COILED_START.get(_cls(s), []) as Array).has(name):
 		# (Thrown straight out of a charge's coil: it starts coiled rather than rising to the rest pose and coiling again.)
 		progress = maxf(progress, COIL_PROGRESS)
@@ -2399,7 +2405,7 @@ func build(p: int, l: RefCounted = null) -> void:
 	spark_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	spark_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
 	spark.material_override = spark_mat
-	spark.position = Vector3(0, 1.3, 0.6)
+	spark.position = SPARK_AT
 	spark.visible = false
 	add_child(spark)
 
@@ -2494,7 +2500,7 @@ func _flash(s: Dictionary, delta: float) -> void:
 			flash_strength = clampf((float(s.hitlag) - 4.0) / 14.0, 0.0, 1.0)
 		var bright_frames := 2 if flash_strength < 0.4 else 3
 		target = lerpf(0.3, 0.6, flash_strength) if int(s.frame) - flash_hit_frame < bright_frames else 0.1
-	elif int(s.charge) > 0 and s.state == "Attack":
+	elif _charging(s) > 0 and s.state == "Attack":
 		colour = Color(1.0, 0.85, 0.25)
 		target = 0.12 + 0.1 * sin(float(s.frame) * 0.6)
 	flash_amount = target if target > flash_amount else move_toward(flash_amount, target, delta * 12.0)
@@ -3726,7 +3732,7 @@ func _face_for(s: Dictionary) -> Dictionary:
 		"Knockdown", "Rebound":
 			return Loadout.HURT
 		"Attack":
-			if int(s.charge) > 0:
+			if _charging(s) > 0:
 				return Loadout.EFFORT_FACE
 			var t: PackedInt32Array = s.move_timing
 			var f: float = s.state_frame
@@ -4499,7 +4505,8 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 		target_lean = clampf(rad_to_deg(atan2(float(s.vel.x) * float(s.facing), float(s.vel.y))), -80.0, 95.0)
 	# The whole body swings with the hit (in the manner of the reference game's big aerials): it pitches into a hit in front or below,
 	# arches back under one overhead and curls forward away from one behind, as far as the limb is into its reach.
-	if state == "Attack" and s.move_tip != Vector3.ZERO and not _held_pose(s):
+	# (Round 10: not behind a gun aimed ahead, `AIM_AHEAD`: braced, not thrown at where its peanut starts, which tipped the aim at the floor.)
+	if state == "Attack" and s.move_tip != Vector3.ZERO and not _held_pose(s) and not _aims_ahead(s):
 		var tip: Vector3 = s.move_tip
 		var phi := rad_to_deg(atan2(tip.x, -(tip.y - 1.1)))   # 0 straight down, 90 ahead, 180 overhead, negative behind
 		var swing := clampf((130.0 - phi) * 0.32, -22.0, 30.0) if phi >= 0.0 else clampf(-phi * 0.18, 0.0, 22.0)
@@ -5939,13 +5946,15 @@ const BLADE_OVERHEAD_Z := -0.25
 ## Charges (by class) held in the clip's coil for as long as they last (the move has no hit of its own): the Hauler's giant punch wind-up,
 ## planted wide and low (`gaunt_charge`), while its arm swings round (`WINDMILL`). (Round 2: it stood in a plain
 ## guard, fists at the chest, for the whole charge.)
-const HELD_COIL := {7: ["neutral special"], 11: ["up special", "extra move 5"], 2: ["neutral special", "extra move 3"],
+## (Round 10: and the Popgun's draw, its gun held up at the foe while the charge lasts, `AIM_AHEAD`.)
+const HELD_COIL := {7: ["neutral special"], 11: ["up special", "extra move 5", "neutral special"], 2: ["neutral special", "extra move 3"],
 	9: ["neutral special"]}
 ## Held coils entered from the stance, which ease into the coil over HELD_STRIKE_IN frames rather than snapping into it (round 8).
-const COIL_EASE_IN := {2: ["neutral special"], 9: ["neutral special"]}
+const COIL_EASE_IN := {2: ["neutral special"], 9: ["neutral special"], 11: ["neutral special"]}
 ## Moves with no hitbox of their own (a projectile or a script throws the hit) and the frame their strike lands on, by class (round 8: the
 ## Needles' volley throws its first needle on frame 11 and casts its line on 13). Without it such a move struck on its first frame.
-const RELEASE_FRAME := {2: {"extra move 4": 11, "side special": 13}, 0: {"down special": 6},
+## (Round 10: the Popgun's shot, its peanut out as the move begins.)
+const RELEASE_FRAME := {11: {"extra move 3": 1}, 2: {"extra move 4": 11, "side special": 13}, 0: {"down special": 6},
 	9: {"extra move 4": 1, "extra move 9": 1, "extra move 10": 1, "side special": 27, "extra move 5": 27, "extra move 6": 2,
 		"extra move 7": 2, "down special": 16, "extra move 8": 2},
 	5: {"neutral special": 14, "side special": 22, "down special": 6},
@@ -5957,7 +5966,73 @@ const RELEASE_FRAME := {2: {"extra move 4": 11, "side special": 13}, 0: {"down s
 const HELD_STRIKE := {10: ["up special", "extra move 8"], 13: ["neutral special"], 5: ["down special"], 12: ["down special", "extra move 9"]}
 const HELD_STRIKE_IN := 8.0
 ## Moves thrown straight out of such a charge: they start in the coil, the fist drawn back (`DEEP_CHAMBER`), instead of from the rest pose.
-const COILED_START := {7: ["extra move 0", "extra move 1", "extra move 2", "extra move 3"]}
+## (Round 10: and the Popgun's shot out of its draw.)
+const COILED_START := {7: ["extra move 0", "extra move 1", "extra move 2", "extra move 3"], 11: ["extra move 3"]}
+## (Round 10, the popgun) Moves whose weapon hand aims a gun straight out from the live shoulder at the foe, by class: the Popgun's draw (the
+## neutral special: the arm comes off the clip's onto the aim over AIM_IK_IN frames and holds it while the charge lasts) and its shot (out
+## of the charge already up, it kicks up AIM_KICK degrees as the peanut leaves, eases back over AIM_KICK_FRAMES, holds, and goes home with
+## the end lag). AIM_DOWN degrees under level: level at the shoulder the short arm put the fist over the chin, and the face guard pushed
+## it back into the chest. A move with no hit of its own aimed the arm at the body's middle, so the gun pointed at the floor through the
+## draw, and the shot played the fallback swing. `PF_R10_OFF=aim` shows the old aim.
+const AIM_AHEAD := {11: ["neutral special", "extra move 3"]}
+## This frame's kick of the aimed gun, radians, signed by the facing (`_pose_blade` sets it, `_ik_arm` turns the weapon hand by it).
+var gun_kick := 0.0
+const AIM_IK_IN := 8.0
+const AIM_KICK := 14.0
+const AIM_KICK_FRAMES := 7.0
+const AIM_DOWN := 15.0
+## (Round 10) Draws that charge by their own frames rather than the sim's charge (which a script sets only as the shot leaves), by class:
+## the frame the charge starts building. The Popgun's draw charges from its frame 15 (the reference's 16) for as long as special is held.
+const CHARGE_FROM := {11: {"neutral special": 15}}
+
+
+## Where the charge's glow shows (the view's own space), and on a gun aimed ahead its size (`AIM_AHEAD`: at its muzzle, `GUN_MUZZLE` in
+## the gun's own frame, the cork's end, make_weapons.py `popgun`): [at no charge, more at a full one].
+const SPARK_AT := Vector3(0, 1.3, 0.6)
+const GUN_MUZZLE := Vector3(0.58, 0.1, 0.0)
+const GUN_GLOW := Vector2(0.22, 0.3)
+
+
+## Where the shown popgun's muzzle is (the view's own space), or Vector3.INF with none shown.
+func _gun_muzzle() -> Vector3:
+	for p in popgun_parts:
+		if p.is_visible_in_tree():
+			return to_local(p.global_transform * GUN_MUZZLE)
+	return Vector3.INF
+
+
+## The charge building now (frames held), for the charge's glow, tremble, flash and effort face; 0 when nothing is charging.
+## (Round 10: only while it builds, before the move's first hit, or through a draw that charges by its own frames (`CHARGE_FROM`). The sim
+## keeps the charge with the move once it is let go, since it powers the hits, so the glow flashed, the body shook and the face squinted
+## through the whole strike and end lag: the Popgun's shot for its 34 frames after the peanut had left, and nothing at all while the gun
+## charged. `PF_R10_OFF=charge` shows the old.)
+func _charging(s: Dictionary) -> int:
+	var charge := int(s.charge)
+	if String(s.state) != "Attack" or r10_off.has("charge"):
+		return charge
+	if int(s.state_frame) >= int((s.move_timing as PackedInt32Array)[1]):
+		charge = 0
+	var from := int((CHARGE_FROM.get(_cls(s), {}) as Dictionary).get(String(s.move_name), -1))
+	if from >= 0:
+		charge = maxi(0, int(s.state_frame) - from)
+	return charge
+
+
+## Whether this frame's weapon hand aims a gun straight ahead (`AIM_AHEAD`).
+func _aims_ahead(s: Dictionary) -> bool:
+	return use_base_body and not r10_off.has("aim") and String(s.state) == "Attack" \
+		and (AIM_AHEAD.get(_cls(s), []) as Array).has(String(s.move_name))
+
+
+## The aim's angle above level at this frame (degrees, forward space): the shot's kick, up at its release, eased back level.
+func _aim_kick(s: Dictionary) -> float:
+	var rel: Dictionary = RELEASE_FRAME.get(_cls(s), {})
+	if not rel.has(String(s.move_name)):
+		return 0.0
+	var u := (float(s.state_frame) - float(rel[String(s.move_name)])) / AIM_KICK_FRAMES
+	if u < 0.0 or u >= 1.0:
+		return 0.0
+	return AIM_KICK * (1.0 - u) * (1.0 - u)
 ## Arms swung round and round through a charge, after the reference's giant punch: [frames a turn at the start, frames a turn at full
 ## charge, frames to full charge]. The fist goes over the top and down in front (an overarm windmill), faster as the charge builds, behind
 ## the head at the top so it never crosses the face. By the move's frame only, so a freeze holds it and a seek redraws it.
@@ -6158,7 +6233,8 @@ func _pose_blade(s: Dictionary, delta: float) -> void:
 		tip = SPIN_BLADE_TIP
 	# In a swing the hand leaves its resting spot and sweeps round the shoulder, so the arm throws the blade through its arc; the blade
 	# then runs from the hand to the same tip.
-	var attacking: bool = s.move_name != "" and s.state_frame > 0 and not (at_rest and s.move_name != "")
+	# (Round 10: a gun aimed ahead from its move's first frame, `AIM_AHEAD`: the shot out of the draw is up already.)
+	var attacking: bool = s.move_name != "" and (s.state_frame > 0 or _aims_ahead(s)) and not (at_rest and s.move_name != "")
 	arm_k = move_toward(arm_k, 1.0 if attacking else 0.0, delta * 9.0)
 	if not attacking:
 		arc_prev_ok = false
@@ -6190,6 +6266,13 @@ func _pose_blade(s: Dictionary, delta: float) -> void:
 		if iu >= 0:
 			var live := _skeleton_to_frame() * skeleton.get_bone_global_pose(iu).origin
 			shoulder = Vector2(live.x * facing, live.y)
+	# (Round 10, the popgun: a gun aimed ahead, `AIM_AHEAD`: the hand straight out from the live shoulder at the foe, the gun kicked up in
+	# the hand as the shot leaves (`gun_kick`, turned at the wrist: raised with the arm, the fist came up by the chin and the face guard
+	# pushed it into the chest). Aimed at a move's missing hit, it pointed at the floor.)
+	gun_kick = 0.0
+	if _aims_ahead(s):
+		tip = shoulder + Vector2.from_angle(deg_to_rad(-AIM_DOWN)) * 2.0
+		gun_kick = deg_to_rad(_aim_kick(s)) * float(facing)
 	# (Pass 3: a punch chambers first. Through the wind-up the fist is drawn back beside the chest and held there, then thrown from
 	# there with the snap.)
 	var from_hand := old_hand
@@ -6255,7 +6338,9 @@ func _pose_blade(s: Dictionary, delta: float) -> void:
 			# A seek takes the short way.)
 			if not _r9p("arc"):
 				var d := angle_difference(from_v.angle(), to_v.angle())
-				if arc_prev_ok and not springs.jumped and absf(d) > (ARC_EITHER_WAY_BLADE if bladed(_cls(s)) else ARC_EITHER_WAY):
+				# (Round 10: not a gun aimed ahead, `AIM_AHEAD`, which goes down and home the short way: its kick left the hand a little above
+				# the aim, so the other way round won and the gun looped up over the head and round behind to its carry.)
+				if arc_prev_ok and not springs.jumped and not _aims_ahead(s) and absf(d) > (ARC_EITHER_WAY_BLADE if bladed(_cls(s)) else ARC_EITHER_WAY):
 					var other := from_v.angle() + (d - signf(d) * TAU) * arm_k
 					if absf(angle_difference(arc_prev, other)) < absf(angle_difference(arc_prev, angle)):
 						angle = other
@@ -6503,6 +6588,15 @@ func _reach_weight(s: Dictionary) -> float:
 	var last := maxf(first, float(t[2]))
 	var total := maxf(last + 1.0, float(t[0]))
 	var k := 1.0
+	# (Round 10, the popgun: a gun aimed ahead, `AIM_AHEAD`, is at the aim for the whole draw, the arm eased onto it from the clip's
+	# (`AIM_IK_IN`); thrown out of the charge it is up already, held through its release, and goes home with the end lag.)
+	if _aims_ahead(s):
+		if (HELD_COIL.get(_cls(s), []) as Array).has(String(s.move_name)):
+			return 1.0
+		var rel := float((RELEASE_FRAME.get(_cls(s), {}) as Dictionary).get(String(s.move_name), 0))
+		if f <= rel:
+			return 1.0
+		return 1.0 - home_k(f, rel, maxf(rel + 1.0, float(t[0])), _end_shape(s), ARM_LAG)
 	if f < first:
 		# (Pass 3: the limb stays in its coil through the hold and reaches out with the snap.)
 		return snap_k(f, first)
@@ -7468,7 +7562,11 @@ func _ik_arm(side: String, mine: bool, target: Vector3, amount: float) -> void:
 		# (The class's arm bulk carried into the override, which replaces the pose's own scale.)
 		var bulk: Array = _arm_bulk(_cls_now)
 		skeleton.set_bone_global_pose_override(il, Transform3D(Basis(q_lower) * rest_l.basis * stretch * Basis.from_scale(bulk[0]), elbow), amount, true)
-		skeleton.set_bone_global_pose_override(ih, Transform3D(Basis(q_lower) * rest_h.basis * Basis.from_scale(bulk[1]), elbow + fore * fore_len * float((bulk[0] as Vector3).y)), amount, true)
+		# (Round 10: a gun's kick, `gun_kick`, turns the weapon hand up about the stage's depth at the wrist, the hand where the arm put it.)
+		var wrist_turn := Basis.IDENTITY
+		if mine and gun_kick != 0.0:
+			wrist_turn = Basis((to_skel.basis * Vector3(0.0, 0.0, 1.0)).normalized(), gun_kick)
+		skeleton.set_bone_global_pose_override(ih, Transform3D(wrist_turn * Basis(q_lower) * rest_h.basis * Basis.from_scale(bulk[1]), elbow + fore * fore_len * float((bulk[0] as Vector3).y)), amount, true)
 		if not bladed(_cls_now) and mine:
 			strike_tip = to_local(skeleton.global_transform * (elbow + fore * fore_len))
 			strike_tip_ok = true
@@ -8695,6 +8793,10 @@ func _apply_combat(s: Dictionary, delta: float) -> void:
 			if state == "Attack" and brawler:
 				var first := float((s.move_timing as PackedInt32Array)[1])
 				var ease_in := minf(IK_EASE_IN, first - 1.0) if first > 1.0 else 0.0
+				# (Round 10: a gun drawn from the stance, `AIM_AHEAD`, has no hit to time it: its arm eases in from the clip's too. It jumped
+				# 0.66 units on the draw's first frame.)
+				if _aims_ahead(s) and (HELD_COIL.get(_cls(s), []) as Array).has(String(s.move_name)):
+					ease_in = AIM_IK_IN
 				if ease_in > 0.0:
 					var k := clampf(float(s.state_frame) / ease_in, 0.0, 1.0)
 					amount = k * k * (3.0 - 2.0 * k)
@@ -8815,11 +8917,17 @@ func _apply_combat(s: Dictionary, delta: float) -> void:
 	if state == "Buried":
 		model.position = Vector3(0.05 * sin(float(s.frame) * 2.1), -1.0, 0)
 	# Charging a smash attack: the glow grows and the body trembles harder the longer it is held.
-	var charge: int = s.charge
+	var charge := _charging(s)
 	if charge > 0 and state == "Attack":
 		var amount := clampf(charge / 60.0, 0.0, 1.0)
 		spark.visible = (s.frame / 3) % 2 == 0
 		spark.scale = Vector3.ONE * (0.4 + 0.9 * amount)
+		spark.position = SPARK_AT
+		# (Round 10: a gun's charge glows at its muzzle, smaller (`GUN_GLOW`), so the gun charges and the face stays clear.)
+		var muzzle := _gun_muzzle() if _aims_ahead(s) else Vector3.INF
+		if muzzle != Vector3.INF:
+			spark.position = muzzle
+			spark.scale = Vector3.ONE * (GUN_GLOW.x + GUN_GLOW.y * amount)
 		model.position = Vector3(sin(float(s.frame) * 2.3) * 0.04 * (1.0 + 2.0 * amount) + lunge * float(s.facing), 0, 0)
 	var in_plane := not r9_off.has("react")
 	if state == "Hitstun" and hitlag == 0:

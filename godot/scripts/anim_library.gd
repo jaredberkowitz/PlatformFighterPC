@@ -358,6 +358,8 @@ const CLASS_MOVES := {
 		"uair": "kick_uair",
 		"dair": "gaunt_stomp",
 		"neutral special": "blaster",
+		# (Round 10: the shot out of the draw, the gun aimed ahead (fighter_view.gd `AIM_AHEAD`); it played the fallback swing.)
+		"extra move 3": "blaster",
 		"down special": "tool_toss",
 		# (Round 2: the monkey flip, ground and air, a dive with the hands out, turned over by the game (fighter_view.gd FLIP_MOVES); its
 		# kick a leg straight out; the latch sitting on the head and scratching, its attack the same, its jump off a stomp; the rocket's

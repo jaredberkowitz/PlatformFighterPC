@@ -3151,3 +3151,35 @@ lies at the hit), `bodyft.py` (the torso's travel after the last hit), `windpops
   through the draw and the shot. Mapped to the blaster with a release on its first frame and the draw held in its coil, the gun still
   pointed at the floor: the weapon arm of a move with no hitbox is not aimed by the clip's arm; it needs an aim target ahead at shoulder
   height for projectile moves. Reverted; next.
+
+### Group 3 (round 10): the popgun's draw and shot aimed at the foe (the Scamp, class 11; the coordinator's order, item 1)
+
+- **Found (r10a, the Scamp's gallery and a held charge, both facings):** the draw (the neutral special) kept the gun at the low carry,
+  pointing at the floor, for as long as it lasted; the shot (extra move 3) played the fallback swing, the gun swept down and round over
+  the head to behind. Cause: the weapon arm reaches for its move's hit (`_blade_target`), and the draw has none, so its arm aimed at the
+  body's middle; the shot's target is where its peanut starts, low ahead. Found on the way: the charge's glow, tremble, yellow flash and
+  squinting face showed through the whole shot (the sim keeps the charge with the move after it is let go, since it powers the hits)
+  and not at all while the gun charged (the draw's charge is the script's, by its frames); the same rule kept the glow on through every
+  charged smash's swing and end lag.
+- **Fix (`fighter_view.gd`; `anim_library.gd` maps the shot to `blaster`):** `AIM_AHEAD` (class 11's draw and shot): the gun hand aims
+  straight out from the live shoulder at the foe, `AIM_DOWN` 15 degrees under level (level at the shoulder the short arm brought the fist
+  up by the chin, and the face guard pushed it back into the chest), with no lean thrown at where the peanut starts. The draw holds the
+  blaster's coil (`HELD_COIL`, eased in: `COIL_EASE_IN`), the arm eased off the clip's onto the aim over `AIM_IK_IN` 8 frames (it jumped
+  0.66 units on the draw's first frame); the shot starts from it (`COILED_START`), its release on frame 1 (`RELEASE_FRAME`), keeps the
+  braced coil through the release and hold and lowers back to the stance the way it came (through the clip's strike its free arm went up
+  overhead and folded backward beside the head), the gun kicking up `AIM_KICK` 14 degrees at the wrist as the peanut leaves and easing
+  back over `AIM_KICK_FRAMES` 7 (`gun_kick`, so the fist stays where the arm put it); the arm goes home the short way (the kick tipped the
+  either-way arc rule into a loop up over the head). The charge (`_charging`): only while it builds, before the move's first hit or
+  through a draw that charges by its own frames (`CHARGE_FROM`: the draw from its frame 15, the reference's 16); a gun's glow at its
+  muzzle (`GUN_MUZZLE`), smaller (`GUN_GLOW`), clear of the face. `PF_R10_OFF=aim` and `PF_R10_OFF=charge` show the old.
+- **Checked:** both facings at the match camera and close up, tapped and held (`--demo=fx_popgun_nspecial`). The Scamp's gallery: eyes
+  or mouth covered 0 (0), striking hands hidden 48 (48), limbs reading reversed on screen 122 (122); the draw's largest one-frame move
+  0.66 to 0.32 units. Nine other classes' galleries (the Longsword, Needles, Embers, Seer, Bracers, Wanderer, Settler, Phantom and Exile:
+  every class with a projectile or a charge) traced against r10a: every pose identical, so the other projectile classes aim as before
+  and the timing report (six other classes) is unchanged. Tests pass; the look bench passes.
+- **Left:** the misfire (extra move 4, the gun going off in the hands) still plays the fallback swing; the peanut itself is the shared
+  placeholder (the props branch). Not checked in a match against a computer.
+- **The charge on a smash** (`--demo=sword_fsmash`, charged 36 frames): before, the glow's star flashed over the face and the body
+  stayed yellow and squinting through the swing and the hit; now they stop at the first hit, so the strike shows clean.
+- **Image:** `docs/screenshots/anim/r10_popgun_shot.jpg` (the tapped shot at the match camera, facing right then left, and a held charge
+  close up: r10a above each row's now); `docs/screenshots/anim/r10_charge_glow.jpg` (the charged smash).

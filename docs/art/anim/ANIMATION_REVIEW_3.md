@@ -125,4 +125,7 @@ not rising.
   frames allow: 32 (5). Jabs and tilts weight 3 to 4 where the jolt was the weak point (the jab, tilt and smash rows' weight 3 to 3.3).
 - **Cause 2 corrected:** tried and reverted (`docs/ANIMATION.md`): the drawn torso does carry on through the hit, by the view's lunge and
   lean layers, for about five frames; the clip's held strike key did not show. The stop the audit read in the clip is not on screen.
-
+- **Group 3 (found at r10a's install, done):** the Scamp's popgun aimed at the foe through the draw and the shot (it pointed at the
+  floor, and the shot swung the gun over the head); the charge's glow, tremble and squint only while the charge builds (they ran through
+  the whole shot, and every charged smash's swing). The Scamp's eyes or mouth covered, hidden hands and reversed limbs as at r10a; every
+  other class's poses identical.
