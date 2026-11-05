@@ -3585,3 +3585,16 @@ lies at the hit), `bodyft.py` (the torso's travel after the last hit), `windpops
 - **Images:** `docs/screenshots/anim/r10_ledge_hang.jpg` (the Claws before and now, close up both facings and at the match camera, the
   Longsword now; then every class at the fidget's frames), `docs/screenshots/anim/r10_tech_side.jpg` (group 13 above side-on, close up both
   facings, then the match camera).
+
+### r10f installed (5 November 2026)
+
+- Group 15 (the ledge hang C, the tech's roll side-on) and groups 9-14, with the stage branch's paper on the cut edges merged
+  (origin/art/stage-refine b91195d4, the owner's pick B: a global shader uniform, `pf_paper_core`) and the UI branch's stage sheet
+  (origin/art/ui-paper2 7645dfed: stage select's layout drawn to scale on a cardstock sheet, the owner's pick, and the key bar's words in
+  cream); main (a75f86fd) and the props branch (5da63ddd) unchanged since r10e; the stage branch's newer 3a94e275 is docs only and waits.
+  Re-imported twice; the stage select stills regenerated for the merged stage art (bd7caecd, the pack). Pack only: the Rust and content
+  are main's, the bridge DLL the folder's 152. Simulation version 152, content hash 3e8182f865102756, checked in the staged copy and the
+  extracted zip ("Platform Fighter playtest 2026-11-05 sim152 animation r10f.zip"); the r10e zip moved to `F:\anim_core\build\old_zips`.
+  The installed exe runs the ledge demo to r10e's checksum (2ee084357e1b24e9) and quits with code 0. How to play leads with "animation
+  r10f, livelier ledge hangs, paper edges and the stage sheet", our block on top. The Godot tests pass (with the stage select, online
+  flow, online fighters, creator and props tests) and the look bench (0 buffer overflows, worst 0.90).
