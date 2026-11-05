@@ -144,3 +144,13 @@ about the island's own busyness.
 - The air as light is new to the toon shader and off by default; only the grove's trial uses it. The world-building pieces, which are
   coloured directly, take the near air as a lighter colour, not as light.
 All tests pass but the runner test, on its known coin-pickup flake (PR #15, still open); the look bench passes.
+
+**Built B** (the owner's pick, 2026-11-05):
+- grove.cfg [air] `near=[15.0, 75.0, 0.33]`, `near_light=1.0`, `own_hue=true`, `trees=true`. `--pal-try=pre_air` shows the forest before.
+- The built grove measures the same as the mock's B: the band above the island at 3.9% edges (the island's top 3.7%), the forest's folds
+  0.14 to 0.16 in contrast, its saturation 0.32 to 0.33, P1's gap 0.100.
+- Before and after (match camera top, wide bottom, before left): `review18/grove_forest_built.jpg`.
+
+With it the grove's background land is a 5: the forest steps back behind the island, and what's left above it is lights and play pieces.
+The mean is 4.95, with 38 of 40 cells at 5. Left: the beach's play area (item 2) and the canyon's world and life (4 by the rule).
+All tests pass but the runner test, on its known coin-pickup flake (PR #15, still open); the look bench passes.

@@ -102,7 +102,7 @@ static func _air(node: Node, z: float) -> void:
 ## The near air over scenery `z` units behind the stage plane (fidelity review 18 item 1, the grove's forest): the palette's [air] `near`
 ## [start, end, lift] lifts what stands between the fight and the far ranges up to `lift` by `end`, only where the curve below lifts it
 ## less, so the far ranges stay as they were. Toward the colour's own light tint with [air] `own_hue` (`_own_tint`), else toward the
-## haze. 0 without a `near`.
+## haze. 0 without a `near`. The grove's, the owner's pick B (2026-11-05): grove.cfg [air], `--pal-try=pre_air` without it.
 static func _air_near(z: float) -> float:
 	var air: Dictionary = _palette.get("air", {})
 	if not air.has("near"):
