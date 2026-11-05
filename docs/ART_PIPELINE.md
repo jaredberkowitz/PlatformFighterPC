@@ -1192,5 +1192,6 @@ projectiles and items, read through the bridge.
   - `--demo=props_tree`: plant, water, two chops.
   - `--demo=fx_<class>_<move>[_again][_whiff][_wide]`; `_wide` takes the camera out for the Seer's far flame burst.
   - `PF_PROP_TRACE=1` prints each drawn prop's frame and place, for picking frames from a capture.
+- Before and after, every prop at its moment: `docs/art/props/props_before_after.jpg`.
 - **Not yet:** the held tools (the Settler's umbrella, shovel, axe, watering can and slingshot; the Scamp's worn barrels) and the
   Exile's orbs on a fighter. The bridge has no accessor for the orbs yet. The bomb is still built in code.
