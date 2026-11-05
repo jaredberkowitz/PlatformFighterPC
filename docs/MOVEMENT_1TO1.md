@@ -131,9 +131,15 @@ lines the touchdown frame up a frame differently there).
   brakes it at the doubled traction.
 - **A grounded hit's slide (built in sim 151, off).** The reference slides a fighter hit on the ground at its traction alone; ours
   takes the launch decay and the doubled traction off as well, so its pushes are about 2.4 times shorter. The rule is built
-  (`ground_hit_slide` 1) but off: with it on, the Needles' rapid jab pushes its target out of reach after a few stabs, where the
-  reference's keeps it caught (our stabs' reach is an estimate, and the reference's rapid jab may step forward). For the moveset
-  session to check the jabs against, then turn on.
+  (`ground_hit_slide` 1) but off. Checked further (2026-11-04): the re-creation's stop energy brakes a grounded hit at the body's
+  traction times `damage_ground_mul`, its launch decay (`damage_air_brake` 0.051) only in the air, and the common parameter file has
+  `damage_ground_mul` 1, so a single hit's slide is settled. With it on every moveset test passes but one: the Needles' mashed jab,
+  jab 2, rapid jab and finisher from 0.9 apart. Jab 1 then pushes the target 0.47 (0.26 off) before jab 2, jab 2 another 0.68 (0.25),
+  each stab 0.063 (0.021), and the finisher swings at 2.81 apart and misses (1.67 off, and it lands). The rapid jab's outer stab is
+  the reference's now (sim 152, `docs/movesets/needles/REFERENCE_DATA.md`), so what is left is how the reference adds a new hit's
+  speed to a slide already under way: its parameter file has a `damage_speed_composition` speed and rate (2, 0.5 to 0.9) that no
+  public code shows, and on a rapid jab that could keep the target closer than ours. Left off until footage settles it: the rogue's
+  jab, jab 2, held rapid jab and finisher on a standing fighter at 0% from close, in training mode, filmed side on.
 - **Wavedash slides.** The reference slides a waveland on the landing's traction; ours on the wavedash's own `waveland_friction`.
 - **Rolls and spot dodges** keep the doubled friction for their leftover speed: the reference's are driven by their animation, and
   ours were fitted to it.
