@@ -640,6 +640,8 @@ static func place_play(root: Node3D, t: Dictionary, path: String) -> void:
 				# (The path half as deep and keeping its colour, fidelity review 17: at the lawn's depth a warm sand went asphalt grey.)
 				var k := 0.5 if fam == "path" else 1.0
 				colours[fam] = Color.from_hsv(c.h, c.s * (1.0 - float(ground[1]) * (1.0 - k)), c.v * (1.0 - float(ground[0]) * k))
+	# (The deck's front edge before the paper core, for `DECK_EDGE_TRY`.)
+	var edge_wood: Color = colours.get("top_card", Color.WHITE)
 	# (Each stage's paper core on its card edges, the style pass: StageArt.PAPER_CORE_TRY.)
 	var pc := StageArt.paper_core(String(t.get("name", "")))
 	if not pc.is_empty():
@@ -651,6 +653,8 @@ static func place_play(root: Node3D, t: Dictionary, path: String) -> void:
 	root.add_child(scene)
 	# (The beach's boards, `DECK_TRY`: the gaps' cut sides split off as joints, the boards' tops into their own tones.)
 	var deck := deck_look(t)
+	# (The deck's front edge under the fight, `DECK_EDGE_TRY`.)
+	var edge := deck_edge_look(t)
 	if not deck.is_empty():
 		for mi: MeshInstance3D in scene.find_children("*", "MeshInstance3D", true, false):
 			_split_boards(mi, deck)
@@ -685,6 +689,8 @@ static func place_play(root: Node3D, t: Dictionary, path: String) -> void:
 				col = (colours.get("top", col) as Color).darkened(float(deck.joint))
 			elif board != "":
 				col = _board_tone(col, int(board), float(deck.get("tones", 0.0)))
+			elif fam == "top_card" and not edge.is_empty():
+				col = col.lerp(edge_wood, float(edge.get("wood", 0.0))).darkened(float(edge.get("shade", 0.0)))
 			var m := (FighterView.toon(col, false) as ShaderMaterial).duplicate() as ShaderMaterial
 			# (No facets: every piece is flat, and on the lawn's top the normal rebuilt from screen derivatives turned over, so it lit as an
 			# underside and the fighters' contact shadows, which only fall on what faces up, vanished.)
@@ -721,6 +727,27 @@ static func place_play(root: Node3D, t: Dictionary, path: String) -> void:
 ##   C  both.
 ## The owner's pick A (ocean.cfg [backdrop] `deck_look`, 2026-11-05).
 const DECK_TRY := {"T": {}, "A": {"joint": 0.35}, "B": {"tones": 2.0}, "C": {"joint": 0.35, "tones": 2.0}}
+
+
+## The beach's deck edge under the fight (fidelity review 19 item 1: since the cut-edge colours the deck's front edge is a band of bleached
+## paper, value 0.82 between the deck's 0.46 and the dark beam, right under the fighters, and the blocks under the fight out-contrast
+## them). The cut edges of the deck that `_split_boards` leaves in `top_card` (its front edge and the boards' ends; not the joints). The
+## palette's [backdrop] `deck_edge`, or `--deck-edge=T|A|B|C`, T the paper band:
+##   A  halfway back from the paper toward the deck's lit wood (the edge's colour before the paper core);
+##   B  the deck's lit wood, as before the cut-edge colours;
+##   C  the bleached paper, a step into shade.
+## The owner's pick B (ocean.cfg [backdrop] `deck_edge`, 2026-11-05).
+const DECK_EDGE_TRY := {"T": {}, "A": {"wood": 0.5}, "B": {"wood": 1.0}, "C": {"shade": 0.2}}
+
+
+## The beach's deck edge look (`DECK_EDGE_TRY`), {} on every other stage.
+static func deck_edge_look(t: Dictionary) -> Dictionary:
+	if String(t.get("name", "")) != "ocean":
+		return {}
+	var look := String((StageArt.palette("ocean").get("backdrop", {}) as Dictionary).get("deck_edge", ""))
+	if flag("--deck-edge=") != "":
+		look = flag("--deck-edge=").to_upper()
+	return DECK_EDGE_TRY.get(look, {})
 
 
 ## The beach's deck look (`DECK_TRY`), {} on every other stage.
