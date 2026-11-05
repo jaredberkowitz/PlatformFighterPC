@@ -145,3 +145,7 @@ not rising.
   stays low through 19 and stands at 23 without the over-stretched pop (it stood tall by 10). The stand-ups sit up by 5, reach their
   feet by 10 and stand at 24 (8, 15 and 29 before), then breathe in the fighter's own stance. Knockdown, tech and get-ups: accuracy 3 to
   4 (mean 3.0 to 3.3). Left: the reference's roll back over the shoulders in its tech (no clip for it).
+- **Group 8 (cause 4, partly):** the heavy family coils sooner and holds it longer (its wind-up against the reference 1.2 to 1.1 frames;
+  the round's 1.18 to 1.16). Its longer carry and deeper settle, and the quick family's shorter snap and lighter settle, were measured and
+  left out: each moved the timing away from the references past the round's limits, raised hidden hands, or did not show. The heavy's
+  reference is not heavier in timing than ours; more weight there means the clips' own keys, move by move. No score change.

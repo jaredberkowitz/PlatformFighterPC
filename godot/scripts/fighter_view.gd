@@ -1042,7 +1042,8 @@ func _attack_clip(s: Dictionary) -> Array:
 	var follow := FOLLOW_PROGRESS
 	if anim != null and not r9_off.has("sweep"):
 		follow = float(CLIP_FOLLOW.get(AnimLibrary.attack_clip(_cls(s), String(s.move_name), anim), FOLLOW_PROGRESS))
-	var progress := strike_progress(float(s.state_frame), total, start, last, s.get("move_windows", PackedInt32Array()), _end_shape(s), follow)
+	var progress := strike_progress(float(s.state_frame), total, start, last, s.get("move_windows", PackedInt32Array()), _end_shape(s), follow,
+		_family_weight(s, "coil_at", COIL_AT), _family_weight(s, "snap_at", SNAP_AT))
 	var name := String(s.move_name)
 	if (HELD_STRIKE.get(_cls(s), []) as Array).has(name):
 		# (A hold with no hit to time it, round 3: the Settler's balloon float. Rises into its pose over HELD_STRIKE_IN frames and stays
@@ -1078,7 +1079,8 @@ func _attack_clip(s: Dictionary) -> Array:
 ## for each: between two hits the body draws partly back toward the wind-up, then snaps forward onto the next hit's first frame, so a
 ## sequence of hits reads as a rhythm of strikes rather than one long held pose; the last hit gets the full follow-through. Only the
 ## move's frames drive it, so the animation never sets the timing.
-static func strike_progress(f: float, total: float, start: float, last: float, windows: PackedInt32Array, shape := END_SHAPE, follow := FOLLOW_PROGRESS) -> float:
+static func strike_progress(f: float, total: float, start: float, last: float, windows: PackedInt32Array, shape := END_SHAPE, follow := FOLLOW_PROGRESS,
+		coil_base := COIL_AT, snap_at := SNAP_AT) -> float:
 	if f < start:
 		# (Animation overhaul pass 3: the wind-up coils, holds, then snaps, as the reference's moves do, instead of drifting from rest to
 		# the strike at one pace. The clip reaches its chamber key (19 of 60) by COIL_AT of the startup, creeps on through the hold, and
@@ -1089,13 +1091,13 @@ static func strike_progress(f: float, total: float, start: float, last: float, w
 		# grounded moves at core10, the jabs and down tilts worst), a jolt at real speed rather than a gathering of weight. A short wind-up
 		# goes part of the way to its chamber (`anticipation_depth`), a little later in its startup (`COIL_LATE`).)
 		var depth := anticipation_depth(start)
-		var coil_at := lerpf(COIL_AT + COIL_LATE, COIL_AT, depth)
+		var coil_at := lerpf(coil_base + COIL_LATE, coil_base, depth)
 		var u := f / start
 		if u <= coil_at:
 			return COIL_PROGRESS * depth * coil_ease(u / coil_at)
-		if u <= SNAP_AT:
-			return (COIL_PROGRESS + COIL_CREEP * (u - coil_at) / maxf(SNAP_AT - coil_at, 0.001)) * depth
-		var k := (u - SNAP_AT) / (1.0 - SNAP_AT)
+		if u <= snap_at:
+			return (COIL_PROGRESS + COIL_CREEP * (u - coil_at) / maxf(snap_at - coil_at, 0.001)) * depth
+		var k := (u - snap_at) / (1.0 - snap_at)
 		return lerpf((COIL_PROGRESS + COIL_CREEP) * depth, 0.55, k * k)
 	if windows.size() >= 4:
 		for k in range(0, windows.size() - 2, 2):
@@ -1268,6 +1270,15 @@ static func anticipation_depth(start: float) -> float:
 
 
 const COIL_AT := 0.45
+## (Round 10, weight: review 3's cause 4) Each family's own wind-up, where it is not the shared one: `coil_at` and `snap_at` (shares of the
+## startup: coiled by, and held until). One coil for every class made the heavy fighter wind up as lightly as the quick ones: the heavy
+## family (the Clutch, after the reference's dinosaur) coils sooner and so holds its coil longer before the same snap (its strikes already
+## snap when the reference's do; its wind-up against the reference 1.2 to 1.1 frames).
+## Tried and measured, left out: the heavy's swing carried a frame further (its hold against the reference 1.2 to 2.2 frames, its recovery
+## 2.0 to 3.1), a deeper heavy settle, early or late in the end lag (its recovery 2.0 to 2.2, the round's over its limit), and the quick
+## family snapping in a shorter span (its wind-up 0.9 to 0.8, but the Phantom's striking hand hidden 2 frames more). `PF_R10_OFF=heavy`
+## shows the shared.
+const FAMILY_WEIGHT := {"heavy": {"coil_at": 0.36}}
 ## (Round 10) How much later in its startup a short wind-up (`anticipation_depth` at its least) reaches its chamber.
 const COIL_LATE := 0.1
 const SNAP_AT := 0.8
@@ -1277,25 +1288,33 @@ const COIL_CREEP := 0.02
 const FIST_CHAMBER := Vector2(-0.12, -0.32)
 
 
+## This fighter's family's weight value `what` (`FAMILY_WEIGHT`), or `shared` where it has none.
+func _family_weight(s: Dictionary, what: String, shared: float) -> float:
+	if r10_off.has("heavy") or not use_base_body:
+		return shared
+	var w: Dictionary = FAMILY_WEIGHT.get(String(AnimLibrary.CLASS_FAMILY.get(_cls(s), "sword")), {})
+	return float(w.get(what, shared))
+
+
 ## How far into its coil a wind-up is at move frame `f` (0 at rest, 1 coiled), held, then let go through the snap.
-static func coil_k(f: float, first: float) -> float:
+static func coil_k(f: float, first: float, coil_at := COIL_AT, snap_at := SNAP_AT) -> float:
 	var u := f / maxf(1.0, first)
 	if u >= 1.0:
 		return 0.0
-	if u <= COIL_AT:
-		return coil_ease(u / COIL_AT)
-	if u <= SNAP_AT:
+	if u <= coil_at:
+		return coil_ease(u / coil_at)
+	if u <= snap_at:
 		return 1.0
-	return 1.0 - (u - SNAP_AT) / (1.0 - SNAP_AT)
+	return 1.0 - (u - snap_at) / (1.0 - snap_at)
 
 
 ## How far a strike has travelled from its coil toward the hit at move frame `f`: nothing through the coil and the hold, then
 ## accelerating from SNAP_AT to the first active frame.
-static func snap_k(f: float, first: float) -> float:
+static func snap_k(f: float, first: float, snap_at := SNAP_AT) -> float:
 	var u := f / maxf(1.0, first)
-	if u <= SNAP_AT:
+	if u <= snap_at:
 		return 0.0
-	var k := clampf((u - SNAP_AT) / (1.0 - SNAP_AT), 0.0, 1.0)
+	var k := clampf((u - snap_at) / (1.0 - snap_at), 0.0, 1.0)
 	return k * k
 
 
@@ -5674,7 +5693,7 @@ func _blade_target(s: Dictionary) -> Array:
 	var t: PackedInt32Array = s.move_timing  # total, first active, last active
 	var f: float = s.state_frame
 	var start := maxf(1.0, float(t[1]))
-	var swing_from := start * SNAP_AT
+	var swing_from := start * _family_weight(s, "snap_at", SNAP_AT)
 	var angle := swing
 	var len := length
 	# (Round 5, the owner's A/B, decided for the sweep 2026-10-29: `sweeping`. The blade sweeps through its hit instead of snapping onto it and stopping:
@@ -5694,14 +5713,14 @@ func _blade_target(s: Dictionary) -> Array:
 	elif f < swing_from:
 		# The wind-up eases into its anticipation (fast away from rest, slowing as it coils) and holds there (pass 3: the coil holds
 		# until SNAP_AT of the startup, as the body's does)...
-		var k := coil_ease(f / maxf(1.0, start * COIL_AT))
+		var k := coil_ease(f / maxf(1.0, start * _family_weight(s, "coil_at", COIL_AT)))
 		angle = lerpf(rest_wind, wind, k)
 		if SWING_ROUND.has(name):
 			angle = rad_to_deg(lerp_angle(deg_to_rad(_rest_angle(s)), deg_to_rad(wind), k))
 		len = lerpf(rest_len, length, k)
 	elif f < start:
 		# ...and the strike accelerates into the hit, so the blade whips through rather than gliding at one speed.
-		var k := snap_k(f, start)
+		var k := snap_k(f, start, _family_weight(s, "snap_at", SNAP_AT))
 		angle = lerpf(wind, swing, k)
 		if SWING_ROUND.has(name):
 			angle = rad_to_deg(lerp_angle(deg_to_rad(wind), deg_to_rad(swing), k))
@@ -6674,7 +6693,7 @@ func _reach_weight(s: Dictionary) -> float:
 		return 1.0 - home_k(f, rel, maxf(rel + 1.0, float(t[0])), _end_shape(s), ARM_LAG)
 	if f < first:
 		# (Pass 3: the limb stays in its coil through the hold and reaches out with the snap.)
-		return snap_k(f, first)
+		return snap_k(f, first, _family_weight(s, "snap_at", SNAP_AT))
 	elif f > last:
 		# (It stays out through the hold, then comes home just after the body: round 3, `home_k`.)
 		return 1.0 - home_k(f, last, total, _end_shape(s), ARM_LAG)
@@ -7814,6 +7833,7 @@ const SETTLE_BY := {"jab": 0.2, "jab 2": 0.25, "jab 3": 0.4, "ftilt": 0.5, "util
 	"fsmash": 1.0, "usmash": 0.9, "dsmash": 0.9}
 ## (The specials on the ground, the throws.)
 const SETTLE_OTHER := 0.5
+## (Round 10, cause 4: the quick family settling lighter (0.7) made no visible difference, 0.03 units at its deepest: left at the shared.)
 const SETTLE_FAMILY := {}
 const SETTLE_SHARE := 0.35
 const SETTLE_FRAMES_MIN := 4.0
@@ -7849,7 +7869,7 @@ func _settle_dip(s: Dictionary) -> float:
 	if p <= 0.0 or p >= 1.0:
 		return 0.0
 	var bump := smoothstep(0.0, SETTLE_PEAK, p) if p < SETTLE_PEAK else 1.0 - smoothstep(SETTLE_PEAK, 1.0, p)
-	var family := float(SETTLE_FAMILY.get(AnimLibrary.CLASS_FAMILY.get(_cls(s), ""), 1.0))
+	var family := 1.0 if r10_off.has("heavy") else float(SETTLE_FAMILY.get(AnimLibrary.CLASS_FAMILY.get(_cls(s), ""), 1.0))
 	# (Not an extra move: most are an air version or a follow-up that can touch down part way, so its dip would start at the landing in a
 	# frame: the Gauntlets' flash dash from the air, its hand 0.55 units.)
 	var strength := float(SETTLE_BY.get(name, 0.0 if name.begins_with("extra") else SETTLE_OTHER))

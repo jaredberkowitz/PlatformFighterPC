@@ -3349,3 +3349,29 @@ lies at the hit), `bodyft.py` (the torso's travel after the last hit), `windpops
   content hash 3e8182f865102756, checked in the staged copy and the extracted zip ("Platform Fighter playtest 2026-11-05 sim152 animation
   r10d.zip"); the r10c zip moved to `F:\anim_core\build\old_zips`. The installed exe quits with code 0. The Godot tests pass, the
   props test (13 props, 11 painted kinds, 12 tools), the creator test and the look bench (0 buffer overflows, worst 0.90).
+
+### Group 8 (round 10): the heavy family's own coil (review 3, cause 4); its carry and settle measured and left out
+
+- **The audit's cause 4:** one coil, snap, carry and settle for every class, so the heavy fighter (the Clutch, the heavy family, after the
+  reference's dinosaur) struck as lightly as the quick ones; the fix proposed was the heavy family holding its coil longer, carrying
+  further and settling deeper, and the quick family snapping and settling shorter.
+- **Measured first (the six family representatives' 68 moves against the references):** the heavy's strikes already snap when the
+  reference's do (its wind-up 1.2 frames off) and recover within 2.0 frames of the reference's. Its reference is not slower or heavier
+  in timing than ours.
+- **Fix (`fighter_view.gd`, `FAMILY_WEIGHT`, `_family_weight`):** a family's own coil and snap points (`strike_progress`, `coil_k`,
+  `snap_k`, the limb's swing). The heavy family coils by 0.36 of its startup (0.45 shared) and so holds its coil longer before the same
+  snap. `PF_R10_OFF=heavy` shows the shared.
+- **Tried, measured and left out:**
+  - the heavy's swing carrying a frame further: its hold against the reference 1.2 to 2.2 frames, its recovery 2.0 to 3.1;
+  - a deeper heavy settle (1.3 and 1.45 times), early or late in the end lag: its recovery 2.0 to 2.2, the round's 1.66 against its limit
+    of 1.65; bringing its forward and down smashes home sooner by hand moved the down smash the wrong way;
+  - the quick family snapping in a shorter span: its wind-up 0.9 to 0.8 frames, but the Phantom's striking hand hidden 2 frames more;
+  - the quick family settling lighter (0.7): no visible difference (0.03 units at its deepest).
+- **Measured (every class, both facings where the measure has them; r10c in brackets):** attack timing 2.35 / 1.50 / 1.63 / 1.16 (2.35 /
+  1.50 / 1.63 / 1.18; the heavy's wind-up 1.2 to 1.1); wind-up jumps of 0.25 or more 31 (32), of 0.4 or more 5 (5); end-lag pops 8 (8);
+  the Clutch's eyes covered 1 and hidden hands 20 (1, 20). Tests pass; the look bench passes.
+- **Judged:** at the match camera the heavier coil shows only in its first frames (frame 3 of the Clutch's forward smash drawn further
+  back). The weight the audit asked for, a longer carry and a deeper settle, moves the heavy away from its reference's measured timing;
+  heavier-reading strikes would need the clips' keys themselves (a deeper chamber, the body's mass behind the follow-through) rather than
+  the timing, measured against the reference move by move.
+- **Image:** `docs/screenshots/anim/r10_family_weight.jpg` (the Clutch's forward smash wind-up, r10c above now; match camera).
