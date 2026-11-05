@@ -10,6 +10,7 @@ review 18's two items in (the grove's forest in the air, the beach's deck with d
 - `review19/contrast19.jpg`: new this review, where each frame's contrast lies. Each match frame is split into a 12 by 8 grid of blocks
   and each block's contrast (the spread of its brightness) is measured. The six most contrasty blocks are outlined in orange, and the
   fighters' two blocks in cyan, with their rank of the 96.
+  The map is a tool: `godot --headless --script tools/art/contrast_map.gd -- <capture.png> [--out=<dir>]`.
 - `review19/review19_crops.jpg`: the two weakest visuals at full size: the beach's deck edge before the cut-edge colours and now; the
   meadow's left and right edges at twice their size.
 
