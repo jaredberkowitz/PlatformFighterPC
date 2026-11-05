@@ -353,6 +353,31 @@ static func make(demo_name: String, m: Dictionary, dir: String):
 			var tech_at := int(OS.get_environment("PF_TECH_AT")) if OS.has_environment("PF_TECH_AT") else 62
 			d.timeline2.append_array([[tech_at, -127, 0, shield], [tech_at + 3, 0, 0, 0], [300, 127, 0, 0], [302, 0, 0, 0]])
 			d.end_frame = 400
+		"techs":
+			# (Round 10, the tech in place and the stand-ups: as "floorrolls", the second fighter (`--chars=A,B`, B) launched by A's strong
+			# forward tilt three times: it techs the first landing in place (shield with the stick at rest as it comes down), lies on its back
+			# after the second and stands up (jump), and after the third, hit from behind from the other side, lies on its front and stands.
+			# `PF_TECH_AT` as "floorrolls"; `--focus=1` frames the second fighter alone (with `--cam=N`, close up).)
+			d.chars = [0, 1, 0, 1]
+			for a in OS.get_cmdline_user_args():
+				if a.begins_with("--chars="):
+					var picked := a.substr(8).split(",")
+					d.chars = [int(picked[0]), int(picked[1]) if picked.size() > 1 else 1, 0, 1]
+				elif a.begins_with("--focus="):
+					d.cam_focus = int(a.substr(8))
+			# (`--flip`: every launch from the other side, so the second fighter faces the other way.)
+			var flip := -1 if OS.get_cmdline_user_args().has("--flip") else 1
+			d.timeline = [[0, 0, 0, 0]]
+			d.timeline2 = [[0, 0, 0, 0]]
+			for f0 in [1, 200, 400]:
+				var side := (1 if f0 < 400 else -1) * flip
+				d.events.append_array([[f0, "stand", 0, -7.0 * side, side], [f0, "stand", 1, -5.1 * side, side if f0 >= 400 else -side],
+					[f0, "percent", 1, 90.0]])
+				d.timeline.append_array([[f0 + 12, 40 * side, 0, attack], [f0 + 13, 0, 0, 0]])
+			var tech_in := int(OS.get_environment("PF_TECH_AT")) if OS.has_environment("PF_TECH_AT") else 62
+			d.timeline2.append_array([[tech_in, 0, 0, shield], [tech_in + 3, 0, 0, 0], [300, 0, 0, jump], [302, 0, 0, 0], [500, 0, 0, jump],
+				[502, 0, 0, 0]])
+			d.end_frame = 600
 		"airs":
 			# (Round 9: a short hop, a full hop, a full hop with a midair jump, a full hop fast-fallen, a walk off nothing: every frame, the camera
 			# steady on the first fighter.)

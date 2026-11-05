@@ -566,7 +566,14 @@ const TECH_INVULN_AT_MOST := 24
 ## knots, slapped down on the floor by frame 4 (the clip's 3/12), popped up by 10 (7/12) and in the stance by 16 (12/12); then the
 ## fighter's own family stance breathes until it can act, as a ledge climb's last frames do. A tech no longer than the last knot (an
 ## older ruleset's 4 frames) plays the clip over its whole lag, as before. `PF_R9_OFF=tech26` shows the old.
-const TECH_KEYS := [[0.0, 0.0], [4.0, 0.25], [10.0, 7.0 / 12.0], [16.0, 1.0]]
+const TECH_KEYS_R9 := [[0.0, 0.0], [4.0, 0.25], [10.0, 7.0 / 12.0], [16.0, 1.0]]
+## (Round 10, item 4: retimed against the reference's tech in place, filmed at 60 frames a second. From its touchdown it is on the floor
+## head and shoulders down through frame 7, rolls back over onto its feet by 11, crouches low until 20 as its intangibility runs out,
+## and stands at 21-22 with no overshoot. Ours, which has no roll-over: slapped down by frame 2 and held low through 10, a low crouch
+## opening a little until 19, up to the stance's height by 23 (short of the clip's over-stretched pop, `tech_pop`), then the fighter's
+## own stance. It was down by 4, up and over-stretched by 10-14 (the hips 0.08 over the stance), in the stance by 16, half the
+## reference's time. `PF_R10_OFF=tech` shows round 9's knots.)
+const TECH_KEYS_R10 := [[0.0, 0.0], [2.0, 0.25], [10.0, 0.27], [19.0, 0.36], [23.0, 0.52]]
 ## Whether this landing began as a tech in place (told on its first frame by the tech's intangibility, which since sim 150 ends six
 ## frames before the landing does) and so plays the tech for the whole landing.
 var tech_landing := false
@@ -612,8 +619,13 @@ func _choose_clip(s: Dictionary) -> Array:
 			if lying_back and not r9_off.has("react"):
 				return [AnimLibrary.or_stand_in("knockdown_up", anim), 1.0, -1.0]
 		"GetUp":
+			# (Round 10, item 4: stood by its last knot, the fighter's own stance; face down by its knots too.)
+			if _stood_up(s):
+				return [AnimLibrary.family_clip(_cls(s), "idle", anim), 1.0, -1.0]
 			if lying_back and not r9_off.has("react") and dodge_progress(s) >= 0.0:
 				return [AnimLibrary.or_stand_in("getup_up", anim), 1.0, _getup_k(s)]
+			if not _getup_keys(s).is_empty():
+				return [AnimLibrary.family_clip(_cls(s), AnimLibrary.state_clip(state, anim), anim), 1.0, _getup_k(s)]
 		"Turn":
 			# Turning out of a run skids; a turn from standing just turns.
 			# (Round 9: its own family's idle; every class played the sword family's for the frames of a turn.)
@@ -637,7 +649,7 @@ func _choose_clip(s: Dictionary) -> Array:
 			# `tech_landing`: from frame 21 the landing clip took over mid-tech. Played by `_tech_k`, then the fighter's own stance.)
 			if tech_landing or (int(s.get("invuln", 0)) > 0 and int(s.get("invuln", 0)) <= TECH_INVULN_AT_MOST):
 				var tk := _tech_k(s)
-				if tk >= 1.0 and use_base_body and _long_tech(s):
+				if use_base_body and _long_tech(s) and float(s.state_frame) >= float(_tech_keys()[_tech_keys().size() - 1][0]):
 					return [AnimLibrary.family_clip(_cls(s), "idle", anim), 1.0, -1.0]
 				return [AnimLibrary.or_stand_in("tech", anim), 1.0, tk]
 			if use_base_body:
@@ -816,23 +828,33 @@ func _land_progress(s: Dictionary) -> float:
 	return clampf(down_at + (1.0 - down_at) * (f - LAND_DOWN - hold) / rise, down_at, 1.0)
 
 
-## Whether this tech in place is longer than the clip's own knots (`TECH_KEYS`): the reference's 26 frames since sim 150.
+## Whether this tech in place is longer than its knots (`_tech_keys`): the reference's 26 frames since sim 150.
 static func _long_tech(s: Dictionary) -> bool:
-	return float(s.get("lag", 4)) > float(TECH_KEYS[TECH_KEYS.size() - 1][0]) and not r9_off.has("tech26")
+	return float(s.get("lag", 4)) > float(_tech_keys()[_tech_keys().size() - 1][0]) and not r9_off.has("tech26")
 
 
-## How far through the `tech` clip a tech in place is (0..1): by `TECH_KEYS` for a long one, so the slap and the pop keep their snap and
+## The tech in place's knots (`TECH_KEYS_R10`; `PF_R10_OFF=tech`, round 9's).
+static func _tech_keys() -> Array:
+	return TECH_KEYS_R9 if r10_off.has("tech") else TECH_KEYS_R10
+
+
+## How far through the `tech` clip a tech in place is (0..1): by its knots (`_tech_keys`) for a long one, so the slap and the pop keep their snap and
 ## are done with the clip by its last knot; over its whole lag for a short one.
 static func _tech_k(s: Dictionary) -> float:
 	var f := float(s.state_frame)
 	if not _long_tech(s):
 		return clampf(f / maxf(1.0, float(s.get("lag", 4))), 0.0, 1.0)
-	for i in range(1, TECH_KEYS.size()):
-		var a: Array = TECH_KEYS[i - 1]
-		var b: Array = TECH_KEYS[i]
+	return _knots(_tech_keys(), f)
+
+
+## A clip's progress at frame `f` by [frame, progress] knots, straight between them, held at the last.
+static func _knots(keys: Array, f: float) -> float:
+	for i in range(1, keys.size()):
+		var a: Array = keys[i - 1]
+		var b: Array = keys[i]
 		if f <= float(b[0]):
 			return lerpf(float(a[1]), float(b[1]), clampf((f - float(a[0])) / (float(b[0]) - float(a[0])), 0.0, 1.0))
-	return 1.0
+	return float(keys[keys.size() - 1][1])
 
 
 ## The item pick-up and throws' lengths (the ruleset's `item_pick_frames` and `item_side_frames`; the up, down and dash throws run 19-29,
@@ -952,10 +974,46 @@ static func dodge_progress(s: Dictionary) -> float:
 	return clampf(sf / total, 0.0, 1.0)
 
 
-## How far through the get-up off the back a stand-up is (0..1): its own progress, or from a trip's seat on (`TRIP_SEAT`).
+## How far through its clip a stand-up is (0..1): by its knots (`GETUP_UP_KEYS`, `GETUP_DOWN_KEYS`, `TRIP_GETUP_KEYS`), or its own progress
+## (from a trip's seat on, `TRIP_SEAT`) where they do not fit.
 func _getup_k(s: Dictionary) -> float:
+	var keys := _getup_keys(s)
+	if not keys.is_empty():
+		return _knots(keys, float(s.state_frame))
 	var p := dodge_progress(s)
 	return TRIP_SEAT + p * (1.0 - TRIP_SEAT) if trip_seat else p
+
+
+## (Round 10, item 4) The stand-ups' clips placed by frame: [frame, clip progress] knots, retimed against the reference's stand-up off the
+## back, filmed at 60 frames a second (sim 150's 29 frames: sat up by frame 5, swung onto its feet by 10, bent over in a crouch until
+## 18, up by 24, then its stance). Played straight over the 29 frames, ours sat up by 8, reached its feet by 15 and stood at the very
+## end, the clip's last pose (the shared stance) held into the idle. The getup off the back (`getup_up`: sat up 8/30, rocked onto the feet
+## 15/30, rising 21/30); face down (`getup`: pushed up 9/30, rising 18/30); a trip's 21 frames from its seat (the getup off the back's
+## sitting pose, `TRIP_SEAT`) at the same spacing. At the last knot the fighter's own stance takes over (`_stood_up`). A stand-up shorter
+## than its knots (an older ruleset's) plays by its progress. `PF_R10_OFF=getup` shows the old.
+const GETUP_UP_KEYS := [[0.0, 0.0], [5.0, 8.0 / 30.0], [10.0, 15.0 / 30.0], [18.0, 21.0 / 30.0], [24.0, 1.0]]
+const GETUP_DOWN_KEYS := [[0.0, 0.0], [6.0, 9.0 / 30.0], [18.0, 18.0 / 30.0], [24.0, 1.0]]
+const TRIP_GETUP_KEYS := [[0.0, TRIP_SEAT], [5.0, 15.0 / 30.0], [13.0, 21.0 / 30.0], [19.0, 1.0]]
+
+
+## This stand-up's knots, or [] (its own progress).
+func _getup_keys(s: Dictionary) -> Array:
+	if r10_off.has("getup") or not use_base_body or String(s.get("state", "")) != "GetUp":
+		return []
+	var d: PackedInt32Array = s.get("dodge", PackedInt32Array())
+	if d.size() < 2 or d[0] <= 0:
+		return []
+	var keys: Array = TRIP_GETUP_KEYS if trip_seat else (GETUP_UP_KEYS if lying_back and not r9_off.has("react") else GETUP_DOWN_KEYS)
+	if float(dodge_total(d)) < float(keys[keys.size() - 1][0]):
+		return []
+	return keys
+
+
+## Whether a stand-up has stood (its last knot passed): its last frames breathe in the fighter's own stance, as a tech's and a ledge
+## climb's do.
+func _stood_up(s: Dictionary) -> bool:
+	var keys := _getup_keys(s)
+	return not keys.is_empty() and float(s.state_frame) >= float(keys[keys.size() - 1][0])
 
 
 ## How far through a shield roll the body stops moving (its move frames end about frame 24 of 30): a floor roll rolls over its own moving

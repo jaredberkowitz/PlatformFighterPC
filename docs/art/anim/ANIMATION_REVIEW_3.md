@@ -141,3 +141,7 @@ not rising.
   covered the bow); the Scamp's barrels show at both sides of its waist in flight (they were hidden behind the body). Eyes or mouth
   covered and hidden hands unchanged; no body bone moves. Left: the turnips beside the head rather than over it (an owner pick), the
   down smash's spade held in the ground between the digs, the back air's tucked kick pose (`docs/ANIMATION.md`).
+- **Group 7 (cause 6, done): the tech in place and the stand-ups retimed** against the reference's, filmed at 60 frames a second. The tech
+  stays low through 19 and stands at 23 without the over-stretched pop (it stood tall by 10). The stand-ups sit up by 5, reach their
+  feet by 10 and stand at 24 (8, 15 and 29 before), then breathe in the fighter's own stance. Knockdown, tech and get-ups: accuracy 3 to
+  4 (mean 3.0 to 3.3). Left: the reference's roll back over the shoulders in its tech (no clip for it).

@@ -3299,3 +3299,42 @@ lies at the hit), `bodyft.py` (the torso's travel after the last hit), `windpops
   - the shed barrels (the props' projectile) are drawn at the props' size, smaller than the worn ones now.
 - **Image:** `docs/screenshots/anim/r10_grip_pass.jpg` (each item at its frame: before and after, facing right, then left; the match
   camera's scale, cropped and enlarged a little).
+
+### Group 7 (round 10): the tech in place and the stand-ups retimed against the reference (review 3, cause 6; the coordinator's item 2)
+
+- **Reference (a public guide's footage at 60 frames a second, on F: only):**
+  - the tech in place, counted from touchdown: head and shoulders on the floor, legs up, through frame 7; it rolls back over onto its feet
+    by 11; it crouches low, bent over, until 20 while its intangibility runs; it stands at 21-22 with no overshoot, then holds its stance
+    to 26;
+  - the stand-up off the back (29 frames): sat up by 5, swung onto its feet by 9-10, bent over in a crouch until 18, up by 24, then its
+    stance.
+- **Found (sim 152, the new `techs` demo: the Claws launched by the Longsword's forward tilt, both facings):**
+  - our tech was down by 4, up and over-stretched by 10-14 (the hips 0.08 above the stance), and in the stance by 16, half the
+    reference's time;
+  - played straight over its 29 frames, the stand-up off the back sat up by 8, reached its feet by 15 and stood only at the very end, on
+    the clip's last pose (the shared stance), held into the idle.
+- **Fix (`fighter_view.gd`):**
+  - the tech's knots (`TECH_KEYS_R10`): slapped down by frame 2 and held low through 10; a low crouch opening a little until 19; up to
+    the stance's height by 23, short of the clip's over-stretched pop; then the fighter's own stance. We have no roll-over, so the low
+    hold stands in for the reference's frames on the floor.
+  - the stand-ups by knots (`GETUP_UP_KEYS`, `GETUP_DOWN_KEYS`, `TRIP_GETUP_KEYS`). Off the back: sat up by 5, rocked onto the feet by 10,
+    rising from 18, stood at 24. Face down: pushed up by 6, rising from 18, stood at 24. A trip's 21 frames from its seat, at the same
+    spacing: stood at 19.
+  - Each hands over to the fighter's own stance at its last knot (`_stood_up`), as the ledge climb's last frames do. A tech or stand-up
+    shorter than its knots (an older ruleset's) plays as before. `PF_R10_OFF=tech` and `PF_R10_OFF=getup` show the old.
+  - The sim's frames are untouched: tech 26 (intangible 1-20), stand-up 29 (1-22), trip stand-up 21 (1-16). The tech keeps its clip
+    for its whole landing, so nothing falls to the plain landing at frame 21.
+- **Checked:**
+  - the tech and the stand-up off the back facing left and right (`techs`, `--flip`: exact mirrors); the face-down stand-up (filmed with
+    `PF_R9_OFF=react`, since the sim turns a hit fighter to face the hit and nearly every knockdown lands on the back); the trip's (the
+    Claws tripping the Longsword, `trips`);
+  - the tech posed for one class of each family (the sheet tool), the hand-off into each family's stance;
+  - the largest one-frame move after the slap (`motion_test`): hips 0.046, head 0.081 (0.064 and 0.112 before). The stand-up's head
+    travel is a smooth bell peaking at 0.20 a frame at its frames 8-9 (0.17 at 11 before: the swing onto the feet is now as quick as the
+    reference's). The trip's largest move a frame: hips 0.087, head 0.131 (0.083, 0.118).
+  - Attacks are untouched, so the round's measures (timing, end-lag pops, eyes covered, hidden hands, reversed limbs) are r10c's by
+    construction. The tests pass; the look bench passes.
+- **Left:** the reference's tech rolls back over its shoulders onto its feet; ours slaps down and rises, since the `tech` clip has no
+  roll-over (a new clip, if the owner wants it).
+- **Image:** `docs/screenshots/anim/r10_tech_getup.jpg` (the tech in place and the stand-up off the back, r10c above now; close up, then
+  the tech at the match camera's size).
