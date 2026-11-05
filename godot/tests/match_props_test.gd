@@ -32,6 +32,7 @@ func _initialize() -> void:
 	for k in MatchProps.ITEMS:
 		names[String(MatchProps.ITEMS[k])] = true
 	names["arrow"] = true
+	names["bomb"] = true
 	var before := {}
 	for id in Node.get_orphan_node_ids():
 		before[id] = true

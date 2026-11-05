@@ -2558,6 +2558,14 @@ func _build_items() -> void:
 		spark.position = Vector3(0.08, 0.64, 0)
 		spark.name = "spark"
 		bomb.add_child(spark)
+		# The modelled bomb (match_props.gd), in place of the built ball, collar and fuse when it is there; the spark stays at its fuse.
+		var bomb_model := MatchProps.make("bomb")
+		if bomb_model != null:
+			for c in bomb.get_children():
+				if c.name != "spark":
+					(c as Node3D).visible = false
+			bomb_model.name = "model"
+			bomb.add_child(bomb_model)
 		var arrow := Node3D.new()
 		arrow.name = "arrow"
 		n.add_child(arrow)
@@ -2657,7 +2665,13 @@ func _update_items() -> void:
 			var spark: MeshInstance3D = bomb.get_node("spark")
 			(spark.material_override as StandardMaterial3D).albedo_color = Color(1.0, 0.25, 0.15) if flash else Color(1.0, 0.85, 0.3)
 			spark.scale = Vector3.ONE * (1.8 if flash else 1.0)
-			(bomb.get_child(0) as MeshInstance3D).set_instance_shader_parameter("flash", Color(1.0, 0.2, 0.1, 0.5 if flash else 0.0))
+			var flash_c := Color(1.0, 0.2, 0.1, 0.5 if flash else 0.0)
+			var body: Node = bomb.get_node_or_null("model")
+			if body != null:
+				for mi in body.find_children("*", "MeshInstance3D", true, false):
+					(mi as MeshInstance3D).set_instance_shader_parameter("flash", flash_c)
+			else:
+				(bomb.get_child(0) as MeshInstance3D).set_instance_shader_parameter("flash", flash_c)
 
 
 # ---- Projectiles ------------------------------------------------------------------------------------

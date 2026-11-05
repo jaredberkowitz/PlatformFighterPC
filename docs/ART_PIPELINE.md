@@ -1206,4 +1206,6 @@ projectiles and items, read through the bridge.
 
   The Settler's bowling ball is held until the heave lets it go (frame 23, `until`). Worn kit hangs on the spine bone, placed in the
   body's rest space (`WORN_AT`), so it turns and leans with the body.
-- **Not yet:** the Exile's orbs on a fighter (no bridge accessor yet) and a modelled bomb (still built in code).
+- The Wanderer's bomb (item 2) wears a modelled bomb (`bomb`: a dark body, a steel collar and a rope fuse ending at the game's spark).
+  Its fuse flash is set on the model's meshes.
+- **Not yet:** the Exile's orbs on a fighter (no bridge accessor yet).

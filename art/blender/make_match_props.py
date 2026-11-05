@@ -483,8 +483,27 @@ def boomerang():
     return root
 
 
+def bomb():
+    """The Wanderer's bomb (item kind 2), in place of the code-built ball: a round dark body with a steel collar on top and a rope fuse
+    curling out of it, its tip where the game's spark sits (0.08 across, 0.64 up from the middle). Centred on the ball's middle, so it
+    spins about it when thrown."""
+    root = empty("bomb")
+    bm = bmesh.new()
+    vs = blob(bm, Vector((0.0, 0.0, 0.0)), (0.36, 0.36, 0.35), u=20, v=14)
+    to_object("ball_body", bm).parent = root
+    bm = bmesh.new()
+    lathe(bm, [(0.0, 0.3), (0.12, 0.3), (0.13, 0.34), (0.11, 0.39), (0.08, 0.4), (0.0, 0.4)], sides=14)
+    bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=1e-4)
+    to_object("metal_cap", bm).parent = root
+    bm = bmesh.new()
+    tube(bm, [Vector((0.0, 0.0, 0.38)), Vector((0.02, 0.0, 0.45)), Vector((0.06, 0.0, 0.5)), Vector((0.08, 0.0, 0.56)),
+              Vector((0.08, 0.0, 0.62))], [0.026, 0.024, 0.022, 0.02, 0.018], sides=7)
+    to_object("pith_fuse", bm).parent = root
+    return root
+
+
 PROPS = {"cork": cork, "barrels": barrels, "banana_peel": banana_peel, "sapling": sapling, "tree": tree, "wood_chip": wood_chip,
-         "flowerpot": flowerpot, "bowling_ball": bowling_ball, "pellet": pellet, "rocket": rocket, "arrow": arrow, "boomerang": boomerang}
+         "flowerpot": flowerpot, "bowling_ball": bowling_ball, "pellet": pellet, "rocket": rocket, "arrow": arrow, "boomerang": boomerang, "bomb": bomb}
 
 
 def export(root, path):
