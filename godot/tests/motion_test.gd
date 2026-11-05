@@ -449,6 +449,10 @@ func _initialize() -> void:
 	var was_hips := Vector3.INF
 	var was_head := Vector3.INF
 	var worst := Vector2.ZERO
+	# (Round 10: the tech rolls back over its shoulders through frame 11, `TECH_ROLL_KEYS`, a whole turn in eleven frames, so the pop limits
+	# hold from two frames after it; through the roll no point goes further in a frame than the roll's own pace allows.)
+	var roll_worst := Vector2.ZERO
+	var roll_end := int(FighterView.TECH_ROLL_END) + 2
 	for f in 36:
 		var teching := f < 26
 		var t := snap(0, "Landing" if teching else "Idle", "", 9980 + f, f if teching else f - 26)
@@ -458,10 +462,13 @@ func _initialize() -> void:
 		(landing_clips if teching else after_clips).append(teched.current_clip)
 		var tech_hips_at: Vector3 = teched.skeleton.global_transform * teched.skeleton.get_bone_global_pose(t_hips).origin
 		var tech_head_at: Vector3 = teched.skeleton.global_transform * teched.skeleton.get_bone_global_pose(t_head).origin
-		if f >= 3:
+		if f >= roll_end:
 			worst = Vector2(maxf(worst.x, tech_hips_at.distance_to(was_hips)), maxf(worst.y, tech_head_at.distance_to(was_head)))
+		elif f >= 1:
+			roll_worst = Vector2(maxf(roll_worst.x, tech_hips_at.distance_to(was_hips)), maxf(roll_worst.y, tech_head_at.distance_to(was_head)))
 		was_hips = tech_hips_at
 		was_head = tech_head_at
+	check(roll_worst.x <= 0.3 and roll_worst.y <= 0.45, "the tech's roll over the shoulders keeps its pace (hips %.3f, head %.3f)" % [roll_worst.x, roll_worst.y])
 	check(landing_clips.all(func(c: String) -> bool: return not c.begins_with("land")), "a 26-frame tech in place keeps its tech (%s)" % str(landing_clips))
 	check(after_clips.all(func(c: String) -> bool: return not c.begins_with("land")), "and no landing rise follows it (%s)" % str(after_clips))
 	check(worst.x <= 0.12 and worst.y <= 0.16, "a tech in place moves no further in a frame than the pop limits (hips %.3f, head %.3f)" % [worst.x, worst.y])

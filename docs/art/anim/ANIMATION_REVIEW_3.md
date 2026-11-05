@@ -170,3 +170,6 @@ not rising.
 - **Group 12 (cause 10, the dizzy, done):** the stunned fighter sways slowly side to side on soft knees, the head lolling after it with
   the face clear (it hunched with the hat over the eyes). Shield break, dizzy: accuracy 2 to 3, readability 3 to 3.5. The victory poses
   are left for an owner's mock.
+- **Group 13 (the tech's roll, done):** the tech in place goes down onto its shoulders and rolls back over them onto its feet by frame 11,
+  as the reference's does, then crouches and stands; the sim's frames untouched. Knockdown, tech and get-ups: accuracy 4 (the tech was the
+  gap left at group 7).

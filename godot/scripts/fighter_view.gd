@@ -577,6 +577,39 @@ const TECH_KEYS_R10 := [[0.0, 0.0], [2.0, 0.25], [10.0, 0.27], [19.0, 0.36], [23
 ## Whether this landing began as a tech in place (told on its first frame by the tech's intangibility, which since sim 150 ends six
 ## frames before the landing does) and so plays the tech for the whole landing.
 var tech_landing := false
+## (Round 10, the coordinator's item 6, after the reference's tech in place filmed at 60 frames a second) The tech rolls back over the
+## shoulders: from touchdown it goes down onto its shoulders, legs up, by frame 3, rolls slowly over them until 7, and comes over onto its
+## feet by 11, curled (the `roll` clip, by TECH_ROLL_CLIP_KEYS), the body turning backward about the curled middle (`ROLL_PIVOT`; a whole
+## turn by TECH_ROLL_KEYS); then the low crouch and the stand as before (`TECH_KEYS_R10`). It slapped down flat and rose, with no roll.
+## The sim's 26 frames and its intangibility to frame 20 are unchanged. `PF_R10_OFF=techroll` leaves the slap.
+const TECH_ROLL_KEYS := [[0.0, 0.0], [3.0, 0.32], [7.0, 0.55], [11.0, 1.0]]
+const TECH_ROLL_CLIP_KEYS := [[0.0, 0.1], [3.0, 0.3], [7.0, 0.55], [11.0, 0.9]]
+const TECH_ROLL_END := 11.0
+
+
+## The tech's roll's turn at frame `f` (shares of a whole turn): eased into the fall onto the shoulders, slow over them, and brought to rest
+## as it comes onto its feet (straight between the knots, it stopped dead on frame 11 and the head jumped 0.38 units into the crouch).
+static func tech_roll_turn(f: float) -> float:
+	var k: Array = TECH_ROLL_KEYS
+	if f <= float(k[1][0]):
+		var u := clampf(f / float(k[1][0]), 0.0, 1.0)
+		return float(k[1][1]) * u * u * (3.0 - 2.0 * u)
+	if f <= float(k[2][0]):
+		return lerpf(float(k[1][1]), float(k[2][1]), (f - float(k[1][0])) / (float(k[2][0]) - float(k[1][0])))
+	# (Over onto the feet: a Hermite curve that leaves at the slow roll's pace and comes to rest on frame 11; eased out alone, it lurched
+	# into its fastest frame as the roll over the shoulders ended, the head 0.45 units in a frame.)
+	var u := clampf((f - float(k[2][0])) / (float(k[3][0]) - float(k[2][0])), 0.0, 1.0)
+	var p0 := float(k[2][1])
+	var p1 := float(k[3][1])
+	var m0 := (p0 - float(k[1][1])) / (float(k[2][0]) - float(k[1][0])) * (float(k[3][0]) - float(k[2][0]))
+	var u2 := u * u
+	var u3 := u2 * u
+	return (2.0 * u3 - 3.0 * u2 + 1.0) * p0 + (u3 - 2.0 * u2 + u) * m0 + (-2.0 * u3 + 3.0 * u2) * p1
+
+
+## Whether this frame is in a tech in place's roll (`TECH_ROLL_KEYS`).
+func _tech_rolling(s: Dictionary) -> bool:
+	return use_base_body and tech_landing and String(s.state) == "Landing" and _long_tech(s) and not r10_off.has("techroll") 		and not r10_off.has("tech") and float(s.state_frame) < TECH_ROLL_END and anim != null and anim.has_animation("roll")
 
 
 ## Which clip suits this state of the simulation: [clip name, speed, progress]. Progress is -1 for a clip that simply plays, or 0..1 for
@@ -648,6 +681,9 @@ func _choose_clip(s: Dictionary) -> Array:
 			# (Sim 150: 26 frames, intangible only through frame 20, so the tech is told as it lands and kept for the whole landing,
 			# `tech_landing`: from frame 21 the landing clip took over mid-tech. Played by `_tech_k`, then the fighter's own stance.)
 			if tech_landing or (int(s.get("invuln", 0)) > 0 and int(s.get("invuln", 0)) <= TECH_INVULN_AT_MOST):
+				# (Round 10: the roll back over the shoulders first, `_tech_rolling`.)
+				if _tech_rolling(s):
+					return ["roll", 1.0, _knots(TECH_ROLL_CLIP_KEYS, float(s.state_frame))]
 				var tk := _tech_k(s)
 				if use_base_body and _long_tech(s) and float(s.state_frame) >= float(_tech_keys()[_tech_keys().size() - 1][0]):
 					return [AnimLibrary.family_clip(_cls(s), "idle", anim), 1.0, -1.0]
@@ -1529,7 +1565,8 @@ static var r9_off := OS.get_environment("PF_R9_OFF").split(",")
 ## move home into its stance without the knees taking its weight (`_settle_dip`); "free" leaves a strike's free arm to its clip
 ## (`_free_arm_swing`); "sling" gives the Settler's back air the shared back air's clip and its strike on its first frame
 ## (`release_frames`, AnimLibrary); "flinchw" gives every class the shared light flinch (`FLINCH_WEIGHT`); "gcross" pushes a hand
-## crossing the head's middle in an end lag out of the face as before (`_guard_cross_k`); "dizzy" plays round 8's dizzy.
+## crossing the head's middle in an end lag out of the face as before (`_guard_cross_k`); "dizzy" plays round 8's dizzy; "techroll"
+## leaves the tech in place's slap without its roll back over the shoulders (`_tech_rolling`).
 static var r10_off := OS.get_environment("PF_R10_OFF").split(",")
 var handoff_clip := ""
 var handoff_state := ""
@@ -4844,6 +4881,10 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 		# (Round 9: a back roll starts its turn a little later, the feet going first; as the reference's.)
 		flip += (-1.0 if way < 0 else 1.0) * TAU * smoothstep(ROLL_SPIN_FROM + (0.04 if way < 0 else 0.0), ROLL_SPIN_TO + (0.06 if way < 0 else 0.0), dodge)
 		# (About a point low enough that the head comes round at the floor, as the reference's does; it was 0.8, the head 0.3 up in the air.)
+		pivot = Vector3(0, ROLL_PIVOT, 0)
+	# (Round 10: a tech in place rolls back over its shoulders, a whole turn backward, `_tech_rolling`.)
+	if _tech_rolling(s):
+		flip -= TAU * tech_roll_turn(float(s.state_frame))
 		pivot = Vector3(0, ROLL_PIVOT, 0)
 	var move_flip := _move_flip(s)
 	if move_flip != 0.0:

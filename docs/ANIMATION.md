@@ -3507,3 +3507,20 @@ lies at the hit), `bodyft.py` (the torso's travel after the last hit), `windpops
 - **Left:** the reference falls on its face and gets up into the dizzy; ours lands straight into it from the launch's reaction pose.
   The victory poses (the rest of cause 10) are a design choice: a mock for the owner, as the hero poses were, if wanted.
 - **Image:** `docs/screenshots/anim/r10_dizzy.jpg` (r10e above now, the stun's frames 60-200, close up then the match camera's size).
+
+### Group 13 (round 10): the tech in place rolls back over its shoulders (the coordinator's item 6, for the owner's accuracy request)
+
+- **Found (group 7's reference, the tech in place filmed at 60 frames a second):** from its touchdown the reference is down on its head and
+  shoulders with its legs up through frame 7, rolls back over onto its feet by 11, crouches low until 20 and stands at 21-22. Ours slapped
+  down flat and held low through frame 10 (group 7's knots stood in for the roll, since there was no clip for it).
+- **Fix (`fighter_view.gd` `_tech_rolling`, `tech_roll_turn`):** through the tech's first 11 frames the body turns a whole turn backward
+  about its curled middle (`ROLL_PIVOT`, as a back roll does): eased down onto the shoulders by frame 3 (`TECH_ROLL_KEYS`), slowly over
+  them until 7, then over onto the feet by 11 on a curve that leaves at the slow roll's pace and comes to rest (straight between the knots,
+  it stopped dead on frame 11 and the head jumped 0.38 units into the crouch; eased out alone, it lurched 0.45 as the roll over the shoulders
+  ended), curled by the `roll` clip (`TECH_ROLL_CLIP_KEYS`); then group 7's low crouch and stand. The sim's 26 frames and its
+  intangibility to frame 20 are untouched. `PF_R10_OFF=techroll` leaves the slap; `PF_R10_OFF=tech` leaves round 9's tech, without the roll.
+- **Checked:** the `techs` demo close up both ways round and at the match camera; through the roll the head moves 0.14-0.37 units a frame in
+  one smooth bell over the roll onto the feet, and nothing jumps after it. `motion_test` now holds the pop limits from frame 13 and checks
+  the roll's pace before it. No tech in place happens in the galleries or the four computer matches, so the round's measures are group
+  12's by construction (reversed limbs re-run on the matches: 2,789, unchanged). Tests pass; the look bench passes (worst 0.90).
+- **Image:** `docs/screenshots/anim/r10_tech_roll.jpg` (r10e above now, close up both facings, then the match camera's size).
