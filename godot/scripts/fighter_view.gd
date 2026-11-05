@@ -1620,7 +1620,8 @@ static var r9_off := OS.get_environment("PF_R9_OFF").split(",")
 ## weapon to the menu carry when a screen names one (`play_victory`), and the hand-hung weapons hidden in it (and the family poses off);
 ## "victory" plays round 9's two victory poses (the blade raised, the fist pump) in place of the families' own (`VICTORY_FAMILY_CLIPS`);
 ## "ledgescale" carries a ledge climb on from the hang's place scaled with the fighter's view, as before (`_ledge_motion`); "kickarms"
-## reaches the Gauntlets' and the Dagger's near arm to their up air's kick again (`CLIP_ARMS_UAIR`).
+## reaches the Gauntlets' and the Dagger's near arm to their up air's kick again (`CLIP_ARMS_UAIR`); "outline" draws a match's fighters
+## with the menus' thinner ink line, as before (`FIGHTER_OUTLINE_WEIGHT`).
 static var r10_off := OS.get_environment("PF_R10_OFF").split(",")
 var handoff_clip := ""
 var handoff_state := ""
@@ -2705,7 +2706,8 @@ func _tag_object(node: Node) -> void:
 				# stronger rim.
 				# (None with the Display setting Fighter outline off: the match's ink pass, shaders/post.gdshader, then draws its own fine line
 				# round the fighter, and the menus show it with none, as the reference figures are drawn.)
-				var weight := FIGHTER_OUTLINE_WEIGHT if VisualSettings.fighter_outline() else 0.0
+				var bold := match_ink and not r10_off.has("outline")
+				var weight := (FIGHTER_OUTLINE_WEIGHT if bold else FIGHTER_OUTLINE_WEIGHT_MENU) if VisualSettings.fighter_outline() else 0.0
 				(node as GeometryInstance3D).set_instance_shader_parameter("outline_weight", weight)
 				# (Clothes keep the plain rim: a strong one picks out every fold as a bright streak.)
 				var cloth := str(node.name).begins_with("Shirt") or str(node.name).begins_with("Shorts")
@@ -3004,7 +3006,17 @@ const OUTLINE_TINT := 0.9
 ## The fighters' line weight against the scenery's 0.6 (outline.gdshader): still the strongest line on screen, but a thinner, warmer line
 ## like the concept art's, not a heavy black one.
 ## (Thinner and more of the fighter's own colour since the muted trial: the reference figures have no ink line at all.)
-const FIGHTER_OUTLINE_WEIGHT := 0.62
+## (Round 10, the owner's pick A of the art director's fighter readability mock: bolder in matches, 0.62 to 0.95. Measured in matches with
+## the stage session's contrast map (tools/art/contrast_map.gd), the fighters rise among the frame's most contrasty blocks: the meadow's
+## from #13 and #11 of 96 to #7 and #8, the canyon's to #1 and #2, the beach's from #18 and #20 to #14 and #19. At 0.62 or more the
+## outline shader (shaders/outline.gdshader) treats the line as a fighter's, so the paper look's ink stays. The menus keep round 9's
+## weight (`FIGHTER_OUTLINE_WEIGHT_MENU`): in their close-ups the bolder line sat heavy round the hands and the head, inside the podium's
+## paper edge. A view takes the match's weight the first time a match draws it (`apply`, `match_ink`). `PF_R10_OFF=outline` draws round
+## 9's everywhere.)
+const FIGHTER_OUTLINE_WEIGHT := 0.95
+const FIGHTER_OUTLINE_WEIGHT_MENU := 0.62
+## Whether this view is drawn by a match (set by its first `apply`); until then it is a menu's, with the menus' line.
+var match_ink := false
 const OUTLINE_TINT_DARKEN := 0.45
 const OUTLINE_TINT_DARKEN_PALE := 0.8
 const CLOTH_RAMP_SOFTNESS := 0.32
@@ -4685,6 +4697,10 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 		long_limbs = _cls(s) == 1
 		rebuild(loadout)
 	position = pos
+	# (Round 10: a match's bolder ink line, `FIGHTER_OUTLINE_WEIGHT`, from the first frame a match draws this view.)
+	if not match_ink:
+		match_ink = true
+		_tag_object(self)
 	# The hit freeze shake (as the genre's leaders do): a fighter frozen by a hit it takes vibrates side to side, harder for a harder hit
 	# (by the hitlag left) and settling as the freeze runs out, so every hit lands with weight. From the sim's frame, so a replay matches.
 	if int(s.hitlag) > 0 and s.launch_pending:

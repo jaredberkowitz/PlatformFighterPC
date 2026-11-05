@@ -3720,3 +3720,20 @@ lies at the hit), `bodyft.py` (the torso's travel after the last hit), `windpops
   `PF_R10_OFF=kickarms` reaches the arm again.
 - **Image:** `docs/screenshots/anim/r10_kick_arms.jpg` (both up airs at the match camera around the last hit, before and now, both facings
   now).
+
+### Group 19 (round 10): a bolder ink line on the fighters in matches (the owner's pick A of the art director's readability mock)
+
+- **The pick:** the fighters' ink outline from 0.62 to 0.95 (`fighter_view.gd` `FIGHTER_OUTLINE_WEIGHT`). The art director measured it in
+  matches with the stage session's contrast map (tools/art/contrast_map.gd): the fighters rise among the frame's most contrasty of 96
+  blocks, the meadow's from #13 and #11 to #7 and #8, the canyon's to #1 and #2, the beach's from #18 and #20 to #14 and #19. At 0.62 or
+  more the outline shader treats the line as a fighter's, so the paper look's ink stays.
+- **Scoped to matches:** in the menus' close-ups at 1:1 (the podium's winner, the creator's mat) the bolder line sat heavy round the head
+  and the hands, inside their paper edge, so the menus keep 0.62 (`FIGHTER_OUTLINE_WEIGHT_MENU`), the title screen and fighter select
+  too. A view takes the match's weight the first time a match draws it (`apply`: `match_ink`, which tags the view's meshes again; only
+  matches and the run mode's foes call `apply`). The podium as shipped is the same image as before, pixel for pixel.
+  `PF_R10_OFF=outline` draws the old line everywhere.
+- **Checked:** the meadow at the match's size, both fighters (before and now); the podium, the creator and the title screen with the bold
+  line in the menus (tried) and as shipped. `motion_test` checks a menu's view at 0.62 and the same view at 0.95 after a match's frame.
+  With the Display setting's fighter outline off the weight stays 0, as before. Tests pass; the look bench passes (worst 0.90).
+- **Image:** `docs/screenshots/anim/r10_fighter_outline.jpg` (the meadow before and now, full frame and the fighters at 1:1; then the
+  podium as shipped and with the bold line tried in the menus).

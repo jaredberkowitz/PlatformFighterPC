@@ -574,5 +574,27 @@ func _initialize() -> void:
 			check(winner.held_tools.shown.size() == 1 and (winner.held_tools.shown[0] as Node3D).visible, "the Settler raises its umbrella")
 		winner.queue_free()
 
+	# (Round 10, the owner's pick A: a match draws the fighters with a bolder ink line; a menu's view keeps the thinner one.)
+	var inked := FighterView.new()
+	root.add_child(inked)
+	inked.build(0, Loadout.default_for(0))
+	await process_frame
+	var body_mesh: GeometryInstance3D = null
+	for g in inked.find_children("*", "GeometryInstance3D", true, false):
+		if float((g as GeometryInstance3D).get_instance_shader_parameter("fighter")) > 0.5:
+			body_mesh = g
+			break
+	if body_mesh != null and float(body_mesh.get_instance_shader_parameter("outline_weight")) > 0.0:
+		var menu_w := float(body_mesh.get_instance_shader_parameter("outline_weight"))
+		inked.apply(Vector3.ZERO, snap(0, "Idle", "", 9990, 0), 1.0 / 60.0)
+		var match_w := float(body_mesh.get_instance_shader_parameter("outline_weight"))
+		var ink_off := OS.get_environment("PF_R10_OFF").split(",").has("outline")
+		check(absf(menu_w - FighterView.FIGHTER_OUTLINE_WEIGHT_MENU) < 0.001 and (ink_off or absf(match_w - FighterView.FIGHTER_OUTLINE_WEIGHT) < 0.001),
+			"a menu's fighter keeps the thin line, a match's the bold one (%.2f, then %.2f)" % [menu_w, match_w])
+		print("fighter ink line: menu %.2f, match %.2f" % [menu_w, match_w])
+	else:
+		print("fighter ink line: not checked (the Display setting's fighter outline is off, or no fighter mesh)")
+	inked.queue_free()
+
 	print("motion test ", "FAILED" if failed else "PASSED")
 	quit(1 if failed else 0)

@@ -197,3 +197,7 @@ not rising.
 - **Group 18 (the end-lag pop, a stretch item):** the Gauntlets' and the Dagger's up air pose both arms from the clip, so the near fist no
   longer jumps across the face after the last hit: end-lag pops 7 to 5, hidden hands 1,284 to 1,263, timing unchanged. Every kick by
   the clip was measured and left out: it pushed the hold and the recovery past the round's limits through the back airs.
+- **Group 19 (the owner's pick A, the art director's readability mock):** the fighters' ink line bolder in matches (0.62 to 0.95), so
+  they stand out from every stage (in the art director's contrast map the meadow's fighters #13/#11 to #7/#8 of 96 blocks, the canyon's to
+  #1/#2, the beach's #18/#20 to #14/#19); the menus keep the thinner line, which reads cleaner in their close-ups. Readability across the
+  attack and reaction rows gains at the match camera; not re-scored here (the art director's measure).
