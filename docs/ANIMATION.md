@@ -3338,3 +3338,14 @@ lies at the hit), `bodyft.py` (the torso's travel after the last hit), `windpops
   roll-over (a new clip, if the owner wants it).
 - **Image:** `docs/screenshots/anim/r10_tech_getup.jpg` (the tech in place and the stand-up off the back, r10c above now; close up, then
   the tech at the match camera's size).
+
+### r10d installed (5 November 2026)
+
+- Groups 6 and 7 (the grip pass on the held tools; the tech in place and the stand-ups retimed), with the owner's two picks merged: the
+  stage branch's scenery on twos (origin/art/stage-refine e982cf1f, B: the scenery steps at 15 pictures a second, the fighters smooth) and
+  the UI branch's cutting-mat character creator (origin/art/ui-paper2 66b2487b); and the props branch's shed barrels sized to the worn ones
+  (origin/art/match-props 5da63ddd). Main unchanged (a75f86fd). Re-imported twice (the scenery's `SceneClock` class registered); stills
+  regenerated (271dd382, the pack). Pack only: the Rust and content are main's, the bridge DLL the folder's 152. Simulation version 152,
+  content hash 3e8182f865102756, checked in the staged copy and the extracted zip ("Platform Fighter playtest 2026-11-05 sim152 animation
+  r10d.zip"); the r10c zip moved to `F:\anim_core\build\old_zips`. The installed exe quits with code 0. The Godot tests pass, the
+  props test (13 props, 11 painted kinds, 12 tools), the creator test and the look bench (0 buffer overflows, worst 0.90).
