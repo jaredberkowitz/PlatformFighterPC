@@ -1208,4 +1208,6 @@ projectiles and items, read through the bridge.
   body's rest space (`WORN_AT`), so it turns and leans with the body.
 - The Wanderer's bomb (item 2) wears a modelled bomb (`bomb`: a dark body, a steel collar and a rope fuse ending at the game's spark).
   Its fuse flash is set on the model's meshes.
-- **Not yet:** the Exile's orbs on a fighter (no bridge accessor yet).
+- The Exile's shadow orbs, circling a fighter its beam hit, are projectiles of the beam's own move, so the beam's painting drew them as
+  little beams. They are now told apart by speed (`ORB_SPEED`: the orbs circle at about 0.16 a frame, the beam flies at 0.68 or
+  more) and painted as small dark fireballs. A bridge accessor for `Projectile::orb` would make this exact.
