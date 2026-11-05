@@ -10,6 +10,7 @@ shader_type spatial;
 // windows switch on or off now and then. `detail` 0 (the far layer)
 // leaves out frames, sills and floor bands, which would only be noise at that distance.
 render_mode unshaded, cull_back, shadows_disabled;
+#include "res://shaders/scene_time.gdshaderinc"
 
 uniform vec4 base_shade : source_color = vec4(0.16, 0.14, 0.3, 1.0);
 uniform vec4 roof_shade : source_color = vec4(0.22, 0.19, 0.36, 1.0);
@@ -96,7 +97,7 @@ vec3 neon_sign(vec2 at, vec2 size, float seed) {
 	strokes += float((mask >> 5) & 1) * step(1.0 - t, u) * step(0.5, v);
 	strokes += float((mask >> 6) & 1) * step(1.0 - t, u) * step(v, 0.5);
 	letters = inside * min(strokes, 1.0);
-	float stutter = step(0.985, fract(sin(floor(TIME * 7.0) + seed * 13.0) * 4375.5)) * step(0.5, hash(vec2(seed, 2.0)));
+	float stutter = step(0.985, fract(sin(floor(SCENE_TIME * 7.0) + seed * 13.0) * 4375.5)) * step(0.5, hash(vec2(seed, 2.0)));
 	// The panel glows faintly with its own colour, so the sign reads as one lit shape from far away.
 	vec3 panel = mix(vec3(0.08, 0.06, 0.14), tube * 0.6, 0.35);
 	vec3 col = mix(panel, tube * sign_energy, max(border, letters * 0.85));
@@ -257,7 +258,7 @@ void fragment() {
 				// Now and then a window switches (one in forty, each on its own slow clock).
 				float flicker_pick = hash(key * 2.3 + seed * 0.19);
 				if (flicker_pick < 0.025) {
-					lit = step(0.5, fract(TIME * 0.05 + flicker_pick * 37.0));
+					lit = step(0.5, fract(SCENE_TIME * 0.05 + flicker_pick * 37.0));
 				}
 				// Most lit windows warm, a few pale blue (a screen), a rare magenta; each a little brighter or dimmer.
 				float pick = hash(key * 1.7 + seed * 0.31);

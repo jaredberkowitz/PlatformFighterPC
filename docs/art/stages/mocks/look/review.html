@@ -88,6 +88,28 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
     <p>Two lessons from the reference screenshots, mocked from the match camera: the scenery without ink outlines, its edges lit as card bevels instead, and the paper houses rebuilt at the characters' proportions. The earlier rounds stay on the <a href="https://claude.ai/artifact/D1du6MREVumiJDrEdNypW4">Stage Fidelity Review</a>, which is full.</p>
   </header>
 
+  <section class="panel" aria-labelledby="tw72-h" id="twos72">
+    <div class="eyebrow">After review 17 &middot; making the stages more their own: the scenery on twos</div>
+    <h2 id="tw72-h">The scenery on twos</h2>
+    <p>A stop-motion set is shot one picture at a time, and between pictures nothing moves. Here the scenery takes its own pictures, and everything in it moves only on them, all on the same frames: the windmill, the water, the leaves, the clouds and their shadows, the boats, the traffic, the smoke and the motes. The fighters, the camera and the effects stay smooth.</p>
+    <div class="tablewrap"><table><thead><tr><th>Option</th><th>Pictures a second</th></tr></thead><tbody>
+      <tr><td>Today</td><td>Every frame (60)</td></tr>
+      <tr><td>A &middot; On twos</td><td>30, as the effects</td></tr>
+      <tr><td>B &middot; On fours</td><td>15</td></tr>
+      <tr><td>C &middot; On sixes</td><td>10</td></tr>
+    </tbody></table></div>
+    <p>Each video plays the four options side by side from the same frame: today at top left, A at top right, B at bottom left and C at bottom right. Measured over five seconds, the windmill, the sea and the street change exactly 60, 30, 15 and 10 times a second. The fighters change every frame in all four.</p>
+    <div class="row" role="group" aria-label="Stage"><button data-tw72s="0">Meadow</button><button data-tw72s="2">Beach</button><button data-tw72s="3">City</button><button data-tw72s="4">Grove</button></div>
+    <div class="viewer"><video id="tw72vid" autoplay muted loop playsinline controls preload="auto" style="position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; display: block;"></video><span class="vtag" id="tw72tag"></span></div>
+    <p class="muted">My pick: <b>B</b>. At 15 a second the windmill, the water and the traffic read as a set being animated by hand, while the fighters stay smooth over it. Honest notes:</p>
+    <ul class="muted">
+      <li>A is what the plan said (half the frame rate), but at 30 a second it barely reads as a style.</li>
+      <li>The beach's sea is the largest thing that moves. If any of this reads as the game stuttering rather than as a style, it will be the sea, so watch it full screen.</li>
+      <li>C looks most like stop-motion, but at 10 a second the water and the traffic start to look slow rather than crafted.</li>
+      <li>I can measure the stepping, but its feel in motion is yours to judge.</li>
+    </ul>
+  </section>
+
   <section class="panel" aria-labelledby="wa71-h" id="washi71">
     <div class="eyebrow">Built B (the owner's pick) &middot; making the stages more their own, step 6: the grove's washi</div>
     <h2 id="wa71-h">The grove in washi</h2>
@@ -3965,5 +3987,21 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
   group("data-wa71v", function (v) { wa71v = v; }, wa71render);
   group("data-wa71o", function (v) { wa71o = v; }, wa71render);
   wa71render();
+  var tw72s = "0";
+  var TW72S = { "0": "Meadow", "2": "Beach", "3": "City", "4": "Grove" };
+  function tw72render() {
+    var v = $id("tw72vid");
+    var src = "tw72_s" + tw72s + ".mp4";
+    if (v.getAttribute && v.getAttribute("src") !== src) {
+      v.setAttribute("src", src);
+      v.load();
+      var pr = v.play();
+      if (pr && pr["catch"]) { pr["catch"](function () {}); }
+    }
+    $id("tw72tag").textContent = TW72S[tw72s];
+    pressed("data-tw72s", tw72s);
+  }
+  group("data-tw72s", function (v) { tw72s = v; }, tw72render);
+  tw72render();
 })();
 </script>

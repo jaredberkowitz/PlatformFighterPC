@@ -2008,6 +2008,9 @@ static func backdrop(root: Node3D, t: Dictionary, stage: Array) -> void:
 			_cloud_keep_out.append(Vector2(front, front - float(spec.height) * 1.1))
 	_palette = palette(t.name).duplicate()
 	_palette["_name"] = t.name
+	# (Scenery on twos, the style pass: the scenery's pictures a second, and the clock the shaders share, scripts/scene_clock.gd.)
+	_set_scene_steps(t)
+	root.add_child(SceneClock.new())
 	_house_n = 0
 	_chunky_hills = false
 	# (Fresh per build: the painted ground shadows live in these materials, `_ground_shadow`.)
@@ -3306,7 +3309,8 @@ static func _mist(root: Node3D, colour: Color, z: float, bottom: float, height: 
 static func _motes(root: Node3D, colour: Color, e: Array) -> void:
 	if VisualSettings.get_index("quality") == 0:
 		return
-	var p := GPUParticles3D.new()
+	# (Scenery on twos, the style pass: the motes drift on the scenery's pictures too, held between them, scripts/scene_clock.gd.)
+	var p := SteppedMotes.new()
 	p.name = "motes"
 	p.amount = maxi(8, int(MOTE_COUNT * VisualSettings.effects()))
 	p.lifetime = 9.0
@@ -7072,11 +7076,67 @@ static func _street_life(root: Node3D, y: float, front: float) -> void:
 			k += 1
 
 
+## Scenery on twos (the style pass, docs/art/stages/STYLE_PASS.md): how many pictures a second the scenery takes, as a stop-motion set
+## is shot (scripts/scene_clock.gd); the fighters, the camera and the effects stay smooth. The palette's [backdrop] `scene_steps` or
+## `--scene-steps=T|A|B|C`, T every frame:
+##   A  30 pictures a second (on twos), as the effects;
+##   B  15 a second (on fours);
+##   C  10 a second (on sixes).
+const SCENE_STEPS_TRY := {"T": 0.0, "A": 30.0, "B": 15.0, "C": 10.0}
+
+
+## Sets the scenery's pictures a second (`SceneClock.steps`) for theme `t`: its palette's, or the command line's.
+static func _set_scene_steps(t: Dictionary) -> void:
+	var steps := float((palette(String(t.get("name", ""))).get("backdrop", {}) as Dictionary).get("scene_steps", 0.0))
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--scene-steps="):
+			steps = float(SCENE_STEPS_TRY.get(arg.substr(14).to_upper(), steps))
+	SceneClock.steps = steps
+	RenderingServer.global_shader_parameter_set("pf_scene_steps", steps)
+
+
+## Motes on the scenery's pictures (`SceneClock.picture`): between pictures they hold still, and on each one they catch up the time since
+## the last, so they move on the same frames as the rest of the scenery. With no steps they run every frame, as before.
+class SteppedMotes extends GPUParticles3D:
+	var _pic := -1
+	var _held := 0.0
+
+	func _process(delta: float) -> void:
+		_held += delta
+		var pic := SceneClock.picture(delta)
+		if pic == _pic:
+			speed_scale = 0.0
+			return
+		_pic = pic
+		speed_scale = _held / maxf(delta, 0.0001)
+		_held = 0.0
+
+
+## Scenery that moves on the scenery's pictures (`SceneClock.picture`): `_step(delta)` is the time since its last picture when it takes a
+## new one, and negative between pictures, while it holds still.
+class Stepped extends Node3D:
+	var _pic := -1
+	var _held := 0.0
+
+	func _step(delta: float) -> float:
+		_held += delta
+		var pic := SceneClock.picture(delta)
+		if pic == _pic:
+			return -1.0
+		_pic = pic
+		var d := _held
+		_held = 0.0
+		return d
+
+
 ## Cars drifting along the road and round again past the ends of the street. Cosmetic.
-class Traffic extends Node3D:
+class Traffic extends Stepped:
 	var cars: Array = []
 
 	func _process(delta: float) -> void:
+		delta = _step(delta)
+		if delta < 0.0:
+			return
 		for c: Array in cars:
 			var n: Node3D = c[0]
 			n.position.x += float(c[1]) * delta
@@ -7086,7 +7146,7 @@ class Traffic extends Node3D:
 				n.position.x += 220.0
 
 
-class Twinkle extends Node3D:
+class Twinkle extends Stepped:
 	var glints: Array = []  # [node, phase]
 
 	func add(at: Vector3, size: float, phase: float, color: Color) -> void:
@@ -7104,6 +7164,9 @@ class Twinkle extends Node3D:
 		glints.append([mi, phase, size])
 
 	func _process(delta: float) -> void:
+		delta = _step(delta)
+		if delta < 0.0:
+			return
 		var t := Time.get_ticks_msec() / 1000.0
 		for g in glints:
 			var k := 0.6 + 0.4 * sin(t * 1.7 + g[1])
@@ -7132,11 +7195,14 @@ class Twinkle extends Node3D:
 ## Turns slowly around its z axis (a windmill's sails). Cosmetic.
 ## Scenery that moves (cosmetic, on its own clock).
 ## Drifts slowly sideways and wraps round (clouds).
-class Drift extends Node3D:
+class Drift extends Stepped:
 	var speed := 1.0
 	var span := 100.0
 
 	func _process(delta: float) -> void:
+		delta = _step(delta)
+		if delta < 0.0:
+			return
 		position.x += speed * delta
 		if position.x > span:
 			position.x -= span * 2.0
@@ -7145,35 +7211,44 @@ class Drift extends Node3D:
 
 
 ## Rocks gently to and fro about its own place (tree crowns, palm heads). `amount` in degrees.
-class Sway extends Node3D:
+class Sway extends Stepped:
 	var amount := 2.0
 	var speed := 0.9
 	var phase := 0.0
 	var t := 0.0
 
 	func _process(delta: float) -> void:
+		delta = _step(delta)
+		if delta < 0.0:
+			return
 		t += delta
 		rotation.z = deg_to_rad(amount) * sin(t * speed + phase)
 		rotation.x = deg_to_rad(amount * 0.4) * sin(t * speed * 0.7 + phase * 1.3)
 
 
 ## A gentle squash and stretch about the node's base, as if breathing (mushrooms).
-class Squish extends Node3D:
+class Squish extends Stepped:
 	var phase := 0.0
 	var t := 0.0
 
 	func _process(delta: float) -> void:
+		delta = _step(delta)
+		if delta < 0.0:
+			return
 		t += delta
 		var k := sin(t * 2.2 + phase) * 0.035
 		scale = Vector3(1.0 - k * 0.5, 1.0 + k, 1.0 - k * 0.5)
 
 
 ## Bobs on the water and rolls a little (a boat).
-class Bob extends Node3D:
+class Bob extends Stepped:
 	var t := 0.0
 	var base_y := INF
 
 	func _process(delta: float) -> void:
+		delta = _step(delta)
+		if delta < 0.0:
+			return
 		if base_y == INF:
 			base_y = position.y
 		t += delta
@@ -7182,7 +7257,7 @@ class Bob extends Node3D:
 
 
 ## A small flock of birds crossing the sky, wings flapping, coming round again after a while.
-class Flock extends Node3D:
+class Flock extends Stepped:
 	var birds: Array = []   # [node, wing L, wing R, phase]
 	var speed := 4.0
 	var t := 0.0
@@ -7211,6 +7286,9 @@ class Flock extends Node3D:
 			birds.append([bird, parts[0], parts[1], rng.randf() * TAU])
 
 	func _process(delta: float) -> void:
+		delta = _step(delta)
+		if delta < 0.0:
+			return
 		t += delta
 		position.x += speed * delta
 		if position.x > 110.0:
@@ -7221,15 +7299,18 @@ class Flock extends Node3D:
 			(b[2] as Node3D).rotation.z = flap
 
 
-class Spinner extends Node3D:
+class Spinner extends Stepped:
 	var speed := 0.5
 
 	func _process(delta: float) -> void:
+		delta = _step(delta)
+		if delta < 0.0:
+			return
 		rotation.z += speed * delta
 
 
 ## A small light that blinks (an antenna's warning light). Cosmetic.
-class Blinker extends Node3D:
+class Blinker extends Stepped:
 	var lamp: MeshInstance3D
 
 	func build(color: Color) -> void:
@@ -7246,13 +7327,16 @@ class Blinker extends Node3D:
 		# Its glow blinks with it.
 		load("res://scripts/stage_art.gd")._halo(lamp, Vector3(0, 0, 0.3), color, 1.6)
 
-	func _process(_delta: float) -> void:
+	func _process(delta: float) -> void:
+		delta = _step(delta)
+		if delta < 0.0:
+			return
 		if lamp != null:
 			lamp.visible = int(Time.get_ticks_msec() / 700) % 2 == 0
 
 
 ## The sea: a wide plane at `level` that swells gently, with strips of foam drifting on it. Cosmetic.
-class Waves extends Node3D:
+class Waves extends Stepped:
 	var level := -9.0
 	var foam: Array = []
 
@@ -7276,7 +7360,10 @@ class Waves extends Node3D:
 		water.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		add_child(water)
 
-	func _process(_delta: float) -> void:
+	func _process(delta: float) -> void:
+		delta = _step(delta)
+		if delta < 0.0:
+			return
 		var t := Time.get_ticks_msec() / 1000.0
 		position.y = sin(t * 0.8) * 0.12
 

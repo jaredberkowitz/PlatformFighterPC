@@ -47,6 +47,14 @@ pf_wind={
 "type": "float",
 "value": 1.0
 }
+pf_scene_steps={
+"type": "float",
+"value": 0.0
+}
+pf_scene_t={
+"type": "float",
+"value": 0.0
+}
 pf_fx_glow={
 "type": "float",
 "value": 4.0

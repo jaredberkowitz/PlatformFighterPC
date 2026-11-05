@@ -16,6 +16,8 @@ const SMOKE_SPREAD := 1.2
 ## for twinkling]
 var movers: Array = []
 var t := 0.0
+var _pic := -1
+var _held := 0.0
 var travel := true
 
 
@@ -60,7 +62,14 @@ func setup(world: Node3D, mode: String) -> void:
 
 
 func _process(delta: float) -> void:
-	t += delta
+	# (Scenery on twos, the style pass: it moves only on the scenery's pictures, scripts/scene_clock.gd, by the time since the last.)
+	_held += delta
+	var pic := SceneClock.picture(delta)
+	if pic == _pic:
+		return
+	_pic = pic
+	t += _held
+	_held = 0.0
 	for m: Array in movers:
 		_move(m)
 

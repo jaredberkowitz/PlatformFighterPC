@@ -3,6 +3,7 @@ shader_type spatial;
 // deepening to orange at the rim, a soft corona fading far out into the sky, and faint rays turning slowly round it, so it reads as a
 // light in the sky rather than a flat painted disc. Its radius is `disc` of the card's half-width.
 render_mode unshaded, blend_add, depth_draw_never, cull_disabled, shadows_disabled, fog_disabled;
+#include "res://shaders/scene_time.gdshaderinc"
 
 uniform vec4 core : source_color = vec4(1.0, 0.97, 0.86, 1.0);
 uniform vec4 body : source_color = vec4(1.0, 0.74, 0.36, 1.0);
@@ -48,7 +49,7 @@ void fragment() {
 	float glow = exp(-out_r * 0.9) * 0.6 + exp(-out_r * 4.0) * 0.8;
 	glow *= 1.0 - smoothstep(0.7, 1.0, length(p));
 	// Rays: soft spokes of uneven length, turning slowly.
-	float spokes = noise1(a * 7.0 + TIME * 0.05) * 0.6 + noise1(a * 17.0 - TIME * 0.08 + 3.0) * 0.4;
+	float spokes = noise1(a * 7.0 + SCENE_TIME * 0.05) * 0.6 + noise1(a * 17.0 - SCENE_TIME * 0.08 + 3.0) * 0.4;
 	float ray = smoothstep(0.45, 0.85, spokes) * exp(-out_r * 0.7) * (1.0 - smoothstep(0.6, 1.0, length(p)));
 	c += corona.rgb * (glow * corona_strength + ray * rays) * (1.0 - inside);
 	ALBEDO = c;

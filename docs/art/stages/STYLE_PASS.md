@@ -256,3 +256,36 @@ All seven tests pass.
 
 With this, each stage has its own craft. Left of the plan are the two changes across every stage: scenery on twos, and each stage's
 paper colour on its cut edges.
+
+## Step 7: scenery on twos (mock, 2026-11-04)
+
+The owner: "Scenery on twos". A stop-motion set is shot one picture at a time, and between pictures nothing moves. Here the scenery takes
+its own pictures (`scripts/scene_clock.gd`), and everything in it moves only on them, all on the same frames:
+- in the shaders (`shaders/scene_time.gdshaderinc`): the water, the leaves, the clouds' shadows, the sun's rays, the city's signs and
+  windows, and the puddles;
+- in the scripts: the windmill's sails, the boats, the traffic, the clouds, the smoke and the travellers (StageArt's movers,
+  `scripts/world_motion.gd`), and the motes.
+
+The fighters, the camera and the effects (already drawn on twos, `scripts/particles.gd`) stay smooth. The palette's [backdrop]
+`scene_steps`, or `--scene-steps=T|A|B|C` (StageArt.SCENE_STEPS_TRY):
+
+| Option | Pictures a second |
+|---|---|
+| Today | Every frame (60) |
+| A, on twos | 30, as the effects |
+| B, on fours | 15 |
+| C, on sixes | 10 |
+
+Measured from 11-second recordings (the `stage_clip` demo with Godot's movie writer, 60 frames a second), over five seconds: the windmill,
+the beach's sea and the city's street change exactly 60, 30, 15 and 10 times a second for Today, A, B and C. The fighters change every
+frame in all four. On the Stage Look Review ("twos72", `tw72_s<stage>.mp4`), each stage's four options play side by side from the same
+frame.
+
+Recommended B: at 15 a second the windmill, the water and the traffic read as a set animated by hand, while the fighters stay smooth over
+it.
+- A is what the plan said (half the frame rate), but at 30 a second it barely reads as a style.
+- The beach's sea is the largest thing that moves. If any of this reads as the game stuttering rather than as a style, it will be the sea.
+- C looks most like stop-motion, but at 10 a second the water and the traffic start to look slow rather than crafted.
+- The motes are a GPU particle system: on the scenery's clock they hold still and then catch up (`speed_scale`), so they move on the same
+  frames as everything else.
+All seven tests pass.

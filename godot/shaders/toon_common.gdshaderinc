@@ -400,7 +400,7 @@ void fragment() {
 	// (Only near the stage, the gauntlet's round 15: on the far ranges the dapples read as low-resolution mottling, not light.)
 	// (Nor in the play area, fidelity review 17: they tint the colour, so with the floors and fronts clear of them every crate, barrel and rock kept a dark top
 	// over its own lit front, as if lit from below.)
-	pf_sun = mix(1.0, pf_cloud_sun(world_pos, TIME), smoothstep(0.1, 0.6, world_normal.y) * (1.0 - fighter)
+	pf_sun = mix(1.0, pf_cloud_sun(world_pos, SCENE_TIME), smoothstep(0.1, 0.6, world_normal.y) * (1.0 - fighter)
 		* (1.0 - smoothstep(25.0, 55.0, -world_pos.z)) * (1.0 - pf_play_area(world_pos)) * cloud_shade);
 	if (pf_cloud_tone.a > 0.0) {
 		// (On the colour, shading ambient and sun alike: see `pf_cloud_tone`. Clouds only, not the platforms' cast shadow below.)

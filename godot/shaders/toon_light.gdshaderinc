@@ -5,6 +5,7 @@
 // shade deepens (`pf_deep_shade`). A rim in the stage's sky colour lifts the silhouette on the lit side, a small soft highlight gives a
 // slight sheen, and fighters get a pale edge light all round (`pf_edge_light`, strongest on dark stages) so they never sink into the
 // background. All of it is global (`pf_*`), set for each stage by scripts/lighting.gd.
+#include "res://shaders/scene_time.gdshaderinc"
 global uniform vec4 pf_shadow_tint;
 global uniform float pf_shadow_hue;
 global uniform float pf_shadow_shift;

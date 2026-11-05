@@ -23,13 +23,13 @@ void vertex() {
 	NORMAL = normalize(VERTEX - centre);
 	float phase = INSTANCE_CUSTOM.w * 6.2832;
 	float reach = rooted ? (VERTEX.y + 0.5) : 0.6 + 0.4 * VERTEX.y;
-	float sway = sin(TIME * 1.6 + phase) * 0.7 + sin(TIME * 2.9 + phase * 1.7) * 0.3;
+	float sway = sin(SCENE_TIME * 1.6 + phase) * 0.7 + sin(SCENE_TIME * 2.9 + phase * 1.7) * 0.3;
 	VERTEX.x += sway * flutter * pf_wind * reach;
-	VERTEX.z += cos(TIME * 1.3 + phase) * flutter * 0.4 * pf_wind * reach;
+	VERTEX.z += cos(SCENE_TIME * 1.3 + phase) * flutter * 0.4 * pf_wind * reach;
 }
 
 void fragment() {
-	pf_sun = pf_cloud_sun((INV_VIEW_MATRIX * vec4(VERTEX, 1.0)).xyz, TIME);
+	pf_sun = pf_cloud_sun((INV_VIEW_MATRIX * vec4(VERTEX, 1.0)).xyz, SCENE_TIME);
 	vec4 t = texture(leaf_tex, UV);
 	ALBEDO = albedo.rgb * COLOR.rgb * t.rgb;
 	// A tuft is dark down among its roots and bright at its tips (UV.y is 1 at its foot), deeper and a touch cooler low down, so a lawn
