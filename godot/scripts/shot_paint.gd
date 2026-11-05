@@ -23,6 +23,9 @@ const PAINTED := {
 	Vector2i(13, 35): "dark_burst",  # the Exile's ring burst (extra move 7)
 }
 
+## The Seer's flame burst grows to this radius (its last hit's) over this many frames.
+const FLAME_BURST_MAX := 1.9
+const FLAME_BURST_GROW := 24.0
 ## The flares' sizes by move: [orb radius, burst radius] (their burst hits reach 1.6, 2.5 and 3.8).
 const ORB_SIZE := {31: [0.34, 1.6], 32: [0.42, 2.5], 33: [0.5, 3.8]}
 
@@ -73,7 +76,9 @@ static func draw(node: MeshInstance3D, kind: String, at: Vector3, vel: Vector2, 
 		"light":
 			_light(im, ang, step)
 		"flame_burst":
-			_flames_up(im, 1.0, 1.0 + 0.6 * clampf(float(age) / 14.0, 0.0, 1.0), FIRE, step, age)
+			# As big as its hit, which grows from 0.6 round to 1.9 over its life (the content's phases).
+			var r := lerpf(0.6, FLAME_BURST_MAX, clampf(float(age) / FLAME_BURST_GROW, 0.0, 1.0))
+			_flames_up(im, r * 1.6, r * 1.5, FIRE, step, age)
 		"star":
 			_star(im, float(step) * 0.5 * dir, 0.3)
 		"laser":
