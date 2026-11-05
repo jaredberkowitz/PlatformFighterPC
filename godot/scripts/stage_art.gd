@@ -96,7 +96,26 @@ static func _air(node: Node, z: float) -> void:
 		palette_misses.append("%s/[air]" % _palette.get("_name", "?"))
 		return
 	var amount := _air_amount(z)
-	_mute(node, amount.x, air.haze, amount.y, false)
+	_mute(node, amount.x, air.haze, amount.y, false, _air_near(z), bool(air.get("own_hue", false)))
+
+
+## The near air over scenery `z` units behind the stage plane (fidelity review 18 item 1, the grove's forest): the palette's [air] `near`
+## [start, end, lift] lifts what stands between the fight and the far ranges up to `lift` by `end`, only where the curve below lifts it
+## less, so the far ranges stay as they were. Toward the colour's own light tint with [air] `own_hue` (`_own_tint`), else toward the
+## haze. 0 without a `near`.
+static func _air_near(z: float) -> float:
+	var air: Dictionary = _palette.get("air", {})
+	if not air.has("near"):
+		return 0.0
+	var n: Array = air.near
+	var k := clampf((absf(z) - float(n[0])) / maxf(float(n[1]) - float(n[0]), 0.01), 0.0, 1.0)
+	return maxf(float(n[2]) * k - _air_amount(z).y, 0.0)
+
+
+## A light tint of colour `c`'s own hue at the haze's brightness, its saturation a little lower: where air lifts a colour without greying
+## it (toward the pale haze itself, a green crossed the violet and went grey).
+static func _own_tint(c: Color, haze: Color) -> Color:
+	return Color.from_hsv(c.h, c.s * 0.85, maxf(c.v, haze.v), c.a)
 
 
 ## How much air lies over scenery `z` units behind the stage plane, (desat, lift), by the current palette's [air] curve: nothing nearer
@@ -123,6 +142,10 @@ static func _air_colour(c: Color, z: float, desat := true) -> Color:
 	var air: Dictionary = _palette.get("air", {})
 	if air.is_empty():
 		return c
+	# (The near air first, `_air_near`.)
+	var near := _air_near(z)
+	if near > 0.0:
+		c = c.lerp(_own_tint(c, air.haze) if bool(air.get("own_hue", false)) else Color(air.haze as Color, c.a), near)
 	var amount := _air_amount(z)
 	var grey := c.r * 0.299 + c.g * 0.587 + c.b * 0.114
 	if not desat:
@@ -130,7 +153,7 @@ static func _air_colour(c: Color, z: float, desat := true) -> Color:
 		# (A palette's [air] `range_tint` takes that tint toward the haze's own hue instead, 0 to 1: the canyon's cooler dusk mocks, where
 		# the far dunes should recede into lilac air, 2026-10-20.)
 		var haze: Color = air.haze
-		var own := Color.from_hsv(c.h, c.s * 0.85, maxf(c.v, haze.v), c.a)
+		var own := _own_tint(c, haze)
 		return c.lerp(own.lerp(Color(haze, c.a), float(air.get("range_tint", 0.0))), amount.y)
 	return c.lerp(Color(grey, grey, grey, c.a), amount.x).lerp(Color(air.haze as Color, c.a), amount.y)
 
@@ -960,7 +983,8 @@ static func _taper_box(left: float, right: float, top: float, bottom: float, fro
 ## `haze`, for buildings in the middle distance that kept their foreground colours (the gauntlet's round 21). Materials are copied, so
 ## shared ones elsewhere stay as they are.
 ## `ink` false also takes the ink outline off (the style sheet: no ink in the mid-ground).
-static func _mute(node: Node, desat: float, haze: Color, lift: float, ink := true) -> void:
+## `near` lifts each colour first toward its own light tint (`own`, `_own_tint`) or the haze: the near air (`_air_near`).
+static func _mute(node: Node, desat: float, haze: Color, lift: float, ink := true, near := 0.0, own := false) -> void:
 	for mi: MeshInstance3D in node.find_children("*", "MeshInstance3D", true, false):
 		var mats: Array = []
 		if mi.material_override != null:
@@ -991,6 +1015,11 @@ static func _mute(node: Node, desat: float, haze: Color, lift: float, ink := tru
 			col = col.lerp(Color(grey, grey, grey, col.a), desat).lerp(Color(haze, col.a), lift)
 			var copy := (m as ShaderMaterial).duplicate() as ShaderMaterial
 			copy.set_shader_parameter("albedo", col)
+			# (The near air as air, toon_common's `air_mix`: a share of the light that reaches the eye, so the lit and shaded sides both settle
+			# toward it; at the brightness of a lit face, the palette's [air] `near_light`.)
+			if near > 0.0:
+				var air_c: Color = (_own_tint(col, haze) if own else haze).srgb_to_linear() * float((_palette.get("air", {}) as Dictionary).get("near_light", 1.0))
+				copy.set_shader_parameter("air_mix", Color(air_c.r, air_c.g, air_c.b, near))
 			if not ink:
 				copy.next_pass = null
 			if int(pair[0]) < 0:

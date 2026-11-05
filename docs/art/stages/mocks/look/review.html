@@ -88,6 +88,36 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
     <p>Two lessons from the reference screenshots, mocked from the match camera: the scenery without ink outlines, its edges lit as card bevels instead, and the paper houses rebuilt at the characters' proportions. The earlier rounds stay on the <a href="https://claude.ai/artifact/D1du6MREVumiJDrEdNypW4">Stage Fidelity Review</a>, which is full.</p>
   </header>
 
+  <section class="panel" aria-labelledby="fa75-h" id="forestair75">
+    <div class="eyebrow">Review 18, item 1 &middot; the grove's forest into the air</div>
+    <h2 id="fa75-h">The grove's forest into the air</h2>
+    <p>Review 18 found the grove's forest the busiest backdrop of the five, and busier than the island in front of it. Two things caused it:</p>
+    <ul>
+      <li>The forest's trees took no air at all. Every other piece of scenery fades with its depth, but the trees kept their full colour and ink at any distance.</li>
+      <li>The grove's air only starts 80 units back, behind most of the forest.</li>
+    </ul>
+    <p>Here the trees take the air at their depth, as everything else does, and a near band of air lies over everything between the island and the far ranges. The far ranges you picked after review 17 stay as they are. The air is mixed in as light, so each tree's lit side and shaded side both settle toward it and its folds calm. Lightening the trees' colour alone barely changed them: their shaded side stayed just as far below the lit side.</p>
+    <div class="tablewrap"><table><thead><tr><th>Option</th><th>The forest</th><th>Busy behind (edges)</th><th>Its folds (contrast)</th><th>Its colour (saturation)</th></tr></thead><tbody>
+      <tr><td>Today</td><td>Full colour and ink at every depth</td><td>4.4% (the island's top 3.8%)</td><td>0.16 to 0.19</td><td>0.29 to 0.30</td></tr>
+      <tr><td>A &middot; Into the violet haze</td><td>A third of the way into the grove's violet air by 75 units back</td><td>4.0%</td><td>0.15 to 0.16</td><td>0.12 to 0.18</td></tr>
+      <tr><td>B &middot; Its own light green</td><td>A third of the way into a light tint of its own colour</td><td>3.9%</td><td>0.14 to 0.16</td><td>0.32 to 0.33</td></tr>
+      <tr><td>C &middot; Its own green, halfway</td><td>B, halfway</td><td>3.8%</td><td>0.14 to 0.15</td><td>0.33 to 0.35</td></tr>
+    </tbody></table></div>
+    <p>The island is unchanged: its lawn measures the same, and P1's gap goes from 0.096 to 0.099. Each image shows the four options, today at top left, A at top right, B at bottom left and C at bottom right.</p>
+    <div class="row" role="group" aria-label="View"><button data-fa75v="m">Match camera</button><button data-fa75v="w">Wide</button></div>
+    <div class="viewer"><img id="fa75img" alt="The grove's forest options"><span class="vtag" id="fa75tag"></span></div>
+    <p>Close up at full size: the forest behind the left platform.</p>
+    <div class="viewer"><img src="fa75_close.jpg" alt="The forest behind the left platform in each option at full size"></div>
+    <p class="muted">My pick: <b>B</b>. The forest steps back in its own green, its folds calmer, and the island's lawn now leads. The backdrop comes down to about the island's own busyness. Honest notes:</p>
+    <ul class="muted">
+      <li>None of the three takes the backdrop clearly under the island: B 3.9% against 3.7%, C level. What's left is the lanterns, the clouds and the side platforms, which are lights and play pieces the air leaves alone.</li>
+      <li>A is closest to the reference's violet forest, but it greys the forest (saturation 0.29 to 0.12 to 0.18), the greying October's air retune undid. Its trees also go violet while the ground they stand on stays green.</li>
+      <li>C starts to wash the forest pale.</li>
+      <li>In the air, the trees lose their ink, as the style sheet has it for the mid-ground. That is part of the calm.</li>
+      <li>Air mixed in as light is new to the toon shader. Only the grove's trial uses it; every other stage is unchanged.</li>
+    </ul>
+  </section>
+
   <section class="panel" aria-labelledby="r18-h" id="review18">
     <div class="eyebrow">Review 18 &middot; after the style pass &middot; as built on art/stage-refine b91195d4</div>
     <h2 id="r18-h">Every stage after the style pass</h2>
@@ -4097,5 +4127,13 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
   group("data-pc73s", function (v) { pc73s = v; }, pc73render);
   group("data-pc73v", function (v) { pc73v = v; }, pc73render);
   pc73render();
+  var fa75v = "m";
+  function fa75render() {
+    $id("fa75img").src = "fa75_" + fa75v + ".jpg";
+    $id("fa75tag").textContent = "Grove" + (fa75v === "w" ? " · wide" : " · match camera");
+    pressed("data-fa75v", fa75v);
+  }
+  group("data-fa75v", function (v) { fa75v = v; }, fa75render);
+  fa75render();
 })();
 </script>

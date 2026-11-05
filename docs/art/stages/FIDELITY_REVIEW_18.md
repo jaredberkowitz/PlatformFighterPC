@@ -105,3 +105,42 @@ Mean **4.93** (review 17: 4.98). Bold: down. Thirty-seven of forty cells are 5.
 - The canyon's fighters stand on gold sand with the lowest colour difference of the five (21). They separate by value (0.154).
 - The grey check finds nothing under the fight that outshouts the fighters. The brightest new lines are the cut-edge lips, which
   mark the play line, as the references' crisp lit edges do.
+
+## Item 1, the grove's forest into the air (mock, 2026-11-05)
+
+The owner: "Start item 1". Two things made the forest the busiest backdrop:
+- **The modelled trees took no air at all** (`StageBake.place_trees`). Every other piece of scenery fades with its depth through the
+  palette's [air]; the 21 trees (from 18 to 128 units back, median 48) kept their full colour and ink at any distance.
+- **The grove's air starts 80 units back**, behind most of the forest, and lifts only 0.045 by 160.
+
+The mock (`--pal-try=air_a|air_b|air_c`, grove.cfg):
+- The trees take the air at their depth, as the rest of the scenery does (palette [air] `trees`; the great tree stands in the fight and is
+  left out). In the air they lose their ink, as the style sheet has it for the mid-ground.
+- A near band of air lies over everything between the island and the far ranges (palette [air] `near` [start, end, amount],
+  `StageArt._air_near`). It only adds where the curve beyond gives less, so the far ranges the owner picked after review 17 stay as they
+  were.
+- The near air is mixed in as light (`air_mix` in `toon_common.gdshaderinc`, at a lit face's brightness, [air] `near_light`): a share of
+  what reaches the eye is the air's, so a tree's lit side and shaded side both settle toward it. A first try that only lifted the trees'
+  colour (as the far air does) barely changed them (4.4% to 4.3%): the shaded side is a share of the light, so it stayed as far under the
+  lit side.
+
+| Option | The forest | Busy behind (edges) | Its folds (contrast) | Its colour (saturation) |
+|---|---|---|---|---|
+| Today | Full colour and ink at every depth | 4.4% (the island's top 3.8%) | 0.16 to 0.19 | 0.29 to 0.30 |
+| A, into the violet haze | A third into the grove's violet air by 75 units back (near [15, 75, 0.33]) | 4.0% | 0.15 to 0.16 | 0.12 to 0.18 |
+| B, its own light green | A third into a light tint of its own colour ([air] `own_hue`) | 3.9% | 0.14 to 0.16 | 0.32 to 0.33 |
+| C, its own green, halfway | B at 0.5 | 3.8% | 0.14 to 0.15 | 0.33 to 0.35 |
+
+The island is unchanged: its lawn measures the same, and P1's gap goes from 0.096 to 0.099. At the wide camera the band above the island
+goes from 4.6% to 4.3%, 4.2% and 4.0%. On the Stage Look Review ("forestair75", `fa75_*`).
+
+Recommended B: the forest steps back in its own green with calmer folds, the island's lawn now leads, and the backdrop comes down to
+about the island's own busyness.
+- None of the three takes the backdrop clearly under the island (B 3.9% against 3.7%, C level). What's left is the lanterns, the clouds and
+  the side platforms: lights and play pieces, which the air leaves alone.
+- A is closest to the reference's violet forest, but it greys the forest (saturation 0.29 to 0.12 to 0.18), the greying October's air
+  retune undid. Its trees also go violet while the ground they stand on stays green.
+- C starts to wash the forest pale.
+- The air as light is new to the toon shader and off by default; only the grove's trial uses it. The world-building pieces, which are
+  coloured directly, take the near air as a lighter colour, not as light.
+All tests pass but the runner test, on its known coin-pickup flake (PR #15, still open); the look bench passes.

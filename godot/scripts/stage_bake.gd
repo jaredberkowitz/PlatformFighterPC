@@ -1143,6 +1143,10 @@ static func place_trees(root: Node3D, t: Dictionary, slots: Array, source: Varia
 				m.set_shader_parameter("ramp_softness", 0.5 if fam == "bark" else 0.1)
 				mi.set_surface_override_material(s, m)
 			mi.set_meta("prebaked", true)
+		# (Through the stage's air at its depth, as everything else there is, where the palette's [air] `trees` says so: fidelity review 18
+		# item 1, the grove's trees took none and stood as bright and busy as the island in front of them. The great tree stands in the fight.)
+		if not great and bool((StageArt._palette.get("air", {}) as Dictionary).get("trees", false)):
+			StageArt._air(tree, at.z)
 	if sources[0] is String:
 		print("tree mock: placed %d trees from %d models" % [slots.size(), sources.size()])
 
