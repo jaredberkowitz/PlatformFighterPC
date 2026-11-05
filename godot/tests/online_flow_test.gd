@@ -288,7 +288,9 @@ func _code_scene_inner() -> void:
 		join.net_update(0, 0, 0)
 		await process_frame
 	check(scene.net_lobby.their_state.text.begins_with("Ready"), "this player sees the friend is ready: " + scene.net_lobby.their_state.text)
-	scene.net_lobby.fighter_row.step(1)
+	var was: int = scene.net_lobby.fighter_index
+	scene.net_lobby._step(1)
+	check(scene.net_lobby.fighter_index != was and scene.net_lobby.cards[scene.net_lobby.fighter_index].tags[0].visible, "stepping right moves this player's cursor to the next card")
 	scene.net_lobby._unhandled_key_input(key(KEY_ENTER))
 	check(scene.net_lobby.stage_step.visible and scene.net_lobby.picker.cards.size() == scene.net_lobby.stage_names.size(),
 		"the stage step shows a card for every stage")

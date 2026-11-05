@@ -246,6 +246,8 @@ class PlayerPanel extends Control:
 	var t := 0.0
 	## Played by the computer: the tag says CPU instead of the player number.
 	var cpu := false
+	## The tag's own words in place of the player number (the online lobby's YOU and the friend's name).
+	var tab_text := ""
 	const LEAN := 30.0
 	## The fighter's resting height in the panel, and how far it rises from on a new pick and hops on locking in.
 	# (Lower since the select rebuild, 2026-10-19: in the tall panels the fighter's feet floated over its name and its hat left the frame.)
@@ -394,13 +396,18 @@ class PlayerPanel extends Control:
 			D.draw_text_centered(over, class_text, cap, UI.TYPE_CAPTION, D.CREAM)
 		var tab := Rect2(f.position + Vector2(-6, -14), Vector2(86, 48))
 		Art.brush_band(over, tab, flag_color.darkened(0.05), 90 + player, 10.0, true, 0.5)
-		Art.title_centered(over, "CPU" if cpu else "P%d" % (player + 1), tab, 30, Color.WHITE, 0.14)
+		Art.title_centered(over, _tab_words(), tab, 30, Color.WHITE, 0.14)
 		if is_ready:
 			# (Narrower in a narrow panel, the select rebuild: with four players it ran into the P tab.)
 			var bw := minf(170.0, f.size.x - 140.0)
 			var badge := Rect2(Vector2(f.end.x - bw - 26.0, f.position.y + 6), Vector2(bw, 48))
 			Art.brush_band(over, badge, Art.SUN, 110 + player, 12.0, true, 0.6)
 			Art.title_centered(over, "READY!", badge, 30, Art.INK, 0.0)
+
+	func _tab_words() -> String:
+		if tab_text != "":
+			return tab_text
+		return "CPU" if cpu else "P%d" % (player + 1)
 
 	## The cardstock top layer (face-off): the name on a cream plate at the foot with the class over it in the player's colour, the
 	## player's tab a small card in its colour at the top corner, READY! a gold card; each laid a little turned, as cards by hand.
@@ -428,10 +435,12 @@ class PlayerPanel extends Control:
 		if not empty and class_text != "":
 			over.draw_string(D.label_font(), Vector2(local.position.x + 20.0, local.position.y + (22.0 if tall else 17.0)), class_text,
 				HORIZONTAL_ALIGNMENT_LEFT, -1, UI.TYPE_CAPTION, flag_color.darkened(0.35))
-		var tab := Rect2(Vector2(f.position.x - 8.0 if facing > 0 else f.end.x - 70.0, f.position.y - 20.0), Vector2(78, 48))
+		var words := _tab_words()
+		var tab_w := maxf(78.0, D.display_font().get_string_size(words, HORIZONTAL_ALIGNMENT_LEFT, -1, 32).x + 28.0)
+		var tab := Rect2(Vector2(f.position.x - 8.0 if facing > 0 else f.end.x - tab_w + 8.0, f.position.y - 20.0), Vector2(tab_w, 48))
 		over.draw_set_transform(tab.get_center(), deg_to_rad(-3.0 * side))
 		Art.card(over, Rect2(-tab.size * 0.5, tab.size), flag_color, 51 + player, 8.0)
-		Art.title_centered(over, "CPU" if cpu else "P%d" % (player + 1), Rect2(-tab.size * 0.5, tab.size), 32, Color.WHITE, 0.0)
+		Art.title_centered(over, words, Rect2(-tab.size * 0.5, tab.size), 32, Color.WHITE, 0.0)
 		if is_ready:
 			# Stamped on the name plate's top corner (at the panel's top it covered the fighter's head, which breaks out of the frame).
 			var badge := Rect2(Vector2(plate.end.x - 140.0, plate.position.y - 30.0), Vector2(128, 46))

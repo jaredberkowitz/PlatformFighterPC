@@ -60,6 +60,8 @@ Render them again when a stage's art changes, then import. A stage without a pic
 The cards and both views are the kit's `StagePicker` (`ui/ui_kit.gd`), shared with the online lobby: there, once a player's fighter is
 locked in, the stage step is this screen's look in the same remembered view, the friend's stage badged with their name, without
 Random (the friend sees the very stage the player would fight on). Test: `tests/online_flow_test.gd`; capture: `tests/lobby_shot.gd`.
+The lobby's fighter step before it is fighter select's face-off (2026-11-05): this player's panel at the left, the friend's at the right,
+the roster's cards between them (the friend's pick badged with their name), the steps (fighter, stage, ready) on the top bar.
 
 **Run mode** (sim 120, `docs/modes/RUNNER_PLAN.md`): the main menu's **Run** tile (under Play) opens this screen for one player, headed
 RUN, with no match rules; locking in (J or Enter) and Enter again starts the single-player run (`runner.tscn`). Built-in and made fighters

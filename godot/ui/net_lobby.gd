@@ -4,8 +4,11 @@ extends CanvasLayer
 ## the last lock back, or leaves when nothing is locked. When both have locked both, the match starts on their common stage, or on one
 ## of the two drawn at random (the host draws: `netplay::peer`). A rematch comes back here with the last choices selected.
 ## The scene sends the choice to the bridge (`net_lobby_set`) when `changed` fires and feeds the other player's in `show_view`.
-## Two steps: the fighters, the two players' cards side by side over the match; then the stage, as stage select shows it (the kit's
-## `StagePicker`, in the view the player chose there: V, Tab or a controller's Y switches), the friend's stage badged with their name.
+## Two steps: the fighters, laid out as fighter select's face-off (the owner's pick of the lobby mocks, 2026-11-05): this player's panel
+## at the left, the friend's at the right, both hero-posed toward the VS, the roster's cards between them with this player's cursor and
+## the friend's pick badged with their name, the three steps (fighter, stage, ready) on the top bar; then the stage, as stage select
+## shows it (the kit's `StagePicker`, in the view the player chose there: V, Tab or a controller's Y switches), the friend's stage badged
+## with their name.
 ## No Random card here: the friend sees the very stage this player would fight on.
 
 const UI := preload("res://ui/ui_kit.gd")
@@ -14,6 +17,7 @@ const Art := preload("res://ui/menu_art.gd")
 const Preview := preload("res://ui/preview.gd")
 const Roster := preload("res://scripts/roster.gd")
 const Sfx := preload("res://scripts/sfx.gd")
+const Select := preload("res://ui/select.gd")
 
 ## The choice changed: `fighter_index` into `entries`, the stage, and the two locks.
 signal changed(fighter_index: int, stage: int, fighter_locked: bool, stage_locked: bool)
@@ -26,6 +30,9 @@ const READY := 2
 ## The players' colours, as in a match.
 const P_COLORS := [Color(0.92, 0.36, 0.36), Color(0.36, 0.52, 0.95), Color(0.95, 0.78, 0.3), Color(0.4, 0.8, 0.5)]
 const STAGE_KEYS := [["A D", "Change"], ["Enter", "Lock in"], ["V", "View"], ["Esc", "Back"]]
+const FIGHTER_KEYS := [["WASD", "Choose"], ["Enter", "Lock in"], ["Esc", "Back"]]
+## The players' panels' height in the fighter step (fighter select's, less the room for the two players' news under them).
+const PANEL_H := 556.0
 
 var entries: Array = []
 var stage_names: Array = []
@@ -37,16 +44,23 @@ var friend_name := "Your friend"
 ## This player's place in the match (0 hosts), for the colours.
 var slot := 0
 
-## The fighter step.
+## The fighter step: the two players' panels (fighter select's `PlayerPanel`), the roster's cards, the steps on the bar.
 var fighter_step: Control
-var board: Control
-var my_preview: Control
-var their_preview: Control
-var fighter_row: Control
-var their_name: Control
-var their_fighter: Control
-var their_stage: Control
+var header: Control
+var steps: Control
+var my_panel: Control
+var their_panel: Control
+var panels_overlay: Control
+var cards: Array = []
+var scroll: ScrollContainer
+var columns := 4
 var hint: Control
+## The friend's pick among this player's cards (-1 when it is a fighter of their own), and whether they have locked it in.
+var their_index := -1
+var their_locked := false
+var editor: RefCounted
+var frames := 0
+var thumbs_frozen := false
 ## The stage step.
 var stage_step: Control
 var picker: UI.StagePicker
@@ -61,17 +75,41 @@ var their_fighter_name := "..."
 var their_stage_index := -1
 
 
-class Board extends Control:
+class Steps extends Control:
+	## On the top bar: who this lobby is with, after the title, and the three steps at the right (fighter, stage, ready), the one this
+	## player is on a gold card, those done cream with a tick, those to come dim.
+	const NAMES := ["Fighter", "Stage", "Ready"]
+	var friend := ""
+	var phase := 0
+
 	func _init() -> void:
 		set_anchors_preset(Control.PRESET_FULL_RECT)
 		mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 	func _draw() -> void:
-		var w := size.x
-		draw_rect(Rect2(Vector2.ZERO, size), Color(Art.INK, 0.9))
-		var banner := Rect2(Vector2(w * 0.5 - 200, 26), Vector2(400, 76))
-		Art.brush_band(self, banner, Art.INK.lightened(0.12), 511, 22.0, true, 1.0)
-		Art.title_centered(self, "LOBBY", banner.grow_individual(-12, 0, -26, 0), 54, Color.WHITE, 0.0)
+		var lf := D.font()
+		var df := D.display_font()
+		var title_w := D.display_font().get_string_size("LOBBY", HORIZONTAL_ALIGNMENT_LEFT, -1, UI.TYPE_HEADING).x
+		if friend != "":
+			var x0 := 40.0 + title_w + 22.0
+			draw_string(lf, Vector2(x0, 37), "online with", HORIZONTAL_ALIGNMENT_LEFT, -1, 20, Color(D.SHEET, 0.7))
+			var w0 := lf.get_string_size("online with ", HORIZONTAL_ALIGNMENT_LEFT, -1, 20).x
+			draw_string(D.display_font(), Vector2(x0 + w0, 38), friend, HORIZONTAL_ALIGNMENT_LEFT, -1, 24, Color.WHITE)
+		var x := size.x - 40.0
+		for k in range(NAMES.size() - 1, -1, -1):
+			var done := k < phase
+			var words: String = ("\u2713 " if done else "%d  " % (k + 1)) + NAMES[k]
+			var w := df.get_string_size(words, HORIZONTAL_ALIGNMENT_LEFT, -1, 22).x + 28.0
+			x -= w
+			var r := Rect2(Vector2(x, 12), Vector2(w, 34))
+			var fill := D.GOLD if k == phase else (D.SHEET if done else Color(1, 1, 1, 0.12))
+			var ink := Art.INK if (k == phase or done) else Color(D.SHEET, 0.6)
+			draw_set_transform(r.get_center(), 0.0, Vector2.ONE)
+			draw_colored_polygon(PackedVector2Array([Vector2(-w * 0.5 + 6, -17), Vector2(w * 0.5, -17), Vector2(w * 0.5 - 6, 17),
+				Vector2(-w * 0.5, 17)]), fill)
+			draw_string(df, Vector2(-w * 0.5 + 14, 8), words, HORIZONTAL_ALIGNMENT_LEFT, -1, 22, ink)
+			draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+			x -= 12.0
 
 
 func _init() -> void:
@@ -93,30 +131,34 @@ func build(all_entries: Array, start_index: int, start_stage: int) -> void:
 	fighter_index = clampi(start_index, 0, entries.size() - 1)
 	stage = clampi(start_stage, 0, stage_names.size() - 1)
 
-	# The fighters: this player on the left, the friend on the right with what they have chosen so far.
+	# The fighters, as fighter select's face-off: this player at the left, the friend at the right, the roster between them.
+	editor = ClassDB.instantiate("ContentEditor")
+	editor.new_from_builtin("preview")
 	fighter_step = _step_group()
-	board = Board.new()
-	fighter_step.add_child(board)
-	var mine := _player_card(Vector2(60, 120), "YOU", P_COLORS[slot % 4])
-	my_preview = mine.preview
-	var names := entries.map(func(e): return e.name)
-	fighter_row = UI.Selector.new("Fighter", names)
-	fighter_row.position = Vector2(60, 540)
-	fighter_row.changed.connect(func(i): _pick_fighter(i))
-	fighter_step.add_child(fighter_row)
-	var theirs := _player_card(Vector2(700, 120), "FRIEND", P_COLORS[(1 - slot) % 4])
-	their_preview = theirs.preview
-	their_name = theirs.label
-	their_fighter = UI.Tag.new("...", Vector2(400, 40))
-	their_fighter.position = Vector2(700, 540)
-	fighter_step.add_child(their_fighter)
-	their_stage = UI.Tag.new("...", Vector2(400, 40))
-	their_stage.position = Vector2(700, 586)
-	fighter_step.add_child(their_stage)
-	hint = UI.KeyBar.new([["A D", "Change"], ["Enter", "Lock in"], ["Esc", "Back"]])
-	hint.band = true
-	hint.position = Vector2(60, 686)
-	hint.size = Vector2(700, 30)
+	fighter_step.add_child(UI.Backdrop.new(true))
+	header = Select.Header.new()
+	header.mode_text = "LOBBY"
+	fighter_step.add_child(header)
+	steps = Steps.new()
+	fighter_step.add_child(steps)
+	_build_cards()
+	my_panel = Select.PlayerPanel.new(0, P_COLORS[slot % 4].lightened(0.4), P_COLORS[slot % 4])
+	my_panel.tab_text = "YOU"
+	their_panel = Select.PlayerPanel.new(1, P_COLORS[(1 - slot) % 4].lightened(0.4), P_COLORS[(1 - slot) % 4])
+	their_panel.tab_text = "FRIEND"
+	for k in 2:
+		var panel: Control = [my_panel, their_panel][k]
+		panel.facing = 1 if k == 0 else -1
+		fighter_step.add_child(panel)
+		panel.position = Vector2(Select.SIDE_MARGIN if k == 0 else 1280.0 - Select.SIDE_MARGIN - Select.SIDE_W, Select.PANEL_TOP)
+		panel.lay_out(Select.SIDE_W, PANEL_H)
+	their_panel.show_entry({}, 100.0, false)
+	panels_overlay = Select.PanelsOverlay.new()
+	panels_overlay.panels = [my_panel, their_panel]
+	fighter_step.add_child(panels_overlay)
+	hint = UI.KeyBar.new(FIGHTER_KEYS)
+	hint.position = Vector2(60, 680)
+	hint.size = Vector2(1160, 30)
 	fighter_step.add_child(hint)
 
 	# The stage: stage select's ground, cards and view, the match on the top bar.
@@ -146,25 +188,103 @@ func build(all_entries: Array, start_index: int, start_stage: int) -> void:
 	their_state = UI.notice(Vector2.ZERO, 520)
 	add_child(their_state)
 
-	fighter_row.set_index(fighter_index, false)
 	_show_mine()
 	_refresh()
 
 
-## A card with a fighter standing on a little stage and a name tag over it.
-func _player_card(at: Vector2, heading: String, colour: Color) -> Dictionary:
-	var stand := UI.Stage.new(Vector2(520, 380), 0.25, 61 if heading == "YOU" else 67)
-	# (Each player's card in their own colour, as fighter select's panels: both were one violet.)
-	stand.scene.colour = Color.from_hsv(colour.h, 0.62, 0.72)
-	stand.position = at + Vector2(0, 40)
-	fighter_step.add_child(stand)
-	var preview := Preview.new(Vector2i(500, 360), false)
-	stand.add_fighter(preview)
-	var label := UI.Tag.new(heading, Vector2(260, 44))
-	label.position = at
-	label.font_size = 26
-	fighter_step.add_child(label)
-	return {"preview": preview, "label": label}
+## The roster's cards between the panels, as fighter select's (its `Card`, sized by its `grid_layout`), without the random and new-fighter
+## cards (the friend sees the very fighter this player would play). Each carries a YOU tab and the friend's tab, shown on the cards the
+## two players are on.
+func _build_cards() -> void:
+	var fit := Select.grid_layout(entries.size(), Select.GRID_AREA)
+	columns = fit[0]
+	var token: int = fit[1]
+	var shown := mini(columns, entries.size())
+	var grid_w := shown * (token + int(Select.GRID_GAP.x)) + int(Select.GRID_GAP.x)
+	scroll = ScrollContainer.new()
+	scroll.position = Vector2(Select.GRID_LEFT + Select.GRID_AREA.x * 0.5 - grid_w * 0.5, Select.GRID_TOP)
+	scroll.size = Vector2(grid_w + 16, Select.GRID_AREA.y)
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	fighter_step.add_child(scroll)
+	var grid := GridContainer.new()
+	grid.columns = columns
+	grid.add_theme_constant_override("h_separation", 10)
+	grid.add_theme_constant_override("v_separation", 12)
+	scroll.add_child(grid)
+	for i in entries.size():
+		var card: Control = Select.Card.new(token)
+		card.seed = 100 + i * 13
+		card.fill = Select.CARD_COLORS[i % Select.CARD_COLORS.size()]
+		card.name_text = entries[i].name
+		var thumb := Preview.new(Vector2i(maxi(24, token - 24), maxi(24, Select.card_height(token) - 14)), false, 4.6)
+		thumb.position = Vector2(10, 12)
+		thumb.spin = false
+		thumb.facing_bias = 0.35
+		thumb.camera.position = Vector3(0, 1.86, 3.95)
+		thumb.camera.look_at_from_position(thumb.camera.position, Vector3(0, 1.56, 0))
+		thumb.set_loadout(entries[i].look)
+		card.add_child(thumb)
+		var over: Control = Select.Overlay.new(card)
+		card.add_child(over)
+		var index := i
+		card.clicked.connect(func(button): _clicked(index, button))
+		grid.add_child(card)
+		var tags := []
+		for k in 2:
+			var colour: Color = P_COLORS[slot % 4] if k == 0 else P_COLORS[(1 - slot) % 4]
+			var tag: Control = Select.PTab.new("YOU" if k == 0 else "FRIEND", colour, 60 + k)
+			var tab := Vector2(clampf(token * 0.5, 34.0, 60.0), clampf(token * 0.22, 16.0, 26.0))
+			tag.size = tab
+			tag.position = Vector2(0.0 if k == 0 else token - tab.x, -1.0)
+			tag.visible = false
+			card.add_child(tag)
+			tags.append(tag)
+		cards.append({"card": card, "over": over, "tags": tags})
+
+
+## The roster portraits are rendered for a few frames when the step opens, then left as still pictures (as on fighter select).
+func _process(_delta: float) -> void:
+	frames += 1
+	if not thumbs_frozen and frames > 4:
+		thumbs_frozen = true
+		for c in cards:
+			for ch in c.card.get_children():
+				if ch is SubViewportContainer:
+					ch.viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
+					ch.set_process(false)
+
+
+## The cards' rings and tabs: this player's cursor, and the friend's pick (heavier once they have locked it in).
+func _mark_cards() -> void:
+	for i in cards.size():
+		var rings := []
+		var mine := i == fighter_index
+		var theirs := i == their_index
+		if mine:
+			rings.append([P_COLORS[slot % 4], false])
+		if theirs:
+			rings.append([P_COLORS[(1 - slot) % 4], their_locked])
+		cards[i].tags[0].visible = mine
+		cards[i].tags[1].visible = theirs
+		cards[i].card.rings = rings
+		cards[i].card.queue_redraw()
+		cards[i].over.queue_redraw()
+
+
+func _clicked(i: int, button: int) -> void:
+	if button != MOUSE_BUTTON_LEFT or phase != FIGHTER:
+		return
+	_pick_fighter(i)
+	phase = STAGE
+	_emit()
+
+
+## The size a roster entry's stats give its fighter (as on fighter select), or 100.
+func _size_of(e: Dictionary) -> float:
+	if editor == null or not e.has("class"):
+		return 100.0
+	var r: Dictionary = editor.recipe_readout(e["class"], e.size, e.speed, e.jump, e.weight)
+	return float(r.size_percent)
 
 
 ## Whose news a line is, beside it in the stage step: a slanted chip in the player's colour.
@@ -179,11 +299,12 @@ func _chip(text: String, colour: Color) -> Control:
 
 
 func _pick_fighter(i: int) -> void:
-	if phase != FIGHTER:
-		fighter_row.set_index(fighter_index, false)
+	if phase != FIGHTER or i == fighter_index:
 		return
 	fighter_index = i
+	Sfx.of(self).play("blip")
 	_show_mine()
+	scroll.ensure_control_visible(cards[i].card)
 	_emit()
 
 
@@ -210,14 +331,9 @@ func _click_stage(i: int) -> void:
 
 func _show_mine() -> void:
 	var e: Dictionary = entries[fighter_index]
-	my_preview.set_loadout(e.look)
-	_pose(my_preview, int(e.get("class", 0)), 1)
-
-
-## A lobby fighter in its hero pose with its weapon (as on fighter select), turned toward the other card: `facing` 1 on the left.
-func _pose(pv: Control, cls: int, facing: int) -> void:
-	pv.set_weapon(cls)
-	pv.facing_bias = UI.hero_pose(pv, cls, facing) * float(facing)
+	my_panel.show_entry(e, _size_of(e), false)
+	panels_overlay.queue_redraw()
+	_mark_cards()
 
 
 ## The class a fighter spec names (`Roster.spec_bytes`: [0, n] a built-in fighter, [1, class, ...] a made one), or 0.
@@ -237,7 +353,8 @@ func _emit() -> void:
 
 
 func _refresh() -> void:
-	fighter_row.set_focus_mark(phase == FIGHTER)
+	steps.phase = phase
+	steps.queue_redraw()
 	fighter_step.visible = phase == FIGHTER
 	stage_step.visible = phase != FIGHTER
 	match phase:
@@ -253,8 +370,8 @@ func _refresh() -> void:
 ## Puts the two lines of news where the step has room: under each player's card, or stacked beside the stages with their chips.
 func _layout() -> void:
 	if phase == FIGHTER:
-		_place(my_state, Vector2(60, 640), 520)
-		_place(their_state, Vector2(700, 640), 520)
+		_place(my_state, Vector2(Select.SIDE_MARGIN + 8.0, 626), Select.SIDE_W - 16.0)
+		_place(their_state, Vector2(1280.0 - Select.SIDE_MARGIN - Select.SIDE_W + 8.0, 626), Select.SIDE_W - 16.0)
 		return
 	var free: Rect2 = UI.StagePicker.FREE[picker.view]
 	var w := free.size.x - 112.0
@@ -284,18 +401,24 @@ func show_view(pick: Dictionary) -> void:
 		their_state.set_text("Waiting to hear from your friend...")
 		return
 	var cosmetics: PackedByteArray = pick.cosmetics
-	if cosmetics != their_look_bytes:
+	var locked := bool(pick.fighter_locked)
+	if cosmetics != their_look_bytes or locked != their_locked:
 		their_look_bytes = cosmetics
+		their_locked = locked
 		var profile := Roster.parse_profile(cosmetics, 1)
-		their_preview.set_loadout(profile.look)
-		_pose(their_preview, _spec_class(pick.get("fighter", PackedByteArray())), -1)
-		var n: String = profile.name if profile.name != "" else "Your friend's fighter"
-		their_fighter.set_text(n)
+		var spec: PackedByteArray = pick.get("fighter", PackedByteArray())
+		their_index = -1
+		for i in entries.size():
+			if Roster.spec_bytes(entries[i]) == spec:
+				their_index = i
+		var shown := {"name": profile.name if profile.name != "" else "?", "look": profile.look, "class": _spec_class(spec)}
+		their_panel.show_entry(shown, _size_of(entries[their_index]) if their_index >= 0 else 100.0, locked)
+		panels_overlay.queue_redraw()
 		their_fighter_name = profile.name if profile.name != "" else "?"
+		_mark_cards()
 		_layout()
 	var st := int(pick.stage)
 	var stage_text: String = str(stage_names[st]) if st >= 0 and st < stage_names.size() else "?"
-	their_stage.set_text("Stage: " + stage_text)
 	if st != their_stage_index:
 		their_stage_index = st
 		picker.mark(st if st < stage_names.size() else -1, friend_name.to_upper().left(12), P_COLORS[(1 - slot) % 4])
@@ -316,13 +439,18 @@ func show_left() -> void:
 	phase = FIGHTER
 	_refresh()
 	my_state.set_text("Press Esc to go back.")
-	fighter_row.set_focus_mark(false)
 
 
 func set_friend_name(n: String) -> void:
 	if n != "":
 		friend_name = n
-		their_name.set_text(n.to_upper().left(16))
+		their_panel.tab_text = n.to_upper().left(8)
+		panels_overlay.queue_redraw()
+		steps.friend = n.left(16)
+		steps.queue_redraw()
+		for c in cards:
+			c.tags[1].text = n.to_upper().left(6)
+			c.tags[1].queue_redraw()
 		their_chip.set_text(n.to_upper().left(8))
 		if their_stage_index >= 0:
 			picker.mark(their_stage_index, n.to_upper().left(12), P_COLORS[(1 - slot) % 4])
@@ -336,6 +464,12 @@ func _unhandled_key_input(event: InputEvent) -> void:
 			_step(-1)
 		KEY_RIGHT, KEY_D:
 			_step(1)
+		KEY_UP, KEY_W:
+			if phase == FIGHTER:
+				_step(-columns)
+		KEY_DOWN, KEY_S:
+			if phase == FIGHTER:
+				_step(columns)
 		KEY_ENTER, KEY_KP_ENTER, KEY_SPACE, KEY_J:
 			if phase < READY:
 				phase += 1
@@ -357,9 +491,16 @@ func _unhandled_key_input(event: InputEvent) -> void:
 	get_viewport().set_input_as_handled()
 
 
-## Left (-1) or right (1) on the step's choice: the fighter, or the stage (round the ends, as stage select).
+## Left (-1) or right (1) on the step's choice: the fighter (a row up or down by `columns`), or the stage (round the ends, as stage
+## select). Left and right go round the roster's ends; up and down stop at its top and bottom rows.
 func _step(delta: int) -> void:
 	if phase == FIGHTER:
-		fighter_row.step(delta)
+		var n := entries.size()
+		var i := fighter_index + delta
+		if absi(delta) == 1:
+			i = (i + n) % n
+		elif i < 0 or i >= n:
+			return
+		_pick_fighter(i)
 	elif phase == STAGE:
 		_set_stage((stage + delta + stage_names.size()) % stage_names.size())
