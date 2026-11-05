@@ -649,10 +649,20 @@ static func place_play(root: Node3D, t: Dictionary, path: String) -> void:
 	scene.name = "ModelledPlay"
 	scene.set_meta("lit_piece", true)
 	root.add_child(scene)
+	# (The beach's boards, `DECK_TRY`: the gaps' cut sides split off as joints, the boards' tops into their own tones.)
+	var deck := deck_look(t)
+	if not deck.is_empty():
+		for mi: MeshInstance3D in scene.find_children("*", "MeshInstance3D", true, false):
+			_split_boards(mi, deck)
 	for mi: MeshInstance3D in scene.find_children("*", "MeshInstance3D", true, false):
 		for s in mi.mesh.get_surface_count():
 			var src := mi.mesh.surface_get_material(s)
 			var fam := src.resource_name if src != null else "lawn"
+			# (A board's own tone, `top#<k>`, or a joint in the gaps, `top_card#j`: `_split_boards`.)
+			var board := ""
+			if fam.contains("#"):
+				board = fam.get_slice("#", 1)
+				fam = fam.get_slice("#", 0)
 			if fam == "shadow":
 				var sh := StandardMaterial3D.new()
 				sh.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
@@ -670,7 +680,12 @@ static func place_play(root: Node3D, t: Dictionary, path: String) -> void:
 				# (On the white card of the paper core the cream thread vanished: a linen tan, StageArt.PAPER_CORE_TRY.)
 				if not pc.is_empty():
 					colours[fam] = Color(0.8, 0.68, 0.5)
-			var m := (FighterView.toon(colours.get(fam, Color(0.6, 0.6, 0.6)), false) as ShaderMaterial).duplicate() as ShaderMaterial
+			var col: Color = colours.get(fam, Color(0.6, 0.6, 0.6))
+			if board == "j":
+				col = (colours.get("top", col) as Color).darkened(float(deck.joint))
+			elif board != "":
+				col = _board_tone(col, int(board), float(deck.get("tones", 0.0)))
+			var m := (FighterView.toon(col, false) as ShaderMaterial).duplicate() as ShaderMaterial
 			# (No facets: every piece is flat, and on the lawn's top the normal rebuilt from screen derivatives turned over, so it lit as an
 			# underside and the fighters' contact shadows, which only fall on what faces up, vanished.)
 			m.set_shader_parameter("facets", false)
@@ -696,6 +711,149 @@ static func place_play(root: Node3D, t: Dictionary, path: String) -> void:
 			mi.set_surface_override_material(s, m)
 		mi.set_meta("prebaked", true)
 	print("play mock: placed %s" % path.get_file())
+
+
+## The beach's deck boards (fidelity review 18 item 2: since the cut-edge colours the gaps between its boards showed their pale cut
+## sides, ruled lines under the fighters, where the reference's boards each have their own tone and dark gaps). The palette's [backdrop]
+## `deck_look`, or `--deck=T|A|B|C`, T as built:
+##   A  joints: the boards' cut sides seen through the gaps (every one but the deck's front edge) in the deck's wood, darker;
+##   B  boards: each board in one of four tones of the wood (`_board_tone`), spread unevenly by its place; the gaps as built;
+##   C  both.
+const DECK_TRY := {"T": {}, "A": {"joint": 0.35}, "B": {"tones": 2.0}, "C": {"joint": 0.35, "tones": 2.0}}
+
+
+## The beach's deck look (`DECK_TRY`), {} on every other stage.
+static func deck_look(t: Dictionary) -> Dictionary:
+	if String(t.get("name", "")) != "ocean":
+		return {}
+	var look := String((StageArt.palette("ocean").get("backdrop", {}) as Dictionary).get("deck_look", ""))
+	if flag("--deck=") != "":
+		look = flag("--deck=").to_upper()
+	return DECK_TRY.get(look, {})
+
+
+## Board `k`'s tone of colour `c` (`tones` how far): as it is, a step darker and redder, a step lighter and yellower, or weathered greyer.
+static func _board_tone(c: Color, k: int, tones: float) -> Color:
+	match k:
+		1:
+			return Color.from_hsv(fposmod(c.h - 0.008 * tones, 1.0), minf(c.s * (1.0 + 0.06 * tones), 1.0), c.v * (1.0 - 0.1 * tones), c.a)
+		2:
+			return Color.from_hsv(fposmod(c.h + 0.012 * tones, 1.0), c.s * (1.0 - 0.04 * tones), minf(c.v * (1.0 + 0.08 * tones), 1.0), c.a)
+		3:
+			return Color.from_hsv(c.h, c.s * (1.0 - 0.25 * tones), c.v * (1.0 - 0.03 * tones), c.a)
+	return c
+
+
+## Splits a play mesh's surfaces for `deck_look`: each board of the `top` (its own connected sheet) into one of four tones, `top#<k>` by a
+## hash of its place, and in `top_card` each face that looks out through a gap (one with a board's face in front of it, over the same
+## span) into `top_card#j`. The vertex data stays shared; only the triangles are dealt out, so the baked shade is untouched.
+static func _split_boards(mi: MeshInstance3D, deck: Dictionary) -> void:
+	var src := mi.mesh as ArrayMesh
+	if src == null:
+		return
+	var out := ArrayMesh.new()
+	var changed := false
+	for s in src.get_surface_count():
+		var mat := src.surface_get_material(s)
+		var fam := mat.resource_name if mat != null else ""
+		var arrays := src.surface_get_arrays(s)
+		var groups := {}
+		if fam == "top" and deck.has("tones"):
+			groups = _board_groups(arrays)
+		elif fam == "top_card" and deck.has("joint"):
+			groups = _joint_groups(arrays)
+		if groups.size() <= 1:
+			out.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+			out.surface_set_material(out.get_surface_count() - 1, mat)
+			continue
+		changed = true
+		for tag: String in groups:
+			var part := arrays.duplicate()
+			part[Mesh.ARRAY_INDEX] = groups[tag]
+			out.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, part)
+			var named := StandardMaterial3D.new()
+			named.resource_name = fam if tag == "" else "%s#%s" % [fam, tag]
+			out.surface_set_material(out.get_surface_count() - 1, named)
+	if changed:
+		mi.mesh = out
+
+
+## The `top`'s triangles dealt out by board: each connected sheet (vertices at one place joined) takes tone 0 to 3 by a hash of its middle.
+static func _board_groups(arrays: Array) -> Dictionary:
+	var verts: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+	var idx: PackedInt32Array = arrays[Mesh.ARRAY_INDEX]
+	var parent: Array = range(verts.size())
+	var at := {}
+	for i in verts.size():
+		var key := Vector3i(roundi(verts[i].x * 100.0), roundi(verts[i].y * 100.0), roundi(verts[i].z * 100.0))
+		if at.has(key):
+			_join(parent, i, int(at[key]))
+		else:
+			at[key] = i
+	for t in range(0, idx.size(), 3):
+		_join(parent, idx[t], idx[t + 1])
+		_join(parent, idx[t], idx[t + 2])
+	var middle := {}
+	for i in verts.size():
+		var r := _root(parent, i)
+		middle[r] = (middle.get(r, Vector4.ZERO) as Vector4) + Vector4(verts[i].x, verts[i].y, verts[i].z, 1.0)
+	var groups := {}
+	for t in range(0, idx.size(), 3):
+		var mid: Vector4 = middle[_root(parent, idx[t])]
+		var tone := absi(hash(Vector2i(roundi(mid.x / mid.w * 10.0), roundi(mid.z / mid.w * 10.0)))) % 4
+		var tag := str(tone)
+		if not groups.has(tag):
+			groups[tag] = PackedInt32Array()
+		var g: PackedInt32Array = groups[tag]
+		g.append_array([idx[t], idx[t + 1], idx[t + 2]])
+		groups[tag] = g
+	return groups
+
+
+## The `top_card`'s triangles dealt out: those facing the camera with another such face in front of them over the same span (a board's
+## cut side seen through the gap before it) as joints, "j"; the rest, the deck's front edge and the boards' ends, as they were, "".
+static func _joint_groups(arrays: Array) -> Dictionary:
+	var verts: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+	var idx: PackedInt32Array = arrays[Mesh.ARRAY_INDEX]
+	var faces: Array = []
+	for t in range(0, idx.size(), 3):
+		var a := verts[idx[t]]
+		var b := verts[idx[t + 1]]
+		var c := verts[idx[t + 2]]
+		var n := (b - a).cross(c - a).normalized()
+		faces.append([absf(n.z) > 0.9, (a.z + b.z + c.z) / 3.0, minf(a.x, minf(b.x, c.x)), maxf(a.x, maxf(b.x, c.x)),
+			minf(a.y, minf(b.y, c.y)), maxf(a.y, maxf(b.y, c.y))])
+	var groups := {"": PackedInt32Array(), "j": PackedInt32Array()}
+	for i in faces.size():
+		var f: Array = faces[i]
+		var joint := false
+		if f[0]:
+			for g: Array in faces:
+				if g[0] and float(g[1]) > float(f[1]) + 0.03 and float(g[1]) < float(f[1]) + 2.0 \
+						and float(g[2]) < float(f[3]) and float(g[3]) > float(f[2]) and float(g[4]) < float(f[5]) and float(g[5]) > float(f[4]):
+					joint = true
+					break
+		var tag := "j" if joint else ""
+		var p: PackedInt32Array = groups[tag]
+		p.append_array([idx[i * 3], idx[i * 3 + 1], idx[i * 3 + 2]])
+		groups[tag] = p
+	if (groups["j"] as PackedInt32Array).is_empty():
+		groups.erase("j")
+	return groups
+
+
+static func _root(parent: Array, i: int) -> int:
+	while int(parent[i]) != i:
+		parent[i] = parent[int(parent[i])]
+		i = int(parent[i])
+	return i
+
+
+static func _join(parent: Array, a: int, b: int) -> void:
+	var ra := _root(parent, a)
+	var rb := _root(parent, b)
+	if ra != rb:
+		parent[ra] = rb
 
 
 ## Bright floors (the owner, 2026-10-29: "the shadows are beginning to drown out the floors of the stages"; the canyon's top read

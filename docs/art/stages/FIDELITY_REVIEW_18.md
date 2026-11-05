@@ -154,3 +154,30 @@ All tests pass but the runner test, on its known coin-pickup flake (PR #15, stil
 With it the grove's background land is a 5: the forest steps back behind the island, and what's left above it is lights and play pieces.
 The mean is 4.95, with 38 of 40 cells at 5. Left: the beach's play area (item 2) and the canyon's world and life (4 by the rule).
 All tests pass but the runner test, on its known coin-pickup flake (PR #15, still open); the look bench passes.
+
+## Item 2, the beach's deck boards (mock, 2026-11-05)
+
+The owner: "Start item 2". The deck (beach_play.glb) is seven card boards with narrow gaps between them, each board's top in `top` and
+its sides in `top_card`. Since the cut-edge colours, `top_card` takes the bleached paper, and it is both the deck's front edge and every
+board's cut side seen through the gaps: the ruled pale lines. Nothing is remodelled: as the play area loads, `StageBake._split_boards`
+splits the gaps' faces out of `top_card` (a face toward the camera with another board's face in front of it, over the same span) and
+each board's top out of `top` (its own connected sheet). The vertex data and its baked shade are untouched. The palette's [backdrop]
+`deck_look`, or `--deck=T|A|B|C` (`StageBake.DECK_TRY`):
+
+| Option | The deck | Busy (edges) | Its contrast | P1's gap | P1's head against the deck (Delta E) |
+|---|---|---|---|---|---|
+| Today | Pale cut sides in every gap | 6.4% | 0.106 | 0.155 | 32 |
+| A, dark joints | The cut sides in the gaps in the deck's wood, 0.35 darker; the paper only on the deck's front edge | 3.6% | 0.076 | 0.171 | 35 |
+| B, boards in their own tones | Each board one of four tones (`_board_tone` at 2.0: as it is, darker and redder, lighter and yellower, weathered grey), the gaps as today | 5.9% | 0.100 | 0.129 | 33 |
+| C, both | A and B | 4.5% | 0.107 | 0.147 | 30 |
+
+Busy is the share of edge pixels on the play area's top; it was 4.4% before the cut-edge colours. The tones at 1.0 barely showed (about
+0.04 to 0.09 in luma, board to board), so B and C are at 2.0. On the Stage Look Review ("deckboards76", `db76_*`).
+
+Recommended A: the deck reads as boards with dark gaps, as the reference's do, and it is the calmest it has been, quieter than before
+the cut-edge colours. P1 stands out from it more than today.
+- A keeps the bleached paper on the deck's front edge, where it marks the play line.
+- B and C's lighter and greyer boards lift the deck on average (value 0.49 to 0.53 and 0.56), and the fighters lose some of their gap
+  (0.129 and 0.147). In C the grey boards read a little patchy. Balanced to keep the deck's value, the tones would be another round.
+- Only the main deck changes; the side platforms are a separate model.
+All seven tests pass (the runner test too, this run); the look bench passes.

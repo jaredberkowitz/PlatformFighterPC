@@ -88,6 +88,30 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
     <p>Two lessons from the reference screenshots, mocked from the match camera: the scenery without ink outlines, its edges lit as card bevels instead, and the paper houses rebuilt at the characters' proportions. The earlier rounds stay on the <a href="https://claude.ai/artifact/D1du6MREVumiJDrEdNypW4">Stage Fidelity Review</a>, which is full.</p>
   </header>
 
+  <section class="panel" aria-labelledby="db76-h" id="deckboards76">
+    <div class="eyebrow">Review 18, item 2 &middot; the beach's deck boards</div>
+    <h2 id="db76-h">The beach's deck boards</h2>
+    <p>Review 18 found the beach's deck the busiest floor of the five. Since the cut-edge colours, the gaps between its seven boards show the boards' pale cut sides, so the deck reads as ruled lines under the fighters. The reference's boards each have their own tone and dark gaps. Nothing is remodelled: the game splits the gaps and the boards out of today's model as it loads it.</p>
+    <div class="tablewrap"><table><thead><tr><th>Option</th><th>The deck</th><th>Busy (edges)</th><th>Its contrast</th><th>P1's gap</th></tr></thead><tbody>
+      <tr><td>Today</td><td>Pale cut sides in every gap</td><td>6.4%</td><td>0.106</td><td>0.155</td></tr>
+      <tr><td>A &middot; Dark joints</td><td>The cut sides seen through the gaps in the deck's own wood, darker. The pale paper stays on the deck's front edge.</td><td>3.6%</td><td>0.076</td><td>0.171</td></tr>
+      <tr><td>B &middot; Boards in their own tones</td><td>Each board one of four tones of the wood: as it is, darker and redder, lighter and yellower, or weathered grey. The gaps as today.</td><td>5.9%</td><td>0.100</td><td>0.129</td></tr>
+      <tr><td>C &middot; Both</td><td>A and B</td><td>4.5%</td><td>0.107</td><td>0.147</td></tr>
+    </tbody></table></div>
+    <p>Busy is the share of edge pixels on the play area's top. The deck measured 4.4% before the cut-edge colours. P1's gap is P1's value against the floor beside them. Each image shows the four options, today at top left, A at top right, B at bottom left and C at bottom right.</p>
+    <div class="row" role="group" aria-label="View"><button data-db76v="m">Match camera</button><button data-db76v="w">Wide</button></div>
+    <div class="viewer"><img id="db76img" alt="The beach's deck options"><span class="vtag" id="db76tag"></span></div>
+    <p>The deck at full size.</p>
+    <div class="viewer"><img src="db76_close.jpg" alt="The deck in each option at full size"></div>
+    <p class="muted">My pick: <b>A</b>. The deck reads as boards with dark gaps, as the reference's do, and it's the calmest it has been: quieter than before the cut-edge colours. The fighters stand out from it more than today. Honest notes:</p>
+    <ul class="muted">
+      <li>A keeps the beach's bleached paper on the deck's front edge, so the cut-edge colours stay where they mark the play line.</li>
+      <li>B and C give each board its own tone, as the reference does, but the lighter and greyer boards lift the deck on average (value 0.49 to 0.53 to 0.56). The fighters lose some of their gap: 0.129 in B and 0.147 in C, against 0.155 today. In C the grey boards also read a little patchy.</li>
+      <li>If you want the boards' own tones as well, I can balance them so the deck keeps its value. That would mean another round.</li>
+      <li>Only the main deck changes; the side platforms are a separate model.</li>
+    </ul>
+  </section>
+
   <section class="panel" aria-labelledby="fa75-h" id="forestair75">
     <div class="eyebrow">Built B (the owner's pick) &middot; review 18, item 1: the grove's forest into the air</div>
     <h2 id="fa75-h">The grove's forest into the air</h2>
@@ -4135,5 +4159,13 @@ kbd { font-family: var(--body); border: 1px solid var(--line); border-radius: 4p
   }
   group("data-fa75v", function (v) { fa75v = v; }, fa75render);
   fa75render();
+  var db76v = "m";
+  function db76render() {
+    $id("db76img").src = "db76_" + db76v + ".jpg";
+    $id("db76tag").textContent = "Beach" + (db76v === "w" ? " · wide" : " · match camera");
+    pressed("data-db76v", db76v);
+  }
+  group("data-db76v", function (v) { db76v = v; }, db76render);
+  db76render();
 })();
 </script>
